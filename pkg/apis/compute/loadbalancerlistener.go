@@ -142,7 +142,7 @@ type LoadbalancerListenerCreateInput struct {
 	// default: on
 	// enmu: on, off
 	HealthCheck string `json:"health_check"`
-	// enum: tcp, udp, http
+	// enum: ["tcp", "udp", "http"]
 	HealthCheckType   string `json:"health_check_type"`
 	HealthCheckDomain string `json:"string"`
 	HealthCheckPath   string `json:"health_check_path"`
@@ -324,7 +324,7 @@ type LoadbalancerListenerUpdateInput struct {
 	// default: on
 	// enmu: on, off
 	HealthCheck *string `json:"health_check"`
-	// enum: tcp, udp, http
+	// enum: ["tcp", "udp", "http"]
 	HealthCheckType   *string `json:"health_check_type"`
 	HealthCheckDomain *string `json:"string"`
 	HealthCheckPath   *string `json:"health_check_path"`

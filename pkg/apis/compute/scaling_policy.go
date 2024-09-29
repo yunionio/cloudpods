@@ -40,7 +40,7 @@ type ScalingPolicyCreateInput struct {
 	ScalingGroupId string `json:"scaling_group_id"`
 
 	// description: trigger type
-	// enum: timing,cycle,alarm
+	// enum: ["timing","cycle","alarm"]
 	TriggerType string `json:"trigger_type"`
 
 	Timer      TimerCreateInput        `json:"timer"`
@@ -48,7 +48,7 @@ type ScalingPolicyCreateInput struct {
 	Alarm      ScalingAlarmCreateInput `json:"alarm"`
 
 	// desciption: 伸缩策略的行为(增加还是删除或者调整为)
-	// enum: add,remove,set
+	// enum: ["add","remove","set"]
 	// example: add
 	Action string `json:"action"`
 
@@ -57,7 +57,7 @@ type ScalingPolicyCreateInput struct {
 	Number int `json:"number"`
 
 	// desciption: 实例数量的单位
-	// enum: s,%
+	// enum: ["s","%"]
 	// example: s
 	Unit string `json:"unit"`
 
@@ -75,7 +75,7 @@ type ScalingPolicyListInput struct {
 	ScalingGroupFilterListInput
 
 	// description: trigger type
-	// enum: timing,cycel,alarm
+	// enum: ["timing","cycel","alarm"]
 	// example: alarm
 	TriggerType string `json:"trigger_type"`
 }

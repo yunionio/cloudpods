@@ -804,6 +804,8 @@ definitions:
                 x-go-name: From
             model:
                 $ref: '#/definitions/MetricQuery'
+            result_reducer:
+                $ref: '#/definitions/Condition'
             to:
                 type: string
                 x-go-name: To
@@ -819,11 +821,14 @@ definitions:
                     user:rd: op
                 type: object
                 x-go-name: Metadata
-            AlertRule:
-                $ref: '#/definitions/AlertRecordRule'
             alert_id:
                 type: string
                 x-go-name: AlertId
+            alert_rule:
+                items:
+                    $ref: '#/definitions/AlertRecordRule'
+                type: array
+                x-go-name: AlertRule
             description:
                 description: 资源描述
                 example: test create network
@@ -1059,6 +1064,9 @@ definitions:
             period:
                 type: string
                 x-go-name: Period
+            reducer:
+                type: string
+                x-go-name: Reducer
             res_type:
                 type: string
                 x-go-name: ResType
@@ -2084,6 +2092,9 @@ definitions:
             measurement_display_name:
                 type: string
                 x-go-name: MeasurementDisplayName
+            operator:
+                type: string
+                x-go-name: Operator
             reduce:
                 description: metric points'value的运算方式
                 type: string
@@ -2124,10 +2135,16 @@ definitions:
                 x-go-name: From
             model:
                 $ref: '#/definitions/MetricQuery'
+            operator:
+                description: Operator should be chosen from 'and | or'
+                type: string
+                x-go-name: Operator
             reduce:
                 description: metric points'value的运算方式
                 type: string
                 x-go-name: Reduce
+            result_reducer:
+                $ref: '#/definitions/Condition'
             threshold:
                 description: 报警阀值
                 format: double
@@ -2180,6 +2197,9 @@ definitions:
         x-go-package: yunion.io/x/onecloud/pkg/httperrors
     EvalMatch:
         properties:
+            alert_details:
+                type: object
+                x-go-name: AlertDetails
             condition:
                 type: string
                 x-go-name: Condition
@@ -4930,6 +4950,15 @@ paths:
                   name: status
                   type: array
                   x-go-name: Status
+                - description: |-
+                    以报警是否启用/禁用过滤列表
+                    Enabled *bool `json:"enabled"`
+                  in: query
+                  items:
+                    type: string
+                  name: monitor_resource_id
+                  type: array
+                  x-go-name: MonitorResourceId
             responses:
                 "200":
                     $ref: '#/responses/alert_dash_board_ListItemFilterOutput'
@@ -5308,6 +5337,16 @@ paths:
             summary: 获取指定资源类的信息DistinctField
             tags:
                 - alert_dash_board
+    /alert_dash_boards/distinct-fields:
+        get:
+            description: 获取指定资源类的信息DistinctFields
+            operationId: alert_dash_board_GetPropertyDistinctFields
+            responses:
+                "200":
+                    $ref: '#/responses/alert_dash_board_GetPropertyDistinctFieldsOutput'
+            summary: 获取指定资源类的信息DistinctFields
+            tags:
+                - alert_dash_board
     /alert_dash_boards/purge-splitable:
         post:
             description: 执行操作PurgeSplitable
@@ -5594,6 +5633,16 @@ paths:
                 "200":
                     $ref: '#/responses/alert_dashboard_panel_GetPropertyDistinctFieldOutput'
             summary: 获取指定资源类的信息DistinctField
+            tags:
+                - alert_dashboard_panel
+    /alert_dashboard_panels/distinct-fields:
+        get:
+            description: 获取指定资源类的信息DistinctFields
+            operationId: alert_dashboard_panel_GetPropertyDistinctFields
+            responses:
+                "200":
+                    $ref: '#/responses/alert_dashboard_panel_GetPropertyDistinctFieldsOutput'
+            summary: 获取指定资源类的信息DistinctFields
             tags:
                 - alert_dashboard_panel
     /alert_dashboard_panels/purge-splitable:
@@ -6354,6 +6403,16 @@ paths:
             summary: 获取指定资源类的信息DistinctField
             tags:
                 - alert_notification
+    /alert_notifications/distinct-fields:
+        get:
+            description: 获取指定资源类的信息DistinctFields
+            operationId: alert_notification_GetPropertyDistinctFields
+            responses:
+                "200":
+                    $ref: '#/responses/alert_notification_GetPropertyDistinctFieldsOutput'
+            summary: 获取指定资源类的信息DistinctFields
+            tags:
+                - alert_notification
     /alert_notifications/domain-statistics:
         get:
             description: 获取指定资源类的信息DomainStatistics
@@ -6749,6 +6808,15 @@ paths:
                   name: status
                   type: array
                   x-go-name: Status
+                - description: |-
+                    以报警是否启用/禁用过滤列表
+                    Enabled *bool `json:"enabled"`
+                  in: query
+                  items:
+                    type: string
+                  name: monitor_resource_id
+                  type: array
+                  x-go-name: MonitorResourceId
                 - in: query
                   name: dashboard_id
                   type: string
@@ -7062,6 +7130,16 @@ paths:
                 "200":
                     $ref: '#/responses/alert_panel_GetPropertyDistinctFieldOutput'
             summary: 获取指定资源类的信息DistinctField
+            tags:
+                - alert_panel
+    /alert_panels/distinct-fields:
+        get:
+            description: 获取指定资源类的信息DistinctFields
+            operationId: alert_panel_GetPropertyDistinctFields
+            responses:
+                "200":
+                    $ref: '#/responses/alert_panel_GetPropertyDistinctFieldsOutput'
+            summary: 获取指定资源类的信息DistinctFields
             tags:
                 - alert_panel
     /alert_panels/purge-splitable:
@@ -7768,6 +7846,16 @@ paths:
             summary: 获取指定资源类的信息DistinctField
             tags:
                 - alert_record_shield
+    /alert_record_shields/distinct-fields:
+        get:
+            description: 获取指定资源类的信息DistinctFields
+            operationId: alert_record_shield_GetPropertyDistinctFields
+            responses:
+                "200":
+                    $ref: '#/responses/alert_record_shield_GetPropertyDistinctFieldsOutput'
+            summary: 获取指定资源类的信息DistinctFields
+            tags:
+                - alert_record_shield
     /alert_record_shields/purge-splitable:
         post:
             description: 执行操作PurgeSplitable
@@ -8466,6 +8554,16 @@ paths:
             summary: 获取指定资源类的信息DistinctField
             tags:
                 - alert_record
+    /alert_records/distinct-fields:
+        get:
+            description: 获取指定资源类的信息DistinctFields
+            operationId: alert_record_GetPropertyDistinctFields
+            responses:
+                "200":
+                    $ref: '#/responses/alert_record_GetPropertyDistinctFieldsOutput'
+            summary: 获取指定资源类的信息DistinctFields
+            tags:
+                - alert_record
     /alert_records/purge-splitable:
         post:
             description: 执行操作PurgeSplitable
@@ -8560,272 +8658,6 @@ paths:
             summary: 获取指定资源类的信息TotalAlert
             tags:
                 - alert_record
-    /alert_resource_alerts:
-        get:
-            description: 列表
-            operationId: alert_resource_alert_ListItemFilter
-            parameters:
-                - default: 20
-                  description: 查询限制量
-                  format: int64
-                  in: query
-                  name: limit
-                  type: integer
-                  x-go-name: Limit
-                - default: 0
-                  description: 查询偏移量
-                  format: int64
-                  in: query
-                  name: offset
-                  type: integer
-                  x-go-name: Offset
-                - description: 列表排序时，用于排序的字段的名称，该字段不提供时，则按默认字段排序。一般时按照资源的新建时间逆序排序。
-                  in: query
-                  items:
-                    type: string
-                  name: order_by
-                  type: array
-                  x-go-name: OrderBy
-                - description: 列表排序时的顺序，desc为从高到低，asc为从低到高。默认是按照资源的创建时间desc排序。
-                  example: desc|asc
-                  in: query
-                  name: order
-                  type: string
-                  x-go-name: Order
-                - description: 列表返回资源的更多详细信息。默认只显示基本字段，该字段为true则返回扩展字段信息。
-                  in: query
-                  name: details
-                  type: boolean
-                  x-go-name: Details
-                - description: 模糊搜索所有字段
-                  in: query
-                  name: search
-                  type: string
-                  x-go-name: Search
-                - description: |-
-                    指定过滤条件，允许指定多个，每个条件的格式为"字段名称.操作符(匹配信息)"，例如name字段等于test的过滤器为：name.equals('test')
-                    支持的操作符如下：
-
-                     操作符        | 参数个数 | 举例                                           | 说明                        |
-                    ---------------|----------|------------------------------------------------|-----------------------------|
-                     in            | > 0      | name.in("test", "good")                        | 在给定数组中                |
-                     notin         | > 0      | name.notin('test')                             | 不在给定数组中              |
-                     between       | 2        | created_at.between('2019-12-10', '2020-01-02') | 在两个值之间                |
-                     ge            | 1        | created_at.ge('2020-01-01')                    | 大于或等于给定值            |
-                     gt            | 1        | created_at.gt('2020-01-01')                    | 严格大于给定值              |
-                     le            | 1        | created_at.le('2020-01-01')                    | 小于或等于给定值            |
-                     lt            | 1        | sync_seconds.lt(900)                           | 严格大于给定值              |
-                     like          | > 0      | name.like('%test%')                            | sql字符串匹配任意一个字符串 |
-                     contains      | > 0      | name.contains('test')                          | 包含任意一个给定字符串      |
-                     startswith    | > 0      | name.startswith('test')                        | 以任意一个给定字符串开头    |
-                     endswith      | > 0      | name.endswith('test')                          | 以任意一个给定字符串结尾    |
-                     equals        | > 0      | name.equals('test')                            | 等于任意一个给定值          |
-                     notequals     | 1        | name.notequals('test')                         | 不等于给定值                |
-                     isnull        | 0        | name.isnull()                                  | 值为SQL的NULL               |
-                     isnotnull     | 0        | name.isnotnull()                               | 值不为SQL的NULL             |
-                     isempty       | 0        | name.isempty('test')                           | 值为空字符串                |
-                     isnotempty    | 0        | name.isnotempty('test')                        | 值不是空字符串              |
-                     isnullorempty | 0        | name.isnullorempty('test')                     | 值为SQL的NULL或者空字符串   |
-                  in: query
-                  items:
-                    type: string
-                  name: filter
-                  type: array
-                  x-go-name: Filter
-                - description: |-
-                    指定关联过滤条件，允许指定多个，后端将根据关联过滤条件和其他表关联查询，支持的查询语法和filter相同，
-                    和其他表关联的语法如下：
-                    joint_resources.related_key(origin_key).filter_col.filter_ops(values)
-                    其中，joint_resources为要关联的资源名称，related_key为关联表column，origin_key为当前表column, filter_col为
-                    关联表用于查询匹配的field名称，field_ops为filter支持的操作，values为匹配的值
-                    举例：
-                    guestnetworks.guest_id(id).ip_addr.equals('10.168.21.222')
-                  in: query
-                  items:
-                    type: string
-                  name: joint_filter
-                  type: array
-                  x-go-name: JointFilter
-                - description: 如果filter_any为true，则查询所有filter的并集，否则为交集
-                  in: query
-                  name: filter_any
-                  type: boolean
-                  x-go-name: FilterAny
-                - description: 返回结果只包含指定的字段
-                  in: query
-                  items:
-                    type: string
-                  name: field
-                  type: array
-                  x-go-name: Field
-                - description: 用于数据导出，指定导出的数据字段
-                  in: query
-                  name: export_keys
-                  type: string
-                  x-go-name: ExportKeys
-                - description: 返回结果携带delete_fail_reason和update_fail_reason字段
-                  in: query
-                  name: show_fail_reason
-                  type: boolean
-                  x-go-name: ShowFailReason
-                - in: query
-                  name: alert_resource_id
-                  type: string
-                  x-go-name: AlertResourceId
-                - in: query
-                  name: alert_id
-                  type: string
-                  x-go-name: AlertId
-            responses:
-                "200":
-                    $ref: '#/responses/alert_resource_alert_ListItemFilterOutput'
-            summary: 列表
-            tags:
-                - alert_resource_alert
-        post:
-            description: 新建
-            operationId: alert_resource_alert_ValidateCreateData
-            parameters:
-                - in: body
-                  name: body
-                  schema:
-                    properties:
-                        alert_resource_alert:
-                            $ref: '#/definitions/JoinResourceBaseCreateInput'
-                        count:
-                            default: 1
-                            format: int64
-                            type: integer
-                            x-go-name: Count
-                    type: object
-                  x-go-name: Body
-            responses:
-                "200":
-                    $ref: '#/responses/alert_resource_alert_ValidateCreateDataOutput'
-            summary: 新建
-            tags:
-                - alert_resource_alert
-    /alert_resource_alerts/{id}:
-        delete:
-            description: 删除
-            operationId: alert_resource_alert_CustomizeDelete
-            parameters:
-                - description: The Id or Name of alert_resource_alert
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-            responses:
-                "200":
-                    $ref: '#/responses/alert_resource_alert_CustomizeDeleteOutput'
-            summary: 删除
-            tags:
-                - alert_resource_alert
-        get:
-            description: 获取详情
-            operationId: alert_resource_alert_FetchCustomizeColumns
-            parameters:
-                - description: The Id or Name of alert_resource_alert
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-            responses:
-                "200":
-                    $ref: '#/responses/alert_resource_alert_FetchCustomizeColumnsOutput'
-            summary: 获取详情
-            tags:
-                - alert_resource_alert
-        put:
-            description: 更新
-            operationId: alert_resource_alert_ValidateUpdateData
-            parameters:
-                - description: The Id or Name of alert_resource_alert
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-                - in: body
-                  name: body
-                  schema:
-                    properties:
-                        alert_resource_alert:
-                            $ref: '#/definitions/JointResourceBaseUpdateInput'
-                    type: object
-                  x-go-name: Body
-            responses:
-                "200":
-                    $ref: '#/responses/alert_resource_alert_ValidateUpdateDataOutput'
-            summary: 更新
-            tags:
-                - alert_resource_alert
-    /alert_resource_alerts/distinct-field:
-        get:
-            description: 获取指定资源类的信息DistinctField
-            operationId: alert_resource_alert_GetPropertyDistinctField
-            responses:
-                "200":
-                    $ref: '#/responses/alert_resource_alert_GetPropertyDistinctFieldOutput'
-            summary: 获取指定资源类的信息DistinctField
-            tags:
-                - alert_resource_alert
-    /alert_resource_alerts/purge-splitable:
-        post:
-            description: 执行操作PurgeSplitable
-            operationId: alert_resource_alert_PerformPurgeSplitable
-            parameters:
-                - in: body
-                  name: body
-                  schema:
-                    properties:
-                        alert_resource_alert:
-                            $ref: '#/definitions/PurgeSplitTableInput'
-                    type: object
-                  x-go-name: Body
-            responses:
-                "200":
-                    $ref: '#/responses/alert_resource_alert_PerformPurgeSplitableOutput'
-            summary: 执行操作PurgeSplitable
-            tags:
-                - alert_resource_alert
-    /alert_resource_alerts/splitable:
-        get:
-            description: 获取指定资源类的信息Splitable
-            operationId: alert_resource_alert_GetPropertySplitable
-            responses:
-                "200":
-                    $ref: '#/responses/alert_resource_alert_GetPropertySplitableOutput'
-            summary: 获取指定资源类的信息Splitable
-            tags:
-                - alert_resource_alert
-    /alert_resource_alerts/splitable-export:
-        get:
-            description: 获取指定资源类的信息SplitableExport
-            operationId: alert_resource_alert_GetPropertySplitableExport
-            parameters:
-                - in: query
-                  name: table
-                  type: string
-                  x-go-name: Table
-                - format: int64
-                  in: query
-                  name: offset
-                  type: integer
-                  x-go-name: Offset
-                - format: int64
-                  in: query
-                  name: limit
-                  type: integer
-                  x-go-name: Limit
-            responses:
-                "200":
-                    $ref: '#/responses/alert_resource_alert_GetPropertySplitableExportOutput'
-            summary: 获取指定资源类的信息SplitableExport
-            tags:
-                - alert_resource_alert
     /alert_resources:
         get:
             description: 列表
@@ -9287,6 +9119,16 @@ paths:
             summary: 获取指定资源类的信息DistinctField
             tags:
                 - alert_resource
+    /alert_resources/distinct-fields:
+        get:
+            description: 获取指定资源类的信息DistinctFields
+            operationId: alert_resource_GetPropertyDistinctFields
+            responses:
+                "200":
+                    $ref: '#/responses/alert_resource_GetPropertyDistinctFieldsOutput'
+            summary: 获取指定资源类的信息DistinctFields
+            tags:
+                - alert_resource
     /alert_resources/purge-splitable:
         post:
             description: 执行操作PurgeSplitable
@@ -9632,6 +9474,15 @@ paths:
                   name: status
                   type: array
                   x-go-name: Status
+                - description: |-
+                    以报警是否启用/禁用过滤列表
+                    Enabled *bool `json:"enabled"`
+                  in: query
+                  items:
+                    type: string
+                  name: monitor_resource_id
+                  type: array
+                  x-go-name: MonitorResourceId
             responses:
                 "200":
                     $ref: '#/responses/alert_ListItemFilterOutput'
@@ -10051,6 +9902,16 @@ paths:
             summary: 获取指定资源类的信息DistinctField
             tags:
                 - alert
+    /alerts/distinct-fields:
+        get:
+            description: 获取指定资源类的信息DistinctFields
+            operationId: alert_GetPropertyDistinctFields
+            responses:
+                "200":
+                    $ref: '#/responses/alert_GetPropertyDistinctFieldsOutput'
+            summary: 获取指定资源类的信息DistinctFields
+            tags:
+                - alert
     /alerts/purge-splitable:
         post:
             description: 执行操作PurgeSplitable
@@ -10399,6 +10260,15 @@ paths:
                   name: status
                   type: array
                   x-go-name: Status
+                - description: |-
+                    以报警是否启用/禁用过滤列表
+                    Enabled *bool `json:"enabled"`
+                  in: query
+                  items:
+                    type: string
+                  name: monitor_resource_id
+                  type: array
+                  x-go-name: MonitorResourceId
                 - description: |-
                     V1AlertListInput
                     报警类型
@@ -10875,6 +10745,16 @@ paths:
                 "200":
                     $ref: '#/responses/common_alert_GetPropertyDistinctFieldOutput'
             summary: 获取指定资源类的信息DistinctField
+            tags:
+                - common_alert
+    /common_alerts/distinct-fields:
+        get:
+            description: 获取指定资源类的信息DistinctFields
+            operationId: common_alert_GetPropertyDistinctFields
+            responses:
+                "200":
+                    $ref: '#/responses/common_alert_GetPropertyDistinctFieldsOutput'
+            summary: 获取指定资源类的信息DistinctFields
             tags:
                 - common_alert
     /common_alerts/purge-splitable:
@@ -11418,6 +11298,16 @@ paths:
             summary: 获取指定资源类的信息DistinctField
             tags:
                 - data_source
+    /data_sources/distinct-fields:
+        get:
+            description: 获取指定资源类的信息DistinctFields
+            operationId: data_source_GetPropertyDistinctFields
+            responses:
+                "200":
+                    $ref: '#/responses/data_source_GetPropertyDistinctFieldsOutput'
+            summary: 获取指定资源类的信息DistinctFields
+            tags:
+                - data_source
     /data_sources/purge-splitable:
         post:
             description: 执行操作PurgeSplitable
@@ -11758,6 +11648,15 @@ paths:
                   name: status
                   type: array
                   x-go-name: Status
+                - description: |-
+                    以报警是否启用/禁用过滤列表
+                    Enabled *bool `json:"enabled"`
+                  in: query
+                  items:
+                    type: string
+                  name: monitor_resource_id
+                  type: array
+                  x-go-name: MonitorResourceId
                 - description: '监控资源类型, 比如: balance, resFree, monthFee'
                   in: query
                   name: type
@@ -12195,6 +12094,16 @@ paths:
                 "200":
                     $ref: '#/responses/meter_alert_GetPropertyDistinctFieldOutput'
             summary: 获取指定资源类的信息DistinctField
+            tags:
+                - meter_alert
+    /meter_alerts/distinct-fields:
+        get:
+            description: 获取指定资源类的信息DistinctFields
+            operationId: meter_alert_GetPropertyDistinctFields
+            responses:
+                "200":
+                    $ref: '#/responses/meter_alert_GetPropertyDistinctFieldsOutput'
+            summary: 获取指定资源类的信息DistinctFields
             tags:
                 - meter_alert
     /meter_alerts/purge-splitable:
@@ -12879,6 +12788,16 @@ paths:
             summary: 获取指定资源类的信息DistinctField
             tags:
                 - metric_field
+    /metric_fields/distinct-fields:
+        get:
+            description: 获取指定资源类的信息DistinctFields
+            operationId: metric_field_GetPropertyDistinctFields
+            responses:
+                "200":
+                    $ref: '#/responses/metric_field_GetPropertyDistinctFieldsOutput'
+            summary: 获取指定资源类的信息DistinctFields
+            tags:
+                - metric_field
     /metric_fields/purge-splitable:
         post:
             description: 执行操作PurgeSplitable
@@ -13299,6 +13218,16 @@ paths:
             summary: 获取指定资源类的信息DistinctField
             tags:
                 - metric_measurement
+    /metric_measurements/distinct-fields:
+        get:
+            description: 获取指定资源类的信息DistinctFields
+            operationId: metric_measurement_GetPropertyDistinctFields
+            responses:
+                "200":
+                    $ref: '#/responses/metric_measurement_GetPropertyDistinctFieldsOutput'
+            summary: 获取指定资源类的信息DistinctFields
+            tags:
+                - metric_measurement
     /metric_measurements/purge-splitable:
         post:
             description: 执行操作PurgeSplitable
@@ -13585,6 +13514,16 @@ paths:
                 "200":
                     $ref: '#/responses/metric_GetPropertyDistinctFieldOutput'
             summary: 获取指定资源类的信息DistinctField
+            tags:
+                - metric
+    /metrics/distinct-fields:
+        get:
+            description: 获取指定资源类的信息DistinctFields
+            operationId: metric_GetPropertyDistinctFields
+            responses:
+                "200":
+                    $ref: '#/responses/metric_GetPropertyDistinctFieldsOutput'
+            summary: 获取指定资源类的信息DistinctFields
             tags:
                 - metric
     /metrics/purge-splitable:
@@ -13912,6 +13851,15 @@ paths:
                   name: status
                   type: array
                   x-go-name: Status
+                - description: |-
+                    以报警是否启用/禁用过滤列表
+                    Enabled *bool `json:"enabled"`
+                  in: query
+                  items:
+                    type: string
+                  name: monitor_resource_id
+                  type: array
+                  x-go-name: MonitorResourceId
                 - in: query
                   name: metric_type
                   type: string
@@ -14335,6 +14283,16 @@ paths:
             summary: 获取指定资源类的信息DistinctField
             tags:
                 - migration_alert
+    /migration_alerts/distinct-fields:
+        get:
+            description: 获取指定资源类的信息DistinctFields
+            operationId: migration_alert_GetPropertyDistinctFields
+            responses:
+                "200":
+                    $ref: '#/responses/migration_alert_GetPropertyDistinctFieldsOutput'
+            summary: 获取指定资源类的信息DistinctFields
+            tags:
+                - migration_alert
     /migration_alerts/purge-splitable:
         post:
             description: 执行操作PurgeSplitable
@@ -14706,9 +14664,13 @@ paths:
                   type: array
                   x-go-name: JointId
                 - in: query
-                  name: alertinng
+                  name: alerting
                   type: boolean
                   x-go-name: Alerting
+                - in: query
+                  name: alert_state
+                  type: string
+                  x-go-name: AlertState
                 - in: query
                   name: send_state
                   type: string
@@ -14717,6 +14679,10 @@ paths:
                   name: res_type
                   type: string
                   x-go-name: ResType
+                - in: query
+                  name: metric
+                  type: string
+                  x-go-name: Metric
                 - in: query
                   name: res_name
                   type: string
@@ -14729,6 +14695,11 @@ paths:
                   name: level
                   type: string
                   x-go-name: Level
+                - description: 查询所有状态
+                  in: query
+                  name: all_state
+                  type: boolean
+                  x-go-name: AllState
             responses:
                 "200":
                     $ref: '#/responses/monitor_resource_alert_ListItemFilterOutput'
@@ -14823,6 +14794,16 @@ paths:
                 "200":
                     $ref: '#/responses/monitor_resource_alert_GetPropertyDistinctFieldOutput'
             summary: 获取指定资源类的信息DistinctField
+            tags:
+                - monitor_resource_alert
+    /monitor_resource_alerts/distinct-fields:
+        get:
+            description: 获取指定资源类的信息DistinctFields
+            operationId: monitor_resource_alert_GetPropertyDistinctFields
+            responses:
+                "200":
+                    $ref: '#/responses/monitor_resource_alert_GetPropertyDistinctFieldsOutput'
+            summary: 获取指定资源类的信息DistinctFields
             tags:
                 - monitor_resource_alert
     /monitor_resource_alerts/purge-splitable:
@@ -15190,7 +15171,7 @@ paths:
                     - Ctyun
                     - S3
                     - Ceph
-                    - Xsky"
+                    - Xsky
                   in: query
                   items:
                     type: string
@@ -15725,6 +15706,16 @@ paths:
             summary: 获取指定资源类的信息DistinctField
             tags:
                 - monitor_resource
+    /monitor_resources/distinct-fields:
+        get:
+            description: 获取指定资源类的信息DistinctFields
+            operationId: monitor_resource_GetPropertyDistinctFields
+            responses:
+                "200":
+                    $ref: '#/responses/monitor_resource_GetPropertyDistinctFieldsOutput'
+            summary: 获取指定资源类的信息DistinctFields
+            tags:
+                - monitor_resource
     /monitor_resources/domain-statistics:
         get:
             description: 获取指定资源类的信息DomainStatistics
@@ -16120,6 +16111,15 @@ paths:
                   name: status
                   type: array
                   x-go-name: Status
+                - description: |-
+                    以报警是否启用/禁用过滤列表
+                    Enabled *bool `json:"enabled"`
+                  in: query
+                  items:
+                    type: string
+                  name: monitor_resource_id
+                  type: array
+                  x-go-name: MonitorResourceId
                 - description: 监控指标名称
                   in: query
                   name: metric
@@ -16593,6 +16593,16 @@ paths:
             summary: 获取指定资源类的信息DistinctField
             tags:
                 - node_alert
+    /node_alerts/distinct-fields:
+        get:
+            description: 获取指定资源类的信息DistinctFields
+            operationId: node_alert_GetPropertyDistinctFields
+            responses:
+                "200":
+                    $ref: '#/responses/node_alert_GetPropertyDistinctFieldsOutput'
+            summary: 获取指定资源类的信息DistinctFields
+            tags:
+                - node_alert
     /node_alerts/purge-splitable:
         post:
             description: 执行操作PurgeSplitable
@@ -16948,6 +16958,15 @@ paths:
                   name: status
                   type: array
                   x-go-name: Status
+                - description: |-
+                    以报警是否启用/禁用过滤列表
+                    Enabled *bool `json:"enabled"`
+                  in: query
+                  items:
+                    type: string
+                  name: monitor_resource_id
+                  type: array
+                  x-go-name: MonitorResourceId
             responses:
                 "200":
                     $ref: '#/responses/v1_alert_ListItemFilterOutput'
@@ -17367,6 +17386,16 @@ paths:
             summary: 获取指定资源类的信息DistinctField
             tags:
                 - v1_alert
+    /v1_alerts/distinct-fields:
+        get:
+            description: 获取指定资源类的信息DistinctFields
+            operationId: v1_alert_GetPropertyDistinctFields
+            responses:
+                "200":
+                    $ref: '#/responses/v1_alert_GetPropertyDistinctFieldsOutput'
+            summary: 获取指定资源类的信息DistinctFields
+            tags:
+                - v1_alert
     /v1_alerts/purge-splitable:
         post:
             description: 执行操作PurgeSplitable
@@ -17507,6 +17536,8 @@ responses:
             type: object
     alert_GetPropertyDistinctFieldOutput:
         description: ""
+    alert_GetPropertyDistinctFieldsOutput:
+        description: ""
     alert_GetPropertySplitableExportOutput:
         description: ""
     alert_GetPropertySplitableOutput:
@@ -17636,6 +17667,8 @@ responses:
             type: object
     alert_dash_board_GetPropertyDistinctFieldOutput:
         description: ""
+    alert_dash_board_GetPropertyDistinctFieldsOutput:
+        description: ""
     alert_dash_board_GetPropertySplitableExportOutput:
         description: ""
     alert_dash_board_GetPropertySplitableOutput:
@@ -17720,6 +17753,8 @@ responses:
                     $ref: '#/definitions/JointResourceBaseDetails'
             type: object
     alert_dashboard_panel_GetPropertyDistinctFieldOutput:
+        description: ""
+    alert_dashboard_panel_GetPropertyDistinctFieldsOutput:
         description: ""
     alert_dashboard_panel_GetPropertySplitableExportOutput:
         description: ""
@@ -17822,6 +17857,8 @@ responses:
                     $ref: '#/definitions/GetDetailsStatusOutput'
             type: object
     alert_notification_GetPropertyDistinctFieldOutput:
+        description: ""
+    alert_notification_GetPropertyDistinctFieldsOutput:
         description: ""
     alert_notification_GetPropertyDomainStatisticsOutput:
         description: ""
@@ -17971,6 +18008,8 @@ responses:
             type: object
     alert_panel_GetPropertyDistinctFieldOutput:
         description: ""
+    alert_panel_GetPropertyDistinctFieldsOutput:
+        description: ""
     alert_panel_GetPropertySplitableExportOutput:
         description: ""
     alert_panel_GetPropertySplitableOutput:
@@ -18086,6 +18125,8 @@ responses:
                     $ref: '#/definitions/GetDetailsStatusOutput'
             type: object
     alert_record_GetPropertyDistinctFieldOutput:
+        description: ""
+    alert_record_GetPropertyDistinctFieldsOutput:
         description: ""
     alert_record_GetPropertySplitableExportOutput:
         description: ""
@@ -18205,6 +18246,8 @@ responses:
             type: object
     alert_record_shield_GetPropertyDistinctFieldOutput:
         description: ""
+    alert_record_shield_GetPropertyDistinctFieldsOutput:
+        description: ""
     alert_record_shield_GetPropertySplitableExportOutput:
         description: ""
     alert_record_shield_GetPropertySplitableOutput:
@@ -18314,6 +18357,8 @@ responses:
             type: object
     alert_resource_GetPropertyDistinctFieldOutput:
         description: ""
+    alert_resource_GetPropertyDistinctFieldsOutput:
+        description: ""
     alert_resource_GetPropertySplitableExportOutput:
         description: ""
     alert_resource_GetPropertySplitableOutput:
@@ -18368,24 +18413,6 @@ responses:
                 alert_resource:
                     $ref: '#/definitions/AlertResourceDetails'
             type: object
-    alert_resource_alert_CustomizeDeleteOutput:
-        description: ""
-    alert_resource_alert_FetchCustomizeColumnsOutput:
-        description: ""
-    alert_resource_alert_GetPropertyDistinctFieldOutput:
-        description: ""
-    alert_resource_alert_GetPropertySplitableExportOutput:
-        description: ""
-    alert_resource_alert_GetPropertySplitableOutput:
-        description: ""
-    alert_resource_alert_ListItemFilterOutput:
-        description: ""
-    alert_resource_alert_PerformPurgeSplitableOutput:
-        description: ""
-    alert_resource_alert_ValidateCreateDataOutput:
-        description: ""
-    alert_resource_alert_ValidateUpdateDataOutput:
-        description: ""
     common_alert_CustomizeDeleteOutput:
         description: ""
         schema:
@@ -18438,6 +18465,8 @@ responses:
                     $ref: '#/definitions/GetDetailsStatusOutput'
             type: object
     common_alert_GetPropertyDistinctFieldOutput:
+        description: ""
+    common_alert_GetPropertyDistinctFieldsOutput:
         description: ""
     common_alert_GetPropertySplitableExportOutput:
         description: ""
@@ -18565,6 +18594,8 @@ responses:
             type: object
     data_source_GetPropertyDistinctFieldOutput:
         description: ""
+    data_source_GetPropertyDistinctFieldsOutput:
+        description: ""
     data_source_GetPropertySplitableExportOutput:
         description: ""
     data_source_GetPropertySplitableOutput:
@@ -18672,6 +18703,8 @@ responses:
             type: object
     meter_alert_GetPropertyDistinctFieldOutput:
         description: ""
+    meter_alert_GetPropertyDistinctFieldsOutput:
+        description: ""
     meter_alert_GetPropertySplitableExportOutput:
         description: ""
     meter_alert_GetPropertySplitableOutput:
@@ -18763,6 +18796,8 @@ responses:
                     $ref: '#/definitions/JointResourceBaseDetails'
             type: object
     metric_GetPropertyDistinctFieldOutput:
+        description: ""
+    metric_GetPropertyDistinctFieldsOutput:
         description: ""
     metric_GetPropertySplitableExportOutput:
         description: ""
@@ -18858,6 +18893,8 @@ responses:
                     $ref: '#/definitions/GetDetailsStatusOutput'
             type: object
     metric_field_GetPropertyDistinctFieldOutput:
+        description: ""
+    metric_field_GetPropertyDistinctFieldsOutput:
         description: ""
     metric_field_GetPropertySplitableExportOutput:
         description: ""
@@ -18975,6 +19012,8 @@ responses:
             type: object
     metric_measurement_GetPropertyDistinctFieldOutput:
         description: ""
+    metric_measurement_GetPropertyDistinctFieldsOutput:
+        description: ""
     metric_measurement_GetPropertySplitableExportOutput:
         description: ""
     metric_measurement_GetPropertySplitableOutput:
@@ -19090,6 +19129,8 @@ responses:
                     $ref: '#/definitions/GetDetailsStatusOutput'
             type: object
     migration_alert_GetPropertyDistinctFieldOutput:
+        description: ""
+    migration_alert_GetPropertyDistinctFieldsOutput:
         description: ""
     migration_alert_GetPropertySplitableExportOutput:
         description: ""
@@ -19229,6 +19270,8 @@ responses:
         description: ""
     monitor_resource_GetPropertyDistinctFieldOutput:
         description: ""
+    monitor_resource_GetPropertyDistinctFieldsOutput:
+        description: ""
     monitor_resource_GetPropertyDomainStatisticsOutput:
         description: ""
         schema:
@@ -19340,6 +19383,8 @@ responses:
             type: object
     monitor_resource_alert_GetPropertyDistinctFieldOutput:
         description: ""
+    monitor_resource_alert_GetPropertyDistinctFieldsOutput:
+        description: ""
     monitor_resource_alert_GetPropertySplitableExportOutput:
         description: ""
     monitor_resource_alert_GetPropertySplitableOutput:
@@ -19434,6 +19479,8 @@ responses:
                     $ref: '#/definitions/GetDetailsStatusOutput'
             type: object
     node_alert_GetPropertyDistinctFieldOutput:
+        description: ""
+    node_alert_GetPropertyDistinctFieldsOutput:
         description: ""
     node_alert_GetPropertySplitableExportOutput:
         description: ""
@@ -19567,6 +19614,8 @@ responses:
                     $ref: '#/definitions/GetDetailsStatusOutput'
             type: object
     v1_alert_GetPropertyDistinctFieldOutput:
+        description: ""
+    v1_alert_GetPropertyDistinctFieldsOutput:
         description: ""
     v1_alert_GetPropertySplitableExportOutput:
         description: ""

@@ -1912,6 +1912,16 @@ paths:
             summary: 获取指定资源类的信息DistinctField
             tags:
                 - guest_image
+    /guest_images/distinct-fields:
+        get:
+            description: 获取指定资源类的信息DistinctFields
+            operationId: guest_image_GetPropertyDistinctFields
+            responses:
+                "200":
+                    $ref: '#/responses/guest_image_GetPropertyDistinctFieldsOutput'
+            summary: 获取指定资源类的信息DistinctFields
+            tags:
+                - guest_image
     /guest_images/domain-statistics:
         get:
             description: 获取指定资源类的信息DomainStatistics
@@ -2108,18 +2118,18 @@ paths:
             description: 设置指定项目或者域的镜像配额
             operationId: models_SetRegionQuotas
             parameters:
-                - description: 指定项目或者域的ID
-                  in: path
-                  name: scopeId
-                  required: true
-                  type: string
-                  x-go-name: ScopeId
                 - description: 配额所属范围，可能值为projects和domains，分别代表项目的配额和域的配额
                   in: path
                   name: scope
                   required: true
                   type: string
                   x-go-name: Scope
+                - description: 指定项目或者域的ID
+                  in: path
+                  name: scopeId
+                  required: true
+                  type: string
+                  x-go-name: ScopeId
                 - in: body
                   name: body
                   schema:
@@ -3082,6 +3092,16 @@ paths:
             summary: 获取指定资源类的信息DistinctField
             tags:
                 - image
+    /images/distinct-fields:
+        get:
+            description: 获取指定资源类的信息DistinctFields
+            operationId: image_GetPropertyDistinctFields
+            responses:
+                "200":
+                    $ref: '#/responses/image_GetPropertyDistinctFieldsOutput'
+            summary: 获取指定资源类的信息DistinctFields
+            tags:
+                - image
     /images/domain-statistics:
         get:
             description: 获取指定资源类的信息DomainStatistics
@@ -3288,6 +3308,8 @@ responses:
             type: object
     guest_image_GetPropertyDistinctFieldOutput:
         description: ""
+    guest_image_GetPropertyDistinctFieldsOutput:
+        description: ""
     guest_image_GetPropertyDomainStatisticsOutput:
         description: ""
         schema:
@@ -3450,6 +3472,8 @@ responses:
     image_GetPropertyDetailOutput:
         description: ""
     image_GetPropertyDistinctFieldOutput:
+        description: ""
+    image_GetPropertyDistinctFieldsOutput:
         description: ""
     image_GetPropertyDomainStatisticsOutput:
         description: ""

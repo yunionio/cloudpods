@@ -178,7 +178,8 @@ type ContainerExecInput struct {
 
 type ContainerExecSyncInput struct {
 	Command []string `json:"command"`
-	// Timeout in seconds to stop the command. Default: 0 (run forever).
+	// Timeout in seconds to stop the command, 0 mean run forever.
+	// default: 0
 	Timeout int64 `json:"timeout"`
 }
 

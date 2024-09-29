@@ -56,7 +56,7 @@ type BackupStorageCreateInput struct {
 	apis.EnabledStatusInfrasResourceBaseCreateInput
 
 	// description: storage type
-	// enum: nfs
+	// enum: ["nfs"]
 	StorageType string `json:"storage_type"`
 
 	SBackupStorageAccessInfo

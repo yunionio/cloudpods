@@ -59,7 +59,7 @@ type SElasticipCreateInput struct {
 	// |ZStack      | traffic                |
 	// |OpenStack   | traffic                |
 	// default: traffic
-	// enum: traffic, bandwidth
+	// enum: ["traffic", "bandwidth"]
 	ChargeType string `json:"charge_type"`
 
 	Mode string `json:"mode"`

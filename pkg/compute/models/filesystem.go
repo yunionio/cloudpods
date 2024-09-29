@@ -83,7 +83,7 @@ type SFileSystem struct {
 	// enmu: performance, capacity, standard, advance, advance_100, advance_200
 	StorageType string `width:"32" charset:"ascii" nullable:"false" list:"user" create:"required"`
 	// 协议类型
-	// enum: NFS, SMB, cpfs
+	// enum: ["NFS", "SMB", "cpfs"]
 	Protocol string `width:"32" charset:"ascii" nullable:"false" list:"user" create:"required"`
 	// 容量, 单位Gb
 	Capacity int64 `nullable:"false" list:"user" create:"optional"`

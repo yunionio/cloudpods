@@ -184,6 +184,7 @@ type SMonitorResourceAlert struct {
 	AlertId           string               `json:"alert_id"`
 	AlertRecordId     string               `json:"alert_record_id"`
 	ResType           string               `json:"res_type"`
+	Metric            string               `json:"metric"`
 	AlertState        string               `json:"alert_state"`
 	SendState         string               `json:"send_state"`
 	TriggerTime       time.Time            `json:"trigger_time"`

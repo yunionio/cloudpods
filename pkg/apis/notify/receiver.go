@@ -172,7 +172,7 @@ type ReceiverTriggerVerifyInput struct {
 	// description: contact type
 	// required: true
 	// example: email
-	// enum: email,mobile
+	// enum: ["email","mobile"]
 	ContactType string `json:"contact_type"`
 }
 
@@ -180,7 +180,7 @@ type ReceiverVerifyInput struct {
 	// description: Contact type
 	// required: true
 	// example: email
-	// enum: email,mobile
+	// enum: ["email","mobile"]
 	ContactType string `json:"contact_type"`
 	// description: token user input
 	// required: true

@@ -410,6 +410,46 @@ definitions:
                 x-go-name: Sync
         type: object
         x-go-package: yunion.io/x/onecloud/pkg/apis/notify
+    EnabledStatusStandaloneResourceBaseUpdateInput:
+        properties:
+            description:
+                description: 资源描述
+                type: string
+                x-go-name: Description
+            name:
+                description: 资源名称
+                type: string
+                x-go-name: Name
+            progress:
+                format: float
+                type: number
+                x-go-name: Progress
+        type: object
+        x-go-package: yunion.io/x/onecloud/pkg/apis
+    EnabledStatusStandaloneResourceDetails:
+        properties:
+            can_delete:
+                description: 资源是否可以删除, 若为flase, delete_fail_reason会返回不能删除的原因
+                example: true
+                type: boolean
+                x-go-name: CanDelete
+            can_update:
+                description: 资源是否可以更新, 若为false,update_fail_reason会返回资源不能删除的原因
+                example: true
+                type: boolean
+                x-go-name: CanUpdate
+            delete_fail_reason:
+                $ref: '#/definitions/Error'
+            metadata:
+                additionalProperties:
+                    type: string
+                description: 标签
+                type: object
+                x-go-name: Metadata
+            update_fail_reason:
+                $ref: '#/definitions/Error'
+        type: object
+        x-go-package: yunion.io/x/onecloud/pkg/apis
     Error:
         properties:
             class:
@@ -1009,6 +1049,10 @@ definitions:
                     description: the resource is an emulated resource
                 type: boolean
                 x-go-name: IsEmulated
+            is_system:
+                description: 'description: indicate the resource is a system resource, which is not visible to user'
+                type: boolean
+                x-go-name: IsSystem
             name:
                 description: |-
                     资源名称，如果generate_name为空，则为必填项
@@ -1021,6 +1065,10 @@ definitions:
                 description: 指定项目归属域名称或ID
                 type: string
                 x-go-name: ProjectDomainId
+            project_id:
+                description: 指定项目的名称或ID
+                type: string
+                x-go-name: ProjectId
             status:
                 description: 用来存储资源的状态
                 type: string
@@ -1075,11 +1123,6 @@ definitions:
                 description: 域Id
                 type: string
                 x-go-name: DomainId
-            domain_src:
-                description: '归属Domain信息的来源, local: 本地设置, cloud: 从云上同步过来'
-                example: local
-                type: string
-                x-go-name: DomainSrc
             email:
                 type: string
                 x-go-name: Email
@@ -1094,6 +1137,10 @@ definitions:
                     type: string
                 type: array
                 x-go-name: EnabledContactTypes
+            freezed:
+                description: 资源是否被冻结
+                type: boolean
+                x-go-name: Freezed
             id:
                 description: 资源UUID
                 type: string
@@ -1106,6 +1153,10 @@ definitions:
                     list 接口默认不会返回这类资源，除非显示指定 is_emulate=true 过滤参数
                 type: boolean
                 x-go-name: IsEmulated
+            is_system:
+                description: 是否是系统资源
+                type: boolean
+                x-go-name: IsSystem
             lang:
                 type: string
                 x-go-name: Lang
@@ -1119,19 +1170,60 @@ definitions:
                 description: 资源名称
                 type: string
                 x-go-name: Name
+            pending_deleted:
+                description: 资源是否处于回收站中
+                type: boolean
+                x-go-name: PendingDeleted
+            pending_deleted_at:
+                description: 资源放入回收站时间
+                format: date-time
+                type: string
+                x-go-name: PendingDeletedAt
             progress:
                 description: 操作进度0-100
                 format: float
                 type: number
                 x-go-name: Progress
+            project:
+                description: |-
+                    资源归属项目的名称（向后兼容别名）
+                    Deprecated
+                type: string
+                x-go-name: Tenant
             project_domain:
                 description: 资源归属项目的域名称
                 type: string
                 x-go-name: ProjectDomain
+            project_id:
+                description: |-
+                    资源归属项目的ID(向后兼容别名）
+                    Deprecated
+                type: string
+                x-go-name: TenantId
+            project_metadata:
+                additionalProperties:
+                    type: string
+                type: object
+                x-go-name: ProjectMetadata
+            project_src:
+                description: '云上同步资源是否在本地被更改过配置, local: 更改过, cloud: 未更改过'
+                example: local
+                type: string
+                x-go-name: ProjectSrc
             status:
                 description: 资源状态
                 type: string
                 x-go-name: Status
+            tenant:
+                description: |-
+                    资源归属项目的名称
+                    alias:project
+                type: string
+                x-go-name: Project
+            tenant_id:
+                description: 项目Id
+                type: string
+                x-go-name: ProjectId
             update_fail_reason:
                 $ref: '#/definitions/Error'
             update_version:
@@ -1229,6 +1321,10 @@ definitions:
                 description: 资源名称
                 type: string
                 x-go-name: Name
+            progress:
+                format: float
+                type: number
+                x-go-name: Progress
         type: object
         x-go-package: yunion.io/x/onecloud/pkg/apis/notify
     ReceiverVerifyInput:
@@ -1500,7 +1596,6 @@ definitions:
     SNotifyConfigContent:
         properties:
             AccessKeyId:
-                description: sms
                 type: string
             AccessKeySecret:
                 type: string
@@ -1508,6 +1603,8 @@ definitions:
                 type: string
             AgentId:
                 description: workwx
+                type: string
+            AlertsCode:
                 type: string
             AppId:
                 description: Lark
@@ -1522,6 +1619,8 @@ definitions:
                 type: string
             CorpId:
                 type: string
+            ErrorCode:
+                type: string
             Hostname:
                 description: Email
                 type: string
@@ -1529,6 +1628,8 @@ definitions:
                 format: int64
                 type: integer
             Password:
+                type: string
+            PhoneNumber:
                 type: string
             Secret:
                 type: string
@@ -1544,6 +1645,68 @@ definitions:
                 type: boolean
             Username:
                 type: string
+            VerifiyCode:
+                description: sms
+                type: string
+        type: object
+        x-go-package: yunion.io/x/onecloud/pkg/apis/notify
+    SNotifyElementCreateInput:
+        properties:
+            __meta__:
+                additionalProperties:
+                    type: string
+                description: 标签列表,最多支持20个
+                example:
+                    user:rd: op
+                type: object
+                x-go-name: Metadata
+            Name:
+                type: string
+            description:
+                description: 资源描述
+                example: test create network
+                type: string
+                x-go-name: Description
+            disabled:
+                description: 该资源是否被管理员*人为*禁用, 和enabled互斥
+                type: boolean
+                x-go-name: Disabled
+            dry_run:
+                default: false
+                description: 预检验参数,若为true则仅检查参数,并不真正创建变更
+                type: boolean
+                x-go-name: DryRun
+            enabled:
+                description: 该资源是否被管理员*人为*启用或者禁用
+                type: boolean
+                x-go-name: Enabled
+            generate_name:
+                description: |-
+                    生成资源名称的模板，如果name为空，则为必填项
+                    description: generated resource name, given a pattern to generate name, required if name is not given
+                example: test###
+                type: string
+                x-go-name: GenerateName
+            is_emulated:
+                description: |-
+                    资源是否为模拟资源
+                    description: the resource is an emulated resource
+                type: boolean
+                x-go-name: IsEmulated
+            name:
+                description: |-
+                    资源名称，如果generate_name为空，则为必填项
+                    description: resource name, required if generated_name is not given
+                example: test-network
+                type: string
+                uniqueItems: true
+                x-go-name: Name
+            status:
+                description: 用来存储资源的状态
+                type: string
+                x-go-name: Status
+        required:
+            - name
         type: object
         x-go-package: yunion.io/x/onecloud/pkg/apis/notify
     SResult:
@@ -1561,10 +1724,22 @@ definitions:
                 x-go-name: Value
         type: object
         x-go-package: yunion.io/x/onecloud/pkg/util/tagutils
+    STopicActionInput:
+        properties:
+            ActionId:
+                type: string
+        type: object
+        x-go-package: yunion.io/x/onecloud/pkg/apis/notify
     STopicGroupKeys:
         items:
             type: string
         type: array
+        x-go-package: yunion.io/x/onecloud/pkg/apis/notify
+    STopicResourceInput:
+        properties:
+            ResourceId:
+                type: string
+        type: object
         x-go-package: yunion.io/x/onecloud/pkg/apis/notify
     SharedDomain:
         properties:
@@ -2020,10 +2195,6 @@ definitions:
         x-go-package: yunion.io/x/onecloud/pkg/apis/notify
     TopicDetails:
         properties:
-            actions:
-                format: uint64
-                type: integer
-                x-go-name: Actions
             advance_days:
                 items:
                     format: int64
@@ -2106,10 +2277,6 @@ definitions:
                 items:
                     type: string
                 type: array
-                x-go-name: Resources
-            resources:
-                format: uint64
-                type: integer
                 x-go-name: Resources
             results:
                 type: boolean
@@ -2736,6 +2903,16 @@ paths:
             summary: 获取指定资源类的信息DistinctField
             tags:
                 - config
+    /configs/distinct-fields:
+        get:
+            description: 获取指定资源类的信息DistinctFields
+            operationId: config_GetPropertyDistinctFields
+            responses:
+                "200":
+                    $ref: '#/responses/config_GetPropertyDistinctFieldsOutput'
+            summary: 获取指定资源类的信息DistinctFields
+            tags:
+                - config
     /configs/domain-tag-value-pairs:
         get:
             description: 获取指定资源类的信息DomainTagValuePairs
@@ -3053,6 +3230,16 @@ paths:
             summary: 获取指定资源类的信息DistinctField
             tags:
                 - email_queue_status
+    /email_queue_statuses/distinct-fields:
+        get:
+            description: 获取指定资源类的信息DistinctFields
+            operationId: email_queue_status_GetPropertyDistinctFields
+            responses:
+                "200":
+                    $ref: '#/responses/email_queue_status_GetPropertyDistinctFieldsOutput'
+            summary: 获取指定资源类的信息DistinctFields
+            tags:
+                - email_queue_status
     /email_queue_statuses/purge-splitable:
         post:
             description: 执行操作PurgeSplitable
@@ -3351,6 +3538,16 @@ paths:
             summary: 获取指定资源类的信息DistinctField
             tags:
                 - email_queue
+    /email_queues/distinct-fields:
+        get:
+            description: 获取指定资源类的信息DistinctFields
+            operationId: email_queue_GetPropertyDistinctFields
+            responses:
+                "200":
+                    $ref: '#/responses/email_queue_GetPropertyDistinctFieldsOutput'
+            summary: 获取指定资源类的信息DistinctFields
+            tags:
+                - email_queue
     /email_queues/purge-splitable:
         post:
             description: 执行操作PurgeSplitable
@@ -3599,6 +3796,16 @@ paths:
                 "200":
                     $ref: '#/responses/event_GetPropertyDistinctFieldOutput'
             summary: 获取指定资源类的信息DistinctField
+            tags:
+                - event
+    /events/distinct-fields:
+        get:
+            description: 获取指定资源类的信息DistinctFields
+            operationId: event_GetPropertyDistinctFields
+            responses:
+                "200":
+                    $ref: '#/responses/event_GetPropertyDistinctFieldsOutput'
+            summary: 获取指定资源类的信息DistinctFields
             tags:
                 - event
     /events/purge-splitable:
@@ -3859,6 +4066,16 @@ paths:
             summary: 获取指定资源类的信息DistinctField
             tags:
                 - notification_group
+    /notification_groups/distinct-fields:
+        get:
+            description: 获取指定资源类的信息DistinctFields
+            operationId: notification_group_GetPropertyDistinctFields
+            responses:
+                "200":
+                    $ref: '#/responses/notification_group_GetPropertyDistinctFieldsOutput'
+            summary: 获取指定资源类的信息DistinctFields
+            tags:
+                - notification_group
     /notification_groups/purge-splitable:
         post:
             description: 执行操作PurgeSplitable
@@ -4107,6 +4324,16 @@ paths:
                 "200":
                     $ref: '#/responses/notification_log_GetPropertyDistinctFieldOutput'
             summary: 获取指定资源类的信息DistinctField
+            tags:
+                - notification_log
+    /notification_logs/distinct-fields:
+        get:
+            description: 获取指定资源类的信息DistinctFields
+            operationId: notification_log_GetPropertyDistinctFields
+            responses:
+                "200":
+                    $ref: '#/responses/notification_log_GetPropertyDistinctFieldsOutput'
+            summary: 获取指定资源类的信息DistinctFields
             tags:
                 - notification_log
     /notification_logs/purge-splitable:
@@ -4699,6 +4926,16 @@ paths:
             summary: 获取指定资源类的信息DistinctField
             tags:
                 - notification
+    /notifications/distinct-fields:
+        get:
+            description: 获取指定资源类的信息DistinctFields
+            operationId: notification_GetPropertyDistinctFields
+            responses:
+                "200":
+                    $ref: '#/responses/notification_GetPropertyDistinctFieldsOutput'
+            summary: 获取指定资源类的信息DistinctFields
+            tags:
+                - notification
     /notifications/event-notify:
         post:
             description: 执行操作EventNotify
@@ -4802,6 +5039,1314 @@ paths:
             summary: 获取指定资源类的信息TagValueTree
             tags:
                 - notification
+    /notify_actions:
+        get:
+            description: 列表
+            operationId: notify_action_ListItemFilter
+            parameters:
+                - default: 20
+                  description: 查询限制量
+                  format: int64
+                  in: query
+                  name: limit
+                  type: integer
+                  x-go-name: Limit
+                - default: 0
+                  description: 查询偏移量
+                  format: int64
+                  in: query
+                  name: offset
+                  type: integer
+                  x-go-name: Offset
+                - description: 列表排序时，用于排序的字段的名称，该字段不提供时，则按默认字段排序。一般时按照资源的新建时间逆序排序。
+                  in: query
+                  items:
+                    type: string
+                  name: order_by
+                  type: array
+                  x-go-name: OrderBy
+                - description: 列表排序时的顺序，desc为从高到低，asc为从低到高。默认是按照资源的创建时间desc排序。
+                  example: desc|asc
+                  in: query
+                  name: order
+                  type: string
+                  x-go-name: Order
+                - description: 列表返回资源的更多详细信息。默认只显示基本字段，该字段为true则返回扩展字段信息。
+                  in: query
+                  name: details
+                  type: boolean
+                  x-go-name: Details
+                - description: 模糊搜索所有字段
+                  in: query
+                  name: search
+                  type: string
+                  x-go-name: Search
+                - description: |-
+                    指定过滤条件，允许指定多个，每个条件的格式为"字段名称.操作符(匹配信息)"，例如name字段等于test的过滤器为：name.equals('test')
+                    支持的操作符如下：
+
+                     操作符        | 参数个数 | 举例                                           | 说明                        |
+                    ---------------|----------|------------------------------------------------|-----------------------------|
+                     in            | > 0      | name.in("test", "good")                        | 在给定数组中                |
+                     notin         | > 0      | name.notin('test')                             | 不在给定数组中              |
+                     between       | 2        | created_at.between('2019-12-10', '2020-01-02') | 在两个值之间                |
+                     ge            | 1        | created_at.ge('2020-01-01')                    | 大于或等于给定值            |
+                     gt            | 1        | created_at.gt('2020-01-01')                    | 严格大于给定值              |
+                     le            | 1        | created_at.le('2020-01-01')                    | 小于或等于给定值            |
+                     lt            | 1        | sync_seconds.lt(900)                           | 严格大于给定值              |
+                     like          | > 0      | name.like('%test%')                            | sql字符串匹配任意一个字符串 |
+                     contains      | > 0      | name.contains('test')                          | 包含任意一个给定字符串      |
+                     startswith    | > 0      | name.startswith('test')                        | 以任意一个给定字符串开头    |
+                     endswith      | > 0      | name.endswith('test')                          | 以任意一个给定字符串结尾    |
+                     equals        | > 0      | name.equals('test')                            | 等于任意一个给定值          |
+                     notequals     | 1        | name.notequals('test')                         | 不等于给定值                |
+                     isnull        | 0        | name.isnull()                                  | 值为SQL的NULL               |
+                     isnotnull     | 0        | name.isnotnull()                               | 值不为SQL的NULL             |
+                     isempty       | 0        | name.isempty('test')                           | 值为空字符串                |
+                     isnotempty    | 0        | name.isnotempty('test')                        | 值不是空字符串              |
+                     isnullorempty | 0        | name.isnullorempty('test')                     | 值为SQL的NULL或者空字符串   |
+                  in: query
+                  items:
+                    type: string
+                  name: filter
+                  type: array
+                  x-go-name: Filter
+                - description: |-
+                    指定关联过滤条件，允许指定多个，后端将根据关联过滤条件和其他表关联查询，支持的查询语法和filter相同，
+                    和其他表关联的语法如下：
+                    joint_resources.related_key(origin_key).filter_col.filter_ops(values)
+                    其中，joint_resources为要关联的资源名称，related_key为关联表column，origin_key为当前表column, filter_col为
+                    关联表用于查询匹配的field名称，field_ops为filter支持的操作，values为匹配的值
+                    举例：
+                    guestnetworks.guest_id(id).ip_addr.equals('10.168.21.222')
+                  in: query
+                  items:
+                    type: string
+                  name: joint_filter
+                  type: array
+                  x-go-name: JointFilter
+                - description: 如果filter_any为true，则查询所有filter的并集，否则为交集
+                  in: query
+                  name: filter_any
+                  type: boolean
+                  x-go-name: FilterAny
+                - description: 返回结果只包含指定的字段
+                  in: query
+                  items:
+                    type: string
+                  name: field
+                  type: array
+                  x-go-name: Field
+                - description: 用于数据导出，指定导出的数据字段
+                  in: query
+                  name: export_keys
+                  type: string
+                  x-go-name: ExportKeys
+                - description: 返回结果携带delete_fail_reason和update_fail_reason字段
+                  in: query
+                  name: show_fail_reason
+                  type: boolean
+                  x-go-name: ShowFailReason
+                - $ref: '#/definitions/TTagSet'
+                  description: 通过标签过滤（包含这些标签）
+                  in: query
+                  name: tags
+                  x-go-name: Tags
+                - $ref: '#/definitions/TTagSetList'
+                  description: 通过一组标签过滤（还包含这些标签，OR的关系）
+                  in: query
+                  name: obj_tags
+                  x-go-name: ObjTags
+                - $ref: '#/definitions/TTagSet'
+                  description: 通过标签过滤（不包含这些标签）
+                  in: query
+                  name: no_tags
+                  x-go-name: NoTags
+                - $ref: '#/definitions/TTagSetList'
+                  description: 通过一组标签过滤（还不包含这些标签，AND的关系）
+                  in: query
+                  name: no_obj_tags
+                  x-go-name: NoObjTags
+                - description: 通过标签排序
+                  in: query
+                  name: order_by_tag
+                  type: string
+                  x-go-name: OrderByTag
+                - description: |-
+                    deprecated
+                    返回资源的标签不包含用户标签
+                  in: query
+                  name: without_user_meta
+                  type: boolean
+                  x-go-name: WithoutUserMeta
+                - description: 返回包含用户标签的资源
+                  in: query
+                  name: with_user_meta
+                  type: boolean
+                  x-go-name: WithUserMeta
+                - description: 返回包含外部标签的资源
+                  in: query
+                  name: with_cloud_meta
+                  type: boolean
+                  x-go-name: WithCloudMeta
+                - description: 返回包含任意标签的资源
+                  in: query
+                  name: with_any_meta
+                  type: boolean
+                  x-go-name: WithAnyMeta
+                - description: 返回列表数据中包含资源的标签数据（Metadata）
+                  in: query
+                  name: with_meta
+                  type: boolean
+                  x-go-name: WithMeta
+                - description: 显示所有的资源，包括模拟的资源
+                  in: query
+                  name: show_emulated
+                  type: boolean
+                  x-go-name: ShowEmulated
+                - description: 以资源ID过滤列表
+                  in: query
+                  items:
+                    type: string
+                  name: id
+                  type: array
+                  x-go-name: Ids
+                - description: 以资源名称过滤列表
+                  in: query
+                  items:
+                    type: string
+                  name: name
+                  type: array
+                  x-go-name: Names
+                - description: 以资源的状态过滤列表
+                  in: query
+                  items:
+                    type: string
+                  name: status
+                  type: array
+                  x-go-name: Status
+                - description: 以资源是否启用/禁用过滤列表
+                  in: query
+                  name: enabled
+                  type: boolean
+                  x-go-name: Enabled
+            responses:
+                "200":
+                    $ref: '#/responses/notify_action_ListItemFilterOutput'
+            summary: 列表
+            tags:
+                - notify_action
+        post:
+            description: 新建
+            operationId: notify_action_ValidateCreateData
+            parameters:
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        count:
+                            default: 1
+                            format: int64
+                            type: integer
+                            x-go-name: Count
+                        notify_action:
+                            $ref: '#/definitions/SNotifyElementCreateInput'
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/notify_action_ValidateCreateDataOutput'
+            summary: 新建
+            tags:
+                - notify_action
+    /notify_actions/{id}:
+        delete:
+            description: 删除
+            operationId: notify_action_CustomizeDelete
+            parameters:
+                - description: The Id or Name of notify_action
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+            responses:
+                "200":
+                    $ref: '#/responses/notify_action_CustomizeDeleteOutput'
+            summary: 删除
+            tags:
+                - notify_action
+        get:
+            description: 获取详情
+            operationId: notify_action_FetchCustomizeColumns
+            parameters:
+                - description: The Id or Name of notify_action
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+            responses:
+                "200":
+                    $ref: '#/responses/notify_action_FetchCustomizeColumnsOutput'
+            summary: 获取详情
+            tags:
+                - notify_action
+        put:
+            description: 更新
+            operationId: notify_action_ValidateUpdateData
+            parameters:
+                - description: The Id or Name of notify_action
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        notify_action:
+                            $ref: '#/definitions/EnabledStatusStandaloneResourceBaseUpdateInput'
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/notify_action_ValidateUpdateDataOutput'
+            summary: 更新
+            tags:
+                - notify_action
+    /notify_actions/{id}/class-metadata:
+        get:
+            description: 获取指定信息ClassMetadata
+            operationId: notify_action_GetDetailsClassMetadata
+            parameters:
+                - description: The Id or Name of notify_action
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+            responses:
+                "200":
+                    $ref: '#/responses/notify_action_GetDetailsClassMetadataOutput'
+            summary: 获取指定信息ClassMetadata
+            tags:
+                - notify_action
+        post:
+            description: 执行操作ClassMetadata
+            operationId: notify_action_PerformClassMetadata
+            parameters:
+                - description: The Id or Name of notify_action
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        notify_action:
+                            additionalProperties:
+                                type: string
+                            type: object
+                            x-go-name: Input
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/notify_action_PerformClassMetadataOutput'
+            summary: 更新资源的 class 标签
+            tags:
+                - notify_action
+    /notify_actions/{id}/disable:
+        post:
+            description: 执行操作Disable
+            operationId: notify_action_PerformDisable
+            parameters:
+                - description: The Id or Name of notify_action
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        notify_action:
+                            $ref: '#/definitions/PerformDisableInput'
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/notify_action_PerformDisableOutput'
+            summary: 禁用资源
+            tags:
+                - notify_action
+    /notify_actions/{id}/enable:
+        post:
+            description: 执行操作Enable
+            operationId: notify_action_PerformEnable
+            parameters:
+                - description: The Id or Name of notify_action
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        notify_action:
+                            $ref: '#/definitions/PerformEnableInput'
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/notify_action_PerformEnableOutput'
+            summary: 启用资源
+            tags:
+                - notify_action
+    /notify_actions/{id}/metadata:
+        get:
+            description: 获取指定信息Metadata
+            operationId: notify_action_GetDetailsMetadata
+            parameters:
+                - description: |-
+                    指定需要获取的所有标签的KEY列表，如果列表为空，则获取全部标签
+                    标签分为
+
+                     类型     | 说明                                        |
+                    ----------|---------------------------------------------|
+                     系统标签 | 平台定义的标签                              |
+                     用户标签 | key以user:为前缀，用户自定义标签            |
+                     外部标签 | key以ext:为前缀，为从其他平台同步过来的标签 |
+                  in: query
+                  items:
+                    type: string
+                  name: field
+                  type: array
+                  x-go-name: Field
+                - description: 按标签前缀过滤
+                  in: query
+                  name: prefix
+                  type: string
+                  x-go-name: Prefix
+                - description: The Id or Name of notify_action
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+            responses:
+                "200":
+                    $ref: '#/responses/notify_action_GetDetailsMetadataOutput'
+            summary: 获取资源标签（元数据）
+            tags:
+                - notify_action
+    /notify_actions/{id}/org-metadata:
+        get:
+            description: 获取指定信息OrgMetadata
+            operationId: notify_action_GetDetailsOrgMetadata
+            parameters:
+                - description: The Id or Name of notify_action
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+            responses:
+                "200":
+                    $ref: '#/responses/notify_action_GetDetailsOrgMetadataOutput'
+            summary: 获取指定信息OrgMetadata
+            tags:
+                - notify_action
+    /notify_actions/{id}/set-class-metadata:
+        post:
+            description: 执行操作SetClassMetadata
+            operationId: notify_action_PerformSetClassMetadata
+            parameters:
+                - description: The Id or Name of notify_action
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        notify_action:
+                            additionalProperties:
+                                type: string
+                            type: object
+                            x-go-name: Input
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/notify_action_PerformSetClassMetadataOutput'
+            summary: 全量替换资源的所有 class 标签
+            tags:
+                - notify_action
+    /notify_actions/{id}/set-org-metadata:
+        post:
+            description: 执行操作SetOrgMetadata
+            operationId: notify_action_PerformSetOrgMetadata
+            parameters:
+                - description: The Id or Name of notify_action
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        notify_action:
+                            additionalProperties:
+                                type: string
+                            type: object
+                            x-go-name: Input
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/notify_action_PerformSetOrgMetadataOutput'
+            summary: 全量替换资源的所有 class 标签
+            tags:
+                - notify_action
+    /notify_actions/{id}/set-user-metadata:
+        post:
+            description: 执行操作SetUserMetadata
+            operationId: notify_action_PerformSetUserMetadata
+            parameters:
+                - description: The Id or Name of notify_action
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        notify_action:
+                            additionalProperties:
+                                type: string
+                            type: object
+                            x-go-name: Input
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/notify_action_PerformSetUserMetadataOutput'
+            summary: 全量替换资源的所有用户标签
+            tags:
+                - notify_action
+    /notify_actions/{id}/status:
+        get:
+            description: 获取指定信息Status
+            operationId: notify_action_GetDetailsStatus
+            parameters:
+                - description: The Id or Name of notify_action
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+            responses:
+                "200":
+                    $ref: '#/responses/notify_action_GetDetailsStatusOutput'
+            summary: 获取资源状态
+            tags:
+                - notify_action
+        post:
+            description: 执行操作Status
+            operationId: notify_action_PerformStatus
+            parameters:
+                - description: The Id or Name of notify_action
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        notify_action:
+                            $ref: '#/definitions/PerformStatusInput'
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/notify_action_PerformStatusOutput'
+            summary: 更新资源状态
+            tags:
+                - notify_action
+    /notify_actions/distinct-field:
+        get:
+            description: 获取指定资源类的信息DistinctField
+            operationId: notify_action_GetPropertyDistinctField
+            responses:
+                "200":
+                    $ref: '#/responses/notify_action_GetPropertyDistinctFieldOutput'
+            summary: 获取指定资源类的信息DistinctField
+            tags:
+                - notify_action
+    /notify_actions/distinct-fields:
+        get:
+            description: 获取指定资源类的信息DistinctFields
+            operationId: notify_action_GetPropertyDistinctFields
+            responses:
+                "200":
+                    $ref: '#/responses/notify_action_GetPropertyDistinctFieldsOutput'
+            summary: 获取指定资源类的信息DistinctFields
+            tags:
+                - notify_action
+    /notify_actions/purge-splitable:
+        post:
+            description: 执行操作PurgeSplitable
+            operationId: notify_action_PerformPurgeSplitable
+            parameters:
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        notify_action:
+                            $ref: '#/definitions/PurgeSplitTableInput'
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/notify_action_PerformPurgeSplitableOutput'
+            summary: 执行操作PurgeSplitable
+            tags:
+                - notify_action
+    /notify_actions/splitable:
+        get:
+            description: 获取指定资源类的信息Splitable
+            operationId: notify_action_GetPropertySplitable
+            responses:
+                "200":
+                    $ref: '#/responses/notify_action_GetPropertySplitableOutput'
+            summary: 获取指定资源类的信息Splitable
+            tags:
+                - notify_action
+    /notify_actions/splitable-export:
+        get:
+            description: 获取指定资源类的信息SplitableExport
+            operationId: notify_action_GetPropertySplitableExport
+            parameters:
+                - in: query
+                  name: table
+                  type: string
+                  x-go-name: Table
+                - format: int64
+                  in: query
+                  name: offset
+                  type: integer
+                  x-go-name: Offset
+                - format: int64
+                  in: query
+                  name: limit
+                  type: integer
+                  x-go-name: Limit
+            responses:
+                "200":
+                    $ref: '#/responses/notify_action_GetPropertySplitableExportOutput'
+            summary: 获取指定资源类的信息SplitableExport
+            tags:
+                - notify_action
+    /notify_actions/statistics:
+        get:
+            description: 获取指定资源类的信息Statistics
+            operationId: notify_action_GetPropertyStatistics
+            responses:
+                "200":
+                    $ref: '#/responses/notify_action_GetPropertyStatisticsOutput'
+            summary: 获取指定资源类的信息Statistics
+            tags:
+                - notify_action
+    /notify_actions/tag-value-pairs:
+        get:
+            description: 获取指定资源类的信息TagValuePairs
+            operationId: notify_action_GetPropertyTagValuePairs
+            responses:
+                "200":
+                    $ref: '#/responses/notify_action_GetPropertyTagValuePairsOutput'
+            summary: 获取指定资源类的信息TagValuePairs
+            tags:
+                - notify_action
+    /notify_actions/tag-value-tree:
+        get:
+            description: 获取指定资源类的信息TagValueTree
+            operationId: notify_action_GetPropertyTagValueTree
+            responses:
+                "200":
+                    $ref: '#/responses/notify_action_GetPropertyTagValueTreeOutput'
+            summary: 获取指定资源类的信息TagValueTree
+            tags:
+                - notify_action
+    /notify_resources:
+        get:
+            description: 列表
+            operationId: notify_resource_ListItemFilter
+            parameters:
+                - default: 20
+                  description: 查询限制量
+                  format: int64
+                  in: query
+                  name: limit
+                  type: integer
+                  x-go-name: Limit
+                - default: 0
+                  description: 查询偏移量
+                  format: int64
+                  in: query
+                  name: offset
+                  type: integer
+                  x-go-name: Offset
+                - description: 列表排序时，用于排序的字段的名称，该字段不提供时，则按默认字段排序。一般时按照资源的新建时间逆序排序。
+                  in: query
+                  items:
+                    type: string
+                  name: order_by
+                  type: array
+                  x-go-name: OrderBy
+                - description: 列表排序时的顺序，desc为从高到低，asc为从低到高。默认是按照资源的创建时间desc排序。
+                  example: desc|asc
+                  in: query
+                  name: order
+                  type: string
+                  x-go-name: Order
+                - description: 列表返回资源的更多详细信息。默认只显示基本字段，该字段为true则返回扩展字段信息。
+                  in: query
+                  name: details
+                  type: boolean
+                  x-go-name: Details
+                - description: 模糊搜索所有字段
+                  in: query
+                  name: search
+                  type: string
+                  x-go-name: Search
+                - description: |-
+                    指定过滤条件，允许指定多个，每个条件的格式为"字段名称.操作符(匹配信息)"，例如name字段等于test的过滤器为：name.equals('test')
+                    支持的操作符如下：
+
+                     操作符        | 参数个数 | 举例                                           | 说明                        |
+                    ---------------|----------|------------------------------------------------|-----------------------------|
+                     in            | > 0      | name.in("test", "good")                        | 在给定数组中                |
+                     notin         | > 0      | name.notin('test')                             | 不在给定数组中              |
+                     between       | 2        | created_at.between('2019-12-10', '2020-01-02') | 在两个值之间                |
+                     ge            | 1        | created_at.ge('2020-01-01')                    | 大于或等于给定值            |
+                     gt            | 1        | created_at.gt('2020-01-01')                    | 严格大于给定值              |
+                     le            | 1        | created_at.le('2020-01-01')                    | 小于或等于给定值            |
+                     lt            | 1        | sync_seconds.lt(900)                           | 严格大于给定值              |
+                     like          | > 0      | name.like('%test%')                            | sql字符串匹配任意一个字符串 |
+                     contains      | > 0      | name.contains('test')                          | 包含任意一个给定字符串      |
+                     startswith    | > 0      | name.startswith('test')                        | 以任意一个给定字符串开头    |
+                     endswith      | > 0      | name.endswith('test')                          | 以任意一个给定字符串结尾    |
+                     equals        | > 0      | name.equals('test')                            | 等于任意一个给定值          |
+                     notequals     | 1        | name.notequals('test')                         | 不等于给定值                |
+                     isnull        | 0        | name.isnull()                                  | 值为SQL的NULL               |
+                     isnotnull     | 0        | name.isnotnull()                               | 值不为SQL的NULL             |
+                     isempty       | 0        | name.isempty('test')                           | 值为空字符串                |
+                     isnotempty    | 0        | name.isnotempty('test')                        | 值不是空字符串              |
+                     isnullorempty | 0        | name.isnullorempty('test')                     | 值为SQL的NULL或者空字符串   |
+                  in: query
+                  items:
+                    type: string
+                  name: filter
+                  type: array
+                  x-go-name: Filter
+                - description: |-
+                    指定关联过滤条件，允许指定多个，后端将根据关联过滤条件和其他表关联查询，支持的查询语法和filter相同，
+                    和其他表关联的语法如下：
+                    joint_resources.related_key(origin_key).filter_col.filter_ops(values)
+                    其中，joint_resources为要关联的资源名称，related_key为关联表column，origin_key为当前表column, filter_col为
+                    关联表用于查询匹配的field名称，field_ops为filter支持的操作，values为匹配的值
+                    举例：
+                    guestnetworks.guest_id(id).ip_addr.equals('10.168.21.222')
+                  in: query
+                  items:
+                    type: string
+                  name: joint_filter
+                  type: array
+                  x-go-name: JointFilter
+                - description: 如果filter_any为true，则查询所有filter的并集，否则为交集
+                  in: query
+                  name: filter_any
+                  type: boolean
+                  x-go-name: FilterAny
+                - description: 返回结果只包含指定的字段
+                  in: query
+                  items:
+                    type: string
+                  name: field
+                  type: array
+                  x-go-name: Field
+                - description: 用于数据导出，指定导出的数据字段
+                  in: query
+                  name: export_keys
+                  type: string
+                  x-go-name: ExportKeys
+                - description: 返回结果携带delete_fail_reason和update_fail_reason字段
+                  in: query
+                  name: show_fail_reason
+                  type: boolean
+                  x-go-name: ShowFailReason
+                - $ref: '#/definitions/TTagSet'
+                  description: 通过标签过滤（包含这些标签）
+                  in: query
+                  name: tags
+                  x-go-name: Tags
+                - $ref: '#/definitions/TTagSetList'
+                  description: 通过一组标签过滤（还包含这些标签，OR的关系）
+                  in: query
+                  name: obj_tags
+                  x-go-name: ObjTags
+                - $ref: '#/definitions/TTagSet'
+                  description: 通过标签过滤（不包含这些标签）
+                  in: query
+                  name: no_tags
+                  x-go-name: NoTags
+                - $ref: '#/definitions/TTagSetList'
+                  description: 通过一组标签过滤（还不包含这些标签，AND的关系）
+                  in: query
+                  name: no_obj_tags
+                  x-go-name: NoObjTags
+                - description: 通过标签排序
+                  in: query
+                  name: order_by_tag
+                  type: string
+                  x-go-name: OrderByTag
+                - description: |-
+                    deprecated
+                    返回资源的标签不包含用户标签
+                  in: query
+                  name: without_user_meta
+                  type: boolean
+                  x-go-name: WithoutUserMeta
+                - description: 返回包含用户标签的资源
+                  in: query
+                  name: with_user_meta
+                  type: boolean
+                  x-go-name: WithUserMeta
+                - description: 返回包含外部标签的资源
+                  in: query
+                  name: with_cloud_meta
+                  type: boolean
+                  x-go-name: WithCloudMeta
+                - description: 返回包含任意标签的资源
+                  in: query
+                  name: with_any_meta
+                  type: boolean
+                  x-go-name: WithAnyMeta
+                - description: 返回列表数据中包含资源的标签数据（Metadata）
+                  in: query
+                  name: with_meta
+                  type: boolean
+                  x-go-name: WithMeta
+                - description: 显示所有的资源，包括模拟的资源
+                  in: query
+                  name: show_emulated
+                  type: boolean
+                  x-go-name: ShowEmulated
+                - description: 以资源ID过滤列表
+                  in: query
+                  items:
+                    type: string
+                  name: id
+                  type: array
+                  x-go-name: Ids
+                - description: 以资源名称过滤列表
+                  in: query
+                  items:
+                    type: string
+                  name: name
+                  type: array
+                  x-go-name: Names
+                - description: 以资源的状态过滤列表
+                  in: query
+                  items:
+                    type: string
+                  name: status
+                  type: array
+                  x-go-name: Status
+                - description: 以资源是否启用/禁用过滤列表
+                  in: query
+                  name: enabled
+                  type: boolean
+                  x-go-name: Enabled
+            responses:
+                "200":
+                    $ref: '#/responses/notify_resource_ListItemFilterOutput'
+            summary: 列表
+            tags:
+                - notify_resource
+        post:
+            description: 新建
+            operationId: notify_resource_ValidateCreateData
+            parameters:
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        count:
+                            default: 1
+                            format: int64
+                            type: integer
+                            x-go-name: Count
+                        notify_resource:
+                            $ref: '#/definitions/SNotifyElementCreateInput'
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/notify_resource_ValidateCreateDataOutput'
+            summary: 新建
+            tags:
+                - notify_resource
+    /notify_resources/{id}:
+        delete:
+            description: 删除
+            operationId: notify_resource_CustomizeDelete
+            parameters:
+                - description: The Id or Name of notify_resource
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+            responses:
+                "200":
+                    $ref: '#/responses/notify_resource_CustomizeDeleteOutput'
+            summary: 删除
+            tags:
+                - notify_resource
+        get:
+            description: 获取详情
+            operationId: notify_resource_FetchCustomizeColumns
+            parameters:
+                - description: The Id or Name of notify_resource
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+            responses:
+                "200":
+                    $ref: '#/responses/notify_resource_FetchCustomizeColumnsOutput'
+            summary: 获取详情
+            tags:
+                - notify_resource
+        put:
+            description: 更新
+            operationId: notify_resource_ValidateUpdateData
+            parameters:
+                - description: The Id or Name of notify_resource
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        notify_resource:
+                            $ref: '#/definitions/EnabledStatusStandaloneResourceBaseUpdateInput'
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/notify_resource_ValidateUpdateDataOutput'
+            summary: 更新
+            tags:
+                - notify_resource
+    /notify_resources/{id}/class-metadata:
+        get:
+            description: 获取指定信息ClassMetadata
+            operationId: notify_resource_GetDetailsClassMetadata
+            parameters:
+                - description: The Id or Name of notify_resource
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+            responses:
+                "200":
+                    $ref: '#/responses/notify_resource_GetDetailsClassMetadataOutput'
+            summary: 获取指定信息ClassMetadata
+            tags:
+                - notify_resource
+        post:
+            description: 执行操作ClassMetadata
+            operationId: notify_resource_PerformClassMetadata
+            parameters:
+                - description: The Id or Name of notify_resource
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        notify_resource:
+                            additionalProperties:
+                                type: string
+                            type: object
+                            x-go-name: Input
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/notify_resource_PerformClassMetadataOutput'
+            summary: 更新资源的 class 标签
+            tags:
+                - notify_resource
+    /notify_resources/{id}/disable:
+        post:
+            description: 执行操作Disable
+            operationId: notify_resource_PerformDisable
+            parameters:
+                - description: The Id or Name of notify_resource
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        notify_resource:
+                            $ref: '#/definitions/PerformDisableInput'
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/notify_resource_PerformDisableOutput'
+            summary: 禁用资源
+            tags:
+                - notify_resource
+    /notify_resources/{id}/enable:
+        post:
+            description: 执行操作Enable
+            operationId: notify_resource_PerformEnable
+            parameters:
+                - description: The Id or Name of notify_resource
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        notify_resource:
+                            $ref: '#/definitions/PerformEnableInput'
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/notify_resource_PerformEnableOutput'
+            summary: 启用资源
+            tags:
+                - notify_resource
+    /notify_resources/{id}/metadata:
+        get:
+            description: 获取指定信息Metadata
+            operationId: notify_resource_GetDetailsMetadata
+            parameters:
+                - description: |-
+                    指定需要获取的所有标签的KEY列表，如果列表为空，则获取全部标签
+                    标签分为
+
+                     类型     | 说明                                        |
+                    ----------|---------------------------------------------|
+                     系统标签 | 平台定义的标签                              |
+                     用户标签 | key以user:为前缀，用户自定义标签            |
+                     外部标签 | key以ext:为前缀，为从其他平台同步过来的标签 |
+                  in: query
+                  items:
+                    type: string
+                  name: field
+                  type: array
+                  x-go-name: Field
+                - description: 按标签前缀过滤
+                  in: query
+                  name: prefix
+                  type: string
+                  x-go-name: Prefix
+                - description: The Id or Name of notify_resource
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+            responses:
+                "200":
+                    $ref: '#/responses/notify_resource_GetDetailsMetadataOutput'
+            summary: 获取资源标签（元数据）
+            tags:
+                - notify_resource
+    /notify_resources/{id}/org-metadata:
+        get:
+            description: 获取指定信息OrgMetadata
+            operationId: notify_resource_GetDetailsOrgMetadata
+            parameters:
+                - description: The Id or Name of notify_resource
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+            responses:
+                "200":
+                    $ref: '#/responses/notify_resource_GetDetailsOrgMetadataOutput'
+            summary: 获取指定信息OrgMetadata
+            tags:
+                - notify_resource
+    /notify_resources/{id}/set-class-metadata:
+        post:
+            description: 执行操作SetClassMetadata
+            operationId: notify_resource_PerformSetClassMetadata
+            parameters:
+                - description: The Id or Name of notify_resource
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        notify_resource:
+                            additionalProperties:
+                                type: string
+                            type: object
+                            x-go-name: Input
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/notify_resource_PerformSetClassMetadataOutput'
+            summary: 全量替换资源的所有 class 标签
+            tags:
+                - notify_resource
+    /notify_resources/{id}/set-org-metadata:
+        post:
+            description: 执行操作SetOrgMetadata
+            operationId: notify_resource_PerformSetOrgMetadata
+            parameters:
+                - description: The Id or Name of notify_resource
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        notify_resource:
+                            additionalProperties:
+                                type: string
+                            type: object
+                            x-go-name: Input
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/notify_resource_PerformSetOrgMetadataOutput'
+            summary: 全量替换资源的所有 class 标签
+            tags:
+                - notify_resource
+    /notify_resources/{id}/set-user-metadata:
+        post:
+            description: 执行操作SetUserMetadata
+            operationId: notify_resource_PerformSetUserMetadata
+            parameters:
+                - description: The Id or Name of notify_resource
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        notify_resource:
+                            additionalProperties:
+                                type: string
+                            type: object
+                            x-go-name: Input
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/notify_resource_PerformSetUserMetadataOutput'
+            summary: 全量替换资源的所有用户标签
+            tags:
+                - notify_resource
+    /notify_resources/{id}/status:
+        get:
+            description: 获取指定信息Status
+            operationId: notify_resource_GetDetailsStatus
+            parameters:
+                - description: The Id or Name of notify_resource
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+            responses:
+                "200":
+                    $ref: '#/responses/notify_resource_GetDetailsStatusOutput'
+            summary: 获取资源状态
+            tags:
+                - notify_resource
+        post:
+            description: 执行操作Status
+            operationId: notify_resource_PerformStatus
+            parameters:
+                - description: The Id or Name of notify_resource
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        notify_resource:
+                            $ref: '#/definitions/PerformStatusInput'
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/notify_resource_PerformStatusOutput'
+            summary: 更新资源状态
+            tags:
+                - notify_resource
+    /notify_resources/distinct-field:
+        get:
+            description: 获取指定资源类的信息DistinctField
+            operationId: notify_resource_GetPropertyDistinctField
+            responses:
+                "200":
+                    $ref: '#/responses/notify_resource_GetPropertyDistinctFieldOutput'
+            summary: 获取指定资源类的信息DistinctField
+            tags:
+                - notify_resource
+    /notify_resources/distinct-fields:
+        get:
+            description: 获取指定资源类的信息DistinctFields
+            operationId: notify_resource_GetPropertyDistinctFields
+            responses:
+                "200":
+                    $ref: '#/responses/notify_resource_GetPropertyDistinctFieldsOutput'
+            summary: 获取指定资源类的信息DistinctFields
+            tags:
+                - notify_resource
+    /notify_resources/purge-splitable:
+        post:
+            description: 执行操作PurgeSplitable
+            operationId: notify_resource_PerformPurgeSplitable
+            parameters:
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        notify_resource:
+                            $ref: '#/definitions/PurgeSplitTableInput'
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/notify_resource_PerformPurgeSplitableOutput'
+            summary: 执行操作PurgeSplitable
+            tags:
+                - notify_resource
+    /notify_resources/splitable:
+        get:
+            description: 获取指定资源类的信息Splitable
+            operationId: notify_resource_GetPropertySplitable
+            responses:
+                "200":
+                    $ref: '#/responses/notify_resource_GetPropertySplitableOutput'
+            summary: 获取指定资源类的信息Splitable
+            tags:
+                - notify_resource
+    /notify_resources/splitable-export:
+        get:
+            description: 获取指定资源类的信息SplitableExport
+            operationId: notify_resource_GetPropertySplitableExport
+            parameters:
+                - in: query
+                  name: table
+                  type: string
+                  x-go-name: Table
+                - format: int64
+                  in: query
+                  name: offset
+                  type: integer
+                  x-go-name: Offset
+                - format: int64
+                  in: query
+                  name: limit
+                  type: integer
+                  x-go-name: Limit
+            responses:
+                "200":
+                    $ref: '#/responses/notify_resource_GetPropertySplitableExportOutput'
+            summary: 获取指定资源类的信息SplitableExport
+            tags:
+                - notify_resource
+    /notify_resources/statistics:
+        get:
+            description: 获取指定资源类的信息Statistics
+            operationId: notify_resource_GetPropertyStatistics
+            responses:
+                "200":
+                    $ref: '#/responses/notify_resource_GetPropertyStatisticsOutput'
+            summary: 获取指定资源类的信息Statistics
+            tags:
+                - notify_resource
+    /notify_resources/tag-value-pairs:
+        get:
+            description: 获取指定资源类的信息TagValuePairs
+            operationId: notify_resource_GetPropertyTagValuePairs
+            responses:
+                "200":
+                    $ref: '#/responses/notify_resource_GetPropertyTagValuePairsOutput'
+            summary: 获取指定资源类的信息TagValuePairs
+            tags:
+                - notify_resource
+    /notify_resources/tag-value-tree:
+        get:
+            description: 获取指定资源类的信息TagValueTree
+            operationId: notify_resource_GetPropertyTagValueTree
+            responses:
+                "200":
+                    $ref: '#/responses/notify_resource_GetPropertyTagValueTreeOutput'
+            summary: 获取指定资源类的信息TagValueTree
+            tags:
+                - notify_resource
     /receivers:
         get:
             description: 列表
@@ -4981,6 +6526,13 @@ paths:
                   name: name
                   type: array
                   x-go-name: Names
+                - description: 以资源的状态过滤列表
+                  in: query
+                  items:
+                    type: string
+                  name: status
+                  type: array
+                  x-go-name: Status
                 - description: 指定查询的权限范围，可能值为project, domain or system
                   in: query
                   name: scope
@@ -5014,13 +6566,58 @@ paths:
                   in: query
                   name: no_domain_tags
                   x-go-name: NoDomainTags
-                - description: 以资源的状态过滤列表
+                - description: 指定项目的名称或ID
+                  in: query
+                  name: project_id
+                  type: string
+                  x-go-name: ProjectId
+                - description: 对具有项目属性的资源，严格匹配项目ID
                   in: query
                   items:
                     type: string
-                  name: status
+                  name: project_ids
                   type: array
-                  x-go-name: Status
+                  x-go-name: ProjectIds
+                - description: 按project名称排序，可能值为asc|desc
+                  in: query
+                  name: order_by_project
+                  pattern: asc|desc
+                  type: string
+                  x-go-name: OrderByProject
+                - $ref: '#/definitions/TTagSetList'
+                  description: filter by project tags
+                  in: query
+                  name: project_tags
+                  x-go-name: ProjectTags
+                - $ref: '#/definitions/TTagSetList'
+                  description: filter by no project tags
+                  in: query
+                  name: no_project_tags
+                  x-go-name: NoProjectTags
+                - description: filter by project organizations
+                  in: query
+                  items:
+                    type: string
+                  name: project_organizations
+                  type: array
+                  x-go-name: ProjectOrganizations
+                - $ref: '#/definitions/TTagSetList'
+                  description: |-
+                    ignore
+                    project tag fitlers imposed by policy
+                  in: query
+                  name: policy_project_tags
+                  x-go-name: PolicyProjectTags
+                - description: 列表中包含标记为"系统资源"的资源
+                  in: query
+                  name: system
+                  type: boolean
+                  x-go-name: System
+                - description: 是否显示回收站内的资源，默认不显示（对实现了回收站的资源有效，例如主机，磁盘，镜像）
+                  in: query
+                  name: pending_delete
+                  type: boolean
+                  x-go-name: PendingDelete
                 - description: 以资源是否启用/禁用过滤列表
                   in: query
                   name: enabled
@@ -5132,6 +6729,23 @@ paths:
             summary: 更新
             tags:
                 - receiver
+    /receivers/{id}/cancel-delete:
+        post:
+            description: 执行操作CancelDelete
+            operationId: receiver_PerformCancelDelete
+            parameters:
+                - description: The Id or Name of receiver
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+            responses:
+                "200":
+                    $ref: '#/responses/receiver_PerformCancelDeleteOutput'
+            summary: 执行操作CancelDelete
+            tags:
+                - receiver
     /receivers/{id}/change-owner:
         post:
             description: 执行操作ChangeOwner
@@ -5148,7 +6762,7 @@ paths:
                   schema:
                     properties:
                         receiver:
-                            $ref: '#/definitions/PerformChangeDomainOwnerInput'
+                            $ref: '#/definitions/PerformChangeProjectOwnerInput'
                     type: object
                   x-go-name: Body
             responses:
@@ -5291,6 +6905,31 @@ paths:
                 "200":
                     $ref: '#/responses/receiver_PerformEnableContactTypeOutput'
             summary: 执行操作EnableContactType
+            tags:
+                - receiver
+    /receivers/{id}/freeze:
+        post:
+            description: 执行操作Freeze
+            operationId: receiver_PerformFreeze
+            parameters:
+                - description: The Id or Name of receiver
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        receiver:
+                            $ref: '#/definitions/PerformFreezeInput'
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/receiver_PerformFreezeOutput'
+            summary: freezed update and perform action operation except for unfreeze
             tags:
                 - receiver
     /receivers/{id}/get-subscription:
@@ -5522,6 +7161,31 @@ paths:
             summary: 执行操作TriggerVerify
             tags:
                 - receiver
+    /receivers/{id}/unfreeze:
+        post:
+            description: 执行操作Unfreeze
+            operationId: receiver_PerformUnfreeze
+            parameters:
+                - description: The Id or Name of receiver
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        receiver:
+                            $ref: '#/definitions/PerformUnfreezeInput'
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/receiver_PerformUnfreezeOutput'
+            summary: 执行操作Unfreeze
+            tags:
+                - receiver
     /receivers/{id}/verify:
         post:
             description: 执行操作Verify
@@ -5557,24 +7221,24 @@ paths:
             summary: 获取指定资源类的信息DistinctField
             tags:
                 - receiver
-    /receivers/domain-tag-value-pairs:
+    /receivers/distinct-fields:
         get:
-            description: 获取指定资源类的信息DomainTagValuePairs
-            operationId: receiver_GetPropertyDomainTagValuePairs
+            description: 获取指定资源类的信息DistinctFields
+            operationId: receiver_GetPropertyDistinctFields
             responses:
                 "200":
-                    $ref: '#/responses/receiver_GetPropertyDomainTagValuePairsOutput'
-            summary: 获取指定资源类的信息DomainTagValuePairs
+                    $ref: '#/responses/receiver_GetPropertyDistinctFieldsOutput'
+            summary: 获取指定资源类的信息DistinctFields
             tags:
                 - receiver
-    /receivers/domain-tag-value-tree:
+    /receivers/domain-statistics:
         get:
-            description: 获取指定资源类的信息DomainTagValueTree
-            operationId: receiver_GetPropertyDomainTagValueTree
+            description: 获取指定资源类的信息DomainStatistics
+            operationId: receiver_GetPropertyDomainStatistics
             responses:
                 "200":
-                    $ref: '#/responses/receiver_GetPropertyDomainTagValueTreeOutput'
-            summary: 获取指定资源类的信息DomainTagValueTree
+                    $ref: '#/responses/receiver_GetPropertyDomainStatisticsOutput'
+            summary: 获取指定资源类的信息DomainStatistics
             tags:
                 - receiver
     /receivers/get-types:
@@ -5613,6 +7277,36 @@ paths:
                 "200":
                     $ref: '#/responses/receiver_PerformIntellijGetOutput'
             summary: 执行操作IntellijGet
+            tags:
+                - receiver
+    /receivers/project-statistics:
+        get:
+            description: 获取指定资源类的信息ProjectStatistics
+            operationId: receiver_GetPropertyProjectStatistics
+            responses:
+                "200":
+                    $ref: '#/responses/receiver_GetPropertyProjectStatisticsOutput'
+            summary: 获取指定资源类的信息ProjectStatistics
+            tags:
+                - receiver
+    /receivers/project-tag-value-pairs:
+        get:
+            description: 获取指定资源类的信息ProjectTagValuePairs
+            operationId: receiver_GetPropertyProjectTagValuePairs
+            responses:
+                "200":
+                    $ref: '#/responses/receiver_GetPropertyProjectTagValuePairsOutput'
+            summary: 获取指定资源类的信息ProjectTagValuePairs
+            tags:
+                - receiver
+    /receivers/project-tag-value-tree:
+        get:
+            description: 获取指定资源类的信息ProjectTagValueTree
+            operationId: receiver_GetPropertyProjectTagValueTree
+            responses:
+                "200":
+                    $ref: '#/responses/receiver_GetPropertyProjectTagValueTreeOutput'
+            summary: 获取指定资源类的信息ProjectTagValueTree
             tags:
                 - receiver
     /receivers/purge-splitable:
@@ -5693,6 +7387,16 @@ paths:
                 "200":
                     $ref: '#/responses/receiver_GetPropertySplitableExportOutput'
             summary: 获取指定资源类的信息SplitableExport
+            tags:
+                - receiver
+    /receivers/statistics:
+        get:
+            description: 获取指定资源类的信息Statistics
+            operationId: receiver_GetPropertyStatistics
+            responses:
+                "200":
+                    $ref: '#/responses/receiver_GetPropertyStatisticsOutput'
+            summary: 获取指定资源类的信息Statistics
             tags:
                 - receiver
     /receivers/tag-value-pairs:
@@ -6546,6 +8250,16 @@ paths:
             summary: 获取指定资源类的信息DistinctField
             tags:
                 - robot
+    /robots/distinct-fields:
+        get:
+            description: 获取指定资源类的信息DistinctFields
+            operationId: robot_GetPropertyDistinctFields
+            responses:
+                "200":
+                    $ref: '#/responses/robot_GetPropertyDistinctFieldsOutput'
+            summary: 获取指定资源类的信息DistinctFields
+            tags:
+                - robot
     /robots/domain-statistics:
         get:
             description: 获取指定资源类的信息DomainStatistics
@@ -6872,6 +8586,16 @@ paths:
                 "200":
                     $ref: '#/responses/subscriber_receiver_GetPropertyDistinctFieldOutput'
             summary: 获取指定资源类的信息DistinctField
+            tags:
+                - subscriber_receiver
+    /subscriber_receivers/distinct-fields:
+        get:
+            description: 获取指定资源类的信息DistinctFields
+            operationId: subscriber_receiver_GetPropertyDistinctFields
+            responses:
+                "200":
+                    $ref: '#/responses/subscriber_receiver_GetPropertyDistinctFieldsOutput'
+            summary: 获取指定资源类的信息DistinctFields
             tags:
                 - subscriber_receiver
     /subscriber_receivers/purge-splitable:
@@ -7494,6 +9218,16 @@ paths:
             summary: 获取指定资源类的信息DistinctField
             tags:
                 - subscriber
+    /subscribers/distinct-fields:
+        get:
+            description: 获取指定资源类的信息DistinctFields
+            operationId: subscriber_GetPropertyDistinctFields
+            responses:
+                "200":
+                    $ref: '#/responses/subscriber_GetPropertyDistinctFieldsOutput'
+            summary: 获取指定资源类的信息DistinctFields
+            tags:
+                - subscriber
     /subscribers/purge-splitable:
         post:
             description: 执行操作PurgeSplitable
@@ -8051,6 +9785,16 @@ paths:
             summary: 获取指定资源类的信息DistinctField
             tags:
                 - template
+    /templates/distinct-fields:
+        get:
+            description: 获取指定资源类的信息DistinctFields
+            operationId: template_GetPropertyDistinctFields
+            responses:
+                "200":
+                    $ref: '#/responses/template_GetPropertyDistinctFieldsOutput'
+            summary: 获取指定资源类的信息DistinctFields
+            tags:
+                - template
     /templates/purge-splitable:
         post:
             description: 执行操作PurgeSplitable
@@ -8144,6 +9888,542 @@ paths:
             summary: 获取指定资源类的信息TagValueTree
             tags:
                 - template
+    /topic_actions:
+        get:
+            description: 列表
+            operationId: topic_action_ListItemFilter
+            parameters:
+                - default: 20
+                  description: 查询限制量
+                  format: int64
+                  in: query
+                  name: limit
+                  type: integer
+                  x-go-name: Limit
+                - default: 0
+                  description: 查询偏移量
+                  format: int64
+                  in: query
+                  name: offset
+                  type: integer
+                  x-go-name: Offset
+                - description: 列表排序时，用于排序的字段的名称，该字段不提供时，则按默认字段排序。一般时按照资源的新建时间逆序排序。
+                  in: query
+                  items:
+                    type: string
+                  name: order_by
+                  type: array
+                  x-go-name: OrderBy
+                - description: 列表排序时的顺序，desc为从高到低，asc为从低到高。默认是按照资源的创建时间desc排序。
+                  example: desc|asc
+                  in: query
+                  name: order
+                  type: string
+                  x-go-name: Order
+                - description: 列表返回资源的更多详细信息。默认只显示基本字段，该字段为true则返回扩展字段信息。
+                  in: query
+                  name: details
+                  type: boolean
+                  x-go-name: Details
+                - description: 模糊搜索所有字段
+                  in: query
+                  name: search
+                  type: string
+                  x-go-name: Search
+                - description: |-
+                    指定过滤条件，允许指定多个，每个条件的格式为"字段名称.操作符(匹配信息)"，例如name字段等于test的过滤器为：name.equals('test')
+                    支持的操作符如下：
+
+                     操作符        | 参数个数 | 举例                                           | 说明                        |
+                    ---------------|----------|------------------------------------------------|-----------------------------|
+                     in            | > 0      | name.in("test", "good")                        | 在给定数组中                |
+                     notin         | > 0      | name.notin('test')                             | 不在给定数组中              |
+                     between       | 2        | created_at.between('2019-12-10', '2020-01-02') | 在两个值之间                |
+                     ge            | 1        | created_at.ge('2020-01-01')                    | 大于或等于给定值            |
+                     gt            | 1        | created_at.gt('2020-01-01')                    | 严格大于给定值              |
+                     le            | 1        | created_at.le('2020-01-01')                    | 小于或等于给定值            |
+                     lt            | 1        | sync_seconds.lt(900)                           | 严格大于给定值              |
+                     like          | > 0      | name.like('%test%')                            | sql字符串匹配任意一个字符串 |
+                     contains      | > 0      | name.contains('test')                          | 包含任意一个给定字符串      |
+                     startswith    | > 0      | name.startswith('test')                        | 以任意一个给定字符串开头    |
+                     endswith      | > 0      | name.endswith('test')                          | 以任意一个给定字符串结尾    |
+                     equals        | > 0      | name.equals('test')                            | 等于任意一个给定值          |
+                     notequals     | 1        | name.notequals('test')                         | 不等于给定值                |
+                     isnull        | 0        | name.isnull()                                  | 值为SQL的NULL               |
+                     isnotnull     | 0        | name.isnotnull()                               | 值不为SQL的NULL             |
+                     isempty       | 0        | name.isempty('test')                           | 值为空字符串                |
+                     isnotempty    | 0        | name.isnotempty('test')                        | 值不是空字符串              |
+                     isnullorempty | 0        | name.isnullorempty('test')                     | 值为SQL的NULL或者空字符串   |
+                  in: query
+                  items:
+                    type: string
+                  name: filter
+                  type: array
+                  x-go-name: Filter
+                - description: |-
+                    指定关联过滤条件，允许指定多个，后端将根据关联过滤条件和其他表关联查询，支持的查询语法和filter相同，
+                    和其他表关联的语法如下：
+                    joint_resources.related_key(origin_key).filter_col.filter_ops(values)
+                    其中，joint_resources为要关联的资源名称，related_key为关联表column，origin_key为当前表column, filter_col为
+                    关联表用于查询匹配的field名称，field_ops为filter支持的操作，values为匹配的值
+                    举例：
+                    guestnetworks.guest_id(id).ip_addr.equals('10.168.21.222')
+                  in: query
+                  items:
+                    type: string
+                  name: joint_filter
+                  type: array
+                  x-go-name: JointFilter
+                - description: 如果filter_any为true，则查询所有filter的并集，否则为交集
+                  in: query
+                  name: filter_any
+                  type: boolean
+                  x-go-name: FilterAny
+                - description: 返回结果只包含指定的字段
+                  in: query
+                  items:
+                    type: string
+                  name: field
+                  type: array
+                  x-go-name: Field
+                - description: 用于数据导出，指定导出的数据字段
+                  in: query
+                  name: export_keys
+                  type: string
+                  x-go-name: ExportKeys
+                - description: 返回结果携带delete_fail_reason和update_fail_reason字段
+                  in: query
+                  name: show_fail_reason
+                  type: boolean
+                  x-go-name: ShowFailReason
+            responses:
+                "200":
+                    $ref: '#/responses/topic_action_ListItemFilterOutput'
+            summary: 列表
+            tags:
+                - topic_action
+        post:
+            description: 新建
+            operationId: topic_action_ValidateCreateData
+            parameters:
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        count:
+                            default: 1
+                            format: int64
+                            type: integer
+                            x-go-name: Count
+                        topic_action:
+                            $ref: '#/definitions/JoinResourceBaseCreateInput'
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/topic_action_ValidateCreateDataOutput'
+            summary: 新建
+            tags:
+                - topic_action
+    /topic_actions/{id}:
+        delete:
+            description: 删除
+            operationId: topic_action_CustomizeDelete
+            parameters:
+                - description: The Id or Name of topic_action
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+            responses:
+                "200":
+                    $ref: '#/responses/topic_action_CustomizeDeleteOutput'
+            summary: 删除
+            tags:
+                - topic_action
+        get:
+            description: 获取详情
+            operationId: topic_action_FetchCustomizeColumns
+            parameters:
+                - description: The Id or Name of topic_action
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+            responses:
+                "200":
+                    $ref: '#/responses/topic_action_FetchCustomizeColumnsOutput'
+            summary: 获取详情
+            tags:
+                - topic_action
+        put:
+            description: 更新
+            operationId: topic_action_ValidateUpdateData
+            parameters:
+                - description: The Id or Name of topic_action
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        topic_action:
+                            $ref: '#/definitions/JointResourceBaseUpdateInput'
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/topic_action_ValidateUpdateDataOutput'
+            summary: 更新
+            tags:
+                - topic_action
+    /topic_actions/distinct-field:
+        get:
+            description: 获取指定资源类的信息DistinctField
+            operationId: topic_action_GetPropertyDistinctField
+            responses:
+                "200":
+                    $ref: '#/responses/topic_action_GetPropertyDistinctFieldOutput'
+            summary: 获取指定资源类的信息DistinctField
+            tags:
+                - topic_action
+    /topic_actions/distinct-fields:
+        get:
+            description: 获取指定资源类的信息DistinctFields
+            operationId: topic_action_GetPropertyDistinctFields
+            responses:
+                "200":
+                    $ref: '#/responses/topic_action_GetPropertyDistinctFieldsOutput'
+            summary: 获取指定资源类的信息DistinctFields
+            tags:
+                - topic_action
+    /topic_actions/purge-splitable:
+        post:
+            description: 执行操作PurgeSplitable
+            operationId: topic_action_PerformPurgeSplitable
+            parameters:
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        topic_action:
+                            $ref: '#/definitions/PurgeSplitTableInput'
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/topic_action_PerformPurgeSplitableOutput'
+            summary: 执行操作PurgeSplitable
+            tags:
+                - topic_action
+    /topic_actions/splitable:
+        get:
+            description: 获取指定资源类的信息Splitable
+            operationId: topic_action_GetPropertySplitable
+            responses:
+                "200":
+                    $ref: '#/responses/topic_action_GetPropertySplitableOutput'
+            summary: 获取指定资源类的信息Splitable
+            tags:
+                - topic_action
+    /topic_actions/splitable-export:
+        get:
+            description: 获取指定资源类的信息SplitableExport
+            operationId: topic_action_GetPropertySplitableExport
+            parameters:
+                - in: query
+                  name: table
+                  type: string
+                  x-go-name: Table
+                - format: int64
+                  in: query
+                  name: offset
+                  type: integer
+                  x-go-name: Offset
+                - format: int64
+                  in: query
+                  name: limit
+                  type: integer
+                  x-go-name: Limit
+            responses:
+                "200":
+                    $ref: '#/responses/topic_action_GetPropertySplitableExportOutput'
+            summary: 获取指定资源类的信息SplitableExport
+            tags:
+                - topic_action
+    /topic_resources:
+        get:
+            description: 列表
+            operationId: topic_resource_ListItemFilter
+            parameters:
+                - default: 20
+                  description: 查询限制量
+                  format: int64
+                  in: query
+                  name: limit
+                  type: integer
+                  x-go-name: Limit
+                - default: 0
+                  description: 查询偏移量
+                  format: int64
+                  in: query
+                  name: offset
+                  type: integer
+                  x-go-name: Offset
+                - description: 列表排序时，用于排序的字段的名称，该字段不提供时，则按默认字段排序。一般时按照资源的新建时间逆序排序。
+                  in: query
+                  items:
+                    type: string
+                  name: order_by
+                  type: array
+                  x-go-name: OrderBy
+                - description: 列表排序时的顺序，desc为从高到低，asc为从低到高。默认是按照资源的创建时间desc排序。
+                  example: desc|asc
+                  in: query
+                  name: order
+                  type: string
+                  x-go-name: Order
+                - description: 列表返回资源的更多详细信息。默认只显示基本字段，该字段为true则返回扩展字段信息。
+                  in: query
+                  name: details
+                  type: boolean
+                  x-go-name: Details
+                - description: 模糊搜索所有字段
+                  in: query
+                  name: search
+                  type: string
+                  x-go-name: Search
+                - description: |-
+                    指定过滤条件，允许指定多个，每个条件的格式为"字段名称.操作符(匹配信息)"，例如name字段等于test的过滤器为：name.equals('test')
+                    支持的操作符如下：
+
+                     操作符        | 参数个数 | 举例                                           | 说明                        |
+                    ---------------|----------|------------------------------------------------|-----------------------------|
+                     in            | > 0      | name.in("test", "good")                        | 在给定数组中                |
+                     notin         | > 0      | name.notin('test')                             | 不在给定数组中              |
+                     between       | 2        | created_at.between('2019-12-10', '2020-01-02') | 在两个值之间                |
+                     ge            | 1        | created_at.ge('2020-01-01')                    | 大于或等于给定值            |
+                     gt            | 1        | created_at.gt('2020-01-01')                    | 严格大于给定值              |
+                     le            | 1        | created_at.le('2020-01-01')                    | 小于或等于给定值            |
+                     lt            | 1        | sync_seconds.lt(900)                           | 严格大于给定值              |
+                     like          | > 0      | name.like('%test%')                            | sql字符串匹配任意一个字符串 |
+                     contains      | > 0      | name.contains('test')                          | 包含任意一个给定字符串      |
+                     startswith    | > 0      | name.startswith('test')                        | 以任意一个给定字符串开头    |
+                     endswith      | > 0      | name.endswith('test')                          | 以任意一个给定字符串结尾    |
+                     equals        | > 0      | name.equals('test')                            | 等于任意一个给定值          |
+                     notequals     | 1        | name.notequals('test')                         | 不等于给定值                |
+                     isnull        | 0        | name.isnull()                                  | 值为SQL的NULL               |
+                     isnotnull     | 0        | name.isnotnull()                               | 值不为SQL的NULL             |
+                     isempty       | 0        | name.isempty('test')                           | 值为空字符串                |
+                     isnotempty    | 0        | name.isnotempty('test')                        | 值不是空字符串              |
+                     isnullorempty | 0        | name.isnullorempty('test')                     | 值为SQL的NULL或者空字符串   |
+                  in: query
+                  items:
+                    type: string
+                  name: filter
+                  type: array
+                  x-go-name: Filter
+                - description: |-
+                    指定关联过滤条件，允许指定多个，后端将根据关联过滤条件和其他表关联查询，支持的查询语法和filter相同，
+                    和其他表关联的语法如下：
+                    joint_resources.related_key(origin_key).filter_col.filter_ops(values)
+                    其中，joint_resources为要关联的资源名称，related_key为关联表column，origin_key为当前表column, filter_col为
+                    关联表用于查询匹配的field名称，field_ops为filter支持的操作，values为匹配的值
+                    举例：
+                    guestnetworks.guest_id(id).ip_addr.equals('10.168.21.222')
+                  in: query
+                  items:
+                    type: string
+                  name: joint_filter
+                  type: array
+                  x-go-name: JointFilter
+                - description: 如果filter_any为true，则查询所有filter的并集，否则为交集
+                  in: query
+                  name: filter_any
+                  type: boolean
+                  x-go-name: FilterAny
+                - description: 返回结果只包含指定的字段
+                  in: query
+                  items:
+                    type: string
+                  name: field
+                  type: array
+                  x-go-name: Field
+                - description: 用于数据导出，指定导出的数据字段
+                  in: query
+                  name: export_keys
+                  type: string
+                  x-go-name: ExportKeys
+                - description: 返回结果携带delete_fail_reason和update_fail_reason字段
+                  in: query
+                  name: show_fail_reason
+                  type: boolean
+                  x-go-name: ShowFailReason
+            responses:
+                "200":
+                    $ref: '#/responses/topic_resource_ListItemFilterOutput'
+            summary: 列表
+            tags:
+                - topic_resource
+        post:
+            description: 新建
+            operationId: topic_resource_ValidateCreateData
+            parameters:
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        count:
+                            default: 1
+                            format: int64
+                            type: integer
+                            x-go-name: Count
+                        topic_resource:
+                            $ref: '#/definitions/JoinResourceBaseCreateInput'
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/topic_resource_ValidateCreateDataOutput'
+            summary: 新建
+            tags:
+                - topic_resource
+    /topic_resources/{id}:
+        delete:
+            description: 删除
+            operationId: topic_resource_CustomizeDelete
+            parameters:
+                - description: The Id or Name of topic_resource
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+            responses:
+                "200":
+                    $ref: '#/responses/topic_resource_CustomizeDeleteOutput'
+            summary: 删除
+            tags:
+                - topic_resource
+        get:
+            description: 获取详情
+            operationId: topic_resource_FetchCustomizeColumns
+            parameters:
+                - description: The Id or Name of topic_resource
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+            responses:
+                "200":
+                    $ref: '#/responses/topic_resource_FetchCustomizeColumnsOutput'
+            summary: 获取详情
+            tags:
+                - topic_resource
+        put:
+            description: 更新
+            operationId: topic_resource_ValidateUpdateData
+            parameters:
+                - description: The Id or Name of topic_resource
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        topic_resource:
+                            $ref: '#/definitions/JointResourceBaseUpdateInput'
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/topic_resource_ValidateUpdateDataOutput'
+            summary: 更新
+            tags:
+                - topic_resource
+    /topic_resources/distinct-field:
+        get:
+            description: 获取指定资源类的信息DistinctField
+            operationId: topic_resource_GetPropertyDistinctField
+            responses:
+                "200":
+                    $ref: '#/responses/topic_resource_GetPropertyDistinctFieldOutput'
+            summary: 获取指定资源类的信息DistinctField
+            tags:
+                - topic_resource
+    /topic_resources/distinct-fields:
+        get:
+            description: 获取指定资源类的信息DistinctFields
+            operationId: topic_resource_GetPropertyDistinctFields
+            responses:
+                "200":
+                    $ref: '#/responses/topic_resource_GetPropertyDistinctFieldsOutput'
+            summary: 获取指定资源类的信息DistinctFields
+            tags:
+                - topic_resource
+    /topic_resources/purge-splitable:
+        post:
+            description: 执行操作PurgeSplitable
+            operationId: topic_resource_PerformPurgeSplitable
+            parameters:
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        topic_resource:
+                            $ref: '#/definitions/PurgeSplitTableInput'
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/topic_resource_PerformPurgeSplitableOutput'
+            summary: 执行操作PurgeSplitable
+            tags:
+                - topic_resource
+    /topic_resources/splitable:
+        get:
+            description: 获取指定资源类的信息Splitable
+            operationId: topic_resource_GetPropertySplitable
+            responses:
+                "200":
+                    $ref: '#/responses/topic_resource_GetPropertySplitableOutput'
+            summary: 获取指定资源类的信息Splitable
+            tags:
+                - topic_resource
+    /topic_resources/splitable-export:
+        get:
+            description: 获取指定资源类的信息SplitableExport
+            operationId: topic_resource_GetPropertySplitableExport
+            parameters:
+                - in: query
+                  name: table
+                  type: string
+                  x-go-name: Table
+                - format: int64
+                  in: query
+                  name: offset
+                  type: integer
+                  x-go-name: Offset
+                - format: int64
+                  in: query
+                  name: limit
+                  type: integer
+                  x-go-name: Limit
+            responses:
+                "200":
+                    $ref: '#/responses/topic_resource_GetPropertySplitableExportOutput'
+            summary: 获取指定资源类的信息SplitableExport
+            tags:
+                - topic_resource
     /topics:
         get:
             description: 列表
@@ -8400,6 +10680,56 @@ paths:
             summary: 更新
             tags:
                 - topic
+    /topics/{id}/add-action:
+        post:
+            description: 执行操作AddAction
+            operationId: topic_PerformAddAction
+            parameters:
+                - description: The Id or Name of topic
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        topic:
+                            $ref: '#/definitions/STopicActionInput'
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/topic_PerformAddActionOutput'
+            summary: 执行操作AddAction
+            tags:
+                - topic
+    /topics/{id}/add-resource:
+        post:
+            description: 执行操作AddResource
+            operationId: topic_PerformAddResource
+            parameters:
+                - description: The Id or Name of topic
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        topic:
+                            $ref: '#/definitions/STopicResourceInput'
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/topic_PerformAddResourceOutput'
+            summary: 执行操作AddResource
+            tags:
+                - topic
     /topics/{id}/class-metadata:
         get:
             description: 获取指定信息ClassMetadata
@@ -8548,6 +10878,56 @@ paths:
             summary: 获取指定信息OrgMetadata
             tags:
                 - topic
+    /topics/{id}/remove-action:
+        post:
+            description: 执行操作RemoveAction
+            operationId: topic_PerformRemoveAction
+            parameters:
+                - description: The Id or Name of topic
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        topic:
+                            $ref: '#/definitions/STopicActionInput'
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/topic_PerformRemoveActionOutput'
+            summary: 执行操作RemoveAction
+            tags:
+                - topic
+    /topics/{id}/remove-resource:
+        post:
+            description: 执行操作RemoveResource
+            operationId: topic_PerformRemoveResource
+            parameters:
+                - description: The Id or Name of topic
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        topic:
+                            $ref: '#/definitions/STopicResourceInput'
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/topic_PerformRemoveResourceOutput'
+            summary: 执行操作RemoveResource
+            tags:
+                - topic
     /topics/{id}/set-class-metadata:
         post:
             description: 执行操作SetClassMetadata
@@ -8681,6 +11061,16 @@ paths:
                 "200":
                     $ref: '#/responses/topic_GetPropertyDistinctFieldOutput'
             summary: 获取指定资源类的信息DistinctField
+            tags:
+                - topic
+    /topics/distinct-fields:
+        get:
+            description: 获取指定资源类的信息DistinctFields
+            operationId: topic_GetPropertyDistinctFields
+            responses:
+                "200":
+                    $ref: '#/responses/topic_GetPropertyDistinctFieldsOutput'
+            summary: 获取指定资源类的信息DistinctFields
             tags:
                 - topic
     /topics/purge-splitable:
@@ -8825,6 +11215,8 @@ responses:
         description: ""
     config_GetPropertyDistinctFieldOutput:
         description: ""
+    config_GetPropertyDistinctFieldsOutput:
+        description: ""
     config_GetPropertyDomainTagValuePairsOutput:
         description: ""
     config_GetPropertyDomainTagValueTreeOutput:
@@ -8908,6 +11300,8 @@ responses:
             type: object
     email_queue_GetPropertyDistinctFieldOutput:
         description: ""
+    email_queue_GetPropertyDistinctFieldsOutput:
+        description: ""
     email_queue_GetPropertySplitableExportOutput:
         description: ""
     email_queue_GetPropertySplitableOutput:
@@ -8968,6 +11362,8 @@ responses:
             type: object
     email_queue_status_GetPropertyDistinctFieldOutput:
         description: ""
+    email_queue_status_GetPropertyDistinctFieldsOutput:
+        description: ""
     email_queue_status_GetPropertySplitableExportOutput:
         description: ""
     email_queue_status_GetPropertySplitableOutput:
@@ -9025,6 +11421,8 @@ responses:
                     $ref: '#/definitions/ModelBaseDetails'
             type: object
     event_GetPropertyDistinctFieldOutput:
+        description: ""
+    event_GetPropertyDistinctFieldsOutput:
         description: ""
     event_GetPropertySplitableExportOutput:
         description: ""
@@ -9121,6 +11519,8 @@ responses:
             type: object
     notification_GetPropertyDistinctFieldOutput:
         description: ""
+    notification_GetPropertyDistinctFieldsOutput:
+        description: ""
     notification_GetPropertySplitableExportOutput:
         description: ""
     notification_GetPropertySplitableOutput:
@@ -9214,6 +11614,8 @@ responses:
             type: object
     notification_group_GetPropertyDistinctFieldOutput:
         description: ""
+    notification_group_GetPropertyDistinctFieldsOutput:
+        description: ""
     notification_group_GetPropertySplitableExportOutput:
         description: ""
     notification_group_GetPropertySplitableOutput:
@@ -9272,6 +11674,8 @@ responses:
             type: object
     notification_log_GetPropertyDistinctFieldOutput:
         description: ""
+    notification_log_GetPropertyDistinctFieldsOutput:
+        description: ""
     notification_log_GetPropertySplitableExportOutput:
         description: ""
     notification_log_GetPropertySplitableOutput:
@@ -9313,6 +11717,250 @@ responses:
             properties:
                 notification_log:
                     $ref: '#/definitions/ModelBaseDetails'
+            type: object
+    notify_action_CustomizeDeleteOutput:
+        description: ""
+        schema:
+            properties:
+                notify_action:
+                    $ref: '#/definitions/EnabledStatusStandaloneResourceDetails'
+            type: object
+    notify_action_FetchCustomizeColumnsOutput:
+        description: ""
+        schema:
+            properties:
+                notify_action:
+                    $ref: '#/definitions/EnabledStatusStandaloneResourceDetails'
+            type: object
+    notify_action_GetDetailsClassMetadataOutput:
+        description: ""
+        schema:
+            properties:
+                notify_action:
+                    additionalProperties:
+                        type: string
+                    type: object
+                    x-go-name: Output
+            type: object
+    notify_action_GetDetailsMetadataOutput:
+        description: ""
+        schema:
+            properties:
+                notify_action:
+                    additionalProperties:
+                        type: string
+                    type: object
+                    x-go-name: Output
+            type: object
+    notify_action_GetDetailsOrgMetadataOutput:
+        description: ""
+        schema:
+            properties:
+                notify_action:
+                    additionalProperties:
+                        type: string
+                    type: object
+                    x-go-name: Output
+            type: object
+    notify_action_GetDetailsStatusOutput:
+        description: ""
+        schema:
+            properties:
+                notify_action:
+                    $ref: '#/definitions/GetDetailsStatusOutput'
+            type: object
+    notify_action_GetPropertyDistinctFieldOutput:
+        description: ""
+    notify_action_GetPropertyDistinctFieldsOutput:
+        description: ""
+    notify_action_GetPropertySplitableExportOutput:
+        description: ""
+    notify_action_GetPropertySplitableOutput:
+        description: ""
+    notify_action_GetPropertyStatisticsOutput:
+        description: ""
+        schema:
+            properties:
+                notify_action:
+                    $ref: '#/definitions/StatusStatistic'
+            type: object
+    notify_action_GetPropertyTagValuePairsOutput:
+        description: ""
+    notify_action_GetPropertyTagValueTreeOutput:
+        description: ""
+    notify_action_ListItemFilterOutput:
+        description: ""
+        schema:
+            properties:
+                limit:
+                    format: int64
+                    type: integer
+                    x-go-name: Limit
+                notify_actions:
+                    items:
+                        $ref: '#/definitions/EnabledStatusStandaloneResourceDetails'
+                    type: array
+                    x-go-name: Output
+                offset:
+                    format: int64
+                    type: integer
+                    x-go-name: Offset
+                total:
+                    format: int64
+                    type: integer
+                    x-go-name: Total
+            type: object
+    notify_action_PerformClassMetadataOutput:
+        description: ""
+    notify_action_PerformDisableOutput:
+        description: ""
+    notify_action_PerformEnableOutput:
+        description: ""
+    notify_action_PerformPurgeSplitableOutput:
+        description: ""
+    notify_action_PerformSetClassMetadataOutput:
+        description: ""
+    notify_action_PerformSetOrgMetadataOutput:
+        description: ""
+    notify_action_PerformSetUserMetadataOutput:
+        description: ""
+    notify_action_PerformStatusOutput:
+        description: ""
+    notify_action_ValidateCreateDataOutput:
+        description: ""
+        schema:
+            properties:
+                notify_action:
+                    $ref: '#/definitions/EnabledStatusStandaloneResourceDetails'
+            type: object
+    notify_action_ValidateUpdateDataOutput:
+        description: ""
+        schema:
+            properties:
+                notify_action:
+                    $ref: '#/definitions/EnabledStatusStandaloneResourceDetails'
+            type: object
+    notify_resource_CustomizeDeleteOutput:
+        description: ""
+        schema:
+            properties:
+                notify_resource:
+                    $ref: '#/definitions/EnabledStatusStandaloneResourceDetails'
+            type: object
+    notify_resource_FetchCustomizeColumnsOutput:
+        description: ""
+        schema:
+            properties:
+                notify_resource:
+                    $ref: '#/definitions/EnabledStatusStandaloneResourceDetails'
+            type: object
+    notify_resource_GetDetailsClassMetadataOutput:
+        description: ""
+        schema:
+            properties:
+                notify_resource:
+                    additionalProperties:
+                        type: string
+                    type: object
+                    x-go-name: Output
+            type: object
+    notify_resource_GetDetailsMetadataOutput:
+        description: ""
+        schema:
+            properties:
+                notify_resource:
+                    additionalProperties:
+                        type: string
+                    type: object
+                    x-go-name: Output
+            type: object
+    notify_resource_GetDetailsOrgMetadataOutput:
+        description: ""
+        schema:
+            properties:
+                notify_resource:
+                    additionalProperties:
+                        type: string
+                    type: object
+                    x-go-name: Output
+            type: object
+    notify_resource_GetDetailsStatusOutput:
+        description: ""
+        schema:
+            properties:
+                notify_resource:
+                    $ref: '#/definitions/GetDetailsStatusOutput'
+            type: object
+    notify_resource_GetPropertyDistinctFieldOutput:
+        description: ""
+    notify_resource_GetPropertyDistinctFieldsOutput:
+        description: ""
+    notify_resource_GetPropertySplitableExportOutput:
+        description: ""
+    notify_resource_GetPropertySplitableOutput:
+        description: ""
+    notify_resource_GetPropertyStatisticsOutput:
+        description: ""
+        schema:
+            properties:
+                notify_resource:
+                    $ref: '#/definitions/StatusStatistic'
+            type: object
+    notify_resource_GetPropertyTagValuePairsOutput:
+        description: ""
+    notify_resource_GetPropertyTagValueTreeOutput:
+        description: ""
+    notify_resource_ListItemFilterOutput:
+        description: ""
+        schema:
+            properties:
+                limit:
+                    format: int64
+                    type: integer
+                    x-go-name: Limit
+                notify_resources:
+                    items:
+                        $ref: '#/definitions/EnabledStatusStandaloneResourceDetails'
+                    type: array
+                    x-go-name: Output
+                offset:
+                    format: int64
+                    type: integer
+                    x-go-name: Offset
+                total:
+                    format: int64
+                    type: integer
+                    x-go-name: Total
+            type: object
+    notify_resource_PerformClassMetadataOutput:
+        description: ""
+    notify_resource_PerformDisableOutput:
+        description: ""
+    notify_resource_PerformEnableOutput:
+        description: ""
+    notify_resource_PerformPurgeSplitableOutput:
+        description: ""
+    notify_resource_PerformSetClassMetadataOutput:
+        description: ""
+    notify_resource_PerformSetOrgMetadataOutput:
+        description: ""
+    notify_resource_PerformSetUserMetadataOutput:
+        description: ""
+    notify_resource_PerformStatusOutput:
+        description: ""
+    notify_resource_ValidateCreateDataOutput:
+        description: ""
+        schema:
+            properties:
+                notify_resource:
+                    $ref: '#/definitions/EnabledStatusStandaloneResourceDetails'
+            type: object
+    notify_resource_ValidateUpdateDataOutput:
+        description: ""
+        schema:
+            properties:
+                notify_resource:
+                    $ref: '#/definitions/EnabledStatusStandaloneResourceDetails'
             type: object
     receiver_CustomizeDeleteOutput:
         description: ""
@@ -9374,9 +12022,31 @@ responses:
             type: object
     receiver_GetPropertyDistinctFieldOutput:
         description: ""
-    receiver_GetPropertyDomainTagValuePairsOutput:
+    receiver_GetPropertyDistinctFieldsOutput:
         description: ""
-    receiver_GetPropertyDomainTagValueTreeOutput:
+    receiver_GetPropertyDomainStatisticsOutput:
+        description: ""
+        schema:
+            properties:
+                receiver:
+                    items:
+                        $ref: '#/definitions/ProjectStatistic'
+                    type: array
+                    x-go-name: Output
+            type: object
+    receiver_GetPropertyProjectStatisticsOutput:
+        description: ""
+        schema:
+            properties:
+                receiver:
+                    items:
+                        $ref: '#/definitions/ProjectStatistic'
+                    type: array
+                    x-go-name: Output
+            type: object
+    receiver_GetPropertyProjectTagValuePairsOutput:
+        description: ""
+    receiver_GetPropertyProjectTagValueTreeOutput:
         description: ""
     receiver_GetPropertyRoleContactTypeOutput:
         description: ""
@@ -9384,6 +12054,13 @@ responses:
         description: ""
     receiver_GetPropertySplitableOutput:
         description: ""
+    receiver_GetPropertyStatisticsOutput:
+        description: ""
+        schema:
+            properties:
+                receiver:
+                    $ref: '#/definitions/StatusStatistic'
+            type: object
     receiver_GetPropertyTagValuePairsOutput:
         description: ""
     receiver_GetPropertyTagValueTreeOutput:
@@ -9410,6 +12087,8 @@ responses:
                     type: integer
                     x-go-name: Total
             type: object
+    receiver_PerformCancelDeleteOutput:
+        description: ""
     receiver_PerformChangeOwnerOutput:
         description: ""
     receiver_PerformClassMetadataOutput:
@@ -9419,6 +12098,8 @@ responses:
     receiver_PerformEnableContactTypeOutput:
         description: ""
     receiver_PerformEnableOutput:
+        description: ""
+    receiver_PerformFreezeOutput:
         description: ""
     receiver_PerformGetSubscriptionOutput:
         description: ""
@@ -9442,6 +12123,8 @@ responses:
     receiver_PerformStatusOutput:
         description: ""
     receiver_PerformTriggerVerifyOutput:
+        description: ""
+    receiver_PerformUnfreezeOutput:
         description: ""
     receiver_PerformVerifyOutput:
         description: ""
@@ -9518,6 +12201,8 @@ responses:
                     $ref: '#/definitions/GetDetailsStatusOutput'
             type: object
     robot_GetPropertyDistinctFieldOutput:
+        description: ""
+    robot_GetPropertyDistinctFieldsOutput:
         description: ""
     robot_GetPropertyDomainStatisticsOutput:
         description: ""
@@ -9668,6 +12353,8 @@ responses:
             type: object
     subscriber_GetPropertyDistinctFieldOutput:
         description: ""
+    subscriber_GetPropertyDistinctFieldsOutput:
+        description: ""
     subscriber_GetPropertySplitableExportOutput:
         description: ""
     subscriber_GetPropertySplitableOutput:
@@ -9745,6 +12432,8 @@ responses:
                     $ref: '#/definitions/JointResourceBaseDetails'
             type: object
     subscriber_receiver_GetPropertyDistinctFieldOutput:
+        description: ""
+    subscriber_receiver_GetPropertyDistinctFieldsOutput:
         description: ""
     subscriber_receiver_GetPropertySplitableExportOutput:
         description: ""
@@ -9833,6 +12522,8 @@ responses:
                     x-go-name: Output
             type: object
     template_GetPropertyDistinctFieldOutput:
+        description: ""
+    template_GetPropertyDistinctFieldsOutput:
         description: ""
     template_GetPropertySplitableExportOutput:
         description: ""
@@ -9943,6 +12634,8 @@ responses:
             type: object
     topic_GetPropertyDistinctFieldOutput:
         description: ""
+    topic_GetPropertyDistinctFieldsOutput:
+        description: ""
     topic_GetPropertySplitableExportOutput:
         description: ""
     topic_GetPropertySplitableOutput:
@@ -9980,6 +12673,10 @@ responses:
                     type: integer
                     x-go-name: Total
             type: object
+    topic_PerformAddActionOutput:
+        description: ""
+    topic_PerformAddResourceOutput:
+        description: ""
     topic_PerformClassMetadataOutput:
         description: ""
     topic_PerformDisableOutput:
@@ -9987,6 +12684,10 @@ responses:
     topic_PerformEnableOutput:
         description: ""
     topic_PerformPurgeSplitableOutput:
+        description: ""
+    topic_PerformRemoveActionOutput:
+        description: ""
+    topic_PerformRemoveResourceOutput:
         description: ""
     topic_PerformSetClassMetadataOutput:
         description: ""
@@ -10009,6 +12710,126 @@ responses:
             properties:
                 topic:
                     $ref: '#/definitions/TopicDetails'
+            type: object
+    topic_action_CustomizeDeleteOutput:
+        description: ""
+        schema:
+            properties:
+                topic_action:
+                    $ref: '#/definitions/JointResourceBaseDetails'
+            type: object
+    topic_action_FetchCustomizeColumnsOutput:
+        description: ""
+        schema:
+            properties:
+                topic_action:
+                    $ref: '#/definitions/JointResourceBaseDetails'
+            type: object
+    topic_action_GetPropertyDistinctFieldOutput:
+        description: ""
+    topic_action_GetPropertyDistinctFieldsOutput:
+        description: ""
+    topic_action_GetPropertySplitableExportOutput:
+        description: ""
+    topic_action_GetPropertySplitableOutput:
+        description: ""
+    topic_action_ListItemFilterOutput:
+        description: ""
+        schema:
+            properties:
+                limit:
+                    format: int64
+                    type: integer
+                    x-go-name: Limit
+                offset:
+                    format: int64
+                    type: integer
+                    x-go-name: Offset
+                topic_actions:
+                    items:
+                        $ref: '#/definitions/JointResourceBaseDetails'
+                    type: array
+                    x-go-name: Output
+                total:
+                    format: int64
+                    type: integer
+                    x-go-name: Total
+            type: object
+    topic_action_PerformPurgeSplitableOutput:
+        description: ""
+    topic_action_ValidateCreateDataOutput:
+        description: ""
+        schema:
+            properties:
+                topic_action:
+                    $ref: '#/definitions/JointResourceBaseDetails'
+            type: object
+    topic_action_ValidateUpdateDataOutput:
+        description: ""
+        schema:
+            properties:
+                topic_action:
+                    $ref: '#/definitions/JointResourceBaseDetails'
+            type: object
+    topic_resource_CustomizeDeleteOutput:
+        description: ""
+        schema:
+            properties:
+                topic_resource:
+                    $ref: '#/definitions/JointResourceBaseDetails'
+            type: object
+    topic_resource_FetchCustomizeColumnsOutput:
+        description: ""
+        schema:
+            properties:
+                topic_resource:
+                    $ref: '#/definitions/JointResourceBaseDetails'
+            type: object
+    topic_resource_GetPropertyDistinctFieldOutput:
+        description: ""
+    topic_resource_GetPropertyDistinctFieldsOutput:
+        description: ""
+    topic_resource_GetPropertySplitableExportOutput:
+        description: ""
+    topic_resource_GetPropertySplitableOutput:
+        description: ""
+    topic_resource_ListItemFilterOutput:
+        description: ""
+        schema:
+            properties:
+                limit:
+                    format: int64
+                    type: integer
+                    x-go-name: Limit
+                offset:
+                    format: int64
+                    type: integer
+                    x-go-name: Offset
+                topic_resources:
+                    items:
+                        $ref: '#/definitions/JointResourceBaseDetails'
+                    type: array
+                    x-go-name: Output
+                total:
+                    format: int64
+                    type: integer
+                    x-go-name: Total
+            type: object
+    topic_resource_PerformPurgeSplitableOutput:
+        description: ""
+    topic_resource_ValidateCreateDataOutput:
+        description: ""
+        schema:
+            properties:
+                topic_resource:
+                    $ref: '#/definitions/JointResourceBaseDetails'
+            type: object
+    topic_resource_ValidateUpdateDataOutput:
+        description: ""
+        schema:
+            properties:
+                topic_resource:
+                    $ref: '#/definitions/JointResourceBaseDetails'
             type: object
 schemes:
     - https

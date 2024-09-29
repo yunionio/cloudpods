@@ -60,12 +60,12 @@ type StorageCreateInput struct {
 	// local: 本地存储
 	// rbd: ceph块存储, ceph存储创建时仅会检测是否重复创建，不会具体检测认证参数是否合法，只有挂载存储时
 	// 计算节点会验证参数，若挂载失败，宿主机和存储不会关联，可以通过查看存储日志查找挂载失败原因
-	// enum: local, rbd, nfs, gpfs
+	// enum: ["local", "rbd", "nfs", "gpfs"]
 	// required: true
 	StorageType string `json:"storage_type"`
 
 	// 存储介质类型
-	// enum: rotate, ssd, hybird
+	// enum: ["rotate", "ssd", "hybird"]
 	// required: true
 	// default: ssd
 	MediumType string `json:"medium_type"`

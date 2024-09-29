@@ -45,7 +45,7 @@ type NotificationCreateInput struct {
 	Topic string `json:"topic"`
 	// description: notification priority
 	// required: false
-	// enum: fatal,important,nomal
+	// enum: ["fatal","important","nomal"]
 	// example: normal
 	Priority string `json:"priority"`
 	// description: message content or jsonobject
@@ -108,7 +108,7 @@ type NotificationManagerEventNotifyInput struct {
 	ContactTypes []string `json:"contact_type"`
 	// description: notification priority
 	// required: false
-	// enum: fatal,important,nomal
+	// enum: ["fatal","important","nomal"]
 	// example: normal
 	Priority string `json:"priority"`
 	// description: resource details

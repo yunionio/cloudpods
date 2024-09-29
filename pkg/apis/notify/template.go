@@ -24,7 +24,7 @@ type TemplateCreateInput struct {
 	// example: email
 	ContactType string `json:"contact_type"`
 	// description: Template type
-	// enum: title,content,remote
+	// enum: ["title","content","remote"]
 	// example: title
 	TemplateType string `json:"template_type"`
 
@@ -42,7 +42,7 @@ type TemplateCreateInput struct {
 	// example: {"name": "centos7.6"}
 	Example string `json:"example"`
 	// description: Language
-	// enum: cn,en
+	// enum: ["cn","en"]
 	Lang string `json:"lang"`
 }
 
@@ -61,7 +61,7 @@ type TemplateListInput struct {
 	ContactType string `json:"contact_type"`
 
 	// description: Template type
-	// enum: title,content,remote
+	// enum: ["title","content","remote"]
 	// example: title
 	TemplateType string `json:"template_type"`
 
@@ -71,7 +71,7 @@ type TemplateListInput struct {
 	Topic string `json:"topic"`
 
 	// description: Language
-	// enum: cn,en
+	// enum: ["cn","en"]
 	Lang string `json:"lang"`
 }
 

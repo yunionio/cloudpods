@@ -482,7 +482,7 @@ paths:
                     - Ctyun
                     - S3
                     - Ceph
-                    - Xsky"
+                    - Xsky
                   in: query
                   items:
                     type: string
@@ -686,6 +686,16 @@ paths:
                 "200":
                     $ref: '#/responses/cloudevent_GetPropertyDistinctFieldOutput'
             summary: 获取指定资源类的信息DistinctField
+            tags:
+                - cloudevent
+    /cloudevents/distinct-fields:
+        get:
+            description: 获取指定资源类的信息DistinctFields
+            operationId: cloudevent_GetPropertyDistinctFields
+            responses:
+                "200":
+                    $ref: '#/responses/cloudevent_GetPropertyDistinctFieldsOutput'
+            summary: 获取指定资源类的信息DistinctFields
             tags:
                 - cloudevent
     /cloudevents/purge-splitable:
@@ -1302,6 +1312,16 @@ paths:
             summary: 获取指定资源类的信息DistinctField
             tags:
                 - cloudprovider
+    /cloudproviders/distinct-fields:
+        get:
+            description: 获取指定资源类的信息DistinctFields
+            operationId: cloudprovider_GetPropertyDistinctFields
+            responses:
+                "200":
+                    $ref: '#/responses/cloudprovider_GetPropertyDistinctFieldsOutput'
+            summary: 获取指定资源类的信息DistinctFields
+            tags:
+                - cloudprovider
     /cloudproviders/purge-splitable:
         post:
             description: 执行操作PurgeSplitable
@@ -1405,6 +1425,8 @@ responses:
             type: object
     cloudevent_GetPropertyDistinctFieldOutput:
         description: ""
+    cloudevent_GetPropertyDistinctFieldsOutput:
+        description: ""
     cloudevent_GetPropertySplitableExportOutput:
         description: ""
     cloudevent_GetPropertySplitableOutput:
@@ -1499,6 +1521,8 @@ responses:
                     $ref: '#/definitions/GetDetailsStatusOutput'
             type: object
     cloudprovider_GetPropertyDistinctFieldOutput:
+        description: ""
+    cloudprovider_GetPropertyDistinctFieldsOutput:
         description: ""
     cloudprovider_GetPropertySplitableExportOutput:
         description: ""

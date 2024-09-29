@@ -121,7 +121,7 @@ type NatgatewayCreateInput struct {
 	ExpiredAt time.Time `json:"expired_at"`
 
 	// 计费方式
-	// enum: postpaid, prepaid
+	// enum: ["postpaid", "prepaid"]
 	BillingType string `json:"billing_type"`
 	// swagger:ignore
 	BillingCycle string `json:"billing_cycle"`
@@ -138,7 +138,7 @@ type NatgatewayCreateInput struct {
 	EipBw int `json:"eip_bw,omitzero"`
 
 	// 弹性公网IP计费类型
-	// enum: bandwidth, traffic
+	// enum: ["bandwidth", "traffic"]
 	// default: traffic
 	EipChargeType    string `json:"eip_charge_type,omitempty"`
 	EipBgpType       string `json:"eip_bgp_type"`
