@@ -1013,7 +1013,7 @@ func (s *sPodGuestInstance) StopContainer(ctx context.Context, userCred mcclient
 		}
 		return nil, errors.Wrap(err, "get container cri id")
 	}
-	var timeout int64 = 15
+	var timeout int64 = 0
 	if body.Contains("timeout") {
 		timeout, _ = body.Int("timeout")
 	}
