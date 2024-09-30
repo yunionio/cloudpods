@@ -74,7 +74,7 @@ func (h cephFS) GetType() apis.ContainerVolumeMountType {
 
 func (d cephFS) InjectUsageTags(usage *ContainerVolumeMountUsage, vol *hostapi.ContainerVolumeMount) {
 	if vol.CephFS != nil {
-		usage.Tags["disk_id"] = vol.CephFS.Id
+		usage.Tags["cephfs_id"] = vol.CephFS.Id
 	}
 }
 
