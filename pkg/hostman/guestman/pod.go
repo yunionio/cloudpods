@@ -1150,6 +1150,13 @@ func (s *sPodGuestInstance) getContainersFilePath() string {
 }
 
 func (s *sPodGuestInstance) CreateContainer(ctx context.Context, userCred mcclient.TokenCredential, id string, input *hostapi.ContainerCreateInput) (jsonutils.JSONObject, error) {
+	// always pull image for checking
+	if _, err := s.PullImage(ctx, userCred, id, &hostapi.ContainerPullImageInput{
+		Image:      input.Spec.Image,
+		PullPolicy: input.Spec.ImagePullPolicy,
+	}); err != nil {
+		return nil, errors.Wrapf(err, "pull image %s", input.Spec.Image)
+	}
 	ctrCriId, err := s.createContainer(ctx, userCred, id, input)
 	if err != nil {
 		return nil, errors.Wrap(err, "CRI.CreateContainer")
