@@ -97,25 +97,25 @@ type CloudenvResourceListInput struct {
 	// swagger:ignore
 	// Deprecated
 	// description: this param will be deprecate at 3.0
-	PublicCloud bool `json:"public_cloud"`
+	PublicCloud *bool `json:"public_cloud"`
 	// swagger:ignore
 	// Deprecated
 	// description: this param will be deprecate at 3.0
-	IsPublic bool `json:"is_public"`
+	IsPublic *bool `json:"is_public"`
 
 	// swagger:ignore
 	// Deprecated
 	// description: this param will be deprecate at 3.0
-	PrivateCloud bool `json:"private_cloud"`
+	PrivateCloud *bool `json:"private_cloud"`
 	// swagger:ignore
 	// Deprecated
 	// description: this param will be deprecate at 3.0
-	IsPrivate bool `json:"is_private"`
+	IsPrivate *bool `json:"is_private"`
 
 	// swagger:ignore
 	// Deprecated
 	// description: this param will be deprecate at 3.0
-	IsOnPremise bool `json:"is_on_premise"`
+	IsOnPremise *bool `json:"is_on_premise"`
 
 	// 以平台名称排序
 	// pattern:asc|desc
