@@ -25,6 +25,19 @@ definitions:
                 x-go-name: Details
         type: object
         x-go-package: yunion.io/x/onecloud/pkg/httperrors
+    ParameterCloneInput:
+        properties:
+            dest_name:
+                type: string
+                x-go-name: DestName
+            dest_ns:
+                type: string
+                x-go-name: DestNs
+            dest_ns_id:
+                type: string
+                x-go-name: DestNsId
+        type: object
+        x-go-package: yunion.io/x/onecloud/pkg/apis/yunionconf
     PerformChangeDomainOwnerInput:
         properties:
             project_domain_id:
@@ -621,6 +634,31 @@ paths:
             summary: 更新
             tags:
                 - parameter
+    /parameters/{id}/clone:
+        post:
+            description: 执行操作Clone
+            operationId: parameter_PerformClone
+            parameters:
+                - description: The Id or Name of parameter
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        parameter:
+                            $ref: '#/definitions/ParameterCloneInput'
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/parameter_PerformCloneOutput'
+            summary: 执行操作Clone
+            tags:
+                - parameter
     /parameters/distinct-field:
         get:
             description: 获取指定资源类的信息DistinctField
@@ -629,6 +667,16 @@ paths:
                 "200":
                     $ref: '#/responses/parameter_GetPropertyDistinctFieldOutput'
             summary: 获取指定资源类的信息DistinctField
+            tags:
+                - parameter
+    /parameters/distinct-fields:
+        get:
+            description: 获取指定资源类的信息DistinctFields
+            operationId: parameter_GetPropertyDistinctFields
+            responses:
+                "200":
+                    $ref: '#/responses/parameter_GetPropertyDistinctFieldsOutput'
+            summary: 获取指定资源类的信息DistinctFields
             tags:
                 - parameter
     /parameters/purge-splitable:
@@ -1309,6 +1357,16 @@ paths:
             summary: 获取指定资源类的信息DistinctField
             tags:
                 - scopedpolicy
+    /scopedpolicies/distinct-fields:
+        get:
+            description: 获取指定资源类的信息DistinctFields
+            operationId: scopedpolicy_GetPropertyDistinctFields
+            responses:
+                "200":
+                    $ref: '#/responses/scopedpolicy_GetPropertyDistinctFieldsOutput'
+            summary: 获取指定资源类的信息DistinctFields
+            tags:
+                - scopedpolicy
     /scopedpolicies/domain-tag-value-pairs:
         get:
             description: 获取指定资源类的信息DomainTagValuePairs
@@ -1643,6 +1701,16 @@ paths:
             summary: 获取指定资源类的信息DistinctField
             tags:
                 - scopedpolicybinding
+    /scopedpolicybindings/distinct-fields:
+        get:
+            description: 获取指定资源类的信息DistinctFields
+            operationId: scopedpolicybinding_GetPropertyDistinctFields
+            responses:
+                "200":
+                    $ref: '#/responses/scopedpolicybinding_GetPropertyDistinctFieldsOutput'
+            summary: 获取指定资源类的信息DistinctFields
+            tags:
+                - scopedpolicybinding
     /scopedpolicybindings/purge-splitable:
         post:
             description: 执行操作PurgeSplitable
@@ -1716,6 +1784,8 @@ responses:
             type: object
     parameter_GetPropertyDistinctFieldOutput:
         description: ""
+    parameter_GetPropertyDistinctFieldsOutput:
+        description: ""
     parameter_GetPropertySplitableExportOutput:
         description: ""
     parameter_GetPropertySplitableOutput:
@@ -1742,6 +1812,8 @@ responses:
                     type: integer
                     x-go-name: Total
             type: object
+    parameter_PerformCloneOutput:
+        description: ""
     parameter_PerformPurgeSplitableOutput:
         description: ""
     parameter_ValidateCreateDataOutput:
@@ -1810,6 +1882,8 @@ responses:
                     x-go-name: Output
             type: object
     scopedpolicy_GetPropertyDistinctFieldOutput:
+        description: ""
+    scopedpolicy_GetPropertyDistinctFieldsOutput:
         description: ""
     scopedpolicy_GetPropertyDomainTagValuePairsOutput:
         description: ""
@@ -1892,6 +1966,8 @@ responses:
                     $ref: '#/definitions/ScopedPolicyBindingDetails'
             type: object
     scopedpolicybinding_GetPropertyDistinctFieldOutput:
+        description: ""
+    scopedpolicybinding_GetPropertyDistinctFieldsOutput:
         description: ""
     scopedpolicybinding_GetPropertySplitableExportOutput:
         description: ""

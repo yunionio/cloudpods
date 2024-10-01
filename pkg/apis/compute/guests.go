@@ -58,12 +58,12 @@ type ServerListInput struct {
 	// 只列出还有备份机的主机
 	Backup *bool `json:"bakcup"`
 	// 列出指定类型的主机
-	// enum: normal,gpu,usb,backup
+	// enum: ["normal","gpu","usb","backup"]
 	ServerType []string `json:"server_type"`
 	// 列出管理安全组为指定安全组的主机
 	AdminSecgroup string `json:"admin_security"`
 	// 列出Hypervisor为指定值的主机
-	// enum: kvm,esxi,baremetal,aliyun,azure,aws,huawei,ucloud,zstack,openstack,google,ctyun,cloudpods,ecloud,jdcloud,remotefile`
+	// enum: ["kvm","esxi","baremetal","aliyun","azure","aws","huawei","ucloud","zstack","openstack","google","ctyun","cloudpods","ecloud","jdcloud","remotefile"]
 	Hypervisor []string `json:"hypervisor"`
 	// 列出绑定了弹性IP（EIP）的主机
 	WithEip *bool `json:"with_eip"`
@@ -72,13 +72,13 @@ type ServerListInput struct {
 	// 列出可绑定弹性IP的主机
 	EipAssociable *bool `json:"eip_associable"`
 	// 列出操作系统为指定值的主机
-	// enum: linux,windows,vmware
+	// enum: ["linux","windows","vmware"]
 	OsType []string `json:"os_type"`
 	// 操作系统发行版
 	OsDist []string `json:"os_dist"`
 
 	// 对列表结果按照磁盘大小进行排序
-	// enum: asc,desc
+	// enum: ["asc","desc"]
 	OrderByDisk string `json:"order_by_disk"`
 
 	OrderByIp string `json:"order_by_ip"`
@@ -97,7 +97,7 @@ type ServerListInput struct {
 	Disk string `json:"disk" yunion-deprecated-by:"attachable_servers_for_disk"`
 
 	// 按主机资源类型进行排序
-	// enum: shared,prepaid,dedicated
+	// enum: ["shared","prepaid","dedicated"]
 	ResourceType string `json:"resource_type"`
 	// 返回该宿主机上的所有虚拟机，包括备份机
 	GetAllGuestsOnHost string `json:"get_all_guests_on_host"`

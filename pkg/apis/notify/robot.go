@@ -25,7 +25,7 @@ type RobotCreateInput struct {
 	apis.SharableVirtualResourceCreateInput
 	apis.EnabledBaseResourceCreateInput
 	// description: robot type
-	// enum: feishu,dingtalk,workwx,webhook
+	// enum: ["feishu","dingtalk","workwx","webhook"]
 	// example: webhook
 	Type string `json:"type"`
 	// description: address
@@ -48,7 +48,7 @@ type RobotListInput struct {
 	apis.SharableVirtualResourceListInput
 	apis.EnabledResourceBaseListInput
 	// description: robot type
-	// enum: feishu,dingtalk,workwx,webhook
+	// enum: ["feishu","dingtalk","workwx","webhook"]
 	// example: webhook
 	Type string `json:"type"`
 	// description: Language preference

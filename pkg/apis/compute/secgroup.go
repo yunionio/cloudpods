@@ -42,7 +42,7 @@ type SSecgroupRuleResource struct {
 	// | tcp      | TCP     |
 	// | icmp     | ICMP    |
 	// | udp      | UDP     |
-	// enum: any, tcp, udp, icmp
+	// enum: ["any", "tcp", "udp", "icmp"]
 	Protocol string `json:"protocol"`
 
 	// 端口列表, 参数为空代表任意端口
@@ -62,7 +62,7 @@ type SSecgroupRuleResource struct {
 	PortEnd int
 
 	// 方向
-	// enum: in, out
+	// enum: ["in", "out"]
 	// required: true
 	Direction string `json:"direction"`
 
@@ -73,7 +73,7 @@ type SSecgroupRuleResource struct {
 	// 行为
 	// deny: 拒绝
 	// allow: 允许
-	// enum: deny, allow
+	// enum: ["deny", "allow"]
 	// required: true
 	Action string `json:"action"`
 
@@ -120,13 +120,13 @@ type SSecgroupRuleUpdateInput struct {
 	// | tcp      | TCP     |
 	// | icmp     | ICMP    |
 	// | udp      | UDP     |
-	// enum: any, tcp, udp, icmp
+	// enum: ["any", "tcp", "udp", "icmp"]
 	Protocol *string `json:"protocol"`
 
 	// 行为
 	// deny: 拒绝
 	// allow: 允许
-	// enum: deny, allow
+	// enum: ["deny", "allow"]
 	// required: true
 	Action *string `json:"action"`
 

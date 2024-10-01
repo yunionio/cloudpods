@@ -57,18 +57,18 @@ type ScalingGroupCreateInput struct {
 	GuestTemplateId string `json:"guest_template_id"`
 
 	// description: 扩容策略
-	// enum: balanced
+	// enum: ["balanced"]
 	// required: false
 	// example: balanced
 	ExpansionPrinciple string `json:"expansion_principle"`
 
 	// description: 缩容策略
-	// enum: earliest,latest,config_earliest,config_latest
+	// enum: ["earliest","latest","config_earliest","config_latest"]
 	// example: latest
 	ShrinkPrinciple string `json:"shrink_principle"`
 
 	// description: 检查健康模式
-	// enum: normal,loadbalancer
+	// enum: ["normal","loadbalancer"]
 	// example: normal
 	HealthCheckMode string `json:"health_check_mode"`
 

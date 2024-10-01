@@ -66,7 +66,7 @@ type CloudenvResourceListInput struct {
 	// | Ceph      | 2.11       | Ceph对象存储                         |
 	// | Xsky      | 2.11       | XSKY启明星辰Ceph对象存储              |
 	//
-	// enum: OneCloud,VMware,Aliyun,Qcloud,Azure,Aws,Huawei,OpenStack,Ucloud,ZStack,Google,Ctyun,S3,Ceph,Xsky"
+	// enum: ["OneCloud","VMware","Aliyun","Qcloud","Azure","Aws","Huawei","OpenStack","Ucloud","ZStack","Google","Ctyun","S3","Ceph","Xsky"]
 	Providers []string `json:"providers"`
 	// swagger:ignore
 	// Deprecated
@@ -91,7 +91,7 @@ type CloudenvResourceListInput struct {
 	// | private   | 私有云  |
 	// | onpremise | 本地IDC |
 	//
-	// enum: public,private,onpremise
+	// enum: ["public","private","onpremise"]
 	CloudEnv string `json:"cloud_env"`
 
 	// swagger:ignore
@@ -146,7 +146,7 @@ type CloudaccountCreateInput struct {
 	// 指定云平台
 	// Qcloud: 腾讯云
 	// Ctyun: 天翼云
-	// enum: VMware, Aliyun, Qcloud, Azure, Aws, Huawei, OpenStack, Ucloud, ZStack, Google, Ctyun, JDcloud
+	// enum: ["VMware", "Aliyun", "Qcloud", "Azure", "Aws", "Huawei", "OpenStack", "Ucloud", "ZStack", "Google", "Ctyun", "JDcloud"]
 	Provider string `json:"provider"`
 	// swagger:ignore
 	AccountId string

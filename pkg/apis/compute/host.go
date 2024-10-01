@@ -134,7 +134,7 @@ type HostListInput struct {
 	OsArch          []string `json:"os_arch"`
 
 	// 按虚拟机数量排序
-	// enum: asc,desc
+	// enum: ["asc","desc"]
 	OrderByServerCount string `json:"order_by_server_count"`
 	// 按存储大小排序
 	// enmu: asc,desc

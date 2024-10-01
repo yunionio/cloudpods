@@ -253,7 +253,7 @@ type NetworkCreateInput struct {
 	Vpc string `json:"vpc"`
 
 	// description: server type
-	// enum: guest,baremetal,pxe,ipmi,hostlocal
+	// enum: ["guest","baremetal","pxe","ipmi","hostlocal"]
 	// default: guest
 	ServerType TNetworkType `json:"server_type"`
 

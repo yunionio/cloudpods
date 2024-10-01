@@ -25,7 +25,7 @@ type TimerCreateInput struct {
 type CycleTimerCreateInput struct {
 
 	// description: 周期类型
-	// enum: day,week,month
+	// enum: ["day","week","month"]
 	CycleType string `json:"cycle_type"`
 
 	CycleHour int `json:"cycle_hour"`
@@ -64,17 +64,17 @@ type ScalingAlarmCreateInput struct {
 
 	// description: 监控指标
 	// example: cpu
-	// enum: cpu,disk_read,disk_write,flow_into,flow_out
+	// enum: ["cpu","disk_read","disk_write","flow_into","flow_out"]
 	Indicator string `json:"indicator"`
 
 	// description: 监控指标的取值方式(比如最大值，最小值，平均值)
 	// example: max
-	// enum: max,min,average
+	// enum: ["max","min","average"]
 	Wrapper string `json:"wrapper"`
 
 	// descripion: 监控指标的比较符
 	// example: ge
-	// enum: ge,le
+	// enum: ["ge","le"]
 	Operator string `json:"operator"`
 
 	// description: 监控指标的取值

@@ -86,7 +86,7 @@ type DBInstanceCreateInput struct {
 	ExpiredAt time.Time `json:"expired_at"`
 
 	// 计费方式
-	// enum: postpaid, prepaid
+	// enum: ["postpaid", "prepaid"]
 	BillingType string
 	// swagger:ignore
 	BillingCycle string
@@ -96,7 +96,7 @@ type DBInstanceCreateInput struct {
 	InstanceType string `json:"instance_type"`
 
 	// rds引擎
-	// enum: MySQL, SQLServer, PostgreSQL, MariaDB, Oracle, PPAS
+	// enum: ["MySQL", "SQLServer", "PostgreSQL", "MariaDB", "Oracle", "PPAS"]
 	// required: true
 	Engine string `json:"engine"`
 

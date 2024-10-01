@@ -3121,6 +3121,9 @@ definitions:
         x-go-package: yunion.io/x/onecloud/pkg/keystone/models
     SJoinProjectsInput:
         properties:
+            Enabled:
+                description: 启用用户, 仅用户禁用时生效
+                type: boolean
             projects:
                 items:
                     type: string
@@ -3143,26 +3146,7 @@ definitions:
         type: object
         x-go-package: yunion.io/x/onecloud/pkg/apis/identity
     SOrganizationDetails:
-        description: +onecloud:model-api-gen
         properties:
-            Enabled:
-                $ref: '#/definitions/TriState'
-            Extra:
-                description: 额外信息
-                type: object
-            IsPublic:
-                description: 是否共享
-                type: boolean
-            Keys:
-                type: string
-            Level:
-                format: int64
-                type: integer
-            PublicScope:
-                description: 默认共享范围
-                type: string
-            Type:
-                $ref: '#/definitions/TOrgType'
             can_delete:
                 description: 资源是否可以删除, 若为flase, delete_fail_reason会返回不能删除的原因
                 example: true
@@ -3197,6 +3181,14 @@ definitions:
                 description: 域Id
                 type: string
                 x-go-name: DomainId
+            enabled:
+                description: 资源是否启用
+                type: boolean
+                x-go-name: Enabled
+            extra:
+                description: 额外信息
+                type: object
+                x-go-name: Extra
             id:
                 description: 资源UUID
                 type: string
@@ -3207,6 +3199,17 @@ definitions:
                     list 接口默认不会返回这类资源，除非显示指定 is_emulate=true 过滤参数
                 type: boolean
                 x-go-name: IsEmulated
+            is_public:
+                description: 是否共享
+                type: boolean
+                x-go-name: IsPublic
+            keys:
+                type: string
+                x-go-name: Keys
+            level:
+                format: int64
+                type: integer
+                x-go-name: Level
             metadata:
                 additionalProperties:
                     type: string
@@ -3235,6 +3238,10 @@ definitions:
                 description: 资源归属项目的域名称
                 type: string
                 x-go-name: ProjectDomain
+            public_scope:
+                description: 默认共享范围
+                type: string
+                x-go-name: PublicScope
             public_src:
                 description: '共享设置的来源, local: 本地设置, cloud: 从云上同步过来'
                 example: local
@@ -3256,6 +3263,9 @@ definitions:
                 description: 资源状态
                 type: string
                 x-go-name: Status
+            type:
+                type: string
+                x-go-name: Type
             update_fail_reason:
                 $ref: '#/definitions/Error'
             update_version:
@@ -3269,7 +3279,7 @@ definitions:
                 type: string
                 x-go-name: UpdatedAt
         type: object
-        x-go-package: yunion.io/x/onecloud/pkg/keystone/models
+        x-go-package: yunion.io/x/onecloud/pkg/apis/identity
     SOrganizationNodeDetails:
         properties:
             can_delete:
@@ -3384,6 +3394,8 @@ definitions:
         x-go-package: yunion.io/x/onecloud/pkg/apis/identity
     SProjectAddUserGroupInput:
         properties:
+            EnableAllUsers:
+                type: boolean
             Groups:
                 items:
                     type: string
@@ -3506,6 +3518,18 @@ definitions:
                 x-go-name: Value
         type: object
         x-go-package: yunion.io/x/onecloud/pkg/util/tagutils
+    SUserGroup:
+        properties:
+            Domain:
+                type: string
+            DomainId:
+                type: string
+            Id:
+                type: string
+            Name:
+                type: string
+        type: object
+        x-go-package: yunion.io/x/onecloud/pkg/apis/identity
     SUserRole:
         properties:
             Role:
@@ -3920,9 +3944,6 @@ definitions:
                 $ref: '#/definitions/KeystoneTokenV3'
         type: object
         x-go-package: yunion.io/x/onecloud/pkg/mcclient
-    TriState:
-        type: string
-        x-go-package: yunion.io/x/pkg/tristate
     UserCreateInput:
         properties:
             __meta__:
@@ -4109,6 +4130,12 @@ definitions:
                 format: int64
                 type: integer
                 x-go-name: GroupCount
+            groups:
+                description: 用户归属的组
+                items:
+                    $ref: '#/definitions/SUserGroup'
+                type: array
+                x-go-name: Groups
             id:
                 description: 资源UUID
                 type: string
@@ -4771,6 +4798,16 @@ paths:
             summary: 获取指定资源类的信息DistinctField
             tags:
                 - credential
+    /credentials/distinct-fields:
+        get:
+            description: 获取指定资源类的信息DistinctFields
+            operationId: credential_GetPropertyDistinctFields
+            responses:
+                "200":
+                    $ref: '#/responses/credential_GetPropertyDistinctFieldsOutput'
+            summary: 获取指定资源类的信息DistinctFields
+            tags:
+                - credential
     /credentials/purge-splitable:
         post:
             description: 执行操作PurgeSplitable
@@ -5346,6 +5383,16 @@ paths:
             summary: 获取指定资源类的信息DistinctField
             tags:
                 - domain
+    /domains/distinct-fields:
+        get:
+            description: 获取指定资源类的信息DistinctFields
+            operationId: domain_GetPropertyDistinctFields
+            responses:
+                "200":
+                    $ref: '#/responses/domain_GetPropertyDistinctFieldsOutput'
+            summary: 获取指定资源类的信息DistinctFields
+            tags:
+                - domain
     /domains/purge-splitable:
         post:
             description: 执行操作PurgeSplitable
@@ -5883,6 +5930,16 @@ paths:
                 "200":
                     $ref: '#/responses/endpoint_GetPropertyDistinctFieldOutput'
             summary: 获取指定资源类的信息DistinctField
+            tags:
+                - endpoint
+    /endpoints/distinct-fields:
+        get:
+            description: 获取指定资源类的信息DistinctFields
+            operationId: endpoint_GetPropertyDistinctFields
+            responses:
+                "200":
+                    $ref: '#/responses/endpoint_GetPropertyDistinctFieldsOutput'
+            summary: 获取指定资源类的信息DistinctFields
             tags:
                 - endpoint
     /endpoints/purge-splitable:
@@ -6572,6 +6629,16 @@ paths:
                 "200":
                     $ref: '#/responses/group_GetPropertyDistinctFieldOutput'
             summary: 获取指定资源类的信息DistinctField
+            tags:
+                - group
+    /groups/distinct-fields:
+        get:
+            description: 获取指定资源类的信息DistinctFields
+            operationId: group_GetPropertyDistinctFields
+            responses:
+                "200":
+                    $ref: '#/responses/group_GetPropertyDistinctFieldsOutput'
+            summary: 获取指定资源类的信息DistinctFields
             tags:
                 - group
     /groups/domain-tag-value-pairs:
@@ -7455,6 +7522,16 @@ paths:
             summary: 获取指定资源类的信息DistinctField
             tags:
                 - identity_provider
+    /identity_providers/distinct-fields:
+        get:
+            description: 获取指定资源类的信息DistinctFields
+            operationId: identity_provider_GetPropertyDistinctFields
+            responses:
+                "200":
+                    $ref: '#/responses/identity_provider_GetPropertyDistinctFieldsOutput'
+            summary: 获取指定资源类的信息DistinctFields
+            tags:
+                - identity_provider
     /identity_providers/purge-splitable:
         post:
             description: 执行操作PurgeSplitable
@@ -8152,6 +8229,16 @@ paths:
                 "200":
                     $ref: '#/responses/organization_node_GetPropertyDistinctFieldOutput'
             summary: 获取指定资源类的信息DistinctField
+            tags:
+                - organization_node
+    /organization_nodes/distinct-fields:
+        get:
+            description: 获取指定资源类的信息DistinctFields
+            operationId: organization_node_GetPropertyDistinctFields
+            responses:
+                "200":
+                    $ref: '#/responses/organization_node_GetPropertyDistinctFieldsOutput'
+            summary: 获取指定资源类的信息DistinctFields
             tags:
                 - organization_node
     /organization_nodes/purge-splitable:
@@ -8917,6 +9004,16 @@ paths:
             summary: 获取指定资源类的信息DistinctField
             tags:
                 - organization
+    /organizations/distinct-fields:
+        get:
+            description: 获取指定资源类的信息DistinctFields
+            operationId: organization_GetPropertyDistinctFields
+            responses:
+                "200":
+                    $ref: '#/responses/organization_GetPropertyDistinctFieldsOutput'
+            summary: 获取指定资源类的信息DistinctFields
+            tags:
+                - organization
     /organizations/domain-tag-value-pairs:
         get:
             description: 获取指定资源类的信息DomainTagValuePairs
@@ -9665,6 +9762,16 @@ paths:
             summary: 获取指定资源类的信息DistinctField
             tags:
                 - policy
+    /policies/distinct-fields:
+        get:
+            description: 获取指定资源类的信息DistinctFields
+            operationId: policy_GetPropertyDistinctFields
+            responses:
+                "200":
+                    $ref: '#/responses/policy_GetPropertyDistinctFieldsOutput'
+            summary: 获取指定资源类的信息DistinctFields
+            tags:
+                - policy
     /policies/domain-tag-value-pairs:
         get:
             description: 获取指定资源类的信息DomainTagValuePairs
@@ -10385,6 +10492,16 @@ paths:
             summary: 获取指定资源类的信息DistinctField
             tags:
                 - project
+    /projects/distinct-fields:
+        get:
+            description: 获取指定资源类的信息DistinctFields
+            operationId: project_GetPropertyDistinctFields
+            responses:
+                "200":
+                    $ref: '#/responses/project_GetPropertyDistinctFieldsOutput'
+            summary: 获取指定资源类的信息DistinctFields
+            tags:
+                - project
     /projects/domain-tag-value-pairs:
         get:
             description: 获取指定资源类的信息DomainTagValuePairs
@@ -10922,6 +11039,16 @@ paths:
             summary: 获取指定资源类的信息DistinctField
             tags:
                 - region
+    /regions/distinct-fields:
+        get:
+            description: 获取指定资源类的信息DistinctFields
+            operationId: region_GetPropertyDistinctFields
+            responses:
+                "200":
+                    $ref: '#/responses/region_GetPropertyDistinctFieldsOutput'
+            summary: 获取指定资源类的信息DistinctFields
+            tags:
+                - region
     /regions/purge-splitable:
         post:
             description: 执行操作PurgeSplitable
@@ -11216,6 +11343,16 @@ paths:
                 "200":
                     $ref: '#/responses/role_policy_GetPropertyDistinctFieldOutput'
             summary: 获取指定资源类的信息DistinctField
+            tags:
+                - role_policy
+    /role_policies/distinct-fields:
+        get:
+            description: 获取指定资源类的信息DistinctFields
+            operationId: role_policy_GetPropertyDistinctFields
+            responses:
+                "200":
+                    $ref: '#/responses/role_policy_GetPropertyDistinctFieldsOutput'
+            summary: 获取指定资源类的信息DistinctFields
             tags:
                 - role_policy
     /role_policies/purge-splitable:
@@ -11922,6 +12059,16 @@ paths:
             summary: 获取指定资源类的信息DistinctField
             tags:
                 - role
+    /roles/distinct-fields:
+        get:
+            description: 获取指定资源类的信息DistinctFields
+            operationId: role_GetPropertyDistinctFields
+            responses:
+                "200":
+                    $ref: '#/responses/role_GetPropertyDistinctFieldsOutput'
+            summary: 获取指定资源类的信息DistinctFields
+            tags:
+                - role
     /roles/domain-tag-value-pairs:
         get:
             description: 获取指定资源类的信息DomainTagValuePairs
@@ -12218,6 +12365,16 @@ paths:
                 "200":
                     $ref: '#/responses/scope_resource_GetPropertyDistinctFieldOutput'
             summary: 获取指定资源类的信息DistinctField
+            tags:
+                - scope_resource
+    /scope_resources/distinct-fields:
+        get:
+            description: 获取指定资源类的信息DistinctFields
+            operationId: scope_resource_GetPropertyDistinctFields
+            responses:
+                "200":
+                    $ref: '#/responses/scope_resource_GetPropertyDistinctFieldsOutput'
+            summary: 获取指定资源类的信息DistinctFields
             tags:
                 - scope_resource
     /scope_resources/purge-splitable:
@@ -12707,6 +12864,16 @@ paths:
                 "200":
                     $ref: '#/responses/service_certificate_GetPropertyDistinctFieldOutput'
             summary: 获取指定资源类的信息DistinctField
+            tags:
+                - service_certificate
+    /service_certificates/distinct-fields:
+        get:
+            description: 获取指定资源类的信息DistinctFields
+            operationId: service_certificate_GetPropertyDistinctFields
+            responses:
+                "200":
+                    $ref: '#/responses/service_certificate_GetPropertyDistinctFieldsOutput'
+            summary: 获取指定资源类的信息DistinctFields
             tags:
                 - service_certificate
     /service_certificates/purge-splitable:
@@ -13293,6 +13460,16 @@ paths:
             summary: 获取指定资源类的信息DistinctField
             tags:
                 - service
+    /services/distinct-fields:
+        get:
+            description: 获取指定资源类的信息DistinctFields
+            operationId: service_GetPropertyDistinctFields
+            responses:
+                "200":
+                    $ref: '#/responses/service_GetPropertyDistinctFieldsOutput'
+            summary: 获取指定资源类的信息DistinctFields
+            tags:
+                - service
     /services/purge-splitable:
         post:
             description: 执行操作PurgeSplitable
@@ -13815,6 +13992,16 @@ paths:
                 "200":
                     $ref: '#/responses/token_cache_GetPropertyDistinctFieldOutput'
             summary: 获取指定资源类的信息DistinctField
+            tags:
+                - token_cache
+    /token_caches/distinct-fields:
+        get:
+            description: 获取指定资源类的信息DistinctFields
+            operationId: token_cache_GetPropertyDistinctFields
+            responses:
+                "200":
+                    $ref: '#/responses/token_cache_GetPropertyDistinctFieldsOutput'
+            summary: 获取指定资源类的信息DistinctFields
             tags:
                 - token_cache
     /token_caches/purge-splitable:
@@ -14631,6 +14818,16 @@ paths:
             summary: 获取指定资源类的信息DistinctField
             tags:
                 - user
+    /users/distinct-fields:
+        get:
+            description: 获取指定资源类的信息DistinctFields
+            operationId: user_GetPropertyDistinctFields
+            responses:
+                "200":
+                    $ref: '#/responses/user_GetPropertyDistinctFieldsOutput'
+            summary: 获取指定资源类的信息DistinctFields
+            tags:
+                - user
     /users/domain-tag-value-pairs:
         get:
             description: 获取指定资源类的信息DomainTagValuePairs
@@ -14851,6 +15048,8 @@ responses:
             type: object
     credential_GetPropertyDistinctFieldOutput:
         description: ""
+    credential_GetPropertyDistinctFieldsOutput:
+        description: ""
     credential_GetPropertySplitableExportOutput:
         description: ""
     credential_GetPropertySplitableOutput:
@@ -14950,6 +15149,8 @@ responses:
                     x-go-name: Output
             type: object
     domain_GetPropertyDistinctFieldOutput:
+        description: ""
+    domain_GetPropertyDistinctFieldsOutput:
         description: ""
     domain_GetPropertySplitableExportOutput:
         description: ""
@@ -15053,6 +15254,8 @@ responses:
             type: object
     endpoint_GetPropertyDistinctFieldOutput:
         description: ""
+    endpoint_GetPropertyDistinctFieldsOutput:
+        description: ""
     endpoint_GetPropertySplitableExportOutput:
         description: ""
     endpoint_GetPropertySplitableOutput:
@@ -15152,6 +15355,8 @@ responses:
                     x-go-name: Output
             type: object
     group_GetPropertyDistinctFieldOutput:
+        description: ""
+    group_GetPropertyDistinctFieldsOutput:
         description: ""
     group_GetPropertyDomainTagValuePairsOutput:
         description: ""
@@ -15294,6 +15499,8 @@ responses:
                     $ref: '#/definitions/GetDetailsStatusOutput'
             type: object
     identity_provider_GetPropertyDistinctFieldOutput:
+        description: ""
+    identity_provider_GetPropertyDistinctFieldsOutput:
         description: ""
     identity_provider_GetPropertySplitableExportOutput:
         description: ""
@@ -15451,6 +15658,8 @@ responses:
             type: object
     organization_GetPropertyDistinctFieldOutput:
         description: ""
+    organization_GetPropertyDistinctFieldsOutput:
+        description: ""
     organization_GetPropertyDomainTagValuePairsOutput:
         description: ""
     organization_GetPropertyDomainTagValueTreeOutput:
@@ -15567,6 +15776,8 @@ responses:
             type: object
     organization_node_GetPropertyDistinctFieldOutput:
         description: ""
+    organization_node_GetPropertyDistinctFieldsOutput:
+        description: ""
     organization_node_GetPropertySplitableExportOutput:
         description: ""
     organization_node_GetPropertySplitableOutput:
@@ -15670,6 +15881,8 @@ responses:
                     x-go-name: Output
             type: object
     policy_GetPropertyDistinctFieldOutput:
+        description: ""
+    policy_GetPropertyDistinctFieldsOutput:
         description: ""
     policy_GetPropertyDomainTagValuePairsOutput:
         description: ""
@@ -15785,6 +15998,8 @@ responses:
             type: object
     project_GetPropertyDistinctFieldOutput:
         description: ""
+    project_GetPropertyDistinctFieldsOutput:
+        description: ""
     project_GetPropertyDomainTagValuePairsOutput:
         description: ""
     project_GetPropertyDomainTagValueTreeOutput:
@@ -15897,6 +16112,8 @@ responses:
             type: object
     region_GetPropertyDistinctFieldOutput:
         description: ""
+    region_GetPropertyDistinctFieldsOutput:
+        description: ""
     region_GetPropertySplitableExportOutput:
         description: ""
     region_GetPropertySplitableOutput:
@@ -15997,6 +16214,8 @@ responses:
             type: object
     role_GetPropertyDistinctFieldOutput:
         description: ""
+    role_GetPropertyDistinctFieldsOutput:
+        description: ""
     role_GetPropertyDomainTagValuePairsOutput:
         description: ""
     role_GetPropertyDomainTagValueTreeOutput:
@@ -16081,6 +16300,8 @@ responses:
             type: object
     role_policy_GetPropertyDistinctFieldOutput:
         description: ""
+    role_policy_GetPropertyDistinctFieldsOutput:
+        description: ""
     role_policy_GetPropertySplitableExportOutput:
         description: ""
     role_policy_GetPropertySplitableOutput:
@@ -16138,6 +16359,8 @@ responses:
                     $ref: '#/definitions/ModelBaseDetails'
             type: object
     scope_resource_GetPropertyDistinctFieldOutput:
+        description: ""
+    scope_resource_GetPropertyDistinctFieldsOutput:
         description: ""
     scope_resource_GetPropertySplitableExportOutput:
         description: ""
@@ -16228,6 +16451,8 @@ responses:
                     x-go-name: Output
             type: object
     service_GetPropertyDistinctFieldOutput:
+        description: ""
+    service_GetPropertyDistinctFieldsOutput:
         description: ""
     service_GetPropertySplitableExportOutput:
         description: ""
@@ -16331,6 +16556,8 @@ responses:
             type: object
     service_certificate_GetPropertyDistinctFieldOutput:
         description: ""
+    service_certificate_GetPropertyDistinctFieldsOutput:
+        description: ""
     service_certificate_GetPropertySplitableExportOutput:
         description: ""
     service_certificate_GetPropertySplitableOutput:
@@ -16430,6 +16657,8 @@ responses:
                     x-go-name: Output
             type: object
     token_cache_GetPropertyDistinctFieldOutput:
+        description: ""
+    token_cache_GetPropertyDistinctFieldsOutput:
         description: ""
     token_cache_GetPropertySplitableExportOutput:
         description: ""
@@ -16544,6 +16773,8 @@ responses:
                     x-go-name: Output
             type: object
     user_GetPropertyDistinctFieldOutput:
+        description: ""
+    user_GetPropertyDistinctFieldsOutput:
         description: ""
     user_GetPropertyDomainTagValuePairsOutput:
         description: ""

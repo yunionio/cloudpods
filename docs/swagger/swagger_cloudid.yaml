@@ -2605,6 +2605,16 @@ paths:
             summary: 获取指定资源类的信息DistinctField
             tags:
                 - cloudgroup
+    /cloudgroups/distinct-fields:
+        get:
+            description: 获取指定资源类的信息DistinctFields
+            operationId: cloudgroup_GetPropertyDistinctFields
+            responses:
+                "200":
+                    $ref: '#/responses/cloudgroup_GetPropertyDistinctFieldsOutput'
+            summary: 获取指定资源类的信息DistinctFields
+            tags:
+                - cloudgroup
     /cloudgroups/domain-tag-value-pairs:
         get:
             description: 获取指定资源类的信息DomainTagValuePairs
@@ -3339,6 +3349,16 @@ paths:
                 "200":
                     $ref: '#/responses/cloudpolicy_GetPropertyDistinctFieldOutput'
             summary: 获取指定资源类的信息DistinctField
+            tags:
+                - cloudpolicy
+    /cloudpolicies/distinct-fields:
+        get:
+            description: 获取指定资源类的信息DistinctFields
+            operationId: cloudpolicy_GetPropertyDistinctFields
+            responses:
+                "200":
+                    $ref: '#/responses/cloudpolicy_GetPropertyDistinctFieldsOutput'
+            summary: 获取指定资源类的信息DistinctFields
             tags:
                 - cloudpolicy
     /cloudpolicies/domain-tag-value-pairs:
@@ -4155,6 +4175,16 @@ paths:
                 "200":
                     $ref: '#/responses/cloudrole_GetPropertyDistinctFieldOutput'
             summary: 获取指定资源类的信息DistinctField
+            tags:
+                - cloudrole
+    /cloudroles/distinct-fields:
+        get:
+            description: 获取指定资源类的信息DistinctFields
+            operationId: cloudrole_GetPropertyDistinctFields
+            responses:
+                "200":
+                    $ref: '#/responses/cloudrole_GetPropertyDistinctFieldsOutput'
+            summary: 获取指定资源类的信息DistinctFields
             tags:
                 - cloudrole
     /cloudroles/domain-tag-value-pairs:
@@ -5116,6 +5146,16 @@ paths:
             summary: 获取指定资源类的信息DistinctField
             tags:
                 - clouduser
+    /cloudusers/distinct-fields:
+        get:
+            description: 获取指定资源类的信息DistinctFields
+            operationId: clouduser_GetPropertyDistinctFields
+            responses:
+                "200":
+                    $ref: '#/responses/clouduser_GetPropertyDistinctFieldsOutput'
+            summary: 获取指定资源类的信息DistinctFields
+            tags:
+                - clouduser
     /cloudusers/domain-tag-value-pairs:
         get:
             description: 获取指定资源类的信息DomainTagValuePairs
@@ -5867,6 +5907,16 @@ paths:
             summary: 获取指定资源类的信息DistinctField
             tags:
                 - saml_provider
+    /saml_providers/distinct-fields:
+        get:
+            description: 获取指定资源类的信息DistinctFields
+            operationId: saml_provider_GetPropertyDistinctFields
+            responses:
+                "200":
+                    $ref: '#/responses/saml_provider_GetPropertyDistinctFieldsOutput'
+            summary: 获取指定资源类的信息DistinctFields
+            tags:
+                - saml_provider
     /saml_providers/domain-tag-value-pairs:
         get:
             description: 获取指定资源类的信息DomainTagValuePairs
@@ -6573,6 +6623,16 @@ paths:
             summary: 获取指定资源类的信息DistinctField
             tags:
                 - samluser
+    /samlusers/distinct-fields:
+        get:
+            description: 获取指定资源类的信息DistinctFields
+            operationId: samluser_GetPropertyDistinctFields
+            responses:
+                "200":
+                    $ref: '#/responses/samluser_GetPropertyDistinctFieldsOutput'
+            summary: 获取指定资源类的信息DistinctFields
+            tags:
+                - samluser
     /samlusers/domain-tag-value-pairs:
         get:
             description: 获取指定资源类的信息DomainTagValuePairs
@@ -6737,6 +6797,8 @@ responses:
             type: object
     cloudgroup_GetPropertyDistinctFieldOutput:
         description: ""
+    cloudgroup_GetPropertyDistinctFieldsOutput:
+        description: ""
     cloudgroup_GetPropertyDomainTagValuePairsOutput:
         description: ""
     cloudgroup_GetPropertyDomainTagValueTreeOutput:
@@ -6884,6 +6946,8 @@ responses:
             type: object
     cloudpolicy_GetPropertyDistinctFieldOutput:
         description: ""
+    cloudpolicy_GetPropertyDistinctFieldsOutput:
+        description: ""
     cloudpolicy_GetPropertyDomainTagValuePairsOutput:
         description: ""
     cloudpolicy_GetPropertyDomainTagValueTreeOutput:
@@ -7002,6 +7066,8 @@ responses:
                     $ref: '#/definitions/GetDetailsStatusOutput'
             type: object
     cloudrole_GetPropertyDistinctFieldOutput:
+        description: ""
+    cloudrole_GetPropertyDistinctFieldsOutput:
         description: ""
     cloudrole_GetPropertyDomainTagValuePairsOutput:
         description: ""
@@ -7142,6 +7208,8 @@ responses:
             type: object
     clouduser_GetPropertyDistinctFieldOutput:
         description: ""
+    clouduser_GetPropertyDistinctFieldsOutput:
+        description: ""
     clouduser_GetPropertyDomainTagValuePairsOutput:
         description: ""
     clouduser_GetPropertyDomainTagValueTreeOutput:
@@ -7277,6 +7345,8 @@ responses:
             type: object
     saml_provider_GetPropertyDistinctFieldOutput:
         description: ""
+    saml_provider_GetPropertyDistinctFieldsOutput:
+        description: ""
     saml_provider_GetPropertyDomainTagValuePairsOutput:
         description: ""
     saml_provider_GetPropertyDomainTagValueTreeOutput:
@@ -7409,6 +7479,8 @@ responses:
                     $ref: '#/definitions/GetDetailsStatusOutput'
             type: object
     samluser_GetPropertyDistinctFieldOutput:
+        description: ""
+    samluser_GetPropertyDistinctFieldsOutput:
         description: ""
     samluser_GetPropertyDomainTagValuePairsOutput:
         description: ""

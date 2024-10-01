@@ -52,7 +52,7 @@ type DiskCreateInput struct {
 
 	// 此参数仅适用于未指定storage时进行调度到指定平台创建磁盘
 	// default: kvm
-	// enum: kvm, openstack, esxi, aliyun, aws, qcloud, azure, huawei, openstack, ucloud, zstack google, ctyun
+	// enum: ["kvm", "openstack", "esxi", "aliyun", "aws", "qcloud", "azure", "huawei", "ucloud", "zstack", "google", "ctyun"]
 	Hypervisor string `json:"hypervisor"`
 }
 

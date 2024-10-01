@@ -24,7 +24,7 @@ type SubscriberCreateInput struct {
 	TopicID string
 
 	// description: scope of resource
-	// enum: system,domain,project
+	// enum: ["system","domain","project"]
 	ResourceScope string
 
 	// description: project id or domain id of resource
@@ -38,7 +38,7 @@ type SubscriberCreateInput struct {
 	DomainId string
 
 	// description: Type of subscriber
-	// enum: receiver,robot,role
+	// enum: ["receiver","robot","role"]
 	Type string
 
 	// description: receivers which is required when the type is 'receiver' will Subscribe TopicID
@@ -48,14 +48,14 @@ type SubscriberCreateInput struct {
 	Role string
 
 	// description: The scope of role subscribers
-	// enum: system,domain,project
+	// enum: ["system","domain","project"]
 	RoleScope string
 
 	// description: Robot(Id or Name) which is required when the type is 'robot' will Subscribe TopicID
 	Robot string
 
 	// description: scope
-	// enum: system,domain
+	// enum: ["system","domain"]
 	Scope string
 	// minutes
 	GroupTimes *uint32
@@ -69,7 +69,7 @@ type SubscriberChangeInput struct {
 	Role string
 
 	// description: The scope of role subscribers
-	// enum: system,domain,project
+	// enum: ["system","domain","project"]
 	RoleScope string
 
 	// description: Robot(Id or Name) which is required when the type is 'robot' will Subscribe TopicID
@@ -86,15 +86,15 @@ type SubscriberListInput struct {
 	TopicID string
 
 	// description: scope of resource
-	// enum: system,domain,project
+	// enum: ["system","domain","project"]
 	ResourceScope string
 
 	// description: type
-	// enum: receiver,robot,role
+	// enum: ["receiver","robot","role"]
 	Type string
 
 	// description: scope
-	// enum: system,domain
+	// enum: ["system","domain"]
 	Scope string
 }
 

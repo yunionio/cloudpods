@@ -198,12 +198,12 @@ type ElasticcacheCreateInput struct {
 	Network string `json:"network" yunion-deprecated-by:"network_id"`
 
 	// 网络类型
-	//  enum: vpc, cLassic
+	//  enum: ["vpc", "cLassic"]
 	// required: true
 	NetworkType string `json:"network_type"`
 
 	// 弹性缓存Engine
-	//  enum: redis, memcached
+	//  enum: ["redis", "memcached"]
 	// required: true
 	Engine string `json:"engine"`
 
@@ -252,14 +252,14 @@ type ElasticcacheCreateInput struct {
 	ExpiredAt time.Time `json:"expired_at"`
 
 	// 计费方式
-	// enum: postpaid, prepaid
+	// enum: ["postpaid", "prepaid"]
 	BillingType string
 	// swagger:ignore
 	BillingCycle string
 
 	// 弹性缓存维护时间段
 	// 华为云此参数可选,其它云该参数无效
-	// enum: 22:00:00, 02:00:00, 06:00:00, 10:00:00, 14:00:00, 18:00:00
+	// enum: ["22:00:00", "02:00:00", "06:00:00", "10:00:00", "14:00:00", "18:00:00"]
 	// required: false
 	MaintainStartTime string `json:"maintain_start_time"`
 
