@@ -221,11 +221,11 @@ func (input *ManagedResourceListInput) AfterUnmarshal() {
 	if len(input.CloudEnv) > 0 {
 		return
 	}
-	if input.PublicCloud || input.IsPublic {
+	if (input.PublicCloud != nil && *input.PublicCloud) || (input.IsPublic != nil && *input.IsPublic) {
 		input.CloudEnv = CLOUD_ENV_PUBLIC_CLOUD
-	} else if input.PrivateCloud || input.IsPrivate {
+	} else if (input.PrivateCloud != nil && *input.PrivateCloud) || (input.IsPrivate != nil && *input.IsPrivate) {
 		input.CloudEnv = CLOUD_ENV_PRIVATE_CLOUD
-	} else if input.IsOnPremise {
+	} else if input.IsOnPremise != nil && *input.IsOnPremise {
 		input.CloudEnv = CLOUD_ENV_ON_PREMISE
 	}
 }
