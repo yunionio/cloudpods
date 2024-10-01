@@ -43,11 +43,6 @@ func (p *CpuNumaPinPriority) Map(u *core.Unit, c core.Candidater) (core.HostPrio
 		reqMemSize := u.SchedInfo.Memory
 		nodeCount := 1
 		for ; nodeCount <= len(cpuNumaFree); nodeCount *= 2 {
-			if nodeCount > reqCpuCount {
-				nodeCount = 0
-				break
-			}
-
 			if scheduler.NodesFreeCpuEnough(nodeCount, reqCpuCount, cpuNumaFree) &&
 				scheduler.NodesFreeMemSizeEnough(nodeCount, int(reqMemSize), cpuNumaFree) {
 				break
