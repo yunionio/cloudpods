@@ -1545,7 +1545,10 @@ func (self *SGuest) StartGueststartTask(
 
 	if self.CpuNumaPin != nil {
 		// clean cpu numa pin
-		self.SetCpuNumaPin(ctx, userCred, nil, nil)
+		err := self.SetCpuNumaPin(ctx, userCred, nil, nil)
+		if err != nil {
+			return errors.Wrap(err, "clean cpu numa pin")
+		}
 	}
 
 	if schedStart {
@@ -1577,6 +1580,18 @@ func (self *SGuest) GuestNonSchedStartTask(
 	taskName := "GuestStartTask"
 	if self.BackupHostId != "" {
 		taskName = "HAGuestStartTask"
+	}
+	if self.CpuNumaPin != nil {
+		srcSchedCpuNumaPin := make([]schedapi.SCpuNumaPin, 0)
+		err := self.CpuNumaPin.Unmarshal(&srcSchedCpuNumaPin)
+		if err != nil {
+			return errors.Wrap(err, "unmarshal cpu_numa_pin")
+		}
+		// set cpu numa pin
+		err = self.SetCpuNumaPin(ctx, userCred, srcSchedCpuNumaPin, nil)
+		if err != nil {
+			return nil
+		}
 	}
 	task, err := taskman.TaskManager.NewTask(ctx, taskName, self, userCred, data, parentTaskId, "", nil)
 	if err != nil {
