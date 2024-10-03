@@ -268,7 +268,10 @@ func (task *GuestChangeConfigTask) OnGuestChangeCpuMemSpecComplete(ctx context.C
 		cpuNumaPinSched := make([]schedapi.SCpuNumaPin, 0)
 		task.Params.Unmarshal(&cpuNumaPinSched, "cpu_numa_pin")
 		cpuNumaPinTarget := make([]api.SCpuNumaPin, 0)
-		data.Unmarshal(&cpuNumaPinTarget, "cpu_numa_pin")
+		if data.Contains("cpu_numa_pin") {
+			data.Unmarshal(&cpuNumaPinTarget, "cpu_numa_pin")
+		}
+
 		err = guest.UpdateCpuNumaPin(ctx, task.UserCred, cpuNumaPinSched, cpuNumaPinTarget)
 		if err != nil {
 			task.markStageFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("Update cpu numa pin fail %s", err)))
