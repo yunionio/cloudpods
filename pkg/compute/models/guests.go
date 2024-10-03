@@ -1295,11 +1295,14 @@ func (guest *SGuest) SetCpuNumaPin(
 				SizeMB: schedCpuNumaPin[i].MemSizeMB,
 				NodeId: schedCpuNumaPin[i].NodeId,
 			}
-			cpuNumaPin[i].VcpuPin = make([]api.SVCpuPin, len(schedCpuNumaPin[i].CpuPin))
-			for j := range schedCpuNumaPin[i].CpuPin {
-				cpuNumaPin[i].VcpuPin[j].Pcpu = schedCpuNumaPin[i].CpuPin[j]
-				cpuNumaPin[i].VcpuPin[j].Vcpu = vcpuId
-				vcpuId += 1
+
+			if len(schedCpuNumaPin[i].CpuPin) > 0 {
+				cpuNumaPin[i].VcpuPin = make([]api.SVCpuPin, len(schedCpuNumaPin[i].CpuPin))
+				for j := range schedCpuNumaPin[i].CpuPin {
+					cpuNumaPin[i].VcpuPin[j].Pcpu = schedCpuNumaPin[i].CpuPin[j]
+					cpuNumaPin[i].VcpuPin[j].Vcpu = vcpuId
+					vcpuId += 1
+				}
 			}
 		}
 	}

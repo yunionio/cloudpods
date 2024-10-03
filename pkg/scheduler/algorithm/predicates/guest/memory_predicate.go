@@ -69,7 +69,6 @@ func (p *MemoryPredicate) Execute(ctx context.Context, u *core.Unit, c core.Cand
 
 	if cpuNumaFree := getter.GetFreeCpuNuma(); cpuNumaFree != nil {
 		allcateEnough := false
-		reqCpuCount := d.Ncpu
 		if d.CpuNumaPin != nil {
 			nodeCount := len(d.CpuNumaPin)
 			if scheduler.NodesFreeCpuEnough(nodeCount, d.Ncpu, cpuNumaFree) &&
@@ -78,10 +77,6 @@ func (p *MemoryPredicate) Execute(ctx context.Context, u *core.Unit, c core.Cand
 			}
 		} else {
 			for nodeCount := 1; nodeCount <= len(cpuNumaFree); nodeCount *= 2 {
-				if nodeCount > reqCpuCount {
-					break
-				}
-
 				if !scheduler.NodesFreeCpuEnough(nodeCount, d.Ncpu, cpuNumaFree) {
 					continue
 				}
