@@ -47,7 +47,7 @@ func GetLvNames(vg string) ([]string, error) {
 	if len(res.Report) != 1 {
 		return nil, errors.Errorf("unexpect res %v", res)
 	}
-	lvNames := make([]string, len(res.Report[0].LV))
+	lvNames := make([]string, 0, len(res.Report[0].LV))
 	for i := 0; i < len(res.Report[0].LV); i++ {
 		lvNames = append(lvNames, res.Report[0].LV[i].LVName)
 	}
