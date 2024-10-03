@@ -324,6 +324,10 @@ func (n *NumaNode) allocCpuset(vcpuCount int, usedCpu map[int]int) {
 }
 
 func (n *NumaNode) AllocCpuset(vcpuCount int) []int {
+	if vcpuCount <= 0 {
+		return nil
+	}
+
 	var usedCpuCount = make(map[int]int)
 	n.allocCpuset(vcpuCount, usedCpuCount)
 
@@ -472,9 +476,6 @@ func (h *SHostTopo) nodesEnough(nodeCount, vcpuCount int, memSizeKB int) bool {
 func (h *SHostTopo) AllocCpuNumaNodes(vcpuCount, memSizeKB int) []scheduler.SCpuNumaPin {
 	res := make([]scheduler.SCpuNumaPin, 0)
 	for nodeCount := 1; nodeCount <= len(h.Nodes); nodeCount *= 2 {
-		if nodeCount > vcpuCount {
-			break
-		}
 		if ok := h.nodesEnough(nodeCount, vcpuCount, memSizeKB); !ok {
 			log.Infof("node count %d not enough", nodeCount)
 			continue
