@@ -32,6 +32,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/clock"
 	"yunion.io/x/pkg/util/seclib"
 	"yunion.io/x/pkg/utils"
 
@@ -44,6 +45,8 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
 	fwd "yunion.io/x/onecloud/pkg/hostman/guestman/forwarder"
 	fwdpb "yunion.io/x/onecloud/pkg/hostman/guestman/forwarder/api"
+	"yunion.io/x/onecloud/pkg/hostman/guestman/pod/pleg"
+	"yunion.io/x/onecloud/pkg/hostman/guestman/pod/runtime"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/types"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostconsts"
@@ -111,6 +114,9 @@ type SGuestManager struct {
 	// container related members
 	containerProbeManager      prober.Manager
 	enableDirtyRecoveryFeature bool
+	containerRuntimeManager    runtime.Runtime
+	pleg                       pleg.PodLifecycleEventGenerator
+	podCache                   runtime.Cache
 }
 
 func NewGuestManager(host hostutils.IHost, serversPath string, workerCnt int) (*SGuestManager, error) {
@@ -138,6 +144,20 @@ func NewGuestManager(host hostutils.IHost, serversPath string, workerCnt int) (*
 	}
 	if manager.host.IsContainerHost() {
 		manager.startContainerProbeManager()
+		runtimeMan, err := runtime.NewRuntimeManager(manager.GetCRI())
+		if err != nil {
+			return nil, errors.Wrap(err, "new container runtime manager")
+		}
+		manager.podCache = runtime.NewCache()
+		manager.containerRuntimeManager = runtimeMan
+		manager.pleg = pleg.NewGenericPLEG(runtimeMan, pleg.ChannelCapacity, pleg.RelistPeriod, manager.podCache, clock.RealClock{})
+		manager.pleg.Start()
+		go func() {
+			manager.syncContainerLoop(manager.pleg.Watch())
+		}()
+		go func() {
+			manager.reconcileContainerLoop(manager.podCache)
+		}()
 	}
 	return manager, nil
 }

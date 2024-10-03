@@ -33,6 +33,8 @@ var (
 		computeapi.VM_BLOCK_STREAM,
 		computeapi.VM_UNKNOWN,
 		computeapi.VM_BACKUP_STARTING,
+		computeapi.POD_STATUS_CONTAINER_EXITED,
+		computeapi.POD_STATUS_CRASH_LOOP_BACK_OFF,
 	)
 
 	VMCreatingStatus = sets.NewString(

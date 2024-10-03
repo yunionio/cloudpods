@@ -16,6 +16,7 @@ package compute
 
 import (
 	"reflect"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/gotypes"
@@ -55,27 +56,28 @@ const (
 )
 
 const (
-	CONTAINER_STATUS_PULLING_IMAGE      = "pulling_image"
-	CONTAINER_STATUS_PULL_IMAGE_FAILED  = "pull_image_failed"
-	CONTAINER_STATUS_PULLED_IMAGE       = "pulled_image"
-	CONTAINER_STATUS_CREATING           = "creating"
-	CONTAINER_STATUS_CREATE_FAILED      = "create_failed"
-	CONTAINER_STATUS_SAVING_IMAGE       = "saving_image"
-	CONTAINER_STATUS_SAVE_IMAGE_FAILED  = "save_image_failed"
-	CONTAINER_STATUS_STARTING           = "starting"
-	CONTAINER_STATUS_START_FAILED       = "start_failed"
-	CONTAINER_STATUS_STOPPING           = "stopping"
-	CONTAINER_STATUS_STOP_FAILED        = "stop_failed"
-	CONTAINER_STATUS_SYNC_STATUS        = "sync_status"
-	CONTAINER_STATUS_SYNC_STATUS_FAILED = "sync_status_failed"
-	CONTAINER_STATUS_UNKNOWN            = "unknown"
-	CONTAINER_STATUS_CREATED            = "created"
-	CONTAINER_STATUS_EXITED             = "exited"
-	CONTAINER_STATUS_RUNNING            = "running"
-	CONTAINER_STATUS_DELETING           = "deleting"
-	CONTAINER_STATUS_DELETE_FAILED      = "delete_failed"
-	CONTAINER_STATUS_COMMITTING         = "committing"
-	CONTAINER_STATUS_COMMIT_FAILED      = "commit_failed"
+	CONTAINER_STATUS_PULLING_IMAGE       = "pulling_image"
+	CONTAINER_STATUS_PULL_IMAGE_FAILED   = "pull_image_failed"
+	CONTAINER_STATUS_PULLED_IMAGE        = "pulled_image"
+	CONTAINER_STATUS_CREATING            = "creating"
+	CONTAINER_STATUS_CREATE_FAILED       = "create_failed"
+	CONTAINER_STATUS_SAVING_IMAGE        = "saving_image"
+	CONTAINER_STATUS_SAVE_IMAGE_FAILED   = "save_image_failed"
+	CONTAINER_STATUS_STARTING            = "starting"
+	CONTAINER_STATUS_START_FAILED        = "start_failed"
+	CONTAINER_STATUS_STOPPING            = "stopping"
+	CONTAINER_STATUS_STOP_FAILED         = "stop_failed"
+	CONTAINER_STATUS_SYNC_STATUS         = "sync_status"
+	CONTAINER_STATUS_SYNC_STATUS_FAILED  = "sync_status_failed"
+	CONTAINER_STATUS_UNKNOWN             = "unknown"
+	CONTAINER_STATUS_CREATED             = "created"
+	CONTAINER_STATUS_EXITED              = "exited"
+	CONTAINER_STATUS_CRASH_LOOP_BACK_OFF = "crash_loop_back_off"
+	CONTAINER_STATUS_RUNNING             = "running"
+	CONTAINER_STATUS_DELETING            = "deleting"
+	CONTAINER_STATUS_DELETE_FAILED       = "delete_failed"
+	CONTAINER_STATUS_COMMITTING          = "committing"
+	CONTAINER_STATUS_COMMIT_FAILED       = "commit_failed"
 	// for health check
 	CONTAINER_STATUS_PROBING      = "probing"
 	CONTAINER_STATUS_PROBE_FAILED = "probe_failed"
@@ -83,6 +85,7 @@ const (
 
 var (
 	ContainerRunningStatus = sets.NewString(CONTAINER_STATUS_RUNNING, CONTAINER_STATUS_PROBING)
+	ContainerExitedStatus  = sets.NewString(CONTAINER_STATUS_EXITED, CONTAINER_STATUS_CRASH_LOOP_BACK_OFF)
 )
 
 const (
@@ -132,7 +135,9 @@ type ContainerStopInput struct {
 }
 
 type ContainerSyncStatusResponse struct {
-	Status string `json:"status"`
+	Status       string    `json:"status"`
+	StartedAt    time.Time `json:"started_at"`
+	RestartCount int       `json:"restart_count"`
 }
 
 type ContainerHostDevice struct {
@@ -231,4 +236,11 @@ type KubeServerContainerRegistryDetails struct {
 	Url    string                             `json:"url"`
 	Type   string                             `json:"type"`
 	Config *KubeServerContainerRegistryConfig `json:"config"`
+}
+
+type ContainerPerformStatusInput struct {
+	apis.PerformStatusInput
+	RestartCount   int        `json:"restart_count"`
+	StartedAt      *time.Time `json:"started_at"`
+	LastFinishedAt *time.Time `json:"last_finished_at"`
 }

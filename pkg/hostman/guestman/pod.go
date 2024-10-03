@@ -44,6 +44,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/container/status"
 	"yunion.io/x/onecloud/pkg/hostman/container/volume_mount"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
+	"yunion.io/x/onecloud/pkg/hostman/guestman/pod/runtime"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
@@ -111,7 +112,9 @@ type PodInstance interface {
 	GetContainerById(ctrId string) *hostapi.ContainerDesc
 	CreateContainer(ctx context.Context, userCred mcclient.TokenCredential, id string, input *hostapi.ContainerCreateInput) (jsonutils.JSONObject, error)
 	StartContainer(ctx context.Context, userCred mcclient.TokenCredential, ctrId string, input *hostapi.ContainerCreateInput) (jsonutils.JSONObject, error)
+	StartLocalContainer(ctx context.Context, userCred mcclient.TokenCredential, ctrId string) (jsonutils.JSONObject, error)
 	DeleteContainer(ctx context.Context, cred mcclient.TokenCredential, id string) (jsonutils.JSONObject, error)
+	SyncStatus(reason string)
 	SyncContainerStatus(ctx context.Context, cred mcclient.TokenCredential, ctrId string) (jsonutils.JSONObject, error)
 	StopContainer(ctx context.Context, userCred mcclient.TokenCredential, ctrId string, body jsonutils.JSONObject) (jsonutils.JSONObject, error)
 	PullImage(ctx context.Context, userCred mcclient.TokenCredential, ctrId string, input *hostapi.ContainerPullImageInput) (jsonutils.JSONObject, error)
@@ -125,6 +128,9 @@ type PodInstance interface {
 
 	// for monitoring
 	GetVolumeMountUsages() (map[ContainerVolumeKey]*volume_mount.ContainerVolumeMountUsage, error)
+
+	IsInternalStopped(ctrCriId string) (*ContainerExpectedStatus, bool)
+	IsInternalRemoved(ctrCriId string) bool
 }
 
 type sContainer struct {
@@ -205,8 +211,9 @@ func (h startStatHelper) RemoveContainerFile(ctrId string) error {
 
 type sPodGuestInstance struct {
 	*sBaseGuestInstance
-	containers map[string]*sContainer
-	startStat  *startStatHelper
+	containers     map[string]*sContainer
+	startStat      *startStatHelper
+	expectedStatus *PodExpectedStatus
 }
 
 func newPodGuestInstance(id string, man *SGuestManager) PodInstance {
@@ -214,6 +221,11 @@ func newPodGuestInstance(id string, man *SGuestManager) PodInstance {
 		sBaseGuestInstance: newBaseGuestInstance(id, man, computeapi.HYPERVISOR_POD),
 		containers:         make(map[string]*sContainer),
 	}
+	es, err := NewPodExpectedStatus(p.HomeDir(), computeapi.VM_UNKNOWN)
+	if err != nil {
+		log.Fatalf("NewPodExpectedStatus failed of %s: %s", p.GetId(), err)
+	}
+	p.expectedStatus = es
 	p.startStat = newStartStatHelper(id, p.HomeDir())
 	return p
 }
@@ -281,11 +293,40 @@ func (s *sPodGuestInstance) IsDirtyShutdown() bool {
 	return false
 }
 
+func (s *sPodGuestInstance) getStatus(ctx context.Context, defaultStatus string) string {
+	status := defaultStatus
+	if status == "" {
+		status = computeapi.VM_READY
+	}
+	if s.IsRunning() {
+		status = computeapi.VM_RUNNING
+	}
+	for _, c := range s.containers {
+		cStatus, cs, err := s.getContainerStatus(ctx, c.Id)
+		if err != nil {
+			log.Errorf("get container %s status of pod %s", c.Id, s.Id)
+			continue
+		}
+		if cs != nil {
+			if cStatus == computeapi.CONTAINER_STATUS_CRASH_LOOP_BACK_OFF {
+				status = computeapi.POD_STATUS_CRASH_LOOP_BACK_OFF
+			}
+			if cStatus == computeapi.CONTAINER_STATUS_EXITED {
+				status = computeapi.POD_STATUS_CONTAINER_EXITED
+			}
+		}
+	}
+	return status
+}
+
 func (s *sPodGuestInstance) SyncStatus(reason string) {
 	// sync pod status
 	var status = computeapi.VM_READY
 	if s.IsRunning() {
 		status = computeapi.VM_RUNNING
+	}
+	if err := s.expectedStatus.SetStatus(status); err != nil {
+		log.Warningf("set expected status to %s, reason: %s, err: %s", status, reason, err.Error())
 	}
 	ctx := context.Background()
 	if status == computeapi.VM_READY {
@@ -294,6 +335,50 @@ func (s *sPodGuestInstance) SyncStatus(reason string) {
 			log.Warningf("stop cri pod when sync status: %s: %v", s.Id, err)
 		}
 	}
+	// sync container's status
+	for _, c := range s.containers {
+		cStatus, cs, err := s.getContainerStatus(ctx, c.Id)
+		if err != nil {
+			log.Errorf("get container %s status of pod %s", c.Id, s.Id)
+			continue
+		}
+		if err := s.expectedStatus.SetContainerStatus(c.CRIId, c.Id, cStatus); err != nil {
+			log.Warningf("expectedStatus.SetContainerStatus(%s, %s) to %s, error: %s", s.GetId(), c.Id, cStatus, err.Error())
+		}
+
+		ctrStatusInput := &computeapi.ContainerPerformStatusInput{
+			PerformStatusInput: apis.PerformStatusInput{
+				Status: cStatus,
+				Reason: reason,
+				HostId: hostinfo.Instance().HostId,
+			},
+		}
+		if cs != nil {
+			ctrStatusInput.RestartCount = cs.RestartCount
+			ctrStatusInput.StartedAt = &cs.StartedAt
+			if !cs.FinishedAt.IsZero() {
+				ctrStatusInput.LastFinishedAt = &cs.FinishedAt
+			}
+			if ctr := s.GetContainerById(c.Id); ctr != nil {
+				ctr.RestartCount = cs.RestartCount
+				ctr.StartedAt = cs.StartedAt
+				ctr.LastFinishedAt = cs.FinishedAt
+				if err := s.SaveContainerDesc(ctr); err != nil {
+					log.Errorf("save container desc for %s/%s: %v", ctr.Id, ctr.Name, err)
+				}
+			}
+		}
+		if _, err := hostutils.UpdateContainerStatus(ctx, c.Id, ctrStatusInput); err != nil {
+			log.Errorf("failed update container %s status: %s", c.Id, err)
+		}
+		if cStatus == computeapi.CONTAINER_STATUS_CRASH_LOOP_BACK_OFF {
+			status = computeapi.POD_STATUS_CRASH_LOOP_BACK_OFF
+		}
+		if cStatus == computeapi.CONTAINER_STATUS_EXITED {
+			status = computeapi.POD_STATUS_CONTAINER_EXITED
+		}
+	}
+
 	statusInput := &apis.PerformStatusInput{
 		Status:      status,
 		Reason:      reason,
@@ -303,22 +388,6 @@ func (s *sPodGuestInstance) SyncStatus(reason string) {
 
 	if _, err := hostutils.UpdateServerStatus(ctx, s.Id, statusInput); err != nil {
 		log.Errorf("failed update guest status %s", err)
-	}
-	// sync container's status
-	for _, c := range s.containers {
-		status, err := s.getContainerStatus(ctx, c.Id)
-		if err != nil {
-			log.Errorf("get container %s status of pod %s", c.Id, s.Id)
-			continue
-		}
-		statusInput = &apis.PerformStatusInput{
-			Status: status,
-			Reason: reason,
-			HostId: hostinfo.Instance().HostId,
-		}
-		if _, err := hostutils.UpdateContainerStatus(ctx, c.Id, statusInput); err != nil {
-			log.Errorf("failed update container %s status: %s", c.Id, err)
-		}
 	}
 }
 
@@ -386,7 +455,7 @@ func (s *sPodGuestInstance) IsRunning() bool {
 }
 
 func (s *sPodGuestInstance) IsContainerRunning(ctx context.Context, ctrId string) bool {
-	status, err := s.getContainerStatus(ctx, ctrId)
+	status, _, err := s.getContainerStatus(ctx, ctrId)
 	if err != nil {
 		return false
 	}
@@ -397,7 +466,7 @@ func (s *sPodGuestInstance) IsContainerRunning(ctx context.Context, ctrId string
 }
 
 func (s *sPodGuestInstance) HandleGuestStatus(ctx context.Context, status string, body *jsonutils.JSONDict) (jsonutils.JSONObject, error) {
-	body.Set("status", jsonutils.NewString(status))
+	body.Set("status", jsonutils.NewString(s.getStatus(ctx, status)))
 	hostutils.TaskComplete(ctx, body)
 	return nil, nil
 }
@@ -502,6 +571,18 @@ func (s *sPodGuestInstance) GetContainerById(ctrId string) *hostapi.ContainerDes
 		}
 	}
 	return nil
+}
+
+func (s *sPodGuestInstance) SaveContainerDesc(ctr *hostapi.ContainerDesc) error {
+	ctrs := s.GetContainers()
+	for i := range ctrs {
+		tmp := ctrs[i]
+		if tmp.Id == ctr.Id {
+			ctrs[i] = ctr
+		}
+	}
+	s.GetDesc().Containers = ctrs
+	return SaveDesc(s, s.GetDesc())
 }
 
 func (s *sPodGuestInstance) getContainerVolumeMounts() map[string][]*hostapi.ContainerVolumeMount {
@@ -883,9 +964,10 @@ func (s *sPodGuestInstance) StartLocalContainer(ctx context.Context, userCred mc
 		return nil, errors.Wrapf(errors.ErrNotFound, "Not found container %s", ctrId)
 	}
 	input := &hostapi.ContainerCreateInput{
-		Name:    ctr.Name,
-		GuestId: s.GetId(),
-		Spec:    ctr.Spec,
+		Name:         ctr.Name,
+		GuestId:      s.GetId(),
+		Spec:         ctr.Spec,
+		RestartCount: ctr.RestartCount + 1,
 	}
 	ret, err := s.StartContainer(ctx, userCred, ctrId, input)
 	if err != nil {
@@ -898,7 +980,7 @@ func (s *sPodGuestInstance) StartContainer(ctx context.Context, userCred mcclien
 	_, hasCtr := s.containers[ctrId]
 	needRecreate := false
 	if hasCtr {
-		status, err := s.getContainerStatus(ctx, ctrId)
+		status, _, err := s.getContainerStatus(ctx, ctrId)
 		if err != nil {
 			if errors.Cause(err) == errors.ErrNotFound || strings.Contains(err.Error(), "not found") {
 				needRecreate = true
@@ -906,10 +988,10 @@ func (s *sPodGuestInstance) StartContainer(ctx context.Context, userCred mcclien
 				return nil, errors.Wrap(err, "get container status")
 			}
 		} else {
-			if status == computeapi.CONTAINER_STATUS_EXITED {
+			if computeapi.ContainerExitedStatus.Has(status) {
 				needRecreate = true
 			} else if status != computeapi.CONTAINER_STATUS_CREATED {
-				return nil, errors.Wrapf(err, "can't start container when status is %s", status)
+				return nil, errors.Errorf("can't start container when status is %s", status)
 			}
 		}
 	}
@@ -930,6 +1012,11 @@ func (s *sPodGuestInstance) StartContainer(ctx context.Context, userCred mcclien
 	if err != nil {
 		return nil, errors.Wrap(err, "get container cri id")
 	}
+
+	if err := s.expectedStatus.SetContainerStatus(criId, ctrId, computeapi.CONTAINER_STATUS_RUNNING); err != nil {
+		log.Warningf("set container %s(%s) expected status to running: %v", criId, ctrId, err)
+	}
+
 	if err := s.getCRI().StartContainer(ctx, criId); err != nil {
 		return nil, errors.Wrap(err, "CRI.StartContainer")
 	}
@@ -1014,6 +1101,9 @@ func (s *sPodGuestInstance) StopContainer(ctx context.Context, userCred mcclient
 		return nil, errors.Wrap(err, "get container cri id")
 	}
 	var timeout int64 = 0
+
+	s.expectedStatus.SetContainerStatus(criId, ctrId, computeapi.CONTAINER_STATUS_EXITED)
+
 	if body.Contains("timeout") {
 		timeout, _ = body.Int("timeout")
 	}
@@ -1325,7 +1415,17 @@ func (s *sPodGuestInstance) createContainer(ctx context.Context, userCred mcclie
 
 	ctrCfg := &runtimeapi.ContainerConfig{
 		Metadata: &runtimeapi.ContainerMetadata{
-			Name: input.Name,
+			Name:    input.Name,
+			Attempt: uint32(input.RestartCount),
+		},
+		Labels: map[string]string{
+			runtime.PodNameLabel:               s.GetDesc().Name,
+			runtime.PodUIDLabel:                s.GetId(),
+			runtime.ContainerNameLabel:         input.Name,
+			runtime.ContainerRestartCountLabel: fmt.Sprintf("%d", input.RestartCount),
+		},
+		Annotations: map[string]string{
+			runtime.ContainerRestartCountLabel: fmt.Sprintf("%d", input.RestartCount),
 		},
 		Image: &runtimeapi.ImageSpec{
 			Image: spec.Image,
@@ -1635,6 +1735,8 @@ func (s *sPodGuestInstance) DeleteContainer(ctx context.Context, userCred mcclie
 		return nil, errors.Wrap(err, "getContainerCRIId")
 	}
 	if criId != "" {
+		s.expectedStatus.RemoveContainer(criId)
+
 		if err := s.getCRI().RemoveContainer(ctx, criId); err != nil && !strings.Contains(err.Error(), "not found") {
 			return nil, errors.Wrap(err, "cri.RemoveContainer")
 		}
@@ -1650,22 +1752,23 @@ func (s *sPodGuestInstance) DeleteContainer(ctx context.Context, userCred mcclie
 	return nil, nil
 }
 
-func (s *sPodGuestInstance) getContainerStatus(ctx context.Context, ctrId string) (string, error) {
+func (s *sPodGuestInstance) getContainerStatus(ctx context.Context, ctrId string) (string, *runtime.Status, error) {
 	criId, err := s.getContainerCRIId(ctrId)
 	if err != nil {
 		if errors.Cause(err) == errors.ErrNotFound {
 			// not found, already stopped
-			return computeapi.CONTAINER_STATUS_EXITED, nil
+			return computeapi.CONTAINER_STATUS_EXITED, nil, nil
 		}
-		return "", errors.Wrapf(err, "get container cri_id by %s", ctrId)
+		return "", nil, errors.Wrapf(err, "get container cri_id by %s", ctrId)
 	}
 	resp, err := s.getCRI().ContainerStatus(ctx, criId)
 	if err != nil {
 		if strings.Contains(err.Error(), "NotFound") {
-			return computeapi.CONTAINER_STATUS_EXITED, nil
+			return computeapi.CONTAINER_STATUS_EXITED, nil, nil
 		}
-		return "", errors.Wrap(err, "cri.ContainerStatus")
+		return "", nil, errors.Wrap(err, "cri.ContainerStatus")
 	}
+	cs := runtime.ToContainerStatus(resp.Status, "containerd")
 	status := computeapi.CONTAINER_STATUS_UNKNOWN
 	switch resp.Status.State {
 	case runtimeapi.ContainerState_CONTAINER_CREATED:
@@ -1680,17 +1783,20 @@ func (s *sPodGuestInstance) getContainerStatus(ctx context.Context, ctrId string
 	if status == computeapi.CONTAINER_STATUS_RUNNING {
 		ctr := s.GetContainerById(ctrId)
 		if ctr == nil {
-			return "", errors.Wrapf(httperrors.ErrNotFound, "not found container by id %s", ctrId)
+			return "", cs, errors.Wrapf(httperrors.ErrNotFound, "not found container by id %s", ctrId)
 		}
 		if ctr.Spec.NeedProbe() {
 			status = computeapi.CONTAINER_STATUS_PROBING
 		}
 	}
-	return status, nil
+	if status == computeapi.CONTAINER_STATUS_EXITED && resp.Status.ExitCode != 0 {
+		status = computeapi.CONTAINER_STATUS_CRASH_LOOP_BACK_OFF
+	}
+	return status, cs, nil
 }
 
 func (s *sPodGuestInstance) SyncContainerStatus(ctx context.Context, userCred mcclient.TokenCredential, ctrId string) (jsonutils.JSONObject, error) {
-	status, err := s.getContainerStatus(ctx, ctrId)
+	status, cs, err := s.getContainerStatus(ctx, ctrId)
 	if err != nil {
 		return nil, errors.Wrap(err, "get container status")
 	}
@@ -1698,7 +1804,14 @@ func (s *sPodGuestInstance) SyncContainerStatus(ctx context.Context, userCred mc
 		log.Infof("mark container %s to dirty after syncing status", ctrId)
 		s.getProbeManager().SetDirtyContainer(ctrId)
 	}
-	return jsonutils.Marshal(computeapi.ContainerSyncStatusResponse{Status: status}), nil
+	resp := computeapi.ContainerSyncStatusResponse{
+		Status: status,
+	}
+	if cs != nil {
+		resp.StartedAt = cs.StartedAt
+		resp.RestartCount = cs.RestartCount
+	}
+	return jsonutils.Marshal(resp), nil
 }
 
 func (s *sPodGuestInstance) PullImage(ctx context.Context, userCred mcclient.TokenCredential, ctrId string, input *hostapi.ContainerPullImageInput) (jsonutils.JSONObject, error) {

@@ -149,7 +149,7 @@ var (
 func init() {
 	Containers = ContainerManager{
 		modules.NewComputeManager("container", "containers",
-			[]string{"ID", "Name", "Guest_ID", "Spec", "Status"},
+			[]string{"ID", "Name", "Guest_ID", "Status", "Started_At", "Last_Finished_At", "Restart_Count", "Spec"},
 			[]string{}),
 	}
 	modules.RegisterCompute(&Containers)

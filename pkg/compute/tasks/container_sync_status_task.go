@@ -54,6 +54,15 @@ func (t *ContainerSyncStatusTask) OnSyncStatus(ctx context.Context, container *m
 	resp := new(api.ContainerSyncStatusResponse)
 	data.Unmarshal(resp)
 	container.SetStatus(ctx, t.GetUserCred(), resp.Status, "")
+	if _, err := db.Update(container, func() error {
+		if resp.RestartCount > 0 {
+			container.RestartCount = resp.RestartCount
+		}
+		container.StartedAt = resp.StartedAt
+		return nil
+	}); err != nil {
+		log.Errorf("Update container started_at: %s", err)
+	}
 	t.SetStageComplete(ctx, nil)
 }
 

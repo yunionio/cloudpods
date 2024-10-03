@@ -15,6 +15,8 @@
 package host
 
 import (
+	"time"
+
 	"yunion.io/x/onecloud/pkg/apis"
 )
 
@@ -86,9 +88,10 @@ type ContainerDiskDevice struct {
 }
 
 type ContainerCreateInput struct {
-	Name    string         `json:"name"`
-	GuestId string         `json:"guest_id"`
-	Spec    *ContainerSpec `json:"spec"`
+	Name         string         `json:"name"`
+	GuestId      string         `json:"guest_id"`
+	Spec         *ContainerSpec `json:"spec"`
+	RestartCount int            `json:"restart_count"`
 }
 
 type ContainerPullImageInput struct {
@@ -103,9 +106,12 @@ type ContainerPushImageInput struct {
 }
 
 type ContainerDesc struct {
-	Id   string         `json:"id"`
-	Name string         `json:"name"`
-	Spec *ContainerSpec `json:"spec"`
+	Id             string         `json:"id"`
+	Name           string         `json:"name"`
+	Spec           *ContainerSpec `json:"spec"`
+	StartedAt      time.Time      `json:"started_at"`
+	LastFinishedAt time.Time      `json:"last_finished_at"`
+	RestartCount   int            `json:"restart_count"`
 }
 
 type ContainerSaveVolumeMountToImageInput struct {
