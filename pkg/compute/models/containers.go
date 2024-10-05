@@ -361,8 +361,8 @@ func (c *SContainer) StartCreateTask(ctx context.Context, userCred mcclient.Toke
 }
 
 func (c *SContainer) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.ContainerUpdateInput) (*api.ContainerUpdateInput, error) {
-	if c.GetStatus() != api.CONTAINER_STATUS_EXITED {
-		return nil, httperrors.NewInvalidStatusError("current status %s is not %s", c.GetStatus(), api.CONTAINER_STATUS_EXITED)
+	if !api.ContainerExitedStatus.Has(c.GetStatus()) {
+		return nil, httperrors.NewInvalidStatusError("current status %s is not in %v", c.GetStatus(), api.ContainerExitedStatus.List())
 	}
 
 	baseInput, err := c.SVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, input.VirtualResourceBaseUpdateInput)
