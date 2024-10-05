@@ -51,7 +51,7 @@ func (t *PodStopTask) OnWaitContainerStopped(ctx context.Context, pod *models.SG
 	for i := range ctrs {
 		curCtr := ctrs[i]
 		log.Infof("========container status: %s", curCtr.GetStatus())
-		if curCtr.GetStatus() != api.CONTAINER_STATUS_EXITED {
+		if !api.ContainerExitedStatus.Has(curCtr.GetStatus()) {
 			isAllStopped = false
 			curCtr.StartStopTask(ctx, t.GetUserCred(), &api.ContainerStopInput{
 				Timeout: 1,
