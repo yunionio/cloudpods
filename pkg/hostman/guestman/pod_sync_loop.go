@@ -88,11 +88,15 @@ func (m *SGuestManager) startContainer(obj *sPodGuestInstance, ctr *hostapi.Cont
 	reason := fmt.Sprintf("start died container %s when exit code is %d", ctr.Id, cs.ExitCode)
 	ctx := context.Background()
 	userCred := hostutils.GetComputeSession(ctx).GetToken()
-	_, err := obj.StartLocalContainer(ctx, userCred, ctr.Id)
-	if err != nil {
-		return errors.Wrap(err, reason)
+	if obj.ShouldRestartPodOnCrash() {
+		obj.RestartLocalPodAndContainers(ctx, userCred)
 	} else {
-		log.Infof("%s: start local container (%s/%s) success", reason, obj.GetId(), ctr.Name)
+		_, err := obj.StartLocalContainer(ctx, userCred, ctr.Id)
+		if err != nil {
+			return errors.Wrap(err, reason)
+		} else {
+			log.Infof("%s: start local container (%s/%s) success", reason, obj.GetId(), ctr.Name)
+		}
 	}
 	return nil
 }

@@ -15,6 +15,8 @@
 package guestman
 
 import (
+	"context"
+	"fmt"
 	"strings"
 
 	"github.com/shirou/gopsutil/v3/disk"
@@ -26,6 +28,7 @@ import (
 	hostapi "yunion.io/x/onecloud/pkg/apis/host"
 	"yunion.io/x/onecloud/pkg/hostman/container/volume_mount"
 	"yunion.io/x/onecloud/pkg/hostman/options"
+	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/pod/image"
 	"yunion.io/x/onecloud/pkg/util/pod/nerdctl"
 )
@@ -147,4 +150,52 @@ func (s *sPodGuestInstance) getVolumeMountUsage(drv volume_mount.IUsageVolumeMou
 	}
 	drv.InjectUsageTags(usage, vol)
 	return usage, nil
+}
+
+func (s *sPodGuestInstance) RestartLocalPodAndContainers(ctx context.Context, cred mcclient.TokenCredential) {
+	s.manager.GuestStartWorker.Run(newLocalPodRestartTask(ctx, cred, s), nil, nil)
+}
+
+type localPodRestartTask struct {
+	ctx      context.Context
+	userCred mcclient.TokenCredential
+	pod      *sPodGuestInstance
+}
+
+func newLocalPodRestartTask(ctx context.Context, userCred mcclient.TokenCredential, pod *sPodGuestInstance) *localPodRestartTask {
+	return &localPodRestartTask{
+		ctx:      ctx,
+		userCred: userCred,
+		pod:      pod,
+	}
+}
+
+func (t *localPodRestartTask) Run() {
+	log.Infof("restart pod and containers locally (%s/%s)", t.pod.Id, t.pod.GetName())
+	for _, ctr := range t.pod.GetContainers() {
+		log.Infof("stop container locally (%s/%s/%s/%s)", t.pod.Id, t.pod.GetName(), ctr.Id, ctr.Name)
+		if _, err := t.pod.StopContainer(t.ctx, t.userCred, ctr.Id, &hostapi.ContainerStopInput{
+			Timeout:       0,
+			ShmSizeMB:     ctr.Spec.ShmSizeMB,
+			ContainerName: ctr.Name,
+		}); err != nil {
+			log.Errorf("stop container %s error: %v", ctr.Name, err)
+		}
+	}
+
+	if _, err := t.pod.startPod(t.ctx, t.userCred); err != nil {
+		log.Errorf("start pod(%s/%s) err: %s", t.pod.GetId(), t.pod.GetName(), err.Error())
+		return
+	}
+	for _, ctr := range t.pod.GetContainers() {
+		log.Infof("start container locally (%s/%s/%s/%s)", t.pod.Id, t.pod.GetName(), ctr.Id, ctr.Name)
+		if _, err := t.pod.StartLocalContainer(t.ctx, t.userCred, ctr.Id); err != nil {
+			log.Errorf("start container %s err: %s", ctr.Id, err.Error())
+		}
+	}
+	t.pod.SyncStatus("sync status after pod and containers restart locally")
+}
+
+func (t *localPodRestartTask) Dump() string {
+	return fmt.Sprintf("pod restart task %s/%s", t.pod.GetId(), t.pod.GetName())
 }

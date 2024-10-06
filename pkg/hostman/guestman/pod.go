@@ -116,7 +116,7 @@ type PodInstance interface {
 	DeleteContainer(ctx context.Context, cred mcclient.TokenCredential, id string) (jsonutils.JSONObject, error)
 	SyncStatus(reason string)
 	SyncContainerStatus(ctx context.Context, cred mcclient.TokenCredential, ctrId string) (jsonutils.JSONObject, error)
-	StopContainer(ctx context.Context, userCred mcclient.TokenCredential, ctrId string, body jsonutils.JSONObject) (jsonutils.JSONObject, error)
+	StopContainer(ctx context.Context, userCred mcclient.TokenCredential, ctrId string, input *hostapi.ContainerStopInput) (jsonutils.JSONObject, error)
 	PullImage(ctx context.Context, userCred mcclient.TokenCredential, ctrId string, input *hostapi.ContainerPullImageInput) (jsonutils.JSONObject, error)
 	SaveVolumeMountToImage(ctx context.Context, userCred mcclient.TokenCredential, input *hostapi.ContainerSaveVolumeMountToImageInput, ctrId string) (jsonutils.JSONObject, error)
 	ExecContainer(ctx context.Context, userCred mcclient.TokenCredential, ctrId string, input *computeapi.ContainerExecInput) (*url.URL, error)
@@ -707,6 +707,13 @@ func (s *sPodGuestInstance) StartLocalPod(ctx context.Context, userCred mcclient
 	return nil
 }
 
+func (s *sPodGuestInstance) ShouldRestartPodOnCrash() bool {
+	if len(s.GetContainers()) <= 1 {
+		return true
+	}
+	return false
+}
+
 func (s *sPodGuestInstance) startPod(ctx context.Context, userCred mcclient.TokenCredential) (*computeapi.PodStartResponse, error) {
 	retries := 3
 	sec := 5 * time.Second
@@ -753,8 +760,10 @@ func (s *sPodGuestInstance) _startPod(ctx context.Context, userCred mcclient.Tok
 		LogDirectory: s.getPodLogDir(),
 		DnsConfig:    nil,
 		PortMappings: nil,
-		Labels:       nil,
-		Annotations:  nil,
+		Labels: map[string]string{
+			runtime.PodUIDLabel: s.GetId(),
+		},
+		Annotations: nil,
 		Linux: &runtimeapi.LinuxPodSandboxConfig{
 			CgroupParent: s.getCgroupParent(),
 			SecurityContext: &runtimeapi.LinuxSandboxSecurityContext{
@@ -1091,7 +1100,7 @@ func (s *sPodGuestInstance) doContainerStartPostLifecycle(ctx context.Context, c
 	return nil
 }
 
-func (s *sPodGuestInstance) StopContainer(ctx context.Context, userCred mcclient.TokenCredential, ctrId string, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (s *sPodGuestInstance) StopContainer(ctx context.Context, userCred mcclient.TokenCredential, ctrId string, input *hostapi.ContainerStopInput) (jsonutils.JSONObject, error) {
 	criId, err := s.getContainerCRIId(ctrId)
 	if err != nil {
 		if errors.Cause(err) == errors.ErrNotFound {
@@ -1104,19 +1113,18 @@ func (s *sPodGuestInstance) StopContainer(ctx context.Context, userCred mcclient
 
 	s.expectedStatus.SetContainerStatus(criId, ctrId, computeapi.CONTAINER_STATUS_EXITED)
 
-	if body.Contains("timeout") {
-		timeout, _ = body.Int("timeout")
+	if input.Timeout != 0 {
+		timeout = input.Timeout
 	}
-	if body.Contains("shm_size_mb") {
-		shmSizeMB, _ := body.Int("shm_size_mb")
-		if shmSizeMB > 64 {
-			name, err := body.GetString("container_name")
-			if err != nil {
-				return nil, errors.Wrapf(err, "not found name from body: %s", body)
-			}
-			if err := s.unmountDevShm(name); err != nil {
-				return nil, errors.Wrapf(err, "unmount shm %s", name)
-			}
+	shmSizeMB := input.ShmSizeMB
+
+	if shmSizeMB > 64 {
+		name := input.ContainerName
+		if name == "" {
+			return nil, errors.Wrapf(errors.ErrNotFound, "not found container_name from input: %s", jsonutils.Marshal(input))
+		}
+		if err := s.unmountDevShm(name); err != nil {
+			return nil, errors.Wrapf(err, "unmount shm %s", name)
 		}
 	}
 	if err := s.getCRI().StopContainer(ctx, criId, timeout); err != nil {

@@ -178,7 +178,11 @@ func startContainer(ctx context.Context, userCred mcclient.TokenCredential, pod 
 }
 
 func stopContainer(ctx context.Context, userCred mcclient.TokenCredential, pod guestman.PodInstance, ctrId string, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	return pod.StopContainer(ctx, userCred, ctrId, body)
+	input := new(hostapi.ContainerStopInput)
+	if err := body.Unmarshal(input); err != nil {
+		return nil, errors.Wrapf(err, "unmarshal to ContainerStopInput: %s", body.String())
+	}
+	return pod.StopContainer(ctx, userCred, ctrId, input)
 }
 
 func deleteContainer(ctx context.Context, userCred mcclient.TokenCredential, pod guestman.PodInstance, containerId string, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
