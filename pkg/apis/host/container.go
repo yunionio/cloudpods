@@ -125,3 +125,9 @@ type ContainerCommitInput struct {
 	Repository string                             `json:"repository"`
 	Auth       *apis.ContainerPullImageAuthConfig `json:"auth"`
 }
+
+type ContainerStopInput struct {
+	Timeout       int64  `json:"timeout"`
+	ShmSizeMB     int    `json:"shm_size_mb"`
+	ContainerName string `json:"container_name"`
+}
