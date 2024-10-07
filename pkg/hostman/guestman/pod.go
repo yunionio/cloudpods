@@ -991,7 +991,7 @@ func (s *sPodGuestInstance) StartContainer(ctx context.Context, userCred mcclien
 	if hasCtr {
 		status, _, err := s.getContainerStatus(ctx, ctrId)
 		if err != nil {
-			if errors.Cause(err) == errors.ErrNotFound || strings.Contains(err.Error(), "not found") {
+			if IsContainerNotFoundError(err) {
 				needRecreate = true
 			} else {
 				return nil, errors.Wrap(err, "get container status")
@@ -1128,7 +1128,11 @@ func (s *sPodGuestInstance) StopContainer(ctx context.Context, userCred mcclient
 		}
 	}
 	if err := s.getCRI().StopContainer(ctx, criId, timeout); err != nil {
-		return nil, errors.Wrap(err, "CRI.StopContainer")
+		if !IsContainerNotFoundError(err) {
+			return nil, errors.Wrap(err, "CRI.StopContainer")
+		} else {
+			log.Warningf("CRI.StopContainer %s not found", criId)
+		}
 	}
 	if err := s.startStat.RemoveContainerFile(ctrId); err != nil {
 		return nil, errors.Wrap(err, "startStat.RemoveContainerFile")
@@ -1745,7 +1749,7 @@ func (s *sPodGuestInstance) DeleteContainer(ctx context.Context, userCred mcclie
 	if criId != "" {
 		s.expectedStatus.RemoveContainer(criId)
 
-		if err := s.getCRI().RemoveContainer(ctx, criId); err != nil && !strings.Contains(err.Error(), "not found") {
+		if err := s.getCRI().RemoveContainer(ctx, criId); err != nil && !IsContainerNotFoundError(err) {
 			return nil, errors.Wrap(err, "cri.RemoveContainer")
 		}
 	}
@@ -1771,7 +1775,7 @@ func (s *sPodGuestInstance) getContainerStatus(ctx context.Context, ctrId string
 	}
 	resp, err := s.getCRI().ContainerStatus(ctx, criId)
 	if err != nil {
-		if strings.Contains(err.Error(), "NotFound") {
+		if IsContainerNotFoundError(err) {
 			return computeapi.CONTAINER_STATUS_EXITED, nil, nil
 		}
 		return "", nil, errors.Wrap(err, "cri.ContainerStatus")
