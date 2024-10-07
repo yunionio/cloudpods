@@ -33,6 +33,21 @@ import (
 	"yunion.io/x/onecloud/pkg/util/pod/nerdctl"
 )
 
+func IsContainerNotFoundError(err error) bool {
+	if errors.Cause(err) == errors.ErrNotFound {
+		return true
+	}
+	for _, errMsg := range []string{
+		"NotFound",
+		"not found",
+	} {
+		if strings.Contains(err.Error(), errMsg) {
+			return true
+		}
+	}
+	return false
+}
+
 func GetContainerdConnectionInfo() (string, string) {
 	addr := options.HostOptions.ContainerRuntimeEndpoint
 	addr = strings.TrimPrefix(addr, "unix://")
