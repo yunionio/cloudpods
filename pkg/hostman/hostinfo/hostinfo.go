@@ -399,6 +399,42 @@ func (h *SHostInfo) parseConfig() error {
 	return nil
 }
 
+func (h *SHostInfo) getIoSchedulerSupported(scheduler string, supportedSchedulers []string) (string, map[string]string) {
+	// IoScheduler default to none scheduler
+	ioParams := make(map[string]string, 0)
+	switch scheduler {
+	case "deadline":
+		if utils.IsInStringArray("mq-deadline", supportedSchedulers) {
+			scheduler = "mq-deadline"
+		} else if utils.IsInStringArray("deadline", supportedSchedulers) {
+			scheduler = "deadline"
+		} else {
+			scheduler = "none"
+		}
+	case "cfq":
+		if utils.IsInStringArray("bfq", supportedSchedulers) {
+			scheduler = "bfq"
+		} else if utils.IsInStringArray("cfq", supportedSchedulers) {
+			scheduler = "cfq"
+		} else {
+			scheduler = "none"
+		}
+	default:
+		if !utils.IsInStringArray(scheduler, supportedSchedulers) {
+			scheduler = "none"
+		}
+	}
+	ioParams["queue/scheduler"] = scheduler
+	switch scheduler {
+	case "cfq":
+		ioParams["queue/iosched/group_isolation"] = "1"
+		ioParams["queue/iosched/slice_idle"] = "0"
+		ioParams["queue/iosched/group_idle"] = "0"
+		ioParams["queue/iosched/quantum"] = "32"
+	}
+	return scheduler, ioParams
+}
+
 func (h *SHostInfo) prepareEnv() error {
 	if err := h.fixPathEnv(); err != nil {
 		return errors.Wrap(err, "Fix path environment")
@@ -430,44 +466,21 @@ func (h *SHostInfo) prepareEnv() error {
 	}
 
 	supportedSchedulers, _ := fileutils2.GetAllBlkdevsIoSchedulers()
-	// IoScheduler default to none scheduler
-	ioParams := make(map[string]string, 0)
-	switch options.HostOptions.BlockIoScheduler {
-	case "deadline":
-		if utils.IsInStringArray("mq-deadline", supportedSchedulers) {
-			h.IoScheduler = "mq-deadline"
-		} else if utils.IsInStringArray("deadline", supportedSchedulers) {
-			h.IoScheduler = "deadline"
-		} else {
-			h.IoScheduler = "none"
-		}
-	case "cfq":
-		if utils.IsInStringArray("bfq", supportedSchedulers) {
-			h.IoScheduler = "bfq"
-		} else if utils.IsInStringArray("cfq", supportedSchedulers) {
-			h.IoScheduler = "cfq"
-		} else {
-			h.IoScheduler = "none"
-		}
-	default:
-		if utils.IsInStringArray(options.HostOptions.BlockIoScheduler, supportedSchedulers) {
-			h.IoScheduler = options.HostOptions.BlockIoScheduler
-		} else {
-			h.IoScheduler = "none"
-		}
+	log.Infof("supported io schedulers %v", supportedSchedulers)
+	// set hdd block devices io scheduler
+	{
+		hddIoScheduler, ioParams := h.getIoSchedulerSupported(options.HostOptions.BlockIoScheduler, supportedSchedulers)
+		log.Infof("HDD I/O Scheduler switch to %s", hddIoScheduler)
+		fileutils2.ChangeHddBlkdevsParams(ioParams)
+		h.IoScheduler = hddIoScheduler
+	}
+	// set ssd block devices io scheduler
+	{
+		ssdIoScheduler, ioParams := h.getIoSchedulerSupported(options.HostOptions.SsdBlockIoScheduler, supportedSchedulers)
+		log.Infof("SSD I/O Scheduler switch to %s", ssdIoScheduler)
+		fileutils2.ChangeSsdBlkdevsParams(ioParams)
 	}
 
-	log.Infof("I/O Scheduler switch to %s", h.IoScheduler)
-
-	ioParams["queue/scheduler"] = h.IoScheduler
-	switch h.IoScheduler {
-	case "cfq":
-		ioParams["queue/iosched/group_isolation"] = "1"
-		ioParams["queue/iosched/slice_idle"] = "0"
-		ioParams["queue/iosched/group_idle"] = "0"
-		ioParams["queue/iosched/quantum"] = "32"
-	}
-	fileutils2.ChangeAllBlkdevsParams(ioParams)
 	_, err = procutils.NewRemoteCommandAsFarAsPossible("modprobe", "tun").Output()
 	if err != nil {
 		return errors.Wrap(err, "Failed to activate tun/tap device")
