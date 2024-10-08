@@ -195,6 +195,56 @@ func ChangeAllBlkdevsParams(params map[string]string) {
 	}
 }
 
+func BlockDevIsSsd(dev string) bool {
+	rotational := path.Join("/sys/block", dev, "queue", "rotational")
+	res, err := FileGetContents(rotational)
+	if err != nil {
+		log.Errorf("FileGetContents fail %s %s", rotational, err)
+		return false
+	}
+	return strings.TrimSpace(res) == "0"
+}
+
+func ChangeSsdBlkdevsParams(params map[string]string) {
+	if _, err := os.Stat("/sys/block"); !os.IsNotExist(err) {
+		blockDevs, err := ioutil.ReadDir("/sys/block")
+		if err != nil {
+			log.Errorf("ReadDir /sys/block error: %s", err)
+			return
+		}
+		for _, b := range blockDevs {
+			if !BlockDevIsSsd(b.Name()) {
+				continue
+			}
+			if IsBlockDevMounted(b.Name()) {
+				for k, v := range params {
+					ChangeBlkdevParameter(b.Name(), k, v)
+				}
+			}
+		}
+	}
+}
+
+func ChangeHddBlkdevsParams(params map[string]string) {
+	if _, err := os.Stat("/sys/block"); !os.IsNotExist(err) {
+		blockDevs, err := ioutil.ReadDir("/sys/block")
+		if err != nil {
+			log.Errorf("ReadDir /sys/block error: %s", err)
+			return
+		}
+		for _, b := range blockDevs {
+			if BlockDevIsSsd(b.Name()) {
+				continue
+			}
+			if IsBlockDevMounted(b.Name()) {
+				for k, v := range params {
+					ChangeBlkdevParameter(b.Name(), k, v)
+				}
+			}
+		}
+	}
+}
+
 func ChangeBlkdevParameter(dev, key, value string) {
 	p := path.Join("/sys/block", dev, key)
 	if _, err := os.Stat(p); !os.IsNotExist(err) {
