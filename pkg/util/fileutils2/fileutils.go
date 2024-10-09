@@ -150,6 +150,10 @@ func GetAllBlkdevsIoSchedulers() ([]string, error) {
 			return nil, errors.Wrap(err, "ioutil.ReadDir(/sys/block)")
 		}
 		for _, b := range blockDevs {
+			// check is a block device
+			if !Exists(path.Join("/sys/block", b.Name(), "device")) {
+				continue
+			}
 			if IsBlockDevMounted(b.Name()) {
 				conf, err := GetBlkdevConfig(b.Name(), "queue/scheduler")
 				if err != nil {
@@ -184,10 +188,63 @@ func ChangeAllBlkdevsParams(params map[string]string) {
 			return
 		}
 		for _, b := range blockDevs {
-			if IsBlockDevMounted(b.Name()) {
-				for k, v := range params {
-					ChangeBlkdevParameter(b.Name(), k, v)
-				}
+			if !Exists(path.Join("/sys/block", b.Name(), "device")) {
+				continue
+			}
+			for k, v := range params {
+				ChangeBlkdevParameter(b.Name(), k, v)
+			}
+		}
+	}
+}
+
+func BlockDevIsSsd(dev string) bool {
+	rotational := path.Join("/sys/block", dev, "queue", "rotational")
+	res, err := FileGetContents(rotational)
+	if err != nil {
+		log.Errorf("FileGetContents fail %s %s", rotational, err)
+		return false
+	}
+	return strings.TrimSpace(res) == "0"
+}
+
+func ChangeSsdBlkdevsParams(params map[string]string) {
+	if _, err := os.Stat("/sys/block"); !os.IsNotExist(err) {
+		blockDevs, err := ioutil.ReadDir("/sys/block")
+		if err != nil {
+			log.Errorf("ReadDir /sys/block error: %s", err)
+			return
+		}
+		for _, b := range blockDevs {
+			if !Exists(path.Join("/sys/block", b.Name(), "device")) {
+				continue
+			}
+			if !BlockDevIsSsd(b.Name()) {
+				continue
+			}
+			for k, v := range params {
+				ChangeBlkdevParameter(b.Name(), k, v)
+			}
+		}
+	}
+}
+
+func ChangeHddBlkdevsParams(params map[string]string) {
+	if _, err := os.Stat("/sys/block"); !os.IsNotExist(err) {
+		blockDevs, err := ioutil.ReadDir("/sys/block")
+		if err != nil {
+			log.Errorf("ReadDir /sys/block error: %s", err)
+			return
+		}
+		for _, b := range blockDevs {
+			if !Exists(path.Join("/sys/block", b.Name(), "device")) {
+				continue
+			}
+			if BlockDevIsSsd(b.Name()) {
+				continue
+			}
+			for k, v := range params {
+				ChangeBlkdevParameter(b.Name(), k, v)
 			}
 		}
 	}
