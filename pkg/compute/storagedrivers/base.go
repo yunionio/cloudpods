@@ -113,15 +113,16 @@ func (self *SBaseStorageDriver) RequestDeleteSnapshot(ctx context.Context, snaps
 		if err != nil && err != sql.ErrNoRows {
 			return errors.Wrap(err, "get disk by snapshot")
 		}
-		sDisk, _ := disk.(*models.SDisk)
-		if sDisk.IsEncrypted() {
-			if encryptInfo, err := sDisk.GetEncryptInfo(ctx, task.GetUserCred()); err != nil {
-				return errors.Wrap(err, "faild get encryptInfo")
-			} else {
-				params.Set("encrypt_info", jsonutils.Marshal(encryptInfo))
+		if disk != nil {
+			sDisk, _ := disk.(*models.SDisk)
+			if sDisk.IsEncrypted() {
+				if encryptInfo, err := sDisk.GetEncryptInfo(ctx, task.GetUserCred()); err != nil {
+					return errors.Wrap(err, "faild get encryptInfo")
+				} else {
+					params.Set("encrypt_info", jsonutils.Marshal(encryptInfo))
+				}
 			}
 		}
-
 		if !snapshot.OutOfChain {
 			if convertSnapshot != nil {
 				params.Set("convert_snapshot", jsonutils.NewString(convertSnapshot.Id))
