@@ -18,9 +18,11 @@ import (
 	"context"
 
 	"yunion.io/x/pkg/gotypes"
+	"yunion.io/x/pkg/util/rbacscope"
 
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -65,6 +67,9 @@ func (h cephFS) ValidatePodCreateData(ctx context.Context, userCred mcclient.Tok
 	account := filesystem.GetCloudaccount()
 	if gotypes.IsNil(account) {
 		return httperrors.NewInputParameterError("invalid cephfs %s", filesystem.Name)
+	}
+	if !db.IsAllowUpdate(ctx, rbacscope.ScopeProject, userCred, filesystem) {
+		vm.ReadOnly = true
 	}
 	if account.Provider != api.CLOUD_PROVIDER_CEPHFS {
 		return httperrors.NewInputParameterError("invalid cephfs type %s", account.Provider)
