@@ -50,7 +50,7 @@ func (t *PodStartTask) OnPodStarted(ctx context.Context, pod *models.SGuest, _ j
 	}
 	isAllStarted := true
 	for i := range ctrs {
-		if ctrs[i].GetStatus() != api.CONTAINER_STATUS_RUNNING {
+		if !api.ContainerRunningStatus.Has(ctrs[i].GetStatus()) {
 			isAllStarted = false
 			ctrs[i].StartStartTask(ctx, t.GetUserCred(), t.GetTaskId())
 		}

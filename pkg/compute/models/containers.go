@@ -16,6 +16,7 @@ package models
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -31,13 +32,16 @@ import (
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	hostapi "yunion.io/x/onecloud/pkg/apis/host"
+	identityapi "yunion.io/x/onecloud/pkg/apis/identity"
 	imageapi "yunion.io/x/onecloud/pkg/apis/image"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	identitymod "yunion.io/x/onecloud/pkg/mcclient/modules/identity"
 	kubemod "yunion.io/x/onecloud/pkg/mcclient/modules/k8s"
 )
 
@@ -74,7 +78,7 @@ type SContainer struct {
 	Spec *api.ContainerSpec `length:"long" create:"required" list:"user" update:"user"`
 
 	// 启动时间
-	StartedAt time.Time `nullable:"false" created_at:"false" index:"true" get:"user" list:"user" json:"started_at"`
+	StartedAt time.Time `nullable:"true" created_at:"false" index:"true" get:"user" list:"user" json:"started_at"`
 	// 上次退出时间
 	LastFinishedAt time.Time `nullable:"true" created_at:"false" index:"true" get:"user" list:"user" json:"last_finished_at"`
 
@@ -157,6 +161,11 @@ func (m *SContainerManager) ValidateSpec(ctx context.Context, userCred mcclient.
 	}
 	if !sets.NewString(apis.ImagePullPolicyAlways, apis.ImagePullPolicyIfNotPresent).Has(string(spec.ImagePullPolicy)) {
 		return httperrors.NewInputParameterError("invalid image_pull_policy %s", spec.ImagePullPolicy)
+	}
+	if spec.ImageCredentialId != "" {
+		if _, err := m.GetImageCredential(ctx, userCred, spec.ImageCredentialId); err != nil {
+			return errors.Wrapf(err, "get image credential by id: %s", spec.ImageCredentialId)
+		}
 	}
 
 	if pod != nil {
@@ -541,6 +550,67 @@ func (c *SContainer) StartDeleteTask(ctx context.Context, userCred mcclient.Toke
 	return task.ScheduleRun(nil)
 }
 
+func (m *SContainerManager) GetImageCredential(ctx context.Context, userCred mcclient.TokenCredential, id string) (*apis.ContainerPullImageAuthConfig, error) {
+	s := auth.GetSession(ctx, userCred, options.Options.Region)
+	ret, err := identitymod.Credentials.GetById(s, id, nil)
+	if err != nil {
+		if errors.Cause(err) == errors.ErrNotFound || strings.Contains(err.Error(), "NotFound") {
+			ret, err = identitymod.Credentials.GetByName(s, id, nil)
+			if err != nil {
+				return nil, errors.Wrapf(err, "get credential by id or name of %s", id)
+			}
+		}
+		return nil, errors.Wrap(err, "get credentials by id")
+	}
+	credType, _ := ret.GetString("type")
+	if credType != identityapi.CONTAINER_IMAGE_TYPE {
+		return nil, httperrors.NewNotSupportedError("unsupported credential type %s", credType)
+	}
+	blobStr, err := ret.GetString("blob")
+	if err != nil {
+		return nil, errors.Wrap(err, "get blob")
+	}
+	obj, err := jsonutils.ParseString(blobStr)
+	if err != nil {
+		return nil, errors.Wrapf(err, "json parse string: %s", blobStr)
+	}
+	blob := new(identityapi.CredentialContainerImageBlob)
+	if err := obj.Unmarshal(blob); err != nil {
+		return nil, errors.Wrap(err, "unmarshal blob")
+	}
+	out := &apis.ContainerPullImageAuthConfig{
+		Username:      blob.Username,
+		Password:      blob.Password,
+		Auth:          blob.Auth,
+		ServerAddress: blob.ServerAddress,
+		IdentityToken: blob.IdentityToken,
+		RegistryToken: blob.RegistryToken,
+	}
+	return out, nil
+}
+
+func (c *SContainer) GetImageCredential(ctx context.Context, userCred mcclient.TokenCredential) (*apis.ContainerPullImageAuthConfig, error) {
+	if c.Spec.ImageCredentialId == "" {
+		return nil, errors.Wrap(errors.ErrEmpty, "image_credential_id is empty")
+	}
+	return GetContainerManager().GetImageCredential(ctx, userCred, c.Spec.ImageCredentialId)
+}
+
+func (c *SContainer) GetHostPullImageInput(ctx context.Context, userCred mcclient.TokenCredential) (*hostapi.ContainerPullImageInput, error) {
+	input := &hostapi.ContainerPullImageInput{
+		Image:      c.Spec.Image,
+		PullPolicy: c.Spec.ImagePullPolicy,
+	}
+	if c.Spec.ImageCredentialId != "" {
+		cred, err := c.GetImageCredential(ctx, userCred)
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetImageCredential %s", c.Spec.ImageCredentialId)
+		}
+		input.Auth = cred
+	}
+	return input, nil
+}
+
 func (c *SContainer) StartPullImageTask(ctx context.Context, userCred mcclient.TokenCredential, input *hostapi.ContainerPullImageInput, parentTaskId string) error {
 	c.SetStatus(ctx, userCred, api.CONTAINER_STATUS_PULLING_IMAGE, "")
 	task, err := taskman.TaskManager.NewTask(ctx, "ContainerPullImageTask", c, userCred, jsonutils.Marshal(input).(*jsonutils.JSONDict), parentTaskId, "", nil)
@@ -592,6 +662,11 @@ func (c *SContainer) ToHostContainerSpec(ctx context.Context, userCred mcclient.
 		VolumeMounts:  mounts,
 		Devices:       ctrDevs,
 	}
+	imgCred, err := c.GetHostPullImageInput(ctx, userCred)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetHostPullImageInput")
+	}
+	hSpec.ImageCredentialToken = base64.StdEncoding.EncodeToString([]byte(jsonutils.Marshal(imgCred).String()))
 	return hSpec, nil
 }
 

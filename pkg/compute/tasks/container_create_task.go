@@ -21,7 +21,6 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
-	hostapi "yunion.io/x/onecloud/pkg/apis/host"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -61,9 +60,10 @@ func (t *ContainerCreateTask) OnInit(ctx context.Context, obj db.IStandaloneMode
 
 func (t *ContainerCreateTask) startPullImage(ctx context.Context, container *models.SContainer) {
 	t.SetStage("OnImagePulled", nil)
-	input := &hostapi.ContainerPullImageInput{
-		Image:      container.Spec.Image,
-		PullPolicy: container.Spec.ImagePullPolicy,
+	input, err := container.GetHostPullImageInput(ctx, t.GetUserCred())
+	if err != nil {
+		t.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
+		return
 	}
 	if err := container.StartPullImageTask(ctx, t.GetUserCred(), input, t.GetTaskId()); err != nil {
 		t.SetStageFailed(ctx, jsonutils.NewString(err.Error()))

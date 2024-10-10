@@ -50,3 +50,15 @@ type CredentialCreateInput struct {
 	// Ignore
 	KeyHash string `json:"key_hash"`
 }
+
+type CredentialContainerImageBlob struct {
+	Username      string `json:"username"`
+	Password      string `json:"password"`
+	Auth          string `json:"auth"`
+	ServerAddress string `json:"server_address,omitempty"`
+	// IdentityToken is used to authenticate the user and get
+	// an access token for the registry.
+	IdentityToken string `json:"identity_token,omitempty"`
+	// RegistryToken is a bearer token to be sent to a registry
+	RegistryToken string `json:"registry_token,omitempty"`
+}

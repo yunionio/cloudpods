@@ -47,6 +47,7 @@ type ContainerDeleteOptions struct {
 
 type ContainerCreateCommonOptions struct {
 	IMAGE             string   `help:"Image of container" json:"image"`
+	ImageCredentialId string   `help:"Image credential id" json:"image_credential_id"`
 	Command           []string `help:"Command to execute (i.e., entrypoint for docker)" json:"command"`
 	Args              []string `help:"Args for the Command (i.e. command for docker)" json:"args"`
 	WorkingDir        string   `help:"Current working directory of the command" json:"working_dir"`
@@ -70,6 +71,7 @@ func (o ContainerCreateCommonOptions) getCreateSpec() (*computeapi.ContainerSpec
 	req := &computeapi.ContainerSpec{
 		ContainerSpec: apis.ContainerSpec{
 			Image:              o.IMAGE,
+			ImageCredentialId:  o.ImageCredentialId,
 			Command:            o.Command,
 			Args:               o.Args,
 			WorkingDir:         o.WorkingDir,

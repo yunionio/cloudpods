@@ -16,6 +16,7 @@ package guestman
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -1253,10 +1254,26 @@ func (s *sPodGuestInstance) getContainersFilePath() string {
 
 func (s *sPodGuestInstance) CreateContainer(ctx context.Context, userCred mcclient.TokenCredential, id string, input *hostapi.ContainerCreateInput) (jsonutils.JSONObject, error) {
 	// always pull image for checking
-	if _, err := s.PullImage(ctx, userCred, id, &hostapi.ContainerPullImageInput{
+	imgInput := &hostapi.ContainerPullImageInput{
 		Image:      input.Spec.Image,
 		PullPolicy: input.Spec.ImagePullPolicy,
-	}); err != nil {
+	}
+	if input.Spec.ImageCredentialToken != "" {
+		tokenJson, err := base64.StdEncoding.DecodeString(input.Spec.ImageCredentialToken)
+		if err != nil {
+			return nil, errors.Wrapf(err, "base64 decode image credential token %s", input.Spec.ImageCredentialToken)
+		}
+		authObj, err := jsonutils.Parse(tokenJson)
+		if err != nil {
+			return nil, errors.Wrapf(err, "parse image credential token %s", input.Spec.ImageCredentialToken)
+		}
+		imgAuth := new(apis.ContainerPullImageAuthConfig)
+		if err := authObj.Unmarshal(imgAuth); err != nil {
+			return nil, errors.Wrapf(err, "unmarshal image credential token: %s", authObj)
+		}
+		imgInput.Auth = imgAuth
+	}
+	if _, err := s.PullImage(ctx, userCred, id, imgInput); err != nil {
 		return nil, errors.Wrapf(err, "pull image %s", input.Spec.Image)
 	}
 	ctrCriId, err := s.createContainer(ctx, userCred, id, input)

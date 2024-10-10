@@ -490,6 +490,21 @@ func (manager *SCredentialManager) CreateTotpSecret(s *mcclient.ClientSession, u
 	return totp.Totp, nil
 }
 
+func (manager *SCredentialManager) CreateContainerImageSecret(s *mcclient.ClientSession, projectId string, name string, blob *api.CredentialContainerImageBlob) (jsonutils.JSONObject, error) {
+	blobJson := jsonutils.Marshal(blob)
+	input := &api.CredentialCreateInput{
+		Type:      api.CONTAINER_IMAGE_TYPE,
+		ProjectId: projectId,
+		Blob:      blobJson.String(),
+	}
+	input.Name = name
+	obj, err := manager.Create(s, jsonutils.Marshal(input))
+	if err != nil {
+		return nil, errors.Wrap(err, "CreateContainerImageSecret")
+	}
+	return obj, nil
+}
+
 func (manager *SCredentialManager) SaveRecoverySecrets(s *mcclient.ClientSession, uid string, questions []SRecoverySecret) error {
 	_, err := manager.GetRecoverySecrets(s, uid)
 	if err == nil {

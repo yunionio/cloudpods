@@ -21,6 +21,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/sets"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
@@ -105,7 +106,13 @@ func statusBaseSetStatus(ctx context.Context, model IStatusBaseModel, userCred m
 		}
 		OpsLog.LogEvent(model, ACT_UPDATE_STATUS, notes, userCred)
 		success := true
-		if strings.Contains(status, "fail") || status == apis.STATUS_UNKNOWN || status == api.CLOUD_PROVIDER_DISCONNECTED {
+		isFail := false
+		for _, sub := range []string{"fail", "crash"} {
+			if strings.Contains(status, sub) {
+				isFail = true
+			}
+		}
+		if isFail || sets.NewString(apis.STATUS_UNKNOWN, api.CLOUD_PROVIDER_DISCONNECTED, api.CONTAINER_STATUS_CRASH_LOOP_BACK_OFF).Has(status) {
 			success = false
 		}
 		logclient.AddSimpleActionLog(model, logclient.ACT_UPDATE_STATUS, notes, userCred, success)
