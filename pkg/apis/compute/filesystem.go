@@ -44,7 +44,7 @@ const (
 )
 
 type FileSystemListInput struct {
-	apis.VirtualResourceListInput
+	apis.SharableVirtualResourceListInput
 	apis.ExternalizedResourceBaseListInput
 	ManagedResourceListInput
 
@@ -52,7 +52,7 @@ type FileSystemListInput struct {
 }
 
 type FileSystemCreateInput struct {
-	apis.VirtualResourceCreateInput
+	apis.SharableVirtualResourceCreateInput
 	// 协议类型
 	// enum: ["NFS", "SMB", "CPFS"]
 	Protocol string `json:"protocol"`
@@ -101,7 +101,7 @@ type FileSystemSyncstatusInput struct {
 }
 
 type FileSystemDetails struct {
-	apis.VirtualResourceDetails
+	apis.SharableVirtualResourceDetails
 	ManagedResourceInfo
 	CloudregionResourceInfo
 
