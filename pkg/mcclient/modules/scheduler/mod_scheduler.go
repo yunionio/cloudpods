@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/jsonutils"
 
 	api "yunion.io/x/onecloud/pkg/apis/scheduler"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
@@ -116,6 +117,18 @@ func (this *SchedulerManager) DoForecast(s *mcclient.ClientSession, params jsonu
 		return nil, err
 	}
 	return obj, err
+}
+
+func (this *SchedulerManager) DoHistoryList(s *mcclient.ClientSession, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	return this.HistoryList(s, params)
+}
+
+func (this *SchedulerManager) DoHistoryShow(s *mcclient.ClientSession, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	sessionId, err := params.GetString("session_id")
+	if err != nil {
+		return nil, httperrors.NewNotFoundError("session_id")
+	}
+	return this.HistoryShow(s, sessionId, params)
 }
 
 func (this *SchedulerManager) Cleanup(s *mcclient.ClientSession, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
