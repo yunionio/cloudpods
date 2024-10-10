@@ -38,7 +38,22 @@ import (
 
 var (
 	ErrUnsupportedFormat = errors.Error("unsupported format")
+
+	convertWorkInOrder = false
+	convertCoroutines  = 16
 )
+
+func SetConvertWorkInOrder(workInOrder bool) {
+	convertWorkInOrder = workInOrder
+}
+
+func SetConvertCoroutines(coroutines int) error {
+	if coroutines < 1 || coroutines > 16 {
+		return errors.Errorf("coroutines %d out of range 1-16", coroutines)
+	}
+	convertCoroutines = coroutines
+	return nil
+}
 
 type TIONiceLevel int
 
@@ -49,6 +64,8 @@ const (
 	IONiceBestEffort = TIONiceLevel(2)
 	IONiceIdle       = TIONiceLevel(3)
 )
+
+const DefaultConvertCorutines = 8
 
 type SQemuImage struct {
 	Path            string
@@ -344,6 +361,14 @@ func convertOther(srcInfo, destInfo SImageInfo, compact bool, workerOpions []str
 	} else {
 		cmdline = append(cmdline, workerOpions...)
 	}
+
+	if !utils.IsInStringArray("-W", workerOpions) && !convertWorkInOrder {
+		cmdline = append(cmdline, "-W")
+	}
+	if !utils.IsInStringArray("-m", workerOpions) && convertCoroutines != DefaultConvertCorutines {
+		cmdline = append(cmdline, "-m", strconv.Itoa(convertCoroutines))
+	}
+
 	if compact {
 		cmdline = append(cmdline, "-c")
 	}
@@ -396,6 +421,14 @@ func convertEncrypt(srcInfo, destInfo SImageInfo, compact bool, workerOpions []s
 	} else {
 		cmdline = append(cmdline, workerOpions...)
 	}
+
+	if !utils.IsInStringArray("-W", workerOpions) && !convertWorkInOrder {
+		cmdline = append(cmdline, "-W")
+	}
+	if !utils.IsInStringArray("-m", workerOpions) && convertCoroutines != DefaultConvertCorutines {
+		cmdline = append(cmdline, "-m", strconv.Itoa(convertCoroutines))
+	}
+
 	if srcInfo.Encrypted() {
 		if srcInfo.Format != qemuimgfmt.QCOW2 {
 			return errors.Wrap(errors.ErrNotSupported, "source image not support encryption")
