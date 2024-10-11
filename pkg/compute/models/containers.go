@@ -662,11 +662,11 @@ func (c *SContainer) ToHostContainerSpec(ctx context.Context, userCred mcclient.
 		VolumeMounts:  mounts,
 		Devices:       ctrDevs,
 	}
-	imgCred, err := c.GetHostPullImageInput(ctx, userCred)
+	pullInput, err := c.GetHostPullImageInput(ctx, userCred)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetHostPullImageInput")
 	}
-	hSpec.ImageCredentialToken = base64.StdEncoding.EncodeToString([]byte(jsonutils.Marshal(imgCred).String()))
+	hSpec.ImageCredentialToken = base64.StdEncoding.EncodeToString([]byte(jsonutils.Marshal(pullInput.Auth).String()))
 	return hSpec, nil
 }
 
@@ -850,6 +850,10 @@ func (c *SContainer) PerformStatus(ctx context.Context, userCred mcclient.TokenC
 	if _, err := db.Update(c, func() error {
 		if input.RestartCount > 0 {
 			c.RestartCount = input.RestartCount
+		}
+		if api.ContainerRunningStatus.Has(input.Status) {
+			// 当容器状态是运行时 restart_count 重新计数
+			c.RestartCount = 0
 		}
 		if input.StartedAt != nil {
 			c.StartedAt = *input.StartedAt

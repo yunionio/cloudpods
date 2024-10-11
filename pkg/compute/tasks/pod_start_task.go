@@ -41,7 +41,6 @@ func (t *PodStartTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body
 }
 
 func (t *PodStartTask) OnPodStarted(ctx context.Context, pod *models.SGuest, _ jsonutils.JSONObject) {
-	t.SetStage("OnContainerStarted", nil)
 	pod.SetStatus(ctx, t.GetUserCred(), api.POD_STATUS_STARTING_CONTAINER, "")
 	ctrs, err := models.GetContainerManager().GetContainersByPod(pod.GetId())
 	if err != nil {

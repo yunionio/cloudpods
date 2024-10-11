@@ -110,6 +110,7 @@ func (cr *containerRunner) RunInContainer(pod *desc.SGuestDesc, containerId stri
 type PodInstance interface {
 	GuestRuntimeInstance
 
+	GetCRIId() string
 	GetContainerById(ctrId string) *hostapi.ContainerDesc
 	CreateContainer(ctx context.Context, userCred mcclient.TokenCredential, id string, input *hostapi.ContainerCreateInput) (jsonutils.JSONObject, error)
 	StartContainer(ctx context.Context, userCred mcclient.TokenCredential, ctrId string, input *hostapi.ContainerCreateInput) (jsonutils.JSONObject, error)
@@ -232,7 +233,7 @@ func newPodGuestInstance(id string, man *SGuestManager) PodInstance {
 }
 
 func (s *sPodGuestInstance) CleanGuest(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
-	criId := s.getCRIId()
+	criId := s.GetCRIId()
 	if criId != "" {
 		if err := s.getCRI().RemovePod(ctx, criId); err != nil {
 			return nil, errors.Wrapf(err, "RemovePod with cri_id %q", criId)
@@ -356,7 +357,9 @@ func (s *sPodGuestInstance) SyncStatus(reason string) {
 		}
 		if cs != nil {
 			ctrStatusInput.RestartCount = cs.RestartCount
-			ctrStatusInput.StartedAt = &cs.StartedAt
+			if !cs.StartedAt.IsZero() {
+				ctrStatusInput.StartedAt = &cs.StartedAt
+			}
 			if !cs.FinishedAt.IsZero() {
 				ctrStatusInput.LastFinishedAt = &cs.FinishedAt
 			}
@@ -873,14 +876,14 @@ func (s *sPodGuestInstance) ensurePodRemoved(ctx context.Context, timeout int64)
 	ctx, cancel := context.WithTimeout(ctx, time.Duration(timeout)*time.Second)
 	defer cancel()
 	/*if err := s.getCRI().StopPod(ctx, &runtimeapi.StopPodSandboxRequest{
-		PodSandboxId: s.getCRIId(),
+		PodSandboxId: s.GetCRIId(),
 	}); err != nil {
-		return errors.Wrapf(err, "stop cri pod: %s", s.getCRIId())
+		return errors.Wrapf(err, "stop cri pod: %s", s.GetCRIId())
 	}*/
-	criId := s.getCRIId()
+	criId := s.GetCRIId()
 	if criId != "" {
-		if err := s.getCRI().RemovePod(ctx, s.getCRIId()); err != nil {
-			return errors.Wrapf(err, "remove cri pod: %s", s.getCRIId())
+		if err := s.getCRI().RemovePod(ctx, s.GetCRIId()); err != nil {
+			return errors.Wrapf(err, "remove cri pod: %s", s.GetCRIId())
 		}
 	}
 	p, _ := s.getPod(ctx)
@@ -1141,7 +1144,7 @@ func (s *sPodGuestInstance) StopContainer(ctx context.Context, userCred mcclient
 	return nil, nil
 }
 
-func (s *sPodGuestInstance) getCRIId() string {
+func (s *sPodGuestInstance) GetCRIId() string {
 	return s.GetSourceDesc().Metadata[computeapi.POD_METADATA_CRI_ID]
 }
 
@@ -1505,7 +1508,7 @@ func (s *sPodGuestInstance) createContainer(ctx context.Context, userCred mcclie
 	// set container namespace options to target
 	/*if ctrCfg.Linux.SecurityContext.NamespaceOptions.Pid == runtimeapi.NamespaceMode_CONTAINER {
 		ctrCfg.Linux.SecurityContext.NamespaceOptions.Pid = runtimeapi.NamespaceMode_TARGET
-		ctrCfg.Linux.SecurityContext.NamespaceOptions.TargetId = s.getCRIId()
+		ctrCfg.Linux.SecurityContext.NamespaceOptions.TargetId = s.GetCRIId()
 	}*/
 
 	// inherit security context
@@ -1589,7 +1592,7 @@ func (s *sPodGuestInstance) createContainer(ctx context.Context, userCred mcclie
 	if len(spec.Args) != 0 {
 		ctrCfg.Args = spec.Args
 	}
-	criId, err := s.getCRI().CreateContainer(ctx, s.getCRIId(), podCfg, ctrCfg, false)
+	criId, err := s.getCRI().CreateContainer(ctx, s.GetCRIId(), podCfg, ctrCfg, false)
 	if err != nil {
 		return "", errors.Wrap(err, "cri.CreateContainer")
 	}
@@ -1868,7 +1871,7 @@ func (s *sPodGuestInstance) PullImage(ctx context.Context, userCred mcclient.Tok
 
 func (s *sPodGuestInstance) pullImageByCtrCmd(ctx context.Context, userCred mcclient.TokenCredential, ctrId string, input *hostapi.ContainerPullImageInput) (jsonutils.JSONObject, error) {
 	if err := PullContainerdImage(input); err != nil {
-		return nil, errors.Wrap(err, "pull containerd image")
+		return nil, errors.Errorf("PullContainerdImage: %s", trimPullImageError(err.Error()))
 	}
 	return jsonutils.Marshal(&runtimeapi.PullImageResponse{
 		ImageRef: input.Image,
