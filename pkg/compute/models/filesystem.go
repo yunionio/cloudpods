@@ -42,7 +42,7 @@ import (
 )
 
 type SFileSystemManager struct {
-	db.SVirtualResourceBaseManager
+	db.SSharableVirtualResourceBaseManager
 	db.SExternalizedResourceBaseManager
 	SManagedResourceBaseManager
 	SCloudregionResourceBaseManager
@@ -55,7 +55,7 @@ var FileSystemManager *SFileSystemManager
 
 func init() {
 	FileSystemManager = &SFileSystemManager{
-		SVirtualResourceBaseManager: db.NewVirtualResourceBaseManager(
+		SSharableVirtualResourceBaseManager: db.NewSharableVirtualResourceBaseManager(
 			SFileSystem{},
 			"file_systems_tbl",
 			"file_system",
@@ -66,7 +66,7 @@ func init() {
 }
 
 type SFileSystem struct {
-	db.SVirtualResourceBase
+	db.SSharableVirtualResourceBase
 	db.SExternalizedResourceBase
 	SManagedResourceBase
 	SBillingResourceBase
@@ -111,9 +111,9 @@ func (manager *SFileSystemManager) ListItemFilter(
 	query api.FileSystemListInput,
 ) (*sqlchemy.SQuery, error) {
 	var err error
-	q, err = manager.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query.VirtualResourceListInput)
+	q, err = manager.SSharableVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query.SharableVirtualResourceListInput)
 	if err != nil {
-		return nil, errors.Wrapf(err, "SVirtualResourceBaseManager.ListItemFilter")
+		return nil, errors.Wrapf(err, "SSharableVirtualResourceBaseManager.ListItemFilter")
 	}
 	q, err = manager.SExternalizedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ExternalizedResourceBaseListInput)
 	if err != nil {
@@ -192,7 +192,7 @@ func (man *SFileSystemManager) ValidateCreateData(ctx context.Context, userCred 
 		input.ExpiredAt = billingCycle.EndAt(tm)
 	}
 
-	input.VirtualResourceCreateInput, err = man.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.VirtualResourceCreateInput)
+	input.SharableVirtualResourceCreateInput, err = man.SSharableVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.SharableVirtualResourceCreateInput)
 	if err != nil {
 		return input, err
 	}
@@ -200,7 +200,7 @@ func (man *SFileSystemManager) ValidateCreateData(ctx context.Context, userCred 
 }
 
 func (fileSystem *SFileSystem) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	fileSystem.SVirtualResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
+	fileSystem.SSharableVirtualResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
 	fileSystem.StartCreateTask(ctx, userCred, jsonutils.GetAnyString(data, []string{"network_id"}), "")
 }
 
@@ -231,15 +231,15 @@ func (manager SFileSystemManager) FetchCustomizeColumns(
 	isList bool,
 ) []api.FileSystemDetails {
 	rows := make([]api.FileSystemDetails, len(objs))
-	virtRows := manager.SVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	virtRows := manager.SSharableVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	regionRows := manager.SCloudregionResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	mRows := manager.SManagedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	zoneIds := make([]string, len(objs))
 	for i := range rows {
 		rows[i] = api.FileSystemDetails{
-			VirtualResourceDetails:  virtRows[i],
-			CloudregionResourceInfo: regionRows[i],
-			ManagedResourceInfo:     mRows[i],
+			SharableVirtualResourceDetails: virtRows[i],
+			CloudregionResourceInfo:        regionRows[i],
+			ManagedResourceInfo:            mRows[i],
 		}
 		nas := objs[i].(*SFileSystem)
 		zoneIds[i] = nas.ZoneId
@@ -261,9 +261,9 @@ func (manager *SFileSystemManager) ListItemExportKeys(ctx context.Context,
 	keys stringutils2.SSortedStrings,
 ) (*sqlchemy.SQuery, error) {
 	var err error
-	q, err = manager.SVirtualResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+	q, err = manager.SSharableVirtualResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
 	if err != nil {
-		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemExportKeys")
+		return nil, errors.Wrap(err, "SSharableVirtualResourceBaseManager.ListItemExportKeys")
 	}
 	q, err = manager.SCloudregionResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
 	if err != nil {
@@ -275,7 +275,7 @@ func (manager *SFileSystemManager) ListItemExportKeys(ctx context.Context,
 func (manager *SFileSystemManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
 	var err error
 
-	q, err = manager.SVirtualResourceBaseManager.QueryDistinctExtraField(q, field)
+	q, err = manager.SSharableVirtualResourceBaseManager.QueryDistinctExtraField(q, field)
 	if err == nil {
 		return q, nil
 	}
@@ -299,9 +299,9 @@ func (manager *SFileSystemManager) OrderByExtraFields(
 ) (*sqlchemy.SQuery, error) {
 	var err error
 
-	q, err = manager.SVirtualResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.VirtualResourceListInput)
+	q, err = manager.SSharableVirtualResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.SharableVirtualResourceListInput)
 	if err != nil {
-		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.OrderByExtraFields")
+		return nil, errors.Wrap(err, "SSharableVirtualResourceBaseManager.OrderByExtraFields")
 	}
 	q, err = manager.SManagedResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.ManagedResourceListInput)
 	if err != nil {
@@ -452,14 +452,14 @@ func (fileSystem *SFileSystem) RealDelete(ctx context.Context, userCred mcclient
 			return errors.Wrapf(err, "mount target %s real delete", mts[i].DomainName)
 		}
 	}
-	return fileSystem.SVirtualResourceBase.Delete(ctx, userCred)
+	return fileSystem.SSharableVirtualResourceBase.Delete(ctx, userCred)
 }
 
 func (fileSystem *SFileSystem) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	if fileSystem.DisableDelete.IsTrue() {
 		return httperrors.NewInvalidStatusError("FileSystem is locked, cannot delete")
 	}
-	return fileSystem.SVirtualResourceBase.ValidateDeleteCondition(ctx, nil)
+	return fileSystem.SSharableVirtualResourceBase.ValidateDeleteCondition(ctx, nil)
 }
 
 func (fileSystem *SFileSystem) SyncAllWithCloudFileSystem(ctx context.Context, userCred mcclient.TokenCredential, fs cloudprovider.ICloudFileSystem) error {
@@ -684,7 +684,7 @@ func (fileSystem *SFileSystem) OnMetadataUpdated(ctx context.Context, userCred m
 }
 
 func (fileSystem *SFileSystem) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
-	desc := fileSystem.SVirtualResourceBase.GetShortDesc(ctx)
+	desc := fileSystem.SSharableVirtualResourceBase.GetShortDesc(ctx)
 	region, _ := fileSystem.GetRegion()
 	provider := fileSystem.GetCloudprovider()
 	info := MakeCloudProviderInfo(region, nil, provider)
