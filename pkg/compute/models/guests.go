@@ -5102,6 +5102,10 @@ func (self *SGuest) GetJsonDescAtHypervisor(ctx context.Context, host *SHost) *a
 	// nics, domain
 	desc.Domain = options.Options.DNSDomain
 	nics, _ := self.GetNetworks("")
+	changed, _ := self.fixDefaultGatewayByNics(ctx, auth.AdminCredential(), nics)
+	if changed {
+		nics, _ = self.GetNetworks("")
+	}
 	for _, nic := range nics {
 		nicDesc := nic.getJsonDescAtHost(ctx, host)
 		desc.Nics = append(desc.Nics, nicDesc)
@@ -5211,6 +5215,7 @@ func (self *SGuest) GetJsonDescAtBaremetal(ctx context.Context, host *SHost) *ap
 
 	desc.DiskConfig = host.getDiskConfig()
 
+	self.fixDefaultGateway(ctx, auth.AdminCredential())
 	netifs := host.GetAllNetInterfaces()
 	desc.Domain = options.Options.DNSDomain
 
