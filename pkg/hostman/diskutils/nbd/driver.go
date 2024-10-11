@@ -248,7 +248,7 @@ func (d *NBDDriver) ResizePartition() error {
 		// do not resize LVM partition
 		return nil
 	}
-	return fsutils.ResizeDiskFs(d.nbdDev, 0)
+	return fsutils.ResizeDiskFs(d.nbdDev, 0, false)
 }
 
 func (d *NBDDriver) Zerofree() {

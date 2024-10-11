@@ -129,6 +129,15 @@ func (*DeployerServer) ResizeFs(ctx context.Context, req *deployapi.ResizeFsPara
 		}
 	}()
 	log.Infof("********* Resize fs on %#v", apiDiskInfo(req.DiskInfo))
+
+	if strings.HasPrefix(req.DiskInfo.Path, "/dev/loop") {
+		// HACK: container loop device, do resize locally
+		if err := fsutils.ResizeDiskFs(req.DiskInfo.Path, 0, true); err != nil {
+			return new(deployapi.Empty), errors.Wrap(err, "fsutils.ResizeDiskFs")
+		}
+		return new(deployapi.Empty), nil
+	}
+
 	disk, err := diskutils.GetIDisk(diskutils.DiskParams{
 		Hypervisor: req.Hypervisor,
 		DiskInfo:   apiDiskInfo(req.GetDiskInfo()),

@@ -3278,7 +3278,7 @@ func (s *SKVMGuestInstance) prepareNicsForVolatileGuestResume() error {
 	return nil
 }
 
-func (s *SKVMGuestInstance) onlineResizeDisk(ctx context.Context, disk storageman.IDisk, sizeMB int64) {
+func (s *SKVMGuestInstance) OnlineResizeDisk(ctx context.Context, disk storageman.IDisk, sizeMB int64) {
 	task := NewGuestOnlineResizeDiskTask(ctx, s, disk, sizeMB)
 	task.Start()
 }
