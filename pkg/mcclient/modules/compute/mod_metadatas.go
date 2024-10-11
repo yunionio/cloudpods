@@ -16,7 +16,6 @@ package compute
 
 import (
 	"fmt"
-	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/util/printutils"
@@ -73,22 +72,21 @@ func (this *MetadataManager) getModule(session *mcclient.ClientSession, params j
 		}
 		if len(resources) >= 1 {
 			resource := resources[0]
-			keyString := resource + "s"
-			if strings.HasSuffix(resource, "y") && resource != NatGateways.GetKeyword() {
-				keyString = resource[:len(resource)-1] + "ies"
-			}
 			find := false
+			keyStrings := []string{resource, resource + "s", resource + "ies"}
 			mods, _ := modulebase.GetRegisterdModules()
-			if utils.IsInStringArray(keyString, mods) {
-				mod, err := modulebase.GetModule(session, keyString)
-				if err != nil {
-					return nil, err
+			for _, keyString := range keyStrings {
+				if utils.IsInStringArray(keyString, mods) {
+					mod, err := modulebase.GetModule(session, keyString)
+					if err == nil {
+						service = mod.ServiceType()
+						find = true
+						break
+					}
 				}
-				service = mod.ServiceType()
-				find = true
 			}
 			if !find {
-				return nil, fmt.Errorf("No such module %s", keyString)
+				return nil, fmt.Errorf("No such module %s", resource)
 			}
 		}
 	}
