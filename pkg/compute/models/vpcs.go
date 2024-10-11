@@ -2036,13 +2036,13 @@ func (self *SVpc) CheckSecurityGroupConsistent(secgroup *SSecurityGroup) error {
 		if secgroup.VpcId != self.Id {
 			return httperrors.NewInvalidStatusError("The security group does not belong to the vpc")
 		}
-	} else if len(secgroup.CloudregionId) > 0 {
-		if secgroup.CloudregionId != self.CloudregionId {
-			return httperrors.NewInvalidStatusError("The security group and vpc are in different areas")
-		}
 	} else if len(secgroup.GlobalvpcId) > 0 {
 		if secgroup.GlobalvpcId != self.GlobalvpcId {
 			return httperrors.NewInvalidStatusError("The security group and vpc are in different global vpc")
+		}
+	} else if len(secgroup.CloudregionId) > 0 {
+		if secgroup.CloudregionId != self.CloudregionId {
+			return httperrors.NewInvalidStatusError("The security group and vpc are in different areas")
 		}
 	}
 	return nil
