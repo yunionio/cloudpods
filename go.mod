@@ -5,7 +5,7 @@ go 1.21
 require (
 	bazil.org/fuse v0.0.0-20180421153158-65cc252bf669
 	github.com/360EntSecGroup-Skylar/excelize v1.4.0
-	github.com/LeeEirc/terminalparser v0.0.0-20220328021224-de16b7643ea4
+	github.com/LeeEirc/terminalparser v0.0.0-20240205084113-fbf78c8480f2
 	github.com/aliyun/alibaba-cloud-sdk-go v1.61.684
 	github.com/anacrolix/sync v0.0.0-20180808010631-44578de4e778
 	github.com/anacrolix/torrent v0.0.0-20181129073333-cc531b8c4a80

@@ -18,10 +18,10 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"time"
 
-	"github.com/anacrolix/sync"
 	"github.com/gorilla/websocket"
 	"github.com/pkg/errors"
 	"github.com/pkg/sftp"
@@ -42,12 +42,16 @@ type WebsocketServer struct {
 	Password   string
 	PrivateKey string
 
-	session   *ssh.Session
-	StdinPipe io.WriteCloser
-	ws        *websocket.Conn
-	conn      *ssh.Client
-	sftp      *sftp.Client
-	timer     *time.Timer
+	session    *ssh.Session
+	StdinPipe  io.WriteCloser
+	StdoutPipe io.Reader
+	StderrPipe io.Reader
+
+	ws         *websocket.Conn
+	conn       *ssh.Client
+	sshNetConn net.Conn
+	sftp       *sftp.Client
+	timer      *time.Timer
 }
 
 func NewSshServer(s *session.SSession) (*WebsocketServer, error) {
@@ -63,22 +67,20 @@ func NewSshServer(s *session.SSession) (*WebsocketServer, error) {
 	return server, nil
 }
 
-type WebSocketBufferWriter struct {
-	s    *session.SSession
-	ws   *websocket.Conn
-	lock sync.Mutex
-}
-
-func (w *WebSocketBufferWriter) Write(p []byte) (int, error) {
-	w.lock.Lock()
-	defer w.lock.Unlock()
-
-	go w.s.GetRecorder().Write("", string(p))
-	err := w.ws.WriteMessage(websocket.BinaryMessage, p)
-	if err != nil {
-		return 0, err
+func writeToWebsocket(reader io.Reader, s *WebsocketServer) error {
+	var data = make([]byte, 1024)
+	for {
+		n, err := reader.Read(data)
+		if err != nil {
+			return errors.Wrap(err, "read data from reader")
+		}
+		out := data[:n]
+		go s.Session.GetRecorder().Write("", string(out))
+		if err := s.ws.WriteMessage(websocket.BinaryMessage, out); err != nil {
+			return errors.Wrapf(err, "write data to websocket, out: %s", string(out))
+		}
 	}
-	return len(p), nil
+	return nil
 }
 
 func (s *WebsocketServer) initWs(w http.ResponseWriter, r *http.Request) error {
@@ -86,7 +88,7 @@ func (s *WebsocketServer) initWs(w http.ResponseWriter, r *http.Request) error {
 	privateKey := s.PrivateKey
 	password := s.Password
 	config := &ssh.ClientConfig{
-		Timeout:         time.Second,
+		Timeout:         5 * time.Second,
 		User:            username,
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 		Auth: []ssh.AuthMethod{
@@ -101,7 +103,7 @@ func (s *WebsocketServer) initWs(w http.ResponseWriter, r *http.Request) error {
 
 	var err error
 	addr := fmt.Sprintf("%s:%d", s.Host, s.Port)
-	s.conn, err = ssh.Dial("tcp", addr, config)
+	s.conn, s.sshNetConn, err = NewSshClient("tcp", addr, config)
 	if err != nil {
 		return errors.Wrapf(err, "dial %s", addr)
 	}
@@ -119,7 +121,15 @@ func (s *WebsocketServer) initWs(w http.ResponseWriter, r *http.Request) error {
 
 	s.StdinPipe, err = s.session.StdinPipe()
 	if err != nil {
-		return errors.Wrapf(err, "StdinPip")
+		return errors.Wrapf(err, "StdinPipe")
+	}
+	s.StdoutPipe, err = s.session.StdoutPipe()
+	if err != nil {
+		return errors.Wrapf(err, "StdoutPipe")
+	}
+	s.StderrPipe, err = s.session.StderrPipe()
+	if err != nil {
+		return errors.Wrapf(err, "StderrPipe")
 	}
 
 	var up = websocket.Upgrader{
@@ -134,14 +144,6 @@ func (s *WebsocketServer) initWs(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return errors.Wrapf(err, "upgrade")
 	}
-
-	wsWriter := WebSocketBufferWriter{
-		s:  s.Session,
-		ws: s.ws,
-	}
-
-	s.session.Stdout = &wsWriter
-	s.session.Stderr = &wsWriter
 
 	modes := ssh.TerminalModes{
 		ssh.ECHO:          1,
@@ -161,15 +163,55 @@ func (s *WebsocketServer) initWs(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
+// ref: https://github.com/golang/go/issues/19338#issuecomment-539057790
+func NewSshClient(network, addr string, conf *ssh.ClientConfig) (*ssh.Client, net.Conn, error) {
+	conn, err := net.DialTimeout(network, addr, conf.Timeout)
+	if err != nil {
+		return nil, nil, errors.Wrapf(err, "dial %s %s", network, addr)
+	}
+	if conf.Timeout > 0 {
+		conn.SetDeadline(time.Now().Add(conf.Timeout))
+	}
+	c, chans, reqs, err := ssh.NewClientConn(conn, addr, conf)
+	if err != nil {
+		return nil, nil, errors.Wrapf(err, "new client conn %s", addr)
+	}
+	if conf.Timeout > 0 {
+		conn.SetDeadline(time.Time{})
+	}
+	return ssh.NewClient(c, chans, reqs), conn, nil
+}
+
 func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	logPrefix := fmt.Sprintf("ssh %s@%s:%d, session_id: %s", s.Username, s.Host, s.Port, s.Session.Id)
+
 	err := s.initWs(w, r)
 	if err != nil {
-		log.Errorf("initWs error: %v", err)
+		log.Errorf("%s, initWs error: %v", logPrefix, err)
 		return
 	}
 
 	done := make(chan bool, 3)
-	setDone := func() { done <- true }
+	keepAliveDone := make(chan struct{})
+
+	go func() {
+		if err := sshKeepAlive(s.conn, s.sshNetConn, keepAliveDone); err != nil {
+			log.Errorf("%s, keepalive error: %v", logPrefix, err)
+		}
+	}()
+
+	setDone := func() {
+		done <- true
+	}
+
+	for _, reader := range []io.Reader{s.StdoutPipe, s.StderrPipe} {
+		tmpReader := reader
+		go func() {
+			if err := writeToWebsocket(tmpReader, s); err != nil {
+				log.Warningf("%s, writeToWebsocket error: %v", logPrefix, err)
+			}
+		}()
+	}
 
 	go func() {
 		defer setDone()
@@ -193,12 +235,12 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}{}
 			obj, err := jsonutils.Parse(p)
 			if err != nil {
-				log.Errorf("parse %s error: %v", string(p), err)
+				log.Errorf("%s, parse %s error: %v", logPrefix, string(p), err)
 				continue
 			}
 			err = obj.Unmarshal(&input)
 			if err != nil {
-				log.Errorf("unmarshal %s error: %v", string(p), err)
+				log.Errorf("%s, unmarshal %s error: %v", logPrefix, string(p), err)
 				continue
 			}
 
@@ -208,7 +250,7 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			case "resize":
 				err = s.session.WindowChange(input.Data.Rows, input.Data.Cols)
 				if err != nil {
-					log.Errorf("resize %dx%d error: %v", input.Data.Cols, input.Data.Rows, err)
+					log.Errorf("%s, resize %dx%d error: %v", logPrefix, input.Data.Cols, input.Data.Rows, err)
 				}
 			case "input":
 				if input.Data.Base64 {
@@ -218,13 +260,13 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				go s.Session.GetRecorder().Write(input.Data.Data, "")
 				_, err = s.StdinPipe.Write([]byte(input.Data.Data))
 				if err != nil {
-					log.Errorf("write %s error: %v", input.Data.Data, err)
+					log.Errorf("%s, write %s error: %v", logPrefix, input.Data.Data, err)
 					return
 				}
 			case "heartbeat":
 				continue
 			default:
-				log.Errorf("unknow msg type %s for %s:%d", input.Type, s.Host, s.Port)
+				log.Errorf("%s, unknow msg type %s", logPrefix, input.Type)
 			}
 		}
 	}()
@@ -236,6 +278,8 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		delSftpClient(s.Session.Id)
 		s.sftp.Close()
 		s.conn.Close()
+		s.Session.Close()
+		keepAliveDone <- struct{}{}
 	}()
 
 	stop := make(chan bool)
@@ -265,6 +309,7 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		err = s.session.Wait()
 		if err != nil {
+			log.Warningf("%s wait error: %v", logPrefix, err)
 			s.StdinPipe.Write([]byte(err.Error()))
 		}
 	}()
@@ -272,4 +317,28 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	<-done
 	stop <- true
 	log.Infof("ssh %s@%s:%d complete", s.Username, s.Host, s.Port)
+}
+
+func sshKeepAlive(cli *ssh.Client, conn net.Conn, done <-chan struct{}) error {
+	// ref:
+	// - https://github.com/golang/go/issues/21478
+	// - https://github.com/scylladb/go-sshtools/blob/master/keepalive.go#L36
+	const keepAliveInterval = 15 * time.Second
+	t := time.NewTicker(keepAliveInterval)
+	defer t.Stop()
+	for {
+		deadline := time.Now().Add(keepAliveInterval).Add(15 * time.Second)
+		if err := conn.SetDeadline(deadline); err != nil {
+			return errors.Wrap(err, "failed to set deadline")
+		}
+		select {
+		case <-t.C:
+			_, _, err := cli.SendRequest("keepalive@openssh.com", true, nil)
+			if err != nil {
+				return errors.Wrap(err, "failed to send keep alive")
+			}
+		case <-done:
+			return nil
+		}
+	}
 }
