@@ -606,10 +606,10 @@ func (l *sLinuxRootFs) PrepareFsForTemplate(rootFs IDiskPartition) error {
 		}
 	}
 	for _, dir := range []string{
-		"/var/spool",
+		// "/var/spool",
 		"/var/run",
 		"/run",
-		"/usr/local/var/spool",
+		// "/usr/local/var/spool",
 		"/usr/local/var/run",
 		"/etc/openvswitch",
 	} {
