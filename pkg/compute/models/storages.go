@@ -121,7 +121,7 @@ func (self *SStorage) ValidateUpdateData(ctx context.Context, userCred mcclient.
 	if self.StorageConf != nil {
 		confs, _ := self.StorageConf.GetMap()
 		for k, v := range confs {
-			if input.StorageConf.Contains(k) {
+			if !input.StorageConf.Contains(k) {
 				continue
 			}
 			input.StorageConf.Set(k, v)
