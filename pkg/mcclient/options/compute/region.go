@@ -55,7 +55,7 @@ func (opts *SkuSyncOptions) Params() (jsonutils.JSONObject, error) {
 }
 
 type CloudregionSkuSyncOptions struct {
-	RESOURCE string `help:"Resource of skus" choices:"serversku|elasticcachesku|dbinstance_sku"`
+	RESOURCE string `help:"Resource of skus" choices:"serversku|elasticcachesku|dbinstance_sku|nat_sku"`
 	SkuSyncOptions
 }
 
