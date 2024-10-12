@@ -635,12 +635,15 @@ func (self *SKVMGuestDriver) GetDeployStatus() ([]string, error) {
 }
 
 func (self *SKVMGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk *models.SDisk, storage *models.SStorage) error {
-	if guest.GetDiskIndex(disk.Id) <= 0 && guest.Status == api.VM_RUNNING {
-		return fmt.Errorf("Cann't online resize root disk")
+	if guest.Hypervisor == api.HYPERVISOR_KVM {
+		if guest.GetDiskIndex(disk.Id) <= 0 && guest.Status == api.VM_RUNNING {
+			return fmt.Errorf("Cann't online resize root disk")
+		}
+		if guest.Status == api.VM_RUNNING && storage.StorageType == api.STORAGE_SLVM {
+			return fmt.Errorf("shared lvm storage cann't online resize")
+		}
 	}
-	if guest.Status == api.VM_RUNNING && storage.StorageType == api.STORAGE_SLVM {
-		return fmt.Errorf("shared lvm storage cann't online resize")
-	}
+
 	if !utils.IsInStringArray(guest.Status, []string{api.VM_READY, api.VM_RUNNING}) {
 		return fmt.Errorf("Cannot resize disk when guest in status %s", guest.Status)
 	}

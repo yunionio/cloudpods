@@ -2190,6 +2190,42 @@ func (s *sPodGuestInstance) DeleteSnapshot(ctx context.Context, params *SDeleteD
 	return res, nil
 }
 
+func (s *sPodGuestInstance) doOnlineResizeDisk(ctx context.Context, disk storageman.IDisk, sizeMB int64) {
+	drv, err := disk.GetContainerStorageDriver()
+	if err != nil {
+		hostutils.TaskFailed(ctx, fmt.Sprintf("get disk storage driver %s", err))
+		return
+	}
+	partDev, found, err := drv.CheckConnect(disk.GetPath())
+	if err != nil {
+		hostutils.TaskFailed(ctx, fmt.Sprintf("disk check connect %s", err))
+		return
+	}
+	if !found {
+		hostutils.TaskFailed(ctx, fmt.Sprintf("online resize but loop device not connected"))
+		return
+	}
+
+	if err := disk.PreResize(ctx, sizeMB); err != nil {
+		hostutils.TaskFailed(ctx, fmt.Sprintf("PreResize failed %s", err))
+		return
+	}
+
+	params := jsonutils.NewDict()
+	params.Set("size", jsonutils.NewInt(sizeMB))
+	params.Set("loop_part_dev", jsonutils.NewString(partDev))
+	res, err := disk.Resize(ctx, params)
+	if err != nil {
+		hostutils.TaskFailed(ctx, fmt.Sprintf("PreResize failed %s", err))
+		return
+	}
+	hostutils.TaskComplete(ctx, res)
+}
+
+func (s *sPodGuestInstance) OnlineResizeDisk(ctx context.Context, disk storageman.IDisk, sizeMB int64) {
+	go s.doOnlineResizeDisk(ctx, disk, sizeMB)
+}
+
 func (s *sPodGuestInstance) ContainerExecSync(ctx context.Context, userCred mcclient.TokenCredential, ctrId string, input *computeapi.ContainerExecSyncInput) (jsonutils.JSONObject, error) {
 	ctrCriId, err := s.getContainerCRIId(ctrId)
 	if err != nil {

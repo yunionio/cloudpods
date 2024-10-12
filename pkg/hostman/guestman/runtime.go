@@ -28,6 +28,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/hostman/options"
+	"yunion.io/x/onecloud/pkg/hostman/storageman"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/cgrouputils/cpuset"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
@@ -70,6 +71,7 @@ type GuestRuntimeInstance interface {
 	SyncConfig(ctx context.Context, guestDesc *desc.SGuestDesc, fwOnly bool) (jsonutils.JSONObject, error)
 	DoSnapshot(ctx context.Context, params *SDiskSnapshot) (jsonutils.JSONObject, error)
 	DeleteSnapshot(ctx context.Context, params *SDeleteDiskSnapshot) (jsonutils.JSONObject, error)
+	OnlineResizeDisk(ctx context.Context, disk storageman.IDisk, sizeMB int64)
 }
 
 type sBaseGuestInstance struct {

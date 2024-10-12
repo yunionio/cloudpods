@@ -41,6 +41,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/fuseutils"
+	"yunion.io/x/onecloud/pkg/util/losetup"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
@@ -155,6 +156,15 @@ func (d *SLocalDisk) OnRebuildRoot(ctx context.Context, params api.DiskAllocateI
 	return err
 }
 
+func (d *SLocalDisk) ResizeLoopDevice(partDev string) (string, error) {
+	loopDevice := strings.TrimSuffix(partDev, "p1")
+	err := losetup.ResizeLoopDevice(loopDevice)
+	if err != nil {
+		return "", errors.Wrap(err, "ResizeLoopDevice")
+	}
+	return loopDevice, nil
+}
+
 func (d *SLocalDisk) Resize(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
 	diskInfo, ok := params.(*jsonutils.JSONDict)
 	if !ok {
@@ -170,6 +180,7 @@ func (d *SLocalDisk) Resize(ctx context.Context, params interface{}) (jsonutils.
 	resizeFsInfo := &deployapi.DiskInfo{
 		Path: d.GetPath(),
 	}
+
 	if diskInfo.Contains("encrypt_info") {
 		var encryptInfo apis.SEncryptInfo
 		err := diskInfo.Unmarshal(&encryptInfo, "encrypt_info")
@@ -187,10 +198,20 @@ func (d *SLocalDisk) Resize(ctx context.Context, params interface{}) (jsonutils.
 			return nil, err
 		}
 	}
-	if options.HostOptions.EnableFallocateDisk {
-		err := d.fallocate()
+
+	if diskInfo.Contains("loop_part_dev") {
+		partDev, _ := diskInfo.GetString("loop_part_dev")
+		loopDev, err := d.ResizeLoopDevice(partDev)
 		if err != nil {
-			log.Errorf("fallocate fail %s", err)
+			return nil, err
+		}
+		resizeFsInfo.Path = loopDev
+	} else {
+		if options.HostOptions.EnableFallocateDisk {
+			err := d.fallocate()
+			if err != nil {
+				log.Errorf("fallocate fail %s", err)
+			}
 		}
 	}
 

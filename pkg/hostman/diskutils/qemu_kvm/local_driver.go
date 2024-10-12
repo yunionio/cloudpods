@@ -93,7 +93,7 @@ func (d *LocalDiskDriver) ResizePartition() error {
 		// do not resize LVM partition
 		return nil
 	}
-	return fsutils.ResizeDiskFs("/dev/sda", 0)
+	return fsutils.ResizeDiskFs("/dev/sda", 0, false)
 }
 
 func (d *LocalDiskDriver) FormatPartition(fs, uuid string) error {

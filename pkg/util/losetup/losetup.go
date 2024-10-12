@@ -207,3 +207,8 @@ func DetachDeviceByFile(filePath string) error {
 	_, err = NewLosetupCommand().AddArgs("-d", dev.Name).Run()
 	return err
 }
+
+func ResizeLoopDevice(loopDev string) error {
+	_, err := NewLosetupCommand().AddArgs("-c", loopDev).Run()
+	return err
+}

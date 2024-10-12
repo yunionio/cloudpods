@@ -131,7 +131,7 @@ func GetDevSector512Count(dev string) int {
 	return size
 }
 
-func ResizeDiskFs(diskPath string, sizeMb int) error {
+func ResizeDiskFs(diskPath string, sizeMb int, mounted bool) error {
 	var cmds = []string{"parted", "-a", "none", "-s", diskPath, "--", "unit", "s", "print"}
 	lines, err := procutils.NewCommand(cmds[0], cmds[1:]...).Output()
 	if err != nil {
@@ -205,7 +205,7 @@ func ResizeDiskFs(diskPath string, sizeMb int) error {
 			if err != nil {
 				return errors.Wrapf(err, "growpart failed %s", output)
 			}
-			err, _ = ResizePartitionFs(part[7], part[6], false)
+			err, _ = ResizePartitionFs(part[7], part[6], false, mounted)
 			if err != nil {
 				return errors.Wrapf(err, "resize fs %s", part[6])
 			}
@@ -225,7 +225,7 @@ func IsSupportResizeFs(fs string) bool {
 	return false
 }
 
-func ResizePartitionFs(fpath, fs string, raiseError bool) (error, bool) {
+func ResizePartitionFs(fpath, fs string, raiseError, mounted bool) (error, bool) {
 	if len(fs) == 0 {
 		return nil, false
 	}
@@ -240,13 +240,16 @@ func ResizePartitionFs(fpath, fs string, raiseError bool) (error, bool) {
 			cmds = [][]string{{"mkswap", fpath}}
 		}
 	} else if strings.HasPrefix(fs, "ext") {
-		if !FsckExtFs(fpath) {
-			if raiseError {
-				return fmt.Errorf("Failed to fsck ext fs %s", fpath), false
-			} else {
-				return nil, false
+		if !mounted {
+			if !FsckExtFs(fpath) {
+				if raiseError {
+					return fmt.Errorf("Failed to fsck ext fs %s", fpath), false
+				} else {
+					return nil, false
+				}
 			}
 		}
+
 		cmds = [][]string{{"resize2fs", fpath}}
 	} else if fs == "xfs" {
 		var tmpPoint = fmt.Sprintf("/tmp/%s", strings.Replace(fpath, "/", "_", -1))
@@ -297,23 +300,22 @@ func ResizePartitionFs(fpath, fs string, raiseError bool) (error, bool) {
 func FsckExtFs(fpath string) bool {
 	log.Debugf("Exec command: %v", []string{"e2fsck", "-f", "-p", fpath})
 	cmd := procutils.NewCommand("e2fsck", "-f", "-p", fpath)
-	if err := cmd.Start(); err != nil {
-		log.Errorf("e2fsck start failed: %s", err)
-		return false
-	} else {
-		err = cmd.Wait()
-		if err != nil {
-			if status, ok := cmd.GetExitStatus(err); ok {
-				if status < 4 {
-					return true
-				}
+
+	out, err := cmd.Output()
+	if err != nil {
+		log.Errorf("e2fsck failed %s: %s", err, out)
+		if status, ok := cmd.GetExitStatus(err); ok {
+			log.Errorf("e2fsck exit status %d", status)
+			if status < 4 {
+				return true
+			} else {
+				return false
 			}
-			log.Errorln(err)
-			return false
 		} else {
-			return true
+			return false
 		}
 	}
+	return true
 }
 
 // https://bugs.launchpad.net/ubuntu/+source/xfsprogs/+bug/1718244

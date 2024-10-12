@@ -214,7 +214,7 @@ func (d *SLibguestfsDriver) ResizePartition() error {
 		// do not try to resize LVM partition
 		return nil
 	}
-	return fsutils.ResizeDiskFs(d.nbddev, 0)
+	return fsutils.ResizeDiskFs(d.nbddev, 0, false)
 }
 
 func (d *SLibguestfsDriver) FormatPartition(fs, uuid string) error {
