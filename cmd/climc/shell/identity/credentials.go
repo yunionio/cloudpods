@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/util/printutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/identity"
 )
@@ -28,7 +29,7 @@ import (
 func init() {
 	type CredentialListOptions struct {
 		Scope      string `help:"scope" choices:"project|domain|system"`
-		Type       string `help:"credential type" choices:"totp|recovery_secret|aksk|enc_key"`
+		Type       string `help:"credential type" choices:"totp|recovery_secret|aksk|enc_key|container_image"`
 		User       string `help:"filter by user"`
 		UserDomain string `help:"the domain of user"`
 	}
@@ -360,6 +361,33 @@ func init() {
 			return err
 		}
 		printObject(result)
+		return nil
+	})
+
+	type CredentialContainerImageOptions struct {
+		NAME          string `help:"container image credential name"`
+		USER          string `help:"container image credential user"`
+		PASSWORD      string `help:"container image credential password"`
+		Project       string `help:"Project"`
+		ProjectDomain string `help:"domain of user"`
+	}
+	R(&CredentialContainerImageOptions{}, "credential-create-container-image", "Create container image crendential", func(s *mcclient.ClientSession, args *CredentialContainerImageOptions) error {
+		var pid string
+		var err error
+		if len(args.Project) > 0 {
+			pid, err = modules.Projects.FetchId(s, args.Project, args.ProjectDomain)
+			if err != nil {
+				return err
+			}
+		}
+		obj, err := modules.Credentials.CreateContainerImageSecret(s, pid, args.NAME, &api.CredentialContainerImageBlob{
+			Username: args.USER,
+			Password: args.PASSWORD,
+		})
+		if err != nil {
+			return err
+		}
+		printObject(obj)
 		return nil
 	})
 }

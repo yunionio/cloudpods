@@ -91,6 +91,27 @@ func PullContainerdImage(input *hostapi.ContainerPullImageInput) error {
 	return nil
 }
 
+func trimPullImageError(err string) string {
+	maxLen := 2048
+	getLine := func(line string, maxLen int) string {
+		if len(line) < maxLen {
+			return line
+		}
+		return line[:maxLen]
+	}
+	if len(err) <= maxLen {
+		return err
+	}
+	lines := strings.Split(err, "\n")
+	if len(lines) <= 1 {
+		return getLine(lines[0], maxLen)
+	}
+	return strings.Join([]string{
+		getLine(lines[0], maxLen/2),
+		getLine(lines[len(lines)-1], maxLen/2)},
+		"\n")
+}
+
 func PushContainerdImage(input *hostapi.ContainerPushImageInput) error {
 	opt := &image.PushOptions{
 		RepoCommonOptions: image.RepoCommonOptions{

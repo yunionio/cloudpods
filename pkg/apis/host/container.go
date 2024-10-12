@@ -58,8 +58,9 @@ type ContainerVolumeMount struct {
 
 type ContainerSpec struct {
 	apis.ContainerSpec
-	VolumeMounts []*ContainerVolumeMount `json:"volume_mounts"`
-	Devices      []*ContainerDevice      `json:"devices"`
+	ImageCredentialToken string                  `json:"image_credential_token"`
+	VolumeMounts         []*ContainerVolumeMount `json:"volume_mounts"`
+	Devices              []*ContainerDevice      `json:"devices"`
 }
 
 type ContainerDevice struct {

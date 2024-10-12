@@ -117,7 +117,12 @@ func (m *SGuestManager) syncContainerLoopIteration(plegCh chan *pleg.PodLifecycl
 		}
 		if e.Type == pleg.ContainerStarted {
 			log.Infof("pod container started: %s", jsonutils.Marshal(e))
-			podMan.SyncStatus("pod container started")
+			ctrId := e.Data.(string)
+			if ctrId == podMan.GetCRIId() {
+				log.Infof("pod %s(%s) is started", podMan.GetId(), ctrId)
+			} else {
+				podMan.SyncStatus("pod container started")
+			}
 		}
 		if e.Type == pleg.ContainerRemoved {
 			/*isInternalRemoved := podMan.IsInternalRemoved(e)

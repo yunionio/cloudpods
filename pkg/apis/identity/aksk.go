@@ -26,6 +26,7 @@ const (
 	RECOVERY_SECRETS_TYPE = "recovery_secret"
 	OIDC_CREDENTIAL_TYPE  = "oidc"
 	ENCRYPT_KEY_TYPE      = "enc_key"
+	CONTAINER_IMAGE_TYPE  = "container_image"
 )
 
 type SAccessKeySecretBlob struct {

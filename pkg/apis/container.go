@@ -64,6 +64,8 @@ type ContainerSpec struct {
 	Image string `json:"image"`
 	// Image pull policy
 	ImagePullPolicy ImagePullPolicy `json:"image_pull_policy"`
+	// Image credential id
+	ImageCredentialId string `json:"image_credential_id"`
 	// Command to execute (i.e., entrypoint for docker)
 	Command []string `json:"command"`
 	// Args for the Command (i.e. command for docker)
