@@ -11,25 +11,15 @@ type screenCsiFunc func(screen *Screen, params []rune)
 var CSIFuncMap = map[rune]screenCsiFunc{
 	'@': func(s *Screen, params []rune) {
 		currentRow := s.GetCursorRow()
-		switch len(params) {
-		case 1:
-			if ps, err := strconv.Atoi(string(params)); err == nil {
-				insertData := make([]rune, ps)
-				for i := 0; i < ps; i++ {
-					insertData[i] = Spaces[0]
-				}
-				currentRow.changeCursorToX(s.Cursor.X)
-				currentRow.insertCharacters(insertData)
+		if ps, err := strconv.Atoi(string(params)); err == nil {
+			insertData := make([]rune, ps)
+			for i := 0; i < ps; i++ {
+				insertData[i] = Spaces[0]
 			}
-		case 2:
-			if params[len(params)-1] == Spaces[0] {
-				if _, err := strconv.Atoi(string(params[0])); err == nil {
-					log.Printf("Screen 不支持解析 CSI `%s` @\n", string(params))
-				}
-			}
-		default:
 			currentRow.changeCursorToX(s.Cursor.X)
-			currentRow.insertCharacters([]rune{Spaces[0]})
+			currentRow.insertCharacters(insertData)
+		} else {
+			log.Printf("Screen 不支持解析 CSI `%s` @\n", string(params))
 		}
 	},
 	'A': func(s *Screen, params []rune) {
