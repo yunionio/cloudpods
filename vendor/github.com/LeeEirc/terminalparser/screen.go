@@ -101,7 +101,6 @@ func (s *Screen) parseC0Sequence(code rune) {
 			\r
 		*/
 		s.Cursor.X = 0
-		s.Cursor.Y++
 		if s.Cursor.Y > len(s.Rows) {
 			s.Rows = append(s.Rows, &Row{
 				dataRune: make([]rune, 0, 1024),
