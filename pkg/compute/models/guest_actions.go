@@ -2863,10 +2863,22 @@ func (self *SGuest) PerformDetachnetwork(
 	return nil, nil
 }
 
-func (guest *SGuest) fixDefaultGateway(ctx context.Context, userCred mcclient.TokenCredential) error {
+func (guest *SGuest) fixDefaultGatewayByNics(ctx context.Context, userCred mcclient.TokenCredential, nics []SGuestnetwork) (bool, error) {
 	defaultGwCnt := 0
+	for i := range nics {
+		if nics[i].Virtual || len(nics[i].TeamWith) > 0 {
+			continue
+		}
+		if nics[i].IsDefault {
+			defaultGwCnt++
+		}
+	}
+
+	if defaultGwCnt == 1 {
+		return false, nil
+	}
+
 	nicList := netutils2.SNicInfoList{}
-	nics, _ := guest.GetNetworks("")
 	for i := range nics {
 		if nics[i].Virtual || len(nics[i].TeamWith) > 0 {
 			continue
@@ -2874,22 +2886,24 @@ func (guest *SGuest) fixDefaultGateway(ctx context.Context, userCred mcclient.To
 		net, _ := nics[i].GetNetwork()
 		if net != nil {
 			nicList = nicList.Add(nics[i].IpAddr, nics[i].MacAddr, net.GuestGateway)
-			if nics[i].IsDefault {
-				defaultGwCnt++
-			}
 		}
 	}
-	if defaultGwCnt != 1 {
-		gwMac, _ := nicList.FindDefaultNicMac()
-		if gwMac != "" {
-			err := guest.setDefaultGateway(ctx, userCred, gwMac)
-			if err != nil {
-				log.Errorf("setDefaultGateway fail %s", err)
-				return errors.Wrap(err, "setDefaultGateway")
-			}
+
+	gwMac, _ := nicList.FindDefaultNicMac()
+	if gwMac != "" {
+		err := guest.setDefaultGateway(ctx, userCred, gwMac)
+		if err != nil {
+			log.Errorf("setDefaultGateway fail %s", err)
+			return true, errors.Wrap(err, "setDefaultGateway")
 		}
 	}
-	return nil
+	return true, nil
+}
+
+func (guest *SGuest) fixDefaultGateway(ctx context.Context, userCred mcclient.TokenCredential) error {
+	nics, _ := guest.GetNetworks("")
+	_, err := guest.fixDefaultGatewayByNics(ctx, userCred, nics)
+	return err
 }
 
 // 挂载网卡
