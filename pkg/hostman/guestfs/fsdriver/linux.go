@@ -1317,6 +1317,11 @@ func getMainNic(nics []*types.SServerNic) *types.SServerNic {
 			return nics[i]
 		}
 	}
+	for i := range nics {
+		if len(nics[i].Gateway) > 0 {
+			return nics[i]
+		}
+	}
 	return nil
 }
 
