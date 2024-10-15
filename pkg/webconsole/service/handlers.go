@@ -21,6 +21,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 
 	"yunion.io/x/jsonutils"
@@ -137,7 +138,7 @@ func fetchCloudEnv(ctx context.Context, w http.ResponseWriter, r *http.Request) 
 	if userCred == nil {
 		return nil, httperrors.NewUnauthorizedError("No token founded")
 	}
-	if !gotypes.IsNil(body) {
+	if !gotypes.IsNil(body) && body.Contains("webconsole") {
 		body, _ = body.Get("webconsole")
 	}
 	s := auth.Client().NewSession(ctx, o.Options.Region, "", "internal", userCred)
@@ -425,45 +426,61 @@ func handleAdbShell(ctx context.Context, w http.ResponseWriter, r *http.Request)
 
 	phoneIp := ""
 	adbPort := -1
-	if len(serverDetails.Nics) > 0 {
-		phoneIp = serverDetails.Nics[0].IpAddr
-		portMaps := serverDetails.Nics[0].PortMappings
-		for i := range portMaps {
-			portMap := portMaps[i]
-			if portMap.Port == 5555 && portMap.Protocol == "tcp" {
-				adbPort = *portMap.HostPort
-				break
+	connStr, _ := env.Body.GetString("conn")
+	if len(connStr) > 0 {
+		parts := strings.Split(connStr, ":")
+		if len(parts) > 0 {
+			phoneIp = parts[0]
+			if len(parts) > 1 {
+				adbPort, _ = strconv.Atoi(parts[1])
+			}
+			if adbPort == 0 {
+				adbPort = 5555
 			}
 		}
-		var errMsgs []string
-		if !regutils.MatchIP4Addr(phoneIp) {
-			errMsgs = append(errMsgs, "invalid phone IP")
-		}
-		if adbPort < 0 {
-			errMsgs = append(errMsgs, "adb port not found")
-		}
-		if len(errMsgs) > 0 {
-			httperrors.GeneralServerError(ctx, w, httperrors.NewNotSupportedError(strings.Join(errMsgs, ";")))
-			return
-		}
-	} else {
-		httperrors.GeneralServerError(ctx, w, httperrors.NewNotSupportedError("porting_mapping not supported"))
-		return
 	}
-
-	{
-		// test phoneIP is accessible
-		err := netutils2.TestTcpPort(phoneIp, 5555, 3, 3)
-		if err != nil {
-			log.Errorf("TestTcpPort %s:%d fail %s", phoneIp, 5555, err)
-			phoneIp = serverDetails.HostEIP
-			if len(phoneIp) == 0 {
-				phoneIp = serverDetails.HostAccessIp
+	if len(phoneIp) == 0 {
+		// fallback
+		if len(serverDetails.Nics) > 0 {
+			phoneIp = serverDetails.Nics[0].IpAddr
+			portMaps := serverDetails.Nics[0].PortMappings
+			for i := range portMaps {
+				portMap := portMaps[i]
+				if portMap.Port == 5555 && portMap.Protocol == "tcp" {
+					adbPort = *portMap.HostPort
+					break
+				}
+			}
+			var errMsgs []string
+			if !regutils.MatchIP4Addr(phoneIp) {
+				errMsgs = append(errMsgs, "invalid phone IP")
+			}
+			if adbPort < 0 {
+				errMsgs = append(errMsgs, "adb port not found")
+			}
+			if len(errMsgs) > 0 {
+				httperrors.GeneralServerError(ctx, w, httperrors.NewNotSupportedError(strings.Join(errMsgs, ";")))
+				return
 			}
 		} else {
-			adbPort = 5555
+			httperrors.GeneralServerError(ctx, w, httperrors.NewNotSupportedError("porting_mapping not supported"))
+			return
+		}
+		{
+			// test phoneIP is accessible
+			err := netutils2.TestTcpPort(phoneIp, 5555, 3, 3)
+			if err != nil {
+				log.Errorf("TestTcpPort %s:%d fail %s", phoneIp, 5555, err)
+				phoneIp = serverDetails.HostEIP
+				if len(phoneIp) == 0 {
+					phoneIp = serverDetails.HostAccessIp
+				}
+			} else {
+				adbPort = 5555
+			}
 		}
 	}
+
 	info := command.SAdbShellInfo{
 		HostIp:   phoneIp,
 		HostPort: adbPort,
