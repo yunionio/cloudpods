@@ -82,7 +82,9 @@ func (self *GuestSyncstatusTask) OnGetStatusComplete(ctx context.Context, obj db
 	case api.VM_BLOCK_STREAM, api.VM_BLOCK_STREAM_FAIL:
 		break
 	default:
-		statusStr = api.VM_UNKNOWN
+		if guest.GetHypervisor() != api.HYPERVISOR_POD {
+			statusStr = api.VM_UNKNOWN
+		}
 	}
 	if !self.HasParentTask() {
 		// migrating status hack

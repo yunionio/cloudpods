@@ -356,7 +356,11 @@ func (s *sPodGuestInstance) SyncStatus(reason string) {
 			},
 		}
 		if cs != nil {
-			ctrStatusInput.RestartCount = cs.RestartCount
+			if computeapi.ContainerRunningStatus.Has(cStatus) {
+				ctrStatusInput.RestartCount = 0
+			} else {
+				ctrStatusInput.RestartCount = cs.RestartCount
+			}
 			if !cs.StartedAt.IsZero() {
 				ctrStatusInput.StartedAt = &cs.StartedAt
 			}
@@ -364,7 +368,7 @@ func (s *sPodGuestInstance) SyncStatus(reason string) {
 				ctrStatusInput.LastFinishedAt = &cs.FinishedAt
 			}
 			if ctr := s.GetContainerById(c.Id); ctr != nil {
-				ctr.RestartCount = cs.RestartCount
+				ctr.RestartCount = ctrStatusInput.RestartCount
 				ctr.StartedAt = cs.StartedAt
 				ctr.LastFinishedAt = cs.FinishedAt
 				if err := s.SaveContainerDesc(ctr); err != nil {
@@ -1822,7 +1826,9 @@ func (s *sPodGuestInstance) getContainerStatus(ctx context.Context, ctrId string
 		}
 	}
 	if status == computeapi.CONTAINER_STATUS_EXITED && resp.Status.ExitCode != 0 {
-		status = computeapi.CONTAINER_STATUS_CRASH_LOOP_BACK_OFF
+		if _, isInternalStopped := s.IsInternalStopped(criId); !isInternalStopped {
+			status = computeapi.CONTAINER_STATUS_CRASH_LOOP_BACK_OFF
+		}
 	}
 	return status, cs, nil
 }
