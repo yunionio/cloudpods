@@ -57,7 +57,7 @@ type SHostwireDeprecated struct {
 
 	Bridge string `width:"64" charset:"ascii" nullable:"false" list:"domain" update:"domain" create:"domain_required"`
 	// 接口名称
-	Interface string `width:"16" charset:"ascii" nullable:"false" list:"domain" update:"domain" create:"domain_required"`
+	Interface string `width:"64" charset:"ascii" nullable:"false" list:"domain" update:"domain" create:"domain_required"`
 	// 是否是主地址
 	IsMaster bool `nullable:"true" default:"false" list:"domain" update:"domain" create:"domain_optional"`
 	// MAC地址

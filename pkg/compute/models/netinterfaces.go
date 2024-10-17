@@ -56,7 +56,7 @@ type SNetInterface struct {
 	// Bridge名称
 	Bridge string `width:"64" charset:"ascii" nullable:"true"`
 	// 接口名称
-	Interface string `width:"16" charset:"ascii" nullable:"true"`
+	Interface string `width:"64" charset:"ascii" nullable:"true"`
 }
 
 // +onecloud:swagger-gen-ignore
