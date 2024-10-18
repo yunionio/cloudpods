@@ -142,7 +142,7 @@ type ComputeOptions struct {
 
 	CloudSyncWorkerCount         int `help:"how many current synchronization threads" default:"5"`
 	CloudProviderSyncWorkerCount int `help:"how many current providers synchronize their regions, practically no limit" default:"10"`
-	CloudAutoSyncIntervalSeconds int `help:"frequency to check auto sync tasks" default:"30"`
+	CloudAutoSyncIntervalSeconds int `help:"frequency to check auto sync tasks" default:"300"`
 	DefaultSyncIntervalSeconds   int `help:"minimal synchronization interval, default 15 minutes" default:"900"`
 	MaxCloudAccountErrorCount    int `help:"maximal consecutive error count allow for a cloud account" default:"5"`
 
