@@ -68,5 +68,14 @@ func (self *SecurityGroupRule) Delete() error {
 }
 
 func (self *SecurityGroupRule) Update(opts *cloudprovider.SecurityGroupRuleUpdateOptions) error {
-	return cloudprovider.ErrNotImplemented
+	input := api.SSecgroupRuleUpdateInput{}
+	input.Priority = &opts.Priority
+	action := string(opts.Action)
+	input.Action = &action
+	protocol := string(opts.Protocol)
+	input.Protocol = &protocol
+	input.Description = opts.Desc
+	input.CIDR = &opts.CIDR
+	input.Ports = &opts.Ports
+	return self.region.cli.update(&modules.SecGroupRules, self.Id, input)
 }
