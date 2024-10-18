@@ -69,7 +69,7 @@ func (self *SSecurityGroup) GetRules() ([]cloudprovider.ISecurityGroupRule, erro
 }
 
 func (self *SSecurityGroup) GetVpcId() string {
-	return api.NORMAL_VPC_ID
+	return ""
 }
 
 func (self *SSecurityGroup) GetReferences() ([]cloudprovider.SecurityGroupReference, error) {
@@ -95,7 +95,11 @@ func (self *SRegion) DeleteSecRule(id string) error {
 	return self.cli.delete(&modules.SecGroupRules, id)
 }
 
-func (self *SRegion) CreateSecRule(secId string, opts *cloudprovider.SecurityGroupRuleCreateOptions) error {
+func (self *SSecurityGroup) CreateRule(opts *cloudprovider.SecurityGroupRuleCreateOptions) (cloudprovider.ISecurityGroupRule, error) {
+	return self.region.CreateSecRule(self.Id, opts)
+}
+
+func (self *SRegion) CreateSecRule(secId string, opts *cloudprovider.SecurityGroupRuleCreateOptions) (*SecurityGroupRule, error) {
 	input := api.SSecgroupRuleCreateInput{}
 	input.SecgroupId = secId
 	input.Priority = &opts.Priority
@@ -106,8 +110,12 @@ func (self *SRegion) CreateSecRule(secId string, opts *cloudprovider.SecurityGro
 	input.CIDR = opts.CIDR
 
 	input.Ports = opts.Ports
-	ret := struct{}{}
-	return self.create(&modules.SecGroupRules, input, &ret)
+	ret := &SecurityGroupRule{region: self}
+	err := self.create(&modules.SecGroupRules, input, &ret)
+	if err != nil {
+		return nil, err
+	}
+	return ret, nil
 }
 
 func (self *SSecurityGroup) Delete() error {
