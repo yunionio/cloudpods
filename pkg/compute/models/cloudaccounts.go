@@ -2288,18 +2288,18 @@ func (manager *SCloudaccountManager) AutoSyncCloudaccountStatusTask(ctx context.
 	for i := range accounts {
 		if accounts[i].GetEnabled() && accounts[i].shouldProbeStatus() && accounts[i].CanSync() {
 			id, name, account := accounts[i].Id, accounts[i].Name, &accounts[i]
-			cloudaccountProbeMutex.Lock()
-			if _, ok := cloudaccountProbe[id]; ok {
-				cloudaccountProbeMutex.Unlock()
+			cloudaccountPendingSyncsMutex.Lock()
+			if _, ok := cloudaccountPendingSyncs[id]; ok {
+				cloudaccountPendingSyncsMutex.Unlock()
 				continue
 			}
-			cloudaccountProbe[id] = struct{}{}
-			cloudaccountProbeMutex.Unlock()
+			cloudaccountPendingSyncs[id] = struct{}{}
+			cloudaccountPendingSyncsMutex.Unlock()
 			RunSyncCloudAccountTask(ctx, func() {
 				defer func() {
-					cloudaccountProbeMutex.Lock()
-					defer cloudaccountProbeMutex.Unlock()
-					delete(cloudaccountProbe, id)
+					cloudaccountPendingSyncsMutex.Lock()
+					defer cloudaccountPendingSyncsMutex.Unlock()
+					delete(cloudaccountPendingSyncs, id)
 				}()
 				log.Debugf("syncAccountStatus %s %s", id, name)
 				idctx := context.WithValue(ctx, "id", id)
@@ -2483,9 +2483,6 @@ func (account *SCloudaccount) syncAccountStatus(ctx context.Context, userCred mc
 var (
 	cloudaccountPendingSyncs      = map[string]struct{}{}
 	cloudaccountPendingSyncsMutex = &sync.Mutex{}
-
-	cloudaccountProbe      = map[string]struct{}{}
-	cloudaccountProbeMutex = &sync.Mutex{}
 )
 
 func (account *SCloudaccount) SubmitSyncAccountTask(ctx context.Context, userCred mcclient.TokenCredential, waitChan chan error) {
