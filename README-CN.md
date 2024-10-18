@@ -1,8 +1,9 @@
 # Cloudpods
 
 [![CircleCI](https://circleci.com/gh/yunionio/cloudpods.svg?style=svg)](https://circleci.com/gh/yunionio/cloudpods)
-[![Build Status](https://travis-ci.com/yunionio/cloudpods.svg?branch=master)](https://travis-ci.org/yunionio/cloudpods)
 [![Go Report Card](https://goreportcard.com/badge/github.com/yunionio/cloudpods)](https://goreportcard.com/report/github.com/yunionio/cloudpods)
+
+ [简体中文](./README-CN.md) | [English](./README.md)
 
 ## Cloudpods是什么?
 
