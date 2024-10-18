@@ -16,9 +16,12 @@ package losetup
 
 import (
 	"fmt"
+	"path/filepath"
+	"strconv"
 	"strings"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/util/mountutils"
@@ -151,6 +154,99 @@ func AttachDevice(filePath string, partScan bool) (*Device, error) {
 	return dev, nil
 }
 
+// converts a raw key value pair string into a map of key value pairs
+// example raw string of `foo="0" bar="1" baz="biz"` is returned as:
+// map[string]string{"foo":"0", "bar":"1", "baz":"biz"}
+func parseKeyValuePairString(propsRaw string) map[string]string {
+	// first split the single raw string on spaces and initialize a map of
+	// a length equal to the number of pairs
+	props := strings.Split(propsRaw, " ")
+	propMap := make(map[string]string, len(props))
+
+	for _, kvpRaw := range props {
+		// split each individual key value pair on the equals sign
+		kvp := strings.Split(kvpRaw, "=")
+		if len(kvp) == 2 {
+			// first element is the final key, second element is the final value
+			// (don't forget to remove surrounding quotes from the value)
+			propMap[kvp[0]] = strings.Replace(kvp[1], `"`, "", -1)
+		}
+	}
+
+	return propMap
+}
+
+const (
+	// DiskType is a disk type
+	DiskType = "disk"
+	// SSDType is an sdd type
+	SSDType = "ssd"
+	// PartType is a partition type
+	PartType = "part"
+	// CryptType is an encrypted type
+	CryptType = "crypt"
+	// LVMType is an LVM type
+	LVMType = "lvm"
+	// MultiPath is for multipath devices
+	MultiPath = "mpath"
+	// LinearType is a linear type
+	LinearType = "linear"
+	// LoopType is a loop device type
+	LoopType  = "loop"
+	sgdiskCmd = "sgdisk"
+	// CephLVPrefix is the prefix of a LV owned by ceph-volume
+	CephLVPrefix = "ceph--"
+	// DeviceMapperPrefix is the prefix of a LV from the device mapper interface
+	DeviceMapperPrefix = "dm-"
+)
+
+// Partition represents a partition metadata
+type Partition struct {
+	Name       string
+	Size       uint64
+	Label      string
+	Filesystem string
+}
+
+// ref: https://github.com/rook/rook/blob/master/pkg/util/sys/device.go#L135
+func GetDevicePartions(devicePath string) ([]string, error) {
+	cmd, err := NewCommand("lsblk", devicePath, "--bytes", "--pairs", "--output", "NAME,SIZE,TYPE,PKNAME").Run()
+	if err != nil {
+		return nil, errors.Wrapf(err, "get device %s partions", devicePath)
+	}
+	device := filepath.Base(devicePath)
+	output := cmd.Output()
+	partInfo := strings.Split(output, "\n")
+	var partitions = make([]string, 0)
+	var totalPartitionSize uint64
+	for _, info := range partInfo {
+		props := parseKeyValuePairString(info)
+		name := props["NAME"]
+		if name == device {
+			// found the main device
+			log.Infof("Device found - %s", name)
+			_, err = strconv.ParseUint(props["SIZE"], 10, 64)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get device %s size. %+v", device, err)
+			}
+		} else if props["PKNAME"] == device && props["TYPE"] == PartType {
+			// found a partition
+			p := Partition{Name: name}
+			p.Size, err = strconv.ParseUint(props["SIZE"], 10, 64)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get partition %s size. %+v", name, err)
+			}
+			totalPartitionSize += p.Size
+
+			partitions = append(partitions, name)
+		} else if strings.HasPrefix(name, CephLVPrefix) && props["TYPE"] == LVMType {
+			partitions = append(partitions, name)
+		}
+	}
+
+	return partitions, nil
+}
+
 func DetachDevice(devPath string) error {
 	getDev := func() (*Device, error) {
 		devs, err := ListDevices()
@@ -168,13 +264,19 @@ func DetachDevice(devPath string) error {
 		return nil
 	}
 	// check mountpoints
-	checkMntCmd, _ := NewCommand("sh", "-c", fmt.Sprintf("mount | grep %s | awk '{print $3}'", dev.Name)).Run()
-	if out := checkMntCmd.Output(); out != "" {
-		mntPoints := strings.Split(out, "\n")
-		for _, mntPoint := range mntPoints {
-			if mntPoint != "" {
-				if err := mountutils.Unmount(mntPoint); err != nil {
-					return errors.Wrapf(err, "umount %s of %s", mntPoint, dev.Name)
+	partions, err := GetDevicePartions(devPath)
+	if err != nil {
+		return errors.Wrapf(err, "get device %s partions", devPath)
+	}
+	for _, part := range partions {
+		checkMntCmd, _ := NewCommand("sh", "-c", fmt.Sprintf("mount | grep %s | awk '{print $3}'", part)).Run()
+		if out := checkMntCmd.Output(); out != "" {
+			mntPoints := strings.Split(out, "\n")
+			for _, mntPoint := range mntPoints {
+				if mntPoint != "" {
+					if err := mountutils.Unmount(mntPoint); err != nil {
+						return errors.Wrapf(err, "umount %s of dev: %s, part: %s", mntPoint, dev.Name, part)
+					}
 				}
 			}
 		}
