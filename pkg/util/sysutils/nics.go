@@ -71,7 +71,17 @@ func Nics() ([]*types.SNicDevInfo, error) {
 			if carrier == "1" {
 				up = true
 			}
-			mac, _ := net.ParseMAC(GetSysConfigQuiet(filepath.Join(netPath, "address")))
+			macStr := GetSysConfigQuiet(filepath.Join(netPath, "address"))
+			permMacStr := GetSysConfigQuiet(filepath.Join(netPath, "bonding_slave/perm_hwaddr"))
+			var mac net.HardwareAddr
+			if len(permMacStr) > 0 {
+				mac, _ = net.ParseMAC(permMacStr)
+			} else if len(macStr) > 0 {
+				mac, _ = net.ParseMAC(macStr)
+			} else {
+				// no valid mac address
+				continue
+			}
 			mtuStr := GetSysConfigQuiet(filepath.Join(netPath, "mtu"))
 			mtu := 0
 			if len(mtuStr) > 0 {
