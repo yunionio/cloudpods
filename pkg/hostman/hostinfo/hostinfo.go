@@ -1705,7 +1705,7 @@ func (h *SHostInfo) ensureNicsHostwires(hostInfo *api.HostDetails) error {
 func (h *SHostInfo) isVirtualFunction(nic string) bool {
 	physPortName, err := fileutils2.FileGetContents(path.Join("/sys/class/net", nic, "phys_port_name"))
 	if err != nil {
-		log.Warningf("failed get nic %s phys_port_name: %s", nic, err)
+		// log.Warningf("failed get nic %s phys_port_name: %s", nic, err)
 		return false
 	}
 	if strings.Contains(physPortName, "vf") {
@@ -1721,13 +1721,15 @@ func (h *SHostInfo) uploadNetworkInfo() error {
 	if err != nil {
 		return errors.Wrap(err, "parse physical nics info")
 	}
-	for _, pnic := range phyNics {
+	for i, pnic := range phyNics {
 		if h.isVirtualFunction(pnic.Dev) {
+			log.Warningf("phyNics %d %#v is a virtual function", i, pnic)
 			continue
 		}
 		nic := h.getMatchNic(pnic.Mac.String(), 1)
 		if nic != nil {
 			// no need to report managed NIC
+			log.Warningf("phyNics %d %#v is managed interface", i, pnic)
 			continue
 		}
 		// only report unmanaged physical NIC
