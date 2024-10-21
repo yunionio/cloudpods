@@ -27,6 +27,7 @@ import (
 	"yunion.io/x/pkg/sortedmap"
 )
 
+// swagger:type object
 type JSONObject interface {
 	gotypes.ISerializable
 
@@ -68,6 +69,7 @@ var (
 	JSONFalse = &JSONBool{data: false}
 )
 
+// swagger:type object
 type JSONDict struct {
 	JSONValue
 	data sortedmap.SSortedMap
@@ -294,26 +296,25 @@ func (s *sJsonParseSession) parseJSONValue(str []byte, offset int) (JSONObject, 
 
 // https://www.ietf.org/rfc/rfc4627.txt
 //
-//         string = quotation-mark *char quotation-mark
+//	string = quotation-mark *char quotation-mark
 //
-//         char = unescaped /
-//                escape (
-//                    %x22 /          ; "    quotation mark  U+0022
-//                    %x5C /          ; \    reverse solidus U+005C
-//                    %x2F /          ; /    solidus         U+002F
-//                    %x62 /          ; b    backspace       U+0008
-//                    %x66 /          ; f    form feed       U+000C
-//                    %x6E /          ; n    line feed       U+000A
-//                    %x72 /          ; r    carriage return U+000D
-//                    %x74 /          ; t    tab             U+0009
-//                    %x75 4HEXDIG )  ; uXXXX                U+XXXX
+//	char = unescaped /
+//	       escape (
+//	           %x22 /          ; "    quotation mark  U+0022
+//	           %x5C /          ; \    reverse solidus U+005C
+//	           %x2F /          ; /    solidus         U+002F
+//	           %x62 /          ; b    backspace       U+0008
+//	           %x66 /          ; f    form feed       U+000C
+//	           %x6E /          ; n    line feed       U+000A
+//	           %x72 /          ; r    carriage return U+000D
+//	           %x74 /          ; t    tab             U+0009
+//	           %x75 4HEXDIG )  ; uXXXX                U+XXXX
 //
-//         escape = %x5C              ; \
+//	escape = %x5C              ; \
 //
-//         quotation-mark = %x22      ; "
+//	quotation-mark = %x22      ; "
 //
-//         unescaped = %x20-21 / %x23-5B / %x5D-10FFFF
-//
+//	unescaped = %x20-21 / %x23-5B / %x5D-10FFFF
 func escapeJsonChar(sb *strings.Builder, ch byte) {
 	switch ch {
 	case '"':
