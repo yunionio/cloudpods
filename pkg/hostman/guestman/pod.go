@@ -382,7 +382,7 @@ func (s *sPodGuestInstance) SyncStatus(reason string) {
 		if cStatus == computeapi.CONTAINER_STATUS_CRASH_LOOP_BACK_OFF {
 			status = computeapi.POD_STATUS_CRASH_LOOP_BACK_OFF
 		}
-		if cStatus == computeapi.CONTAINER_STATUS_EXITED {
+		if cStatus == computeapi.CONTAINER_STATUS_EXITED && status != computeapi.VM_READY {
 			status = computeapi.POD_STATUS_CONTAINER_EXITED
 		}
 	}
@@ -1135,6 +1135,9 @@ func (s *sPodGuestInstance) StopContainer(ctx context.Context, userCred mcclient
 			return nil, errors.Wrapf(err, "unmount shm %s", name)
 		}
 	}
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
 	if err := s.getCRI().StopContainer(ctx, criId, timeout); err != nil {
 		if !IsContainerNotFoundError(err) {
 			return nil, errors.Wrap(err, "CRI.StopContainer")
@@ -1142,10 +1145,15 @@ func (s *sPodGuestInstance) StopContainer(ctx context.Context, userCred mcclient
 			log.Warningf("CRI.StopContainer %s not found", criId)
 		}
 	}
-	if err := s.startStat.RemoveContainerFile(ctrId); err != nil {
-		return nil, errors.Wrap(err, "startStat.RemoveContainerFile")
+	select {
+	case <-ctx.Done():
+		return nil, errors.Wrap(ctx.Err(), "stop container")
+	default:
+		if err := s.startStat.RemoveContainerFile(ctrId); err != nil {
+			return nil, errors.Wrap(err, "startStat.RemoveContainerFile")
+		}
+		return nil, nil
 	}
-	return nil, nil
 }
 
 func (s *sPodGuestInstance) GetCRIId() string {
