@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 )
@@ -48,7 +49,7 @@ func (self *SStoragecache) GetGlobalId() string {
 }
 
 func (self *SStoragecache) GetStatus() string {
-	return "available"
+	return apis.STATUS_AVAILABLE
 }
 
 func (self *SStoragecache) GetICustomizedCloudImages() ([]cloudprovider.ICloudImage, error) {

@@ -7,7 +7,6 @@ require (
 	github.com/360EntSecGroup-Skylar/excelize v1.4.0
 	github.com/LeeEirc/terminalparser v0.0.0-20240205084113-fbf78c8480f2
 	github.com/aliyun/alibaba-cloud-sdk-go v1.61.684
-	github.com/anacrolix/sync v0.0.0-20180808010631-44578de4e778
 	github.com/anacrolix/torrent v0.0.0-20181129073333-cc531b8c4a80
 	github.com/benbjohnson/clock v1.0.0
 	github.com/bitly/go-simplejson v0.5.0
@@ -94,9 +93,9 @@ require (
 	k8s.io/cri-api v0.22.17
 	k8s.io/klog/v2 v2.20.0
 	moul.io/http2curl/v2 v2.3.0
-	yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20240926044416-87330751124e
+	yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20241021095517-d6741196fd7b
 	yunion.io/x/executor v0.0.0-20230705125604-c5ac3141db32
-	yunion.io/x/jsonutils v1.0.1-0.20240203102553-4096f103b401
+	yunion.io/x/jsonutils v1.0.1-0.20240930100528-1671a2d0d22f
 	yunion.io/x/log v1.0.1-0.20240305175729-7cf2d6cd5a91
 	yunion.io/x/ovsdb v0.0.0-20230306173834-f164f413a900
 	yunion.io/x/pkg v1.10.1-0.20240905110705-77c46e716318
@@ -138,6 +137,7 @@ require (
 	github.com/anacrolix/log v0.0.0-20180808012509-286fcf906b48 // indirect
 	github.com/anacrolix/missinggo v0.0.0-20181129073415-3237bf955fed // indirect
 	github.com/anacrolix/mmsg v0.0.0-20180808012353-5adb2c1127c0 // indirect
+	github.com/anacrolix/sync v0.0.0-20180808010631-44578de4e778 // indirect
 	github.com/anacrolix/utp v0.0.0-20180219060659-9e0e1d1d0572 // indirect
 	github.com/aokoli/goutils v1.0.1 // indirect
 	github.com/apache/thrift v0.13.0 // indirect
