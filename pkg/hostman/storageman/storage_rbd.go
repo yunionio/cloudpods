@@ -49,9 +49,13 @@ const (
 )
 
 type sStorageConf struct {
-	MonHost            string
-	Key                string
-	Pool               string
+	MonHost string
+	Key     string
+	Pool    string
+	// https://docs.ceph.com/en/latest/rados/configuration/msgr2/
+	// The messenger v2 protocol, or msgr2, is the second major
+	// revision on Ceph’s on-wire protocol.
+	EnableMessengerV2  bool
 	RadosMonOpTimeout  int64
 	RadosOsdOpTimeout  int64
 	ClientMountTimeout int64
@@ -96,7 +100,7 @@ func (s *SRbdStorage) getCephClient(pool string) (*cephutils.CephClient, error) 
 	if pool == "" {
 		pool = s.Pool
 	}
-	return cephutils.NewClient(s.MonHost, s.Key, pool)
+	return cephutils.NewClient(s.MonHost, s.Key, pool, s.EnableMessengerV2)
 }
 
 func (s *SRbdStorage) getClient() (*cephutils.CephClient, error) {

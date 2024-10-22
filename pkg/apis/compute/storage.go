@@ -71,6 +71,9 @@ type StorageCreateInput struct {
 	// example: 192.168.222.3,192.168.222.4,192.168.222.99
 	RbdMonHost string `json:"rbd_mon_host"`
 
+	// enable ceph messenger v2
+	EnableMessengerV2 *bool `json:"enable_messenger_v2"`
+
 	// swagger:ignore
 	MonHost string
 
@@ -230,6 +233,9 @@ type StorageUpdateInput struct {
 	// 可在ceph集群主机的/etc/ceph/ceph.client.admin.keyring文件中找到
 	// example: AQDigB9dtnDAKhAAxS6X4zi4BPR/lIle4nf4Dw==
 	RbdKey string `json:"rbd_key"`
+
+	// enable ceph messenger v2
+	EnableMessengerV2 *bool `json:"enable_messenger_v2"`
 
 	RbdTimeoutInput
 
