@@ -268,7 +268,7 @@ func (m *runtimeManager) GetPodStatus(uid, name, namespace string) (*PodStatus, 
 	}, nil
 }
 
-func (m *runtimeManager) getSandboxIDByPodUID(podUID string, state *runtimeapi.PodSandboxState) ([]string, error) {
+func GetSandboxIDByPodUID(cri pod.CRI, podUID string, state *runtimeapi.PodSandboxState) ([]string, error) {
 	filter := &runtimeapi.PodSandboxFilter{
 		LabelSelector: map[string]string{
 			PodUIDLabel: podUID,
@@ -279,14 +279,14 @@ func (m *runtimeManager) getSandboxIDByPodUID(podUID string, state *runtimeapi.P
 			State: *state,
 		}
 	}
-	resp, err := m.cri.GetRuntimeClient().ListPodSandbox(context.Background(), &runtimeapi.ListPodSandboxRequest{Filter: filter})
+	resp, err := cri.GetRuntimeClient().ListPodSandbox(context.Background(), &runtimeapi.ListPodSandboxRequest{Filter: filter})
 	if err != nil {
 		return nil, errors.Wrap(err, "ListPodSandbox failed")
 	}
 	sandboxes := resp.Items
 	if len(sandboxes) == 0 {
 		// 兼容旧版没有打标签的 pods
-		pods, err := m.cri.ListPods(context.Background(), pod.ListPodOptions{})
+		pods, err := cri.ListPods(context.Background(), pod.ListPodOptions{})
 		if err != nil {
 			return nil, errors.Wrap(err, "List all pods failed")
 		}
@@ -305,6 +305,10 @@ func (m *runtimeManager) getSandboxIDByPodUID(podUID string, state *runtimeapi.P
 	}
 
 	return sandboxIDs, nil
+}
+
+func (m *runtimeManager) getSandboxIDByPodUID(podUID string, state *runtimeapi.PodSandboxState) ([]string, error) {
+	return GetSandboxIDByPodUID(m.cri, podUID, state)
 }
 
 // determinePodSandboxIP determines the IP addresses of the given pod sandbox.

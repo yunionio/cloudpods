@@ -233,13 +233,31 @@ func newPodGuestInstance(id string, man *SGuestManager) PodInstance {
 }
 
 func (s *sPodGuestInstance) CleanGuest(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+	var err error
 	criId := s.GetCRIId()
+	if criId == "" {
+		criId, err = s.getPodIdFromCRI()
+		if err != nil && !IsContainerNotFoundError(err) {
+			return nil, errors.Wrapf(err, "get cri pod id")
+		}
+	}
 	if criId != "" {
 		if err := s.getCRI().RemovePod(ctx, criId); err != nil {
 			return nil, errors.Wrapf(err, "RemovePod with cri_id %q", criId)
 		}
 	}
 	return nil, DeleteHomeDir(s)
+}
+
+func (s *sPodGuestInstance) getPodIdFromCRI() (string, error) {
+	ids, err := runtime.GetSandboxIDByPodUID(s.getCRI(), s.GetInitialId(), nil)
+	if err != nil {
+		return "", errors.Wrapf(err, "get pod cri_id by uid %s", s.GetInitialId())
+	}
+	if len(ids) == 0 {
+		return "", errors.Wrapf(errors.ErrNotFound, "not found cri pod by uid %s", s.GetInitialId())
+	}
+	return ids[0], nil
 }
 
 func (s *sPodGuestInstance) ExitCleanup(clear bool) {
