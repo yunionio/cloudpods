@@ -300,7 +300,7 @@ func (self *SHuaweiClient) request(method httputils.THttpMethod, regionId, url s
 		return nil, err
 	}
 	if gotypes.IsNil(resp) {
-		return nil, fmt.Errorf("empty response return")
+		return jsonutils.NewDict(), nil
 	}
 	return resp, nil
 }
