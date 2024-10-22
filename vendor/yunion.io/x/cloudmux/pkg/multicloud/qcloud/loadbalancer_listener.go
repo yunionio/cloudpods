@@ -587,7 +587,7 @@ func healthCheck(params map[string]string, listenerType string, opts *cloudprovi
 			params["HealthCheck.IntervalTime"] = fmt.Sprintf("%d", opts.HealthCheckInterval)
 			params["HealthCheck.HealthNum"] = fmt.Sprintf("%d", opts.HealthCheckRise)
 			params["HealthCheck.UnHealthNum"] = fmt.Sprintf("%d", opts.HealthCheckFail)
-			switch opts.HealthCheck {
+			switch opts.HealthCheckType {
 			case api.LB_HEALTH_CHECK_TCP:
 				params["HealthCheck.CheckType"] = "TCP"
 			case api.LB_HEALTH_CHECK_HTTP:
@@ -620,7 +620,7 @@ func healthCheck(params map[string]string, listenerType string, opts *cloudprovi
 			params["HealthCheck.IntervalTime"] = fmt.Sprintf("%d", opts.HealthCheckInterval)
 			params["HealthCheck.HealthNum"] = fmt.Sprintf("%d", opts.HealthCheckRise)
 			params["HealthCheck.UnHealthNum"] = fmt.Sprintf("%d", opts.HealthCheckFail)
-			switch opts.HealthCheck {
+			switch opts.HealthCheckType {
 			case api.LB_HEALTH_CHECK_PING:
 				params["HealthCheck.CheckType"] = "PING"
 				params["HealthCheck.CheckPort"] = "-1"
