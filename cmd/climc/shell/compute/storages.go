@@ -60,9 +60,10 @@ func init() {
 		info := struct {
 			StorageType string `json:"storage_type"`
 			StorageConf struct {
-				Key     string `json:"key"`
-				MonHost string `json:"mon_host"`
-				Pool    string `json:"pool"`
+				Key               string `json:"key"`
+				MonHost           string `json:"mon_host"`
+				Pool              string `json:"pool"`
+				EnableMessengerV2 bool   `json:"enable_messenger_v2"`
 			}
 		}{}
 		err = result.Unmarshal(&info)
@@ -76,6 +77,7 @@ func init() {
 			info.StorageConf.MonHost,
 			info.StorageConf.Key,
 			info.StorageConf.Pool,
+			info.StorageConf.EnableMessengerV2,
 		)
 		if err != nil {
 			return errors.Wrap(err, "cephutils.NewClient")

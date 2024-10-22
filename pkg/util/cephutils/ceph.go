@@ -230,7 +230,7 @@ func (cli *CephClient) SetTimeout(timeout int) {
 
 const DEFAULT_TIMTOUT_SECOND = 15
 
-func NewClient(monHost, key, pool string) (*CephClient, error) {
+func NewClient(monHost, key, pool string, enableMessengerV2 bool) (*CephClient, error) {
 	client := &CephClient{
 		monHost: monHost,
 		key:     key,
@@ -248,15 +248,24 @@ func NewClient(monHost, key, pool string) (*CephClient, error) {
 		}
 	}
 	monHosts := []string{}
-	for _, monHost := range strings.Split(client.monHost, ",") {
-		monHosts = append(monHosts, fmt.Sprintf(`[%s]`, monHost))
+	if enableMessengerV2 {
+		for _, monHost := range strings.Split(client.monHost, ",") {
+			monHosts = append(monHosts, fmt.Sprintf(`[v2:%s:3300/0,v1:%s:6789/0]`, monHost, monHost))
+		}
+	} else {
+		monHosts := []string{}
+		for _, monHost := range strings.Split(client.monHost, ",") {
+			monHosts = append(monHosts, fmt.Sprintf(`[%s]`, monHost))
+		}
 	}
+	client.monHost = strings.Join(monHosts, ",")
+
 	conf := fmt.Sprintf(`[global]
 mon host = %s
 rados mon op timeout = 5
 rados osd_op timeout = 1200
 client mount timeout = 120
-`, strings.Join(monHosts, ","))
+`, client.monHost)
 	if len(client.key) == 0 {
 		conf = fmt.Sprintf(`%s
 auth_cluster_required = none
