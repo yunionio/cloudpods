@@ -375,8 +375,12 @@ func (s *SBaseStorage) CreateDiskByDiskinfo(ctx context.Context, params interfac
 		if !createParams.DiskInfo.Rebuild {
 			return nil, fmt.Errorf("Disk exist")
 		}
-		if err := createParams.Disk.OnRebuildRoot(ctx, createParams.DiskInfo); err != nil {
-			return nil, err
+		if createParams.DiskInfo.Backup != nil && createParams.DiskInfo.Backup.BackupAsTar != nil {
+			log.Infof("skip OnRebuildRoot step when backup_as_tar is provided")
+		} else {
+			if err := createParams.Disk.OnRebuildRoot(ctx, createParams.DiskInfo); err != nil {
+				return nil, err
+			}
 		}
 	}
 
@@ -385,7 +389,7 @@ func (s *SBaseStorage) CreateDiskByDiskinfo(ctx context.Context, params interfac
 		return nil, fmt.Errorf("Fail to Create disk %s", createParams.DiskId)
 	}
 
-	log.Infof("storage %v start create disk", createParams.Storage.StorageType())
+	log.Infof("storage %s %s(%s) start create disk", createParams.Storage.StorageType(), createParams.Storage.GetStorageName(), createParams.Storage.GetId())
 	switch {
 	case len(createParams.DiskInfo.SnapshotId) > 0:
 		log.Infof("CreateDiskFromSnpashot %s", createParams)

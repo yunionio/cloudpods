@@ -146,7 +146,12 @@ func (self *DiskCreateTask) OnDiskReady(ctx context.Context, disk *models.SDisk,
 }
 
 func (self *DiskCreateTask) OnDiskReadyFailed(ctx context.Context, disk *models.SDisk, data jsonutils.JSONObject) {
-	disk.SetStatus(ctx, self.UserCred, api.DISK_ALLOC_FAILED, data.String())
+	rebuild, _ := self.GetParams().Bool("rebuild")
+	status := api.DISK_ALLOC_FAILED
+	if rebuild {
+		status = api.DISK_REBUILD_FAILED
+	}
+	disk.SetStatus(ctx, self.UserCred, status, data.String())
 	logclient.AddActionLogWithStartable(self, disk, logclient.ACT_ALLOCATE, data, self.UserCred, false)
 	self.SetStageFailed(ctx, data)
 }
