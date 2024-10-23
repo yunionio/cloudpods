@@ -330,6 +330,23 @@ func (c crictl) RemovePod(ctx context.Context, podId string) error {
 }
 
 func (c crictl) StopContainer(ctx context.Context, ctrId string, timeout int64) error {
+	maxTries := 5
+	interval := 3 * time.Second
+	errs := []error{}
+	for tries := 0; tries < maxTries; tries++ {
+		err := c.stopContainer(ctx, ctrId, timeout)
+		if err == nil {
+			return nil
+		}
+		dur := interval * time.Duration(tries+1)
+		log.Warningf("try to restop container %s after %s: %v", ctrId, dur, err)
+		errs = append(errs, errors.Wrapf(err, "try %d", tries))
+		time.Sleep(dur)
+	}
+	return errors.NewAggregate(errs)
+}
+
+func (c crictl) stopContainer(ctx context.Context, ctrId string, timeout int64) error {
 	if _, err := c.GetRuntimeClient().StopContainer(ctx, &runtimeapi.StopContainerRequest{
 		ContainerId: ctrId,
 		Timeout:     timeout,
