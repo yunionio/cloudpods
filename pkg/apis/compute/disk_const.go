@@ -19,6 +19,7 @@ import "yunion.io/x/cloudmux/pkg/apis/compute"
 const (
 	DISK_INIT                = compute.DISK_INIT
 	DISK_REBUILD             = compute.DISK_REBUILD
+	DISK_REBUILD_FAILED      = "rebuild_failed"
 	DISK_ALLOC_FAILED        = compute.DISK_ALLOC_FAILED
 	DISK_STARTALLOC          = "start_alloc"
 	DISK_BACKUP_STARTALLOC   = compute.DISK_BACKUP_STARTALLOC

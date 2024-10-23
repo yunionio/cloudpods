@@ -174,6 +174,9 @@ func doRestoreQCOW2Disk(ctx context.Context, diskInfo api.DiskAllocateInput, des
 }
 
 func doRestoreTarDisk(ctx context.Context, dc IDiskCreator, disk IDisk, input *SDiskCreateByDiskinfo, destImgPath string, backupPath string) error {
+	if err := input.Disk.OnRebuildRoot(ctx, input.DiskInfo); err != nil {
+		return errors.Wrapf(err, "call OnRebuildRoot when restore tar disk")
+	}
 	diskInfo := input.DiskInfo
 	backupInput := diskInfo.Backup
 	if backupInput.BackupAsTar == nil {

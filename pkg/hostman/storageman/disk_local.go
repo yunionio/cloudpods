@@ -345,7 +345,9 @@ func (d *SLocalDisk) CreateFromUrl(ctx context.Context, url string, size int64, 
 func (d *SLocalDisk) CreateRaw(ctx context.Context, sizeMB int, diskFormat, fsFormat string,
 	encryptInfo *apis.SEncryptInfo, uuid string, back string) (jsonutils.JSONObject, error) {
 	if fileutils2.Exists(d.GetPath()) {
-		os.Remove(d.GetPath())
+		if err := os.Remove(d.GetPath()); err != nil {
+			return nil, errors.Wrapf(err, "os.Remove(%s)", d.GetPath())
+		}
 	}
 
 	img, err := qemuimg.NewQemuImage(d.GetPath())

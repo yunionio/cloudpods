@@ -29,6 +29,7 @@ import (
 	randutil "yunion.io/x/pkg/util/rand"
 	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/pkg/util/secrules"
+	"yunion.io/x/pkg/util/sets"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
@@ -881,7 +882,7 @@ func (self *SKVMRegionDriver) RequestSyncDiskStatus(ctx context.Context, userCre
 		originStatus, _ := task.GetParams().GetString("origin_status")
 		status, _ := res.GetString("status")
 		if status == api.DISK_EXIST {
-			if originStatus == api.DISK_UNKNOWN {
+			if sets.NewString(api.DISK_UNKNOWN, api.DISK_REBUILD_FAILED).Has(originStatus) {
 				diskStatus = api.DISK_READY
 			} else {
 				diskStatus = originStatus
