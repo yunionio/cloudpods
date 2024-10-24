@@ -152,14 +152,20 @@ func NewGuestManager(host hostutils.IHost, serversPath string, workerCnt int) (*
 		manager.containerRuntimeManager = runtimeMan
 		manager.pleg = pleg.NewGenericPLEG(runtimeMan, pleg.ChannelCapacity, pleg.RelistPeriod, manager.podCache, clock.RealClock{})
 		manager.pleg.Start()
-		go func() {
-			manager.syncContainerLoop(manager.pleg.Watch())
-		}()
-		go func() {
-			manager.reconcileContainerLoop(manager.podCache)
-		}()
+		manager.startContainerSyncLoop()
 	}
 	return manager, nil
+}
+
+func (m *SGuestManager) startContainerSyncLoop() {
+	if m.host.IsContainerHost() {
+		go func() {
+			m.syncContainerLoop(m.pleg.Watch())
+		}()
+		go func() {
+			m.reconcileContainerLoop(m.podCache)
+		}()
+	}
 }
 
 func (m *SGuestManager) InitQemuMaxCpus(machineCaps []monitor.MachineInfo, kvmMaxCpus uint) {
