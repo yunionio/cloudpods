@@ -158,6 +158,8 @@ type SHostOptions struct {
 	MaxReservedMemory int `default:"10240" help:"host reserved memory"`
 
 	DefaultRequestWorkerCount int `default:"8" help:"default request worker count"`
+	ContainerStartWorkerCount int `default:"1" help:"container start worker count"`
+	ContainerStopWorkerCount  int `default:"1" help:"container stop worker count"`
 
 	AllowSwitchVMs bool `help:"allow machines run as switch (spoof mac)" default:"true"`
 	AllowRouterVMs bool `help:"allow machines run as router (spoof ip)" default:"true"`
