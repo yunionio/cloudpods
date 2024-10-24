@@ -19,6 +19,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -30,6 +31,10 @@ import (
 
 const (
 	LOSETUP_COMMAND = "losetup"
+)
+
+var (
+	attachDeviceLock = sync.Mutex{}
 )
 
 type Command struct {
@@ -114,16 +119,22 @@ func listDevicesOldVersion() (*Devices, error) {
 	return devs, err
 }
 
-func GetUnusedDevice() (string, error) {
+/*func GetUnusedDevice() (string, error) {
 	// find first unused device
 	cmd, err := NewLosetupCommand().AddArgs("-f").Run()
 	if err != nil {
 		return "", err
 	}
 	return strings.TrimSuffix(cmd.Output(), "\n"), nil
-}
+}*/
 
 func AttachDevice(filePath string, partScan bool) (*Device, error) {
+	// See man-page: https://man7.org/linux/man-pages/man8/losetup.8.html
+	// The loop device setup is not an atomic operation when used with
+	// --find, and losetup does not protect this operation by any lock.
+	attachDeviceLock.Lock()
+	defer attachDeviceLock.Unlock()
+
 	oldDevs, err := ListDevices()
 	if err != nil {
 		return nil, err
@@ -138,7 +149,7 @@ func AttachDevice(filePath string, partScan bool) (*Device, error) {
 	if partScan {
 		args = append(args, "-P")
 	}
-	args = append(args, []string{"-f", filePath}...)
+	args = append(args, []string{"--find", "--nooverlap", filePath}...)
 	_, err = NewLosetupCommand().AddArgs(args...).Run()
 	if err != nil {
 		return nil, err

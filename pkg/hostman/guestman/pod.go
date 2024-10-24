@@ -273,11 +273,12 @@ func (s *sPodGuestInstance) ImportServer(pendingDelete bool) {
 	s.manager.SaveServer(s.Id, s)
 	s.manager.RemoveCandidateServer(s)
 	if s.IsDaemon() || s.IsDirtyShutdown() {
-		ctx := context.Background()
+		/*ctx := context.Background()
 		cred := hostutils.GetComputeSession(ctx).GetToken()
 		if err := s.StartLocalPod(ctx, cred); err != nil {
 			log.Errorf("start local pod err %s", err.Error())
-		}
+		}*/
+		log.Warningf("pod %s need started, waiting sync loop to manage it", s.GetName())
 	} else {
 		s.SyncStatus("sync status after host started")
 		s.getProbeManager().AddPod(s.Desc)
@@ -1156,22 +1157,17 @@ func (s *sPodGuestInstance) StopContainer(ctx context.Context, userCred mcclient
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
-	if err := s.getCRI().StopContainer(ctx, criId, timeout); err != nil {
+	if err := s.getCRI().StopContainer(ctx, criId, timeout, true); err != nil {
 		if !IsContainerNotFoundError(err) {
 			return nil, errors.Wrap(err, "CRI.StopContainer")
 		} else {
 			log.Warningf("CRI.StopContainer %s not found", criId)
 		}
 	}
-	select {
-	case <-ctx.Done():
-		return nil, errors.Wrap(ctx.Err(), "stop container")
-	default:
-		if err := s.startStat.RemoveContainerFile(ctrId); err != nil {
-			return nil, errors.Wrap(err, "startStat.RemoveContainerFile")
-		}
-		return nil, nil
+	if err := s.startStat.RemoveContainerFile(ctrId); err != nil {
+		return nil, errors.Wrap(err, "startStat.RemoveContainerFile")
 	}
+	return nil, nil
 }
 
 func (s *sPodGuestInstance) GetCRIId() string {
