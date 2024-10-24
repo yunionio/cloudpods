@@ -33,6 +33,7 @@ import (
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/hostman/guestman"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
+	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
@@ -126,8 +127,8 @@ func AddPodHandlers(prefix string, app *appsrv.Application) {
 			containerActionHandler(f))
 	}
 
-	startWorker := appsrv.NewWorkerManager("container-start-worker", 2, appsrv.DEFAULT_BACKLOG, false)
-	stopWorker := appsrv.NewWorkerManager("container-stop-worker", 4, appsrv.DEFAULT_BACKLOG, false)
+	startWorker := appsrv.NewWorkerManager("container-start-worker", options.HostOptions.ContainerStartWorkerCount, appsrv.DEFAULT_BACKLOG, false)
+	stopWorker := appsrv.NewWorkerManager("container-stop-worker", options.HostOptions.ContainerStopWorkerCount, appsrv.DEFAULT_BACKLOG, false)
 
 	ctrWorkerHanders := map[string]struct {
 		workerMan *appsrv.SWorkerManager
