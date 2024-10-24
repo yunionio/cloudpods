@@ -36,7 +36,7 @@ type CRI interface {
 	RemovePod(ctx context.Context, podId string) error
 	CreateContainer(ctx context.Context, podId string, podConfig *runtimeapi.PodSandboxConfig, ctrConfig *runtimeapi.ContainerConfig, withPull bool) (string, error)
 	StartContainer(ctx context.Context, id string) error
-	StopContainer(ctx context.Context, ctrId string, timeout int64) error
+	StopContainer(ctx context.Context, ctrId string, timeout int64, tryRemove bool) error
 	RemoveContainer(ctx context.Context, ctrId string) error
 	RunContainers(ctx context.Context, podConfig *runtimeapi.PodSandboxConfig, containerConfigs []*runtimeapi.ContainerConfig, runtimeHandler string) (*RunContainersResponse, error)
 	ListContainers(ctx context.Context, opts ListContainerOptions) ([]*runtimeapi.Container, error)
@@ -329,7 +329,7 @@ func (c crictl) RemovePod(ctx context.Context, podId string) error {
 	return nil
 }
 
-func (c crictl) StopContainer(ctx context.Context, ctrId string, timeout int64) error {
+func (c crictl) StopContainer(ctx context.Context, ctrId string, timeout int64, tryRemove bool) error {
 	maxTries := 5
 	interval := 3 * time.Second
 	errs := []error{}
@@ -339,9 +339,19 @@ func (c crictl) StopContainer(ctx context.Context, ctrId string, timeout int64) 
 			return nil
 		}
 		dur := interval * time.Duration(tries+1)
-		log.Warningf("try to restop container %s after %s: %v", ctrId, dur, err)
+		log.Warningf("try to restop container %s after %s, timeout: %d: %v", ctrId, dur, timeout, err)
+		// set timeout to 0 to stop forcely
+		timeout = 0
 		errs = append(errs, errors.Wrapf(err, "try %d", tries))
 		time.Sleep(dur)
+	}
+	if tryRemove {
+		// try force remove container
+		if err := c.RemoveContainer(ctx, ctrId); err != nil {
+			errs = append(errs, errors.Wrapf(err, "try remove container %s", ctrId))
+		} else {
+			return nil
+		}
 	}
 	return errors.NewAggregate(errs)
 }

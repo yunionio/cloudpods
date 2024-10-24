@@ -77,18 +77,20 @@ func parseDevice(line string) (Device, error) {
 }
 
 func (devs Devices) GetDeviceByName(name string) *Device {
-	for _, dev := range devs.LoopDevs {
+	for i := range devs.LoopDevs {
+		dev := &devs.LoopDevs[i]
 		if dev.Name == name {
-			return &dev
+			return dev
 		}
 	}
 	return nil
 }
 
 func (devs Devices) GetDeviceByFile(filePath string) *Device {
-	for _, dev := range devs.LoopDevs {
+	for i := range devs.LoopDevs {
+		dev := &devs.LoopDevs[i]
 		if dev.BackFile == filePath {
-			return &dev
+			return dev
 		}
 	}
 	return nil

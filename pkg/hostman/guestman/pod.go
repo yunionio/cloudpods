@@ -1156,22 +1156,17 @@ func (s *sPodGuestInstance) StopContainer(ctx context.Context, userCred mcclient
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
-	if err := s.getCRI().StopContainer(ctx, criId, timeout); err != nil {
+	if err := s.getCRI().StopContainer(ctx, criId, timeout, true); err != nil {
 		if !IsContainerNotFoundError(err) {
 			return nil, errors.Wrap(err, "CRI.StopContainer")
 		} else {
 			log.Warningf("CRI.StopContainer %s not found", criId)
 		}
 	}
-	select {
-	case <-ctx.Done():
-		return nil, errors.Wrap(ctx.Err(), "stop container")
-	default:
-		if err := s.startStat.RemoveContainerFile(ctrId); err != nil {
-			return nil, errors.Wrap(err, "startStat.RemoveContainerFile")
-		}
-		return nil, nil
+	if err := s.startStat.RemoveContainerFile(ctrId); err != nil {
+		return nil, errors.Wrap(err, "startStat.RemoveContainerFile")
 	}
+	return nil, nil
 }
 
 func (s *sPodGuestInstance) GetCRIId() string {
