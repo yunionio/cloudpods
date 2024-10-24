@@ -352,7 +352,7 @@ func (s *sPodGuestInstance) SyncStatus(reason string) {
 	ctx := context.Background()
 	if status == computeapi.VM_READY {
 		// remove pod
-		if err := s.stopPod(ctx, 1); err != nil {
+		if err := s.stopPod(ctx, 5); err != nil {
 			log.Warningf("stop cri pod when sync status: %s: %v", s.Id, err)
 		}
 	}
@@ -893,7 +893,7 @@ func (s *sPodGuestInstance) setPodCgroupResources(criId string, memMB int64, cpu
 
 func (s *sPodGuestInstance) ensurePodRemoved(ctx context.Context, timeout int64) error {
 	if timeout == 0 {
-		timeout = 5
+		timeout = 15
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, time.Duration(timeout)*time.Second)
@@ -929,7 +929,7 @@ func (s *sPodGuestInstance) stopPod(ctx context.Context, timeout int64) error {
 		return errors.Wrapf(err, "umount pod volumes")
 	}
 	if timeout == 0 {
-		timeout = 5
+		timeout = 15
 	}
 
 	return s.ensurePodRemoved(ctx, timeout)
@@ -1154,9 +1154,6 @@ func (s *sPodGuestInstance) StopContainer(ctx context.Context, userCred mcclient
 			return nil, errors.Wrapf(err, "unmount shm %s", name)
 		}
 	}
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-
 	if err := s.getCRI().StopContainer(ctx, criId, timeout, true); err != nil {
 		if !IsContainerNotFoundError(err) {
 			return nil, errors.Wrap(err, "CRI.StopContainer")
