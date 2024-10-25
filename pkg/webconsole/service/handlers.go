@@ -81,6 +81,9 @@ func initHandlers(app *appsrv.Application) {
 
 func fetchK8sEnv(ctx context.Context, w http.ResponseWriter, r *http.Request) (*command.K8sEnv, error) {
 	params, _, body := appsrv.FetchEnv(ctx, w, r)
+	if !gotypes.IsNil(body) && body.Contains("webconsole") {
+		body, _ = body.Get("webconsole")
+	}
 
 	k8sReq := webconsole_api.SK8sRequest{}
 	err := body.Unmarshal(&k8sReq)

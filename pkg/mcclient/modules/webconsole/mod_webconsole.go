@@ -111,10 +111,16 @@ func (m WebConsoleManager) doContainerAction(s *mcclient.ClientSession, data jso
 }
 
 func (m WebConsoleManager) DoContainerExec(s *mcclient.ClientSession, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	return m.doContainerAction(s, data, func(containerId string) []string {
+		return []string{"container-exec", containerId, "sh"}
+	})
+}
+
+func (m WebConsoleManager) DoContainerLog(s *mcclient.ClientSession, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	opt := new(compute_options.ContainerLogOptions)
 	data.Unmarshal(opt)
 	return m.doContainerAction(s, data, func(containerId string) []string {
-		args := []string{"container-exec"}
+		args := []string{"container-log"}
 		if opt.Tail > 0 {
 			args = append(args, "--tail", fmt.Sprintf("%d", opt.Tail))
 		}
@@ -128,13 +134,7 @@ func (m WebConsoleManager) DoContainerExec(s *mcclient.ClientSession, data jsonu
 			args = append(args, "-f")
 		}
 		args = append(args, containerId)
-		return []string{"container-exec", containerId, "sh"}
-	})
-}
-
-func (m WebConsoleManager) DoContainerLog(s *mcclient.ClientSession, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	return m.doContainerAction(s, data, func(containerId string) []string {
-		return []string{"container-log", containerId}
+		return args
 	})
 }
 
@@ -163,7 +163,10 @@ func (m WebConsoleManager) doActionWithClimcPod(
 	s *mcclient.ClientSession,
 	af func(s *mcclient.ClientSession, clusterId string, pod jsonutils.JSONObject) (jsonutils.JSONObject, error),
 ) (jsonutils.JSONObject, error) {
-	adminSession := auth.GetAdminSession(s.GetContext(), s.GetRegion())
+	adminSession := s
+	if auth.IsAuthed() {
+		adminSession = auth.GetAdminSession(s.GetContext(), s.GetRegion())
+	}
 
 	query := jsonutils.NewDict()
 	query.Add(jsonutils.JSONTrue, "system")
