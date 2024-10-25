@@ -96,7 +96,7 @@ type SStorage struct {
 	StoragecacheId string `width:"36" charset:"ascii" nullable:"true" list:"domain" get:"domain" update:"domain" create:"domain_optional"`
 
 	// master host id
-	MasterHost string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user" json:"master_host"`
+	MasterHost string `width:"36" charset:"ascii" nullable:"true" list:"user" json:"master_host"`
 
 	// indicating whether system disk can be allocated in this storage
 	// 是否可以用作系统盘存储
@@ -596,6 +596,21 @@ func (manager *SStorageManager) FetchCustomizeColumns(
 		}
 		storage := objs[i].(*SStorage)
 		storageIds[i] = storage.Id
+		if rows[i].ManagerId == "" && rows[i].MasterHost == "" &&
+			utils.IsInStringArray(storage.StorageType, api.SHARED_STORAGE) {
+			if host, err := storage.GetMasterHost(); host != nil {
+				rows[i].MasterHost = host.Id
+				rows[i].MasterHostName = host.Name
+			} else {
+				log.Errorf("storage %s failed get master host %s", storageIds[i], err)
+			}
+		}
+		if rows[i].MasterHost != "" && rows[i].MasterHostName == "" {
+			if host := HostManager.FetchHostById(rows[i].MasterHost); host != nil {
+				rows[i].MasterHostName = host.Name
+			}
+		}
+
 		rows[i].Capacity = storage.GetCapacity()
 		rows[i].VCapacity = int64(float32(rows[i].Capacity) * storage.GetOvercommitBound())
 		rows[i].ActualUsed = storage.ActualCapacityUsed
@@ -728,6 +743,13 @@ func (self *SStorage) GetOvercommitBound() float32 {
 }
 
 func (self *SStorage) GetMasterHost() (*SHost, error) {
+	if self.MasterHost != "" {
+		host := HostManager.FetchHostById(self.MasterHost)
+		if host != nil && host.Enabled.IsTrue() && host.HostStatus == api.HOST_ONLINE {
+			return host, nil
+		}
+	}
+
 	hosts := HostManager.Query().SubQuery()
 	hoststorages := HoststorageManager.Query().SubQuery()
 
@@ -735,16 +757,29 @@ func (self *SStorage) GetMasterHost() (*SHost, error) {
 	q = q.Filter(sqlchemy.Equals(hoststorages.Field("storage_id"), self.Id))
 	q = q.IsTrue("enabled")
 	q = q.Equals("host_status", api.HOST_ONLINE).Asc("id")
-	if self.MasterHost != "" {
-		q.Equals("id", self.MasterHost)
-	}
+
 	host := SHost{}
 	host.SetModelManager(HostManager, &host)
 	err := q.First(&host)
 	if err != nil {
 		return nil, errors.Wrapf(err, "q.First")
 	}
+
+	if utils.IsInStringArray(self.StorageType, api.SHARED_STORAGE) {
+		if err := self.UpdateMasterHost(host.Id); err != nil {
+			log.Errorf("storage %s udpate master host failed %s: %s", self.GetName(), host.Id, err)
+		}
+	}
+
 	return &host, nil
+}
+
+func (self *SStorage) UpdateMasterHost(hostId string) error {
+	_, err := db.Update(self, func() error {
+		self.MasterHost = hostId
+		return nil
+	})
+	return err
 }
 
 func (self *SStorage) GetZoneId() string {
@@ -2021,4 +2056,34 @@ func (storage *SStorage) GetDetailsHardwareInfo(ctx context.Context, userCred mc
 
 func (storage *SStorage) PerformSetHardwareInfo(ctx context.Context, userCred mcclient.TokenCredential, _ jsonutils.JSONObject, data *api.StorageHardwareInfo) (*api.StorageHardwareInfo, error) {
 	return data, storage.setHardwareInfo(ctx, userCred, data)
+}
+
+func StoragesCleanRecycleDiskfiles(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
+	// get shared storages
+	q := StorageManager.Query().IsNullOrEmpty("manager_id")
+	q = q.In("storage_type", api.SHARED_STORAGE)
+
+	storages := make([]SStorage, 0)
+	err := q.All(&storages)
+	if err != nil {
+		log.Errorf("StoragesCleanRecycleDiskfiles failed get storages %s", err)
+		return
+	}
+
+	for i := range storages {
+		storages[i].SetModelManager(StorageManager, &storages[i])
+		log.Infof("storage %s start clean recycle diskfiles", storages[i].GetName())
+		host, err := storages[i].GetMasterHost()
+		if err != nil {
+			log.Errorf("StoragesCleanRecycleDiskfiles storage %s failed get master host: %s", storages[i].GetName(), err)
+			continue
+		}
+		url := fmt.Sprintf("/storages/%s/clean-recycle-diskfiles", storages[i].Id)
+		body := jsonutils.NewDict()
+		_, err = host.Request(ctx, userCred, "POST", url, mcclient.GetTokenHeaders(userCred), body)
+		if err != nil {
+			log.Errorf("StoragesCleanRecycleDiskfiles storage %s request failed %s", storages[i].GetName(), err)
+			continue
+		}
+	}
 }

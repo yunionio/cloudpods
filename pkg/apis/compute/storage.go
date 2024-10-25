@@ -117,7 +117,6 @@ type StorageCreateInput struct {
 	CLVMVgName string
 	// SLVM VG Name
 	SLVMVgName string
-	MasterHost string
 	Lvmlockd   bool
 }
 
@@ -180,6 +179,9 @@ type StorageDetails struct {
 
 	// 超分比
 	CommitBound float32 `json:"commit_bound"`
+
+	// master host name
+	MasterHostName string `json:"master_host_name"`
 }
 
 func (self StorageDetails) GetMetricTags() map[string]string {
