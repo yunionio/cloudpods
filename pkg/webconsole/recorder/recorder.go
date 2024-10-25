@@ -27,6 +27,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/webconsole/models"
+	"yunion.io/x/onecloud/pkg/webconsole/options"
 )
 
 type Recoder interface {
@@ -82,6 +83,10 @@ func NewCmdRecorder(s *mcclient.ClientSession, obj *Object, sessionId string, ac
 }
 
 func (r *cmdRecoder) Write(userInput string, ptyOutput string) {
+	if !options.Options.EnableCommandRecording {
+		return
+	}
+
 	r.wLock.Lock()
 	defer r.wLock.Unlock()
 
