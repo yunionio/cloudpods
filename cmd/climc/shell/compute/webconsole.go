@@ -148,4 +148,11 @@ func init() {
 		return nil
 	})
 
+	R(&o.WebConsoleContainerExecOptions{}, "webconsole-container-exec", "Container exec", func(s *mcclient.ClientSession, args *o.WebConsoleContainerExecOptions) error {
+		ret, err := webconsole.WebConsole.DoContainerExec(s, jsonutils.Marshal(map[string]interface{}{"container_id": args.ID}))
+		if err != nil {
+			return err
+		}
+		return handleResult(s, args.WebConsoleOptions, ret)
+	})
 }

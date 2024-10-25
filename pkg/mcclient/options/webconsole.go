@@ -108,3 +108,8 @@ type WebConsoleServerRdpOptions struct {
 	Height *int
 	Dpi    *int
 }
+
+type WebConsoleContainerExecOptions struct {
+	WebConsoleOptions
+	ID string `help:"Container id or name"`
+}
