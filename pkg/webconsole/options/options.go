@@ -34,7 +34,8 @@ type WebConsoleOptions struct {
 	SshSessionTimeoutMinutes int `help:"ssh timeout session" default:"-1"`
 	RdpSessionTimeoutMinutes int `help:"rdp timeout session" default:"-1"`
 
-	EnableWatermark bool `help:"enable water mark" default:"false"`
+	EnableWatermark        bool `help:"enable water mark" default:"false"`
+	EnableCommandRecording bool `help:"enable command recording" default:"false"`
 }
 
 func OnOptionsChange(oldO, newO interface{}) bool {
