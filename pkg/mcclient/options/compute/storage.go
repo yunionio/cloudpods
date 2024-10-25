@@ -54,6 +54,7 @@ type StorageUpdateOptions struct {
 	RbdRadosMonOpTimeout  int64   `help:"ceph rados_mon_op_timeout"`
 	RbdRadosOsdOpTimeout  int64   `help:"ceph rados_osd_op_timeout"`
 	RbdClientMountTimeout int64   `help:"ceph client_mount_timeout"`
+	RbdEnableMessengerV2  bool    `help:"ceph enable Messenger V2"`
 	RbdKey                string  `help:"ceph rbd key"`
 	Reserved              string  `help:"Reserved storage space"`
 	Capacity              int     `help:"Capacity for storage"`
@@ -71,6 +72,7 @@ type StorageCreateOptions struct {
 	MediumType            string `help:"Medium type" choices:"ssd|rotate" default:"ssd"`
 	StorageType           string `help:"Storage type" choices:"local|nas|vsan|rbd|nfs|gpfs|baremetal|clvm|slvm"`
 	RbdMonHost            string `help:"Ceph mon_host config"`
+	RbdEnableMessengerV2  bool   `help:"ceph enable Messenger V2"`
 	RbdRadosMonOpTimeout  int64  `help:"ceph rados_mon_op_timeout"`
 	RbdRadosOsdOpTimeout  int64  `help:"ceph rados_osd_op_timeout"`
 	RbdClientMountTimeout int64  `help:"ceph client_mount_timeout"`
