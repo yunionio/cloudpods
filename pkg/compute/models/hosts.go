@@ -4644,13 +4644,34 @@ func (hh *SHost) StartSyncAllGuestsStatusTask(ctx context.Context, userCred mccl
 	}
 }
 
+func (hh *SHost) GetStoragesByMasterHost() ([]string, error) {
+	sq := StorageManager.Query()
+	sq = sq.In("storage_type", api.SHARED_STORAGE)
+	sq = sq.Filter(sqlchemy.OR(sqlchemy.Equals(sq.Field("master_host"), hh.Id), sqlchemy.IsNullOrEmpty(sq.Field("master_host"))))
+	subq := sq.SubQuery()
+	hsq := HoststorageManager.Query().Equals("host_id", hh.Id)
+	hsq = hsq.Join(subq, sqlchemy.Equals(subq.Field("id"), hsq.Field("storage_id")))
+
+	hostStorages := make([]SHoststorage, 0)
+	if err := hsq.All(&hostStorages); err != nil && err != sql.ErrNoRows {
+		return nil, errors.Wrap(err, "get hostStorages")
+	} else if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	storages := make([]string, len(hostStorages))
+	for i := range storages {
+		storages[i] = hostStorages[i].StorageId
+	}
+	return storages, nil
+}
+
 func (hh *SHost) PerformPing(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.SHostPingInput) (jsonutils.JSONObject, error) {
 	if hh.HostType == api.HOST_TYPE_BAREMETAL {
 		return nil, httperrors.NewNotSupportedError("ping host type %s not support", hh.HostType)
 	}
 	if input.WithData {
 		// piggyback storage stats info
-		log.Debugf("host ping %s", jsonutils.Marshal(input))
+		log.Debugf("host ping %#v", input)
 		for _, si := range input.StorageStats {
 			storageObj, err := StorageManager.FetchById(si.StorageId)
 			if err != nil {
@@ -4702,6 +4723,11 @@ func (hh *SHost) PerformPing(ctx context.Context, userCred mcclient.TokenCredent
 		return nil, fmt.Errorf("Get catalog error")
 	}
 	result.Set("catalog", catalog)
+	if storages, err := hh.GetStoragesByMasterHost(); err != nil {
+		return nil, err
+	} else {
+		result.Set("master_host_storages", jsonutils.NewStringArray(storages))
+	}
 
 	appParams := appsrv.AppContextGetParams(ctx)
 	if appParams != nil {
