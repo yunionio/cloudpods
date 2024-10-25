@@ -162,9 +162,11 @@ func (m *SGuestManager) startContainerSyncLoop() {
 		go func() {
 			m.syncContainerLoop(m.pleg.Watch())
 		}()
-		go func() {
-			m.reconcileContainerLoop(m.podCache)
-		}()
+		if !options.HostOptions.DisableReconcileContainer {
+			go func() {
+				m.reconcileContainerLoop(m.podCache)
+			}()
+		}
 	}
 }
 

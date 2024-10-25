@@ -235,6 +235,7 @@ type SHostOptions struct {
 
 	EnableDirtyRecoverySeconds int  `help:"Seconds to delay enable dirty guests recovery feature, default 15 minutes" default:"900"`
 	EnableContainerCniPortmap  bool `help:"Use container cni portmap plugin" default:"false"`
+	DisableReconcileContainer  bool `help:"disable reconcile container" default:"false"`
 }
 
 func (o SHostOptions) HostLocalNetconfPath(br string) string {

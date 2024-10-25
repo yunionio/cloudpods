@@ -83,13 +83,19 @@ func (m *SGuestManager) startContainer(obj *sPodGuestInstance, ctr *hostapi.Cont
 	if curInternal < internal {
 		log.Infof("current internal time (%s) < crash_back_off time (%s), skipping restart container(%s/%s)", curInternal, internal, obj.GetId(), ctr.Name)
 		return nil
+	} else {
+		log.Infof("current internal time (%s | %s) > crash_back_off time (%s), restart container(%s/%s)", finishedAt, curInternal, internal, obj.GetId(), ctr.Name)
 	}
 
 	reason := fmt.Sprintf("start died container %s when exit code is %d", ctr.Id, cs.ExitCode)
 	ctx := context.Background()
 	userCred := hostutils.GetComputeSession(ctx).GetToken()
 	if obj.ShouldRestartPodOnCrash() {
-		obj.RestartLocalPodAndContainers(ctx, userCred)
+		// FIXME: 目前不用 workser 来后台异步运行 pod restart task
+		// 这里异步运行会导致容器如果在 10s 没启动完成，又会进行新一轮排队
+		// 所以改成同步串行执行
+		//obj.RestartLocalPodAndContainers(ctx, userCred)
+		newLocalPodRestartTask(ctx, userCred, obj).Run()
 	} else {
 		_, err := obj.StartLocalContainer(ctx, userCred, ctr.Id)
 		if err != nil {
