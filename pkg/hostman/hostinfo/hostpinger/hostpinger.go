@@ -39,7 +39,9 @@ type SHostPingTask struct {
 	running  bool
 	host     hostutils.IHost
 
-	lastStatAt time.Time
+	// masterHostStorages for shared storages
+	masterHostStorages []string
+	lastStatAt         time.Time
 }
 
 type SEndpoint struct {
@@ -106,7 +108,7 @@ func (p *SHostPingTask) payload() api.SHostPingInput {
 	}
 
 	p.lastStatAt = now
-	data = storageman.GatherHostStorageStats()
+	data = storageman.GatherHostStorageStats(p.masterHostStorages)
 	data.WithData = true
 	info, err := mem.VirtualMemory()
 	if err != nil {
@@ -136,6 +138,13 @@ func (p *SHostPingTask) ping(div int, hostId string) error {
 		// if err != nil {
 		// 	Instance().setHostname(name)
 		// }
+
+		if res.Contains("master_host_storages") {
+			storages := make([]string, 0)
+			res.Unmarshal(&storages, "master_host_storages")
+			p.masterHostStorages = storages
+		}
+
 		catalog, err := res.Get("catalog")
 		if err == nil {
 			cl := make(mcclient.KeystoneServiceCatalogV3, 0)
