@@ -279,6 +279,7 @@ func (s *sPodGuestInstance) ImportServer(pendingDelete bool) {
 			log.Errorf("start local pod err %s", err.Error())
 		}*/
 		log.Warningf("pod %s need started, waiting sync loop to manage it", s.GetName())
+		s.SyncStatus(fmt.Sprintf("sync status is_dirty_shutdown: %v, is_daemon: %v", s.IsDirtyShutdown(), s.IsDaemon()))
 	} else {
 		s.SyncStatus("sync status after host started")
 		s.getProbeManager().AddPod(s.Desc)
@@ -323,19 +324,12 @@ func (s *sPodGuestInstance) getStatus(ctx context.Context, defaultStatus string)
 		status = computeapi.VM_RUNNING
 	}
 	for _, c := range s.containers {
-		cStatus, cs, err := s.getContainerStatus(ctx, c.Id)
+		cStatus, _, err := s.getContainerStatus(ctx, c.Id)
 		if err != nil {
 			log.Errorf("get container %s status of pod %s", c.Id, s.Id)
 			continue
 		}
-		if cs != nil {
-			if cStatus == computeapi.CONTAINER_STATUS_CRASH_LOOP_BACK_OFF {
-				status = computeapi.POD_STATUS_CRASH_LOOP_BACK_OFF
-			}
-			if cStatus == computeapi.CONTAINER_STATUS_EXITED {
-				status = computeapi.POD_STATUS_CONTAINER_EXITED
-			}
-		}
+		status = GetPodStatusByContainerStatus(status, cStatus)
 	}
 	return status
 }
@@ -398,12 +392,7 @@ func (s *sPodGuestInstance) SyncStatus(reason string) {
 		if _, err := hostutils.UpdateContainerStatus(ctx, c.Id, ctrStatusInput); err != nil {
 			log.Errorf("failed update container %s status: %s", c.Id, err)
 		}
-		if cStatus == computeapi.CONTAINER_STATUS_CRASH_LOOP_BACK_OFF {
-			status = computeapi.POD_STATUS_CRASH_LOOP_BACK_OFF
-		}
-		if cStatus == computeapi.CONTAINER_STATUS_EXITED && status != computeapi.VM_READY {
-			status = computeapi.POD_STATUS_CONTAINER_EXITED
-		}
+		status = GetPodStatusByContainerStatus(status, cStatus)
 	}
 
 	statusInput := &apis.PerformStatusInput{

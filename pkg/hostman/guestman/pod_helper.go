@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
+	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	hostapi "yunion.io/x/onecloud/pkg/apis/host"
 	"yunion.io/x/onecloud/pkg/hostman/container/volume_mount"
 	"yunion.io/x/onecloud/pkg/hostman/options"
@@ -234,4 +235,14 @@ func (t *localPodRestartTask) Run() {
 
 func (t *localPodRestartTask) Dump() string {
 	return fmt.Sprintf("pod restart task %s/%s", t.pod.GetId(), t.pod.GetName())
+}
+
+func GetPodStatusByContainerStatus(status string, cStatus string) string {
+	if cStatus == computeapi.CONTAINER_STATUS_CRASH_LOOP_BACK_OFF {
+		status = computeapi.POD_STATUS_CRASH_LOOP_BACK_OFF
+	}
+	if cStatus == computeapi.CONTAINER_STATUS_EXITED && status != computeapi.VM_READY {
+		status = computeapi.POD_STATUS_CONTAINER_EXITED
+	}
+	return status
 }
