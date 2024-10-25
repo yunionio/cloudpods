@@ -23,6 +23,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
@@ -95,7 +96,7 @@ func (self *SLBListener) GetBackendServerPort() int {
 // https://cloud.tencent.com/document/product/214/30691
 func (self *SLBListener) CreateILoadBalancerListenerRule(rule *cloudprovider.SLoadbalancerListenerRule) (cloudprovider.ICloudLoadbalancerListenerRule, error) {
 	hc := getListenerRuleHealthCheck(rule)
-	requestId, err := self.lb.region.CreateLoadbalancerListenerRule(self.lb.GetId(),
+	resp, err := self.lb.region.CreateLoadbalancerListenerRule(self.lb.GetId(),
 		self.GetId(),
 		rule.Domain,
 		rule.Path,
@@ -106,7 +107,7 @@ func (self *SLBListener) CreateILoadBalancerListenerRule(rule *cloudprovider.SLo
 		return nil, err
 	}
 
-	err = self.lb.region.WaitLBTaskSuccess(requestId, 5*time.Second, 60*time.Second)
+	err = self.lb.region.WaitLBTaskSuccess(resp.RequestId, 5*time.Second, 60*time.Second)
 	if err != nil {
 		return nil, err
 	}
@@ -116,14 +117,13 @@ func (self *SLBListener) CreateILoadBalancerListenerRule(rule *cloudprovider.SLo
 		return nil, err
 	}
 
-	for _, r := range self.Rules {
-		if r.GetPath() == rule.Path {
-			r.listener = self
+	for i := range self.Rules {
+		r := self.Rules[i]
+		if utils.IsInStringArray(r.LocationId, resp.LocationIds) {
 			return &r, nil
 		}
 	}
-
-	return nil, cloudprovider.ErrNotFound
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, jsonutils.Marshal(resp).String())
 }
 
 func (self *SLBListener) GetILoadBalancerListenerRuleById(ruleId string) (cloudprovider.ICloudLoadbalancerListenerRule, error) {
@@ -452,12 +452,13 @@ func (self *SRegion) GetLoadbalancerListeners(lbId string, lblisIds []string, pr
 	return listeners, nil
 }
 
-// 返回requestId
-func (self *SRegion) CreateLoadbalancerListenerRule(lbid string, listenerId string, domain string, url string, scheduler string, sessionExpireTime int, hc *HealthCheck) (string, error) {
-	if len(lbid) == 0 {
-		return "", fmt.Errorf("loadbalancer id should not be empty")
-	}
+type ListenerRuleResponse struct {
+	RequestId   string
+	LocationIds []string
+}
 
+// 返回requestId
+func (self *SRegion) CreateLoadbalancerListenerRule(lbid string, listenerId string, domain string, url string, scheduler string, sessionExpireTime int, hc *HealthCheck) (*ListenerRuleResponse, error) {
 	params := map[string]string{
 		"LoadBalancerId": lbid,
 		"ListenerId":     listenerId,
@@ -482,10 +483,14 @@ func (self *SRegion) CreateLoadbalancerListenerRule(lbid string, listenerId stri
 
 	resp, err := self.clbRequest("CreateRule", params)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-
-	return resp.GetString("RequestId")
+	ret := &ListenerRuleResponse{}
+	err = resp.Unmarshal(ret)
+	if err != nil {
+		return nil, err
+	}
+	return ret, nil
 }
 
 // 返回requestId

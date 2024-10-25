@@ -558,7 +558,7 @@ type SMetricData struct {
 }
 
 func (cli *SCloudpodsClient) GetMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
-	brandArr := []string{"OneCloud", "VMware"}
+	brandArr := []string{"OneCloud"}
 	metrics := []SMetricData{}
 	usefulResourceType := []cloudprovider.TResourceType{cloudprovider.METRIC_RESOURCE_TYPE_HOST, cloudprovider.METRIC_RESOURCE_TYPE_SERVER}
 	isUse, _ := utils.InArray(opts.ResourceType, usefulResourceType)
