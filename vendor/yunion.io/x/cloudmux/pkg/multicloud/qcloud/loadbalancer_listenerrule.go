@@ -36,7 +36,7 @@ type SLBListenerRule struct {
 	Certificate       Certificate `json:"Certificate"`
 	URL               string      `json:"Url"`
 	HealthCheck       HealthCheck `json:"HealthCheck"`
-	LocationID        string      `json:"LocationId"`
+	LocationId        string      `json:"LocationId"`
 	Scheduler         string      `json:"Scheduler"`
 	SessionExpireTime int64       `json:"SessionExpireTime"`
 }
@@ -52,15 +52,15 @@ func (self *SLBListenerRule) Delete(ctx context.Context) error {
 }
 
 func (self *SLBListenerRule) GetId() string {
-	return self.LocationID
+	return self.LocationId
 }
 
 func (self *SLBListenerRule) GetName() string {
-	return self.LocationID
+	return self.LocationId
 }
 
 func (self *SLBListenerRule) GetGlobalId() string {
-	return self.LocationID
+	return self.LocationId
 }
 
 func (self *SLBListenerRule) GetStatus() string {
