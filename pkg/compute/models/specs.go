@@ -38,6 +38,10 @@ type ISpecModel interface {
 	GetSpec(statusCheck bool) *jsonutils.JSONDict
 }
 
+type IBatchSpecModel interface {
+	BatchGetModelSpecs(statusCheck bool) (jsonutils.JSONObject, error)
+}
+
 func GetAllModelSpecs(ctx context.Context, userCred mcclient.TokenCredential, query *jsonutils.JSONDict) (jsonutils.JSONObject, error) {
 	mans := []ISpecModelManager{HostManager, IsolatedDeviceManager, GuestManager}
 	return GetModelsSpecs(ctx, userCred, query, mans...)
@@ -80,15 +84,20 @@ func GetModelSpec(manager ISpecModelManager, model ISpecModel) (jsonutils.JSONOb
 }
 
 func getModelSpecs(manager ISpecModelManager, ctx context.Context, userCred mcclient.TokenCredential, query *jsonutils.JSONDict) (jsonutils.JSONObject, error) {
+	statusCheck, err := manager.GetSpecShouldCheckStatus(query)
+	if err != nil {
+		return nil, err
+	}
+	if bm, ok := manager.(IBatchSpecModel); ok {
+		return bm.BatchGetModelSpecs(statusCheck)
+	}
+
 	items, err := ListItems(manager, ctx, userCred, query)
 	if err != nil {
 		return nil, err
 	}
 	retDict := jsonutils.NewDict()
-	statusCheck, err := manager.GetSpecShouldCheckStatus(query)
-	if err != nil {
-		return nil, err
-	}
+
 	for _, obj := range items {
 		specObj := obj.(ISpecModel)
 		spec := specObj.GetSpec(statusCheck)
