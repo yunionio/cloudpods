@@ -264,7 +264,8 @@ func GetCapabilities(ctx context.Context, userCred mcclient.TokenCredential, que
 	autoAllocNetworkCount, _ := getAutoAllocNetworkCount(ctx, userCred, ownerId, scope, region, zone, serverType)
 	capa.PublicNetworkCount = autoAllocNetworkCount
 	capa.AutoAllocNetworkCount = autoAllocNetworkCount
-	mans := []ISpecModelManager{HostManager, IsolatedDeviceManager}
+	//mans := []ISpecModelManager{HostManager, IsolatedDeviceManager}
+	mans := []ISpecModelManager{HostManager}
 	capa.Specs, err = GetModelsSpecs(ctx, userCred, query.(*jsonutils.JSONDict), mans...)
 	if err != nil {
 		return capa, err
@@ -846,6 +847,9 @@ type PCIDevModelTypes struct {
 }
 
 func getIsolatedDeviceInfo(ctx context.Context, userCred mcclient.TokenCredential, region *SCloudregion, zone *SZone, domainId string) ([]string, []PCIDevModelTypes) {
+	if true {
+		return []string{}, []PCIDevModelTypes{}
+	}
 	devices := IsolatedDeviceManager.Query().SubQuery()
 	hostQuery := HostManager.Query()
 	if len(domainId) > 0 {
