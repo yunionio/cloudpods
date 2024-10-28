@@ -1402,6 +1402,8 @@ type ICloudFileSystem interface {
 	GetMountTargets() ([]ICloudMountTarget, error)
 	CreateMountTarget(opts *SMountTargetCreateOptions) (ICloudMountTarget, error)
 
+	SetQuota(input *SFileSystemSetQuotaInput) error
+
 	Delete() error
 }
 

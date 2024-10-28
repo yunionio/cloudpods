@@ -54,3 +54,13 @@ type FileSystemCreateOptions struct {
 func (opts *FileSystemCreateOptions) Params() (jsonutils.JSONObject, error) {
 	return jsonutils.Marshal(opts), nil
 }
+
+type FileSystemSetQuotaOption struct {
+	FileSystemIdOption
+	MaxGb    int64
+	MaxFiles int64
+}
+
+func (opts *FileSystemSetQuotaOption) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(opts), nil
+}
