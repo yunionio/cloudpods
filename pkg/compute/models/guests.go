@@ -3083,17 +3083,21 @@ func (self *SGuest) SyncRemoveCloudVM(ctx context.Context, userCred mcclient.Tok
 					}
 					return q
 				})
-				if err == nil {
-					_, err = db.Update(self, func() error {
-						self.HostId = host.GetId()
-						self.Status = iVM.GetStatus()
-						self.PowerStates = iVM.GetPowerStates()
-						self.InferPowerStates()
-						return nil
-					})
-					return err
+				if err != nil {
+					log.Errorf("fetch vm %s(%s) host by id %s error: %v", self.Name, self.ExternalId, hostId, err)
+					return nil
 				}
+				_, err = db.Update(self, func() error {
+					self.HostId = host.GetId()
+					self.Status = iVM.GetStatus()
+					self.PowerStates = iVM.GetPowerStates()
+					self.InferPowerStates()
+					return nil
+				})
+				return err
 			}
+			// 公有云实例, 因为翻页查询导致实例返回结果漏查,且GetIHostId一般返回为空
+			return nil
 		} else if errors.Cause(err) != cloudprovider.ErrNotFound {
 			return errors.Wrap(err, "GetIVMById")
 		}
