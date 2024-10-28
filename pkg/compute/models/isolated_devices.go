@@ -469,6 +469,17 @@ func (self *SIsolatedDevice) getVendor() string {
 	}
 }
 
+func GetVendorByVendorDeviceId(vendorDeviceId string) string {
+	parts := strings.Split(vendorDeviceId, ":")
+	vendorId := parts[0]
+	vendor, ok := ID_VENDOR_MAP[vendorId]
+	if ok {
+		return vendor
+	} else {
+		return vendorId
+	}
+}
+
 func (self *SIsolatedDevice) IsGPU() bool {
 	return strings.HasPrefix(self.DevType, "GPU") || sets.NewString(api.CONTAINER_GPU_TYPES...).Has(self.DevType)
 }
@@ -933,6 +944,71 @@ func (man *SIsolatedDeviceManager) GetSpecShouldCheckStatus(query *jsonutils.JSO
 	return true, nil
 }
 
+func (man *SIsolatedDeviceManager) BatchGetModelSpecs(statusCheck bool) (jsonutils.JSONObject, error) {
+	q := man.Query("vendor_device_id", "model", "dev_type")
+	if statusCheck {
+		q = q.IsNullOrEmpty("guest_id")
+	}
+
+	q.GroupBy(q.Field("vendor_device_id"), q.Field("model"), q.Field("dev_type"))
+	q.AppendField(sqlchemy.COUNT("*"))
+
+	if statusCheck {
+		hostQ := HostManager.Query().Equals("status", api.BAREMETAL_RUNNING).IsTrue("enabled").
+			In("host_type", []string{api.HOST_TYPE_HYPERVISOR, api.HOST_TYPE_CONTAINER})
+		hostSQ := hostQ.SubQuery()
+		q.Join(hostSQ, sqlchemy.Equals(q.Field("host_id"), hostSQ.Field("id")))
+	}
+
+	rows, err := q.Rows()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed get specs")
+	}
+	defer rows.Close()
+	res := jsonutils.NewDict()
+
+	for rows.Next() {
+		var vendorDeviceId, m, t string
+		var count int
+		if err := rows.Scan(&vendorDeviceId, &m, &t, &count); err != nil {
+			return nil, errors.Wrap(err, "get model spec scan rows")
+		}
+		vendor := GetVendorByVendorDeviceId(vendorDeviceId)
+		specKeys := man.getSpecKeys(vendor, m, t)
+		specKey := GetSpecIdentKey(specKeys)
+		spec := man.getSpecByRows(vendorDeviceId, m, t, &count)
+		res.Set(specKey, spec)
+	}
+
+	return res, nil
+}
+
+func (man *SIsolatedDeviceManager) getSpecByRows(vendorDeviceId, model, devType string, count *int) *jsonutils.JSONDict {
+	var vdev bool
+	var hypervisor string
+	if utils.IsInStringArray(devType, api.VITRUAL_DEVICE_TYPES) {
+		vdev = true
+	}
+	if utils.IsInStringArray(devType, api.VALID_CONTAINER_DEVICE_TYPES) {
+		hypervisor = api.HYPERVISOR_POD
+	} else {
+		hypervisor = api.HYPERVISOR_KVM
+	}
+
+	ret := jsonutils.NewDict()
+	ret.Set("virtual_dev", jsonutils.NewBool(vdev))
+	ret.Set("hypervisor", jsonutils.NewString(hypervisor))
+	ret.Set("dev_type", jsonutils.NewString(devType))
+	ret.Set("model", jsonutils.NewString(model))
+	ret.Set("pci_id", jsonutils.NewString(vendorDeviceId))
+	ret.Set("vendor", jsonutils.NewString(GetVendorByVendorDeviceId(vendorDeviceId)))
+	if count != nil {
+		ret.Set("count", jsonutils.NewInt(int64(*count)))
+	}
+
+	return ret
+}
+
 type GpuSpec struct {
 	DevType string `json:"dev_type,allowempty"`
 	Model   string `json:"model,allowempty"`
@@ -952,24 +1028,7 @@ func (self *SIsolatedDevice) GetSpec(statusCheck bool) *jsonutils.JSONDict {
 			return nil
 		}
 	}
-	var vdev bool
-	var hypervisor string
-	if utils.IsInStringArray(self.DevType, api.VITRUAL_DEVICE_TYPES) {
-		vdev = true
-	}
-	if utils.IsInStringArray(self.DevType, api.VALID_CONTAINER_DEVICE_TYPES) {
-		hypervisor = api.HYPERVISOR_POD
-	} else {
-		hypervisor = api.HYPERVISOR_KVM
-	}
-	ret := jsonutils.NewDict()
-	ret.Set("virtual_dev", jsonutils.NewBool(vdev))
-	ret.Set("hypervisor", jsonutils.NewString(hypervisor))
-	ret.Set("dev_type", jsonutils.NewString(self.DevType))
-	ret.Set("model", jsonutils.NewString(self.Model))
-	ret.Set("pci_id", jsonutils.NewString(self.VendorDeviceId))
-	ret.Set("vendor", jsonutils.NewString(self.getVendor()))
-	return ret
+	return IsolatedDeviceManager.getSpecByRows(self.VendorDeviceId, self.Model, self.DevType, nil)
 }
 
 func (self *SIsolatedDevice) GetGpuSpec() *GpuSpec {
@@ -986,6 +1045,10 @@ func (man *SIsolatedDeviceManager) GetSpecIdent(spec *jsonutils.JSONDict) []stri
 	devType, _ := spec.GetString("dev_type")
 	vendor, _ := spec.GetString("vendor")
 	model, _ := spec.GetString("model")
+	return man.getSpecKeys(vendor, model, devType)
+}
+
+func (man *SIsolatedDeviceManager) getSpecKeys(vendor, model, devType string) []string {
 	keys := []string{
 		fmt.Sprintf("type:%s", devType),
 		fmt.Sprintf("vendor:%s", vendor),
