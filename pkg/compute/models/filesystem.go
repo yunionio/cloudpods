@@ -589,6 +589,33 @@ func (fileSystem *SFileSystem) StartSyncstatus(ctx context.Context, userCred mcc
 	return StartResourceSyncStatusTask(ctx, userCred, fileSystem, "FileSystemSyncstatusTask", parentTaskId)
 }
 
+// 设置容量大小(CephFS)
+func (fileSystem *SFileSystem) PerformSetQuota(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.FileSystemSetQuotaInput) (jsonutils.JSONObject, error) {
+	if input.MaxFiles == nil || input.MaxGb == nil {
+		return nil, httperrors.NewMissingParameterError("max_gb")
+	}
+	var openTask = true
+	count, err := taskman.TaskManager.QueryTasksOfObject(fileSystem, time.Now().Add(-3*time.Minute), &openTask).CountWithError()
+	if err != nil {
+		return nil, err
+	}
+	if count > 0 {
+		return nil, httperrors.NewBadRequestError("Nas has %d task active, can't sync status", count)
+	}
+
+	return nil, fileSystem.StartSetQuotaTask(ctx, userCred, input)
+}
+
+func (fileSystem *SFileSystem) StartSetQuotaTask(ctx context.Context, userCred mcclient.TokenCredential, input *api.FileSystemSetQuotaInput) error {
+	params := jsonutils.Marshal(input).(*jsonutils.JSONDict)
+	task, err := taskman.TaskManager.NewTask(ctx, "FileSystemSetQuotaTask", fileSystem, userCred, params, "", "", nil)
+	if err != nil {
+		return err
+	}
+	fileSystem.SetStatus(ctx, userCred, api.NAS_STATUS_EXTENDING, "set quota")
+	return task.ScheduleRun(nil)
+}
+
 func (fileSystem *SFileSystem) GetIRegion(ctx context.Context) (cloudprovider.ICloudRegion, error) {
 	provider, err := fileSystem.GetDriver(ctx)
 	if err != nil {

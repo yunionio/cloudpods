@@ -22,12 +22,12 @@ import (
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 )
 
 type SCephFsDir struct {
-	multicloud.SVirtualResourceBase
-	multicloud.SBillingBase
+	multicloud.SNasBase
 	multicloud.STagBase
 	client *SCephFSClient
 
@@ -96,6 +96,37 @@ func (dir *SCephFsDir) Delete() error {
 	return dir.client.DeleteDir(dir.client.fsId, dir.Path)
 }
 
+func (dir *SCephFsDir) Refresh() error {
+	dirs, err := dir.client.GetCephDirs(dir.client.fsId)
+	if err != nil {
+		return err
+	}
+	for i := range dirs {
+		if dirs[i].GetGlobalId() == dir.GetGlobalId() {
+			return jsonutils.Update(dir, &dirs[i])
+		}
+	}
+	return errors.Wrapf(cloudprovider.ErrNotFound, dir.Path)
+}
+
+func (dir *SCephFsDir) SetQuota(input *cloudprovider.SFileSystemSetQuotaInput) error {
+	return dir.client.SetQuota(dir.client.fsId, dir.Path, input.MaxGb, input.MaxFiles)
+}
+
+func (cli *SCephFSClient) SetQuota(fsId, path string, maxGb, maxFiles int64) error {
+	path = fmt.Sprintf("/%s", strings.TrimPrefix(path, "/"))
+	res := fmt.Sprintf("cephfs/%s/quota?path=%s", fsId, path)
+	params := map[string]interface{}{}
+	if maxFiles > 0 {
+		params["max_files"] = fmt.Sprintf("%d", maxFiles)
+	}
+	if maxGb > 0 {
+		params["max_bytes"] = fmt.Sprintf("%d", maxGb*1024*1024*1024)
+	}
+	_, err := cli.put(res, params)
+	return err
+}
+
 func (cli *SCephFSClient) GetCephDirs(fsId string) ([]SCephFsDir, error) {
 	res := fmt.Sprintf("cephfs/%s/ls_dir", fsId)
 	params := url.Values{}
@@ -108,6 +139,9 @@ func (cli *SCephFSClient) GetCephDirs(fsId string) ([]SCephFsDir, error) {
 	if err != nil {
 		return nil, err
 	}
+	for i := range ret {
+		ret[i].client = cli
+	}
 	return ret, nil
 }
 
@@ -118,7 +152,6 @@ func (cli *SCephFSClient) GetICloudFileSystems() ([]cloudprovider.ICloudFileSyst
 	}
 	ret := []cloudprovider.ICloudFileSystem{}
 	for i := range dirs {
-		dirs[i].client = cli
 		ret = append(ret, &dirs[i])
 	}
 	return ret, nil
@@ -130,7 +163,6 @@ func (cli *SCephFSClient) GetICloudFileSystemById(id string) (cloudprovider.IClo
 		return nil, err
 	}
 	for i := range dirs {
-		dirs[i].client = cli
 		if dirs[i].GetGlobalId() == id {
 			return &dirs[i], nil
 		}
@@ -152,20 +184,11 @@ func (cli *SCephFSClient) DeleteDir(fsId, path string) error {
 	return err
 }
 
-func (cli *SCephFSClient) SetDirQuota(fsId, path string, maxBytes int64) error {
-	res := fmt.Sprintf("cephfs/%s/quota", fsId)
-	_, err := cli.put(res, map[string]interface{}{
-		"path":      fmt.Sprintf("/%s", strings.TrimPrefix(path, "/")),
-		"max_bytes": maxBytes,
-	})
-	return err
-}
-
 func (cli *SCephFSClient) CreateICloudFileSystem(opts *cloudprovider.FileSystemCraeteOptions) (cloudprovider.ICloudFileSystem, error) {
 	err := cli.CreateDir(cli.fsId, opts.Name)
 	if err != nil {
 		return nil, err
 	}
-	cli.SetDirQuota(cli.fsId, opts.Name, opts.Capacity*1024*1024*1024)
+	cli.SetQuota(cli.fsId, opts.Name, opts.Capacity, 0)
 	return cli.GetICloudFileSystemById("/" + opts.Name)
 }

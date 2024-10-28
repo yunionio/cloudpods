@@ -28,4 +28,5 @@ func init() {
 	cmd.Delete(&options.BaseIdOptions{})
 	cmd.Create(&compute.FileSystemCreateOptions{})
 	cmd.Perform("syncstatus", &compute.FileSystemIdOption{})
+	cmd.Perform("set-quota", &compute.FileSystemSetQuotaOption{})
 }

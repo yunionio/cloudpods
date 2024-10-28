@@ -43,6 +43,5 @@ func StartResourceSyncStatusTask(ctx context.Context, userCred mcclient.TokenCre
 		return err
 	}
 	obj.SetStatus(ctx, userCred, apis.STATUS_SYNC_STATUS, "perform_syncstatus")
-	task.ScheduleRun(nil)
-	return nil
+	return task.ScheduleRun(nil)
 }

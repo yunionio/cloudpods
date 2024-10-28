@@ -21,3 +21,8 @@ type SMountTargetCreateOptions struct {
 	NetworkId     string
 	FileSystemId  string
 }
+
+type SFileSystemSetQuotaInput struct {
+	MaxFiles int64
+	MaxGb    int64
+}

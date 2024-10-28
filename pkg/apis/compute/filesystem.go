@@ -114,3 +114,8 @@ type FileSystemRemoteUpdateInput struct {
 	// 是否覆盖替换所有标签
 	ReplaceTags *bool `json:"replace_tags" help:"replace all remote tags"`
 }
+
+type FileSystemSetQuotaInput struct {
+	MaxGb    *int64
+	MaxFiles *int64
+}
