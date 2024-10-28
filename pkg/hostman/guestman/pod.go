@@ -324,12 +324,14 @@ func (s *sPodGuestInstance) getStatus(ctx context.Context, defaultStatus string)
 		status = computeapi.VM_RUNNING
 	}
 	for _, c := range s.containers {
-		cStatus, _, err := s.getContainerStatus(ctx, c.Id)
+		cStatus, cs, err := s.getContainerStatus(ctx, c.Id)
 		if err != nil {
 			log.Errorf("get container %s status of pod %s", c.Id, s.Id)
 			continue
 		}
-		status = GetPodStatusByContainerStatus(status, cStatus)
+		if cs != nil {
+			status = GetPodStatusByContainerStatus(status, cStatus)
+		}
 	}
 	return status
 }
