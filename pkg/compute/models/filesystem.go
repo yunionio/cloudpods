@@ -591,7 +591,7 @@ func (fileSystem *SFileSystem) StartSyncstatus(ctx context.Context, userCred mcc
 
 // 设置容量大小(CephFS)
 func (fileSystem *SFileSystem) PerformSetQuota(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.FileSystemSetQuotaInput) (jsonutils.JSONObject, error) {
-	if input.MaxFiles == nil || input.MaxGb == nil {
+	if input.MaxFiles == nil && input.MaxGb == nil {
 		return nil, httperrors.NewMissingParameterError("max_gb")
 	}
 	var openTask = true
