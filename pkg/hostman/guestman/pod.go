@@ -273,13 +273,11 @@ func (s *sPodGuestInstance) ImportServer(pendingDelete bool) {
 	s.manager.SaveServer(s.Id, s)
 	s.manager.RemoveCandidateServer(s)
 	if s.IsDaemon() || s.IsDirtyShutdown() {
-		/*ctx := context.Background()
+		ctx := context.Background()
 		cred := hostutils.GetComputeSession(ctx).GetToken()
-		if err := s.StartLocalPod(ctx, cred); err != nil {
+		if err := s.StartLocalDirtyPod(ctx, cred); err != nil {
 			log.Errorf("start local pod err %s", err.Error())
-		}*/
-		log.Warningf("pod %s need started, waiting sync loop to manage it", s.GetName())
-		s.SyncStatus(fmt.Sprintf("sync status is_dirty_shutdown: %v, is_daemon: %v", s.IsDirtyShutdown(), s.IsDaemon()))
+		}
 	} else {
 		s.SyncStatus("sync status after host started")
 		s.getProbeManager().AddPod(s.Desc)
@@ -688,44 +686,44 @@ func (s *sPodGuestInstance) getCgroupParent() string {
 	return "/cloudpods"
 }
 
-type localPodStartTask struct {
+type localDirtyPodStartTask struct {
 	ctx      context.Context
 	userCred mcclient.TokenCredential
 	pod      *sPodGuestInstance
 }
 
-func newLocalPodStartTask(ctx context.Context, userCred mcclient.TokenCredential, pod *sPodGuestInstance) *localPodStartTask {
-	return &localPodStartTask{
+func newLocalDirtyPodStartTask(ctx context.Context, userCred mcclient.TokenCredential, pod *sPodGuestInstance) *localDirtyPodStartTask {
+	return &localDirtyPodStartTask{
 		ctx:      ctx,
 		userCred: userCred,
 		pod:      pod,
 	}
 }
 
-func (t *localPodStartTask) Run() {
+func (t *localDirtyPodStartTask) Run() {
 	if t.pod.isPodDirtyShutdown() {
-		log.Infof("start pod locally (%s/%s)", t.pod.Id, t.pod.GetName())
+		log.Infof("start dirty pod locally (%s/%s)", t.pod.Id, t.pod.GetName())
 		if _, err := t.pod.startPod(t.ctx, t.userCred); err != nil {
-			log.Errorf("start pod(%s/%s) err: %s", t.pod.GetId(), t.pod.GetName(), err.Error())
+			log.Errorf("start dirty pod(%s/%s) err: %s", t.pod.GetId(), t.pod.GetName(), err.Error())
 		}
 	}
 	for _, ctr := range t.pod.GetContainers() {
 		if t.pod.isContainerDirtyShutdown(ctr.Id) {
-			log.Infof("start container locally (%s/%s/%s/%s)", t.pod.Id, t.pod.GetName(), ctr.Id, ctr.Name)
+			log.Infof("start dirty container locally (%s/%s/%s/%s)", t.pod.Id, t.pod.GetName(), ctr.Id, ctr.Name)
 			if _, err := t.pod.StartLocalContainer(t.ctx, t.userCred, ctr.Id); err != nil {
-				log.Errorf("start container %s err: %s", ctr.Id, err.Error())
+				log.Errorf("start dirty container %s err: %s", ctr.Id, err.Error())
 			}
 		}
 	}
-	t.pod.SyncStatus("sync status after pod start locally")
+	t.pod.SyncStatus("sync status after dirty pod start locally")
 }
 
-func (t *localPodStartTask) Dump() string {
+func (t *localDirtyPodStartTask) Dump() string {
 	return fmt.Sprintf("pod start task %s/%s", t.pod.GetId(), t.pod.GetName())
 }
 
-func (s *sPodGuestInstance) StartLocalPod(ctx context.Context, userCred mcclient.TokenCredential) error {
-	s.manager.GuestStartWorker.Run(newLocalPodStartTask(ctx, userCred, s), nil, nil)
+func (s *sPodGuestInstance) StartLocalDirtyPod(ctx context.Context, userCred mcclient.TokenCredential) error {
+	s.manager.GuestStartWorker.Run(newLocalDirtyPodStartTask(ctx, userCred, s), nil, nil)
 	return nil
 }
 
