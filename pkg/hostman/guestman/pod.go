@@ -1397,6 +1397,11 @@ func (s *sPodGuestInstance) setContainerResourcesLimit(ctrId string, limit *apis
 			return errors.Wrapf(err, "set devices.allow %v", limit.DevicesAllow)
 		}
 	}
+	if limit.CpusetCloneChildren {
+		if err := cgUtil.SetCpusetCloneChildren(ctrId); err != nil {
+			return errors.Wrapf(err, "set cpuset clone_children")
+		}
+	}
 	return nil
 }
 

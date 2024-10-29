@@ -57,6 +57,10 @@ type ContainerResources struct {
 	PidsMax *int `json:"pids_max"`
 	// DevicesAllow will be set to devices.allow
 	DevicesAllow []string `json:"devices_allow"`
+	// This flag only affects the cpuset controller. If the clone_children
+	// flag is enabled in a cgroup, a new cpuset cgroup will copy its
+	// configuration fromthe parent during initialization.
+	CpusetCloneChildren bool `json:"cpuset_clone_children"`
 }
 
 type ContainerSpec struct {
