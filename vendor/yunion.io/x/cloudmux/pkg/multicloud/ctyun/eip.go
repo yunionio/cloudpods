@@ -20,7 +20,6 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/util/timeutils"
 	"yunion.io/x/pkg/utils"
 
 	billing_api "yunion.io/x/cloudmux/pkg/apis/billing"
@@ -45,12 +44,12 @@ type SEip struct {
 	Tags             string
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
-	ExpiredAt        string
+	ExpiredAt        time.Time
 	ProjectId        string
 }
 
 func (self *SEip) GetBillingType() string {
-	if len(self.ExpiredAt) > 0 {
+	if !self.ExpiredAt.IsZero() {
 		return billing_api.BILLING_TYPE_PREPAID
 	}
 	return billing_api.BILLING_TYPE_POSTPAID
@@ -61,11 +60,7 @@ func (self *SEip) GetCreatedAt() time.Time {
 }
 
 func (self *SEip) GetExpiredAt() time.Time {
-	if len(self.ExpiredAt) > 0 {
-		t, _ := timeutils.ParseTimeStr(self.ExpiredAt)
-		return t
-	}
-	return time.Time{}
+	return self.ExpiredAt
 }
 
 func (self *SEip) GetId() string {
@@ -133,7 +128,10 @@ func (self *SEip) GetBandwidth() int {
 }
 
 func (self *SEip) GetInternetChargeType() string {
-	return ""
+	if self.GetBillingType() == billing_api.BILLING_TYPE_PREPAID {
+		return api.EIP_CHARGE_TYPE_BY_BANDWIDTH
+	}
+	return api.EIP_CHARGE_TYPE_BY_TRAFFIC
 }
 
 func (self *SEip) Delete() error {
