@@ -294,7 +294,11 @@ func (s *sPodGuestInstance) isPodDirtyShutdown() bool {
 }
 
 func (s *sPodGuestInstance) isContainerDirtyShutdown(ctrId string) bool {
-	if !s.IsContainerRunning(context.Background(), ctrId) && s.startStat.IsContainerFileExists(ctrId) {
+	isRunning, err := s.IsContainerRunning(context.Background(), ctrId)
+	if err != nil {
+		log.Warningf("[isContainerDrityShutdown] IsContainerRunning(%s, %s): %v", s.GetId(), ctrId, err)
+	}
+	if !isRunning && s.startStat.IsContainerFileExists(ctrId) {
 		return true
 	}
 	return false
@@ -472,15 +476,15 @@ func (s *sPodGuestInstance) IsRunning() bool {
 	return false
 }
 
-func (s *sPodGuestInstance) IsContainerRunning(ctx context.Context, ctrId string) bool {
+func (s *sPodGuestInstance) IsContainerRunning(ctx context.Context, ctrId string) (bool, error) {
 	status, _, err := s.getContainerStatus(ctx, ctrId)
 	if err != nil {
-		return false
+		return false, errors.Wrapf(err, "get container %s status error", ctrId)
 	}
-	if sets.NewString(computeapi.CONTAINER_STATUS_RUNNING, computeapi.CONTAINER_STATUS_PROBING).Has(status) {
-		return true
+	if computeapi.ContainerRunningStatus.Has(status) {
+		return true, nil
 	}
-	return false
+	return false, nil
 }
 
 func (s *sPodGuestInstance) HandleGuestStatus(ctx context.Context, status string, body *jsonutils.JSONDict) (jsonutils.JSONObject, error) {
@@ -2048,18 +2052,19 @@ func (s *sPodGuestInstance) unmountDevShm(containerName string) error {
 }
 
 func (s *sPodGuestInstance) DoSnapshot(ctx context.Context, params *SDiskSnapshot) (jsonutils.JSONObject, error) {
-	if s.IsRunning() {
-		return nil, errors.Errorf("Pod dosen't support live snapshot")
+	input := params.BackupDiskConfig.BackupAsTar
+	if input.ContainerId == "" {
+		return nil, httperrors.NewMissingParameterError("missing backup_disk_config.backup_as_tar.container_id")
+	}
+	isCtrRunning, err := s.IsContainerRunning(ctx, input.ContainerId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "check container %s running status", input.ContainerId)
 	}
 	if params.BackupDiskConfig == nil {
 		return nil, httperrors.NewMissingParameterError("missing backup_disk_config")
 	}
 	if params.BackupDiskConfig.BackupAsTar == nil {
 		return nil, httperrors.NewMissingParameterError("missing backup_disk_config.backup_as_tar")
-	}
-	input := params.BackupDiskConfig.BackupAsTar
-	if input.ContainerId == "" {
-		return nil, httperrors.NewMissingParameterError("missing backup_disk_config.backup_as_tar.container_id")
 	}
 	vols := s.getContainerVolumeMountsByDiskId(input.ContainerId, params.Disk.GetId())
 	if len(vols) == 0 {
@@ -2118,11 +2123,15 @@ func (s *sPodGuestInstance) DoSnapshot(ctx context.Context, params *SDiskSnapsho
 				return errors.Wrapf(err, "umount bind point %s: %s", targetBindMntPath, out)
 			}
 		}
-		for _, vol := range vols {
-			drv := volume_mount.GetDriver(vol.Type)
-			if err := drv.Unmount(s, input.ContainerId, vol); err != nil {
-				return errors.Wrapf(err, "unmount %s to %s", input.ContainerId, jsonutils.Marshal(vol))
+		if !isCtrRunning && !s.IsRunning() {
+			for _, vol := range vols {
+				drv := volume_mount.GetDriver(vol.Type)
+				if err := drv.Unmount(s, input.ContainerId, vol); err != nil {
+					return errors.Wrapf(err, "unmount %s to %s", input.ContainerId, jsonutils.Marshal(vol))
+				}
 			}
+		} else {
+			log.Infof("container %s/%s is running, so skipping unmount volumes", s.GetId(), input.ContainerId)
 		}
 		return nil
 	}
