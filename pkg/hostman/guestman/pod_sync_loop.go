@@ -20,10 +20,15 @@ import (
 )
 
 func (m *SGuestManager) reconcileContainerLoop(cache runtime.Cache) {
+	log.Infof("start reconcile container loop")
 	for {
 		m.Servers.Range(func(id, obj interface{}) bool {
 			podObj, ok := obj.(*sPodGuestInstance)
 			if !ok {
+				return true
+			}
+			if podObj.isPodDirtyShutdown() {
+				log.Infof("pod %s is dirty shutdown, using dirty shutdown manager to start it", podObj.GetName())
 				return true
 			}
 			if err := m.reconcileContainer(podObj, cache); err != nil {
@@ -108,6 +113,7 @@ func (m *SGuestManager) startContainer(obj *sPodGuestInstance, ctr *hostapi.Cont
 }
 
 func (m *SGuestManager) syncContainerLoop(plegCh chan *pleg.PodLifecycleEvent) {
+	log.Infof("start sync container loop")
 	for {
 		m.syncContainerLoopIteration(plegCh)
 	}
@@ -119,6 +125,10 @@ func (m *SGuestManager) syncContainerLoopIteration(plegCh chan *pleg.PodLifecycl
 		podMan := m.getPodByEvent(e)
 		if podMan == nil {
 			log.Warningf("can not find pod manager by %s", jsonutils.Marshal(e))
+			return
+		}
+		if podMan.(*sPodGuestInstance).isPodDirtyShutdown() {
+			log.Infof("pod %s is dirty shutdown, waiting it to started", podMan.GetName())
 			return
 		}
 		if e.Type == pleg.ContainerStarted {

@@ -152,7 +152,6 @@ func NewGuestManager(host hostutils.IHost, serversPath string, workerCnt int) (*
 		manager.containerRuntimeManager = runtimeMan
 		manager.pleg = pleg.NewGenericPLEG(runtimeMan, pleg.ChannelCapacity, pleg.RelistPeriod, manager.podCache, clock.RealClock{})
 		manager.pleg.Start()
-		manager.startContainerSyncLoop()
 	}
 	return manager, nil
 }
@@ -441,6 +440,7 @@ func (m *SGuestManager) OnLoadExistingGuestsComplete() {
 	if !options.HostOptions.EnableCpuBinding {
 		m.ClenaupCpuset()
 	}
+	m.startContainerSyncLoop()
 }
 
 func (m *SGuestManager) verifyDirtyServers() {
