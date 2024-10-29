@@ -17,7 +17,6 @@ package ctyun
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
 
@@ -41,7 +40,7 @@ type SInstance struct {
 	image *SImage
 
 	AzName         string
-	ExpiredTime    string
+	ExpiredTime    time.Time
 	CreatedTime    time.Time
 	ProjectId      string
 	AttachedVolume []string
@@ -96,7 +95,7 @@ type SInstance struct {
 }
 
 func (self *SInstance) GetBillingType() string {
-	if len(self.ExpiredTime) > 0 {
+	if !self.OnDemand {
 		return billing_api.BILLING_TYPE_PREPAID
 	}
 	return billing_api.BILLING_TYPE_POSTPAID
@@ -107,11 +106,7 @@ func (self *SInstance) GetCreatedAt() time.Time {
 }
 
 func (self *SInstance) GetExpiredAt() time.Time {
-	if len(self.ExpiredTime) > 0 {
-		expire, _ := strconv.Atoi(self.ExpiredTime)
-		return time.Unix(int64(expire/1000), 0)
-	}
-	return time.Time{}
+	return self.ExpiredTime
 }
 
 func (self *SInstance) GetId() string {
