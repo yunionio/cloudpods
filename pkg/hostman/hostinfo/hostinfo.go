@@ -2364,6 +2364,7 @@ func (h *SHostInfo) OnCatalogChanged(catalog mcclient.KeystoneServiceCatalogV3) 
 	telegraf := system_service.GetService("telegraf")
 	conf := map[string]interface{}{}
 	conf["hostname"] = h.getHostname()
+	conf["server_path"] = options.HostOptions.ServersPath
 	conf["tags"] = map[string]string{
 		"id":                                  h.HostId,
 		"host_id":                             h.HostId,
@@ -2382,8 +2383,22 @@ func (h *SHostInfo) OnCatalogChanged(catalog mcclient.KeystoneServiceCatalogV3) 
 	conf["nics"] = h.getNicsTelegrafConf()
 	urls, _ := s.GetServiceURLs("kafka", defaultEndpointType)
 	if len(urls) > 0 {
-		conf["kafka"] = map[string]interface{}{"brokers": urls, "topic": "telegraf"}
+		kafkaConf := map[string]interface{}{
+			"brokers": urls,
+			"topic":   options.HostOptions.TelegrafKafkaOutputTopic,
+		}
+		if len(options.HostOptions.TelegrafKafkaOutputSaslUsername) > 0 {
+			kafkaConf["sasl_username"] = options.HostOptions.TelegrafKafkaOutputSaslUsername
+		}
+		if len(options.HostOptions.TelegrafKafkaOutputSaslPassword) > 0 {
+			kafkaConf["sasl_password"] = options.HostOptions.TelegrafKafkaOutputSaslPassword
+		}
+		if len(options.HostOptions.TelegrafKafkaOutputSaslMechanism) > 0 {
+			kafkaConf["sasl_mechanism"] = options.HostOptions.TelegrafKafkaOutputSaslMechanism
+		}
+		conf["kafka"] = kafkaConf
 	}
+
 	tsdb, _ := tsdb.GetDefaultServiceSource(s, defaultEndpointType)
 	if tsdb != nil && len(tsdb.URLs) > 0 {
 		conf[apis.SERVICE_TYPE_INFLUXDB] = map[string]interface{}{
