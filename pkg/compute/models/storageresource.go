@@ -128,6 +128,17 @@ func (manager *SStorageResourceBaseManager) ListItemFilter(
 		}
 		q = q.Equals("storage_id", storageObj.GetId())
 	}
+	if len(query.StorageHostId) > 0 {
+		hostInput := api.HostResourceInput{}
+		hostInput.HostId = query.StorageHostId
+		var err error
+		_, hostInput, err = ValidateHostResourceInput(ctx, userCred, hostInput)
+		if err != nil {
+			return nil, errors.Wrap(err, "ValidateHostResourceInput")
+		}
+		hostStoragesQ := HoststorageManager.Query().Equals("host_id", hostInput.HostId).SubQuery()
+		q = q.Join(hostStoragesQ, sqlchemy.Equals(q.Field("storage_id"), hostStoragesQ.Field("storage_id")))
+	}
 	subq := StorageManager.Query("id").Snapshot()
 	subq, err := manager.SZoneResourceBaseManager.ListItemFilter(ctx, subq, userCred, query.ZonalFilterListInput)
 	if err != nil {

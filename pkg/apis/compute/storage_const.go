@@ -223,6 +223,9 @@ type StorageResourceInput struct {
 type StorageFilterListInputBase struct {
 	StorageResourceInput
 
+	// 以host过滤
+	StorageHostId string `json:"storage_host_id"`
+
 	// 以存储名称排序
 	// pattern:asc|desc
 	OrderByStorage string `json:"order_by_storage"`
