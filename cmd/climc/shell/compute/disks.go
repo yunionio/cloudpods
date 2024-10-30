@@ -41,49 +41,11 @@ import (
 
 func init() {
 	cmd := shell.NewResourceCmd(&modules.Disks)
+	cmd.List(&compute_options.DiskListOptions{})
 	cmd.Perform("set-class-metadata", &options.ResourceMetadataOptions{})
 	cmd.Perform("rebuild", &compute_options.DiskRebuildOptions{})
 	cmd.Perform("migrate", &compute_options.DiskMigrateOptions{})
 	cmd.Perform("reset-template", &compute_options.DiskResetTemplateOptions{})
-
-	type DiskListOptions struct {
-		options.BaseListOptions
-		Unused        *bool  `help:"Show unused disks"`
-		Share         *bool  `help:"Show Share storage disks"`
-		Local         *bool  `help:"Show Local storage disks"`
-		Guest         string `help:"Guest ID or name"`
-		GuestStatus   string `help:"Guest Status"`
-		OrderByServer string `help:"Order By Server"`
-		Storage       string `help:"Storage ID or name"`
-		Type          string `help:"Disk type" choices:"sys|data|swap|volume"`
-		CloudType     string `help:"Public cloud or private cloud" choices:"Public|Private"`
-
-		OrderByGuestCount string `help:"Order By Guest Count"`
-
-		BillingType string `help:"billing type" choices:"postpaid|prepaid"`
-
-		SnapshotpolicyId string `help:"snapshotpolicy id"`
-	}
-	R(&DiskListOptions{}, "disk-list", "List virtual disks", func(s *mcclient.ClientSession, opts *DiskListOptions) error {
-		params, err := options.ListStructToParams(opts)
-		if err != nil {
-			return err
-		}
-		if len(opts.CloudType) > 0 {
-			if opts.CloudType == "Public" {
-				params.Add(jsonutils.JSONTrue, "public_cloud")
-			} else if opts.CloudType == "Private" {
-				params.Add(jsonutils.JSONTrue, "private_cloud")
-			}
-		}
-
-		result, err := modules.Disks.List(s, params)
-		if err != nil {
-			return err
-		}
-		printList(result, modules.Disks.GetColumns(s))
-		return nil
-	})
 
 	type DiskDetailOptions struct {
 		ID string `help:"ID or Name of disk"`
