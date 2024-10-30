@@ -55,6 +55,11 @@ type SHostBaseOptions struct {
 	ImageCacheCleanupPercentage int  `help:"The cleanup threshold ratio of image cache size v.s. total storage size" default:"12"`
 	ImageCacheCleanupOnStartup  bool `help:"Cleanup image cache on host startup" default:"false"`
 	ImageCacheCleanupDryRun     bool `help:"Dry run cleanup image cache" default:"false"`
+
+	TelegrafKafkaOutputTopic         string `json:"telegraf_kafka_output_topic" help:"telegraf kafka output topic"`
+	TelegrafKafkaOutputSaslUsername  string `json:"telegraf_kafka_output_sasl_username" help:"telegraf kafka output sasl_username"`
+	TelegrafKafkaOutputSaslPassword  string `json:"telegraf_kafka_output_sasl_password" help:"telegraf kafka output sasl_password"`
+	TelegrafKafkaOutputSaslMechanism string `json:"telegraf_kafka_output_sasl_mechanism" help:"telegraf kafka output sasl_mechanism"`
 }
 
 type SHostOptions struct {
