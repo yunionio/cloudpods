@@ -396,6 +396,8 @@ func (s *sPodGuestInstance) SyncStatus(reason string) {
 		if _, err := hostutils.UpdateContainerStatus(ctx, c.Id, ctrStatusInput); err != nil {
 			log.Errorf("failed update container %s status: %s", c.Id, err)
 		}
+		// 同步容器状态可能会出现 probing 状态，所以需要 mark 成 dirty，等待 probe manager 重新探测容器状态
+		s.markContainerProbeDirty(cStatus, c.Id, reason)
 		status = GetPodStatusByContainerStatus(status, cStatus)
 	}
 
@@ -1850,15 +1852,19 @@ func (s *sPodGuestInstance) getContainerStatus(ctx context.Context, ctrId string
 	return status, cs, nil
 }
 
+func (s *sPodGuestInstance) markContainerProbeDirty(status, ctrId string, reason string) {
+	if status == computeapi.CONTAINER_STATUS_PROBING {
+		log.Infof("mark container %s to dirty: %s", ctrId, reason)
+		s.getProbeManager().SetDirtyContainer(ctrId)
+	}
+}
+
 func (s *sPodGuestInstance) SyncContainerStatus(ctx context.Context, userCred mcclient.TokenCredential, ctrId string) (jsonutils.JSONObject, error) {
 	status, cs, err := s.getContainerStatus(ctx, ctrId)
 	if err != nil {
 		return nil, errors.Wrap(err, "get container status")
 	}
-	if status == computeapi.CONTAINER_STATUS_PROBING {
-		log.Infof("mark container %s to dirty after syncing status", ctrId)
-		s.getProbeManager().SetDirtyContainer(ctrId)
-	}
+	s.markContainerProbeDirty(status, ctrId, "after syncing status")
 	resp := computeapi.ContainerSyncStatusResponse{
 		Status: status,
 	}
