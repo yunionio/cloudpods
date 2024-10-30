@@ -17,6 +17,7 @@ package status
 import (
 	"context"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/apis"
@@ -50,5 +51,7 @@ func (m *manager) SetContainerStartup(podId string, containerId string, started 
 	}
 	if _, err := hostutils.UpdateContainerStatus(context.Background(), containerId, input); err != nil {
 		log.Errorf("set container(%s/%s) status failed: %s", podId, containerId, err)
+	} else {
+		log.Infof("set container(%s/%s) status to %s", podId, containerId, jsonutils.Marshal(input).String())
 	}
 }
