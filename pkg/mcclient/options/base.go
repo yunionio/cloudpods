@@ -262,6 +262,8 @@ type BaseListOptions struct {
 
 	Id []string `help:"filter by id"`
 	// Name []string `help:"fitler by name"`
+
+	Status []string `help:"filter by status"`
 }
 
 func (opts *BaseListOptions) addTag(keyPrefix, tagstr string, idx int, params *jsonutils.JSONDict) error {
