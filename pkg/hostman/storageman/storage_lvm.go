@@ -453,7 +453,7 @@ func (s *SLVMStorage) DestinationPrepareMigrate(
 	if liveMigrate {
 		// create local disk
 		backingFile, _ := disksBackingFile.GetString(diskId)
-		_, err := disk.CreateRaw(ctx, int(diskinfo.Size), "qcow2", "", encInfo, "", backingFile)
+		_, err := disk.CreateRaw(ctx, int(diskinfo.Size), "qcow2", "", nil, encInfo, "", backingFile)
 		if err != nil {
 			log.Errorln(err)
 			return err

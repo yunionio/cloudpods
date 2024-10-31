@@ -68,6 +68,28 @@ func (d disk) validateCreateData(ctx context.Context, userCred mcclient.TokenCre
 	return vm, nil
 }
 
+func (d disk) validateCaseInsensitive(disk *models.SDisk, vm *apis.ContainerVolumeMountDisk) error {
+	if !vm.CaseInsensitive {
+		return nil
+	}
+	if disk.FsFeatures == nil {
+		return httperrors.NewInputParameterError("disk(%s) fs_features is not set", disk.GetId())
+	}
+	if disk.FsFeatures.Ext4 == nil {
+		return httperrors.NewInputParameterError("disk(%s) fs_features.ext4 is not set", disk.GetId())
+	}
+	if !disk.FsFeatures.Ext4.CaseInsensitive {
+		return httperrors.NewInputParameterError("disk(%s) fs_features.ext4.case_insensitive is not set", disk.GetId())
+	}
+	if vm.Overlay != nil {
+		return httperrors.NewInputParameterError("can't use case_insensitive and overlay at the same time")
+	}
+	if vm.SubDirectory == "" {
+		return httperrors.NewInputParameterError("sub_directory must set to use case_insensitive")
+	}
+	return nil
+}
+
 func (d disk) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, pod *models.SGuest, vm *apis.ContainerVolumeMount) (*apis.ContainerVolumeMount, error) {
 	if _, err := d.validateCreateData(ctx, userCred, vm); err != nil {
 		return nil, err
@@ -87,6 +109,9 @@ func (d disk) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCre
 		vm.Disk.Id = diskObj.GetId()
 		// remove index
 		vm.Disk.Index = nil
+		if err := d.validateCaseInsensitive(&diskObj, disk); err != nil {
+			return nil, err
+		}
 	} else {
 		if disk.Id == "" {
 			return nil, httperrors.NewNotEmptyError("disk.id is empty")
@@ -102,6 +127,9 @@ func (d disk) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCre
 		}
 		if !foundDisk {
 			return nil, httperrors.NewNotFoundError("not found pod disk by %s", disk.Id)
+		}
+		if err := d.validateCaseInsensitive(&diskObj, disk); err != nil {
+			return nil, err
 		}
 	}
 	if err := d.validateOverlay(ctx, userCred, vm, &diskObj); err != nil {

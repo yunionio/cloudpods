@@ -239,8 +239,8 @@ func (d *NBDDriver) MakePartition(fs string) error {
 	return fsutils.Mkpartition(d.nbdDev, fs)
 }
 
-func (d *NBDDriver) FormatPartition(fs, uuid string) error {
-	return fsutils.FormatPartition(fmt.Sprintf("%sp1", d.nbdDev), fs, uuid)
+func (d *NBDDriver) FormatPartition(fs, uuid string, features *apis.FsFeatures) error {
+	return fsutils.FormatPartition(fmt.Sprintf("%sp1", d.nbdDev), fs, uuid, features)
 }
 
 func (d *NBDDriver) ResizePartition() error {

@@ -217,8 +217,8 @@ func (d *SLibguestfsDriver) ResizePartition() error {
 	return fsutils.ResizeDiskFs(d.nbddev, 0, false)
 }
 
-func (d *SLibguestfsDriver) FormatPartition(fs, uuid string) error {
-	return fsutils.FormatPartition(fmt.Sprintf("%sp1", d.nbddev), fs, uuid)
+func (d *SLibguestfsDriver) FormatPartition(fs, uuid string, features *apis.FsFeatures) error {
+	return fsutils.FormatPartition(fmt.Sprintf("%sp1", d.nbddev), fs, uuid, features)
 }
 
 func (d *SLibguestfsDriver) MakePartition(fsFormat string) error {

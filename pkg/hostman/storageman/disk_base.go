@@ -68,8 +68,7 @@ type IDisk interface {
 	CreateFromSnapshotLocation(ctx context.Context, location string, size int64, encryptInfo *apis.SEncryptInfo) (jsonutils.JSONObject, error)
 	CreateFromRbdSnapshot(ctx context.Context, snapshotId, srcDiskId, srcPool string) error
 	CreateFromImageFuse(ctx context.Context, url string, size int64, encryptInfo *apis.SEncryptInfo) error
-	CreateRaw(ctx context.Context, sizeMb int, diskFormat string, fsFormat string,
-		encryptInfo *apis.SEncryptInfo, diskId string, back string) (jsonutils.JSONObject, error)
+	CreateRaw(ctx context.Context, sizeMb int, diskFormat string, fsFormat string, fsFeatures *api.DiskFsFeatures, encryptInfo *apis.SEncryptInfo, diskId string, back string) (jsonutils.JSONObject, error)
 	PostCreateFromImageFuse()
 	CreateSnapshot(snapshotId string, encryptKey string, encFormat qemuimg.TEncryptFormat, encAlg seclib2.TSymEncAlg) error
 	DeleteSnapshot(snapshotId, convertSnapshot string, blockStream bool, encryptInfo apis.SEncryptInfo) error
@@ -219,14 +218,28 @@ func (d *SBaseDisk) GetSnapshotPath(snapshotId string) string {
 	return ""
 }
 
-func (d *SBaseDisk) FormatFs(fsFormat, uuid string, diskInfo *deployapi.DiskInfo) {
-	log.Infof("Make disk %s fs %s", uuid, fsFormat)
+func ConvertDiskFsFeaturesToDeploy(fsFeatures *api.DiskFsFeatures) *deployapi.FsFeatures {
+	if fsFeatures == nil {
+		return nil
+	}
+	ret := &deployapi.FsFeatures{}
+	if fsFeatures.Ext4 != nil {
+		ret.Ext4 = &deployapi.FsExt4Features{
+			CaseInsensitive: fsFeatures.Ext4.CaseInsensitive,
+		}
+	}
+	return ret
+}
+
+func (d *SBaseDisk) FormatFs(fsFormat string, fsFeatures *api.DiskFsFeatures, uuid string, diskInfo *deployapi.DiskInfo) {
+	log.Infof("Make disk %s fs %s, features: %s", uuid, fsFormat, jsonutils.Marshal(fsFeatures))
 	_, err := deployclient.GetDeployClient().FormatFs(
 		context.Background(),
 		&deployapi.FormatFsParams{
-			DiskInfo: diskInfo,
-			FsFormat: fsFormat,
-			Uuid:     uuid,
+			DiskInfo:   diskInfo,
+			FsFormat:   fsFormat,
+			FsFeatures: ConvertDiskFsFeaturesToDeploy(fsFeatures),
+			Uuid:       uuid,
 		},
 	)
 	if err != nil {

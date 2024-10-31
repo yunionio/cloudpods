@@ -27,7 +27,7 @@ type IDeployer interface {
 	IsLVMPartition() bool
 	Zerofree()
 	ResizePartition() error
-	FormatPartition(fs, uuid string) error
+	FormatPartition(fs, uuid string, features *apis.FsFeatures) error
 	MakePartition(fs string) error
 
 	MountRootfs(readonly bool) (fsdriver.IRootFsDriver, error)

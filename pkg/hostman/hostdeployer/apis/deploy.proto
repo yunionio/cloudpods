@@ -146,10 +146,19 @@ message ResizeFsParams {
   VDDKConInfo vddk_info = 3;
 }
 
+message FsExt4Features {
+  bool CaseInsensitive = 1;
+}
+
+message FsFeatures {
+  FsExt4Features ext4 = 1;
+}
+
 message FormatFsParams {
   DiskInfo disk_info = 1;
   string fs_format = 2;
   string uuid = 3;
+  FsFeatures fs_features = 4;
 }
 
 message ReleaseInfo {

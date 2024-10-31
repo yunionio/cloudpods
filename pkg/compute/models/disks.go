@@ -115,6 +115,8 @@ type SDisk struct {
 
 	// 文件系统
 	FsFormat string `width:"32" charset:"ascii" nullable:"true" list:"user" json:"fs_format"`
+	// 文件系统特性
+	FsFeatures *api.DiskFsFeatures `length:"medium" nullable:"true" list:"user" json:"fs_features"`
 
 	// 磁盘类型
 	// sys: 系统盘
@@ -414,7 +416,9 @@ func (self *SDisk) CustomizeCreate(ctx context.Context, userCred mcclient.TokenC
 	if err := data.Unmarshal(input); err != nil {
 		return errors.Wrap(err, "Unmarshal json")
 	}
-	self.fetchDiskInfo(input.DiskConfig)
+	if err := self.fetchDiskInfo(input.DiskConfig); err != nil {
+		return errors.Wrap(err, "fetch disk info")
+	}
 	err := self.SEncryptedResource.CustomizeCreate(ctx, userCred, ownerId, data, "disk-"+pinyinutils.Text2Pinyin(self.Name))
 	if err != nil {
 		return errors.Wrap(err, "SEncryptedResource.CustomizeCreate")
@@ -868,6 +872,9 @@ func (self *SDisk) StartAllocate(ctx context.Context, host *SHost, storage *SSto
 	}
 	if len(fsFormat) > 0 {
 		input.FsFormat = fsFormat
+		if self.FsFeatures != nil {
+			input.FsFeatures = self.FsFeatures
+		}
 	}
 	if self.IsEncrypted() {
 		var err error
@@ -2220,7 +2227,7 @@ func parseIsoInfo(ctx context.Context, userCred mcclient.TokenCredential, imageI
 	return image, nil
 }
 
-func (self *SDisk) fetchDiskInfo(diskConfig *api.DiskConfig) {
+func (self *SDisk) fetchDiskInfo(diskConfig *api.DiskConfig) error {
 	if len(diskConfig.SnapshotId) > 0 {
 		self.SnapshotId = diskConfig.SnapshotId
 		self.DiskType = diskConfig.DiskType
@@ -2241,6 +2248,12 @@ func (self *SDisk) fetchDiskInfo(diskConfig *api.DiskConfig) {
 	if len(diskConfig.Fs) > 0 {
 		self.FsFormat = diskConfig.Fs
 	}
+	if diskConfig.FsFeatures != nil {
+		self.FsFeatures = diskConfig.FsFeatures
+		if self.FsFeatures.Ext4 != nil && self.FsFormat != "ext4" {
+			return httperrors.NewInputParameterError("only ext4 fs can set fs_features.ext4, current is %q", self.FsFormat)
+		}
+	}
 	if self.FsFormat == "swap" {
 		self.DiskType = api.DISK_TYPE_SWAP
 		self.Nonpersistent = true
@@ -2260,6 +2273,7 @@ func (self *SDisk) fetchDiskInfo(diskConfig *api.DiskConfig) {
 	self.DiskFormat = diskConfig.Format
 	self.DiskSize = diskConfig.SizeMb
 	self.OsArch = diskConfig.OsArch
+	return nil
 }
 
 type DiskInfo struct {

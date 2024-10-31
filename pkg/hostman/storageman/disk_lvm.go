@@ -105,10 +105,7 @@ func (d *SLVMDisk) GetDiskDesc() jsonutils.JSONObject {
 	return desc
 }
 
-func (d *SLVMDisk) CreateRaw(
-	ctx context.Context, sizeMB int, diskFormat string, fsFormat string,
-	encryptInfo *apis.SEncryptInfo, diskId string, back string,
-) (jsonutils.JSONObject, error) {
+func (d *SLVMDisk) CreateRaw(ctx context.Context, sizeMB int, diskFormat string, fsFormat string, fsFeatures *api.DiskFsFeatures, encryptInfo *apis.SEncryptInfo, diskId string, back string) (jsonutils.JSONObject, error) {
 	if fileutils2.Exists(d.GetPath()) {
 		if err := lvmutils.LvRemove(d.GetLvPath()); err != nil {
 			return nil, errors.Wrap(err, "CreateRaw lvremove")
@@ -145,7 +142,7 @@ func (d *SLVMDisk) CreateRaw(
 		diskInfo.EncryptAlg = string(encryptInfo.Alg)
 	}
 	if utils.IsInStringArray(fsFormat, []string{"swap", "ext2", "ext3", "ext4", "xfs"}) {
-		d.FormatFs(fsFormat, diskId, diskInfo)
+		d.FormatFs(fsFormat, nil, diskId, diskInfo)
 	}
 	return d.GetDiskDesc(), nil
 }

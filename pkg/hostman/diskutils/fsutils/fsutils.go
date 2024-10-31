@@ -383,7 +383,7 @@ func ext4UsageType(path string) string {
 	return ""
 }
 
-func FormatPartition(path, fs, uuid string) error {
+func FormatPartition(path, fs, uuid string, fsFeatures *apis.FsFeatures) error {
 	var cmd, cmdUuid []string
 	switch {
 	case fs == "swap":
@@ -395,7 +395,13 @@ func FormatPartition(path, fs, uuid string) error {
 		cmd = []string{"mkfs.ext3"}
 		cmdUuid = []string{"tune2fs", "-U", uuid}
 	case fs == "ext4":
-		cmd = []string{"mkfs.ext4", "-O", "^64bit", "-E", "lazy_itable_init=1"}
+		feature := "^64bit"
+		if fsFeatures != nil && fsFeatures.Ext4 != nil {
+			if fsFeatures.Ext4.CaseInsensitive {
+				feature = fmt.Sprintf("%s,casefold", feature)
+			}
+		}
+		cmd = []string{"mkfs.ext4", "-O", feature, "-E", "lazy_itable_init=1"}
 		/*
 			// see /etc/mke2fs.conf, default inode_ratio is 16384
 			If  this option is is not specified, mke2fs will pick a single default usage type based on the size
@@ -558,7 +564,7 @@ func FormatFs(d deploy_iface.IDeployer, req *apis.FormatFsParams) (*apis.Empty, 
 	if err != nil {
 		return new(apis.Empty), errors.Wrap(err, "MakePartition")
 	}
-	err = d.FormatPartition(req.FsFormat, req.Uuid)
+	err = d.FormatPartition(req.FsFormat, req.Uuid, req.FsFeatures)
 	if err != nil {
 		return new(apis.Empty), errors.Wrap(err, "FormatPartition")
 	}

@@ -135,6 +135,14 @@ func (d disk) getOverlayMergedDir(pod IPodInfo, ctrId string, vm *hostapi.Contai
 	return d.getOverlayDir(pod, ctrId, vm, upperDir, "merged")
 }
 
+func (d disk) setDirCaseInsensitive(dir string) error {
+	out, err := procutils.NewRemoteCommandAsFarAsPossible("chattr", "+F", dir).Output()
+	if err != nil {
+		return errors.Wrapf(err, "enable %q case_insensitive: %s", dir, out)
+	}
+	return nil
+}
+
 func (d disk) Mount(pod IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount) error {
 	iDisk, gd, err := d.getPodDisk(pod, vm)
 	if err != nil {
@@ -160,9 +168,19 @@ func (d disk) Mount(pod IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount
 	}
 	vmDisk := vm.Disk
 	if vmDisk.SubDirectory != "" {
-		out, err := procutils.NewRemoteCommandAsFarAsPossible("mkdir", "-p", filepath.Join(mntPoint, vmDisk.SubDirectory)).Output()
+		subDir := filepath.Join(mntPoint, vmDisk.SubDirectory)
+		out, err := procutils.NewRemoteCommandAsFarAsPossible("mkdir", "-p", subDir).Output()
 		if err != nil {
 			return errors.Wrapf(err, "make sub_directory %s inside %s: %s", vmDisk.SubDirectory, mntPoint, out)
+		}
+		if vmDisk.CaseInsensitive {
+			if err := d.setDirCaseInsensitive(subDir); err != nil {
+				return errors.Wrapf(err, "enable case_insensitive %s", subDir)
+			}
+		}
+	} else {
+		if vmDisk.CaseInsensitive {
+			return errors.Errorf("only sub_directory can use case_insensitive")
 		}
 	}
 	if vmDisk.StorageSizeFile != "" {

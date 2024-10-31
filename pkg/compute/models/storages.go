@@ -1454,7 +1454,9 @@ func (self *SStorage) createDisk(ctx context.Context, name string, diskConfig *a
 	disk.SetModelManager(DiskManager, &disk)
 
 	disk.Name = name
-	disk.fetchDiskInfo(diskConfig)
+	if err := disk.fetchDiskInfo(diskConfig); err != nil {
+		return nil, errors.Wrap(err, "fetchDiskInfo")
+	}
 
 	disk.StorageId = self.Id
 	disk.AutoDelete = autoDelete
