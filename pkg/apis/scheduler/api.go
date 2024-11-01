@@ -88,7 +88,8 @@ type ScheduleInput struct {
 	ResetCpuNumaPin bool   `json:"reset_cpu_numa_pin"`
 
 	// For Migrate
-	CpuNumaPin []SCpuNumaPin `json:"cpu_numa_pin"`
+	CpuNumaPin      []SCpuNumaPin `json:"cpu_numa_pin"`
+	PreferNumaNodes []int         `json:"prefer_numa_nodes"`
 
 	HostMemPageSizeKB int    `json:"host_mem_page_size"`
 	SkipKernelCheck   *bool  `json:"skip_kernel_check"`

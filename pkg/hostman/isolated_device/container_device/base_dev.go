@@ -20,9 +20,11 @@ import (
 	"path"
 	"strings"
 
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/hostman/isolated_device"
+	"yunion.io/x/onecloud/pkg/util/fileutils2"
 )
 
 type BaseDevice struct {
@@ -70,7 +72,17 @@ func (c BaseDevice) GetNvidiaMpsThreadPercentage() int {
 }
 
 func (c BaseDevice) GetNumaNode() (int, error) {
-	return -1, nil
+	if c.SBaseDevice == nil {
+		return -1, nil
+	}
+
+	numaNodePath := fmt.Sprintf("/sys/bus/pci/devices/0000:%s/numa_node", c.SBaseDevice.GetOriginAddr())
+	numaNode, err := fileutils2.FileGetIntContent(numaNodePath)
+	if err != nil {
+		log.Errorf("failed get numa node %s: %s", c.SBaseDevice.GetOriginAddr(), err)
+		return -1, nil
+	}
+	return numaNode, nil
 }
 
 func CheckVirtualNumber(dev *isolated_device.ContainerDevice) error {
@@ -120,8 +132,11 @@ func newPCIGPURenderBaseDevice(devPath string, index int, devType isolated_devic
 				return nil, errors.Wrapf(err, "GetPCIStrByAddr %s", pciAddr)
 			}
 			dev := isolated_device.NewPCIDevice2(pciOutput[0])
-			dev.Addr = fmt.Sprintf("%s-%d", dev.Addr, index)
-			return NewBaseDevice(dev, devType, devPath), nil
+			devAddr := dev.Addr
+			baseDev := NewBaseDevice(dev, devType, devPath)
+			baseDev.SetAddr(fmt.Sprintf("%s-%d", devAddr, index), devAddr)
+
+			return baseDev, nil
 		}
 	}
 	return nil, errors.Wrapf(errors.ErrNotFound, "%s doesn't exist in %s", devPath, dir)

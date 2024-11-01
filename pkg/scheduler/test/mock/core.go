@@ -888,16 +888,16 @@ func (mr *MockCandidaterMockRecorder) IndexKey() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IndexKey", reflect.TypeOf((*MockCandidater)(nil).IndexKey))
 }
 
-func (m *MockCandidater) AllocCpuNumaPin(arg0, arg1 int) []scheduler.SCpuNumaPin {
+func (m *MockCandidater) AllocCpuNumaPin(arg0, arg1 int, arg2 []int) []scheduler.SCpuNumaPin {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AllocCpuNumaPin", arg0, arg1)
+	ret := m.ctrl.Call(m, "AllocCpuNumaPin", arg0, arg1, arg2)
 	ret0, _ := ret[0].([]scheduler.SCpuNumaPin)
 	return ret0
 }
 
-func (mr *MockCandidaterMockRecorder) AllocCpuNumaPin(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockCandidaterMockRecorder) AllocCpuNumaPin(arg0, arg1, arg3 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllocCpuNumaPin", reflect.TypeOf((*MockCandidater)(nil).AllocCpuNumaPin), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllocCpuNumaPin", reflect.TypeOf((*MockCandidater)(nil).AllocCpuNumaPin), arg0, arg1, arg3)
 }
 
 func (m *MockCandidater) AllocCpuNumaPinWithNodeCount(arg0, arg1, arg2 int) []scheduler.SCpuNumaPin {

@@ -115,7 +115,7 @@ func (bd *BaremetalDesc) IndexKey() string {
 	return bd.Id
 }
 
-func (bd *BaremetalDesc) AllocCpuNumaPin(vcpuCount, memSizeKB int) []scheduler.SCpuNumaPin {
+func (bd *BaremetalDesc) AllocCpuNumaPin(vcpuCount, memSizeKB int, preferNumaNodes []int) []scheduler.SCpuNumaPin {
 	return nil
 }
 

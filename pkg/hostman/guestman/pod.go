@@ -1451,15 +1451,22 @@ func (s *sPodGuestInstance) createContainer(ctx context.Context, userCred mcclie
 	}
 
 	var cpuSetCpus string
+	var cpuSetMems string
 	{
 		cpuSets := sets.NewString()
+		cpuMemSets := sets.NewString()
 		if len(s.Desc.CpuNumaPin) > 0 {
-			for _, cpuNum := range s.GetDesc().CpuNumaPin {
-				for _, cpuPin := range cpuNum.VcpuPin {
+			for _, cpuNumaPin := range s.GetDesc().CpuNumaPin {
+				for _, cpuPin := range cpuNumaPin.VcpuPin {
 					cpuSets.Insert(fmt.Sprintf("%d", cpuPin.Pcpu))
 				}
+				if cpuNumaPin.NodeId != nil && cpuNumaPin.SizeMB > 0 {
+					cpuMemSets.Insert(fmt.Sprintf("%d", int(*cpuNumaPin.NodeId)))
+				}
 			}
+
 			cpuSetCpus = strings.Join(cpuSets.List(), ",")
+			cpuSetMems = strings.Join(cpuMemSets.List(), ",")
 		} else if len(s.Desc.VcpuPin) > 0 {
 			for _, vcpuPin := range s.Desc.VcpuPin {
 				cpuSets.Insert(vcpuPin.Pcpus)
@@ -1494,7 +1501,7 @@ func (s *sPodGuestInstance) createContainer(ctx context.Context, userCred mcclie
 				MemoryLimitInBytes:     s.GetDesc().Mem * 1024 * 1024,
 				OomScoreAdj:            0,
 				CpusetCpus:             cpuSetCpus,
-				CpusetMems:             "",
+				CpusetMems:             cpuSetMems,
 				HugepageLimits:         nil,
 				Unified:                nil,
 				MemorySwapLimitInBytes: 0,

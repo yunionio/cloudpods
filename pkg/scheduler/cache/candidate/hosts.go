@@ -72,7 +72,7 @@ func (h *hostGetter) FreeMemorySize(useRsvd bool) int64 {
 }
 
 func (h *hostGetter) NumaAllocateEnabled() bool {
-	return h.h.HostTopo.NumaEnabled
+	return h.h.HostTopo.NumaEnabled || h.h.HostType == computeapi.HOST_TYPE_CONTAINER
 }
 
 func (h *hostGetter) GetFreeCpuNuma() []*scheduler.SFreeNumaCpuMem {
@@ -268,11 +268,79 @@ type NumaNode struct {
 	CpuCount          int
 
 	NodeId                int
-	NumaHugeMemSizeKB     int
-	NumaHugeFreeMemSizeKB int
+	Distances             []int
+	NumaNodeMemSizeKB     int
+	NumaNodeFreeMemSizeKB int
+}
+
+func (n *NumaNode) nodeEnough(vcpuCount, memSizeKB, cmtBound int, enableNumaAlloc bool) bool {
+	if n.CpuCount*cmtBound-n.VcpuCount < vcpuCount {
+		return false
+	}
+	if enableNumaAlloc {
+		if n.NumaNodeFreeMemSizeKB < memSizeKB {
+			return false
+		}
+	}
+	return true
+}
+
+func (n *NumaNode) allocCpusetSequenceN(vcpuCount int, usedCpu map[int]int) {
+	var seqNumber = o.Options.GuestCpusetAllocSequenceInterval
+	if vcpuCount%seqNumber != 0 || n.CpuCount/len(n.CpuDies) < vcpuCount {
+		n._allocCpuset(vcpuCount, usedCpu)
+		return
+	}
+
+	for i := range n.CpuDies {
+		detectedSet := cpuset.NewCPUSet()
+		for j := range n.CpuDies[i].CpuFree {
+			if detectedSet.Contains(n.CpuDies[i].CpuFree[j].Cpu) {
+				continue
+			}
+
+			cpuIdBase := n.CpuDies[i].CpuFree[j].Cpu - n.CpuDies[i].CpuFree[j].Cpu%vcpuCount
+			lo, hi := cpuIdBase, cpuIdBase+vcpuCount-1
+			cpuIds := make([]int, hi-lo+1)
+			for m := range cpuIds {
+				cpuIds[m] = m + lo
+			}
+
+			var matched = true
+			cpuIdSet := cpuset.NewCPUSet(cpuIds...)
+			detectedSet = detectedSet.Union(cpuIdSet)
+			for k := range n.CpuDies[i].CpuFree {
+				if !cpuIdSet.Contains(n.CpuDies[i].CpuFree[k].Cpu) {
+					continue
+				}
+				if n.CpuDies[i].CpuFree[k].Free <= 0 {
+					matched = false
+					break
+				}
+			}
+			if !matched {
+				continue
+			}
+
+			for m := range cpuIds {
+				usedCpu[cpuIds[m]] = 1
+			}
+			return
+		}
+	}
+
+	n._allocCpuset(vcpuCount, usedCpu)
 }
 
 func (n *NumaNode) allocCpuset(vcpuCount int, usedCpu map[int]int) {
+	if o.Options.GuestCpusetAllocSequence {
+		n.allocCpusetSequenceN(vcpuCount, usedCpu)
+		return
+	}
+	n._allocCpuset(vcpuCount, usedCpu)
+}
+
+func (n *NumaNode) _allocCpuset(vcpuCount int, usedCpu map[int]int) {
 	for i := range n.CpuDies {
 		for j := range n.CpuDies[i].CpuFree {
 			cpuId, nFree := n.CpuDies[i].CpuFree[j].Cpu, n.CpuDies[i].CpuFree[j].Free
@@ -320,7 +388,7 @@ func (n *NumaNode) allocCpuset(vcpuCount int, usedCpu map[int]int) {
 		}
 		//sort.Sort(n.CpuDies[i].CpuFree)
 	}
-	n.allocCpuset(vcpuCount, usedCpu)
+	n._allocCpuset(vcpuCount, usedCpu)
 }
 
 func (n *NumaNode) AllocCpuset(vcpuCount int) []int {
@@ -341,18 +409,23 @@ func (n *NumaNode) AllocCpuset(vcpuCount int) []int {
 	return ret
 }
 
-func NewNumaNode(nodeId, hugepageSizeKb int, nodeHugepages []hostapi.HostNodeHugepageNr) *NumaNode {
+func NewNumaNode(nodeId int, nodeDistances []int, hugepageSizeKb int, nodeHugepages []hostapi.HostNodeHugepageNr, memSizeKB, memCmtBound int) *NumaNode {
 	n := new(NumaNode)
 	n.LogicalProcessors = cpuset.NewCPUSet()
 	n.NodeId = nodeId
+	n.Distances = nodeDistances
 
-	for i := range nodeHugepages {
-		if nodeHugepages[i].NodeId == nodeId {
-			n.NumaHugeMemSizeKB = nodeHugepages[i].HugepageNr * hugepageSizeKb
+	if len(nodeHugepages) > 0 {
+		for i := range nodeHugepages {
+			if nodeHugepages[i].NodeId == nodeId {
+				n.NumaNodeMemSizeKB = nodeHugepages[i].HugepageNr * hugepageSizeKb
+			}
 		}
+	} else {
+		n.NumaNodeMemSizeKB = memSizeKB * memCmtBound
 	}
 
-	n.NumaHugeFreeMemSizeKB = n.NumaHugeMemSizeKB
+	n.NumaNodeFreeMemSizeKB = n.NumaNodeMemSizeKB
 	return n
 }
 
@@ -360,6 +433,7 @@ type SHostTopo struct {
 	Nodes       []*NumaNode
 	NumaEnabled bool
 	CPUCmtbound int
+	HostName    string
 }
 
 func HostTopoSubPendingUsage(topo *SHostTopo, cpuUsage map[int]int, numaMemUsage map[int]int) *SHostTopo {
@@ -373,11 +447,12 @@ func HostTopoSubPendingUsage(topo *SHostTopo, cpuUsage map[int]int, numaMemUsage
 		res.Nodes[i].VcpuCount = topo.Nodes[i].VcpuCount
 		res.Nodes[i].CpuCount = topo.Nodes[i].CpuCount
 		res.Nodes[i].NodeId = topo.Nodes[i].NodeId
-		res.Nodes[i].NumaHugeMemSizeKB = topo.Nodes[i].NumaHugeMemSizeKB
-		res.Nodes[i].NumaHugeFreeMemSizeKB = topo.Nodes[i].NumaHugeFreeMemSizeKB
+		res.Nodes[i].NumaNodeMemSizeKB = topo.Nodes[i].NumaNodeMemSizeKB
+		res.Nodes[i].NumaNodeFreeMemSizeKB = topo.Nodes[i].NumaNodeFreeMemSizeKB
+		res.Nodes[i].Distances = topo.Nodes[i].Distances
 
 		if memUsed, ok := numaMemUsage[topo.Nodes[i].NodeId]; ok {
-			res.Nodes[i].NumaHugeMemSizeKB -= memUsed * 1024
+			res.Nodes[i].NumaNodeFreeMemSizeKB -= memUsed * 1024
 		}
 		res.Nodes[i].CpuDies = make([]*CPUDie, len(topo.Nodes[i].CpuDies))
 		for j := range topo.Nodes[i].CpuDies {
@@ -412,12 +487,12 @@ func (pq SHostTopo) Len() int { return len(pq.Nodes) }
 
 func (pq SHostTopo) Less(i, j int) bool {
 	if pq.NumaEnabled {
-		if pq.Nodes[i].NumaHugeFreeMemSizeKB == pq.Nodes[j].NumaHugeFreeMemSizeKB {
+		if pq.Nodes[i].NumaNodeFreeMemSizeKB == pq.Nodes[j].NumaNodeFreeMemSizeKB {
 			return pq.Nodes[i].VcpuCount < pq.Nodes[j].VcpuCount
 		}
-		return pq.Nodes[i].NumaHugeFreeMemSizeKB > pq.Nodes[j].NumaHugeFreeMemSizeKB
+		return pq.Nodes[i].NumaNodeFreeMemSizeKB > pq.Nodes[j].NumaNodeFreeMemSizeKB
 	} else {
-		return pq.Nodes[i].VcpuCount < pq.Nodes[j].VcpuCount
+		return pq.Nodes[i].NumaNodeFreeMemSizeKB > pq.Nodes[j].NumaNodeFreeMemSizeKB
 	}
 }
 
@@ -440,8 +515,8 @@ func (h *SHostTopo) LoadCpuNumaPin(guestsCpuNumaPin []scheduler.SCpuNumaPin) {
 
 		cpus := gCpuNumaPin.CpuPin
 		node.CpuDies.LoadCpus(cpus, len(cpus))
-		if h.NumaEnabled && gCpuNumaPin.MemSizeMB != nil {
-			node.NumaHugeFreeMemSizeKB -= *gCpuNumaPin.MemSizeMB * 1024
+		if gCpuNumaPin.MemSizeMB != nil {
+			node.NumaNodeFreeMemSizeKB -= *gCpuNumaPin.MemSizeMB * 1024
 		}
 		node.VcpuCount += len(cpus)
 	}
@@ -455,7 +530,7 @@ func (h *SHostTopo) nodesEnough(nodeCount, vcpuCount int, memSizeKB int) bool {
 
 	for i := 0; i < nodeCount; i++ {
 		if h.NumaEnabled {
-			if h.Nodes[i].NumaHugeFreeMemSizeKB < leastFree {
+			if h.Nodes[i].NumaNodeFreeMemSizeKB < leastFree {
 				return false
 			}
 		}
@@ -473,18 +548,96 @@ func (h *SHostTopo) nodesEnough(nodeCount, vcpuCount int, memSizeKB int) bool {
 	return true
 }
 
-func (h *SHostTopo) AllocCpuNumaNodes(vcpuCount, memSizeKB int) []scheduler.SCpuNumaPin {
+func (h *SHostTopo) allocCpuNumaNodesByPreferNodes(
+	vcpuCount, memSizeKB, nodeCount int, preferNumaNodes []int, sortedNumaDistance []SSortedNumaDistance,
+) []scheduler.SCpuNumaPin {
+	res := make([]scheduler.SCpuNumaPin, 0)
+	var nodeAllocSize = memSizeKB / nodeCount
+	var pcpuCount = vcpuCount / nodeCount
+	var remPcpuCount = vcpuCount % nodeCount
+
+	allocatedNode := 0
+	for i := range sortedNumaDistance {
+		if allocatedNode >= nodeCount {
+			break
+		}
+
+		var npcpuCount = pcpuCount
+		if remPcpuCount > 0 {
+			npcpuCount += 1
+			remPcpuCount -= 1
+		}
+		nodeIdx := sortedNumaDistance[i].NodeIndex
+		if h.Nodes[nodeIdx].nodeEnough(vcpuCount, memSizeKB, h.CPUCmtbound, h.NumaEnabled) {
+			cpuNumaPin := scheduler.SCpuNumaPin{
+				CpuPin: h.Nodes[nodeIdx].AllocCpuset(npcpuCount),
+				NodeId: h.Nodes[nodeIdx].NodeId,
+			}
+			allocSize := nodeAllocSize / 1024
+			cpuNumaPin.MemSizeMB = &allocSize
+			res = append(res, cpuNumaPin)
+			allocatedNode += 1
+		} else {
+			log.Infof("%s node %v not enough", h.HostName, h.Nodes[i])
+		}
+
+		log.Infof("node %d, free mems %d", h.Nodes[nodeIdx].NodeId, h.Nodes[nodeIdx].NumaNodeFreeMemSizeKB)
+	}
+
+	if allocatedNode < nodeCount {
+		return nil
+	}
+	return res
+}
+
+type SSortedNumaDistance struct {
+	NodeIndex int
+	Distance  int
+}
+
+func (h *SHostTopo) getDistancesSeqByPreferNodes(preferNumaNodes []int) []SSortedNumaDistance {
+	sortedNumaDistance := make([]SSortedNumaDistance, len(h.Nodes))
+	for i := range h.Nodes {
+		distance := 0
+		for j := range preferNumaNodes {
+			log.Infof("node distance %v", h.Nodes[i].Distances)
+			distance += h.Nodes[i].Distances[preferNumaNodes[j]]
+		}
+		sortedNumaDistance[i] = SSortedNumaDistance{
+			NodeIndex: i,
+			Distance:  distance,
+		}
+	}
+	sort.Slice(sortedNumaDistance, func(i, j int) bool {
+		return sortedNumaDistance[i].Distance < sortedNumaDistance[j].Distance
+	})
+	return sortedNumaDistance
+}
+
+func (h *SHostTopo) AllocCpuNumaNodes(vcpuCount, memSizeKB int, ignoreMemSingular bool, preferNumaNodes []int) []scheduler.SCpuNumaPin {
+	if h.NumaEnabled && len(preferNumaNodes) > 0 {
+		log.Infof("preferNumaNodes %v", preferNumaNodes)
+		sortedNumaDistance := h.getDistancesSeqByPreferNodes(preferNumaNodes)
+		for nodeCount := 1; nodeCount <= len(h.Nodes); nodeCount *= 2 {
+			ret := h.allocCpuNumaNodesByPreferNodes(vcpuCount, memSizeKB, nodeCount, preferNumaNodes, sortedNumaDistance)
+			if ret != nil {
+				return ret
+			}
+		}
+	}
+
 	res := make([]scheduler.SCpuNumaPin, 0)
 	for nodeCount := 1; nodeCount <= len(h.Nodes); nodeCount *= 2 {
 		if ok := h.nodesEnough(nodeCount, vcpuCount, memSizeKB); !ok {
-			log.Infof("node count %d not enough", nodeCount)
+			log.Infof("host %s node count %d not enough", h.HostName, nodeCount)
 			continue
 		}
 		log.Infof("use node count %d", nodeCount)
 
 		var nodeAllocSize = memSizeKB / nodeCount
-		if h.NumaEnabled {
+		if h.NumaEnabled && !ignoreMemSingular {
 			if nodeAllocSize/1024%1024 > 0 {
+				log.Infof("host %s node alloc size singular %d", h.HostName, nodeAllocSize)
 				continue
 			}
 		}
@@ -543,12 +696,22 @@ func (b *HostBuilder) buildHostTopo(
 	hugepageSizeKb int, nodeHugepages []hostapi.HostNodeHugepageNr,
 	info *hostapi.HostTopology,
 ) error {
+	var numaEnabled = len(nodeHugepages) > 0
 	hostTopo := new(SHostTopo)
 	hostTopo.Nodes = make([]*NumaNode, len(info.Nodes))
 
 	hasL3Cache := false
 	for i := 0; i < len(info.Nodes); i++ {
-		node := NewNumaNode(info.Nodes[i].ID, hugepageSizeKb, nodeHugepages)
+		nodoMemSizeKB := 0
+		if info.Nodes[i].Memory != nil {
+			nodoMemSizeKB = int(info.Nodes[i].Memory.TotalUsableBytes/1024) - (desc.MemReserved * 1024 / len(info.Nodes))
+			if desc.HostType == computeapi.HOST_TYPE_CONTAINER && o.Options.ContainerNumaAllocate {
+				numaEnabled = true
+				log.Infof("host %s ignore singular", desc.Name)
+			}
+		}
+
+		node := NewNumaNode(info.Nodes[i].ID, info.Nodes[i].Distances, hugepageSizeKb, nodeHugepages, nodoMemSizeKB, int(desc.MemCmtbound))
 
 		cpuDies := make([]*CPUDie, 0)
 		for j := 0; j < len(info.Nodes[i].Caches); j++ {
@@ -606,9 +769,8 @@ func (b *HostBuilder) buildHostTopo(
 		hostTopo.Nodes[i] = node
 	}
 	hostTopo.CPUCmtbound = int(desc.CPUCmtbound)
-	if len(nodeHugepages) > 0 {
-		hostTopo.NumaEnabled = true
-	}
+	hostTopo.NumaEnabled = numaEnabled
+	hostTopo.HostName = desc.Name
 
 	desc.HostTopo = hostTopo
 	//log.Infof("host topo %s", jsonutils.Marshal(hostTopo))
@@ -838,7 +1000,7 @@ func (h *HostDesc) GetFreeCpuNuma() scheduler.SortedFreeNumaCpuMam {
 		nodeFree := new(scheduler.SFreeNumaCpuMem)
 		nodeFree.NodeId = h.HostTopo.Nodes[i].NodeId
 		nodeFree.CpuCount = h.HostTopo.Nodes[i].CpuCount
-		nodeFree.MemSize = h.HostTopo.Nodes[i].NumaHugeFreeMemSizeKB / 1024
+		nodeFree.MemSize = h.HostTopo.Nodes[i].NumaNodeFreeMemSizeKB / 1024
 		nodeFree.EnableNumaAllocate = h.HostTopo.NumaEnabled
 		nodeFree.FreeCpuCount = h.HostTopo.Nodes[i].CpuCount*int(h.CPUCmtbound) - h.HostTopo.Nodes[i].VcpuCount
 		for cpuId, pending := range cpuPin {
@@ -892,7 +1054,7 @@ func (h *HostDesc) IndexKey() string {
 	return h.Id
 }
 
-func (h *HostDesc) AllocCpuNumaPin(vcpuCount, memSizeKB int) []scheduler.SCpuNumaPin {
+func (h *HostDesc) AllocCpuNumaPin(vcpuCount, memSizeKB int, preferNumaNodes []int) []scheduler.SCpuNumaPin {
 	if !h.EnableCpuNumaAllocate {
 		return nil
 	}
@@ -902,8 +1064,8 @@ func (h *HostDesc) AllocCpuNumaPin(vcpuCount, memSizeKB int) []scheduler.SCpuNum
 	if len(pendingUsage.CpuPin) > 0 || len(pendingUsage.NumaMemPin) > 0 {
 		hostTopo = HostTopoSubPendingUsage(h.HostTopo, pendingUsage.CpuPin, pendingUsage.NumaMemPin)
 	}
-
-	return hostTopo.AllocCpuNumaNodes(vcpuCount, memSizeKB)
+	ignoreMemSingular := h.HostType == computeapi.HOST_TYPE_CONTAINER && o.Options.ContainerNumaAllocate
+	return hostTopo.AllocCpuNumaNodes(vcpuCount, memSizeKB, ignoreMemSingular, preferNumaNodes)
 }
 
 func (h *HostDesc) AllocCpuNumaPinWithNodeCount(vcpuCount, memSizeKB, nodeCount int) []scheduler.SCpuNumaPin {
@@ -1352,7 +1514,22 @@ func (b *HostBuilder) fillGuestsResourceInfo(desc *HostDesc, host *computemodels
 		} else {
 			desc.Tenants[projectId] = 1
 		}
-		if IsGuestRunning(guest) {
+		if IsGuestPendingDelete(guest) {
+			memFakeDeletedSize += int64(guest.VmemSize)
+			cpuFakeDeletedCount += int64(guest.VcpuCount)
+		} else if IsGuestCreating(guest) {
+			creatingGuestCount++
+			creatingMemSize += int64(guest.VmemSize)
+			creatingCPUCount += int64(guest.VcpuCount)
+			if host.EnableNumaAllocate && guest.CpuNumaPin != nil {
+				cpuNumaPin := make([]scheduler.SCpuNumaPin, 0)
+				if err := guest.CpuNumaPin.Unmarshal(&cpuNumaPin); err != nil {
+					return errors.Wrap(err, "unmarshal cpu numa pin")
+				}
+				guestsCpuNumaPin = append(guestsCpuNumaPin, cpuNumaPin...)
+			}
+		} else if !IsGuestStoppedStatus(guest) {
+			// running status
 			runningCount++
 			memSize += int64(guest.VmemSize)
 			cpuCount += int64(guest.VcpuCount)
@@ -1363,14 +1540,34 @@ func (b *HostBuilder) fillGuestsResourceInfo(desc *HostDesc, host *computemodels
 				}
 				guestsCpuNumaPin = append(guestsCpuNumaPin, cpuNumaPin...)
 			}
-		} else if IsGuestCreating(guest) {
-			creatingGuestCount++
-			creatingMemSize += int64(guest.VmemSize)
-			creatingCPUCount += int64(guest.VcpuCount)
-		} else if IsGuestPendingDelete(guest) {
-			memFakeDeletedSize += int64(guest.VmemSize)
-			cpuFakeDeletedCount += int64(guest.VcpuCount)
 		}
+
+		//if IsGuestRunning(guest) {
+		//	runningCount++
+		//	memSize += int64(guest.VmemSize)
+		//	cpuCount += int64(guest.VcpuCount)
+		//	if host.EnableNumaAllocate && guest.CpuNumaPin != nil {
+		//		cpuNumaPin := make([]scheduler.SCpuNumaPin, 0)
+		//		if err := guest.CpuNumaPin.Unmarshal(&cpuNumaPin); err != nil {
+		//			return errors.Wrap(err, "unmarshal cpu numa pin")
+		//		}
+		//		guestsCpuNumaPin = append(guestsCpuNumaPin, cpuNumaPin...)
+		//	}
+		//} else if IsGuestCreating(guest) {
+		//	creatingGuestCount++
+		//	creatingMemSize += int64(guest.VmemSize)
+		//	creatingCPUCount += int64(guest.VcpuCount)
+		//	if host.EnableNumaAllocate && guest.CpuNumaPin != nil {
+		//		cpuNumaPin := make([]scheduler.SCpuNumaPin, 0)
+		//		if err := guest.CpuNumaPin.Unmarshal(&cpuNumaPin); err != nil {
+		//			return errors.Wrap(err, "unmarshal cpu numa pin")
+		//		}
+		//		guestsCpuNumaPin = append(guestsCpuNumaPin, cpuNumaPin...)
+		//	}
+		//} else if IsGuestPendingDelete(guest) {
+		//	memFakeDeletedSize += int64(guest.VmemSize)
+		//	cpuFakeDeletedCount += int64(guest.VcpuCount)
+		//}
 		guestCount++
 		cpuReqCount += int64(guest.VcpuCount)
 		memReqSize += int64(guest.VmemSize)
@@ -1388,7 +1585,7 @@ func (b *HostBuilder) fillGuestsResourceInfo(desc *HostDesc, host *computemodels
 	if host.EnableNumaAllocate && len(guestsCpuNumaPin) > 0 {
 		desc.HostTopo.LoadCpuNumaPin(guestsCpuNumaPin)
 	}
-	log.Infof("host topo %s", jsonutils.Marshal(desc.HostTopo))
+	//log.Infof("host %s topo %s", jsonutils.Marshal(desc.HostTopo))
 
 	desc.GuestCount = guestCount
 	desc.CreatingGuestCount = creatingGuestCount

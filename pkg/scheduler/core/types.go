@@ -142,7 +142,7 @@ type Candidater interface {
 	GetSchedDesc() *jsonutils.JSONDict
 	GetGuestCount() int64
 	GetResourceType() string
-	AllocCpuNumaPin(vcpuCount, memSizeKB int) []schedapi.SCpuNumaPin
+	AllocCpuNumaPin(vcpuCount, memSizeKB int, preferNumaNodes []int) []schedapi.SCpuNumaPin
 	AllocCpuNumaPinWithNodeCount(vcpuCount, memSizeKB, nodeCount int) []schedapi.SCpuNumaPin
 }
 

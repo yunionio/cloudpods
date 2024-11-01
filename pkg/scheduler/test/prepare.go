@@ -83,7 +83,7 @@ func buildCandidate(ctrl *gomock.Controller, param sGetterParams) *mock.MockCand
 	cn.EXPECT().Getter().AnyTimes().Return(getter)
 	cn.EXPECT().IndexKey().AnyTimes().Return(getter.Id())
 	cn.EXPECT().GetResourceType().AnyTimes().Return(getter.ResourceType())
-	cn.EXPECT().AllocCpuNumaPin(gomock.Any(), gomock.Any()).AnyTimes().Return(nil)
+	cn.EXPECT().AllocCpuNumaPin(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Return(nil)
 	return cn
 }
 

@@ -31,6 +31,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/util/cgrouputils/cpuset"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
@@ -87,7 +88,18 @@ func (task *GuestMigrateTask) GetSchedParams() (*schedapi.ScheduleInput, error) 
 		input.SkipCpuCheck = skipCpuCheck
 		input.SkipKernelCheck = skipKernelCheck
 	}
-	return guest.GetSchedMigrateParams(task.GetUserCred(), input), nil
+	res := guest.GetSchedMigrateParams(task.GetUserCred(), input)
+
+	if devs, _ := guest.GetIsolatedDevices(); len(devs) > 0 {
+		preferNumaNodesSet := cpuset.NewBuilder()
+		for i := range devs {
+			if devs[i].NumaNode >= 0 {
+				preferNumaNodesSet.Add(int(devs[i].NumaNode))
+			}
+		}
+		res.PreferNumaNodes = preferNumaNodesSet.Result().ToSlice()
+	}
+	return res, nil
 }
 
 func (task *GuestMigrateTask) OnStartSchedule(obj IScheduleModel) {

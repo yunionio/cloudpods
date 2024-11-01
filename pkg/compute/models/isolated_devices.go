@@ -18,6 +18,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"math"
 	"reflect"
 	"sort"
 	"strings"
@@ -33,6 +34,7 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	hostapi "yunion.io/x/onecloud/pkg/apis/host"
 	"yunion.io/x/onecloud/pkg/apis/notify"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -573,13 +575,16 @@ func (manager *SIsolatedDeviceManager) _isValidDeviceInfo(config *api.IsolatedDe
 	return nil
 }
 
-func (manager *SIsolatedDeviceManager) attachHostDeviceToGuestByDesc(ctx context.Context, guest *SGuest, host *SHost, devConfig *api.IsolatedDeviceConfig, userCred mcclient.TokenCredential, usedDevMap map[string]*SIsolatedDevice) error {
+func (manager *SIsolatedDeviceManager) attachHostDeviceToGuestByDesc(
+	ctx context.Context, guest *SGuest, host *SHost, devConfig *api.IsolatedDeviceConfig,
+	userCred mcclient.TokenCredential, usedDevMap map[string]*SIsolatedDevice, preferNumaNodes []int,
+) error {
 	if len(devConfig.Id) > 0 {
 		return manager.attachSpecificDeviceToGuest(ctx, guest, devConfig, userCred)
 	} else if len(devConfig.DevicePath) > 0 {
-		return manager.attachHostDeviceToGuestByDevicePath(ctx, guest, host, devConfig, userCred, usedDevMap)
+		return manager.attachHostDeviceToGuestByDevicePath(ctx, guest, host, devConfig, userCred, usedDevMap, preferNumaNodes)
 	} else {
-		return manager.attachHostDeviceToGuestByModel(ctx, guest, host, devConfig, userCred, usedDevMap)
+		return manager.attachHostDeviceToGuestByModel(ctx, guest, host, devConfig, userCred, usedDevMap, preferNumaNodes)
 	}
 }
 
@@ -595,7 +600,7 @@ func (manager *SIsolatedDeviceManager) attachSpecificDeviceToGuest(ctx context.C
 	return guest.attachIsolatedDevice(ctx, userCred, dev, devConfig.NetworkIndex, devConfig.DiskIndex)
 }
 
-func (manager *SIsolatedDeviceManager) attachHostDeviceToGuestByDevicePath(ctx context.Context, guest *SGuest, host *SHost, devConfig *api.IsolatedDeviceConfig, userCred mcclient.TokenCredential, usedDevMap map[string]*SIsolatedDevice) error {
+func (manager *SIsolatedDeviceManager) attachHostDeviceToGuestByDevicePath(ctx context.Context, guest *SGuest, host *SHost, devConfig *api.IsolatedDeviceConfig, userCred mcclient.TokenCredential, usedDevMap map[string]*SIsolatedDevice, preferNumaNodes []int) error {
 	if len(devConfig.Model) == 0 || len(devConfig.DevicePath) == 0 {
 		return fmt.Errorf("Model or DevicePath is empty: %#v", devConfig)
 	}
@@ -647,7 +652,10 @@ func (pq *SorttedGroupDevs) Pop() interface{} {
 	return item
 }
 
-func (manager *SIsolatedDeviceManager) attachHostDeviceToGuestByModel(ctx context.Context, guest *SGuest, host *SHost, devConfig *api.IsolatedDeviceConfig, userCred mcclient.TokenCredential, usedDevMap map[string]*SIsolatedDevice) error {
+func (manager *SIsolatedDeviceManager) attachHostDeviceToGuestByModel(
+	ctx context.Context, guest *SGuest, host *SHost, devConfig *api.IsolatedDeviceConfig,
+	userCred mcclient.TokenCredential, usedDevMap map[string]*SIsolatedDevice, preferNumaNodes []int,
+) error {
 	if len(devConfig.Model) == 0 {
 		return fmt.Errorf("Not found model from info: %#v", devConfig)
 	}
@@ -680,27 +688,66 @@ func (manager *SIsolatedDeviceManager) attachHostDeviceToGuestByModel(ctx contex
 	}
 	sort.Sort(groupDevs)
 
-	var preferNumaNode int8 = -1
-	for _, dev := range usedDevMap {
-		if dev.NumaNode >= 0 {
-			preferNumaNode = dev.NumaNode
-			break
-		}
-	}
-
 	var selectedDev *SIsolatedDevice
-	if preferNumaNode >= 0 {
-		for i := range groupDevs {
-			if groupDevs[i].DevPath == "" {
-				for j := range groupDevs[i].Devs {
-					if groupDevs[i].Devs[j].NumaNode == preferNumaNode {
-						selectedDev = &groupDevs[i].Devs[j]
-						break
+	if len(preferNumaNodes) > 0 {
+		topoObj, err := host.SysInfo.Get("topology")
+		if err != nil {
+			return errors.Wrap(err, "get topology from host sys_info")
+		}
+		hostTopo := new(hostapi.HostTopology)
+		if err := topoObj.Unmarshal(hostTopo); err != nil {
+			return errors.Wrap(err, "Unmarshal host topology struct")
+		}
+
+		if len(groupDevs) == 1 && groupDevs[0].DevPath == "" {
+			minDistancesDevIdx := -1
+			minDistances := math.MaxInt32
+			for i := range groupDevs[0].Devs {
+				if groupDevs[0].Devs[i].NumaNode < 0 {
+					continue
+				}
+				devNodeId := groupDevs[0].Devs[i].NumaNode
+				for j := range hostTopo.Nodes {
+					if hostTopo.Nodes[j].ID == int(devNodeId) {
+						devDistance := 0
+						for k := range preferNumaNodes {
+							devDistance += hostTopo.Nodes[j].Distances[preferNumaNodes[k]]
+						}
+						if devDistance < minDistances {
+							minDistances = devDistance
+							minDistancesDevIdx = i
+						}
 					}
 				}
-			} else if groupDevs[i].Devs[0].NumaNode == preferNumaNode {
-				selectedDev = &groupDevs[i].Devs[0]
-				break
+			}
+			if minDistancesDevIdx >= 0 {
+				selectedDev = &groupDevs[0].Devs[minDistancesDevIdx]
+			}
+		} else {
+			minDistancesGroupIdx := -1
+			minDistances := math.MaxInt32
+			log.Infof("devtype %s grouplength %d", groupDevs[0].Devs[0].DevType, len(groupDevs))
+
+			for i := range groupDevs {
+				if groupDevs[i].Devs[0].NumaNode < 0 {
+					continue
+				}
+				devNodeId := groupDevs[i].Devs[0].NumaNode
+				for j := range hostTopo.Nodes {
+					if hostTopo.Nodes[j].ID == int(devNodeId) {
+						devDistance := 0
+						for k := range preferNumaNodes {
+							devDistance += hostTopo.Nodes[j].Distances[preferNumaNodes[k]]
+						}
+						if devDistance < minDistances {
+							minDistances = devDistance
+							minDistancesGroupIdx = i
+						}
+					}
+				}
+			}
+			if minDistancesGroupIdx >= 0 {
+				selectedDev = &groupDevs[minDistancesGroupIdx].Devs[0]
 			}
 		}
 	}

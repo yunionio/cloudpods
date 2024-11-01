@@ -90,6 +90,10 @@ type SchedOptions struct {
 
 	SkuRefreshInterval string `help:"Server SKU refresh interval" default:"12h"`
 
+	ContainerNumaAllocate            bool `help:"Allocate numa pin for container guests" default:"false"`
+	GuestCpusetAllocSequence         bool `help:"Guest alloc cpuset sequence" default:"false"`
+	GuestCpusetAllocSequenceInterval int  `help:"Guest alloc cpuset sequence interval" default:"4"`
+
 	OpenstackOptions
 }
 

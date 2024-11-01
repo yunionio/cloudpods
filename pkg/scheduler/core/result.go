@@ -93,7 +93,7 @@ func (item *SchedResultItem) selectCpuNumaPin() []schedapi.SCpuNumaPin {
 	if item.SchedData.LiveMigrate && len(item.SchedData.CpuNumaPin) > 0 {
 		return item.Candidater.AllocCpuNumaPinWithNodeCount(item.SchedData.Ncpu, item.SchedData.Memory, len(item.SchedData.CpuNumaPin))
 	}
-	return item.Candidater.AllocCpuNumaPin(item.SchedData.Ncpu, item.SchedData.Memory*1024)
+	return item.Candidater.AllocCpuNumaPin(item.SchedData.Ncpu, item.SchedData.Memory*1024, item.SchedData.PreferNumaNodes)
 }
 
 func (item *SchedResultItem) getDisks(used *StorageUsed) []*schedapi.CandidateDisk {
