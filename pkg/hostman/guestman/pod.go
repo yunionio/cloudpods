@@ -2200,9 +2200,22 @@ func (s *sPodGuestInstance) tarHostDir(srcDir, targetPath string,
 		includeStr = strings.Join(includeFiles, " ")
 	}
 	cmd := fmt.Sprintf("%s -cf %s -C %s %s", baseCmd, targetPath, srcDir, includeStr)
-	log.Infof("tar cmd: %s", cmd)
+	log.Infof("[%s] tar cmd: %s", s.GetName(), cmd)
 	if out, err := procutils.NewRemoteCommandAsFarAsPossible("sh", "-c", cmd).Output(); err != nil {
-		return errors.Wrapf(err, "%s: %s", cmd, out)
+		outErr := errors.Wrapf(err, "%s: %s", cmd, out)
+		// ref: https://stackoverflow.com/questions/20318852/tar-file-changed-as-we-read-it
+		exitStatus1 := "exit status 1"
+		fileChangedMsg := "file changed as we read it"
+		socketIgnoredMsg := "socket ignored"
+		if strings.Contains(outErr.Error(), exitStatus1) {
+			for _, warningMsg := range []string{fileChangedMsg, socketIgnoredMsg} {
+				if strings.Contains(outErr.Error(), warningMsg) {
+					log.Warningf("[%s] got some warning message when tar: %s", s.GetName(), outErr)
+					return nil
+				}
+			}
+		}
+		return outErr
 	}
 	return nil
 }
