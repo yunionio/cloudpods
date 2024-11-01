@@ -244,3 +244,8 @@ type ContainerPerformStatusInput struct {
 	StartedAt      *time.Time `json:"started_at"`
 	LastFinishedAt *time.Time `json:"last_finished_at"`
 }
+
+type ContainerResourcesSetInput struct {
+	apis.ContainerResources
+	DisableLimitCheck bool `json:"disable_limit_check"`
+}
