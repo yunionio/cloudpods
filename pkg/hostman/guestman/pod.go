@@ -225,7 +225,7 @@ func newPodGuestInstance(id string, man *SGuestManager) PodInstance {
 	}
 	es, err := NewPodExpectedStatus(p.HomeDir(), computeapi.VM_UNKNOWN)
 	if err != nil {
-		log.Fatalf("NewPodExpectedStatus failed of %s: %s", p.GetId(), err)
+		log.Fatalf("NewPodExpectedStatus failed of %s: %s", p.HomeDir(), err)
 	}
 	p.expectedStatus = es
 	p.startStat = newStartStatHelper(id, p.HomeDir())

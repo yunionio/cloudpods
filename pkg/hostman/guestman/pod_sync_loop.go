@@ -230,6 +230,9 @@ func NewPodExpectedStatus(homeDir string, status string) (*PodExpectedStatus, er
 	}
 	if fileutils2.Exists(ps.getFilePath()) {
 		content, err := fileutils2.FileGetContents(ps.getFilePath())
+		if content == "" {
+			return ps, nil
+		}
 		if err != nil {
 			return nil, errors.Wrapf(err, "get %s content", ps.getFilePath())
 		}
