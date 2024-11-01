@@ -176,7 +176,8 @@ func getNvidiaMPSGpus() ([]isolated_device.IDevice, error) {
 				ThreadPercentage: 100 / options.HostOptions.CudaMPSReplicas,
 			}
 			gpuDev.SetModelName(gpuName)
-			gpuDev.SetAddr(fmt.Sprintf("%s-%d", gpuDev.GetAddr(), i))
+			devAddr := gpuDev.GetAddr()
+			gpuDev.SetAddr(fmt.Sprintf("%s-%d", devAddr, i), devAddr)
 			devs = append(devs, gpuDev)
 		}
 	}

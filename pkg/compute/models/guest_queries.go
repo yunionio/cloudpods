@@ -824,6 +824,7 @@ func fetchGuestIsolatedDevices(guestIds []string) map[string][]api.SIsolatedDevi
 		dev.GuestId = devs[i].GuestId
 		dev.Addr = devs[i].Addr
 		dev.VendorDeviceId = devs[i].VendorDeviceId
+		dev.NumaNode = byte(devs[i].NumaNode)
 		gdevs, ok := ret[devs[i].GuestId]
 		if !ok {
 			gdevs = make([]api.SIsolatedDevice, 0)

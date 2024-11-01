@@ -2228,6 +2228,8 @@ func (h *SHostInfo) probeSyncIsolatedDevices() (*jsonutils.JSONArray, error) {
 		return nil, errors.Wrap(err, "getRemoteIsolatedDevices")
 	}
 
+	// devs need update
+	var devsNeedUpdate = map[string]bool{}
 	for _, obj := range objs {
 		info := isolated_device.CloudDeviceInfo{}
 		if err := obj.Unmarshal(&info); err != nil {
@@ -2236,10 +2238,12 @@ func (h *SHostInfo) probeSyncIsolatedDevices() (*jsonutils.JSONArray, error) {
 		dev := h.IsolatedDeviceMan.GetDeviceByIdent(info.VendorDeviceId, info.Addr, info.MdevId)
 		if dev != nil {
 			dev.SetDeviceInfo(info)
+			devsNeedUpdate[dev.GetCloudId()] = h.IsolatedDeviceMan.CheckDevIsNeedUpdate(dev, &info)
 		} else {
 			// detach device
 			h.IsolatedDeviceMan.AppendDetachedDevice(&info)
 		}
+
 	}
 
 	h.IsolatedDeviceMan.StartDetachTask()
@@ -2247,20 +2251,28 @@ func (h *SHostInfo) probeSyncIsolatedDevices() (*jsonutils.JSONArray, error) {
 
 	// sync each isolated device found
 	eg := errgroup.Group{}
+	// limits the number of active goroutines in this group to at most
+	eg.SetLimit(16)
 	mtx := sync.Mutex{}
 	updateDevs := jsonutils.NewArray()
-
 	devs := h.IsolatedDeviceMan.GetDevices()
 	for i := range devs {
 		dev := devs[i]
 		eg.Go(func() error {
-			if obj, err := isolated_device.SyncDeviceInfo(h.GetSession(), h.HostId, dev); err != nil {
+			needUpdate := false
+			if need, ok := devsNeedUpdate[dev.GetCloudId()]; !ok || need {
+				needUpdate = true
+			}
+
+			if obj, err := isolated_device.SyncDeviceInfo(h.GetSession(), h.HostId, dev, needUpdate); err != nil {
 				log.Errorf("Sync deviceInfo %s error: %v", dev.String(), err)
 				return errors.Wrapf(err, "Sync device %s", dev.String())
 			} else {
-				mtx.Lock()
-				updateDevs.Add(obj)
-				mtx.Unlock()
+				if obj != nil {
+					mtx.Lock()
+					updateDevs.Add(obj)
+					mtx.Unlock()
+				}
 				return nil
 			}
 		})

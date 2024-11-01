@@ -35,6 +35,9 @@ var (
 		computeapi.VM_BACKUP_STARTING,
 		computeapi.POD_STATUS_CONTAINER_EXITED,
 		computeapi.POD_STATUS_CRASH_LOOP_BACK_OFF,
+		computeapi.POD_STATUS_STARTING_CONTAINER,
+		computeapi.POD_STATUS_STOP_CONTAINER_FAILED,
+		computeapi.POD_STATUS_STOPPING_CONTAINER,
 	)
 
 	VMCreatingStatus = sets.NewString(
@@ -45,6 +48,18 @@ var (
 		computeapi.VM_DEPLOYING,
 		computeapi.VM_BACKUP_CREATING,
 		computeapi.VM_DEPLOYING_BACKUP,
+		computeapi.POD_STATUS_CREATING_CONTAINER,
+	)
+
+	VMStoppedStatus = sets.NewString(
+		computeapi.VM_READY,
+		computeapi.VM_START_FAILED,
+		computeapi.VM_SCHEDULE_FAILED,
+		computeapi.VM_NETWORK_FAILED,
+		computeapi.VM_CREATE_FAILED,
+		computeapi.VM_DISK_FAILED,
+		computeapi.POD_STATUS_START_CONTAINER_FAILED,
+		computeapi.POD_STATUS_CREATE_CONTAINER_FAILED,
 	)
 )
 
@@ -76,6 +91,10 @@ func IsGuestCreating(g models.SGuest) bool {
 
 func IsGuestPendingDelete(g models.SGuest) bool {
 	return g.PendingDeleted
+}
+
+func IsGuestStoppedStatus(g models.SGuest) bool {
+	return VMStoppedStatus.Has(g.Status)
 }
 
 func ToDict[O lockman.ILockedObject](objs []O) map[string]*O {

@@ -279,7 +279,9 @@ func (self *GuestCreateTask) OnDeployEipComplete(ctx context.Context, obj db.ISt
 
 	if jsonutils.QueryBoolean(self.GetParams(), "auto_start", false) {
 		self.SetStage("OnAutoStartGuest", nil)
-		guest.StartGueststartTask(ctx, self.GetUserCred(), nil, self.GetTaskId())
+		params := jsonutils.NewDict()
+		params.Set("start_from_create", jsonutils.JSONTrue)
+		guest.StartGueststartTask(ctx, self.GetUserCred(), params, self.GetTaskId())
 	} else {
 		self.SetStage("OnSyncStatusComplete", nil)
 		guest.StartSyncstatus(ctx, self.GetUserCred(), self.GetTaskId())

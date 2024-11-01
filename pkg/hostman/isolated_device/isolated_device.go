@@ -38,14 +38,39 @@ const (
 )
 
 type CloudDeviceInfo struct {
-	Id             string `json:"id"`
-	GuestId        string `json:"guest_id"`
-	HostId         string `json:"host_id"`
-	DevType        string `json:"dev_type"`
-	VendorDeviceId string `json:"vendor_device_id"`
-	Addr           string `json:"addr"`
-	DetectedOnHost bool   `json:"detected_on_host"`
-	MdevId         string `json:"mdev_id"`
+	Id                  string                      `json:"id"`
+	GuestId             string                      `json:"guest_id"`
+	HostId              string                      `json:"host_id"`
+	DevType             string                      `json:"dev_type"`
+	VendorDeviceId      string                      `json:"vendor_device_id"`
+	Addr                string                      `json:"addr"`
+	DetectedOnHost      bool                        `json:"detected_on_host"`
+	MdevId              string                      `json:"mdev_id"`
+	Model               string                      `json:"model"`
+	WireId              string                      `json:"wire_id"`
+	OvsOffloadInterface string                      `json:"ovs_offload_interface"`
+	IsInfinibandNic     bool                        `json:"is_infiniband_nic"`
+	NvmeSizeMB          int                         `json:"nvme_size_mb"`
+	DevicePath          string                      `json:"device_path"`
+	MpsMemoryLimit      int                         `json:"mps_memory_limit"`
+	MpsMemoryTotal      int                         `json:"mps_memory_total"`
+	MpsThreadPercentage int                         `json:"mps_thread_percentage"`
+	NumaNode            int                         `json:"numa_node"`
+	PcieInfo            *api.IsolatedDevicePCIEInfo `json:"pcie_info"`
+
+	// The frame rate limiter (FRL) configuration in frames per second
+	FRL string `json:"frl"`
+	// The frame buffer size in Mbytes
+	Framebuffer string `json:"framebuffer"`
+	// The maximum resolution per display head, eg: 5120x2880
+	MaxResolution string `json:"max_resolution"`
+	// The maximum number of virtual display heads that the vGPU type supports
+	// In computer graphics and display technology, the term "head" is commonly used to
+	// describe the physical interface of a display device or display output.
+	// It refers to a connection point on the monitor, such as HDMI, DisplayPort, or VGA interface.
+	NumHeads string `json:"num_heads"`
+	// The maximum number of vGPU instances per physical GPU
+	MaxInstance string `json:"max_instance"`
 }
 
 type IHost interface {
@@ -127,6 +152,7 @@ type IsolatedDeviceManager interface {
 	BatchCustomProbe()
 	AppendDetachedDevice(dev *CloudDeviceInfo)
 	GetQemuParams(devAddrs []string) *QemuParams
+	CheckDevIsNeedUpdate(dev IDevice, devInfo *CloudDeviceInfo) bool
 }
 
 type isolatedDeviceManager struct {
@@ -454,6 +480,54 @@ func (man *isolatedDeviceManager) getSession() *mcclient.ClientSession {
 	return man.host.GetSession()
 }
 
+func (man *isolatedDeviceManager) CheckDevIsNeedUpdate(dev IDevice, devInfo *CloudDeviceInfo) bool {
+	if dev.GetDeviceType() != devInfo.DevType {
+		return true
+	}
+	if dev.GetModelName() != devInfo.Model {
+		return true
+	}
+	if dev.GetWireId() != devInfo.WireId {
+		return true
+	}
+	if dev.IsInfinibandNic() != devInfo.IsInfinibandNic {
+		return true
+	}
+	if dev.GetOvsOffloadInterfaceName() != devInfo.OvsOffloadInterface {
+		return true
+	}
+	if dev.GetNVMESizeMB() > 0 && devInfo.NvmeSizeMB > 0 && dev.GetNVMESizeMB() != devInfo.NvmeSizeMB {
+		return true
+	}
+	if numaNode, _ := dev.GetNumaNode(); numaNode != devInfo.NumaNode {
+		return true
+	}
+	if dev.GetMdevId() != devInfo.MdevId {
+		return true
+	}
+	if info := dev.GetPCIEInfo(); info != nil && devInfo.PcieInfo == nil {
+		return true
+	}
+	if profile := dev.GetNVIDIAVgpuProfile(); profile != nil {
+		if val, _ := profile["frl"]; val != devInfo.FRL {
+			return true
+		}
+		if val, _ := profile["framebuffer"]; val != devInfo.Framebuffer {
+			return true
+		}
+		if val, _ := profile["max_resolution"]; val != devInfo.MaxResolution {
+			return true
+		}
+		if val, _ := profile["num_heads"]; val != devInfo.NumHeads {
+			return true
+		}
+		if val, _ := profile["max_instance"]; val != devInfo.MaxInstance {
+			return true
+		}
+	}
+	return false
+}
+
 func (man *isolatedDeviceManager) GetDeviceByIdent(vendorDevId, addr, mdevId string) IDevice {
 	for _, dev := range man.devices {
 		if dev.GetVendorDeviceId() == vendorDevId && dev.GetAddr() == addr && dev.GetMdevId() == mdevId {
@@ -528,6 +602,7 @@ func (man *isolatedDeviceManager) GetQemuParams(devAddrs []string) *QemuParams {
 
 type SBaseDevice struct {
 	dev            *PCIDevice
+	originAddr     string
 	cloudId        string
 	hostId         string
 	guestId        string
@@ -577,12 +652,17 @@ func (dev *SBaseDevice) SetDeviceInfo(info CloudDeviceInfo) {
 	}
 }
 
-func SyncDeviceInfo(session *mcclient.ClientSession, hostId string, dev IDevice) (jsonutils.JSONObject, error) {
+func SyncDeviceInfo(session *mcclient.ClientSession, hostId string, dev IDevice, needUpdate bool) (jsonutils.JSONObject, error) {
 	if len(dev.GetHostId()) == 0 {
 		dev.SetHostId(hostId)
 	}
 	data := GetApiResourceData(dev)
 	if len(dev.GetCloudId()) != 0 {
+		if !needUpdate {
+			log.Infof("Update %s isolated_device: do nothing", dev.GetCloudId())
+			return nil, nil
+		}
+
 		log.Infof("Update %s isolated_device: %s", dev.GetCloudId(), data.String())
 		return modules.IsolatedDevices.Update(session, dev.GetCloudId(), data)
 	}
@@ -602,7 +682,15 @@ func (dev *SBaseDevice) GetAddr() string {
 	return dev.dev.Addr
 }
 
-func (dev *SBaseDevice) SetAddr(addr string) {
+func (dev *SBaseDevice) GetOriginAddr() string {
+	if dev.originAddr != "" {
+		return dev.originAddr
+	}
+	return dev.dev.Addr
+}
+
+func (dev *SBaseDevice) SetAddr(addr, originAddr string) {
+	dev.originAddr = originAddr
 	dev.dev.Addr = addr
 }
 

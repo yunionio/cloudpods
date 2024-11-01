@@ -1558,14 +1558,15 @@ func (self *SGuest) StartGueststartTask(
 	data *jsonutils.JSONDict, parentTaskId string,
 ) error {
 	schedStart := self.Hypervisor == api.HYPERVISOR_KVM && self.guestDisksStorageTypeIsShared()
+	startFromCreate := jsonutils.QueryBoolean(data, "start_from_create", false)
 	if options.Options.IgnoreNonrunningGuests {
 		host := HostManager.FetchHostById(self.HostId)
-		if host != nil && host.EnableNumaAllocate {
+		if !startFromCreate && host != nil && host.EnableNumaAllocate {
 			schedStart = true
 		}
 	}
 
-	if self.CpuNumaPin != nil {
+	if !startFromCreate && self.CpuNumaPin != nil {
 		// clean cpu numa pin
 		err := self.SetCpuNumaPin(ctx, userCred, nil, nil)
 		if err != nil {
