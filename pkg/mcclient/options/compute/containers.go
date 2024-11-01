@@ -337,14 +337,15 @@ func (o *ContainerExecOptions) Params() (jsonutils.JSONObject, error) {
 
 type ContainerSetResourcesLimitOptions struct {
 	ContainerIdsOptions
-	CpuCfsQuota float64 `help:"cpu cfs quota. e.g.:0.5 equals 0.5*100000"`
+	DisableLimitCheck bool    `help:"disable limit check"`
+	CpuCfsQuota       float64 `help:"cpu cfs quota. e.g.:0.5 equals 0.5*100000"`
 	//MemoryLimitMb int64    `help:"memory limit MB"`
 	PidsMax     int      `help:"pids max"`
 	DeviceAllow []string `help:"devices allow"`
 }
 
 func (o *ContainerSetResourcesLimitOptions) Params() (jsonutils.JSONObject, error) {
-	limit := &apis.ContainerResources{}
+	limit := &computeapi.ContainerResourcesSetInput{}
 	if o.CpuCfsQuota > 0 {
 		limit.CpuCfsQuota = &o.CpuCfsQuota
 	}
@@ -357,6 +358,7 @@ func (o *ContainerSetResourcesLimitOptions) Params() (jsonutils.JSONObject, erro
 	if len(o.DeviceAllow) > 0 {
 		limit.DevicesAllow = o.DeviceAllow
 	}
+	limit.DisableLimitCheck = o.DisableLimitCheck
 
 	return jsonutils.Marshal(limit), nil
 }

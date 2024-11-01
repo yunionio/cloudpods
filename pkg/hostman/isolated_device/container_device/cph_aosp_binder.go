@@ -152,8 +152,8 @@ func (m *cphAOSPBinderManager) ensureBinderDevice(ctrName string, dev *hostapi.C
 	if fileutils2.Exists(binderDev("binder")) && fileutils2.Exists(binderDev("vndbinder")) && fileutils2.Exists("hwbinder") {
 		return nil
 	}
-	if err := procutils.NewRemoteCommandAsFarAsPossible(binderBin, ctrName).Run(); err != nil {
-		return errors.Wrapf(err, "call command: %s %s", binderBin, ctrName)
+	if out, err := procutils.NewRemoteCommandAsFarAsPossible(binderBin, ctrName).Output(); err != nil {
+		return errors.Wrapf(err, "call command: %s %s, out: %s", binderBin, ctrName, out)
 	}
 	return nil
 }
