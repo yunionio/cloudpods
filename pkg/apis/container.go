@@ -43,9 +43,26 @@ type ContainerLifecyle struct {
 	PostStart *ContainerLifecyleHandler `json:"post_start"`
 }
 
+type ContainerProcMountType string
+
+const (
+	// DefaultProcMount uses the container runtime defaults for readonly and masked
+	// paths for /proc.  Most container runtimes mask certain paths in /proc to avoid
+	// accidental security exposure of special devices or information.
+	ContainerDefaultProcMount ContainerProcMountType = "Default"
+
+	// UnmaskedProcMount bypasses the default masking behavior of the container
+	// runtime and ensures the newly created /proc the container stays in tact with
+	// no modifications.
+	ContainerUnmaskedProcMount ContainerProcMountType = "Unmasked"
+)
+
 type ContainerSecurityContext struct {
 	RunAsUser  *int64 `json:"run_as_user,omitempty"`
 	RunAsGroup *int64 `json:"run_as_group,omitempty"`
+	// procMount denotes the type of proc mount to use for the containers.
+	// The default is DefaultProcMount which uses the container runtime defaults for
+	ProcMount ContainerProcMountType `json:"proc_mount"`
 }
 
 type ContainerResources struct {

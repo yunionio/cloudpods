@@ -1474,6 +1474,10 @@ func (s *sPodGuestInstance) createContainer(ctx context.Context, userCred mcclie
 			cpuSetCpus = strings.Join(cpuSets.List(), ",")
 		}
 	}
+	procMountType := apis.ContainerDefaultProcMount
+	if spec.SecurityContext != nil && spec.SecurityContext.ProcMount == apis.ContainerUnmaskedProcMount {
+		procMountType = apis.ContainerUnmaskedProcMount
+	}
 
 	ctrCfg := &runtimeapi.ContainerConfig{
 		Metadata: &runtimeapi.ContainerMetadata{
@@ -1517,8 +1521,8 @@ func (s *sPodGuestInstance) createContainer(ctx context.Context, userCred mcclie
 				ReadonlyRootfs:     false,
 				SupplementalGroups: nil,
 				NoNewPrivs:         !spec.DisableNoNewPrivs,
-				MaskedPaths:        nil,
-				ReadonlyPaths:      nil,
+				MaskedPaths:        pod.GetDefaultMaskedPaths(procMountType),
+				ReadonlyPaths:      pod.GetReadonlyPaths(procMountType),
 				Seccomp: &runtimeapi.SecurityProfile{
 					ProfileType: runtimeapi.SecurityProfile_Unconfined,
 				},
