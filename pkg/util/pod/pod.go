@@ -175,6 +175,7 @@ func (c crictl) PullImageWithSandbox(ctx context.Context, image string, auth *ru
 func (c crictl) CreateContainer(ctx context.Context,
 	podId string, podConfig *runtimeapi.PodSandboxConfig,
 	ctrConfig *runtimeapi.ContainerConfig, withPull bool) (string, error) {
+
 	req := &runtimeapi.CreateContainerRequest{
 		PodSandboxId:  podId,
 		Config:        ctrConfig,
