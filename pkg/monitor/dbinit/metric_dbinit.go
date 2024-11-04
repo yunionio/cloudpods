@@ -119,28 +119,54 @@ func init() {
 		monitor.METRIC_DATABASE_TELE, 2, []monitor.MetricFieldCreateInput{
 			newMetricFieldCreateInput("used_percent", "Used memory rate", monitor.METRIC_UNIT_PERCENT, 1),
 			newMetricFieldCreateInput("available_percent", "Available memory rate", monitor.METRIC_UNIT_PERCENT, 2),
-			newMetricFieldCreateInput("used", "Used memory", monitor.METRIC_UNIT_BYTE, 3),
-			newMetricFieldCreateInput("free", "Free memory", monitor.METRIC_UNIT_BYTE, 4),
-			newMetricFieldCreateInput("active", "The amount of active memory", monitor.METRIC_UNIT_BYTE, 5),
-			newMetricFieldCreateInput("inactive", "The amount of inactive memory", monitor.METRIC_UNIT_BYTE, 6),
-			newMetricFieldCreateInput("cached", "Cache memory", monitor.METRIC_UNIT_BYTE, 7),
-			newMetricFieldCreateInput("buffered", "Buffer memory", monitor.METRIC_UNIT_BYTE, 7),
-			newMetricFieldCreateInput("slab", "Number of kernel caches", monitor.METRIC_UNIT_BYTE, 8),
-			newMetricFieldCreateInput("available", "Available memory", monitor.METRIC_UNIT_BYTE, 9),
-			newMetricFieldCreateInput("total", "Total memory", monitor.METRIC_UNIT_BYTE, 10),
+			newMetricFieldCreateInput("free_percent", "Used free rate", monitor.METRIC_UNIT_PERCENT, 3),
+			newMetricFieldCreateInput("used", "Used memory", monitor.METRIC_UNIT_BYTE, 4),
+			newMetricFieldCreateInput("free", "Free memory", monitor.METRIC_UNIT_BYTE, 5),
+			newMetricFieldCreateInput("active", "The amount of active memory", monitor.METRIC_UNIT_BYTE, 6),
+			newMetricFieldCreateInput("inactive", "The amount of inactive memory", monitor.METRIC_UNIT_BYTE, 7),
+			newMetricFieldCreateInput("cached", "Cache memory", monitor.METRIC_UNIT_BYTE, 8),
+			newMetricFieldCreateInput("buffered", "Buffer memory", monitor.METRIC_UNIT_BYTE, 9),
+			newMetricFieldCreateInput("slab", "Number of kernel caches", monitor.METRIC_UNIT_BYTE, 10),
+			newMetricFieldCreateInput("available", "Available memory", monitor.METRIC_UNIT_BYTE, 11),
+			newMetricFieldCreateInput("total", "Total memory", monitor.METRIC_UNIT_BYTE, 12),
 		})
 
 	// net
 	RegistryMetricCreateInput("net", "Network interface and protocol usage",
 		monitor.METRIC_RES_TYPE_HOST, monitor.METRIC_DATABASE_TELE, 5, []monitor.MetricFieldCreateInput{
-			newMetricFieldCreateInput("bytes_sent", "The total number of bytes sent by the network interface", monitor.METRIC_UNIT_BYTE, 1),
-			newMetricFieldCreateInput("bytes_recv", "The total number of bytes received by the network interface", monitor.METRIC_UNIT_BYTE, 2),
-			newMetricFieldCreateInput("packets_sent", "The total number of packets sent by the network interface", monitor.METRIC_UNIT_COUNT, 3),
-			newMetricFieldCreateInput("packets_recv", "The total number of packets received by the network interface", monitor.METRIC_UNIT_COUNT, 4),
-			newMetricFieldCreateInput("err_in", "The total number of receive errors detected by the network interface", monitor.METRIC_UNIT_COUNT, 5),
-			newMetricFieldCreateInput("err_out", "The total number of transmission errors detected by the network interface", monitor.METRIC_UNIT_COUNT, 6),
-			newMetricFieldCreateInput("drop_in", "The total number of received packets dropped by the network interface", monitor.METRIC_UNIT_COUNT, 7),
-			newMetricFieldCreateInput("drop_out", "The total number of transmission packets dropped by the network interface", monitor.METRIC_UNIT_COUNT, 8),
+			newMetricFieldCreateInput("bps_sent", "Send traffic per second", monitor.METRIC_UNIT_BPS, 1),
+			newMetricFieldCreateInput("bps_recv", "Received traffic per second", monitor.METRIC_UNIT_BPS, 2),
+			newMetricFieldCreateInput("pps_recv", "Received packets per second", monitor.METRIC_UNIT_PPS, 3),
+			newMetricFieldCreateInput("pps_sent", "Send packets per second", monitor.METRIC_UNIT_PPS, 4),
+			newMetricFieldCreateInput("bytes_sent", "The total number of bytes sent by the network interface", monitor.METRIC_UNIT_BYTE, 5),
+			newMetricFieldCreateInput("bytes_recv", "The total number of bytes received by the network interface", monitor.METRIC_UNIT_BYTE, 6),
+			newMetricFieldCreateInput("packets_sent", "The total number of packets sent by the network interface", monitor.METRIC_UNIT_COUNT, 7),
+			newMetricFieldCreateInput("packets_recv", "The total number of packets received by the network interface", monitor.METRIC_UNIT_COUNT, 8),
+			newMetricFieldCreateInput("err_in", "The total number of receive errors detected by the network interface", monitor.METRIC_UNIT_COUNT, 9),
+			newMetricFieldCreateInput("err_out", "The total number of transmission errors detected by the network interface", monitor.METRIC_UNIT_COUNT, 10),
+			newMetricFieldCreateInput("drop_in", "The total number of received packets dropped by the network interface", monitor.METRIC_UNIT_COUNT, 11),
+			newMetricFieldCreateInput("drop_out", "The total number of transmission packets dropped by the network interface", monitor.METRIC_UNIT_COUNT, 12),
+		})
+
+	// system
+	RegistryMetricCreateInput("system", "System load",
+		monitor.METRIC_RES_TYPE_HOST, monitor.METRIC_DATABASE_TELE, 6, []monitor.MetricFieldCreateInput{
+			newMetricFieldCreateInput("load1", "Loadavg load1", monitor.METRIC_UNIT_NULL, 1),
+			newMetricFieldCreateInput("load5", "Loadavg load5", monitor.METRIC_UNIT_NULL, 2),
+			newMetricFieldCreateInput("load15", "Loadavg load15", monitor.METRIC_UNIT_NULL, 3),
+			newMetricFieldCreateInput("load1_pcore", "Loadavg load1 per cpu core", monitor.METRIC_UNIT_NULL, 4),
+			newMetricFieldCreateInput("load5_pcore", "Loadavg load5 per cpu core", monitor.METRIC_UNIT_NULL, 5),
+			newMetricFieldCreateInput("load15_pcore", "Loadavg load15 per cpu core", monitor.METRIC_UNIT_NULL, 6),
+			//newMetricFieldCreateInput("uptime", "System uptime", monitor.METRIC_UNIT_NULL, 7),
+		})
+	// process
+	RegistryMetricCreateInput("processes", "Processes status",
+		monitor.METRIC_RES_TYPE_HOST, monitor.METRIC_DATABASE_TELE, 7, []monitor.MetricFieldCreateInput{
+			newMetricFieldCreateInput("total", "Total processes count", monitor.METRIC_UNIT_COUNT, 1),
+			newMetricFieldCreateInput("total_threads", "Total threads count", monitor.METRIC_UNIT_COUNT, 2),
+			newMetricFieldCreateInput("zombies", "Zombie processes count", monitor.METRIC_UNIT_COUNT, 3),
+			newMetricFieldCreateInput("running", "Running processes count", monitor.METRIC_UNIT_COUNT, 4),
+			newMetricFieldCreateInput("sleeping", "Sleeping processes count", monitor.METRIC_UNIT_COUNT, 5),
 		})
 
 	// vm_cpu
