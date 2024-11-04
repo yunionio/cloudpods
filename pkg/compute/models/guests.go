@@ -5200,6 +5200,8 @@ func (self *SGuest) GetJsonDescAtHypervisor(ctx context.Context, host *SHost) *a
 
 		LightMode:  self.RescueMode,
 		Hypervisor: self.GetHypervisor(),
+
+		EnableEsxiSwap: options.Options.EnableEsxiSwap,
 	}
 
 	if len(self.BackupHostId) > 0 {
