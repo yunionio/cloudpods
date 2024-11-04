@@ -64,7 +64,7 @@ func setup(c *caddy.Controller) error {
 			rDNS.PrimaryZone += "."
 		}
 	} else {
-		rDNS.PrimaryZone = "."
+		rDNS.PrimaryZone = ""
 	}
 	rDNS.primaryZoneLabelCount = dns.CountLabel(rDNS.PrimaryZone)
 
