@@ -1533,6 +1533,21 @@ func (alert *SCommonAlert) GetAlertRule(settings *monitor.AlertSetting, index in
 	return rule
 }
 
+func (alert *SCommonAlert) GetResourceAlert(resourceId string, metric string) (*SMonitorResourceAlert, error) {
+	return MonitorResourceAlertManager.GetResourceAlert(alert.GetId(), resourceId, metric)
+}
+
+func (alert *SCommonAlert) IsResourceMetricAlerting(resourceId string, metric string) (bool, error) {
+	ra, err := alert.GetResourceAlert(resourceId, metric)
+	if err != nil {
+		return false, errors.Wrapf(err, "GetResourceAlert")
+	}
+	if ra.AlertState == string(monitor.AlertStateAlerting) {
+		return true, nil
+	}
+	return false, nil
+}
+
 var fileSize = []string{"bps", "Bps", "byte"}
 
 func RationalizeValueFromUnit(value float64, unit string, opt string) string {

@@ -493,7 +493,7 @@ func checkQueryGroupBy(query *monitor.AlertQuery, inputQuery *monitor.MetricQuer
 	}
 	tagId := ""
 	if metricMeasurement != nil {
-		tagId = monitor.MEASUREMENT_TAG_ID[metricMeasurement.ResType]
+		tagId = monitor.GetMeasurementTagIdKeyByResType(metricMeasurement.ResType)
 	}
 	if len(tagId) == 0 || (len(inputQuery.Slimit) != 0 && len(inputQuery.Soffset) != 0) {
 		tagId = "*"
