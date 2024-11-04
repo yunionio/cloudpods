@@ -156,15 +156,15 @@ func (fs *FeishuNotifier) getMetricsMod(config monitor.NotificationTemplateConfi
 	inElems := make([]*feishu.CardElement, 0)
 	for idx, m := range config.Matches {
 		hrE := feishu.NewCardElementHR()
-		mE := fs.getMetricElem(idx+1, m)
-		mTE := fs.getMetricTagElem(m)
+		mE := fs.getMetricElem(idx+1, *m)
+		mTE := fs.getMetricTagElem(*m)
 		inElems = append(inElems, hrE, mE, mTE)
 	}
 	return inElems
 }
 
 func (fs *FeishuNotifier) genCard(ctx *alerting.EvalContext, chatId string) (*feishu.MsgReq, error) {
-	config := GetNotifyTemplateConfig(ctx)
+	config := GetNotifyTemplateConfig(ctx, false, ctx.EvalMatches)
 	commonElem := fs.getCommonInfoMod(config)
 
 	msElems := fs.getMetricsMod(config)
@@ -193,7 +193,7 @@ func (fs *FeishuNotifier) genCard(ctx *alerting.EvalContext, chatId string) (*fe
 }
 
 func (fs *FeishuNotifier) genMsg(ctx *alerting.EvalContext, chatId string) (*feishu.MsgReq, error) {
-	config := GetNotifyTemplateConfig(ctx)
+	config := GetNotifyTemplateConfig(ctx, false, ctx.EvalMatches)
 	// 富文本: https://open.feishu.cn/document/ukTMukTMukTM/uMDMxEjLzATMx4yMwETM
 	return &feishu.MsgReq{
 		ChatId:  chatId,
