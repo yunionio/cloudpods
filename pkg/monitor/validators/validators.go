@@ -47,7 +47,7 @@ var (
 	CommonAlertReducerFieldOpts = []string{"/"}
 	CommonAlertNotifyTypes      = []string{"email", "mobile", "dingtalk", "webconsole", "feishu"}
 
-	ConditionTypes = []string{"query", "nodata_query"}
+	ConditionTypes = []string{"query", monitor.METRIC_QUERY_TYPE_NO_DATA}
 )
 
 func ValidateAlertCreateInput(input monitor.AlertCreateInput) error {

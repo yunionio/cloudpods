@@ -188,6 +188,7 @@ type EvalMatch struct {
 	Tags         map[string]string    `json:"tags"`
 	Unit         string               `json:"unit"`
 	AlertDetails jsonutils.JSONObject `json:"alert_details"`
+	IsRecovery   bool                 `json:"is_recovery"`
 }
 
 type AlertTestRunOutput struct {
