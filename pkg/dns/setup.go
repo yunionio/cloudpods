@@ -15,14 +15,14 @@
 package dns
 
 import (
-	"fmt"
-
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/pkg/upstream"
 	"github.com/mholt/caddy"
 	"github.com/miekg/dns"
 
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/regutils"
 )
 
@@ -39,14 +39,17 @@ func setup(c *caddy.Controller) error {
 		return plugin.Error(PluginName, err)
 	}
 
-	if len(rDNS.PrimaryZone) == 0 {
-		return fmt.Errorf("dns_domain missing")
+	log.Infof("use dns_domain %q", rDNS.PrimaryZone)
+
+	if len(rDNS.PrimaryZone) > 0 && !regutils.MatchDomainName(rDNS.PrimaryZone) {
+		return errors.Wrapf(errors.ErrInvalidFormat, "dns_domain %q invalid", rDNS.PrimaryZone)
 	}
-	if !regutils.MatchDomainName(rDNS.PrimaryZone) {
-		return fmt.Errorf("dns_domain %q invalid", rDNS.PrimaryZone)
-	}
-	if r := rDNS.PrimaryZone[len(rDNS.PrimaryZone)-1]; r != '.' {
-		rDNS.PrimaryZone += "."
+	if len(rDNS.PrimaryZone) > 0 {
+		if r := rDNS.PrimaryZone[len(rDNS.PrimaryZone)-1]; r != '.' {
+			rDNS.PrimaryZone += "."
+		}
+	} else {
+		rDNS.PrimaryZone = ""
 	}
 	rDNS.primaryZoneLabelCount = dns.CountLabel(rDNS.PrimaryZone)
 
