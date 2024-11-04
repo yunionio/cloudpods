@@ -778,6 +778,7 @@ type SCreateVMParam struct {
 	Nics                 []jsonutils.JSONObject
 	ResourcePool         string
 	InstanceSnapshotInfo SEsxiInstanceSnapshotInfo
+	EnableEsxiSwap       bool
 }
 
 type SEsxiInstanceSnapshotInfo struct {
@@ -1080,7 +1081,17 @@ func (host *SHost) DoCreateVM(ctx context.Context, ds *SDatastore, params SCreat
 		CpuHotAddEnabled:    &True,
 		CpuHotRemoveEnabled: &True,
 		MemoryHotAddEnabled: &True,
+
+		ExtraConfig: []types.BaseOptionValue{},
 	}
+
+	if !params.EnableEsxiSwap {
+		spec.ExtraConfig = append(spec.ExtraConfig, &types.OptionValue{
+			Key:   "sched.swap.vmxSwapEnabled",
+			Value: "FALSE",
+		})
+	}
+
 	spec.Files = &types.VirtualMachineFileInfo{
 		VmPathName: datastorePath,
 	}
@@ -1319,6 +1330,14 @@ func (host *SHost) CloneVM(ctx context.Context, from *SVirtualMachine, snapshot 
 		CpuHotAddEnabled:    &True,
 		CpuHotRemoveEnabled: &True,
 		MemoryHotAddEnabled: &True,
+
+		ExtraConfig: []types.BaseOptionValue{},
+	}
+	if !params.EnableEsxiSwap {
+		spec.ExtraConfig = append(spec.ExtraConfig, &types.OptionValue{
+			Key:   "sched.swap.vmxSwapEnabled",
+			Value: "FALSE",
+		})
 	}
 	cloneSpec.Config = &spec
 	task, err := ovm.Clone(ctx, folders.VmFolder, name, *cloneSpec)
