@@ -65,6 +65,27 @@ var (
 	}
 )
 
+func GetMeasurementTagIdKeyByResType(resType string) string {
+	return MEASUREMENT_TAG_ID[resType]
+}
+
+func GetMeasurementTagIdKeyByResTypeWithDefault(resType string) string {
+	tagId := GetMeasurementTagIdKeyByResType(resType)
+	if len(tagId) == 0 {
+		tagId = "host_id"
+	}
+	return tagId
+}
+
+func GetMeasurementResourceId(tags map[string]string, resType string) string {
+	return tags[GetMeasurementTagIdKeyByResType(resType)]
+}
+
+func GetResourceIdFromTagWithDefault(tags map[string]string, resType string) string {
+	tagId := GetMeasurementTagIdKeyByResTypeWithDefault(resType)
+	return tags[tagId]
+}
+
 type MetricFunc struct {
 	FieldOptType  []string            `json:"field_opt_type"`
 	FieldOptValue map[string][]string `json:"field_opt_value"`
