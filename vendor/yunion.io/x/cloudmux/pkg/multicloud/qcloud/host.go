@@ -77,13 +77,7 @@ func (self *SHost) _createVM(name, hostname string, imgId string, sysDisk cloudp
 	publicIpBw int, publicIpChargeType cloudprovider.TElasticipChargeType,
 	tags map[string]string, osType string,
 ) (string, error) {
-	net := self.zone.getNetworkById(networkId)
-	if net == nil {
-		return "", fmt.Errorf("invalid network ID %s", networkId)
-	}
-
 	var err error
-
 	keypair := ""
 	if len(publicKey) > 0 {
 		keypair, err = self.zone.region.syncKeypair(publicKey)

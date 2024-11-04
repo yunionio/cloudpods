@@ -15,9 +15,11 @@
 package objectstore
 
 import (
+	"net"
 	"net/url"
 	"os"
 	"strings"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -126,6 +128,12 @@ func NewObjectStoreClientAndFetch(cfg *ObjectStoreClientConfig, doFetch bool) (*
 
 	tr := httputils.GetTransport(true)
 	tr.Proxy = cfg.cpcfg.ProxyFunc
+	tr.DialContext = (&net.Dialer{
+		Timeout:   60 * time.Second,
+		KeepAlive: 60 * time.Second,
+		DualStack: true,
+	}).DialContext
+	tr.IdleConnTimeout = 90 * time.Second
 	cli.SetCustomTransport(tr)
 
 	client.client = cli
