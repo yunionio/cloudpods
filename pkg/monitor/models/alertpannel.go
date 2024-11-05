@@ -58,8 +58,8 @@ type SAlertPanel struct {
 	db.SStatusStandaloneResourceBase
 	db.SScopedResourceBase
 
-	Settings jsonutils.JSONObject `nullable:"false" list:"user" create:"required" update:"user"`
-	Message  string               `charset:"utf8" list:"user" create:"optional" update:"user"`
+	Settings *monitor.AlertSetting `nullable:"false" list:"user" create:"required" update:"user"`
+	Message  string                `charset:"utf8" list:"user" create:"optional" update:"user"`
 }
 
 func (manager *SAlertPanelManager) NamespaceScope() rbacscope.TRbacScope {
@@ -231,21 +231,17 @@ func (man *SAlertPanelManager) FetchCustomizeColumns(
 }
 
 func (panel *SAlertPanel) GetMoreDetails(out monitor.PanelDetails) (monitor.PanelDetails, error) {
-	setting, err := panel.GetSettings()
-	if err != nil {
-		return out, err
-	}
-	if len(setting.Conditions) == 0 {
+	if panel.Settings == nil || len(panel.Settings.Conditions) == 0 {
 		return out, nil
 	}
 
-	out.CommonAlertMetricDetails = make([]*monitor.CommonAlertMetricDetails, len(setting.Conditions))
-	for i, cond := range setting.Conditions {
+	out.CommonAlertMetricDetails = make([]*monitor.CommonAlertMetricDetails, len(panel.Settings.Conditions))
+	for i, cond := range panel.Settings.Conditions {
 		metricDetails := panel.GetCommonAlertMetricDetailsFromAlertCondition(i, &cond)
 		out.CommonAlertMetricDetails[i] = metricDetails
-		setting.Conditions[i] = cond
+		panel.Settings.Conditions[i] = cond
 	}
-	panel.Settings = jsonutils.Marshal(setting)
+	out.Settings = panel.Settings
 	return out, nil
 }
 
@@ -255,17 +251,6 @@ func (dash *SAlertPanel) GetCommonAlertMetricDetailsFromAlertCondition(index int
 	metricDetails := new(monitor.CommonAlertMetricDetails)
 	getCommonAlertMetricDetailsFromCondition(cond, metricDetails)
 	return metricDetails
-}
-
-func (dash *SAlertPanel) GetSettings() (*monitor.AlertSetting, error) {
-	setting := new(monitor.AlertSetting)
-	if dash.Settings == nil {
-		return setting, nil
-	}
-	if err := dash.Settings.Unmarshal(setting); err != nil {
-		return nil, errors.Wrapf(err, "dashboard %s unmarshal", dash.GetId())
-	}
-	return setting, nil
 }
 
 func (dash *SAlertPanel) ValidateUpdateData(

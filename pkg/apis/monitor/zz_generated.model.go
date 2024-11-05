@@ -30,7 +30,7 @@ type SAlert struct {
 	SMonitorScopedResource
 	// Frequency is evaluate period
 	Frequency int64                `json:"frequency"`
-	Settings  jsonutils.JSONObject `json:"settings"`
+	Settings  *AlertSetting `json:"settings"`
 	Level     string               `json:"level"`
 	Message   string               `json:"message"`
 	UsedBy    string               `json:"used_by"`
