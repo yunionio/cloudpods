@@ -15,8 +15,6 @@
 package monitor
 
 import (
-	"yunion.io/x/jsonutils"
-
 	"yunion.io/x/onecloud/pkg/apis"
 )
 
@@ -41,7 +39,7 @@ type AlertPanelDetail struct {
 	PanelName string `json:"panel_name"`
 	PanelId   string `json:"panel_id"`
 	Refresh   string `json:"refresh"`
-	Setting   jsonutils.JSONObject
+	Setting   *AlertSetting
 	PanelDetails
 }
 
@@ -52,4 +50,11 @@ type AlertClonePanelInput struct {
 
 type AlertCloneDashboardInput struct {
 	CloneName string `json:"clone_name"`
+}
+
+type AlertPanelSetOrderInput struct {
+	Order []struct {
+		PanelId string `json:"panel_id"`
+		Index   int    `json:"index"`
+	} `json:"order"`
 }
