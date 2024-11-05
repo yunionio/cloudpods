@@ -132,4 +132,5 @@ type ContainerStopInput struct {
 	Timeout       int64  `json:"timeout"`
 	ShmSizeMB     int    `json:"shm_size_mb"`
 	ContainerName string `json:"container_name"`
+	Force         bool   `json:"force"`
 }

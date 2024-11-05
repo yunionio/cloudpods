@@ -510,8 +510,13 @@ func (c *SContainer) StartStartTask(ctx context.Context, userCred mcclient.Token
 }
 
 func (c *SContainer) PerformStop(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *api.ContainerStopInput) (jsonutils.JSONObject, error) {
-	if !sets.NewString(api.CONTAINER_STATUS_RUNNING, api.CONTAINER_STATUS_STOP_FAILED).Has(c.Status) {
-		return nil, httperrors.NewInvalidStatusError("Can't stop container in status %s", c.Status)
+	if !data.Force {
+		if !sets.NewString(
+			api.CONTAINER_STATUS_RUNNING,
+			api.CONTAINER_STATUS_PROBING,
+			api.CONTAINER_STATUS_STOP_FAILED).Has(c.Status) {
+			return nil, httperrors.NewInvalidStatusError("Can't stop container in status %s", c.Status)
+		}
 	}
 	return nil, c.StartStopTask(ctx, userCred, data, "")
 }

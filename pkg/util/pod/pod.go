@@ -17,6 +17,8 @@ package pod
 import (
 	"context"
 	"fmt"
+	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -24,8 +26,11 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	runtimeapi "k8s.io/cri-api/pkg/apis/runtime/v1"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+
+	"yunion.io/x/onecloud/pkg/util/procutils"
 )
 
 type CRI interface {
@@ -36,7 +41,7 @@ type CRI interface {
 	RemovePod(ctx context.Context, podId string) error
 	CreateContainer(ctx context.Context, podId string, podConfig *runtimeapi.PodSandboxConfig, ctrConfig *runtimeapi.ContainerConfig, withPull bool) (string, error)
 	StartContainer(ctx context.Context, id string) error
-	StopContainer(ctx context.Context, ctrId string, timeout int64, tryRemove bool) error
+	StopContainer(ctx context.Context, ctrId string, timeout int64, tryRemove bool, force bool) error
 	RemoveContainer(ctx context.Context, ctrId string) error
 	RunContainers(ctx context.Context, podConfig *runtimeapi.PodSandboxConfig, containerConfigs []*runtimeapi.ContainerConfig, runtimeHandler string) (*RunContainersResponse, error)
 	ListContainers(ctx context.Context, opts ListContainerOptions) ([]*runtimeapi.Container, error)
@@ -330,8 +335,7 @@ func (c crictl) RemovePod(ctx context.Context, podId string) error {
 	return nil
 }
 
-func (c crictl) StopContainer(ctx context.Context, ctrId string, timeout int64, tryRemove bool) error {
-	maxTries := 10
+func (c crictl) stopContainerWithRetry(ctx context.Context, ctrId string, timeout int64, maxTries int) error {
 	interval := 5 * time.Second
 	errs := []error{}
 	for tries := 0; tries < maxTries; tries++ {
@@ -342,12 +346,33 @@ func (c crictl) StopContainer(ctx context.Context, ctrId string, timeout int64, 
 		if err == nil {
 			return nil
 		}
+		if strings.Contains(err.Error(), "code = NotFound") {
+			return nil
+		}
 		dur := interval * time.Duration(tries+1)
 		log.Warningf("try to restop container %s after %s, timeout: %d: %v", ctrId, dur, timeout, err)
 		// set timeout to 0 to stop forcely
 		timeout = 0
 		errs = append(errs, errors.Wrapf(err, "try %d", tries))
 		time.Sleep(dur)
+	}
+	return errors.NewAggregate(errs)
+}
+
+func (c crictl) StopContainer(ctx context.Context, ctrId string, timeout int64, tryRemove bool, force bool) error {
+	maxTries := 10
+	errs := []error{}
+	err := c.stopContainerWithRetry(ctx, ctrId, timeout, maxTries)
+	if err == nil {
+		return nil
+	}
+	errs = append(errs, err)
+	if force {
+		if err := c.forceKillContainer(ctx, ctrId); err != nil {
+			errs = append(errs, errors.Wrap(err, "forceKillContainer"))
+		} else {
+			return nil
+		}
 	}
 	if tryRemove {
 		// try force remove container
@@ -372,6 +397,45 @@ func (c crictl) stopContainer(ctx context.Context, ctrId string, timeout int64) 
 	return nil
 }
 
+func (c crictl) forceKillContainer(ctx context.Context, ctrId string) error {
+	cs, err := c.containerStatus(ctx, ctrId, true)
+	if err != nil {
+		return errors.Wrap(err, "get containerStatus")
+	}
+	info := cs.GetInfo()
+	pid, ok := info["pid"]
+	if !ok {
+		return errors.Errorf("not found pid from info %s", jsonutils.Marshal(info))
+	}
+	// get ppid
+	pStatusFile := filepath.Join("/proc", pid, "task", pid, "status")
+	out, err := procutils.NewRemoteCommandAsFarAsPossible("sh", "-c", fmt.Sprintf("cat %s | grep PPid: | awk '{print $2}'", pStatusFile)).Output()
+	if err != nil {
+		return errors.Wrapf(err, "get ppid from %s, out: %s", pStatusFile, out)
+	}
+	ppidStr := strings.TrimSpace(string(out))
+	ppid, err := strconv.Atoi(ppidStr)
+	if err != nil {
+		return errors.Wrapf(err, "invalid ppid str %s from %s", ppidStr, pStatusFile)
+	}
+	ppCmdlineFile := filepath.Join("/proc", ppidStr, "cmdline")
+	ppCmdline, err := procutils.NewRemoteCommandAsFarAsPossible("cat", ppCmdlineFile).Output()
+	if err != nil {
+		return errors.Wrapf(err, "get cmdline from %s, out: %s", ppCmdlineFile, ppCmdline)
+	}
+	log.Infof("try to kill container %s, pid %s parent process(%d): %s", ctrId, pid, ppid, ppCmdline)
+	killOut, err := procutils.NewRemoteCommandAsFarAsPossible("kill", "-9", ppidStr).Output()
+	if err != nil {
+		killErr := errors.Wrapf(err, "kill -9 %s, out: %s", ppidStr, killOut)
+		log.Errorf("kill container %s, pid %s parent process(%d): %s, error: %v", ctrId, pid, ppid, ppCmdline, killErr)
+		return killErr
+	}
+	if err := c.stopContainerWithRetry(ctx, ctrId, 0, 5); err != nil {
+		return errors.Wrapf(err, "stop container %s after kill parent process", ctrId)
+	}
+	return nil
+}
+
 func (c crictl) RemoveContainer(ctx context.Context, ctrId string) error {
 	_, err := c.GetRuntimeClient().RemoveContainer(ctx, &runtimeapi.RemoveContainerRequest{
 		ContainerId: ctrId,
@@ -383,9 +447,13 @@ func (c crictl) RemoveContainer(ctx context.Context, ctrId string) error {
 }
 
 func (c crictl) ContainerStatus(ctx context.Context, ctrId string) (*runtimeapi.ContainerStatusResponse, error) {
+	return c.containerStatus(ctx, ctrId, false)
+}
+
+func (c crictl) containerStatus(ctx context.Context, ctrId string, verbose bool) (*runtimeapi.ContainerStatusResponse, error) {
 	req := &runtimeapi.ContainerStatusRequest{
 		ContainerId: ctrId,
-		Verbose:     false,
+		Verbose:     verbose,
 	}
 	return c.GetRuntimeClient().ContainerStatus(ctx, req)
 }

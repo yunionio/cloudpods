@@ -1156,7 +1156,7 @@ func (s *sPodGuestInstance) StopContainer(ctx context.Context, userCred mcclient
 			return nil, errors.Wrapf(err, "unmount shm %s", name)
 		}
 	}
-	if err := s.getCRI().StopContainer(ctx, criId, timeout, true); err != nil {
+	if err := s.getCRI().StopContainer(ctx, criId, timeout, true, input.Force); err != nil {
 		if !IsContainerNotFoundError(err) {
 			return nil, errors.Wrap(err, "CRI.StopContainer")
 		} else {

@@ -290,7 +290,8 @@ func (o *ContainerIdsOptions) Params() (jsonutils.JSONObject, error) {
 
 type ContainerStopOptions struct {
 	ContainerIdsOptions
-	Timeout int `help:"Stopping timeout" json:"timeout"`
+	Timeout int  `help:"Stopping timeout" json:"timeout"`
+	Force   bool `help:"Force stop container" json:"force"`
 }
 
 func (o *ContainerStopOptions) Params() (jsonutils.JSONObject, error) {
