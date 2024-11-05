@@ -2501,10 +2501,7 @@ func (s *SKVMGuestInstance) SyncConfig(
 
 	// update guest live desc, don't be here update cpu and mem
 	// cpu and memory should update from SGuestHotplugCpuMemTask
-	s.Desc.SGuestControlDesc = guestDesc.SGuestControlDesc
-	s.Desc.SGuestProjectDesc = guestDesc.SGuestProjectDesc
-	s.Desc.SGuestRegionDesc = guestDesc.SGuestRegionDesc
-	s.Desc.SGuestMetaDesc = guestDesc.SGuestMetaDesc
+	s.UpdateLiveDesc(guestDesc)
 
 	SaveLiveDesc(s, s.Desc)
 
