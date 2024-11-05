@@ -87,11 +87,8 @@ func (d *SSLVMDisk) Probe() error {
 	return nil
 }
 
-func (d *SSLVMDisk) CreateRaw(
-	ctx context.Context, sizeMb int, diskFormat string, fsFormat string,
-	encryptInfo *apis.SEncryptInfo, diskId string, back string,
-) (jsonutils.JSONObject, error) {
-	ret, err := d.SLVMDisk.CreateRaw(ctx, sizeMb, diskFormat, fsFormat, encryptInfo, diskId, back)
+func (d *SSLVMDisk) CreateRaw(ctx context.Context, sizeMb int, diskFormat string, fsFormat string, fsFeatures *api.DiskFsFeatures, encryptInfo *apis.SEncryptInfo, diskId string, back string) (jsonutils.JSONObject, error) {
+	ret, err := d.SLVMDisk.CreateRaw(ctx, sizeMb, diskFormat, fsFormat, nil, encryptInfo, diskId, back)
 	if err != nil {
 		return ret, err
 	}
@@ -284,7 +281,7 @@ func (d *SSLVMDisk) PrepareSaveToGlance(ctx context.Context, params interface{})
 }
 
 func (d *SSLVMDisk) CreateFromSnapshotLocation(ctx context.Context, snapshotLocation string, size int64, encryptInfo *apis.SEncryptInfo) (jsonutils.JSONObject, error) {
-	ret, err := d.SLVMDisk.CreateRaw(ctx, int(size), "", "", encryptInfo, d.Id, snapshotLocation)
+	ret, err := d.SLVMDisk.CreateRaw(ctx, int(size), "", "", nil, encryptInfo, d.Id, snapshotLocation)
 	if err != nil {
 		return nil, err
 	}

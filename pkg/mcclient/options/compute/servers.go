@@ -261,6 +261,7 @@ type ServerCreateCommonConfig struct {
 	Disk descriptions
 	size: 500M, 10G
 	fs: swap, ext2, ext3, ext4, xfs, ntfs, fat, hfsplus
+	fs_features: casefold
 	format: qcow2, raw, docker, iso, vmdk, vmdkflatver1, vmdkflatver2, vmdkflat, vmdksparse, vmdksparsever1, vmdksparsever2, vmdksesparse, vhd
 	driver: virtio, ide, scsi, sata, pvscsi
 	cache_mod: writeback, none, writethrough

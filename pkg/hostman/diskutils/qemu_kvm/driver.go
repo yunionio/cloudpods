@@ -361,7 +361,7 @@ func (d *QemuKvmDriver) ResizePartition() error {
 	return nil
 }
 
-func (d *QemuKvmDriver) FormatPartition(fs, uuid string) error {
+func (d *QemuKvmDriver) FormatPartition(fs, uuid string, features *apis.FsFeatures) error {
 	return nil
 }
 

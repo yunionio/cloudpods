@@ -413,6 +413,7 @@ func (vm *ContainerVolumeMountRelation) toHostDiskMount(disk *apis.ContainerVolu
 		SubDirectory:    disk.SubDirectory,
 		StorageSizeFile: disk.StorageSizeFile,
 		Overlay:         disk.Overlay,
+		CaseInsensitive: disk.CaseInsensitive,
 	}
 	return ret, nil
 }

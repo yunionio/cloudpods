@@ -214,7 +214,7 @@ func (d *SRBDDisk) CreateFromImageFuse(ctx context.Context, url string, size int
 	return fmt.Errorf("Not support")
 }
 
-func (d *SRBDDisk) CreateRaw(ctx context.Context, sizeMb int, diskFromat string, fsFormat string, encryptInfo *apis.SEncryptInfo, diskId string, back string) (jsonutils.JSONObject, error) {
+func (d *SRBDDisk) CreateRaw(ctx context.Context, sizeMb int, diskFormat string, fsFormat string, fsFeatures *api.DiskFsFeatures, encryptInfo *apis.SEncryptInfo, diskId string, back string) (jsonutils.JSONObject, error) {
 	if encryptInfo != nil {
 		return nil, errors.Wrap(httperrors.ErrNotSupported, "rbd not support encryptInfo")
 	}
@@ -228,7 +228,7 @@ func (d *SRBDDisk) CreateRaw(ctx context.Context, sizeMb int, diskFromat string,
 		Path: d.GetPath(),
 	}
 	if utils.IsInStringArray(fsFormat, []string{"swap", "ext2", "ext3", "ext4", "xfs"}) {
-		d.FormatFs(fsFormat, diskId, diskInfo)
+		d.FormatFs(fsFormat, nil, diskId, diskInfo)
 	}
 
 	return d.GetDiskDesc(), nil

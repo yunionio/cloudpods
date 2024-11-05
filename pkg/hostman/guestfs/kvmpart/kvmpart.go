@@ -436,7 +436,7 @@ func (p *SKVMGuestDiskPartition) zerofreeFsInternal(fs string) error {
 	}
 	// make partition
 	uuid := uuids["UUID"]
-	err = fsutils.FormatPartition(p.partDev, fs, uuid)
+	err = fsutils.FormatPartition(p.partDev, fs, uuid, nil)
 	if err != nil {
 		return errors.Wrapf(err, "FormatPartition %s %s %s", p.partDev, fs, uuid)
 	}

@@ -415,7 +415,11 @@ func (s *SBaseStorage) CreateRawDisk(ctx context.Context, disk IDisk, input *SDi
 	if input.DiskInfo.Encryption {
 		encryptInfo = &input.DiskInfo.EncryptInfo
 	}
-	return disk.CreateRaw(ctx, input.DiskInfo.DiskSizeMb, input.DiskInfo.Format, input.DiskInfo.FsFormat, encryptInfo, input.DiskId, "")
+	return disk.CreateRaw(ctx, input.DiskInfo.DiskSizeMb,
+		input.DiskInfo.Format,
+		input.DiskInfo.FsFormat,
+		input.DiskInfo.FsFeatures,
+		encryptInfo, input.DiskId, "")
 }
 
 func (s *SBaseStorage) CreateDiskFromTemplate(ctx context.Context, disk IDisk, input *SDiskCreateByDiskinfo) (jsonutils.JSONObject, error) {

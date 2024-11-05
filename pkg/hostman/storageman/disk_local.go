@@ -342,8 +342,7 @@ func (d *SLocalDisk) CreateFromUrl(ctx context.Context, url string, size int64, 
 	return nil
 }
 
-func (d *SLocalDisk) CreateRaw(ctx context.Context, sizeMB int, diskFormat, fsFormat string,
-	encryptInfo *apis.SEncryptInfo, uuid string, back string) (jsonutils.JSONObject, error) {
+func (d *SLocalDisk) CreateRaw(ctx context.Context, sizeMB int, diskFormat string, fsFormat string, fsFeatures *api.DiskFsFeatures, encryptInfo *apis.SEncryptInfo, diskId string, back string) (jsonutils.JSONObject, error) {
 	if fileutils2.Exists(d.GetPath()) {
 		if err := os.Remove(d.GetPath()); err != nil {
 			return nil, errors.Wrapf(err, "os.Remove(%s)", d.GetPath())
@@ -388,7 +387,7 @@ func (d *SLocalDisk) CreateRaw(ctx context.Context, sizeMB int, diskFormat, fsFo
 		diskInfo.EncryptAlg = string(encryptInfo.Alg)
 	}
 	if utils.IsInStringArray(fsFormat, []string{"swap", "ext2", "ext3", "ext4", "xfs"}) {
-		d.FormatFs(fsFormat, uuid, diskInfo)
+		d.FormatFs(fsFormat, fsFeatures, diskId, diskInfo)
 	}
 
 	return d.GetDiskDesc(), nil

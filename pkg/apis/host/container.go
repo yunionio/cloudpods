@@ -27,6 +27,7 @@ type ContainerVolumeMountDisk struct {
 	SubDirectory    string                                `json:"sub_directory"`
 	StorageSizeFile string                                `json:"storage_size_file"`
 	Overlay         *apis.ContainerVolumeMountDiskOverlay `json:"overlay"`
+	CaseInsensitive bool                                  `json:"case_insensitive"`
 }
 
 type ContainerVolumeMountCephFS struct {

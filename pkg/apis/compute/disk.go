@@ -15,16 +15,24 @@
 package compute
 
 import (
+	"reflect"
 	"time"
 
 	"yunion.io/x/cloudmux/pkg/multicloud/esxi/vcenter"
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/util/fileutils"
 
 	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/apis/billing"
 	"yunion.io/x/onecloud/pkg/httperrors"
 )
+
+func init() {
+	gotypes.RegisterSerializable(reflect.TypeOf(new(DiskFsFeatures)), func() gotypes.ISerializable {
+		return new(DiskFsFeatures)
+	})
+}
 
 type DiskCreateInput struct {
 	apis.VirtualResourceCreateInput
@@ -286,6 +294,7 @@ type DiskAllocateInput struct {
 	ImageId       string
 	ImageFormat   string
 	FsFormat      string
+	FsFeatures    *DiskFsFeatures
 	Rebuild       bool
 	BackingDiskId string
 	SnapshotId    string
@@ -339,4 +348,23 @@ type DiskSnapshotpolicyInput struct {
 type DiskRebuildInput struct {
 	BackupId   *string `json:"backup_id,allowempty"`
 	TemplateId *string `json:"template_id,allowempty"`
+}
+
+type DiskFsExt4Features struct {
+	CaseInsensitive bool `json:"case_insensitive"`
+}
+
+type DiskFsFeatures struct {
+	Ext4 *DiskFsExt4Features `json:"ext4"`
+}
+
+func (d *DiskFsFeatures) String() string {
+	return jsonutils.Marshal(d).String()
+}
+
+func (d *DiskFsFeatures) IsZero() bool {
+	if reflect.DeepEqual(*d, DiskFsFeatures{}) {
+		return true
+	}
+	return false
 }

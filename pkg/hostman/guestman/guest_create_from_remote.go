@@ -93,7 +93,7 @@ func (m *SGuestManager) GuestCreateFromEsxi(
 			var diskInfo jsonutils.JSONObject
 			diskId := disksDesc[i].DiskId
 			iDisk := storage.CreateDisk(diskId)
-			diskInfo, err = iDisk.CreateRaw(ctx, 0, "qcow2", "", nil, "", connections.Disks[i].DiskPath)
+			diskInfo, err = iDisk.CreateRaw(ctx, 0, "qcow2", "", nil, nil, "", connections.Disks[i].DiskPath)
 			if err != nil {
 				err = errors.Wrapf(err, "create disk %s failed", diskId)
 				log.Errorf(err.Error())

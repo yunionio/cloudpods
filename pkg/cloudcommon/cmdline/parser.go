@@ -148,6 +148,23 @@ func ParseDiskConfig(diskStr string, idx int) (*compute.DiskConfig, error) {
 				return nil, errors.Errorf("invalid disk fs %s, allow choices: %s", str, osprofile.FS_TYPES)
 			}
 			diskConfig.Fs = str
+		case "fs_features":
+			if diskConfig.Fs == "" {
+				return nil, errors.Errorf("disk fs is required")
+			}
+			diskConfig.FsFeatures = &compute.DiskFsFeatures{}
+			for _, feature := range strings.Split(str, ",") {
+				if diskConfig.Fs == "ext4" {
+					if diskConfig.FsFeatures.Ext4 == nil {
+						diskConfig.FsFeatures.Ext4 = &compute.DiskFsExt4Features{}
+					}
+					if feature == "casefold" {
+						diskConfig.FsFeatures.Ext4.CaseInsensitive = true
+					} else {
+						return nil, errors.Errorf("invalid feature %s of %s", feature, diskConfig.Fs)
+					}
+				}
+			}
 		case "format":
 			if !utils.IsInStringArray(str, osprofile.IMAGE_FORMAT_TYPES) {
 				return nil, errors.Errorf("invalid disk format %s, allow choices: %s", str, osprofile.IMAGE_FORMAT_TYPES)

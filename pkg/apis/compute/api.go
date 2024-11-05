@@ -175,6 +175,9 @@ type DiskConfig struct {
 	// requried: false
 	Fs string `json:"fs"`
 
+	// 文件系统特性
+	FsFeatures *DiskFsFeatures `json:"fs_features"`
+
 	// 磁盘存储格式
 	// enum: ["qcow2", "raw", "docker", "iso", "vmdk", "vmdkflatver1", "vmdkflatver2", "vmdkflat", "vmdksparse", "vmdksparsever1", "vmdksparsever2", "vmdksepsparse", "vhd"]
 	// requried: false
