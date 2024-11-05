@@ -617,7 +617,7 @@ func (manager *SIsolatedDeviceManager) attachHostDeviceToGuestByDevicePath(ctx c
 		}
 	}
 	if selectedDev.Id == "" {
-		return fmt.Errorf("Can't found unused model %s device_path %s on host %s", devConfig.Model, devConfig.DevicePath, host.Id)
+		selectedDev = devs[0]
 	}
 	return guest.attachIsolatedDevice(ctx, userCred, &selectedDev, devConfig.NetworkIndex, devConfig.DiskIndex)
 }
@@ -752,8 +752,37 @@ func (manager *SIsolatedDeviceManager) attachHostDeviceToGuestByModel(
 		}
 	}
 	if selectedDev == nil {
+		for i := range groupDevs {
+			if groupDevs[i].DevPath != "" {
+				for j := range groupDevs[i].Devs {
+					dev := groupDevs[i].Devs[j]
+					devAddr := strings.Split(dev.Addr, "-")[0]
+					if _, ok := usedDevMap[devAddr]; ok {
+						continue
+					} else {
+						selectedDev = &groupDevs[i].Devs[j]
+						break
+					}
+				}
+			} else {
+				dev := groupDevs[i].Devs[0]
+				devAddr := strings.Split(dev.Addr, "-")[0]
+				if _, ok := usedDevMap[devAddr]; ok {
+					continue
+				} else {
+					selectedDev = &groupDevs[i].Devs[0]
+				}
+			}
+			if selectedDev != nil {
+				break
+			}
+		}
+	}
+
+	if selectedDev == nil {
 		selectedDev = &groupDevs[0].Devs[0]
 	}
+
 	return guest.attachIsolatedDevice(ctx, userCred, selectedDev, devConfig.NetworkIndex, devConfig.DiskIndex)
 }
 
@@ -1238,7 +1267,10 @@ func (manager *SIsolatedDeviceManager) GetAllDevsOnHost(hostId string) ([]SIsola
 
 func (manager *SIsolatedDeviceManager) GetUnusedDevsOnHost(hostId string, model string, count int) ([]SIsolatedDevice, error) {
 	devs := make([]SIsolatedDevice, 0)
-	q := manager.Query().Equals("host_id", hostId).Equals("model", model).IsNullOrEmpty("guest_id").Limit(count)
+	q := manager.Query().Equals("host_id", hostId).Equals("model", model).IsNullOrEmpty("guest_id")
+	if count > 0 {
+		q = q.Limit(count)
+	}
 	err := db.FetchModelObjects(manager, q, &devs)
 	if err != nil {
 		return nil, err

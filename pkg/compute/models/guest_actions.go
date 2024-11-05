@@ -2309,17 +2309,43 @@ func (self *SGuest) AttachIsolatedDevices(ctx context.Context, userCred mcclient
 			}
 		}
 		if dev.DevType == api.LEGACY_VGPU_TYPE {
-			devs, err := self.GetIsolatedDevices()
+			attachedGpus, err := self.GetIsolatedDevices()
 			if err != nil {
 				return errors.Wrap(err, "get isolated devices")
 			}
-			for i := range devs {
-				if devs[i].DevType == api.LEGACY_VGPU_TYPE {
+			for i := range attachedGpus {
+				if attachedGpus[i].DevType == api.LEGACY_VGPU_TYPE {
 					return httperrors.NewBadRequestError("Nvidia vgpu count exceed > 1")
-				} else if utils.IsInStringArray(devs[i].DevType, api.VALID_GPU_TYPES) {
+				} else if utils.IsInStringArray(attachedGpus[i].DevType, api.VALID_GPU_TYPES) {
 					return httperrors.NewBadRequestError("Nvidia vgpu can't passthrough with other gpus")
 				}
 			}
+		} else if dev.DevType == api.CONTAINER_DEV_NVIDIA_MPS {
+			allDevs, err := IsolatedDeviceManager.GetUnusedDevsOnHost(host.Id, devModel, -1)
+			if err != nil {
+				return httperrors.NewInternalServerError("fetch gpu failed %s", err)
+			}
+			attachedGpus, err := self.GetIsolatedDevices()
+			if err != nil {
+				return httperrors.NewInternalServerError("get attached isolated devices %s", err)
+			}
+			attachedAddrs := map[string]struct{}{}
+			for i := range attachedGpus {
+				addr := strings.Split(attachedGpus[i].Addr, "-")[0]
+				attachedAddrs[addr] = struct{}{}
+			}
+			validDevs := []SIsolatedDevice{}
+			for i := range allDevs {
+				devAddr := strings.Split(allDevs[i].Addr, "-")[0]
+				if _, ok := attachedAddrs[devAddr]; ok {
+					continue
+				}
+				validDevs = append(validDevs, allDevs[i])
+			}
+			if len(validDevs) < count {
+				return httperrors.NewInsufficientResourceError("require %d %s isolated device of host %s is not enough", count, devModel, host.GetName())
+			}
+			devs = validDevs[:count]
 		}
 		unusedDevs = append(unusedDevs, devs...)
 	}
