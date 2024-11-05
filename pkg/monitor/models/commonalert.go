@@ -792,8 +792,10 @@ func (alert *SCommonAlert) GetCommonAlertMetricDetailsFromAlertCondition(index i
 	return metricDetails
 }
 
-func getCommonAlertMetricDetailsFromCondition(cond *monitor.AlertCondition,
-	metricDetails *monitor.CommonAlertMetricDetails) {
+func getCommonAlertMetricDetailsFromCondition(
+	cond *monitor.AlertCondition,
+	metricDetails *monitor.CommonAlertMetricDetails,
+) {
 	cmp := ""
 	switch cond.Evaluator.Type {
 	case "gt":
