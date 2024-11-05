@@ -51,6 +51,8 @@ func InitHandlers(app *appsrv.Application) {
 		models.VerificationManager,
 		models.EventManager,
 		models.EmailQueueStatusManager,
+		models.TopicActionManager,
+		models.TopicResourceManager,
 	} {
 		db.RegisterModelManager(manager)
 	}
