@@ -15,10 +15,12 @@
 package monitor
 
 import (
+	"reflect"
 	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/gotypes"
 
 	"yunion.io/x/onecloud/pkg/apis"
 )
@@ -82,6 +84,14 @@ func (s ExecutionErrorOption) ToAlertState() AlertStateType {
 // AlertSettings contains alert conditions
 type AlertSetting struct {
 	Conditions []AlertCondition `json:"conditions"`
+}
+
+func (s AlertSetting) String() string {
+	return jsonutils.Marshal(s).String()
+}
+
+func (s AlertSetting) IsZero() bool {
+	return len(s.Conditions) == 0
 }
 
 type AlertCondition struct {
@@ -211,4 +221,10 @@ type AlertPauseInput struct {
 	apis.Meta
 
 	Paused bool `json:"paused"`
+}
+
+func init() {
+	gotypes.RegisterSerializable(reflect.TypeOf(&AlertSetting{}), func() gotypes.ISerializable {
+		return &AlertSetting{}
+	})
 }
