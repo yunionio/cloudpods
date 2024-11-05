@@ -149,7 +149,8 @@ func AttachDevice(filePath string, partScan bool) (*Device, error) {
 	if partScan {
 		args = append(args, "-P")
 	}
-	args = append(args, []string{"--find", "--nooverlap", filePath}...)
+	// args = append(args, []string{"--find", "--nooverlap", filePath}...)
+	args = append(args, []string{"--find", filePath}...)
 	_, err = NewLosetupCommand().AddArgs(args...).Run()
 	if err != nil {
 		return nil, err
