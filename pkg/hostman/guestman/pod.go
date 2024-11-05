@@ -361,9 +361,9 @@ func (s *sPodGuestInstance) SyncStatus(reason string) {
 			log.Errorf("get container %s status of pod %s", c.Id, s.Id)
 			continue
 		}
-		if err := s.expectedStatus.SetContainerStatus(c.CRIId, c.Id, cStatus); err != nil {
+		/*if err := s.expectedStatus.SetContainerStatus(c.CRIId, c.Id, cStatus); err != nil {
 			log.Warningf("expectedStatus.SetContainerStatus(%s, %s) to %s, error: %s", s.GetId(), c.Id, cStatus, err.Error())
-		}
+		}*/
 
 		ctrStatusInput := &computeapi.ContainerPerformStatusInput{
 			PerformStatusInput: apis.PerformStatusInput{
