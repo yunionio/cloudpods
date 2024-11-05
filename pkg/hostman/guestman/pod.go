@@ -971,6 +971,13 @@ func (s *sPodGuestInstance) SyncConfig(ctx context.Context, guestDesc *desc.SGue
 	if err := SaveDesc(s, guestDesc); err != nil {
 		return nil, errors.Wrap(err, "SaveDesc")
 	}
+
+	// update guest live desc, don't be here update cpu and mem
+	// cpu and memory should update from SGuestHotplugCpuMemTask
+	s.UpdateLiveDesc(guestDesc)
+	s.Desc.SGuestHardwareDesc = guestDesc.SGuestHardwareDesc
+	s.Desc.SGuestContainerDesc = guestDesc.SGuestContainerDesc
+
 	if err := SaveLiveDesc(s, s.Desc); err != nil {
 		return nil, errors.Wrap(err, "SaveLiveDesc")
 	}
