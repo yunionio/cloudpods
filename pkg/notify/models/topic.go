@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"strings"
 
-	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -756,7 +755,7 @@ func (sm *STopicManager) GetTopicsByEvent(resourceType string, action api.SActio
 	return topics, err
 }
 
-func (manager *STopicManager) TopicsByEvent(eventStr string) ([]STopic, error) {
+func (manager *STopicManager) TopicByEvent(eventStr string) (*STopic, error) {
 	event, err := parseEvent(eventStr)
 	if err != nil {
 		return nil, errors.Wrapf(err, "unable to parse event %q", event)
@@ -767,7 +766,6 @@ func (manager *STopicManager) TopicsByEvent(eventStr string) ([]STopic, error) {
 	} else {
 		q = q.Equals("results", false)
 	}
-	q = q.Equals("enabled", true)
 	actionQ := NotifyActionManager.Query().Equals("name", event.Action()).IsTrue("enabled").SubQuery()
 	topicActionQ := TopicActionManager.Query()
 	topicActionQ = topicActionQ.Join(actionQ, sqlchemy.Equals(topicActionQ.Field("action_id"), actionQ.Field("id")))
@@ -781,7 +779,13 @@ func (manager *STopicManager) TopicsByEvent(eventStr string) ([]STopic, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to FetchModelObjects")
 	}
-	return topics, nil
+	for i := range topics {
+		if topics[i].Enabled.IsFalse() {
+			return nil, errors.Wrapf(errors.ErrInvalidStatus, "topic %s disabled", eventStr)
+		}
+		return &topics[i], nil
+	}
+	return nil, errors.Wrapf(errors.ErrNotFound, "topic %s", eventStr)
 }
 
 func (t *STopic) PreCheckPerformAction(
@@ -807,20 +811,6 @@ func (topic *STopic) CreateEvent(ctx context.Context, resType, action, message s
 		TopicId:      topic.Id,
 	}
 	return eve, EventManager.TableSpec().Insert(ctx, eve)
-}
-
-func (sm *STopicManager) TopicByEvent(eventStr string) (*STopic, error) {
-	topics, err := sm.TopicsByEvent(eventStr)
-	if err != nil {
-		return nil, err
-	}
-	if len(topics) == 1 {
-		return &topics[0], nil
-	}
-	if len(topics) == 0 {
-		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "eventStr:%s", eventStr)
-	}
-	return nil, errors.Wrapf(cloudprovider.ErrDuplicateId, "eventStr:%s", eventStr)
 }
 
 func (s *STopic) PerformAddResource(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.STopicResourceInput) (jsonutils.JSONObject, error) {
