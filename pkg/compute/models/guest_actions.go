@@ -55,6 +55,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/cloudcommon/userdata"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
+	"yunion.io/x/onecloud/pkg/compute/baremetal"
 	guestdriver_types "yunion.io/x/onecloud/pkg/compute/guestdrivers/types"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -6575,4 +6576,17 @@ func (self *SGuest) PerformSyncOsInfo(ctx context.Context, userCred mcclient.Tok
 		// try qga get os info
 		return nil, self.startQgaSyncOsInfoTask(ctx, userCred, "")
 	}
+}
+
+func (g *SGuest) PerformSetRootDiskMatcher(ctx context.Context, userCred mcclient.TokenCredential, _ jsonutils.JSONObject, data *api.BaremetalRootDiskMatcher) (jsonutils.JSONObject, error) {
+	if g.GetHypervisor() != api.HYPERVISOR_BAREMETAL {
+		return nil, httperrors.NewNotAcceptableError("only %s support for setting root disk matcher", api.HYPERVISOR_BAREMETAL)
+	}
+	if err := baremetal.ValidateRootDiskMatcher(data); err != nil {
+		return nil, err
+	}
+	if err := g.SetMetadata(ctx, api.BAREMETAL_SERVER_METATA_ROOT_DISK_MATCHER, jsonutils.Marshal(data), userCred); err != nil {
+		return nil, errors.Wrapf(err, "set %s", api.BAREMETAL_SERVER_METATA_ROOT_DISK_MATCHER)
+	}
+	return nil, nil
 }
