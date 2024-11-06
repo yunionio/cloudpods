@@ -89,7 +89,6 @@ func (self *GuestDiskSnapshotTask) OnDiskSnapshotComplete(ctx context.Context, g
 		return
 	}
 
-	guest.SetStatus(ctx, self.UserCred, api.VM_SNAPSHOT_SUCC, "")
 	self.TaskComplete(ctx, guest, nil)
 }
 
