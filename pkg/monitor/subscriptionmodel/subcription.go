@@ -419,7 +419,7 @@ func (n *SSubscriptionManager) doNotify(nIds []string, evalCtx *alerting.EvalCon
 }
 
 func (self *SSubscriptionManager) notifyBySysConfig(evalContext alerting.EvalContext) error {
-	config := notifiers.GetNotifyTemplateConfig(&evalContext)
+	config := notifiers.GetNotifyTemplateConfig(&evalContext, false, evalContext.EvalMatches)
 	contentConfig := templates.NewTemplateConfig(config)
 	content, err := contentConfig.GenerateMarkdown()
 	if err != nil {

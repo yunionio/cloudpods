@@ -56,6 +56,10 @@ func (n *NotifierBase) ShouldNotify(_ context.Context, evalCtx *alerting.EvalCon
 	prevState := evalCtx.PrevAlertState
 	newState := evalCtx.Rule.State
 
+	if evalCtx.HasRecoveredMatches() {
+		return true
+	}
+
 	// Do not notify if alert state is no_data
 	if newState == monitor.AlertStateNoData {
 		return false

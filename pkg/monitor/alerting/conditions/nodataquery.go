@@ -18,6 +18,7 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/apis/monitor"
@@ -39,7 +40,7 @@ const (
 )
 
 func init() {
-	alerting.RegisterCondition("nodata_query", func(model *monitor.AlertCondition, index int) (alerting.Condition,
+	alerting.RegisterCondition(monitor.METRIC_QUERY_TYPE_NO_DATA, func(model *monitor.AlertCondition, index int) (alerting.Condition,
 		error) {
 		return newNoDataQueryCondition(model, index)
 	})
@@ -60,12 +61,13 @@ func (c *NoDataQueryCondition) Eval(context *alerting.EvalContext) (*alerting.Co
 	var matches []*monitor.EvalMatch
 	var alertOkmatches []*monitor.EvalMatch
 	normalHostIds := make(map[string]*monitor.EvalMatch, 0)
+	alert, err := models.CommonAlertManager.GetAlert(context.Rule.Id)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetAlert to NewEvalMatch error")
+	}
 serLoop:
 	for _, series := range seriesList {
-		tagId := monitor.MEASUREMENT_TAG_ID[context.Rule.RuleDescription[0].ResType]
-		if len(tagId) == 0 {
-			tagId = "host_id"
-		}
+		tagId := monitor.GetMeasurementTagIdKeyByResTypeWithDefault(context.Rule.RuleDescription[0].ResType)
 		for key, val := range series.Tags {
 			if key == tagId {
 				if len(context.Rule.RuleDescription) == 0 {
@@ -79,7 +81,7 @@ serLoop:
 				}
 
 				reducedValue, valStrArr := c.Reducer.Reduce(series)
-				match, err := c.NewEvalMatch(context, *series, nil, reducedValue, valStrArr, false)
+				match, err := c.NewEvalMatch(alert, context, *series, nil, reducedValue, valStrArr, false)
 				if err != nil {
 					return nil, errors.Wrap(err, "NoDataQueryCondition NewEvalMatch error")
 				}
@@ -94,15 +96,18 @@ serLoop:
 	}
 	for _, host := range allResources {
 		id, _ := host.GetString("id")
-		evalMatch, err := c.NewNoDataEvalMatch(context, host)
+		evalMatch, err := c.NewNoDataEvalMatch(context, alert, host)
 		if err != nil {
-			return nil, errors.Wrap(err, "NewNoDataEvalMatch error")
+			return nil, errors.Wrapf(err, "NewNoDataEvalMatch of host: %s", host.String())
 		}
 		if normalMatch, ok := normalHostIds[id]; !ok {
 			c.createEvalMatchTagFromHostJson(context, evalMatch, host)
 			matches = append(matches, evalMatch)
 		} else {
 			c.createEvalMatchTagFromHostJson(context, normalMatch, host)
+			if err := OkEvalMatchSetIsRecovery(alert, id, normalMatch); err != nil {
+				log.Warningf("[NoDataQuery] set eval match %s to recovered: %v", jsonutils.Marshal(normalMatch), err)
+			}
 			alertOkmatches = append(alertOkmatches, normalMatch)
 		}
 	}
@@ -115,7 +120,7 @@ serLoop:
 	}, nil
 }
 
-func (c *NoDataQueryCondition) convertTagsQuery(evalContext *alerting.EvalContext,
+/*func (c *NoDataQueryCondition) convertTagsQuery(evalContext *alerting.EvalContext,
 	query *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	alertDetails, err := c.GetCommonAlertDetails(evalContext)
 	if err != nil {
@@ -136,14 +141,10 @@ func (c *NoDataQueryCondition) convertTagsQuery(evalContext *alerting.EvalContex
 		filterCount++
 	}
 	return query, nil
-}
+}*/
 
-func (c *NoDataQueryCondition) NewNoDataEvalMatch(context *alerting.EvalContext, host jsonutils.JSONObject) (*monitor.EvalMatch, error) {
+func (c *NoDataQueryCondition) NewNoDataEvalMatch(context *alerting.EvalContext, alert *models.SCommonAlert, host jsonutils.JSONObject) (*monitor.EvalMatch, error) {
 	evalMatch := new(monitor.EvalMatch)
-	alert, err := models.CommonAlertManager.GetAlert(context.Rule.Id)
-	if err != nil {
-		return nil, errors.Wrap(err, "GetAlert to NewEvalMatch error")
-	}
 	settings, _ := alert.GetSettings()
 	alertDetails := alert.GetCommonAlertMetricDetailsFromAlertCondition(c.Index, &settings.Conditions[c.Index])
 	evalMatch.Metric = fmt.Sprintf("%s.%s", alertDetails.Measurement, alertDetails.Field)
@@ -164,8 +165,11 @@ func (c *NoDataQueryCondition) NewNoDataEvalMatch(context *alerting.EvalContext,
 	return evalMatch, nil
 }
 
-func (c *NoDataQueryCondition) createEvalMatchTagFromHostJson(evalContext *alerting.EvalContext, evalMatch *monitor.EvalMatch,
-	host jsonutils.JSONObject) {
+func (c *NoDataQueryCondition) createEvalMatchTagFromHostJson(
+	evalContext *alerting.EvalContext,
+	evalMatch *monitor.EvalMatch,
+	host jsonutils.JSONObject,
+) {
 	evalMatch.Tags = make(map[string]string, 0)
 
 	ip, _ := host.GetString(HOST_TAG_IP)
@@ -186,7 +190,7 @@ func (c *NoDataQueryCondition) createEvalMatchTagFromHostJson(evalContext *alert
 	case monitor.METRIC_RES_TYPE_OSS:
 	default:
 		evalMatch.Tags["host"] = name
-		evalMatch.Tags[monitor.MEASUREMENT_TAG_ID[monitor.METRIC_RES_TYPE_HOST]] = id
+		evalMatch.Tags[monitor.GetMeasurementTagIdKeyByResType(monitor.METRIC_RES_TYPE_HOST)] = id
 		evalMatch.Tags[hostconsts.TELEGRAF_TAG_KEY_RES_TYPE] = hostconsts.TELEGRAF_TAG_ONECLOUD_RES_TYPE
 		evalMatch.Tags[hostconsts.TELEGRAF_TAG_KEY_HOST_TYPE] = hostconsts.TELEGRAF_TAG_ONECLOUD_HOST_TYPE_HOST
 	}
