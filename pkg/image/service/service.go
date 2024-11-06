@@ -68,6 +68,8 @@ func StartService() {
 
 	common_options.StartOptionManager(opts, opts.ConfigSyncPeriodSeconds, api.SERVICE_TYPE, api.SERVICE_VERSION, options.OnOptionsChange)
 
+	models.InitImageStreamWorkers()
+
 	if opts.PortV2 > 0 {
 		log.Infof("Port V2 %d is specified, use v2 port", opts.PortV2)
 		opts.Port = opts.PortV2
