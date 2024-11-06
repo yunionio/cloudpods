@@ -1538,3 +1538,16 @@ type ServerSetOSInfoOptions struct {
 func (o *ServerSetOSInfoOptions) Params() (jsonutils.JSONObject, error) {
 	return jsonutils.Marshal(o), nil
 }
+
+type ServerSetRootDiskMatcher struct {
+	ROOTDISKMATCHER string `help:"Baremetal root disk matcher, e.g. 'device=/dev/sdb' 'size=900G' 'size_start=800G,size_end=900G'" json:"-"`
+	ServerIdsOptions
+}
+
+func (o *ServerSetRootDiskMatcher) Params() (jsonutils.JSONObject, error) {
+	matcher, err := cmdline.ParseBaremetalRootDiskMatcher(o.ROOTDISKMATCHER)
+	if err != nil {
+		return nil, err
+	}
+	return jsonutils.Marshal(matcher), nil
+}
