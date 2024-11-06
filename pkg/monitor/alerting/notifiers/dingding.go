@@ -86,11 +86,26 @@ func newDingdingNotifier(config alerting.NotificationConfig) (alerting.Notifier,
 	}, nil
 }
 
-func (dd *DingDingNotifier) Notify(ctx *alerting.EvalContext, _ jsonutils.JSONObject) error {
+func (dd *DingDingNotifier) Notify(evalCtx *alerting.EvalContext, d jsonutils.JSONObject) error {
 	log.Infof("Sending alert notification to dingding")
+	errs := []error{}
+	if len(evalCtx.EvalMatches) > 0 {
+		if err := dd.notify(evalCtx, evalCtx.EvalMatches, false, d); err != nil {
+			errs = append(errs, errors.Wrap(err, "notify alerting matches"))
+		}
+	}
+	if evalCtx.HasRecoveredMatches() {
+		if err := dd.notify(evalCtx, evalCtx.GetRecoveredMatches(), true, d); err != nil {
+			errs = append(errs, errors.Wrap(err, "notify recovered matches"))
+		}
+	}
+	return errors.NewAggregate(errs)
+}
+
+func (dd *DingDingNotifier) notify(ctx *alerting.EvalContext, matches []*monitor.EvalMatch, isRecoverd bool, _ jsonutils.JSONObject) error {
 	// msgUrl, err := ctx.GetRuleURL()
 
-	body, err := dd.genBody(ctx)
+	body, err := dd.genBody(ctx, matches, isRecoverd)
 	if err != nil {
 		return err
 	}
@@ -101,7 +116,7 @@ func (dd *DingDingNotifier) Notify(ctx *alerting.EvalContext, _ jsonutils.JSONOb
 	return SendWebRequestSync(ctx.Ctx, input)
 }
 
-func (dd *DingDingNotifier) genBody(ctx *alerting.EvalContext) ([]byte, error) {
+func (dd *DingDingNotifier) genBody(ctx *alerting.EvalContext, matches []*monitor.EvalMatch, isRecoverd bool) ([]byte, error) {
 	q := url.Values{
 		"pc_slide": {"false"},
 		// "url": {messageURL},
@@ -113,7 +128,7 @@ func (dd *DingDingNotifier) genBody(ctx *alerting.EvalContext) ([]byte, error) {
 
 	log.Infof("messageUrl: " + messageURL)
 
-	config := GetNotifyTemplateConfig(ctx)
+	config := GetNotifyTemplateConfig(ctx, isRecoverd, matches)
 	contentConfig := templates.NewTemplateConfig(config)
 	content, err := contentConfig.GenerateMarkdown()
 	if err != nil {

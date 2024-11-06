@@ -337,3 +337,12 @@ func (manager *SMonitorResourceAlertManager) ListItemExportKeys(ctx context.Cont
 func (m *SMonitorResourceAlertManager) FilterByOwner(q *sqlchemy.SQuery, man db.FilterByOwnerProvider, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	return q
 }
+
+func (m *SMonitorResourceAlertManager) GetResourceAlert(alertId string, resourceId string, metric string) (*SMonitorResourceAlert, error) {
+	q := m.Query().Equals("alert_id", alertId).Equals("monitor_resource_id", resourceId).Equals("metric", metric)
+	obj := new(SMonitorResourceAlert)
+	if err := q.First(obj); err != nil {
+		return nil, errors.Wrapf(err, "query resource alert by alert_id: %q, resource_id: %q, metric: %q", alertId, resourceId, metric)
+	}
+	return obj, nil
+}
