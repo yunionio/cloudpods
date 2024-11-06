@@ -84,6 +84,9 @@ func AddStorageHandler(prefix string, app *appsrv.Application) {
 		app.AddHandler("POST",
 			fmt.Sprintf("%s/%s/sync-backup-storage", prefix, keyWords),
 			auth.Authenticate(storageSyncBackupStorage))
+		app.AddHandler("POST",
+			fmt.Sprintf("%s/%s/<storageId>/clean-recycle-diskfiles", prefix, keyWords),
+			auth.Authenticate(storageCleanRecycleDiskfiles))
 	}
 }
 
@@ -494,7 +497,7 @@ func storageDeleteSnapshots(ctx context.Context, w http.ResponseWriter, r *http.
 	var storageId = params["<storageId>"]
 	storage := storageman.GetManager().GetStorage(storageId)
 	if storage == nil {
-		hostutils.Response(ctx, w, httperrors.NewNotFoundError("Stroage Not found"))
+		hostutils.Response(ctx, w, httperrors.NewNotFoundError("Storage Not found"))
 		return
 	}
 	diskId, err := body.GetString("disk_id")
@@ -515,5 +518,17 @@ func storageDeleteSnapshots(ctx context.Context, w http.ResponseWriter, r *http.
 	}
 
 	hostutils.DelayTask(ctx, storage.DeleteSnapshots, input)
+	hostutils.ResponseOk(ctx, w)
+}
+
+func storageCleanRecycleDiskfiles(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	params, _, _ := appsrv.FetchEnv(ctx, w, r)
+	var storageId = params["<storageId>"]
+	storage := storageman.GetManager().GetStorage(storageId)
+	if storage == nil {
+		hostutils.Response(ctx, w, httperrors.NewNotFoundError("Storage Not found"))
+		return
+	}
+	go storage.CleanRecycleDiskfiles(ctx)
 	hostutils.ResponseOk(ctx, w)
 }

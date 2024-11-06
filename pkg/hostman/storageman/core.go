@@ -468,6 +468,9 @@ func CleanRecycleDiskfiles(ctx context.Context, userCred mcclient.TokenCredentia
 		return
 	}
 	for _, storage := range storageManager.Storages {
+		if utils.IsInStringArray(storage.StorageType(), api.SHARED_STORAGE) {
+			continue
+		}
 		storage.CleanRecycleDiskfiles(ctx)
 	}
 }
@@ -491,11 +494,18 @@ func CleanImageCachefiles(ctx context.Context, userCred mcclient.TokenCredential
 	// }
 }
 
-func GatherHostStorageStats() api.SHostPingInput {
+func GatherHostStorageStats(reportSharedStorages []string) api.SHostPingInput {
 	stats := api.SHostPingInput{}
 	stats.RootPartitionUsedCapacityMb = GetRootPartUsedCapacity()
 	manager := GetManager()
+	log.Debugf("report shared storages %s", reportSharedStorages)
 	for i := 0; i < len(manager.Storages); i++ {
+		if utils.IsInStringArray(manager.Storages[i].StorageType(), api.SHARED_STORAGE) &&
+			!utils.IsInStringArray(manager.Storages[i].GetId(), reportSharedStorages) {
+			log.Debugf("skip report storage %s", manager.Storages[i].GetId())
+			continue
+		}
+
 		iS := manager.Storages[i]
 		stat, err := iS.SyncStorageSize()
 		if err != nil {

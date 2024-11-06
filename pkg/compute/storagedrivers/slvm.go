@@ -47,18 +47,9 @@ func (s *SSLVMStorageDriver) ValidateCreateData(ctx context.Context, userCred mc
 	if len(input.SLVMVgName) == 0 {
 		return httperrors.NewMissingParameterError("slvm_vg_name")
 	}
-	if input.Lvmlockd {
-		input.MasterHost = ""
-	}
-	if !input.Lvmlockd && len(input.MasterHost) == 0 {
-		return httperrors.NewMissingParameterError("master_host")
-	}
-	if input.MasterHost != "" {
-		host, err := models.HostManager.FetchByIdOrName(ctx, userCred, input.MasterHost)
-		if err != nil {
-			return httperrors.NewInputParameterError("get host %s failed", input.MasterHost)
-		}
-		input.MasterHost = host.GetId()
+
+	if !input.Lvmlockd {
+		return httperrors.NewMissingParameterError("lvm_lockd")
 	}
 
 	storages := []models.SStorage{}
