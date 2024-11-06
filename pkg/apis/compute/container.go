@@ -131,7 +131,8 @@ type ContainerListInput struct {
 }
 
 type ContainerStopInput struct {
-	Timeout int `json:"timeout"`
+	Timeout int  `json:"timeout"`
+	Force   bool `json:"force"`
 }
 
 type ContainerSyncStatusResponse struct {

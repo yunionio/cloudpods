@@ -29,11 +29,11 @@ type SAlert struct {
 	apis.SStatusStandaloneResourceBase
 	SMonitorScopedResource
 	// Frequency is evaluate period
-	Frequency int64                `json:"frequency"`
+	Frequency int64         `json:"frequency"`
 	Settings  *AlertSetting `json:"settings"`
-	Level     string               `json:"level"`
-	Message   string               `json:"message"`
-	UsedBy    string               `json:"used_by"`
+	Level     string        `json:"level"`
+	Message   string        `json:"message"`
+	UsedBy    string        `json:"used_by"`
 	// Silenced       bool
 	ExecutionError string `json:"execution_error"`
 	// If an alert rule has a configured `For` and the query violates the configured threshold
