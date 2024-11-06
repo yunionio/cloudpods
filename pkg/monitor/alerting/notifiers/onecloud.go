@@ -115,63 +115,60 @@ func getAdminSession() *mcclient.ClientSession {
 	return auth.GetAdminSession(context.Background(), options.Options.Region)
 }
 
-func GetNotifyTemplateConfig(ctx *alerting.EvalContext) monitor.NotificationTemplateConfig {
-	priority := notify.NotifyPriorityNormal
-	level := "普通"
-	switch ctx.Rule.Level {
-	case "", "normal":
-		priority = notify.NotifyPriorityNormal
-	case "important":
-		priority = notify.NotifyPriorityImportant
-		level = "重要"
-	case "fatal", "critical":
-		priority = notify.NotifyPriorityCritical
-		level = "致命"
-	}
-	topic := fmt.Sprintf("[%s]", level)
-
-	isRecovery := false
-	if ctx.Rule.State == monitor.AlertStateOK {
-		isRecovery = true
-		topic = fmt.Sprintf("%s %s 告警已恢复", topic, ctx.GetRuleTitle())
-	} else if ctx.NoDataFound {
-		topic = fmt.Sprintf("%s %s 暂无数据", topic, ctx.GetRuleTitle())
-	} else {
-		topic = fmt.Sprintf("%s %s 发生告警", topic, ctx.GetRuleTitle())
-	}
-	config := ctx.GetNotificationTemplateConfig()
-	config.Title = topic
-	config.Level = level
-	config.Priority = string(priority)
-	config.IsRecovery = isRecovery
-	return config
+func GetNotifyTemplateConfig(ctx *alerting.EvalContext, isRecoverd bool, matches []*monitor.EvalMatch) monitor.NotificationTemplateConfig {
+	return getNotifyTemplateConfigOfLang(ctx, matches, isRecoverd, language.Chinese)
 }
 
-func GetNotifyTemplateConfigOfEN(ctx *alerting.EvalContext) monitor.NotificationTemplateConfig {
+func getNotifyTemplateConfigOfLang(ctx *alerting.EvalContext,
+	matches []*monitor.EvalMatch, isRecovered bool, lang language.Tag) monitor.NotificationTemplateConfig {
 	priority := notify.NotifyPriorityNormal
-	level := "Normal"
+	levelNormal := "普通"
+	levelImportant := "重要"
+	levelCritial := "致命"
+	msgRecovered := "告警已恢复"
+	msgNoData := "暂无数据"
+	msgAlerting := "发生告警"
+
+	transMap := map[string]string{
+		levelNormal:    "Normal",
+		levelImportant: "Important",
+		levelCritial:   "Critical",
+		msgRecovered:   "Alarm recovered",
+		msgNoData:      "No data available",
+		msgAlerting:    "Alerting",
+	}
+	trans := func(input string) string {
+		if lang == language.English {
+			return transMap[input]
+		}
+		return input
+	}
+
+	level := levelNormal
 	switch ctx.Rule.Level {
 	case "", "normal":
 		priority = notify.NotifyPriorityNormal
 	case "important":
 		priority = notify.NotifyPriorityImportant
-		level = "Important"
+		level = levelNormal
 	case "fatal", "critical":
 		priority = notify.NotifyPriorityCritical
-		level = "Critical"
+		level = levelNormal
 	}
-	topic := fmt.Sprintf("[%s]", level)
+	topic := fmt.Sprintf("[%s]", trans(level))
 
 	isRecovery := false
-	if ctx.Rule.State == monitor.AlertStateOK {
+	var hintMsg string
+	if ctx.Rule.State == monitor.AlertStateOK || isRecovered {
 		isRecovery = true
-		topic = fmt.Sprintf("%s %s Alarm recovered", topic, ctx.GetRuleTitle())
+		hintMsg = msgRecovered
 	} else if ctx.NoDataFound {
-		topic = fmt.Sprintf("%s %s No data available", topic, ctx.GetRuleTitle())
+		hintMsg = msgNoData
 	} else {
-		topic = fmt.Sprintf("%s %s Alarm", topic, ctx.GetRuleTitle())
+		hintMsg = msgAlerting
 	}
-	config := ctx.GetNotificationTemplateConfig()
+	topic = fmt.Sprintf("%s %s %s", topic, ctx.GetRuleTitle(), trans(hintMsg))
+	config := ctx.GetNotificationTemplateConfig(matches)
 	config.Title = topic
 	config.Level = level
 	config.Priority = string(priority)
@@ -249,14 +246,28 @@ func getLangBystr(str string) language.Tag {
 }
 
 func (oc *OneCloudNotifier) notifyByContextLang(ctx context.Context, evalCtx *alerting.EvalContext, uids []string) error {
-	var config monitor.NotificationTemplateConfig
-	lang := appctx.Lang(ctx)
-	switch lang {
-	case language.English:
-		config = GetNotifyTemplateConfigOfEN(evalCtx)
-	default:
-		config = GetNotifyTemplateConfig(evalCtx)
+	errs := []error{}
+	if len(evalCtx.EvalMatches) > 0 {
+		if err := oc.notifyMatchesByContextLang(ctx, evalCtx, evalCtx.EvalMatches, uids, false); err != nil {
+			errs = append(errs, errors.Wrapf(err, "notify alerting matches"))
+		}
 	}
+	if evalCtx.HasRecoveredMatches() {
+		if err := oc.notifyMatchesByContextLang(ctx, evalCtx, evalCtx.GetRecoveredMatches(), uids, true); err != nil {
+			errs = append(errs, errors.Wrapf(err, "notify recovered matches"))
+		}
+	}
+	return errors.NewAggregate(errs)
+}
+
+func (oc *OneCloudNotifier) notifyMatchesByContextLang(
+	ctx context.Context,
+	evalCtx *alerting.EvalContext,
+	matches []*monitor.EvalMatch,
+	uids []string,
+	isRecoverd bool) error {
+	lang := appctx.Lang(ctx)
+	config := getNotifyTemplateConfigOfLang(evalCtx, matches, isRecoverd, lang)
 	oc.filterMatchTagsForConfig(&config, ctx)
 
 	contentConfig := oc.buildContent(config)
@@ -516,7 +527,7 @@ func SendNotifyInfo(base *sendnotifyBase, imp Isendnotify) error {
 			split = len(tmpMatches)
 		}
 		base.config.Matches = tmpMatches[i:split]
-		base.config.ResourceName = base.evalCtx.GetResourceNameOfMathes(base.config.Matches)
+		base.config.ResourceName = base.evalCtx.GetResourceNameOfMatches(base.config.Matches)
 		err := imp.execNotifyFunc()
 		if err != nil {
 			return err

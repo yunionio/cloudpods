@@ -409,10 +409,6 @@ type UpdateMonitorResourceAlertInput struct {
 }
 
 func (manager *SMonitorResourceManager) UpdateMonitorResourceAttachJoint(ctx context.Context, userCred mcclient.TokenCredential, input *UpdateMonitorResourceAlertInput) error {
-	//if !utils.IsInStringArray(alertRecord.ResType, []string{monitor.METRIC_RES_TYPE_HOST,
-	//	monitor.METRIC_RES_TYPE_GUEST, monitor.METRIC_RES_TYPE_AGENT}) {
-	//	return nil
-	//}
 	resType := input.ResType
 	if resType == monitor.METRIC_RES_TYPE_AGENT {
 		resType = monitor.METRIC_RES_TYPE_GUEST
@@ -421,7 +417,7 @@ func (manager *SMonitorResourceManager) UpdateMonitorResourceAttachJoint(ctx con
 	errs := make([]error, 0)
 	matchResourceIds := make([]string, 0)
 	for _, match := range matches {
-		resId := match.Tags[monitor.MEASUREMENT_TAG_ID[input.ResType]]
+		resId := monitor.GetMeasurementResourceId(match.Tags, input.ResType)
 		if len(resId) == 0 {
 			continue
 		}
