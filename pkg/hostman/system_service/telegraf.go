@@ -121,17 +121,31 @@ func (s *STelegraf) GetConfig(kwargs map[string]interface{}) string {
 	if kafka, ok := kwargs["kafka"]; ok {
 		kafkaConf, _ := kafka.(map[string]interface{})
 		conf += "[[outputs.kafka]]\n"
-		for k := range kafkaConf {
-			if k == "brokers" {
-				brokers, _ := kafkaConf["brokers"].([]string)
-				for i := range brokers {
-					brokers[i] = fmt.Sprintf("\"%s\"", brokers[i])
+		for _, k := range []string{
+			"brokers",
+			"topic",
+			"sasl_username",
+			"sasl_password",
+			"sasl_mechanism",
+		} {
+			if val, ok := kafkaConf[k]; ok {
+				if k == "brokers" {
+					brokers, _ := val.([]string)
+					for i := range brokers {
+						brokers[i] = fmt.Sprintf("\"%s\"", brokers[i])
+					}
+					conf += fmt.Sprintf("  brokers = [%s]\n", strings.Join(brokers, ", "))
+				} else {
+					conf += fmt.Sprintf("  %s = \"%s\"\n", k, val)
 				}
-				conf += fmt.Sprintf("  brokers = [%s]\n", strings.Join(brokers, ", "))
-			} else {
-				conf += fmt.Sprintf("  %s = \"%s\"\n", k, kafkaConf[k])
 			}
 		}
+		conf += "  compression_codec = 0\n"
+		conf += "  required_acks = -1\n"
+		conf += "  max_retry = 3\n"
+		conf += "  data_format = \"json\"\n"
+		conf += "  json_timestamp_units = \"1ms\"\n"
+		conf += "  routing_tag = \"host\"\n"
 		conf += "\n"
 	}
 
