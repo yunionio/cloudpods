@@ -159,10 +159,11 @@ func (c *QueryCondition) Eval(context *alerting.EvalContext) (*alerting.Conditio
 	var matches []*monitor.EvalMatch
 	var alertOkmatches []*monitor.EvalMatch
 
-	//allResources, err := c.GetQueryResources()
-	//if err != nil {
-	//	return nil, errors.Wrap(err, "GetQueryResources err")
-	//}
+	alert, err := models.CommonAlertManager.GetAlert(context.Rule.Id)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetAlert to NewEvalMatch error")
+	}
+
 	for _, series := range seriesList {
 		if len(c.ResType) != 0 {
 			isLatestOfSerie, resource := c.serieIsLatestResource(nil, series)
@@ -193,16 +194,20 @@ func (c *QueryCondition) Eval(context *alerting.EvalContext) (*alerting.Conditio
 			meta = &metas[0]
 		}
 		if evalMatch {
-			match, err := c.NewEvalMatch(context, *series, meta, reducedValue, valStrArr, evalMatch)
+			match, err := c.NewEvalMatch(alert, context, *series, meta, reducedValue, valStrArr, evalMatch)
 			if err != nil {
 				return nil, errors.Wrap(err, "NewEvalMatch error")
 			}
 			matches = append(matches, match)
 		}
 		if reducedValue != nil && !evalMatch {
-			match, err := c.NewEvalMatch(context, *series, meta, reducedValue, valStrArr, evalMatch)
+			match, err := c.NewEvalMatch(alert, context, *series, meta, reducedValue, valStrArr, evalMatch)
 			if err != nil {
 				return nil, errors.Wrap(err, "NewEvalMatch error")
+			}
+			resId := monitor.GetResourceIdFromTagWithDefault(match.Tags, c.ResType)
+			if err := OkEvalMatchSetIsRecovery(alert, resId, match); err != nil {
+				log.Warningf("[Query] set eval match %s to recovered: %v", jsonutils.Marshal(match), err)
 			}
 			alertOkmatches = append(alertOkmatches, match)
 		}
@@ -241,12 +246,7 @@ func (c *QueryCondition) Eval(context *alerting.EvalContext) (*alerting.Conditio
 }
 
 func (c *QueryCondition) serieIsLatestResource(resources map[string]jsonutils.JSONObject, series *monitor.TimeSeries) (bool, jsonutils.JSONObject) {
-	tagId := monitor.MEASUREMENT_TAG_ID[c.ResType]
-	if len(tagId) == 0 {
-		tagId = "host_id"
-	}
-	resId := series.Tags[tagId]
-	log.Debugf("serieIsLatestResource use tagId %q, found resId %q", tagId, resId)
+	resId := monitor.GetResourceIdFromTagWithDefault(series.Tags, c.ResType)
 	if len(resources) != 0 {
 		resource, ok := resources[resId]
 		if !ok {
@@ -279,9 +279,14 @@ func (c *QueryCondition) FillSerieByResourceField(resource jsonutils.JSONObject,
 	}
 }
 
-func (c *QueryCondition) NewEvalMatch(context *alerting.EvalContext, series monitor.TimeSeries, meta *monitor.QueryResultMeta, value *float64, valStrArr []string, isMatch bool) (*monitor.EvalMatch, error) {
+func (c *QueryCondition) NewEvalMatch(
+	alert *models.SCommonAlert,
+	context *alerting.EvalContext,
+	series monitor.TimeSeries,
+	meta *monitor.QueryResultMeta,
+	value *float64, valStrArr []string, isMatch bool) (*monitor.EvalMatch, error) {
 	evalMatch := new(monitor.EvalMatch)
-	alertDetails, err := c.GetCommonAlertDetails(context)
+	alertDetails, err := c.GetCommonAlertDetails(alert)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetAlert to NewEvalMatch error")
 	}
@@ -353,11 +358,7 @@ func (m *meterFetchImp) FetchCustomizeEvalMatch(context *alerting.EvalContext, e
 	return nil
 }
 
-func (c *QueryCondition) GetCommonAlertDetails(context *alerting.EvalContext) (*monitor.CommonAlertMetricDetails, error) {
-	alert, err := models.CommonAlertManager.GetAlert(context.Rule.Id)
-	if err != nil {
-		return nil, errors.Wrap(err, "GetAlert to NewEvalMatch error")
-	}
+func (c *QueryCondition) GetCommonAlertDetails(alert *models.SCommonAlert) (*monitor.CommonAlertMetricDetails, error) {
 	settings, _ := alert.GetSettings()
 	alertDetails := alert.GetCommonAlertMetricDetailsFromAlertCondition(c.Index, &settings.Conditions[c.Index])
 	return alertDetails, nil
@@ -530,20 +531,19 @@ func (c *QueryCondition) checkGroupByField() {
 	}
 	for i, group := range c.Query.Model.GroupBy {
 		if group.Params[0] == "*" {
-			c.Query.Model.GroupBy[i].Params = []string{monitor.MEASUREMENT_TAG_ID[metricMeasurement.ResType]}
+			c.Query.Model.GroupBy[i].Params = []string{monitor.GetMeasurementTagIdKeyByResType(metricMeasurement.ResType)}
 		}
 	}
 }
 
 func (c *QueryCondition) setResType() {
+	metricMeasurement, _ := models.MetricMeasurementManager.GetCache().Get(c.Query.Model.Measurement)
+	if metricMeasurement != nil {
+		c.ResType = metricMeasurement.ResType
+	}
 	var resType = monitor.METRIC_RES_TYPE_HOST
 	if len(c.Query.Model.GroupBy) == 0 {
 		return
-	}
-	metricMeasurement, _ := models.MetricMeasurementManager.GetCache().Get(c.Query.Model.Measurement)
-	if metricMeasurement != nil {
-		resType = metricMeasurement.ResType
-		c.ResType = resType
 	}
 	// NOTE: shouldn't set ResType when tenant_id and domain_id within GroupBy
 	/* if len(resType) != 0 && c.Query.Model.GroupBy[0].Params[0] != monitor.
@@ -576,7 +576,7 @@ func (c *QueryCondition) GetQueryResources(s *mcclient.ClientSession, scope stri
 
 func (c *QueryCondition) getOnecloudResources(s *mcclient.ClientSession, scope string, showDetails bool) ([]jsonutils.JSONObject, error) {
 	query := jsonutils.NewDict()
-	query.Add(jsonutils.NewStringArray([]string{"running", "ready"}), "status")
+	queryStatus := []string{"running", "ready"}
 	// query.Add(jsonutils.NewString("true"), "admin")
 	//if len(c.Query.Model.Tags) != 0 {
 	//	query, err = c.convertTagsQuery(evalContext, query)
@@ -592,6 +592,7 @@ func (c *QueryCondition) getOnecloudResources(s *mcclient.ClientSession, scope s
 	switch c.ResType {
 	case monitor.METRIC_RES_TYPE_HOST:
 		models.SetQueryHostType(query)
+		queryStatus = append(queryStatus, "unknown")
 		query.Set("enabled", jsonutils.NewInt(1))
 		manager = &mc_mds.Hosts
 	case monitor.METRIC_RES_TYPE_GUEST:
@@ -622,6 +623,7 @@ func (c *QueryCondition) getOnecloudResources(s *mcclient.ClientSession, scope s
 		manager = &mc_mds.Hosts
 	}
 
+	query.Add(jsonutils.NewStringArray(queryStatus), "status")
 	allResources, err = ListAllResources(s, manager, query, scope, showDetails)
 	if err != nil {
 		return nil, errors.Wrapf(err, "ListAllResources for %s with query %s, scope: %s, showDetails: %v", manager.GetKeyword(), query, scope, showDetails)

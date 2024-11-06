@@ -224,7 +224,7 @@ func (n *notificationService) dealNeedShieldEvalMatches(evalCtx *EvalContext, ma
 	}
 filterMatch:
 	for i := range match {
-		input.ResId = match[i].Tags[monitor.MEASUREMENT_TAG_ID[input.ResType]]
+		input.ResId = monitor.GetMeasurementResourceId(match[i].Tags, input.ResType)
 		alertRecordShields, err := models.AlertRecordShieldManager.GetRecordShields(input)
 		if err != nil {
 			log.Errorf("GetRecordShields byAlertId:%s,err:%v", input.AlertId, err)
