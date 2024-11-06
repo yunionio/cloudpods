@@ -624,45 +624,43 @@ func (p *SPodDriver) attachIsolatedDeviceToContainer(ctx context.Context, userCr
 	if err != nil {
 		return errors.Wrapf(err, "get release devices for container %s", ctrPtr.GetId())
 	}
-	if len(rlsDevs) == 0 {
-		return nil
-	}
 	spec := new(api.ContainerSpec)
 	if err := jsonutils.Marshal(ctrPtr.Spec).Unmarshal(spec); err != nil {
 		return errors.Wrap(err, "deep copy spec")
+	}
+	// attach it
+	if spec.Devices == nil {
+		spec.Devices = make([]*api.ContainerDevice, 0)
+	}
+	shouldUpdate := true
+	for _, curDev := range spec.Devices {
+		if curDev.IsolatedDevice == nil {
+			continue
+		}
+		if curDev.IsolatedDevice.Id == dev.GetId() {
+			shouldUpdate = false
+			break
+		}
+	}
+	if shouldUpdate {
+		spec.Devices = append(spec.Devices, &api.ContainerDevice{
+			Type: apis.CONTAINER_DEVICE_TYPE_ISOLATED_DEVICE,
+			IsolatedDevice: &api.ContainerIsolatedDevice{
+				Id: dev.GetId(),
+			},
+		})
+		if _, err := db.Update(ctrPtr, func() error {
+			ctrPtr.Spec = spec
+			return nil
+		}); err != nil {
+			return errors.Wrapf(err, "update container %s devs", ctrPtr.GetId())
+		}
 	}
 	for id, rlsDev := range rlsDevs {
 		if rlsDev.IsolatedDevice == nil {
 			continue
 		}
 		if rlsDev.DeviceModel == dev.Model && rlsDev.DeviceType == dev.DevType {
-			// attach it
-			if spec.Devices == nil {
-				spec.Devices = make([]*api.ContainerDevice, 0)
-			}
-			shouldUpdate := true
-			for _, curDev := range spec.Devices {
-				if curDev.IsolatedDevice == nil {
-					continue
-				}
-				if curDev.IsolatedDevice.Id == dev.GetId() {
-					shouldUpdate = false
-				}
-			}
-			if shouldUpdate {
-				spec.Devices = append(spec.Devices, &api.ContainerDevice{
-					Type: apis.CONTAINER_DEVICE_TYPE_ISOLATED_DEVICE,
-					IsolatedDevice: &api.ContainerIsolatedDevice{
-						Id: dev.GetId(),
-					},
-				})
-				if _, err := db.Update(ctrPtr, func() error {
-					ctrPtr.Spec = spec
-					return nil
-				}); err != nil {
-					return errors.Wrapf(err, "update container %s devs", ctrPtr.GetId())
-				}
-			}
 			delete(rlsDevs, id)
 			if err := ctrPtr.SaveReleasedDevices(ctx, userCred, rlsDevs); err != nil {
 				return errors.Wrapf(err, "save release devices for container %s", ctrPtr.GetId())
