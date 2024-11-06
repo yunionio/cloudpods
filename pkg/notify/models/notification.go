@@ -212,10 +212,7 @@ func (nm *SNotificationManager) PerformEventNotify(ctx context.Context, userCred
 
 	topic, err := TopicManager.TopicByEvent(input.Event)
 	if err != nil {
-		return output, errors.Wrapf(err, "unable fetch subscriptions by event %q", input.Event)
-	}
-	if topic == nil {
-		return output, nil
+		return output, errors.Wrapf(err, "TopicByEvent")
 	}
 	receiverIds := make(map[string]uint32)
 	receiverIds1, err := SubscriberManager.getReceiversSent(ctx, topic.Id, input.ProjectDomainId, input.ProjectId)

@@ -20,7 +20,6 @@ import (
 	"strings"
 	"sync"
 
-	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -740,7 +739,7 @@ func (sm *STopicManager) GetTopicsByEvent(resourceType string, action notify.SAc
 	return topics, err
 }
 
-func (sm *STopicManager) TopicsByEvent(eventStr string) ([]STopic, error) {
+func (manager *STopicManager) TopicByEvent(eventStr string) (*STopic, error) {
 	event, err := parseEvent(eventStr)
 	if err != nil {
 		return nil, errors.Wrapf(err, "unable to parse event %q", event)
@@ -755,21 +754,26 @@ func (sm *STopicManager) TopicsByEvent(eventStr string) ([]STopic, error) {
 		log.Warningf("unknown action type: %s", event.Action())
 		return nil, nil
 	}
-	q := sm.Query()
+	q := manager.Query()
 	if event.Result() == api.ResultSucceed {
 		q = q.Equals("results", true)
 	} else {
 		q = q.Equals("results", false)
 	}
-	q = q.Equals("enabled", true)
 	q = q.Filter(sqlchemy.GT(sqlchemy.AND_Val("", q.Field("resources"), 1<<resourceV), 0))
 	q = q.Filter(sqlchemy.GT(sqlchemy.AND_Val("", q.Field("actions"), 1<<actionV), 0))
 	var topics []STopic
-	err = db.FetchModelObjects(sm, q, &topics)
+	err = db.FetchModelObjects(manager, q, &topics)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to FetchModelObjects")
 	}
-	return topics, nil
+	for i := range topics {
+		if topics[i].Enabled.IsFalse() {
+			return nil, errors.Wrapf(errors.ErrInvalidStatus, "topic %s disabled", eventStr)
+		}
+		return &topics[i], nil
+	}
+	return nil, errors.Wrapf(errors.ErrNotFound, "topic %s", eventStr)
 }
 
 func (t *STopic) PreCheckPerformAction(
@@ -986,18 +990,4 @@ func (self *STopic) GetEnabledSubscribers(domainId, projectId string) ([]SSubscr
 	ret := []SSubscriber{}
 	err := db.FetchModelObjects(SubscriberManager, q, &ret)
 	return ret, err
-}
-
-func (sm *STopicManager) TopicByEvent(eventStr string) (*STopic, error) {
-	topics, err := sm.TopicsByEvent(eventStr)
-	if err != nil {
-		return nil, err
-	}
-	if len(topics) == 1 {
-		return &topics[0], nil
-	}
-	if len(topics) == 0 {
-		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "eventStr:%s", eventStr)
-	}
-	return nil, errors.Wrapf(cloudprovider.ErrDuplicateId, "eventStr:%s", eventStr)
 }
