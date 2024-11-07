@@ -39,6 +39,8 @@ import (
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
+// +onecloud:swagger-gen-model-singular=snapshotpolicy
+// +onecloud:swagger-gen-model-plural=snapshotpolicies
 type SSnapshotPolicyManager struct {
 	db.SVirtualResourceBaseManager
 	db.SExternalizedResourceBaseManager

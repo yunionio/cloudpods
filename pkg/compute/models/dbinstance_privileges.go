@@ -31,6 +31,8 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
+// +onecloud:swagger-gen-model-singular=dbinstanceprivilege
+// +onecloud:swagger-gen-model-plural=dbinstanceprivileges
 type SDBInstancePrivilegeManager struct {
 	db.SResourceBaseManager
 	db.SExternalizedResourceBaseManager

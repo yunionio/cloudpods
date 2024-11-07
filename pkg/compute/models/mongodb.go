@@ -43,6 +43,8 @@ import (
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
+// +onecloud:swagger-gen-model-singular=mongodb
+// +onecloud:swagger-gen-model-plural=mongodbs
 type SMongoDBManager struct {
 	db.SVirtualResourceBaseManager
 	db.SExternalizedResourceBaseManager

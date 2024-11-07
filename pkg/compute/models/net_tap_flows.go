@@ -34,6 +34,8 @@ import (
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
+// +onecloud:swagger-gen-model-singular=tap_flow
+// +onecloud:swagger-gen-model-plural=tap_flows
 type SNetTapFlowManager struct {
 	db.SEnabledStatusStandaloneResourceBaseManager
 }

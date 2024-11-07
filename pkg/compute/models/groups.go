@@ -46,6 +46,8 @@ const (
 	RDS_TYPE   = "RDS"
 )
 
+// +onecloud:swagger-gen-model-singular=instancegroup
+// +onecloud:swagger-gen-model-plural=instancegroups
 type SGroupManager struct {
 	db.SVirtualResourceBaseManager
 	db.SEnabledResourceBaseManager

@@ -42,6 +42,8 @@ import (
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
+// +onecloud:swagger-gen-model-singular=secgrouprule
+// +onecloud:swagger-gen-model-plural=secgrouprules
 type SSecurityGroupRuleManager struct {
 	db.SResourceBaseManager
 	db.SStatusResourceBaseManager

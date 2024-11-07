@@ -77,6 +77,8 @@ type SInstanceBackup struct {
 	SizeMb int `nullable:"false" list:"user"`
 }
 
+// +onecloud:swagger-gen-model-singular=instancebackup
+// +onecloud:swagger-gen-model-plural=instancebackups
 type SInstanceBackupManager struct {
 	db.SVirtualResourceBaseManager
 	SManagedResourceBaseManager

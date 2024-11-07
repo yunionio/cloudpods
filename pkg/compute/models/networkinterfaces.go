@@ -33,6 +33,8 @@ import (
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
+// +onecloud:swagger-gen-model-singular=networkinterface
+// +onecloud:swagger-gen-model-plural=networkinterfaces
 type SNetworkInterfaceManager struct {
 	db.SStatusInfrasResourceBaseManager
 	db.SExternalizedResourceBaseManager

@@ -45,6 +45,8 @@ import (
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
+// +onecloud:swagger-gen-model-singular=externalproject
+// +onecloud:swagger-gen-model-plural=externalprojects
 type SExternalProjectManager struct {
 	db.SVirtualResourceBaseManager
 	db.SExternalizedResourceBaseManager

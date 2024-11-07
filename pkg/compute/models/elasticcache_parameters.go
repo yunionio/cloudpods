@@ -34,7 +34,8 @@ import (
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
-// SElasticcache.Parameter
+// +onecloud:swagger-gen-model-singular=elasticcacheparameter
+// +onecloud:swagger-gen-model-plural=elasticcacheparameters
 type SElasticcacheParameterManager struct {
 	db.SStandaloneResourceBaseManager
 	db.SExternalizedResourceBaseManager

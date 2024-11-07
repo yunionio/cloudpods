@@ -39,6 +39,8 @@ import (
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
+// +onecloud:swagger-gen-model-singular=loadbalancerlistener
+// +onecloud:swagger-gen-model-plural=loadbalancerlisteners
 type SLoadbalancerListenerManager struct {
 	SLoadbalancerLogSkipper
 	db.SStatusStandaloneResourceBaseManager

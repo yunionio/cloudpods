@@ -49,6 +49,8 @@ import (
 	"yunion.io/x/onecloud/pkg/util/yunionmeta"
 )
 
+// +onecloud:swagger-gen-model-singular=serversku
+// +onecloud:swagger-gen-model-plural=serverskus
 type SServerSkuManager struct {
 	db.SEnabledStatusStandaloneResourceBaseManager
 	SCloudregionResourceBaseManager

@@ -39,6 +39,4 @@ type CloudproviderQuotaDetails struct {
 	apis.StandaloneResourceDetails
 	CloudregionResourceInfo
 	ManagedResourceInfo
-
-	SCloudproviderQuota
 }

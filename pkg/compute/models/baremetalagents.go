@@ -32,6 +32,8 @@ import (
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
+// +onecloud:swagger-gen-model-singular=baremetalagent
+// +onecloud:swagger-gen-model-plural=baremetalagents
 type SBaremetalagentManager struct {
 	db.SStandaloneResourceBaseManager
 	SZoneResourceBaseManager

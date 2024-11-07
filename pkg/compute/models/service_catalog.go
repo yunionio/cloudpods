@@ -33,6 +33,8 @@ import (
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
+// +onecloud:swagger-gen-model-singular=servicecatalog
+// +onecloud:swagger-gen-model-plural=servicecatalogs
 type SServiceCatalogManager struct {
 	db.SSharableVirtualResourceBaseManager
 }

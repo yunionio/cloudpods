@@ -583,10 +583,7 @@ func (man *SCommonAlertManager) CustomizeFilterList(
 			return nil, err
 		}
 		mF := func(obj *SCommonAlert) (bool, error) {
-			settings := new(monitor.AlertSetting)
-			if err := obj.Settings.Unmarshal(settings); err != nil {
-				return false, errors.Wrapf(err, "alert %s unmarshal", obj.GetId())
-			}
+			settings := obj.Settings
 			for _, s := range settings.Conditions {
 				if s.Query.Model.Measurement == meaurement && len(s.Query.Model.Selects) == 1 {
 					if IsQuerySelectHasField(s.Query.Model.Selects[0], field) {
@@ -607,10 +604,7 @@ func (man *SCommonAlertManager) CustomizeFilterList(
 
 	if len(input.ResType) != 0 {
 		mF := func(obj *SCommonAlert) (bool, error) {
-			settings := new(monitor.AlertSetting)
-			if err := obj.Settings.Unmarshal(settings); err != nil {
-				return false, errors.Wrapf(err, "alert %s unmarshal", obj.GetId())
-			}
+			settings := obj.Settings
 			for _, s := range settings.Conditions {
 				if mesurement, contain := MetricMeasurementManager.measurementsCache.Get(s.Query.Model.
 					Measurement); contain {
@@ -773,7 +767,7 @@ func (alert *SCommonAlert) GetCommonAlertMetricDetails() ([]*monitor.CommonAlert
 		setting.Conditions[i] = cond
 	}
 	// side effect, update setting cause of setting.Conditions has changed by GetCommonAlertMetricDetailsFromAlertCondition
-	alert.Settings = jsonutils.Marshal(setting)
+	alert.Settings = setting
 	return ret, nil
 }
 
@@ -1307,7 +1301,7 @@ func (alert *SCommonAlert) PerformConfig(ctx context.Context, userCred mcclient.
 			fmt.Println(threshold)
 			setting.Conditions[0].Evaluator.Params = []float64{fieldOperatorThreshold("", val)}
 		}
-		alert.Settings = jsonutils.Marshal(setting)
+		alert.Settings = setting
 		return nil
 	})
 	PerformConfigLog(alert, userCred)
