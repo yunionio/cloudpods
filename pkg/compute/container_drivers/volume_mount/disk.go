@@ -69,7 +69,7 @@ func (d disk) validateCreateData(ctx context.Context, userCred mcclient.TokenCre
 }
 
 func (d disk) validateCaseInsensitive(disk *models.SDisk, vm *apis.ContainerVolumeMountDisk) error {
-	if !vm.CaseInsensitive {
+	if len(vm.CaseInsensitivePaths) == 0 {
 		return nil
 	}
 	if disk.FsFeatures == nil {

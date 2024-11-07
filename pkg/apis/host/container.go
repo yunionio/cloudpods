@@ -21,13 +21,13 @@ import (
 )
 
 type ContainerVolumeMountDisk struct {
-	Index           *int                                  `json:"index,omitempty"`
-	Id              string                                `json:"id"`
-	TemplateId      string                                `json:"template_id"`
-	SubDirectory    string                                `json:"sub_directory"`
-	StorageSizeFile string                                `json:"storage_size_file"`
-	Overlay         *apis.ContainerVolumeMountDiskOverlay `json:"overlay"`
-	CaseInsensitive bool                                  `json:"case_insensitive"`
+	Index                *int                                  `json:"index,omitempty"`
+	Id                   string                                `json:"id"`
+	TemplateId           string                                `json:"template_id"`
+	SubDirectory         string                                `json:"sub_directory"`
+	StorageSizeFile      string                                `json:"storage_size_file"`
+	Overlay              *apis.ContainerVolumeMountDiskOverlay `json:"overlay"`
+	CaseInsensitivePaths []string                              `json:"case_insensitive_paths"`
 }
 
 type ContainerVolumeMountCephFS struct {

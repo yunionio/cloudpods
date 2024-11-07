@@ -233,7 +233,7 @@ type ContainerVolumeMountDisk struct {
 	StorageSizeFile string                           `json:"storage_size_file"`
 	Overlay         *ContainerVolumeMountDiskOverlay `json:"overlay"`
 	// case insensitive feature is incompatible with overlayfs
-	CaseInsensitive bool `json:"case_insensitive"`
+	CaseInsensitivePaths []string `json:"case_insensitive_paths"`
 }
 
 type ContainerVolumeMountHostPathType string

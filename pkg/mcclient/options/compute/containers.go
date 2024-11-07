@@ -237,10 +237,10 @@ func parseContainerVolumeMount(vmStr string) (*apis.ContainerVolumeMount, error)
 				vm.Disk = &apis.ContainerVolumeMountDisk{}
 			}
 			vm.Disk.StorageSizeFile = val
-		case "case_insensitive", "casefold":
-			if strings.ToLower(val) == "true" {
-				vm.Disk.CaseInsensitive = true
-			}
+		//case "case_insensitive", "casefold":
+		//	if strings.ToLower(val) == "true" {
+		//		vm.Disk.CaseInsensitive = true
+		//	}
 		case "overlay":
 			if vm.Disk == nil {
 				vm.Disk = &apis.ContainerVolumeMountDisk{}

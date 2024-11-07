@@ -396,12 +396,16 @@ func FormatPartition(path, fs, uuid string, fsFeatures *apis.FsFeatures) error {
 		cmdUuid = []string{"tune2fs", "-U", uuid}
 	case fs == "ext4":
 		feature := "^64bit"
+		extendOpts := "lazy_itable_init=1"
 		if fsFeatures != nil && fsFeatures.Ext4 != nil {
 			if fsFeatures.Ext4.CaseInsensitive {
-				feature = fmt.Sprintf("%s,casefold", feature)
+				feature = fmt.Sprintf("%s,casefold,project,quota", feature)
+				//feature = fmt.Sprintf("casefold,project,quota")
+				extendOpts = fmt.Sprintf("%s,nodiscard,lazy_journal_init=1,encoding_flags=strict,encoding=utf8-12.1", extendOpts)
 			}
 		}
-		cmd = []string{"mkfs.ext4", "-O", feature, "-E", "lazy_itable_init=1"}
+		cmd = []string{"mkfs.ext4", "-O", feature, "-E", extendOpts}
+		log.Infof("===========format partion cmd: %#v", cmd)
 		/*
 			// see /etc/mke2fs.conf, default inode_ratio is 16384
 			If  this option is is not specified, mke2fs will pick a single default usage type based on the size
