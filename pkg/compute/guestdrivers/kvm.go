@@ -1252,6 +1252,10 @@ func (kvm *SKVMGuestDriver) ValidateGuestChangeConfigInput(ctx context.Context, 
 		return nil, errors.Wrap(err, "SBaseGuestDriver.ValidateGuestChangeConfigInput")
 	}
 
+	if confs.ExtraCpuChanged() && guest.Status != api.VM_READY {
+		return nil, httperrors.NewInvalidStatusError("Can't change extra cpus on vm status %s", guest.Status)
+	}
+
 	for i := range input.ResetTrafficLimits {
 		input.ResetTrafficLimits[i].Mac = netutils.FormatMacAddr(input.ResetTrafficLimits[i].Mac)
 		_, err := guest.GetGuestnetworkByMac(input.ResetTrafficLimits[i].Mac)

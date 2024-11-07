@@ -129,6 +129,8 @@ type SGuest struct {
 	VmemSize int `nullable:"false" list:"user" create:"required"`
 	// CPU 内存绑定信息
 	CpuNumaPin jsonutils.JSONObject `nullable:"true" get:"user" update:"user" create:"optional"`
+	// 额外分配的 CPU 数量
+	ExtraCpuCount int `nullable:"false" default:"0" list:"user" create:"optional"`
 
 	// 启动顺序
 	BootOrder string `width:"8" charset:"ascii" nullable:"true" default:"cdn" list:"user" update:"user" create:"optional"`
@@ -1324,8 +1326,9 @@ func (guest *SGuest) SetCpuNumaPin(
 		vcpuId := 0
 		for i := range schedCpuNumaPin {
 			cpuNumaPin[i] = api.SCpuNumaPin{
-				SizeMB: schedCpuNumaPin[i].MemSizeMB,
-				NodeId: schedCpuNumaPin[i].NodeId,
+				SizeMB:        schedCpuNumaPin[i].MemSizeMB,
+				NodeId:        schedCpuNumaPin[i].NodeId,
+				ExtraCpuCount: schedCpuNumaPin[i].ExtraCpuCount,
 			}
 
 			if len(schedCpuNumaPin[i].CpuPin) > 0 {

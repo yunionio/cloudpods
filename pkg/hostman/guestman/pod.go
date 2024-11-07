@@ -1459,6 +1459,7 @@ func (s *sPodGuestInstance) createContainer(ctx context.Context, userCred mcclie
 
 	var cpuSetCpus string
 	var cpuSetMems string
+	var extraCpuCount int
 	{
 		cpuSets := sets.NewString()
 		cpuMemSets := sets.NewString()
@@ -1470,8 +1471,10 @@ func (s *sPodGuestInstance) createContainer(ctx context.Context, userCred mcclie
 				if cpuNumaPin.NodeId != nil && cpuNumaPin.SizeMB > 0 {
 					cpuMemSets.Insert(fmt.Sprintf("%d", int(*cpuNumaPin.NodeId)))
 				}
+				if cpuNumaPin.ExtraCpuCount > 0 {
+					extraCpuCount += cpuNumaPin.ExtraCpuCount
+				}
 			}
-
 			cpuSetCpus = strings.Join(cpuSets.List(), ",")
 			cpuSetMems = strings.Join(cpuMemSets.List(), ",")
 		} else if len(s.Desc.VcpuPin) > 0 {
@@ -1507,7 +1510,7 @@ func (s *sPodGuestInstance) createContainer(ctx context.Context, userCred mcclie
 			Resources: &runtimeapi.LinuxContainerResources{
 				// REF: https://docs.docker.com/config/containers/resource_constraints/#configure-the-default-cfs-scheduler
 				CpuPeriod: s.getDefaultCPUPeriod(),
-				CpuQuota:  s.GetDesc().Cpu * s.getDefaultCPUPeriod(),
+				CpuQuota:  (s.GetDesc().Cpu + int64(extraCpuCount)) * s.getDefaultCPUPeriod(),
 				//CpuShares:              defaultCPUPeriod,
 				MemoryLimitInBytes:     s.GetDesc().Mem * 1024 * 1024,
 				OomScoreAdj:            0,
