@@ -1526,6 +1526,11 @@ func (b *HostBuilder) fillGuestsResourceInfo(desc *HostDesc, host *computemodels
 				if err := guest.CpuNumaPin.Unmarshal(&cpuNumaPin); err != nil {
 					return errors.Wrap(err, "unmarshal cpu numa pin")
 				}
+				for i := range cpuNumaPin {
+					if cpuNumaPin[i].ExtraCpuCount > 0 {
+						creatingCPUCount += int64(cpuNumaPin[i].ExtraCpuCount)
+					}
+				}
 				guestsCpuNumaPin = append(guestsCpuNumaPin, cpuNumaPin...)
 			}
 		} else if !IsGuestStoppedStatus(guest) {
@@ -1537,6 +1542,11 @@ func (b *HostBuilder) fillGuestsResourceInfo(desc *HostDesc, host *computemodels
 				cpuNumaPin := make([]scheduler.SCpuNumaPin, 0)
 				if err := guest.CpuNumaPin.Unmarshal(&cpuNumaPin); err != nil {
 					return errors.Wrap(err, "unmarshal cpu numa pin")
+				}
+				for i := range cpuNumaPin {
+					if cpuNumaPin[i].ExtraCpuCount > 0 {
+						creatingCPUCount += int64(cpuNumaPin[i].ExtraCpuCount)
+					}
 				}
 				guestsCpuNumaPin = append(guestsCpuNumaPin, cpuNumaPin...)
 			}

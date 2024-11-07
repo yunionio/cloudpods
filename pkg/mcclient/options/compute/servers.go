@@ -454,6 +454,7 @@ type ServerCreateOptionalOptions struct {
 	Iso              string   `help:"ISO image ID" metavar:"IMAGE_ID" json:"cdrom"`
 	IsoBootIndex     *int8    `help:"Iso bootindex" metavar:"IMAGE_BOOT_INDEX" json:"cdrom_boot_index"`
 	VcpuCount        int      `help:"#CPU cores of VM server, default 1" default:"1" metavar:"<SERVER_CPU_COUNT>" json:"vcpu_count" token:"ncpu"`
+	ExtraCpuCount    int      `help:"Extra allocate cpu count" json:"extra_cpu_count"`
 	InstanceType     string   `help:"instance flavor"`
 	Vga              string   `help:"VGA driver" choices:"std|vmware|cirrus|qxl|virtio"`
 	Vdi              string   `help:"VDI protocool" choices:"vnc|spice"`
@@ -1039,10 +1040,11 @@ func (o *ServerRebuildRootOptions) Description() string {
 
 type ServerChangeConfigOptions struct {
 	ServerIdOptions
-	VcpuCount  *int     `help:"New number of Virtual CPU cores" json:"vcpu_count" token:"ncpu"`
-	CpuSockets *int     `help:"Cpu sockets"`
-	VmemSize   string   `help:"New memory size" json:"vmem_size" token:"vmem"`
-	Disk       []string `help:"Data disk description, from the 1st data disk to the last one, empty string if no change for this data disk"`
+	VcpuCount     *int     `help:"New number of Virtual CPU cores" json:"vcpu_count" token:"ncpu"`
+	ExtraCpuCount *int     `help:"Extra allocate cpu count" json:"extra_cpu_count"`
+	CpuSockets    *int     `help:"Cpu sockets"`
+	VmemSize      string   `help:"New memory size" json:"vmem_size" token:"vmem"`
+	Disk          []string `help:"Data disk description, from the 1st data disk to the last one, empty string if no change for this data disk"`
 
 	InstanceType string `help:"Instance Type, e.g. S2.SMALL2 for qcloud"`
 

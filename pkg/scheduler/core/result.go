@@ -86,14 +86,34 @@ func (item *SchedResultItem) ToCandidateResource(storageUsed *StorageUsed) *sche
 }
 
 func (item *SchedResultItem) selectCpuNumaPin() []schedapi.SCpuNumaPin {
-	// if !item.Candidater.Getter().Host().EnableNumaAllocate {
-	// 	return nil
-	// }
-
-	if item.SchedData.LiveMigrate && len(item.SchedData.CpuNumaPin) > 0 {
-		return item.Candidater.AllocCpuNumaPinWithNodeCount(item.SchedData.Ncpu, item.SchedData.Memory, len(item.SchedData.CpuNumaPin))
+	vcpuCount := item.SchedData.Ncpu
+	if item.SchedData.ExtraCpuCount > 0 {
+		vcpuCount += item.SchedData.ExtraCpuCount
 	}
-	return item.Candidater.AllocCpuNumaPin(item.SchedData.Ncpu, item.SchedData.Memory*1024, item.SchedData.PreferNumaNodes)
+
+	var res []schedapi.SCpuNumaPin
+	if item.SchedData.LiveMigrate && len(item.SchedData.CpuNumaPin) > 0 {
+		res = item.Candidater.AllocCpuNumaPinWithNodeCount(vcpuCount, item.SchedData.Memory*1024, len(item.SchedData.CpuNumaPin))
+	} else {
+		res = item.Candidater.AllocCpuNumaPin(vcpuCount, item.SchedData.Memory*1024, item.SchedData.PreferNumaNodes)
+	}
+
+	if item.SchedData.ExtraCpuCount > 0 {
+		extraCpuCnt := item.SchedData.ExtraCpuCount
+		for extraCpuCnt > 0 {
+			cpuMaxIdx := 0
+			cpuMax := -1
+			for i := range res {
+				if len(res[i].CpuPin)-res[i].ExtraCpuCount > cpuMax {
+					cpuMax = len(res[i].CpuPin) - res[i].ExtraCpuCount
+					cpuMaxIdx = i
+				}
+			}
+			res[cpuMaxIdx].ExtraCpuCount += 1
+			extraCpuCnt -= 1
+		}
+	}
+	return res
 }
 
 func (item *SchedResultItem) getDisks(used *StorageUsed) []*schedapi.CandidateDisk {

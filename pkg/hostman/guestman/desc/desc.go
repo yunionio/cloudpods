@@ -60,7 +60,8 @@ type SCpuNumaPin struct {
 	Unregular bool
 	NodeId    *uint16 `json:",omitempty"`
 
-	VcpuPin []SVCpuPin `json:",omitempty"`
+	VcpuPin       []SVCpuPin `json:",omitempty"`
+	ExtraCpuCount int        `json:"extra_cpu_count"`
 }
 
 type SVCpuPin struct {

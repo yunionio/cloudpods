@@ -86,6 +86,24 @@ func (task *GuestChangeConfigTask) SaveScheduleResult(ctx context.Context, obj I
 	guest := task.GetObject().(*models.SGuest)
 	task.Params.Set("sched_session_id", jsonutils.NewString(target.SessionId))
 
+	confs, err := task.getChangeConfigSetting()
+	if err != nil {
+		task.markStageFailed(ctx, guest, jsonutils.NewString(err.Error()))
+		return
+	}
+	if confs.ExtraCpuChanged() {
+		_, err = db.Update(guest, func() error {
+			if confs.ExtraCpuCount > 0 {
+				guest.ExtraCpuCount = confs.ExtraCpuCount
+			}
+			return nil
+		})
+		if err != nil {
+			task.markStageFailed(ctx, guest, jsonutils.NewString(err.Error()))
+			return
+		}
+	}
+
 	if len(target.CpuNumaPin) > 0 {
 		task.Params.Set("cpu_numa_pin", jsonutils.Marshal(target.CpuNumaPin))
 	}

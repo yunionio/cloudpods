@@ -564,6 +564,7 @@ func (base *SBaseGuestDriver) ValidateGuestChangeConfigInput(ctx context.Context
 	confs.Old.VcpuCount = guest.VcpuCount
 	confs.Old.CpuSockets = guest.CpuSockets
 	confs.Old.VmemSize = guest.VmemSize
+	confs.Old.ExtraCpuCount = guest.ExtraCpuCount
 
 	region, err := guest.GetRegion()
 	if err != nil {
@@ -586,6 +587,10 @@ func (base *SBaseGuestDriver) ValidateGuestChangeConfigInput(ctx context.Context
 		} else {
 			confs.VcpuCount = guest.VcpuCount
 		}
+		if input.ExtraCpuCount != nil {
+			confs.ExtraCpuCount = *input.ExtraCpuCount
+		}
+
 		if len(input.VmemSize) > 0 {
 			if !regutils.MatchSize(input.VmemSize) {
 				return nil, httperrors.NewBadRequestError("Memory size %q must be number[+unit], like 256M, 1G or 256", input.VmemSize)
@@ -678,7 +683,7 @@ func (base *SBaseGuestDriver) ValidateGuestChangeConfigInput(ctx context.Context
 	}
 
 	// schedulr forecast
-	schedDesc := guest.ChangeConfToSchedDesc(confs.AddedCpu(), confs.AddedMem(), schedInputDisks)
+	schedDesc := guest.ChangeConfToSchedDesc(confs.AddedCpu(), confs.AddedExtraCpu(), confs.AddedMem(), schedInputDisks)
 	s := auth.GetAdminSession(ctx, options.Options.Region)
 	canChangeConf, res, err := scheduler.SchedManager.DoScheduleForecast(s, schedDesc, 1)
 	if err != nil {

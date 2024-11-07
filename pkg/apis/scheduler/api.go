@@ -87,7 +87,7 @@ type ScheduleInput struct {
 	OsArch          string `json:"os_arch"`
 	ResetCpuNumaPin bool   `json:"reset_cpu_numa_pin"`
 
-	// For Migrate
+	ExtraCpuCount   int           `json:"extra_cpu_count"`
 	CpuNumaPin      []SCpuNumaPin `json:"cpu_numa_pin"`
 	PreferNumaNodes []int         `json:"prefer_numa_nodes"`
 
@@ -199,9 +199,10 @@ type SCpuPin struct {
 }
 
 type SCpuNumaPin struct {
-	CpuPin    []int
-	NodeId    int
-	MemSizeMB *int
+	CpuPin        []int
+	NodeId        int
+	MemSizeMB     *int
+	ExtraCpuCount int
 }
 
 type CandidateResource struct {

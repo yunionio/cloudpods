@@ -474,6 +474,10 @@ type ServerCreateInput struct {
 	// default: 1
 	CpuSockets int `json:"cpu_sockets"`
 
+	// 额外分配 cpu 数量
+	// required: false
+	ExtraCpuCount int `json:"extra_cpu_count"`
+
 	// 用户自定义启动脚本
 	// 支持 #cloud-config yaml 格式及shell脚本
 	// 支持特殊user data平台: Aliyun, Qcloud, Azure, Apsara, Ucloud

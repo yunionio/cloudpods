@@ -3218,6 +3218,9 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 	if added := confs.AddedCpu(); added > 0 {
 		pendingUsage.Cpu = added
 	}
+	if added := confs.AddedExtraCpu(); added > 0 {
+		pendingUsage.Cpu += added
+	}
 	if added := confs.AddedMem(); added > 0 {
 		pendingUsage.Memory = added
 	}
@@ -3241,7 +3244,7 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 	return nil, nil
 }
 
-func (self *SGuest) ChangeConfToSchedDesc(addCpu, addMem int, schedInputDisks []*api.DiskConfig) *schedapi.ScheduleInput {
+func (self *SGuest) ChangeConfToSchedDesc(addCpu, addExtraCpu, addMem int, schedInputDisks []*api.DiskConfig) *schedapi.ScheduleInput {
 	region, _ := self.GetRegion()
 	devs, _ := self.GetIsolatedDevices()
 	desc := &schedapi.ScheduleInput{
@@ -3260,6 +3263,7 @@ func (self *SGuest) ChangeConfToSchedDesc(addCpu, addMem int, schedInputDisks []
 		OsArch:            self.OsArch,
 		ChangeConfig:      true,
 		HasIsolatedDevice: len(devs) > 0,
+		ExtraCpuCount:     addExtraCpu,
 	}
 	return desc
 }

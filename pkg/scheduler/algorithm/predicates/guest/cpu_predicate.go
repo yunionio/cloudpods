@@ -81,7 +81,7 @@ func (f *CPUPredicate) Execute(ctx context.Context, u *core.Unit, c core.Candida
 	}
 
 	freeCPUCount := getter.FreeCPUCount(useRsvd)
-	reqCPUCount := int64(d.Ncpu)
+	reqCPUCount := int64(d.Ncpu + d.ExtraCpuCount)
 	if freeCPUCount < reqCPUCount {
 		totalCPUCount := getter.TotalCPUCount(useRsvd)
 		h.AppendInsufficientResourceError(reqCPUCount, totalCPUCount, freeCPUCount)
