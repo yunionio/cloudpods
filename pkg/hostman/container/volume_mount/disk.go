@@ -173,13 +173,18 @@ func (d disk) Mount(pod IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount
 		if err != nil {
 			return errors.Wrapf(err, "make sub_directory %s inside %s: %s", vmDisk.SubDirectory, mntPoint, out)
 		}
-		if vmDisk.CaseInsensitive {
-			if err := d.setDirCaseInsensitive(subDir); err != nil {
-				return errors.Wrapf(err, "enable case_insensitive %s", subDir)
+		for _, cd := range vmDisk.CaseInsensitivePaths {
+			cdp := filepath.Join(subDir, cd)
+			out, err := procutils.NewRemoteCommandAsFarAsPossible("mkdir", "-p", cdp).Output()
+			if err != nil {
+				return errors.Wrapf(err, "make %s inside %s: %s", cdp, vmDisk.SubDirectory, out)
+			}
+			if err := d.setDirCaseInsensitive(cdp); err != nil {
+				return errors.Wrapf(err, "enable case_insensitive %s", cdp)
 			}
 		}
 	} else {
-		if vmDisk.CaseInsensitive {
+		if len(vmDisk.CaseInsensitivePaths) != 0 {
 			return errors.Errorf("only sub_directory can use case_insensitive")
 		}
 	}

@@ -407,13 +407,13 @@ func (vm *ContainerVolumeMountRelation) toHostDiskMount(disk *apis.ContainerVolu
 		return nil, errors.Errorf("fetch disk by id %s", disk.Id)
 	}
 	ret := &hostapi.ContainerVolumeMountDisk{
-		Index:           disk.Index,
-		Id:              disk.Id,
-		TemplateId:      diskObj.TemplateId,
-		SubDirectory:    disk.SubDirectory,
-		StorageSizeFile: disk.StorageSizeFile,
-		Overlay:         disk.Overlay,
-		CaseInsensitive: disk.CaseInsensitive,
+		Index:                disk.Index,
+		Id:                   disk.Id,
+		TemplateId:           diskObj.TemplateId,
+		SubDirectory:         disk.SubDirectory,
+		StorageSizeFile:      disk.StorageSizeFile,
+		Overlay:              disk.Overlay,
+		CaseInsensitivePaths: disk.CaseInsensitivePaths,
 	}
 	return ret, nil
 }
