@@ -567,7 +567,14 @@ func (region *SRegion) _createVM(zone string, desc *cloudprovider.SManagedVMCrea
 	nameConv := func(name string) string {
 		name = strings.Replace(name, "_", "-", -1)
 		name = pinyinutils.Text2Pinyin(name)
-		return strings.ToLower(name)
+		name = strings.ToLower(name)
+		if len(name) > 63 {
+			name = name[:63]
+		}
+		if name[len(name)-1] == '-' {
+			name = name[:len(name)-1] + "1"
+		}
+		return name
 	}
 
 	labels := map[string]string{}
