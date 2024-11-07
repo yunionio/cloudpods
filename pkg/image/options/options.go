@@ -51,6 +51,8 @@ type SImageOptions struct {
 	S3BucketName       string `help:"s3 bucket name" default:"onecloud-images"`
 	S3MountPoint       string `help:"s3fs mount point" default:"/opt/cloud/workspace/data/glance/s3images"`
 	S3CheckImageStatus bool   `help:"Enable s3 check image status"`
+
+	ImageStreamWorkerCount int `help:"Image stream worker count" default:"10"`
 }
 
 var (
