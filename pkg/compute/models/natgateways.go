@@ -43,6 +43,8 @@ import (
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
+// +onecloud:swagger-gen-model-singular=natgateway
+// +onecloud:swagger-gen-model-plural=natgateways
 type SNatGatewayManager struct {
 	db.SStatusInfrasResourceBaseManager
 	db.SExternalizedResourceBaseManager

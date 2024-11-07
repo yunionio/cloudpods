@@ -604,7 +604,7 @@ definitions:
     AlertPanelDetail:
         properties:
             Setting:
-                type: object
+                $ref: '#/definitions/AlertSetting'
             can_delete:
                 description: 资源是否可以删除, 若为flase, delete_fail_reason会返回不能删除的原因
                 example: true
@@ -788,6 +788,23 @@ definitions:
             used_by:
                 type: string
                 x-go-name: UsedBy
+        type: object
+        x-go-package: yunion.io/x/onecloud/pkg/apis/monitor
+    AlertPanelSetOrderInput:
+        properties:
+            order:
+                items:
+                    properties:
+                        index:
+                            format: int64
+                            type: integer
+                            x-go-name: Index
+                        panel_id:
+                            type: string
+                            x-go-name: PanelId
+                    type: object
+                type: array
+                x-go-name: Order
         type: object
         x-go-package: yunion.io/x/onecloud/pkg/apis/monitor
     AlertPauseInput:
@@ -2203,6 +2220,9 @@ definitions:
             condition:
                 type: string
                 x-go-name: Condition
+            is_recovery:
+                type: boolean
+                x-go-name: IsRecovery
             metric:
                 type: string
                 x-go-name: Metric
@@ -5239,6 +5259,31 @@ paths:
                 "200":
                     $ref: '#/responses/alert_dash_board_PerformSetOrgMetadataOutput'
             summary: 全量替换资源的所有 class 标签
+            tags:
+                - alert_dash_board
+    /alert_dash_boards/{id}/set-panel-order:
+        post:
+            description: 执行操作SetPanelOrder
+            operationId: alert_dash_board_PerformSetPanelOrder
+            parameters:
+                - description: The Id or Name of alert_dash_board
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        alert_dash_board:
+                            $ref: '#/definitions/AlertPanelSetOrderInput'
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/alert_dash_board_PerformSetPanelOrderOutput'
+            summary: 执行操作SetPanelOrder
             tags:
                 - alert_dash_board
     /alert_dash_boards/{id}/set-scope:
@@ -17717,6 +17762,8 @@ responses:
     alert_dash_board_PerformSetClassMetadataOutput:
         description: ""
     alert_dash_board_PerformSetOrgMetadataOutput:
+        description: ""
+    alert_dash_board_PerformSetPanelOrderOutput:
         description: ""
     alert_dash_board_PerformSetScopeOutput:
         description: ""

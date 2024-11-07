@@ -54,6 +54,7 @@ func init() {
 	CloudproviderQuotaManager.SetVirtualObject(CloudproviderQuotaManager)
 }
 
+// +onecloud:swagger-gen-ignore
 type SCloudproviderQuota struct {
 	db.SStandaloneResourceBase
 	db.SExternalizedResourceBase

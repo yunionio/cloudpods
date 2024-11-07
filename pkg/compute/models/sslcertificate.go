@@ -33,6 +33,8 @@ import (
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
+// +onecloud:swagger-gen-model-singular=sslcertificate
+// +onecloud:swagger-gen-model-plural=sslcertificates
 type SSSLCertificateManager struct {
 	db.SVirtualResourceBaseManager
 	db.SExternalizedResourceBaseManager

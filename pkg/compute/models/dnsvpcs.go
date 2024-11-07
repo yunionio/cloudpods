@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
+// +onecloud:swagger-gen-ignore
 type SDnsZoneVpcManager struct {
 	db.SJointResourceBaseManager
 }
@@ -43,6 +44,7 @@ func init() {
 	})
 }
 
+// +onecloud:swagger-gen-ignore
 type SDnsZoneVpc struct {
 	db.SJointResourceBase
 	SDnsZoneResourceBase

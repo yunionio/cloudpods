@@ -37,6 +37,8 @@ import (
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
+// +onecloud:swagger-gen-model-singular=networkaddress
+// +onecloud:swagger-gen-model-plural=networkaddresses
 type SNetworkAddressManager struct {
 	db.SStandaloneAnonResourceBaseManager
 	SNetworkResourceBaseManager

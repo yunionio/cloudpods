@@ -312,11 +312,6 @@ type GuestsecgroupDetails struct {
 	Secgroup string `json:"secgroup"`
 }
 
-//type SElasticcachesecgroup struct {
-//	SElasticcacheJointsBase
-//	SSecurityGroupResourceBase
-//}
-
 type ElasticcachesecgroupDetails struct {
 	ElasticcacheJointResourceDetails
 

@@ -36,6 +36,8 @@ import (
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
+// +onecloud:swagger-gen-model-singular=diskbackup
+// +onecloud:swagger-gen-model-plural=diskbackups
 type SDiskBackupManager struct {
 	db.SVirtualResourceBaseManager
 	SDiskResourceBaseManager

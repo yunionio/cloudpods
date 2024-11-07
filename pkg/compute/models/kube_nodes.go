@@ -35,6 +35,8 @@ import (
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
+// +onecloud:swagger-gen-model-singular=cloud_kube_node
+// +onecloud:swagger-gen-model-plural=cloud_kube_nodes
 type SKubeNodeManager struct {
 	db.SStatusStandaloneResourceBaseManager
 	db.SExternalizedResourceBaseManager

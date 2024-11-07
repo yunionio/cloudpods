@@ -27,6 +27,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/yunionmeta"
 )
 
+// +onecloud:swagger-gen-ignore
 type SCloudimageManager struct {
 	db.SStandaloneResourceBaseManager
 	db.SExternalizedResourceBaseManager
@@ -46,6 +47,7 @@ func init() {
 	CloudimageManager.SetVirtualObject(CloudimageManager)
 }
 
+// +onecloud:swagger-gen-ignore
 type SCloudimage struct {
 	db.SStandaloneResourceBase
 	db.SExternalizedResourceBase

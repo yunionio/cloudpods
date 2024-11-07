@@ -42,6 +42,8 @@ import (
 	"yunion.io/x/onecloud/pkg/util/yunionmeta"
 )
 
+// +onecloud:swagger-gen-model-singular=elasticcachesku
+// +onecloud:swagger-gen-model-plural=elasticcacheskus
 type SElasticcacheSkuManager struct {
 	db.SStatusStandaloneResourceBaseManager
 	db.SExternalizedResourceBaseManager

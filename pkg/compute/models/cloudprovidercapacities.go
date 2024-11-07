@@ -45,6 +45,7 @@ func init() {
 	CloudproviderCapabilityManager.SetVirtualObject(CloudproviderCapabilityManager)
 }
 
+// +onecloud:swagger-gen-ignore
 type SCloudproviderCapability struct {
 	db.SResourceBase
 

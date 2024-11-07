@@ -32,6 +32,8 @@ import (
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
+// +onecloud:swagger-gen-model-singular=dbinstanceparameter
+// +onecloud:swagger-gen-model-plural=dbinstanceparameters
 type SDBInstanceParameterManager struct {
 	db.SStandaloneResourceBaseManager
 	db.SExternalizedResourceBaseManager

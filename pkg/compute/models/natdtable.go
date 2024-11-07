@@ -34,6 +34,8 @@ import (
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
+// +onecloud:swagger-gen-model-singular=natdentry
+// +onecloud:swagger-gen-model-plural=natdentries
 type SNatDEntryManager struct {
 	SNatEntryManager
 }

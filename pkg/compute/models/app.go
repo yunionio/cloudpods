@@ -39,6 +39,8 @@ import (
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
+// +onecloud:swagger-gen-model-singular=webapp
+// +onecloud:swagger-gen-model-plural=webapps
 type SAppManager struct {
 	db.SVirtualResourceBaseManager
 	db.SExternalizedResourceBaseManager

@@ -36,6 +36,8 @@ import (
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
+// +onecloud:swagger-gen-model-singular=scalingpolicy
+// +onecloud:swagger-gen-model-plural=scalingpolicies
 type SScalingPolicyManager struct {
 	db.SVirtualResourceBaseManager
 	SScalingGroupResourceBaseManager

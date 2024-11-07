@@ -40,6 +40,8 @@ import (
 	"yunion.io/x/onecloud/pkg/util/yunionmeta"
 )
 
+// +onecloud:swagger-gen-model-singular=dbinstance_sku
+// +onecloud:swagger-gen-model-plural=dbinstance_skus
 type SDBInstanceSkuManager struct {
 	db.SEnabledStatusStandaloneResourceBaseManager
 	db.SExternalizedResourceBaseManager

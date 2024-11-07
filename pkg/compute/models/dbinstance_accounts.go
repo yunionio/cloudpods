@@ -38,6 +38,8 @@ import (
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
+// +onecloud:swagger-gen-model-singular=dbinstanceaccount
+// +onecloud:swagger-gen-model-plural=dbinstanceaccounts
 type SDBInstanceAccountManager struct {
 	db.SStatusStandaloneResourceBaseManager
 	SDBInstanceResourceBaseManager

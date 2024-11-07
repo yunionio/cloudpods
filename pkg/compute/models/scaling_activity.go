@@ -29,6 +29,8 @@ import (
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
+// +onecloud:swagger-gen-model-singular=scalingactivity
+// +onecloud:swagger-gen-model-plural=scalingactivities
 type SScalingActivityManager struct {
 	db.SStatusStandaloneResourceBaseManager
 	SScalingGroupResourceBaseManager

@@ -37,6 +37,8 @@ import (
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
+// +onecloud:swagger-gen-model-singular=dbinstancebackup
+// +onecloud:swagger-gen-model-plural=dbinstancebackups
 type SDBInstanceBackupManager struct {
 	db.SVirtualResourceBaseManager
 	db.SExternalizedResourceBaseManager
