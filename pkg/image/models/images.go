@@ -92,7 +92,10 @@ func init() {
 	}
 	ImageManager.SetVirtualObject(ImageManager)
 
-	imgStreamingWorkerMan = appsrv.NewWorkerManager("image_streaming_worker", 10, 1024, true)
+}
+
+func InitImageStreamWorkers() {
+	imgStreamingWorkerMan = appsrv.NewWorkerManager("image_streaming_worker", options.Options.ImageStreamWorkerCount, 1024, true)
 }
 
 /*
