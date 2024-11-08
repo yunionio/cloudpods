@@ -360,18 +360,21 @@ func (c crictl) stopContainerWithRetry(ctx context.Context, ctrId string, timeou
 }
 
 func (c crictl) StopContainer(ctx context.Context, ctrId string, timeout int64, tryRemove bool, force bool) error {
-	maxTries := 10
 	errs := []error{}
-	err := c.stopContainerWithRetry(ctx, ctrId, timeout, maxTries)
-	if err == nil {
-		return nil
-	}
-	errs = append(errs, err)
+	isStopped := false
 	if force {
 		if err := c.forceKillContainer(ctx, ctrId); err != nil {
+			log.Infof("force kill container %s error: %v", ctrId, err)
 			errs = append(errs, errors.Wrap(err, "forceKillContainer"))
 		} else {
-			return nil
+			isStopped = true
+		}
+	} else {
+		maxTries := 5
+		if err := c.stopContainerWithRetry(ctx, ctrId, timeout, maxTries); err != nil {
+			errs = append(errs, errors.Wrap(err, "stopContainer"))
+		} else {
+			isStopped = true
 		}
 	}
 	if tryRemove {
@@ -383,6 +386,9 @@ func (c crictl) StopContainer(ctx context.Context, ctrId string, timeout int64, 
 		} else {
 			return nil
 		}
+	}
+	if isStopped {
+		return nil
 	}
 	return errors.NewAggregate(errs)
 }
@@ -403,10 +409,19 @@ func (c crictl) forceKillContainer(ctx context.Context, ctrId string) error {
 		return errors.Wrap(err, "get containerStatus")
 	}
 	info := cs.GetInfo()
-	pid, ok := info["pid"]
-	if !ok {
-		return errors.Errorf("not found pid from info %s", jsonutils.Marshal(info))
+	infoStr := info["info"]
+	if infoStr == "" {
+		return errors.Errorf("empty info: %s", infoStr)
 	}
+	infoObj, err := jsonutils.ParseString(infoStr)
+	if err != nil {
+		return errors.Wrapf(err, "invalid info: %s", infoStr)
+	}
+	pidInt, err := infoObj.Int("pid")
+	if err != nil {
+		return errors.Wrapf(err, "get pid from %s", infoObj)
+	}
+	pid := fmt.Sprintf("%d", pidInt)
 	// get ppid
 	pStatusFile := filepath.Join("/proc", pid, "task", pid, "status")
 	out, err := procutils.NewRemoteCommandAsFarAsPossible("sh", "-c", fmt.Sprintf("cat %s | grep PPid: | awk '{print $2}'", pStatusFile)).Output()
