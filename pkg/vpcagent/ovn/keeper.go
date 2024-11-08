@@ -29,6 +29,7 @@ import (
 	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/pkg/utils"
 
+	commonapis "yunion.io/x/onecloud/pkg/apis"
 	apis "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	agentmodels "yunion.io/x/onecloud/pkg/vpcagent/models"
@@ -524,7 +525,7 @@ func generateDhcpOptions(ctx context.Context, guestnetwork *agentmodels.Guestnet
 		if dnsDomain == "" {
 			dnsDomain = opts.DNSDomain
 		}
-		if len(dnsDomain) > 0 {
+		if len(dnsDomain) > 0 && !commonapis.IsIllegalSearchDomain(dnsDomain) {
 			dhcpopts.Options["domain_name"] = "\"" + dnsDomain + "\""
 		}
 	}

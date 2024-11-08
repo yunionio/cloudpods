@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/netutils"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
 	guestman "yunion.io/x/onecloud/pkg/hostman/guestman/types"
@@ -99,7 +100,9 @@ func gusetnetworkJsonDescToServerNic(nicdesc *types.SServerNic, guestNic *desc.S
 
 	nicdesc.Index = int(guestNic.Index)
 	nicdesc.Bridge = guestNic.Bridge
-	nicdesc.Domain = guestNic.Domain
+	if !apis.IsIllegalSearchDomain(guestNic.Domain) {
+		nicdesc.Domain = guestNic.Domain
+	}
 	nicdesc.Ip = guestNic.Ip
 	nicdesc.Vlan = guestNic.Vlan
 	nicdesc.Driver = guestNic.Driver
