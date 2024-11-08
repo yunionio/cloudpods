@@ -74,6 +74,9 @@ type SnapshotListInput struct {
 	// list server snapshots
 	ServerId string `json:"server_id"`
 
+	// 未关联任何磁盘
+	Unused bool `json:"unused"`
+
 	// 按虚拟机名称排序
 	// pattern:asc|desc
 	OrderByGuest string `json:"order_by_guest"`

@@ -32,6 +32,7 @@ func init() {
 		Share       *bool  `help:"Show shared snapshots"`
 		DiskType    string `help:"Filter by disk type" choices:"sys|data"`
 		Server      string `help:"Filter by server" json:"server_id"`
+		Unused      bool
 
 		OrderByGuest    string
 		OrderByDiskName string

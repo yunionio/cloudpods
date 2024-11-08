@@ -206,6 +206,11 @@ func (manager *SSnapshotManager) ListItemFilter(
 		q = q.In("disk_id", gdq)
 	}
 
+	if query.Unused {
+		sq := DiskManager.Query("id").Distinct().SubQuery()
+		q = q.NotIn("disk_id", sq)
+	}
+
 	return q, nil
 }
 
