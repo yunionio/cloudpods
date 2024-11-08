@@ -142,3 +142,11 @@ var (
 func IsARM(osArch string) bool {
 	return utils.IsInStringArray(osArch, ARCH_ARM)
 }
+
+func IsIllegalSearchDomain(domain string) bool {
+	switch domain {
+	case "cloud.onecloud.io":
+		return true
+	}
+	return false
+}
