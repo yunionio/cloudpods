@@ -20,6 +20,7 @@ import (
 	"yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/jsonutils"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
@@ -48,11 +49,15 @@ func findTeamingNic(nics []*types.SServerNic, mac string) *types.SServerNic {
 func ToServerNics(nics []*deployapi.Nic) []*types.SServerNic {
 	ret := make([]*types.SServerNic, len(nics))
 	for i := 0; i < len(nics); i++ {
+		domain := nics[i].Domain
+		if apis.IsIllegalSearchDomain(domain) {
+			domain = ""
+		}
 		ret[i] = &types.SServerNic{
 			Name:      nics[i].Name,
 			Index:     int(nics[i].Index),
 			Bridge:    nics[i].Bridge,
-			Domain:    nics[i].Domain,
+			Domain:    domain,
 			Ip:        nics[i].Ip,
 			Vlan:      int(nics[i].Vlan),
 			Driver:    nics[i].Driver,

@@ -22,6 +22,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
 )
@@ -118,6 +119,10 @@ func GuestnetworksDescToDeployDesc(guestnetworks []*desc.SGuestNetwork) []*Nic {
 
 	nics := make([]*Nic, len(guestnetworks))
 	for i, nic := range guestnetworks {
+		domain := nic.Domain
+		if apis.IsIllegalSearchDomain(domain) {
+			domain = ""
+		}
 		nics[i] = new(Nic)
 		nics[i].Mac = nic.Mac
 		nics[i].Ip = nic.Ip
@@ -126,7 +131,7 @@ func GuestnetworksDescToDeployDesc(guestnetworks []*desc.SGuestNetwork) []*Nic {
 		nics[i].Virtual = nic.Virtual
 		nics[i].Gateway = nic.Gateway
 		nics[i].Dns = nic.Dns
-		nics[i].Domain = nic.Domain
+		nics[i].Domain = domain
 		if nic.Routes != nil {
 			nics[i].Routes = nic.Routes.String()
 		}
