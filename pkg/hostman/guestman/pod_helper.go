@@ -77,15 +77,15 @@ func PullContainerdImage(input *hostapi.ContainerPullImageInput) error {
 		opt.Password = input.Auth.Password
 	}
 	imgTool := NewContainerdImageTool()
-	output, err := imgTool.Pull(input.Image, opt)
 	errs := make([]error, 0)
+	_, err := imgTool.Pull(input.Image, opt)
 	if err != nil {
 		// try http protocol
-		errs = append(errs, errors.Wrapf(err, "pullImageByCtrCmd: %s", output))
+		errs = append(errs, errors.Errorf("pullImageByCtrCmd by https: %s", trimPullImageError(err.Error())))
 		opt.PlainHttp = true
 		log.Infof("try pull image %s by http", input.Image)
-		if output2, err := imgTool.Pull(input.Image, opt); err != nil {
-			errs = append(errs, errors.Wrapf(err, "pullImageByCtrCmd by http: %s", output2))
+		if _, err := imgTool.Pull(input.Image, opt); err != nil {
+			errs = append(errs, errors.Errorf("pullImageByCtrCmd by http: %s", trimPullImageError(err.Error())))
 			return errors.NewAggregate(errs)
 		}
 	}
@@ -93,24 +93,19 @@ func PullContainerdImage(input *hostapi.ContainerPullImageInput) error {
 }
 
 func trimPullImageError(err string) string {
-	maxLen := 2048
-	getLine := func(line string, maxLen int) string {
-		if len(line) < maxLen {
-			return line
-		}
-		return line[:maxLen]
-	}
-	if len(err) <= maxLen {
-		return err
-	}
 	lines := strings.Split(err, "\n")
-	if len(lines) <= 1 {
-		return getLine(lines[0], maxLen)
+	filterLines := []string{}
+	for _, line := range lines {
+		// 过滤掉 containerd 拉取镜像的输出
+		if strings.Contains(line, "[0m") {
+			continue
+		}
+		if strings.Contains(line, "elapsed:") && strings.Contains(line, "total:") {
+			continue
+		}
+		filterLines = append(filterLines, line)
 	}
-	return strings.Join([]string{
-		getLine(lines[0], maxLen/2),
-		getLine(lines[len(lines)-1], maxLen/2)},
-		"\n")
+	return strings.Join(filterLines, "\n")
 }
 
 func PushContainerdImage(input *hostapi.ContainerPushImageInput) error {

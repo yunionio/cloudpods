@@ -1163,6 +1163,11 @@ func (s *sPodGuestInstance) StopContainer(ctx context.Context, userCred mcclient
 			log.Warningf("CRI.StopContainer %s not found", criId)
 		}
 	}
+	if input.Force {
+		// FIXME: Sleep 2s 等待 pleg.PodLifecycleEventGenerator 刷新
+		// 后期可以添加主动通知刷新
+		time.Sleep(2 * time.Second)
+	}
 	if err := s.startStat.RemoveContainerFile(ctrId); err != nil {
 		return nil, errors.Wrap(err, "startStat.RemoveContainerFile")
 	}
@@ -1921,7 +1926,7 @@ func (s *sPodGuestInstance) PullImage(ctx context.Context, userCred mcclient.Tok
 
 func (s *sPodGuestInstance) pullImageByCtrCmd(ctx context.Context, userCred mcclient.TokenCredential, ctrId string, input *hostapi.ContainerPullImageInput) (jsonutils.JSONObject, error) {
 	if err := PullContainerdImage(input); err != nil {
-		return nil, errors.Errorf("PullContainerdImage: %s", trimPullImageError(err.Error()))
+		return nil, errors.Wrap(err, "PullContainerdImage with https and http")
 	}
 	return jsonutils.Marshal(&runtimeapi.PullImageResponse{
 		ImageRef: input.Image,
