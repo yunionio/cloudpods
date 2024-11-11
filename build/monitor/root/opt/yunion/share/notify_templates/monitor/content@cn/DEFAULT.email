@@ -108,6 +108,7 @@
 	          <td>名称</td>
               <td>IP</td>
               <td>平台</td>
+              <td>指标</td>
               <td>触发值</td>
             </tr>
           </thead>
@@ -124,7 +125,8 @@
 				  <td>
 				   	{{ index .tags "brand" }}
 				  </td>
-				  <td>{{$Matche.value_str}}</td>
+				  <td>{{ $Matche.metric }}</td>
+				  <td>{{ $Matche.value_str }}</td>
 				</tr>
 			{{end}}
           </tbody>
