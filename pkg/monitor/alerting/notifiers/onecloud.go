@@ -471,7 +471,8 @@ func (s *sendUserImpl) send() error {
 }
 
 func (s *sendUserImpl) execNotifyFunc() error {
-	return notifyclient.NotifyAllWithoutRobotWithCtx(s.Ctx, s.msg.Uid, false, notify.TNotifyPriority(s.msg.Priority),
+	return notifyclient.NotifyAllWithoutRobotWithCtx(
+		s.Ctx, s.msg.Uid, false, s.msg.Priority,
 		"DEFAULT", jsonutils.Marshal(&s.config))
 }
 
@@ -484,7 +485,7 @@ func (s *sendSysImpl) send() error {
 }
 
 func (s *sendSysImpl) execNotifyFunc() error {
-	notifyclient.SystemNotifyWithCtx(s.Ctx, notify.TNotifyPriority(s.msg.Priority), "DEFAULT",
+	notifyclient.SystemNotifyWithCtx(s.Ctx, s.msg.Priority, "DEFAULT",
 		jsonutils.Marshal(&s.config))
 	return nil
 }
@@ -499,7 +500,7 @@ func (s *sendMobileImpl) send() error {
 		return err
 	}
 	notifyclient.RawNotifyWithCtx(s.Ctx, s.msg.Uid, false, notify.TNotifyChannel(s.Setting.Channel),
-		notify.TNotifyPriority(s.msg.Priority),
+		s.msg.Priority,
 		s.msg.Topic,
 		msgObj)
 	return nil
@@ -514,7 +515,7 @@ func (s *sendRobotImpl) send() error {
 }
 
 func (s *sendRobotImpl) execNotifyFunc() error {
-	return notifyclient.NotifyRobotWithCtx(s.Ctx, s.msg.Robots, notify.TNotifyPriority(s.msg.Priority),
+	return notifyclient.NotifyRobotWithCtx(s.Ctx, s.msg.Robots, s.msg.Priority,
 		"DEFAULT", jsonutils.Marshal(&s.config))
 }
 
