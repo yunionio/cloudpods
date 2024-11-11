@@ -108,6 +108,7 @@
 	          <td>Name</td>
               <td>IP</td>
               <td>Brand</td>
+              <td>Metric</td>
               <td>Trigger value</td>
             </tr>
           </thead>
@@ -124,7 +125,8 @@
 				  <td>
 				   	{{ index .tags "brand" }}
 				  </td>
-				  <td>{{$Matche.value_str}}</td>
+				  <td>{{ $Matche.metric }}</td>
+				  <td>{{ $Matche.value_str }}</td>
 				</tr>
 			{{end}}
           </tbody>
