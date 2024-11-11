@@ -6274,6 +6274,7 @@ func (self *SGuest) ToSchedDesc() *schedapi.ScheduleInput {
 	config.Hypervisor = self.GetHypervisor()
 	desc.ServerConfig = *config
 	desc.OsArch = self.OsArch
+	desc.ExtraCpuCount = self.ExtraCpuCount
 	return desc
 }
 
