@@ -206,14 +206,17 @@ type AlertNotificationAttachOptions struct {
 
 type AlertNotificationListOptions struct {
 	options.BaseListOptions
-	Alert        string `help:"ID or name of alert" short-token:"a"`
-	Notification string `help:"ID or name of notification" short-token:"n"`
+	Notification string   `help:"ID or name of notification" short-token:"n"`
+	AlertId      []string `help:"ID or name of alert" short-token:"a"`
 }
 
 func (o AlertNotificationListOptions) Params() (*jsonutils.JSONDict, error) {
 	params, err := o.BaseListOptions.Params()
 	if err != nil {
 		return nil, err
+	}
+	if len(o.AlertId) > 0 {
+		params.Add(jsonutils.NewStringArray(o.AlertId), "alert_ids")
 	}
 	return params, nil
 }
