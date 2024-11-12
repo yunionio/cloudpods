@@ -36,12 +36,7 @@ type AlertJointResourceBaseDetails struct {
 type AlertnotificationDetails struct {
 	AlertJointResourceBaseDetails
 	Notification string `json:"notification"`
-}
-
-type AlertJointCreateInput struct {
-	apis.Meta
-
-	AlertId string `json:"alert_id"`
+	Frequency    int64  `json:"frequency"`
 }
 
 type AlertnotificationCreateInput struct {
@@ -50,4 +45,8 @@ type AlertnotificationCreateInput struct {
 	NotificationId string               `json:"notification_id"`
 	UsedBy         string               `json:"used_by"`
 	Params         jsonutils.JSONObject `json:"params"`
+}
+
+type AlertNotificationListInput struct {
+	AlertJointListInput
 }
