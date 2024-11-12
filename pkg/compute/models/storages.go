@@ -1265,6 +1265,7 @@ func (manager *SStorageManager) totalCapacityQ(
 		storages.Field("capacity"),
 		storages.Field("reserved"),
 		storages.Field("cmtbound"),
+		storages.Field("actual_capacity_used"),
 		storages.Field("storage_type"),
 		storages.Field("medium_type"),
 		stmt.Field("used_capacity"),
@@ -1288,6 +1289,7 @@ type StorageStat struct {
 	Capacity             int
 	Reserved             int
 	Cmtbound             float32
+	ActualCapacityUsed   int64
 	StorageType          string
 	MediumType           string
 	UsedCapacity         int
@@ -1301,16 +1303,17 @@ type StorageStat struct {
 }
 
 type StoragesCapacityStat struct {
-	Capacity         int64
-	CapacityVirtual  float64
-	CapacityUsed     int64
-	CountUsed        int
-	CapacityUnready  int64
-	CountUnready     int
-	AttachedCapacity int64
-	CountAttached    int
-	DetachedCapacity int64
-	CountDetached    int
+	Capacity           int64
+	CapacityVirtual    float64
+	CapacityUsed       int64
+	ActualCapacityUsed int64
+	CountUsed          int
+	CapacityUnready    int64
+	CountUnready       int
+	AttachedCapacity   int64
+	CountAttached      int
+	DetachedCapacity   int64
+	CountDetached      int
 
 	MediumeCapacity             map[string]int64
 	StorageTypeCapacity         map[string]int64
@@ -1332,6 +1335,7 @@ func (manager *SStorageManager) calculateCapacity(q *sqlchemy.SQuery) StoragesCa
 		tCapa   int64   = 0
 		tVCapa  float64 = 0
 		tUsed   int64   = 0
+		aUsed   int64   = 0
 		cUsed   int     = 0
 		tFailed int64   = 0
 		cFailed int     = 0
@@ -1374,6 +1378,7 @@ func (manager *SStorageManager) calculateCapacity(q *sqlchemy.SQuery) StoragesCa
 		tVCapa += float64(stat.Capacity-stat.Reserved) * float64(stat.Cmtbound)
 		mCapaUsed, sCapaUsed = add(mCapaUsed, sCapaUsed, stat.MediumType, stat.StorageType, int64(stat.UsedCapacity))
 		tUsed += int64(stat.UsedCapacity)
+		aUsed += int64(stat.ActualCapacityUsed)
 		cUsed += stat.UsedCount
 		tFailed += int64(stat.FailedCapacity)
 		mFailed, sFailed = add(mFailed, sFailed, stat.MediumType, stat.StorageType, int64(stat.FailedCapacity))
@@ -1391,6 +1396,7 @@ func (manager *SStorageManager) calculateCapacity(q *sqlchemy.SQuery) StoragesCa
 		StorageTypeCapacity:         sCapa,
 		CapacityVirtual:             tVCapa,
 		CapacityUsed:                tUsed,
+		ActualCapacityUsed:          aUsed,
 		MediumeCapacityUsed:         mCapaUsed,
 		StorageTypeCapacityUsed:     sCapaUsed,
 		CountUsed:                   cUsed,
