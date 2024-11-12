@@ -36,9 +36,7 @@ func initAlertNotification() {
 				return err
 			}
 			var result *printutils.ListResult
-			if len(args.Alert) > 0 {
-				result, err = monitor.Alertnotification.ListDescendent(s, args.Alert, params)
-			} else if len(args.Notification) > 0 {
+			if len(args.Notification) > 0 {
 				result, err = monitor.Alertnotification.ListDescendent2(s, args.Notification, params)
 			} else {
 				result, err = monitor.Alertnotification.List(s, params)
