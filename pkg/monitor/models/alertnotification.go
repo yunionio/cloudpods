@@ -20,6 +20,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis/monitor"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -79,6 +80,14 @@ func (man *SAlertNotificationManager) Get(alertId string, notiId string) (*SAler
 	return obj, err
 }
 
+func (man *SAlertNotificationManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query monitor.AlertNotificationListInput) (*sqlchemy.SQuery, error) {
+	return man.SAlertJointsManager.ListItemFilter(ctx, q, userCred, query.AlertJointListInput)
+}
+
 func (man *SAlertNotificationManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
@@ -106,6 +115,7 @@ func (man *SAlertNotificationManager) FetchCustomizeColumns(
 	for i := range rows {
 		if noti, ok := notis[notiIds[i]]; ok {
 			rows[i].Notification = noti.Name
+			rows[i].Frequency = noti.Frequency
 		}
 	}
 	return rows
