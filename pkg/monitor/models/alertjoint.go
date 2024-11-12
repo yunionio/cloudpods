@@ -19,7 +19,9 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/reflectutils"
+	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis/monitor"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -56,6 +58,21 @@ func (b *SAlertJointsBase) getAlert() *SAlert {
 
 func (man *SAlertJointsManager) GetMasterFieldName() string {
 	return "alert_id"
+}
+
+func (man *SAlertJointsManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query monitor.AlertJointListInput) (*sqlchemy.SQuery, error) {
+	q, err := man.SJointResourceBaseManager.ListItemFilter(ctx, q, userCred, query.JointResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SJointResourceBaseManager.ListItemFilter")
+	}
+	if len(query.AlertIds) != 0 {
+		q = q.In("alert_id", query.AlertIds)
+	}
+	return q, nil
 }
 
 func (man *SAlertJointsManager) FetchCustomizeColumns(
