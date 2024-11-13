@@ -35,7 +35,7 @@ import (
 	"yunion.io/x/onecloud/pkg/keystone/cronjobs"
 	"yunion.io/x/onecloud/pkg/keystone/models"
 	"yunion.io/x/onecloud/pkg/keystone/options"
-	_ "yunion.io/x/onecloud/pkg/keystone/policy"
+	kpolicy "yunion.io/x/onecloud/pkg/keystone/policy"
 	"yunion.io/x/onecloud/pkg/keystone/saml"
 	_ "yunion.io/x/onecloud/pkg/keystone/tasks"
 	"yunion.io/x/onecloud/pkg/keystone/tokens"
@@ -63,6 +63,7 @@ func StartService() {
 
 	opts := &options.Options
 	common_options.ParseOptions(opts, os.Args, "keystone.conf", api.SERVICE_TYPE)
+	kpolicy.Init()
 
 	if opts.Port == 0 {
 		opts.Port = 5000 // keystone well-known port

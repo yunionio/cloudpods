@@ -236,6 +236,7 @@ var (
 			// kubeserver blacklist options
 			// ############################
 			"running_mode",
+			"enable_default_policy",
 		},
 	}
 )
