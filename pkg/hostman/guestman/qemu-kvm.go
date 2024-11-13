@@ -2692,15 +2692,15 @@ func (s *SKVMGuestInstance) setCgroupCPUSet() error {
 func (s *SKVMGuestInstance) allocGuestNumaCpuset() error {
 	var cpus = make([]int, 0)
 	var cpuNumaPin = make([]*desc.SCpuNumaPin, 0)
-	var perferNumaNode int8 = -1
+	var preferNumaNodes = make([]int8, 0)
 	for i := range s.Desc.IsolatedDevices {
 		if s.Desc.IsolatedDevices[i].NumaNode >= 0 {
-			perferNumaNode = s.Desc.IsolatedDevices[i].NumaNode
+			preferNumaNodes = append(preferNumaNodes, s.Desc.IsolatedDevices[i].NumaNode)
 			break
 		}
 	}
 
-	nodeNumaCpus, err := s.manager.cpuSet.AllocCpuset(int(s.Desc.Cpu), s.Desc.Mem*1024, perferNumaNode)
+	nodeNumaCpus, err := s.manager.cpuSet.AllocCpuset(int(s.Desc.Cpu), s.Desc.Mem*1024, preferNumaNodes)
 	if err != nil {
 		return err
 	}

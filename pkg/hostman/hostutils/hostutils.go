@@ -71,11 +71,13 @@ type IHost interface {
 	IsX8664() bool
 	GetHostTopology() *hostapi.HostTopology
 	GetReservedCpusInfo() *cpuset.CPUSet
+	GetReservedMemMb() int
 
 	IsHugepagesEnabled() bool
 	HugepageSizeKb() int
 	IsNumaAllocateEnabled() bool
-	CpuCmtBound() int
+	CpuCmtBound() float32
+	MemCmtBound() float32
 
 	IsKvmSupport() bool
 	IsNestedVirtualization() bool

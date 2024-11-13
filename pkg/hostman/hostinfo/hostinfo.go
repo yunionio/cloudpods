@@ -99,7 +99,8 @@ type SHostInfo struct {
 	onHostDown         string
 	reservedCpusInfo   *api.HostReserveCpusInput
 	enableNumaAllocate bool
-	cpuCmtBound        int
+	cpuCmtBound        float32
+	memCmtBound        float32
 
 	IsolatedDeviceMan isolated_device.IsolatedDeviceManager
 
@@ -1257,7 +1258,8 @@ func (h *SHostInfo) initHostRecord() (*api.HostDetails, error) {
 	}
 
 	h.HostId = hostInfo.Id
-	h.cpuCmtBound = int(hostInfo.CpuCmtbound)
+	h.cpuCmtBound = hostInfo.CpuCmtbound
+	h.memCmtBound = hostInfo.MemCommitBound
 	hostInfo, err = h.updateHostMetadata(hostInfo.Name)
 	if err != nil {
 		return nil, errors.Wrap(err, "updateHostMetadata")
@@ -1284,8 +1286,8 @@ func (h *SHostInfo) initHostRecord() (*api.HostDetails, error) {
 	}
 
 	// set host reserved memory
-	if h.IsHugepagesEnabled() && h.getReservedMemMb() != hostInfo.MemReserved {
-		if err = h.updateHostReservedMem(h.getReservedMemMb()); err != nil {
+	if h.IsHugepagesEnabled() && h.GetReservedMemMb() != hostInfo.MemReserved {
+		if err = h.updateHostReservedMem(h.GetReservedMemMb()); err != nil {
 			return nil, errors.Wrap(err, "updateHostReservedMem")
 		}
 	}
@@ -1561,7 +1563,7 @@ func (h *SHostInfo) updateOrCreateHost(hostId string) (*api.HostDetails, error) 
 	input.MemSize = fmt.Sprintf("%d", h.GetMemory())
 	if len(hostId) == 0 {
 		// first time create
-		input.MemReserved = fmt.Sprintf("%d", h.getReservedMemMb())
+		input.MemReserved = fmt.Sprintf("%d", h.GetReservedMemMb())
 	}
 	if h.IsHugepagesEnabled() {
 		pageSizeKb := options.HostOptions.HugepageSizeMb * 1024
@@ -1713,7 +1715,7 @@ func (h *SHostInfo) getOSReservedMemMb() int {
 	return reserved
 }
 
-func (h *SHostInfo) getReservedMemMb() int {
+func (h *SHostInfo) GetReservedMemMb() int {
 	if h.IsHugepagesEnabled() {
 		hp, _ := h.Mem.GetHugepages()
 		return h.GetMemory() - int(hp.BytesMb())
@@ -2604,8 +2606,12 @@ func (h *SHostInfo) GetContainerRuntimeEndpoint() string {
 	return options.HostOptions.ContainerRuntimeEndpoint
 }
 
-func (h *SHostInfo) CpuCmtBound() int {
+func (h *SHostInfo) CpuCmtBound() float32 {
 	return h.cpuCmtBound
+}
+
+func (h *SHostInfo) MemCmtBound() float32 {
+	return h.memCmtBound
 }
 
 func NewHostInfo() (*SHostInfo, error) {
