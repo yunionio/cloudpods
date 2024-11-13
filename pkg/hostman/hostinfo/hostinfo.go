@@ -2496,6 +2496,10 @@ func (h *SHostInfo) OnCatalogChanged(catalog mcclient.KeystoneServiceCatalogV3) 
 		}
 	}
 
+	if h.IsContainerHost() {
+		h.injectTelegrafDeviceConfig(conf)
+	}
+
 	tsdb, _ := tsdb.GetDefaultServiceSource(s, defaultEndpointType)
 	if tsdb != nil && len(tsdb.URLs) > 0 {
 		conf[apis.SERVICE_TYPE_INFLUXDB] = map[string]interface{}{
@@ -2527,6 +2531,51 @@ func (h *SHostInfo) OnCatalogChanged(catalog mcclient.KeystoneServiceCatalogV3) 
 			fluentbit.BgReload(conf)
 		}
 	}*/
+}
+
+func (h *SHostInfo) injectTelegrafDeviceConfig(conf map[string]interface{}) {
+	devs := h.GetIsolatedDeviceManager().GetDevices()
+	if len(devs) == 0 {
+		return
+	}
+	// group dev
+	hasNetint := false
+	hasVasmi := false
+	for _, dev := range devs {
+		devType := dev.GetDeviceType()
+		switch devType {
+		case string(isolated_device.ContainerDeviceTypeCphAMDGPU):
+			confMap, ok := conf[system_service.TELEGRAF_INPUT_RADEONTOP].(map[string]interface{})
+			if !ok {
+				conf[system_service.TELEGRAF_INPUT_RADEONTOP] = map[string]interface{}{
+					system_service.TELEGRAF_INPUT_CONF_BIN_PATH:       "/usr/bin/radeontop",
+					system_service.TELEGRAF_INPUT_RADEONTOP_DEV_PATHS: []string{dev.GetDevicePath()},
+				}
+			} else {
+				devPaths := confMap[system_service.TELEGRAF_INPUT_RADEONTOP_DEV_PATHS].([]string)
+				if !utils.IsInStringArray(dev.GetDevicePath(), devPaths) {
+					devPaths = append(devPaths, dev.GetDevicePath())
+					confMap[system_service.TELEGRAF_INPUT_RADEONTOP_DEV_PATHS] = devPaths
+				}
+			}
+		case string(isolated_device.ContainerNetintCAQuadra), string(isolated_device.ContainerNetintCAASIC):
+			hasNetint = true
+			continue
+		case string(isolated_device.ContainerDeviceTypeVastaitechGpu):
+			hasVasmi = true
+			continue
+		}
+	}
+	if hasNetint {
+		conf[system_service.TELEGAF_INPUT_NETDEV] = map[string]interface{}{
+			system_service.TELEGRAF_INPUT_CONF_BIN_PATH: "/usr/bin/ni_rsrc_mon",
+		}
+	}
+	if hasVasmi {
+		conf[system_service.TELEGAF_INPUT_VASMI] = map[string]interface{}{
+			system_service.TELEGRAF_INPUT_CONF_BIN_PATH: "/usr/bin/vasmi",
+		}
+	}
 }
 
 func (h *SHostInfo) getNicsTelegrafConf() []map[string]interface{} {

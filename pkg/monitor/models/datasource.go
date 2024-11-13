@@ -32,6 +32,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
+	"yunion.io/x/pkg/util/sets"
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/apis/monitor"
@@ -850,6 +851,10 @@ func floatEquals(a, b float64) bool {
 var filterKey = []string{"perf_instance", "res_type", "status", "cloudregion", "os_type", "is_vm"}
 
 func filterTagKey(key string) bool {
+	whiteListIdKeys := sets.NewString("dev_id", "die_id")
+	if whiteListIdKeys.Has(key) {
+		return false
+	}
 	if strings.Contains(key, "_id") {
 		return true
 	}
