@@ -327,6 +327,28 @@ func (c crictl) ListPods(ctx context.Context, opts ListPodOptions) ([]*runtimeap
 }
 
 func (c crictl) RemovePod(ctx context.Context, podId string) error {
+	maxTries := 10
+	interval := 5 * time.Second
+	errs := []error{}
+	for tries := 0; tries < maxTries; tries++ {
+		ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		defer cancel()
+		err := c.removePod(ctx, podId)
+		if err == nil {
+			return nil
+		}
+		if strings.Contains(err.Error(), "code = NotFound") {
+			return nil
+		}
+		dur := interval * time.Duration(tries+1)
+		log.Warningf("try to remove pod %s after %s: %v", podId, dur, err)
+		errs = append(errs, errors.Wrapf(err, "try %d", tries))
+		time.Sleep(dur)
+	}
+	return errors.NewAggregate(errs)
+}
+
+func (c crictl) removePod(ctx context.Context, podId string) error {
 	if _, err := c.GetRuntimeClient().RemovePodSandbox(ctx, &runtimeapi.RemovePodSandboxRequest{
 		PodSandboxId: podId,
 	}); err != nil {
