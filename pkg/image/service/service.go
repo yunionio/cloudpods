@@ -40,7 +40,7 @@ import (
 	"yunion.io/x/onecloud/pkg/image/drivers/s3"
 	"yunion.io/x/onecloud/pkg/image/models"
 	"yunion.io/x/onecloud/pkg/image/options"
-	_ "yunion.io/x/onecloud/pkg/image/policy"
+	"yunion.io/x/onecloud/pkg/image/policy"
 	_ "yunion.io/x/onecloud/pkg/image/tasks"
 	"yunion.io/x/onecloud/pkg/image/torrent"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
@@ -55,6 +55,7 @@ func StartService() {
 	baseOpts := &opts.BaseOptions
 	dbOpts := &opts.DBOptions
 	common_options.ParseOptions(opts, os.Args, "glance-api.conf", api.SERVICE_TYPE)
+	policy.Init()
 
 	// no need to run glance as root any more
 	// isRoot := sysutils.IsRootPermission()

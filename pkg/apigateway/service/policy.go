@@ -16,10 +16,19 @@ package service
 
 import (
 	_ "yunion.io/x/onecloud/pkg/cloudevent/policy"
-	_ "yunion.io/x/onecloud/pkg/compute/policy"
-	_ "yunion.io/x/onecloud/pkg/image/policy"
-	_ "yunion.io/x/onecloud/pkg/keystone/policy"
-	_ "yunion.io/x/onecloud/pkg/logger/policy"
-	_ "yunion.io/x/onecloud/pkg/notify/policy"
-	_ "yunion.io/x/onecloud/pkg/yunionconf/policy"
+	compute "yunion.io/x/onecloud/pkg/compute/policy"
+	image "yunion.io/x/onecloud/pkg/image/policy"
+	keystone "yunion.io/x/onecloud/pkg/keystone/policy"
+	logger "yunion.io/x/onecloud/pkg/logger/policy"
+	notify "yunion.io/x/onecloud/pkg/notify/policy"
+	yunionconf "yunion.io/x/onecloud/pkg/yunionconf/policy"
 )
+
+func InitDefaultPolicy() {
+	compute.Init()
+	image.Init()
+	keystone.Init()
+	logger.Init()
+	notify.Init()
+	yunionconf.Init()
+}

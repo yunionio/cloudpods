@@ -28,7 +28,17 @@ var (
 	defaultDBChecksumHashAlgorithm string
 
 	enableChangeOwnerAutoRename = false
+
+	enableDefaultPolicy = true
 )
+
+func SetDefaultPolicy(enable bool) {
+	enableDefaultPolicy = enable
+}
+
+func IsEnableDefaultPolicy() bool {
+	return enableDefaultPolicy == true
+}
 
 func SetDefaultDB(dialect, connStr string) {
 	defaultDBDialect = dialect

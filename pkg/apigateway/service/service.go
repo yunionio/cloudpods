@@ -39,6 +39,7 @@ func StartService() {
 	baseOpts := &opts.BaseOptions
 	commonOpts := &opts.CommonOptions
 	common_options.ParseOptions(opts, os.Args, "apigateway.conf", api.SERVICE_TYPE)
+	InitDefaultPolicy()
 	app_common.InitAuth(commonOpts, func() {
 		log.Infof("Auth complete.")
 	})
