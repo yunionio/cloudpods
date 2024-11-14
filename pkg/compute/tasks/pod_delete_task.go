@@ -66,7 +66,7 @@ func (t *PodDeleteTask) OnWaitContainerDeletedFailed(ctx context.Context, pod *m
 }
 
 func (t *PodDeleteTask) OnContainerDeleted(ctx context.Context, pod *models.SGuest) {
-	t.SetStage("OnPodStopped", nil)
+	/*t.SetStage("OnPodStopped", nil)
 	if pod.HostId == "" {
 		t.OnPodStopped(ctx, pod, nil)
 		return
@@ -84,10 +84,21 @@ func (t *PodDeleteTask) OnContainerDeleted(ctx context.Context, pod *models.SGue
 		}
 		t.OnPodStoppedFailed(ctx, pod, jsonutils.NewString(err.Error()))
 		return
-	}
+	}*/
+	t.startDeletePod(ctx, pod)
 }
 
-func (t *PodDeleteTask) OnPodStopped(ctx context.Context, pod *models.SGuest, data jsonutils.JSONObject) {
+func (t *PodDeleteTask) startDeletePod(ctx context.Context, pod *models.SGuest) {
+	t.SetStage("OnPodDeleted", nil)
+	task, err := taskman.TaskManager.NewTask(ctx, "GuestDeleteTask", pod, t.GetUserCred(), t.GetParams(), t.GetTaskId(), "", nil)
+	if err != nil {
+		t.OnPodDeletedFailed(ctx, pod, jsonutils.NewString(err.Error()))
+		return
+	}
+	task.ScheduleRun(nil)
+}
+
+/*func (t *PodDeleteTask) OnPodStopped(ctx context.Context, pod *models.SGuest, data jsonutils.JSONObject) {
 	t.SetStage("OnPodDeleted", nil)
 	task, err := taskman.TaskManager.NewTask(ctx, "GuestDeleteTask", pod, t.GetUserCred(), t.GetParams(), t.GetTaskId(), "", nil)
 	if err != nil {
@@ -105,7 +116,7 @@ func (t *PodDeleteTask) OnPodStoppedFailed(ctx context.Context, pod *models.SGue
 		pod.SetStatus(ctx, t.GetUserCred(), api.VM_STOP_FAILED, reason.String())
 		t.SetStageFailed(ctx, reason)
 	}
-}
+}*/
 
 func (t *PodDeleteTask) OnPodDeleted(ctx context.Context, pod *models.SGuest, data jsonutils.JSONObject) {
 	t.SetStageComplete(ctx, nil)
