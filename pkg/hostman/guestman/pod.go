@@ -26,6 +26,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	runtimeapi "k8s.io/cri-api/pkg/apis/runtime/v1"
@@ -216,12 +217,15 @@ type sPodGuestInstance struct {
 	containers     map[string]*sContainer
 	startStat      *startStatHelper
 	expectedStatus *PodExpectedStatus
+
+	startPodLock sync.Mutex
 }
 
 func newPodGuestInstance(id string, man *SGuestManager) PodInstance {
 	p := &sPodGuestInstance{
 		sBaseGuestInstance: newBaseGuestInstance(id, man, computeapi.HYPERVISOR_POD),
 		containers:         make(map[string]*sContainer),
+		startPodLock:       sync.Mutex{},
 	}
 	es, err := NewPodExpectedStatus(p.HomeDir(), computeapi.VM_UNKNOWN)
 	if err != nil {
@@ -737,6 +741,9 @@ func (s *sPodGuestInstance) ShouldRestartPodOnCrash() bool {
 }
 
 func (s *sPodGuestInstance) startPod(ctx context.Context, userCred mcclient.TokenCredential) (*computeapi.PodStartResponse, error) {
+	s.startPodLock.Lock()
+	defer s.startPodLock.Unlock()
+
 	retries := 3
 	sec := 5 * time.Second
 	var err error

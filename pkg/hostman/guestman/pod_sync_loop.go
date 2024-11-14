@@ -131,7 +131,12 @@ func (m *SGuestManager) syncContainerLoopIteration(plegCh chan *pleg.PodLifecycl
 			log.Infof("pod %s is dirty shutdown, waiting it to started", podMan.GetName())
 			return
 		}
+		podInstance := podMan.(*sPodGuestInstance)
 		if e.Type == pleg.ContainerStarted {
+			// 防止读取 podMan.GetCRIId 还没有刷新的问题
+			podInstance.startPodLock.Lock()
+			defer podInstance.startPodLock.Unlock()
+
 			log.Infof("pod container started: %s", jsonutils.Marshal(e))
 			ctrId := e.Data.(string)
 			if ctrId == podMan.GetCRIId() {
