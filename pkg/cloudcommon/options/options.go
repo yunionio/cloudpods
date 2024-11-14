@@ -19,7 +19,7 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -121,6 +121,7 @@ type BaseOptions struct {
 	EnableAppProfiling bool `help:"enable profiling API" default:"false"`
 
 	EnableChangeOwnerAutoRename bool `help:"Allows renaming when changing names" default:"false"`
+	EnableDefaultPolicy         bool `help:"Enable defualt policies" default:"true"`
 }
 
 const (
@@ -218,7 +219,7 @@ func (opt *EtcdOptions) GetEtcdTLSConfig() (*tls.Config, error) {
 		opt.EtcdUseTLS = true
 	}
 	if opt.EtcdCacert != "" {
-		data, err := ioutil.ReadFile(opt.EtcdCacert)
+		data, err := os.ReadFile(opt.EtcdCacert)
 		if err != nil {
 			return nil, errors.Wrap(err, "read cacert file")
 		}
@@ -375,7 +376,7 @@ func parseOptions(optStruct interface{}, args []string, configFileName string, s
 		h.Init()
 		log.DisableColors()
 		log.Logger().AddHook(h)
-		log.Logger().Out = ioutil.Discard
+		log.Logger().Out = io.Discard
 		atexit.Register(atexit.ExitHandler{
 			Prio:   atexit.PRIO_LOG_CLOSE,
 			Reason: "deinit log rotate hook",
@@ -391,6 +392,7 @@ func parseOptions(optStruct interface{}, args []string, configFileName string, s
 		consts.SetRegion(optionsRef.Region)
 	}
 
+	consts.SetDefaultPolicy(optionsRef.EnableDefaultPolicy)
 	consts.SetDomainizedNamespace(optionsRef.DomainizedNamespace)
 }
 
