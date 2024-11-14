@@ -346,9 +346,17 @@ func SharableManagerFilterByOwner(ctx context.Context, manager IStandaloneModelM
 					))
 				}
 				if !result.ProjectTags.IsEmpty() && resScope == rbacscope.ScopeProject {
+					subq := manager.Query("id")
 					policyTagFilters := tagutils.STagFilters{}
 					policyTagFilters.AddFilters(result.ProjectTags)
-					q = ObjectIdQueryWithTagFilters(ctx, q, "tenant_id", "project", policyTagFilters)
+					subq = ObjectIdQueryWithTagFilters(ctx, subq, "tenant_id", "project", policyTagFilters)
+					q = q.Filter(sqlchemy.OR(
+						sqlchemy.In(q.Field("id"), subq.SubQuery()),
+						sqlchemy.AND(
+							sqlchemy.IsTrue(q.Field("is_public")),
+							sqlchemy.Equals(q.Field("public_scope"), rbacscope.ScopeSystem),
+						),
+					))
 				}
 				if !result.ObjectTags.IsEmpty() {
 					policyTagFilters := tagutils.STagFilters{}
