@@ -32,7 +32,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/yunionconf/models"
 	"yunion.io/x/onecloud/pkg/yunionconf/options"
-	_ "yunion.io/x/onecloud/pkg/yunionconf/policy"
+	"yunion.io/x/onecloud/pkg/yunionconf/policy"
 )
 
 func StartService() {
@@ -42,6 +42,7 @@ func StartService() {
 	commonOpts := &options.Options.CommonOptions
 	dbOpts := &options.Options.DBOptions
 	common_options.ParseOptions(opts, os.Args, "yunionconf.conf", api.SERVICE_TYPE)
+	policy.Init()
 	app_common.InitAuth(commonOpts, func() {
 		log.Infof("Auth complete!!")
 	})

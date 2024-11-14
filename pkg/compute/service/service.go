@@ -48,7 +48,7 @@ import (
 	_ "yunion.io/x/onecloud/pkg/compute/hostdrivers"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/compute/options"
-	_ "yunion.io/x/onecloud/pkg/compute/policy"
+	"yunion.io/x/onecloud/pkg/compute/policy"
 	_ "yunion.io/x/onecloud/pkg/compute/regiondrivers"
 	_ "yunion.io/x/onecloud/pkg/compute/storagedrivers"
 	"yunion.io/x/onecloud/pkg/compute/tasks"
@@ -67,6 +67,7 @@ func StartServiceWithJobs(jobs func(cron *cronman.SCronJobManager)) {
 	baseOpts := &options.Options.BaseOptions
 	dbOpts := &options.Options.DBOptions
 	common_options.ParseOptions(opts, os.Args, "region.conf", api.SERVICE_TYPE)
+	policy.Init()
 
 	if opts.PortV2 > 0 {
 		log.Infof("Port V2 %d is specified, use v2 port", opts.PortV2)
