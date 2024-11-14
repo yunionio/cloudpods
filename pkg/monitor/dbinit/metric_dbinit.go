@@ -75,6 +75,20 @@ func registryNetio(measurement string, displayName string, resType string, score
 		})
 }
 
+func registryNvidaSMI(measurement string, resType string, score int) {
+	RegistryMetricCreateInput(measurement, "Nvidia GPU metrics",
+		resType, monitor.METRIC_DATABASE_TELE, score, []monitor.MetricFieldCreateInput{
+			newMetricFieldCreateInput("clocks_current_graphics", "GPU current clocks, MHz", "", 1),
+			newMetricFieldCreateInput("clocks_current_memory", "GPU current memory clocks, MHz", "", 2),
+			newMetricFieldCreateInput("temperature_gpu", "GPU temperature", "", 3),
+			newMetricFieldCreateInput("memory_total", "GPU memory total size", "", 4),
+			newMetricFieldCreateInput("memory_free", "GPU memory free size", "", 5),
+			newMetricFieldCreateInput("memory_used", "GPU memory used size", "", 6),
+			newMetricFieldCreateInput("utilization_gpu", "GPU utilization", monitor.METRIC_UNIT_PERCENT, 7),
+			newMetricFieldCreateInput("utilization_memory", "GPU memory utilization", monitor.METRIC_UNIT_PERCENT, 8),
+		})
+}
+
 // order by score asc
 // score default:99
 func init() {
@@ -177,6 +191,65 @@ func init() {
 			newMetricFieldCreateInput("zombies", "Zombie processes count", monitor.METRIC_UNIT_COUNT, 3),
 			newMetricFieldCreateInput("running", "Running processes count", monitor.METRIC_UNIT_COUNT, 4),
 			newMetricFieldCreateInput("sleeping", "Sleeping processes count", monitor.METRIC_UNIT_COUNT, 5),
+		})
+	// gpu
+	registryNvidaSMI("nvidia_smi", monitor.METRIC_RES_TYPE_HOST, 8)
+
+	RegistryMetricCreateInput("radeontop", "AMD GPU metrics", monitor.METRIC_RES_TYPE_HOST, monitor.METRIC_DATABASE_TELE, 9,
+		[]monitor.MetricFieldCreateInput{
+			newMetricFieldCreateInput("clocks_current_memory", "GPU current memory clocks, MHz", "", 1),
+			newMetricFieldCreateInput("clocks_current_shader", "GPU current shader clocks, MHz", "", 2),
+			newMetricFieldCreateInput("memory_total", "GPU memory total size", "", 3),
+			newMetricFieldCreateInput("memory_free", "GPU memory free size", "", 4),
+			newMetricFieldCreateInput("memory_used", "GPU memory used size", "", 5),
+			newMetricFieldCreateInput("gtt_total", "GPU gtt total size", "", 6),
+			newMetricFieldCreateInput("gtt_free", "GPU gtt free size", "", 7),
+			newMetricFieldCreateInput("gtt_used", "GPU gtt used size", "", 8),
+			newMetricFieldCreateInput("utilization_clock_memory", "GPU block memory utilization", monitor.METRIC_UNIT_PERCENT, 9),
+			newMetricFieldCreateInput("utilization_clock_shader", "GPU block shader utilization", monitor.METRIC_UNIT_PERCENT, 10),
+			newMetricFieldCreateInput("utilization_gpu", "GPU utilization", monitor.METRIC_UNIT_PERCENT, 11),
+			newMetricFieldCreateInput("utilization_memory", "GPU memory utilization", monitor.METRIC_UNIT_PERCENT, 12),
+			newMetricFieldCreateInput("utilization_event_engine", "GPU event engine utilization", monitor.METRIC_UNIT_PERCENT, 13),
+			newMetricFieldCreateInput("utilization_vertex_grouper_tesselator", "GPU vertex grouper tesselator utilization", monitor.METRIC_UNIT_PERCENT, 14),
+			newMetricFieldCreateInput("utilization_texture_addresser", "GPU texture addresser utilization", monitor.METRIC_UNIT_PERCENT, 15),
+			newMetricFieldCreateInput("utilization_shader_exporter", "GPU shader export utilization", monitor.METRIC_UNIT_PERCENT, 16),
+			newMetricFieldCreateInput("utilization_sequencer_instruction_cache", "GPU sequencer instruction cache utilization", monitor.METRIC_UNIT_PERCENT, 17),
+			newMetricFieldCreateInput("utilization_shader_interpolator", "GPU shader interpolator utilization", monitor.METRIC_UNIT_PERCENT, 18),
+			newMetricFieldCreateInput("utilization_scan_converter", "GPU scan converter utilization", monitor.METRIC_UNIT_PERCENT, 19),
+			newMetricFieldCreateInput("utilization_primitive_assembly", "GPU primitive assembly utilization", monitor.METRIC_UNIT_PERCENT, 20),
+			newMetricFieldCreateInput("utilization_depth_block", "GPU depth block utilization", monitor.METRIC_UNIT_PERCENT, 21),
+			newMetricFieldCreateInput("utilization_color_block", "GPU color block utilization", monitor.METRIC_UNIT_PERCENT, 22),
+		})
+
+	RegistryMetricCreateInput("vasmi", "Vasmi GPU metrics",
+		monitor.METRIC_RES_TYPE_HOST, monitor.METRIC_DATABASE_TELE, 11, []monitor.MetricFieldCreateInput{
+			newMetricFieldCreateInput("temperature_gpu", "GPU temperature", "", 1),
+			newMetricFieldCreateInput("utilization_gpu", "GPU utilization", monitor.METRIC_UNIT_PERCENT, 2),
+			newMetricFieldCreateInput("utilization_memory", "GPU memory utilization", monitor.METRIC_UNIT_PERCENT, 3),
+			newMetricFieldCreateInput("utilization_share_memory", "GPU memory utilization", monitor.METRIC_UNIT_PERCENT, 3),
+			newMetricFieldCreateInput("utilization_encoder", "GPU encoder utilization", monitor.METRIC_UNIT_PERCENT, 4),
+			newMetricFieldCreateInput("utilization_decoder", "GPU decoder utilization", monitor.METRIC_UNIT_PERCENT, 5),
+			newMetricFieldCreateInput("utilization_ai", "GPU AI utilization", monitor.METRIC_UNIT_PERCENT, 6),
+			newMetricFieldCreateInput("clocks_current_gpu", "GPU current clocks, MHz", "", 7),
+			newMetricFieldCreateInput("oclk", "oclk, MHz", "", 8),
+			newMetricFieldCreateInput("dclk", "dclk, MHz", "", 9),
+			newMetricFieldCreateInput("eclk", "eclk, MHz", "", 10),
+			newMetricFieldCreateInput("gclk", "gclk, MHz", "", 11),
+			newMetricFieldCreateInput("aic_power", "AIC power", "", 12),
+		})
+
+	RegistryMetricCreateInput("ni_rsrc_mon", "NETINT device metrics",
+		monitor.METRIC_RES_TYPE_HOST, monitor.METRIC_DATABASE_TELE, 12,
+		[]monitor.MetricFieldCreateInput{
+			newMetricFieldCreateInput("load", "Load utilization", monitor.METRIC_UNIT_PERCENT, 1),
+			newMetricFieldCreateInput("model_load", "Model load utilization", monitor.METRIC_UNIT_PERCENT, 2),
+			newMetricFieldCreateInput("fw_load", "FW load utilization", monitor.METRIC_UNIT_PERCENT, 3),
+			newMetricFieldCreateInput("inst", "INST utilization", monitor.METRIC_UNIT_PERCENT, 4),
+			newMetricFieldCreateInput("max_inst", "MAX INST utilization", monitor.METRIC_UNIT_PERCENT, 5),
+			newMetricFieldCreateInput("mem", "Memory utilization", monitor.METRIC_UNIT_PERCENT, 6),
+			newMetricFieldCreateInput("critical_mem", "Critical memory utilization", monitor.METRIC_UNIT_PERCENT, 7),
+			newMetricFieldCreateInput("share_mem", "Share memory utilization", monitor.METRIC_UNIT_PERCENT, 8),
+			newMetricFieldCreateInput("p2p_mem", "P2P memory utilization", monitor.METRIC_UNIT_PERCENT, 9),
 		})
 
 	// vm_cpu
@@ -421,17 +494,7 @@ func init() {
 		})
 
 	// agent nvidia_smi
-	RegistryMetricCreateInput("agent_nvidia_smi", "Collect Nvidia GPU metrics",
-		monitor.METRIC_RES_TYPE_AGENT, monitor.METRIC_DATABASE_TELE, 8, []monitor.MetricFieldCreateInput{
-			newMetricFieldCreateInput("clocks_current_graphics", "GPU current clocks, MHz", "", 1),
-			newMetricFieldCreateInput("clocks_current_memory", "GPU current memory clocks, MHz", "", 2),
-			newMetricFieldCreateInput("temperature_gpu", "GPU temperature", "", 3),
-			newMetricFieldCreateInput("memory_total", "GPU memory total size", "", 4),
-			newMetricFieldCreateInput("memory_free", "GPU memory free size", "", 5),
-			newMetricFieldCreateInput("memory_used", "GPU memory used size", "", 6),
-			newMetricFieldCreateInput("utilization_gpu", "GPU utilization", "", 7),
-			newMetricFieldCreateInput("utilization_memory", "GPU memory utilization", "", 8),
-		})
+	registryNvidaSMI("agent_nvidia_smi", monitor.METRIC_RES_TYPE_AGENT, 8)
 
 	RegistryMetricCreateInput("storage", "Storage usage",
 		monitor.METRIC_RES_TYPE_STORAGE, monitor.METRIC_DATABASE_TELE, 1, []monitor.MetricFieldCreateInput{

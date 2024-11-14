@@ -29,6 +29,14 @@ import (
 	"yunion.io/x/onecloud/pkg/util/procutils"
 )
 
+const (
+	TELEGRAF_INPUT_RADEONTOP           = "radeontop"
+	TELEGRAF_INPUT_RADEONTOP_DEV_PATHS = "device_paths"
+	TELEGRAF_INPUT_CONF_BIN_PATH       = "bin_path"
+	TELEGAF_INPUT_NETDEV               = "ni_rsrc_mon"
+	TELEGAF_INPUT_VASMI                = "vasmi"
+)
+
 type STelegraf struct {
 	*SBaseSystemService
 }
@@ -287,6 +295,33 @@ func (s *STelegraf) GetConfig(kwargs map[string]interface{}) string {
 		conf += fmt.Sprintf("  interval = \"%ds\"\n", haIntVal)
 		conf += fmt.Sprintf("  servers = [\"%s\"]\n", statsSocket)
 		conf += "  keep_field_names = true\n"
+		conf += "\n"
+	}
+
+	if radontop, ok := kwargs[TELEGRAF_INPUT_RADEONTOP]; ok {
+		radontopMap, _ := radontop.(map[string]interface{})
+		devPaths := radontopMap[TELEGRAF_INPUT_RADEONTOP_DEV_PATHS].([]string)
+		devPathStr := make([]string, len(devPaths))
+		for i, devPath := range devPaths {
+			devPathStr[i] = fmt.Sprintf("\"%s\"", devPath)
+		}
+		conf += fmt.Sprintf("[[inputs.%s]]\n", TELEGRAF_INPUT_RADEONTOP)
+		conf += fmt.Sprintf("  bin_path = \"%s\"\n", radontopMap[TELEGRAF_INPUT_CONF_BIN_PATH].(string))
+		conf += fmt.Sprintf("  %s = [%s]\n", TELEGRAF_INPUT_RADEONTOP_DEV_PATHS, strings.Join(devPathStr, ", "))
+		conf += "\n"
+	}
+
+	if netdev, ok := kwargs[TELEGAF_INPUT_NETDEV]; ok {
+		netdevMap, _ := netdev.(map[string]interface{})
+		conf += fmt.Sprintf("[[inputs.%s]]\n", TELEGAF_INPUT_NETDEV)
+		conf += fmt.Sprintf("  bin_path = \"%s\"\n", netdevMap[TELEGRAF_INPUT_CONF_BIN_PATH].(string))
+		conf += "\n"
+	}
+
+	if vasmi, ok := kwargs[TELEGAF_INPUT_VASMI]; ok {
+		vasmiMap, _ := vasmi.(map[string]interface{})
+		conf += fmt.Sprintf("[[inputs.%s]]\n", TELEGAF_INPUT_VASMI)
+		conf += fmt.Sprintf("  bin_path = \"%s\"\n", vasmiMap[TELEGRAF_INPUT_CONF_BIN_PATH].(string))
 		conf += "\n"
 	}
 	return conf
