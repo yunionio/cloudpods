@@ -57,8 +57,6 @@ const (
 	CLOUD_PROVIDER_HEALTH_ARREARS       = "arrears"       // 远端处于欠费状态
 	CLOUD_PROVIDER_HEALTH_UNKNOWN       = "unknown"       // 未知状态，查询失败
 	CLOUD_PROVIDER_HEALTH_NO_PERMISSION = "no permission" // 没有权限获取账单信息
-
-	ZSTACK_BRAND_DSTACK = "DStack"
 )
 
 const (
