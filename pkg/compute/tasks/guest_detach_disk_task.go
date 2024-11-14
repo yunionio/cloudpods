@@ -89,7 +89,7 @@ func (self *GuestDetachDiskTask) OnGetGuestStatus(ctx context.Context, guest *mo
 	}
 
 	self.SetStage("OnDetachDiskComplete", nil)
-	if err := guest.StartSyncTask(
+	if err := guest.StartSyncTaskWithoutSyncstatus(
 		ctx, self.GetUserCred(), jsonutils.QueryBoolean(self.GetParams(), "sync_desc_only", false), self.GetTaskId(),
 	); err != nil {
 		self.OnDetachDiskCompleteFailed(ctx, guest, jsonutils.NewString(err.Error()))
