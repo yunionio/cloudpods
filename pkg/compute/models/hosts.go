@@ -3679,6 +3679,17 @@ func (manager *SHostManager) FetchCustomizeColumns(
 
 		if devs, ok := isolatedDeviceMap[hostIds[i]]; ok {
 			rows[i].IsolatedDeviceCount = len(devs)
+			for j := range devs {
+				dev := devs[j]
+				if rows[i].IsolatedDeviceTypeCount == nil {
+					rows[i].IsolatedDeviceTypeCount = make(map[string]int, 0)
+				}
+				if cnt, ok := rows[i].IsolatedDeviceTypeCount[dev.DevType]; ok {
+					rows[i].IsolatedDeviceTypeCount[dev.DevType] = cnt + 1
+				} else {
+					rows[i].IsolatedDeviceTypeCount[dev.DevType] = 1
+				}
+			}
 			rows[i].ReservedResourceForGpu = hosts[i].GetDevsReservedResource(devs)
 		}
 
