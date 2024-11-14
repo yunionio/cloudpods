@@ -760,10 +760,23 @@ func (s *sPodGuestInstance) namespacesFroPod(input *computeapi.PodCreateInput) *
 	}
 }
 
+func (s *sPodGuestInstance) updateGuestDesc() error {
+	s.Desc = new(desc.SGuestDesc)
+	err := jsonutils.Marshal(s.SourceDesc).Unmarshal(s.Desc)
+	if err != nil {
+		return errors.Wrap(err, "unmarshal source desc")
+	}
+
+	return s.allocateCpuNumaPin()
+}
+
 func (s *sPodGuestInstance) _startPod(ctx context.Context, userCred mcclient.TokenCredential) (*computeapi.PodStartResponse, error) {
 	podInput, err := s.getPodCreateParams()
 	if err != nil {
 		return nil, errors.Wrap(err, "getPodCreateParams")
+	}
+	if err := s.updateGuestDesc(); err != nil {
+		return nil, errors.Wrap(err, "updateGuestDesc")
 	}
 	if err := s.mountPodVolumes(); err != nil {
 		return nil, errors.Wrap(err, "mountPodVolumes")
@@ -919,7 +932,6 @@ func (s *sPodGuestInstance) ensurePodRemoved(ctx context.Context, timeout int64)
 }
 
 func (s *sPodGuestInstance) stopPod(ctx context.Context, timeout int64) error {
-	ReleaseGuestCpuset(s.manager, s)
 	if err := s.umountPodVolumes(); err != nil {
 		return errors.Wrapf(err, "umount pod volumes")
 	}
@@ -927,7 +939,11 @@ func (s *sPodGuestInstance) stopPod(ctx context.Context, timeout int64) error {
 		timeout = 15
 	}
 
-	return s.ensurePodRemoved(ctx, timeout)
+	if err := s.ensurePodRemoved(ctx, timeout); err != nil {
+		return err
+	}
+	ReleaseGuestCpuset(s.manager, s)
+	return nil
 }
 
 func (s *sPodGuestInstance) LoadDesc() error {
@@ -1086,15 +1102,15 @@ func (s *sPodGuestInstance) allocateCpuNumaPin() error {
 	}
 
 	var cpus = make([]int, 0)
-	var perferNumaNode int8 = -1
+	var preferNumaNodes = make([]int8, 0)
 	for i := range s.Desc.IsolatedDevices {
 		if s.Desc.IsolatedDevices[i].NumaNode >= 0 {
-			perferNumaNode = s.Desc.IsolatedDevices[i].NumaNode
+			preferNumaNodes = append(preferNumaNodes, s.Desc.IsolatedDevices[i].NumaNode)
 			break
 		}
 	}
 
-	nodeNumaCpus, err := s.manager.cpuSet.AllocCpuset(int(s.Desc.Cpu), s.Desc.Mem*1024, perferNumaNode)
+	nodeNumaCpus, err := s.manager.cpuSet.AllocCpuset(int(s.Desc.Cpu), s.Desc.Mem*1024, preferNumaNodes)
 	if err != nil {
 		return err
 	}
@@ -1109,6 +1125,26 @@ func (s *sPodGuestInstance) allocateCpuNumaPin() error {
 				Pcpus: cpuset.NewCPUSet(cpus...).String(),
 			},
 		}
+	} else {
+		var cpuNumaPin = make([]*desc.SCpuNumaPin, 0)
+		for nodeId, numaCpus := range nodeNumaCpus {
+			if s.manager.numaAllocate {
+				unodeId := uint16(nodeId)
+				vcpuPin := make([]desc.SVCpuPin, len(numaCpus.Cpuset))
+				for i := range numaCpus.Cpuset {
+					vcpuPin[i].Pcpu = numaCpus.Cpuset[i]
+				}
+
+				memPin := &desc.SCpuNumaPin{
+					SizeMB:    numaCpus.MemSizeKB / 1024, // MB
+					NodeId:    &unodeId,
+					VcpuPin:   vcpuPin,
+					Unregular: numaCpus.Unregular,
+				}
+				cpuNumaPin = append(cpuNumaPin, memPin)
+			}
+		}
+		s.Desc.CpuNumaPin = cpuNumaPin
 	}
 
 	return SaveLiveDesc(s, s.Desc)
@@ -1456,10 +1492,6 @@ func (s *sPodGuestInstance) createContainer(ctx context.Context, userCred mcclie
 			ContainerPath: "/dev/shm",
 			HostPath:      shmPath,
 		})
-	}
-
-	if err := s.allocateCpuNumaPin(); err != nil {
-		return "", errors.Wrap(err, "allocateCpuNumaPin")
 	}
 
 	var cpuSetCpus string

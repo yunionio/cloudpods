@@ -20,6 +20,8 @@ import (
 	"sort"
 	"sync"
 
+	"github.com/jaypipes/ghw/pkg/topology"
+
 	"yunion.io/x/cloudmux/pkg/multicloud/esxi/vcenter"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -29,6 +31,7 @@ import (
 	"yunion.io/x/onecloud/pkg/apis/compute"
 	hostapi "yunion.io/x/onecloud/pkg/apis/host"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
+	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/cgrouputils/cpuset"
@@ -215,16 +218,29 @@ type SQgaGuestSetNetwork struct {
 type CpuSetCounter struct {
 	Nodes       []*NumaNode
 	NumaEnabled bool
+	CPUCmtbound float32
 	Lock        sync.Mutex
 }
 
-func NewGuestCpuSetCounter(info *hostapi.HostTopology, reservedCpus *cpuset.CPUSet, numaAllocate bool, hugepageSizeKB, cpuCmtbound int) (*CpuSetCounter, error) {
+func NewGuestCpuSetCounter(
+	info *hostapi.HostTopology, reservedCpus *cpuset.CPUSet, numaAllocate, isContainerHost bool,
+	hugepageSizeKB int, cpuCmtbound, memCmtBound float32, reservedMemMb int,
+) (*CpuSetCounter, error) {
 	cpuSetCounter := new(CpuSetCounter)
 	cpuSetCounter.Nodes = make([]*NumaNode, len(info.Nodes))
 	cpuSetCounter.NumaEnabled = numaAllocate
+	cpuSetCounter.CPUCmtbound = cpuCmtbound
 	hasL3Cache := false
+	nodeReserveMem := reservedMemMb / len(info.Nodes) * 1024
 	for i := 0; i < len(info.Nodes); i++ {
-		node, err := NewNumaNode(info.Nodes[i].ID, cpuSetCounter.NumaEnabled, hugepageSizeKB)
+		node, err := NewNumaNode(
+			info.Nodes[i],
+			cpuSetCounter.NumaEnabled,
+			isContainerHost,
+			hugepageSizeKB,
+			memCmtBound,
+			nodeReserveMem,
+		)
 		if err != nil {
 			return nil, err
 		}
@@ -280,7 +296,7 @@ func NewGuestCpuSetCounter(info *hostapi.HostTopology, reservedCpus *cpuset.CPUS
 
 func (pq *CpuSetCounter) AllocCpusetWithNodeCount(vcpuCount int, memSizeKB int64, nodeCount int) (map[int]SAllocNumaCpus, error) {
 	if !pq.NumaEnabled {
-		return pq.AllocCpuset(vcpuCount, memSizeKB, -1)
+		return pq.AllocCpuset(vcpuCount, memSizeKB, nil)
 	}
 	if len(pq.Nodes) < nodeCount {
 		return nil, nil
@@ -290,7 +306,7 @@ func (pq *CpuSetCounter) AllocCpusetWithNodeCount(vcpuCount int, memSizeKB int64
 	defer pq.Lock.Unlock()
 	var res = map[int]SAllocNumaCpus{}
 	var nodeAllocSize = memSizeKB / int64(nodeCount)
-	if nodeAllocSize/1024%1024 == 0 && pq.nodesFreeMemSizeEnough(nodeCount, memSizeKB) {
+	if pq.nodesEnough(nodeCount, vcpuCount, int(memSizeKB)) {
 		var pcpuCount = vcpuCount / nodeCount
 		var remPcpuCount = vcpuCount % nodeCount
 
@@ -301,11 +317,11 @@ func (pq *CpuSetCounter) AllocCpusetWithNodeCount(vcpuCount int, memSizeKB int64
 				remPcpuCount -= 1
 			}
 			res[pq.Nodes[i].NodeId] = SAllocNumaCpus{
-				Cpuset:    pq.Nodes[i].AllocCpuset1(npcpuCount),
+				Cpuset:    pq.Nodes[i].AllocCpuset(npcpuCount),
 				MemSizeKB: nodeAllocSize,
 				Unregular: false,
 			}
-			pq.Nodes[i].NumaHugeFreeMemSizeKB -= nodeAllocSize
+			pq.Nodes[i].NumaNodeFreeMemSizeKB -= nodeAllocSize
 			pq.Nodes[i].VcpuCount += npcpuCount
 		}
 	}
@@ -323,9 +339,7 @@ func (pq *CpuSetCounter) IsNumaEnabled() bool {
 	return pq.NumaEnabled
 }
 
-func (pq *CpuSetCounter) AllocCpuset(vcpuCount int, memSizeKB int64, perferNumaNode int8) (map[int]SAllocNumaCpus, error) {
-	res := map[int]SAllocNumaCpus{}
-	sourceVcpuCount := vcpuCount
+func (pq *CpuSetCounter) AllocCpuset(vcpuCount int, memSizeKB int64, preferNumaNodes []int8) (map[int]SAllocNumaCpus, error) {
 	pq.Lock.Lock()
 	defer pq.Lock.Unlock()
 
@@ -333,32 +347,29 @@ func (pq *CpuSetCounter) AllocCpuset(vcpuCount int, memSizeKB int64, perferNumaN
 		return nil, nil
 	}
 
-	if pq.NumaEnabled {
-		err := pq.AllocNumaNodes(vcpuCount, memSizeKB, perferNumaNode, res)
-		return res, err
-	} else {
-		if perferNumaNode > 0 {
-			for i := range pq.Nodes {
-				if pq.Nodes[i].NodeId != int(perferNumaNode) {
-					continue
+	if pq.NumaEnabled && len(preferNumaNodes) > 0 {
+		sortedNumaDistance := pq.getDistancesSeqByPreferNodes(preferNumaNodes)
+		for nodeCount := 1; nodeCount <= len(pq.Nodes); nodeCount *= 2 {
+			ret := pq.allocCpuNumaNodesByPreferNodes(vcpuCount, int(memSizeKB), nodeCount, sortedNumaDistance)
+			if ret != nil {
+				for i := range pq.Nodes {
+					if cpupin, ok := ret[pq.Nodes[i].NodeId]; ok {
+						pq.Nodes[i].VcpuCount += vcpuCount
+						pq.Nodes[i].NumaNodeFreeMemSizeKB -= cpupin.MemSizeKB
+					}
 				}
-				if pq.Nodes[i].VcpuCount >= (pq.Nodes[0].VcpuCount + pq.Nodes[0].CpuCount) {
-					break
-				}
-
-				allocCount := vcpuCount
-				if vcpuCount > pq.Nodes[0].CpuCount {
-					allocCount = vcpuCount/2 + vcpuCount%2
-				}
-				res[pq.Nodes[i].NodeId] = SAllocNumaCpus{
-					Cpuset: pq.Nodes[i].AllocCpuset(allocCount),
-				}
-				pq.Nodes[i].VcpuCount += sourceVcpuCount
-				vcpuCount -= allocCount
 				sort.Sort(pq)
-				break
+				return ret, nil
 			}
 		}
+	}
+
+	res := map[int]SAllocNumaCpus{}
+	sourceVcpuCount := vcpuCount
+	if pq.NumaEnabled {
+		err := pq.AllocNumaNodes(vcpuCount, memSizeKB, res)
+		return res, err
+	} else {
 		for vcpuCount > 0 {
 			count := vcpuCount
 			if vcpuCount > pq.Nodes[0].CpuCount {
@@ -375,29 +386,77 @@ func (pq *CpuSetCounter) AllocCpuset(vcpuCount int, memSizeKB int64, perferNumaN
 	}
 }
 
-func (pq *CpuSetCounter) AllocNumaNodes(vcpuCount int, memSizeKB int64, perferNumaNode int8, res map[int]SAllocNumaCpus) error {
-	var allocated = false
+func (pq *CpuSetCounter) allocCpuNumaNodesByPreferNodes(
+	vcpuCount, memSizeKB, nodeCount int, sortedNumaDistance []SSortedNumaDistance,
+) map[int]SAllocNumaCpus {
+	res := map[int]SAllocNumaCpus{}
+	var nodeAllocSize = memSizeKB / nodeCount
+	var pcpuCount = vcpuCount / nodeCount
+	var remPcpuCount = vcpuCount % nodeCount
 
-	// check preferred numa node is memory enough
-	if perferNumaNode >= 0 {
-		for i := 0; i < len(pq.Nodes); i++ {
-			if pq.Nodes[i].NodeId != int(perferNumaNode) {
-				continue
-			}
-			if pq.Nodes[i].NumaHugeFreeMemSizeKB >= memSizeKB {
-				res[pq.Nodes[i].NodeId] = SAllocNumaCpus{
-					Cpuset:    pq.Nodes[i].AllocCpuset1(vcpuCount),
-					MemSizeKB: memSizeKB,
-					Unregular: false,
-				}
-				pq.Nodes[i].NumaHugeFreeMemSizeKB -= memSizeKB
-				pq.Nodes[i].VcpuCount += vcpuCount
-
-				allocated = true
-			}
+	allocatedNode := 0
+	for i := range sortedNumaDistance {
+		if allocatedNode >= nodeCount {
 			break
 		}
+
+		var npcpuCount = pcpuCount
+		if remPcpuCount > 0 {
+			npcpuCount += 1
+			remPcpuCount -= 1
+		}
+		nodeIdx := sortedNumaDistance[i].NodeIndex
+		if pq.Nodes[nodeIdx].nodeEnough(vcpuCount, memSizeKB, pq.CPUCmtbound, pq.NumaEnabled) {
+			cpuNumaPin := SAllocNumaCpus{
+				Cpuset: pq.Nodes[nodeIdx].AllocCpuset(npcpuCount),
+			}
+			cpuNumaPin.MemSizeKB = int64(nodeAllocSize)
+			res[pq.Nodes[nodeIdx].NodeId] = cpuNumaPin
+			allocatedNode += 1
+		} else {
+			log.Infof("node %v not enough", pq.Nodes[i])
+		}
+		log.Infof("node %d, free mems %d", pq.Nodes[nodeIdx].NodeId, pq.Nodes[nodeIdx].NumaNodeFreeMemSizeKB)
 	}
+
+	if allocatedNode < nodeCount {
+		return nil
+	}
+	return res
+}
+
+type SSortedNumaDistance struct {
+	NodeIndex   int
+	Distance    int
+	FreeMemSize int
+}
+
+func (pq *CpuSetCounter) getDistancesSeqByPreferNodes(preferNumaNodes []int8) []SSortedNumaDistance {
+	sortedNumaDistance := make([]SSortedNumaDistance, len(pq.Nodes))
+	for i := range pq.Nodes {
+		distance := 0
+		for j := range preferNumaNodes {
+			distance += pq.Nodes[i].Distances[preferNumaNodes[j]]
+		}
+		sortedNumaDistance[i] = SSortedNumaDistance{
+			NodeIndex:   i,
+			Distance:    distance,
+			FreeMemSize: int(pq.Nodes[i].NumaNodeFreeMemSizeKB),
+		}
+	}
+	sort.Slice(sortedNumaDistance, func(i, j int) bool {
+		// 7 is tolerant max distances
+		if (sortedNumaDistance[i].Distance + 7) < sortedNumaDistance[j].Distance {
+			return true
+		} else {
+			return sortedNumaDistance[i].FreeMemSize > sortedNumaDistance[j].FreeMemSize
+		}
+	})
+	return sortedNumaDistance
+}
+
+func (pq *CpuSetCounter) AllocNumaNodes(vcpuCount int, memSizeKB int64, res map[int]SAllocNumaCpus) error {
+	var allocated = false
 
 	// alloc numa nodes in order 1, 2, 4, ...
 	if !allocated {
@@ -405,7 +464,7 @@ func (pq *CpuSetCounter) AllocNumaNodes(vcpuCount int, memSizeKB int64, perferNu
 			if nodeCount > vcpuCount {
 				break
 			}
-			if ok := pq.nodesFreeMemSizeEnough(nodeCount, memSizeKB); !ok {
+			if ok := pq.nodesEnough(nodeCount, vcpuCount, int(memSizeKB)); !ok {
 				log.Infof("node count %d not enough", nodeCount)
 				continue
 			}
@@ -423,11 +482,11 @@ func (pq *CpuSetCounter) AllocNumaNodes(vcpuCount int, memSizeKB int64, perferNu
 					remPcpuCount -= 1
 				}
 				res[pq.Nodes[i].NodeId] = SAllocNumaCpus{
-					Cpuset:    pq.Nodes[i].AllocCpuset1(npcpuCount),
+					Cpuset:    pq.Nodes[i].AllocCpuset(npcpuCount),
 					MemSizeKB: nodeAllocSize,
 					Unregular: false,
 				}
-				pq.Nodes[i].NumaHugeFreeMemSizeKB -= nodeAllocSize
+				pq.Nodes[i].NumaNodeFreeMemSizeKB -= nodeAllocSize
 				pq.Nodes[i].VcpuCount += npcpuCount
 			}
 			allocated = true
@@ -445,16 +504,41 @@ func (pq *CpuSetCounter) AllocNumaNodes(vcpuCount int, memSizeKB int64, perferNu
 	return nil
 }
 
+func (pq *CpuSetCounter) nodesEnough(nodeCount, vcpuCount int, memSizeKB int) bool {
+	var leastFree = memSizeKB / nodeCount
+	var leastCpuCount = vcpuCount / nodeCount
+	var remPcpuCount = vcpuCount % nodeCount
+
+	for i := 0; i < nodeCount; i++ {
+		if pq.NumaEnabled {
+			if int(pq.Nodes[i].NumaNodeFreeMemSizeKB) < leastFree {
+				return false
+			}
+		}
+
+		requireCpuCount := leastCpuCount
+		if remPcpuCount > 0 {
+			requireCpuCount += 1
+			remPcpuCount -= 1
+		}
+		if (pq.Nodes[i].VcpuCount + requireCpuCount) > int(float32(pq.Nodes[i].CpuCount)*pq.CPUCmtbound) {
+			return false
+		}
+
+	}
+	return true
+}
+
 func (pq *CpuSetCounter) nodesFreeMemSizeEnough(nodeCount int, memSizeKB int64) bool {
 	var freeMem int64 = 0
 	var leastFree = memSizeKB / int64(nodeCount)
 	log.Debugf("request memsize %d, least free %d", memSizeKB, leastFree)
 	for i := 0; i < nodeCount; i++ {
-		log.Debugf("index %d node %d free size %d", i, pq.Nodes[i].NodeId, pq.Nodes[i].NumaHugeFreeMemSizeKB)
-		if pq.Nodes[i].NumaHugeFreeMemSizeKB < leastFree {
+		log.Debugf("index %d node %d free size %d", i, pq.Nodes[i].NodeId, pq.Nodes[i].NumaNodeFreeMemSizeKB)
+		if pq.Nodes[i].NumaNodeFreeMemSizeKB < leastFree {
 			return false
 		}
-		freeMem += pq.Nodes[i].NumaHugeFreeMemSizeKB
+		freeMem += pq.Nodes[i].NumaNodeFreeMemSizeKB
 	}
 	return freeMem >= memSizeKB
 }
@@ -466,12 +550,12 @@ func (pq *CpuSetCounter) setNumaNodes(numaMaps map[int]int, vcpuCount int64) map
 			allocMem := int64(size) * 1024
 			//npcpuCount := int(vcpuCount*allocMem/memSizeKB + (vcpuCount*allocMem)%memSizeKB)
 			res[pq.Nodes[i].NodeId] = SAllocNumaCpus{
-				Cpuset:    pq.Nodes[i].AllocCpuset1(int(vcpuCount)),
+				Cpuset:    pq.Nodes[i].AllocCpuset(int(vcpuCount)),
 				MemSizeKB: allocMem,
 				Unregular: true,
 			}
 
-			pq.Nodes[i].NumaHugeFreeMemSizeKB -= allocMem
+			pq.Nodes[i].NumaNodeFreeMemSizeKB -= allocMem
 			pq.Nodes[i].VcpuCount += int(vcpuCount)
 		}
 	}
@@ -509,7 +593,7 @@ func (pq *CpuSetCounter) ReleaseNumaCpus(memSizeMb int64, hostNode int, cpus []i
 		}
 		pq.Nodes[i].CpuDies.ReleaseCpus(cpus, vcpuCount)
 		pq.Nodes[i].VcpuCount -= vcpuCount
-		pq.Nodes[i].NumaHugeFreeMemSizeKB += memSizeMb * 1024
+		pq.Nodes[i].NumaNodeFreeMemSizeKB += memSizeMb * 1024
 	}
 	sort.Sort(pq)
 }
@@ -521,7 +605,7 @@ func (pq *CpuSetCounter) LoadNumaCpus(memSizeMb int64, hostNode int, cpus []int,
 		}
 		pq.Nodes[i].CpuDies.LoadCpus(cpus, vcpuCount)
 		pq.Nodes[i].VcpuCount += vcpuCount
-		pq.Nodes[i].NumaHugeFreeMemSizeKB -= memSizeMb * 1024
+		pq.Nodes[i].NumaNodeFreeMemSizeKB -= memSizeMb * 1024
 	}
 	sort.Sort(pq)
 }
@@ -552,13 +636,15 @@ func (pq *CpuSetCounter) LoadCpus(cpus []int, vcpuCpunt int) {
 func (pq CpuSetCounter) Len() int { return len(pq.Nodes) }
 
 func (pq CpuSetCounter) Less(i, j int) bool {
+	freeCpuI := int(float32(pq.Nodes[i].CpuCount)*pq.CPUCmtbound) - pq.Nodes[i].VcpuCount
+	freeCpuJ := int(float32(pq.Nodes[i].CpuCount)*pq.CPUCmtbound) - pq.Nodes[j].VcpuCount
 	if pq.NumaEnabled {
-		if pq.Nodes[i].NumaHugeFreeMemSizeKB == pq.Nodes[j].NumaHugeFreeMemSizeKB {
-			return pq.Nodes[i].VcpuCount < pq.Nodes[j].VcpuCount
+		if pq.Nodes[i].NumaNodeFreeMemSizeKB == pq.Nodes[j].NumaNodeFreeMemSizeKB {
+			return freeCpuI > freeCpuJ
 		}
-		return pq.Nodes[i].NumaHugeFreeMemSizeKB > pq.Nodes[j].NumaHugeFreeMemSizeKB
+		return pq.Nodes[i].NumaNodeFreeMemSizeKB > pq.Nodes[j].NumaNodeFreeMemSizeKB
 	} else {
-		return pq.Nodes[i].VcpuCount < pq.Nodes[j].VcpuCount
+		return freeCpuI > freeCpuJ
 	}
 }
 
@@ -586,39 +672,67 @@ type NumaNode struct {
 	CpuCount          int
 
 	NodeId                int
-	NumaHugeMemSizeKB     int64
-	NumaHugeFreeMemSizeKB int64
+	Distances             []int
+	NumaNodeMemSizeKB     int64
+	NumaNodeFreeMemSizeKB int64
 }
 
-func NewNumaNode(nodeId int, numaAllocate bool, hugepageSizeKB int) (*NumaNode, error) {
+func NewNumaNode(
+	nodeInfo *topology.Node,
+	numaAllocate, isContainerHost bool,
+	hugepageSizeKB int, memCmtBound float32,
+	reservedMemSizeKB int,
+) (*NumaNode, error) {
 	n := new(NumaNode)
 	n.LogicalProcessors = cpuset.NewCPUSet()
-	n.NodeId = nodeId
+	n.NodeId = nodeInfo.ID
+	n.Distances = nodeInfo.Distances
 
-	if numaAllocate {
-		nodeHugepagePath := fmt.Sprintf("/sys/devices/system/node/node%d/hugepages/hugepages-%dkB", nodeId, hugepageSizeKB)
+	if !numaAllocate {
+		return n, nil
+	}
+	if isContainerHost {
+		if nodeInfo.Memory == nil {
+			return nil, errors.Errorf("node %d no memory info: %#v", nodeInfo.ID, nodeInfo)
+		}
+		n.NumaNodeMemSizeKB = int64(float32(nodeInfo.Memory.TotalUsableBytes/1024-int64(reservedMemSizeKB)) * memCmtBound)
+	} else {
+		nodeHugepagePath := fmt.Sprintf("/sys/devices/system/node/node%d/hugepages/hugepages-%dkB", n.NodeId, hugepageSizeKB)
 		if !fileutils2.Exists(nodeHugepagePath) {
 			return n, nil
 		}
-
 		nrHugepage, err := fileutils2.FileGetIntContent(path.Join(nodeHugepagePath, "nr_hugepages"))
 		if err != nil {
-			log.Errorf("failed get node %d nr hugepage %s", nodeId, err)
+			log.Errorf("failed get node %d nr hugepage %s", n.NodeId, err)
 			return nil, errors.Wrap(err, "get numa node nr hugepage")
 		}
-		n.NumaHugeMemSizeKB = int64(nrHugepage) * int64(hugepageSizeKB)
-
-		//freeHugepage, err := fileutils2.FileGetIntContent(path.Join(nodeHugepagePath, "free_hugepages"))
-		//if err != nil {
-		//	log.Errorf("failed get node %d free hugepage %s", nodeId, err)
-		//	return nil, errors.Wrap(err, "get numa node free hugepage")
-		//}
-		n.NumaHugeFreeMemSizeKB = n.NumaHugeMemSizeKB
+		n.NumaNodeMemSizeKB = int64(nrHugepage) * int64(hugepageSizeKB)
 	}
+	n.NumaNodeFreeMemSizeKB = n.NumaNodeMemSizeKB
+
 	return n, nil
 }
 
-func (n *NumaNode) AllocCpuset1(vcpuCount int) []int {
+func (n *NumaNode) nodeEnough(vcpuCount, memSizeKB int, cmtBound float32, enableNumaAlloc bool) bool {
+	if int(float32(n.CpuCount)*cmtBound)-n.VcpuCount < vcpuCount {
+		return false
+	}
+	if enableNumaAlloc {
+		if int(n.NumaNodeFreeMemSizeKB) < memSizeKB {
+			return false
+		}
+	}
+	return true
+}
+
+func (n *NumaNode) AllocCpuset(vcpuCount int) []int {
+	if options.HostOptions.EnableStrictCpuBind {
+		return n.allocCpusetStrict(vcpuCount)
+	}
+	return n.allocCpusetOnNode(vcpuCount)
+}
+
+func (n *NumaNode) allocCpusetStrict(vcpuCount int) []int {
 	var allocCount = vcpuCount
 	var dieCnt = 0
 
@@ -654,14 +768,15 @@ func (n *NumaNode) AllocCpuset1(vcpuCount int) []int {
 		}
 	}
 
-	var pcpus = make([]int, 0)
+	defer sort.Sort(n.CpuDies)
+	var ret = make([]int, 0)
 	for i := 0; i < len(allocCpuCountMap); i++ {
 		var allocCpuCount = allocCpuCountMap[i]
 		for allocCpuCount > 0 {
 			pcpus := n.CpuDies[i].LogicalProcessors.ToSliceNoSort()
 			for j := 0; j < len(pcpus); j++ {
 				if n.CpuDies[i].CpuFree[pcpus[j]] > 0 {
-					pcpus = append(pcpus, n.CpuDies[i].CpuFree[pcpus[j]])
+					ret = append(ret, n.CpuDies[i].CpuFree[pcpus[j]])
 					n.CpuDies[i].CpuFree[pcpus[j]] -= 1
 				}
 				allocCpuCount -= 1
@@ -671,10 +786,10 @@ func (n *NumaNode) AllocCpuset1(vcpuCount int) []int {
 			}
 		}
 	}
-	return pcpus
+	return ret
 }
 
-func (n *NumaNode) AllocCpuset(vcpuCount int) []int {
+func (n *NumaNode) allocCpusetOnNode(vcpuCount int) []int {
 	cpus := make([]int, 0)
 
 	var allocCount = vcpuCount
@@ -698,10 +813,10 @@ type CPUDie struct {
 	VcpuCount         int
 }
 
-func (d *CPUDie) initCpuFree(cpuCmtbound int) {
+func (d *CPUDie) initCpuFree(cpuCmtbound float32) {
 	cpuFree := map[int]int{}
 	for _, cpuId := range d.LogicalProcessors.ToSliceNoSort() {
-		cpuFree[cpuId] = cpuCmtbound
+		cpuFree[cpuId] = int(cpuCmtbound)
 	}
 	d.CpuFree = cpuFree
 }

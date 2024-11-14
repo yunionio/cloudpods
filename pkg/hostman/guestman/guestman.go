@@ -295,11 +295,14 @@ func (m *SGuestManager) Bootstrap() (chan struct{}, error) {
 	hostTypo := m.host.GetHostTopology()
 
 	if options.HostOptions.EnableHostAgentNumaAllocate {
-		m.numaAllocate = m.host.IsNumaAllocateEnabled() && m.host.IsHugepagesEnabled() && (len(hostTypo.Nodes) > 1)
+		enableMemAlloc := m.host.IsContainerHost() || m.host.IsHugepagesEnabled()
+		m.numaAllocate = !m.host.IsNumaAllocateEnabled() && enableMemAlloc && (len(hostTypo.Nodes) > 1)
 	}
 
 	cpuSet, err := NewGuestCpuSetCounter(
-		hostTypo, m.host.GetReservedCpusInfo(), m.numaAllocate, m.host.HugepageSizeKb(), m.host.CpuCmtBound())
+		hostTypo, m.host.GetReservedCpusInfo(), m.numaAllocate, m.host.IsContainerHost(),
+		m.host.HugepageSizeKb(), m.host.CpuCmtBound(), m.host.MemCmtBound(), m.host.GetReservedMemMb(),
+	)
 	if err != nil {
 		return nil, err
 	}
