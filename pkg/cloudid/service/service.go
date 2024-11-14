@@ -35,7 +35,7 @@ import (
 	_ "yunion.io/x/onecloud/pkg/cloudid/drivers"
 	"yunion.io/x/onecloud/pkg/cloudid/models"
 	"yunion.io/x/onecloud/pkg/cloudid/options"
-	_ "yunion.io/x/onecloud/pkg/cloudid/policy"
+	"yunion.io/x/onecloud/pkg/cloudid/policy"
 	"yunion.io/x/onecloud/pkg/cloudid/saml"
 	_ "yunion.io/x/onecloud/pkg/cloudid/tasks"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
@@ -47,6 +47,7 @@ func StartService() {
 	baseOpts := &opts.BaseOptions
 	commonOpts := &opts.CommonOptions
 	common_options.ParseOptions(opts, os.Args, "cloudid.conf", api.SERVICE_TYPE)
+	policy.Init()
 
 	app_common.InitAuth(commonOpts, func() {
 		log.Infof("Auth complete!!")

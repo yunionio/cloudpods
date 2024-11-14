@@ -30,7 +30,7 @@ import (
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/notify/models"
 	"yunion.io/x/onecloud/pkg/notify/options"
-	_ "yunion.io/x/onecloud/pkg/notify/policy"
+	"yunion.io/x/onecloud/pkg/notify/policy"
 	_ "yunion.io/x/onecloud/pkg/notify/sender/smsdriver"
 	_ "yunion.io/x/onecloud/pkg/notify/tasks"
 )
@@ -42,6 +42,7 @@ func StartService() {
 	dbOpts := &options.Options.DBOptions
 	baseOpts := &options.Options.BaseOptions
 	common_options.ParseOptions(opts, os.Args, "notify.conf", api.SERVICE_TYPE)
+	policy.Init()
 
 	// init auth
 	app.InitAuth(commonOpts, func() {

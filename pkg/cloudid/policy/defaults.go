@@ -18,6 +18,7 @@ import (
 	"yunion.io/x/pkg/util/rbacscope"
 
 	api "yunion.io/x/onecloud/pkg/apis/cloudid"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	common_policy "yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
@@ -108,6 +109,8 @@ var (
 	}
 )
 
-func init() {
-	common_policy.AppendDefaultPolicies(predefinedDefaultPolicies)
+func Init() {
+	if consts.IsEnableDefaultPolicy() {
+		common_policy.AppendDefaultPolicies(predefinedDefaultPolicies)
+	}
 }
