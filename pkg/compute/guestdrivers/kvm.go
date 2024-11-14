@@ -479,7 +479,7 @@ func (self *SKVMGuestDriver) RequestDetachDisk(ctx context.Context, guest *model
 }
 
 func (self *SKVMGuestDriver) RequestAttachDisk(ctx context.Context, guest *models.SGuest, disk *models.SDisk, task taskman.ITask) error {
-	return guest.StartSyncTask(
+	return guest.StartSyncTaskWithoutSyncstatus(
 		ctx,
 		task.GetUserCred(),
 		jsonutils.QueryBoolean(task.GetParams(), "sync_desc_only", false),
