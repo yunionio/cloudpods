@@ -145,7 +145,6 @@ type SCloudaccount struct {
 	Sysinfo jsonutils.JSONObject `get:"domain"`
 
 	// 品牌信息, 一般和provider相同
-	// example: DStack
 	Brand string `width:"64" charset:"utf8" nullable:"true" list:"domain" create:"optional"`
 
 	// 额外信息
