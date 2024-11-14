@@ -230,7 +230,8 @@ type HostDetails struct {
 	// reserved resource for isolated device
 	ReservedResourceForGpu *IsolatedDeviceReservedResourceInput `json:"reserved_resource_for_gpu"`
 	// isolated device count
-	IsolatedDeviceCount int
+	IsolatedDeviceCount     int
+	IsolatedDeviceTypeCount map[string]int
 
 	// host init warnning
 	SysWarn string `json:"sys_warn"`

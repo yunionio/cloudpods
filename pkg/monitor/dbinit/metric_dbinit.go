@@ -219,6 +219,7 @@ func init() {
 			newMetricFieldCreateInput("utilization_primitive_assembly", "GPU primitive assembly utilization", monitor.METRIC_UNIT_PERCENT, 20),
 			newMetricFieldCreateInput("utilization_depth_block", "GPU depth block utilization", monitor.METRIC_UNIT_PERCENT, 21),
 			newMetricFieldCreateInput("utilization_color_block", "GPU color block utilization", monitor.METRIC_UNIT_PERCENT, 22),
+			newMetricFieldCreateInput("utilization_gtt", "GPU gtt utilization", monitor.METRIC_UNIT_PERCENT, 23),
 		})
 
 	RegistryMetricCreateInput("vasmi", "Vasmi GPU metrics",
@@ -226,7 +227,7 @@ func init() {
 			newMetricFieldCreateInput("temperature_gpu", "GPU temperature", "", 1),
 			newMetricFieldCreateInput("utilization_gpu", "GPU utilization", monitor.METRIC_UNIT_PERCENT, 2),
 			newMetricFieldCreateInput("utilization_memory", "GPU memory utilization", monitor.METRIC_UNIT_PERCENT, 3),
-			newMetricFieldCreateInput("utilization_share_memory", "GPU memory utilization", monitor.METRIC_UNIT_PERCENT, 3),
+			newMetricFieldCreateInput("utilization_share_memory", "GPU share memory utilization", monitor.METRIC_UNIT_PERCENT, 3),
 			newMetricFieldCreateInput("utilization_encoder", "GPU encoder utilization", monitor.METRIC_UNIT_PERCENT, 4),
 			newMetricFieldCreateInput("utilization_decoder", "GPU decoder utilization", monitor.METRIC_UNIT_PERCENT, 5),
 			newMetricFieldCreateInput("utilization_ai", "GPU AI utilization", monitor.METRIC_UNIT_PERCENT, 6),
