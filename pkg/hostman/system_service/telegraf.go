@@ -17,6 +17,7 @@ package system_service
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"sort"
 	"strings"
 
@@ -148,9 +149,42 @@ func (s *STelegraf) GetConfig(kwargs map[string]interface{}) string {
 		conf += "  routing_tag = \"host\"\n"
 		conf += "\n"
 	}
-
+	/*
+	 * [[outputs.opentsdb]]
+	 *   host = "http://127.0.0.1"
+	 *   port = 17000
+	 *   http_batch_size = 50
+	 *   http_path = "/opentsdb/put"
+	 *   debug = false
+	 *   separator = "_"
+	 */
+	if opentsdb, ok := kwargs["opentsdb"]; ok {
+		opentsdbConf, _ := opentsdb.(map[string]interface{})
+		urlstr := opentsdbConf["url"].(string)
+		urlParts, err := url.Parse(urlstr)
+		if err != nil {
+			log.Errorf("malformed opentsdb url: %s: %s", urlstr, err)
+		} else {
+			port := urlParts.Port()
+			if len(port) == 0 {
+				if urlParts.Scheme == "http" {
+					port = "80"
+				} else if urlParts.Scheme == "https" {
+					port = "443"
+				}
+			}
+			conf += "[[outputs.opentsdb]]\n"
+			conf += fmt.Sprintf("  host = \"%s://%s\"\n", urlParts.Scheme, urlParts.Hostname())
+			conf += fmt.Sprintf("  port = %s\n", urlParts.Port())
+			conf += "  http_batch_size = 50\n"
+			conf += fmt.Sprintf("  http_path = \"%s\"\n", urlParts.Path)
+			conf += "  debug = false\n"
+			conf += "  separator = \"_\"\n"
+			conf += "\n"
+		}
+	}
 	conf += "[[inputs.cpu]]\n"
-	conf += "  percpu = false\n"
+	conf += "  percpu = true\n"
 	conf += "  totalcpu = true\n"
 	conf += "  collect_cpu_time = false\n"
 	conf += "  report_active = true\n"
@@ -175,7 +209,7 @@ func (s *STelegraf) GetConfig(kwargs map[string]interface{}) string {
 	}
 	conf += "  ignore_mount_points = [" + strings.Join(ignoreMountPoints, ", ") + "]\n"
 	conf += "  ignore_path_segments = [" + strings.Join(ignorePathSegments, ", ") + "]\n"
-	conf += "  ignore_fs = [\"tmpfs\", \"devtmpfs\", \"overlay\", \"squashfs\", \"iso9660\", \"rootfs\", \"hugetlbfs\", \"autofs\"]\n"
+	conf += "  ignore_fs = [\"tmpfs\", \"devtmpfs\", \"devfs\", \"overlay\", \"squashfs\", \"iso9660\", \"rootfs\", \"hugetlbfs\", \"autofs\", \"aufs\"]\n"
 	conf += "\n"
 	conf += "[[inputs.diskio]]\n"
 	conf += "  skip_serial_number = false\n"

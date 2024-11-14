@@ -2489,6 +2489,13 @@ func (h *SHostInfo) OnCatalogChanged(catalog mcclient.KeystoneServiceCatalogV3) 
 		conf["kafka"] = kafkaConf
 	}
 
+	urls, _ = s.GetServiceURLs("opentsdb", defaultEndpointType)
+	if len(urls) > 0 {
+		conf["opentsdb"] = map[string]interface{}{
+			"url": urls[0],
+		}
+	}
+
 	tsdb, _ := tsdb.GetDefaultServiceSource(s, defaultEndpointType)
 	if tsdb != nil && len(tsdb.URLs) > 0 {
 		conf[apis.SERVICE_TYPE_INFLUXDB] = map[string]interface{}{
