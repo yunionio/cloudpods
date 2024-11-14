@@ -72,12 +72,6 @@ type CloudenvResourceListInput struct {
 	// Deprecated
 	Provider []string `json:"provider" yunion-deprecated-by:"providers"`
 
-	// 列出指定云平台品牌的资源，一般来说brand和provider相同，除了以上支持的provider之外，还支持以下band
-	//
-	// |   Brand  | Provider | 说明        |
-	// |----------|----------|------------|
-	// | DStack   | ZStack   | 滴滴云私有云 |
-	//
 	Brands []string `json:"brands"`
 	// swagger:ignore
 	// Deprecated
@@ -169,7 +163,7 @@ type CloudaccountCreateInput struct {
 	// | Huawei | Huawei |
 	// | OpenStack | OpenStack |
 	// | Ucloud | Ucloud |
-	// | ZStack | ZStack, DStack |
+	// | ZStack | ZStack |
 	// | Google | Google |
 	// | Ctyun | Ctyun |
 	Brand string `json:"brand"`
