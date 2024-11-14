@@ -33,7 +33,7 @@ import (
 type GeneralUsageOptions struct {
 	HostType []string `help:"Host types" choices:"hypervisor|baremetal|esxi|xen|kubelet|hyperv|aliyun|azure|aws|huawei|qcloud|openstack|ucloud|zstack|google|ctyun"`
 	Provider []string `help:"Provider" choices:"OneCloud|VMware|Aliyun|Azure|Aws|Qcloud|Huawei|OpenStack|Ucloud|VolcEngine|ZStack|Google|Ctyun"`
-	Brand    []string `help:"Brands" choices:"OneCloud|VMware|Aliyun|Azure|Aws|Qcloud|Huawei|OpenStack|Ucloud|VolcEngine|ZStack|DStack|Google|Ctyun"`
+	Brand    []string `help:"Brands" choices:"OneCloud|VMware|Aliyun|Azure|Aws|Qcloud|Huawei|OpenStack|Ucloud|VolcEngine|ZStack|Google|Ctyun"`
 	Project  string   `help:"show usage of specified project"`
 
 	ProjectDomain string `help:"show usage of specified domain"`
