@@ -625,6 +625,7 @@ const (
 	CPUSET_CPUS               = "cpuset.cpus"
 	CPUSET_MEMS               = "cpuset.mems"
 	CPUSET_SCHED_LOAD_BALANCE = "cpuset.sched_load_balance"
+	CPUSET_CLONE_CHILDREN     = "cgroup.clone_children"
 )
 
 func (c *CGroupCPUSetTask) Module() string {

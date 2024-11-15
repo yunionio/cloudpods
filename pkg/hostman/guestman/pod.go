@@ -1117,7 +1117,7 @@ func (s *sPodGuestInstance) allocateCpuNumaPin() error {
 		}
 	}
 
-	nodeNumaCpus, err := s.manager.cpuSet.AllocCpuset(int(s.Desc.Cpu), s.Desc.Mem*1024, preferNumaNodes)
+	nodeNumaCpus, err := s.manager.cpuSet.AllocCpuset(int(s.Desc.Cpu), s.Desc.Mem*1024, preferNumaNodes, s.GetId())
 	if err != nil {
 		return err
 	}
@@ -1140,6 +1140,12 @@ func (s *sPodGuestInstance) allocateCpuNumaPin() error {
 				vcpuPin := make([]desc.SVCpuPin, len(numaCpus.Cpuset))
 				for i := range numaCpus.Cpuset {
 					vcpuPin[i].Pcpu = numaCpus.Cpuset[i]
+					if i < int(s.Desc.Cpu) {
+						vcpuPin[i].Vcpu = i
+					} else {
+						vcpuPin[i].Vcpu = -1
+					}
+
 				}
 
 				memPin := &desc.SCpuNumaPin{

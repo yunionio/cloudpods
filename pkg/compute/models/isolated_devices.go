@@ -21,6 +21,7 @@ import (
 	"math"
 	"reflect"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -652,20 +653,18 @@ func (pq *SorttedGroupDevs) Pop() interface{} {
 	return item
 }
 
-func (manager *SIsolatedDeviceManager) attachHostDeviceToGuestByModel(
-	ctx context.Context, guest *SGuest, host *SHost, devConfig *api.IsolatedDeviceConfig,
-	userCred mcclient.TokenCredential, usedDevMap map[string]*SIsolatedDevice, preferNumaNodes []int,
-) error {
-	if len(devConfig.Model) == 0 {
-		return fmt.Errorf("Not found model from info: %#v", devConfig)
-	}
-	// if dev type is not nic, wire is empty string
-	devs, err := manager.findHostUnusedByDevConfig(devConfig.Model, devConfig.DevType, host.Id, devConfig.WireId)
+type SNodeIsolateDevicesInfo struct {
+	TotalDevCount int
+	ReservedRate  float32
+}
+
+func (manager *SIsolatedDeviceManager) getDevNodesUsedRate(
+	ctx context.Context, host *SHost, devConfig *api.IsolatedDeviceConfig, topo *hostapi.HostTopology,
+) (map[string]SNodeIsolateDevicesInfo, error) {
+	devs, err := manager.findHostDevsByDevConfig(devConfig.Model, devConfig.DevType, host.Id, devConfig.WireId)
 	if err != nil || len(devs) == 0 {
-		return fmt.Errorf("Can't found model %s on host %s", devConfig.Model, host.Id)
+		return nil, fmt.Errorf("Can't found model %s on host %s", devConfig.Model, host.Id)
 	}
-	// 1. group devices by device_path
-	groupDevs := make(SorttedGroupDevs, 0)
 	mapDevs := map[string][]SIsolatedDevice{}
 	for i := range devs {
 		dev := devs[i]
@@ -680,11 +679,206 @@ func (manager *SIsolatedDeviceManager) attachHostDeviceToGuestByModel(
 		}
 		mapDevs[devPath] = gdevs
 	}
+	nodesGroupDevs := map[string]SorttedGroupDevs{}
 	for devPath, mappedDevs := range mapDevs {
-		groupDevs = append(groupDevs, &GroupDevs{
-			DevPath: devPath,
-			Devs:    mappedDevs,
-		})
+		numaNode := strconv.Itoa(int(mappedDevs[0].NumaNode))
+		if _, ok := nodesGroupDevs[numaNode]; ok {
+			nodesGroupDevs[numaNode] = append(nodesGroupDevs[numaNode], &GroupDevs{
+				DevPath: devPath,
+				Devs:    mappedDevs,
+			})
+		} else {
+			groupDevs := make(SorttedGroupDevs, 0)
+			nodesGroupDevs[numaNode] = append(groupDevs, &GroupDevs{
+				DevPath: devPath,
+				Devs:    mappedDevs,
+			})
+		}
+	}
+
+	reserveRate := map[string]float32{}
+	reserveRateStr := host.GetMetadata(ctx, api.HOSTMETA_RESERVED_CPUS_RATE, nil)
+	reserveRateJ, err := jsonutils.ParseString(reserveRateStr)
+	if err != nil {
+		return nil, errors.Wrap(err, "parse reserveRateStr")
+	}
+	err = reserveRateJ.Unmarshal(&reserveRate)
+	if err != nil {
+		return nil, errors.Wrap(err, "unmarshal reserveRateStr")
+	}
+
+	nodeNoDevIds := map[int]int{}
+	for i := range topo.Nodes {
+		nodeId := strconv.Itoa(topo.Nodes[i].ID)
+		if _, ok := nodesGroupDevs[nodeId]; !ok {
+			nodeInt, _ := strconv.Atoi(nodeId)
+			nodeNoDevIds[nodeInt] = -1
+		}
+	}
+	//
+	//for nodeId, _ := range reserveRate {
+	//	if _, ok := nodesGroupDevs[nodeId]; !ok {
+	//		nodeInt, _ := strconv.Atoi(nodeId)
+	//		nodeNoDevIds[nodeInt] = -1
+	//	}
+	//}
+
+	reserveNodes := map[string][]string{}
+	for i := range topo.Nodes {
+		if _, ok := nodeNoDevIds[topo.Nodes[i].ID]; ok {
+			minDistance := int(math.MaxInt16)
+			selectNodeId := ""
+			for nodeId, _ := range nodesGroupDevs {
+				nodeInt, _ := strconv.Atoi(nodeId)
+				if topo.Nodes[i].Distances[nodeInt] < minDistance {
+					selectNodeId = strconv.Itoa(nodeInt)
+					minDistance = topo.Nodes[i].Distances[nodeInt]
+				}
+			}
+			noDevNodeId := strconv.Itoa(topo.Nodes[i].ID)
+			log.Debugf("node %s select node %s", noDevNodeId, selectNodeId)
+			if nodes, ok := reserveNodes[selectNodeId]; ok {
+				reserveNodes[selectNodeId] = append(nodes, noDevNodeId)
+			} else {
+				reserveNodes[selectNodeId] = []string{noDevNodeId}
+			}
+		}
+	}
+	reserveRates := map[string]SNodeIsolateDevicesInfo{}
+	for nodeId, devGroups := range nodesGroupDevs {
+		nodeCnt := 1
+		nodeReserveRate := reserveRate[nodeId]
+		if nodes, ok := reserveNodes[nodeId]; ok {
+			for i := range nodes {
+				nodeReserveRate += reserveRate[nodes[i]]
+				nodeCnt += 1
+			}
+		}
+		nodeReserveRate = nodeReserveRate / float32(nodeCnt)
+		devCnt := 0
+		for i := range devGroups {
+			devCnt += len(devGroups[i].Devs)
+		}
+		reserveRates[nodeId] = SNodeIsolateDevicesInfo{
+			TotalDevCount: devCnt,
+			ReservedRate:  nodeReserveRate,
+		}
+		log.Debugf("node %v nodeCnt %v nodeReserveRate %v", nodeId, nodeCnt, nodeReserveRate)
+	}
+	return reserveRates, nil
+}
+
+func (manager *SIsolatedDeviceManager) attachHostDeviceToGuestByModel(
+	ctx context.Context, guest *SGuest, host *SHost, devConfig *api.IsolatedDeviceConfig,
+	userCred mcclient.TokenCredential, usedDevMap map[string]*SIsolatedDevice, preferNumaNodes []int,
+) error {
+	if len(devConfig.Model) == 0 {
+		return fmt.Errorf("Not found model from info: %#v", devConfig)
+	}
+	// if dev type is not nic, wire is empty string
+	devs, err := manager.findHostUnusedByDevConfig(devConfig.Model, devConfig.DevType, host.Id, devConfig.WireId)
+	if err != nil || len(devs) == 0 {
+		return fmt.Errorf("Can't found model %s on host %s", devConfig.Model, host.Id)
+	}
+	// 1. group devices by device_path and numa nodes
+	//groupDevs := make(SorttedGroupDevs, 0)
+	mapDevs := map[string][]SIsolatedDevice{}
+	for i := range devs {
+		dev := devs[i]
+		devPath := dev.DevicePath
+		var gdevs []SIsolatedDevice
+
+		gdevs, ok := mapDevs[devPath]
+		if !ok {
+			gdevs = []SIsolatedDevice{dev}
+		} else {
+			gdevs = append(gdevs, dev)
+		}
+		mapDevs[devPath] = gdevs
+	}
+
+	var groupDevs SorttedGroupDevs
+	if len(preferNumaNodes) > 0 {
+		groupDevs = make(SorttedGroupDevs, 0)
+		for devPath, mappedDevs := range mapDevs {
+			groupDevs = append(groupDevs, &GroupDevs{
+				DevPath: devPath,
+				Devs:    mappedDevs,
+			})
+		}
+	} else {
+		nodesGroupDevs := map[int8]SorttedGroupDevs{}
+		for devPath, mappedDevs := range mapDevs {
+			numaNode := mappedDevs[0].NumaNode
+			if _, ok := nodesGroupDevs[numaNode]; ok {
+				nodesGroupDevs[numaNode] = append(nodesGroupDevs[numaNode], &GroupDevs{
+					DevPath: devPath,
+					Devs:    mappedDevs,
+				})
+			} else {
+				groupDevs := make(SorttedGroupDevs, 0)
+				nodesGroupDevs[numaNode] = append(groupDevs, &GroupDevs{
+					DevPath: devPath,
+					Devs:    mappedDevs,
+				})
+			}
+		}
+
+		var selectedNode int8 = -1
+		if len(nodesGroupDevs) == 1 {
+			for nodeId := range nodesGroupDevs {
+				selectedNode = nodeId
+			}
+		} else {
+			reservedCpusStr := host.GetMetadata(ctx, api.HOSTMETA_RESERVED_CPUS_INFO, nil)
+			if len(reservedCpusStr) > 0 {
+				topoObj, err := host.SysInfo.Get("topology")
+				if err != nil {
+					return errors.Wrap(err, "get topology from host sys_info")
+				}
+				topo := new(hostapi.HostTopology)
+				if err := topoObj.Unmarshal(topo); err != nil {
+					return errors.Wrap(err, "Unmarshal host topology struct")
+				}
+				nodesReserveRate, err := manager.getDevNodesUsedRate(ctx, host, devConfig, topo)
+				if err != nil {
+					return err
+				}
+				var selectedNodeUtil float32 = 1.0
+				for nodeId, gds := range nodesGroupDevs {
+					freeDevCnt := 0
+					for i := range gds {
+						freeDevCnt += len(gds[i].Devs)
+					}
+
+					nodeTotalCnt := nodesReserveRate[strconv.Itoa(int(nodeId))].TotalDevCount
+					usedDevCnt := nodeTotalCnt - freeDevCnt
+
+					nodeReserveRate := nodesReserveRate[strconv.Itoa(int(nodeId))].ReservedRate
+					nodeCnt := (1 - nodeReserveRate) * float32(nodeTotalCnt)
+					nodeutil := float32(usedDevCnt) / nodeCnt
+					log.Debugf("selectedNodeUtil node %v util %v usedDevCnt %v totalDevCnt %v", nodeId, nodeutil, usedDevCnt, nodeCnt)
+					if nodeutil < selectedNodeUtil {
+						selectedNodeUtil = nodeutil
+						selectedNode = nodeId
+					}
+				}
+			} else {
+				var selectedNodeDevCnt = 0
+				for nodeId, gds := range nodesGroupDevs {
+					devCnt := 0
+					for i := range gds {
+						devCnt += len(gds[i].Devs)
+					}
+					if devCnt > selectedNodeDevCnt {
+						selectedNodeDevCnt = devCnt
+						selectedNode = nodeId
+					}
+				}
+			}
+		}
+		log.Debugf("selectedNodeUtil node %v", selectedNode)
+		groupDevs = nodesGroupDevs[selectedNode]
 	}
 	sort.Sort(groupDevs)
 
@@ -843,6 +1037,29 @@ func (manager *SIsolatedDeviceManager) FindUnusedGpusOnHost(hostId string) ([]SI
 
 func (manager *SIsolatedDeviceManager) findHostUnusedByDevConfig(model, devType, hostId, wireId string) ([]SIsolatedDevice, error) {
 	return manager.findHostUnusedByDevAttr(model, "dev_type", devType, hostId, wireId)
+}
+
+func (manager *SIsolatedDeviceManager) findHostDevsByDevConfig(model, devType, hostId, wireId string) ([]SIsolatedDevice, error) {
+	return manager.findHostDevsByDevAttr(model, "dev_type", devType, hostId, wireId)
+}
+func (manager *SIsolatedDeviceManager) findHostDevsByDevAttr(model, attrKey, attrVal, hostId, wireId string) ([]SIsolatedDevice, error) {
+	devs := make([]SIsolatedDevice, 0)
+	q := manager.Query()
+	q = q.Equals("model", model).Equals("host_id", hostId)
+	if attrVal != "" {
+		q.Equals(attrKey, attrVal)
+	}
+	if wireId != "" {
+		wire := WireManager.FetchWireById(wireId)
+		if wire.VpcId == api.DEFAULT_VPC_ID {
+			q = q.Equals("wire_id", wireId)
+		}
+	}
+	err := db.FetchModelObjects(manager, q, &devs)
+	if err != nil {
+		return nil, err
+	}
+	return devs, nil
 }
 
 func (manager *SIsolatedDeviceManager) findHostUnusedByDevAttr(model, attrKey, attrVal, hostId, wireId string) ([]SIsolatedDevice, error) {

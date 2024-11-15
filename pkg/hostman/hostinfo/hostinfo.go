@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io/ioutil"
 	"math"
 	"net"
 	"os"
@@ -832,6 +833,9 @@ func (h *SHostInfo) initCgroup() error {
 			*h.reservedCpusInfo.DisableSchedLoadBalance &&
 			!reservedCpusTask.CustomConfig(cgrouputils.CPUSET_SCHED_LOAD_BALANCE, "0") {
 			return fmt.Errorf("failed init host reserved cpuset sched load balance")
+		}
+		if len(h.reservedCpusInfo.ProcessesPrefix) > 0 {
+			go h.startBindReservedCpus(h.reservedCpusInfo.ProcessesPrefix)
 		}
 	}
 	return nil
@@ -2668,6 +2672,58 @@ func (h *SHostInfo) CpuCmtBound() float32 {
 
 func (h *SHostInfo) MemCmtBound() float32 {
 	return h.memCmtBound
+}
+
+func (h *SHostInfo) getProcessesPids(processesPrefix []string) (map[string]string, error) {
+	files, err := ioutil.ReadDir("/proc")
+	if err != nil {
+		return nil, err
+	}
+	res := map[string]string{}
+	re := regexp.MustCompile(`^\d+$`)
+	for _, f := range files {
+		if re.MatchString(f.Name()) {
+			cmdline, err := fileutils2.FileGetContents(path.Join("/proc", f.Name(), "cmdline"))
+			if err != nil {
+				log.Errorf("failed read proc %s cmdline: %s", f.Name(), err)
+				continue
+			}
+			segs := strings.Split(cmdline, "\x00")
+			if utils.IsInStringArray(segs[0], processesPrefix) {
+				res[segs[0]] = f.Name()
+				log.Infof("getProcessesPids append %s %s", segs[0], f.Name())
+			}
+		}
+	}
+	return res, nil
+}
+
+func (h *SHostInfo) startBindReservedCpus(processesPrefix []string) {
+	for {
+		processPids, err := h.getProcessesPids(processesPrefix)
+		if err != nil {
+			log.Errorf("getProcessesPids %s", err)
+		} else {
+			for process, pid := range processPids {
+				cgroupName := path.Join(hostconsts.HOST_RESERVED_CPUSET, strings.ReplaceAll(process, "/", "_"))
+				task := cgrouputils.NewCGroupCPUSetTask(pid, cgroupName, 0, "")
+				if !task.Configure() {
+					log.Errorf("process failed init reserved cpuset %s %s", process, pid)
+					continue
+				}
+
+				if !task.CustomConfig(cgrouputils.CPUSET_CLONE_CHILDREN, "1") {
+					log.Errorf("process failed set host reserved cpuset clone children %s %s", process, pid)
+					continue
+				}
+				if !task.SetTask() {
+					log.Errorf("process %s %s failed set cgroup cpuset", process, pid)
+					continue
+				}
+			}
+		}
+		time.Sleep(time.Second * 100)
+	}
 }
 
 func NewHostInfo() (*SHostInfo, error) {
