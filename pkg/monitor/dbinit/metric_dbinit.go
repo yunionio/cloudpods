@@ -253,6 +253,13 @@ func init() {
 			newMetricFieldCreateInput("p2p_mem", "P2P memory utilization", monitor.METRIC_UNIT_PERCENT, 9),
 		})
 
+	RegistryMetricCreateInput("linux_sysctl_fs", "Provides Linux sysctl fs metrics",
+		monitor.METRIC_RES_TYPE_HOST, monitor.METRIC_DATABASE_TELE, 13,
+		[]monitor.MetricFieldCreateInput{
+			newMetricFieldCreateInput("aio-nr", "The running total of the number of events specified on the io_setup system call for all currently active aio contexts", "", 1),
+			newMetricFieldCreateInput("aio-max-nr", "The running total of the number of events specified on the io_setup system call for all currently active aio contexts", "", 1),
+		})
+
 	// vm_cpu
 	RegistryMetricCreateInput("vm_cpu", "Guest CPU usage", monitor.METRIC_RES_TYPE_GUEST,
 		monitor.METRIC_DATABASE_TELE, 1, []monitor.MetricFieldCreateInput{

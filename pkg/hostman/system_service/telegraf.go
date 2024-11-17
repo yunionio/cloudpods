@@ -281,6 +281,8 @@ func (s *STelegraf) GetConfig(kwargs map[string]interface{}) string {
 	conf += "[[inputs.internal]]\n"
 	conf += "  collect_memstats = false\n"
 	conf += "\n"
+	conf += "[[inputs.linux_sysctl_fs]]\n"
+	conf += "\n"
 	conf += "[[inputs.http_listener_v2]]\n"
 	conf += "  service_address = \"127.0.0.1:8087\"\n"
 	conf += "  path = \"/write\"\n"
