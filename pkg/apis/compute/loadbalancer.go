@@ -96,6 +96,12 @@ type LoadbalancerDetails struct {
 
 	// 关联安全组列表
 	Secgroups []SimpleSecurityGroup `json:"secgroups"`
+	LoadbalancerUsage
+}
+
+type LoadbalancerUsage struct {
+	BackendGroupCount int `json:"backend_group_count"`
+	ListenerCount     int `json:"listener_count"`
 }
 
 type SimpleSecurityGroup struct {
