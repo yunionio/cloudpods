@@ -2488,7 +2488,7 @@ func (task *SGuestHotplugCpuMemTask) startAddCpusWithFreeVcpuSet(vcpuSet []int) 
 				}
 			}
 		} else {
-			cpus, _ := task.manager.cpuSet.AllocCpuset(1, 0, nil)
+			cpus, _ := task.manager.cpuSet.AllocCpuset(1, 0, nil, task.GetId())
 			for _, cpus := range cpus {
 				//pcpus := cpuset.NewCPUSet(cpus.Cpuset...).String()
 				//vcpus := fmt.Sprintf("%d-%d", vcpuId, vcpuId)

@@ -173,6 +173,8 @@ func LoadGuestCpuset(m *SGuestManager, s GuestRuntimeInstance) error {
 	if s.IsRunning() {
 		m.cpuSet.Lock.Lock()
 		defer m.cpuSet.Lock.Unlock()
+		m.cpuSet.GuestIds[s.GetId()] = struct{}{}
+
 		for _, vcpuPin := range guestDesc.VcpuPin {
 			pcpuSet, err := cpuset.Parse(vcpuPin.Pcpus)
 			if err != nil {
@@ -186,13 +188,18 @@ func LoadGuestCpuset(m *SGuestManager, s GuestRuntimeInstance) error {
 			}
 			m.cpuSet.LoadCpus(pcpuSet.ToSlice(), vcpuSet.Size())
 		}
+
 		for _, numaCpuset := range guestDesc.CpuNumaPin {
 			pcpus := make([]int, 0)
+			vcpus := make([]int, 0)
 			for i := range numaCpuset.VcpuPin {
 				pcpus = append(pcpus, numaCpuset.VcpuPin[i].Pcpu)
+				if numaCpuset.VcpuPin[i].Vcpu >= 0 {
+					vcpus = append(vcpus, numaCpuset.VcpuPin[i].Vcpu)
+				}
 			}
 
-			m.cpuSet.LoadNumaCpus(numaCpuset.SizeMB, int(*numaCpuset.NodeId), pcpus, len(numaCpuset.VcpuPin))
+			m.cpuSet.LoadNumaCpus(numaCpuset.SizeMB, int(*numaCpuset.NodeId), pcpus, len(vcpus))
 		}
 	}
 	return nil
@@ -205,16 +212,22 @@ func ReleaseCpuNumaPin(m *SGuestManager, cpuNumaPin []*desc.SCpuNumaPin) {
 
 	for _, numaCpus := range cpuNumaPin {
 		pcpus := make([]int, 0)
+		vcpus := make([]int, 0)
 		for i := range numaCpus.VcpuPin {
 			pcpus = append(pcpus, numaCpus.VcpuPin[i].Pcpu)
+			if numaCpus.VcpuPin[i].Vcpu >= 0 {
+				vcpus = append(vcpus, numaCpus.VcpuPin[i].Vcpu)
+			}
 		}
-		m.cpuSet.ReleaseNumaCpus(numaCpus.SizeMB, int(*numaCpus.NodeId), pcpus, len(numaCpus.VcpuPin))
+		m.cpuSet.ReleaseNumaCpus(numaCpus.SizeMB, int(*numaCpus.NodeId), pcpus, len(vcpus))
 	}
 }
 
 func ReleaseGuestCpuset(m *SGuestManager, s GuestRuntimeInstance) {
 	m.cpuSet.Lock.Lock()
 	defer m.cpuSet.Lock.Unlock()
+	delete(m.cpuSet.GuestIds, s.GetId())
+
 	guestDesc := s.GetDesc()
 	ReleaseCpuNumaPin(m, guestDesc.CpuNumaPin)
 

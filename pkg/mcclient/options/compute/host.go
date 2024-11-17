@@ -92,10 +92,11 @@ type HostReserveCpusOptions struct {
 	Cpus                    string
 	Mems                    string
 	DisableSchedLoadBalance bool
+	ProcessesPrefix         []string `help:"Processes prefix bind reserved cpus"`
 }
 
 func (o *HostReserveCpusOptions) Params() (jsonutils.JSONObject, error) {
-	return options.StructToParams(o)
+	return jsonutils.Marshal(o), nil
 }
 
 type HostAutoMigrateOnHostDownOptions struct {

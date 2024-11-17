@@ -177,7 +177,7 @@ func (s *SKVMGuestInstance) reallocateNumaNodes(isMigrate bool) error {
 }
 
 func (s *SKVMGuestInstance) reallocateMigrateNumaNodes() error {
-	nodeNumaCpus, err := s.manager.cpuSet.AllocCpusetWithNodeCount(int(s.Desc.Cpu), s.Desc.Mem*1024, len(s.Desc.MemDesc.Mem.Mems)+1)
+	nodeNumaCpus, err := s.manager.cpuSet.AllocCpusetWithNodeCount(int(s.Desc.Cpu), s.Desc.Mem*1024, len(s.Desc.MemDesc.Mem.Mems)+1, s.GetId())
 	if err != nil {
 		return errors.Wrap(err, "AllocCpusetWithNodeCount")
 	}
@@ -371,7 +371,7 @@ func (s *SKVMGuestInstance) initLiveDescFromSourceGuest(srcDesc *desc.SGuestDesc
 		cpuNumaPin = s.Desc.CpuNumaPin
 	} else {
 		// allocate cpu numa pin local
-		nodeNumaCpus, err := s.manager.cpuSet.AllocCpusetWithNodeCount(int(srcDesc.Cpu), srcDesc.Mem*1024, len(srcDesc.MemDesc.Mem.Mems)+1)
+		nodeNumaCpus, err := s.manager.cpuSet.AllocCpusetWithNodeCount(int(srcDesc.Cpu), srcDesc.Mem*1024, len(srcDesc.MemDesc.Mem.Mems)+1, s.GetId())
 		if err != nil {
 			return errors.Wrap(err, "AllocCpusetWithNodeCount")
 		}
@@ -2700,7 +2700,7 @@ func (s *SKVMGuestInstance) allocGuestNumaCpuset() error {
 		}
 	}
 
-	nodeNumaCpus, err := s.manager.cpuSet.AllocCpuset(int(s.Desc.Cpu), s.Desc.Mem*1024, preferNumaNodes)
+	nodeNumaCpus, err := s.manager.cpuSet.AllocCpuset(int(s.Desc.Cpu), s.Desc.Mem*1024, preferNumaNodes, s.GetId())
 	if err != nil {
 		return err
 	}

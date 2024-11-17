@@ -185,4 +185,5 @@ const (
 
 const (
 	HOSTMETA_RESERVED_CPUS_INFO = "reserved_cpus_info"
+	HOSTMETA_RESERVED_CPUS_RATE = "reserved_cpus_rate"
 )
