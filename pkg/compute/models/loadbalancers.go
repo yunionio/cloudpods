@@ -749,6 +749,59 @@ func (lb *SLoadbalancer) ValidateUpdateData(ctx context.Context, userCred mcclie
 	return data, nil
 }
 
+type SLoadbalancerUsageCount struct {
+	Id string
+	api.LoadbalancerUsage
+}
+
+func (lm *SLoadbalancerManager) query(manager db.IModelManager, field string, lbIds []string, filter func(*sqlchemy.SQuery) *sqlchemy.SQuery) *sqlchemy.SSubQuery {
+	q := manager.Query()
+
+	if filter != nil {
+		q = filter(q)
+	}
+
+	sq := q.SubQuery()
+
+	return sq.Query(
+		sq.Field("loadbalancer_id"),
+		sqlchemy.COUNT(field),
+	).In("loadbalancer_id", lbIds).GroupBy(sq.Field("loadbalancer_id")).SubQuery()
+}
+
+func (manager *SLoadbalancerManager) TotalResourceCount(lbIds []string) (map[string]api.LoadbalancerUsage, error) {
+	// backendGroup
+	lbgSQ := manager.query(LoadbalancerBackendGroupManager, "backend_group_cnt", lbIds, nil)
+	// listener
+	lisSQ := manager.query(LoadbalancerListenerManager, "listener_cnt", lbIds, nil)
+
+	lb := manager.Query().SubQuery()
+	lbQ := lb.Query(
+		sqlchemy.SUM("backend_group_count", lbgSQ.Field("backend_group_cnt")),
+		sqlchemy.SUM("listener_count", lisSQ.Field("listener_cnt")),
+	)
+
+	lbQ.AppendField(lbQ.Field("id"))
+
+	lbQ = lbQ.LeftJoin(lbgSQ, sqlchemy.Equals(lbQ.Field("id"), lbgSQ.Field("loadbalancer_id")))
+	lbQ = lbQ.LeftJoin(lisSQ, sqlchemy.Equals(lbQ.Field("id"), lisSQ.Field("loadbalancer_id")))
+
+	lbQ = lbQ.Filter(sqlchemy.In(lbQ.Field("id"), lbIds)).GroupBy(lbQ.Field("id"))
+
+	lbCount := []SLoadbalancerUsageCount{}
+	err := lbQ.All(&lbCount)
+	if err != nil {
+		return nil, errors.Wrapf(err, "lbQ.All")
+	}
+
+	result := map[string]api.LoadbalancerUsage{}
+	for i := range lbCount {
+		result[lbCount[i].Id] = lbCount[i].LoadbalancerUsage
+	}
+
+	return result, nil
+}
+
 func (man *SLoadbalancerManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
@@ -838,6 +891,12 @@ func (man *SLoadbalancerManager) FetchCustomizeColumns(
 		})
 	}
 
+	usage, err := man.TotalResourceCount(lbIds)
+	if err != nil {
+		log.Errorf("TotalResourceCount error: %v", err)
+		return rows
+	}
+
 	for i := range rows {
 		eip, ok := eipMap[lbIds[i]]
 		if ok {
@@ -850,6 +909,7 @@ func (man *SLoadbalancerManager) FetchCustomizeColumns(
 			rows[i].BackendGroup = bg
 		}
 		rows[i].Secgroups, _ = groups[lbIds[i]]
+		rows[i].LoadbalancerUsage, _ = usage[lbIds[i]]
 	}
 
 	return rows
