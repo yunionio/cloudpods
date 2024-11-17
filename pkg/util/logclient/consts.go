@@ -292,4 +292,7 @@ const (
 	ACT_TRANSFERRED_REJECTED = "trans_rejected"
 	ACT_ADD_RATE             = "add_rate"
 	ACT_REMOVE_RATE          = "remove_rate"
+
+	ACT_CLONE   = "clone"
+	ACT_REBUILD = "rebuild"
 )

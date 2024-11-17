@@ -333,4 +333,10 @@ const (
 	ACT_STOP_RESCUE_FAILED  = "stop_rescue_failed"
 
 	ACT_RE_BILLING = "re_billing"
+
+	ACT_CLONE        = "clone"
+	ACT_CLONE_FAILED = "clone_failed"
+
+	ACT_REBUILD        = "rebuild"
+	ACT_REBUILD_FAILED = "rebuild_failed"
 )
