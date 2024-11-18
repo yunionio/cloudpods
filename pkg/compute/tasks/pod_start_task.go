@@ -47,15 +47,9 @@ func (t *PodStartTask) OnPodStarted(ctx context.Context, pod *models.SGuest, _ j
 		t.OnContainerStartedFailed(ctx, pod, jsonutils.NewString(errors.Wrap(err, "GetContainersByPod").Error()))
 		return
 	}
-	isAllStarted := true
-	for i := range ctrs {
-		if !api.ContainerRunningStatus.Has(ctrs[i].GetStatus()) && ctrs[i].GetStatus() != api.CONTAINER_STATUS_PROBE_FAILED {
-			isAllStarted = false
-			ctrs[i].StartStartTask(ctx, t.GetUserCred(), t.GetTaskId())
-		}
-	}
-	if isAllStarted {
-		t.OnContainerStarted(ctx, pod, nil)
+	t.SetStage("OnContainerStarted", nil)
+	if err := models.GetContainerManager().StartBatchStartTask(ctx, t.GetUserCred(), ctrs, t.GetId()); err != nil {
+		t.OnContainerStartedFailed(ctx, pod, jsonutils.NewString(err.Error()))
 		return
 	}
 }

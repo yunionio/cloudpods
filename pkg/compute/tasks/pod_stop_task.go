@@ -18,7 +18,6 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -36,7 +35,6 @@ func init() {
 }
 
 func (t *PodStopTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
-	t.SetStage("OnWaitContainerStopped", nil)
 	t.OnWaitContainerStopped(ctx, obj.(*models.SGuest), nil)
 }
 
@@ -47,20 +45,14 @@ func (t *PodStopTask) OnWaitContainerStopped(ctx context.Context, pod *models.SG
 		t.OnWaitContainerStoppedFailed(ctx, pod, jsonutils.NewString(errors.Wrap(err, "GetContainersByPod").Error()))
 		return
 	}
-	isAllStopped := true
-	for i := range ctrs {
-		curCtr := ctrs[i]
-		log.Infof("========container status: %s", curCtr.GetStatus())
-		if curCtr.GetStatus() != api.CONTAINER_STATUS_EXITED {
-			isAllStopped = false
-			curCtr.StartStopTask(ctx, t.GetUserCred(), &api.ContainerStopInput{
-				Timeout: 1,
-			}, t.GetTaskId())
+	if len(ctrs) == 0 {
+		t.OnContainerStopped(ctx, pod, nil)
+	} else {
+		t.SetStage("OnContainerStopped", nil)
+		if err := models.GetContainerManager().StartBatchStopTask(ctx, t.GetUserCred(), ctrs, 1, t.GetId()); err != nil {
+			t.OnWaitContainerStoppedFailed(ctx, pod, jsonutils.NewString(err.Error()))
+			return
 		}
-	}
-	if isAllStopped {
-		t.OnContainerStopped(ctx, pod)
-		return
 	}
 }
 
@@ -69,7 +61,7 @@ func (t *PodStopTask) OnWaitContainerStoppedFailed(ctx context.Context, pod *mod
 	t.SetStageFailed(ctx, data)
 }
 
-func (t *PodStopTask) OnContainerStopped(ctx context.Context, pod *models.SGuest) {
+func (t *PodStopTask) OnContainerStopped(ctx context.Context, pod *models.SGuest, _ jsonutils.JSONObject) {
 	t.SetStage("OnPodStopped", nil)
 	task, err := taskman.TaskManager.NewTask(ctx, "GuestStopTask", pod, t.GetUserCred(), nil, t.GetTaskId(), "", nil)
 	if err != nil {
