@@ -169,6 +169,17 @@ func init() {
 			newMetricFieldCreateInput("sleeping", "Sleeping processes count", monitor.METRIC_UNIT_COUNT, 5),
 		})
 
+	RegistryMetricCreateInput("linux_sysctl_fs", "Provides Linux sysctl fs metrics",
+		monitor.METRIC_RES_TYPE_HOST, monitor.METRIC_DATABASE_TELE, 13,
+		[]monitor.MetricFieldCreateInput{
+			newMetricFieldCreateInput("file_nr", "The number of allocated file handles", "", 1),
+			newMetricFieldCreateInput("file_max", "The maximum number of file handles that the Linux kernel will allocate.", "", 2),
+			newMetricFieldCreateInput("inode_nr", "The number of inodes the system has allocated", "", 3),
+			newMetricFieldCreateInput("inode_free_nr", "The number of free inodes", "", 4),
+			newMetricFieldCreateInput("aio_nr", "The running total of the number of events specified on the io_setup system call for all currently active aio contexts", "", 5),
+			newMetricFieldCreateInput("aio_max_nr", "The running total of the number of events specified on the io_setup system call for all currently active aio contexts", "", 6),
+		})
+
 	// vm_cpu
 	RegistryMetricCreateInput("vm_cpu", "Guest CPU usage", monitor.METRIC_RES_TYPE_GUEST,
 		monitor.METRIC_DATABASE_TELE, 1, []monitor.MetricFieldCreateInput{
