@@ -352,6 +352,35 @@ func (m *SContainerManager) validateSpecProbeHandler(probe apis.ContainerProbeHa
 	return nil
 }
 
+func (m *SContainerManager) startBatchTask(ctx context.Context, userCred mcclient.TokenCredential, taskName string, ctrs []SContainer, taskData *jsonutils.JSONDict, parentTaskId string) error {
+	ctrPtrs := make([]db.IStandaloneModel, len(ctrs))
+	for i := range ctrs {
+		ctrPtrs[i] = &ctrs[i]
+	}
+	task, err := taskman.TaskManager.NewParallelTask(ctx, taskName, ctrPtrs, userCred, taskData, parentTaskId, "")
+	if err != nil {
+		return errors.Wrapf(err, "NewParallelTask %s", taskName)
+	}
+	return task.ScheduleRun(nil)
+}
+
+func (m *SContainerManager) StartBatchStartTask(ctx context.Context, userCred mcclient.TokenCredential, ctrs []SContainer, parentTaskId string) error {
+	return m.startBatchTask(ctx, userCred, "ContainerBatchStartTask", ctrs, nil, parentTaskId)
+}
+
+func (m *SContainerManager) StartBatchStopTask(ctx context.Context, userCred mcclient.TokenCredential, ctrs []SContainer, timeout int, parentTaskId string) error {
+	params := make([]api.ContainerStopInput, len(ctrs))
+	for i := range ctrs {
+		params[i] = api.ContainerStopInput{
+			Timeout: timeout,
+		}
+	}
+	taskParams := jsonutils.NewDict()
+	taskParams.Add(jsonutils.Marshal(params), "params")
+
+	return m.startBatchTask(ctx, userCred, "ContainerBatchStopTask", ctrs, taskParams, parentTaskId)
+}
+
 func (c *SContainer) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	c.SVirtualResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
 	if !jsonutils.QueryBoolean(data, "skip_task", false) {

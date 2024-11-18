@@ -43,6 +43,7 @@ func init() {
 		"subtask",
 		"subtasks",
 	)}
+	SubTaskManager.SetVirtualObject(SubTaskManager)
 }
 
 type SSubTask struct {
