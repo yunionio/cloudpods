@@ -81,6 +81,7 @@ const (
 	// for health check
 	CONTAINER_STATUS_PROBING      = "probing"
 	CONTAINER_STATUS_PROBE_FAILED = "probe_failed"
+	CONTAINER_STATUS_NET_FAILED   = "net_failed"
 )
 
 var (

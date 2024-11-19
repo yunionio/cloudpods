@@ -42,6 +42,10 @@ func (m *manager) SetContainerStartup(podId string, containerId string, started 
 	status := computeapi.CONTAINER_STATUS_PROBE_FAILED
 	if started {
 		status = computeapi.CONTAINER_STATUS_RUNNING
+	} else {
+		if result.IsNetFailedError() {
+			status = computeapi.CONTAINER_STATUS_NET_FAILED
+		}
 	}
 	input := &computeapi.ContainerPerformStatusInput{
 		PerformStatusInput: apis.PerformStatusInput{
