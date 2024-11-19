@@ -222,7 +222,7 @@ func (self *SUnifiedMonitorManager) PerformQuery(ctx context.Context, userCred m
 		if ownId == nil {
 			ownId = userCred
 		}
-		setDefaultValue(q, inputQuery, scope, ownId)
+		setDefaultValue(q, inputQuery, scope, ownId, false)
 		if err := self.ValidateInputQuery(q, inputQuery); err != nil {
 			return nil, errors.Wrapf(err, "ValidateInputQuery")
 		}
@@ -382,15 +382,20 @@ func (self *SUnifiedMonitorManager) ValidateInputQuery(query *monitor.AlertQuery
 	return validators.ValidateSelectOfMetricQuery(*query)
 }
 
-func setDefaultValue(query *monitor.AlertQuery, inputQuery *monitor.MetricQueryInput,
-	scope string, ownerId mcclient.IIdentityProvider) {
+func setDefaultValue(
+	query *monitor.AlertQuery,
+	inputQuery *monitor.MetricQueryInput,
+	scope string, ownerId mcclient.IIdentityProvider,
+	isAlert bool) {
 	query.From = inputQuery.From
 	query.To = inputQuery.To
 	query.Model.Interval = inputQuery.Interval
 
 	metricMeasurement, _ := MetricMeasurementManager.GetCache().Get(query.Model.Measurement)
 
-	//checkQueryGroupBy(query, inputQuery)
+	if isAlert {
+		checkQueryGroupBy(query, inputQuery)
+	}
 
 	if len(inputQuery.Interval) != 0 {
 		query.Model.GroupBy = append(query.Model.GroupBy,
@@ -430,10 +435,12 @@ func setDefaultValue(query *monitor.AlertQuery, inputQuery *monitor.MetricQueryI
 		if len(sel) > 1 {
 			continue
 		}
-		/*sel = append(sel, monitor.MetricQueryPart{
-			Type:   "mean",
-			Params: []string{},
-		})*/
+		if isAlert {
+			sel = append(sel, monitor.MetricQueryPart{
+				Type:   "mean",
+				Params: []string{},
+			})
+		}
 		query.Model.Selects[i] = sel
 	}
 	var projectId, domainId string
