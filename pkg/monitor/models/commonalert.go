@@ -300,7 +300,7 @@ func (man *SCommonAlertManager) ValidateMetricQuery(metricRequest *monitor.Commo
 			To:       metricRequest.To,
 			Interval: metricRequest.Interval,
 		}
-		setDefaultValue(q.AlertQuery, &metriInputQuery, scope, ownerId)
+		setDefaultValue(q.AlertQuery, &metriInputQuery, scope, ownerId, true)
 		err := UnifiedMonitorManager.ValidateInputQuery(q.AlertQuery, &metriInputQuery)
 		if err != nil {
 			return err
