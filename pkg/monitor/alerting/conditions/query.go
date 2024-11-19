@@ -560,7 +560,9 @@ func (c *QueryCondition) setResType() {
 		}
 	} */
 	if c.Query.Model.Database == monitor.METRIC_DATABASE_TELE {
-		c.ResType = resType
+		if c.ResType == "" {
+			c.ResType = resType
+		}
 	}
 }
 
