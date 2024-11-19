@@ -95,19 +95,28 @@ func (s AlertSetting) IsZero() bool {
 }
 
 type AlertCondition struct {
-	Type      string     `json:"type"`
-	Query     AlertQuery `json:"query"`
-	Reducer   Condition  `json:"reducer"`
-	Evaluator Condition  `json:"evaluator"`
-	Operator  string     `json:"operator"`
+	Type         string             `json:"type"`
+	Query        AlertQuery         `json:"query"`
+	Reducer      Condition          `json:"reducer"`
+	ReducerOrder ResultReducerOrder `json:"reducer_order"`
+	Evaluator    Condition          `json:"evaluator"`
+	Operator     string             `json:"operator"`
 }
+
+type ResultReducerOrder string
+
+const (
+	RESULT_REDUCER_ORDER_ASC  ResultReducerOrder = "asc"
+	RESULT_REDUCER_ORDER_DESC ResultReducerOrder = "desc"
+)
 
 type AlertQuery struct {
 	Model MetricQuery `json:"model"`
 	From  string      `json:"from"`
 	To    string      `json:"to"`
 	// 查询结果 reducer，执行 p95 这些操作
-	ResultReducer *Condition `json:"result_reducer"`
+	ResultReducer      *Condition         `json:"result_reducer"`
+	ResultReducerOrder ResultReducerOrder `json:"result_reducer_order"`
 }
 
 type AlertCreateInput struct {

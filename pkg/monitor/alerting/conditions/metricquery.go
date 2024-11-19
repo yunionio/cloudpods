@@ -16,6 +16,7 @@ package conditions
 
 import (
 	gocontext "context"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -71,11 +72,52 @@ func NewMetricQueryCondition(models []*monitor.AlertCondition) (*MetricQueryCond
 			return nil, errors.Wrapf(err, "NewAlertReducer")
 		}
 		qc.Reducer = reducer
+		qc.ReducerOrder = model.ReducerOrder
 		qc.setResType()
 		cond.QueryCons = append(cond.QueryCons, *qc)
 	}
 
 	return cond, nil
+}
+
+type queryReducedResultSorter struct {
+	r     *queryResult
+	order monitor.ResultReducerOrder
+}
+
+func newQueryReducedResultSorter(
+	r *queryResult,
+	order monitor.ResultReducerOrder) *queryReducedResultSorter {
+	return &queryReducedResultSorter{
+		r:     r,
+		order: order,
+	}
+}
+
+func (q *queryReducedResultSorter) Len() int {
+	return len(q.r.reducedResult.Result)
+}
+
+func (q *queryReducedResultSorter) Less(i, j int) bool {
+	vi, vj := q.r.reducedResult.Result[i], q.r.reducedResult.Result[j]
+	if q.order == monitor.RESULT_REDUCER_ORDER_ASC {
+		if vi < vj {
+			return true
+		}
+		return false
+	}
+	if vi > vj {
+		return true
+	}
+	return false
+}
+
+func (q *queryReducedResultSorter) Swap(i, j int) {
+	q.r.reducedResult.Result[i], q.r.reducedResult.Result[j] = q.r.reducedResult.Result[j], q.r.reducedResult.Result[i]
+	q.r.series[i], q.r.series[j] = q.r.series[j], q.r.series[i]
+	if len(q.r.metas) > i && len(q.r.metas) > j {
+		q.r.metas[i], q.r.metas[j] = q.r.metas[j], q.r.metas[i]
+	}
 }
 
 func (query *MetricQueryCondition) ExecuteQuery(userCred mcclient.TokenCredential, scope string, skipCheckSeries bool) (*monitor.MetricsQueryResult, error) {
@@ -95,6 +137,15 @@ func (query *MetricQueryCondition) ExecuteQuery(userCred mcclient.TokenCredentia
 	ds, err := datasource.GetDefaultSource("")
 	if err != nil {
 		return nil, errors.Wrapf(err, "Can't find default datasource")
+	}
+
+	sortMetrics := func(metrics *queryResult, order monitor.ResultReducerOrder) *queryResult {
+		if metrics.reducedResult != nil && len(metrics.reducedResult.Result) > 0 {
+			s := newQueryReducedResultSorter(metrics, order)
+			sort.Sort(s)
+			return s.r
+		}
+		return metrics
 	}
 
 	queryTSDB := func() (*queryResult, error) {
@@ -122,7 +173,7 @@ func (query *MetricQueryCondition) ExecuteQuery(userCred mcclient.TokenCredentia
 				}
 			}
 		}
-		return queryResult, nil
+		return sortMetrics(queryResult, firstCond.ReducerOrder), nil
 	}
 
 	noCheck := query.noCheckSeries(skipCheckSeries)
@@ -131,12 +182,12 @@ func (query *MetricQueryCondition) ExecuteQuery(userCred mcclient.TokenCredentia
 		if err != nil {
 			return nil, errors.Wrap(err, "queryTSDB")
 		}
-		metrics := monitor.MetricsQueryResult{
+		metrics := &monitor.MetricsQueryResult{
 			Series:        qr.series,
 			Metas:         qr.metas,
 			ReducedResult: qr.reducedResult,
 		}
-		return &metrics, nil
+		return metrics, nil
 	}
 
 	qInfluxdbCh := make(chan bool, 0)
