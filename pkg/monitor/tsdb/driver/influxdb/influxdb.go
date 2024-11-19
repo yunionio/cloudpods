@@ -97,7 +97,6 @@ func (e *InfluxdbExecutor) Query(ctx context.Context, dsInfo *tsdb.DataSource, t
 		return nil, errors.Wrap(err, "GetRawQuery")
 	}
 
-	log.Debugf("sql: %s", rawQuery)
 	db := dsInfo.Database
 	if db == "" {
 		db = tsdbQuery.Queries[0].Database
