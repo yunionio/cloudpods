@@ -336,6 +336,7 @@ func doQuery(userCred mcclient.TokenCredential, query monitor.MetricQueryInput) 
 		}
 		if q.ResultReducer != nil {
 			condition.Reducer = *q.ResultReducer
+			condition.ReducerOrder = q.ResultReducerOrder
 		}
 		conds = append(conds, &condition)
 	}
