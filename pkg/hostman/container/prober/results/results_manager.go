@@ -32,6 +32,7 @@ package results
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 
 	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
@@ -63,6 +64,22 @@ type ProbeResult struct {
 
 func (pr ProbeResult) String() string {
 	return fmt.Sprintf("%s: %s", pr.Result.String(), pr.Reason)
+}
+
+func (pr ProbeResult) IsNetFailedError() bool {
+	if pr.Result != Failure {
+		return false
+	}
+	netFailedMsg := []string{
+		"no route to host",
+		"i/o timeout",
+	}
+	for _, msg := range netFailedMsg {
+		if strings.Contains(pr.Reason, msg) {
+			return true
+		}
+	}
+	return false
 }
 
 // Result is the type for probe results.
@@ -100,7 +117,7 @@ type Update struct {
 // Manager provides a probe results cache and channel of updates
 type Manager interface {
 	// Get returns the cached result for the container with the given ID.
-	Get(containerId string) (Result, bool)
+	Get(containerId string) (ProbeResult, bool)
 	// Set sets the cached result for the container with the given ID.
 	// The pod is only included to be sent with the update.
 	Set(containerId string, result ProbeResult, pod *desc.SGuestDesc, force bool)
@@ -118,19 +135,19 @@ type manager struct {
 	// guards the cache
 	sync.RWMutex
 	// map of container ID -> probe Result
-	cache map[string]Result
+	cache map[string]ProbeResult
 	// channel of updates
 	updates chan Update
 }
 
 func NewManager() Manager {
 	return &manager{
-		cache:   make(map[string]Result),
+		cache:   make(map[string]ProbeResult),
 		updates: make(chan Update, 20),
 	}
 }
 
-func (m *manager) Get(id string) (Result, bool) {
+func (m *manager) Get(id string) (ProbeResult, bool) {
 	m.RLock()
 	defer m.RUnlock()
 	result, found := m.cache[id]
@@ -148,8 +165,8 @@ func (m *manager) setInternal(id string, result ProbeResult, force bool) bool {
 	m.Lock()
 	defer m.Unlock()
 	prev, exists := m.cache[id]
-	if !exists || prev != result.Result || force {
-		m.cache[id] = result.Result
+	if !exists || prev.Result != result.Result || prev.IsNetFailedError() != result.IsNetFailedError() || force {
+		m.cache[id] = result
 		return true
 	}
 	return false
