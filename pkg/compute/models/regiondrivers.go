@@ -101,6 +101,7 @@ type ISecurityGroupDriver interface {
 	RequestCreateSecurityGroup(ctx context.Context, userCred mcclient.TokenCredential, secgroup *SSecurityGroup, rules api.SSecgroupRuleResourceSet) error
 	// 根据安全组归属vpc还是region进行过滤
 	GetSecurityGroupFilter(vpc *SVpc) (func(q *sqlchemy.SQuery) *sqlchemy.SQuery, error)
+	GetDefaultSecurityGroupNamePrefix() string
 	CreateDefaultSecurityGroup(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, vpc *SVpc) (*SSecurityGroup, error)
 	RequestPrepareSecurityGroups(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, secgroups []SSecurityGroup, vpc *SVpc, callback func(ids []string) error, task taskman.ITask) error
 	RequestDeleteSecurityGroup(ctx context.Context, userCred mcclient.TokenCredential, secgroup *SSecurityGroup, task taskman.ITask) error

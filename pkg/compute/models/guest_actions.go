@@ -29,6 +29,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/billing"
 	"yunion.io/x/pkg/util/httputils"
@@ -1559,7 +1560,10 @@ func (self *SGuest) StartGueststartTask(
 	data *jsonutils.JSONDict, parentTaskId string,
 ) error {
 	schedStart := self.Hypervisor == api.HYPERVISOR_KVM && self.guestDisksStorageTypeIsShared()
-	startFromCreate := jsonutils.QueryBoolean(data, "start_from_create", false)
+	startFromCreate := false
+	if !gotypes.IsNil(data) {
+		startFromCreate = jsonutils.QueryBoolean(data, "start_from_create", false)
+	}
 	if options.Options.IgnoreNonrunningGuests {
 		host := HostManager.FetchHostById(self.HostId)
 		if !startFromCreate && host != nil && host.EnableNumaAllocate {

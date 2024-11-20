@@ -255,7 +255,9 @@ func (self *SManagedVirtualizationHostDriver) RequestAllocateDiskOnStorage(ctx c
 		}
 		projectId, err := _cloudprovider.SyncProject(ctx, userCred, disk.ProjectId)
 		if err != nil {
-			logclient.AddSimpleActionLog(disk, logclient.ACT_SYNC_CLOUD_PROJECT, err, userCred, false)
+			if errors.Cause(err) != cloudprovider.ErrNotSupported && errors.Cause(err) != cloudprovider.ErrNotImplemented {
+				logclient.AddSimpleActionLog(disk, logclient.ACT_SYNC_CLOUD_PROJECT, err, userCred, false)
+			}
 		}
 		conf := cloudprovider.DiskCreateConfig{
 			Name:       disk.GetName(),

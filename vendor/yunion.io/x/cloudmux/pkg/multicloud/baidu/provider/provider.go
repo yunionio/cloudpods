@@ -102,7 +102,7 @@ type SBaiduProvider struct {
 }
 
 func (self *SBaiduProvider) GetSysInfo() (jsonutils.JSONObject, error) {
-	regions := self.client.GetRegions()
+	regions, _ := self.client.GetRegions()
 	info := jsonutils.NewDict()
 	info.Add(jsonutils.NewInt(int64(len(regions))), "region_count")
 	return info, nil
@@ -121,7 +121,10 @@ func (self *SBaiduProvider) GetAccountId() string {
 }
 
 func (self *SBaiduProvider) GetIRegions() ([]cloudprovider.ICloudRegion, error) {
-	regions := self.client.GetRegions()
+	regions, err := self.client.GetRegions()
+	if err != nil {
+		return nil, err
+	}
 	ret := []cloudprovider.ICloudRegion{}
 	for i := range regions {
 		ret = append(ret, &regions[i])
@@ -196,5 +199,5 @@ func (self *SBaiduProvider) GetCloudRegionExternalIdPrefix() string {
 }
 
 func (self *SBaiduProvider) GetMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	return self.client.GetMetrics(opts)
 }
