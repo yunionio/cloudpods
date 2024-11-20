@@ -54,13 +54,13 @@ func (group *SCloudgroup) GetDescription() string {
 }
 
 func (group *SCloudgroup) GetICloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
-	policies, err := group.client.GetCloudpolicies(group.Id)
+	policies, err := group.client.GetPrincipalPolicy(group.Id)
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetCloudpolicies(%s)", group.Id)
 	}
 	ret := []cloudprovider.ICloudpolicy{}
 	for i := range policies {
-		ret = append(ret, &policies[i])
+		ret = append(ret, &SCloudpolicy{Id: policies[i].RoleDefinitionId})
 	}
 	return ret, nil
 }
@@ -87,22 +87,17 @@ func (group *SCloudgroup) RemoveUser(name string) error {
 }
 
 func (group *SCloudgroup) AttachPolicy(policyId string, policyType api.TPolicyType) error {
-	return group.client.AssignPolicy(group.Id, policyId, "")
+	return group.client.AssignPolicy(group.Id, policyId)
 }
 
 func (group *SCloudgroup) DetachPolicy(policyId string, policyType api.TPolicyType) error {
-	assignments, err := group.client.GetAssignments(group.Id)
+	policys, err := group.client.GetPrincipalPolicy(group.Id)
 	if err != nil {
-		return errors.Wrapf(err, "GetAssignments(%s)", group.Id)
+		return err
 	}
-	for _, assignment := range assignments {
-		role, err := group.client.GetRole(assignment.Properties.RoleDefinitionId)
-		if err != nil {
-			return errors.Wrapf(err, "GetRule(%s)", assignment.Properties.RoleDefinitionId)
-		}
-		if role.Properties.RoleName == policyId {
-			_, err := group.client._delete_v2(SERVICE_GRAPH, assignment.Id, "")
-			return err
+	for _, policy := range policys {
+		if policy.RoleDefinitionId == policyId {
+			return group.client.DeletePrincipalPolicy(policy.Id)
 		}
 	}
 	return nil
