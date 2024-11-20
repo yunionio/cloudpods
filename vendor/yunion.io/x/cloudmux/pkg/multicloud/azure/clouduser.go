@@ -103,40 +103,29 @@ func (user *SClouduser) GetInviteUrl() string {
 }
 
 func (user *SClouduser) GetICloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
-	policies, err := user.client.GetCloudpolicies(user.Id)
+	policies, err := user.client.GetPrincipalPolicy(user.Id)
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetCloudpolicies(%s)", user.Id)
 	}
 	ret := []cloudprovider.ICloudpolicy{}
 	for i := range policies {
-		ret = append(ret, &policies[i])
+		ret = append(ret, &SCloudpolicy{Id: policies[i].RoleDefinitionId})
 	}
 	return ret, nil
 }
 
 func (user *SClouduser) AttachPolicy(policyId string, policyType api.TPolicyType) error {
-	for _, subscription := range user.client.subscriptions {
-		err := user.client.AssignPolicy(user.Id, policyId, subscription.SubscriptionId)
-		if err != nil {
-			return errors.Wrapf(err, "AssignPolicy for subscription %s", subscription.SubscriptionId)
-		}
-	}
-	return nil
+	return user.client.AssignPolicy(user.Id, policyId)
 }
 
 func (user *SClouduser) DetachPolicy(policyId string, policyType api.TPolicyType) error {
-	assignments, err := user.client.GetAssignments(user.Id)
+	policys, err := user.client.GetPrincipalPolicy(user.Id)
 	if err != nil {
-		return errors.Wrapf(err, "GetAssignments(%s)", user.Id)
+		return err
 	}
-	for _, assignment := range assignments {
-		role, err := user.client.GetRole(assignment.Properties.RoleDefinitionId)
-		if err != nil {
-			return errors.Wrapf(err, "GetRule(%s)", assignment.Properties.RoleDefinitionId)
-		}
-		if role.Properties.RoleName == policyId {
-			_, err := user.client._delete_v2(SERVICE_GRAPH, assignment.Id, "")
-			return err
+	for _, policy := range policys {
+		if policy.RoleDefinitionId == policyId {
+			return user.client.DeletePrincipalPolicy(policy.Id)
 		}
 	}
 	return nil
