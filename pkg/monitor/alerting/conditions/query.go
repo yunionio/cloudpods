@@ -52,6 +52,7 @@ type QueryCondition struct {
 	Index         int
 	Query         AlertQuery
 	Reducer       Reducer
+	ReducerOrder  monitor.ResultReducerOrder
 	Evaluator     AlertEvaluator
 	Operator      string
 	HandleRequest tsdb.HandleRequestFunc
@@ -507,6 +508,7 @@ func newQueryCondition(model *monitor.AlertCondition, index int) (*QueryConditio
 		return nil, fmt.Errorf("error in condition %v: %v", index, err)
 	}
 	cond.Reducer = reducer
+	cond.ReducerOrder = model.ReducerOrder
 	evaluator, err := NewAlertEvaluator(&model.Evaluator)
 	if err != nil {
 		return nil, fmt.Errorf("error in condition %v: %v", index, err)

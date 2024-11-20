@@ -282,10 +282,11 @@ type AlertQuery struct {
 	policy       string
 	resultFormat string
 
-	selects       *AlertQuerySelects
-	where         *AlertQueryWhere
-	groupBy       *AlertQueryGroupBy
-	resultReducer *monitor.Condition
+	selects            *AlertQuerySelects
+	where              *AlertQueryWhere
+	groupBy            *AlertQueryGroupBy
+	resultReducer      *monitor.Condition
+	resultReducerOrder monitor.ResultReducerOrder
 }
 
 func NewAlertQuery(database string, measurement string) *AlertQuery {
@@ -401,6 +402,11 @@ func (q *AlertQuery) Reducer(rType string, params []float64) *AlertQuery {
 		Type:   rType,
 		Params: params,
 	}
+	return q
+}
+
+func (q *AlertQuery) ReducerOrder(rType monitor.ResultReducerOrder) *AlertQuery {
+	q.resultReducerOrder = rType
 	return q
 }
 
@@ -675,8 +681,9 @@ func (input *MetricQueryInput) ToQueryData() *monitor.MetricQueryInput {
 	}
 	data.MetricQuery = []*monitor.AlertQuery{
 		{
-			Model:         input.query.ToMetricQuery(),
-			ResultReducer: input.query.resultReducer,
+			Model:              input.query.ToMetricQuery(),
+			ResultReducer:      input.query.resultReducer,
+			ResultReducerOrder: input.query.resultReducerOrder,
 		},
 	}
 
