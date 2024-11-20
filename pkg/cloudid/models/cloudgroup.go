@@ -642,7 +642,7 @@ func (self *SCloudgroup) PerformSetPolicies(ctx context.Context, userCred mcclie
 			return nil, err
 		}
 		policy := policObj.(*SCloudpolicy)
-		if policy.ManagerId != self.ManagerId || policy.CloudaccountId != self.CloudaccountId {
+		if (policy.ManagerId != self.ManagerId && len(self.ManagerId) > 0) || policy.CloudaccountId != self.CloudaccountId {
 			return nil, httperrors.NewConflictError("Policies and groups do not belong to the same account")
 		}
 		newP.Add(policy.Id)
