@@ -72,7 +72,14 @@ func (self *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudpr
 
 	instance, err := self.zone.region._createVM(desc, nic.ID)
 	if err != nil {
-		self.zone.region.DeleteNetworkInterface(nic.ID)
+		cloudprovider.Wait(time.Minute*2, time.Minute*6, func() (bool, error) {
+			e := self.zone.region.DeleteNetworkInterface(nic.ID)
+			if e == nil {
+				return true, nil
+			}
+			log.Errorf("delete nic %s error: %v", nic.ID, err)
+			return false, nil
+		})
 		return nil, err
 	}
 	instance.host = self
@@ -122,7 +129,8 @@ func (self *SRegion) _createVM(desc *cloudprovider.SManagedVMCreateConfig, nicId
 			"NetworkProfile": map[string]interface{}{
 				"NetworkInterfaces": []map[string]string{
 					map[string]string{
-						"Id": nicId,
+						"Id":           nicId,
+						"deleteOption": "Delete",
 					},
 				},
 			},
