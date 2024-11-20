@@ -38,3 +38,7 @@ func (self *SBaiduRegionDriver) GetProvider() string {
 func (self *SBaiduRegionDriver) ValidateCreateSnapshotData(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, storage *models.SStorage, input *api.SnapshotCreateInput) error {
 	return nil
 }
+
+func (self *SBaiduRegionDriver) GetDefaultSecurityGroupNamePrefix() string {
+	return "auot-default"
+}

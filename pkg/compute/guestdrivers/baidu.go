@@ -15,9 +15,12 @@
 package guestdrivers
 
 import (
+	"fmt"
+
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/pkg/util/billing"
 	"yunion.io/x/pkg/util/rbacscope"
+	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
@@ -45,11 +48,15 @@ func (self *SBaiduGuestDriver) GetProvider() string {
 }
 
 func (self *SBaiduGuestDriver) GetDefaultSysDiskBackend() string {
-	return ""
+	return api.STORAGE_BAIDU_SSD
 }
 
 func (self *SBaiduGuestDriver) GetMinimalSysDiskSizeGb() int {
 	return 20
+}
+
+func (self *SBaiduGuestDriver) ChooseHostStorage(host *models.SHost, guest *models.SGuest, diskConfig *api.DiskConfig, storageIds []string) (*models.SStorage, error) {
+	return chooseHostStorage(self, host, diskConfig.Backend, storageIds), nil
 }
 
 func (self *SBaiduGuestDriver) GetComputeQuotaKeys(scope rbacscope.TRbacScope, ownerId mcclient.IIdentityProvider, brand string) models.SComputeResourceKeys {
@@ -79,12 +86,32 @@ func (self *SBaiduGuestDriver) GetInstanceCapability() cloudprovider.SInstanceCa
 	}
 }
 
+func (self *SBaiduGuestDriver) GetDetachDiskStatus() ([]string, error) {
+	return []string{api.VM_READY, api.VM_RUNNING}, nil
+}
+
+func (self *SBaiduGuestDriver) GetAttachDiskStatus() ([]string, error) {
+	return []string{api.VM_READY, api.VM_RUNNING}, nil
+}
+
+func (self *SBaiduGuestDriver) GetChangeConfigStatus(guest *models.SGuest) ([]string, error) {
+	return []string{api.VM_READY}, nil
+}
+
+func (self *SBaiduGuestDriver) GetDeployStatus() ([]string, error) {
+	return []string{api.VM_READY, api.VM_RUNNING}, nil
+}
+
 func (self *SBaiduGuestDriver) GetGuestInitialStateAfterCreate() string {
-	return api.VM_READY
+	return api.VM_RUNNING
 }
 
 func (self *SBaiduGuestDriver) GetGuestInitialStateAfterRebuild() string {
-	return api.VM_READY
+	return api.VM_RUNNING
+}
+
+func (self *SBaiduGuestDriver) GetRebuildRootStatus() ([]string, error) {
+	return []string{api.VM_READY, api.VM_RUNNING}, nil
 }
 
 func (self *SBaiduGuestDriver) AllowReconfigGuest() bool {
@@ -92,7 +119,7 @@ func (self *SBaiduGuestDriver) AllowReconfigGuest() bool {
 }
 
 func (self *SBaiduGuestDriver) IsSupportedBillingCycle(bc billing.SBillingCycle) bool {
-	return false
+	return true
 }
 
 func (self *SBaiduGuestDriver) IsSupportPublicipToEip() bool {
@@ -101,4 +128,11 @@ func (self *SBaiduGuestDriver) IsSupportPublicipToEip() bool {
 
 func (self *SBaiduGuestDriver) IsSupportSetAutoRenew() bool {
 	return false
+}
+
+func (self *SBaiduGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk *models.SDisk, storage *models.SStorage) error {
+	if !utils.IsInStringArray(guest.Status, []string{api.VM_RUNNING, api.VM_READY}) {
+		return fmt.Errorf("cannot resize disk when guest in status %s", guest.Status)
+	}
+	return nil
 }

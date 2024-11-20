@@ -16,9 +16,9 @@ package tasks
 
 import (
 	"context"
-	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -35,43 +35,38 @@ func init() {
 	taskman.RegisterTask(EipChangeBandwidthTask{})
 }
 
-func (self *EipChangeBandwidthTask) TaskFail(ctx context.Context, eip *models.SElasticip, msg jsonutils.JSONObject) {
-	eip.SetStatus(ctx, self.UserCred, api.EIP_STATUS_READY, msg.String())
-	db.OpsLog.LogEvent(eip, db.ACT_CHANGE_BANDWIDTH, msg, self.GetUserCred())
-	logclient.AddActionLogWithStartable(self, eip, logclient.ACT_CHANGE_BANDWIDTH, msg, self.UserCred, false)
-	self.SetStageFailed(ctx, msg)
+func (self *EipChangeBandwidthTask) TaskFail(ctx context.Context, eip *models.SElasticip, err error) {
+	eip.SetStatus(ctx, self.UserCred, api.EIP_STATUS_READY, err.Error())
+	db.OpsLog.LogEvent(eip, db.ACT_CHANGE_BANDWIDTH, err, self.GetUserCred())
+	logclient.AddActionLogWithStartable(self, eip, logclient.ACT_CHANGE_BANDWIDTH, err, self.UserCred, false)
+	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 
 func (self *EipChangeBandwidthTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	eip := obj.(*models.SElasticip)
 	bandwidth, _ := self.Params.Int("bandwidth")
 	if bandwidth <= 0 {
-		msg := fmt.Sprintf("invalid bandwidth %d", bandwidth)
-		self.TaskFail(ctx, eip, jsonutils.NewString(msg))
+		self.TaskFail(ctx, eip, errors.Errorf("nvalid bandwidth %d", bandwidth))
 		return
 	}
 
 	if eip.IsManaged() {
 		extEip, err := eip.GetIEip(ctx)
 		if err != nil {
-			msg := fmt.Sprintf("fail to find iEip %s", err)
-			self.TaskFail(ctx, eip, jsonutils.NewString(msg))
+			self.TaskFail(ctx, eip, errors.Wrapf(err, "GetIEip"))
 			return
 		}
 
 		err = extEip.ChangeBandwidth(int(bandwidth))
-
 		if err != nil {
-			msg := fmt.Sprintf("fail to find iEip %s", err)
-			self.TaskFail(ctx, eip, jsonutils.NewString(msg))
+			self.TaskFail(ctx, eip, errors.Wrapf(err, "ChangeBandwidth"))
 			return
 		}
 
 	}
 
 	if err := eip.DoChangeBandwidth(ctx, self.UserCred, int(bandwidth)); err != nil {
-		msg := fmt.Sprintf("fail to synchronize iEip bandwidth %s", err)
-		self.TaskFail(ctx, eip, jsonutils.NewString(msg))
+		self.TaskFail(ctx, eip, errors.Wrapf(err, "DoChangeBandwidth"))
 		return
 	}
 	logclient.AddActionLogWithStartable(self, eip, logclient.ACT_CHANGE_BANDWIDTH, nil, self.UserCred, true)
