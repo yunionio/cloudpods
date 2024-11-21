@@ -12,32 +12,29 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package webconsole
+package baidu
 
-const (
-	SERVICE_TYPE    = "webconsole"
-	SERVICE_VERSION = ""
-)
+type BaiduTag struct {
+	TagKey   string `json:"tagKey"`
+	TagValue string `json:"tagValue"`
+}
 
-const (
-	VNC         = "vnc"
-	RDP         = "rdp"
-	ALIYUN      = "aliyun"
-	QCLOUD      = "qcloud"
-	OPENSTACK   = "openstack"
-	SPICE       = "spice"
-	WMKS        = "wmks"
-	WS          = "websocket"
-	VMRC        = "vmrc"
-	ZSTACK      = "zstack"
-	CTYUN       = "ctyun"
-	HUAWEI      = "huawei"
-	HCS         = "hcs"
-	APSARA      = "apsara"
-	JDCLOUD     = "jdcloud"
-	CLOUDPODS   = "cloudpods"
-	PROXMOX     = "proxmox"
-	VOLC_ENGINE = "volcengine"
-	BAIDU       = "baidu"
-	SANGFOR     = "sangfor"
-)
+type SBaiduTag struct {
+	Tags []BaiduTag
+}
+
+func (tag *SBaiduTag) GetTags() (map[string]string, error) {
+	res := map[string]string{}
+	for _, tagDetaoils := range tag.Tags {
+		res[tagDetaoils.TagKey] = tagDetaoils.TagValue
+	}
+	return res, nil
+}
+
+func (tag *SBaiduTag) GetSysTags() map[string]string {
+	return nil
+}
+
+func (tag *SBaiduTag) SetTags(tags map[string]string, replace bool) error {
+	return nil
+}

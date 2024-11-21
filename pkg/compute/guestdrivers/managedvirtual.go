@@ -107,7 +107,9 @@ func (drv *SManagedVirtualizedGuestDriver) GetJsonDescAtHost(ctx context.Context
 	provider := host.GetCloudprovider()
 	config.ProjectId, err = provider.SyncProject(ctx, userCred, guest.ProjectId)
 	if err != nil {
-		logclient.AddSimpleActionLog(guest, logclient.ACT_SYNC_CLOUD_PROJECT, err, userCred, false)
+		if errors.Cause(err) != cloudprovider.ErrNotSupported && errors.Cause(err) != cloudprovider.ErrNotImplemented {
+			logclient.AddSimpleActionLog(guest, logclient.ACT_SYNC_CLOUD_PROJECT, err, userCred, false)
+		}
 	}
 
 	disks, err := guest.GetDisks()

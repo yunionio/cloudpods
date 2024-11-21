@@ -206,7 +206,9 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateLoadbalancerInstanc
 		manager := lb.GetCloudprovider()
 		params.ProjectId, err = manager.SyncProject(ctx, userCred, lb.ProjectId)
 		if err != nil {
-			logclient.AddSimpleActionLog(lb, logclient.ACT_SYNC_CLOUD_PROJECT, err, userCred, false)
+			if errors.Cause(err) != cloudprovider.ErrNotSupported && errors.Cause(err) != cloudprovider.ErrNotImplemented {
+				logclient.AddSimpleActionLog(lb, logclient.ACT_SYNC_CLOUD_PROJECT, err, userCred, false)
+			}
 		}
 
 		log.Debugf("create lb with params: %s", jsonutils.Marshal(params).String())
@@ -1236,7 +1238,9 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateDBInstance(ctx cont
 		_cloudprovider := dbinstance.GetCloudprovider()
 		desc.ProjectId, err = _cloudprovider.SyncProject(ctx, userCred, dbinstance.ProjectId)
 		if err != nil {
-			logclient.AddSimpleActionLog(dbinstance, logclient.ACT_SYNC_CLOUD_PROJECT, err, userCred, false)
+			if errors.Cause(err) != cloudprovider.ErrNotSupported && errors.Cause(err) != cloudprovider.ErrNotImplemented {
+				logclient.AddSimpleActionLog(dbinstance, logclient.ACT_SYNC_CLOUD_PROJECT, err, userCred, false)
+			}
 		}
 
 		region, err := dbinstance.GetRegion()
@@ -1414,7 +1418,9 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateDBInstanceFromBacku
 		_cloudprovider := rds.GetCloudprovider()
 		desc.ProjectId, err = _cloudprovider.SyncProject(ctx, userCred, rds.ProjectId)
 		if err != nil {
-			logclient.AddSimpleActionLog(rds, logclient.ACT_SYNC_CLOUD_PROJECT, err, userCred, false)
+			if errors.Cause(err) != cloudprovider.ErrNotSupported && errors.Cause(err) != cloudprovider.ErrNotImplemented {
+				logclient.AddSimpleActionLog(rds, logclient.ACT_SYNC_CLOUD_PROJECT, err, userCred, false)
+			}
 		}
 
 		region, err := rds.GetRegion()
@@ -1589,7 +1595,9 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateElasticcache(ctx co
 		provider := iprovider.(*models.SCloudprovider)
 		params.ProjectId, err = provider.SyncProject(ctx, userCred, ec.ProjectId)
 		if err != nil {
-			logclient.AddSimpleActionLog(ec, logclient.ACT_SYNC_CLOUD_PROJECT, err, userCred, false)
+			if errors.Cause(err) != cloudprovider.ErrNotSupported && errors.Cause(err) != cloudprovider.ErrNotImplemented {
+				logclient.AddSimpleActionLog(ec, logclient.ACT_SYNC_CLOUD_PROJECT, err, userCred, false)
+			}
 		}
 
 		iec, err := iRegion.CreateIElasticcaches(params)
@@ -3034,7 +3042,9 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateNetwork(ctx context
 	provider := wire.GetCloudprovider()
 	opts.ProjectId, err = provider.SyncProject(ctx, userCred, net.ProjectId)
 	if err != nil {
-		logclient.AddSimpleActionLog(net, logclient.ACT_SYNC_CLOUD_PROJECT, err, userCred, false)
+		if errors.Cause(err) != cloudprovider.ErrNotSupported && errors.Cause(err) != cloudprovider.ErrNotImplemented {
+			logclient.AddSimpleActionLog(net, logclient.ACT_SYNC_CLOUD_PROJECT, err, userCred, false)
+		}
 	}
 
 	inet, err := iwire.CreateINetwork(&opts)
@@ -3279,7 +3289,9 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateSecurityGroup(
 
 	opts.ProjectId, err = provider.SyncProject(ctx, userCred, secgroup.ProjectId)
 	if err != nil {
-		logclient.AddSimpleActionLog(secgroup, logclient.ACT_SYNC_CLOUD_PROJECT, err, userCred, false)
+		if errors.Cause(err) != cloudprovider.ErrNotSupported && errors.Cause(err) != cloudprovider.ErrNotImplemented {
+			logclient.AddSimpleActionLog(secgroup, logclient.ACT_SYNC_CLOUD_PROJECT, err, userCred, false)
+		}
 	}
 
 	iGroup, err := iRegion.CreateISecurityGroup(opts)
@@ -3449,9 +3461,14 @@ func (self *SManagedVirtualizationRegionDriver) CreateDefaultSecurityGroup(
 	ownerId mcclient.IIdentityProvider,
 	vpc *models.SVpc,
 ) (*models.SSecurityGroup, error) {
+	region, err := vpc.GetRegion()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetRegion")
+	}
+	driver := region.GetDriver()
 	newGroup := &models.SSecurityGroup{}
 	newGroup.SetModelManager(models.SecurityGroupManager, newGroup)
-	newGroup.Name = fmt.Sprintf("default-auto-%d", time.Now().Unix())
+	newGroup.Name = fmt.Sprintf("%s-%d", driver.GetDefaultSecurityGroupNamePrefix(), time.Now().Unix())
 	newGroup.Description = "auto generage"
 	// 部分云可能不需要vpcId, 创建完安全组后会自动置空
 	newGroup.VpcId = vpc.Id
@@ -3460,16 +3477,11 @@ func (self *SManagedVirtualizationRegionDriver) CreateDefaultSecurityGroup(
 	newGroup.DomainId = ownerId.GetProjectDomainId()
 	newGroup.ProjectId = ownerId.GetProjectId()
 	newGroup.ProjectSrc = string(apis.OWNER_SOURCE_LOCAL)
-	err := models.SecurityGroupManager.TableSpec().Insert(ctx, newGroup)
+	err = models.SecurityGroupManager.TableSpec().Insert(ctx, newGroup)
 	if err != nil {
 		return nil, errors.Wrapf(err, "insert")
 	}
 
-	region, err := vpc.GetRegion()
-	if err != nil {
-		return nil, errors.Wrapf(err, "GetRegion")
-	}
-	driver := region.GetDriver()
 	err = driver.RequestCreateSecurityGroup(ctx, userCred, newGroup, api.SSecgroupRuleResourceSet{})
 	if err != nil {
 		return nil, errors.Wrapf(err, "RequestCreateSecurityGroup")

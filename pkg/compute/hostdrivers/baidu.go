@@ -15,6 +15,8 @@
 package hostdrivers
 
 import (
+	"fmt"
+
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
@@ -38,4 +40,20 @@ func (self *SBaiduHostDriver) GetHypervisor() string {
 
 func (self *SBaiduHostDriver) GetProvider() string {
 	return api.CLOUD_PROVIDER_BAIDU
+}
+
+func (self *SBaiduHostDriver) ValidateDiskSize(storage *models.SStorage, sizeGb int) error {
+	min, max := 20, 32765
+	switch storage.StorageType {
+	case api.STORAGE_BAIDU_HDD:
+		min = 5
+	case api.STORAGE_BAIDU_SSD:
+		min = 50
+	case api.STORAGE_BAIDU_PREMIUM_SSD:
+		min = 5
+	}
+	if sizeGb < min || sizeGb > max {
+		return fmt.Errorf("The %s disk size must be in the range of %d ~ %dGB", storage.StorageType, min, max)
+	}
+	return nil
 }

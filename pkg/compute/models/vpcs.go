@@ -2059,7 +2059,7 @@ func (self *SVpc) GetSecurityGroups() ([]SSecurityGroup, error) {
 }
 
 func (self *SVpc) GetDefaultSecurityGroup(ownerId mcclient.IIdentityProvider, filter func(q *sqlchemy.SQuery) *sqlchemy.SQuery) (*SSecurityGroup, error) {
-	q := SecurityGroupManager.Query().Equals("status", api.SECGROUP_STATUS_READY).Like("name", "default%")
+	q := SecurityGroupManager.Query().Equals("status", api.SECGROUP_STATUS_READY).Like("name", "%"+"default"+"%")
 
 	q = filter(q)
 	q = q.Filter(
