@@ -335,6 +335,21 @@ func (s *SLVMStorage) saveToGlance(
 		return errors.Wrap(err, "deployclient.GetDeployClient().SaveToGlance")
 	}
 
+	if compress {
+		origin, err := qemuimg.NewQemuImage(imagePath)
+		if err != nil {
+			log.Errorln(err)
+			return err
+		}
+		if len(encryptKey) > 0 {
+			origin.SetPassword(encryptKey)
+		}
+		if err := origin.Convert2Qcow2(true, encryptKey, encFormat, encAlg); err != nil {
+			log.Errorln(err)
+			return err
+		}
+	}
+
 	f, err := os.Open(imagePath)
 	if err != nil {
 		return errors.Wrap(err, "open image")
