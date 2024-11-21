@@ -61,7 +61,7 @@ func getCanonicalQueryString(params url.Values) string {
 	}
 	result := make([]string, 0, len(params))
 	for k, v := range params {
-		if strings.ToLower(k) == strings.ToLower("authorization") {
+		if strings.EqualFold(k, "authorization") {
 			continue
 		}
 		item := ""
@@ -101,13 +101,13 @@ func getCanonicalHeaders(headers http.Header,
 	return strings.Join(canonicalHeaders, "\n"), signHeaders
 }
 
-func (self *SBaiduClient) sign(req *http.Request) (string, error) {
+func (cli *SBaiduClient) sign(req *http.Request) (string, error) {
 	signKeyInfo := fmt.Sprintf("%s/%s/%s/%d",
 		"bce-auth-v1",
-		self.accessKeyId,
+		cli.accessKeyId,
 		time.Now().UTC().Format(ISO8601),
 		1800)
-	hasher := hmac.New(sha256.New, []byte(self.accessKeySecret))
+	hasher := hmac.New(sha256.New, []byte(cli.accessKeySecret))
 	hasher.Write([]byte(signKeyInfo))
 	signKey := hex.EncodeToString(hasher.Sum(nil))
 	canonicalUri := getCanonicalURIPath(req.URL.Path)

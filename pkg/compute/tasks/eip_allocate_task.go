@@ -127,7 +127,9 @@ func (self *EipAllocateTask) OnInit(ctx context.Context, obj db.IStandaloneModel
 		_cloudprovider := eip.GetCloudprovider()
 		args.ProjectId, err = _cloudprovider.SyncProject(ctx, self.GetUserCred(), eip.ProjectId)
 		if err != nil {
-			logclient.AddSimpleActionLog(eip, logclient.ACT_SYNC_CLOUD_PROJECT, err, self.UserCred, false)
+			if errors.Cause(err) != cloudprovider.ErrNotSupported && errors.Cause(err) != cloudprovider.ErrNotImplemented {
+				logclient.AddSimpleActionLog(eip, logclient.ACT_SYNC_CLOUD_PROJECT, err, self.UserCred, false)
+			}
 		}
 
 		iregion, err := eip.GetIRegion(ctx)
