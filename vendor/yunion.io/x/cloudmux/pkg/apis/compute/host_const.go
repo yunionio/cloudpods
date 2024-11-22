@@ -49,6 +49,7 @@ const (
 	HOST_TYPE_VOLCENGINE     = "volcengine"
 	HOST_TYPE_ORACLE         = "oracle"
 	HOST_TYPE_SANGFOR        = "sangfor"
+	HOST_TYPE_ZETTAKIT       = "zettakit"
 
 	// # possible status
 	HOST_ONLINE  = "online"
