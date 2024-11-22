@@ -242,7 +242,7 @@ func (man *SCommonAlertManager) ValidateCreateData(
 			return data, httperrors.NewInputParameterError("Invalid AlertType: %s", data.AlertType)
 		}
 	}
-	var err = man.ValidateMetricQuery(&data.CommonMetricInputQuery, data.Scope, ownerId)
+	var err = man.ValidateMetricQuery(&data.CommonMetricInputQuery, data.Scope, ownerId, true)
 	if err != nil {
 		return data, errors.Wrap(err, "metric query error")
 	}
@@ -293,14 +293,14 @@ func (man *SCommonAlertManager) genName(ctx context.Context, ownerId mcclient.II
 	return name, nil
 }
 
-func (man *SCommonAlertManager) ValidateMetricQuery(metricRequest *monitor.CommonMetricInputQuery, scope string, ownerId mcclient.IIdentityProvider) error {
+func (man *SCommonAlertManager) ValidateMetricQuery(metricRequest *monitor.CommonMetricInputQuery, scope string, ownerId mcclient.IIdentityProvider, isAlert bool) error {
 	for _, q := range metricRequest.MetricQuery {
 		metriInputQuery := monitor.MetricQueryInput{
 			From:     metricRequest.From,
 			To:       metricRequest.To,
 			Interval: metricRequest.Interval,
 		}
-		setDefaultValue(q.AlertQuery, &metriInputQuery, scope, ownerId)
+		setDefaultValue(q.AlertQuery, &metriInputQuery, scope, ownerId, isAlert)
 		err := UnifiedMonitorManager.ValidateInputQuery(q.AlertQuery, &metriInputQuery)
 		if err != nil {
 			return err
@@ -1043,7 +1043,7 @@ func (alert *SCommonAlert) ValidateUpdateData(
 		}
 		scope, _ := data.GetString("scope")
 		ownerId := CommonAlertManager.GetOwnerId(ctx, userCred, data)
-		err = CommonAlertManager.ValidateMetricQuery(metricQuery, scope, ownerId)
+		err = CommonAlertManager.ValidateMetricQuery(metricQuery, scope, ownerId, true)
 		if err != nil {
 			return data, errors.Wrap(err, "metric query error")
 		}
