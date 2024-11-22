@@ -159,6 +159,35 @@ func (man *SAlertRecordManager) getAlertingRecordQuery() *sqlchemy.SQuery {
 
 }
 
+func (man *SAlertRecordManager) CustomizeFilterList(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*db.CustomizeListFilters, error) {
+	filters := db.NewCustomizeListFilters()
+
+	input := new(monitor.AlertRecordListInput)
+	if err := query.Unmarshal(input); err != nil {
+		return nil, errors.Wrap(err, "AlertRecordManager.CustomizeFilterList.Unmarshal")
+	}
+	if input.ResId != "" {
+		filters.Append(func(item jsonutils.JSONObject) (bool, error) {
+			evalMatchs := make([]monitor.EvalMatch, 0)
+			if item.Contains("eval_data") {
+				err := item.Unmarshal(&evalMatchs, "eval_data")
+				if err != nil {
+					return false, errors.Wrap(err, "record Unmarshal evalMatchs error")
+				}
+				for _, match := range evalMatchs {
+					for k, v := range match.Tags {
+						if strings.HasSuffix(k, "_id") && v == input.ResId {
+							return true, nil
+						}
+					}
+				}
+			}
+			return false, nil
+		})
+	}
+	return filters, nil
+}
+
 func (man *SAlertRecordManager) GetAlertRecord(id string) (*SAlertRecord, error) {
 	obj, err := man.FetchById(id)
 	if err != nil {
