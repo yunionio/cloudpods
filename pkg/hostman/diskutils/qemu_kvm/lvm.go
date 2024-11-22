@@ -57,9 +57,9 @@ func (d *LocalDiskDriver) setupLVMS() {
 }
 
 func (d *LocalDiskDriver) vgActive(vgname string) error {
-	_, err := procutils.NewCommand("vgchange", "-ay", vgname).Output()
+	out, err := procutils.NewCommand("vgchange", "-ay", vgname).Output()
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "vgchange -ay %s %s", vgname, out)
 	}
 	return nil
 }
