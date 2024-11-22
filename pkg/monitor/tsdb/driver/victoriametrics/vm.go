@@ -305,10 +305,16 @@ func (vm *vmAdapter) FilterMeasurement(ctx context.Context, ds *tsdb.DataSource,
 	return retMs, nil
 }
 
-func (vm *vmAdapter) FillSelect(query *monitor.AlertQuery) *monitor.AlertQuery {
+func (vm *vmAdapter) FillSelect(query *monitor.AlertQuery, isAlert bool) *monitor.AlertQuery {
+	if isAlert {
+		query = influxdb.FillSelectWithMean(query)
+	}
 	return query
 }
 
-func (vm *vmAdapter) FillGroupBy(query *monitor.AlertQuery, inputQuery *monitor.MetricQueryInput, tagId string) *monitor.AlertQuery {
+func (vm *vmAdapter) FillGroupBy(query *monitor.AlertQuery, inputQuery *monitor.MetricQueryInput, tagId string, isAlert bool) *monitor.AlertQuery {
+	if isAlert {
+		query = influxdb.FillGroupByWithWildChar(query, inputQuery, tagId)
+	}
 	return query
 }

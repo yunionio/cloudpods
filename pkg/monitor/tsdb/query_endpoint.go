@@ -25,8 +25,8 @@ import (
 type TsdbQueryEndpoint interface {
 	Query(ctx context.Context, ds *DataSource, query *TsdbQuery) (*Response, error)
 	FilterMeasurement(ctx context.Context, ds *DataSource, from, to string, ms *monitor.InfluxMeasurement, tagFilter *monitor.MetricQueryTag) (*monitor.InfluxMeasurement, error)
-	FillSelect(query *monitor.AlertQuery) *monitor.AlertQuery
-	FillGroupBy(query *monitor.AlertQuery, inputQuery *monitor.MetricQueryInput, tagId string) *monitor.AlertQuery
+	FillSelect(query *monitor.AlertQuery, isAlert bool) *monitor.AlertQuery
+	FillGroupBy(query *monitor.AlertQuery, inputQuery *monitor.MetricQueryInput, tagId string, isAlert bool) *monitor.AlertQuery
 }
 
 var registry map[string]GetTsdbQueryEndpointFn
