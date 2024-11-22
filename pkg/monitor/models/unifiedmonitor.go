@@ -222,7 +222,7 @@ func (self *SUnifiedMonitorManager) PerformQuery(ctx context.Context, userCred m
 		if ownId == nil {
 			ownId = userCred
 		}
-		setDefaultValue(q, inputQuery, scope, ownId, false)
+		setDefaultValue(q, inputQuery, scope, ownId)
 		if err := self.ValidateInputQuery(q, inputQuery); err != nil {
 			return nil, errors.Wrapf(err, "ValidateInputQuery")
 		}
@@ -386,17 +386,14 @@ func (self *SUnifiedMonitorManager) ValidateInputQuery(query *monitor.AlertQuery
 func setDefaultValue(
 	query *monitor.AlertQuery,
 	inputQuery *monitor.MetricQueryInput,
-	scope string, ownerId mcclient.IIdentityProvider,
-	isAlert bool) {
+	scope string, ownerId mcclient.IIdentityProvider) {
 	query.From = inputQuery.From
 	query.To = inputQuery.To
 	query.Model.Interval = inputQuery.Interval
 
 	metricMeasurement, _ := MetricMeasurementManager.GetCache().Get(query.Model.Measurement)
 
-	if isAlert {
-		checkQueryGroupBy(query, inputQuery)
-	}
+	checkQueryGroupBy(query, inputQuery)
 
 	if len(inputQuery.Interval) != 0 {
 		query.Model.GroupBy = append(query.Model.GroupBy,
@@ -432,18 +429,9 @@ func setDefaultValue(
 		query.Model.Database = database
 	}
 
-	for i, sel := range query.Model.Selects {
-		if len(sel) > 1 {
-			continue
-		}
-		if isAlert {
-			sel = append(sel, monitor.MetricQueryPart{
-				Type:   "mean",
-				Params: []string{},
-			})
-		}
-		query.Model.Selects[i] = sel
-	}
+	drv, _ := DataSourceManager.GetTSDBDriver()
+	query = drv.FillSelect(query)
+
 	var projectId, domainId string
 	switch rbacscope.TRbacScope(scope) {
 	case rbacscope.ScopeProject:
@@ -503,16 +491,8 @@ func checkQueryGroupBy(query *monitor.AlertQuery, inputQuery *monitor.MetricQuer
 	if metricMeasurement != nil {
 		tagId = monitor.GetMeasurementTagIdKeyByResType(metricMeasurement.ResType)
 	}
-	if len(tagId) == 0 || (len(inputQuery.Slimit) != 0 && len(inputQuery.Soffset) != 0) {
-		tagId = "*"
-	}
-	if tagId != "" {
-		query.Model.GroupBy = append(query.Model.GroupBy,
-			monitor.MetricQueryPart{
-				Type:   "field",
-				Params: []string{tagId},
-			})
-	}
+	drv, _ := DataSourceManager.GetTSDBDriver()
+	query = drv.FillGroupBy(query, inputQuery, tagId)
 }
 
 func fillSerieTags(series *monitor.TimeSeriesSlice) {
