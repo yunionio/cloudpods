@@ -123,6 +123,9 @@ const (
 	STORAGE_BAIDU_ENHANCED_SSD_PL1 = "enhanced_ssd_pl1" // 增强型SSD_PL1
 	STORAGE_BAIDU_ENHANCED_SSD_PL2 = "enhanced_ssd_pl2" // 增强型SSD_PL2
 	STORAGE_BAIDU_ENHANCED_SSD_PL3 = "enhanced_ssd_pl3" // 增强型SSD_PL2
+
+	// ZettaKit
+	STORAGE_ZETTAKIT_NORMAL = "normal"
 )
 
 const (
