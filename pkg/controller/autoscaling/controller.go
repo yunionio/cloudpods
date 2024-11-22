@@ -265,6 +265,10 @@ func (asc *SASController) Scale(ctx context.Context, userCred mcclient.TokenCred
 			err = scalingActivity.SetReject("", msg)
 			return
 		}
+		if len(nets) == 0 {
+			setFail(scalingActivity, fmt.Sprintf("empty networks '%s' error", sg.Id))
+			return
+		}
 		succeedInstances, err := asc.CreateInstances(ctx, userCred, ownerId, sg, gt, nets[0], num)
 		switch len(succeedInstances) {
 		case 0:
