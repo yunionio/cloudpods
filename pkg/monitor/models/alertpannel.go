@@ -125,7 +125,7 @@ func (man *SAlertPanelManager) ValidateCreateData(
 				}
 			}
 		}
-		err := CommonAlertManager.ValidateMetricQuery(&data.CommonMetricInputQuery, data.Scope, ownerId)
+		err := CommonAlertManager.ValidateMetricQuery(&data.CommonMetricInputQuery, data.Scope, ownerId, false)
 		if err != nil {
 			return data, errors.Wrap(err, "metric query error")
 		}
@@ -294,7 +294,7 @@ func (dash *SAlertPanel) ValidateUpdateData(
 			ownerId = userCred
 		}
 		scope, _ := data.GetString("scope")
-		err = CommonAlertManager.ValidateMetricQuery(metricQuery, scope, ownerId)
+		err = CommonAlertManager.ValidateMetricQuery(metricQuery, scope, ownerId, false)
 		if err != nil {
 			return data, errors.Wrap(err, "metric query error")
 		}
