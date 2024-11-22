@@ -246,7 +246,7 @@ func (e *InfluxdbExecutor) FilterMeasurement(
 	return retMs, nil
 }
 
-func (e *InfluxdbExecutor) FillSelect(query *monitor.AlertQuery) *monitor.AlertQuery {
+func FillSelectWithMean(query *monitor.AlertQuery) *monitor.AlertQuery {
 	for i, sel := range query.Model.Selects {
 		if len(sel) > 1 {
 			continue
@@ -260,7 +260,11 @@ func (e *InfluxdbExecutor) FillSelect(query *monitor.AlertQuery) *monitor.AlertQ
 	return query
 }
 
-func (e *InfluxdbExecutor) FillGroupBy(query *monitor.AlertQuery, inputQuery *monitor.MetricQueryInput, tagId string) *monitor.AlertQuery {
+func (e *InfluxdbExecutor) FillSelect(query *monitor.AlertQuery, isAlert bool) *monitor.AlertQuery {
+	return FillSelectWithMean(query)
+}
+
+func FillGroupByWithWildChar(query *monitor.AlertQuery, inputQuery *monitor.MetricQueryInput, tagId string) *monitor.AlertQuery {
 	if len(tagId) == 0 || (len(inputQuery.Slimit) != 0 && len(inputQuery.Soffset) != 0) {
 		tagId = "*"
 	}
@@ -272,4 +276,8 @@ func (e *InfluxdbExecutor) FillGroupBy(query *monitor.AlertQuery, inputQuery *mo
 			})
 	}
 	return query
+}
+
+func (e *InfluxdbExecutor) FillGroupBy(query *monitor.AlertQuery, inputQuery *monitor.MetricQueryInput, tagId string, isAlert bool) *monitor.AlertQuery {
+	return FillGroupByWithWildChar(query, inputQuery, tagId)
 }
