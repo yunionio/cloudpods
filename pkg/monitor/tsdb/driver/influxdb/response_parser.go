@@ -23,6 +23,7 @@ import (
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/sets"
 
 	"yunion.io/x/onecloud/pkg/apis/monitor"
 	"yunion.io/x/onecloud/pkg/monitor/tsdb"
@@ -76,6 +77,23 @@ func (rp *ResponseParser) transformRows(rows []Row, queryResult *tsdb.QueryResul
 
 func (rp *ResponseParser) transformRowsV2(rows []Row, queryResult *tsdb.QueryResult, query *Query) monitor.TimeSeriesSlice {
 	var result monitor.TimeSeriesSlice
+
+	// 添加值不同的 tag key
+	diffTagKeys := sets.NewString()
+	if len(rows) > 1 {
+		row0 := rows[0]
+		restRows := rows[1:]
+		for tagKey, tagVal := range row0.Tags {
+			for _, rr := range restRows {
+				resultTagVal := rr.Tags[tagKey]
+				if tagVal != resultTagVal {
+					diffTagKeys.Insert(tagKey)
+					break
+				}
+			}
+		}
+	}
+
 	for idx, row := range rows {
 		col := ""
 		columns := make([]string, 0)
@@ -106,21 +124,21 @@ func (rp *ResponseParser) transformRowsV2(rows []Row, queryResult *tsdb.QueryRes
 			tags[key] = val_
 		}
 		name := rp.formatSerieName(row, col, query)
-		ts := tsdb.NewTimeSeries(name, formatRawName(idx, name, query, tags), columns, points, tags)
+		ts := tsdb.NewTimeSeries(name, formatRawName(idx, name, query, tags, diffTagKeys), columns, points, tags)
 		result = append(result, ts)
 	}
 
 	return result
 }
 
-func formatRawName(idx int, name string, query *Query, tags map[string]string) string {
+func formatRawName(idx int, name string, query *Query, tags map[string]string, diffTagKeys sets.String) string {
 	groupByTags := []string{}
 	for _, group := range query.GroupBy {
 		if group.Type == "tag" {
 			groupByTags = append(groupByTags, group.Params[0])
 		}
 	}
-	return tsdb.FormatRawName(idx, name, groupByTags, tags, nil)
+	return tsdb.FormatRawName(idx, name, groupByTags, tags, diffTagKeys)
 }
 
 func (rp *ResponseParser) transformRowToTable(row Row, table *tsdb.Table) *tsdb.Table {

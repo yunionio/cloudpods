@@ -42,6 +42,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/monitor/datasource"
 	merrors "yunion.io/x/onecloud/pkg/monitor/errors"
+	"yunion.io/x/onecloud/pkg/monitor/tsdb"
 	"yunion.io/x/onecloud/pkg/monitor/validators"
 	"yunion.io/x/onecloud/pkg/util/influxdb"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
@@ -98,7 +99,7 @@ func (m *SDataSourceManager) GetSource(id string) (*SDataSource, error) {
 	return ret.(*SDataSource), nil
 }
 
-func (self *SDataSourceManager) GetDatabases() (jsonutils.JSONObject, error) {
+func (m *SDataSourceManager) GetDatabases() (jsonutils.JSONObject, error) {
 	ret := jsonutils.NewDict()
 	dataSource, err := datasource.GetDefaultSource("")
 	if err != nil {
@@ -114,11 +115,11 @@ func (self *SDataSourceManager) GetDatabases() (jsonutils.JSONObject, error) {
 	return ret, nil
 }
 
-func (self *SDataSourceManager) GetMeasurements(query jsonutils.JSONObject,
+func (m *SDataSourceManager) GetMeasurements(query jsonutils.JSONObject,
 	measurementFilter, tagFilter string) (jsonutils.JSONObject,
 	error) {
 	ret := jsonutils.NewDict()
-	measurements, err := self.getMeasurementQueryInfluxdb(query, measurementFilter, tagFilter)
+	measurements, err := m.getMeasurementQueryInfluxdb(query, measurementFilter, tagFilter)
 	if err != nil {
 		return jsonutils.JSONNull, err
 	}
@@ -126,7 +127,7 @@ func (self *SDataSourceManager) GetMeasurements(query jsonutils.JSONObject,
 	return ret, nil
 }
 
-func (self *SDataSourceManager) getMeasurementQueryInfluxdb(query jsonutils.JSONObject,
+func (m *SDataSourceManager) getMeasurementQueryInfluxdb(query jsonutils.JSONObject,
 	measurementFilter, tagFilter string) (rtnMeasurements []monitor.InfluxMeasurement, err error) {
 	database, _ := query.GetString("database")
 	if database == "" {
@@ -169,18 +170,18 @@ func (self *SDataSourceManager) getMeasurementQueryInfluxdb(query jsonutils.JSON
 	return
 }
 
-func (self *SDataSourceManager) GetMeasurementsWithDescriptionInfos(query jsonutils.JSONObject, tagFilter *monitor.MetricQueryTag) (jsonutils.JSONObject, error) {
+func (m *SDataSourceManager) GetMeasurementsWithDescriptionInfos(query jsonutils.JSONObject, tagFilter *monitor.MetricQueryTag) (jsonutils.JSONObject, error) {
 	ret := jsonutils.NewDict()
 	rtnMeasurements := make([]monitor.InfluxMeasurement, 0)
 	measurements, err := MetricMeasurementManager.getMeasurementsFromDB()
 	if err != nil {
 		return jsonutils.JSONNull, errors.Wrap(err, "getMeasurementsFromDB")
 	}
-	filterMeasurements, err := self.filterMeasurementsByTime(measurements, query, tagFilter)
+	filterMeasurements, err := m.filterMeasurementsByTime(measurements, query, tagFilter)
 	if err != nil {
 		return jsonutils.JSONNull, errors.Wrap(err, "filterMeasurementsByTime error")
 	}
-	filterMeasurements = self.getMetricDescriptions(filterMeasurements)
+	filterMeasurements = m.getMetricDescriptions(filterMeasurements)
 	if len(filterMeasurements) != 0 {
 		rtnMeasurements = append(rtnMeasurements, filterMeasurements...)
 	}
@@ -211,7 +212,7 @@ func (self *SDataSourceManager) GetMeasurementsWithDescriptionInfos(query jsonut
 	return ret, nil
 }
 
-func (self *SDataSourceManager) GetMeasurementsWithOutTimeFilter(query jsonutils.JSONObject,
+func (m *SDataSourceManager) GetMeasurementsWithOutTimeFilter(query jsonutils.JSONObject,
 	measurementFilter, tagFilter string) (jsonutils.JSONObject,
 	error) {
 	ret := jsonutils.NewDict()
@@ -256,7 +257,7 @@ func (self *SDataSourceManager) GetMeasurementsWithOutTimeFilter(query jsonutils
 	return ret, nil
 }
 
-func (self *SDataSourceManager) getMetricDescriptions(influxdbMeasurements []monitor.InfluxMeasurement) (
+func (m *SDataSourceManager) getMetricDescriptions(influxdbMeasurements []monitor.InfluxMeasurement) (
 	descMeasurements []monitor.InfluxMeasurement) {
 	userCred := auth.AdminCredential()
 	listInput := new(monitor.MetricListInput)
@@ -314,13 +315,13 @@ func (self *SDataSourceManager) getMetricDescriptions(influxdbMeasurements []mon
 	return
 }
 
-func (self *SDataSourceManager) filterMeasurementsByTime(
+func (m *SDataSourceManager) filterMeasurementsByTime(
 	measurements []monitor.InfluxMeasurement, query jsonutils.JSONObject, tagFilter *monitor.MetricQueryTag) ([]monitor.InfluxMeasurement, error) {
-	timeF, err := self.getFromAndToFromParam(query)
+	timeF, err := m.getFromAndToFromParam(query)
 	if err != nil {
 		return nil, err
 	}
-	filterMeasurements, err := self.getFilterMeasurementsParallel(timeF.From, timeF.To, measurements, tagFilter)
+	filterMeasurements, err := m.getFilterMeasurementsParallel(timeF.From, timeF.To, measurements, tagFilter)
 	if err != nil {
 		return nil, err
 	}
@@ -332,7 +333,7 @@ type timeFilter struct {
 	To   string
 }
 
-func (self *SDataSourceManager) getFromAndToFromParam(query jsonutils.JSONObject) (timeFilter, error) {
+func (m *SDataSourceManager) getFromAndToFromParam(query jsonutils.JSONObject) (timeFilter, error) {
 	timeF := timeFilter{}
 	from, _ := query.GetString("from")
 	if len(from) == 0 {
@@ -355,7 +356,7 @@ func (self *SDataSourceManager) getFromAndToFromParam(query jsonutils.JSONObject
 	return timeF, nil
 }
 
-func (self *SDataSourceManager) getFilterMeasurementsParallel(from, to string,
+func (m *SDataSourceManager) getFilterMeasurementsParallel(from, to string,
 	measurements []monitor.InfluxMeasurement, tagFilter *monitor.MetricQueryTag) ([]monitor.InfluxMeasurement, error) {
 	filterMeasurements := make([]monitor.InfluxMeasurement, len(measurements))
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*60)
@@ -368,7 +369,7 @@ func (self *SDataSourceManager) getFilterMeasurementsParallel(from, to string,
 		measurementQueryGroup.Go(func() error {
 			errCh := make(chan error)
 			go func() {
-				ret, err := self.getFilterMeasurement(from, to, tmp, tagFilter)
+				ret, err := m.getFilterMeasurement(from, to, tmp, tagFilter)
 				if err != nil {
 					errCh <- errors.Wrapf(err, "getFilterMeasurement %d", index)
 					return
@@ -403,9 +404,17 @@ func (self *SDataSourceManager) getFilterMeasurementsParallel(from, to string,
 	return ret, nil
 }
 
-func (self *SDataSourceManager) getFilterMeasurement(from, to string, measurement monitor.InfluxMeasurement, tagFilter *monitor.MetricQueryTag) (*monitor.InfluxMeasurement, error) {
-	dds, _ := datasource.GetDefaultSource("")
+func (m *SDataSourceManager) GetTSDBDriver() (tsdb.TsdbQueryEndpoint, error) {
 	ep, err := datasource.GetDefaultQueryEndpoint()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetDefaultQueryEndpoint")
+	}
+	return ep, nil
+}
+
+func (m *SDataSourceManager) getFilterMeasurement(from, to string, measurement monitor.InfluxMeasurement, tagFilter *monitor.MetricQueryTag) (*monitor.InfluxMeasurement, error) {
+	dds, _ := datasource.GetDefaultSource("")
+	ep, err := m.GetTSDBDriver()
 	if err != nil {
 		return nil, errors.Wrap(err, "GetDefaultQueryEndpoint")
 	}
@@ -432,7 +441,7 @@ func renderTimeFilter(from, to string) string {
 
 }
 
-func (self *SDataSourceManager) GetMetricMeasurement(userCred mcclient.TokenCredential, query jsonutils.JSONObject, tagFilter *monitor.MetricQueryTag) (jsonutils.JSONObject, error) {
+func (m *SDataSourceManager) GetMetricMeasurement(userCred mcclient.TokenCredential, query jsonutils.JSONObject, tagFilter *monitor.MetricQueryTag) (jsonutils.JSONObject, error) {
 	database, _ := query.GetString("database")
 	if database == "" {
 		return jsonutils.JSONNull, merrors.NewArgIsEmptyErr("database")
@@ -449,7 +458,7 @@ func (self *SDataSourceManager) GetMetricMeasurement(userCred mcclient.TokenCred
 	if len(from) == 0 {
 		return jsonutils.JSONNull, merrors.NewArgIsEmptyErr("from")
 	}
-	timeF, err := self.getFromAndToFromParam(query)
+	timeF, err := m.getFromAndToFromParam(query)
 	if err != nil {
 		return nil, errors.Wrap(err, "getFromAndToFromParam")
 	}
@@ -466,12 +475,12 @@ func (self *SDataSourceManager) GetMetricMeasurement(userCred mcclient.TokenCred
 		return jsonutils.JSONNull, errors.Wrap(err, "getTagValues error")
 	}
 
-	self.filterRtnTags(output)
+	m.filterRtnTags(output)
 	return jsonutils.Marshal(output), nil
 
 }
 
-func (self *SDataSourceManager) filterRtnTags(output *monitor.InfluxMeasurement) {
+func (m *SDataSourceManager) filterRtnTags(output *monitor.InfluxMeasurement) {
 	for _, tag := range []string{hostconsts.TELEGRAF_TAG_KEY_BRAND, hostconsts.TELEGRAF_TAG_KEY_PLATFORM,
 		hostconsts.TELEGRAF_TAG_KEY_HYPERVISOR} {
 		if val, ok := output.TagValue[tag]; ok {
@@ -503,7 +512,7 @@ func (self *SDataSourceManager) filterRtnTags(output *monitor.InfluxMeasurement)
 	output.TagKey = repTag
 }
 
-func (self *SDataSourceManager) filterTagValue(measurement monitor.InfluxMeasurement, timeF timeFilter,
+func (m *SDataSourceManager) filterTagValue(measurement monitor.InfluxMeasurement, timeF timeFilter,
 	db *influxdb.SInfluxdb, tagValChan *influxdbTagValueChan, tagFilter string) error {
 	ctx, _ := context.WithTimeout(context.Background(), time.Second*15)
 	tagValGroup2, _ := errgroup.WithContext(ctx)
@@ -514,7 +523,7 @@ func (self *SDataSourceManager) filterTagValue(measurement monitor.InfluxMeasure
 	for i, _ := range measurement.TagKey {
 		tmpkey := measurement.TagKey[i]
 		tagValGroup2.Go(func() error {
-			return self.getFilterMeasurementTagValue(&tagValChan2, timeF.From, timeF.To, measurement.FieldKey[0],
+			return m.getFilterMeasurementTagValue(&tagValChan2, timeF.From, timeF.To, measurement.FieldKey[0],
 				tmpkey, measurement, db, tagFilter)
 		})
 	}
@@ -579,7 +588,7 @@ type InfluxdbSubscription struct {
 	Url string
 }
 
-func (self *SDataSourceManager) AddSubscription(subscription InfluxdbSubscription) error {
+func (m *SDataSourceManager) AddSubscription(subscription InfluxdbSubscription) error {
 
 	query := fmt.Sprintf("CREATE SUBSCRIPTION %s ON %s.%s DESTINATIONS ALL %s",
 		jsonutils.NewString(subscription.SubName).String(),
@@ -608,7 +617,7 @@ func (self *SDataSourceManager) AddSubscription(subscription InfluxdbSubscriptio
 	return nil
 }
 
-func (self *SDataSourceManager) DropSubscription(subscription InfluxdbSubscription) error {
+func (m *SDataSourceManager) DropSubscription(subscription InfluxdbSubscription) error {
 	query := fmt.Sprintf("DROP SUBSCRIPTION %s ON %s.%s", jsonutils.NewString(subscription.SubName).String(),
 		jsonutils.NewString(subscription.DataBase).String(),
 		jsonutils.NewString(subscription.Rc).String(),
@@ -790,7 +799,7 @@ type influxdbTagValueChan struct {
 	count   int
 }
 
-func (self *SDataSourceManager) getFilterMeasurementTagValue(tagValueChan *influxdbTagValueChan, from string,
+func (m *SDataSourceManager) getFilterMeasurementTagValue(tagValueChan *influxdbTagValueChan, from string,
 	to string, field string, tagKey string,
 	measurement monitor.InfluxMeasurement, db *influxdb.SInfluxdb, tagFilter string) error {
 	var buffer bytes.Buffer
