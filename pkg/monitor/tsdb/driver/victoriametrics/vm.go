@@ -304,3 +304,11 @@ func (vm *vmAdapter) FilterMeasurement(ctx context.Context, ds *tsdb.DataSource,
 	}
 	return retMs, nil
 }
+
+func (vm *vmAdapter) FillSelect(query *monitor.AlertQuery) *monitor.AlertQuery {
+	return query
+}
+
+func (vm *vmAdapter) FillGroupBy(query *monitor.AlertQuery, inputQuery *monitor.MetricQueryInput, tagId string) *monitor.AlertQuery {
+	return query
+}
