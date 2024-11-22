@@ -39,6 +39,7 @@ type AlertRecordListInput struct {
 	ResType  string `json:"res_type"`
 	Alerting bool   `json:"alerting"`
 	ResName  string `json:"res_name"`
+	ResId    string `json:"res_id"`
 }
 
 type AlertRecordDetails struct {

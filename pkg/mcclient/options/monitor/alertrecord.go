@@ -31,6 +31,7 @@ type AlertRecordListOptions struct {
 	Level    string   `help:"alert level"`
 	State    string   `help:"alert state"`
 	ResTypes []string `json:"res_types"`
+	ResId    string   `json:"res_id"`
 	ResName  string   `json:"res_name"`
 	Alerting bool     `json:"alerting"`
 }
