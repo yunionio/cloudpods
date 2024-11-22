@@ -222,7 +222,7 @@ func (self *SUnifiedMonitorManager) PerformQuery(ctx context.Context, userCred m
 		if ownId == nil {
 			ownId = userCred
 		}
-		setDefaultValue(q, inputQuery, scope, ownId)
+		setDefaultValue(q, inputQuery, scope, ownId, false)
 		if err := self.ValidateInputQuery(q, inputQuery); err != nil {
 			return nil, errors.Wrapf(err, "ValidateInputQuery")
 		}
@@ -386,14 +386,15 @@ func (self *SUnifiedMonitorManager) ValidateInputQuery(query *monitor.AlertQuery
 func setDefaultValue(
 	query *monitor.AlertQuery,
 	inputQuery *monitor.MetricQueryInput,
-	scope string, ownerId mcclient.IIdentityProvider) {
+	scope string, ownerId mcclient.IIdentityProvider,
+	isAlert bool) {
 	query.From = inputQuery.From
 	query.To = inputQuery.To
 	query.Model.Interval = inputQuery.Interval
 
 	metricMeasurement, _ := MetricMeasurementManager.GetCache().Get(query.Model.Measurement)
 
-	checkQueryGroupBy(query, inputQuery)
+	checkQueryGroupBy(query, inputQuery, isAlert)
 
 	if len(inputQuery.Interval) != 0 {
 		query.Model.GroupBy = append(query.Model.GroupBy,
@@ -430,7 +431,7 @@ func setDefaultValue(
 	}
 
 	drv, _ := DataSourceManager.GetTSDBDriver()
-	query = drv.FillSelect(query)
+	query = drv.FillSelect(query, isAlert)
 
 	var projectId, domainId string
 	switch rbacscope.TRbacScope(scope) {
@@ -479,7 +480,7 @@ func setDefaultValue(
 	}
 }
 
-func checkQueryGroupBy(query *monitor.AlertQuery, inputQuery *monitor.MetricQueryInput) {
+func checkQueryGroupBy(query *monitor.AlertQuery, inputQuery *monitor.MetricQueryInput, isAlert bool) {
 	if len(query.Model.GroupBy) != 0 {
 		return
 	}
@@ -492,7 +493,7 @@ func checkQueryGroupBy(query *monitor.AlertQuery, inputQuery *monitor.MetricQuer
 		tagId = monitor.GetMeasurementTagIdKeyByResType(metricMeasurement.ResType)
 	}
 	drv, _ := DataSourceManager.GetTSDBDriver()
-	query = drv.FillGroupBy(query, inputQuery, tagId)
+	query = drv.FillGroupBy(query, inputQuery, tagId, isAlert)
 }
 
 func fillSerieTags(series *monitor.TimeSeriesSlice) {
