@@ -90,6 +90,9 @@ type ScheduleInput struct {
 	// For Migrate
 	CpuNumaPin []SCpuNumaPin `json:"cpu_numa_pin"`
 
+	// GuestIds
+	GuestIds []string `json:"guest_ids"`
+
 	HostMemPageSizeKB int    `json:"host_mem_page_size"`
 	SkipKernelCheck   *bool  `json:"skip_kernel_check"`
 	TargetHostKernel  string `json:"target_host_kernel"`
