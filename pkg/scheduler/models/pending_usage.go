@@ -50,13 +50,9 @@ func (m *SHostPendingUsageManager) Keyword() string {
 }
 
 func (m *SHostPendingUsageManager) newSessionUsage(req *api.SchedInfo, hostId string, candidate *schedapi.CandidateResource) *SessionPendingUsage {
-	su := NewSessionUsage(req.SessionId, hostId)
-	su.Usage = NewPendingUsageBySchedInfo(hostId, req, candidate)
+	usage := NewPendingUsageBySchedInfo(hostId, req, candidate)
+	su := NewSessionUsage(req.SessionId, hostId, usage)
 	return su
-}
-
-func (m *SHostPendingUsageManager) newPendingUsage(hostId string) *SPendingUsage {
-	return NewPendingUsageBySchedInfo(hostId, nil, nil)
 }
 
 func (m *SHostPendingUsageManager) GetPendingUsage(hostId string) (*SPendingUsage, error) {
@@ -75,7 +71,7 @@ func (m *SHostPendingUsageManager) GetSessionUsage(sessionId, hostId string) (*S
 	return m.store.GetSessionUsage(sessionId, hostId)
 }
 
-func (m *SHostPendingUsageManager) AddPendingUsage(req *api.SchedInfo, candidate *schedapi.CandidateResource) {
+func (m *SHostPendingUsageManager) AddPendingUsage(guestId string, req *api.SchedInfo, candidate *schedapi.CandidateResource) {
 	hostId := candidate.HostId
 
 	sessionUsage, _ := m.GetSessionUsage(req.SessionId, hostId)
@@ -83,25 +79,25 @@ func (m *SHostPendingUsageManager) AddPendingUsage(req *api.SchedInfo, candidate
 		sessionUsage = m.newSessionUsage(req, hostId, candidate)
 		sessionUsage.StartTimer()
 	}
-	m.addSessionUsage(candidate.HostId, sessionUsage)
+	m.addSessionUsage(candidate.HostId, guestId, sessionUsage)
 	if candidate.BackupCandidate != nil {
-		m.AddPendingUsage(req, candidate.BackupCandidate)
+		m.AddPendingUsage(guestId, req, candidate.BackupCandidate)
 	}
 }
 
 // addSessionUsage add pending usage and session usage
-func (m *SHostPendingUsageManager) addSessionUsage(hostId string, usage *SessionPendingUsage) {
+func (m *SHostPendingUsageManager) addSessionUsage(hostId, guestId string, usage *SessionPendingUsage) {
 	ctx := context.Background()
 	lockman.LockClass(ctx, m, hostId)
 	defer lockman.ReleaseClass(ctx, m, hostId)
 
 	pendingUsage, _ := m.getPendingUsage(hostId)
 	if pendingUsage == nil {
-		pendingUsage = m.newPendingUsage(hostId)
+		pendingUsage = NewPendingUsageBySchedInfo(hostId, nil, nil)
 	}
 	// add pending usage
-	pendingUsage.Add(usage.Usage)
-	usage.AddCount()
+	pendingUsage.Add(usage.Usage, guestId)
+	usage.AddCount(guestId)
 	m.store.SetSessionUsage(usage.SessionId, hostId, usage)
 	m.store.SetPendingUsage(hostId, pendingUsage)
 }
@@ -186,11 +182,11 @@ type SessionPendingUsage struct {
 	cancelCh  chan string
 }
 
-func NewSessionUsage(sid, hostId string) *SessionPendingUsage {
+func NewSessionUsage(sid, hostId string, usage *SPendingUsage) *SessionPendingUsage {
 	su := &SessionPendingUsage{
 		HostId:    hostId,
 		SessionId: sid,
-		Usage:     NewPendingUsageBySchedInfo(hostId, nil, nil),
+		Usage:     usage,
 		count:     0,
 		countLock: new(sync.Mutex),
 		cancelCh:  make(chan string),
@@ -202,16 +198,21 @@ func (su *SessionPendingUsage) GetHostId() string {
 	return su.Usage.HostId
 }
 
-func (su *SessionPendingUsage) AddCount() {
+func (su *SessionPendingUsage) AddCount(guestId string) {
 	su.countLock.Lock()
 	defer su.countLock.Unlock()
 	su.count++
+	su.Usage.PendingGuestIds[guestId] = struct{}{}
 }
 
 func (su *SessionPendingUsage) SubCount() {
 	su.countLock.Lock()
 	defer su.countLock.Unlock()
 	su.count--
+	for guestId, _ := range su.Usage.PendingGuestIds {
+		delete(su.Usage.PendingGuestIds, guestId)
+		break
+	}
 }
 
 type SResourcePendingUsage struct {
@@ -295,6 +296,8 @@ type SPendingUsage struct {
 	CpuPin map[int]int
 	Memory int
 
+	PendingGuestIds map[string]struct{}
+
 	// nodeId: memSizeMB
 	NumaMemPin     map[int]int
 	IsolatedDevice int
@@ -306,9 +309,10 @@ type SPendingUsage struct {
 
 func NewPendingUsageBySchedInfo(hostId string, req *api.SchedInfo, candidate *schedapi.CandidateResource) *SPendingUsage {
 	u := &SPendingUsage{
-		HostId:    hostId,
-		DiskUsage: NewResourcePendingUsage(nil),
-		NetUsage:  NewResourcePendingUsage(nil),
+		HostId:          hostId,
+		DiskUsage:       NewResourcePendingUsage(nil),
+		NetUsage:        NewResourcePendingUsage(nil),
+		PendingGuestIds: make(map[string]struct{}),
 	}
 
 	// group init
@@ -385,7 +389,7 @@ func (self *SPendingUsage) ToMap() map[string]interface{} {
 	}
 }
 
-func (self *SPendingUsage) Add(sUsage *SPendingUsage) {
+func (self *SPendingUsage) Add(sUsage *SPendingUsage, addGuestId string) {
 	self.Cpu = self.Cpu + sUsage.Cpu
 	for k, v1 := range sUsage.CpuPin {
 		if v2, ok := self.CpuPin[k]; ok {
@@ -393,6 +397,17 @@ func (self *SPendingUsage) Add(sUsage *SPendingUsage) {
 		} else {
 			self.CpuPin[k] = v1
 		}
+	}
+
+	for guestId := range sUsage.PendingGuestIds {
+		if _, ok := self.PendingGuestIds[guestId]; !ok {
+			log.Infof("add guest %s in pending usage", guestId)
+			self.PendingGuestIds[guestId] = struct{}{}
+		}
+	}
+	if addGuestId != "" {
+		log.Infof("add guest %s in pending usage", addGuestId)
+		self.PendingGuestIds[addGuestId] = struct{}{}
 	}
 
 	self.Memory = self.Memory + sUsage.Memory
@@ -421,6 +436,11 @@ func (self *SPendingUsage) Sub(sUsage *SPendingUsage) {
 		if v2, ok := self.CpuPin[k]; ok {
 			self.CpuPin[k] = quotas.NonNegative(v2 - v1)
 		}
+	}
+
+	for guestId := range sUsage.PendingGuestIds {
+		log.Infof("delete guest %s in pending usage", guestId)
+		delete(self.PendingGuestIds, guestId)
 	}
 
 	self.Memory = quotas.NonNegative(self.Memory - sUsage.Memory)
