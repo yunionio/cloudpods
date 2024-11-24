@@ -15,6 +15,8 @@
 package regiondrivers
 
 import (
+	"yunion.io/x/sqlchemy"
+
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
@@ -38,4 +40,10 @@ func (self *SZettaKitRegionDriver) IsSupportedElasticcacheSecgroup() bool {
 
 func (self *SZettaKitRegionDriver) GetMaxElasticcacheSecurityGroupCount() int {
 	return 1
+}
+
+func (self *SZettaKitRegionDriver) GetSecurityGroupFilter(vpc *models.SVpc) (func(q *sqlchemy.SQuery) *sqlchemy.SQuery, error) {
+	return func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+		return q.Equals("cloudregion_id", vpc.CloudregionId).Equals("manager_id", vpc.ManagerId)
+	}, nil
 }
