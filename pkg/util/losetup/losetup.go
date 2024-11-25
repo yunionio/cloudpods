@@ -298,6 +298,7 @@ func DetachDevice(devPath string) error {
 	if err != nil {
 		return errors.Wrapf(err, "detach device")
 	}
+
 	// recheck
 	/*dev, err = getDev()
 	if err != nil {

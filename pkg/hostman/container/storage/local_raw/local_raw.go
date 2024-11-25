@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package storage
+package local_raw
 
 import (
 	"fmt"
@@ -21,12 +21,14 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
+	"yunion.io/x/onecloud/pkg/hostman/container/storage"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/losetup"
+	losetupioctl "yunion.io/x/onecloud/pkg/util/losetup/ioctl"
 )
 
 func init() {
-	RegisterDriver(newLocalRaw())
+	storage.RegisterDriver(newLocalRaw())
 }
 
 type localRaw struct{}
@@ -35,8 +37,8 @@ func newLocalRaw() *localRaw {
 	return &localRaw{}
 }
 
-func (l localRaw) GetType() StorageType {
-	return STORAGE_TYPE_LOCAL_RAW
+func (l localRaw) GetType() storage.StorageType {
+	return storage.STORAGE_TYPE_LOCAL_RAW
 }
 
 func (l localRaw) CheckConnect(diskPath string) (string, bool, error) {
@@ -76,7 +78,7 @@ func (l localRaw) DisconnectDisk(diskPath string, mountPoint string) error {
 	for _, dev := range devs.LoopDevs {
 		if dev.BackFile == diskPath {
 			log.Infof("Start detach loop device %s", dev.Name)
-			if err := losetup.DetachDevice(dev.Name); err != nil {
+			if err := losetupioctl.DetachAndRemoveDevice(dev.Name); err != nil {
 				if strings.Contains(err.Error(), "No such device or address") {
 					return nil
 				}
