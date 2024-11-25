@@ -240,9 +240,13 @@ func (h *SHostInfo) Init(ctx context.Context) error {
 		if err := h.initContainerCPUMap(h.sysinfo.Topology); err != nil {
 			return errors.Wrap(err, "init container cpu map")
 		}
-		if err := h.startContainerStatsProvider(h.cri); err != nil {
-			return errors.Wrap(err, "start container stats provider")
-		}
+		go func() {
+			if err := h.startContainerStatsProvider(h.cri); err != nil {
+				log.Warningf("start container stats provider error: %v", err)
+			} else {
+				log.Infof("container stats provider started")
+			}
+		}()
 		if fileutils2.Exists(options.HostOptions.ContainerSystemCpufreqSimulateConfigFile) {
 			if err := h.getContainerCpufreqSimulateConfig(); err != nil {
 				return errors.Wrap(err, "getContainerCpuSimulateConfig")

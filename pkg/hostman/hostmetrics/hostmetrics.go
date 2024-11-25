@@ -55,9 +55,13 @@ type SHostMetricsCollector struct {
 
 var hostMetricsCollector *SHostMetricsCollector
 
-func Init(csp stats.ContainerStatsProvider) {
+type IHostInfo interface {
+	GetContainerStatsProvider() stats.ContainerStatsProvider
+}
+
+func Init(hostInfo IHostInfo) {
 	if hostMetricsCollector == nil {
-		hostMetricsCollector = NewHostMetricsCollector(csp)
+		hostMetricsCollector = NewHostMetricsCollector(hostInfo)
 	}
 }
 
@@ -143,27 +147,27 @@ func (m *SHostMetricsCollector) collectReportData() string {
 	return m.guestMonitor.CollectReportData()
 }
 
-func NewHostMetricsCollector(csp stats.ContainerStatsProvider) *SHostMetricsCollector {
+func NewHostMetricsCollector(hostInfo IHostInfo) *SHostMetricsCollector {
 	return &SHostMetricsCollector{
 		ReportInterval:    options.HostOptions.ReportInterval,
 		waitingReportData: make([]string, 0),
-		guestMonitor:      NewGuestMonitorCollector(csp),
+		guestMonitor:      NewGuestMonitorCollector(hostInfo),
 	}
 }
 
 type SGuestMonitorCollector struct {
-	monitors               map[string]*SGuestMonitor
-	prevPids               map[string]int
-	prevReportData         map[string]*GuestMetrics
-	containerStatsProvider stats.ContainerStatsProvider
+	monitors       map[string]*SGuestMonitor
+	prevPids       map[string]int
+	prevReportData map[string]*GuestMetrics
+	hostInfo       IHostInfo
 }
 
-func NewGuestMonitorCollector(csp stats.ContainerStatsProvider) *SGuestMonitorCollector {
+func NewGuestMonitorCollector(hostInfo IHostInfo) *SGuestMonitorCollector {
 	return &SGuestMonitorCollector{
-		monitors:               make(map[string]*SGuestMonitor, 0),
-		prevPids:               make(map[string]int, 0),
-		prevReportData:         make(map[string]*GuestMetrics, 0),
-		containerStatsProvider: csp,
+		monitors:       make(map[string]*SGuestMonitor, 0),
+		prevPids:       make(map[string]int, 0),
+		prevReportData: make(map[string]*GuestMetrics, 0),
+		hostInfo:       hostInfo,
 	}
 }
 
@@ -219,7 +223,12 @@ func (s *SGuestMonitorCollector) GetGuests() map[string]*SGuestMonitor {
 		case compute.HYPERVISOR_POD:
 			if podStats == nil {
 				var err error
-				podStats, err = s.containerStatsProvider.ListPodCPUAndMemoryStats()
+				csp := s.hostInfo.GetContainerStatsProvider()
+				if csp == nil {
+					log.Warningf("container stats provider is not ready")
+					return true
+				}
+				podStats, err = csp.ListPodCPUAndMemoryStats()
 				if err != nil {
 					log.Errorf("ListPodCPUAndMemoryStats: %s", err)
 					return true
