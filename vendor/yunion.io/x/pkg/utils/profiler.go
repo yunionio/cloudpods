@@ -17,8 +17,10 @@ package utils
 import (
 	"io"
 	"runtime/pprof"
+	"fmt"
 )
 
 func DumpAllGoroutineStack(w io.Writer) {
+	fmt.Printf("=========DumpAllGoroutineStack")
 	pprof.Lookup("goroutine").WriteTo(w, 1)
 }

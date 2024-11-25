@@ -574,16 +574,20 @@ func (app *Application) ListenAndServeWithoutCleanup(addr, certFile, keyFile str
 func (app *Application) ListenAndServeTLSWithCleanup2(addr string, certFile, keyFile string, onStop func(), isMaster bool) {
 	app.isTLS = true
 	httpSrv := app.initServer(addr)
+	log.Infof("listen on %s, isMaster: %v, certFile: %s, keyFile: %s", addr, isMaster, certFile, keyFile)
 	if isMaster {
 		app.addDefaultHandlers()
 		if app.enableProfiling {
 			addPProfHandler("", app)
 		}
 		app.httpServer = httpSrv
+		log.Infof("----------register cleanShutdown")
 		app.registerCleanShutdown(app.httpServer, onStop)
+		log.Infof("----------end register cleanShutdown")
 	} else {
 		app.slaveHttpServer = httpSrv
 	}
+	log.Infof("[listenAndServeInternal] listen on %s, isMaster: %v, certFile: %s, keyFile: %s", addr, isMaster, certFile, keyFile)
 	app.listenAndServeInternal(httpSrv, certFile, keyFile)
 	if isMaster {
 		app.waitCleanShutdown()
