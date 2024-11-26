@@ -196,6 +196,8 @@ func (s *STelegraf) GetConfig(kwargs map[string]interface{}) string {
 	conf += "[[inputs.smart]]\n"
 	conf += "  path=\"/usr/sbin/smartctl\"\n"
 	conf += "\n"
+	conf += "[[inputs.sensors]]\n"
+	conf += "\n"
 	conf += "[[inputs.net]]\n"
 	if nics, ok := kwargs["nics"]; ok {
 		ns, _ := nics.([]map[string]interface{})
