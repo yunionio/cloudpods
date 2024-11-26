@@ -39,3 +39,7 @@ func (self *SZettaKitHostDriver) GetHypervisor() string {
 func (self *SZettaKitHostDriver) GetProvider() string {
 	return api.CLOUD_PROVIDER_ZETTAKIT
 }
+
+func (self *SZettaKitHostDriver) ValidateDiskSize(storage *models.SStorage, sizeGb int) error {
+	return nil
+}
