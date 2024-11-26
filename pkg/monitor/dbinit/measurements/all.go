@@ -39,9 +39,6 @@ var All = []SMeasurement{
 
 	cloudAccount,
 
-	containerCpu,
-	containerMem,
-
 	dcsRedisCpu,
 	dcsRedisMem,
 	dcsRedisNetio,
@@ -78,10 +75,6 @@ var All = []SMeasurement{
 	ossReq,
 
 	ping,
-
-	podCpu,
-	podMem,
-	podVolume,
 
 	rabbitmqOverview,
 	rabbitmqNode,
