@@ -253,7 +253,6 @@ func NewClient(monHost, key, pool string, enableMessengerV2 bool) (*CephClient, 
 			monHosts = append(monHosts, fmt.Sprintf(`[v2:%s:3300/0,v1:%s:6789/0]`, monHost, monHost))
 		}
 	} else {
-		monHosts := []string{}
 		for _, monHost := range strings.Split(client.monHost, ",") {
 			monHosts = append(monHosts, fmt.Sprintf(`[%s]`, monHost))
 		}
