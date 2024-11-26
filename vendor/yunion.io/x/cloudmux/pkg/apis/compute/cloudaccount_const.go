@@ -48,6 +48,7 @@ const (
 	CLOUD_PROVIDER_ORACLE         = "OracleCloud"
 	CLOUD_PROVIDER_SANGFOR        = "SangFor"
 	CLOUD_PROVIDER_ZETTAKIT       = "ZettaKit"
+	CLOUD_PROVIDER_UIS            = "UIS"
 
 	CLOUD_PROVIDER_GENERICS3 = "S3"
 	CLOUD_PROVIDER_CEPH      = "Ceph"
