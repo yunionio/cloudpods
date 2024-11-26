@@ -69,6 +69,9 @@ After=local-fs.target
 After=network.target
 
 [Service]
+LimitNOFILE=65535
+CapabilityBoundingSet=CAP_NET_RAW
+AmbientCapabilities=CAP_NET_RAW
 ExecStart=%s
 RemainAfterExit=true
 Type=%s
