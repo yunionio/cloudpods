@@ -982,12 +982,15 @@ func (self *SManagedVirtualizationRegionDriver) RequestDeleteLoadbalancerListene
 func (self *SManagedVirtualizationRegionDriver) ValidateCreateVpcData(ctx context.Context, userCred mcclient.TokenCredential, input api.VpcCreateInput) (api.VpcCreateInput, error) {
 	return input, nil
 }
+
 func (self *SManagedVirtualizationRegionDriver) GetEipDefaultChargeType() string {
 	return api.EIP_CHARGE_TYPE_BY_TRAFFIC
 }
+
 func (self *SManagedVirtualizationRegionDriver) ValidateEipChargeType(chargeType string) error {
 	return nil
 }
+
 func (self *SManagedVirtualizationRegionDriver) ValidateCreateEipData(ctx context.Context, userCred mcclient.TokenCredential, input *api.SElasticipCreateInput) error {
 	return nil
 }

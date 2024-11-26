@@ -39,6 +39,10 @@ func (self *SZettaKitRegionDriver) GetProvider() string {
 	return api.CLOUD_PROVIDER_ZETTAKIT
 }
 
+func (self *SZettaKitRegionDriver) IsVpcCreateNeedInputCidr() bool {
+	return false
+}
+
 func (self *SZettaKitRegionDriver) IsSupportedElasticcacheSecgroup() bool {
 	return false
 }
