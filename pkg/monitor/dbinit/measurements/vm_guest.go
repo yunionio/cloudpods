@@ -116,12 +116,6 @@ var vmNetio = SMeasurement{
 			ResourceType: monitor.METRIC_RES_TYPE_GUEST,
 			Database:     monitor.METRIC_DATABASE_TELE,
 		},
-		{
-			Name:         "pod_netio",
-			DisplayName:  "Pod network traffic",
-			ResourceType: monitor.METRIC_RES_TYPE_CONTAINER,
-			Database:     monitor.METRIC_DATABASE_TELE,
-		},
 	},
 	Metrics: []SMetric{
 		{
