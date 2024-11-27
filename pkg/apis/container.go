@@ -226,14 +226,24 @@ func (o ContainerVolumeMountDiskOverlay) IsValid() error {
 	return nil
 }
 
+type ContainerVolumeMountDiskPostOverlay struct {
+	// 宿主机底层目录
+	HostLowerDir []string `json:"host_lower_dir"`
+	// 合并后要挂载到容器的目录
+	ContainerTargetDir string `json:"container_target_dir"`
+}
+
 type ContainerVolumeMountDisk struct {
-	Index           *int                             `json:"index,omitempty"`
-	Id              string                           `json:"id"`
-	SubDirectory    string                           `json:"sub_directory"`
-	StorageSizeFile string                           `json:"storage_size_file"`
-	Overlay         *ContainerVolumeMountDiskOverlay `json:"overlay"`
+	Index           *int   `json:"index,omitempty"`
+	Id              string `json:"id"`
+	SubDirectory    string `json:"sub_directory"`
+	StorageSizeFile string `json:"storage_size_file"`
+	// lower overlay 设置，disk 的 volume 会作为 upper，最终 merged 的目录会传给容器
+	Overlay *ContainerVolumeMountDiskOverlay `json:"overlay"`
 	// case insensitive feature is incompatible with overlayfs
 	CaseInsensitivePaths []string `json:"case_insensitive_paths"`
+	// 当 disk volume 挂载完后，需要 overlay 的目录设置
+	PostOverlay []*ContainerVolumeMountDiskPostOverlay `json:"post_overlay"`
 }
 
 type ContainerVolumeMountHostPathType string

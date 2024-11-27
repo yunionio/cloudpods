@@ -42,7 +42,6 @@ import (
 	hostapi "yunion.io/x/onecloud/pkg/apis/host"
 	"yunion.io/x/onecloud/pkg/hostman/container/prober/results"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/container"
-	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
 	"yunion.io/x/onecloud/pkg/util/exec"
 	"yunion.io/x/onecloud/pkg/util/probe"
 	execprobe "yunion.io/x/onecloud/pkg/util/probe/exec"
@@ -67,7 +66,7 @@ func newProber(runner container.CommandRunner) *prober {
 }
 
 // probe probes the container.
-func (pb *prober) probe(probeType apis.ContainerProbeType, pod *desc.SGuestDesc, container *hostapi.ContainerDesc) (results.ProbeResult, error) {
+func (pb *prober) probe(probeType apis.ContainerProbeType, pod IPod, container *hostapi.ContainerDesc) (results.ProbeResult, error) {
 	var probeSpec *apis.ContainerProbe
 	switch probeType {
 	//case apis.ContainerProbeTypeLiveness:
@@ -79,7 +78,7 @@ func (pb *prober) probe(probeType apis.ContainerProbeType, pod *desc.SGuestDesc,
 		return results.NewFailure(err.Error()), err
 	}
 
-	ctrName := fmt.Sprintf("%s:%s", pod.Name, container.Name)
+	ctrName := fmt.Sprintf("%s:%s", pod.GetDesc().Name, container.Name)
 	if probeSpec == nil {
 		log.Warningf("%s probe for %s is nil", probeType, ctrName)
 		return results.NewSuccess("probe is not defined"), nil
@@ -111,7 +110,7 @@ func (pb *prober) probe(probeType apis.ContainerProbeType, pod *desc.SGuestDesc,
 
 // runProbeWithRetries tries to probe the container in a finite loop, it returns the last result
 // if it never succeeds.
-func (pb *prober) runProbeWithRetries(probeType apis.ContainerProbeType, p *apis.ContainerProbe, pod *desc.SGuestDesc, container *hostapi.ContainerDesc, retries int) (probe.Result, string, error) {
+func (pb *prober) runProbeWithRetries(probeType apis.ContainerProbeType, p *apis.ContainerProbe, pod IPod, container *hostapi.ContainerDesc, retries int) (probe.Result, string, error) {
 	var err error
 	var result probe.Result
 	var output string
@@ -124,17 +123,17 @@ func (pb *prober) runProbeWithRetries(probeType apis.ContainerProbeType, p *apis
 	return result, output, err
 }
 
-func (pb *prober) runProbe(probeType apis.ContainerProbeType, p *apis.ContainerProbe, pod *desc.SGuestDesc, container *hostapi.ContainerDesc) (probe.Result, string, error) {
+func (pb *prober) runProbe(probeType apis.ContainerProbeType, p *apis.ContainerProbe, pod IPod, container *hostapi.ContainerDesc) (probe.Result, string, error) {
 	timeout := time.Duration(p.TimeoutSeconds) * time.Second
 	if p.Exec != nil {
-		log.Debugf("Exec-Probe Pod: %v, Container: %v, Command: %v", pod.Name, container.Name, p.Exec.Command)
+		log.Debugf("Exec-Probe Pod: %v, Container: %v, Command: %v", pod.GetDesc().Name, container.Name, p.Exec.Command)
 		return pb.exec.Probe(pb.newExecInContainer(pod, container, p.Exec.Command, timeout))
 	}
 	if p.TCPSocket != nil {
 		port := p.TCPSocket.Port
 		host := p.TCPSocket.Host
 		if host == "" {
-			for _, nic := range pod.Nics {
+			for _, nic := range pod.GetDesc().Nics {
 				if nic.Ip != "" {
 					host = nic.Ip
 					break
@@ -147,7 +146,7 @@ func (pb *prober) runProbe(probeType apis.ContainerProbeType, p *apis.ContainerP
 		log.Debugf("TCP-Probe Host: %v, Port: %v, Timeout: %v", host, port, timeout)
 		return pb.tcp.Probe(host, port, timeout)
 	}
-	errMsg := fmt.Sprintf("Failed to find probe builder for pod %v, container: %v", pod.Name, container.Name)
+	errMsg := fmt.Sprintf("Failed to find probe builder for pod %v, container: %v", pod.GetName(), container.Name)
 	log.Warningf(errMsg)
 	return probe.Unknown, "", errors.Error(errMsg)
 }
@@ -159,10 +158,10 @@ type execInContainer struct {
 	writer io.Writer
 }
 
-func (pb *prober) newExecInContainer(pod *desc.SGuestDesc, container *hostapi.ContainerDesc, cmd []string, timeout time.Duration) exec.Cmd {
+func (pb *prober) newExecInContainer(pod IPod, container *hostapi.ContainerDesc, cmd []string, timeout time.Duration) exec.Cmd {
 	return &execInContainer{
 		run: func() ([]byte, error) {
-			return pb.runner.RunInContainer(pod, container.Id, cmd, timeout)
+			return pb.runner.RunInContainer(pod.GetId(), container.Id, cmd, timeout)
 		},
 	}
 }

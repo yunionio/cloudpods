@@ -443,6 +443,7 @@ func (vm *ContainerVolumeMountRelation) toHostDiskMount(disk *apis.ContainerVolu
 		StorageSizeFile:      disk.StorageSizeFile,
 		Overlay:              disk.Overlay,
 		CaseInsensitivePaths: disk.CaseInsensitivePaths,
+		PostOverlay:          disk.PostOverlay,
 	}
 	return ret, nil
 }
@@ -986,4 +987,134 @@ func (c *SContainer) StartCommit(ctx context.Context, userCred mcclient.TokenCre
 		return errors.Wrap(err, "NewTask")
 	}
 	return task.ScheduleRun(nil)
+}
+
+func (c *SContainer) isPostOverlayExist(vm *apis.ContainerVolumeMount, ov *apis.ContainerVolumeMountDiskPostOverlay) bool {
+	for _, cov := range vm.Disk.PostOverlay {
+		if ov.ContainerTargetDir == cov.ContainerTargetDir {
+			return true
+		}
+	}
+	return false
+}
+
+func (c *SContainer) validateVolumeMountPostOverlayAction(action string, index int, ovs []*apis.ContainerVolumeMountDiskPostOverlay) (*apis.ContainerVolumeMount, error) {
+	if !api.ContainerExitedStatus.Has(c.Status) && !api.ContainerRunningStatus.Has(c.Status) {
+		return nil, httperrors.NewInvalidStatusError("can't %s post overlay on status %s", action, c.Status)
+	}
+	if index >= len(c.Spec.VolumeMounts) {
+		return nil, httperrors.NewInputParameterError("index %d out of volume_mount size %d", index, len(c.Spec.VolumeMounts))
+	}
+	vm := new(apis.ContainerVolumeMount)
+	curVm := c.Spec.VolumeMounts[index]
+	if err := jsonutils.Marshal(curVm).Unmarshal(vm); err != nil {
+		return nil, errors.Wrap(err, "use json unmarshal to new volume mount")
+	}
+	if vm.Type != apis.CONTAINER_VOLUME_MOUNT_TYPE_DISK {
+		return nil, httperrors.NewInputParameterError("invalid volume mount type %s", vm.Type)
+	}
+	return vm, nil
+}
+
+func (c *SContainer) GetVolumeMountCopy(index int) (*apis.ContainerVolumeMount, error) {
+	if index >= len(c.Spec.VolumeMounts) {
+		return nil, httperrors.NewInputParameterError("index %d out of volume_mount size %d", index, len(c.Spec.VolumeMounts))
+	}
+	vm := new(apis.ContainerVolumeMount)
+	curVm := c.Spec.VolumeMounts[index]
+	if err := jsonutils.Marshal(curVm).Unmarshal(vm); err != nil {
+		return nil, errors.Wrap(err, "use json unmarshal to new volume mount")
+	}
+	return vm, nil
+}
+
+func (c *SContainer) getPostOverlayVolumeMount(
+	index int,
+	updateF func(mount *apis.ContainerVolumeMount) (*apis.ContainerVolumeMount, error),
+) (*apis.ContainerVolumeMount, error) {
+	vm, err := c.GetVolumeMountCopy(index)
+	if err != nil {
+		return nil, err
+	}
+	return updateF(vm)
+}
+
+func (c *SContainer) GetAddPostOverlayVolumeMount(index int, ovs []*apis.ContainerVolumeMountDiskPostOverlay) (*apis.ContainerVolumeMount, error) {
+	return c.getPostOverlayVolumeMount(index, func(vm *apis.ContainerVolumeMount) (*apis.ContainerVolumeMount, error) {
+		if vm.Disk.PostOverlay == nil {
+			vm.Disk.PostOverlay = []*apis.ContainerVolumeMountDiskPostOverlay{}
+		}
+		vm.Disk.PostOverlay = append(vm.Disk.PostOverlay, ovs...)
+		return vm, nil
+	})
+}
+
+func (c *SContainer) GetRemovePostOverlayVolumeMount(index int, ovs []*apis.ContainerVolumeMountDiskPostOverlay) (*apis.ContainerVolumeMount, error) {
+	return c.getPostOverlayVolumeMount(index, func(vm *apis.ContainerVolumeMount) (*apis.ContainerVolumeMount, error) {
+		// remove post overlay
+		for _, ov := range ovs {
+			vm.Disk = c.removePostOverlay(vm.Disk, ov)
+		}
+		return vm, nil
+	})
+}
+
+func (c *SContainer) PerformAddVolumeMountPostOverlay(ctx context.Context, userCred mcclient.TokenCredential, _ jsonutils.JSONObject, input *api.ContainerVolumeMountAddPostOverlayInput) (jsonutils.JSONObject, error) {
+	vm, err := c.validateVolumeMountPostOverlayAction("add", input.Index, input.PostOverlay)
+	if err != nil {
+		return nil, err
+	}
+	for _, ov := range input.PostOverlay {
+		isExist := c.isPostOverlayExist(vm, ov)
+		if isExist {
+			return nil, httperrors.NewInputParameterError("post overlay %s already exists", ov.ContainerTargetDir)
+		}
+	}
+	return nil, c.StartAddVolumeMountPostOverlayTask(ctx, userCred, input, "")
+}
+
+func (c *SContainer) StartAddVolumeMountPostOverlayTask(ctx context.Context, userCred mcclient.TokenCredential, input *api.ContainerVolumeMountAddPostOverlayInput, parentTaskId string) error {
+	c.SetStatus(ctx, userCred, api.CONTAINER_STATUS_ADD_POST_OVERLY, "")
+	task, err := taskman.TaskManager.NewTask(ctx, "ContainerAddVolumeMountPostOverlayTask", c, userCred, jsonutils.Marshal(input).(*jsonutils.JSONDict), parentTaskId, "", nil)
+	if err != nil {
+		return errors.Wrap(err, "New ContainerAddVolumeMountPostOverlayTask")
+	}
+	return task.ScheduleRun(nil)
+}
+
+func (c *SContainer) StartRemoveVolumeMountPostOverlayTask(ctx context.Context, userCred mcclient.TokenCredential, input *api.ContainerVolumeMountRemovePostOverlayInput, parentTaskId string) error {
+	c.SetStatus(ctx, userCred, api.CONTAINER_STATUS_REMOVE_POST_OVERLY, "")
+	task, err := taskman.TaskManager.NewTask(ctx, "ContainerRemoveVolumeMountPostOverlayTask", c, userCred, jsonutils.Marshal(input).(*jsonutils.JSONDict), parentTaskId, "", nil)
+	if err != nil {
+		return errors.Wrap(err, "New ContainerRemoveVolumeMountPostOverlayTask")
+	}
+	return task.ScheduleRun(nil)
+}
+
+func (c *SContainer) PerformRemoveVolumeMountPostOverlay(ctx context.Context, userCred mcclient.TokenCredential, _ jsonutils.JSONObject, input *api.ContainerVolumeMountRemovePostOverlayInput) (jsonutils.JSONObject, error) {
+	vm, err := c.validateVolumeMountPostOverlayAction("remove", input.Index, input.PostOverlay)
+	if err != nil {
+		return nil, err
+	}
+	if len(vm.Disk.PostOverlay) == 0 {
+		return nil, httperrors.NewInputParameterError("no post overlay")
+	}
+	for _, ov := range input.PostOverlay {
+		isExist := c.isPostOverlayExist(vm, ov)
+		if !isExist {
+			return nil, httperrors.NewInputParameterError("post overlay %s not exists", ov.ContainerTargetDir)
+		}
+	}
+	return nil, c.StartRemoveVolumeMountPostOverlayTask(ctx, userCred, input, "")
+}
+
+func (c *SContainer) removePostOverlay(vmd *apis.ContainerVolumeMountDisk, ov *apis.ContainerVolumeMountDiskPostOverlay) *apis.ContainerVolumeMountDisk {
+	curOvs := vmd.PostOverlay
+	for i, cov := range curOvs {
+		if cov.ContainerTargetDir == ov.ContainerTargetDir {
+			curOvs = append(curOvs[:i], curOvs[i+1:]...)
+		}
+	}
+	vmd.PostOverlay = curOvs
+	return vmd
 }

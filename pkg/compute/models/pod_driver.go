@@ -44,5 +44,8 @@ type IPodDriver interface {
 	RequestCommitContainer(ctx context.Context, userCred mcclient.TokenCredential, task IContainerTask) error
 	RequestSaveVolumeMountImage(ctx context.Context, userCred mcclient.TokenCredential, task IContainerTask) error
 	RequestExecSyncContainer(ctx context.Context, userCred mcclient.TokenCredential, ctr *SContainer, input *compute.ContainerExecSyncInput) (jsonutils.JSONObject, error)
-	RequestSetContainerResourcesLimit(ctx context.Context, cred mcclient.TokenCredential, c *SContainer, limit *apis.ContainerResources) (jsonutils.JSONObject, error)
+	RequestSetContainerResourcesLimit(ctx context.Context, userCred mcclient.TokenCredential, c *SContainer, limit *apis.ContainerResources) (jsonutils.JSONObject, error)
+
+	RequestAddVolumeMountPostOverlay(ctx context.Context, userCred mcclient.TokenCredential, task IContainerTask) error
+	RequestRemoveVolumeMountPostOverlay(ctx context.Context, userCred mcclient.TokenCredential, task IContainerTask) error
 }

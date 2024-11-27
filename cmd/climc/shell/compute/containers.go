@@ -46,6 +46,8 @@ func init() {
 	cmd.Perform("exec-sync", new(options.ContainerExecSyncOptions))
 	cmd.BatchPerform("set-resources-limit", new(options.ContainerSetResourcesLimitOptions))
 	cmd.Perform("commit", new(options.ContainerCommitOptions))
+	cmd.Perform("add-volume-mount-post-overlay", new(options.ContainerAddVolumeMountPostOverlayOptions))
+	cmd.Perform("remove-volume-mount-post-overlay", new(options.ContainerRemoveVolumeMountPostOverlayOptions))
 
 	type UpdateSpecOptions struct {
 		ID string `help:"ID or name of server" json:"-"`

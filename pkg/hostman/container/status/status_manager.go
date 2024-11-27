@@ -29,7 +29,7 @@ import (
 type Manager interface {
 	// SetContainerStartup updates the container status with the given startup
 	// and triggers a status update.
-	SetContainerStartup(podId string, containerId string, started bool, result results.ProbeResult)
+	SetContainerStartup(podId string, containerId string, started bool, result results.ProbeResult, pod results.IPod)
 }
 
 type manager struct{}
@@ -38,12 +38,12 @@ func NewManager() Manager {
 	return &manager{}
 }
 
-func (m *manager) SetContainerStartup(podId string, containerId string, started bool, result results.ProbeResult) {
+func (m *manager) SetContainerStartup(podId string, containerId string, started bool, result results.ProbeResult, pod results.IPod) {
 	status := computeapi.CONTAINER_STATUS_PROBE_FAILED
 	if started {
 		status = computeapi.CONTAINER_STATUS_RUNNING
 	} else {
-		if result.IsNetFailedError() {
+		if result.IsNetFailedError() && pod.IsRunning() {
 			status = computeapi.CONTAINER_STATUS_NET_FAILED
 		}
 	}

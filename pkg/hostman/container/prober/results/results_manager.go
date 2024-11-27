@@ -34,8 +34,6 @@ import (
 	"fmt"
 	"strings"
 	"sync"
-
-	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
 )
 
 func NewFailure(reason string) ProbeResult {
@@ -107,11 +105,17 @@ func (r Result) String() string {
 	}
 }
 
+type IPod interface {
+	GetId() string
+	IsRunning() bool
+}
+
 // Update is an enum of the types of updates sent over the Updates channel.
 type Update struct {
 	ContainerID string
 	Result      ProbeResult
 	PodUID      string
+	Pod         IPod
 }
 
 // Manager provides a probe results cache and channel of updates
@@ -120,7 +124,7 @@ type Manager interface {
 	Get(containerId string) (ProbeResult, bool)
 	// Set sets the cached result for the container with the given ID.
 	// The pod is only included to be sent with the update.
-	Set(containerId string, result ProbeResult, pod *desc.SGuestDesc, force bool)
+	Set(containerId string, result ProbeResult, pod IPod, force bool)
 	// Remove clears the cached result for the container with the given ID.
 	Remove(containerId string)
 	// Updates creates a channel that receives an Update whenever its result changes (but not
@@ -154,9 +158,14 @@ func (m *manager) Get(id string) (ProbeResult, bool) {
 	return result, found
 }
 
-func (m *manager) Set(id string, result ProbeResult, pod *desc.SGuestDesc, force bool) {
+func (m *manager) Set(id string, result ProbeResult, pod IPod, force bool) {
 	if m.setInternal(id, result, force) {
-		m.updates <- Update{ContainerID: id, Result: result, PodUID: pod.Uuid}
+		m.updates <- Update{
+			ContainerID: id,
+			Result:      result,
+			PodUID:      pod.GetId(),
+			Pod:         pod,
+		}
 	}
 }
 

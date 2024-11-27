@@ -114,12 +114,14 @@ func _containerActionHandler(cf containerActionFunc, isSync bool, workerMan *app
 
 func AddPodHandlers(prefix string, app *appsrv.Application) {
 	ctrHandlers := map[string]containerActionFunc{
-		"create":                     createContainer,
-		"delete":                     deleteContainer,
-		"sync-status":                syncContainerStatus,
-		"pull-image":                 pullImage,
-		"save-volume-mount-to-image": saveVolumeMountToImage,
-		"commit":                     commitContainer,
+		"create":                           createContainer,
+		"delete":                           deleteContainer,
+		"sync-status":                      syncContainerStatus,
+		"pull-image":                       pullImage,
+		"save-volume-mount-to-image":       saveVolumeMountToImage,
+		"commit":                           commitContainer,
+		"add-volume-mount-post-overlay":    containerAddVolumeMountPostOverlay,
+		"remove-volume-mount-post-overlay": containerRemoveVolumeMountPostOverlay,
 	}
 	for action, f := range ctrHandlers {
 		app.AddHandler("POST",
@@ -322,4 +324,20 @@ func commitContainer(ctx context.Context, userCred mcclient.TokenCredential, pod
 		return nil, errors.Wrap(err, "unmarshal to ContainerCommitInput")
 	}
 	return pod.CommitContainer(ctx, userCred, ctrId, input)
+}
+
+func containerAddVolumeMountPostOverlay(ctx context.Context, userCred mcclient.TokenCredential, pod guestman.PodInstance, containerId string, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	input := new(compute.ContainerVolumeMountAddPostOverlayInput)
+	if err := body.Unmarshal(input); err != nil {
+		return nil, errors.Wrap(err, "unmarshal to ContainerVolumeMountAddPostOverlayInput")
+	}
+	return nil, pod.AddContainerVolumeMountPostOverlay(ctx, userCred, containerId, input)
+}
+
+func containerRemoveVolumeMountPostOverlay(ctx context.Context, userCred mcclient.TokenCredential, pod guestman.PodInstance, containerId string, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	input := new(compute.ContainerVolumeMountRemovePostOverlayInput)
+	if err := body.Unmarshal(input); err != nil {
+		return nil, errors.Wrap(err, "unmarshal to ContainerMountVolumeRemovePostOverlayInput")
+	}
+	return nil, pod.RemoveContainerVolumeMountPostOverlay(ctx, userCred, containerId, input)
 }

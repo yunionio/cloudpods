@@ -40,7 +40,6 @@ import (
 	"yunion.io/x/onecloud/pkg/apis"
 	hostapi "yunion.io/x/onecloud/pkg/apis/host"
 	"yunion.io/x/onecloud/pkg/hostman/container/prober/results"
-	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
 )
 
 // worker handles the periodic probing of its assigned container. Each worker has a go-routine
@@ -52,7 +51,7 @@ type worker struct {
 	stopCh chan struct{}
 
 	// The pod containing this probe (read-only)
-	pod *desc.SGuestDesc
+	pod IPod
 
 	// The container to probe (read-only)
 	container *hostapi.ContainerDesc
@@ -85,7 +84,7 @@ type worker struct {
 func newWorker(
 	m *manager,
 	probeType apis.ContainerProbeType,
-	pod *desc.SGuestDesc,
+	pod IPod,
 	container *hostapi.ContainerDesc) *worker {
 	w := &worker{
 		stopCh:       make(chan struct{}, 1), // Buffer so stop() can be non-blocking.
@@ -127,7 +126,7 @@ func (w *worker) run() {
 			w.resultsManager.Remove(w.containerId)
 		}
 
-		w.probeManager.removeWorker(w.pod.Uuid, w.container.Name, w.probeType)
+		w.probeManager.removeWorker(w.pod.GetId(), w.container.Name, w.probeType)
 	}()
 
 probeLoop:
@@ -162,7 +161,7 @@ func (w *worker) doProbe() (keepGoing bool) {
 
 	result, err := w.probeManager.prober.probe(w.probeType, w.pod, w.container)
 	if err != nil {
-		log.Errorf("probe: %s, pod: %s, container: %s, error: %v", w.probeType, w.pod.Uuid, w.container.Id, err)
+		log.Errorf("probe: %s, pod: %s, container: %s, error: %v", w.probeType, w.pod.GetId(), w.container.Id, err)
 		// prober error, throw away the result.
 		return true
 	}

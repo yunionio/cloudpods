@@ -12,13 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package volume_mount
+package disk
 
 import (
 	"context"
 	"fmt"
 	"path/filepath"
-	"strings"
 
 	"yunion.io/x/pkg/errors"
 
@@ -27,6 +26,7 @@ import (
 	hostapi "yunion.io/x/onecloud/pkg/apis/host"
 	"yunion.io/x/onecloud/pkg/hostman/container/storage"
 	container_storage "yunion.io/x/onecloud/pkg/hostman/container/storage"
+	"yunion.io/x/onecloud/pkg/hostman/container/volume_mount"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -34,19 +34,21 @@ import (
 )
 
 func init() {
-	RegisterDriver(newDisk())
+	volume_mount.RegisterDriver(newDisk())
 }
 
-type iDiskOverlay interface {
-	mount(d disk, pod IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount) error
-	unmount(d disk, pod IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount) error
+type IVolumeMountDisk interface {
+	volume_mount.IUsageVolumeMount
+
+	MountPostOverlays(pod volume_mount.IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount, ovs []*apis.ContainerVolumeMountDiskPostOverlay) error
+	UnmountPostOverlays(pod volume_mount.IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount, ovs []*apis.ContainerVolumeMountDiskPostOverlay, clearLayers bool) error
 }
 
 type disk struct {
 	overlayDrivers map[apis.ContainerDiskOverlayType]iDiskOverlay
 }
 
-func newDisk() IVolumeMount {
+func newDisk() IVolumeMountDisk {
 	return &disk{
 		overlayDrivers: map[apis.ContainerDiskOverlayType]iDiskOverlay{
 			apis.CONTAINER_DISK_OVERLAY_TYPE_DIRECTORY:  newDiskOverlayDir(),
@@ -59,12 +61,21 @@ func (d disk) GetType() apis.ContainerVolumeMountType {
 	return apis.CONTAINER_VOLUME_MOUNT_TYPE_DISK
 }
 
-func (d disk) getRuntimeMountHostPath(pod IPodInfo, vm *hostapi.ContainerVolumeMount) (string, error) {
+func (d disk) getHostDiskRootPath(pod volume_mount.IPodInfo, vm *hostapi.ContainerVolumeMount) (string, error) {
 	diskInput := vm.Disk
 	if diskInput == nil {
 		return "", httperrors.NewNotEmptyError("disk is nil")
 	}
 	hostPath := filepath.Join(pod.GetVolumesDir(), diskInput.Id)
+	return hostPath, nil
+}
+
+func (d disk) getRuntimeMountHostPath(pod volume_mount.IPodInfo, vm *hostapi.ContainerVolumeMount) (string, error) {
+	hostPath, err := d.getHostDiskRootPath(pod, vm)
+	if err != nil {
+		return "", errors.Wrap(err, "get host disk root path")
+	}
+	diskInput := vm.Disk
 	if diskInput.SubDirectory != "" {
 		return filepath.Join(hostPath, diskInput.SubDirectory), nil
 	}
@@ -74,7 +85,7 @@ func (d disk) getRuntimeMountHostPath(pod IPodInfo, vm *hostapi.ContainerVolumeM
 	return hostPath, nil
 }
 
-func (d disk) GetRuntimeMountHostPath(pod IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount) (string, error) {
+func (d disk) GetRuntimeMountHostPath(pod volume_mount.IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount) (string, error) {
 	hostPath, err := d.getRuntimeMountHostPath(pod, vm)
 	if err != nil {
 		return "", errors.Wrap(err, "get runtime mount host_path")
@@ -86,7 +97,7 @@ func (d disk) GetRuntimeMountHostPath(pod IPodInfo, ctrId string, vm *hostapi.Co
 	return d.getOverlayMergedDir(pod, ctrId, vm, hostPath), nil
 }
 
-func (d disk) getPodDisk(pod IPodInfo, vm *hostapi.ContainerVolumeMount) (storageman.IDisk, *desc.SGuestDisk, error) {
+func (d disk) getPodDisk(pod volume_mount.IPodInfo, vm *hostapi.ContainerVolumeMount) (storageman.IDisk, *desc.SGuestDisk, error) {
 	var disk *desc.SGuestDisk = nil
 	disks := pod.GetDisks()
 	volDisk := vm.Disk
@@ -111,7 +122,7 @@ func (d disk) getPodDisk(pod IPodInfo, vm *hostapi.ContainerVolumeMount) (storag
 	return iDisk, disk, nil
 }
 
-func (d disk) getDiskStorageDriver(pod IPodInfo, vm *hostapi.ContainerVolumeMount) (storage.IContainerStorage, error) {
+func (d disk) getDiskStorageDriver(pod volume_mount.IPodInfo, vm *hostapi.ContainerVolumeMount) (storage.IContainerStorage, error) {
 	iDisk, _, err := d.getPodDisk(pod, vm)
 	if err != nil {
 		return nil, errors.Wrap(err, "get pod disk interface")
@@ -123,18 +134,6 @@ func (d disk) getDiskStorageDriver(pod IPodInfo, vm *hostapi.ContainerVolumeMoun
 	return drv, nil
 }
 
-func (d disk) getOverlayDir(pod IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount, upperDir string, suffix string) string {
-	return filepath.Join(pod.GetVolumesOverlayDir(), vm.Disk.Id, ctrId, fmt.Sprintf("%s-%s", filepath.Base(upperDir), suffix))
-}
-
-func (d disk) getOverlayWorkDir(upperDir string) string {
-	return fmt.Sprintf("%s-work", upperDir)
-}
-
-func (d disk) getOverlayMergedDir(pod IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount, upperDir string) string {
-	return d.getOverlayDir(pod, ctrId, vm, upperDir, "merged")
-}
-
 func (d disk) setDirCaseInsensitive(dir string) error {
 	out, err := procutils.NewRemoteCommandAsFarAsPossible("chattr", "+F", dir).Output()
 	if err != nil {
@@ -143,7 +142,11 @@ func (d disk) setDirCaseInsensitive(dir string) error {
 	return nil
 }
 
-func (d disk) Mount(pod IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount) error {
+func (d disk) newPostOverlay() iDiskPostOverlay {
+	return newDiskPostOverlay(d)
+}
+
+func (d disk) Mount(pod volume_mount.IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount) error {
 	iDisk, gd, err := d.getPodDisk(pod, vm)
 	if err != nil {
 		return errors.Wrap(err, "get pod disk interface")
@@ -169,15 +172,13 @@ func (d disk) Mount(pod IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount
 	vmDisk := vm.Disk
 	if vmDisk.SubDirectory != "" {
 		subDir := filepath.Join(mntPoint, vmDisk.SubDirectory)
-		out, err := procutils.NewRemoteCommandAsFarAsPossible("mkdir", "-p", subDir).Output()
-		if err != nil {
-			return errors.Wrapf(err, "make sub_directory %s inside %s: %s", vmDisk.SubDirectory, mntPoint, out)
+		if err := volume_mount.EnsureDir(subDir); err != nil {
+			return errors.Wrapf(err, "make sub_directory %s inside %s", vmDisk.SubDirectory, mntPoint)
 		}
 		for _, cd := range vmDisk.CaseInsensitivePaths {
 			cdp := filepath.Join(subDir, cd)
-			out, err := procutils.NewRemoteCommandAsFarAsPossible("mkdir", "-p", cdp).Output()
-			if err != nil {
-				return errors.Wrapf(err, "make %s inside %s: %s", cdp, vmDisk.SubDirectory, out)
+			if err := volume_mount.EnsureDir(cdp); err != nil {
+				return errors.Wrapf(err, "make %s inside %s", cdp, vmDisk.SubDirectory)
 			}
 			if err := d.setDirCaseInsensitive(cdp); err != nil {
 				return errors.Wrapf(err, "enable case_insensitive %s", cdp)
@@ -198,6 +199,11 @@ func (d disk) Mount(pod IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount
 			return errors.Wrapf(err, "mount container %s overlay dir: %#v", ctrId, vmDisk.Overlay)
 		}
 	}
+	if len(vmDisk.PostOverlay) != 0 {
+		if err := d.MountPostOverlays(pod, ctrId, vm, vmDisk.PostOverlay); err != nil {
+			return errors.Wrap(err, "mount post overlay dirs")
+		}
+	}
 	return nil
 }
 
@@ -216,7 +222,7 @@ func (d disk) createStorageSizeFile(iDisk storageman.IDisk, mntPoint string, inp
 	return nil
 }
 
-func (d disk) Unmount(pod IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount) error {
+func (d disk) Unmount(pod volume_mount.IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount) error {
 	iDisk, _, err := d.getPodDisk(pod, vm)
 	if err != nil {
 		return errors.Wrap(err, "get pod disk interface")
@@ -224,6 +230,11 @@ func (d disk) Unmount(pod IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMou
 	drv, err := iDisk.GetContainerStorageDriver()
 	if err != nil {
 		return errors.Wrap(err, "get disk storage driver")
+	}
+	if len(vm.Disk.PostOverlay) != 0 {
+		if err := d.UnmountPostOverlays(pod, ctrId, vm, vm.Disk.PostOverlay, false); err != nil {
+			return errors.Wrap(err, "mount post overlay dirs")
+		}
 	}
 	if vm.Disk.Overlay != nil {
 		if err := d.unmoutOverlay(pod, ctrId, vm); err != nil {
@@ -250,19 +261,19 @@ func (d disk) getOverlayDriver(ov *apis.ContainerVolumeMountDiskOverlay) iDiskOv
 	return d.overlayDrivers[ov.GetType()]
 }
 
-func (d disk) unmoutOverlay(pod IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount) error {
+func (d disk) unmoutOverlay(pod volume_mount.IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount) error {
 	return d.getOverlayDriver(vm.Disk.Overlay).unmount(d, pod, ctrId, vm)
 }
 
-func (d disk) mountOverlay(pod IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount) error {
+func (d disk) mountOverlay(pod volume_mount.IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount) error {
 	return d.getOverlayDriver(vm.Disk.Overlay).mount(d, pod, ctrId, vm)
 }
 
 func (d disk) doTemplateOverlayAction(
 	ctx context.Context,
-	pod IPodInfo, ctrId string,
+	pod volume_mount.IPodInfo, ctrId string,
 	vm *hostapi.ContainerVolumeMount,
-	ovAction func(d disk, pod IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount) error) error {
+	ovAction func(d disk, pod volume_mount.IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount) error) error {
 	templateId := vm.Disk.TemplateId
 	input := computeapi.CacheImageInput{
 		ImageId:              templateId,
@@ -287,65 +298,6 @@ func (d disk) doTemplateOverlayAction(
 	return nil
 }
 
-func (d disk) InjectUsageTags(usage *ContainerVolumeMountUsage, vol *hostapi.ContainerVolumeMount) {
+func (d disk) InjectUsageTags(usage *volume_mount.ContainerVolumeMountUsage, vol *hostapi.ContainerVolumeMount) {
 	usage.Tags["disk_id"] = vol.Disk.Id
-}
-
-type diskOverlayDir struct{}
-
-func newDiskOverlayDir() iDiskOverlay {
-	return &diskOverlayDir{}
-}
-
-func (dod diskOverlayDir) mount(d disk, pod IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount) error {
-	vmDisk := vm.Disk
-	lowerDir := vmDisk.Overlay.LowerDir
-	upperDir, err := d.getRuntimeMountHostPath(pod, vm)
-	if err != nil {
-		return errors.Wrap(err, "getRuntimeMountHostPath")
-	}
-	workDir := d.getOverlayWorkDir(upperDir)
-	mergedDir := d.getOverlayMergedDir(pod, ctrId, vm, upperDir)
-	for _, dir := range []string{workDir, mergedDir} {
-		out, err := procutils.NewRemoteCommandAsFarAsPossible("mkdir", "-p", dir).Output()
-		if err != nil {
-			return errors.Wrapf(err, "make directory %s: %s", dir, out)
-		}
-	}
-
-	overlayArgs := []string{"-t", "overlay", "overlay", "-o", fmt.Sprintf("lowerdir=%s,upperdir=%s,workdir=%s", strings.Join(lowerDir, ":"), upperDir, workDir), mergedDir}
-	if out, err := procutils.NewRemoteCommandAsFarAsPossible("mount", overlayArgs...).Output(); err != nil {
-		return errors.Wrapf(err, "mount %v: %s", overlayArgs, out)
-	}
-
-	return nil
-}
-
-func (dod diskOverlayDir) unmount(d disk, pod IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount) error {
-	upperDir, err := d.getRuntimeMountHostPath(pod, vm)
-	if err != nil {
-		return errors.Wrap(err, "getRuntimeMountHostPath")
-	}
-	overlayDir := d.getOverlayMergedDir(pod, ctrId, vm, upperDir)
-	return container_storage.Unmount(overlayDir)
-}
-
-type diskOverlayImage struct{}
-
-func newDiskOverlayImage() iDiskOverlay {
-	return &diskOverlayImage{}
-}
-
-func (di diskOverlayImage) mount(d disk, pod IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount) error {
-	if err := d.doTemplateOverlayAction(context.Background(), pod, ctrId, vm, newDiskOverlayDir().mount); err != nil {
-		return errors.Wrapf(err, "mount template overlay")
-	}
-	return nil
-}
-
-func (di diskOverlayImage) unmount(d disk, pod IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount) error {
-	if err := d.doTemplateOverlayAction(context.Background(), pod, ctrId, vm, newDiskOverlayDir().unmount); err != nil {
-		return errors.Wrapf(err, "unmount template overlay")
-	}
-	return nil
 }

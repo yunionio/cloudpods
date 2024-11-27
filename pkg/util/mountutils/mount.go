@@ -30,7 +30,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/procutils"
 )
 
-func Mount(devPath string, mountPoint string, fsType string) error {
+func mountWrap(mountPoint string, action func() error) error {
 	if !fileutils2.Exists(mountPoint) {
 		output, err := procutils.NewCommand("mkdir", "-p", mountPoint).Output()
 		if err != nil {
@@ -41,12 +41,30 @@ func Mount(devPath string, mountPoint string, fsType string) error {
 		log.Warningf("mountpoint %s is already mounted", mountPoint)
 		return nil
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	if out, err := procutils.NewRemoteCommandContextAsFarAsPossible(ctx, "mount", "-t", fsType, devPath, mountPoint).Output(); err != nil {
-		return errors.Wrapf(err, "mount %s to %s with fs %s: %s", devPath, mountPoint, fsType, string(out))
-	}
-	return nil
+	return action()
+}
+
+func Mount(devPath string, mountPoint string, fsType string) error {
+	return mountWrap(mountPoint, func() error {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		if out, err := procutils.NewRemoteCommandContextAsFarAsPossible(ctx, "mount", "-t", fsType, devPath, mountPoint).Output(); err != nil {
+			return errors.Wrapf(err, "mount %s to %s with fs %s: %s", devPath, mountPoint, fsType, string(out))
+		}
+		return nil
+	})
+}
+
+func MountOverlay(lowerDir []string, upperDir string, workDir string, mergedDir string) error {
+	return mountWrap(mergedDir, func() error {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		overlayArgs := []string{"-t", "overlay", "overlay", "-o", fmt.Sprintf("lowerdir=%s,upperdir=%s,workdir=%s", strings.Join(lowerDir, ":"), upperDir, workDir), mergedDir}
+		if out, err := procutils.NewRemoteCommandContextAsFarAsPossible(ctx, "mount", overlayArgs...).Output(); err != nil {
+			return errors.Wrapf(err, "mount %v: %s", overlayArgs, out)
+		}
+		return nil
+	})
 }
 
 func Unmount(mountPoint string) error {
@@ -94,13 +112,21 @@ func cleanProcessUseMountPoint(mountPoint string) error {
 	if err != nil {
 		return errors.Wrapf(err, "get mount point devices: %s", mountPoint)
 	}
+	errs := []error{}
 	for _, dev := range devs {
 		pids, err := useLsofFindDevProcess(dev)
 		if err != nil {
-			return errors.Wrapf(err, "use lsof find device %q process", dev)
+			errs = append(errs, errors.Wrapf(err, "use lsof find device %q process", dev))
 		}
-		if err := killProcess(pids); err != nil {
-			return errors.Wrapf(err, "kill process: %v", pids)
+		if len(pids) > 0 {
+			if err := killProcess(pids); err != nil {
+				errs = append(errs, errors.Wrapf(err, "kill process %q", pids))
+				return errors.NewAggregate(errs)
+			}
+		} else {
+			if err != nil {
+				return errors.NewAggregate(errs)
+			}
 		}
 	}
 	return nil
@@ -122,7 +148,10 @@ func killProcess(pids []int) error {
 func useLsofFindDevProcess(dev string) ([]int, error) {
 	out, err := procutils.NewRemoteCommandAsFarAsPossible("lsof", "+f", "--", dev).Output()
 	if err != nil {
-		return nil, errors.Wrapf(err, "'lsof +f -- %s' failed: %s", dev, out)
+		err = errors.Wrapf(err, "'lsof +f -- %s' failed: %s", dev, out)
+		if len(out) == 0 {
+			return nil, err
+		}
 	}
 	pids := sets.NewInt()
 	for _, line := range strings.Split(string(out), "\n") {
@@ -146,7 +175,7 @@ func useLsofFindDevProcess(dev string) ([]int, error) {
 		log.Infof("find process %q use device %q", line, dev)
 		pids.Insert(pid)
 	}
-	return pids.List(), nil
+	return pids.List(), err
 }
 
 func getMountPointDevices(mountPoint string) ([]string, error) {
@@ -166,7 +195,16 @@ func getMountPointDevices(mountPoint string) ([]string, error) {
 		if point != mountPoint {
 			continue
 		}
-		devs.Insert(parts[0])
+		seg1 := parts[0]
+		var dev string
+		switch seg1 {
+		case "sysfs", "proc", "tmpfs", "overlay":
+			dev = point
+		default:
+			dev = seg1
+		}
+
+		devs.Insert(dev)
 	}
 	return devs.List(), nil
 }
