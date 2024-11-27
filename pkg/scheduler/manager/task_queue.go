@@ -132,8 +132,16 @@ func setSchedPendingUsage(driver computemodels.IGuestDriver, req *api.SchedInfo,
 	if req.IsSuggestion || IsDriverSkipScheduleDirtyMark(driver) {
 		return nil
 	}
-	for _, item := range resp.Candidates {
-		schedmodels.HostPendingUsageManager.AddPendingUsage(req, item)
+	for i, item := range resp.Candidates {
+		if item.Error != "" {
+			// schedule failed skip add pending usage
+			continue
+		}
+		var guestId string
+		if len(req.GuestIds) > i {
+			guestId = req.GuestIds[i]
+		}
+		schedmodels.HostPendingUsageManager.AddPendingUsage(guestId, req, item)
 	}
 	return nil
 }

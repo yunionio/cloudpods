@@ -141,6 +141,12 @@ func doScheduleObjects(
 		return
 	}
 
+	sort.Sort(sortedIScheduleModelList(objs))
+	schedInput.GuestIds = make([]string, len(objs))
+	for i := range objs {
+		schedInput.GuestIds[i] = objs[i].GetId()
+	}
+
 	output, err := doScheduleWithInput(ctx, task, schedInput, len(objs))
 	if err != nil {
 		onSchedulerRequestFail(ctx, task, objs, jsonutils.NewString(err.Error()))
@@ -202,7 +208,6 @@ func onSchedulerResults(
 		task.SaveScheduleResult(ctx, nil, results[0], 0)
 		return
 	}
-	sort.Sort(sortedIScheduleModelList(objs))
 	succCount := 0
 	for idx := 0; idx < len(objs); idx += 1 {
 		obj := objs[idx]

@@ -1514,7 +1514,7 @@ func (b *HostBuilder) fillGuestsResourceInfo(desc *HostDesc, host *computemodels
 		guestsOnHost = append(guestsOnHost, backupGuestsOnHost...)
 	}
 
-	//pendingUsage := desc.GetPendingUsage()
+	pendingUsage := desc.GetPendingUsage()
 	desc.Tenants = make(map[string]int64)
 	for _, gst := range guestsOnHost {
 		guest := gst.(computemodels.SGuest)
@@ -1527,41 +1527,46 @@ func (b *HostBuilder) fillGuestsResourceInfo(desc *HostDesc, host *computemodels
 		if IsGuestPendingDelete(guest) {
 			memFakeDeletedSize += int64(guest.VmemSize)
 			cpuFakeDeletedCount += int64(guest.VcpuCount)
-		} else if IsGuestCreating(guest) {
-			creatingGuestCount++
-			creatingMemSize += int64(guest.VmemSize)
-			creatingCPUCount += int64(guest.VcpuCount)
-			if host.EnableNumaAllocate && guest.CpuNumaPin != nil {
-				cpuNumaPin := make([]scheduler.SCpuNumaPin, 0)
-				if err := guest.CpuNumaPin.Unmarshal(&cpuNumaPin); err != nil {
-					return errors.Wrap(err, "unmarshal cpu numa pin")
-				}
-				for i := range cpuNumaPin {
-					if cpuNumaPin[i].ExtraCpuCount > 0 {
-						creatingCPUCount += int64(cpuNumaPin[i].ExtraCpuCount)
-					}
-				}
-				guestsCpuNumaPin = append(guestsCpuNumaPin, cpuNumaPin...)
+		} else {
+			if _, ok := pendingUsage.PendingGuestIds[guest.Id]; ok {
+				log.Infof("fillGuestsResourceInfo guest %s in pending usage", guest.Id)
+				continue
 			}
-		} else if !IsGuestStoppedStatus(guest) {
-			// running status
-			runningCount++
-			memSize += int64(guest.VmemSize)
-			cpuCount += int64(guest.VcpuCount)
-			if host.EnableNumaAllocate && guest.CpuNumaPin != nil {
-				cpuNumaPin := make([]scheduler.SCpuNumaPin, 0)
-				if err := guest.CpuNumaPin.Unmarshal(&cpuNumaPin); err != nil {
-					return errors.Wrap(err, "unmarshal cpu numa pin")
-				}
-				for i := range cpuNumaPin {
-					if cpuNumaPin[i].ExtraCpuCount > 0 {
-						creatingCPUCount += int64(cpuNumaPin[i].ExtraCpuCount)
+			if IsGuestCreating(guest) {
+				creatingGuestCount++
+				creatingMemSize += int64(guest.VmemSize)
+				creatingCPUCount += int64(guest.VcpuCount)
+				if host.EnableNumaAllocate && guest.CpuNumaPin != nil {
+					cpuNumaPin := make([]scheduler.SCpuNumaPin, 0)
+					if err := guest.CpuNumaPin.Unmarshal(&cpuNumaPin); err != nil {
+						return errors.Wrap(err, "unmarshal cpu numa pin")
 					}
+					for i := range cpuNumaPin {
+						if cpuNumaPin[i].ExtraCpuCount > 0 {
+							creatingCPUCount += int64(cpuNumaPin[i].ExtraCpuCount)
+						}
+					}
+					guestsCpuNumaPin = append(guestsCpuNumaPin, cpuNumaPin...)
 				}
-				guestsCpuNumaPin = append(guestsCpuNumaPin, cpuNumaPin...)
+			} else if !IsGuestStoppedStatus(guest) {
+				// running status
+				runningCount++
+				memSize += int64(guest.VmemSize)
+				cpuCount += int64(guest.VcpuCount)
+				if host.EnableNumaAllocate && guest.CpuNumaPin != nil {
+					cpuNumaPin := make([]scheduler.SCpuNumaPin, 0)
+					if err := guest.CpuNumaPin.Unmarshal(&cpuNumaPin); err != nil {
+						return errors.Wrap(err, "unmarshal cpu numa pin")
+					}
+					for i := range cpuNumaPin {
+						if cpuNumaPin[i].ExtraCpuCount > 0 {
+							creatingCPUCount += int64(cpuNumaPin[i].ExtraCpuCount)
+						}
+					}
+					guestsCpuNumaPin = append(guestsCpuNumaPin, cpuNumaPin...)
+				}
 			}
 		}
-
 		//if IsGuestRunning(guest) {
 		//	runningCount++
 		//	memSize += int64(guest.VmemSize)
@@ -1588,6 +1593,7 @@ func (b *HostBuilder) fillGuestsResourceInfo(desc *HostDesc, host *computemodels
 		//	memFakeDeletedSize += int64(guest.VmemSize)
 		//	cpuFakeDeletedCount += int64(guest.VcpuCount)
 		//}
+
 		guestCount++
 		cpuReqCount += int64(guest.VcpuCount)
 		memReqSize += int64(guest.VmemSize)
