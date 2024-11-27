@@ -2092,6 +2092,9 @@ func (s *SKVMGuestInstance) StartGuest(ctx context.Context, userCred mcclient.To
 }
 
 func (s *SKVMGuestInstance) DeployFs(ctx context.Context, userCred mcclient.TokenCredential, deployInfo *deployapi.DeployInfo) (jsonutils.JSONObject, error) {
+	if len(s.Desc.Disks) == 0 {
+		return nil, fmt.Errorf("Guest dosen't have disk ??")
+	}
 	diskInfo := deployapi.DiskInfo{}
 	if s.isEncrypted() {
 		ekey, err := s.getEncryptKey(ctx, userCred)
@@ -2102,24 +2105,37 @@ func (s *SKVMGuestInstance) DeployFs(ctx context.Context, userCred mcclient.Toke
 		diskInfo.EncryptPassword = ekey.Key
 		diskInfo.EncryptAlg = string(ekey.Alg)
 	}
+	var sysDisk storageman.IDisk
 	disks := s.Desc.Disks
-	if len(disks) > 0 {
-		diskPath := disks[0].Path
+	for i := range disks {
+		diskPath := disks[i].Path
+		// GetDiskByPath will probe disks
 		disk, err := storageman.GetManager().GetDiskByPath(diskPath)
 		if err != nil {
 			return nil, errors.Wrapf(err, "GetDiskByPath(%s)", diskPath)
 		}
-		diskInfo.Path = disk.GetPath()
-		ret, err := disk.DeployGuestFs(&diskInfo, s.Desc, deployInfo)
+		if i == 0 {
+			// sys disk
+			diskInfo.Path = disk.GetPath()
+			sysDisk = disk
+		}
+	}
+
+	ret, err := sysDisk.DeployGuestFs(&diskInfo, s.Desc, deployInfo)
+	for i := range disks {
+		diskPath := disks[i].Path
+		disk, e := storageman.GetManager().GetDiskByPath(diskPath)
+		if e != nil {
+			log.Errorf("failed get disk bypath %s %s", diskPath, e)
+		}
 		if utils.IsInStringArray(disk.GetType(), []string{api.STORAGE_SLVM, api.STORAGE_CLVM}) {
 			if errDeactive := lvmutils.LVDeactivate(diskPath); err != nil {
 				log.Errorf("failed deactive disk %s: %s", diskPath, errDeactive)
 			}
 		}
-		return ret, err
-	} else {
-		return nil, fmt.Errorf("Guest dosen't have disk ??")
 	}
+
+	return ret, err
 }
 
 // Delay process
