@@ -2632,6 +2632,94 @@ func (self *SGuest) Purge(ctx context.Context, userCred mcclient.TokenCredential
 	return self.purge(ctx, userCred)
 }
 
+func (hh *SHost) GetIsolateDevices() ([]SIsolatedDevice, error) {
+	q := IsolatedDeviceManager.Query().Equals("host_id", hh.Id)
+	ret := []SIsolatedDevice{}
+	err := db.FetchModelObjects(IsolatedDeviceManager, q, &ret)
+	if err != nil {
+		return nil, err
+	}
+	return ret, nil
+}
+
+func (hh *SHost) SyncHostIsolateDevices(ctx context.Context, userCred mcclient.TokenCredential, iprovider cloudprovider.ICloudProvider, devs []cloudprovider.IsolateDevice, syncOwnerId mcclient.IIdentityProvider, xor bool) compare.SyncResult {
+	lockman.LockRawObject(ctx, IsolatedDeviceManager.Keyword(), hh.Id)
+	defer lockman.ReleaseRawObject(ctx, IsolatedDeviceManager.Keyword(), hh.Id)
+
+	result := compare.SyncResult{}
+
+	dbDevs, err := hh.GetIsolateDevices()
+	if err != nil {
+		result.Error(errors.Wrapf(err, "GetIsolateDevices"))
+		return result
+	}
+
+	removed := make([]SIsolatedDevice, 0)
+	commondb := make([]SIsolatedDevice, 0)
+	commonext := make([]cloudprovider.IsolateDevice, 0)
+	added := make([]cloudprovider.IsolateDevice, 0)
+	duplicated := make(map[string][]cloudprovider.IsolateDevice)
+
+	err = compare.CompareSets2(dbDevs, devs, &removed, &commondb, &commonext, &added, &duplicated)
+	if err != nil {
+		result.Error(err)
+		return result
+	}
+
+	for i := 0; i < len(removed); i += 1 {
+		err := removed[i].Delete(ctx, userCred)
+		if err != nil {
+			result.DeleteError(err)
+			continue
+		}
+		result.Delete()
+	}
+
+	if !xor {
+		for i := 0; i < len(commondb); i += 1 {
+			err := commondb[i].syncWithCloudIsolateDevice(ctx, userCred, commonext[i])
+			if err != nil {
+				result.UpdateError(err)
+				continue
+			}
+			result.Update()
+		}
+	}
+
+	for i := 0; i < len(added); i += 1 {
+		err := hh.newIsolateDevice(ctx, userCred, added[i])
+		if err != nil {
+			result.AddError(err)
+			continue
+		}
+		result.Add()
+	}
+
+	if len(duplicated) > 0 {
+		errs := make([]error, 0)
+		for k, vms := range duplicated {
+			errs = append(errs, errors.Wrapf(errors.ErrDuplicateId, "Duplicate Id %s (%d)", k, len(vms)))
+		}
+		result.AddError(errors.NewAggregate(errs))
+	}
+
+	return result
+}
+
+func (hh *SHost) newIsolateDevice(ctx context.Context, userCred mcclient.TokenCredential, dev cloudprovider.IsolateDevice) error {
+	ret := &SIsolatedDevice{}
+	ret.SetModelManager(IsolatedDeviceManager, ret)
+	ret.HostId = hh.Id
+	ret.ExternalId = dev.GetGlobalId()
+	ret.Name = dev.GetName()
+	ret.Model = dev.GetModel()
+	ret.Addr = dev.GetAddr()
+	ret.DevType = dev.GetDevType()
+	ret.NumaNode = dev.GetNumaNode()
+	ret.VendorDeviceId = dev.GetVendorDeviceId()
+	return IsolatedDeviceManager.TableSpec().Insert(ctx, ret)
+}
+
 func (hh *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCredential, iprovider cloudprovider.ICloudProvider, vms []cloudprovider.ICloudVM, syncOwnerId mcclient.IIdentityProvider, xor bool) ([]SGuestSyncResult, compare.SyncResult) {
 	lockman.LockRawObject(ctx, GuestManager.Keyword(), hh.Id)
 	defer lockman.ReleaseRawObject(ctx, GuestManager.Keyword(), hh.Id)

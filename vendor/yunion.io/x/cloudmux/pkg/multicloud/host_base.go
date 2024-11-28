@@ -16,7 +16,9 @@ package multicloud
 
 import (
 	"yunion.io/x/cloudmux/pkg/apis"
+	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 )
 
 type SHostBase struct {
@@ -54,4 +56,8 @@ func (host *SHostBase) GetStorageDriver() string {
 
 func (host *SHostBase) GetStorageInfo() jsonutils.JSONObject {
 	return nil
+}
+
+func (host *SHostBase) GetIsolateDevices() ([]cloudprovider.IsolateDevice, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetIsolateDevices")
 }

@@ -318,6 +318,18 @@ type ICloudHost interface {
 	GetSchedtags() ([]string, error)
 
 	GetOvnVersion() string // just for cloudpods host
+
+	GetIsolateDevices() ([]IsolateDevice, error)
+}
+
+type IsolateDevice interface {
+	GetName() string
+	GetGlobalId() string
+	GetModel() string
+	GetAddr() string
+	GetDevType() string
+	GetNumaNode() int8
+	GetVendorDeviceId() string
 }
 
 type ICloudVM interface {
@@ -400,6 +412,7 @@ type ICloudVM interface {
 
 	AllocatePublicIpAddress() (string, error)
 	GetPowerStates() string
+	GetIsolateDeviceIds() ([]string, error)
 }
 
 type ICloudNic interface {

@@ -104,6 +104,9 @@ func syncRegionQuotas(ctx context.Context, userCred mcclient.TokenCredential, sy
 		return remoteRegion.GetICloudQuotas()
 	}()
 	if err != nil {
+		if errors.Cause(err) == cloudprovider.ErrNotImplemented || errors.Cause(err) == cloudprovider.ErrNotSupported {
+			return nil
+		}
 		msg := fmt.Sprintf("GetICloudQuotas for region %s failed %s", remoteRegion.GetName(), err)
 		log.Errorf(msg)
 		return err
@@ -209,6 +212,9 @@ func syncRegionEips(
 		return remoteRegion.GetIEips()
 	}()
 	if err != nil {
+		if errors.Cause(err) == cloudprovider.ErrNotImplemented || errors.Cause(err) == cloudprovider.ErrNotSupported {
+			return
+		}
 		msg := fmt.Sprintf("GetIEips for region %s failed %s", remoteRegion.GetName(), err)
 		log.Errorf(msg)
 		return
@@ -236,6 +242,9 @@ func syncRegionBuckets(ctx context.Context, userCred mcclient.TokenCredential, s
 		return remoteRegion.GetIBuckets()
 	}()
 	if err != nil {
+		if errors.Cause(err) == cloudprovider.ErrNotImplemented || errors.Cause(err) == cloudprovider.ErrNotSupported {
+			return
+		}
 		msg := fmt.Sprintf("GetIBuckets for region %s failed %s", remoteRegion.GetName(), err)
 		log.Errorf(msg)
 		return
@@ -272,6 +281,9 @@ func syncRegionVPCs(
 		return remoteRegion.GetIVpcs()
 	}()
 	if err != nil {
+		if errors.Cause(err) == cloudprovider.ErrNotImplemented || errors.Cause(err) == cloudprovider.ErrNotSupported {
+			return
+		}
 		msg := fmt.Sprintf("GetVpcs for region %s failed %s", remoteRegion.GetName(), err)
 		log.Errorf(msg)
 		return
@@ -977,6 +989,7 @@ func syncZoneHosts(
 			syncHostNics(ctx, userCred, syncResults, provider, &localHosts[i], remoteHosts[i])
 			// syncHostWires(ctx, userCred, syncResults, provider, &localHosts[i], remoteHosts[i])
 			syncHostVMs(ctx, userCred, syncResults, provider, driver, &localHosts[i], remoteHosts[i], syncRange)
+			syncHostIsolateDevices(ctx, userCred, syncResults, provider, driver, &localHosts[i], remoteHosts[i], syncRange)
 		}()
 	}
 	return newCachePairs
@@ -1102,6 +1115,33 @@ func syncHostVMs(ctx context.Context, userCred mcclient.TokenCredential, syncRes
 
 }
 
+func syncHostIsolateDevices(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, driver cloudprovider.ICloudProvider, localHost *SHost, remoteHost cloudprovider.ICloudHost, syncRange *SSyncRange) {
+	devs, err := func() ([]cloudprovider.IsolateDevice, error) {
+		defer syncResults.AddRequestCost(HostManager)()
+		return remoteHost.GetIsolateDevices()
+	}()
+	if err != nil {
+		if errors.Cause(err) == cloudprovider.ErrNotImplemented || errors.Cause(err) == cloudprovider.ErrNotSupported {
+			return
+		}
+		msg := fmt.Sprintf("GetIsolateDevices for host %s failed %s", remoteHost.GetName(), err)
+		log.Errorf(msg)
+		return
+	}
+
+	result := func() compare.SyncResult {
+		defer syncResults.AddSqlCost(HostManager)()
+		return localHost.SyncHostIsolateDevices(ctx, userCred, driver, devs, provider.GetOwnerId(), syncRange.Xor)
+	}()
+
+	syncResults.Add(HostManager, result)
+
+	msg := result.Result()
+	notes := fmt.Sprintf("SyncHostIsolateDevices for host %s result: %s", localHost.Name, msg)
+	log.Infof(notes)
+	provider.SyncError(result, notes, userCred)
+}
+
 func syncVMPeripherals(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
@@ -1136,6 +1176,10 @@ func syncVMPeripherals(
 	result := local.SyncInstanceSnapshots(ctx, userCred, provider)
 	if result.IsError() {
 		log.Errorf("syncVMInstanceSnapshots error %v", result.AllError())
+	}
+	err = syncVMIsolateDevices(ctx, userCred, provider, local, remote)
+	if err != nil && errors.Cause(err) != cloudprovider.ErrNotSupported && errors.Cause(err) != cloudprovider.ErrNotImplemented {
+		logclient.AddSimpleActionLog(local, logclient.ACT_CLOUD_SYNC, errors.Wrapf(err, "syncVMIsolateDevice"), userCred, false)
 	}
 }
 
@@ -1204,6 +1248,38 @@ func syncVMSecgroups(ctx context.Context, userCred mcclient.TokenCredential, pro
 		return errors.Wrap(err, "remoteVM.GetSecurityGroupIds")
 	}
 	return localVM.SyncVMSecgroups(ctx, userCred, secgroupIds)
+}
+
+func syncVMIsolateDevices(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, localVM *SGuest, remoteVM cloudprovider.ICloudVM) error {
+	devIds, err := remoteVM.GetIsolateDeviceIds()
+	if err != nil {
+		return errors.Wrap(err, "remoteVM.GetIsolateDeviceIds")
+	}
+	return localVM.SyncVMIsolateDevices(ctx, userCred, devIds)
+}
+
+func (self *SGuest) SyncVMIsolateDevices(ctx context.Context, userCred mcclient.TokenCredential, externalIds []string) error {
+	host, err := self.GetHost()
+	if err != nil {
+		return err
+	}
+	sq := HostManager.Query("id").Equals("manager_id", host.ManagerId).SubQuery()
+	q := IsolatedDeviceManager.Query().In("host_id", sq).In("external_id", externalIds)
+	devs := []SIsolatedDevice{}
+	err = db.FetchModelObjects(IsolatedDeviceManager, q, &devs)
+	if err != nil {
+		return err
+	}
+	for i := range devs {
+		_, err = db.Update(&devs[i], func() error {
+			devs[i].GuestId = self.Id
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func syncSkusFromPrivateCloud(
@@ -1981,6 +2057,9 @@ func syncRegionSnapshots(
 		return remoteRegion.GetISnapshots()
 	}()
 	if err != nil {
+		if errors.Cause(err) == cloudprovider.ErrNotImplemented || errors.Cause(err) == cloudprovider.ErrNotSupported {
+			return
+		}
 		msg := fmt.Sprintf("GetISnapshots for region %s failed %s", remoteRegion.GetName(), err)
 		log.Errorf(msg)
 		return
@@ -2016,6 +2095,9 @@ func syncRegionSnapshotPolicies(
 		return remoteRegion.GetISnapshotPolicies()
 	}()
 	if err != nil {
+		if errors.Cause(err) == cloudprovider.ErrNotImplemented || errors.Cause(err) == cloudprovider.ErrNotSupported {
+			return
+		}
 		log.Errorf("GetISnapshotPolicies for region %s failed %s", remoteRegion.GetName(), err)
 		return
 	}
@@ -2048,6 +2130,9 @@ func syncRegionNetworkInterfaces(
 		return remoteRegion.GetINetworkInterfaces()
 	}()
 	if err != nil {
+		if errors.Cause(err) == cloudprovider.ErrNotImplemented || errors.Cause(err) == cloudprovider.ErrNotSupported {
+			return
+		}
 		msg := fmt.Sprintf("GetINetworkInterfaces for region %s failed %s", remoteRegion.GetName(), err)
 		log.Errorf(msg)
 		return
@@ -2084,6 +2169,9 @@ func syncRegionNetworkInterfaces(
 func syncInterfaceAddresses(ctx context.Context, userCred mcclient.TokenCredential, localInterface *SNetworkInterface, remoteInterface cloudprovider.ICloudNetworkInterface) {
 	addresses, err := remoteInterface.GetICloudInterfaceAddresses()
 	if err != nil {
+		if errors.Cause(err) == cloudprovider.ErrNotImplemented || errors.Cause(err) == cloudprovider.ErrNotSupported {
+			return
+		}
 		msg := fmt.Sprintf("GetICloudInterfaceAddresses for networkinterface %s failed %s", remoteInterface.GetName(), err)
 		log.Errorf(msg)
 		return
@@ -2811,6 +2899,9 @@ func syncGlobalVpcs(ctx context.Context, userCred mcclient.TokenCredential, sync
 		}
 		secgroups, err := remoteVpcs[i].GetISecurityGroups()
 		if err != nil {
+			if errors.Cause(err) == cloudprovider.ErrNotImplemented || errors.Cause(err) == cloudprovider.ErrNotSupported {
+				continue
+			}
 			log.Errorf("GetISecurityGroup for global vpc %s error: %v", localVpcs[i].Name, err)
 			continue
 		}
@@ -2849,6 +2940,9 @@ func syncTablestore(
 		return remoteRegion.GetICloudTablestores()
 	}()
 	if err != nil {
+		if errors.Cause(err) == cloudprovider.ErrNotImplemented || errors.Cause(err) == cloudprovider.ErrNotSupported {
+			return nil
+		}
 		msg := fmt.Sprintf("GetICloudTablestores for region %s failed %s", remoteRegion.GetName(), err)
 		log.Errorf(msg)
 		return err
@@ -2879,6 +2973,9 @@ func syncModelartsPools(
 ) error {
 	ipools, err := remoteRegion.GetIModelartsPools()
 	if err != nil {
+		if errors.Cause(err) == cloudprovider.ErrNotImplemented || errors.Cause(err) == cloudprovider.ErrNotSupported {
+			return nil
+		}
 		msg := fmt.Sprintf("GetIModelartsPools for provider %s failed %s", err, ipools)
 		log.Errorf(msg)
 		return err
@@ -2901,6 +2998,9 @@ func syncModelartsPoolSkus(
 ) error {
 	ipools, err := remoteRegion.GetIModelartsPoolSku()
 	if err != nil {
+		if errors.Cause(err) == cloudprovider.ErrNotImplemented || errors.Cause(err) == cloudprovider.ErrNotSupported {
+			return nil
+		}
 		msg := fmt.Sprintf("GetIModelartsPoolSku for provider %s failed %s", err, ipools)
 		log.Errorf(msg)
 		return err
@@ -2923,6 +3023,9 @@ func syncMiscResources(
 ) error {
 	exts, err := remoteRegion.GetIMiscResources()
 	if err != nil {
+		if errors.Cause(err) == cloudprovider.ErrNotImplemented || errors.Cause(err) == cloudprovider.ErrNotSupported {
+			return nil
+		}
 		msg := fmt.Sprintf("GetIMiscResources for provider %s failed %v", provider.Name, err)
 		log.Errorf(msg)
 		return err
