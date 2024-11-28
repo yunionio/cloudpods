@@ -37,6 +37,7 @@ type IsolateDeviceDetails struct {
 
 type IsolatedDeviceListInput struct {
 	apis.StandaloneResourceListInput
+	apis.ExternalizedResourceBaseListInput
 	apis.DomainizedResourceListInput
 
 	HostFilterListInput

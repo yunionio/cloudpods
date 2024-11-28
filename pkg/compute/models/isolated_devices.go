@@ -25,6 +25,7 @@ import (
 	"strings"
 	"time"
 
+	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -67,6 +68,7 @@ var VENDOR_ID_MAP = api.VENDOR_ID_MAP
 
 type SIsolatedDeviceManager struct {
 	db.SStandaloneResourceBaseManager
+	db.SExternalizedResourceBaseManager
 	SHostResourceBaseManager
 }
 
@@ -90,6 +92,7 @@ func init() {
 
 type SIsolatedDevice struct {
 	db.SStandaloneResourceBase
+	db.SExternalizedResourceBase
 	SHostResourceBase `width:"36" charset:"ascii" nullable:"false" default:"" index:"true" list:"domain" create:"domain_required"`
 
 	// # PCI / GPU-HPC / GPU-VGA / USB / NIC
@@ -312,6 +315,10 @@ func (manager *SIsolatedDeviceManager) ListItemFilter(
 	if err != nil {
 		return nil, errors.Wrap(err, "SHostResourceBaseManager.ListItemFilter")
 	}
+	q, err = manager.SExternalizedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ExternalizedResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SExternalizedResourceBaseManager.ListItemFilter")
+	}
 
 	if query.Gpu != nil && *query.Gpu {
 		q = q.Startswith("dev_type", "GPU")
@@ -337,7 +344,7 @@ func (manager *SIsolatedDeviceManager) ListItemFilter(
 	}
 
 	if !query.ShowBaremetalIsolatedDevices {
-		sq := HostManager.Query("id").In("host_type", []string{api.HOST_TYPE_HYPERVISOR, api.HOST_TYPE_CONTAINER}).SubQuery()
+		sq := HostManager.Query("id").In("host_type", []string{api.HOST_TYPE_HYPERVISOR, api.HOST_TYPE_CONTAINER, api.HOST_TYPE_ZETTAKIT}).SubQuery()
 		q = q.In("host_id", sq)
 	}
 
@@ -1595,6 +1602,19 @@ func (model *SIsolatedDevice) GetOwnerId() mcclient.IIdentityProvider {
 		return host.GetOwnerId()
 	}
 	return nil
+}
+
+func (model *SIsolatedDevice) syncWithCloudIsolateDevice(ctx context.Context, userCred mcclient.TokenCredential, dev cloudprovider.IsolateDevice) error {
+	_, err := db.Update(model, func() error {
+		model.Name = dev.GetName()
+		model.Model = dev.GetModel()
+		model.Addr = dev.GetAddr()
+		model.DevType = dev.GetDevType()
+		model.NumaNode = dev.GetNumaNode()
+		model.VendorDeviceId = dev.GetVendorDeviceId()
+		return nil
+	})
+	return err
 }
 
 func (model *SIsolatedDevice) SetNetworkIndex(idx int) error {

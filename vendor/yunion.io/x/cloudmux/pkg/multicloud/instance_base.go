@@ -94,3 +94,7 @@ func (ins *SInstanceBase) GetPowerStates() string {
 func (instance *SInstanceBase) GetError() error {
 	return nil
 }
+
+func (instance *SInstanceBase) GetIsolateDeviceIds() ([]string, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetIsolateDeviceIds")
+}
