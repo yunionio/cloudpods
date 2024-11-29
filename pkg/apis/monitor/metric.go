@@ -40,6 +40,7 @@ const (
 
 	METRIC_UNIT_PERCENT = "%"
 	METRIC_UNIT_BPS     = "bps"
+	METRIC_UNIT_PPS     = "pps"
 	METRIC_UNIT_MBPS    = "Mbps"
 	METRIC_UNIT_BYTEPS  = "Bps"
 	METRIC_UNIT_CPS     = "cps"
