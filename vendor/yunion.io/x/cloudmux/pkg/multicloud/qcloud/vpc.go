@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
@@ -133,16 +134,6 @@ func (self *SVpc) GetIRouteTableById(routeTableId string) (cloudprovider.ICloudR
 	return &routetables[0], nil
 }
 
-func (self *SVpc) getWireByZoneId(zoneId string) *SWire {
-	for i := 0; i < len(self.iwires); i++ {
-		wire := self.iwires[i].(*SWire)
-		if wire.zone.Zone == zoneId {
-			return wire
-		}
-	}
-	return nil
-}
-
 func (self *SVpc) GetINatGateways() ([]cloudprovider.ICloudNatGateway, error) {
 	nats := []SNatGateway{}
 	for {
@@ -163,6 +154,16 @@ func (self *SVpc) GetINatGateways() ([]cloudprovider.ICloudNatGateway, error) {
 	return inats, nil
 }
 
+func (self *SVpc) getWireByZoneId(zoneId string) (*SWire, error) {
+	for i := 0; i < len(self.iwires); i++ {
+		wire := self.iwires[i].(*SWire)
+		if wire.zone.Zone == zoneId {
+			return wire, nil
+		}
+	}
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, zoneId)
+}
+
 func (self *SVpc) fetchNetworks() error {
 	networks, total, err := self.region.GetNetworks(nil, self.VpcId, 0, 50)
 	if err != nil {
@@ -175,7 +176,11 @@ func (self *SVpc) fetchNetworks() error {
 		}
 	}
 	for i := 0; i < len(networks); i += 1 {
-		wire := self.getWireByZoneId(networks[i].Zone)
+		wire, err := self.getWireByZoneId(networks[i].Zone)
+		if err != nil {
+			log.Errorf("get wire by zone %s error: %v", networks[i].Zone, err)
+			continue
+		}
 		networks[i].wire = wire
 		wire.addNetwork(&networks[i])
 	}
