@@ -600,6 +600,18 @@ func (drv *SManagedVirtualizedGuestDriver) RemoteDeployGuestForCreate(ctx contex
 		}
 	}
 
+	devs, err := guest.GetIsolatedDevices()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetIsolatedDevices")
+	}
+	desc.IsolateDevices = []cloudprovider.SIsolateDevice{}
+	for _, dev := range devs {
+		desc.IsolateDevices = append(desc.IsolateDevices, cloudprovider.SIsolateDevice{
+			Id:   dev.ExternalId,
+			Name: dev.Name,
+		})
+	}
+
 	var iVM cloudprovider.ICloudVM = nil
 	iVM, err = func() (cloudprovider.ICloudVM, error) {
 		lockman.LockObject(ctx, guest)

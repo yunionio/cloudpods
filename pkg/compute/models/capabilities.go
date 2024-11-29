@@ -854,7 +854,7 @@ func getIsolatedDeviceInfo(ctx context.Context, userCred mcclient.TokenCredentia
 	}
 	hosts := hostQuery.SubQuery()
 
-	q := devices.Query(devices.Field("model"), devices.Field("dev_type"), devices.Field("nvme_size_mb"))
+	q := devices.Query(hosts.Field("host_type"), devices.Field("model"), devices.Field("dev_type"), devices.Field("nvme_size_mb"))
 	q = q.Filter(sqlchemy.NotIn(devices.Field("dev_type"), []string{api.USB_TYPE, api.NIC_TYPE}))
 	if zone != nil {
 		q = q.Join(hosts, sqlchemy.Equals(devices.Field("host_id"), hosts.Field("id")))
@@ -871,7 +871,7 @@ func getIsolatedDeviceInfo(ctx context.Context, userCred mcclient.TokenCredentia
 			sqlchemy.IsNullOrEmpty(hosts.Field("manager_id")),
 		))
 	}*/
-	q = q.GroupBy(devices.Field("model"), devices.Field("dev_type"), devices.Field("nvme_size_mb"))
+	q = q.GroupBy(hosts.Field("host_type"), devices.Field("model"), devices.Field("dev_type"), devices.Field("nvme_size_mb"))
 
 	rows, err := q.Rows()
 	if err != nil {
@@ -886,7 +886,8 @@ func getIsolatedDeviceInfo(ctx context.Context, userCred mcclient.TokenCredentia
 		var sizeMB int
 		var vdev bool
 		var hypervisor string
-		rows.Scan(&m, &t, &sizeMB)
+		var hostType string
+		rows.Scan(&hostType, &m, &t, &sizeMB)
 
 		if m == "" {
 			continue
@@ -898,6 +899,10 @@ func getIsolatedDeviceInfo(ctx context.Context, userCred mcclient.TokenCredentia
 			hypervisor = api.HYPERVISOR_POD
 		} else {
 			hypervisor = api.HYPERVISOR_KVM
+		}
+
+		if hostType == api.HOST_TYPE_ZETTAKIT {
+			hypervisor = api.HYPERVISOR_ZETTAKIT
 		}
 
 		gpus = append(gpus, PCIDevModelTypes{m, t, sizeMB, vdev, hypervisor})

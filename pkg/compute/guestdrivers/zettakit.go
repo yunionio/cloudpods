@@ -54,7 +54,7 @@ func (self *SZettaKitGuestDriver) GetProvider() string {
 }
 
 func (self *SZettaKitGuestDriver) DoScheduleSKUFilter() bool {
-	return true
+	return false
 }
 
 func (self *SZettaKitGuestDriver) DoScheduleStorageFilter() bool {
