@@ -1245,20 +1245,19 @@ func (man *SIsolatedDeviceManager) GetSpecShouldCheckStatus(query *jsonutils.JSO
 }
 
 func (man *SIsolatedDeviceManager) BatchGetModelSpecs(statusCheck bool) (jsonutils.JSONObject, error) {
+	hostQ := HostManager.Query()
 	q := man.Query("vendor_device_id", "model", "dev_type")
 	if statusCheck {
 		q = q.IsNullOrEmpty("guest_id")
+		hostQ = hostQ.Equals("status", api.BAREMETAL_RUNNING).IsTrue("enabled").
+			In("host_type", []string{api.HOST_TYPE_HYPERVISOR, api.HOST_TYPE_CONTAINER, api.HOST_TYPE_ZETTAKIT})
 	}
+	hostSQ := hostQ.SubQuery()
+	q.Join(hostSQ, sqlchemy.Equals(q.Field("host_id"), hostSQ.Field("id")))
 
-	q.GroupBy(q.Field("vendor_device_id"), q.Field("model"), q.Field("dev_type"))
+	q.AppendField(hostSQ.Field("host_type"))
+	q.GroupBy(hostSQ.Field("host_type"), q.Field("vendor_device_id"), q.Field("model"), q.Field("dev_type"))
 	q.AppendField(sqlchemy.COUNT("*"))
-
-	if statusCheck {
-		hostQ := HostManager.Query().Equals("status", api.BAREMETAL_RUNNING).IsTrue("enabled").
-			In("host_type", []string{api.HOST_TYPE_HYPERVISOR, api.HOST_TYPE_CONTAINER})
-		hostSQ := hostQ.SubQuery()
-		q.Join(hostSQ, sqlchemy.Equals(q.Field("host_id"), hostSQ.Field("id")))
-	}
 
 	rows, err := q.Rows()
 	if err != nil {
@@ -1268,22 +1267,22 @@ func (man *SIsolatedDeviceManager) BatchGetModelSpecs(statusCheck bool) (jsonuti
 	res := jsonutils.NewDict()
 
 	for rows.Next() {
-		var vendorDeviceId, m, t string
+		var hostType, vendorDeviceId, m, t string
 		var count int
-		if err := rows.Scan(&vendorDeviceId, &m, &t, &count); err != nil {
+		if err := rows.Scan(&vendorDeviceId, &m, &t, &hostType, &count); err != nil {
 			return nil, errors.Wrap(err, "get model spec scan rows")
 		}
 		vendor := GetVendorByVendorDeviceId(vendorDeviceId)
 		specKeys := man.getSpecKeys(vendor, m, t)
 		specKey := GetSpecIdentKey(specKeys)
-		spec := man.getSpecByRows(vendorDeviceId, m, t, &count)
+		spec := man.getSpecByRows(hostType, vendorDeviceId, m, t, &count)
 		res.Set(specKey, spec)
 	}
 
 	return res, nil
 }
 
-func (man *SIsolatedDeviceManager) getSpecByRows(vendorDeviceId, model, devType string, count *int) *jsonutils.JSONDict {
+func (man *SIsolatedDeviceManager) getSpecByRows(hostType, vendorDeviceId, model, devType string, count *int) *jsonutils.JSONDict {
 	var vdev bool
 	var hypervisor string
 	if utils.IsInStringArray(devType, api.VITRUAL_DEVICE_TYPES) {
@@ -1293,6 +1292,9 @@ func (man *SIsolatedDeviceManager) getSpecByRows(vendorDeviceId, model, devType 
 		hypervisor = api.HYPERVISOR_POD
 	} else {
 		hypervisor = api.HYPERVISOR_KVM
+	}
+	if hostType == api.HOST_TYPE_ZETTAKIT {
+		hypervisor = api.HYPERVISOR_ZETTAKIT
 	}
 
 	ret := jsonutils.NewDict()
@@ -1318,17 +1320,17 @@ type GpuSpec struct {
 }
 
 func (self *SIsolatedDevice) GetSpec(statusCheck bool) *jsonutils.JSONDict {
+	host := self.getHost()
 	if statusCheck {
 		if len(self.GuestId) > 0 {
 			return nil
 		}
-		host := self.getHost()
 		if host.Status != api.BAREMETAL_RUNNING || !host.GetEnabled() ||
-			(host.HostType != api.HOST_TYPE_HYPERVISOR && host.HostType != api.HOST_TYPE_CONTAINER) {
+			(host.HostType != api.HOST_TYPE_HYPERVISOR && host.HostType != api.HOST_TYPE_CONTAINER && host.HostType != api.HOST_TYPE_ZETTAKIT) {
 			return nil
 		}
 	}
-	return IsolatedDeviceManager.getSpecByRows(self.VendorDeviceId, self.Model, self.DevType, nil)
+	return IsolatedDeviceManager.getSpecByRows(host.HostType, self.VendorDeviceId, self.Model, self.DevType, nil)
 }
 
 func (self *SIsolatedDevice) GetGpuSpec() *GpuSpec {

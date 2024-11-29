@@ -171,6 +171,13 @@ type SManagedVMCreateConfig struct {
 	UserDataType                    string
 	WindowsUserDataType             string
 	IsWindowsUserDataTypeNeedEncode bool
+
+	IsolateDevices []SIsolateDevice
+}
+
+type SIsolateDevice struct {
+	Id   string
+	Name string
 }
 
 type SManagedVMChangeConfig struct {
