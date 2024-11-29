@@ -12,7 +12,7 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/tredoe/osutil/v2/userutil/crypt/common"
+	"github.com/tredoe/osutil/user/crypt/common"
 )
 
 var ErrKeyMismatch = errors.New("hashed value is not the hash of the given password")
@@ -52,10 +52,10 @@ type Crypter interface {
 type Crypt uint
 
 const (
-	APR1   Crypt = iota + 1 // import "github.com/tredoe/osutil/v2/user/crypt/apr1_crypt"
-	MD5                     // import "github.com/tredoe/osutil/v2/user/crypt/md5_crypt"
-	SHA256                  // import "github.com/tredoe/osutil/v2/user/crypt/sha256_crypt"
-	SHA512                  // import "github.com/tredoe/osutil/v2/user/crypt/sha512_crypt"
+	APR1   Crypt = iota + 1 // import "github.com/tredoe/osutil/user/crypt/apr1_crypt"
+	MD5                     // import "github.com/tredoe/osutil/user/crypt/md5_crypt"
+	SHA256                  // import "github.com/tredoe/osutil/user/crypt/sha256_crypt"
+	SHA512                  // import "github.com/tredoe/osutil/user/crypt/sha512_crypt"
 	maxCrypt
 )
 
