@@ -16,12 +16,10 @@ package container
 
 import (
 	"time"
-
-	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
 )
 
 // CommandRunner interface allows to run command in a container.
 type CommandRunner interface {
 	// RunInContainer synchronously executes the command in the container, and returns the output.
-	RunInContainer(pod *desc.SGuestDesc, containerId string, cmd []string, timeout time.Duration) ([]byte, error)
+	RunInContainer(podId string, containerId string, cmd []string, timeout time.Duration) ([]byte, error)
 }

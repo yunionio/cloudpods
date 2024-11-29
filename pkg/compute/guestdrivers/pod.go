@@ -472,6 +472,14 @@ func (p *SPodDriver) RequestPullContainerImage(ctx context.Context, userCred mcc
 	return p.performContainerAction(ctx, userCred, task, "pull-image", task.GetParams())
 }
 
+func (p *SPodDriver) RequestAddVolumeMountPostOverlay(ctx context.Context, userCred mcclient.TokenCredential, task models.IContainerTask) error {
+	return p.performContainerAction(ctx, userCred, task, "add-volume-mount-post-overlay", task.GetParams())
+}
+
+func (p *SPodDriver) RequestRemoveVolumeMountPostOverlay(ctx context.Context, userCred mcclient.TokenCredential, task models.IContainerTask) error {
+	return p.performContainerAction(ctx, userCred, task, "remove-volume-mount-post-overlay", task.GetParams())
+}
+
 type responder struct {
 	errorMessage string
 }

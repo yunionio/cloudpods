@@ -37,7 +37,9 @@ func (h cephFS) Mount(pod IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMou
 	if err != nil {
 		return err
 	}
-	procutils.NewRemoteCommandAsFarAsPossible("mkdir", "-p", dir).Output()
+	if err := EnsureDir(dir); err != nil {
+		return errors.Wrap(err, "EnsureDir")
+	}
 	options := fmt.Sprintf("name=%s,secret=%s", vm.CephFS.Name, vm.CephFS.Secret)
 	if vm.ReadOnly {
 		options += ",ro"

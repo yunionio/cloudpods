@@ -82,6 +82,11 @@ const (
 	CONTAINER_STATUS_PROBING      = "probing"
 	CONTAINER_STATUS_PROBE_FAILED = "probe_failed"
 	CONTAINER_STATUS_NET_FAILED   = "net_failed"
+	// post overlay
+	CONTAINER_STATUS_ADD_POST_OVERLY           = "adding_post_overly"
+	CONTAINER_STATUS_ADD_POST_OVERLY_FAILED    = "add_post_overly_failed"
+	CONTAINER_STATUS_REMOVE_POST_OVERLY        = "removing_post_overly"
+	CONTAINER_STATUS_REMOVE_POST_OVERLY_FAILED = "remove_post_overly_failed"
 )
 
 var (
@@ -250,4 +255,15 @@ type ContainerPerformStatusInput struct {
 type ContainerResourcesSetInput struct {
 	apis.ContainerResources
 	DisableLimitCheck bool `json:"disable_limit_check"`
+}
+
+type ContainerVolumeMountAddPostOverlayInput struct {
+	Index       int                                         `json:"index"`
+	PostOverlay []*apis.ContainerVolumeMountDiskPostOverlay `json:"post_overlay"`
+}
+
+type ContainerVolumeMountRemovePostOverlayInput struct {
+	Index       int                                         `json:"index"`
+	PostOverlay []*apis.ContainerVolumeMountDiskPostOverlay `json:"post_overlay"`
+	ClearLayers bool                                        `json:"clear_layers"`
 }

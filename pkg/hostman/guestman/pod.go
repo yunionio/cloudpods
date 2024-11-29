@@ -45,6 +45,8 @@ import (
 	proberesults "yunion.io/x/onecloud/pkg/hostman/container/prober/results"
 	"yunion.io/x/onecloud/pkg/hostman/container/status"
 	"yunion.io/x/onecloud/pkg/hostman/container/volume_mount"
+	"yunion.io/x/onecloud/pkg/hostman/container/volume_mount/disk"
+	_ "yunion.io/x/onecloud/pkg/hostman/container/volume_mount/disk"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/pod/runtime"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
@@ -86,10 +88,10 @@ type containerRunner struct {
 	manager *SGuestManager
 }
 
-func (cr *containerRunner) RunInContainer(pod *desc.SGuestDesc, containerId string, cmd []string, timeout time.Duration) ([]byte, error) {
-	srv, ok := cr.manager.GetServer(pod.Uuid)
+func (cr *containerRunner) RunInContainer(podId string, containerId string, cmd []string, timeout time.Duration) ([]byte, error) {
+	srv, ok := cr.manager.GetServer(podId)
 	if !ok {
-		return nil, errors.Wrapf(httperrors.ErrNotFound, "server %s not found", pod.Uuid)
+		return nil, errors.Wrapf(httperrors.ErrNotFound, "server %s not found", podId)
 	}
 	s := srv.(*sPodGuestInstance)
 	ctrCriId, err := s.getContainerCRIId(containerId)
@@ -126,6 +128,8 @@ type PodInstance interface {
 	ContainerExecSync(ctx context.Context, userCred mcclient.TokenCredential, ctrId string, input *computeapi.ContainerExecSyncInput) (jsonutils.JSONObject, error)
 	SetContainerResourceLimit(ctrId string, limit *apis.ContainerResources) (jsonutils.JSONObject, error)
 	CommitContainer(ctx context.Context, userCred mcclient.TokenCredential, ctrId string, input *hostapi.ContainerCommitInput) (jsonutils.JSONObject, error)
+	AddContainerVolumeMountPostOverlay(ctx context.Context, userCred mcclient.TokenCredential, ctrId string, input *computeapi.ContainerVolumeMountAddPostOverlayInput) error
+	RemoveContainerVolumeMountPostOverlay(ctx context.Context, userCred mcclient.TokenCredential, ctrId string, input *computeapi.ContainerVolumeMountRemovePostOverlayInput) error
 
 	ReadLogs(ctx context.Context, userCred mcclient.TokenCredential, ctrId string, input *computeapi.PodLogOptions, stdout, stderr io.Writer) error
 
@@ -284,7 +288,7 @@ func (s *sPodGuestInstance) ImportServer(pendingDelete bool) {
 		}
 	} else {
 		s.SyncStatus("sync status after host started")
-		s.getProbeManager().AddPod(s.Desc)
+		s.getProbeManager().AddPod(s)
 	}
 }
 
@@ -650,7 +654,7 @@ func (s *sPodGuestInstance) GetVolumesDir() string {
 }
 
 func (s *sPodGuestInstance) GetVolumesOverlayDir() string {
-	return filepath.Join(s.GetVolumesDir(), "overlay")
+	return filepath.Join(s.GetVolumesDir(), "_overlay_")
 }
 
 func (s *sPodGuestInstance) GetDiskMountPoint(disk storageman.IDisk) string {
@@ -886,7 +890,7 @@ func (s *sPodGuestInstance) _startPod(ctx context.Context, userCred mcclient.Tok
 		return nil, errors.Wrapf(err, "set pod %s cgroup memMB %d, cpu %d", criId, s.GetDesc().Mem, s.GetDesc().Cpu)
 	}
 
-	s.getProbeManager().AddPod(s.Desc)
+	s.getProbeManager().AddPod(s)
 	if err := s.startStat.CreatePodFile(); err != nil {
 		return nil, errors.Wrap(err, "startStat.CreatePodFile")
 	}
@@ -931,7 +935,7 @@ func (s *sPodGuestInstance) ensurePodRemoved(ctx context.Context, timeout int64)
 		}
 	}
 
-	s.getProbeManager().RemovePod(s.Desc)
+	s.getProbeManager().RemovePod(s)
 	if err := s.startStat.RemovePodFile(); err != nil {
 		return errors.Wrap(err, "startStat.RemovePodFile")
 	}
@@ -2411,4 +2415,37 @@ func (s *sPodGuestInstance) CommitContainer(ctx context.Context, userCred mcclie
 	return jsonutils.Marshal(map[string]interface{}{
 		"image_repository": imgRepo,
 	}), nil
+}
+
+func (s *sPodGuestInstance) AddContainerVolumeMountPostOverlay(ctx context.Context, userCred mcclient.TokenCredential, ctrId string, input *computeapi.ContainerVolumeMountAddPostOverlayInput) error {
+	isRunning, err := s.IsContainerRunning(ctx, ctrId)
+	if err != nil {
+		return errors.Wrap(err, "check container is running")
+	}
+	if !isRunning {
+		return nil
+	}
+	ctrSpec := s.GetContainerById(ctrId)
+	vol := ctrSpec.Spec.VolumeMounts[input.Index]
+	drv := volume_mount.GetDriver(vol.Type)
+	diskDrv, ok := drv.(disk.IVolumeMountDisk)
+	if !ok {
+		return errors.Errorf("invalid disk volume driver of %s", vol.Type)
+	}
+	return diskDrv.MountPostOverlays(s, ctrId, vol, input.PostOverlay)
+}
+
+func (s *sPodGuestInstance) RemoveContainerVolumeMountPostOverlay(ctx context.Context, userCred mcclient.TokenCredential, ctrId string, input *computeapi.ContainerVolumeMountRemovePostOverlayInput) error {
+	ctrSpec := s.GetContainerById(ctrId)
+	vol := ctrSpec.Spec.VolumeMounts[input.Index]
+	drv := volume_mount.GetDriver(vol.Type)
+	diskDrv, ok := drv.(disk.IVolumeMountDisk)
+	if !ok {
+		return errors.Errorf("invalid disk volume driver of %s", vol.Type)
+	}
+	// drv.Mount 不会重复挂载，支持重复调用
+	if err := drv.Mount(s, ctrId, vol); err != nil {
+		return errors.Wrapf(err, "mount volume %s, ctrId %s", jsonutils.Marshal(vol), ctrId)
+	}
+	return diskDrv.UnmountPostOverlays(s, ctrId, vol, input.PostOverlay, input.ClearLayers)
 }

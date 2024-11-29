@@ -451,3 +451,45 @@ func (o *ContainerCommitOptions) Params() (jsonutils.JSONObject, error) {
 	}
 	return jsonutils.Marshal(input), nil
 }
+
+type ContainerAddVolumeMountPostOverlayOptions struct {
+	ServerIdOptions
+	INDEX     int      `help:"INDEX of volume mount"`
+	MountDesc []string `help:"Mount description, <host_lower_dir>:<container_target_dir>" short-token:"m"`
+}
+
+func (o *ContainerAddVolumeMountPostOverlayOptions) Params() (jsonutils.JSONObject, error) {
+	input := &computeapi.ContainerVolumeMountAddPostOverlayInput{
+		Index:       o.INDEX,
+		PostOverlay: make([]*apis.ContainerVolumeMountDiskPostOverlay, 0),
+	}
+	for _, md := range o.MountDesc {
+		segs := strings.Split(md, ":")
+		if len(segs) != 2 {
+			return nil, errors.Errorf("invalid mount description: %s", md)
+		}
+		lowerDir := segs[0]
+		containerTargetDir := segs[1]
+		input.PostOverlay = append(input.PostOverlay, &apis.ContainerVolumeMountDiskPostOverlay{
+			HostLowerDir:       []string{lowerDir},
+			ContainerTargetDir: containerTargetDir,
+		})
+	}
+	return jsonutils.Marshal(input), nil
+}
+
+type ContainerRemoveVolumeMountPostOverlayOptions struct {
+	ContainerAddVolumeMountPostOverlayOptions
+	ClearLayers bool `help:"clear overlay upper and work layers"`
+}
+
+func (o *ContainerRemoveVolumeMountPostOverlayOptions) Params() (jsonutils.JSONObject, error) {
+	params, err := o.ContainerAddVolumeMountPostOverlayOptions.Params()
+	if err != nil {
+		return nil, err
+	}
+	if o.ClearLayers {
+		params.(*jsonutils.JSONDict).Add(jsonutils.JSONTrue, "clear_layers")
+	}
+	return params, nil
+}

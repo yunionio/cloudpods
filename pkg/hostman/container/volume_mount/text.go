@@ -48,9 +48,8 @@ func (t text) GetRuntimeMountHostPath(pod IPodInfo, ctrId string, vm *hostapi.Co
 	if ti == nil {
 		return "", httperrors.NewNotEmptyError("text is nil")
 	}
-	out, err := procutils.NewRemoteCommandAsFarAsPossible("mkdir", "-p", pod.GetVolumesDir()).Output()
-	if err != nil {
-		return "", errors.Wrapf(err, "mkdir %s: %s", pod.GetVolumesDir(), out)
+	if err := EnsureDir(pod.GetVolumesDir()); err != nil {
+		return "", errors.Wrapf(err, "mkdir %s", pod.GetVolumesDir())
 	}
 	mntPath := filepath.Join(pod.GetVolumesDir(), fmt.Sprintf("%s-%s", ctrId, strings.ReplaceAll(vm.MountPath, "/", "_")))
 	if err := t.writeContent(ti, mntPath); err != nil {

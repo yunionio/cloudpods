@@ -135,6 +135,9 @@ func (d disk) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCre
 	if err := d.validateOverlay(ctx, userCred, vm, &diskObj); err != nil {
 		return nil, errors.Wrapf(err, "validate overlay")
 	}
+	if err := d.ValidatePostOverlay(vm); err != nil {
+		return nil, errors.Wrap(err, "validate post overlay")
+	}
 	return vm, nil
 }
 
@@ -180,6 +183,36 @@ func (d disk) validateOverlay(ctx context.Context, userCred mcclient.TokenCreden
 	}
 	if err := d.getOverlayDriver(ov).validateCreateData(ctx, userCred, ov, diskObj); err != nil {
 		return errors.Wrapf(err, "validate overlay %s", ov.GetType())
+	}
+	return nil
+}
+
+func (d disk) ValidatePostOverlay(vm *apis.ContainerVolumeMount) error {
+	if len(vm.Disk.PostOverlay) == 0 {
+		return nil
+	}
+	ovs := vm.Disk.PostOverlay
+	var duplicateCtrDir string
+	for _, ov := range ovs {
+		if len(ov.HostLowerDir) == 0 {
+			return httperrors.NewNotEmptyError("host_lower_dir is required")
+		}
+		for i, hld := range ov.HostLowerDir {
+			if len(hld) == 0 {
+				return httperrors.NewNotEmptyError("host_lower_dir %d is empty", i)
+			}
+		}
+		if len(ov.ContainerTargetDir) == 0 {
+			return httperrors.NewNotEmptyError("container_target_dir is required")
+		}
+		if ov.ContainerTargetDir == duplicateCtrDir {
+			return httperrors.NewDuplicateNameError("container_target_dir", ov.ContainerTargetDir)
+		}
+		duplicateCtrDir = ov.ContainerTargetDir
+	}
+	if vm.Propagation == "" {
+		// 设置默认 propagation 为 rslave
+		vm.Propagation = apis.MOUNTPROPAGATION_PROPAGATION_HOST_TO_CONTAINER
 	}
 	return nil
 }

@@ -9,6 +9,22 @@ import (
 	"yunion.io/x/onecloud/pkg/util/procutils"
 )
 
+func EnsureDir(dir string) error {
+	out, err := procutils.NewRemoteCommandAsFarAsPossible("mkdir", "-p", dir).Output()
+	if err != nil {
+		return errors.Wrapf(err, "mkdir -p %s: %s", dir, out)
+	}
+	return nil
+}
+
+func RemoveDir(dir string) error {
+	out, err := procutils.NewRemoteCommandAsFarAsPossible("rm", "-rf", dir).Output()
+	if err != nil {
+		return errors.Wrapf(err, "rm -rf %s: %s", dir, out)
+	}
+	return nil
+}
+
 func ChangeDirOwner(pod IPodInfo, drv IVolumeMount, ctrId string, vol *hostapi.ContainerVolumeMount) error {
 	if vol.FsUser == nil && vol.FsGroup == nil {
 		return errors.Errorf("specify fs_user or fs_group")

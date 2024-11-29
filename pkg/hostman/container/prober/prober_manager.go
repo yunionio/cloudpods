@@ -38,6 +38,7 @@ import (
 	"yunion.io/x/pkg/util/wait"
 
 	"yunion.io/x/onecloud/pkg/apis"
+	"yunion.io/x/onecloud/pkg/apis/host"
 	"yunion.io/x/onecloud/pkg/hostman/container/prober/results"
 	"yunion.io/x/onecloud/pkg/hostman/container/status"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/container"
@@ -51,6 +52,14 @@ type probeKey struct {
 	probeType     apis.ContainerProbeType
 }
 
+type IPod interface {
+	GetId() string
+	GetName() string
+	GetDesc() *desc.SGuestDesc
+	GetContainers() []*host.ContainerDesc
+	IsRunning() bool
+}
+
 // Manager manages pod probing. It creates a probe "worker" for every container that specifies a
 // probe (AddPod). The worker periodically probes its assigned container and caches the results. The
 // manager use the cached probe results to set the appropriate Ready state in the PodStatus when
@@ -59,11 +68,11 @@ type probeKey struct {
 type Manager interface {
 	// AddPod creates new probe workers for every container probe. This should be called for every
 	// pod created.
-	AddPod(pod *desc.SGuestDesc)
+	AddPod(pod IPod)
 
 	// RemovePod handles cleaning up the removed pod state, including terminating probe workers and
 	// deleting cached results.
-	RemovePod(pod *desc.SGuestDesc)
+	RemovePod(pod IPod)
 
 	// CleanupPods handles cleaning up pods which should no longer be running.
 	// It takes a map of "desired pods" which should not be cleaned up.
@@ -135,17 +144,17 @@ func (m *manager) Start() {
 	go wait.Forever(m.updateStartup, 0)
 }
 
-func (m *manager) AddPod(pod *desc.SGuestDesc) {
+func (m *manager) AddPod(pod IPod) {
 	m.workerLock.Lock()
 	defer m.workerLock.Unlock()
 
-	key := probeKey{podUid: pod.Uuid}
-	for _, c := range pod.Containers {
+	key := probeKey{podUid: pod.GetId()}
+	for _, c := range pod.GetContainers() {
 		key.containerName = c.Name
 		if c.Spec.StartupProbe != nil {
 			key.probeType = apis.ContainerProbeTypeStartup
 			if _, ok := m.workers[key]; ok {
-				log.Errorf("Startup probe already exists: %s:%s", pod.Name, c.Name)
+				log.Errorf("Startup probe already exists: %s:%s", pod.GetName(), c.Name)
 				return
 			}
 			w := newWorker(m, key.probeType, pod, c)
@@ -166,12 +175,12 @@ func (m *manager) AddPod(pod *desc.SGuestDesc) {
 	}
 }
 
-func (m *manager) RemovePod(pod *desc.SGuestDesc) {
+func (m *manager) RemovePod(pod IPod) {
 	m.workerLock.RLock()
 	defer m.workerLock.RUnlock()
 
-	key := probeKey{podUid: pod.Uuid}
-	for _, c := range pod.Containers {
+	key := probeKey{podUid: pod.GetId()}
+	for _, c := range pod.GetContainers() {
 		key.containerName = c.Name
 		for _, probeType := range []apis.ContainerProbeType{apis.ContainerProbeTypeLiveness, apis.ContainerProbeTypeReadiness, apis.ContainerProbeTypeStartup} {
 			key.probeType = probeType
@@ -226,5 +235,11 @@ func (m *manager) updateStartup() {
 	update := <-m.startupManager.Updates()
 
 	started := update.Result.Result == results.Success
-	m.statusManager.SetContainerStartup(update.PodUID, update.ContainerID, started, update.Result)
+	m.statusManager.SetContainerStartup(
+		update.PodUID,
+		update.ContainerID,
+		started,
+		update.Result,
+		update.Pod,
+	)
 }
