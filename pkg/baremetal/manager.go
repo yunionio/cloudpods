@@ -1311,8 +1311,10 @@ func (b *SBaremetalInstance) GetTask() tasks.ITask {
 func (b *SBaremetalInstance) SetTask(task tasks.ITask) {
 	b.taskQueue.AppendTask(task)
 	if reflect.DeepEqual(task, b.taskQueue.GetTask()) {
-		log.Infof("Set task equal, ExecuteTask %s", task.GetName())
+		log.Infof("[Baremetal %s] Set task equal, ExecuteTask %s", b.GetId(), task.GetName())
 		tasks.ExecuteTask(task, nil)
+	} else {
+		log.Warningf("[Baremetal %s] task queue is not empty: %s", b.GetId(), b.taskQueue.String())
 	}
 }
 
