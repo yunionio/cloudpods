@@ -108,6 +108,8 @@ func (h *MiscHandler) Bind(app *appsrv.Application) {
 	// syslog webservice handlers
 	app.AddHandler(POST, prefix+"syslog/token", handleSyslogWebServiceToken)
 	app.AddHandler(POST, prefix+"syslog/message", handleSyslogWebServiceMessage)
+	// service settings
+	app.AddHandler(GET, prefix+"service_settings", h.getServiceSettings)
 }
 
 func UploadHandlerInfo(method, prefix string, handler func(context.Context, http.ResponseWriter, *http.Request)) *appsrv.SHandlerInfo {
