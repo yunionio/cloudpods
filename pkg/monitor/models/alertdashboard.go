@@ -341,18 +341,15 @@ func (dash *SAlertDashBoard) PerformCloneDashboard(ctx context.Context, userCred
 		return nil, errors.Wrapf(err, "dashboard:%s getAttachPanels err", dash.Id)
 	}
 	for _, panel := range alertPanels {
-		err := panel.attachDashboard(ctx, iModel.(*SAlertDashBoard).Id)
+		newDashId := iModel.(*SAlertDashBoard).GetId()
+		_, err := panel.ClonePanel(ctx, newDashId, monitor.AlertClonePanelInput{})
 		if err != nil {
-			err := iModel.Delete(ctx, userCred)
-			if err != nil {
-				log.Errorf("delete cloneDashboard:%s err when panel attachDashboard err:%v", input.CloneName, err)
-			}
-			return nil, errors.Wrapf(err, "panel:%s attachCloneDashboard:%s err", panel.Name, input.CloneName)
+			return nil, errors.Wrapf(err, "ClonePanel %s for dashboard %s", panel.GetId(), newDashId)
 		}
 	}
 	boardDetails, err := iModel.(*SAlertDashBoard).GetMoreDetails(monitor.AlertDashBoardDetails{})
 	if err != nil {
-		return nil, errors.Wrap(err, "cloneDashboard getDetails err")
+		return nil, errors.Wrap(err, "GetMoreDetails of dashboard")
 	}
 	output := jsonutils.Marshal(iModel)
 	output.(*jsonutils.JSONDict).Update((jsonutils.Marshal(&boardDetails)))
