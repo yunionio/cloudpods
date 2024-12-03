@@ -54,7 +54,7 @@ func (self *SUisGuestDriver) GetProvider() string {
 }
 
 func (self *SUisGuestDriver) DoScheduleSKUFilter() bool {
-	return true
+	return false
 }
 
 func (self *SUisGuestDriver) DoScheduleStorageFilter() bool {
@@ -215,7 +215,7 @@ func (self *SUisGuestDriver) RequestSyncSecgroupsOnHost(ctx context.Context, gue
 }
 
 func (self *SUisGuestDriver) GetMaxSecurityGroupCount() int {
-	return 1
+	return 0
 }
 
 func (self *SUisGuestDriver) RequestGuestHotAddIso(ctx context.Context, guest *models.SGuest, path string, boot bool, task taskman.ITask) error {
