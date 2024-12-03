@@ -36,7 +36,7 @@ func (d *SCLVMDisk) PrepareMigrate(liveMigrate bool) ([]string, string, bool, er
 	return nil, "", false, fmt.Errorf("Not support")
 }
 
-func (d *SCLVMDisk) CreateFromImageFuse(ctx context.Context, url string, size int64, encryptInfo *apis.SEncryptInfo) error {
+func (d *SCLVMDisk) CreateFromRemoteHostImage(ctx context.Context, url string, size int64, encryptInfo *apis.SEncryptInfo) error {
 	return fmt.Errorf("Not support")
 }
 
