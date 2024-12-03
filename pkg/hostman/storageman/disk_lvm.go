@@ -17,7 +17,6 @@ package storageman
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"path"
 	"strings"
 
@@ -34,13 +33,12 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
-	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman/lvmutils"
 	"yunion.io/x/onecloud/pkg/hostman/storageman/storageutils"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	identity_modules "yunion.io/x/onecloud/pkg/mcclient/modules/identity"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
-	"yunion.io/x/onecloud/pkg/util/fuseutils"
+	"yunion.io/x/onecloud/pkg/util/netutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
@@ -155,66 +153,44 @@ func (d *SLVMDisk) Delete(ctx context.Context, params interface{}) (jsonutils.JS
 	return nil, nil
 }
 
-func (d *SLVMDisk) PostCreateFromImageFuse() {
-	mntPath := path.Join(d.Storage.GetFuseMountPath(), d.Id)
-	if output, err := procutils.NewCommand("umount", mntPath).Output(); err != nil {
-		log.Errorf("umount %s failed: %s, %s", mntPath, err, output)
-	}
-	if output, err := procutils.NewCommand("rm", "-rf", mntPath).Output(); err != nil {
-		log.Errorf("rm %s failed: %s, %s", mntPath, err, output)
-	}
-	tmpPath := d.Storage.GetFuseTmpPath()
-	tmpFiles, err := ioutil.ReadDir(tmpPath)
-	if err != nil {
-		for _, f := range tmpFiles {
-			if strings.HasPrefix(f.Name(), d.Id) {
-				procutils.NewCommand("rm", "-f", path.Join(tmpPath, f.Name()))
-			}
+func (d *SLVMDisk) PostCreateFromRemoteHostImage(diskUrl string) {
+	if diskUrl != "" {
+		if err := d.RequestCloseNbdImage(context.Background(), diskUrl); err != nil {
+			log.Errorf("failed request close nbd image %s: %s", diskUrl, err)
 		}
 	}
 }
 
-func (d *SLVMDisk) CreateFromImageFuse(ctx context.Context, url string, size int64, encryptInfo *apis.SEncryptInfo) error {
-	log.Infof("Create from image fuse %s", url)
+func (d *SLVMDisk) CreateFromRemoteHostImage(ctx context.Context, url string, size int64, encryptInfo *apis.SEncryptInfo) error {
+	log.Infof("Create from remote host image %s", url)
+	nbdPort, err := d.RequestExportNbdImage(ctx, url, encryptInfo)
+	remoteHostIp := netutils2.ParseIpFromUrl(url)
+	nbdImagePath := fmt.Sprintf("nbd://%s:%d/%s", remoteHostIp, nbdPort, d.GetId())
+	log.Infof("remote nbd image exported %s", nbdImagePath)
 
-	localPath := d.Storage.GetFuseTmpPath()
-	mntPath := path.Join(d.Storage.GetFuseMountPath(), d.Id)
-	contentPath := path.Join(mntPath, "content")
 	newImg, err := qemuimg.NewQemuImage(d.GetPath())
-
 	if err != nil {
 		log.Errorf("qemuimg.NewQemuImage %s fail: %s", d.GetPath(), err)
 		return err
 	}
 
-	if newImg.IsValid() && newImg.IsChained() && newImg.BackFilePath != contentPath {
+	if newImg.IsValid() && newImg.IsChained() && newImg.BackFilePath != nbdImagePath {
 		if err := lvmutils.LvRemove(d.GetPath()); err != nil {
 			return errors.Wrap(err, "remove disk")
 		}
 	}
-	if !newImg.IsValid() || newImg.IsChained() {
-		if err := fuseutils.MountFusefs(
-			options.HostOptions.FetcherfsPath, url, localPath,
-			auth.GetTokenString(), mntPath, options.HostOptions.FetcherfsBlockSize, encryptInfo,
-		); err != nil {
-			log.Errorln(err)
-			return err
-		}
+	lvSize := lvmutils.GetQcow2LvSize(size)
+	if err := lvmutils.LvCreate(d.Storage.GetPath(), d.Id, lvSize*1024*1024); err != nil {
+		return errors.Wrap(err, "lvcreate")
 	}
-	if !newImg.IsValid() {
-		lvSize := lvmutils.GetQcow2LvSize(size)
-		if err := lvmutils.LvCreate(d.Storage.GetPath(), d.Id, lvSize*1024*1024); err != nil {
-			return errors.Wrap(err, "lvcreate")
-		}
 
-		if encryptInfo != nil {
-			err = newImg.CreateQcow2(0, false, contentPath, encryptInfo.Key, qemuimg.EncryptFormatLuks, encryptInfo.Alg)
-		} else {
-			err = newImg.CreateQcow2(0, false, contentPath, "", "", "")
-		}
-		if err != nil {
-			return errors.Wrapf(err, "create from fuse")
-		}
+	if encryptInfo != nil {
+		err = newImg.CreateQcow2(0, false, nbdImagePath, encryptInfo.Key, qemuimg.EncryptFormatLuks, encryptInfo.Alg)
+	} else {
+		err = newImg.CreateQcow2(0, false, nbdImagePath, "", "", "")
+	}
+	if err != nil {
+		return errors.Wrapf(err, "create from remote host image")
 	}
 
 	return nil
@@ -674,7 +650,7 @@ func (d *SLVMDisk) RebuildSlaveDisk(diskUri string) error {
 		return errors.Wrap(err, "lvremove")
 	}
 	diskUrl := fmt.Sprintf("%s/%s", diskUri, d.Id)
-	if err := d.CreateFromImageFuse(context.Background(), diskUrl, 0, nil); err != nil {
+	if err := d.CreateFromRemoteHostImage(context.Background(), diskUrl, 0, nil); err != nil {
 		return errors.Wrap(err, "failed create slave disk")
 	}
 	return nil

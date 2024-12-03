@@ -140,7 +140,7 @@ func (m *SGuestManager) GuestCreateFromCloudpods(
 		iDisk := storage.CreateDisk(diskId)
 		diskUrl := fmt.Sprintf("http://%s:48885/disks/%s",
 			createConfig.CloudpodsAccessInfo.HostIp, createConfig.CloudpodsAccessInfo.OriginDisksId[i])
-		if err = iDisk.CreateFromImageFuse(ctx, diskUrl, 0, nil); err != nil {
+		if err = iDisk.CreateFromRemoteHostImage(ctx, diskUrl, 0, nil); err != nil {
 			log.Errorf("failed create disk %s from fuse %s", diskUrl, err)
 			break
 		}

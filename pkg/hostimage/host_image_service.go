@@ -20,42 +20,35 @@ import (
 	"net/http"
 	"os"
 	"path"
-	"strconv"
-	"strings"
-	"time"
 
-	"github.com/pierrec/lz4/v4"
-
+	execlient "yunion.io/x/executor/client"
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	"yunion.io/x/pkg/appctx"
 
-	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/util/procutils"
+	"yunion.io/x/onecloud/pkg/util/qemuimg"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
 
 type SHostImageOptions struct {
-	common_options.CommonOptions
-	LocalImagePath    []string `help:"Local Image Paths"`
-	LVMVolumeGroups   []string `help:"LVM Volume Groups(vgs)"`
-	SnapshotDirSuffix string   `help:"Snapshot dir name equal diskId concat snapshot dir suffix" default:"_snap"`
-	CommonConfigFile  string   `help:"common config file for container"`
-	StreamChunkSize   int      `help:"Download stream chunk size KB" default:"4096"`
-	Lz4ChecksumOff    bool     `help:"Turn off lz4 checksum option"`
+	common_options.HostCommonOptions
+	LocalImagePath     []string `help:"Local Image Paths"`
+	LVMVolumeGroups    []string `help:"LVM Volume Groups(vgs)"`
+	SnapshotDirSuffix  string   `help:"Snapshot dir name equal diskId concat snapshot dir suffix" default:"_snap"`
+	HostImageNbdPidDir string   `help:"Host-image nbd pid files dir " default:"/var/run/onecloud/host-image"`
+	CommonConfigFile   string   `help:"common config file for container"`
 }
 
 var (
-	HostImageOptions   SHostImageOptions
-	streamingWorkerMan *appsrv.SWorkerManager
+	HostImageOptions SHostImageOptions
+	nbdExportManager *SNbdExportManager
 )
-
-func init() {
-	streamingWorkerMan = appsrv.NewWorkerManager("streaming_worker", 20, 1024, false)
-}
 
 func StartService() {
 	consts.SetServiceType("host-image")
@@ -68,6 +61,19 @@ func StartService() {
 		HostImageOptions.CommonOptions = *commonCfg
 		HostImageOptions.BaseOptions.BaseOptions = baseOpt
 	}
+	log.Infof("exec socket path: %s", HostImageOptions.ExecutorSocketPath)
+	if HostImageOptions.EnableRemoteExecutor {
+		execlient.Init(HostImageOptions.ExecutorSocketPath)
+		execlient.SetTimeoutSeconds(HostImageOptions.ExecutorConnectTimeoutSeconds)
+		procutils.SetRemoteExecutor()
+	}
+
+	nbdExportManager = NewNbdExportManager()
+	output, err := procutils.NewCommand("mkdir", "-p", HostImageOptions.HostImageNbdPidDir).Output()
+	if err != nil {
+		log.Fatalf("failed to create path %s: %s %s", HostImageOptions.HostImageNbdPidDir, output, err)
+	}
+
 	HostImageOptions.EnableSsl = false
 	HostImageOptions.Port += 40000
 	app_common.InitAuth(&HostImageOptions.CommonOptions, func() {
@@ -79,27 +85,23 @@ func StartService() {
 }
 
 func initHandlers(app *appsrv.Application, prefix string) {
-	app.AddHandler("GET", fmt.Sprintf("%s/disks/<sid>", prefix), getImage).
-		SetProcessNoTimeout().SetWorkerManager(streamingWorkerMan)
-	app.AddHandler("GET", fmt.Sprintf("%s/snapshots/<diskId>/<sid>", prefix), getImage).
-		SetProcessNoTimeout().SetWorkerManager(streamingWorkerMan)
+	app.AddHandler("POST", fmt.Sprintf("%s/disks/<sid>/nbd-export", prefix), auth.Authenticate(imageNbdExport))
+	app.AddHandler("POST", fmt.Sprintf("%s/snapshots/<diskId>/<sid>/nbd-export", prefix), auth.Authenticate(imageNbdExport))
 
-	app.AddHandler("HEAD", fmt.Sprintf("%s/disks/<sid>", prefix), getImageMeta)
-	app.AddHandler("HEAD", fmt.Sprintf("%s/snapshots/<diskId>/<sid>", prefix), getImageMeta)
-	app.AddHandler("POST", fmt.Sprintf("%s/disks/<sid>", prefix), closeImage)
-	app.AddHandler("POST", fmt.Sprintf("%s/snapshots/<diskId>/<sid>", prefix), closeImage)
+	app.AddHandler("POST", fmt.Sprintf("%s/disks/<sid>/nbd-close", prefix), auth.Authenticate(imageNbdClose))
+	app.AddHandler("POST", fmt.Sprintf("%s/snapshots/<diskId>/<sid>/nbd-close", prefix), auth.Authenticate(imageNbdClose))
 }
 
 func getDiskPath(diskId string) string {
 	for _, imagePath := range HostImageOptions.LocalImagePath {
 		diskPath := path.Join(imagePath, diskId)
-		if _, err := os.Stat(diskPath); !os.IsNotExist(err) {
+		if _, err := procutils.RemoteStat(diskPath); err == nil {
 			return diskPath
 		}
 	}
 	for _, vg := range HostImageOptions.LVMVolumeGroups {
 		diskPath := path.Join("/dev", vg, diskId)
-		if _, err := os.Stat(diskPath); !os.IsNotExist(err) {
+		if _, err := procutils.RemoteStat(diskPath); err == nil {
 			return diskPath
 		}
 	}
@@ -110,244 +112,79 @@ func getSnapshotPath(diskId, snapshotId string) string {
 	for _, imagePath := range HostImageOptions.LocalImagePath {
 		diskPath := path.Join(imagePath, "snapshots",
 			diskId+HostImageOptions.SnapshotDirSuffix, snapshotId)
-		if _, err := os.Stat(diskPath); !os.IsNotExist(err) {
+		if _, err := procutils.RemoteStat(diskPath); err == nil {
 			return diskPath
 		}
 	}
 	for _, vg := range HostImageOptions.LVMVolumeGroups {
 		diskPath := path.Join("/dev", vg, "snap_"+snapshotId)
-		if _, err := os.Stat(diskPath); !os.IsNotExist(err) {
+		if _, err := procutils.RemoteStat(diskPath); err == nil {
 			return diskPath
 		}
 	}
 	return ""
 }
 
-func inputCheck(ctx context.Context) (string, error) {
-	var params = appctx.AppContextParams(ctx)
+func inputCheck(ctx context.Context, w http.ResponseWriter, r *http.Request) (string, string, error) {
+	params, _, body := appsrv.FetchEnv(ctx, w, r)
 	var sid = params["<sid>"]
 	var imagePath string
+	var remoteDiskId string
+
+	remoteDiskId, _ = body.GetString("disk_id")
+	if remoteDiskId == "" {
+		return "", "", httperrors.NewMissingParameterError("disk_id")
+	}
+
 	if diskId, ok := params["<diskId>"]; ok {
 		imagePath = getSnapshotPath(diskId, sid)
 	} else {
 		imagePath = getDiskPath(sid)
 	}
 	if len(imagePath) == 0 {
-		return "", httperrors.NewNotFoundError("Disk not found")
+		return "", "", httperrors.NewNotFoundError("Disk not found")
 	}
-	return imagePath, nil
+	return imagePath, remoteDiskId, nil
 }
 
-func parseRange(reqRange string) (int64, int64, error) {
-	if !strings.HasPrefix(reqRange, "bytes=") {
-		return 0, 0, httperrors.NewInputParameterError("Invalid range header")
-	}
-	reqRange = reqRange[len("bytes="):]
-	ranges := strings.Split(reqRange, "-")
-	if len(ranges) != 2 {
-		return 0, 0, httperrors.NewInputParameterError("Invalid range header")
-	}
-	startPos, err := strconv.ParseInt(ranges[0], 10, 0)
-	if err != nil {
-		return 0, 0, httperrors.NewInputParameterError("Invalid range header")
-	}
-	endPos, err := strconv.ParseInt(ranges[1], 10, 0)
-	if err != nil {
-		return 0, 0, httperrors.NewInputParameterError("Invalid range header")
-	}
-	return startPos, endPos, nil
-}
-
-func closeImage(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-	imagePath, err := inputCheck(ctx)
+func imageNbdExport(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	imagePath, targetDiskId, err := inputCheck(ctx, w, r)
 	if err != nil {
 		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
-
-	var f IImage
-	if r.Header.Get("X-Read-File") == "true" {
-		f = &SFile{}
-	} else {
-		f = &SQcow2Image{}
+	imageInfo := qemuimg.SImageInfo{
+		Path: imagePath,
 	}
-	err = f.Load(imagePath, true, false)
+	encryptKey := r.Header.Get("X-Encrypt-Key")
+	if len(encryptKey) > 0 {
+		imageInfo.Password = encryptKey
+		imageInfo.EncryptAlg = seclib2.TSymEncAlg(r.Header.Get("X-Encrypt-Alg"))
+	}
+
+	nbdPort, err := nbdExportManager.QemuNbdStartExport(imageInfo, targetDiskId)
 	if err != nil {
 		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
-	f.Close()
-	w.WriteHeader(http.StatusOK)
+	log.Infof("Image %s request nbd export with port %d", targetDiskId, nbdPort)
+
+	ret := jsonutils.NewDict()
+	ret.Set("nbd_port", jsonutils.NewInt(int64(nbdPort)))
+	appsrv.SendJSON(w, ret)
 }
 
-func getImage(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-	imagePath, err := inputCheck(ctx)
+func imageNbdClose(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	_, targetDiskId, err := inputCheck(ctx, w, r)
 	if err != nil {
 		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
-
-	var (
-		f                IImage
-		startPos, endPos int64
-		rateLimit        int64 = -1
-		encryptInfo      *apis.SEncryptInfo
-	)
-
-	if r.Header.Get("X-Read-File") == "true" {
-		f = &SFile{}
-	} else {
-		f = &SQcow2Image{}
-	}
-
-	err = f.Load(imagePath, true, true)
-	if err != nil {
-		encryptKey := r.Header.Get("X-Encrypt-Key")
-		if len(encryptKey) > 0 {
-			encryptInfo = new(apis.SEncryptInfo)
-			encryptInfo.Key = encryptKey
-			encryptInfo.Alg = seclib2.TSymEncAlg(r.Header.Get("X-Encrypt-Alg"))
-		}
-
-		if err = f.Open(imagePath, true, encryptInfo); err != nil {
-			log.Errorf("Open image error: %s", err)
-			httperrors.GeneralServerError(ctx, w, err)
-			return
-		}
-	}
-
-	defer f.Close()
-
-	endPos = f.Length() - 1
-	reqRange := r.Header.Get("Range")
-	if len(reqRange) > 0 {
-		startPos, endPos, err = parseRange(reqRange)
-		if err != nil {
-			log.Errorf("Parse range error: %s", err)
-			httperrors.GeneralServerError(ctx, w, err)
-			return
-		}
-	}
-
-	strRateLimit := r.Header.Get("X-Rate-Limit-Mbps")
-	if len(strRateLimit) > 0 {
-		rateLimit, err = strconv.ParseInt(strRateLimit, 10, 0)
-		if err != nil {
-			log.Errorf("Parse ratelimit error: %s", err)
-			httperrors.InvalidInputError(ctx, w, "Invaild rate limit header")
-			return
-		}
-	}
-
-	streamHeader(w, f, startPos, endPos)
-	startStream(w, f, startPos, endPos, rateLimit)
-}
-
-func streamHeader(w http.ResponseWriter, f IImage, startPos, endPos int64) {
-	var statusCode = http.StatusOK
-	w.Header().Set("Content-Type", "application/octet-stream")
-	if startPos > 0 || endPos < f.Length()-1 {
-		statusCode = http.StatusPartialContent
-		w.Header().Set("Content-Range",
-			fmt.Sprintf("bytes %d-%d/%d", startPos, endPos, f.Length()))
-	}
-	w.WriteHeader(statusCode)
-}
-
-func startStream(w http.ResponseWriter, f IImage, startPos, endPos, rateLimit int64) {
-	var CHUNK_SIZE int64 = int64(HostImageOptions.StreamChunkSize * 1024)
-	var readSize int64 = CHUNK_SIZE
-	var sendBytes int64
-	var lz4Writer = lz4.NewWriter(w)
-	var startTime = time.Now()
-
-	opts := []lz4.Option{
-		lz4.BlockSizeOption(lz4.Block4Mb),
-		lz4.ConcurrencyOption(-1),
-		lz4.CompressionLevelOption(lz4.Fast),
-	}
-	if HostImageOptions.Lz4ChecksumOff {
-		log.Infof("Turn off lz4 checksum")
-		opts = append(opts,
-			lz4.BlockChecksumOption(false),
-			lz4.ChecksumOption(false),
-		)
-	}
-	if err := lz4Writer.Apply(opts...); err != nil {
-		log.Errorf("lz4Writer.Apply options error: %v", err)
-		goto fail
-	}
-
-	for startPos < endPos {
-		if endPos-startPos < CHUNK_SIZE {
-			readSize = endPos - startPos + 1
-		}
-		buf, err := f.Read(startPos, readSize)
-		if err != nil {
-			log.Errorf("Read image error: %s", err)
-			goto fail
-		}
-		startPos += readSize
-		wSize, err := lz4Writer.Write(buf)
-		if err != nil {
-			log.Errorf("lz4Write error: %s", err)
-			goto fail
-		}
-		sendBytes += int64(wSize)
-		if rateLimit > 0 {
-			tmDelta := time.Now().Sub(startTime)
-			tms := tmDelta.Seconds()
-			vtmDelta := float64(sendBytes*8) / float64(1024.0*1024.0*rateLimit)
-			if vtmDelta > tms {
-				time.Sleep(time.Duration(vtmDelta - tms))
-			}
-		}
-	}
-
-fail:
-	if err := lz4Writer.Close(); err != nil {
-		log.Errorf("lz4 Close error: %s", err)
-	}
-}
-
-func getImageMeta(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-	imagePath, err := inputCheck(ctx)
+	err = nbdExportManager.QemuNbdCloseExport(targetDiskId)
 	if err != nil {
 		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
-
-	var (
-		f           IImage
-		encryptInfo *apis.SEncryptInfo
-	)
-
-	if r.Header.Get("X-Read-File") == "true" {
-		f = &SFile{}
-	} else {
-		f = &SQcow2Image{}
-	}
-
-	log.Infof("open image %s", imagePath)
-	err = f.Load(imagePath, true, true)
-	if err != nil {
-		encryptKey := r.Header.Get("X-Encrypt-Key")
-		if len(encryptKey) > 0 {
-			encryptInfo = new(apis.SEncryptInfo)
-			encryptInfo.Key = encryptKey
-			encryptInfo.Alg = seclib2.TSymEncAlg(r.Header.Get("X-Encrypt-Alg"))
-		}
-
-		if err = f.Open(imagePath, true, encryptInfo); err != nil {
-			log.Errorf("Open image error: %s", err)
-			httperrors.GeneralServerError(ctx, w, err)
-			return
-		}
-	}
-	defer f.Close()
-
-	w.Header().Set("Content-Length", fmt.Sprintf("%d", f.Length()))
-	w.Header().Set("Content-Type", "application/octet-stream")
-	w.Header().Set("Accept-Ranges", "bytes")
-	w.WriteHeader(200)
+	log.Infof("Image %s request nbd close export with port", targetDiskId)
+	appsrv.SendStruct(w, map[string]string{"result": "ok"})
 }

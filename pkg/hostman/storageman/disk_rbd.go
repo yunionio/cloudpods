@@ -210,7 +210,7 @@ func (d *SRBDDisk) createFromTemplate(ctx context.Context, imageId, format strin
 	return d.GetDiskDesc(), nil
 }
 
-func (d *SRBDDisk) CreateFromImageFuse(ctx context.Context, url string, size int64, encryptInfo *apis.SEncryptInfo) error {
+func (d *SRBDDisk) CreateFromRemoteHostImage(ctx context.Context, url string, size int64, encryptInfo *apis.SEncryptInfo) error {
 	return fmt.Errorf("Not support")
 }
 
@@ -234,8 +234,8 @@ func (d *SRBDDisk) CreateRaw(ctx context.Context, sizeMb int, diskFormat string,
 	return d.GetDiskDesc(), nil
 }
 
-func (d *SRBDDisk) PostCreateFromImageFuse() {
-	log.Errorf("Not support PostCreateFromImageFuse")
+func (d *SRBDDisk) PostCreateFromRemoteHostImage(string) {
+	log.Errorf("Not support PostCreateFromRemoteHostImage")
 }
 
 func (d *SRBDDisk) DiskBackup(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {

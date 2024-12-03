@@ -220,7 +220,7 @@ func (d *SSLVMDisk) CreateSnapshot(snapshotId string, encryptKey string, encForm
 	return nil
 }
 
-func (d *SSLVMDisk) PostCreateFromImageFuse() {
+func (d *SSLVMDisk) PostCreateFromRemoteHostImage(string) {
 	log.Infof("slvm post create from fuse do nothing")
 }
 
