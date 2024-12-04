@@ -98,6 +98,8 @@ func (h *MiscHandler) Bind(app *appsrv.Application) {
 	app.AddHandler3(imageUploader)
 	s3upload := uploadHandlerInfo(POST, prefix+"s3uploads", FetchAuthToken(h.postS3UploadHandler))
 	app.AddHandler3(s3upload)
+
+	app.AddHandler(GET, prefix+"service_settings", h.getServiceSettings)
 }
 
 func UploadHandlerInfo(method, prefix string, handler func(context.Context, http.ResponseWriter, *http.Request)) *appsrv.SHandlerInfo {
