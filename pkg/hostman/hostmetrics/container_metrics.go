@@ -29,11 +29,24 @@ const (
 	VOLUME_INODES_FREE         = "inodes_free"
 	VOLUME_INODES_USED         = "inodes_used"
 	VOLUME_INODES_USED_PERCENT = "inodes_used_percent"
+
+	PROCESS_COUNT = "process_count"
 )
+
+type CadvisorProcessMetric struct {
+	ProcessCount uint64 `json:"process_count"`
+}
+
+func (m CadvisorProcessMetric) ToMap() map[string]interface{} {
+	return map[string]interface{}{
+		PROCESS_COUNT: m.ProcessCount,
+	}
+}
 
 type PodMetrics struct {
 	PodCpu     *PodCpuMetric       `json:"pod_cpu"`
 	PodMemory  *PodMemoryMetric    `json:"pod_memory"`
+	PodProcess *PodProcessMetric   `json:"pod_process"`
 	PodVolumes []*PodVolumeMetric  `json:"pod_volume"`
 	Containers []*ContainerMetrics `json:"containers"`
 }
@@ -85,6 +98,15 @@ func (m PodMemoryMetric) ToMap() map[string]interface{} {
 		MEMORY_WORKING_SET_BYTES: m.MemoryWorkingSetBytes,
 		MEMORY_USAGE_RATE:        m.MemoryUsageRate,
 	}
+}
+
+type PodProcessMetric struct {
+	PodMetricMeta
+	*CadvisorProcessMetric
+}
+
+func (m PodProcessMetric) GetName() string {
+	return "pod_process"
 }
 
 type PodVolumeMetric struct {
@@ -141,8 +163,9 @@ func (m PodVolumeMetric) GetTag() map[string]string {
 }
 
 type ContainerMetrics struct {
-	ContainerCpu    *ContainerCpuMetric    `json:"container_cpu"`
-	ContainerMemory *ContainerMemoryMetric `json:"container_memory"`
+	ContainerCpu     *ContainerCpuMetric     `json:"container_cpu"`
+	ContainerMemory  *ContainerMemoryMetric  `json:"container_memory"`
+	ContainerProcess *ContainerProcessMetric `json:"container_process"`
 }
 
 type ContainerMetricMeta struct {
@@ -198,6 +221,15 @@ func (m *ContainerCpuMetric) ToMap() map[string]interface{} {
 		ret[CPU_USAGE_RATE] = *m.CpuUsageRate
 	}
 	return ret
+}
+
+type ContainerProcessMetric struct {
+	ContainerMetricMeta
+	*CadvisorProcessMetric
+}
+
+func (m ContainerProcessMetric) GetName() string {
+	return "container_process"
 }
 
 func GetPodStatsById(stats []stats.PodStats, podId string) *stats.PodStats {
@@ -274,6 +306,15 @@ func (m *SGuestMonitor) getVolumeMetrics() []*PodVolumeMetric {
 	return result
 }
 
+func (m *SGuestMonitor) getCadvisorProcessMetric(stat *stats.ProcessStats) *CadvisorProcessMetric {
+	if stat == nil {
+		return nil
+	}
+	return &CadvisorProcessMetric{
+		ProcessCount: *stat.ProcessCount,
+	}
+}
+
 func (m *SGuestMonitor) PodMetrics(prevUsage *GuestMetrics) *PodMetrics {
 	stat := m.podStat
 	podCpu := &PodCpuMetric{
@@ -314,11 +355,24 @@ func (m *SGuestMonitor) PodMetrics(prevUsage *GuestMetrics) *PodMetrics {
 				}
 			}
 		}
+		if ctr.ProcessStats != nil {
+			cm.ContainerProcess = &ContainerProcessMetric{
+				ContainerMetricMeta:   meta,
+				CadvisorProcessMetric: m.getCadvisorProcessMetric(ctr.ProcessStats),
+			}
+		}
 		containers = append(containers, cm)
+	}
+	var podProcess *PodProcessMetric
+	if stat.ProcessStats != nil {
+		podProcess = &PodProcessMetric{
+			CadvisorProcessMetric: m.getCadvisorProcessMetric(stat.ProcessStats),
+		}
 	}
 	return &PodMetrics{
 		PodCpu:     podCpu,
 		PodMemory:  podMemory,
+		PodProcess: podProcess,
 		PodVolumes: m.getVolumeMetrics(),
 		Containers: containers,
 	}
@@ -336,9 +390,15 @@ func (d *GuestMetrics) toPodTelegrafData(tagStr string) []string {
 	for i := range m.PodVolumes {
 		ims = append(ims, m.PodVolumes[i])
 	}
+	if m.PodProcess != nil {
+		ims = append(ims, m.PodProcess)
+	}
 	for _, c := range m.Containers {
 		ims = append(ims, c.ContainerCpu)
 		ims = append(ims, c.ContainerMemory)
+		if c.ContainerProcess != nil {
+			ims = append(ims, c.ContainerProcess)
+		}
 	}
 	res := []string{}
 	for _, im := range ims {

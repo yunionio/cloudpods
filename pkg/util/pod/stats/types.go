@@ -132,6 +132,9 @@ type ContainerStats struct {
 	// +patchMergeKey=name
 	// +patchStrategy=merge
 	UserDefinedMetrics []UserDefinedMetric `json:"userDefinedMetrics,omitempty" patchStrategy:"merge" patchMergeKey:"name"`
+	// ProcessStats pertaining to processes.
+	// +optional
+	ProcessStats *ProcessStats `json:"process_stats,omitempty"`
 }
 
 // PodReference contains enough information to locate the referenced pod.

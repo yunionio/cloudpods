@@ -100,8 +100,7 @@ func GetPodCgroupNameSuffix(podUID types.UID) string {
 	return podCgroupNamePrefix + string(podUID)
 }
 
-// getCadvisorPodInfoFromPodUID returns a pod cgroup information by matching the podUID with its CgroupName identifier base name
-func getCadvisorPodInfoFromPodUID(podUID types.UID, infos map[string]cadvisorapiv2.ContainerInfo) *cadvisorapiv2.ContainerInfo {
+func getContainerInfoById(id string, infos map[string]cadvisorapiv2.ContainerInfo) *cadvisorapiv2.ContainerInfo {
 	for key, info := range infos {
 		if IsSystemdStyleName(key) {
 			// Convert to internal cgroup name and take the last component only.
@@ -111,11 +110,29 @@ func getCadvisorPodInfoFromPodUID(podUID types.UID, infos map[string]cadvisorapi
 			// Take last component only.
 			key = path.Base(key)
 		}
-		if GetPodCgroupNameSuffix(podUID) == key {
+		//if GetPodCgroupNameSuffix(podUID) == key {
+		if id == key {
 			return &info
 		}
 	}
 	return nil
+}
+
+func getLatestContainerStatsById(id string, infos map[string]cadvisorapiv2.ContainerInfo) *cadvisorapiv2.ContainerStats {
+	info := getContainerInfoById(id, infos)
+	if info == nil {
+		return nil
+	}
+	cstat, found := latestContainerStats(info)
+	if !found {
+		return nil
+	}
+	return cstat
+}
+
+// getCadvisorPodInfoFromPodUID returns a pod cgroup information by matching the podUID with its CgroupName identifier base name
+func getCadvisorPodInfoFromPodUID(podUID types.UID, infos map[string]cadvisorapiv2.ContainerInfo) *cadvisorapiv2.ContainerInfo {
+	return getContainerInfoById(string(podUID), infos)
 }
 
 // containerInfoWithCgroup contains the ContainerInfo and its cgroup name.

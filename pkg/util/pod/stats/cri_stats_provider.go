@@ -171,10 +171,10 @@ func (p *criStatsProvider) listPodStats(updateCPUNanoCoreUsage bool) ([]PodStats
 		}
 
 		// Fill available stats for full set of required pod stats
-		cs := p.makeContainerStats(stats, container, &rootFsInfo, fsIDtoInfo, podSandbox.GetMetadata(), updateCPUNanoCoreUsage)
+		cs := p.makeContainerStats(stats, container, &rootFsInfo, fsIDtoInfo, podSandbox.GetMetadata(), updateCPUNanoCoreUsage, allInfos)
 		p.addPodNetworkStats(ps, podSandboxID, caInfos, cs, containerNetworkStats[podSandboxID])
 		p.addPodCPUMemoryStats(ps, types.UID(podSandbox.Metadata.Uid), allInfos, cs)
-		p.addProcessStats(ps, types.UID(podSandbox.Metadata.Uid), allInfos, cs)
+		p.addProcessStats(ps, types.UID(podSandboxID), allInfos, cs)
 
 		// If cadvisor stats is available for the container, use it to populate
 		// container stats
@@ -260,8 +260,9 @@ func (p *criStatsProvider) ListPodCPUAndMemoryStats() ([]PodStats, error) {
 		}
 
 		// Fill available CPU and memory stats for full set of required pod stats
-		cs := p.makeContainerCPUAndMemoryStats(stats, container)
+		cs := p.makeContainerCPUAndMemoryStats(stats, container, allInfos)
 		p.addPodCPUMemoryStats(ps, types.UID(podSandbox.Metadata.Uid), allInfos, cs)
+		p.addProcessStats(ps, types.UID(podSandboxID), allInfos, cs)
 
 		// If cadvisor stats is available for the container, use it to populate
 		// container stats
@@ -415,8 +416,19 @@ func (p *criStatsProvider) addProcessStats(
 	info := getCadvisorPodInfoFromPodUID(podUID, allInfos)
 	if info != nil {
 		ps.ProcessStats = cadvisorInfoToProcessStats(info)
-		return
 	}
+	if ps.ProcessStats == nil {
+		ps.ProcessStats = &ProcessStats{}
+	}
+	curPcPtr := ps.ProcessStats.ProcessCount
+	var curPc uint64
+	if curPcPtr != nil {
+		curPc = *curPcPtr
+	}
+	if cs.ProcessStats != nil && cs.ProcessStats.ProcessCount != nil {
+		curPc = *cs.ProcessStats.ProcessCount
+	}
+	ps.ProcessStats.ProcessCount = &curPc
 }
 
 // getFsInfo returns the information of the filesystem with the specified
@@ -441,14 +453,7 @@ func (p *criStatsProvider) getFsInfo(fsID *runtimeapi.FilesystemIdentifier) *cad
 	return &fsInfo
 }
 
-func (p *criStatsProvider) makeContainerStats(
-	stats *runtimeapi.ContainerStats,
-	container *runtimeapi.Container,
-	rootFsInfo *cadvisorapiv2.FsInfo,
-	fsIDtoInfo map[runtimeapi.FilesystemIdentifier]*cadvisorapiv2.FsInfo,
-	meta *runtimeapi.PodSandboxMetadata,
-	updateCPUNanoCoreUsage bool,
-) *ContainerStats {
+func (p *criStatsProvider) makeContainerStats(stats *runtimeapi.ContainerStats, container *runtimeapi.Container, rootFsInfo *cadvisorapiv2.FsInfo, fsIDtoInfo map[runtimeapi.FilesystemIdentifier]*cadvisorapiv2.FsInfo, meta *runtimeapi.PodSandboxMetadata, updateCPUNanoCoreUsage bool, infos map[string]cadvisorapiv2.ContainerInfo) *ContainerStats {
 	result := &ContainerStats{
 		Name: stats.Attributes.Metadata.Name,
 		// The StartTime in the summary API is the container creation time.
@@ -457,6 +462,14 @@ func (p *criStatsProvider) makeContainerStats(
 		Memory:    &MemoryStats{},
 		Rootfs:    &FsStats{},
 		// UserDefinedMetrics is not supported by CRI.
+		ProcessStats: &ProcessStats{},
+	}
+	// process stats
+	cStats := getLatestContainerStatsById(stats.Attributes.GetId(), infos)
+	if cStats != nil {
+		if cStats.Processes != nil {
+			result.ProcessStats.ProcessCount = &cStats.Processes.ProcessCount
+		}
 	}
 	if stats.Cpu != nil {
 		result.CPU.Time = metav1.NewTime(time.Unix(0, stats.Cpu.Timestamp))
@@ -531,6 +544,7 @@ func (p *criStatsProvider) makeContainerStats(
 func (p *criStatsProvider) makeContainerCPUAndMemoryStats(
 	stats *runtimeapi.ContainerStats,
 	container *runtimeapi.Container,
+	infos map[string]cadvisorapiv2.ContainerInfo,
 ) *ContainerStats {
 	result := &ContainerStats{
 		Name: stats.Attributes.Metadata.Name,
@@ -539,6 +553,14 @@ func (p *criStatsProvider) makeContainerCPUAndMemoryStats(
 		CPU:       &CPUStats{},
 		Memory:    &MemoryStats{},
 		// UserDefinedMetrics is not supported by CRI.
+		ProcessStats: &ProcessStats{},
+	}
+	// process stats
+	cStats := getLatestContainerStatsById(stats.Attributes.GetId(), infos)
+	if cStats != nil {
+		if cStats.Processes != nil {
+			result.ProcessStats.ProcessCount = &cStats.Processes.ProcessCount
+		}
 	}
 	if stats.Cpu != nil {
 		result.CPU.Time = metav1.NewTime(time.Unix(0, stats.Cpu.Timestamp))

@@ -14,7 +14,11 @@
 
 package measurements
 
-import "yunion.io/x/onecloud/pkg/apis/monitor"
+import (
+	"fmt"
+
+	"yunion.io/x/onecloud/pkg/apis/monitor"
+)
 
 var podCpu = SMeasurement{
 	Context: []SMonitorContext{
@@ -103,4 +107,26 @@ var podVolume = SMeasurement{
 			Unit:        monitor.METRIC_UNIT_PERCENT,
 		},
 	},
+}
+
+func newCadvisorProcessMetrics(displayType string) []SMetric {
+	return []SMetric{
+		{
+			Name:        "process_count",
+			DisplayName: fmt.Sprintf("%s process count", displayType),
+			Unit:        monitor.METRIC_UNIT_COUNT,
+		},
+	}
+}
+
+var podProcess = SMeasurement{
+	Context: []SMonitorContext{
+		{
+			Name:         "pod_process",
+			DisplayName:  "Pod process",
+			ResourceType: monitor.METRIC_RES_TYPE_CONTAINER,
+			Database:     monitor.METRIC_DATABASE_TELE,
+		},
+	},
+	Metrics: newCadvisorProcessMetrics("Pod"),
 }

@@ -45,3 +45,15 @@ var containerMem = SMeasurement{
 		},
 	},
 }
+
+var containerProcess = SMeasurement{
+	Context: []SMonitorContext{
+		{
+			Name:         "container_process",
+			DisplayName:  "Container process",
+			ResourceType: monitor.METRIC_RES_TYPE_CONTAINER,
+			Database:     monitor.METRIC_DATABASE_TELE,
+		},
+	},
+	Metrics: newCadvisorProcessMetrics("Container"),
+}
