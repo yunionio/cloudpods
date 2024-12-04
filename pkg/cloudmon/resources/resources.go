@@ -153,7 +153,9 @@ func (self *SBaseResources) increment(ctx context.Context) error {
 		"order_by.1": "imported_at",
 		"order":      "asc",
 		"filter.0":   timeFilter,
-		"filter.1":   "external_id.isnotempty()",
+	}
+	if self.manager.GetKeyword() != compute.Cloudproviders.GetKeyword() {
+		query["filter.1"] = "external_id.isnotempty()"
 	}
 	if self.manager.GetKeyword() == compute.Hosts.GetKeyword() {
 		query["cloud_env"] = "private_or_onpremise"
@@ -216,8 +218,11 @@ func (self *SBaseResources) decrement(ctx context.Context) error {
 		"delete":     "all",
 		"@deleted":   "true",
 		"filter.0":   timeFilter,
-		"filter.1":   "external_id.isnotempty()",
 	}
+	if self.manager.GetKeyword() != compute.Cloudproviders.GetKeyword() {
+		query["filter.1"] = "external_id.isnotempty()"
+	}
+
 	if self.manager.GetKeyword() == compute.Hosts.GetKeyword() {
 		query["cloud_env"] = "private_or_onpremise"
 	}
@@ -275,8 +280,11 @@ func (self *SBaseResources) update(ctx context.Context) error {
 		"order":          "asc",
 		"pending_delete": "all",
 		"filter.0":       timeFilter,
-		"filter.1":       "external_id.isnotempty()",
 	}
+	if self.manager.GetKeyword() != compute.Cloudproviders.GetKeyword() {
+		query["filter.1"] = "external_id.isnotempty()"
+	}
+
 	if self.manager.GetKeyword() == compute.Hosts.GetKeyword() {
 		query["cloud_env"] = "private_or_onpremise"
 	}
