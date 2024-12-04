@@ -468,7 +468,7 @@ func (self *SAzureClient) _apiVersion(resource string, params url.Values) string
 	} else if utils.IsInStringArray("microsoft.insights", info) {
 		return "2017-03-01-preview"
 	} else if utils.IsInStringArray("microsoft.authorization", info) {
-		return "2022-04-01"
+		return "2018-01-01-preview"
 	} else if utils.IsInStringArray("microsoft.cache", info) {
 		if utils.IsInStringArray("redisenterprise", info) {
 			return "2021-03-01"
@@ -675,14 +675,12 @@ type sMessage struct {
 	Lang  string
 	Value string
 }
-
 type sOdataError struct {
 	Code      string
 	Message   sMessage
 	RequestId string
 	Date      time.Time
 }
-
 type AzureResponseError struct {
 	OdataError sOdataError `json:"odata.error"`
 	AzureError AzureError  `json:"error"`

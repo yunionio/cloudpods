@@ -11,7 +11,6 @@ import (
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/util/httputils"
 )
 
@@ -152,32 +151,24 @@ func (self *SAzureClient) _request_v2(service string, method httputils.THttpMeth
 		if err != nil {
 			return nil, err
 		}
-		if gotypes.IsNil(resp) {
-			return jsonutils.NewDict(), nil
-		}
 		if !resp.Contains("value") {
 			return resp, nil
 		}
 		part := struct {
-			Value         []jsonutils.JSONObject
-			NextLink      string
-			OdataNextLink string `json:"@odata.nextLink"`
+			Value    []jsonutils.JSONObject
+			NextLink string
 		}{}
 		err = resp.Unmarshal(&part)
 		if err != nil {
 			return nil, errors.Wrapf(err, "resp.Unmarshal")
 		}
 		value = append(value, part.Value...)
-		if len(part.Value) == 0 || (len(part.NextLink) == 0 && len(part.OdataNextLink) == 0) {
+		if len(part.Value) == 0 || len(part.NextLink) == 0 {
 			break
 		}
-		nextLink := part.NextLink
-		if len(nextLink) == 0 {
-			nextLink = part.OdataNextLink
-		}
-		link, err := url.Parse(nextLink)
+		link, err := url.Parse(part.NextLink)
 		if err != nil {
-			return nil, errors.Wrapf(err, "url.Parse(%s)", nextLink)
+			return nil, errors.Wrapf(err, "url.Parse(%s)", part.NextLink)
 		}
 		token := ""
 		for _, key := range []string{"$skipToken", "$skiptoken"} {
