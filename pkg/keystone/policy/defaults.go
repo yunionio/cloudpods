@@ -33,24 +33,6 @@ var (
 	predefinedDefaultPolicies = []rbacutils.SRbacPolicy{
 		{
 			Auth:  true,
-			Scope: rbacutils.ScopeSystem,
-			Rules: []rbacutils.SRbacRule{
-				{
-					Service:  api.SERVICE_TYPE,
-					Resource: "services",
-					Action:   PolicyActionGet,
-					Result:   rbacutils.Allow,
-				},
-				{
-					Service:  api.SERVICE_TYPE,
-					Resource: "services",
-					Action:   PolicyActionList,
-					Result:   rbacutils.Allow,
-				},
-			},
-		},
-		{
-			Auth:  true,
 			Scope: rbacutils.ScopeUser,
 			Rules: []rbacutils.SRbacRule{
 				{
