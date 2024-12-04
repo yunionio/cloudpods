@@ -38,7 +38,7 @@ func (self *SZStackProviderFactory) GetName() string {
 }
 
 func (self *SZStackProviderFactory) GetSupportedBrands() []string {
-	return []string{}
+	return []string{api.ZSTACK_BRAND_DSTACK}
 }
 
 func (self *SZStackProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, input cloudprovider.SCloudaccountCredential) (cloudprovider.SCloudaccount, error) {
