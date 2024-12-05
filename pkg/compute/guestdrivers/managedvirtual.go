@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"strings"
 	"sync"
 	"time"
 
@@ -1324,11 +1325,90 @@ func GetCloudVMStatus(vm cloudprovider.ICloudVM) string {
 		status = cloudprovider.CloudVMStatusDeploying
 	case api.VM_SUSPEND:
 		status = cloudprovider.CloudVMStatusSuspend
+	case api.VM_MIGRATING, api.VM_START_MIGRATE:
 	default:
 		status = cloudprovider.CloudVMStatusOther
 	}
 
 	return status
+}
+
+func (self *SManagedVirtualizedGuestDriver) RequestMigrate(ctx context.Context, guest *models.SGuest, userCred mcclient.TokenCredential, input api.GuestMigrateInput, task taskman.ITask) error {
+	return self.requestMigrate(ctx, guest, userCred, api.GuestLiveMigrateInput{PreferHostId: input.PreferHostId}, task, false)
+}
+
+func (self *SManagedVirtualizedGuestDriver) RequestLiveMigrate(ctx context.Context, guest *models.SGuest, userCred mcclient.TokenCredential, input api.GuestLiveMigrateInput, task taskman.ITask) error {
+	return self.requestMigrate(ctx, guest, userCred, input, task, true)
+}
+
+func (self *SManagedVirtualizedGuestDriver) requestMigrate(ctx context.Context, guest *models.SGuest, userCred mcclient.TokenCredential, input api.GuestLiveMigrateInput, task taskman.ITask, isLive bool) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		iVM, err := guest.GetIVM(ctx)
+		if err != nil {
+			return nil, errors.Wrap(err, "guest.GetIVM")
+		}
+		iHost, err := models.HostManager.FetchById(input.PreferHostId)
+		if err != nil {
+			return nil, errors.Wrapf(err, "FetchById(%s)", input.PreferHostId)
+		}
+		host := iHost.(*models.SHost)
+		hostExternalId := host.ExternalId
+		if isLive {
+			err = iVM.LiveMigrateVM(hostExternalId)
+		} else {
+			err = iVM.MigrateVM(hostExternalId)
+		}
+		if err != nil {
+			return nil, errors.Wrapf(err, "Migrate (%s)", hostExternalId)
+		}
+		err = cloudprovider.Wait(time.Second*10, time.Hour*1, func() (bool, error) {
+			err = iVM.Refresh()
+			if err != nil {
+				return false, err
+			}
+			vmStatus := iVM.GetStatus()
+			if vmStatus == api.VM_UNKNOWN || strings.Contains(vmStatus, "fail") {
+				return false, errors.Wrapf(cloudprovider.ErrInvalidStatus, vmStatus)
+			}
+			if !utils.IsInStringArray(vmStatus, []string{api.VM_RUNNING, api.VM_READY}) {
+				return false, nil
+			}
+			hostId := iVM.GetIHostId()
+			if len(hostId) > 0 && hostId != hostExternalId {
+				hostExternalId = hostId
+				return true, nil
+			}
+			return false, nil
+		})
+		if err != nil {
+			return nil, errors.Wrapf(err, "wait host change")
+		}
+		iHost, err = db.FetchByExternalIdAndManagerId(models.HostManager, hostExternalId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+			if host, _ := guest.GetHost(); host != nil {
+				return q.Equals("manager_id", host.ManagerId)
+			}
+			return q
+		})
+		if err != nil {
+			return nil, errors.Wrapf(err, "fetch host %s", hostExternalId)
+		}
+		host = iHost.(*models.SHost)
+		_, err = db.Update(guest, func() error {
+			guest.HostId = host.GetId()
+			return nil
+		})
+		if err != nil {
+			return nil, errors.Wrap(err, "update hostId")
+		}
+		provider := host.GetCloudprovider()
+		driver, err := provider.GetProvider(ctx)
+		if err != nil {
+			return nil, err
+		}
+		models.SyncVMPeripherals(ctx, userCred, guest, iVM, host, provider, driver)
+		return nil, nil
+	})
+	return nil
 }
 
 func (drv *SManagedVirtualizedGuestDriver) RequestConvertPublicipToEip(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, task taskman.ITask) error {
