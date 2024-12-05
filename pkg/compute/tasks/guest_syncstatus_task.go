@@ -80,7 +80,7 @@ func (self *GuestSyncstatusTask) OnGetStatusComplete(ctx context.Context, obj db
 		// not change migrating when:
 		//   guest.Status is migrating and task not has parent task
 		os := self.getOriginStatus()
-		if os == api.VM_MIGRATING && statusStr == api.VM_RUNNING {
+		if os == api.VM_MIGRATING && statusStr == api.VM_RUNNING && len(guest.ExternalId) == 0 {
 			statusStr = os
 		}
 	}
