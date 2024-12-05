@@ -987,9 +987,13 @@ func (client *SQcloudClient) GetIStorageById(id string) (cloudprovider.ICloudSto
 }
 
 type SAccountBalance struct {
-	Balance  float64
-	Uin      int64
-	Currency string
+	Balance            float64
+	Uin                int64
+	Currency           string
+	CashAccountBalance float64
+	CreditAmount       float64
+	CreditBalance      float64
+	FreezeAmount       float64
 }
 
 func (client *SQcloudClient) QueryAccountBalance() (*SAccountBalance, error) {
@@ -1005,7 +1009,11 @@ func (client *SQcloudClient) QueryAccountBalance() (*SAccountBalance, error) {
 	if err != nil {
 		return nil, err
 	}
-	balance.Balance = balance.Balance / 100.0
+	amount := balance.Balance / 100.0
+	if balance.CreditAmount > 0 {
+		amount = (balance.CashAccountBalance + balance.CreditAmount + balance.Balance - balance.FreezeAmount) / 100.0
+	}
+	balance.Balance = amount
 	if balance.Uin >= 200000000000 {
 		balance.Currency = "USD"
 	}
