@@ -1375,9 +1375,8 @@ func (self *SManagedVirtualizedGuestDriver) requestMigrate(ctx context.Context, 
 				return false, nil
 			}
 			hostId := iVM.GetIHostId()
-			log.Debugf("guest %s migrate from %s -> %s", guest.Name, hostExternalId, hostId)
-			if len(hostId) > 0 && hostId != hostExternalId {
-				hostExternalId = hostId
+			log.Debugf("guest %s migrate from %s -> %s", guest.Name, guest.HostId, host.Id)
+			if len(hostId) > 0 && hostId == hostExternalId {
 				return true, nil
 			}
 			return false, nil

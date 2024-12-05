@@ -353,6 +353,7 @@ func (self *SInstance) DetachDisk(ctx context.Context, diskId string) error {
 func (self *SInstance) MigrateVM(hostId string) error {
 	input := api.GuestMigrateInput{}
 	input.PreferHost = hostId
+	input.PreferHostId = hostId
 	_, err := self.host.zone.region.perform(&modules.Servers, self.Id, "migrate", input)
 	return err
 }
@@ -360,6 +361,7 @@ func (self *SInstance) MigrateVM(hostId string) error {
 func (self *SInstance) LiveMigrateVM(hostId string) error {
 	input := api.GuestLiveMigrateInput{}
 	input.PreferHost = hostId
+	input.PreferHostId = hostId
 	skipCpuCheck := true
 	input.SkipCpuCheck = &skipCpuCheck
 	_, err := self.host.zone.region.perform(&modules.Servers, self.Id, "live-migrate", input)
