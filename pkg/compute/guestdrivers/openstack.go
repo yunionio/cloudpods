@@ -388,14 +388,6 @@ func (self *SOpenStackGuestDriver) IsSupportLiveMigrate() bool {
 	return true
 }
 
-func (self *SOpenStackGuestDriver) CheckMigrate(ctx context.Context, guest *models.SGuest, userCred mcclient.TokenCredential, input api.GuestMigrateInput) error {
-	return nil
-}
-
-func (self *SOpenStackGuestDriver) CheckLiveMigrate(ctx context.Context, guest *models.SGuest, userCred mcclient.TokenCredential, input api.GuestLiveMigrateInput) error {
-	return nil
-}
-
 func (self *SOpenStackGuestDriver) RequestMigrate(ctx context.Context, guest *models.SGuest, userCred mcclient.TokenCredential, input api.GuestMigrateInput, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 		iVM, err := guest.GetIVM(ctx)
