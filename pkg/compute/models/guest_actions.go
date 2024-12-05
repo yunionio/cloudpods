@@ -557,7 +557,7 @@ func (self *SGuest) StartMigrateTask(
 
 	data.Set("guest_status", jsonutils.NewString(guestStatus))
 	dedicateMigrateTask := "GuestMigrateTask"
-	if self.GetHypervisor() != api.HYPERVISOR_KVM {
+	if len(self.ExternalId) > 0 {
 		dedicateMigrateTask = "ManagedGuestMigrateTask" //托管私有云
 	}
 	self.SetStatus(ctx, userCred, vmStatus, "")
@@ -615,7 +615,7 @@ func (self *SGuest) StartGuestLiveMigrateTask(
 
 	data.Set("guest_status", jsonutils.NewString(guestStatus))
 	dedicateMigrateTask := "GuestLiveMigrateTask"
-	if self.GetHypervisor() != api.HYPERVISOR_KVM {
+	if len(self.ExternalId) > 0 {
 		dedicateMigrateTask = "ManagedGuestLiveMigrateTask" //托管私有云
 	}
 	if task, err := taskman.TaskManager.NewTask(ctx, dedicateMigrateTask, self, userCred, data, parentTaskId, "", nil); err != nil {
