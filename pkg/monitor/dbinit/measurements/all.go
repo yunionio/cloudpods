@@ -41,6 +41,7 @@ var All = []SMeasurement{
 
 	containerCpu,
 	containerMem,
+	containerProcess,
 
 	dcsRedisCpu,
 	dcsRedisMem,
@@ -82,6 +83,7 @@ var All = []SMeasurement{
 	podCpu,
 	podMem,
 	podVolume,
+	podProcess,
 
 	rabbitmqOverview,
 	rabbitmqNode,
