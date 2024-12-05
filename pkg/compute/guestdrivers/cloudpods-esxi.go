@@ -30,7 +30,6 @@ import (
 	"yunion.io/x/pkg/util/httputils"
 	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/utils"
-	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -590,80 +589,6 @@ func (self *SCloudpodsESXiGuestDriver) IsSupportMigrate() bool {
 
 func (self *SCloudpodsESXiGuestDriver) IsSupportLiveMigrate() bool {
 	return true
-}
-
-func (self *SCloudpodsESXiGuestDriver) RequestMigrate(ctx context.Context, guest *models.SGuest, userCred mcclient.TokenCredential, input api.GuestMigrateInput, task taskman.ITask) error {
-	return self.RequestLiveMigrate(ctx, guest, userCred, api.GuestLiveMigrateInput{PreferHostId: input.PreferHostId}, task)
-}
-
-func (self *SCloudpodsESXiGuestDriver) RequestLiveMigrate(ctx context.Context, guest *models.SGuest, userCred mcclient.TokenCredential, input api.GuestLiveMigrateInput, task taskman.ITask) error {
-	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		iVM, err := guest.GetIVM(ctx)
-		if err != nil {
-			return nil, errors.Wrap(err, "guest.GetIVM")
-		}
-		iHost, err := models.HostManager.FetchById(input.PreferHostId)
-		if err != nil {
-			return nil, errors.Wrapf(err, "models.HostManager.FetchById(%s)", input.PreferHostId)
-		}
-		host := iHost.(*models.SHost)
-		hostExternalId := host.ExternalId
-		if err = iVM.LiveMigrateVM(hostExternalId); err != nil {
-			return nil, errors.Wrapf(err, "iVM.LiveMigrateVM(%s)", hostExternalId)
-		}
-		hostExternalId = iVM.GetIHostId()
-		if hostExternalId == "" {
-			return nil, errors.Wrap(fmt.Errorf("empty hostExternalId"), "iVM.GetIHostId()")
-		}
-		iHost, err = db.FetchByExternalIdAndManagerId(models.HostManager, hostExternalId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
-			if host, _ := guest.GetHost(); host != nil {
-				return q.Equals("manager_id", host.ManagerId)
-			}
-			return q
-		})
-		if err != nil {
-			return nil, errors.Wrapf(err, "db.FetchByExternalId(models.HostManager,%s)", hostExternalId)
-		}
-		host = iHost.(*models.SHost)
-		_, err = db.Update(guest, func() error {
-			guest.HostId = host.GetId()
-			return nil
-		})
-		if err != nil {
-			return nil, errors.Wrap(err, "db.Update guest.hostId")
-		}
-		disks, err := guest.GetDisks()
-		if err != nil {
-			return nil, errors.Wrapf(err, "GetDisks")
-		}
-		iRegion, err := host.GetIRegion(ctx)
-		if err != nil {
-			return nil, errors.Wrapf(err, "GetIRegion")
-		}
-		for i := range disks {
-			iDisk, err := iRegion.GetIDiskById(disks[i].ExternalId)
-			if err != nil {
-				return nil, errors.Wrapf(err, "GetIDisk(%s)", disks[i].ExternalId)
-			}
-			iStorage, err := db.FetchByExternalIdAndManagerId(models.StorageManager, iDisk.GetIStorageId(), func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
-				hcs := models.HoststorageManager.Query().SubQuery()
-				return q.Join(hcs, sqlchemy.Equals(hcs.Field("storage_id"), q.Field("id"))).Filter(sqlchemy.Equals(hcs.Field("host_id"), host.GetId()))
-			})
-			if err != nil {
-				return nil, errors.Wrapf(err, "FetchStorageByExternalId(%s)", iDisk.GetIStorageId())
-			}
-			storage := iStorage.(*models.SStorage)
-			_, err = db.Update(&disks[i], func() error {
-				disks[i].StorageId = storage.Id
-				return nil
-			})
-			if err != nil {
-				return nil, errors.Wrapf(err, "db.Update disk %s storageid", disks[i].Name)
-			}
-		}
-		return nil, nil
-	})
-	return nil
 }
 
 func (self *SCloudpodsESXiGuestDriver) RequestStartOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, userCred mcclient.TokenCredential, task taskman.ITask) error {
