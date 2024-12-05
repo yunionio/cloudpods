@@ -1096,13 +1096,13 @@ func syncHostVMs(ctx context.Context, userCred mcclient.TokenCredential, syncRes
 				return
 			}
 
-			syncVMPeripherals(ctx, userCred, syncVMPairs[i].Local, syncVMPairs[i].Remote, localHost, provider, driver)
+			SyncVMPeripherals(ctx, userCred, syncVMPairs[i].Local, syncVMPairs[i].Remote, localHost, provider, driver)
 		}()
 	}
 
 }
 
-func syncVMPeripherals(
+func SyncVMPeripherals(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
 	local *SGuest,
