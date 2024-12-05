@@ -1367,6 +1367,7 @@ func (self *SManagedVirtualizedGuestDriver) requestMigrate(ctx context.Context, 
 				return false, err
 			}
 			vmStatus := iVM.GetStatus()
+			log.Debugf("vm %s migrate status: %s", guest.Name, vmStatus)
 			if vmStatus == api.VM_UNKNOWN || strings.Contains(vmStatus, "fail") {
 				return false, errors.Wrapf(cloudprovider.ErrInvalidStatus, vmStatus)
 			}
@@ -1374,6 +1375,7 @@ func (self *SManagedVirtualizedGuestDriver) requestMigrate(ctx context.Context, 
 				return false, nil
 			}
 			hostId := iVM.GetIHostId()
+			log.Debugf("guest %s migrate from %s -> %s", guest.Name, hostExternalId, hostId)
 			if len(hostId) > 0 && hostId != hostExternalId {
 				hostExternalId = hostId
 				return true, nil
