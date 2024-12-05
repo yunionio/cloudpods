@@ -3068,7 +3068,7 @@ func (guest *SGuest) SyncAllWithCloudVM(ctx context.Context, userCred mcclient.T
 		return errors.Wrap(err, "guest.syncWithCloudVM")
 	}
 
-	syncVMPeripherals(ctx, userCred, guest, extVM, host, provider, driver)
+	SyncVMPeripherals(ctx, userCred, guest, extVM, host, provider, driver)
 
 	return nil
 }
