@@ -592,14 +592,6 @@ func (self *SCloudpodsESXiGuestDriver) IsSupportLiveMigrate() bool {
 	return true
 }
 
-func (self *SCloudpodsESXiGuestDriver) CheckMigrate(ctx context.Context, guest *models.SGuest, userCred mcclient.TokenCredential, input api.GuestMigrateInput) error {
-	return nil
-}
-
-func (self *SCloudpodsESXiGuestDriver) CheckLiveMigrate(ctx context.Context, guest *models.SGuest, userCred mcclient.TokenCredential, input api.GuestLiveMigrateInput) error {
-	return nil
-}
-
 func (self *SCloudpodsESXiGuestDriver) RequestMigrate(ctx context.Context, guest *models.SGuest, userCred mcclient.TokenCredential, input api.GuestMigrateInput, task taskman.ITask) error {
 	return self.RequestLiveMigrate(ctx, guest, userCred, api.GuestLiveMigrateInput{PreferHostId: input.PreferHostId}, task)
 }

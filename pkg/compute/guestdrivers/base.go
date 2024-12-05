@@ -421,11 +421,11 @@ func (drv *SBaseGuestDriver) IsSupportLiveMigrate() bool {
 }
 
 func (drv *SBaseGuestDriver) CheckMigrate(ctx context.Context, guest *models.SGuest, userCred mcclient.TokenCredential, input api.GuestMigrateInput) error {
-	return httperrors.NewNotAcceptableError("Not allow for hypervisor %s", guest.GetHypervisor())
+	return nil
 }
 
 func (drv *SBaseGuestDriver) CheckLiveMigrate(ctx context.Context, guest *models.SGuest, userCred mcclient.TokenCredential, input api.GuestLiveMigrateInput) error {
-	return httperrors.NewNotAcceptableError("Not allow for hypervisor %s", guest.GetHypervisor())
+	return nil
 }
 
 func (drv *SBaseGuestDriver) RequestMigrate(ctx context.Context, guest *models.SGuest, userCred mcclient.TokenCredential, input api.GuestMigrateInput, task taskman.ITask) error {
