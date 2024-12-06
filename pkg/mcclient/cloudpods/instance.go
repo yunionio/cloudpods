@@ -492,13 +492,17 @@ func (self *SRegion) CreateInstance(hostId, hypervisor string, opts *cloudprovid
 	input := api.ServerCreateInput{
 		ServerConfigs: &api.ServerConfigs{},
 	}
-	input.Name = opts.Name
+	input.GenerateName = opts.Name
 	input.Hostname = opts.Hostname
 	input.Description = opts.Description
 	input.InstanceType = opts.InstanceType
 	input.VcpuCount = opts.Cpu
 	input.VmemSize = opts.MemoryMB
 	input.Password = opts.Password
+	if len(input.Password) == 0 {
+		resetPasswd := false
+		input.ResetPassword = &resetPasswd
+	}
 	input.PublicIpBw = opts.PublicIpBw
 	input.PublicIpChargeType = string(opts.PublicIpChargeType)
 	input.ProjectId = opts.ProjectId
