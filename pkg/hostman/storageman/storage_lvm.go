@@ -335,6 +335,21 @@ func (s *SLVMStorage) saveToGlance(
 		return errors.Wrap(err, "deployclient.GetDeployClient().SaveToGlance")
 	}
 
+	if compress {
+		origin, err := qemuimg.NewQemuImage(imagePath)
+		if err != nil {
+			log.Errorln(err)
+			return err
+		}
+		if len(encryptKey) > 0 {
+			origin.SetPassword(encryptKey)
+		}
+		if err := origin.Convert2Qcow2(true, encryptKey, encFormat, encAlg); err != nil {
+			log.Errorln(err)
+			return err
+		}
+	}
+
 	f, err := os.Open(imagePath)
 	if err != nil {
 		return errors.Wrap(err, "open image")
@@ -576,7 +591,7 @@ func (s *SLVMStorage) CreateDiskFromBackup(ctx context.Context, disk IDisk, inpu
 	if info.Encryption {
 		err = newImg.CreateQcow2(int(img.SizeBytes/1024/1024), true, "", info.EncryptInfo.Key, qemuimg.EncryptFormatLuks, info.EncryptInfo.Alg)
 	} else {
-		err = newImg.CreateQcow2(0, false, "", "", "", "")
+		err = newImg.CreateQcow2(int(img.SizeBytes/1024/1024), false, "", "", "", "")
 	}
 	if err != nil {
 		return errors.Wrapf(err, "CreateQcow2(%s)", destImgPath)

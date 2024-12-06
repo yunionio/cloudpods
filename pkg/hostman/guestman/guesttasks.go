@@ -1292,11 +1292,22 @@ func (s *SGuestStreamDisksTask) onBlockDrivesSucc(blocks []monitor.QemuBlock) {
 			}
 
 			s.streamDevs = append(s.streamDevs, block.Device)
-			disk, err := storageman.GetManager().GetDiskByPath(block.Inserted.File)
+			insertedFile := block.Inserted.File
+			if strings.HasPrefix(block.Inserted.File, "json:") {
+				s := block.Inserted.File[len("json:"):]
+				insertedFileJson, err := jsonutils.ParseString(s)
+				if err != nil {
+					log.Errorf("failed parse inserted file %s", block.Inserted.File)
+				} else {
+					insertedFile, _ = insertedFileJson.GetString("file", "filename")
+				}
+			}
+
+			disk, err := storageman.GetManager().GetDiskByPath(insertedFile)
 			if err == nil && disk.GetType() == api.STORAGE_SLVM {
 				s.lvmBacking = append(s.lvmBacking, block.Inserted.BackingFile)
 			} else {
-				log.Errorf("failed get disk by path %s: %s", block.Inserted.File, err)
+				log.Errorf("failed get disk by path %s: %s", insertedFile, err)
 			}
 		}
 	}

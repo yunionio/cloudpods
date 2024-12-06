@@ -95,6 +95,10 @@ type SCachedimage struct {
 	// 镜像类型, system: 公有云镜像, customized: 自定义镜像
 	// example: system
 	ImageType string `width:"16" default:"customized" list:"user" index:"true"`
+
+	// 加密状态, "",encrypting,encrypted
+	EncryptStatus string `width:"16" charset:"ascii" nullable:"true" get:"user" list:"user"`
+	EncryptKeyId  string `width:"32" charset:"ascii" nullable:"true" get:"user" list:"user" create:"optional"`
 }
 
 func (manager *SCachedimageManager) GetResourceCount() ([]db.SScopeResourceCount, error) {
@@ -240,6 +244,9 @@ func (manager *SCachedimageManager) cacheGlanceImageInfo(ctx context.Context, us
 		ProjectId   string `json:"tenant_id"`
 		DomainId    string
 		PublicScope string
+
+		EncryptKeyId  string
+		EncryptStatus string
 	}{}
 	err := info.Unmarshal(&img)
 	if err != nil {
@@ -268,6 +275,8 @@ func (manager *SCachedimageManager) cacheGlanceImageInfo(ctx context.Context, us
 			imageCache.ProjectId = img.ProjectId
 			imageCache.DomainId = img.DomainId
 			imageCache.LastSync = timeutils.UtcNow()
+			imageCache.EncryptKeyId = img.EncryptKeyId
+			imageCache.EncryptStatus = img.EncryptStatus
 
 			err = manager.TableSpec().Insert(ctx, &imageCache)
 			if err != nil {
@@ -290,6 +299,9 @@ func (manager *SCachedimageManager) cacheGlanceImageInfo(ctx context.Context, us
 			imageCache.LastSync = timeutils.UtcNow()
 			imageCache.ProjectId = img.ProjectId
 			imageCache.DomainId = img.DomainId
+			imageCache.EncryptKeyId = img.EncryptKeyId
+			imageCache.EncryptStatus = img.EncryptStatus
+
 			if imageCache.Deleted == true {
 				imageCache.Deleted = false
 				imageCache.DeletedAt = time.Time{}
