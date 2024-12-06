@@ -23,7 +23,7 @@ var (
 	UNIFIED_MONITOR_FIELD_OPT_TYPE   = []string{"Aggregations", "Selectors"}
 	UNIFIED_MONITOR_GROUPBY_OPT_TYPE = []string{"time", "tag", "fill"}
 	UNIFIED_MONITOR_FIELD_OPT_VALUE  = map[string][]string{
-		"Aggregations": {"MEAN", "SUM"}, // {"COUNT", "DISTINCT", "INTEGRAL", "MEAN", "MEDIAN", "MODE", "STDDEV", "SUM"},
+		"Aggregations": {"MEAN", "SUM", "MAX", "MIN"}, // {"COUNT", "DISTINCT", "INTEGRAL", "MEAN", "MEDIAN", "MODE", "STDDEV", "SUM"},
 		"Selectors":    {"BOTTOM", "FIRST", "LAST", "MAX", "MIN", "TOP"},
 	}
 	UNIFIED_MONITOR_GROUPBY_OPT_VALUE = map[string][]string{

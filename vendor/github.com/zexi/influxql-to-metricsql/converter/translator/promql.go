@@ -20,6 +20,8 @@ const (
 	CALL_TOP        = "top"
 	CALL_PERCENTILE = "percentile"
 	CALL_SUM        = "sum"
+	CALL_MIN        = "min"
+	CALL_MAX        = "max"
 )
 
 var MUL_ARGS_AGGREGATOR MulArgsAggregator = []string{CALL_TOP, CALL_PERCENTILE}
@@ -280,6 +282,10 @@ func (m promQL) generateExpr(
 			switch opName {
 			case CALL_SUM:
 				op = promql.ItemSum
+			case CALL_MAX:
+				op = promql.ItemMax
+			case CALL_MIN:
+				op = promql.ItemMin
 			}
 			expr := &promql.AggregateExpr{
 				Op:   op,
@@ -351,12 +357,12 @@ func getAggrExpr(ops []*AggrOperator, expr promql.Expr) promql.Expr {
 	case "median":
 		// https://docs.victoriametrics.com/MetricsQL.html#median_over_time
 		expr = newAggrExpr("median_over_time", promql.ValueTypeMatrix, promql.ValueTypeVector, restExpr)
-	case "max":
+	/*case "max":
 		// https://docs.victoriametrics.com/MetricsQL.html#max_over_time
-		expr = newAggrExpr("max_over_time", promql.ValueTypeMatrix, promql.ValueTypeVector, restExpr)
+		expr = newAggrExpr("max", promql.ValueTypeMatrix, promql.ValueTypeVector, restExpr)
 	case "min":
 		// https://docs.victoriametrics.com/MetricsQL.html#min_over_time
-		expr = newAggrExpr("min_over_time", promql.ValueTypeMatrix, promql.ValueTypeVector, restExpr)
+		expr = newAggrExpr("min", promql.ValueTypeMatrix, promql.ValueTypeVector, restExpr)*/
 	case "mode":
 		// https://docs.victoriametrics.com/MetricsQL.html#mode_over_time
 		expr = newAggrExpr("mode_over_time", promql.ValueTypeMatrix, promql.ValueTypeVector, restExpr)
