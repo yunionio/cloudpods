@@ -10,6 +10,7 @@ import (
 	"time"
 
 	cadvisorfs "github.com/google/cadvisor/fs"
+	cadvisorapiv1 "github.com/google/cadvisor/info/v1"
 	cadvisorapiv2 "github.com/google/cadvisor/info/v2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -417,18 +418,16 @@ func (p *criStatsProvider) addProcessStats(
 	if info != nil {
 		ps.ProcessStats = cadvisorInfoToProcessStats(info)
 	}
-	if ps.ProcessStats == nil {
-		ps.ProcessStats = &ProcessStats{}
+	if cs.ProcessStats != nil {
+		if ps.ProcessStats == nil {
+			ps.ProcessStats = &ProcessStats{}
+		}
+		ps.ProcessStats.ProcessCount += cs.ProcessStats.ProcessCount
+		ps.ProcessStats.FdCount += cs.ProcessStats.FdCount
+		ps.ProcessStats.SocketCount += cs.ProcessStats.SocketCount
+		ps.ProcessStats.ThreadsCurrent += cs.ProcessStats.ThreadsCurrent
+		ps.ProcessStats.ThreadsMax += cs.ProcessStats.ThreadsMax
 	}
-	curPcPtr := ps.ProcessStats.ProcessCount
-	var curPc uint64
-	if curPcPtr != nil {
-		curPc = *curPcPtr
-	}
-	if cs.ProcessStats != nil && cs.ProcessStats.ProcessCount != nil {
-		curPc = *cs.ProcessStats.ProcessCount
-	}
-	ps.ProcessStats.ProcessCount = &curPc
 }
 
 // getFsInfo returns the information of the filesystem with the specified
@@ -467,9 +466,7 @@ func (p *criStatsProvider) makeContainerStats(stats *runtimeapi.ContainerStats, 
 	// process stats
 	cStats := getLatestContainerStatsById(stats.Attributes.GetId(), infos)
 	if cStats != nil {
-		if cStats.Processes != nil {
-			result.ProcessStats.ProcessCount = &cStats.Processes.ProcessCount
-		}
+		result.ProcessStats = convertToProcessStats(cStats.Processes)
 	}
 	if stats.Cpu != nil {
 		result.CPU.Time = metav1.NewTime(time.Unix(0, stats.Cpu.Timestamp))
@@ -541,6 +538,19 @@ func (p *criStatsProvider) makeContainerStats(stats *runtimeapi.ContainerStats, 
 	return result
 }
 
+func convertToProcessStats(cStats *cadvisorapiv1.ProcessStats) *ProcessStats {
+	if cStats == nil {
+		return nil
+	}
+	return &ProcessStats{
+		ProcessCount:   cStats.ProcessCount,
+		FdCount:        cStats.FdCount,
+		SocketCount:    cStats.SocketCount,
+		ThreadsCurrent: cStats.ThreadsCurrent,
+		ThreadsMax:     cStats.ThreadsMax,
+	}
+}
+
 func (p *criStatsProvider) makeContainerCPUAndMemoryStats(
 	stats *runtimeapi.ContainerStats,
 	container *runtimeapi.Container,
@@ -558,9 +568,7 @@ func (p *criStatsProvider) makeContainerCPUAndMemoryStats(
 	// process stats
 	cStats := getLatestContainerStatsById(stats.Attributes.GetId(), infos)
 	if cStats != nil {
-		if cStats.Processes != nil {
-			result.ProcessStats.ProcessCount = &cStats.Processes.ProcessCount
-		}
+		result.ProcessStats = convertToProcessStats(cStats.Processes)
 	}
 	if stats.Cpu != nil {
 		result.CPU.Time = metav1.NewTime(time.Unix(0, stats.Cpu.Timestamp))

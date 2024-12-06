@@ -30,16 +30,33 @@ const (
 	VOLUME_INODES_USED         = "inodes_used"
 	VOLUME_INODES_USED_PERCENT = "inodes_used_percent"
 
-	PROCESS_COUNT = "process_count"
+	PROCESS_COUNT   = "process_count"
+	FD_COUNT        = "fd_count"
+	SOCKET_COUNT    = "socket_count"
+	THREADS_CURRENT = "threads_current"
+	THREADS_MAX     = "threads_max"
 )
 
 type CadvisorProcessMetric struct {
+	// Number of processes
 	ProcessCount uint64 `json:"process_count"`
+	// Number of open file descriptors
+	FdCount uint64 `json:"fd_count,omitempty"`
+	// Number of sockets
+	SocketCount uint64 `json:"socket_count"`
+	// Number of threads currently in container
+	ThreadsCurrent uint64 `json:"threads_current,omitempty"`
+	// Maximum number of threads allowed in container
+	ThreadsMax uint64 `json:"threads_max,omitempty"`
 }
 
 func (m CadvisorProcessMetric) ToMap() map[string]interface{} {
 	return map[string]interface{}{
-		PROCESS_COUNT: m.ProcessCount,
+		PROCESS_COUNT:   m.ProcessCount,
+		FD_COUNT:        m.FdCount,
+		SOCKET_COUNT:    m.SocketCount,
+		THREADS_CURRENT: m.ThreadsCurrent,
+		THREADS_MAX:     m.ThreadsMax,
 	}
 }
 
@@ -311,7 +328,11 @@ func (m *SGuestMonitor) getCadvisorProcessMetric(stat *stats.ProcessStats) *Cadv
 		return nil
 	}
 	return &CadvisorProcessMetric{
-		ProcessCount: *stat.ProcessCount,
+		ProcessCount:   stat.ProcessCount,
+		FdCount:        stat.FdCount,
+		SocketCount:    stat.SocketCount,
+		ThreadsCurrent: stat.ThreadsCurrent,
+		ThreadsMax:     stat.ThreadsMax,
 	}
 }
 
