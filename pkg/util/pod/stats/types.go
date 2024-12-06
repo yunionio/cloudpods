@@ -326,7 +326,15 @@ type UserDefinedMetric struct {
 type ProcessStats struct {
 	// Number of processes
 	// +optional
-	ProcessCount *uint64 `json:"process_count,omitempty"`
+	ProcessCount uint64 `json:"process_count,omitempty"`
+	// Number of open file descriptors
+	FdCount uint64 `json:"fd_count,omitempty"`
+	// Number of sockets
+	SocketCount uint64 `json:"socket_count"`
+	// Number of threads currently in container
+	ThreadsCurrent uint64 `json:"threads_current,omitempty"`
+	// Maximum number of threads allowed in container
+	ThreadsMax uint64 `json:"threads_max,omitempty"`
 }
 
 const (

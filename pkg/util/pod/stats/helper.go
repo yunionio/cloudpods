@@ -188,6 +188,11 @@ func cadvisorInfoToProcessStats(info *cadvisorapiv2.ContainerInfo) *ProcessStats
 	if !found || cstat.Processes == nil {
 		return nil
 	}
-	num := cstat.Processes.ProcessCount
-	return &ProcessStats{ProcessCount: uint64Ptr(num)}
+	return &ProcessStats{
+		ProcessCount:   cstat.Processes.ProcessCount,
+		FdCount:        cstat.Processes.FdCount,
+		SocketCount:    cstat.Processes.SocketCount,
+		ThreadsCurrent: cstat.Processes.ThreadsCurrent,
+		ThreadsMax:     cstat.Processes.ThreadsMax,
+	}
 }

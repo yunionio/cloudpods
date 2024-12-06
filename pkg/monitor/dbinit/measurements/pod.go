@@ -16,6 +16,7 @@ package measurements
 
 import (
 	"fmt"
+	"strings"
 
 	"yunion.io/x/onecloud/pkg/apis/monitor"
 )
@@ -114,6 +115,26 @@ func newCadvisorProcessMetrics(displayType string) []SMetric {
 		{
 			Name:        "process_count",
 			DisplayName: fmt.Sprintf("%s process count", displayType),
+			Unit:        monitor.METRIC_UNIT_COUNT,
+		},
+		{
+			Name:        "threads_current",
+			DisplayName: fmt.Sprintf("%s threads currently count", displayType),
+			Unit:        monitor.METRIC_UNIT_COUNT,
+		},
+		{
+			Name:        "threads_max",
+			DisplayName: fmt.Sprintf("Maximum number of threads allowed in %s", strings.ToLower(displayType)),
+			Unit:        monitor.METRIC_UNIT_COUNT,
+		},
+		{
+			Name:        "fd_count",
+			DisplayName: fmt.Sprintf("%s open file descriptors count", displayType),
+			Unit:        monitor.METRIC_UNIT_COUNT,
+		},
+		{
+			Name:        "socket_count",
+			DisplayName: fmt.Sprintf("%s sockets count", displayType),
 			Unit:        monitor.METRIC_UNIT_COUNT,
 		},
 	}
