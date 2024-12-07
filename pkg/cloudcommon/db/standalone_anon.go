@@ -365,20 +365,21 @@ func (model *SStandaloneAnonResourceBase) SetOrganizationMetadataAll(ctx context
 			return errors.Wrap(err, "SetAllOrganization")
 		}
 	}
-	{
-		userTags := make(map[string]interface{})
-		for k, _ := range meta {
-			if strings.HasPrefix(k, ORGANIZATION_TAG_PREFIX) {
-				k = k[len(ORGANIZATION_TAG_PREFIX):]
-			}
-			k = USER_TAG_PREFIX + k
-			userTags[k] = "none"
-		}
-		err := Metadata.SetValuesWithLog(ctx, model, userTags, userCred)
-		if err != nil {
-			return errors.Wrap(err, "SetValuesWithLog userTags")
-		}
-	}
+	// 避免加入组织架构后，项目所在的层级会移除此项目
+	//{
+	//	userTags := make(map[string]interface{})
+	//	for k, _ := range meta {
+	//		if strings.HasPrefix(k, ORGANIZATION_TAG_PREFIX) {
+	//			k = k[len(ORGANIZATION_TAG_PREFIX):]
+	//		}
+	//		k = USER_TAG_PREFIX + k
+	//		userTags[k] = "none"
+	//	}
+	//	err := Metadata.SetValuesWithLog(ctx, model, userTags, userCred)
+	//	if err != nil {
+	//		return errors.Wrap(err, "SetValuesWithLog userTags")
+	//	}
+	//}
 	return nil
 }
 
