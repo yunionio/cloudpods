@@ -452,6 +452,10 @@ type SangForGuestCreateDiskTask struct {
 	NutanixGuestCreateDiskTask
 }
 
+type UisGuestCreateDiskTask struct {
+	NutanixGuestCreateDiskTask
+}
+
 func init() {
 	taskman.RegisterTask(GuestCreateBackupDisksTask{})
 	taskman.RegisterTask(GuestCreateDiskTask{})
@@ -462,4 +466,5 @@ func init() {
 	taskman.RegisterTask(NutanixGuestCreateDiskTask{})
 	taskman.RegisterTask(CloudpodsGuestCreateDiskTask{})
 	taskman.RegisterTask(SangForGuestCreateDiskTask{})
+	taskman.RegisterTask(UisGuestCreateDiskTask{})
 }
