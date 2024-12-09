@@ -806,7 +806,7 @@ func (c *SContainer) GetDetailsExecInfo(ctx context.Context, userCred mcclient.T
 }
 
 func (c *SContainer) PerformExecSync(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.ContainerExecSyncInput) (jsonutils.JSONObject, error) {
-	if c.Status != api.CONTAINER_STATUS_RUNNING {
+	if !api.ContainerRunningStatus.Has(c.GetStatus()) {
 		return nil, httperrors.NewInvalidStatusError("Can't exec container in status %s", c.Status)
 	}
 	return c.GetPodDriver().RequestExecSyncContainer(ctx, userCred, c, input)
