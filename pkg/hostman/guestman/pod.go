@@ -381,7 +381,7 @@ func (s *sPodGuestInstance) SyncStatus(reason string) {
 			},
 		}
 		if cs != nil {
-			if computeapi.ContainerRunningStatus.Has(cStatus) {
+			if computeapi.ContainerNoFailedRunningStatus.Has(cStatus) {
 				ctrStatusInput.RestartCount = 0
 			} else {
 				ctrStatusInput.RestartCount = cs.RestartCount
