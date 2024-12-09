@@ -201,6 +201,10 @@ func generateSMPOption(guestDesc *desc.SGuestDesc) string {
 	if len(guestDesc.MemDesc.Mem.Mems) > 0 {
 		startCpus = 1
 	}
+	if cpu.MaxCpus <= 0 {
+		return fmt.Sprintf("-smp cpus=%d", startCpus)
+	}
+
 	if cpu.MaxCpus%2 > 0 {
 		return fmt.Sprintf(
 			"-smp cpus=%d,maxcpus=%d", startCpus, cpu.MaxCpus,
@@ -828,7 +832,7 @@ func GenerateStartOptions(
 	opts = append(opts, nicOpts...)
 
 	if !input.GuestDesc.LightMode {
-		if input.QemuArch == Arch_aarch64 {
+		if input.QemuArch == Arch_aarch64 || input.QemuArch == Arch_loongarch64 {
 			if input.GuestDesc.Usb != nil {
 				opts = append(opts, generatePCIDeviceOption(input.GuestDesc.Usb.PCIDevice))
 				for _, device := range input.Devices {

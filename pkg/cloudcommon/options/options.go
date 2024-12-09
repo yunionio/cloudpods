@@ -74,10 +74,11 @@ type BaseOptions struct {
 
 	DefaultProcessTimeoutSeconds int `default:"60" help:"request process timeout, default is 60 seconds"`
 
-	EnableSsl   bool   `help:"Enable https"`
-	SslCaCerts  string `help:"ssl certificate ca root file, separating ca and cert file is not encouraged" alias:"ca-file"`
-	SslCertfile string `help:"ssl certification file, normally combines all the certificates in the chain" alias:"cert-file"`
-	SslKeyfile  string `help:"ssl certification private key file" alias:"key-file"`
+	EnableEtcdEndpointPuller bool   `help:"Enable etcd endpoint puller" default:"true"`
+	EnableSsl                bool   `help:"Enable https"`
+	SslCaCerts               string `help:"ssl certificate ca root file, separating ca and cert file is not encouraged" alias:"ca-file"`
+	SslCertfile              string `help:"ssl certification file, normally combines all the certificates in the chain" alias:"cert-file"`
+	SslKeyfile               string `help:"ssl certification private key file" alias:"key-file"`
 
 	NotifyAdminUsers  []string `default:"sysadmin" help:"System administrator user ID or name to notify system events, if domain is not default, specify domain as prefix ending with double backslash, e.g. domain\\\\user"`
 	NotifyAdminGroups []string `help:"System administrator group ID or name to notify system events, if domain is not default, specify domain as prefix ending with double backslash, e.g. domain\\\\group"`

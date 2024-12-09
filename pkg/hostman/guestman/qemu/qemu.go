@@ -39,8 +39,9 @@ const (
 type Arch string
 
 const (
-	Arch_x86_64  Arch = "x86_64"
-	Arch_aarch64 Arch = "aarch64"
+	Arch_x86_64      Arch = "x86_64"
+	Arch_aarch64     Arch = "aarch64"
+	Arch_loongarch64 Arch = "loongarch64"
 )
 
 const (

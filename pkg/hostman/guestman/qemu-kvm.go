@@ -127,6 +127,8 @@ func NewKVMGuestInstance(id string, manager *SGuestManager) *SKVMGuestInstance {
 	qemuArch := arch.Arch_x86_64
 	if manager.host.IsAarch64() {
 		qemuArch = arch.Arch_aarch64
+	} else if manager.host.IsLoongarch64() {
+		qemuArch = arch.Arch_loongarch64
 	}
 	return &SKVMGuestInstance{
 		SKVMInstanceRuntime: SKVMInstanceRuntime{

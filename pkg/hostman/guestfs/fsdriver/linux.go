@@ -116,6 +116,9 @@ func (l *sLinuxRootFs) DeployQgaService(rootFs IDiskPartition) error {
 		// qemu-ga has been installed
 		return nil
 	}
+	if !fileutils2.Exists(QGA_BINARY_PATH) {
+		return nil
+	}
 	output, err := procutils.NewCommand("cp", "-f",
 		QGA_BINARY_PATH, path.Join(rootFs.GetMountPath(), qemuGuestAgentPath)).Output()
 	if err != nil {
@@ -546,6 +549,8 @@ func (l *sLinuxRootFs) GetArch(rootFs IDiskPartition) string {
 					return apis.OS_ARCH_AARCH64
 				case elf.EM_ARM:
 					return apis.OS_ARCH_AARCH32
+				case elf.EM_LOONGARCH:
+					return apis.OS_ARCH_LOONGARCH64
 				}
 			}
 		}
@@ -768,6 +773,9 @@ func (l *sLinuxRootFs) IsCloudinitInstall() bool {
 }
 
 func (d *sLinuxRootFs) DeployTelegraf(config string) (bool, error) {
+	if !fileutils2.Exists(TELEGRAF_BINARY_PATH) {
+		return false, nil
+	}
 	var (
 		part             = d.GetPartition()
 		modeRwxOwner     = syscall.S_IRUSR | syscall.S_IWUSR | syscall.S_IXUSR
