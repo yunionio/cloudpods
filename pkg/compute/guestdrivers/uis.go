@@ -141,7 +141,7 @@ func (self *SUisGuestDriver) ValidateCreateData(ctx context.Context, userCred mc
 }
 
 func (self *SUisGuestDriver) GetGuestInitialStateAfterCreate() string {
-	return api.VM_RUNNING
+	return api.VM_READY
 }
 
 func (self *SUisGuestDriver) GetGuestInitialStateAfterRebuild() string {
