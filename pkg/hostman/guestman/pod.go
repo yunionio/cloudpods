@@ -62,6 +62,7 @@ import (
 	imagemod "yunion.io/x/onecloud/pkg/mcclient/modules/image"
 	"yunion.io/x/onecloud/pkg/util/cgrouputils/cpuset"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
+	"yunion.io/x/onecloud/pkg/util/mountutils"
 	"yunion.io/x/onecloud/pkg/util/pod"
 	"yunion.io/x/onecloud/pkg/util/pod/logs"
 	"yunion.io/x/onecloud/pkg/util/pod/nerdctl"
@@ -2155,6 +2156,7 @@ func (s *sPodGuestInstance) DoSnapshot(ctx context.Context, params *SDiskSnapsho
 		return nil, errors.Wrap(err, "EnsureBackupDir")
 	}
 	defer storageman.CleanupDirOrFile(tmpBackRootDir)
+	povTmpBackRootDir := []string{}
 	for _, vol := range vols {
 		drv := volume_mount.GetDriver(vol.Type)
 		if err := drv.Mount(s, input.ContainerId, vol); err != nil {
@@ -2179,27 +2181,51 @@ func (s *sPodGuestInstance) DoSnapshot(ctx context.Context, params *SDiskSnapsho
 				return nil, errors.Wrapf(err, "touch %s: %s", targetBindMntPath, out)
 			}
 		} else {
-			if out, err := procutils.NewRemoteCommandAsFarAsPossible("mkdir", "-p", targetBindMntPath).Output(); err != nil {
-				return nil, errors.Wrapf(err, "mkdir -p %s: %s", targetBindMntPath, out)
+			if err := volume_mount.EnsureDir(targetBindMntPath); err != nil {
+				return nil, errors.Wrap(err, "ensure dir")
 			}
 		}
 		// do bind mount
-		out, err := procutils.NewRemoteCommandAsFarAsPossible("mount", "--bind", mntPath, targetBindMntPath).Output()
-		if err != nil {
-			return nil, errors.Wrapf(err, "bind mount %s to %s: %s", mntPath, targetBindMntPath, out)
+		if err := mountutils.MountBind(mntPath, targetBindMntPath); err != nil {
+			return nil, errors.Wrapf(err, "bind mount %s to %s", mntPath, targetBindMntPath)
+		}
+		// process post overlay
+		diskDrv := drv.(disk.IVolumeMountDisk)
+		for _, pov := range vol.Disk.PostOverlay {
+			// bind mount post overlay dirs to tmpBackRootDir
+			upperDir, err := diskDrv.GetPostOverlayRootUpperDir(s, vol, input.ContainerId)
+			if err != nil {
+				return nil, errors.Wrapf(err, "get post overlay root upper dir: %s", jsonutils.Marshal(pov))
+			}
+			workDir, err := diskDrv.GetPostOverlayRootWorkDir(s, vol, input.ContainerId)
+			if err != nil {
+				return nil, errors.Wrapf(err, "get post overlay root upper dir: %s", jsonutils.Marshal(pov))
+			}
+			hostDiskRootPath, _ := diskDrv.GetHostDiskRootPath(s, vol)
+			for _, srcDir := range []string{upperDir, workDir} {
+				targetSubDir := strings.TrimPrefix(srcDir, hostDiskRootPath)
+				targetPovBindMntPath := filepath.Join(tmpBackRootDir, targetSubDir)
+				if err := mountutils.MountBind(srcDir, targetPovBindMntPath); err != nil {
+					return nil, errors.Wrap(err, "bind mount post overlay dir")
+				}
+				povTmpBackRootDir = append(povTmpBackRootDir, targetPovBindMntPath)
+			}
 		}
 	}
 	deferUmount := func() error {
 		for _, vol := range vols {
 			// unbind mount
-			// umount
+			for _, povPath := range povTmpBackRootDir {
+				if err := mountutils.Unmount(povPath); err != nil {
+					return errors.Wrapf(err, "umount bind point %s", povTmpBackRootDir)
+				}
+			}
 			targetBindMntPath := filepath.Join(tmpBackRootDir, vol.Disk.SubDirectory)
 			if vol.Disk.StorageSizeFile != "" {
 				targetBindMntPath = filepath.Join(tmpBackRootDir, vol.Disk.StorageSizeFile)
 			}
-			out, err := procutils.NewRemoteCommandAsFarAsPossible("umount", targetBindMntPath).Output()
-			if err != nil {
-				return errors.Wrapf(err, "umount bind point %s: %s", targetBindMntPath, out)
+			if err := mountutils.Unmount(targetBindMntPath); err != nil {
+				return errors.Wrapf(err, "umount bind point %s", targetBindMntPath)
 			}
 		}
 		if !isCtrRunning && !s.IsRunning() {

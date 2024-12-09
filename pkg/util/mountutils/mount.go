@@ -67,6 +67,18 @@ func MountOverlay(lowerDir []string, upperDir string, workDir string, mergedDir 
 	})
 }
 
+func MountBind(src, target string) error {
+	return mountWrap(target, func() error {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		bindArgs := []string{"--bind", src, target}
+		if out, err := procutils.NewRemoteCommandContextAsFarAsPossible(ctx, "mount", bindArgs...).Output(); err != nil {
+			return errors.Wrapf(err, "mount %v: %s", bindArgs, out)
+		}
+		return nil
+	})
+}
+
 func Unmount(mountPoint string) error {
 	err := unmount(mountPoint)
 	errs := []error{}

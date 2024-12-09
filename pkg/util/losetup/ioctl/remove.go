@@ -114,7 +114,7 @@ func DetachAndRemoveDevice(devPath string) error {
 	}
 
 	errs := []error{}
-	for i := 1; i <= 3; i++ {
+	for i := 1; i <= 5; i++ {
 		if err := removeDev(); err != nil {
 			err = errors.Wrapf(err, "remove loop device, %d times", i)
 			log.Warningf("remove device %s: %v", devPath, err)

@@ -40,11 +40,13 @@ type ContainerVolumeMountCephFS struct {
 }
 
 type ContainerVolumeMount struct {
-	Type     apis.ContainerVolumeMountType      `json:"type"`
-	Disk     *ContainerVolumeMountDisk          `json:"disk"`
-	HostPath *apis.ContainerVolumeMountHostPath `json:"host_path"`
-	Text     *apis.ContainerVolumeMountText     `json:"text"`
-	CephFS   *ContainerVolumeMountCephFS        `json:"ceph_fs"`
+	// 用于标识当前 pod volume mount 的唯一性
+	UniqueName string                             `json:"unique_name"`
+	Type       apis.ContainerVolumeMountType      `json:"type"`
+	Disk       *ContainerVolumeMountDisk          `json:"disk"`
+	HostPath   *apis.ContainerVolumeMountHostPath `json:"host_path"`
+	Text       *apis.ContainerVolumeMountText     `json:"text"`
+	CephFS     *ContainerVolumeMountCephFS        `json:"ceph_fs"`
 	// Mounted read-only if true, read-write otherwise (false or unspecified).
 	ReadOnly bool `json:"read_only"`
 	// Path within the container at which the volume should be mounted.  Must
