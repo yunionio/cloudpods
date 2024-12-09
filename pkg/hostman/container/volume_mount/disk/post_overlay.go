@@ -39,6 +39,26 @@ func (d disk) UnmountPostOverlays(pod volume_mount.IPodInfo, ctrId string, vm *h
 	return d.newPostOverlay().unmountPostOverlays(pod, ctrId, vm, ovs, clearLayers)
 }
 
+func (d disk) getPostOverlayRootPrefixDir(prefixDir string, pod volume_mount.IPodInfo, vm *hostapi.ContainerVolumeMount, ctrId string) (string, error) {
+	hostPath, err := d.GetHostDiskRootPath(pod, vm)
+	if err != nil {
+		return "", errors.Wrap(err, "get host disk root path")
+	}
+	uniqDir := ctrId
+	if vm.UniqueName != "" {
+		uniqDir = vm.UniqueName
+	}
+	return filepath.Join(hostPath, prefixDir, uniqDir), nil
+}
+
+func (d disk) GetPostOverlayRootWorkDir(pod volume_mount.IPodInfo, vm *hostapi.ContainerVolumeMount, ctrId string) (string, error) {
+	return d.getPostOverlayRootPrefixDir(POST_OVERLAY_PREFIX_WORK_DIR, pod, vm, ctrId)
+}
+
+func (d disk) GetPostOverlayRootUpperDir(pod volume_mount.IPodInfo, vm *hostapi.ContainerVolumeMount, ctrId string) (string, error) {
+	return d.getPostOverlayRootPrefixDir(POST_OVERLAY_PREFIX_UPPER_DIR, pod, vm, ctrId)
+}
+
 type iDiskPostOverlay interface {
 	mountPostOverlays(pod volume_mount.IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount, ovs []*apis.ContainerVolumeMountDiskPostOverlay) error
 	unmountPostOverlays(pod volume_mount.IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount, ovs []*apis.ContainerVolumeMountDiskPostOverlay, clearLayers bool) error
@@ -79,11 +99,12 @@ func (d diskPostOverlay) getPostOverlayDirWithPrefix(
 	ov *apis.ContainerVolumeMountDiskPostOverlay,
 	ensure bool,
 ) (string, error) {
-	hostPath, err := d.disk.getHostDiskRootPath(pod, vm)
+	rootPath, err := d.disk.getPostOverlayRootPrefixDir(prefixDir, pod, vm, ctrId)
 	if err != nil {
-		return "", errors.Wrap(err, "get host disk root path")
+		return "", errors.Wrap(err, "get post overlay root path")
 	}
-	workDir := filepath.Join(hostPath, prefixDir, ctrId, ov.ContainerTargetDir)
+
+	workDir := filepath.Join(rootPath, ov.ContainerTargetDir)
 	if ensure {
 		if err := volume_mount.EnsureDir(workDir); err != nil {
 			return "", errors.Wrapf(err, "make %s", workDir)

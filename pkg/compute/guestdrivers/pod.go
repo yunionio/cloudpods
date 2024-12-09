@@ -87,15 +87,26 @@ func (p *SPodDriver) ValidateCreateData(ctx context.Context, userCred mcclient.T
 		return nil, errors.Wrap(err, "validate port mappings")
 	}*/
 
-	sameName := ""
+	ctrNames := sets.NewString()
+	volUniqNames := sets.NewString()
 	for idx, ctr := range input.Pod.Containers {
 		if err := p.validateContainerData(ctx, userCred, idx, input.Name, ctr, input); err != nil {
 			return nil, errors.Wrapf(err, "data of %d container", idx)
 		}
-		if ctr.Name == sameName {
+		if ctrNames.Has(ctr.Name) {
 			return nil, httperrors.NewDuplicateNameError("same name %s of containers", ctr.Name)
 		}
-		sameName = ctr.Name
+		ctrNames.Insert(ctr.Name)
+		for volIdx := range ctr.VolumeMounts {
+			vol := ctr.VolumeMounts[volIdx]
+			if vol.UniqueName != "" {
+				if volUniqNames.Has(vol.UniqueName) {
+					return nil, httperrors.NewDuplicateNameError("same volume unique name %s", fmt.Sprintf("container %s volume_mount %d %s", ctr.Name, volIdx, vol.UniqueName))
+				} else {
+					volUniqNames.Insert(vol.UniqueName)
+				}
+			}
+		}
 	}
 
 	return input, nil

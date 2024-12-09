@@ -227,7 +227,24 @@ func (m *SContainerManager) ValidateSpecVolumeMounts(ctx context.Context, userCr
 	if err != nil {
 		return errors.Wrap(err, "GetVolumeMountRelations")
 	}
+
+	curCtrs, _ := m.GetContainersByPod(pod.GetId())
+	volUniqNames := sets.NewString()
+	for idx := range curCtrs {
+		for _, vol := range curCtrs[idx].Spec.VolumeMounts {
+			if vol.UniqueName != "" {
+				volUniqNames.Insert(vol.UniqueName)
+			}
+		}
+	}
 	for idx, vm := range spec.VolumeMounts {
+		if vm.UniqueName != "" {
+			if volUniqNames.Has(vm.UniqueName) {
+				return httperrors.NewDuplicateNameError("volume_mount unique_name %s", vm.UniqueName)
+			} else {
+				volUniqNames.Insert(vm.UniqueName)
+			}
+		}
 		newVm, err := m.ValidateSpecVolumeMount(ctx, userCred, pod, vm)
 		if err != nil {
 			return errors.Wrapf(err, "validate volume mount %s", jsonutils.Marshal(vm))
@@ -478,6 +495,7 @@ func (vm *ContainerVolumeMountRelation) toCephFSMount(fs *apis.ContainerVolumeMo
 
 func (vm *ContainerVolumeMountRelation) ToHostMount(ctx context.Context, userCred mcclient.TokenCredential) (*hostapi.ContainerVolumeMount, error) {
 	ret := &hostapi.ContainerVolumeMount{
+		UniqueName:     vm.VolumeMount.UniqueName,
 		Type:           vm.VolumeMount.Type,
 		Disk:           nil,
 		CephFS:         nil,

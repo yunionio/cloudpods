@@ -42,6 +42,11 @@ type IVolumeMountDisk interface {
 
 	MountPostOverlays(pod volume_mount.IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount, ovs []*apis.ContainerVolumeMountDiskPostOverlay) error
 	UnmountPostOverlays(pod volume_mount.IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount, ovs []*apis.ContainerVolumeMountDiskPostOverlay, clearLayers bool) error
+
+	GetHostDiskRootPath(pod volume_mount.IPodInfo, vm *hostapi.ContainerVolumeMount) (string, error)
+
+	GetPostOverlayRootWorkDir(pod volume_mount.IPodInfo, vm *hostapi.ContainerVolumeMount, ctrId string) (string, error)
+	GetPostOverlayRootUpperDir(pod volume_mount.IPodInfo, vm *hostapi.ContainerVolumeMount, ctrId string) (string, error)
 }
 
 type disk struct {
@@ -61,7 +66,7 @@ func (d disk) GetType() apis.ContainerVolumeMountType {
 	return apis.CONTAINER_VOLUME_MOUNT_TYPE_DISK
 }
 
-func (d disk) getHostDiskRootPath(pod volume_mount.IPodInfo, vm *hostapi.ContainerVolumeMount) (string, error) {
+func (d disk) GetHostDiskRootPath(pod volume_mount.IPodInfo, vm *hostapi.ContainerVolumeMount) (string, error) {
 	diskInput := vm.Disk
 	if diskInput == nil {
 		return "", httperrors.NewNotEmptyError("disk is nil")
@@ -71,7 +76,7 @@ func (d disk) getHostDiskRootPath(pod volume_mount.IPodInfo, vm *hostapi.Contain
 }
 
 func (d disk) getRuntimeMountHostPath(pod volume_mount.IPodInfo, vm *hostapi.ContainerVolumeMount) (string, error) {
-	hostPath, err := d.getHostDiskRootPath(pod, vm)
+	hostPath, err := d.GetHostDiskRootPath(pod, vm)
 	if err != nil {
 		return "", errors.Wrap(err, "get host disk root path")
 	}
@@ -253,6 +258,9 @@ func (d disk) Unmount(pod volume_mount.IPodInfo, ctrId string, vm *hostapi.Conta
 		if err := drv.DisconnectDisk(iDisk.GetPath(), mntPoint); err != nil {
 			return errors.Wrapf(err, "DisconnectDisk %s %s", iDisk.GetPath(), mntPoint)
 		}
+	}
+	if err := volume_mount.RemoveDir(mntPoint); err != nil {
+		return errors.Wrapf(err, "remove dir %s", mntPoint)
 	}
 	return nil
 }
