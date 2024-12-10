@@ -149,13 +149,13 @@ func (m *SContainerManager) ValidateCreateData(ctx context.Context, userCred mcc
 	}
 	pod := obj.(*SGuest)
 	input.GuestId = pod.GetId()
-	if err := m.ValidateSpec(ctx, userCred, &input.Spec, pod); err != nil {
+	if err := m.ValidateSpec(ctx, userCred, &input.Spec, pod, nil); err != nil {
 		return nil, errors.Wrap(err, "validate spec")
 	}
 	return input, nil
 }
 
-func (m *SContainerManager) ValidateSpec(ctx context.Context, userCred mcclient.TokenCredential, spec *api.ContainerSpec, pod *SGuest) error {
+func (m *SContainerManager) ValidateSpec(ctx context.Context, userCred mcclient.TokenCredential, spec *api.ContainerSpec, pod *SGuest, ctr *SContainer) error {
 	if spec.ImagePullPolicy == "" {
 		spec.ImagePullPolicy = apis.ImagePullPolicyIfNotPresent
 	}
@@ -169,7 +169,7 @@ func (m *SContainerManager) ValidateSpec(ctx context.Context, userCred mcclient.
 	}
 
 	if pod != nil {
-		if err := m.ValidateSpecVolumeMounts(ctx, userCred, pod, spec); err != nil {
+		if err := m.ValidateSpecVolumeMounts(ctx, userCred, pod, spec, ctr); err != nil {
 			return errors.Wrap(err, "ValidateSpecVolumeMounts")
 		}
 		for idx, dev := range spec.Devices {
@@ -222,7 +222,7 @@ func (m *SContainerManager) ValidateSpecDevice(ctx context.Context, userCred mcc
 	return drv.ValidateCreateData(ctx, userCred, pod, dev)
 }
 
-func (m *SContainerManager) ValidateSpecVolumeMounts(ctx context.Context, userCred mcclient.TokenCredential, pod *SGuest, spec *api.ContainerSpec) error {
+func (m *SContainerManager) ValidateSpecVolumeMounts(ctx context.Context, userCred mcclient.TokenCredential, pod *SGuest, spec *api.ContainerSpec, ctr *SContainer) error {
 	relation, err := m.GetVolumeMountRelations(pod, spec)
 	if err != nil {
 		return errors.Wrap(err, "GetVolumeMountRelations")
@@ -231,6 +231,9 @@ func (m *SContainerManager) ValidateSpecVolumeMounts(ctx context.Context, userCr
 	curCtrs, _ := m.GetContainersByPod(pod.GetId())
 	volUniqNames := sets.NewString()
 	for idx := range curCtrs {
+		if ctr != nil && ctr.GetId() == curCtrs[idx].GetId() {
+			continue
+		}
 		for _, vol := range curCtrs[idx].Spec.VolumeMounts {
 			if vol.UniqueName != "" {
 				volUniqNames.Insert(vol.UniqueName)
@@ -240,7 +243,7 @@ func (m *SContainerManager) ValidateSpecVolumeMounts(ctx context.Context, userCr
 	for idx, vm := range spec.VolumeMounts {
 		if vm.UniqueName != "" {
 			if volUniqNames.Has(vm.UniqueName) {
-				return httperrors.NewDuplicateNameError("volume_mount unique_name %s", vm.UniqueName)
+				return httperrors.NewDuplicateNameError("volume_mount unique_name %s", fmt.Sprintf("%s: %s, index: %d", vm.UniqueName, jsonutils.Marshal(vm), idx))
 			} else {
 				volUniqNames.Insert(vm.UniqueName)
 			}
@@ -426,7 +429,7 @@ func (c *SContainer) ValidateUpdateData(ctx context.Context, userCred mcclient.T
 	}
 	input.VirtualResourceBaseUpdateInput = baseInput
 
-	if err := GetContainerManager().ValidateSpec(ctx, userCred, &input.Spec, c.GetPod()); err != nil {
+	if err := GetContainerManager().ValidateSpec(ctx, userCred, &input.Spec, c.GetPod(), c); err != nil {
 		return nil, errors.Wrap(err, "validate spec")
 	}
 
