@@ -1657,8 +1657,11 @@ func (manager *SGuestManager) validateCreateData(
 			}
 		}
 
-		if arch := imgProperties["os_arch"]; strings.Contains(arch, "aarch") || strings.Contains(arch, "arm") {
+		arch := imgProperties["os_arch"]
+		if strings.Contains(arch, "aarch") || strings.Contains(arch, "arm") {
 			input.OsArch = apis.OS_ARCH_AARCH64
+		} else if arch == apis.OS_ARCH_LOONGARCH64 {
+			input.OsArch = apis.OS_ARCH_LOONGARCH64
 		}
 
 		var imgSupportUEFI *bool
@@ -1666,7 +1669,7 @@ func (manager *SGuestManager) validateCreateData(
 			support := desc == "true"
 			imgSupportUEFI = &support
 		}
-		if input.OsArch == apis.OS_ARCH_AARCH64 {
+		if input.OsArch == apis.OS_ARCH_AARCH64 || input.OsArch == apis.OS_ARCH_LOONGARCH64 {
 			// arm image supports UEFI by default
 			support := true
 			imgSupportUEFI = &support
