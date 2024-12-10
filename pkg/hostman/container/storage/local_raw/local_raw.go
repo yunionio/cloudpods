@@ -24,7 +24,6 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/container/storage"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/losetup"
-	losetupioctl "yunion.io/x/onecloud/pkg/util/losetup/ioctl"
 )
 
 func init() {
@@ -78,7 +77,8 @@ func (l localRaw) DisconnectDisk(diskPath string, mountPoint string) error {
 	for _, dev := range devs.LoopDevs {
 		if dev.BackFile == diskPath {
 			log.Infof("Start detach loop device %s", dev.Name)
-			if err := losetupioctl.DetachAndRemoveDevice(dev.Name); err != nil {
+			//if err := losetupioctl.DetachAndRemoveDevice(dev.Name); err != nil {
+			if err := losetup.DetachDevice(dev.Name); err != nil {
 				if strings.Contains(err.Error(), "No such device or address") {
 					return nil
 				}
