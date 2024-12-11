@@ -36,6 +36,8 @@ type WebConsoleOptions struct {
 
 	EnableWatermark        bool `help:"enable water mark" default:"false"`
 	EnableCommandRecording bool `help:"enable command recording" default:"false"`
+
+	KeepWebsocketSession bool `help:"keep websocket session" default:"false"`
 }
 
 func OnOptionsChange(oldO, newO interface{}) bool {
