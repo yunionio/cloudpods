@@ -278,7 +278,9 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		delSftpClient(s.Session.Id)
 		s.sftp.Close()
 		s.conn.Close()
-		s.Session.Close()
+		if !options.Options.KeepWebsocketSession {
+			s.Session.Close()
+		}
 		keepAliveDone <- struct{}{}
 	}()
 
