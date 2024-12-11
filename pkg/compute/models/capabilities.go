@@ -863,6 +863,8 @@ func getIsolatedDeviceInfo(ctx context.Context, userCred mcclient.TokenCredentia
 		subq := getRegionZoneSubq(region)
 		q = q.Join(hosts, sqlchemy.Equals(devices.Field("host_id"), hosts.Field("id")))
 		q = q.Filter(sqlchemy.In(hosts.Field("zone_id"), subq))
+	} else {
+		q = q.Join(hosts, sqlchemy.Equals(devices.Field("host_id"), hosts.Field("id")))
 	}
 	/*if len(domainId) > 0 {
 		subq := getDomainManagerSubq(domainId)
