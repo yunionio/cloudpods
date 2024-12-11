@@ -23,7 +23,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/hostman/container/storage"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
-	"yunion.io/x/onecloud/pkg/util/losetup"
+	losetupman "yunion.io/x/onecloud/pkg/util/losetup/manager"
 )
 
 func init() {
@@ -41,7 +41,7 @@ func (l localRaw) GetType() storage.StorageType {
 }
 
 func (l localRaw) CheckConnect(diskPath string) (string, bool, error) {
-	devs, err := losetup.ListDevices()
+	devs, err := losetupman.ListDevices()
 	if err != nil {
 		return "", false, errors.Wrap(err, "list loop devices")
 	}
@@ -54,7 +54,7 @@ func (l localRaw) CheckConnect(diskPath string) (string, bool, error) {
 }
 
 func (l localRaw) ConnectDisk(diskPath string) (string, error) {
-	loDev, err := losetup.AttachDevice(diskPath, true)
+	loDev, err := losetupman.AttachDevice(diskPath, true)
 	if err != nil {
 		return "", errors.Wrapf(err, "failed to attach %s as loop device", diskPath)
 	}
@@ -70,7 +70,7 @@ func (l localRaw) checkPartition(devName string) string {
 }
 
 func (l localRaw) DisconnectDisk(diskPath string, mountPoint string) error {
-	devs, err := losetup.ListDevices()
+	devs, err := losetupman.ListDevices()
 	if err != nil {
 		return errors.Wrap(err, "list loop devices")
 	}
@@ -78,7 +78,7 @@ func (l localRaw) DisconnectDisk(diskPath string, mountPoint string) error {
 		if dev.BackFile == diskPath {
 			log.Infof("Start detach loop device %s", dev.Name)
 			//if err := losetupioctl.DetachAndRemoveDevice(dev.Name); err != nil {
-			if err := losetup.DetachDevice(dev.Name); err != nil {
+			if err := losetupman.DetachDevice(dev.Name); err != nil {
 				if strings.Contains(err.Error(), "No such device or address") {
 					return nil
 				}
