@@ -149,7 +149,7 @@ func (m *cphAOSPBinderManager) ensureBinderDevice(ctrName string, dev *hostapi.C
 	binderDev := func(devName string) string {
 		return m.getBinderHostDevPath(ctrName, devName)
 	}
-	if fileutils2.Exists(binderDev("binder")) && fileutils2.Exists(binderDev("vndbinder")) && fileutils2.Exists("hwbinder") {
+	if fileutils2.Exists(binderDev("binder")) && fileutils2.Exists(binderDev("vndbinder")) && fileutils2.Exists(binderDev("hwbinder")) {
 		return nil
 	}
 	if out, err := procutils.NewRemoteCommandAsFarAsPossible(binderBin, ctrName).Output(); err != nil {
