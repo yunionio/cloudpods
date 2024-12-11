@@ -50,11 +50,15 @@ type zoneSchedtagInputW struct {
 func (p *ZoneSchedtagPredicate) GetInputs(u *core.Unit) []ISchedtagCustomer {
 	data := u.SchedData()
 	tags := data.Schedtags
+	schedtags := GetInputSchedtagByType(tags, computemodels.ZoneManager.KeywordPlural())
+	if len(schedtags) == 0 {
+		return nil
+	}
 	return []ISchedtagCustomer{
 		&zoneSchedtagInputW{
 			schedData: data,
 			zone:      data.PreferZone,
-			schedtags: GetInputSchedtagByType(tags, computemodels.ZoneManager.KeywordPlural()),
+			schedtags: schedtags,
 		},
 	}
 }

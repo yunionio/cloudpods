@@ -174,9 +174,24 @@ func (g *GenericScheduler) Schedule(unit *Unit, candidates []Candidater, helper 
 	return helper.ResultHelp(itemList, unit.SchedInfo), nil
 }
 
-func newSchedResultByCtx(u *Unit, count int64, c Candidater) *SchedResultItem {
+func doSelect(u *Unit, candidate Candidater, count int64) {
+	plugins := u.AllSelectPlugins()
+	analysor := newPredicateAnalysor("do select for " + candidate.IndexKey())
+	defer analysor.ShowResult()
+	for _, plugin := range plugins {
+		an := fmt.Sprintf("selected plugin: %s for %s", plugin.Name(), candidate.IndexKey())
+		analysor.Start(an)
+		plugin.OnSelectEnd(u, candidate, count)
+		analysor.End(an, time.Now())
+	}
+}
+
+func newSchedResultByCtx(u *Unit, count int64, c Candidater, useSelect bool) *SchedResultItem {
 	showDetails := u.SchedInfo.ShowSuggestionDetails
 	id := c.IndexKey()
+	if useSelect {
+		doSelect(u, c, count)
+	}
 	r := &SchedResultItem{
 		ID:                id,
 		Count:             count,
@@ -202,7 +217,7 @@ func generateScheduleResult(u *Unit, scs []*SelectedCandidate, fcs []Candidater)
 
 	for _, it := range scs {
 		cid := it.Candidate.IndexKey()
-		r := newSchedResultByCtx(u, it.Count, it.Candidate)
+		r := newSchedResultByCtx(u, it.Count, it.Candidate, false)
 		results = append(results, r)
 		itemMap[cid] = 1
 	}
@@ -215,7 +230,7 @@ func generateScheduleResult(u *Unit, scs []*SelectedCandidate, fcs []Candidater)
 		id := c.IndexKey()
 		if _, ok := itemMap[id]; !ok && u.GetCapacity(id) > 0 {
 			itemMap[id] = 1
-			r := newSchedResultByCtx(u, 0, c)
+			r := newSchedResultByCtx(u, 0, c, true)
 			results = append(results, r)
 		}
 	}
@@ -229,7 +244,7 @@ func generateScheduleResult(u *Unit, scs []*SelectedCandidate, fcs []Candidater)
 			id := c.IndexKey()
 			if _, ok := itemMap[id]; !ok {
 				itemMap[id] = 0
-				r := newSchedResultByCtx(u, 0, c)
+				r := newSchedResultByCtx(u, 0, c, true)
 				results = append(results, r)
 			}
 		}
@@ -339,8 +354,6 @@ func SelectHosts(unit *Unit, priorityList HostPriorityList) ([]*SelectedCandidat
 	bestEffort := unit.SchedInfo.BestEffort
 	selectedCandidates := []*SelectedCandidate{}
 
-	plugins := unit.AllSelectPlugins()
-
 	sort.Sort(sort.Reverse(priorityList))
 
 completed:
@@ -376,18 +389,21 @@ completed:
 		//sort.Sort(sort.Reverse(priorityList))
 	}
 
+	analysor := newPredicateAnalysor("select Execute")
+	defer analysor.ShowResult()
 	for _, sc := range selectedMap {
-		for _, plugin := range plugins {
-			plugin.OnSelectEnd(unit, sc.Candidate, sc.Count)
-		}
+		doSelect(unit, sc.Candidate, sc.Count)
 		selectedCandidates = append(selectedCandidates, sc)
 	}
-	// hack: not selected host should also execute OnSelectEnd step to inject result of network and storage candiates
-	for _, nsc := range noSelectedMap {
+	// hack: not selected host should also execute OnSelectEnd step to inject result of network and storage candidates
+	/*for _, nsc := range noSelectedMap {
 		for _, plugin := range plugins {
+			an := fmt.Sprintf("not selected plugin: %s for %s", plugin.Name(), nsc.IndexKey())
+			analysor.Start(an)
 			plugin.OnSelectEnd(unit, nsc, 0)
+			analysor.End(an, time.Now())
 		}
-	}
+	}*/
 
 	if !isSuggestion && !bestEffort {
 		if count > 0 {
@@ -535,13 +551,13 @@ func unitFitsOnCandidate(
 		return NewSchedLog(candidateLogIndex, stage, messages, !fit)
 	}
 
-	// analysor := newPredicateAnalysor("predicate Execute")
-	// defer analysor.ShowResult()
+	analysor := newPredicateAnalysor("predicate Execute")
+	defer analysor.ShowResult()
 	for _, predicate := range predicates {
-		// n := fmt.Sprintf("%s for %s", predicate.Name(), candidate.Getter().Name())
-		// analysor.Start(n)
+		n := fmt.Sprintf("%s for %s", predicate.Name(), candidate.Getter().Name())
+		analysor.Start(n)
 		fit, reasons, err = predicate.Execute(unit, candidate)
-		// analysor.End(n, time.Now())
+		analysor.End(n, time.Now())
 		logs = append(logs, toLog(fit, reasons, err, predicate.Name()))
 		if err != nil {
 			return false, nil, err
