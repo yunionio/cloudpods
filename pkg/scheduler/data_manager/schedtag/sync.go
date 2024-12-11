@@ -133,13 +133,14 @@ func (m *dataManager) syncOnce() {
 	startTime := time.Now()
 
 	if err := func() error {
-		m.tagMan = newSchedtagManagerWithoutInit()
-		if err := m.tagMan.initAllSchedtags(); err != nil {
+		tagMan := newSchedtagManagerWithoutInit()
+		if err := tagMan.initAllSchedtags(); err != nil {
 			return errors.Wrap(err, "initAllSchedtags")
 		}
-		if err := m.tagMan.initDynamicschedtags(); err != nil {
+		if err := tagMan.initDynamicschedtags(); err != nil {
 			return errors.Wrap(err, "initResourceSchedtags")
 		}
+		m.tagMan = tagMan
 		return nil
 	}(); err != nil {
 		log.Errorf("Schedtag sync data error: %v", err)

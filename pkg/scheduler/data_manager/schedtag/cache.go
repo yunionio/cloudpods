@@ -31,21 +31,15 @@ type iCache interface {
 
 type cache struct {
 	sync.Map
-
-	mutex sync.Mutex
 }
 
 func newCache() iCache {
 	return &cache{
-		Map:   sync.Map{},
-		mutex: sync.Mutex{},
+		Map: sync.Map{},
 	}
 }
 
 func (c *cache) get(key string, newFunc func() (interface{}, error)) (interface{}, error) {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-
 	start := time.Now()
 	defer func() {
 		log.Errorf("+++get key %q elpased: %s", key, time.Since(start))
