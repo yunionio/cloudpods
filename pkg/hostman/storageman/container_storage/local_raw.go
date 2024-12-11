@@ -23,7 +23,7 @@ import (
 	hostapi "yunion.io/x/onecloud/pkg/apis/host"
 	"yunion.io/x/onecloud/pkg/hostman/isolated_device"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
-	"yunion.io/x/onecloud/pkg/util/losetup"
+	losetupman "yunion.io/x/onecloud/pkg/util/losetup/manager"
 )
 
 func init() {
@@ -55,7 +55,7 @@ func (l localLoopDiskManager) NewContainerDevices(_ *hostapi.ContainerCreateInpu
 		return nil, nil, errors.Errorf("disk %s format isn't raw", dev.Id)
 	}
 	dPath := disk.GetPath()
-	loDev, err := losetup.AttachDevice(dPath, false)
+	loDev, err := losetupman.AttachDevice(dPath, false)
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "failed to attach %s as loop device", dPath)
 	}
