@@ -260,6 +260,7 @@ func (p *SPodDriver) RequestGuestHotAddIso(ctx context.Context, guest *models.SG
 }
 
 func (p *SPodDriver) PerformStart(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, data *jsonutils.JSONDict, parentTaskId string) error {
+	guest.SetStatus(ctx, userCred, api.VM_START_START, "")
 	task, err := taskman.TaskManager.NewTask(ctx, "PodStartTask", guest, userCred, nil, parentTaskId, "", nil)
 	if err != nil {
 		return errors.Wrap(err, "New PodStartTask")
