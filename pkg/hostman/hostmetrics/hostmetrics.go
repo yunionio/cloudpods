@@ -23,6 +23,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/cadvisor/utils/sysfs"
 	"github.com/shirou/gopsutil/host"
 	psnet "github.com/shirou/gopsutil/v3/net"
 	"github.com/shirou/gopsutil/v3/process"
@@ -562,6 +563,7 @@ type SGuestMonitor struct {
 	ProjectDomain  string
 	podStat        *stats.PodStats
 	instance       guestman.GuestRuntimeInstance
+	sysFs          sysfs.SysFs
 }
 
 func NewGuestMonitor(instance guestman.GuestRuntimeInstance, name, id string, pid int, nics []*desc.SGuestNetwork, cpuCount int) (*SGuestMonitor, error) {
@@ -599,6 +601,7 @@ func newGuestMonitor(instance guestman.GuestRuntimeInstance, name, id string, pr
 		Ip:       ip,
 		Process:  proc,
 		instance: instance,
+		sysFs:    sysfs.NewRealSysFs(),
 	}, nil
 }
 

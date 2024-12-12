@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package hostmetrics
 
 import (
@@ -65,6 +79,7 @@ type PodMetrics struct {
 	PodMemory  *PodMemoryMetric    `json:"pod_memory"`
 	PodProcess *PodProcessMetric   `json:"pod_process"`
 	PodVolumes []*PodVolumeMetric  `json:"pod_volume"`
+	PodDiskIos PodDiskIoMetrics    `json:"pod_disk_ios"`
 	Containers []*ContainerMetrics `json:"containers"`
 }
 
@@ -145,6 +160,85 @@ type PodVolumeMetric struct {
 	Tags              map[string]string `json:"tags"`
 }
 
+type CadvisorDiskIoMetric struct {
+	Device string `json:"device"`
+	//AsyncBytes   uint64 `json:"async_bytes"`
+	//DiscardBytes uint64 `json:"discard_bytes"`
+	ReadBytes  uint64 `json:"read_bytes"`
+	WriteBytes uint64 `json:"write_bytes"`
+	//TotalBytes   uint64 `json:"total_bytes"`
+	//AsyncCount   uint64 `json:"async_count"`
+	//DiscardCount uint64 `json:"discard_count"`
+	ReadCount  uint64 `json:"read_count"`
+	WriteCount uint64 `json:"write_count"`
+	//TotalCount   uint64 `json:"total_count"`
+
+	ReadIOPS  float64 `json:"read_iops"`
+	WriteIOPS float64 `json:"write_iops"`
+	ReadBPS   float64 `json:"read_Bps"`
+	WriteBPS  float64 `json:"write_Bps"`
+}
+
+func (m CadvisorDiskIoMetric) GetTag() map[string]string {
+	return map[string]string{
+		"device": m.Device,
+	}
+}
+
+func (m CadvisorDiskIoMetric) ToMap() map[string]interface{} {
+	return map[string]interface{}{
+		"read_bytes":  m.ReadBytes,
+		"write_bytes": m.WriteBytes,
+		"read_Bps":    m.ReadBPS,
+		"write_Bps":   m.WriteBPS,
+		"read_count":  m.ReadCount,
+		"write_count": m.WriteCount,
+		"read_iops":   m.ReadIOPS,
+		"write_iops":  m.WriteIOPS,
+	}
+}
+
+type PodDiskIoMetrics map[string]*PodDiskIoMetric
+
+func newPodDiskIoMetrics(metrics map[string]CadvisorDiskIoMetric, meta PodMetricMeta) PodDiskIoMetrics {
+	ret := make(map[string]*PodDiskIoMetric)
+	for k, v := range metrics {
+		ret[k] = &PodDiskIoMetric{
+			PodMetricMeta:        meta,
+			CadvisorDiskIoMetric: v,
+		}
+	}
+	return ret
+}
+
+func (m PodDiskIoMetrics) ToCadvisorDiskIoMetrics() map[string]CadvisorDiskIoMetric {
+	ret := make(map[string]CadvisorDiskIoMetric)
+	for k, v := range m {
+		ret[k] = v.CadvisorDiskIoMetric
+	}
+	return ret
+}
+
+func (m PodDiskIoMetrics) GetTime() time.Time {
+	for _, v := range m {
+		return v.Time
+	}
+	return time.Time{}
+}
+
+type PodDiskIoMetric struct {
+	PodMetricMeta
+	CadvisorDiskIoMetric
+}
+
+func (m PodDiskIoMetric) GetName() string {
+	return "pod_diskio"
+}
+
+func (m PodDiskIoMetric) GetTag() map[string]string {
+	return m.CadvisorDiskIoMetric.GetTag()
+}
+
 func (m PodVolumeMetric) GetName() string {
 	return "pod_volume"
 }
@@ -179,10 +273,32 @@ func (m PodVolumeMetric) GetTag() map[string]string {
 	return baseTags
 }
 
+type ContainerDiskIoMetrics map[string]*ContainerDiskIoMetric
+
+func newContainerDiskioMetrics(metrics map[string]CadvisorDiskIoMetric, meta ContainerMetricMeta) ContainerDiskIoMetrics {
+	ret := make(map[string]*ContainerDiskIoMetric)
+	for k, v := range metrics {
+		ret[k] = &ContainerDiskIoMetric{
+			ContainerMetricMeta:  meta,
+			CadvisorDiskIoMetric: v,
+		}
+	}
+	return ret
+}
+
+func (m ContainerDiskIoMetrics) ToCadvisorDiskIoMetrics() map[string]CadvisorDiskIoMetric {
+	ret := make(map[string]CadvisorDiskIoMetric)
+	for k, v := range m {
+		ret[k] = v.CadvisorDiskIoMetric
+	}
+	return ret
+}
+
 type ContainerMetrics struct {
 	ContainerCpu     *ContainerCpuMetric     `json:"container_cpu"`
 	ContainerMemory  *ContainerMemoryMetric  `json:"container_memory"`
 	ContainerProcess *ContainerProcessMetric `json:"container_process"`
+	ContainerDiskIos ContainerDiskIoMetrics  `json:"container_diskios"`
 }
 
 type ContainerMetricMeta struct {
@@ -247,6 +363,23 @@ type ContainerProcessMetric struct {
 
 func (m ContainerProcessMetric) GetName() string {
 	return "container_process"
+}
+
+type ContainerDiskIoMetric struct {
+	ContainerMetricMeta
+	CadvisorDiskIoMetric
+}
+
+func (m ContainerDiskIoMetric) GetName() string {
+	return "container_diskio"
+}
+
+func (m *ContainerDiskIoMetric) GetTag() map[string]string {
+	baseTags := m.ContainerMetricMeta.GetTag()
+	for k, v := range m.CadvisorDiskIoMetric.GetTag() {
+		baseTags[k] = v
+	}
+	return baseTags
 }
 
 func GetPodStatsById(stats []stats.PodStats, podId string) *stats.PodStats {
@@ -336,10 +469,36 @@ func (m *SGuestMonitor) getCadvisorProcessMetric(stat *stats.ProcessStats) *Cadv
 	}
 }
 
+func (m *SGuestMonitor) getCadvisorDiskIoMetrics(cur stats.DiskIoStats, prev map[string]CadvisorDiskIoMetric, curTime, prevTime time.Time) map[string]CadvisorDiskIoMetric {
+	ret := make(map[string]CadvisorDiskIoMetric)
+	for devName, stat := range cur {
+		devR := CadvisorDiskIoMetric{
+			Device:     stat.DeviceName,
+			ReadCount:  stat.ReadCount,
+			WriteCount: stat.WriteCount,
+			ReadBytes:  stat.ReadBytes,
+			WriteBytes: stat.WriteBytes,
+		}
+		diffTime := float64(curTime.Sub(prevTime) / time.Second)
+		if diffTime > 0 && prev != nil {
+			prevStat, ok := prev[devName]
+			if ok {
+				devR.ReadBPS = float64(stat.ReadBytes-prevStat.ReadBytes) / diffTime
+				devR.WriteBPS = float64(stat.WriteBytes-prevStat.WriteBytes) / diffTime
+				devR.ReadIOPS = float64(stat.ReadCount-prevStat.ReadCount) / diffTime
+				devR.WriteIOPS = float64(stat.WriteCount-prevStat.WriteCount) / diffTime
+			}
+		}
+		ret[devName] = devR
+	}
+	return ret
+}
+
 func (m *SGuestMonitor) PodMetrics(prevUsage *GuestMetrics) *PodMetrics {
 	stat := m.podStat
+	curTime := stat.CPU.Time.Time
 	podCpu := &PodCpuMetric{
-		PodMetricMeta:        NewPodMetricMeta(stat.CPU.Time.Time),
+		PodMetricMeta:        NewPodMetricMeta(curTime),
 		CpuUsageSecondsTotal: float64(*stat.CPU.UsageCoreNanoSeconds) / float64(time.Second),
 	}
 	hasPrevUsage := prevUsage != nil && prevUsage.PodMetrics != nil
@@ -355,21 +514,23 @@ func (m *SGuestMonitor) PodMetrics(prevUsage *GuestMetrics) *PodMetrics {
 
 	containers := make([]*ContainerMetrics, 0)
 	for _, ctr := range stat.Containers {
-		meta := NewContainerMetricMeta(m.Id, "", ctr.Name, ctr.CPU.Time.Time)
+		ctrMeta := NewContainerMetricMeta(m.Id, "", ctr.Name, ctr.CPU.Time.Time)
 		cm := &ContainerMetrics{
 			ContainerCpu: &ContainerCpuMetric{
-				ContainerMetricMeta:  meta,
+				ContainerMetricMeta:  ctrMeta,
 				CpuUsageSecondsTotal: float64(*ctr.CPU.UsageCoreNanoSeconds) / float64(time.Second),
 			},
 			ContainerMemory: &ContainerMemoryMetric{
-				ContainerMetricMeta:   meta,
+				ContainerMetricMeta:   ctrMeta,
 				MemoryWorkingSetBytes: float64(*ctr.Memory.WorkingSetBytes),
 				MemoryUsageRate:       (float64(*ctr.Memory.WorkingSetBytes) / float64(m.MemMB*1024*1024)) * 100,
 			},
 		}
+		var prevCtrM *ContainerMetrics
 		if hasPrevUsage {
 			for _, prevCtr := range prevUsage.PodMetrics.Containers {
 				if prevCtr.ContainerCpu.ContainerName == ctr.Name {
+					prevCtrM = prevCtr
 					val := (cm.ContainerCpu.CpuUsageSecondsTotal - prevCtr.ContainerCpu.CpuUsageSecondsTotal) / cm.ContainerCpu.Time.Sub(prevCtr.ContainerCpu.Time).Seconds() * 100
 					cm.ContainerCpu.CpuUsageRate = &val
 					break
@@ -378,9 +539,19 @@ func (m *SGuestMonitor) PodMetrics(prevUsage *GuestMetrics) *PodMetrics {
 		}
 		if ctr.ProcessStats != nil {
 			cm.ContainerProcess = &ContainerProcessMetric{
-				ContainerMetricMeta:   meta,
+				ContainerMetricMeta:   ctrMeta,
 				CadvisorProcessMetric: m.getCadvisorProcessMetric(ctr.ProcessStats),
 			}
+		}
+		if ctr.DiskIo != nil {
+			var prevStat map[string]CadvisorDiskIoMetric
+			var prevTime = ctrMeta.Time
+			if prevCtrM != nil {
+				if prevCtrM.ContainerDiskIos != nil {
+					prevStat = prevCtrM.ContainerDiskIos.ToCadvisorDiskIoMetrics()
+				}
+			}
+			cm.ContainerDiskIos = newContainerDiskioMetrics(m.getCadvisorDiskIoMetrics(ctr.DiskIo, prevStat, ctrMeta.Time, prevTime), ctrMeta)
 		}
 		containers = append(containers, cm)
 	}
@@ -390,13 +561,29 @@ func (m *SGuestMonitor) PodMetrics(prevUsage *GuestMetrics) *PodMetrics {
 			CadvisorProcessMetric: m.getCadvisorProcessMetric(stat.ProcessStats),
 		}
 	}
-	return &PodMetrics{
+
+	pm := &PodMetrics{
 		PodCpu:     podCpu,
 		PodMemory:  podMemory,
 		PodProcess: podProcess,
 		PodVolumes: m.getVolumeMetrics(),
 		Containers: containers,
 	}
+
+	if stat.DiskIo != nil {
+		var prevStat map[string]CadvisorDiskIoMetric
+		var prevTime = curTime
+		if hasPrevUsage {
+			pd := prevUsage.PodMetrics.PodDiskIos
+			if pd != nil && len(pd) != 0 {
+				prevStat = pd.ToCadvisorDiskIoMetrics()
+				prevTime = pd.GetTime()
+			}
+		}
+		podMeta := NewPodMetricMeta(curTime)
+		pm.PodDiskIos = newPodDiskIoMetrics(m.getCadvisorDiskIoMetrics(stat.DiskIo, prevStat, curTime, prevTime), podMeta)
+	}
+	return pm
 }
 
 type iPodMetric interface {
@@ -414,11 +601,19 @@ func (d *GuestMetrics) toPodTelegrafData(tagStr string) []string {
 	if m.PodProcess != nil {
 		ims = append(ims, m.PodProcess)
 	}
+	if m.PodDiskIos != nil {
+		for _, d := range m.PodDiskIos {
+			ims = append(ims, d)
+		}
+	}
 	for _, c := range m.Containers {
 		ims = append(ims, c.ContainerCpu)
 		ims = append(ims, c.ContainerMemory)
 		if c.ContainerProcess != nil {
 			ims = append(ims, c.ContainerProcess)
+		}
+		for _, cd := range c.ContainerDiskIos {
+			ims = append(ims, cd)
 		}
 	}
 	res := []string{}

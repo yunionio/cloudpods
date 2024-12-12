@@ -140,6 +140,51 @@ func newCadvisorProcessMetrics(displayType string) []SMetric {
 	}
 }
 
+func newCadvisorDiskIoMetrics(displayType string) []SMetric {
+	return []SMetric{
+		{
+			Name:        "read_Bps",
+			DisplayName: fmt.Sprintf("%s read bytes per second", displayType),
+			Unit:        monitor.METRIC_UNIT_BYTEPS,
+		},
+		{
+			Name:        "write_Bps",
+			DisplayName: fmt.Sprintf("%s write bytes per second", displayType),
+			Unit:        monitor.METRIC_UNIT_BYTEPS,
+		},
+		{
+			Name:        "read_iops",
+			DisplayName: fmt.Sprintf("%s read iops", displayType),
+			Unit:        monitor.METRIC_UNIT_COUNT,
+		},
+		{
+			Name:        "write_iops",
+			DisplayName: fmt.Sprintf("%s write iops", displayType),
+			Unit:        monitor.METRIC_UNIT_COUNT,
+		},
+		{
+			Name:        "read_bytes",
+			DisplayName: fmt.Sprintf("%s read bytes", displayType),
+			Unit:        monitor.METRIC_UNIT_BYTE,
+		},
+		{
+			Name:        "write_bytes",
+			DisplayName: fmt.Sprintf("%s write bytes", displayType),
+			Unit:        monitor.METRIC_UNIT_BYTE,
+		},
+		{
+			Name:        "read_count",
+			DisplayName: fmt.Sprintf("%s read count", displayType),
+			Unit:        monitor.METRIC_UNIT_COUNT,
+		},
+		{
+			Name:        "write_count",
+			DisplayName: fmt.Sprintf("%s write count", displayType),
+			Unit:        monitor.METRIC_UNIT_COUNT,
+		},
+	}
+}
+
 var podProcess = SMeasurement{
 	Context: []SMonitorContext{
 		{
@@ -150,4 +195,16 @@ var podProcess = SMeasurement{
 		},
 	},
 	Metrics: newCadvisorProcessMetrics("Pod"),
+}
+
+var podDiskIo = SMeasurement{
+	Context: []SMonitorContext{
+		{
+			Name:         "pod_diskio",
+			DisplayName:  "Pod diskio",
+			ResourceType: monitor.METRIC_RES_TYPE_CONTAINER,
+			Database:     monitor.METRIC_DATABASE_TELE,
+		},
+	},
+	Metrics: newCadvisorDiskIoMetrics("Pod"),
 }

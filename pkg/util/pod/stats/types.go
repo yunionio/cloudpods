@@ -1,6 +1,8 @@
 package stats
 
-import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
 
 // Summary is a top-level container for holding NodeStats and PodStats.
 type Summary struct {
@@ -104,6 +106,100 @@ type PodStats struct {
 	// ProcessStats pertaining to processes.
 	// +optional
 	ProcessStats *ProcessStats `json:"process_stats,omitempty"`
+	DiskIo       DiskIoStats   `json:"diskio,omitempty"`
+}
+
+type DiskIoStats map[string]*DiskIoStat
+
+func (ds DiskIoStats) Add(target DiskIoStats) {
+	for k, v := range target {
+		cv, ok := ds[k]
+		if !ok {
+			ds[k] = v
+		} else {
+			cv.Add(v)
+			ds[k] = cv
+		}
+	}
+}
+
+type DiskIoStat struct {
+	DeviceName   string `json:"device_name"`
+	AsyncBytes   uint64 `json:"async_bytes"`
+	DiscardBytes uint64 `json:"discard_bytes"`
+	ReadBytes    uint64 `json:"read_bytes"`
+	WriteBytes   uint64 `json:"write_bytes"`
+	TotalBytes   uint64 `json:"total_bytes"`
+	// SyncBytes    uint64 `json:"sync_bytes"`
+	AsyncCount   uint64 `json:"async_count"`
+	DiscardCount uint64 `json:"discard_count"`
+	ReadCount    uint64 `json:"read_count"`
+	WriteCount   uint64 `json:"write_count"`
+	TotalCount   uint64 `json:"total_count"`
+}
+
+func NewDiskIoStat(devName string, stats map[string]uint64, isByte bool) *DiskIoStat {
+	s := &DiskIoStat{
+		DeviceName: devName,
+	}
+	s.fillStats(stats, isByte)
+	return s
+}
+
+func (s *DiskIoStat) fillStats(stats map[string]uint64, isByte bool) {
+	const (
+		ASYNC   = "Async"
+		DISCARD = "Discard"
+		READ    = "Read"
+		SYNC    = "Sync"
+		TOTAL   = "Total"
+		WRITE   = "Write"
+	)
+	for key, sf := range map[string]struct {
+		countVal *uint64
+		bytesVal *uint64
+	}{
+		ASYNC: {
+			&s.AsyncCount,
+			&s.AsyncBytes,
+		},
+		DISCARD: {
+			&s.DiscardCount,
+			&s.DiscardBytes,
+		},
+		READ: {
+			&s.ReadCount,
+			&s.ReadBytes,
+		},
+		TOTAL: {
+			&s.TotalCount,
+			&s.TotalBytes,
+		},
+		WRITE: {
+			&s.WriteCount,
+			&s.WriteBytes,
+		},
+	} {
+		val := stats[key]
+		if isByte {
+			*sf.bytesVal = val
+		} else {
+			*sf.countVal = val
+		}
+	}
+}
+
+func (s *DiskIoStat) Add(v *DiskIoStat) {
+	s.AsyncBytes += v.AsyncBytes
+	s.AsyncCount += v.AsyncCount
+	s.DiscardBytes += v.DiscardBytes
+	s.DiscardCount += v.DiscardCount
+	s.ReadBytes += v.ReadBytes
+	s.ReadCount += v.ReadCount
+	s.WriteBytes += v.WriteBytes
+	s.WriteCount += v.WriteCount
+	s.TotalBytes += v.TotalBytes
+	s.TotalCount += v.TotalCount
 }
 
 // ContainerStats holds container-level unprocessed sample stats.
@@ -135,6 +231,7 @@ type ContainerStats struct {
 	// ProcessStats pertaining to processes.
 	// +optional
 	ProcessStats *ProcessStats `json:"process_stats,omitempty"`
+	DiskIo       DiskIoStats   `json:"diskio,omitempty"`
 }
 
 // PodReference contains enough information to locate the referenced pod.
