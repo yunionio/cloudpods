@@ -595,12 +595,14 @@ func (c *SContainer) StartSyncStatusTask(ctx context.Context, userCred mcclient.
 }
 
 func (c *SContainer) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query, data jsonutils.JSONObject) error {
-	return c.StartDeleteTask(ctx, userCred, "")
+	return c.StartDeleteTask(ctx, userCred, "", jsonutils.QueryBoolean(data, "purge", false))
 }
 
-func (c *SContainer) StartDeleteTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
+func (c *SContainer) StartDeleteTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string, purge bool) error {
 	c.SetStatus(ctx, userCred, api.CONTAINER_STATUS_DELETING, "")
-	task, err := taskman.TaskManager.NewTask(ctx, "ContainerDeleteTask", c, userCred, nil, parentTaskId, "", nil)
+	task, err := taskman.TaskManager.NewTask(ctx, "ContainerDeleteTask", c, userCred, jsonutils.Marshal(map[string]interface{}{
+		"purge": purge,
+	}).(*jsonutils.JSONDict), parentTaskId, "", nil)
 	if err != nil {
 		return errors.Wrap(err, "NewTask")
 	}

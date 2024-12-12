@@ -40,15 +40,21 @@ func (t *ContainerDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneMode
 }
 
 func (t *ContainerDeleteTask) requestDelete(ctx context.Context, container *models.SContainer) {
+	isPurge := jsonutils.QueryBoolean(t.GetParams(), "purge", false)
 	t.SetStage("OnDeleted", nil)
-	if err := t.GetPodDriver().RequestDeleteContainer(ctx, t.GetUserCred(), t); err != nil {
-		if strings.Contains(err.Error(), "NotFoundError") {
-			// already deleted
-			t.OnDeleted(ctx, container, nil)
+	if isPurge {
+		t.ScheduleRun(nil)
+		return
+	} else {
+		if err := t.GetPodDriver().RequestDeleteContainer(ctx, t.GetUserCred(), t); err != nil {
+			if strings.Contains(err.Error(), "NotFoundError") {
+				// already deleted
+				t.OnDeleted(ctx, container, nil)
+				return
+			}
+			t.OnDeleteFailed(ctx, container, jsonutils.NewString(err.Error()))
 			return
 		}
-		t.OnDeleteFailed(ctx, container, jsonutils.NewString(err.Error()))
-		return
 	}
 }
 
