@@ -362,8 +362,9 @@ func (self *SInstance) LiveMigrateVM(hostId string) error {
 	input := api.GuestLiveMigrateInput{}
 	input.PreferHost = hostId
 	input.PreferHostId = hostId
-	skipCpuCheck := true
-	input.SkipCpuCheck = &skipCpuCheck
+	skipCheck := true
+	input.SkipCpuCheck = &skipCheck
+	input.SkipKernelCheck = &skipCheck
 	_, err := self.host.zone.region.perform(&modules.Servers, self.Id, "live-migrate", input)
 	return err
 }
