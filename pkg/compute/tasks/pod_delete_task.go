@@ -57,7 +57,7 @@ func (t *PodDeleteTask) OnWaitContainerDeleted(ctx context.Context, pod *models.
 		return
 	}
 	curCtr := ctrs[0]
-	curCtr.StartDeleteTask(ctx, t.GetUserCred(), t.GetTaskId())
+	curCtr.StartDeleteTask(ctx, t.GetUserCred(), t.GetTaskId(), jsonutils.QueryBoolean(t.GetParams(), "purge", false))
 }
 
 func (t *PodDeleteTask) OnWaitContainerDeletedFailed(ctx context.Context, pod *models.SGuest, data jsonutils.JSONObject) {
