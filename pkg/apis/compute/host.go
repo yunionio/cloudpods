@@ -232,6 +232,7 @@ type HostDetails struct {
 	// isolated device count
 	IsolatedDeviceCount     int
 	IsolatedDeviceTypeCount map[string]int
+	GuestPinnedCpus         []int
 
 	// host init warnning
 	SysWarn string `json:"sys_warn"`

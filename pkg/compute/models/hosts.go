@@ -3746,6 +3746,12 @@ func (manager *SHostManager) FetchCustomizeColumns(
 				}
 			}
 		}
+		if !isList {
+			pinnedCpus, _ := hosts[i].GetPinnedCpusetCores(ctx, userCred, nil)
+			if pinnedCpus != nil {
+				rows[i].GuestPinnedCpus = pinnedCpus.ToSlice()
+			}
+		}
 
 		if usage, ok := guestResources[hostIds[i]]; ok {
 			rows[i].CpuCommit = usage.GuestVcpuCount
@@ -4957,6 +4963,17 @@ func (hh *SHost) PerformReserveCpus(
 	}
 	if hSets.Len() == len(cSlice) {
 		return nil, httperrors.NewInputParameterError("Can't reserve host all cpus")
+	}
+
+	pinnedCores, err := hh.GetPinnedCpusetCores(ctx, userCred, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if pinnedCores != nil {
+		if cs.Union(*pinnedCores).Size() != (cs.Size() + pinnedCores.Size()) {
+			return nil, httperrors.NewBadRequestError("request cpus confilct with guest pinned cpus")
+		}
 	}
 
 	if input.Mems != "" {
@@ -7213,20 +7230,51 @@ func (hh *SHost) PerformSyncIsolatedDevices(ctx context.Context, userCred mcclie
 	return res, nil
 }
 
-func (hh *SHost) GetPinnedCpusetCores(ctx context.Context, userCred mcclient.TokenCredential) (map[string][]int, error) {
+func (hh *SHost) GetPinnedCpusetCores(ctx context.Context, userCred mcclient.TokenCredential, excludeGuestIds []string) (*cpuset.CPUSet, error) {
 	gsts, err := hh.GetGuests()
 	if err != nil {
 		return nil, errors.Wrap(err, "Get all guests")
 	}
-	ret := make(map[string][]int, 0)
+	ret := cpuset.NewBuilder()
 	for _, gst := range gsts {
+		if utils.IsInStringArray(gst.Id, excludeGuestIds) {
+			continue
+		}
 		pinned, err := gst.getPinnedCpusetCores(ctx, userCred)
 		if err != nil {
 			return nil, errors.Wrapf(err, "get guest %s pinned cpuset cores", gst.GetName())
 		}
-		ret[gst.GetId()] = pinned
+		ret.Add(pinned...)
 	}
-	return ret, nil
+	resCpuset := ret.Result()
+	if resCpuset.Size() == 0 {
+		return nil, nil
+	}
+	return &resCpuset, nil
+}
+
+func (hh *SHost) GetReservedCpus() (*cpuset.CPUSet, error) {
+	reservedCpusStr := hh.GetMetadata(context.Background(), api.HOSTMETA_RESERVED_CPUS_INFO, nil)
+	if reservedCpusStr != "" {
+		reservedCpusJson, err := jsonutils.ParseString(reservedCpusStr)
+		if err != nil {
+			return nil, errors.Wrap(err, "parse reserved cpus info failed")
+		}
+		reservedCpusInfo := api.HostReserveCpusInput{}
+		err = reservedCpusJson.Unmarshal(&reservedCpusInfo)
+		if err != nil {
+			return nil, errors.Wrap(err, "unmarshal host reserved cpus info failed")
+		}
+		if reservedCpusInfo.Cpus == "" {
+			return nil, nil
+		}
+		cs, err := cpuset.Parse(reservedCpusInfo.Cpus)
+		if err != nil {
+			return nil, errors.Wrap(err, "parse reserved cpuset")
+		}
+		return &cs, nil
+	}
+	return nil, nil
 }
 
 func (h *SHost) PerformSyncGuestNicTraffics(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
