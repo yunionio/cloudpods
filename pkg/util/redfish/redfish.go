@@ -61,6 +61,7 @@ type SBaseRedfishClient struct {
 
 func NewBaseRedfishClient(endpoint string, username, password string, debug bool) SBaseRedfishClient {
 	client := httputils.GetDefaultClient()
+	client.Timeout = 60 * time.Second
 	cli := SBaseRedfishClient{
 		client:   client,
 		endpoint: endpoint,
