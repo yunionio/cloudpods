@@ -1471,6 +1471,18 @@ func (b *HostBuilder) fillGuestsCpuNumaPin(desc *HostDesc, host *computemodels.S
 		}
 		reservedCpus = &reservedCpuset
 	}
+	pinnedCpuset, err := host.GetPinnedCpusetCores(context.Background(), nil, nil)
+	if err != nil {
+		return err
+	}
+	if pinnedCpuset != nil {
+		if reservedCpus == nil {
+			reservedCpus = pinnedCpuset
+		} else {
+			newset := reservedCpus.Union(*pinnedCpuset)
+			reservedCpus = &newset
+		}
+	}
 
 	nodeHugepages := make([]hostapi.HostNodeHugepageNr, 0)
 	if host.SysInfo.Contains("node_hugepages") {

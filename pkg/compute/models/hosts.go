@@ -5008,11 +5008,8 @@ func (hh *SHost) PerformReserveCpus(
 	if err != nil {
 		return nil, err
 	}
-	if hh.CpuReserved != cs.Size() {
-		_, err = db.Update(hh, func() error {
-			hh.CpuReserved = cs.Size()
-			return nil
-		})
+	if err = hh.updateHostReservedCpus(ctx, userCred); err != nil {
+		return nil, errors.Wrap(err, "update host reserved cpus")
 	}
 	return nil, err
 }
@@ -7275,6 +7272,35 @@ func (hh *SHost) GetReservedCpus() (*cpuset.CPUSet, error) {
 		return &cs, nil
 	}
 	return nil, nil
+}
+
+func (hh *SHost) updateHostReservedCpus(ctx context.Context, userCred mcclient.TokenCredential) error {
+	reservedCpus, err := hh.GetReservedCpus()
+	if err != nil {
+		return err
+	}
+	pinnedCpus, err := hh.GetPinnedCpusetCores(ctx, userCred, nil)
+	if err != nil {
+		return err
+	}
+	var reservedCpuCnt = 0
+	if reservedCpus != nil {
+		reservedCpuCnt += reservedCpus.Size()
+	}
+	if pinnedCpus != nil {
+		reservedCpuCnt += pinnedCpus.Size()
+	}
+	if hh.CpuReserved != reservedCpuCnt {
+		_, err = db.Update(hh, func() error {
+			hh.CpuReserved = reservedCpuCnt
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+	}
+	hh.ClearSchedDescCache()
+	return nil
 }
 
 func (h *SHost) PerformSyncGuestNicTraffics(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {

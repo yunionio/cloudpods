@@ -226,7 +226,7 @@ type CpuSetCounter struct {
 }
 
 func NewGuestCpuSetCounter(
-	info *hostapi.HostTopology, reservedCpus *cpuset.CPUSet, numaAllocate, isContainerHost bool,
+	info *hostapi.HostTopology, reservedCpus cpuset.CPUSet, numaAllocate, isContainerHost bool,
 	hugepageSizeKB int, cpuCmtbound, memCmtBound float32, reservedMemMb int,
 ) (*CpuSetCounter, error) {
 	cpuSetCounter := new(CpuSetCounter)
@@ -259,7 +259,7 @@ func NewGuestCpuSetCounter(
 			cpuDie := new(CPUDie)
 			dieBuilder := cpuset.NewBuilder()
 			for k := 0; k < len(info.Nodes[i].Caches[j].LogicalProcessors); k++ {
-				if reservedCpus != nil && reservedCpus.Contains(int(info.Nodes[i].Caches[j].LogicalProcessors[k])) {
+				if reservedCpus.Contains(int(info.Nodes[i].Caches[j].LogicalProcessors[k])) {
 					reservedCpuCnt += 1
 					continue
 				}
@@ -277,7 +277,7 @@ func NewGuestCpuSetCounter(
 			dieBuilder := cpuset.NewBuilder()
 			for j := 0; j < len(info.Nodes[i].Cores); j++ {
 				for k := 0; k < len(info.Nodes[i].Cores[j].LogicalProcessors); k++ {
-					if reservedCpus != nil && reservedCpus.Contains(info.Nodes[i].Cores[j].LogicalProcessors[k]) {
+					if reservedCpus.Contains(info.Nodes[i].Cores[j].LogicalProcessors[k]) {
 						reservedCpuCnt += 1
 						continue
 					}

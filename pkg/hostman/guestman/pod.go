@@ -1113,6 +1113,28 @@ func (s *sPodGuestInstance) allocateCpuNumaPin() error {
 		return nil
 	}
 
+	if scpuset, ok := s.Desc.Metadata[computeapi.VM_METADATA_CGROUP_CPUSET]; ok {
+		cpusetJson, err := jsonutils.ParseString(scpuset)
+		if err != nil {
+			log.Errorf("failed parse server %s cpuset %s: %s", s.Id, scpuset, err)
+			return errors.Errorf("failed parse server %s cpuset %s: %s", s.Id, scpuset, err)
+		}
+		input := new(computeapi.ServerCPUSetInput)
+		err = cpusetJson.Unmarshal(input)
+		if err != nil {
+			log.Errorf("failed unmarshal server %s cpuset %s", s.Id, err)
+			return errors.Errorf("failed unmarshal server %s cpuset %s", s.Id, err)
+		}
+		cpus := input.CPUS
+		s.Desc.VcpuPin = []desc.SCpuPin{
+			{
+				Vcpus: fmt.Sprintf("0-%d", s.Desc.Cpu-1),
+				Pcpus: cpuset.NewCPUSet(cpus...).String(),
+			},
+		}
+		return nil
+	}
+
 	var cpus = make([]int, 0)
 	var preferNumaNodes = make([]int8, 0)
 	for i := range s.Desc.IsolatedDevices {
@@ -1150,7 +1172,6 @@ func (s *sPodGuestInstance) allocateCpuNumaPin() error {
 					} else {
 						vcpuPin[i].Vcpu = -1
 					}
-
 				}
 
 				memPin := &desc.SCpuNumaPin{

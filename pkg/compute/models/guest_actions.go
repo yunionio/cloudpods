@@ -6340,6 +6340,9 @@ func (self *SGuest) PerformCpuset(ctx context.Context, userCred mcclient.TokenCr
 		return nil, errors.Wrap(err, "set metadata")
 	}
 
+	if err := host.updateHostReservedCpus(ctx, userCred); err != nil {
+		return nil, errors.Wrap(err, "updateHostReservedCpus")
+	}
 	return nil, self.StartGuestCPUSetTask(ctx, userCred, data)
 }
 

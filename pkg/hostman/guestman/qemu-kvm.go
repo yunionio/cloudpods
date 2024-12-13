@@ -2684,24 +2684,45 @@ func (s *SKVMGuestInstance) setCgroupCPUSet() error {
 		return err
 	}
 
-	for i := range s.Desc.CpuNumaPin {
-		if s.Desc.CpuNumaPin[i].Unregular || s.Desc.CpuNumaPin[i].VcpuPin == nil {
-			continue
-		}
-
-		for j := range s.Desc.CpuNumaPin[i].VcpuPin {
-			vcpuThreadId, ok := vcpuThreads[s.Desc.CpuNumaPin[i].VcpuPin[j].Vcpu]
-			if !ok {
-				return errors.Errorf("failed get vcpu %d thread id from %v", s.Desc.CpuNumaPin[i].VcpuPin[j].Vcpu, vcpuThreads)
+	if len(s.Desc.CpuNumaPin) > 0 {
+		for i := range s.Desc.CpuNumaPin {
+			if s.Desc.CpuNumaPin[i].Unregular || s.Desc.CpuNumaPin[i].VcpuPin == nil {
+				continue
 			}
-			pcpu := s.Desc.CpuNumaPin[i].VcpuPin[j].Pcpu
+
+			for j := range s.Desc.CpuNumaPin[i].VcpuPin {
+				vcpuThreadId, ok := vcpuThreads[s.Desc.CpuNumaPin[i].VcpuPin[j].Vcpu]
+				if !ok {
+					return errors.Errorf("failed get vcpu %d thread id from %v", s.Desc.CpuNumaPin[i].VcpuPin[j].Vcpu, vcpuThreads)
+				}
+				pcpu := s.Desc.CpuNumaPin[i].VcpuPin[j].Pcpu
+				vcpuCgname := path.Join(cgName, vcpuThreadId)
+				taskVcpu := cgrouputils.NewCGroupSubCPUSetTask(guestPid, vcpuCgname, 0, strconv.Itoa(pcpu), []string{vcpuThreadId})
+				if !taskVcpu.SetTask() {
+					return errors.Errorf("Vcpu set cgroup cpuset task failed")
+				}
+			}
+		}
+	} else if len(s.Desc.VcpuPin) > 1 {
+		// for guest manual set cpuset
+		for i := range s.Desc.VcpuPin {
+			vcpu, err := strconv.Atoi(s.Desc.VcpuPin[i].Vcpus)
+			if err != nil {
+				return errors.Wrapf(err, "failed parse vcpupin %s", s.Desc.VcpuPin[i].Vcpus)
+			}
+			vcpuThreadId, ok := vcpuThreads[vcpu]
+			if !ok {
+				return errors.Errorf("failed get vcpu %s thread id from %v", s.Desc.VcpuPin[i].Vcpus, vcpuThreads)
+			}
+			pcpu := s.Desc.VcpuPin[i].Pcpus
 			vcpuCgname := path.Join(cgName, vcpuThreadId)
-			taskVcpu := cgrouputils.NewCGroupSubCPUSetTask(guestPid, vcpuCgname, 0, strconv.Itoa(pcpu), []string{vcpuThreadId})
+			taskVcpu := cgrouputils.NewCGroupSubCPUSetTask(guestPid, vcpuCgname, 0, pcpu, []string{vcpuThreadId})
 			if !taskVcpu.SetTask() {
 				return errors.Errorf("Vcpu set cgroup cpuset task failed")
 			}
 		}
 	}
+
 	return nil
 }
 
@@ -2714,6 +2735,38 @@ func (s *SKVMGuestInstance) allocGuestNumaCpuset() error {
 			preferNumaNodes = append(preferNumaNodes, s.Desc.IsolatedDevices[i].NumaNode)
 			break
 		}
+	}
+
+	if scpuset, ok := s.Desc.Metadata[api.VM_METADATA_CGROUP_CPUSET]; ok {
+		cpusetJson, err := jsonutils.ParseString(scpuset)
+		if err != nil {
+			log.Errorf("failed parse server %s cpuset %s: %s", s.Id, scpuset, err)
+			return errors.Errorf("failed parse server %s cpuset %s: %s", s.Id, scpuset, err)
+		}
+		input := new(api.ServerCPUSetInput)
+		err = cpusetJson.Unmarshal(input)
+		if err != nil {
+			log.Errorf("failed unmarshal server %s cpuset %s", s.Id, err)
+			return errors.Errorf("failed unmarshal server %s cpuset %s", s.Id, err)
+		}
+		cpus = input.CPUS
+		if len(cpus) == int(s.Desc.Cpu) {
+			s.Desc.VcpuPin = make([]desc.SCpuPin, len(cpus))
+			for i := 0; i < int(s.Desc.Cpu); i++ {
+				s.Desc.VcpuPin[i] = desc.SCpuPin{
+					Vcpus: strconv.Itoa(i),
+					Pcpus: strconv.Itoa(cpus[i]),
+				}
+			}
+		} else {
+			s.Desc.VcpuPin = []desc.SCpuPin{
+				{
+					Vcpus: fmt.Sprintf("0-%d", s.Desc.Cpu-1),
+					Pcpus: cpuset.NewCPUSet(cpus...).String(),
+				},
+			}
+		}
+		return nil
 	}
 
 	nodeNumaCpus, err := s.manager.cpuSet.AllocCpuset(int(s.Desc.Cpu), s.Desc.Mem*1024, preferNumaNodes, s.GetId())
@@ -2743,25 +2796,6 @@ func (s *SKVMGuestInstance) allocGuestNumaCpuset() error {
 	if len(cpuNumaPin) > 0 {
 		s.Desc.CpuNumaPin = cpuNumaPin
 	} else if !s.manager.numaAllocate {
-		if scpuset, ok := s.Desc.Metadata[api.VM_METADATA_CGROUP_CPUSET]; ok {
-			s.manager.cpuSet.Lock.Lock()
-			s.manager.cpuSet.ReleaseCpus(cpus, int(s.Desc.Cpu))
-			s.manager.cpuSet.Lock.Unlock()
-
-			cpusetJson, err := jsonutils.ParseString(scpuset)
-			if err != nil {
-				log.Errorf("failed parse server %s cpuset %s: %s", s.Id, scpuset, err)
-				return errors.Errorf("failed parse server %s cpuset %s: %s", s.Id, scpuset, err)
-			}
-			input := new(api.ServerCPUSetInput)
-			err = cpusetJson.Unmarshal(input)
-			if err != nil {
-				log.Errorf("failed unmarshal server %s cpuset %s", s.Id, err)
-				return errors.Errorf("failed unmarshal server %s cpuset %s", s.Id, err)
-			}
-			cpus = input.CPUS
-		}
-
 		s.Desc.VcpuPin = []desc.SCpuPin{
 			{
 				Vcpus: fmt.Sprintf("0-%d", s.Desc.Cpu-1),

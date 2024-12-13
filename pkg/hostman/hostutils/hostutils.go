@@ -70,7 +70,7 @@ type IHost interface {
 	IsAarch64() bool
 	IsX8664() bool
 	GetHostTopology() *hostapi.HostTopology
-	GetReservedCpusInfo() *cpuset.CPUSet
+	GetReservedCpusInfo() (*cpuset.CPUSet, *cpuset.CPUSet)
 	GetReservedMemMb() int
 
 	IsHugepagesEnabled() bool
