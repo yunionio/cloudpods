@@ -447,6 +447,10 @@ func init() {
 		EN("Host Maintaining").
 		CN("宿主机进入维护模式"),
 	)
+	t.Set(ACT_HOST_UNMAINTENANCE, i18n.NewTableEntry().
+		EN("Host Unmaintenance").
+		CN("宿主机退出维护模式"),
+	)
 
 	t.Set(ACT_MKDIR, i18n.NewTableEntry().
 		EN("Mkdir").
@@ -1365,6 +1369,16 @@ func init() {
 		CN("WebSSH"),
 	)
 
+	o.Set(ACT_TRYSSHABLE, i18n.NewTableEntry().
+		EN("Try Sshable").
+		CN("探测免密登录"),
+	)
+
+	o.Set(ACT_MAKESSHABLE, i18n.NewTableEntry().
+		EN("Make Sshable").
+		CN("设置免密登录"),
+	)
+
 	o.Set(ACT_CLOUDACCOUNT_SYNC_NETWORK, i18n.NewTableEntry().
 		EN("Probe Network").
 		CN("探测网络配置"),
@@ -1398,5 +1412,38 @@ func init() {
 	o.Set(ACT_DISK_CHANGE_STORAGE, i18n.NewTableEntry().
 		EN("Disk Change Storage").
 		CN("磁盘更换存储"),
+	)
+
+	o.Set(ACT_JOIN_PROJECT, i18n.NewTableEntry().
+		EN("Join Project").
+		CN("加入项目"),
+	)
+	o.Set(ACT_LEAVE_PROJECT, i18n.NewTableEntry().
+		EN("Leave Project").
+		CN("移除项目"),
+	)
+	o.Set(ACT_RESET_CREDENTIAL, i18n.NewTableEntry().
+		EN("Reset Credential").
+		CN("重置账号密码"),
+	)
+	o.Set(ACT_SET_SCHED_TAG, i18n.NewTableEntry().
+		EN("Set Scheduler Tag").
+		CN("设置调度标签"),
+	)
+	o.Set(ACT_AUTO_MIGRATE_ON_HOST_DOWN, i18n.NewTableEntry().
+		EN("Auto Migrate On Host Down").
+		CN("宕机自动迁移"),
+	)
+	o.Set(ACT_SET_RESERVE_RESOURCE_FOR_ISOLATED_DEVICES, i18n.NewTableEntry().
+		EN("Set Reserve Resource For Isolated Devices").
+		CN("透传设备设置预留资源"),
+	)
+	o.Set(ACT_UNCONVERT_START, i18n.NewTableEntry().
+		EN("Start Unconvert hypervisor").
+		CN("开始回收为物理机"),
+	)
+	o.Set(ACT_UNCONVERT_COMPLETE, i18n.NewTableEntry().
+		EN("Unconvert Hypervisor Complete").
+		CN("回收为物理机"),
 	)
 }
