@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 type GuestSyncstatusTask struct {
@@ -95,13 +96,13 @@ func (self *GuestSyncstatusTask) OnGetStatusComplete(ctx context.Context, obj db
 		BlockJobsCount: int(blockJobsCount),
 	}
 	guest.PerformStatus(ctx, self.UserCred, nil, input)
+	logclient.AddSimpleActionLog(guest, logclient.ACT_VM_SYNC_STATUS, "", self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
-	// logclient.AddActionLog(guest, logclient.ACT_VM_SYNC_STATUS, "", self.UserCred, true)
 }
 
 func (self *GuestSyncstatusTask) OnGetStatusCompleteFailed(ctx context.Context, obj db.IStandaloneModel, err jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
 	guest.SetStatus(self.UserCred, api.VM_UNKNOWN, err.String())
+	logclient.AddSimpleActionLog(guest, logclient.ACT_VM_SYNC_STATUS, err, self.UserCred, false)
 	self.SetStageComplete(ctx, nil)
-	// logclient.AddActionLog(guest, logclient.ACT_VM_SYNC_STATUS, err, self.UserCred, false)
 }
