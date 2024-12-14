@@ -66,6 +66,7 @@ func (self *DiskSyncstatusTask) OnInit(ctx context.Context, obj db.IStandaloneMo
 }
 
 func (self *DiskSyncstatusTask) OnDiskSyncStatusComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	logclient.AddActionLogWithContext(ctx, obj, logclient.ACT_SYNC_STATUS, nil, self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
 }
 

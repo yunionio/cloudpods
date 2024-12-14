@@ -67,6 +67,7 @@ func (self *GuestIsolatedDeviceSyncTask) OnSyncConfigCompleteFailed(ctx context.
 }
 
 func (self *GuestIsolatedDeviceSyncTask) OnStartComplete(ctx context.Context, obj *models.SGuest, data jsonutils.JSONObject) {
+	logclient.AddActionLogWithStartable(self, obj, logclient.ACT_VM_SYNC_ISOLATED_DEVICE, nil, self.GetUserCred(), true)
 	self.SetStageComplete(ctx, nil)
 }
 
