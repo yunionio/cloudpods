@@ -31,6 +31,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -124,6 +125,7 @@ func (manager *SReservedipManager) ReserveIPWithDurationAndStatus(ctx context.Co
 		}
 	}
 	db.OpsLog.LogEvent(network, db.ACT_RESERVE_IP, rip.GetShortDesc(ctx), userCred)
+	logclient.AddSimpleActionLog(network, logclient.ACT_RESERVE_IP, rip.GetShortDesc(ctx), userCred, true)
 	return nil
 }
 
@@ -222,6 +224,7 @@ func (self *SReservedip) Release(ctx context.Context, userCred mcclient.TokenCre
 	err := db.DeleteModel(ctx, userCred, self)
 	if err == nil && network != nil {
 		db.OpsLog.LogEvent(network, db.ACT_RELEASE_IP, self.GetShortDesc(ctx), userCred)
+		logclient.AddSimpleActionLog(network, logclient.ACT_RELEASE_IP, self.GetShortDesc(ctx), userCred, true)
 	}
 	return err
 }

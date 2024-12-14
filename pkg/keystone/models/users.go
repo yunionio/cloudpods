@@ -1307,11 +1307,13 @@ func (user *SUser) PerformJoin(
 ) (jsonutils.JSONObject, error) {
 	err := joinProjects(user, true, ctx, userCred, input)
 	if err != nil {
+		logclient.AddActionLogWithContext(ctx, user, logclient.ACT_JOIN_PROJECT, nil, userCred, false)
 		return nil, errors.Wrap(err, "joinProjects")
 	}
 	if input.Enabled {
 		db.EnabledPerformEnable(user, ctx, userCred, true)
 	}
+	logclient.AddActionLogWithContext(ctx, user, logclient.ACT_JOIN_PROJECT, nil, userCred, true)
 	return nil, nil
 }
 
@@ -1381,8 +1383,10 @@ func (user *SUser) PerformLeave(
 ) (jsonutils.JSONObject, error) {
 	err := leaveProjects(user, true, ctx, userCred, input)
 	if err != nil {
+		logclient.AddActionLogWithContext(ctx, user, logclient.ACT_LEAVE_PROJECT, nil, userCred, false)
 		return nil, err
 	}
+	logclient.AddActionLogWithContext(ctx, user, logclient.ACT_LEAVE_PROJECT, nil, userCred, true)
 	return nil, nil
 }
 
@@ -1538,6 +1542,7 @@ func (user *SUser) PerformResetCredentials(
 			return nil, errors.Wrapf(err, "DeleteAll %s", api.RECOVERY_SECRETS_TYPE)
 		}
 	}
+	logclient.AddActionLogWithContext(ctx, user, logclient.ACT_RESET_CREDENTIAL, nil, userCred, true)
 	return nil, nil
 }
 
