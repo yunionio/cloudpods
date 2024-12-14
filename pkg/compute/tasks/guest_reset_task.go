@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 func init() {
@@ -76,6 +77,7 @@ func (self *GuestHardResetTask) StartServer(ctx context.Context, guest *models.S
 }
 
 func (self *GuestHardResetTask) OnServerStartComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_RESTART, nil, self.GetUserCred(), true)
 	self.SetStageComplete(ctx, nil)
 }
 

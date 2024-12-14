@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 type GuestEjectISOTask struct {
@@ -54,5 +55,11 @@ func (self *GuestEjectISOTask) startEjectIso(ctx context.Context, obj db.IStanda
 }
 
 func (self *GuestEjectISOTask) OnConfigSyncComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	logclient.AddActionLogWithContext(ctx, obj, logclient.ACT_ISO_DETACH, nil, self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
+}
+
+func (self *GuestEjectISOTask) OnConfigSyncCompleteFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	logclient.AddActionLogWithContext(ctx, obj, logclient.ACT_ISO_DETACH, nil, self.UserCred, false)
+	self.SetStageFailed(ctx, nil)
 }

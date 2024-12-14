@@ -417,6 +417,13 @@ func (manager *SSnapshotManager) FetchCustomizeColumns(
 func (self *SSnapshot) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
 	res := self.SVirtualResourceBase.GetShortDesc(ctx)
 	res.Add(jsonutils.NewInt(int64(self.Size)), "size")
+	res.Add(jsonutils.NewString(self.DiskId), "disk_id")
+	disk, _ := self.GetDisk()
+	if disk != nil {
+		if guest := disk.GetGuest(); guest != nil {
+			res.Add(jsonutils.NewString(guest.Id), "guest_id")
+		}
+	}
 	info := self.getCloudProviderInfo()
 	res.Update(jsonutils.Marshal(&info))
 	return res
