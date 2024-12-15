@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	_ "yunion.io/x/sqlchemy/backends"
 
 	api "yunion.io/x/onecloud/pkg/apis/identity"
@@ -91,6 +92,13 @@ func StartService() {
 	common_app.InitBaseAuth(&opts.BaseOptions)
 
 	common_options.StartOptionManagerWithSessionDriver(opts, opts.ConfigSyncPeriodSeconds, api.SERVICE_TYPE, "", options.OnOptionsChange, models.NewServiceConfigSession())
+
+	{
+		err := models.UserManager.EnforceUserMfa(context.Background())
+		if err != nil {
+			log.Errorf("EnforceUserMfa fail %s", err)
+		}
+	}
 
 	cache.Init(opts.TokenExpirationSeconds)
 
