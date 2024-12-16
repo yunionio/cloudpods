@@ -201,6 +201,10 @@ type SimpleGuest struct {
 	Driver string `json:"driver"`
 	// 缓存模式
 	CacheMode string `json:"cache_mode"`
+	// 磁盘并发数
+	Iops int `json:"iops"`
+	// 磁盘吞吐
+	Bps int `json:"bps"`
 }
 
 type SimpleSnapshotPolicy struct {
