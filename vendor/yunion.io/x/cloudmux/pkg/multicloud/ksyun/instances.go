@@ -309,6 +309,8 @@ func (ins *SInstance) GetStatus() string {
 	switch ins.InstanceState.Name {
 	case "active":
 		return api.VM_RUNNING
+	case "stopped":
+		return api.VM_READY
 	}
 	return ins.InstanceState.Name
 }
