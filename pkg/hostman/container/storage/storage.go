@@ -55,5 +55,5 @@ func Mount(devPath string, mountPoint string, fsType string) error {
 }
 
 func Unmount(devPath string) error {
-	return mountutils.Unmount(devPath)
+	return mountutils.Unmount(devPath, false)
 }

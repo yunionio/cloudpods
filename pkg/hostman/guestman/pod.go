@@ -2216,7 +2216,7 @@ func (s *sPodGuestInstance) DoSnapshot(ctx context.Context, params *SDiskSnapsho
 		for _, vol := range vols {
 			// unbind mount
 			for _, povPath := range povTmpBackRootDir {
-				if err := mountutils.Unmount(povPath); err != nil {
+				if err := mountutils.Unmount(povPath, false); err != nil {
 					return errors.Wrapf(err, "umount bind point %s", povTmpBackRootDir)
 				}
 			}
@@ -2224,7 +2224,7 @@ func (s *sPodGuestInstance) DoSnapshot(ctx context.Context, params *SDiskSnapsho
 			if vol.Disk.StorageSizeFile != "" {
 				targetBindMntPath = filepath.Join(tmpBackRootDir, vol.Disk.StorageSizeFile)
 			}
-			if err := mountutils.Unmount(targetBindMntPath); err != nil {
+			if err := mountutils.Unmount(targetBindMntPath, false); err != nil {
 				return errors.Wrapf(err, "umount bind point %s", targetBindMntPath)
 			}
 		}
@@ -2473,5 +2473,5 @@ func (s *sPodGuestInstance) RemoveContainerVolumeMountPostOverlay(ctx context.Co
 	if err := drv.Mount(s, ctrId, vol); err != nil {
 		return errors.Wrapf(err, "mount volume %s, ctrId %s", jsonutils.Marshal(vol), ctrId)
 	}
-	return diskDrv.UnmountPostOverlays(s, ctrId, vol, input.PostOverlay, input.ClearLayers)
+	return diskDrv.UnmountPostOverlays(s, ctrId, vol, input.PostOverlay, input.UseLazy, input.ClearLayers)
 }
