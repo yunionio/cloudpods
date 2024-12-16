@@ -57,3 +57,15 @@ var containerProcess = SMeasurement{
 	},
 	Metrics: newCadvisorProcessMetrics("Container"),
 }
+
+var containerDiskIo = SMeasurement{
+	Context: []SMonitorContext{
+		{
+			Name:         "container_diskio",
+			DisplayName:  "Container diskio",
+			ResourceType: monitor.METRIC_RES_TYPE_CONTAINER,
+			Database:     monitor.METRIC_DATABASE_TELE,
+		},
+	},
+	Metrics: newCadvisorDiskIoMetrics("Container"),
+}

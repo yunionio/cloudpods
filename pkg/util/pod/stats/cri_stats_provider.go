@@ -175,6 +175,7 @@ func (p *criStatsProvider) listPodStats(updateCPUNanoCoreUsage bool) ([]PodStats
 		cs := p.makeContainerStats(stats, container, &rootFsInfo, fsIDtoInfo, podSandbox.GetMetadata(), updateCPUNanoCoreUsage, allInfos)
 		p.addPodNetworkStats(ps, podSandboxID, caInfos, cs, containerNetworkStats[podSandboxID])
 		p.addPodCPUMemoryStats(ps, types.UID(podSandbox.Metadata.Uid), allInfos, cs)
+		p.addDiskIoStats(ps, types.UID(podSandboxID), allInfos, cs)
 		p.addProcessStats(ps, types.UID(podSandboxID), allInfos, cs)
 
 		// If cadvisor stats is available for the container, use it to populate
@@ -263,6 +264,7 @@ func (p *criStatsProvider) ListPodCPUAndMemoryStats() ([]PodStats, error) {
 		// Fill available CPU and memory stats for full set of required pod stats
 		cs := p.makeContainerCPUAndMemoryStats(stats, container, allInfos)
 		p.addPodCPUMemoryStats(ps, types.UID(podSandbox.Metadata.Uid), allInfos, cs)
+		p.addDiskIoStats(ps, types.UID(podSandboxID), allInfos, cs)
 		p.addProcessStats(ps, types.UID(podSandboxID), allInfos, cs)
 
 		// If cadvisor stats is available for the container, use it to populate
@@ -407,6 +409,21 @@ func (p *criStatsProvider) addPodCPUMemoryStats(
 	}
 }
 
+func (p *criStatsProvider) addDiskIoStats(
+	ps *PodStats,
+	podUID types.UID,
+	allInfos map[string]cadvisorapiv2.ContainerInfo,
+	cs *ContainerStats) {
+	info := getCadvisorPodInfoFromPodUID(podUID, allInfos)
+	if info != nil {
+		ps.DiskIo = cadvisorInfoToDiskIoStats(info)
+	}
+	if ps.DiskIo == nil {
+		ps.DiskIo = make(map[string]*DiskIoStat)
+	}
+	ps.DiskIo.Add(cs.DiskIo)
+}
+
 func (p *criStatsProvider) addProcessStats(
 	ps *PodStats,
 	podUID types.UID,
@@ -467,6 +484,7 @@ func (p *criStatsProvider) makeContainerStats(stats *runtimeapi.ContainerStats, 
 	cStats := getLatestContainerStatsById(stats.Attributes.GetId(), infos)
 	if cStats != nil {
 		result.ProcessStats = convertToProcessStats(cStats.Processes)
+		result.DiskIo = convertToDiskIoStats(cStats.DiskIo)
 	}
 	if stats.Cpu != nil {
 		result.CPU.Time = metav1.NewTime(time.Unix(0, stats.Cpu.Timestamp))
@@ -569,6 +587,7 @@ func (p *criStatsProvider) makeContainerCPUAndMemoryStats(
 	cStats := getLatestContainerStatsById(stats.Attributes.GetId(), infos)
 	if cStats != nil {
 		result.ProcessStats = convertToProcessStats(cStats.Processes)
+		result.DiskIo = convertToDiskIoStats(cStats.DiskIo)
 	}
 	if stats.Cpu != nil {
 		result.CPU.Time = metav1.NewTime(time.Unix(0, stats.Cpu.Timestamp))

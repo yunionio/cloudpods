@@ -1,12 +1,20 @@
 package stats
 
 import (
+	"fmt"
+	"regexp"
+	"strconv"
+	"strings"
 	"time"
 
 	cadvisorapiv1 "github.com/google/cadvisor/info/v1"
+	info "github.com/google/cadvisor/info/v1"
 	cadvisorapiv2 "github.com/google/cadvisor/info/v2"
+	"github.com/google/cadvisor/utils/sysfs"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog/v2"
+
+	"yunion.io/x/log"
 )
 
 // defaultNetworkInterfaceName is used for collectng network stats.
@@ -195,4 +203,113 @@ func cadvisorInfoToProcessStats(info *cadvisorapiv2.ContainerInfo) *ProcessStats
 		ThreadsCurrent: cstat.Processes.ThreadsCurrent,
 		ThreadsMax:     cstat.Processes.ThreadsMax,
 	}
+}
+
+func convertToDiskIoStats(cStats *cadvisorapiv1.DiskIoStats) DiskIoStats {
+	if cStats == nil {
+		return nil
+	}
+	diskInfos, err := GetBlockDeviceInfo(sysfs.NewRealSysFs())
+	if err != nil {
+		log.Warningf("get block device info: %v", err)
+		return nil
+	}
+	result := make(map[string]*DiskIoStat)
+	var (
+		keyServiced     = "service"
+		keyServiceBytes = "serviceBytes"
+	)
+	infos := map[string][]cadvisorapiv1.PerDiskStats{
+		keyServiced:     cStats.IoServiced,
+		keyServiceBytes: cStats.IoServiceBytes,
+	}
+	for key, info := range infos {
+		isByte := key == keyServiceBytes
+		for i := range info {
+			svc := info[i]
+			devName := svc.Device
+			if devName == "" {
+				// fill devName by major and minor number
+				key := fmt.Sprintf("%d:%d", svc.Major, svc.Minor)
+				disk, ok := diskInfos[key]
+				if !ok {
+					log.Warningf("not found disk by %s from %#v", key, diskInfos)
+					continue
+				}
+				devName = fmt.Sprintf("/dev/%s", disk.Name)
+			}
+			diskResult, ok := result[devName]
+			if !ok {
+				diskResult = NewDiskIoStat(devName, svc.Stats, isByte)
+			} else {
+				diskResult.fillStats(svc.Stats, isByte)
+			}
+			result[devName] = diskResult
+		}
+	}
+	return result
+}
+
+func cadvisorInfoToDiskIoStats(info *cadvisorapiv2.ContainerInfo) DiskIoStats {
+	cstat, found := latestContainerStats(info)
+	if !found || cstat.DiskIo == nil {
+		return nil
+	}
+	return convertToDiskIoStats(cstat.DiskIo)
+}
+
+var schedulerRegExp = regexp.MustCompile(`.*\[(.*)\].*`)
+
+// Get information about block devices present on the system.
+// Uses the passed in system interface to retrieve the low level OS information.
+func GetBlockDeviceInfo(sysfs sysfs.SysFs) (map[string]info.DiskInfo, error) {
+
+	disks, err := sysfs.GetBlockDevices()
+	if err != nil {
+		return nil, err
+	}
+
+	diskMap := make(map[string]info.DiskInfo)
+	for _, disk := range disks {
+		name := disk.Name()
+		// Ignore non-disk devices.
+		// TODO(rjnagal): Maybe just match hd, sd, loop, and dm prefixes.
+		if strings.HasPrefix(name, "ram") || strings.HasPrefix(name, "sr") {
+			continue
+		}
+		diskInfo := info.DiskInfo{
+			Name: name,
+		}
+		dev, err := sysfs.GetBlockDeviceNumbers(name)
+		if err != nil {
+			return nil, err
+		}
+		n, err := fmt.Sscanf(dev, "%d:%d", &diskInfo.Major, &diskInfo.Minor)
+		if err != nil || n != 2 {
+			return nil, fmt.Errorf("could not parse device numbers from %s for device %s", dev, name)
+		}
+		out, err := sysfs.GetBlockDeviceSize(name)
+		if err != nil {
+			return nil, err
+		}
+		// Remove trailing newline before conversion.
+		size, err := strconv.ParseUint(strings.TrimSpace(out), 10, 64)
+		if err != nil {
+			return nil, err
+		}
+		// size is in 512 bytes blocks.
+		diskInfo.Size = size * 512
+
+		diskInfo.Scheduler = "none"
+		blkSched, err := sysfs.GetBlockDeviceScheduler(name)
+		if err == nil {
+			matches := schedulerRegExp.FindSubmatch([]byte(blkSched))
+			if len(matches) >= 2 {
+				diskInfo.Scheduler = string(matches[1])
+			}
+		}
+		device := fmt.Sprintf("%d:%d", diskInfo.Major, diskInfo.Minor)
+		diskMap[device] = diskInfo
+	}
+	return diskMap, nil
 }
