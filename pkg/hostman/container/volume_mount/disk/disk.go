@@ -41,7 +41,7 @@ type IVolumeMountDisk interface {
 	volume_mount.IUsageVolumeMount
 
 	MountPostOverlays(pod volume_mount.IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount, ovs []*apis.ContainerVolumeMountDiskPostOverlay) error
-	UnmountPostOverlays(pod volume_mount.IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount, ovs []*apis.ContainerVolumeMountDiskPostOverlay, clearLayers bool) error
+	UnmountPostOverlays(pod volume_mount.IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount, ovs []*apis.ContainerVolumeMountDiskPostOverlay, useLazy bool, clearLayers bool) error
 
 	GetHostDiskRootPath(pod volume_mount.IPodInfo, vm *hostapi.ContainerVolumeMount) (string, error)
 
@@ -237,7 +237,7 @@ func (d disk) Unmount(pod volume_mount.IPodInfo, ctrId string, vm *hostapi.Conta
 		return errors.Wrap(err, "get disk storage driver")
 	}
 	if len(vm.Disk.PostOverlay) != 0 {
-		if err := d.UnmountPostOverlays(pod, ctrId, vm, vm.Disk.PostOverlay, false); err != nil {
+		if err := d.UnmountPostOverlays(pod, ctrId, vm, vm.Disk.PostOverlay, false, false); err != nil {
 			return errors.Wrap(err, "mount post overlay dirs")
 		}
 	}

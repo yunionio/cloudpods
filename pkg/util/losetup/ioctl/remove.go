@@ -83,7 +83,7 @@ func DetachAndRemoveDevice(devPath string) error {
 			mntPoints := strings.Split(out, "\n")
 			for _, mntPoint := range mntPoints {
 				if mntPoint != "" {
-					if err := mountutils.Unmount(mntPoint); err != nil {
+					if err := mountutils.Unmount(mntPoint, false); err != nil {
 						return errors.Wrapf(err, "umount %s of dev: %s, part: %s", mntPoint, dev.Name, part)
 					}
 				}

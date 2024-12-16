@@ -481,6 +481,7 @@ func (o *ContainerAddVolumeMountPostOverlayOptions) Params() (jsonutils.JSONObje
 type ContainerRemoveVolumeMountPostOverlayOptions struct {
 	ContainerAddVolumeMountPostOverlayOptions
 	ClearLayers bool `help:"clear overlay upper and work layers"`
+	UseLazy     bool `help:"use lazy umount"`
 }
 
 func (o *ContainerRemoveVolumeMountPostOverlayOptions) Params() (jsonutils.JSONObject, error) {
@@ -490,6 +491,9 @@ func (o *ContainerRemoveVolumeMountPostOverlayOptions) Params() (jsonutils.JSONO
 	}
 	if o.ClearLayers {
 		params.(*jsonutils.JSONDict).Add(jsonutils.JSONTrue, "clear_layers")
+	}
+	if o.UseLazy {
+		params.(*jsonutils.JSONDict).Add(jsonutils.JSONTrue, "use_lazy")
 	}
 	return params, nil
 }

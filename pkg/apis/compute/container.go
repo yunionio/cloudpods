@@ -271,5 +271,6 @@ type ContainerVolumeMountAddPostOverlayInput struct {
 type ContainerVolumeMountRemovePostOverlayInput struct {
 	Index       int                                         `json:"index"`
 	PostOverlay []*apis.ContainerVolumeMountDiskPostOverlay `json:"post_overlay"`
+	UseLazy     bool                                        `json:"use_lazy"`
 	ClearLayers bool                                        `json:"clear_layers"`
 }

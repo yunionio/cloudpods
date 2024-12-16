@@ -79,8 +79,8 @@ func MountBind(src, target string) error {
 	})
 }
 
-func Unmount(mountPoint string) error {
-	err := unmount(mountPoint)
+func Unmount(mountPoint string, useLazy bool) error {
+	err := unmount(mountPoint, useLazy)
 	errs := []error{}
 	if err != nil {
 		errs = append(errs, errors.Wrap(err, "umount firstly"))
@@ -90,7 +90,7 @@ func Unmount(mountPoint string) error {
 				errs = append(errs, errors.Wrapf(err, "clean process use mountpoint: %s", mountPoint))
 			}
 			// umount again
-			if err := unmount(mountPoint); err != nil {
+			if err := unmount(mountPoint, useLazy); err != nil {
 				errs = append(errs, errors.Wrapf(err, "unmount %s after clean process using it", mountPoint))
 				return errors.NewAggregate(errs)
 			}
@@ -102,10 +102,14 @@ func Unmount(mountPoint string) error {
 	return nil
 }
 
-func unmount(mountPoint string) error {
+func unmount(mountPoint string, useLazy bool) error {
 	mountOut, err := procutils.NewRemoteCommandAsFarAsPossible("mountpoint", mountPoint).Output()
 	if err == nil {
-		out, err := procutils.NewRemoteCommandAsFarAsPossible("umount", mountPoint).Output()
+		args := []string{mountPoint}
+		if useLazy {
+			args = append([]string{"-l"}, args...)
+		}
+		out, err := procutils.NewRemoteCommandAsFarAsPossible("umount", args...).Output()
 		if err != nil {
 			return errors.Wrapf(err, "umount %s failed %s", mountPoint, out)
 		}

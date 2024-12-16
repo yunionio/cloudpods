@@ -35,8 +35,8 @@ func (d disk) MountPostOverlays(pod volume_mount.IPodInfo, ctrId string, vm *hos
 	return d.newPostOverlay().mountPostOverlays(pod, ctrId, vm, ovs)
 }
 
-func (d disk) UnmountPostOverlays(pod volume_mount.IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount, ovs []*apis.ContainerVolumeMountDiskPostOverlay, clearLayers bool) error {
-	return d.newPostOverlay().unmountPostOverlays(pod, ctrId, vm, ovs, clearLayers)
+func (d disk) UnmountPostOverlays(pod volume_mount.IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount, ovs []*apis.ContainerVolumeMountDiskPostOverlay, useLazy bool, clearLayers bool) error {
+	return d.newPostOverlay().unmountPostOverlays(pod, ctrId, vm, ovs, useLazy, clearLayers)
 }
 
 func (d disk) getPostOverlayRootPrefixDir(prefixDir string, pod volume_mount.IPodInfo, vm *hostapi.ContainerVolumeMount, ctrId string) (string, error) {
@@ -61,7 +61,7 @@ func (d disk) GetPostOverlayRootUpperDir(pod volume_mount.IPodInfo, vm *hostapi.
 
 type iDiskPostOverlay interface {
 	mountPostOverlays(pod volume_mount.IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount, ovs []*apis.ContainerVolumeMountDiskPostOverlay) error
-	unmountPostOverlays(pod volume_mount.IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount, ovs []*apis.ContainerVolumeMountDiskPostOverlay, clearLayers bool) error
+	unmountPostOverlays(pod volume_mount.IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount, ovs []*apis.ContainerVolumeMountDiskPostOverlay, useLazy bool, clearLayers bool) error
 }
 
 type diskPostOverlay struct {
@@ -83,9 +83,9 @@ func (d diskPostOverlay) mountPostOverlays(pod volume_mount.IPodInfo, ctrId stri
 	return nil
 }
 
-func (d diskPostOverlay) unmountPostOverlays(pod volume_mount.IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount, ovs []*apis.ContainerVolumeMountDiskPostOverlay, clearLayers bool) error {
+func (d diskPostOverlay) unmountPostOverlays(pod volume_mount.IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount, ovs []*apis.ContainerVolumeMountDiskPostOverlay, useLazy bool, clearLayers bool) error {
 	for _, ov := range ovs {
-		if err := d.unmountPostOverlay(pod, ctrId, vm, ov, clearLayers); err != nil {
+		if err := d.unmountPostOverlay(pod, ctrId, vm, ov, useLazy, clearLayers); err != nil {
 			return errors.Wrapf(err, "unmount container %s post overlay dir: %#v", ctrId, ov)
 		}
 	}
@@ -164,12 +164,12 @@ func (d diskPostOverlay) mountPostOverlay(pod volume_mount.IPodInfo, ctrId strin
 	return mountutils.MountOverlay(ov.HostLowerDir, upperDir, workDir, mergedDir)
 }
 
-func (d diskPostOverlay) unmountPostOverlay(pod volume_mount.IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount, ov *apis.ContainerVolumeMountDiskPostOverlay, cleanLayers bool) error {
+func (d diskPostOverlay) unmountPostOverlay(pod volume_mount.IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount, ov *apis.ContainerVolumeMountDiskPostOverlay, useLazy bool, cleanLayers bool) error {
 	mergedDir, err := d.getPostOverlayMountpoint(pod, ctrId, vm, ov)
 	if err != nil {
 		return errors.Wrapf(err, "get post overlay mountpoint for container %s", ctrId)
 	}
-	if err := mountutils.Unmount(mergedDir); err != nil {
+	if err := mountutils.Unmount(mergedDir, useLazy); err != nil {
 		return errors.Wrapf(err, "unmount %s", mergedDir)
 	}
 	if cleanLayers {
