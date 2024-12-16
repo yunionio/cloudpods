@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -146,6 +147,7 @@ type IDevice interface {
 type IsolatedDeviceManager interface {
 	GetDevices() []IDevice
 	GetDeviceByIdent(vendorDevId, addr, mdevId string) IDevice
+	RemoveDeviceByIdent(vendorDevId, addr, mdevId string)
 	GetDeviceByAddr(addr string) IDevice
 	ProbePCIDevices(skipGPUs, skipUSBs, skipCustomDevs bool, sriovNics, ovsOffloadNics []HostNic, nvmePciDisks, amdVgpuPFs, nvidiaVgpuPFs []string, enableCudaMps, enableContainerNPU, enableWhitelist bool)
 	StartDetachTask()
@@ -153,12 +155,15 @@ type IsolatedDeviceManager interface {
 	AppendDetachedDevice(dev *CloudDeviceInfo)
 	GetQemuParams(devAddrs []string) *QemuParams
 	CheckDevIsNeedUpdate(dev IDevice, devInfo *CloudDeviceInfo) bool
+	ProbeUsbAndCustomPCIDevs() ([]IDevice, error)
 }
 
 type isolatedDeviceManager struct {
 	host            IHost
 	devices         []IDevice
 	DetachedDevices []*CloudDeviceInfo
+
+	lock *sync.Mutex
 }
 
 func NewManager(host IHost) IsolatedDeviceManager {
@@ -166,12 +171,15 @@ func NewManager(host IHost) IsolatedDeviceManager {
 		host:            host,
 		devices:         make([]IDevice, 0),
 		DetachedDevices: make([]*CloudDeviceInfo, 0),
+		lock:            new(sync.Mutex),
 	}
 	// Do probe later - Qiu Jian
 	return man
 }
 
 func (man *isolatedDeviceManager) GetDevices() []IDevice {
+	man.lock.Lock()
+	defer man.lock.Unlock()
 	return man.devices
 }
 
@@ -328,6 +336,40 @@ func (man *isolatedDeviceManager) probeUSBs(skipUSBs bool) {
 	}
 }
 
+func (man *isolatedDeviceManager) ProbeUsbAndCustomPCIDevs() ([]IDevice, error) {
+	man.lock.Lock()
+	defer man.lock.Unlock()
+
+	devModels, err := man.getCustomIsolatedDeviceModels()
+	if err != nil {
+		return nil, errors.Wrap(err, "getCustomIsolatedDeviceModels")
+	}
+
+	ret := make([]IDevice, 0)
+	for _, devModel := range devModels {
+		devs, err := getPassthroughPCIDevs(devModel, GpuClassCodes)
+		if err != nil {
+			return nil, errors.Wrap(err, "getPassthroughPCIDevs")
+		}
+		for i, dev := range devs {
+			ret = append(ret, dev)
+			man.devices = append(man.devices, dev)
+			log.Infof("Add general pci device: %d => %#v", i, dev)
+		}
+	}
+
+	usbs, err := getPassthroughUSBs()
+	if err != nil {
+		return nil, errors.Wrap(err, "getPassthroughUSBs")
+	}
+	for idx, usb := range usbs {
+		ret = append(ret, usb)
+		man.devices = append(man.devices, usb)
+		log.Infof("Add USB device: %d => %#v", idx, usb)
+	}
+	return ret, nil
+}
+
 type HostNic struct {
 	Bridge    string
 	Interface string
@@ -428,6 +470,9 @@ func (man *isolatedDeviceManager) probeNVIDIAVgpus(nvidiaVgpuPFs []string) {
 }
 
 func (man *isolatedDeviceManager) ProbePCIDevices(skipGPUs, skipUSBs, skipCustomDevs bool, sriovNics, ovsOffloadNics []HostNic, nvmePciDisks, amdVgpuPFs, nvidiaVgpuPFs []string, enableCudaMps, enableContainerNPU, enableWhitelist bool) {
+	man.lock.Lock()
+	defer man.lock.Unlock()
+
 	man.devices = make([]IDevice, 0)
 	if man.host.IsContainerHost() {
 		man.probeContainerNvidiaGPUs(enableCudaMps)
@@ -528,7 +573,25 @@ func (man *isolatedDeviceManager) CheckDevIsNeedUpdate(dev IDevice, devInfo *Clo
 	return false
 }
 
+func (man *isolatedDeviceManager) RemoveDeviceByIdent(vendorDevId, addr, mdevId string) {
+	man.lock.Lock()
+	defer man.lock.Unlock()
+	idx := -1
+	for i := range man.devices {
+		dev := man.devices[i]
+		if dev.GetVendorDeviceId() == vendorDevId && dev.GetAddr() == addr && dev.GetMdevId() == mdevId {
+			idx = i
+			break
+		}
+	}
+	if idx >= 0 {
+		man.devices = append(man.devices[:idx], man.devices[idx+1:]...)
+	}
+}
+
 func (man *isolatedDeviceManager) GetDeviceByIdent(vendorDevId, addr, mdevId string) IDevice {
+	man.lock.Lock()
+	defer man.lock.Unlock()
 	for _, dev := range man.devices {
 		if dev.GetVendorDeviceId() == vendorDevId && dev.GetAddr() == addr && dev.GetMdevId() == mdevId {
 			return dev
@@ -547,6 +610,8 @@ func (man *isolatedDeviceManager) GetDeviceByVendorDevId(vendorDevId string) IDe
 }
 
 func (man *isolatedDeviceManager) GetDeviceByAddr(addr string) IDevice {
+	man.lock.Lock()
+	defer man.lock.Unlock()
 	for _, dev := range man.devices {
 		if dev.GetAddr() == addr {
 			return dev

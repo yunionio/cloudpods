@@ -1496,7 +1496,61 @@ func (h *SHostInfo) ProbeSyncIsolatedDevices(hostId string, body jsonutils.JSONO
 	if h.GetHostId() != hostId {
 		return nil, nil
 	}
-	return h.probeSyncIsolatedDevices()
+	registedCloudDevs := make([]isolated_device.CloudDeviceInfo, 0)
+	err := body.Unmarshal(&registedCloudDevs, "registed_devs")
+	if err != nil {
+		return nil, errors.Wrap(err, "Parse input registed_devs")
+	}
+
+	// remove registedDevs from isolated device mananger first
+	for _, info := range registedCloudDevs {
+		h.IsolatedDeviceMan.RemoveDeviceByIdent(info.VendorDeviceId, info.Addr, info.MdevId)
+	}
+
+	devs, err := h.IsolatedDeviceMan.ProbeUsbAndCustomPCIDevs()
+	if err != nil {
+		return nil, err
+	}
+
+	var devsNeedUpdate = map[string]bool{}
+	for _, info := range registedCloudDevs {
+		dev := h.IsolatedDeviceMan.GetDeviceByIdent(info.VendorDeviceId, info.Addr, info.MdevId)
+		if dev != nil {
+			dev.SetDeviceInfo(info)
+			devsNeedUpdate[dev.GetCloudId()] = h.IsolatedDeviceMan.CheckDevIsNeedUpdate(dev, &info)
+		} else {
+			// detach device
+			h.IsolatedDeviceMan.AppendDetachedDevice(&info)
+		}
+	}
+	h.IsolatedDeviceMan.StartDetachTask()
+	// no need custom probe
+	//h.IsolatedDeviceMan.BatchCustomProbe()
+
+	// sync each isolated device found
+	eg := errgroup.Group{}
+	// limits the number of active goroutines in this group to at most
+	eg.SetLimit(16)
+	for i := range devs {
+		dev := devs[i]
+		eg.Go(func() error {
+			needUpdate := false
+			if need, ok := devsNeedUpdate[dev.GetCloudId()]; !ok || need {
+				needUpdate = true
+			}
+
+			if _, err := isolated_device.SyncDeviceInfo(h.GetSession(), h.HostId, dev, needUpdate); err != nil {
+				log.Errorf("Sync deviceInfo %s error: %v", dev.String(), err)
+				return errors.Wrapf(err, "Sync device %s", dev.String())
+			} else {
+				return nil
+			}
+		})
+	}
+	if err := eg.Wait(); err != nil {
+		return nil, err
+	}
+	return nil, nil
 }
 
 func (h *SHostInfo) setHostname(name string) {

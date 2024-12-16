@@ -6273,25 +6273,17 @@ func (self *SGuest) PerformProbeIsolatedDevices(ctx context.Context, userCred mc
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetHostDriver")
 	}
-	hostDevs, err := driver.RequestProbeIsolatedDevices(ctx, userCred, host, data)
+	_, err = driver.RequestProbeIsolatedDevices(ctx, userCred, host, data)
 	if err != nil {
 		return nil, errors.Wrap(err, "RequestProbeIsolatedDevices")
 	}
-	objs, err := hostDevs.GetArray()
+	hostDevs, err := host.GetIsolateDevices()
 	if err != nil {
-		return nil, errors.Wrapf(err, "GetArray from %q", hostDevs)
+		return nil, errors.Wrapf(err, "GetIsolateDevices")
 	}
-	devs := make([]*SIsolatedDevice, 0)
-	for _, obj := range objs {
-		id, err := obj.GetString("id")
-		if err != nil {
-			return nil, errors.Wrapf(err, "device %s", obj)
-		}
-		devObj, err := IsolatedDeviceManager.FetchById(id)
-		if err != nil {
-			return nil, errors.Wrapf(err, "FetchById %q", id)
-		}
-		dev := devObj.(*SIsolatedDevice)
+	devs := make([]SIsolatedDevice, 0)
+	for i := range hostDevs {
+		dev := hostDevs[i]
 		if dev.GuestId == "" {
 			devs = append(devs, dev)
 		}

@@ -711,9 +711,9 @@ func (driver *SKVMHostDriver) RequestProbeIsolatedDevices(ctx context.Context, u
 	url := fmt.Sprintf("%s/hosts/%s/probe-isolated-devices", host.ManagerUri, host.GetId())
 	httpClient := httputils.GetDefaultClient()
 	header := mcclient.GetTokenHeaders(userCred)
-	_, respBody, err := httputils.JSONRequest(httpClient, ctx, "POST", url, header, input, false)
+	_, _, err := httputils.JSONRequest(httpClient, ctx, "POST", url, header, input, false)
 	if err != nil {
 		return nil, errors.Wrapf(err, "send to host %s", url)
 	}
-	return respBody.(*jsonutils.JSONArray), err
+	return nil, nil
 }

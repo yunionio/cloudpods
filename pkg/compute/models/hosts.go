@@ -7122,12 +7122,58 @@ func (manager *SHostManager) InitializeData() error {
 	return manager.initHostname()
 }
 
+func (hh *SHost) GetCustomIsolatedDevices() ([]SIsolatedDevice, error) {
+	hidmsq := HostIsolatedDeviceModelManager.Query().Equals("host_id", hh.Id).SubQuery()
+	idmq := IsolatedDeviceModelManager.Query("dev_type")
+	idmq = idmq.Join(hidmsq, sqlchemy.Equals(idmq.Field("id"), hidmsq.Field("isolated_device_model_id")))
+	q := IsolatedDeviceManager.Query().Equals("host_id", hh.Id).In("dev_type", idmq.SubQuery())
+	ret := []SIsolatedDevice{}
+	err := db.FetchModelObjects(IsolatedDeviceManager, q, &ret)
+	if err != nil {
+		return nil, err
+	}
+	return ret, nil
+}
+
+func (hh *SHost) GetUsbIsolatedDevices() ([]SIsolatedDevice, error) {
+	q := IsolatedDeviceManager.Query().Equals("dev_type", api.USB_TYPE)
+	ret := []SIsolatedDevice{}
+	err := db.FetchModelObjects(IsolatedDeviceManager, q, &ret)
+	if err != nil {
+		return nil, err
+	}
+	return ret, nil
+}
+
 func (hh *SHost) PerformProbeIsolatedDevices(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	driver, err := hh.GetHostDriver()
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetHostDriver")
 	}
-	return driver.RequestProbeIsolatedDevices(ctx, userCred, hh, data)
+	// probe usb and custom pci devices
+	customDevs, err := hh.GetCustomIsolatedDevices()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetCustomIsolatedDevices")
+	}
+	usbDevs, err := hh.GetUsbIsolatedDevices()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetUsbIsolatedDevices")
+	}
+	devs := make([]SIsolatedDevice, 0)
+	devs = append(devs, customDevs...)
+	devs = append(devs, usbDevs...)
+
+	input := jsonutils.NewDict()
+	input.Set("registed_devs", jsonutils.Marshal(devs))
+	_, err = driver.RequestProbeIsolatedDevices(ctx, userCred, hh, input)
+	if err != nil {
+		return nil, err
+	}
+	newDevs, err := hh.GetIsolateDevices()
+	if err != nil {
+		return nil, err
+	}
+	return jsonutils.Marshal(newDevs), nil
 }
 
 func (hh *SHost) PerformSyncIsolatedDevices(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
