@@ -117,7 +117,7 @@ func (p *Pty) Stop() (err error) {
 	}()
 	defer func() {
 		if p.Cmd != nil && p.Cmd.Process != nil {
-			log.Debugf("[%s] stop cmd", p.Session.Id)
+			log.Debugf("[%s] stop cmd: %s", p.Session.Id, p.Cmd.String())
 			err := p.Cmd.Process.Signal(os.Kill)
 			if err != nil {
 				errs = append(errs, err)

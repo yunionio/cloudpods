@@ -144,15 +144,15 @@ type CloudShellRequest struct {
 }
 
 func (m WebConsoleManager) DoCloudShell(s *mcclient.ClientSession, _ jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	return m.doCloudSshShell(s, nil)
+	return m.doCloudSshShell(s, nil, "", nil, nil)
 }
 
-func (m WebConsoleManager) climcSshConnect(s *mcclient.ClientSession, hostname string) (jsonutils.JSONObject, error) {
+func (m WebConsoleManager) climcSshConnect(s *mcclient.ClientSession, hostname string, command string, args []string, env map[string]string, info *webconsole_api.SK8sShellDisplayInfo) (jsonutils.JSONObject, error) {
 	if hostname == "" {
 		hostname = "climc"
 	}
 	// maybe running in docker compose environment, so try to use ssh way
-	data, err := m.DoClimcSshConnect(s, hostname, 22)
+	data, err := m.DoClimcSshConnect(s, hostname, 22, command, args, env, info)
 	if err != nil {
 		return nil, errors.Wrap(err, "DoClimcSshConnect")
 	}
@@ -197,7 +197,28 @@ func (m WebConsoleManager) doActionWithClimcPod(
 }
 
 func (m WebConsoleManager) doCloudShell(s *mcclient.ClientSession, info *webconsole_api.SK8sShellDisplayInfo, cmd string, args ...string) (jsonutils.JSONObject, error) {
-	return m.doActionWithClimcPod(s, func(s *mcclient.ClientSession, clusterId string, pod jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	endpointType := "internal"
+	authUrl, err := s.GetServiceURL("identity", endpointType)
+	if err != nil {
+		return nil, httperrors.NewNotFoundError("auth_url not found")
+	}
+	env := map[string]string{
+		"OS_AUTH_TOKEN":           s.GetToken().GetTokenString(),
+		"OS_PROJECT_NAME":         s.GetProjectName(),
+		"OS_PROJECT_DOMAIN":       s.GetProjectDomain(),
+		"OS_AUTH_URL":             authUrl,
+		"OS_ENDPOINT_TYPE":        endpointType,
+		"YUNION_USE_CACHED_TOKEN": "false",
+		"YUNION_INSECURE":         "true",
+		"OS_USERNAME":             "",
+		"OS_PASSWORD":             "",
+		"OS_DOMAIN_NAME":          "",
+		"OS_ACCESS_KEY":           "",
+		"OS_SECRET_KEY":           "",
+		"OS_TRY_TERM_WIDTH":       "false",
+	}
+	return m.doCloudSshShell(s, info, cmd, args, env)
+	/*return m.doActionWithClimcPod(s, func(s *mcclient.ClientSession, clusterId string, pod jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 		req := webconsole_api.SK8sShellRequest{}
 		req.Cluster = clusterId
 		req.Namespace = "onecloud"
@@ -230,22 +251,22 @@ func (m WebConsoleManager) doCloudShell(s *mcclient.ClientSession, info *webcons
 			return nil, errors.Wrapf(err, "get pod name from: %s", pod.String())
 		}
 		return m.DoK8sConnect(s, podName, "shell", jsonutils.Marshal(req))
-	})
+	})*/
 }
 
-func (m WebConsoleManager) doCloudSshShell(s *mcclient.ClientSession, info *webconsole_api.SK8sShellDisplayInfo) (jsonutils.JSONObject, error) {
+func (m WebConsoleManager) doCloudSshShell(s *mcclient.ClientSession, info *webconsole_api.SK8sShellDisplayInfo, command string, args []string, env map[string]string) (jsonutils.JSONObject, error) {
 	data, err := m.doActionWithClimcPod(s, func(s *mcclient.ClientSession, clusterId string, pod jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 		podIP, err := pod.GetString("podIP")
 		if err != nil {
 			return nil, errors.Wrap(err, "get podIP")
 		}
-		return m.climcSshConnect(s, podIP)
+		return m.climcSshConnect(s, podIP, command, args, env, info)
 	})
 	errs := []error{}
 	if err != nil {
 		errs = append(errs, err)
 		// try climc ssh
-		data, err := m.climcSshConnect(s, "")
+		data, err := m.climcSshConnect(s, "", command, args, env, info)
 		if err != nil {
 			errs = append(errs, err)
 			return nil, errors.NewAggregate(errs)
@@ -276,13 +297,17 @@ func (m WebConsoleManager) DoServerRDPConnect(s *mcclient.ClientSession, id stri
 	return m.DoConnect(s, "server-rdp", id, "", params)
 }
 
-func (m WebConsoleManager) DoClimcSshConnect(s *mcclient.ClientSession, ip string, port int) (jsonutils.JSONObject, error) {
+func (m WebConsoleManager) DoClimcSshConnect(s *mcclient.ClientSession, ip string, port int, command string, args []string, env map[string]string, info *webconsole_api.SK8sShellDisplayInfo) (jsonutils.JSONObject, error) {
 	data := jsonutils.Marshal(map[string]interface{}{
 		"username":      "root",
 		"keep_username": true,
 		"ip_addr":       ip,
 		"port":          port,
 		"name":          "climc",
+		"env":           env,
+		"command":       command,
+		"args":          args,
+		"display_info":  info,
 	})
 	body := jsonutils.NewDict()
 	body.Set("webconsole", data)

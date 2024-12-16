@@ -287,7 +287,7 @@ func handleClimcShell(ctx context.Context, w http.ResponseWriter, r *http.Reques
 		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
-	info := command.ClimcSshInfo{}
+	info := webconsole_api.ClimcSshInfo{}
 	err = env.Body.Unmarshal(&info)
 	if err != nil {
 		httperrors.GeneralServerError(ctx, w, err)
