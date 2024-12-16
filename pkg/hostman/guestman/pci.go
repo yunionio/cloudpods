@@ -324,6 +324,8 @@ func (s *SKVMGuestInstance) initGuestNetworks(pciRoot, pciBridge *desc.PCIContro
 				s.Desc.Nics[i].Pci = desc.NewPCIDevice(cont.CType, "e1000-82545em", id)
 			case "vmxnet3":
 				s.Desc.Nics[i].Pci = desc.NewPCIDevice(cont.CType, "vmxnet3", id)
+			case "rtl8139":
+				s.Desc.Nics[i].Pci = desc.NewPCIDevice(cont.CType, "rtl8139", id)	
 			}
 		}
 	}
