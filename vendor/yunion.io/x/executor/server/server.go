@@ -144,14 +144,6 @@ func (e *Executor) Wait(ctx context.Context, in *apis.Sn) (*apis.WaitResponse, e
 		err error
 	)
 
-	if m.stdout != nil {
-		<-m.stdoutCh
-	}
-	if m.stderr != nil {
-		<-m.stderrCh
-	}
-
-	m.wg.Wait()
 	err = m.c.Wait()
 	var (
 		exitStatus uint32
@@ -172,6 +164,14 @@ func (e *Executor) Wait(ctx context.Context, in *apis.Sn) (*apis.WaitResponse, e
 	} else {
 		exitStatus = 0
 	}
+	if m.stdout != nil {
+		<-m.stdoutCh
+	}
+	if m.stderr != nil {
+		<-m.stderrCh
+	}
+
+	m.wg.Wait()
 	cmds.Delete(in.Sn)
 	return &apis.WaitResponse{
 		ExitStatus: exitStatus,
