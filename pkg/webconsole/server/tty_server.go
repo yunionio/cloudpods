@@ -147,6 +147,11 @@ func initSocketHandler(so socketio.Socket, p *session.Pty) {
 }
 
 func cleanUp(so socketio.Socket, p *session.Pty) {
+	defer func() {
+		if err := recover(); err != nil {
+			log.Errorf("recover error: %v", err)
+		}
+	}()
 	so.Disconnect()
 	p.Stop()
 	p.Exit = true

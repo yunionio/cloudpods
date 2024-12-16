@@ -23,24 +23,20 @@ import (
 
 	"yunion.io/x/pkg/errors"
 
+	"yunion.io/x/onecloud/pkg/apis/webconsole"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/webconsole/helper"
 )
 
-type ClimcSshInfo struct {
-	IpAddr   string `json:"ip_addr"`
-	Username string `json:"username"`
-}
-
 type ClimcSshCommand struct {
 	*BaseCommand
-	Info    *ClimcSshInfo
+	Info    *webconsole.ClimcSshInfo
 	s       *mcclient.ClientSession
 	keyFile string
 	buffer  []byte
 }
 
-func NewClimcSshCommand(info *ClimcSshInfo, s *mcclient.ClientSession) (*ClimcSshCommand, error) {
+func NewClimcSshCommand(info *webconsole.ClimcSshInfo, s *mcclient.ClientSession) (*ClimcSshCommand, error) {
 	if info.IpAddr == "" {
 		return nil, fmt.Errorf("Empty host ip address")
 	}
@@ -74,16 +70,24 @@ func NewClimcSshCommand(info *ClimcSshInfo, s *mcclient.ClientSession) (*ClimcSs
 		"YUNION_USE_CACHED_TOKEN": "false",
 		"OS_TRY_TERM_WIDTH":       "false",
 	}
+	if len(info.Env) != 0 {
+		env = info.Env
+	}
 	envCmd := ""
 	for k, v := range env {
 		envCmd = fmt.Sprintf("%s export %s=%s", envCmd, k, v)
+	}
+	execCmd := "exec bash"
+	if info.Command != "" {
+		execCmd = info.Command
+		execCmd = fmt.Sprintf("%s %s", execCmd, strings.Join(info.Args, " "))
 	}
 	sshArgs := []string{
 		"-t", // force pseudo-terminal allocation
 		"-o", "StrictHostKeyChecking=no",
 		"-i", filename,
 		fmt.Sprintf("%s@%s", info.Username, info.IpAddr),
-		fmt.Sprintf("'%s && exec bash'", envCmd),
+		fmt.Sprintf("'%s && %s'", envCmd, execCmd),
 	}
 	sshCmd := fmt.Sprintf("ssh %s", strings.Join(sshArgs, " "))
 	args := []string{"-c", sshCmd}
@@ -102,6 +106,20 @@ func (c ClimcSshCommand) GetCommand() *exec.Cmd {
 	cmd := c.BaseCommand.GetCommand()
 	cmd.Env = append(cmd.Env, "TERM=xterm-256color")
 	return cmd
+}
+
+func (c ClimcSshCommand) GetInstanceName() string {
+	if c.Info.DisplayInfo == nil {
+		return ""
+	}
+	return c.Info.DisplayInfo.InstanceName
+}
+
+func (c ClimcSshCommand) GetIPs() []string {
+	if c.Info.DisplayInfo == nil {
+		return nil
+	}
+	return c.Info.DisplayInfo.IPs
 }
 
 func (c ClimcSshCommand) GetProtocol() string {
