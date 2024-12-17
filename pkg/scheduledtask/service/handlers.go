@@ -34,6 +34,9 @@ func InitHandlers(app *appsrv.Application) {
 		db.RegisterModelManager(manager)
 	}
 	for _, manager := range []db.IModelManager{
+		db.OpsLog,
+		db.Metadata,
+
 		models.ScheduledTaskActivityManager,
 		models.ScheduledTaskManager,
 	} {
