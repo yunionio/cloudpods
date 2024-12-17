@@ -28,7 +28,7 @@ import (
 
 var settingNames = map[string][]string{
 	"identity":   []string{"no_action_logout_seconds"},
-	"yunionapi":  []string{"enable_organization"},
+	"yunionapi":  []string{"enable_organization", "totp_issuer"},
 	"image":      []string{"enable_pending_delete"},
 	"compute_v2": []string{"enable_pending_delete"},
 	"meter":      []string{"cost_conversion_available", "enable_prediction", "share_resource_type"},
