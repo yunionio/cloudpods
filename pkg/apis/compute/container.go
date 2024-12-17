@@ -192,6 +192,9 @@ type ContainerExecInfoOutput struct {
 type ContainerExecInput struct {
 	Command []string `json:"command"`
 	Tty     bool     `json:"tty"`
+	SetIO   bool     `json:"set_io"`
+	Stdin   bool     `json:"stdin"`
+	Stdout  bool     `json:"stdout"`
 }
 
 type ContainerExecSyncInput struct {

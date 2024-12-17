@@ -497,3 +497,9 @@ func (o *ContainerRemoveVolumeMountPostOverlayOptions) Params() (jsonutils.JSONO
 	}
 	return params, nil
 }
+
+type ContainerCopyOptions struct {
+	SRC_FILE          string
+	CONTAINER_ID_FILE string
+	RawFile           bool
+}
