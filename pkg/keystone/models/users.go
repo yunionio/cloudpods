@@ -165,11 +165,20 @@ func (manager *SUserManager) InitializeData() error {
 			return errors.Wrap(err, "update")
 		}
 	}
-	err = manager.initSystemAccount()
-	if err != nil {
-		return errors.Wrap(err, "initSystemAccount")
+	{
+		err := manager.initSystemAccount()
+		if err != nil {
+			return errors.Wrap(err, "initSystemAccount")
+		}
 	}
-	return manager.initSysUser(context.TODO())
+	{
+		err := manager.initSysUser(context.TODO())
+		if err != nil {
+			return errors.Wrap(err, "initSystemAccount")
+		}
+	}
+
+	return nil
 }
 
 func (manager *SUserManager) initSystemAccount() error {
@@ -237,6 +246,30 @@ func (manager *SUserManager) initSysUser(ctx context.Context) error {
 	err = usr.initLocalData(o.Options.BootstrapAdminUserPassword, false)
 	if err != nil {
 		return errors.Wrap(err, "initLocalData")
+	}
+	return nil
+}
+
+func (manager *SUserManager) EnforceUserMfa(ctx context.Context) error {
+	if options.Options.ForceEnableMfa != "all" {
+		return nil
+	}
+	q := manager.Query().IsFalse("enable_mfa")
+
+	users := make([]SUser, 0)
+	err := db.FetchModelObjects(manager, q, &users)
+	if err != nil {
+		return errors.Wrap(err, "FetchModelObjects")
+	}
+	for i := range users {
+		_, err := db.Update(&users[i], func() error {
+			users[i].EnableMfa = tristate.True
+			return nil
+		})
+		if err != nil {
+			return errors.Wrap(err, "update enable mfa")
+		}
+		logclient.AddSimpleActionLog(&users[i], logclient.ACT_UPDATE, "force enable mfa", GetDefaultAdminCred(), true)
 	}
 	return nil
 }
@@ -549,6 +582,11 @@ func (manager *SUserManager) ValidateCreateData(
 		return input, errors.Wrapf(err, "CheckSetPendingQuota")
 	}
 
+	if options.Options.ForceEnableMfa != "disable" {
+		boolTrue := true
+		input.EnableMfa = &boolTrue
+	}
+
 	return input, nil
 }
 
@@ -589,6 +627,10 @@ func (user *SUser) ValidateUpdateData(ctx context.Context, userCred mcclient.Tok
 		if err != nil {
 			return input, httperrors.NewInputParameterError("invalid password: %s", err)
 		}
+	}
+	if options.Options.ForceEnableMfa != "disable" {
+		boolTrue := true
+		input.EnableMfa = &boolTrue
 	}
 	var err error
 	input.EnabledIdentityBaseUpdateInput, err = user.SEnabledIdentityBaseResource.ValidateUpdateData(ctx, userCred, query, input.EnabledIdentityBaseUpdateInput)
