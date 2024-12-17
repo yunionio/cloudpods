@@ -79,6 +79,8 @@ type SKeystoneOptions struct {
 
 	MaxUserRolesInProject  int `help:"maximal allowed roles of a user in a project" default:"20"`
 	MaxGroupRolesInProject int `help:"maximal allowed roles of a group in a project" default:"20"`
+
+	ForceEnableMfa string `help:"force enable mfa" default:"disable" choices:"all|after|disable"`
 }
 
 var (
@@ -99,6 +101,10 @@ func OnOptionsChange(oldOptions, newOptions interface{}) bool {
 	}
 
 	if oldOpts.DefaultUserLanguage != newOpts.DefaultUserLanguage {
+		changed = true
+	}
+
+	if oldOpts.ForceEnableMfa != newOpts.ForceEnableMfa {
 		changed = true
 	}
 
