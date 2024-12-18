@@ -21,9 +21,11 @@ import (
 	"io"
 	"net/url"
 	"os"
+	"path"
 	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/httputils"
 
@@ -36,18 +38,32 @@ import (
 	"yunion.io/x/onecloud/pkg/util/pod/term"
 )
 
+var (
+	Containers ContainerManager
+)
+
+func init() {
+	Containers = ContainerManager{
+		modules.NewComputeManager("container", "containers",
+			[]string{"ID", "Name", "Guest_ID", "Status", "Started_At", "Last_Finished_At", "Restart_Count", "Spec"},
+			[]string{}),
+	}
+	modules.RegisterCompute(&Containers)
+}
+
 type ContainerManager struct {
 	modulebase.ResourceManager
 }
 
 func (man ContainerManager) SetupTTY(in io.Reader, out io.Writer, errOut io.Writer, raw bool) term.TTY {
-	/*t := term.TTY{
+	t := term.TTY{
 		Out: out,
 	}
 	if in == nil {
 		t.In = nil
+		t.Raw = false
 		return t
-	}*/
+	}
 	return term.TTY{
 		In:     in,
 		Out:    out,
@@ -90,6 +106,54 @@ func (man ContainerManager) Exec(s *mcclient.ClientSession, id string, opt *api.
 			Stderr: os.Stderr,
 			// Tty:               opt.Tty,
 			Tty:               true,
+			TerminalSizeQueue: sizeQueue,
+			Header:            headers,
+		})
+	}
+	return t.Safe(fn)
+}
+
+type ContainerExecInput struct {
+	Command []string
+	Tty     bool
+	Stdin   io.Reader
+	Stdout  io.Writer
+	Stderr  io.Writer
+}
+
+func (man ContainerManager) ExecV2(s *mcclient.ClientSession, id string, opt *ContainerExecInput) error {
+	info, err := man.GetSpecific(s, id, "exec-info", nil)
+	if err != nil {
+		return errors.Wrap(err, "get exec info")
+	}
+	infoOut := new(api.ContainerExecInfoOutput)
+	info.Unmarshal(infoOut)
+	apiInput := &api.ContainerExecInput{
+		Command: opt.Command,
+		Tty:     opt.Tty,
+		SetIO:   true,
+		Stdin:   opt.Stdin != nil,
+		Stdout:  opt.Stdout != nil,
+	}
+	urlLoc := fmt.Sprintf("%s/pods/%s/containers/%s/exec?%s", infoOut.HostUri, infoOut.PodId, infoOut.ContainerId, jsonutils.Marshal(apiInput).QueryString())
+	url, err := url.Parse(urlLoc)
+	if err != nil {
+		return errors.Wrapf(err, "parse url: %s", urlLoc)
+	}
+	exec, err := remotecommand.NewSPDYExecutor("POST", url)
+	if err != nil {
+		return errors.Wrap(err, "NewSPDYExecutor")
+	}
+	headers := mcclient.GetTokenHeaders(s.GetToken())
+
+	t := man.SetupTTY(opt.Stdin, opt.Stdout, opt.Stderr, true)
+	sizeQueue := t.MonitorSize(t.GetSize())
+	fn := func() error {
+		return exec.Stream(remotecommand.StreamOptions{
+			Stdin:             opt.Stdin,
+			Stdout:            opt.Stdout,
+			Stderr:            opt.Stderr,
+			Tty:               opt.Tty,
 			TerminalSizeQueue: sizeQueue,
 			Header:            headers,
 		})
@@ -142,15 +206,61 @@ func (man ContainerManager) LogToWriter(s *mcclient.ClientSession, id string, op
 	return nil
 }
 
-var (
-	Containers ContainerManager
-)
-
-func init() {
-	Containers = ContainerManager{
-		modules.NewComputeManager("container", "containers",
-			[]string{"ID", "Name", "Guest_ID", "Status", "Started_At", "Last_Finished_At", "Restart_Count", "Spec"},
-			[]string{}),
+func (man ContainerManager) EnsureDir(s *mcclient.ClientSession, ctrId string, dirName string) error {
+	opt := &ContainerExecInput{
+		Command: []string{"mkdir", "-p", dirName},
+		Tty:     false,
+		Stdin:   os.Stdin,
+		Stdout:  os.Stdout,
+		Stderr:  os.Stderr,
 	}
-	modules.RegisterCompute(&Containers)
+	return man.ExecV2(s, ctrId, opt)
+}
+
+func (man ContainerManager) CopyTo(s *mcclient.ClientSession, ctrId string, destPath string, in io.Reader) error {
+	destDir := path.Dir(destPath)
+	if err := man.EnsureDir(s, ctrId, destDir); err != nil {
+		return errors.Wrapf(err, "ensure dir %s", destDir)
+	}
+
+	reader, writer := io.Pipe()
+	go func() {
+		defer writer.Close()
+		written, err := io.Copy(writer, in)
+		if err != nil {
+			log.Errorf("copy reader to writer, written %d, error: %v", written, err)
+		}
+	}()
+
+	ctrCmd := []string{"sh", "-c", fmt.Sprintf("cat - > %s", destPath)}
+	opt := &ContainerExecInput{
+		Command: ctrCmd,
+		Tty:     false,
+		Stdin:   reader,
+		Stdout:  os.Stdout,
+		Stderr:  os.Stderr,
+	}
+	return man.ExecV2(s, ctrId, opt)
+}
+
+func (man ContainerManager) CopyFrom(s *mcclient.ClientSession, ctrId string, ctrFile string, out io.Writer) error {
+	reader, outStream := io.Pipe()
+	opts := &ContainerExecInput{
+		Command: []string{"cat", ctrFile},
+		Tty:     false,
+		Stdin:   nil,
+		Stdout:  outStream,
+		Stderr:  os.Stderr,
+	}
+	go func() {
+		defer outStream.Close()
+		if err := man.ExecV2(s, ctrId, opts); err != nil {
+			log.Errorf("compute.Containers.ExecV2: %v", err)
+		}
+	}()
+	written, err := io.Copy(out, reader)
+	if err != nil {
+		return errors.Wrapf(err, "copy from reader written: %d", written)
+	}
+	return nil
 }

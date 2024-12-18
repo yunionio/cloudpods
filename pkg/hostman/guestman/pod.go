@@ -2085,13 +2085,21 @@ func (s *sPodGuestInstance) ExecContainer(ctx context.Context, userCred mcclient
 	if err != nil {
 		return nil, errors.Wrap(err, "get container cri id")
 	}
+	stderr := true
+	if input.Tty {
+		stderr = false
+	}
 	req := &runtimeapi.ExecRequest{
 		ContainerId: criId,
 		Cmd:         input.Command,
 		Tty:         input.Tty,
 		Stdin:       true,
 		Stdout:      true,
-		//Stderr:      true,
+		Stderr:      stderr,
+	}
+	if input.SetIO {
+		req.Stdin = input.Stdin
+		req.Stdout = input.Stdout
 	}
 	resp, err := rCli.Exec(ctx, req)
 	if err != nil {
