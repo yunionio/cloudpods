@@ -30,6 +30,7 @@ import (
 type WebsocketProxyServer struct {
 	Session *session.SSession
 	proxy   *websocketproxy.WebsocketProxy
+	cookie  string
 }
 
 func NewWebsocketProxyServer(s *session.SSession) (*WebsocketProxyServer, error) {
@@ -56,9 +57,13 @@ func NewWebsocketProxyServer(s *session.SSession) (*WebsocketProxyServer, error)
 	return &WebsocketProxyServer{
 		Session: s,
 		proxy:   proxySrv,
+		cookie:  info.Cookie,
 	}, nil
 }
 
 func (s *WebsocketProxyServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if len(s.cookie) > 0 {
+		r.Header.Set("Cookie", s.cookie)
+	}
 	s.proxy.ServeHTTP(w, r)
 }
