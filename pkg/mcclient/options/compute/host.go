@@ -60,6 +60,10 @@ type HostListOptions struct {
 	OrderByCpuCommitRate     string `help:"Order by host cpu commit rate" choices:"desc|asc"`
 	OrderByMemCommitRate     string `help:"Order by host meme commit rate" choices:"desc|asc"`
 
+	OrderByStorageUsed string `help:"Order by storage used" choices:"desc|asc"`
+	OrderByCpuCommit   string `help:"Order by cpu commit" choices:"desc|asc"`
+	OrderByMemCommit   string `help:"Order by mem commit" choices:"desc|asc"`
+
 	options.BaseListOptions
 }
 
