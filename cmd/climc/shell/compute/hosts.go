@@ -37,7 +37,6 @@ import (
 func init() {
 	cmd := shell.NewResourceCmd(&modules.Hosts)
 	cmd.List(&compute.HostListOptions{})
-	cmd.Show(&options.BaseShowOptions{})
 	cmd.GetMetadata(&options.BaseIdOptions{})
 	cmd.GetProperty(&compute.HostStatusStatisticsOptions{})
 
@@ -88,6 +87,34 @@ func init() {
 			fmt.Println("error", err)
 		}
 	}, &options.BaseIdOptions{})
+
+	R(&compute.HostShowOptions{}, "host-show", "Show details of a host", func(s *mcclient.ClientSession, args *compute.HostShowOptions) error {
+		params, err := args.Params()
+		if err != nil {
+			return err
+		}
+		result, err := modules.Hosts.Get(s, args.ID, params)
+		if err != nil {
+			return err
+		}
+		resultDict := result.(*jsonutils.JSONDict)
+		if !args.ShowAll {
+			if !args.ShowMetadata {
+				print("ShowMetadata\n")
+				resultDict.Remove("metadata")
+			}
+			if !args.ShowNicInfo {
+				print("ShowMetadata\n")
+				resultDict.Remove("nic_info")
+			}
+			if !args.ShowSysInfo {
+				print("ShowSysInfo\n")
+				resultDict.Remove("sys_info")
+			}
+		}
+		printObject(resultDict)
+		return nil
+	})
 
 	R(&options.BaseIdOptions{}, "host-logininfo", "Get SSH login information of a host", func(s *mcclient.ClientSession, args *options.BaseIdOptions) error {
 		i, e := modules.Hosts.PerformAction(s, args.ID, "login-info", nil)
