@@ -3802,6 +3802,27 @@ func (manager *SHostManager) FetchCustomizeColumns(
 	return rows
 }
 
+func (manager *SHostManager) CustomizedTotalCount(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, totalQ *sqlchemy.SQuery) (int, jsonutils.JSONObject, error) {
+	results := struct {
+		apis.TotalCountBase
+		StatusInfo []apis.StatusStatisticStatusInfo
+	}{}
+
+	err := totalQ.First(&results.TotalCountBase)
+	if err != nil && errors.Cause(err) != sql.ErrNoRows {
+		return -1, nil, errors.Wrapf(err, "First")
+	}
+
+	totalSQ := totalQ.ResetFields().SubQuery()
+	statQ := totalSQ.Query(totalSQ.Field("status"), sqlchemy.COUNT("total_count", totalSQ.Field("id")))
+	statQ = statQ.GroupBy(totalSQ.Field("status"))
+	err = statQ.All(&results.StatusInfo)
+	if err != nil {
+		return -1, nil, errors.Wrapf(err, "status query")
+	}
+	return results.Count, jsonutils.Marshal(results), nil
+}
+
 func fetchBaremetalServer(hostIds []string) (map[string]*SGuest, error) {
 	guests := []SGuest{}
 	err := GuestManager.Query().In("host_id", hostIds).Equals("hypervisor", api.HOST_TYPE_BAREMETAL).All(&guests)
