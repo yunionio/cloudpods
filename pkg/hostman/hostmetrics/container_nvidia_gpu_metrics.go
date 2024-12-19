@@ -159,7 +159,7 @@ func (s *SGuestMonitorCollector) collectGpuPodsProcesses() map[string]map[string
 		podDesc := pod.GetDesc()
 		hasGpu := false
 		for i := range podDesc.IsolatedDevices {
-			if utils.IsInStringArray(podDesc.IsolatedDevices[i].DevType, []string{compute.CONTAINER_DEV_NVIDIA_GPU, compute.CONTAINER_DEV_NVIDIA_MPS, compute.CONTAINER_DEV_VASTAITECH_GPU}) {
+			if utils.IsInStringArray(podDesc.IsolatedDevices[i].DevType, []string{compute.CONTAINER_DEV_NVIDIA_GPU, compute.CONTAINER_DEV_NVIDIA_MPS, compute.CONTAINER_DEV_VASTAITECH_GPU, compute.CONTAINER_DEV_CPH_AMD_GPU}) {
 				hasGpu = true
 				break
 			}

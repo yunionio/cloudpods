@@ -16,10 +16,11 @@ import (
 	"path"
 	"strconv"
 	"strings"
-	"yunion.io/x/log"
-	"yunion.io/x/onecloud/pkg/util/fileutils2"
 
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+
+	"yunion.io/x/onecloud/pkg/util/fileutils2"
 )
 
 type CphAmdGpuProcessMetrics struct {
@@ -71,12 +72,12 @@ func parseCphAmdGpuGemInfo(content string, devId string) []CphAmdGpuProcessMetri
 	var i, length = 0, len(lines)
 	for i < length {
 		line := strings.TrimSpace(lines[i])
-		segs := strings.Split(line, " ")
-		if segs[0] != "pid" {
+		segs := strings.Fields(line)
+		if len(segs) < 2 {
 			i++
 			continue
 		}
-		if len(segs) < 2 {
+		if segs[0] != "pid" {
 			i++
 			continue
 		}
@@ -85,12 +86,15 @@ func parseCphAmdGpuGemInfo(content string, devId string) []CphAmdGpuProcessMetri
 		j := i + 1
 		for j < length {
 			line := strings.TrimSpace(lines[j])
-			segs := strings.Split(line, " ")
-			if segs[0] == "pid" {
+			if len(line) == 0 {
 				break
 			}
+			segs := strings.Fields(line)
 			if len(segs) < 4 {
 				log.Errorf("unknown output line %s", line)
+				break
+			}
+			if segs[0] == "pid" {
 				break
 			}
 			memUsedStr, memType := segs[1], segs[3]

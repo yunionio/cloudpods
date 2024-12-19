@@ -79,6 +79,8 @@ func parseVastaitechGpuProcessMetrics(gpuMetricsStr string) []VastaitechGpuProce
 			log.Errorf("failed parse gfxMemStr %s: %s", gfxMemStr, err)
 			continue
 		}
+		pciAddr = strings.ReplaceAll(pciAddr, ":", "_")
+		gfxMem = gfxMem / 1024.0 / 1024.0
 		gfx, err := strconv.ParseFloat(gfxStr, 64)
 		if err != nil {
 			log.Errorf("failed parse gfxStr %s: %s", gfxStr, err)

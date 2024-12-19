@@ -23,7 +23,9 @@ import (
 
 	"yunion.io/x/log"
 
+	apis "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/hostman/guestman"
+	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/util/pod/stats"
 )
 
@@ -65,7 +67,6 @@ const (
 	NVIDIA_GPU_OFA            = "ofa"
 
 	VASTAITECH_GPU_DEV_ID   = "dev_id"
-	VASTAITECH_GPU_PCI_ADDR = "pci_addr"
 	VASTAITECH_GPU_ENC      = "enc"
 	VASTAITECH_GPU_DEC      = "dec"
 	VASTAITECH_GPU_GFX      = "gfx"
@@ -140,7 +141,8 @@ func (m PodCphAmdGpuMetrics) GetUniformName() string {
 
 func (m PodCphAmdGpuMetrics) GetTag() map[string]string {
 	return map[string]string{
-		"dev_id": m.DevId,
+		"dev_id":   m.DevId,
+		"dev_type": apis.CONTAINER_DEV_CPH_AMD_GPU,
 	}
 }
 
@@ -175,8 +177,8 @@ func (m PodVastaitechGpuMetrics) GetUniformName() string {
 
 func (m PodVastaitechGpuMetrics) GetTag() map[string]string {
 	return map[string]string{
-		"pci_addr": m.PciAddr,
 		"dev_id":   m.DevId,
+		"dev_type": apis.CONTAINER_DEV_VASTAITECH_GPU,
 	}
 }
 
@@ -188,7 +190,6 @@ func (m PodVastaitechGpuMetrics) ToMap() map[string]interface{} {
 		VASTAITECH_GPU_GFX:      m.Gfx,
 		VASTAITECH_GPU_MEM:      m.Mem,
 		VASTAITECH_GPU_MEM_UTIL: m.MemUtil,
-		VASTAITECH_GPU_PCI_ADDR: m.PciAddr,
 	}
 	return ret
 }
@@ -220,9 +221,14 @@ func (m PodNvidiaGpuMetrics) GetUniformName() string {
 }
 
 func (m PodNvidiaGpuMetrics) GetTag() map[string]string {
+	devType := apis.CONTAINER_DEV_NVIDIA_GPU
+	if options.HostOptions.EnableCudaMPS {
+		devType = apis.CONTAINER_DEV_NVIDIA_MPS
+	}
 	return map[string]string{
 		"index":          strconv.Itoa(m.Index),
 		"physical_index": strconv.Itoa(m.PhysicalIndex),
+		"dev_type":       devType,
 	}
 }
 
@@ -785,13 +791,16 @@ func (m *SGuestMonitor) getPodCphAmdGpuMetrics() []*PodCphAmdGpuMetrics {
 		gms, ok := addrGpuMap[devId]
 		if !ok {
 			gms = new(PodCphAmdGpuMetrics)
+			gms.DevId = devId
 		}
 		gms.Mem += m.cphAmdGpuMetrics[i].Mem
+		addrGpuMap[devId] = gms
 	}
 	res := make([]*PodCphAmdGpuMetrics, 0)
 	for _, gms := range addrGpuMap {
 		res = append(res, gms)
 	}
+
 	return res
 }
 
@@ -805,17 +814,21 @@ func (m *SGuestMonitor) getPodVastaitechGpuMetrics() []*PodVastaitechGpuMetrics 
 		gms, ok := addrGpuMap[pciAddr]
 		if !ok {
 			gms = new(PodVastaitechGpuMetrics)
+			gms.DevId = m.vastaitechGpuMetrics[i].DevId
+			gms.PciAddr = m.vastaitechGpuMetrics[i].PciAddr
 		}
 		gms.Mem += m.vastaitechGpuMetrics[i].GfxMem
 		gms.MemUtil += m.vastaitechGpuMetrics[i].GfxMemUsage
 		gms.Gfx += m.vastaitechGpuMetrics[i].Gfx
 		gms.DecUtil += m.vastaitechGpuMetrics[i].Dec
 		gms.EncUtil += m.vastaitechGpuMetrics[i].Enc
+		addrGpuMap[pciAddr] = gms
 	}
 	res := make([]*PodVastaitechGpuMetrics, 0)
 	for _, gms := range addrGpuMap {
 		res = append(res, gms)
 	}
+
 	return res
 }
 
