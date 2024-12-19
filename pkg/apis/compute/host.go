@@ -151,6 +151,18 @@ type HostListInput struct {
 	// 按内存超分率排序
 	// enmu: asc,desc
 	OrderByMemCommitRate string `json:"order_by_mem_commit_rate"`
+
+	// 按本地存储分配大小排序
+	// enmu: asc,desc
+	OrderByStorageUsed string `json:"order_by_storage_used"`
+
+	// 按cpu分配大小排序
+	// enmu: asc,desc
+	OrderByCpuCommit string `json:"order_by_cpu_commit"`
+
+	// 按内存分配大小排序
+	// enmu: asc,desc
+	OrderByMemCommit string `json:"order_by_mem_commit"`
 }
 
 type HostDetails struct {
