@@ -2550,6 +2550,7 @@ func (h *SHostInfo) injectTelegrafDeviceConfig(conf map[string]interface{}) {
 	// group dev
 	hasNetint := false
 	hasVasmi := false
+	hasNvidiasmi := false
 	for _, dev := range devs {
 		devType := dev.GetDeviceType()
 		switch devType {
@@ -2573,17 +2574,22 @@ func (h *SHostInfo) injectTelegrafDeviceConfig(conf map[string]interface{}) {
 		case string(isolated_device.ContainerDeviceTypeVastaitechGpu):
 			hasVasmi = true
 			continue
+		case string(isolated_device.ContainerDeviceTypeNvidiaGpu), string(isolated_device.ContainerDeviceTypeNvidiaMps):
+			hasNvidiasmi = true
 		}
 	}
 	if hasNetint {
-		conf[system_service.TELEGAF_INPUT_NETDEV] = map[string]interface{}{
+		conf[system_service.TELEGRAF_INPUT_NETDEV] = map[string]interface{}{
 			system_service.TELEGRAF_INPUT_CONF_BIN_PATH: "/usr/bin/ni_rsrc_mon",
 		}
 	}
 	if hasVasmi {
-		conf[system_service.TELEGAF_INPUT_VASMI] = map[string]interface{}{
+		conf[system_service.TELEGRAF_INPUT_VASMI] = map[string]interface{}{
 			system_service.TELEGRAF_INPUT_CONF_BIN_PATH: "/usr/bin/vasmi",
 		}
+	}
+	if hasNvidiasmi {
+		conf[system_service.TELEGRAF_INPUT_NVIDIASMI] = struct{}{}
 	}
 }
 
