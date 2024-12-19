@@ -2527,7 +2527,7 @@ func (h *SHostInfo) OnCatalogChanged(catalog mcclient.KeystoneServiceCatalogV3) 
 			telegraf.BgReloadConf(conf)
 		}
 	} else {
-		log.Infof("telegraf configuration no change")
+		log.Debugf("telegraf configuration no change")
 	}
 
 	/*urls, _ = catalog.GetServiceURLs("elasticsearch",
