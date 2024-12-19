@@ -87,6 +87,19 @@ func (opts *HostListOptions) Params() (jsonutils.JSONObject, error) {
 	return params, nil
 }
 
+type HostShowOptions struct {
+	options.BaseShowOptions
+	ShowMetadata bool `help:"Show host metadata in details"`
+	ShowNicInfo  bool `help:"Show host nic_info in details"`
+	ShowSysInfo  bool `help:"Show host sys_info in details"`
+	ShowAll      bool `help:"Show all of host details" short-token:"a"`
+}
+
+func (o *HostShowOptions) Params() (jsonutils.JSONObject, error) {
+	// NOTE: host show only request with base options
+	return jsonutils.Marshal(o.BaseShowOptions), nil
+}
+
 type HostReserveCpusOptions struct {
 	options.BaseIdsOptions
 	Cpus                    string
