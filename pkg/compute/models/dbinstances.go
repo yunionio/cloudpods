@@ -124,7 +124,7 @@ type SDBInstance struct {
 	InstanceType string `width:"64" charset:"utf8" nullable:"true" list:"user" create:"optional"`
 
 	// 维护时间
-	MaintainTime string `width:"64" charset:"ascii" nullable:"true" list:"user" create:"optional"`
+	MaintainTime string `width:"256" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 
 	// 虚拟私有网络Id
 	// example: ed20d84e-3158-41b1-870c-1725e412e8b6
