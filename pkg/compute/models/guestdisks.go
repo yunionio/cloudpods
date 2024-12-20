@@ -68,8 +68,8 @@ type SGuestdisk struct {
 	Driver    string `width:"32" charset:"ascii" nullable:"true" list:"user" update:"user"` // Column(VARCHAR(32, charset='ascii'), nullable=True)
 	CacheMode string `width:"32" charset:"ascii" nullable:"true" list:"user" update:"user"` // Column(VARCHAR(32, charset='ascii'), nullable=True)
 	AioMode   string `width:"32" charset:"ascii" nullable:"true" get:"user" update:"user"`  // Column(VARCHAR(32, charset='ascii'), nullable=True)
-	Iops      int    `nullable:"true" default:"0"`
-	Bps       int    `nullable:"true" default:"0"` // Mb
+	Iops      int    `nullable:"true" default:"0" list:"user" update:"user"`
+	Bps       int    `nullable:"true" default:"0" list:"user" update:"user"` // Mb
 
 	Mountpoint string `width:"256" charset:"utf8" nullable:"true" get:"user"` // Column(VARCHAR(256, charset='utf8'), nullable=True)
 

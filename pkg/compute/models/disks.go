@@ -2468,6 +2468,8 @@ func (manager *SDiskManager) FetchCustomizeColumns(
 		gds.Field("index"),
 		gds.Field("driver"),
 		gds.Field("cache_mode"),
+		gds.Field("iops"),
+		gds.Field("bps"),
 	).
 		Join(gds, sqlchemy.Equals(gds.Field("guest_id"), guestSQ.Field("id"))).
 		Filter(sqlchemy.In(gds.Field("disk_id"), diskIds))
@@ -2481,6 +2483,8 @@ func (manager *SDiskManager) FetchCustomizeColumns(
 		Index     int
 		Driver    string
 		CacheMode string
+		Iops      int
+		Bps       int
 	}{}
 	err := q.All(&guestInfo)
 	if err != nil {
@@ -2502,6 +2506,8 @@ func (manager *SDiskManager) FetchCustomizeColumns(
 			Index:     guest.Index,
 			Driver:    guest.Driver,
 			CacheMode: guest.CacheMode,
+			Iops:      guest.Iops,
+			Bps:       guest.Bps,
 		})
 	}
 
@@ -2548,9 +2554,12 @@ func (manager *SDiskManager) FetchCustomizeColumns(
 	for i := range rows {
 		rows[i].Guests, _ = guests[diskIds[i]]
 		names, status := []string{}, []string{}
+		var iops, bps int
 		for _, guest := range rows[i].Guests {
 			names = append(names, guest.Name)
 			status = append(status, guest.Status)
+			iops = guest.Iops
+			bps = guest.Bps
 		}
 		rows[i].GuestCount = len(rows[i].Guests)
 		rows[i].Guest = strings.Join(names, ",")
@@ -2563,8 +2572,13 @@ func (manager *SDiskManager) FetchCustomizeColumns(
 			rows[i].Brand = "Unknown"
 			rows[i].Provider = "Unknown"
 		}
+		if len(rows[i].ExternalId) == 0 {
+			//rows[i].Iops = iops
+			//rows[i].Throughput = bps
+			disk.Iops = iops
+			disk.Throughput = bps
+		}
 	}
-
 	return rows
 }
 
