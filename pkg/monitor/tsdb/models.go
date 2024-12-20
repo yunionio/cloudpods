@@ -110,7 +110,7 @@ func FormatRawName(idx int, name string, groupByTags []string, tags map[string]s
 	for _, tagKey := range tagKeys.List() {
 		if tagV, ok := tags[tagKey]; ok {
 			gHint := genHint(tagKey, tagV)
-			if strings.Contains(tagKey, "name") {
+			if strings.Contains(tagKey, "name") && !sets.NewString(groupByTags...).Has(tagKey) {
 				hintNames.Insert(gHint)
 			} else {
 				hints.Insert(gHint)
