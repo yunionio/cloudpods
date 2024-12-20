@@ -335,7 +335,6 @@ func ClimcMain() {
 	}
 
 	if parser.IsHelpSet() {
-		fmt.Print(parser.HelpString())
 		return
 	}
 
