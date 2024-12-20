@@ -42,17 +42,13 @@ func StartService() {
 		log.Infof("Auth complete!!")
 	})
 
-	cloudcommon.InitDB(&opts.DBOptions)
-	defer cloudcommon.CloseDB()
-
-	if !db.CheckSync(opts.AutoSyncTable, opts.EnableDBChecksumTables, opts.DBChecksumSkipInit) {
-		log.Fatalf("database schema not in sync!")
-	}
-
 	app := app_common.InitApp(&opts.BaseOptions, false)
+
 	cloudcommon.InitDB(dbOpts)
 	InitHandlers(app)
+
 	db.EnsureAppSyncDB(app, dbOpts, models.InitDB)
+	defer cloudcommon.CloseDB()
 
 	models.InitializeCronjobs(app.GetContext())
 
