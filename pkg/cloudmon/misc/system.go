@@ -78,6 +78,7 @@ func CollectServiceMetrics(ctx context.Context, userCred mcclient.TokenCredentia
 				apis.SERVICE_TYPE_IMAGE,
 				apis.SERVICE_TYPE_MONITOR,
 				apis.SERVICE_TYPE_VICTORIA_METRICS,
+				"k8s",
 			}) {
 				continue
 			}
