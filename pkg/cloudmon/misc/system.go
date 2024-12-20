@@ -74,7 +74,12 @@ func CollectServiceMetrics(ctx context.Context, userCred mcclient.TokenCredentia
 		}
 		metrics := []influxdb.SMetricData{}
 		for _, ep := range endpoints {
-			if utils.IsInStringArray(ep.ServiceType, apis.NO_RESOURCE_SERVICES) || ep.ServiceType == apis.SERVICE_TYPE_IMAGE {
+			if utils.IsInStringArray(ep.ServiceType, apis.NO_RESOURCE_SERVICES) || utils.IsInStringArray(ep.ServiceType, []string{
+				apis.SERVICE_TYPE_IMAGE,
+				apis.SERVICE_TYPE_MONITOR,
+				apis.SERVICE_TYPE_VICTORIA_METRICS,
+				"k8s",
+			}) {
 				continue
 			}
 			url := httputils.JoinPath(ep.Url, "version")
