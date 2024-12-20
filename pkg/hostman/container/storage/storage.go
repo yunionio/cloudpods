@@ -16,8 +16,13 @@ package storage
 
 import (
 	"fmt"
+	"strings"
+
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/util/mountutils"
+	"yunion.io/x/onecloud/pkg/util/procutils"
 )
 
 var (
@@ -56,4 +61,31 @@ func Mount(devPath string, mountPoint string, fsType string) error {
 
 func Unmount(devPath string) error {
 	return mountutils.Unmount(devPath, false)
+}
+
+func UnmountWithSubDirs(devPath string) error {
+	err := mountutils.Unmount(devPath, false)
+	if err == nil {
+		return nil
+	}
+	if !strings.Contains(err.Error(), "target is busy") {
+		return err
+	}
+	// found mountpoints starts with devPath
+	out, err2 := procutils.NewRemoteCommandAsFarAsPossible("sh", "-c", fmt.Sprintf("mount | grep ' %s/' | awk '{print $3}'", devPath)).Output()
+	if err2 == nil && len(out) != 0 {
+		mntPoints := strings.Split(string(out), "\n")
+		for _, mntPoint := range mntPoints {
+			if mntPoint != "" {
+				if err := mountutils.Unmount(mntPoint, false); err != nil {
+					return errors.Wrapf(err, "umount subdir %s", mntPoint)
+				}
+				log.Infof("unmount subdir %q", mntPoint)
+			}
+		}
+	}
+	if err := Unmount(devPath); err != nil {
+		return errors.Wrapf(err, "unmount %q again", devPath)
+	}
+	return nil
 }

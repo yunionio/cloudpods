@@ -247,7 +247,7 @@ func (d disk) Unmount(pod volume_mount.IPodInfo, ctrId string, vm *hostapi.Conta
 		}
 	}
 	mntPoint := pod.GetDiskMountPoint(iDisk)
-	if err := container_storage.Unmount(mntPoint); err != nil {
+	if err := container_storage.UnmountWithSubDirs(mntPoint); err != nil {
 		return errors.Wrapf(err, "unmount %s", mntPoint)
 	}
 	_, isConnected, err := drv.CheckConnect(iDisk.GetPath())
