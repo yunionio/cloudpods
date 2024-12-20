@@ -314,6 +314,11 @@ func (s *SLocalStorage) SyncStorageInfo() (jsonutils.JSONObject, error) {
 			return nil, errors.Wrapf(err, "Storages.Put %s", s.StorageId)
 		}
 	} else {
+		res, err = modules.Storages.GetByName(hostutils.GetComputeSession(context.Background()), name, nil)
+		if err == nil {
+			return res, nil
+		}
+
 		var mediumType string
 		mediumType, err = s.GetMediumType()
 		if err != nil {
