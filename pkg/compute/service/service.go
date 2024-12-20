@@ -30,6 +30,7 @@ import (
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/apis/identity"
+	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon"
 	common_app "yunion.io/x/onecloud/pkg/cloudcommon/app"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
@@ -62,6 +63,10 @@ func StartService() {
 }
 
 func StartServiceWithJobs(jobs func(cron *cronman.SCronJobManager)) {
+	StartServiceWithJobsAndApp(jobs, nil)
+}
+
+func StartServiceWithJobsAndApp(jobs func(cron *cronman.SCronJobManager), appCllback func(app *appsrv.Application)) {
 	opts := &options.Options
 	commonOpts := &options.Options.CommonOptions
 	baseOpts := &options.Options.BaseOptions
@@ -110,6 +115,9 @@ func StartServiceWithJobs(jobs func(cron *cronman.SCronJobManager)) {
 	cloudcommon.InitDB(dbOpts)
 
 	InitHandlers(app)
+	if appCllback != nil {
+		appCllback(app)
+	}
 
 	db.EnsureAppSyncDB(app, dbOpts, models.InitDB)
 	defer cloudcommon.CloseDB()
