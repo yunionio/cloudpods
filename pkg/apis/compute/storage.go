@@ -258,3 +258,7 @@ type StorageUpdateInput struct {
 	HardwareInfo *StorageHardwareInfo `json:"hardware_info"`
 	MasterHost   string
 }
+
+type StorageSetCmtBoundInput struct {
+	Cmtbound *float32
+}
