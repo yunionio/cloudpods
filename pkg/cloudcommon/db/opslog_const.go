@@ -339,4 +339,6 @@ const (
 
 	ACT_REBUILD        = "rebuild"
 	ACT_REBUILD_FAILED = "rebuild_failed"
+
+	ACT_SET_COMMIT_BOUND = "set_commit_bound"
 )
