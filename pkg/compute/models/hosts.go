@@ -981,6 +981,29 @@ func (self *SHost) saveUpdates(doUpdate func() error, doSchedClean bool) (map[st
 	return diff, nil
 }
 
+func (self *SHost) PerformSetCommitBound(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input api.HostSetCommitBoundInput,
+) (jsonutils.JSONObject, error) {
+	_, err := db.Update(self, func() error {
+		if input.CpuCmtbound != nil {
+			self.CpuCmtbound = *input.CpuCmtbound
+		}
+		if input.MemCmtbound != nil {
+			self.MemCmtbound = *input.MemCmtbound
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	db.OpsLog.LogEvent(self, db.ACT_SET_COMMIT_BOUND, input, userCred)
+	logclient.AddActionLogWithContext(ctx, self, logclient.ACT_SET_COMMIT_BOUND, input, userCred, true)
+	return nil, nil
+}
+
 func (self *SHost) PerformUpdateStorage(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

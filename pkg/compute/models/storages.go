@@ -1863,6 +1863,26 @@ func (self *SStorage) PerformSetSchedtag(ctx context.Context, userCred mcclient.
 	return PerformSetResourceSchedtag(self, ctx, userCred, query, data)
 }
 
+func (self *SStorage) PerformSetCommitBound(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input api.StorageSetCmtBoundInput,
+) (jsonutils.JSONObject, error) {
+	_, err := db.Update(self, func() error {
+		if input.Cmtbound != nil {
+			self.Cmtbound = *input.Cmtbound
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	db.OpsLog.LogEvent(self, db.ACT_SET_COMMIT_BOUND, input, userCred)
+	logclient.AddActionLogWithContext(ctx, self, logclient.ACT_SET_COMMIT_BOUND, input, userCred, true)
+	return nil, nil
+}
+
 func (self *SStorage) GetSchedtagJointManager() ISchedtagJointManager {
 	return StorageschedtagManager
 }
