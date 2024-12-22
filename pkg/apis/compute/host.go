@@ -653,3 +653,8 @@ type HostLoginInfoOutput struct {
 
 type HostPerformStartInput struct {
 }
+
+type HostSetCommitBoundInput struct {
+	CpuCmtbound *float32
+	MemCmtbound *float32
+}

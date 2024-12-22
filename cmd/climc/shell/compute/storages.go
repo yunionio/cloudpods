@@ -47,6 +47,7 @@ func init() {
 	cmd.Perform("private", &options.BaseIdOptions{})
 	cmd.Get("hardware-info", &options.BaseIdOptions{})
 	cmd.Perform("set-hardware-info", &compute.StorageSetHardwareInfoOptions{})
+	cmd.Perform("set-commit-bound", &compute.StorageSetCommitBoundOptions{})
 
 	type StorageCephRunOptions struct {
 		ID     string `help:"ID or name of ceph storage"`
