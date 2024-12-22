@@ -1466,4 +1466,8 @@ func init() {
 		EN("Unconvert Hypervisor Complete").
 		CN("回收为物理机"),
 	)
+	o.Set(ACT_SET_COMMIT_BOUND, i18n.NewTableEntry().
+		EN("Set Commit Bound").
+		CN("设置超售比"),
+	)
 }

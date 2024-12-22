@@ -292,6 +292,7 @@ const (
 
 	ACT_UNCONVERT_START    = "unconverting"
 	ACT_UNCONVERT_COMPLETE = "unconverted"
+	ACT_SET_COMMIT_BOUND   = "set_commit_bound"
 
 	ACT_COLLECT_METRICS = "collect_metrics"
 
