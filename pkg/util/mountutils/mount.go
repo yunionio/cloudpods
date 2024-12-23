@@ -56,10 +56,28 @@ func Mount(devPath string, mountPoint string, fsType string) error {
 }
 
 func MountOverlay(lowerDir []string, upperDir string, workDir string, mergedDir string) error {
+	return mountOverlay(lowerDir, upperDir, workDir, mergedDir, nil)
+}
+
+type MountOverlayFeatures struct {
+	MetaCopy bool
+}
+
+func MountOverlayWithFeatures(lowerDir []string, upperDir string, workDir string, mergedDir string, features *MountOverlayFeatures) error {
+	return mountOverlay(lowerDir, upperDir, workDir, mergedDir, features)
+}
+
+func mountOverlay(lowerDir []string, upperDir string, workDir string, mergedDir string, features *MountOverlayFeatures) error {
 	return mountWrap(mergedDir, func() error {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		overlayArgs := []string{"-t", "overlay", "overlay", "-o", fmt.Sprintf("lowerdir=%s,upperdir=%s,workdir=%s", strings.Join(lowerDir, ":"), upperDir, workDir), mergedDir}
+		optStr := fmt.Sprintf("lowerdir=%s,upperdir=%s,workdir=%s", strings.Join(lowerDir, ":"), upperDir, workDir)
+		if features != nil {
+			if features.MetaCopy {
+				optStr += ",metacopy=on"
+			}
+		}
+		overlayArgs := []string{"-t", "overlay", "overlay", "-o", optStr, mergedDir}
 		if out, err := procutils.NewRemoteCommandContextAsFarAsPossible(ctx, "mount", overlayArgs...).Output(); err != nil {
 			return errors.Wrapf(err, "mount %v: %s", overlayArgs, out)
 		}
