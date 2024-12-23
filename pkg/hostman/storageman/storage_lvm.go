@@ -217,7 +217,9 @@ func (s *SLVMStorage) DeleteSnapshot(ctx context.Context, params interface{}) (j
 			return nil, err
 		}
 	}
-	snapId := path.Join("/dev", s.GetPath(), input.SnapshotId)
+
+	snapName := "snap_" + input.SnapshotId
+	snapId := path.Join("/dev", s.GetPath(), snapName)
 	err := lvmutils.LvRemove(snapId)
 	if err != nil {
 		return nil, err
