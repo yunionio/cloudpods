@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 	"runtime/debug"
-	"sync"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -30,17 +29,23 @@ import (
 )
 
 var _taskWorkMan *appsrv.SWorkerManager
-var taskWorkerTable map[string]*appsrv.SWorkerManager
-var taskWorkManLock *sync.Mutex
 
-func init() {
-	taskWorkerTable = make(map[string]*appsrv.SWorkerManager)
-	taskWorkManLock = &sync.Mutex{}
-}
-
-func getTaskWorkMan() *appsrv.SWorkerManager {
+func getTaskWorkMan(task *STask) *appsrv.SWorkerManager {
 	taskWorkManLock.Lock()
 	defer taskWorkManLock.Unlock()
+
+	if worker, ok := taskWorkerMap[task.TaskName]; ok {
+		switch workerMan := worker.(type) {
+		case *appsrv.SWorkerManager:
+			return workerMan
+		case *appsrv.SHashedWorkerManager:
+			key := task.ObjId
+			if key == MULTI_OBJECTS_ID {
+				key = task.TaskName
+			}
+			return workerMan.GetWorkerManager(key)
+		}
+	}
 
 	if _taskWorkMan != nil {
 		return _taskWorkMan
@@ -72,14 +77,11 @@ func (t *taskTask) Dump() string {
 }
 
 func runTask(taskId string, data jsonutils.JSONObject) error {
-	taskName := TaskManager.getTaskName(taskId)
-	if len(taskName) == 0 {
+	baseTask := TaskManager.fetchTask(taskId)
+	if baseTask == nil {
 		return fmt.Errorf("no such task??? task_id=%s", taskId)
 	}
-	worker := getTaskWorkMan()
-	if workerMan, ok := taskWorkerTable[taskName]; ok {
-		worker = workerMan
-	}
+	worker := getTaskWorkMan(baseTask)
 
 	task := &taskTask{
 		taskId: taskId,
@@ -88,14 +90,14 @@ func runTask(taskId string, data jsonutils.JSONObject) error {
 
 	isOk := worker.Run(task, nil, func(err error) {
 		data := jsonutils.NewDict()
-		data.Add(jsonutils.NewString(taskName), "task_name")
+		data.Add(jsonutils.NewString(baseTask.TaskName), "task_name")
 		data.Add(jsonutils.NewString(taskId), "task_id")
 		data.Add(jsonutils.NewString(string(debug.Stack())), "stack")
 		data.Add(jsonutils.NewString(err.Error()), "error")
 		notifyclient.SystemExceptionNotify(context.TODO(), api.ActionSystemPanic, api.TOPIC_RESOURCE_TASK, data)
 	})
 	if !isOk {
-		return fmt.Errorf("worker %s(%s) not running may be droped", taskName, taskId)
+		return fmt.Errorf("worker %s(%s) not running may be dropped", baseTask.TaskName, taskId)
 	}
 	return nil
 }

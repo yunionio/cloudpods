@@ -460,13 +460,13 @@ func (manager *STaskManager) fetchTask(idStr string) *STask {
 	return task
 }
 
-func (manager *STaskManager) getTaskName(taskId string) string {
+/*func (manager *STaskManager) getTaskName(taskId string) string {
 	baseTask := manager.fetchTask(taskId)
 	if baseTask == nil {
 		return ""
 	}
 	return baseTask.TaskName
-}
+}*/
 
 func (manager *STaskManager) execTask(taskId string, data jsonutils.JSONObject) {
 	baseTask := manager.fetchTask(taskId)
