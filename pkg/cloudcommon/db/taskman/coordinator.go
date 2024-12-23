@@ -77,13 +77,13 @@ func registerTaskAndWorkerMan(task interface{}, workerMan interface{}) {
 	taskType := reflect.Indirect(reflect.ValueOf(task)).Type()
 	taskTable[taskName] = taskType
 	// log.Infof("Task %s registerd", taskName)
-	if workerMan != nil {
+	if workerMan != nil && !gotypes.IsNil(workerMan) {
 		taskWorkerMap[taskName] = workerMan
 	}
 }
 
 func RegisterTask(task interface{}) {
-	RegisterTaskAndWorker(task, nil)
+	registerTaskAndWorkerMan(task, nil)
 }
 
 func isTaskExist(taskName string) bool {
