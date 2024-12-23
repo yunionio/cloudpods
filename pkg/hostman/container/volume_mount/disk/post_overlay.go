@@ -161,7 +161,9 @@ func (d diskPostOverlay) mountPostOverlay(pod volume_mount.IPodInfo, ctrId strin
 		return errors.Wrapf(err, "get post overlay mountpoint for container %s", ctrId)
 	}
 
-	return mountutils.MountOverlay(ov.HostLowerDir, upperDir, workDir, mergedDir)
+	return mountutils.MountOverlayWithFeatures(ov.HostLowerDir, upperDir, workDir, mergedDir, &mountutils.MountOverlayFeatures{
+		MetaCopy: true,
+	})
 }
 
 func (d diskPostOverlay) unmountPostOverlay(pod volume_mount.IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount, ov *apis.ContainerVolumeMountDiskPostOverlay, useLazy bool, cleanLayers bool) error {
