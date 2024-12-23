@@ -109,7 +109,7 @@ func (s *SSLVMStorage) CreateDiskFromSnapshot(ctx context.Context, disk IDisk, i
 }
 
 func (s *SSLVMStorage) DeleteSnapshot(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
-	input, ok := params.(SStorageDeleteSnapshot)
+	input, ok := params.(*SStorageDeleteSnapshot)
 	if !ok {
 		return nil, hostutils.ParamsError
 	}
@@ -139,7 +139,8 @@ func (s *SSLVMStorage) DeleteSnapshot(ctx context.Context, params interface{}) (
 		}
 	}
 
-	snapId := path.Join("/dev", s.GetPath(), input.SnapshotId)
+	snapName := "snap_" + input.SnapshotId
+	snapId := path.Join("/dev", s.GetPath(), snapName)
 	err := lvmutils.LvRemove(snapId)
 	if err != nil {
 		return nil, err
