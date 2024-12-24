@@ -51,6 +51,7 @@ const (
 	HOST_TYPE_SANGFOR        = "sangfor"
 	HOST_TYPE_ZETTAKIT       = "zettakit"
 	HOST_TYPE_UIS            = "uis"
+	HOST_TYPE_CAS            = "cas"
 
 	// # possible status
 	HOST_ONLINE  = "online"
