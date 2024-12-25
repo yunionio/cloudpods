@@ -2889,7 +2889,7 @@ func (self *SDisk) CleanOverduedSnapshots(ctx context.Context, userCred mcclient
 	}
 	snapshot.SetModelManager(SnapshotManager, snapshot)
 	if snapshot.ExpiredAt.Before(now) {
-		err = snapshot.StartSnapshotDeleteTask(ctx, userCred, false, self.Id)
+		err = snapshot.StartSnapshotDeleteTask(ctx, userCred, false, self.Id, 0, 0)
 		if err != nil {
 			return err
 		}

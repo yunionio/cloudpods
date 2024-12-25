@@ -60,6 +60,13 @@ func (self *InstanceSnapshotDeleteTask) OnInit(
 	ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 
 	isp := obj.(*models.SInstanceSnapshot)
+	sps, err := isp.GetSnapshots()
+	if err != nil {
+		self.taskFail(ctx, isp, jsonutils.NewString(err.Error()))
+		return
+	}
+	snapshotCnt := len(sps)
+	self.Params.Set("snapshot_total_count", jsonutils.NewInt(int64(snapshotCnt)))
 	self.SetStage("OnInstanceSnapshotDelete", nil)
 	if err := isp.GetRegionDriver().RequestDeleteInstanceSnapshot(ctx, isp, self); err != nil {
 		self.taskFail(ctx, isp, jsonutils.NewString(err.Error()))
@@ -84,6 +91,7 @@ func (self *InstanceSnapshotDeleteTask) OnKvmSnapshotDelete(
 		self.taskFail(ctx, isp, jsonutils.NewString(err.Error()))
 		return
 	}
+
 	if err := isp.GetRegionDriver().RequestDeleteInstanceSnapshot(ctx, isp, self); err != nil {
 		self.taskFail(ctx, isp, jsonutils.NewString(err.Error()))
 		return

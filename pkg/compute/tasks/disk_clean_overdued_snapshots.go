@@ -74,7 +74,7 @@ func (self *SnapshotCleanupTask) StartSnapshotsDelete(ctx context.Context, snaps
 	}
 	self.SetStage("OnDeleteSnapshot", nil)
 	snapshot.SetModelManager(models.SnapshotManager, &snapshot)
-	err := snapshot.StartSnapshotDeleteTask(ctx, self.UserCred, false, self.GetId())
+	err := snapshot.StartSnapshotDeleteTask(ctx, self.UserCred, false, self.GetId(), 0, 0)
 	if err != nil {
 		self.OnDeleteSnapshotFailed(ctx, self.GetObject(), nil)
 	}
