@@ -418,7 +418,7 @@ func (s *SKVMGuestInstance) initGuestDisks(pciRoot, pciBridge *desc.PCIControlle
 		devType := qemu.GetDiskDeviceModel(s.Desc.Disks[i].Driver)
 		id := fmt.Sprintf("drive_%d", s.Desc.Disks[i].Index)
 		if s.Desc.Disks[i].Pci != nil || s.Desc.Disks[i].Scsi != nil {
-			log.Infof("guest %s disk %s has been init", s.Desc.Uuid, s.Desc.Disks[i].Index)
+			log.Infof("guest %s disk %v has been init", s.Desc.Uuid, s.Desc.Disks[i].Index)
 			continue
 		}
 

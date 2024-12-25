@@ -256,7 +256,7 @@ func (self *GuestDeleteSnapshotsTask) StartDeleteDiskSnapshots(
 		self.Params.Set("snapshots", jsonutils.Marshal(snapshots))
 		self.SetStage("OnSnapshotDelete", nil)
 		snapshot.SetModelManager(models.SnapshotManager, &snapshot)
-		snapshot.StartSnapshotDeleteTask(ctx, self.UserCred, false, self.Id)
+		snapshot.StartSnapshotDeleteTask(ctx, self.UserCred, false, self.Id, 0, 0)
 		return
 	}
 	self.SetStageComplete(ctx, nil)
@@ -293,7 +293,7 @@ func (self *DiskDeleteSnapshotsTask) StartDeleteDiskSnapshots(
 		self.Params.Set("snapshots", jsonutils.Marshal(snapshots))
 		self.SetStage("OnSnapshotDelete", nil)
 		snapshot.SetModelManager(models.SnapshotManager, &snapshot)
-		snapshot.StartSnapshotDeleteTask(ctx, self.UserCred, false, self.Id)
+		snapshot.StartSnapshotDeleteTask(ctx, self.UserCred, false, self.Id, 0, 0)
 		return
 	}
 	self.SetStageComplete(ctx, nil)
