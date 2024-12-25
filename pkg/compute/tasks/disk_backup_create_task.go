@@ -134,7 +134,7 @@ func (self *DiskBackupCreateTask) OnSave(ctx context.Context, backup *models.SDi
 		return nil
 	})
 	snapshot := snapshotModel.(*models.SSnapshot)
-	err = snapshot.StartSnapshotDeleteTask(ctx, self.UserCred, false, self.GetId())
+	err = snapshot.StartSnapshotDeleteTask(ctx, self.UserCred, false, self.GetId(), 0, 0)
 	if err != nil {
 		self.taskFailed(ctx, backup, jsonutils.NewString(err.Error()), api.BACKUP_STATUS_CLEANUP_SNAPSHOT_FAILED)
 		return
@@ -151,7 +151,7 @@ func (self *DiskBackupCreateTask) OnSaveFailed(ctx context.Context, backup *mode
 	}
 	snapshot := snapshotModel.(*models.SSnapshot)
 	self.taskFailed(ctx, backup, data, api.BACKUP_STATUS_SAVE_FAILED)
-	err = snapshot.StartSnapshotDeleteTask(ctx, self.UserCred, false, self.GetId())
+	err = snapshot.StartSnapshotDeleteTask(ctx, self.UserCred, false, self.GetId(), 0, 0)
 	if err != nil {
 		log.Errorf("unable to cleanup snapshot: %s", err.Error())
 		self.taskFailed(ctx, backup, data, api.BACKUP_STATUS_SAVE_FAILED)

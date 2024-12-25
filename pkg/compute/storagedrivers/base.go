@@ -185,6 +185,14 @@ func (self *SBaseStorageDriver) RequestDeleteSnapshot(ctx context.Context, snaps
 		} else {
 			params.Set("auto_deleted", jsonutils.JSONTrue)
 		}
+		taskParams := task.GetParams()
+		if taskParams.Contains("snapshot_total_count") {
+			totalCnt, _ := taskParams.Get("snapshot_total_count")
+			params.Set("snapshot_total_count", totalCnt)
+			deletedCnt, _ := taskParams.Get("deleted_snapshot_count")
+			params.Set("deleted_snapshot_count", deletedCnt)
+		}
+
 		guest.SetStatus(ctx, task.GetUserCred(), api.VM_SNAPSHOT_DELETE, "Start Delete Snapshot")
 		return drv.RequestDeleteSnapshot(ctx, guest, task, params)
 	}

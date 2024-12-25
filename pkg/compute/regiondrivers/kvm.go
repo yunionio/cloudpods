@@ -656,9 +656,15 @@ func (self *SKVMRegionDriver) RequestDeleteInstanceSnapshot(ctx context.Context,
 	}
 
 	params := jsonutils.NewDict()
+	taskParams := task.GetParams()
+	var deleteSnapshotTotalCnt int64 = 1
+	if taskParams.Contains("snapshot_total_count") {
+		deleteSnapshotTotalCnt, _ = taskParams.Int("snapshot_total_count")
+	}
+	deletedSnapshotCnt := deleteSnapshotTotalCnt - int64(len(snapshots))
 	params.Set("del_snapshot_id", jsonutils.NewString(snapshots[0].Id))
 	task.SetStage("OnKvmSnapshotDelete", params)
-	err = snapshots[0].StartSnapshotDeleteTask(ctx, task.GetUserCred(), false, task.GetTaskId())
+	err = snapshots[0].StartSnapshotDeleteTask(ctx, task.GetUserCred(), false, task.GetTaskId(), int(deleteSnapshotTotalCnt), int(deletedSnapshotCnt))
 	if err != nil {
 		return err
 	}
