@@ -755,6 +755,7 @@ func (self *SRegion) CreateMySQLDBInstance(opts *cloudprovider.SManagedDBInstanc
 		"GoodsNum":      "1",
 		"Memory":        fmt.Sprintf("%d", opts.VmemSizeMb),
 		"Volume":        fmt.Sprintf("%d", opts.DiskSizeGB),
+		"Cpu":           fmt.Sprintf("%d", opts.VcpuCount),
 		"EngineVersion": opts.EngineVersion,
 	}
 	if len(opts.VpcId) > 0 {
