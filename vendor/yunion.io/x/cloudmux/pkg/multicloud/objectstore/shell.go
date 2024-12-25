@@ -838,6 +838,35 @@ func S3Shell() {
 		return nil
 	})
 
+	type BucketObjectBatchDownloadOptions struct {
+		BUCKET string `help:"name of bucket"`
+		PREFIX string `help:"Prefix of object"`
+		Output string `help:"target output directory, default to current directory"`
+	}
+	shellutils.R(&BucketObjectBatchDownloadOptions{}, "batch-download", "Download objects recursively", func(cli cloudprovider.ICloudRegion, args *BucketObjectBatchDownloadOptions) error {
+		bucket, err := cli.GetIBucketById(args.BUCKET)
+		if err != nil {
+			return err
+		}
+		marker := ""
+		const maxCount = 1000
+		for {
+			results, err := bucket.ListObjects(args.PREFIX, marker, "", maxCount)
+			if err != nil {
+				return errors.Wrapf(err, "ListObjects prefix %s marker %s", args.PREFIX, marker)
+			}
+			for _, obj := range results.Objects {
+				fmt.Println(obj.GetKey())
+			}
+			if !results.IsTruncated {
+				break
+			} else {
+				marker = results.NextMarker
+			}
+		}
+		return nil
+	})
+
 	type BucketObjectDownloadOptions struct {
 		BUCKET string `help:"name of bucket"`
 		KEY    string `help:"Key of object"`
