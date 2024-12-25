@@ -417,14 +417,29 @@ func (s *SKVMGuestInstance) initGuestDisks(pciRoot, pciBridge *desc.PCIControlle
 	for i := 0; i < len(s.Desc.Disks); i++ {
 		devType := qemu.GetDiskDeviceModel(s.Desc.Disks[i].Driver)
 		id := fmt.Sprintf("drive_%d", s.Desc.Disks[i].Index)
+		if s.Desc.Disks[i].Pci != nil || s.Desc.Disks[i].Scsi != nil {
+			log.Infof("guest %s disk %s has been init", s.Desc.Uuid, s.Desc.Disks[i].Index)
+			continue
+		}
+
 		switch s.Desc.Disks[i].Driver {
 		case DISK_DRIVER_VIRTIO:
 			if s.Desc.Disks[i].Pci == nil {
 				s.Desc.Disks[i].Pci = desc.NewPCIDevice(cont.CType, devType, id)
 			}
 		case DISK_DRIVER_SCSI:
+			if s.Desc.VirtioScsi == nil {
+				s.Desc.VirtioScsi = &desc.SGuestVirtioScsi{
+					PCIDevice: desc.NewPCIDevice(pciRoot.CType, "virtio-scsi-pci", "scsi"),
+				}
+			}
 			s.Desc.Disks[i].Scsi = desc.NewScsiDevice(s.Desc.VirtioScsi.Id, devType, id)
 		case DISK_DRIVER_PVSCSI:
+			if s.Desc.PvScsi == nil {
+				s.Desc.PvScsi = &desc.SGuestPvScsi{
+					PCIDevice: desc.NewPCIDevice(pciRoot.CType, "pvscsi", "scsi"),
+				}
+			}
 			s.Desc.Disks[i].Scsi = desc.NewScsiDevice(s.Desc.PvScsi.Id, devType, id)
 		case DISK_DRIVER_IDE:
 			s.Desc.Disks[i].Ide = desc.NewIdeDevice(devType, id)
