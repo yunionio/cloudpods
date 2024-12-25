@@ -268,7 +268,7 @@ func (d *SGuestDiskSyncTask) syncDisksConf() {
 	}
 	if idxs := d.guest.GetNeedMergeBackingFileDiskIndexs(); len(idxs) > 0 {
 		d.guest.StreamDisks(context.Background(),
-			func() { d.guest.streamDisksComplete(context.Background()) }, idxs,
+			func() { d.guest.streamDisksComplete(context.Background()) }, idxs, -1, -1,
 		)
 	}
 	d.callback(d.errors...)
@@ -1635,7 +1635,7 @@ func (s *SGuestResumeTask) startStreamDisks(disksIdx []int) {
 	s.startTime = time.Time{}
 	s.detachStartupTask()
 	if s.IsMonitorAlive() {
-		s.StreamDisks(s.ctx, func() { s.onStreamComplete(disksIdx) }, disksIdx)
+		s.StreamDisks(s.ctx, func() { s.onStreamComplete(disksIdx) }, disksIdx, -1, -1)
 	}
 }
 
@@ -1730,8 +1730,10 @@ func (s *SGuestBlockProgressBaseTask) onGetBlockJobs(jobs []monitor.BlockJob) {
 	}
 
 	diskCount := s.task.StreamingDiskCount()
+	streamedDiskCount := s.task.StreamingDiskCompletedCount()
 	if diskCount > 0 {
-		progress = float64(s.task.StreamingDiskCompletedCount())/float64(diskCount)*100.0 + 1.0/float64(diskCount)*progress
+		progress = float64(streamedDiskCount)/float64(diskCount)*100.0 + 1.0/float64(diskCount)*progress
+		log.Errorf("stream disk111111 progress %v, streamedDiskCount %v, diskCount %v ", progress, streamedDiskCount, diskCount)
 	}
 	hostutils.UpdateServerProgress(context.Background(), s.GetId(), progress, mbps)
 	s.task.OnGetBlockJobs(jobs)
@@ -1757,12 +1759,17 @@ type SGuestStreamDisksTask struct {
 	c          chan struct{}
 	streamDevs []string
 	lvmBacking []string
+
+	progressTotalDiskCnt     int
+	progressCompletedDiskCnt int
 }
 
-func NewGuestStreamDisksTask(ctx context.Context, guest *SKVMGuestInstance, callback func(), disksIdx []int) *SGuestStreamDisksTask {
+func NewGuestStreamDisksTask(ctx context.Context, guest *SKVMGuestInstance, callback func(), disksIdx []int, totalCnt, completedCnt int) *SGuestStreamDisksTask {
 	task := &SGuestStreamDisksTask{
-		callback: callback,
-		disksIdx: disksIdx,
+		callback:                 callback,
+		disksIdx:                 disksIdx,
+		progressTotalDiskCnt:     totalCnt,
+		progressCompletedDiskCnt: completedCnt,
 	}
 	task.SGuestBlockProgressBaseTask = NewGuestBlockProgressBaseTask(ctx, guest, task)
 	return task
@@ -1834,10 +1841,18 @@ func (s *SGuestStreamDisksTask) startDoBlockStream() {
 }
 
 func (s *SGuestStreamDisksTask) StreamingDiskCompletedCount() int {
-	return len(s.disksIdx) - len(s.streamDevs) - 1
+	completedCnt := len(s.disksIdx) - len(s.streamDevs) - 1
+	if s.progressCompletedDiskCnt > 0 {
+		completedCnt += s.progressCompletedDiskCnt
+	}
+	return completedCnt
 }
 
 func (s *SGuestStreamDisksTask) StreamingDiskCount() int {
+	if s.progressTotalDiskCnt > 0 {
+		return s.progressTotalDiskCnt
+	}
+
 	return len(s.disksIdx)
 }
 
@@ -2060,9 +2075,9 @@ func NewGuestSnapshotDeleteTask(
 	}
 }
 
-func (s *SGuestSnapshotDeleteTask) Start() {
+func (s *SGuestSnapshotDeleteTask) Start(totalDeleteSnapshotCount, deletedSnapshotCount int) {
 	if s.blockStream {
-		s.startBlockStream()
+		s.startBlockStream(totalDeleteSnapshotCount, deletedSnapshotCount)
 		return
 	}
 
@@ -2073,14 +2088,15 @@ func (s *SGuestSnapshotDeleteTask) Start() {
 	s.fetchDisksInfo(s.doReloadDisk)
 }
 
-func (s *SGuestSnapshotDeleteTask) startBlockStream() {
+func (s *SGuestSnapshotDeleteTask) startBlockStream(totalDeleteSnapshotCount, deletedSnapshotCount int) {
 	diskIdx := []int{}
 	for i := range s.Desc.Disks {
 		if s.Desc.Disks[i].DiskId == s.disk.GetId() {
 			diskIdx = append(diskIdx, int(s.Desc.Disks[i].Index))
+			break
 		}
 	}
-	s.StreamDisks(s.ctx, s.onStreamDiskComplete, diskIdx)
+	s.StreamDisks(s.ctx, s.onStreamDiskComplete, diskIdx, totalDeleteSnapshotCount, deletedSnapshotCount)
 }
 
 func (s *SGuestSnapshotDeleteTask) onStreamDiskComplete() {
