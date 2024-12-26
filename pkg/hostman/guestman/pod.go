@@ -1930,8 +1930,8 @@ func (s *sPodGuestInstance) getContainerStatus(ctx context.Context, ctrId string
 
 func (s *sPodGuestInstance) markContainerProbeDirty(status, ctrId string, reason string) {
 	if status == computeapi.CONTAINER_STATUS_PROBING {
-		log.Infof("mark container %s to dirty: %s", ctrId, reason)
-		s.getProbeManager().SetDirtyContainer(ctrId)
+		reason = fmt.Sprintf("status is probing: %s", reason)
+		s.getProbeManager().SetDirtyContainer(ctrId, reason)
 	}
 }
 

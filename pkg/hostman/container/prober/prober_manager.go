@@ -31,6 +31,7 @@ limitations under the License.
 package prober
 
 import (
+	"fmt"
 	"sync"
 
 	"yunion.io/x/log"
@@ -85,7 +86,7 @@ type Manager interface {
 	// Start starts the Manager sync loops.
 	Start()
 
-	SetDirtyContainer(ctrId string)
+	SetDirtyContainer(ctrId string, reason string)
 }
 
 type manager struct {
@@ -128,7 +129,8 @@ func NewManager(
 	}
 }
 
-func (m *manager) SetDirtyContainer(ctrId string) {
+func (m *manager) SetDirtyContainer(ctrId string, reason string) {
+	log.Infof("[set dirty container] %s: %s", ctrId, reason)
 	m.dirtyContainers.Store(ctrId, true)
 }
 
@@ -235,11 +237,14 @@ func (m *manager) updateStartup() {
 	update := <-m.startupManager.Updates()
 
 	started := update.Result.Result == results.Success
-	m.statusManager.SetContainerStartup(
+	if err := m.statusManager.SetContainerStartup(
 		update.PodUID,
 		update.ContainerID,
 		started,
 		update.Result,
 		update.Pod,
-	)
+	); err != nil {
+		reason := fmt.Sprintf("set container %s/%s startup error: %v", update.PodUID, update.ContainerID, err)
+		m.SetDirtyContainer(update.ContainerID, reason)
+	}
 }
