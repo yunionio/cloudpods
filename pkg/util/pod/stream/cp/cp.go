@@ -58,20 +58,13 @@ func (o *sCopy) CopyFromContainer(s *mcclient.ClientSession, src ContainerFileOp
 	}
 
 	reader, outStream := io.Pipe()
-	opts := &compute.ContainerExecInput{
-		Command: []string{"tar", "cf", "-", src.File},
-		Tty:     false,
-		Stdin:   nil,
-		Stdout:  outStream,
-		Stderr:  os.Stderr,
-	}
-
 	go func() {
 		defer outStream.Close()
-		if err := compute.Containers.ExecV2(s, src.ContainerId, opts); err != nil {
-			log.Errorf("compute.Containers.ExecV2: %v", err)
+		if err := compute.Containers.CopyTarFrom(s, src.ContainerId, src.File, outStream); err != nil {
+			log.Errorf("copy src by tar from container: %v", err)
 		}
 	}()
+
 	prefix := getPrefix(src.File)
 	prefix = path.Clean(prefix)
 	// remove extraneous path shortcuts - these could occur if a path contained extra "../
@@ -196,7 +189,7 @@ func (o *sCopy) CopyToContainer(s *mcclient.ClientSession, srcFile string, dest 
 	if dest.File != "/" && strings.HasSuffix(string(dest.File[len(dest.File)-1]), "/") {
 		dest.File = dest.File[:len(dest.File)-1]
 	}
-	if err := o.checkDestinationIsDir(s, dest); err == nil {
+	if err := compute.Containers.CheckDestinationIsDir(s, dest.ContainerId, dest.File); err == nil {
 		// If no error, dest.File was found to be a directory.
 		// Copy specified src info it
 		dest.File = dest.File + "/" + path.Base(srcFile)
@@ -208,37 +201,9 @@ func (o *sCopy) CopyToContainer(s *mcclient.ClientSession, srcFile string, dest 
 			log.Errorf("makeTar error: %v", err)
 		}
 	}()
-	var cmdArr []string
 
-	if o.noPreserve {
-		cmdArr = []string{"tar", "--no-same-permissions", "--no-same-owner", "-xmf", "-"}
-	} else {
-		cmdArr = []string{"tar", "-xmf", "-"}
-	}
 	destDir := path.Dir(dest.File)
-	if len(destDir) > 0 {
-		cmdArr = append(cmdArr, "-C", destDir)
-	}
-
-	opt := &compute.ContainerExecInput{
-		Command: cmdArr,
-		Tty:     false,
-		Stdin:   reader,
-		Stdout:  os.Stdout,
-		Stderr:  os.Stderr,
-	}
-	return compute.Containers.ExecV2(s, dest.ContainerId, opt)
-}
-
-func (o *sCopy) checkDestinationIsDir(s *mcclient.ClientSession, dest ContainerFileOpt) error {
-	opt := &compute.ContainerExecInput{
-		Command: []string{"test", "-d", dest.File},
-		Tty:     false,
-		Stdin:   os.Stdin,
-		Stdout:  os.Stdout,
-		Stderr:  os.Stderr,
-	}
-	return compute.Containers.ExecV2(s, dest.ContainerId, opt)
+	return compute.Containers.CopyTarTo(s, dest.ContainerId, destDir, reader, o.noPreserve)
 }
 
 func makeTar(srcPath, destPath string, writer io.Writer) error {

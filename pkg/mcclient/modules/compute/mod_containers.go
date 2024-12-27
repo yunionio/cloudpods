@@ -217,7 +217,7 @@ func (man ContainerManager) EnsureDir(s *mcclient.ClientSession, ctrId string, d
 	return man.ExecV2(s, ctrId, opt)
 }
 
-func (man ContainerManager) CopyTo(s *mcclient.ClientSession, ctrId string, destPath string, in io.Reader) error {
+func (man ContainerManager) copyTo(s *mcclient.ClientSession, ctrId string, destPath string, in io.Reader, ctrCmd []string) error {
 	destDir := path.Dir(destPath)
 	if err := man.EnsureDir(s, ctrId, destDir); err != nil {
 		return errors.Wrapf(err, "ensure dir %s", destDir)
@@ -232,7 +232,6 @@ func (man ContainerManager) CopyTo(s *mcclient.ClientSession, ctrId string, dest
 		}
 	}()
 
-	ctrCmd := []string{"sh", "-c", fmt.Sprintf("cat - > %s", destPath)}
 	opt := &ContainerExecInput{
 		Command: ctrCmd,
 		Tty:     false,
@@ -243,10 +242,35 @@ func (man ContainerManager) CopyTo(s *mcclient.ClientSession, ctrId string, dest
 	return man.ExecV2(s, ctrId, opt)
 }
 
-func (man ContainerManager) CopyFrom(s *mcclient.ClientSession, ctrId string, ctrFile string, out io.Writer) error {
+func (man ContainerManager) CopyTo(s *mcclient.ClientSession, ctrId string, destPath string, in io.Reader) error {
+	ctrCmd := []string{"sh", "-c", fmt.Sprintf("cat - > %s", destPath)}
+	return man.copyTo(s, ctrId, destPath, in, ctrCmd)
+}
+
+func (man ContainerManager) CopyTarTo(s *mcclient.ClientSession, ctrId string, destDir string, in io.Reader, noSamePermissions bool) error {
+	ctrCmd := []string{"tar", "-xmf", "-"}
+	if noSamePermissions {
+		ctrCmd = []string{"tar", "--no-same-permissions", "--no-same-owner", "-xmf", "-"}
+	}
+	ctrCmd = append(ctrCmd, "-C", destDir)
+	return man.copyTo(s, ctrId, destDir, in, ctrCmd)
+}
+
+func (man ContainerManager) CheckDestinationIsDir(s *mcclient.ClientSession, ctrId string, destPath string) error {
+	opt := &ContainerExecInput{
+		Command: []string{"test", "-d", destPath},
+		Tty:     false,
+		Stdin:   os.Stdin,
+		Stdout:  os.Stdout,
+		Stderr:  os.Stderr,
+	}
+	return man.ExecV2(s, ctrId, opt)
+}
+
+func (man ContainerManager) copyFrom(s *mcclient.ClientSession, ctrId string, out io.Writer, cmd []string) error {
 	reader, outStream := io.Pipe()
 	opts := &ContainerExecInput{
-		Command: []string{"cat", ctrFile},
+		Command: cmd,
 		Tty:     false,
 		Stdin:   nil,
 		Stdout:  outStream,
@@ -263,4 +287,12 @@ func (man ContainerManager) CopyFrom(s *mcclient.ClientSession, ctrId string, ct
 		return errors.Wrapf(err, "copy from reader written: %d", written)
 	}
 	return nil
+}
+
+func (man ContainerManager) CopyFrom(s *mcclient.ClientSession, ctrId string, ctrFile string, out io.Writer) error {
+	return man.copyFrom(s, ctrId, out, []string{"cat", ctrFile})
+}
+
+func (man ContainerManager) CopyTarFrom(s *mcclient.ClientSession, ctrId string, ctrDir string, out io.Writer) error {
+	return man.copyFrom(s, ctrId, out, []string{"tar", "cf", "-", ctrDir})
 }
