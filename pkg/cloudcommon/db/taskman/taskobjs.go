@@ -38,7 +38,16 @@ type STaskObjectManager struct {
 var TaskObjectManager *STaskObjectManager
 
 func init() {
-	TaskObjectManager = &STaskObjectManager{SModelBaseManager: db.NewModelBaseManager(STaskObject{}, "taskobjects_tbl", "taskobject", "taskobjects")}
+	TaskObjectManager = &STaskObjectManager{
+		SModelBaseManager: db.NewModelBaseManager(
+			STaskObject{},
+			"taskobjects_tbl",
+			"taskobject",
+			"taskobjects",
+		),
+	}
+	TaskObjectManager.SetVirtualObject(TaskObjectManager)
+	TaskObjectManager.TableSpec().AddIndex(true, "task_id", "obj_id", "tenant_id", "domain_id")
 }
 
 type STaskObject struct {
