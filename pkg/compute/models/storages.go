@@ -88,7 +88,7 @@ type SStorage struct {
 	// example: ssd
 	MediumType string `width:"32" charset:"ascii" nullable:"false" list:"user" update:"domain" create:"domain_required"`
 	// 超售比
-	Cmtbound float32 `nullable:"true" default:"1" list:"domain" update:"domain"`
+	Cmtbound float32 `nullable:"true" default:"1" list:"domain"`
 	// 存储配置信息
 	StorageConf jsonutils.JSONObject `nullable:"true" get:"domain" list:"domain" update:"domain"`
 
@@ -1928,6 +1928,26 @@ func (self *SStorage) GetDynamicConditionInput() *jsonutils.JSONDict {
 
 func (self *SStorage) PerformSetSchedtag(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	return PerformSetResourceSchedtag(self, ctx, userCred, query, data)
+}
+
+func (self *SStorage) PerformSetCommitBound(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input api.StorageSetCmtBoundInput,
+) (jsonutils.JSONObject, error) {
+	_, err := db.Update(self, func() error {
+		if input.Cmtbound != nil {
+			self.Cmtbound = *input.Cmtbound
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	db.OpsLog.LogEvent(self, db.ACT_SET_COMMIT_BOUND, input, userCred)
+	logclient.AddActionLogWithContext(ctx, self, logclient.ACT_SET_COMMIT_BOUND, input, userCred, true)
+	return nil, nil
 }
 
 func (self *SStorage) GetSchedtagJointManager() ISchedtagJointManager {
