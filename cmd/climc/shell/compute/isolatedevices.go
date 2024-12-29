@@ -15,90 +15,15 @@
 package compute
 
 import (
-	"yunion.io/x/jsonutils"
-
-	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/cmd/climc/shell"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
-	"yunion.io/x/onecloud/pkg/mcclient/options"
+	"yunion.io/x/onecloud/pkg/mcclient/options/compute"
 )
 
 func init() {
-	type DeviceListOptions struct {
-		options.BaseListOptions
-		Unused bool   `help:"Only show unused devices"`
-		Gpu    bool   `help:"Only show gpu devices"`
-		Host   string `help:"Host ID or Name"`
-		Region string `help:"Cloudregion ID or Name"`
-		Zone   string `help:"Zone ID or Name"`
-		Server string `help:"Server ID or Name"`
-	}
-	R(&DeviceListOptions{}, "isolated-device-list", "List isolated devices like GPU", func(s *mcclient.ClientSession, args *DeviceListOptions) error {
-		var params *jsonutils.JSONDict
-		{
-			var err error
-			params, err = args.BaseListOptions.Params()
-			if err != nil {
-				return err
-
-			}
-		}
-		if len(args.Host) > 0 {
-			params.Add(jsonutils.NewString(args.Host), "host")
-		}
-		if args.Unused {
-			params.Add(jsonutils.JSONTrue, "unused")
-		}
-		if args.Gpu {
-			params.Add(jsonutils.JSONTrue, "gpu")
-		}
-		if len(args.Region) > 0 {
-			params.Add(jsonutils.NewString(args.Region), "region")
-		}
-		if args.Zone != "" {
-			params.Add(jsonutils.NewString(args.Zone), "zone")
-		}
-		if args.Server != "" {
-			params.Add(jsonutils.NewString(args.Server), "guest_id")
-		}
-		result, err := modules.IsolatedDevices.List(s, params)
-		if err != nil {
-			return err
-		}
-		printList(result, modules.IsolatedDevices.GetColumns(s))
-		return nil
-	})
-
-	type DeviceShowOptions struct {
-		ID string `help:"ID of the isolated device"`
-	}
-	R(&DeviceShowOptions{}, "isolated-device-show", "Show isolated device details", func(s *mcclient.ClientSession, args *DeviceShowOptions) error {
-		result, err := modules.IsolatedDevices.Get(s, args.ID, nil)
-		if err != nil {
-			return err
-		}
-		printObject(result)
-		return nil
-	})
-
-	type DeviceDeleteOptions struct {
-		IDS []string `help:"IDs of the isolated device"`
-	}
-	R(&DeviceDeleteOptions{}, "isolated-device-delete", "Delete a isolated device", func(s *mcclient.ClientSession, args *DeviceDeleteOptions) error {
-		result := modules.IsolatedDevices.BatchDelete(s, args.IDS, nil)
-		printBatchResults(result, modules.IsolatedDevices.GetColumns(s))
-		return nil
-	})
-
-	type DeviceUpdateOptions struct {
-		ID              []string `help:"ID of the isolated device" json:"-"`
-		ReservedCpu     *int     `help:"reserved cpu for isolated device"`
-		ReservedMem     *int     `help:"reserved mem for isolated device"`
-		ReservedStorage *int     `help:"reserved storage for isolated device"`
-		DevType         string   `help:"Device type" choices:"GPU-HPC|GPU-VGA"`
-	}
-	R(&DeviceUpdateOptions{}, "isolated-device-update", "Update a isolated device", func(s *mcclient.ClientSession, args *DeviceUpdateOptions) error {
-		res := modules.IsolatedDevices.BatchUpdate(s, args.ID, jsonutils.Marshal(args))
-		printBatchResults(res, modules.IsolatedDevices.GetColumns(s))
-		return nil
-	})
+	cmd := shell.NewResourceCmd(&modules.IsolatedDevices)
+	cmd.List(&compute.DeviceListOptions{})
+	cmd.Update(&compute.DeviceUpdateOptions{})
+	cmd.Show(&compute.DeviceShowOptions{})
+	cmd.BatchDelete(&compute.DeviceDeleteOptions{})
 }
