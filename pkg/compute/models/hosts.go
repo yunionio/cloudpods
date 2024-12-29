@@ -136,7 +136,7 @@ type SHost struct {
 	// 预留CPU大小
 	CpuReserved int `nullable:"true" default:"0" list:"domain" update:"domain" create:"domain_optional"`
 	// CPU超分比
-	CpuCmtbound float32 `nullable:"true" default:"8" list:"domain" update:"domain" create:"domain_optional"`
+	CpuCmtbound float32 `nullable:"true" default:"8" list:"domain" create:"domain_optional"`
 	// CPUMicrocode
 	CpuMicrocode string `width:"64" charset:"ascii" nullable:"true" get:"domain" update:"domain" create:"domain_optional"`
 	// CPU架构
@@ -147,7 +147,7 @@ type SHost struct {
 	// 预留内存大小
 	MemReserved int `nullable:"true" default:"0" list:"domain" update:"domain" create:"domain_optional"`
 	// 内存超分比
-	MemCmtbound float32 `nullable:"true" default:"1" list:"domain" update:"domain" create:"domain_optional"`
+	MemCmtbound float32 `nullable:"true" default:"1" list:"domain" create:"domain_optional"`
 	// 页大小
 	PageSizeKB         int  `nullable:"false" default:"4" list:"domain" update:"domain" create:"domain_optional"`
 	EnableNumaAllocate bool `nullable:"true" default:"false" list:"domain" update:"domain" create:"domain_optional"`
@@ -974,6 +974,29 @@ func (self *SHost) saveUpdates(doUpdate func() error, doSchedClean bool) (map[st
 		self.ClearSchedDescCache()
 	}
 	return diff, nil
+}
+
+func (hh *SHost) PerformSetCommitBound(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input api.HostSetCommitBoundInput,
+) (jsonutils.JSONObject, error) {
+	_, err := db.Update(hh, func() error {
+		if input.CpuCmtbound != nil {
+			hh.CpuCmtbound = *input.CpuCmtbound
+		}
+		if input.MemCmtbound != nil {
+			hh.MemCmtbound = *input.MemCmtbound
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	db.OpsLog.LogEvent(hh, db.ACT_SET_COMMIT_BOUND, input, userCred)
+	logclient.AddActionLogWithContext(ctx, hh, logclient.ACT_SET_COMMIT_BOUND, input, userCred, true)
+	return nil, nil
 }
 
 func (self *SHost) PerformUpdateStorage(
@@ -4261,6 +4284,7 @@ func (self *SHost) PerformAutoMigrateOnHostDown(
 		return nil, err
 	}
 
+	logclient.AddActionLogWithContext(ctx, self, logclient.ACT_AUTO_MIGRATE_ON_HOST_DOWN, nil, userCred, true)
 	return nil, self.SetAllMetadata(ctx, meta, userCred)
 }
 
@@ -5362,6 +5386,7 @@ func (self *SHost) PerformUndoConvert(ctx context.Context, userCred mcclient.Tok
 		db.OpsLog.LogEvent(&guest, db.ACT_DELETE, "Unconvert baremetal", userCred)
 	}
 	db.OpsLog.LogEvent(self, db.ACT_UNCONVERT_START, "", userCred)
+	logclient.AddActionLogWithContext(ctx, self, logclient.ACT_UNCONVERT_START, nil, userCred, true)
 	task, err := taskman.TaskManager.NewTask(ctx, "BaremetalUnconvertHypervisorTask", self, userCred, nil, "", "", nil)
 	if err != nil {
 		return nil, err
@@ -5798,6 +5823,7 @@ func (host *SHost) PerformHostExitMaintenance(ctx context.Context, userCred mccl
 	if err != nil {
 		return nil, err
 	}
+	logclient.AddSimpleActionLog(host, logclient.ACT_HOST_UNMAINTENANCE, "host unmaintenance", userCred, true)
 	return nil, nil
 }
 
@@ -6395,6 +6421,7 @@ func (host *SHost) PerformSetReservedResourceForIsolatedDevice(
 			return nil, errors.Wrap(err, "update isolated device")
 		}
 	}
+	logclient.AddSimpleActionLog(host, logclient.ACT_SET_RESERVE_RESOURCE_FOR_ISOLATED_DEVICES, nil, userCred, true)
 	return nil, nil
 }
 

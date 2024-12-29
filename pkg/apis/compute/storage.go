@@ -245,3 +245,7 @@ type StorageUpdateInput struct {
 	UpdateStorageConf bool
 	MasterHost        string
 }
+
+type StorageSetCmtBoundInput struct {
+	Cmtbound *float32
+}

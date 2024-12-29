@@ -142,6 +142,7 @@ const (
 	ACT_GUEST_CREATE_FROM_IMPORT    = "guest_create_from_import"
 	ACT_GUEST_PANICKED              = "guest_panicked"
 	ACT_HOST_MAINTAINING            = "host_maintaining"
+	ACT_HOST_UNMAINTENANCE          = "host_unmaintenance"
 
 	ACT_MKDIR          = "mkdir"
 	ACT_DELETE_OBJECT  = "delete_object"
@@ -244,6 +245,11 @@ const (
 	ACT_CONSOLE           = "console"
 	ACT_WEBSSH            = "webssh"
 	ACT_SET_USER_PASSWORD = "set_user_password"
+	ACT_MAKESSHABLE       = "make_sshable"
+	ACT_TRYSSHABLE        = "try_sshable"
+
+	ACT_ISO_ATTACH = "iso_attach"
+	ACT_ISO_DETACH = "iso_detach"
 
 	ACT_SYNC_OS_INFO = "sync_os_info"
 
@@ -275,6 +281,18 @@ const (
 	ACT_DELETE_SECURITY_GROUP_RULE = "delete_security_group_rule"
 
 	ACT_CLEAN_PROJECT = "clean_project"
+	ACT_JOIN_PROJECT  = "join_project"
+	ACT_LEAVE_PROJECT = "leave_project"
+
+	ACT_SET_SCHED_TAG    = "set_sched_tag"
+	ACT_RESET_CREDENTIAL = "reset_credential"
+
+	ACT_AUTO_MIGRATE_ON_HOST_DOWN                 = "auto_migrate_on_host"
+	ACT_SET_RESERVE_RESOURCE_FOR_ISOLATED_DEVICES = "set_reserve_resource_for_isolated_devices"
+
+	ACT_UNCONVERT_START    = "unconverting"
+	ACT_UNCONVERT_COMPLETE = "unconverted"
+	ACT_SET_COMMIT_BOUND   = "set_commit_bound"
 
 	ACT_COLLECT_METRICS = "collect_metrics"
 

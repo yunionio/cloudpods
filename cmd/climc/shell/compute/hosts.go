@@ -54,6 +54,7 @@ func init() {
 	cmd.Perform("probe-isolated-devices", &options.BaseIdOptions{})
 	cmd.Perform("class-metadata", &options.ResourceMetadataOptions{})
 	cmd.Perform("set-class-metadata", &options.ResourceMetadataOptions{})
+	cmd.Perform("set-commit-bound", &compute.HostSetCommitBoundOptions{})
 
 	cmd.BatchPerform("enable", &options.BaseIdsOptions{})
 	cmd.BatchPerform("disable", &options.BaseIdsOptions{})
@@ -173,14 +174,12 @@ func init() {
 	})
 
 	type HostUpdateOptions struct {
-		ID                string  `help:"ID or Name of Host"`
-		Name              string  `help:"New name of the host"`
-		Desc              string  `help:"New Description of the host"`
-		CpuCommitBound    float64 `help:"CPU overcommit upper bound at this host"`
-		MemoryCommitBound float64 `help:"Memory overcommit upper bound at this host"`
-		MemoryReserved    string  `help:"Memory reserved"`
-		CpuReserved       int64   `help:"CPU reserved"`
-		HostType          string  `help:"Change host type, CAUTION!!!!" choices:"hypervisor|kubelet|esxi|baremetal"`
+		ID             string `help:"ID or Name of Host"`
+		Name           string `help:"New name of the host"`
+		Desc           string `help:"New Description of the host"`
+		MemoryReserved string `help:"Memory reserved"`
+		CpuReserved    int64  `help:"CPU reserved"`
+		HostType       string `help:"Change host type, CAUTION!!!!" choices:"hypervisor|kubelet|esxi|baremetal"`
 		// AccessIp          string  `help:"Change access ip, CAUTION!!!!"`
 		AccessMac          string `help:"Change baremetal access MAC, CAUTION!!!!"`
 		Uuid               string `help:"Change baremetal UUID,  CAUTION!!!!"`
@@ -201,12 +200,6 @@ func init() {
 		}
 		if len(args.Desc) > 0 {
 			params.Add(jsonutils.NewString(args.Desc), "description")
-		}
-		if args.CpuCommitBound > 0.0 {
-			params.Add(jsonutils.NewFloat64(args.CpuCommitBound), "cpu_cmtbound")
-		}
-		if args.MemoryCommitBound > 0.0 {
-			params.Add(jsonutils.NewFloat64(args.MemoryCommitBound), "mem_cmtbound")
 		}
 		if len(args.MemoryReserved) > 0 {
 			params.Add(jsonutils.NewString(args.MemoryReserved), "mem_reserved")

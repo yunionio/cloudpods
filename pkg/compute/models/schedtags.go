@@ -33,6 +33,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -603,6 +604,7 @@ func PerformSetResourceSchedtag(obj IModelWithSchedtag, ctx context.Context, use
 	if err := obj.ClearSchedDescCache(); err != nil {
 		log.Errorf("Resource %s/%s ClearSchedDescCache error: %v", obj.Keyword(), obj.GetId(), err)
 	}
+	logclient.AddActionLogWithContext(ctx, obj, logclient.ACT_SET_SCHED_TAG, nil, userCred, true)
 	return nil, nil
 }
 
