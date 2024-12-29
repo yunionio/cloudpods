@@ -484,6 +484,9 @@ func (man *isolatedDeviceManager) CheckDevIsNeedUpdate(dev IDevice, devInfo *Clo
 	if dev.GetDeviceType() != devInfo.DevType {
 		return true
 	}
+	if dev.GetDevicePath() != devInfo.DevicePath {
+		return true
+	}
 	if dev.GetModelName() != devInfo.Model {
 		return true
 	}
