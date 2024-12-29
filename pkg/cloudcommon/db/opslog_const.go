@@ -333,4 +333,6 @@ const (
 	ACT_STOP_RESCUE_FAILED  = "stop_rescue_failed"
 
 	ACT_RE_BILLING = "re_billing"
+
+	ACT_SET_COMMIT_BOUND = "set_commit_bound"
 )

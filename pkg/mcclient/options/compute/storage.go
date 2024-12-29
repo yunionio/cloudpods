@@ -49,16 +49,15 @@ func (opts *StorageListOptions) GetContextId() string {
 
 type StorageUpdateOptions struct {
 	options.BaseUpdateOptions
-	CommitBound           float64 `help:"Upper bound of storage overcommit rate" json:"cmtbound"`
-	MediumType            string  `help:"Medium type" choices:"ssd|rotate"`
-	RbdRadosMonOpTimeout  int64   `help:"ceph rados_mon_op_timeout"`
-	RbdRadosOsdOpTimeout  int64   `help:"ceph rados_osd_op_timeout"`
-	RbdClientMountTimeout int64   `help:"ceph client_mount_timeout"`
-	RbdEnableMessengerV2  bool    `help:"ceph enable Messenger V2"`
-	RbdKey                string  `help:"ceph rbd key"`
-	Reserved              string  `help:"Reserved storage space"`
-	Capacity              int     `help:"Capacity for storage"`
-	MasterHost            string  `help:"slvm storage master host"`
+	MediumType            string `help:"Medium type" choices:"ssd|rotate"`
+	RbdRadosMonOpTimeout  int64  `help:"ceph rados_mon_op_timeout"`
+	RbdRadosOsdOpTimeout  int64  `help:"ceph rados_osd_op_timeout"`
+	RbdClientMountTimeout int64  `help:"ceph client_mount_timeout"`
+	RbdEnableMessengerV2  bool   `help:"ceph enable Messenger V2"`
+	RbdKey                string `help:"ceph rbd key"`
+	Reserved              string `help:"Reserved storage space"`
+	Capacity              int    `help:"Capacity for storage"`
+	MasterHost            string `help:"slvm storage master host"`
 }
 
 func (opts *StorageUpdateOptions) Params() (jsonutils.JSONObject, error) {
@@ -123,4 +122,13 @@ type StorageSetHardwareInfoOptions struct {
 
 func (o *StorageSetHardwareInfoOptions) Params() (jsonutils.JSONObject, error) {
 	return jsonutils.Marshal(o), nil
+}
+
+type StorageSetCommitBoundOptions struct {
+	options.BaseIdOptions
+	Cmtbound *float32 `help:"Storage commit bound"`
+}
+
+func (o *StorageSetCommitBoundOptions) Params() (jsonutils.JSONObject, error) {
+	return options.StructToParams(o)
 }
