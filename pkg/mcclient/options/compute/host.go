@@ -125,6 +125,16 @@ func (o *HostAutoMigrateOnHostDownOptions) Params() (jsonutils.JSONObject, error
 	return options.StructToParams(o)
 }
 
+type HostSetCommitBoundOptions struct {
+	options.BaseIdOptions
+	CpuCmtbound *float32 `help:"Cpu commit bound"`
+	MemCmtBound *float32 `help:"Mem commit bound"`
+}
+
+func (o *HostSetCommitBoundOptions) Params() (jsonutils.JSONObject, error) {
+	return options.StructToParams(o)
+}
+
 type HostStatusStatisticsOptions struct {
 	HostListOptions
 	options.StatusStatisticsOptions
