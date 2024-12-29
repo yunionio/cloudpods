@@ -45,6 +45,7 @@ func init() {
 	cmd.Perform("force-detach-host", &compute.StorageForceDetachHost{})
 	cmd.Perform("public", &options.BasePublicOptions{})
 	cmd.Perform("private", &options.BaseIdOptions{})
+	cmd.Perform("set-commit-bound", &compute.StorageSetCommitBoundOptions{})
 
 	type StorageCephRunOptions struct {
 		ID     string `help:"ID or name of ceph storage"`

@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 type GuestInsertIsoTask struct {
@@ -60,6 +61,7 @@ func (self *GuestInsertIsoTask) prepareIsoImage(ctx context.Context, obj db.ISta
 	} else {
 		guest.EjectIso(self.UserCred)
 		db.OpsLog.LogEvent(obj, db.ACT_ISO_PREPARE_FAIL, imageId, self.UserCred)
+		logclient.AddActionLogWithContext(ctx, guest, logclient.ACT_ISO_ATTACH, nil, self.UserCred, false)
 		self.SetStageFailed(ctx, jsonutils.NewString("host no local storage cache"))
 	}
 }
@@ -69,6 +71,7 @@ func (self *GuestInsertIsoTask) OnIsoPrepareCompleteFailed(ctx context.Context, 
 	db.OpsLog.LogEvent(obj, db.ACT_ISO_PREPARE_FAIL, imageId, self.UserCred)
 	guest := obj.(*models.SGuest)
 	guest.EjectIso(self.UserCred)
+	logclient.AddActionLogWithContext(ctx, guest, logclient.ACT_ISO_ATTACH, nil, self.UserCred, false)
 	self.SetStageFailed(ctx, data)
 }
 
@@ -84,6 +87,7 @@ func (self *GuestInsertIsoTask) OnIsoPrepareComplete(ctx context.Context, obj db
 	guest := obj.(*models.SGuest)
 	if guest.InsertIsoSucc(imageId, path, size, name) {
 		db.OpsLog.LogEvent(guest, db.ACT_ISO_ATTACH, guest.GetDetailsIso(self.UserCred), self.UserCred)
+		logclient.AddActionLogWithContext(ctx, guest, logclient.ACT_ISO_ATTACH, guest.GetDetailsIso(self.UserCred), self.UserCred, true)
 		if guest.GetDriver().NeedRequestGuestHotAddIso(ctx, guest) {
 			self.SetStage("OnConfigSyncComplete", nil)
 			boot := jsonutils.QueryBoolean(self.Params, "boot", false)

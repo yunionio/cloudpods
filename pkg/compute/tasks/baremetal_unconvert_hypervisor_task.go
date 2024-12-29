@@ -61,6 +61,8 @@ func (self *BaremetalUnconvertHypervisorTask) OnInit(ctx context.Context, obj db
 
 func (self *BaremetalUnconvertHypervisorTask) OnGuestDeleteComplete(ctx context.Context, baremetal *models.SHost, body jsonutils.JSONObject) {
 	db.OpsLog.LogEvent(baremetal, db.ACT_UNCONVERT_COMPLETE, "", self.UserCred)
+	logclient.AddActionLogWithContext(ctx, baremetal, logclient.ACT_UNCONVERT_COMPLETE, nil, self.UserCred, true)
+
 	driver := baremetal.GetDriverWithDefault()
 	err := driver.FinishUnconvert(ctx, self.UserCred, baremetal)
 	if err != nil {
@@ -73,6 +75,7 @@ func (self *BaremetalUnconvertHypervisorTask) OnGuestDeleteComplete(ctx context.
 
 func (self *BaremetalUnconvertHypervisorTask) OnGuestDeleteCompleteFailed(ctx context.Context, baremetal *models.SHost, body jsonutils.JSONObject) {
 	db.OpsLog.LogEvent(baremetal, db.ACT_UNCONVERT_FAIL, body, self.UserCred)
+	logclient.AddActionLogWithContext(ctx, baremetal, logclient.ACT_UNCONVERT_COMPLETE, nil, self.UserCred, false)
 	self.SetStage("OnFailSyncstatusComplete", nil)
 	baremetal.StartSyncstatus(ctx, self.UserCred, self.GetTaskId())
 	logclient.AddActionLogWithStartable(self, baremetal, logclient.ACT_BM_UNCONVERT_HYPER, body, self.UserCred, false)
