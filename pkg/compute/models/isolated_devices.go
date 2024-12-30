@@ -339,8 +339,14 @@ func (manager *SIsolatedDeviceManager) ListItemFilter(
 	if len(query.Addr) > 0 {
 		q = q.In("addr", query.Addr)
 	}
+	if len(query.DevicePath) > 0 {
+		q = q.In("device_path", query.DevicePath)
+	}
 	if len(query.VendorDeviceId) > 0 {
 		q = q.In("vendor_device_id", query.VendorDeviceId)
+	}
+	if len(query.NumaNode) > 0 {
+		q = q.In("numa_node", query.NumaNode)
 	}
 
 	if !query.ShowBaremetalIsolatedDevices {
