@@ -972,6 +972,7 @@ func (manager *SIsolatedDeviceManager) attachHostDeviceToGuestByModel(
 					continue
 				} else {
 					selectedDev = &groupDevs[i].Devs[0]
+					break
 				}
 			}
 			if selectedDev != nil {
@@ -983,6 +984,8 @@ func (manager *SIsolatedDeviceManager) attachHostDeviceToGuestByModel(
 	if selectedDev == nil {
 		selectedDev = &groupDevs[0].Devs[0]
 	}
+	devAddr := strings.Split(selectedDev.Addr, "-")[0]
+	usedDevMap[devAddr] = selectedDev
 
 	return guest.attachIsolatedDevice(ctx, userCred, selectedDev, devConfig.NetworkIndex, devConfig.DiskIndex)
 }
