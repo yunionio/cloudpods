@@ -713,9 +713,14 @@ func (self *SSnapshotManager) CreateSnapshot(ctx context.Context, owner mcclient
 	return snapshot, nil
 }
 
-func (self *SSnapshot) StartSnapshotDeleteTask(ctx context.Context, userCred mcclient.TokenCredential, reloadDisk bool, parentTaskId string) error {
+func (self *SSnapshot) StartSnapshotDeleteTask(ctx context.Context, userCred mcclient.TokenCredential, reloadDisk bool, parentTaskId string, deleteSnapshotTotalCnt int, deletedSnapshotCnt int) error {
 	params := jsonutils.NewDict()
 	params.Set("reload_disk", jsonutils.NewBool(reloadDisk))
+	if deleteSnapshotTotalCnt <= 0 {
+		deleteSnapshotTotalCnt = 1
+	}
+	params.Set("snapshot_total_count", jsonutils.NewInt(int64(deleteSnapshotTotalCnt)))
+	params.Set("deleted_snapshot_count", jsonutils.NewInt(int64(deletedSnapshotCnt)))
 	self.SetStatus(ctx, userCred, api.SNAPSHOT_DELETING, "")
 	task, err := taskman.TaskManager.NewTask(ctx, "SnapshotDeleteTask", self, userCred, params, parentTaskId, "", nil)
 	if err != nil {
@@ -779,7 +784,7 @@ func (self *SSnapshot) GetRegionDriver() IRegionDriver {
 }
 
 func (self *SSnapshot) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
-	return self.StartSnapshotDeleteTask(ctx, userCred, false, "")
+	return self.StartSnapshotDeleteTask(ctx, userCred, false, "", 0, 0)
 }
 
 func (self *SSnapshot) PerformDeleted(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -790,7 +795,7 @@ func (self *SSnapshot) PerformDeleted(ctx context.Context, userCred mcclient.Tok
 	if err != nil {
 		return nil, err
 	}
-	err = self.StartSnapshotDeleteTask(ctx, userCred, true, "")
+	err = self.StartSnapshotDeleteTask(ctx, userCred, true, "", 0, 0)
 	return nil, err
 }
 

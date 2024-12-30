@@ -696,6 +696,12 @@ func guestDeleteSnapshot(ctx context.Context, userCred mcclient.TokenCredential,
 	if err != nil {
 		return nil, httperrors.NewMissingParameterError("disk_id")
 	}
+	var totalCnt, deletedCnt int64 = 1, 0
+	if body.Contains("snapshot_total_count") {
+		totalCnt, _ = body.Int("snapshot_total_count")
+		deletedCnt, _ = body.Int("deleted_snapshot_count")
+	}
+
 	guest, ok := guestman.GetGuestManager().GetKVMServer(sid)
 	if !ok {
 		return nil, httperrors.NewNotFoundError("guest %s not found", sid)
@@ -717,9 +723,11 @@ func guestDeleteSnapshot(ctx context.Context, userCred mcclient.TokenCredential,
 	}
 
 	params := &guestman.SDeleteDiskSnapshot{
-		Sid:            sid,
-		DeleteSnapshot: deleteSnapshot,
-		Disk:           disk,
+		Sid:                      sid,
+		DeleteSnapshot:           deleteSnapshot,
+		Disk:                     disk,
+		TotalDeleteSnapshotCount: int(totalCnt),
+		DeletedSnapshotCount:     int(deletedCnt),
 	}
 
 	if body.Contains("encrypt_info") {
