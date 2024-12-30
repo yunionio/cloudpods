@@ -155,6 +155,9 @@ type SDeleteDiskSnapshot struct {
 	ConvertSnapshot string
 	BlockStream     bool
 	EncryptInfo     apis.SEncryptInfo
+
+	TotalDeleteSnapshotCount int
+	DeletedSnapshotCount     int
 }
 
 type SLibvirtServer struct {

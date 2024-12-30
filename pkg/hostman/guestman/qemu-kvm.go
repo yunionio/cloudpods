@@ -3043,9 +3043,9 @@ func (s *SKVMGuestInstance) GetFuseTmpPath() string {
 	return path.Join(s.HomeDir(), "tmp")
 }
 
-func (s *SKVMGuestInstance) StreamDisks(ctx context.Context, callback func(), disksIdx []int) {
+func (s *SKVMGuestInstance) StreamDisks(ctx context.Context, callback func(), disksIdx []int, totalCnt, completedCnt int) {
 	log.Infof("Start guest block stream task %s ...", s.GetName())
-	task := NewGuestStreamDisksTask(ctx, s, callback, disksIdx)
+	task := NewGuestStreamDisksTask(ctx, s, callback, disksIdx, totalCnt, completedCnt)
 	task.Start()
 }
 
@@ -3126,7 +3126,8 @@ func (s *SKVMGuestInstance) StaticSaveSnapshot(
 func (s *SKVMGuestInstance) DeleteSnapshot(ctx context.Context, delParams *SDeleteDiskSnapshot) (jsonutils.JSONObject, error) {
 	if len(delParams.ConvertSnapshot) > 0 || delParams.BlockStream {
 		return s.ExecDeleteSnapshotTask(ctx, delParams.Disk, delParams.DeleteSnapshot,
-			delParams.ConvertSnapshot, delParams.BlockStream, delParams.EncryptInfo)
+			delParams.ConvertSnapshot, delParams.BlockStream, delParams.EncryptInfo,
+			delParams.TotalDeleteSnapshotCount, delParams.DeletedSnapshotCount)
 	} else {
 		res := jsonutils.NewDict()
 		res.Set("deleted", jsonutils.JSONTrue)
@@ -3137,11 +3138,12 @@ func (s *SKVMGuestInstance) DeleteSnapshot(ctx context.Context, delParams *SDele
 func (s *SKVMGuestInstance) ExecDeleteSnapshotTask(
 	ctx context.Context, disk storageman.IDisk,
 	deleteSnapshot string, convertSnapshot string, blockStream bool, encryptInfo apis.SEncryptInfo,
+	totalDeleteSnapshotCount, deletedSnapshotCount int,
 ) (jsonutils.JSONObject, error) {
 	if s.IsRunning() {
 		if s.isLiveSnapshotEnabled() {
 			task := NewGuestSnapshotDeleteTask(ctx, s, disk, deleteSnapshot, convertSnapshot, blockStream, encryptInfo)
-			task.Start()
+			task.Start(totalDeleteSnapshotCount, deletedSnapshotCount)
 			return nil, nil
 		} else {
 			return nil, fmt.Errorf("Guest dosen't support live snapshot delete")
