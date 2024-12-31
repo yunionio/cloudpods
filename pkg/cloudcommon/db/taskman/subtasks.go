@@ -44,6 +44,7 @@ func init() {
 		"subtasks",
 	)}
 	SubTaskManager.SetVirtualObject(SubTaskManager)
+	SubTaskManager.TableSpec().AddIndex(true, "task_id", "stage", "subtask_id", "status")
 }
 
 type SSubTask struct {

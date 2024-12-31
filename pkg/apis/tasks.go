@@ -33,9 +33,12 @@ type TaskListInput struct {
 	IsMulti    *bool    `json:"is_multi" negative:"is_single" help:"is multi task"`
 	IsComplete *bool    `json:"is_complete" negative:"not_complete" help:"is task completed, either fail or complete"`
 	IsInit     *bool    `json:"is_init" negative:"not_init" help:"is task started?"`
-	Stage      []string `json:"stage" help:"task stage"`
+	Stage      []string `json:"stage" help:"tasks in stages"`
+	NotStage   []string `json:"not_stage" help:"tasks not in stages"`
 	ParentId   []string `json:"parent_id" help:"filter tasks by parent_task_id"`
 	IsRoot     *bool    `json:"is_root" help:"filter root tasks"`
+
+	SubTask *bool `json:"sub_task" help:"show sub task states"`
 }
 
 type TaskDetails struct {
