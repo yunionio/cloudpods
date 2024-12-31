@@ -549,6 +549,7 @@ func (m *SGuestMonitor) PodMetrics(prevUsage *GuestMetrics) *PodMetrics {
 			if prevCtrM != nil {
 				if prevCtrM.ContainerDiskIos != nil {
 					prevStat = prevCtrM.ContainerDiskIos.ToCadvisorDiskIoMetrics()
+					prevTime = prevCtrM.ContainerCpu.Time
 				}
 			}
 			cm.ContainerDiskIos = newContainerDiskioMetrics(m.getCadvisorDiskIoMetrics(ctr.DiskIo, prevStat, ctrMeta.Time, prevTime), ctrMeta)
