@@ -120,6 +120,7 @@ type BackupStorageCreateOptions struct {
 	ObjectBucketUrl string `help:"object bucket url, required when storage_type is object"`
 	ObjectAccessKey string `help:"object storage access key, required when storage_type is object"`
 	ObjectSecret    string `help:"object storage secret, required when storage_type is object"`
+	ObjectSignVer   string `help:"object storage signing alogirithm version, optional" choices:"v2|v4"`
 
 	CapacityMb int `help:"capacity, unit mb"`
 }
@@ -137,6 +138,7 @@ type BackupStorageUpdateOptions struct {
 	ObjectBucketUrl string `help:"object bucket url, required when storage_type is object"`
 	ObjectAccessKey string `help:"object storage access key, required when storage_type is object"`
 	ObjectSecret    string `help:"object storage secret, required when storage_type is object"`
+	ObjectSignVer   string `help:"object storage signing alogirithm version, optional" choices:"v2|v4"`
 }
 
 func (opts *BackupStorageUpdateOptions) Params() (jsonutils.JSONObject, error) {

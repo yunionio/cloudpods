@@ -15,6 +15,7 @@
 package object
 
 import (
+	"yunion.io/x/cloudmux/pkg/multicloud/objectstore"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
@@ -40,7 +41,7 @@ func (factory *sObjectBackupStorageFactory) NewBackupStore(backupStroageId strin
 	if len(accessInfo.ObjectSecret) == 0 {
 		return nil, errors.Wrap(httperrors.ErrInputParameter, "need object_secret in backup_storage_access_info")
 	}
-	return newObjectBackupStorage(backupStroageId, accessInfo.ObjectBucketUrl, accessInfo.ObjectAccessKey, accessInfo.ObjectSecret)
+	return newObjectBackupStorage(backupStroageId, accessInfo.ObjectBucketUrl, accessInfo.ObjectAccessKey, accessInfo.ObjectSecret, objectstore.S3SignVersion(accessInfo.ObjectSignVer))
 }
 
 func init() {

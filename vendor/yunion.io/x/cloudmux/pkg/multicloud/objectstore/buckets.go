@@ -22,6 +22,7 @@ import (
 	"strings"
 	"time"
 
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/s3cli"
@@ -243,7 +244,8 @@ func (bucket *SBucket) PutObject(ctx context.Context, key string, input io.Reade
 	}
 	err = obj.SetAcl(cannedAcl)
 	if err != nil && errors.Cause(err) != cloudprovider.ErrNotImplemented {
-		return errors.Wrap(err, "obj.SetAcl")
+		log.Errorf("PubObject SetAcl fail %s", err)
+		// return errors.Wrap(err, "obj.SetAcl")
 	}
 	return nil
 }

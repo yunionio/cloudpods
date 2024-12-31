@@ -30,31 +30,29 @@ import (
 type SObjectBackupStorage struct {
 	BackupStorageId string
 
-	endpoint  string
-	bucket    string
-	accessKey string
-	secret    string
+	bucket string
 
 	store *objectstore.SObjectStoreClient
 }
 
-func newObjectBackupStorage(backupStorageId, bucketUrl, accessKey, secret string) (*SObjectBackupStorage, error) {
+func newObjectBackupStorage(backupStorageId, bucketUrl, accessKey, secret string, signVer objectstore.S3SignVersion) (*SObjectBackupStorage, error) {
 	bucket, endpoint, err := parseBucketUrl(bucketUrl)
 	if err != nil {
 		return nil, errors.Wrapf(err, "parseBucketUrl %s", bucketUrl)
 	}
 	cfg := objectstore.NewObjectStoreClientConfig(endpoint, accessKey, secret)
+	if len(signVer) > 0 {
+		cfg = cfg.SignVersion(signVer)
+	}
 	store, err := objectstore.NewObjectStoreClient(cfg)
 	if err != nil {
 		return nil, errors.Wrap(err, "NewObjectStoreClient")
 	}
+
 	return &SObjectBackupStorage{
 		BackupStorageId: backupStorageId,
 
-		endpoint:  endpoint,
-		bucket:    bucket,
-		accessKey: accessKey,
-		secret:    secret,
+		bucket: bucket,
 
 		store: store,
 	}, nil
