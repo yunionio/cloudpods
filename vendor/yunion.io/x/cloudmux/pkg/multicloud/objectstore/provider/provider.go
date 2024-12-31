@@ -29,15 +29,15 @@ type SObjectStoreProviderFactory struct {
 	cloudprovider.SPremiseBaseProviderFactory
 }
 
-func (self *SObjectStoreProviderFactory) GetId() string {
+func (factory *SObjectStoreProviderFactory) GetId() string {
 	return api.CLOUD_PROVIDER_GENERICS3
 }
 
-func (self *SObjectStoreProviderFactory) GetName() string {
+func (factory *SObjectStoreProviderFactory) GetName() string {
 	return api.CLOUD_PROVIDER_GENERICS3
 }
 
-func (self *SObjectStoreProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, input cloudprovider.SCloudaccountCredential) (cloudprovider.SCloudaccount, error) {
+func (factory *SObjectStoreProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, input cloudprovider.SCloudaccountCredential) (cloudprovider.SCloudaccount, error) {
 	output := cloudprovider.SCloudaccount{}
 	if len(input.AccessKeyId) == 0 {
 		return output, errors.Wrap(cloudprovider.ErrMissingParameter, "access_key_id")
@@ -54,7 +54,7 @@ func (self *SObjectStoreProviderFactory) ValidateCreateCloudaccountData(ctx cont
 	return output, nil
 }
 
-func (self *SObjectStoreProviderFactory) ValidateUpdateCloudaccountCredential(ctx context.Context, input cloudprovider.SCloudaccountCredential, cloudaccount string) (cloudprovider.SCloudaccount, error) {
+func (factory *SObjectStoreProviderFactory) ValidateUpdateCloudaccountCredential(ctx context.Context, input cloudprovider.SCloudaccountCredential, cloudaccount string) (cloudprovider.SCloudaccount, error) {
 	output := cloudprovider.SCloudaccount{}
 	if len(input.AccessKeyId) == 0 {
 		return output, errors.Wrap(cloudprovider.ErrMissingParameter, "access_key_id")
@@ -69,25 +69,36 @@ func (self *SObjectStoreProviderFactory) ValidateUpdateCloudaccountCredential(ct
 	return output, nil
 }
 
-func (self *SObjectStoreProviderFactory) GetProvider(cfg cloudprovider.ProviderConfig) (cloudprovider.ICloudProvider, error) {
-	client, err := objectstore.NewObjectStoreClient(
-		objectstore.NewObjectStoreClientConfig(
-			cfg.URL, cfg.Account, cfg.Secret,
-		).CloudproviderConfig(cfg),
-	)
+func (factory *SObjectStoreProviderFactory) GetProvider(cfg cloudprovider.ProviderConfig) (cloudprovider.ICloudProvider, error) {
+	storeCfg := objectstore.NewObjectStoreClientConfig(
+		cfg.URL, cfg.Account, cfg.Secret,
+	).CloudproviderConfig(cfg)
+	var signVer string
+	if cfg.Options != nil {
+		signVer, _ = cfg.Options.GetString("sign_ver")
+	}
+	if len(signVer) > 0 {
+		storeCfg = storeCfg.SignVersion(objectstore.S3SignVersion(signVer))
+	}
+	client, err := objectstore.NewObjectStoreClient(storeCfg)
 	if err != nil {
 		return nil, err
 	}
-	return NewObjectStoreProvider(self, client, []string{
+	return NewObjectStoreProvider(factory, client, []string{
 		string(cloudprovider.ACLPrivate),
 	}), nil
 }
 
-func (self *SObjectStoreProviderFactory) GetClientRC(info cloudprovider.SProviderInfo) (map[string]string, error) {
+func (factory *SObjectStoreProviderFactory) GetClientRC(info cloudprovider.SProviderInfo) (map[string]string, error) {
+	var signVer string
+	if info.Options != nil {
+		signVer, _ = info.Options.GetString("sign_ver")
+	}
 	return map[string]string{
 		"S3_ACCESS_KEY": info.Account,
 		"S3_SECRET":     info.Secret,
 		"S3_ACCESS_URL": info.Url,
+		"S3_SIGN_VER":   signVer,
 		"S3_BACKEND":    api.CLOUD_PROVIDER_GENERICS3,
 	}, nil
 }
@@ -111,15 +122,15 @@ func NewObjectStoreProvider(factory cloudprovider.ICloudProviderFactory, client 
 	}
 }
 
-func (self *SObjectStoreProvider) GetIRegions() ([]cloudprovider.ICloudRegion, error) {
+func (provider *SObjectStoreProvider) GetIRegions() ([]cloudprovider.ICloudRegion, error) {
 	return nil, cloudprovider.ErrNotSupported
 }
 
-func (self *SObjectStoreProvider) GetIRegionById(id string) (cloudprovider.ICloudRegion, error) {
+func (provider *SObjectStoreProvider) GetIRegionById(id string) (cloudprovider.ICloudRegion, error) {
 	return nil, cloudprovider.ErrNotSupported
 }
 
-func (self *SObjectStoreProvider) GetBalance() (*cloudprovider.SBalanceInfo, error) {
+func (provider *SObjectStoreProvider) GetBalance() (*cloudprovider.SBalanceInfo, error) {
 	return &cloudprovider.SBalanceInfo{
 		Amount:   0.0,
 		Currency: "CNY",
@@ -127,42 +138,42 @@ func (self *SObjectStoreProvider) GetBalance() (*cloudprovider.SBalanceInfo, err
 	}, cloudprovider.ErrNotSupported
 }
 
-func (self *SObjectStoreProvider) GetOnPremiseIRegion() (cloudprovider.ICloudRegion, error) {
-	return self.client, nil
+func (provider *SObjectStoreProvider) GetOnPremiseIRegion() (cloudprovider.ICloudRegion, error) {
+	return provider.client, nil
 }
 
-func (self *SObjectStoreProvider) GetIProjects() ([]cloudprovider.ICloudProject, error) {
+func (provider *SObjectStoreProvider) GetIProjects() ([]cloudprovider.ICloudProject, error) {
 	return nil, cloudprovider.ErrNotSupported
 }
 
-func (self *SObjectStoreProvider) GetSysInfo() (jsonutils.JSONObject, error) {
-	return self.client.About(), nil
+func (provider *SObjectStoreProvider) GetSysInfo() (jsonutils.JSONObject, error) {
+	return provider.client.About(), nil
 }
 
-func (self *SObjectStoreProvider) GetVersion() string {
-	return self.client.GetVersion()
+func (provider *SObjectStoreProvider) GetVersion() string {
+	return provider.client.GetVersion()
 }
 
-func (self *SObjectStoreProvider) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
-	return self.client.GetSubAccounts()
+func (provider *SObjectStoreProvider) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
+	return provider.client.GetSubAccounts()
 }
 
-func (self *SObjectStoreProvider) GetAccountId() string {
-	return self.client.GetAccountId()
+func (provider *SObjectStoreProvider) GetAccountId() string {
+	return provider.client.GetAccountId()
 }
 
-func (self *SObjectStoreProvider) GetStorageClasses(regionId string) []string {
+func (provider *SObjectStoreProvider) GetStorageClasses(regionId string) []string {
 	return []string{}
 }
 
-func (self *SObjectStoreProvider) GetBucketCannedAcls(regionId string) []string {
-	return self.supportedAcls
+func (provider *SObjectStoreProvider) GetBucketCannedAcls(regionId string) []string {
+	return provider.supportedAcls
 }
 
-func (self *SObjectStoreProvider) GetObjectCannedAcls(regionId string) []string {
-	return self.supportedAcls
+func (provider *SObjectStoreProvider) GetObjectCannedAcls(regionId string) []string {
+	return provider.supportedAcls
 }
 
-func (self *SObjectStoreProvider) GetCapabilities() []string {
-	return self.client.GetCapabilities()
+func (provider *SObjectStoreProvider) GetCapabilities() []string {
+	return provider.client.GetCapabilities()
 }

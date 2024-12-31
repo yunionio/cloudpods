@@ -1376,8 +1376,8 @@ sigs.k8s.io/structured-merge-diff/v4 v4.0.1/go.mod h1:bJZC9H9iH24zzfZ/41RGcq60oK
 sigs.k8s.io/yaml v1.1.0/go.mod h1:UJmg0vDUVViEyp3mgSv9WPwZCDxu4rQW1olrI1uml+o=
 sigs.k8s.io/yaml v1.2.0 h1:kr/MCeFWJWTwyaHoR9c8EjH9OumOmoF9YGiZd7lFm/Q=
 sigs.k8s.io/yaml v1.2.0/go.mod h1:yfXDCHCao9+ENCvLSE62v9VSji2MKu5jeNfTrofGhJc=
-yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20241225022314-afb2521c4810 h1:Y5Q+aOgh6a/0fEi7JUI9QVcJ3qDhjjv+0MxZNbDhllk=
-yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20241225022314-afb2521c4810/go.mod h1:KQ/jWx7bZlmjCE711KEWuvHW/dzpdr/UTlBjjutkj0Y=
+yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20241231161311-2b925c2c0096 h1:gJIprJl5tg3An9eixiSVHw2H3rtP/7Pft0mN+dtUa00=
+yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20241231161311-2b925c2c0096/go.mod h1:KQ/jWx7bZlmjCE711KEWuvHW/dzpdr/UTlBjjutkj0Y=
 yunion.io/x/executor v0.0.0-20241205080005-48f5b1212256 h1:kLKQ6zbgPDQflRwoHFAjxNChcbhXIFgsUVLkJwiXu/8=
 yunion.io/x/executor v0.0.0-20241205080005-48f5b1212256/go.mod h1:Uxuou9WQIeJXNpy7t2fPLL0BYLvLiMvGQwY7Qc6aSws=
 yunion.io/x/jsonutils v0.0.0-20190625054549-a964e1e8a051/go.mod h1:4N0/RVzsYL3kH3WE/H1BjUQdFiWu50JGCFQuuy+Z634=
@@ -1391,8 +1391,8 @@ yunion.io/x/ovsdb v0.0.0-20230306173834-f164f413a900 h1:Hu/4ERvoWaN6aiFs4h4/yvVB
 yunion.io/x/ovsdb v0.0.0-20230306173834-f164f413a900/go.mod h1:0vLkNEhlmA64HViPBAnSTUMrx5QP1CLsxXmxDKQ80tc=
 yunion.io/x/pkg v0.0.0-20190620104149-945c25821dbf/go.mod h1:t6rEGG2sQ4J7DhFxSZVOTjNd0YO/KlfWQyK1W4tog+E=
 yunion.io/x/pkg v0.0.0-20190628082551-f4033ba2ea30/go.mod h1:t6rEGG2sQ4J7DhFxSZVOTjNd0YO/KlfWQyK1W4tog+E=
-yunion.io/x/pkg v1.10.2 h1:oZhedvlvDsebIWcOvrOMJQ31SxzjxxqUXUBYseBjh7w=
-yunion.io/x/pkg v1.10.2/go.mod h1:0Bwxqd9MA3ACi119/l02FprY/o9gHahmYC2bsSbnVpM=
+yunion.io/x/pkg v1.10.3 h1:oaJAtMSIwASgF6jB/0W37iOQBLh6ICswfPL3ISnRZC4=
+yunion.io/x/pkg v1.10.3/go.mod h1:0Bwxqd9MA3ACi119/l02FprY/o9gHahmYC2bsSbnVpM=
 yunion.io/x/s3cli v0.0.0-20241221171442-1c11599d28e1 h1:1KJ3YYinydPHpDEQRXdr/T8SYcKZ5Er+m489H+PnaQ4=
 yunion.io/x/s3cli v0.0.0-20241221171442-1c11599d28e1/go.mod h1:0iFKpOs1y4lbCxeOmq3Xx/0AcQoewVPwj62eRluioEo=
 yunion.io/x/sqlchemy v1.1.3-0.20240926163039-d41512b264e1 h1:HWPqY1I5JSmM6Sks6FyK9hnq/MjL7FDghM6M8DXHob0=

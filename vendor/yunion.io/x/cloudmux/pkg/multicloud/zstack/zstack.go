@@ -30,6 +30,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/util/httputils"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
@@ -186,6 +187,9 @@ func (cli *SZStackClient) connect() error {
 		if err == nil {
 			return nil
 		}
+		if !strings.Contains(cli.authURL, "8080") {
+			return errors.Wrapf(err, "please set port to 8080, try again")
+		}
 		return errors.Wrapf(err, "connect")
 	}
 	return fmt.Errorf("password auth has been deprecated, please using ak sk auth")
@@ -198,6 +202,9 @@ func (cli *SZStackClient) listAll(resource string, params url.Values, retVal int
 		resp, err := cli._list(resource, start, limit, params)
 		if err != nil {
 			return err
+		}
+		if gotypes.IsNil(resp) {
+			return errors.Wrapf(errors.ErrEmpty, "empty response")
 		}
 		objs, err := resp.GetArray("inventories")
 		if err != nil {

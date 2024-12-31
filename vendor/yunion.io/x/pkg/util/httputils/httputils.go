@@ -234,6 +234,12 @@ func NewJsonClient(client sClient) *JsonClient {
 }
 
 func (e *JSONClientError) Error() string {
+	if !gotypes.IsNil(e.Request.Body) {
+		if body, ok := e.Request.Body.(*jsonutils.JSONDict); ok && body.Contains("password") {
+			body.Set("password", jsonutils.NewString("***"))
+			e.Request.Body = body
+		}
+	}
 	errMsg := JSONClientErrorMsg{Error: e}
 	return jsonutils.Marshal(errMsg).String()
 }
