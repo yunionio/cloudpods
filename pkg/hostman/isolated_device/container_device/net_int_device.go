@@ -17,6 +17,8 @@ package container_device
 import (
 	"fmt"
 	"regexp"
+	"strconv"
+	"strings"
 
 	runtimeapi "k8s.io/cri-api/pkg/apis/runtime/v1"
 
@@ -57,6 +59,26 @@ type NetintDeviceInfo struct {
 	MaximumLBA   int    `json:"MaximumLBA"`
 	PhysicalSize int    `json:"PhysicalSize"`
 	SectorSize   int    `json:"SectorSize"`
+}
+
+func (info NetintDeviceInfo) GetIndexFromPath() (int, error) {
+	idxStr := strings.TrimSuffix(strings.TrimPrefix(info.DevicePath, "/dev/nvme"), "n1")
+	idx, err := strconv.Atoi(idxStr)
+	if err != nil {
+		return -1, errors.Wrapf(err, "strconv.Atoi(%s) by %q", idxStr, info.DevicePath)
+	}
+	return idx, nil
+}
+
+func (info NetintDeviceInfo) GetIndex() (int, error) {
+	if info.Index > 0 {
+		return info.Index, nil
+	}
+	idx, err := info.GetIndexFromPath()
+	if err != nil {
+		return -1, err
+	}
+	return idx, nil
 }
 
 type netintDeviceManager struct {
@@ -107,6 +129,23 @@ func (m *netintDeviceManager) fetchNVMEDevices() ([]*NetintDeviceInfo, error) {
 	return result, nil
 }
 
+func (m *netintDeviceManager) checkDevPath(devs []*NetintDeviceInfo, dev *isolated_device.ContainerDevice) error {
+	if dev.Path == "" {
+		return nil
+	}
+	isFound := false
+	for _, d := range devs {
+		if d.DevicePath == dev.Path {
+			isFound = true
+			break
+		}
+	}
+	if isFound {
+		return nil
+	}
+	return fmt.Errorf("%s not found in %s", dev.Path, jsonutils.Marshal(devs))
+}
+
 func (m *netintDeviceManager) NewDevices(dev *isolated_device.ContainerDevice) ([]isolated_device.IDevice, error) {
 	if err := CheckVirtualNumber(dev); err != nil {
 		return nil, err
@@ -114,6 +153,9 @@ func (m *netintDeviceManager) NewDevices(dev *isolated_device.ContainerDevice) (
 	nvmeDevs, err := m.fetchNVMEDevices()
 	if err != nil {
 		return nil, errors.Wrap(err, "fetch nvme devices")
+	}
+	if err := m.checkDevPath(nvmeDevs, dev); err != nil {
+		return nil, errors.Wrap(err, "check nvme devices")
 	}
 	result := make([]isolated_device.IDevice, 0)
 	for _, nvmeDev := range nvmeDevs {
@@ -129,8 +171,12 @@ func (m *netintDeviceManager) NewDevices(dev *isolated_device.ContainerDevice) (
 }
 
 func (m *netintDeviceManager) newDeviceByIndex(dev *NetintDeviceInfo, idx int) (*netintDevice, error) {
+	devIdx, err := dev.GetIndex()
+	if err != nil {
+		return nil, errors.Wrap(err, "dev.GetIndex")
+	}
 	devInfo := &isolated_device.PCIDevice{
-		Addr:      fmt.Sprintf("%d-%d", dev.Index, idx),
+		Addr:      fmt.Sprintf("%d-%d", devIdx, idx),
 		VendorId:  NETINT_VENDOR_ID,
 		DeviceId:  NETINT_DEVICE_ID,
 		ModelName: dev.ModelNumber,
