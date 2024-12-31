@@ -2205,6 +2205,25 @@ func (self *SDisk) GetLastAttachedHost(ctx context.Context, userCred mcclient.To
 	return self.GetMetadata(ctx, api.DISK_META_LAST_ATTACHED_HOST, userCred)
 }
 
+func (self *SDisk) RecordDiskSnapshotsLastHost(ctx context.Context, userCred mcclient.TokenCredential, hostId string) error {
+	storage, err := self.GetStorage()
+	if err != nil {
+		return err
+	}
+	if storage.StorageType != api.STORAGE_SLVM {
+		return nil
+	}
+	// record disk snapshots master host
+	snaps := SnapshotManager.GetDiskSnapshots(self.Id)
+	for i := range snaps {
+		err = snaps[i].SetMetadata(ctx, api.DISK_META_LAST_ATTACHED_HOST, hostId, userCred)
+		if err != nil {
+			log.Errorf("snapshot %s failed set last attached host: %s", snaps[i].Id, err)
+		}
+	}
+	return nil
+}
+
 // 同步磁盘状态
 func (self *SDisk) PerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.DiskSyncstatusInput) (jsonutils.JSONObject, error) {
 	var openTask = true
