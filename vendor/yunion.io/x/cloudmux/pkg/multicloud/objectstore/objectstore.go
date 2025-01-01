@@ -34,12 +34,22 @@ import (
 	"yunion.io/x/cloudmux/pkg/multicloud"
 )
 
+type S3SignVersion string
+
+const (
+	S3SignAlgDefault = S3SignVersion("")
+	S3SignAlgV4      = S3SignVersion("v4")
+	S3SignAlgV2      = S3SignVersion("v2")
+)
+
 type ObjectStoreClientConfig struct {
 	cpcfg cloudprovider.ProviderConfig
 
 	endpoint     string
 	accessKey    string
 	accessSecret string
+
+	signVer S3SignVersion
 
 	debug bool
 }
@@ -55,6 +65,11 @@ func NewObjectStoreClientConfig(endpoint, accessKey, accessSecret string) *Objec
 
 func (cfg *ObjectStoreClientConfig) CloudproviderConfig(cpcfg cloudprovider.ProviderConfig) *ObjectStoreClientConfig {
 	cfg.cpcfg = cpcfg
+	return cfg
+}
+
+func (cfg *ObjectStoreClientConfig) SignVersion(signVer S3SignVersion) *ObjectStoreClientConfig {
+	cfg.signVer = signVer
 	return cfg
 }
 
@@ -115,7 +130,20 @@ func NewObjectStoreClientAndFetch(cfg *ObjectStoreClientConfig, doFetch bool) (*
 	if parts.Scheme == "https" {
 		useSsl = true
 	}
-	cli, err := s3cli.New(
+	s3cliNewFunc := s3cli.New
+
+	switch cfg.signVer {
+	case S3SignAlgV4:
+		log.Debugf("Use v4 signing algorithm")
+		s3cliNewFunc = s3cli.NewV4
+	case S3SignAlgV2:
+		log.Debugf("Use v2 signing algorithm")
+		s3cliNewFunc = s3cli.NewV2
+	default:
+		log.Debugf("s3 sign algirithm version not set, use default")
+	}
+
+	cli, err := s3cliNewFunc(
 		parts.Host,
 		client.accessKey,
 		client.accessSecret,

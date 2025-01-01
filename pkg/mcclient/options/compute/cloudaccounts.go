@@ -405,11 +405,17 @@ type SS3CloudAccountCreateOptions struct {
 	SCloudAccountCreateBaseOptions
 	SAccessKeyCredential
 	Endpoint string `help:"S3 endpoint" required:"true" positional:"true" json:"endpoint"`
+
+	OptionSignVer string `help:"signing algorithm version" choices:"v2|v4"`
 }
 
 func (opts *SS3CloudAccountCreateOptions) Params() (jsonutils.JSONObject, error) {
 	params := jsonutils.Marshal(opts)
 	params.(*jsonutils.JSONDict).Add(jsonutils.NewString("S3"), "provider")
+	options := jsonutils.NewDict()
+	if len(opts.OptionSignVer) > 0 {
+		options.Add(jsonutils.NewString(opts.OptionSignVer), "sign_ver")
+	}
 	return params, nil
 }
 

@@ -1579,7 +1579,7 @@ sigs.k8s.io/structured-merge-diff/v4/value
 # sigs.k8s.io/yaml v1.2.0
 ## explicit; go 1.12
 sigs.k8s.io/yaml
-# yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20241125120206-f98ea0037b11
+# yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20241231161259-655e77daa48e
 ## explicit; go 1.21
 yunion.io/x/cloudmux/pkg/apis
 yunion.io/x/cloudmux/pkg/apis/billing
@@ -1659,7 +1659,7 @@ yunion.io/x/cloudmux/pkg/multicloud/volcengine
 yunion.io/x/cloudmux/pkg/multicloud/volcengine/provider
 yunion.io/x/cloudmux/pkg/multicloud/zstack
 yunion.io/x/cloudmux/pkg/multicloud/zstack/provider
-# yunion.io/x/executor v0.0.0-20230705125604-c5ac3141db32
+# yunion.io/x/executor v0.0.0-20241205080005-48f5b1212256
 ## explicit; go 1.12
 yunion.io/x/executor/apis
 yunion.io/x/executor/client
@@ -1676,7 +1676,7 @@ yunion.io/x/log/hooks
 yunion.io/x/ovsdb/cli_util
 yunion.io/x/ovsdb/schema/ovn_nb
 yunion.io/x/ovsdb/types
-# yunion.io/x/pkg v1.10.1-0.20240905110705-77c46e716318
+# yunion.io/x/pkg v1.10.2
 ## explicit; go 1.18
 yunion.io/x/pkg/appctx
 yunion.io/x/pkg/errors
@@ -1728,7 +1728,7 @@ yunion.io/x/pkg/util/vmdkutils
 yunion.io/x/pkg/util/wait
 yunion.io/x/pkg/util/workqueue
 yunion.io/x/pkg/utils
-# yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e
+# yunion.io/x/s3cli v0.0.0-20241221171442-1c11599d28e1
 ## explicit; go 1.12
 yunion.io/x/s3cli
 # yunion.io/x/sqlchemy v1.1.3-0.20240926163039-d41512b264e1
