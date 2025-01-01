@@ -249,7 +249,7 @@ func (acnt *SCloudaccount) enableAccountOnly(ctx context.Context, userCred mccli
 }
 
 func (acnt *SCloudaccount) PerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformEnableInput) (jsonutils.JSONObject, error) {
-	if strings.Index(acnt.Status, "delet") >= 0 {
+	if strings.Contains(acnt.Status, "delet") {
 		return nil, httperrors.NewInvalidStatusError("Cannot enable deleting account")
 	}
 	_, err := acnt.enableAccountOnly(ctx, userCred, query, input)
@@ -739,7 +739,12 @@ func (acnt *SCloudaccount) PerformTestConnectivity(ctx context.Context, userCred
 	return nil, nil
 }
 
-func (acnt *SCloudaccount) PerformUpdateCredential(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (acnt *SCloudaccount) PerformUpdateCredential(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input cloudprovider.SCloudaccountCredential,
+) (jsonutils.JSONObject, error) {
 	if !acnt.GetEnabled() {
 		return nil, httperrors.NewInvalidStatusError("Account disabled")
 	}
@@ -747,12 +752,6 @@ func (acnt *SCloudaccount) PerformUpdateCredential(ctx context.Context, userCred
 	providerDriver, err := acnt.GetProviderFactory()
 	if err != nil {
 		return nil, httperrors.NewBadRequestError("failed to found provider factory error: %v", err)
-	}
-
-	input := cloudprovider.SCloudaccountCredential{}
-	err = data.Unmarshal(&input)
-	if err != nil {
-		return nil, httperrors.NewInputParameterError("failed to unmarshal input params: %v", err)
 	}
 
 	account, err := providerDriver.ValidateUpdateCloudaccountCredential(ctx, input, acnt.Account)

@@ -189,6 +189,8 @@ type SBackupStorageAccessInfo struct {
 	ObjectAccessKey string `json:"object_access_key"`
 	// description: secret of object storage
 	ObjectSecret string `json:"object_secret"`
+	// description: signing version, can be v2/v4, default is v4
+	ObjectSignVer string `json:"object_sign_ver"`
 }
 
 func (ba *SBackupStorageAccessInfo) String() string {
