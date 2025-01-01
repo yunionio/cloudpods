@@ -180,16 +180,11 @@ func (client *SVolcEngineClient) GetAccountId() string {
 	if len(client.ownerId) > 0 {
 		return client.ownerId
 	}
-
-	toscli, err := client.getTosClient(VOLCENGINE_DEFAULT_REGION)
+	balance, err := client.QueryBalance()
 	if err != nil {
 		return ""
 	}
-	out, err := toscli.ListBuckets(context.Background(), &tos.ListBucketsInput{})
-	if err != nil {
-		return ""
-	}
-	client.ownerId = out.Owner.ID
+	client.ownerId = balance.AccountId
 	return client.ownerId
 }
 

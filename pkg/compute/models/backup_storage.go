@@ -171,6 +171,7 @@ func (bs *SBackupStorage) getMoreDetails(ctx context.Context, out api.BackupStor
 	out.NfsSharedDir = bs.AccessInfo.NfsSharedDir
 	out.ObjectBucketUrl = bs.AccessInfo.ObjectBucketUrl
 	out.ObjectAccessKey = bs.AccessInfo.ObjectAccessKey
+	out.ObjectSignVer = bs.AccessInfo.ObjectSignVer
 	// should not return secret
 	out.ObjectSecret = "" // bs.AccessInfo.ObjectSecret
 	return out
@@ -316,6 +317,10 @@ func (bs *SBackupStorage) PostUpdate(ctx context.Context, userCred mcclient.Toke
 				return
 			}
 			accessInfo.ObjectSecret = sec
+			accessInfoChanged = true
+		}
+		if input.ObjectSignVer != accessInfo.ObjectSignVer {
+			accessInfo.ObjectSignVer = input.ObjectSignVer
 			accessInfoChanged = true
 		}
 	}
