@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"path"
 	"strconv"
+	"strings"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
@@ -1103,13 +1104,17 @@ func (self *SStorage) syncWithCloudStorage(ctx context.Context, userCred mcclien
 		// self.Name = extStorage.GetName()
 		self.Status = ext.GetStatus()
 		self.StorageType = ext.GetStorageType()
-		self.MediumType = ext.GetMediumType()
-		if capacity := ext.GetCapacityMB(); capacity != 0 {
-			self.Capacity = capacity
+
+		if provider != nil && !utils.IsInStringArray(provider.Provider, strings.Split(options.Options.SkipSyncStorageConfigInfoProviders, ",")) {
+			self.MediumType = ext.GetMediumType()
+			if capacity := ext.GetCapacityMB(); capacity != 0 {
+				self.Capacity = capacity
+			}
+			if capacity := ext.GetCapacityUsedMB(); capacity != 0 {
+				self.ActualCapacityUsed = capacity
+			}
 		}
-		if capacity := ext.GetCapacityUsedMB(); capacity != 0 {
-			self.ActualCapacityUsed = capacity
-		}
+
 		self.StorageConf = ext.GetStorageConf()
 
 		self.Enabled = tristate.NewFromBool(ext.GetEnabled())

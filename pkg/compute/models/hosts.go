@@ -2082,6 +2082,7 @@ func (hh *SHost) syncRemoveCloudHost(ctx context.Context, userCred mcclient.Toke
 }
 
 func (hh *SHost) SyncWithCloudHost(ctx context.Context, userCred mcclient.TokenCredential, extHost cloudprovider.ICloudHost) error {
+	provider := hh.GetCloudprovider()
 	diff, err := db.UpdateWithLock(ctx, hh, func() error {
 		// hh.Name = extHost.GetName()
 
@@ -2091,16 +2092,6 @@ func (hh *SHost) SyncWithCloudHost(ctx context.Context, userCred mcclient.TokenC
 		hh.AccessMac = extHost.GetAccessMac()
 		hh.SN = extHost.GetSN()
 		hh.SysInfo = extHost.GetSysInfo()
-		hh.CpuCount = extHost.GetCpuCount()
-		hh.NodeCount = extHost.GetNodeCount()
-		cpuDesc := extHost.GetCpuDesc()
-		if len(cpuDesc) > 128 {
-			cpuDesc = cpuDesc[:128]
-		}
-		hh.CpuDesc = cpuDesc
-		hh.CpuMhz = extHost.GetCpuMhz()
-		hh.MemSize = extHost.GetMemSizeMB()
-		hh.StorageSize = extHost.GetStorageSizeMB()
 		hh.StorageType = extHost.GetStorageType()
 		hh.HostType = extHost.GetHostType()
 		if hh.HostType == api.HOST_TYPE_BAREMETAL {
@@ -2112,20 +2103,33 @@ func (hh *SHost) SyncWithCloudHost(ctx context.Context, userCred mcclient.TokenC
 		}
 		hh.OvnVersion = extHost.GetOvnVersion()
 
-		if cpuCmt := extHost.GetCpuCmtbound(); cpuCmt > 0 {
-			hh.CpuCmtbound = cpuCmt
-		}
+		if provider != nil && !utils.IsInStringArray(provider.Provider, strings.Split(options.Options.SkipSyncHostConfigInfoProviders, ",")) {
+			hh.CpuCount = extHost.GetCpuCount()
+			hh.NodeCount = extHost.GetNodeCount()
+			cpuDesc := extHost.GetCpuDesc()
+			if len(cpuDesc) > 128 {
+				cpuDesc = cpuDesc[:128]
+			}
+			hh.CpuDesc = cpuDesc
+			hh.CpuMhz = extHost.GetCpuMhz()
+			hh.MemSize = extHost.GetMemSizeMB()
+			hh.StorageSize = extHost.GetStorageSizeMB()
 
-		if memCmt := extHost.GetMemCmtbound(); memCmt > 0 {
-			hh.MemCmtbound = memCmt
-		}
+			if cpuCmt := extHost.GetCpuCmtbound(); cpuCmt > 0 {
+				hh.CpuCmtbound = cpuCmt
+			}
 
-		if arch := extHost.GetCpuArchitecture(); len(arch) > 0 {
-			hh.CpuArchitecture = arch
-		}
+			if memCmt := extHost.GetMemCmtbound(); memCmt > 0 {
+				hh.MemCmtbound = memCmt
+			}
 
-		if reservedMem := extHost.GetReservedMemoryMb(); reservedMem > 0 {
-			hh.MemReserved = reservedMem
+			if arch := extHost.GetCpuArchitecture(); len(arch) > 0 {
+				hh.CpuArchitecture = arch
+			}
+
+			if reservedMem := extHost.GetReservedMemoryMb(); reservedMem > 0 {
+				hh.MemReserved = reservedMem
+			}
 		}
 
 		hh.IsEmulated = extHost.IsEmulated()
@@ -2142,7 +2146,6 @@ func (hh *SHost) SyncWithCloudHost(ctx context.Context, userCred mcclient.TokenC
 
 	db.OpsLog.LogSyncUpdate(hh, diff, userCred)
 
-	provider := hh.GetCloudprovider()
 	if provider != nil {
 		SyncCloudDomain(userCred, hh, provider.GetOwnerId())
 		hh.SyncShareState(ctx, userCred, provider.getAccountShareInfo())

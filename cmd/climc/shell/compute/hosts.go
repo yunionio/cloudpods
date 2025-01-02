@@ -39,6 +39,7 @@ func init() {
 	cmd.List(&compute.HostListOptions{})
 	cmd.GetMetadata(&options.BaseIdOptions{})
 	cmd.GetProperty(&compute.HostStatusStatisticsOptions{})
+	cmd.Update(&compute.HostUpdateOptions{})
 
 	cmd.Perform("ping", &options.BaseIdOptions{})
 	cmd.Perform("purge", &options.BaseIdOptions{})
@@ -198,88 +199,6 @@ func init() {
 		} else {
 			fmt.Print(sysInfo.PrettyString())
 		}
-		return nil
-	})
-
-	type HostUpdateOptions struct {
-		ID             string `help:"ID or Name of Host"`
-		Name           string `help:"New name of the host"`
-		Desc           string `help:"New Description of the host"`
-		MemoryReserved string `help:"Memory reserved"`
-		CpuReserved    int64  `help:"CPU reserved"`
-		HostType       string `help:"Change host type, CAUTION!!!!" choices:"hypervisor|kubelet|esxi|baremetal"`
-		// AccessIp          string  `help:"Change access ip, CAUTION!!!!"`
-		AccessMac          string `help:"Change baremetal access MAC, CAUTION!!!!"`
-		Uuid               string `help:"Change baremetal UUID,  CAUTION!!!!"`
-		EnableNumaAllocate string `help:"Host enable numa allocate" choices:"True|False"`
-
-		IpmiUsername string `help:"IPMI user"`
-		IpmiPassword string `help:"IPMI password"`
-		IpmiIpAddr   string `help:"IPMI ip_addr"`
-
-		Sn string `help:"serial number"`
-
-		Hostname string `help:"update host name"`
-
-		PublicIp string `help:"public_ip"`
-
-		NoPublicIp bool `help:"clear public ip"`
-	}
-	R(&HostUpdateOptions{}, "host-update", "Update information of a host", func(s *mcclient.ClientSession, args *HostUpdateOptions) error {
-		params := jsonutils.NewDict()
-		if len(args.Name) > 0 {
-			params.Add(jsonutils.NewString(args.Name), "name")
-		}
-		if len(args.Desc) > 0 {
-			params.Add(jsonutils.NewString(args.Desc), "description")
-		}
-		if len(args.MemoryReserved) > 0 {
-			params.Add(jsonutils.NewString(args.MemoryReserved), "mem_reserved")
-		}
-		if args.CpuReserved > 0 {
-			params.Add(jsonutils.NewInt(args.CpuReserved), "cpu_reserved")
-		}
-		if len(args.HostType) > 0 {
-			params.Add(jsonutils.NewString(args.HostType), "host_type")
-		}
-		if len(args.AccessMac) > 0 {
-			params.Add(jsonutils.NewString(args.AccessMac), "access_mac")
-		}
-		if len(args.Uuid) > 0 {
-			params.Add(jsonutils.NewString(args.Uuid), "uuid")
-		}
-		if len(args.IpmiUsername) > 0 {
-			params.Add(jsonutils.NewString(args.IpmiUsername), "ipmi_username")
-		}
-		if len(args.IpmiPassword) > 0 {
-			params.Add(jsonutils.NewString(args.IpmiPassword), "ipmi_password")
-		}
-		if len(args.IpmiIpAddr) > 0 {
-			params.Add(jsonutils.NewString(args.IpmiIpAddr), "ipmi_ip_addr")
-		}
-		if len(args.Sn) > 0 {
-			params.Add(jsonutils.NewString(args.Sn), "sn")
-		}
-		if len(args.EnableNumaAllocate) > 0 {
-			enableNumaAllocate := false
-			if args.EnableNumaAllocate == "True" {
-				enableNumaAllocate = true
-			}
-			params.Add(jsonutils.NewBool(enableNumaAllocate), "enable_numa_allocate")
-		}
-		if len(args.PublicIp) > 0 {
-			params.Add(jsonutils.NewString(args.PublicIp), "public_ip")
-		} else if args.NoPublicIp {
-			params.Add(jsonutils.NewString(""), "public_ip")
-		}
-		if params.Size() == 0 {
-			return fmt.Errorf("Not data to update")
-		}
-		result, err := modules.Hosts.Update(s, args.ID, params)
-		if err != nil {
-			return err
-		}
-		printObject(result)
 		return nil
 	})
 
