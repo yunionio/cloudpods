@@ -60,7 +60,7 @@ func (o *sCopy) CopyFromContainer(s *mcclient.ClientSession, src ContainerFileOp
 	reader, outStream := io.Pipe()
 	go func() {
 		defer outStream.Close()
-		if err := compute.Containers.CopyTarFrom(s, src.ContainerId, src.File, outStream); err != nil {
+		if err := compute.Containers.CopyTarFrom(s, src.ContainerId, []string{src.File}, outStream); err != nil {
 			log.Errorf("copy src by tar from container: %v", err)
 		}
 	}()

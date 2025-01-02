@@ -293,6 +293,8 @@ func (man ContainerManager) CopyFrom(s *mcclient.ClientSession, ctrId string, ct
 	return man.copyFrom(s, ctrId, out, []string{"cat", ctrFile})
 }
 
-func (man ContainerManager) CopyTarFrom(s *mcclient.ClientSession, ctrId string, ctrDir string, out io.Writer) error {
-	return man.copyFrom(s, ctrId, out, []string{"tar", "cf", "-", ctrDir})
+func (man ContainerManager) CopyTarFrom(s *mcclient.ClientSession, ctrId string, ctrDir []string, out io.Writer) error {
+	cmd := []string{"tar", "cf", "-"}
+	cmd = append(cmd, ctrDir...)
+	return man.copyFrom(s, ctrId, out, cmd)
 }
