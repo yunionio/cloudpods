@@ -74,6 +74,9 @@ type BaseOptions struct {
 	TaskWorkerCount      int `default:"4" help:"Task manager worker thread count, default is 4"`
 	LocalTaskWorkerCount int `default:"4" help:"Worker thread count that runs local tasks, default is 4"`
 
+	TaskArchiveThresholdHours int `default:"168" help:"The threshold in hours to migrate tasks to archives, default is 7days(168hours)"`
+	TaskArchiveIntervalHours  int `default:"2" help:"The interval to migrate tasks to archives, default is 2 hours"`
+
 	DefaultProcessTimeoutSeconds int `default:"60" help:"request process timeout, default is 60 seconds"`
 
 	EnableSsl   bool   `help:"Enable https"`
@@ -399,6 +402,7 @@ func parseOptions(optStruct interface{}, args []string, configFileName string, s
 
 	consts.SetTaskWorkerCount(optionsRef.TaskWorkerCount)
 	consts.SetLocalTaskWorkerCount(optionsRef.LocalTaskWorkerCount)
+	consts.SetTaskArchiveThresholdHours(optionsRef.TaskArchiveThresholdHours)
 }
 
 func (self *BaseOptions) HttpTransportProxyFunc() httputils.TransportProxyFunc {

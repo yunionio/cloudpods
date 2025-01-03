@@ -143,8 +143,22 @@ func FetchByIdOrName(ctx context.Context, manager IModelManager, userCred mcclie
 	}
 }
 
-func fetchItemById(manager IModelManager, ctx context.Context, userCred mcclient.TokenCredential, idStr string, query jsonutils.JSONObject) (IModel, error) {
-	q := manager.Query()
+func isRawQuery(manager IModelManager, userCred mcclient.TokenCredential, query jsonutils.JSONObject, action string) bool {
+	if query == nil || !query.Contains("delete") {
+		return false
+	}
+	var useRawQuery bool
+	// query senders are responsible for clear up other constraint
+	// like setting "pendinge_delete" to "all"
+	queryDelete, _ := query.GetString("delete")
+	if queryDelete == "all" && policy.PolicyManager.Allow(rbacscope.ScopeSystem, userCred, consts.GetServiceType(), manager.KeywordPlural(), action).Result.IsAllow() {
+		useRawQuery = true
+	}
+	return useRawQuery
+}
+
+func fetchItemById(manager IModelManager, ctx context.Context, userCred mcclient.TokenCredential, idStr string, query jsonutils.JSONObject, useRawQuery bool) (IModel, error) {
+	q := manager.NewQuery(ctx, userCred, query, useRawQuery)
 	var err error
 	if query != nil && !query.IsZero() {
 		// if isListRbacAllowed(manager, userCred, true) {
@@ -177,8 +191,8 @@ func fetchItemById(manager IModelManager, ctx context.Context, userCred mcclient
 	}
 }
 
-func fetchItemByName(manager IModelManager, ctx context.Context, userCred mcclient.TokenCredential, idStr string, query jsonutils.JSONObject) (IModel, error) {
-	q := manager.Query()
+func fetchItemByName(manager IModelManager, ctx context.Context, userCred mcclient.TokenCredential, idStr string, query jsonutils.JSONObject, useRawQuery bool) (IModel, error) {
+	q := manager.NewQuery(ctx, userCred, query, useRawQuery)
 	var err error
 	if query != nil && !query.IsZero() {
 		q, err = listItemQueryFilters(manager, ctx, q, userCred, query, policy.PolicyActionGet, false)
@@ -224,9 +238,10 @@ func fetchItemByName(manager IModelManager, ctx context.Context, userCred mcclie
 }
 
 func fetchItem(manager IModelManager, ctx context.Context, userCred mcclient.TokenCredential, idStr string, query jsonutils.JSONObject) (IModel, error) {
-	item, err := fetchItemById(manager, ctx, userCred, idStr, query)
+	useRawQuery := isRawQuery(manager, userCred, query, policy.PolicyActionGet)
+	item, err := fetchItemById(manager, ctx, userCred, idStr, query, useRawQuery)
 	if err != nil {
-		item, err = fetchItemByName(manager, ctx, userCred, idStr, query)
+		item, err = fetchItemByName(manager, ctx, userCred, idStr, query, useRawQuery)
 	}
 	if err != nil {
 		return nil, err

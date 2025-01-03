@@ -71,7 +71,10 @@ func (manager *SSubTaskmanager) GetSubTask(ptaskId string, subtaskId string) *SS
 }
 
 func (manager *SSubTaskmanager) getTotalSubtasksQuery(taskId string, stage string, status string) *sqlchemy.SQuery {
-	q := manager.Query().Equals("task_id", taskId).Equals("stage", stage)
+	q := manager.Query().Equals("task_id", taskId)
+	if len(stage) > 0 {
+		q = q.Equals("stage", stage)
+	}
 	if len(status) > 0 {
 		q = q.Equals("status", status)
 	}

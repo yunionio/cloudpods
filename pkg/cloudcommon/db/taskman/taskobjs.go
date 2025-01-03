@@ -55,18 +55,18 @@ type STaskObject struct {
 	db.SProjectizedResourceBase
 
 	TaskId string `width:"36" charset:"ascii" nullable:"false" primary:"true" index:"true"` // Column(VARCHAR(36, charset='ascii'), nullable=False, primary_key=True, index=True)
-	ObjId  string `width:"36" charset:"ascii" nullable:"false" primary:"true"`              // Column(VARCHAR(36, charset='ascii'), nullable=False, primary_key=True)
+	ObjId  string `width:"128" charset:"ascii" nullable:"false" primary:"true"`             // Column(VARCHAR(36, charset='ascii'), nullable=False, primary_key=True)
 	Object string `json:"object" width:"128" charset:"utf8" nullable:"false" list:"user"`
 }
 
-func (manager *STaskObjectManager) GetObjectIds(task *STask) []string {
+func (manager *STaskObjectManager) getValues(task *STask, field string) []string {
 	ret := make([]string, 0)
 	taskobjs := manager.Query().SubQuery()
-	q := taskobjs.Query(taskobjs.Field("obj_id")).Equals("task_id", task.Id)
+	q := taskobjs.Query(taskobjs.Field(field)).Equals("task_id", task.Id).Distinct()
 	rows, err := q.Rows()
 	if err != nil {
 		if err != sql.ErrNoRows {
-			log.Errorf("TaskObjectManager GetObjectIds fail %s", err)
+			log.Errorf("TaskObjectManager getValues fail %s", err)
 		}
 		return nil
 	}
@@ -75,7 +75,7 @@ func (manager *STaskObjectManager) GetObjectIds(task *STask) []string {
 		var objId string
 		err = rows.Scan(&objId)
 		if err != nil {
-			log.Errorf("TaskObjectManager GetObjects fetch row fail %s", err)
+			log.Errorf("TaskObjectManager getValues fetch row fail %s", err)
 			return nil
 		}
 		ret = append(ret, objId)
@@ -83,28 +83,20 @@ func (manager *STaskObjectManager) GetObjectIds(task *STask) []string {
 	return ret
 }
 
+func (manager *STaskObjectManager) GetObjectIds(task *STask) []string {
+	return manager.getValues(task, "obj_id")
+}
+
 func (manager *STaskObjectManager) GetObjectNames(task *STask) []string {
-	ret := make([]string, 0)
-	taskobjs := manager.Query().SubQuery()
-	q := taskobjs.Query(taskobjs.Field("object")).Equals("task_id", task.Id)
-	rows, err := q.Rows()
-	if err != nil {
-		if err != sql.ErrNoRows {
-			log.Errorf("TaskObjectManager GetObjectIds fail %s", err)
-		}
-		return nil
-	}
-	defer rows.Close()
-	for rows.Next() {
-		var objId string
-		err = rows.Scan(&objId)
-		if err != nil {
-			log.Errorf("TaskObjectManager GetObjects fetch row fail %s", err)
-			return nil
-		}
-		ret = append(ret, objId)
-	}
-	return ret
+	return manager.getValues(task, "object")
+}
+
+func (manager *STaskObjectManager) GetProjectIds(task *STask) []string {
+	return manager.getValues(task, "tenant_id")
+}
+
+func (manager *STaskObjectManager) GetDomainIds(task *STask) []string {
+	return manager.getValues(task, "domain_id")
 }
 
 func (manager *STaskObjectManager) FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
@@ -147,4 +139,23 @@ func (manager *STaskObjectManager) ResourceScope() rbacscope.TRbacScope {
 
 func (taskObj *STaskObject) GetOwnerId() mcclient.IIdentityProvider {
 	return taskObj.SProjectizedResourceBase.GetOwnerId()
+}
+
+func (manager *STaskObjectManager) insertObject(ctx context.Context, taskId string, obj db.IStandaloneModel) (*STaskObject, error) {
+	to := STaskObject{
+		TaskId: taskId,
+		ObjId:  obj.GetId(),
+		Object: obj.GetName(),
+	}
+	ownerId := obj.GetOwnerId()
+	if ownerId != nil {
+		to.DomainId = ownerId.GetProjectDomainId()
+		to.ProjectId = ownerId.GetProjectId()
+	}
+	to.SetModelManager(TaskObjectManager, &to)
+	err := TaskObjectManager.TableSpec().Insert(ctx, &to)
+	if err != nil {
+		return nil, errors.Wrap(err, "insert task object")
+	}
+	return &to, nil
 }
