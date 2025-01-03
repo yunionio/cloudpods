@@ -19,11 +19,13 @@ import (
 	"fmt"
 	"path/filepath"
 
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/apis"
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	hostapi "yunion.io/x/onecloud/pkg/apis/host"
+	imageapi "yunion.io/x/onecloud/pkg/apis/image"
 	"yunion.io/x/onecloud/pkg/hostman/container/storage"
 	container_storage "yunion.io/x/onecloud/pkg/hostman/container/storage"
 	"yunion.io/x/onecloud/pkg/hostman/container/volume_mount"
@@ -277,25 +279,38 @@ func (d disk) mountOverlay(pod volume_mount.IPodInfo, ctrId string, vm *hostapi.
 	return d.getOverlayDriver(vm.Disk.Overlay).mount(d, pod, ctrId, vm)
 }
 
+func (d disk) getCachedImageDir(ctx context.Context, pod volume_mount.IPodInfo, imgId string) (string, error) {
+	input := computeapi.CacheImageInput{
+		ImageId:              imgId,
+		Format:               imageapi.IMAGE_DISK_FORMAT_TGZ,
+		SkipChecksumIfExists: true,
+	}
+	cachedImgMan := storageman.GetManager().LocalStorageImagecacheManager
+	logPrefx := fmt.Sprintf("pod %s, image %s", pod.GetName(), imgId)
+	log.Infof("%s try to accuire image...", logPrefx)
+	cachedImg, err := cachedImgMan.AcquireImage(ctx, input, nil)
+	if err != nil {
+		return "", errors.Wrapf(err, "Get cache image %s", imgId)
+	}
+	defer cachedImgMan.ReleaseImage(ctx, imgId)
+	log.Infof("%s try to get access directory", logPrefx)
+	cachedImageDir, err := cachedImg.GetAccessDirectory()
+	if err != nil {
+		return "", errors.Wrapf(err, "GetAccessDirectory of cached image %s", cachedImg.GetPath())
+	}
+	log.Infof("%s got cached image dir %s", logPrefx, cachedImageDir)
+	return cachedImageDir, nil
+}
+
 func (d disk) doTemplateOverlayAction(
 	ctx context.Context,
 	pod volume_mount.IPodInfo, ctrId string,
 	vm *hostapi.ContainerVolumeMount,
 	ovAction func(d disk, pod volume_mount.IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount) error) error {
 	templateId := vm.Disk.TemplateId
-	input := computeapi.CacheImageInput{
-		ImageId:              templateId,
-		SkipChecksumIfExists: true,
-	}
-	cachedImgMan := storageman.GetManager().LocalStorageImagecacheManager
-	cachedImg, err := cachedImgMan.AcquireImage(ctx, input, nil)
+	cachedImageDir, err := d.getCachedImageDir(ctx, pod, templateId)
 	if err != nil {
-		return errors.Wrapf(err, "Get cache image %s", templateId)
-	}
-	defer cachedImgMan.ReleaseImage(ctx, templateId)
-	cachedImageDir, err := cachedImg.GetAccessDirectory()
-	if err != nil {
-		return errors.Wrapf(err, "GetAccessDirectory of cached image %s", cachedImg.GetPath())
+		return errors.Wrap(err, "get cached image dir")
 	}
 	vm.Disk.Overlay = &apis.ContainerVolumeMountDiskOverlay{
 		LowerDir: []string{cachedImageDir},

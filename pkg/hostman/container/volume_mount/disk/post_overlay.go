@@ -23,7 +23,6 @@ import (
 	"yunion.io/x/onecloud/pkg/apis"
 	hostapi "yunion.io/x/onecloud/pkg/apis/host"
 	"yunion.io/x/onecloud/pkg/hostman/container/volume_mount"
-	"yunion.io/x/onecloud/pkg/util/mountutils"
 )
 
 const (
@@ -74,9 +73,31 @@ func newDiskPostOverlay(d disk) iDiskPostOverlay {
 	}
 }
 
+var (
+	postOverlayDrivers = make(map[apis.ContainerVolumeMountDiskPostOverlayType]iDiskPostOverlayDriver)
+)
+
+func registerPostOverlayDriver(drv iDiskPostOverlayDriver) {
+	postOverlayDrivers[drv.GetType()] = drv
+}
+
+func getPostOverlayDriver(typ apis.ContainerVolumeMountDiskPostOverlayType) iDiskPostOverlayDriver {
+	return postOverlayDrivers[typ]
+}
+
+type iDiskPostOverlayDriver interface {
+	GetType() apis.ContainerVolumeMountDiskPostOverlayType
+	Mount(d diskPostOverlay, pod volume_mount.IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount, ov *apis.ContainerVolumeMountDiskPostOverlay) error
+	Unmount(d diskPostOverlay, pod volume_mount.IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount, ov *apis.ContainerVolumeMountDiskPostOverlay, useLazy bool, clearLayers bool) error
+}
+
+func (d diskPostOverlay) getDriver(ov *apis.ContainerVolumeMountDiskPostOverlay) iDiskPostOverlayDriver {
+	return getPostOverlayDriver(ov.GetType())
+}
+
 func (d diskPostOverlay) mountPostOverlays(pod volume_mount.IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount, ovs []*apis.ContainerVolumeMountDiskPostOverlay) error {
 	for _, ov := range ovs {
-		if err := d.mountPostOverlay(pod, ctrId, vm, ov); err != nil {
+		if err := d.getDriver(ov).Mount(d, pod, ctrId, vm, ov); err != nil {
 			return errors.Wrapf(err, "mount container %s post overlay dir: %#v", ctrId, ov)
 		}
 	}
@@ -85,7 +106,7 @@ func (d diskPostOverlay) mountPostOverlays(pod volume_mount.IPodInfo, ctrId stri
 
 func (d diskPostOverlay) unmountPostOverlays(pod volume_mount.IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount, ovs []*apis.ContainerVolumeMountDiskPostOverlay, useLazy bool, clearLayers bool) error {
 	for _, ov := range ovs {
-		if err := d.unmountPostOverlay(pod, ctrId, vm, ov, useLazy, clearLayers); err != nil {
+		if err := d.getDriver(ov).Unmount(d, pod, ctrId, vm, ov, useLazy, clearLayers); err != nil {
 			return errors.Wrapf(err, "unmount container %s post overlay dir: %#v", ctrId, ov)
 		}
 	}
@@ -143,53 +164,4 @@ func (d diskPostOverlay) getPostOverlayMountpoint(pod volume_mount.IPodInfo, ctr
 		return "", errors.Wrap(err, "make merged mountpoint dir")
 	}
 	return mergedDir, nil
-}
-
-func (d diskPostOverlay) mountPostOverlay(pod volume_mount.IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount, ov *apis.ContainerVolumeMountDiskPostOverlay) error {
-	upperDir, err := d.getPostOverlayUpperDir(pod, ctrId, vm, ov, true)
-	if err != nil {
-		return errors.Wrapf(err, "get post overlay upper dir for container %s", ctrId)
-	}
-
-	workDir, err := d.getPostOverlayWorkDir(pod, ctrId, vm, ov, true)
-	if err != nil {
-		return errors.Wrapf(err, "get post overlay work dir for container %s", ctrId)
-	}
-
-	mergedDir, err := d.getPostOverlayMountpoint(pod, ctrId, vm, ov)
-	if err != nil {
-		return errors.Wrapf(err, "get post overlay mountpoint for container %s", ctrId)
-	}
-
-	return mountutils.MountOverlayWithFeatures(ov.HostLowerDir, upperDir, workDir, mergedDir, &mountutils.MountOverlayFeatures{
-		MetaCopy: true,
-	})
-}
-
-func (d diskPostOverlay) unmountPostOverlay(pod volume_mount.IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount, ov *apis.ContainerVolumeMountDiskPostOverlay, useLazy bool, cleanLayers bool) error {
-	mergedDir, err := d.getPostOverlayMountpoint(pod, ctrId, vm, ov)
-	if err != nil {
-		return errors.Wrapf(err, "get post overlay mountpoint for container %s", ctrId)
-	}
-	if err := mountutils.Unmount(mergedDir, useLazy); err != nil {
-		return errors.Wrapf(err, "unmount %s", mergedDir)
-	}
-	if cleanLayers {
-		upperDir, err := d.getPostOverlayUpperDir(pod, ctrId, vm, ov, false)
-		if err != nil {
-			return errors.Wrapf(err, "get post overlay upper dir for container %s", ctrId)
-		}
-		if err := volume_mount.RemoveDir(upperDir); err != nil {
-			return errors.Wrap(err, "remove upper dir")
-		}
-
-		workDir, err := d.getPostOverlayWorkDir(pod, ctrId, vm, ov, false)
-		if err != nil {
-			return errors.Wrapf(err, "get post overlay work dir for container %s", ctrId)
-		}
-		if err := volume_mount.RemoveDir(workDir); err != nil {
-			return errors.Wrap(err, "remove work dir")
-		}
-	}
-	return nil
 }

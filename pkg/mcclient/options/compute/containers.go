@@ -302,18 +302,22 @@ type ContainerStartOptions struct {
 
 type ContainerSaveVolumeMountImage struct {
 	options.ResourceIdOptions
-	IMAGENAME    string `help:"Image name"`
-	INDEX        int    `help:"Index of volume mount"`
-	GenerateName string `help:"Generate image name automatically"`
-	Notes        string `help:"Extra notes of the image"`
+	IMAGENAME         string   `help:"Image name"`
+	INDEX             int      `help:"Index of volume mount"`
+	GenerateName      string   `help:"Generate image name automatically"`
+	Notes             string   `help:"Extra notes of the image"`
+	UsedByPostOverlay bool     `help:"Used by voluem mount post-overlay"`
+	Dirs              []string `help:"Internal directories"`
 }
 
 func (o ContainerSaveVolumeMountImage) Params() (jsonutils.JSONObject, error) {
 	return jsonutils.Marshal(&computeapi.ContainerSaveVolumeMountToImageInput{
-		Name:         o.IMAGENAME,
-		GenerateName: o.GenerateName,
-		Notes:        o.Notes,
-		Index:        o.INDEX,
+		Name:              o.IMAGENAME,
+		GenerateName:      o.GenerateName,
+		Notes:             o.Notes,
+		Index:             o.INDEX,
+		Dirs:              o.Dirs,
+		UsedByPostOverlay: o.UsedByPostOverlay,
 	}), nil
 }
 
@@ -456,6 +460,7 @@ type ContainerAddVolumeMountPostOverlayOptions struct {
 	ServerIdOptions
 	INDEX     int      `help:"INDEX of volume mount"`
 	MountDesc []string `help:"Mount description, <host_lower_dir>:<container_target_dir>" short-token:"m"`
+	Image     []string `help:"Image name or id"`
 }
 
 func (o *ContainerAddVolumeMountPostOverlayOptions) Params() (jsonutils.JSONObject, error) {
@@ -474,6 +479,15 @@ func (o *ContainerAddVolumeMountPostOverlayOptions) Params() (jsonutils.JSONObje
 			HostLowerDir:       []string{lowerDir},
 			ContainerTargetDir: containerTargetDir,
 		})
+	}
+	if len(o.Image) != 0 {
+		for _, img := range o.Image {
+			input.PostOverlay = append(input.PostOverlay, &apis.ContainerVolumeMountDiskPostOverlay{
+				Image: &apis.ContainerVolumeMountDiskPostImageOverlay{
+					Id: img,
+				},
+			})
+		}
 	}
 	return jsonutils.Marshal(input), nil
 }

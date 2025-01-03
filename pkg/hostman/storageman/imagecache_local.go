@@ -340,14 +340,19 @@ func (l *SLocalImageCache) GetAccessDirectory() (string, error) {
 	if fileutils2.Exists(dir) {
 		return dir, nil
 	}
+	tmpDir := fmt.Sprintf("%s-tmp", dir)
 	// untar cached image
-	out, err := procutils.NewRemoteCommandAsFarAsPossible("mkdir", "-p", dir).Output()
+	out, err := procutils.NewRemoteCommandAsFarAsPossible("mkdir", "-p", tmpDir).Output()
 	if err != nil {
-		return "", errors.Wrapf(err, "mkdir %s: %s", dir, out)
+		return "", errors.Wrapf(err, "mkdir %s: %s", tmpDir, out)
 	}
-	out, err = procutils.NewRemoteCommandAsFarAsPossible("tar", "xf", l.GetPath(), "-C", dir).Output()
+	out, err = procutils.NewRemoteCommandAsFarAsPossible("tar", "xf", l.GetPath(), "-C", tmpDir).Output()
 	if err != nil {
-		return "", errors.Wrapf(err, "untar to %s: %s", dir, out)
+		return "", errors.Wrapf(err, "untar to %s: %s", tmpDir, out)
+	}
+	out, err = procutils.NewRemoteCommandAsFarAsPossible("mv", tmpDir, dir).Output()
+	if err != nil {
+		return "", errors.Wrapf(err, "mv %s %s: %s", tmpDir, dir, out)
 	}
 
 	return dir, nil

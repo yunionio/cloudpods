@@ -95,6 +95,14 @@ type IContainerVolumeMountDriver interface {
 	ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, pod *SGuest, vm *apis.ContainerVolumeMount) (*apis.ContainerVolumeMount, error)
 }
 
+type IContainerVolumeMountDiskDriver interface {
+	IContainerVolumeMountDriver
+
+	ValidatePostOverlay(ctx context.Context, userCred mcclient.TokenCredential, vm *apis.ContainerVolumeMount) error
+	ValidatePostSingleOverlay(ctx context.Context, userCred mcclient.TokenCredential, pov *apis.ContainerVolumeMountDiskPostOverlay) error
+	ValidatePostOverlayTargetDirs(ovs []*apis.ContainerVolumeMountDiskPostOverlay) error
+}
+
 func RegisterContainerDeviceDriver(drv IContainerDeviceDriver) {
 	registerContainerDriver(containerDeviceDrivers, drv.GetType(), drv)
 }

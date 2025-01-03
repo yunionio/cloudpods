@@ -228,11 +228,44 @@ func (o ContainerVolumeMountDiskOverlay) IsValid() error {
 	return nil
 }
 
+type ContainerVolumeMountDiskPostImageOverlay struct {
+	Id      string            `json:"id"`
+	PathMap map[string]string `json:"path_map"`
+}
+
+type ContainerVolumeMountDiskPostOverlayType string
+
+const (
+	CONTAINER_VOLUME_MOUNT_DISK_POST_OVERLAY_HOSTPATH ContainerVolumeMountDiskPostOverlayType = "host_path"
+	CONTAINER_VOLUME_MOUNT_DISK_POST_OVERLAY_IMAGE    ContainerVolumeMountDiskPostOverlayType = "image"
+)
+
 type ContainerVolumeMountDiskPostOverlay struct {
 	// 宿主机底层目录
 	HostLowerDir []string `json:"host_lower_dir"`
 	// 合并后要挂载到容器的目录
-	ContainerTargetDir string `json:"container_target_dir"`
+	ContainerTargetDir string                                    `json:"container_target_dir"`
+	Image              *ContainerVolumeMountDiskPostImageOverlay `json:"image"`
+}
+
+func (o ContainerVolumeMountDiskPostOverlay) IsEqual(input ContainerVolumeMountDiskPostOverlay) bool {
+	if o.GetType() != input.GetType() {
+		return false
+	}
+	switch o.GetType() {
+	case CONTAINER_VOLUME_MOUNT_DISK_POST_OVERLAY_HOSTPATH:
+		return o.ContainerTargetDir == input.ContainerTargetDir
+	case CONTAINER_VOLUME_MOUNT_DISK_POST_OVERLAY_IMAGE:
+		return o.Image.Id == input.Image.Id
+	}
+	return false
+}
+
+func (o ContainerVolumeMountDiskPostOverlay) GetType() ContainerVolumeMountDiskPostOverlayType {
+	if o.Image != nil {
+		return CONTAINER_VOLUME_MOUNT_DISK_POST_OVERLAY_IMAGE
+	}
+	return CONTAINER_VOLUME_MOUNT_DISK_POST_OVERLAY_HOSTPATH
 }
 
 type ContainerVolumeMountDisk struct {
