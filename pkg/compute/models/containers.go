@@ -905,7 +905,7 @@ func (c *SContainer) GetReleasedDevices(ctx context.Context, userCred mcclient.T
 
 func (c *SContainer) PerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ContainerPerformStatusInput) (jsonutils.JSONObject, error) {
 	if api.ContainerExitedStatus.Has(c.GetStatus()) {
-		if input.Status == api.CONTAINER_STATUS_PROBE_FAILED {
+		if sets.NewString(api.CONTAINER_STATUS_PROBE_FAILED, api.CONTAINER_STATUS_NET_FAILED).Has(input.Status) {
 			return nil, httperrors.NewInputParameterError("can't set container status to %s when %s", input.Status, c.Status)
 		}
 	}
