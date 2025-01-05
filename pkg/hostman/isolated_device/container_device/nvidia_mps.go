@@ -113,6 +113,16 @@ type nvidiaMPS struct {
 	MemSizeMB        int
 	MemTotalMB       int
 	ThreadPercentage int
+
+	gpuIndex string
+}
+
+func (dev *nvidiaMPS) GetNvidiaDevMemSize() int {
+	return dev.MemSizeMB
+}
+
+func (dev *nvidiaMPS) GetNvidiaDevIndex() string {
+	return dev.gpuIndex
 }
 
 func (c *nvidiaMPS) GetNvidiaMpsMemoryLimit() int {
@@ -139,7 +149,7 @@ func getNvidiaMPSGpus() ([]isolated_device.IDevice, error) {
 	devs := make([]isolated_device.IDevice, 0)
 	// nvidia-smi  --query-gpu=gpu_uuid,gpu_name,gpu_bus_id,memory.total,compute_mode --format=csv
 	// GPU-76aef7ff-372d-2432-b4b4-beca4d8d3400, Tesla P40, 00000000:00:08.0, 23040 MiB, Exclusive_Process
-	out, err := procutils.NewRemoteCommandAsFarAsPossible("nvidia-smi", "--query-gpu=gpu_uuid,gpu_name,gpu_bus_id,memory.total,compute_mode", "--format=csv").Output()
+	out, err := procutils.NewRemoteCommandAsFarAsPossible("nvidia-smi", "--query-gpu=gpu_uuid,gpu_name,gpu_bus_id,memory.total,compute_mode,index", "--format=csv").Output()
 	if err != nil {
 		return nil, errors.Wrap(err, "nvidia-smi")
 	}
@@ -149,11 +159,11 @@ func getNvidiaMPSGpus() ([]isolated_device.IDevice, error) {
 			continue
 		}
 		segs := strings.Split(line, ",")
-		if len(segs) != 5 {
+		if len(segs) != 6 {
 			log.Errorf("unknown nvidia-smi out line %s", line)
 			continue
 		}
-		gpuId, gpuName, gpuPciAddr, memTotal, computeMode := strings.TrimSpace(segs[0]), strings.TrimSpace(segs[1]), strings.TrimSpace(segs[2]), strings.TrimSpace(segs[3]), strings.TrimSpace(segs[4])
+		gpuId, gpuName, gpuPciAddr, memTotal, computeMode, index := strings.TrimSpace(segs[0]), strings.TrimSpace(segs[1]), strings.TrimSpace(segs[2]), strings.TrimSpace(segs[3]), strings.TrimSpace(segs[4]), strings.TrimSpace(segs[5])
 		if computeMode != "Exclusive_Process" {
 			log.Warningf("gpu device %s compute mode %s, skip.", gpuId, computeMode)
 			continue
@@ -174,6 +184,7 @@ func getNvidiaMPSGpus() ([]isolated_device.IDevice, error) {
 				MemSizeMB:        memSize / options.HostOptions.CudaMPSReplicas,
 				MemTotalMB:       memSize,
 				ThreadPercentage: 100 / options.HostOptions.CudaMPSReplicas,
+				gpuIndex:         index,
 			}
 			gpuDev.SetModelName(gpuName)
 			devAddr := gpuDev.GetAddr()

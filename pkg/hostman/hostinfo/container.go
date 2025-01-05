@@ -22,7 +22,9 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
+	apis "yunion.io/x/onecloud/pkg/apis/compute"
 	hostapi "yunion.io/x/onecloud/pkg/apis/host"
+	"yunion.io/x/onecloud/pkg/hostman/isolated_device"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/util/pod"
 	"yunion.io/x/onecloud/pkg/util/pod/cadvisor"
@@ -75,4 +77,41 @@ func (h *SHostInfo) GetContainerCPUMap() *pod.HostContainerCPUMap {
 
 func (h *SHostInfo) GetContainerStatsProvider() stats.ContainerStatsProvider {
 	return h.containerStatsProvider
+}
+
+type INvidiaGpuIndexMemoryInterface interface {
+	GetNvidiaDevMemSize() int
+	GetNvidiaDevIndex() string
+}
+
+func (h *SHostInfo) GetNvidiaGpuIndexMemoryMap() map[string]int {
+	res := map[string]int{}
+	for i := range h.containerNvidiaGpus {
+		iDev, ok := h.containerNvidiaGpus[i].(INvidiaGpuIndexMemoryInterface)
+		if !ok {
+			continue
+		}
+		index := iDev.GetNvidiaDevIndex()
+		memSize := iDev.GetNvidiaDevMemSize()
+		res[index] = memSize
+	}
+	return res
+}
+
+func (h *SHostInfo) HasContainerNvidiaGpu() bool {
+	if h.hasNvidiaGpus != nil {
+		return *h.hasNvidiaGpus
+	}
+	hasNvidiaGpus := false
+	nvDevs := make([]isolated_device.IDevice, 0)
+	devs := h.IsolatedDeviceMan.GetDevices()
+	for i := range devs {
+		if devs[i].GetDeviceType() == apis.CONTAINER_DEV_NVIDIA_GPU || devs[i].GetDeviceType() == apis.CONTAINER_DEV_NVIDIA_MPS {
+			hasNvidiaGpus = true
+			nvDevs = append(nvDevs, devs[i])
+		}
+	}
+	h.hasNvidiaGpus = &hasNvidiaGpus
+	h.containerNvidiaGpus = nvDevs
+	return *h.hasNvidiaGpus
 }

@@ -16,6 +16,8 @@ package hostmetrics
 
 import (
 	"fmt"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -49,6 +51,18 @@ const (
 	SOCKET_COUNT    = "socket_count"
 	THREADS_CURRENT = "threads_current"
 	THREADS_MAX     = "threads_max"
+
+	NVIDIA_GPU_MEMORY_TOTAL   = "memory_total"
+	NVIDIA_GPU_INDEX          = "index"
+	NVIDIA_GPU_PHYSICAL_INDEX = "physical_index"
+	NVIDIA_GPU_FRAME_BUFFER   = "frame_buffer"
+	NVIDIA_GPU_CCPM           = "ccpm"
+	NVIDIA_GPU_SM             = "sm"
+	NVIDIA_GPU_MEM_UTIL       = "mem_util"
+	NVIDIA_GPU_ENC            = "enc"
+	NVIDIA_GPU_DEC            = "dec"
+	NVIDIA_GPU_JPG            = "jpg"
+	NVIDIA_GPU_OFA            = "ofa"
 )
 
 type CadvisorProcessMetric struct {
@@ -75,12 +89,13 @@ func (m CadvisorProcessMetric) ToMap() map[string]interface{} {
 }
 
 type PodMetrics struct {
-	PodCpu     *PodCpuMetric       `json:"pod_cpu"`
-	PodMemory  *PodMemoryMetric    `json:"pod_memory"`
-	PodProcess *PodProcessMetric   `json:"pod_process"`
-	PodVolumes []*PodVolumeMetric  `json:"pod_volume"`
-	PodDiskIos PodDiskIoMetrics    `json:"pod_disk_ios"`
-	Containers []*ContainerMetrics `json:"containers"`
+	PodCpu       *PodCpuMetric          `json:"pod_cpu"`
+	PodMemory    *PodMemoryMetric       `json:"pod_memory"`
+	PodProcess   *PodProcessMetric      `json:"pod_process"`
+	PodVolumes   []*PodVolumeMetric     `json:"pod_volume"`
+	PodDiskIos   PodDiskIoMetrics       `json:"pod_disk_ios"`
+	PodNvidiaGpu []*PodNvidiaGpuMetrics `json:"pod_nvidia_gpu"`
+	Containers   []*ContainerMetrics    `json:"containers"`
 }
 
 type PodMetricMeta struct {
@@ -93,6 +108,52 @@ func NewPodMetricMeta(time time.Time) PodMetricMeta {
 
 func (m PodMetricMeta) GetTag() map[string]string {
 	return nil
+}
+
+type PodNvidiaGpuMetrics struct {
+	PodMetricMeta
+
+	Index         int
+	PhysicalIndex int
+	MemTotal      int
+
+	Framebuffer int     // Framebuffer Memory Usage
+	Ccpm        int     // Current CUDA Contexts Per Measurement
+	SmUtil      float64 // Streaming Multiprocessor Utilization
+	MemUtil     float64 // Memory Utilization
+	EncUtil     float64 // Encoder Utilization
+	DecUtil     float64 // Decoder Utilization
+	JpgUtil     float64 // JPEG Decoder Utilization
+	OfaUtil     float64 // Other Feature Utilization
+}
+
+func (m PodNvidiaGpuMetrics) GetName() string {
+	return "pod_nvidia_gpu"
+}
+
+func (m PodNvidiaGpuMetrics) GetTag() map[string]string {
+	return map[string]string{
+		"index":          strconv.Itoa(m.Index),
+		"physical_index": strconv.Itoa(m.PhysicalIndex),
+	}
+}
+
+func (m PodNvidiaGpuMetrics) ToMap() map[string]interface{} {
+	ret := map[string]interface{}{
+		NVIDIA_GPU_MEMORY_TOTAL:   m.MemTotal,
+		NVIDIA_GPU_INDEX:          m.Index,
+		NVIDIA_GPU_PHYSICAL_INDEX: m.PhysicalIndex,
+		NVIDIA_GPU_FRAME_BUFFER:   m.Framebuffer,
+		NVIDIA_GPU_CCPM:           m.Ccpm,
+		NVIDIA_GPU_SM:             m.SmUtil,
+		NVIDIA_GPU_MEM_UTIL:       m.MemUtil,
+		NVIDIA_GPU_ENC:            m.EncUtil,
+		NVIDIA_GPU_DEC:            m.DecUtil,
+		NVIDIA_GPU_JPG:            m.JpgUtil,
+		NVIDIA_GPU_OFA:            m.OfaUtil,
+	}
+
+	return ret
 }
 
 type PodCpuMetric struct {
@@ -382,18 +443,32 @@ func (m *ContainerDiskIoMetric) GetTag() map[string]string {
 	return baseTags
 }
 
-func GetPodStatsById(stats []stats.PodStats, podId string) *stats.PodStats {
-	for _, stat := range stats {
-		if stat.PodRef.UID == podId {
-			tmp := stat
-			return &tmp
+func GetPodStatsById(ss []stats.PodStats, nvPodProcs map[string]map[string]struct{}, podId string) (*stats.PodStats, map[string]struct{}) {
+	var podStat *stats.PodStats
+	for i := range ss {
+		if ss[i].PodRef.UID == podId {
+			podStat = &ss[i]
+			break
 		}
 	}
-	return nil
+	podProcs, _ := nvPodProcs[podId]
+	return podStat, podProcs
+}
+
+func GetPodNvidiaGpuMetrics(metrics []NvidiaGpuProcessMetrics, podProcs map[string]struct{}) []NvidiaGpuProcessMetrics {
+	podMetrics := make([]NvidiaGpuProcessMetrics, 0)
+	for i := range metrics {
+		pid := metrics[i].Pid
+		if _, ok := podProcs[pid]; ok {
+			podMetrics = append(podMetrics, metrics[i])
+		}
+	}
+	return podMetrics
 }
 
 func (s *SGuestMonitorCollector) collectPodMetrics(gm *SGuestMonitor, prevUsage *GuestMetrics) *GuestMetrics {
 	gmData := new(GuestMetrics)
+	s.hostInfo.GetContainerStatsProvider()
 	gmData.PodMetrics = gm.PodMetrics(prevUsage)
 
 	// netio
@@ -564,11 +639,12 @@ func (m *SGuestMonitor) PodMetrics(prevUsage *GuestMetrics) *PodMetrics {
 	}
 
 	pm := &PodMetrics{
-		PodCpu:     podCpu,
-		PodMemory:  podMemory,
-		PodProcess: podProcess,
-		PodVolumes: m.getVolumeMetrics(),
-		Containers: containers,
+		PodCpu:       podCpu,
+		PodMemory:    podMemory,
+		PodProcess:   podProcess,
+		PodVolumes:   m.getVolumeMetrics(),
+		PodNvidiaGpu: m.getPodNvidiaGpuMetrics(),
+		Containers:   containers,
 	}
 
 	if stat.DiskIo != nil {
@@ -585,6 +661,49 @@ func (m *SGuestMonitor) PodMetrics(prevUsage *GuestMetrics) *PodMetrics {
 		pm.PodDiskIos = newPodDiskIoMetrics(m.getCadvisorDiskIoMetrics(stat.DiskIo, prevStat, curTime, prevTime), podMeta)
 	}
 	return pm
+}
+
+func (m *SGuestMonitor) getPodNvidiaGpuMetrics() []*PodNvidiaGpuMetrics {
+	if len(m.nvidiaGpuMetrics) == 0 {
+		return nil
+	}
+	indexGpuMap := map[int]*PodNvidiaGpuMetrics{}
+	for i := range m.nvidiaGpuMetrics {
+		index := m.nvidiaGpuMetrics[i].Index
+		gms, ok := indexGpuMap[index]
+		if !ok {
+			gms = new(PodNvidiaGpuMetrics)
+		}
+		gms.Framebuffer += m.nvidiaGpuMetrics[i].FB
+		gms.Ccpm += m.nvidiaGpuMetrics[i].Ccpm
+		gms.SmUtil += m.nvidiaGpuMetrics[i].Sm
+		gms.EncUtil += m.nvidiaGpuMetrics[i].Enc
+		gms.DecUtil += m.nvidiaGpuMetrics[i].Dec
+		gms.JpgUtil += m.nvidiaGpuMetrics[i].Jpg
+		gms.OfaUtil += m.nvidiaGpuMetrics[i].Ofa
+		indexGpuMap[index] = gms
+	}
+
+	indexs := make([]int, 0)
+	for index, gms := range indexGpuMap {
+		indexs = append(indexs, index)
+		indexStr := strconv.Itoa(index)
+		memSizeTotal, ok := m.nvidiaGpuIndexMemoryMap[indexStr]
+		if !ok {
+			continue
+		}
+		gms.MemTotal = memSizeTotal
+		gms.MemUtil = float64(gms.Framebuffer) / float64(gms.MemTotal)
+	}
+	sort.Ints(indexs)
+	res := make([]*PodNvidiaGpuMetrics, len(indexs))
+	for i := range indexs {
+		gms := indexGpuMap[indexs[i]]
+		gms.PhysicalIndex = gms.Index
+		gms.Index = i
+		res[i] = gms
+	}
+	return res
 }
 
 type iPodMetric interface {
@@ -606,6 +725,9 @@ func (d *GuestMetrics) toPodTelegrafData(tagStr string) []string {
 		for _, d := range m.PodDiskIos {
 			ims = append(ims, d)
 		}
+	}
+	for i := range m.PodNvidiaGpu {
+		ims = append(ims, m.PodNvidiaGpu[i])
 	}
 	for _, c := range m.Containers {
 		ims = append(ims, c.ContainerCpu)

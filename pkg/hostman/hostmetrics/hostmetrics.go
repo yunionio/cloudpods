@@ -58,6 +58,8 @@ var hostMetricsCollector *SHostMetricsCollector
 
 type IHostInfo interface {
 	GetContainerStatsProvider() stats.ContainerStatsProvider
+	HasContainerNvidiaGpu() bool
+	GetNvidiaGpuIndexMemoryMap() map[string]int
 }
 
 func Init(hostInfo IHostInfo) {
@@ -178,6 +180,8 @@ func (s *SGuestMonitorCollector) GetGuests() map[string]*SGuestMonitor {
 	guestmanager := guestman.GetGuestManager()
 
 	var podStats []stats.PodStats = nil
+	var nvidiaGpuMetrics []NvidiaGpuProcessMetrics = nil
+	nvPodProcs := s.collectNvidiaGpuPodsProcesses()
 
 	guestmanager.Servers.Range(func(k, v interface{}) bool {
 		instance, ok := v.(guestman.GuestRuntimeInstance)
@@ -234,12 +238,25 @@ func (s *SGuestMonitorCollector) GetGuests() map[string]*SGuestMonitor {
 					log.Errorf("ListPodCPUAndMemoryStats: %s", err)
 					return true
 				}
+				if s.hostInfo.HasContainerNvidiaGpu() {
+					nvidiaGpuMetrics, err = GetNvidiaGpuProcessMetrics()
+					if err != nil {
+						log.Errorf("GetNvidiaGpuProcessMetrics %s", err)
+					}
+				}
 			}
-			podStat := GetPodStatsById(podStats, guestId)
+			podStat, nvProcs := GetPodStatsById(podStats, nvPodProcs, guestId)
 			if podStat != nil {
-				gm, err := NewGuestPodMonitor(instance, guestName, guestId, podStat, nicsDesc, int(vcpuCount))
+				var nvGpuMetrics []NvidiaGpuProcessMetrics
+				if len(nvProcs) > 0 {
+					nvGpuMetrics = GetPodNvidiaGpuMetrics(nvidiaGpuMetrics, nvProcs)
+				}
+				gm, err := NewGuestPodMonitor(instance, guestName, guestId, podStat, nvGpuMetrics, nicsDesc, int(vcpuCount))
 				if err != nil {
 					return true
+				}
+				if len(nvProcs) > 0 {
+					gm.nvidiaGpuIndexMemoryMap = s.hostInfo.GetNvidiaGpuIndexMemoryMap()
 				}
 				gm.UpdateByInstance(instance)
 				gms[guestId] = gm
@@ -548,22 +565,24 @@ func (s *SGuestMonitorCollector) reportNetIo(cur, prev *NetIOMetric) {
 }
 
 type SGuestMonitor struct {
-	Name           string
-	Id             string
-	Pid            int
-	Nics           []*desc.SGuestNetwork
-	CpuCnt         int
-	MemMB          int64
-	Ip             string
-	Process        *process.Process
-	ScalingGroupId string
-	Tenant         string
-	TenantId       string
-	DomainId       string
-	ProjectDomain  string
-	podStat        *stats.PodStats
-	instance       guestman.GuestRuntimeInstance
-	sysFs          sysfs.SysFs
+	Name                    string
+	Id                      string
+	Pid                     int
+	Nics                    []*desc.SGuestNetwork
+	CpuCnt                  int
+	MemMB                   int64
+	Ip                      string
+	Process                 *process.Process
+	ScalingGroupId          string
+	Tenant                  string
+	TenantId                string
+	DomainId                string
+	ProjectDomain           string
+	podStat                 *stats.PodStats
+	nvidiaGpuMetrics        []NvidiaGpuProcessMetrics
+	nvidiaGpuIndexMemoryMap map[string]int
+	instance                guestman.GuestRuntimeInstance
+	sysFs                   sysfs.SysFs
 }
 
 func NewGuestMonitor(instance guestman.GuestRuntimeInstance, name, id string, pid int, nics []*desc.SGuestNetwork, cpuCount int) (*SGuestMonitor, error) {
@@ -574,12 +593,17 @@ func NewGuestMonitor(instance guestman.GuestRuntimeInstance, name, id string, pi
 	return newGuestMonitor(instance, name, id, proc, nics, cpuCount)
 }
 
-func NewGuestPodMonitor(instance guestman.GuestRuntimeInstance, name, id string, stat *stats.PodStats, nics []*desc.SGuestNetwork, cpuCount int) (*SGuestMonitor, error) {
+func NewGuestPodMonitor(
+	instance guestman.GuestRuntimeInstance, name, id string,
+	stat *stats.PodStats, nvGpuMetrics []NvidiaGpuProcessMetrics,
+	nics []*desc.SGuestNetwork, cpuCount int,
+) (*SGuestMonitor, error) {
 	m, err := newGuestMonitor(instance, name, id, nil, nics, cpuCount)
 	if err != nil {
 		return nil, errors.Wrap(err, "new pod GuestMonitor")
 	}
 	m.podStat = stat
+	m.nvidiaGpuMetrics = nvGpuMetrics
 	return m, nil
 }
 

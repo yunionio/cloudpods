@@ -129,6 +129,8 @@ type SHostInfo struct {
 	containerCPUMap                *pod.HostContainerCPUMap
 	containerStatsProvider         stats.ContainerStatsProvider
 	containerCpufreqSimulateConfig *jsonutils.JSONDict
+	containerNvidiaGpus            []isolated_device.IDevice
+	hasNvidiaGpus                  *bool
 }
 
 func (h *SHostInfo) GetContainerDeviceConfigurationFilePath() string {

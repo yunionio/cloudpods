@@ -134,6 +134,8 @@ type PodInstance interface {
 
 	IsInternalStopped(ctrCriId string) (*ContainerExpectedStatus, bool)
 	IsInternalRemoved(ctrCriId string) bool
+
+	GetPodContainerCriIds() []string
 }
 
 type sContainer struct {
@@ -586,6 +588,24 @@ func (s *sPodGuestInstance) umountPodVolumes() error {
 
 func (s *sPodGuestInstance) GetContainers() []*hostapi.ContainerDesc {
 	return s.GetDesc().Containers
+}
+
+func (s *sPodGuestInstance) GetPodContainerCriIds() []string {
+	criids := make([]string, 0)
+	for i := range s.containers {
+		criids = append(criids, s.containers[i].CRIId)
+	}
+	return criids
+}
+
+func (s *sPodGuestInstance) HasContainerNvidiaGpu() bool {
+	for i := range s.Desc.IsolatedDevices {
+		if s.Desc.IsolatedDevices[i].DevType == computeapi.CONTAINER_DEV_NVIDIA_MPS ||
+			s.Desc.IsolatedDevices[i].DevType == computeapi.CONTAINER_DEV_NVIDIA_GPU {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *sPodGuestInstance) GetContainerById(ctrId string) *hostapi.ContainerDesc {
