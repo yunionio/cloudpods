@@ -100,6 +100,7 @@ type SHostInfo struct {
 	isInit             bool
 	onHostDown         string
 	reservedCpusInfo   *api.HostReserveCpusInput
+	guestPinnedCpus    []int
 	enableNumaAllocate bool
 	cpuCmtBound        float32
 	memCmtBound        float32
@@ -1687,6 +1688,7 @@ func (h *SHostInfo) parseReservedCpusInfo(hostInfo *api.HostDetails) error {
 		}
 		h.reservedCpusInfo = &reservedCpusInfo
 	}
+	h.guestPinnedCpus = hostInfo.GuestPinnedCpus
 	return nil
 }
 
@@ -2646,12 +2648,18 @@ func (h *SHostInfo) GetHostTopology() *hostapi.HostTopology {
 	return h.sysinfo.Topology
 }
 
-func (h *SHostInfo) GetReservedCpusInfo() *cpuset.CPUSet {
+func (h *SHostInfo) GetReservedCpusInfo() (*cpuset.CPUSet, *cpuset.CPUSet) {
 	if h.reservedCpusInfo == nil {
-		return nil
+		return nil, nil
 	}
 	cpus, _ := cpuset.Parse(h.reservedCpusInfo.Cpus)
-	return &cpus
+
+	var guestPinnedCpus *cpuset.CPUSet
+	if len(h.guestPinnedCpus) > 0 {
+		guestPinnedCpuSet := cpuset.NewCPUSet(h.guestPinnedCpus...)
+		guestPinnedCpus = &guestPinnedCpuSet
+	}
+	return &cpus, guestPinnedCpus
 }
 
 func (h *SHostInfo) IsNumaAllocateEnabled() bool {

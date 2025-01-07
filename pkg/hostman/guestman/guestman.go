@@ -60,6 +60,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/util/cgrouputils"
+	"yunion.io/x/onecloud/pkg/util/cgrouputils/cpuset"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
 	"yunion.io/x/onecloud/pkg/util/pod"
@@ -299,8 +300,17 @@ func (m *SGuestManager) Bootstrap() (chan struct{}, error) {
 		m.numaAllocate = !m.host.IsNumaAllocateEnabled() && enableMemAlloc && (len(hostTypo.Nodes) > 1)
 	}
 
+	var reserveCpus = cpuset.NewCPUSet()
+	hostReserveCpus, guestPinnedCpus := m.host.GetReservedCpusInfo()
+	if hostReserveCpus != nil {
+		reserveCpus = reserveCpus.Union(*hostReserveCpus)
+	}
+	if guestPinnedCpus != nil {
+		reserveCpus = reserveCpus.Union(*guestPinnedCpus)
+	}
+
 	cpuSet, err := NewGuestCpuSetCounter(
-		hostTypo, m.host.GetReservedCpusInfo(), m.numaAllocate, m.host.IsContainerHost(),
+		hostTypo, reserveCpus, m.numaAllocate, m.host.IsContainerHost(),
 		m.host.HugepageSizeKb(), m.host.CpuCmtBound(), m.host.MemCmtBound(), m.host.GetReservedMemMb(),
 	)
 	if err != nil {

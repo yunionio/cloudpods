@@ -6313,27 +6313,36 @@ func (self *SGuest) PerformCpuset(ctx context.Context, userCred mcclient.TokenCr
 		return nil, httperrors.NewInputParameterError("Host cores %v not contains input %v", allCores, data.CPUS)
 	}
 
-	pinnedMap, err := host.GetPinnedCpusetCores(ctx, userCred)
+	hostReservedCpus, err := host.GetReservedCpus()
+	if err != nil {
+		return nil, errors.Wrap(err, "host get reserved cpus")
+	}
+	for i := range data.CPUS {
+		if hostReservedCpus.Contains(data.CPUS[i]) {
+			return nil, httperrors.NewBadRequestError("request cpu %d has been reserved", data.CPUS[i])
+		}
+	}
+
+	pinnedMap, err := host.GetPinnedCpusetCores(ctx, userCred, []string{self.Id})
 	if err != nil {
 		return nil, errors.Wrap(err, "Get host pinned cpu cores")
 	}
 
-	pinnedSets := sets.NewInt()
-	for key, pinned := range pinnedMap {
-		if key == self.GetId() {
-			continue
+	if pinnedMap != nil {
+		for i := range data.CPUS {
+			if pinnedMap.Contains(data.CPUS[i]) {
+				return nil, httperrors.NewBadRequestError("request cpu %d has been set by other guests", data.CPUS[i])
+			}
 		}
-		pinnedSets.Insert(pinned...)
-	}
-
-	if pinnedSets.HasAny(data.CPUS...) {
-		return nil, httperrors.NewInputParameterError("More than one of input cores %v already set in host %v", data.CPUS, pinnedSets.List())
 	}
 
 	if err := self.SetMetadata(ctx, api.VM_METADATA_CGROUP_CPUSET, data, userCred); err != nil {
 		return nil, errors.Wrap(err, "set metadata")
 	}
 
+	if err := host.updateHostReservedCpus(ctx, userCred); err != nil {
+		return nil, errors.Wrap(err, "updateHostReservedCpus")
+	}
 	return nil, self.StartGuestCPUSetTask(ctx, userCred, data)
 }
 
@@ -6396,18 +6405,16 @@ func (self *SGuest) GetDetailsCpusetCores(ctx context.Context, userCred mcclient
 		return nil, err
 	}
 
-	usedMap, err := host.GetPinnedCpusetCores(ctx, userCred)
+	usedMap, err := host.GetPinnedCpusetCores(ctx, userCred, nil)
 	if err != nil {
 		return nil, err
 	}
-	usedSets := sets.NewInt()
-	for _, used := range usedMap {
-		usedSets.Insert(used...)
-	}
 
 	resp := &api.ServerGetCPUSetCoresResp{
-		HostCores:     allCores,
-		HostUsedCores: usedSets.List(),
+		HostCores: allCores,
+	}
+	if usedMap != nil {
+		resp.HostUsedCores = usedMap.ToSlice()
 	}
 
 	// fetch cpuset pinned
