@@ -97,11 +97,29 @@ func (self *SBaseStorageDriver) RequestDeleteSnapshot(ctx context.Context, snaps
 		}
 	}
 	if guest == nil {
-		storage := snapshot.GetStorage()
-		host, err := storage.GetMasterHost()
-		if err != nil {
-			return err
+		var host *models.SHost
+		disk, err := models.DiskManager.FetchById(snapshot.DiskId)
+		if err != nil && err != sql.ErrNoRows {
+			return errors.Wrap(err, "get disk by snapshot")
 		}
+		if disk != nil {
+			sDisk := disk.(*models.SDisk)
+			if hostId := sDisk.GetLastAttachedHost(ctx, task.GetUserCred()); hostId != "" {
+				host = models.HostManager.FetchHostById(hostId)
+			}
+		} else {
+			if hostId := snapshot.GetMetadata(ctx, api.DISK_META_LAST_ATTACHED_HOST, task.GetUserCred()); hostId != "" {
+				host = models.HostManager.FetchHostById(hostId)
+			}
+		}
+		if host == nil {
+			storage := snapshot.GetStorage()
+			host, err = storage.GetMasterHost()
+			if err != nil {
+				return err
+			}
+		}
+
 		convertSnapshot, err := models.SnapshotManager.GetConvertSnapshot(snapshot)
 		if err != nil && err != sql.ErrNoRows {
 			return errors.Wrap(err, "get convert snapshot")
@@ -109,10 +127,7 @@ func (self *SBaseStorageDriver) RequestDeleteSnapshot(ctx context.Context, snaps
 		params := jsonutils.NewDict()
 		params.Set("delete_snapshot", jsonutils.NewString(snapshot.Id))
 		params.Set("disk_id", jsonutils.NewString(snapshot.DiskId))
-		disk, err := models.DiskManager.FetchById(snapshot.DiskId)
-		if err != nil && err != sql.ErrNoRows {
-			return errors.Wrap(err, "get disk by snapshot")
-		}
+
 		if disk != nil {
 			sDisk, _ := disk.(*models.SDisk)
 			if sDisk.IsEncrypted() {
