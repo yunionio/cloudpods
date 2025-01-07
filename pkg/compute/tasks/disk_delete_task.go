@@ -130,6 +130,10 @@ func (self *DiskDeleteTask) startDeleteDisk(ctx context.Context, disk *models.SD
 		}
 	}
 
+	if host != nil {
+		disk.RecordDiskSnapshotsLastHost(ctx, self.UserCred, host.Id)
+	}
+
 	isPurge := false
 	if (host == nil || !host.GetEnabled()) && purgeParams {
 		isPurge = true
