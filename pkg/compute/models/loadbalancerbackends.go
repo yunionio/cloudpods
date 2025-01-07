@@ -97,7 +97,7 @@ func (manager *SLoadbalancerBackendManager) FetchOwnerId(ctx context.Context, da
 		if err != nil {
 			return nil, errors.Wrapf(err, "db.FetchById(LoadbalancerBackendGroupManager, %s)", lbbgId)
 		}
-		return lbbg.(*SLoadbalancer).GetOwnerId(), nil
+		return lbbg.(*SLoadbalancerBackendGroup).GetOwnerId(), nil
 	}
 	return db.FetchProjectInfo(ctx, data)
 }
