@@ -52,7 +52,10 @@ func InitHandlers(app *appsrv.Application) {
 	capabilities.AddCapabilityHandler("", app)
 	specs.AddSpecHandler("", app)
 	sshkeys.AddSshKeysHandler("", app)
+
+	taskman.InitArchivedTaskManager()
 	taskman.AddTaskHandler("", app)
+
 	misc.AddMiscHandler("", app)
 
 	app_common.ExportOptionsHandler(app, &options.Options)
@@ -61,6 +64,7 @@ func InitHandlers(app *appsrv.Application) {
 		taskman.TaskManager,
 		taskman.SubTaskManager,
 		taskman.TaskObjectManager,
+		taskman.ArchivedTaskManager,
 		db.UserCacheManager,
 		db.TenantCacheManager,
 		db.SharedResourceManager,

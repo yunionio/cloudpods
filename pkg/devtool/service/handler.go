@@ -24,12 +24,16 @@ import (
 
 func InitHandlers(app *appsrv.Application) {
 	db.InitAllManagers()
+
+	taskman.InitArchivedTaskManager()
 	taskman.AddTaskHandler("", app)
 
 	for _, manager := range []db.IModelManager{
 		taskman.TaskManager,
 		taskman.SubTaskManager,
 		taskman.TaskObjectManager,
+		taskman.ArchivedTaskManager,
+
 		db.SharedResourceManager,
 		db.UserCacheManager,
 		db.TenantCacheManager,

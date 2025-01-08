@@ -30,6 +30,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/cronman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
@@ -76,21 +77,30 @@ func StartService() {
 
 	go startServices()
 
-	cron := cronman.InitCronJobManager(true, opts.CronJobWorkerCount)
-	cron.AddJobAtIntervalsWithStartRun("InitAlertResourceAdminRoleUsers", time.Duration(opts.InitAlertResourceAdminRoleUsersIntervalSeconds)*time.Second, models.GetAlertResourceManager().GetAdminRoleUsers, true)
-	cron.AddJobEveryFewDays("DeleteRecordsOfThirtyDaysAgoRecords", 1, 0, 0, 0,
-		models.AlertRecordManager.DeleteRecordsOfThirtyDaysAgo, false)
-	//cron.AddJobAtIntervalsWithStartRun("MonitorResourceSync", time.Duration(opts.MonitorResourceSyncIntervalSeconds)*time.Minute*60, models.MonitorResourceManager.SyncResources, true)
-	cron.AddJobEveryFewHour("AutoPurgeSplitable", 4, 30, 0, db.AutoPurgeSplitable, false)
+	if !opts.IsSlaveNode {
+		err := taskman.TaskManager.InitializeData()
+		if err != nil {
+			log.Fatalf("TaskManager.InitializeData fail %s", err)
+		}
 
-	cron.Start()
-	defer cron.Stop()
+		cron := cronman.InitCronJobManager(true, opts.CronJobWorkerCount)
+		cron.AddJobAtIntervalsWithStartRun("InitAlertResourceAdminRoleUsers", time.Duration(opts.InitAlertResourceAdminRoleUsersIntervalSeconds)*time.Second, models.GetAlertResourceManager().GetAdminRoleUsers, true)
+		cron.AddJobEveryFewDays("DeleteRecordsOfThirtyDaysAgoRecords", 1, 0, 0, 0,
+			models.AlertRecordManager.DeleteRecordsOfThirtyDaysAgo, false)
+		//cron.AddJobAtIntervalsWithStartRun("MonitorResourceSync", time.Duration(opts.MonitorResourceSyncIntervalSeconds)*time.Minute*60, models.MonitorResourceManager.SyncResources, true)
+		cron.AddJobEveryFewHour("AutoPurgeSplitable", 4, 30, 0, db.AutoPurgeSplitable, false)
 
-	worker, err := worker.NewWorker(opts)
-	if err != nil {
-		log.Fatalf("new worker failed: %v", err)
+		cron.AddJobAtIntervals("TaskCleanupJob", time.Duration(options.Options.TaskArchiveIntervalHours)*time.Hour, taskman.TaskManager.TaskCleanupJob)
+
+		cron.Start()
+		defer cron.Stop()
+
+		worker, err := worker.NewWorker(opts)
+		if err != nil {
+			log.Fatalf("new worker failed: %v", err)
+		}
+		go worker.Start(app.GetContext(), app, "")
 	}
-	go worker.Start(app.GetContext(), app, "")
 
 	InitInfluxDBSubscriptionHandlers(app, baseOpts)
 

@@ -29,6 +29,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/cronman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
@@ -103,6 +104,11 @@ func StartService() {
 	cache.Init(opts.TokenExpirationSeconds)
 
 	if !opts.IsSlaveNode {
+		err := taskman.TaskManager.InitializeData()
+		if err != nil {
+			log.Fatalf("TaskManager.InitializeData fail %s", err)
+		}
+
 		cron := cronman.InitCronJobManager(true, opts.CronJobWorkerCount)
 
 		cron.AddJobAtIntervalsWithStartRun("AutoSyncIdentityProviderTask", time.Duration(opts.AutoSyncIntervalSeconds)*time.Second, models.AutoSyncIdentityProviderTask, true)
@@ -113,6 +119,8 @@ func StartService() {
 		cron.AddJobEveryFewDays("CheckAllUserPasswordIsExpired", 1, 8, 0, 0, models.CheckAllUserPasswordIsExpired, true)
 
 		cron.AddJobEveryFewHour("RemoveObsoleteInvalidTokens", 6, 0, 0, models.RemoveObsoleteInvalidTokens, true)
+
+		cron.AddJobAtIntervals("TaskCleanupJob", time.Duration(options.Options.TaskArchiveIntervalHours)*time.Hour, taskman.TaskManager.TaskCleanupJob)
 
 		cron.Start()
 		defer cron.Stop()
