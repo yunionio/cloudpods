@@ -50,7 +50,9 @@ func StartService() {
 	db.EnsureAppSyncDB(app, dbOpts, models.InitDB)
 	defer cloudcommon.CloseDB()
 
-	models.InitializeCronjobs(app.GetContext())
+	if !opts.IsSlaveNode {
+		models.InitializeCronjobs(app.GetContext())
+	}
 
 	app_common.ServeForeverWithCleanup(app, baseOpts, func() {
 		cloudcommon.CloseDB()

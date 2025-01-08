@@ -156,6 +156,11 @@ func StartServiceWithJobsAndApp(jobs func(cron *cronman.SCronJobManager), appCll
 	}
 
 	cronFunc := func() {
+		err := taskman.TaskManager.InitializeData()
+		if err != nil {
+			log.Fatalf("TaskManager.InitializeData fail %s", err)
+		}
+
 		cachesync.StartTenantCacheSync(opts.TenantCacheExpireSeconds)
 
 		cron := cronman.InitCronJobManager(true, options.Options.CronJobWorkerCount)
@@ -209,6 +214,8 @@ func StartServiceWithJobsAndApp(jobs func(cron *cronman.SCronJobManager), appCll
 		cron.AddJobEveryFewHour("CheckBillingResourceExpireAt", 1, 0, 0, models.CheckBillingResourceExpireAt, true)
 		cron.AddJobEveryFewDays(
 			"CleanRecycleDiskFiles", 1, 3, 0, 0, models.StoragesCleanRecycleDiskfiles, false)
+
+		cron.AddJobAtIntervals("TaskCleanupJob", time.Duration(options.Options.TaskArchiveIntervalHours)*time.Hour, taskman.TaskManager.TaskCleanupJob)
 
 		if jobs != nil {
 			jobs(cron)

@@ -42,12 +42,15 @@ func InitHandlers(app *appsrv.Application) {
 
 	models.InitCloudevent()
 
+	taskman.InitArchivedTaskManager()
 	taskman.AddTaskHandler("v1", app)
 
 	for _, manager := range []db.IModelManager{
 		taskman.TaskManager,
 		taskman.SubTaskManager,
 		taskman.TaskObjectManager,
+		taskman.ArchivedTaskManager,
+
 		db.UserCacheManager,
 		db.TenantCacheManager,
 		db.DistinctFieldManager,

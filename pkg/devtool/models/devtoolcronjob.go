@@ -23,6 +23,8 @@ import (
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/cronman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/devtool/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/ansible"
@@ -111,7 +113,15 @@ func AddOneCronjob(item *SCronjob, s *mcclient.ClientSession) error {
 }
 
 func InitializeCronjobs(ctx context.Context) error {
+	err := taskman.TaskManager.InitializeData()
+	if err != nil {
+		log.Fatalf("TaskManager.InitializeData fail %s", err)
+	}
+
 	DevToolCronManager = cronman.InitCronJobManager(true, 8)
+
+	DevToolCronManager.AddJobAtIntervals("TaskCleanupJob", time.Duration(options.Options.TaskArchiveIntervalHours)*time.Hour, taskman.TaskManager.TaskCleanupJob)
+
 	DevToolCronManager.Start()
 	Session := auth.GetAdminSession(ctx, "")
 

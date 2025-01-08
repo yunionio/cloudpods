@@ -20,7 +20,6 @@ import (
 	"yunion.io/x/log"
 
 	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
-	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/etcd"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/cloudir/options"
@@ -43,7 +42,6 @@ func StartService() {
 	}
 
 	app := app_common.InitApp(baseOpts, false)
-	db.AppDBInit(app)
 	initHandlers(app)
 
 	app_common.ServeForeverWithCleanup(app, baseOpts, func() {
