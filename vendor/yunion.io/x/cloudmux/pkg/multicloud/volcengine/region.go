@@ -32,21 +32,19 @@ import (
 )
 
 var RegionLocations = map[string]string{
-	"cn-beijing":   "中国(北京)",
-	"cn-shanghai":  "中国(上海)",
-	"cn-guangzhou": "中国(广州)",
-}
-
-var RegionLocationsEN = map[string]string{
-	"cn-beijing":   "China (Beijing)",
-	"cn-shanghai":  "China (Shanghai)",
-	"cn-guangzhou": "China (Guangzhou)",
+	"cn-beijing":     "华东2（北京）",
+	"cn-shanghai":    "华东2（上海）",
+	"cn-guangzhou":   "华东2（广州）",
+	"ap-southeast-1": "亚太东南（柔佛）",
+	"cn-hongkong":    "中国香港",
 }
 
 var RegionEndpoint = map[string]string{
-	"cn-beijing":   "cn-beijing.volces.com",
-	"cn-shanghai":  "cn-shanghai.volces.com",
-	"cn-guangzhou": "cn-beijing.volces.com",
+	"cn-beijing":     "cn-beijing.volces.com",
+	"cn-shanghai":    "cn-shanghai.volces.com",
+	"cn-guangzhou":   "cn-beijing.volces.com",
+	"ap-southeast-1": "ap-southeast-1.volces.com",
+	"cn-hongkong":    "cn-hongkong.volces.com",
 }
 
 type sStorageType struct {
@@ -100,15 +98,7 @@ func (region *SRegion) GetGlobalId() string {
 }
 
 func (region *SRegion) GetI18n() cloudprovider.SModelI18nTable {
-	var en string
-	if localName, ok := RegionLocationsEN[region.RegionId]; ok {
-		en = fmt.Sprintf("%s %s", CLOUD_PROVIDER_VOLCENGINE_EN, localName)
-	} else {
-		en = fmt.Sprintf("%s %s", CLOUD_PROVIDER_VOLCENGINE_EN, region.RegionId)
-	}
-	table := cloudprovider.SModelI18nTable{}
-	table["name"] = cloudprovider.NewSModelI18nEntry(region.GetName()).CN(region.GetName()).EN(en)
-	return table
+	return cloudprovider.SModelI18nTable{}
 }
 
 func (region *SRegion) GetStatus() string {
