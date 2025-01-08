@@ -30,6 +30,8 @@ var (
 	taskWorkerCount      int
 	localTaskWorkerCount int
 
+	taskArchiveThresholdHours int
+
 	enableChangeOwnerAutoRename = false
 
 	enableDefaultPolicy = true
@@ -84,10 +86,18 @@ func GetChangeOwnerAutoRename() bool {
 	return enableChangeOwnerAutoRename
 }
 
+func SetTaskArchiveThresholdHours(hours int) {
+	taskArchiveThresholdHours = hours
+}
+
 func TaskWorkerCount() int {
 	return taskWorkerCount
 }
 
 func LocalTaskWorkerCount() int {
 	return localTaskWorkerCount
+}
+
+func TaskArchiveThresholdHours() int {
+	return taskArchiveThresholdHours
 }

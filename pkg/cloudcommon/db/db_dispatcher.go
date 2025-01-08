@@ -583,18 +583,9 @@ func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 		limit = exportLimit
 	}
 
-	var (
-		q           *sqlchemy.SQuery
-		useRawQuery bool
-	)
-	{
-		// query senders are responsible for clear up other constraint
-		// like setting "pendinge_delete" to "all"
-		queryDelete, _ := query.GetString("delete")
-		if queryDelete == "all" && policy.PolicyManager.Allow(rbacscope.ScopeSystem, userCred, consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionList).Result.IsAllow() {
-			useRawQuery = true
-		}
-	}
+	var q *sqlchemy.SQuery
+
+	useRawQuery := isRawQuery(manager, userCred, query, policy.PolicyActionList)
 
 	queryDict, ok := query.(*jsonutils.JSONDict)
 	if !ok {

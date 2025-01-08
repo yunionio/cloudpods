@@ -41,6 +41,7 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
@@ -94,13 +95,11 @@ func init() {
 			userCredWidthLimit, _ = strconv.Atoi(widthStr)
 		}
 	}
-	TaskManager.TableSpec().AddIndex(true, "id", "created_at", "tenant_id", "domain_id", "parent_task_id", "obj_id", "stage")
+	TaskManager.TableSpec().AddIndex(true, "id", "created_at", "parent_task_id", "stage")
 }
 
 type STask struct {
 	db.SModelBase
-	db.SProjectizedResourceBase
-	db.SStatusResourceBase
 
 	// 资源创建时间
 	CreatedAt time.Time `nullable:"false" created_at:"true" index:"true" get:"user" list:"user" json:"created_at"`
@@ -109,26 +108,11 @@ type STask struct {
 	// 资源被更新次数
 	UpdateVersion int `default:"0" nullable:"false" auto_version:"true" list:"user" json:"update_version"`
 
-	// 开始任务时间
-	StartAt time.Time `nullable:"true" list:"user" json:"start_at"`
-	// 完成任务时间
-	EndAt time.Time `nullable:"true" list:"user" json:"end_at"`
-
 	Id string `width:"36" charset:"ascii" primary:"true" list:"user"` // Column(VARCHAR(36, charset='ascii'), primary_key=True, default=get_uuid)
 
-	ObjType  string `old_name:"obj_name" json:"obj_type" width:"128" charset:"utf8" nullable:"true" list:"user"`
-	Object   string `json:"object" width:"128" charset:"utf8" nullable:"true" list:"user"`  //  Column(VARCHAR(128, charset='utf8'), nullable=False)
-	ObjId    string `width:"128" charset:"ascii" nullable:"false" list:"user" index:"true"` // Column(VARCHAR(ID_LENGTH, charset='ascii'), nullable=False)
-	TaskName string `width:"64" charset:"ascii" nullable:"false" list:"user" index:"true"`  // Column(VARCHAR(64, charset='ascii'), nullable=False)
+	STaskBase
 
-	UserCred mcclient.TokenCredential `width:"1024" charset:"utf8" nullable:"false" get:"user"` // Column(VARCHAR(1024, charset='ascii'), nullable=False)
-	// OwnerCred string `width:"512" charset:"ascii" nullable:"true"` // Column(VARCHAR(512, charset='ascii'), nullable=True)
-	Params *jsonutils.JSONDict `charset:"utf8" length:"medium" nullable:"false" get:"user"` // Column(MEDIUMTEXT(charset='ascii'), nullable=False)
-
-	Stage string `width:"64" charset:"ascii" nullable:"false" default:"on_init" list:"user" index:"true"` // Column(VARCHAR(64, charset='ascii'), nullable=False, default='on_init')
-
-	// 父任务Id
-	ParentTaskId string `width:"36" charset:"ascii" list:"user" index:"true" json:"parent_task_id"`
+	db.SProjectizedResourceBase
 
 	taskObject  db.IStandaloneModel   `ignore:"true"`
 	taskObjects []db.IStandaloneModel `ignore:"true"`
@@ -183,54 +167,14 @@ func (task *STask) GetOwnerId() mcclient.IIdentityProvider {
 	return task.SProjectizedResourceBase.GetOwnerId()
 }
 
-func getExtendTaskObjectQuery(fields ...string) *sqlchemy.SSubQuery {
-	taskQ := TaskManager.Query("id", "obj_id", "tenant_id", "domain_id").SubQuery()
-	objectQ := TaskObjectManager.Query().SubQuery()
-
-	taskTenantQ := taskQ.Query()
-	taskTenantQ = taskTenantQ.LeftJoin(objectQ, sqlchemy.Equals(taskQ.Field("id"), objectQ.Field("task_id")))
-	if utils.IsInArray("task_id", fields) {
-		taskTenantQ = taskTenantQ.AppendField(taskQ.Field("id").Label("task_id"))
-	}
-	if utils.IsInArray("tenant_id", fields) {
-		taskTenantQ = taskTenantQ.AppendField(sqlchemy.NewFunction(
-			sqlchemy.NewCase().
-				When(sqlchemy.Equals(taskQ.Field("obj_id"), MULTI_OBJECTS_ID), objectQ.Field("tenant_id")).Else(taskQ.Field("tenant_id")),
-			"tenant_id",
-			true,
-		))
-	}
-	if utils.IsInArray("domain_id", fields) {
-		taskTenantQ = taskTenantQ.AppendField(sqlchemy.NewFunction(
-			sqlchemy.NewCase().
-				When(sqlchemy.Equals(taskQ.Field("obj_id"), MULTI_OBJECTS_ID), objectQ.Field("domain_id")).Else(taskQ.Field("domain_id")),
-			"domain_id",
-			true,
-		))
-	}
-	if utils.IsInArray("obj_id", fields) {
-		taskTenantQ = taskTenantQ.AppendField(sqlchemy.NewFunction(
-			sqlchemy.NewCase().
-				When(sqlchemy.Equals(taskQ.Field("obj_id"), MULTI_OBJECTS_ID), objectQ.Field("obj_id")).Else(taskQ.Field("obj_id")),
-			"obj_id",
-			true,
-		))
-	}
-	return taskTenantQ.SubQuery()
-}
-
 func (manager *STaskManager) FilterByOwner(ctx context.Context, q *sqlchemy.SQuery, man db.FilterByOwnerProvider, userCred mcclient.TokenCredential, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
-	taskTenantSubQ := getExtendTaskObjectQuery("task_id", "tenant_id", "domain_id").Query()
-
-	taskTenantSubQ = TaskManager.SProjectizedResourceBaseManager.FilterByOwner(ctx, taskTenantSubQ, man, userCred, owner, scope)
-	taskTenantSubQ = taskTenantSubQ.SubQuery().Query()
-	taskTenantSubQ = taskTenantSubQ.AppendField(taskTenantSubQ.Field("task_id"))
-	taskTenantSubQ = taskTenantSubQ.AppendField(taskTenantSubQ.Field("tenant_id"))
-	taskTenantSubQ = taskTenantSubQ.AppendField(taskTenantSubQ.Field("domain_id"))
-	taskTenantSubQ = taskTenantSubQ.GroupBy("task_id", "tenant_id", "domain_id")
-	taskTenantTaskIdQ := taskTenantSubQ.Distinct().SubQuery()
-
-	q = q.Join(taskTenantTaskIdQ, sqlchemy.Equals(q.Field("id"), taskTenantTaskIdQ.Field("task_id")))
+	taskQ := TaskObjectManager.Query("task_id")
+	taskQ = taskQ.Snapshot()
+	taskQ = manager.SProjectizedResourceBaseManager.FilterByOwner(ctx, taskQ, man, userCred, owner, scope)
+	if taskQ.IsAltered() {
+		taskSubQ := taskQ.Distinct().SubQuery()
+		q = q.Join(taskSubQ, sqlchemy.Equals(q.Field("id"), taskSubQ.Field("task_id")))
+	}
 
 	return q
 }
@@ -344,30 +288,26 @@ func (manager *STaskManager) NewTask(
 	parentTaskNotifyUrl string,
 	pendingUsage ...quotas.IQuota,
 ) (*STask, error) {
+	if userCredWidthLimit > 0 && len(userCred.String()) > userCredWidthLimit {
+		return nil, fmt.Errorf("Too many permissions for user %s", userCred.GetUserName())
+	}
+
 	if !isTaskExist(taskName) {
 		return nil, fmt.Errorf("task %s not found", taskName)
 	}
 
 	data := fetchTaskParams(ctx, taskName, taskData, parentTaskId, parentTaskNotifyUrl, pendingUsage)
 	task := &STask{
-		ObjType:      obj.Keyword(),
-		ObjId:        obj.GetId(),
-		Object:       obj.GetName(),
-		TaskName:     taskName,
-		UserCred:     userCred,
-		Params:       data,
-		Stage:        TASK_INIT_STAGE,
-		ParentTaskId: parentTaskId,
-	}
-
-	if userCredWidthLimit > 0 && len(userCred.String()) > userCredWidthLimit {
-		return nil, fmt.Errorf("Too many permissions for user %s", userCred.GetUserName())
-	}
-
-	ownerId := obj.GetOwnerId()
-	if ownerId != nil {
-		task.DomainId = ownerId.GetProjectDomainId()
-		task.ProjectId = ownerId.GetProjectId()
+		STaskBase: STaskBase{
+			ObjType:      obj.Keyword(),
+			ObjId:        obj.GetId(),
+			Object:       obj.GetName(),
+			TaskName:     taskName,
+			UserCred:     userCred,
+			Params:       data,
+			Stage:        TASK_INIT_STAGE,
+			ParentTaskId: parentTaskId,
+		},
 	}
 
 	task.SetModelManager(manager, task)
@@ -377,6 +317,16 @@ func (manager *STaskManager) NewTask(
 		return nil, err
 	}
 	task.SetProgressAndStatus(0, TASK_STATUS_QUEUE)
+
+	{
+		to, err := TaskObjectManager.insertObject(ctx, task.Id, obj)
+		if err != nil {
+			log.Errorf("Taskobject insert error %s", err)
+			return nil, errors.Wrap(err, "TaskObjectManager.insertObject")
+		}
+		task.ProjectId = to.ProjectId
+		task.DomainId = to.DomainId
+	}
 
 	parentTask := task.GetParentTask()
 	if parentTask != nil {
@@ -413,14 +363,16 @@ func (manager *STaskManager) NewParallelTask(
 
 	data := fetchTaskParams(ctx, taskName, taskData, parentTaskId, parentTaskNotifyUrl, pendingUsage)
 	task := &STask{
-		ObjType:      objs[0].Keyword(),
-		Object:       MULTI_OBJECTS_ID,
-		ObjId:        MULTI_OBJECTS_ID,
-		TaskName:     taskName,
-		UserCred:     userCred,
-		Params:       data,
-		Stage:        TASK_INIT_STAGE,
-		ParentTaskId: parentTaskId,
+		STaskBase: STaskBase{
+			ObjType:      objs[0].Keyword(),
+			Object:       MULTI_OBJECTS_ID,
+			ObjId:        MULTI_OBJECTS_ID,
+			TaskName:     taskName,
+			UserCred:     userCred,
+			Params:       data,
+			Stage:        TASK_INIT_STAGE,
+			ParentTaskId: parentTaskId,
+		},
 	}
 	task.SetModelManager(manager, task)
 	err := manager.TableSpec().Insert(ctx, task)
@@ -433,27 +385,13 @@ func (manager *STaskManager) NewParallelTask(
 	domainIds := stringutils2.NewSortedStrings(nil)
 	tenantIds := stringutils2.NewSortedStrings(nil)
 	for i := range objs {
-		obj := objs[i]
-		to := STaskObject{
-			TaskId: task.Id,
-			ObjId:  obj.GetId(),
-			Object: obj.GetName(),
-		}
-		ownerId := obj.GetOwnerId()
-		if ownerId != nil {
-			to.DomainId = ownerId.GetProjectDomainId()
-			to.ProjectId = ownerId.GetProjectId()
-			domainIds = domainIds.Append(to.DomainId)
-			tenantIds = tenantIds.Append(to.ProjectId)
-		}
-		// to.SetModelManager(TaskObjectManager, &to)
-
-		to.SetModelManager(TaskObjectManager, &to)
-		err := TaskObjectManager.TableSpec().Insert(ctx, &to)
+		to, err := TaskObjectManager.insertObject(ctx, task.Id, objs[i])
 		if err != nil {
 			log.Errorf("Taskobject insert error %s", err)
 			return nil, errors.Wrap(err, "insert task object")
 		}
+		tenantIds = tenantIds.Append(to.ProjectId)
+		domainIds = domainIds.Append(to.DomainId)
 	}
 
 	db.Update(task, func() error {
@@ -1114,17 +1052,8 @@ func (manager *STaskManager) ListItemFilter(
 	}
 
 	if len(input.ObjId) > 0 {
-		taskExtSubQ := getExtendTaskObjectQuery("task_id", "obj_id").Query()
-
-		taskExtSubQ = taskExtSubQ.In("obj_id", input.ObjId)
-
-		taskExtSubQ = taskExtSubQ.SubQuery().Query()
-		taskExtSubQ = taskExtSubQ.AppendField(taskExtSubQ.Field("task_id"))
-		taskExtSubQ = taskExtSubQ.AppendField(taskExtSubQ.Field("obj_id"))
-		taskExtSubQ = taskExtSubQ.GroupBy("task_id", "obj_id")
-		taskObjTaskIdQ := taskExtSubQ.Distinct().SubQuery()
-
-		q = q.Join(taskObjTaskIdQ, sqlchemy.Equals(taskObjTaskIdQ.Field("task_id"), q.Field("id")))
+		taskObjQ := TaskObjectManager.Query("task_id").In("obj_id", input.ObjId).Distinct().SubQuery()
+		q = q.Join(taskObjQ, sqlchemy.Equals(q.Field("id"), taskObjQ.Field("task_id")))
 	}
 
 	if len(input.ObjName) > 0 {
@@ -1315,15 +1244,222 @@ func (task *STask) SetProgress(progress float32) error {
 }
 
 func (manager *STaskManager) InitializeData() error {
+	{
+		err := manager.failTimeoutTasks()
+		if err != nil {
+			return errors.Wrap(err, "failTimeoutTasks")
+		}
+	}
+	{
+		err := manager.migrateObjectInfo()
+		if err != nil {
+			return errors.Wrap(err, "migrateObjectInfo")
+		}
+	}
+	{
+		err := manager.clearnUpSubtasks()
+		if err != nil {
+			return errors.Wrap(err, "clearnUpSubtasks")
+		}
+	}
+	{
+		err := manager.clearnUpTaskObjects()
+		if err != nil {
+			return errors.Wrap(err, "clearnUpTaskObjects")
+		}
+	}
+	return nil
+}
+
+func (manager *STaskManager) failTimeoutTasks() error {
+	// failed unfinished tasks 24 hours ago
 	q := manager.Query().NotIn("stage", []string{TASK_STAGE_FAILED, TASK_STAGE_COMPLETE})
+	q = q.LT("created_at", time.Now().Add(-24*time.Hour))
+
 	tasks := make([]STask, 0)
 	err := db.FetchModelObjects(manager, q, &tasks)
 	if err != nil {
 		return errors.Wrap(err, "FetchModelObjects")
 	}
-	reason := jsonutils.NewString("service restart")
+	reason := jsonutils.NewString("service restart and the task timeout(more than 24hour)")
 	for i := range tasks {
 		tasks[i].SetStageFailed(context.Background(), reason)
 	}
 	return nil
+}
+
+func (manager *STaskManager) clearnUpSubtasks() error {
+	start := time.Now()
+	log.Infof("start clearnUpSubtasks")
+
+	defer func() {
+		log.Infof("end clearnUpSubtasks, takes %f seconds", time.Since(start).Seconds())
+	}()
+
+	q := SubTaskManager.Query("task_id")
+	tasksQ := TaskManager.Query().SubQuery()
+
+	q = q.LeftJoin(tasksQ, sqlchemy.Equals(q.Field("task_id"), tasksQ.Field("id")))
+	q = q.Filter(sqlchemy.IsNull(tasksQ.Field("id")))
+	q = q.Distinct()
+
+	rows, err := q.Rows()
+	if err != nil {
+		return errors.Wrap(err, "q.Rows")
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		val, err := q.Row2Map(rows)
+		if err != nil {
+			return errors.Wrap(err, "Row2Map")
+		}
+
+		sql := fmt.Sprintf("delete from `%s` where task_id = '%s'", SubTaskManager.TableSpec().Name(), val["task_id"])
+		log.Infof("%s", sql)
+		_, err = SubTaskManager.TableSpec().GetTableSpec().Database().Exec(sql)
+		if err != nil {
+			return errors.Wrap(err, "exec")
+		}
+
+		sql = fmt.Sprintf("delete from `%s` where task_id = '%s'", TaskObjectManager.TableSpec().Name(), val["task_id"])
+		log.Infof("%s", sql)
+		_, err = TaskObjectManager.TableSpec().GetTableSpec().Database().Exec(sql)
+		if err != nil {
+			return errors.Wrap(err, "exec")
+		}
+	}
+
+	return nil
+}
+
+func (manager *STaskManager) clearnUpTaskObjects() error {
+	start := time.Now()
+	log.Infof("start clearnUpTaskObjects")
+
+	defer func() {
+		log.Infof("end clearnUpTaskObjects, takes %f seconds", time.Since(start).Seconds())
+	}()
+
+	q := TaskObjectManager.Query("task_id")
+	tasksQ := TaskManager.Query().SubQuery()
+
+	q = q.LeftJoin(tasksQ, sqlchemy.Equals(q.Field("task_id"), tasksQ.Field("id")))
+	q = q.Filter(sqlchemy.IsNull(tasksQ.Field("id")))
+	q = q.Distinct()
+
+	rows, err := q.Rows()
+	if err != nil {
+		return errors.Wrap(err, "q.Rows")
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		val, err := q.Row2Map(rows)
+		if err != nil {
+			return errors.Wrap(err, "Row2Map")
+		}
+
+		sql := fmt.Sprintf("delete from `%s` where task_id = '%s'", TaskObjectManager.TableSpec().Name(), val["task_id"])
+		log.Infof("%s", sql)
+		_, err = TaskObjectManager.TableSpec().GetTableSpec().Database().Exec(sql)
+		if err != nil {
+			return errors.Wrap(err, "exec")
+		}
+	}
+
+	return nil
+}
+
+func (manager *STaskManager) migrateObjectInfo() error {
+	start := time.Now()
+	log.Infof("start migrateObjectInfo")
+
+	defer func() {
+		log.Infof("end migrateObjectInfo, takes %f seconds", time.Since(start).Seconds())
+	}()
+
+	q := manager.Query().NotEquals("obj_id", MULTI_OBJECTS_ID)
+	taskObj := TaskObjectManager.Query().SubQuery()
+
+	q = q.LeftJoin(taskObj, sqlchemy.Equals(q.Field("id"), taskObj.Field("task_id")))
+	q = q.Filter(sqlchemy.IsNull(taskObj.Field("task_id")))
+	q = q.Asc("created_at")
+
+	q.DebugQuery2("migrateObjectInfo")
+
+	rows, err := q.Rows()
+	if err != nil {
+		return errors.Wrap(err, "query.Rows")
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		task := STask{}
+		task.SetModelManager(manager, &task)
+		err := q.Row2Struct(rows, &task)
+		if err != nil {
+			return errors.Wrap(err, "row2struct")
+		}
+
+		taskObj := STaskObject{}
+		taskObj.ObjId = task.ObjId
+		taskObj.Object = task.Object
+		taskObj.TaskId = task.Id
+		taskObj.DomainId = task.DomainId
+		taskObj.ProjectId = task.ProjectId
+		taskObj.SetModelManager(TaskObjectManager, &taskObj)
+
+		err = TaskObjectManager.TableSpec().Insert(context.Background(), &taskObj)
+		if err != nil {
+			return errors.Wrap(err, "Insert taskObject")
+		}
+	}
+	return nil
+}
+
+func (manager *STaskManager) TaskCleanupJob(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
+	q := manager.Query().LT("created_at", time.Now().Add(-time.Duration(consts.TaskArchiveThresholdHours())*time.Hour)).Asc("created_at")
+
+	rows, err := q.Rows()
+	if err != nil {
+		log.Errorf("query rows fail %s", err)
+		return
+	}
+	defer rows.Close()
+
+	taskStart := time.Now()
+	count := 0
+	for rows.Next() {
+		task := STask{}
+		task.SetModelManager(manager, &task)
+
+		err := q.Row2Struct(rows, &task)
+		if err != nil {
+			log.Errorf("Row2Struct fail %s", err)
+			return
+		}
+
+		err = ArchivedTaskManager.Insert(ctx, &task)
+		if err != nil {
+			log.Errorf("insert archive fail %s", err)
+			return
+		}
+
+		// cleanup
+		for _, sql := range []string{
+			fmt.Sprintf("DELETE FROM `%s` WHERE id = ?", manager.TableSpec().Name()),
+			fmt.Sprintf("DELETE FROM `%s` WHERE task_id = ?", TaskObjectManager.TableSpec().Name()),
+			fmt.Sprintf("DELETE FROM `%s` WHERE task_id = ?", SubTaskManager.TableSpec().Name()),
+		} {
+			_, err := manager.TableSpec().GetTableSpec().Database().Exec(sql, task.Id)
+			if err != nil {
+				log.Errorf("exec %s %s fail: %s", sql, task.Id, err)
+				return
+			}
+		}
+
+		count++
+	}
+	log.Infof("TaskCleanupJob migrate %d tasks, takes %f seconds", count, time.Since(taskStart).Seconds())
 }
