@@ -60,6 +60,8 @@ type HostListOptions struct {
 	OrderByCpuCommitRate     string `help:"Order by host cpu commit rate" choices:"desc|asc"`
 	OrderByMemCommitRate     string `help:"Order by host meme commit rate" choices:"desc|asc"`
 
+	HideCpuTopoInfo *bool `help:"Host list will remove cpu_info and topology info from sysinfo and metadata"`
+
 	options.BaseListOptions
 }
 
