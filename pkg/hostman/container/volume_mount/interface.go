@@ -43,6 +43,7 @@ func GetDriver(typ apis.ContainerVolumeMountType) IVolumeMount {
 }
 
 type IPodInfo interface {
+	GetName() string
 	GetVolumesDir() string
 	GetVolumesOverlayDir() string
 	GetDisks() []*desc.SGuestDisk

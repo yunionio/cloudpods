@@ -2071,7 +2071,11 @@ func (s *sPodGuestInstance) SaveVolumeMountToImage(ctx context.Context, userCred
 func (s *sPodGuestInstance) tarGzDir(input *hostapi.ContainerSaveVolumeMountToImageInput, ctrId string, hostPath string) (string, error) {
 	fp := fmt.Sprintf("volimg-%s-ctr-%s-%d.tar.gz", input.ImageId, ctrId, input.VolumeMountIndex)
 	outputFp := filepath.Join(s.GetVolumesDir(), fp)
-	cmd := fmt.Sprintf("tar -czf %s -C %s .", outputFp, hostPath)
+	dirPath := "."
+	if len(input.VolumeMountDirs) != 0 {
+		dirPath = strings.Join(input.VolumeMountDirs, " ")
+	}
+	cmd := fmt.Sprintf("tar -czf %s -C %s %s", outputFp, hostPath, dirPath)
 	if out, err := procutils.NewRemoteCommandAsFarAsPossible("sh", "-c", cmd).Output(); err != nil {
 		return "", errors.Wrapf(err, "%s: %s", cmd, out)
 	}

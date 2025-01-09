@@ -87,6 +87,8 @@ const (
 	CONTAINER_STATUS_ADD_POST_OVERLY_FAILED    = "add_post_overly_failed"
 	CONTAINER_STATUS_REMOVE_POST_OVERLY        = "removing_post_overly"
 	CONTAINER_STATUS_REMOVE_POST_OVERLY_FAILED = "remove_post_overly_failed"
+	CONTAINER_STATUS_CACHE_IMAGE               = "caching_image"
+	CONTAINER_STATUS_CACHE_IMAGE_FAILED        = "caching_image_failed"
 )
 
 var (
@@ -177,10 +179,12 @@ type ContainerDevice struct {
 }
 
 type ContainerSaveVolumeMountToImageInput struct {
-	Name         string `json:"name"`
-	GenerateName string `json:"generate_name"`
-	Notes        string `json:"notes"`
-	Index        int    `json:"index"`
+	Name              string   `json:"name"`
+	GenerateName      string   `json:"generate_name"`
+	Notes             string   `json:"notes"`
+	Index             int      `json:"index"`
+	Dirs              []string `json:"dirs"`
+	UsedByPostOverlay bool     `json:"used_by_post_overlay"`
 }
 
 type ContainerExecInfoOutput struct {
@@ -276,4 +280,13 @@ type ContainerVolumeMountRemovePostOverlayInput struct {
 	PostOverlay []*apis.ContainerVolumeMountDiskPostOverlay `json:"post_overlay"`
 	UseLazy     bool                                        `json:"use_lazy"`
 	ClearLayers bool                                        `json:"clear_layers"`
+}
+
+type ContainerCacheImageInput struct {
+	DiskId string           `json:"disk_id"`
+	Image  *CacheImageInput `json:"image"`
+}
+
+type ContainerCacheImagesInput struct {
+	Images []*ContainerCacheImageInput `json:"images"`
 }

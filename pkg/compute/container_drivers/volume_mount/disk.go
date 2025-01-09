@@ -17,7 +17,9 @@ package volume_mount
 import (
 	"context"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/sets"
 
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -35,15 +37,25 @@ type iDiskOverlay interface {
 	validateCreateData(ctx context.Context, userCred mcclient.TokenCredential, input *apis.ContainerVolumeMountDiskOverlay, obj *models.SDisk) error
 }
 
-type disk struct {
-	overlayDrivers map[apis.ContainerDiskOverlayType]iDiskOverlay
+type iDiskPostOverlay interface {
+	validateData(ctx context.Context, userCred mcclient.TokenCredential, pov *apis.ContainerVolumeMountDiskPostOverlay) error
+	getContainerTargetDirs(ov *apis.ContainerVolumeMountDiskPostOverlay) []string
 }
 
-func newDisk() models.IContainerVolumeMountDriver {
+type disk struct {
+	overlayDrivers     map[apis.ContainerDiskOverlayType]iDiskOverlay
+	postOverlayDrivers map[apis.ContainerVolumeMountDiskPostOverlayType]iDiskPostOverlay
+}
+
+func newDisk() models.IContainerVolumeMountDiskDriver {
 	return &disk{
 		overlayDrivers: map[apis.ContainerDiskOverlayType]iDiskOverlay{
 			apis.CONTAINER_DISK_OVERLAY_TYPE_DIRECTORY:  newDiskOverlayDir(),
 			apis.CONTAINER_DISK_OVERLAY_TYPE_DISK_IMAGE: newDiskOverlayImage(),
+		},
+		postOverlayDrivers: map[apis.ContainerVolumeMountDiskPostOverlayType]iDiskPostOverlay{
+			apis.CONTAINER_VOLUME_MOUNT_DISK_POST_OVERLAY_HOSTPATH: newDiskPostOverlayHostPath(),
+			apis.CONTAINER_VOLUME_MOUNT_DISK_POST_OVERLAY_IMAGE:    newDiskPostOverlayImage(),
 		},
 	}
 }
@@ -135,7 +147,7 @@ func (d disk) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCre
 	if err := d.validateOverlay(ctx, userCred, vm, &diskObj); err != nil {
 		return nil, errors.Wrapf(err, "validate overlay")
 	}
-	if err := d.ValidatePostOverlay(vm); err != nil {
+	if err := d.ValidatePostOverlay(ctx, userCred, vm); err != nil {
 		return nil, errors.Wrap(err, "validate post overlay")
 	}
 	return vm, nil
@@ -173,6 +185,10 @@ func (d disk) getOverlayDriver(ov *apis.ContainerVolumeMountDiskOverlay) iDiskOv
 	return d.overlayDrivers[ov.GetType()]
 }
 
+func (d disk) getPostOverlayDriver(pov *apis.ContainerVolumeMountDiskPostOverlay) iDiskPostOverlay {
+	return d.postOverlayDrivers[pov.GetType()]
+}
+
 func (d disk) validateOverlay(ctx context.Context, userCred mcclient.TokenCredential, vm *apis.ContainerVolumeMount, diskObj *models.SDisk) error {
 	if vm.Disk.Overlay == nil {
 		return nil
@@ -187,28 +203,41 @@ func (d disk) validateOverlay(ctx context.Context, userCred mcclient.TokenCreden
 	return nil
 }
 
-func (d disk) ValidatePostOverlay(vm *apis.ContainerVolumeMount) error {
+func (d disk) ValidatePostSingleOverlay(ctx context.Context, userCred mcclient.TokenCredential, ov *apis.ContainerVolumeMountDiskPostOverlay) error {
+	drv := d.getPostOverlayDriver(ov)
+	if err := drv.validateData(ctx, userCred, ov); err != nil {
+		return errors.Wrapf(err, "validate post overlay %s", ov.GetType())
+	}
+	return nil
+}
+
+func (d disk) ValidatePostOverlayTargetDirs(ovs []*apis.ContainerVolumeMountDiskPostOverlay) error {
+	ctrTargetDirs := sets.NewString()
+	for _, ov := range ovs {
+		drv := d.getPostOverlayDriver(ov)
+		ovCtrTargetDirs := drv.getContainerTargetDirs(ov)
+		if ctrTargetDirs.HasAny(ovCtrTargetDirs...) {
+			return httperrors.NewInputParameterError("duplicated container target dirs %v of ov %s", ctrTargetDirs, jsonutils.Marshal(ov))
+		} else {
+			ctrTargetDirs.Insert(ovCtrTargetDirs...)
+		}
+	}
+	return nil
+}
+
+func (d disk) ValidatePostOverlay(ctx context.Context, userCred mcclient.TokenCredential, vm *apis.ContainerVolumeMount) error {
 	if len(vm.Disk.PostOverlay) == 0 {
 		return nil
 	}
 	ovs := vm.Disk.PostOverlay
-	var duplicateCtrDir string
-	for _, ov := range ovs {
-		if len(ov.HostLowerDir) == 0 {
-			return httperrors.NewNotEmptyError("host_lower_dir is required")
+	for i, ov := range ovs {
+		if err := d.ValidatePostSingleOverlay(ctx, userCred, ov); err != nil {
+			return err
 		}
-		for i, hld := range ov.HostLowerDir {
-			if len(hld) == 0 {
-				return httperrors.NewNotEmptyError("host_lower_dir %d is empty", i)
-			}
-		}
-		if len(ov.ContainerTargetDir) == 0 {
-			return httperrors.NewNotEmptyError("container_target_dir is required")
-		}
-		if ov.ContainerTargetDir == duplicateCtrDir {
-			return httperrors.NewDuplicateNameError("container_target_dir", ov.ContainerTargetDir)
-		}
-		duplicateCtrDir = ov.ContainerTargetDir
+		vm.Disk.PostOverlay[i] = ov
+	}
+	if err := d.ValidatePostOverlayTargetDirs(vm.Disk.PostOverlay); err != nil {
+		return errors.Wrap(err, "validate post overlay target dirs")
 	}
 	if vm.Propagation == "" {
 		// 设置默认 propagation 为 rslave

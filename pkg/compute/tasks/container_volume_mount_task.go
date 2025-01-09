@@ -22,6 +22,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	imageapi "yunion.io/x/onecloud/pkg/apis/image"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -51,7 +52,54 @@ type ContainerAddVolumeMountPostOverlayTask struct {
 }
 
 func (t *ContainerAddVolumeMountPostOverlayTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
-	t.requestAdd(ctx, obj.(*models.SContainer))
+	ctr := obj.(*models.SContainer)
+	if err := t.startCacheImage(ctx, ctr); err != nil {
+		t.OnAddedFailed(ctx, ctr, jsonutils.NewString(err.Error()))
+	}
+}
+
+func (t *ContainerAddVolumeMountPostOverlayTask) startCacheImage(ctx context.Context, ctr *models.SContainer) error {
+	input, err := t.getInput()
+	if err != nil {
+		return errors.Wrap(err, "getInput")
+	}
+	volIdx := input.Index
+	vol := ctr.Spec.VolumeMounts[volIdx]
+	if vol.Disk == nil || vol.Disk.Id == "" {
+		return errors.Wrapf(err, "invalid volume mount disk %s", jsonutils.Marshal(vol.Disk).String())
+	}
+	diskId := vol.Disk.Id
+	taskInput := &api.ContainerCacheImagesInput{
+		Images: make([]*api.ContainerCacheImageInput, 0),
+	}
+	for i := range input.PostOverlay {
+		po := input.PostOverlay[i]
+		if po.GetType() == apis.CONTAINER_VOLUME_MOUNT_DISK_POST_OVERLAY_IMAGE {
+			taskInput.Images = append(taskInput.Images, &api.ContainerCacheImageInput{
+				DiskId: diskId,
+				Image: &api.CacheImageInput{
+					ImageId:              po.Image.Id,
+					Format:               imageapi.IMAGE_DISK_FORMAT_TGZ,
+					SkipChecksumIfExists: true,
+				},
+			})
+		}
+	}
+	if len(taskInput.Images) != 0 {
+		t.SetStage("OnCachedImagesComplete", nil)
+		return ctr.StartCacheImagesTask(ctx, t.GetUserCred(), taskInput, t.GetTaskId())
+	} else {
+		t.OnCachedImagesComplete(ctx, ctr, nil)
+		return nil
+	}
+}
+
+func (t *ContainerAddVolumeMountPostOverlayTask) OnCachedImagesComplete(ctx context.Context, ctr *models.SContainer, data jsonutils.JSONObject) {
+	t.requestAdd(ctx, ctr)
+}
+
+func (t *ContainerAddVolumeMountPostOverlayTask) OnCachedImagesCompleteFailed(ctx context.Context, ctr *models.SContainer, data jsonutils.JSONObject) {
+	t.OnAddedFailed(ctx, ctr, jsonutils.NewString(data.String()))
 }
 
 func (t *ContainerAddVolumeMountPostOverlayTask) getInput() (*api.ContainerVolumeMountAddPostOverlayInput, error) {

@@ -124,6 +124,7 @@ type ContainerSaveVolumeMountToImageInput struct {
 
 	VolumeMountIndex int                   `json:"volume_mount_index"`
 	VolumeMount      *ContainerVolumeMount `json:"volume_mount"`
+	VolumeMountDirs  []string              `json:"volume_mount_dirs"`
 }
 
 type ContainerCommitInput struct {
