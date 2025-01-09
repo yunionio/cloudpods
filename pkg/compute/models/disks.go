@@ -2744,7 +2744,6 @@ func (manager *SDiskManager) AutoDiskSnapshot(ctx context.Context, userCred mccl
 		return
 	}
 	log.Debugf("auto snapshot %d disks", len(disks))
-	now := time.Now()
 	for i := 0; i < len(disks); i++ {
 		disk, err := disks[i].GetDisk()
 		if err != nil {
@@ -2770,9 +2769,6 @@ func (manager *SDiskManager) AutoDiskSnapshot(ctx context.Context, userCred mccl
 				return errors.Wrapf(err, "CreateSnapshotAuto")
 			}
 
-			if err = disk.CleanOverduedSnapshots(ctx, userCred, policy, now); err != nil {
-				log.Errorf("failed clean overdued snapshots %s", err)
-			}
 			db.OpsLog.LogEvent(disk, db.ACT_DISK_AUTO_SNAPSHOT, snapshot.Name, userCred)
 			policy.ExecuteNotify(ctx, userCred, disk.GetName())
 			return nil

@@ -18,6 +18,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"sync/atomic"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -40,10 +41,23 @@ type SnapshotCleanupTask struct {
 	taskman.STask
 }
 
+func (self *SnapshotCleanupTask) taskFailed(ctx context.Context, reason *jsonutils.JSONString) {
+	log.Infof("SnapshotCleanupTask failed %s", reason)
+	atomic.CompareAndSwapInt32(&models.SnapshotCleanupTaskRunning, 1, 0)
+	self.SetStageFailed(ctx, reason)
+}
+
+func (self *SnapshotCleanupTask) taskCompleted(ctx context.Context, data jsonutils.JSONObject) {
+	log.Infof("SnapshotCleanupTask completed %s", data)
+	atomic.CompareAndSwapInt32(&models.SnapshotCleanupTaskRunning, 1, 0)
+	self.SetStageComplete(ctx, nil)
+}
+
 func (self *SnapshotCleanupTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	atomic.CompareAndSwapInt32(&models.SnapshotCleanupTaskRunning, 0, 1)
 	now, err := self.Params.GetTime("tick")
 	if err != nil {
-		self.SetStageFailed(ctx, jsonutils.NewString("failed get tick"))
+		self.taskFailed(ctx, jsonutils.NewString("failed get tick"))
 		return
 	}
 	var snapshots = make([]models.SSnapshot, 0)
@@ -52,10 +66,10 @@ func (self *SnapshotCleanupTask) OnInit(ctx context.Context, obj db.IStandaloneM
 		Equals("created_by", compute.SNAPSHOT_AUTO).
 		LE("expired_at", now).All(&snapshots)
 	if err == sql.ErrNoRows {
-		self.SetStageComplete(ctx, nil)
+		self.taskCompleted(ctx, nil)
 		return
 	} else if err != nil {
-		self.SetStageFailed(ctx, jsonutils.NewString(fmt.Sprintf("failed get snapshot %s", err)))
+		self.taskFailed(ctx, jsonutils.NewString(fmt.Sprintf("failed get snapshot %s", err)))
 		return
 	}
 	self.StartSnapshotsDelete(ctx, snapshots)
@@ -84,17 +98,17 @@ func (self *SnapshotCleanupTask) OnDeleteSnapshot(ctx context.Context, obj db.IS
 	var snapshots = make([]models.SSnapshot, 0)
 	err := self.Params.Unmarshal(&snapshots, "snapshots")
 	if err != nil {
-		self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
+		self.taskFailed(ctx, jsonutils.NewString(err.Error()))
 		return
 	}
 	if len(snapshots) > 0 {
 		self.StartSnapshotsDelete(ctx, snapshots)
 	} else {
-		self.SetStageComplete(ctx, nil)
+		self.taskCompleted(ctx, nil)
 	}
 }
 
 func (self *SnapshotCleanupTask) OnDeleteSnapshotFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
-	log.Errorf("snapshot delete faield %s", data)
-	self.SetStageFailed(ctx, data)
+	reason := fmt.Sprintf("snapshot delete faield %s", data)
+	self.taskFailed(ctx, jsonutils.NewString(reason))
 }
