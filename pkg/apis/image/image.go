@@ -111,6 +111,25 @@ type ImageCreateInput struct {
 	Properties map[string]string `json:"properties"`
 }
 
+type ImageUpdateInput struct {
+	apis.SharableVirtualResourceBaseUpdateInput
+
+	// 最小系统盘要求
+	MinDiskMB *int32 `json:"min_disk"`
+	// 最小内存要求
+	MinRamMB *int32 `json:"min_ram"`
+	// 是否有删除保护
+	Protected *bool `json:"protected"`
+	// 是否是标准镜像
+	IsStandard *bool `json:"is_standard"`
+
+	// 是否是数据盘镜像
+	IsData *bool `json:"is_data"`
+
+	// 镜像属性
+	Properties map[string]string `json:"properties"`
+}
+
 type ImageUpdateStatusInput struct {
 	apis.Meta
 
