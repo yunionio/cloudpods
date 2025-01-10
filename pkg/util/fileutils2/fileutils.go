@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"path"
@@ -474,10 +475,23 @@ func IsTarGzipFile(fPath string) bool {
 		return false
 	}
 
-	tarReader := tar.NewReader(gzf)
-	_, err = tarReader.Next()
+	return IsTarStream(gzf)
+}
+
+func IsTarStream(f io.Reader) bool {
+	tarReader := tar.NewReader(f)
+	_, err := tarReader.Next()
 	if err != nil {
 		return false
 	}
 	return true
+}
+
+func IsTarFile(fPath string) bool {
+	f, err := os.Open(fPath)
+	if err != nil {
+		return false
+	}
+	defer f.Close()
+	return IsTarStream(f)
 }

@@ -233,7 +233,7 @@ func (img *SQemuImage) parse() error {
 	if img.Format == qemuimgfmt.RAW && fileutils2.IsFile(img.Path) && fileutils2.IsIsoFile(img.Path) {
 		img.Format = qemuimgfmt.ISO
 	}
-	if img.Format == qemuimgfmt.RAW && fileutils2.IsFile(img.Path) && fileutils2.IsTarGzipFile(img.Path) {
+	if img.Format == qemuimgfmt.RAW && fileutils2.IsFile(img.Path) && (fileutils2.IsTarGzipFile(img.Path) || fileutils2.IsTarFile(img.Path)) {
 		img.Format = imageapi.IMAGE_DISK_FORMAT_TGZ
 	}
 	return nil
