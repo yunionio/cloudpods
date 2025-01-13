@@ -129,6 +129,11 @@ func unmount(mountPoint string, useLazy bool) error {
 		}
 		out, err := procutils.NewRemoteCommandAsFarAsPossible("umount", args...).Output()
 		if err != nil {
+			//if strings.Contains(err.Error(), fmt.Sprintf("umount: %s", mountPoint)) && strings.Contains(err.Error(), "not mounted") {
+			if strings.Contains(string(out), "not mounted") {
+				// handle error like: 'umount: /opt/cloud/workspace/servers/2bc8dabf-88c7-448a-8f9e-cbf557acfde2/volumes/6a7ccfcc-a591-4cdd-8d3f-40fde1110870/data/data/com.douban.frodo/: not mounted.'
+				return nil
+			}
 			return errors.Wrapf(err, "umount %s failed %s", mountPoint, out)
 		}
 	}
