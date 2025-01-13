@@ -319,7 +319,7 @@ func (p *SPodDriver) OnGuestDeployTaskDataReceived(ctx context.Context, guest *m
 }
 
 func (p *SPodDriver) StartGuestStopTask(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict, parentTaskId string) error {
-	task, err := taskman.TaskManager.NewTask(ctx, "PodStopTask", guest, userCred, nil, parentTaskId, "", nil)
+	task, err := taskman.TaskManager.NewTask(ctx, "PodStopTask", guest, userCred, params, parentTaskId, "", nil)
 	if err != nil {
 		return errors.Wrap(err, "New PodStopTask")
 	}

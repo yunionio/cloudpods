@@ -38,6 +38,11 @@ func (t *PodStopTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body 
 	t.OnWaitContainerStopped(ctx, obj.(*models.SGuest), nil)
 }
 
+type ServerStopTaskParams struct {
+	IsForce bool  `json:"is_force"`
+	Timeout int64 `json:"timeout"`
+}
+
 func (t *PodStopTask) OnWaitContainerStopped(ctx context.Context, pod *models.SGuest, _ jsonutils.JSONObject) {
 	pod.SetStatus(ctx, t.GetUserCred(), api.POD_STATUS_STOPPING_CONTAINER, "")
 	ctrs, err := models.GetContainerManager().GetContainersByPod(pod.GetId())
@@ -49,7 +54,12 @@ func (t *PodStopTask) OnWaitContainerStopped(ctx context.Context, pod *models.SG
 		t.OnContainerStopped(ctx, pod, nil)
 	} else {
 		t.SetStage("OnContainerStopped", nil)
-		if err := models.GetContainerManager().StartBatchStopTask(ctx, t.GetUserCred(), ctrs, 1, t.GetId()); err != nil {
+		input := new(ServerStopTaskParams)
+		t.GetParams().Unmarshal(input)
+		if input.Timeout == 0 {
+			input.Timeout = 1
+		}
+		if err := models.GetContainerManager().StartBatchStopTask(ctx, t.GetUserCred(), ctrs, int(input.Timeout), input.IsForce, t.GetId()); err != nil {
 			t.OnWaitContainerStoppedFailed(ctx, pod, jsonutils.NewString(err.Error()))
 			return
 		}
