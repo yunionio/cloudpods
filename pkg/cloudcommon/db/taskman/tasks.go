@@ -1274,14 +1274,14 @@ func (manager *STaskManager) InitializeData() error {
 func (manager *STaskManager) failTimeoutTasks() error {
 	// failed unfinished tasks 24 hours ago
 	q := manager.Query().NotIn("stage", []string{TASK_STAGE_FAILED, TASK_STAGE_COMPLETE})
-	q = q.LT("created_at", time.Now().Add(-24*time.Hour))
+	// q = q.LT("created_at", time.Now().Add(-24*time.Hour))
 
 	tasks := make([]STask, 0)
 	err := db.FetchModelObjects(manager, q, &tasks)
 	if err != nil {
 		return errors.Wrap(err, "FetchModelObjects")
 	}
-	reason := jsonutils.NewString("service restart and the task timeout(more than 24hour)")
+	reason := jsonutils.NewString("service restart")
 	for i := range tasks {
 		tasks[i].SetStageFailed(context.Background(), reason)
 	}

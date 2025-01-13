@@ -71,6 +71,7 @@ func (manager *SArchivedTaskManager) NamespaceScope() rbacscope.TRbacScope {
 
 func (manager *SArchivedTaskManager) Insert(ctx context.Context, task *STask) error {
 	archivedTask := SArchivedTask{}
+	archivedTask.SetModelManager(manager, &archivedTask)
 	archivedTask.TaskId = task.Id
 	archivedTask.STaskBase = task.STaskBase
 	archivedTask.ObjIds = TaskObjectManager.GetObjectIds(task)
