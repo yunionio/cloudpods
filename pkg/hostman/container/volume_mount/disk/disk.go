@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"strings"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -153,6 +154,61 @@ func (d disk) newPostOverlay() iDiskPostOverlay {
 	return newDiskPostOverlay(d)
 }
 
+func (d disk) connectDisk(iDisk storageman.IDisk) (string, bool, error) {
+	drv, err := iDisk.GetContainerStorageDriver()
+	if err != nil {
+		return "", false, errors.Wrap(err, "get disk storage driver")
+	}
+	devPath, isConnected, err := drv.CheckConnect(iDisk.GetPath())
+	if err != nil {
+		return "", false, errors.Wrapf(err, "CheckConnect %s", iDisk.GetPath())
+	}
+	if !isConnected {
+		devPath, err = drv.ConnectDisk(iDisk.GetPath())
+		if err != nil {
+			return "", false, errors.Wrapf(err, "ConnectDisk %s", iDisk.GetPath())
+		}
+	}
+	return devPath, isConnected, nil
+}
+
+func (d disk) mountDisk(devPath string, mntPoint string, fs string) error {
+	if err := container_storage.Mount(devPath, mntPoint, fs); err != nil {
+		return errors.Wrapf(err, "mount %s to %s", devPath, mntPoint)
+	}
+	return nil
+}
+
+func (d disk) connectDiskAndMount(drv container_storage.IContainerStorage, pod volume_mount.IPodInfo, iDisk storageman.IDisk, fs string) (string, error) {
+	devPath, isConnected, err := d.connectDisk(iDisk)
+	if err != nil {
+		return "", errors.Wrap(err, "connect disk")
+	}
+	mntPoint := pod.GetDiskMountPoint(iDisk)
+	mountErrs := []error{}
+	if err := d.mountDisk(devPath, mntPoint, fs); err != nil {
+		mountErrs = append(mountErrs, err)
+		if isConnected && strings.Contains(err.Error(), fmt.Sprintf("%s already mounted or mount point busy.", devPath)) {
+			// disconnect disk and mount agin
+			if err := drv.DisconnectDisk(iDisk.GetPath(), mntPoint); err != nil {
+				mountErrs = append(mountErrs, errors.Wrapf(err, "disconnect disk cause of mount point busy"))
+				return mntPoint, errors.NewAggregate(mountErrs)
+			}
+			devPath, _, err = d.connectDisk(iDisk)
+			if err != nil {
+				return mntPoint, errors.Wrap(err, "connect disk after disconnect")
+			}
+			if err := d.mountDisk(devPath, mntPoint, fs); err != nil {
+				mountErrs = append(mountErrs, errors.Wrapf(err, "mount disk after reconnect"))
+				return mntPoint, errors.NewAggregate(mountErrs)
+			}
+			return mntPoint, nil
+		}
+		return mntPoint, errors.Wrapf(err, "mount %s to %s", devPath, mntPoint)
+	}
+	return mntPoint, nil
+}
+
 func (d disk) Mount(pod volume_mount.IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount) error {
 	iDisk, gd, err := d.getPodDisk(pod, vm)
 	if err != nil {
@@ -162,20 +218,11 @@ func (d disk) Mount(pod volume_mount.IPodInfo, ctrId string, vm *hostapi.Contain
 	if err != nil {
 		return errors.Wrap(err, "get disk storage driver")
 	}
-	devPath, isConnected, err := drv.CheckConnect(iDisk.GetPath())
+	mntPoint, err := d.connectDiskAndMount(drv, pod, iDisk, gd.Fs)
 	if err != nil {
-		return errors.Wrapf(err, "CheckConnect %s", iDisk.GetPath())
+		return errors.Wrap(err, "connect disk and mount disk")
 	}
-	if !isConnected {
-		devPath, err = drv.ConnectDisk(iDisk.GetPath())
-		if err != nil {
-			return errors.Wrapf(err, "ConnectDisk %s", iDisk.GetPath())
-		}
-	}
-	mntPoint := pod.GetDiskMountPoint(iDisk)
-	if err := container_storage.Mount(devPath, mntPoint, gd.Fs); err != nil {
-		return errors.Wrapf(err, "mount %s to %s", devPath, mntPoint)
-	}
+
 	vmDisk := vm.Disk
 	if vmDisk.SubDirectory != "" {
 		subDir := filepath.Join(mntPoint, vmDisk.SubDirectory)
