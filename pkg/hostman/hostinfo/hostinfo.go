@@ -131,6 +131,7 @@ type SHostInfo struct {
 	containerCpufreqSimulateConfig *jsonutils.JSONDict
 	containerNvidiaGpus            []isolated_device.IDevice
 	hasNvidiaGpus                  *bool
+	hasVastaitechGpus              *bool
 }
 
 func (h *SHostInfo) GetContainerDeviceConfigurationFilePath() string {

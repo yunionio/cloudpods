@@ -98,6 +98,21 @@ func (h *SHostInfo) GetNvidiaGpuIndexMemoryMap() map[string]int {
 	return res
 }
 
+func (h *SHostInfo) HasContainerVastaitechGpu() bool {
+	if h.hasVastaitechGpus != nil {
+		return *h.hasVastaitechGpus
+	}
+	hasVastaitechGpus := false
+	devs := h.IsolatedDeviceMan.GetDevices()
+	for i := range devs {
+		if devs[i].GetDeviceType() == apis.CONTAINER_DEV_VASTAITECH_GPU {
+			hasVastaitechGpus = true
+		}
+	}
+	h.hasVastaitechGpus = &hasVastaitechGpus
+	return *h.hasVastaitechGpus
+}
+
 func (h *SHostInfo) HasContainerNvidiaGpu() bool {
 	if h.hasNvidiaGpus != nil {
 		return *h.hasNvidiaGpus

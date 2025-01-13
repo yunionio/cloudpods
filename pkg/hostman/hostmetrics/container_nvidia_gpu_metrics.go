@@ -23,7 +23,9 @@ import (
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/utils"
 
+	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/hostman/guestman"
 	"yunion.io/x/onecloud/pkg/util/cgrouputils"
 	"yunion.io/x/onecloud/pkg/util/procutils"
@@ -48,16 +50,16 @@ func GetNvidiaGpuProcessMetrics() ([]NvidiaGpuProcessMetrics, error) {
 	cmd := "nvidia-smi pmon -s mu -c 1"
 	output, err := procutils.NewRemoteCommandAsFarAsPossible("bash", "-c", cmd).Output()
 	if err != nil {
-		return nil, errors.Wrapf(err, "Execute %s failed", cmd)
+		return nil, errors.Wrapf(err, "Execute %s failed: %s", cmd, output)
 	}
-	return parseGpuProcessMetrics(string(output)), nil
+	return parseNvidiaGpuProcessMetrics(string(output)), nil
 }
 
 /*
 # gpu         pid   type     fb   ccpm     sm    mem    enc    dec    jpg    ofa    command
 # Idx           #    C/G     MB     MB      %      %      %      %      %      %    name
 */
-func parseGpuProcessMetrics(gpuMetricsStr string) []NvidiaGpuProcessMetrics {
+func parseNvidiaGpuProcessMetrics(gpuMetricsStr string) []NvidiaGpuProcessMetrics {
 	gpuProcessMetrics := make([]NvidiaGpuProcessMetrics, 0)
 
 	lines := strings.Split(gpuMetricsStr, "\n")
@@ -142,7 +144,7 @@ func parseGpuProcessMetrics(gpuMetricsStr string) []NvidiaGpuProcessMetrics {
 	return gpuProcessMetrics
 }
 
-func (s *SGuestMonitorCollector) collectNvidiaGpuPodsProcesses() map[string]map[string]struct{} {
+func (s *SGuestMonitorCollector) collectGpuPodsProcesses() map[string]map[string]struct{} {
 	podProcIds := map[string]map[string]struct{}{}
 	guestmanager := guestman.GetGuestManager()
 	cgroupRoot := path.Join(cgrouputils.RootTaskPath("cpuset"), "cloudpods")
@@ -152,6 +154,17 @@ func (s *SGuestMonitorCollector) collectNvidiaGpuPodsProcesses() map[string]map[
 			return true
 		}
 		if !pod.IsRunning() {
+			return true
+		}
+		podDesc := pod.GetDesc()
+		hasGpu := false
+		for i := range podDesc.IsolatedDevices {
+			if utils.IsInStringArray(podDesc.IsolatedDevices[i].DevType, []string{compute.CONTAINER_DEV_NVIDIA_GPU, compute.CONTAINER_DEV_NVIDIA_MPS, compute.CONTAINER_DEV_VASTAITECH_GPU}) {
+				hasGpu = true
+				break
+			}
+		}
+		if !hasGpu {
 			return true
 		}
 
