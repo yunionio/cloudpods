@@ -26,6 +26,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/gotypes"
 )
 
 func decimalBaseMaxWidth(decNum int, base int) int {
@@ -93,6 +94,14 @@ func exportRow(xlsx *excelize.File, data jsonutils.JSONObject, keys []string, ro
 		var val jsonutils.JSONObject
 		if strings.Contains(keys[i], ".") {
 			val, _ = data.GetIgnoreCases(strings.Split(keys[i], ".")...)
+			// hack payment_bills
+			if !gotypes.IsNil(val) && strings.HasPrefix(keys[i], "tags.") {
+				vv := []string{}
+				val.Unmarshal(&vv)
+				if len(vv) > 0 || val.Equals(jsonutils.Marshal([]string{})) {
+					val = jsonutils.NewString(strings.Join(vv, ","))
+				}
+			}
 		} else {
 			val, _ = data.GetIgnoreCases(keys[i])
 		}
