@@ -3598,6 +3598,7 @@ func (manager *SHostManager) FetchCustomizeColumns(
 	if query.Contains("show_fail_reason") {
 		showReason = true
 	}
+	var hideCpuTypoInfo = jsonutils.QueryBoolean(query, "hide_cpu_topo_info", false)
 	hostIds := make([]string, len(objs))
 	hosts := make([]*SHost, len(objs))
 	for i := range rows {
@@ -3762,6 +3763,16 @@ func (manager *SHostManager) FetchCustomizeColumns(
 		rows[i].Schedtags, _ = schedtags[hostIds[i]]
 		rows[i].NicInfo, _ = nics[hostIds[i]]
 		rows[i].NicCount = len(rows[i].NicInfo)
+
+		if hideCpuTypoInfo {
+			sysInfo, ok := hosts[i].SysInfo.(*jsonutils.JSONDict)
+			if ok {
+				sysInfo.Remove("cpu_info")
+				sysInfo.Remove("topology")
+			}
+			delete(rows[i].Metadata, "cpu_info")
+			delete(rows[i].Metadata, "topology")
+		}
 	}
 	return rows
 }
