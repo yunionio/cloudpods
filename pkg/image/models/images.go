@@ -664,23 +664,28 @@ func (self *SImage) StartImagePipeline(
 	return nil
 }
 
-func (self *SImage) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	if self.Status != api.IMAGE_STATUS_QUEUED {
-		if !self.CanUpdate(data) {
-			return nil, httperrors.NewForbiddenError("image is the part of guest imgae")
+func (img *SImage) ValidateUpdateData(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input api.ImageUpdateInput,
+) (api.ImageUpdateInput, error) {
+	if img.Status != api.IMAGE_STATUS_QUEUED {
+		if !img.CanUpdate(input) {
+			return input, httperrors.NewForbiddenError("image is the part of guest imgae")
 		}
 		appParams := appsrv.AppContextGetParams(ctx)
 		if appParams != nil && appParams.Request.ContentLength > 0 {
-			return nil, httperrors.NewInvalidStatusError("cannot upload in status %s", self.Status)
+			return input, httperrors.NewInvalidStatusError("cannot upload in status %s", img.Status)
 		}
-		if minDiskSize, err := data.Int("min_disk"); err == nil && self.DiskFormat != string(qemuimgfmt.ISO) {
-			img, err := qemuimg.NewQemuImage(self.GetLocalLocation())
+		if input.MinDiskMB != nil && *input.MinDiskMB > 0 && img.DiskFormat != string(qemuimgfmt.ISO) {
+			img, err := qemuimg.NewQemuImage(img.GetLocalLocation())
 			if err != nil {
-				return nil, errors.Wrap(err, "open image")
+				return input, errors.Wrap(err, "open image")
 			}
 			virtualSizeMB := img.SizeBytes / 1024 / 1024
-			if virtualSizeMB > 0 && minDiskSize < virtualSizeMB {
-				return nil, httperrors.NewBadRequestError("min disk size must >= %v", virtualSizeMB)
+			if virtualSizeMB > 0 && *input.MinDiskMB < int32(virtualSizeMB) {
+				return input, httperrors.NewBadRequestError("min disk size must >= %v", virtualSizeMB)
 			}
 		}
 	} else {
@@ -692,43 +697,38 @@ func (self *SImage) ValidateUpdateData(ctx context.Context, userCred mcclient.To
 			// }
 			if appParams.Request.ContentLength > 0 {
 				// upload image
-				self.SetStatus(ctx, userCred, api.IMAGE_STATUS_SAVING, "update start upload")
+				img.SetStatus(ctx, userCred, api.IMAGE_STATUS_SAVING, "update start upload")
 				// If isProbe is true calculating checksum is not necessary wheng saving from stream,
 				// otherwise, it is needed.
 
-				err := self.SaveImageFromStream(appParams.Request.Body, appParams.Request.ContentLength, self.IsData.IsFalse())
+				err := img.SaveImageFromStream(appParams.Request.Body, appParams.Request.ContentLength, img.IsData.IsFalse())
 				if err != nil {
-					self.OnSaveFailed(ctx, userCred, jsonutils.NewString(fmt.Sprintf("update upload failed %s", err)))
-					return nil, httperrors.NewGeneralError(err)
+					img.OnSaveFailed(ctx, userCred, jsonutils.NewString(fmt.Sprintf("update upload failed %s", err)))
+					return input, httperrors.NewGeneralError(err)
 				}
-				self.OnSaveSuccess(ctx, userCred, "update upload success")
-				data.Remove("status")
+				img.OnSaveSuccess(ctx, userCred, "update upload success")
+				// data.Remove("status")
 				// For guest image, DoConvertAfterProbe is not necessary.
-				self.StartImagePipeline(ctx, userCred, false)
+				img.StartImagePipeline(ctx, userCred, false)
 			} else {
 				copyFrom := appParams.Request.Header.Get(modules.IMAGE_META_COPY_FROM)
 				compress := appParams.Request.Header.Get(modules.IMAGE_META_COMPRESS_FORMAT)
 				if len(copyFrom) > 0 {
-					err := self.startImageCopyFromUrlTask(ctx, userCred, copyFrom, compress, "")
+					err := img.startImageCopyFromUrlTask(ctx, userCred, copyFrom, compress, "")
 					if err != nil {
-						self.OnSaveFailed(ctx, userCred, jsonutils.NewString(fmt.Sprintf("update copy from url failed %s", err)))
-						return nil, httperrors.NewGeneralError(err)
+						img.OnSaveFailed(ctx, userCred, jsonutils.NewString(fmt.Sprintf("update copy from url failed %s", err)))
+						return input, httperrors.NewGeneralError(err)
 					}
 				}
 			}
 		}
 	}
-	input := apis.SharableVirtualResourceBaseUpdateInput{}
-	err := data.Unmarshal(&input)
+	var err error
+	input.SharableVirtualResourceBaseUpdateInput, err = img.SSharableVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, input.SharableVirtualResourceBaseUpdateInput)
 	if err != nil {
-		return nil, errors.Wrap(err, "Unmarshal")
+		return input, errors.Wrap(err, "SSharableVirtualResourceBase.ValidateUpdateData")
 	}
-	input, err = self.SSharableVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, input)
-	if err != nil {
-		return nil, errors.Wrap(err, "SSharableVirtualResourceBase.ValidateUpdateData")
-	}
-	data.Update(jsonutils.Marshal(input))
-	return data, nil
+	return input, nil
 }
 
 func (self *SImage) PreUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
@@ -1534,8 +1534,8 @@ func (self *SImage) PerformUpdateTorrentStatus(ctx context.Context, userCred mcc
 	return nil, nil
 }
 
-func (self *SImage) CanUpdate(data jsonutils.JSONObject) bool {
-	dict := data.(*jsonutils.JSONDict)
+func (self *SImage) CanUpdate(input api.ImageUpdateInput) bool {
+	dict := jsonutils.Marshal(input).(*jsonutils.JSONDict)
 	// Only allow update description for now when Image is part of guest image
 	return self.IsGuestImage.IsFalse() || (dict.Length() == 1 && dict.Contains("description"))
 }
