@@ -388,11 +388,12 @@ func (m *SContainerManager) StartBatchStartTask(ctx context.Context, userCred mc
 	return m.startBatchTask(ctx, userCred, "ContainerBatchStartTask", ctrs, nil, parentTaskId)
 }
 
-func (m *SContainerManager) StartBatchStopTask(ctx context.Context, userCred mcclient.TokenCredential, ctrs []SContainer, timeout int, parentTaskId string) error {
+func (m *SContainerManager) StartBatchStopTask(ctx context.Context, userCred mcclient.TokenCredential, ctrs []SContainer, timeout int, force bool, parentTaskId string) error {
 	params := make([]api.ContainerStopInput, len(ctrs))
 	for i := range ctrs {
 		params[i] = api.ContainerStopInput{
 			Timeout: timeout,
+			Force:   force,
 		}
 	}
 	taskParams := jsonutils.NewDict()

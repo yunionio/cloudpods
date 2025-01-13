@@ -331,9 +331,11 @@ func (c crictl) RemovePod(ctx context.Context, podId string) error {
 	interval := 5 * time.Second
 	errs := []error{}
 	for tries := 0; tries < maxTries; tries++ {
-		ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-		defer cancel()
-		err := c.removePod(ctx, podId)
+		err := func() error {
+			ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+			defer cancel()
+			return c.removePod(ctx, podId)
+		}()
 		if err == nil {
 			return nil
 		}
@@ -361,10 +363,11 @@ func (c crictl) stopContainerWithRetry(ctx context.Context, ctrId string, timeou
 	interval := 5 * time.Second
 	errs := []error{}
 	for tries := 0; tries < maxTries; tries++ {
-		ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-		defer cancel()
-
-		err := c.stopContainer(ctx, ctrId, timeout)
+		err := func() error {
+			ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+			defer cancel()
+			return c.stopContainer(ctx, ctrId, timeout)
+		}()
 		if err == nil {
 			return nil
 		}
