@@ -1060,7 +1060,7 @@ func (h *SHostInfo) detectQemuCapabilities(version string) error {
 	var machineInfoList = make([]monitor.MachineInfo, 0)
 	err = res.Unmarshal(&machineInfoList, "return")
 	if err != nil {
-		return errors.Errorf("failed unmarshal machineinfo return %s: %s", segs[3], err)
+		return errors.Wrapf(err, "failed unmarshal machineinfo return %s", res.PrettyString())
 	}
 	h.qemuMachineInfoList = machineInfoList
 	qemuCaps := &QemuCaps{
