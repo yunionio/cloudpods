@@ -15,6 +15,8 @@
 package apis
 
 import (
+	"encoding/json"
+
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/sets"
 )
@@ -231,6 +233,19 @@ func (o ContainerVolumeMountDiskOverlay) IsValid() error {
 type ContainerVolumeMountDiskPostImageOverlay struct {
 	Id      string            `json:"id"`
 	PathMap map[string]string `json:"path_map"`
+}
+
+type ContainerVolumeMountDiskPostImageOverlayUnpacker ContainerVolumeMountDiskPostImageOverlay
+
+func (ov *ContainerVolumeMountDiskPostImageOverlay) UnmarshalJSON(data []byte) error {
+	nov := new(ContainerVolumeMountDiskPostImageOverlayUnpacker)
+	if err := json.Unmarshal(data, nov); err != nil {
+		return err
+	}
+	ov.Id = nov.Id
+	// 防止 PathMap 被合并，总是用 Unarmshal data 里面的 path_map
+	ov.PathMap = nov.PathMap
+	return nil
 }
 
 type ContainerVolumeMountDiskPostOverlayType string

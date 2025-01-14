@@ -20,7 +20,9 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	imageapi "yunion.io/x/onecloud/pkg/apis/image"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -44,6 +46,27 @@ func (t *ContainerBaseTask) GetPodDriver() models.IPodDriver {
 		return nil
 	}
 	return drv.(models.IPodDriver)
+}
+
+func (t *ContainerBaseTask) GetContainerCacheImagesInput(ctr *models.SContainer) (*api.ContainerCacheImagesInput, error) {
+	input := &api.ContainerCacheImagesInput{}
+	for i := range ctr.Spec.VolumeMounts {
+		vol := ctr.Spec.VolumeMounts[i]
+		if vol.Type != apis.CONTAINER_VOLUME_MOUNT_TYPE_DISK {
+			continue
+		}
+		disk := vol.Disk
+		for j := range disk.PostOverlay {
+			pov := vol.Disk.PostOverlay[j]
+			if pov.GetType() != apis.CONTAINER_VOLUME_MOUNT_DISK_POST_OVERLAY_IMAGE {
+				continue
+			}
+			if err := input.Add(disk.Id, pov.Image.Id, imageapi.IMAGE_DISK_FORMAT_TGZ); err != nil {
+				return nil, errors.Wrapf(err, "add disk %q, image %q", disk.Id, pov.Image.Id)
+			}
+		}
+	}
+	return input, nil
 }
 
 type ContainerCreateTask struct {
