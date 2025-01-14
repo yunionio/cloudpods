@@ -213,7 +213,8 @@ func (d disk) ValidatePostSingleOverlay(ctx context.Context, userCred mcclient.T
 
 func (d disk) ValidatePostOverlayTargetDirs(ovs []*apis.ContainerVolumeMountDiskPostOverlay) error {
 	ctrTargetDirs := sets.NewString()
-	for _, ov := range ovs {
+	for i := range ovs {
+		ov := ovs[i]
 		drv := d.getPostOverlayDriver(ov)
 		ovCtrTargetDirs := drv.getContainerTargetDirs(ov)
 		if ctrTargetDirs.HasAny(ovCtrTargetDirs...) {
@@ -230,9 +231,10 @@ func (d disk) ValidatePostOverlay(ctx context.Context, userCred mcclient.TokenCr
 		return nil
 	}
 	ovs := vm.Disk.PostOverlay
-	for i, ov := range ovs {
+	for i := range ovs {
+		ov := ovs[i]
 		if err := d.ValidatePostSingleOverlay(ctx, userCred, ov); err != nil {
-			return err
+			return errors.Wrap(err, "validate post single overlay")
 		}
 		vm.Disk.PostOverlay[i] = ov
 	}

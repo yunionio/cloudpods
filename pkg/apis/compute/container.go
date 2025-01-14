@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/util/sets"
 
@@ -289,4 +290,43 @@ type ContainerCacheImageInput struct {
 
 type ContainerCacheImagesInput struct {
 	Images []*ContainerCacheImageInput `json:"images"`
+}
+
+func (i *ContainerCacheImagesInput) isImageExists(diskId string, imgId string) bool {
+	for idx := range i.Images {
+		img := i.Images[idx]
+		if img.DiskId != diskId {
+			return false
+		}
+		if img.Image == nil {
+			return false
+		}
+		if img.Image.ImageId == imgId {
+			return true
+		}
+	}
+	return false
+}
+
+func (i *ContainerCacheImagesInput) Add(diskId string, imgId string, format string) error {
+	if diskId == "" {
+		return errors.Errorf("diskId is empty")
+	}
+	if imgId == "" {
+		return errors.Errorf("imageId is empty")
+	}
+	if !i.isImageExists(diskId, imgId) {
+		if i.Images == nil {
+			i.Images = []*ContainerCacheImageInput{}
+		}
+		i.Images = append(i.Images, &ContainerCacheImageInput{
+			DiskId: diskId,
+			Image: &CacheImageInput{
+				ImageId:              imgId,
+				Format:               format,
+				SkipChecksumIfExists: true,
+			},
+		})
+	}
+	return nil
 }

@@ -18,6 +18,7 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -34,7 +35,31 @@ func init() {
 }
 
 func (t *ContainerStartTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
-	t.requestStart(ctx, obj.(*models.SContainer))
+	ctr := obj.(*models.SContainer)
+	if err := t.startCacheImages(ctx, ctr); err != nil {
+		t.OnStartedFailed(ctx, ctr, jsonutils.NewString(err.Error()))
+	}
+}
+
+func (t *ContainerStartTask) startCacheImages(ctx context.Context, ctr *models.SContainer) error {
+	t.SetStage("OnCacheImagesComplete", nil)
+	input, err := t.GetContainerCacheImagesInput(ctr)
+	if err != nil {
+		return errors.Wrap(err, "GetContainerCacheImagesInput")
+	}
+	if len(input.Images) == 0 {
+		t.OnCacheImagesComplete(ctx, ctr, nil)
+		return nil
+	}
+	return ctr.StartCacheImagesTask(ctx, t.GetUserCred(), input, t.GetTaskId())
+}
+
+func (t *ContainerStartTask) OnCacheImagesComplete(ctx context.Context, ctr *models.SContainer, data jsonutils.JSONObject) {
+	t.requestStart(ctx, ctr)
+}
+
+func (t *ContainerStartTask) OnCacheImagesCompleteFailed(ctx context.Context, ctr *models.SContainer, data jsonutils.JSONObject) {
+	t.OnStartedFailed(ctx, ctr, jsonutils.NewString(data.String()))
 }
 
 func (t *ContainerStartTask) requestStart(ctx context.Context, container *models.SContainer) {

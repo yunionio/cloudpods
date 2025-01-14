@@ -75,14 +75,9 @@ func (t *ContainerAddVolumeMountPostOverlayTask) startCacheImage(ctx context.Con
 	for i := range input.PostOverlay {
 		po := input.PostOverlay[i]
 		if po.GetType() == apis.CONTAINER_VOLUME_MOUNT_DISK_POST_OVERLAY_IMAGE {
-			taskInput.Images = append(taskInput.Images, &api.ContainerCacheImageInput{
-				DiskId: diskId,
-				Image: &api.CacheImageInput{
-					ImageId:              po.Image.Id,
-					Format:               imageapi.IMAGE_DISK_FORMAT_TGZ,
-					SkipChecksumIfExists: true,
-				},
-			})
+			if err := taskInput.Add(diskId, po.Image.Id, imageapi.IMAGE_DISK_FORMAT_TGZ); err != nil {
+				return errors.Wrap(err, "add cached image to input")
+			}
 		}
 	}
 	if len(taskInput.Images) != 0 {
