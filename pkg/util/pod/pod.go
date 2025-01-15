@@ -30,6 +30,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
+	"yunion.io/x/onecloud/pkg/util/exec"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 )
 
@@ -49,6 +50,7 @@ type CRI interface {
 	ListImages(ctx context.Context, filter *runtimeapi.ImageFilter) ([]*runtimeapi.Image, error)
 	PullImage(ctx context.Context, req *runtimeapi.PullImageRequest) (*runtimeapi.PullImageResponse, error)
 	ImageStatus(ctx context.Context, req *runtimeapi.ImageStatusRequest) (*runtimeapi.ImageStatusResponse, error)
+	ExecSync(ctx context.Context, ctrId string, command []string, timeout int64) (*ExecSyncResponse, error)
 
 	// lower layer client
 	GetImageClient() runtimeapi.ImageServiceClient
@@ -508,4 +510,33 @@ func (c crictl) PullImage(ctx context.Context, req *runtimeapi.PullImageRequest)
 
 func (c crictl) ImageStatus(ctx context.Context, req *runtimeapi.ImageStatusRequest) (*runtimeapi.ImageStatusResponse, error) {
 	return c.GetImageClient().ImageStatus(ctx, req)
+}
+
+type ExecSyncResponse struct {
+	Stdout   []byte
+	Stderr   []byte
+	ExitCode int32
+}
+
+func (c crictl) ExecSync(ctx context.Context, ctrId string, command []string, timeout int64) (*ExecSyncResponse, error) {
+	cli := c.GetRuntimeClient()
+	resp, err := cli.ExecSync(ctx, &runtimeapi.ExecSyncRequest{
+		ContainerId: ctrId,
+		Cmd:         command,
+		Timeout:     timeout,
+	})
+	if err != nil {
+		return nil, errors.Wrapf(err, "exec sync container %s with command: %v", ctrId, command)
+	}
+	if resp.GetExitCode() != 0 {
+		return nil, exec.CodeExitError{
+			Err:  errors.Errorf("stdout: %s, stderr: %s, exited: %d", resp.GetStdout(), resp.GetStderr(), resp.GetExitCode()),
+			Code: int(resp.ExitCode),
+		}
+	}
+	return &ExecSyncResponse{
+		Stdout:   resp.Stdout,
+		Stderr:   resp.Stderr,
+		ExitCode: resp.ExitCode,
+	}, nil
 }

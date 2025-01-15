@@ -287,7 +287,7 @@ func (d disk) Unmount(pod volume_mount.IPodInfo, ctrId string, vm *hostapi.Conta
 	}
 	if len(vm.Disk.PostOverlay) != 0 {
 		if err := d.UnmountPostOverlays(pod, ctrId, vm, vm.Disk.PostOverlay, false, false); err != nil {
-			return errors.Wrap(err, "mount post overlay dirs")
+			return errors.Wrap(err, "umount post overlay dirs")
 		}
 	}
 	if vm.Disk.Overlay != nil {

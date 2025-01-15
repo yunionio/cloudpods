@@ -142,7 +142,7 @@ func TestExec(t *testing.T) {
 			out: []byte(test.output),
 			err: test.err,
 		}
-		status, output, err := prober.Probe(&fake)
+		status, output, err := prober.Probe(&fake, "")
 		if status != test.expectedStatus {
 			t.Errorf("[%d] expected %v, got %v", i, test.expectedStatus, status)
 		}
@@ -152,8 +152,8 @@ func TestExec(t *testing.T) {
 		if err == nil && test.expectError == true {
 			t.Errorf("[%d] unexpected non-error", i)
 		}
-		if test.output != output {
-			t.Errorf("[%d] expected %s, got %s", i, test.output, output)
+		if status == probe.Success && test.output != output {
+			t.Errorf("[%d] expected %q, got %q", i, test.output, output)
 		}
 	}
 }

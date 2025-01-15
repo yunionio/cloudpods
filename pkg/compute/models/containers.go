@@ -437,6 +437,13 @@ func (c *SContainer) ValidateUpdateData(ctx context.Context, userCred mcclient.T
 	return input, nil
 }
 
+func (c *SContainer) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	c.SVirtualResourceBase.PostUpdate(ctx, userCred, query, data)
+	if err := c.GetPod().StartSyncTaskWithoutSyncstatus(ctx, userCred, false, ""); err != nil {
+		log.Errorf("container %s StartSyncTaskWithoutSyncstatus error: %v", c.GetName(), err)
+	}
+}
+
 func (c *SContainer) GetPod() *SGuest {
 	return GuestManager.FetchGuestById(c.GuestId)
 }
