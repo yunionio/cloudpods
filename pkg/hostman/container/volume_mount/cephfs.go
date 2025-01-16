@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"path/filepath"
 
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/apis"
@@ -39,6 +40,10 @@ func (h cephFS) Mount(pod IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMou
 	}
 	if err := EnsureDir(dir); err != nil {
 		return errors.Wrap(err, "EnsureDir")
+	}
+	if err := procutils.NewRemoteCommandAsFarAsPossible("mountpoint", dir).Run(); err == nil {
+		log.Warningf("mountpoint %s is already mounted", dir)
+		return nil
 	}
 	options := fmt.Sprintf("name=%s,secret=%s", vm.CephFS.Name, vm.CephFS.Secret)
 	if vm.ReadOnly {
