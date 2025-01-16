@@ -18,6 +18,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"sync/atomic"
 	"time"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
@@ -1168,7 +1169,17 @@ func (manager *SSnapshotManager) GetResourceCount() ([]db.SScopeResourceCount, e
 	return db.CalculateResourceCount(virts, "tenant_id")
 }
 
+var SnapshotCleanupTaskRunning int32 = 0
+
+func SnapshotCleanupTaskIsRunning() bool {
+	return atomic.LoadInt32(&SnapshotCleanupTaskRunning) == 1
+}
+
 func (manager *SSnapshotManager) CleanupSnapshots(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
+	if SnapshotCleanupTaskIsRunning() {
+		log.Errorf("Previous CleanupSnapshots tasks still running !!!")
+		return
+	}
 	var now = time.Now()
 	var snapshot = new(SSnapshot)
 	err := manager.Query().
