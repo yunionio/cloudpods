@@ -18,6 +18,8 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -33,6 +35,7 @@ type SnapshotCreateTask struct {
 
 func init() {
 	taskman.RegisterTask(SnapshotCreateTask{})
+	taskman.RegisterTask(GuestDisksSnapshotPolicyExecuteTask{})
 }
 
 func (self *SnapshotCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
@@ -71,4 +74,45 @@ func (self *SnapshotCreateTask) OnCreateSnapshot(ctx context.Context, snapshot *
 
 func (self *SnapshotCreateTask) OnCreateSnapshotFailed(ctx context.Context, snapshot *models.SSnapshot, data jsonutils.JSONObject) {
 	self.TaskFailed(ctx, snapshot, data)
+}
+
+type GuestDisksSnapshotPolicyExecuteTask struct {
+	taskman.STask
+}
+
+func (self *GuestDisksSnapshotPolicyExecuteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	self.OnDiskSnapshot(ctx, obj, data)
+}
+
+func (self *GuestDisksSnapshotPolicyExecuteTask) OnDiskSnapshot(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	snapshotPolicyDisks := make([]models.SSnapshotPolicyDisk, 0)
+	self.Params.Unmarshal(&snapshotPolicyDisks, "snapshot_policy_disks")
+	if len(snapshotPolicyDisks) == 0 {
+		self.SetStageComplete(ctx, nil)
+		return
+	}
+	snapshotPolicyDisk := snapshotPolicyDisks[0]
+	self.Params.Set("snapshot_policy_disks", jsonutils.Marshal(snapshotPolicyDisks[1:]))
+	self.SetStage("OnDiskSnapshot", nil)
+
+	disk, err := snapshotPolicyDisk.GetDisk()
+	if err != nil {
+		log.Errorf("disk snapshot policy %s failed get disk %s", snapshotPolicyDisk.SnapshotpolicyId, err)
+		self.OnDiskSnapshot(ctx, obj, data)
+		return
+	}
+	err = models.DiskManager.DoAutoSnapshot(ctx, self.UserCred, &snapshotPolicyDisk, disk, self.GetTaskId())
+	if err != nil {
+		log.Errorf("disk.CreateSnapshotAuto failed %s %s", disk.Id, err)
+		db.OpsLog.LogEvent(disk, db.ACT_DISK_AUTO_SNAPSHOT_FAIL, err.Error(), self.UserCred)
+		notifyclient.NotifySystemErrorWithCtx(ctx, disk.Id, disk.Name, db.ACT_DISK_AUTO_SNAPSHOT_FAIL, errors.Wrapf(err, "Disk auto create snapshot").Error())
+
+		self.OnDiskSnapshot(ctx, obj, data)
+		return
+	}
+}
+
+func (self *GuestDisksSnapshotPolicyExecuteTask) OnDiskSnapshotFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	log.Errorf("Guest create snapshot failed %s: %s", obj.GetId(), data)
+	self.OnDiskSnapshot(ctx, obj, data)
 }
