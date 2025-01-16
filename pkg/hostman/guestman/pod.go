@@ -99,12 +99,7 @@ func (cr *containerRunner) RunInContainer(podId string, containerId string, cmd 
 	if err != nil {
 		return nil, errors.Wrap(err, "get container cri id")
 	}
-	cli := s.getCRI().GetRuntimeClient()
-	resp, err := cli.ExecSync(context.Background(), &runtimeapi.ExecSyncRequest{
-		ContainerId: ctrCriId,
-		Cmd:         cmd,
-		Timeout:     int64(timeout),
-	})
+	resp, err := s.getCRI().ExecSync(context.Background(), ctrCriId, cmd, int64(timeout.Seconds()))
 	if err != nil {
 		return nil, errors.Wrapf(err, "exec sync %#v to %s", cmd, ctrCriId)
 	}

@@ -32,8 +32,10 @@ package exec
 
 import (
 	"bytes"
+	"fmt"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/util/exec"
 	"yunion.io/x/onecloud/pkg/util/ioutils"
@@ -46,7 +48,7 @@ const (
 
 // Prober is an interface defining the Probe object for container readiness/liveness checks.
 type Prober interface {
-	Probe(e exec.Cmd) (probe.Result, string, error)
+	Probe(e exec.Cmd, info string) (probe.Result, string, error)
 }
 
 // New creates a Prober.
@@ -59,7 +61,7 @@ type execProber struct{}
 // Probe executes a command to check the liveness/readiness of container
 // from executing a command. Returns the Result status, command output, and
 // errors if any.
-func (pr execProber) Probe(e exec.Cmd) (probe.Result, string, error) {
+func (pr execProber) Probe(e exec.Cmd, info string) (probe.Result, string, error) {
 	var dataBuffer bytes.Buffer
 	writer := ioutils.LimitWriter(&dataBuffer, maxReadLength)
 
@@ -71,14 +73,14 @@ func (pr execProber) Probe(e exec.Cmd) (probe.Result, string, error) {
 	}
 	data := dataBuffer.Bytes()
 
-	log.Infof("Exec probe response: %q", string(data))
+	log.Debugf("Exec probe response: %q, error: %v", string(data), err)
 	if err != nil {
-		exit, ok := err.(exec.ExitError)
+		exit, ok := errors.Cause(err).(exec.ExitError)
 		if ok {
 			if exit.ExitStatus() == 0 {
 				return probe.Success, string(data), nil
 			}
-			return probe.Failure, string(data), nil
+			return probe.Failure, fmt.Sprintf("%s, %s: %s", info, exit, data), nil
 		}
 
 		timeoutErr, ok := err.(*TimeoutError)

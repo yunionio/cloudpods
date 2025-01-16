@@ -33,6 +33,7 @@ package prober
 import (
 	"fmt"
 	"io"
+	"strings"
 	"time"
 
 	"yunion.io/x/log"
@@ -127,7 +128,7 @@ func (pb *prober) runProbe(probeType apis.ContainerProbeType, p *apis.ContainerP
 	timeout := time.Duration(p.TimeoutSeconds) * time.Second
 	if p.Exec != nil {
 		log.Debugf("Exec-Probe Pod: %v, Container: %v, Command: %v", pod.GetDesc().Name, container.Name, p.Exec.Command)
-		return pb.exec.Probe(pb.newExecInContainer(pod, container, p.Exec.Command, timeout))
+		return pb.exec.Probe(pb.newExecInContainer(pod, container, p.Exec.Command, timeout), strings.Join(p.Exec.Command, " "))
 	}
 	if p.TCPSocket != nil {
 		port := p.TCPSocket.Port
@@ -156,14 +157,20 @@ type execInContainer struct {
 	// error is returned if one occurred.
 	run    func() ([]byte, error)
 	writer io.Writer
+	cmd    []string
 }
 
 func (pb *prober) newExecInContainer(pod IPod, container *hostapi.ContainerDesc, cmd []string, timeout time.Duration) exec.Cmd {
 	return &execInContainer{
+		cmd: cmd,
 		run: func() ([]byte, error) {
 			return pb.runner.RunInContainer(pod.GetId(), container.Id, cmd, timeout)
 		},
 	}
+}
+
+func (eic *execInContainer) Command() []string {
+	return eic.cmd
 }
 
 func (eic *execInContainer) Run() error {
