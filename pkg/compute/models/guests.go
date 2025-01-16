@@ -884,7 +884,7 @@ func (manager *SGuestManager) initAdminSecgroupId() error {
 	adminSecId := adminSec.Id
 	guests := make([]SGuest, 0, 10)
 	q := manager.Query()
-	q = q.In("hypervisor", []string{api.HYPERVISOR_KVM}).IsNullOrEmpty("admin_secgrp_id")
+	q = q.In("hypervisor", []string{api.HYPERVISOR_KVM, api.HYPERVISOR_POD}).IsNullOrEmpty("admin_secgrp_id")
 	err := db.FetchModelObjects(manager, q, &guests)
 	if err != nil {
 		return errors.Wrap(err, "db.FetchModelObjects")
