@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"strconv"
 	"strings"
 
 	excelize "github.com/xuri/excelize/v2"
@@ -108,8 +107,8 @@ func exportRow(xlsx *excelize.File, data jsonutils.JSONObject, keys []string, ro
 		if val != nil {
 			// hack, make floating point number prettier
 			if fval, ok := val.(*jsonutils.JSONFloat); ok {
-				f, _ := fval.Float()
-				fvalResult, _ := strconv.ParseFloat(fmt.Sprintf("%.2f", f), 64)
+				// 费用需要原样导出，避免数额不准
+				fvalResult, _ := fval.Float()
 				xlsx.SetCellValue(sheet, cell, fvalResult)
 			} else if ival, ok := val.(*jsonutils.JSONInt); ok {
 				i, _ := ival.Int()
