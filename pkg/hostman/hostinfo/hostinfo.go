@@ -132,6 +132,7 @@ type SHostInfo struct {
 	containerNvidiaGpus            []isolated_device.IDevice
 	hasNvidiaGpus                  *bool
 	hasVastaitechGpus              *bool
+	hasCphAmdGpus                  *bool
 }
 
 func (h *SHostInfo) GetContainerDeviceConfigurationFilePath() string {

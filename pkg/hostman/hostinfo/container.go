@@ -113,6 +113,21 @@ func (h *SHostInfo) HasContainerVastaitechGpu() bool {
 	return *h.hasVastaitechGpus
 }
 
+func (h *SHostInfo) HasContainerCphAmdGpu() bool {
+	if h.hasCphAmdGpus != nil {
+		return *h.hasCphAmdGpus
+	}
+	hasCphAmdGpus := false
+	devs := h.IsolatedDeviceMan.GetDevices()
+	for i := range devs {
+		if devs[i].GetDeviceType() == apis.CONTAINER_DEV_CPH_AMD_GPU {
+			hasCphAmdGpus = true
+		}
+	}
+	h.hasCphAmdGpus = &hasCphAmdGpus
+	return *h.hasCphAmdGpus
+}
+
 func (h *SHostInfo) HasContainerNvidiaGpu() bool {
 	if h.hasNvidiaGpus != nil {
 		return *h.hasNvidiaGpus
