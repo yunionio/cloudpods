@@ -92,6 +92,9 @@ func getPassthroughGPUs(filteredAddrs []string, enableWhitelist bool, whitelistM
 		if utils.IsInStringArray(dev.Addr, filteredAddrs) {
 			continue
 		}
+		if !utils.IsInArray(dev.ClassCode, GpuClassCodes) {
+			continue
+		}
 		if o.HostOptions.BootVgaPciAddr != "" {
 			if dev.Addr == o.HostOptions.BootVgaPciAddr && !o.HostOptions.UseBootVga {
 				continue
@@ -104,9 +107,6 @@ func getPassthroughGPUs(filteredAddrs []string, enableWhitelist bool, whitelistM
 			}
 		}
 
-		if !utils.IsInArray(dev.ClassCode, GpuClassCodes) {
-			continue
-		}
 		if dev.ClassCode == CLASS_CODE_DISP && !utils.IsInStringArray(dev.VendorId, []string{api.NVIDIA_VENDOR_ID, api.AMD_VENDOR_ID}) {
 			log.Infof("Skip add device %s vendor is unsupport", dev.Addr)
 			continue
@@ -381,6 +381,10 @@ func (d *PCIDevice) checkSameIOMMUGroupDevice() error {
 
 func (d *PCIDevice) IsBootVGA() (bool, error) {
 	addr := d.Addr
+	if addr == "" {
+		log.Warningf("device address is empty: %#v", d)
+		return false, nil
+	}
 	output, err := procutils.NewCommand("find", "/sys/devices", "-name", "boot_vga").Output()
 	if err != nil {
 		if exiterr, ok := err.(*exec.ExitError); ok {
