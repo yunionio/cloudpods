@@ -684,11 +684,19 @@ func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 	var totalCnt int
 	var totalJson jsonutils.JSONObject
 	if pagingConf == nil {
-		// calculate total
-		totalQ := q.CountQuery()
-		totalCnt, totalJson, err = manager.CustomizedTotalCount(ctx, userCred, query, totalQ)
-		if err != nil {
-			return nil, errors.Wrap(err, "CustomizedTotalCount")
+		summaryStats := jsonutils.QueryBoolean(query, "summary_stats", false)
+		if summaryStats {
+			// calculate total
+			totalQ := q.CountQuery()
+			totalCnt, totalJson, err = manager.CustomizedTotalCount(ctx, userCred, query, totalQ)
+			if err != nil {
+				return nil, errors.Wrap(err, "CustomizedTotalCount")
+			}
+		} else {
+			totalCnt, err = q.CountWithError()
+			if err != nil {
+				return nil, errors.Wrap(err, "CountWithError")
+			}
 		}
 		//log.Debugf("total count %d", totalCnt)
 		if totalCnt == 0 {
