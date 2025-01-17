@@ -17,8 +17,10 @@ package hostinfo
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/netutils"
 
@@ -28,6 +30,7 @@ import (
 	computemodules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	computeoptions "yunion.io/x/onecloud/pkg/mcclient/options/compute"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
+	"yunion.io/x/onecloud/pkg/util/iproute2"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 )
@@ -57,12 +60,13 @@ func (n *SNIC) setupHostLocalNetworks(ctx context.Context) error {
 	}
 	hostLocalNics := make([]computeapis.NetworkDetails, 0)
 	for i := range nets {
-		if len(nets[i].GuestGateway) == 0 {
+		net := nets[i]
+		if len(net.GuestGateway) == 0 {
 			continue
 		}
-		err := n.setupHostLocalNet(ctx, nets[i])
+		err := n.setupHostLocalNet(ctx, net)
 		if err != nil {
-			return errors.Wrap(err, "setupHostLocalNet")
+			return errors.Wrapf(err, "setupHostLocalNet of %s", jsonutils.Marshal(net))
 		}
 		hostLocalNics = append(hostLocalNics, nets[i])
 	}
@@ -83,34 +87,87 @@ func (n *SNIC) setupHostLocalNet(ctx context.Context, netInfo computeapis.Networ
 func (n *SNIC) setupSlaveIp(ctx context.Context, gatewayIp string, maskLen byte) error {
 	bridgeIf := netutils2.NewNetInterface(n.Bridge)
 	slaveAddrs := bridgeIf.GetSlaveAddresses()
+	var curGatewayIp string
+	var curMaskLen string
+	isMaskUpdate := false
 	for i := range slaveAddrs {
-		if slaveAddrs[i][0] == gatewayIp {
-			// already configured, skip
-			return nil
+		addr := slaveAddrs[i]
+		curGatewayIp = addr[0]
+		curMaskLen = addr[1]
+		if curGatewayIp == gatewayIp {
+			if curMaskLen == fmt.Sprintf("%d", maskLen) {
+				// already configured, skip
+				return nil
+			} else {
+				isMaskUpdate = true
+				break
+			}
 		}
 	}
-	if err := n.BridgeDev.SetupSlaveAddresses([][]string{[]string{gatewayIp, fmt.Sprintf("%d", maskLen)}}); err != nil {
+	if err := n.BridgeDev.SetupSlaveAddresses([][]string{
+		{gatewayIp, fmt.Sprintf("%d", maskLen)},
+	}); err != nil {
 		return errors.Wrap(err, "SetupSlaveAddresses")
 	}
-	if err := n.setupMasquerateRule(ctx, gatewayIp, maskLen); err != nil {
-		return errors.Wrap(err, "setupMasquerateRule")
+	if err := n.setupMasqueradeRule(ctx, gatewayIp, maskLen); err != nil {
+		return errors.Wrap(err, "setupMasqueradeRule")
+	}
+	if isMaskUpdate {
+		brName := n.BridgeDev.Bridge()
+		logPrefix := fmt.Sprintf("%s slave address %s mask is update from %s to %d", brName, gatewayIp, curMaskLen, maskLen)
+		addr := fmt.Sprintf("%s/%s", gatewayIp, curMaskLen)
+		log.Infof("%s: delete addr %s", logPrefix, addr)
+		if err := iproute2.NewAddress(n.BridgeDev.Bridge(), addr).Del().Err(); err != nil {
+			log.Warningf("%s: delete addr %s: %v", logPrefix, addr, err)
+		}
+		curMaskLenInt, _ := strconv.Atoi(curMaskLen)
+		if err := n.deleteMasqueradeRule(ctx, gatewayIp, byte(curMaskLenInt)); err != nil {
+			log.Warningf("%s: delete iptables masqueradeRule: %v", logPrefix, err)
+		}
 	}
 	return nil
 }
 
-func (n *SNIC) setupMasquerateRule(ctx context.Context, ipStr string, maskLen byte) error {
+type IptablesAction int
+
+const (
+	IPTABLES_ACTION_APPEND IptablesAction = iota
+	IPTABLES_ACTION_DELETE
+)
+
+func (n *SNIC) doMasqueradeRule(ctx context.Context, ipStr string, maskLen byte, action IptablesAction) error {
 	gwip, err := netutils.NewIPV4Addr(ipStr)
 	if err != nil {
 		return errors.Wrapf(err, "NewIPV4Addr %s", ipStr)
 	}
 	netip := gwip.NetAddr(int8(maskLen))
 	maskip := netutils.Masklen2Mask(int8(maskLen))
-	cmd := procutils.NewCommand("iptables", "-t", "nat", "-A", "POSTROUTING", "-s",
+	var actionOpt string
+	var actionInfo string
+	switch action {
+	case IPTABLES_ACTION_APPEND:
+		actionOpt = "-A"
+		actionInfo = "append"
+	case IPTABLES_ACTION_DELETE:
+		actionOpt = "-D"
+		actionInfo = "delete"
+	default:
+		return errors.Errorf("unknown action %d", action)
+	}
+	cmd := procutils.NewCommand("iptables", "-t", "nat", actionOpt, "POSTROUTING", "-s",
 		fmt.Sprintf("%s/%s", netip.String(), maskip.String()), "-o", n.Bridge, "-j", "MASQUERADE")
 	if err := cmd.Run(); err != nil {
-		return errors.Wrap(err, "add masquerade rule")
+		return errors.Wrapf(err, "%s masquerade rule", actionInfo)
 	}
 	return nil
+}
+
+func (n *SNIC) setupMasqueradeRule(ctx context.Context, ipStr string, maskLen byte) error {
+	return n.doMasqueradeRule(ctx, ipStr, maskLen, IPTABLES_ACTION_APPEND)
+}
+
+func (n *SNIC) deleteMasqueradeRule(ctx context.Context, ipStr string, maskLen byte) error {
+	return n.doMasqueradeRule(ctx, ipStr, maskLen, IPTABLES_ACTION_DELETE)
 }
 
 func (n *SNIC) fetchHostLocalNetworks(ctx context.Context) ([]computeapis.NetworkDetails, error) {
