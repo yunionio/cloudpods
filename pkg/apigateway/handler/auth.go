@@ -16,6 +16,7 @@ package handler
 
 import (
 	"context"
+	"crypto/md5"
 	"encoding/base64"
 	"fmt"
 	"net/http"
@@ -44,6 +45,8 @@ import (
 	compute_modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/identity"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/notify"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/yunionconf"
+	"yunion.io/x/onecloud/pkg/util/hashcache"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
@@ -75,6 +78,7 @@ func (h *AuthHandlers) AddMethods() {
 		NewHP(h.handleSsoLogin, "ssologin"),
 		NewHP(h.handleIdpInitSsoLogin, "ssologin", "<idp_id>"),
 		NewHP(h.postLogoutHandler, "logout"),
+		NewHP(h.getScopedPolicyBindings, "scopedpolicybindings"),
 		// oidc auth
 		NewHP(handleOIDCAuth, "oidc", "auth"),
 		NewHP(handleOIDCConfiguration, "oidc", ".well-known", "openid-configuration"),
@@ -210,6 +214,28 @@ func (h *AuthHandlers) getRegions(ctx context.Context, w http.ResponseWriter, re
 		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
+	appsrv.SendJSON(w, jsonutils.Marshal(resp))
+}
+
+var (
+	bindingCache = hashcache.NewCache(1024, time.Minute)
+)
+
+func (h *AuthHandlers) getScopedPolicyBindings(ctx context.Context, w http.ResponseWriter, req *http.Request) {
+	_, params, _ := appsrv.FetchEnv(ctx, w, req)
+	hash := fmt.Sprintf("%x", md5.Sum([]byte(params.String())))
+	cache := bindingCache.Get(hash)
+	if cache != nil {
+		appsrv.SendJSON(w, jsonutils.Marshal(cache))
+		return
+	}
+	s := auth.GetAdminSession(ctx, options.Options.Region)
+	resp, err := yunionconf.ScopedPolicyBindings.List(s, params)
+	if err != nil {
+		httperrors.GeneralServerError(ctx, w, err)
+		return
+	}
+	bindingCache.AtomicSet(hash, resp)
 	appsrv.SendJSON(w, jsonutils.Marshal(resp))
 }
 
