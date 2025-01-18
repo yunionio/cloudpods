@@ -1235,6 +1235,9 @@ func (manager *SNetworkManager) FetchCustomizeColumns(
 		if network.IsExitNetwork() {
 			rows[i].Exit = true
 		}
+		if network.IsClassic() {
+			rows[i].IsClassic = true
+		}
 		rows[i].Ports = network.GetPorts()
 		rows[i].Routes = network.GetRoutes()
 		rows[i].Schedtags = GetSchedtagsDetailsToResourceV2(network, ctx)
