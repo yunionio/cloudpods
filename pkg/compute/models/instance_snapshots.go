@@ -606,6 +606,29 @@ func (self *SInstanceSnapshot) StartInstanceSnapshotDeleteTask(
 	return nil
 }
 
+func (self *SInstanceSnapshot) PerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	snapshots, err := self.GetSnapshots()
+	if err != nil {
+		return nil, err
+	}
+	for i := range snapshots {
+		snapshotId := snapshots[i].Id
+		isjp := new(SInstanceSnapshotJoint)
+		err = InstanceSnapshotJointManager.Query().
+			Equals("instance_snapshot_id", self.Id).Equals("snapshot_id", snapshotId).First(isjp)
+		err = isjp.Delete(ctx, userCred)
+		if err != nil {
+			return nil, errors.Wrapf(err, "delete instance snapshot joint: %s", snapshotId)
+		}
+		_, err = snapshots[i].PerformPurge(ctx, userCred, query, data)
+		if err != nil {
+			return nil, errors.Wrapf(err, "delete snapshot: %s", snapshotId)
+		}
+	}
+	err = self.RealDelete(ctx, userCred)
+	return nil, err
+}
+
 func (self *SInstanceSnapshot) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	return db.DeleteModel(ctx, userCred, self)
 }
