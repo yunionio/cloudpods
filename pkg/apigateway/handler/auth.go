@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/util/httputils"
 	"yunion.io/x/pkg/util/printutils"
 	"yunion.io/x/pkg/util/rbacscope"
@@ -221,7 +222,17 @@ var (
 )
 
 func (h *AuthHandlers) getScopedPolicyBindings(ctx context.Context, w http.ResponseWriter, req *http.Request) {
-	_, params, _ := appsrv.FetchEnv(ctx, w, req)
+	_, _params, _ := appsrv.FetchEnv(ctx, w, req)
+	if gotypes.IsNil(_params) {
+		_params = jsonutils.NewDict()
+	}
+	params := _params.(*jsonutils.JSONDict)
+	token, _, err := fetchAuthInfo(ctx, req)
+	if err != nil {
+		httperrors.GeneralServerError(ctx, w, err)
+		return
+	}
+	params.Set("project_id", jsonutils.NewString(token.GetProjectId()))
 	hash := fmt.Sprintf("%x", md5.Sum([]byte(params.String())))
 	cache := bindingCache.Get(hash)
 	if cache != nil {
