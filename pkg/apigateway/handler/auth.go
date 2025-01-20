@@ -16,6 +16,7 @@ package handler
 
 import (
 	"context"
+	"crypto/md5"
 	"encoding/base64"
 	"fmt"
 	"net/http"
@@ -25,6 +26,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/util/httputils"
 	"yunion.io/x/pkg/util/printutils"
 	"yunion.io/x/pkg/util/rbacscope"
@@ -44,6 +46,8 @@ import (
 	compute_modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/identity"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/notify"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/yunionconf"
+	"yunion.io/x/onecloud/pkg/util/hashcache"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
@@ -75,6 +79,7 @@ func (h *AuthHandlers) AddMethods() {
 		NewHP(h.handleSsoLogin, "ssologin"),
 		NewHP(h.handleIdpInitSsoLogin, "ssologin", "<idp_id>"),
 		NewHP(h.postLogoutHandler, "logout"),
+		NewHP(h.getScopedPolicyBindings, "scopedpolicybindings"),
 		// oidc auth
 		NewHP(handleOIDCAuth, "oidc", "auth"),
 		NewHP(handleOIDCConfiguration, "oidc", ".well-known", "openid-configuration"),
@@ -210,6 +215,38 @@ func (h *AuthHandlers) getRegions(ctx context.Context, w http.ResponseWriter, re
 		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
+	appsrv.SendJSON(w, jsonutils.Marshal(resp))
+}
+
+var (
+	bindingCache = hashcache.NewCache(1024, time.Minute)
+)
+
+func (h *AuthHandlers) getScopedPolicyBindings(ctx context.Context, w http.ResponseWriter, req *http.Request) {
+	_, _params, _ := appsrv.FetchEnv(ctx, w, req)
+	if gotypes.IsNil(_params) {
+		_params = jsonutils.NewDict()
+	}
+	params := _params.(*jsonutils.JSONDict)
+	token, _, err := fetchAuthInfo(ctx, req)
+	if err != nil {
+		httperrors.GeneralServerError(ctx, w, err)
+		return
+	}
+	params.Set("project_id", jsonutils.NewString(token.GetProjectId()))
+	hash := fmt.Sprintf("%x", md5.Sum([]byte(params.String())))
+	cache := bindingCache.Get(hash)
+	if cache != nil {
+		appsrv.SendJSON(w, jsonutils.Marshal(cache))
+		return
+	}
+	s := auth.GetAdminSession(ctx, options.Options.Region)
+	resp, err := yunionconf.ScopedPolicyBindings.List(s, params)
+	if err != nil {
+		httperrors.GeneralServerError(ctx, w, err)
+		return
+	}
+	bindingCache.AtomicSet(hash, resp)
 	appsrv.SendJSON(w, jsonutils.Marshal(resp))
 }
 
