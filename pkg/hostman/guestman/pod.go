@@ -1720,7 +1720,12 @@ func (s *sPodGuestInstance) createContainer(ctx context.Context, userCred mcclie
 		if err := s.getIsolatedDeviceExtraConfig(spec, ctrCfg); err != nil {
 			return "", err
 		}
+	} else {
+		if hostinfo.Instance().HasContainerNvidiaGpu() {
+			ctrCfg.Envs = append(ctrCfg.Envs, &runtimeapi.KeyValue{Key: "NVIDIA_VISIBLE_DEVICES", Value: "void"})
+		}
 	}
+
 	if len(spec.Command) != 0 {
 		ctrCfg.Command = spec.Command
 	}

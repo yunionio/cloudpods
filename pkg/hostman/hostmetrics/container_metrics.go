@@ -134,6 +134,10 @@ func (m PodCphAmdGpuMetrics) GetName() string {
 	return "pod_cph_amd_gpu"
 }
 
+func (m PodCphAmdGpuMetrics) GetUniformName() string {
+	return "pod_gpu"
+}
+
 func (m PodCphAmdGpuMetrics) GetTag() map[string]string {
 	return map[string]string{
 		"dev_id": m.DevId,
@@ -163,6 +167,10 @@ type PodVastaitechGpuMetrics struct {
 
 func (m PodVastaitechGpuMetrics) GetName() string {
 	return "pod_vastaitech_gpu"
+}
+
+func (m PodVastaitechGpuMetrics) GetUniformName() string {
+	return "pod_gpu"
 }
 
 func (m PodVastaitechGpuMetrics) GetTag() map[string]string {
@@ -195,6 +203,7 @@ type PodNvidiaGpuMetrics struct {
 	Framebuffer int     // Framebuffer Memory Usage
 	Ccpm        int     // Current CUDA Contexts Per Measurement
 	SmUtil      float64 // Streaming Multiprocessor Utilization
+	Mem         int     // Mem Usage
 	MemUtil     float64 // Memory Utilization
 	EncUtil     float64 // Encoder Utilization
 	DecUtil     float64 // Decoder Utilization
@@ -204,6 +213,10 @@ type PodNvidiaGpuMetrics struct {
 
 func (m PodNvidiaGpuMetrics) GetName() string {
 	return "pod_nvidia_gpu"
+}
+
+func (m PodNvidiaGpuMetrics) GetUniformName() string {
+	return "pod_gpu"
 }
 
 func (m PodNvidiaGpuMetrics) GetTag() map[string]string {
@@ -447,7 +460,7 @@ type ContainerMetricMeta struct {
 func (m ContainerMetricMeta) GetTag() map[string]string {
 	ret := map[string]string{
 		"pod_id":         m.PodId,
-		"container_name": m.ContainerName,
+		"container_name": strings.ReplaceAll(m.ContainerName, " ", "+"),
 	}
 	if m.ContainerId != "" {
 		ret["container_id"] = m.ContainerId
@@ -836,6 +849,7 @@ func (m *SGuestMonitor) getPodNvidiaGpuMetrics() []*PodNvidiaGpuMetrics {
 			continue
 		}
 		gms.MemTotal = memSizeTotal
+		gms.Mem = gms.Framebuffer
 		gms.MemUtil = float64(gms.Framebuffer) / float64(gms.MemTotal)
 	}
 	sort.Ints(indexs)
@@ -853,6 +867,10 @@ type iPodMetric interface {
 	GetName() string
 	GetTag() map[string]string
 	ToMap() map[string]interface{}
+}
+
+type iPodUniformName interface {
+	GetUniformName() string
 }
 
 func (d *GuestMetrics) toPodTelegrafData(tagStr string) []string {
@@ -901,6 +919,11 @@ func (d *GuestMetrics) toPodTelegrafData(tagStr string) []string {
 			newTagStr = strings.Join([]string{tagStr, strings.Join(newTagArr, ",")}, ",")
 		}
 		res = append(res, fmt.Sprintf("%s,%s %s", im.GetName(), newTagStr, d.mapToStatStr(im.ToMap())))
+		if imu, ok := im.(iPodUniformName); ok {
+			if un := imu.GetUniformName(); un != "" {
+				res = append(res, fmt.Sprintf("%s,%s %s", un, newTagStr, d.mapToStatStr(im.ToMap())))
+			}
+		}
 	}
 	res = append(res, d.netioToTelegrafData("pod_netio", tagStr)...)
 	return res
