@@ -18,6 +18,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/shirou/gopsutil/cpu"
 	"github.com/shirou/gopsutil/mem"
 
 	"yunion.io/x/jsonutils"
@@ -110,6 +111,7 @@ func (p *SHostPingTask) payload() api.SHostPingInput {
 	p.lastStatAt = now
 	data = storageman.GatherHostStorageStats(p.masterHostStorages)
 	data.WithData = true
+	data.QgaRunningGuestIds = guestman.GetGuestManager().GetQgaRunningGuests()
 	info, err := mem.VirtualMemory()
 	if err != nil {
 		return data
@@ -118,7 +120,13 @@ func (p *SHostPingTask) payload() api.SHostPingInput {
 	memFree := int(info.Available / 1024 / 1024)
 	memUsed := memTotal - memFree
 	data.MemoryUsedMb = memUsed
-	data.QgaRunningGuestIds = guestman.GetGuestManager().GetQgaRunningGuests()
+	cpuUsage, err := cpu.Percent(time.Second, false)
+	if err != nil {
+		return data
+	}
+	if len(cpuUsage) > 0 {
+		data.CpuUsagePercent = cpuUsage[0]
+	}
 	return data
 }
 
