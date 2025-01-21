@@ -1175,11 +1175,14 @@ func (c *SContainer) PerformRemoveVolumeMountPostOverlay(ctx context.Context, us
 
 func (c *SContainer) removePostOverlay(vmd *apis.ContainerVolumeMountDisk, ov *apis.ContainerVolumeMountDiskPostOverlay) *apis.ContainerVolumeMountDisk {
 	curOvs := vmd.PostOverlay
-	for i, cov := range curOvs {
+	resultOvs := []*apis.ContainerVolumeMountDiskPostOverlay{}
+	for i := range curOvs {
+		cov := curOvs[i]
 		if cov.IsEqual(*ov) {
-			curOvs = append(curOvs[:i], curOvs[i+1:]...)
+			continue
 		}
+		resultOvs = append(resultOvs, cov)
 	}
-	vmd.PostOverlay = curOvs
+	vmd.PostOverlay = resultOvs
 	return vmd
 }
