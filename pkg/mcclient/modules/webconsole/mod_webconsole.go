@@ -216,6 +216,7 @@ func (m WebConsoleManager) doCloudShell(s *mcclient.ClientSession, info *webcons
 		"OS_ACCESS_KEY":           "",
 		"OS_SECRET_KEY":           "",
 		"OS_TRY_TERM_WIDTH":       "false",
+		"GOMAXPROCS":              "2",
 	}
 	return m.doCloudSshShell(s, info, cmd, args, env)
 	/*return m.doActionWithClimcPod(s, func(s *mcclient.ClientSession, clusterId string, pod jsonutils.JSONObject) (jsonutils.JSONObject, error) {
