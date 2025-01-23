@@ -94,7 +94,8 @@ type DataDisks struct {
 type SInstance struct {
 	multicloud.SInstanceBase
 	SKsTag
-	host *SHost
+	host   *SHost
+	region *SRegion
 
 	InstanceID            string                `json:"InstanceId"`
 	ProjectID             string                `json:"ProjectId"`
@@ -186,16 +187,16 @@ func (region *SRegion) GetInstance(instanceId string) (*SInstance, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "GetInstances")
 	}
-	for _, instance := range instances {
-		if instance.GetGlobalId() == instanceId {
-			return &instance, nil
+	for i := range instances {
+		if instances[i].GetGlobalId() == instanceId {
+			return &instances[i], nil
 		}
 	}
-	return nil, errors.Wrapf(err, "instance id:%s", instanceId)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, instanceId)
 }
 
 func (ins *SInstance) Refresh() error {
-	extIns, err := ins.host.zone.region.GetInstance(ins.GetGlobalId())
+	extIns, err := ins.getRegion().GetInstance(ins.GetGlobalId())
 	if err != nil {
 		return errors.Wrap(err, "GetInstance")
 	}
@@ -203,11 +204,18 @@ func (ins *SInstance) Refresh() error {
 }
 
 func (ins *SInstance) GetTags() (map[string]string, error) {
-	tags, err := ins.host.zone.region.ListTags("kec-instance", ins.InstanceID)
+	tags, err := ins.getRegion().ListTags("kec-instance", ins.InstanceID)
 	if err != nil {
 		return nil, err
 	}
 	return tags.GetTags(), nil
+}
+
+func (ins *SInstance) getRegion() *SRegion {
+	if ins.region != nil {
+		return ins.region
+	}
+	return ins.host.zone.region
 }
 
 func (ins *SInstance) AssignSecurityGroup(secgroupId string) error {
@@ -320,7 +328,7 @@ func (ins *SInstance) GetHypervisor() string {
 }
 
 func (ins *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
-	disks, err := ins.host.zone.region.GetDiskByInstanceId(ins.GetId())
+	disks, err := ins.getRegion().GetDiskByInstanceId(ins.GetId())
 	if err != nil {
 		return nil, errors.Wrap(err, "getDisks")
 	}
@@ -339,7 +347,7 @@ func (ins *SInstance) GetIEIP() (cloudprovider.ICloudEIP, error) {
 	if len(eipIds) == 0 {
 		return nil, cloudprovider.ErrNotFound
 	}
-	eips, err := ins.host.zone.region.GetEips(eipIds)
+	eips, err := ins.getRegion().GetEips(eipIds)
 	if err != nil {
 		return nil, errors.Wrap(err, "get eips")
 	}
@@ -348,7 +356,7 @@ func (ins *SInstance) GetIEIP() (cloudprovider.ICloudEIP, error) {
 	}
 	for _, eip := range eips {
 		if utils.IsInStringArray(eip.GetId(), eipIds) {
-			eip.region = ins.host.zone.region
+			eip.region = ins.getRegion()
 			return &eip, nil
 		}
 	}
@@ -371,7 +379,7 @@ func (ins *SInstance) GetINics() ([]cloudprovider.ICloudNic, error) {
 
 func (ins *SInstance) GetVNCInfo(input *cloudprovider.ServerVncInput) (*cloudprovider.ServerVncOutput, error) {
 	// TODO
-	resp, err := ins.host.zone.region.ecsRequest("GetVNCAddress", map[string]string{"InstanceId": ins.InstanceID})
+	resp, err := ins.getRegion().ecsRequest("GetVNCAddress", map[string]string{"InstanceId": ins.InstanceID})
 	if err != nil {
 		return nil, errors.Wrap(err, "GetVNCAddress")
 	}
