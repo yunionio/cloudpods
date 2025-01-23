@@ -39,28 +39,32 @@ func Unquote(str string) string {
 }
 
 func findString(str []byte, offset int) (string, int) {
-	return _findWord(str, offset, "\n\r")
+	return _findWord(str, offset, "\n\r", isQuoteCharInternal)
 }
 
 func findWord(str []byte, offset int) (string, int) {
-	return _findWord(str, offset, " :,\t\n}]")
+	return _findWord(str, offset, " :,\t\n}]", isQuoteCharInternal)
 }
 
-func _findWord(str []byte, offset int, sepChars string) (string, int) {
+func isQuoteCharInternal(ch byte) (bool, string) {
+	switch ch {
+	case '"':
+		return true, "\""
+	case '\'':
+		return true, "'"
+	default:
+		return false, ""
+	}
+}
+
+func _findWord(str []byte, offset int, sepChars string, isQuoteChar func(ch byte) (bool, string)) (string, int) {
 	var buffer bytes.Buffer
 	i := skipEmpty(str, offset)
 	if i >= len(str) {
 		return "", i
 	}
-	var endstr string
-	quote := false
-	if str[i] == '"' {
-		quote = true
-		endstr = "\""
-		i++
-	} else if str[i] == '\'' {
-		quote = true
-		endstr = "'"
+	quote, endstr := isQuoteChar(str[i])
+	if quote {
 		i++
 	} else {
 		// endstr = " :,\t\n\r}]"
@@ -98,22 +102,30 @@ func _findWord(str []byte, offset int, sepChars string) (string, int) {
 }
 
 func FindWords(str []byte, offset int) []string {
+	words, err := FindWords2(str, offset, " :,\t\n}]", isQuoteCharInternal)
+	if err != nil {
+		panic(err.Error())
+	}
+	return words
+}
+
+func FindWords2(str []byte, offset int, sepChars string, isQuoteChar func(ch byte) (bool, string)) ([]string, error) {
 	words := make([]string, 0)
 	for offset < len(str) {
-		word, i := findWord(str, offset)
+		word, i := _findWord(str, offset, sepChars, isQuoteChar)
 		words = append(words, word)
 		i = skipEmpty(str, i)
 		if i < len(str) {
-			if str[i] == ',' {
+			if strings.IndexByte(sepChars, str[i]) >= 0 {
 				offset = i + 1
 			} else {
-				panic(fmt.Sprintf("Malformed multi value string: %s", string(str[offset:])))
+				return nil, fmt.Errorf("Malformed multi value string: %s", string(str[offset:]))
 			}
 		} else {
 			offset = i
 		}
 	}
-	return words
+	return words, nil
 }
 
 func TagMap(tag reflect.StructTag) map[string]string {
@@ -155,7 +167,7 @@ func SplitCSV(csv string) []string {
 	str := []byte(csv)
 	for offset < len(str) {
 		var word string
-		word, offset = _findWord(str, offset, ",\r\n")
+		word, offset = _findWord(str, offset, ",\r\n", isQuoteCharInternal)
 		words = append(words, word)
 		if offset < len(str) {
 			offset++
