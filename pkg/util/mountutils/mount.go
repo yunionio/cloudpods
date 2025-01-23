@@ -55,6 +55,19 @@ func Mount(devPath string, mountPoint string, fsType string) error {
 	})
 }
 
+func MountWithParams(devPath string, mountPoint string, fsType string, opts []string) error {
+	return mountWrap(mountPoint, func() error {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		args := []string{"-t", fsType, devPath, mountPoint}
+		args = append(args, opts...)
+		if out, err := procutils.NewRemoteCommandContextAsFarAsPossible(ctx, "mount", args...).Output(); err != nil {
+			return errors.Wrapf(err, "mount %s to %s with fs %s: %s", devPath, mountPoint, fsType, string(out))
+		}
+		return nil
+	})
+}
+
 func MountOverlay(lowerDir []string, upperDir string, workDir string, mergedDir string) error {
 	return mountOverlay(lowerDir, upperDir, workDir, mergedDir, nil)
 }
