@@ -18,12 +18,12 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/apis"
 	hostapi "yunion.io/x/onecloud/pkg/apis/host"
 	container_storage "yunion.io/x/onecloud/pkg/hostman/container/storage"
+	"yunion.io/x/onecloud/pkg/util/mountutils"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 )
 
@@ -38,27 +38,11 @@ func (h cephFS) Mount(pod IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMou
 	if err != nil {
 		return err
 	}
-	if err := EnsureDir(dir); err != nil {
-		return errors.Wrap(err, "EnsureDir")
-	}
-	if err := procutils.NewRemoteCommandAsFarAsPossible("mountpoint", dir).Run(); err == nil {
-		log.Warningf("mountpoint %s is already mounted", dir)
-		return nil
-	}
 	options := fmt.Sprintf("name=%s,secret=%s", vm.CephFS.Name, vm.CephFS.Secret)
 	if vm.ReadOnly {
 		options += ",ro"
 	}
-	args := []string{
-		"-t", "ceph",
-		fmt.Sprintf("%s:%s", vm.CephFS.MonHost, vm.CephFS.Path), dir,
-		"-o", options,
-	}
-	out, err := procutils.NewRemoteCommandAsFarAsPossible("mount", args...).Output()
-	if err != nil {
-		return errors.Wrapf(err, "mount %s: %s", dir, out)
-	}
-	return nil
+	return mountutils.MountWithParams(fmt.Sprintf("%s:%s", vm.CephFS.MonHost, vm.CephFS.Path), dir, "ceph", []string{"-o", options})
 }
 
 func (h cephFS) Unmount(pod IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount) error {
