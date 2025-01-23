@@ -608,6 +608,9 @@ func (manager *SDiskManager) ValidateCreateData(ctx context.Context, userCred mc
 	if err != nil {
 		return input, errors.Wrap(err, "SEncryptedResourceManager.ValidateCreateData")
 	}
+	if err := manager.ValidateFsFeatures(input.Fs, input.FsFeatures); err != nil {
+		return input, err
+	}
 
 	pendingUsage := SQuota{Storage: diskConfig.SizeMb}
 	pendingUsage.SetKeys(quotaKey)
@@ -615,6 +618,21 @@ func (manager *SDiskManager) ValidateCreateData(ctx context.Context, userCred mc
 		return input, httperrors.NewOutOfQuotaError("%s", err)
 	}
 	return input, nil
+}
+
+func (manager *SDiskManager) ValidateFsFeatures(fsType string, feature *api.DiskFsFeatures) error {
+	if feature == nil {
+		return nil
+	}
+	if feature.Ext4 != nil {
+		if fsType != "ext4" {
+			return httperrors.NewInputParameterError("only ext4 fs can set fs_features.ext4, current is %q", fsType)
+		}
+		if feature.Ext4.ReservedBlocksPercentage < 0 || feature.Ext4.ReservedBlocksPercentage >= 100 {
+			return httperrors.NewInputParameterError("ext4.reserved_blocks_percentage must in range [1, 99]")
+		}
+	}
+	return nil
 }
 
 func (manager *SDiskManager) validateDiskOnStorage(diskConfig *api.DiskConfig, storage *SStorage) error {
@@ -2248,11 +2266,9 @@ func (self *SDisk) fetchDiskInfo(diskConfig *api.DiskConfig) error {
 	if len(diskConfig.Fs) > 0 {
 		self.FsFormat = diskConfig.Fs
 	}
-	if diskConfig.FsFeatures != nil {
-		self.FsFeatures = diskConfig.FsFeatures
-		if self.FsFeatures.Ext4 != nil && self.FsFormat != "ext4" {
-			return httperrors.NewInputParameterError("only ext4 fs can set fs_features.ext4, current is %q", self.FsFormat)
-		}
+	self.FsFeatures = diskConfig.FsFeatures
+	if err := DiskManager.ValidateFsFeatures(self.FsFormat, diskConfig.FsFeatures); err != nil {
+		return err
 	}
 	if self.FsFormat == "swap" {
 		self.DiskType = api.DISK_TYPE_SWAP

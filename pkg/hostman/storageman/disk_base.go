@@ -225,7 +225,8 @@ func ConvertDiskFsFeaturesToDeploy(fsFeatures *api.DiskFsFeatures) *deployapi.Fs
 	ret := &deployapi.FsFeatures{}
 	if fsFeatures.Ext4 != nil {
 		ret.Ext4 = &deployapi.FsExt4Features{
-			CaseInsensitive: fsFeatures.Ext4.CaseInsensitive,
+			CaseInsensitive:          fsFeatures.Ext4.CaseInsensitive,
+			ReservedBlocksPercentage: int32(fsFeatures.Ext4.ReservedBlocksPercentage),
 		}
 	}
 	return ret

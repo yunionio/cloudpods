@@ -397,14 +397,19 @@ func FormatPartition(path, fs, uuid string, fsFeatures *apis.FsFeatures) error {
 	case fs == "ext4":
 		feature := "^64bit"
 		extendOpts := "lazy_itable_init=1"
+		featureOpts := []string{}
 		if fsFeatures != nil && fsFeatures.Ext4 != nil {
 			if fsFeatures.Ext4.CaseInsensitive {
 				feature = fmt.Sprintf("%s,casefold,project,quota", feature)
 				//feature = fmt.Sprintf("casefold,project,quota")
 				extendOpts = fmt.Sprintf("%s,nodiscard,lazy_journal_init=1,encoding_flags=strict,encoding=utf8-12.1", extendOpts)
 			}
+			if fsFeatures.Ext4.ReservedBlocksPercentage > 0 {
+				featureOpts = append(featureOpts, []string{"-m", fmt.Sprintf("%d", fsFeatures.Ext4.ReservedBlocksPercentage)}...)
+			}
 		}
 		cmd = []string{"mkfs.ext4", "-O", feature, "-E", extendOpts}
+		cmd = append(cmd, featureOpts...)
 		log.Infof("===========format partion cmd: %#v", cmd)
 		/*
 			// see /etc/mke2fs.conf, default inode_ratio is 16384

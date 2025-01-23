@@ -172,21 +172,21 @@ func (d disk) connectDisk(iDisk storageman.IDisk) (string, bool, error) {
 	return devPath, isConnected, nil
 }
 
-func (d disk) mountDisk(devPath string, mntPoint string, fs string) error {
-	if err := container_storage.Mount(devPath, mntPoint, fs); err != nil {
+func (d disk) mountDisk(devPath string, mntPoint string, fs string, resUid int, resGid int) error {
+	if err := container_storage.MountWithResId(devPath, mntPoint, fs, resUid, resGid); err != nil {
 		return errors.Wrapf(err, "mount %s to %s", devPath, mntPoint)
 	}
 	return nil
 }
 
-func (d disk) connectDiskAndMount(drv container_storage.IContainerStorage, pod volume_mount.IPodInfo, iDisk storageman.IDisk, fs string) (string, error) {
+func (d disk) connectDiskAndMount(drv container_storage.IContainerStorage, pod volume_mount.IPodInfo, iDisk storageman.IDisk, fs string, resUid, resGid int) (string, error) {
 	devPath, isConnected, err := d.connectDisk(iDisk)
 	if err != nil {
 		return "", errors.Wrap(err, "connect disk")
 	}
 	mntPoint := pod.GetDiskMountPoint(iDisk)
 	mountErrs := []error{}
-	if err := d.mountDisk(devPath, mntPoint, fs); err != nil {
+	if err := d.mountDisk(devPath, mntPoint, fs, resUid, resGid); err != nil {
 		mountErrs = append(mountErrs, err)
 		if isConnected && strings.Contains(err.Error(), fmt.Sprintf("%s already mounted or mount point busy.", devPath)) {
 			// disconnect disk and mount agin
@@ -198,7 +198,7 @@ func (d disk) connectDiskAndMount(drv container_storage.IContainerStorage, pod v
 			if err != nil {
 				return mntPoint, errors.Wrap(err, "connect disk after disconnect")
 			}
-			if err := d.mountDisk(devPath, mntPoint, fs); err != nil {
+			if err := d.mountDisk(devPath, mntPoint, fs, resUid, resGid); err != nil {
 				mountErrs = append(mountErrs, errors.Wrapf(err, "mount disk after reconnect"))
 				return mntPoint, errors.NewAggregate(mountErrs)
 			}
@@ -218,7 +218,7 @@ func (d disk) Mount(pod volume_mount.IPodInfo, ctrId string, vm *hostapi.Contain
 	if err != nil {
 		return errors.Wrap(err, "get disk storage driver")
 	}
-	mntPoint, err := d.connectDiskAndMount(drv, pod, iDisk, gd.Fs)
+	mntPoint, err := d.connectDiskAndMount(drv, pod, iDisk, gd.Fs, vm.Disk.ResGid, vm.Disk.ResUid)
 	if err != nil {
 		return errors.Wrap(err, "connect disk and mount disk")
 	}
