@@ -70,7 +70,7 @@ type BaseOptions struct {
 
 	OsRegionName   string `default:"$OS_REGION_NAME" help:"Defaults to env[OS_REGION_NAME]"`
 	OsZoneName     string `default:"$OS_ZONE_NAME" help:"Defaults to env[OS_ZONE_NAME]"`
-	OsEndpointType string `default:"$OS_ENDPOINT_TYPE|internalURL" help:"Defaults to env[OS_ENDPOINT_TYPE] or internalURL" choices:"publicURL|internalURL|adminURL"`
+	OsEndpointType string `default:"$OS_ENDPOINT_TYPE|internalURL" help:"Defaults to env[OS_ENDPOINT_TYPE] or internalURL" choices:"publicURL|internalURL|adminURL|apigateway"`
 	// ApiVersion     string `default:"$API_VERSION" help:"override default modules service api version"`
 	OutputFormat string `default:"$CLIMC_OUTPUT_FORMAT|table" choices:"table|kv|json|yaml|flatten-table|flatten-kv" help:"output format"`
 
