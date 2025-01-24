@@ -107,7 +107,7 @@ func StartService() {
 	log.Infof("Target image formats %#v", opts.TargetImageFormats)
 
 	if ok, err := hasVmwareAccount(); err != nil {
-		log.Errorf("failed	get vmware cloudaccounts")
+		log.Errorf("failed get vmware cloudaccounts: %v", err)
 	} else if ok {
 		if !utils.IsInStringArray(string(qemuimgfmt.VMDK), options.Options.TargetImageFormats) {
 			if err = models.UpdateImageConfigTargetImageFormats(context.Background(), auth.AdminCredential()); err != nil {
@@ -177,7 +177,7 @@ func StartService() {
 func hasVmwareAccount() (bool, error) {
 	q := jsonutils.NewDict()
 	q.Add(jsonutils.NewString("system"), "scope")
-	q.Add(jsonutils.NewString("brand"), "VMware")
+	q.Add(jsonutils.NewString("VMware"), "brand")
 	res, err := compute.Cloudaccounts.List(auth.GetAdminSession(context.Background(), options.Options.Region), q)
 	if err != nil {
 		return false, err
