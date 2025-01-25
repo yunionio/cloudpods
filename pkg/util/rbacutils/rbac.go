@@ -43,6 +43,8 @@ const (
 	// ScopeObject  = "object"
 	ScopeUser = TRbacScope("user")
 	ScopeNone = TRbacScope("none")
+
+	GUEST_TOKEN = "guest_token"
 )
 
 var (
