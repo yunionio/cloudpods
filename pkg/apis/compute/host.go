@@ -553,7 +553,8 @@ type SHostStorageStat struct {
 type SHostPingInput struct {
 	WithData bool `json:"with_data"`
 
-	MemoryUsedMb int `json:"memory_used_mb"`
+	MemoryUsedMb    int     `json:"memory_used_mb"`
+	CpuUsagePercent float64 `json:"cpu_usage_percent"`
 
 	RootPartitionUsedCapacityMb int `json:"root_partition_used_capacity_mb"`
 
