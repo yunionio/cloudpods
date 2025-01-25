@@ -236,11 +236,27 @@ func ParseNetworkConfigByJSON(desc jsonutils.JSONObject, idx int) (*compute.Netw
 	return conf, err
 }
 
+func isQuoteChar(ch byte) (bool, string) {
+	switch ch {
+	case '[':
+		return true, "]"
+	default:
+		return false, ""
+	}
+}
+
+func splitConfig(confStr string) ([]string, error) {
+	return utils.FindWords2([]byte(confStr), 0, ":", isQuoteChar)
+}
+
 func ParseNetworkConfig(desc string, idx int) (*compute.NetworkConfig, error) {
 	if len(desc) == 0 {
 		return nil, ErrorEmptyDesc
 	}
-	parts := strings.Split(desc, ":")
+	parts, err := splitConfig(desc)
+	if err != nil {
+		return nil, errors.Wrap(err, "splitConfig")
+	}
 	netConfig := new(compute.NetworkConfig)
 	netConfig.Index = idx
 	for _, p := range parts {
@@ -283,23 +299,23 @@ func ParseNetworkConfig(desc string, idx int) (*compute.NetworkConfig, error) {
 				}
 				netConfig.Addresses6[i] = addr6.String()
 			}
-		} else if p == "[require_designated_ip]" {
+		} else if p == "require_designated_ip" {
 			netConfig.RequireDesignatedIP = true
-		} else if p == "[random_exit]" {
+		} else if p == "random_exit" {
 			netConfig.Exit = true
-		} else if p == "[random]" {
+		} else if p == "random" {
 			netConfig.Exit = false
-		} else if p == "[private]" {
+		} else if p == "private" {
 			netConfig.Private = true
-		} else if p == "[reserved]" {
+		} else if p == "reserved" {
 			netConfig.Reserved = true
-		} else if p == "[teaming]" {
+		} else if p == "teaming" {
 			netConfig.RequireTeaming = true
-		} else if p == "[try-teaming]" {
+		} else if p == "try-teaming" {
 			netConfig.TryTeaming = true
-		} else if p == "[defaultgw]" {
+		} else if p == "defaultgw" {
 			netConfig.IsDefault = true
-		} else if p == "[ipv6]" {
+		} else if p == "ipv6" {
 			netConfig.RequireIPv6 = true
 		} else if strings.HasPrefix(p, "standby-port=") {
 			netConfig.StandbyPortCount, _ = strconv.Atoi(p[len("standby-port="):])
@@ -315,7 +331,7 @@ func ParseNetworkConfig(desc string, idx int) (*compute.NetworkConfig, error) {
 				return nil, err
 			}
 			netConfig.BwLimit = bw
-		} else if p == "[vip]" {
+		} else if p == "vip" {
 			netConfig.Vip = true
 		} else if strings.HasPrefix(p, "sriov-nic-id=") {
 			netConfig.SriovDevice = &compute.IsolatedDeviceConfig{

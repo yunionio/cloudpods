@@ -238,6 +238,28 @@ func (region *SRegion) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
 	return iStores, nil
 }
 
+func (r *SRegion) GetIVMs() ([]cloudprovider.ICloudVM, error) {
+	vms, err := r.GetInstances("", nil)
+	if err != nil {
+		return nil, err
+	}
+	ret := []cloudprovider.ICloudVM{}
+	for i := range vms {
+		vms[i].region = r
+		ret = append(ret, &vms[i])
+	}
+	return ret, nil
+}
+
+func (r *SRegion) GetIVMById(id string) (cloudprovider.ICloudVM, error) {
+	vm, err := r.GetInstance(id)
+	if err != nil {
+		return nil, err
+	}
+	vm.region = r
+	return vm, nil
+}
+
 func (region *SRegion) ecsRequest(action string, params map[string]string) (jsonutils.JSONObject, error) {
 	return region.client.ec2Request(region.Region, action, params)
 }

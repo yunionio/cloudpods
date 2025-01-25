@@ -2391,7 +2391,11 @@ func (self *SGuest) PerformChangeIpaddr(
 	if input.NetConf != nil {
 		conf = input.NetConf
 	} else if len(input.NetDesc) > 0 {
-		netConf, err := cmdline.ParseNetworkConfigByJSON(jsonutils.NewString(input.NetDesc), -1)
+		netDescJson, err := jsonutils.ParseString(input.NetDesc)
+		if err != nil {
+			netDescJson = jsonutils.NewString(input.NetDesc)
+		}
+		netConf, err := cmdline.ParseNetworkConfigByJSON(netDescJson, -1)
 		if err != nil {
 			return nil, httperrors.NewInputParameterError("fail to parse net_desc %s: %s", input.NetDesc, err)
 		}
