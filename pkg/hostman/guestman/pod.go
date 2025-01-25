@@ -1379,7 +1379,11 @@ func (s *sPodGuestInstance) CreateContainer(ctx context.Context, userCred mcclie
 	if _, err := s.PullImage(ctx, userCred, id, imgInput); err != nil {
 		return nil, errors.Wrapf(err, "pull image %s", input.Spec.Image)
 	}
-	ctrCriId, err := s.createContainer(ctx, userCred, id, input)
+	pod, err := s.getPod(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "get pod")
+	}
+	ctrCriId, err := s.createContainer(ctx, userCred, pod, id, input)
 	if err != nil {
 		return nil, errors.Wrap(err, "CRI.CreateContainer")
 	}
@@ -1495,7 +1499,7 @@ func (s *sPodGuestInstance) getDefaultCPUPeriod() int64 {
 	return 100000
 }
 
-func (s *sPodGuestInstance) createContainer(ctx context.Context, userCred mcclient.TokenCredential, ctrId string, input *hostapi.ContainerCreateInput) (string, error) {
+func (s *sPodGuestInstance) createContainer(ctx context.Context, userCred mcclient.TokenCredential, sandbox *runtimeapi.PodSandbox, ctrId string, input *hostapi.ContainerCreateInput) (string, error) {
 	podCfg, err := s.getPodSandboxConfig()
 	if err != nil {
 		return "", errors.Wrap(err, "getPodSandboxConfig")
@@ -1707,9 +1711,9 @@ func (s *sPodGuestInstance) createContainer(ctx context.Context, userCred mcclie
 	if len(spec.Args) != 0 {
 		ctrCfg.Args = spec.Args
 	}
-	criId, err := s.getCRI().CreateContainer(ctx, s.GetCRIId(), podCfg, ctrCfg, false)
+	criId, err := s.getCRI().CreateContainer(ctx, sandbox.GetId(), podCfg, ctrCfg, false)
 	if err != nil {
-		return "", errors.Wrap(err, "cri.CreateContainer")
+		return "", errors.Wrapf(err, "cri.CreateContainer of pod: %q", sandbox.GetId())
 	}
 	if err := s.saveContainer(ctrId, criId); err != nil {
 		return "", errors.Wrap(err, "saveContainer")
