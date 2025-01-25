@@ -214,7 +214,7 @@ type SHost struct {
 	UefiInfo jsonutils.JSONObject `nullable:"true" get:"domain" update:"domain" create:"domain_optional"`
 
 	// 公网Ip地址
-	PublicIp string `width:"16" charset:"ascii" nullable:"true" list:"domain" update:"domain"`
+	PublicIp string `width:"128" charset:"ascii" nullable:"true" list:"domain" update:"domain"`
 }
 
 func (manager *SHostManager) GetContextManagers() [][]db.IModelManager {
