@@ -134,6 +134,8 @@ type PodInstance interface {
 
 	IsInternalStopped(ctrCriId string) (*ContainerExpectedStatus, bool)
 	IsInternalRemoved(ctrCriId string) bool
+
+	GetPodContainerCriIds() []string
 }
 
 type sContainer struct {
@@ -586,6 +588,24 @@ func (s *sPodGuestInstance) umountPodVolumes() error {
 
 func (s *sPodGuestInstance) GetContainers() []*hostapi.ContainerDesc {
 	return s.GetDesc().Containers
+}
+
+func (s *sPodGuestInstance) GetPodContainerCriIds() []string {
+	criids := make([]string, 0)
+	for i := range s.containers {
+		criids = append(criids, s.containers[i].CRIId)
+	}
+	return criids
+}
+
+func (s *sPodGuestInstance) HasContainerNvidiaGpu() bool {
+	for i := range s.Desc.IsolatedDevices {
+		if s.Desc.IsolatedDevices[i].DevType == computeapi.CONTAINER_DEV_NVIDIA_MPS ||
+			s.Desc.IsolatedDevices[i].DevType == computeapi.CONTAINER_DEV_NVIDIA_GPU {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *sPodGuestInstance) GetContainerById(ctrId string) *hostapi.ContainerDesc {
@@ -1704,7 +1724,12 @@ func (s *sPodGuestInstance) createContainer(ctx context.Context, userCred mcclie
 		if err := s.getIsolatedDeviceExtraConfig(spec, ctrCfg); err != nil {
 			return "", err
 		}
+	} else {
+		if hostinfo.Instance().HasContainerNvidiaGpu() {
+			ctrCfg.Envs = append(ctrCfg.Envs, &runtimeapi.KeyValue{Key: "NVIDIA_VISIBLE_DEVICES", Value: "void"})
+		}
 	}
+
 	if len(spec.Command) != 0 {
 		ctrCfg.Command = spec.Command
 	}

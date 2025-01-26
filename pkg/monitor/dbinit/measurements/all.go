@@ -82,6 +82,7 @@ var All = []SMeasurement{
 	ping,
 
 	podCpu,
+	podGpu,
 	podMem,
 	podVolume,
 	podProcess,

@@ -33,8 +33,9 @@ const (
 	TELEGRAF_INPUT_RADEONTOP           = "radeontop"
 	TELEGRAF_INPUT_RADEONTOP_DEV_PATHS = "device_paths"
 	TELEGRAF_INPUT_CONF_BIN_PATH       = "bin_path"
-	TELEGAF_INPUT_NETDEV               = "ni_rsrc_mon"
-	TELEGAF_INPUT_VASMI                = "vasmi"
+	TELEGRAF_INPUT_NETDEV              = "ni_rsrc_mon"
+	TELEGRAF_INPUT_VASMI               = "vasmi"
+	TELEGRAF_INPUT_NVIDIASMI           = "nvidia-smi"
 )
 
 type STelegraf struct {
@@ -315,19 +316,25 @@ func (s *STelegraf) GetConfig(kwargs map[string]interface{}) string {
 		conf += "\n"
 	}
 
-	if netdev, ok := kwargs[TELEGAF_INPUT_NETDEV]; ok {
+	if netdev, ok := kwargs[TELEGRAF_INPUT_NETDEV]; ok {
 		netdevMap, _ := netdev.(map[string]interface{})
-		conf += fmt.Sprintf("[[inputs.%s]]\n", TELEGAF_INPUT_NETDEV)
+		conf += fmt.Sprintf("[[inputs.%s]]\n", TELEGRAF_INPUT_NETDEV)
 		conf += fmt.Sprintf("  bin_path = \"%s\"\n", netdevMap[TELEGRAF_INPUT_CONF_BIN_PATH].(string))
 		conf += "\n"
 	}
 
-	if vasmi, ok := kwargs[TELEGAF_INPUT_VASMI]; ok {
+	if vasmi, ok := kwargs[TELEGRAF_INPUT_VASMI]; ok {
 		vasmiMap, _ := vasmi.(map[string]interface{})
-		conf += fmt.Sprintf("[[inputs.%s]]\n", TELEGAF_INPUT_VASMI)
+		conf += fmt.Sprintf("[[inputs.%s]]\n", TELEGRAF_INPUT_VASMI)
 		conf += fmt.Sprintf("  bin_path = \"%s\"\n", vasmiMap[TELEGRAF_INPUT_CONF_BIN_PATH].(string))
 		conf += "\n"
 	}
+
+	if _, ok := kwargs[TELEGRAF_INPUT_NVIDIASMI]; ok {
+		conf += "[[inputs.nvidia_smi]]\n"
+		conf += "\n"
+	}
+
 	return conf
 }
 

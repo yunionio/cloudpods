@@ -82,6 +82,17 @@ func (m *nvidiaGPUManager) GetContainerExtraConfigures(devs []*hostapi.Container
 
 type nvidiaGPU struct {
 	*BaseDevice
+
+	memSize  int
+	gpuIndex string
+}
+
+func (dev *nvidiaGPU) GetNvidiaDevMemSize() int {
+	return dev.memSize
+}
+
+func (dev *nvidiaGPU) GetNvidiaDevIndex() string {
+	return dev.gpuIndex
 }
 
 func getNvidiaGPUs() ([]isolated_device.IDevice, error) {
@@ -91,7 +102,7 @@ func getNvidiaGPUs() ([]isolated_device.IDevice, error) {
 	// GPU-bc1a3bb9-55cb-8c52-c374-4f8b4f388a20, NVIDIA A800-SXM4-80GB, 00000000:10:00.0
 
 	// nvidia-smi  --query-gpu=gpu_uuid,gpu_name,gpu_bus_id,memory.total,compute_mode --format=csv
-	out, err := procutils.NewRemoteCommandAsFarAsPossible("nvidia-smi", "--query-gpu=gpu_uuid,gpu_name,gpu_bus_id,compute_mode", "--format=csv").Output()
+	out, err := procutils.NewRemoteCommandAsFarAsPossible("nvidia-smi", "--query-gpu=gpu_uuid,gpu_name,gpu_bus_id,compute_mode,memory.total,index", "--format=csv").Output()
 	if err != nil {
 		return nil, errors.Wrap(err, "nvidia-smi")
 	}
@@ -101,14 +112,18 @@ func getNvidiaGPUs() ([]isolated_device.IDevice, error) {
 			continue
 		}
 		segs := strings.Split(line, ",")
-		if len(segs) != 4 {
+		if len(segs) != 6 {
 			log.Errorf("unknown nvidia-smi out line %s", line)
 			continue
 		}
-		gpuId, gpuName, gpuPciAddr, computeMode := strings.TrimSpace(segs[0]), strings.TrimSpace(segs[1]), strings.TrimSpace(segs[2]), strings.TrimSpace(segs[3])
+		gpuId, gpuName, gpuPciAddr, computeMode, memTotal, index := strings.TrimSpace(segs[0]), strings.TrimSpace(segs[1]), strings.TrimSpace(segs[2]), strings.TrimSpace(segs[3]), strings.TrimSpace(segs[4]), strings.TrimSpace(segs[5])
 		if computeMode != "Default" {
 			log.Warningf("gpu device %s compute mode %s, skip.", gpuId, computeMode)
 			continue
+		}
+		memSize, err := parseMemSize(memTotal)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed parse memSize %s", memTotal)
 		}
 
 		pciOutput, err := isolated_device.GetPCIStrByAddr(gpuPciAddr)
@@ -118,6 +133,8 @@ func getNvidiaGPUs() ([]isolated_device.IDevice, error) {
 		dev := isolated_device.NewPCIDevice2(pciOutput[0])
 		gpuDev := &nvidiaGPU{
 			BaseDevice: NewBaseDevice(dev, isolated_device.ContainerDeviceTypeNvidiaGpu, gpuId),
+			memSize:    memSize,
+			gpuIndex:   index,
 		}
 		gpuDev.SetModelName(gpuName)
 

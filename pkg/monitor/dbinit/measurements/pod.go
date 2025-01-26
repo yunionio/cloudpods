@@ -39,6 +39,29 @@ var podCpu = SMeasurement{
 	},
 }
 
+var podGpu = SMeasurement{
+	Context: []SMonitorContext{
+		{
+			Name:         "pod_gpu",
+			DisplayName:  "Pod gpu",
+			ResourceType: monitor.METRIC_RES_TYPE_CONTAINER,
+			Database:     monitor.METRIC_DATABASE_TELE,
+		},
+	},
+	Metrics: []SMetric{
+		{
+			Name:        "mem",
+			DisplayName: "Pod gpu mem used",
+			Unit:        monitor.METRIC_UNIT_MB,
+		},
+		{
+			Name:        "mem_util",
+			DisplayName: "Pod gpu mem usage",
+			Unit:        monitor.METRIC_UNIT_PERCENT,
+		},
+	},
+}
+
 var podMem = SMeasurement{
 	Context: []SMonitorContext{
 		{
