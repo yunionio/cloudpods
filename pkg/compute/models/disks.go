@@ -2716,7 +2716,6 @@ func (manager *SDiskManager) AutoDiskSnapshot(ctx context.Context, userCred mccl
 		log.Infof("CronJob AutoDiskSnapshot: No disk need create snapshot")
 		return
 	}
-	now := time.Now()
 	for i := 0; i < len(spds); i++ {
 		var (
 			disk              = manager.FetchDiskById(spds[i].DiskId)
@@ -2733,7 +2732,6 @@ func (manager *SDiskManager) AutoDiskSnapshot(ctx context.Context, userCred mccl
 			goto onFail
 		}
 
-		disk.CleanOverduedSnapshots(ctx, userCred, snapshotPolicy, now)
 		db.OpsLog.LogEvent(disk, db.ACT_DISK_AUTO_SNAPSHOT, "disk auto snapshot "+snapshotName, userCred)
 		snapshotPolicy.ExecuteNotify(ctx, userCred, disk.GetName())
 		continue
