@@ -294,6 +294,9 @@ type ContainerVolumeMountDisk struct {
 	CaseInsensitivePaths []string `json:"case_insensitive_paths"`
 	// 当 disk volume 挂载完后，需要 overlay 的目录设置
 	PostOverlay []*ContainerVolumeMountDiskPostOverlay `json:"post_overlay"`
+	// The ext2 filesystem reserves a certain percentage of the available space (by default 5%, see mke2fs(8) and tune2fs(8)). These options determine who can use the reserved blocks. (Roughly: whoever has the specified uid, or belongs to the specified group.)
+	ResGid int `json:"res_gid"`
+	ResUid int `json:"res_uid"`
 }
 
 type ContainerVolumeMountHostPathType string

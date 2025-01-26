@@ -148,6 +148,7 @@ message ResizeFsParams {
 
 message FsExt4Features {
   bool CaseInsensitive = 1;
+  int32 ReservedBlocksPercentage = 2;
 }
 
 message FsFeatures {

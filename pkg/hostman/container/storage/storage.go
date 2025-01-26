@@ -59,6 +59,22 @@ func Mount(devPath string, mountPoint string, fsType string) error {
 	return mountutils.Mount(devPath, mountPoint, fsType)
 }
 
+func MountWithResId(devPath string, mountPoint string, fsType string, resUid int, resGid int) error {
+	opts := []string{}
+	if resUid > 0 {
+		opts = append(opts, fmt.Sprintf("resuid=%d", resUid))
+	}
+	if resGid > 0 {
+		opts = append(opts, fmt.Sprintf("resgid=%d", resGid))
+	}
+	optStr := strings.Join(opts, ",")
+	params := []string{}
+	if len(optStr) > 0 {
+		params = []string{"-o", optStr}
+	}
+	return mountutils.MountWithParams(devPath, mountPoint, fsType, params)
+}
+
 func Unmount(devPath string) error {
 	return mountutils.Unmount(devPath, false)
 }

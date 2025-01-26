@@ -355,7 +355,8 @@ type DiskRebuildInput struct {
 }
 
 type DiskFsExt4Features struct {
-	CaseInsensitive bool `json:"case_insensitive"`
+	CaseInsensitive          bool `json:"case_insensitive"`
+	ReservedBlocksPercentage int  `json:"reserved_blocks_percentage"`
 }
 
 type DiskFsFeatures struct {

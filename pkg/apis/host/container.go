@@ -29,6 +29,8 @@ type ContainerVolumeMountDisk struct {
 	Overlay              *apis.ContainerVolumeMountDiskOverlay       `json:"overlay"`
 	CaseInsensitivePaths []string                                    `json:"case_insensitive_paths"`
 	PostOverlay          []*apis.ContainerVolumeMountDiskPostOverlay `json:"post_overlay"`
+	ResGid               int                                         `json:"res_gid"`
+	ResUid               int                                         `json:"res_uid"`
 }
 
 type ContainerVolumeMountCephFS struct {
