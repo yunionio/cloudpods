@@ -218,7 +218,7 @@ func (d disk) Mount(pod volume_mount.IPodInfo, ctrId string, vm *hostapi.Contain
 	if err != nil {
 		return errors.Wrap(err, "get disk storage driver")
 	}
-	mntPoint, err := d.connectDiskAndMount(drv, pod, iDisk, gd.Fs, vm.Disk.ResGid, vm.Disk.ResUid)
+	mntPoint, err := d.connectDiskAndMount(drv, pod, iDisk, gd.Fs, vm.Disk.ResUid, vm.Disk.ResGid)
 	if err != nil {
 		return errors.Wrap(err, "connect disk and mount disk")
 	}
