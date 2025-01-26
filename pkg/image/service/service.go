@@ -176,9 +176,9 @@ func StartService() {
 		if options.Options.EnableTorrentService {
 			torrent.StopTorrents()
 		}
-		if options.Options.StorageDriver == api.IMAGE_STORAGE_DRIVER_S3 {
-			procutils.NewCommand("umount", options.Options.S3MountPoint).Run()
-		}
+		//if options.Options.StorageDriver == api.IMAGE_STORAGE_DRIVER_S3 {
+		//	procutils.NewCommand("umount", options.Options.S3MountPoint).Run()
+		//}
 	})
 }
 
