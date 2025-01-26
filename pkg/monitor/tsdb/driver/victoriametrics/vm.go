@@ -17,15 +17,14 @@ package victoriametrics
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/influxdata/influxql"
 	"github.com/influxdata/promql/v2/pkg/labels"
 	"github.com/zexi/influxql-to-metricsql/converter"
 	"github.com/zexi/influxql-to-metricsql/converter/translator"
+	"golang.org/x/sync/errgroup"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -266,34 +265,52 @@ func parsePointValue(value interface{}) interface{} {
 	return number.String()
 }
 
-func (vm *vmAdapter) FilterMeasurement(ctx context.Context, ds *tsdb.DataSource, from, to string, ms *monitor.InfluxMeasurement, tagFilter *monitor.MetricQueryTag) (*monitor.InfluxMeasurement, error) {
-	retMs := new(monitor.InfluxMeasurement)
+func (vm *vmAdapter) checkMeasurementField(ctx context.Context, ds *tsdb.DataSource, from, to string, ms *monitor.InfluxMeasurement, field string, tagFilter *monitor.MetricQueryTag) (bool, error) {
 	q := mod.NewAlertQuery(ms.Database, ms.Measurement).From(from).To(to)
-	q.Interval("5m")
-	q.Selects().Select("*").LAST()
+	q.Interval("30m")
+	q.Selects().Select(field).COUNT()
 	if tagFilter != nil {
 		q.Where().AddTag(tagFilter)
 	}
-	q.GroupBy().TAG(labels.MetricName)
 	tq := q.ToTsdbQuery()
 	resp, err := vm.Query(ctx, ds, tq)
 	if err != nil {
-		return nil, errors.Wrap(err, "VictoriaMetrics.Query")
+		return false, errors.Wrap(err, "VictoriaMetrics.Query")
 	}
 	ss := resp.Results[""].Series
-	//log.Infof("=====get ss: %s", jsonutils.Marshal(ss).PrettyString())
-
-	// parse fields
-	retFields := sets.NewString()
-	msPrefix := fmt.Sprintf("%s_", ms.Measurement)
 	for _, s := range ss {
-		cols := s.Columns
-		for _, col := range cols {
-			if !strings.HasPrefix(col, msPrefix) {
-				continue
+		if len(s.Points) > 0 {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func (vm *vmAdapter) FilterMeasurement(ctx context.Context, ds *tsdb.DataSource, from, to string, ms *monitor.InfluxMeasurement, tagFilter *monitor.MetricQueryTag) (*monitor.InfluxMeasurement, error) {
+	retMs := new(monitor.InfluxMeasurement)
+	retFieldExists := make([]bool, len(ms.FieldKey))
+	errgrp := new(errgroup.Group)
+	for i := range ms.FieldKey {
+		index := i
+		errgrp.Go(func() error {
+			field := ms.FieldKey[index]
+			exists, err := vm.checkMeasurementField(ctx, ds, from, to, ms, field, tagFilter)
+			if err != nil {
+				return errors.Wrapf(err, "check meaurement field %s %s", ms.Measurement, field)
 			}
-			field := strings.TrimPrefix(col, msPrefix)
-			retFields.Insert(field)
+			if exists {
+				retFieldExists[index] = true
+			}
+			return nil
+		})
+	}
+	if err := errgrp.Wait(); err != nil {
+		log.Warningf("victoriametrics check measurement field: %s", err)
+	}
+	retFields := sets.NewString()
+	for i := range retFieldExists {
+		if retFieldExists[i] {
+			retFields.Insert(ms.FieldKey[i])
 		}
 	}
 	retMs.FieldKey = retFields.List()
