@@ -57,6 +57,17 @@ func init() {
 		printBatchResults(ret, modules.InstanceSnapshots.GetColumns(s))
 		return nil
 	})
+	type InstanceSnapshotPurgeOptions struct {
+		ID string `help:"Delete snapshot id"`
+	}
+	R(&InstanceSnapshotPurgeOptions{}, "instance-snapshot-purge", "Purge snapshots", func(s *mcclient.ClientSession, args *InstanceSnapshotPurgeOptions) error {
+		result, err := modules.InstanceSnapshots.PerformAction(s, args.ID, "purge", nil)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
 
 	type InstanceSnapshotShowOptions struct {
 		ID string `help:"ID or Name of snapshot"`
