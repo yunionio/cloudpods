@@ -77,7 +77,7 @@ func init() {
 	type ServerDiskUpdateOptions struct {
 		SERVER string `help:"ID or Name of server"`
 		DISK   string `help:"ID or Name of Disk"`
-		Driver string `help:"Driver of vDisk" choices:"virtio|ide|scsi|pvscsi"`
+		Driver string `help:"Driver of vDisk" choices:"virtio|ide|sata|scsi|pvscsi"`
 		Cache  string `help:"Cache mode of vDisk" choices:"writethrough|none|writeback|directsync"`
 		Aio    string `help:"Asynchronous IO mode of vDisk" choices:"native|threads"`
 		Index  int64  `help:"Index of vDisk" default:"-1"`
