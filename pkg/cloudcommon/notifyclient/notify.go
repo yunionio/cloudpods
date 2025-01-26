@@ -42,7 +42,7 @@ var (
 )
 
 func init() {
-	notifyClientWorkerMan = appsrv.NewWorkerManager("NotifyClientWorkerManager", 1, 50, false)
+	notifyClientWorkerMan = appsrv.NewWorkerManager("NotifyClientWorkerManager", 1, 1024, false)
 
 	// set db notify hook
 	db.SetUpdateNotifyHook(func(ctx context.Context, userCred mcclient.TokenCredential, obj db.IModel) {
