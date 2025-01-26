@@ -51,6 +51,9 @@ type SImageOptions struct {
 	S3BucketName       string `help:"s3 bucket name" default:"onecloud-images"`
 	S3MountPoint       string `help:"s3fs mount point" default:"/opt/cloud/workspace/data/glance/s3images"`
 	S3CheckImageStatus bool   `help:"Enable s3 check image status"`
+	S3SignVersion      string `help:"signing version"`
+	S3UploadPartSizeMb int64  `help:"s3 upload part size in MB, default to 50MB" default:"50"`
+	S3UploadParallel   int    `help:"s3 upload parallel count" default:"4"`
 
 	ImageStreamWorkerCount int `help:"Image stream worker count" default:"10"`
 }

@@ -140,7 +140,6 @@ func perfetchImageCache(ctx context.Context, w http.ResponseWriter, r *http.Requ
 
 func deleteImageCache(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	performImageCache(ctx, w, r, "delete")
-
 }
 
 func getDiskStatus(ctx context.Context, w http.ResponseWriter, r *http.Request) {

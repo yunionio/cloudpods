@@ -224,7 +224,12 @@ func (self *SImage) CustomizedGetDetailsBody(ctx context.Context, userCred mccli
 
 	if self.IsGuestImage.IsFalse() {
 		formatStr := jsonutils.GetAnyString(query, []string{"format", "disk_format"})
-		if len(formatStr) > 0 && formatStr != api.IMAGE_DISK_FORMAT_TGZ {
+		if len(formatStr) > 0 {
+			subImages := ImageSubformatManager.GetAllSubImages(self.Id)
+			if len(subImages) == 1 {
+				// ignore format field
+				formatStr = subImages[0].Format
+			}
 			subimg := ImageSubformatManager.FetchSubImage(self.Id, formatStr)
 			if subimg != nil {
 				if strings.HasPrefix(subimg.Location, api.LocalFilePrefix) {
@@ -648,7 +653,7 @@ func (self *SImage) PostCreate(ctx context.Context, userCred mcclient.TokenCrede
 
 // After image probe and customization, image size and checksum changed
 // will recalculate checksum in the end
-func (self *SImage) StartImagePipeline(
+func (image *SImage) StartImagePipeline(
 	ctx context.Context, userCred mcclient.TokenCredential, skipProbe bool,
 ) error {
 	data := jsonutils.NewDict()
@@ -656,7 +661,7 @@ func (self *SImage) StartImagePipeline(
 		data.Set("skip_probe", jsonutils.JSONTrue)
 	}
 	task, err := taskman.TaskManager.NewTask(
-		ctx, "ImagePipelineTask", self, userCred, data, "", "", nil)
+		ctx, "ImagePipelineTask", image, userCred, data, "", "", nil)
 	if err != nil {
 		return err
 	}
@@ -1421,33 +1426,33 @@ func (self *SImage) IsIso() bool {
 	return self.DiskFormat == string(api.ImageTypeISO)
 }
 
-func (self *SImage) isActive(useFast bool, noChecksum bool) bool {
-	active, reason := isActive(self.GetLocalLocation(), self.Size, self.Checksum, self.FastHash, useFast, noChecksum)
+func (image *SImage) isActive(useFast bool, noChecksum bool) bool {
+	active, reason := isActive(image.GetLocalLocation(), image.Size, image.Checksum, image.FastHash, useFast, noChecksum)
 	if active || reason != FileChecksumMismatch {
 		return active
 	}
 	data := jsonutils.NewDict()
-	data.Set("name", jsonutils.NewString(self.Name))
+	data.Set("name", jsonutils.NewString(image.Name))
 	notifyclient.SystemExceptionNotifyWithResult(context.TODO(), noapi.ActionChecksumTest, noapi.TOPIC_RESOURCE_IMAGE, noapi.ResultFailed, data)
 	return false
 }
 
-func (self *SImage) DoCheckStatus(ctx context.Context, userCred mcclient.TokenCredential, useFast bool) {
-	if utils.IsInStringArray(self.Status, api.ImageDeadStatus) {
+func (image *SImage) DoCheckStatus(ctx context.Context, userCred mcclient.TokenCredential, useFast bool) {
+	if utils.IsInStringArray(image.Status, api.ImageDeadStatus) {
 		return
 	}
-	if IsCheckStatusEnabled(self) {
-		if self.isActive(useFast, true) {
-			if self.Status != api.IMAGE_STATUS_ACTIVE {
-				self.SetStatus(ctx, userCred, api.IMAGE_STATUS_ACTIVE, "check active")
+	if IsCheckStatusEnabled(image) {
+		if image.isActive(useFast, true) {
+			if image.Status != api.IMAGE_STATUS_ACTIVE {
+				image.SetStatus(ctx, userCred, api.IMAGE_STATUS_ACTIVE, "check active")
 			}
-			if len(self.FastHash) == 0 {
-				fastHash, err := fileutils2.FastCheckSum(self.GetLocalLocation())
+			if len(image.FastHash) == 0 {
+				fastHash, err := fileutils2.FastCheckSum(image.GetLocalLocation())
 				if err != nil {
 					log.Errorf("DoCheckStatus fileutils2.FastChecksum fail %s", err)
 				} else {
-					_, err := db.Update(self, func() error {
-						self.FastHash = fastHash
+					_, err := db.Update(image, func() error {
+						image.FastHash = fastHash
 						return nil
 					})
 					if err != nil {
@@ -1455,33 +1460,33 @@ func (self *SImage) DoCheckStatus(ctx context.Context, userCred mcclient.TokenCr
 					}
 				}
 			}
-			img, err := qemuimg.NewQemuImage(self.GetLocalLocation())
+			img, err := qemuimg.NewQemuImage(image.GetLocalLocation())
 			if err == nil {
 				format := string(img.Format)
 				virtualSizeMB := int32(img.SizeBytes / 1024 / 1024)
-				if (len(format) > 0 && self.DiskFormat != format) || (virtualSizeMB > 0 && self.MinDiskMB != virtualSizeMB) {
-					db.Update(self, func() error {
+				if (len(format) > 0 && image.DiskFormat != format) || (virtualSizeMB > 0 && image.MinDiskMB != virtualSizeMB) {
+					db.Update(image, func() error {
 						if len(format) > 0 {
-							self.DiskFormat = format
+							image.DiskFormat = format
 						}
-						if virtualSizeMB > 0 && self.MinDiskMB < virtualSizeMB {
-							self.MinDiskMB = virtualSizeMB
+						if virtualSizeMB > 0 && image.MinDiskMB < virtualSizeMB {
+							image.MinDiskMB = virtualSizeMB
 						}
 						return nil
 					})
 				}
 			} else {
-				log.Warningf("fail to check image size of %s(%s)", self.Id, self.Name)
+				log.Warningf("fail to check image size of %s(%s)", image.Id, image.Name)
 			}
 		} else {
-			if self.Status != api.IMAGE_STATUS_QUEUED {
-				self.SetStatus(ctx, userCred, api.IMAGE_STATUS_QUEUED, "check inactive")
+			if image.Status != api.IMAGE_STATUS_QUEUED {
+				image.SetStatus(ctx, userCred, api.IMAGE_STATUS_QUEUED, "check inactive")
 			}
 		}
 	}
 
-	if self.Status == api.IMAGE_STATUS_ACTIVE {
-		self.StartImagePipeline(ctx, userCred, true)
+	if image.Status == api.IMAGE_STATUS_ACTIVE {
+		image.StartImagePipeline(ctx, userCred, true)
 	}
 }
 

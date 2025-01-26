@@ -23,11 +23,13 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/streamutils"
 	"yunion.io/x/s3cli"
 )
 
@@ -185,6 +187,7 @@ type SListObjectResult struct {
 	IsTruncated    bool
 }
 
+// range start from 0
 type SGetObjectRange struct {
 	Start int64
 	End   int64
@@ -492,6 +495,89 @@ func Makedir(ctx context.Context, bucket ICloudBucket, key string) error {
 }
 
 func UploadObject(ctx context.Context, bucket ICloudBucket, key string, blocksz int64, input io.Reader, sizeBytes int64, cannedAcl TBucketACLType, storageClass string, meta http.Header, debug bool) error {
+	return UploadObjectParallel(ctx, bucket, key, blocksz, newReaderAt(input), sizeBytes, cannedAcl, storageClass, meta, debug, 1)
+}
+
+type sSeqReader struct {
+	reader io.Reader
+	offset int64
+}
+
+func newReaderAt(input io.Reader) io.ReaderAt {
+	return &sSeqReader{
+		reader: input,
+		offset: 0,
+	}
+}
+
+func (sr *sSeqReader) ReadAt(p []byte, offset int64) (int, error) {
+	return sr.reader.Read(p)
+}
+
+type sOffsetReader struct {
+	readerAt io.ReaderAt
+	offset   int64
+}
+
+func newReader(input io.ReaderAt, inputOffset int64) io.Reader {
+	return &sOffsetReader{
+		readerAt: input,
+		offset:   inputOffset,
+	}
+}
+
+func (or *sOffsetReader) Read(p []byte) (int, error) {
+	n, err := or.readerAt.ReadAt(p, or.offset)
+	or.offset += int64(n)
+	return n, err
+}
+
+type uploadPartOfMultipartJob struct {
+	ctx       context.Context
+	bucket    ICloudBucket
+	key       string
+	input     io.Reader
+	sizeBytes int64
+	uploadId  string
+	partIndex int
+	partSize  int64
+	offset    int64
+	debug     bool
+	etags     []string
+	errs      []error
+}
+
+func uploadPartOfMultipartWorker(wg *sync.WaitGroup, queue chan uploadPartOfMultipartJob) {
+	defer wg.Done()
+	for job := range queue {
+		tag, err := uploadPartOfMultipart(job.ctx, job.bucket, job.key, job.input, job.sizeBytes, job.uploadId, job.partIndex, job.partSize, job.offset, job.debug)
+		if err != nil {
+			job.errs = append(job.errs, err)
+		} else {
+			job.etags[job.partIndex] = tag
+		}
+	}
+}
+
+func uploadPartOfMultipart(ctx context.Context, bucket ICloudBucket, key string, input io.Reader, sizeBytes int64, uploadId string, partIndex int, partSize int64, offset int64, debug bool) (string, error) {
+	var startAt time.Time
+	if debug {
+		startAt = time.Now()
+		log.Debugf("UploadPart %d %d", partIndex+1, partSize)
+	}
+	etag, err := bucket.UploadPart(ctx, key, uploadId, partIndex+1, io.LimitReader(input, partSize), partSize, offset, sizeBytes)
+	if err != nil {
+		return "", errors.Wrapf(err, "bucket.UploadPart %d", partIndex)
+	}
+	if debug {
+		duration := time.Since(startAt)
+		rateMbps := calculateRateMbps(partSize, duration)
+		log.Debugf("End of uploadPart %d %d takes %f seconds at %fMbps", partIndex+1, partSize, float64(duration)/float64(time.Second), rateMbps)
+	}
+	return etag, nil
+}
+
+func UploadObjectParallel(ctx context.Context, bucket ICloudBucket, key string, blocksz int64, input io.ReaderAt, sizeBytes int64, cannedAcl TBucketACLType, storageClass string, meta http.Header, debug bool, parallel int) error {
 	if blocksz <= 0 {
 		blocksz = MAX_PUT_OBJECT_SIZEBYTES
 	}
@@ -499,7 +585,7 @@ func UploadObject(ctx context.Context, bucket ICloudBucket, key string, blocksz 
 		if debug {
 			log.Debugf("too small, put object in one shot")
 		}
-		return bucket.PutObject(ctx, key, input, sizeBytes, cannedAcl, storageClass, meta)
+		return bucket.PutObject(ctx, key, newReader(input, 0), sizeBytes, cannedAcl, storageClass, meta)
 	}
 	partSize := blocksz
 	partCount := sizeBytes / partSize
@@ -524,24 +610,52 @@ func UploadObject(ctx context.Context, bucket ICloudBucket, key string, blocksz 
 		return errors.Wrap(err, "bucket.NewMultipartUpload")
 	}
 	etags := make([]string, partCount)
-	offset := int64(0)
-	for i := 0; i < int(partCount); i += 1 {
-		if i == int(partCount)-1 {
-			partSize = sizeBytes - partSize*(partCount-1)
+	var errs []error
+	{
+		if parallel < 1 {
+			parallel = 1
 		}
-		if debug {
-			log.Debugf("UploadPart %d %d", i+1, partSize)
+		queue := make(chan uploadPartOfMultipartJob, parallel)
+		wg := &sync.WaitGroup{}
+		for i := 0; i < parallel; i++ {
+			wg.Add(1)
+			go uploadPartOfMultipartWorker(wg, queue)
 		}
-		etag, err := bucket.UploadPart(ctx, key, uploadId, i+1, io.LimitReader(input, partSize), partSize, offset, sizeBytes)
-		if err != nil {
-			err2 := bucket.AbortMultipartUpload(ctx, key, uploadId)
-			if err2 != nil {
-				log.Errorf("bucket.AbortMultipartUpload error %s", err2)
+		for i := 0; i < int(partCount); i += 1 {
+			offset := int64(i) * partSize
+			blockSize := partSize
+			if i == int(partCount)-1 {
+				blockSize = sizeBytes - partSize*(partCount-1)
 			}
-			return errors.Wrap(err, "bucket.UploadPart")
+			partIndex := i
+			job := uploadPartOfMultipartJob{
+				ctx:       ctx,
+				bucket:    bucket,
+				key:       key,
+				input:     newReader(input, offset),
+				sizeBytes: sizeBytes,
+				uploadId:  uploadId,
+				partIndex: partIndex,
+				partSize:  blockSize,
+				offset:    offset,
+				debug:     debug,
+				etags:     etags,
+				errs:      errs,
+			}
+			queue <- job
 		}
-		offset += partSize
-		etags[i] = etag
+		close(queue)
+		wg.Wait()
+	}
+
+	if len(errs) > 0 {
+		// upload part error
+		err2 := bucket.AbortMultipartUpload(ctx, key, uploadId)
+		if err2 != nil {
+			log.Errorf("bucket.AbortMultipartUpload error %s", err2)
+			errs = append(errs, err2)
+		}
+		return errors.Wrap(errors.NewAggregate(errs), "uploadPartOfMultipart")
 	}
 	err = bucket.CompleteMultipartUpload(ctx, key, uploadId, etags)
 	if err != nil {
@@ -592,7 +706,61 @@ func MergeMeta(src http.Header, dst http.Header) http.Header {
 }
 
 func CopyObject(ctx context.Context, blocksz int64, dstBucket ICloudBucket, dstKey string, srcBucket ICloudBucket, srcKey string, dstMeta http.Header, debug bool) error {
+	return CopyObjectParallel(ctx, blocksz, dstBucket, dstKey, srcBucket, srcKey, dstMeta, debug, 1)
+}
 
+type copyPartOfMultipartJob struct {
+	ctx       context.Context
+	dstBucket ICloudBucket
+	dstKey    string
+	srcBucket ICloudBucket
+	srcKey    string
+	rangeOpt  *SGetObjectRange
+	sizeBytes int64
+	uploadId  string
+	partIndex int
+	debug     bool
+	etags     []string
+	errs      []error
+}
+
+func copyPartOfMultipartWorker(wg *sync.WaitGroup, queue chan copyPartOfMultipartJob) {
+	defer wg.Done()
+	for job := range queue {
+		tag, err := copyPartOfMultipart(job.ctx, job.dstBucket, job.dstKey, job.srcBucket, job.srcKey, job.rangeOpt, job.sizeBytes, job.uploadId, job.partIndex, job.debug)
+		if err != nil {
+			job.errs = append(job.errs, err)
+		} else {
+			job.etags[job.partIndex] = tag
+		}
+	}
+}
+
+func copyPartOfMultipart(ctx context.Context, dstBucket ICloudBucket, dstKey string, srcBucket ICloudBucket, srcKey string, rangeOpt *SGetObjectRange, sizeBytes int64, uploadId string, partIndex int, debug bool) (string, error) {
+	partSize := rangeOpt.SizeBytes()
+	var startAt time.Time
+	if debug {
+		startAt = time.Now()
+		log.Debugf("CopyPart %d %d range: %s (%d)", partIndex+1, partSize, rangeOpt.String(), rangeOpt.SizeBytes())
+	}
+	srcStream, err := srcBucket.GetObject(ctx, srcKey, rangeOpt)
+	if err != nil {
+		return "", errors.Wrapf(err, "srcBucket.GetObject %d", partIndex)
+	}
+	defer srcStream.Close()
+	etag, err := dstBucket.UploadPart(ctx, dstKey, uploadId, partIndex+1, io.LimitReader(srcStream, partSize), partSize, rangeOpt.Start, sizeBytes)
+	if err != nil {
+		return "", errors.Wrapf(err, "dstBucket.UploadPart %d", partIndex)
+	}
+	if debug {
+		duration := time.Since(startAt)
+		rateMbps := calculateRateMbps(partSize, duration)
+		log.Debugf("End of copyPart %d %d range: %s (%d) takes %d seconds at %fMbps", partIndex+1, partSize, rangeOpt.String(), rangeOpt.SizeBytes(), duration/time.Second, rateMbps)
+	}
+	return etag, nil
+}
+
+func CopyObjectParallel(ctx context.Context, blocksz int64, dstBucket ICloudBucket, dstKey string, srcBucket ICloudBucket, srcKey string, dstMeta http.Header, debug bool, parallel int) error {
 	srcObj, err := GetIObject(srcBucket, srcKey)
 	if err != nil {
 		return errors.Wrap(err, "GetIObject")
@@ -638,39 +806,59 @@ func CopyObject(ctx context.Context, blocksz int64, dstBucket ICloudBucket, dstK
 	if err != nil {
 		return errors.Wrap(err, "bucket.NewMultipartUpload")
 	}
+
 	etags := make([]string, partCount)
-	offset := int64(0)
-	for i := 0; i < int(partCount); i += 1 {
-		start := int64(i) * partSize
-		if i == int(partCount)-1 {
-			partSize = sizeBytes - partSize*(partCount-1)
+	var errs []error
+	{
+		if parallel < 1 {
+			parallel = 1
 		}
-		end := start + partSize - 1
-		rangeOpt := SGetObjectRange{
-			Start: start,
-			End:   end,
+		queue := make(chan copyPartOfMultipartJob, parallel)
+		var wg sync.WaitGroup
+		for i := 0; i < parallel; i++ {
+			wg.Add(1)
+			go copyPartOfMultipartWorker(&wg, queue)
 		}
-		if debug {
-			log.Debugf("UploadPart %d %d range: %s (%d)", i+1, partSize, rangeOpt.String(), rangeOpt.SizeBytes())
-		}
-		srcStream, err := srcBucket.GetObject(ctx, srcKey, &rangeOpt)
-		if err == nil {
-			defer srcStream.Close()
-			var etag string
-			etag, err = dstBucket.UploadPart(ctx, dstKey, uploadId, i+1, io.LimitReader(srcStream, partSize), partSize, offset, sizeBytes)
-			if err == nil {
-				etags[i] = etag
-				continue
+
+		for i := 0; i < int(partCount); i += 1 {
+			start := int64(i) * partSize
+			blockSize := partSize
+			if i == int(partCount)-1 {
+				blockSize = sizeBytes - partSize*(partCount-1)
 			}
-		}
-		offset += partSize
-		if err != nil {
-			err2 := dstBucket.AbortMultipartUpload(ctx, dstKey, uploadId)
-			if err2 != nil {
-				log.Errorf("bucket.AbortMultipartUpload error %s", err2)
+			end := start + blockSize - 1
+			rangeOpt := SGetObjectRange{
+				Start: start,
+				End:   end,
 			}
-			return errors.Wrap(err, "bucket.UploadPart")
+			partIndex := i
+			job := copyPartOfMultipartJob{
+				ctx:       ctx,
+				dstBucket: dstBucket,
+				dstKey:    dstKey,
+				srcBucket: srcBucket,
+				srcKey:    srcKey,
+				rangeOpt:  &rangeOpt,
+				sizeBytes: sizeBytes,
+				uploadId:  uploadId,
+				partIndex: partIndex,
+				debug:     debug,
+				etags:     etags,
+				errs:      errs,
+			}
+			queue <- job
 		}
+		close(queue)
+		wg.Wait()
+	}
+	if len(errs) > 0 {
+		// upload part error
+		err2 := dstBucket.AbortMultipartUpload(ctx, dstKey, uploadId)
+		if err2 != nil {
+			log.Errorf("bucket.AbortMultipartUpload error %s", err2)
+			errs = append(errs, err2)
+		}
+		return errors.Wrap(errors.NewAggregate(errs), "copyPartOfMultipart")
 	}
 	err = dstBucket.CompleteMultipartUpload(ctx, dstKey, uploadId, etags)
 	if err != nil {
@@ -687,17 +875,7 @@ func CopyPart(ctx context.Context,
 	iDstBucket ICloudBucket, dstKey string, uploadId string, partNumber int,
 	iSrcBucket ICloudBucket, srcKey string, rangeOpt *SGetObjectRange,
 ) (string, error) {
-	srcReader, err := iSrcBucket.GetObject(ctx, srcKey, rangeOpt)
-	if err != nil {
-		return "", errors.Wrap(err, "iSrcBucket.GetObject")
-	}
-	defer srcReader.Close()
-
-	etag, err := iDstBucket.UploadPart(ctx, dstKey, uploadId, partNumber, io.LimitReader(srcReader, rangeOpt.SizeBytes()), rangeOpt.SizeBytes(), 0, 0)
-	if err != nil {
-		return "", errors.Wrap(err, "iDstBucket.UploadPart")
-	}
-	return etag, nil
+	return copyPartOfMultipart(ctx, iDstBucket, dstKey, iSrcBucket, srcKey, rangeOpt, 0, uploadId, partNumber, false)
 }
 
 func ObjectSetMeta(ctx context.Context,
@@ -853,4 +1031,175 @@ func SetBucketTags(ctx context.Context, iBucket ICloudBucket, mangerId string, t
 		return ret, nil
 	}
 	return ret, SetTags(ctx, iBucket, mangerId, tags, true)
+}
+
+type sOffsetWriter struct {
+	writerAt io.WriterAt
+	offset   int64
+}
+
+func newWriter(output io.WriterAt, outputOffset int64) io.Writer {
+	return &sOffsetWriter{
+		writerAt: output,
+		offset:   outputOffset,
+	}
+}
+
+func (ow *sOffsetWriter) Write(p []byte) (int, error) {
+	n, err := ow.writerAt.WriteAt(p, ow.offset)
+	ow.offset += int64(n)
+	return n, err
+}
+
+func calculateRateMbps(sizeBytes int64, duration time.Duration) float64 {
+	return float64(sizeBytes*8*int64(time.Second)) / float64(duration) / 1000 / 1000
+}
+
+type downloadPartOfMultipartJob struct {
+	ctx       context.Context
+	bucket    ICloudBucket
+	key       string
+	rangeOpt  *SGetObjectRange
+	output    io.Writer
+	partIndex int
+	debug     bool
+	segSizes  []int64
+	errs      []error
+}
+
+func downloadPartOfMultipartWorker(wg *sync.WaitGroup, queue chan downloadPartOfMultipartJob) {
+	defer wg.Done()
+	for job := range queue {
+		sz, err := downloadPartOfMultipart(job.ctx, job.bucket, job.key, job.rangeOpt, job.output, job.partIndex, job.debug)
+		if err != nil {
+			job.errs = append(job.errs, err)
+		} else {
+			job.segSizes[job.partIndex] = sz
+		}
+	}
+}
+
+func downloadPartOfMultipart(ctx context.Context, bucket ICloudBucket, key string, rangeOpt *SGetObjectRange, output io.Writer, partIndex int, debug bool) (int64, error) {
+	partSize := rangeOpt.SizeBytes()
+	var startAt time.Time
+	if debug {
+		startAt = time.Now()
+		log.Debugf("downloadPart %d %d range: %s (%d)", partIndex+1, partSize, rangeOpt.String(), rangeOpt.SizeBytes())
+	}
+	stream, err := bucket.GetObject(ctx, key, rangeOpt)
+	if err != nil {
+		return 0, errors.Wrap(err, "bucket.GetObject")
+	}
+	defer stream.Close()
+	prop, err := streamutils.StreamPipe(stream, output, false, nil)
+	if err != nil {
+		return 0, errors.Wrap(err, "StreamPipe")
+	}
+	if debug {
+		duration := time.Since(startAt)
+		rateMbps := calculateRateMbps(partSize, duration)
+		log.Debugf("End of downloadPart %d %d range: %s (%d) takes %f seconds at %fMbps", partIndex+1, partSize, rangeOpt.String(), rangeOpt.SizeBytes(), float64(duration)/float64(time.Second), rateMbps)
+	}
+	return prop.Size, nil
+}
+
+func DownloadObjectParallel(ctx context.Context, bucket ICloudBucket, key string, rangeOpt *SGetObjectRange, output io.WriterAt, outputOffset int64, blocksz int64, debug bool, parallel int) (int64, error) {
+	obj, err := GetIObject(bucket, key)
+	if err != nil {
+		return 0, errors.Wrap(err, "GetIObject")
+	}
+	if blocksz <= 0 {
+		blocksz = MAX_PUT_OBJECT_SIZEBYTES
+	}
+	sizeBytes := obj.GetSizeBytes()
+	if rangeOpt == nil {
+		rangeOpt = &SGetObjectRange{
+			Start: 0,
+			End:   sizeBytes - 1,
+		}
+	} else {
+		if rangeOpt.End < rangeOpt.Start {
+			tmp := rangeOpt.Start
+			rangeOpt.Start = rangeOpt.End
+			rangeOpt.End = tmp
+		}
+		if rangeOpt.End >= sizeBytes {
+			rangeOpt.End = sizeBytes - 1
+		}
+		if rangeOpt.Start < 0 {
+			rangeOpt.Start = 0
+		}
+		sizeBytes = rangeOpt.SizeBytes()
+	}
+	if sizeBytes < blocksz {
+		if debug {
+			log.Debugf("too small, download object in one shot")
+		}
+		size, err := downloadPartOfMultipart(ctx, bucket, key, rangeOpt, newWriter(output, outputOffset), 0, true)
+		if err != nil {
+			return 0, errors.Wrap(err, "downloadPartOfMultipart")
+		}
+		return size, nil
+	}
+	partSize := blocksz
+	partCount := sizeBytes / partSize
+	if partCount*partSize < sizeBytes {
+		partCount += 1
+	}
+	if debug {
+		log.Debugf("multipart download part count %d part size %d", partCount, partSize)
+	}
+
+	var errs []error
+	segSizes := make([]int64, partCount)
+	{
+		if parallel < 1 {
+			parallel = 1
+		}
+		queue := make(chan downloadPartOfMultipartJob, parallel)
+		wg := &sync.WaitGroup{}
+		for i := 0; i < parallel; i++ {
+			wg.Add(1)
+			go downloadPartOfMultipartWorker(wg, queue)
+		}
+		for i := 0; i < int(partCount); i += 1 {
+			dstOffset := outputOffset + int64(i)*partSize
+			start := rangeOpt.Start + int64(i)*partSize
+			if i == int(partCount)-1 {
+				partSize = sizeBytes - partSize*(partCount-1)
+			}
+			end := start + partSize - 1
+			srcRangeOpt := SGetObjectRange{
+				Start: start,
+				End:   end,
+			}
+
+			partIndex := i
+
+			job := downloadPartOfMultipartJob{
+				ctx:       ctx,
+				bucket:    bucket,
+				key:       key,
+				rangeOpt:  &srcRangeOpt,
+				output:    newWriter(output, dstOffset),
+				partIndex: partIndex,
+				debug:     debug,
+				segSizes:  segSizes,
+				errs:      errs,
+			}
+			queue <- job
+		}
+		close(queue)
+		wg.Wait()
+	}
+
+	if len(errs) > 0 {
+		return 0, errors.Wrap(errors.NewAggregate(errs), "downloadPartOfMultipart")
+	}
+
+	totalSize := int64(0)
+	for i := range segSizes {
+		totalSize += segSizes[i]
+	}
+	return totalSize, nil
 }

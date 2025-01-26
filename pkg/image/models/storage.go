@@ -159,7 +159,7 @@ func (s *S3Storage) SaveImage(ctx context.Context, imagePath string, progresser 
 	if !fileutils2.IsFile(imagePath) {
 		return "", fmt.Errorf("%s not valid file", imagePath)
 	}
-	return s3.Put(ctx, imagePath, imagePathToName(imagePath), progresser)
+	return s3.Put(ctx, imagePath, imagePathToName(imagePath), options.Options.S3UploadPartSizeMb, options.Options.S3UploadParallel, progresser)
 }
 
 func (s *S3Storage) CleanTempfile(filePath string) error {
