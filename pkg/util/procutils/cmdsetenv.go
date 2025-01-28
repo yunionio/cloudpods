@@ -18,8 +18,10 @@
 package procutils
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 
 	"yunion.io/x/executor/client"
 )
@@ -37,9 +39,19 @@ func cmdSetEnv(cmd *exec.Cmd) {
 	)
 }
 
+var paths = []string{
+	"/usr/bin",
+	"/usr/sbin",
+	"/usr/local/sbin",
+	"/usr/local/bin",
+	"/sbin",
+	"/bin",
+	"/opt/yunion/bin",
+}
+
 func remoteCmdSetEnv(cmd *client.Cmd) {
-	cmd.Env = append(
-		os.Environ(),
-		presetEnv...,
-	)
+	envs := []string{
+		fmt.Sprintf("PATH=%s", strings.Join(paths, ":")),
+	}
+	cmd.Env = append(envs, presetEnv...)
 }
