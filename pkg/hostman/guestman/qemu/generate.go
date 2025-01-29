@@ -363,7 +363,7 @@ func getDiskDeviceOption(optDrv QemuOptions, disk *desc.SGuestDisk, osName strin
 	} else if diskDriver == DISK_DRIVER_IDE {
 		opt += fmt.Sprintf(",bus=ide.%d,unit=%d", diskIndex/2, diskIndex%2)
 	} else if diskDriver == DISK_DRIVER_SATA {
-		opt += fmt.Sprintf(",bus=ide.%d", diskIndex)
+		opt += fmt.Sprintf(",bus=ahci0.%d", diskIndex)
 	}
 	opt += fmt.Sprintf(",id=drive_%d", diskIndex)
 	if isSsd {
@@ -452,7 +452,7 @@ func GetDiskDeviceModel(driver string) string {
 	} else if driver == DISK_DRIVER_IDE {
 		return "ide-hd"
 	} else if driver == DISK_DRIVER_SATA {
-		return "ide-drive"
+		return "ide-hd"
 	} else {
 		return "None"
 	}
@@ -799,6 +799,9 @@ func GenerateStartOptions(
 		opts = append(opts, generateScsiOptions(input.GuestDesc.VirtioScsi))
 	} else if input.GuestDesc.PvScsi != nil {
 		opts = append(opts, generatePCIDeviceOption(input.GuestDesc.PvScsi.PCIDevice))
+	}
+	if input.GuestDesc.SataController != nil {
+		opts = append(opts, generatePCIDeviceOption(input.GuestDesc.SataController.PCIDevice))
 	}
 
 	// generate initrd and kernel options
