@@ -208,6 +208,7 @@ func initS3() {
 		options.Options.S3SecretKey,
 		options.Options.S3BucketName,
 		options.Options.S3UseSSL,
+		options.Options.S3SignVersion,
 	)
 	if err != nil {
 		log.Fatalf("failed init s3 client %s", err)
