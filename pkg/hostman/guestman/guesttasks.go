@@ -467,6 +467,30 @@ func (d *SGuestDiskSyncTask) checkDiskDriver(disk *desc.SGuestDisk) {
 			"addr": d.guest.Desc.VirtioScsi.SlotFunc(),
 		}
 		d.guest.Monitor.DeviceAdd(d.guest.Desc.VirtioScsi.DevType, params, cb)
+	} else if disk.Driver == DISK_DRIVER_SATA && d.guest.Desc.SataController == nil {
+		// insert sata ahci controller
+		var cType = d.guest.getHotPlugPciControllerType()
+		if cType == nil {
+			err := errors.Errorf("failed get hotplugable pci controller")
+			d.errors = append(d.errors, err)
+			d.syncDisksConf()
+			return
+		}
+
+		d.guest.Desc.SataController = &desc.SGuestAhciDevice{
+			PCIDevice: desc.NewPCIDevice(*cType, "ahci", "ahci0"),
+		}
+		cb := func(ret string) {
+			log.Infof("Add sata ahci controller %s", ret)
+			d.checkDrivers = append(d.checkDrivers, DISK_DRIVER_SATA)
+			d.startAddDisk(disk)
+		}
+		params := map[string]string{
+			"id":   d.guest.Desc.SataController.Id,
+			"bus":  d.guest.Desc.SataController.BusStr(),
+			"addr": d.guest.Desc.SataController.SlotFunc(),
+		}
+		d.guest.Monitor.DeviceAdd(d.guest.Desc.SataController.DevType, params, cb)
 	} else {
 		d.startAddDisk(disk)
 	}
@@ -523,7 +547,7 @@ func (d *SGuestDiskSyncTask) startAddDisk(disk *desc.SGuestDisk) {
 	case DISK_DRIVER_IDE:
 		bus = fmt.Sprintf("ide.%d", diskIndex/2)
 	case DISK_DRIVER_SATA:
-		bus = fmt.Sprintf("ide.%d", diskIndex)
+		bus = fmt.Sprintf("ahci0.%d", diskIndex)
 	}
 	// drive_add bus is a placeholder
 	d.guest.Monitor.DriveAdd(bus, "", params, func(result string) { d.onAddDiskSucc(disk, result, cType) })

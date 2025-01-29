@@ -398,7 +398,7 @@ func (s *SKVMGuestInstance) initFloppyDesc() {
 
 func (s *SKVMGuestInstance) initGuestDisks(pciRoot, pciBridge *desc.PCIController, loadGuest bool) {
 	if !loadGuest {
-		hasVirtioScsi, hasPvScsi := s.fixDiskDriver()
+		hasVirtioScsi, hasPvScsi, hasSataDisk := s.fixDiskDriver()
 		if hasVirtioScsi && s.Desc.VirtioScsi == nil {
 			s.Desc.VirtioScsi = &desc.SGuestVirtioScsi{
 				PCIDevice: desc.NewPCIDevice(pciRoot.CType, "virtio-scsi-pci", "scsi"),
@@ -406,6 +406,10 @@ func (s *SKVMGuestInstance) initGuestDisks(pciRoot, pciBridge *desc.PCIControlle
 		} else if hasPvScsi && s.Desc.PvScsi == nil {
 			s.Desc.PvScsi = &desc.SGuestPvScsi{
 				PCIDevice: desc.NewPCIDevice(pciRoot.CType, "pvscsi", "scsi"),
+			}
+		} else if hasSataDisk {
+			s.Desc.SataController = &desc.SGuestAhciDevice{
+				PCIDevice: desc.NewPCIDevice(pciRoot.CType, "ahci", "ahci0"),
 			}
 		}
 	}
@@ -449,8 +453,8 @@ func (s *SKVMGuestInstance) initGuestDisks(pciRoot, pciBridge *desc.PCIControlle
 	}
 }
 
-func (s *SKVMGuestInstance) fixDiskDriver() (bool, bool) {
-	var virtioScsi, pvScsi = false, false
+func (s *SKVMGuestInstance) fixDiskDriver() (bool, bool, bool) {
+	var virtioScsi, pvScsi, sataDisk = false, false, false
 	isArm := s.manager.host.IsAarch64()
 	osname := s.GetOsName()
 
@@ -462,13 +466,16 @@ func (s *SKVMGuestInstance) fixDiskDriver() (bool, bool) {
 			s.Desc.Disks[i].Driver = DISK_DRIVER_SATA
 		}
 
-		if s.Desc.Disks[i].Driver == DISK_DRIVER_SCSI {
+		switch s.Desc.Disks[i].Driver {
+		case DISK_DRIVER_SCSI:
 			virtioScsi = true
-		} else if s.Desc.Disks[i].Driver == DISK_DRIVER_PVSCSI {
+		case DISK_DRIVER_PVSCSI:
 			pvScsi = true
+		case DISK_DRIVER_SATA:
+			sataDisk = true
 		}
 	}
-	return virtioScsi, pvScsi
+	return virtioScsi, pvScsi, sataDisk
 }
 
 func (s *SKVMGuestInstance) initVirtioSerial(pciRoot *desc.PCIController) {
@@ -674,6 +681,12 @@ func (s *SKVMGuestInstance) ensurePciAddresses() error {
 			return errors.Wrap(err, "ensure pvscsi pci address")
 		}
 	}
+	if s.Desc.SataController != nil {
+		err = s.ensureDevicePciAddress(s.Desc.SataController.PCIDevice, -1, nil)
+		if err != nil {
+			return errors.Wrap(err, "ensure SataController pci address")
+		}
+	}
 
 	// skip pci root or pcie root
 	for i := 1; i < len(s.Desc.PCIControllers); i++ {
@@ -849,7 +862,7 @@ func (s *SKVMGuestInstance) initGuestDescFromExistingGuest(
 		}
 		switch pciInfoList[0].Devices[i].QdevID {
 		case "scsi":
-			_, hasPvScsi := s.fixDiskDriver()
+			_, hasPvScsi, _ := s.fixDiskDriver()
 			if hasPvScsi && s.Desc.PvScsi == nil {
 				s.Desc.PvScsi = &desc.SGuestPvScsi{
 					PCIDevice: desc.NewPCIDevice(pciRoot.CType, "pvscsi", "scsi"),
@@ -980,6 +993,18 @@ func (s *SKVMGuestInstance) initGuestDescFromExistingGuest(
 			err = s.ensureDevicePciAddress(s.Desc.VdiDevice.Spice.UsbRedirct.UHCI3.PCIDevice, -1, &multiFunc)
 			if err != nil {
 				return errors.Wrap(err, "ensure vdi usb uhci3 pci address")
+			}
+		case "ahci0":
+			if s.Desc.SataController == nil {
+				s.Desc.SataController = &desc.SGuestAhciDevice{
+					PCIDevice: desc.NewPCIDevice(pciRoot.CType, "ahci", "ahci0"),
+				}
+			}
+
+			s.Desc.SataController.PCIAddr = pciAddr
+			err = s.ensureDevicePciAddress(s.Desc.SataController.PCIDevice, -1, nil)
+			if err != nil {
+				return errors.Wrap(err, "ensure SataController pci address")
 			}
 		default:
 			switch {
