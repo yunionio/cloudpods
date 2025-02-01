@@ -54,6 +54,6 @@ func performImageCache(
 		return
 	}
 
-	hostutils.DelayTask(ctx, performTask, disk)
+	hostutils.DelayImageCacheTask(ctx, performTask, disk)
 	hostutils.ResponseOk(ctx, w)
 }

@@ -211,6 +211,8 @@ func (s *STelegraf) GetConfig(kwargs map[string]interface{}) string {
 	}
 	ignorePathSegments := []string{
 		"/run/k3s/containerd/",
+		"/run/onecloud/containerd/",
+		"/var/lib/",
 	}
 	ignorePathSegments = append(ignorePathSegments, kwargs["server_path"].(string))
 	for i := range ignorePathSegments {
@@ -218,7 +220,7 @@ func (s *STelegraf) GetConfig(kwargs map[string]interface{}) string {
 	}
 	conf += "  ignore_mount_points = [" + strings.Join(ignoreMountPoints, ", ") + "]\n"
 	conf += "  ignore_path_segments = [" + strings.Join(ignorePathSegments, ", ") + "]\n"
-	conf += "  ignore_fs = [\"tmpfs\", \"devtmpfs\", \"devfs\", \"overlay\", \"squashfs\", \"iso9660\", \"rootfs\", \"hugetlbfs\", \"autofs\", \"aufs\"]\n"
+	conf += "  ignore_fs = [\"devtmpfs\", \"devfs\", \"overlayfs\", \"overlay\", \"squashfs\", \"iso9660\", \"rootfs\", \"hugetlbfs\", \"autofs\", \"aufs\"]\n"
 	conf += "\n"
 	conf += "[[inputs.diskio]]\n"
 	conf += "  skip_serial_number = false\n"

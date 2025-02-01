@@ -71,6 +71,10 @@ func init() {
 	cmd.Get("ipmi", &options.BaseIdOptions{})
 	cmd.Get("vnc", &options.BaseIdOptions{})
 	cmd.Get("app-options", &options.BaseIdOptions{})
+	cmd.GetWithCustomShow("worker-stats", func(data jsonutils.JSONObject) {
+		stats, _ := data.GetArray("workers")
+		printList(&printutils.ListResult{Data: stats}, nil)
+	}, &options.BaseIdOptions{})
 	cmd.Get("tap-config", &options.BaseIdOptions{})
 	cmd.GetWithCustomShow("nics", func(data jsonutils.JSONObject) {
 		results := printutils.ListResult{}
