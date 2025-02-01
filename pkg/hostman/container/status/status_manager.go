@@ -59,14 +59,14 @@ func (m *manager) SetContainerStartup(podId string, containerId string, started 
 		err = errors.Wrapf(err, "set container(%s/%s) status failed, input: %s", podId, containerId, jsonutils.Marshal(input))
 		log.Warningf(err.Error())
 		errMsg := []string{
-			"service is abnormal",
-			"connection refused",
+			"can't set container status",
 		}
 		for _, msg := range errMsg {
 			if strings.Contains(err.Error(), msg) {
-				return errors.Wrap(err, "update container status")
+				return nil
 			}
 		}
+		return errors.Wrap(err, "update container status")
 	} else {
 		log.Infof("set container(%s/%s) status to %s", podId, containerId, jsonutils.Marshal(input).String())
 	}
