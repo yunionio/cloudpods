@@ -2408,16 +2408,12 @@ func (h *SHostInfo) OnCatalogChanged(catalog mcclient.KeystoneServiceCatalogV3) 
 		}
 	}
 	if !reflect.DeepEqual(telegraf.GetConf(), conf) || (!strings.Contains(svcs, "telegraf") && !telegraf.IsActive()) {
-		log.Infof("telegraf configuration change, to reload ...")
-		log.Debugf("telegraf config: %s", conf)
 		telegraf.SetConf(conf)
 		if !strings.Contains(svcs, "telegraf") {
 			telegraf.BgReload(conf)
 		} else {
 			telegraf.BgReloadConf(conf)
 		}
-	} else {
-		log.Debugf("telegraf configuration no change")
 	}
 
 	/*urls, _ = catalog.GetServiceURLs("elasticsearch",
