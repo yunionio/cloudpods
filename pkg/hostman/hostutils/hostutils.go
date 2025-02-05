@@ -204,6 +204,7 @@ func Response(ctx context.Context, w http.ResponseWriter, res interface{}) {
 var (
 	wm          *workmanager.SWorkManager
 	imageCacheW *workmanager.SWorkManager
+	backupW     *workmanager.SWorkManager
 	k8sWm       *workmanager.SWorkManager
 	ParamsError = fmt.Errorf("Delay task parse params error")
 )
@@ -218,6 +219,10 @@ func DelayTask(ctx context.Context, task workmanager.DelayTaskFunc, params inter
 
 func DelayImageCacheTask(ctx context.Context, task workmanager.DelayTaskFunc, params interface{}) {
 	imageCacheW.DelayTask(ctx, task, params)
+}
+
+func DelayBackupTask(ctx context.Context, task workmanager.DelayTaskFunc, params interface{}) {
+	backupW.DelayTask(ctx, task, params)
 }
 
 func DelayKubeTask(ctx context.Context, task workmanager.DelayTaskFunc, params interface{}) {
@@ -244,6 +249,10 @@ func initImageCacheWorkerManager() {
 	imageCacheW = workmanager.NewWorkManger("ImageCacheDelayTaskWorkers", TaskFailed, TaskComplete, options.HostOptions.DefaultRequestWorkerCount)
 }
 
+func initBackupWorkerManager() {
+	backupW = workmanager.NewWorkManger("BackupDelayTaskWorkers", TaskFailed, TaskComplete, options.HostOptions.DefaultRequestWorkerCount)
+}
+
 func InitWorkerManagerWithCount(count int) {
 	wm = workmanager.NewWorkManger("GeneralDelayedTaskWorkers", TaskFailed, TaskComplete, count)
 }
@@ -255,4 +264,5 @@ func InitK8sWorkerManager() {
 func Init() {
 	InitWorkerManager()
 	InitK8sWorkerManager()
+	initBackupWorkerManager()
 }
