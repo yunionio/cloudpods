@@ -324,8 +324,11 @@ func (manager *STaskManager) NewTask(
 			log.Errorf("Taskobject insert error %s", err)
 			return nil, errors.Wrap(err, "TaskObjectManager.insertObject")
 		}
-		task.ProjectId = to.ProjectId
-		task.DomainId = to.DomainId
+		db.Update(task, func() error {
+			task.ProjectId = to.ProjectId
+			task.DomainId = to.DomainId
+			return nil
+		})
 	}
 
 	parentTask := task.GetParentTask()

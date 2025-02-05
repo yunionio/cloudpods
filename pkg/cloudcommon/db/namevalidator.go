@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/seclib"
 	"yunion.io/x/sqlchemy"
 
@@ -56,11 +57,18 @@ func isRawNameUnique(ctx context.Context, manager IModelManager, ownerId mcclien
 	return cnt == 0, nil
 }
 
+const forbiddenNameChars = "/\\;\n\r\t"
+
 func NewNameValidator(ctx context.Context, manager IModelManager, ownerId mcclient.IIdentityProvider, name string, uniqValues jsonutils.JSONObject) error {
 	err := manager.ValidateName(name)
 	if err != nil {
 		return err
 	}
+
+	if strings.ContainsAny(name, forbiddenNameChars) {
+		return errors.Wrapf(errors.ErrInvalidFormat, "name should not contains any of %s", forbiddenNameChars)
+	}
+
 	uniq, err := isNameUnique(ctx, manager, ownerId, name, uniqValues)
 	if err != nil {
 		return err
@@ -104,6 +112,11 @@ func alterNameValidator(ctx context.Context, model IModel, name string) error {
 	if err != nil {
 		return err
 	}
+
+	if strings.ContainsAny(name, forbiddenNameChars) {
+		return errors.Wrapf(errors.ErrInvalidFormat, "name should not contains any of %s", forbiddenNameChars)
+	}
+
 	uniq, err := isAlterNameUnique(ctx, model, name)
 	if err != nil {
 		return err

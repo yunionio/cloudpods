@@ -158,16 +158,19 @@ func isRawQuery(manager IModelManager, userCred mcclient.TokenCredential, query 
 }
 
 func fetchItemById(manager IModelManager, ctx context.Context, userCred mcclient.TokenCredential, idStr string, query jsonutils.JSONObject, useRawQuery bool) (IModel, error) {
-	q := manager.NewQuery(ctx, userCred, query, useRawQuery)
+	var q *sqlchemy.SQuery
 	var err error
 	if query != nil && !query.IsZero() {
 		// if isListRbacAllowed(manager, userCred, true) {
 		// 	query.(*jsonutils.JSONDict).Set("admin", jsonutils.JSONTrue)
 		// }
+		q = manager.NewQuery(ctx, userCred, query, useRawQuery)
 		q, err = listItemQueryFilters(manager, ctx, q, userCred, query, policy.PolicyActionGet, false)
 		if err != nil {
 			return nil, err
 		}
+	} else {
+		q = manager.Query()
 	}
 	q = manager.FilterById(q, idStr)
 	count, err := q.CountWithError()
@@ -192,13 +195,16 @@ func fetchItemById(manager IModelManager, ctx context.Context, userCred mcclient
 }
 
 func fetchItemByName(manager IModelManager, ctx context.Context, userCred mcclient.TokenCredential, idStr string, query jsonutils.JSONObject, useRawQuery bool) (IModel, error) {
-	q := manager.NewQuery(ctx, userCred, query, useRawQuery)
+	var q *sqlchemy.SQuery
 	var err error
 	if query != nil && !query.IsZero() {
+		q = manager.NewQuery(ctx, userCred, query, useRawQuery)
 		q, err = listItemQueryFilters(manager, ctx, q, userCred, query, policy.PolicyActionGet, false)
 		if err != nil {
 			return nil, err
 		}
+	} else {
+		q = manager.Query()
 	}
 	q = manager.FilterByName(q, idStr)
 	count, err := q.CountWithError()
