@@ -73,8 +73,9 @@ const (
 	VASTAITECH_GPU_MEM      = "mem"
 	VASTAITECH_GPU_MEM_UTIL = "mem_util"
 
-	CPH_AMD_GPU_DEV_ID = "dev_id"
-	CPH_AMD_GPU_MEM    = "mem"
+	CPH_AMD_GPU_DEV_ID   = "dev_id"
+	CPH_AMD_GPU_MEM      = "mem"
+	CPH_AMD_GPU_MEM_UTIL = "mem_util"
 )
 
 type CadvisorProcessMetric struct {
@@ -127,8 +128,9 @@ func (m PodMetricMeta) GetTag() map[string]string {
 type PodCphAmdGpuMetrics struct {
 	PodMetricMeta
 
-	DevId string
-	Mem   float64 // MB
+	DevId   string
+	Mem     float64 // MB
+	MemUtil float64
 }
 
 func (m PodCphAmdGpuMetrics) GetName() string {
@@ -148,8 +150,9 @@ func (m PodCphAmdGpuMetrics) GetTag() map[string]string {
 
 func (m PodCphAmdGpuMetrics) ToMap() map[string]interface{} {
 	ret := map[string]interface{}{
-		CPH_AMD_GPU_DEV_ID: m.DevId,
-		CPH_AMD_GPU_MEM:    m.Mem,
+		CPH_AMD_GPU_DEV_ID:   m.DevId,
+		CPH_AMD_GPU_MEM:      m.Mem,
+		CPH_AMD_GPU_MEM_UTIL: m.MemUtil,
 	}
 	return ret
 }
@@ -794,6 +797,7 @@ func (m *SGuestMonitor) getPodCphAmdGpuMetrics() []*PodCphAmdGpuMetrics {
 			gms.DevId = devId
 		}
 		gms.Mem += m.cphAmdGpuMetrics[i].Mem
+		gms.MemUtil += m.cphAmdGpuMetrics[i].MemUtil
 		addrGpuMap[devId] = gms
 	}
 	res := make([]*PodCphAmdGpuMetrics, 0)
