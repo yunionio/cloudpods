@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/utils"
@@ -883,7 +884,11 @@ func getAutoAllocNetworkCount(ctx context.Context, userCred mcclient.TokenCreden
 
 func getNetworkCountByFilter(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, scope rbacscope.TRbacScope, region *SCloudregion, zone *SZone, isAutoAlloc tristate.TriState, serverType string) (int, error) {
 	if zone != nil && region == nil {
-		region, _ = zone.GetRegion()
+		var err error
+		region, err = zone.GetRegion()
+		if err != nil {
+			return 0, errors.Wrapf(err, "GetRegion")
+		}
 	}
 
 	networks := NetworkManager.Query().SubQuery()
