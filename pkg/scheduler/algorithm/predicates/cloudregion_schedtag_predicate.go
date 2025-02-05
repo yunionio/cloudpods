@@ -50,11 +50,15 @@ type cloudregionSchedtagW struct {
 func (p *CloudregionSchedtagPredicate) GetInputs(u *core.Unit) []ISchedtagCustomer {
 	data := u.SchedData()
 	tags := data.Schedtags
+	schedtags := GetInputSchedtagByType(tags, computemodels.CloudregionManager.KeywordPlural())
+	if len(schedtags) == 0 {
+		return nil
+	}
 	return []ISchedtagCustomer{
 		&cloudregionSchedtagW{
 			schedData:   data,
 			cloudregion: data.PreferRegion,
-			schedtags:   GetInputSchedtagByType(tags, computemodels.CloudregionManager.KeywordPlural()),
+			schedtags:   schedtags,
 		}}
 }
 

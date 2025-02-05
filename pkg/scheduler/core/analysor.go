@@ -6,9 +6,12 @@ import (
 	"time"
 
 	"yunion.io/x/log"
+
+	"yunion.io/x/onecloud/pkg/scheduler/options"
 )
 
 type predicateAnalysor struct {
+	enable  bool
 	hint    string
 	starts  map[string]time.Time
 	elpased map[string]time.Duration
@@ -16,6 +19,7 @@ type predicateAnalysor struct {
 
 func newPredicateAnalysor(hint string) *predicateAnalysor {
 	return &predicateAnalysor{
+		enable:  options.Options.EnableAnalysis,
 		hint:    hint,
 		starts:  make(map[string]time.Time),
 		elpased: make(map[string]time.Duration),
@@ -23,11 +27,17 @@ func newPredicateAnalysor(hint string) *predicateAnalysor {
 }
 
 func (p *predicateAnalysor) Start(pName string) *predicateAnalysor {
+	if !p.enable {
+		return p
+	}
 	p.starts[pName] = time.Now()
 	return p
 }
 
 func (p *predicateAnalysor) End(pName string, end time.Time) *predicateAnalysor {
+	if !p.enable {
+		return p
+	}
 	start, ok := p.starts[pName]
 	if !ok {
 		panic(fmt.Sprintf("Not found start time of %q", pName))
@@ -56,6 +66,9 @@ func (p predicateDurations) Less(i, j int) bool {
 }
 
 func (p *predicateAnalysor) ShowResult() {
+	if !p.enable {
+		return
+	}
 	lists := make([]*predicateDuration, 0)
 	for name, d := range p.elpased {
 		lists = append(lists, &predicateDuration{

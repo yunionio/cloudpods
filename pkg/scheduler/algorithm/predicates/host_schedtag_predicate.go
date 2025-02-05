@@ -96,10 +96,6 @@ func (r hostSchedtagResW) Keyword() string {
 	return r.Candidater.Getter().Host().Keyword()
 }
 
-func (r hostSchedtagResW) GetSchedtags() []computemodels.SSchedtag {
-	return r.Candidater.Getter().HostSchedtags()
-}
-
 func (r hostSchedtagResW) GetSchedtagJointManager() computemodels.ISchedtagJointManager {
 	return r.Candidater.Getter().Host().GetSchedtagJointManager()
 }
