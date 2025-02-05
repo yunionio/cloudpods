@@ -28,4 +28,5 @@ func init() {
 			[]string{"Id", "Obj_name", "Obj_Id", "Task_name", "Stage", "Created_at"},
 		),
 	}
+	modules.Register(&DevtoolTasks)
 }

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package identity
+package monitor
 
 import (
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
@@ -23,7 +23,7 @@ var Tasks tasks.TasksManager
 
 func init() {
 	Tasks = tasks.TasksManager{
-		ResourceManager: modules.NewIdentityV3Manager("task", "tasks",
+		ResourceManager: modules.NewMonitorV2Manager("task", "tasks",
 			[]string{},
 			[]string{"Id", "Obj_name", "Obj_Id", "Task_name", "Stage", "Created_at"},
 		),
