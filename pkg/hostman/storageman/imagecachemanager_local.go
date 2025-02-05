@@ -192,8 +192,11 @@ func (c *SLocalImageCacheManager) getTotalSize(ctx context.Context) (int64, map[
 	images := make(map[string]IImageCache)
 	c.cachedImages.Range(func(imgId, imgObj any) bool {
 		img := imgObj.(IImageCache)
-		total += img.GetDesc().SizeMb
-		images[imgId.(string)] = img
+		imgDesc := img.GetDesc()
+		if imgDesc != nil {
+			total += img.GetDesc().SizeMb
+			images[imgId.(string)] = img
+		}
 		return true
 	})
 	return total, images

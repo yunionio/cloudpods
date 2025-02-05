@@ -2709,7 +2709,7 @@ func (h *SHostInfo) getProcessesPids(processesPrefix []string) (map[string]strin
 			segs := strings.Split(cmdline, "\x00")
 			if utils.IsInStringArray(segs[0], processesPrefix) {
 				res[segs[0]] = f.Name()
-				log.Infof("getProcessesPids append %s %s", segs[0], f.Name())
+				log.Debugf("getProcessesPids append %s %s", segs[0], f.Name())
 			}
 		}
 	}
