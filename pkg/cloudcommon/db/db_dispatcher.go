@@ -1647,14 +1647,22 @@ func (dispatcher *DBModelDispatcher) PerformAction(ctx context.Context, idStr st
 		return nil, httperrors.NewGeneralError(err)
 	}
 
-	lockman.LockObject(ctx, model)
-	defer lockman.ReleaseObject(ctx, model)
+	ret, err := func() (jsonutils.JSONObject, error) {
+		lockman.LockObject(ctx, model)
+		defer lockman.ReleaseObject(ctx, model)
 
-	if err := model.PreCheckPerformAction(ctx, userCred, action, query, data); err != nil {
-		return nil, err
+		if err := model.PreCheckPerformAction(ctx, userCred, action, query, data); err != nil {
+			return nil, errors.Wrap(err, "PreCheckPerformAction")
+		}
+		// 通过action与实例执行请求
+		return objectPerformAction(manager, model, reflect.ValueOf(model), ctx, userCred, action, query, data)
+	}()
+
+	if err != nil {
+		logclient.AddActionLogWithContext(ctx, model, action, err, userCred, false)
 	}
-	// 通过action与实例执行请求
-	return objectPerformAction(manager, model, reflect.ValueOf(model), ctx, userCred, action, query, data)
+
+	return ret, err
 }
 
 func objectPerformAction(manager IModelManager, model IModel, modelValue reflect.Value, ctx context.Context, userCred mcclient.TokenCredential, action string, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -1799,6 +1807,15 @@ func updateItem(manager IModelManager, item IModel, ctx context.Context, userCre
 	dataDict, err = ValidateUpdateData(item, ctx, userCred, query, dataDict)
 	if err != nil {
 		return nil, httperrors.NewGeneralError(errors.Wrapf(err, "ValidateUpdateData"))
+	}
+
+	if manager.HasName() && dataDict.Contains("name") {
+		// validate altername
+		nameStr, _ := dataDict.GetString("name")
+		err := alterNameValidator(ctx, item, nameStr)
+		if err != nil {
+			return nil, errors.Wrap(err, "alterNameValidator")
+		}
 	}
 
 	item.PreUpdate(ctx, userCred, query, dataDict)
