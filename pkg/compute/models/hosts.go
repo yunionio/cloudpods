@@ -7467,6 +7467,10 @@ func (h *SHost) GetDetailsAppOptions(ctx context.Context, userCred mcclient.Toke
 	return h.Request(ctx, userCred, httputils.GET, "/app-options", nil, nil)
 }
 
+func (h *SHost) GetDetailsWorkerStats(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	return h.Request(ctx, userCred, httputils.GET, "/worker_stats", nil, nil)
+}
+
 func (hh *SHost) IsAttach2Wire(wireId string) bool {
 	netifs := hh.getNetifsOnWire(wireId)
 	return len(netifs) > 0
