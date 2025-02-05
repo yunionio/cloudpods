@@ -232,5 +232,5 @@ func taskCompleted(ctx context.Context, data jsonutils.JSONObject) {
 }
 
 func InitPlaybookWorker() {
-	PlaybookWorker = workmanager.NewWorkManger(taskFailed, taskCompleted, options.Options.PlaybookWorkerCount)
+	PlaybookWorker = workmanager.NewWorkManger("PlaybookWorker", taskFailed, taskCompleted, options.Options.PlaybookWorkerCount)
 }
