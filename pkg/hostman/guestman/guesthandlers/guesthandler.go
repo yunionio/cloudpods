@@ -691,7 +691,7 @@ func guestSnapshot(ctx context.Context, userCred mcclient.TokenCredential, sid s
 		input.BackupDiskConfig = backupDiskConfig
 	}
 
-	hostutils.DelayTask(ctx, guestman.GetGuestManager().DoSnapshot, input)
+	hostutils.DelayBackupTask(ctx, guestman.GetGuestManager().DoSnapshot, input)
 	return nil, nil
 }
 
