@@ -42,9 +42,9 @@ type SchedOptions struct {
 	SchedulerHistoryCleanPeriod string `help:"Scheduler history cleanup period" default:"60s"`
 
 	// parallelization options
-	HostBuildParallelizeSize int `help:"Number of host description build parallelization" default:"14"`
-	PredicateParallelizeSize int `help:"Number of execute predicates parallelization" default:"14"`
-	PriorityParallelizeSize  int `help:"Number of execute priority parallelization" default:"14"`
+	HostBuildParallelizeSize int `help:"Number of host description build parallelization" default:"64"`
+	PredicateParallelizeSize int `help:"Number of execute predicates parallelization" default:"64"`
+	PriorityParallelizeSize  int `help:"Number of execute priority parallelization" default:"64"`
 
 	// expire queue options
 	ExpireQueueConsumptionPeriod  string `help:"Expire queue consumption period" default:"3s"`
@@ -89,6 +89,9 @@ type SchedOptions struct {
 	WireDBCachePeriod string `help:"Wire database cache period" default:"5m"`
 
 	SkuRefreshInterval string `help:"Server SKU refresh interval" default:"12h"`
+
+	EnableDynamicSchedtag bool `help:"Enable dynamic schedtag feature" default:"false"`
+	EnableAnalysis        bool `help:"Enable analysis feature" default:"false"`
 
 	OpenstackOptions
 }
