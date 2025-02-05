@@ -14,6 +14,7 @@ package hostmetrics
 import (
 	"os"
 	"path"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -21,12 +22,14 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
+	"yunion.io/x/onecloud/pkg/util/procutils"
 )
 
 type CphAmdGpuProcessMetrics struct {
-	Pid   string // Process ID
-	DevId string
-	Mem   float64 // Memory Utilization
+	Pid     string // Process ID
+	DevId   string
+	Mem     float64 // Memory Utilization
+	MemUtil float64
 }
 
 /*
@@ -56,7 +59,12 @@ func GetCphAmdGpuProcessMetrics() ([]CphAmdGpuProcessMetrics, error) {
 					log.Errorf("failed FileGetContents %s: %s", fpath, err)
 					continue
 				}
-				metrics := parseCphAmdGpuGemInfo(content, entrys[i].Name())
+				vramInfoPath := path.Join(debugDriDir, entrys[i].Name(), "amdgpu_vram_mm")
+				memTotalSize, err := getVramTotalSizeMb(vramInfoPath)
+				if err != nil {
+					log.Errorf("failed getVramTotalSizeMb %s", err)
+				}
+				metrics := parseCphAmdGpuGemInfo(content, entrys[i].Name(), memTotalSize)
 				if len(metrics) > 0 {
 					res = append(res, metrics...)
 				}
@@ -66,7 +74,30 @@ func GetCphAmdGpuProcessMetrics() ([]CphAmdGpuProcessMetrics, error) {
 	return res, nil
 }
 
-func parseCphAmdGpuGemInfo(content string, devId string) []CphAmdGpuProcessMetrics {
+var pagesRe = regexp.MustCompile(`man size:(\d+) pages`)
+
+// man size:8384512 pages, ram usage:3745MB, vis usage:241MB
+func getVramTotalSizeMb(vramInfoPath string) (int, error) {
+	if !fileutils2.Exists(vramInfoPath) {
+		return 0, nil
+	}
+	out, err := procutils.NewCommand("tail", "-n", "1", vramInfoPath).Output()
+	if err != nil {
+		return 0, errors.Wrapf(err, "tail -n 1 %s", vramInfoPath)
+	}
+	str := strings.TrimSpace(string(out))
+	matches := pagesRe.FindStringSubmatch(str)
+	if len(matches) > 1 {
+		pages, err := strconv.Atoi(matches[1])
+		if err != nil {
+			return 0, errors.Wrapf(err, " failed parse pages count %s", matches[0])
+		}
+		return pages * 4 * 1024 / 1024 / 1024, nil
+	}
+	return 0, errors.Errorf("failed parse pages count: %s", str)
+}
+
+func parseCphAmdGpuGemInfo(content string, devId string, memTotalSizeMB int) []CphAmdGpuProcessMetrics {
 	res := make([]CphAmdGpuProcessMetrics, 0)
 	lines := strings.Split(content, "\n")
 	var i, length = 0, len(lines)
@@ -108,10 +139,12 @@ func parseCphAmdGpuGemInfo(content string, devId string) []CphAmdGpuProcessMetri
 			}
 			j++
 		}
+		memSize := float64(vramTotal) / 1024.0 / 1024.0
 		res = append(res, CphAmdGpuProcessMetrics{
-			Pid:   pid,
-			DevId: devId,
-			Mem:   float64(vramTotal) / 1024.0 / 1024.0,
+			Pid:     pid,
+			DevId:   devId,
+			Mem:     memSize,
+			MemUtil: memSize / float64(memTotalSizeMB),
 		})
 		i = j
 	}
