@@ -78,10 +78,14 @@ func (manager *SZoneManager) GetContextManagers() [][]db.IModelManager {
 
 func (zone *SZone) ValidateDeleteCondition(ctx context.Context, info *api.ZoneDetails) error {
 	var usage api.ZoneGeneralUsage
+	var err error
 	if info != nil {
 		usage = info.ZoneGeneralUsage
 	} else {
-		usage = zone.GeneralUsage(ctx)
+		usage, err = zone.GeneralUsage(ctx)
+		if err != nil {
+			return errors.Wrapf(err, "GeneralUsage")
+		}
 	}
 	if !usage.IsEmpty() {
 		return httperrors.NewNotEmptyError("not empty zone: %s", zone.Id)
@@ -93,16 +97,38 @@ func (manager *SZoneManager) Count() (int, error) {
 	return manager.Query().CountWithError()
 }
 
-func (zone *SZone) GeneralUsage(ctx context.Context) api.ZoneGeneralUsage {
+func (zone *SZone) GeneralUsage(ctx context.Context) (api.ZoneGeneralUsage, error) {
 	usage := api.ZoneGeneralUsage{}
-	usage.Hosts, _ = zone.HostCount("", "", tristate.None, "", tristate.None)
-	usage.HostsEnabled, _ = zone.HostCount("", "", tristate.True, "", tristate.None)
-	usage.Baremetals, _ = zone.HostCount("", "", tristate.None, "", tristate.True)
-	usage.BaremetalsEnabled, _ = zone.HostCount("", "", tristate.True, "", tristate.True)
-	usage.Wires, _ = zone.getWireCount()
-	usage.Networks, _ = zone.getNetworkCount(ctx)
-	usage.Storages, _ = zone.getStorageCount()
-	return usage
+	var err error
+	usage.Hosts, err = zone.HostCount("", "", tristate.None, "", tristate.None)
+	if err != nil {
+		return usage, errors.Wrapf(err, "Hosts")
+	}
+	usage.HostsEnabled, err = zone.HostCount("", "", tristate.True, "", tristate.None)
+	if err != nil {
+		return usage, errors.Wrapf(err, "HostsEnabled")
+	}
+	usage.Baremetals, err = zone.HostCount("", "", tristate.None, "", tristate.True)
+	if err != nil {
+		return usage, errors.Wrapf(err, "Baremetals")
+	}
+	usage.BaremetalsEnabled, err = zone.HostCount("", "", tristate.True, "", tristate.True)
+	if err != nil {
+		return usage, errors.Wrapf(err, "BaremetalsEnabled")
+	}
+	usage.Wires, err = zone.getWireCount()
+	if err != nil {
+		return usage, errors.Wrapf(err, "Wires")
+	}
+	usage.Networks, err = zone.getNetworkCount(ctx)
+	if err != nil {
+		return usage, errors.Wrapf(err, "getNetworkCount")
+	}
+	usage.Storages, err = zone.getStorageCount()
+	if err != nil {
+		return usage, errors.Wrapf(err, "getStorageCount")
+	}
+	return usage, nil
 }
 
 func (zone *SZone) HostCount(status string, hostStatus string, enabled tristate.TriState, hostType string, isBaremetal tristate.TriState) (int, error) {
