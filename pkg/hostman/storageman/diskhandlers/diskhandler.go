@@ -410,7 +410,7 @@ func diskSnapshot(ctx context.Context, userCred mcclient.TokenCredential, storag
 	if err != nil {
 		return nil, httperrors.NewMissingParameterError("snapshot_id")
 	}
-	hostutils.DelayTask(ctx, disk.DiskSnapshot, snapshotId)
+	hostutils.DelayBackupTask(ctx, disk.DiskSnapshot, snapshotId)
 	return nil, nil
 }
 
@@ -427,7 +427,7 @@ func diskStorageBackupRecovery(ctx context.Context, storage storageman.IStorage,
 	if err != nil {
 		return nil, httperrors.NewMissingParameterError("backup_storage_access_info")
 	}
-	hostutils.DelayTask(ctx, storage.StorageBackupRecovery, storageman.SStorageBackup{
+	hostutils.DelayBackupTask(ctx, storage.StorageBackupRecovery, storageman.SStorageBackup{
 		BackupId:                backupId,
 		BackupStorageId:         backupStorageId,
 		BackupStorageAccessInfo: backupStorageAccessInfo.(*jsonutils.JSONDict),
@@ -451,7 +451,7 @@ func diskBackup(ctx context.Context, userCred mcclient.TokenCredential, storage 
 		return nil, httperrors.NewMissingParameterError("backup_storage_id")
 	}
 	backupInfo.UserCred = userCred
-	hostutils.DelayTask(ctx, disk.DiskBackup, backupInfo)
+	hostutils.DelayBackupTask(ctx, disk.DiskBackup, backupInfo)
 	return nil, nil
 }
 

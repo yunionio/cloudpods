@@ -678,7 +678,7 @@ func guestSnapshot(ctx context.Context, userCred mcclient.TokenCredential, sid s
 		return nil, httperrors.NewNotFoundError("Disk not found")
 	}
 
-	hostutils.DelayTask(ctx, guestman.GetGuestManager().DoSnapshot, &guestman.SDiskSnapshot{
+	hostutils.DelayBackupTask(ctx, guestman.GetGuestManager().DoSnapshot, &guestman.SDiskSnapshot{
 		UserCred:   userCred,
 		Sid:        sid,
 		SnapshotId: snapshotId,
