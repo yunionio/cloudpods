@@ -146,6 +146,8 @@ func (l *SLocalImageCache) Load() error {
 		if len(desc.Chksum) > 0 && len(desc.Id) > 0 && desc.Id == l.imageId {
 			l.Desc = desc
 			return nil
+		} else {
+			log.Errorf("image %s desc not correct, desc.Chksum %s desc.Id %s l.imageId %s", imgPath, desc.Chksum, desc.Id, l.imageId)
 		}
 	}
 
