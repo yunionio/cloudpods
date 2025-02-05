@@ -61,6 +61,7 @@ func (asc *SASController) CheckInstanceHealth(ctx context.Context, userCred mccl
 	rows, err := asc.HealthCheckSql().Rows()
 	if err != nil {
 		log.Errorf("GuestManager's SQuery.Rows: %s", err.Error())
+		return
 	}
 	for rows.Next() {
 		var ug sUnnormalGuest
