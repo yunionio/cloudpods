@@ -144,7 +144,7 @@ func parseCphAmdGpuGemInfo(content string, devId string, memTotalSizeMB int) []C
 			Pid:     pid,
 			DevId:   devId,
 			Mem:     memSize,
-			MemUtil: memSize / float64(memTotalSizeMB),
+			MemUtil: memSize / float64(memTotalSizeMB) * 100.0,
 		})
 		i = j
 	}
