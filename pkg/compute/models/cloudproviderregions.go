@@ -218,27 +218,26 @@ func (manager *SCloudproviderregionManager) QueryRelatedRegionIds(cloudAccounts 
 	return q.Distinct().SubQuery()
 }
 
-func (manager *SCloudproviderregionManager) FetchByIds(providerId string, regionId string) *SCloudproviderregion {
+func (manager *SCloudproviderregionManager) FetchByIds(providerId string, regionId string) (*SCloudproviderregion, error) {
 	q := manager.Query().Equals("cloudprovider_id", providerId).Equals("cloudregion_id", regionId)
 	obj, err := db.NewModelObject(manager)
 	if err != nil {
-		log.Errorf("db.NewModelObject fail %s", err)
-		return nil
+		return nil, errors.Wrapf(err, "NewModelObject")
 	}
 	err = q.First(obj)
 	if err != nil {
-		if err != sql.ErrNoRows {
-			log.Errorf("q.First fail %s", err)
-		}
-		return nil
+		return nil, errors.Wrapf(err, "First")
 	}
-	return obj.(*SCloudproviderregion)
+	return obj.(*SCloudproviderregion), nil
 }
 
-func (manager *SCloudproviderregionManager) FetchByIdsOrCreate(providerId string, regionId string) *SCloudproviderregion {
-	cpr := manager.FetchByIds(providerId, regionId)
-	if cpr != nil {
-		return cpr
+func (manager *SCloudproviderregionManager) FetchByIdsOrCreate(providerId string, regionId string) (*SCloudproviderregion, error) {
+	cpr, err := manager.FetchByIds(providerId, regionId)
+	if err == nil {
+		return cpr, nil
+	}
+	if errors.Cause(err) != sql.ErrNoRows {
+		return nil, errors.Wrapf(err, "FetchByIds")
 	}
 	cpr = &SCloudproviderregion{}
 	cpr.SetModelManager(manager, cpr)
@@ -248,12 +247,11 @@ func (manager *SCloudproviderregionManager) FetchByIdsOrCreate(providerId string
 	cpr.Enabled = true
 	cpr.SyncStatus = api.CLOUD_PROVIDER_SYNC_STATUS_IDLE
 
-	err := manager.TableSpec().Insert(context.Background(), cpr)
+	err = manager.TableSpec().Insert(context.Background(), cpr)
 	if err != nil {
-		log.Errorf("insert fail %s", err)
-		return nil
+		return nil, errors.Wrapf(err, "Insert")
 	}
-	return cpr
+	return cpr, nil
 }
 
 func (self *SCloudproviderregion) markStartingSync(userCred mcclient.TokenCredential, syncRange *SSyncRange) error {

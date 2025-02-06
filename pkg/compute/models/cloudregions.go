@@ -548,9 +548,13 @@ func (manager *SCloudregionManager) SyncRegions(
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
-			cpr := CloudproviderRegionManager.FetchByIdsOrCreate(cloudProvider.Id, commondb[i].Id)
-			cpr.setCapabilities(ctx, userCred, commonext[i].GetCapabilities())
-			cloudProviderRegions = append(cloudProviderRegions, *cpr)
+			cpr, err := CloudproviderRegionManager.FetchByIdsOrCreate(cloudProvider.Id, commondb[i].Id)
+			if err != nil {
+				syncResult.UpdateError(err)
+			} else {
+				cpr.setCapabilities(ctx, userCred, commonext[i].GetCapabilities())
+				cloudProviderRegions = append(cloudProviderRegions, *cpr)
+			}
 			localRegions = append(localRegions, commondb[i])
 			remoteRegions = append(remoteRegions, commonext[i])
 			syncResult.Update()
@@ -561,9 +565,13 @@ func (manager *SCloudregionManager) SyncRegions(
 		if err != nil {
 			syncResult.AddError(err)
 		} else {
-			cpr := CloudproviderRegionManager.FetchByIdsOrCreate(cloudProvider.Id, new.Id)
-			cpr.setCapabilities(ctx, userCred, added[i].GetCapabilities())
-			cloudProviderRegions = append(cloudProviderRegions, *cpr)
+			cpr, err := CloudproviderRegionManager.FetchByIdsOrCreate(cloudProvider.Id, new.Id)
+			if err != nil {
+				syncResult.AddError(err)
+			} else {
+				cpr.setCapabilities(ctx, userCred, added[i].GetCapabilities())
+				cloudProviderRegions = append(cloudProviderRegions, *cpr)
+			}
 			localRegions = append(localRegions, *new)
 			remoteRegions = append(remoteRegions, added[i])
 			syncResult.Add()
