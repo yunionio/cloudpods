@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"time"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -53,7 +54,7 @@ func (self *GuacamoleTunnel) ReadOne() (*Instruction, error) {
 				return nil, InvalidInstruction
 			}
 			return instruct, nil
-		default:
+		case <-time.After(1 * time.Second):
 		}
 	}
 }
