@@ -247,6 +247,10 @@ func getLangBystr(str string) language.Tag {
 
 func (oc *OneCloudNotifier) notifyByContextLang(ctx context.Context, evalCtx *alerting.EvalContext, uids []string) error {
 	errs := []error{}
+	if evalCtx.Rule.State == monitor.AlertStatePending {
+		log.Warningf("skip notify rule because state is pending: %s", jsonutils.Marshal(evalCtx.Rule))
+		return nil
+	}
 	if len(evalCtx.EvalMatches) > 0 {
 		if err := oc.notifyMatchesByContextLang(ctx, evalCtx, evalCtx.EvalMatches, uids, false); err != nil {
 			errs = append(errs, errors.Wrapf(err, "notify alerting matches"))
@@ -520,7 +524,7 @@ func (s *sendRobotImpl) execNotifyFunc() error {
 }
 
 func SendNotifyInfo(base *sendnotifyBase, imp Isendnotify) error {
-	tmpMatches := base.config.Matches
+	/*tmpMatches := base.config.Matches
 	batch := 100
 	for i := 0; i < len(tmpMatches); i += batch {
 		split := i + batch
@@ -535,5 +539,7 @@ func SendNotifyInfo(base *sendnotifyBase, imp Isendnotify) error {
 		}
 
 	}
-	return nil
+	return nil*/
+	base.config.ResourceName = base.evalCtx.GetResourceNameOfMatches(base.config.Matches)
+	return imp.execNotifyFunc()
 }

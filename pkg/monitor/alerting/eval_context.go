@@ -22,6 +22,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/sets"
 
 	"yunion.io/x/onecloud/pkg/apis/monitor"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -205,11 +206,13 @@ func (c *EvalContext) GetNotificationTemplateConfig(matches []*monitor.EvalMatch
 		desc += "Error: " + c.Error.Error()
 	}
 	tz, _ := time.LoadLocation(options.Options.TimeZone)
-	return monitor.NotificationTemplateConfig{
+	cfg := monitor.NotificationTemplateConfig{
 		Title:        c.GetNotificationTitle(),
 		Name:         c.Rule.Name,
 		ResourceName: c.GetResourceNameOfMatches(matches),
 		Matches:      matches,
+		MatchTags:    make([]map[string]string, len(matches)),
+		MatchTagsStr: make([]string, len(matches)),
 		//Matches:      c.GetEvalMatches(),
 		StartTime:   c.StartTime.In(tz).Format("2006-01-02 15:04:05"),
 		EndTime:     c.EndTime.In(tz).Format("2006-01-02 15:04:05"),
@@ -218,6 +221,31 @@ func (c *EvalContext) GetNotificationTemplateConfig(matches []*monitor.EvalMatch
 		NoDataFound: c.NoDataFound,
 		WebUrl:      c.GetCallbackURLPrefix(),
 	}
+	// calculate match tags
+	diffKeySets := make(map[string]sets.String)
+	for i := range cfg.Matches {
+		m := cfg.Matches[i]
+		for mk, mv := range m.Tags {
+			if _, ok := diffKeySets[mk]; !ok {
+				diffKeySets[mk] = sets.NewString()
+			}
+			if sets.NewString("name", "host", "host_id", "ip", "host_id", "vm_id", "access_ip").Has(mk) {
+				continue
+			}
+			diffKeySets[mk].Insert(mv)
+		}
+	}
+	for i := range cfg.Matches {
+		m := cfg.Matches[i]
+		cfg.MatchTags[i] = make(map[string]string)
+		for diffKey, s := range diffKeySets {
+			if s.Len() > 1 {
+				cfg.MatchTags[i][diffKey] = m.Tags[diffKey]
+			}
+		}
+		cfg.MatchTagsStr[i] = jsonutils.Marshal(cfg.MatchTags[i]).String()
+	}
+	return cfg
 }
 
 func (c *EvalContext) GetEvalMatches() []monitor.EvalMatch {
