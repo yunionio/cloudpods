@@ -68,6 +68,7 @@
     border-bottom: 1px solid #d7d7d7;
   }
 </style>
+{{$match_tags_str := .match_tags_str}}
 <body>
   <h3 class="title">Alert</h3>
   <table border="0" cellspacing="0" cellpadding="0" class="table">
@@ -110,6 +111,9 @@
               <td>Brand</td>
               <td>Metric</td>
               <td>Trigger value</td>
+              {{if gt (len $match_tags_str) 1}}
+              <td>Tags</td>
+              {{end}}
             </tr>
           </thead>
           <tbody>
@@ -127,6 +131,9 @@
 				  </td>
 				  <td>{{ $Matche.metric }}</td>
 				  <td>{{ $Matche.value_str }}</td>
+				  {{if gt (len $match_tags_str) 1}}
+				  <td>{{ index $match_tags_str $i }}</td>
+				  {{end}}
 				</tr>
 			{{end}}
           </tbody>
