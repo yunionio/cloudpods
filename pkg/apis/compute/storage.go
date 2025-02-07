@@ -74,6 +74,9 @@ type StorageCreateInput struct {
 	// enable ceph messenger v2
 	EnableMessengerV2 *bool `json:"enable_messenger_v2"`
 
+	// rbd storage auto cache glance images
+	AutoCacheImages *bool `json:"auto_cache_images"`
+
 	// swagger:ignore
 	MonHost string
 
@@ -236,6 +239,8 @@ type StorageUpdateInput struct {
 
 	// enable ceph messenger v2
 	EnableMessengerV2 *bool `json:"enable_messenger_v2"`
+	// rbd storage auto cache glance images
+	AutoCacheImages *bool `json:"auto_cache_images"`
 
 	RbdTimeoutInput
 
@@ -244,6 +249,18 @@ type StorageUpdateInput struct {
 
 	UpdateStorageConf bool
 	MasterHost        string
+}
+
+type RbdStorageConf struct {
+	RadosMonOpTimeout  int `json:"rados_mon_op_timeout"`
+	RadosOsdOpTimeout  int `json:"rados_osd_op_timeout"`
+	ClientMountTimeout int `json:"client_mount_timeout"`
+
+	MonHost           string `json:"mon_host"`
+	Pool              string `json:"pool"`
+	Key               string `json:"key"`
+	EnableMessengerV2 bool   `json:"enable_messenger_v2"`
+	AutoCacheImages   bool   `json:"auto_cache_images"`
 }
 
 type StorageSetCmtBoundInput struct {
