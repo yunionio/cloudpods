@@ -40,6 +40,8 @@ type SImageOptions struct {
 
 	TorrentClientPath string `help:"path to torrent executable" default:"/opt/yunion/bin/torrent"`
 
+	DefaultImageServiceHomeDir string `help:"Default image service home dir" default:"/opt/cloud/workspace/data/glance"`
+
 	// DeployServerSocketPath string `help:"Deploy server listen socket path" default:"/var/run/onecloud/deploy.sock"`
 
 	StorageDriver string `help:"image backend storage" default:"local" choices:"s3|local"`

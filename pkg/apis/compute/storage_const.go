@@ -282,4 +282,7 @@ type StorageListInput struct {
 
 	// filter storages of baremetal host
 	IsBaremetal *bool `json:"is_baremetal"`
+
+	// filter by storage type
+	StorageType string `json:"storage_type"`
 }
