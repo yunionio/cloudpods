@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -141,23 +140,7 @@ func (s *SRbdStorage) GetImgsaveBackupPath() string {
 
 // Tip Configuration values containing :, @, or = can be escaped with a leading \ character.
 func (s *SRbdStorage) getStorageConfString() string {
-	conf := []string{}
-	conf = append(conf, "mon_host="+strings.ReplaceAll(s.MonHost, ",", `\;`))
-	key := s.Key
-	if len(key) > 0 {
-		for _, k := range []string{":", "@", "="} {
-			key = strings.ReplaceAll(key, k, fmt.Sprintf(`\%s`, k))
-		}
-		conf = append(conf, "key="+key)
-	}
-	for k, timeout := range map[string]int64{
-		"rados_mon_op_timeout": s.RadosMonOpTimeout,
-		"rados_osd_op_timeout": s.RadosOsdOpTimeout,
-		"client_mount_timeout": s.ClientMountTimeout,
-	} {
-		conf = append(conf, fmt.Sprintf("%s=%d", k, timeout))
-	}
-	return ":" + strings.Join(conf, ":")
+	return cephutils.CephConfString(s.MonHost, s.Key, s.RadosMonOpTimeout, s.RadosOsdOpTimeout, s.ClientMountTimeout)
 }
 
 func (s *SRbdStorage) listImages() ([]string, error) {
