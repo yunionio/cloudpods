@@ -8,7 +8,7 @@ endif
 ModBaseName:=$(notdir $(ModName))
 
 DockerImageRegistry?=registry.cn-beijing.aliyuncs.com
-DockerImageAlpineBuild?=$(DockerImageRegistry)/yunionio/alpine-build:3.19.0-go-1.21.10-0
+DockerImageAlpineBuild?=$(DockerImageRegistry)/yunionio/alpine-build:3.21.0-go-1.23.4-0
 DockerImageCentOSBuild?=$(DockerImageRegistry)/yunionio/centos-build:go-1.21.10-0
 
 EnvIf=$(if $($(1)),$(1)=$($(1)))

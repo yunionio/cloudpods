@@ -313,7 +313,7 @@ for component in $COMPONENTS; do
 
     case "$ARCH" in
     all)
-        for arch in "arm64" "amd64"; do
+        for arch in "arm64" "amd64" "loong64"; do
             general_build $component $arch "true"
         done
         make_manifest_image $component
