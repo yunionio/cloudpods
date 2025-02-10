@@ -15,11 +15,26 @@
 package netutils2
 
 import (
+	"net"
 	"net/http"
+	"net/url"
 
 	"yunion.io/x/pkg/util/netutils"
 )
 
 func GetHttpRequestIp(r *http.Request) string {
 	return netutils.GetHttpRequestIp(r)
+}
+
+func ParseIpFromUrl(u string) string {
+	parsedUrl, err := url.Parse(u)
+	if err != nil {
+		panic(err)
+	}
+	host := parsedUrl.Hostname()
+	ip := net.ParseIP(host)
+	if ip == nil {
+		return ""
+	}
+	return ip.String()
 }

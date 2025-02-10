@@ -696,10 +696,10 @@ func (s *SKVMGuestInstance) asyncScriptStart(ctx context.Context, params interfa
 		encryptInfo = new(apis.SEncryptInfo)
 		data.Unmarshal(encryptInfo, "encrypt_info")
 	}
-	err = s.fuseMount(encryptInfo)
-	if err != nil {
-		return nil, errors.Wrap(err, "fuse mount")
-	}
+	//err = s.fuseMount(encryptInfo)
+	//if err != nil {
+	//	return nil, errors.Wrap(err, "fuse mount")
+	//}
 
 	var vcpuOrder = make([][]int, 0)
 	isMigrate := jsonutils.QueryBoolean(data, "need_migrate", false)
@@ -1146,12 +1146,15 @@ func (s *SKVMGuestInstance) eventBlockJobReady(event *monitor.Event) {
 		log.Errorf("failed get disk from index %d", diskIndex)
 		return
 	}
-	var diskId, diskPath string
+	var diskId, diskPath, diskUrl string
+	var mergeSnapshots bool
 	for i := 0; i < len(disks); i++ {
 		index := disks[i].Index
 		if index == int8(diskIndex) {
 			diskId = disks[i].DiskId
 			diskPath = disks[i].Path
+			diskUrl = disks[i].Url
+			mergeSnapshots = disks[i].MergeSnapshot
 		}
 	}
 	if len(diskId) == 0 {
@@ -1164,7 +1167,9 @@ func (s *SKVMGuestInstance) eventBlockJobReady(event *monitor.Event) {
 		log.Errorf("eventBlockJobReady failed get disk %s", diskPath)
 		return
 	}
-	disk.PostCreateFromImageFuse()
+	if mergeSnapshots {
+		disk.PostCreateFromRemoteHostImage(diskUrl)
+	}
 	blockJobCount := s.BlockJobsCount()
 	if blockJobCount == 0 {
 		for {
@@ -2070,6 +2075,9 @@ func (s *SKVMGuestInstance) delTmpDisks(ctx context.Context, migrated bool) erro
 					return err
 				}
 			}
+			if d != nil && disk.MergeSnapshot {
+				d.PostCreateFromRemoteHostImage(disk.Url)
+			}
 			if migrated {
 				if d != nil && utils.IsInStringArray(d.GetType(), []string{api.STORAGE_SLVM, api.STORAGE_CLVM}) {
 					if err := lvmutils.LVDeactivate(d.GetPath()); err != nil {
@@ -2820,11 +2828,12 @@ func (s *SKVMGuestInstance) streamDisksComplete(ctx context.Context) {
 	disks := s.Desc.Disks
 	for i, _ := range disks {
 		d, _ := storageman.GetManager().GetDiskByPath(disks[i].Path)
-		if d != nil {
-			log.Infof("Disk %s do post create from fuse", d.GetId())
-			d.PostCreateFromImageFuse()
-		}
 		if disks[i].MergeSnapshot {
+			if d != nil {
+				log.Infof("Disk %s do post create from fuse", d.GetId())
+				d.PostCreateFromRemoteHostImage(disks[i].Url)
+			}
+
 			disks[i].MergeSnapshot = false
 			s.needSyncStreamDisks = true
 		}

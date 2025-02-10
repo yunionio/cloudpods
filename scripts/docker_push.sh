@@ -66,15 +66,6 @@ build_bin() {
     local BUILD_ARCH=$2
     local BUILD_CGO=$3
     case "$1" in
-    host-image)
-        rm -vf _output/bin/$1
-        rm -rvf _output/bin/bundles/$1
-        if [ -z "$LIBQEMUIO_PATH" ]; then
-            echo "Need set \$LIBQEMUIO_PATH env to build host-image"
-            exit 1
-        fi
-        GOOS=linux make cmd/$1
-        ;;
     climc)
         rm -vf _output/bin/*cli
         env $BUILD_ARCH $BUILD_CGO make -C "$SRC_DIR" docker-alpine-build F="cmd/$1 cmd/*cli"
@@ -88,14 +79,14 @@ build_bin() {
     esac
 }
 
-build_bundle_libraries() {
-    for bundle_component in 'host-image'; do
-        if [ $1 == $bundle_component ]; then
-            $CUR_DIR/bundle_libraries.sh _output/bin/bundles/$1 _output/bin/$1
-            break
-        fi
-    done
-}
+# build_bundle_libraries() {
+#     for bundle_component in 'host-image'; do
+#         if [ $1 == $bundle_component ]; then
+#             $CUR_DIR/bundle_libraries.sh _output/bin/bundles/$1 _output/bin/$1
+#             break
+#         fi
+#     done
+# }
 
 build_image() {
     local tag=$1
@@ -160,7 +151,7 @@ build_process() {
     local build_env=""
 
     case "$component" in
-    host | host-image)
+    host)
         build_env="$build_env CGO_ENABLED=1"
         ;;
     *)
@@ -173,7 +164,7 @@ build_process() {
         echo "[$(readlink -f ${BASH_SOURCE}):${LINENO} ${FUNCNAME[0]}] return for DRY_RUN"
         return
     fi
-    build_bundle_libraries $component
+    # build_bundle_libraries $component
 
     build_image $img_name $DOCKER_DIR/Dockerfile.$component $SRC_DIR
 }
@@ -186,7 +177,7 @@ build_process_with_buildx() {
 
     build_env="GOARCH=$arch"
     case "$component" in
-    host | host-image)
+    host)
         build_env="$build_env CGO_ENABLED=1"
         ;;
     *)
@@ -261,7 +252,7 @@ show_update_cmd() {
     local spec=$1
     local name=$1
     local tag=${TAG}
-    if [[ "$arch" == arm64 || "$component" == host-image ]]; then
+    if [[ "$arch" == arm64 ]]; then
         tag="${tag}-$arch"
     fi
 
@@ -306,10 +297,6 @@ for component in $COMPONENTS; do
     fi
 
     echo "Start to build component: $component"
-    if [[ $component == host-image ]]; then
-        build_process $component $ARCH "false"
-        continue
-    fi
 
     case "$ARCH" in
     all)

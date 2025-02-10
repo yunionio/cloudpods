@@ -17,11 +17,13 @@ package storageman
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"path"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/httputils"
 
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -29,6 +31,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/deployclient"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
@@ -67,9 +70,9 @@ type IDisk interface {
 	CreateFromTemplate(context.Context, string, string, int64, *apis.SEncryptInfo) (jsonutils.JSONObject, error)
 	CreateFromSnapshotLocation(ctx context.Context, location string, size int64, encryptInfo *apis.SEncryptInfo) (jsonutils.JSONObject, error)
 	CreateFromRbdSnapshot(ctx context.Context, snapshotId, srcDiskId, srcPool string) error
-	CreateFromImageFuse(ctx context.Context, url string, size int64, encryptInfo *apis.SEncryptInfo) error
+	CreateFromRemoteHostImage(ctx context.Context, url string, size int64, encryptInfo *apis.SEncryptInfo) error
 	CreateRaw(ctx context.Context, sizeMb int, diskFormat string, fsFormat string, fsFeatures *api.DiskFsFeatures, encryptInfo *apis.SEncryptInfo, diskId string, back string) (jsonutils.JSONObject, error)
-	PostCreateFromImageFuse()
+	PostCreateFromRemoteHostImage(diskUrl string)
 	CreateSnapshot(snapshotId string, encryptKey string, encFormat qemuimg.TEncryptFormat, encAlg seclib2.TSymEncAlg) error
 	DeleteSnapshot(snapshotId, convertSnapshot string, blockStream bool, encryptInfo apis.SEncryptInfo) error
 	DeployGuestFs(diskInfo *deployapi.DiskInfo, guestDesc *desc.SGuestDesc,
@@ -128,7 +131,7 @@ func (d *SBaseDisk) CreateFromSnapshotLocation(ctx context.Context, location str
 	return nil, errors.Errorf("Not implemented")
 }
 
-func (d *SBaseDisk) CreateFromImageFuse(ctx context.Context, url string, size int64, encryptInfo *apis.SEncryptInfo) error {
+func (d *SBaseDisk) CreateFromRemoteHostImage(ctx context.Context, url string, size int64, encryptInfo *apis.SEncryptInfo) error {
 	return errors.Errorf("unsupported operation")
 }
 
@@ -176,7 +179,7 @@ func (d *SBaseDisk) RebuildSlaveDisk(diskUri string) error {
 	return nil
 }
 
-func (d *SBaseDisk) PostCreateFromImageFuse() {
+func (d *SBaseDisk) PostCreateFromRemoteHostImage(string) {
 }
 
 func (d *SBaseDisk) GetZoneId() string {
@@ -274,4 +277,44 @@ func (d *SBaseDisk) GetBackupDir() string {
 
 func (d *SBaseDisk) GetContainerStorageDriver() (container_storage.IContainerStorage, error) {
 	return nil, errors.Wrap(errors.ErrNotImplemented, "GetContainerStorageDriver")
+}
+
+func (d *SBaseDisk) RequestExportNbdImage(ctx context.Context, url string, encryptInfo *apis.SEncryptInfo) (int64, error) {
+	body := jsonutils.NewDict()
+	body.Set("disk_id", jsonutils.NewString(d.GetId()))
+	header := http.Header{}
+	userCred := auth.AdminCredential()
+	header.Set("X-Auth-Token", userCred.GetTokenString())
+	if encryptInfo != nil {
+		header.Set("X-Encrypt-Key", encryptInfo.Key)
+		header.Set("X-Encrypt-Alg", string(encryptInfo.Alg))
+	}
+
+	url = fmt.Sprintf("%s/%s", url, "nbd-export")
+	httpClient := httputils.GetDefaultClient()
+	_, respBody, err := httputils.JSONRequest(httpClient, ctx, "POST", url, header, body, false)
+	if err != nil {
+		return -1, errors.Wrap(err, "request export image")
+	}
+	nbdPort, err := respBody.Int("nbd_port")
+	if err != nil {
+		return -1, errors.Wrapf(err, "failed get nbd port from %s", url)
+	}
+	return nbdPort, nil
+}
+
+func (d *SBaseDisk) RequestCloseNbdImage(ctx context.Context, url string) error {
+	body := jsonutils.NewDict()
+	body.Set("disk_id", jsonutils.NewString(d.GetId()))
+	header := http.Header{}
+	userCred := auth.AdminCredential()
+	header.Set("X-Auth-Token", userCred.GetTokenString())
+
+	url = fmt.Sprintf("%s/%s", url, "nbd-close")
+	httpClient := httputils.GetDefaultClient()
+	_, _, err := httputils.JSONRequest(httpClient, ctx, "POST", url, header, body, false)
+	if err != nil {
+		return errors.Wrap(err, "request close image")
+	}
+	return nil
 }

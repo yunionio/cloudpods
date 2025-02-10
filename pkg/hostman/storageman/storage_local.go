@@ -961,9 +961,9 @@ func (s *SLocalStorage) CreateDiskFromSnapshot(ctx context.Context, disk IDisk, 
 		if info.Encryption {
 			encryptInfo = &info.EncryptInfo
 		}
-		err := disk.CreateFromImageFuse(ctx, info.SnapshotUrl, int64(info.DiskSizeMb), encryptInfo)
+		err := disk.CreateFromRemoteHostImage(ctx, info.SnapshotUrl, int64(info.DiskSizeMb), encryptInfo)
 		if err != nil {
-			return nil, errors.Wrapf(err, "CreateFromImageFuse")
+			return nil, errors.Wrapf(err, "CreateFromRemoteHostImage")
 		}
 		return disk.GetDiskDesc(), nil
 	}
