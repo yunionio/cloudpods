@@ -46,7 +46,7 @@ func (d *SNasDisk) CreateFromTemplate(ctx context.Context, imageId, format strin
 	return d.SLocalDisk.createFromTemplateAndResize(ctx, imageId, format, imageCacheManager, encryptInfo, size)
 }
 
-func (d *SNasDisk) CreateFromImageFuse(ctx context.Context, url string, size int64, encryptInfo *apis.SEncryptInfo) error {
+func (d *SNasDisk) CreateFromRemoteHostImage(ctx context.Context, url string, size int64, encryptInfo *apis.SEncryptInfo) error {
 	return fmt.Errorf("Not implemented")
 }
 
