@@ -265,7 +265,10 @@ func genMsgViaLang(ctx context.Context, p sNotifyParams) ([]npk.SNotifyMessage, 
 			topic = p.event
 		}
 		msg.Topic = topic
-		body, _ := getContent(langSuffix, p.event, "content", p.channel, p.data)
+		body, err := getContent(langSuffix, p.event, "content", p.channel, p.data)
+		if err != nil {
+			log.Errorf("get content error: %s", err)
+		}
 		if len(body) == 0 {
 			body, _ = p.data.GetString()
 		}
