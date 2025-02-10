@@ -15,7 +15,9 @@
 package netutils2
 
 import (
+	"net"
 	"net/http"
+	"net/url"
 	"strings"
 )
 
@@ -37,4 +39,17 @@ func GetHttpRequestIp(r *http.Request) string {
 		ipStr = ipStr[:colonPos]
 	}
 	return ipStr
+}
+
+func ParseIpFromUrl(u string) string {
+	parsedUrl, err := url.Parse(u)
+	if err != nil {
+		panic(err)
+	}
+	host := parsedUrl.Hostname()
+	ip := net.ParseIP(host)
+	if ip == nil {
+		return ""
+	}
+	return ip.String()
 }
