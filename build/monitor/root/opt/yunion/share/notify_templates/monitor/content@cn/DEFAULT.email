@@ -68,6 +68,7 @@
     border-bottom: 1px solid #d7d7d7;
   }
 </style>
+{{$match_tags_str := .match_tags_str}}
 <body>
   <h3 class="title">报警提醒</h3>
   <table border="0" cellspacing="0" cellpadding="0" class="table">
@@ -110,6 +111,9 @@
               <td>平台</td>
               <td>指标</td>
               <td>触发值</td>
+              {{if gt (len $match_tags_str) 1}}
+              <td>标签</td>
+              {{end}}
             </tr>
           </thead>
           <tbody>
@@ -127,6 +131,9 @@
 				  </td>
 				  <td>{{ $Matche.metric }}</td>
 				  <td>{{ $Matche.value_str }}</td>
+				  {{if gt (len $match_tags_str) 1}}
+				  <td>{{ index $match_tags_str $i }}</td>
+				  {{end}}
 				</tr>
 			{{end}}
           </tbody>
