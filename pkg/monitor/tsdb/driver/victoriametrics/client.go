@@ -61,6 +61,7 @@ func NewTimeRangeByInfluxTimeRange(tr *influxql.TimeRange) *TimeRange {
 
 type Client interface {
 	QueryRange(ctx context.Context, httpCli *http.Client, query string, step time.Duration, timeRange *TimeRange, disableCache bool) (*Response, error)
+	RawQuery(ctx context.Context, httpCli *http.Client, query string, disableCache bool) (*Response, error)
 }
 
 type client struct {
@@ -82,6 +83,8 @@ type ResponseDataResultValue []interface{}
 type ResponseDataResult struct {
 	Metric map[string]string         `json:"metric"`
 	Values []ResponseDataResultValue `json:"values"`
+	// sum(histogram_over_time(cpu_usage_active[24h])) by (vmrange) 查询时会返回
+	Value ResponseDataResultValue `json:"value"`
 }
 
 type ResponseData struct {
@@ -152,6 +155,40 @@ func (c *client) createQueryRangeReq(query string, step time.Duration, tr *TimeR
 	curlCmd, _ := http2curl.GetCurlCommand(req)
 	log.Infof("VictoriaMetrics curl cmd: %s", curlCmd)
 	return req, nil
+}
+
+func (c *client) RawQuery(ctx context.Context, httpCli *http.Client, query string, disableCache bool) (*Response, error) {
+	reqURL := c.getAPIURL("/query")
+	req, err := http.NewRequest(http.MethodGet, reqURL, nil)
+	if err != nil {
+		return nil, errors.Wrapf(err, "new HTTP request of: %s", reqURL)
+	}
+	req.Header.Set("User-Agent", "Cloudpods Monitor Service")
+	params := req.URL.Query()
+	params.Set("query", query)
+	if disableCache {
+		params.Set("nocache", "1")
+	}
+	req.URL.RawQuery = params.Encode()
+	curlCmd, _ := http2curl.GetCurlCommand(req)
+	log.Infof("VictoriaMetrics curl cmd: %s", curlCmd)
+
+	resp, err := ctxhttp.Do(ctx, httpCli, req)
+	if err != nil {
+		return nil, errors.Wrap(err, "Do request")
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode/100 != 2 {
+		return nil, errors.Wrapf(ErrVMInvalidResponse, "status code: %d", resp.StatusCode)
+	}
+
+	var response Response
+	dec := json.NewDecoder(resp.Body)
+	dec.UseNumber()
+	if err := dec.Decode(&response); err != nil {
+		return nil, errors.Wrap(err, "decode json response")
+	}
+	return &response, nil
 }
 
 func NewClient(endpoint string) (Client, error) {
