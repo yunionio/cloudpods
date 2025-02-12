@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -28,6 +29,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/httputils"
 	"yunion.io/x/pkg/util/rbacscope"
 
 	"yunion.io/x/onecloud/pkg/apis/monitor"
@@ -37,9 +39,11 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	mod "yunion.io/x/onecloud/pkg/mcclient/modules/monitor"
+	"yunion.io/x/onecloud/pkg/monitor/datasource"
 	merrors "yunion.io/x/onecloud/pkg/monitor/errors"
 	mq "yunion.io/x/onecloud/pkg/monitor/metricquery"
 	"yunion.io/x/onecloud/pkg/monitor/options"
+	"yunion.io/x/onecloud/pkg/monitor/tsdb/driver/victoriametrics"
 	"yunion.io/x/onecloud/pkg/monitor/validators"
 )
 
@@ -589,4 +593,83 @@ func (self *SUnifiedMonitorManager) GetPropertySimpleQuery(ctx context.Context, 
 		}
 	}
 	return jsonutils.Marshal(map[string]interface{}{"values": ret}), nil
+}
+
+func (self *SUnifiedMonitorManager) GetPropertyCdfQuery(ctx context.Context, userCred mcclient.TokenCredential, input *monitor.CdfQueryInput) (*monitor.CdfQueryOutput, error) {
+	if len(input.Database) == 0 {
+		input.Database = "telegraf"
+	}
+	if len(input.MetricName) == 0 {
+		return nil, httperrors.NewMissingParameterError("metric_name")
+	}
+	input.MetricName = strings.Replace(input.MetricName, ".", "_", 1)
+	ds, err := datasource.GetDefaultSource(input.Database)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetDefaultSource")
+	}
+	client, err := victoriametrics.NewClient(ds.Url)
+	if err != nil {
+		return nil, errors.Wrapf(err, "NewClient")
+	}
+	if len(input.Period) == 0 {
+		input.Period = "1h"
+	}
+	sql := fmt.Sprintf("sum(histogram_over_time(avg_over_time(%s[%s]))) by (vmrange)", input.MetricName, input.Period)
+	if len(input.Tags) > 0 {
+		tags := []string{}
+		for k, v := range input.Tags {
+			tags = append(tags, fmt.Sprintf(`%s="%s"`, k, v))
+		}
+		sql = fmt.Sprintf("sum(histogram_over_time(avg_over_time(%s{%s}[%s]))) by (vmrange)", input.MetricName, strings.Join(tags, ","), input.Period)
+	}
+	resp, err := client.RawQuery(ctx, httputils.GetAdaptiveTimeoutClient(), sql, true)
+	if err != nil {
+		return nil, err
+	}
+	ret, total := monitor.CdfQueryDataSet{}, 0
+	for _, r := range resp.Data.Result {
+		if len(r.Metric) == 0 {
+			continue
+		}
+		vmrange, _ := r.Metric["vmrange"]
+		if len(vmrange) == 0 {
+			continue
+		}
+		if len(r.Value) != 2 {
+			continue
+		}
+		v, _ := strconv.Atoi(r.Value[1].(string))
+		ret = append(ret, monitor.CdfQueryData{
+			Vmrange: vmrange,
+			Value:   v,
+		})
+		total += v
+	}
+	sort.Sort(ret)
+	for i := range ret {
+		ret[i].Total = total
+		if i == 0 {
+			ret[i].ValueAsc = ret[i].Value
+		} else {
+			ret[i].ValueAsc = ret[i-1].ValueAsc + ret[i].Value
+		}
+	}
+	for i := len(ret) - 1; i >= 0; i-- {
+		if i == len(ret)-1 {
+			ret[i].ValueDesc = ret[i].Value
+		} else {
+			ret[i].ValueDesc = ret[i+1].ValueDesc + ret[i].Value
+		}
+	}
+	result := &monitor.CdfQueryOutput{
+		Data: monitor.CdfQueryDataSet{},
+	}
+	for i := range ret {
+		v1 := ret[i]
+		v1.Metric = v1.Start()
+		v2 := v1.Copy()
+		v2.Metric = v2.End()
+		result.Data = append(result.Data, v1, v2)
+	}
+	return result, nil
 }

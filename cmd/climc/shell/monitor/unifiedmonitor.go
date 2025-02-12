@@ -27,7 +27,7 @@ func init() {
 	cmd := shell.NewResourceCmd(monitor.UnifiedMonitorManager).SetPrefix("monitor")
 	cmd.Show(&options.SimpleQueryOptions{})
 	cmd.GetProperty(&options.MeasurementsQueryOptions{})
-	// cmd.GetProperty(&options.DatabasesQueryOptions{})
+	cmd.ClassShow(&options.CdfQueryOptions{})
 
 	R(new(options.MetricQueryOptions), "monitor-unifiedmonitor-query", "Perform metrics query", func(s *mcclient.ClientSession, opts *options.MetricQueryOptions) error {
 		input, err := opts.GetQueryInput()
