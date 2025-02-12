@@ -125,6 +125,10 @@ func (drv *SBaseGuestDriver) RequestDetachDisk(ctx context.Context, guest *model
 	return nil
 }
 
+func (drv *SBaseGuestDriver) RequestChangeBillingType(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
+	return errors.Wrapf(cloudprovider.ErrNotImplemented, "RequestChangeBillingType")
+}
+
 func (drv *SBaseGuestDriver) RequestAttachDisk(ctx context.Context, guest *models.SGuest, disk *models.SDisk, task taskman.ITask) error {
 	task.ScheduleRun(nil)
 	return nil
