@@ -180,6 +180,10 @@ const (
 	VM_QGA_SET_NETWORK        = "qga_set_network"
 	VM_QGA_SET_NETWORK_FAILED = "qga_set_network_failed"
 
+	// 更改计费模式
+	VM_CHANGE_BILLING_TYPE        = "change_billing_type"
+	VM_CHANGE_BILLING_TYPE_FAILED = "change_billing_type_failed"
+
 	SHUTDOWN_STOP             = "stop"
 	SHUTDOWN_TERMINATE        = "terminate"
 	SHUTDOWN_STOP_RELEASE_GPU = "stop_release_gpu"

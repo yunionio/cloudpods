@@ -911,6 +911,30 @@ func (self *SInstance) GetBillingType() string {
 	}
 }
 
+func (self *SInstance) ChangeBillingType(billingType string) error {
+	return self.host.zone.region.ModifyInstanceChargeType(self.InstanceId, billingType)
+}
+
+func (region *SRegion) ModifyInstanceChargeType(vmId string, billingType string) error {
+	params := map[string]string{
+		"Region":                 region.Region,
+		"ModifyPortableDataDisk": "true",
+		"InstanceIds.0":          vmId,
+	}
+	switch billingType {
+	case billing_api.BILLING_TYPE_POSTPAID:
+		params["InstanceChargeType"] = "POSTPAID_BY_HOUR"
+	case billing_api.BILLING_TYPE_PREPAID:
+		params["InstanceChargeType"] = "PREPAID"
+		params["InstanceChargePrepaid.Period"] = "1"
+		params["InstanceChargePrepaid.RenewFlag"] = "NOTIFY_AND_AUTO_RENEW"
+	default:
+		return fmt.Errorf("invalid billing_type %s", billingType)
+	}
+	_, err := region.cvmRequest("ModifyInstancesChargeType", params, false)
+	return err
+}
+
 func (self *SInstance) GetCreatedAt() time.Time {
 	return self.CreatedTime
 }

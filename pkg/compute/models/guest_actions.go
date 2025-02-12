@@ -6609,3 +6609,29 @@ func (g *SGuest) PerformSetRootDiskMatcher(ctx context.Context, userCred mcclien
 	}
 	return nil, nil
 }
+
+func (g *SGuest) PerformChangeBillingType(ctx context.Context, userCred mcclient.TokenCredential, _ jsonutils.JSONObject, input *api.ServerChangeBillingTypeInput) (jsonutils.JSONObject, error) {
+	if !utils.IsInStringArray(g.Status, []string{api.VM_RUNNING, api.VM_READY}) {
+		return nil, httperrors.NewServerStatusError("Cannot change guest billing type in status %s", g.Status)
+	}
+	if len(input.BillingType) == 0 {
+		return nil, httperrors.NewMissingParameterError("billing_type")
+	}
+	if !utils.IsInStringArray(input.BillingType, []string{billing_api.BILLING_TYPE_POSTPAID, billing_api.BILLING_TYPE_PREPAID}) {
+		return nil, httperrors.NewInputParameterError("invalid billing_type %s", input.BillingType)
+	}
+	if g.BillingType == input.BillingType {
+		return nil, nil
+	}
+	return nil, g.StartChangeBillingTypeTask(ctx, userCred, "")
+}
+
+func (self *SGuest) StartChangeBillingTypeTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
+	self.SetStatus(ctx, userCred, api.VM_CHANGE_BILLING_TYPE, "")
+	kwargs := jsonutils.NewDict()
+	task, err := taskman.TaskManager.NewTask(ctx, "GuestChangeBillingTypeTask", self, userCred, kwargs, parentTaskId, "", nil)
+	if err != nil {
+		return err
+	}
+	return task.ScheduleRun(nil)
+}
