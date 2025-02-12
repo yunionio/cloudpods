@@ -40,7 +40,7 @@ func ChangeDirOwner(pod IPodInfo, drv IVolumeMount, ctrId string, vol *hostapi.C
 	if vol.FsGroup != nil {
 		args = fmt.Sprintf("%s:%d", args, *vol.FsGroup)
 	}
-	out, err := procutils.NewRemoteCommandAsFarAsPossible("chown", "-R", args, hostPath).Output()
+	out, err := procutils.NewRemoteCommandAsFarAsPossible("chown", args, hostPath).Output()
 	if err != nil {
 		return errors.Wrapf(err, "chown -R %s %s: %s", args, hostPath, string(out))
 	}
