@@ -189,6 +189,9 @@ func (self *SDatastore) getAttachedHosts() ([]cloudprovider.ICloudHost, error) {
 		idstr := moRefId(moStore.Host[i].Key)
 		host, err := self.datacenter.GetIHostByMoId(idstr)
 		if err != nil {
+			if errors.Cause(err) == cloudprovider.ErrNotFound {
+				continue
+			}
 			return nil, err
 		}
 		ihosts = append(ihosts, host)

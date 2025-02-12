@@ -277,7 +277,7 @@ dep:
 	@echo "$$depDeprecated"
 	@$(MAKE) mod
 
-RELEASE_BRANCH:=release/3.11
+RELEASE_BRANCH:=release/3.11.10
 GOPROXY ?= direct
 
 mod:
