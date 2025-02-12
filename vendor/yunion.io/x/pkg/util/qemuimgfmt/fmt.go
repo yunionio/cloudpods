@@ -26,10 +26,11 @@ const (
 	VHD   = TImageFormat("vhd")
 	ISO   = TImageFormat("iso")
 	RAW   = TImageFormat("raw")
+	TGZ   = TImageFormat("tgz")
 )
 
 var supportedImageFormats = []TImageFormat{
-	QCOW2, VMDK, VHD, ISO, RAW,
+	QCOW2, VMDK, VHD, ISO, RAW, TGZ,
 }
 
 func IsSupportedImageFormat(fmtStr string) bool {
@@ -62,6 +63,8 @@ func String2ImageFormat(fmt string) TImageFormat {
 		return ISO
 	case "raw":
 		return RAW
+	case "tgz", "tar":
+		return TGZ
 	}
 	// log.Fatalf("unknown image format!!! %s", fmt)
 	return TImageFormat(fmt)
