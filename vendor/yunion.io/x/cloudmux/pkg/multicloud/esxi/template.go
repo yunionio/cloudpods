@@ -75,6 +75,7 @@ func (t *SVMTemplate) GetGlobalId() string {
 func (t *SVMTemplate) GetStatus() string {
 	ihosts, err := t.cache.datastore.GetAttachedHosts()
 	if err != nil {
+		log.Errorf("GetAttachedHosts for image %s error: %v", t.GetName(), err)
 		return api.CACHED_IMAGE_STATUS_CACHE_FAILED
 	}
 	for _, ihost := range ihosts {
@@ -88,6 +89,7 @@ func (t *SVMTemplate) GetStatus() string {
 			return api.CACHED_IMAGE_STATUS_CACHE_FAILED
 		}
 	}
+	log.Errorf("empty host attached for image %s", t.GetName())
 	return api.CACHED_IMAGE_STATUS_CACHE_FAILED
 }
 
