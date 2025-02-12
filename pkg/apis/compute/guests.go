@@ -635,6 +635,7 @@ type ServerStopInput struct {
 	TimeoutSecs int `json:"timeout_secs"`
 
 	// 是否关机停止计费, 若平台不支持停止计费，此参数无作用
+	// 若包年包月机器关机设置此参数，则先转换计费模式到按量计费，再关机不收费
 	// 目前仅阿里云，腾讯云此参数生效
 	StopCharging bool `json:"stop_charging"`
 }
@@ -1273,6 +1274,8 @@ type GuestPerformStartInput struct {
 	// 指定启动虚拟机的Qemu版本，可选值：2.12.1, 4.2.0
 	// 仅适用于KVM虚拟机
 	QemuVersion string `json:"qemu_version"`
+	// 按量机器自动转换为包年包月
+	AutoPrepaid bool `json:"auto_prepaid"`
 }
 
 type ServerSetOSInfoInput struct {
@@ -1395,4 +1398,11 @@ func (conf ServerChangeConfigSettings) AddedDisk() int {
 type ServerReleasedIsolatedDevice struct {
 	DevType string `json:"dev_type"`
 	Model   string `json:"model"`
+}
+
+type ServerChangeBillingTypeInput struct {
+	// 仅在虚拟机开机或关机状态下调用
+	// enmu: [postpaid, prepaid]
+	// required: true
+	BillingType string `json:"billing_type"`
 }

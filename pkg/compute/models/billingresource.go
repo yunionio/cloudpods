@@ -28,6 +28,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/billing"
+	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	notifyapi "yunion.io/x/onecloud/pkg/apis/notify"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
@@ -247,7 +248,21 @@ func fetchExpiredModels(manager db.IModelManager, advanceDay int) ([]IBillingMod
 	upLimit := time.Now().AddDate(0, 0, advanceDay+1)
 	downLimit := time.Now().AddDate(0, 0, advanceDay)
 	v := reflect.MakeSlice(reflect.SliceOf(manager.TableSpec().DataType()), 0, 0)
-	q := manager.Query().LE("expired_at", upLimit).GE("expired_at", downLimit)
+	q := manager.Query()
+	q = q.Filter(
+		sqlchemy.OR(
+			sqlchemy.AND(
+				sqlchemy.Equals(q.Field("billing_type"), billing_api.BILLING_TYPE_POSTPAID),
+				sqlchemy.LE(q.Field("expired_at"), upLimit),
+				sqlchemy.GE(q.Field("expired_at"), downLimit),
+			),
+			// 跳过自动续费实例
+			sqlchemy.AND(
+				sqlchemy.Equals(q.Field("billing_type"), billing_api.BILLING_TYPE_PREPAID),
+				sqlchemy.LE(q.Field("expired_at"), upLimit),
+				sqlchemy.GE(q.Field("expired_at"), downLimit),
+				sqlchemy.IsFalse(q.Field("auto_renew")),
+			)))
 
 	vp := reflect.New(v.Type())
 	vp.Elem().Set(v)

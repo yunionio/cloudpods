@@ -51,6 +51,7 @@ func init() {
 	cmd.BatchPut(new(options.ServerUpdateOptions))
 	cmd.GetMetadata(new(options.ServerIdOptions))
 	cmd.Perform("clone", new(options.ServerCloneOptions))
+	cmd.Perform("change-billing-type", new(options.ServerChangeBillingTypeOptions))
 	cmd.BatchPerform("start", new(options.ServerStartOptions))
 	cmd.BatchPerform("syncstatus", new(options.ServerIdsOptions))
 	cmd.BatchPerform("sync", new(options.ServerIdsOptions))
