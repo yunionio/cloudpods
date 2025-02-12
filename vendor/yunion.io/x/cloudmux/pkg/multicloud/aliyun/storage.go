@@ -29,7 +29,6 @@ package aliyun
 
 import (
 	"fmt"
-	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
@@ -103,16 +102,11 @@ func (self *SStorage) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 }
 
 func (self *SStorage) GetStorageType() string {
-	//return models.STORAGE_PUBLIC_CLOUD
 	return self.storageType
 }
 
 func (self *SStorage) GetMediumType() string {
-	if strings.Contains(self.storageType, "_ssd") {
-		return api.DISK_TYPE_SSD
-	} else {
-		return api.DISK_TYPE_ROTATE
-	}
+	return api.DISK_TYPE_SSD
 }
 
 func (self *SStorage) GetCapacityMB() int64 {
