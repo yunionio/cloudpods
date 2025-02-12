@@ -1,8 +1,8 @@
-FROM registry.cn-beijing.aliyuncs.com/yunionio/host-base:v0.6.0
+FROM registry.cn-beijing.aliyuncs.com/yunionio/host-base:v0.7.0
 
 MAINTAINER "Yaoqi Wan wanyaoqi@yunionyun.com"
 
-ENV TZ UTC
+ENV TZ Asia/Shanghai
 
 RUN mkdir -p /opt/yunion/bin
 ADD ./_output/alpine-build/bin/host /opt/yunion/bin/host
