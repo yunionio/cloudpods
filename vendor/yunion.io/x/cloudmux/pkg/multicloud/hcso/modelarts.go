@@ -32,6 +32,7 @@ import (
 type SModelartsPool struct {
 	region *SRegion
 	multicloud.SResourceBase
+	multicloud.SBillingBase
 
 	Metadata     SModelartsPoolMetadata `json:"metadata"`
 	Spec         SModelartsPoolSpec     `json:"spec"`
