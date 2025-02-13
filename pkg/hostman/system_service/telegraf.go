@@ -214,7 +214,9 @@ func (s *STelegraf) GetConfig(kwargs map[string]interface{}) string {
 		"/run/onecloud/containerd/",
 		"/var/lib/",
 	}
-	ignorePathSegments = append(ignorePathSegments, kwargs["server_path"].(string))
+	if sp, ok := kwargs["server_path"]; ok {
+		ignorePathSegments = append(ignorePathSegments, sp.(string))
+	}
 	for i := range ignorePathSegments {
 		ignorePathSegments[i] = fmt.Sprintf("%q", ignorePathSegments[i])
 	}
