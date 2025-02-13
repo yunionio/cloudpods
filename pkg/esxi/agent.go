@@ -113,7 +113,7 @@ func (ea *SEsxiAgent) Start() error {
 	ea.AgentStorage = storageman.NewAgentStorage(&storageman.SStorageManager{LocalStorageImagecacheManager: ea.CacheManager},
 		ea, options.Options.AgentTempPath)
 
-	cronManager := cronman.InitCronJobManager(false, options.Options.CronJobWorkerCount)
+	cronManager := cronman.InitCronJobManager(false, options.Options.CronJobWorkerCount, options.Options.TimeZone)
 	err = cronManager.AddJobEveryFewDays(
 		"CleanRecycleDiskFiles", 1, 3, 0, 0, storageman.CleanRecycleDiskfiles, false)
 	if err != nil {

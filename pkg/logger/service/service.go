@@ -65,7 +65,7 @@ func StartService() {
 	}
 
 	if !opts.IsSlaveNode {
-		cron := cronman.InitCronJobManager(true, options.Options.CronJobWorkerCount)
+		cron := cronman.InitCronJobManager(true, options.Options.CronJobWorkerCount, options.Options.TimeZone)
 
 		cron.AddJobEveryFewHour("AutoPurgeSplitable", 4, 30, 0, db.AutoPurgeSplitable, false)
 
