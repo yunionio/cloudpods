@@ -50,3 +50,33 @@ func (o *SimpleQueryOptions) Params() (jsonutils.JSONObject, error) {
 	}
 	return ret, nil
 }
+
+type CdfQueryOptions struct {
+	Database   string   `json:"database"`
+	MetricName string   `json:"metric_name"`
+	StartTime  string   `json:"start_time" help:"e.g.: 2023-12-06T21:54:42.123Z"`
+	EndTime    string   `json:"end_time" help:"e.g.: 2023-12-18T21:54:42.123Z"`
+	Tags       []string `json:"tags"`
+}
+
+func (o *CdfQueryOptions) GetId() string {
+	return "cdf-query"
+}
+
+func (o *CdfQueryOptions) Params() (jsonutils.JSONObject, error) {
+	ret := jsonutils.Marshal(o).(*jsonutils.JSONDict)
+	ret.Remove("tags")
+	tags := map[string]string{}
+	for _, tag := range o.Tags {
+		if strings.Contains(tag, "=") {
+			info := strings.Split(tag, "=")
+			if len(info) == 2 {
+				tags[info[0]] = info[1]
+			}
+		}
+	}
+	if len(tags) > 0 {
+		ret.Set("tag_pairs", jsonutils.Marshal(tags))
+	}
+	return ret, nil
+}
