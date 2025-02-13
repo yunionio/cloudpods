@@ -23,7 +23,7 @@ import (
 )
 
 func TestSCronJobManager_AddRemoveJobs(t *testing.T) {
-	manager := InitCronJobManager(false, 4)
+	manager := InitCronJobManager(false, 4, "")
 	testFunc := func(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {}
 	manager.AddJobAtIntervals("Test1", time.Second*100, testFunc)
 

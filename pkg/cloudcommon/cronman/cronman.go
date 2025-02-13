@@ -140,15 +140,22 @@ type SCronJobManager struct {
 	running  bool
 	workers  *appsrv.SWorkerManager
 	dataLock *sync.Mutex
+	timezone *time.Location
 }
 
-func InitCronJobManager(isDbWorker bool, workerCount int) *SCronJobManager {
+func InitCronJobManager(isDbWorker bool, workerCount int, timezone string) *SCronJobManager {
 	if manager == nil {
+		tz, err := time.LoadLocation(timezone)
+		if err != nil {
+			log.Errorf("InitCronJobManager failed")
+			tz = time.UTC
+		}
 		manager = &SCronJobManager{
 			jobs:     make([]*SCronJob, 0),
 			workers:  appsrv.NewWorkerManager("CronJobWorkers", workerCount, 1024, isDbWorker),
 			dataLock: new(sync.Mutex),
 			add:      make(chan struct{}),
+			timezone: tz,
 		}
 	}
 	return manager
@@ -311,7 +318,7 @@ func (self *SCronJobManager) AddJobEveryFewHour(name string, hour, min, sec int,
 }
 
 func (self *SCronJobManager) addJob(newJob *SCronJob) {
-	now := time.Now()
+	now := time.Now().In(self.timezone)
 	newJob.Next = newJob.Timer.Next(now)
 	if newJob.StartRun {
 		newJob.runJob(true, now)
@@ -375,7 +382,7 @@ func (self *SCronJobManager) Stop() {
 }
 
 func (self *SCronJobManager) init() {
-	now := time.Now()
+	now := time.Now().In(self.timezone)
 	self.next(now)
 	heap.Init(&self.jobs)
 	for i := 0; i < len(self.jobs); i += 1 {
@@ -388,7 +395,7 @@ func (self *SCronJobManager) init() {
 
 func (self *SCronJobManager) run(ctx context.Context) {
 	var timer *time.Timer
-	var now = time.Now()
+	var now = time.Now().In(self.timezone)
 	for {
 		self.dataLock.Lock()
 		if len(self.jobs) == 0 || self.jobs[0].Next.IsZero() {

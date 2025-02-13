@@ -61,7 +61,7 @@ func StartService() {
 			log.Fatalf("TaskManager.InitializeData fail %s", err)
 		}
 
-		cron := cronman.InitCronJobManager(true, options.Options.CronJobWorkerCount)
+		cron := cronman.InitCronJobManager(true, options.Options.CronJobWorkerCount, options.Options.TimeZone)
 		cron.AddJobAtIntervalsWithStartRun("SyncCloudprovider", time.Duration(opts.CloudproviderSyncIntervalMinutes)*time.Minute, models.CloudproviderManager.SyncCloudproviders, true)
 		cron.AddJobAtIntervalsWithStartRun("CloudeventSyncTask", time.Duration(opts.CloudeventSyncIntervalHours)*time.Hour, models.CloudproviderManager.SyncCloudeventTask, true)
 
