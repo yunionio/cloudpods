@@ -48,7 +48,7 @@ func StartService() {
 
 	res := resources.NewResources()
 	if !opts.IsSlaveNode {
-		cron := cronman.InitCronJobManager(true, options.Options.CronJobWorkerCount)
+		cron := cronman.InitCronJobManager(true, options.Options.CronJobWorkerCount, options.Options.TimeZone)
 		cron.AddJobAtIntervalsWithStartRun("InitResources", time.Duration(opts.ResourcesSyncInterval)*time.Minute, res.Init, true)
 		cron.AddJobAtIntervals("IncrementResources", time.Duration(opts.ResourcesSyncInterval)*time.Minute, res.IncrementSync)
 		cron.AddJobAtIntervals("DecrementResources", time.Duration(opts.ResourcesSyncInterval)*time.Minute, res.DecrementSync)
