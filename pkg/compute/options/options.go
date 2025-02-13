@@ -106,8 +106,7 @@ type ComputeOptions struct {
 	RetentionDaysLimit int `default:"49" help:"Days of snapshot retention, default 49 days"`
 	TimePointsLimit    int `default:"1" help:"time point of every days, default 1 point"`
 
-	ServerStatusSyncIntervalMinutes int `default:"5" help:"Interval to sync server status, defualt is 5 minutes"`
-	CloudAccountBatchSyncSize       int `default:"10" help:"How many cloud account syncing in a batch"`
+	CloudAccountBatchSyncSize int `default:"10" help:"How many cloud account syncing in a batch"`
 
 	ServerSkuSyncIntervalMinutes int `default:"60" help:"Interval to sync public cloud server skus, defualt is 1 hour"`
 	SkuBatchSync                 int `default:"5" help:"How many skus can be sync in a batch"`
@@ -223,6 +222,15 @@ type ComputeOptions struct {
 	esxi.EsxiOptions
 
 	NetworkAlwaysManualConfig bool `help:"always manually configure network settings" default:"false"`
+
+	ComputeEEOptions
+}
+
+type ComputeEEOptions struct {
+	// 快速同步资源状态时间周期
+	ServerStatusSyncIntervalMinutes int `default:"5" help:"Interval to sync server status, defualt is 5 minutes"`
+	// 跳过新增资源同步时间范围
+	SkipServerStatusSyncTimeRange string `help:"Skip server status sync time range example: 08:00-18:00"`
 }
 
 type SCapabilityOptions struct {
