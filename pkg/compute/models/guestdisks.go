@@ -16,10 +16,12 @@ package models
 
 import (
 	"context"
+	"path"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -216,6 +218,9 @@ func (self *SGuestdisk) GetDiskJsonDescAtHost(ctx context.Context, host *SHost, 
 	if host.HostType == api.HOST_TYPE_HYPERVISOR {
 		desc.StorageId = disk.StorageId
 		localpath := disk.GetPathAtHost(host)
+		if utils.IsInStringArray(storage.StorageType, api.LVM_STORAGE) {
+			localpath = path.Join("/dev", localpath)
+		}
 		if len(localpath) == 0 {
 			desc.Migrating = true
 			// not used yet
