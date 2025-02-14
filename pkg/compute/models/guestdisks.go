@@ -16,6 +16,7 @@ package models
 
 import (
 	"context"
+	"path"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -219,6 +220,9 @@ func (self *SGuestdisk) GetDiskJsonDescAtHost(ctx context.Context, host *SHost, 
 	if utils.IsInStringArray(host.HostType, []string{api.HOST_TYPE_HYPERVISOR, api.HOST_TYPE_CONTAINER}) {
 		desc.StorageId = disk.StorageId
 		localpath := disk.GetPathAtHost(host)
+		if utils.IsInStringArray(storage.StorageType, api.LVM_STORAGE) {
+			localpath = path.Join("/dev", localpath)
+		}
 		if len(localpath) == 0 {
 			desc.Migrating = true
 			// not used yet
