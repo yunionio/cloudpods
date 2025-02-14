@@ -73,6 +73,7 @@ const (
 	ACT_VM_SETSECGROUP               = "vm_setsecgroup"
 	ACT_VM_CPUSET                    = "vm_cpuset"
 	ACT_VM_CPUSET_REMOVE             = "vm_cpuset_remove"
+	ACT_VM_CHANGE_BILLING_TYPE       = "vm_change_billing_type"
 	ACT_RESET_DISK                   = "reset_disk"
 	ACT_SYNC_STATUS                  = "sync_status"
 	ACT_SYNC_CONF                    = "sync_conf"

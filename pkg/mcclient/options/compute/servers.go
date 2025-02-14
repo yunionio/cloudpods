@@ -125,6 +125,7 @@ type ServerStartOptions struct {
 	ServerIdsOptions
 
 	QemuVersion string `help:"prefer qemu version" json:"qemu_version"`
+	AutoPrepaid *bool  `help:"Auto convert postpaid to prepaid"`
 }
 
 func (o *ServerStartOptions) Params() (jsonutils.JSONObject, error) {
@@ -1552,4 +1553,13 @@ func (o *ServerSetRootDiskMatcher) Params() (jsonutils.JSONObject, error) {
 		return nil, err
 	}
 	return jsonutils.Marshal(matcher), nil
+}
+
+type ServerChangeBillingTypeOptions struct {
+	ServerIdOptions
+	BillingType string `choices:"prepaid|postpaid"`
+}
+
+func (o *ServerChangeBillingTypeOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(map[string]string{"billing_type": o.BillingType}), nil
 }
