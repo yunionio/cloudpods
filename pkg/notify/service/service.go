@@ -69,7 +69,7 @@ func StartService() {
 		}
 	}
 
-	cron := cronman.InitCronJobManager(true, 2)
+	cron := cronman.InitCronJobManager(true, 2, opts.TimeZone)
 	// update service
 	cron.AddJobAtIntervalsWithStartRun("syncReciverFromKeystone", time.Duration(opts.SyncReceiverIntervalMinutes)*time.Minute, models.ReceiverManager.SyncUserFromKeystone, true)
 

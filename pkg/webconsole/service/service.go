@@ -102,7 +102,7 @@ func start() {
 	// misc handler
 	addMiscHandlers(app, root)
 
-	cron := cronman.InitCronJobManager(true, o.Options.CronJobWorkerCount)
+	cron := cronman.InitCronJobManager(true, o.Options.CronJobWorkerCount, o.Options.TimeZone)
 
 	cron.AddJobEveryFewHour("AutoPurgeSplitable", 4, 30, 0, db.AutoPurgeSplitable, false)
 

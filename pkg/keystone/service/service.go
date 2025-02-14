@@ -103,7 +103,7 @@ func StartService() {
 	cache.Init(opts.TokenExpirationSeconds)
 
 	if !opts.IsSlaveNode {
-		cron := cronman.InitCronJobManager(true, opts.CronJobWorkerCount)
+		cron := cronman.InitCronJobManager(true, opts.CronJobWorkerCount, options.Options.TimeZone)
 
 		cron.AddJobAtIntervalsWithStartRun("AutoSyncIdentityProviderTask", time.Duration(opts.AutoSyncIntervalSeconds)*time.Second, models.AutoSyncIdentityProviderTask, true)
 		cron.AddJobAtIntervalsWithStartRun("FetchScopeResourceCount", time.Duration(opts.FetchScopeResourceCountIntervalSeconds)*time.Second, cronjobs.FetchScopeResourceCount, false)
