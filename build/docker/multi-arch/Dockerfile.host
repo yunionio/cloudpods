@@ -7,11 +7,11 @@ COPY . /root/go/src/yunion.io/x/onecloud
 WORKDIR /root/go/src/yunion.io/x/onecloud
 RUN make cmd/host
 
-FROM registry.cn-beijing.aliyuncs.com/yunionio/host-base:v0.6.0
+FROM registry.cn-beijing.aliyuncs.com/yunionio/host-base:v0.7.0
 
 MAINTAINER "Yaoqi Wan wanyaoqi@yunionyun.com"
 
-ENV TZ Asia/Shanghai
+ENV TZ UTC
 
 RUN mkdir -p /opt/yunion/bin
 COPY --from=build /root/go/src/yunion.io/x/onecloud/_output/bin/host /opt/yunion/bin/host

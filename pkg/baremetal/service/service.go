@@ -78,7 +78,7 @@ func (s *BaremetalService) StartService() {
 
 	s.startAgent(app)
 
-	cron := cronman.InitCronJobManager(false, o.Options.CronJobWorkerCount)
+	cron := cronman.InitCronJobManager(false, o.Options.CronJobWorkerCount, o.Options.TimeZone)
 	cron.AddJobAtIntervals("BaremetalCronJobs", 10*time.Second, baremetal.DoCronJobs)
 	cron.Start()
 	defer cron.Stop()

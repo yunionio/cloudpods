@@ -155,7 +155,7 @@ func StartService() {
 
 		cachesync.StartTenantCacheSync(opts.TenantCacheExpireSeconds)
 
-		cron := cronman.InitCronJobManager(true, options.Options.CronJobWorkerCount)
+		cron := cronman.InitCronJobManager(true, options.Options.CronJobWorkerCount, options.Options.TimeZone)
 		cron.AddJobAtIntervals("CleanPendingDeleteImages", time.Duration(options.Options.PendingDeleteCheckSeconds)*time.Second, models.ImageManager.CleanPendingDeleteImages)
 		cron.AddJobAtIntervals("CalculateQuotaUsages", time.Duration(opts.CalculateQuotaUsageIntervalSeconds)*time.Second, models.QuotaManager.CalculateQuotaUsages)
 		cron.AddJobAtIntervals("CleanPendingDeleteGuestImages",

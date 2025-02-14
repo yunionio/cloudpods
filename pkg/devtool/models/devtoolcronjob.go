@@ -118,7 +118,7 @@ func InitializeCronjobs(ctx context.Context) error {
 		log.Fatalf("TaskManager.InitializeData fail %s", err)
 	}
 
-	DevToolCronManager = cronman.InitCronJobManager(true, 8)
+	DevToolCronManager = cronman.InitCronJobManager(true, 8, options.Options.TimeZone)
 
 	DevToolCronManager.AddJobAtIntervals("TaskCleanupJob", time.Duration(options.Options.TaskArchiveIntervalHours)*time.Hour, taskman.TaskManager.TaskCleanupJob)
 

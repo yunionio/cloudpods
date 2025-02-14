@@ -73,7 +73,7 @@ func (host *SHostService) OnExitService() {}
 
 func (host *SHostService) RunService() {
 	app := app_common.InitApp(&options.HostOptions.BaseOptions, false)
-	cronManager := cronman.InitCronJobManager(false, options.HostOptions.CronJobWorkerCount)
+	cronManager := cronman.InitCronJobManager(false, options.HostOptions.CronJobWorkerCount, options.HostOptions.TimeZone)
 	hostutils.Init()
 
 	hostInstance := hostinfo.Instance()
