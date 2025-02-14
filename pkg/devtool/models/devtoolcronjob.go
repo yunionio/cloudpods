@@ -23,6 +23,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/cronman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/devtool/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/ansible"
@@ -111,7 +112,7 @@ func AddOneCronjob(item *SCronjob, s *mcclient.ClientSession) error {
 }
 
 func InitializeCronjobs(ctx context.Context) error {
-	DevToolCronManager = cronman.InitCronJobManager(true, 8)
+	DevToolCronManager = cronman.InitCronJobManager(true, 8, options.Options.TimeZone)
 	DevToolCronManager.Start()
 	Session := auth.GetAdminSession(ctx, "")
 

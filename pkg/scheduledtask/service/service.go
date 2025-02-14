@@ -51,7 +51,7 @@ func StartService() {
 	db.EnsureAppSyncDB(applicaion, dbOpts, nil)
 	defer cloudcommon.CloseDB()
 
-	cron := cronman.InitCronJobManager(true, 4)
+	cron := cronman.InitCronJobManager(true, 4, opts.TimeZone)
 	cron.AddJobAtIntervalsWithStartRun("ScheduledTaskCheck", time.Duration(60)*time.Second, models.ScheduledTaskManager.Timer, true)
 	cron.AddJobEveryFewHour("AutoPurgeSplitable", 4, 30, 0, db.AutoPurgeSplitable, false)
 
