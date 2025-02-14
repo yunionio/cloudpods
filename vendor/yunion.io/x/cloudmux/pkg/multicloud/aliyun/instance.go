@@ -995,6 +995,43 @@ func (self *SInstance) GetBillingType() string {
 	return convertChargeType(self.InstanceChargeType)
 }
 
+func (self *SInstance) ChangeBillingType(billingType string) error {
+	return self.host.zone.region.ModifyInstanceChargeType(self.InstanceId, billingType)
+}
+
+func (region *SRegion) ModifyInstanceChargeType(vmId string, billingType string) error {
+	params := map[string]string{
+		"RegionId":         region.RegionId,
+		"IncludeDataDisks": "true",
+		"AutoPay":          "true",
+		"ClientToken":      utils.GenRequestId(20),
+		"InstanceIds":      jsonutils.Marshal([]string{vmId}).String(),
+	}
+	switch billingType {
+	case billing_api.BILLING_TYPE_POSTPAID:
+		params["InstanceChargeType"] = "PostPaid"
+	case billing_api.BILLING_TYPE_PREPAID:
+		params["InstanceChargeType"] = "PrePaid"
+		params["Period"] = "1"
+		params["PeriodUnit"] = "Month"
+	default:
+		return fmt.Errorf("invalid billing_type %s", billingType)
+	}
+	_, err := region.ecsRequest("ModifyInstanceChargeType", params)
+	if err != nil {
+		return err
+	}
+	if billingType == billing_api.BILLING_TYPE_PREPAID {
+		cycle := billing.SBillingCycle{
+			AutoRenew: true,
+			Count:     1,
+			Unit:      billing.BillingCycleMonth,
+		}
+		region.SetInstanceAutoRenew(vmId, cycle)
+	}
+	return nil
+}
+
 func (self *SInstance) GetCreatedAt() time.Time {
 	return self.CreationTime
 }
