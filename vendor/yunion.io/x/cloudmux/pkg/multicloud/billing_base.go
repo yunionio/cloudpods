@@ -44,3 +44,7 @@ func (self *SBillingBase) IsAutoRenew() bool {
 func (self *SBillingBase) Renew(bc billing.SBillingCycle) error {
 	return errors.Wrap(cloudprovider.ErrNotImplemented, "Renew")
 }
+
+func (self *SBillingBase) ChangeBillingType(billType string) error {
+	return errors.Wrap(cloudprovider.ErrNotImplemented, "ChangeBillingType")
+}

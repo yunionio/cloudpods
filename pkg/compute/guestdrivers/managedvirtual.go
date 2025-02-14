@@ -475,6 +475,14 @@ func (drv *SManagedVirtualizedGuestDriver) RequestStartOnHost(ctx context.Contex
 
 	result := jsonutils.NewDict()
 	if ivm.GetStatus() != api.VM_RUNNING {
+
+		if guest.BillingType == billing_api.BILLING_TYPE_POSTPAID && jsonutils.QueryBoolean(task.GetParams(), "auto_prepaid", false) {
+			err = ivm.ChangeBillingType(billing_api.BILLING_TYPE_PREPAID)
+			if err != nil && errors.Cause(err) != cloudprovider.ErrNotImplemented {
+				logclient.AddSimpleActionLog(guest, logclient.ACT_VM_CHANGE_BILLING_TYPE, errors.Wrapf(err, billing_api.BILLING_TYPE_PREPAID), userCred, false)
+			}
+		}
+
 		err := ivm.StartVM(ctx)
 		if err != nil {
 			return errors.Wrapf(err, "StartVM")
@@ -936,6 +944,15 @@ func (drv *SManagedVirtualizedGuestDriver) RequestStopOnHost(ctx context.Context
 		if ivm.GetStatus() != api.VM_READY {
 			opts := &cloudprovider.ServerStopOptions{}
 			task.GetParams().Unmarshal(opts)
+
+			// 包年包月实例关机不收费，先转按量付费再关机
+			if opts.StopCharging && guest.BillingType == billing_api.BILLING_TYPE_PREPAID {
+				err = ivm.ChangeBillingType(billing_api.BILLING_TYPE_POSTPAID)
+				if err != nil && errors.Cause(err) != cloudprovider.ErrNotImplemented {
+					logclient.AddSimpleActionLog(guest, logclient.ACT_VM_CHANGE_BILLING_TYPE, errors.Wrapf(err, billing_api.BILLING_TYPE_POSTPAID), task.GetUserCred(), false)
+				}
+			}
+
 			err = ivm.StopVM(ctx, opts)
 			if err != nil {
 				return nil, errors.Wrapf(err, "ivm.StopVM")
@@ -948,6 +965,51 @@ func (drv *SManagedVirtualizedGuestDriver) RequestStopOnHost(ctx context.Context
 		// 公有云关机，公网ip会释放
 		guest.SyncAllWithCloudVM(ctx, task.GetUserCred(), host, ivm, syncStatus)
 		return nil, nil
+	})
+	return nil
+}
+
+func (drv *SManagedVirtualizedGuestDriver) RequestChangeBillingType(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		ivm, err := guest.GetIVM(ctx)
+		if err != nil {
+			return nil, errors.Wrapf(err, "guest.GetIVM")
+		}
+		billType := ""
+		switch guest.BillingType {
+		case billing_api.BILLING_TYPE_POSTPAID:
+			billType = billing_api.BILLING_TYPE_PREPAID
+		case billing_api.BILLING_TYPE_PREPAID:
+			billType = billing_api.BILLING_TYPE_POSTPAID
+		}
+		err = ivm.ChangeBillingType(billType)
+		if err != nil {
+			return nil, errors.Wrapf(err, "ChangeBillingType")
+		}
+		err = cloudprovider.Wait(time.Second*5, time.Minute*3, func() (bool, error) {
+			err = ivm.Refresh()
+			if err != nil {
+				return false, err
+			}
+			if ivm.GetBillingType() != billType {
+				return false, nil
+			}
+			return true, nil
+		})
+		if err != nil {
+			return nil, errors.Wrapf(err, "Wait vm billing type changed")
+		}
+		_, err = db.Update(guest, func() error {
+			guest.BillingType = ivm.GetBillingType()
+			guest.Status = ivm.GetStatus()
+			guest.ExpiredAt = time.Time{}
+			if guest.BillingType == billing_api.BILLING_TYPE_PREPAID {
+				guest.AutoRenew = ivm.IsAutoRenew()
+				guest.ExpiredAt = ivm.GetExpiredAt()
+			}
+			return nil
+		})
+		return nil, err
 	})
 	return nil
 }
