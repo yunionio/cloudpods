@@ -276,7 +276,10 @@ func (c *QueryCondition) FillSerieByResourceField(resource jsonutils.JSONObject,
 		if err != nil {
 			continue
 		}
-		series.Tags[tagKey], _ = val.GetString()
+		if series.CloudTags == nil {
+			series.CloudTags = map[string]string{}
+		}
+		series.CloudTags[tagKey], _ = val.GetString()
 	}
 }
 
