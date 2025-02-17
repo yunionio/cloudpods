@@ -874,17 +874,34 @@ func (manager *SGuestManager) clearSecgroups() error {
 }
 
 func (manager *SGuestManager) initAdminSecgroupId() error {
-	if len(options.Options.DefaultAdminSecurityGroupId) == 0 {
+	{
+		err := manager.initAdminSecgroupIdForHypervisor(api.HYPERVISOR_KVM)
+		if err != nil {
+			return errors.Wrap(err, "initAdminSecgroupIdForKvm")
+		}
+	}
+	{
+		err := manager.initAdminSecgroupIdForHypervisor(api.HYPERVISOR_POD)
+		if err != nil {
+			return errors.Wrap(err, "initAdminSecgroupIdForContainer")
+		}
+	}
+	return nil
+}
+
+func (manager *SGuestManager) initAdminSecgroupIdForHypervisor(hypervisor string) error {
+	secGrpId := options.Options.GetDefaultAdminSecurityGroupId(hypervisor)
+	if len(secGrpId) == 0 {
 		return nil
 	}
-	adminSec, _ := SecurityGroupManager.FetchSecgroupById(options.Options.DefaultAdminSecurityGroupId)
+	adminSec, _ := SecurityGroupManager.FetchSecgroupById(secGrpId)
 	if adminSec == nil {
 		return nil
 	}
 	adminSecId := adminSec.Id
 	guests := make([]SGuest, 0, 10)
 	q := manager.Query()
-	q = q.In("hypervisor", []string{api.HYPERVISOR_KVM, api.HYPERVISOR_POD}).IsNullOrEmpty("admin_secgrp_id")
+	q = q.Equals("hypervisor", hypervisor).IsNullOrEmpty("admin_secgrp_id")
 	err := db.FetchModelObjects(manager, q, &guests)
 	if err != nil {
 		return errors.Wrap(err, "db.FetchModelObjects")
@@ -1215,8 +1232,9 @@ func (guest *SGuest) IsNetworkAllocated() bool {
 }
 
 func (guest *SGuest) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
-	if len(guest.SecgrpId) > 0 && len(options.Options.DefaultAdminSecurityGroupId) > 0 {
-		adminSec, _ := SecurityGroupManager.FetchSecgroupById(options.Options.DefaultAdminSecurityGroupId)
+	optAdminSecGrpId := options.Options.GetDefaultAdminSecurityGroupId(guest.Hypervisor)
+	if len(guest.SecgrpId) > 0 && len(optAdminSecGrpId) > 0 {
+		adminSec, _ := SecurityGroupManager.FetchSecgroupById(optAdminSecGrpId)
 		if adminSec != nil {
 			guest.AdminSecgrpId = adminSec.Id
 		}
@@ -2119,7 +2137,7 @@ func (manager *SGuestManager) validateCreateData(
 		}
 		input.SecgroupId = secGrpObj.GetId()
 	} else {
-		input.SecgroupId = options.Options.DefaultSecurityGroupId
+		input.SecgroupId = options.Options.GetDefaultSecurityGroupId(hypervisor)
 	}
 
 	maxSecgrpCount := driver.GetMaxSecurityGroupCount()

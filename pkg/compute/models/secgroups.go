@@ -1038,8 +1038,20 @@ func (self *SSecurityGroup) ValidateDeleteCondition(ctx context.Context, info ap
 	if self.Id == options.Options.DefaultSecurityGroupId {
 		return httperrors.NewProtectedResourceError("not allow to delete default security group")
 	}
+	if self.Id == options.Options.DefaultSecurityGroupIdForKvm {
+		return httperrors.NewProtectedResourceError("not allow to delete default security group for kvm")
+	}
+	if self.Id == options.Options.DefaultSecurityGroupIdForContainer {
+		return httperrors.NewProtectedResourceError("not allow to delete default security group for container")
+	}
 	if self.Id == options.Options.DefaultAdminSecurityGroupId {
 		return httperrors.NewProtectedResourceError("not allow to delete default admin security group")
+	}
+	if self.Id == options.Options.DefaultAdminSecurityGroupIdForKvm {
+		return httperrors.NewProtectedResourceError("not allow to delete default admin security group for kvm")
+	}
+	if self.Id == options.Options.DefaultAdminSecurityGroupIdForContainer {
+		return httperrors.NewProtectedResourceError("not allow to delete default admin security group for container")
 	}
 	if info.TotalCnt > 0 {
 		return httperrors.NewNotEmptyError("the security group %s is in use cnt: %d", self.Id, info.TotalCnt)
