@@ -18,6 +18,7 @@ import (
 	"yunion.io/x/cloudmux/pkg/multicloud/esxi"
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/cloudcommon/pending_delete"
 )
@@ -34,8 +35,12 @@ type ComputeOptions struct {
 	DefaultMemoryOvercommitBound  float32 `default:"1.0" help:"Default memory overcommit bound for host, default to 1"`
 	DefaultStorageOvercommitBound float32 `default:"1.0" help:"Default storage overcommit bound for storage, default to 1"`
 
-	DefaultSecurityGroupId      string `help:"Default security rules" default:"default"`
-	DefaultAdminSecurityGroupId string `help:"Default admin security rules" default:""`
+	DefaultSecurityGroupId                  string `help:"Default security rules" default:"default"`
+	DefaultSecurityGroupIdForKvm            string `help:"Default security rules for KVM" default:"default"`
+	DefaultSecurityGroupIdForContainer      string `help:"Default security rules for Container" default:"default"`
+	DefaultAdminSecurityGroupId             string `help:"Default admin security rules" default:""`
+	DefaultAdminSecurityGroupIdForKvm       string `help:"Default admin security rules for KVM" default:""`
+	DefaultAdminSecurityGroupIdForContainer string `help:"Default admin security rules for Container" default:""`
 
 	DefaultDiskSizeMB int `default:"10240" help:"Default disk size in MB if not specified, default to 10GiB" json:"default_disk_size"`
 
@@ -277,4 +282,22 @@ func OnOptionsChange(oldO, newO interface{}) bool {
 	}
 
 	return changed
+}
+
+func (o ComputeOptions) GetDefaultSecurityGroupId(hypervisor string) string {
+	if hypervisor == api.HYPERVISOR_KVM && len(o.DefaultSecurityGroupIdForKvm) > 0 {
+		return o.DefaultSecurityGroupIdForKvm
+	} else if hypervisor == api.HYPERVISOR_POD && len(o.DefaultSecurityGroupIdForContainer) > 0 {
+		return o.DefaultSecurityGroupIdForContainer
+	}
+	return o.DefaultSecurityGroupId
+}
+
+func (o ComputeOptions) GetDefaultAdminSecurityGroupId(hypervisor string) string {
+	if hypervisor == api.HYPERVISOR_KVM && len(o.DefaultAdminSecurityGroupIdForKvm) > 0 {
+		return o.DefaultAdminSecurityGroupIdForKvm
+	} else if hypervisor == api.HYPERVISOR_POD && len(o.DefaultAdminSecurityGroupIdForContainer) > 0 {
+		return o.DefaultAdminSecurityGroupIdForContainer
+	}
+	return o.DefaultAdminSecurityGroupId
 }
