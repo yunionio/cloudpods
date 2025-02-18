@@ -143,11 +143,12 @@ type TimeSeriesSlice []*TimeSeries
 
 type TimeSeries struct {
 	// RawName is used to frontend displaying the curve name
-	RawName string            `json:"raw_name"`
-	Columns []string          `json:"columns"`
-	Name    string            `json:"name"`
-	Points  TimeSeriesPoints  `json:"points"`
-	Tags    map[string]string `json:"tags,omitempty"`
+	RawName   string            `json:"raw_name"`
+	Columns   []string          `json:"columns"`
+	Name      string            `json:"name"`
+	Points    TimeSeriesPoints  `json:"points"`
+	Tags      map[string]string `json:"tags,omitempty"`
+	CloudTags map[string]string `json:"cloud_tags,omitempty"`
 }
 
 type TimePoint []interface{}

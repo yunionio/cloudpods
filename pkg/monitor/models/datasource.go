@@ -643,7 +643,7 @@ func (m *SDataSourceManager) DropSubscription(subscription InfluxdbSubscription)
 	return nil
 }
 
-func getAttributesOnMeasurement(database, tp string, output *monitor.InfluxMeasurement, db *influxdb.SInfluxdb) error {
+/*func getAttributesOnMeasurement(database, tp string, output *monitor.InfluxMeasurement, db *influxdb.SInfluxdb) error {
 	query := fmt.Sprintf("SHOW %s KEYS ON %s FROM %s", tp, database, output.Measurement)
 	dbRtn, err := db.Query(query)
 	if err != nil {
@@ -668,7 +668,7 @@ func getAttributesOnMeasurement(database, tp string, output *monitor.InfluxMeasu
 		return errors.Wrap(err, "measurement unmarshal error")
 	}
 	return nil
-}
+}*/
 
 func getTagValues(userCred mcclient.TokenCredential, output *monitor.InfluxMeasurement, timeF timeFilter, tagFilter *monitor.MetricQueryTag, skipCheckSeries bool) error {
 	mq := monitor.MetricQuery{
