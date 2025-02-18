@@ -69,7 +69,7 @@ func (self *SecurityGroupRuleUpdateTask) OnInit(ctx context.Context, obj db.ISta
 	}
 
 	if len(rule.ExternalId) == 0 {
-		self.taskFailed(ctx, secgroup, errors.Wrapf(err, "empty external id"))
+		self.taskFailed(ctx, secgroup, errors.Errorf("empty external id"))
 		return
 	}
 
