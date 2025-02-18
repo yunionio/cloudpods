@@ -18,6 +18,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"path"
@@ -29,6 +30,7 @@ import (
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/httputils"
 )
 
 const (
@@ -111,9 +113,20 @@ func (c *client) QueryRange(ctx context.Context, httpCli *http.Client, query str
 	if err != nil {
 		return nil, errors.Wrap(err, "Do request")
 	}
-	defer resp.Body.Close()
+	defer httputils.CloseResponse(resp)
+
 	if resp.StatusCode/100 != 2 {
-		return nil, errors.Wrapf(ErrVMInvalidResponse, "status code: %d", resp.StatusCode)
+		var msg string
+		if resp.Body != nil {
+			errMsg, err := io.ReadAll(resp.Body)
+			if err != nil {
+				log.Errorf("request error, io.ReadAll error %s", err)
+			} else {
+				msg = string(errMsg)
+				log.Errorf("ctxhttp.Do fail with status %d message %s", resp.StatusCode, errMsg)
+			}
+		}
+		return nil, errors.Wrapf(ErrVMInvalidResponse, "status code: %d (%s)", resp.StatusCode, msg)
 	}
 
 	var response Response
