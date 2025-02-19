@@ -294,6 +294,11 @@ func (l *SLocalImageCache) Remove(ctx context.Context) error {
 			return errors.Wrap(err, l.GetTmpPath())
 		}
 	}
+	if fileutils2.Exists(l.getAccessDirPath()) {
+		if err := syscall.Unlink(l.getAccessDirPath()); err != nil {
+			return errors.Wrapf(err, "remove %s", l.getAccessDirPath())
+		}
+	}
 
 	go func() {
 		_, err := modules.Storagecachedimages.Detach(hostutils.GetComputeSession(ctx),
