@@ -464,7 +464,7 @@ func (m *SDataSourceManager) GetMetricMeasurement(userCred mcclient.TokenCredent
 		return nil, errors.Wrap(err, "getFromAndToFromParam")
 	}
 
-	skipCheckSeries := jsonutils.QueryBoolean(query, "skip_check_series", false)
+	//skipCheckSeries := jsonutils.QueryBoolean(query, "skip_check_series", false)
 
 	output := new(monitor.InfluxMeasurement)
 	output.Measurement = measurement
@@ -472,7 +472,7 @@ func (m *SDataSourceManager) GetMetricMeasurement(userCred mcclient.TokenCredent
 	output.TagValue = make(map[string][]string, 0)
 
 	output.FieldKey = []string{field}
-	if err := getTagValues(userCred, output, timeF, tagFilter, skipCheckSeries); err != nil {
+	if err := getTagValues(userCred, output, timeF, tagFilter, true); err != nil {
 		return jsonutils.JSONNull, errors.Wrap(err, "getTagValues error")
 	}
 
