@@ -35,6 +35,7 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/baremetal"
 	computemodels "yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
+	schedmodels "yunion.io/x/onecloud/pkg/scheduler/models"
 	o "yunion.io/x/onecloud/pkg/scheduler/options"
 	"yunion.io/x/onecloud/pkg/util/cgrouputils/cpuset"
 )
@@ -792,7 +793,7 @@ func (h *HostDesc) freeStorageSizeOfType(storageType string, mediumType string, 
 
 func (h *HostDesc) GetFreePort(netId string) int {
 	freeCnt := h.BaseHostDesc.GetFreePort(netId)
-	return freeCnt - h.GetPendingUsage().NetUsage.Get(netId)
+	return freeCnt - schedmodels.HostPendingUsageManager.GetNetPendingUsage(netId)
 }
 
 func reservedResourceCal(
