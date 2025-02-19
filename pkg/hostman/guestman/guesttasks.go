@@ -926,7 +926,7 @@ func (t *SGuestIsolatedDeviceSyncTask) addDevice(dev *desc.SGuestIsolatedDevice)
 		id := devObj.GetQemuId()
 		dev.VfioDevs = make([]*desc.VFIODevice, 0)
 		vfioDev := desc.NewVfioDevice(
-			*cType, "vfio-pci", id, devObj.GetAddr(), devObj.GetDeviceType() == api.GPU_VGA_TYPE,
+			*cType, "vfio-pci", id, devObj.GetAddr(), dev.DevType == api.GPU_VGA_TYPE,
 		)
 		dev.VfioDevs = append(dev.VfioDevs, vfioDev)
 
