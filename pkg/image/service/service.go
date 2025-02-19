@@ -139,12 +139,13 @@ func StartService() {
 		deployclient.Init(options.Options.DeployServerSocketPath)
 	}
 
-	if options.Options.StorageDriver == api.IMAGE_STORAGE_DRIVER_S3 {
-		go initS3()
-	} else {
-		// Check the images after everything is ready
-		go models.CheckImages()
-	}
+	go func() {
+		if options.Options.HasValidS3Options() {
+			initS3()
+		}
+		// check image after s3 mounted
+		models.CheckImages()
+	}()
 
 	if !opts.IsSlaveNode {
 		cachesync.StartTenantCacheSync(opts.TenantCacheExpireSeconds)
@@ -253,7 +254,4 @@ func initS3() {
 			break
 		}
 	}
-
-	// check image after s3 mounted
-	models.CheckImages()
 }

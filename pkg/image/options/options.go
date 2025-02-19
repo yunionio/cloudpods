@@ -80,3 +80,7 @@ func OnOptionsChange(oldO, newO interface{}) bool {
 
 	return changed
 }
+
+func (opt SImageOptions) HasValidS3Options() bool {
+	return len(opt.S3Endpoint) > 0 && len(opt.S3AccessKey) > 0 && len(opt.S3SecretKey) > 0 && len(opt.S3BucketName) > 0
+}
