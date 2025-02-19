@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/pkg/util/fileutils"
 	"yunion.io/x/pkg/util/regutils"
 
+	"yunion.io/x/onecloud/pkg/apis/cloudcommon/db"
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	schedapi "yunion.io/x/onecloud/pkg/apis/scheduler"
 	"yunion.io/x/onecloud/pkg/cloudcommon/cmdline"
@@ -498,7 +499,8 @@ type ServerCreateOptionalOptions struct {
 
 	GuestImageID string `help:"create from guest image, need to specify the guest image id"`
 
-	EncryptKey string `help:"encryption key"`
+	EncryptKey string   `help:"encryption key"`
+	Tags       []string `help:"tags in the form of key=value"`
 }
 
 func (o *ServerCreateOptions) ToScheduleInput() (*schedapi.ScheduleInput, error) {
@@ -662,6 +664,17 @@ func (opts *ServerCreateOptions) Params() (*computeapi.ServerCreateInput, error)
 	if err != nil {
 		return nil, err
 	}
+	meta := map[string]string{}
+	for _, v := range opts.Tags {
+		tag := strings.Split(v, "=")
+		if len(tag) != 2 {
+			return nil, fmt.Errorf("invalid tag %s", v)
+		}
+		prefix := db.USER_TAG_PREFIX
+		k, v := prefix+strings.TrimPrefix(tag[0], prefix), tag[1]
+		meta[k] = v
+	}
+	params.Metadata = meta
 
 	if opts.GenerateName {
 		params.GenerateName = opts.NAME
