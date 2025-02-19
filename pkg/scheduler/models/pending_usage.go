@@ -59,6 +59,10 @@ func (m *SHostPendingUsageManager) GetPendingUsage(hostId string) (*SPendingUsag
 	return m.getPendingUsage(hostId)
 }
 
+func (m *SHostPendingUsageManager) GetNetPendingUsage(netId string) int {
+	return m.store.GetNetPendingUsage(netId)
+}
+
 func (m *SHostPendingUsageManager) getPendingUsage(hostId string) (*SPendingUsage, error) {
 	pending, err := m.store.GetPendingUsage(hostId)
 	if err != nil {
@@ -171,6 +175,18 @@ func (self *SHostMemoryPendingUsageStore) SetPendingUsage(hostId string, usage *
 
 func (self *SHostMemoryPendingUsageStore) DeleteSessionUsage(usage *SessionPendingUsage) {
 	self.store.Delete(self.sessionUsageKey(usage.SessionId, usage.Usage.HostId))
+}
+
+func (self *SHostMemoryPendingUsageStore) GetNetPendingUsage(id string) int {
+	total := 0
+	self.store.Range(func(hostId, usageObj interface{}) bool {
+		usage, ok := usageObj.(*SPendingUsage)
+		if ok {
+			total += usage.NetUsage.Get(id)
+		}
+		return true
+	})
+	return total
 }
 
 type SessionPendingUsage struct {
@@ -354,13 +370,27 @@ func NewPendingUsageBySchedInfo(hostId string, req *api.SchedInfo, candidate *sc
 		u.DiskUsage.Set(backend, osize+size)
 	}
 
-	for _, net := range req.Networks {
-		id := net.Network
-		if id == "" {
-			continue
+	if candidate != nil && len(candidate.Nets) > 0 {
+		for _, net := range candidate.Nets {
+			// 只对建议 network_id 为1个的时候设置 pending_usage
+			// 多个的情况下只有交给 region 那边自己判断
+			// 这里只是尽让调度器提前判断出子网是否空闲 ip
+			if len(net.NetworkIds) != 1 {
+				continue
+			}
+			id := net.NetworkIds[0]
+			ocount := u.NetUsage.Get(id)
+			u.NetUsage.Set(id, ocount+1)
 		}
-		ocount := u.NetUsage.Get(id)
-		u.NetUsage.Set(id, ocount+1)
+	} else {
+		for _, net := range req.Networks {
+			id := net.Network
+			if id == "" {
+				continue
+			}
+			ocount := u.NetUsage.Get(id)
+			u.NetUsage.Set(id, ocount+1)
+		}
 	}
 
 	// group add
