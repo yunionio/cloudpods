@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/pkg/util/regutils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	imageapi "yunion.io/x/onecloud/pkg/apis/image"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/options"
@@ -182,6 +183,12 @@ func (c *SLocalImageCacheManager) PrefetchImageCache(ctx context.Context, data i
 	}
 	if len(ret.Name) == 0 {
 		ret.Name = input.ImageId
+	}
+	if imgCache.GetDesc().Format == imageapi.IMAGE_DISK_FORMAT_TGZ {
+		accessDir, err := imgCache.GetAccessDirectory()
+		if err != nil {
+			return nil, errors.Wrapf(err, "untar to %s", accessDir)
+		}
 	}
 
 	return jsonutils.Marshal(ret), nil
