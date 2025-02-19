@@ -52,16 +52,20 @@ func (m *SHostPendingUsageManager) Keyword() string {
 
 func (m *SHostPendingUsageManager) newSessionUsage(req *api.SchedInfo, hostId string) *SessionPendingUsage {
 	su := NewSessionUsage(req.SessionId, hostId)
-	su.Usage = NewPendingUsageBySchedInfo(hostId, req)
+	su.Usage = NewPendingUsageBySchedInfo(hostId, req, nil)
 	return su
 }
 
-func (m *SHostPendingUsageManager) newPendingUsage(hostId string) *SPendingUsage {
-	return NewPendingUsageBySchedInfo(hostId, nil)
+func (m *SHostPendingUsageManager) newPendingUsage(hostId string, candidate *schedapi.CandidateResource) *SPendingUsage {
+	return NewPendingUsageBySchedInfo(hostId, nil, candidate)
 }
 
 func (m *SHostPendingUsageManager) GetPendingUsage(hostId string) (*SPendingUsage, error) {
 	return m.getPendingUsage(hostId)
+}
+
+func (m *SHostPendingUsageManager) GetNetPendingUsage(netId string) int {
+	return m.store.GetNetPendingUsage(netId)
 }
 
 func (m *SHostPendingUsageManager) getPendingUsage(hostId string) (*SPendingUsage, error) {
@@ -84,21 +88,21 @@ func (m *SHostPendingUsageManager) AddPendingUsage(req *api.SchedInfo, candidate
 		sessionUsage = m.newSessionUsage(req, hostId)
 		sessionUsage.StartTimer()
 	}
-	m.addSessionUsage(candidate.HostId, sessionUsage)
+	m.addSessionUsage(candidate.HostId, sessionUsage, candidate)
 	if candidate.BackupCandidate != nil {
 		m.AddPendingUsage(req, candidate.BackupCandidate)
 	}
 }
 
 // addSessionUsage add pending usage and session usage
-func (m *SHostPendingUsageManager) addSessionUsage(hostId string, usage *SessionPendingUsage) {
+func (m *SHostPendingUsageManager) addSessionUsage(hostId string, usage *SessionPendingUsage, candidate *schedapi.CandidateResource) {
 	ctx := context.Background()
 	lockman.LockClass(ctx, m, hostId)
 	defer lockman.ReleaseClass(ctx, m, hostId)
 
 	pendingUsage, _ := m.getPendingUsage(hostId)
 	if pendingUsage == nil {
-		pendingUsage = m.newPendingUsage(hostId)
+		pendingUsage = m.newPendingUsage(hostId, candidate)
 	}
 	pendingUsage.Add(usage.Usage)
 	usage.AddCount()
@@ -177,6 +181,18 @@ func (self *SHostMemoryPendingUsageStore) DeleteSessionUsage(usage *SessionPendi
 	self.store.Delete(self.sessionUsageKey(usage.SessionId, usage.Usage.HostId))
 }
 
+func (self *SHostMemoryPendingUsageStore) GetNetPendingUsage(id string) int {
+	total := 0
+	self.store.Range(func(hostId, usageObj interface{}) bool {
+		usage, ok := usageObj.(*SPendingUsage)
+		if ok {
+			total += usage.NetUsage.Get(id)
+		}
+		return true
+	})
+	return total
+}
+
 type SessionPendingUsage struct {
 	HostId    string
 	SessionId string
@@ -190,7 +206,7 @@ func NewSessionUsage(sid, hostId string) *SessionPendingUsage {
 	su := &SessionPendingUsage{
 		HostId:    hostId,
 		SessionId: sid,
-		Usage:     NewPendingUsageBySchedInfo(hostId, nil),
+		Usage:     NewPendingUsageBySchedInfo(hostId, nil, nil),
 		count:     0,
 		countLock: new(sync.Mutex),
 		cancelCh:  make(chan string),
@@ -300,7 +316,7 @@ type SPendingUsage struct {
 	InstanceGroupUsage map[string]*api.CandidateGroup
 }
 
-func NewPendingUsageBySchedInfo(hostId string, req *api.SchedInfo) *SPendingUsage {
+func NewPendingUsageBySchedInfo(hostId string, req *api.SchedInfo, candidate *schedapi.CandidateResource) *SPendingUsage {
 	u := &SPendingUsage{
 		HostId:    hostId,
 		DiskUsage: NewResourcePendingUsage(nil),
@@ -324,13 +340,27 @@ func NewPendingUsageBySchedInfo(hostId string, req *api.SchedInfo) *SPendingUsag
 		u.DiskUsage.Set(backend, osize+size)
 	}
 
-	for _, net := range req.Networks {
-		id := net.Network
-		if id == "" {
-			continue
+	if candidate != nil && len(candidate.Nets) > 0 {
+		for _, net := range candidate.Nets {
+			// 只对建议 network_id 为1个的时候设置 pending_usage
+			// 多个的情况下只有交给 region 那边自己判断
+			// 这里只是尽让调度器提前判断出子网是否空闲 ip
+			if len(net.NetworkIds) != 1 {
+				continue
+			}
+			id := net.NetworkIds[0]
+			ocount := u.NetUsage.Get(id)
+			u.NetUsage.Set(id, ocount+1)
 		}
-		ocount := u.NetUsage.Get(id)
-		u.NetUsage.Set(id, ocount+1)
+	} else {
+		for _, net := range req.Networks {
+			id := net.Network
+			if id == "" {
+				continue
+			}
+			ocount := u.NetUsage.Get(id)
+			u.NetUsage.Set(id, ocount+1)
+		}
 	}
 
 	// group add
