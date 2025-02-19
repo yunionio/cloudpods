@@ -28,6 +28,7 @@ import (
 	"yunion.io/x/onecloud/pkg/scheduler/algorithm/plugin"
 	"yunion.io/x/onecloud/pkg/scheduler/api"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
+	schedmodels "yunion.io/x/onecloud/pkg/scheduler/models"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
@@ -280,7 +281,7 @@ func (p *NetworkPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 
 	getFreePort := func(id string) int {
 		if _, ok := p.networkFreePortCount[id]; ok {
-			return p.networkFreePortCount[id] - c.Getter().GetPendingUsage().NetUsage.Get(id)
+			return p.networkFreePortCount[id] - schedmodels.HostPendingUsageManager.GetNetPendingUsage(id)
 		}
 		return c.Getter().GetFreePort(id)
 	}
