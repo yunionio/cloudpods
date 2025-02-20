@@ -47,7 +47,7 @@ type BaseActionListOptions struct {
 
 type ActionListOptions struct {
 	BaseActionListOptions
-	Service []string `help:"service name`
+	Service []string `help:"service name"`
 	Id      string   `help:"" metavar:"OBJ_ID"`
 	Type    []string `help:"Type of relevant object" metavar:"OBJ_TYPE"`
 }
