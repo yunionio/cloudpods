@@ -2474,7 +2474,7 @@ func (task *SGuestHotplugCpuMemTask) Start() {
 }
 
 func (task *SGuestHotplugCpuMemTask) startAddCpu() {
-	if task.Desc.MemDesc.Mem.Cpus != nil && len(task.Desc.CpuNumaPin) > 0 {
+	if task.Desc.MemDesc.Mem != nil && task.Desc.MemDesc.Mem.Cpus != nil && len(task.Desc.CpuNumaPin) > 0 {
 		task.buildVcpusMap()
 	} else {
 		task.Monitor.GetCpuCount(task.onGetCpuCount)
