@@ -1384,14 +1384,21 @@ func (self *SDisk) GetCloudprovider() *SCloudprovider {
 }
 
 func (self *SDisk) GetPathAtHost(host *SHost) string {
+	usedStorageId := self.StorageId
 	hostStorage := host.GetHoststorageOfId(self.StorageId)
-	if hostStorage != nil {
-		return path.Join(hostStorage.MountPoint, self.Id)
-	} else if len(self.BackupStorageId) > 0 {
+	if hostStorage == nil {
 		hostStorage = host.GetHoststorageOfId(self.BackupStorageId)
 		if hostStorage != nil {
-			return path.Join(hostStorage.MountPoint, self.Id)
+			usedStorageId = self.BackupStorageId
 		}
+	}
+	if hostStorage != nil {
+		storage := StorageManager.FetchStorageById(usedStorageId)
+		hostpath := path.Join(hostStorage.MountPoint, self.Id)
+		if storage != nil && utils.IsInStringArray(storage.StorageType, api.LVM_STORAGE) {
+			hostpath = path.Join("/dev", hostpath)
+		}
+		return hostpath
 	}
 	return ""
 }
