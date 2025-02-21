@@ -74,6 +74,25 @@ type SDnsZone struct {
 	ProductType string `width:"32" charset:"ascii" nullable:"false" list:"domain" create:"domain_optional"`
 }
 
+func (self *SDnsZone) GetUniqValues() jsonutils.JSONObject {
+	return jsonutils.Marshal(map[string]string{"manager_id": self.ManagerId})
+}
+
+func (manager *SDnsZoneManager) FetchUniqValues(ctx context.Context, data jsonutils.JSONObject) jsonutils.JSONObject {
+	managerId, _ := data.GetString("manager_id")
+	return jsonutils.Marshal(map[string]string{"manager_id": managerId})
+}
+
+func (manager *SDnsZoneManager) FilterByUniqValues(q *sqlchemy.SQuery, values jsonutils.JSONObject) *sqlchemy.SQuery {
+	managerId, _ := values.GetString("manager_id")
+	if len(managerId) > 0 {
+		q = q.Equals("manager_id", managerId)
+	} else {
+		q = q.IsNullOrEmpty("manager_id")
+	}
+	return q
+}
+
 // 创建
 func (manager *SDnsZoneManager) ValidateCreateData(
 	ctx context.Context,
