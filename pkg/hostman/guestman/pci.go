@@ -351,7 +351,7 @@ func (s *SKVMGuestInstance) initIsolatedDevices(pciRoot, pciBridge *desc.PCICont
 			id := dev.GetQemuId()
 			s.Desc.IsolatedDevices[i].VfioDevs = make([]*desc.VFIODevice, 0)
 			vfioDev := desc.NewVfioDevice(
-				*cType, "vfio-pci", id, dev.GetAddr(), dev.GetDeviceType() == api.GPU_VGA_TYPE,
+				*cType, "vfio-pci", id, dev.GetAddr(), s.Desc.IsolatedDevices[i].DevType == api.GPU_VGA_TYPE,
 			)
 			s.Desc.IsolatedDevices[i].VfioDevs = append(s.Desc.IsolatedDevices[i].VfioDevs, vfioDev)
 
