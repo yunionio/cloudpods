@@ -119,6 +119,7 @@ type BaseOptions struct {
 	PlatformNames map[string]string `help:"identity name of this platform by language"`
 
 	EnableAppProfiling bool `help:"enable profiling API" default:"false"`
+	AllowTLS1x         bool `help:"allow obsolete insecure TLS V1.0&1.1" default:"false" json:"allow_tls1x"`
 }
 
 const (
