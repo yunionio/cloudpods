@@ -86,7 +86,7 @@ type SStorage struct {
 	// example: ssd
 	MediumType string `width:"32" charset:"ascii" nullable:"false" list:"user" update:"domain" create:"domain_required"`
 	// 超售比
-	Cmtbound float32 `nullable:"true" default:"1" list:"domain" update:"domain"`
+	Cmtbound float32 `nullable:"true" list:"domain" update:"domain"`
 	// 存储配置信息
 	StorageConf jsonutils.JSONObject `nullable:"true" get:"domain" list:"domain" update:"domain"`
 
@@ -545,9 +545,9 @@ func (self *SStorage) GetUsedCapacity(isReady tristate.TriState) int64 {
 	}
 }
 
-func (self *SStorage) GetOvercommitBound() float32 {
-	if self.Cmtbound > 0 {
-		return self.Cmtbound
+func (storage *SStorage) GetOvercommitBound() float32 {
+	if storage.Cmtbound > 0 {
+		return storage.Cmtbound
 	} else {
 		return options.Options.DefaultStorageOvercommitBound
 	}
