@@ -135,7 +135,7 @@ func Unmount(mountPoint string, useLazy bool) error {
 
 func unmount(mountPoint string, useLazy bool) error {
 	mountOut, err := procutils.NewRemoteCommandAsFarAsPossible("mountpoint", mountPoint).Output()
-	if err == nil {
+	if err == nil || strings.Contains(string(mountOut), "Permission denied") {
 		args := []string{mountPoint}
 		if useLazy {
 			args = append([]string{"-l"}, args...)
