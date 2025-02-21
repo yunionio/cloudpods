@@ -97,7 +97,7 @@ type SIsolatedDevice struct {
 
 	// # PCI / GPU-HPC / GPU-VGA / USB / NIC
 	// 设备类型
-	DevType string `width:"36" charset:"ascii" nullable:"false" default:"" index:"true" list:"domain" create:"domain_required" update:"domain"`
+	DevType string `width:"128" charset:"ascii" nullable:"false" default:"" index:"true" list:"domain" create:"domain_required" update:"domain"`
 
 	// # Specific device name read from lspci command, e.g. `Tesla K40m` ...
 	Model string `width:"512" charset:"ascii" nullable:"false" default:"" index:"true" list:"domain" create:"domain_required" update:"domain"`
