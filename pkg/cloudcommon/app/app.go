@@ -40,6 +40,9 @@ func InitApp(options *common_options.BaseOptions, dbAccess bool) *appsrv.Applica
 	if options.EnableAppProfiling {
 		app.EnableProfiling()
 	}
+	if options.AllowTLS1x {
+		app.AllowTLS1x()
+	}
 	return app
 }
 
