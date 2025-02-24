@@ -2965,15 +2965,7 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 		return nil, httperrors.NewBadRequestError("Guest have backup not allow to change config")
 	}
 
-	changeStatus, err := self.GetDriver().GetChangeConfigStatus(self)
-	if err != nil {
-		return nil, httperrors.NewInputParameterError("%v", err)
-	}
-	if !utils.IsInStringArray(self.Status, changeStatus) {
-		return nil, httperrors.NewInvalidStatusError("Cannot change config in %s for %s, requires %s", self.Status, self.GetHypervisor(), changeStatus)
-	}
-
-	_, err = self.GetHost()
+	_, err := self.GetHost()
 	if err != nil {
 		return nil, httperrors.NewInvalidStatusError("no valid host")
 	}
@@ -2983,10 +2975,30 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 		return nil, errors.Wrap(err, "ValidateGuestChangeConfigInput")
 	}
 
+	if confs.CpuChanged() || confs.MemChanged() || confs.InstanceTypeChanged() {
+		changeStatus, err := self.GetDriver().GetChangeInstanceTypeStatus()
+		if err != nil {
+			return nil, httperrors.NewInputParameterError("%v", err)
+		}
+		if !utils.IsInStringArray(self.Status, changeStatus) {
+			return nil, httperrors.NewInvalidStatusError("Cannot change config in %s for %s, requires %s", self.Status, self.GetHypervisor(), changeStatus)
+		}
+	}
+
 	if self.PowerStates == api.VM_POWER_STATES_ON && (confs.CpuChanged() || confs.MemChanged()) {
 		confs, err = self.GetDriver().ValidateGuestHotChangeConfigInput(ctx, self, confs)
 		if err != nil {
 			return nil, httperrors.NewInvalidStatusError("cannot change CPU/Memory spec in power status %s: %s", self.PowerStates, err)
+		}
+	}
+
+	if len(confs.Create) > 0 {
+		attachStatus, err := self.GetDriver().GetAttachDiskStatus()
+		if err != nil {
+			return nil, httperrors.NewInputParameterError("%v", err)
+		}
+		if !utils.IsInStringArray(self.Status, attachStatus) {
+			return nil, httperrors.NewInvalidStatusError("Cannot attach disk in %s for %s, requires %s", self.Status, self.GetHypervisor(), attachStatus)
 		}
 	}
 

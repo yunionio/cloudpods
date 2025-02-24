@@ -1335,6 +1335,10 @@ func (conf ServerChangeConfigSettings) MemChanged() bool {
 	return conf.VmemSize != conf.Old.VmemSize
 }
 
+func (conf ServerChangeConfigSettings) InstanceTypeChanged() bool {
+	return len(conf.InstanceType) > 0 && conf.InstanceType != conf.Old.InstanceType
+}
+
 func (conf ServerChangeConfigSettings) AddedMem() int {
 	addMem := conf.VmemSize - conf.Old.VmemSize
 	if addMem < 0 {
