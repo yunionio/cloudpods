@@ -141,5 +141,7 @@ func addMiscHandlers(app *appsrv.Application, root *mux.Router) {
 	root.HandleFunc("/worker_stats", adapterF(appsrv.WorkerStatsHandler))
 
 	// pprof handler
-	root.PathPrefix("/debug/pprof/").Handler(http.DefaultServeMux)
+	if o.Options.EnableAppProfiling {
+		root.PathPrefix("/debug/pprof/").Handler(http.DefaultServeMux)
+	}
 }
