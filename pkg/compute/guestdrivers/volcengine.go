@@ -83,7 +83,7 @@ func (self *SVolcengineGuestDriver) GetRebuildRootStatus() ([]string, error) {
 	return []string{api.VM_READY, api.VM_RUNNING}, nil
 }
 
-func (self *SVolcengineGuestDriver) GetChangeConfigStatus(guest *models.SGuest) ([]string, error) {
+func (self *SVolcengineGuestDriver) GetChangeInstanceTypeStatus() ([]string, error) {
 	return []string{api.VM_READY}, nil
 }
 
