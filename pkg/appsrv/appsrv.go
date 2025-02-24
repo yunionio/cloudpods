@@ -78,6 +78,8 @@ type Application struct {
 	isTLS bool
 
 	enableProfiling bool
+
+	allowTLS1x bool
 }
 
 const (
@@ -136,6 +138,12 @@ func (app *Application) OnException(exception func(method, path string, body jso
 func (app *Application) SetDefaultTimeout(to time.Duration) *Application {
 	log.Infof("adjust application default timeout to %f seconds", to.Seconds())
 	app.processTimeout = to
+	return app
+}
+
+func (app *Application) AllowTLS1x() *Application {
+	log.Infof("Allow TLS1.0&1.1")
+	app.allowTLS1x = true
 	return app
 }
 
@@ -361,6 +369,7 @@ func (app *Application) defaultHandle(w http.ResponseWriter, r *http.Request, ri
 	w.Header().Set("Server", "Yunion AppServer/Go/2018.4")
 	w.Header().Set("X-Frame-Options", "SAMEORIGIN")
 	w.Header().Set("X-XSS-Protection", "1; mode=block")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
 	if app.isTLS {
 		w.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
 	}
@@ -478,7 +487,18 @@ func (app *Application) initServer(addr string) *http.Server {
 
 	cipherSuites := []uint16{}
 	for _, suite := range tls.CipherSuites() {
-		cipherSuites = append(cipherSuites, suite.ID)
+		if !strings.HasSuffix(suite.Name, "_SHA") {
+			cipherSuites = append(cipherSuites, suite.ID)
+		}
+	}
+
+	minTLSVer := uint16(tls.VersionTLS12)
+	if app.allowTLS1x {
+		minTLSVer = tls.VersionTLS10
+	}
+	tlsConf := &tls.Config{
+		CipherSuites: cipherSuites,
+		MinVersion:   minTLSVer,
 	}
 
 	s := &http.Server{
@@ -493,9 +513,7 @@ func (app *Application) initServer(addr string) *http.Server {
 		// issue like: https://github.com/megaease/easegress/issues/481
 		ErrorLog: olog.New(io.Discard, "", olog.LstdFlags),
 
-		TLSConfig: &tls.Config{
-			CipherSuites: cipherSuites,
-		},
+		TLSConfig: tlsConf,
 	}
 	return s
 }
@@ -601,22 +619,6 @@ func (app *Application) listenAndServeInternal(s *http.Server, certFile, keyFile
 	if err != nil && err != http.ErrServerClosed {
 		log.Fatalf("ListAndServer fail: %s (cert=%s key=%s)", err, certFile, keyFile)
 	}
-}
-
-func isJsonContentType(r *http.Request) bool {
-	contType := strings.ToLower(r.Header.Get("Content-Type"))
-	if strings.HasPrefix(contType, "application/json") {
-		return true
-	}
-	return false
-}
-
-func isFormContentType(r *http.Request) bool {
-	contType := strings.ToLower(r.Header.Get("Content-Type"))
-	if strings.HasPrefix(contType, "application/json") {
-		return true
-	}
-	return false
 }
 
 type TContentType string
