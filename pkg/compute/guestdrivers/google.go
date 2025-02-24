@@ -129,7 +129,7 @@ func (self *SGoogleGuestDriver) GetRebuildRootStatus() ([]string, error) {
 	return []string{api.VM_READY}, nil
 }
 
-func (self *SGoogleGuestDriver) GetChangeConfigStatus(guest *models.SGuest) ([]string, error) {
+func (self *SGoogleGuestDriver) GetChangeInstanceTypeStatus() ([]string, error) {
 	return []string{api.VM_READY}, nil
 }
 
