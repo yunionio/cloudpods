@@ -606,7 +606,7 @@ func (self *SKVMGuestDriver) GetRebuildRootStatus() ([]string, error) {
 	return []string{api.VM_READY}, nil
 }
 
-func (self *SKVMGuestDriver) GetChangeConfigStatus(guest *models.SGuest) ([]string, error) {
+func (self *SKVMGuestDriver) GetChangeInstanceTypeStatus() ([]string, error) {
 	return []string{api.VM_READY, api.VM_RUNNING}, nil
 }
 

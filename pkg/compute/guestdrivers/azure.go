@@ -102,7 +102,7 @@ func (self *SAzureGuestDriver) IsRebuildRootSupportChangeUEFI() bool {
 	return false
 }
 
-func (self *SAzureGuestDriver) GetChangeConfigStatus(guest *models.SGuest) ([]string, error) {
+func (self *SAzureGuestDriver) GetChangeInstanceTypeStatus() ([]string, error) {
 	return []string{api.VM_READY, api.VM_RUNNING}, nil
 }
 

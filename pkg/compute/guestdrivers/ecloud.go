@@ -88,7 +88,7 @@ func (self *SEcloudGuestDriver) GetAttachDiskStatus() ([]string, error) {
 	return []string{api.VM_READY, api.VM_RUNNING}, nil
 }
 
-func (self *SEcloudGuestDriver) GetChangeConfigStatus(guest *models.SGuest) ([]string, error) {
+func (self *SEcloudGuestDriver) GetChangeInstanceTypeStatus() ([]string, error) {
 	return []string{api.VM_READY}, nil
 }
 
