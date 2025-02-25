@@ -565,7 +565,7 @@ type SyncRangeInput struct {
 
 	// 按资源类型同步，可输入多个
 	// enmu: project, compute, network, eip, loadbalancer, objectstore, rds, cache, event, cloudid, dnszone, public_ip, intervpcnetwork, saml_auth, quota, nat, nas, waf, mongodb, es, kafka, app, cdn, container, ipv6_gateway, tablestore, modelarts, vpcpeer, misc
-	Resources []string `json:"resources" choices:"project|compute|network|eip|loadbalancer|objectstore|rds|cache|event|cloudid|dnszone|public_ip|intervpcnetwork|saml_auth|quota|nat|nas|waf|mongodb|es|kafka|app|cdn|container|ipv6_gateway|tablestore|modelarts|vpcpeer|misc"`
+	Resources []string `json:"resources" choices:"project|compute|network|eip|loadbalancer|objectstore|rds|cache|event|cloudid|dnszone|public_ip|intervpcnetwork|saml_auth|quota|nat|nas|waf|mongodb|es|kafka|app|cdn|container|ipv6_gateway|tablestore|modelarts|vpcpeer|misc|image"`
 }
 
 type iRes interface {
