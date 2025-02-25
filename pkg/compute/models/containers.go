@@ -1188,3 +1188,20 @@ func (c *SContainer) removePostOverlay(vmd *apis.ContainerVolumeMountDisk, ov *a
 	vmd.PostOverlay = resultOvs
 	return vmd
 }
+
+func (c *SContainer) SetStatusFromHost(ctx context.Context, userCred mcclient.TokenCredential, resp api.ContainerSyncStatusResponse, reason string) error {
+	errs := []error{}
+	if err := c.SetStatus(ctx, userCred, resp.Status, reason); err != nil {
+		errs = append(errs, errors.Wrap(err, "SetStatus"))
+	}
+	if _, err := db.Update(c, func() error {
+		if resp.RestartCount > 0 {
+			c.RestartCount = resp.RestartCount
+		}
+		c.StartedAt = resp.StartedAt
+		return nil
+	}); err != nil {
+		errs = append(errs, errors.Wrap(err, "Update container started_at: %s"))
+	}
+	return errors.NewAggregate(errs)
+}

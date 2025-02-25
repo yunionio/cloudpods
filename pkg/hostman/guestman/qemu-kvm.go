@@ -3611,32 +3611,54 @@ func (s *SKVMGuestInstance) CPUSetRemove(ctx context.Context) error {
 	return nil
 }
 
-func (s *SKVMGuestInstance) HandleGuestStatus(ctx context.Context, status string, body *jsonutils.JSONDict) (jsonutils.JSONObject, error) {
-	if status == GUEST_RUNNING && s.pciUninitialized {
-		status = api.VM_UNSYNC
-	} else if status == GUEST_RUNNING {
+func (s *SKVMGuestInstance) GetUploadStatus(ctx context.Context, reason string) (*api.HostUploadGuestStatusResponse, error) {
+	var status = api.VM_READY
+	if s.IsSuspend() {
+		status = api.VM_SUSPEND
+	}
+	statusInput := &apis.PerformStatusInput{
+		Status:      status,
+		Reason:      reason,
+		PowerStates: GetPowerStates(s),
+		HostId:      hostinfo.Instance().HostId,
+	}
+	if s.IsRunning() {
+		blkJobCnt := s.BlockJobsCount()
+		statusInput.Status = api.VM_RUNNING
+		if blkJobCnt > 0 {
+			statusInput.Status = api.VM_BLOCK_STREAM
+		}
+	}
+	return &api.HostUploadGuestStatusResponse{
+		PerformStatusInput: *statusInput,
+	}, nil
+}
+
+func (s *SKVMGuestInstance) PostUploadStatus(resp *api.HostUploadGuestStatusResponse, reason string) {
+}
+
+func (s *SKVMGuestInstance) HandleGuestStatus(ctx context.Context, resp *api.HostUploadGuestStatusResponse) (jsonutils.JSONObject, error) {
+	if resp.Status == GUEST_RUNNING && s.pciUninitialized {
+		resp.Status = api.VM_UNSYNC
+	} else if resp.Status == GUEST_RUNNING {
 		var runCb = func() {
-			body := jsonutils.NewDict()
 			blockJobsCount := s.BlockJobsCount()
 			if blockJobsCount > 0 {
-				status = GUEST_BLOCK_STREAM
+				resp.Status = GUEST_BLOCK_STREAM
 			}
-			body.Set("block_jobs_count", jsonutils.NewInt(int64(blockJobsCount)))
-			body.Set("status", jsonutils.NewString(status))
-			hostutils.TaskComplete(ctx, body)
+			resp.BlockJobsCount = blockJobsCount
+			hostutils.TaskComplete(ctx, jsonutils.Marshal(resp))
 		}
 		if s.Monitor == nil && !s.IsStopping() {
 			if err := s.StartMonitor(context.Background(), runCb, false); err != nil {
 				log.Errorf("guest %s failed start monitor %s", s.GetName(), err)
-				body.Set("status", jsonutils.NewString(status))
-				hostutils.TaskComplete(ctx, body)
+				hostutils.TaskComplete(ctx, jsonutils.Marshal(resp))
 			}
 		} else {
 			runCb()
 		}
 		return nil, nil
 	}
-	body.Set("status", jsonutils.NewString(status))
-	hostutils.TaskComplete(ctx, body)
+	hostutils.TaskComplete(ctx, jsonutils.Marshal(resp))
 	return nil, nil
 }

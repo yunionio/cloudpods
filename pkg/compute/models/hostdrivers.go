@@ -78,6 +78,7 @@ type IHostDriver interface {
 	RequestDetachStorage(ctx context.Context, host *SHost, storage *SStorage, task taskman.ITask) error
 	RequestSyncOnHost(ctx context.Context, host *SHost, task taskman.ITask) error
 	RequestProbeIsolatedDevices(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, input jsonutils.JSONObject) (*jsonutils.JSONArray, error)
+	RequestUploadGuestsStatus(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, guests []SGuest) error
 }
 
 var hostDrivers map[string]IHostDriver

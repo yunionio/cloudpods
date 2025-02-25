@@ -3463,6 +3463,80 @@ func (self *SGuest) SetBackupGuestStatus(userCred mcclient.TokenCredential, stat
 	return nil
 }
 
+func (g *SGuest) SetStatusFromHost(ctx context.Context, userCred mcclient.TokenCredential, resp api.HostUploadGuestStatusResponse, hasParentTask bool, originStatus string) error {
+	statusStr := resp.Status
+	switch statusStr {
+	case cloudprovider.CloudVMStatusRunning:
+		statusStr = api.VM_RUNNING
+	case cloudprovider.CloudVMStatusSuspend:
+		statusStr = api.VM_SUSPEND
+	case cloudprovider.CloudVMStatusStopped:
+		statusStr = api.VM_READY
+	case api.VM_BLOCK_STREAM, api.VM_BLOCK_STREAM_FAIL:
+		break
+	default:
+		if g.GetHypervisor() != api.HYPERVISOR_POD {
+			statusStr = api.VM_UNKNOWN
+		}
+	}
+	if !hasParentTask {
+		// migrating status hack
+		// not change migrating when:
+		//   guest.Status is migrating and task not has parent task
+		if originStatus == api.VM_MIGRATING && statusStr == api.VM_RUNNING && len(g.ExternalId) == 0 {
+			statusStr = originStatus
+		}
+	}
+	_, err := g.PerformStatus(ctx, userCred, nil, resp.PerformStatusInput)
+	return errors.Wrapf(err, "perform status of %s", jsonutils.Marshal(resp))
+}
+
+func (m *SGuestManager) PerformUploadStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.HostUploadGuestsStatusResponse) (*api.GuestUploadStatusesResponse, error) {
+	out := &api.GuestUploadStatusesResponse{
+		Guests: make(map[string]*api.GuestUploadStatusResponse),
+	}
+	for id, status := range input.Guests {
+		gst := m.FetchGuestById(id)
+		if gst == nil {
+			out.Guests[id] = &api.GuestUploadStatusResponse{
+				Error: "not found guest",
+			}
+			continue
+		}
+		if _, err := gst.PerformStatus(ctx, userCred, query, status.PerformStatusInput); err != nil {
+			out.Guests[id] = &api.GuestUploadStatusResponse{
+				Error: err.Error(),
+			}
+		} else {
+			out.Guests[id] = &api.GuestUploadStatusResponse{
+				OK: true,
+			}
+		}
+		for cId, cStatus := range status.Containers {
+			if len(out.Guests[id].Containers) == 0 {
+				out.Guests[id].Containers = make(map[string]*api.GuestUploadContainerStatusResponse)
+			}
+			ctr, err := GetContainerManager().FetchById(cId)
+			if err != nil {
+				out.Guests[id].Containers[cId] = &api.GuestUploadContainerStatusResponse{
+					Error: err.Error(),
+				}
+				continue
+			}
+			if _, err := ctr.(*SContainer).PerformStatus(ctx, userCred, query, *cStatus); err != nil {
+				out.Guests[id].Containers[cId] = &api.GuestUploadContainerStatusResponse{
+					Error: err.Error(),
+				}
+			} else {
+				out.Guests[id].Containers[cId] = &api.GuestUploadContainerStatusResponse{
+					OK: true,
+				}
+			}
+		}
+	}
+	return out, nil
+}
+
 // 同步状态
 func (self *SGuest) PerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformStatusInput) (jsonutils.JSONObject, error) {
 	if input.HostId != "" && self.BackupHostId != "" && input.HostId == self.BackupHostId {

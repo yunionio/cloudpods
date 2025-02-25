@@ -980,20 +980,15 @@ func (m *SGuestManager) Status(sid string) string {
 
 func (m *SGuestManager) GetGuestStatus(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
 	sid := params.(string)
-	status := m.getStatus(sid)
 	guest, _ := m.GetServer(sid)
-
-	body := jsonutils.NewDict()
+	resp := m.ProbeGuestInitStatus(sid)
 
 	if guest == nil {
-		body.Set("status", jsonutils.NewString(status))
-		hostutils.TaskComplete(ctx, body)
+		hostutils.TaskComplete(ctx, jsonutils.Marshal(resp))
 		return nil, nil
 	}
 
-	body.Set("power_status", jsonutils.NewString(GetPowerStates(guest)))
-
-	return guest.HandleGuestStatus(ctx, status, body)
+	return guest.HandleGuestStatus(ctx, resp)
 }
 
 func (m *SGuestManager) getStatus(sid string) string {
@@ -1781,6 +1776,57 @@ func (m *SGuestManager) GetGuestTrafficRecord(sid string) (map[string]compute.SN
 		return nil, errors.Wrapf(err, "failed unmarshal traffic record %s", recordPath)
 	}
 	return record, nil
+}
+
+func (m *SGuestManager) UploadGuestsStatus(ctx context.Context, i interface{}) (jsonutils.JSONObject, error) {
+	input := i.(*compute.HostUploadGuestsStatusRequest)
+	errs := []error{}
+	resp := &compute.HostUploadGuestsStatusResponse{
+		Guests: make(map[string]*compute.HostUploadGuestStatusResponse, 0),
+	}
+	reason := "upload guest status by host"
+	for _, id := range input.GuestIds {
+		srv, _ := m.GetServer(id)
+		if srv == nil {
+			continue
+		}
+		if status, err := srv.GetUploadStatus(ctx, reason); err != nil {
+			errs = append(errs, errors.Wrapf(err, "upload guest %s status", srv.GetId()))
+		} else {
+			resp.Guests[id] = status
+		}
+	}
+	if len(errs) > 0 {
+		log.Errorf("Get upload guests status: %v", errors.NewAggregate(errs))
+	}
+	ret, err := hostutils.UploadGuestsStatus(ctx, resp)
+	// do post action like marking container dirty after uploading guests status
+	for id, status := range resp.Guests {
+		srv, _ := m.GetServer(id)
+		if srv == nil {
+			continue
+		}
+		srv.PostUploadStatus(status, reason)
+	}
+	log.Infof("upload guest to region response: %s", jsonutils.Marshal(ret).String())
+	return ret, err
+}
+
+func (m *SGuestManager) ProbeGuestInitStatus(sid string) *compute.HostUploadGuestStatusResponse {
+	guest, _ := m.GetServer(sid)
+	status := m.getStatus(sid)
+	resp := &compute.HostUploadGuestStatusResponse{
+		PerformStatusInput: apis.PerformStatusInput{
+			Status:         status,
+			BlockJobsCount: -1,
+		},
+	}
+	if guest == nil {
+		return resp
+	}
+	resp.PowerStates = GetPowerStates(guest)
+
+	return resp
 }
 
 func SyncGuestNicsTraffics(guestNicsTraffics map[string]map[string]compute.SNicTrafficRecord) {

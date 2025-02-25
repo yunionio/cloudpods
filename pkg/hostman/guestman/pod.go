@@ -344,16 +344,16 @@ func (s *sPodGuestInstance) getStatus(ctx context.Context, defaultStatus string)
 	return status
 }
 
-func (s *sPodGuestInstance) SyncStatus(reason string) {
+func (s *sPodGuestInstance) GetUploadStatus(ctx context.Context, reason string) (*computeapi.HostUploadGuestStatusResponse, error) {
 	// sync pod status
 	var status = computeapi.VM_READY
 	if s.IsRunning() {
 		status = computeapi.VM_RUNNING
 	}
+	errs := make([]error, 0)
 	if err := s.expectedStatus.SetStatus(status); err != nil {
 		log.Warningf("set expected status to %s, reason: %s, err: %s", status, reason, err.Error())
 	}
-	ctx := context.Background()
 	if status == computeapi.VM_READY {
 		// remove pod
 		if err := s.stopPod(ctx, 5); err != nil {
@@ -361,6 +361,7 @@ func (s *sPodGuestInstance) SyncStatus(reason string) {
 		}
 	}
 	// sync container's status
+	cStatuss := make(map[string]*computeapi.ContainerPerformStatusInput)
 	for _, c := range s.containers {
 		cStatus, cs, err := s.getContainerStatus(ctx, c.Id)
 		if err != nil {
@@ -395,16 +396,15 @@ func (s *sPodGuestInstance) SyncStatus(reason string) {
 				ctr.StartedAt = cs.StartedAt
 				ctr.LastFinishedAt = cs.FinishedAt
 				if err := s.SaveContainerDesc(ctr); err != nil {
-					log.Errorf("save container desc for %s/%s: %v", ctr.Id, ctr.Name, err)
+					errs = append(errs, errors.Wrapf(err, "save container desc for %s/%s", ctr.Id, ctr.Name))
 				}
 			}
 		}
-		if _, err := hostutils.UpdateContainerStatus(ctx, c.Id, ctrStatusInput); err != nil {
-			log.Errorf("failed update container %s status: %s", c.Id, err)
-		}
-		// 同步容器状态可能会出现 probing 状态，所以需要 mark 成 dirty，等待 probe manager 重新探测容器状态
-		s.markContainerProbeDirty(cStatus, c.Id, reason)
+		cStatuss[c.Id] = ctrStatusInput
 		status = GetPodStatusByContainerStatus(status, cStatus)
+	}
+	if len(errs) > 0 {
+		log.Errorf("get upload status error: %v", errors.NewAggregate(errs))
 	}
 
 	statusInput := &apis.PerformStatusInput{
@@ -414,8 +414,42 @@ func (s *sPodGuestInstance) SyncStatus(reason string) {
 		HostId:      hostinfo.Instance().HostId,
 	}
 
-	if _, err := hostutils.UpdateServerStatus(ctx, s.Id, statusInput); err != nil {
-		log.Errorf("failed update guest status %s", err)
+	return &computeapi.HostUploadGuestStatusResponse{
+		PerformStatusInput: *statusInput,
+		Containers:         cStatuss,
+	}, nil
+}
+
+func (s *sPodGuestInstance) UploadStatus(ctx context.Context, reason string) error {
+	resp, err := s.GetUploadStatus(ctx, reason)
+	if err != nil {
+		return errors.Wrapf(err, "get upload status of pod: %s", reason)
+	}
+	errs := make([]error, 0)
+	// sync container's status
+	for id, ctrStatusInput := range resp.Containers {
+		if _, err := hostutils.UpdateContainerStatus(ctx, id, ctrStatusInput); err != nil {
+			errs = append(errs, errors.Wrapf(err, "failed update container %s status", id))
+		}
+		// 同步容器状态可能会出现 probing 状态，所以需要 mark 成 dirty，等待 probe manager 重新探测容器状态
+		s.markContainerProbeDirty(ctrStatusInput.Status, id, reason)
+	}
+
+	if _, err := hostutils.UpdateServerStatus(ctx, s.Id, &resp.PerformStatusInput); err != nil {
+		errs = append(errs, errors.Wrapf(err, "failed update guest status"))
+	}
+	return errors.NewAggregate(errs)
+}
+
+func (s *sPodGuestInstance) PostUploadStatus(resp *computeapi.HostUploadGuestStatusResponse, reason string) {
+	for ctrId, cStatus := range resp.Containers {
+		s.markContainerProbeDirty(cStatus.Status, ctrId, reason)
+	}
+}
+
+func (s *sPodGuestInstance) SyncStatus(reason string) {
+	if err := s.UploadStatus(context.Background(), reason); err != nil {
+		log.Warningf("upload status failed, reason: %s, err: %v", reason, err)
 	}
 }
 
@@ -493,9 +527,13 @@ func (s *sPodGuestInstance) IsContainerRunning(ctx context.Context, ctrId string
 	return false, nil
 }
 
-func (s *sPodGuestInstance) HandleGuestStatus(ctx context.Context, status string, body *jsonutils.JSONDict) (jsonutils.JSONObject, error) {
-	body.Set("status", jsonutils.NewString(s.getStatus(ctx, status)))
-	hostutils.TaskComplete(ctx, body)
+func (s *sPodGuestInstance) probeGuestStatus(ctx context.Context, resp *computeapi.HostUploadGuestStatusResponse) {
+	resp.Status = s.getStatus(ctx, resp.Status)
+}
+
+func (s *sPodGuestInstance) HandleGuestStatus(ctx context.Context, resp *computeapi.HostUploadGuestStatusResponse) (jsonutils.JSONObject, error) {
+	s.probeGuestStatus(ctx, resp)
+	hostutils.TaskComplete(ctx, jsonutils.Marshal(resp))
 	return nil, nil
 }
 
