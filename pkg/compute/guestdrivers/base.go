@@ -174,8 +174,8 @@ func (drv *SBaseGuestDriver) IsRebuildRootSupportChangeUEFI() bool {
 	return true
 }
 
-func (drv *SBaseGuestDriver) GetChangeConfigStatus(guest *models.SGuest) ([]string, error) {
-	return []string{}, fmt.Errorf("This Guest driver dose not implement GetChangeConfigStatus")
+func (drv *SBaseGuestDriver) GetChangeInstanceTypeStatus() ([]string, error) {
+	return []string{}, fmt.Errorf("This Guest driver dose not implement GetChangeInstanceTypeStatus")
 }
 
 func (drv *SBaseGuestDriver) ValidateDetachDisk(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, disk *models.SDisk) error {

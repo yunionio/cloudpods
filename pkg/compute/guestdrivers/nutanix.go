@@ -131,7 +131,7 @@ func (self *SNutanixGuestDriver) GetAttachDiskStatus() ([]string, error) {
 	return []string{api.VM_READY}, nil
 }
 
-func (self *SNutanixGuestDriver) GetChangeConfigStatus(guest *models.SGuest) ([]string, error) {
+func (self *SNutanixGuestDriver) GetChangeInstanceTypeStatus() ([]string, error) {
 	return []string{api.VM_READY}, nil
 }
 
