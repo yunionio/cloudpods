@@ -93,7 +93,7 @@ func (self *SHCSOGuestDriver) GetRebuildRootStatus() ([]string, error) {
 	return []string{api.VM_READY, api.VM_RUNNING}, nil
 }
 
-func (self *SHCSOGuestDriver) GetChangeConfigStatus(guest *models.SGuest) ([]string, error) {
+func (self *SHCSOGuestDriver) GetChangeInstanceTypeStatus() ([]string, error) {
 	return []string{api.VM_READY}, nil
 }
 

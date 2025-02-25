@@ -119,7 +119,7 @@ func (self *SInCloudSphereGuestDriver) GetAttachDiskStatus() ([]string, error) {
 	return []string{api.VM_READY}, nil
 }
 
-func (self *SInCloudSphereGuestDriver) GetChangeConfigStatus(guest *models.SGuest) ([]string, error) {
+func (self *SInCloudSphereGuestDriver) GetChangeInstanceTypeStatus() ([]string, error) {
 	return []string{api.VM_READY, api.VM_RUNNING}, nil
 }
 

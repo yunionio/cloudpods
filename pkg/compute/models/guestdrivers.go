@@ -142,7 +142,7 @@ type IGuestDriver interface {
 	GetAttachDiskStatus() ([]string, error)
 	GetRebuildRootStatus() ([]string, error)
 	IsAllowSaveImageOnRunning() bool
-	GetChangeConfigStatus(guest *SGuest) ([]string, error)
+	GetChangeInstanceTypeStatus() ([]string, error)
 	GetDeployStatus() ([]string, error)
 	ValidateResizeDisk(guest *SGuest, disk *SDisk, storage *SStorage) error
 	CanKeepDetachDisk() bool
