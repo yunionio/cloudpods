@@ -338,7 +338,7 @@ type CloudaccountDetail struct {
 	SyncIntervalSeconds int `json:"sync_interval_seconds"`
 
 	// 同步状态
-	SyncStatus2 string `json:"sync_stauts2"`
+	SyncStatus2 string `json:"sync_status2"`
 
 	// 云账号环境类型
 	// public: 公有云
