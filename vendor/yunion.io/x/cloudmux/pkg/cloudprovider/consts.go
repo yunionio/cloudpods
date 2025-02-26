@@ -59,6 +59,7 @@ const (
 	CLOUD_CAPABILITY_VPC_PEER        = "vpcpeer" // 对等连接
 	CLOUD_CAPABILITY_MISC            = "misc"
 	CLOUD_CAPABILITY_CERT            = "sslcertificates" // 证书
+	CLOUD_CAPABILITY_IMAGE           = "image"           // 镜像
 )
 
 const (

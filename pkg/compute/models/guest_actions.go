@@ -1795,6 +1795,9 @@ func (self *SGuest) PerformRebuildRoot(
 		}
 
 		diskCat := self.CategorizeDisks()
+		if gotypes.IsNil(diskCat.Root) {
+			return nil, httperrors.NewInputParameterError("no root disk is found")
+		}
 		if img.MinDiskMB == 0 || img.Status != imageapi.IMAGE_STATUS_ACTIVE {
 			return nil, httperrors.NewInputParameterError("invlid image")
 		}
