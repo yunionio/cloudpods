@@ -124,6 +124,8 @@ func ParseDiskConfig(diskStr string, idx int) (*compute.DiskConfig, error) {
 			diskConfig.Mountpoint = p
 		} else if p == "autoextend" {
 			diskConfig.SizeMb = -1
+		} else if p == "autoreset" {
+			diskConfig.AutoReset = true
 		} else if utils.IsInStringArray(p, compute.STORAGE_TYPES) {
 			diskConfig.Backend = p
 		} else if len(p) > 0 {
