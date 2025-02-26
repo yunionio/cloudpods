@@ -46,6 +46,7 @@ type Cmd interface {
 	Wait() error
 	Run() error
 	Kill() error
+	SetEnv([]string)
 }
 
 type Executor interface {
@@ -61,6 +62,10 @@ type defaultCmd struct {
 
 func (c *defaultCmd) Kill() error {
 	return c.Process.Kill()
+}
+
+func (c *defaultCmd) SetEnv(envs []string) {
+	c.Env = append(c.Env, envs...)
 }
 
 type defaultExecutor struct{}
@@ -88,18 +93,26 @@ func (e *defaultExecutor) GetExitStatus(err error) (int, bool) {
 	}
 }
 
+type remoteCmd struct {
+	*client.Cmd
+}
+
+func (c *remoteCmd) SetEnv(envs []string) {
+	c.Env = append(c.Env, envs...)
+}
+
 type remoteExecutor struct{}
 
 func (e *remoteExecutor) Command(name string, args ...string) Cmd {
 	cmd := client.Command(name, args...)
 	remoteCmdSetEnv(cmd)
-	return cmd
+	return &remoteCmd{cmd}
 }
 
 func (e *remoteExecutor) CommandContext(ctx context.Context, name string, args ...string) Cmd {
 	cmd := client.CommandContext(ctx, name, args...)
 	remoteCmdSetEnv(cmd)
-	return cmd
+	return &remoteCmd{cmd}
 }
 
 func (e *remoteExecutor) GetExitStatus(err error) (int, bool) {
