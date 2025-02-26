@@ -315,6 +315,9 @@ func getDiskDriveOption(drvOpt QemuOptions, disk *desc.SGuestDisk, isEncrypt boo
 	if isEncrypt {
 		opt += ",encrypt.format=luks,encrypt.key-secret=sec0"
 	}
+	if disk.AutoReset {
+		opt += ",snapshot=on"
+	}
 	// #opt += ",media=disk"
 	return drvOpt.Drive(opt)
 }
