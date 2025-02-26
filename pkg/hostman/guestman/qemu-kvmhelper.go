@@ -254,12 +254,12 @@ func (s *SKVMGuestInstance) isQ35() bool {
 }
 
 func (s *SKVMGuestInstance) isVirt() bool {
-	return s.getMachine() == api.VM_MACHINE_TYPE_ARM_VIRT
+	return s.getMachine() == api.VM_MACHINE_TYPE_VIRT
 }
 
 func (s *SKVMGuestInstance) isPcie() bool {
 	return utils.IsInStringArray(s.getMachine(),
-		[]string{api.VM_MACHINE_TYPE_Q35, api.VM_MACHINE_TYPE_ARM_VIRT})
+		[]string{api.VM_MACHINE_TYPE_Q35, api.VM_MACHINE_TYPE_VIRT})
 }
 
 func (s *SKVMGuestInstance) GetVdiProtocol() string {
@@ -378,6 +378,8 @@ func (s *SKVMGuestInstance) generateStartScript(data *jsonutils.JSONDict) (strin
 	// inject qemu arch
 	if s.manager.host.IsAarch64() {
 		input.QemuArch = qemu.Arch_aarch64
+	} else if s.manager.host.IsLoongarch64() {
+		input.QemuArch = qemu.Arch_loongarch64
 	} else {
 		input.QemuArch = qemu.Arch_x86_64
 	}
@@ -445,7 +447,7 @@ func (s *SKVMGuestInstance) generateStartScript(data *jsonutils.JSONDict) (strin
 	 * cmd += "fi\n"
 	 */
 	cmd += "QEMU_CMD=$DEFAULT_QEMU_CMD\n"
-	if s.IsKvmSupport() && !options.HostOptions.DisableKVM {
+	if s.IsKvmSupport() && !options.HostOptions.DisableKVM && !s.manager.host.IsLoongarch64() {
 		cmd += "QEMU_CMD_KVM_ARG=-enable-kvm\n"
 	} else if utils.IsInStringArray(s.manager.host.GetCpuArchitecture(), apis.ARCH_X86) {
 		// -no-kvm仅x86适用，且将在qemu 5.2之后移除
@@ -503,7 +505,7 @@ function nic_mtu() {
 	}
 
 	// inject usb devices
-	if input.QemuArch == qemu.Arch_aarch64 {
+	if input.QemuArch == qemu.Arch_aarch64 || input.QemuArch == qemu.Arch_loongarch64 {
 		input.Devices = append(input.Devices,
 			fmt.Sprintf("usb-tablet,id=input0,bus=%s.0,port=1", s.Desc.Usb.Id),
 			fmt.Sprintf("usb-kbd,id=input1,bus=%s.0,port=2", s.Desc.Usb.Id),
@@ -1047,8 +1049,11 @@ func (s *SKVMGuestInstance) fixGuestMachineType() {
 		if utils.IsInStringArray(s.Desc.Machine, []string{
 			"", api.VM_MACHINE_TYPE_PC, api.VM_MACHINE_TYPE_Q35,
 		}) {
-			s.Desc.Machine = api.VM_MACHINE_TYPE_ARM_VIRT
+			s.Desc.Machine = api.VM_MACHINE_TYPE_VIRT
 		}
+		s.Desc.Bios = qemu.BIOS_UEFI
+	} else if s.manager.host.IsLoongarch64() {
+		s.Desc.Machine = api.VM_MACHINE_TYPE_VIRT
 		s.Desc.Bios = qemu.BIOS_UEFI
 	}
 }
@@ -1082,7 +1087,7 @@ func (s *SKVMGuestInstance) initIsaSerialDesc() {
 }
 
 func (s *SKVMGuestInstance) getVfioDeviceHotPlugPciControllerType() *desc.PCI_CONTROLLER_TYPE {
-	if s.Desc.Machine == api.VM_MACHINE_TYPE_Q35 || s.Desc.Machine == api.VM_MACHINE_TYPE_ARM_VIRT {
+	if s.Desc.Machine == api.VM_MACHINE_TYPE_Q35 || s.Desc.Machine == api.VM_MACHINE_TYPE_VIRT {
 		_, _, found := s.findUnusedSlotForController(desc.CONTROLLER_TYPE_PCIE_ROOT_PORT, 0)
 		if found {
 			var contType desc.PCI_CONTROLLER_TYPE = desc.CONTROLLER_TYPE_PCIE_ROOT_PORT
