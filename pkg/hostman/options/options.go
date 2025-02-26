@@ -216,9 +216,10 @@ type SHostOptions struct {
 
 	BinaryMemcleanPath string `help:"execute binary memclean path" default:"/opt/yunion/bin/memclean"`
 
-	MaxHotplugVCpuCount int  `help:"maximal possible vCPU count that the platform kvm supports"`
-	PcieRootPortCount   int  `help:"pcie root port count" default:"2"`
-	EnableQemuDebugLog  bool `help:"enable qemu debug logs" default:"false"`
+	MaxHotplugVCpuCount int    `help:"maximal possible vCPU count that the platform kvm supports"`
+	PcieRootPortCount   int    `help:"pcie root port count" default:"2"`
+	EnableQemuDebugLog  bool   `help:"enable qemu debug logs" default:"false"`
+	ResetDiskTmpDir     string `help:"auto reset disk after guest shutdown will write disk to tmpdir"`
 }
 
 var (
