@@ -105,6 +105,10 @@ func (c *Command) Start() error {
 	return c.cmd.Start()
 }
 
+func (c *Command) SetEnv(envs []string) {
+	c.cmd.SetEnv(envs)
+}
+
 func (c *Command) Wait() error {
 	return c.cmd.Wait()
 }
