@@ -174,6 +174,7 @@ func init() {
 		AutoSnapshot string `help:"enable/disable auto snapshot of disk" choices:"enable|disable"`
 		DiskType     string `help:"Disk type" choices:"data|volume"`
 		IsSsd        *bool  `help:"mark disk as ssd" negative:"no-is-ssd"`
+		AutoReset    *bool  `help:"Enable auto reset disk after geust shutdown"`
 	}
 	R(&DiskUpdateOptions{}, "disk-update", "Update property of a virtual disk", func(s *mcclient.ClientSession, args *DiskUpdateOptions) error {
 		params := jsonutils.NewDict()
@@ -207,6 +208,10 @@ func init() {
 				params.Add(jsonutils.JSONFalse, "is_ssd")
 			}
 		}
+		if args.AutoReset != nil {
+			params.Add(jsonutils.NewBool(*args.AutoReset), "auto_reset")
+		}
+
 		if params.Size() == 0 {
 			return InvalidUpdateError()
 		}
