@@ -289,14 +289,14 @@ func (svm *SVirtualMachine) RebuildRoot(ctx context.Context, desc *cloudprovider
 	return "", cloudprovider.ErrNotImplemented
 }
 
-func (svm *SVirtualMachine) DoRebuildRoot(ctx context.Context, imagePath string, uuid string) error {
+func (svm *SVirtualMachine) DoRebuildRoot(ctx context.Context, imagePath string, uuid string, uefi bool) error {
 	if len(svm.vdisks) == 0 {
 		return errors.Wrapf(errors.ErrNotFound, "empty vdisks")
 	}
-	return svm.rebuildDisk(ctx, &svm.vdisks[0], imagePath)
+	return svm.rebuildDisk(ctx, &svm.vdisks[0], imagePath, uefi)
 }
 
-func (svm *SVirtualMachine) rebuildDisk(ctx context.Context, disk *SVirtualDisk, imagePath string) error {
+func (svm *SVirtualMachine) rebuildDisk(ctx context.Context, disk *SVirtualDisk, imagePath string, uefi bool) error {
 	uuid := disk.GetId()
 	sizeMb := disk.GetDiskSizeMB()
 	diskKey := disk.getKey()
@@ -308,6 +308,7 @@ func (svm *SVirtualMachine) rebuildDisk(ctx context.Context, disk *SVirtualDisk,
 		return err
 	}
 	return svm.createDiskInternal(ctx, SDiskConfig{
+		Uefi:          uefi,
 		SizeMb:        int64(sizeMb),
 		Uuid:          uuid,
 		ControllerKey: ctlKey,
@@ -1240,6 +1241,12 @@ func (svm *SVirtualMachine) createDiskWithDeviceChange(ctx context.Context, devi
 	}
 	configSpec := types.VirtualMachineConfigSpec{}
 	configSpec.DeviceChange = append(deviceChange, spec)
+	if config.IsRoot {
+		configSpec.Firmware = "bios"
+		if config.Uefi {
+			configSpec.Firmware = "efi"
+		}
+	}
 
 	vmObj := svm.getVmObj()
 
