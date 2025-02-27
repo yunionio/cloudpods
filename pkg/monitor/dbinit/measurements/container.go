@@ -41,6 +41,12 @@ var containerMem = SMeasurement{
 			"usage_rate", "Container memory usage rate", monitor.METRIC_UNIT_PERCENT,
 		},
 		{
+			"working_set_rate", "Container memory working set usage rate", monitor.METRIC_UNIT_PERCENT,
+		},
+		{
+			"usage_bytes", "Container memory usage bytes", monitor.METRIC_UNIT_BYTE,
+		},
+		{
 			"working_set_bytes", "Container memory working set bytes", monitor.METRIC_UNIT_BYTE,
 		},
 	},

@@ -36,8 +36,10 @@ const (
 	CPU_USAGE_RATE = "usage_rate"
 	// current working set of memory size in bytes
 	MEMORY_WORKING_SET_BYTES = "working_set_bytes"
+	MEMORY_USAGE_BYTES       = "usage_bytes"
 	// memory usage rate
-	MEMORY_USAGE_RATE = "usage_rate"
+	MEMORY_USAGE_RATE       = "usage_rate"
+	MEMORY_WORKING_SET_RATE = "working_set_rate"
 
 	VOLUME_TOTAL               = "total"
 	VOLUME_FREE                = "free"
@@ -276,6 +278,8 @@ func (m PodCpuMetric) ToMap() map[string]interface{} {
 type PodMemoryMetric struct {
 	PodMetricMeta
 	MemoryWorkingSetBytes float64 `json:"memory_working_set_bytes"`
+	MemoryWorkingSetRate  float64 `json:"memory_working_set_rate"`
+	MemoryUsageBytes      float64 `json:"memory_usage_bytes"`
 	MemoryUsageRate       float64 `json:"memory_usage_rate"`
 }
 
@@ -286,7 +290,9 @@ func (m PodMemoryMetric) GetName() string {
 func (m PodMemoryMetric) ToMap() map[string]interface{} {
 	return map[string]interface{}{
 		MEMORY_WORKING_SET_BYTES: m.MemoryWorkingSetBytes,
+		MEMORY_USAGE_BYTES:       m.MemoryUsageBytes,
 		MEMORY_USAGE_RATE:        m.MemoryUsageRate,
+		MEMORY_WORKING_SET_RATE:  m.MemoryWorkingSetRate,
 	}
 }
 
@@ -480,6 +486,8 @@ func (m ContainerMetricMeta) GetTag() map[string]string {
 type ContainerMemoryMetric struct {
 	ContainerMetricMeta
 	MemoryWorkingSetBytes float64 `json:"memory_working_set_bytes"`
+	MemoryWorkingSetRate  float64 `json:"memory_working_set_rate"`
+	MemoryUsageBytes      float64 `json:"memory_usage_bytes"`
 	MemoryUsageRate       float64 `json:"memory_usage_rate"`
 }
 
@@ -490,7 +498,9 @@ func (m ContainerMemoryMetric) GetName() string {
 func (m *ContainerMemoryMetric) ToMap() map[string]interface{} {
 	return map[string]interface{}{
 		MEMORY_WORKING_SET_BYTES: m.MemoryWorkingSetBytes,
+		MEMORY_USAGE_BYTES:       m.MemoryUsageBytes,
 		MEMORY_USAGE_RATE:        m.MemoryUsageRate,
+		MEMORY_WORKING_SET_RATE:  m.MemoryWorkingSetRate,
 	}
 }
 
@@ -587,7 +597,6 @@ func GetPodCphAmdGpuMetrics(metrics []CphAmdGpuProcessMetrics, podProcs map[stri
 
 func (s *SGuestMonitorCollector) collectPodMetrics(gm *SGuestMonitor, prevUsage *GuestMetrics) *GuestMetrics {
 	gmData := new(GuestMetrics)
-	s.hostInfo.GetContainerStatsProvider()
 	gmData.PodMetrics = gm.PodMetrics(prevUsage)
 
 	// netio
@@ -703,7 +712,9 @@ func (m *SGuestMonitor) PodMetrics(prevUsage *GuestMetrics) *PodMetrics {
 	}
 	podMemory := &PodMemoryMetric{
 		MemoryWorkingSetBytes: float64(*stat.Memory.WorkingSetBytes),
-		MemoryUsageRate:       (float64(*stat.Memory.WorkingSetBytes) / float64(m.MemMB*1024*1024)) * 100,
+		MemoryWorkingSetRate:  (float64(*stat.Memory.WorkingSetBytes) / float64(m.MemMB*1024*1024)) * 100,
+		MemoryUsageBytes:      float64(*stat.Memory.UsageBytes),
+		MemoryUsageRate:       (float64(*stat.Memory.UsageBytes) / float64(m.MemMB*1024*1024)) * 100,
 	}
 
 	containers := make([]*ContainerMetrics, 0)
@@ -717,7 +728,9 @@ func (m *SGuestMonitor) PodMetrics(prevUsage *GuestMetrics) *PodMetrics {
 			ContainerMemory: &ContainerMemoryMetric{
 				ContainerMetricMeta:   ctrMeta,
 				MemoryWorkingSetBytes: float64(*ctr.Memory.WorkingSetBytes),
-				MemoryUsageRate:       (float64(*ctr.Memory.WorkingSetBytes) / float64(m.MemMB*1024*1024)) * 100,
+				MemoryWorkingSetRate:  (float64(*ctr.Memory.WorkingSetBytes) / float64(m.MemMB*1024*1024)) * 100,
+				MemoryUsageBytes:      float64(*ctr.Memory.UsageBytes),
+				MemoryUsageRate:       (float64(*ctr.Memory.UsageBytes) / float64(m.MemMB*1024*1024)) * 100,
 			},
 		}
 		var prevCtrM *ContainerMetrics

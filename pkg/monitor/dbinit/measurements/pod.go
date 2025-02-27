@@ -78,6 +78,16 @@ var podMem = SMeasurement{
 			Unit:        monitor.METRIC_UNIT_PERCENT,
 		},
 		{
+			"working_set_rate",
+			"Container memory working set usage rate",
+			monitor.METRIC_UNIT_PERCENT,
+		},
+		{
+			"usage_bytes",
+			"Container memory usage bytes",
+			monitor.METRIC_UNIT_BYTE,
+		},
+		{
 			Name:        "working_set_bytes",
 			DisplayName: "Pod memory working set bytes",
 			Unit:        monitor.METRIC_UNIT_BYTE,

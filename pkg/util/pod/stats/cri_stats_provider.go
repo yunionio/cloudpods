@@ -510,6 +510,10 @@ func (p *criStatsProvider) makeContainerStats(stats *runtimeapi.ContainerStats, 
 		if stats.Memory.WorkingSetBytes != nil {
 			result.Memory.WorkingSetBytes = &stats.Memory.WorkingSetBytes.Value
 		}
+		if cStats != nil && cStats.Memory != nil {
+			result.Memory.UsageBytes = &cStats.Memory.Usage
+			result.Memory.RSSBytes = &cStats.Memory.RSS
+		}
 	} else {
 		result.Memory.Time = metav1.NewTime(time.Unix(0, time.Now().UnixNano()))
 		result.Memory.WorkingSetBytes = uint64Ptr(0)
@@ -608,6 +612,10 @@ func (p *criStatsProvider) makeContainerCPUAndMemoryStats(
 		result.Memory.Time = metav1.NewTime(time.Unix(0, stats.Memory.Timestamp))
 		if stats.Memory.WorkingSetBytes != nil {
 			result.Memory.WorkingSetBytes = &stats.Memory.WorkingSetBytes.Value
+		}
+		if cStats != nil && cStats.Memory != nil {
+			result.Memory.UsageBytes = &cStats.Memory.Usage
+			result.Memory.RSSBytes = &cStats.Memory.RSS
 		}
 	} else {
 		result.Memory.Time = metav1.NewTime(time.Unix(0, time.Now().UnixNano()))
