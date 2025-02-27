@@ -1422,8 +1422,34 @@ func (s *SKVMGuestInstance) Stop() bool {
 	}
 }
 
+func (s *SKVMGuestInstance) getTmpDirPath() string {
+	hasResetDisk := false
+	disks, _ := s.Desc.GetArray("disks")
+	for _, disk := range disks {
+		autoReset := jsonutils.QueryBoolean(disk, "auto_reset", false)
+		if autoReset {
+			hasResetDisk = true
+		}
+		storageType, _ := disk.GetString("storage_type")
+		diskpath, _ := disk.GetString("path")
+		if autoReset && utils.IsInStringArray(storageType, api.FIEL_STORAGE) {
+			return filepath.Dir(diskpath)
+		}
+	}
+	if hasResetDisk {
+		return options.HostOptions.ResetDiskTmpDir
+	}
+	return ""
+}
+
 func (s *SKVMGuestInstance) scriptStart() error {
-	output, err := procutils.NewRemoteCommandAsFarAsPossible("bash", s.GetStartScriptPath()).Output()
+	tmpDir := s.getTmpDirPath()
+	cmd := procutils.NewRemoteCommandAsFarAsPossible("bash", s.GetStartScriptPath())
+	if tmpDir != "" {
+		envs := []string{fmt.Sprintf("TMPDIR=%s", tmpDir)}
+		cmd.SetEnv(envs)
+	}
+	output, err := cmd.Output()
 	if err != nil {
 		s.scriptStop()
 		return fmt.Errorf("Start VM Failed %s %s", output, err)

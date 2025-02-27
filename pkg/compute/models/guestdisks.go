@@ -209,6 +209,7 @@ func (self *SGuestdisk) GetDiskJsonDescAtHost(ctx context.Context, host *SHost, 
 	}
 	desc.Format = disk.DiskFormat
 	desc.Index = self.Index
+	desc.AutoReset = disk.AutoReset
 
 	if len(disk.SnapshotId) > 0 {
 		needMerge := disk.GetMetadata(ctx, "merge_snapshot", nil)
