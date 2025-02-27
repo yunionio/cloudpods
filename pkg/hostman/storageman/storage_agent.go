@@ -125,12 +125,14 @@ func (as *SAgentStorage) agentRebuildRoot(ctx context.Context, data jsonutils.JS
 		return errors.Wrap(hostutils.ParamsError, "agentRebuildRoot data.desc.disks is empty")
 	}
 	imagePath := rp.Desc.Disks[0].ImagePath
+	uefi := false
 	var newPath string
 	if len(imagePath) == 0 {
 		vm, err := host.SearchTemplateVM(rp.Desc.Disks[0].ImageInfo.ImageExternalId)
 		if err != nil {
 			return errors.Wrapf(err, "SearchTemplateVM(%s)", rp.Desc.Disks[0].ImageInfo.ImageExternalId)
 		}
+		uefi = vm.GetBios() == cloudprovider.UEFI
 		newPath, err = vm.GetRootImagePath()
 		if err != nil {
 			return errors.Wrapf(err, "GetRootImagePath")
@@ -143,7 +145,7 @@ func (as *SAgentStorage) agentRebuildRoot(ctx context.Context, data jsonutils.JS
 	}
 	diskId := rp.Desc.Disks[0].DiskId
 	vm := ivm.(*esxi.SVirtualMachine)
-	return vm.DoRebuildRoot(ctx, newPath, diskId)
+	return vm.DoRebuildRoot(ctx, newPath, diskId, uefi)
 }
 
 func (as *SAgentStorage) agentCreateGuest(ctx context.Context, data *jsonutils.JSONDict) (bool, error) {
