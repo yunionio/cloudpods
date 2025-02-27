@@ -280,10 +280,13 @@ func VgDisplay(vgName string) error {
 	return nil
 }
 
-func VgActive(vgName string, active bool) error {
+func VgActive(vgName string, active, autoActivation bool) error {
 	opts := "-ay"
 	if !active {
 		opts = "-an"
+	}
+	if active && autoActivation {
+		opts = "-aay"
 	}
 	out, err := procutils.NewRemoteCommandAsFarAsPossible("lvm", "vgchange", opts, vgName).Output()
 	if err != nil {

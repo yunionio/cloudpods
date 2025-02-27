@@ -152,7 +152,7 @@ func (s *SSLVMStorage) DeleteSnapshot(ctx context.Context, params interface{}) (
 }
 
 func (s *SSLVMStorage) Accessible() error {
-	if err := lvmutils.VgActive(s.Path, true); err != nil {
+	if err := lvmutils.VgActive(s.Path, true, true); err != nil {
 		log.Warningf("vgactive got %s", err)
 	}
 
