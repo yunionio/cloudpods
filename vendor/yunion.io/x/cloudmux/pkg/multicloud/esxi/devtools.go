@@ -26,6 +26,7 @@ import (
 )
 
 type SDiskConfig struct {
+	Uefi          bool
 	SizeMb        int64
 	Uuid          string
 	ControllerKey int32
