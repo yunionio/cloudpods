@@ -178,6 +178,10 @@ type DiskConfig struct {
 	// 文件系统特性
 	FsFeatures *DiskFsFeatures `json:"fs_features"`
 
+	// 关机后自动重置磁盘
+	// required: false
+	AutoReset bool `json:"auto_reset"`
+
 	// 磁盘存储格式
 	// enum: ["qcow2", "raw", "docker", "iso", "vmdk", "vmdkflatver1", "vmdkflatver2", "vmdkflat", "vmdksparse", "vmdksparsever1", "vmdksparsever2", "vmdksepsparse", "vhd"]
 	// requried: false

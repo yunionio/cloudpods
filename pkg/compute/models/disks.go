@@ -133,6 +133,8 @@ type SDisk struct {
 	Preallocation string `width:"12" default:"off" charset:"ascii" nullable:"true" list:"user" update:"admin" json:"preallocation"`
 	// # is persistent
 	Nonpersistent bool `default:"false" list:"user" json:"nonpersistent"`
+	// auto reset disk after guest shutdown
+	AutoReset bool `default:"false" list:"user" update:"user" json:"auto_reset"`
 
 	// 是否标记为SSD磁盘
 	IsSsd bool `nullable:"false" default:"false" list:"user" update:"user" create:"optional"`
