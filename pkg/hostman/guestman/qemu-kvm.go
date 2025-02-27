@@ -2354,8 +2354,30 @@ func (s *SKVMGuestInstance) pyLauncherPath() string {
 	return path.Join(s.HomeDir(), "startvm.py")
 }
 
+func (s *SKVMGuestInstance) getTmpDirPath() string {
+	hasResetDisk := false
+	for i := range s.Desc.Disks {
+		if s.Desc.Disks[i].AutoReset {
+			hasResetDisk = true
+		}
+		if s.Desc.Disks[i].AutoReset && utils.IsInStringArray(s.Desc.Disks[i].StorageType, api.FIEL_STORAGE) {
+			return filepath.Dir(s.Desc.Disks[i].Path)
+		}
+	}
+	if hasResetDisk {
+		return options.HostOptions.ResetDiskTmpDir
+	}
+	return ""
+}
+
 func (s *SKVMGuestInstance) scriptStart(ctx context.Context) error {
-	output, err := procutils.NewRemoteCommandAsFarAsPossible(s.manager.getPythonPath(), s.pyLauncherPath()).Output()
+	tmpDir := s.getTmpDirPath()
+	cmd := procutils.NewRemoteCommandAsFarAsPossible(s.manager.getPythonPath(), s.pyLauncherPath())
+	if tmpDir != "" {
+		envs := []string{fmt.Sprintf("TMPDIR=%s", tmpDir)}
+		cmd.SetEnv(envs)
+	}
+	output, err := cmd.Output()
 	if err != nil {
 		return fmt.Errorf("Start VM Failed %s %s", output, err)
 	}
