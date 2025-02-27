@@ -25,6 +25,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/apis"
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
@@ -328,13 +329,15 @@ type ContainerExecOptions struct {
 	Args    []string
 }
 
-func (o *ContainerExecOptions) ToAPIInput() *computeapi.ContainerExecInput {
+func (o *ContainerExecOptions) ToAPIInput() *compute.ContainerExecInput {
 	cmd := []string{o.COMMAND}
 	cmd = append(cmd, o.Args...)
-	return &computeapi.ContainerExecInput{
+	return &compute.ContainerExecInput{
 		Command: cmd,
-		//Tty:     o.Tty,
-		Tty: true,
+		Tty:     true,
+		Stdin:   os.Stdin,
+		Stdout:  os.Stdout,
+		Stderr:  os.Stderr,
 	}
 }
 
