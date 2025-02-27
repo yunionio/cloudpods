@@ -1332,6 +1332,11 @@ func (host *SHost) CloneVM(ctx context.Context, from *SVirtualMachine, snapshot 
 		MemoryHotAddEnabled: &True,
 
 		ExtraConfig: []types.BaseOptionValue{},
+
+		Firmware: "bios",
+	}
+	if from.GetBios() == cloudprovider.UEFI {
+		spec.Firmware = "efi"
 	}
 	if !params.EnableEsxiSwap {
 		spec.ExtraConfig = append(spec.ExtraConfig, &types.OptionValue{

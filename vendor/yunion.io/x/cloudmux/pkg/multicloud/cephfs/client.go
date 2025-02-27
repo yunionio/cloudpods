@@ -141,6 +141,9 @@ func (cli *SCephFSClient) auth() error {
 	if err != nil {
 		return errors.Wrapf(err, "auth")
 	}
+	if gotypes.IsNil(resp) {
+		return fmt.Errorf("empty response")
+	}
 	cli.token, err = resp.GetString("token")
 	return err
 }
