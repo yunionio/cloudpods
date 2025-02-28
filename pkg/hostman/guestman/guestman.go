@@ -911,7 +911,7 @@ func (m *SGuestManager) startDeploy(
 	password, _ := deployParams.Body.GetString("password")
 	resetPassword := jsonutils.QueryBoolean(deployParams.Body, "reset_password", false)
 	if resetPassword && len(password) == 0 {
-		password = seclib.RandomPassword(12)
+		password = seclib.RandomPassword2(14)
 	}
 	enableCloudInit := jsonutils.QueryBoolean(deployParams.Body, "enable_cloud_init", false)
 	loginAccount, _ := deployParams.Body.GetString("login_account")
