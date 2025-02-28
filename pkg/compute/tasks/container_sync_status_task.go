@@ -53,15 +53,8 @@ func (t *ContainerSyncStatusTask) OnInit(ctx context.Context, obj db.IStandalone
 func (t *ContainerSyncStatusTask) OnSyncStatus(ctx context.Context, container *models.SContainer, data jsonutils.JSONObject) {
 	resp := new(api.ContainerSyncStatusResponse)
 	data.Unmarshal(resp)
-	container.SetStatus(ctx, t.GetUserCred(), resp.Status, "")
-	if _, err := db.Update(container, func() error {
-		if resp.RestartCount > 0 {
-			container.RestartCount = resp.RestartCount
-		}
-		container.StartedAt = resp.StartedAt
-		return nil
-	}); err != nil {
-		log.Errorf("Update container started_at: %s", err)
+	if err := container.SetStatusFromHost(ctx, t.GetUserCred(), *resp, "Called by ContainerSyncStatusTask"); err != nil {
+		log.Errorf("SetStatusFromHost for container %s: %v", container.GetId(), err)
 	}
 	t.SetStageComplete(ctx, nil)
 }

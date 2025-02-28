@@ -143,6 +143,7 @@ type ContainerUpdateInput struct {
 type ContainerListInput struct {
 	apis.VirtualResourceListInput
 	GuestId string `json:"guest_id"`
+	HostId  string `json:"host_id"`
 }
 
 type ContainerStopInput struct {

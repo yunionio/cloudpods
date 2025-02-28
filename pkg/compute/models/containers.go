@@ -127,6 +127,15 @@ func (m *SContainerManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQue
 		}
 		q = q.Equals("guest_id", gst.GetId())
 	}
+	if query.HostId != "" {
+		host, _ := HostManager.FetchByIdOrName(ctx, nil, query.HostId)
+		if host == nil {
+			return nil, httperrors.NewResourceNotFoundError("host %s not found", query.HostId)
+		}
+		gst := GuestManager.Query().SubQuery()
+		q = q.Join(gst, sqlchemy.Equals(q.Field("guest_id"), gst.Field("id")))
+		q = q.Filter(sqlchemy.Equals(gst.Field("host_id"), host.GetId()))
+	}
 	return q, nil
 }
 
@@ -1187,4 +1196,21 @@ func (c *SContainer) removePostOverlay(vmd *apis.ContainerVolumeMountDisk, ov *a
 	}
 	vmd.PostOverlay = resultOvs
 	return vmd
+}
+
+func (c *SContainer) SetStatusFromHost(ctx context.Context, userCred mcclient.TokenCredential, resp api.ContainerSyncStatusResponse, reason string) error {
+	errs := []error{}
+	if err := c.SetStatus(ctx, userCred, resp.Status, reason); err != nil {
+		errs = append(errs, errors.Wrap(err, "SetStatus"))
+	}
+	if _, err := db.Update(c, func() error {
+		if resp.RestartCount > 0 {
+			c.RestartCount = resp.RestartCount
+		}
+		c.StartedAt = resp.StartedAt
+		return nil
+	}); err != nil {
+		errs = append(errs, errors.Wrap(err, "Update container started_at: %s"))
+	}
+	return errors.NewAggregate(errs)
 }

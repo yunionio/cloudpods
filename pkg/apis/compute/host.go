@@ -670,3 +670,31 @@ type HostSetCommitBoundInput struct {
 	CpuCmtbound *float32
 	MemCmtbound *float32
 }
+
+type HostUploadGuestsStatusRequest struct {
+	GuestIds []string `json:"guest_ids"`
+}
+
+type HostUploadGuestStatusResponse struct {
+	apis.PerformStatusInput
+	Containers map[string]*ContainerPerformStatusInput `json:"containers"`
+}
+
+type HostUploadGuestsStatusResponse struct {
+	Guests map[string]*HostUploadGuestStatusResponse `json:"guests"`
+}
+
+type GuestUploadContainerStatusResponse struct {
+	Error string `json:"error"`
+	OK    bool   `json:"ok"`
+}
+
+type GuestUploadStatusResponse struct {
+	Error      string                                         `json:"error"`
+	OK         bool                                           `json:"ok"`
+	Containers map[string]*GuestUploadContainerStatusResponse `json:"containers"`
+}
+
+type GuestUploadStatusesResponse struct {
+	Guests map[string]*GuestUploadStatusResponse `json:"guests"`
+}

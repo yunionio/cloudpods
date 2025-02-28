@@ -4812,7 +4812,7 @@ func (hh *SHost) PerformOnline(ctx context.Context, userCred mcclient.TokenCrede
 		db.OpsLog.LogEvent(hh, db.ACT_ONLINE, "", userCred)
 		logclient.AddActionLogWithContext(ctx, hh, logclient.ACT_ONLINE, data, userCred, true)
 		hh.SyncAttachedStorageStatus(ctx)
-		hh.StartSyncAllGuestsStatusTask(ctx, userCred)
+		hh.StartUploadAllGuestsStatusTask(ctx, userCred)
 	}
 	return nil, nil
 }
@@ -4861,8 +4861,8 @@ func (hh *SHost) PerformAutoMigrateOnHostDown(
 	return nil, hh.SetAllMetadata(ctx, meta, userCred)
 }
 
-func (hh *SHost) StartSyncAllGuestsStatusTask(ctx context.Context, userCred mcclient.TokenCredential) error {
-	if task, err := taskman.TaskManager.NewTask(ctx, "BaremetalSyncAllGuestsStatusTask", hh, userCred, nil, "", "", nil); err != nil {
+func (hh *SHost) StartUploadAllGuestsStatusTask(ctx context.Context, userCred mcclient.TokenCredential) error {
+	if task, err := taskman.TaskManager.NewTask(ctx, "BaremetalUploadAllGuestsStatusTask", hh, userCred, nil, "", "", nil); err != nil {
 		log.Errorln(err)
 		return err
 	} else {
@@ -4940,7 +4940,7 @@ func (hh *SHost) PerformPing(ctx context.Context, userCred mcclient.TokenCredent
 			return nil
 		})
 		if hh.hasUnknownGuests() {
-			hh.StartSyncAllGuestsStatusTask(ctx, userCred)
+			hh.StartUploadAllGuestsStatusTask(ctx, userCred)
 		}
 	}
 	result := jsonutils.NewDict()

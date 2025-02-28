@@ -18,11 +18,9 @@ import (
 	"context"
 	"fmt"
 
-	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
-	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
@@ -72,41 +70,11 @@ func (self *GuestSyncstatusTask) getOriginStatus() string {
 func (self *GuestSyncstatusTask) OnGetStatusComplete(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
 	log.Debugf("OnGetStatusSucc guest %s(%s) status %s", guest.Name, guest.Id, body)
-	statusStr, _ := body.GetString("status")
-	switch statusStr {
-	case cloudprovider.CloudVMStatusRunning:
-		statusStr = api.VM_RUNNING
-	case cloudprovider.CloudVMStatusSuspend:
-		statusStr = api.VM_SUSPEND
-	case cloudprovider.CloudVMStatusStopped:
-		statusStr = api.VM_READY
-	case api.VM_BLOCK_STREAM, api.VM_BLOCK_STREAM_FAIL:
-		break
-	default:
-		if guest.GetHypervisor() != api.HYPERVISOR_POD {
-			statusStr = api.VM_UNKNOWN
-		}
+	resp := new(api.HostUploadGuestStatusResponse)
+	body.Unmarshal(resp)
+	if err := guest.SetStatusFromHost(ctx, self.GetUserCred(), *resp, self.HasParentTask(), self.getOriginStatus()); err != nil {
+		log.Warningf("SetStatusFromHost for guest %s error: %v", guest.GetId(), err)
 	}
-	if !self.HasParentTask() {
-		// migrating status hack
-		// not change migrating when:
-		//   guest.Status is migrating and task not has parent task
-		os := self.getOriginStatus()
-		if os == api.VM_MIGRATING && statusStr == api.VM_RUNNING && len(guest.ExternalId) == 0 {
-			statusStr = os
-		}
-	}
-	blockJobsCount, err := body.Int("block_jobs_count")
-	if err != nil {
-		blockJobsCount = -1
-	}
-	powerStatus, _ := body.GetString("power_status")
-	input := apis.PerformStatusInput{
-		Status:         statusStr,
-		PowerStates:    powerStatus,
-		BlockJobsCount: int(blockJobsCount),
-	}
-	guest.PerformStatus(ctx, self.UserCred, nil, input)
 	logclient.AddSimpleActionLog(guest, logclient.ACT_VM_SYNC_STATUS, "", self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
 }

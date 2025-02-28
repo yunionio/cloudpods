@@ -202,6 +202,10 @@ func UpdateServerProgress(ctx context.Context, sid string, progress, progressMbp
 	return modules.Servers.Update(GetComputeSession(ctx), sid, jsonutils.Marshal(params))
 }
 
+func UploadGuestsStatus(ctx context.Context, resp *computeapi.HostUploadGuestsStatusResponse) (jsonutils.JSONObject, error) {
+	return modules.Servers.PerformClassAction(GetComputeSession(ctx), "upload-status", jsonutils.Marshal(resp))
+}
+
 func IsGuestDir(f os.FileInfo, serversPath string) bool {
 	if !regutils.MatchUUID(f.Name()) {
 		return false

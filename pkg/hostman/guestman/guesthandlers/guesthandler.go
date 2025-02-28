@@ -59,6 +59,10 @@ func AddGuestTaskHandler(prefix string, app *appsrv.Application) {
 			fmt.Sprintf("%s/%s/prepare-import-from-libvirt", prefix, keyWord),
 			auth.Authenticate(guestPrepareImportFormLibvirt))
 
+		app.AddHandler("POST",
+			fmt.Sprintf("%s/%s/upload-status", prefix, keyWord),
+			auth.Authenticate(uploadStatus))
+
 		app.AddHandler("DELETE",
 			fmt.Sprintf("%s/%s/<sid>", prefix, keyWord),
 			auth.Authenticate(deleteGuest))
@@ -1008,4 +1012,15 @@ func qgaGetOsInfo(ctx context.Context, userCred mcclient.TokenCredential, sid st
 // prepare rescue files
 func guestStartRescue(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (interface{}, error) {
 	return guestman.GetGuestManager().GuestStartRescue(ctx, userCred, sid, body)
+}
+
+func uploadStatus(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	_, _, body := appsrv.FetchEnv(ctx, w, r)
+	input := new(computeapi.HostUploadGuestsStatusRequest)
+	if err := body.Unmarshal(input); err != nil {
+		hostutils.Response(ctx, w, httperrors.NewInputParameterError("Unmarshal body to input: %v", err))
+		return
+	}
+	hostutils.DelayTask(ctx, guestman.GetGuestManager().UploadGuestsStatus, input)
+	hostutils.ResponseOk(ctx, w)
 }
