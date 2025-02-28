@@ -32,6 +32,7 @@ import (
 type ContainerListOptions struct {
 	options.BaseListOptions
 	GuestId string `json:"guest_id" help:"guest(pod) id or name"`
+	HostId  string `json:"host_id" help:"host id or name"`
 }
 
 func (o *ContainerListOptions) Params() (jsonutils.JSONObject, error) {

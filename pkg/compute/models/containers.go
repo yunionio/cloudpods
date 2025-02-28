@@ -127,6 +127,15 @@ func (m *SContainerManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQue
 		}
 		q = q.Equals("guest_id", gst.GetId())
 	}
+	if query.HostId != "" {
+		host, _ := HostManager.FetchByIdOrName(ctx, nil, query.HostId)
+		if host == nil {
+			return nil, httperrors.NewResourceNotFoundError("host %s not found", query.HostId)
+		}
+		gst := GuestManager.Query().SubQuery()
+		q = q.Join(gst, sqlchemy.Equals(q.Field("guest_id"), gst.Field("id")))
+		q = q.Filter(sqlchemy.Equals(gst.Field("host_id"), host.GetId()))
+	}
 	return q, nil
 }
 
