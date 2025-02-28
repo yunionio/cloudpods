@@ -58,6 +58,7 @@ type StorageUpdateOptions struct {
 	Reserved              string `help:"Reserved storage space"`
 	Capacity              int    `help:"Capacity for storage"`
 	MasterHost            string `help:"slvm storage master host"`
+	AutoCacheImages       *bool  `help:"ceph storage auto cache glance images"`
 }
 
 func (opts *StorageUpdateOptions) Params() (jsonutils.JSONObject, error) {
@@ -77,6 +78,7 @@ type StorageCreateOptions struct {
 	RbdClientMountTimeout int64  `help:"ceph client_mount_timeout"`
 	RbdKey                string `help:"Ceph key config"`
 	RbdPool               string `help:"Ceph Pool Name"`
+	AutoCacheImages       *bool  `help:"ceph storage auto cache glance images"`
 	NfsHost               string `help:"NFS host"`
 	NfsSharedDir          string `help:"NFS shared dir"`
 	ClvmVgName            string `help:"clvm vg name"`
