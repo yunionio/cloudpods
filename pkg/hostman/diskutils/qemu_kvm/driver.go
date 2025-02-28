@@ -620,7 +620,15 @@ func (d *QemuBaseDriver) startCmds(
 
 	if sysutils.IsKvmSupport() {
 		cmd += __("-enable-kvm")
-		cmd += __("-cpu host")
+		isCPUIntel := sysutils.IsProcessorIntel()
+		isCPUAMD := sysutils.IsProcessorAmd()
+		if isCPUIntel {
+			cmd += __("-cpu host,vendor=GenuineIntel")
+		} else if isCPUAMD {
+			cmd += __("-cpu host,vendor=AuthenticAMD")
+		} else {
+			cmd += __("-cpu host")
+		}
 	} else {
 		cmd += __("-cpu max")
 	}
