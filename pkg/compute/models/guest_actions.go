@@ -5740,7 +5740,7 @@ func (guest *SGuest) CopyDiskToStorage(ctx context.Context, userCred mcclient.To
 	}
 
 	{
-		err := db.InheritFromTo(ctx, userCred, srcDisk, targetDisk)
+		err := db.InheritFromTo(ctx, srcDisk, targetDisk)
 		if err != nil {
 			return errors.Wrapf(err, "Inherit class metadata from src %s to target %s", srcDisk.GetName(), targetDisk.GetName())
 		}
