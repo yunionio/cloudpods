@@ -3487,8 +3487,12 @@ func (g *SGuest) SetStatusFromHost(ctx context.Context, userCred mcclient.TokenC
 			statusStr = originStatus
 		}
 	}
-	_, err := g.PerformStatus(ctx, userCred, nil, resp.PerformStatusInput)
-	return errors.Wrapf(err, "perform status of %s", jsonutils.Marshal(resp))
+	input := resp.PerformStatusInput
+	input.Status = statusStr
+	if _, err := g.PerformStatus(ctx, userCred, nil, input); err != nil {
+		return errors.Wrapf(err, "perform status of %s", jsonutils.Marshal(resp))
+	}
+	return nil
 }
 
 func (m *SGuestManager) PerformUploadStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.HostUploadGuestsStatusResponse) (*api.GuestUploadStatusesResponse, error) {
@@ -3503,7 +3507,7 @@ func (m *SGuestManager) PerformUploadStatus(ctx context.Context, userCred mcclie
 			}
 			continue
 		}
-		if _, err := gst.PerformStatus(ctx, userCred, query, status.PerformStatusInput); err != nil {
+		if err := gst.SetStatusFromHost(ctx, userCred, *status, false, ""); err != nil {
 			out.Guests[id] = &api.GuestUploadStatusResponse{
 				Error: err.Error(),
 			}
