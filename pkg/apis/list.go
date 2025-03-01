@@ -168,6 +168,8 @@ type ModelBaseListInput struct {
 	ExportKeys string `json:"export_keys" help:"Export field keys"`
 	// 返回结果携带delete_fail_reason和update_fail_reason字段
 	ShowFailReason *bool `json:"show_fail_reason"`
+	// 是否返回状态统计信息，默认为False
+	SummaryStats *bool `json:"summary_stats"`
 }
 
 func (o ModelBaseListInput) GetExportKeys() string {
