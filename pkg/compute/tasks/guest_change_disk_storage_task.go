@@ -396,36 +396,17 @@ func (t *GuestChangeDisksStorageTask) CreateTargetDisk(ctx context.Context, gues
 		return
 	}
 
-	// create a disk on target storage from source disk
-	diskConf := &api.DiskConfig{
-		Index:    -1,
-		ImageId:  srcDisk.TemplateId,
-		SizeMb:   srcDisk.DiskSize,
-		Fs:       srcDisk.FsFormat,
-		DiskType: srcDisk.DiskType,
-	}
-
-	targetDisk, err := guest.CreateDiskOnStorage(ctx, t.UserCred, storage, diskConf, nil, true, true)
-	if err != nil {
-		t.TaskFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("Create target disk on storage %s: %s", storage.GetName(), err)))
-		return
-	}
-
-	internalInput := &api.ServerChangeDiskStorageInternalInput{
-		ServerChangeDiskStorageInput: api.ServerChangeDiskStorageInput{
-			DiskId:          srcDisk.Id,
-			TargetStorageId: storage.Id,
-			KeepOriginDisk:  input.KeepOriginDisk,
-		},
-		StorageId:          srcDisk.StorageId,
-		TargetDiskId:       targetDisk.GetId(),
-		GuestRunning:       input.GuestRunning,
-		CloneDiskCount:     input.DiskCount,
-		CompletedDiskCount: input.DiskCount - len(input.Disks) - 1,
-	}
-
-	if err := guest.StartChangeDiskStorageTask(ctx, t.UserCred, internalInput, t.Id); err != nil {
-		t.TaskFailed(ctx, guest, jsonutils.NewString(err.Error()))
-		return
+	{
+		copyInput := api.ServerCopyDiskToStorageInput{
+			KeepOriginDisk:     input.KeepOriginDisk,
+			GuestRunning:       input.GuestRunning,
+			CloneDiskCount:     input.DiskCount,
+			CompletedDiskCount: input.DiskCount - len(input.Disks) - 1,
+		}
+		err := guest.CopyDiskToStorage(ctx, t.UserCred, srcDisk, storage, copyInput, t.GetTaskId())
+		if err != nil {
+			t.TaskFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("CopyDiskToStorage fail: %s", err)))
+			return
+		}
 	}
 }
