@@ -852,6 +852,11 @@ type ServerChangeDiskStorageInternalInput struct {
 	TargetDiskDesc *GuestdiskJsonDesc `json:"target_disk_desc"`
 }
 
+type ServerCopyDiskToStorageInput struct {
+	KeepOriginDisk bool `json:"keep_origin_disk"`
+	GuestRunning   bool `json:"guest_running"`
+}
+
 type ServerSetExtraOptionInput struct {
 	Key   string `json:"key"`
 	Value string `json:"value"`
