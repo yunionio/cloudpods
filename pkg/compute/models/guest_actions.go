@@ -5711,7 +5711,21 @@ func (self *SGuest) PerformChangeDiskStorage(ctx context.Context, userCred mccli
 		return nil, err
 	}
 
-	// create a disk on target storage from source disk
+	{
+		copyInput := api.ServerCopyDiskToStorageInput{
+			KeepOriginDisk: input.KeepOriginDisk,
+			GuestRunning:   self.Status == api.VM_RUNNING,
+		}
+		err := self.CopyDiskToStorage(ctx, userCred, srcDisk, storage, copyInput, "")
+		if err != nil {
+			return nil, errors.Wrap(err, "CopyDiskToStorage")
+		}
+	}
+
+	return nil, nil
+}
+
+func (guest *SGuest) CopyDiskToStorage(ctx context.Context, userCred mcclient.TokenCredential, srcDisk *SDisk, storage *SStorage, input api.ServerCopyDiskToStorageInput, parentTaskId string) error {
 	diskConf := &api.DiskConfig{
 		Index:    -1,
 		ImageId:  srcDisk.TemplateId,
@@ -5720,19 +5734,39 @@ func (self *SGuest) PerformChangeDiskStorage(ctx context.Context, userCred mccli
 		DiskType: srcDisk.DiskType,
 	}
 
-	targetDisk, err := self.CreateDiskOnStorage(ctx, userCred, storage, diskConf, nil, true, true)
+	targetDisk, err := guest.CreateDiskOnStorage(ctx, userCred, storage, diskConf, nil, true, true)
 	if err != nil {
-		return nil, errors.Wrapf(err, "Create target disk on storage %s", storage.GetName())
+		return errors.Wrapf(err, "Create target disk on storage %s", storage.GetName())
+	}
+
+	{
+		err := db.InheritFromTo(ctx, srcDisk, targetDisk)
+		if err != nil {
+			return errors.Wrapf(err, "Inherit class metadata from src %s to target %s", srcDisk.GetName(), targetDisk.GetName())
+		}
 	}
 
 	internalInput := &api.ServerChangeDiskStorageInternalInput{
-		ServerChangeDiskStorageInput: *input,
-		StorageId:                    srcDisk.StorageId,
-		TargetDiskId:                 targetDisk.GetId(),
-		GuestRunning:                 self.Status == api.VM_RUNNING,
+		ServerChangeDiskStorageInput: api.ServerChangeDiskStorageInput{
+			DiskId:          srcDisk.Id,
+			TargetStorageId: storage.Id,
+			KeepOriginDisk:  input.KeepOriginDisk,
+		},
+		StorageId:          srcDisk.StorageId,
+		TargetDiskId:       targetDisk.GetId(),
+		GuestRunning:       input.GuestRunning,
+		CloneDiskCount:     input.CloneDiskCount,
+		CompletedDiskCount: input.CompletedDiskCount,
 	}
 
-	return nil, self.StartChangeDiskStorageTask(ctx, userCred, internalInput, "")
+	{
+		err := guest.StartChangeDiskStorageTask(ctx, userCred, internalInput, parentTaskId)
+		if err != nil {
+			return errors.Wrap(err, "StartChangeDiskStorageTask")
+		}
+	}
+
+	return nil
 }
 
 func (self *SGuest) StartChangeDiskStorageTask(ctx context.Context, userCred mcclient.TokenCredential, input *api.ServerChangeDiskStorageInternalInput, parentTaskId string) error {
