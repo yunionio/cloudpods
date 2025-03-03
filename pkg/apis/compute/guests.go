@@ -979,6 +979,13 @@ type ServerChangeDiskStorageInternalInput struct {
 	CloneDiskCount     int `json:"disk_count"`
 }
 
+type ServerCopyDiskToStorageInput struct {
+	KeepOriginDisk     bool `json:"keep_origin_disk"`
+	GuestRunning       bool `json:"guest_running"`
+	CompletedDiskCount int  `json:"completed_disk_count"`
+	CloneDiskCount     int  `json:"disk_count"`
+}
+
 type ServerSetExtraOptionInput struct {
 	Key   string `json:"key"`
 	Value string `json:"value"`
