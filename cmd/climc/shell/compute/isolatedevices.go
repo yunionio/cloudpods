@@ -26,4 +26,5 @@ func init() {
 	cmd.Update(&compute.DeviceUpdateOptions{})
 	cmd.Show(&compute.DeviceShowOptions{})
 	cmd.BatchDelete(&compute.DeviceDeleteOptions{})
+	cmd.BatchPerform("purge", &compute.DevicePurgeOptions{})
 }

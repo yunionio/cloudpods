@@ -23,6 +23,10 @@ import (
 	"yunion.io/x/onecloud/pkg/apis"
 )
 
+const (
+	ErrMsgIsolatedDeviceUsedByServer = "Isolated device used by server"
+)
+
 type IsolateDeviceDetails struct {
 	apis.StandaloneResourceDetails
 	HostResourceInfo
