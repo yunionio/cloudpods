@@ -26,14 +26,17 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/util/httputils"
+	"yunion.io/x/pkg/util/version"
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/apis"
+	compute_api "yunion.io/x/onecloud/pkg/apis/compute"
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/tsdb"
 	"yunion.io/x/onecloud/pkg/cloudmon/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/identity"
 	"yunion.io/x/onecloud/pkg/util/influxdb"
 )
@@ -67,7 +70,13 @@ func CollectServiceMetrics(ctx context.Context, userCred mcclient.TokenCredentia
 		return
 	}
 	s := auth.GetAdminSession(ctx, options.Options.CommonOptions.Region)
-	err := func() error {
+	urls, err := tsdb.GetDefaultServiceSourceURLs(s, options.Options.SessionEndpointType)
+	if err != nil {
+		return
+	}
+
+	tk := auth.AdminCredential().GetTokenString()
+	err = func() error {
 		endpoints, err := getEndpoints(ctx, s)
 		if err != nil {
 			return errors.Wrapf(err, "getEndpoints")
@@ -83,7 +92,6 @@ func CollectServiceMetrics(ctx context.Context, userCred mcclient.TokenCredentia
 				continue
 			}
 			url := httputils.JoinPath(ep.Url, "version")
-			tk := auth.AdminCredential().GetTokenString()
 			hdr := http.Header{}
 			hdr.Set("X-Auth-Token", tk)
 			resp, err := httputils.Request(
@@ -106,15 +114,48 @@ func CollectServiceMetrics(ctx context.Context, userCred mcclient.TokenCredentia
 			}
 			metrics = append(metrics, part...)
 		}
-		urls, err := tsdb.GetDefaultServiceSourceURLs(s, options.Options.SessionEndpointType)
-		if err != nil {
-			return errors.Wrap(err, "GetServiceURLs")
-		}
 		return influxdb.SendMetrics(urls, SYSTEM_METRIC_DATABASE, metrics, false)
 	}()
 	if err != nil {
 		log.Errorf("collect service metric error: %v", err)
 	}
+	params := compute_api.HostListInput{}
+	limit := 20
+	params.Limit = &limit
+	params.Brand = []string{compute_api.CLOUD_PROVIDER_ONECLOUD}
+	params.Scope = "system"
+	params.Status = []string{compute_api.HOST_STATUS_RUNNING}
+	details := false
+	params.Details = &details
+	hosts := []compute_api.HostDetails{}
+	for {
+		offset := len(hosts)
+		params.Offset = &offset
+		resp, err := compute.Hosts.List(s, jsonutils.Marshal(params))
+		if err != nil {
+			return
+		}
+		part := []compute_api.HostDetails{}
+		err = jsonutils.Update(&part, resp.Data)
+		if err != nil {
+			return
+		}
+		hosts = append(hosts, part...)
+		if len(hosts) >= resp.Total {
+			break
+		}
+	}
+	metrics := []influxdb.SMetricData{}
+	for _, host := range hosts {
+		service := fmt.Sprintf("host-%s", host.Name)
+		part, err := collectWorkerMetrics(ctx, host.ManagerUri, service, version.GetShortString(), tk)
+		if err != nil {
+			log.Errorf("collect host %s metric error: %v", service, err)
+			continue
+		}
+		metrics = append(metrics, part...)
+	}
+	influxdb.SendMetrics(urls, SYSTEM_METRIC_DATABASE, metrics, false)
 }
 
 func collectStatsMetrics(ctx context.Context, ep api.EndpointDetails, version, token string) ([]influxdb.SMetricData, error) {
@@ -257,8 +298,8 @@ func collectStatsMetrics(ctx context.Context, ep api.EndpointDetails, version, t
 	return result, nil
 }
 
-func collectWorkerMetrics(ctx context.Context, ep api.EndpointDetails, version, token string) ([]influxdb.SMetricData, error) {
-	statsUrl := httputils.JoinPath(ep.Url, "worker_stats")
+func collectWorkerMetrics(ctx context.Context, url, service, version, token string) ([]influxdb.SMetricData, error) {
+	statsUrl := httputils.JoinPath(url, "worker_stats")
 	hdr := http.Header{}
 	hdr.Set("X-Auth-Token", token)
 	_, ret, err := httputils.JSONRequest(
@@ -301,7 +342,7 @@ func collectWorkerMetrics(ctx context.Context, ep api.EndpointDetails, version, 
 				},
 				{
 					Key:   "service",
-					Value: ep.ServiceName,
+					Value: service,
 				},
 				{
 					Key:   "worker_name",
@@ -484,7 +525,7 @@ func collectServiceMetrics(ctx context.Context, ep api.EndpointDetails, version,
 		errs = append(errs, err)
 	}
 	ret = append(ret, stats...)
-	worker, err := collectWorkerMetrics(ctx, ep, version, token)
+	worker, err := collectWorkerMetrics(ctx, ep.Url, ep.ServiceName, version, token)
 	if err != nil {
 		errs = append(errs, err)
 	}
