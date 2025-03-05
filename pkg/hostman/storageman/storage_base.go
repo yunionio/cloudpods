@@ -134,7 +134,7 @@ type IStorage interface {
 	// GetCloneTargetDiskPath generate target disk path by target disk id
 	GetCloneTargetDiskPath(ctx context.Context, targetDiskId string) string
 	// CloneDiskFromStorage clone disk from other storage
-	CloneDiskFromStorage(ctx context.Context, srcStorage IStorage, srcDisk IDisk, targetDiskId string, fullCopy bool) (*hostapi.ServerCloneDiskFromStorageResponse, error)
+	CloneDiskFromStorage(ctx context.Context, srcStorage IStorage, srcDisk IDisk, targetDiskId string, fullCopy bool, encInfo apis.SEncryptInfo) (*hostapi.ServerCloneDiskFromStorageResponse, error)
 
 	CreateSnapshotFormUrl(ctx context.Context, snapshotUrl, diskId, snapshotPath string) error
 
@@ -486,7 +486,7 @@ func (s *SBaseStorage) GetCloneTargetDiskPath(ctx context.Context, targetDiskId 
 }
 
 func (s *SBaseStorage) CloneDiskFromStorage(
-	ctx context.Context, srcStorage IStorage, srcDisk IDisk, targetDiskId string, fullCopy bool,
+	ctx context.Context, srcStorage IStorage, srcDisk IDisk, targetDiskId string, fullCopy bool, encInfo apis.SEncryptInfo,
 ) (*hostapi.ServerCloneDiskFromStorageResponse, error) {
 	return nil, httperrors.ErrNotImplemented
 }
