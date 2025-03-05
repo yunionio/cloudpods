@@ -366,7 +366,7 @@ func (c crictl) stopContainerWithRetry(ctx context.Context, ctrId string, timeou
 	errs := []error{}
 	for tries := 0; tries < maxTries; tries++ {
 		err := func() error {
-			ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+			ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 			defer cancel()
 			return c.stopContainer(ctx, ctrId, timeout)
 		}()
@@ -397,7 +397,7 @@ func (c crictl) StopContainer(ctx context.Context, ctrId string, timeout int64, 
 			isStopped = true
 		}
 	} else {
-		maxTries := 5
+		maxTries := 10
 		if err := c.stopContainerWithRetry(ctx, ctrId, timeout, maxTries); err != nil {
 			errs = append(errs, errors.Wrap(err, "stopContainer"))
 		} else {
@@ -406,7 +406,7 @@ func (c crictl) StopContainer(ctx context.Context, ctrId string, timeout int64, 
 	}
 	if tryRemove {
 		// try force remove container
-		ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 		defer cancel()
 		if err := c.RemoveContainer(ctx, ctrId); err != nil {
 			errs = append(errs, errors.Wrapf(err, "try remove container %s", ctrId))
