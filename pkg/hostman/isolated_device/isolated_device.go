@@ -402,9 +402,13 @@ func (man *isolatedDeviceManager) StartDetachTask() {
 				log.Infof("Start delete cloud device %s", jsonutils.Marshal(dev))
 				if _, err := modules.IsolatedDevices.PerformAction(man.getSession(), dev.Id, "purge",
 					jsonutils.Marshal(map[string]interface{}{
-						"purge": true,
+						//"purge": true,
 					})); err != nil {
 					if errors.Cause(err) == httperrors.ErrResourceNotFound {
+						break
+					}
+					if strings.Contains(err.Error(), api.ErrMsgIsolatedDeviceUsedByServer) {
+						log.Warningf("Purge isolated device %s failed: %v", jsonutils.Marshal(dev), err)
 						break
 					}
 					log.Errorf("Detach device %s failed: %v, try again later", dev.Id, err)
