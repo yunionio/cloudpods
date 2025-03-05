@@ -61,3 +61,14 @@ type DeviceUpdateOptions struct {
 func (o *DeviceUpdateOptions) Params() (jsonutils.JSONObject, error) {
 	return jsonutils.Marshal(o), nil
 }
+
+type DevicePurgeOptions struct {
+	options.BaseIdsOptions
+	Purge bool `help:"purge devices when attached to guest"`
+}
+
+func (o *DevicePurgeOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(map[string]interface{}{
+		"purge": o.Purge,
+	}), nil
+}
