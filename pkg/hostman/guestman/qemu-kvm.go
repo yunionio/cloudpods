@@ -1887,10 +1887,16 @@ func (s *SKVMGuestInstance) setCgroupCpu() {
 func (s *SKVMGuestInstance) setCgroupCPUSet() {
 	var input *api.ServerCPUSetInput
 	if s.Desc.Contains("metadata", api.VM_METADATA_CGROUP_CPUSET) {
-		input = new(api.ServerCPUSetInput)
-		err := s.Desc.Unmarshal(input, "metadata", api.VM_METADATA_CGROUP_CPUSET)
+		cpusetStr, _ := s.Desc.GetString("metadata", api.VM_METADATA_CGROUP_CPUSET)
+		cpusetJson, err := jsonutils.ParseString(cpusetStr)
 		if err != nil {
-			log.Errorf("Unmarshal %s to ServerCPUSetInput failed: %s", api.VM_METADATA_CGROUP_CPUSET, err)
+			log.Errorf("failed parse cpusetstr %s", cpusetStr)
+			return
+		}
+		input = new(api.ServerCPUSetInput)
+		err = cpusetJson.Unmarshal(input)
+		if err != nil {
+			log.Errorf("Unmarshal %s to ServerCPUSetInput failed: %s  %s", api.VM_METADATA_CGROUP_CPUSET, cpusetStr, err)
 			return
 		}
 	}
