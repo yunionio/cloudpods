@@ -948,7 +948,7 @@ func (self *SIsolatedDevice) PerformPurge(ctx context.Context, userCred mcclient
 func (self *SIsolatedDevice) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
 	if len(self.GuestId) > 0 {
 		if !jsonutils.QueryBoolean(data, "purge", false) {
-			return httperrors.NewBadRequestError("Isolated device used by server: %s", self.GuestId)
+			return httperrors.NewBadRequestError("%s: %s", api.ErrMsgIsolatedDeviceUsedByServer, self.GuestId)
 		}
 		iGuest, err := GuestManager.FetchById(self.GuestId)
 		if err != nil {
