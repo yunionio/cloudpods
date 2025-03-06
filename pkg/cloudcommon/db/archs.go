@@ -62,6 +62,12 @@ func ListQueryByArchitecture(q *sqlchemy.SQuery, fieldKey string, archs []string
 				sqlchemy.Equals(q.Field(fieldKey), apis.OS_ARCH_AARCH32),
 				sqlchemy.Equals(q.Field(fieldKey), apis.OS_ARCH_AARCH64),
 			))
+
+		} else if arch == apis.OS_ARCH_LOONGARCH64 {
+			conditions = append(conditions, sqlchemy.OR(
+				sqlchemy.Startswith(q.Field(fieldKey), arch),
+				sqlchemy.Equals(q.Field(fieldKey), apis.OS_ARCH_LOONGARCH64),
+			))
 		} else {
 			conditions = append(conditions, sqlchemy.Startswith(q.Field(fieldKey), arch))
 		}
