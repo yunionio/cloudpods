@@ -32,6 +32,8 @@ var (
 
 	taskArchiveThresholdHours int
 
+	taskArchiveBatchLimit int
+
 	enableChangeOwnerAutoRename = false
 
 	enableDefaultPolicy = true
@@ -90,6 +92,10 @@ func SetTaskArchiveThresholdHours(hours int) {
 	taskArchiveThresholdHours = hours
 }
 
+func SetTaskArchiveBatchLimit(limit int) {
+	taskArchiveBatchLimit = limit
+}
+
 func TaskWorkerCount() int {
 	return taskWorkerCount
 }
@@ -100,4 +106,8 @@ func LocalTaskWorkerCount() int {
 
 func TaskArchiveThresholdHours() int {
 	return taskArchiveThresholdHours
+}
+
+func TaskArchiveBatchLimit() int {
+	return taskArchiveBatchLimit
 }

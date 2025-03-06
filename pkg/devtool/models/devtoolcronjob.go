@@ -120,7 +120,7 @@ func InitializeCronjobs(ctx context.Context) error {
 
 	DevToolCronManager = cronman.InitCronJobManager(true, 8, options.Options.TimeZone)
 
-	DevToolCronManager.AddJobAtIntervals("TaskCleanupJob", time.Duration(options.Options.TaskArchiveIntervalHours)*time.Hour, taskman.TaskManager.TaskCleanupJob)
+	DevToolCronManager.AddJobAtIntervalsWithStartRun("TaskCleanupJob", time.Duration(options.Options.TaskArchiveIntervalMinutes)*time.Minute, taskman.TaskManager.TaskCleanupJob, true)
 
 	DevToolCronManager.Start()
 	Session := auth.GetAdminSession(ctx, "")

@@ -71,6 +71,9 @@ func OnBaseOptionsChange(oOpts, nOpts interface{}) bool {
 	if oldOpts.TaskArchiveThresholdHours != newOpts.TaskArchiveThresholdHours {
 		consts.SetTaskArchiveThresholdHours(newOpts.TaskArchiveThresholdHours)
 	}
+	if oldOpts.TaskArchiveBatchLimit != newOpts.TaskArchiveBatchLimit {
+		consts.SetTaskArchiveBatchLimit(newOpts.TaskArchiveBatchLimit)
+	}
 	if oldOpts.EnableChangeOwnerAutoRename != newOpts.EnableChangeOwnerAutoRename {
 		consts.SetChangeOwnerAutoRename(newOpts.EnableChangeOwnerAutoRename)
 	}

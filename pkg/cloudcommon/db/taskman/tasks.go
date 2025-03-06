@@ -1424,6 +1424,10 @@ func (manager *STaskManager) migrateObjectInfo() error {
 func (manager *STaskManager) TaskCleanupJob(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
 	q := manager.Query().LT("created_at", time.Now().Add(-time.Duration(consts.TaskArchiveThresholdHours())*time.Hour)).Asc("created_at")
 
+	if consts.TaskArchiveBatchLimit() > 0 {
+		q = q.Limit(consts.TaskArchiveBatchLimit())
+	}
+
 	rows, err := q.Rows()
 	if err != nil {
 		log.Errorf("query rows fail %s", err)

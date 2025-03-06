@@ -74,8 +74,9 @@ type BaseOptions struct {
 	TaskWorkerCount      int `default:"4" help:"Task manager worker thread count, default is 4"`
 	LocalTaskWorkerCount int `default:"4" help:"Worker thread count that runs local tasks, default is 4"`
 
-	TaskArchiveThresholdHours int `default:"168" help:"The threshold in hours to migrate tasks to archives, default is 7days(168hours)"`
-	TaskArchiveIntervalHours  int `default:"2" help:"The interval to migrate tasks to archives, default is 2 hours"`
+	TaskArchiveThresholdHours  int `default:"168" help:"The threshold in hours to migrate tasks to archive, default is 7days(168hours)"`
+	TaskArchiveIntervalMinutes int `default:"60" help:"The interval in mibutes to migrate tasks to archive, default is 1 hour"`
+	TaskArchiveBatchLimit      int `default:"10000" help:"The maximal count of tasks to archivie in a batch, default is 10000"`
 
 	DefaultProcessTimeoutSeconds int `default:"60" help:"request process timeout, default is 60 seconds"`
 
