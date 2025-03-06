@@ -34,3 +34,11 @@ func (self *SBaseClouduser) GetAccessKeys() ([]cloudprovider.SAccessKey, error) 
 func (self *SBaseClouduser) DeleteAccessKey(accesskey string) error {
 	return errors.Wrap(cloudprovider.ErrNotImplemented, "base DeleteAccessKey")
 }
+
+func (self *SBaseClouduser) SetDisable() error {
+	return errors.Wrap(cloudprovider.ErrNotImplemented, "SetDisable")
+}
+
+func (self *SBaseClouduser) SetEnable(password string) error {
+	return errors.Wrap(cloudprovider.ErrNotImplemented, "SetDisable")
+}

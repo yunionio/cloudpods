@@ -135,6 +135,15 @@ func (user *SUser) IsConsoleLogin() bool {
 	return true
 }
 
+func (user *SUser) SetDisable() error {
+	return user.client.DeleteLoginProfile(user.UserName)
+}
+
+func (user *SUser) SetEnable(password string) error {
+	_, err := user.client.CreateLoginProfile(user.UserName, password)
+	return err
+}
+
 func (user *SUser) ResetPassword(password string) error {
 	return user.client.ResetClouduserPassword(user.UserName, password)
 }
