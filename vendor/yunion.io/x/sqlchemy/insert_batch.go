@@ -111,6 +111,13 @@ func (t *STableSpec) InsertBatch(dataList []interface{}) error {
 					params = append(params, nil)
 				}
 			} else {
+				// validate text width
+				if col.IsString() && col.GetWidth() > 0 {
+					newStr, ok := ov.(string)
+					if ok && len(newStr) > col.GetWidth() {
+						ov = newStr[:col.GetWidth()]
+					}
+				}
 				params = append(params, col.ConvertFromValue(ov))
 			}
 		}

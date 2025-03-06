@@ -90,6 +90,15 @@ func (user *SUser) GetICloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
 	return ret, nil
 }
 
+func (user *SUser) SetDisable() error {
+	return user.client.DeleteLoginProfile(user.UserName)
+}
+
+func (user *SUser) SetEnable(password string) error {
+	login := true
+	return user.client.UpdateLoginProfile(user.UserName, password, &login)
+}
+
 func (user *SUser) IsConsoleLogin() bool {
 	profile, err := user.client.GetLoginProfile(user.UserName)
 	if err != nil {
@@ -222,6 +231,14 @@ func (self *SVolcEngineClient) CreateLoginProfile(name, password string, loginAl
 		params["LoginAllowed"] = fmt.Sprintf("%v", *loginAllowd)
 	}
 	_, err := self.iamRequest("", "CreateLoginProfile", params)
+	return err
+}
+
+func (self *SVolcEngineClient) DeleteLoginProfile(name string) error {
+	params := map[string]string{
+		"UserName": name,
+	}
+	_, err := self.iamRequest("", "DeleteLoginProfile", params)
 	return err
 }
 
