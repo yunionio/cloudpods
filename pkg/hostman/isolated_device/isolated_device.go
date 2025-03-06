@@ -511,6 +511,15 @@ func (man *isolatedDeviceManager) CheckDevIsNeedUpdate(dev IDevice, devInfo *Clo
 	if info := dev.GetPCIEInfo(); info != nil && devInfo.PcieInfo == nil {
 		return true
 	}
+	if dev.GetNvidiaMpsMemoryLimit() != devInfo.MpsMemoryLimit {
+		return true
+	}
+	if dev.GetNvidiaMpsMemoryTotal() != devInfo.MpsMemoryTotal {
+		return true
+	}
+	if dev.GetNvidiaMpsThreadPercentage() != devInfo.MpsThreadPercentage {
+		return true
+	}
 	if profile := dev.GetNVIDIAVgpuProfile(); profile != nil {
 		if val, _ := profile["frl"]; val != devInfo.FRL {
 			return true
