@@ -434,7 +434,7 @@ func FormatPartition(path, fs, uuid string, fsFeatures *apis.FsFeatures) error {
 	// #case fs == "ntfs":
 	// #    cmd = []string{"/sbin/mkfs.ntfs"}
 	case fs == "xfs":
-		cmd = []string{"mkfs.xfs", "-f", "-m", "crc=0", "-i", "projid32bit=0", "-n", "ftype=0"}
+		cmd = []string{"mkfs.xfs", "-f", "-m", "crc=0", "-i", "projid32bit=0", "-n", "ftype=1"}
 		cmdUuid = []string{"xfs_admin", "-U", uuid}
 	}
 
