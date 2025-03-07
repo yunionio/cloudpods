@@ -64,7 +64,8 @@ type ContainerSecurityContext struct {
 	RunAsGroup *int64 `json:"run_as_group,omitempty"`
 	// procMount denotes the type of proc mount to use for the containers.
 	// The default is DefaultProcMount which uses the container runtime defaults for
-	ProcMount ContainerProcMountType `json:"proc_mount"`
+	ProcMount       ContainerProcMountType `json:"proc_mount"`
+	ApparmorProfile string                 `json:"apparmor_profile"`
 }
 
 type ContainerResources struct {
