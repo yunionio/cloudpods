@@ -1439,7 +1439,6 @@ func (manager *STaskManager) TaskCleanupJob(ctx context.Context, userCred mcclie
 	count := 0
 	for rows.Next() {
 		task := STask{}
-		task.SetModelManager(manager, &task)
 
 		err := q.Row2Struct(rows, &task)
 		if err != nil {
@@ -1447,6 +1446,7 @@ func (manager *STaskManager) TaskCleanupJob(ctx context.Context, userCred mcclie
 			return
 		}
 
+		task.SetModelManager(ArchivedTaskManager, &task)
 		err = ArchivedTaskManager.Insert(ctx, &task)
 		if err != nil {
 			log.Errorf("insert archive fail %s", err)
@@ -1468,5 +1468,5 @@ func (manager *STaskManager) TaskCleanupJob(ctx context.Context, userCred mcclie
 
 		count++
 	}
-	log.Infof("TaskCleanupJob migrate %d tasks, takes %f seconds", count, time.Since(taskStart).Seconds())
+	log.Infof("TaskCleanupJob migrate %d tasks, takes %f seconds, batch limit=%d threshold hours=%d", count, time.Since(taskStart).Seconds(), consts.TaskArchiveBatchLimit(), consts.TaskArchiveThresholdHours())
 }
