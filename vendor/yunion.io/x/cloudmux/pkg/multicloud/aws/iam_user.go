@@ -80,6 +80,15 @@ func (user *SUser) IsConsoleLogin() bool {
 	return true
 }
 
+func (user *SUser) SetDisable() error {
+	return user.client.DeleteLoginProfile(user.UserName)
+}
+
+func (user *SUser) SetEnable(password string) error {
+	_, err := user.client.CreateLoginProfile(user.UserName, password)
+	return err
+}
+
 func (user *SUser) GetICloudgroups() ([]cloudprovider.ICloudgroup, error) {
 	groups, err := user.ListGroups()
 	if err != nil {

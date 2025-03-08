@@ -1258,6 +1258,9 @@ type IClouduser interface {
 	AttachPolicy(policyName string, policyType api.TPolicyType) error
 	DetachPolicy(policyName string, policyType api.TPolicyType) error
 
+	SetEnable(password string) error
+	SetDisable() error
+
 	Delete() error
 
 	ResetPassword(password string) error
