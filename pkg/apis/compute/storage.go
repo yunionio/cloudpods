@@ -71,6 +71,9 @@ type StorageCreateInput struct {
 	// example: 192.168.222.3,192.168.222.4,192.168.222.99
 	RbdMonHost string `json:"rbd_mon_host"`
 
+	// rbd storage auto cache glance images
+	AutoCacheImages *bool `json:"auto_cache_images"`
+
 	// swagger:ignore
 	MonHost string
 
@@ -231,6 +234,9 @@ type StorageUpdateInput struct {
 	// example: AQDigB9dtnDAKhAAxS6X4zi4BPR/lIle4nf4Dw==
 	RbdKey string `json:"rbd_key"`
 
+	// rbd storage auto cache glance images
+	AutoCacheImages *bool `json:"auto_cache_images"`
+
 	RbdTimeoutInput
 
 	// swagger:ignore
@@ -238,6 +244,17 @@ type StorageUpdateInput struct {
 
 	UpdateStorageConf bool
 	MasterHost        string
+}
+
+type RbdStorageConf struct {
+	RadosMonOpTimeout  int `json:"rados_mon_op_timeout"`
+	RadosOsdOpTimeout  int `json:"rados_osd_op_timeout"`
+	ClientMountTimeout int `json:"client_mount_timeout"`
+
+	MonHost         string `json:"mon_host"`
+	Pool            string `json:"pool"`
+	Key             string `json:"key"`
+	AutoCacheImages bool   `json:"auto_cache_images"`
 }
 
 type StorageSetCmtBoundInput struct {

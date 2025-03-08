@@ -87,6 +87,10 @@ func (self *SRbdStorageDriver) ValidateCreateData(ctx context.Context, userCred 
 		}
 	}
 
+	autoCacheImages := false
+	if input.AutoCacheImages != nil {
+		autoCacheImages = *input.AutoCacheImages
+	}
 	input.StorageConf.Update(
 		jsonutils.Marshal(map[string]interface{}{
 			"mon_host":             input.MonHost,
@@ -95,6 +99,7 @@ func (self *SRbdStorageDriver) ValidateCreateData(ctx context.Context, userCred 
 			"rados_mon_op_timeout": input.RadosMonOpTimeout,
 			"rados_osd_op_timeout": input.RadosOsdOpTimeout,
 			"client_mount_timeout": input.ClientMountTimeout,
+			"auto_cache_images":    autoCacheImages,
 		}))
 	return nil
 }
@@ -108,6 +113,11 @@ func (self *SRbdStorageDriver) ValidateUpdateData(ctx context.Context, userCred 
 			input.StorageConf.Set(k, jsonutils.NewInt(int64(v)))
 			input.UpdateStorageConf = true
 		}
+	}
+
+	if input.AutoCacheImages != nil {
+		input.StorageConf.Set("auto_cache_images", jsonutils.NewBool(*input.AutoCacheImages))
+		input.UpdateStorageConf = true
 	}
 
 	if len(input.RbdKey) > 0 {

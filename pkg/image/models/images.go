@@ -37,6 +37,7 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
+	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	api "yunion.io/x/onecloud/pkg/apis/image"
 	noapi "yunion.io/x/onecloud/pkg/apis/notify"
 	"yunion.io/x/onecloud/pkg/appsrv"
@@ -54,11 +55,13 @@ import (
 	identity_modules "yunion.io/x/onecloud/pkg/mcclient/modules/identity"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/image"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/notify"
+	"yunion.io/x/onecloud/pkg/util/cephutils"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/pinyinutils"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
+	"yunion.io/x/onecloud/pkg/util/qemutils"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/streamutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
@@ -2031,7 +2034,7 @@ func (img *SImage) Pipeline(ctx context.Context, userCred mcclient.TokenCredenti
 		}
 	}
 	{
-		// do conert
+		// do convert
 		converted, err := img.doConvert(ctx, userCred)
 		if err != nil {
 			return errors.Wrap(err, "doConvert")
@@ -2050,6 +2053,10 @@ func (img *SImage) Pipeline(ctx context.Context, userCred mcclient.TokenCredenti
 			updated = true
 		}
 	}
+	{
+		// do cache to ceph storages
+		img.cacheToCephStorages(ctx)
+	}
 	if img.Status != api.IMAGE_STATUS_ACTIVE {
 		img.SetStatus(userCred, api.IMAGE_STATUS_ACTIVE, "image pipeline complete")
 	}
@@ -2062,6 +2069,192 @@ func (img *SImage) Pipeline(ctx context.Context, userCred mcclient.TokenCredenti
 		}
 		notifyclient.SystemNotifyWithCtx(ctx, notify.NotifyPriorityNormal, notifyclient.IMAGE_ACTIVED, kwargs)
 		notifyclient.NotifyImportantWithCtx(ctx, []string{userCred.GetUserId()}, false, notifyclient.IMAGE_ACTIVED, kwargs)
+	}
+	return nil
+}
+
+func (img *SImage) cacheToCephStorages(ctx context.Context) {
+	// skip if image converting
+	localPath := img.GetPath(img.DiskFormat)
+	if procutils.NewRemoteCommandAsFarAsPossible("sh", "-c",
+		fmt.Sprintf("ps -ef | grep [q]emu-img | grep convert | grep %s", localPath)) == nil {
+		log.Warningf("image %s has converting progress", img.Id)
+		return
+	}
+
+	cephStorages := GetCephStorages()
+	if cephStorages == nil || len(cephStorages.StorageIdConf) == 0 {
+		return
+	}
+	for fsid, storageIds := range cephStorages.CephFsidStorageId {
+		storageCachedImages := map[string]*cephutils.SImage{}
+		var cachedRbdimgStorageId string
+		for i := range storageIds {
+			storageConf := cephStorages.StorageIdConf[storageIds[i]]
+			rbdimg, err := img.getCephImage(storageConf, "")
+			if err != nil {
+				log.Errorf("failed get img %s by storage conf %#v: %s", img.Id, storageConf, err)
+				continue
+			}
+			if rbdimg != nil && cachedRbdimgStorageId == "" {
+				cachedRbdimgStorageId = storageIds[i]
+			}
+			if rbdimg != nil {
+				log.Infof("image %s has been cached at ceph pool: %s", img.Id, storageConf.Pool)
+			}
+			storageCachedImages[storageIds[i]] = rbdimg
+		}
+		if len(storageCachedImages) == 0 {
+			// ceph storage unreachable
+			log.Errorf("all of cpeh storage with fsid %s failed get ceph image", fsid)
+			continue
+		}
+		if cachedRbdimgStorageId == "" {
+			// do cache img to ceph storage
+			for storageId := range storageCachedImages {
+				storageConf := cephStorages.StorageIdConf[storageId]
+				imgTmpName := "image_cache_" + img.Id + ".tmp"
+				if !fileutils2.Exists(localPath) {
+					log.Errorf("image localpath %s not exist", localPath)
+					continue
+				}
+				// remove tmp image first
+				if err := img.removeCephImage(storageConf, imgTmpName); err != nil {
+					log.Errorf("remove existing tmp img %s failed: %s", imgTmpName, err)
+					continue
+				}
+				storageConfString := cephutils.CephConfString(
+					storageConf.MonHost,
+					storageConf.Key,
+					int64(storageConf.RadosMonOpTimeout),
+					int64(storageConf.RadosOsdOpTimeout),
+					int64(storageConf.ClientMountTimeout),
+				)
+				rbdPath := fmt.Sprintf("rbd:%s/%s%s", storageConf.Pool, imgTmpName, storageConfString)
+				log.Infof("convert local image %s to rbd pool %s", img.Id, storageConf.Pool)
+				out, err := procutils.NewRemoteCommandAsFarAsPossible(qemutils.GetQemuImg(),
+					"convert", "-W", "-m", "16", "-O", "raw", localPath, rbdPath).Output()
+				if err != nil {
+					log.Errorf("convert local image %s to rbd pool %s failed: %s %s", img.Id, storageConf.Pool, out, err)
+					continue
+				}
+				log.Infof("Success cached img %s to pool %s by convert", imgTmpName, storageConf.Pool)
+				rbdimg, err := img.getCephImage(storageConf, imgTmpName)
+				if err != nil {
+					log.Errorf("failed get ceph image %s after convert to ceph: %s", imgTmpName, err)
+					continue
+				} else if rbdimg == nil {
+					log.Errorf("failed get ceph image %s after convert to ceph, rbdimage not found", imgTmpName)
+					continue
+				} else {
+					imgName := "image_cache_" + img.Id
+					if err = img.renameCephImage(storageConf, imgTmpName, imgName); err != nil {
+						log.Errorf("failed rename from tmp image %s to %s: %s", imgTmpName, imgName, err)
+						continue
+					}
+					cachedRbdimgStorageId = storageId
+					delete(storageCachedImages, storageId)
+					break
+				}
+			}
+		}
+		if cachedRbdimgStorageId == "" {
+			log.Errorf("failed cache img %s to ceph storages fsid: %s", img.Id, fsid)
+			continue
+		}
+
+		for storageId := range storageCachedImages {
+			if storageId != cachedRbdimgStorageId && storageCachedImages[storageId] == nil {
+				srcConf := cephStorages.StorageIdConf[cachedRbdimgStorageId]
+				destConf := cephStorages.StorageIdConf[storageId]
+				err := img.cloneToCephStorage(ctx, srcConf.MonHost, srcConf.Key, srcConf.Pool, destConf.Pool)
+				if err != nil {
+					log.Errorf("failed cache img %s to pool %s: %s", img.Id, destConf.Pool, err)
+					continue
+				}
+				log.Infof("Success cached img %s to pool %s by clone", img.Id, destConf.Pool)
+			}
+		}
+	}
+}
+
+func (img *SImage) removeCephImage(storageConf *computeapi.RbdStorageConf, imgName string) error {
+	cli, err := cephutils.NewClient(storageConf.MonHost, storageConf.Key, storageConf.Pool)
+	if err != nil {
+		return errors.Wrap(err, "cephutils.NewClient")
+	}
+	defer cli.Close()
+	rbdimg, err := cli.GetImage(imgName)
+	if err != nil {
+		if errors.Cause(err) == errors.ErrNotFound {
+			return nil
+		}
+		return errors.Wrapf(err, "GetImage")
+	}
+	return rbdimg.Remove()
+}
+
+func (img *SImage) renameCephImage(storageConf *computeapi.RbdStorageConf, srcImgName, destImgName string) error {
+	cli, err := cephutils.NewClient(storageConf.MonHost, storageConf.Key, storageConf.Pool)
+	if err != nil {
+		return errors.Wrap(err, "cephutils.NewClient")
+	}
+	defer cli.Close()
+	rbdimg, err := cli.GetImage(srcImgName)
+	if err != nil {
+		return errors.Wrapf(err, "GetImage")
+	}
+	return rbdimg.Rename(destImgName)
+}
+
+func (img *SImage) getCephImage(storageConf *computeapi.RbdStorageConf, imgName string) (*cephutils.SImage, error) {
+	if imgName == "" {
+		imgName = "image_cache_" + img.Id
+	}
+	cli, err := cephutils.NewClient(storageConf.MonHost, storageConf.Key, storageConf.Pool)
+	if err != nil {
+		return nil, errors.Wrap(err, "cephutils.NewClient")
+	}
+	defer cli.Close()
+	rbdimg, err := cli.GetImage(imgName)
+	if err != nil {
+		if errors.Cause(err) == errors.ErrNotFound {
+			return nil, nil
+		}
+		return nil, errors.Wrapf(err, "GetImage")
+	}
+	storageConfString := cephutils.CephConfString(
+		storageConf.MonHost,
+		storageConf.Key,
+		int64(storageConf.RadosMonOpTimeout),
+		int64(storageConf.RadosOsdOpTimeout),
+		int64(storageConf.ClientMountTimeout),
+	)
+	rbdPath := fmt.Sprintf("rbd:%s/%s%s", storageConf.Pool, imgName, storageConfString)
+	origin, err := qemuimg.NewQemuImage(rbdPath)
+	if err != nil {
+		return nil, errors.Wrapf(err, "NewQemuImage %s", rbdPath)
+	}
+	if !origin.IsValid() {
+		return nil, errors.Errorf("rbd img %s is invalid", rbdPath)
+	}
+	return rbdimg, nil
+}
+
+func (img *SImage) cloneToCephStorage(ctx context.Context, monHost, key, pool string, destPool string) error {
+	imgName := "image_cache_" + img.Id
+	cli, err := cephutils.NewClient(monHost, key, pool)
+	if err != nil {
+		return errors.Wrap(err, "cephutils.NewClient")
+	}
+	defer cli.Close()
+	rbdimg, err := cli.GetImage(imgName)
+	if err != nil {
+		return errors.Wrap(err, "cli.GetImage(imgName)")
+	}
+	_, err = rbdimg.Clone(ctx, destPool, imgName)
+	if err != nil {
+		return errors.Wrapf(err, "rbdimg.Clone to destPool %s", destPool)
 	}
 	return nil
 }
