@@ -28,6 +28,7 @@ import (
 	"yunion.io/x/pkg/util/qemuimgfmt"
 	"yunion.io/x/pkg/utils"
 
+	apis2 "yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	hostapi "yunion.io/x/onecloud/pkg/apis/host"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
@@ -669,9 +670,7 @@ func (s *SRbdStorage) GetCloneTargetDiskPath(ctx context.Context, targetDiskId s
 	return s.GetDiskPath(targetDiskId)
 }
 
-func (s *SRbdStorage) CloneDiskFromStorage(
-	ctx context.Context, srcStorage IStorage, srcDisk IDisk, targetDiskId string, fullCopy bool,
-) (*hostapi.ServerCloneDiskFromStorageResponse, error) {
+func (s *SRbdStorage) CloneDiskFromStorage(ctx context.Context, srcStorage IStorage, srcDisk IDisk, targetDiskId string, fullCopy bool, encInfo apis2.SEncryptInfo) (*hostapi.ServerCloneDiskFromStorageResponse, error) {
 	srcDiskPath := srcDisk.GetPath()
 	srcImg, err := qemuimg.NewQemuImage(srcDiskPath)
 	if err != nil {
