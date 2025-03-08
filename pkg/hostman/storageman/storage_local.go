@@ -984,13 +984,14 @@ func (s *SLocalStorage) GetCloneTargetDiskPath(ctx context.Context, targetDiskId
 	return path.Join(s.GetPath(), targetDiskId)
 }
 
-func (s *SLocalStorage) CloneDiskFromStorage(
-	ctx context.Context, srcStorage IStorage, srcDisk IDisk, targetDiskId string, fullCopy bool,
-) (*hostapi.ServerCloneDiskFromStorageResponse, error) {
+func (s *SLocalStorage) CloneDiskFromStorage(ctx context.Context, srcStorage IStorage, srcDisk IDisk, targetDiskId string, fullCopy bool, encInfo apis.SEncryptInfo) (*hostapi.ServerCloneDiskFromStorageResponse, error) {
 	srcDiskPath := srcDisk.GetPath()
 	srcImg, err := qemuimg.NewQemuImage(srcDiskPath)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Get source image %q info", srcDiskPath)
+	}
+	if encInfo.Id != "" {
+		srcImg.SetPassword(encInfo.Key)
 	}
 
 	// start create target disk. if full copy is false, just create
@@ -1004,7 +1005,7 @@ func (s *SLocalStorage) CloneDiskFromStorage(
 			return nil, errors.Wrap(err, "failed new qemu image")
 		}
 
-		err = newImg.CreateQcow2(srcImg.GetSizeMB(), false, "", "", "", "")
+		err = newImg.CreateQcow2(srcImg.GetSizeMB(), false, "", encInfo.Key, qemuimg.EncryptFormatLuks, encInfo.Alg)
 	}
 	if err != nil {
 		return nil, errors.Wrap(err, "Clone source disk to target local storage")
