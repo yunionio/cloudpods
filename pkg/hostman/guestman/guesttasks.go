@@ -43,6 +43,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/monitor"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/util/cgrouputils/cpuset"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
@@ -2883,8 +2884,15 @@ func (t *SGuestStorageCloneDiskTask) Start(guestRunning bool) {
 		return
 	}
 
-	resp, err := t.params.TargetStorage.CloneDiskFromStorage(
-		t.ctx, t.params.SourceStorage, t.params.SourceDisk, t.params.TargetDiskId, !guestRunning)
+	encryptInfo, err := t.getEncryptKey(t.ctx, auth.AdminCredential())
+	if err != nil {
+		hostutils.TaskFailed(
+			t.ctx, fmt.Sprintf("failed get guest encrypt info %s", t.params.SourceDisk.GetId()),
+		)
+		return
+	}
+
+	resp, err := t.params.TargetStorage.CloneDiskFromStorage(t.ctx, t.params.SourceStorage, t.params.SourceDisk, t.params.TargetDiskId, !guestRunning, encryptInfo)
 	if err != nil {
 		hostutils.TaskFailed(
 			t.ctx, fmt.Sprintf("Clone disk %s to storage %s failed %s",
