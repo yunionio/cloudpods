@@ -67,6 +67,7 @@ type ContainerCreateCommonOptions struct {
 	Uid               int64    `help:"UID of container" default:"0"`
 	Gid               int64    `help:"GID of container" default:"0"`
 	DisableNoNewPrivs bool     `help:"Disable no_new_privs flag of the container"`
+	Apparmor          string   `help:"Apparmor profile for container"`
 }
 
 func (o ContainerCreateCommonOptions) getCreateSpec() (*computeapi.ContainerSpec, error) {
@@ -97,6 +98,9 @@ func (o ContainerCreateCommonOptions) getCreateSpec() (*computeapi.ContainerSpec
 	}
 	if o.Gid > 0 {
 		req.ContainerSpec.SecurityContext.RunAsGroup = &o.Gid
+	}
+	if o.Apparmor != "" {
+		req.ContainerSpec.SecurityContext.ApparmorProfile = o.Apparmor
 	}
 	if len(o.PostStartExec) != 0 {
 		req.Lifecyle = &apis.ContainerLifecyle{
