@@ -195,7 +195,7 @@ func (cli *CephClient) GetCapacity() (*SCapacity, error) {
 }
 
 func writeFile(pattern string, content string) (string, error) {
-	file, err := ioutil.TempFile("", pattern)
+	file, err := ioutil.TempFile(cephConfTmpDir, pattern)
 	if err != nil {
 		return "", errors.Wrapf(err, "TempFile")
 	}
@@ -229,6 +229,12 @@ func (cli *CephClient) SetTimeout(timeout int) {
 }
 
 const DEFAULT_TIMTOUT_SECOND = 15
+
+var cephConfTmpDir = ""
+
+func SetCephConfTempDir(dir string) {
+	cephConfTmpDir = dir
+}
 
 func NewClient(monHost, key, pool string, enableMessengerV2 bool) (*CephClient, error) {
 	client := &CephClient{
@@ -283,10 +289,48 @@ keyring = %s
 	return client, nil
 }
 
+func CephConfString(monHost, key string, radosMonOpTimeout, radosOsdOpTimeout, clientMountTimeout int64) string {
+	conf := []string{}
+	conf = append(conf, "mon_host="+strings.ReplaceAll(monHost, ",", `\;`))
+	if len(key) > 0 {
+		for _, k := range []string{":", "@", "="} {
+			key = strings.ReplaceAll(key, k, fmt.Sprintf(`\%s`, k))
+		}
+		conf = append(conf, "key="+key)
+	}
+	for k, timeout := range map[string]int64{
+		"rados_mon_op_timeout": radosMonOpTimeout,
+		"rados_osd_op_timeout": radosOsdOpTimeout,
+		"client_mount_timeout": clientMountTimeout,
+	} {
+		conf = append(conf, fmt.Sprintf("%s=%d", k, timeout))
+	}
+	return ":" + strings.Join(conf, ":")
+}
+
 func (cli *CephClient) Child(pool string) *CephClient {
 	newCli := *cli
 	newCli.pool = pool
 	return &newCli
+}
+
+type SFsid struct {
+	Fsid string
+}
+
+func (cli *CephClient) Fsid() (string, error) {
+	opts := cli.options()
+	opts = append(opts, "fsid")
+	resp, err := cli.output("ceph", opts, true)
+	if err != nil {
+		return "", err
+	}
+	fsid := SFsid{}
+	err = resp.Unmarshal(&fsid)
+	if err != nil {
+		return "", err
+	}
+	return fsid.Fsid, nil
 }
 
 type SImage struct {
