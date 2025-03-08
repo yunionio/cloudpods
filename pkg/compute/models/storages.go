@@ -117,7 +117,10 @@ func (self *SStorage) ValidateUpdateData(ctx context.Context, userCred mcclient.
 	if err != nil {
 		return input, err
 	}
-	input.StorageConf = jsonutils.NewDict()
+
+	if gotypes.IsNil(input.StorageConf) {
+		input.StorageConf = jsonutils.NewDict()
+	}
 	if self.StorageConf != nil {
 		confs, _ := self.StorageConf.GetMap()
 		for k, v := range confs {
@@ -1683,6 +1686,10 @@ func (manager *SStorageManager) ListItemFilter(
 
 	if query.Local != nil && *query.Local {
 		q = q.Filter(sqlchemy.In(q.Field("storage_type"), api.STORAGE_LOCAL_TYPES))
+	}
+
+	if len(query.StorageType) > 0 {
+		q = q.Equals("storage_type", query.StorageType)
 	}
 
 	if len(query.SchedtagId) > 0 {
