@@ -32,6 +32,10 @@ const (
 	METRIC_RES_TYPE_ELB          = "elb"
 	METRIC_RES_TYPE_K8S          = "k8s"
 	METRIC_RES_TYPE_CONTAINER    = "container"
+	METRIC_RES_TYPE_WORKER       = "worker"
+	METRIC_RES_TYPE_HTTP_REQUEST = "http_request"
+	METRIC_RES_TYPE_DB_STATS     = "db_stats"
+	METRIC_RES_TYPE_PROCESS      = "process"
 
 	//ext is prefix！
 	METRIC_RES_TYPE_JENKINS      = "ext_jenkins"
@@ -52,8 +56,9 @@ const (
 	METRIC_UNIT_MB      = "Mb"
 	METRIC_UNIT_NULL    = "NULL"
 
-	METRIC_DATABASE_TELE  = "telegraf"
-	METRIC_DATABASE_METER = "meter_db"
+	METRIC_DATABASE_TELE   = "telegraf"
+	METRIC_DATABASE_METER  = "meter_db"
+	METRIC_DATABASE_SYSTEM = "system"
 )
 
 var (
