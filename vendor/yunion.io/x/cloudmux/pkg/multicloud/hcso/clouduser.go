@@ -22,6 +22,7 @@ import (
 
 	api "yunion.io/x/cloudmux/pkg/apis/cloudid"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
+	"yunion.io/x/cloudmux/pkg/multicloud"
 	"yunion.io/x/cloudmux/pkg/multicloud/hcso/client/modules"
 )
 
@@ -33,6 +34,7 @@ type SLink struct {
 
 type SClouduser struct {
 	client *SHuaweiClient
+	multicloud.SBaseClouduser
 
 	Description       string
 	DomainId          string

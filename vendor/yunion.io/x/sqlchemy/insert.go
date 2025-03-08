@@ -158,6 +158,13 @@ func (t *STableSpec) InsertSqlPrep(data interface{}, update bool) (*InsertSqlRes
 
 		// not empty
 		if !gotypes.IsNil(ov) && (!c.IsZero(ov) || (!c.IsPointer() && !c.IsText())) && !isAutoInc {
+			// validate text width
+			if c.IsString() && c.GetWidth() > 0 {
+				newStr, ok := ov.(string)
+				if ok && len(newStr) > c.GetWidth() {
+					ov = newStr[:c.GetWidth()]
+				}
+			}
 			v := c.ConvertFromValue(ov)
 			values = append(values, v)
 			names = append(names, fmt.Sprintf("%s%s%s", qChar, k, qChar))
