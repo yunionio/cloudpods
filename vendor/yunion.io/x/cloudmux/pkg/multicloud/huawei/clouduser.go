@@ -24,6 +24,7 @@ import (
 
 	api "yunion.io/x/cloudmux/pkg/apis/cloudid"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
+	"yunion.io/x/cloudmux/pkg/multicloud"
 )
 
 type SLink struct {
@@ -34,6 +35,7 @@ type SLink struct {
 
 type SClouduser struct {
 	client *SHuaweiClient
+	multicloud.SBaseClouduser
 
 	Description       string
 	DomainId          string
@@ -96,8 +98,18 @@ func (user *SClouduser) IsConsoleLogin() bool {
 	return user.Enabled == true
 }
 
+func (user *SClouduser) SetDisable() error {
+	enable := false
+	return user.client.UpdateUser(user.Id, "", &enable)
+}
+
+func (user *SClouduser) SetEnable(password string) error {
+	enable := true
+	return user.client.UpdateUser(user.Id, password, &enable)
+}
+
 func (user *SClouduser) ResetPassword(password string) error {
-	return user.client.ResetClouduserPassword(user.Id, password)
+	return user.client.UpdateUser(user.Id, password, nil)
 }
 
 // https://console.huaweicloud.com/apiexplorer/#/openapi/IAM/doc?api=KeystoneDeleteUser
@@ -200,11 +212,19 @@ func (self *SHuaweiClient) CreateClouduser(name, password, desc string) (*SCloud
 }
 
 // https://console.huaweicloud.com/apiexplorer/#/openapi/IAM/doc?api=UpdateUser
-func (self *SHuaweiClient) ResetClouduserPassword(id, password string) error {
+func (self *SHuaweiClient) UpdateUser(id, password string, enable *bool) error {
+	params := map[string]interface{}{}
+	if len(password) > 0 {
+		params["password"] = password
+	}
+	if enable != nil {
+		params["enabled"] = false
+		if *enable {
+			params["enabled"] = true
+		}
+	}
 	_, err := self.put(SERVICE_IAM, "", "OS-USER/users/"+id, map[string]interface{}{
-		"user": map[string]interface{}{
-			"password": password,
-		},
+		"user": params,
 	})
 	return err
 }

@@ -83,12 +83,22 @@ func (user *SUser) IsConsoleLogin() bool {
 	return user.ConsoleLogin == 1
 }
 
+func (user *SUser) SetDisable() error {
+	login := false
+	return user.client.UpdateUser(user.Name, "", &login)
+}
+
+func (user *SUser) SetEnable(password string) error {
+	login := true
+	return user.client.UpdateUser(user.Name, password, &login)
+}
+
 func (user *SUser) Delete() error {
 	return user.client.DeleteUser(user.Name)
 }
 
 func (user *SUser) ResetPassword(password string) error {
-	return user.client.UpdateUser(user.Name, password)
+	return user.client.UpdateUser(user.Name, password, nil)
 }
 
 func (user *SUser) GetICloudgroups() ([]cloudprovider.ICloudgroup, error) {
@@ -243,11 +253,18 @@ func (self *SQcloudClient) AddUser(name, password, desc string, consoleLogin boo
 	return user, nil
 }
 
-func (self *SQcloudClient) UpdateUser(name, password string) error {
+func (self *SQcloudClient) UpdateUser(name, password string, login *bool) error {
 	params := map[string]string{
-		"Name":         name,
-		"ConsoleLogin": "1",
-		"Password":     password,
+		"Name": name,
+	}
+	if len(password) > 0 {
+		params["Password"] = password
+	}
+	if login != nil {
+		params["ConsoleLogin"] = "0"
+		if *login {
+			params["ConsoleLogin"] = "1"
+		}
 	}
 	_, err := self.camRequest("UpdateUser", params)
 	if err != nil {

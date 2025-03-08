@@ -66,7 +66,7 @@ func NewNameValidator(ctx context.Context, manager IModelManager, ownerId mcclie
 	}
 
 	if strings.ContainsAny(name, forbiddenNameChars) {
-		return errors.Wrapf(errors.ErrInvalidFormat, "name should not contains any of %s", forbiddenNameChars)
+		return errors.Wrapf(errors.ErrInvalidFormat, "name should not contains any of %q", forbiddenNameChars)
 	}
 
 	uniq, err := isNameUnique(ctx, manager, ownerId, name, uniqValues)
@@ -114,7 +114,7 @@ func alterNameValidator(ctx context.Context, model IModel, name string) error {
 	}
 
 	if strings.ContainsAny(name, forbiddenNameChars) {
-		return errors.Wrapf(errors.ErrInvalidFormat, "name should not contains any of %s", forbiddenNameChars)
+		return errors.Wrapf(errors.ErrInvalidFormat, "name should not contains any of %q", forbiddenNameChars)
 	}
 
 	uniq, err := isAlterNameUnique(ctx, model, name)
