@@ -52,7 +52,8 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/policy"
 	_ "yunion.io/x/onecloud/pkg/compute/regiondrivers"
 	_ "yunion.io/x/onecloud/pkg/compute/storagedrivers"
-	"yunion.io/x/onecloud/pkg/compute/tasks"
+	_ "yunion.io/x/onecloud/pkg/compute/tasks"
+	cloudaccount_tasks "yunion.io/x/onecloud/pkg/compute/tasks/cloudaccount"
 	"yunion.io/x/onecloud/pkg/controller/autoscaling"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
@@ -125,7 +126,7 @@ func StartServiceWithJobsAndApp(jobs func(cron *cronman.SCronJobManager), appCll
 	setInfluxdbRetentionPolicy()
 
 	models.InitSyncWorkers(options.Options.CloudSyncWorkerCount)
-	tasks.InitCloudproviderSyncWorkers(options.Options.CloudProviderSyncWorkerCount)
+	cloudaccount_tasks.InitCloudproviderSyncWorkers(options.Options.CloudProviderSyncWorkerCount)
 
 	var (
 		electObj        *elect.Elect
