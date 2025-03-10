@@ -31,6 +31,11 @@ var All = []SMeasurement{
 	system,
 	vasmi,
 
+	worker,
+	serviceHttpCode,
+	serviceProcessStats,
+	dbStats,
+
 	vmCpu,
 	vmMem,
 	vmDisk,
