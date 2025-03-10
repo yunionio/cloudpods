@@ -70,6 +70,7 @@ var (
 	ActionStop                 SAction = "stop"
 	ActionReset                SAction = "reset"
 	ActionRestart              SAction = "restart"
+	ActionRunTask              SAction = "run_task"
 
 	ResultFailed  SResult = "failed"
 	ResultSucceed SResult = "succeed"

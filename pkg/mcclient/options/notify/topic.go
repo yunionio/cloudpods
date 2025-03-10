@@ -56,12 +56,18 @@ func (so *TopicOptions) Params() (jsonutils.JSONObject, error) {
 type TopicUpdateOptions struct {
 	ID          string
 	AdvanceDays []int
+	Name        string
+	Resources   []string
+	Actions     []string
+	Results     *bool
+	TitleCn     string
+	TitleEn     string
+	ContentCn   string
+	ContentEn   string
 }
 
 func (opts *TopicUpdateOptions) Params() (jsonutils.JSONObject, error) {
-	d := jsonutils.NewDict()
-	d.Set("advance_days", jsonutils.Marshal(opts.AdvanceDays))
-	return d, nil
+	return jsonutils.Marshal(opts), nil
 }
 
 func (so *TopicUpdateOptions) GetId() string {
@@ -92,4 +98,23 @@ func (opt *STopicAddResourceInput) GetId() string {
 
 func (rl *STopicAddResourceInput) Params() (jsonutils.JSONObject, error) {
 	return options.ListStructToParams(rl)
+}
+
+type TopicCreateOptions struct {
+	NAME        string
+	Enabled     bool
+	Type        string `choices:"resource|automated_process|security"`
+	Results     bool
+	TitleCn     string
+	TitleEn     string
+	ContentCn   string
+	ContentEn   string
+	GroupKeys   []string
+	AdvanceDays []int
+	Actions     []string
+	Resources   []string
+}
+
+func (rl *TopicCreateOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(rl), nil
 }

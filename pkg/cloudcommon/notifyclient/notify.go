@@ -347,6 +347,10 @@ func EventNotify(ctx context.Context, userCred mcclient.TokenCredential, ep SEve
 		ResourceType:    ep.ResourceType,
 		Action:          ep.Action,
 	}
+	EventNotify2(params)
+}
+
+func EventNotify2(params api.NotificationManagerEventNotifyInput) {
 	t := eventTask{
 		params: params,
 	}
@@ -372,10 +376,7 @@ func EventNotifyServiceAbnormal(ctx context.Context, userCred mcclient.TokenCred
 		ResourceType:    api.TOPIC_RESOURCE_SERVICE,
 		Action:          api.ActionServiceAbnormal,
 	}
-	t := eventTask{
-		params: params,
-	}
-	notifyClientWorkerMan.Run(&t, nil, nil)
+	EventNotify2(params)
 }
 
 func systemEventNotify(ctx context.Context, action api.SAction, resType string, result api.SResult, priority string, obj *jsonutils.JSONDict) {
@@ -386,10 +387,7 @@ func systemEventNotify(ctx context.Context, action api.SAction, resType string, 
 		Event:           event.String(),
 		Priority:        priority,
 	}
-	t := eventTask{
-		params: params,
-	}
-	notifyClientWorkerMan.Run(&t, nil, nil)
+	EventNotify2(params)
 }
 
 func SystemEventNotify(ctx context.Context, action api.SAction, resType string, obj *jsonutils.JSONDict) {
