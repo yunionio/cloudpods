@@ -177,7 +177,7 @@ func (s *SKVMGuestInstance) reallocateNumaNodes(isMigrate bool) error {
 }
 
 func (s *SKVMGuestInstance) reallocateMigrateNumaNodes() error {
-	nodeNumaCpus, err := s.manager.cpuSet.AllocCpusetWithNodeCount(int(s.Desc.Cpu), s.Desc.Mem*1024, len(s.Desc.MemDesc.Mem.Mems)+1, s.GetId())
+	nodeNumaCpus, err := s.manager.cpuSet.AllocCpusetWithNodeCount(int(s.Desc.Cpu), s.Desc.Mem*1024, s.Desc.MemDesc.GuestNumaNodeCount(), s.GetId())
 	if err != nil {
 		return errors.Wrap(err, "AllocCpusetWithNodeCount")
 	}
@@ -201,17 +201,20 @@ func (s *SKVMGuestInstance) reallocateMigrateNumaNodes() error {
 
 	if len(cpuNumaPin) > 0 {
 		s.Desc.CpuNumaPin = cpuNumaPin
-		s.Desc.MemDesc.Mem.SMemDesc.SetHostNodes(int(*cpuNumaPin[0].NodeId))
-		for i := range s.Desc.MemDesc.Mem.Mems {
-			s.Desc.MemDesc.Mem.Mems[i].SetHostNodes(int(*cpuNumaPin[i+1].NodeId))
+		if s.Desc.MemDesc.Mem != nil {
+			s.Desc.MemDesc.Mem.SMemDesc.SetHostNodes(int(*cpuNumaPin[0].NodeId))
+			for i := range s.Desc.MemDesc.Mem.Mems {
+				s.Desc.MemDesc.Mem.Mems[i].SetHostNodes(int(*cpuNumaPin[i+1].NodeId))
+			}
 		}
 	} else {
-		s.Desc.MemDesc.Mem.SMemDesc.SetHostNodes(-1)
-		for i := range s.Desc.MemDesc.Mem.Mems {
-			s.Desc.MemDesc.Mem.Mems[i].SetHostNodes(-1)
+		if s.Desc.MemDesc.Mem != nil {
+			s.Desc.MemDesc.Mem.SMemDesc.SetHostNodes(-1)
+			for i := range s.Desc.MemDesc.Mem.Mems {
+				s.Desc.MemDesc.Mem.Mems[i].SetHostNodes(-1)
+			}
 		}
 	}
-
 	return nil
 }
 
@@ -371,7 +374,7 @@ func (s *SKVMGuestInstance) initLiveDescFromSourceGuest(srcDesc *desc.SGuestDesc
 		cpuNumaPin = s.Desc.CpuNumaPin
 	} else {
 		// allocate cpu numa pin local
-		nodeNumaCpus, err := s.manager.cpuSet.AllocCpusetWithNodeCount(int(srcDesc.Cpu), srcDesc.Mem*1024, len(srcDesc.MemDesc.Mem.Mems)+1, s.GetId())
+		nodeNumaCpus, err := s.manager.cpuSet.AllocCpusetWithNodeCount(int(srcDesc.Cpu), srcDesc.Mem*1024, srcDesc.MemDesc.GuestNumaNodeCount(), s.GetId())
 		if err != nil {
 			return errors.Wrap(err, "AllocCpusetWithNodeCount")
 		}
@@ -435,15 +438,19 @@ func (s *SKVMGuestInstance) initLiveDescFromSourceGuest(srcDesc *desc.SGuestDesc
 	}
 
 	if len(cpuNumaPin) > 0 {
-		srcDesc.MemDesc.Mem.SMemDesc.SetHostNodes(int(*cpuNumaPin[0].NodeId))
-		for i := range srcDesc.MemDesc.Mem.Mems {
-			srcDesc.MemDesc.Mem.Mems[i].SetHostNodes(int(*cpuNumaPin[i+1].NodeId))
+		if srcDesc.MemDesc.Mem != nil {
+			srcDesc.MemDesc.Mem.SMemDesc.SetHostNodes(int(*cpuNumaPin[0].NodeId))
+			for i := range srcDesc.MemDesc.Mem.Mems {
+				srcDesc.MemDesc.Mem.Mems[i].SetHostNodes(int(*cpuNumaPin[i+1].NodeId))
+			}
 		}
 		srcDesc.CpuNumaPin = cpuNumaPin
 	} else {
-		srcDesc.MemDesc.Mem.SMemDesc.SetHostNodes(-1)
-		for i := range srcDesc.MemDesc.Mem.Mems {
-			srcDesc.MemDesc.Mem.Mems[i].SetHostNodes(-1)
+		if srcDesc.MemDesc.Mem != nil {
+			srcDesc.MemDesc.Mem.SMemDesc.SetHostNodes(-1)
+			for i := range srcDesc.MemDesc.Mem.Mems {
+				srcDesc.MemDesc.Mem.Mems[i].SetHostNodes(-1)
+			}
 		}
 	}
 

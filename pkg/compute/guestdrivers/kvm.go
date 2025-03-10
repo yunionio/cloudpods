@@ -463,9 +463,11 @@ func (self *SKVMGuestDriver) RequestChangeVmConfig(ctx context.Context, guest *m
 		body := jsonutils.NewDict()
 		if vcpuCount > int64(guest.VcpuCount) {
 			body.Set("add_cpu", jsonutils.NewInt(addCpu))
+			body.Set("total_cpu", jsonutils.NewInt(int64(guest.VcpuCount)))
 		}
 		if vmemSize > int64(guest.VmemSize) {
 			body.Set("add_mem", jsonutils.NewInt(addMem))
+			body.Set("total_mem", jsonutils.NewInt(int64(guest.VmemSize)))
 		}
 		if taskParams.Contains("cpu_numa_pin") {
 			cpuNumaPin, _ := taskParams.Get("cpu_numa_pin")

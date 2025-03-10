@@ -397,6 +397,13 @@ func NewUsbController(masterbus string, port int) *UsbController {
 	return uc
 }
 
+func (m *SGuestMem) GuestNumaNodeCount() int {
+	if m.Mem == nil {
+		return 0
+	}
+	return len(m.Mem.Mems) + 1
+}
+
 func NewMemDesc(objType, id string, nodeId *uint16, cpus *string) *SMemDesc {
 	md := &SMemDesc{
 		Object: NewObject(objType, id),
