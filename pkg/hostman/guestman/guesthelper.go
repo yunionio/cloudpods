@@ -307,6 +307,9 @@ func NewGuestCpuSetCounter(
 }
 
 func (pq *CpuSetCounter) AllocCpusetWithNodeCount(vcpuCount int, memSizeKB int64, nodeCount int, guestId string) (map[int]SAllocNumaCpus, error) {
+	if nodeCount <= 0 {
+		return nil, nil
+	}
 	if !pq.NumaEnabled {
 		return pq.AllocCpuset(vcpuCount, memSizeKB, nil, guestId)
 	}

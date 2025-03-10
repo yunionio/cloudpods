@@ -2586,7 +2586,11 @@ func (task *SGuestHotplugCpuMemTask) startAddMem() {
 }
 
 func (task *SGuestHotplugCpuMemTask) onGetSlotIndex(index int) {
-	var newIndex = index + len(task.Desc.MemDesc.Mem.Mems)
+	var newIndex = index
+	if task.Desc.MemDesc.Mem != nil {
+		newIndex += len(task.Desc.MemDesc.Mem.Mems)
+	}
+
 	task.memSlotNewIndex = &newIndex
 
 	var addMemSize = task.addMemSize
