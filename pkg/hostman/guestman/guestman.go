@@ -1485,7 +1485,7 @@ func (m *SGuestManager) HotplugCpuMem(ctx context.Context, params interface{}) (
 	}
 
 	guest, _ := m.GetServer(hotplugParams.Sid)
-	NewGuestHotplugCpuMemTask(ctx, guest, int(hotplugParams.AddCpuCount), int(hotplugParams.AddMemSize), hotplugParams.CpuNumaPin).Start()
+	NewGuestHotplugCpuMemTask(ctx, guest, hotplugParams).Start()
 	return nil, nil
 }
 
