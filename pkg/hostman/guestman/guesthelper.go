@@ -275,6 +275,9 @@ func NewGuestCpuSetCounter(info *hostapi.HostTopology, reservedCpus *cpuset.CPUS
 }
 
 func (pq *CpuSetCounter) AllocCpusetWithNodeCount(vcpuCount int, memSizeKB int64, nodeCount int) (map[int]SAllocNumaCpus, error) {
+	if nodeCount <= 0 {
+		return nil, nil
+	}
 	if !pq.NumaEnabled {
 		return pq.AllocCpuset(vcpuCount, memSizeKB, -1)
 	}
