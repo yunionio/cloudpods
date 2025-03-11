@@ -300,6 +300,6 @@ func (driver *SBaseHostDriver) RequestDiskMigrate(ctx context.Context, targetHos
 	return fmt.Errorf("not supported")
 }
 
-func (driver *SBaseHostDriver) RequestUploadGuestsStatus(ctx context.Context, userCred mcclient.TokenCredential, host *models.SHost, guests []models.SGuest) error {
+func (driver *SBaseHostDriver) RequestUploadGuestsStatus(ctx context.Context, host *models.SHost, guests []models.SGuest, task taskman.ITask) error {
 	return fmt.Errorf("not supported")
 }

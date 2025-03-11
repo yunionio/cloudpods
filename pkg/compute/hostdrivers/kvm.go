@@ -718,13 +718,13 @@ func (driver *SKVMHostDriver) RequestProbeIsolatedDevices(ctx context.Context, u
 	return respBody.(*jsonutils.JSONArray), err
 }
 
-func (driver *SKVMHostDriver) RequestUploadGuestsStatus(ctx context.Context, userCred mcclient.TokenCredential, host *models.SHost, guests []models.SGuest) error {
+func (driver *SKVMHostDriver) RequestUploadGuestsStatus(ctx context.Context, host *models.SHost, guests []models.SGuest, task taskman.ITask) error {
 	input := &api.HostUploadGuestsStatusRequest{GuestIds: make([]string, len(guests))}
 	for i := range guests {
 		input.GuestIds[i] = guests[i].Id
 	}
-	header := mcclient.GetTokenHeaders(userCred)
+	header := task.GetTaskRequestHeader()
 	url := fmt.Sprintf("/servers/upload-status")
-	_, err := host.Request(ctx, userCred, "POST", url, header, jsonutils.Marshal(input))
+	_, err := host.Request(ctx, task.GetUserCred(), "POST", url, header, jsonutils.Marshal(input))
 	return err
 }
