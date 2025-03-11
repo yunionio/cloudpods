@@ -2015,6 +2015,7 @@ func (s *sPodGuestInstance) markContainerProbeDirty(status, ctrId string, reason
 	if status == computeapi.CONTAINER_STATUS_PROBING {
 		reason = fmt.Sprintf("status is probing: %s", reason)
 		s.getProbeManager().SetDirtyContainer(ctrId, reason)
+		s.getProbeManager().AddPod(s)
 	}
 }
 
