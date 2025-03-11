@@ -90,7 +90,7 @@ func (t *BaremetalUploadAllGuestsStatusTask) requestUploadGuestsStatus(ctx conte
 		return errors.Wrap(err, "GetHostDriver")
 	}
 	if len(needSyncGsts) > 0 {
-		return drv.RequestUploadGuestsStatus(ctx, t.GetUserCred(), baremetal, needSyncGsts)
+		return drv.RequestUploadGuestsStatus(ctx, baremetal, needSyncGsts, t)
 	}
 	return t.ScheduleRun(nil)
 }
