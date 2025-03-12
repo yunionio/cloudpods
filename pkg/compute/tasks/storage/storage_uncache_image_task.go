@@ -36,43 +36,44 @@ func init() {
 	taskman.RegisterTask(StorageUncacheImageTask{})
 }
 
-func (self *StorageUncacheImageTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
-	imageId, _ := self.Params.GetString("image_id")
-	// isForce := jsonutils.QueryBoolean(self.Params, "is_force", false)
-	isPurge := jsonutils.QueryBoolean(self.Params, "is_purge", false)
+func (uncacheTask *StorageUncacheImageTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	imageId, _ := uncacheTask.Params.GetString("image_id")
+	// isForce := jsonutils.QueryBoolean(uncacheTask.Params, "is_force", false)
+	isPurge := jsonutils.QueryBoolean(uncacheTask.Params, "is_purge", false)
 
 	storageCache := obj.(*models.SStoragecache)
 
-	db.OpsLog.LogEvent(storageCache, db.ACT_UNCACHING_IMAGE, imageId, self.UserCred)
+	db.OpsLog.LogEvent(storageCache, db.ACT_UNCACHING_IMAGE, imageId, uncacheTask.UserCred)
 
-	scimg := models.StoragecachedimageManager.Register(ctx, self.UserCred, storageCache.Id, imageId, "")
+	scimg := models.StoragecachedimageManager.Register(ctx, uncacheTask.UserCred, storageCache.Id, imageId, "")
 
 	if scimg == nil || (len(scimg.Path) == 0 && len(scimg.ExternalId) == 0) {
 		// "image is not cached on this storage"
-		self.OnImageUncacheComplete(ctx, storageCache, nil)
+		uncacheTask.OnImageUncacheComplete(ctx, storageCache, nil)
+		return
 	}
 
 	if isPurge {
-		self.OnImageUncacheComplete(ctx, obj, data)
+		uncacheTask.OnImageUncacheComplete(ctx, obj, data)
 		return
 	}
 
 	storage, err := models.StorageManager.GetStorageByStoragecache(storageCache.Id)
 	if err != nil {
-		self.OnTaskFailed(ctx, storageCache, errors.Wrap(err, "fail to get storage by storagecache"))
+		uncacheTask.OnTaskFailed(ctx, storageCache, errors.Wrap(err, "fail to get storage by storagecache"))
 		return
 	}
 	if storage.IsNeedDeactivateOnAllHost() {
-		self.RequestUncacheDeactivateImage(ctx, storageCache)
-		return
+		uncacheTask.RequestUncacheDeactivateImage(ctx, storageCache)
+	} else {
+		uncacheTask.RequestUncacheRemoveImage(ctx, storageCache)
 	}
-	self.RequestUncacheRemoveImage(ctx, storageCache)
 }
 
-func (self *StorageUncacheImageTask) RequestUncacheDeactivateImage(ctx context.Context, storageCache *models.SStoragecache) {
+func (uncacheTask *StorageUncacheImageTask) RequestUncacheDeactivateImage(ctx context.Context, storageCache *models.SStoragecache) {
 	hosts, err := storageCache.GetHosts()
 	if err != nil {
-		self.OnTaskFailed(ctx, storageCache, errors.Wrap(err, "fail to get hosts"))
+		uncacheTask.OnTaskFailed(ctx, storageCache, errors.Wrap(err, "fail to get hosts"))
 		return
 	}
 	for i := range hosts {
@@ -81,74 +82,88 @@ func (self *StorageUncacheImageTask) RequestUncacheDeactivateImage(ctx context.C
 		}
 		driver, err := hosts[i].GetHostDriver()
 		if err != nil {
-			self.OnTaskFailed(ctx, storageCache, errors.Wrapf(err, "GetHostDriver"))
+			uncacheTask.OnTaskFailed(ctx, storageCache, errors.Wrapf(err, "GetHostDriver"))
 			return
 		}
 
-		err = driver.RequestUncacheImage(ctx, &hosts[i], storageCache, self, true)
+		err = driver.RequestUncacheImage(ctx, &hosts[i], storageCache, uncacheTask, true)
 		if err != nil {
-			self.OnTaskFailed(ctx, storageCache, errors.Wrap(err, "RequestUncacheImage"))
+			uncacheTask.OnTaskFailed(ctx, storageCache, errors.Wrap(err, "RequestUncacheImage"))
 			return
 		}
 	}
 
-	self.RequestUncacheRemoveImage(ctx, storageCache)
+	uncacheTask.RequestUncacheRemoveImage(ctx, storageCache)
 }
 
-func (self *StorageUncacheImageTask) RequestUncacheRemoveImage(ctx context.Context, storageCache *models.SStoragecache) {
+func (uncacheTask *StorageUncacheImageTask) RequestUncacheRemoveImage(ctx context.Context, storageCache *models.SStoragecache) {
 	host, err := storageCache.GetMasterHost()
 	if err != nil {
-		self.OnTaskFailed(ctx, storageCache, errors.Wrapf(err, "GetMasterHost"))
+		uncacheTask.OnTaskFailed(ctx, storageCache, errors.Wrapf(err, "GetMasterHost"))
 		return
 	}
 
 	driver, err := host.GetHostDriver()
 	if err != nil {
-		self.OnTaskFailed(ctx, storageCache, errors.Wrapf(err, "GetHostDriver"))
+		uncacheTask.OnTaskFailed(ctx, storageCache, errors.Wrapf(err, "GetHostDriver"))
 		return
 	}
 
-	self.SetStage("OnImageUncacheComplete", nil)
-	err = driver.RequestUncacheImage(ctx, host, storageCache, self, false)
+	uncacheTask.SetStage("OnImageUncacheComplete", nil)
+	err = driver.RequestUncacheImage(ctx, host, storageCache, uncacheTask, false)
 	if err != nil {
-		self.OnTaskFailed(ctx, storageCache, errors.Wrapf(err, "RequestUncacheImage"))
+		uncacheTask.OnTaskFailed(ctx, storageCache, errors.Wrapf(err, "RequestUncacheImage"))
+		return
 	}
 }
 
-func (self *StorageUncacheImageTask) OnTaskFailed(ctx context.Context, storageCache *models.SStoragecache, reason error) {
+func (uncacheTask *StorageUncacheImageTask) OnTaskFailed(ctx context.Context, storageCache *models.SStoragecache, reason error) {
 	body := jsonutils.NewDict()
 	body.Add(jsonutils.NewString(reason.Error()), "reason")
-	imageId, _ := self.Params.GetString("image_id")
+	imageId, _ := uncacheTask.Params.GetString("image_id")
 	body.Add(jsonutils.NewString(imageId), "image_id")
+	body.Add(jsonutils.NewString(storageCache.Id), "storagecache_id")
 
-	db.OpsLog.LogEvent(storageCache, db.ACT_UNCACHE_IMAGE_FAIL, body, self.UserCred)
+	scimg := models.StoragecachedimageManager.Register(ctx, uncacheTask.UserCred, storageCache.Id, imageId, "")
+	if scimg != nil {
+		scimg.SetStatus(ctx, uncacheTask.UserCred, compute.CACHED_IMAGE_STATUS_DELETE_FAILED, reason.Error())
+	}
+	if cachedImage, _ := models.CachedimageManager.FetchById(imageId); cachedImage != nil {
+		db.OpsLog.LogEvent(cachedImage, db.ACT_UNCACHE_IMAGE_FAIL, body, uncacheTask.UserCred)
+		logclient.AddActionLogWithStartable(uncacheTask, cachedImage, logclient.ACT_UNCACHED_IMAGE, body, uncacheTask.UserCred, false)
+	}
+	db.OpsLog.LogEvent(storageCache, db.ACT_UNCACHE_IMAGE_FAIL, body, uncacheTask.UserCred)
+	logclient.AddActionLogWithStartable(uncacheTask, storageCache, logclient.ACT_UNCACHED_IMAGE, body, uncacheTask.UserCred, false)
 
-	logclient.AddActionLogWithStartable(self, storageCache, logclient.ACT_UNCACHED_IMAGE, body, self.UserCred, false)
-
-	self.SetStageFailed(ctx, body)
+	uncacheTask.SetStageFailed(ctx, body)
 }
 
-func (self *StorageUncacheImageTask) OnImageUncacheCompleteFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+func (uncacheTask *StorageUncacheImageTask) OnImageUncacheCompleteFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	storageCache := obj.(*models.SStoragecache)
 
-	self.OnTaskFailed(ctx, storageCache, errors.Errorf(data.String()))
+	uncacheTask.OnTaskFailed(ctx, storageCache, errors.Errorf(data.String()))
 }
 
-func (self *StorageUncacheImageTask) OnImageUncacheComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+func (uncacheTask *StorageUncacheImageTask) OnImageUncacheComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	log.Infof("Uncached image task success: %s", data)
 	storageCache := obj.(*models.SStoragecache)
 
-	imageId, _ := self.Params.GetString("image_id")
-	scimg := models.StoragecachedimageManager.Register(ctx, self.UserCred, storageCache.Id, imageId, "")
+	imageId, _ := uncacheTask.Params.GetString("image_id")
+	scimg := models.StoragecachedimageManager.Register(ctx, uncacheTask.UserCred, storageCache.Id, imageId, "")
 	if scimg != nil {
-		scimg.Detach(ctx, self.UserCred)
+		scimg.Detach(ctx, uncacheTask.UserCred)
 	}
 
 	body := jsonutils.NewDict()
 	body.Add(jsonutils.NewString(imageId), "image_id")
-	db.OpsLog.LogEvent(storageCache, db.ACT_UNCACHED_IMAGE, body, self.UserCred)
+	body.Add(jsonutils.NewString(storageCache.Id), "storagecache_id")
 
-	logclient.AddActionLogWithStartable(self, storageCache, db.ACT_UNCACHED_IMAGE, body, self.UserCred, true)
+	if cachedImage, _ := models.CachedimageManager.FetchById(imageId); cachedImage != nil {
+		db.OpsLog.LogEvent(cachedImage, db.ACT_UNCACHED_IMAGE, body, uncacheTask.UserCred)
+		logclient.AddActionLogWithStartable(uncacheTask, cachedImage, db.ACT_UNCACHED_IMAGE, body, uncacheTask.UserCred, true)
+	}
+	db.OpsLog.LogEvent(storageCache, db.ACT_UNCACHED_IMAGE, body, uncacheTask.UserCred)
+	logclient.AddActionLogWithStartable(uncacheTask, storageCache, db.ACT_UNCACHED_IMAGE, body, uncacheTask.UserCred, true)
 
-	self.SetStageComplete(ctx, nil)
+	uncacheTask.SetStageComplete(ctx, nil)
 }

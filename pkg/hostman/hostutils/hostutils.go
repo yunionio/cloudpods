@@ -245,6 +245,9 @@ var (
 	imageCacheW *workmanager.SWorkManager
 	backupW     *workmanager.SWorkManager
 	k8sWm       *workmanager.SWorkManager
+
+	imagePreCacheW *workmanager.SWorkManager
+
 	ParamsError = fmt.Errorf("Delay task parse params error")
 )
 
@@ -258,6 +261,10 @@ func DelayTask(ctx context.Context, task workmanager.DelayTaskFunc, params inter
 
 func DelayImageCacheTask(ctx context.Context, task workmanager.DelayTaskFunc, params interface{}) {
 	imageCacheW.DelayTask(ctx, task, params)
+}
+
+func DelayImagePreCacheTask(ctx context.Context, task workmanager.DelayTaskFunc, params interface{}) {
+	imagePreCacheW.DelayTask(ctx, task, params)
 }
 
 func DelayBackupTask(ctx context.Context, task workmanager.DelayTaskFunc, params interface{}) {
@@ -285,7 +292,8 @@ func InitWorkerManager() {
 }
 
 func initImageCacheWorkerManager() {
-	imageCacheW = workmanager.NewWorkManger("ImageCacheDelayTaskWorkers", TaskFailed, TaskComplete, options.HostOptions.DefaultRequestWorkerCount)
+	imageCacheW = workmanager.NewWorkManger("ImageCacheDelayTaskWorkers", TaskFailed, TaskComplete, options.HostOptions.ImageCacheWorkerCount)
+	imagePreCacheW = workmanager.NewWorkManger("ImagePrefetchCacheDelayTaskWorkers", TaskFailed, TaskComplete, options.HostOptions.ImageCacheWorkerCount)
 }
 
 func initBackupWorkerManager() {

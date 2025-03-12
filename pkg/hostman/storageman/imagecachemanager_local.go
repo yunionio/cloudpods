@@ -118,13 +118,12 @@ func (c *SLocalImageCacheManager) ReleaseImage(ctx context.Context, imageId stri
 }
 
 func (c *SLocalImageCacheManager) DeleteImageCache(ctx context.Context, data interface{}) (jsonutils.JSONObject, error) {
-	body, ok := data.(*jsonutils.JSONDict)
+	input, ok := data.(api.UncacheImageInput)
 	if !ok {
 		return nil, hostutils.ParamsError
 	}
 
-	imageId, _ := body.GetString("image_id")
-	return nil, c.RemoveImage(ctx, imageId)
+	return nil, c.RemoveImage(ctx, input.ImageId)
 }
 
 func (c *SLocalImageCacheManager) RemoveImage(ctx context.Context, imageId string) error {
@@ -139,13 +138,11 @@ func (c *SLocalImageCacheManager) RemoveImage(ctx context.Context, imageId strin
 }
 
 func (c *SLocalImageCacheManager) PrefetchImageCache(ctx context.Context, data interface{}) (jsonutils.JSONObject, error) {
-	body, ok := data.(*jsonutils.JSONDict)
+	input, ok := data.(api.CacheImageInput)
 	if !ok {
 		return nil, hostutils.ParamsError
 	}
 
-	input := api.CacheImageInput{}
-	body.Unmarshal(&input)
 	input.Zone = c.GetStorageManager().GetZoneId()
 
 	if len(input.ImageId) == 0 {

@@ -253,34 +253,25 @@ func (self *SKVMHostDriver) CheckAndSetCacheImage(ctx context.Context, userCred 
 }
 
 func (self *SKVMHostDriver) RequestUncacheImage(ctx context.Context, host *models.SHost, storageCache *models.SStoragecache, task taskman.ITask, deactivateImage bool) error {
-	type contentStruct struct {
-		ImageId        string
-		StoragecacheId string
-	}
+	input := api.UncacheImageInput{}
+	task.GetParams().Unmarshal(&input)
 
-	params := task.GetParams()
-	imageId, err := params.GetString("image_id")
-	if err != nil {
-		return err
-	}
-
-	content := contentStruct{}
-	content.ImageId = imageId
-	content.StoragecacheId = storageCache.Id
+	input.StoragecacheId = storageCache.Id
+	input.DeactivateImage = &deactivateImage
 
 	url := fmt.Sprintf("%s/disks/image_cache", host.ManagerUri)
 
 	body := jsonutils.NewDict()
-	body.Add(jsonutils.Marshal(&content), "disk")
+	body.Add(jsonutils.Marshal(&input), "disk")
 	if deactivateImage {
 		body.Add(jsonutils.JSONTrue, "deactivate_image")
 	}
 
 	header := task.GetTaskRequestHeader()
 
-	_, _, err = httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "DELETE", url, header, body, false)
+	_, _, err := httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "DELETE", url, header, body, false)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "JSONRequest")
 	}
 	return nil
 }

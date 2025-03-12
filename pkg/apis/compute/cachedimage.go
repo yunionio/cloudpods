@@ -14,7 +14,10 @@
 
 package compute
 
-import "yunion.io/x/onecloud/pkg/apis"
+import (
+	"yunion.io/x/onecloud/pkg/apis"
+	"yunion.io/x/onecloud/pkg/util/tagutils"
+)
 
 type CachedImageUncacheImageInput struct {
 	// 存储缓存名Id
@@ -26,8 +29,18 @@ type CachedImageUncacheImageInput struct {
 	IsForce bool `json:"is_force"`
 }
 
+type SStorageCacheFilters struct {
+	StorageType []string             `json:"storage_type"`
+	HostType    []string             `json:"host_type"`
+	HostTags    tagutils.STagFilters `json:"host_tags"`
+	StorageTags tagutils.STagFilters `json:"storage_tags"`
+}
 type CachedImageManagerCacheImageInput struct {
 	ImageId string `json:"image_id"`
+
+	AutoCache bool `json:"auto_cache"`
+
+	SStorageCacheFilters
 }
 
 type CachedimageUsage struct {

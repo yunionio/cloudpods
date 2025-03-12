@@ -28,7 +28,6 @@ import (
 
 	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/appsrv"
-	"yunion.io/x/onecloud/pkg/cloudcommon/workmanager"
 	"yunion.io/x/onecloud/pkg/hostman/guestman"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
@@ -98,39 +97,53 @@ func performImageCache(
 ) {
 	_, _, body := appsrv.FetchEnv(ctx, w, r)
 
-	disk, err := body.Get("disk")
-	if err != nil {
-		httperrors.MissingParameterError(ctx, w, "disk")
-		return
-	}
-	scId, err := disk.GetString("storagecache_id")
-	if err != nil {
-		httperrors.MissingParameterError(ctx, w, "disk")
-		return
-	}
-	storagecache := storageman.GetManager().GetStoragecacheById(scId)
-	if storagecache == nil {
-		httperrors.NotFoundError(ctx, w, "Storagecache %s not found", scId)
-		return
-	}
-
-	var performTask workmanager.DelayTaskFunc
-	if performAction == "perfetch" {
-		performTask = storagecache.PrefetchImageCache
-	} else {
-		if jsonutils.QueryBoolean(body, "deactivate_image", false) {
-			_, err := storagecache.DeleteImageCache(ctx, body)
-			if err != nil {
-				hostutils.Response(ctx, w, err)
-			}
-			hostutils.ResponseOk(ctx, w)
+	input := compute.CacheImageInput{}
+	{
+		err := body.Unmarshal(&input, "disk")
+		if err != nil {
+			httperrors.BadRequestError(ctx, w, "unmarshal disk %s", err)
 			return
-		} else {
-			performTask = storagecache.DeleteImageCache
 		}
 	}
 
-	hostutils.DelayImageCacheTask(ctx, performTask, disk)
+	if len(input.ImageId) == 0 {
+		httperrors.MissingParameterError(ctx, w, "image_id")
+		return
+	}
+	if len(input.StoragecacheId) == 0 {
+		httperrors.MissingParameterError(ctx, w, "storagecache_id")
+		return
+	}
+
+	storagecache := storageman.GetManager().GetStoragecacheById(input.StoragecacheId)
+	if storagecache == nil {
+		httperrors.NotFoundError(ctx, w, "Storagecache %s not found", input.StoragecacheId)
+		return
+	}
+
+	if performAction == "perfetch" {
+		if input.PreCache {
+			hostutils.DelayImagePreCacheTask(ctx, storagecache.PrefetchImageCache, input)
+		} else {
+			hostutils.DelayImageCacheTask(ctx, storagecache.PrefetchImageCache, input)
+		}
+	} else {
+		uncacheInput := compute.UncacheImageInput{}
+		body.Unmarshal(&uncacheInput, "disk")
+		// for LVM, deactivate_image is a sync call
+		if uncacheInput.DeactivateImage != nil && *uncacheInput.DeactivateImage {
+			_, err := storagecache.DeleteImageCache(ctx, uncacheInput)
+			if err != nil {
+				hostutils.Response(ctx, w, err)
+			} else {
+				hostutils.ResponseOk(ctx, w)
+			}
+			return
+		} else {
+			hostutils.DelayImageCacheTask(ctx, storagecache.DeleteImageCache, uncacheInput)
+		}
+	}
+
 	hostutils.ResponseOk(ctx, w)
 }
 

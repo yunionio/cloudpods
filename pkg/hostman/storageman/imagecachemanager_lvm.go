@@ -122,14 +122,9 @@ func (c *SLVMImageCacheManager) AcquireImage(
 }
 
 func (c *SLVMImageCacheManager) PrefetchImageCache(ctx context.Context, data interface{}) (jsonutils.JSONObject, error) {
-	body, ok := data.(*jsonutils.JSONDict)
+	input, ok := data.(api.CacheImageInput)
 	if !ok {
 		return nil, hostutils.ParamsError
-	}
-
-	input := api.CacheImageInput{}
-	if err := body.Unmarshal(&input); err != nil {
-		return nil, err
 	}
 
 	if len(input.ImageId) == 0 {
@@ -159,16 +154,15 @@ func (c *SLVMImageCacheManager) PrefetchImageCache(ctx context.Context, data int
 }
 
 func (c *SLVMImageCacheManager) DeleteImageCache(ctx context.Context, data interface{}) (jsonutils.JSONObject, error) {
-	body, ok := data.(*jsonutils.JSONDict)
+	input, ok := data.(api.UncacheImageInput)
 	if !ok {
 		return nil, hostutils.ParamsError
 	}
 
-	imageId, _ := body.GetString("image_id")
-	if jsonutils.QueryBoolean(body, "deactivate_image", false) {
-		return nil, c.DeactiveImageCacahe(ctx, imageId)
+	if input.DeactivateImage != nil && *input.DeactivateImage {
+		return nil, c.DeactiveImageCacahe(ctx, input.ImageId)
 	} else {
-		return nil, c.RemoveImage(ctx, imageId)
+		return nil, c.RemoveImage(ctx, input.ImageId)
 	}
 }
 

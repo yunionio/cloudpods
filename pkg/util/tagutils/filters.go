@@ -49,3 +49,7 @@ func (tf *STagFilters) AddNoFilters(tsl TTagSetList) {
 		tf.AddNoFilter(ts)
 	}
 }
+
+func (tf STagFilters) IsEmpty() bool {
+	return len(tf.Filters) == 0 && len(tf.NoFilters) == 0
+}
