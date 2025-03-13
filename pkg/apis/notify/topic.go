@@ -44,11 +44,15 @@ const (
 )
 
 type TopicUpdateInput struct {
-	TitleCn     string
-	TitleEn     string
-	ContentCn   string
-	ContentEn   string
-	AdvanceDays []int `json:"advance_days"`
+	apis.EnabledStatusStandaloneResourceBaseUpdateInput
+	TitleCn           string
+	TitleEn           string
+	ContentCn         string
+	ContentEn         string
+	AdvanceDays       []int `json:"advance_days"`
+	WebconsoleDisable *bool
+	Actions           []string
+	Resources         []string
 }
 
 type TopicListInput struct {
@@ -63,6 +67,7 @@ type TopicDetails struct {
 	// description: resources managed
 	// example: ["server", "eip", "disk"]
 	Resources   []string `json:"resource_types"`
+	Actions     []string `json:"actions"`
 	AdvanceDays []int    `json:"advance_days"`
 }
 
@@ -75,10 +80,17 @@ type PerformDisableInput struct {
 type STopicGroupKeys []string
 type TopicAdvanceDays []int
 
-type STopicActionInput struct {
-	ActionId string
-}
-
-type STopicResourceInput struct {
-	ResourceId string
+type STopicCreateInput struct {
+	apis.EnabledStatusStandaloneResourceCreateInput
+	Type              string           `json:"type"`
+	Results           bool             `json:"results"`
+	TitleCn           string           `json:"title_cn"`
+	TitleEn           string           `json:"title_en"`
+	ContentCn         string           `json:"content_cn"`
+	ContentEn         string           `json:"content_en"`
+	GroupKeys         *STopicGroupKeys `json:"group_keys"`
+	AdvanceDays       []int            `json:"advance_days"`
+	Resources         []string         `json:"resources"`
+	Actions           []string         `json:"actions"`
+	WebconsoleDisable bool             `json:"webconsole_disable"`
 }

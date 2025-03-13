@@ -32,8 +32,6 @@ func InitDB() error {
 		ConfigManager,
 		TemplateManager,
 		ReceiverNotificationManager,
-		NotifyActionManager,
-		NotifyResourceManager,
 		TopicManager,
 		RobotManager,
 		SubscriberManager,

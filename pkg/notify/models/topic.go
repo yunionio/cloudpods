@@ -24,8 +24,10 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/sets"
+	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/notify"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -75,10 +77,10 @@ type STopic struct {
 	TitleEn     string               `length:"medium" nullable:"true" charset:"utf8" list:"user" update:"user" create:"optional"`
 	ContentCn   string               `length:"medium" nullable:"true" charset:"utf8" list:"user" update:"user" create:"optional"`
 	ContentEn   string               `length:"medium" nullable:"true" charset:"utf8" list:"user" update:"user" create:"optional"`
-	GroupKeys   *api.STopicGroupKeys `nullable:"true" list:"user"  update:"user"`
+	GroupKeys   *api.STopicGroupKeys `nullable:"true" list:"user" update:"user" create:"optional"`
 	AdvanceDays []int                `nullable:"true" charset:"utf8" list:"user" update:"user" create:"optional"`
 
-	WebconsoleDisable tristate.TriState
+	WebconsoleDisable tristate.TriState `default:"false" list:"user" update:"user" create:"optional"`
 }
 
 const (
@@ -665,24 +667,162 @@ func (sm *STopicManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery,
 func (sm *STopicManager) FetchCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, objs []interface{}, fields stringutils2.SSortedStrings, isList bool) []api.TopicDetails {
 	sRows := sm.SStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	rows := make([]api.TopicDetails, len(objs))
+	topicIds := make([]string, len(objs))
 	for i := range rows {
 		rows[i].StandaloneResourceDetails = sRows[i]
 		ss := objs[i].(*STopic)
-		rows[i].Resources = ss.getResources()
+		topicIds[i] = ss.Id
 	}
+	resources, resourceMap := []STopicResource{}, map[string][]string{}
+	err := TopicResourceManager.Query().In("topic_id", topicIds).All(&resources)
+	if err != nil {
+		log.Errorf("query resources error: %v", err)
+		return rows
+	}
+	for _, r := range resources {
+		_, ok := resourceMap[r.TopicId]
+		if !ok {
+			resourceMap[r.TopicId] = []string{}
+		}
+		resourceMap[r.TopicId] = append(resourceMap[r.TopicId], r.ResourceId)
+	}
+	actions, actionMap := []STopicAction{}, map[string][]string{}
+	err = TopicActionManager.Query().In("topic_id", topicIds).All(&actions)
+	if err != nil {
+		log.Errorf("query actions error: %v", err)
+		return rows
+	}
+	for _, a := range actions {
+		_, ok := actionMap[a.TopicId]
+		if !ok {
+			actionMap[a.TopicId] = []string{}
+		}
+		actionMap[a.TopicId] = append(actionMap[a.TopicId], a.ActionId)
+	}
+	for i := range rows {
+		rows[i].Resources, _ = resourceMap[topicIds[i]]
+		rows[i].Actions, _ = actionMap[topicIds[i]]
+	}
+
 	return rows
 }
 
-func (sm *STopicManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	return nil, httperrors.NewForbiddenError("prohibit creation")
-}
-
-func (ss *STopic) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.TopicUpdateInput) (api.TopicUpdateInput, error) {
+func (sm *STopicManager) ValidateCreateData(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	ownerId mcclient.IIdentityProvider,
+	query jsonutils.JSONObject,
+	input *api.STopicCreateInput,
+) (*api.STopicCreateInput, error) {
+	var err error
+	input.EnabledStatusStandaloneResourceCreateInput, err = sm.SEnabledStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.EnabledStatusStandaloneResourceCreateInput)
+	if err != nil {
+		return nil, err
+	}
+	if !utils.IsInStringArray(input.Type, []string{
+		api.TOPIC_TYPE_RESOURCE,
+		api.TOPIC_TYPE_AUTOMATED_PROCESS,
+		api.TOPIC_TYPE_SECURITY,
+	}) {
+		return nil, httperrors.NewInputParameterError("invalid type %s", input.Type)
+	}
+	input.Status = apis.STATUS_AVAILABLE
 	return input, nil
 }
 
+func (tp *STopic) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	tp.SEnabledStatusStandaloneResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
+	input := &api.STopicCreateInput{}
+	data.Unmarshal(input)
+	for _, resource := range input.Resources {
+		r := &STopicResource{
+			ResourceId: resource,
+			TopicId:    tp.Id,
+		}
+		r.SetModelManager(TopicResourceManager, r)
+		TopicResourceManager.TableSpec().Insert(ctx, r)
+	}
+	for _, action := range input.Actions {
+		a := &STopicAction{
+			ActionId: action,
+			TopicId:  tp.Id,
+		}
+		a.SetModelManager(TopicActionManager, a)
+		TopicActionManager.TableSpec().Insert(ctx, a)
+	}
+}
+
+func (ss *STopic) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.TopicUpdateInput) (*api.TopicUpdateInput, error) {
+	var err error
+	input.EnabledStatusStandaloneResourceBaseUpdateInput, err = ss.SEnabledStatusStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, input.EnabledStatusStandaloneResourceBaseUpdateInput)
+	if err != nil {
+		return nil, err
+	}
+	return input, nil
+}
+
+func (tp *STopic) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	tp.SEnabledStatusStandaloneResourceBase.PostUpdate(ctx, userCred, query, data)
+	input := api.TopicUpdateInput{}
+	jsonutils.Update(&input, data)
+	if len(input.Resources) > 0 {
+		tp.cleanResources()
+		for _, res := range input.Resources {
+			r := &STopicResource{
+				ResourceId: res,
+				TopicId:    tp.Id,
+			}
+			r.SetModelManager(TopicResourceManager, r)
+			TopicResourceManager.TableSpec().Insert(ctx, r)
+		}
+	}
+	if len(input.Actions) > 0 {
+		tp.cleanActions()
+		for _, action := range input.Actions {
+			a := &STopicAction{
+				ActionId: action,
+				TopicId:  tp.Id,
+			}
+			a.SetModelManager(TopicActionManager, a)
+			TopicActionManager.TableSpec().Insert(ctx, a)
+		}
+	}
+}
+
 func (ss *STopic) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
-	return httperrors.NewForbiddenError("prohibit deletion")
+	return ss.SEnabledStatusStandaloneResourceBase.ValidateDeleteCondition(ctx, info)
+}
+
+func (tp *STopic) cleanResources() error {
+	_, err := sqlchemy.GetDB().Exec(
+		fmt.Sprintf(
+			"delete from %s where topic_id = ?",
+			TopicResourceManager.TableSpec().Name(),
+		), tp.Id,
+	)
+	return err
+}
+
+func (tp *STopic) cleanActions() error {
+	_, err := sqlchemy.GetDB().Exec(
+		fmt.Sprintf(
+			"delete from %s where topic_id = ?",
+			TopicActionManager.TableSpec().Name(),
+		), tp.Id,
+	)
+	return err
+}
+
+func (tp *STopic) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	err := tp.cleanResources()
+	if err != nil {
+		return errors.Wrapf(err, "cleanResources")
+	}
+	err = tp.cleanActions()
+	if err != nil {
+		return errors.Wrapf(err, "cleanActions")
+	}
+	return tp.SEnabledStatusStandaloneResourceBase.Delete(ctx, userCred)
 }
 
 func (s *STopic) addResources(resources ...string) {
@@ -707,17 +847,24 @@ func (s *STopic) addAction(actions ...api.SAction) {
 	}
 }
 
-func (s *STopic) getResources() []string {
-	temp := []SNotifyResource{}
-	q := NotifyResourceManager.Query()
-	sq := TopicResourceManager.Query().Equals("topic_id", s.Id).SubQuery()
-	q = q.Join(sq, sqlchemy.Equals(q.Field("id"), sq.Field("resource_id")))
-	q.All(&temp)
-	resources := make([]string, 0, len(temp))
-	for i := range temp {
-		resources = append(resources, temp[i].Id)
+func (s *STopic) GetResources() ([]STopicResource, error) {
+	ret := []STopicResource{}
+	q := TopicResourceManager.Query().Equals("topic_id", s.Id)
+	err := db.FetchModelObjects(TopicResourceManager, q, &ret)
+	if err != nil {
+		return nil, err
 	}
-	return resources
+	return ret, nil
+}
+
+func (s *STopic) GetActions() ([]STopicAction, error) {
+	ret := []STopicAction{}
+	q := TopicActionManager.Query().Equals("topic_id", s.Id)
+	err := db.FetchModelObjects(TopicActionManager, q, &ret)
+	if err != nil {
+		return nil, err
+	}
+	return ret, nil
 }
 
 func (sm *STopicManager) GetTopicByEvent(resourceType string, action api.SAction, isFailed api.SResult) (*STopic, error) {
@@ -737,16 +884,11 @@ func (sm *STopicManager) GetTopicByEvent(resourceType string, action api.SAction
 
 func (sm *STopicManager) GetTopicsByEvent(resourceType string, action api.SAction, isFailed api.SResult) ([]STopic, error) {
 	q := sm.Query()
-	q = q.Equals("results", isFailed)
-	q = q.Equals("enabled", true)
-	actionQ := NotifyActionManager.Query().Equals("name", action).IsTrue("enabled").SubQuery()
-	topicActionQ := TopicActionManager.Query()
-	topicActionQ = topicActionQ.Join(actionQ, sqlchemy.Equals(topicActionQ.Field("action_id"), actionQ.Field("id")))
-	resourceQ := NotifyResourceManager.Query().Equals("name", resourceType).IsTrue("enabled").SubQuery()
-	topicResourceQ := TopicResourceManager.Query()
-	topicResourceSq := topicResourceQ.Join(resourceQ, sqlchemy.Equals(topicResourceQ.Field("resource_id"), resourceQ.Field("id"))).SubQuery()
-	tempSQ := topicActionQ.LeftJoin(topicResourceSq, sqlchemy.Equals(topicActionQ.Field("topic_id"), topicResourceSq.Field("topic_id"))).SubQuery()
-	q = q.Join(tempSQ, sqlchemy.Equals(tempSQ.Field("topic_id"), q.Field("id")))
+	q = q.Equals("results", isFailed).IsTrue("enabled")
+	actionQ := TopicActionManager.Query("topic_id").Equals("action_id", action).SubQuery()
+	q = q.In("id", actionQ)
+	resourceQ := TopicResourceManager.Query("topic_id").Equals("resource_id", resourceType).SubQuery()
+	q = q.In("id", resourceQ)
 	var topics []STopic
 	err := db.FetchModelObjects(sm, q, &topics)
 	if err != nil {
@@ -760,20 +902,11 @@ func (manager *STopicManager) TopicByEvent(eventStr string) (*STopic, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "unable to parse event %q", event)
 	}
-	q := manager.Query()
-	if event.Result() == api.ResultSucceed {
-		q = q.Equals("results", true)
-	} else {
-		q = q.Equals("results", false)
-	}
-	actionQ := NotifyActionManager.Query().Equals("name", event.Action()).IsTrue("enabled").SubQuery()
-	topicActionQ := TopicActionManager.Query()
-	topicActionQ = topicActionQ.Join(actionQ, sqlchemy.Equals(topicActionQ.Field("action_id"), actionQ.Field("id")))
-	resourceQ := NotifyResourceManager.Query().Equals("name", event.ResourceType()).IsTrue("enabled").SubQuery()
-	topicResourceQ := TopicResourceManager.Query()
-	topicResourceSq := topicResourceQ.Join(resourceQ, sqlchemy.Equals(topicResourceQ.Field("resource_id"), resourceQ.Field("id"))).SubQuery()
-	tempSQ := topicActionQ.LeftJoin(topicResourceSq, sqlchemy.Equals(topicActionQ.Field("topic_id"), topicResourceSq.Field("topic_id"))).SubQuery()
-	q = q.Join(tempSQ, sqlchemy.Equals(tempSQ.Field("topic_id"), q.Field("id")))
+	q := manager.Query().Equals("results", event.Result() == api.ResultSucceed)
+	actionQ := TopicActionManager.Query("topic_id").Equals("action_id", event.Action()).SubQuery()
+	q = q.In("id", actionQ)
+	resourceQ := TopicResourceManager.Query("topic_id").Equals("resource_id", event.ResourceType()).SubQuery()
+	q = q.In("id", resourceQ)
 	var topics []STopic
 	err = db.FetchModelObjects(manager, q, &topics)
 	if err != nil {
@@ -811,66 +944,4 @@ func (topic *STopic) CreateEvent(ctx context.Context, resType, action, message s
 		TopicId:      topic.Id,
 	}
 	return eve, EventManager.TableSpec().Insert(ctx, eve)
-}
-
-func (s *STopic) PerformAddResource(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.STopicResourceInput) (jsonutils.JSONObject, error) {
-	count, err := NotifyResourceManager.Query().Equals("id", input.ResourceId).CountWithError()
-	if err != nil {
-		return nil, errors.Wrap(err, "fetch count")
-	}
-	if count == 0 {
-		return nil, errors.Wrap(errors.ErrNotFound, "resource_id")
-	}
-	count, err = TopicResourceManager.Query().Equals("resource_id", input.ResourceId).Equals("topic_id", s.Id).CountWithError()
-	if err != nil {
-		return nil, errors.Wrap(err, "fetch count")
-	}
-	if count > 0 {
-		return nil, errors.Wrapf(httperrors.ErrDuplicateResource, "topic:%s,resource:%s has been exist", s.Id, input.ResourceId)
-	}
-	topicResource := STopicResource{
-		TopicId:    s.Id,
-		ResourceId: input.ResourceId,
-	}
-	return jsonutils.Marshal(topicResource), TopicResourceManager.TableSpec().InsertOrUpdate(ctx, &topicResource)
-}
-
-func (s *STopic) PerformRemoveResource(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.STopicResourceInput) (jsonutils.JSONObject, error) {
-	topicResource := STopicResource{}
-	err := TopicResourceManager.Query().Equals("resource_id", input.ResourceId).Equals("topic_id", s.Id).First(&topicResource)
-	if err != nil {
-		return nil, errors.Wrap(err, "fetch topic_resource")
-	}
-	return jsonutils.Marshal(topicResource), topicResource.Delete(ctx, userCred)
-}
-
-func (s *STopic) PerformAddAction(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.STopicActionInput) (jsonutils.JSONObject, error) {
-	count, err := NotifyActionManager.Query().Equals("id", input.ActionId).CountWithError()
-	if err != nil {
-		return nil, errors.Wrap(err, "fetch count")
-	}
-	if count == 0 {
-		return nil, errors.Wrap(errors.ErrNotFound, "action_id")
-	}
-	count, err = TopicActionManager.Query().Equals("action_id", input.ActionId).Equals("topic_id", s.Id).CountWithError()
-	if err != nil {
-		return nil, errors.Wrap(err, "fetch count")
-	}
-	if count > 0 {
-		return nil, errors.Wrapf(httperrors.ErrDuplicateResource, "topic:%s,action:%s has been exist", s.Id, input.ActionId)
-	}
-	topicAction := STopicAction{
-		TopicId:  s.Id,
-		ActionId: input.ActionId,
-	}
-	return jsonutils.Marshal(topicAction), TopicActionManager.TableSpec().InsertOrUpdate(ctx, &topicAction)
-}
-
-func (s *STopic) PerformRemoveAction(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.STopicActionInput) (jsonutils.JSONObject, error) {
-	topicAction := STopicAction{}
-	err := TopicActionManager.Query().Equals("action_id", input.ActionId).Equals("topic_id", s.Id).First(&topicAction)
-	if err != nil {
-		return nil, errors.Wrap(err, "fetch topic_action")
-	}
-	return jsonutils.Marshal(topicAction), topicAction.Delete(ctx, userCred)
 }

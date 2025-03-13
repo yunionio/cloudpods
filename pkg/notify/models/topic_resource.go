@@ -33,27 +33,26 @@ import (
 )
 
 type STopicResourceManager struct {
-	db.SJointResourceBaseManager
+	db.SResourceBaseManager
 }
 
 var TopicResourceManager *STopicResourceManager
 
 func init() {
 	TopicResourceManager = &STopicResourceManager{
-		SJointResourceBaseManager: db.NewJointResourceBaseManager(
+		SResourceBaseManager: db.NewResourceBaseManager(
 			STopicResource{},
 			"topic_resources_tbl",
 			"topic_resource",
 			"topic_resources",
-			TopicManager,
-			NotifyResourceManager,
 		),
 	}
 	TopicResourceManager.SetVirtualObject(TopicResourceManager)
+	TopicResourceManager.TableSpec().AddIndex(false, "topic_id", "resource_id", "deleted")
 }
 
 type STopicResource struct {
-	db.SJointResourceBase
+	db.SResourceBase
 
 	ResourceId string `width:"64" nullable:"false" create:"required" update:"user" list:"user"`
 	TopicId    string `width:"64" nullable:"false" create:"required" update:"user" list:"user"`
