@@ -211,7 +211,13 @@ func init() {
 			}
 			key := strings.TrimSpace(c[:pos])
 			value := strings.TrimSpace(c[pos+1:])
-			config.Add(jsonutils.NewString(value), "config", "default", key)
+			var v jsonutils.JSONObject
+			if value == "true" || value == "false" {
+				v = jsonutils.NewBool(value == "true")
+			} else {
+				v = jsonutils.NewString(value)
+			}
+			config.Add(v, "config", "default", key)
 		}
 		nconf, err := modules.ServicesV3.PerformAction(s, args.SERVICE, "config", config)
 		if err != nil {
