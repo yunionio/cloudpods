@@ -165,5 +165,5 @@ func (self *SZStackProvider) GetCapabilities() []string {
 }
 
 func (self *SZStackProvider) GetMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
-	return self.client.GetEcsMetrics(opts)
+	return self.client.GetMetrics(opts)
 }
