@@ -79,7 +79,7 @@ func (self *SWafInstance) GetName() string {
 }
 
 func (self *SWafInstance) GetGlobalId() string {
-	return self.Domain
+	return self.DomainId
 }
 
 func (self *SWafInstance) GetId() string {
