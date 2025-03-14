@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
@@ -54,6 +55,7 @@ func (self *SZStackClient) GetMonitorData(name string, namespace string, since t
 }
 
 func (self *SZStackClient) GetMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
+	log.Infof("GetMetrics %s %s %s %s %s", opts.ResourceType, opts.MetricType, opts.ResourceId, opts.StartTime, opts.EndTime)
 	switch opts.ResourceType {
 	case cloudprovider.METRIC_RESOURCE_TYPE_SERVER:
 		return self.GetEcsMetrics(opts)
@@ -67,19 +69,21 @@ func (self *SZStackClient) GetMetrics(opts *cloudprovider.MetricListOptions) ([]
 func (self *SZStackClient) GetHostMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
 	ns, metricName := "ZStack/Host", ""
 	switch opts.MetricType {
-	case cloudprovider.VM_METRIC_TYPE_CPU_USAGE:
-		metricName = "CPUAverageUsedUtilization"
-	case cloudprovider.VM_METRIC_TYPE_DISK_IO_READ_BPS:
+	case cloudprovider.HOST_METRIC_TYPE_CPU_USAGE:
+		metricName = "CPUUsedUtilization"
+	case cloudprovider.HOST_METRIC_TYPE_MEM_USAGE:
+		metricName = "MemoryUsedInPercent"
+	case cloudprovider.HOST_METRIC_TYPE_DISK_IO_READ_BPS:
 		metricName = "DiskReadBytes"
-	case cloudprovider.VM_METRIC_TYPE_DISK_IO_WRITE_BPS:
+	case cloudprovider.HOST_METRIC_TYPE_DISK_IO_WRITE_BPS:
 		metricName = "DiskWriteBytes"
-	case cloudprovider.VM_METRIC_TYPE_NET_BPS_RX:
+	case cloudprovider.HOST_METRIC_TYPE_NET_BPS_RX:
 		metricName = "NetworkInBytes"
-	case cloudprovider.VM_METRIC_TYPE_NET_BPS_TX:
+	case cloudprovider.HOST_METRIC_TYPE_NET_BPS_TX:
 		metricName = "NetworkOutBytes"
-	case cloudprovider.VM_METRIC_TYPE_DISK_IO_READ_IOPS:
+	case cloudprovider.HOST_METRIC_TYPE_DISK_IO_READ_IOPS:
 		metricName = "DiskReadOps"
-	case cloudprovider.VM_METRIC_TYPE_DISK_IO_WRITE_IOPS:
+	case cloudprovider.HOST_METRIC_TYPE_DISK_IO_WRITE_IOPS:
 		metricName = "DiskWriteOps"
 	default:
 		return nil, errors.Wrapf(cloudprovider.ErrNotSupported, "%s", opts.MetricType)
@@ -107,6 +111,8 @@ func (self *SZStackClient) GetEcsMetrics(opts *cloudprovider.MetricListOptions) 
 	switch opts.MetricType {
 	case cloudprovider.VM_METRIC_TYPE_CPU_USAGE:
 		metricName = "CPUAverageUsedUtilization"
+	case cloudprovider.VM_METRIC_TYPE_MEM_USAGE:
+		metricName = "MemoryUsedInPercent"
 	case cloudprovider.VM_METRIC_TYPE_DISK_IO_READ_BPS:
 		metricName = "DiskReadBytes"
 	case cloudprovider.VM_METRIC_TYPE_DISK_IO_WRITE_BPS:
