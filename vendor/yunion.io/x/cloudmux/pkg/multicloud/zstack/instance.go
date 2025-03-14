@@ -338,7 +338,7 @@ func (instance *SInstance) GetVNCInfo(input *cloudprovider.ServerVncInput) (*clo
 	url := fmt.Sprintf("%s://%s:5000/thirdparty/vnc_auto.html?host=%s&port=%d&token=%s&title=%s", info.Scheme, authURL.Hostname(), info.Hostname, info.Port, info.Token, instance.Name)
 	if ver, _ := instance.host.zone.region.client.GetVersion(); ver != nil {
 		if version.GE(ver.Version, "4.0.0") {
-			url = fmt.Sprintf("%s://%s:5000/novnc/index.html?host=%s&port=%d&token=%s&title=%s&language=zh-CN&lowVersion=false", info.Scheme, authURL.Hostname(), info.Hostname, info.Port, info.Token, instance.Name)
+			url = fmt.Sprintf("%s://%s:5000/novnc?host=%s&port=%d&token=%s&title=%s&language=zh-CN&lowVersion=false", info.Scheme, authURL.Hostname(), info.Hostname, info.Port, info.Token, instance.Name)
 		}
 	}
 	password, _ := instance.host.zone.region.GetInstanceConsolePassword(instance.UUID)
