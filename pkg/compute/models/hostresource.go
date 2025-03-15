@@ -104,11 +104,12 @@ func (manager *SHostResourceBaseManager) FetchCustomizeColumns(
 			host := hosts[hostIds[i]]
 			rows[i].Host = host.Name
 			rows[i].HostSN = host.SN
-			rows[i].HostStatus = host.HostStatus
+			rows[i].HostStatus = host.Status
 			rows[i].HostEnabled = host.Enabled.Bool()
 			rows[i].HostServiceStatus = host.HostStatus
 			rows[i].HostType = host.HostType
 			rows[i].HostAccessIp = host.AccessIp
+			rows[i].HostAccessMac = host.AccessMac
 			rows[i].HostEIP = host.PublicIp
 			rows[i].ManagerId = host.ManagerId
 			rows[i].HostResourceType = host.ResourceType

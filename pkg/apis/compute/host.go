@@ -282,6 +282,40 @@ func (self HostDetails) GetMetricPairs() map[string]string {
 	return ret
 }
 
+type HostInfo struct {
+	// 宿主机ID
+	Id string `json:"id"`
+	// 宿主机名称
+	Name string `json:"name"`
+
+	ResourceType string `json:"resource_type"`
+
+	// 宿主机序列号
+	SN string `json:"sn"`
+
+	// 宿主是否启用
+	Enabled bool `json:"enabled"`
+
+	// 宿主机状态
+	Status string `json:"status"`
+
+	// 宿主机计费类型
+	BillingType string `json:"billing_type"`
+
+	// 宿主机服务状态`
+	HostStatus string `json:"host_status"`
+
+	// 宿主机类型
+	HostType string `json:"host_type"`
+
+	// 宿主机管理IP
+	AccessIp string `json:"access_ip"`
+	// 宿主机公网IP（如果有）
+	PublicIp string `json:"public_ip"`
+	// 宿主机MAC
+	AccessMac string `json:"access_mac"`
+}
+
 type HostResourceInfo struct {
 	// 归属云订阅ID
 	ManagerId string `json:"manager_id"`
@@ -320,6 +354,8 @@ type HostResourceInfo struct {
 	HostAccessIp string `json:"host_access_ip"`
 	// 宿主机公网IP（如果有）
 	HostEIP string `json:"host_eip"`
+	// 宿主机MAC
+	HostAccessMac string `json:"host_access_mac"`
 }
 
 type HostFilterListInput struct {

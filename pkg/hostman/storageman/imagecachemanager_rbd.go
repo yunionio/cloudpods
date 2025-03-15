@@ -119,13 +119,10 @@ func (c *SRbdImageCacheManager) GetPath() string {
 }
 
 func (c *SRbdImageCacheManager) PrefetchImageCache(ctx context.Context, data interface{}) (jsonutils.JSONObject, error) {
-	body, ok := data.(*jsonutils.JSONDict)
+	input, ok := data.(api.CacheImageInput)
 	if !ok {
 		return nil, hostutils.ParamsError
 	}
-
-	input := api.CacheImageInput{}
-	body.Unmarshal(&input)
 
 	if len(input.ImageId) == 0 {
 		return nil, httperrors.NewMissingParameterError("image_id")
@@ -154,13 +151,12 @@ func (c *SRbdImageCacheManager) PrefetchImageCache(ctx context.Context, data int
 }
 
 func (c *SRbdImageCacheManager) DeleteImageCache(ctx context.Context, data interface{}) (jsonutils.JSONObject, error) {
-	body, ok := data.(*jsonutils.JSONDict)
+	input, ok := data.(api.UncacheImageInput)
 	if !ok {
 		return nil, hostutils.ParamsError
 	}
 
-	imageId, _ := body.GetString("image_id")
-	return nil, c.RemoveImage(ctx, imageId)
+	return nil, c.RemoveImage(ctx, input.ImageId)
 }
 
 func (c *SRbdImageCacheManager) RemoveImage(ctx context.Context, imageId string) error {

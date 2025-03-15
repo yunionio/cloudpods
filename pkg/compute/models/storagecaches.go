@@ -71,9 +71,9 @@ type SStoragecache struct {
 	MasterHost string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user" json:"master_host"`
 }
 
-func (self *SStoragecache) getStorages() []SStorage {
+func (sc *SStoragecache) getStorages() []SStorage {
 	storages := make([]SStorage, 0)
-	q := StorageManager.Query().Equals("storagecache_id", self.Id)
+	q := StorageManager.Query().Equals("storagecache_id", sc.Id)
 	err := db.FetchModelObjects(StorageManager, q, &storages)
 	if err != nil {
 		return nil
@@ -81,11 +81,11 @@ func (self *SStoragecache) getStorages() []SStorage {
 	return storages
 }
 
-func (self *SStoragecache) getValidStorages() []SStorage {
+func (sc *SStoragecache) getValidStorages() []SStorage {
 	storages := []SStorage{}
 	q := StorageManager.Query()
 	zones := ZoneManager.Query().Equals("status", api.ZONE_ENABLE).SubQuery()
-	q = q.Equals("storagecache_id", self.Id).
+	q = q.Equals("storagecache_id", sc.Id).
 		Filter(sqlchemy.In(q.Field("status"), []string{api.STORAGE_ENABLED, api.STORAGE_ONLINE})).
 		Filter(sqlchemy.IsTrue(q.Field("enabled"))).
 		Filter(sqlchemy.IsFalse(q.Field("deleted")))
@@ -97,8 +97,8 @@ func (self *SStoragecache) getValidStorages() []SStorage {
 	return storages
 }
 
-func (self *SStoragecache) getStorageNames() []string {
-	storages := self.getStorages()
+func (sc *SStoragecache) getStorageNames() []string {
+	storages := sc.getStorages()
 	if storages == nil {
 		return nil
 	}
@@ -109,11 +109,11 @@ func (self *SStoragecache) getStorageNames() []string {
 	return names
 }
 
-func (self *SStoragecache) GetEsxiAgentHostDesc() (*jsonutils.JSONDict, error) {
-	if !strings.Contains(self.Name, "esxiagent") {
+func (sc *SStoragecache) GetEsxiAgentHostDesc() (*jsonutils.JSONDict, error) {
+	if !strings.Contains(sc.Name, "esxiagent") {
 		return nil, nil
 	}
-	obj, err := BaremetalagentManager.FetchById(self.ExternalId)
+	obj, err := BaremetalagentManager.FetchById(sc.ExternalId)
 	if err != nil {
 		return nil, errors.Wrapf(err, "unable to fetch baremetalagent %s", obj.GetId())
 	}
@@ -129,21 +129,21 @@ func (self *SStoragecache) GetEsxiAgentHostDesc() (*jsonutils.JSONDict, error) {
 	return ret, nil
 }
 
-func (self *SStoragecache) GetMasterHost() (*SHost, error) {
-	if self.MasterHost != "" {
-		host, err := HostManager.FetchById(self.MasterHost)
+func (sc *SStoragecache) GetMasterHost() (*SHost, error) {
+	if sc.MasterHost != "" {
+		host, err := HostManager.FetchById(sc.MasterHost)
 		if err != nil {
 			return nil, errors.Wrap(err, "HostManager.FetchById")
 		}
 		return host.(*SHost), nil
 	}
 
-	hostId, err := self.getHostId()
+	hostId, err := sc.getHostId()
 	if err != nil {
-		return nil, errors.Wrap(err, "self.getHostId")
+		return nil, errors.Wrap(err, "sc.getHostId")
 	}
 	if len(hostId) == 0 {
-		return nil, errors.Errorf("failed to get any available host for storagecache %s", self.Name)
+		return nil, errors.Errorf("failed to get any available host for storagecache %s", sc.Name)
 	}
 
 	host, err := HostManager.FetchById(hostId)
@@ -153,8 +153,8 @@ func (self *SStoragecache) GetMasterHost() (*SHost, error) {
 	return host.(*SHost), nil
 }
 
-func (self *SStoragecache) GetRegion() (*SCloudregion, error) {
-	host, err := self.GetMasterHost()
+func (sc *SStoragecache) GetRegion() (*SCloudregion, error) {
+	host, err := sc.GetMasterHost()
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetHost")
 	}
@@ -165,7 +165,7 @@ func (self *SStoragecache) GetRegion() (*SCloudregion, error) {
 	return region, nil
 }
 
-func (self *SStoragecache) GetHosts() ([]SHost, error) {
+func (sc *SStoragecache) GetHosts() ([]SHost, error) {
 	hoststorages := HoststorageManager.Query().SubQuery()
 	storages := StorageManager.Query().SubQuery()
 
@@ -180,7 +180,7 @@ func (self *SStoragecache) GetHosts() ([]SHost, error) {
 		),
 		sqlchemy.IsTrue(host.Field("enabled")),
 	)).
-		Join(storages, sqlchemy.AND(sqlchemy.Equals(storages.Field("storagecache_id"), self.Id),
+		Join(storages, sqlchemy.AND(sqlchemy.Equals(storages.Field("storagecache_id"), sc.Id),
 			sqlchemy.In(storages.Field("status"), []string{api.STORAGE_ENABLED, api.STORAGE_ONLINE}),
 			sqlchemy.IsTrue(storages.Field("enabled")))).
 		Filter(sqlchemy.Equals(hoststorages.Field("storage_id"), storages.Field("id"))).All(&hosts)
@@ -190,8 +190,8 @@ func (self *SStoragecache) GetHosts() ([]SHost, error) {
 	return hosts, nil
 }
 
-func (self *SStoragecache) getHostId() (string, error) {
-	hosts, err := self.GetHosts()
+func (sc *SStoragecache) getHostId() (string, error) {
+	hosts, err := sc.GetHosts()
 	if err != nil {
 		return "", errors.Wrap(err, "GetHosts")
 	}
@@ -205,7 +205,7 @@ func (self *SStoragecache) getHostId() (string, error) {
 		return "", nil
 	}
 	ring := hashring.New(hostIds)
-	ret, _ := ring.GetNode(self.Id)
+	ret, _ := ring.GetNode(sc.Id)
 	return ret, nil
 }
 
@@ -268,21 +268,21 @@ func (manager *SStoragecacheManager) newFromCloudStoragecache(ctx context.Contex
 	return &local, nil
 }
 
-func (self *SStoragecache) syncWithCloudStoragecache(ctx context.Context, userCred mcclient.TokenCredential, cloudCache cloudprovider.ICloudStoragecache, provider *SCloudprovider) error {
-	diff, err := db.UpdateWithLock(ctx, self, func() error {
-		self.Name = cloudCache.GetName()
+func (sc *SStoragecache) syncWithCloudStoragecache(ctx context.Context, userCred mcclient.TokenCredential, cloudCache cloudprovider.ICloudStoragecache, provider *SCloudprovider) error {
+	diff, err := db.UpdateWithLock(ctx, sc, func() error {
+		sc.Name = cloudCache.GetName()
 
-		self.Path = cloudCache.GetPath()
+		sc.Path = cloudCache.GetPath()
 
-		self.IsEmulated = cloudCache.IsEmulated()
-		self.ManagerId = provider.Id
+		sc.IsEmulated = cloudCache.IsEmulated()
+		sc.ManagerId = provider.Id
 
 		return nil
 	})
 	if err != nil {
 		return err
 	}
-	db.OpsLog.LogSyncUpdate(self, diff, userCred)
+	db.OpsLog.LogSyncUpdate(sc, diff, userCred)
 	return nil
 }
 
@@ -310,19 +310,19 @@ func (manager *SStoragecacheManager) FetchCustomizeColumns(
 	return rows
 }
 
-func (self *SStoragecache) getMoreDetails(ctx context.Context, out api.StoragecacheDetails) api.StoragecacheDetails {
-	out.Storages = self.getStorageNames()
-	out.Size = self.getCachedImageSize()
-	out.Count = self.getCachedImageCount()
+func (sc *SStoragecache) getMoreDetails(ctx context.Context, out api.StoragecacheDetails) api.StoragecacheDetails {
+	out.Storages = sc.getStorageNames()
+	out.Size = sc.getCachedImageSize()
+	out.Count = sc.getCachedImageCount()
 
-	host, _ := self.GetMasterHost()
+	host, _ := sc.GetMasterHost()
 	if host != nil {
 		out.Host = host.GetShortDesc(ctx)
 	}
 	return out
 }
 
-func (self *SStoragecache) getCachedImageList(excludeIds []string, imageType string, status []string) []SCachedimage {
+func (sc *SStoragecache) getCachedImageList(excludeIds []string, imageType string, status []string) []SCachedimage {
 	images := make([]SCachedimage, 0)
 
 	cachedImages := CachedimageManager.Query().SubQuery()
@@ -330,7 +330,7 @@ func (self *SStoragecache) getCachedImageList(excludeIds []string, imageType str
 
 	q := cachedImages.Query()
 	q = q.Join(storagecachedImages, sqlchemy.Equals(cachedImages.Field("id"), storagecachedImages.Field("cachedimage_id")))
-	q = q.Filter(sqlchemy.Equals(storagecachedImages.Field("storagecache_id"), self.Id))
+	q = q.Filter(sqlchemy.Equals(storagecachedImages.Field("storagecache_id"), sc.Id))
 
 	if len(excludeIds) > 0 {
 		q = q.Filter(sqlchemy.NotIn(cachedImages.Field("id"), excludeIds))
@@ -352,9 +352,9 @@ func (self *SStoragecache) getCachedImageList(excludeIds []string, imageType str
 	return images
 }
 
-func (self *SStoragecache) getCachedImages() ([]SStoragecachedimage, error) {
+func (sc *SStoragecache) getCachedImages() ([]SStoragecachedimage, error) {
 	images := make([]SStoragecachedimage, 0)
-	q := StoragecachedimageManager.Query().Equals("storagecache_id", self.Id)
+	q := StoragecachedimageManager.Query().Equals("storagecache_id", sc.Id)
 	err := db.FetchModelObjects(StoragecachedimageManager, q, &images)
 	if err != nil {
 		return nil, errors.Wrapf(err, "db.FetchModelObjects")
@@ -362,10 +362,10 @@ func (self *SStoragecache) getCachedImages() ([]SStoragecachedimage, error) {
 	return images, nil
 }
 
-func (self *SStoragecache) getCustomdCachedImages() ([]SStoragecachedimage, error) {
+func (sc *SStoragecache) getCustomdCachedImages() ([]SStoragecachedimage, error) {
 	images := make([]SStoragecachedimage, 0)
 	sq := CachedimageManager.Query("id").Equals("image_type", "customized").SubQuery()
-	q := StoragecachedimageManager.Query().Equals("storagecache_id", self.Id).In("cachedimage_id", sq)
+	q := StoragecachedimageManager.Query().Equals("storagecache_id", sc.Id).In("cachedimage_id", sq)
 	err := db.FetchModelObjects(StoragecachedimageManager, q, &images)
 	if err != nil {
 		return nil, errors.Wrapf(err, "db.FetchModelObjects")
@@ -373,13 +373,13 @@ func (self *SStoragecache) getCustomdCachedImages() ([]SStoragecachedimage, erro
 	return images, nil
 }
 
-func (self *SStoragecache) getCachedImageCount() int {
-	images, _ := self.getCachedImages()
+func (sc *SStoragecache) getCachedImageCount() int {
+	images, _ := sc.getCachedImages()
 	return len(images)
 }
 
-func (self *SStoragecache) getCachedImageSize() int64 {
-	images, _ := self.getCachedImages()
+func (sc *SStoragecache) getCachedImageSize() int64 {
+	images, _ := sc.getCachedImages()
 	if images == nil {
 		return 0
 	}
@@ -393,8 +393,8 @@ func (self *SStoragecache) getCachedImageSize() int64 {
 	return size
 }
 
-func (self *SStoragecache) StartImageCacheTask(ctx context.Context, userCred mcclient.TokenCredential, input api.CacheImageInput) error {
-	StoragecachedimageManager.Register(ctx, userCred, self.Id, input.ImageId, "")
+func (sc *SStoragecache) StartImageCacheTask(ctx context.Context, userCred mcclient.TokenCredential, input api.CacheImageInput) error {
+	StoragecachedimageManager.Register(ctx, userCred, sc.Id, input.ImageId, "")
 
 	image, _ := CachedimageManager.GetImageById(ctx, userCred, input.ImageId, false)
 	if image != nil {
@@ -408,20 +408,20 @@ func (self *SStoragecache) StartImageCacheTask(ctx context.Context, userCred mcc
 		input.ImageName = image.Name
 	}
 	data := jsonutils.Marshal(input).(*jsonutils.JSONDict)
-	task, err := taskman.TaskManager.NewTask(ctx, "StorageCacheImageTask", self, userCred, data, input.ParentTaskId, "", nil)
+	task, err := taskman.TaskManager.NewTask(ctx, "StorageCacheImageTask", sc, userCred, data, input.ParentTaskId, "", nil)
 	if err != nil {
 		return errors.Wrapf(err, "NewTask")
 	}
 	return task.ScheduleRun(nil)
 }
 
-func (self *SStoragecache) StartImageUncacheTask(ctx context.Context, userCred mcclient.TokenCredential, imageId string, isPurge bool, parentTaskId string) error {
+func (sc *SStoragecache) StartImageUncacheTask(ctx context.Context, userCred mcclient.TokenCredential, imageId string, isPurge bool, parentTaskId string) error {
 	data := jsonutils.NewDict()
 	data.Add(jsonutils.NewString(imageId), "image_id")
 	if isPurge {
 		data.Add(jsonutils.JSONTrue, "is_purge")
 	}
-	task, err := taskman.TaskManager.NewTask(ctx, "StorageUncacheImageTask", self, userCred, data, parentTaskId, "", nil)
+	task, err := taskman.TaskManager.NewTask(ctx, "StorageUncacheImageTask", sc, userCred, data, parentTaskId, "", nil)
 	if err != nil {
 		return err
 	}
@@ -429,10 +429,10 @@ func (self *SStoragecache) StartImageUncacheTask(ctx context.Context, userCred m
 	return nil
 }
 
-func (self *SStoragecache) GetIStorageCache(ctx context.Context) (cloudprovider.ICloudStoragecache, error) {
-	storages := self.getValidStorages()
+func (sc *SStoragecache) GetIStorageCache(ctx context.Context) (cloudprovider.ICloudStoragecache, error) {
+	storages := sc.getValidStorages()
 	if len(storages) == 0 {
-		msg := fmt.Sprintf("no storages for this storagecache %s(%s)???", self.Name, self.Id)
+		msg := fmt.Sprintf("no storages for this storagecache %s(%s)???", sc.Name, sc.Id)
 		log.Errorf(msg)
 		return nil, fmt.Errorf(msg)
 	}
@@ -528,18 +528,18 @@ func (manager *SStoragecacheManager) GetCachePathById(storageCacheId string) str
 	return sc.Path
 }
 
-func (self *SStoragecache) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
-	if self.getCachedImageCount() > 0 {
+func (sc *SStoragecache) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
+	if sc.getCachedImageCount() > 0 {
 		return httperrors.NewNotEmptyError("storage cache not empty")
 	}
-	storages := self.getStorages()
+	storages := sc.getStorages()
 	if len(storages) > 0 {
 		return httperrors.NewNotEmptyError("referered by storages")
 	}
-	return self.SStandaloneResourceBase.ValidateDeleteCondition(ctx, nil)
+	return sc.SStandaloneResourceBase.ValidateDeleteCondition(ctx, nil)
 }
 
-func (self *SStoragecache) PerformUncacheImage(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (sc *SStoragecache) PerformUncacheImage(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	imageStr, _ := data.GetString("image")
 	if len(imageStr) == 0 {
 		return nil, httperrors.NewMissingParameterError("image")
@@ -571,7 +571,7 @@ func (self *SStoragecache) PerformUncacheImage(ctx context.Context, userCred mcc
 		}
 	}
 
-	scimg := StoragecachedimageManager.GetStoragecachedimage(self.Id, imageId)
+	scimg := StoragecachedimageManager.GetStoragecachedimage(sc.Id, imageId)
 	if scimg == nil {
 		return nil, httperrors.NewResourceNotFoundError("storage not cache image")
 	}
@@ -586,12 +586,12 @@ func (self *SStoragecache) PerformUncacheImage(ctx context.Context, userCred mcc
 		return nil, httperrors.NewInvalidStatusError("Fail to mark cache status: %s", err)
 	}
 
-	err = self.StartImageUncacheTask(ctx, userCred, imageId, isForce, "")
+	err = sc.StartImageUncacheTask(ctx, userCred, imageId, isForce, "")
 
 	return nil, err
 }
 
-func (self *SStoragecache) PerformCacheImage(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.CacheImageInput) (jsonutils.JSONObject, error) {
+func (sc *SStoragecache) PerformCacheImage(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.CacheImageInput) (jsonutils.JSONObject, error) {
 	if len(input.ImageId) == 0 {
 		return nil, httperrors.NewMissingParameterError("image_id")
 	}
@@ -606,25 +606,25 @@ func (self *SStoragecache) PerformCacheImage(ctx context.Context, userCred mccli
 	}
 
 	input.ImageId = image.Id
-	return nil, self.StartImageCacheTask(ctx, userCred, input)
+	return nil, sc.StartImageCacheTask(ctx, userCred, input)
 }
 
-func (self *SStoragecache) SyncCloudImages(
+func (sc *SStoragecache) SyncCloudImages(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
 	iStoragecache cloudprovider.ICloudStoragecache,
 	region *SCloudregion,
 	xor bool,
 ) compare.SyncResult {
-	lockman.LockObject(ctx, self)
-	defer lockman.ReleaseObject(ctx, self)
+	lockman.LockObject(ctx, sc)
+	defer lockman.ReleaseObject(ctx, sc)
 
-	lockman.LockRawObject(ctx, CachedimageManager.Keyword(), self.Id)
-	defer lockman.ReleaseRawObject(ctx, CachedimageManager.Keyword(), self.Id)
+	lockman.LockRawObject(ctx, CachedimageManager.Keyword(), sc.Id)
+	defer lockman.ReleaseRawObject(ctx, CachedimageManager.Keyword(), sc.Id)
 
 	result := compare.SyncResult{}
 
-	driver, err := self.GetProviderFactory()
+	driver, err := sc.GetProviderFactory()
 	if err != nil {
 		result.Error(errors.Wrapf(err, "GetProviderFactory(%s)", region.Provider))
 		return result
@@ -635,7 +635,7 @@ func (self *SStoragecache) SyncCloudImages(
 			if err != nil {
 				return errors.Wrapf(err, "SyncCloudImages")
 			}
-			err = self.CheckCloudimages(ctx, userCred, region.Name, region.Id)
+			err = sc.CheckCloudimages(ctx, userCred, region.Name, region.Id)
 			if err != nil {
 				return errors.Wrapf(err, "CheckCloudimages")
 			}
@@ -646,7 +646,7 @@ func (self *SStoragecache) SyncCloudImages(
 		}
 
 		log.Debugln("localCachedImages started")
-		localCachedImages, err := self.getCustomdCachedImages()
+		localCachedImages, err := sc.getCustomdCachedImages()
 		if err != nil {
 			result.Error(errors.Wrapf(err, "getCustomdCachedImages"))
 			return result
@@ -657,10 +657,10 @@ func (self *SStoragecache) SyncCloudImages(
 			result.Error(errors.Wrapf(err, "GetICustomizedCloudImages"))
 			return result
 		}
-		result = self.syncCloudImages(ctx, userCred, localCachedImages, remoteImages, xor)
+		result = sc.syncCloudImages(ctx, userCred, localCachedImages, remoteImages, xor)
 	} else {
 		log.Debugln("localCachedImages started")
-		localCachedImages, err := self.getCachedImages()
+		localCachedImages, err := sc.getCachedImages()
 		if err != nil {
 			result.Error(errors.Wrapf(err, "getCachedImages"))
 			return result
@@ -671,7 +671,7 @@ func (self *SStoragecache) SyncCloudImages(
 			result.Error(errors.Wrapf(err, "GetICloudImages"))
 			return result
 		}
-		result = self.syncCloudImages(ctx, userCred, localCachedImages, remoteImages, xor)
+		result = sc.syncCloudImages(ctx, userCred, localCachedImages, remoteImages, xor)
 	}
 
 	return result
@@ -733,7 +733,7 @@ func (cache *SStoragecache) syncCloudImages(
 	return syncResult
 }
 
-func (self *SStoragecache) IsReachCapacityLimit(imageId string) bool {
+func (sc *SStoragecache) IsReachCapacityLimit(imageId string) bool {
 	imgObj, _ := CachedimageManager.FetchById(imageId)
 	if imgObj == nil {
 		log.Debugf("no such cached image %s", imageId)
@@ -745,15 +745,15 @@ func (self *SStoragecache) IsReachCapacityLimit(imageId string) bool {
 		log.Debugf("image %s is not a customized image, no need to cache", imageId)
 		return false
 	}
-	cachedImages := self.getCachedImageList(nil, string(cloudprovider.ImageTypeCustomized), []string{api.CACHED_IMAGE_STATUS_ACTIVE})
+	cachedImages := sc.getCachedImageList(nil, string(cloudprovider.ImageTypeCustomized), []string{api.CACHED_IMAGE_STATUS_ACTIVE})
 	for i := range cachedImages {
 		if cachedImages[i].Id == imageId {
 			// already cached
-			log.Debugf("image %s has been cached in storage cache %s(%s)", imageId, self.Id, self.Name)
+			log.Debugf("image %s has been cached in storage cache %s(%s)", imageId, sc.Id, sc.Name)
 			return false
 		}
 	}
-	host, _ := self.GetMasterHost()
+	host, _ := sc.GetMasterHost()
 	if host == nil {
 		return false
 	}
@@ -764,14 +764,14 @@ func (self *SStoragecache) IsReachCapacityLimit(imageId string) bool {
 	return driver.IsReachStoragecacheCapacityLimit(host, cachedImages)
 }
 
-func (self *SStoragecache) GetStoragecachedimages() ([]SStoragecachedimage, error) {
-	q := StoragecachedimageManager.Query().Equals("storagecache_id", self.Id)
+func (sc *SStoragecache) GetStoragecachedimages() ([]SStoragecachedimage, error) {
+	q := StoragecachedimageManager.Query().Equals("storagecache_id", sc.Id)
 	ret := []SStoragecachedimage{}
 	return ret, db.FetchModelObjects(StoragecachedimageManager, q, &ret)
 }
 
-func (self *SStoragecache) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
-	scis, err := self.GetStoragecachedimages()
+func (sc *SStoragecache) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	scis, err := sc.GetStoragecachedimages()
 	if err != nil {
 		return errors.Wrapf(err, "GetStoragecachedimages")
 	}
@@ -781,14 +781,14 @@ func (self *SStoragecache) Delete(ctx context.Context, userCred mcclient.TokenCr
 			return errors.Wrapf(err, "delete storagecached images %d", scis[i].RowId)
 		}
 	}
-	if len(self.ManagerId) > 0 {
-		return db.RealDeleteModel(ctx, userCred, self)
+	if len(sc.ManagerId) > 0 {
+		return db.RealDeleteModel(ctx, userCred, sc)
 	}
-	return self.SStandaloneResourceBase.Delete(ctx, userCred)
+	return sc.SStandaloneResourceBase.Delete(ctx, userCred)
 }
 
-func (self *SStoragecache) StartRelinquishLeastUsedCachedImageTask(ctx context.Context, userCred mcclient.TokenCredential, imageId string, parentTaskId string) error {
-	cachedImages := self.getCachedImageList([]string{imageId}, string(cloudprovider.ImageTypeCustomized), []string{api.CACHED_IMAGE_STATUS_ACTIVE})
+func (sc *SStoragecache) StartRelinquishLeastUsedCachedImageTask(ctx context.Context, userCred mcclient.TokenCredential, imageId string, parentTaskId string) error {
+	cachedImages := sc.getCachedImageList([]string{imageId}, string(cloudprovider.ImageTypeCustomized), []string{api.CACHED_IMAGE_STATUS_ACTIVE})
 	leastUsedIdx := -1
 	leastRefCount := -1
 	for i := range cachedImages {
@@ -797,7 +797,7 @@ func (self *SStoragecache) StartRelinquishLeastUsedCachedImageTask(ctx context.C
 			leastUsedIdx = i
 		}
 	}
-	return self.StartImageUncacheTask(ctx, userCred, cachedImages[leastUsedIdx].GetId(), false, parentTaskId)
+	return sc.StartImageUncacheTask(ctx, userCred, cachedImages[leastUsedIdx].GetId(), false, parentTaskId)
 }
 
 func (cache *SStoragecache) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
@@ -834,9 +834,9 @@ func (manager *SStoragecacheManager) ListItemExportKeys(ctx context.Context,
 	return q, nil
 }
 
-func (self *SStoragecache) linkCloudimages(ctx context.Context, regionName, regionId string) (int, error) {
+func (sc *SStoragecache) linkCloudimages(ctx context.Context, regionName, regionId string) (int, error) {
 	cloudimages := CloudimageManager.Query("external_id").Equals("cloudregion_id", regionId).SubQuery()
-	sq := StoragecachedimageManager.Query("cachedimage_id").Equals("storagecache_id", self.Id).SubQuery()
+	sq := StoragecachedimageManager.Query("cachedimage_id").Equals("storagecache_id", sc.Id).SubQuery()
 	q := CachedimageManager.Query().Equals("image_type", cloudprovider.ImageTypeSystem).In("external_id", cloudimages).NotIn("id", sq)
 	images := []SCachedimage{}
 	err := db.FetchModelObjects(CachedimageManager, q, &images)
@@ -846,7 +846,7 @@ func (self *SStoragecache) linkCloudimages(ctx context.Context, regionName, regi
 	for i := range images {
 		sci := &SStoragecachedimage{}
 		sci.SetModelManager(StoragecachedimageManager, sci)
-		sci.StoragecacheId = self.Id
+		sci.StoragecacheId = sc.Id
 		sci.CachedimageId = images[i].Id
 		sci.Status = api.CACHED_IMAGE_STATUS_ACTIVE
 		err = StoragecachedimageManager.TableSpec().Insert(ctx, sci)
@@ -857,10 +857,10 @@ func (self *SStoragecache) linkCloudimages(ctx context.Context, regionName, regi
 	return len(images), nil
 }
 
-func (self *SStoragecache) unlinkCloudimages(ctx context.Context, userCred mcclient.TokenCredential, regionName, regionId string) (int, error) {
+func (sc *SStoragecache) unlinkCloudimages(ctx context.Context, userCred mcclient.TokenCredential, regionName, regionId string) (int, error) {
 	cloudimages := CloudimageManager.Query("external_id").Equals("cloudregion_id", regionId).SubQuery()
 	sq := CachedimageManager.Query("id").Equals("image_type", cloudprovider.ImageTypeSystem).NotIn("external_id", cloudimages).SubQuery()
-	q := StoragecachedimageManager.Query().Equals("storagecache_id", self.Id).In("cachedimage_id", sq)
+	q := StoragecachedimageManager.Query().Equals("storagecache_id", sc.Id).In("cachedimage_id", sq)
 	scis := []SStoragecachedimage{}
 	err := db.FetchModelObjects(StoragecachedimageManager, q, &scis)
 	if err != nil {
@@ -875,10 +875,10 @@ func (self *SStoragecache) unlinkCloudimages(ctx context.Context, userCred mccli
 	return len(scis), nil
 }
 
-func (self *SStoragecache) updateSystemImageStatus() (int, error) {
+func (sc *SStoragecache) updateSystemImageStatus() (int, error) {
 	sq := CachedimageManager.Query("id").Equals("image_type", cloudprovider.ImageTypeSystem)
 	q := StoragecachedimageManager.Query().
-		Equals("storagecache_id", self.Id).In("cachedimage_id", sq.SubQuery()).
+		Equals("storagecache_id", sc.Id).In("cachedimage_id", sq.SubQuery()).
 		NotEquals("status", api.CACHED_IMAGE_STATUS_ACTIVE)
 	scis := []SStoragecachedimage{}
 	err := db.FetchModelObjects(StoragecachedimageManager, q, &scis)
@@ -894,32 +894,75 @@ func (self *SStoragecache) updateSystemImageStatus() (int, error) {
 	return len(scis), nil
 }
 
-func (self *SStoragecache) getSystemImageCount() (int, error) {
-	sq := StoragecachedimageManager.Query("cachedimage_id").Equals("storagecache_id", self.Id)
+func (sc *SStoragecache) getSystemImageCount() (int, error) {
+	sq := StoragecachedimageManager.Query("cachedimage_id").Equals("storagecache_id", sc.Id)
 	q := CachedimageManager.Query().Equals("image_type", cloudprovider.ImageTypeSystem).In("id", sq.SubQuery())
 	return q.CountWithError()
 }
 
-func (self *SStoragecache) CheckCloudimages(ctx context.Context, userCred mcclient.TokenCredential, regionName, regionId string) error {
+func (sc *SStoragecache) CheckCloudimages(ctx context.Context, userCred mcclient.TokenCredential, regionName, regionId string) error {
 	lockman.LockRawObject(ctx, CachedimageManager.Keyword(), regionId)
 	defer lockman.ReleaseRawObject(ctx, CachedimageManager.Keyword(), regionId)
 
 	result := compare.SyncResult{}
 
 	var err error
-	result.DelCnt, err = self.unlinkCloudimages(ctx, userCred, regionName, regionId)
+	result.DelCnt, err = sc.unlinkCloudimages(ctx, userCred, regionName, regionId)
 	if err != nil {
 		return errors.Wrapf(err, "unlinkCloudimages")
 	}
-	self.updateSystemImageStatus()
-	result.UpdateCnt, err = self.getSystemImageCount()
+	sc.updateSystemImageStatus()
+	result.UpdateCnt, err = sc.getSystemImageCount()
 	if err != nil {
 		log.Errorf("getSystemImageCount error: %v", err)
 	}
-	result.AddCnt, err = self.linkCloudimages(ctx, regionName, regionId)
+	result.AddCnt, err = sc.linkCloudimages(ctx, regionName, regionId)
 	if err != nil {
 		return errors.Wrapf(err, "linkCloudimages")
 	}
-	log.Infof("SycSystemImages for region %s(%s) storagecache %s result: %s", regionName, regionId, self.Name, result.Result())
+	log.Infof("SycSystemImages for region %s(%s) storagecache %s result: %s", regionName, regionId, sc.Name, result.Result())
 	return nil
+}
+
+func (manager *SStoragecacheManager) FetchStoragecaches(filter func(q *sqlchemy.SQuery) *sqlchemy.SQuery) ([]SStoragecache, error) {
+	q := manager.Query()
+	q = filter(q)
+
+	storageCaches := make([]SStoragecache, 0)
+	err := db.FetchModelObjects(manager, q, &storageCaches)
+	if err != nil {
+		return nil, errors.Wrap(err, "FetchModelObjects")
+	}
+
+	return storageCaches, nil
+}
+
+func (manager *SStoragecacheManager) FetchStoragecachesByFilters(ctx context.Context, filters api.SStorageCacheFilters) ([]SStoragecache, error) {
+	return manager.FetchStoragecaches(func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+		storagesQ := StorageManager.Query().IsTrue("enabled").Equals("status", api.STORAGE_ONLINE)
+		if len(filters.StorageType) > 0 || !filters.StorageTags.IsEmpty() {
+			if len(filters.StorageType) > 0 {
+				storagesQ = storagesQ.In("storage_type", filters.StorageType)
+			}
+			if !filters.StorageTags.IsEmpty() {
+				storagesQ = db.ObjectIdQueryWithTagFilters(ctx, storagesQ, "id", StorageManager.Keyword(), filters.StorageTags)
+			}
+		}
+		hostsQ := HostManager.Query().IsTrue("enabled").Equals("status", api.HOST_STATUS_RUNNING).Equals("host_status", api.HOST_ONLINE)
+		if len(filters.HostType) > 0 || !filters.HostTags.IsEmpty() {
+			if len(filters.HostType) > 0 {
+				hostsQ = hostsQ.In("host_type", filters.HostType)
+			}
+			if !filters.HostTags.IsEmpty() {
+				hostsQ = db.ObjectIdQueryWithTagFilters(ctx, hostsQ, "id", HostManager.Keyword(), filters.HostTags)
+			}
+		}
+		hosts := hostsQ.SubQuery()
+		hostStorages := HoststorageManager.Query().SubQuery()
+		storages := storagesQ.SubQuery()
+		q = q.Join(storages, sqlchemy.Equals(storages.Field("storagecache_id"), q.Field("id")))
+		q = q.Join(hostStorages, sqlchemy.Equals(storages.Field("id"), hostStorages.Field("storage_id")))
+		q = q.Join(hosts, sqlchemy.Equals(hostStorages.Field("host_id"), hosts.Field("id")))
+		return q.Distinct()
+	})
 }

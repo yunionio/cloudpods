@@ -295,8 +295,8 @@ func (l *SLocalImageCache) Remove(ctx context.Context) error {
 		}
 	}
 	if fileutils2.Exists(l.getAccessDirPath()) {
-		if err := syscall.Unlink(l.getAccessDirPath()); err != nil {
-			return errors.Wrapf(err, "remove %s", l.getAccessDirPath())
+		if err := procutils.NewCommand("/bin/rm", "-fr", l.getAccessDirPath()).Run(); err != nil {
+			return errors.Wrapf(err, "remove directory %s", l.getAccessDirPath())
 		}
 	}
 

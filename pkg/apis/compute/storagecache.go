@@ -46,6 +46,15 @@ type StoragecacheListInput struct {
 	Path []string `json:"path"`
 }
 
+type UncacheImageInput struct {
+	// 镜像ID
+	ImageId string `json:"image_id"`
+	// swagger: ignore
+	StoragecacheId string `json:"storagecache_id"`
+
+	DeactivateImage *bool `json:"deactivate_image"`
+}
+
 type CacheImageInput struct {
 	Image   string `json:"image" yunion-deprecated-by:"image_id"`
 	ImageId string `json:"image_id"`
@@ -81,6 +90,9 @@ type CacheImageInput struct {
 	Checksum string `json:"checksum"`
 	// swagger: ignore
 	SkipChecksumIfExists bool `json:"skip_checksum_if_exists"`
+
+	// swagger: ignore
+	PreCache bool `json:"pre_cache"`
 }
 
 type StoragecacheResourceInput struct {
@@ -106,6 +118,12 @@ type StoragecacheResourceInfo struct {
 
 	// 关联存储信息
 	StorageInfo []StorageInfo `json:"storage_info"`
+
+	// 关联宿主机名称
+	Hosts []string `json:"hosts"`
+
+	// 关联宿主机信息
+	HostInfo []HostInfo `json:"host_info"`
 }
 
 type StorageInfo struct {

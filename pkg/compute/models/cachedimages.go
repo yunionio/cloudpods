@@ -101,52 +101,52 @@ func (manager *SCachedimageManager) GetResourceCount() ([]db.SScopeResourceCount
 	return []db.SScopeResourceCount{}, nil
 }
 
-func (self SCachedimage) GetGlobalId() string {
-	return self.ExternalId
+func (cachedImage SCachedimage) GetGlobalId() string {
+	return cachedImage.ExternalId
 }
 
-func (self *SCachedimage) ValidateDeleteCondition(ctx context.Context, info *api.CachedimageDetails) error {
+func (cachedImage *SCachedimage) ValidateDeleteCondition(ctx context.Context, info *api.CachedimageDetails) error {
 	if gotypes.IsNil(info) {
 		info = &api.CachedimageDetails{}
-		count, err := CachedimageManager.TotalResourceCount([]string{self.Id})
+		count, err := CachedimageManager.TotalResourceCount([]string{cachedImage.Id})
 		if err != nil {
 			return err
 		}
-		info.CachedimageUsage, _ = count[self.Id]
+		info.CachedimageUsage, _ = count[cachedImage.Id]
 	}
 	if info.CachedCount > 0 {
 		return httperrors.NewNotEmptyError("The image has been cached on storages")
 	}
-	if self.GetStatus() == api.CACHED_IMAGE_STATUS_ACTIVE && !self.isReferenceSessionExpire() {
+	if cachedImage.GetStatus() == api.CACHED_IMAGE_STATUS_ACTIVE && !cachedImage.isReferenceSessionExpire() {
 		return httperrors.NewConflictError("the image reference session has not been expired!")
 	}
-	return self.SSharableVirtualResourceBase.ValidateDeleteCondition(ctx, nil)
+	return cachedImage.SSharableVirtualResourceBase.ValidateDeleteCondition(ctx, nil)
 }
 
-func (self *SCachedimage) isReferenceSessionExpire() bool {
-	if !self.LastRef.IsZero() && time.Now().Sub(self.LastRef) < api.CACHED_IMAGE_REFERENCE_SESSION_EXPIRE_SECONDS*time.Second {
+func (cachedImage *SCachedimage) isReferenceSessionExpire() bool {
+	if !cachedImage.LastRef.IsZero() && time.Now().Sub(cachedImage.LastRef) < api.CACHED_IMAGE_REFERENCE_SESSION_EXPIRE_SECONDS*time.Second {
 		return false
 	} else {
 		return true
 	}
 }
 
-func (self *SCachedimage) isRefreshSessionExpire() bool {
-	if len(self.ExternalId) > 0 { // external image info never expires
+func (cachedImage *SCachedimage) isRefreshSessionExpire() bool {
+	if len(cachedImage.ExternalId) > 0 { // external image info never expires
 		return false
 	}
-	if !self.LastRef.IsZero() && time.Now().Sub(self.LastRef) < api.CACHED_IMAGE_REFRESH_SECONDS*time.Second {
+	if !cachedImage.LastRef.IsZero() && time.Now().Sub(cachedImage.LastRef) < api.CACHED_IMAGE_REFRESH_SECONDS*time.Second {
 		return false
 	} else {
 		return true
 	}
 }
 
-func (self *SCachedimage) GetHosts() ([]SHost, error) {
+func (cachedImage *SCachedimage) GetHosts() ([]SHost, error) {
 	q := HostManager.Query().Distinct()
 	hs := HoststorageManager.Query().SubQuery()
 	storages := StorageManager.Query().SubQuery()
-	scis := StoragecachedimageManager.Query().Equals("cachedimage_id", self.Id).Equals("status", api.CACHED_IMAGE_STATUS_ACTIVE).SubQuery()
+	scis := StoragecachedimageManager.Query().Equals("cachedimage_id", cachedImage.Id).Equals("status", api.CACHED_IMAGE_STATUS_ACTIVE).SubQuery()
 
 	q = q.Join(hs, sqlchemy.Equals(hs.Field("host_id"), q.Field("id")))
 	q = q.Join(storages, sqlchemy.Equals(hs.Field("storage_id"), storages.Field("id")))
@@ -159,79 +159,79 @@ func (self *SCachedimage) GetHosts() ([]SHost, error) {
 	return ret, err
 }
 
-func (self *SCachedimage) GetName() string {
-	name, _ := self.Info.GetString("name")
+func (cachedImage *SCachedimage) GetName() string {
+	name, _ := cachedImage.Info.GetString("name")
 	return name
 }
 
-func (self *SCachedimage) GetOwner() string {
-	owner, _ := self.Info.GetString("owner")
+func (cachedImage *SCachedimage) GetOwner() string {
+	owner, _ := cachedImage.Info.GetString("owner")
 	return owner
 }
 
-func (self *SCachedimage) GetFormat() string {
-	format, _ := self.Info.GetString("disk_format")
+func (cachedImage *SCachedimage) GetFormat() string {
+	format, _ := cachedImage.Info.GetString("disk_format")
 	return format
 }
 
-func (self *SCachedimage) GetStatus() string {
-	status, _ := self.Info.GetString("status")
+func (cachedImage *SCachedimage) GetStatus() string {
+	status, _ := cachedImage.Info.GetString("status")
 	return status
 }
 
-func (self *SCachedimage) GetOSType() string {
-	osType, _ := self.Info.GetString("properties", "os_type")
+func (cachedImage *SCachedimage) GetOSType() string {
+	osType, _ := cachedImage.Info.GetString("properties", "os_type")
 	return osType
 }
 
-func (self *SCachedimage) GetOSDistribution() string {
-	osType, _ := self.Info.GetString("properties", "os_distribution")
+func (cachedImage *SCachedimage) GetOSDistribution() string {
+	osType, _ := cachedImage.Info.GetString("properties", "os_distribution")
 	return osType
 }
 
-func (self *SCachedimage) GetOSVersion() string {
-	osType, _ := self.Info.GetString("properties", "os_version")
+func (cachedImage *SCachedimage) GetOSVersion() string {
+	osType, _ := cachedImage.Info.GetString("properties", "os_version")
 	return osType
 }
 
-func (self *SCachedimage) GetHypervisor() string {
-	osType, _ := self.Info.GetString("properties", "hypervisor")
+func (cachedImage *SCachedimage) GetHypervisor() string {
+	osType, _ := cachedImage.Info.GetString("properties", "hypervisor")
 	return osType
 }
 
-func (self *SCachedimage) GetChecksum() string {
-	checksum, _ := self.Info.GetString("checksum")
+func (cachedImage *SCachedimage) GetChecksum() string {
+	checksum, _ := cachedImage.Info.GetString("checksum")
 	return checksum
 }
 
-func (self *SCachedimage) getStoragecacheQuery() *sqlchemy.SQuery {
-	q := StoragecachedimageManager.Query().Equals("cachedimage_id", self.Id)
+func (cachedImage *SCachedimage) getStoragecacheQuery() *sqlchemy.SQuery {
+	q := StoragecachedimageManager.Query().Equals("cachedimage_id", cachedImage.Id)
 	return q
 }
 
-func (self *SCachedimage) getStoragecacheCount() (int, error) {
-	return self.getStoragecacheQuery().CountWithError()
+func (cachedImage *SCachedimage) getStoragecacheCount() (int, error) {
+	return cachedImage.getStoragecacheQuery().CountWithError()
 }
 
-func (self *SCachedimage) GetImage() (*cloudprovider.SImage, error) {
+func (cachedImage *SCachedimage) GetImage() (*cloudprovider.SImage, error) {
 	image := cloudprovider.SImage{
-		ExternalId: self.ExternalId,
+		ExternalId: cachedImage.ExternalId,
 	}
 
-	err := self.Info.Unmarshal(&image)
+	err := cachedImage.Info.Unmarshal(&image)
 	if err != nil {
-		log.Errorf("unmarshal %s fail %s", self.Info, err)
-		return nil, errors.Wrap(err, "self.Info.Unmarshal")
+		log.Errorf("unmarshal %s fail %s", cachedImage.Info, err)
+		return nil, errors.Wrap(err, "cachedImage.Info.Unmarshal")
 	} else {
 		// hack, make cached image ID consistent
-		image.Id = self.Id
+		image.Id = cachedImage.Id
 		return &image, nil
 	}
 }
 
-func (self *SCachedimage) syncClassMetadata(ctx context.Context, userCred mcclient.TokenCredential) error {
+func (cachedImage *SCachedimage) syncClassMetadata(ctx context.Context, userCred mcclient.TokenCredential) error {
 	session := auth.GetSessionWithInternal(ctx, userCred, "")
-	ret, err := image.Images.GetSpecific(session, self.Id, "class-metadata", nil)
+	ret, err := image.Images.GetSpecific(session, cachedImage.Id, "class-metadata", nil)
 	if err != nil {
 		return errors.Wrap(err, "unable to get class_metadata")
 	}
@@ -241,7 +241,7 @@ func (self *SCachedimage) syncClassMetadata(ctx context.Context, userCred mcclie
 		return err
 	}
 
-	return self.SetClassMetadataAll(ctx, classMetadata, userCred)
+	return cachedImage.SetClassMetadataAll(ctx, classMetadata, userCred)
 }
 
 func (manager *SCachedimageManager) cacheGlanceImageInfo(ctx context.Context, userCred mcclient.TokenCredential, info jsonutils.JSONObject) (*SCachedimage, error) {
@@ -307,7 +307,7 @@ func (manager *SCachedimageManager) cacheGlanceImageInfo(ctx context.Context, us
 			imageCache.LastSync = timeutils.UtcNow()
 			imageCache.ProjectId = img.ProjectId
 			imageCache.DomainId = img.DomainId
-			if imageCache.Deleted == true {
+			if imageCache.Deleted {
 				imageCache.Deleted = false
 				imageCache.DeletedAt = time.Time{}
 				imageCache.RefCount = 0
@@ -339,7 +339,7 @@ func (manager *SCachedimageManager) RecoverCachedImage(ctx context.Context, user
 	diff, err := db.Update(&imageCache, func() error {
 		imageCache.Status = api.CACHED_IMAGE_STATUS_ACTIVE
 		imageCache.LastSync = timeutils.UtcNow()
-		if imageCache.Deleted == true {
+		if imageCache.Deleted {
 			imageCache.Deleted = false
 			imageCache.DeletedAt = time.Time{}
 			imageCache.RefCount = 0
@@ -535,8 +535,8 @@ func (manager *SCachedimageManager) FetchCustomizeColumns(
 	return rows
 }
 
-func (self *SCachedimage) PerformRefresh(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	img, err := CachedimageManager.GetImageById(ctx, userCred, self.Id, true)
+func (cachedImage *SCachedimage) PerformRefresh(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	img, err := CachedimageManager.GetImageById(ctx, userCred, cachedImage.Id, true)
 	if err != nil {
 		return nil, err
 	}
@@ -544,7 +544,7 @@ func (self *SCachedimage) PerformRefresh(ctx context.Context, userCred mcclient.
 }
 
 // 清除镜像缓存
-func (self *SCachedimage) PerformUncacheImage(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.CachedImageUncacheImageInput) (jsonutils.JSONObject, error) {
+func (cachedImage *SCachedimage) PerformUncacheImage(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.CachedImageUncacheImageInput) (jsonutils.JSONObject, error) {
 	if len(input.StoragecacheId) == 0 {
 		return nil, httperrors.NewMissingParameterError("storagecache_id")
 	}
@@ -556,10 +556,15 @@ func (self *SCachedimage) PerformUncacheImage(ctx context.Context, userCred mccl
 		return nil, errors.Wrap(err, "StoragecacheManager.FetchById")
 	}
 	storagecache := _storagecache.(*SStoragecache)
-	return storagecache.PerformUncacheImage(ctx, userCred, query, jsonutils.Marshal(map[string]interface{}{"image": self.Id, "is_force": input.IsForce}))
+	return storagecache.PerformUncacheImage(ctx, userCred, query, jsonutils.Marshal(map[string]interface{}{"image": cachedImage.Id, "is_force": input.IsForce}))
 }
 
-func (self *SCachedimageManager) PerformCacheImage(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.CachedImageManagerCacheImageInput) (jsonutils.JSONObject, error) {
+func (manager *SCachedimageManager) PerformCacheImage(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input api.CachedImageManagerCacheImageInput,
+) (jsonutils.JSONObject, error) {
 	if len(input.ImageId) == 0 {
 		return nil, httperrors.NewMissingParameterError("image_id")
 	}
@@ -568,20 +573,40 @@ func (self *SCachedimageManager) PerformCacheImage(ctx context.Context, userCred
 	if err != nil {
 		return nil, errors.Wrap(err, "modules.Images.Get")
 	}
-	_, err = self.cacheGlanceImageInfo(ctx, userCred, obj)
+	cimg, err := manager.cacheGlanceImageInfo(ctx, userCred, obj)
 	if err != nil {
 		return nil, errors.Wrap(err, "manager.cacheGlanceImageInfo")
 	}
+	if input.AutoCache {
+		storageCaches, err := StoragecacheManager.FetchStoragecachesByFilters(ctx, input.SStorageCacheFilters)
+		if err != nil {
+			return nil, errors.Wrap(err, "FetchStoragecachesByFilters")
+		}
+		errs := make([]error, 0)
+		for i := range storageCaches {
+			err := storageCaches[i].StartImageCacheTask(ctx, userCred, api.CacheImageInput{
+				ImageId:  cimg.Id,
+				PreCache: true,
+			})
+			if err != nil {
+				errs = append(errs, err)
+			}
+		}
+		if len(errs) > 0 {
+			return nil, errors.Wrap(errors.NewAggregate(errs), "StartImageCacheTask")
+		}
+	}
+
 	return nil, nil
 }
 
-func (self *SCachedimage) addRefCount() {
-	if self.GetStatus() != api.CACHED_IMAGE_STATUS_ACTIVE {
+func (cachedImage *SCachedimage) addRefCount() {
+	if cachedImage.GetStatus() != api.CACHED_IMAGE_STATUS_ACTIVE {
 		return
 	}
-	_, err := db.Update(self, func() error {
-		self.RefCount += 1
-		self.LastRef = timeutils.UtcNow()
+	_, err := db.Update(cachedImage, func() error {
+		cachedImage.RefCount += 1
+		cachedImage.LastRef = timeutils.UtcNow()
 		return nil
 	})
 	if err != nil {
@@ -589,7 +614,7 @@ func (self *SCachedimage) addRefCount() {
 	}
 }
 
-func (self *SCachedimage) ChooseSourceStoragecacheInRange(hostType string, excludes []string, rangeObjs []interface{}) (*SStoragecachedimage, error) {
+func (cachedImage *SCachedimage) ChooseSourceStoragecacheInRange(hostType string, excludes []string, rangeObjs []interface{}) (*SStoragecachedimage, error) {
 	storageCachedImage := StoragecachedimageManager.Query().SubQuery()
 	storage := StorageManager.Query().SubQuery()
 	hostStorage := HoststorageManager.Query().SubQuery()
@@ -600,7 +625,7 @@ func (self *SCachedimage) ChooseSourceStoragecacheInRange(hostType string, exclu
 		Join(storage, sqlchemy.Equals(storage.Field("storagecache_id"), storageCachedImage.Field("storagecache_id"))).
 		Join(hostStorage, sqlchemy.Equals(hostStorage.Field("storage_id"), storage.Field("id"))).
 		Join(host, sqlchemy.Equals(hostStorage.Field("host_id"), host.Field("id"))).
-		Filter(sqlchemy.Equals(storageCachedImage.Field("cachedimage_id"), self.Id)).
+		Filter(sqlchemy.Equals(storageCachedImage.Field("cachedimage_id"), cachedImage.Id)).
 		Filter(sqlchemy.Equals(storageCachedImage.Field("status"), api.CACHED_IMAGE_STATUS_ACTIVE)).
 		Filter(sqlchemy.Equals(host.Field("status"), api.HOST_STATUS_RUNNING)).
 		Filter(sqlchemy.IsTrue(host.Field("enabled"))).
@@ -646,8 +671,8 @@ func (manager *SCachedimageManager) ImageAddRefCount(imageId string) {
 	}
 }
 
-func (self *SCachedimage) canDeleteLastCache() bool {
-	cnt, err := self.getStoragecacheCount()
+func (cachedImage *SCachedimage) canDeleteLastCache() bool {
+	cnt, err := cachedImage.getStoragecacheCount()
 	if err != nil {
 		// database error
 		return false
@@ -655,39 +680,39 @@ func (self *SCachedimage) canDeleteLastCache() bool {
 	if cnt != 1 {
 		return true
 	}
-	if self.isReferenceSessionExpire() {
+	if cachedImage.isReferenceSessionExpire() {
 		return true
 	}
 	return false
 }
 
-func (self *SCachedimage) syncWithCloudImage(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, image cloudprovider.ICloudImage, provider *SCloudprovider) error {
-	diff, err := db.UpdateWithLock(ctx, self, func() error {
+func (cachedImage *SCachedimage) syncWithCloudImage(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, image cloudprovider.ICloudImage, provider *SCloudprovider) error {
+	diff, err := db.UpdateWithLock(ctx, cachedImage, func() error {
 		if options.Options.EnableSyncName {
-			newName, err := db.GenerateAlterName(self, image.GetName())
+			newName, err := db.GenerateAlterName(cachedImage, image.GetName())
 			if err != nil {
 				return errors.Wrap(err, "GenerateAlterName")
 			}
-			self.Name = newName
+			cachedImage.Name = newName
 		}
-		self.Size = image.GetSizeByte()
-		self.ExternalId = image.GetGlobalId()
-		self.ImageType = string(image.GetImageType())
-		self.PublicScope = string(image.GetPublicScope())
-		self.Status = image.GetStatus()
+		cachedImage.Size = image.GetSizeByte()
+		cachedImage.ExternalId = image.GetGlobalId()
+		cachedImage.ImageType = string(image.GetImageType())
+		cachedImage.PublicScope = string(image.GetPublicScope())
+		cachedImage.Status = image.GetStatus()
 		if image.GetPublicScope() == rbacscope.ScopeSystem {
-			self.IsPublic = true
+			cachedImage.IsPublic = true
 		}
-		self.UEFI = tristate.NewFromBool(cloudprovider.IsUEFI(image))
+		cachedImage.UEFI = tristate.NewFromBool(cloudprovider.IsUEFI(image))
 		sImage := cloudprovider.CloudImage2Image(image)
-		self.Info = jsonutils.Marshal(&sImage)
-		self.LastSync = time.Now().UTC()
+		cachedImage.Info = jsonutils.Marshal(&sImage)
+		cachedImage.LastSync = time.Now().UTC()
 		return nil
 	})
-	db.OpsLog.LogSyncUpdate(self, diff, userCred)
+	db.OpsLog.LogSyncUpdate(cachedImage, diff, userCred)
 
 	if provider != nil {
-		SyncCloudProject(ctx, userCred, self, ownerId, image, provider)
+		SyncCloudProject(ctx, userCred, cachedImage, ownerId, image, provider)
 	}
 	return err
 }
@@ -737,7 +762,7 @@ func (manager *SCachedimageManager) newFromCloudImage(ctx context.Context, userC
 
 func (image *SCachedimage) requestRefreshExternalImage(ctx context.Context, userCred mcclient.TokenCredential) (*cloudprovider.SImage, error) {
 	caches := image.getValidStoragecache()
-	if caches == nil || len(caches) == 0 {
+	if len(caches) == 0 {
 		log.Errorf("requestRefreshExternalImage: no valid storage cache")
 		return nil, fmt.Errorf("no valid storage cache")
 	}

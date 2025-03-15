@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"time"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud/objectstore"
@@ -98,16 +99,19 @@ func PutStream(ctx context.Context, file io.ReaderAt, fSize int64, objName strin
 	if err != nil {
 		return "", errors.Wrap(err, "client.getBucket")
 	}
-	/* pFile := multicloud.NewProgress(fSize, 100, file, func(ratio float32) {
+	/*pFile := multicloud.NewProgress(fSize, 100, file, func(ratio float32) {
 		if progresser != nil {
 			progresser(int64(float64(ratio) * float64(fSize)))
 		}
-	}) */
+	})*/
+	start := time.Now()
 	err = cloudprovider.UploadObjectParallel(ctx, bucket, objName, partSizeMb*1000*1000, file, fSize, cloudprovider.ACLPrivate, "", nil, false, parallel)
 	if err != nil {
 		return "", errors.Wrap(err, "cloudprovider.UploadObject")
 	}
-	log.Debugf("put object %s size %d", objName, fSize)
+	duration := time.Since(start)
+	throughputMbps := float64(fSize) * 8 / 1000 / 1000 / 1000 / duration.Seconds()
+	log.Infof("Upload object %s size %d time %f throughput %f Mbps", objName, fSize, duration.Seconds(), throughputMbps)
 	return client.Location(objName), nil
 }
 
