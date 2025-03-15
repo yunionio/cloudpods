@@ -30,6 +30,7 @@ func InitDB() error {
 		db.Metadata,
 
 		ImageManager,
+		GuestImageJointManager,
 		QuotaManager,
 	} {
 		err := manager.InitializeData()
