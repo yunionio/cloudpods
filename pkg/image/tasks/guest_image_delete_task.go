@@ -54,16 +54,21 @@ func (task *GuestImageDeleteTask) OnInit(ctx context.Context, obj db.IStandalone
 }
 
 func (task *GuestImageDeleteTask) startPendingDelete(ctx context.Context, guestImage *models.SGuestImage) {
-	images, err := models.GuestImageJointManager.GetImagesByGuestImageId(guestImage.GetId())
+	images, err := models.GuestImageJointManager.GetByGuestImageId(guestImage.GetId())
 	if err != nil {
 		task.taskFailed(ctx, guestImage, jsonutils.NewString(err.Error()))
 	}
 	for i := range images {
-		if !images[i].IsGuestImage.IsTrue() {
+		image, err := images[i].GetImage()
+		if err != nil {
+			log.Errorf("subimage %d GetImage fail %s", i, err)
 			continue
 		}
-		images[i].StopTorrents()
-		err := images[i].DoPendingDelete(ctx, task.UserCred)
+		if !image.IsGuestImage.IsTrue() {
+			continue
+		}
+		image.StopTorrents()
+		err = image.DoPendingDelete(ctx, task.UserCred)
 		if err != nil {
 			task.taskFailed(ctx, guestImage, jsonutils.NewString(fmt.Sprintf("image %s pending delete failed", images[i].GetId())))
 			return
@@ -78,28 +83,39 @@ func (task *GuestImageDeleteTask) startPendingDelete(ctx context.Context, guestI
 }
 
 func (task *GuestImageDeleteTask) startDelete(ctx context.Context, guestImage *models.SGuestImage) {
-	images, err := models.GuestImageJointManager.GetImagesByGuestImageId(guestImage.GetId())
+	subImages, err := models.GuestImageJointManager.GetByGuestImageId(guestImage.GetId())
 	if err != nil {
 		task.taskFailed(ctx, guestImage, jsonutils.NewString(err.Error()))
 		return
 	}
-	for i := range images {
-		if !images[i].IsGuestImage.IsTrue() {
+	for i := range subImages {
+		image, err := subImages[i].GetImage()
+		if err != nil {
+			log.Errorf("subimage %d GetImage fail %s", i, err)
 			continue
 		}
-		err := images[i].Remove(ctx, task.UserCred)
+		// delete guestImageJoint
+		err = subImages[i].Delete(ctx, task.UserCred)
 		if err != nil {
-			task.taskFailed(ctx, guestImage, jsonutils.NewString(fmt.Sprintf("fail to remove %s: %s", images[i].GetPath(""), err)))
+			task.taskFailed(ctx, guestImage, jsonutils.NewString(fmt.Sprintf("fail to remove GuestImageJoin %d: %s", i, err)))
 			return
 		}
-		err = images[i].SetStatus(ctx, task.UserCred, api.IMAGE_STATUS_DELETED, "delete")
+		if !image.IsGuestImage.IsTrue() {
+			continue
+		}
+		err = image.Remove(ctx, task.UserCred)
 		if err != nil {
-			task.taskFailed(ctx, guestImage, jsonutils.NewString(fmt.Sprintf("fail to set image %s status ", images[i].GetId())))
+			task.taskFailed(ctx, guestImage, jsonutils.NewString(fmt.Sprintf("fail to remove %s: %s", image.GetPath(""), err)))
 			return
 		}
-		err = images[i].RealDelete(ctx, task.UserCred)
+		err = image.SetStatus(ctx, task.UserCred, api.IMAGE_STATUS_DELETED, "delete")
 		if err != nil {
-			task.taskFailed(ctx, guestImage, jsonutils.NewString(fmt.Sprintf("fail to real delete image %s", images[i].GetId())))
+			task.taskFailed(ctx, guestImage, jsonutils.NewString(fmt.Sprintf("fail to set image %s status ", image.GetId())))
+			return
+		}
+		err = image.RealDelete(ctx, task.UserCred)
+		if err != nil {
+			task.taskFailed(ctx, guestImage, jsonutils.NewString(fmt.Sprintf("fail to real delete image %s", image.GetId())))
 			return
 		}
 	}
