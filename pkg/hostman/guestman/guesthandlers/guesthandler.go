@@ -589,6 +589,14 @@ func guestHotplugCpuMem(ctx context.Context, userCred mcclient.TokenCredential, 
 		AddCpuCount: addCpuCount,
 		AddMemSize:  addMemSize,
 	}
+	totalMemSize, err := body.Int("total_mem")
+	if err == nil {
+		input.TotalMemSize = &totalMemSize
+	}
+	totalCpuCount, err := body.Int("total_cpu")
+	if err == nil {
+		input.TotalCpuCount = &totalCpuCount
+	}
 
 	if body.Contains("cpu_numa_pin") {
 		cpuNumaPin := make([]schedapi.SCpuNumaPin, 0)
