@@ -1555,8 +1555,9 @@ func (m *SGuestManager) HotplugCpuMem(ctx context.Context, params interface{}) (
 	if !ok {
 		return nil, hostutils.ParamsError
 	}
+
 	guest, _ := m.GetKVMServer(hotplugParams.Sid)
-	NewGuestHotplugCpuMemTask(ctx, guest, int(hotplugParams.AddCpuCount), int(hotplugParams.AddMemSize), hotplugParams.CpuNumaPin).Start()
+	NewGuestHotplugCpuMemTask(ctx, guest, hotplugParams).Start()
 	return nil, nil
 }
 

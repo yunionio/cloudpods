@@ -2452,15 +2452,30 @@ type SGuestHotplugCpuMemTask struct {
 }
 
 func NewGuestHotplugCpuMemTask(
-	ctx context.Context, s *SKVMGuestInstance, addCpuCount, addMemSize int, cpuNumaPin []*desc.SCpuNumaPin,
+	ctx context.Context, s *SKVMGuestInstance, input *SGuestHotplugCpuMem,
 ) *SGuestHotplugCpuMemTask {
-	return &SGuestHotplugCpuMemTask{
+	t := &SGuestHotplugCpuMemTask{
 		SKVMGuestInstance: s,
 		ctx:               ctx,
-		addCpuCount:       addCpuCount,
-		addMemSize:        addMemSize,
-		cpuNumaPin:        cpuNumaPin,
+		addCpuCount:       int(input.AddCpuCount),
+		addMemSize:        int(input.AddMemSize),
+		cpuNumaPin:        input.CpuNumaPin,
 	}
+	if input.TotalCpuCount != nil && input.AddCpuCount > 0 {
+		if s.Desc.Cpu > *input.TotalCpuCount {
+			addedCpuCount := int(s.Desc.Cpu - *input.TotalCpuCount)
+			t.addCpuCount -= addedCpuCount
+		}
+	}
+	log.Infof("guest %s add cpu count %d", s.Id, t.addCpuCount)
+	if input.TotalMemSize != nil && input.AddMemSize > 0 {
+		if s.Desc.Mem > *input.TotalMemSize {
+			addedMemSize := int(s.Desc.Mem - *input.TotalMemSize)
+			t.addMemSize -= addedMemSize
+		}
+	}
+	log.Infof("guest %s add mem size %d", s.Id, t.addMemSize)
+	return t
 }
 
 // First at all add cpu count, second add mem size
@@ -2586,7 +2601,11 @@ func (task *SGuestHotplugCpuMemTask) startAddMem() {
 }
 
 func (task *SGuestHotplugCpuMemTask) onGetSlotIndex(index int) {
-	var newIndex = index + len(task.Desc.MemDesc.Mem.Mems)
+	var newIndex = index
+	if task.Desc.MemDesc.Mem != nil {
+		newIndex += len(task.Desc.MemDesc.Mem.Mems)
+	}
+
 	task.memSlotNewIndex = &newIndex
 
 	var addMemSize = task.addMemSize
