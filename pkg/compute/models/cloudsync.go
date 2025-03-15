@@ -1691,6 +1691,9 @@ func syncWafIPSets(
 		return remoteRegion.GetICloudWafIPSets()
 	}()
 	if err != nil {
+		if errors.Cause(err) == cloudprovider.ErrNotImplemented || errors.Cause(err) == cloudprovider.ErrNotSupported {
+			return nil
+		}
 		msg := fmt.Sprintf("GetICloudWafIPSets for region %s failed %s", remoteRegion.GetName(), err)
 		log.Errorf(msg)
 		return err
@@ -1725,6 +1728,9 @@ func syncWafRegexSets(
 		return remoteRegion.GetICloudWafRegexSets()
 	}()
 	if err != nil {
+		if errors.Cause(err) == cloudprovider.ErrNotImplemented || errors.Cause(err) == cloudprovider.ErrNotSupported {
+			return nil
+		}
 		msg := fmt.Sprintf("GetICloudWafRegexSets for region %s failed %s", remoteRegion.GetName(), err)
 		log.Errorf(msg)
 		return err
@@ -2045,6 +2051,9 @@ func syncWafRules(ctx context.Context, userCred mcclient.TokenCredential, syncRe
 		return remoteWafs.GetRules()
 	}()
 	if err != nil {
+		if errors.Cause(err) == cloudprovider.ErrNotImplemented || errors.Cause(err) == cloudprovider.ErrNotSupported {
+			return nil
+		}
 		msg := fmt.Sprintf("GetRules for waf instance %s failed %s", localWaf.Name, err)
 		log.Errorf(msg)
 		return err
