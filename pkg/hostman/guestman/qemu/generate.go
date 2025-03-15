@@ -198,8 +198,10 @@ func generateMachineOption(drvOpt QemuOptions, desc *desc.SGuestDesc) string {
 func generateSMPOption(guestDesc *desc.SGuestDesc) string {
 	cpu := guestDesc.CpuDesc
 	startCpus := cpu.Cpus
-	if len(guestDesc.MemDesc.Mem.Mems) > 0 {
-		startCpus = 1
+	if guestDesc.MemDesc.Mem != nil {
+		if len(guestDesc.MemDesc.Mem.Mems) > 0 {
+			startCpus = 1
+		}
 	}
 	if cpu.MaxCpus%2 > 0 {
 		return fmt.Sprintf(
