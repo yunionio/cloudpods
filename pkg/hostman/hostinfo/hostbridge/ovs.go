@@ -196,6 +196,9 @@ func (o *SOVSBridgeDriver) getUpScripts(nic *desc.SGuestNetwork, isVolatileHost 
 		s += "    ovs-vsctl set Interface $IF ingress_policing_rate=$LIMIT\n"
 		s += "    ovs-vsctl set Interface $IF ingress_policing_burst=$BURST\n"
 		s += "fi\n"
+		if vpcProvider != compute.VPC_PROVIDER_OVN && len(options.HostOptions.SRIOVNics) > 0 {
+			s += fmt.Sprintf("bridge fdb add %s dev %s\n", nic.Mac, o.inter.String())
+		}
 	}
 
 	s += "if [ $LIMIT_DOWNLOAD != \"0mbit\" ]; then\n"
@@ -232,6 +235,11 @@ func (o *SOVSBridgeDriver) getDownScripts(nic *desc.SGuestNetwork, isVolatileHos
 	s += "PORT=$(echo $PORT | awk 'BEGIN{FS=\"(\"}{print $1}')\n"
 	s += "ip link set dev $IF down\n"
 	s += "ovs-vsctl -- --if-exists del-port $SWITCH $IF\n"
+	if nic.Driver != compute.NETWORK_DRIVER_VFIO {
+		if nic.Vpc.Provider != compute.VPC_PROVIDER_OVN && len(options.HostOptions.SRIOVNics) > 0 {
+			s += fmt.Sprintf("bridge fdb del %s dev %s\n", nic.Mac, o.inter.String())
+		}
+	}
 	return s, nil
 }
 
