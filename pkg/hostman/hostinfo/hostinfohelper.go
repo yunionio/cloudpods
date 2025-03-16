@@ -329,6 +329,7 @@ type SSysInfo struct {
 	KvmModule      string `json:"kvm_module"`
 	CpuModelName   string `json:"cpu_model_name"`
 	CpuMicrocode   string `json:"cpu_microcode"`
+	CgroupVersion  string `json:"cgroup_version"`
 
 	StorageType string `json:"storage_type"`
 
