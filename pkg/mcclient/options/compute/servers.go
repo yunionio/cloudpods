@@ -30,7 +30,7 @@ import (
 	schedapi "yunion.io/x/onecloud/pkg/apis/scheduler"
 	"yunion.io/x/onecloud/pkg/cloudcommon/cmdline"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
-	"yunion.io/x/onecloud/pkg/util/cgrouputils"
+	"yunion.io/x/onecloud/pkg/util/cgrouputils/cpuset"
 )
 
 var ErrEmtptyUpdate = errors.New("No valid update data")
@@ -1470,20 +1470,12 @@ type ServerCPUSetOptions struct {
 }
 
 func (o *ServerCPUSetOptions) Params() (jsonutils.JSONObject, error) {
-	sets := cgrouputils.ParseCpusetStr(o.SETS)
-	parts := strings.Split(sets, ",")
-	if len(parts) == 0 {
-		return nil, errors.New(fmt.Sprintf("Invalid cpu sets %q", o.SETS))
+	cpus, err := cpuset.Parse(o.SETS)
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("parse cpuset failed: %s", err))
 	}
 	input := &computeapi.ServerCPUSetInput{
-		CPUS: make([]int, 0),
-	}
-	for _, s := range parts {
-		sd, err := strconv.Atoi(s)
-		if err != nil {
-			return nil, errors.New(fmt.Sprintf("Not digit part %q", s))
-		}
-		input.CPUS = append(input.CPUS, sd)
+		CPUS: cpus.ToSlice(),
 	}
 	return jsonutils.Marshal(input), nil
 }
