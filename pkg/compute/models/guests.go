@@ -997,13 +997,14 @@ func (guest *SGuest) ValidateDeleteCondition(ctx context.Context, info *api.Serv
 		}
 		info.HostType = host.HostType
 		info.HostEnabled = host.Enabled.Bool()
-		info.HostStatus = host.HostStatus
+		info.HostStatus = host.Status
+		info.HostServiceStatus = host.HostStatus
 	}
 	if len(info.HostType) > 0 && guest.GetHypervisor() != api.HYPERVISOR_BAREMETAL {
 		if !info.HostEnabled {
 			return httperrors.NewInputParameterError("Cannot delete server on disabled host")
 		}
-		if info.HostStatus != api.HOST_ONLINE {
+		if info.HostServiceStatus != api.HOST_ONLINE {
 			return httperrors.NewInputParameterError("Cannot delete server on offline host")
 		}
 	}
