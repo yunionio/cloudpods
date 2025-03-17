@@ -147,6 +147,9 @@ func (self *SAzureClient) _post_v2(service string, resource, apiVersion string, 
 
 func (self *SAzureClient) _request_v2(service string, method httputils.THttpMethod, resource, apiVersion string, params url.Values, body map[string]interface{}) (jsonutils.JSONObject, error) {
 	value := []jsonutils.JSONObject{}
+	if gotypes.IsNil(params) {
+		params = url.Values{}
+	}
 	for {
 		resp, err := self.__request_v2(service, method, resource, apiVersion, params, body)
 		if err != nil {
