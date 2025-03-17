@@ -291,6 +291,9 @@ func (self *SAzureClient) GetRedisMetrics(opts *cloudprovider.MetricListOptions)
 
 func (self *SAzureClient) GetLbMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
 	metricnamespace := "Microsoft.Network/loadBalancers"
+	if strings.Contains(opts.ResourceId, "microsoft.network/applicationgateways") {
+		metricnamespace = "microsoft.network/applicationgateways"
+	}
 	metricnames := "SnatConnectionCount,UsedSnatPorts"
 	return self.getMetricValues(opts.ResourceId, metricnamespace, metricnames, nil, "", opts.StartTime, opts.EndTime)
 }
@@ -313,6 +316,10 @@ func (self *SAzureClient) GetRdsMetrics(opts *cloudprovider.MetricListOptions) (
 	case api.DBINSTANCE_TYPE_MYSQL:
 		metricnamespace = fmt.Sprintf("Microsoft.DBforMySQL/%s", rdsType)
 		metricnames = "cpu_percent,memory_percent,storage_percent,network_bytes_ingress,network_bytes_egress,io_consumption_percent,connections_failed,active_connections"
+		if strings.Contains(opts.ResourceId, "/flexibleservers/") {
+			// cpu_percent,memory_percent,network_bytes_egress,network_bytes_ingress,active_connections,total_connections,aborted_connections,Queries,io_consumption_percent,storage_io_count,storage_percent,storage_used,data_storage_used,ibdata1_storage_used,binlog_storage_used,others_storage_used,storage_limit,backup_storage_used,replication_lag,cpu_credits_remaining,cpu_credits_consumed,Com_select,Com_update,Com_insert,Com_delete,Slow_queries,Com_create_db,Com_drop_db,Com_alter_table,Com_create_table,Com_drop_table,Innodb_buffer_pool_reads,Innodb_buffer_pool_read_requests,Innodb_buffer_pool_pages_free,Innodb_buffer_pool_pages_data,Innodb_buffer_pool_pages_dirty,storage_throttle_count,serverlog_storage_percent,serverlog_storage_usage,serverlog_storage_limit,Replica_IO_Running,Replica_SQL_Running,HA_IO_status,HA_SQL_status,HA_replication_lag,Innodb_row_lock_time,Innodb_data_writes,Innodb_row_lock_waits,Innodb_buffer_pool_pages_flushed,available_memory_bytes,Threads_running
+			metricnames = "cpu_percent,memory_percent,storage_percent,network_bytes_ingress,network_bytes_egress,io_consumption_percent,active_connections"
+		}
 	case api.DBINSTANCE_TYPE_MARIADB:
 		metricnamespace = "Microsoft.DBforMariaDB/servers"
 		metricnames = "cpu_percent,memory_percent,storage_percent,network_bytes_ingress,network_bytes_egress,io_consumption_percent,connections_failed,active_connections"
