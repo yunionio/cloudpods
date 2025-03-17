@@ -39,9 +39,10 @@ type MonitorResourceListInput struct {
 	apis.EnabledResourceBaseListInput
 	compute.ManagedResourceListInput
 
-	ResId     []string `json:"res_id"`
-	ResType   string   `json:"res_type"`
-	OnlyResId bool     `json:"only_res_id"`
+	ResId       []string `json:"res_id"`
+	ResType     string   `json:"res_type"`
+	OnlyResId   bool     `json:"only_res_id"`
+	AlertStates []string `json:"alert_states"`
 
 	ResName string `json:"res_name"`
 }
