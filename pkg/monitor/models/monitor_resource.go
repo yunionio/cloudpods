@@ -203,6 +203,9 @@ func (manager *SMonitorResourceManager) FieldListFilter(q *sqlchemy.SQuery, quer
 	if len(query.ResName) != 0 {
 		q.Contains("name", query.ResName)
 	}
+	if len(query.AlertStates) != 0 {
+		q.In("alert_state", query.AlertStates)
+	}
 	return q
 }
 
