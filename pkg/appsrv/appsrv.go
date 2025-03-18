@@ -484,6 +484,10 @@ func timeoutHandle(h http.Handler) http.HandlerFunc {
 }
 
 func (app *Application) initServer(addr string) *http.Server {
+	return InitHTTPServer(app, addr)
+}
+
+func InitHTTPServer(app *Application, addr string) *http.Server {
 	/* db := AppContextDB(app.context)
 	if db != nil {
 		db.SetMaxIdleConns(app.connMax + 1)
