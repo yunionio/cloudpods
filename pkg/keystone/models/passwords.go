@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
+	"yunion.io/x/sqlchemy"
 
 	notifyapi "yunion.io/x/onecloud/pkg/apis/notify"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -107,12 +108,30 @@ func (manager *SPasswordManager) FetchLastPassword(localUserId int) (*SPassword,
 	return &passes[0], nil
 }
 
-func (manager *SPasswordManager) fetchByLocaluserId(localUserId int) ([]SPassword, error) {
-	passes := make([]SPassword, 0)
+func (manager *SPasswordManager) getFetchByLocaluserIdQuery(localUserId int) *sqlchemy.SQuery {
 	passwords := manager.Query().SubQuery()
-
 	q := passwords.Query().Equals("local_user_id", localUserId)
 	q = q.Desc(passwords.Field("created_at_int"))
+	return q
+}
+
+func (manager *SPasswordManager) FetchByLocaluserIdNewestPassword(localUserId int) (*SPassword, error) {
+	obj, err := db.NewModelObject(manager)
+	if err != nil {
+		return nil, errors.Wrap(err, "new password object")
+	}
+
+	q := manager.getFetchByLocaluserIdQuery(localUserId).Limit(1)
+	if err := q.First(obj); err != nil {
+		return nil, errors.Wrap(err, "get newest password object")
+	}
+	return obj.(*SPassword), nil
+}
+
+func (manager *SPasswordManager) fetchByLocaluserId(localUserId int) ([]SPassword, error) {
+	passes := make([]SPassword, 0)
+
+	q := manager.getFetchByLocaluserIdQuery(localUserId)
 	err := db.FetchModelObjects(manager, q, &passes)
 	if err != nil && err != sql.ErrNoRows {
 		return nil, errors.Wrap(err, "db.FetchModelObjects")
