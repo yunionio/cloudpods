@@ -110,10 +110,9 @@ func start() {
 	addr := net.JoinHostPort(o.Options.Address, strconv.Itoa(o.Options.Port))
 	log.Infof("Start listen on %s", addr)
 	if o.Options.EnableSsl {
-		err := http.ListenAndServeTLS(addr,
-			o.Options.SslCertfile,
-			o.Options.SslKeyfile,
-			root)
+		srv := appsrv.InitHTTPServer(app, addr)
+		srv.Handler = root
+		err := srv.ListenAndServeTLS(o.Options.SslCertfile, o.Options.SslKeyfile)
 		if err != nil && err != http.ErrServerClosed {
 			log.Fatalf("%v", err)
 		}
