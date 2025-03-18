@@ -987,7 +987,7 @@ func (res *SResources) CollectMetrics(ctx context.Context, userCred mcclient.Tok
 		log.Errorf("Get influxdb %s service url: %v", options.Options.SessionEndpointType, err)
 		return
 	}
-	if err := influxdb.SendMetrics(urls, "meter_db", metrics, true); err != nil {
+	if err := influxdb.SendMetrics(urls, "meter_db", metrics, false); err != nil {
 		log.Errorf("SendMetrics to meter_db: %v", err)
 		return
 	}
