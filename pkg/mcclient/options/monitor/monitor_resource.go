@@ -33,9 +33,10 @@ func (o *MonitorResourceJointAlertOptions) Property() string {
 
 type MonitorResourceListOptions struct {
 	options.BaseListOptions
-	ResType string   `help:"filter by resource type" json:"res_type"`
-	ResId   []string `help:"filter by resource id" json:"res_id"`
-	ResName string   `help:"filter by resource name" json:"res_name"`
+	ResType     string   `help:"filter by resource type" json:"res_type"`
+	ResId       []string `help:"filter by resource id" json:"res_id"`
+	ResName     string   `help:"filter by resource name" json:"res_name"`
+	AlertStates []string `help:"filter by alert state" json:"alert_states"`
 }
 
 func (o *MonitorResourceListOptions) Params() (jsonutils.JSONObject, error) {
