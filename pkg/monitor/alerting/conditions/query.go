@@ -110,9 +110,15 @@ func (c FormatCond) String() string {
 	return "no_data"
 }
 
-func (c *QueryCondition) filterTags(tags map[string]string, details monitor.CommonAlertMetricDetails) map[string]string {
+func (c *QueryCondition) filterTags(tags map[string]string, cloudTags map[string]string, details monitor.CommonAlertMetricDetails) map[string]string {
 	ret := make(map[string]string)
-	for key, val := range tags {
+	allTags := make(map[string]string)
+	for _, ts := range []map[string]string{tags, cloudTags} {
+		for k, v := range ts {
+			allTags[k] = v
+		}
+	}
+	for key, val := range allTags {
 		//if strings.HasSuffix(key, "_id") {
 		//	continue
 		//}
@@ -303,7 +309,7 @@ func (c *QueryCondition) NewEvalMatch(
 		queryKeyInfo = evalMatch.Metric
 	}
 	evalMatch.Unit = alertDetails.FieldDescription.Unit
-	evalMatch.Tags = c.filterTags(series.Tags, *alertDetails)
+	evalMatch.Tags = c.filterTags(series.Tags, series.CloudTags, *alertDetails)
 	evalMatch.Value = value
 	evalMatch.ValueStr = models.RationalizeValueFromUnit(*value, alertDetails.FieldDescription.Unit,
 		alertDetails.FieldOpt)
