@@ -250,34 +250,40 @@ func (man *SAlertRecordManager) FetchCustomizeColumns(
 	rows := make([]monitor.AlertRecordDetails, len(objs))
 	stdRows := man.SStatusStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	scopedRows := man.SScopedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	alertIds := make([]string, len(objs))
+	records := make([]*SAlertRecord, len(objs))
 	for i := range rows {
 		rows[i] = monitor.AlertRecordDetails{
 			StatusStandaloneResourceDetails: stdRows[i],
 			ScopedResourceBaseInfo:          scopedRows[i],
 		}
-		rows[i], _ = objs[i].(*SAlertRecord).GetMoreDetails(rows[i])
+		record := objs[i].(*SAlertRecord)
+		alertIds[i] = record.AlertId
+		records[i] = record
 	}
-	return rows
-}
 
-func (record *SAlertRecord) GetMoreDetails(out monitor.AlertRecordDetails) (monitor.AlertRecordDetails, error) {
-	evalMatchs := make([]monitor.EvalMatch, 0)
-	if record.EvalData != nil {
-		err := record.EvalData.Unmarshal(&evalMatchs)
+	alerts := map[string]SCommonAlert{}
+	err := db.FetchModelObjectsByIds(CommonAlertManager, "id", alertIds, &alerts)
+	if err != nil {
+		log.Errorf("FetchModelObjectsByIds common alert error: %v", err)
+		return rows
+	}
+	for i := range rows {
+		if alert, ok := alerts[alertIds[i]]; ok {
+			rows[i].AlertName = alert.Name
+			rows[i].TriggerTime = alert.CreatedAt
+		}
+		evalMatchs := make([]monitor.EvalMatch, 0)
+		err := records[i].EvalData.Unmarshal(&evalMatchs)
 		if err != nil {
-			return out, errors.Wrap(err, "record Unmarshal evalMatchs error")
+			continue
 		}
 		for i, _ := range evalMatchs {
-			evalMatchs[i] = record.filterTags(evalMatchs[i])
+			evalMatchs[i] = records[i].filterTags(evalMatchs[i])
 		}
-		out.ResNum = int64(len(evalMatchs))
+		rows[i].ResNum = int64(len(evalMatchs))
 	}
-	commonAlert, _ := CommonAlertManager.GetAlert(record.AlertId)
-	if commonAlert != nil {
-		out.AlertName = commonAlert.GetName()
-	}
-	out.TriggerTime = record.CreatedAt
-	return out, nil
+	return rows
 }
 
 func (record *SAlertRecord) filterTags(match monitor.EvalMatch) monitor.EvalMatch {
