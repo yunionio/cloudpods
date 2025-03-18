@@ -348,11 +348,11 @@ func VerifyPassword(user *api.SUserExtended, passwd string) error {
 }
 
 func localUserVerifyPassword(user *api.SUserExtended, passwd string) error {
-	passes, err := PasswordManager.fetchByLocaluserId(user.LocalId)
+	pass, err := PasswordManager.FetchByLocaluserIdNewestPassword(user.LocalId)
 	if err != nil {
 		return errors.Wrap(err, "fetchPassword")
 	}
-	if len(passes) == 0 {
+	if pass == nil {
 		return errors.Error("no valid password")
 	}
 	// password expiration check skip system account
@@ -360,14 +360,14 @@ func localUserVerifyPassword(user *api.SUserExtended, passwd string) error {
 	// 	return errors.Error("password expires")
 	// }
 	// password expires, no error returns but set user need to reset password silently
-	if passes[0].IsExpired() {
+	if pass.IsExpired() {
 		localUsr, err := LocalUserManager.fetchLocalUser("", "", user.LocalId)
 		if err != nil {
 			return errors.Wrap(err, "fetchLocalUser")
 		}
 		localUsr.markNeedResetPassword(true, api.PasswordResetHintExpire)
 	}
-	err = seclib2.BcryptVerifyPassword(passwd, passes[0].PasswordHash)
+	err = seclib2.BcryptVerifyPassword(passwd, pass.PasswordHash)
 	if err == nil {
 		return nil
 	}
