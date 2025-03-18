@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
+	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/util/iproute2"
@@ -104,6 +105,11 @@ func (l *SLinuxBridgeDriver) getUpScripts(nic *desc.SGuestNetwork, isVolatileHos
 	s += "ip address flush dev $1\n"
 	s += "ip link set dev $1 up\n"
 	s += "brctl addif ${switch} $1\n"
+	if nic.Driver != compute.NETWORK_DRIVER_VFIO {
+		if len(options.HostOptions.SRIOVNics) > 0 {
+			s += fmt.Sprintf("bridge fdb add %s dev %s\n", nic.Mac, l.inter.String())
+		}
+	}
 	return s, nil
 }
 
@@ -117,6 +123,11 @@ func (l *SLinuxBridgeDriver) getDownScripts(nic *desc.SGuestNetwork, isVolatileH
 	s += "ip addr flush dev $1\n"
 	s += "ip link set dev $1 down\n"
 	s += "brctl delif ${switch} $1\n"
+	if nic.Driver != compute.NETWORK_DRIVER_VFIO {
+		if len(options.HostOptions.SRIOVNics) > 0 {
+			s += fmt.Sprintf("bridge fdb del %s dev %s\n", nic.Mac, l.inter.String())
+		}
+	}
 	return s, nil
 }
 
