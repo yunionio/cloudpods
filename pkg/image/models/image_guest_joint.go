@@ -24,6 +24,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
 )
 
 // +onecloud:swagger-gen-ignore
@@ -52,6 +53,22 @@ func init() {
 		),
 	}
 	GuestImageJointManager.SetVirtualObject(GuestImageJointManager)
+}
+
+func (manager *SGuestImageJointManager) InitializeData() error {
+	q := manager.Query()
+	guestImageQ := GuestImageManager.RawQuery().IsTrue("deleted").SubQuery()
+	q = q.Join(guestImageQ, sqlchemy.Equals(q.Field("guest_image_id"), guestImageQ.Field("id")))
+
+	guestImageJoints := make([]SGuestImageJoint, 0)
+	err := db.FetchModelObjects(manager, q, &guestImageJoints)
+	if err != nil {
+		return errors.Wrap(err, "FetchModelObjects")
+	}
+	for i := range guestImageJoints {
+		guestImageJoints[i].Delete(context.Background(), auth.AdminCredential())
+	}
+	return nil
 }
 
 func (gm *SGuestImageJointManager) GetByGuestImageId(guestImageId string) ([]SGuestImageJoint, error) {
@@ -86,7 +103,7 @@ func (gm *SGuestImageJointManager) GetByImageId(imageId string) ([]SGuestImageJo
 	return model.(*SGuestImage), nil
 }*/
 
-func (gm *SGuestImageJointManager) GetImagesByFilter(guestImageId string,
+/*func (gm *SGuestImageJointManager) GetImagesByFilter(guestImageId string,
 	filter func(q *sqlchemy.SQuery) *sqlchemy.SQuery) ([]SImage, error) {
 
 	giJoints, err := gm.GetByGuestImageId(guestImageId)
@@ -114,7 +131,7 @@ func (gm *SGuestImageJointManager) GetImagesByGuestImageId(guestImageId string) 
 	return gm.GetImagesByFilter(guestImageId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
 		return q
 	})
-}
+}*/
 
 func (gt *SGuestImageJoint) GetId() string {
 	return fmt.Sprintf("guestimage-%s-image-%s", gt.GuestImageId, gt.ImageId)
@@ -124,8 +141,11 @@ func (gt *SGuestImageJoint) RealDelete(ctx context.Context, userCred mcclient.To
 	return db.DeleteModel(ctx, userCred, gt)
 }
 
-func (gt *SGuestImageJointManager) CreateGuestImageJoint(ctx context.Context, guestImageId,
-	imageId string) (*SGuestImageJoint, error) {
+func (gt *SGuestImageJointManager) CreateGuestImageJoint(
+	ctx context.Context,
+	guestImageId,
+	imageId string,
+) (*SGuestImageJoint, error) {
 
 	gi := SGuestImageJoint{}
 	gi.GuestImageId = guestImageId
@@ -137,4 +157,15 @@ func (gt *SGuestImageJointManager) CreateGuestImageJoint(ctx context.Context, gu
 	}
 	gi.SetVirtualObject(gt)
 	return &gi, nil
+}
+
+func (gt *SGuestImageJoint) GetImage() (*SImage, error) {
+	imgObj, err := ImageManager.FetchById(gt.ImageId)
+	if err != nil {
+		if errors.Cause(err) == sql.ErrNoRows {
+			err = errors.ErrNotFound
+		}
+		return nil, errors.Wrapf(err, "FetchByImageId %s", gt.ImageId)
+	}
+	return imgObj.(*SImage), nil
 }
