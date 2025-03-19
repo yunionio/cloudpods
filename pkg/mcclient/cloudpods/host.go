@@ -348,3 +348,15 @@ func (region *SRegion) GetHosts(zoneId string) ([]SHost, error) {
 	}
 	return ret, nil
 }
+
+func (host *SHost) GetIsolateDevices() ([]cloudprovider.IsolateDevice, error) {
+	devs, err := host.zone.region.GetIsolatedDevices(host.Id, "")
+	if err != nil {
+		return nil, err
+	}
+	ret := []cloudprovider.IsolateDevice{}
+	for i := range devs {
+		ret = append(ret, &devs[i])
+	}
+	return ret, nil
+}

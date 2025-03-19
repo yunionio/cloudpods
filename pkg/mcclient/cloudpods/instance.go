@@ -549,6 +549,13 @@ func (self *SRegion) CreateInstance(hostId, hypervisor string, opts *cloudprovid
 			Storage:  disk.StorageExternalId,
 		})
 	}
+	input.IsolatedDevices = []*api.IsolatedDeviceConfig{}
+	for _, dev := range input.IsolatedDevices {
+		devConfig := &api.IsolatedDeviceConfig{
+			Id: dev.Id,
+		}
+		input.IsolatedDevices = append(input.IsolatedDevices, devConfig)
+	}
 	input.Networks = append(input.Networks, &api.NetworkConfig{
 		Index:   0,
 		Network: opts.ExternalNetworkId,
@@ -651,4 +658,16 @@ func (self *SInstance) CreateDisk(ctx context.Context, opts *cloudprovider.Guest
 		return ret, nil
 	}
 	return "", errors.Wrapf(cloudprovider.ErrNotFound, "after disk created")
+}
+
+func (instance *SInstance) GetIsolateDeviceIds() ([]string, error) {
+	devs, err := instance.host.zone.region.GetIsolatedDevices("", instance.Id)
+	if err != nil {
+		return nil, err
+	}
+	ret := []string{}
+	for i := range devs {
+		ret = append(ret, devs[i].GetGlobalId())
+	}
+	return ret, nil
 }
