@@ -1115,6 +1115,10 @@ func (manager *STaskManager) ListItemFilter(
 		}
 	}
 
+	if len(input.ParentTaskId) > 0 {
+		q = q.Equals("parent_task_id", input.ParentTaskId)
+	}
+
 	if input.SubTask != nil && *input.SubTask {
 		subSQFunc := func(status string, cntField string) *sqlchemy.SSubQuery {
 			subQ := SubTaskManager.Query()
@@ -1275,9 +1279,7 @@ func (manager *STaskManager) InitializeData() error {
 }
 
 func (manager *STaskManager) failTimeoutTasks() error {
-	// failed unfinished tasks 24 hours ago
 	q := manager.Query().NotIn("stage", []string{TASK_STAGE_FAILED, TASK_STAGE_COMPLETE})
-	// q = q.LT("created_at", time.Now().Add(-24*time.Hour))
 
 	tasks := make([]STask, 0)
 	err := db.FetchModelObjects(manager, q, &tasks)
@@ -1469,4 +1471,50 @@ func (manager *STaskManager) TaskCleanupJob(ctx context.Context, userCred mcclie
 		count++
 	}
 	log.Infof("TaskCleanupJob migrate %d tasks, takes %f seconds, batch limit=%d threshold hours=%d", count, time.Since(taskStart).Seconds(), consts.TaskArchiveBatchLimit(), consts.TaskArchiveThresholdHours())
+}
+
+func (task *STask) PerformCancel(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input apis.TaskCancelInput,
+) (jsonutils.JSONObject, error) {
+	if utils.IsInArray(task.Stage, []string{TASK_STAGE_FAILED, TASK_STAGE_COMPLETE}) {
+		return nil, errors.Wrapf(errors.ErrInvalidStatus, "cannot cancel stage in %s", task.Stage)
+	}
+	err := task.cancel(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "cancel")
+	}
+	return nil, nil
+}
+
+func (task *STask) fetchSubTasks() ([]STask, error) {
+	q := task.GetModelManager().Query().Equals("parent_task_id", task.Id)
+
+	tasks := make([]STask, 0)
+	err := db.FetchModelObjects(task.GetModelManager(), q, &tasks)
+	if err != nil {
+		return nil, errors.Wrap(err, "db.FetchModelObjects")
+	}
+	return tasks, nil
+}
+
+func (task *STask) cancel(ctx context.Context) error {
+	if utils.IsInArray(task.Stage, []string{TASK_STAGE_FAILED, TASK_STAGE_COMPLETE}) {
+		return nil
+	}
+	subtasks, err := task.fetchSubTasks()
+	if err != nil {
+		return errors.Wrap(err, "fetchSubTasks")
+	}
+	for i := range subtasks {
+		err := subtasks[i].cancel(ctx)
+		if err != nil {
+			return errors.Wrap(err, "cancelTask")
+		}
+	}
+	reason := jsonutils.NewString("cancel")
+	task.SetStageFailed(ctx, reason)
+	return nil
 }

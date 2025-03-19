@@ -43,7 +43,6 @@ func InitHandlers(app *appsrv.Application) {
 
 	usages.AddUsageHandler(API_VERSION, app)
 
-	taskman.InitArchivedTaskManager()
 	taskman.AddTaskHandler(API_VERSION, app)
 
 	app_common.ExportOptionsHandlerWithPrefix(app, API_VERSION, &options.Options)

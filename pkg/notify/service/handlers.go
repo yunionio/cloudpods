@@ -34,7 +34,8 @@ func InitHandlers(app *appsrv.Application) {
 	models.InitEmailQueue()
 
 	db.RegistUserCredCacheUpdater()
-	taskman.InitArchivedTaskManager()
+
+	taskman.AddTaskHandler(API_VERSION, app)
 
 	db.AddScopeResourceCountHandler(API_VERSION, app)
 

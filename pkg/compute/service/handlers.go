@@ -53,7 +53,6 @@ func InitHandlers(app *appsrv.Application) {
 	specs.AddSpecHandler("", app)
 	sshkeys.AddSshKeysHandler("", app)
 
-	taskman.InitArchivedTaskManager()
 	taskman.AddTaskHandler("", app)
 
 	misc.AddMiscHandler("", app)

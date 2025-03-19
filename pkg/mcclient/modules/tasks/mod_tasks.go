@@ -22,32 +22,28 @@ import (
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
+	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
-
-/*var (
-	ComputeTasks TasksManager
-	DevtoolTasks TasksManager
-)*/
 
 type TasksManager struct {
 	modulebase.ResourceManager
 }
 
-/*func init() {
-	ComputeTasks = TasksManager{
-		ResourceManager: modules.NewComputeManager("task", "tasks",
+func NewTaskManagers(taskManager func(string, string, []string, []string) modulebase.ResourceManager) (TasksManager, TasksManager) {
+	task := TasksManager{
+		ResourceManager: taskManager("task", "tasks",
 			[]string{},
 			[]string{"Id", "Obj_name", "Obj_Id", "Task_name", "Stage", "Created_at"}),
 	}
-	modules.RegisterCompute(&ComputeTasks)
-
-	DevtoolTasks = TasksManager{
-		ResourceManager: modules.NewDevtoolManager("task", "tasks",
+	modules.Register(&task)
+	archivedTask := TasksManager{
+		ResourceManager: taskManager("archivedtask", "archivedtasks",
 			[]string{},
-			[]string{"Id", "Obj_name", "Obj_Id", "Task_name", "Stage", "Created_at"},
-		),
+			[]string{"Id", "task_id", "Obj_name", "Obj_Id", "Task_name", "Stage", "Start_at"}),
 	}
-}*/
+	modules.Register(&archivedTask)
+	return task, archivedTask
+}
 
 func (man *TasksManager) TaskComplete(session *mcclient.ClientSession, taskId string, params jsonutils.JSONObject) {
 	for i := 0; i < 3; i++ {

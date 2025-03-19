@@ -20,12 +20,8 @@ import (
 )
 
 var ComputeTasks tasks.TasksManager
+var ArchivedComputeTasks tasks.TasksManager
 
 func init() {
-	ComputeTasks = tasks.TasksManager{
-		ResourceManager: modules.NewComputeManager("task", "tasks",
-			[]string{},
-			[]string{"Id", "Obj_name", "Obj_Id", "Task_name", "Stage", "Created_at"}),
-	}
-	modules.RegisterCompute(&ComputeTasks)
+	ComputeTasks, ArchivedComputeTasks = tasks.NewTaskManagers(modules.NewComputeManager)
 }
