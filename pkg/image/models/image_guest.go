@@ -276,7 +276,7 @@ func (gi *SGuestImage) RealDelete(ctx context.Context, userCred mcclient.TokenCr
 func (gi *SGuestImage) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject, data jsonutils.JSONObject) error {
 
-	images, err := GuestImageJointManager.GetImagesByGuestImageId(gi.Id)
+	images, err := GuestImageJointManager.GetByGuestImageId(gi.Id)
 	if err != nil {
 		return errors.Wrap(err, "get images of guest images failed")
 	}
@@ -334,12 +334,16 @@ func (gi *SGuestImage) PerformCancelDelete(ctx context.Context, userCred mcclien
 }
 
 func (gi *SGuestImage) DoCancelPendingDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
-	subImages, err := GuestImageJointManager.GetImagesByGuestImageId(gi.Id)
+	subImages, err := GuestImageJointManager.GetByGuestImageId(gi.Id)
 	if err != nil {
 		return errors.Wrap(err, "GetImagesByGuestImageId")
 	}
 	for i := range subImages {
-		err = subImages[i].DoCancelPendingDelete(ctx, userCred)
+		image, err := subImages[i].GetImage()
+		if err != nil {
+			return errors.Wrapf(err, "subImages[%d].GetImage", i)
+		}
+		err = image.DoCancelPendingDelete(ctx, userCred)
 		if err != nil {
 			return errors.Wrapf(err, "subimage %s cancel delete error", subImages[i].GetId())
 		}
@@ -355,14 +359,14 @@ func (gi *SGuestImage) DoCancelPendingDelete(ctx context.Context, userCred mccli
 	return errors.Wrap(err, "guest image cancel delete error")
 }
 
-func (self *SGuestImage) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject,
+func (guestImage *SGuestImage) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject,
 	out api.GuestImageDetails) api.GuestImageDetails {
 
-	if self.Status != api.IMAGE_STATUS_ACTIVE {
-		self.checkStatus(ctx, userCred)
-		out.Status = self.Status
+	if guestImage.Status != api.IMAGE_STATUS_ACTIVE {
+		guestImage.checkStatus(ctx, userCred)
+		out.Status = guestImage.Status
 	}
-	images, err := GuestImageJointManager.GetImagesByGuestImageId(self.Id)
+	images, err := GuestImageJointManager.GetByGuestImageId(guestImage.Id)
 	if err != nil {
 		return out
 	}
@@ -374,7 +378,11 @@ func (self *SGuestImage) getMoreDetails(ctx context.Context, userCred mcclient.T
 	dataImages := make([]api.SubImageInfo, 0, len(images)-1)
 	var rootImage *api.SubImageInfo
 	for i := range images {
-		image := images[i]
+		image, err := images[i].GetImage()
+		if err != nil {
+			log.Errorf("subimage[%d].GetImage fail %s", i, err)
+			continue
+		}
 		size += image.Size
 		if !image.IsData.IsTrue() && rootImage == nil {
 			rootImage = &api.SubImageInfo{
@@ -425,7 +433,7 @@ func (self *SGuestImage) getMoreDetails(ctx context.Context, userCred mcclient.T
 		}
 		out.Properties = propJson
 	}
-	out.DisableDelete = self.Protected.Bool()
+	out.DisableDelete = guestImage.Protected.Bool()
 	return out
 }
 
@@ -454,39 +462,44 @@ func (manager *SGuestImageManager) FetchCustomizeColumns(
 	return rows
 }
 
-func (self *SGuestImage) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject,
+func (guestImage *SGuestImage) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject,
 	data jsonutils.JSONObject) {
 
 	lockman.LockClass(ctx, ImageManager, db.GetLockClassKey(ImageManager, userCred))
 	defer lockman.ReleaseClass(ctx, ImageManager, db.GetLockClassKey(ImageManager, userCred))
 
-	err := self.UpdateSubImage(ctx, userCred, data)
+	err := guestImage.UpdateSubImage(ctx, userCred, data)
 	if err != nil {
-		logclient.AddSimpleActionLog(self, logclient.ACT_UPDATE, nil, userCred, false)
+		logclient.AddSimpleActionLog(guestImage, logclient.ACT_UPDATE, nil, userCred, false)
 	}
 
 }
 
-func (self *SGuestImage) UpdateSubImage(ctx context.Context, userCred mcclient.TokenCredential,
+func (guestImage *SGuestImage) UpdateSubImage(ctx context.Context, userCred mcclient.TokenCredential,
 	data jsonutils.JSONObject) error {
 
-	subImages, err := GuestImageJointManager.GetImagesByFilter(self.GetId(), func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
-		return q.Asc("name")
-	})
+	subImages, err := GuestImageJointManager.GetByGuestImageId(guestImage.Id)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "GetByGuestImageId")
 	}
 	dict := data.(*jsonutils.JSONDict)
 	var g errgroup.Group
 	for i := range subImages {
-		if f, ok := self.genUpdateImage(ctx, userCred, &subImages[i], i, dict); ok {
+		img, err := subImages[i].GetImage()
+		if err != nil {
+			g.Go(func() error {
+				return err
+			})
+			continue
+		}
+		if f, ok := guestImage.genUpdateImage(ctx, userCred, img, i, dict); ok {
 			g.Go(f)
 		}
 	}
 	return g.Wait()
 }
 
-func (self *SGuestImage) genUpdateImage(ctx context.Context, userCred mcclient.TokenCredential, image *SImage,
+func (guestImage *SGuestImage) genUpdateImage(ctx context.Context, userCred mcclient.TokenCredential, image *SImage,
 	index int, dict *jsonutils.JSONDict) (func() error, bool) {
 	if image.IsGuestImage.IsFalse() {
 		return nil, false
@@ -553,12 +566,13 @@ var checkStatus = map[string]int{
 	api.IMAGE_STATUS_SAVING:      3,
 	api.IMAGE_STATUS_DEACTIVATED: 4,
 	api.IMAGE_STATUS_KILLED:      5,
+	api.IMAGE_STATUS_UNKNOWN:     6,
 }
 
-func (self *SGuestImage) checkStatus(ctx context.Context, userCred mcclient.TokenCredential) error {
-	images, err := GuestImageJointManager.GetImagesByGuestImageId(self.Id)
+func (guestImage *SGuestImage) checkStatus(ctx context.Context, userCred mcclient.TokenCredential) error {
+	images, err := GuestImageJointManager.GetByGuestImageId(guestImage.Id)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "GetByGuestImageId")
 	}
 	if len(images) == 0 {
 		return nil
@@ -567,38 +581,49 @@ func (self *SGuestImage) checkStatus(ctx context.Context, userCred mcclient.Toke
 	status := api.IMAGE_STATUS_ACTIVE
 
 	for i := range images {
-		if checkStatus[images[i].Status] > checkStatus[status] {
-			status = images[i].Status
+		imgStatus := ""
+		image, err := images[i].GetImage()
+		if err != nil {
+			log.Errorf("subimage %d GetImage fail %s", i, err)
+			imgStatus = api.IMAGE_STATUS_UNKNOWN
+		} else {
+			imgStatus = image.Status
+		}
+		if checkStatus[imgStatus] > checkStatus[status] {
+			status = imgStatus
 		}
 	}
-	if self.Status != status {
-		self.SetStatus(ctx, userCred, status, "")
-		self.Status = status
+	if guestImage.Status != status {
+		guestImage.SetStatus(ctx, userCred, status, "")
+		guestImage.Status = status
 	}
 	return nil
 }
 
-func (self *SGuestImage) getSize(ctx context.Context, userCred mcclient.TokenCredential) (int64, error) {
-	images, err := GuestImageJointManager.GetImagesByGuestImageId(self.Id)
+func (guestImage *SGuestImage) getSize(ctx context.Context, userCred mcclient.TokenCredential) (int64, error) {
+	images, err := GuestImageJointManager.GetByGuestImageId(guestImage.Id)
 	if err != nil {
 		return 0, err
 	}
 	var size int64 = 0
 	for i := range images {
-		size += images[i].Size
+		image, _ := images[i].GetImage()
+		if image != nil {
+			size += image.Size
+		}
 	}
 	return size, nil
 }
 
-func (self *SGuestImageManager) getExpiredPendingDeleteImages() []SGuestImage {
+func (guestImage *SGuestImageManager) getExpiredPendingDeleteImages() []SGuestImage {
 	deadline := time.Now().Add(time.Duration(-options.Options.PendingDeleteExpireSeconds) * time.Second)
 
 	// there are so many common images of one guest image, so that batch shrink three times
-	q := self.Query().IsTrue("pending_deleted").LT("pending_deleted_at",
+	q := guestImage.Query().IsTrue("pending_deleted").LT("pending_deleted_at",
 		deadline).Limit(options.Options.PendingDeleteMaxCleanBatchSize / 3)
 
 	images := make([]SGuestImage, 0)
-	err := db.FetchModelObjects(self, q, &images)
+	err := db.FetchModelObjects(guestImage, q, &images)
 	if err != nil {
 		log.Errorf("fetch guest images error %s", err)
 		return nil
@@ -606,10 +631,10 @@ func (self *SGuestImageManager) getExpiredPendingDeleteImages() []SGuestImage {
 	return images
 }
 
-func (self *SGuestImageManager) CleanPendingDeleteImages(ctx context.Context, userCred mcclient.TokenCredential,
+func (guestImage *SGuestImageManager) CleanPendingDeleteImages(ctx context.Context, userCred mcclient.TokenCredential,
 	isStart bool) {
 
-	images := self.getExpiredPendingDeleteImages()
+	images := guestImage.getExpiredPendingDeleteImages()
 	if images == nil {
 		return
 	}
@@ -618,42 +643,50 @@ func (self *SGuestImageManager) CleanPendingDeleteImages(ctx context.Context, us
 	}
 }
 
-func (self *SGuestImage) PerformPublic(
+func (guestImage *SGuestImage) PerformPublic(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
 	input apis.PerformPublicProjectInput,
 ) (jsonutils.JSONObject, error) {
-	images, err := GuestImageJointManager.GetImagesByGuestImageId(self.Id)
+	images, err := GuestImageJointManager.GetByGuestImageId(guestImage.Id)
 	if err != nil {
 		return nil, errors.Wrap(err, "fail to fetch subimages of guest image")
 	}
 	for i := range images {
-		_, err := images[i].performPublic(ctx, userCred, query, input)
+		image, _ := images[i].GetImage()
+		if image == nil {
+			continue
+		}
+		_, err := image.performPublic(ctx, userCred, query, input)
 		if err != nil {
 			return nil, errors.Wrapf(err, "fail to public subimage %s", images[i].GetId())
 		}
 	}
-	return self.SSharableVirtualResourceBase.PerformPublic(ctx, userCred, query, input)
+	return guestImage.SSharableVirtualResourceBase.PerformPublic(ctx, userCred, query, input)
 }
 
-func (self *SGuestImage) PerformPrivate(
+func (guestImage *SGuestImage) PerformPrivate(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
 	input apis.PerformPrivateInput,
 ) (jsonutils.JSONObject, error) {
-	images, err := GuestImageJointManager.GetImagesByGuestImageId(self.Id)
+	images, err := GuestImageJointManager.GetByGuestImageId(guestImage.Id)
 	if err != nil {
 		return nil, errors.Wrap(err, "fail to fetch subimages of guest image")
 	}
 	for i := range images {
-		_, err := images[i].performPrivate(ctx, userCred, query, input)
+		image, _ := images[i].GetImage()
+		if image == nil {
+			continue
+		}
+		_, err := image.performPrivate(ctx, userCred, query, input)
 		if err != nil {
 			return nil, errors.Wrapf(err, "fail to private subimage %s", images[i].GetId())
 		}
 	}
-	return self.SSharableVirtualResourceBase.PerformPrivate(ctx, userCred, query, input)
+	return guestImage.SSharableVirtualResourceBase.PerformPrivate(ctx, userCred, query, input)
 }
 
 // 主机镜像列表
@@ -738,13 +771,18 @@ func (gi *SGuestImage) GetUsages() []db.IUsage {
 	if gi.PendingDeleted || gi.Deleted {
 		return nil
 	}
-	images, err := GuestImageJointManager.GetImagesByGuestImageId(gi.Id)
+	images, err := GuestImageJointManager.GetByGuestImageId(gi.Id)
 	if err != nil {
 		return nil
 	}
 	usages := make([]db.IUsage, 0)
 	for i := range images {
-		ui := images[i].GetUsages()
+		image, err := images[i].GetImage()
+		if err != nil {
+			log.Errorf("subimage %d GetImage fail %s", i, err)
+			continue
+		}
+		ui := image.GetUsages()
 		if len(ui) > 0 {
 			usages = append(usages, ui...)
 		}
@@ -757,12 +795,17 @@ func (img *SGuestImage) PerformSetClassMetadata(ctx context.Context, userCred mc
 	if err != nil {
 		return ret, err
 	}
-	images, err := GuestImageJointManager.GetImagesByGuestImageId(img.Id)
+	images, err := GuestImageJointManager.GetByGuestImageId(img.Id)
 	if err != nil {
 		return nil, err
 	}
 	for i := range images {
-		_, err := images[i].PerformSetClassMetadata(ctx, userCred, query, input)
+		image, err := images[i].GetImage()
+		if err != nil {
+			log.Errorf("subimage %d GetImage fail %s", i, err)
+			continue
+		}
+		_, err = image.PerformSetClassMetadata(ctx, userCred, query, input)
 		if err != nil {
 			return nil, errors.Wrapf(err, "unable to PerformSetClassMetadata for image %s", images[i].GetId())
 		}
