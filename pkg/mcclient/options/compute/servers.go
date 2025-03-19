@@ -723,6 +723,7 @@ type ServerDeleteOptions struct {
 	DeleteSnapshots       *bool `help:"Delete server snapshots"`
 	DeleteDisks           *bool `help:"Delete server disks"`
 	DeleteEip             *bool `help:"Delete eip"`
+	DeleteBastionServer   *bool `help:"Remove from bastion host"`
 }
 
 func (o *ServerDeleteOptions) QueryParams() (jsonutils.JSONObject, error) {

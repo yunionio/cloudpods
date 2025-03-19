@@ -152,6 +152,7 @@ type IModelManager interface {
 
 type IModelManagerExtraHook interface {
 	AfterPostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, model IModel, query jsonutils.JSONObject, data jsonutils.JSONObject) error
+	AfterPostDelete(ctx context.Context, userCred mcclient.TokenCredential, model IModel, query jsonutils.JSONObject) error
 }
 
 type IModel interface {
