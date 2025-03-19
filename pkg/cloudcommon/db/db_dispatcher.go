@@ -1971,6 +1971,9 @@ func deleteItem(manager IModelManager, model IModel, ctx context.Context, userCr
 
 	// 删除后钩子
 	model.PostDelete(ctx, userCred)
+	if err := model.GetModelManager().GetExtraHook().AfterPostDelete(ctx, userCred, model, query); err != nil {
+		logclient.AddActionLogWithContext(ctx, model, logclient.ACT_POST_DELETE_HOOK, err, userCred, false)
+	}
 
 	// 避免设置删除状态没有正常返回
 	jsonutils.Update(details, model)

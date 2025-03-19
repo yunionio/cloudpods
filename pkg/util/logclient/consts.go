@@ -29,6 +29,7 @@ const (
 	ACT_CLOUD_SYNC                   = "cloud_sync"
 	ACT_CREATE                       = "create"
 	ACT_POST_CREATE_HOOK             = "post_create_hook"
+	ACT_POST_DELETE_HOOK             = "post_delete_hook"
 	ACT_DELETE                       = "delete"
 	ACT_PENDING_DELETE               = "pending_delete"
 	ACT_DISABLE                      = "disable"
