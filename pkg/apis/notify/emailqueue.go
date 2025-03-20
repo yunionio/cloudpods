@@ -85,9 +85,9 @@ type EmailQueueCreateInput struct {
 }
 
 type EmailQueueListInput struct {
-	apis.ModelBaseListInput
+	apis.LogBaseListInput
 
-	Id        []int    `json:"id"`
+	// Id        []int    `json:"id"`
 	To        []string `json:"to"`
 	Subject   string   `json:"subject"`
 	SessionId []string `json:"session_id"`

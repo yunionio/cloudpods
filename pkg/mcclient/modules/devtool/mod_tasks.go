@@ -20,13 +20,8 @@ import (
 )
 
 var DevtoolTasks tasks.TasksManager
+var ArchivedDevtoolTasks tasks.TasksManager
 
 func init() {
-	DevtoolTasks = tasks.TasksManager{
-		ResourceManager: modules.NewDevtoolManager("task", "tasks",
-			[]string{},
-			[]string{"Id", "Obj_name", "Obj_Id", "Task_name", "Stage", "Created_at"},
-		),
-	}
-	modules.Register(&DevtoolTasks)
+	DevtoolTasks, ArchivedDevtoolTasks = tasks.NewTaskManagers(modules.NewDevtoolManager)
 }

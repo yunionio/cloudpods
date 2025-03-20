@@ -41,7 +41,6 @@ func InitHandlers(app *appsrv.Application) {
 	db.RegisterModelManager(db.RoleCacheManager)
 	db.RegistUserCredCacheUpdater()
 
-	taskman.InitArchivedTaskManager()
 	taskman.AddTaskHandler("", app)
 
 	for _, manager := range []db.IModelManager{

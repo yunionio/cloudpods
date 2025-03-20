@@ -40,7 +40,6 @@ import (
 func InitHandlers(app *appsrv.Application) {
 	db.InitAllManagers()
 
-	taskman.InitArchivedTaskManager()
 	taskman.AddTaskHandler("v1", app)
 
 	db.AddScopeResourceCountHandler("", app)

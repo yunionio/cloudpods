@@ -391,3 +391,9 @@ type IdNameDetails struct {
 type TotalCountBase struct {
 	Count int `json:"count"`
 }
+
+type LogBaseListInput struct {
+	ModelBaseListInput
+
+	Id []string `json:"id"`
+}

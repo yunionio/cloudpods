@@ -225,14 +225,11 @@ func (manager *SEmailQueueManager) ListItemFilter(
 	query api.EmailQueueListInput,
 ) (*sqlchemy.SQuery, error) {
 	var err error
-	q, err = manager.SLogBaseManager.ListItemFilter(ctx, q, userCred, query.ModelBaseListInput)
+	q, err = manager.SLogBaseManager.ListItemFilter(ctx, q, userCred, query.LogBaseListInput)
 	if err != nil {
 		return q, errors.Wrap(err, "SLogBaseManager.ListItemFilter")
 	}
 
-	if len(query.Id) > 0 {
-		q = q.In("id", query.Id)
-	}
 	if len(query.To) > 0 {
 		cond := make([]sqlchemy.ICondition, 0)
 		for _, to := range query.To {

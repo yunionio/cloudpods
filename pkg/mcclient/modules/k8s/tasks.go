@@ -19,7 +19,8 @@ import (
 )
 
 var (
-	KubeTasks *tasks.TasksManager
+	KubeTasks         *tasks.TasksManager
+	ArchivedKubeTasks *tasks.TasksManager
 )
 
 type KubeTasksManager struct {
@@ -27,9 +28,13 @@ type KubeTasksManager struct {
 }
 
 func init() {
-	k8sResMan := NewResourceManager("task", "tasks", NewColumns(), NewColumns("Id", "Obj_name", "Obj_Id", "Task_name", "Stage", "Created_at"))
+	k8sTasksMan := NewResourceManager("task", "tasks", NewColumns(), NewColumns("Id", "Obj_name", "Obj_Id", "Task_name", "Stage", "Created_at"))
+	k8sArchivedTasksMan := NewResourceManager("archivedtask", "archivedtasks", NewColumns(), NewColumns("Id", "Obj_name", "Obj_Id", "Task_name", "Stage", "Created_at"))
 
 	KubeTasks = &tasks.TasksManager{
-		ResourceManager: k8sResMan.GetBaseManager(),
+		ResourceManager: k8sTasksMan.GetBaseManager(),
+	}
+	ArchivedKubeTasks = &tasks.TasksManager{
+		ResourceManager: k8sArchivedTasksMan.GetBaseManager(),
 	}
 }

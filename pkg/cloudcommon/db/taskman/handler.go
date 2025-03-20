@@ -23,4 +23,10 @@ import (
 func AddTaskHandler(prefix string, app *appsrv.Application) {
 	handler := db.NewModelHandler(TaskManager)
 	dispatcher.AddModelDispatcher(prefix, app, handler)
+
+	{
+		initArchivedTaskManager()
+		archiveHandler := db.NewModelHandler(ArchivedTaskManager)
+		dispatcher.AddModelDispatcher(prefix, app, archiveHandler)
+	}
 }

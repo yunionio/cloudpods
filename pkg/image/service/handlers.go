@@ -43,7 +43,6 @@ func InitHandlers(app *appsrv.Application) {
 	quotas.AddQuotaHandler(&models.QuotaManager.SQuotaBaseManager, API_VERSION, app)
 	usages.AddUsageHandler(API_VERSION, app)
 
-	taskman.InitArchivedTaskManager()
 	taskman.AddTaskHandler(API_VERSION, app)
 
 	app_common.ExportOptionsHandler(app, &options.Options)

@@ -20,13 +20,8 @@ import (
 )
 
 var Tasks tasks.TasksManager
+var ArchivedTasks tasks.TasksManager
 
 func init() {
-	Tasks = tasks.TasksManager{
-		ResourceManager: modules.NewIdentityV3Manager("task", "tasks",
-			[]string{},
-			[]string{"Id", "Obj_name", "Obj_Id", "Task_name", "Stage", "Created_at"},
-		),
-	}
-	modules.Register(&Tasks)
+	Tasks, ArchivedTasks = tasks.NewTaskManagers(modules.NewIdentityV3Manager)
 }
