@@ -100,7 +100,7 @@ func (self *SCasGuestDriver) GetRebuildRootStatus() ([]string, error) {
 	return []string{api.VM_READY}, nil
 }
 
-func (self *SCasGuestDriver) GetChangeConfigStatus(guest *models.SGuest) ([]string, error) {
+func (self *SCasGuestDriver) GetChangeInstanceTypeStatus() ([]string, error) {
 	return []string{api.VM_READY}, nil
 }
 

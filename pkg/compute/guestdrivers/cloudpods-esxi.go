@@ -209,7 +209,7 @@ func (self *SCloudpodsESXiGuestDriver) GetAttachDiskStatus() ([]string, error) {
 	return []string{api.VM_READY, api.VM_RUNNING}, nil
 }
 
-func (self *SCloudpodsESXiGuestDriver) GetChangeConfigStatus(guest *models.SGuest) ([]string, error) {
+func (self *SCloudpodsESXiGuestDriver) GetChangeInstanceTypeStatus() ([]string, error) {
 	return []string{api.VM_READY, api.VM_RUNNING}, nil
 }
 

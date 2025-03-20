@@ -123,7 +123,7 @@ func (self *SCloudpodsBaremetalGuestDriver) GetRebuildRootStatus() ([]string, er
 	return []string{api.VM_READY, api.VM_ADMIN}, nil
 }
 
-func (self *SCloudpodsBaremetalGuestDriver) GetChangeConfigStatus(guest *models.SGuest) ([]string, error) {
+func (self *SCloudpodsBaremetalGuestDriver) GetChangeInstanceTypeStatus() ([]string, error) {
 	return nil, httperrors.NewUnsupportOperationError("Cannot change config for baremtal")
 }
 

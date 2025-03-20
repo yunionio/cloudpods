@@ -94,7 +94,7 @@ func (self *SBaiduGuestDriver) GetAttachDiskStatus() ([]string, error) {
 	return []string{api.VM_READY, api.VM_RUNNING}, nil
 }
 
-func (self *SBaiduGuestDriver) GetChangeConfigStatus(guest *models.SGuest) ([]string, error) {
+func (self *SBaiduGuestDriver) GetChangeInstanceTypeStatus() ([]string, error) {
 	return []string{api.VM_READY}, nil
 }
 

@@ -100,7 +100,7 @@ func (self *SSangForGuestDriver) GetRebuildRootStatus() ([]string, error) {
 	return []string{api.VM_READY}, nil
 }
 
-func (self *SSangForGuestDriver) GetChangeConfigStatus(guest *models.SGuest) ([]string, error) {
+func (self *SSangForGuestDriver) GetChangeInstanceTypeStatus() ([]string, error) {
 	return []string{api.VM_READY}, nil
 }
 
