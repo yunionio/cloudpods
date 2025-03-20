@@ -582,18 +582,12 @@ func (manager *SCachedimageManager) PerformCacheImage(
 		if err != nil {
 			return nil, errors.Wrap(err, "FetchStoragecachesByFilters")
 		}
-		errs := make([]error, 0)
-		for i := range storageCaches {
-			err := storageCaches[i].StartImageCacheTask(ctx, userCred, api.CacheImageInput{
-				ImageId:  cimg.Id,
-				PreCache: true,
-			})
-			if err != nil {
-				errs = append(errs, err)
-			}
-		}
-		if len(errs) > 0 {
-			return nil, errors.Wrap(errors.NewAggregate(errs), "StartImageCacheTask")
+		err = StoragecacheManager.StartImageCacheTask(ctx, userCred, storageCaches, api.CacheImageInput{
+			ImageId:  cimg.Id,
+			PreCache: true,
+		})
+		if err != nil {
+			return nil, errors.Wrap(err, "StoragecacheManager.StartImageCacheTask")
 		}
 	}
 
