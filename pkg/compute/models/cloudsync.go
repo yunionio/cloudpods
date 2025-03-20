@@ -1272,6 +1272,7 @@ func (self *SGuest) SyncVMIsolateDevices(ctx context.Context, userCred mcclient.
 	if err != nil {
 		return errors.Wrapf(err, "GetIsolatedDevices")
 	}
+	result := compare.SyncResult{}
 	for i := range devs {
 		if !utils.IsInStringArray(devs[i].ExternalId, externalIds) {
 			_, err = db.Update(&devs[i], func() error {
@@ -1281,8 +1282,10 @@ func (self *SGuest) SyncVMIsolateDevices(ctx context.Context, userCred mcclient.
 			if err != nil {
 				return err
 			}
+			result.Delete()
 		}
 	}
+	devs = []SIsolatedDevice{}
 	sq := HostManager.Query("id").Equals("manager_id", host.ManagerId).SubQuery()
 	q := IsolatedDeviceManager.Query().In("host_id", sq).In("external_id", externalIds)
 	err = db.FetchModelObjects(IsolatedDeviceManager, q, &devs)
@@ -1297,7 +1300,11 @@ func (self *SGuest) SyncVMIsolateDevices(ctx context.Context, userCred mcclient.
 		if err != nil {
 			return err
 		}
+		result.Add()
 	}
+	msg := result.Result()
+	notes := fmt.Sprintf("syncHostIsolateDevices for VM %s result: %s", self.Name, msg)
+	log.Infof(notes)
 	return nil
 }
 
