@@ -564,7 +564,7 @@ func (p *SPodDriver) IsSupportFloppy(guest *models.SGuest) (bool, error) {
 	return false, nil
 }
 
-func (p *SPodDriver) GetChangeConfigStatus(guest *models.SGuest) ([]string, error) {
+func (p *SPodDriver) GetChangeInstanceTypeStatus() ([]string, error) {
 	return []string{api.VM_READY}, nil
 }
 

@@ -100,7 +100,7 @@ func (self *SZettaKitGuestDriver) GetRebuildRootStatus() ([]string, error) {
 	return []string{api.VM_READY}, nil
 }
 
-func (self *SZettaKitGuestDriver) GetChangeConfigStatus(guest *models.SGuest) ([]string, error) {
+func (self *SZettaKitGuestDriver) GetChangeInstanceTypeStatus() ([]string, error) {
 	return []string{api.VM_READY}, nil
 }
 
