@@ -1052,7 +1052,7 @@ func (ow *sOffsetWriter) Write(p []byte) (int, error) {
 }
 
 func calculateRateMbps(sizeBytes int64, duration time.Duration) float64 {
-	return float64(sizeBytes*8*int64(time.Second)) / float64(duration) / 1000 / 1000
+	return float64(sizeBytes*8) / (float64(duration) / float64(time.Second)) / 1000 / 1000
 }
 
 type downloadPartOfMultipartJob struct {
@@ -1065,12 +1065,13 @@ type downloadPartOfMultipartJob struct {
 	debug     bool
 	segSizes  []int64
 	errs      []error
+	callback  func(saved int64, written int64)
 }
 
 func downloadPartOfMultipartWorker(wg *sync.WaitGroup, queue chan downloadPartOfMultipartJob) {
 	defer wg.Done()
 	for job := range queue {
-		sz, err := downloadPartOfMultipart(job.ctx, job.bucket, job.key, job.rangeOpt, job.output, job.partIndex, job.debug)
+		sz, err := downloadPartOfMultipart(job.ctx, job.bucket, job.key, job.rangeOpt, job.output, job.partIndex, job.debug, job.callback)
 		if err != nil {
 			job.errs = append(job.errs, err)
 		} else {
@@ -1079,7 +1080,7 @@ func downloadPartOfMultipartWorker(wg *sync.WaitGroup, queue chan downloadPartOf
 	}
 }
 
-func downloadPartOfMultipart(ctx context.Context, bucket ICloudBucket, key string, rangeOpt *SGetObjectRange, output io.Writer, partIndex int, debug bool) (int64, error) {
+func downloadPartOfMultipart(ctx context.Context, bucket ICloudBucket, key string, rangeOpt *SGetObjectRange, output io.Writer, partIndex int, debug bool, callback func(saved int64, written int64)) (int64, error) {
 	partSize := rangeOpt.SizeBytes()
 	var startAt time.Time
 	if debug {
@@ -1091,7 +1092,7 @@ func downloadPartOfMultipart(ctx context.Context, bucket ICloudBucket, key strin
 		return 0, errors.Wrap(err, "bucket.GetObject")
 	}
 	defer stream.Close()
-	prop, err := streamutils.StreamPipe(stream, output, false, nil)
+	prop, err := streamutils.StreamPipe(stream, output, false, callback)
 	if err != nil {
 		return 0, errors.Wrap(err, "StreamPipe")
 	}
@@ -1104,6 +1105,47 @@ func downloadPartOfMultipart(ctx context.Context, bucket ICloudBucket, key strin
 }
 
 func DownloadObjectParallel(ctx context.Context, bucket ICloudBucket, key string, rangeOpt *SGetObjectRange, output io.WriterAt, outputOffset int64, blocksz int64, debug bool, parallel int) (int64, error) {
+	return DownloadObjectParallelWithProgress(ctx, bucket, key, rangeOpt, output, outputOffset, blocksz, debug, parallel, nil)
+}
+
+type sDownloadProgresser struct {
+	totalSize  int64
+	progress   int64
+	startTime  time.Time
+	reportTime time.Time
+	callback   func(progress float64, progressMbps float64, totalSizeMb int64)
+}
+
+func newDownloadProgresser(totalSize int64, callback func(progress float64, progressMbps float64, totalSizeMb int64)) *sDownloadProgresser {
+	return &sDownloadProgresser{
+		totalSize:  totalSize,
+		startTime:  time.Now(),
+		reportTime: time.Now(),
+		callback:   callback,
+	}
+}
+
+func (p *sDownloadProgresser) Progress(_ int64, written int64) {
+	p.progress += written
+	duration := time.Since(p.startTime)
+	progress := float64(p.progress) / float64(p.totalSize)
+	progressMbps := calculateRateMbps(p.progress, duration)
+	if p.callback != nil {
+		p.callback(progress, progressMbps, p.totalSize/1000/1000)
+	}
+	if time.Since(p.reportTime) > time.Second*5 {
+		p.reportTime = time.Now()
+		log.Infof("Download progress: %d/%d, %f%%, %fMbps", p.progress, p.totalSize, progress*100, progressMbps)
+	}
+}
+
+func (p *sDownloadProgresser) Summary() {
+	duration := time.Since(p.startTime)
+	rateMbps := calculateRateMbps(p.progress, duration)
+	log.Infof("End of download %d: downloaded %d takes %f seconds at %fMbps", p.totalSize, p.progress, float64(duration)/float64(time.Second), rateMbps)
+}
+
+func DownloadObjectParallelWithProgress(ctx context.Context, bucket ICloudBucket, key string, rangeOpt *SGetObjectRange, output io.WriterAt, outputOffset int64, blocksz int64, debug bool, parallel int, callback func(progress float64, progressMbps float64, totalSizeMb int64)) (int64, error) {
 	obj, err := GetIObject(bucket, key)
 	if err != nil {
 		return 0, errors.Wrap(err, "GetIObject")
@@ -1131,11 +1173,16 @@ func DownloadObjectParallel(ctx context.Context, bucket ICloudBucket, key string
 		}
 		sizeBytes = rangeOpt.SizeBytes()
 	}
+
+	progresser := newDownloadProgresser(sizeBytes, callback)
+	defer progresser.Summary()
+	progressCallback := progresser.Progress
+
 	if sizeBytes < blocksz {
 		if debug {
 			log.Debugf("too small, download object in one shot")
 		}
-		size, err := downloadPartOfMultipart(ctx, bucket, key, rangeOpt, newWriter(output, outputOffset), 0, true)
+		size, err := downloadPartOfMultipart(ctx, bucket, key, rangeOpt, newWriter(output, outputOffset), 0, true, progressCallback)
 		if err != nil {
 			return 0, errors.Wrap(err, "downloadPartOfMultipart")
 		}
@@ -1186,6 +1233,7 @@ func DownloadObjectParallel(ctx context.Context, bucket ICloudBucket, key string
 				debug:     debug,
 				segSizes:  segSizes,
 				errs:      errs,
+				callback:  progressCallback,
 			}
 			queue <- job
 		}

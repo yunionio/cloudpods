@@ -131,7 +131,7 @@ func (g *GenericPLEG) updateRelistTime(timestamp time.Time) {
 // relist queries the container runtime for list of pods/containers, compare
 // with the internal pods/containers, and generates events accordingly.
 func (g *GenericPLEG) relist() {
-	log.Debugf("GenericPLEG: Relisting")
+	// log.Debugf("GenericPLEG: Relisting")
 
 	timestamp := g.clock.Now()
 

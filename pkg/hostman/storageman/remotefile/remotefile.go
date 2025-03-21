@@ -61,6 +61,8 @@ type SRemoteFile struct {
 	chksum string
 	format string
 	name   string
+
+	s3Info *S3RemoteFileInfo
 }
 
 func NewRemoteFile(
@@ -107,7 +109,7 @@ func (r *SRemoteFile) Fetch(callback func(progress, progressMbps float64, totalS
 		}
 		return nil
 	}
-	log.Infof("Fetch remote file %q to %q", r.downloadUrl, r.tmpPath)
+	log.Infof("Fetch remote file %q %q to %q", r.url, r.downloadUrl, r.tmpPath)
 	return r.fetch("", callback)
 }
 
@@ -210,7 +212,24 @@ func (r *SRemoteFile) download(getData bool, preChksum string, callback func(pro
 	return r.downloadInternal(getData, preChksum, callback)
 }
 
+func (r *SRemoteFile) downloadS3(callback func(progress, progressMbps float64, totalSizeMb int64)) error {
+	defer func() {
+		// clear s3 info
+		r.s3Info = nil
+	}()
+
+	err := r.s3Info.download(r.ctx, r.tmpPath, callback)
+	if err != nil {
+		return errors.Wrap(err, "download s3")
+	}
+	return nil
+}
+
 func (r *SRemoteFile) downloadInternal(getData bool, preChksum string, callback func(progress, progressMbps float64, totalSizeMb int64)) error {
+	if getData && r.s3Info != nil {
+		return r.downloadS3(callback)
+	}
+
 	var header = http.Header{}
 	header.Set("X-Auth-Token", auth.GetTokenString())
 	if len(preChksum) > 0 {
@@ -320,5 +339,24 @@ func (r *SRemoteFile) setProperties(header http.Header) {
 	}
 	if name := header.Get("X-Image-Meta-Name"); len(name) > 0 {
 		r.name = name
+	}
+	if s3Url := header.Get("X-Image-Meta-S3_info_url"); len(s3Url) > 0 {
+		r.s3Info = &S3RemoteFileInfo{}
+		r.s3Info.Url = s3Url
+		if s3AccessKey := header.Get("X-Image-Meta-S3_info_access_key"); len(s3AccessKey) > 0 {
+			r.s3Info.AcessKey = s3AccessKey
+		}
+		if s3Secret := header.Get("X-Image-Meta-S3_info_secret"); len(s3Secret) > 0 {
+			r.s3Info.Secret = s3Secret
+		}
+		if s3Key := header.Get("X-Image-Meta-S3_info_key"); len(s3Key) > 0 {
+			r.s3Info.Key = s3Key
+		}
+		if s3SignVer := header.Get("X-Image-Meta-S3_info_sign_ver"); len(s3SignVer) > 0 {
+			r.s3Info.SignVer = s3SignVer
+		}
+		if s3Bucket := header.Get("X-Image-Meta-S3_info_bucket"); len(s3Bucket) > 0 {
+			r.s3Info.Bucket = s3Bucket
+		}
 	}
 }

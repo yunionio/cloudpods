@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	execlient "yunion.io/x/executor/client"
@@ -195,16 +194,8 @@ func hasVmwareAccount() (bool, error) {
 }
 
 func initS3() {
-	url := options.Options.S3Endpoint
-	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
-		prefix := "http://"
-		if options.Options.S3UseSSL {
-			prefix = "https://"
-		}
-		url = prefix + url
-	}
 	err := s3.Init(
-		url,
+		options.Options.S3Endpoint,
 		options.Options.S3AccessKey,
 		options.Options.S3SecretKey,
 		options.Options.S3BucketName,
@@ -249,7 +240,7 @@ func initS3() {
 
 	out, err := procutils.NewCommand("s3fs",
 		options.Options.S3BucketName, options.Options.S3MountPoint,
-		"-o", fmt.Sprintf("passwd_file=/tmp/s3-pass,use_path_request_style,url=%s", url)).Output()
+		"-o", fmt.Sprintf("passwd_file=/tmp/s3-pass,use_path_request_style,url=%s", s3.GetEndpoint(options.Options.S3Endpoint, options.Options.S3UseSSL))).Output()
 	if err != nil {
 		log.Fatalf("failed mount s3fs %s %s", err, out)
 	}
