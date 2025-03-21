@@ -393,6 +393,22 @@ func (sc *SStoragecache) getCachedImageSize() int64 {
 	return size
 }
 
+func (manager *SStoragecacheManager) StartImageCacheTask(ctx context.Context, userCred mcclient.TokenCredential, scs []SStoragecache, input api.CacheImageInput) error {
+	objs := make([]db.IStandaloneModel, len(scs))
+	inputs := make([]api.CacheImageInput, len(scs))
+	for i := range scs {
+		objs[i] = &scs[i]
+		inputs[i] = input
+	}
+	params := jsonutils.NewDict()
+	params.Add(jsonutils.Marshal(inputs), "params")
+	task, err := taskman.TaskManager.NewParallelTask(ctx, "StorageBatchCacheImageTask", objs, userCred, params, input.ParentTaskId, "", nil)
+	if err != nil {
+		return errors.Wrapf(err, "NewParallelTask")
+	}
+	return task.ScheduleRun(nil)
+}
+
 func (sc *SStoragecache) StartImageCacheTask(ctx context.Context, userCred mcclient.TokenCredential, input api.CacheImageInput) error {
 	StoragecachedimageManager.Register(ctx, userCred, sc.Id, input.ImageId, "")
 
