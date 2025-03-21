@@ -80,6 +80,7 @@ type PodSecurityContext struct {
 
 type PodCreateInput struct {
 	Containers []*PodContainerCreateInput `json:"containers"`
+	HostIPC    bool                       `json:"host_ipc"`
 	//PortMappings    []*PodPortMapping          `json:"port_mappings"`
 	SecurityContext *PodSecurityContext `json:"security_context,omitempty"`
 }
