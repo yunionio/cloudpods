@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cgrouputils
+package cgroupv1
 
 import (
 	"fmt"
@@ -231,8 +231,8 @@ func NewProcessCPUinfo(pid int) (*ProcessCPUinfo, error) {
 	cpuinfo.Pid = pid
 	spid := strconv.Itoa(pid)
 
-	cpuTask := NewCGroupCPUTask(spid, "", 0)
-	if cpuTask.taskIsExist() {
+	cpuTask := manager.NewCGroupCPUTask(spid, "", 0)
+	if cpuTask.TaskIsExist() {
 		share := cpuTask.GetParam("cpu.shares")
 		ishare, err := strconv.ParseFloat(share, 64)
 		if err != nil {
@@ -243,8 +243,8 @@ func NewProcessCPUinfo(pid int) (*ProcessCPUinfo, error) {
 		}
 	}
 
-	cpusetTask := NewCGroupCPUSetTask(fmt.Sprintf("%d", pid), "", 0, "")
-	if cpusetTask.taskIsExist() {
+	cpusetTask := manager.NewCGroupCPUSetTask(fmt.Sprintf("%d", pid), "", "", "")
+	if cpusetTask.TaskIsExist() {
 		cpuset := cpusetTask.GetParam("cpuset.cpus")
 		if len(cpuset) > 0 {
 			c, err := GetSystemCpu()
