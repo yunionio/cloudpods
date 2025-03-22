@@ -817,12 +817,16 @@ func (s *sPodGuestInstance) startPod(ctx context.Context, userCred mcclient.Toke
 	return resp, err
 }
 
-func (s *sPodGuestInstance) namespacesFroPod(input *computeapi.PodCreateInput) *runtimeapi.NamespaceOption {
-	return &runtimeapi.NamespaceOption{
+func (s *sPodGuestInstance) namespacesForPod(input *computeapi.PodCreateInput) *runtimeapi.NamespaceOption {
+	opt := &runtimeapi.NamespaceOption{
 		Ipc:     runtimeapi.NamespaceMode_POD,
 		Network: runtimeapi.NamespaceMode_POD,
 		Pid:     runtimeapi.NamespaceMode_CONTAINER,
 	}
+	if input.HostIPC {
+		opt.Ipc = runtimeapi.NamespaceMode_NODE
+	}
+	return opt
 }
 
 func (s *sPodGuestInstance) updateGuestDesc() error {
@@ -867,7 +871,7 @@ func (s *sPodGuestInstance) _startPod(ctx context.Context, userCred mcclient.Tok
 		Linux: &runtimeapi.LinuxPodSandboxConfig{
 			CgroupParent: s.getCgroupParent(),
 			SecurityContext: &runtimeapi.LinuxSandboxSecurityContext{
-				NamespaceOptions:   s.namespacesFroPod(podInput),
+				NamespaceOptions:   s.namespacesForPod(podInput),
 				SelinuxOptions:     nil,
 				RunAsUser:          nil,
 				RunAsGroup:         nil,
