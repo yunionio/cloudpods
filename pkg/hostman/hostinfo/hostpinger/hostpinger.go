@@ -131,7 +131,7 @@ func (p *SHostPingTask) payload() api.SHostPingInput {
 }
 
 func (p *SHostPingTask) ping(div int, hostId string) error {
-	log.Debugf("ping region at %d...", div)
+	// log.Debugf("ping region at %d...", div)
 	res, err := modules.Hosts.PerformAction(hostutils.GetComputeSession(context.Background()),
 		hostId, "ping", jsonutils.Marshal(p.payload()))
 	if err != nil {

@@ -104,7 +104,7 @@ func (pb *prober) probe(probeType apis.ContainerProbeType, pod IPod, container *
 		log.Warningf(msg)
 	} else {
 		msg = fmt.Sprintf("%s probe for %q succeeded", probeType, ctrName)
-		log.Debugf(msg)
+		//log.Debugf(msg)
 	}
 	return results.NewSuccess(msg), nil
 }
@@ -127,7 +127,7 @@ func (pb *prober) runProbeWithRetries(probeType apis.ContainerProbeType, p *apis
 func (pb *prober) runProbe(probeType apis.ContainerProbeType, p *apis.ContainerProbe, pod IPod, container *hostapi.ContainerDesc) (probe.Result, string, error) {
 	timeout := time.Duration(p.TimeoutSeconds) * time.Second
 	if p.Exec != nil {
-		log.Debugf("Exec-Probe Pod: %v, Container: %v, Command: %v", pod.GetDesc().Name, container.Name, p.Exec.Command)
+		// log.Debugf("Exec-Probe Pod: %v, Container: %v, Command: %v", pod.GetDesc().Name, container.Name, p.Exec.Command)
 		return pb.exec.Probe(pb.newExecInContainer(pod, container, p.Exec.Command, timeout), strings.Join(p.Exec.Command, " "))
 	}
 	if p.TCPSocket != nil {
@@ -144,7 +144,7 @@ func (pb *prober) runProbe(probeType apis.ContainerProbeType, p *apis.ContainerP
 				return probe.Unknown, "", errors.Errorf("not found guest ip")
 			}
 		}
-		log.Debugf("TCP-Probe Host: %v, Port: %v, Timeout: %v", host, port, timeout)
+		// log.Debugf("TCP-Probe Host: %v, Port: %v, Timeout: %v", host, port, timeout)
 		return pb.tcp.Probe(host, port, timeout)
 	}
 	errMsg := fmt.Sprintf("Failed to find probe builder for pod %v, container: %v", pod.GetName(), container.Name)

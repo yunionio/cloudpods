@@ -53,6 +53,7 @@ import (
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/deployclient"
 	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/image/drivers/s3"
 	"yunion.io/x/onecloud/pkg/image/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
@@ -388,6 +389,15 @@ func (self *SImage) GetExtraDetailsHeaders(ctx context.Context, userCred mcclien
 		headers[fmt.Sprintf("%s%s", modules.IMAGE_META, "auto_delete_at")] = timeutils.FullIsoTime(pendingDeletedAt)
 	}
 
+	if strings.HasPrefix(self.Location, api.S3Prefix) {
+		headers[fmt.Sprintf("%s%s", modules.IMAGE_META, "s3_info_url")] = s3.GetEndpoint(options.Options.S3Endpoint, options.Options.S3UseSSL)
+		headers[fmt.Sprintf("%s%s", modules.IMAGE_META, "s3_info_access_key")] = options.Options.S3AccessKey
+		headers[fmt.Sprintf("%s%s", modules.IMAGE_META, "s3_info_secret")] = options.Options.S3SecretKey
+		headers[fmt.Sprintf("%s%s", modules.IMAGE_META, "s3_info_bucket")] = options.Options.S3BucketName
+		headers[fmt.Sprintf("%s%s", modules.IMAGE_META, "s3_info_key")] = imagePathToName(self.Location)
+		headers[fmt.Sprintf("%s%s", modules.IMAGE_META, "s3_info_sign_ver")] = options.Options.S3SignVersion
+	}
+
 	return headers
 }
 
@@ -511,7 +521,7 @@ func (self *SImage) saveImageFromStream(localPath string, reader io.Reader, tota
 	}
 	defer fp.Close()
 	lastSaveTime := time.Now()
-	return streamutils.StreamPipe(reader, fp, calChecksum, func(saved int64) {
+	return streamutils.StreamPipe(reader, fp, calChecksum, func(saved int64, _ int64) {
 		now := time.Now()
 		if now.Sub(lastSaveTime) > 5*time.Second {
 			self.saveSize(saved, totalSize)
