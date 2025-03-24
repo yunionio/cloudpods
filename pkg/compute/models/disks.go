@@ -447,6 +447,12 @@ func (self *SDisk) ValidateUpdateData(ctx context.Context, userCred mcclient.Tok
 		}
 	}
 
+	if input.AutoReset != nil && *input.AutoReset != self.AutoReset {
+		if guest := self.GetGuest(); guest != nil && guest.Status != api.VM_READY {
+			return input, httperrors.NewBadRequestError("Can't set disk auto_reset on guest status %s", guest.Status)
+		}
+	}
+
 	storage, _ := self.GetStorage()
 	if storage == nil {
 		return input, httperrors.NewNotFoundError("failed to find storage for disk %s", self.Name)

@@ -132,6 +132,7 @@ func (manager *SGuestdiskManager) FetchCustomizeColumns(
 			rows[i].Status = disk.Status
 			rows[i].DiskSize = disk.DiskSize
 			rows[i].DiskType = disk.DiskType
+			rows[i].AutoReset = disk.AutoReset
 			storage, _ := disk.GetStorage()
 			if storage != nil {
 				rows[i].StorageType = storage.StorageType
