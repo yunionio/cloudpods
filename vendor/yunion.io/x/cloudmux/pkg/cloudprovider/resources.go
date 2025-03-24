@@ -1243,6 +1243,12 @@ type ICloudQuota interface {
 	GetCurrentQuotaUsedCount() int
 }
 
+type SClouduserEnableOptions struct {
+	Password              string
+	EnableMfa             bool
+	PasswordResetRequired bool
+}
+
 // 公有云子账号
 type IClouduser interface {
 	GetGlobalId() string
@@ -1258,7 +1264,7 @@ type IClouduser interface {
 	AttachPolicy(policyName string, policyType api.TPolicyType) error
 	DetachPolicy(policyName string, policyType api.TPolicyType) error
 
-	SetEnable(password string) error
+	SetEnable(opts *SClouduserEnableOptions) error
 	SetDisable() error
 
 	Delete() error
