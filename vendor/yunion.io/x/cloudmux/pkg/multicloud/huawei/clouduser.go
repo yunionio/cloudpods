@@ -47,6 +47,7 @@ type SClouduser struct {
 	Name              string
 	PasswordExpiresAt string
 	PwdStatus         bool
+	AccessMode        string
 }
 
 func (user *SClouduser) GetGlobalId() string {
@@ -95,7 +96,7 @@ func (user *SClouduser) Delete() error {
 }
 
 func (user *SClouduser) IsConsoleLogin() bool {
-	return user.Enabled == true
+	return user.AccessMode != "programmatic"
 }
 
 func (user *SClouduser) SetDisable() error {
@@ -103,9 +104,27 @@ func (user *SClouduser) SetDisable() error {
 	return user.client.UpdateUser(user.Id, "", &enable)
 }
 
-func (user *SClouduser) SetEnable(password string) error {
+func (user *SClouduser) SetEnable(opts *cloudprovider.SClouduserEnableOptions) error {
 	enable := true
-	return user.client.UpdateUser(user.Id, password, &enable)
+	err := user.client.UpdateUser(user.Id, opts.Password, &enable)
+	if err != nil {
+		return err
+	}
+	if opts.EnableMfa {
+		return user.client.EnableUserMfa(user.Id)
+	}
+	return nil
+}
+
+func (self *SHuaweiClient) EnableUserMfa(id string) error {
+	params := map[string]interface{}{
+		"login_protect": map[string]interface{}{
+			"enabled":             "true",
+			"verification_method": "vmfa",
+		},
+	}
+	_, err := self.put(SERVICE_IAM, "", fmt.Sprintf("OS-USER/users/%s/login-protect", id), params)
+	return err
 }
 
 func (user *SClouduser) ResetPassword(password string) error {
@@ -213,14 +232,16 @@ func (self *SHuaweiClient) CreateClouduser(name, password, desc string) (*SCloud
 
 // https://console.huaweicloud.com/apiexplorer/#/openapi/IAM/doc?api=UpdateUser
 func (self *SHuaweiClient) UpdateUser(id, password string, enable *bool) error {
-	params := map[string]interface{}{}
+	params := map[string]interface{}{
+		"enabled": true,
+	}
 	if len(password) > 0 {
 		params["password"] = password
 	}
 	if enable != nil {
-		params["enabled"] = false
+		params["access_mode"] = "programmatic"
 		if *enable {
-			params["enabled"] = true
+			params["access_mode"] = "default"
 		}
 	}
 	_, err := self.put(SERVICE_IAM, "", "OS-USER/users/"+id, map[string]interface{}{

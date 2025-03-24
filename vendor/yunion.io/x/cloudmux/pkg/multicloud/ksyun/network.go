@@ -34,7 +34,7 @@ type SNetworkResp struct {
 
 type SNetwork struct {
 	multicloud.SNetworkBase
-	SKsTag
+	SKsyunTags
 	wire *SWire
 
 	RouteTableID          string `json:"RouteTableId"`

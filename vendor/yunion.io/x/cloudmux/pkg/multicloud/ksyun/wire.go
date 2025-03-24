@@ -26,7 +26,7 @@ import (
 
 type SWire struct {
 	multicloud.SResourceBase
-	SKsTag
+	SKsyunTags
 	zone *SZone
 	vpc  *SVpc
 }
