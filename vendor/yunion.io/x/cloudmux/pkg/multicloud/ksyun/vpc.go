@@ -27,7 +27,7 @@ import (
 
 type SVpc struct {
 	multicloud.SVpc
-	SKsTag
+	SKsyunTags
 
 	region *SRegion
 

@@ -84,8 +84,8 @@ func (user *SUser) SetDisable() error {
 	return user.client.DeleteLoginProfile(user.UserName)
 }
 
-func (user *SUser) SetEnable(password string) error {
-	_, err := user.client.CreateLoginProfile(user.UserName, password)
+func (user *SUser) SetEnable(opts *cloudprovider.SClouduserEnableOptions) error {
+	_, err := user.client.CreateLoginProfile(user.UserName, opts.Password, opts.PasswordResetRequired)
 	return err
 }
 
@@ -248,7 +248,7 @@ func (self *SAwsClient) CreateIClouduser(conf *cloudprovider.SClouduserCreateCon
 		return nil, errors.Wrap(err, "CreateUser")
 	}
 	if len(conf.Password) > 0 {
-		_, err := self.CreateLoginProfile(conf.Name, conf.Password)
+		_, err := self.CreateLoginProfile(conf.Name, conf.Password, false)
 		if err != nil {
 			log.Errorf("failed to create loginProfile for user %s error: %v", conf.Name, err)
 		}
@@ -322,10 +322,13 @@ func (self *SAwsClient) DeleteLoginProfile(name string) error {
 	return self.iamRequest("DeleteLoginProfile", params, nil)
 }
 
-func (self *SAwsClient) CreateLoginProfile(name, password string) (*SLoginProfile, error) {
+func (self *SAwsClient) CreateLoginProfile(name, password string, reset bool) (*SLoginProfile, error) {
 	params := map[string]string{
 		"UserName": name,
 		"Password": password,
+	}
+	if reset {
+		params["PasswordResetRequired"] = "true"
 	}
 	loginProfile := &SLoginProfile{}
 	err := self.iamRequest("CreateLoginProfile", params, loginProfile)
@@ -347,7 +350,7 @@ func (self *SAwsClient) ResetUserPassword(name, password string) error {
 	_, err := self.GetLoginProfile(name)
 	if err != nil {
 		if errors.Cause(err) == cloudprovider.ErrNotFound {
-			_, err = self.CreateLoginProfile(name, password)
+			_, err = self.CreateLoginProfile(name, password, false)
 			return err
 		}
 		return errors.Wrap(err, "GetLoginProfile")

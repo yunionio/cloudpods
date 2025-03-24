@@ -14,24 +14,31 @@
 
 package ksyun
 
-type SKsTag struct{}
+import (
+	"yunion.io/x/cloudmux/pkg/cloudprovider"
+	"yunion.io/x/pkg/errors"
+)
 
-func (tag SKsTag) GetName() string {
-	return ""
+type SKsyunTags struct {
+	Tags []struct {
+		TagId    string
+		TagKey   string
+		TagValue string
+	}
 }
 
-func (tag SKsTag) GetDescription() string {
-	return ""
+func (tag *SKsyunTags) GetTags() (map[string]string, error) {
+	ret := map[string]string{}
+	for _, v := range tag.Tags {
+		ret[v.TagKey] = v.TagValue
+	}
+	return ret, nil
 }
 
-func (tag *SKsTag) GetTags() (map[string]string, error) {
-	return nil, nil
-}
-
-func (tag *SKsTag) GetSysTags() map[string]string {
+func (tag *SKsyunTags) GetSysTags() map[string]string {
 	return nil
 }
 
-func (tag *SKsTag) SetTags(tags map[string]string, replace bool) error {
-	return nil
+func (tag *SKsyunTags) SetTags(tags map[string]string, replace bool) error {
+	return errors.Wrapf(cloudprovider.ErrNotImplemented, "SetTags")
 }

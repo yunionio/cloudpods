@@ -29,7 +29,7 @@ type SZone struct {
 	multicloud.SResourceBase
 	region *SRegion
 	host   *SHost
-	SKsTag
+	SKsyunTags
 
 	AvailabilityZone string
 }
