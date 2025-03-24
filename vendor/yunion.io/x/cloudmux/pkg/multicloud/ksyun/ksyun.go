@@ -42,6 +42,7 @@ const (
 	CLOUD_PROVIDER_KSYUN_CN   = "金山云"
 	KSYUN_DEFAULT_REGION      = "cn-beijing-6"
 	KSYUN_DEFAULT_API_VERSION = "2016-03-04"
+	KSYUN_RDS_API_VERSION     = "2016-07-01"
 )
 
 type KsyunClientConfig struct {
@@ -128,7 +129,7 @@ func (cli *SKsyunClient) getUrl(service, regionId string) (string, error) {
 	switch service {
 	case "kingpay", "iam", "vpc", "ebs", "eip":
 		return fmt.Sprintf("http://%s.api.ksyun.com", service), nil
-	case "kec", "tag":
+	case "kec", "tag", "krds":
 		return fmt.Sprintf("https://%s.%s.api.ksyun.com", service, regionId), nil
 	}
 	return "", errors.Wrapf(cloudprovider.ErrNotSupported, "service %s", service)
@@ -164,6 +165,7 @@ func (cli *SKsyunClient) getDefaultClient() *http.Client {
 	return cli.client
 }
 
+// {"RequestId":"51aee78d-8c35-4778-92fb-a622c40fa5ae","Error":{"Code":"INVALID_ACTION","Message":"Not Found"}}
 type sKsyunError struct {
 	StatusCode int    `json:"StatusCode"`
 	RequestId  string `json:"RequestId"`
@@ -181,6 +183,9 @@ func (cli *sKsyunError) Error() string {
 func (cli *sKsyunError) ParseErrorFromJsonResponse(statusCode int, status string, body jsonutils.JSONObject) error {
 	if body != nil {
 		body.Unmarshal(cli)
+	}
+	if cli.ErrorMsg.Message == "Not Found" {
+		return errors.Wrapf(cloudprovider.ErrNotFound, jsonutils.Marshal(cli.ErrorMsg).String())
 	}
 	cli.StatusCode = statusCode
 	return cli
@@ -249,6 +254,10 @@ func (cli *SKsyunClient) eipRequest(regionId, apiName string, params map[string]
 
 func (cli *SKsyunClient) ebsRequest(regionId, apiName string, params map[string]string) (jsonutils.JSONObject, error) {
 	return cli.request("ebs", regionId, apiName, KSYUN_DEFAULT_API_VERSION, params)
+}
+
+func (cli *SKsyunClient) rdsRequest(regionId, apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+	return cli.request("krds", regionId, apiName, KSYUN_RDS_API_VERSION, params)
 }
 
 func (cli *SKsyunClient) vpcRequest(regionId, apiName string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -344,6 +353,7 @@ func (cli *SKsyunClient) GetCapabilities() []string {
 		cloudprovider.CLOUD_CAPABILITY_COMPUTE + cloudprovider.READ_ONLY_SUFFIX,
 		cloudprovider.CLOUD_CAPABILITY_PROJECT + cloudprovider.READ_ONLY_SUFFIX,
 		cloudprovider.CLOUD_CAPABILITY_CLOUDID,
+		cloudprovider.CLOUD_CAPABILITY_RDS + cloudprovider.READ_ONLY_SUFFIX,
 	}
 	return caps
 }

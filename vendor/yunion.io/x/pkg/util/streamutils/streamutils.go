@@ -73,7 +73,7 @@ func (s *sXZReadAheadReader) Read(buf []byte) (int, error) {
 	}
 }
 
-func StreamPipe(upstream io.Reader, writer io.Writer, CalChecksum bool, callback func(saved int64)) (*SStreamProperty, error) {
+func StreamPipe(upstream io.Reader, writer io.Writer, CalChecksum bool, callback func(savedTotal int64, savedOnce int64)) (*SStreamProperty, error) {
 	sp := SStreamProperty{}
 
 	var md5sum hash.Hash
@@ -103,6 +103,9 @@ func StreamPipe(upstream io.Reader, writer io.Writer, CalChecksum bool, callback
 		n, err := reader.Read(buf)
 		if n > 0 {
 			sp.Size += int64(n)
+			if callback != nil {
+				callback(sp.Size, int64(n))
+			}
 			if CalChecksum {
 				md5sum.Write(buf[:n])
 			}
@@ -113,9 +116,6 @@ func StreamPipe(upstream io.Reader, writer io.Writer, CalChecksum bool, callback
 					return nil, err
 				}
 				offset += m
-			}
-			if callback != nil {
-				callback(sp.Size)
 			}
 		}
 		if err != nil {
