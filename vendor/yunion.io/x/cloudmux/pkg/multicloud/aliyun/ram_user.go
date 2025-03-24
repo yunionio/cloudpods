@@ -16,6 +16,7 @@ package aliyun
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"yunion.io/x/log"
@@ -41,20 +42,22 @@ type SUser struct {
 	client *SAliyunClient
 	multicloud.SBaseClouduser
 
-	Comments    string
-	CreateDate  time.Time
-	DisplayName string
-	Email       string
-	MobilePhone string
-	UserId      string
-	UserName    string
+	Comments          string
+	CreateDate        time.Time
+	DisplayName       string
+	Email             string
+	MobilePhone       string
+	ProvisionType     string
+	Status            string
+	UserId            string
+	UserPrincipalName string
 }
 
 func (user *SUser) GetGlobalId() string {
 	if len(user.UserId) > 0 {
 		return user.UserId
 	}
-	u, err := user.client.GetUser(user.UserName)
+	u, err := user.client.GetUser(user.UserPrincipalName)
 	if err != nil {
 		return ""
 	}
@@ -62,7 +65,11 @@ func (user *SUser) GetGlobalId() string {
 }
 
 func (user *SUser) GetName() string {
-	return user.UserName
+	info := strings.Split(user.UserPrincipalName, "@")
+	if len(info) == 2 {
+		return info[0]
+	}
+	return user.UserPrincipalName
 }
 
 func (user *SUser) GetEmailAddr() string {
@@ -74,31 +81,31 @@ func (user *SUser) GetInviteUrl() string {
 }
 
 func (user *SUser) Delete() error {
-	groups, err := user.client.ListGroupsForUser(user.UserName)
+	groups, err := user.client.ListGroupsForUser(user.GetName())
 	if err != nil {
 		return errors.Wrap(err, "ListGroupsForUser")
 	}
 	for i := range groups {
-		err = user.client.RemoveUserFromGroup(groups[i].GroupName, user.UserName)
+		err = user.client.RemoveUserFromGroup(groups[i].GroupName, user.GetName())
 		if err != nil {
-			return errors.Wrapf(err, "RemoveUserFromGroup %s > %s", groups[i].GroupName, user.UserName)
+			return errors.Wrapf(err, "RemoveUserFromGroup %s > %s", groups[i].GroupName, user.GetName())
 		}
 	}
-	policies, err := user.client.ListPoliciesForUser(user.UserName)
+	policies, err := user.client.ListPoliciesForUser(user.GetName())
 	if err != nil {
 		return errors.Wrap(err, "ListPoliciesForUser")
 	}
 	for i := range policies {
-		err = user.client.DetachPolicyFromUser(policies[i].PolicyName, policies[i].PolicyType, user.UserName)
+		err = user.client.DetachPolicyFromUser(policies[i].PolicyName, policies[i].PolicyType, user.GetName())
 		if err != nil {
-			return errors.Wrapf(err, "DetachPolicyFromUser %s %s %s", policies[i].PolicyName, policies[i].PolicyType, user.UserName)
+			return errors.Wrapf(err, "DetachPolicyFromUser %s %s %s", policies[i].PolicyName, policies[i].PolicyType, user.GetName())
 		}
 	}
-	return user.client.DeleteClouduser(user.UserName)
+	return user.client.DeleteClouduser(user.GetName())
 }
 
 func (user *SUser) GetICloudgroups() ([]cloudprovider.ICloudgroup, error) {
-	groups, err := user.client.ListGroupsForUser(user.UserName)
+	groups, err := user.client.ListGroupsForUser(user.GetName())
 	if err != nil {
 		return nil, errors.Wrapf(err, "ListGroupsForUser")
 	}
@@ -111,11 +118,11 @@ func (user *SUser) GetICloudgroups() ([]cloudprovider.ICloudgroup, error) {
 }
 
 func (user *SUser) UpdatePassword(password string) error {
-	return user.client.UpdateLoginProfile(user.UserName, password)
+	return user.client.UpdateLoginProfile(user.UserPrincipalName, password, nil, nil, "")
 }
 
 func (user *SUser) GetICloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
-	policies, err := user.client.ListPoliciesForUser(user.UserName)
+	policies, err := user.client.ListPoliciesForUser(user.GetName())
 	if err != nil {
 		return nil, errors.Wrap(err, "ListPoliciesForUser")
 	}
@@ -128,32 +135,49 @@ func (user *SUser) GetICloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
 }
 
 func (user *SUser) IsConsoleLogin() bool {
-	_, err := user.client.GetLoginProfile(user.UserName)
-	if errors.Cause(err) == cloudprovider.ErrNotFound {
+	profile, err := user.client.GetLoginProfile(user.UserPrincipalName)
+	if err != nil {
+		if errors.Cause(err) == cloudprovider.ErrNotFound {
+			return false
+		}
 		return false
 	}
-	return true
+	return profile.Status == "Active"
 }
 
 func (user *SUser) SetDisable() error {
-	return user.client.DeleteLoginProfile(user.UserName)
+	profile, err := user.client.GetLoginProfile(user.UserPrincipalName)
+	if err != nil {
+		if errors.Cause(err) == cloudprovider.ErrNotFound {
+			return nil
+		}
+		return errors.Wrapf(err, "GetLoginProfile")
+	}
+	return user.client.UpdateLoginProfile(user.UserPrincipalName, "", &profile.PasswordResetRequired, &profile.MFABindRequired, "Inactive")
 }
 
-func (user *SUser) SetEnable(password string) error {
-	_, err := user.client.CreateLoginProfile(user.UserName, password)
-	return err
+func (user *SUser) SetEnable(opts *cloudprovider.SClouduserEnableOptions) error {
+	_, err := user.client.GetLoginProfile(user.UserPrincipalName)
+	if err != nil {
+		if errors.Cause(err) == cloudprovider.ErrNotFound {
+			_, err := user.client.CreateLoginProfile(user.UserPrincipalName, opts.Password, opts.PasswordResetRequired, opts.EnableMfa)
+			return err
+		}
+		return errors.Wrapf(err, "GetLoginProfile")
+	}
+	return user.client.UpdateLoginProfile(user.UserPrincipalName, opts.Password, &opts.PasswordResetRequired, &opts.EnableMfa, "Active")
 }
 
 func (user *SUser) ResetPassword(password string) error {
-	return user.client.ResetClouduserPassword(user.UserName, password)
+	return user.client.ResetClouduserPassword(user.UserPrincipalName, password)
 }
 
 func (user *SUser) AttachPolicy(policyName string, policyType api.TPolicyType) error {
-	return user.client.AttachPolicyToUser(policyName, utils.Capitalize(string(policyType)), user.UserName)
+	return user.client.AttachPolicyToUser(policyName, utils.Capitalize(string(policyType)), user.GetName())
 }
 
 func (user *SUser) DetachPolicy(policyName string, policyType api.TPolicyType) error {
-	return user.client.DetachPolicyFromUser(policyName, utils.Capitalize(string(policyType)), user.UserName)
+	return user.client.DetachPolicyFromUser(policyName, utils.Capitalize(string(policyType)), user.GetName())
 }
 
 func (self *SAliyunClient) DeleteClouduser(name string) error {
@@ -164,10 +188,22 @@ func (self *SAliyunClient) DeleteClouduser(name string) error {
 	return err
 }
 
+func (self *SAliyunClient) GetDefaultDomain() (string, error) {
+	resp, err := self.imsRequest("GetDefaultDomain", nil)
+	if err != nil {
+		return "", errors.Wrapf(err, "GetDefaultDomain")
+	}
+	return resp.GetString("DefaultDomainName")
+}
+
 func (self *SAliyunClient) CreateUser(name, phone, email, comments string) (*SUser, error) {
+	domain, err := self.GetDefaultDomain()
+	if err != nil {
+		return nil, err
+	}
 	params := map[string]string{
-		"UserName":    name,
-		"DisplayName": name,
+		"UserPrincipalName": fmt.Sprintf("%s@%s", name, domain),
+		"DisplayName":       name,
 	}
 	if len(phone) > 0 {
 		params["MobilePhone"] = phone
@@ -178,7 +214,7 @@ func (self *SAliyunClient) CreateUser(name, phone, email, comments string) (*SUs
 	if len(comments) > 0 {
 		params["Comments"] = comments
 	}
-	resp, err := self.ramRequest("CreateUser", params)
+	resp, err := self.imsRequest("CreateUser", params)
 	if err != nil {
 		return nil, errors.Wrap(err, "ramRequest.CreateUser")
 	}
@@ -199,9 +235,9 @@ func (self *SAliyunClient) ListUsers(offset string, limit int) (*SUsers, error) 
 	if limit > 0 {
 		params["MaxItems"] = fmt.Sprintf("%d", limit)
 	}
-	resp, err := self.ramRequest("ListUsers", params)
+	resp, err := self.imsRequest("ListUsers", params)
 	if err != nil {
-		return nil, errors.Wrap(err, "ramRequest.ListUsers")
+		return nil, errors.Wrap(err, "ListUsers")
 	}
 	users := &SUsers{}
 	err = resp.Unmarshal(users)
@@ -217,7 +253,7 @@ func (self *SAliyunClient) CreateIClouduser(conf *cloudprovider.SClouduserCreate
 		return nil, errors.Wrap(err, "CreateUser")
 	}
 	if len(conf.Password) > 0 {
-		_, err := self.CreateLoginProfile(conf.Name, conf.Password)
+		_, err := self.CreateLoginProfile(user.UserPrincipalName, conf.Password, false, true)
 		if err != nil {
 			return nil, errors.Wrap(err, "CreateLoginProfile")
 		}
@@ -246,12 +282,19 @@ func (self *SAliyunClient) GetICloudusers() ([]cloudprovider.IClouduser, error) 
 }
 
 func (self *SAliyunClient) GetUser(name string) (*SUser, error) {
-	params := map[string]string{
-		"UserName": name,
+	if !strings.Contains(name, "@") {
+		domain, err := self.GetDefaultDomain()
+		if err != nil {
+			return nil, err
+		}
+		name = fmt.Sprintf("%s@%s", name, domain)
 	}
-	resp, err := self.ramRequest("GetUser", params)
+	params := map[string]string{
+		"UserPrincipalName": name,
+	}
+	resp, err := self.imsRequest("GetUser", params)
 	if err != nil {
-		return nil, errors.Wrap(err, "ramRequest.CreateUser")
+		return nil, errors.Wrap(err, "GetUser")
 	}
 	user := &SUser{client: self}
 	err = resp.Unmarshal(user, "User")
@@ -269,16 +312,17 @@ type SLoginProfile struct {
 	CreateDate            string
 	MFABindRequired       bool
 	PasswordResetRequired bool
-	UserName              string
+	UserPrincipalName     string
+	Status                string
 }
 
 func (self *SAliyunClient) GetLoginProfile(name string) (*SLoginProfile, error) {
 	params := map[string]string{
-		"UserName": name,
+		"UserPrincipalName": name,
 	}
-	resp, err := self.ramRequest("GetLoginProfile", params)
+	resp, err := self.imsRequest("GetLoginProfile", params)
 	if err != nil {
-		return nil, errors.Wrap(err, "ramRequest.GetLoginProfile")
+		return nil, errors.Wrap(err, "GetLoginProfile")
 	}
 	profile := &SLoginProfile{}
 	err = resp.Unmarshal(profile, "LoginProfile")
@@ -296,14 +340,22 @@ func (self *SAliyunClient) DeleteLoginProfile(name string) error {
 	return err
 }
 
-func (self *SAliyunClient) CreateLoginProfile(name, password string) (*SLoginProfile, error) {
+func (self *SAliyunClient) CreateLoginProfile(name, password string, reset bool, mfa bool) (*SLoginProfile, error) {
 	params := map[string]string{
-		"UserName": name,
-		"Password": password,
+		"UserPrincipalName":     name,
+		"Password":              password,
+		"PasswordResetRequired": "false",
+		"MFABindRequired":       "false",
 	}
-	resp, err := self.ramRequest("CreateLoginProfile", params)
+	if reset {
+		params["PasswordResetRequired"] = "true"
+	}
+	if mfa {
+		params["MFABindRequired"] = "true"
+	}
+	resp, err := self.imsRequest("CreateLoginProfile", params)
 	if err != nil {
-		return nil, errors.Wrap(err, "ramRequest.CreateLoginProfile")
+		return nil, errors.Wrap(err, "CreateLoginProfile")
 	}
 	profile := &SLoginProfile{}
 	err = resp.Unmarshal(profile, "LoginProfile")
@@ -313,28 +365,46 @@ func (self *SAliyunClient) CreateLoginProfile(name, password string) (*SLoginPro
 	return profile, nil
 }
 
-func (self *SAliyunClient) UpdateLoginProfile(name, password string) error {
+func (self *SAliyunClient) UpdateLoginProfile(name, password string, reset *bool, mfa *bool, state string) error {
 	params := map[string]string{
-		"UserName": name,
-		"Password": password,
+		"UserPrincipalName": name,
+		"Password":          password,
 	}
-	_, err := self.ramRequest("UpdateLoginProfile", params)
+	if len(password) > 0 {
+		params["Password"] = password
+	}
+	if reset != nil {
+		params["PasswordResetRequired"] = "false"
+		if *reset {
+			params["PasswordResetRequired"] = "true"
+		}
+	}
+	if mfa != nil {
+		params["MFABindRequired"] = "false"
+		if *mfa {
+			params["MFABindRequired"] = "true"
+		}
+	}
+	if len(state) > 0 {
+		params["Status"] = state
+	}
+	_, err := self.imsRequest("UpdateLoginProfile", params)
 	if err != nil {
-		return errors.Wrap(err, "ramRequest.CreateLoginProfile")
+		return errors.Wrap(err, "ramRequest.UpdateLoginProfile")
 	}
 	return nil
 }
 
 func (self *SAliyunClient) ResetClouduserPassword(name, password string) error {
-	_, err := self.GetLoginProfile(name)
+	profile, err := self.GetLoginProfile(name)
 	if err != nil {
 		if errors.Cause(err) == cloudprovider.ErrNotFound {
-			_, err = self.CreateLoginProfile(name, password)
+			_, err = self.CreateLoginProfile(name, password, profile.PasswordResetRequired, profile.MFABindRequired)
 			return err
 		}
 		return errors.Wrap(err, "GetLoginProfile")
 	}
-	return self.UpdateLoginProfile(name, password)
+	return self.UpdateLoginProfile(name, password, &profile.PasswordResetRequired, &profile.MFABindRequired, "")
 }
 
 func (self *SAliyunClient) GetIamLoginUrl() string {

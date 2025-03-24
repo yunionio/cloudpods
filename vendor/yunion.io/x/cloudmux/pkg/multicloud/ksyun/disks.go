@@ -40,7 +40,7 @@ type HistoryAttachment struct {
 type SDisk struct {
 	storage *SStorage
 	multicloud.SDisk
-	SKsTag
+	SKsyunTags
 
 	VolumeID           string              `json:"VolumeId"`
 	VolumeName         string              `json:"VolumeName"`

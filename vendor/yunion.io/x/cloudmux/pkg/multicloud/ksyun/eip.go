@@ -37,7 +37,7 @@ type SEipResp struct {
 type SEip struct {
 	multicloud.SEipBase
 	region *SRegion
-	SKsTag
+	SKsyunTags
 
 	PublicIP             string `json:"PublicIp"`
 	AllocationID         string `json:"AllocationId"`

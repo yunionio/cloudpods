@@ -93,7 +93,7 @@ type DataDisks struct {
 
 type SInstance struct {
 	multicloud.SInstanceBase
-	SKsTag
+	SKsyunTags
 	host   *SHost
 	region *SRegion
 

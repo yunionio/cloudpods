@@ -34,7 +34,7 @@ const (
 
 type SSecurityGroup struct {
 	multicloud.SSecurityGroup
-	SKsTag
+	SKsyunTags
 	region *SRegion
 
 	CreateTime            string        `json:"CreateTime"`

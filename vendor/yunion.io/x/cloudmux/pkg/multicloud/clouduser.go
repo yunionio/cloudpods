@@ -39,6 +39,6 @@ func (self *SBaseClouduser) SetDisable() error {
 	return errors.Wrap(cloudprovider.ErrNotImplemented, "SetDisable")
 }
 
-func (self *SBaseClouduser) SetEnable(password string) error {
+func (self *SBaseClouduser) SetEnable(opts *cloudprovider.SClouduserEnableOptions) error {
 	return errors.Wrap(cloudprovider.ErrNotImplemented, "SetDisable")
 }

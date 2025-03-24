@@ -279,3 +279,7 @@ func (region *SRegion) ebsRequest(action string, params map[string]string) (json
 func (region *SRegion) vpcRequest(action string, params map[string]string) (jsonutils.JSONObject, error) {
 	return region.client.vpcRequest(region.Region, action, params)
 }
+
+func (region *SRegion) rdsRequest(action string, params map[string]string) (jsonutils.JSONObject, error) {
+	return region.client.rdsRequest(region.Region, action, params)
+}
