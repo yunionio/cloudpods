@@ -129,6 +129,8 @@ const (
 
 	// Azure
 	AZURE_DBINSTANCE_STORAGE_TYPE_DEFAULT = "default"
+	// 金山云
+	KSYUN_DBINSTANCE_STORAGE_TYPE_DEFAULT = "default"
 )
 
 var (
