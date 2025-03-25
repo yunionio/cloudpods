@@ -18,7 +18,6 @@ import (
 	"context"
 	"io/ioutil"
 	"net"
-	"net/http"
 	"strconv"
 	"time"
 
@@ -106,7 +105,7 @@ func StartService() error {
 	o.Options.EnableDBChecksumTables = false
 	o.Options.DBChecksumSkipInit = true
 
-	return StartServiceWrapper(&dbOpts, commonOpts, func(_ *appsrv.Application) error {
+	return StartServiceWrapper(&dbOpts, commonOpts, func(app *appsrv.Application) error {
 		common_options.StartOptionManager(&o.Options, o.Options.ConfigSyncPeriodSeconds, compute_api.SERVICE_TYPE, compute_api.SERVICE_VERSION, o.OnOptionsChange)
 
 		// gin http framework mode configuration
@@ -140,11 +139,11 @@ func StartService() error {
 		}
 		startSched()
 		//InitHandlers(app)
-		return startHTTP(&o.Options)
+		return startHTTP(app, &o.Options)
 	})
 }
 
-func startHTTP(opt *o.SchedulerOptions) error {
+func startHTTP(app *appsrv.Application, opt *o.SchedulerOptions) error {
 	gin.DefaultWriter = ioutil.Discard
 
 	router := gin.Default()
@@ -155,10 +154,8 @@ func startHTTP(opt *o.SchedulerOptions) error {
 	prometheus.InstallHandler(router)
 	schedhandler.InstallHandler(router)
 
-	server := &http.Server{
-		Addr:    net.JoinHostPort(opt.Address, strconv.Itoa(int(opt.Port))),
-		Handler: router,
-	}
+	server := appsrv.InitHTTPServer(app, net.JoinHostPort(opt.Address, strconv.Itoa(int(opt.Port))))
+	server.Handler = router
 
 	log.Infof("Start server on: %s:%d", opt.Address, opt.Port)
 
