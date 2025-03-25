@@ -42,14 +42,14 @@ var (
 
 type SAlertRecordManager struct {
 	db.SEnabledResourceBaseManager
-	db.SStatusStandaloneResourceBaseManager
+	db.SStandaloneAnonResourceBaseManager
 	SMonitorScopedResourceManager
 }
 
 type SAlertRecord struct {
 	//db.SVirtualResourceBase
 	db.SEnabledResourceBase
-	db.SStatusStandaloneResourceBase
+	db.SStandaloneAnonResourceBase
 	SMonitorScopedResource
 
 	AlertId   string               `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"`
@@ -64,7 +64,7 @@ type SAlertRecord struct {
 
 func init() {
 	AlertRecordManager = &SAlertRecordManager{
-		SStatusStandaloneResourceBaseManager: db.NewStatusStandaloneResourceBaseManager(
+		SStandaloneAnonResourceBaseManager: db.NewStandaloneAnonResourceBaseManager(
 			SAlertRecord{},
 			"alertrecord_tbl",
 			"alertrecord",
@@ -80,7 +80,7 @@ func (manager *SAlertRecordManager) NamespaceScope() rbacscope.TRbacScope {
 }
 
 func (manager *SAlertRecordManager) ListItemExportKeys(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, keys stringutils2.SSortedStrings) (*sqlchemy.SQuery, error) {
-	q, err := manager.SStatusStandaloneResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+	q, err := manager.SStandaloneAnonResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
 	if err != nil {
 		return nil, errors.Wrap(err, "SStatusStandaloneResourceBaseManager.ListItemExportKeys")
 	}
@@ -91,6 +91,10 @@ func (manager *SAlertRecordManager) ListItemExportKeys(ctx context.Context, q *s
 	return q, nil
 }
 
+func (m *SAlertRecordManager) FilterByOwner(ctx context.Context, q *sqlchemy.SQuery, man db.FilterByOwnerProvider, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
+	return m.SMonitorScopedResourceManager.FilterByOwner(ctx, q, man, userCred, ownerId, scope)
+}
+
 func (manager *SAlertRecordManager) ListItemFilter(
 	ctx context.Context, q *sqlchemy.SQuery,
 	userCred mcclient.TokenCredential,
@@ -98,7 +102,7 @@ func (manager *SAlertRecordManager) ListItemFilter(
 ) (*sqlchemy.SQuery, error) {
 	var err error
 
-	q, err = manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StandaloneResourceListInput)
+	q, err = manager.SStandaloneAnonResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StandaloneAnonResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.ListItemFilter")
 	}
@@ -218,7 +222,7 @@ func (manager *SAlertRecordManager) QueryDistinctExtraField(q *sqlchemy.SQuery, 
 		resTypeQuery := MetricMeasurementManager.Query("res_type").Distinct()
 		return resTypeQuery, nil
 	}
-	q, err = manager.SStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
+	q, err = manager.SStandaloneAnonResourceBaseManager.QueryDistinctExtraField(q, field)
 	if err == nil {
 		return q, nil
 	}
@@ -231,16 +235,16 @@ func (man *SAlertRecordManager) OrderByExtraFields(
 	userCred mcclient.TokenCredential,
 	input monitor.AlertRecordListInput,
 ) (*sqlchemy.SQuery, error) {
-	var err error
+	/*var err error
 
 	q, err = man.SStatusStandaloneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, input.StatusStandaloneResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.OrderByExtraFields")
 	}
-	q, err = man.SScopedResourceBaseManager.OrderByExtraFields(ctx, q, userCred, input.ScopedResourceBaseListInput)
+	/*q, err = man.SScopedResourceBaseManager.OrderByExtraFields(ctx, q, userCred, input.ScopedResourceBaseListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SScopedResourceBaseManager.OrderByExtraFields")
-	}
+	}*/
 	return q, nil
 }
 
@@ -253,14 +257,14 @@ func (man *SAlertRecordManager) FetchCustomizeColumns(
 	isList bool,
 ) []monitor.AlertRecordDetails {
 	rows := make([]monitor.AlertRecordDetails, len(objs))
-	stdRows := man.SStatusStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	stdRows := man.SStandaloneAnonResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	scopedRows := man.SScopedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	alertIds := sets.NewString()
 	records := make([]*SAlertRecord, len(objs))
 	for i := range rows {
 		rows[i] = monitor.AlertRecordDetails{
-			StatusStandaloneResourceDetails: stdRows[i],
-			ScopedResourceBaseInfo:          scopedRows[i],
+			StandaloneAnonResourceDetails: stdRows[i],
+			ScopedResourceBaseInfo:        scopedRows[i],
 		}
 		record := objs[i].(*SAlertRecord)
 		alertIds.Insert(record.AlertId)
@@ -282,8 +286,8 @@ func (man *SAlertRecordManager) FetchCustomizeColumns(
 		if err != nil {
 			continue
 		}
-		for i, _ := range evalMatches {
-			evalMatches[i] = records[i].filterTags(evalMatches[i])
+		for j := range evalMatches {
+			evalMatches[j] = records[i].filterTags(evalMatches[j])
 		}
 		rows[i].ResNum = int64(len(evalMatches))
 	}
@@ -391,7 +395,7 @@ getNewMatchTag:
 }
 
 func (record *SAlertRecord) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	record.SStatusStandaloneResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
+	record.SStandaloneAnonResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
 	err := MonitorResourceManager.UpdateMonitorResourceAttachJointByRecord(ctx, userCred, record)
 	if err != nil {
 		log.Errorf("UpdateMonitorResourceAttachJointByRecord error: %v", err)
