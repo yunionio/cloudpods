@@ -45,7 +45,7 @@ type AlertRecordListInput struct {
 type AlertRecordDetails struct {
 	SAlertRecord
 
-	apis.StatusStandaloneResourceDetails
+	apis.StandaloneAnonResourceDetails
 	apis.ScopedResourceBaseInfo
 
 	ResNum      int64  `json:"res_num"`
