@@ -104,10 +104,12 @@ func InitInfluxDBSubscriptionHandlers(app *appsrv.Application, options *common_o
 
 	addr := net.JoinHostPort(options.Address, strconv.Itoa(options.Port))
 	if options.EnableSsl {
-		err := http.ListenAndServeTLS(addr,
+		srv := appsrv.InitHTTPServer(app, addr)
+		srv.Handler = root
+		err := srv.ListenAndServeTLS(
 			options.SslCertfile,
 			options.SslKeyfile,
-			root)
+		)
 		if err != nil && err != http.ErrServerClosed {
 			log.Fatalf("%v", err)
 		}
