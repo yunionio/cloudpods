@@ -15,8 +15,10 @@
 package service
 
 import (
+	"context"
 	"net"
 	"net/http"
+	_ "net/http/pprof"
 	"net/url"
 	"os"
 	"strconv"
@@ -109,7 +111,7 @@ func start() {
 	root.Handle(webconsole.WebsocketProxyPathPrefix, srv)
 
 	// misc handler
-	appsrv.AddMiscHandlersToMuxRouter(app, root, o.Options.EnableAppProfiling)
+	addMiscHandlers(app, root)
 
 	cron := cronman.InitCronJobManager(true, o.Options.CronJobWorkerCount)
 
@@ -134,4 +136,21 @@ func start() {
 			log.Fatalf("%v", err)
 		}
 	}
+}
+
+func addMiscHandlers(app *appsrv.Application, root *mux.Router) {
+	adapterF := func(appHandleFunc func(ctx context.Context, w http.ResponseWriter, r *http.Request)) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			appHandleFunc(app.GetContext(), w, r)
+		}
+	}
+
+	// ref: pkg/appsrv/appsrv:addDefaultHandlers
+	root.HandleFunc("/version", adapterF(appsrv.VersionHandler))
+	root.HandleFunc("/stats", adapterF(appsrv.StatisticHandler))
+	root.HandleFunc("/ping", adapterF(appsrv.PingHandler))
+	root.HandleFunc("/worker_stats", adapterF(appsrv.WorkerStatsHandler))
+
+	// pprof handler
+	root.PathPrefix("/debug/pprof/").Handler(http.DefaultServeMux)
 }
