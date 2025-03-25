@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/rbacscope"
+	"yunion.io/x/pkg/util/sets"
 	"yunion.io/x/pkg/util/timeutils"
 	"yunion.io/x/sqlchemy"
 
@@ -254,7 +255,7 @@ func (man *SAlertRecordManager) FetchCustomizeColumns(
 	rows := make([]monitor.AlertRecordDetails, len(objs))
 	stdRows := man.SStatusStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	scopedRows := man.SScopedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
-	alertIds := make([]string, len(objs))
+	alertIds := sets.NewString()
 	records := make([]*SAlertRecord, len(objs))
 	for i := range rows {
 		rows[i] = monitor.AlertRecordDetails{
@@ -262,30 +263,29 @@ func (man *SAlertRecordManager) FetchCustomizeColumns(
 			ScopedResourceBaseInfo:          scopedRows[i],
 		}
 		record := objs[i].(*SAlertRecord)
-		alertIds[i] = record.AlertId
+		alertIds.Insert(record.AlertId)
 		records[i] = record
 	}
 
 	alerts := map[string]SCommonAlert{}
-	err := db.FetchModelObjectsByIds(CommonAlertManager, "id", alertIds, &alerts)
+	err := db.FetchModelObjectsByIds(CommonAlertManager, "id", alertIds.List(), &alerts)
 	if err != nil {
 		log.Errorf("FetchModelObjectsByIds common alert error: %v", err)
 		return rows
 	}
 	for i := range rows {
-		if alert, ok := alerts[alertIds[i]]; ok {
+		if alert, ok := alerts[records[i].AlertId]; ok {
 			rows[i].AlertName = alert.Name
-			rows[i].TriggerTime = alert.CreatedAt
+			rows[i].TriggerTime = records[i].CreatedAt
 		}
-		evalMatchs := make([]monitor.EvalMatch, 0)
-		err := records[i].EvalData.Unmarshal(&evalMatchs)
+		evalMatches, err := records[i].GetEvalData()
 		if err != nil {
 			continue
 		}
-		for i, _ := range evalMatchs {
-			evalMatchs[i] = records[i].filterTags(evalMatchs[i])
+		for i, _ := range evalMatches {
+			evalMatches[i] = records[i].filterTags(evalMatches[i])
 		}
-		rows[i].ResNum = int64(len(evalMatchs))
+		rows[i].ResNum = int64(len(evalMatches))
 	}
 	return rows
 }
