@@ -521,7 +521,7 @@ func (self *SImage) saveImageFromStream(localPath string, reader io.Reader, tota
 	}
 	defer fp.Close()
 	lastSaveTime := time.Now()
-	return streamutils.StreamPipe(reader, fp, calChecksum, func(saved int64, _ int64) {
+	return streamutils.StreamPipe2(reader, fp, calChecksum, func(saved int64, _ int64) {
 		now := time.Now()
 		if now.Sub(lastSaveTime) > 5*time.Second {
 			self.saveSize(saved, totalSize)

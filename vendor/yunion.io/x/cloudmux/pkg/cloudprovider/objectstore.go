@@ -1092,7 +1092,7 @@ func downloadPartOfMultipart(ctx context.Context, bucket ICloudBucket, key strin
 		return 0, errors.Wrap(err, "bucket.GetObject")
 	}
 	defer stream.Close()
-	prop, err := streamutils.StreamPipe(stream, output, false, callback)
+	prop, err := streamutils.StreamPipe2(stream, output, false, callback)
 	if err != nil {
 		return 0, errors.Wrap(err, "StreamPipe")
 	}
