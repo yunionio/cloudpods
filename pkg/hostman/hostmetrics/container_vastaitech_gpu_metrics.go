@@ -69,6 +69,10 @@ func parseVastaitechGpuProcessMetrics(gpuMetricsStr string) []VastaitechGpuProce
 		}
 
 		devId, pciAddr, pidStr := segs[2], segs[3], segs[4]
+		if devId == "Null" {
+			continue
+		}
+
 		gfxMemUsageStr, gfxMemStr, gfxStr, decStr, encStr := segs[segLens-2], segs[segLens-3], segs[segLens-4], segs[segLens-5], segs[segLens-6]
 		gfxMemUsage, err := strconv.ParseFloat(gfxMemUsageStr, 64)
 		if err != nil {
