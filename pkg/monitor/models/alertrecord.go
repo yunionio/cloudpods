@@ -58,6 +58,7 @@ type SAlertRecord struct {
 	EvalData  jsonutils.JSONObject `list:"user" update:"user" length:"medium"`
 	AlertRule jsonutils.JSONObject `list:"user" update:"user" length:"medium"`
 	ResType   string               `width:"36" list:"user" update:"user"`
+	ResIds    string               `length:"medium" list:"user"`
 }
 
 func init() {
@@ -130,6 +131,9 @@ func (manager *SAlertRecordManager) ListItemFilter(
 	if len(query.ResType) != 0 {
 		q.Filter(sqlchemy.Equals(q.Field("res_type"), query.ResType))
 	}
+	if len(query.ResId) != 0 {
+		q.Filter(sqlchemy.ContainsAny(q.Field("res_ids"), []string{query.ResId}))
+	}
 	if len(query.Filter) != 0 {
 		for i, _ := range query.Filter {
 			if strings.Contains(query.Filter[i], "trigger_time") {
@@ -159,7 +163,7 @@ func (man *SAlertRecordManager) getAlertingRecordQuery() *sqlchemy.SQuery {
 
 }
 
-func (man *SAlertRecordManager) CustomizeFilterList(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*db.CustomizeListFilters, error) {
+/*func (man *SAlertRecordManager) CustomizeFilterList(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*db.CustomizeListFilters, error) {
 	filters := db.NewCustomizeListFilters()
 
 	input := new(monitor.AlertRecordListInput)
@@ -186,7 +190,7 @@ func (man *SAlertRecordManager) CustomizeFilterList(ctx context.Context, q *sqlc
 		})
 	}
 	return filters, nil
-}
+}*/
 
 func (man *SAlertRecordManager) GetAlertRecord(id string) (*SAlertRecord, error) {
 	obj, err := man.FetchById(id)
@@ -339,6 +343,27 @@ func (record *SAlertRecord) CustomizeCreate(
 			return errors.Wrap(err, "unionEvalMatch error")
 		}
 	}
+	// fill res_ids
+	matches, err := record.GetEvalData()
+	if err != nil {
+		return errors.Wrap(err, "GetEvalData error")
+	}
+	resIds := []string{}
+	for _, match := range matches {
+		for k, v := range match.Tags {
+			switch k {
+			case "vm_id":
+				if record.ResType == monitor.METRIC_RES_TYPE_AGENT || record.ResType == monitor.METRIC_RES_TYPE_GUEST {
+					resIds = append(resIds, v)
+				}
+			case "host_id":
+				if record.ResType == monitor.METRIC_RES_TYPE_HOST {
+					resIds = append(resIds, v)
+				}
+			}
+		}
+	}
+	record.ResIds = strings.Join(resIds, ",")
 	return nil
 }
 
