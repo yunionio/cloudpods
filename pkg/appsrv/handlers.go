@@ -60,12 +60,12 @@ func addPProfHandler(prefix string, app *Application) {
 	} else {
 		prefix = pp
 	}
-	app.AddHandler("GET", fmt.Sprintf("%s/", prefix), profIndex).SetProcessNoTimeout()
-	app.AddHandler("GET", fmt.Sprintf("%s/cmdline", prefix), profCmdline).SetProcessNoTimeout()
-	app.AddHandler("GET", fmt.Sprintf("%s/profile", prefix), profProfile).SetProcessNoTimeout()
-	app.AddHandler("GET", fmt.Sprintf("%s/symbol", prefix), profSymbol).SetProcessNoTimeout()
-	app.AddHandler("POST", fmt.Sprintf("%s/symbol", prefix), profSymbol).SetProcessNoTimeout()
-	app.AddHandler("GET", fmt.Sprintf("%s/trace", prefix), profTrace).SetProcessNoTimeout()
+	app.AddHandler("GET", fmt.Sprintf("%s/", prefix), WhitelistFilter(profIndex)).SetProcessNoTimeout()
+	app.AddHandler("GET", fmt.Sprintf("%s/cmdline", prefix), WhitelistFilter(profCmdline)).SetProcessNoTimeout()
+	app.AddHandler("GET", fmt.Sprintf("%s/profile", prefix), WhitelistFilter(profProfile)).SetProcessNoTimeout()
+	app.AddHandler("GET", fmt.Sprintf("%s/symbol", prefix), WhitelistFilter(profSymbol)).SetProcessNoTimeout()
+	app.AddHandler("POST", fmt.Sprintf("%s/symbol", prefix), WhitelistFilter(profSymbol)).SetProcessNoTimeout()
+	app.AddHandler("GET", fmt.Sprintf("%s/trace", prefix), WhitelistFilter(profTrace)).SetProcessNoTimeout()
 }
 
 func profIndex(_ context.Context, w http.ResponseWriter, r *http.Request) {

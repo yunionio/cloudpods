@@ -20,6 +20,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/netutils"
 
+	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 )
 
@@ -76,6 +77,9 @@ func OnBaseOptionsChange(oOpts, nOpts interface{}) bool {
 	}
 	if oldOpts.EnableChangeOwnerAutoRename != newOpts.EnableChangeOwnerAutoRename {
 		consts.SetChangeOwnerAutoRename(newOpts.EnableChangeOwnerAutoRename)
+	}
+	if privatePrrefixesChanged(oldOpts.DefaultHandlersWhitelistUserAgents, newOpts.DefaultHandlersWhitelistUserAgents) {
+		appsrv.SetDefaultHandlersWhitelistUserAgents(newOpts.DefaultHandlersWhitelistUserAgents)
 	}
 	return changed
 }

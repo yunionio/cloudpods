@@ -463,12 +463,12 @@ func (app *Application) AddDefaultHandler(method string, prefix string, handler 
 }
 
 func (app *Application) addDefaultHandlers() {
-	app.AddDefaultHandler("GET", "/version", VersionHandler, "version")
-	app.AddDefaultHandler("GET", "/stats", StatisticHandler, "stats")
-	app.AddDefaultHandler("POST", "/ping", PingHandler, "ping")
-	app.AddDefaultHandler("GET", "/ping", PingHandler, "ping")
-	app.AddDefaultHandler("GET", "/worker_stats", WorkerStatsHandler, "worker_stats")
-	app.AddDefaultHandler("GET", "/process_stats", ProcessStatsHandler, "process_stats")
+	app.AddDefaultHandler("GET", "/version", WhitelistFilter(VersionHandler), "version")
+	app.AddDefaultHandler("GET", "/stats", WhitelistFilter(StatisticHandler), "stats")
+	app.AddDefaultHandler("POST", "/ping", WhitelistFilter(PingHandler), "ping")
+	app.AddDefaultHandler("GET", "/ping", WhitelistFilter(PingHandler), "ping")
+	app.AddDefaultHandler("GET", "/worker_stats", WhitelistFilter(WorkerStatsHandler), "worker_stats")
+	app.AddDefaultHandler("GET", "/process_stats", WhitelistFilter(ProcessStatsHandler), "process_stats")
 }
 
 func timeoutHandle(h http.Handler) http.HandlerFunc {
