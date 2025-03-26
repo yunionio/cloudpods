@@ -277,6 +277,7 @@ func fetchGuestDisksInfo(guestIds []string) map[string][]api.GuestDiskInfo {
 		guestdisks.Field("driver"),
 		guestdisks.Field("cache_mode"),
 		guestdisks.Field("aio_mode"),
+		disks.Field("auto_reset"),
 		storages.Field("medium_type"),
 		storages.Field("storage_type"),
 		guestdisks.Field("iops"),
