@@ -129,6 +129,8 @@ type BaseOptions struct {
 
 	EnableChangeOwnerAutoRename bool `help:"Allows renaming when changing names" default:"false"`
 	EnableDefaultPolicy         bool `help:"Enable defualt policies" default:"true"`
+
+	DefaultHandlersWhitelistUserAgents []string `help:"whitelist user agents, default is empty"`
 }
 
 const (
