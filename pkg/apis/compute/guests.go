@@ -354,6 +354,7 @@ type GuestDiskInfo struct {
 	Driver      string `json:"driver"`
 	CacheMode   string `json:"cache_mode"`
 	AioMode     string `json:"aio_mode"`
+	AutoReset   bool   `json:"auto_reset"`
 	MediumType  string `json:"medium_type"`
 	StorageType string `json:"storage_type"`
 	Iops        int    `json:"iops"`

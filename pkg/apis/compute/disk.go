@@ -257,6 +257,8 @@ type DiskUpdateInput struct {
 
 	// 磁盘类型
 	DiskType string `json:"disk_type"`
+	// 关机自动重置
+	AutoReset *bool `json:"auto_reset"`
 }
 
 type DiskSaveInput struct {
