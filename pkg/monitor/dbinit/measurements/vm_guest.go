@@ -138,5 +138,25 @@ var vmNetio = SMeasurement{
 			DisplayName: "Send packets per second",
 			Unit:        monitor.METRIC_UNIT_PPS,
 		},
+		{
+			Name:        "bytes_sent",
+			DisplayName: "The total number of bytes sent by the network interface",
+			Unit:        monitor.METRIC_UNIT_BYTE,
+		},
+		{
+			Name:        "bytes_recv",
+			DisplayName: "The total number of bytes received by the network interface",
+			Unit:        monitor.METRIC_UNIT_BYTE,
+		},
+		{
+			Name:        "packets_sent",
+			DisplayName: "The total number of packets sent by the network interface",
+			Unit:        monitor.METRIC_UNIT_COUNT,
+		},
+		{
+			Name:        "packets_recv",
+			DisplayName: "The total number of packets received by the network interface",
+			Unit:        monitor.METRIC_UNIT_COUNT,
+		},
 	},
 }
