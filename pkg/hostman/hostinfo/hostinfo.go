@@ -501,9 +501,10 @@ func (h *SHostInfo) prepareEnv() error {
 		log.Warningf("modprobe vhost_net error: %s", output)
 	}
 	if !options.HostOptions.DisableSetCgroup {
-		if !cgrouputils.Init(h.IoScheduler) {
-			return fmt.Errorf("Cannot initialize control group subsystem")
+		if err := cgrouputils.Init(h.IoScheduler); err != nil {
+			return fmt.Errorf("Cannot initialize control group subsystem: %s", err)
 		}
+		h.sysinfo.CgroupVersion = cgrouputils.GetCgroupVersion()
 	}
 
 	// err = h.resetIptables()
@@ -821,22 +822,16 @@ func (h *SHostInfo) initCgroup() error {
 	hostCpuset := hostCpusetBuilder.Result()
 	hostCpusetStr := hostCpuset.String()
 	// init host cpuset root group
-	if !cgrouputils.NewCGroupCPUSetTask("", hostconsts.HOST_CGROUP, 0, hostCpusetStr).Configure() {
+	if !cgrouputils.NewCGroupCPUSetTask("", hostconsts.HOST_CGROUP, hostCpusetStr, "").Configure() {
 		return fmt.Errorf("failed init host root cpuset")
 	}
 	// init host cpu root group
-	cgrouputils.CgroupSet("", hostconsts.HOST_CGROUP, hostCpuset.Size()*1024)
-	// init host blkio root group
-	cgrouputils.CgroupIoHardlimitSet("", hostconsts.HOST_CGROUP, 0, nil, "")
+	cgrouputils.NewCGroupCPUTask("", hostconsts.HOST_CGROUP, hostCpuset.Size()*1024).SetTask()
 
 	if h.reservedCpusInfo != nil {
-		reservedCpusTask := cgrouputils.NewCGroupCPUSetTask("", hostconsts.HOST_RESERVED_CPUSET, 0, h.reservedCpusInfo.Cpus)
+		reservedCpusTask := cgrouputils.NewCGroupCPUSetTask("", hostconsts.HOST_RESERVED_CPUSET, h.reservedCpusInfo.Cpus, h.reservedCpusInfo.Mems)
 		if !reservedCpusTask.Configure() {
 			return fmt.Errorf("failed init host reserved cpuset %s", h.reservedCpusInfo.Cpus)
-		}
-		if h.reservedCpusInfo.Mems != "" &&
-			!reservedCpusTask.CustomConfig(cgrouputils.CPUSET_MEMS, h.reservedCpusInfo.Mems) {
-			return fmt.Errorf("failed init host reserved cpuset mems %s", h.reservedCpusInfo.Mems)
 		}
 		if h.reservedCpusInfo.DisableSchedLoadBalance != nil &&
 			*h.reservedCpusInfo.DisableSchedLoadBalance &&
@@ -2724,12 +2719,11 @@ func (h *SHostInfo) startBindReservedCpus(processesPrefix []string) {
 		} else {
 			for process, pid := range processPids {
 				cgroupName := path.Join(hostconsts.HOST_RESERVED_CPUSET, strings.ReplaceAll(process, "/", "_"))
-				task := cgrouputils.NewCGroupCPUSetTask(pid, cgroupName, 0, "")
+				task := cgrouputils.NewCGroupCPUSetTask(pid, cgroupName, "", "")
 				if !task.Configure() {
 					log.Errorf("process failed init reserved cpuset %s %s", process, pid)
 					continue
 				}
-
 				if !task.CustomConfig(cgrouputils.CPUSET_CLONE_CHILDREN, "1") {
 					log.Errorf("process failed set host reserved cpuset clone children %s %s", process, pid)
 					continue
