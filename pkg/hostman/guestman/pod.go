@@ -1705,6 +1705,12 @@ func (s *sPodGuestInstance) createContainer(ctx context.Context, userCred mcclie
 				Value: *secInput.RunAsGroup,
 			}
 		}
+		if secInput.ApparmorProfile != "" {
+			ctrCfg.Linux.SecurityContext.Apparmor = &runtimeapi.SecurityProfile{
+				ProfileType:  runtimeapi.SecurityProfile_Localhost,
+				LocalhostRef: secInput.ApparmorProfile,
+			}
+		}
 	}
 
 	if spec.EnableLxcfs {
