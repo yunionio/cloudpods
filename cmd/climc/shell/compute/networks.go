@@ -39,6 +39,7 @@ func init() {
 	cmd.Delete(&compute_options.NetworkIdOptions{})
 	cmd.GetMetadata(&compute_options.NetworkIdOptions{})
 	cmd.Perform("private", &compute_options.NetworkIdOptions{})
+	cmd.Perform("public", &options.SharableResourcePublicOptions{})
 	cmd.Perform("syncstatus", &compute_options.NetworkIdOptions{})
 	cmd.Perform("sync", &compute_options.NetworkIdOptions{})
 	cmd.Perform("purge", &compute_options.NetworkIdOptions{})
@@ -47,22 +48,6 @@ func init() {
 	cmd.Perform("switch-wire", &compute_options.NetworkSwitchWireOptions{})
 	cmd.Perform("sync-additional-wires", &compute_options.NetworkSyncAdditionalWiresOptions{})
 	cmd.Get("available-addresses", &compute_options.NetworkIdOptions{})
-
-	type NetworkShareOptions struct {
-		ID             string   `help:"ID or Name of the zone to show"`
-		Scope          string   `help:"sharing scope" choices:"system|domain|project"`
-		SharedProjects []string `help:"Share to prjects"`
-		SharedDomains  []string `help:"share to domains"`
-	}
-	R(&NetworkShareOptions{}, "network-public", "Make a network public", func(s *mcclient.ClientSession, args *NetworkShareOptions) error {
-		params := jsonutils.Marshal(args)
-		result, err := modules.Networks.PerformAction(s, args.ID, "public", params)
-		if err != nil {
-			return err
-		}
-		printObject(result)
-		return nil
-	})
 
 	type NetworkCreateOptions2 struct {
 		Wire   string `help:"ID or Name of wire in which the network is created"`

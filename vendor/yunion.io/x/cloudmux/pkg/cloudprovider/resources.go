@@ -331,6 +331,7 @@ type IsolateDevice interface {
 	GetDevType() string
 	GetNumaNode() int8
 	GetVendorDeviceId() string
+	GetSharedProjectIds() ([]string, error)
 }
 
 type ICloudVM interface {

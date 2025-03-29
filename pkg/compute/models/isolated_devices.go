@@ -35,6 +35,7 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	hostapi "yunion.io/x/onecloud/pkg/apis/host"
 	"yunion.io/x/onecloud/pkg/apis/notify"
@@ -69,6 +70,7 @@ var VENDOR_ID_MAP = api.VENDOR_ID_MAP
 type SIsolatedDeviceManager struct {
 	db.SStandaloneResourceBaseManager
 	db.SExternalizedResourceBaseManager
+	db.SSharableBaseResourceManager
 	SHostResourceBaseManager
 }
 
@@ -93,7 +95,8 @@ func init() {
 type SIsolatedDevice struct {
 	db.SStandaloneResourceBase
 	db.SExternalizedResourceBase
-	SHostResourceBase `width:"36" charset:"ascii" nullable:"false" default:"" index:"true" list:"domain" create:"domain_required"`
+	db.SSharableBaseResource `"is_public->create":"domain_optional" "public_scope->create":"domain_optional"`
+	SHostResourceBase        `width:"36" charset:"ascii" nullable:"false" default:"" index:"true" list:"domain" create:"domain_required"`
 
 	// # PCI / GPU-HPC / GPU-VGA / USB / NIC
 	// 设备类型
@@ -1398,11 +1401,13 @@ func (manager *SIsolatedDeviceManager) FetchCustomizeColumns(
 
 	stdRows := manager.SStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	hostRows := manager.SHostResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	shareRows := manager.SSharableBaseResourceManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	guestIds := make([]string, len(rows))
 	for i := range rows {
 		rows[i] = api.IsolateDeviceDetails{
 			StandaloneResourceDetails: stdRows[i],
 			HostResourceInfo:          hostRows[i],
+			SharableResourceBaseInfo:  shareRows[i],
 		}
 		guestIds[i] = objs[i].(*SIsolatedDevice).GuestId
 	}
@@ -1587,7 +1592,7 @@ func (manager *SIsolatedDeviceManager) NamespaceScope() rbacscope.TRbacScope {
 }
 
 func (manager *SIsolatedDeviceManager) ResourceScope() rbacscope.TRbacScope {
-	return rbacscope.ScopeDomain
+	return rbacscope.ScopeProject
 }
 
 func (manager *SIsolatedDeviceManager) FilterByOwner(ctx context.Context, q *sqlchemy.SQuery, man db.FilterByOwnerProvider, userCred mcclient.TokenCredential, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
@@ -1625,7 +1630,39 @@ func (model *SIsolatedDevice) syncWithCloudIsolateDevice(ctx context.Context, us
 		model.VendorDeviceId = dev.GetVendorDeviceId()
 		return nil
 	})
-	return err
+	if err != nil {
+		return err
+	}
+	sharedProjectIds, err := dev.GetSharedProjectIds()
+	if err != nil {
+		if errors.Cause(err) == cloudprovider.ErrNotImplemented {
+			return nil
+		}
+		return err
+	}
+	log.Infof("share projectIds: %s", sharedProjectIds)
+	if len(sharedProjectIds) == 0 {
+		return nil
+	}
+	host := model.getHost()
+	if host == nil {
+		return nil
+	}
+	if len(sharedProjectIds) > 0 {
+		projectIds, err := db.FetchField(ExternalProjectManager, "tenant_id", func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+			return q.Equals("manager_id", host.ManagerId).In("external_id", sharedProjectIds)
+		})
+		if err != nil {
+			return err
+		}
+		input := apis.PerformPublicProjectInput{SharedProjectIds: projectIds}
+		input.Scope = "project"
+		err = db.SharablePerformPublic(model, ctx, userCred, input)
+		if err != nil {
+			return errors.Wrapf(err, "SharablePerformPublic")
+		}
+	}
+	return nil
 }
 
 func (model *SIsolatedDevice) SetNetworkIndex(idx int) error {
@@ -1634,4 +1671,36 @@ func (model *SIsolatedDevice) SetNetworkIndex(idx int) error {
 		return nil
 	})
 	return err
+}
+
+func (model *SIsolatedDevice) GetRequiredSharedDomainIds() []string {
+	host := model.getHost()
+	if host != nil {
+		return []string{host.DomainId}
+	}
+	return []string{}
+}
+
+func (model *SIsolatedDevice) GetSharableTargetDomainIds() []string {
+	return nil
+}
+
+func (model *SIsolatedDevice) GetSharedDomains() []string {
+	return db.SharableGetSharedProjects(model, db.SharedTargetDomain)
+}
+
+func (model *SIsolatedDevice) PerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformPublicProjectInput) (jsonutils.JSONObject, error) {
+	err := db.SharablePerformPublic(model, ctx, userCred, input)
+	if err != nil {
+		return nil, errors.Wrap(err, "SharablePerformPublic")
+	}
+	return nil, nil
+}
+
+func (model *SIsolatedDevice) PerformPrivate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformPrivateInput) (jsonutils.JSONObject, error) {
+	err := db.SharablePerformPrivate(model, ctx, userCred)
+	if err != nil {
+		return nil, errors.Wrap(err, "SharablePerformPrivate")
+	}
+	return nil, nil
 }

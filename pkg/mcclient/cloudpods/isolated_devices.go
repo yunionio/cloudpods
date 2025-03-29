@@ -51,6 +51,14 @@ func (d *SIsolatedDevice) GetVendorDeviceId() string {
 	return d.VendorDeviceId
 }
 
+func (d *SIsolatedDevice) GetSharedProjectIds() ([]string, error) {
+	ret := []string{}
+	for _, p := range d.SharedProjects {
+		ret = append(ret, p.Id)
+	}
+	return ret, nil
+}
+
 func (region *SRegion) GetIsolatedDevices(hostId string, serverId string) ([]SIsolatedDevice, error) {
 	params := map[string]interface{}{}
 	if len(hostId) > 0 {

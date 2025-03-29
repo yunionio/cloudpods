@@ -51,3 +51,16 @@ type SharableResourcePublicBaseOptions struct {
 	SharedProjects []string `help:"Share to projects"`
 	SharedDomains  []string `help:"Share to domains"`
 }
+
+type SharableResourcePublicOptions struct {
+	ID string
+	SharableResourcePublicBaseOptions
+}
+
+func (opts *SharableResourcePublicOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(opts.SharableResourcePublicBaseOptions), nil
+}
+
+func (opts *SharableResourcePublicOptions) GetId() string {
+	return opts.ID
+}

@@ -29,6 +29,7 @@ const (
 
 type IsolateDeviceDetails struct {
 	apis.StandaloneResourceDetails
+	apis.SharableResourceBaseInfo
 	HostResourceInfo
 
 	SIsolatedDevice
