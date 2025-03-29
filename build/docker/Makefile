@@ -1,6 +1,7 @@
 REGISTRY ?= "registry.cn-beijing.aliyuncs.com/yunionio"
 DOCKER_BUILD = docker build -t $(REGISTRY)
 DOCKER_BUILDX = docker buildx build --platform linux/arm64,linux/amd64 --push -t $(REGISTRY)
+DOCKER_BUILDX_WITH_LOONG64 = docker buildx build --platform linux/arm64,linux/amd64,linux/loong64 --push -t $(REGISTRY)
 
 
 debian10-base:
@@ -9,11 +10,14 @@ debian10-base:
 
 ONECLOUD_BASE_VERSION = v0.3-3.13.5
 ONECLOUD_BASE_VERSION_3-15-4 = v3.15.4-0
+ONECLOUD_BASE_VERSION_3-21-0 = v3.21.0-0
 
 onecloud-base:
 	$(DOCKER_BUILDX)/onecloud-base:$(ONECLOUD_BASE_VERSION) -f ./Dockerfile.onecloud-base .
 onecloud-base-3-15-4:
 	$(DOCKER_BUILDX)/onecloud-base:$(ONECLOUD_BASE_VERSION_3-15-4) -f ./Dockerfile.onecloud-base-3-15-4 .
+onecloud-base-3-21-0:
+	$(DOCKER_BUILDX_WITH_LOONG64)/onecloud-base:$(ONECLOUD_BASE_VERSION_3-21-0) -f ./Dockerfile.onecloud-base-3-21-0 .
 
 ANSIBLESERVER_BASE = v1.1.2
 
