@@ -69,6 +69,7 @@ var VENDOR_ID_MAP = api.VENDOR_ID_MAP
 type SIsolatedDeviceManager struct {
 	db.SStandaloneResourceBaseManager
 	db.SExternalizedResourceBaseManager
+	db.SSharableBaseResourceManager
 	SHostResourceBaseManager
 }
 
@@ -93,7 +94,8 @@ func init() {
 type SIsolatedDevice struct {
 	db.SStandaloneResourceBase
 	db.SExternalizedResourceBase
-	SHostResourceBase `width:"36" charset:"ascii" nullable:"false" default:"" index:"true" list:"domain" create:"domain_required"`
+	db.SSharableBaseResource `"is_public->create":"domain_optional" "public_scope->create":"domain_optional"`
+	SHostResourceBase        `width:"36" charset:"ascii" nullable:"false" default:"" index:"true" list:"domain" create:"domain_required"`
 
 	// # PCI / GPU-HPC / GPU-VGA / USB / NIC
 	// 设备类型
