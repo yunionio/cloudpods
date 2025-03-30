@@ -56,7 +56,7 @@ type SArchivedTask struct {
 
 	TaskId string `width:"36" charset:"ascii" index:"true" list:"user"`
 
-	STaskBase
+	STaskBase `params->list:"user" user_cred->list:"user"`
 
 	ObjIds     []string `charset:"ascii" list:"user"`
 	ObjNames   []string `charset:"utf8" list:"user"`
@@ -215,7 +215,7 @@ func (manager *SArchivedTaskManager) ResourceScope() rbacscope.TRbacScope {
 	return rbacscope.ScopeProject
 }
 
-/*func (manager *SArchivedTaskManager) FetchCustomizeColumns(
+func (manager *SArchivedTaskManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
@@ -224,8 +224,43 @@ func (manager *SArchivedTaskManager) ResourceScope() rbacscope.TRbacScope {
 	isList bool,
 ) []apis.TaskDetails {
 	rows := make([]apis.TaskDetails, len(objs))
+	projectIds := make([]string, 0)
+	domainIds := make([]string, 0)
+
+	for i := range objs {
+		task := objs[i].(*SArchivedTask)
+		if len(task.ProjectIds) > 0 {
+			projectIds = append(projectIds, task.ProjectIds[0])
+		} else if len(task.DomainIds) > 0 {
+			domainIds = append(domainIds, task.DomainIds[0])
+		}
+	}
+	var projectsMap map[string]db.STenant
+	var domainsMap map[string]db.STenant
+	if len(projectIds) > 0 {
+		projectsMap = db.DefaultProjectsFetcher(ctx, projectIds, false)
+	}
+	if len(domainIds) > 0 {
+		domainsMap = db.DefaultProjectsFetcher(ctx, domainIds, true)
+	}
+	for i := range objs {
+		task := objs[i].(*SArchivedTask)
+		if len(task.ProjectIds) > 0 {
+			rows[i].ProjectId = task.ProjectIds[0]
+			rows[i].DomainId = task.DomainIds[0]
+			if proj, ok := projectsMap[task.ProjectIds[0]]; ok {
+				rows[i].Project = proj.Name
+				rows[i].ProjectDomain = proj.Domain
+			}
+		} else if len(task.DomainIds) > 0 {
+			rows[i].DomainId = task.DomainIds[0]
+			if dom, ok := domainsMap[task.DomainIds[0]]; ok {
+				rows[i].ProjectDomain = dom.Name
+			}
+		}
+	}
 	return rows
-}*/
+}
 
 func (manager *SArchivedTaskManager) OrderByExtraFields(
 	ctx context.Context,
