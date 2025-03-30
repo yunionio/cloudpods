@@ -79,7 +79,8 @@ type TaskDetails struct {
 	ObjName      string
 	ObjId        string
 	TaskName     string
-	Params       *jsonutils.JSONDict
+	Params       jsonutils.JSONObject
+	UserCred     jsonutils.JSONObject
 	Stage        string
 	ParentTaskId string
 }

@@ -31,6 +31,70 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/modules/notify"
 )
 
+func RegisterTaskCmds(service string, manager modulebase.Manager, archivedManager modulebase.Manager) {
+	type TaskListOptions struct {
+		apis.TaskListInput
+	}
+	R(&TaskListOptions{}, fmt.Sprintf("%s-task-list", service), fmt.Sprintf("List tasks on %s server", service), func(s *mcclient.ClientSession, args *TaskListOptions) error {
+		params := jsonutils.Marshal(args)
+		result, err := manager.List(s, params)
+		if err != nil {
+			return err
+		}
+		printList(result, manager.GetColumns(s))
+		return nil
+	})
+
+	type TaskShowOptions struct {
+		ID string `help:"ID or name of the task"`
+	}
+	R(&TaskShowOptions{}, fmt.Sprintf("%s-task-show", service), fmt.Sprintf("Show details of a %s task", service), func(s *mcclient.ClientSession, args *TaskShowOptions) error {
+		result, err := manager.GetById(s, args.ID, nil)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	R(&TaskShowOptions{}, fmt.Sprintf("%s-task-cancel", service), fmt.Sprintf("Cancel a %s task", service), func(s *mcclient.ClientSession, args *TaskShowOptions) error {
+		result, err := manager.PerformAction(s, args.ID, "cancel", nil)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	R(&TaskListOptions{}, fmt.Sprintf("%s-archived-task-list", service), fmt.Sprintf("List archived tasks on %s server", service), func(s *mcclient.ClientSession, args *TaskListOptions) error {
+		params := jsonutils.Marshal(args)
+		result, err := archivedManager.List(s, params)
+		if err != nil {
+			return err
+		}
+		printList(result, archivedManager.GetColumns(s))
+		return nil
+	})
+
+	R(&TaskShowOptions{}, fmt.Sprintf("%s-archived-task-show", service), fmt.Sprintf("Show details of an archived %s task", service), func(s *mcclient.ClientSession, args *TaskShowOptions) error {
+		params := jsonutils.NewDict()
+		params.Set("task_id", jsonutils.NewString(args.ID))
+		result, err := archivedManager.List(s, params)
+		if err != nil {
+			return err
+		}
+		if result.Total == 1 {
+			printObject(result.Data[0])
+			return nil
+		} else if result.Total == 0 {
+			return errors.Wrapf(errors.ErrNotFound, "not found %s", args.ID)
+		} else {
+			printList(result, archivedManager.GetColumns(s))
+			return errors.Wrapf(errors.ErrDuplicateId, "found %d record for %s", result.Total, args.ID)
+		}
+	})
+}
+
 func init() {
 	cmds := []struct {
 		service string
@@ -71,68 +135,6 @@ func init() {
 	}
 	for i := range cmds {
 		c := cmds[i]
-
-		type TaskListOptions struct {
-			apis.TaskListInput
-		}
-		R(&TaskListOptions{}, fmt.Sprintf("%s-task-list", c.service), fmt.Sprintf("List tasks on %s server", c.service), func(s *mcclient.ClientSession, args *TaskListOptions) error {
-			params := jsonutils.Marshal(args)
-			result, err := c.manager.List(s, params)
-			if err != nil {
-				return err
-			}
-			printList(result, c.manager.GetColumns(s))
-			return nil
-		})
-
-		type TaskShowOptions struct {
-			ID string `help:"ID or name of the task"`
-		}
-		R(&TaskShowOptions{}, fmt.Sprintf("%s-task-show", c.service), fmt.Sprintf("Show details of a %s task", c.service), func(s *mcclient.ClientSession, args *TaskShowOptions) error {
-			result, err := c.manager.GetById(s, args.ID, nil)
-			if err != nil {
-				return err
-			}
-			printObject(result)
-			return nil
-		})
-
-		R(&TaskShowOptions{}, fmt.Sprintf("%s-task-cancel", c.service), fmt.Sprintf("Cancel a %s task", c.service), func(s *mcclient.ClientSession, args *TaskShowOptions) error {
-			result, err := c.manager.PerformAction(s, args.ID, "cancel", nil)
-			if err != nil {
-				return err
-			}
-			printObject(result)
-			return nil
-		})
-
-		R(&TaskListOptions{}, fmt.Sprintf("%s-archived-task-list", c.service), fmt.Sprintf("List archived tasks on %s server", c.service), func(s *mcclient.ClientSession, args *TaskListOptions) error {
-			params := jsonutils.Marshal(args)
-			result, err := c.archivedManager.List(s, params)
-			if err != nil {
-				return err
-			}
-			printList(result, c.archivedManager.GetColumns(s))
-			return nil
-		})
-
-		R(&TaskShowOptions{}, fmt.Sprintf("%s-archived-task-show", c.service), fmt.Sprintf("Show details of an archived %s task", c.service), func(s *mcclient.ClientSession, args *TaskShowOptions) error {
-			params := jsonutils.NewDict()
-			params.Set("task_id", jsonutils.NewString(args.ID))
-			result, err := c.archivedManager.List(s, params)
-			if err != nil {
-				return err
-			}
-			if result.Total == 1 {
-				printObject(result.Data[0])
-				return nil
-			} else if result.Total == 0 {
-				return errors.Wrapf(errors.ErrNotFound, "not found %s", args.ID)
-			} else {
-				printList(result, c.archivedManager.GetColumns(s))
-				return errors.Wrapf(errors.ErrDuplicateId, "found %d record for %s", result.Total, args.ID)
-			}
-		})
+		RegisterTaskCmds(c.service, c.manager, c.archivedManager)
 	}
-
 }
