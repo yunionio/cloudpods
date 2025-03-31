@@ -2806,7 +2806,32 @@ func (hh *SHost) newIsolateDevice(ctx context.Context, userCred mcclient.TokenCr
 	ret.DevType = dev.GetDevType()
 	ret.NumaNode = dev.GetNumaNode()
 	ret.VendorDeviceId = dev.GetVendorDeviceId()
-	return IsolatedDeviceManager.TableSpec().Insert(ctx, ret)
+	err := IsolatedDeviceManager.TableSpec().Insert(ctx, ret)
+	if err != nil {
+		return err
+	}
+	sharedProjectIds, err := dev.GetSharedProjectIds()
+	if err != nil {
+		if errors.Cause(err) == cloudprovider.ErrNotImplemented {
+			return nil
+		}
+		return err
+	}
+	if len(sharedProjectIds) == 0 {
+		return nil
+	}
+	if len(sharedProjectIds) > 0 {
+		projectIds, err := db.FetchField(ExternalProjectManager, "tenant_id", func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+			return q.Equals("manager_id", hh.ManagerId).In("external_id", sharedProjectIds)
+		})
+		if err != nil {
+			return err
+		}
+		input := apis.PerformPublicProjectInput{SharedProjectIds: projectIds}
+		input.Scope = "project"
+		db.SharablePerformPublic(ret, ctx, userCred, input)
+	}
+	return nil
 }
 
 func (hh *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCredential, iprovider cloudprovider.ICloudProvider, vms []cloudprovider.ICloudVM, syncOwnerId mcclient.IIdentityProvider, xor bool) ([]SGuestSyncResult, compare.SyncResult) {

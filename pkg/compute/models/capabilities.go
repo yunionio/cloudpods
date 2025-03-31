@@ -181,8 +181,9 @@ func GetCapabilities(ctx context.Context, userCred mcclient.TokenCredential, que
 	var ownerId mcclient.IIdentityProvider
 	scopeStr := jsonutils.GetAnyString(query, []string{"scope"})
 	scope := rbacscope.String2Scope(scopeStr)
-	var domainId string
+	var domainId, tenantId string
 	domainStr := jsonutils.GetAnyString(query, []string{"domain", "domain_id", "project_domain", "project_domain_id"})
+	tenantStr := jsonutils.GetAnyString(query, []string{"tenant", "tenant_id", "project", "project_id"})
 	if len(domainStr) > 0 {
 		domain, err := db.TenantCacheManager.FetchDomainByIdOrName(ctx, domainStr)
 		if err != nil {
@@ -197,6 +198,16 @@ func GetCapabilities(ctx context.Context, userCred mcclient.TokenCredential, que
 	} else {
 		domainId = userCred.GetProjectDomainId()
 		ownerId = userCred
+	}
+	if len(tenantStr) > 0 {
+		project, err := db.TenantCacheManager.FetchTenantById(ctx, tenantStr)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return capa, httperrors.NewResourceNotFoundError2("projects", tenantStr)
+			}
+			return capa, httperrors.NewGeneralError(err)
+		}
+		tenantId = project.GetId()
 	}
 	if scope == rbacscope.ScopeSystem {
 		result := policy.PolicyManager.Allow(scope, userCred, consts.GetServiceType(), "capabilities", policy.PolicyActionList)
@@ -239,7 +250,7 @@ func GetCapabilities(ctx context.Context, userCred mcclient.TokenCredential, que
 	if err != nil {
 		return capa, errors.Wrapf(err, "getStorageTypes")
 	}
-	capa.GPUModels, capa.PCIModelTypes = getIsolatedDeviceInfo(ctx, userCred, region, zone, domainId)
+	capa.GPUModels, capa.PCIModelTypes = getIsolatedDeviceInfo(ctx, userCred, region, zone, domainId, tenantId)
 	capa.SchedPolicySupport = isSchedPolicySupported(region, zone)
 	capa.MinNicCount = getMinNicCount(region, zone)
 	capa.MaxNicCount = getMaxNicCount(region, zone)
@@ -845,13 +856,42 @@ type PCIDevModelTypes struct {
 	Hypervisor string
 }
 
-func getIsolatedDeviceInfo(ctx context.Context, userCred mcclient.TokenCredential, region *SCloudregion, zone *SZone, domainId string) ([]string, []PCIDevModelTypes) {
-	devices := IsolatedDeviceManager.Query().SubQuery()
+func getIsolatedDeviceInfo(ctx context.Context, userCred mcclient.TokenCredential, region *SCloudregion, zone *SZone, domainId, tenantId string) ([]string, []PCIDevModelTypes) {
+	devicesQ := IsolatedDeviceManager.Query()
 	hostQuery := HostManager.Query()
 	if len(domainId) > 0 {
 		ownerId := &db.SOwnerId{DomainId: domainId}
 		hostQuery = StorageManager.FilterByOwner(ctx, hostQuery, StorageManager, userCred, ownerId, rbacscope.ScopeDomain)
 	}
+	if len(tenantId) > 0 {
+		subq := db.SharedResourceManager.Query("resource_id")
+		subq = subq.Equals("resource_type", IsolatedDeviceManager.Keyword())
+		subq = subq.Equals("target_project_id", tenantId)
+		subq = subq.Equals("target_type", db.SharedTargetProject)
+		conds := []sqlchemy.ICondition{
+			sqlchemy.AND(
+				sqlchemy.IsTrue(devicesQ.Field("is_public")),
+				sqlchemy.Equals(devicesQ.Field("public_scope"), rbacscope.ScopeSystem),
+			),
+			sqlchemy.In(devicesQ.Field("id"), subq.SubQuery()),
+		}
+		if len(domainId) > 0 {
+			subq2 := db.SharedResourceManager.Query("resource_id")
+			subq2 = subq2.Equals("resource_type", IsolatedDeviceManager.Keyword())
+			subq2 = subq2.Equals("target_project_id", domainId)
+			subq2 = subq2.Equals("target_type", db.SharedTargetDomain)
+			conds = append(conds, sqlchemy.AND(
+				sqlchemy.IsTrue(devicesQ.Field("is_public")),
+				sqlchemy.Equals(devicesQ.Field("public_scope"), rbacscope.ScopeDomain),
+				sqlchemy.OR(
+					sqlchemy.In(devicesQ.Field("id"), subq2.SubQuery()),
+				),
+			),
+			)
+		}
+		devicesQ = devicesQ.Filter(sqlchemy.OR(conds...))
+	}
+	devices := devicesQ.SubQuery()
 	hosts := hostQuery.SubQuery()
 
 	q := devices.Query(hosts.Field("host_type"), devices.Field("model"), devices.Field("dev_type"), devices.Field("nvme_size_mb"))
