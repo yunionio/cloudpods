@@ -94,6 +94,16 @@ func InitDB(options *common_options.DBOptions) {
 	}
 	sqlchemy.SetDBWithNameBackend(dbConn, sqlchemy.DefaultDB, backend)
 
+	if options.DbMaxWaitTimeoutSeconds <= 300 {
+		options.DbMaxWaitTimeoutSeconds = 3600
+	}
+	// ConnMaxLifetime is the maximum amount of time a connection may be reused.
+	// mysql default max_waitimeout is 28800 seconds, 1 hour should be enough
+	// but if user set a customized mysql max_waittimeout, the value should be adjusted accordingly
+	dbConn.SetConnMaxLifetime(time.Duration(options.DbMaxWaitTimeoutSeconds) * time.Second)
+	// ConnMaxIdleTime should be half of ConnMaxLifetime
+	dbConn.SetConnMaxIdleTime(time.Duration(options.DbMaxWaitTimeoutSeconds/2) * time.Second)
+
 	dialect, sqlStr, err = options.GetClickhouseConnStr()
 	if err == nil {
 		// connect to clickcloud

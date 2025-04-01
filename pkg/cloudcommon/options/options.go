@@ -165,6 +165,8 @@ type DBOptions struct {
 
 	Clickhouse string `help:"Connection string for click house"`
 
+	DbMaxWaitTimeoutSeconds int `help:"max wait timeout for db connection, default 1 hour" default:"3600"`
+
 	OpsLogWithClickhouse   bool `help:"store operation logs with clickhouse" default:"false"`
 	EnableDBChecksumTables bool `help:"Enable DB tables with record checksum for consistency"`
 	DBChecksumSkipInit     bool `help:"Skip DB tables with record checksum calculation when init" default:"false"`
