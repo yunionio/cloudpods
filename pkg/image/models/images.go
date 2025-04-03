@@ -135,7 +135,7 @@ type SImage struct {
 	// 镜像大小, 单位Byte
 	Size int64 `nullable:"true" list:"user" create:"optional"`
 	// 存储地址
-	Location string `nullable:"true" list:"user"`
+	Location string `nullable:"true"`
 
 	// 镜像格式
 	DiskFormat string `width:"20" charset:"ascii" nullable:"true" list:"user" create:"optional" default:"raw"`
