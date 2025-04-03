@@ -49,11 +49,21 @@ func PingProbe(ctx context.Context, userCred mcclient.TokenCredential, isStart b
 		networks := []api.NetworkDetails{}
 		for {
 			params := map[string]interface{}{
-				"offset":     len(networks),
-				"limit":      "10",
-				"cloud_env":  api.CLOUD_ENV_ON_PREMISE,
+				"offset": len(networks),
+				"limit":  "10",
+				"provider": []string{
+					api.CLOUD_PROVIDER_ONECLOUD,
+				},
 				"scope":      rbacscope.ScopeSystem,
 				"is_classic": true,
+				"server_type": []string{
+					string(api.NETWORK_TYPE_GUEST),
+					string(api.NETWORK_TYPE_BAREMETAL),
+					string(api.NETWORK_TYPE_CONTAINER),
+					string(api.NETWORK_TYPE_PXE),
+					string(api.NETWORK_TYPE_IPMI),
+					string(api.NETWORK_TYPE_EIP),
+				},
 			}
 			resp, err := compute.Networks.List(s, jsonutils.Marshal(params))
 			if err != nil {
