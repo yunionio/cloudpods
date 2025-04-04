@@ -85,7 +85,9 @@ func StartServerTrace(w http.ResponseWriter, r *http.Request, localSpanName stri
 	var debug bool
 	var localAddr string
 	var localPort int
+	var isBorder bool
 	if len(traceId) == 0 {
+		isBorder = true
 		traceId = utils.GenRequestId(4)
 		spanId = "0"
 		spanName = localSpanName
@@ -144,12 +146,15 @@ func StartServerTrace(w http.ResponseWriter, r *http.Request, localSpanName stri
 		RemoteEndpoint: remoteEp,
 		Tags:           tags,
 	}
-	w.Header().Set(X_YUNION_SPAN_NAME, spanName)
-	w.Header().Set(X_YUNION_PEER_SERVICE_NAME, localServiceName)
-	w.Header().Set(X_YUNION_REMOTE_ADDR, r.RemoteAddr)
-	if tags != nil {
-		for k, v := range tags {
-			w.Header().Set(X_YUNION_TRACE_TAG+k, v)
+	if !isBorder {
+		// do not distribute trace info across border
+		w.Header().Set(X_YUNION_SPAN_NAME, spanName)
+		w.Header().Set(X_YUNION_PEER_SERVICE_NAME, localServiceName)
+		w.Header().Set(X_YUNION_REMOTE_ADDR, r.RemoteAddr)
+		if tags != nil {
+			for k, v := range tags {
+				w.Header().Set(X_YUNION_TRACE_TAG+k, v)
+			}
 		}
 	}
 	return &trace

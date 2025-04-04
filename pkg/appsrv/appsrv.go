@@ -23,7 +23,6 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
-	"io/ioutil"
 	olog "log"
 	"math/rand"
 	"net"
@@ -415,9 +414,9 @@ func (app *Application) defaultHandle(w http.ResponseWriter, r *http.Request, ri
 			task.appParams.Request = r
 			task.appParams.Response = w
 			if r.Body != nil && r.ContentLength > 0 && getContentType(r) == ContentTypeJson {
-				data, _ := ioutil.ReadAll(r.Body)
+				data, _ := io.ReadAll(r.Body)
 				task.appParams.Body, _ = jsonutils.Parse(data)
-				r.Body = ioutil.NopCloser(bytes.NewBuffer(data))
+				r.Body = io.NopCloser(bytes.NewBuffer(data))
 			}
 			session.Run(
 				task,
