@@ -313,6 +313,8 @@ type HostResourceInfo struct {
 
 	// 宿主机类型
 	HostType string `json:"host_type"`
+
+	HostAccessIp string `json:"host_access_ip"`
 }
 
 type HostFilterListInput struct {
