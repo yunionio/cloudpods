@@ -2462,7 +2462,7 @@ func (s *SKVMGuestInstance) onNicChange(oldNic, newNic *desc.SGuestNetwork) erro
 	if oldNic.Driver == "vfio-pci" {
 		err := s.reconfigureVfioNicsBandwidth(oldNic)
 		if err != nil {
-			return err
+			log.Errorf("failed configure %s:%s vfio nics bandwidth %s", s.GetId(), oldNic.Mac, err)
 		}
 		return nil
 	}
