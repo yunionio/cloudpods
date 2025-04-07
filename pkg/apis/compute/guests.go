@@ -333,6 +333,9 @@ func (self ServerDetails) GetMetricTags() map[string]string {
 		"account_id":          self.AccountId,
 		"external_id":         self.ExternalId,
 	}
+	if len(self.HostAccessIp) > 0 {
+		ret["host_ip"] = self.HostAccessIp
+	}
 
 	return AppendMetricTags(ret, self.MetadataResourceInfo, self.ProjectizedResourceInfo)
 }
