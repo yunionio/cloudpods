@@ -1152,6 +1152,7 @@ func (manager *SIsolatedDeviceManager) totalCountQ(
 	providers []string, brands []string, cloudEnv string,
 	rangeObjs []db.IStandaloneModel,
 	policyResult rbacutils.SPolicyResult,
+	unused *bool,
 ) *sqlchemy.SQuery {
 	hq := HostManager.Query()
 	if scope == rbacscope.ScopeDomain {
@@ -1162,6 +1163,9 @@ func (manager *SIsolatedDeviceManager) totalCountQ(
 	devs := manager.Query().SubQuery()
 	q := devs.Query().Join(hosts, sqlchemy.Equals(devs.Field("host_id"), hosts.Field("id")))
 	q = q.Filter(sqlchemy.IsTrue(hosts.Field("enabled")))
+	if unused != nil && *unused {
+		q = q.Filter(sqlchemy.IsNullOrEmpty(q.Field("guest_id")))
+	}
 	if len(devType) != 0 {
 		q = q.Filter(sqlchemy.In(devs.Field("dev_type"), devType))
 	}
@@ -1169,8 +1173,10 @@ func (manager *SIsolatedDeviceManager) totalCountQ(
 }
 
 type IsolatedDeviceCountStat struct {
-	Devices int
-	Gpus    int
+	Devices       int
+	Gpus          int
+	DevicesUnused int
+	GpusUnused    int
 }
 
 func (manager *SIsolatedDeviceManager) totalCount(
@@ -1185,6 +1191,7 @@ func (manager *SIsolatedDeviceManager) totalCount(
 	cloudEnv string,
 	rangeObjs []db.IStandaloneModel,
 	policyResult rbacutils.SPolicyResult,
+	unused *bool,
 ) (int, error) {
 	return manager.totalCountQ(
 		ctx,
@@ -1198,6 +1205,7 @@ func (manager *SIsolatedDeviceManager) totalCount(
 		cloudEnv,
 		rangeObjs,
 		policyResult,
+		unused,
 	).CountWithError()
 }
 
@@ -1218,7 +1226,16 @@ func (manager *SIsolatedDeviceManager) TotalCount(
 		ctx,
 		scope, ownerId, nil, hostType, resourceTypes,
 		providers, brands, cloudEnv,
-		rangeObjs, policyResult)
+		rangeObjs, policyResult, nil)
+	if err != nil {
+		return stat, err
+	}
+	unused := true
+	devUnusedCnt, err := manager.totalCount(
+		ctx,
+		scope, ownerId, nil, hostType, resourceTypes,
+		providers, brands, cloudEnv,
+		rangeObjs, policyResult, &unused)
 	if err != nil {
 		return stat, err
 	}
@@ -1226,12 +1243,22 @@ func (manager *SIsolatedDeviceManager) TotalCount(
 		ctx,
 		scope, ownerId, VALID_GPU_TYPES, hostType, resourceTypes,
 		providers, brands, cloudEnv,
-		rangeObjs, policyResult)
+		rangeObjs, policyResult, nil)
+	if err != nil {
+		return stat, err
+	}
+	gpuUnusedCnt, err := manager.totalCount(
+		ctx,
+		scope, ownerId, VALID_GPU_TYPES, hostType, resourceTypes,
+		providers, brands, cloudEnv,
+		rangeObjs, policyResult, &unused)
 	if err != nil {
 		return stat, err
 	}
 	stat.Devices = devCnt
 	stat.Gpus = gpuCnt
+	stat.DevicesUnused = devUnusedCnt
+	stat.GpusUnused = gpuUnusedCnt
 	return stat, nil
 }
 
