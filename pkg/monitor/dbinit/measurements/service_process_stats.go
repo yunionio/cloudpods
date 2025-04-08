@@ -20,7 +20,7 @@ var serviceProcessStats = SMeasurement{
 	Context: []SMonitorContext{
 		{
 			"process", "Service process stats",
-			monitor.METRIC_RES_TYPE_PROCESS, monitor.METRIC_DATABASE_SYSTEM,
+			monitor.METRIC_RES_TYPE_SYSTEM, monitor.METRIC_DATABASE_SYSTEM,
 		},
 	},
 	Metrics: []SMetric{
