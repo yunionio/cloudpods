@@ -20,7 +20,7 @@ var worker = SMeasurement{
 	Context: []SMonitorContext{
 		{
 			"worker", "Worker queue",
-			monitor.METRIC_RES_TYPE_WORKER, monitor.METRIC_DATABASE_SYSTEM,
+			monitor.METRIC_RES_TYPE_SYSTEM, monitor.METRIC_DATABASE_SYSTEM,
 		},
 	},
 	Metrics: []SMetric{

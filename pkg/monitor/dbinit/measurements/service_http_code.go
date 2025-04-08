@@ -20,7 +20,7 @@ var serviceHttpCode = SMeasurement{
 	Context: []SMonitorContext{
 		{
 			"http_request", "HTTP Request hit",
-			monitor.METRIC_RES_TYPE_HTTP_REQUEST, monitor.METRIC_DATABASE_SYSTEM,
+			monitor.METRIC_RES_TYPE_SYSTEM, monitor.METRIC_DATABASE_SYSTEM,
 		},
 	},
 	Metrics: []SMetric{

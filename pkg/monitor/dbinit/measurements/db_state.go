@@ -20,7 +20,7 @@ var dbStats = SMeasurement{
 	Context: []SMonitorContext{
 		{
 			"db_stats", "Database Stats",
-			monitor.METRIC_RES_TYPE_DB_STATS, monitor.METRIC_DATABASE_SYSTEM,
+			monitor.METRIC_RES_TYPE_SYSTEM, monitor.METRIC_DATABASE_SYSTEM,
 		},
 	},
 	Metrics: []SMetric{
