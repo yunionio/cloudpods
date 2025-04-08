@@ -71,6 +71,10 @@ func (c BaseDevice) GetNvidiaMpsThreadPercentage() int {
 	return -1
 }
 
+func (c BaseDevice) GetCardPath() string {
+	return ""
+}
+
 func (c BaseDevice) GetNumaNode() (int, error) {
 	if c.SBaseDevice == nil {
 		return -1, nil

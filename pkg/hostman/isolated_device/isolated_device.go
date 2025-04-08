@@ -52,6 +52,7 @@ type CloudDeviceInfo struct {
 	IsInfinibandNic     bool                        `json:"is_infiniband_nic"`
 	NvmeSizeMB          int                         `json:"nvme_size_mb"`
 	DevicePath          string                      `json:"device_path"`
+	CardPath            string                      `json:"card_path"`
 	MpsMemoryLimit      int                         `json:"mps_memory_limit"`
 	MpsMemoryTotal      int                         `json:"mps_memory_total"`
 	MpsThreadPercentage int                         `json:"mps_thread_percentage"`
@@ -136,6 +137,7 @@ type IDevice interface {
 	// Get extra PCIE information
 	GetPCIEInfo() *api.IsolatedDevicePCIEInfo
 	GetDevicePath() string
+	GetCardPath() string
 
 	// mps infos
 	GetNvidiaMpsMemoryLimit() int
@@ -430,9 +432,9 @@ func (man *isolatedDeviceManager) probeNVIDIAVgpus(nvidiaVgpuPFs []string) {
 func (man *isolatedDeviceManager) ProbePCIDevices(skipGPUs, skipUSBs, skipCustomDevs bool, sriovNics, ovsOffloadNics []HostNic, nvmePciDisks, amdVgpuPFs, nvidiaVgpuPFs []string, enableCudaMps, enableContainerNPU, enableWhitelist bool) {
 	man.devices = make([]IDevice, 0)
 	if man.host.IsContainerHost() {
+		man.probeContainerDevices()
 		man.probeContainerNvidiaGPUs(enableCudaMps)
 		man.probeContainerAscendNPUs(enableContainerNPU)
-		man.probeContainerDevices()
 	} else {
 		devModels, err := man.getCustomIsolatedDeviceModels()
 		if err != nil {
@@ -485,6 +487,9 @@ func (man *isolatedDeviceManager) CheckDevIsNeedUpdate(dev IDevice, devInfo *Clo
 		return true
 	}
 	if dev.GetDevicePath() != devInfo.DevicePath {
+		return true
+	}
+	if dev.GetCardPath() != devInfo.CardPath {
 		return true
 	}
 	if dev.GetModelName() != devInfo.Model {
@@ -781,6 +786,10 @@ func (dev *SBaseDevice) GetNvidiaMpsThreadPercentage() int {
 	return -1
 }
 
+func (dev *SBaseDevice) GetCardPath() string {
+	return ""
+}
+
 func GetApiResourceData(dev IDevice) *jsonutils.JSONDict {
 	data := map[string]interface{}{
 		"dev_type":         dev.GetDeviceType(),
@@ -834,6 +843,10 @@ func GetApiResourceData(dev IDevice) *jsonutils.JSONDict {
 	devPath := dev.GetDevicePath()
 	if devPath != "" {
 		data["device_path"] = devPath
+	}
+	cardPath := dev.GetCardPath()
+	if cardPath != "" {
+		data["card_path"] = cardPath
 	}
 
 	if mpsMemTotal := dev.GetNvidiaMpsMemoryTotal(); mpsMemTotal > 0 {

@@ -35,6 +35,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/sets"
+	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/apis"
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
@@ -644,8 +645,7 @@ func (s *sPodGuestInstance) GetPodContainerCriIds() []string {
 
 func (s *sPodGuestInstance) HasContainerNvidiaGpu() bool {
 	for i := range s.Desc.IsolatedDevices {
-		if s.Desc.IsolatedDevices[i].DevType == computeapi.CONTAINER_DEV_NVIDIA_MPS ||
-			s.Desc.IsolatedDevices[i].DevType == computeapi.CONTAINER_DEV_NVIDIA_GPU {
+		if utils.IsInStringArray(s.Desc.IsolatedDevices[i].DevType, computeapi.NVIDIA_GPU_TYPES) {
 			return true
 		}
 	}
@@ -1846,6 +1846,7 @@ func (s *sPodGuestInstance) getIsolatedDeviceExtraConfig(spec *hostapi.Container
 	devTypes := []isolated_device.ContainerDeviceType{
 		isolated_device.ContainerDeviceTypeNvidiaGpu,
 		isolated_device.ContainerDeviceTypeNvidiaMps,
+		isolated_device.ContainerDeviceTypeNvidiaGpuShare,
 		isolated_device.ContainerDeviceTypeAscendNpu,
 	}
 	for _, devType := range devTypes {

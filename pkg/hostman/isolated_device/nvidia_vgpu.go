@@ -113,6 +113,10 @@ func (dev *sNVIDIAVgpuDevice) GetNvidiaMpsThreadPercentage() int {
 	return -1
 }
 
+func (dev *sNVIDIAVgpuDevice) GetCardPath() string {
+	return ""
+}
+
 func (dev *sNVIDIAVgpuDevice) SetDeviceInfo(info CloudDeviceInfo) {
 	if len(info.Id) != 0 {
 		dev.cloudId = info.Id

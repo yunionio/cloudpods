@@ -627,7 +627,7 @@ func NewGuestPodMonitor(
 	hasCphAmdGpu := false
 	hasVastaitechGpu := false
 	for i := range podDesc.IsolatedDevices {
-		if utils.IsInStringArray(podDesc.IsolatedDevices[i].DevType, []string{compute.CONTAINER_DEV_NVIDIA_MPS, compute.CONTAINER_DEV_NVIDIA_GPU}) {
+		if utils.IsInStringArray(podDesc.IsolatedDevices[i].DevType, compute.NVIDIA_GPU_TYPES) {
 			hasNvGpu = true
 		} else if podDesc.IsolatedDevices[i].DevType == compute.CONTAINER_DEV_VASTAITECH_GPU {
 			hasVastaitechGpu = true
