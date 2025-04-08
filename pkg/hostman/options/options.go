@@ -237,7 +237,9 @@ type SHostOptions struct {
 	EnableCudaMPS        bool   `help:"enable cuda mps" default:"false"`
 	CudaMPSPipeDirectory string `help:"cuda mps pipe dir" default:"/tmp/nvidia-mps/pipe"`
 	CudaMPSLogDirectory  string `help:"cuda mps log dir" default:"/tmp/nvidia-mps/log"`
-	CudaMPSReplicas      int    `help:"cuda mps replias" default:"10"`
+	CudaMPSReplicas      int    `help:"cuda mps replicas" default:"10"`
+
+	ContainerNvidiaGPUReplicas int `help:"container nvidia gpu replicas" default:"1"`
 
 	EnableContainerAscendNPU bool `help:"enable container npu" default:"false"`
 
