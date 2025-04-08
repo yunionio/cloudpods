@@ -734,8 +734,16 @@ func (manager *SIsolatedDeviceManager) totalCountQ(
 }
 
 type IsolatedDeviceCountStat struct {
-	Devices int
-	Gpus    int
+	Devices       int
+	Gpus          int
+	DevicesUnused int
+	GpusUnused    int
+}
+
+type IsolatedDeviceStat struct {
+	DevType string
+	GuestId string
+	Count   int
 }
 
 func (manager *SIsolatedDeviceManager) totalCount(
@@ -750,8 +758,8 @@ func (manager *SIsolatedDeviceManager) totalCount(
 	cloudEnv string,
 	rangeObjs []db.IStandaloneModel,
 	policyResult rbacutils.SPolicyResult,
-) (int, error) {
-	return manager.totalCountQ(
+) ([]IsolatedDeviceStat, error) {
+	iq := manager.totalCountQ(
 		ctx,
 		scope,
 		ownerId,
@@ -763,7 +771,20 @@ func (manager *SIsolatedDeviceManager) totalCount(
 		cloudEnv,
 		rangeObjs,
 		policyResult,
-	).CountWithError()
+	)
+	sq := iq.SubQuery()
+	q := sq.Query(
+		sq.Field("dev_type"),
+		sq.Field("guest_id"),
+		sqlchemy.COUNT("count", sq.Field("id")),
+	)
+	q = q.GroupBy(q.Field("dev_type"), q.Field("guest_id"))
+	ret := []IsolatedDeviceStat{}
+	err := q.All(&ret)
+	if err != nil {
+		return nil, err
+	}
+	return ret, nil
 }
 
 func (manager *SIsolatedDeviceManager) TotalCount(
@@ -778,26 +799,28 @@ func (manager *SIsolatedDeviceManager) TotalCount(
 	rangeObjs []db.IStandaloneModel,
 	policyResult rbacutils.SPolicyResult,
 ) (IsolatedDeviceCountStat, error) {
-	stat := IsolatedDeviceCountStat{}
-	devCnt, err := manager.totalCount(
+	ret := IsolatedDeviceCountStat{}
+	stat, err := manager.totalCount(
 		ctx,
 		scope, ownerId, nil, hostType, resourceTypes,
 		providers, brands, cloudEnv,
 		rangeObjs, policyResult)
 	if err != nil {
-		return stat, err
+		return ret, err
 	}
-	gpuCnt, err := manager.totalCount(
-		ctx,
-		scope, ownerId, VALID_GPU_TYPES, hostType, resourceTypes,
-		providers, brands, cloudEnv,
-		rangeObjs, policyResult)
-	if err != nil {
-		return stat, err
+	for _, s := range stat {
+		ret.Devices += s.Count
+		if utils.IsInStringArray(s.DevType, VALID_GPU_TYPES) {
+			ret.Gpus += s.Count
+		}
+		if len(s.GuestId) == 0 {
+			ret.DevicesUnused += s.Count
+			if utils.IsInStringArray(s.DevType, VALID_GPU_TYPES) {
+				ret.GpusUnused += s.Count
+			}
+		}
 	}
-	stat.Devices = devCnt
-	stat.Gpus = gpuCnt
-	return stat, nil
+	return ret, nil
 }
 
 func (self *SIsolatedDevice) getDesc() *api.IsolatedDeviceJsonDesc {
