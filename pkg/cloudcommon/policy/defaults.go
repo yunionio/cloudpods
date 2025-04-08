@@ -15,6 +15,8 @@
 package policy
 
 import (
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/rbacscope"
 
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
@@ -72,5 +74,6 @@ var (
 )
 
 func AppendDefaultPolicies(policies []rbacutils.SRbacPolicy) {
+	log.Infof("Appending default policies: %s", jsonutils.Marshal(policies))
 	predefinedDefaultPolicies = append(predefinedDefaultPolicies, policies...)
 }
