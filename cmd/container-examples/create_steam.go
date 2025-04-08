@@ -10,6 +10,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/rand"
 
 	api "yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/apis/compute"
@@ -58,6 +59,7 @@ var (
 	enableLxcfs bool
 
 	gpu                  string
+	gpuEnvId             string
 	renderNode           string
 	overlay              string
 	alwaysMountDriverVol bool
@@ -66,7 +68,12 @@ var (
 
 	devsList []string
 
-	wolfAllGpu bool
+	wolfAllGpu       bool
+	mounts           string
+	mountList        []string
+	appMounts        string
+	appMountList     []string
+	steamNoBigScreen bool
 )
 
 func init() {
@@ -74,23 +81,27 @@ func init() {
 	flag.StringVar(&user, "user", "", "user")
 	flag.StringVar(&password, "password", "", "password")
 	flag.StringVar(&region, "region", "", "region")
-	flag.StringVar(&podNet, "net", "cgame", "pod net")
-	flag.StringVar(&podIP, "ip", "192.168.6.70", "pod ip")
+	flag.StringVar(&podNet, "net", "", "pod net")
+	flag.StringVar(&podIP, "ip", "", "pod ip")
 	flag.StringVar(&podName, "name", "steam", "pod name")
 	flag.IntVar(&ncpu, "ncpu", 8, "cpu count")
 	flag.IntVar(&mem, "mem", 16, "memory in GB")
 	flag.IntVar(&diskSizeGB, "disk-size", 10, "disk size in GB")
 	flag.IntVar(&accessPort, "port", 20105, "moonlight access http port")
-	flag.StringVar(&wolfImage, "wolf-image", "registry.cn-beijing.aliyuncs.com/zexi/wolf:ps5-hook-0401.0", "wolf image")
-	flag.StringVar(&steamImage, "steam-image", "registry.cn-beijing.aliyuncs.com/zexi/steam:custom.2", "steam image")
+	flag.StringVar(&wolfImage, "wolf-image", "registry.cn-beijing.aliyuncs.com/zexi/wolf:hook-0408.0", "wolf image")
+	flag.StringVar(&steamImage, "steam-image", "registry.cn-beijing.aliyuncs.com/zexi/steam:custom.3", "steam image")
 	flag.StringVar(&externalIP, "eip", "", "external ip")
 	flag.BoolVar(&enableLxcfs, "lxcfs", false, "enable lxcfs")
 	flag.BoolVar(&alwaysMountDriverVol, "mount-driver-vol", false, "always mount driver volume")
 	flag.StringVar(&gpu, "gpu", "", "gpu")
+	flag.StringVar(&gpuEnvId, "gpu-env-id", "", "gpu env id")
 	flag.StringVar(&renderNode, "render-node", "/dev/dri/renderD128", "render node")
 	flag.StringVar(&overlay, "overlay", "", "overlay")
 	flag.StringVar(&devs, "devs", "", "devs")
+	flag.StringVar(&mounts, "mounts", "", "mounts")
+	flag.StringVar(&appMounts, "app-mounts", "", "app mounts")
 	flag.BoolVar(&wolfAllGpu, "wolf-all-gpu", false, "wolf all gpu")
+	flag.BoolVar(&steamNoBigScreen, "steam-no-big-screen", false, "steam no big screen")
 	flag.Parse()
 
 	wolfBasePort = accessPort - 5
@@ -98,6 +109,8 @@ func init() {
 	log.Infof("Connecting to %s as %s", authUrl, user)
 
 	devsList = strings.Split(devs, ",")
+	mountList = strings.Split(mounts, ",")
+	appMountList = strings.Split(appMounts, ",")
 }
 
 func initAuthInfo() {
@@ -131,6 +144,27 @@ func NewEnv(key, val string) *api.ContainerKeyValue {
 		Key:   key,
 		Value: val,
 	}
+}
+
+func getMounts(mountList []string) []*api.ContainerVolumeMount {
+	ret := make([]*api.ContainerVolumeMount, len(mountList))
+	for i, m := range mountList {
+		parts := strings.Split(m, ":")
+		if len(parts) != 2 {
+			log.Fatalf("Invalid mount spec: %s", m)
+		}
+		uniqName := fmt.Sprintf("%s_%s", m, rand.String(2))
+		ret[i] = &api.ContainerVolumeMount{
+			UniqueName: uniqName,
+			Type:       api.CONTAINER_VOLUME_MOUNT_TYPE_HOST_PATH,
+			MountPath:  parts[1],
+			HostPath: &api.ContainerVolumeMountHostPath{
+				Type: api.CONTAINER_VOLUME_MOUNT_HOST_PATH_TYPE_FILE,
+				Path: parts[0],
+			},
+		}
+	}
+	return ret
 }
 
 func getTmpSocketsHostPath(name string) string {
@@ -203,7 +237,7 @@ func NewWolfContainer(gpu string) *compute.PodContainerCreateInput {
 		eip = externalIP
 	}
 	envs := []*api.ContainerKeyValue{
-		NewEnv("WOLF_LOG_LEVEL", "DEBUG"),
+		// NewEnv("WOLF_LOG_LEVEL", "DEBUG"),
 		NewEnv("WOLF_BASE_PORT", fmt.Sprintf("%d", wolfBasePort)),
 		NewEnv("WOLF_EXTERNAL_IP", eip),
 		NewEnv("HOST_APPS_STATE_FOLDER", "/etc/wolf"),
@@ -223,17 +257,21 @@ func NewWolfContainer(gpu string) *compute.PodContainerCreateInput {
 		NewHostDev(DEV_UINPUT),
 		NewHostDev(DEV_UHID),
 	}
-	if gpu == "" || wolfAllGpu {
-		devs = append(devs, NewHostDev(DEV_DRI))
-		devs = append(devs, getNvidiaNvDevs(0)...)
+	if gpu == "" {
+		if !wolfAllGpu {
+			devs = append(devs, NewHostDev(DEV_DRI))
+			devs = append(devs, getNvidiaNvDevs(0)...)
+		}
 	} else {
-		id0 := 0
-		devs = append(devs, &compute.ContainerDevice{
-			Type: api.CONTAINER_DEVICE_TYPE_ISOLATED_DEVICE,
-			IsolatedDevice: &compute.ContainerIsolatedDevice{
-				Index: &id0,
-			},
-		})
+		if !wolfAllGpu {
+			id0 := 0
+			devs = append(devs, &compute.ContainerDevice{
+				Type: api.CONTAINER_DEVICE_TYPE_ISOLATED_DEVICE,
+				IsolatedDevice: &compute.ContainerIsolatedDevice{
+					Index: &id0,
+				},
+			})
+		}
 	}
 	vms := []*api.ContainerVolumeMount{
 		/*{
@@ -263,7 +301,7 @@ func NewWolfContainer(gpu string) *compute.PodContainerCreateInput {
 				Type: api.CONTAINER_VOLUME_MOUNT_HOST_PATH_TYPE_DIRECTORY,
 				Path: VOL_RUN_UDEV,
 			},
-			Propagation: api.MOUNTPROPAGATION_PROPAGATION_BIDIRECTIONAL,
+			//Propagation: api.MOUNTPROPAGATION_PROPAGATION_BIDIRECTIONAL,
 		},
 		{
 			UniqueName: "dev",
@@ -273,7 +311,8 @@ func NewWolfContainer(gpu string) *compute.PodContainerCreateInput {
 				Type: api.CONTAINER_VOLUME_MOUNT_HOST_PATH_TYPE_DIRECTORY,
 				Path: VOL_DEV,
 			},
-			Propagation: api.MOUNTPROPAGATION_PROPAGATION_BIDIRECTIONAL,
+			// WARN: 这里不能用 bidirectional mount
+			// Propagation: api.MOUNTPROPAGATION_PROPAGATION_BIDIRECTIONAL,
 		},
 		{
 			UniqueName: "tmp-sockets",
@@ -306,6 +345,7 @@ func NewWolfContainer(gpu string) *compute.PodContainerCreateInput {
 			},
 		},
 	}
+	vms = append(vms, getMounts(mountList)...)
 	if gpu == "" {
 		vms = append(vms,
 			&api.ContainerVolumeMount{
@@ -336,7 +376,7 @@ func NewWolfContainer(gpu string) *compute.PodContainerCreateInput {
 	}
 }
 
-func NewAppSteamContainer(gpu string) *compute.PodContainerCreateInput {
+func NewAppSteamContainer(gpu, gpuEnvId string) *compute.PodContainerCreateInput {
 	// TODO: 设置 ulimit 和 ipc host
 	// --ipc host --ulimit nofile=10240:10240
 	zero := 0
@@ -345,8 +385,30 @@ func NewAppSteamContainer(gpu string) *compute.PodContainerCreateInput {
 		NewHostDev(DEV_UINPUT),
 		NewHostDev(DEV_UHID),
 	}
-	if gpu == "" {
+
+	envs := []*api.ContainerKeyValue{
+		NewEnv("PATH", "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"),
+		NewEnv("UNAME", "retro"),
+		NewEnv("UMASK", "000"),
+		NewEnv("HOME", "/home/retro"),
+		NewEnv("TZ", "Europe/London"),
+		NewEnv("NEEDRESTART_SUSPEND", "1"),
+		NewEnv("GAMESCOPE_VERSION", "3.15.14"),
+		NewEnv("BUILD_ARCHITECTURE", "amd64"),
+		NewEnv("DEBIAN_FRONTEND", "noninteractive"),
+		NewEnv("DEB_BUILD_OPTIONS", "noddeb"),
+		NewEnv("XDG_RUNTIME_DIR", "/tmp/sockets"),
+	}
+	if steamNoBigScreen {
+		envs = append(envs, NewEnv("STEAM_STARTUP_FLAGS", "-fullscreen"))
+	}
+
+	if gpu == "" && gpuEnvId == "" {
 		devs = append(devs, getNvidiaAppDevs(0)...)
+	} else if gpuEnvId != "" {
+		envs = append(envs,
+			NewEnv("NVIDIA_VISIBLE_DEVICES", gpuEnvId),
+			NewEnv("NVIDIA_DRIVER_CAPABILITIES", "all"))
 	} else {
 		devs = append(devs, &compute.ContainerDevice{
 			Type: api.CONTAINER_DEVICE_TYPE_ISOLATED_DEVICE,
@@ -366,10 +428,9 @@ func NewAppSteamContainer(gpu string) *compute.PodContainerCreateInput {
 		},
 	}
 	if overlay != "" {
+		overlayParts := strings.Split(overlay, ":")
 		dataVol.Disk.Overlay = &api.ContainerVolumeMountDiskOverlay{
-			LowerDir: []string{
-				overlay,
-			},
+			LowerDir: overlayParts,
 		}
 	}
 
@@ -423,6 +484,8 @@ func NewAppSteamContainer(gpu string) *compute.PodContainerCreateInput {
 			},
 		},
 	}
+	vols = append(vols, getMounts(mountList)...)
+	vols = append(vols, getMounts(appMountList)...)
 	if gpu == "" || alwaysMountDriverVol {
 		vols = append(vols,
 			&api.ContainerVolumeMount{
@@ -452,20 +515,7 @@ func NewAppSteamContainer(gpu string) *compute.PodContainerCreateInput {
 					CGROUP_RULE_13,
 					CGROUP_RULE_244,
 				},
-				Envs: []*api.ContainerKeyValue{
-					NewEnv("PATH", "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"),
-					NewEnv("UNAME", "retro"),
-					NewEnv("UMASK", "000"),
-					NewEnv("HOME", "/home/retro"),
-					NewEnv("TZ", "Europe/London"),
-					NewEnv("NEEDRESTART_SUSPEND", "1"),
-					NewEnv("GAMESCOPE_VERSION", "3.15.14"),
-					NewEnv("BUILD_ARCHITECTURE", "amd64"),
-					NewEnv("DEBIAN_FRONTEND", "noninteractive"),
-					NewEnv("DEB_BUILD_OPTIONS", "noddeb"),
-					NewEnv("XDG_RUNTIME_DIR", "/tmp/sockets"),
-					// NewEnv("STEAM_STARTUP_FLAGS", "-fullscreen"),
-				},
+				Envs: envs,
 				Capabilities: &api.ContainerCapability{
 					Add: []string{"SYS_ADMIN", "SYS_NICE", "SYS_PTRACE", "NET_RAW", "MKNOD", "NET_ADMIN"},
 				},
@@ -553,7 +603,7 @@ func GetCreateParams(name string) *compute.ServerCreateInput {
 		Containers: []*compute.PodContainerCreateInput{
 			NewPulseAudioContainer(),
 			NewWolfContainer(gpu),
-			NewAppSteamContainer(gpu),
+			NewAppSteamContainer(gpu, gpuEnvId),
 		},
 	}
 	if gpu != "" {

@@ -220,7 +220,8 @@ type sPodGuestInstance struct {
 	startStat      *startStatHelper
 	expectedStatus *PodExpectedStatus
 
-	startPodLock sync.Mutex
+	startPodLock      sync.Mutex
+	saveContainerLock sync.Mutex
 }
 
 func newPodGuestInstance(id string, man *SGuestManager) PodInstance {
@@ -228,6 +229,7 @@ func newPodGuestInstance(id string, man *SGuestManager) PodInstance {
 		sBaseGuestInstance: newBaseGuestInstance(id, man, computeapi.HYPERVISOR_POD),
 		containers:         make(map[string]*sContainer),
 		startPodLock:       sync.Mutex{},
+		saveContainerLock:  sync.Mutex{},
 	}
 	es, err := NewPodExpectedStatus(p.HomeDir(), computeapi.VM_UNKNOWN)
 	if err != nil {
@@ -1392,6 +1394,9 @@ func (s *sPodGuestInstance) GetPortMappings() (computeapi.GuestPortMappings, err
 }
 
 func (s *sPodGuestInstance) saveContainer(id string, criId string) error {
+	s.saveContainerLock.Lock()
+	defer s.saveContainerLock.Unlock()
+
 	_, ok := s.containers[id]
 	if ok {
 		return errors.Errorf("container %s already exists", criId)
