@@ -247,7 +247,7 @@ func (meta *SMetadataResourceBaseModelManager) FetchCustomizeColumns(
 		resIds[i] = GetModelIdstr(objs[i].(IModel))
 	}
 
-	if fields == nil || fields.Contains("__meta__") {
+	if fields == nil || fields.Contains("__meta__") || fields.Contains("metadata") {
 		q := Metadata.Query("id", "key", "value")
 		metaKeyValues := make(map[string][]SMetadata)
 		err := FetchQueryObjectsByIds(q, "id", resIds, &metaKeyValues)
