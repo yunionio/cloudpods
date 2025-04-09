@@ -1,8 +1,8 @@
-FROM registry.cn-beijing.aliyuncs.com/yunionio/file-repo:v0.4.0 as file-repo
+FROM registry.cn-beijing.aliyuncs.com/yunionio/file-repo:v0.5.0 AS file-repo
 
 FROM registry.cn-beijing.aliyuncs.com/yunionio/onecloud-base:v0.2
 
-MAINTAINER "Rain Zheng <zhengyu@yunion.com>"
+LABEL maintainer="Rain Zheng <zhengyu@yunion.com>"
 
 # openssh-client, for ansible ssh connection
 # git, ca-certificates, for fetching ansible roles
@@ -12,15 +12,12 @@ RUN set -x \
 	&& rm -rf /var/cache/apk/*
 
 # install default playbook and install pkg
-Run mkdir -p /opt/yunion/ansible-install-pkg
+RUN mkdir -p /opt/yunion/ansible-install-pkg
 
-COPY --from=file-repo /opt/yunion/ansible-install-pkg/telegraf-1.19.2-yn~be742cbf-0.x86_64.rpm /opt/yunion/ansible-install-pkg
-COPY --from=file-repo /opt/yunion/ansible-install-pkg/telegraf-1.19.2-yn~be742cbf-0.aarch64.rpm /opt/yunion/ansible-install-pkg
-COPY --from=file-repo /opt/yunion/ansible-install-pkg/telegraf_1.19.2-yn~be742cbf-0_arm64.deb /opt/yunion/ansible-install-pkg
-COPY --from=file-repo /opt/yunion/ansible-install-pkg/telegraf_1.19.2-yn~be742cbf-0_amd64.deb /opt/yunion/ansible-install-pkg
-COPY --from=file-repo /opt/yunion/ansible-install-pkg/telegraf-1.19.2-yn~be742cbf_windows_amd64.zip /opt/yunion/ansible-install-pkg
-COPY --from=file-repo /opt/yunion/ansible-install-pkg/telegraf-1.19.2-yn~be742cbf_windows_i386.zip /opt/yunion/ansible-install-pkg
+COPY --from=file-repo /opt/yunion/ansible-install-pkg/telegraf*.rpm /opt/yunion/ansible-install-pkg
+COPY --from=file-repo /opt/yunion/ansible-install-pkg/telegraf*.deb /opt/yunion/ansible-install-pkg
+COPY --from=file-repo /opt/yunion/ansible-install-pkg/telegraf*.zip /opt/yunion/ansible-install-pkg
 
-Run mkdir -p /opt/yunion/playbook
-Run mkdir /opt/yunion/playbook/monitor-agent
-Run git clone https://github.com/yunionio/monitor-agent.git /opt/yunion/playbook/monitor-agent --recurse-submodules
+RUN mkdir -p /opt/yunion/playbook
+RUN mkdir /opt/yunion/playbook/monitor-agent
+RUN git clone https://github.com/yunionio/monitor-agent.git /opt/yunion/playbook/monitor-agent --recurse-submodules
