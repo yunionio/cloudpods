@@ -1169,10 +1169,10 @@ func (manager *SIsolatedDeviceManager) totalCountQ(
 }
 
 type IsolatedDeviceCountStat struct {
-	Devices       int
-	Gpus          int
-	DevicesUnused int
-	GpusUnused    int
+	Devices     int
+	Gpus        int
+	DevicesUsed int
+	GpusUsed    int
 }
 
 type IsolatedDeviceStat struct {
@@ -1248,10 +1248,10 @@ func (manager *SIsolatedDeviceManager) TotalCount(
 		if utils.IsInStringArray(s.DevType, VALID_GPU_TYPES) {
 			ret.Gpus += s.Count
 		}
-		if len(s.GuestId) == 0 {
-			ret.DevicesUnused += s.Count
+		if len(s.GuestId) > 0 {
+			ret.DevicesUsed += s.Count
 			if utils.IsInStringArray(s.DevType, VALID_GPU_TYPES) {
-				ret.GpusUnused += s.Count
+				ret.GpusUsed += s.Count
 			}
 		}
 	}
