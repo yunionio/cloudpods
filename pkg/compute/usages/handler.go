@@ -1044,9 +1044,9 @@ func IsolatedDeviceUsage(ctx context.Context, userToken mcclient.TokenCredential
 	}
 	ret, _ := models.IsolatedDeviceManager.TotalCount(ctx, scope, userCred, hostType, resourceTypes, providers, brands, cloudEnv, rangeObjs, results)
 	count[prefix] = ret.Devices
-	count[prefix+".unused"] = ret.DevicesUnused
+	count[prefix+".used"] = ret.DevicesUsed
 	count[prefix+".gpu"] = ret.Gpus
-	count[prefix+".gpu.unused"] = ret.GpusUnused
+	count[prefix+".gpu.used"] = ret.GpusUsed
 	return count
 }
 
