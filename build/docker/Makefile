@@ -15,7 +15,7 @@ onecloud-base:
 onecloud-base-3-15-4:
 	$(DOCKER_BUILDX)/onecloud-base:$(ONECLOUD_BASE_VERSION_3-15-4) -f ./Dockerfile.onecloud-base-3-15-4 .
 
-ANSIBLESERVER_BASE = v1.1.2
+ANSIBLESERVER_BASE = v1.1.3
 
 ansibleserver-base:
 	$(DOCKER_BUILDX)/ansibleserver-base:$(ANSIBLESERVER_BASE) -f ./Dockerfile.ansibleserver-base .
@@ -49,7 +49,7 @@ GLANCE_BASE_VERSION = v0.0.1
 glance-base:
 	$(DOCKER_BUILDX)/glance-base:$(GLANCE_BASE_VERSION) -f ./Dockerfile.glance-base .
 
-FILE_REPO_VERSION = v0.5.2
+FILE_REPO_VERSION = v0.5.4
 
 file-repo:
 	$(DOCKER_BUILDX)/file-repo:$(FILE_REPO_VERSION) -f ./Dockerfile.file-repo .
