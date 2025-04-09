@@ -52,7 +52,7 @@ glance-base:
 FILE_REPO_VERSION = v0.5.4
 
 file-repo:
-	$(DOCKER_BUILDX)/file-repo:$(FILE_REPO_VERSION) -f ./Dockerfile.file-repo .
+	$(DOCKER_BUILDX)/file-repo:$(FILE_REPO_VERSION) -f ./Dockerfile.file-repo . --no-cache
 
 HOST_IMAGE_VERSION ?= v1.0.2
 HOST_IMAGE_NAME = $(REGISTRY)/host-image:$(HOST_IMAGE_VERSION)

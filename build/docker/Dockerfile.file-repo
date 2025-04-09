@@ -13,7 +13,7 @@ RUN set -x \
 
 # install default playbook and install pkg
 RUN mkdir -p /opt/yunion/ansible-install-pkg
-
+# file repo base image from https://github.com/yunionio/telegraf/blob/612b918a28a93cf8e354b8d59544753b021b824a/Makefile.yn#L24
 COPY --from=file-repo /opt/yunion/ansible-install-pkg/telegraf*.rpm /opt/yunion/ansible-install-pkg
 COPY --from=file-repo /opt/yunion/ansible-install-pkg/telegraf*.deb /opt/yunion/ansible-install-pkg
 COPY --from=file-repo /opt/yunion/ansible-install-pkg/telegraf*.zip /opt/yunion/ansible-install-pkg
