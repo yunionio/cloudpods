@@ -108,7 +108,9 @@ func (o *DiskResetTemplateOptions) Params() (jsonutils.JSONObject, error) {
 
 type DiskRebuildOptions struct {
 	options.ResourceIdOptions
-	BackupId string `help:"disk backup id" json:"backup_id"`
+	BackupId   string `help:"disk backup id" json:"backup_id"`
+	TemplateId string `help:"disk template id" json:"template_id"`
+	Size       string `help:"disk size in MB" json:"size"`
 }
 
 func (o *DiskRebuildOptions) Params() (jsonutils.JSONObject, error) {

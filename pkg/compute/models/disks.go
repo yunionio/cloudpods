@@ -30,6 +30,7 @@ import (
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/billing"
 	"yunion.io/x/pkg/util/compare"
+	"yunion.io/x/pkg/util/fileutils"
 	"yunion.io/x/pkg/util/pinyinutils"
 	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/utils"
@@ -3310,12 +3311,23 @@ func (disk *SDisk) resetDiskinfo(
 			input.BackupId = &backup.Id
 		}
 	}
+	diskSize := 0
+	if input.Size != nil {
+		size, err := fileutils.GetSizeMb(*input.Size, 'M', 1024)
+		if err != nil {
+			return errors.Wrapf(err, "GetSizeMb %s", *input.Size)
+		}
+		diskSize = size
+	}
 	notes, err := db.Update(disk, func() error {
 		if input.TemplateId != nil {
 			disk.TemplateId = *input.TemplateId
 		}
 		if input.BackupId != nil {
 			disk.BackupId = *input.BackupId
+		}
+		if diskSize > 0 {
+			disk.DiskSize = diskSize
 		}
 		return nil
 	})
