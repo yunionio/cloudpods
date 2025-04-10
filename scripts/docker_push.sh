@@ -261,6 +261,9 @@ show_update_cmd() {
     'host-deployer')
         spec='hostdeployer'
         ;;
+    'host-health')
+        spec='hostagent/HostHealth'
+        ;;
     'region')
         spec='regionServer'
         ;;
