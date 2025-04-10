@@ -345,7 +345,7 @@ func handleServerRemoteRDPConsole(ctx context.Context, w http.ResponseWriter, r 
 		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
-	handleDataSession(ctx, info, w, "rdp", url.Values{"password": {info.GetPassword()}}, true)
+	handleDataSession(ctx, info, w, "rdp", url.Values{"password": {info.GetPassword()}}, false)
 }
 
 func responsePublicCloudConsole(ctx context.Context, info *session.RemoteConsoleInfo, w http.ResponseWriter) {
