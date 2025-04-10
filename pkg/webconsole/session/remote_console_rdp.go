@@ -69,9 +69,6 @@ func NewRemoteRDPConsoleInfoByCloud(ctx context.Context, s *mcclient.ClientSessi
 		if err != nil {
 			return nil, err
 		}
-		if !ret.Contains("username") || !ret.Contains("password") {
-			return nil, httperrors.NewMissingParameterError("username")
-		}
 		info.Password, _ = ret.GetString("password")
 		info.Username, _ = ret.GetString("username")
 	}
@@ -99,6 +96,9 @@ func (info *RemoteRDPConsoleInfo) Scan(byte, func(string)) {
 }
 
 func (info *RemoteRDPConsoleInfo) IsNeedLogin() (bool, error) {
+	if len(info.Username) == 0 || len(info.Password) == 0 {
+		return true, nil
+	}
 	return false, nil
 }
 
