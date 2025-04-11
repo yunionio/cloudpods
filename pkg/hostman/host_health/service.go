@@ -22,6 +22,7 @@ import (
 	execlient "yunion.io/x/executor/client"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/signalutils"
 
 	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
 	"yunion.io/x/onecloud/pkg/cloudcommon/service"
@@ -77,6 +78,8 @@ func (host *SHostHealthService) RunService() {
 			}
 		}
 	})
+	signalutils.SetDumpStackSignal()
+	signalutils.StartTrap()
 	select {}
 }
 
