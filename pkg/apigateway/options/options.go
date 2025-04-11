@@ -44,7 +44,9 @@ type GatewayOptions struct {
 	DisableReporting bool `default:"false" help:"Reporting data every 24 hours, report data incloud version, os, platform and usages"`
 
 	// 启用后端服务反向代理网关
-	EnableBackendServiceProxy bool `default:"false" help:"Proxy API request to backend services"`
+	EnableBackendServiceProxy    bool `default:"true" help:"Proxy API request to backend services"`
+	BackendProxyReadWorkerCount  int  `default:"8" help:"Request worker thread count, default is 8"`
+	BackendProxyWriteWorkerCount int  `default:"4" help:"Request worker thread count, default is 4"`
 
 	common_options.CommonOptions `"request_worker_count->default":"32"`
 
