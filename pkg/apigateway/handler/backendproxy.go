@@ -33,11 +33,18 @@ import (
 
 type SBackendServiceProxyHandler struct {
 	prefix string
+
+	readWorker  *appsrv.SWorkerManager
+	writeWorker *appsrv.SWorkerManager
 }
 
-func NewBackendServiceProxyHandler(prefix string) *SBackendServiceProxyHandler {
+func NewBackendServiceProxyHandler(prefix string, readWorkerCount, writeWorkerCount int) *SBackendServiceProxyHandler {
+	log.Infof("NewBackendServiceProxyHandler: %s, readWorkerCount: %d, writeWorkerCount: %d", prefix, readWorkerCount, writeWorkerCount)
 	return &SBackendServiceProxyHandler{
 		prefix: prefix,
+
+		readWorker:  appsrv.NewWorkerManager("apigateway-backend-api-read", readWorkerCount, appsrv.DEFAULT_BACKLOG, false),
+		writeWorker: appsrv.NewWorkerManager("apigateway-backend-api-write", writeWorkerCount, appsrv.DEFAULT_BACKLOG, false),
 	}
 }
 
@@ -96,9 +103,9 @@ func (h *SBackendServiceProxyHandler) Bind(app *appsrv.Application) {
 			}
 			var worker *appsrv.SWorkerManager
 			if method == "GET" || method == "HEAD" {
-				worker = appsrv.NewWorkerManager("apigateway-backend-api-read", 8, appsrv.DEFAULT_BACKLOG, false)
+				worker = h.readWorker
 			} else {
-				worker = appsrv.NewWorkerManager("apigateway-backend-api-write", 4, appsrv.DEFAULT_BACKLOG, false)
+				worker = h.writeWorker
 			}
 			hi.SetWorkerManager(worker)
 			return hi

@@ -74,7 +74,7 @@ func (app *Application) InitHandlers() *Application {
 	if options.Options.EnableBackendServiceProxy {
 		// bind backend service API proxy
 		log.Infof("enable backend service proxy")
-		app.BackendServiceProxyHandler = handler.NewBackendServiceProxyHandler("/api/s/<service>")
+		app.BackendServiceProxyHandler = handler.NewBackendServiceProxyHandler("/api/s/<service>", options.Options.BackendProxyReadWorkerCount, options.Options.BackendProxyWriteWorkerCount)
 	}
 
 	app.CloudIdSAMLHandler = handler.NewProxyHandlerWithService(cloudid.SAML_IDP_PREFIX, cloudid.SERVICE_TYPE)
