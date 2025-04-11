@@ -15,6 +15,7 @@
 package container_device
 
 import (
+	"fmt"
 	"strings"
 
 	runtimeapi "k8s.io/cri-api/pkg/apis/runtime/v1"
@@ -24,6 +25,7 @@ import (
 
 	hostapi "yunion.io/x/onecloud/pkg/apis/host"
 	"yunion.io/x/onecloud/pkg/hostman/isolated_device"
+	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 )
 
@@ -137,8 +139,22 @@ func getNvidiaGPUs() ([]isolated_device.IDevice, error) {
 			gpuIndex:   index,
 		}
 		gpuDev.SetModelName(gpuName)
-
 		devs = append(devs, gpuDev)
+
+		if options.HostOptions.ContainerNvidiaGPUReplicas > 1 {
+			for i := 1; i < options.HostOptions.ContainerNvidiaGPUReplicas; i++ {
+				dev := isolated_device.NewPCIDevice2(pciOutput[0])
+				gpuDev := &nvidiaGPU{
+					BaseDevice: NewBaseDevice(dev, isolated_device.ContainerDeviceTypeNvidiaGpu, gpuId),
+					memSize:    memSize,
+					gpuIndex:   index,
+				}
+				gpuDev.SetModelName(gpuName)
+				devAddr := gpuDev.GetAddr()
+				gpuDev.SetAddr(fmt.Sprintf("%s-%d", devAddr, i), devAddr)
+				devs = append(devs, gpuDev)
+			}
+		}
 	}
 	if len(devs) == 0 {
 		return nil, nil
