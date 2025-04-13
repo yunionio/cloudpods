@@ -393,7 +393,7 @@ func (app *Application) defaultHandle(w http.ResponseWriter, r *http.Request, ri
 				fw:     newResponseWriterChannel(w),
 				r:      r,
 				segs:   segs,
-				to:     hand.FetchProcessTimeout(r),
+				to:     hand.fetchProcessTimeout(r),
 				cancel: nil,
 			}
 
@@ -408,7 +408,7 @@ func (app *Application) defaultHandle(w http.ResponseWriter, r *http.Request, ri
 				defer task.cancel()
 			}
 			task.ctx = appctx.WithRequestLang(task.ctx, r)
-			session := hand.workerMan
+			session := hand.fetchWorkerManager(r)
 			if session == nil {
 				if r.Method == "GET" || r.Method == "HEAD" {
 					session = app.readSession

@@ -28,6 +28,8 @@ type handlerRequestCounter struct {
 
 type TProcessTimeoutCallback func(*SHandlerInfo, *http.Request) time.Duration
 
+type TWorkerManagerCallback func(*SHandlerInfo, *http.Request) *SWorkerManager
+
 type SHandlerInfo struct {
 	method     string
 	path       []string
@@ -38,27 +40,66 @@ type SHandlerInfo struct {
 	counter2XX handlerRequestCounter
 	counter4XX handlerRequestCounter
 	counter5XX handlerRequestCounter
-	workerMan  *SWorkerManager
-	skipLog    bool
+
+	skipLog bool
 
 	processTimeout         time.Duration
 	processTimeoutCallback TProcessTimeoutCallback
+
+	workerManager         *SWorkerManager
+	workerManagerCallback TWorkerManagerCallback
 }
 
-func (this *SHandlerInfo) FetchProcessTimeout(r *http.Request) time.Duration {
-	if this.processTimeoutCallback != nil {
-		tm := this.processTimeoutCallback(this, r)
-		if tm < this.processTimeout {
-			tm = this.processTimeout
+func (hi *SHandlerInfo) fetchProcessTimeout(r *http.Request) time.Duration {
+	if hi.processTimeoutCallback != nil {
+		tm := hi.processTimeoutCallback(hi, r)
+		if tm < hi.processTimeout {
+			tm = hi.processTimeout
 		}
 		return tm
 	} else {
-		return this.processTimeout
+		return hi.processTimeout
 	}
 }
 
-func (this *SHandlerInfo) SetProcessTimeoutCallback(callback TProcessTimeoutCallback) {
-	this.processTimeoutCallback = callback
+func (hi *SHandlerInfo) SetProcessTimeoutCallback(callback TProcessTimeoutCallback) *SHandlerInfo {
+	hi.processTimeoutCallback = callback
+	return hi
+}
+
+func (hi *SHandlerInfo) SetProcessTimeout(to time.Duration) *SHandlerInfo {
+	hi.processTimeout = to
+	return hi
+}
+
+func (hi *SHandlerInfo) SetProcessNoTimeout() *SHandlerInfo {
+	hi.processTimeout = -1
+	return hi
+}
+
+func (hi *SHandlerInfo) fetchWorkerManager(r *http.Request) *SWorkerManager {
+	if hi.workerManagerCallback != nil {
+		wm := hi.workerManagerCallback(hi, r)
+		if wm != nil {
+			return wm
+		}
+	}
+	return hi.workerManager
+}
+
+func (hi *SHandlerInfo) SetWorkerManagerCallback(callback TWorkerManagerCallback) *SHandlerInfo {
+	hi.workerManagerCallback = callback
+	return hi
+}
+
+func (hi *SHandlerInfo) SetWorkerManager(workerMan *SWorkerManager) *SHandlerInfo {
+	hi.workerManager = workerMan
+	return hi
+}
+
+func (hi *SHandlerInfo) ClearWorkerManager() *SHandlerInfo {
+	hi.workerManager = nil
+	return hi
 }
 
 func (this *SHandlerInfo) GetName(params map[string]string) string {
@@ -123,21 +164,6 @@ func (hi *SHandlerInfo) SetName(name string) *SHandlerInfo {
 
 func (hi *SHandlerInfo) SetTags(tags map[string]string) *SHandlerInfo {
 	hi.tags = tags
-	return hi
-}
-
-func (hi *SHandlerInfo) SetProcessTimeout(to time.Duration) *SHandlerInfo {
-	hi.processTimeout = to
-	return hi
-}
-
-func (hi *SHandlerInfo) SetProcessNoTimeout() *SHandlerInfo {
-	hi.processTimeout = -1
-	return hi
-}
-
-func (hi *SHandlerInfo) SetWorkerManager(workerMan *SWorkerManager) *SHandlerInfo {
-	hi.workerMan = workerMan
 	return hi
 }
 
