@@ -118,6 +118,7 @@ type ContainerSpec struct {
 	// If specified, no other probes are executed until this completes successfully.
 	StartupProbe  *ContainerProbe `json:"startup_probe,omitempty"`
 	AlwaysRestart bool            `json:"always_restart"`
+	Primary       bool            `json:"primary"`
 }
 
 func (c *ContainerSpec) NeedProbe() bool {

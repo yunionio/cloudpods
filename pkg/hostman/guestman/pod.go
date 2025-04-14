@@ -111,6 +111,7 @@ type PodInstance interface {
 
 	GetCRIId() string
 	GetContainerById(ctrId string) *hostapi.ContainerDesc
+	GetContainerByCRIId(criId string) (*hostapi.ContainerDesc, error)
 	CreateContainer(ctx context.Context, userCred mcclient.TokenCredential, id string, input *hostapi.ContainerCreateInput) (jsonutils.JSONObject, error)
 	StartContainer(ctx context.Context, userCred mcclient.TokenCredential, ctrId string, input *hostapi.ContainerCreateInput) (jsonutils.JSONObject, error)
 	StartLocalContainer(ctx context.Context, userCred mcclient.TokenCredential, ctrId string) (jsonutils.JSONObject, error)
@@ -118,6 +119,9 @@ type PodInstance interface {
 	SyncStatus(reason string)
 	SyncContainerStatus(ctx context.Context, cred mcclient.TokenCredential, ctrId string) (jsonutils.JSONObject, error)
 	StopContainer(ctx context.Context, userCred mcclient.TokenCredential, ctrId string, input *hostapi.ContainerStopInput) (jsonutils.JSONObject, error)
+	GetContainerStatus(ctx context.Context, ctrId string) (string, *runtime.Status, error)
+	IsPrimaryContainer(ctrId string) bool
+	StopAll(ctx context.Context) error
 	PullImage(ctx context.Context, userCred mcclient.TokenCredential, ctrId string, input *hostapi.ContainerPullImageInput) (jsonutils.JSONObject, error)
 	SaveVolumeMountToImage(ctx context.Context, userCred mcclient.TokenCredential, input *hostapi.ContainerSaveVolumeMountToImageInput, ctrId string) (jsonutils.JSONObject, error)
 	ExecContainer(ctx context.Context, userCred mcclient.TokenCredential, ctrId string, input *computeapi.ContainerExecInput) (*url.URL, error)
@@ -800,6 +804,17 @@ func (s *sPodGuestInstance) ShouldRestartPodOnCrash() bool {
 	return false
 }
 
+func (s *sPodGuestInstance) IsPrimaryContainer(ctrId string) bool {
+	ctr := s.GetContainerById(ctrId)
+	if ctr == nil {
+		return false
+	}
+	if len(s.containers) == 1 {
+		return true
+	}
+	return ctr.Spec.Primary
+}
+
 func (s *sPodGuestInstance) startPod(ctx context.Context, userCred mcclient.TokenCredential) (*computeapi.PodStartResponse, error) {
 	s.startPodLock.Lock()
 	defer s.startPodLock.Unlock()
@@ -1083,6 +1098,15 @@ func (s *sPodGuestInstance) getContainerCRIId(ctrId string) (string, error) {
 	return ctr.CRIId, nil
 }
 
+func (s *sPodGuestInstance) GetContainerByCRIId(criId string) (*hostapi.ContainerDesc, error) {
+	for _, ctr := range s.containers {
+		if ctr.CRIId == criId {
+			return s.GetContainerById(ctr.Id), nil
+		}
+	}
+	return nil, errors.Wrapf(errors.ErrNotFound, "Not found container by CRIId %s", criId)
+}
+
 func (s *sPodGuestInstance) StartLocalContainer(ctx context.Context, userCred mcclient.TokenCredential, ctrId string) (jsonutils.JSONObject, error) {
 	ctr := s.GetContainerById(ctrId)
 	if ctr == nil {
@@ -1259,6 +1283,25 @@ func (s *sPodGuestInstance) doContainerStartPostLifecycle(ctx context.Context, c
 	drv := lifecycle.GetDriver(ls.PostStart.Type)
 	if err := drv.Run(ctx, ls.PostStart, s.getCRI(), criId); err != nil {
 		return errors.Wrapf(err, "run %s", ls.PostStart.Type)
+	}
+	return nil
+}
+
+func (s *sPodGuestInstance) StopAll(ctx context.Context) error {
+	ctrs := s.GetContainers()
+	userCred := hostutils.GetComputeSession(ctx).GetToken()
+	errs := []error{}
+	for _, ctr := range ctrs {
+		if _, err := s.StopContainer(ctx, userCred, ctr.Id, &hostapi.ContainerStopInput{}); err != nil {
+			errs = append(errs, errors.Wrapf(err, "failed to stop container %s", ctr.Id))
+		}
+	}
+	err := errors.NewAggregate(errs)
+	if err != nil {
+		return err
+	}
+	if err := s.stopPod(ctx, 5); err != nil {
+		return errors.Wrapf(err, "stop pod %s", s.GetName())
 	}
 	return nil
 }
@@ -1979,6 +2022,10 @@ func (s *sPodGuestInstance) DeleteContainer(ctx context.Context, userCred mcclie
 		log.Warningf("delete container %s cpu map: %v", ctrId, err)
 	}
 	return nil, nil
+}
+
+func (s *sPodGuestInstance) GetContainerStatus(ctx context.Context, ctrId string) (string, *runtime.Status, error) {
+	return s.getContainerStatus(ctx, ctrId)
 }
 
 func (s *sPodGuestInstance) getContainerStatus(ctx context.Context, ctrId string) (string, *runtime.Status, error) {
