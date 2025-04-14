@@ -19,6 +19,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"strings"
 	"syscall"
 
 	"yunion.io/x/jsonutils"
@@ -66,6 +67,10 @@ func init() {
 			svcUrl = opts.Address
 		} else {
 			return fmt.Errorf("no service address provide")
+		}
+
+		if opts.Service == "identity" {
+			svcUrl = strings.TrimSuffix(svcUrl, "/v3")
 		}
 
 		params := jsonutils.NewDict()
