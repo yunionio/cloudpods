@@ -173,9 +173,15 @@ func (m *SGuestManager) syncContainerLoopIteration(plegCh chan *pleg.PodLifecycl
 			log.Infof("pod container removed: %s", jsonutils.Marshal(e))
 		}
 		if e.Type == pleg.ContainerDied {
-			ctrId := e.Data.(string)
-			ctr, isInternalStopped := podMan.IsInternalStopped(ctrId)
-			if !isInternalStopped {
+			ctrCriId := e.Data.(string)
+			ctr, isInternalStopped := podMan.IsInternalStopped(ctrCriId)
+			ctx := context.Background()
+			ctrObj, _ := podMan.GetContainerByCRIId(ctrCriId)
+			ccStatus := computeapi.CONTAINER_STATUS_EXITED
+			if ctrObj != nil {
+				ccStatus, _, _ = podMan.GetContainerStatus(ctx, ctrObj.Id)
+			}
+			if !isInternalStopped || ccStatus == computeapi.CONTAINER_STATUS_EXITED {
 				podStatus, err := m.podCache.Get(e.Id)
 				if err != nil {
 					log.Errorf("get pod %s status error: %v", e.Id, err)
@@ -183,20 +189,27 @@ func (m *SGuestManager) syncContainerLoopIteration(plegCh chan *pleg.PodLifecycl
 				}
 				log.Infof("pod container exited: %s", jsonutils.Marshal(e))
 				// start container again
-				ctrStatus := podStatus.GetContainerStatus(ctrId)
+				ctrStatus := podStatus.GetContainerStatus(ctrCriId)
 				var reason string
 				if ctrStatus == nil {
-					log.Errorf("can't get container %s status", ctrId)
+					log.Errorf("can't get container %s status", ctrCriId)
 					reason = "container not exist"
 				} else {
 					if ctrStatus.ExitCode == 0 {
-						log.Infof("container %s exited", ctrId)
-						reason = fmt.Sprintf("container %s exited", ctrId)
+						log.Infof("container %s exited", ctrCriId)
+						reason = fmt.Sprintf("container %s exited", ctrCriId)
 					} else {
 						reason = fmt.Sprintf("exit code of died container %s is %d", ctr.Id, ctrStatus.ExitCode)
 					}
 				}
-				log.Infof("sync pod %s container %s status: %s", e.Id, ctrId, reason)
+				log.Infof("sync pod %s container %s status: %s", e.Id, ctrCriId, reason)
+				// 如果是 primary container 退出，就退出其他容器
+				if ctrObj != nil && podMan.IsPrimaryContainer(ctrObj.Id) && ccStatus == computeapi.CONTAINER_STATUS_EXITED {
+					reason = fmt.Sprintf("stop all containers when primary container %s exited", ctrObj.Name)
+					if err := podMan.StopAll(context.Background()); err != nil {
+						log.Errorf("stop all pod containers error: %s", err.Error())
+					}
+				}
 				podMan.SyncStatus(reason)
 			} else {
 				log.Infof("pod container exited: %s", jsonutils.Marshal(e))
