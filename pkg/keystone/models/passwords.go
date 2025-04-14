@@ -197,7 +197,20 @@ func (manager *SPasswordManager) savePassword(localUserId int, password string, 
 	if err != nil {
 		return errors.Wrap(err, "Insert")
 	}
+	if isSystemAccount {
+		manager.cleanPasswds(localUserId, rec.Id)
+	}
 	return nil
+}
+
+func (manager *SPasswordManager) cleanPasswds(localUserId, reserved int) error {
+	_, err := sqlchemy.GetDB().Exec(
+		fmt.Sprintf(
+			"delete from %s where local_user_id = ? and id <> ?",
+			manager.TableSpec().Name(),
+		), localUserId, reserved,
+	)
+	return err
 }
 
 func (manager *SPasswordManager) delete(localUserId int) error {
