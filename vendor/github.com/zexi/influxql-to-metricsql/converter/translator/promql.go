@@ -18,13 +18,14 @@ const UNION_RESULT_NAME = "__union_result__"
 
 const (
 	CALL_TOP        = "top"
+	CALL_BOTTOM     = "bottom"
 	CALL_PERCENTILE = "percentile"
 	CALL_SUM        = "sum"
 	CALL_MIN        = "min"
 	CALL_MAX        = "max"
 )
 
-var MUL_ARGS_AGGREGATOR MulArgsAggregator = []string{CALL_TOP, CALL_PERCENTILE}
+var MUL_ARGS_AGGREGATOR MulArgsAggregator = []string{CALL_TOP, CALL_PERCENTILE, CALL_BOTTOM}
 
 type MulArgsAggregator []string
 
@@ -269,7 +270,7 @@ func (m promQL) generateExpr(
 
 	shouldSkipAggr := func(opName string) bool {
 		switch opName {
-		case CALL_PERCENTILE, CALL_TOP, "last":
+		case CALL_PERCENTILE, CALL_TOP, CALL_BOTTOM, "last":
 			return true
 		}
 		return false
@@ -380,6 +381,15 @@ func getAggrExpr(ops []*AggrOperator, expr promql.Expr) promql.Expr {
 			promql.Expressions{
 				aggrOp.Args[0],
 				restExpr})
+	case CALL_BOTTOM:
+		expr = newAggrExprWithArgs("bottomk_avg",
+			[]promql.ValueType{
+				promql.ValueTypeString,
+				promql.ValueTypeMatrix,
+			}, promql.ValueTypeVector,
+			promql.Expressions{
+				aggrOp.Args[0],
+				restExpr})
 	case CALL_PERCENTILE:
 		expr = newAggrExprWithArgs("quantile_over_time",
 			[]promql.ValueType{
@@ -409,11 +419,11 @@ func getAggrOperator(op *influxql.Call) ([]*AggrOperator, error) {
 		return nil, errors.Errorf("not supported aggregator: %s with args: %#v", op.String(), op.Args)
 	}
 	aggOp := newAggrOperatorByName(op.Name)
-	if op.Name == CALL_TOP || op.Name == CALL_PERCENTILE {
+	if op.Name == CALL_TOP || op.Name == CALL_BOTTOM || op.Name == CALL_PERCENTILE {
 		numStr := op.Args[len(op.Args)-1].String()
 		num, err := strconv.Atoi(numStr)
 		if err != nil {
-			return nil, errors.Wrapf(err, "parse top aggregator: %s", op)
+			return nil, errors.Wrapf(err, "parse top/bottom aggregator: %s", op)
 		}
 		numFloat := float64(num)
 		if op.Name == CALL_PERCENTILE {
