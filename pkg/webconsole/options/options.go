@@ -39,6 +39,8 @@ type WebConsoleOptions struct {
 	EnableCommandRecording bool `help:"enable command recording" default:"false"`
 
 	KeepWebsocketSession bool `help:"keep websocket session" default:"false"`
+
+	RefererWhitelist []string `help:"referer whitelist"`
 }
 
 func OnOptionsChange(oldO, newO interface{}) bool {
