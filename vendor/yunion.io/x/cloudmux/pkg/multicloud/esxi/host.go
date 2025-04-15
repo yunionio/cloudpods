@@ -444,6 +444,15 @@ func (host *SHost) fetchNicInfo(debug bool) []sHostNicInfo {
 	}
 
 	for _, nic := range vnics {
+		if nic.Spec.IpRouteSpec == nil {
+			continue
+		}
+		if nic.Spec.IpRouteSpec.IpRouteConfig.GetHostIpRouteConfig() == nil {
+			continue
+		}
+		if len(nic.Spec.IpRouteSpec.IpRouteConfig.GetHostIpRouteConfig().DefaultGateway) == 0 {
+			continue
+		}
 		// log.Debugf("vnic %d: %s %#v", i, jsonutils.Marshal(nic), nic)
 		mac := netutils.FormatMacAddr(nic.Spec.Mac)
 		pnic := findHostNicByMac(nicInfoList, mac)

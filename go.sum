@@ -792,8 +792,6 @@ github.com/yuin/goldmark v1.3.5/go.mod h1:mwnBkeHKe2W/ZEtQ+71ViKU8L12m81fl3OWwC1
 github.com/yuin/goldmark v1.4.13/go.mod h1:6yULJ656Px+3vBD8DxQVa3kxgyrAnzto9xy5taEt/CY=
 github.com/yusufpapurcu/wmi v1.2.2 h1:KBNDSne4vP5mbSWnJbO+51IMOXJB67QiYCSBrubbPRg=
 github.com/yusufpapurcu/wmi v1.2.2/go.mod h1:SBZ9tNy3G9/m5Oi98Zks0QjeHVDvuK0qfxQmPyzfmi0=
-github.com/zexi/influxql-to-metricsql v0.1.0 h1:gSXhnYEu16fHNs5e1NSdNYceKdlKjMijTHEpnnMVYN4=
-github.com/zexi/influxql-to-metricsql v0.1.0/go.mod h1:JlC5FY+6De9ZPxG47G5DOgva8P9X1VaKS4ExzCmhSCc=
 github.com/zexi/influxql-to-metricsql v0.1.1 h1:dXnVzlxVLuo88zGkDca7erEnmvprGWjzsBcs8qIoQGQ=
 github.com/zexi/influxql-to-metricsql v0.1.1/go.mod h1:JlC5FY+6De9ZPxG47G5DOgva8P9X1VaKS4ExzCmhSCc=
 github.com/zexi/promql/v2 v2.12.1 h1:crHKpULdLLsBZ9b78Rg6qQkugzlk6BHeCj93tw/F5RU=
@@ -1276,13 +1274,13 @@ sigs.k8s.io/structured-merge-diff/v4 v4.0.1/go.mod h1:bJZC9H9iH24zzfZ/41RGcq60oK
 sigs.k8s.io/yaml v1.1.0/go.mod h1:UJmg0vDUVViEyp3mgSv9WPwZCDxu4rQW1olrI1uml+o=
 sigs.k8s.io/yaml v1.2.0 h1:kr/MCeFWJWTwyaHoR9c8EjH9OumOmoF9YGiZd7lFm/Q=
 sigs.k8s.io/yaml v1.2.0/go.mod h1:yfXDCHCao9+ENCvLSE62v9VSji2MKu5jeNfTrofGhJc=
-yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20250325104231-c99a3aacc824 h1:REahNpPdapFfOpR5RSbGyyGZm+Q6X2u4wCAgvlTewvg=
-yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20250325104231-c99a3aacc824/go.mod h1:FXxAEbdNfWXX9gjME3K2nJhkydHY5EKEUZb+RLEzVwQ=
+yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20250415104935-e80d236cac3d h1:krBJFuXtzxulgnmraWJ8kj5Sh2ks763b2OZCUfoid9c=
+yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20250415104935-e80d236cac3d/go.mod h1:FXxAEbdNfWXX9gjME3K2nJhkydHY5EKEUZb+RLEzVwQ=
 yunion.io/x/executor v0.0.0-20241205080005-48f5b1212256 h1:kLKQ6zbgPDQflRwoHFAjxNChcbhXIFgsUVLkJwiXu/8=
 yunion.io/x/executor v0.0.0-20241205080005-48f5b1212256/go.mod h1:Uxuou9WQIeJXNpy7t2fPLL0BYLvLiMvGQwY7Qc6aSws=
 yunion.io/x/jsonutils v0.0.0-20190625054549-a964e1e8a051/go.mod h1:4N0/RVzsYL3kH3WE/H1BjUQdFiWu50JGCFQuuy+Z634=
-yunion.io/x/jsonutils v1.0.1-0.20240930100528-1671a2d0d22f h1:N7V0uLqX9mED1HEPeIKcYpkWglnHL5hyn4ENX+VBeqM=
-yunion.io/x/jsonutils v1.0.1-0.20240930100528-1671a2d0d22f/go.mod h1:VK4Z93dgiKgAijcSqbMKmGaBMJuHulR16Hz4K015ZPo=
+yunion.io/x/jsonutils v1.0.1-0.20250406102002-98c9140a9edd h1:FWwB4CXiyIrh2YvxPliC9ZmrzXcFv+nuG3lhpipR4Sk=
+yunion.io/x/jsonutils v1.0.1-0.20250406102002-98c9140a9edd/go.mod h1:VK4Z93dgiKgAijcSqbMKmGaBMJuHulR16Hz4K015ZPo=
 yunion.io/x/log v0.0.0-20190514041436-04ce53b17c6b/go.mod h1:+gauLs73omeJAPlsXcevLsJLKixV+sR/E7WSYTSx1fE=
 yunion.io/x/log v0.0.0-20190629062853-9f6483a7103d/go.mod h1:LC6f/4FozL0iaAbnFt2eDX9jlsyo3WiOUPm03d7+U4U=
 yunion.io/x/log v1.0.1-0.20240305175729-7cf2d6cd5a91 h1:inY5o3LDa/zgsIZuPN0HmpzKIsu/lLgsBmMttuDPGj4=

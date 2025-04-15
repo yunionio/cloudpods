@@ -647,8 +647,13 @@ func ParseString(str string) (JSONObject, error) {
 }
 
 func Parse(str []byte) (JSONObject, error) {
+	json, _, err := ParseStream(str, 0)
+	return json, err
+}
+
+func ParseStream(str []byte, offset int) (JSONObject, int, error) {
 	s := newJsonParseSession()
-	var i = 0
+	i := offset
 	i = skipEmpty(str, i)
 	var val JSONObject = nil
 	var e error = nil
@@ -665,11 +670,11 @@ func Parse(str []byte) (JSONObject, error) {
 			// return nil, NewJSONError(str, i, "Invalid JSON string")
 		}
 		if e != nil {
-			return nil, errors.Wrap(e, "parse misc")
+			return nil, i, errors.Wrap(e, "parse misc")
 		} else {
-			return val, nil
+			return val, i, nil
 		}
 	} else {
-		return nil, NewJSONError(str, i, "Empty string")
+		return nil, i, NewJSONError(str, i, "Empty string")
 	}
 }
