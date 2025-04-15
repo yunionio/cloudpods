@@ -28,6 +28,7 @@ import (
 	"yunion.io/x/pkg/util/httputils"
 	"yunion.io/x/pkg/util/regutils"
 
+	agapi "yunion.io/x/onecloud/pkg/apis/apigateway"
 	webconsole_api "yunion.io/x/onecloud/pkg/apis/webconsole"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/appsrv/dispatcher"
@@ -38,6 +39,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/k8s"
+	"yunion.io/x/onecloud/pkg/util/seclib2"
 	"yunion.io/x/onecloud/pkg/webconsole/command"
 	"yunion.io/x/onecloud/pkg/webconsole/models"
 	o "yunion.io/x/onecloud/pkg/webconsole/options"
@@ -369,8 +371,13 @@ func handleDataSession(ctx context.Context, sData session.ISessionData, w http.R
 
 	var accessUrl string
 	{
+		connParams, err := seclib2.AES_256.CbcEncodeBase64([]byte(params), []byte(agapi.DefaultEncryptKey))
+		if err != nil {
+			httperrors.GeneralServerError(ctx, w, err)
+			return
+		}
 		dataVal := url.Values{}
-		dataVal.Add("data", base64.StdEncoding.EncodeToString([]byte(params)))
+		dataVal.Add("data", connParams)
 		accessUrl = httputils.JoinPath(o.Options.ApiServer, fmt.Sprintf("web-console/%s?%s", base, dataVal.Encode()))
 	}
 
