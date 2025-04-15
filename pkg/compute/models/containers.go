@@ -859,7 +859,10 @@ func (c *SContainer) GetDetailsExecInfo(ctx context.Context, userCred mcclient.T
 }
 
 func (c *SContainer) PerformExecSync(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.ContainerExecSyncInput) (jsonutils.JSONObject, error) {
-	if !api.ContainerRunningStatus.Has(c.GetStatus()) {
+	if sets.NewString(
+		api.CONTAINER_STATUS_EXITED,
+		api.CONTAINER_STATUS_CREATED,
+	).Has(c.GetStatus()) {
 		return nil, httperrors.NewInvalidStatusError("Can't exec container in status %s", c.Status)
 	}
 	return c.GetPodDriver().RequestExecSyncContainer(ctx, userCred, c, input)
