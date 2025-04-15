@@ -31,6 +31,7 @@ type BaseActionListOptions struct {
 	Offset        int64    `help:"Offset"`
 	Ascending     bool     `help:"Ascending order"`
 	Descending    bool     `help:"Descending order"`
+	Field         []string `help:"field options"`
 	Action        []string `help:"Log action"`
 	Search        string   `help:"Filter action logs by obj_name, using 'like' syntax."`
 	Admin         bool     `help:"admin mode"`
@@ -94,6 +95,9 @@ func doActionList(s *mcclient.ClientSession, args *ActionListOptions) error {
 	}
 	if args.Offset > 0 {
 		params.Add(jsonutils.NewInt(args.Offset), "offset")
+	}
+	if args.Field != nil {
+		params.Add(jsonutils.NewStringArray(args.Field), "field")
 	}
 	if args.Ascending && !args.Descending {
 		params.Add(jsonutils.NewString("asc"), "order")
