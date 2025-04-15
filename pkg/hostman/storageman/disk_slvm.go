@@ -17,6 +17,7 @@ package storageman
 import (
 	"context"
 	"path"
+	"strings"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
@@ -61,14 +62,16 @@ func (d *SSLVMDisk) Probe() error {
 	}
 
 	diskPath := d.GetPath()
+	storageBasePath := path.Join("/dev", d.Storage.GetPath())
 	for diskPath != "" {
 		qemuImg, err := qemuimg.NewQemuImage(diskPath)
 		if err != nil {
 			log.Errorln(err)
 			return err
 		}
-		diskPath = qemuImg.BackFilePath
-		if qemuImg.BackFilePath != "" {
+
+		if qemuImg.BackFilePath != "" && strings.HasPrefix(qemuImg.BackFilePath, storageBasePath) {
+			diskPath = qemuImg.BackFilePath
 			originActivated, err := lvmutils.LvIsActivated(qemuImg.BackFilePath)
 			if err != nil {
 				return errors.Wrap(err, "check lv is activated")
@@ -78,6 +81,8 @@ func (d *SSLVMDisk) Probe() error {
 					return errors.Wrap(err, "lv active origin")
 				}
 			}
+		} else {
+			diskPath = ""
 		}
 	}
 
