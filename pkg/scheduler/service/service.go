@@ -24,7 +24,6 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"yunion.io/x/log"
-	"yunion.io/x/pkg/util/prometheus"
 	"yunion.io/x/pkg/utils"
 	_ "yunion.io/x/sqlchemy/backends"
 
