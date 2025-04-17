@@ -42,7 +42,7 @@ func (m *nvidiaGPUManager) GetType() isolated_device.ContainerDeviceType {
 }
 
 func (m *nvidiaGPUManager) ProbeDevices() ([]isolated_device.IDevice, error) {
-	return getNvidiaGPUs()
+	return probeNvidiaGpus()
 }
 
 func (m *nvidiaGPUManager) NewDevices(dev *isolated_device.ContainerDevice) ([]isolated_device.IDevice, error) {
@@ -95,8 +95,32 @@ func (dev *nvidiaGPU) GetNvidiaDevIndex() string {
 	return dev.gpuIndex
 }
 
-func getNvidiaGPUs() ([]isolated_device.IDevice, error) {
-	devs := make([]isolated_device.IDevice, 0)
+func probeNvidiaGpus() ([]isolated_device.IDevice, error) {
+	if nvidiaGpuUsages != nil {
+		res := make([]isolated_device.IDevice, 0)
+		for pciAddr, dev := range nvidiaGpuUsages {
+			if dev.Used {
+				continue
+			}
+			res = append(res, nvidiaGpuUsages[pciAddr].nvidiaGPU)
+		}
+		nvidiaGpuUsages = nil
+		return res, nil
+	}
+
+	devs, err := getNvidiaGPUs()
+	if err != nil {
+		return nil, err
+	}
+	res := make([]isolated_device.IDevice, 0)
+	for i := range devs {
+		res = append(res, devs[i])
+	}
+	return res, nil
+}
+
+func getNvidiaGPUs() ([]*nvidiaGPU, error) {
+	devs := make([]*nvidiaGPU, 0)
 	// nvidia-smi --query-gpu=gpu_uuid,gpu_name,gpu_bus_id --format=csv
 	// uuid, name, pci.bus_id
 	// GPU-bc1a3bb9-55cb-8c52-c374-4f8b4f388a20, NVIDIA A800-SXM4-80GB, 00000000:10:00.0
@@ -137,7 +161,6 @@ func getNvidiaGPUs() ([]isolated_device.IDevice, error) {
 			gpuIndex:   index,
 		}
 		gpuDev.SetModelName(gpuName)
-
 		devs = append(devs, gpuDev)
 	}
 	if len(devs) == 0 {

@@ -2570,7 +2570,7 @@ func (h *SHostInfo) injectTelegrafDeviceConfig(conf map[string]interface{}) {
 		case string(isolated_device.ContainerDeviceTypeVastaitechGpu):
 			hasVasmi = true
 			continue
-		case string(isolated_device.ContainerDeviceTypeNvidiaGpu), string(isolated_device.ContainerDeviceTypeNvidiaMps):
+		case string(isolated_device.ContainerDeviceTypeNvidiaGpu), string(isolated_device.ContainerDeviceTypeNvidiaMps), string(isolated_device.ContainerDeviceTypeNvidiaGpuShare):
 			hasNvidiasmi = true
 		}
 	}

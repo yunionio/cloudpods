@@ -32,14 +32,15 @@ var (
 type ContainerDeviceType string
 
 const (
-	ContainerDeviceTypeCphAMDGPU     ContainerDeviceType = api.CONTAINER_DEV_CPH_AMD_GPU
-	ContainerDeviceTypeCphASOPBinder ContainerDeviceType = api.CONTAINER_DEV_CPH_AOSP_BINDER
-	ContainerNetintCAASIC            ContainerDeviceType = api.CONTAINER_DEV_NETINT_CA_ASIC
-	ContainerNetintCAQuadra          ContainerDeviceType = api.CONTAINER_DEV_NETINT_CA_QUADRA
-	ContainerDeviceTypeNvidiaGpu     ContainerDeviceType = api.CONTAINER_DEV_NVIDIA_GPU
-	ContainerDeviceTypeNvidiaMps     ContainerDeviceType = api.CONTAINER_DEV_NVIDIA_MPS
-	ContainerDeviceTypeAscendNpu     ContainerDeviceType = api.CONTAINER_DEV_ASCEND_NPU
-	ContainerDeviceTypeVastaitechGpu ContainerDeviceType = api.CONTAINER_DEV_VASTAITECH_GPU
+	ContainerDeviceTypeCphAMDGPU      ContainerDeviceType = api.CONTAINER_DEV_CPH_AMD_GPU
+	ContainerDeviceTypeCphASOPBinder  ContainerDeviceType = api.CONTAINER_DEV_CPH_AOSP_BINDER
+	ContainerNetintCAASIC             ContainerDeviceType = api.CONTAINER_DEV_NETINT_CA_ASIC
+	ContainerNetintCAQuadra           ContainerDeviceType = api.CONTAINER_DEV_NETINT_CA_QUADRA
+	ContainerDeviceTypeNvidiaGpu      ContainerDeviceType = api.CONTAINER_DEV_NVIDIA_GPU
+	ContainerDeviceTypeNvidiaMps      ContainerDeviceType = api.CONTAINER_DEV_NVIDIA_MPS
+	ContainerDeviceTypeNvidiaGpuShare ContainerDeviceType = api.CONTAINER_DEV_NVIDIA_GPU_SHARE
+	ContainerDeviceTypeAscendNpu      ContainerDeviceType = api.CONTAINER_DEV_ASCEND_NPU
+	ContainerDeviceTypeVastaitechGpu  ContainerDeviceType = api.CONTAINER_DEV_VASTAITECH_GPU
 )
 
 func GetContainerDeviceManager(t ContainerDeviceType) (IContainerDeviceManager, error) {

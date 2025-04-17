@@ -63,7 +63,7 @@ func (f *IsolatedDevicePredicate) PreExecute(ctx context.Context, u *core.Unit, 
 
 func (f *IsolatedDevicePredicate) getIsolatedDeviceCountByType(getter core.CandidatePropertyGetter, devType string) int {
 	devs := getter.UnusedIsolatedDevicesByType(devType)
-	if devType != compute.CONTAINER_DEV_NVIDIA_MPS {
+	if devType != compute.CONTAINER_DEV_NVIDIA_MPS && devType != compute.CONTAINER_DEV_NVIDIA_GPU_SHARE {
 		return len(devs)
 	} else {
 		devMap := map[string]struct{}{}
