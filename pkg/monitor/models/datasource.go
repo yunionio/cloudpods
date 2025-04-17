@@ -711,7 +711,7 @@ func getTagValues(userCred mcclient.TokenCredential, output *monitor.InfluxMeasu
 	q := monitor.MetricQueryInput{
 		From:     timeF.From,
 		To:       timeF.To,
-		Interval: "5m",
+		Interval: "3m",
 		MetricQuery: []*monitor.AlertQuery{
 			aq,
 		},
