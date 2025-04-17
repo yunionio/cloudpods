@@ -194,6 +194,11 @@ func (s *SSession) GetConnectParams(params url.Values, dispInfo *SDisplayInfo) (
 		params.Set("login_error_message", fmt.Sprintf("%v", err))
 	}
 	params.Set("is_need_login", fmt.Sprintf("%v", isNeedLogin))
+
+	if len(o.Options.RefererWhitelist) > 0 {
+		params.Set("referer_whitelist", strings.Join(o.Options.RefererWhitelist, ","))
+	}
+
 	return params.Encode(), nil
 }
 
