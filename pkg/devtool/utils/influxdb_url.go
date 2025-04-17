@@ -81,6 +81,7 @@ func getArgs(info *sServerInfo, influxdbUrl string) map[string]interface{} {
 	tags := map[string]string{
 		"host":             info.serverDetails.Host,
 		"host_id":          info.serverDetails.HostId,
+		"host_ip":          info.serverDetails.HostAccessIp,
 		"vm_id":            info.serverDetails.Id,
 		"vm_ip":            info.serverDetails.IPs,
 		"vm_name":          info.serverDetails.Name,
