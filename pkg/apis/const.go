@@ -48,6 +48,8 @@ const (
 	STATUS_UPDATE_TAGS        = "update_tags"
 	STATUS_UPDATE_TAGS_FAILED = "update_tags_fail"
 
+	STATUS_START_SYNC_STATUS = "start_sync_status"
+
 	STATUS_SYNC_STATUS   = "sync_status"
 	STATUS_DELETING      = "deleting"
 	STATUS_DELETE_FAILED = "delete_failed"
