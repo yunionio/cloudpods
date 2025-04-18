@@ -77,8 +77,8 @@ type SKeystoneOptions struct {
 	ProjectAdminRole     string `help:"name of role to be saved as admin user of project" default:"project_owner"`
 	PwdExpiredNotifyDays []int  `help:"The notify for password will expire " default:"1,7"`
 
-	MaxUserRolesInProject  int `help:"maximal allowed roles of a user in a project" default:"20"`
-	MaxGroupRolesInProject int `help:"maximal allowed roles of a group in a project" default:"20"`
+	MaxUserRolesInProject  int `help:"maximal allowed roles of a user in a project" default:"5"`
+	MaxGroupRolesInProject int `help:"maximal allowed roles of a group in a project" default:"3"`
 
 	ForceEnableMfa string `help:"force enable mfa" default:"disable" choices:"all|after|disable"`
 }
