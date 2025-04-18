@@ -32,6 +32,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
+	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/deployclient"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/storageman/lvmutils"
 	"yunion.io/x/onecloud/pkg/hostman/storageman/storageutils"
@@ -115,11 +116,19 @@ func (d *SLVMDisk) CreateRaw(
 
 	img, err := qemuimg.NewQemuImage(d.GetPath())
 	if err != nil {
-		log.Errorln(err)
+		log.Errorf("NewQemuImage failed %s %s", d.GetPath(), err)
 		return nil, err
 	}
 
 	qcow2Size := lvmutils.GetQcow2LvSize(int64(sizeMB))
+	if sizeMB <= 0 && back != "" {
+		backImg, err := qemuimg.NewQemuImage(back)
+		if err != nil {
+			log.Errorf("NewQemuImage failed %s %s", back, err)
+			return nil, err
+		}
+		qcow2Size = lvmutils.GetQcow2LvSize(int64(backImg.GetSizeMB()))
+	}
 	err = lvmutils.LvCreate(d.Storage.GetPath(), d.Id, qcow2Size*1024*1024)
 	if err != nil {
 		return nil, errors.Wrap(err, "CreateRaw")
@@ -149,6 +158,16 @@ func (d *SLVMDisk) CreateRaw(
 }
 
 func (d *SLVMDisk) Delete(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+	p := params.(api.DiskDeleteInput)
+	if p.EsxiFlatFilePath != "" {
+		connections := &deployapi.EsxiDisksConnectionInfo{Disks: []*deployapi.EsxiDiskInfo{{DiskPath: p.EsxiFlatFilePath}}}
+		_, err := deployclient.GetDeployClient().DisconnectEsxiDisks(ctx, connections)
+		if err != nil {
+			log.Errorf("Disconnect %s esxi disks failed %s", p.EsxiFlatFilePath, err)
+			return nil, err
+		}
+	}
+
 	if err := lvmutils.LvRemove(d.GetLvPath()); err != nil {
 		return nil, errors.Wrap(err, "Delete lvremove")
 	}
