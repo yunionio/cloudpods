@@ -1686,6 +1686,9 @@ func (self *SGuest) fixFakeServerInfo(ctx context.Context, userCred mcclient.Tok
 }
 
 func (self *SGuest) StartSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
+	if len(parentTaskId) == 0 {
+		self.SetStatus(ctx, userCred, apis.STATUS_START_SYNC_STATUS, "")
+	}
 	driver, err := self.GetDriver()
 	if err != nil {
 		return errors.Wrapf(err, "GetDriver")
