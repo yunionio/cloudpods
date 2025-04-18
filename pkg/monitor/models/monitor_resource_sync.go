@@ -327,8 +327,8 @@ func GetOnecloudResources(resTyep string) ([]jsonutils.JSONObject, error) {
 		allResources, err = ListAllResources(&mc_mds.Storages, query)
 	default:
 		query := jsonutils.NewDict()
-		query.Set("brand", jsonutils.NewString(hostconsts.TELEGRAF_TAG_ONECLOUD_BRAND))
-		SetQueryHostType(query)
+		// query.Set("brand", jsonutils.NewString(hostconsts.TELEGRAF_TAG_ONECLOUD_BRAND))
+		// SetQueryHostType(query)
 		allResources, err = ListAllResources(&mc_mds.Hosts, query)
 	}
 
