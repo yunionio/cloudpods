@@ -44,23 +44,25 @@ var (
 	password string
 	region   string
 
-	podNet       string
-	podIP        string
-	podName      string
-	diskSizeGB   int
-	ncpu         int
-	mem          int
-	wolfBasePort int
-	accessPort   int
+	podNet     string
+	podIP      string
+	podName    string
+	diskSizeGB int
+	ncpu       int
+	mem        int
+	basePort   int
+	accessPort int
 
 	wolfImage   string
 	steamImage  string
 	externalIP  string
 	enableLxcfs bool
 
-	gpu                  string
-	gpuEnvId             string
-	renderNode           string
+	gpu      string
+	gpuModel string
+	gpuType  string
+	gpuEnvId string
+	// renderNode           string
 	overlay              string
 	alwaysMountDriverVol bool
 
@@ -88,14 +90,17 @@ func init() {
 	flag.IntVar(&mem, "mem", 16, "memory in GB")
 	flag.IntVar(&diskSizeGB, "disk-size", 10, "disk size in GB")
 	flag.IntVar(&accessPort, "port", 20105, "moonlight access http port")
-	flag.StringVar(&wolfImage, "wolf-image", "registry.cn-beijing.aliyuncs.com/zexi/wolf:hook-0408.0", "wolf image")
-	flag.StringVar(&steamImage, "steam-image", "registry.cn-beijing.aliyuncs.com/zexi/steam:custom.3", "steam image")
+	// - registry.cn-beijing.aliyuncs.com/zexi/wolf:hook-0408.0: stable version
+	flag.StringVar(&wolfImage, "wolf-image", "registry.cn-beijing.aliyuncs.com/zexi/wolf:patch-191-0420.0", "wolf image")
+	flag.StringVar(&steamImage, "steam-image", "registry.cn-beijing.aliyuncs.com/zexi/steam:custom.4", "steam image")
 	flag.StringVar(&externalIP, "eip", "", "external ip")
 	flag.BoolVar(&enableLxcfs, "lxcfs", false, "enable lxcfs")
 	flag.BoolVar(&alwaysMountDriverVol, "mount-driver-vol", false, "always mount driver volume")
 	flag.StringVar(&gpu, "gpu", "", "gpu")
 	flag.StringVar(&gpuEnvId, "gpu-env-id", "", "gpu env id")
-	flag.StringVar(&renderNode, "render-node", "/dev/dri/renderD128", "render node")
+	flag.StringVar(&gpuModel, "gpu-model", "", "gpu model")
+	flag.StringVar(&gpuType, "gpu-type", "", "gpu type")
+	// flag.StringVar(&renderNode, "render-node", "/dev/dri/renderD128", "render node")
 	flag.StringVar(&overlay, "overlay", "", "overlay")
 	flag.StringVar(&devs, "devs", "", "devs")
 	flag.StringVar(&mounts, "mounts", "", "mounts")
@@ -104,7 +109,7 @@ func init() {
 	flag.BoolVar(&steamNoBigScreen, "steam-no-big-screen", false, "steam no big screen")
 	flag.Parse()
 
-	wolfBasePort = accessPort - 5
+	basePort = accessPort - 5
 	initAuthInfo()
 	log.Infof("Connecting to %s as %s", authUrl, user)
 
@@ -171,7 +176,7 @@ func getTmpSocketsHostPath(name string) string {
 	return fmt.Sprintf("/tmp/%s/sockets", name)
 }
 
-func NewPulseAudioContainer() *compute.PodContainerCreateInput {
+func NewPulseAudioContainer(podName string, enableLxcfs bool) *compute.PodContainerCreateInput {
 	return &compute.PodContainerCreateInput{
 		ContainerSpec: compute.ContainerSpec{
 			ContainerSpec: api.ContainerSpec{
@@ -230,24 +235,25 @@ func getNvidiaAppDevs(idx int) []*compute.ContainerDevice {
 	return devs
 }
 
-func NewWolfContainer(gpu string) *compute.PodContainerCreateInput {
+func NewWolfContainer(i CreateInput) *compute.PodContainerCreateInput {
 	zero := 0
-	eip := podIP
-	if externalIP != "" {
-		eip = externalIP
+	eip := i.IP
+	if i.ExternalIP != "" {
+		eip = i.ExternalIP
 	}
 	envs := []*api.ContainerKeyValue{
 		// NewEnv("WOLF_LOG_LEVEL", "DEBUG"),
-		NewEnv("WOLF_BASE_PORT", fmt.Sprintf("%d", wolfBasePort)),
+		NewEnv("WOLF_BASE_PORT", fmt.Sprintf("%d", i.BasePort)),
 		NewEnv("WOLF_EXTERNAL_IP", eip),
 		NewEnv("HOST_APPS_STATE_FOLDER", "/etc/wolf"),
 		NewEnv("XDG_RUNTIME_DIR", "/tmp/sockets"),
-		NewEnv("WOLF_RENDER_NODE", renderNode),
+		// NewEnv("WOLF_RENDER_NODE", i.RenderNode),
 	}
-	if gpu == "" || wolfAllGpu {
+	envs = append(envs, getPortEnvs(i.BasePort)...)
+	if i.GPU == "" || i.WolfAllGpu {
 		envs = append(envs, NewEnv("NVIDIA_DRIVER_VOLUME_NAME", "nvidia-driver-vol"))
 	}
-	if wolfAllGpu {
+	if i.WolfAllGpu {
 		envs = append(envs,
 			NewEnv("NVIDIA_VISIBLE_DEVICES", "all"),
 			NewEnv("NVIDIA_DRIVER_CAPABILITIES", "all"))
@@ -257,18 +263,31 @@ func NewWolfContainer(gpu string) *compute.PodContainerCreateInput {
 		NewHostDev(DEV_UINPUT),
 		NewHostDev(DEV_UHID),
 	}
-	if gpu == "" {
-		if !wolfAllGpu {
+	if i.GPU == "" && i.GPUModel == "" && i.GPUType == "" {
+		if !i.WolfAllGpu {
 			devs = append(devs, NewHostDev(DEV_DRI))
 			devs = append(devs, getNvidiaNvDevs(0)...)
 		}
 	} else {
-		if !wolfAllGpu {
-			id0 := 0
+		id0 := 0
+		if !i.WolfAllGpu {
 			devs = append(devs, &compute.ContainerDevice{
 				Type: api.CONTAINER_DEVICE_TYPE_ISOLATED_DEVICE,
 				IsolatedDevice: &compute.ContainerIsolatedDevice{
 					Index: &id0,
+				},
+			})
+		} else {
+			devs = append(devs, &compute.ContainerDevice{
+				Type: api.CONTAINER_DEVICE_TYPE_ISOLATED_DEVICE,
+				IsolatedDevice: &compute.ContainerIsolatedDevice{
+					Index: &id0,
+					OnlyEnv: []*api.ContainerIsolatedDeviceOnlyEnv{
+						{
+							Key:            "WOLF_RENDER_NODE",
+							FromRenderPath: true,
+						},
+					},
 				},
 			})
 		}
@@ -321,7 +340,7 @@ func NewWolfContainer(gpu string) *compute.PodContainerCreateInput {
 			HostPath: &api.ContainerVolumeMountHostPath{
 				Type: api.CONTAINER_VOLUME_MOUNT_HOST_PATH_TYPE_DIRECTORY,
 				//Path: "/tmp/sockets",
-				Path: getTmpSocketsHostPath(podName),
+				Path: getTmpSocketsHostPath(i.Name),
 			},
 			Propagation: api.MOUNTPROPAGATION_PROPAGATION_BIDIRECTIONAL,
 		},
@@ -345,8 +364,8 @@ func NewWolfContainer(gpu string) *compute.PodContainerCreateInput {
 			},
 		},
 	}
-	vms = append(vms, getMounts(mountList)...)
-	if gpu == "" {
+	vms = append(vms, getMounts(i.MountList)...)
+	if i.GPU == "" {
 		vms = append(vms,
 			&api.ContainerVolumeMount{
 				UniqueName: "nvidia-driver-vol",
@@ -362,8 +381,8 @@ func NewWolfContainer(gpu string) *compute.PodContainerCreateInput {
 	return &compute.PodContainerCreateInput{
 		ContainerSpec: compute.ContainerSpec{
 			ContainerSpec: api.ContainerSpec{
-				EnableLxcfs:     enableLxcfs,
-				Image:           wolfImage,
+				EnableLxcfs:     i.EnableLxcfs,
+				Image:           i.WolfImage,
 				ImagePullPolicy: api.ImagePullPolicyAlways,
 				CgroupDevicesAllow: []string{
 					CGROUP_RULE_13,
@@ -376,7 +395,7 @@ func NewWolfContainer(gpu string) *compute.PodContainerCreateInput {
 	}
 }
 
-func NewAppSteamContainer(gpu, gpuEnvId string) *compute.PodContainerCreateInput {
+func NewAppSteamContainer(i CreateInput) *compute.PodContainerCreateInput {
 	// TODO: 设置 ulimit 和 ipc host
 	// --ipc host --ulimit nofile=10240:10240
 	zero := 0
@@ -403,11 +422,11 @@ func NewAppSteamContainer(gpu, gpuEnvId string) *compute.PodContainerCreateInput
 		envs = append(envs, NewEnv("STEAM_STARTUP_FLAGS", "-fullscreen"))
 	}
 
-	if gpu == "" && gpuEnvId == "" {
+	if i.GPU == "" && i.GPUEnvId == "" && i.GPUModel == "" && i.GPUType == "" {
 		devs = append(devs, getNvidiaAppDevs(0)...)
-	} else if gpuEnvId != "" {
+	} else if i.GPUEnvId != "" {
 		envs = append(envs,
-			NewEnv("NVIDIA_VISIBLE_DEVICES", gpuEnvId),
+			NewEnv("NVIDIA_VISIBLE_DEVICES", i.GPUEnvId),
 			NewEnv("NVIDIA_DRIVER_CAPABILITIES", "all"))
 	} else {
 		devs = append(devs, &compute.ContainerDevice{
@@ -427,8 +446,8 @@ func NewAppSteamContainer(gpu, gpuEnvId string) *compute.PodContainerCreateInput
 			SubDirectory: "home",
 		},
 	}
-	if overlay != "" {
-		overlayParts := strings.Split(overlay, ":")
+	if i.Overlay != "" {
+		overlayParts := strings.Split(i.Overlay, ":")
 		dataVol.Disk.Overlay = &api.ContainerVolumeMountDiskOverlay{
 			LowerDir: overlayParts,
 		}
@@ -461,7 +480,7 @@ func NewAppSteamContainer(gpu, gpuEnvId string) *compute.PodContainerCreateInput
 			MountPath:  "/tmp/sockets",
 			HostPath: &api.ContainerVolumeMountHostPath{
 				Type: api.CONTAINER_VOLUME_MOUNT_HOST_PATH_TYPE_DIRECTORY,
-				Path: getTmpSocketsHostPath(podName),
+				Path: getTmpSocketsHostPath(i.Name),
 			},
 		},
 		// {
@@ -484,9 +503,9 @@ func NewAppSteamContainer(gpu, gpuEnvId string) *compute.PodContainerCreateInput
 			},
 		},
 	}
-	vols = append(vols, getMounts(mountList)...)
-	vols = append(vols, getMounts(appMountList)...)
-	if gpu == "" || alwaysMountDriverVol {
+	vols = append(vols, getMounts(i.MountList)...)
+	vols = append(vols, getMounts(i.AppMountList)...)
+	if i.GPU == "" || i.AlwaysMountDriverVol {
 		vols = append(vols,
 			&api.ContainerVolumeMount{
 				UniqueName: "steam-nvidia-driver-vol",
@@ -503,8 +522,9 @@ func NewAppSteamContainer(gpu, gpuEnvId string) *compute.PodContainerCreateInput
 	return &compute.PodContainerCreateInput{
 		ContainerSpec: compute.ContainerSpec{
 			ContainerSpec: api.ContainerSpec{
-				EnableLxcfs:     enableLxcfs,
-				Image:           steamImage,
+				AlwaysRestart:   true,
+				EnableLxcfs:     i.EnableLxcfs,
+				Image:           i.SteamImage,
 				ImagePullPolicy: api.ImagePullPolicyAlways,
 				Command: []string{"/opt/bin/wolf-hook",
 					"-addr", "127.0.0.1",
@@ -526,13 +546,62 @@ func NewAppSteamContainer(gpu, gpuEnvId string) *compute.PodContainerCreateInput
 	}
 }
 
-func getPortMappings() compute.GuestPortMappings {
-	httpsPort := wolfBasePort
-	httpPort := wolfBasePort + 5
-	controlUDPPort := wolfBasePort + 15
-	videoUDPPingPort := wolfBasePort + 116
-	audioUDPPingPort := wolfBasePort + 216
-	rtspTCPSetupPort := wolfBasePort + 26
+func HTTPSPort(basePort int) int {
+	return basePort
+}
+
+func HTTPPort(basePort int) int {
+	return basePort + 5
+}
+
+func ControlUDPPort(basePort int) int {
+	return basePort + 15
+}
+
+func VideoUDPPingPort(basePort int) int {
+	return basePort + 116
+}
+
+func AudioUDPPingPort(basePort int) int {
+	return basePort + 216
+}
+
+func RTSPTCPSetupPort(basePort int) int {
+	return basePort + 26
+}
+
+func getPortEnvs(basePort int) []*api.ContainerKeyValue {
+	httpsPort := HTTPSPort(basePort)
+	httpPort := HTTPPort(basePort)
+	controlUDPPort := ControlUDPPort(basePort)
+	videoUDPPingPort := VideoUDPPingPort(basePort)
+	audioUDPPingPort := AudioUDPPingPort(basePort)
+	rtspTCPSetupPort := RTSPTCPSetupPort(basePort)
+
+	newV := func(key string, port int) *api.ContainerKeyValue {
+		return &api.ContainerKeyValue{
+			Key:   key,
+			Value: fmt.Sprintf("%d", port),
+		}
+	}
+
+	return []*api.ContainerKeyValue{
+		newV("WOLF_HTTP_PORT", httpPort),
+		newV("WOLF_HTTPS_PORT", httpsPort),
+		newV("WOLF_CONTROL_PORT", controlUDPPort),
+		newV("WOLF_RTSP_SETUP_PORT", rtspTCPSetupPort),
+		newV("WOLF_VIDEO_PING_PORT", videoUDPPingPort),
+		newV("WOLF_AUDIO_PING_PORT", audioUDPPingPort),
+	}
+}
+
+func getPortMappings(basePort int) compute.GuestPortMappings {
+	httpsPort := HTTPSPort(basePort)
+	httpPort := HTTPPort(basePort)
+	controlUDPPort := ControlUDPPort(basePort)
+	videoUDPPingPort := VideoUDPPingPort(basePort)
+	audioUDPPingPort := AudioUDPPingPort(basePort)
+	rtspTCPSetupPort := RTSPTCPSetupPort(basePort)
 	return compute.GuestPortMappings{
 		{
 			// HTTPS
@@ -573,43 +642,69 @@ func getPortMappings() compute.GuestPortMappings {
 	}
 }
 
-func GetCreateParams(name string) *compute.ServerCreateInput {
+type CreateInput struct {
+	Name         string
+	BasePort     int
+	NCPU         int
+	MemGB        int
+	DiskSizeGB   int
+	Network      string
+	IP           string
+	GPU          string
+	GPUType      string
+	GPUModel     string
+	GPUEnvId     string
+	EnableLxcfs  bool
+	WolfImage    string
+	WolfAllGpu   bool
+	MountList    []string
+	AppMountList []string
+	// RenderNode           string
+	ExternalIP           string
+	Overlay              string
+	AlwaysMountDriverVol bool
+	SteamImage           string
+}
+
+func GetCreateParams(i CreateInput) *compute.ServerCreateInput {
 	input := &compute.ServerCreateInput{
 		ServerConfigs: &compute.ServerConfigs{
 			Hypervisor: compute.HYPERVISOR_POD,
 		},
 	}
-	input.Name = name
-	input.VcpuCount = ncpu
-	input.VmemSize = mem * 1024
+	input.Name = i.Name
+	input.VcpuCount = i.NCPU
+	input.VmemSize = i.MemGB * 1024
 	fv := false
 	input.DisableDelete = &fv
 	input.AutoStart = true
 	input.Disks = []*compute.DiskConfig{
 		{
-			SizeMb: diskSizeGB * 1024,
+			SizeMb: i.DiskSizeGB * 1024,
 			Format: "raw",
 			Fs:     "ext4",
 		},
 	}
 	net := &compute.NetworkConfig{
-		Network:      podNet,
-		Address:      podIP,
-		PortMappings: getPortMappings(),
+		Network:      i.Network,
+		Address:      i.IP,
+		PortMappings: getPortMappings(i.BasePort),
 	}
 	input.Networks = []*compute.NetworkConfig{net}
 	input.Pod = &compute.PodCreateInput{
 		HostIPC: true,
 		Containers: []*compute.PodContainerCreateInput{
-			NewPulseAudioContainer(),
-			NewWolfContainer(gpu),
-			NewAppSteamContainer(gpu, gpuEnvId),
+			NewPulseAudioContainer(i.Name, i.EnableLxcfs),
+			NewWolfContainer(i),
+			NewAppSteamContainer(i),
 		},
 	}
-	if gpu != "" {
+	if i.GPU != "" || i.GPUModel != "" || i.GPUType != "" {
 		input.IsolatedDevices = []*compute.IsolatedDeviceConfig{
 			{
-				Id: gpu,
+				Id:      i.GPU,
+				DevType: i.GPUType,
+				Model:   i.GPUModel,
 			},
 		}
 	}
@@ -628,7 +723,30 @@ func getSession() *mcclient.ClientSession {
 
 func main() {
 	s := getSession()
-	obj, err := modules.Servers.Create(s, jsonutils.Marshal(GetCreateParams(podName)))
+	input := CreateInput{
+		Name:         podName,
+		BasePort:     basePort,
+		NCPU:         ncpu,
+		MemGB:        mem,
+		DiskSizeGB:   diskSizeGB,
+		Network:      podNet,
+		IP:           podIP,
+		GPU:          gpu,
+		GPUEnvId:     gpuEnvId,
+		GPUModel:     gpuModel,
+		GPUType:      gpuType,
+		EnableLxcfs:  enableLxcfs,
+		WolfImage:    wolfImage,
+		WolfAllGpu:   wolfAllGpu,
+		MountList:    mountList,
+		AppMountList: appMountList,
+		// RenderNode:           renderNode,
+		ExternalIP:           externalIP,
+		Overlay:              overlay,
+		AlwaysMountDriverVol: alwaysMountDriverVol,
+		SteamImage:           steamImage,
+	}
+	obj, err := modules.Servers.Create(s, jsonutils.Marshal(GetCreateParams(input)))
 	if err != nil {
 		log.Errorf("Failed to create server: %v", err)
 		return
@@ -666,5 +784,5 @@ func main() {
 	if accessIp == "" {
 		accessIp = srvDetails.IPs
 	}
-	log.Infof("Access URL: %s:%d , port_mappings: %s", accessIp, accessPort, getPortMappings().String())
+	log.Infof("Access URL: %s:%d , port_mappings: %s", accessIp, accessPort, getPortMappings(input.BasePort).String())
 }

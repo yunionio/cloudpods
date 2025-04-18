@@ -199,7 +199,11 @@ func (m *SGuestManager) syncContainerLoopIteration(plegCh chan *pleg.PodLifecycl
 						log.Infof("container %s exited", ctrCriId)
 						reason = fmt.Sprintf("container %s exited", ctrCriId)
 					} else {
-						reason = fmt.Sprintf("exit code of died container %s is %d", ctr.Id, ctrStatus.ExitCode)
+						ctrId := ctrCriId
+						if ctr != nil {
+							ctrId = ctr.Id
+						}
+						reason = fmt.Sprintf("exit code of died container %s is %d", ctrId, ctrStatus.ExitCode)
 					}
 				}
 				log.Infof("sync pod %s container %s status: %s", e.Id, ctrCriId, reason)

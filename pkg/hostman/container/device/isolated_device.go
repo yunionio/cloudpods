@@ -59,6 +59,10 @@ func (i isolatedDevice) GetRuntimeDevices(input *hostapi.ContainerCreateInput, d
 		}
 
 		for idx := range mappedDevs {
+			mDev := mappedDevs[idx]
+			if mDev.IsolatedDevice != nil && mDev.IsolatedDevice.OnlyEnv != nil {
+				continue
+			}
 			ctrDevs, commonDevs, err := man.NewContainerDevices(input, mappedDevs[idx])
 			if err != nil {
 				return nil, errors.Wrapf(err, "NewContainerDevices with %#v", devs)
