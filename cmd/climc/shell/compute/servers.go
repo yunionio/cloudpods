@@ -116,6 +116,7 @@ func init() {
 	cmd.Perform("qga-get-network", &options.ServerQgaGetNetwork{})
 	cmd.Perform("set-password", &options.ServerSetPasswordOptions{})
 	cmd.Perform("monitor", &options.ServerMonitorOptions{})
+	cmd.Perform("disable-auto-merge-snapshot", &options.ServerDisableAutoMergeSnapshot{})
 
 	cmd.Get("vnc", new(options.ServerIdOptions))
 	cmd.Get("desc", new(options.ServerIdOptions))

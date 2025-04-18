@@ -1915,6 +1915,9 @@ func (s *SKVMGuestInstance) CreateFromDesc(desc jsonutils.JSONObject) error {
 }
 
 func (s *SKVMGuestInstance) GetNeedMergeBackingFileDiskIndexs() []int {
+	if s.isDisableAutoMergeSnapshots() {
+		return nil
+	}
 	res := make([]int, 0)
 	disks, _ := s.Desc.GetArray("disks")
 	for _, disk := range disks {
