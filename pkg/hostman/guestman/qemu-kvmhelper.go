@@ -230,7 +230,11 @@ func (s *SKVMGuestInstance) isWindows10() bool {
 }
 
 func (s *SKVMGuestInstance) isMemcleanEnabled() bool {
-	return s.Desc.Metadata["enable_memclean"] == "true"
+	return s.Desc.Metadata[api.VM_METADATA_ENABLE_MEMCLEAN] == "true"
+}
+
+func (s *SKVMGuestInstance) isDisableAutoMergeSnapshots() bool {
+	return s.Desc.Metadata[api.VM_METADATA_DISABLE_AUTO_MERGE_SNAPSHOT] == "true"
 }
 
 func (s *SKVMGuestInstance) getMachine() string {
