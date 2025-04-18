@@ -851,6 +851,16 @@ func (o *ServerModifySrcCheckOptions) Description() string {
 	return "Modify src ip, mac check settings"
 }
 
+type ServerDisableAutoMergeSnapshot struct {
+	ServerIdOptions
+
+	DisableAutoMergeSnapshot bool `help:"Disable auto merge snapshots"`
+}
+
+func (o *ServerDisableAutoMergeSnapshot) Params() (jsonutils.JSONObject, error) {
+	return options.StructToParams(o)
+}
+
 type ServerSendKeyOptions struct {
 	ID   string `help:"ID or Name of server" metavar:"Guest" json:"-"`
 	KEYS string `help:"Special keys to send, eg. ctrl, alt, f12, shift, etc, separated by \"-\""`
