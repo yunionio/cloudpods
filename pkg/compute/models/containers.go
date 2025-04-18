@@ -638,7 +638,7 @@ func (m *SContainerManager) GetImageCredential(ctx context.Context, userCred mcc
 				return nil, errors.Wrapf(err, "get credential by id or name of %s", id)
 			}
 		}
-		return nil, errors.Wrap(err, "get credentials by id")
+		return nil, errors.Wrapf(err, "get credentials by id with %s", userCred.String())
 	}
 	credType, _ := ret.GetString("type")
 	if credType != identityapi.CONTAINER_IMAGE_TYPE {

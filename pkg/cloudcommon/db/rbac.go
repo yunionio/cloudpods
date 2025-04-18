@@ -62,6 +62,8 @@ func isObjectRbacAllowedResult(ctx context.Context, model IModel, userCred mccli
 	case rbacscope.ScopeUser:
 		if ownerId != nil && objOwnerId != nil && (ownerId.GetUserId() == objOwnerId.GetUserId() || objOwnerId.GetUserId() == "" || (model.IsSharable(ownerId) && action == policy.PolicyActionGet)) {
 			requireScope = rbacscope.ScopeUser
+		} else if ownerId != nil && objOwnerId != nil && ownerId.GetProjectId() == objOwnerId.GetProjectId() {
+			requireScope = rbacscope.ScopeProject
 		} else if ownerId != nil && objOwnerId != nil && ownerId.GetProjectDomainId() == objOwnerId.GetProjectDomainId() {
 			requireScope = rbacscope.ScopeDomain
 		} else {
