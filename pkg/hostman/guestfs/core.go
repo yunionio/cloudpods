@@ -125,10 +125,12 @@ func DoDeployGuestFs(rootfs fsdriver.IRootFsDriver, guestDesc *deployapi.GuestDe
 	}
 
 	if err := rootfs.DeployHostname(partition, hn, domain); err != nil {
-		return nil, errors.Wrap(err, "DeployHostname")
+		//return nil, errors.Wrap(err, "DeployHostname")
+		log.Errorf("DeployHostname failed %s", err)
 	}
 	if err := rootfs.DeployHosts(partition, hn, domain, ips); err != nil {
-		return nil, errors.Wrap(err, "DeployHosts")
+		//return nil, errors.Wrap(err, "DeployHosts")
+		log.Errorf("DeployHosts failed %s", err)
 	}
 
 	if guestDesc.Hypervisor == comapi.HYPERVISOR_KVM {
