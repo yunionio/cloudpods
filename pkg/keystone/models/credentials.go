@@ -247,7 +247,14 @@ func (manager *SCredentialManager) FilterByOwner(ctx context.Context, q *sqlchem
 }
 
 func (cred *SCredential) GetOwnerId() mcclient.IIdentityProvider {
-	owner := db.SOwnerId{UserId: cred.UserId}
+	owner := db.SOwnerId{
+		UserId:    cred.UserId,
+		ProjectId: cred.ProjectId,
+	}
+	usr, _ := UserManager.FetchUserExtended(cred.UserId, "", "", "")
+	if usr != nil {
+		owner.UserDomainId = usr.DomainId
+	}
 	return &owner
 }
 
