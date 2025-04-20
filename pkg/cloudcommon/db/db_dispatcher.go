@@ -272,13 +272,6 @@ func listItemQueryFiltersRaw(
 		log.Debugf("policyTagFilers: %s", query)
 	}
 
-	if !useRawQuery {
-		// Specifically for joint resource, these filters will exclude
-		// deleted resources by joining with master/slave tables
-		q = manager.FilterByOwner(ctx, q, manager, userCred, ownerId, queryScope)
-		q = manager.FilterBySystemAttributes(q, userCred, query, queryScope)
-		q = manager.FilterByHiddenSystemAttributes(q, userCred, query, queryScope)
-	}
 	if query.Contains("export_keys") {
 		exportKeys, _ := query.GetString("export_keys")
 		keys := stringutils2.NewSortedStrings(strings.Split(exportKeys, ","))
@@ -322,6 +315,14 @@ func listItemQueryFiltersRaw(
 	q, err = ListItemFilter(manager, ctx, q, userCred, query)
 	if err != nil {
 		return nil, errors.Wrap(err, "ListItemFilter")
+	}
+
+	if !useRawQuery {
+		// Specifically for joint resource, these filters will exclude
+		// deleted resources by joining with master/slave tables
+		q = manager.FilterByOwner(ctx, q, manager, userCred, ownerId, queryScope)
+		q = manager.FilterBySystemAttributes(q, userCred, query, queryScope)
+		q = manager.FilterByHiddenSystemAttributes(q, userCred, query, queryScope)
 	}
 
 	if isShowDetails(query) {
