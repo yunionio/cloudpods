@@ -143,7 +143,7 @@ func (manager *STaskManager) FilterByNotId(q *sqlchemy.SQuery, idStr string) *sq
 }
 
 func (manager *STaskManager) FilterByName(q *sqlchemy.SQuery, name string) *sqlchemy.SQuery {
-	return q
+	return q.Equals("id", name)
 }
 
 func (manager *STaskManager) PerformAction(ctx context.Context, userCred mcclient.TokenCredential, taskId string, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -428,10 +428,14 @@ func (manager *STaskManager) fetchTask(idStr string) *STask {
 		return nil
 	}
 	task := iTask.(*STask)
+	task.fixParams()
+	return task
+}
+
+func (task *STask) fixParams() {
 	if task.Params == nil {
 		task.Params = jsonutils.NewDict()
 	}
-	return task
 }
 
 func (manager *STaskManager) execTask(taskId string, data jsonutils.JSONObject) {
@@ -439,12 +443,16 @@ func (manager *STaskManager) execTask(taskId string, data jsonutils.JSONObject) 
 	if baseTask == nil {
 		return
 	}
+	manager.execTaskObject(baseTask, data)
+}
+
+func (manager *STaskManager) execTaskObject(baseTask *STask, data jsonutils.JSONObject) {
 	taskType, ok := taskTable[baseTask.TaskName]
 	if !ok {
 		log.Errorf("Cannot find task %s", baseTask.TaskName)
 		return
 	}
-	log.Debugf("Do task %s(%s) with data %s at stage %s", taskType, taskId, data, baseTask.Stage)
+	log.Debugf("Do task %s(%s) with data %s at stage %s", taskType, baseTask.Id, data, baseTask.Stage)
 	taskValue := reflect.New(taskType)
 	if taskValue.Type().Implements(ITaskType) {
 		execITask(taskValue, baseTask, data, false)
@@ -1286,9 +1294,13 @@ func (manager *STaskManager) failTimeoutTasks() error {
 	if err != nil {
 		return errors.Wrap(err, "FetchModelObjects")
 	}
-	reason := jsonutils.NewString("service restart")
+	reason := jsonutils.NewDict()
+	reason.Add(jsonutils.NewString("service restart"), "__reason__")
+	reason.Add(jsonutils.NewString("error"), "__status__")
 	for i := range tasks {
-		tasks[i].SetStageFailed(context.Background(), reason)
+		task := &tasks[i]
+		task.fixParams()
+		manager.execTaskObject(task, reason)
 	}
 	return nil
 }
@@ -1482,7 +1494,7 @@ func (task *STask) PerformCancel(
 	if utils.IsInArray(task.Stage, []string{TASK_STAGE_FAILED, TASK_STAGE_COMPLETE}) {
 		return nil, errors.Wrapf(errors.ErrInvalidStatus, "cannot cancel stage in %s", task.Stage)
 	}
-	err := task.cancel(ctx)
+	err := task.cancel(ctx, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "cancel")
 	}
@@ -1500,21 +1512,28 @@ func (task *STask) fetchSubTasks() ([]STask, error) {
 	return tasks, nil
 }
 
-func (task *STask) cancel(ctx context.Context) error {
+func (task *STask) cancel(ctx context.Context, reason *jsonutils.JSONDict) error {
 	if utils.IsInArray(task.Stage, []string{TASK_STAGE_FAILED, TASK_STAGE_COMPLETE}) {
 		return nil
 	}
+	if reason == nil {
+		reason = jsonutils.NewDict()
+		reason.Add(jsonutils.NewString("cancel"), "__reason__")
+		reason.Add(jsonutils.NewString("error"), "__status__")
+	}
+
 	subtasks, err := task.fetchSubTasks()
 	if err != nil {
 		return errors.Wrap(err, "fetchSubTasks")
 	}
 	for i := range subtasks {
-		err := subtasks[i].cancel(ctx)
+		err := subtasks[i].cancel(ctx, reason)
 		if err != nil {
 			return errors.Wrap(err, "cancelTask")
 		}
 	}
-	reason := jsonutils.NewString("cancel")
-	task.SetStageFailed(ctx, reason)
+
+	task.fixParams()
+	TaskManager.execTask(task.GetTaskId(), reason)
 	return nil
 }
