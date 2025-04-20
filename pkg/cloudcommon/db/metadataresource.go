@@ -96,7 +96,6 @@ func ExtendQueryWithTag(ctx context.Context, q *sqlchemy.SQuery, idField string,
 
 func objIdQueryWithTags(ctx context.Context, objIdSubQ *sqlchemy.SSubQuery, idField string, modelName string, tagsList []map[string][]string) *sqlchemy.SQuery {
 	manager := GetMetadaManagerInContext(ctx)
-	metadataResQ := manager.Query().Equals("obj_type", modelName).SubQuery()
 
 	queries := make([]sqlchemy.IQuery, 0)
 	for _, tags := range tagsList {
@@ -106,19 +105,17 @@ func objIdQueryWithTags(ctx context.Context, objIdSubQ *sqlchemy.SSubQuery, idFi
 		objIdQ := objIdSubQ.Query()
 		objIdQ = objIdQ.AppendField(objIdQ.Field(idField))
 		for key, val := range tags {
-			sq := metadataResQ.Query().Equals("key", key).SubQuery()
-			objIdQ = objIdQ.LeftJoin(sq, sqlchemy.Equals(objIdQ.Field(idField), sq.Field("obj_id")))
+			sq := manager.Query("obj_id").Equals("obj_type", modelName).Equals("key", key)
 			if len(val) > 0 {
+				ssq := sq.In("value", val).SubQuery()
 				if utils.IsInArray(tagutils.NoValue, val) {
-					objIdQ = objIdQ.Filter(sqlchemy.OR(
-						sqlchemy.In(sq.Field("value"), val),
-						sqlchemy.IsNull(sq.Field("value")),
-					))
+					objIdQ = objIdQ.LeftJoin(ssq, sqlchemy.Equals(objIdQ.Field(idField), ssq.Field("obj_id")))
 				} else {
-					objIdQ = objIdQ.Filter(sqlchemy.In(sq.Field("value"), val))
+					objIdQ = objIdQ.Join(ssq, sqlchemy.Equals(objIdQ.Field(idField), ssq.Field("obj_id")))
 				}
 			} else {
-				objIdQ = objIdQ.Filter(sqlchemy.IsNotNull(sq.Field("obj_id")))
+				ssq := sq.SubQuery()
+				objIdQ = objIdQ.Join(ssq, sqlchemy.Equals(objIdQ.Field(idField), ssq.Field("obj_id")))
 			}
 		}
 		queries = append(queries, objIdQ.Distinct())
