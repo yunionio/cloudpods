@@ -59,6 +59,10 @@ func (c BaseDevice) GetDevicePath() string {
 	return c.Path
 }
 
+func (c *BaseDevice) SetDevicePath(devPath string) {
+	c.Path = devPath
+}
+
 func (c BaseDevice) GetNvidiaMpsMemoryLimit() int {
 	return -1
 }
@@ -72,6 +76,10 @@ func (c BaseDevice) GetNvidiaMpsThreadPercentage() int {
 }
 
 func (c BaseDevice) GetCardPath() string {
+	return ""
+}
+
+func (c BaseDevice) GetRenderPath() string {
 	return ""
 }
 

@@ -53,11 +53,16 @@ func (m *nvidiaGPUShareManager) NewDevices(dev *isolated_device.ContainerDevice)
 type nvidiaGpuShareDev struct {
 	nvidiaGPU
 
-	CardPath string
+	CardPath   string
+	RenderPath string
 }
 
 func (dev *nvidiaGpuShareDev) GetCardPath() string {
 	return dev.CardPath
+}
+
+func (dev *nvidiaGpuShareDev) GetRenderPath() string {
+	return dev.RenderPath
 }
 
 type nvidiaGpuUsage struct {
@@ -106,12 +111,12 @@ func newNvidiaGpuShare(devPath string, index int) (*nvidiaGpuShareDev, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "read link of %s", cardPath)
 	}
-
-	_, ok := devUsages[devAddr]
+	nvidiaGPUDev, ok := devUsages[devAddr]
 	if !ok {
 		return nil, errors.Errorf("newNvidiaGpuShare dev addr not found %s", devAddr)
 	}
 	devUsages[devAddr].Used = true
+	dev.SetDevicePath(nvidiaGPUDev.Path)
 
 	return &nvidiaGpuShareDev{
 		nvidiaGPU: nvidiaGPU{
@@ -119,6 +124,7 @@ func newNvidiaGpuShare(devPath string, index int) (*nvidiaGpuShareDev, error) {
 			memSize:    devUsages[devAddr].memSize,
 			gpuIndex:   devUsages[devAddr].gpuIndex,
 		},
-		CardPath: cardLinkPath,
+		CardPath:   cardLinkPath,
+		RenderPath: devPath,
 	}, nil
 }

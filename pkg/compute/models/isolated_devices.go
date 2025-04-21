@@ -126,6 +126,8 @@ type SIsolatedDevice struct {
 
 	// GPU card path, like /dev/dri/cardX
 	CardPath string `width:"128" charset:"ascii" nullable:"true" list:"domain" update:"domain" create:"optional"`
+	// GPU render path, like /dev/dri/renderDX
+	RenderPath string `width:"128" charset:"ascii" nullable:"true" list:"domain" update:"domain" create:"optional"`
 
 	// Is vgpu physical funcion, That means it cannot be attached to guest
 	// VGPUPhysicalFunction bool `nullable:"true" default:"false" list:"domain" create:"domain_optional"`
