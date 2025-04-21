@@ -1474,6 +1474,8 @@ type SIsolatedDevice struct {
 	DevicePath string `json:"device_path"`
 	// GPU card path, like /dev/dri/cardX
 	CardPath string `json:"card_path"`
+	// GPU render path, like /dev/dri/renderDX
+	RenderPath string `json:"render_path"`
 	// Is vgpu physical funcion, That means it cannot be attached to guest
 	// VGPUPhysicalFunction bool `nullable:"true" default:"false" list:"domain" create:"domain_optional"`
 	// nvidia vgpu config

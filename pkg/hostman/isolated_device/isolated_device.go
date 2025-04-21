@@ -53,6 +53,7 @@ type CloudDeviceInfo struct {
 	NvmeSizeMB          int                         `json:"nvme_size_mb"`
 	DevicePath          string                      `json:"device_path"`
 	CardPath            string                      `json:"card_path"`
+	RenderPath          string                      `json:"render_path"`
 	MpsMemoryLimit      int                         `json:"mps_memory_limit"`
 	MpsMemoryTotal      int                         `json:"mps_memory_total"`
 	MpsThreadPercentage int                         `json:"mps_thread_percentage"`
@@ -138,6 +139,7 @@ type IDevice interface {
 	GetPCIEInfo() *api.IsolatedDevicePCIEInfo
 	GetDevicePath() string
 	GetCardPath() string
+	GetRenderPath() string
 
 	// mps infos
 	GetNvidiaMpsMemoryLimit() int
@@ -492,6 +494,9 @@ func (man *isolatedDeviceManager) CheckDevIsNeedUpdate(dev IDevice, devInfo *Clo
 	if dev.GetCardPath() != devInfo.CardPath {
 		return true
 	}
+	if dev.GetRenderPath() != devInfo.RenderPath {
+		return true
+	}
 	if dev.GetModelName() != devInfo.Model {
 		return true
 	}
@@ -790,6 +795,10 @@ func (dev *SBaseDevice) GetCardPath() string {
 	return ""
 }
 
+func (dev *SBaseDevice) GetRenderPath() string {
+	return ""
+}
+
 func GetApiResourceData(dev IDevice) *jsonutils.JSONDict {
 	data := map[string]interface{}{
 		"dev_type":         dev.GetDeviceType(),
@@ -847,6 +856,10 @@ func GetApiResourceData(dev IDevice) *jsonutils.JSONDict {
 	cardPath := dev.GetCardPath()
 	if cardPath != "" {
 		data["card_path"] = cardPath
+	}
+	renderPath := dev.GetRenderPath()
+	if renderPath != "" {
+		data["render_path"] = renderPath
 	}
 
 	if mpsMemTotal := dev.GetNvidiaMpsMemoryTotal(); mpsMemTotal > 0 {
