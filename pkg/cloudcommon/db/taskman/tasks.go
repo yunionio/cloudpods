@@ -41,6 +41,7 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
+	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
@@ -1435,7 +1436,39 @@ func (manager *STaskManager) migrateObjectInfo() error {
 	return nil
 }
 
+var (
+	taskCleanuoWorkerManager = appsrv.NewWorkerManager(
+		"taskCleanupWorkerManager",
+		1,
+		1024,
+		true,
+	)
+)
+
 func (manager *STaskManager) TaskCleanupJob(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
+	taskCleanuoWorkerManager.Run(&sTaskCleanupJob{}, nil, nil)
+}
+
+type sTaskCleanupJob struct{}
+
+func (job *sTaskCleanupJob) Run() {
+	count, err := TaskManager.doTaskCleanupJob()
+	if err != nil {
+		log.Errorf("doTaskCleanupJob fail %s", err)
+		return
+	}
+	if count > 0 {
+		taskCleanuoWorkerManager.Run(&sTaskCleanupJob{}, nil, nil)
+	}
+}
+
+func (job *sTaskCleanupJob) Dump() string {
+	return "TaskCleanupJob"
+}
+
+func (manager *STaskManager) doTaskCleanupJob() (int, error) {
+	ctx := context.WithValue(context.Background(), "task_cleanup_job", true)
+
 	q := manager.Query().LT("created_at", time.Now().Add(-time.Duration(consts.TaskArchiveThresholdHours())*time.Hour)).Asc("created_at")
 
 	if consts.TaskArchiveBatchLimit() > 0 {
@@ -1445,7 +1478,7 @@ func (manager *STaskManager) TaskCleanupJob(ctx context.Context, userCred mcclie
 	rows, err := q.Rows()
 	if err != nil {
 		log.Errorf("query rows fail %s", err)
-		return
+		return 0, errors.Wrap(err, "query rows")
 	}
 	defer rows.Close()
 
@@ -1457,14 +1490,14 @@ func (manager *STaskManager) TaskCleanupJob(ctx context.Context, userCred mcclie
 		err := q.Row2Struct(rows, &task)
 		if err != nil {
 			log.Errorf("Row2Struct fail %s", err)
-			return
+			return 0, errors.Wrap(err, "row2struct")
 		}
 
 		task.SetModelManager(ArchivedTaskManager, &task)
 		err = ArchivedTaskManager.Insert(ctx, &task)
 		if err != nil {
 			log.Errorf("insert archive fail %s", err)
-			return
+			return 0, errors.Wrap(err, "insert archive")
 		}
 
 		// cleanup
@@ -1476,13 +1509,14 @@ func (manager *STaskManager) TaskCleanupJob(ctx context.Context, userCred mcclie
 			_, err := manager.TableSpec().GetTableSpec().Database().Exec(sql, task.Id)
 			if err != nil {
 				log.Errorf("exec %s %s fail: %s", sql, task.Id, err)
-				return
+				return 0, errors.Wrap(err, "exec")
 			}
 		}
 
 		count++
 	}
 	log.Infof("TaskCleanupJob migrate %d tasks, takes %f seconds, batch limit=%d threshold hours=%d", count, time.Since(taskStart).Seconds(), consts.TaskArchiveBatchLimit(), consts.TaskArchiveThresholdHours())
+	return count, nil
 }
 
 func (task *STask) PerformCancel(
