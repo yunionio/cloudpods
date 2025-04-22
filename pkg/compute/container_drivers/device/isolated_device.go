@@ -131,7 +131,10 @@ func (i isolatedDevice) ToHostDevice(dev *api.ContainerDevice) (*hostapi.Contain
 			Id:         isoDev.GetId(),
 			Addr:       isoDev.Addr,
 			Path:       isoDev.DevicePath,
+			CardPath:   isoDev.CardPath,
 			DeviceType: isoDev.DevType,
+			RenderPath: isoDev.RenderPath,
+			OnlyEnv:    input.OnlyEnv,
 		},
 	}, nil
 }

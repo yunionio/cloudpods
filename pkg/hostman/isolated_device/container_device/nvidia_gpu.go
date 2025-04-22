@@ -21,6 +21,7 @@ import (
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/sets"
 
 	hostapi "yunion.io/x/onecloud/pkg/apis/host"
 	"yunion.io/x/onecloud/pkg/hostman/isolated_device"
@@ -55,29 +56,48 @@ func (m *nvidiaGPUManager) NewContainerDevices(input *hostapi.ContainerCreateInp
 
 func (m *nvidiaGPUManager) GetContainerExtraConfigures(devs []*hostapi.ContainerDevice) ([]*runtimeapi.KeyValue, []*runtimeapi.Mount) {
 	gpuIds := []string{}
+	retEnvs := []*runtimeapi.KeyValue{}
 	for _, dev := range devs {
 		if dev.IsolatedDevice == nil {
 			continue
 		}
-		if isolated_device.ContainerDeviceType(dev.IsolatedDevice.DeviceType) != isolated_device.ContainerDeviceTypeNvidiaGpu {
+		types := sets.NewString(
+			string(isolated_device.ContainerDeviceTypeNvidiaGpu),
+			string(isolated_device.ContainerDeviceTypeNvidiaGpuShare),
+		)
+		if !types.Has(dev.IsolatedDevice.DeviceType) {
 			continue
 		}
-		gpuIds = append(gpuIds, dev.IsolatedDevice.Path)
+		if len(dev.IsolatedDevice.OnlyEnv) > 0 {
+			for _, oe := range dev.IsolatedDevice.OnlyEnv {
+				if !oe.FromRenderPath {
+					continue
+				}
+				retEnvs = append(retEnvs, &runtimeapi.KeyValue{
+					Key:   oe.Key,
+					Value: dev.IsolatedDevice.RenderPath,
+				})
+			}
+		} else {
+			gpuIds = append(gpuIds, dev.IsolatedDevice.Path)
+		}
 	}
-	if len(gpuIds) == 0 {
+	if len(gpuIds) == 0 && len(retEnvs) == 0 {
 		return nil, nil
 	}
-
-	return []*runtimeapi.KeyValue{
-		{
-			Key:   "NVIDIA_VISIBLE_DEVICES",
-			Value: strings.Join(gpuIds, ","),
-		},
-		{
-			Key:   "NVIDIA_DRIVER_CAPABILITIES",
-			Value: "all",
-		},
-	}, nil
+	if len(gpuIds) > 0 {
+		retEnvs = append(retEnvs, []*runtimeapi.KeyValue{
+			{
+				Key:   "NVIDIA_VISIBLE_DEVICES",
+				Value: strings.Join(gpuIds, ","),
+			},
+			{
+				Key:   "NVIDIA_DRIVER_CAPABILITIES",
+				Value: "all",
+			},
+		}...)
+	}
+	return retEnvs, nil
 }
 
 type nvidiaGPU struct {

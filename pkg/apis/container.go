@@ -83,6 +83,17 @@ type ContainerResources struct {
 	CpusetCloneChildren bool `json:"cpuset_clone_children"`
 }
 
+type ContainerEnvRefValueType string
+
+const (
+	ContainerEnvRefValueTypeIsolatedDevice ContainerEnvRefValueType = "isolated_device"
+)
+
+type ContainerIsolatedDeviceOnlyEnv struct {
+	Key            string `json:"key"`
+	FromRenderPath bool   `json:"from_render_path"`
+}
+
 type ContainerSpec struct {
 	// Image to use.
 	Image string `json:"image"`

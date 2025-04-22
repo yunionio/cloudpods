@@ -1774,6 +1774,7 @@ func (s *sPodGuestInstance) createContainer(ctx context.Context, userCred mcclie
 			Value: env.Value,
 		})
 	}
+
 	pms, err := s.GetPortMappings()
 	if err != nil {
 		return "", errors.Wrapf(err, "get pod port mappings")

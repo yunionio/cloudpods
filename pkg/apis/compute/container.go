@@ -189,8 +189,9 @@ type ContainerHostDevice struct {
 }
 
 type ContainerIsolatedDevice struct {
-	Index *int   `json:"index"`
-	Id    string `json:"id"`
+	Index   *int                                   `json:"index"`
+	Id      string                                 `json:"id"`
+	OnlyEnv []*apis.ContainerIsolatedDeviceOnlyEnv `json:"only_env"`
 }
 
 type ContainerDevice struct {
