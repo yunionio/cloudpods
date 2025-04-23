@@ -597,6 +597,10 @@ func FetchField(modelMan IModelManager, field string, qCallback func(q *sqlchemy
 	if qCallback != nil {
 		q = qCallback(q)
 	}
+	return FetchIds(q)
+}
+
+func FetchIds(q *sqlchemy.SQuery) ([]string, error) {
 	rows, err := q.Rows()
 	if err != nil {
 		if errors.Cause(err) == sql.ErrNoRows {
