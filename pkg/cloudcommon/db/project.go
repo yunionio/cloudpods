@@ -62,7 +62,7 @@ func (manager *SProjectizedResourceBaseManager) FilterByOwner(ctx context.Contex
 				if !result.ObjectTags.IsEmpty() {
 					policyTagFilters := tagutils.STagFilters{}
 					policyTagFilters.AddFilters(result.ObjectTags)
-					q = ObjectIdQueryWithTagFilters(ctx, q, "id", man.Keyword(), policyTagFilters)
+					q = ObjectIdQueryWithTagFiltersOptimized(ctx, q, "id", man.Keyword(), policyTagFilters)
 				}
 			}
 		case rbacscope.ScopeDomain:
@@ -72,12 +72,12 @@ func (manager *SProjectizedResourceBaseManager) FilterByOwner(ctx context.Contex
 				if !result.ProjectTags.IsEmpty() {
 					policyTagFilters := tagutils.STagFilters{}
 					policyTagFilters.AddFilters(result.ProjectTags)
-					q = ObjectIdQueryWithTagFilters(ctx, q, "tenant_id", "project", policyTagFilters)
+					q = ObjectIdQueryWithTagFiltersOptimized(ctx, q, "tenant_id", "project", policyTagFilters)
 				}
 				if !result.ObjectTags.IsEmpty() {
 					policyTagFilters := tagutils.STagFilters{}
 					policyTagFilters.AddFilters(result.ObjectTags)
-					q = ObjectIdQueryWithTagFilters(ctx, q, "id", man.Keyword(), policyTagFilters)
+					q = ObjectIdQueryWithTagFiltersOptimized(ctx, q, "id", man.Keyword(), policyTagFilters)
 				}
 			}
 		case rbacscope.ScopeSystem:
@@ -86,17 +86,17 @@ func (manager *SProjectizedResourceBaseManager) FilterByOwner(ctx context.Contex
 				if !result.DomainTags.IsEmpty() {
 					policyTagFilters := tagutils.STagFilters{}
 					policyTagFilters.AddFilters(result.DomainTags)
-					q = ObjectIdQueryWithTagFilters(ctx, q, "domain_id", "domain", policyTagFilters)
+					q = ObjectIdQueryWithTagFiltersOptimized(ctx, q, "domain_id", "domain", policyTagFilters)
 				}
 				if !result.ProjectTags.IsEmpty() {
 					policyTagFilters := tagutils.STagFilters{}
 					policyTagFilters.AddFilters(result.ProjectTags)
-					q = ObjectIdQueryWithTagFilters(ctx, q, "tenant_id", "project", policyTagFilters)
+					q = ObjectIdQueryWithTagFiltersOptimized(ctx, q, "tenant_id", "project", policyTagFilters)
 				}
 				if !result.ObjectTags.IsEmpty() {
 					policyTagFilters := tagutils.STagFilters{}
 					policyTagFilters.AddFilters(result.ObjectTags)
-					q = ObjectIdQueryWithTagFilters(ctx, q, "id", man.Keyword(), policyTagFilters)
+					q = ObjectIdQueryWithTagFiltersOptimized(ctx, q, "id", man.Keyword(), policyTagFilters)
 				}
 			}
 		}
