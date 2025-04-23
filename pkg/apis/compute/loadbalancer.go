@@ -261,6 +261,8 @@ func (self LoadbalancerDetails) GetMetricTags() map[string]string {
 		"status":         self.Status,
 		"tenant":         self.Project,
 		"tenant_id":      self.ProjectId,
+		"account":        self.Account,
+		"account_id":     self.AccountId,
 		"external_id":    self.ExternalId,
 	}
 	return AppendMetricTags(ret, self.MetadataResourceInfo, self.ProjectizedResourceInfo)

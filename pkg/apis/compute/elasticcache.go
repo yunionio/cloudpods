@@ -53,6 +53,8 @@ func (self ElasticcacheDetails) GetMetricTags() map[string]string {
 		"tenant":         self.Project,
 		"tenant_id":      self.ProjectId,
 		"brand":          self.Brand,
+		"account":        self.Account,
+		"account_id":     self.AccountId,
 		"domain_id":      self.DomainId,
 		"project_domain": self.ProjectDomain,
 		"external_id":    self.ExternalId,

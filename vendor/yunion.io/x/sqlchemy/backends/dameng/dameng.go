@@ -257,7 +257,7 @@ func (dameng *SDamengBackend) GetColumnSpecByFieldType(table *sqlchemy.STableSpe
 			col := NewDecimalColumn(fieldname, tagmap, isPointer)
 			return &col
 		}
-		colType := "REAL"
+		colType := "FLOAT"
 		if fieldType == gotypes.Float64Type {
 			colType = "DOUBLE"
 		}
