@@ -20,12 +20,10 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
-	"strings"
 	"time"
 
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/tristate"
-	"yunion.io/x/pkg/util/timeutils"
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/sqlchemy"
@@ -88,18 +86,15 @@ func (c *SBooleanColumn) DefinitionString() string {
 
 // ConvertFromString implementation of SBooleanColumn for IColumnSpec
 func (c *SBooleanColumn) ConvertFromString(str string) interface{} {
-	switch strings.ToLower(str) {
-	case "true", "yes", "on", "ok", "1":
+	if sqlchemy.ConvertValueToBool(str) {
 		return 1
-	default:
-		return 0
 	}
+	return 0
 }
 
 // ConvertFromValue implementation of STristateColumn for IColumnSpec
 func (c *SBooleanColumn) ConvertFromValue(val interface{}) interface{} {
-	bVal := val.(bool)
-	if bVal {
+	if sqlchemy.ConvertValueToBool(val) {
 		return 1
 	}
 	return 0
@@ -138,10 +133,10 @@ func (c *STristateColumn) DefinitionString() string {
 
 // ConvertFromString implementation of STristateColumn for IColumnSpec
 func (c *STristateColumn) ConvertFromString(str string) interface{} {
-	switch strings.ToLower(str) {
-	case "true", "yes", "on", "ok", "1":
+	switch sqlchemy.ConvertValueToTriState(str) {
+	case tristate.True:
 		return 1
-	case "none", "null", "unknown":
+	case tristate.None:
 		return sql.NullInt32{}
 	default:
 		return 0
@@ -150,12 +145,12 @@ func (c *STristateColumn) ConvertFromString(str string) interface{} {
 
 // ConvertFromValue implementation of STristateColumn for IColumnSpec
 func (c *STristateColumn) ConvertFromValue(val interface{}) interface{} {
-	bVal := val.(tristate.TriState)
-	if bVal == tristate.True {
+	switch sqlchemy.ConvertValueToTriState(val) {
+	case tristate.True:
 		return 1
-	} else if bVal == tristate.None {
+	case tristate.None:
 		return sql.NullInt32{}
-	} else {
+	default:
 		return 0
 	}
 }
@@ -219,8 +214,7 @@ func (c *SIntegerColumn) IsZero(val interface{}) bool {
 
 // ConvertFromString implementation of SBooleanColumn for IColumnSpec
 func (c *SIntegerColumn) ConvertFromString(str string) interface{} {
-	val, _ := strconv.ParseInt(str, 10, 64)
-	return val
+	return sqlchemy.ConvertValueToInteger(str)
 }
 
 func (c *SIntegerColumn) IsAutoVersion() bool {
@@ -316,8 +310,7 @@ func (c *SFloatColumn) IsZero(val interface{}) bool {
 
 // ConvertFromString implementation of SBooleanColumn for IColumnSpec
 func (c *SFloatColumn) ConvertFromString(str string) interface{} {
-	val, _ := strconv.ParseFloat(str, 64)
-	return val
+	return sqlchemy.ConvertValueToFloat(str)
 }
 
 // NewFloatColumn returns an instance of SFloatColumn
@@ -403,8 +396,12 @@ func (c *STimeTypeColumn) IsZero(val interface{}) bool {
 
 // ConvertFromString implementation of SBooleanColumn for IColumnSpec
 func (c *STimeTypeColumn) ConvertFromString(str string) interface{} {
-	tm, _ := timeutils.ParseTimeStr(str)
-	return tm
+	return sqlchemy.ConvertValueToTime(str)
+}
+
+// ConvertFromValue implementation of STimeTypeColumn for IColumnSpec
+func (c *STimeTypeColumn) ConvertFromValue(val interface{}) interface{} {
+	return sqlchemy.ConvertValueToTime(val)
 }
 
 // NewTimeTypeColumn return an instance of STimeTypeColumn

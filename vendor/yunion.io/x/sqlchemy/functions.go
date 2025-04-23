@@ -51,6 +51,8 @@ type SFunctionFieldBase struct {
 	alias string
 
 	aggregate bool
+
+	convertFunc func(interface{}) interface{}
 }
 
 func (ff *SFunctionFieldBase) getQuoteChar() string {
@@ -97,6 +99,14 @@ func (ff *SFunctionFieldBase) Variables() []interface{} {
 	return ff.variables()
 }
 
+// ConvertFromValue implementation of SFunctionFieldBase for IQueryField
+func (ff *SFunctionFieldBase) ConvertFromValue(val interface{}) interface{} {
+	if ff.convertFunc != nil {
+		return ff.convertFunc(val)
+	}
+	return val
+}
+
 func (ff *SFunctionFieldBase) IsAggregate() bool {
 	return ff.aggregate
 }
@@ -140,16 +150,21 @@ func (ff *sExprFunction) queryFields() []IQueryField {
 	return ff.fields
 }
 
-// NewFunctionField returns an instance of query field by calling a SQL embedded function
 func NewFunctionField(name string, isAggr bool, funcexp string, fields ...IQueryField) IQueryField {
+	return NewFunctionFieldWithConvert(name, isAggr, funcexp, nil, fields...)
+}
+
+// NewFunctionField returns an instance of query field by calling a SQL embedded function
+func NewFunctionFieldWithConvert(name string, isAggr bool, funcexp string, convertFunc func(interface{}) interface{}, fields ...IQueryField) IQueryField {
 	funcBase := &sExprFunction{
 		fields:   fields,
 		function: funcexp,
 	}
 	return &SFunctionFieldBase{
-		IFunction: funcBase,
-		alias:     name,
-		aggregate: isAggr,
+		IFunction:   funcBase,
+		alias:       name,
+		aggregate:   isAggr,
+		convertFunc: convertFunc,
 	}
 }
 
@@ -238,6 +253,11 @@ func (s *SConstField) Label(label string) IQueryField {
 	return s
 }
 
+// ConvertFromValue implementation of SConstField for IQueryField
+func (s *SConstField) ConvertFromValue(val interface{}) interface{} {
+	return val
+}
+
 // database implementation of SConstField for IQueryField
 func (s *SConstField) database() *SDatabase {
 	return nil
@@ -285,6 +305,11 @@ func (s *SStringField) Label(label string) IQueryField {
 		s.alias = label
 	}
 	return s
+}
+
+// ConvertFromValue implementation of SStringField for IQueryField
+func (s *SStringField) ConvertFromValue(val interface{}) interface{} {
+	return val
 }
 
 // database implementation of SStringField for IQueryField

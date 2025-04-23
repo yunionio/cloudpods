@@ -1910,7 +1910,6 @@ yunion.io/x/pkg/util/netutils
 yunion.io/x/pkg/util/osprofile
 yunion.io/x/pkg/util/pinyinutils
 yunion.io/x/pkg/util/printutils
-yunion.io/x/pkg/util/prometheus
 yunion.io/x/pkg/util/qemuimgfmt
 yunion.io/x/pkg/util/rand
 yunion.io/x/pkg/util/rbacscope
@@ -1937,7 +1936,7 @@ yunion.io/x/pkg/utils
 # yunion.io/x/s3cli v0.0.0-20241221171442-1c11599d28e1
 ## explicit; go 1.12
 yunion.io/x/s3cli
-# yunion.io/x/sqlchemy v1.1.3-0.20250307104108-2f8e0af883e9
+# yunion.io/x/sqlchemy v1.1.3-0.20250420094945-40f40c75a31f
 ## explicit; go 1.17
 yunion.io/x/sqlchemy
 yunion.io/x/sqlchemy/backends

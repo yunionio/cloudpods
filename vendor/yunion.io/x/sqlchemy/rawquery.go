@@ -48,6 +48,11 @@ func (rqf *SRawQueryField) Variables() []interface{} {
 	return nil
 }
 
+// ConvertFromValue implementation of SRawQueryField for IQueryField
+func (rqf *SRawQueryField) ConvertFromValue(val interface{}) interface{} {
+	return val
+}
+
 func (rqf *SRawQueryField) database() *SDatabase {
 	return rqf.db
 }

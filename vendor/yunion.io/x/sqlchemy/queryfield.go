@@ -53,6 +53,15 @@ func (sqf *sQueryField) Variables() []interface{} {
 	return nil
 }
 
+// ConvertFromValue returns the SQL representation of a value for this
+func (sqf *sQueryField) ConvertFromValue(val interface{}) interface{} {
+	field := sqf.from.Field(sqf.name)
+	if field == nil {
+		return val
+	}
+	return field.ConvertFromValue(val)
+}
+
 // Database returns the database of this IQuerySource
 func (sqf *sQueryField) database() *SDatabase {
 	return sqf.from.database()

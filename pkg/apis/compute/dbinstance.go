@@ -342,6 +342,8 @@ func (self DBInstanceDetails) GetMetricTags() map[string]string {
 		"tenant_id":      self.ProjectId,
 		"brand":          self.Brand,
 		"domain_id":      self.DomainId,
+		"account":        self.Account,
+		"account_id":     self.AccountId,
 		"project_domain": self.ProjectDomain,
 		"external_id":    self.ExternalId,
 	}
