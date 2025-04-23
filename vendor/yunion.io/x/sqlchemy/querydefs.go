@@ -81,6 +81,9 @@ type IQueryField interface {
 	// return variables
 	Variables() []interface{}
 
+	// ConvertFromValue returns the SQL representation of a value for this
+	ConvertFromValue(val interface{}) interface{}
+
 	// Database returns the database of this IQuerySource
 	database() *SDatabase
 }
