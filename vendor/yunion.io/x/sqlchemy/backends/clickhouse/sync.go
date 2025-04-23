@@ -47,6 +47,18 @@ func findTtlColumn(cols []sqlchemy.IColumnSpec) sColumnTTL {
 	return ret
 }
 
+func findOrderByColumns(cols []sqlchemy.IColumnSpec) []string {
+	var ret []string
+	for _, col := range cols {
+		if clickCol, ok := col.(IClickhouseColumnSpec); ok {
+			if (clickCol.IsOrderBy() || clickCol.IsPrimary()) && len(clickCol.PartitionBy()) == 0 {
+				ret = append(ret, clickCol.Name())
+			}
+		}
+	}
+	return ret
+}
+
 func findPartitions(cols []sqlchemy.IColumnSpec) []string {
 	parts := make([]string, 0)
 	for i := range cols {
@@ -158,18 +170,41 @@ func (clickhouse *SClickhouseBackend) CommitTableChangeSQL(ts sqlchemy.ITableSpe
 	}*/
 
 	// check TTL
-	oldTtlSpec := findTtlColumn(changes.OldColumns)
-	newTtlSpec := findTtlColumn(ts.Columns())
-	log.Debugf("old: %s new: %s", jsonutils.Marshal(oldTtlSpec), jsonutils.Marshal(newTtlSpec))
-	if oldTtlSpec != newTtlSpec {
-		if oldTtlSpec.Count > 0 && newTtlSpec.Count == 0 {
-			// remove
-			sql := fmt.Sprintf("REMOVE TTL")
-			alters = append(alters, sql)
-		} else {
+	{
+		oldTtlSpec := findTtlColumn(changes.OldColumns)
+		newTtlSpec := findTtlColumn(ts.Columns())
+		log.Debugf("old: %s new: %s", jsonutils.Marshal(oldTtlSpec), jsonutils.Marshal(newTtlSpec))
+		if oldTtlSpec != newTtlSpec {
+			if oldTtlSpec.Count > 0 && newTtlSpec.Count == 0 {
+				// remove
+				sql := fmt.Sprintf("REMOVE TTL")
+				alters = append(alters, sql)
+			} else {
+				// alter
+				sql := fmt.Sprintf("MODIFY TTL `%s` + INTERVAL %d %s", newTtlSpec.ColName, newTtlSpec.Count, newTtlSpec.Unit)
+				alters = append(alters, sql)
+			}
+		}
+	}
+
+	// check order by
+	{
+		oldOrderBys := findOrderByColumns(changes.OldColumns)
+		newOrderBys := findOrderByColumns(ts.Columns())
+		log.Debugf("old: %s new: %s", jsonutils.Marshal(oldOrderBys), jsonutils.Marshal(newOrderBys))
+		if jsonutils.Marshal(oldOrderBys).String() != jsonutils.Marshal(newOrderBys).String() {
 			// alter
-			sql := fmt.Sprintf("MODIFY TTL `%s` + INTERVAL %d %s", newTtlSpec.ColName, newTtlSpec.Count, newTtlSpec.Unit)
-			alters = append(alters, sql)
+			altered := false
+			for i := range newOrderBys {
+				if !utils.IsInStringArray(newOrderBys[i], oldOrderBys) {
+					oldOrderBys = append(oldOrderBys, newOrderBys[i])
+					altered = true
+				}
+			}
+			if altered {
+				sql := fmt.Sprintf("MODIFY ORDER BY (%s)", strings.Join(oldOrderBys, ", "))
+				alters = append(alters, sql)
+			}
 		}
 	}
 

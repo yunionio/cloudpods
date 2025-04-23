@@ -202,3 +202,517 @@ func setValueBySQLString(value reflect.Value, val string) error {
 		}
 	}
 }
+
+func ConvertValueToTime(val interface{}) time.Time {
+	switch v := val.(type) {
+	case string:
+		tm, _ := timeutils.ParseTimeStr(v)
+		return tm
+	case time.Time:
+		return v
+	case int:
+		return time.Unix(int64(v), 0)
+	case int32:
+		return time.Unix(int64(v), 0)
+	case int64:
+		return time.Unix(int64(v), 0)
+	case uint:
+		return time.Unix(int64(v), 0)
+	case uint32:
+		return time.Unix(int64(v), 0)
+	case uint64:
+		return time.Unix(int64(v), 0)
+	case float32:
+		return time.Unix(int64(v), int64((v-float32(int64(v)))*1000000000))
+	case float64:
+		return time.Unix(int64(v), int64((v-float64(int64(v)))*1000000000))
+	case *string:
+		tm, _ := timeutils.ParseTimeStr(*v)
+		return tm
+	case *time.Time:
+		return *v
+	case *int:
+		return time.Unix(int64(*v), 0)
+	case *int32:
+		return time.Unix(int64(*v), 0)
+	case *int64:
+		return time.Unix(int64(*v), 0)
+	case *uint:
+		return time.Unix(int64(*v), 0)
+	case *uint32:
+		return time.Unix(int64(*v), 0)
+	case *uint64:
+		return time.Unix(int64(*v), 0)
+	case *float32:
+		return time.Unix(int64(*v), int64((*v-float32(int64(*v)))*1000000000))
+	case *float64:
+		return time.Unix(int64(*v), int64((*v-float64(int64(*v)))*1000000000))
+	}
+	return time.Time{}
+}
+
+func ConvertValueToInteger(val interface{}) int64 {
+	switch v := val.(type) {
+	case string:
+		intv, _ := strconv.ParseInt(v, 10, 64)
+		return intv
+	case int:
+		return int64(v)
+	case int32:
+		return int64(v)
+	case int64:
+		return v
+	case uint:
+		return int64(v)
+	case uint32:
+		return int64(v)
+	case uint64:
+		return int64(v)
+	case float32:
+		return int64(v)
+	case float64:
+		return int64(v)
+	case time.Time:
+		return v.Unix()
+	case *string:
+		intv, _ := strconv.ParseInt(*v, 10, 64)
+		return intv
+	case *int:
+		return int64(*v)
+	case *int32:
+		return int64(*v)
+	case *int64:
+		return *v
+	case *uint:
+		return int64(*v)
+	case *uint32:
+		return int64(*v)
+	case *uint64:
+		return int64(*v)
+	case *float32:
+		return int64(*v)
+	case *float64:
+		return int64(*v)
+	case *time.Time:
+		return v.Unix()
+	}
+	return 0
+}
+
+func ConvertValueToFloat(val interface{}) float64 {
+	switch v := val.(type) {
+	case string:
+		intv, _ := strconv.ParseFloat(v, 64)
+		return intv
+	case int:
+		return float64(v)
+	case int32:
+		return float64(v)
+	case int64:
+		return float64(v)
+	case uint:
+		return float64(v)
+	case uint32:
+		return float64(v)
+	case uint64:
+		return float64(v)
+	case float32:
+		return float64(v)
+	case float64:
+		return v
+	case time.Time:
+		return float64(v.Unix())
+	case *string:
+		intv, _ := strconv.ParseFloat(*v, 64)
+		return intv
+	case *int:
+		return float64(*v)
+	case *int32:
+		return float64(*v)
+	case *int64:
+		return float64(*v)
+	case *uint:
+		return float64(*v)
+	case *uint32:
+		return float64(*v)
+	case *uint64:
+		return float64(*v)
+	case *float32:
+		return float64(*v)
+	case *float64:
+		return *v
+	case *time.Time:
+		return float64(v.Unix())
+	}
+
+	return 0
+}
+
+func ConvertValueToBool(val interface{}) bool {
+	switch v := val.(type) {
+	case string:
+		v = strings.ToLower(v)
+		return v == "1" || v == "true" || v == "ok" || v == "yes" || v == "on"
+	case bool:
+		return v
+	case tristate.TriState:
+		return v == tristate.True
+	case int8:
+		return v > 0
+	case int16:
+		return v > 0
+	case int:
+		return v > 0
+	case int32:
+		return v > 0
+	case int64:
+		return v > 0
+	case uint8:
+		return v > 0
+	case uint16:
+		return v > 0
+	case uint:
+		return v > 0
+	case uint32:
+		return v > 0
+	case uint64:
+		return v > 0
+	case float32:
+		return v > 0
+	case float64:
+		return v > 0
+	case *string:
+		nv := strings.ToLower(*v)
+		return nv == "1" || nv == "true" || nv == "ok" || nv == "yes" || nv == "on"
+	case *bool:
+		return *v
+	case *tristate.TriState:
+		return *v == tristate.True
+	case *int8:
+		return *v > 0
+	case *int16:
+		return *v > 0
+	case *int:
+		return *v > 0
+	case *int32:
+		return *v > 0
+	case *int64:
+		return *v > 0
+	case *uint8:
+		return *v > 0
+	case *uint16:
+		return *v > 0
+	case *uint:
+		return *v > 0
+	case *uint32:
+		return *v > 0
+	case *uint64:
+		return *v > 0
+	case *float32:
+		return *v > 0
+	case *float64:
+		return *v > 0
+	}
+	return false
+}
+
+func ConvertValueToTriState(val interface{}) tristate.TriState {
+	switch v := val.(type) {
+	case tristate.TriState:
+		return v
+	case string:
+		switch strings.ToLower(v) {
+		case "true", "yes", "on", "ok", "1":
+			return tristate.True
+		case "none", "null", "unknown":
+			return tristate.None
+		default:
+			return tristate.False
+		}
+	case bool:
+		if v {
+			return tristate.True
+		} else {
+			return tristate.False
+		}
+	case int8:
+		switch {
+		case v > 0:
+			return tristate.True
+		case v < 0:
+			return tristate.False
+		default:
+			return tristate.None
+		}
+	case int16:
+		switch {
+		case v > 0:
+			return tristate.True
+		case v < 0:
+			return tristate.False
+		default:
+			return tristate.None
+		}
+	case int:
+		switch {
+		case v > 0:
+			return tristate.True
+		case v < 0:
+			return tristate.False
+		default:
+			return tristate.None
+		}
+	case int32:
+		switch {
+		case v > 0:
+			return tristate.True
+		case v < 0:
+			return tristate.False
+		default:
+			return tristate.None
+		}
+	case int64:
+		switch {
+		case v > 0:
+			return tristate.True
+		case v < 0:
+			return tristate.False
+		default:
+			return tristate.None
+		}
+	case uint8:
+		switch {
+		case v > 0:
+			return tristate.True
+		case v < 0:
+			return tristate.False
+		default:
+			return tristate.None
+		}
+	case uint16:
+		switch {
+		case v > 0:
+			return tristate.True
+		case v < 0:
+			return tristate.False
+		default:
+			return tristate.None
+		}
+	case uint:
+		switch {
+		case v > 0:
+			return tristate.True
+		case v < 0:
+			return tristate.False
+		default:
+			return tristate.None
+		}
+	case uint32:
+		switch {
+		case v > 0:
+			return tristate.True
+		case v < 0:
+			return tristate.False
+		default:
+			return tristate.None
+		}
+	case uint64:
+		switch {
+		case v > 0:
+			return tristate.True
+		case v < 0:
+			return tristate.False
+		default:
+			return tristate.None
+		}
+	case float32:
+		switch {
+		case v > 0:
+			return tristate.True
+		case v < 0:
+			return tristate.False
+		default:
+			return tristate.None
+		}
+	case float64:
+		switch {
+		case v > 0:
+			return tristate.True
+		case v < 0:
+			return tristate.False
+		default:
+			return tristate.None
+		}
+	case *string:
+		switch strings.ToLower(*v) {
+		case "true", "yes", "on", "ok", "1":
+			return tristate.True
+		case "none", "null", "unknown":
+			return tristate.None
+		default:
+			return tristate.False
+		}
+	case *bool:
+		if *v {
+			return tristate.True
+		} else {
+			return tristate.False
+		}
+	case *tristate.TriState:
+		return *v
+	case *int8:
+		switch {
+		case *v > 0:
+			return tristate.True
+		case *v < 0:
+			return tristate.False
+		default:
+			return tristate.None
+		}
+	case *int:
+		switch {
+		case *v > 0:
+			return tristate.True
+		case *v < 0:
+			return tristate.False
+		default:
+			return tristate.None
+		}
+	case *int32:
+		switch {
+		case *v > 0:
+			return tristate.True
+		case *v < 0:
+			return tristate.False
+		default:
+			return tristate.None
+		}
+	case *int64:
+		switch {
+		case *v > 0:
+			return tristate.True
+		case *v < 0:
+			return tristate.False
+		default:
+			return tristate.None
+		}
+	case *uint8:
+		switch {
+		case *v > 0:
+			return tristate.True
+		case *v < 0:
+			return tristate.False
+		default:
+			return tristate.None
+		}
+	case *uint16:
+		switch {
+		case *v > 0:
+			return tristate.True
+		case *v < 0:
+			return tristate.False
+		default:
+			return tristate.None
+		}
+	case *uint:
+		switch {
+		case *v > 0:
+			return tristate.True
+		case *v < 0:
+			return tristate.False
+		default:
+			return tristate.None
+		}
+	case *uint32:
+		switch {
+		case *v > 0:
+			return tristate.True
+		case *v < 0:
+			return tristate.False
+		default:
+			return tristate.None
+		}
+	case *uint64:
+		switch {
+		case *v > 0:
+			return tristate.True
+		case *v < 0:
+			return tristate.False
+		default:
+			return tristate.None
+		}
+	case *float32:
+		switch {
+		case *v > 0:
+			return tristate.True
+		case *v < 0:
+			return tristate.False
+		default:
+			return tristate.None
+		}
+	case *float64:
+		switch {
+		case *v > 0:
+			return tristate.True
+		case *v < 0:
+			return tristate.False
+		default:
+			return tristate.None
+		}
+	}
+	return tristate.None
+}
+
+func ConvertValueToString(val interface{}) string {
+	if gotypes.IsNil(val) {
+		return ""
+	}
+	switch v := val.(type) {
+	case string:
+		return v
+	case int8, int16, int, int32, int64, uint8, uint16, uint, uint32, uint64:
+		return fmt.Sprintf("%d", v)
+	case float32, float64:
+		return fmt.Sprintf("%f", v)
+	case bool:
+		return fmt.Sprintf("%v", v)
+	case time.Time:
+		return timeutils.IsoTime(v)
+	case *string:
+		return *v
+	case *int8:
+		return fmt.Sprintf("%d", *v)
+	case *int16:
+		return fmt.Sprintf("%d", *v)
+	case *int:
+		return fmt.Sprintf("%d", *v)
+	case *int32:
+		return fmt.Sprintf("%d", *v)
+	case *int64:
+		return fmt.Sprintf("%d", *v)
+	case *uint8:
+		return fmt.Sprintf("%d", *v)
+	case *uint16:
+		return fmt.Sprintf("%d", *v)
+	case *uint:
+		return fmt.Sprintf("%d", *v)
+	case *uint32:
+		return fmt.Sprintf("%d", *v)
+	case *uint64:
+		return fmt.Sprintf("%d", *v)
+	case *float32:
+		return fmt.Sprintf("%f", *v)
+	case *float64:
+		return fmt.Sprintf("%f", *v)
+	case *time.Time:
+		return timeutils.IsoTime(*v)
+	case tristate.TriState:
+		return v.String()
+	case *tristate.TriState:
+		return (*v).String()
+	}
+	if reflect.ValueOf(val).Kind() == reflect.String {
+		return val.(string)
+	}
+	return jsonutils.Marshal(val).String()
+}

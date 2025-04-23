@@ -67,6 +67,17 @@ func (sqf *SUnionQueryField) Variables() []interface{} {
 	return nil
 }
 
+// ConvertFromValue implementation of SUnionQueryField for IQueryField
+func (sqf *SUnionQueryField) ConvertFromValue(val interface{}) interface{} {
+	for _, query := range sqf.union.queries {
+		field := query.Field(sqf.name)
+		if field != nil {
+			return field.ConvertFromValue(val)
+		}
+	}
+	return val
+}
+
 func (sqf *SUnionQueryField) database() *SDatabase {
 	return sqf.union.database()
 }

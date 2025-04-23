@@ -424,6 +424,11 @@ func (c *STableField) Variables() []interface{} {
 	return nil
 }
 
+// ConvertFromValue implementation of STableField for IQueryField
+func (c *STableField) ConvertFromValue(val interface{}) interface{} {
+	return c.spec.ConvertFromValue(val)
+}
+
 // database implementation of STableField for IQueryField
 func (c *STableField) database() *SDatabase {
 	return c.table.database()

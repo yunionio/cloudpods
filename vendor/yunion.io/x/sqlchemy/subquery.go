@@ -62,6 +62,11 @@ func (sqf *SSubQueryField) Variables() []interface{} {
 	return nil
 }
 
+// ConvertFromValue implementation of SSubQueryField for IQueryField
+func (sqf *SSubQueryField) ConvertFromValue(val interface{}) interface{} {
+	return sqf.field.ConvertFromValue(val)
+}
+
 // database implementation of SSubQueryField for IQueryField
 func (sqf *SSubQueryField) database() *SDatabase {
 	return sqf.query.database()
