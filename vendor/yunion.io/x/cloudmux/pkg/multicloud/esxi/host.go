@@ -444,19 +444,17 @@ func (host *SHost) fetchNicInfo(debug bool) []sHostNicInfo {
 	}
 
 	for _, nic := range vnics {
-		if nic.Spec.IpRouteSpec == nil {
-			continue
-		}
-		if nic.Spec.IpRouteSpec.IpRouteConfig.GetHostIpRouteConfig() == nil {
-			continue
-		}
-		if len(nic.Spec.IpRouteSpec.IpRouteConfig.GetHostIpRouteConfig().DefaultGateway) == 0 {
-			continue
+		gateway := ""
+		if nic.Spec.IpRouteSpec != nil && nic.Spec.IpRouteSpec.IpRouteConfig.GetHostIpRouteConfig() != nil {
+			gateway = nic.Spec.IpRouteSpec.IpRouteConfig.GetHostIpRouteConfig().DefaultGateway
 		}
 		// log.Debugf("vnic %d: %s %#v", i, jsonutils.Marshal(nic), nic)
 		mac := netutils.FormatMacAddr(nic.Spec.Mac)
 		pnic := findHostNicByMac(nicInfoList, mac)
 		if pnic != nil {
+			if len(pnic.IpAddr) > 0 && len(gateway) == 0 {
+				continue
+			}
 			// findMaster = true
 			pnic.IpAddr = nic.Spec.Ip.IpAddress
 			pnic.IpAddrPrefixLen = mask2len(nic.Spec.Ip.SubnetMask)
