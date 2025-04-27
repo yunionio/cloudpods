@@ -74,7 +74,6 @@ import (
 	"yunion.io/x/onecloud/pkg/util/redfish"
 	"yunion.io/x/onecloud/pkg/util/redfish/bmconsole"
 	"yunion.io/x/onecloud/pkg/util/ssh"
-	"yunion.io/x/onecloud/pkg/util/sysutils"
 )
 
 type SBaremetalManager struct {
@@ -347,7 +346,12 @@ func (m *SBaremetalManager) RegisterBaremetal(ctx context.Context, userCred mccl
 		return
 	}
 
-	err, registered := m.verifyMacAddr(sshCli)
+	registerTask := tasks.NewBaremetalRegisterTask(
+		userCred, m, sshCli, input.Hostname, input.RemoteIp,
+		input.Username, input.Password, input.IpAddr,
+		ipmiMac, ipmiLanChannel, adminWire, ipmiWire,
+	)
+	err, registered := m.verifyMacAddr(sshCli, input.RemoteIp)
 	if input.isTimeout() {
 		return
 	} else if err != nil {
@@ -355,11 +359,6 @@ func (m *SBaremetalManager) RegisterBaremetal(ctx context.Context, userCred mccl
 		return
 	}
 
-	registerTask := tasks.NewBaremetalRegisterTask(
-		userCred, m, sshCli, input.Hostname, input.RemoteIp,
-		input.Username, input.Password, input.IpAddr,
-		ipmiMac, ipmiLanChannel, adminWire, ipmiWire,
-	)
 	var bmId string
 	if !registered {
 		bmId, err = registerTask.CreateBaremetal(ctx)
@@ -404,31 +403,83 @@ func (m *SBaremetalManager) checkNetworkFromIp(ip string) (string, error) {
 	return res.Data[0].GetString("wire_id")
 }
 
-func (m *SBaremetalManager) verifyMacAddr(sshCli *ssh.Client) (error, bool) {
-	output, err := sshCli.Run("/lib/mos/lsnic")
+func getAccessDevMacAddr(sshCli *ssh.Client, ip string) (string, error) {
+
+	nicsRet, err := sshCli.Run("/sbin/ip -o -4 addr show")
 	if err != nil {
-		return err, false
+		return "", fmt.Errorf("Failed get access nic %s", err)
 	}
-	nicinfo := sysutils.ParseNicInfo(output)
-	if len(nicinfo) == 0 {
-		return fmt.Errorf("Can't get nic info"), false
+
+	var dev string
+	for i := 0; i < len(nicsRet); i++ {
+		if strings.Contains(nicsRet[i], ip+"/") {
+			segs := strings.Split(nicsRet[i], " ")
+			if len(segs) > 1 {
+				dev = segs[1]
+				break
+			}
+		}
+	}
+	if len(dev) == 0 {
+		return "", fmt.Errorf("Can't get access dev")
+	}
+	log.Infof("Access dev is %s", dev)
+	macRet, err := sshCli.Run("/sbin/ip a show " + dev)
+	if err != nil || len(macRet) < 2 {
+		return "", fmt.Errorf("Failed get access nic mac address %s", err)
+	}
+	segs := strings.Fields(macRet[1])
+	if len(segs) < 2 {
+		return "", fmt.Errorf("Failed to find mac address")
+	}
+	return segs[1], nil
+}
+
+func (m *SBaremetalManager) verifyMacAddr(sshCli *ssh.Client, ip string) (error, bool) {
+	accessMac, err := getAccessDevMacAddr(sshCli, ip)
+	if err != nil {
+		log.Errorf("Failed get access nic mac address %s", err)
+		return err, false
 	}
 
 	var registered bool
 	params := jsonutils.NewDict()
-	for _, nic := range nicinfo {
-		if len(nic.Mac) > 0 {
-			params.Set("any_mac", jsonutils.NewString(nic.Mac.String()))
-			params.Set("scope", jsonutils.NewString("system"))
-			res, err := modules.Hosts.List(m.GetClientSession(), params)
-			if err != nil {
-				return fmt.Errorf("Get hosts info failed: %s", err), false
-			}
-			if len(res.Data) > 0 {
-				registered = true
-			}
+	if len(accessMac) > 0 {
+		params.Set("any_mac", jsonutils.NewString(accessMac))
+		params.Set("scope", jsonutils.NewString("system"))
+		res, err := modules.Hosts.List(m.GetClientSession(), params)
+		if err != nil {
+			return fmt.Errorf("Get hosts info failed: %s", err), false
+		}
+		if len(res.Data) > 0 {
+			registered = true
 		}
 	}
+
+	//output, err := sshCli.Run("/lib/mos/lsnic")
+	//if err != nil {
+	//	return err, false
+	//}
+	//nicinfo := sysutils.ParseNicInfo(output)
+	//if len(nicinfo) == 0 {
+	//	return fmt.Errorf("Can't get nic info"), false
+	//}
+	//
+	//var registered bool
+	//params := jsonutils.NewDict()
+	//for _, nic := range nicinfo {
+	//	if len(nic.Mac) > 0 {
+	//		params.Set("any_mac", jsonutils.NewString(nic.Mac.String()))
+	//		params.Set("scope", jsonutils.NewString("system"))
+	//		res, err := modules.Hosts.List(m.GetClientSession(), params)
+	//		if err != nil {
+	//			return fmt.Errorf("Get hosts info failed: %s", err), false
+	//		}
+	//		if len(res.Data) > 0 {
+	//			registered = true
+	//		}
+	//	}
+	//}
 	return nil, registered
 }
 
