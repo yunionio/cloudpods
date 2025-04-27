@@ -16,12 +16,10 @@ package huawei
 
 import (
 	"fmt"
-	"strings"
 	"time"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/util/osprofile"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
@@ -84,6 +82,9 @@ func (self *SHuaweiClient) getServerMetrics(opts *cloudprovider.MetricListOption
 	}
 	result := []cloudprovider.MetricValues{}
 	for i := range metricData {
+		if len(metricData[i].Datapoints) == 0 {
+			continue
+		}
 		ret := cloudprovider.MetricValues{
 			Id:     opts.ResourceId,
 			Unit:   metricData[i].Unit,
@@ -129,9 +130,6 @@ func (self *SHuaweiClient) getServerMetrics(opts *cloudprovider.MetricListOption
 }
 
 func (self *SHuaweiClient) getServerAgentMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
-	if strings.ToLower(opts.OsType) == strings.ToLower(osprofile.OS_TYPE_WINDOWS) {
-		return []cloudprovider.MetricValues{}, nil
-	}
 	params := map[string]interface{}{
 		"from":   opts.StartTime.UnixMilli(),
 		"to":     opts.EndTime.UnixMilli(),
@@ -141,6 +139,8 @@ func (self *SHuaweiClient) getServerAgentMetrics(opts *cloudprovider.MetricListO
 	metrics := []interface{}{}
 	namespace, dimesionName, metricNames := "AGT.ECS", "instance_id", []string{
 		"mem_usedPercent",
+		"cpu_usage",
+		"disk_usedPercent",
 	}
 	for _, metricName := range metricNames {
 		metrics = append(metrics, map[string]interface{}{
@@ -166,6 +166,9 @@ func (self *SHuaweiClient) getServerAgentMetrics(opts *cloudprovider.MetricListO
 	}
 	result := []cloudprovider.MetricValues{}
 	for i := range metricData {
+		if len(metricData[i].Datapoints) == 0 {
+			continue
+		}
 		ret := cloudprovider.MetricValues{
 			Id:     opts.ResourceId,
 			Unit:   metricData[i].Unit,
@@ -175,6 +178,8 @@ func (self *SHuaweiClient) getServerAgentMetrics(opts *cloudprovider.MetricListO
 		switch metricData[i].MetricName {
 		case "mem_usedPercent":
 			ret.MetricType = cloudprovider.VM_METRIC_TYPE_MEM_USAGE
+		case "cpu_usage":
+			ret.MetricType = cloudprovider.VM_METRIC_TYPE_CPU_USAGE
 		case "disk_usedPercent":
 			ret.MetricType = cloudprovider.VM_METRIC_TYPE_DISK_USAGE
 		default:
@@ -237,6 +242,9 @@ func (self *SHuaweiClient) getRedisMetrics(opts *cloudprovider.MetricListOptions
 	}
 	result := []cloudprovider.MetricValues{}
 	for i := range metricData {
+		if len(metricData[i].Datapoints) == 0 {
+			continue
+		}
 		ret := cloudprovider.MetricValues{
 			Id:     opts.ResourceId,
 			Unit:   metricData[i].Unit,
@@ -333,6 +341,9 @@ func (self *SHuaweiClient) getRdsMetrics(opts *cloudprovider.MetricListOptions) 
 	}
 	result := []cloudprovider.MetricValues{}
 	for i := range metricData {
+		if len(metricData[i].Datapoints) == 0 {
+			continue
+		}
 		ret := cloudprovider.MetricValues{
 			Id:     opts.ResourceId,
 			Unit:   metricData[i].Unit,
@@ -422,6 +433,9 @@ func (self *SHuaweiClient) getBucketMetrics(opts *cloudprovider.MetricListOption
 	}
 	result := []cloudprovider.MetricValues{}
 	for i := range metricData {
+		if len(metricData[i].Datapoints) == 0 {
+			continue
+		}
 		ret := cloudprovider.MetricValues{
 			Id:     opts.ResourceId,
 			Unit:   metricData[i].Unit,
@@ -503,6 +517,9 @@ func (self *SHuaweiClient) getLoadbalancerMetrics(opts *cloudprovider.MetricList
 	}
 	result := []cloudprovider.MetricValues{}
 	for i := range metricData {
+		if len(metricData[i].Datapoints) == 0 {
+			continue
+		}
 		ret := cloudprovider.MetricValues{
 			Id:     opts.ResourceId,
 			Unit:   metricData[i].Unit,
@@ -556,6 +573,9 @@ func (self *SHuaweiClient) getModelartsPoolMetrics(opts *cloudprovider.MetricLis
 	}
 	result := []cloudprovider.MetricValues{}
 	for i := range metricData {
+		if len(metricData[i].Datapoints) == 0 {
+			continue
+		}
 		isMB := false
 		if metricData[i].Datapoints[0].Unit == "Megabytes" {
 			isMB = true

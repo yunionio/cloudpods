@@ -1027,7 +1027,17 @@ func (region *SRegion) ModifyInstanceChargeType(vmId string, billingType string)
 			Count:     1,
 			Unit:      billing.BillingCycleMonth,
 		}
-		region.SetInstanceAutoRenew(vmId, cycle)
+		err = cloudprovider.Wait(time.Second*10, time.Minute*3, func() (bool, error) {
+			err = region.SetInstanceAutoRenew(vmId, cycle)
+			if err != nil {
+				log.Errorf("set auto renew for instance %s error: %v", vmId, err)
+				return false, nil
+			}
+			return true, nil
+		})
+		if err != nil {
+			log.Errorf("set auto renew for %s error: %v", vmId, err)
+		}
 	}
 	return nil
 }
