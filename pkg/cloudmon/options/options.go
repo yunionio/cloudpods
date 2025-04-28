@@ -29,7 +29,7 @@ type CloudMonOptions struct {
 	InfluxDatabase string `help:"influxdb database name, default telegraf" default:"telegraf"`
 
 	DisableServiceMetric               bool  `help:"disable service metric collect"`
-	CollectServiceMetricIntervalMinute int64 `help:"Collect Service metirc Interval unit:minute" default:"5"`
+	CollectServiceMetricIntervalMinute int64 `help:"Collect Service metirc Interval unit:minute" default:"1"`
 
 	HistoryMetricPullDays          int  `help:"pull history metrics" default:"-1"`
 	SupportAzureTableStorageMetric bool `help:"support collect azure memory and disk usage metric, there may be additional charges" default:"false"`
@@ -44,7 +44,7 @@ type PingProbeOptions struct {
 	ProbeCount    int  `help:"probe count, default is 3" default:"3"`
 	TimeoutSecond int  `help:"probe timeout in second, default is 1 second" default:"1"`
 
-	DisablePingProbe      bool  `help:"enable ping probe"`
+	DisablePingProbe      bool  `help:"enable ping probe" default:"true"`
 	PingProbIntervalHours int64 `help:"PingProb Interval unit:hour" default:"6"`
 
 	PingReserveIPTimeoutHours int `help:"expire hours to reserve the probed IP, default 0, never expire" default:"0"`
