@@ -36,7 +36,20 @@ func init() {
 }
 
 func (t *ContainerDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
-	t.requestDelete(ctx, obj.(*models.SContainer))
+	t.SetStage("OnStopped", nil)
+	ctr := obj.(*models.SContainer)
+	if err := ctr.StartStopTask(ctx, t.GetUserCred(), &api.ContainerStopInput{}, t.GetTaskId()); err != nil {
+		t.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
+		return
+	}
+}
+
+func (t *ContainerDeleteTask) OnStopped(ctx context.Context, container *models.SContainer, data jsonutils.JSONObject) {
+	t.requestDelete(ctx, container)
+}
+
+func (t *ContainerDeleteTask) OnStoppedFailed(ctx context.Context, container *models.SContainer, reason jsonutils.JSONObject) {
+	t.SetStageFailed(ctx, reason)
 }
 
 func (t *ContainerDeleteTask) requestDelete(ctx context.Context, container *models.SContainer) {
