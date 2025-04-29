@@ -17,6 +17,9 @@ package lockman
 import (
 	"context"
 	"fmt"
+	"runtime/debug"
+
+	"yunion.io/x/log"
 )
 
 type ILockedClass interface {
@@ -73,13 +76,13 @@ func Init(man ILockManager) {
 }
 
 func checkContext(ctx context.Context) {
-	/*if ctx == context.Background() {
-		panic("lock context of Background!")
+	if ctx == context.Background() {
+		log.Warningf("[!!!WARNING!!!] lock context of Background!")
 		debug.PrintStack()
 	} else if ctx == context.TODO() {
-		panic("lock context of TODO!")
+		log.Warningf("[!!!WARNING!!!] lock context of TODO!")
 		debug.PrintStack()
-	}*/
+	}
 }
 
 func LockClass(ctx context.Context, manager ILockedClass, projectId string) {
