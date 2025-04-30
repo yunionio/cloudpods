@@ -3801,22 +3801,28 @@ func (manager *SHostManager) FetchCustomizeColumns(
 	schedtags, err := fetchHostSchedtags(hostIds)
 	if err != nil {
 		log.Errorf("fetchHostSchedtags error: %v", err)
-		return rows
+		// return rows
 	}
 
 	storages, err := fetchHostStorages(hostIds)
 	if err != nil {
 		log.Errorf("host storages error: %v", err)
-		return rows
+		// return rows
 	}
 
 	nics, err := fetchHostNics(hostIds)
 	if err != nil {
 		log.Errorf("fetchHostNics error: %v", err)
-		return rows
+		// return rows
 	}
 
 	guestCnts := manager.FetchGuestCnt(hostIds)
+
+	hostFiles, err := fetchHostHostFiles(hostIds)
+	if err != nil {
+		log.Errorf("fetchHostHostFiles error: %v", err)
+	}
+
 	for i := range rows {
 		cnt, ok := guestCnts[hostIds[i]]
 		if ok {
@@ -3919,6 +3925,7 @@ func (manager *SHostManager) FetchCustomizeColumns(
 		rows[i].Schedtags, _ = schedtags[hostIds[i]]
 		rows[i].NicInfo, _ = nics[hostIds[i]]
 		rows[i].NicCount = len(rows[i].NicInfo)
+		rows[i].HostFiles = hostFiles[hostIds[i]]
 
 		if hideCpuTypoInfo {
 			sysInfo, ok := hosts[i].SysInfo.(*jsonutils.JSONDict)
@@ -4973,14 +4980,19 @@ func (hh *SHost) PerformPing(ctx context.Context, userCred mcclient.TokenCredent
 	dependSvcs := []string{"ntpd", "kafka", apis.SERVICE_TYPE_INFLUXDB, apis.SERVICE_TYPE_VICTORIA_METRICS, "elasticsearch", "opentsdb"}
 	catalog := auth.GetCatalogData(dependSvcs, options.Options.Region)
 	if catalog == nil {
-		return nil, fmt.Errorf("Get catalog error")
+		return nil, errors.Wrap(errors.ErrServer, "Get catalog error")
 	}
 	result.Set("catalog", catalog)
 	if storages, err := hh.GetStoragesByMasterHost(); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "get storages by master host")
 	} else {
 		result.Set("master_host_storages", jsonutils.NewStringArray(storages))
 	}
+	hostFiles, err := hh.getHostFiles()
+	if err != nil {
+		return nil, errors.Wrap(err, "get host files")
+	}
+	result.Set("host_files", jsonutils.Marshal(hostFiles))
 
 	appParams := appsrv.AppContextGetParams(ctx)
 	if appParams != nil {

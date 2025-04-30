@@ -250,6 +250,8 @@ type HostDetails struct {
 	SysWarn string `json:"sys_warn"`
 	// host init error info
 	SysError string `json:"sys_error"`
+
+	HostFiles []string `json:"host_files"`
 }
 
 func (self HostDetails) GetMetricTags() map[string]string {
