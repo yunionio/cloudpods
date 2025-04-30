@@ -147,7 +147,7 @@ func IsBlockDeviceUsed(dev string) bool {
 
 func GetAllBlkdevsIoSchedulers() ([]string, error) {
 	if _, err := os.Stat("/sys/block"); !os.IsNotExist(err) {
-		blockDevs, err := ioutil.ReadDir("/sys/block")
+		blockDevs, err := os.ReadDir("/sys/block")
 		if err != nil {
 			log.Errorf("ReadDir /sys/block error: %s", err)
 			return nil, errors.Wrap(err, "ioutil.ReadDir(/sys/block)")
@@ -213,7 +213,7 @@ func BlockDevIsSsd(dev string) bool {
 
 func ChangeSsdBlkdevsParams(params map[string]string) {
 	if _, err := os.Stat("/sys/block"); !os.IsNotExist(err) {
-		blockDevs, err := ioutil.ReadDir("/sys/block")
+		blockDevs, err := os.ReadDir("/sys/block")
 		if err != nil {
 			log.Errorf("ReadDir /sys/block error: %s", err)
 			return
@@ -234,7 +234,7 @@ func ChangeSsdBlkdevsParams(params map[string]string) {
 
 func ChangeHddBlkdevsParams(params map[string]string) {
 	if _, err := os.Stat("/sys/block"); !os.IsNotExist(err) {
-		blockDevs, err := ioutil.ReadDir("/sys/block")
+		blockDevs, err := os.ReadDir("/sys/block")
 		if err != nil {
 			log.Errorf("ReadDir /sys/block error: %s", err)
 			return

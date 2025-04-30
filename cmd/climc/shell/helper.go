@@ -21,6 +21,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/util/printutils"
+	"yunion.io/x/pkg/util/shellutils"
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -542,6 +543,81 @@ func (cmd ResourceCmd) UpdateWithKeyword(keyword string, args IUpdateOpt) {
 
 func (cmd ResourceCmd) Update(args IUpdateOpt) {
 	cmd.UpdateWithKeyword("update", args)
+}
+
+type EditType string
+
+const (
+	EditTypeText EditType = "text"
+	EditTypeYaml EditType = "yaml"
+	EditTypeJson EditType = "json"
+)
+
+type IEditOpt interface {
+	IGetOpt
+	EditType() EditType
+	EditFields() []string
+}
+
+func (cmd ResourceCmd) Edit(args IEditOpt) {
+	man := cmd.manager
+	callback := func(s *mcclient.ClientSession, args IEditOpt) error {
+		params, err := args.Params()
+		if err != nil {
+			return err
+		}
+		obj, err := man.(modulebase.Manager).Get(s, args.GetId(), params)
+		if err != nil {
+			return err
+		}
+
+		format := args.EditType()
+		fields := args.EditFields()
+		var editText string
+
+		switch format {
+		case EditTypeText:
+			editText, _ = obj.GetString(fields...)
+		default:
+			editJson, _ := obj.Get(fields...)
+			if editJson == nil {
+				editJson = jsonutils.NewDict()
+			}
+			if format == EditTypeYaml {
+				editText = editJson.YAMLString()
+			} else if format == EditTypeJson {
+				editText = editJson.PrettyString()
+			}
+		}
+		editText, err = shellutils.Edit(editText)
+		if err != nil {
+			return err
+		}
+		updateParams := jsonutils.NewDict()
+		switch format {
+		case EditTypeText:
+			updateParams.Add(jsonutils.NewString(editText), fields...)
+		case EditTypeYaml:
+			yamlObj, err := jsonutils.ParseYAML(editText)
+			if err != nil {
+				return err
+			}
+			updateParams.Add(yamlObj, fields...)
+		case EditTypeJson:
+			jsonObj, err := jsonutils.ParseString(editText)
+			if err != nil {
+				return err
+			}
+			updateParams.Add(jsonObj, fields...)
+		}
+		updateResult, err := man.(modulebase.Manager).Update(s, args.GetId(), updateParams)
+		if err != nil {
+			return err
+		}
+		PrintObject(updateResult)
+		return nil
+	}
+	cmd.Run("edit", args, callback)
 }
 
 type IMetadataOpt interface {

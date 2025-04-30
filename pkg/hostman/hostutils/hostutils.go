@@ -100,6 +100,8 @@ type IHost interface {
 	GetContainerCpufreqSimulateConfig() *jsonutils.JSONDict
 
 	OnCatalogChanged(catalog mcclient.KeystoneServiceCatalogV3)
+
+	OnHostFilesChanged(hostfiles []computeapi.SHostFile) error
 }
 
 func GetComputeSession(ctx context.Context) *mcclient.ClientSession {

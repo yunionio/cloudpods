@@ -81,6 +81,7 @@ type SHostOptions struct {
 	ServersPath         string `help:"Path for virtual server configuration files" default:"/opt/cloud/workspace/servers"`
 	ImageCachePath      string `help:"Path for storing image caches" default:"/opt/cloud/workspace/disks/image_cache"`
 	MemorySnapshotsPath string `help:"Path for memory snapshot stat files" default:"/opt/cloud/workspace/memory_snapshots"`
+	HostFilesPath       string `help:"Path for host files" default:"/opt/cloud/workspace/host_files"`
 	// ImageCacheLimit int    `help:"Maximal storage space for image caching, in GB" default:"20"`
 	AgentTempPath  string `help:"Path for ESXi agent"`
 	AgentTempLimit int    `help:"Maximal storage space for ESXi agent, in GB" default:"10"`

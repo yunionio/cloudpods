@@ -55,8 +55,8 @@ func init() {
 	cmd.Perform("class-metadata", &options.ResourceMetadataOptions{})
 	cmd.Perform("set-class-metadata", &options.ResourceMetadataOptions{})
 	cmd.PerformClass("validate-ipmi", &compute.HostValidateIPMI{})
-	cmd.Perform("set-commit-bound", &compute.HostSetCommitBoundOptions{})
 
+	cmd.BatchPerform("set-commit-bound", &compute.HostSetCommitBoundOptions{})
 	cmd.BatchPerform("enable", &options.BaseIdsOptions{})
 	cmd.BatchPerform("disable", &options.BaseIdsOptions{})
 	cmd.BatchPerform("syncstatus", &options.BaseIdsOptions{})
@@ -67,6 +67,7 @@ func init() {
 	cmd.BatchPerform("unreserve-cpus", &options.BaseIdsOptions{})
 	cmd.BatchPerform("auto-migrate-on-host-down", &compute.HostAutoMigrateOnHostDownOptions{})
 	cmd.BatchPerform("restart-host-agent", &options.BaseIdsOptions{})
+	cmd.BatchPerform("set-host-files", &compute.HostSetHostFilesOptions{})
 
 	cmd.Get("ipmi", &options.BaseIdOptions{})
 	cmd.Get("vnc", &options.BaseIdOptions{})
