@@ -93,3 +93,8 @@ You are welcome to do any kind of contribution to the project. Please refer to [
 ## License
 
 Apache License 2.0. See [LICENSE](./LICENSE).
+
+## AI-generated doc
+
+[DeepWiki](https://deepwiki.com/yunionio/cloudpods) provides an amazing AI-generated doc of this project, you may refer to it for more detailed and comprehensive understanding of codes.
+

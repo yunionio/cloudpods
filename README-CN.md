@@ -92,3 +92,7 @@ Cloudpods是一个开源的Golang实现的云原生的融合多云/混合云的�
 ## License
 
 Apache license 2.0，详情请看 [LICENSE](./LICENSE)。
+
+## AI生成文档
+
+[DeepWiki](https://deepwiki.com/yunionio/cloudpods) 提供了对本项目代码详细和全面的AI解读，可以参考。
