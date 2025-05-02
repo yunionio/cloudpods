@@ -391,7 +391,9 @@ func (sm *STopicManager) InitializeData() error {
 				return errors.Wrapf(err, "unable to update topic %s", topic.Name)
 			}
 		}
-		if isNew {
+		acnt := TopicActionManager.Query().Equals("topic_id", topic.Id).Count()
+		rcnt := TopicResourceManager.Query().Equals("topic_id", topic.Id).Count()
+		if isNew || acnt == 0 || rcnt == 0 {
 			initTopicElement(name, t)
 		}
 	}
