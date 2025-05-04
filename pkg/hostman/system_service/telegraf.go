@@ -18,6 +18,8 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"os"
+	"path"
 	"sort"
 	"strings"
 
@@ -343,7 +345,12 @@ func (s *STelegraf) GetConfig(kwargs map[string]interface{}) string {
 }
 
 func (s *STelegraf) GetConfigFile() string {
-	return "/etc/telegraf/telegraf.conf"
+	defaultTelegrafConfigDir := "/etc/telegraf"
+	telegrafConfigDir := os.Getenv("HOST_TELEGRAF_CONFIG_DIR")
+	if telegrafConfigDir == "" {
+		telegrafConfigDir = defaultTelegrafConfigDir
+	}
+	return path.Join(telegrafConfigDir, "telegraf.conf")
 }
 
 func (s *STelegraf) Reload(kwargs map[string]interface{}) error {
