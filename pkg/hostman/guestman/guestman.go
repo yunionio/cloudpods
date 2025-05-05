@@ -137,7 +137,7 @@ func NewGuestManager(host hostutils.IHost, serversPath string, workerCnt int) (*
 func (m *SGuestManager) InitQemuMaxCpus(machineCaps []monitor.MachineInfo, kvmMaxCpus uint) {
 	m.qemuMachineCpuMax[compute.VM_MACHINE_TYPE_PC] = arch.X86_MAX_CPUS
 	m.qemuMachineCpuMax[compute.VM_MACHINE_TYPE_Q35] = arch.X86_MAX_CPUS
-	m.qemuMachineCpuMax[compute.VM_MACHINE_TYPE_ARM_VIRT] = arch.ARM_MAX_CPUS
+	m.qemuMachineCpuMax[compute.VM_MACHINE_TYPE_VIRT] = arch.ARM_MAX_CPUS
 	if len(machineCaps) == 0 {
 		return
 	}
