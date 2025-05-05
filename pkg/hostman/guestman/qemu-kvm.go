@@ -3646,3 +3646,10 @@ func (s *SKVMGuestInstance) HandleGuestStatus(ctx context.Context, resp *api.Hos
 	hostutils.TaskComplete(ctx, jsonutils.Marshal(resp))
 	return nil, nil
 }
+
+func (s *SKVMGuestInstance) isEnableSpiceStreaming() bool {
+	if s.Desc.Vdi == api.VM_VDI_PROTOCOL_SPICE && s.Desc.VdiOptions != nil && s.Desc.VdiOptions["streaming"] == "true" {
+		return true
+	}
+	return false
+}
