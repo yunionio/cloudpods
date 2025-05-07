@@ -2119,8 +2119,10 @@ func (s *SKVMGuestInstance) DeployFs(ctx context.Context, userCred mcclient.Toke
 	}
 	var sysDisk storageman.IDisk
 	disks := s.Desc.Disks
+	var diskPaths = make([]string, len(disks))
 	for i := range disks {
 		diskPath := disks[i].Path
+		diskPaths[i] = diskPath
 		// GetDiskByPath will probe disks
 		disk, err := storageman.GetManager().GetDiskByPath(diskPath)
 		if err != nil {
@@ -2131,11 +2133,13 @@ func (s *SKVMGuestInstance) DeployFs(ctx context.Context, userCred mcclient.Toke
 			diskInfo.Path = disk.GetPath()
 			sysDisk = disk
 		}
+		disks[i].Path = disk.GetPath()
 	}
 
 	ret, err := sysDisk.DeployGuestFs(&diskInfo, s.Desc, deployInfo)
-	for i := range disks {
-		diskPath := disks[i].Path
+	for i := range diskPaths {
+		diskPath := diskPaths[i]
+		disks[i].Path = diskPath
 		disk, e := storageman.GetManager().GetDiskByPath(diskPath)
 		if e != nil {
 			log.Errorf("failed get disk bypath %s %s", diskPath, e)
