@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
-	"path"
+	"path/filepath"
 	"sort"
 	"strings"
 
@@ -345,12 +345,23 @@ func (s *STelegraf) GetConfig(kwargs map[string]interface{}) string {
 }
 
 func (s *STelegraf) GetConfigFile() string {
+	dir := getTelegrafConfigDir()
+	procutils.NewRemoteCommandAsFarAsPossible("mkdir", "-p", dir).Run()
+	return filepath.Join(dir, "telegraf.conf")
+}
+
+func getTelegrafConfigDir() string {
 	defaultTelegrafConfigDir := "/etc/telegraf"
 	telegrafConfigDir := os.Getenv("HOST_TELEGRAF_CONFIG_DIR")
 	if telegrafConfigDir == "" {
 		telegrafConfigDir = defaultTelegrafConfigDir
 	}
-	return path.Join(telegrafConfigDir, "telegraf.conf")
+	return telegrafConfigDir
+}
+
+func GetTelegrafConfDDir() string {
+	dir := getTelegrafConfigDir()
+	return filepath.Join(dir, "telegraf.d")
 }
 
 func (s *STelegraf) Reload(kwargs map[string]interface{}) error {
