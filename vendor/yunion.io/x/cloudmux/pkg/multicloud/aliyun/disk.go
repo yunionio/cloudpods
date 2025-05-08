@@ -312,12 +312,12 @@ func (self *SRegion) resizeDisk(diskId string, sizeMb int64) error {
 	sizeGb := sizeMb / 1024
 	params := make(map[string]string)
 	params["DiskId"] = diskId
+	params["Type"] = "online"
 	params["NewSize"] = fmt.Sprintf("%d", sizeGb)
 
 	_, err := self.ecsRequest("ResizeDisk", params)
 	if err != nil {
-		log.Errorf("resizing disk (%s) to %d GiB failed: %s", diskId, sizeGb, err)
-		return err
+		return errors.Wrapf(err, "ResizeDisk %d GB", sizeGb)
 	}
 
 	return nil
