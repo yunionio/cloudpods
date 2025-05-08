@@ -49,6 +49,14 @@ func (e *JSONError) Error() string {
 }
 
 func NewJSONError(str []byte, pos int, msg string) *JSONError {
+	if len(str) == 0 {
+		return &JSONError{pos: 0, substr: "", msg: msg}
+	}
+	if pos < 0 {
+		pos = 0
+	} else if pos > len(str)-1 {
+		pos = len(str) - 1
+	}
 	sublen := 10
 	start := pos - sublen
 	end := pos + sublen
@@ -58,7 +66,9 @@ func NewJSONError(str []byte, pos int, msg string) *JSONError {
 	if end > len(str) {
 		end = len(str)
 	}
-	substr := append(str[start:pos], '^')
-	substr = append(substr, str[pos:end]...)
+	substr := make([]byte, end-start+1)
+	copy(substr, str[start:pos])
+	substr[pos-start] = '^'
+	copy(substr[pos-start+1:], str[pos:end])
 	return &JSONError{pos: pos, substr: string(substr), msg: msg}
 }

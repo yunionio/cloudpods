@@ -120,7 +120,6 @@ type SInstance struct {
 	Onboot      bool       `json:"onboot"`
 	Startup     string     `json:"startup,omitempty"`
 	Tablet      bool       `json:"tablet"`
-	Agent       int        `json:"agent"`
 	Memory      int        `json:"memory"`
 	Balloon     int        `json:"balloon"`
 	QemuOs      string     `json:"ostype"`
@@ -496,7 +495,7 @@ func (self *SRegion) GetVmAgentNetworkInterfaces(node string, VmId int) (map[str
 	res := fmt.Sprintf("/nodes/%s/qemu/%d/agent/network-get-interfaces", node, VmId)
 	err := self.getAgent(res, url.Values{}, &intermediates)
 	if err != nil {
-		return nil, errors.Wrap(err, "GetVmAgentNetworkInterfaces")
+		return ipMap, errors.Wrap(err, "GetVmAgentNetworkInterfaces")
 	}
 
 	for _, intermediate := range intermediates {
@@ -615,19 +614,6 @@ func (self *SRegion) GetQemuConfig(node string, VmId int) (*SInstance, error) {
 		config.Sshkeys, _ = url.PathUnescape(vmConfig["sshkeys"].(string))
 	}
 
-	agent := 0
-	if _, ok := vmConfig["agent"]; ok {
-		switch vmConfig["agent"].(type) {
-		case int64:
-			agent = int(vmConfig["agent"].(int64))
-		case string:
-			agentConfList := strings.Split(vmConfig["agent"].(string), ",")
-			agent, _ = strconv.Atoi(agentConfList[0])
-		}
-
-	}
-	config.Agent = agent
-
 	config.PowerState = self.GetVmPowerStatus(node, VmId)
 
 	// Add disks.
@@ -717,7 +703,7 @@ func (self *SRegion) GetQemuConfig(node string, VmId int) (*SInstance, error) {
 	// Add networks.
 	nicNames := []string{}
 	ipMap := make(map[string]string)
-	if config.PowerState == "running" && config.Agent == 1 {
+	if config.PowerState == "running" {
 		ipMap, _ = self.GetVmAgentNetworkInterfaces(node, VmId)
 	}
 
