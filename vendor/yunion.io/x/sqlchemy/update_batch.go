@@ -31,10 +31,15 @@ func (ts *STableSpec) UpdateBatch(data map[string]interface{}, filter map[string
 	params := make([]interface{}, 0, len(data))
 	setter := make([]string, 0, len(data))
 	for k, v := range data {
+		col := ts.ColumnSpec(k)
+		if col == nil {
+			log.Warningf("UpdateBatch: column %s not found", k)
+			continue
+		}
 		setter = append(setter, fmt.Sprintf("%s%s%s = ?", qChar, k, qChar))
-		params = append(params, v)
+		params = append(params, col.ConvertFromValue(v))
 	}
-	conds, condparams := getSQLFilters(filter, qChar)
+	conds, condparams := ts.getSQLFilters(filter, qChar)
 	params = append(params, condparams...)
 
 	buf := strings.Builder{}
@@ -52,7 +57,7 @@ func (ts *STableSpec) UpdateBatch(data map[string]interface{}, filter map[string
 	}
 
 	if DEBUG_SQLCHEMY {
-		log.Infof("Update: %s %s", buf.String(), params)
+		log.Infof("UpdateBATCH: %s %s", buf.String(), params)
 	}
 
 	_, err := ts.Database().Exec(buf.String(), params...)

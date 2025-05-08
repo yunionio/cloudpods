@@ -22,6 +22,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/sortedmap"
@@ -677,4 +678,33 @@ func ParseStream(str []byte, offset int) (JSONObject, int, error) {
 	} else {
 		return nil, i, NewJSONError(str, i, "Empty string")
 	}
+}
+
+func ParseJsonStreams(stream []byte) ([]JSONObject, error) {
+	ret := make([]JSONObject, 0)
+	errs := make([]error, 0)
+	offset := 0
+	for offset < len(stream) {
+		for offset < len(stream) && stream[offset] != '[' && stream[offset] != '{' {
+			offset++
+		}
+		if offset >= len(stream) {
+			break
+		}
+		json, noffset, err := ParseStream(stream, offset)
+		if err != nil {
+			errs = append(errs, errors.Wrapf(err, "jsonutils.ParseStream fail at %d", offset))
+			offset++
+		} else {
+			ret = append(ret, json)
+			offset = noffset
+		}
+	}
+	if len(errs) > 0 && len(ret) == 0 {
+		return nil, errors.NewAggregate(errs)
+	}
+	if len(errs) > 0 {
+		log.Warningf("jsonutils.ParseJsonStreams: %d errors, %s", len(errs), errors.NewAggregate(errs))
+	}
+	return ret, nil
 }
