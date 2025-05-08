@@ -15,6 +15,8 @@
 package compute
 
 import (
+	"os"
+
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/cmd/climc/shell"
@@ -52,17 +54,35 @@ type HostFileUpdateOptions struct {
 	options.BaseIdOptions
 
 	computeapi.HostFileUpdateInput
+
+	File string `json:"file"`
 }
 
 func (opts *HostFileUpdateOptions) Params() (jsonutils.JSONObject, error) {
+	if len(opts.File) > 0 {
+		cont, err := os.ReadFile(opts.File)
+		if err != nil {
+			return nil, err
+		}
+		opts.Content = string(cont)
+	}
 	return jsonutils.Marshal(opts), nil
 }
 
 type HostFileCreateOptions struct {
 	computeapi.HostFileCreateInput
+
+	File string `json:"file"`
 }
 
 func (opts *HostFileCreateOptions) Params() (jsonutils.JSONObject, error) {
+	if len(opts.File) > 0 {
+		cont, err := os.ReadFile(opts.File)
+		if err != nil {
+			return nil, err
+		}
+		opts.Content = string(cont)
+	}
 	return jsonutils.Marshal(opts), nil
 }
 
