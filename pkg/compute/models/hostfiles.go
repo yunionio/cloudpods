@@ -138,3 +138,14 @@ func (manager *SHostFileManager) FetchCustomizeColumns(
 	}
 	return rows
 }
+
+func (hostfile *SHostFile) ValidateDeleteCondition(ctx context.Context, info api.HostFileDetails) error {
+	err := hostfile.SInfrasResourceBase.ValidateDeleteCondition(ctx, jsonutils.Marshal(info))
+	if err != nil {
+		return errors.Wrap(err, "SInfrasResourceBase.ValidateDeleteCondition")
+	}
+	if len(info.Hosts) > 0 {
+		return httperrors.NewNotEmptyError("hostfile is used by hosts")
+	}
+	return nil
+}
