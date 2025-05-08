@@ -204,18 +204,17 @@ func objIdQueryWithTagsOptimized(ctx context.Context, objIdSubQ *sqlchemy.SSubQu
 		if len(tags) == 0 {
 			continue
 		}
+		hashKeys := []string{idField, jsonutils.Marshal(tags).String(), modelName}
+		hash := fmt.Sprintf("%x", md5.Sum([]byte(jsonutils.Marshal(hashKeys).String())))
+		cache := tagsCache.Get(hash)
+		if cache != nil {
+			ids := cache.([]string)
+			ret = append(ret, ids...)
+			continue
+		}
 		objIdQ := objIdSubQ.Query()
 		objIdQ = objIdQ.AppendField(objIdQ.Field(idField))
 		for key, val := range tags {
-			hashKeys := []string{idField, key, modelName}
-			hashKeys = append(hashKeys, val...)
-			hash := fmt.Sprintf("%x", md5.Sum([]byte(jsonutils.Marshal(hashKeys).String())))
-			cache := tagsCache.Get(hash)
-			if cache != nil {
-				ids := cache.([]string)
-				ret = append(ret, ids...)
-				continue
-			}
 			sq := manager.Query("obj_id").Equals("obj_type", modelName).Equals("key", key)
 			if len(val) > 0 {
 				ssq := sq.In("value", val).SubQuery()
@@ -228,13 +227,14 @@ func objIdQueryWithTagsOptimized(ctx context.Context, objIdSubQ *sqlchemy.SSubQu
 				ssq := sq.SubQuery()
 				objIdQ = objIdQ.Join(ssq, sqlchemy.Equals(objIdQ.Field(idField), ssq.Field("obj_id")))
 			}
-			ids, err := FetchIds(objIdQ)
-			if err != nil {
-				continue
-			}
-			ret = append(ret, ids...)
-			tagsCache.AtomicSet(hash, ids)
 		}
+		ids, err := FetchIds(objIdQ.Distinct())
+		if err != nil {
+			log.Errorf("FetchIds %s %v", objIdQ.String(), err)
+			continue
+		}
+		ret = append(ret, ids...)
+		tagsCache.AtomicSet(hash, ids)
 	}
 	return ret
 }
