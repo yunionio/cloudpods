@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/imagetools"
+	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
@@ -237,6 +238,9 @@ func (self *SImage) GetBlockDeviceNames() []string {
 	ret := []string{}
 	for _, dev := range self.BlockDeviceMapping {
 		ret = append(ret, dev.DeviceName)
+		if strings.HasPrefix(dev.DeviceName, "/dev/xvd") && !utils.IsInStringArray("/dev/sda", ret) { // 系统盘是/dev/xvda, 则不能指定devName 为 /dev/sda
+			ret = append(ret, "/dev/sda")
+		}
 	}
 	return ret
 }
