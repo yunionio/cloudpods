@@ -234,6 +234,9 @@ func (nm *SNotificationManager) PerformEventNotify(ctx context.Context, userCred
 			robots[robot] = groupTime
 		}
 	}
+	for _, id := range input.RobotIds {
+		robots[id] = 0
+	}
 
 	var webhookRobots []string
 	realRobot := make(map[string]uint32)
