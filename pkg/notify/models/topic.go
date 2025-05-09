@@ -22,6 +22,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/sets"
 	"yunion.io/x/pkg/utils"
@@ -391,8 +392,11 @@ func (sm *STopicManager) InitializeData() error {
 				return errors.Wrapf(err, "unable to update topic %s", topic.Name)
 			}
 		}
-		acnt := TopicActionManager.Query().Equals("topic_id", topic.Id).Count()
-		rcnt := TopicResourceManager.Query().Equals("topic_id", topic.Id).Count()
+		acnt, rcnt := 0, 0
+		if !gotypes.IsNil(topic) {
+			acnt = TopicActionManager.Query().Equals("topic_id", topic.Id).Count()
+			rcnt = TopicResourceManager.Query().Equals("topic_id", topic.Id).Count()
+		}
 		if isNew || acnt == 0 || rcnt == 0 {
 			initTopicElement(name, t)
 		}
