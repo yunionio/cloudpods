@@ -654,13 +654,7 @@ func (self *SInstance) AttachDisk(ctx context.Context, diskId string) error {
 		return errors.Wrap(err, "GetImage")
 	}
 
-	deviceNames := []string{}
-	// mix in image block device names
-	for i := range img.BlockDeviceMapping {
-		if !utils.IsInStringArray(img.BlockDeviceMapping[i].DeviceName, deviceNames) {
-			deviceNames = append(deviceNames, img.BlockDeviceMapping[i].DeviceName)
-		}
-	}
+	deviceNames := img.GetBlockDeviceNames()
 
 	name, err := NextDeviceName(deviceNames)
 	if err != nil {
