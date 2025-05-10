@@ -666,6 +666,9 @@ func (self *SKVMGuestDriver) RequestSyncConfigOnHost(ctx context.Context, guest 
 	if fw_only, _ := task.GetParams().Bool("fw_only"); fw_only {
 		body.Add(jsonutils.JSONTrue, "fw_only")
 	}
+	if setUefiBootOrder, _ := task.GetParams().Bool("set_uefi_boot_order"); setUefiBootOrder {
+		body.Add(jsonutils.JSONTrue, "set_uefi_boot_order")
+	}
 	url := fmt.Sprintf("%s/servers/%s/sync", host.ManagerUri, guest.Id)
 	header := self.getTaskRequestHeader(task)
 	_, _, err = httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, header, body, false)
