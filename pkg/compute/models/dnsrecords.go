@@ -76,6 +76,8 @@ type SDnsRecord struct {
 	DnsValue   string `width:"256" charset:"ascii" nullable:"false" list:"user" update:"user" create:"required"`
 	TTL        int64  `nullable:"false" list:"user" update:"user" create:"required" json:"ttl"`
 	MxPriority int64  `nullable:"false" list:"user" update:"user" create:"optional"`
+	// cloudflare 特有
+	Proxied tristate.TriState `default:"false" list:"user" create:"optional"`
 
 	// 解析线路类型
 	PolicyType string `width:"36" charset:"ascii" nullable:"false" list:"user" update:"user" create:"optional"`
@@ -491,6 +493,7 @@ func (self *SDnsRecord) syncWithDnsRecord(ctx context.Context, userCred mcclient
 	diff, err := db.Update(self, func() error {
 		self.Name = ext.GetDnsName()
 		self.Enabled = tristate.NewFromBool(ext.GetEnabled())
+		self.Proxied = tristate.NewFromBool(ext.IsProxied())
 		self.Status = ext.GetStatus()
 		self.TTL = ext.GetTTL()
 		self.MxPriority = ext.GetMxPriority()
@@ -525,6 +528,7 @@ func (self *SDnsZone) newFromCloudDnsRecord(ctx context.Context, userCred mcclie
 	record.Name = ext.GetDnsName()
 	record.Status = ext.GetStatus()
 	record.Enabled = tristate.NewFromBool(ext.GetEnabled())
+	record.Proxied = tristate.NewFromBool(ext.IsProxied())
 	record.TTL = ext.GetTTL()
 	record.MxPriority = ext.GetMxPriority()
 	record.DnsType = string(ext.GetDnsType())
