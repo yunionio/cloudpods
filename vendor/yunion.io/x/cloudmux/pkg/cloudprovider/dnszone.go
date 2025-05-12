@@ -539,6 +539,7 @@ type DnsRecord struct {
 	DnsName  string
 	DnsType  TDnsType
 	DnsValue string
+	Proxied  bool
 
 	Enabled     bool
 	Ttl         int64
