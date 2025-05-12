@@ -178,11 +178,11 @@ func (m *SDataSourceManager) GetMeasurementsWithDescriptionInfos(query jsonutils
 	if err != nil {
 		return jsonutils.JSONNull, errors.Wrap(err, "getMeasurementsFromDB")
 	}
-	filterMeasurements, err := m.filterMeasurementsByTime(measurements, query, tagFilter)
+	/*filterMeasurements, err := m.filterMeasurementsByTime(measurements, query, tagFilter)
 	if err != nil {
 		return jsonutils.JSONNull, errors.Wrap(err, "filterMeasurementsByTime error")
-	}
-	filterMeasurements = m.getMetricDescriptions(filterMeasurements)
+	}*/
+	filterMeasurements := m.getMetricDescriptions(measurements)
 	if len(filterMeasurements) != 0 {
 		rtnMeasurements = append(rtnMeasurements, filterMeasurements...)
 	}
