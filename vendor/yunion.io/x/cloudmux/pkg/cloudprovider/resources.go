@@ -1338,6 +1338,7 @@ type ICloudDnsRecord interface {
 
 	GetDnsName() string
 	GetStatus() string
+	IsProxied() bool
 	GetEnabled() bool
 	GetDnsType() TDnsType
 	GetDnsValue() string

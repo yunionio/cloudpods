@@ -12,10 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package compute
+package multicloud
 
-const (
-	DNS_ZONE_STATUS_AVAILABLE = "available" // 可用
-	DNS_ZONE_STATUS_PENDING   = "pending"
-	DNS_ZONE_STATUS_UNKNOWN   = "unknown" // 未知
-)
+type SDnsRecordBase struct {
+}
+
+func (self *SDnsRecordBase) IsProxied() bool {
+	return false
+}
