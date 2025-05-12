@@ -36,6 +36,7 @@ type DnsRecordCreateInput struct {
 	DnsValue   string `json:"dns_value"`
 	TTL        int64  `json:"ttl"`
 	MxPriority int64  `json:"mx_priority"`
+	Proxied    *bool  `json:"proxied"`
 
 	PolicyType  string `json:"policy_type"`
 	PolicyValue string `json:"policy_value"`
@@ -48,6 +49,7 @@ type DnsRecordUpdateInput struct {
 	DnsValue   string `json:"dns_value"`
 	TTL        *int64 `json:"ttl"`
 	MxPriority *int64 `json:"mx_priority"`
+	Proxied    *bool  `json:"proxied"`
 }
 
 type DnsRecordDetails struct {

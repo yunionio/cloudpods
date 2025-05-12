@@ -24,6 +24,7 @@ import (
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
+	"yunion.io/x/cloudmux/pkg/multicloud"
 )
 
 type SDomainRecords struct {
@@ -36,6 +37,7 @@ type SDomainRecords struct {
 
 // https://help.aliyun.com/document_detail/29777.html?spm=a2c4g.11186623.6.666.aa4832307YdopF
 type SDomainRecord struct {
+	multicloud.SDnsRecordBase
 	domain *SDomain
 
 	DomainId   string `json:"DomainId"`
