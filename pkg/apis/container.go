@@ -275,6 +275,8 @@ type ContainerVolumeMountDiskPostOverlay struct {
 	// 合并后要挂载到容器的目录
 	ContainerTargetDir string                                    `json:"container_target_dir"`
 	Image              *ContainerVolumeMountDiskPostImageOverlay `json:"image"`
+	FsUser             *int64                                    `json:"fs_user,omitempty"`
+	FsGroup            *int64                                    `json:"fs_group,omitempty"`
 }
 
 func (o ContainerVolumeMountDiskPostOverlay) IsEqual(input ContainerVolumeMountDiskPostOverlay) bool {

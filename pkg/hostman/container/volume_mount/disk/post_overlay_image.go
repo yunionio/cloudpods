@@ -61,6 +61,8 @@ func (i postOverlayImage) convertToDiskOV(ov *apis.ContainerVolumeMountDiskPostO
 	return &apis.ContainerVolumeMountDiskPostOverlay{
 		HostLowerDir:       []string{hostPath},
 		ContainerTargetDir: ctrPath,
+		FsUser:             ov.FsUser,
+		FsGroup:            ov.FsGroup,
 	}
 }
 
