@@ -47,12 +47,19 @@ func ChangeDirOwner(pod IPodInfo, drv IVolumeMount, ctrId string, vol *hostapi.C
 	if err != nil {
 		return errors.Wrap(err, "GetRuntimeMountHostPath")
 	}
+	return ChangeDirOwnerDirectly(hostPath, vol.FsUser, vol.FsGroup)
+}
+
+func ChangeDirOwnerDirectly(hostPath string, fsUser, fsGroup *int64) error {
 	args := ""
-	if vol.FsUser != nil {
-		args = fmt.Sprintf("%d", *vol.FsUser)
+	if fsUser != nil {
+		args = fmt.Sprintf("%d", *fsUser)
 	}
-	if vol.FsGroup != nil {
-		args = fmt.Sprintf("%s:%d", args, *vol.FsGroup)
+	if fsGroup != nil {
+		args = fmt.Sprintf("%s:%d", args, *fsGroup)
+	}
+	if args == "" {
+		return nil
 	}
 	out, err := procutils.NewRemoteCommandAsFarAsPossible("chown", args, hostPath).Output()
 	if err != nil {

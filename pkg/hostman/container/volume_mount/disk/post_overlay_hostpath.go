@@ -54,9 +54,15 @@ func (p postOverlayHostPath) Mount(d diskPostOverlay, pod volume_mount.IPodInfo,
 		return errors.Wrapf(err, "get post overlay mountpoint for container %s", ctrId)
 	}
 
-	return mountutils.MountOverlayWithFeatures(ov.HostLowerDir, upperDir, workDir, mergedDir, &mountutils.MountOverlayFeatures{
+	if err := mountutils.MountOverlayWithFeatures(ov.HostLowerDir, upperDir, workDir, mergedDir, &mountutils.MountOverlayFeatures{
 		MetaCopy: true,
-	})
+	}); err != nil {
+		return errors.Wrapf(err, "mount overlay dir for container %s", ctrId)
+	}
+	if err := volume_mount.ChangeDirOwnerDirectly(mergedDir, ov.FsUser, ov.FsGroup); err != nil {
+		return errors.Wrapf(err, "change dir owner")
+	}
+	return nil
 }
 
 func (p postOverlayHostPath) Unmount(d diskPostOverlay, pod volume_mount.IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount, ov *apis.ContainerVolumeMountDiskPostOverlay, useLazy bool, cleanLayers bool) error {
