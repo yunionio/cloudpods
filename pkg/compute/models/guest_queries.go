@@ -71,7 +71,15 @@ func (manager *SGuestManager) FetchCustomizeColumns(
 		gds := fetchGuestDisksInfo(guestIds)
 		if gds != nil {
 			for i := range rows {
-				rows[i].DisksInfo, _ = gds[guestIds[i]]
+				rows[i].DisksInfo = []api.GuestDiskInfo{}
+				if disks, ok := gds[guestIds[i]]; ok {
+					for j := range disks {
+						if len(rows[i].ManagerId) > 0 {
+							disks[j].Iops = disks[j].DiskIops
+						}
+						rows[i].DisksInfo = append(rows[i].DisksInfo, disks[j].GuestDiskInfo)
+					}
+				}
 				rows[i].DiskCount = len(rows[i].DisksInfo)
 				shortDescs := []string{}
 				for _, info := range rows[i].DisksInfo {
@@ -368,12 +376,17 @@ type sGustDiskSize struct {
 	DiskCount  int
 }
 
-type sGuestDiskInfo struct {
+type GuestDiskInfo struct {
+	DiskIops int
 	api.GuestDiskInfo
+}
+
+type sGuestDiskInfo struct {
+	GuestDiskInfo
 	GuestId string
 }
 
-func fetchGuestDisksInfo(guestIds []string) map[string][]api.GuestDiskInfo {
+func fetchGuestDisksInfo(guestIds []string) map[string][]GuestDiskInfo {
 	disks := DiskManager.Query().SubQuery()
 	guestdisks := GuestdiskManager.Query().SubQuery()
 	storages := StorageManager.Query().SubQuery()
@@ -392,6 +405,8 @@ func fetchGuestDisksInfo(guestIds []string) map[string][]api.GuestDiskInfo {
 		storages.Field("medium_type"),
 		storages.Field("storage_type"),
 		guestdisks.Field("iops"),
+		disks.Field("iops").Label("disk_iops"),
+		disks.Field("throughput"),
 		guestdisks.Field("bps"),
 		disks.Field("template_id").Label("image_id"),
 		guestdisks.Field("guest_id"),
@@ -405,17 +420,18 @@ func fetchGuestDisksInfo(guestIds []string) map[string][]api.GuestDiskInfo {
 	gds := []sGuestDiskInfo{}
 	err := q.All(&gds)
 	if err != nil {
+		log.Errorf("fetchGuestDisksInfo: %v", err)
 		return nil
 	}
 	imageIds := []string{}
-	ret := map[string][]api.GuestDiskInfo{}
+	ret := map[string][]GuestDiskInfo{}
 	for i := range gds {
 		if len(gds[i].ImageId) > 0 {
 			imageIds = append(imageIds, gds[i].ImageId)
 		}
 		_, ok := ret[gds[i].GuestId]
 		if !ok {
-			ret[gds[i].GuestId] = []api.GuestDiskInfo{}
+			ret[gds[i].GuestId] = []GuestDiskInfo{}
 		}
 		ret[gds[i].GuestId] = append(ret[gds[i].GuestId], gds[i].GuestDiskInfo)
 	}
