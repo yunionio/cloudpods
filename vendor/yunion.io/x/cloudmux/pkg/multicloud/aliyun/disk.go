@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
+	billing_api "yunion.io/x/cloudmux/pkg/apis/billing"
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
@@ -157,6 +158,27 @@ func (self *SDisk) Delete(ctx context.Context) error {
 
 func (self *SDisk) Resize(ctx context.Context, sizeMb int64) error {
 	return self.storage.zone.region.resizeDisk(self.DiskId, sizeMb)
+}
+
+func (self *SDisk) ChangeBillingType(billingType string) error {
+	return self.storage.zone.region.ChangeDiskChargeType(self.InstanceId, self.DiskId, billingType)
+}
+
+func (self *SRegion) ChangeDiskChargeType(vmId, diskId string, billingType string) error {
+	params := make(map[string]string)
+	params["RegionId"] = self.RegionId
+	params["DiskIds"] = jsonutils.Marshal([]string{diskId}).String()
+	switch billingType {
+	case billing_api.BILLING_TYPE_POSTPAID:
+		params["DiskChargeType"] = "PostPaid"
+	case billing_api.BILLING_TYPE_PREPAID:
+		params["DiskChargeType"] = "PrePaid"
+	}
+	params["AutoPay"] = "true"
+	params["ClientToken"] = utils.GenRequestId(20)
+	params["InstanceId"] = vmId
+	_, err := self.ecsRequest("ModifyDiskChargeType", params)
+	return err
 }
 
 func (self *SDisk) GetName() string {

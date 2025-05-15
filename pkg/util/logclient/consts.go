@@ -74,7 +74,6 @@ const (
 	ACT_VM_SETSECGROUP               = "vm_setsecgroup"
 	ACT_VM_CPUSET                    = "vm_cpuset"
 	ACT_VM_CPUSET_REMOVE             = "vm_cpuset_remove"
-	ACT_VM_CHANGE_BILLING_TYPE       = "vm_change_billing_type"
 	ACT_RESET_DISK                   = "reset_disk"
 	ACT_SYNC_STATUS                  = "sync_status"
 	ACT_SYNC_CONF                    = "sync_conf"
@@ -112,6 +111,7 @@ const (
 	ACT_VM_CONVERT                   = "vm_convert"
 	ACT_FREEZE                       = "freeze"
 	ACT_UNFREEZE                     = "unfreeze"
+	ACT_CHANGE_BILLING_TYPE          = "change_billing_type"
 	// 到期释放
 	ACT_SET_EXPIRED_TIME        = "set_expired_time"
 	ACT_VM_SYNC_ISOLATED_DEVICE = "vm_sync_isolated_device"
