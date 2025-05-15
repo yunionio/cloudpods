@@ -340,3 +340,11 @@ type DiskSnapshotpolicyInput struct {
 }
 
 type DiskRebuildInput struct{}
+
+type DiskChangeBillingTypeInput struct {
+	// 仅在磁盘挂载在虚拟机上时调用
+	// 目前支持阿里云
+	// enmu: [postpaid, prepaid]
+	// required: true
+	BillingType string `json:"billing_type"`
+}

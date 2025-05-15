@@ -6309,7 +6309,7 @@ func (g *SGuest) PerformChangeBillingType(ctx context.Context, userCred mcclient
 }
 
 func (self *SGuest) StartChangeBillingTypeTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
-	self.SetStatus(ctx, userCred, api.VM_CHANGE_BILLING_TYPE, "")
+	self.SetStatus(ctx, userCred, apis.STATUS_CHANGE_BILLING_TYPE, "")
 	kwargs := jsonutils.NewDict()
 	task, err := taskman.TaskManager.NewTask(ctx, "GuestChangeBillingTypeTask", self, userCred, kwargs, parentTaskId, "", nil)
 	if err != nil {

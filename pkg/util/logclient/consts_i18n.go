@@ -1533,7 +1533,7 @@ func init() {
 		EN("Set Commit Bound").
 		CN("设置超售比"),
 	)
-	o.Set(ACT_VM_CHANGE_BILLING_TYPE, i18n.NewTableEntry().
+	o.Set(ACT_CHANGE_BILLING_TYPE, i18n.NewTableEntry().
 		EN("Change Billing Type").
 		CN("更改计费模式"),
 	)
