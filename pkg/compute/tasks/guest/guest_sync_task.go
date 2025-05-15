@@ -108,7 +108,7 @@ func (self *GuestSyncConfTask) StartRestartNetworkTask(ctx context.Context, gues
 		if err != nil {
 			return err
 		}
-		err = drv.QgaRequestGuestPing(ctx, self.GetTaskRequestHeader(), host, guest, false, &api.ServerQgaTimeoutInput{Timeout: 1000})
+		err = drv.QgaRequestGuestPing(ctx, self.GetTaskRequestHeader(), host, guest, false, &api.ServerQgaTimeoutInput{Timeout: 1})
 		if err != nil {
 			return errors.Wrap(err, "qga guest-ping")
 		}
