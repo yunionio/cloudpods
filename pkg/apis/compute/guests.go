@@ -1172,7 +1172,7 @@ type ServerQgaGetNetworkInput struct {
 }
 
 type ServerQgaTimeoutInput struct {
-	// qga execute timeout millisecond
+	// qga execute timeout second
 	Timeout int
 }
 
