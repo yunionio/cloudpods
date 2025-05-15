@@ -3339,3 +3339,29 @@ func (disk *SDisk) resetDiskinfo(
 	db.OpsLog.LogEvent(disk, db.ACT_UPDATE, notes, userCred)
 	return nil
 }
+
+func (disk *SDisk) PerformChangeBillingType(ctx context.Context, userCred mcclient.TokenCredential, _ jsonutils.JSONObject, input *api.DiskChangeBillingTypeInput) (jsonutils.JSONObject, error) {
+	if !utils.IsInStringArray(disk.Status, []string{api.DISK_READY}) {
+		return nil, httperrors.NewServerStatusError("Cannot change disk billing type in status %s", disk.Status)
+	}
+	if len(input.BillingType) == 0 {
+		return nil, httperrors.NewMissingParameterError("billing_type")
+	}
+	if !utils.IsInStringArray(input.BillingType, []string{billing_api.BILLING_TYPE_POSTPAID, billing_api.BILLING_TYPE_PREPAID}) {
+		return nil, httperrors.NewInputParameterError("invalid billing_type %s", input.BillingType)
+	}
+	if disk.BillingType == input.BillingType {
+		return nil, nil
+	}
+	return nil, disk.StartChangeBillingTypeTask(ctx, userCred, "")
+}
+
+func (disk *SDisk) StartChangeBillingTypeTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
+	disk.SetStatus(ctx, userCred, apis.STATUS_CHANGE_BILLING_TYPE, "")
+	kwargs := jsonutils.NewDict()
+	task, err := taskman.TaskManager.NewTask(ctx, "DiskChangeBillingTypeTask", disk, userCred, kwargs, parentTaskId, "", nil)
+	if err != nil {
+		return err
+	}
+	return task.ScheduleRun(nil)
+}

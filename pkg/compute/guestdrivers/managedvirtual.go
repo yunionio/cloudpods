@@ -484,7 +484,7 @@ func (drv *SManagedVirtualizedGuestDriver) RequestStartOnHost(ctx context.Contex
 		if guest.BillingType == billing_api.BILLING_TYPE_POSTPAID && jsonutils.QueryBoolean(task.GetParams(), "auto_prepaid", false) {
 			err = ivm.ChangeBillingType(billing_api.BILLING_TYPE_PREPAID)
 			if err != nil && errors.Cause(err) != cloudprovider.ErrNotImplemented {
-				logclient.AddSimpleActionLog(guest, logclient.ACT_VM_CHANGE_BILLING_TYPE, errors.Wrapf(err, billing_api.BILLING_TYPE_PREPAID), userCred, false)
+				logclient.AddSimpleActionLog(guest, logclient.ACT_CHANGE_BILLING_TYPE, errors.Wrapf(err, billing_api.BILLING_TYPE_PREPAID), userCred, false)
 			}
 		}
 
@@ -985,7 +985,7 @@ func (drv *SManagedVirtualizedGuestDriver) RequestStopOnHost(ctx context.Context
 			if opts.StopCharging && guest.BillingType == billing_api.BILLING_TYPE_PREPAID {
 				err = ivm.ChangeBillingType(billing_api.BILLING_TYPE_POSTPAID)
 				if err != nil && errors.Cause(err) != cloudprovider.ErrNotImplemented {
-					logclient.AddSimpleActionLog(guest, logclient.ACT_VM_CHANGE_BILLING_TYPE, errors.Wrapf(err, billing_api.BILLING_TYPE_POSTPAID), task.GetUserCred(), false)
+					logclient.AddSimpleActionLog(guest, logclient.ACT_CHANGE_BILLING_TYPE, errors.Wrapf(err, billing_api.BILLING_TYPE_POSTPAID), task.GetUserCred(), false)
 				}
 			}
 
