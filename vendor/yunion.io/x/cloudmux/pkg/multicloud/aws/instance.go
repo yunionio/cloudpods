@@ -246,11 +246,14 @@ func (self *SInstance) GetStatus() string {
 }
 
 func (self *SInstance) Refresh() error {
-	new, err := self.host.zone.region.GetInstance(self.InstanceId)
+	vm, err := self.host.zone.region.GetInstance(self.InstanceId)
 	if err != nil {
 		return err
 	}
-	return jsonutils.Update(self, new)
+	self.BlockDeviceMappings = nil
+	self.NetworkInterfaces = nil
+	self.SecurityGroups = nil
+	return jsonutils.Update(self, vm)
 }
 
 func (self *SInstance) GetInstanceType() string {
@@ -654,7 +657,17 @@ func (self *SInstance) AttachDisk(ctx context.Context, diskId string) error {
 		return errors.Wrap(err, "GetImage")
 	}
 
+	err = self.Refresh()
+	if err != nil {
+		return err
+	}
+
 	deviceNames := img.GetBlockDeviceNames()
+	for _, dev := range self.BlockDeviceMappings {
+		if dev.DeviceName != nil && len(*dev.DeviceName) > 0 {
+			deviceNames = append(deviceNames, *dev.DeviceName)
+		}
+	}
 
 	name, err := NextDeviceName(deviceNames)
 	if err != nil {
