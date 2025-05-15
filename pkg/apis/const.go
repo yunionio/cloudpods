@@ -58,6 +58,10 @@ const (
 	STATUS_AVAILABLE     = "available"
 	STATUS_CREATE_FAILED = "create_failed"
 
+	// 更改计费模式
+	STATUS_CHANGE_BILLING_TYPE        = "change_billing_type"
+	STATUS_CHANGE_BILLING_TYPE_FAILED = "change_billing_type_failed"
+
 	CLOUD_TAG_PREFIX     = "ext:"
 	USER_TAG_PREFIX      = "user:"
 	SYS_CLOUD_TAG_PREFIX = "sys:"
