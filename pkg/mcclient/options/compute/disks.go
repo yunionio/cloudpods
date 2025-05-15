@@ -127,3 +127,16 @@ func (opts *DiskListOptions) Params() (jsonutils.JSONObject, error) {
 	}
 	return params, nil
 }
+
+type DiskChangeBillingTypeOptions struct {
+	ID          string
+	BillingType string `choices:"prepaid|postpaid"`
+}
+
+func (o *DiskChangeBillingTypeOptions) GetId() string {
+	return o.ID
+}
+
+func (o *DiskChangeBillingTypeOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(map[string]string{"billing_type": o.BillingType}), nil
+}

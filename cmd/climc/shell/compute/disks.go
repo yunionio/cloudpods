@@ -45,6 +45,7 @@ func init() {
 	cmd.Perform("set-class-metadata", &options.ResourceMetadataOptions{})
 	cmd.Perform("rebuild", &options.ResourceIdOptions{})
 	cmd.Perform("migrate", &compute_options.DiskMigrateOptions{})
+	cmd.Perform("change-billing-type", new(compute_options.DiskChangeBillingTypeOptions))
 
 	type DiskDetailOptions struct {
 		ID string `help:"ID or Name of disk"`

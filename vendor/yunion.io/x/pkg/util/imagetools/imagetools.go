@@ -183,7 +183,7 @@ var imageVersions = map[string][]string{
 
 	OS_DIST_ALIBABA_CLOUD_LINUX: {"2.1903", "3.2104"},
 	OS_DIST_ANOLIS:              {"7.9", "8.2", "8.4"},
-	OS_DIST_ROCKY_LINUX:         {"8.5", "8.6", "8.7", "8.8", "8.9", "8.10", "9.0", "9.1", "9.2", "9.3", "9.4"},
+	OS_DIST_ROCKY_LINUX:         {"8.5", "8.6", "8.7", "8.8", "8.9", "8.10", "9.0", "9.1", "9.2", "9.3", "9.4", "9.5"},
 	OS_DIST_FEDORA:              {"33", "34", "35"},
 	OS_DIST_ALMA_LINUX:          {"8.5"},
 	OS_DIST_AMAZON_LINUX:        {"2023", "2"},
