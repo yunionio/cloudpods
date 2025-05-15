@@ -2616,9 +2616,8 @@ func (manager *SDiskManager) FetchCustomizeColumns(
 			rows[i].Brand = "Unknown"
 			rows[i].Provider = "Unknown"
 		}
-		if len(rows[i].ExternalId) == 0 {
-			//rows[i].Iops = iops
-			//rows[i].Throughput = bps
+		// 仅kvm使用
+		if len(rows[i].ManagerId) == 0 {
 			disk.Iops = iops
 			disk.Throughput = bps
 		}
