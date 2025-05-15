@@ -363,6 +363,7 @@ type GuestDiskInfo struct {
 	MediumType    string `json:"medium_type"`
 	StorageType   string `json:"storage_type"`
 	Iops          int    `json:"iops"`
+	Throughput    int    `json:"throughput"`
 	Bps           int    `json:"bps"`
 	ImageId       string `json:"image_id,omitempty"`
 	Image         string `json:"image,omitemtpy"`
