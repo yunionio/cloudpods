@@ -615,11 +615,34 @@ type SGuestNetworkSyncTask struct {
 	addNics []*desc.SGuestNetwork
 	errors  []error
 
+	addNicMacs  []string
+	addNicConfs []*monitor.NetworkModify
+
 	callback func(...error)
 }
 
 func (n *SGuestNetworkSyncTask) Start(callback func(...error)) {
 	n.callback = callback
+	if len(n.addNics) > 0 {
+		nics := make([]*desc.SGuestNetwork, 0)
+		nics = append(nics, n.guest.Desc.Nics...)
+		nics = append(nics, n.addNics...)
+		if err := n.guest.QgaAddNicsConfigure(nics); err != nil {
+			log.Errorf("QgaAddNicsConfigure failed %s", err)
+		} else {
+			addNicMacs := make([]string, 0)
+			addNicConfs := make([]*monitor.NetworkModify, 0)
+			for i := range n.addNics {
+				addNicMacs = append(addNicMacs, n.addNics[i].Mac)
+				addNicConfs = append(addNicConfs, &monitor.NetworkModify{
+					Ipmask:  fmt.Sprintf("%s/%d", n.addNics[i].Ip, n.addNics[i].Masklen),
+					Gateway: n.addNics[i].Gateway,
+				})
+			}
+			n.addNicMacs = addNicMacs
+			n.addNicConfs = addNicConfs
+		}
+	}
 	n.syncNetworkConf()
 }
 
@@ -633,8 +656,57 @@ func (n *SGuestNetworkSyncTask) syncNetworkConf() {
 		n.addNics = n.addNics[:len(n.addNics)-1]
 		n.addNic(nic)
 	} else {
+		if len(n.addNicMacs) > 0 {
+			// try restart added nics, wait for added nic ready
+			time.Sleep(3 * time.Second)
+			if err := n.qgaRestartAddedNics(); err != nil {
+				log.Errorf("failed qgaRestartAddedNics")
+			}
+		}
+
 		n.callback(n.errors...)
 	}
+}
+
+func (n *SGuestNetworkSyncTask) qgaRestartAddedNics() error {
+	err := n.qgaGetAddedNicDevs()
+	if err != nil {
+		return err
+	}
+	for i := range n.addNicConfs {
+		if n.addNicConfs[i].Device != "" {
+			err = n.guest.guestAgent.QgaRestartNetwork(n.addNicConfs[i])
+			if err != nil {
+				log.Errorf("Failed QgaRestartNetwork %s %s", n.addNicConfs[i].Device, err)
+			}
+		}
+	}
+	return nil
+}
+
+func (n *SGuestNetworkSyncTask) qgaGetAddedNicDevs() error {
+	data, err := n.guest.guestAgent.QgaGetNetwork()
+	if err != nil {
+		return errors.Wrap(err, "QgaGetNetwork")
+	}
+	var parsedData []api.IfnameDetail
+	ifnames, err := jsonutils.Parse(data)
+	if err != nil {
+		return errors.Wrapf(err, "parse qga network output %s", data)
+	}
+	err = ifnames.Unmarshal(&parsedData)
+	if err != nil {
+		return errors.Wrap(err, "unmarshal ifnames")
+	}
+	for i := range n.addNicMacs {
+		for j := range parsedData {
+			if n.addNicMacs[i] == parsedData[j].HardwareAddress {
+				n.addNicConfs[i].Device = parsedData[j].Name
+				break
+			}
+		}
+	}
+	return nil
 }
 
 func (n *SGuestNetworkSyncTask) removeNic(nic *desc.SGuestNetwork) {
@@ -794,7 +866,7 @@ func (n *SGuestNetworkSyncTask) onDeviceAdd(nic *desc.SGuestNetwork) {
 func NewGuestNetworkSyncTask(
 	guest *SKVMGuestInstance, delNics, addNics []*desc.SGuestNetwork,
 ) *SGuestNetworkSyncTask {
-	return &SGuestNetworkSyncTask{guest, delNics, addNics, make([]error, 0), nil}
+	return &SGuestNetworkSyncTask{guest, delNics, addNics, make([]error, 0), nil, nil, nil}
 }
 
 /**
