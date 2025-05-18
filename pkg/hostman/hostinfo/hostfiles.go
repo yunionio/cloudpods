@@ -26,6 +26,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/system_service"
+	computemodules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/util/apparmorutils"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
@@ -61,6 +62,10 @@ func (h *SHostInfo) saveHostFiles(hostfiles []api.SHostFile) error {
 		return errors.Wrap(err, "os.WriteFile")
 	}
 	return nil
+}
+
+func (h *SHostInfo) clearHostFiles() error {
+	return os.Remove(options.HostOptions.HostFilesPath)
 }
 
 type hostFilePaire struct {
@@ -114,6 +119,22 @@ func (h *SHostInfo) OnHostFilesChanged(hostfiles []api.SHostFile) error {
 	}
 
 	return nil
+}
+
+func (h *SHostInfo) initHostFiles() error {
+	hostFilesObj, err := computemodules.Hosts.GetSpecific(h.GetSession(), h.GetId(), "host-files", nil)
+	if err != nil {
+		return errors.Wrap(err, "computemodules.Hosts.GetSpecific")
+	}
+	hostFiles := []api.SHostFile{}
+	err = hostFilesObj.Unmarshal(&hostFiles, "host_files")
+	if err != nil {
+		return errors.Wrap(err, "Unmarshal")
+	}
+	if err := h.clearHostFiles(); err != nil {
+		return errors.Wrap(err, "clearHostFiles")
+	}
+	return h.OnHostFilesChanged(hostFiles)
 }
 
 func handleHostFileChanged(pair *hostFilePaire) error {

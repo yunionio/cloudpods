@@ -210,3 +210,18 @@ func fetchHostFilesHosts(hostFileIds []string) (map[string][]string, error) {
 
 	return hostFiles, nil
 }
+
+func (host *SHost) GetDetailsHostFiles(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+) (jsonutils.JSONObject, error) {
+	hostFiles, err := host.getHostFiles()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetHostFiles")
+	}
+
+	hostFilesObj := jsonutils.NewDict()
+	hostFilesObj.Add(jsonutils.Marshal(hostFiles), "host_files")
+	return hostFilesObj, nil
+}

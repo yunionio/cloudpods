@@ -94,6 +94,9 @@ func init() {
 			fmt.Println("error", err)
 		}
 	}, &options.BaseIdOptions{})
+	cmd.GetWithCustomShow("host-files", func(data jsonutils.JSONObject) {
+		printObject(data)
+	}, &options.BaseIdOptions{})
 
 	R(&compute.HostShowOptions{}, "host-show", "Show details of a host", func(s *mcclient.ClientSession, args *compute.HostShowOptions) error {
 		params, err := args.Params()

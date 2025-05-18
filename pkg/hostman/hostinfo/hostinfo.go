@@ -1216,6 +1216,11 @@ func (h *SHostInfo) register() {
 		h.onFail(errors.Wrap(err, "finalizeNetworkSetup"))
 		return
 	}
+	if err := h.initHostFiles(); err != nil {
+		log.Errorf("initHostFiles failed: %s", err)
+	} else {
+		log.Infof("initHostFiles success")
+	}
 	h.deployAdminAuthorizedKeys()
 	h.onSucc()
 }
