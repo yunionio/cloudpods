@@ -12,8 +12,4 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package handler
-
-import (
-	_ "yunion.io/x/onecloud/pkg/mcclient/modules/loader"
-)
+package loader // import "yunion.io/x/onecloud/pkg/mcclient/modules/loader"

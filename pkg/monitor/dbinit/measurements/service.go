@@ -38,3 +38,19 @@ var worker = SMeasurement{
 		},
 	},
 }
+
+var statusProbe = SMeasurement{
+	Context: []SMonitorContext{
+		{
+			"status_probe", "Resource status probe results", monitor.METRIC_RES_TYPE_SYSTEM, monitor.METRIC_DATABASE_SYSTEM,
+		},
+	},
+	Metrics: []SMetric{
+		{
+			"count", "Resouce count for each status", monitor.METRIC_UNIT_NULL,
+		},
+		{
+			"pending_deleted", "Pending deleted resource count for each status", monitor.METRIC_UNIT_NULL,
+		},
+	},
+}

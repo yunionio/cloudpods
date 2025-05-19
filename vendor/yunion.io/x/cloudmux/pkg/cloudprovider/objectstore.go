@@ -1154,6 +1154,11 @@ func DownloadObjectParallelWithProgress(ctx context.Context, bucket ICloudBucket
 		blocksz = MAX_PUT_OBJECT_SIZEBYTES
 	}
 	sizeBytes := obj.GetSizeBytes()
+	if sizeBytes < 0 {
+		return 0, errors.Wrapf(errors.ErrServer, "object size is negative (%d)", sizeBytes)
+	} else if sizeBytes == 0 {
+		return 0, nil
+	}
 	if rangeOpt == nil {
 		rangeOpt = &SGetObjectRange{
 			Start: 0,
