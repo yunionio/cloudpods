@@ -15,12 +15,16 @@
 package compute
 
 import (
+	"context"
 	"fmt"
 	"io"
+	"math/rand"
 	"net/http"
 	"strconv"
+	"time"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
+	_ "yunion.io/x/cloudmux/pkg/multicloud/objectstore/provider"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/httputils"
 
@@ -80,4 +84,68 @@ func init() {
 	}
 
 	modules.RegisterCompute(&Buckets)
+}
+
+func GetIBucket(ctx context.Context, sess *mcclient.ClientSession, bucketDetails *api.BucketDetails) (cloudprovider.ICloudBucket, error) {
+	provider, err := Cloudproviders.GetProvider(ctx, sess, bucketDetails.ManagerId)
+	if err != nil {
+		return nil, errors.Wrap(err, "computemodules.Cloudproviders.GetProvider")
+	}
+
+	iregion, err := func() (cloudprovider.ICloudRegion, error) {
+		if provider.GetFactory().IsOnPremise() {
+			return provider.GetOnPremiseIRegion()
+		} else {
+			return provider.GetIRegionById(bucketDetails.RegionExternalId)
+		}
+	}()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetIRegion")
+	}
+
+	bucket, err := iregion.GetIBucketById(bucketDetails.ExternalId)
+	if err != nil {
+		return nil, errors.Wrap(err, "iregion.GetIBucketById")
+	}
+
+	return bucket, nil
+}
+
+type nullWriter struct{}
+
+func (w *nullWriter) WriteAt(p []byte, off int64) (n int, err error) {
+	return len(p), nil
+}
+
+func getRandReader() io.Reader {
+	return rand.New(rand.NewSource(time.Now().UnixNano()))
+}
+
+func ProbeBucketStats(ctx context.Context, bucket cloudprovider.ICloudBucket, testKey string, sizeBytes int64) (*api.BucketProbeResult, error) {
+	result := &api.BucketProbeResult{}
+	start := time.Now()
+
+	// force upload object in one shot
+	err := cloudprovider.UploadObject(ctx, bucket, testKey, sizeBytes*2, getRandReader(), sizeBytes, cloudprovider.ACLPrivate, "", nil, false)
+	if err != nil {
+		return nil, errors.Wrap(err, "cloudprovider.UploadObject")
+	}
+
+	result.UploadTime = time.Since(start)
+
+	_, err = cloudprovider.DownloadObjectParallel(ctx, bucket, testKey, nil, &nullWriter{}, 0, 0, false, 1)
+	if err != nil {
+		return nil, errors.Wrap(err, "cloudprovider.DownloadObjectParallel")
+	}
+
+	result.DownloadTime = time.Since(start) - result.UploadTime
+
+	err = bucket.DeleteObject(ctx, testKey)
+	if err != nil {
+		return nil, errors.Wrap(err, "bucket.DeleteObject")
+	}
+
+	result.DeleteTime = time.Since(start) - result.DownloadTime
+
+	return result, nil
 }

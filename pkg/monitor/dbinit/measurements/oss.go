@@ -60,3 +60,41 @@ var ossReq = SMeasurement{
 		},
 	},
 }
+
+var ossPerfMon = SMeasurement{
+	Context: []SMonitorContext{
+		{
+			Name:         "bucket_perf",
+			DisplayName:  "Object storage bucket performance monitor",
+			ResourceType: monitor.METRIC_RES_TYPE_OSS,
+			Database:     monitor.METRIC_DATABASE_TELE,
+		},
+	},
+	Metrics: []SMetric{
+		{
+			Name:        "upload_delay_ms",
+			DisplayName: "Bucket upload delay in milliseconds",
+			Unit:        monitor.METRIC_UNIT_MS,
+		},
+		{
+			Name:        "download_delay_ms",
+			DisplayName: "Bucket download delay in milliseconds",
+			Unit:        monitor.METRIC_UNIT_MS,
+		},
+		{
+			Name:        "delete_delay_ms",
+			DisplayName: "Bucket delete delay in milliseconds",
+			Unit:        monitor.METRIC_UNIT_MS,
+		},
+		{
+			Name:        "upload_rate_mbps",
+			DisplayName: "Bucket upload rate in megabits per second",
+			Unit:        monitor.METRIC_UNIT_MBPS,
+		},
+		{
+			Name:        "download_rate_mbps",
+			DisplayName: "Bucket download rate in megabits per second",
+			Unit:        monitor.METRIC_UNIT_MBPS,
+		},
+	},
+}

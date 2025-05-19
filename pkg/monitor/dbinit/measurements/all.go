@@ -35,6 +35,7 @@ var All = []SMeasurement{
 	serviceHttpCode,
 	serviceProcessStats,
 	dbStats,
+	statusProbe,
 
 	vmCpu,
 	vmMem,
@@ -83,6 +84,7 @@ var All = []SMeasurement{
 	ossLatency,
 	ossNetio,
 	ossReq,
+	ossPerfMon,
 
 	ping,
 
