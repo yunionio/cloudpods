@@ -27,6 +27,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/appctx"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/qemuimgfmt"
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/apis"
@@ -40,6 +41,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/losetup"
+	"yunion.io/x/onecloud/pkg/util/mountutils"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
@@ -127,6 +129,9 @@ func (d *SLocalDisk) UmountFuseImage() {
 func (d *SLocalDisk) Delete(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
 	p := params.(api.DiskDeleteInput)
 	dpath := d.GetPath()
+	if err := d.cleanLoopDevice(dpath); err != nil {
+		return nil, errors.Wrapf(err, "clean loop device")
+	}
 	log.Infof("Delete guest disk %s", dpath)
 	if err := d.Storage.DeleteDiskfile(dpath, p.SkipRecycle != nil && *p.SkipRecycle); err != nil {
 		return nil, err
@@ -329,6 +334,47 @@ func (d *SLocalDisk) CreateFromUrl(ctx context.Context, url string, size int64, 
 		if err != nil {
 			log.Errorf("fallocate fail %s", err)
 		}
+	}
+	return nil
+}
+
+func (d *SLocalDisk) cleanLoopDevice(diskPath string) error {
+	diskFmt, _ := d.GetFormat()
+	if diskFmt != string(qemuimgfmt.RAW) {
+		return nil
+	}
+	devs, err := losetup.ListDevices()
+	if err != nil {
+		return errors.Wrap(err, "list devices fail")
+	}
+	dev := devs.GetDeviceByFile(diskPath)
+	if dev == nil {
+		return nil
+	}
+	drv, _ := d.GetContainerStorageDriver()
+	if drv == nil {
+		return nil
+	}
+	devPart := fmt.Sprintf("%sp1", dev.Name)
+	cmd := fmt.Sprintf("mount | grep %s | awk '{print $3}'", devPart)
+	out, err := procutils.NewRemoteCommandAsFarAsPossible("sh", "-c", cmd).Output()
+	if err != nil {
+		return errors.Wrapf(err, "exec cmd %s: %s", cmd, out)
+	}
+	mntPoints := strings.Split(string(out), "\n")
+	lastMntPoint := ""
+	for _, mntPoint := range mntPoints {
+		if mntPoint == "" {
+			continue
+		}
+		lastMntPoint = mntPoint
+		if err := mountutils.Unmount(mntPoint, false); err != nil {
+			return errors.Wrapf(err, "umount %s", mntPoint)
+		}
+	}
+
+	if err := drv.DisconnectDisk(diskPath, lastMntPoint); err != nil {
+		return errors.Wrapf(err, "DisconnectDisk(%s)", diskPath)
 	}
 	return nil
 }
