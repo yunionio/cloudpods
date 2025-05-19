@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/identity"
+	"yunion.io/x/onecloud/pkg/util/ctx"
 )
 
 type userCacheSyncWorker struct {
@@ -34,7 +35,7 @@ type userCacheSyncWorker struct {
 
 func (w *userCacheSyncWorker) Run() {
 	log.Debugf("[userCacheSyncWorker] Run project cache sync worker ...")
-	err := syncUsers(context.Background(), w.ids)
+	err := syncUsers(ctx.CtxWithTime(), w.ids)
 	if err != nil {
 		log.Errorf("fail to syncUsers %s", err)
 	}
