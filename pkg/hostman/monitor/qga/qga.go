@@ -598,6 +598,11 @@ if systemctl is-active --quiet network.service; then
 	exit 0
 fi
 
+if command -v netplan &>/dev/null; then
+    netplan try --timeout 0
+	exit 0
+fi
+
 if command -v ip &> /dev/null; then
 	ip link set $DEV down && ip link set $DEV up
 	exit 0
@@ -651,6 +656,38 @@ func (qga *QemuGuestAgent) QgaSetNetwork(qgaNetMod *monitor.NetworkModify, guest
 		}
 		return qga.QgaRestartLinuxNetwork(qgaNetMod)
 	}
+}
+
+func (qga *QemuGuestAgent) QgaRestartNetwork(qgaNetMod *monitor.NetworkModify) error {
+	//Getting information about the operating system
+	resOsInfo, err := qga.QgaGuestGetOsInfo()
+	if err != nil {
+		return errors.Wrap(err, "get os info")
+	}
+
+	//Judgement based on id, currently only windows and other systems are judged
+	switch resOsInfo.Id {
+	case "mswindows":
+		return qga.QgaSetWindowsNetwork(qgaNetMod)
+	default:
+		return qga.QgaRestartLinuxNetwork(qgaNetMod)
+	}
+}
+
+func (qga *QemuGuestAgent) QgaDeployNics(guestNics []*types.SServerNic) error {
+	//Getting information about the operating system
+	resOsInfo, err := qga.QgaGuestGetOsInfo()
+	if err != nil {
+		return errors.Wrap(err, "get os info")
+	}
+
+	if resOsInfo.Id == "mswindows" {
+		return nil
+	}
+	if err := qga.qgaDeployNetworkConfigure(guestNics); err != nil {
+		return errors.Wrap(err, "qgaDeployNetworkConfigure")
+	}
+	return nil
 }
 
 /*
