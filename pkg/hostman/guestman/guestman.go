@@ -1072,7 +1072,8 @@ func (m *SGuestManager) GuestSync(ctx context.Context, params interface{}) (json
 		}
 
 		fwOnly := jsonutils.QueryBoolean(syncParams.Body, "fw_only", false)
-		return guest.SyncConfig(ctx, guestDesc, fwOnly)
+		setUefiBootOrder := jsonutils.QueryBoolean(syncParams.Body, "set_uefi_boot_order", false)
+		return guest.SyncConfig(ctx, guestDesc, fwOnly, setUefiBootOrder)
 	}
 	return nil, nil
 }

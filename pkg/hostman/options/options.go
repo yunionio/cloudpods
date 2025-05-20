@@ -105,8 +105,9 @@ type SHostOptions struct {
 	DnsServer       string `help:"Address of host DNS server"`
 	DnsServerLegacy string `help:"Deprecated Address of host DNS server"`
 
-	ChntpwPath string `help:"path to chntpw tool" default:"/usr/local/bin/chntpw.static"`
-	OvmfPath   string `help:"Path to OVMF.fd" default:"/opt/cloud/contrib/OVMF.fd"`
+	ChntpwPath   string `help:"path to chntpw tool" default:"/usr/local/bin/chntpw.static"`
+	OvmfPath     string `help:"Path to OVMF.fd" default:"/opt/cloud/contrib/OVMF.fd"`
+	OvmfVarsPath string `help:"Path to OVMF_VARS.fd" default:"/opt/cloud/contrib/OVMF_VARS.fd"`
 
 	LinuxDefaultRootUser    bool `help:"Default account for linux system is root"`
 	WindowsDefaultAdminUser bool `default:"true" help:"Default account for Windows system is Administrator"`
