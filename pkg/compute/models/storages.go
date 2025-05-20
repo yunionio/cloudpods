@@ -1694,6 +1694,19 @@ func (manager *SStorageManager) InitializeData() error {
 			}
 		}
 	}
+	sq := CloudproviderManager.Query("id").Equals("provider", api.CLOUD_PROVIDER_ALIYUN).SubQuery()
+	q = manager.Query().NotEquals("medium_type", api.DISK_TYPE_SSD).In("manager_id", sq)
+	storages = make([]SStorage, 0)
+	err = db.FetchModelObjects(manager, q, &storages)
+	if err != nil {
+		return err
+	}
+	for i := range storages {
+		db.Update(&storages[i], func() error {
+			storages[i].MediumType = api.DISK_TYPE_SSD
+			return nil
+		})
+	}
 	return nil
 }
 
