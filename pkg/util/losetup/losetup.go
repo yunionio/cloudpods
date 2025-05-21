@@ -128,7 +128,7 @@ func listDevicesOldVersion() (*Devices, error) {
 	return strings.TrimSuffix(cmd.Output(), "\n"), nil
 }*/
 
-func AttachDevice(filePath string, partScan bool) (*Device, error) {
+func attachDevice(devPath string, filePath string, partScan bool) (*Device, error) {
 	// See man-page: https://man7.org/linux/man-pages/man8/losetup.8.html
 	// The loop device setup is not an atomic operation when used with
 	// --find, and losetup does not protect this operation by any lock.
@@ -149,8 +149,12 @@ func AttachDevice(filePath string, partScan bool) (*Device, error) {
 	if partScan {
 		args = append(args, "-P")
 	}
-	// args = append(args, []string{"--find", "--nooverlap", filePath}...)
-	args = append(args, []string{"--find", filePath}...)
+	if devPath != "" {
+		args = append(args, []string{devPath, filePath}...)
+	} else {
+		// args = append(args, []string{"--find", "--nooverlap", filePath}...)
+		args = append(args, []string{"--find", filePath}...)
+	}
 	_, err = NewLosetupCommand().AddArgs(args...).Run()
 	if err != nil {
 		return nil, err
@@ -164,6 +168,14 @@ func AttachDevice(filePath string, partScan bool) (*Device, error) {
 		return nil, fmt.Errorf("Not found loop device by file: %s", filePath)
 	}
 	return dev, nil
+}
+
+func AttachDeviceWithPath(devPath string, filePath string, partScan bool) (*Device, error) {
+	return attachDevice(devPath, filePath, partScan)
+}
+
+func AttachDevice(filePath string, partScan bool) (*Device, error) {
+	return attachDevice("", filePath, partScan)
 }
 
 // converts a raw key value pair string into a map of key value pairs
