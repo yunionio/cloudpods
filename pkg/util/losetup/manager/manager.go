@@ -97,11 +97,17 @@ func newDetachOption(devPath string) *execOption {
 
 type manager struct {
 	execOptCh chan *execOption
+	loopMan   ILoopManager
 }
 
 func newManager() iManager {
+	loopMan, err := newLoopManager()
+	if err != nil {
+		log.Fatalf("new loop manager error: %v", err)
+	}
 	m := &manager{
 		execOptCh: make(chan *execOption),
+		loopMan:   loopMan,
 	}
 	go func() {
 		m.startExec()
@@ -132,14 +138,14 @@ func (m *manager) startExec() {
 		switch execOpt.Type {
 		case EXEC_ATTACH:
 			log.Infof("attach %s", jsonutils.Marshal(execOpt.Attach))
-			dev, err := losetup.AttachDevice(execOpt.Attach.FilePath, execOpt.Attach.PartScan)
+			dev, err := m.loopMan.AttachDevice(execOpt.Attach.FilePath, execOpt.Attach.PartScan)
 			execOpt.result <- execResult{
 				attachedDevice: dev,
 				error:          err,
 			}
 		case EXEC_DETACH:
 			log.Infof("detach %s", jsonutils.Marshal(execOpt.Detach))
-			err := losetup.DetachDevice(execOpt.Detach.DevicePath)
+			err := m.loopMan.DetachDevice(execOpt.Detach.DevicePath)
 			execOpt.result <- execResult{
 				error: err,
 			}
