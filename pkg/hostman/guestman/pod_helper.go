@@ -232,12 +232,15 @@ func (t *localPodRestartTask) Dump() string {
 	return fmt.Sprintf("pod restart task %s/%s", t.pod.GetId(), t.pod.GetName())
 }
 
-func GetPodStatusByContainerStatus(status string, cStatus string) string {
+func GetPodStatusByContainerStatus(status string, cStatus string, isPrimary bool) string {
 	if cStatus == computeapi.CONTAINER_STATUS_CRASH_LOOP_BACK_OFF {
 		status = computeapi.POD_STATUS_CRASH_LOOP_BACK_OFF
 	}
 	if cStatus == computeapi.CONTAINER_STATUS_EXITED && status != computeapi.VM_READY {
 		status = computeapi.POD_STATUS_CONTAINER_EXITED
+		if isPrimary {
+			status = computeapi.VM_READY
+		}
 	}
 	return status
 }

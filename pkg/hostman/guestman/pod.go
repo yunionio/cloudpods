@@ -189,7 +189,7 @@ func (h startStatHelper) removeStatFile(fp string) error {
 	if !fileutils2.Exists(fp) {
 		return nil
 	}
-	if err := os.Remove(fp); err != nil {
+	if err := os.Remove(fp); err != nil && !strings.Contains(err.Error(), "no such file or directory") {
 		return errors.Wrapf(err, "remove file %s", fp)
 	}
 	return nil
@@ -345,7 +345,7 @@ func (s *sPodGuestInstance) getStatus(ctx context.Context, defaultStatus string)
 			continue
 		}
 		if cs != nil {
-			status = GetPodStatusByContainerStatus(status, cStatus)
+			status = GetPodStatusByContainerStatus(status, cStatus, s.IsPrimaryContainer(c.Id))
 		}
 	}
 	return status
@@ -408,7 +408,7 @@ func (s *sPodGuestInstance) GetUploadStatus(ctx context.Context, reason string) 
 			}
 		}
 		cStatuss[c.Id] = ctrStatusInput
-		status = GetPodStatusByContainerStatus(status, cStatus)
+		status = GetPodStatusByContainerStatus(status, cStatus, s.IsPrimaryContainer(c.Id))
 	}
 	if len(errs) > 0 {
 		log.Errorf("get upload status error: %v", errors.NewAggregate(errs))
