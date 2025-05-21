@@ -39,7 +39,39 @@ const (
 	LOOP_CTL_PATH = "/dev/loop-control"
 
 	LOOP_CTL_REMOVE = C.LOOP_CTL_REMOVE
+	// LOOP_CTL_GET_FREE = C.LOOP_CTL_GET_FREE
+	LOOP_CTL_ADD = C.LOOP_CTL_ADD
 )
+
+func AddDevice(devNumber int) (string, error) {
+	fd, err := os.OpenFile(LOOP_CTL_PATH, os.O_RDWR, 0644)
+	if err != nil {
+		return "", errors.Wrapf(err, "Open %s", LOOP_CTL_PATH)
+	}
+	defer fd.Close()
+
+	retNu, _, err := syscall.Syscall(syscall.SYS_IOCTL, fd.Fd(), LOOP_CTL_ADD, uintptr(devNumber))
+	if err != nil && !strings.Contains(err.Error(), "errno 0") {
+		return "", errors.Wrapf(err, "IOCTL ADD DEVICE")
+	}
+	return fmt.Sprintf("/dev/loop%d", retNu), nil
+}
+
+/*func FindFreeDevice() (string, error) {
+	fd, err := os.OpenFile(LOOP_CTL_PATH, os.O_RDWR, 0644)
+	if err != nil {
+		return "", errors.Wrapf(err, "Open %s", LOOP_CTL_PATH)
+	}
+	defer fd.Close()
+
+	var devNr int
+	retNu, _, err := syscall.Syscall(syscall.SYS_IOCTL, fd.Fd(), LOOP_CTL_GET_FREE, uintptr(devNr))
+	if err != nil {
+		return "", errors.Wrapf(err, "IOCTL GET FREE 2")
+	}
+	log.Infof("using ioctl get free loop %v", retNu)
+	return fmt.Sprintf("/dev/loop%d", retNu), nil
+}*/
 
 func RemoveDevice(devNumber int) error {
 	fd, err := os.OpenFile(LOOP_CTL_PATH, os.O_RDWR, 0644)
