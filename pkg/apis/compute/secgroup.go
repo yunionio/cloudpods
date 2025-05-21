@@ -255,6 +255,8 @@ type SecgroupResourceInput struct {
 
 type SecgroupFilterListInput struct {
 	SecgroupResourceInput
+	RegionalFilterListInput
+	ManagedResourceListInput
 
 	// 以安全组排序
 	OrderBySecgroup string `json:"order_by_secgroup"`

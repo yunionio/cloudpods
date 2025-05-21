@@ -125,10 +125,23 @@ func (manager *SSecurityGroupResourceBaseManager) ListItemFilter(
 		}
 		q = q.Equals("secgroup_id", secgrpObj.GetId())
 	}
+
 	if len(query.SecgroupName) > 0 {
 		sq := SecurityGroupManager.Query("id").Like("name", "%"+query.SecgroupName+"%")
 		q = q.In("secgroup_id", sq.SubQuery())
 	}
+
+	var err error
+	q, err = manager.SManagedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ManagedResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SManagedResourceBaseManager.ListItemFilter")
+	}
+
+	q, err = manager.SCloudregionResourceBaseManager.ListItemFilter(ctx, q, userCred, query.RegionalFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.ListItemFilter")
+	}
+
 	return q, nil
 }
 
