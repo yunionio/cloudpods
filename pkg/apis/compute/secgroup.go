@@ -291,6 +291,16 @@ type SecgroupDetails struct {
 type SecurityGroupResourceInfo struct {
 	// 安全组名称
 	Secgroup string `json:"secgroup"`
+
+	// VPC归属区域ID
+	CloudregionId string `json:"cloudregion_id"`
+
+	CloudregionResourceInfo
+
+	// VPC归属云订阅ID
+	ManagerId string `json:"manager_id"`
+
+	ManagedResourceInfo
 }
 
 type GuestsecgroupListInput struct {
