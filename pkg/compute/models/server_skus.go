@@ -120,13 +120,18 @@ type SServerSku struct {
 
 func (manager *SServerSkuManager) FetchUniqValues(ctx context.Context, data jsonutils.JSONObject) jsonutils.JSONObject {
 	regionId, _ := data.GetString("cloudregion_id")
-	return jsonutils.Marshal(map[string]string{"cloudregion_id": regionId})
+	zoneId, _ := data.GetString("zone_id")
+	return jsonutils.Marshal(map[string]string{"cloudregion_id": regionId, "zone_id": zoneId})
 }
 
 func (manager *SServerSkuManager) FilterByUniqValues(q *sqlchemy.SQuery, values jsonutils.JSONObject) *sqlchemy.SQuery {
 	regionId, _ := values.GetString("cloudregion_id")
 	if len(regionId) > 0 {
 		q = q.Equals("cloudregion_id", regionId)
+	}
+	zoneId, _ := values.GetString("zone_id")
+	if len(zoneId) > 0 {
+		q = q.Equals("zone_id", zoneId)
 	}
 	return q
 }
@@ -349,8 +354,6 @@ func (self *SServerSkuManager) ValidateCreateData(ctx context.Context, userCred 
 	if input.Provider == api.CLOUD_PROVIDER_ONECLOUD {
 	} else if utils.IsInStringArray(input.Provider, api.PRIVATE_CLOUD_PROVIDERS) {
 		input.Status = api.SkuStatusCreating
-	} else {
-		return input, httperrors.NewUnsupportOperationError("Not support create public cloud sku")
 	}
 
 	input.LocalCategory = input.InstanceTypeCategory
