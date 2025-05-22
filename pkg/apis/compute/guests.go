@@ -325,6 +325,7 @@ func (self ServerDetails) GetMetricTags() map[string]string {
 		"host":                self.Host,
 		"host_id":             self.HostId,
 		"ips":                 self.IPs,
+		"vm_ip":               self.IPs,
 		"vm_id":               self.Id,
 		"vm_name":             self.Name,
 		"zone":                self.Zone,
