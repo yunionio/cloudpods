@@ -130,6 +130,10 @@ func (m *SGuestManager) startContainer(obj *sPodGuestInstance, ctr *hostapi.Cont
 	return nil
 }
 
+func (m *SGuestManager) GetPleg() pleg.PodLifecycleEventGenerator {
+	return m.pleg
+}
+
 func (m *SGuestManager) syncContainerLoop(plegCh chan *pleg.PodLifecycleEvent) {
 	log.Infof("start sync container loop")
 	for {
@@ -181,7 +185,7 @@ func (m *SGuestManager) syncContainerLoopIteration(plegCh chan *pleg.PodLifecycl
 			if ctrObj != nil {
 				ccStatus, _, _ = podMan.GetContainerStatus(ctx, ctrObj.Id)
 			}
-			if !isInternalStopped || ccStatus == computeapi.CONTAINER_STATUS_EXITED {
+			if !isInternalStopped && ccStatus == computeapi.CONTAINER_STATUS_EXITED {
 				podStatus, err := m.podCache.Get(e.Id)
 				if err != nil {
 					log.Errorf("get pod %s status error: %v", e.Id, err)
