@@ -65,8 +65,8 @@ func DoDeployGuestFs(rootfs fsdriver.IRootFsDriver, guestDesc *deployapi.GuestDe
 		hn          = guestDesc.Name
 		domain      = guestDesc.Domain
 		gid         = guestDesc.Uuid
-		nics        = fsdriver.ToServerNics(guestDesc.Nics)
-		nicsStandby = fsdriver.ToServerNics(guestDesc.NicsStandby)
+		nics        = fsdriver.ToServerNics(guestDesc, guestDesc.Nics)
+		nicsStandby = fsdriver.ToServerNics(guestDesc, guestDesc.NicsStandby)
 		partition   = rootfs.GetPartition()
 		releaseInfo = rootfs.GetReleaseInfo(partition)
 	)
