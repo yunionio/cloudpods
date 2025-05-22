@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
@@ -97,7 +98,8 @@ func (m *loopManager) initDevices() error {
 	cmd := "ls /dev/loop* | grep -E 'loop[0-9]+$'"
 	output, err := procutils.NewRemoteCommandAsFarAsPossible("sh", "-c", cmd).Output()
 	if err != nil {
-		return errors.Wrap(err, "list loop devices")
+		log.Errorf("list loop devices error: %v", err)
+		output = make([]byte, 0)
 	}
 
 	// 按行分割输出
