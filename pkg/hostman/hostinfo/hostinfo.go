@@ -773,11 +773,10 @@ func (h *SHostInfo) tuneSystem() {
 	if minMemMb < 100 {
 		minMemMb = 100
 	}
-	minMemKB := fmt.Sprintf("%d", 2*minMemMb*1024)
+	minMemKB := 2 * minMemMb * 1024
 	kv := map[string]string{
 		"/proc/sys/vm/swappiness":                        "0",
 		"/proc/sys/vm/vfs_cache_pressure":                "350",
-		"/proc/sys/vm/min_free_kbytes":                   minMemKB,
 		"/proc/sys/net/ipv4/tcp_mtu_probing":             "2",
 		"/proc/sys/net/ipv4/neigh/default/gc_thresh1":    "1024",
 		"/proc/sys/net/ipv4/neigh/default/gc_thresh2":    "4096",
@@ -787,6 +786,13 @@ func (h *SHostInfo) tuneSystem() {
 
 		"/proc/sys/net/netfilter/nf_conntrack_tcp_be_liberal": "1",
 	}
+	ret, err := fileutils2.FileGetIntContent("/proc/sys/vm/min_free_kbytes")
+	if err != nil {
+		log.Errorf("failed get /proc/sys/vm/min_free_kbytes: %s", err)
+	} else if ret < minMemKB {
+		kv["/proc/sys/vm/min_free_kbytes"] = fmt.Sprintf("%d", minMemKB)
+	}
+
 	for k, v := range kv {
 		sysutils.SetSysConfig(k, v)
 	}
