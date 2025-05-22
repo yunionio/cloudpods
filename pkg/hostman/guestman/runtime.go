@@ -70,7 +70,7 @@ type GuestRuntimeInstance interface {
 
 	LoadDesc() error
 	PostLoad(m *SGuestManager) error
-	SyncConfig(ctx context.Context, guestDesc *desc.SGuestDesc, fwOnly bool) (jsonutils.JSONObject, error)
+	SyncConfig(ctx context.Context, guestDesc *desc.SGuestDesc, fwOnly, setUefiBootOrder bool) (jsonutils.JSONObject, error)
 	DoSnapshot(ctx context.Context, params *SDiskSnapshot) (jsonutils.JSONObject, error)
 	DeleteSnapshot(ctx context.Context, params *SDeleteDiskSnapshot) (jsonutils.JSONObject, error)
 	OnlineResizeDisk(ctx context.Context, disk storageman.IDisk, sizeMB int64)

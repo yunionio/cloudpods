@@ -1069,7 +1069,7 @@ func (s *sPodGuestInstance) PostLoad(m *SGuestManager) error {
 	return LoadGuestCpuset(m, s)
 }
 
-func (s *sPodGuestInstance) SyncConfig(ctx context.Context, guestDesc *desc.SGuestDesc, fwOnly bool) (jsonutils.JSONObject, error) {
+func (s *sPodGuestInstance) SyncConfig(ctx context.Context, guestDesc *desc.SGuestDesc, fwOnly, setUefiBootOrder bool) (jsonutils.JSONObject, error) {
 	if err := SaveDesc(s, guestDesc); err != nil {
 		return nil, errors.Wrap(err, "SaveDesc")
 	}
