@@ -65,28 +65,29 @@ func (n SNic) GetMac() net.HardwareAddr {
 }
 
 type SServerNic struct {
-	Name      string   `json:"name"`
-	Index     int      `json:"index"`
-	Bridge    string   `json:"bridge"`
-	Domain    string   `json:"domain"`
-	Ip        string   `json:"ip"`
-	Vlan      int      `json:"vlan"`
-	Driver    string   `json:"driver"`
-	Masklen   int      `json:"masklen"`
-	Virtual   bool     `json:"virtual"`
-	Manual    bool     `json:"manual"`
-	WireId    string   `json:"wire_id"`
-	NetId     string   `json:"net_id"`
-	Mac       string   `json:"mac"`
-	BandWidth int      `json:"bw"`
-	Mtu       int16    `json:"mtu,omitempty"`
-	Dns       string   `json:"dns"`
-	Ntp       string   `json:"ntp"`
-	Net       string   `json:"net"`
-	Interface string   `json:"interface"`
-	Gateway   string   `json:"gateway"`
-	Ifname    string   `json:"ifname"`
-	Routes    []SRoute `json:"routes,omitempty"`
+	Name          string   `json:"name"`
+	Index         int      `json:"index"`
+	Bridge        string   `json:"bridge"`
+	Domain        string   `json:"domain"`
+	Ip            string   `json:"ip"`
+	Vlan          int      `json:"vlan"`
+	VlanInterface bool     `json:"vlan_interface"`
+	Driver        string   `json:"driver"`
+	Masklen       int      `json:"masklen"`
+	Virtual       bool     `json:"virtual"`
+	Manual        bool     `json:"manual"`
+	WireId        string   `json:"wire_id"`
+	NetId         string   `json:"net_id"`
+	Mac           string   `json:"mac"`
+	BandWidth     int      `json:"bw"`
+	Mtu           int16    `json:"mtu,omitempty"`
+	Dns           string   `json:"dns"`
+	Ntp           string   `json:"ntp"`
+	Net           string   `json:"net"`
+	Interface     string   `json:"interface"`
+	Gateway       string   `json:"gateway"`
+	Ifname        string   `json:"ifname"`
+	Routes        []SRoute `json:"routes,omitempty"`
 
 	Ip6      string `json:"ip6"`
 	Masklen6 int    `json:"masklen6"`
