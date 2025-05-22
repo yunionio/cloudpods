@@ -174,7 +174,7 @@ func (s *SGuestMonitorCollector) collectGpuPodsProcesses() map[string]map[string
 			cgroupPath := path.Join(cgroupRoot, criIds[i], "cgroup.procs")
 			pids, err := ReadProccessFromCgroupProcs(cgroupPath)
 			if err != nil {
-				log.Errorf("collectNvidiaGpuPodsProcesses: %s", err)
+				log.Errorf("collectGpuPodsProcesses: %s", err)
 				continue
 			}
 			for _, pid := range pids {

@@ -35,12 +35,29 @@ func newNetplanNetwork(allNics []*types.SServerNic, bondNics []*types.SServerNic
 	nicCnt := len(allNics) - len(bondNics)
 	for _, nic := range allNics {
 		nicConf := getNetplanEthernetConfig(nic, false, mainIp, nicCnt)
-
 		if nicConf == nil {
 			continue
 		}
 
-		network.AddEthernet(nic.Name, nicConf)
+		if nic.VlanInterface {
+			ifname := fmt.Sprintf("%s.%d", nic.Name, nic.Vlan)
+			vlanConfig := &netplan.VlanConfig{
+				EthernetConfig: *nicConf,
+				Link:           nic.Name,
+				Id:             nic.Vlan,
+			}
+			network.AddVlan(ifname, vlanConfig)
+
+			ethConfig := &netplan.EthernetConfig{
+				DHCP4:      false,
+				DHCP6:      false,
+				MacAddress: nic.Mac,
+				Match:      netplan.NewEthernetConfigMatchMac(nic.Mac),
+			}
+			network.AddEthernet(nic.Name, ethConfig)
+		} else {
+			network.AddEthernet(nic.Name, nicConf)
+		}
 	}
 
 	for _, bondNic := range bondNics {

@@ -85,6 +85,73 @@ func (r *sSuseLikeRootFs) enableBondingModule(rootFs IDiskPartition, bondNics []
 	return rootFs.FilePutContents("/etc/modprobe.d/bonding.conf", content.String(), false, false)
 }
 
+func (r *sSuseLikeRootFs) deployVlanNetworkingScripts(rootFs IDiskPartition, scriptPath, mainIp string, nicCnt int, nicDesc *types.SServerNic) error {
+	var cmds strings.Builder
+	var ifname = fmt.Sprintf("%s.%d", nicDesc.Name, nicDesc.Vlan)
+	cmds.WriteString("STARTMODE=auto\n")
+	if nicDesc.Mtu > 0 {
+		cmds.WriteString(fmt.Sprintf("MTU=%d\n", nicDesc.Mtu))
+	}
+	cmds.WriteString("BOOTPROTO=static\n")
+	cmds.WriteString(fmt.Sprintf("IPADDR=%s/%d\n", nicDesc.Ip, nicDesc.Masklen))
+
+	if len(nicDesc.Ip6) > 0 {
+		cmds.WriteString("IPV6INIT=yes\n")
+		cmds.WriteString("IPV6_AUTOCONF=no\n")
+		cmds.WriteString(fmt.Sprintf("IPADDR_V6=%s/%d\n", nicDesc.Ip6, nicDesc.Masklen6))
+	}
+
+	cmds.WriteString(fmt.Sprintf("VLAN_ID=%d\n", nicDesc.Vlan))
+	cmds.WriteString(fmt.Sprintf("ETHERDEVICE=%s\n", nicDesc.Name))
+
+	var routes = make([][]string, 0)
+	var dnsSrv []string
+	routes = netutils2.AddNicRoutes(routes, nicDesc, mainIp, nicCnt)
+	if len(nicDesc.Gateway) > 0 && nicDesc.Ip == mainIp {
+		routes = append(routes, []string{
+			"default",
+			nicDesc.Gateway,
+		})
+	}
+	if len(nicDesc.Gateway6) > 0 && nicDesc.Ip == mainIp {
+		routes = append(routes, []string{
+			"default",
+			nicDesc.Gateway6,
+		})
+	}
+	var rtbl strings.Builder
+	for _, r := range routes {
+		rtbl.WriteString(r[0])
+		rtbl.WriteString(" ")
+		rtbl.WriteString(r[1])
+		rtbl.WriteString(" - ")
+		rtbl.WriteString(nicDesc.Name)
+		rtbl.WriteString("\n")
+	}
+	rtblStr := rtbl.String()
+	if len(rtblStr) > 0 {
+		var fn = fmt.Sprintf("/etc/sysconfig/network/ifroute-%s", ifname)
+		if err := rootFs.FilePutContents(fn, rtblStr, false, false); err != nil {
+			return err
+		}
+	}
+
+	dnslist := netutils2.GetNicDns(nicDesc)
+	for i := 0; i < len(dnslist); i++ {
+		if !utils.IsInArray(dnslist[i], dnsSrv) {
+			dnsSrv = append(dnsSrv, dnslist[i])
+		}
+	}
+
+	var fn = fmt.Sprintf("/etc/sysconfig/network/ifcfg-%s", ifname)
+	log.Debugf("%s: %s", fn, cmds.String())
+	if err := rootFs.FilePutContents(fn, cmds.String(), false, false); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (r *sSuseLikeRootFs) deployNetworkingScripts(rootFs IDiskPartition, nics []*types.SServerNic) error {
 	if err := r.sLinuxRootFs.DeployNetworkingScripts(rootFs, nics); err != nil {
 		return err

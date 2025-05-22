@@ -46,7 +46,7 @@ func findTeamingNic(nics []*types.SServerNic, mac string) *types.SServerNic {
 	return nil
 }
 
-func ToServerNics(nics []*deployapi.Nic) []*types.SServerNic {
+func ToServerNics(guestDesc *deployapi.GuestDesc, nics []*deployapi.Nic) []*types.SServerNic {
 	ret := make([]*types.SServerNic, len(nics))
 	for i := 0; i < len(nics); i++ {
 		domain := nics[i].Domain
@@ -83,6 +83,9 @@ func ToServerNics(nics []*deployapi.Nic) []*types.SServerNic {
 			Ip6:      nics[i].Ip6,
 			Masklen6: int(nics[i].Masklen6),
 			Gateway6: nics[i].Gateway6,
+		}
+		if guestDesc.Hypervisor == computeapi.HYPERVISOR_BAREMETAL && ret[i].Vlan > 1 {
+			ret[i].VlanInterface = true
 		}
 	}
 	return ret
