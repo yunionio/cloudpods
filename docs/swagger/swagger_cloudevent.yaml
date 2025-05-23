@@ -414,6 +414,11 @@ paths:
                   name: show_fail_reason
                   type: boolean
                   x-go-name: ShowFailReason
+                - description: 是否返回状态统计信息，默认为False
+                  in: query
+                  name: summary_stats
+                  type: boolean
+                  x-go-name: SummaryStats
                 - description: 指定查询的权限范围，可能值为project, domain or system
                   in: query
                   name: scope
@@ -489,13 +494,7 @@ paths:
                   name: providers
                   type: array
                   x-go-name: Providers
-                - description: |-
-                    列出指定云平台品牌的资源，一般来说brand和provider相同，除了以上支持的provider之外，还支持以下band
-
-                       Brand  | Provider | 说明        |
-                    ----------|----------|------------|
-                     DStack   | ZStack   | 滴滴云私有云 |
-                  in: query
+                - in: query
                   items:
                     type: string
                   name: brands
@@ -860,6 +859,11 @@ paths:
                   name: show_fail_reason
                   type: boolean
                   x-go-name: ShowFailReason
+                - description: 是否返回状态统计信息，默认为False
+                  in: query
+                  name: summary_stats
+                  type: boolean
+                  x-go-name: SummaryStats
                 - $ref: '#/definitions/TTagSet'
                   description: 通过标签过滤（包含这些标签）
                   in: query

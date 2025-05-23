@@ -777,6 +777,50 @@ definitions:
                 x-go-name: UpdatedAt
         type: object
         x-go-package: yunion.io/x/onecloud/pkg/apis/image
+    ImageUpdateInput:
+        properties:
+            description:
+                description: 资源描述
+                type: string
+                x-go-name: Description
+            is_data:
+                description: 是否是数据盘镜像
+                type: boolean
+                x-go-name: IsData
+            is_standard:
+                description: 是否是标准镜像
+                type: boolean
+                x-go-name: IsStandard
+            min_disk:
+                description: 最小系统盘要求
+                format: int32
+                type: integer
+                x-go-name: MinDiskMB
+            min_ram:
+                description: 最小内存要求
+                format: int32
+                type: integer
+                x-go-name: MinRamMB
+            name:
+                description: 资源名称
+                type: string
+                x-go-name: Name
+            progress:
+                format: float
+                type: number
+                x-go-name: Progress
+            properties:
+                additionalProperties:
+                    type: string
+                description: 镜像属性
+                type: object
+                x-go-name: Properties
+            protected:
+                description: 是否有删除保护
+                type: boolean
+                x-go-name: Protected
+        type: object
+        x-go-package: yunion.io/x/onecloud/pkg/apis/image
     ImageUpdateStatusInput:
         properties:
             reason:
@@ -1238,6 +1282,11 @@ paths:
                   name: show_fail_reason
                   type: boolean
                   x-go-name: ShowFailReason
+                - description: 是否返回状态统计信息，默认为False
+                  in: query
+                  name: summary_stats
+                  type: boolean
+                  x-go-name: SummaryStats
                 - $ref: '#/definitions/TTagSet'
                   description: 通过标签过滤（包含这些标签）
                   in: query
@@ -2252,6 +2301,11 @@ paths:
                   name: show_fail_reason
                   type: boolean
                   x-go-name: ShowFailReason
+                - description: 是否返回状态统计信息，默认为False
+                  in: query
+                  name: summary_stats
+                  type: boolean
+                  x-go-name: SummaryStats
                 - $ref: '#/definitions/TTagSet'
                   description: 通过标签过滤（包含这些标签）
                   in: query
@@ -2583,6 +2637,14 @@ paths:
                   required: true
                   type: string
                   x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        image:
+                            $ref: '#/definitions/ImageUpdateInput'
+                    type: object
+                  x-go-name: Body
             responses:
                 "200":
                     $ref: '#/responses/image_ValidateUpdateDataOutput'

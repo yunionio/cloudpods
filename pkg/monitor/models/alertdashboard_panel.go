@@ -25,6 +25,8 @@ var (
 	AlertDashBoardPanelManager *SAlertDashboardPanelManager
 )
 
+// +onecloud:swagger-gen-model-singular=alertdashboardpanel
+// +onecloud:swagger-gen-model-plural=alertdashboardpanels
 type SAlertDashboardPanelManager struct {
 	db.SJointResourceBaseManager
 }

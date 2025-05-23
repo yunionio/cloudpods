@@ -45,10 +45,6 @@ type SNotificationManager struct {
 	db.SVirtualResourceBaseManager
 }
 
-type SAlertNotificationStateManager struct {
-	db.SStandaloneResourceBaseManager
-}
-
 func NewNotificationManager() *SNotificationManager {
 	man := &SNotificationManager{
 		SVirtualResourceBaseManager: db.NewVirtualResourceBaseManager(

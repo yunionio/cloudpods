@@ -71,6 +71,8 @@ func init() {
 	DataSourceManager.SetVirtualObject(DataSourceManager)
 }
 
+// +onecloud:swagger-gen-model-singular=datasource
+// +onecloud:swagger-gen-model-plural=datasources
 type SDataSourceManager struct {
 	db.SStandaloneResourceBaseManager
 }
