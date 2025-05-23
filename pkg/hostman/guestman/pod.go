@@ -2203,6 +2203,9 @@ func (s *sPodGuestInstance) tarGzDir(input *hostapi.ContainerSaveVolumeMountToIm
 		dirPath = strings.Join(input.VolumeMountDirs, " ")
 	}
 	cmd := fmt.Sprintf("tar -czf %s -C %s %s", outputFp, hostPath, dirPath)
+	if input.VolumeMountPrefix != "" {
+		cmd += fmt.Sprintf(" --transform 's,^,%s/,'", input.VolumeMountPrefix)
+	}
 	if out, err := procutils.NewRemoteCommandAsFarAsPossible("sh", "-c", cmd).Output(); err != nil {
 		return "", errors.Wrapf(err, "%s: %s", cmd, out)
 	}

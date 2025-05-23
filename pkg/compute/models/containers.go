@@ -817,11 +817,32 @@ func (c *SContainer) PerformSaveVolumeMountImage(ctx context.Context, userCred m
 	if err != nil {
 		return nil, errors.Wrap(err, "ToHostMount")
 	}
+
+	cleanupDirPath := func(dirPath string) string {
+		nPath := ""
+		pathSegs := strings.Split(dirPath, "/")
+		for _, seg := range pathSegs {
+			if len(seg) > 0 {
+				nPath = filepath.Join(nPath, seg)
+			}
+		}
+		return nPath
+	}
+
+	cleanupDirPaths := func(dirPaths []string) []string {
+		for i := range dirPaths {
+			dirPaths[i] = cleanupDirPath(dirPaths[i])
+		}
+		return dirPaths
+	}
+
 	hostInput := &hostapi.ContainerSaveVolumeMountToImageInput{
 		ImageId:          imageId,
 		VolumeMountIndex: input.Index,
 		VolumeMount:      hvm,
-		VolumeMountDirs:  input.Dirs,
+
+		VolumeMountDirs:   cleanupDirPaths(input.Dirs),
+		VolumeMountPrefix: cleanupDirPath(input.DirPrefix),
 	}
 
 	return hostInput, c.StartSaveVolumeMountImage(ctx, userCred, hostInput, "")
