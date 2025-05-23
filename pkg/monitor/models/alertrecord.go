@@ -40,6 +40,8 @@ var (
 	AlertRecordManager *SAlertRecordManager
 )
 
+// +onecloud:swagger-gen-model-singular=alertrecord
+// +onecloud:swagger-gen-model-plural=alertrecords
 type SAlertRecordManager struct {
 	db.SEnabledResourceBaseManager
 	db.SStandaloneAnonResourceBaseManager

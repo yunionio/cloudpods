@@ -1854,6 +1854,11 @@ paths:
                   name: show_fail_reason
                   type: boolean
                   x-go-name: ShowFailReason
+                - description: 是否返回状态统计信息，默认为False
+                  in: query
+                  name: summary_stats
+                  type: boolean
+                  x-go-name: SummaryStats
                 - $ref: '#/definitions/TTagSet'
                   description: 通过标签过滤（包含这些标签）
                   in: query
@@ -2827,6 +2832,11 @@ paths:
                   name: show_fail_reason
                   type: boolean
                   x-go-name: ShowFailReason
+                - description: 是否返回状态统计信息，默认为False
+                  in: query
+                  name: summary_stats
+                  type: boolean
+                  x-go-name: SummaryStats
                 - $ref: '#/definitions/TTagSet'
                   description: 通过标签过滤（包含这些标签）
                   in: query
@@ -3573,6 +3583,11 @@ paths:
                   name: show_fail_reason
                   type: boolean
                   x-go-name: ShowFailReason
+                - description: 是否返回状态统计信息，默认为False
+                  in: query
+                  name: summary_stats
+                  type: boolean
+                  x-go-name: SummaryStats
                 - $ref: '#/definitions/TTagSet'
                   description: 通过标签过滤（包含这些标签）
                   in: query
@@ -4399,6 +4414,11 @@ paths:
                   name: show_fail_reason
                   type: boolean
                   x-go-name: ShowFailReason
+                - description: 是否返回状态统计信息，默认为False
+                  in: query
+                  name: summary_stats
+                  type: boolean
+                  x-go-name: SummaryStats
                 - $ref: '#/definitions/TTagSet'
                   description: 通过标签过滤（包含这些标签）
                   in: query
@@ -5358,6 +5378,11 @@ paths:
                   name: show_fail_reason
                   type: boolean
                   x-go-name: ShowFailReason
+                - description: 是否返回状态统计信息，默认为False
+                  in: query
+                  name: summary_stats
+                  type: boolean
+                  x-go-name: SummaryStats
                 - $ref: '#/definitions/TTagSet'
                   description: 通过标签过滤（包含这些标签）
                   in: query
@@ -6129,6 +6154,11 @@ paths:
                   name: show_fail_reason
                   type: boolean
                   x-go-name: ShowFailReason
+                - description: 是否返回状态统计信息，默认为False
+                  in: query
+                  name: summary_stats
+                  type: boolean
+                  x-go-name: SummaryStats
                 - $ref: '#/definitions/TTagSet'
                   description: 通过标签过滤（包含这些标签）
                   in: query

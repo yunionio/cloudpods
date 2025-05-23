@@ -47,6 +47,8 @@ func init() {
 	MonitorResourceAlertManager.SetVirtualObject(MonitorResourceAlertManager)
 }
 
+// +onecloud:swagger-gen-model-singular=monitorresourcealert
+// +onecloud:swagger-gen-model-plural=monitorresourcealerts
 type SMonitorResourceAlertManager struct {
 	db.SJointResourceBaseManager
 	SMonitorScopedResourceManager

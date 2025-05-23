@@ -54,6 +54,8 @@ type IMeterAlertDriver interface {
 	ToAlertCreateInput(input monitor.MeterAlertCreateInput, allAccountIds []string, level string) monitor.AlertCreateInput
 }
 
+// +onecloud:swagger-gen-model-singular=meteralert
+// +onecloud:swagger-gen-model-plural=meteralerts
 type SMeterAlertManager struct {
 	SV1AlertManager
 
