@@ -490,7 +490,7 @@ func (m *SDataSourceManager) filterRtnTags(output *monitor.InfluxMeasurement) {
 		}
 	}
 	for _, tag := range []string{
-		"source", "status", hostconsts.TELEGRAF_TAG_KEY_HOST_TYPE, hostconsts.TELEGRAF_TAG_KEY_RES_TYPE,
+		"source", hostconsts.TELEGRAF_TAG_KEY_HOST_TYPE, hostconsts.TELEGRAF_TAG_KEY_RES_TYPE,
 		"is_vm", "os_type", hostconsts.TELEGRAF_TAG_KEY_PLATFORM, hostconsts.TELEGRAF_TAG_KEY_HYPERVISOR,
 		"domain_name", "region", "ips", "vip", "vip_eip", "eip", "eip_mode",
 		labels.MetricName, translator.UNION_RESULT_NAME,
