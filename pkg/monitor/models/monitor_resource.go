@@ -92,6 +92,8 @@ func (manager *SMonitorResourceManager) GetModelSets() *MonitorResModelSets {
 	return manager.monitorResModelSets
 }
 
+// +onecloud:swagger-gen-model-singular=monitorresource
+// +onecloud:swagger-gen-model-plural=monitorresources
 type SMonitorResourceManager struct {
 	db.SVirtualResourceBaseManager
 	db.SEnabledResourceBaseManager

@@ -31,6 +31,8 @@ import (
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
+// +onecloud:swagger-gen-model-singular=alertdashboard
+// +onecloud:swagger-gen-model-plural=alertdashboard
 type SAlertDashBoardManager struct {
 	db.SEnabledResourceBaseManager
 	db.SStatusStandaloneResourceBaseManager
