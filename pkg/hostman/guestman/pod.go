@@ -2460,7 +2460,7 @@ func (s *sPodGuestInstance) tarHostDir(srcDir, targetPath string,
 	if len(includeFiles) > 0 {
 		includeStr = strings.Join(includeFiles, " ")
 	}
-	cmd := fmt.Sprintf("%s --warning=no-file-changed --ignore-failed-read -cf %s -C %s %s", baseCmd, targetPath, srcDir, includeStr)
+	cmd := fmt.Sprintf("%s --ignore-failed-read -cf %s -C %s %s", baseCmd, targetPath, srcDir, includeStr)
 	log.Infof("[%s] tar cmd: %s", s.GetName(), cmd)
 	if out, err := procutils.NewRemoteCommandAsFarAsPossible("sh", "-c", cmd).Output(); err != nil {
 		outErr := errors.Wrapf(err, "%s: %s", cmd, out)
