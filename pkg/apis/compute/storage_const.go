@@ -74,6 +74,8 @@ const (
 	STORAGE_CLOUD_BASIC   = compute.STORAGE_CLOUD_BASIC
 	STORAGE_CLOUD_PREMIUM = compute.STORAGE_CLOUD_PREMIUM //高性能云硬盘
 	STORAGE_CLOUD_HSSD    = compute.STORAGE_CLOUD_HSSD    //增强型SSD云硬盘
+	STORAGE_CLOUD_BSSD    = compute.STORAGE_CLOUD_BSSD    //增强型SSD云硬盘
+	STORAGE_CLOUD_TSSD    = compute.STORAGE_CLOUD_TSSD    //极速型SSD云硬盘
 
 	// huawei storage type
 	STORAGE_HUAWEI_SSD   = compute.STORAGE_HUAWEI_SSD   // 超高IO云硬盘
