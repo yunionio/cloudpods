@@ -235,10 +235,12 @@ func (s *SKVMGuestInstance) extraOptions() string {
 		case *jsonutils.JSONArray:
 			for i := 0; i < jsonV.Size(); i++ {
 				vAtI, _ := jsonV.GetAt(i)
-				cmd += fmt.Sprintf(" -%s %s", k, vAtI.String())
+				vStr, _ := vAtI.GetString()
+				cmd += fmt.Sprintf(" -%s %s", k, vStr)
 			}
 		default:
-			cmd += fmt.Sprintf(" -%s %s", k, v.String())
+			vstr, _ := v.GetString()
+			cmd += fmt.Sprintf(" -%s %s", k, vstr)
 		}
 	}
 	return cmd
