@@ -54,6 +54,7 @@ type ContainerCreateCommonOptions struct {
 	Args              []string `help:"Args for the Command (i.e. command for docker)" json:"args"`
 	WorkingDir        string   `help:"Current working directory of the command" json:"working_dir"`
 	Env               []string `help:"List of environment variable to set in the container and the format is: <key>=<value>"`
+	RootFs            string   `help:"Root filesystem of the container, e.g.: disk_index=<disk_number>,disk_id=<disk_id>"`
 	VolumeMount       []string `help:"Volume mount of the container and the format is: name=<val>,mount=<container_path>,readonly=<true_or_false>,case_insensitive_paths=p1,p2,disk_index=<disk_number>,disk_id=<disk_id>"`
 	Device            []string `help:"Host device: <host_path>:<container_path>:<permissions>, e.g.: /dev/snd:/dev/snd:rwm"`
 	Privileged        bool     `help:"Privileged mode"`
@@ -125,6 +126,13 @@ func (o ContainerCreateCommonOptions) getCreateSpec() (*computeapi.ContainerSpec
 		}
 		req.Envs = append(req.Envs, e)
 	}
+	if len(o.RootFs) != 0 {
+		rootFs, err := parseContainerRootFs(o.RootFs)
+		if err != nil {
+			return nil, errors.Wrapf(err, "parseContainerRootFs %s", o.RootFs)
+		}
+		req.RootFs = rootFs
+	}
 	for _, vmStr := range o.VolumeMount {
 		vm, err := parseContainerVolumeMount(vmStr)
 		if err != nil {
@@ -172,6 +180,32 @@ func parseContainerEnv(env string) (*apis.ContainerKeyValue, error) {
 		Key:   kv[0],
 		Value: kv[1],
 	}, nil
+}
+
+func parseContainerRootFs(rootFs string) (*apis.ContainerRootfs, error) {
+	out := &apis.ContainerRootfs{
+		Type: apis.CONTAINER_VOLUME_MOUNT_TYPE_DISK,
+		Disk: &apis.ContainerVolumeMountDisk{},
+	}
+	for _, seg := range strings.Split(rootFs, ",") {
+		info := strings.Split(seg, "=")
+		if len(info) != 2 {
+			return nil, errors.Errorf("invalid option %s", seg)
+		}
+		key := info[0]
+		val := info[1]
+		switch key {
+		case "disk_index":
+			index, err := strconv.Atoi(val)
+			if err != nil {
+				return nil, errors.Wrapf(err, "wrong disk_index %s", val)
+			}
+			out.Disk.Index = &index
+		case "disk_id":
+			out.Disk.Id = val
+		}
+	}
+	return out, nil
 }
 
 func parseContainerVolumeMount(vmStr string) (*apis.ContainerVolumeMount, error) {

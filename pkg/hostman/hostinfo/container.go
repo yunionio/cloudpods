@@ -146,3 +146,4 @@ func (h *SHostInfo) HasContainerNvidiaGpu() bool {
 	h.containerNvidiaGpus = nvDevs
 	return *h.hasNvidiaGpus
 }
+
