@@ -1398,7 +1398,7 @@ func (b *HostBuilder) fillGuestsResourceInfo(desc *HostDesc, host *computemodels
 	if len(guestsCpuNumaPin) > 0 {
 		desc.HostTopo.LoadCpuNumaPin(guestsCpuNumaPin)
 	}
-	log.Infof("host topo %s", jsonutils.Marshal(desc.HostTopo))
+	log.Debugf("host topo %s", jsonutils.Marshal(desc.HostTopo))
 
 	desc.GuestCount = guestCount
 	desc.CreatingGuestCount = creatingGuestCount
