@@ -862,11 +862,6 @@ func GenerateStartOptions(
 	// pidfile
 	opts = append(opts, drvOpt.Pidfile(input.PidFilePath))
 
-	// extra options
-	if len(input.ExtraOptions) != 0 {
-		opts = append(opts, input.ExtraOptions...)
-	}
-
 	// qga
 	// opts = append(opts, drvOpt.QGA(input.HomeDir)...)
 	if input.GuestDesc.Qga != nil {
@@ -889,6 +884,11 @@ func GenerateStartOptions(
 	// pvpanic device
 	if input.GuestDesc.Pvpanic != nil {
 		opts = append(opts, generatePvpanicDeviceOption(input.GuestDesc.Pvpanic))
+	}
+
+	// move extra options to end of cmdline
+	if len(input.ExtraOptions) != 0 {
+		opts = append(opts, input.ExtraOptions...)
 	}
 
 	return strings.Join(opts, " "), nil
