@@ -60,7 +60,7 @@ func (self *SQcloudHostDriver) ValidateDiskSize(storage *models.SStorage, sizeGb
 		min, max = 50, 16000
 	case api.STORAGE_CLOUD_SSD:
 		min, max = 100, 16000
-	case api.STORAGE_CLOUD_HSSD:
+	case api.STORAGE_CLOUD_HSSD, api.STORAGE_CLOUD_BSSD, api.STORAGE_CLOUD_TSSD:
 		min, max = 20, 320000
 	default:
 		return fmt.Errorf("Not support create or resize %s disk", storage.StorageType)
