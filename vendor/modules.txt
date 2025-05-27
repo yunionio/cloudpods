@@ -103,10 +103,37 @@ github.com/Microsoft/azure-vhd-utils/vhdcore/reader
 github.com/Microsoft/azure-vhd-utils/vhdcore/validator
 github.com/Microsoft/azure-vhd-utils/vhdcore/vhdfile
 github.com/Microsoft/azure-vhd-utils/vhdcore/writer
-# github.com/Microsoft/go-winio v0.4.15
-## explicit; go 1.12
+# github.com/Microsoft/go-winio v0.6.2
+## explicit; go 1.21
 github.com/Microsoft/go-winio
+github.com/Microsoft/go-winio/internal/fs
+github.com/Microsoft/go-winio/internal/socket
+github.com/Microsoft/go-winio/internal/stringbuffer
 github.com/Microsoft/go-winio/pkg/guid
+github.com/Microsoft/go-winio/pkg/security
+github.com/Microsoft/go-winio/vhd
+# github.com/Microsoft/hcsshim v0.8.14
+## explicit; go 1.13
+github.com/Microsoft/hcsshim
+github.com/Microsoft/hcsshim/computestorage
+github.com/Microsoft/hcsshim/internal/cow
+github.com/Microsoft/hcsshim/internal/hcs
+github.com/Microsoft/hcsshim/internal/hcserror
+github.com/Microsoft/hcsshim/internal/hns
+github.com/Microsoft/hcsshim/internal/interop
+github.com/Microsoft/hcsshim/internal/log
+github.com/Microsoft/hcsshim/internal/logfields
+github.com/Microsoft/hcsshim/internal/longpath
+github.com/Microsoft/hcsshim/internal/mergemaps
+github.com/Microsoft/hcsshim/internal/oc
+github.com/Microsoft/hcsshim/internal/safefile
+github.com/Microsoft/hcsshim/internal/schema1
+github.com/Microsoft/hcsshim/internal/schema2
+github.com/Microsoft/hcsshim/internal/timeout
+github.com/Microsoft/hcsshim/internal/vmcompute
+github.com/Microsoft/hcsshim/internal/wclayer
+github.com/Microsoft/hcsshim/internal/winapi
+github.com/Microsoft/hcsshim/osversion
 # github.com/RoaringBitmap/roaring v0.4.16
 ## explicit
 github.com/RoaringBitmap/roaring
@@ -310,24 +337,52 @@ github.com/cilium/ebpf/internal/unix
 # github.com/cloudflare/golz4 v0.0.0-20150217214814-ef862a3cdc58
 ## explicit
 github.com/cloudflare/golz4
+# github.com/containerd/cgroups v0.0.0-20200531161412-0dbf7f05ba59
+## explicit; go 1.13
+github.com/containerd/cgroups/stats/v1
 # github.com/containerd/console v1.0.0
 ## explicit; go 1.13
 github.com/containerd/console
 # github.com/containerd/containerd v1.4.1
 ## explicit
 github.com/containerd/containerd/api/services/containers/v1
+github.com/containerd/containerd/api/services/snapshots/v1
 github.com/containerd/containerd/api/services/tasks/v1
 github.com/containerd/containerd/api/services/version/v1
 github.com/containerd/containerd/api/types
 github.com/containerd/containerd/api/types/task
 github.com/containerd/containerd/containers
+github.com/containerd/containerd/contrib/snapshotservice
 github.com/containerd/containerd/errdefs
+github.com/containerd/containerd/events
+github.com/containerd/containerd/events/exchange
+github.com/containerd/containerd/filters
 github.com/containerd/containerd/identifiers
+github.com/containerd/containerd/log
+github.com/containerd/containerd/metadata/boltutil
+github.com/containerd/containerd/mount
 github.com/containerd/containerd/namespaces
 github.com/containerd/containerd/pkg/dialer
+github.com/containerd/containerd/platforms
+github.com/containerd/containerd/plugin
+github.com/containerd/containerd/snapshots
+github.com/containerd/containerd/snapshots/overlay
+github.com/containerd/containerd/snapshots/storage
+github.com/containerd/containerd/sys
+# github.com/containerd/continuity v0.4.5
+## explicit; go 1.21
+github.com/containerd/continuity/devices
+github.com/containerd/continuity/fs
+github.com/containerd/continuity/sysx
+# github.com/containerd/log v0.1.0
+## explicit; go 1.20
+github.com/containerd/log
 # github.com/containerd/ttrpc v1.0.2
 ## explicit; go 1.13
 github.com/containerd/ttrpc
+# github.com/containerd/typeurl v1.0.1
+## explicit; go 1.13
+github.com/containerd/typeurl
 # github.com/coredns/coredns v1.3.0
 ## explicit
 github.com/coredns/coredns/core/dnsserver
@@ -438,6 +493,9 @@ github.com/docker/docker/pkg/term
 github.com/docker/go-connections/nat
 github.com/docker/go-connections/sockets
 github.com/docker/go-connections/tlsconfig
+# github.com/docker/go-events v0.0.0-20250114142523-c867878c5e32
+## explicit
+github.com/docker/go-events
 # github.com/docker/go-units v0.4.0
 ## explicit
 github.com/docker/go-units
@@ -1085,7 +1143,7 @@ github.com/shirou/gopsutil/v3/internal/common
 github.com/shirou/gopsutil/v3/mem
 github.com/shirou/gopsutil/v3/net
 github.com/shirou/gopsutil/v3/process
-# github.com/sirupsen/logrus v1.9.0
+# github.com/sirupsen/logrus v1.9.3
 ## explicit; go 1.13
 github.com/sirupsen/logrus
 # github.com/skip2/go-qrcode v0.0.0-20190110000554-dc11ecdae0a9
@@ -1231,6 +1289,9 @@ github.com/yusufpapurcu/wmi
 ## explicit; go 1.18
 github.com/zexi/influxql-to-metricsql/converter
 github.com/zexi/influxql-to-metricsql/converter/translator
+# go.etcd.io/bbolt v1.3.7
+## explicit; go 1.17
+go.etcd.io/bbolt
 # go.etcd.io/etcd/api/v3 v3.5.0
 ## explicit; go 1.16
 go.etcd.io/etcd/api/v3/authpb
@@ -1373,12 +1434,12 @@ golang.org/x/oauth2/google/internal/stsexchange
 golang.org/x/oauth2/internal
 golang.org/x/oauth2/jws
 golang.org/x/oauth2/jwt
-# golang.org/x/sync v0.6.0
+# golang.org/x/sync v0.8.0
 ## explicit; go 1.18
 golang.org/x/sync/errgroup
 golang.org/x/sync/semaphore
 golang.org/x/sync/singleflight
-# golang.org/x/sys v0.17.0
+# golang.org/x/sys v0.26.0
 ## explicit; go 1.18
 golang.org/x/sys/cpu
 golang.org/x/sys/plan9
@@ -1541,14 +1602,16 @@ google.golang.org/grpc/serviceconfig
 google.golang.org/grpc/stats
 google.golang.org/grpc/status
 google.golang.org/grpc/tap
-# google.golang.org/protobuf v1.32.0
-## explicit; go 1.17
+# google.golang.org/protobuf v1.35.1
+## explicit; go 1.21
 google.golang.org/protobuf/encoding/protojson
 google.golang.org/protobuf/encoding/prototext
 google.golang.org/protobuf/encoding/protowire
 google.golang.org/protobuf/internal/descfmt
 google.golang.org/protobuf/internal/descopts
 google.golang.org/protobuf/internal/detrand
+google.golang.org/protobuf/internal/editiondefaults
+google.golang.org/protobuf/internal/editionssupport
 google.golang.org/protobuf/internal/encoding/defval
 google.golang.org/protobuf/internal/encoding/json
 google.golang.org/protobuf/internal/encoding/messageset
@@ -1573,6 +1636,7 @@ google.golang.org/protobuf/reflect/protoregistry
 google.golang.org/protobuf/runtime/protoiface
 google.golang.org/protobuf/runtime/protoimpl
 google.golang.org/protobuf/types/descriptorpb
+google.golang.org/protobuf/types/gofeaturespb
 google.golang.org/protobuf/types/known/anypb
 google.golang.org/protobuf/types/known/durationpb
 google.golang.org/protobuf/types/known/emptypb

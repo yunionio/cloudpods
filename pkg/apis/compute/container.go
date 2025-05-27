@@ -130,6 +130,7 @@ const (
 type ContainerSpec struct {
 	apis.ContainerSpec
 	// Volume mounts
+	RootFs       *apis.ContainerRootfs        `json:"rootfs"`
 	VolumeMounts []*apis.ContainerVolumeMount `json:"volume_mounts"`
 	Devices      []*ContainerDevice           `json:"devices"`
 }

@@ -44,6 +44,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/container/lifecycle"
 	"yunion.io/x/onecloud/pkg/hostman/container/prober"
 	proberesults "yunion.io/x/onecloud/pkg/hostman/container/prober/results"
+	"yunion.io/x/onecloud/pkg/hostman/container/snapshot_service"
 	"yunion.io/x/onecloud/pkg/hostman/container/status"
 	"yunion.io/x/onecloud/pkg/hostman/container/volume_mount"
 	"yunion.io/x/onecloud/pkg/hostman/container/volume_mount/disk"
@@ -627,7 +628,68 @@ func (s *sPodGuestInstance) GetDisks() []*desc.SGuestDisk {
 	return s.GetDesc().Disks
 }
 
+func (s *sPodGuestInstance) ConvertRootFsToVolumeMount(rootFs *hostapi.ContainerRootfs) *hostapi.ContainerVolumeMount {
+	return &hostapi.ContainerVolumeMount{
+		Type: rootFs.Type,
+		Disk: rootFs.Disk,
+	}
+}
+
+func (s *sPodGuestInstance) mountRootFs(ctrId string, rootFs *hostapi.ContainerRootfs) error {
+	drv := volume_mount.GetDriver(rootFs.Type)
+	vol := &hostapi.ContainerVolumeMount{
+		Type: rootFs.Type,
+		Disk: rootFs.Disk,
+	}
+	if err := drv.Mount(s, ctrId, vol); err != nil {
+		return errors.Wrapf(err, "mount root fs %s, ctrId %s", jsonutils.Marshal(rootFs), ctrId)
+	}
+	return nil
+}
+
+func (s *sPodGuestInstance) umountRootFs(ctrId string, rootFs *hostapi.ContainerRootfs) error {
+	drv := volume_mount.GetDriver(rootFs.Type)
+	vol := &hostapi.ContainerVolumeMount{
+		Type: rootFs.Type,
+		Disk: rootFs.Disk,
+	}
+	if err := drv.Unmount(s, ctrId, vol); err != nil {
+		return errors.Wrapf(err, "unmount root fs %s, ctrId %s", jsonutils.Marshal(rootFs), ctrId)
+	}
+	return nil
+}
+
+func (s *sPodGuestInstance) getRootFsMountPath(ctrId string) (string, error) {
+	ctr := s.GetContainerById(ctrId)
+	if ctr == nil {
+		return "", errors.Wrapf(httperrors.ErrNotFound, "not found container %s", ctrId)
+	}
+	rootFs := ctr.Spec.Rootfs
+	if rootFs == nil {
+		return "", errors.Wrapf(httperrors.ErrNotFound, "not found root fs %s", ctrId)
+	}
+	vol := s.ConvertRootFsToVolumeMount(rootFs)
+	drv := volume_mount.GetDriver(vol.Type)
+	hostPath, err := drv.GetRuntimeMountHostPath(s, ctrId, vol)
+	if err != nil {
+		return "", errors.Wrapf(err, "get runtime mount host path %s, ctrId %s", jsonutils.Marshal(vol), ctrId)
+	}
+	return hostPath, nil
+}
+
+func (s *sPodGuestInstance) GetRootFsMountPath(ctx context.Context, ctrId string) (string, error) {
+	return s.getRootFsMountPath(ctrId)
+}
+
 func (s *sPodGuestInstance) mountPodVolumes() error {
+	for _, ctr := range s.GetDesc().Containers {
+		if ctr.Spec.Rootfs == nil {
+			continue
+		}
+		if err := s.mountRootFs(ctr.Id, ctr.Spec.Rootfs); err != nil {
+			return errors.Wrapf(err, "mount root fs %s, ctrId %s", jsonutils.Marshal(ctr.Spec.Rootfs), ctr.Id)
+		}
+	}
 	for ctrId, vols := range s.getContainerVolumeMounts() {
 		for _, vol := range vols {
 			drv := volume_mount.GetDriver(vol.Type)
@@ -646,6 +708,14 @@ func (s *sPodGuestInstance) mountPodVolumes() error {
 }
 
 func (s *sPodGuestInstance) umountPodVolumes() error {
+	for _, ctr := range s.GetDesc().Containers {
+		if ctr.Spec.Rootfs == nil {
+			continue
+		}
+		if err := s.umountRootFs(ctr.Id, ctr.Spec.Rootfs); err != nil {
+			return errors.Wrapf(err, "umount root fs %s, ctrId %s", jsonutils.Marshal(ctr.Spec.Rootfs), ctr.Id)
+		}
+	}
 	for ctrId, vols := range s.getContainerVolumeMounts() {
 		for _, vol := range vols {
 			if err := volume_mount.GetDriver(vol.Type).Unmount(s, ctrId, vol); err != nil {
@@ -1764,6 +1834,10 @@ func (s *sPodGuestInstance) createContainer(ctx context.Context, userCred mcclie
 		ctrCfg.Linux.SecurityContext.NamespaceOptions.Pid = runtimeapi.NamespaceMode_TARGET
 		ctrCfg.Linux.SecurityContext.NamespaceOptions.TargetId = s.GetCRIId()
 	}*/
+	if spec.Rootfs != nil {
+		ctrCfg.Labels[snapshot_service.LabelServerId] = s.GetId()
+		ctrCfg.Labels[snapshot_service.LabelContainerId] = ctrId
+	}
 
 	// inherit security context
 	if spec.SecurityContext != nil {
