@@ -785,3 +785,35 @@ func (self *SHuaweiClient) put(service, regionId, resource string, params map[st
 	}
 	return self.request(httputils.PUT, regionId, service, url, nil, params)
 }
+
+type SMonthBill struct {
+	Currency      string
+	ConsumeAmount float64
+	BillSums      []struct {
+		CustomerId    string
+		ConsumeAmount float64
+	}
+}
+
+// https://console.huaweicloud.com/apiexplorer/#/openapi/BSS/doc?api=ShowCustomerMonthlySum
+func (self *SHuaweiClient) QueryAccountMonthBill(month int) (*SMonthBill, error) {
+	ret := SMonthBill{}
+	query := url.Values{}
+	query.Set("bill_cycle", fmt.Sprintf("%d-%d", month/10, month%10))
+	for _, service := range []string{SERVICE_BSS, SERVICE_BSS_INTL} {
+		resp, err := self.list(service, "", "bills/customer-bills/monthly-sum", query)
+		if err != nil {
+			// 国际区账号会报错: {"error_code":"CBC.0150","error_msg":"Access denied. The customer does not belong to the website you are now at."}
+			if e, ok := err.(*sHuaweiError); ok && (e.ErrorCode == "CBC.0150" || e.ErrorCode == "CBC.0156") {
+				continue
+			}
+			return nil, err
+		}
+		err = resp.Unmarshal(&ret)
+		if err != nil {
+			return nil, err
+		}
+		break
+	}
+	return &ret, nil
+}
