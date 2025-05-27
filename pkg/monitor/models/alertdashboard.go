@@ -32,7 +32,7 @@ import (
 )
 
 // +onecloud:swagger-gen-model-singular=alertdashboard
-// +onecloud:swagger-gen-model-plural=alertdashboard
+// +onecloud:swagger-gen-model-plural=alertdashboards
 type SAlertDashBoardManager struct {
 	db.SEnabledResourceBaseManager
 	db.SStatusStandaloneResourceBaseManager
