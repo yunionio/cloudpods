@@ -63,3 +63,7 @@ func GetSizeKb(sizeStr string, defaultSize byte, base int) (int, error) {
 	size, err := parseSizeStr(sizeStr, defaultSize, base)
 	return size / base, err
 }
+
+func GetSizeBytes(sizeStr string, base int) (int, error) {
+	return parseSizeStr(sizeStr, 'B', base)
+}
