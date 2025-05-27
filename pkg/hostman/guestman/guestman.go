@@ -41,6 +41,7 @@ import (
 	hostapi "yunion.io/x/onecloud/pkg/apis/host"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/hostman/container/prober"
+	"yunion.io/x/onecloud/pkg/hostman/container/snapshot_service"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/arch"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
 	fwd "yunion.io/x/onecloud/pkg/hostman/guestman/forwarder"
@@ -155,8 +156,30 @@ func NewGuestManager(host hostutils.IHost, serversPath string, workerCnt int) (*
 		manager.containerRuntimeManager = runtimeMan
 		manager.pleg = pleg.NewGenericPLEG(runtimeMan, pleg.ChannelCapacity, pleg.RelistPeriod, manager.podCache, clock.RealClock{})
 		manager.pleg.Start()
+		go func() {
+			if err := manager.startContainerdSnapshotService(); err != nil {
+				log.Fatalf("start containerd snapshot service: %s", err)
+			}
+		}()
 	}
 	return manager, nil
+}
+
+func (h *SGuestManager) startContainerdSnapshotService() error {
+	root := filepath.Join(options.HostOptions.ServersPath, "containerd_snapshots")
+	err := snapshot_service.StartService(h, root)
+	if err != nil {
+		return errors.Wrap(err, "new snapshot service")
+	}
+	return nil
+}
+
+func (h *SGuestManager) GetContainerManager(serverId string) (snapshot_service.ISnapshotContainerManager, error) {
+	pod, ok := h.GetServer(serverId)
+	if !ok {
+		return nil, errors.Wrapf(httperrors.ErrNotFound, "server %s not found", serverId)
+	}
+	return pod.(snapshot_service.ISnapshotContainerManager), nil
 }
 
 func (m *SGuestManager) startContainerSyncLoop() {
