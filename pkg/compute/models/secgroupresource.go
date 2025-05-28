@@ -132,14 +132,18 @@ func (manager *SSecurityGroupResourceBaseManager) ListItemFilter(
 	}
 
 	var err error
-	q, err = manager.SManagedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ManagedResourceListInput)
+	subq := SecurityGroupManager.Query("id").Snapshot()
+	subq, err = manager.SManagedResourceBaseManager.ListItemFilter(ctx, subq, userCred, query.ManagedResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SManagedResourceBaseManager.ListItemFilter")
 	}
 
-	q, err = manager.SCloudregionResourceBaseManager.ListItemFilter(ctx, q, userCred, query.RegionalFilterListInput)
+	subq, err = manager.SCloudregionResourceBaseManager.ListItemFilter(ctx, subq, userCred, query.RegionalFilterListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.ListItemFilter")
+	}
+	if subq.IsAltered() {
+		q = q.Filter(sqlchemy.In(q.Field("secgroup_id"), subq.SubQuery()))
 	}
 
 	return q, nil
