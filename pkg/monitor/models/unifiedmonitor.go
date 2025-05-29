@@ -204,6 +204,18 @@ func (self *SUnifiedMonitorManager) SetHandlerProcessTimeout(info *appsrv.SHandl
 	return 5 * time.Minute
 }
 
+// +onecloud:swagger-gen-route-method=POST
+// +onecloud:swagger-gen-route-path=/unifiedmonitors/query
+// +onecloud:swagger-gen-route-tag=unifiedmonitor
+// +onecloud:swagger-gen-param-body-index=0
+// +onecloud:swagger-gen-resp-index=0
+// +onecloud:swagger-gen-resp-body-key=unifiedmonitor
+
+// 查询监控数据接口
+func PerformQuery(input monitor.MetricQueryInput) *monitor.MetricsQueryResult {
+	return nil
+}
+
 func (self *SUnifiedMonitorManager) PerformQuery(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (*monitor.MetricsQueryResult, error) {
 	tmp := jsonutils.DeepCopy(data)
 	self.handleDataPreSignature(ctx, tmp)
