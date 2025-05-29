@@ -23,7 +23,7 @@ import (
 type SchedtagConfig struct {
 	apis.Meta
 
-	// swagger: ignore
+	// swagger:ignore
 	Id string `json:"id"`
 	// 调度策略
 	// required: 必须使用
@@ -32,7 +32,7 @@ type SchedtagConfig struct {
 	// exclude: 禁止使用
 	// enmu: required, prefer, avoid, exclude
 	Strategy string `json:"strategy"`
-	// swagger: ignore
+	// swagger:ignore
 	Weight int `json:"weight"`
 	// 资源类型
 	// hosts: 宿主机
@@ -375,7 +375,7 @@ type ServerConfigs struct {
 	// default: kvm
 	Hypervisor string `json:"hypervisor"`
 
-	// swagger: ignore
+	// swagger:ignore
 	Provider string `json:"provider"`
 
 	// 包年包月资源池
@@ -488,7 +488,7 @@ type ServerCreateInput struct {
 	// required: false
 	UserData string `json:"user_data"`
 
-	// swagger: ignore
+	// swagger:ignore
 	// 创建测试数据，不实际创建资源
 	FakeCreate bool `json:"fake_create"`
 

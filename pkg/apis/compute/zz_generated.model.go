@@ -909,7 +909,7 @@ type SExternalProject struct {
 	// 优先级，同一个本地项目映射多个云上项目，优先级高的优先选择
 	// 数值越高，优先级越大
 	Priority int `json:"priority"`
-	// swagger: ignore
+	// swagger:ignore
 	// 将在3.12之后版本移除
 	CloudaccountId string `json:"cloudaccount_id"`
 }
