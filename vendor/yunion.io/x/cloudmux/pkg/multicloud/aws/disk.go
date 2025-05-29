@@ -17,7 +17,6 @@ package aws
 import (
 	"context"
 	"fmt"
-	"sort"
 	"strings"
 	"time"
 
@@ -292,13 +291,6 @@ func (self *SRegion) GetDisks(instanceId string, zoneId string, storageType stri
 			break
 		}
 		params["NextToken"] = part.NextToken
-	}
-
-	if len(instanceId) > 0 {
-		// 	系统盘必须放在第零个位置
-		sort.Slice(disks, func(i, j int) bool {
-			return disks[i].getDevice() < disks[j].getDevice()
-		})
 	}
 
 	return disks, nil
