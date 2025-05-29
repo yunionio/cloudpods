@@ -92,7 +92,7 @@ type SSecgroupRuleCreateInput struct {
 	// swagger:ignore
 	Secgroup string `json:"secgroup"  yunion-deprecated-by:"secgroup_id"`
 
-	// swagger: ignore
+	// swagger:ignore
 	Status string `json:"status"`
 
 	// 安全组ID
@@ -176,12 +176,12 @@ type SSecgroupCreateInput struct {
 	// vpc id
 	// defualt: default
 	VpcResourceInput
-	// swagger: ignore
+	// swagger:ignore
 	CloudproviderResourceInput
-	// swagger: ignore
+	// swagger:ignore
 	CloudregionResourceInput
 
-	// swagger: ignore
+	// swagger:ignore
 	GlobalvpcId string `json:"globalvpc_id"`
 
 	// 规则列表

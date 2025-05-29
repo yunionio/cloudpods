@@ -179,7 +179,7 @@ type LoadbalancerCreateInput struct {
 	// 是否跟随主机删除而自动释放
 	EipAutoDellocate bool `json:"eip_auto_dellocate,omitempty"`
 
-	// swagger: ignore
+	// swagger:ignore
 	Eip string `json:"eip" yunion-deprecated-by:"eip_id"`
 	// EIP Id
 	EipId string `json:"eip_id"`
@@ -206,7 +206,7 @@ type LoadbalancerCreateInput struct {
 	// Cloudregion string `json:"cloudregion"`
 	NetworkResourceInput
 	// 多子网
-	// swagger: ignore
+	// swagger:ignore
 	Networks []string
 	// Network     string `json:"network"`
 	CloudproviderResourceInput

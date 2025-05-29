@@ -264,6 +264,7 @@ type NetworkCreateInput struct {
 	VlanId *int `json:"vlan_id"`
 
 	// deprecated
+	// swagger:ignore
 	Vlan *int `json:"vlan" yunion-deprecated-by:"vlan_id"`
 
 	// 线路类型

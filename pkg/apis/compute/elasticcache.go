@@ -183,7 +183,7 @@ type ElasticcacheCreateInput struct {
 	// 主可用区名称或Id
 	ZoneId string `json:"zone_id"`
 
-	// swagger: ignore
+	// swagger:ignore
 	Zone string `json:"zone" yunion-deprecated-by:"zone_id"`
 
 	// 备可用区名称或Id列表, split by: ,
@@ -196,7 +196,7 @@ type ElasticcacheCreateInput struct {
 	// required: true
 	NetworkId string `json:"network_id"`
 
-	// swagger: ignore
+	// swagger:ignore
 	Network string `json:"network" yunion-deprecated-by:"network_id"`
 
 	// 网络类型
@@ -219,7 +219,7 @@ type ElasticcacheCreateInput struct {
 
 	NodeType string `json:"node_type"`
 
-	// swagger: ignore
+	// swagger:ignore
 	MemorySizeMb int `json:"memory_size_mb" yunion-deprecated-by:"capacity_mb"`
 
 	// 初始密码

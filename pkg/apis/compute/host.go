@@ -654,6 +654,7 @@ type HostEnableNetifInput struct {
 	HostNetifInput
 
 	// Deprecated
+	// swagger:ignore
 	Network   string `json:"network" yunion-deprecated-by:"network_id"`
 	NetworkId string `json:"network_id"`
 

@@ -249,55 +249,11 @@ definitions:
                     type: string
                 type: array
                 x-go-name: Cc
-            content:
-                description: 'swagger: ignore'
-                type: object
-                x-go-name: Content
-            dest:
-                description: 'swagger: ignore'
-                type: string
-                x-go-name: Dest
-            dest_bcc:
-                description: 'swagger: ignore'
-                type: string
-                x-go-name: DestBcc
-            dest_cc:
-                description: 'swagger: ignore'
-                type: string
-                x-go-name: DestCc
-            domain:
-                description: 'swagger: ignore'
-                type: string
-                x-go-name: Domain
-            domain_id:
-                description: 'swagger: ignore'
-                type: string
-                x-go-name: DomainId
             more_datails:
                 additionalProperties:
                     type: string
                 type: object
                 x-go-name: MoreDetails
-            project:
-                description: 'swagger: ignore'
-                type: string
-                x-go-name: Project
-            project_domain:
-                description: 'swagger: ignore'
-                type: string
-                x-go-name: ProjectDomain
-            project_domain_id:
-                description: 'swagger: ignore'
-                type: string
-                x-go-name: ProjectDomainId
-            project_id:
-                description: 'swagger: ignore'
-                type: string
-                x-go-name: ProjectId
-            roles:
-                description: 'swagger: ignore'
-                type: string
-                x-go-name: Roles
             session_id:
                 type: string
                 x-go-name: SessionId
@@ -309,14 +265,6 @@ definitions:
                     type: string
                 type: array
                 x-go-name: To
-            user:
-                description: 'swagger: ignore'
-                type: string
-                x-go-name: User
-            user_id:
-                description: 'swagger: ignore'
-                type: string
-                x-go-name: UserId
         type: object
         x-go-package: yunion.io/x/onecloud/pkg/apis/notify
     EmailQueueDetails:

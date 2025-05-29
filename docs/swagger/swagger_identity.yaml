@@ -1535,17 +1535,6 @@ definitions:
                     type: string
                 type: array
                 x-go-name: Key
-            keys:
-                description: |-
-                    keys
-                    swagger: ignore
-                type: string
-                x-go-name: Keys
-            level:
-                description: 'swagger: ignore'
-                format: int64
-                type: integer
-                x-go-name: Level
             name:
                 description: |-
                     资源名称，如果generate_name为空，则为必填项
@@ -9392,13 +9381,6 @@ paths:
                   name: role_id
                   type: string
                   x-go-name: RoleId
-                - description: |-
-                    swagger: ignore
-                    Deprecated
-                  in: query
-                  name: role
-                  type: string
-                  x-go-name: Role
             responses:
                 "200":
                     $ref: '#/responses/policy_ListItemFilterOutput'
