@@ -81,6 +81,11 @@ func (t *PodStopTask) OnContainerStopped(ctx context.Context, pod *models.SGuest
 	task.ScheduleRun(nil)
 }
 
+func (t *PodStopTask) OnContainerStoppedFailed(ctx context.Context, pod *models.SGuest, data jsonutils.JSONObject) {
+	pod.SetStatus(ctx, t.GetUserCred(), api.POD_STATUS_STOP_CONTAINER_FAILED, data.String())
+	t.SetStageFailed(ctx, data)
+}
+
 func (t *PodStopTask) OnPodStopped(ctx context.Context, pod *models.SGuest, data jsonutils.JSONObject) {
 	pod.SetStatus(ctx, t.GetUserCred(), api.VM_READY, "")
 	t.SetStageComplete(ctx, nil)
