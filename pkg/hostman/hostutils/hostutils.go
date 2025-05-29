@@ -196,6 +196,10 @@ func UpdateServerStatus(ctx context.Context, sid string, statusInput *apis.Perfo
 	return UpdateResourceStatus(ctx, &modules.Servers, sid, statusInput)
 }
 
+func UpdateServerContainersStatus(ctx context.Context, sid string, input *computeapi.ServerPerformStatusInput) (jsonutils.JSONObject, error) {
+	return modules.Servers.PerformAction(GetComputeSession(ctx), sid, "status", jsonutils.Marshal(input))
+}
+
 func UpdateServerProgress(ctx context.Context, sid string, progress, progressMbps float64) (jsonutils.JSONObject, error) {
 	params := map[string]float64{
 		"progress":      progress,
@@ -204,7 +208,7 @@ func UpdateServerProgress(ctx context.Context, sid string, progress, progressMbp
 	return modules.Servers.Update(GetComputeSession(ctx), sid, jsonutils.Marshal(params))
 }
 
-func UploadGuestsStatus(ctx context.Context, resp *computeapi.HostUploadGuestsStatusResponse) (jsonutils.JSONObject, error) {
+func UploadGuestsStatus(ctx context.Context, resp *computeapi.HostUploadGuestsStatusInput) (jsonutils.JSONObject, error) {
 	return modules.Servers.PerformClassAction(GetComputeSession(ctx), "upload-status", jsonutils.Marshal(resp))
 }
 

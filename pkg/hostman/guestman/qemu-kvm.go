@@ -3610,7 +3610,7 @@ func (s *SKVMGuestInstance) CPUSetRemove(ctx context.Context) error {
 	return nil
 }
 
-func (s *SKVMGuestInstance) GetUploadStatus(ctx context.Context, reason string) (*api.HostUploadGuestStatusResponse, error) {
+func (s *SKVMGuestInstance) GetUploadStatus(ctx context.Context, reason string) (*api.HostUploadGuestStatusInput, error) {
 	var status = api.VM_READY
 	if s.IsSuspend() {
 		status = api.VM_SUSPEND
@@ -3628,15 +3628,15 @@ func (s *SKVMGuestInstance) GetUploadStatus(ctx context.Context, reason string) 
 			statusInput.Status = api.VM_BLOCK_STREAM
 		}
 	}
-	return &api.HostUploadGuestStatusResponse{
+	return &api.HostUploadGuestStatusInput{
 		PerformStatusInput: *statusInput,
 	}, nil
 }
 
-func (s *SKVMGuestInstance) PostUploadStatus(resp *api.HostUploadGuestStatusResponse, reason string) {
+func (s *SKVMGuestInstance) PostUploadStatus(resp *api.HostUploadGuestStatusInput, reason string) {
 }
 
-func (s *SKVMGuestInstance) HandleGuestStatus(ctx context.Context, resp *api.HostUploadGuestStatusResponse) (jsonutils.JSONObject, error) {
+func (s *SKVMGuestInstance) HandleGuestStatus(ctx context.Context, resp *api.HostUploadGuestStatusInput) (jsonutils.JSONObject, error) {
 	if resp.Status == GUEST_RUNNING && s.pciUninitialized {
 		resp.Status = api.VM_UNSYNC
 	} else if resp.Status == GUEST_RUNNING {
