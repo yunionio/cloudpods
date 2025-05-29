@@ -47,6 +47,7 @@ import (
 	fwdpb "yunion.io/x/onecloud/pkg/hostman/guestman/forwarder/api"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/pod/pleg"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/pod/runtime"
+	"yunion.io/x/onecloud/pkg/hostman/guestman/pod/statusman"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/types"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostconsts"
@@ -144,6 +145,7 @@ func NewGuestManager(host hostutils.IHost, serversPath string, workerCnt int) (*
 		return nil, errors.Wrap(err, "mkdir qemu log dir")
 	}
 	if manager.host.IsContainerHost() {
+		statusman.GetManager().Start()
 		manager.startContainerProbeManager()
 		runtimeMan, err := runtime.NewRuntimeManager(manager.GetCRI())
 		if err != nil {
@@ -1782,8 +1784,8 @@ func (m *SGuestManager) GetGuestTrafficRecord(sid string) (map[string]compute.SN
 func (m *SGuestManager) UploadGuestsStatus(ctx context.Context, i interface{}) (jsonutils.JSONObject, error) {
 	input := i.(*compute.HostUploadGuestsStatusRequest)
 	errs := []error{}
-	resp := &compute.HostUploadGuestsStatusResponse{
-		Guests: make(map[string]*compute.HostUploadGuestStatusResponse, 0),
+	resp := &compute.HostUploadGuestsStatusInput{
+		Guests: make(map[string]*compute.HostUploadGuestStatusInput, 0),
 	}
 	reason := "upload guest status by host"
 	for _, id := range input.GuestIds {
@@ -1813,10 +1815,10 @@ func (m *SGuestManager) UploadGuestsStatus(ctx context.Context, i interface{}) (
 	return ret, err
 }
 
-func (m *SGuestManager) ProbeGuestInitStatus(sid string) *compute.HostUploadGuestStatusResponse {
+func (m *SGuestManager) ProbeGuestInitStatus(sid string) *compute.HostUploadGuestStatusInput {
 	guest, _ := m.GetServer(sid)
 	status := m.getStatus(sid)
-	resp := &compute.HostUploadGuestStatusResponse{
+	resp := &compute.HostUploadGuestStatusInput{
 		PerformStatusInput: apis.PerformStatusInput{
 			Status:         status,
 			BlockJobsCount: -1,

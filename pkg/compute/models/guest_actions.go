@@ -3466,7 +3466,7 @@ func (self *SGuest) SetBackupGuestStatus(userCred mcclient.TokenCredential, stat
 	return nil
 }
 
-func (g *SGuest) SetStatusFromHost(ctx context.Context, userCred mcclient.TokenCredential, resp api.HostUploadGuestStatusResponse, hasParentTask bool, originStatus string) error {
+func (g *SGuest) SetStatusFromHost(ctx context.Context, userCred mcclient.TokenCredential, resp api.HostUploadGuestStatusInput, hasParentTask bool, originStatus string) error {
 	statusStr := resp.Status
 	switch statusStr {
 	case cloudprovider.CloudVMStatusRunning:
@@ -3490,7 +3490,9 @@ func (g *SGuest) SetStatusFromHost(ctx context.Context, userCred mcclient.TokenC
 			statusStr = originStatus
 		}
 	}
-	input := resp.PerformStatusInput
+	input := api.ServerPerformStatusInput{
+		PerformStatusInput: resp.PerformStatusInput,
+	}
 	input.Status = statusStr
 	if _, err := g.PerformStatus(ctx, userCred, nil, input); err != nil {
 		return errors.Wrapf(err, "perform status of %s", jsonutils.Marshal(resp))
@@ -3498,7 +3500,7 @@ func (g *SGuest) SetStatusFromHost(ctx context.Context, userCred mcclient.TokenC
 	return nil
 }
 
-func (m *SGuestManager) PerformUploadStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.HostUploadGuestsStatusResponse) (*api.GuestUploadStatusesResponse, error) {
+func (m *SGuestManager) PerformUploadStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.HostUploadGuestsStatusInput) (*api.GuestUploadStatusesResponse, error) {
 	out := &api.GuestUploadStatusesResponse{
 		Guests: make(map[string]*api.GuestUploadStatusResponse),
 	}
@@ -3545,7 +3547,7 @@ func (m *SGuestManager) PerformUploadStatus(ctx context.Context, userCred mcclie
 }
 
 // 同步状态
-func (self *SGuest) PerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformStatusInput) (jsonutils.JSONObject, error) {
+func (self *SGuest) PerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ServerPerformStatusInput) (jsonutils.JSONObject, error) {
 	if input.HostId != "" && self.BackupHostId != "" && input.HostId == self.BackupHostId {
 		// perform status called from slave guest
 		return nil, self.SetBackupGuestStatus(userCred, input.Status, input.Reason)
@@ -3563,7 +3565,7 @@ func (self *SGuest) PerformStatus(ctx context.Context, userCred mcclient.TokenCr
 	}
 
 	preStatus := self.Status
-	_, err := self.SVirtualResourceBase.PerformStatus(ctx, userCred, query, input)
+	_, err := self.SVirtualResourceBase.PerformStatus(ctx, userCred, query, input.PerformStatusInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SVirtualResourceBase.PerformStatus")
 	}
@@ -3602,6 +3604,15 @@ func (self *SGuest) PerformStatus(ctx context.Context, userCred mcclient.TokenCr
 		if self.Status == api.VM_READY && !self.DisableDelete.Bool() && self.ShutdownBehavior == api.SHUTDOWN_TERMINATE {
 			err = self.StartAutoDeleteGuestTask(ctx, userCred, "")
 			return nil, err
+		}
+	}
+	for cId, cStatus := range input.Containers {
+		ctr, err := GetContainerManager().FetchById(cId)
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetContainerManager(%s)", cId)
+		}
+		if _, err := ctr.(*SContainer).PerformStatus(ctx, userCred, query, *cStatus); err != nil {
+			return nil, errors.Wrapf(err, "PerformStatus(%s) of container", cId)
 		}
 	}
 	return nil, nil
