@@ -298,16 +298,21 @@ func (self *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 		return nil, errors.Wrap(err, "GetDisks")
 	}
 
-	idisks := make([]cloudprovider.ICloudDisk, len(disks))
+	ret := []cloudprovider.ICloudDisk{}
 	for i := 0; i < len(disks); i += 1 {
 		store, err := self.host.zone.getStorageByCategory(disks[i].VolumeType)
 		if err != nil {
 			return nil, errors.Wrap(err, "getStorageByCategory")
 		}
 		disks[i].storage = store
-		idisks[i] = &disks[i]
+		if disks[i].getDevice() == self.RootDeviceName {
+			ret = append([]cloudprovider.ICloudDisk{&disks[i]}, ret...)
+		} else {
+			ret = append(ret, &disks[i])
+		}
 	}
-	return idisks, nil
+
+	return ret, nil
 }
 
 func (self *SInstance) GetINics() ([]cloudprovider.ICloudNic, error) {
@@ -568,7 +573,7 @@ func (self *SInstance) RebuildRoot(ctx context.Context, desc *cloudprovider.SMan
 
 	cloudconfig := &cloudinit.SCloudConfig{}
 	if srcOsType != winOS && len(udata) > 0 {
-		_cloudconfig, err := cloudinit.ParseUserDataBase64(udata)
+		_cloudconfig, err := cloudinit.ParseUserData(udata)
 		if err != nil {
 			// 忽略无效的用户数据
 			log.Debugf("RebuildRoot invalid instance user data %s", udata)
@@ -913,7 +918,7 @@ func (self *SRegion) ReplaceSystemDisk(ctx context.Context, instanceId string, i
 
 	var rootDisk *SDisk
 	for _, disk := range disks {
-		if disk.GetDiskType() == api.DISK_TYPE_SYS {
+		if disk.getDevice() == instance.RootDeviceName {
 			rootDisk = &disk
 			break
 		}
@@ -948,32 +953,40 @@ func (self *SRegion) ReplaceSystemDisk(ctx context.Context, instanceId string, i
 		return "", fmt.Errorf("ReplaceSystemDisk create temp server failed.")
 	}
 
-	cloudprovider.Wait(time.Second*2, time.Minute*3, func() (bool, error) {
+	err = cloudprovider.Wait(time.Second*2, time.Minute*10, func() (bool, error) {
 		instance, err := self.GetInstance(vm.InstanceId)
 		if err != nil {
 			return false, errors.Wrapf(err, "GetInstance")
 		}
+		log.Debugf("wait temp vm %s running, current status: %s", vm.InstanceId, instance.GetStatus())
 		if instance.GetStatus() == api.VM_RUNNING {
 			return true, nil
 		}
 		return false, nil
 	})
+	if err != nil {
+		log.Errorf("wait temp vm %s running error: %v", vm.InstanceId, err)
+	}
 
 	err = self.StopVM(vm.InstanceId, true)
 	if err != nil {
 		return "", errors.Wrapf(err, "StopVM")
 	}
 
-	cloudprovider.Wait(time.Second*2, time.Minute*3, func() (bool, error) {
+	err = cloudprovider.Wait(time.Second*2, time.Minute*10, func() (bool, error) {
 		instance, err := self.GetInstance(vm.InstanceId)
 		if err != nil {
 			return false, errors.Wrapf(err, "GetInstance")
 		}
+		log.Debugf("wait temp vm %s stop, current status: %s", vm.InstanceId, instance.GetStatus())
 		if instance.GetStatus() == api.VM_READY {
 			return true, nil
 		}
 		return false, nil
 	})
+	if err != nil {
+		log.Errorf("wait temp vm %s stop error: %v", vm.InstanceId, err)
+	}
 
 	// detach disks
 	tempInstance, err := self.GetInstance(vm.InstanceId)
@@ -981,23 +994,30 @@ func (self *SRegion) ReplaceSystemDisk(ctx context.Context, instanceId string, i
 		return "", errors.Wrapf(err, "GetInstance")
 	}
 
+	tempRootDiskId := tempInstance.BlockDeviceMappings[0].Ebs.VolumeId
+
+	err = self.DetachDisk(tempInstance.GetId(), tempRootDiskId)
+	if err != nil {
+		return "", errors.Wrapf(err, "DetachDisk temp vm")
+	}
+
 	err = self.DetachDisk(instance.GetId(), rootDisk.VolumeId)
 	if err != nil {
+		self.DeleteDisk(tempRootDiskId)
 		return "", errors.Wrapf(err, "DetachDisk")
 	}
 
-	err = self.DetachDisk(tempInstance.GetId(), tempInstance.BlockDeviceMappings[0].Ebs.VolumeId)
+	err = self.AttachDisk(instance.GetId(), tempRootDiskId, rootDisk.getDevice())
 	if err != nil {
-		return "", errors.Wrapf(err, "DetachDisk")
-	}
-
-	err = self.AttachDisk(instance.GetId(), tempInstance.BlockDeviceMappings[0].Ebs.VolumeId, rootDisk.getDevice())
-	if err != nil {
+		self.DeleteDisk(tempRootDiskId)
+		self.AttachDisk(instance.GetId(), rootDisk.VolumeId, rootDisk.getDevice())
 		return "", errors.Wrapf(err, "ttachDisk")
 	}
 
 	err = self.ModifyInstanceAttribute(instance.InstanceId, &SInstanceAttr{UserData: userdata})
 	if err != nil {
+		self.DeleteDisk(tempRootDiskId)
+		self.AttachDisk(instance.GetId(), rootDisk.VolumeId, rootDisk.getDevice())
 		return "", errors.Wrapf(err, "ModifyInstanceAttribute")
 	}
 
@@ -1005,7 +1025,7 @@ func (self *SRegion) ReplaceSystemDisk(ctx context.Context, instanceId string, i
 	if err != nil {
 		log.Errorf("DeleteDisk %s", rootDisk.VolumeId)
 	}
-	return tempInstance.BlockDeviceMappings[0].Ebs.VolumeId, nil
+	return tempRootDiskId, nil
 }
 
 func (self *SRegion) ChangeVMConfig2(instanceId string, instanceType string) error {
