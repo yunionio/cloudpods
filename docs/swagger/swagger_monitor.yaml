@@ -1517,209 +1517,6 @@ definitions:
                 $ref: '#/definitions/AlertSetting'
         type: object
         x-go-package: yunion.io/x/onecloud/pkg/apis/monitor
-    AlertV1Details:
-        properties:
-            can_delete:
-                description: 资源是否可以删除, 若为flase, delete_fail_reason会返回不能删除的原因
-                example: true
-                type: boolean
-                x-go-name: CanDelete
-            can_update:
-                description: 资源是否可以更新, 若为false,update_fail_reason会返回资源不能删除的原因
-                example: true
-                type: boolean
-                x-go-name: CanUpdate
-            channel:
-                type: string
-                x-go-name: Channel
-            comparator:
-                type: string
-                x-go-name: Comparator
-            created_at:
-                description: 资源创建时间
-                format: date-time
-                type: string
-                x-go-name: CreatedAt
-            customize_config:
-                type: object
-                x-go-name: CustomizeConfig
-            db:
-                type: string
-                x-go-name: DB
-            delete_fail_reason:
-                $ref: '#/definitions/Error'
-            deleted:
-                description: 资源是否被删除
-                type: boolean
-                x-go-name: Deleted
-            deleted_at:
-                description: 资源删除时间
-                format: date-time
-                type: string
-                x-go-name: DeletedAt
-            description:
-                description: 资源描述信息
-                type: string
-                x-go-name: Description
-            domain_id:
-                description: 域Id
-                type: string
-                x-go-name: DomainId
-            enabled:
-                description: 资源是否启用
-                type: boolean
-                x-go-name: Enabled
-            eval_data:
-                type: object
-                x-go-name: EvalData
-            execution_error:
-                description: Silenced       bool
-                type: string
-                x-go-name: ExecutionError
-            execution_error_state:
-                type: string
-                x-go-name: ExecutionErrorState
-            field:
-                type: string
-                x-go-name: Field
-            for:
-                description: |-
-                    If an alert rule has a configured `For` and the query violates the configured threshold
-                    it will first go from `OK` to `Pending`. Going from `OK` to `Pending` will not send any
-                    notifications. Once the alert rule has been firing for more than `For` duration, it will
-                    change to `Alerting` and send alert notifications.
-                format: int64
-                type: integer
-                x-go-name: For
-            frequency:
-                description: Frequency is evaluate period
-                format: int64
-                type: integer
-                x-go-name: Frequency
-            id:
-                description: 资源UUID
-                type: string
-                x-go-name: Id
-            is_emulated:
-                description: |-
-                    是否是模拟资源, 部分从公有云上同步的资源并不真实存在, 例如宿主机
-                    list 接口默认不会返回这类资源，除非显示指定 is_emulate=true 过滤参数
-                type: boolean
-                x-go-name: IsEmulated
-            last_state_change:
-                format: date-time
-                type: string
-                x-go-name: LastStateChange
-            level:
-                type: string
-                x-go-name: Level
-            measurement:
-                type: string
-                x-go-name: Measurement
-            message:
-                type: string
-                x-go-name: Message
-            metadata:
-                additionalProperties:
-                    type: string
-                description: 标签
-                type: object
-                x-go-name: Metadata
-            name:
-                description: 资源名称
-                type: string
-                x-go-name: Name
-            no_data_state:
-                type: string
-                x-go-name: NoDataState
-            notifier_id:
-                type: string
-                x-go-name: NotifierId
-            period:
-                type: string
-                x-go-name: Period
-            progress:
-                description: 操作进度0-100
-                format: float
-                type: number
-                x-go-name: Progress
-            project:
-                description: |-
-                    资源归属项目的名称（向后兼容别名）
-                    Deprecated
-                type: string
-                x-go-name: Tenant
-            project_domain:
-                description: 资源归属项目的域名称
-                type: string
-                x-go-name: ProjectDomain
-            project_id:
-                description: |-
-                    资源归属项目的ID(向后兼容别名）
-                    Deprecated
-                type: string
-                x-go-name: TenantId
-            project_metadata:
-                additionalProperties:
-                    type: string
-                type: object
-                x-go-name: ProjectMetadata
-            recipients:
-                type: string
-                x-go-name: Recipients
-            res_type:
-                type: string
-                x-go-name: ResType
-            scope:
-                type: string
-                x-go-name: Scope
-            settings:
-                $ref: '#/definitions/AlertSetting'
-            state:
-                type: string
-                x-go-name: State
-            state_changes:
-                format: int64
-                type: integer
-                x-go-name: StateChanges
-            status:
-                description: 资源状态
-                type: string
-                x-go-name: Status
-            tenant:
-                description: |-
-                    资源归属项目的名称
-                    alias:project
-                type: string
-                x-go-name: Project
-            tenant_id:
-                description: 项目Id
-                type: string
-                x-go-name: ProjectId
-            threshold:
-                format: double
-                type: number
-                x-go-name: Threshold
-            update_fail_reason:
-                $ref: '#/definitions/Error'
-            update_version:
-                description: 资源被更新次数
-                format: int64
-                type: integer
-                x-go-name: UpdateVersion
-            updated_at:
-                description: 资源更新时间
-                format: date-time
-                type: string
-                x-go-name: UpdatedAt
-            used_by:
-                type: string
-                x-go-name: UsedBy
-            window:
-                type: string
-                x-go-name: Window
-        type: object
-        x-go-package: yunion.io/x/onecloud/pkg/apis/monitor
     ChangeOwnerCandidateDomainsOutput:
         properties:
             candidates:
@@ -3002,6 +2799,51 @@ definitions:
                 x-go-name: Tz
         type: object
         x-go-package: yunion.io/x/onecloud/pkg/apis/monitor
+    MetricQueryInput:
+        properties:
+            domain_id:
+                type: string
+                x-go-name: DomainId
+            from:
+                type: string
+                x-go-name: From
+            interval:
+                type: string
+                x-go-name: Interval
+            metric_query:
+                items:
+                    $ref: '#/definitions/AlertQuery'
+                type: array
+                x-go-name: MetricQuery
+            project_id:
+                type: string
+                x-go-name: ProjectId
+            scope:
+                type: string
+                x-go-name: Scope
+            show_meta:
+                type: boolean
+                x-go-name: ShowMeta
+            signature:
+                type: string
+                x-go-name: Signature
+            skip_check_series:
+                type: boolean
+                x-go-name: SkipCheckSeries
+            slimit:
+                type: string
+                x-go-name: Slimit
+            soffset:
+                type: string
+                x-go-name: Soffset
+            to:
+                type: string
+                x-go-name: To
+            unit:
+                type: boolean
+                x-go-name: Unit
+        type: object
+        x-go-package: yunion.io/x/onecloud/pkg/apis/monitor
     MetricQueryPart:
         properties:
             params:
@@ -3047,6 +2889,21 @@ definitions:
             scope:
                 type: string
                 x-go-name: Scope
+        type: object
+        x-go-package: yunion.io/x/onecloud/pkg/apis/monitor
+    MetricsQueryResult:
+        properties:
+            Metas:
+                items:
+                    $ref: '#/definitions/QueryResultMeta'
+                type: array
+            ReducedResult:
+                $ref: '#/definitions/ReducedResult'
+            Series:
+                $ref: '#/definitions/TimeSeriesSlice'
+            SeriesTotal:
+                format: int64
+                type: integer
         type: object
         x-go-package: yunion.io/x/onecloud/pkg/apis/monitor
     MigrationAlertCreateInput:
@@ -4029,6 +3886,29 @@ definitions:
                 x-go-name: Tables
         type: object
         x-go-package: yunion.io/x/onecloud/pkg/apis
+    QueryResultMeta:
+        properties:
+            raw_query:
+                type: string
+                x-go-name: RawQuery
+            result_reducer_value:
+                format: double
+                type: number
+                x-go-name: ResultReducerValue
+        type: object
+        x-go-package: yunion.io/x/onecloud/pkg/apis/monitor
+    ReducedResult:
+        properties:
+            reducer:
+                $ref: '#/definitions/Condition'
+            result:
+                items:
+                    format: double
+                    type: number
+                type: array
+                x-go-name: Result
+        type: object
+        x-go-package: yunion.io/x/onecloud/pkg/apis/monitor
     ResultLogEntry:
         properties:
             data:
@@ -4218,48 +4098,47 @@ definitions:
             $ref: '#/definitions/TTagSet'
         type: array
         x-go-package: yunion.io/x/onecloud/pkg/util/tagutils
-    V1AlertUpdateInput:
+    TimePoint:
+        items: {}
+        type: array
+        x-go-package: yunion.io/x/onecloud/pkg/apis/monitor
+    TimeSeries:
         properties:
-            description:
-                description: 资源描述
-                type: string
-                x-go-name: Description
-            enabled:
-                description: 启用报警
-                type: boolean
-                x-go-name: Enabled
-            execution_error_state:
-                description: 报警执行错误将当前报警状态设置为对应的状态
-                type: string
-                x-go-name: ExecutionErrorState
-            for:
-                description: 报警持续时间
-                format: int64
-                type: integer
-                x-go-name: For
-            frequency:
-                description: 报警执行频率
-                format: int64
-                type: integer
-                x-go-name: Frequency
-            level:
-                description: 报警级别
-                type: string
-                x-go-name: Level
-            message:
-                type: string
-                x-go-name: Message
+            cloud_tags:
+                additionalProperties:
+                    type: string
+                type: object
+                x-go-name: CloudTags
+            columns:
+                items:
+                    type: string
+                type: array
+                x-go-name: Columns
             name:
-                description: 资源名称
                 type: string
                 x-go-name: Name
-            no_data_state:
-                description: 没有收到监控指标时将当前报警状态设置为对应的状态
+            points:
+                $ref: '#/definitions/TimeSeriesPoints'
+            raw_name:
+                description: RawName is used to frontend displaying the curve name
                 type: string
-                x-go-name: NoDataState
-            settings:
-                $ref: '#/definitions/AlertSetting'
+                x-go-name: RawName
+            tags:
+                additionalProperties:
+                    type: string
+                type: object
+                x-go-name: Tags
         type: object
+        x-go-package: yunion.io/x/onecloud/pkg/apis/monitor
+    TimeSeriesPoints:
+        items:
+            $ref: '#/definitions/TimePoint'
+        type: array
+        x-go-package: yunion.io/x/onecloud/pkg/apis/monitor
+    TimeSeriesSlice:
+        items:
+            $ref: '#/definitions/TimeSeries'
+        type: array
         x-go-package: yunion.io/x/onecloud/pkg/apis/monitor
     VirtualJointResourceBaseUpdateInput:
         type: object
@@ -15327,804 +15206,22 @@ paths:
             summary: 获取指定资源类的信息TagValueTree
             tags:
                 - nodealert
-    /v1_alerts:
-        get:
-            description: 列表
-            operationId: v1_alert_ListItemFilter
-            parameters:
-                - description: 指定查询的权限范围，可能值为project, domain or system
-                  in: query
-                  name: scope
-                  type: string
-                  x-go-name: Scope
-                - description: 指定项目归属域名称或ID
-                  in: query
-                  name: project_domain_id
-                  type: string
-                  x-go-name: ProjectDomainId
-                - description: 对具有域属性的资源，严格匹配域ID
-                  in: query
-                  items:
-                    type: string
-                  name: project_domain_ids
-                  type: array
-                  x-go-name: ProjectDomainIds
-                - description: 按domain名称排序，可能值为asc|desc
-                  in: query
-                  name: order_by_domain
-                  pattern: asc|desc
-                  type: string
-                  x-go-name: OrderByDomain
-                - $ref: '#/definitions/TTagSetList'
-                  description: filter by domain tags
-                  in: query
-                  name: domain_tags
-                  x-go-name: DomainTags
-                - $ref: '#/definitions/TTagSetList'
-                  description: filter by domain tags
-                  in: query
-                  name: no_domain_tags
-                  x-go-name: NoDomainTags
-                - description: 指定项目的名称或ID
-                  in: query
-                  name: project_id
-                  type: string
-                  x-go-name: ProjectId
-                - description: 对具有项目属性的资源，严格匹配项目ID
-                  in: query
-                  items:
-                    type: string
-                  name: project_ids
-                  type: array
-                  x-go-name: ProjectIds
-                - description: 按project名称排序，可能值为asc|desc
-                  in: query
-                  name: order_by_project
-                  pattern: asc|desc
-                  type: string
-                  x-go-name: OrderByProject
-                - $ref: '#/definitions/TTagSetList'
-                  description: filter by project tags
-                  in: query
-                  name: project_tags
-                  x-go-name: ProjectTags
-                - $ref: '#/definitions/TTagSetList'
-                  description: filter by no project tags
-                  in: query
-                  name: no_project_tags
-                  x-go-name: NoProjectTags
-                - description: filter by project organizations
-                  in: query
-                  items:
-                    type: string
-                  name: project_organizations
-                  type: array
-                  x-go-name: ProjectOrganizations
-                - $ref: '#/definitions/TTagSetList'
-                  description: |-
-                    ignore
-                    project tag fitlers imposed by policy
-                  in: query
-                  name: policy_project_tags
-                  x-go-name: PolicyProjectTags
-                - description: 指定匹配的范围，可能值为project, domain or system
-                  in: query
-                  name: belong_scope
-                  type: string
-                  x-go-name: BelongScope
-                - description: 以资源是否启用/禁用过滤列表
-                  in: query
-                  name: enabled
-                  type: boolean
-                  x-go-name: Enabled
-                - default: 20
-                  description: 查询限制量
-                  format: int64
-                  in: query
-                  name: limit
-                  type: integer
-                  x-go-name: Limit
-                - default: 0
-                  description: 查询偏移量
-                  format: int64
-                  in: query
-                  name: offset
-                  type: integer
-                  x-go-name: Offset
-                - description: 列表排序时，用于排序的字段的名称，该字段不提供时，则按默认字段排序。一般时按照资源的新建时间逆序排序。
-                  in: query
-                  items:
-                    type: string
-                  name: order_by
-                  type: array
-                  x-go-name: OrderBy
-                - description: 列表排序时的顺序，desc为从高到低，asc为从低到高。默认是按照资源的创建时间desc排序。
-                  example: desc|asc
-                  in: query
-                  name: order
-                  type: string
-                  x-go-name: Order
-                - description: 列表返回资源的更多详细信息。默认只显示基本字段，该字段为true则返回扩展字段信息。
-                  in: query
-                  name: details
-                  type: boolean
-                  x-go-name: Details
-                - description: 模糊搜索所有字段
-                  in: query
-                  name: search
-                  type: string
-                  x-go-name: Search
-                - description: |-
-                    指定过滤条件，允许指定多个，每个条件的格式为"字段名称.操作符(匹配信息)"，例如name字段等于test的过滤器为：name.equals('test')
-                    支持的操作符如下：
-
-                     操作符        | 参数个数 | 举例                                           | 说明                        |
-                    ---------------|----------|------------------------------------------------|-----------------------------|
-                     in            | > 0      | name.in("test", "good")                        | 在给定数组中                |
-                     notin         | > 0      | name.notin('test')                             | 不在给定数组中              |
-                     between       | 2        | created_at.between('2019-12-10', '2020-01-02') | 在两个值之间                |
-                     ge            | 1        | created_at.ge('2020-01-01')                    | 大于或等于给定值            |
-                     gt            | 1        | created_at.gt('2020-01-01')                    | 严格大于给定值              |
-                     le            | 1        | created_at.le('2020-01-01')                    | 小于或等于给定值            |
-                     lt            | 1        | sync_seconds.lt(900)                           | 严格大于给定值              |
-                     like          | > 0      | name.like('%test%')                            | sql字符串匹配任意一个字符串 |
-                     contains      | > 0      | name.contains('test')                          | 包含任意一个给定字符串      |
-                     startswith    | > 0      | name.startswith('test')                        | 以任意一个给定字符串开头    |
-                     endswith      | > 0      | name.endswith('test')                          | 以任意一个给定字符串结尾    |
-                     equals        | > 0      | name.equals('test')                            | 等于任意一个给定值          |
-                     notequals     | 1        | name.notequals('test')                         | 不等于给定值                |
-                     isnull        | 0        | name.isnull()                                  | 值为SQL的NULL               |
-                     isnotnull     | 0        | name.isnotnull()                               | 值不为SQL的NULL             |
-                     isempty       | 0        | name.isempty('test')                           | 值为空字符串                |
-                     isnotempty    | 0        | name.isnotempty('test')                        | 值不是空字符串              |
-                     isnullorempty | 0        | name.isnullorempty('test')                     | 值为SQL的NULL或者空字符串   |
-                  in: query
-                  items:
-                    type: string
-                  name: filter
-                  type: array
-                  x-go-name: Filter
-                - description: |-
-                    指定关联过滤条件，允许指定多个，后端将根据关联过滤条件和其他表关联查询，支持的查询语法和filter相同，
-                    和其他表关联的语法如下：
-                    joint_resources.related_key(origin_key).filter_col.filter_ops(values)
-                    其中，joint_resources为要关联的资源名称，related_key为关联表column，origin_key为当前表column, filter_col为
-                    关联表用于查询匹配的field名称，field_ops为filter支持的操作，values为匹配的值
-                    举例：
-                    guestnetworks.guest_id(id).ip_addr.equals('10.168.21.222')
-                  in: query
-                  items:
-                    type: string
-                  name: joint_filter
-                  type: array
-                  x-go-name: JointFilter
-                - description: 如果filter_any为true，则查询所有filter的并集，否则为交集
-                  in: query
-                  name: filter_any
-                  type: boolean
-                  x-go-name: FilterAny
-                - description: 返回结果只包含指定的字段
-                  in: query
-                  items:
-                    type: string
-                  name: field
-                  type: array
-                  x-go-name: Field
-                - description: 用于数据导出，指定导出的数据字段
-                  in: query
-                  name: export_keys
-                  type: string
-                  x-go-name: ExportKeys
-                - description: 返回结果携带delete_fail_reason和update_fail_reason字段
-                  in: query
-                  name: show_fail_reason
-                  type: boolean
-                  x-go-name: ShowFailReason
-                - description: 是否返回状态统计信息，默认为False
-                  in: query
-                  name: summary_stats
-                  type: boolean
-                  x-go-name: SummaryStats
-                - $ref: '#/definitions/TTagSet'
-                  description: 通过标签过滤（包含这些标签）
-                  in: query
-                  name: tags
-                  x-go-name: Tags
-                - $ref: '#/definitions/TTagSetList'
-                  description: 通过一组标签过滤（还包含这些标签，OR的关系）
-                  in: query
-                  name: obj_tags
-                  x-go-name: ObjTags
-                - $ref: '#/definitions/TTagSet'
-                  description: 通过标签过滤（不包含这些标签）
-                  in: query
-                  name: no_tags
-                  x-go-name: NoTags
-                - $ref: '#/definitions/TTagSetList'
-                  description: 通过一组标签过滤（还不包含这些标签，AND的关系）
-                  in: query
-                  name: no_obj_tags
-                  x-go-name: NoObjTags
-                - description: 通过标签排序
-                  in: query
-                  name: order_by_tag
-                  type: string
-                  x-go-name: OrderByTag
-                - description: |-
-                    deprecated
-                    返回资源的标签不包含用户标签
-                  in: query
-                  name: without_user_meta
-                  type: boolean
-                  x-go-name: WithoutUserMeta
-                - description: 返回包含用户标签的资源
-                  in: query
-                  name: with_user_meta
-                  type: boolean
-                  x-go-name: WithUserMeta
-                - description: 返回包含外部标签的资源
-                  in: query
-                  name: with_cloud_meta
-                  type: boolean
-                  x-go-name: WithCloudMeta
-                - description: 返回包含任意标签的资源
-                  in: query
-                  name: with_any_meta
-                  type: boolean
-                  x-go-name: WithAnyMeta
-                - description: 返回列表数据中包含资源的标签数据（Metadata）
-                  in: query
-                  name: with_meta
-                  type: boolean
-                  x-go-name: WithMeta
-                - description: 显示所有的资源，包括模拟的资源
-                  in: query
-                  name: show_emulated
-                  type: boolean
-                  x-go-name: ShowEmulated
-                - description: 以资源ID过滤列表
-                  in: query
-                  items:
-                    type: string
-                  name: id
-                  type: array
-                  x-go-name: Ids
-                - description: 以资源名称过滤列表
-                  in: query
-                  items:
-                    type: string
-                  name: name
-                  type: array
-                  x-go-name: Names
-                - description: 以资源的状态过滤列表
-                  in: query
-                  items:
-                    type: string
-                  name: status
-                  type: array
-                  x-go-name: Status
-                - description: |-
-                    以报警是否启用/禁用过滤列表
-                    Enabled *bool `json:"enabled"`
-                  in: query
-                  items:
-                    type: string
-                  name: monitor_resource_id
-                  type: array
-                  x-go-name: MonitorResourceId
-            responses:
-                "200":
-                    $ref: '#/responses/v1_alert_ListItemFilterOutput'
-            summary: 列表
-            tags:
-                - v1_alert
+    /unifiedmonitors/query:
         post:
-            description: 新建
-            operationId: v1_alert_ValidateCreateData
+            description: 查询监控数据接口
+            operationId: models_PerformQuery
             parameters:
                 - in: body
                   name: body
                   schema:
-                    properties:
-                        count:
-                            default: 1
-                            format: int64
-                            type: integer
-                            x-go-name: Count
-                        v1_alert:
-                            $ref: '#/definitions/AlertCreateInput'
-                    type: object
+                    $ref: '#/definitions/MetricQueryInput'
                   x-go-name: Body
             responses:
                 "200":
-                    $ref: '#/responses/v1_alert_ValidateCreateDataOutput'
-            summary: 新建
+                    $ref: '#/responses/models_PerformQueryOutput'
+            summary: 查询监控数据接口
             tags:
-                - v1_alert
-    /v1_alerts/{id}:
-        delete:
-            description: 删除
-            operationId: v1_alert_CustomizeDelete
-            parameters:
-                - description: The Id or Name of v1_alert
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-            responses:
-                "200":
-                    $ref: '#/responses/v1_alert_CustomizeDeleteOutput'
-            summary: 删除
-            tags:
-                - v1_alert
-        get:
-            description: 获取详情
-            operationId: v1_alert_FetchCustomizeColumns
-            parameters:
-                - description: The Id or Name of v1_alert
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-            responses:
-                "200":
-                    $ref: '#/responses/v1_alert_FetchCustomizeColumnsOutput'
-            summary: 获取详情
-            tags:
-                - v1_alert
-        put:
-            description: 更新
-            operationId: v1_alert_ValidateUpdateData
-            parameters:
-                - description: The Id or Name of v1_alert
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-                - in: body
-                  name: body
-                  schema:
-                    properties:
-                        v1_alert:
-                            $ref: '#/definitions/V1AlertUpdateInput'
-                    type: object
-                  x-go-name: Body
-            responses:
-                "200":
-                    $ref: '#/responses/v1_alert_ValidateUpdateDataOutput'
-            summary: 更新
-            tags:
-                - v1_alert
-    /v1_alerts/{id}/class-metadata:
-        get:
-            description: 获取指定信息ClassMetadata
-            operationId: v1_alert_GetDetailsClassMetadata
-            parameters:
-                - description: The Id or Name of v1_alert
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-            responses:
-                "200":
-                    $ref: '#/responses/v1_alert_GetDetailsClassMetadataOutput'
-            summary: 获取指定信息ClassMetadata
-            tags:
-                - v1_alert
-        post:
-            description: 执行操作ClassMetadata
-            operationId: v1_alert_PerformClassMetadata
-            parameters:
-                - description: The Id or Name of v1_alert
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-                - in: body
-                  name: body
-                  schema:
-                    properties:
-                        v1_alert:
-                            additionalProperties:
-                                type: string
-                            type: object
-                            x-go-name: Input
-                    type: object
-                  x-go-name: Body
-            responses:
-                "200":
-                    $ref: '#/responses/v1_alert_PerformClassMetadataOutput'
-            summary: 更新资源的 class 标签
-            tags:
-                - v1_alert
-    /v1_alerts/{id}/disable:
-        post:
-            description: 执行操作Disable
-            operationId: v1_alert_PerformDisable
-            parameters:
-                - description: The Id or Name of v1_alert
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-                - in: body
-                  name: body
-                  schema:
-                    properties:
-                        v1_alert:
-                            $ref: '#/definitions/PerformDisableInput'
-                    type: object
-                  x-go-name: Body
-            responses:
-                "200":
-                    $ref: '#/responses/v1_alert_PerformDisableOutput'
-            summary: 执行操作Disable
-            tags:
-                - v1_alert
-    /v1_alerts/{id}/enable:
-        post:
-            description: 执行操作Enable
-            operationId: v1_alert_PerformEnable
-            parameters:
-                - description: The Id or Name of v1_alert
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-                - in: body
-                  name: body
-                  schema:
-                    properties:
-                        v1_alert:
-                            $ref: '#/definitions/PerformEnableInput'
-                    type: object
-                  x-go-name: Body
-            responses:
-                "200":
-                    $ref: '#/responses/v1_alert_PerformEnableOutput'
-            summary: 执行操作Enable
-            tags:
-                - v1_alert
-    /v1_alerts/{id}/metadata:
-        get:
-            description: 获取指定信息Metadata
-            operationId: v1_alert_GetDetailsMetadata
-            parameters:
-                - description: |-
-                    指定需要获取的所有标签的KEY列表，如果列表为空，则获取全部标签
-                    标签分为
-
-                     类型     | 说明                                        |
-                    ----------|---------------------------------------------|
-                     系统标签 | 平台定义的标签                              |
-                     用户标签 | key以user:为前缀，用户自定义标签            |
-                     外部标签 | key以ext:为前缀，为从其他平台同步过来的标签 |
-                  in: query
-                  items:
-                    type: string
-                  name: field
-                  type: array
-                  x-go-name: Field
-                - description: 按标签前缀过滤
-                  in: query
-                  name: prefix
-                  type: string
-                  x-go-name: Prefix
-                - description: The Id or Name of v1_alert
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-            responses:
-                "200":
-                    $ref: '#/responses/v1_alert_GetDetailsMetadataOutput'
-            summary: 获取资源标签（元数据）
-            tags:
-                - v1_alert
-    /v1_alerts/{id}/org-metadata:
-        get:
-            description: 获取指定信息OrgMetadata
-            operationId: v1_alert_GetDetailsOrgMetadata
-            parameters:
-                - description: The Id or Name of v1_alert
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-            responses:
-                "200":
-                    $ref: '#/responses/v1_alert_GetDetailsOrgMetadataOutput'
-            summary: 获取指定信息OrgMetadata
-            tags:
-                - v1_alert
-    /v1_alerts/{id}/pause:
-        post:
-            description: 执行操作Pause
-            operationId: v1_alert_PerformPause
-            parameters:
-                - description: The Id or Name of v1_alert
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-                - in: body
-                  name: body
-                  schema:
-                    properties:
-                        v1_alert:
-                            $ref: '#/definitions/AlertPauseInput'
-                    type: object
-                  x-go-name: Body
-            responses:
-                "200":
-                    $ref: '#/responses/v1_alert_PerformPauseOutput'
-            summary: 执行操作Pause
-            tags:
-                - v1_alert
-    /v1_alerts/{id}/set-class-metadata:
-        post:
-            description: 执行操作SetClassMetadata
-            operationId: v1_alert_PerformSetClassMetadata
-            parameters:
-                - description: The Id or Name of v1_alert
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-                - in: body
-                  name: body
-                  schema:
-                    properties:
-                        v1_alert:
-                            additionalProperties:
-                                type: string
-                            type: object
-                            x-go-name: Input
-                    type: object
-                  x-go-name: Body
-            responses:
-                "200":
-                    $ref: '#/responses/v1_alert_PerformSetClassMetadataOutput'
-            summary: 全量替换资源的所有 class 标签
-            tags:
-                - v1_alert
-    /v1_alerts/{id}/set-org-metadata:
-        post:
-            description: 执行操作SetOrgMetadata
-            operationId: v1_alert_PerformSetOrgMetadata
-            parameters:
-                - description: The Id or Name of v1_alert
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-                - in: body
-                  name: body
-                  schema:
-                    properties:
-                        v1_alert:
-                            additionalProperties:
-                                type: string
-                            type: object
-                            x-go-name: Input
-                    type: object
-                  x-go-name: Body
-            responses:
-                "200":
-                    $ref: '#/responses/v1_alert_PerformSetOrgMetadataOutput'
-            summary: 全量替换资源的所有 class 标签
-            tags:
-                - v1_alert
-    /v1_alerts/{id}/set-user-metadata:
-        post:
-            description: 执行操作SetUserMetadata
-            operationId: v1_alert_PerformSetUserMetadata
-            parameters:
-                - description: The Id or Name of v1_alert
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-                - in: body
-                  name: body
-                  schema:
-                    properties:
-                        v1_alert:
-                            additionalProperties:
-                                type: string
-                            type: object
-                            x-go-name: Input
-                    type: object
-                  x-go-name: Body
-            responses:
-                "200":
-                    $ref: '#/responses/v1_alert_PerformSetUserMetadataOutput'
-            summary: 全量替换资源的所有用户标签
-            tags:
-                - v1_alert
-    /v1_alerts/{id}/status:
-        get:
-            description: 获取指定信息Status
-            operationId: v1_alert_GetDetailsStatus
-            parameters:
-                - description: The Id or Name of v1_alert
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-            responses:
-                "200":
-                    $ref: '#/responses/v1_alert_GetDetailsStatusOutput'
-            summary: 获取资源状态
-            tags:
-                - v1_alert
-        post:
-            description: 执行操作Status
-            operationId: v1_alert_PerformStatus
-            parameters:
-                - description: The Id or Name of v1_alert
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-                - in: body
-                  name: body
-                  schema:
-                    properties:
-                        v1_alert:
-                            $ref: '#/definitions/PerformStatusInput'
-                    type: object
-                  x-go-name: Body
-            responses:
-                "200":
-                    $ref: '#/responses/v1_alert_PerformStatusOutput'
-            summary: 更新资源状态
-            tags:
-                - v1_alert
-    /v1_alerts/{id}/test-run:
-        post:
-            description: 执行操作TestRun
-            operationId: v1_alert_PerformTestRun
-            parameters:
-                - description: The Id or Name of v1_alert
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-                - in: body
-                  name: body
-                  schema:
-                    properties:
-                        v1_alert:
-                            $ref: '#/definitions/AlertTestRunInput'
-                    type: object
-                  x-go-name: Body
-            responses:
-                "200":
-                    $ref: '#/responses/v1_alert_PerformTestRunOutput'
-            summary: 执行操作TestRun
-            tags:
-                - v1_alert
-    /v1_alerts/distinct-field:
-        get:
-            description: 获取指定资源类的信息DistinctField
-            operationId: v1_alert_GetPropertyDistinctField
-            responses:
-                "200":
-                    $ref: '#/responses/v1_alert_GetPropertyDistinctFieldOutput'
-            summary: 获取指定资源类的信息DistinctField
-            tags:
-                - v1_alert
-    /v1_alerts/distinct-fields:
-        get:
-            description: 获取指定资源类的信息DistinctFields
-            operationId: v1_alert_GetPropertyDistinctFields
-            responses:
-                "200":
-                    $ref: '#/responses/v1_alert_GetPropertyDistinctFieldsOutput'
-            summary: 获取指定资源类的信息DistinctFields
-            tags:
-                - v1_alert
-    /v1_alerts/purge-splitable:
-        post:
-            description: 执行操作PurgeSplitable
-            operationId: v1_alert_PerformPurgeSplitable
-            parameters:
-                - in: body
-                  name: body
-                  schema:
-                    properties:
-                        v1_alert:
-                            $ref: '#/definitions/PurgeSplitTableInput'
-                    type: object
-                  x-go-name: Body
-            responses:
-                "200":
-                    $ref: '#/responses/v1_alert_PerformPurgeSplitableOutput'
-            summary: 执行操作PurgeSplitable
-            tags:
-                - v1_alert
-    /v1_alerts/splitable:
-        get:
-            description: 获取指定资源类的信息Splitable
-            operationId: v1_alert_GetPropertySplitable
-            responses:
-                "200":
-                    $ref: '#/responses/v1_alert_GetPropertySplitableOutput'
-            summary: 获取指定资源类的信息Splitable
-            tags:
-                - v1_alert
-    /v1_alerts/splitable-export:
-        get:
-            description: 获取指定资源类的信息SplitableExport
-            operationId: v1_alert_GetPropertySplitableExport
-            parameters:
-                - in: query
-                  name: table
-                  type: string
-                  x-go-name: Table
-                - format: int64
-                  in: query
-                  name: offset
-                  type: integer
-                  x-go-name: Offset
-                - format: int64
-                  in: query
-                  name: limit
-                  type: integer
-                  x-go-name: Limit
-            responses:
-                "200":
-                    $ref: '#/responses/v1_alert_GetPropertySplitableExportOutput'
-            summary: 获取指定资源类的信息SplitableExport
-            tags:
-                - v1_alert
-    /v1_alerts/statistics:
-        get:
-            description: 获取指定资源类的信息Statistics
-            operationId: v1_alert_GetPropertyStatistics
-            responses:
-                "200":
-                    $ref: '#/responses/v1_alert_GetPropertyStatisticsOutput'
-            summary: 获取指定资源类的信息Statistics
-            tags:
-                - v1_alert
-    /v1_alerts/tag-value-pairs:
-        get:
-            description: 获取指定资源类的信息TagValuePairs
-            operationId: v1_alert_GetPropertyTagValuePairs
-            responses:
-                "200":
-                    $ref: '#/responses/v1_alert_GetPropertyTagValuePairsOutput'
-            summary: 获取指定资源类的信息TagValuePairs
-            tags:
-                - v1_alert
-    /v1_alerts/tag-value-tree:
-        get:
-            description: 获取指定资源类的信息TagValueTree
-            operationId: v1_alert_GetPropertyTagValueTree
-            responses:
-                "200":
-                    $ref: '#/responses/v1_alert_GetPropertyTagValueTreeOutput'
-            summary: 获取指定资源类的信息TagValueTree
-            tags:
-                - v1_alert
+                - unifiedmonitor
 produces:
     - application/json
 responses:
@@ -17648,6 +16745,13 @@ responses:
                 migrationalert:
                     $ref: '#/definitions/AlertDetails'
             type: object
+    models_PerformQueryOutput:
+        description: ""
+        schema:
+            properties:
+                unifiedmonitor:
+                    $ref: '#/definitions/MetricsQueryResult'
+            type: object
     monitorresource_CustomizeDeleteOutput:
         description: ""
         schema:
@@ -18001,137 +17105,6 @@ responses:
             properties:
                 nodealert:
                     $ref: '#/definitions/NodeAlertDetails'
-            type: object
-    v1_alert_CustomizeDeleteOutput:
-        description: ""
-        schema:
-            properties:
-                v1_alert:
-                    $ref: '#/definitions/AlertV1Details'
-            type: object
-    v1_alert_FetchCustomizeColumnsOutput:
-        description: ""
-        schema:
-            properties:
-                v1_alert:
-                    $ref: '#/definitions/AlertV1Details'
-            type: object
-    v1_alert_GetDetailsClassMetadataOutput:
-        description: ""
-        schema:
-            properties:
-                v1_alert:
-                    additionalProperties:
-                        type: string
-                    type: object
-                    x-go-name: Output
-            type: object
-    v1_alert_GetDetailsMetadataOutput:
-        description: ""
-        schema:
-            properties:
-                v1_alert:
-                    additionalProperties:
-                        type: string
-                    type: object
-                    x-go-name: Output
-            type: object
-    v1_alert_GetDetailsOrgMetadataOutput:
-        description: ""
-        schema:
-            properties:
-                v1_alert:
-                    additionalProperties:
-                        type: string
-                    type: object
-                    x-go-name: Output
-            type: object
-    v1_alert_GetDetailsStatusOutput:
-        description: ""
-        schema:
-            properties:
-                v1_alert:
-                    $ref: '#/definitions/GetDetailsStatusOutput'
-            type: object
-    v1_alert_GetPropertyDistinctFieldOutput:
-        description: ""
-    v1_alert_GetPropertyDistinctFieldsOutput:
-        description: ""
-    v1_alert_GetPropertySplitableExportOutput:
-        description: ""
-    v1_alert_GetPropertySplitableOutput:
-        description: ""
-    v1_alert_GetPropertyStatisticsOutput:
-        description: ""
-        schema:
-            properties:
-                v1_alert:
-                    $ref: '#/definitions/StatusStatistic'
-            type: object
-    v1_alert_GetPropertyTagValuePairsOutput:
-        description: ""
-    v1_alert_GetPropertyTagValueTreeOutput:
-        description: ""
-    v1_alert_ListItemFilterOutput:
-        description: ""
-        schema:
-            properties:
-                limit:
-                    format: int64
-                    type: integer
-                    x-go-name: Limit
-                offset:
-                    format: int64
-                    type: integer
-                    x-go-name: Offset
-                total:
-                    format: int64
-                    type: integer
-                    x-go-name: Total
-                v1_alerts:
-                    items:
-                        $ref: '#/definitions/AlertV1Details'
-                    type: array
-                    x-go-name: Output
-            type: object
-    v1_alert_PerformClassMetadataOutput:
-        description: ""
-    v1_alert_PerformDisableOutput:
-        description: ""
-    v1_alert_PerformEnableOutput:
-        description: ""
-    v1_alert_PerformPauseOutput:
-        description: ""
-    v1_alert_PerformPurgeSplitableOutput:
-        description: ""
-    v1_alert_PerformSetClassMetadataOutput:
-        description: ""
-    v1_alert_PerformSetOrgMetadataOutput:
-        description: ""
-    v1_alert_PerformSetUserMetadataOutput:
-        description: ""
-    v1_alert_PerformStatusOutput:
-        description: ""
-    v1_alert_PerformTestRunOutput:
-        description: ""
-        schema:
-            properties:
-                v1_alert:
-                    $ref: '#/definitions/AlertTestRunOutput'
-            type: object
-    v1_alert_ValidateCreateDataOutput:
-        description: ""
-        schema:
-            properties:
-                v1_alert:
-                    $ref: '#/definitions/AlertV1Details'
-            type: object
-    v1_alert_ValidateUpdateDataOutput:
-        description: ""
-        schema:
-            properties:
-                v1_alert:
-                    $ref: '#/definitions/AlertV1Details'
             type: object
 schemes:
     - https
