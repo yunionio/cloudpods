@@ -117,8 +117,34 @@ func (w *nullWriter) WriteAt(p []byte, off int64) (n int, err error) {
 	return len(p), nil
 }
 
-func getRandReader() io.Reader {
-	return rand.New(rand.NewSource(time.Now().UnixNano()))
+var (
+	randBuffer [1024]byte
+)
+
+func init() {
+	for i := range randBuffer {
+		randBuffer[i] = byte(rand.Intn(256))
+	}
+}
+
+type randReader struct {
+}
+
+func newRandReader() io.Reader {
+	return &randReader{}
+}
+
+func (r *randReader) Read(p []byte) (n int, err error) {
+	offset := 0
+	for offset < len(p) {
+		readLen := len(randBuffer)
+		if readLen > len(p)-offset {
+			readLen = len(p) - offset
+		}
+		copy(p[offset:], randBuffer[:readLen])
+		offset += readLen
+	}
+	return offset, nil
 }
 
 func ProbeBucketStats(ctx context.Context, bucket cloudprovider.ICloudBucket, testKey string, sizeBytes int64) (*api.BucketProbeResult, error) {
@@ -126,7 +152,7 @@ func ProbeBucketStats(ctx context.Context, bucket cloudprovider.ICloudBucket, te
 	start := time.Now()
 
 	// force upload object in one shot
-	err := cloudprovider.UploadObject(ctx, bucket, testKey, sizeBytes*2, getRandReader(), sizeBytes, cloudprovider.ACLPrivate, "", nil, false)
+	err := cloudprovider.UploadObject(ctx, bucket, testKey, sizeBytes*2, newRandReader(), sizeBytes, cloudprovider.ACLPrivate, "", nil, false)
 	if err != nil {
 		return nil, errors.Wrap(err, "cloudprovider.UploadObject")
 	}
