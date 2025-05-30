@@ -2520,9 +2520,7 @@ func (s *SKVMGuestInstance) onNicChange(oldNic, newNic *desc.SGuestNetwork) erro
 	return nil
 }
 
-func (s *SKVMGuestInstance) SyncConfig(
-	ctx context.Context, guestDesc *desc.SGuestDesc, fwOnly bool,
-) (jsonutils.JSONObject, error) {
+func (s *SKVMGuestInstance) SyncConfig(ctx context.Context, guestDesc *desc.SGuestDesc, fwOnly, setUefiBootOrder bool) (jsonutils.JSONObject, error) {
 	var delDisks, addDisks []*desc.SGuestDisk
 	var delNetworks, addNetworks []*desc.SGuestNetwork
 	var changedNetworks [][2]*desc.SGuestNetwork
@@ -2553,6 +2551,12 @@ func (s *SKVMGuestInstance) SyncConfig(
 	}
 
 	if !s.IsRunning() {
+		if setUefiBootOrder && s.getBios() == api.VM_BOOT_MODE_UEFI {
+			if err := s.setUefiBootOrder(ctx); err != nil {
+				log.Errorf("failed set uefi boot order %s", err)
+				return nil, errors.Wrap(err, "setUefiBootOrder")
+			}
+		}
 		return nil, nil
 	}
 
@@ -2599,6 +2603,13 @@ func (s *SKVMGuestInstance) SyncConfig(
 			data.Set("sync_qemu_cmdline", jsonutils.JSONTrue)
 			if err := s.saveScripts(data); err != nil {
 				log.Errorf("failed save script: %s", err)
+			}
+		}
+
+		if setUefiBootOrder && s.getBios() == api.VM_BOOT_MODE_UEFI {
+			if err := s.setUefiBootOrder(ctx); err != nil {
+				log.Errorf("failed set uefi boot order %s", err)
+				errs = append(errs, err)
 			}
 		}
 

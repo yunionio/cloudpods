@@ -6394,6 +6394,14 @@ func (self *SGuest) PerformSetBootIndex(ctx context.Context, userCred mcclient.T
 		}
 	}
 
+	if self.Bios == api.VM_BOOT_MODE_UEFI {
+		data := jsonutils.NewDict()
+		data.Set("set_uefi_boot_order", jsonutils.JSONTrue)
+		if err := self.startSyncTask(ctx, userCred, false, "", data); err != nil {
+			return nil, err
+		}
+	}
+
 	return nil, nil
 }
 

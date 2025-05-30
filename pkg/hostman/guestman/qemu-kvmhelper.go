@@ -15,6 +15,7 @@
 package guestman
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"path"
@@ -36,6 +37,9 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/qemu"
 	qemucerts "yunion.io/x/onecloud/pkg/hostman/guestman/qemu/certs"
+	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
+	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/deployclient"
+	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/uefi"
 	"yunion.io/x/onecloud/pkg/hostman/monitor"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
@@ -244,7 +248,7 @@ func (s *SKVMGuestInstance) getMachine() string {
 func (s *SKVMGuestInstance) getBios() string {
 	bios := s.Desc.Bios
 	if bios == "" {
-		bios = "bios"
+		bios = api.VM_BOOT_MODE_BIOS
 	}
 	return bios
 }
@@ -501,6 +505,7 @@ function nic_mtu() {
 	if s.Desc.Bios == qemu.BIOS_UEFI {
 		if len(input.OVMFPath) == 0 {
 			input.OVMFPath = options.HostOptions.OvmfPath
+			input.OVMFVarsPath = options.HostOptions.OvmfVarsPath
 		}
 	}
 
@@ -1115,4 +1120,70 @@ func (s *SKVMGuestInstance) vfioDevCount() int {
 		}
 	}
 	return res
+}
+
+func (s *SKVMGuestInstance) getOvmfVarsPath() string {
+	return path.Join(s.HomeDir(), "OVMF_VARS.fd")
+}
+
+func (s *SKVMGuestInstance) getDiskBootOrderType(driver string) uefi.OvmfDevicePathType {
+	switch driver {
+	case qemu.DISK_DRIVER_VIRTIO:
+		return uefi.DEVICE_TYPE_PCI
+	case qemu.DISK_DRIVER_SCSI, qemu.DISK_DRIVER_PVSCSI:
+		return uefi.DEVICE_TYPE_SCSI
+	case qemu.DISK_DRIVER_IDE:
+		if s.manager.host.IsAarch64() {
+			return uefi.DEVICE_TYPE_SCSI
+		}
+		return uefi.DEVICE_TYPE_IDE
+	case qemu.DISK_DRIVER_SATA:
+		if s.manager.host.IsAarch64() {
+			return uefi.DEVICE_TYPE_SCSI
+		}
+		return uefi.DEVICE_TYPE_SATA
+	}
+	return uefi.DEVICE_TYPE_UNKNOWN
+}
+
+func (s *SKVMGuestInstance) getCdromBootOrder() uefi.OvmfDevicePathType {
+	if s.manager.host.IsAarch64() {
+		return uefi.DEVICE_TYPE_SCSI_CDROM
+	}
+	return uefi.DEVICE_TYPE_CDROM
+}
+
+func (s *SKVMGuestInstance) setUefiBootOrder(ctx context.Context) error {
+	params := &deployapi.OvmfBootOrderParams{
+		OvmfVarsPath: s.getOvmfVarsPath(),
+	}
+	devs := make([]*deployapi.BootDevices, 0)
+	for i := range s.Desc.Cdroms {
+		if s.Desc.Cdroms[i].BootIndex == nil || *s.Desc.Disks[i].BootIndex < 0 {
+			continue
+		}
+		dev := &deployapi.BootDevices{
+			BootOrder:   int32(*s.Desc.Cdroms[i].BootIndex),
+			AttachOrder: int32(s.Desc.Cdroms[i].Ordinal),
+			DevType:     int32(s.getCdromBootOrder()),
+		}
+		devs = append(devs, dev)
+	}
+	for i := range s.Desc.Disks {
+		if s.Desc.Disks[i].BootIndex == nil || *s.Desc.Disks[i].BootIndex < 0 {
+			continue
+		}
+		dev := &deployapi.BootDevices{
+			BootOrder:   int32(*s.Desc.Disks[i].BootIndex),
+			AttachOrder: int32(s.Desc.Disks[i].Index),
+			DevType:     int32(s.getDiskBootOrderType(s.Desc.Disks[i].Driver)),
+		}
+		devs = append(devs, dev)
+	}
+	params.Devs = devs
+	_, err := deployclient.GetDeployClient().SetOvmfBootOrder(ctx, params)
+	if err != nil {
+		return errors.Wrap(err, "SetOvmfBootOrder")
+	}
+	return nil
 }
