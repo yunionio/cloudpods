@@ -44,6 +44,12 @@ type Network struct {
 	Renderer  NetworkRenderer            `json:"renderer"`
 	Ethernets map[string]*EthernetConfig `json:"ethernets"`
 	Bonds     map[string]*Bond           `json:"bonds"`
+	Vlans     map[string]*VlanConfig     `json:"vlans"`
+}
+
+func (n *Network) AddVlan(name string, vlan *VlanConfig) *Network {
+	n.Vlans[name] = vlan
+	return n
 }
 
 type EthernetConfigMatch struct {
@@ -67,6 +73,12 @@ type EthernetConfig struct {
 	Routes      []*Route             `json:"routes"`
 	Nameservers *Nameservers         `json:"nameservers"`
 	Mtu         int16                `json:"mtu,omitzero"`
+}
+
+type VlanConfig struct {
+	EthernetConfig
+	Id   int    `json:"id"`
+	Link string `json:"link"`
 }
 
 type Route struct {
@@ -168,6 +180,7 @@ func NewNetwork() *Network {
 		Renderer:  NetworkRendererNetworkd,
 		Ethernets: make(map[string]*EthernetConfig),
 		Bonds:     make(map[string]*Bond),
+		Vlans:     make(map[string]*VlanConfig),
 	}
 }
 
