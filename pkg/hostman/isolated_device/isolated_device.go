@@ -835,7 +835,7 @@ func GetApiResourceData(dev IDevice) *jsonutils.JSONDict {
 	if numaNode, err := dev.GetNumaNode(); err == nil {
 		data["numa_node"] = numaNode
 	} else {
-		log.Warningf("failed get dev %s numa node %s", dev.GetAddr(), err)
+		log.Debugf("failed get dev %s numa node %s", dev.GetAddr(), err)
 	}
 
 	if dev.GetMdevId() != "" {
