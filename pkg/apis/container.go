@@ -346,3 +346,9 @@ type ContainerPullImageAuthConfig struct {
 	// RegistryToken is a bearer token to be sent to a registry
 	RegistryToken string `json:"registry_token,omitempty"`
 }
+
+type ContainerRootfs struct {
+	Type ContainerVolumeMountType  `json:"type"`
+	Disk *ContainerVolumeMountDisk `json:"disk"`
+	//CephFS *ContainerVolumeMountCephFS `json:"ceph_fs"`
+}

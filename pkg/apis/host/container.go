@@ -41,6 +41,12 @@ type ContainerVolumeMountCephFS struct {
 	Name    string `json:"name"`
 }
 
+type ContainerRootfs struct {
+	Type apis.ContainerVolumeMountType `json:"type"`
+	Disk *ContainerVolumeMountDisk     `json:"disk"`
+	// CephFS *ContainerVolumeMountCephFS   `json:"ceph_fs"`
+}
+
 type ContainerVolumeMount struct {
 	// 用于标识当前 pod volume mount 的唯一性
 	UniqueName string                             `json:"unique_name"`
@@ -65,6 +71,7 @@ type ContainerVolumeMount struct {
 type ContainerSpec struct {
 	apis.ContainerSpec
 	ImageCredentialToken string                  `json:"image_credential_token"`
+	Rootfs               *ContainerRootfs        `json:"rootfs"`
 	VolumeMounts         []*ContainerVolumeMount `json:"volume_mounts"`
 	Devices              []*ContainerDevice      `json:"devices"`
 }
