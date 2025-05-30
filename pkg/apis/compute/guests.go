@@ -1427,3 +1427,8 @@ type ServerChangeBillingTypeInput struct {
 	// required: true
 	BillingType string `json:"billing_type"`
 }
+
+type ServerPerformStatusInput struct {
+	apis.PerformStatusInput
+	Containers map[string]*ContainerPerformStatusInput `json:"containers"`
+}

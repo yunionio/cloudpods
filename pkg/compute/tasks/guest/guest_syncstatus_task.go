@@ -70,7 +70,7 @@ func (self *GuestSyncstatusTask) getOriginStatus() string {
 func (self *GuestSyncstatusTask) OnGetStatusComplete(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
 	log.Debugf("OnGetStatusSucc guest %s(%s) status %s", guest.Name, guest.Id, body)
-	resp := new(api.HostUploadGuestStatusResponse)
+	resp := new(api.HostUploadGuestStatusInput)
 	body.Unmarshal(resp)
 	if err := guest.SetStatusFromHost(ctx, self.GetUserCred(), *resp, self.HasParentTask(), self.getOriginStatus()); err != nil {
 		log.Warningf("SetStatusFromHost for guest %s error: %v", guest.GetId(), err)
