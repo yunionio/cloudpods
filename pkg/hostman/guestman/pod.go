@@ -50,6 +50,7 @@ import (
 	_ "yunion.io/x/onecloud/pkg/hostman/container/volume_mount/disk"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/pod/runtime"
+	"yunion.io/x/onecloud/pkg/hostman/guestman/pod/statusman"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
@@ -351,7 +352,7 @@ func (s *sPodGuestInstance) getStatus(ctx context.Context, defaultStatus string)
 	return status
 }
 
-func (s *sPodGuestInstance) GetUploadStatus(ctx context.Context, reason string) (*computeapi.HostUploadGuestStatusResponse, error) {
+func (s *sPodGuestInstance) GetUploadStatus(ctx context.Context, reason string) (*computeapi.HostUploadGuestStatusInput, error) {
 	// sync pod status
 	var status = computeapi.VM_READY
 	if s.IsRunning() {
@@ -421,14 +422,14 @@ func (s *sPodGuestInstance) GetUploadStatus(ctx context.Context, reason string) 
 		HostId:      hostinfo.Instance().HostId,
 	}
 
-	return &computeapi.HostUploadGuestStatusResponse{
+	return &computeapi.HostUploadGuestStatusInput{
 		PerformStatusInput: *statusInput,
 		Containers:         cStatuss,
 	}, nil
 }
 
 func (s *sPodGuestInstance) UploadStatus(ctx context.Context, reason string) error {
-	resp, err := s.GetUploadStatus(ctx, reason)
+	/*resp, err := s.GetUploadStatus(ctx, reason)
 	if err != nil {
 		return errors.Wrapf(err, "get upload status of pod: %s", reason)
 	}
@@ -444,11 +445,35 @@ func (s *sPodGuestInstance) UploadStatus(ctx context.Context, reason string) err
 
 	if _, err := hostutils.UpdateServerStatus(ctx, s.Id, &resp.PerformStatusInput); err != nil {
 		errs = append(errs, errors.Wrapf(err, "failed update guest status"))
+	}*/
+	// return errors.NewAggregate(errs)
+
+	resp, err := s.GetUploadStatus(ctx, reason)
+	if err != nil {
+		return errors.Wrapf(err, "get upload status of pod: %s", reason)
 	}
-	return errors.NewAggregate(errs)
+	containerStatuses := make(map[string]*statusman.ContainerStatus)
+	for ctrId, cStatus := range resp.Containers {
+		containerStatuses[ctrId] = &statusman.ContainerStatus{
+			Status:         cStatus.Status,
+			RestartCount:   cStatus.RestartCount,
+			StartedAt:      cStatus.StartedAt,
+			LastFinishedAt: cStatus.LastFinishedAt,
+		}
+	}
+	if err := statusman.GetManager().UpdateStatus(&statusman.PodStatusUpdateRequest{
+		Id:                s.Id,
+		Pod:               s,
+		Status:            resp.Status,
+		ContainerStatuses: containerStatuses,
+		Reason:            reason,
+	}); err != nil {
+		return errors.Wrapf(err, "update status of pod: %s", reason)
+	}
+	return nil
 }
 
-func (s *sPodGuestInstance) PostUploadStatus(resp *computeapi.HostUploadGuestStatusResponse, reason string) {
+func (s *sPodGuestInstance) PostUploadStatus(resp *computeapi.HostUploadGuestStatusInput, reason string) {
 	for ctrId, cStatus := range resp.Containers {
 		s.markContainerProbeDirty(cStatus.Status, ctrId, reason)
 	}
@@ -534,11 +559,11 @@ func (s *sPodGuestInstance) IsContainerRunning(ctx context.Context, ctrId string
 	return false, nil
 }
 
-func (s *sPodGuestInstance) probeGuestStatus(ctx context.Context, resp *computeapi.HostUploadGuestStatusResponse) {
+func (s *sPodGuestInstance) probeGuestStatus(ctx context.Context, resp *computeapi.HostUploadGuestStatusInput) {
 	resp.Status = s.getStatus(ctx, resp.Status)
 }
 
-func (s *sPodGuestInstance) HandleGuestStatus(ctx context.Context, resp *computeapi.HostUploadGuestStatusResponse) (jsonutils.JSONObject, error) {
+func (s *sPodGuestInstance) HandleGuestStatus(ctx context.Context, resp *computeapi.HostUploadGuestStatusInput) (jsonutils.JSONObject, error) {
 	s.probeGuestStatus(ctx, resp)
 	hostutils.TaskComplete(ctx, jsonutils.Marshal(resp))
 	return nil, nil
@@ -2073,6 +2098,10 @@ func (s *sPodGuestInstance) getContainerStatus(ctx context.Context, ctrId string
 		}
 	}
 	return status, cs, nil
+}
+
+func (s *sPodGuestInstance) MarkContainerProbeDirty(ctrStatus string, ctrId string, reason string) {
+	s.markContainerProbeDirty(ctrStatus, ctrId, reason)
 }
 
 func (s *sPodGuestInstance) markContainerProbeDirty(status, ctrId string, reason string) {

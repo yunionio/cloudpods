@@ -713,13 +713,13 @@ type HostUploadGuestsStatusRequest struct {
 	GuestIds []string `json:"guest_ids"`
 }
 
-type HostUploadGuestStatusResponse struct {
+type HostUploadGuestStatusInput struct {
 	apis.PerformStatusInput
 	Containers map[string]*ContainerPerformStatusInput `json:"containers"`
 }
 
-type HostUploadGuestsStatusResponse struct {
-	Guests map[string]*HostUploadGuestStatusResponse `json:"guests"`
+type HostUploadGuestsStatusInput struct {
+	Guests map[string]*HostUploadGuestStatusInput `json:"guests"`
 }
 
 type GuestUploadContainerStatusResponse struct {
