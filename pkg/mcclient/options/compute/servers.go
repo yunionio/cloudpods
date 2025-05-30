@@ -866,7 +866,7 @@ type ServerQgaCommand struct {
 	ServerIdOptions
 
 	COMMAND string `help:"qga command"`
-	Timeout int    `help:"qga command execute timeout (ms)"`
+	Timeout int    `help:"qga command execute timeout (s)"`
 }
 
 func (o *ServerQgaCommand) Params() (jsonutils.JSONObject, error) {
@@ -876,7 +876,7 @@ func (o *ServerQgaCommand) Params() (jsonutils.JSONObject, error) {
 type ServerQgaPing struct {
 	ServerIdOptions
 
-	Timeout int `help:"qga command execute timeout (ms)"`
+	Timeout int `help:"qga command execute timeout (s)"`
 }
 
 func (o *ServerQgaPing) Params() (jsonutils.JSONObject, error) {

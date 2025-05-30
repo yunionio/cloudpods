@@ -96,7 +96,7 @@ func (self *GuestSyncConfTask) StartRestartNetworkTask(ctx context.Context, gues
 	// try use qga restart network
 	err = func() error {
 		host, _ := guest.GetHost()
-		err = guest.GetDriver().QgaRequestGuestPing(ctx, self.GetTaskRequestHeader(), host, guest, false, &api.ServerQgaTimeoutInput{1000})
+		err = guest.GetDriver().QgaRequestGuestPing(ctx, self.GetTaskRequestHeader(), host, guest, false, &api.ServerQgaTimeoutInput{1})
 		if err != nil {
 			return errors.Wrap(err, "qga guest-ping")
 		}
