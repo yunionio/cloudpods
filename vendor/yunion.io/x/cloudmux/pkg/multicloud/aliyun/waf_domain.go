@@ -233,6 +233,10 @@ func (self *ManagedRuleGroup) GetName() string {
 	return "RuleGroup"
 }
 
+func (self *ManagedRuleGroup) GetType() string {
+	return "RuleGroup"
+}
+
 func (self *ManagedRuleGroup) GetDesc() string {
 	return "规则组"
 }
@@ -313,6 +317,10 @@ func (self *SDefenseTypeRule) GetName() string {
 	case "normalized":
 		return "主动防御"
 	}
+	return self.defenseType
+}
+
+func (self *SDefenseTypeRule) GetType() string {
 	return self.defenseType
 }
 

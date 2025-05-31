@@ -1532,6 +1532,7 @@ type ICloudWafRule interface {
 	GetDesc() string
 	GetGlobalId() string
 	GetPriority() int
+	GetType() string
 	GetAction() *DefaultAction
 	GetStatementCondition() TWafStatementCondition
 	GetStatements() ([]SWafStatement, error)
