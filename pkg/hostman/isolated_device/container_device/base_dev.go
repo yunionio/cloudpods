@@ -91,7 +91,7 @@ func (c BaseDevice) GetNumaNode() (int, error) {
 	numaNodePath := fmt.Sprintf("/sys/bus/pci/devices/0000:%s/numa_node", c.SBaseDevice.GetOriginAddr())
 	numaNode, err := fileutils2.FileGetIntContent(numaNodePath)
 	if err != nil {
-		log.Errorf("failed get numa node %s: %s", c.SBaseDevice.GetOriginAddr(), err)
+		log.Debugf("failed get numa node %s: %s", c.SBaseDevice.GetOriginAddr(), err)
 		return -1, nil
 	}
 	return numaNode, nil
