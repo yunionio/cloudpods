@@ -56,6 +56,10 @@ func (self *CustomRule) GetName() string {
 	return self.Name
 }
 
+func (self *CustomRule) GetType() string {
+	return api.WAF_RULE_TYPE_CUSTOM
+}
+
 func (self *CustomRule) GetGlobalId() string {
 	return fmt.Sprintf("%s-%s", self.waf.GetGlobalId(), self.GetName())
 }
@@ -320,6 +324,10 @@ type ManagedRule struct {
 type ManagedRules struct {
 	waf             *SAppGatewayWaf
 	Managedrulesets []ManagedRule `json:"managedRuleSets"`
+}
+
+func (self *ManagedRules) GetType() string {
+	return api.WAF_RULE_TYPE_TEMPLATE
 }
 
 func (self *ManagedRules) GetName() string {
