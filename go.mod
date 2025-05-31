@@ -24,6 +24,7 @@ require (
 	github.com/go-yaml/yaml v2.1.0+incompatible
 	github.com/golang-plus/uuid v1.0.0
 	github.com/golang/mock v1.4.4
+	github.com/golang/protobuf v1.5.3
 	github.com/google/cadvisor v0.38.5
 	github.com/google/gopacket v1.1.17
 	github.com/google/uuid v1.6.0
@@ -93,14 +94,14 @@ require (
 	k8s.io/cri-api v0.22.17
 	k8s.io/klog/v2 v2.20.0
 	moul.io/http2curl/v2 v2.3.0
-	yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20250528153742-2296b9b7287c
+	yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20250529120035-500191be2aeb
 	yunion.io/x/executor v0.0.0-20250518005516-5402e9e0bed0
 	yunion.io/x/jsonutils v1.0.1-0.20250507052344-1abcf4f443b1
 	yunion.io/x/log v1.0.1-0.20240305175729-7cf2d6cd5a91
 	yunion.io/x/ovsdb v0.0.0-20230306173834-f164f413a900
 	yunion.io/x/pkg v1.10.4-0.20250519013345-54017bf6c1f0
 	yunion.io/x/s3cli v0.0.0-20241221171442-1c11599d28e1
-	yunion.io/x/sqlchemy v1.1.3-0.20250513031856-ce9f71063b3a
+	yunion.io/x/sqlchemy v1.1.3-0.20250531010554-ce98f840b833
 	yunion.io/x/structarg v0.0.0-20231017124457-df4d5009457c
 )
 
@@ -195,7 +196,6 @@ require (
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang-plus/errors v1.0.0 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
-	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/btree v1.0.1 // indirect
 	github.com/google/go-querystring v1.0.0 // indirect
