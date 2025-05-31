@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
+	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 )
 
@@ -47,6 +48,10 @@ func (self *sWafRule) GetAction() *cloudprovider.DefaultAction {
 
 func (self *sWafRule) GetDesc() string {
 	return ""
+}
+
+func (self *sWafRule) GetType() string {
+	return api.WAF_RULE_TYPE_CUSTOM
 }
 
 func (self *sWafRule) GetName() string {
