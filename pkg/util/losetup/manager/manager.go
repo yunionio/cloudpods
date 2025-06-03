@@ -15,6 +15,8 @@
 package manager
 
 import (
+	"sync"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -22,10 +24,18 @@ import (
 	"yunion.io/x/onecloud/pkg/util/losetup"
 )
 
-var managerObj iManager
+var (
+	managerObj      iManager
+	managerInitLock sync.Mutex
+)
 
-func init() {
-	managerObj = newManager()
+func Init() {
+	managerInitLock.Lock()
+	defer managerInitLock.Unlock()
+
+	if managerObj == nil {
+		managerObj = newManager()
+	}
 }
 
 func ListDevices() (*losetup.Devices, error) {
