@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/sets"
 
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	hostapi "yunion.io/x/onecloud/pkg/apis/host"
@@ -185,7 +186,7 @@ func (m *SGuestManager) syncContainerLoopIteration(plegCh chan *pleg.PodLifecycl
 			if ctrObj != nil {
 				ccStatus, _, _ = podMan.GetContainerStatus(ctx, ctrObj.Id)
 			}
-			if !isInternalStopped && ccStatus == computeapi.CONTAINER_STATUS_EXITED {
+			if !isInternalStopped && sets.NewString(computeapi.CONTAINER_STATUS_EXITED, computeapi.CONTAINER_STATUS_CRASH_LOOP_BACK_OFF).Has(ccStatus) {
 				podStatus, err := m.podCache.Get(e.Id)
 				if err != nil {
 					log.Errorf("get pod %s status error: %v", e.Id, err)
