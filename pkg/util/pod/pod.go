@@ -404,6 +404,15 @@ func (c crictl) StopContainer(ctx context.Context, ctrId string, timeout int64, 
 			isStopped = true
 		}
 	}
+	// 尝试 force kill 容器
+	if !force && !isStopped {
+		if err := c.forceKillContainer(ctx, ctrId); err != nil {
+			log.Infof("try force kill container %s error: %v", ctrId, err)
+			errs = append(errs, errors.Wrap(err, "retry forceKillContainer"))
+		} else {
+			isStopped = true
+		}
+	}
 	if tryRemove {
 		// try force remove container
 		ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
