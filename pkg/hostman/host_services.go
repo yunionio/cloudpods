@@ -38,6 +38,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
 	"yunion.io/x/onecloud/pkg/hostman/storageman/diskhandlers"
 	"yunion.io/x/onecloud/pkg/hostman/storageman/storagehandler"
+	losetupman "yunion.io/x/onecloud/pkg/util/losetup/manager"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/sysutils"
 )
@@ -67,6 +68,7 @@ func (host *SHostService) InitService() {
 		execlient.SetTimeoutSeconds(options.HostOptions.ExecutorConnectTimeoutSeconds)
 		procutils.SetRemoteExecutor()
 	}
+	losetupman.Init()
 }
 
 func (host *SHostService) OnExitService() {}
