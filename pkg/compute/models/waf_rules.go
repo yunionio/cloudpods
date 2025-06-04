@@ -63,6 +63,7 @@ type SWafRule struct {
 	Action *cloudprovider.DefaultAction `charset:"utf8" nullable:"true" list:"user" update:"domain" create:"required"`
 	// 条件
 	StatementConditon cloudprovider.TWafStatementCondition `width:"20" charset:"ascii" nullable:"false" list:"domain" create:"optional"`
+	Type              string                               `width:"20" charset:"ascii" nullable:"false" list:"domain" create:"optional"`
 	// 规则组的id
 	WafRuleGroupId string `width:"36" charset:"ascii" nullable:"false" list:"domain" create:"optional"`
 	// 所属waf实例id
@@ -399,6 +400,7 @@ func (self *SWafRule) SyncWithCloudRule(ctx context.Context, userCred mcclient.T
 		self.Action = rule.GetAction()
 		self.StatementConditon = rule.GetStatementCondition()
 		self.Priority = rule.GetPriority()
+		self.Type = rule.GetType()
 		self.Status = api.WAF_RULE_STATUS_AVAILABLE
 		self.Name = rule.GetName()
 		self.ExternalId = rule.GetGlobalId()
@@ -420,6 +422,7 @@ func (self *SWafInstance) newFromCloudRule(ctx context.Context, userCred mcclien
 	rule.Action = ext.GetAction()
 	rule.StatementConditon = ext.GetStatementCondition()
 	rule.Priority = ext.GetPriority()
+	rule.Type = ext.GetType()
 	rule.Status = api.WAF_RULE_STATUS_AVAILABLE
 	err := WafRuleManager.TableSpec().Insert(ctx, rule)
 	if err != nil {
