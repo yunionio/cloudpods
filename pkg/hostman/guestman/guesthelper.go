@@ -241,6 +241,10 @@ func NewGuestCpuSetCounter(
 	cpuSetCounter.CPUCmtbound = cpuCmtbound
 	cpuSetCounter.MEMCmtbound = memCmtBound
 	cpuSetCounter.GuestIds = map[string]struct{}{}
+	if len(info.Nodes) == 0 {
+		return cpuSetCounter, nil
+	}
+
 	hasL3Cache := false
 	nodeReserveMem := reservedMemMb / len(info.Nodes) * 1024
 	for i := 0; i < len(info.Nodes); i++ {
