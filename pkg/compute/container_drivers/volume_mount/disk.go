@@ -23,6 +23,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	hostapi "yunion.io/x/onecloud/pkg/apis/host"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -64,8 +65,7 @@ func (d disk) GetType() apis.ContainerVolumeMountType {
 	return apis.CONTAINER_VOLUME_MOUNT_TYPE_DISK
 }
 
-func (d disk) validateCreateData(ctx context.Context, userCred mcclient.TokenCredential, vm *apis.ContainerVolumeMount) (*apis.ContainerVolumeMount, error) {
-	disk := vm.Disk
+func (d disk) validateDiskCreateData(ctx context.Context, userCred mcclient.TokenCredential, disk *apis.ContainerVolumeMountDisk) (*apis.ContainerVolumeMountDisk, error) {
 	if disk == nil {
 		return nil, httperrors.NewNotEmptyError("disk is nil")
 	}
@@ -77,6 +77,15 @@ func (d disk) validateCreateData(ctx context.Context, userCred mcclient.TokenCre
 			return nil, httperrors.NewInputParameterError("index is less than 0")
 		}
 	}
+	return disk, nil
+}
+
+func (d disk) validateCreateData(ctx context.Context, userCred mcclient.TokenCredential, vm *apis.ContainerVolumeMount) (*apis.ContainerVolumeMount, error) {
+	disk, err := d.validateDiskCreateData(ctx, userCred, vm.Disk)
+	if err != nil {
+		return nil, err
+	}
+	vm.Disk = disk
 	return vm, nil
 }
 
@@ -102,31 +111,61 @@ func (d disk) validateCaseInsensitive(disk *models.SDisk, vm *apis.ContainerVolu
 	return nil
 }
 
-func (d disk) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, pod *models.SGuest, vm *apis.ContainerVolumeMount) (*apis.ContainerVolumeMount, error) {
-	if _, err := d.validateCreateData(ctx, userCred, vm); err != nil {
-		return nil, err
+func (d disk) ValidateRootFsCreateData(ctx context.Context, userCred mcclient.TokenCredential, pod *models.SGuest, rootFs *apis.ContainerRootfs) error {
+	disk, err := d.validateDiskCreateData(ctx, userCred, rootFs.Disk)
+	if err != nil {
+		return err
 	}
+	disk, _, err = d.validateDiskIndex(ctx, userCred, pod, disk)
+	if err != nil {
+		return err
+	}
+	rootFs.Disk = disk
+	if rootFs.Disk.Overlay != nil {
+		return httperrors.NewInputParameterError("can't use overlay and root_fs at the same time")
+	}
+	if len(rootFs.Disk.PostOverlay) > 0 {
+		return httperrors.NewInputParameterError("can't use post_overlay and root_fs at the same time")
+	}
+	return nil
+}
+
+func (d disk) ToHostRootFs(rootFs *apis.ContainerRootfs) (*hostapi.ContainerRootfs, error) {
+	diskObj := models.DiskManager.FetchDiskById(rootFs.Disk.Id)
+	if diskObj == nil {
+		return nil, errors.Wrapf(httperrors.ErrNotFound, "fetch disk %s", rootFs.Disk.Id)
+	}
+	disk := rootFs.Disk
+	return &hostapi.ContainerRootfs{
+		Type: rootFs.Type,
+		Disk: &hostapi.ContainerVolumeMountDisk{
+			Index: disk.Index,
+			Id:    disk.Id,
+		},
+	}, nil
+}
+
+func (d disk) validateDiskIndex(ctx context.Context, userCred mcclient.TokenCredential, pod *models.SGuest, disk *apis.ContainerVolumeMountDisk) (*apis.ContainerVolumeMountDisk, *models.SDisk, error) {
 	disks, err := pod.GetDisks()
 	if err != nil {
-		return nil, errors.Wrap(err, "get pod disks")
+		return nil, nil, errors.Wrap(err, "get pod disks")
 	}
-	disk := vm.Disk
 	var diskObj models.SDisk
 	if disk.Index != nil {
 		diskIndex := *disk.Index
 		if diskIndex >= len(disks) {
-			return nil, httperrors.NewInputParameterError("disk.index %d is large than disk size %d", diskIndex, len(disks))
+			return nil, nil, httperrors.NewInputParameterError("disk.index %d is large than disk size %d", diskIndex, len(disks))
 		}
 		diskObj = disks[diskIndex]
-		vm.Disk.Id = diskObj.GetId()
+		disk.Id = diskObj.GetId()
 		// remove index
-		vm.Disk.Index = nil
+		disk.Index = nil
 		if err := d.validateCaseInsensitive(&diskObj, disk); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	} else {
 		if disk.Id == "" {
-			return nil, httperrors.NewNotEmptyError("disk.id is empty")
+			return nil, nil, httperrors.NewNotEmptyError("disk.id is empty")
 		}
 		foundDisk := false
 		for _, d := range disks {
@@ -138,13 +177,26 @@ func (d disk) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCre
 			}
 		}
 		if !foundDisk {
-			return nil, httperrors.NewNotFoundError("not found pod disk by %s", disk.Id)
+			return nil, nil, httperrors.NewNotFoundError("not found pod disk by %s", disk.Id)
 		}
 		if err := d.validateCaseInsensitive(&diskObj, disk); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
-	if err := d.validateOverlay(ctx, userCred, vm, &diskObj); err != nil {
+	return disk, &diskObj, nil
+}
+
+func (d disk) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, pod *models.SGuest, vm *apis.ContainerVolumeMount) (*apis.ContainerVolumeMount, error) {
+	if _, err := d.validateCreateData(ctx, userCred, vm); err != nil {
+		return nil, err
+	}
+	disk, diskObj, err := d.validateDiskIndex(ctx, userCred, pod, vm.Disk)
+	if err != nil {
+		return nil, err
+	}
+	vm.Disk = disk
+
+	if err := d.validateOverlay(ctx, userCred, vm, diskObj); err != nil {
 		return nil, errors.Wrapf(err, "validate overlay")
 	}
 	if err := d.ValidatePostOverlay(ctx, userCred, vm); err != nil {
