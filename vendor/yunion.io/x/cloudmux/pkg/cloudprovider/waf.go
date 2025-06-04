@@ -142,6 +142,7 @@ type SWafRule struct {
 	Name               string
 	Desc               string
 	Action             *DefaultAction
+	Type               string
 	StatementCondition TWafStatementCondition
 	Priority           int
 	Statements         []SWafStatement
