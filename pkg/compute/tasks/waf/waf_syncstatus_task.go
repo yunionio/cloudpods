@@ -17,6 +17,7 @@ package waf
 import (
 	"context"
 
+	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -51,9 +52,15 @@ func (self *WafSyncstatusTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 	}
 	waf.SyncWithCloudWafInstance(ctx, self.GetUserCred(), iWaf)
 	rules, err := iWaf.GetRules()
-	if err == nil {
-		result := waf.SyncWafRules(ctx, self.GetUserCred(), rules)
-		log.Infof("Sync waf %s rules result: %s", waf.Name, result.Result())
+	if err != nil {
+		if errors.Cause(err) == cloudprovider.ErrNotImplemented || errors.Cause(err) == cloudprovider.ErrNotSupported {
+			self.SetStageComplete(ctx, nil)
+			return
+		}
+		self.taskFailed(ctx, waf, errors.Wrapf(err, "GetRules"))
+		return
 	}
+	result := waf.SyncWafRules(ctx, self.GetUserCred(), rules)
+	log.Infof("Sync waf %s rules result: %s", waf.Name, result.Result())
 	self.SetStageComplete(ctx, nil)
 }

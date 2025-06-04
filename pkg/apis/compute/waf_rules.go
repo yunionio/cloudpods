@@ -47,6 +47,8 @@ type WafRuleCreateInput struct {
 
 	// WAF实例Id
 	WafInstanceId string `json:"waf_instance_id"`
+	// 规则类型
+	Type string `json:"type"`
 
 	// 优先级,不可重复
 	// Azure优先级范围1-100
