@@ -263,6 +263,26 @@ func (self *CustomRule) GetStatementCondition() cloudprovider.TWafStatementCondi
 	return cloudprovider.WafStatementConditionAnd
 }
 
+func (self *CustomRule) GetExpression() string {
+	return ""
+}
+
+func (self *CustomRule) GetEnabled() bool {
+	return true
+}
+
+func (self *CustomRule) Enable() error {
+	return cloudprovider.ErrNotImplemented
+}
+
+func (self *CustomRule) Disable() error {
+	return cloudprovider.ErrNotImplemented
+}
+
+func (self *CustomRule) GetConfig() (jsonutils.JSONObject, error) {
+	return jsonutils.NewDict(), nil
+}
+
 func (self *CustomRule) GetStatements() ([]cloudprovider.SWafStatement, error) {
 	ret := []cloudprovider.SWafStatement{}
 	for _, condition := range self.Matchconditions {
@@ -380,6 +400,26 @@ func (self *ManagedRules) Update(opts *cloudprovider.SWafRule) error {
 
 func (self *ManagedRules) GetStatementCondition() cloudprovider.TWafStatementCondition {
 	return cloudprovider.WafStatementConditionAnd
+}
+
+func (self *ManagedRules) GetExpression() string {
+	return ""
+}
+
+func (self *ManagedRules) GetEnabled() bool {
+	return true
+}
+
+func (self *ManagedRules) Enable() error {
+	return cloudprovider.ErrNotImplemented
+}
+
+func (self *ManagedRules) Disable() error {
+	return cloudprovider.ErrNotImplemented
+}
+
+func (self *ManagedRules) GetConfig() (jsonutils.JSONObject, error) {
+	return jsonutils.NewDict(), nil
 }
 
 func (self *ManagedRules) GetStatements() ([]cloudprovider.SWafStatement, error) {
