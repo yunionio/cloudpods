@@ -30,6 +30,10 @@ import (
 	"yunion.io/x/onecloud/pkg/util/procutils"
 )
 
+var (
+	mountTimeout = 30 * time.Second
+)
+
 func mountWrap(mountPoint string, action func() error) error {
 	if !fileutils2.Exists(mountPoint) {
 		output, err := procutils.NewCommand("mkdir", "-p", mountPoint).Output()
@@ -46,7 +50,7 @@ func mountWrap(mountPoint string, action func() error) error {
 
 func Mount(devPath string, mountPoint string, fsType string) error {
 	return mountWrap(mountPoint, func() error {
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), mountTimeout)
 		defer cancel()
 		if out, err := procutils.NewRemoteCommandContextAsFarAsPossible(ctx, "mount", "-t", fsType, devPath, mountPoint).Output(); err != nil {
 			return errors.Wrapf(err, "mount %s to %s with fs %s: %s", devPath, mountPoint, fsType, string(out))
@@ -57,7 +61,7 @@ func Mount(devPath string, mountPoint string, fsType string) error {
 
 func MountWithParams(devPath string, mountPoint string, fsType string, opts []string) error {
 	return mountWrap(mountPoint, func() error {
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), mountTimeout)
 		defer cancel()
 		args := []string{"-t", fsType, devPath, mountPoint}
 		args = append(args, opts...)
@@ -82,7 +86,7 @@ func MountOverlayWithFeatures(lowerDir []string, upperDir string, workDir string
 
 func mountOverlay(lowerDir []string, upperDir string, workDir string, mergedDir string, features *MountOverlayFeatures) error {
 	return mountWrap(mergedDir, func() error {
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), mountTimeout)
 		defer cancel()
 		optStr := fmt.Sprintf("lowerdir=%s,upperdir=%s,workdir=%s", strings.Join(lowerDir, ":"), upperDir, workDir)
 		if features != nil {
@@ -100,7 +104,7 @@ func mountOverlay(lowerDir []string, upperDir string, workDir string, mergedDir 
 
 func MountBind(src, target string) error {
 	return mountWrap(target, func() error {
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), mountTimeout)
 		defer cancel()
 		bindArgs := []string{"--bind", src, target}
 		if out, err := procutils.NewRemoteCommandContextAsFarAsPossible(ctx, "mount", bindArgs...).Output(); err != nil {
