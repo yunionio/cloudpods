@@ -15,6 +15,7 @@
 package apis
 
 import (
+	"encoding/base64"
 	"encoding/json"
 
 	"yunion.io/x/cloudmux/pkg/apis/compute"
@@ -56,6 +57,10 @@ func NewDeployInfo(
 		depInfo.Telegraf = &Telegraf{
 			TelegrafConf: telegrafConf,
 		}
+	}
+	userDataDecoded, _ := base64.StdEncoding.DecodeString(userData)
+	if len(userDataDecoded) > 0 {
+		userData = string(userDataDecoded)
 	}
 	depInfo.UserData = userData
 	return depInfo
