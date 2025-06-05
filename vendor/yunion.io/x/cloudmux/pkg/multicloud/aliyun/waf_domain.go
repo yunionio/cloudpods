@@ -279,6 +279,26 @@ func (self *ManagedRuleGroup) GetStatementCondition() cloudprovider.TWafStatemen
 	return cloudprovider.WafStatementConditionNone
 }
 
+func (self *ManagedRuleGroup) GetExpression() string {
+	return ""
+}
+
+func (self *ManagedRuleGroup) Enable() error {
+	return cloudprovider.ErrNotImplemented
+}
+
+func (self *ManagedRuleGroup) Disable() error {
+	return cloudprovider.ErrNotImplemented
+}
+
+func (self *ManagedRuleGroup) GetEnabled() bool {
+	return true
+}
+
+func (self *ManagedRuleGroup) GetConfig() (jsonutils.JSONObject, error) {
+	return jsonutils.NewDict(), nil
+}
+
 func (self *ManagedRuleGroup) GetStatements() ([]cloudprovider.SWafStatement, error) {
 	groupName := self.ruleGroupId
 	switch self.ruleGroupId {
@@ -344,6 +364,26 @@ func (self *SDefenseTypeRule) GetAction() *cloudprovider.DefaultAction {
 
 func (self *SDefenseTypeRule) GetStatementCondition() cloudprovider.TWafStatementCondition {
 	return cloudprovider.WafStatementConditionNone
+}
+
+func (self *SDefenseTypeRule) GetExpression() string {
+	return ""
+}
+
+func (self *SDefenseTypeRule) GetEnabled() bool {
+	return true
+}
+
+func (self *SDefenseTypeRule) Enable() error {
+	return cloudprovider.ErrNotImplemented
+}
+
+func (self *SDefenseTypeRule) Disable() error {
+	return cloudprovider.ErrNotImplemented
+}
+
+func (self *SDefenseTypeRule) GetConfig() (jsonutils.JSONObject, error) {
+	return jsonutils.NewDict(), nil
 }
 
 func (self *SDefenseTypeRule) GetStatements() ([]cloudprovider.SWafStatement, error) {

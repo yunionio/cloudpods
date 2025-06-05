@@ -100,11 +100,7 @@ func (cfg *QcloudClientConfig) CloudproviderConfig(cpcfg cloudprovider.ProviderC
 }
 
 func (cfg *QcloudClientConfig) AccountId(accountId string) *QcloudClientConfig {
-	if len(accountId) == 12 {
-		cfg.accountId = accountId
-	} else {
-		cfg.appId = accountId
-	}
+	cfg.accountId = accountId
 	return cfg
 }
 
@@ -115,8 +111,11 @@ func (cfg *QcloudClientConfig) Debug(debug bool) *QcloudClientConfig {
 
 type SQcloudClient struct {
 	*QcloudClientConfig
-	ownerId   string
-	ownerName string
+	masterAccountId string
+	masterAppId     string
+	ownerId         string
+	ownerName       string
+	appId           string
 
 	iregions []cloudprovider.ICloudRegion
 	ibuckets []cloudprovider.ICloudBucket
@@ -126,7 +125,16 @@ func NewQcloudClient(cfg *QcloudClientConfig) (*SQcloudClient, error) {
 	client := SQcloudClient{
 		QcloudClientConfig: cfg,
 	}
-	err := client.fetchRegions()
+	caller, err := client.GetCallerIdentity()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetCallerIdentity")
+	}
+	client.masterAppId, err = client.GetAppId()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetAppId")
+	}
+	client.masterAccountId = caller.AccountId
+	err = client.fetchRegions()
 	if err != nil {
 		return nil, errors.Wrap(err, "fetchRegions")
 	}
@@ -455,7 +463,9 @@ func (client *SQcloudClient) getSdkClient(regionId string) (*common.Client, erro
 	if err != nil {
 		return nil, err
 	}
-	if len(client.accountId) > 0 {
+	if len(client.accountId) > 0 &&
+		client.accountId != client.masterAccountId && len(client.masterAccountId) > 0 &&
+		client.accountId != client.masterAppId && len(client.masterAppId) > 0 {
 		arn := fmt.Sprintf("qcs::cam::uin/%s:roleName/%s", client.accountId, "OrganizationAccessControlRole")
 		sts := common.DefaultRoleArnProvider(client.secretId, client.secretKey, arn)
 		cli, err = cli.WithProvider(sts)
@@ -865,8 +875,9 @@ func (client *SQcloudClient) fetchBuckets() error {
 		createAt, _ := timeutils.ParseTimeStr(bInfo.CreationDate)
 		slashPos := strings.LastIndexByte(bInfo.Name, '-')
 		appId := bInfo.Name[slashPos+1:]
-		if appId != client.GetAppId() {
-			log.Errorf("[%s %s] Inconsistent appId: %s expect %s", bInfo.Name, bInfo.Region, appId, client.GetAppId())
+		_appId, _ := client.GetAppId()
+		if appId != _appId {
+			log.Errorf("[%s %s] Inconsistent appId: %s expect %s", bInfo.Name, bInfo.Region, appId, _appId)
 		}
 		name := bInfo.Name[:slashPos]
 		region, err := client.getIRegionByRegionId(bInfo.Region)
@@ -1085,16 +1096,16 @@ func (client *SQcloudClient) GetIProjects() ([]cloudprovider.ICloudProject, erro
 	return iprojects, nil
 }
 
-func (client *SQcloudClient) GetAppId() string {
+func (client *SQcloudClient) GetAppId() (string, error) {
 	if len(client.appId) > 0 {
-		return client.appId
+		return client.appId, nil
 	}
 	resp, err := client.camRequest("GetUserAppId", map[string]string{})
 	if err != nil {
-		return ""
+		return "", errors.Wrapf(err, "GetUserAppId")
 	}
-	client.appId, _ = resp.GetString("AppId")
-	return client.appId
+	client.appId, err = resp.GetString("AppId")
+	return client.appId, err
 }
 
 func (self *SQcloudClient) GetISSLCertificates() ([]cloudprovider.ICloudSSLCertificate, error) {
