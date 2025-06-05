@@ -1535,7 +1535,12 @@ type ICloudWafRule interface {
 	GetType() string
 	GetAction() *DefaultAction
 	GetStatementCondition() TWafStatementCondition
+	GetExpression() string
 	GetStatements() ([]SWafStatement, error)
+	GetConfig() (jsonutils.JSONObject, error)
+	GetEnabled() bool
+	Enable() error
+	Disable() error
 
 	Update(opts *SWafRule) error
 	Delete() error
