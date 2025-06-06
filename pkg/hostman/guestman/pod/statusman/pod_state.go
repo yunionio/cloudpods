@@ -46,7 +46,7 @@ type PodStatusUpdateRequest struct {
 	Status            string
 	ContainerStatuses map[string]*ContainerStatus
 	Reason            string
-	Result            chan error
+	Result            chan error `json:"-"`
 }
 
 func (r PodStatusUpdateRequest) ToServerPerformStatusInput() *computeapi.ServerPerformStatusInput {
