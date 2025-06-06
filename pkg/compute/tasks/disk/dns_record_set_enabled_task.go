@@ -16,6 +16,7 @@ package disk
 
 import (
 	"context"
+	"fmt"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
@@ -43,14 +44,18 @@ func (self *DnsRecordSetEnabledTask) taskFailed(ctx context.Context, record *mod
 func (self *DnsRecordSetEnabledTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	record := obj.(*models.SDnsRecord)
 
-	if len(record.ExternalId) == 0 {
-		self.taskComplete(ctx, record)
-		return
-	}
-
 	zone, err := record.GetDnsZone()
 	if err != nil {
 		self.taskFailed(ctx, record, errors.Wrapf(err, "GetDnsZone"))
+		return
+	}
+
+	if len(record.ExternalId) == 0 {
+		if len(zone.ManagerId) == 0 { // 本地dns记录
+			self.taskComplete(ctx, record)
+			return
+		}
+		self.taskFailed(ctx, record, fmt.Errorf("empty external id"))
 		return
 	}
 
