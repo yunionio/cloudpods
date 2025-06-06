@@ -19,6 +19,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
+	"regexp"
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -26,7 +29,6 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/util/httputils"
-	"yunion.io/x/pkg/util/version"
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/apis"
@@ -38,6 +40,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/identity"
+	baseoptions "yunion.io/x/onecloud/pkg/mcclient/options"
 	"yunion.io/x/onecloud/pkg/util/influxdb"
 )
 
@@ -50,19 +53,73 @@ const (
 	METIRCY_TYPE_PROCESS     = "process"
 )
 
-func getEndpoints(ctx context.Context, s *mcclient.ClientSession) ([]api.EndpointDetails, error) {
-	resp, err := identity.EndpointsV3.List(s, jsonutils.Marshal(map[string]string{
-		"scope":     "system",
-		"enable":    "true",
-		"details":   "true",
-		"interface": "internal",
-		"limit":     "50",
-	}))
-	if err != nil {
-		return nil, errors.Wrapf(err, "Endpoints.List")
+func getEndpoints(s *mcclient.ClientSession) ([]api.EndpointDetails, error) {
+	ret := make([]api.EndpointDetails, 0)
+	params := baseoptions.BaseListOptions{}
+	limit := 1024
+	params.Limit = &limit
+	boolTrue := true
+	params.Details = &boolTrue
+	params.Scope = "system"
+	params.Filter = []string{
+		"interface.equals(internal)",
+		"enabled.equals(1)",
 	}
-	ret := []api.EndpointDetails{}
-	return ret, jsonutils.Update(&ret, resp.Data)
+
+	for {
+		offset := len(ret)
+		params.Offset = &offset
+		resp, err := identity.EndpointsV3.List(s, jsonutils.Marshal(params))
+		if err != nil {
+			return nil, errors.Wrapf(err, "Endpoints.List")
+		}
+		for i := range resp.Data {
+			endpoint := api.EndpointDetails{}
+			err := resp.Data[i].Unmarshal(&endpoint)
+			if err != nil {
+				return nil, errors.Wrapf(err, "Unmarshal")
+			}
+			ret = append(ret, endpoint)
+		}
+		if len(ret) >= resp.Total {
+			break
+		}
+	}
+	return ret, nil
+}
+
+func getHosts(s *mcclient.ClientSession) ([]compute_api.HostDetails, error) {
+	params := compute_api.HostListInput{}
+	boolFalse := false
+	limit := 100
+	params.Limit = &limit
+	params.Brand = []string{compute_api.CLOUD_PROVIDER_ONECLOUD}
+	params.Scope = "system"
+	params.Status = []string{compute_api.HOST_STATUS_RUNNING}
+	params.HostStatus = []string{compute_api.HOST_ONLINE}
+	params.Details = &boolFalse
+
+	hosts := []compute_api.HostDetails{}
+	for {
+		offset := len(hosts)
+		params.Offset = &offset
+		resp, err := compute.Hosts.List(s, jsonutils.Marshal(params))
+		if err != nil {
+			return nil, errors.Wrapf(err, "Hosts.List")
+		}
+		for i := range resp.Data {
+			host := compute_api.HostDetails{}
+			err := resp.Data[i].Unmarshal(&host)
+			if err != nil {
+				return nil, errors.Wrapf(err, "Unmarshal")
+			}
+			hosts = append(hosts, host)
+		}
+		if len(hosts) >= resp.Total {
+			break
+		}
+	}
+	return hosts, nil
 }
 
 func CollectServiceMetrics(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
@@ -77,18 +134,13 @@ func CollectServiceMetrics(ctx context.Context, userCred mcclient.TokenCredentia
 
 	tk := auth.AdminCredential().GetTokenString()
 	err = func() error {
-		endpoints, err := getEndpoints(ctx, s)
+		endpoints, err := getEndpoints(s)
 		if err != nil {
 			return errors.Wrapf(err, "getEndpoints")
 		}
 		metrics := []influxdb.SMetricData{}
 		for _, ep := range endpoints {
-			if utils.IsInStringArray(ep.ServiceType, apis.NO_RESOURCE_SERVICES) || utils.IsInStringArray(ep.ServiceType, []string{
-				apis.SERVICE_TYPE_IMAGE,
-				apis.SERVICE_TYPE_MONITOR,
-				apis.SERVICE_TYPE_VICTORIA_METRICS,
-				"k8s",
-			}) {
+			if utils.IsInStringArray(ep.ServiceType, apis.EXTERNAL_SERVICES) {
 				continue
 			}
 			url := httputils.JoinPath(ep.Url, "version")
@@ -114,52 +166,40 @@ func CollectServiceMetrics(ctx context.Context, userCred mcclient.TokenCredentia
 			}
 			metrics = append(metrics, part...)
 		}
-		return influxdb.SendMetrics(urls, SYSTEM_METRIC_DATABASE, metrics, false)
+		if len(metrics) > 0 {
+			err := influxdb.SendMetrics(urls, SYSTEM_METRIC_DATABASE, metrics, false)
+			if err != nil {
+				return errors.Wrapf(err, "SendMetrics")
+			}
+		}
+		return nil
 	}()
 	if err != nil {
 		log.Errorf("collect service metric error: %v", err)
 	}
-	params := compute_api.HostListInput{}
-	limit := 20
-	params.Limit = &limit
-	params.Brand = []string{compute_api.CLOUD_PROVIDER_ONECLOUD}
-	params.Scope = "system"
-	params.Status = []string{compute_api.HOST_STATUS_RUNNING}
-	details := false
-	params.Details = &details
-	hosts := []compute_api.HostDetails{}
-	for {
-		offset := len(hosts)
-		params.Offset = &offset
-		resp, err := compute.Hosts.List(s, jsonutils.Marshal(params))
+
+	{
+		hosts, err := getHosts(s)
 		if err != nil {
-			return
+			log.Errorf("get hosts error: %v", err)
 		}
-		part := []compute_api.HostDetails{}
-		err = jsonutils.Update(&part, resp.Data)
-		if err != nil {
-			return
+		metrics := []influxdb.SMetricData{}
+		for _, host := range hosts {
+			part := collectHostMetrics(ctx, host, tk)
+			metrics = append(metrics, part...)
 		}
-		hosts = append(hosts, part...)
-		if len(hosts) >= resp.Total {
-			break
+		if len(metrics) > 0 {
+			err := influxdb.SendMetrics(urls, SYSTEM_METRIC_DATABASE, metrics, false)
+			if err != nil {
+				log.Errorf("send host metrics error: %v", err)
+			}
 		}
 	}
-	metrics := []influxdb.SMetricData{}
-	for _, host := range hosts {
-		service := fmt.Sprintf("host-%s", host.Name)
-		part, err := collectWorkerMetrics(ctx, host.ManagerUri, service, version.GetShortString(), tk)
-		if err != nil {
-			log.Errorf("collect host %s metric error: %v", service, err)
-			continue
-		}
-		metrics = append(metrics, part...)
-	}
-	influxdb.SendMetrics(urls, SYSTEM_METRIC_DATABASE, metrics, false)
 }
 
-func collectStatsMetrics(ctx context.Context, ep api.EndpointDetails, version, token string) ([]influxdb.SMetricData, error) {
-	statsUrl := httputils.JoinPath(ep.Url, "stats")
+func collectApiStatsMetrics(ctx context.Context, serviceName string, serviceType string, regionId string, url string, version, token string) ([]influxdb.SMetricData, error) {
+	log.Debugf("collectApiStatsMetrics %s %s %s %s %s", serviceName, serviceType, regionId, url, version)
+	statsUrl := httputils.JoinPath(baseUrlF(url), "stats")
 	hdr := http.Header{}
 	hdr.Set("X-Auth-Token", token)
 	_, ret, err := httputils.JSONRequest(
@@ -175,131 +215,19 @@ func collectStatsMetrics(ctx context.Context, ep api.EndpointDetails, version, t
 		return []influxdb.SMetricData{}, nil
 	}
 
-	stats := struct {
-		HttpCode2xx    float64 `json:"duration.2XX"`
-		HttpCode4xx    float64 `json:"duration.4XX"`
-		HttpCode5xx    float64 `json:"duration.5XX"`
-		HitHttpCode2xx int     `json:"hit.2XX"`
-		HitHttpCode4xx int     `json:"hit.4XX"`
-		HitHttpCode5xx int     `json:"hit.5XX"`
-		Paths          []struct {
-			HttpCode2xx    float64 `json:"duration.2XX"`
-			HttpCode4xx    float64 `json:"duration.4XX"`
-			HttpCode5xx    float64 `json:"duration.5XX"`
-			HitHttpCode2xx int     `json:"hit.2XX"`
-			HitHttpCode4xx int     `json:"hit.4XX"`
-			HitHttpCode5xx int     `json:"hit.5XX"`
-			Method         string
-			Name           string
-			Path           string
-		} `json:"paths"`
-	}{}
+	stats := sApiHttpStats{}
 	err = ret.Unmarshal(&stats)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Unmarshal")
 	}
-	result := []influxdb.SMetricData{}
-	metric := influxdb.SMetricData{
-		Name:      METIRCY_TYPE_HTTP_REQUST,
-		Timestamp: time.Now(),
-		Tags: []influxdb.SKeyValue{
-			{
-				Key:   "version",
-				Value: version,
-			},
-			{
-				Key:   "service",
-				Value: ep.ServiceName,
-			},
-		},
-		Metrics: []influxdb.SKeyValue{
-			{
-				Key:   "duration.2xx",
-				Value: fmt.Sprintf("%.2f", stats.HttpCode2xx),
-			},
-			{
-				Key:   "duration.4xx",
-				Value: fmt.Sprintf("%.2f", stats.HttpCode4xx),
-			},
-			{
-				Key:   "duration.5xx",
-				Value: fmt.Sprintf("%.2f", stats.HttpCode5xx),
-			},
-			{
-				Key:   "hit.2xx",
-				Value: fmt.Sprintf("%d", stats.HitHttpCode2xx),
-			},
-			{
-				Key:   "hit.4xx",
-				Value: fmt.Sprintf("%d", stats.HitHttpCode4xx),
-			},
-			{
-				Key:   "hit.5xx",
-				Value: fmt.Sprintf("%d", stats.HitHttpCode5xx),
-			},
-		},
-	}
-	result = append(result, metric)
-	for _, path := range stats.Paths {
-		metric = influxdb.SMetricData{
-			Name:      METIRCY_TYPE_HTTP_REQUST,
-			Timestamp: time.Now(),
-			Tags: []influxdb.SKeyValue{
-				{
-					Key:   "version",
-					Value: version,
-				},
-				{
-					Key:   "service",
-					Value: ep.ServiceName,
-				},
-				{
-					Key:   "method",
-					Value: path.Method,
-				},
-				{
-					Key:   "path",
-					Value: path.Path,
-				},
-				{
-					Key:   "url",
-					Value: path.Name,
-				},
-			},
-			Metrics: []influxdb.SKeyValue{
-				{
-					Key:   "duration.2xx",
-					Value: fmt.Sprintf("%.2f", path.HttpCode2xx),
-				},
-				{
-					Key:   "duration.4xx",
-					Value: fmt.Sprintf("%.2f", path.HttpCode4xx),
-				},
-				{
-					Key:   "duration.5xx",
-					Value: fmt.Sprintf("%.2f", path.HttpCode5xx),
-				},
-				{
-					Key:   "hit.2xx",
-					Value: fmt.Sprintf("%d", path.HitHttpCode2xx),
-				},
-				{
-					Key:   "hit.4xx",
-					Value: fmt.Sprintf("%d", path.HitHttpCode4xx),
-				},
-				{
-					Key:   "hit.5xx",
-					Value: fmt.Sprintf("%d", path.HitHttpCode5xx),
-				},
-			},
-		}
-		result = append(result, metric)
-	}
-	return result, nil
+
+	metrics := updateHttpStatsSnapshot(serviceName, url, time.Now(), stats, serviceType, regionId, version)
+
+	return metrics, nil
 }
 
-func collectWorkerMetrics(ctx context.Context, url, service, version, token string) ([]influxdb.SMetricData, error) {
-	statsUrl := httputils.JoinPath(url, "worker_stats")
+func collectWorkerMetrics(ctx context.Context, url, service, serviceType, regionId, version, token string) ([]influxdb.SMetricData, error) {
+	statsUrl := httputils.JoinPath(baseUrlF(url), "worker_stats")
 	hdr := http.Header{}
 	hdr.Set("X-Auth-Token", token)
 	_, ret, err := httputils.JSONRequest(
@@ -345,6 +273,14 @@ func collectWorkerMetrics(ctx context.Context, url, service, version, token stri
 					Value: service,
 				},
 				{
+					Key:   "service_type",
+					Value: serviceType,
+				},
+				{
+					Key:   "region",
+					Value: regionId,
+				},
+				{
 					Key:   "worker_name",
 					Value: worker.Name,
 				},
@@ -366,6 +302,14 @@ func collectWorkerMetrics(ctx context.Context, url, service, version, token stri
 					Key:   "queue_cnt",
 					Value: fmt.Sprintf("%d", worker.QueueCnt),
 				},
+				{
+					Key:   "total_workload",
+					Value: fmt.Sprintf("%d", worker.ActiveWorkerCnt+worker.QueueCnt+worker.DetachWorkerCnt),
+				},
+				{
+					Key:   "active_workload",
+					Value: fmt.Sprintf("%d", worker.ActiveWorkerCnt+worker.DetachWorkerCnt),
+				},
 			},
 		}
 		result = append(result, metric)
@@ -375,7 +319,7 @@ func collectWorkerMetrics(ctx context.Context, url, service, version, token stri
 }
 
 func collectDatabaseMetrics(ctx context.Context, ep api.EndpointDetails, version, token string) ([]influxdb.SMetricData, error) {
-	statsUrl := httputils.JoinPath(ep.Url, "db_stats")
+	statsUrl := httputils.JoinPath(baseUrlF(ep.Url), "db_stats")
 	hdr := http.Header{}
 	hdr.Set("X-Auth-Token", token)
 	_, ret, err := httputils.JSONRequest(
@@ -462,7 +406,7 @@ func collectDatabaseMetrics(ctx context.Context, ep api.EndpointDetails, version
 }
 
 func collectProcessMetrics(ctx context.Context, ep api.EndpointDetails, version, token string) ([]influxdb.SMetricData, error) {
-	statsUrl := httputils.JoinPath(ep.Url, "process_stats")
+	statsUrl := httputils.JoinPath(baseUrlF(ep.Url), "process_stats")
 	hdr := http.Header{}
 	hdr.Set("X-Auth-Token", token)
 	_, ret, err := httputils.JSONRequest(
@@ -518,14 +462,28 @@ func collectProcessMetrics(ctx context.Context, ep api.EndpointDetails, version,
 	return []influxdb.SMetricData{metric}, nil
 }
 
+func baseUrlF(baseurl string) string {
+	obj, _ := url.Parse(baseurl)
+	lastSlashPos := strings.LastIndex(obj.Path, "/")
+	if lastSlashPos >= 0 {
+		lastSeg := obj.Path[lastSlashPos+1:]
+		verReg := regexp.MustCompile(`^v\d+`)
+		if verReg.MatchString(lastSeg) {
+			obj.Path = obj.Path[:lastSlashPos]
+		}
+	}
+	ret := obj.String()
+	return ret
+}
+
 func collectServiceMetrics(ctx context.Context, ep api.EndpointDetails, version, token string) ([]influxdb.SMetricData, error) {
 	ret, errs := []influxdb.SMetricData{}, []error{}
-	stats, err := collectStatsMetrics(ctx, ep, version, token)
+	stats, err := collectApiStatsMetrics(ctx, ep.ServiceName, ep.ServiceType, ep.RegionId, ep.Url, version, token)
 	if err != nil {
 		errs = append(errs, err)
 	}
 	ret = append(ret, stats...)
-	worker, err := collectWorkerMetrics(ctx, ep.Url, ep.ServiceName, version, token)
+	worker, err := collectWorkerMetrics(ctx, ep.Url, ep.ServiceName, ep.ServiceType, ep.RegionId, version, token)
 	if err != nil {
 		errs = append(errs, err)
 	}
@@ -541,4 +499,22 @@ func collectServiceMetrics(ctx context.Context, ep api.EndpointDetails, version,
 	}
 	ret = append(ret, process...)
 	return ret, errors.NewAggregate(errs)
+}
+
+func collectHostMetrics(ctx context.Context, host compute_api.HostDetails, token string) []influxdb.SMetricData {
+	metrics := []influxdb.SMetricData{}
+	service := fmt.Sprintf("host-%s", host.Name)
+	part, err := collectWorkerMetrics(ctx, host.ManagerUri, service, "host", host.Region, host.Version, token)
+	if err != nil {
+		log.Errorf("collect host %s metric error: %v", service, err)
+	} else {
+		metrics = append(metrics, part...)
+	}
+	part, err = collectApiStatsMetrics(ctx, service, "host", host.Region, host.ManagerUri, host.Version, token)
+	if err != nil {
+		log.Errorf("collect host %s metric error: %v", service, err)
+	} else {
+		metrics = append(metrics, part...)
+	}
+	return metrics
 }
