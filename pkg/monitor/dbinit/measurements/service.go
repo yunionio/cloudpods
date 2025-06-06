@@ -36,6 +36,12 @@ var worker = SMeasurement{
 		{
 			"queue_cnt", "Worker Queue Count", monitor.METRIC_UNIT_NULL,
 		},
+		{
+			"total_workload", "Total workload", monitor.METRIC_UNIT_NULL,
+		},
+		{
+			"active_workload", "Active workload", monitor.METRIC_UNIT_NULL,
+		},
 	},
 }
 
