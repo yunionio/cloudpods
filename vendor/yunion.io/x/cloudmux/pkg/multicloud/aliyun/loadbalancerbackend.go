@@ -31,6 +31,7 @@ type SLoadbalancerBackend struct {
 	lbbg *SLoadbalancerBackendGroup
 
 	ServerId string
+	ServerIp string
 	Port     int
 	Weight   int
 }
@@ -89,7 +90,7 @@ func (backend *SLoadbalancerBackend) GetBackendId() string {
 }
 
 func (backend *SLoadbalancerBackend) GetIpAddress() string {
-	return ""
+	return backend.ServerIp
 }
 
 func (region *SRegion) GetLoadbalancerBackends(backendgroupId string) ([]SLoadbalancerBackend, error) {
