@@ -541,8 +541,23 @@ func (self *SGoogleClient) GetBySelfId(id string, retval interface{}) error {
 	return nil
 }
 
+func (self *SGoogleClient) PostBySelfId(id string, retval interface{}) error {
+	resp, err := jsonRequest(self.client, "POST", GOOGLE_COMPUTE_DOMAIN, GOOGLE_API_VERSION, id, nil, nil, self.debug)
+	if err != nil {
+		return err
+	}
+	if retval != nil {
+		return resp.Unmarshal(retval)
+	}
+	return nil
+}
+
 func (self *SRegion) GetBySelfId(id string, retval interface{}) error {
 	return self.client.GetBySelfId(id, retval)
+}
+
+func (self *SRegion) PostBySelfId(id string, retval interface{}) error {
+	return self.client.PostBySelfId(id, retval)
 }
 
 func (region *SRegion) StorageListAll(resource string, params map[string]string, retval interface{}) error {
