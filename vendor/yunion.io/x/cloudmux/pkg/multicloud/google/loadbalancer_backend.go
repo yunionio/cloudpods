@@ -34,14 +34,23 @@ type SLoadbalancerBackend struct {
 	instanceGroup  SInstanceGroup         // 实例组
 	Backend        SInstanceGroupInstance // backend
 
+	Instance string
+	IpAddr   string
+
 	Port int `json:"port"`
 }
 
 func (self *SLoadbalancerBackend) GetId() string {
+	if len(self.Instance) > 0 {
+		return fmt.Sprintf("%s::%s::%d", self.Instance, self.IpAddr, self.Port)
+	}
 	return fmt.Sprintf("%s::%s::%s::%d", self.lbbg.GetGlobalId(), self.instanceGroup.GetGlobalId(), self.GetBackendId(), self.Port)
 }
 
 func (self *SLoadbalancerBackend) GetName() string {
+	if len(self.Instance) > 0 {
+		return self.Instance
+	}
 	segs := strings.Split(self.Backend.Instance, "/")
 	name := ""
 	if len(segs) > 0 {
@@ -66,26 +75,6 @@ func (self *SLoadbalancerBackend) Refresh() error {
 	return nil
 }
 
-func (self *SLoadbalancerBackend) IsEmulated() bool {
-	return true
-}
-
-func (self *SLoadbalancerBackend) GetSysTags() map[string]string {
-	return nil
-}
-
-func (self *SLoadbalancerBackend) GetTags() (map[string]string, error) {
-	return nil, nil
-}
-
-func (self *SLoadbalancerBackend) SetTags(tags map[string]string, replace bool) error {
-	return cloudprovider.ErrNotSupported
-}
-
-func (self *SLoadbalancerBackend) GetProjectId() string {
-	return self.lbbg.GetProjectId()
-}
-
 func (self *SLoadbalancerBackend) GetWeight() int {
 	return 0
 }
@@ -107,6 +96,9 @@ func (self *SLoadbalancerBackend) GetBackendRole() string {
 }
 
 func (self *SLoadbalancerBackend) GetBackendId() string {
+	if len(self.Instance) > 0 {
+		return self.Instance
+	}
 	r := SResourceBase{
 		Name:     "",
 		SelfLink: self.Backend.Instance,
@@ -115,7 +107,7 @@ func (self *SLoadbalancerBackend) GetBackendId() string {
 }
 
 func (self *SLoadbalancerBackend) GetIpAddress() string {
-	return ""
+	return self.IpAddr
 }
 
 func (self *SLoadbalancerBackend) SyncConf(ctx context.Context, port, weight int) error {
@@ -141,6 +133,33 @@ func (self *SLoadBalancerBackendGroup) GetLoadbalancerBackends() ([]SLoadbalance
 	}
 
 	ret := make([]SLoadbalancerBackend, 0)
+	for _, backend := range self.backendService.Backends {
+		if strings.Contains(backend.Group, "networkEndpointGroups") {
+			endpoints := struct {
+				Items []struct {
+					NetworkEndpoint struct {
+						IpAddress string
+						Port      int
+						Instance  string
+					}
+				}
+			}{}
+			err = self.lb.region.PostBySelfId(backend.Group+"/listNetworkEndpoints", &endpoints)
+			if err != nil {
+				return nil, errors.Wrapf(err, "listNetworkEndpoints")
+			}
+			for _, item := range endpoints.Items {
+				backend := SLoadbalancerBackend{
+					lbbg:           self,
+					backendService: self.backendService,
+					Instance:       item.NetworkEndpoint.Instance,
+					IpAddr:         item.NetworkEndpoint.IpAddress,
+					Port:           item.NetworkEndpoint.Port,
+				}
+				ret = append(ret, backend)
+			}
+		}
+	}
 	for i := range igs {
 		ig := igs[i]
 		// http lb
