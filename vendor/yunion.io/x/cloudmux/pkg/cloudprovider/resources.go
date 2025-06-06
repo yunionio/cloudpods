@@ -830,7 +830,13 @@ type ICloudLoadbalancerBackendGroup interface {
 }
 
 type ICloudLoadbalancerBackend interface {
-	ICloudResource
+	GetId() string
+	GetName() string
+	GetGlobalId() string
+	GetCreatedAt() time.Time
+	GetDescription() string
+
+	GetStatus() string
 
 	GetWeight() int
 	GetPort() int

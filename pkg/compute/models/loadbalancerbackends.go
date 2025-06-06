@@ -640,9 +640,6 @@ func (lbb *SLoadbalancerBackend) SyncWithCloudLoadbalancerBackend(ctx context.Co
 	if err != nil {
 		return err
 	}
-	if account, _ := provider.GetCloudaccount(); account != nil {
-		syncMetadata(ctx, userCred, lbb, ext, account.ReadOnly)
-	}
 	db.OpsLog.LogSyncUpdate(lbb, diff, userCred)
 	return nil
 }
@@ -664,7 +661,6 @@ func (lbbg *SLoadbalancerBackendGroup) newFromCloudLoadbalancerBackend(ctx conte
 	if err != nil {
 		return nil, errors.Wrapf(err, "Insert")
 	}
-	syncMetadata(ctx, userCred, lbb, ext, false)
 	db.OpsLog.LogEvent(lbb, db.ACT_CREATE, lbb.GetShortDesc(ctx), userCred)
 	return lbb, nil
 }

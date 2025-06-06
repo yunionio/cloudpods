@@ -44,7 +44,7 @@ type SElbListener struct {
 
 	Port            int             `json:"Port"`
 	Protocol        string          `json:"Protocol"`
-	DefaultActions  []DefaultAction `json:"DefaultActions"`
+	DefaultActions  []DefaultAction `xml:"DefaultActions>member"`
 	SSLPolicy       string          `json:"SslPolicy"`
 	Certificates    []Certificate   `json:"Certificates"`
 	LoadBalancerArn string          `json:"LoadBalancerArn"`
@@ -162,11 +162,16 @@ func (self *SElbListener) getBackendGroup() (*SElbBackendGroup, error) {
 		return self.group, nil
 	}
 
-	lbbg, err := self.lb.region.GetElbBackendgroup(self.DefaultActions[0].TargetGroupArn)
+	groupId := self.GetBackendGroupId()
+	if len(groupId) == 0 {
+		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "empty group id")
+	}
+
+	lbbg, err := self.lb.region.GetElbBackendgroup(groupId)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetElbBackendgroup")
 	}
-
+	lbbg.lb = self.lb
 	self.group = lbbg
 	return self.group, nil
 }
@@ -270,7 +275,10 @@ func (self *SElbListener) GetHealthCheckExp() string {
 }
 
 func (self *SElbListener) GetBackendGroupId() string {
-	return self.DefaultActions[0].TargetGroupArn
+	for _, group := range self.DefaultActions {
+		return group.TargetGroupArn
+	}
+	return ""
 }
 
 func (self *SElbListener) GetBackendServerPort() int {
