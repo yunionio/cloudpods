@@ -55,6 +55,9 @@ func (self *WafRuleCreateTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 		Action:     rule.Action,
 		Priority:   rule.Priority,
 		Type:       rule.Type,
+		Expression: rule.Expression,
+		Config:     rule.Config,
+		Enable:     rule.Enabled.Bool(),
 		Statements: []cloudprovider.SWafStatement{},
 	}
 	opts.StatementCondition = rule.StatementConditon
