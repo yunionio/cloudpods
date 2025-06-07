@@ -84,9 +84,6 @@ vet:
 # cmd/esxi-agent: prepare_dir
 # 	CGO_ENABLED=0 $(GO_BUILD) -o $(BIN_DIR)/$(shell basename $@) $(REPO_PREFIX)/$@
 
-cmd/host: prepare_dir
-	CGO_ENABLED=1 $(GO_BUILD) -o $(BIN_DIR)/$(shell basename $@) $(REPO_PREFIX)/$@
-
 cmd/%: prepare_dir
 	CGO_ENABLED=0 $(GO_BUILD) -o $(BIN_DIR)/$(shell basename $@) $(REPO_PREFIX)/$@
 

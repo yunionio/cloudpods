@@ -17,7 +17,7 @@ package ioctl
 /*
 #include <linux/loop.h>
 */
-import "C"
+//import "C"
 import (
 	"fmt"
 	"os"
@@ -38,9 +38,9 @@ import (
 const (
 	LOOP_CTL_PATH = "/dev/loop-control"
 
-	LOOP_CTL_REMOVE = C.LOOP_CTL_REMOVE
+	LOOP_CTL_REMOVE = 0x4c81 // 19585 C.LOOP_CTL_REMOVE
 	// LOOP_CTL_GET_FREE = C.LOOP_CTL_GET_FREE
-	LOOP_CTL_ADD = C.LOOP_CTL_ADD
+	LOOP_CTL_ADD = 0x4c80 // 19584 C.LOOP_CTL_ADD
 )
 
 func AddDevice(devNumber int) (string, error) {
