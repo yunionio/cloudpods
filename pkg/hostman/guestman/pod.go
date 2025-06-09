@@ -363,12 +363,12 @@ func (s *sPodGuestInstance) GetUploadStatus(ctx context.Context, reason string) 
 	if err := s.expectedStatus.SetStatus(status); err != nil {
 		log.Warningf("set expected status to %s, reason: %s, err: %s", status, reason, err.Error())
 	}
-	if status == computeapi.VM_READY {
+	/*if status == computeapi.VM_READY {
 		// remove pod
 		if err := s.stopPod(ctx, 5); err != nil {
 			log.Warningf("stop cri pod when sync status: %s: %v", s.Id, err)
 		}
-	}
+	}*/
 	// sync container's status
 	cStatuss := make(map[string]*computeapi.ContainerPerformStatusInput)
 	for _, c := range s.containers {
@@ -866,14 +866,20 @@ func newLocalDirtyPodStartTask(ctx context.Context, userCred mcclient.TokenCrede
 }
 
 func (t *localDirtyPodStartTask) Run() {
-	if t.pod.isPodDirtyShutdown() {
+	/*if t.pod.isPodDirtyShutdown() {
 		log.Infof("start dirty pod locally (%s/%s)", t.pod.Id, t.pod.GetName())
 		if _, err := t.pod.startPod(t.ctx, t.userCred); err != nil {
 			log.Errorf("start dirty pod(%s/%s) err: %s", t.pod.GetId(), t.pod.GetName(), err.Error())
 		}
-	}
+	}*/
 	for _, ctr := range t.pod.GetContainers() {
 		if t.pod.isContainerDirtyShutdown(ctr.Id) {
+			if !t.pod.IsRunning() {
+				log.Infof("start dirty pod locally (%s/%s)", t.pod.Id, t.pod.GetName())
+				if _, err := t.pod.startPod(t.ctx, t.userCred); err != nil {
+					log.Errorf("start dirty pod(%s/%s) err: %s", t.pod.GetId(), t.pod.GetName(), err.Error())
+				}
+			}
 			log.Infof("start dirty container locally (%s/%s/%s/%s)", t.pod.Id, t.pod.GetName(), ctr.Id, ctr.Name)
 			if _, err := t.pod.StartLocalContainer(t.ctx, t.userCred, ctr.Id); err != nil {
 				log.Errorf("start dirty container %s err: %s", ctr.Id, err.Error())
