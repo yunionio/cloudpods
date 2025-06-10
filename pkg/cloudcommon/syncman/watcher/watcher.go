@@ -15,8 +15,6 @@
 package watcher
 
 import (
-	"context"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -28,6 +26,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/informer"
+	"yunion.io/x/onecloud/pkg/util/ctx"
 )
 
 type SInformerSyncManager struct {
@@ -81,7 +80,7 @@ func (manager *SInformerSyncManager) StartWatching(resMan informer.IResourceMana
 
 func (manager *SInformerSyncManager) startWatcher() error {
 	log.Infof("[%s] Start resource informer watcher for %s", manager.Name(), manager.resourceManager.GetKeyword())
-	ctx := context.Background()
+	ctx := ctx.CtxWithTime()
 	s := auth.GetAdminSession(ctx, consts.GetRegion())
 	informer.NewWatchManagerBySessionBg(s, func(watchMan *informer.SWatchManager) error {
 		if err := watchMan.For(manager.resourceManager).AddEventHandler(ctx, manager); err != nil {

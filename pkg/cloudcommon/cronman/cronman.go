@@ -33,6 +33,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/yunionconf"
+	"yunion.io/x/onecloud/pkg/util/ctx"
 )
 
 var (
@@ -361,7 +362,7 @@ func (self *SCronJobManager) Start2(ctx context.Context, electObj *elect.Elect) 
 }
 
 func (self *SCronJobManager) Start() {
-	ctx := context.Background()
+	ctx := ctx.CtxWithTime()
 	ctx, self.stopFunc = context.WithCancel(ctx)
 	self.start(ctx)
 }

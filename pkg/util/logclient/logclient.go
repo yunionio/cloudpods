@@ -34,6 +34,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/logger"
+	"yunion.io/x/onecloud/pkg/util/ctx"
 	// "yunion.io/x/onecloud/pkg/mcclient/modules/websocket"
 )
 
@@ -242,7 +243,7 @@ type logTask struct {
 }
 
 func (t *logTask) Run() {
-	ctx := context.Background()
+	ctx := ctx.CtxWithTime()
 	ctx = context.WithValue(ctx, appctx.APP_CONTEXT_KEY_APPNAME, consts.GetServiceType())
 	s := DefaultSessionGenerator(ctx, t.userCred, "")
 	_, err := t.api.Create(s, t.logentry)
