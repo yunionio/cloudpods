@@ -343,6 +343,8 @@ const (
 	VM_METADATA_START_VCPU_COUNT            = "start_vcpu_count"
 	VM_METADATA_DISABLE_AUTO_MERGE_SNAPSHOT = "disable_auto_merge_snapshot"
 
+	VM_METADATA_ENABLE_TPM = "enable_tpm"
+
 	VM_METADATA_RELEASED_DEVICES = "released_devices"
 
 	VM_METADATA_CPU_NUMA_PIN                   = "__cpu_numa_pin"
