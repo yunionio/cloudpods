@@ -67,6 +67,17 @@ type LoadbalancerListInput struct {
 	UsableLoadbalancerForEip string `json:"usable_loadbalancer_for_eip"`
 }
 
+type LbEip struct {
+	// 公网IP地址
+	Eip string `json:"eip"`
+
+	EipId string `json:"eip_id"`
+
+	// 公网IP地址类型: 弹性、非弹性
+	// example: public_ip
+	EipMode string `json:"eip_mode"`
+}
+
 type LoadbalancerDetails struct {
 	apis.VirtualResourceDetails
 
@@ -82,14 +93,9 @@ type LoadbalancerDetails struct {
 
 	SLoadbalancer
 
-	// 公网IP地址
-	Eip string `json:"eip"`
+	LbEip
 
-	EipId string `json:"eip_id"`
-
-	// 公网IP地址类型: 弹性、非弹性
-	// example: public_ip
-	EipMode string `json:"eip_mode"`
+	Eips []LbEip `json:"eips"`
 
 	// 后端服务器组名称
 	BackendGroup string `json:"backend_group"`

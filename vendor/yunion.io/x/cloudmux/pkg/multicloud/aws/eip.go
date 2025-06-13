@@ -113,6 +113,8 @@ func (self *SEipAddress) GetAssociationType() string {
 		switch net.InterfaceType {
 		case "nat_gateway":
 			return api.EIP_ASSOCIATE_TYPE_NAT_GATEWAY
+		case "network_load_balancer":
+			return api.EIP_ASSOCIATE_TYPE_LOADBALANCER
 		default:
 			return net.InterfaceType
 		}

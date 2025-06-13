@@ -50,11 +50,11 @@ type SAddress struct {
 func (region *SRegion) GetEips(address string, maxResults int, pageToken string) ([]SAddress, error) {
 	eips := []SAddress{}
 	params := map[string]string{}
-	filters := []string{"addressType=EXTERNAL"}
+	filters := []string{`(addressType eq "EXTERNAL")`}
 	if len(address) > 0 {
-		filters = append(filters, fmt.Sprintf(`address="%s"`, address))
+		filters = append(filters, fmt.Sprintf(`(address eq "%s")`, address))
 	}
-	params["filter"] = strings.Join(filters, " ADN ")
+	params["filter"] = strings.Join(filters, "")
 	resource := fmt.Sprintf("regions/%s/addresses", region.Name)
 	return eips, region.List(resource, params, maxResults, pageToken, &eips)
 }

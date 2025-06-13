@@ -1323,8 +1323,8 @@ func (self *SElasticip) PerformAssociate(ctx context.Context, userCred mcclient.
 		if lb.PendingDeleted {
 			return input, httperrors.NewInvalidStatusError("cannot associate with pending deleted loadbalancer")
 		}
-		seip, _ := lb.GetEip()
-		if seip != nil {
+		eips, _ := lb.GetEips()
+		if len(eips) > 0 {
 			return input, httperrors.NewInvalidStatusError("loadbalancer is already associated with eip")
 		}
 	}
