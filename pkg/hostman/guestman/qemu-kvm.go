@@ -3020,6 +3020,9 @@ func (s *SKVMGuestInstance) CreateFromDesc(desc *desc.SGuestDesc) error {
 }
 
 func (s *SKVMGuestInstance) GetNeedMergeBackingFileDiskIndexs() []int {
+	if s.isDisableAutoMergeSnapshots() {
+		return nil
+	}
 	res := make([]int, 0)
 	for _, disk := range s.Desc.Disks {
 		if disk.MergeSnapshot {
