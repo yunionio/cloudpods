@@ -107,12 +107,12 @@ func (self *SGlobalLoadbalancer) GetProjectId() string {
 	return ""
 }
 
-func (self *SGlobalLoadbalancer) GetIEIP() (cloudprovider.ICloudEIP, error) {
+func (self *SGlobalLoadbalancer) GetIEIPs() ([]cloudprovider.ICloudEIP, error) {
 	frs, err := self.GetForwardingRules()
 	if err != nil {
 		log.Errorf("GetAddress.GetForwardingRules %s", err)
 	}
-
+	ret := []cloudprovider.ICloudEIP{}
 	for i := range frs {
 		if strings.ToLower(frs[i].LoadBalancingScheme) == "external" {
 			eips, err := self.region.GetEips(frs[i].IPAddress)
@@ -120,13 +120,13 @@ func (self *SGlobalLoadbalancer) GetIEIP() (cloudprovider.ICloudEIP, error) {
 				log.Errorf("GetEips %s", err)
 			}
 
-			if len(eips) > 0 {
-				return &eips[0], nil
+			for j := range eips {
+				eips[j].region = self.region
+				ret = append(ret, &eips[j])
 			}
 		}
 	}
-
-	return nil, nil
+	return ret, nil
 }
 
 func (self *SGlobalLoadbalancer) GetAddress() string {

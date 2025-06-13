@@ -828,7 +828,7 @@ func (region *SRegion) LiveMigrateVM(instanceId string, hostName string) error {
 	return nil
 }
 
-//仅live-migration
+// 仅live-migration
 func (region *SRegion) ListServerMigration(instanceId string) error {
 	resource := fmt.Sprintf("/servers/%s/migrations", instanceId)
 	_, err := region.ecsGet(resource)
@@ -838,7 +838,7 @@ func (region *SRegion) ListServerMigration(instanceId string) error {
 	return nil
 }
 
-//仅live-migration
+// 仅live-migration
 func (region *SRegion) DeleteMigration(instanceId string, migrationId string) error {
 	resource := fmt.Sprintf("/servers/%s/migrations/%s", instanceId, migrationId)
 	_, err := region.ecsDelete(resource)
@@ -848,7 +848,7 @@ func (region *SRegion) DeleteMigration(instanceId string, migrationId string) er
 	return nil
 }
 
-//仅live-migration
+// 仅live-migration
 func (region *SRegion) ForceCompleteMigration(instanceId string, migrationId string) error {
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.JSONNull, "force_complete")

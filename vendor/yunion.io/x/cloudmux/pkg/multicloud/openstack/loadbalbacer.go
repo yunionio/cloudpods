@@ -182,7 +182,7 @@ func (lb *SLoadbalancer) GetAddress() string {
 }
 
 func (lb *SLoadbalancer) GetAddressType() string {
-	eip, err := lb.GetIEIP()
+	eip, err := lb.GetIEIPs()
 	if err != nil {
 		return api.LB_ADDR_TYPE_INTRANET
 	}
@@ -368,12 +368,9 @@ func (lb *SLoadbalancer) GetLoadbalancerSpec() string {
 }
 
 func (lb *SLoadbalancer) GetChargeType() string {
-	eip, err := lb.GetIEIP()
+	_, err := lb.GetIEIPs()
 	if err != nil {
 		log.Errorf("lb.GetIEIP(): %s", err)
-	}
-	if err != nil {
-		return eip.GetInternetChargeType()
 	}
 
 	return api.EIP_CHARGE_TYPE_BY_TRAFFIC
@@ -407,14 +404,14 @@ func (lb *SLoadbalancer) GetILoadBalancerBackendGroupById(poolId string) (cloudp
 	return spool, nil
 }
 
-func (lb *SLoadbalancer) GetIEIP() (cloudprovider.ICloudEIP, error) {
+func (lb *SLoadbalancer) GetIEIPs() ([]cloudprovider.ICloudEIP, error) {
 	eips, err := lb.region.GetEips("")
 	if err != nil {
 		return nil, errors.Wrapf(err, "lb.region.GetEips()")
 	}
 	for _, eip := range eips {
 		if eip.PortId == lb.VipPortID {
-			return &eip, nil
+			return []cloudprovider.ICloudEIP{&eip}, nil
 		}
 	}
 	return nil, nil
