@@ -49,6 +49,19 @@ const (
 	IONiceIdle       = TIONiceLevel(3)
 )
 
+var preallocation = "metadata"
+
+func SetPreallocation(prealloc string) error {
+	if !utils.IsInStringArray(prealloc, []string{"", "disable", "metadata", "falloc", "full"}) {
+		return errors.Errorf("unsupported preallocation %s", prealloc)
+	}
+	if prealloc == "disable" {
+		prealloc = ""
+	}
+	preallocation = prealloc
+	return nil
+}
+
 type SQemuImage struct {
 	Path            string
 	Password        string
@@ -702,8 +715,10 @@ func (img *SQemuImage) CreateQcow2(sizeMB int, compact bool, backPath string, pa
 		}
 	} else if !compact {
 		sparseOpts := qcow2SparseOptions()
-		if sizeMB <= 1024*1024*4 {
-			options = append(options, "preallocation=metadata")
+		if preallocation != "" {
+			if sizeMB <= 1024*1024*4 {
+				options = append(options, fmt.Sprintf("preallocation=%s", preallocation))
+			}
 		}
 		options = append(options, sparseOpts...)
 	}
