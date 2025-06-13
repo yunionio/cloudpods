@@ -722,7 +722,7 @@ type ICloudLoadbalancer interface {
 	GetChargeType() string
 	GetEgressMbps() int
 
-	GetIEIP() (ICloudEIP, error)
+	GetIEIPs() ([]ICloudEIP, error)
 
 	Delete(ctx context.Context) error
 
