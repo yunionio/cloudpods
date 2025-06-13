@@ -149,6 +149,7 @@ type HostCommonOptions struct {
 	EnableRemoteExecutor          bool   `help:"Enable remote executor" default:"false"`
 	ExecutorConnectTimeoutSeconds int    `help:"executor client connection timeout in seconds, default is 30" default:"30"`
 	ImageDeployDriver             string `help:"Image deploy driver" default:"qemu-kvm" choices:"qemu-kvm|nbd|libguestfs"`
+	Qcow2Preallocation            string `help:"Qcow2 image create preallocation" default:"metadata" choices:"disable|metadata|falloc|full"`
 }
 
 type DBOptions struct {

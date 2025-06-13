@@ -45,6 +45,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/storageman/storagehandler"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/util/procutils"
+	"yunion.io/x/onecloud/pkg/util/qemuimg"
 	"yunion.io/x/onecloud/pkg/util/sysutils"
 )
 
@@ -85,6 +86,11 @@ func (host *SHostService) RunService() {
 	app := app_common.InitApp(&options.HostOptions.BaseOptions, false)
 	cronManager := cronman.InitCronJobManager(false, options.HostOptions.CronJobWorkerCount)
 	hostutils.Init()
+
+	err = qemuimg.SetPreallocation(options.HostOptions.Qcow2Preallocation)
+	if err != nil {
+		log.Fatalf("failed set qemuimg preallocation to %s", options.HostOptions.Qcow2Preallocation)
+	}
 
 	hostInstance := hostinfo.Instance()
 	if err := hostInstance.Init(); err != nil {
