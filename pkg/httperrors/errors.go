@@ -207,6 +207,10 @@ func NewTooLargeEntityError(msg string, params ...interface{}) *httputils.JSONCl
 	return httputils.NewJsonClientError(httpErrorCode[ErrTooLarge], string(ErrTooLarge), msg, params...)
 }
 
+func NewTooManyRequestsError(msg string, params ...interface{}) *httputils.JSONClientError {
+	return httputils.NewJsonClientError(httpErrorCode[ErrTooManyRequests], string(ErrTooManyRequests), msg, params...)
+}
+
 func NewServiceAbnormalError(msg string, params ...interface{}) *httputils.JSONClientError {
 	return httputils.NewJsonClientError(httpErrorCode[ErrServiceAbnormal], string(ErrServiceAbnormal), msg, params...)
 }
