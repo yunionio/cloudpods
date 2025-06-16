@@ -12,28 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package compute
+package multicloud
 
-import "yunion.io/x/onecloud/pkg/apis"
-
-// 资源创建参数, 目前仅占位
-type SSLCertificateCreateInput struct {
+type SCertificateBase struct {
+	SVirtualResourceBase
 }
 
-// 资源返回详情
-type SSLCertificateDetails struct {
-	apis.VirtualResourceDetails
-	ManagedResourceInfo
-	CloudregionResourceInfo
-}
-
-// 资源列表请求参数
-type SSLCertificateListInput struct {
-	apis.VirtualResourceListInput
-	apis.ExternalizedResourceBaseListInput
-	apis.DeletePreventableResourceBaseListInput
-
-	RegionalFilterListInput
-	ManagedResourceListInput
-	DnsZoneFilterListBase
+func (cert *SCertificateBase) GetDnsZoneId() string {
+	return ""
 }

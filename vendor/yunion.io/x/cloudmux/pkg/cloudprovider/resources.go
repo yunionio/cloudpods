@@ -1809,4 +1809,5 @@ type ICloudSSLCertificate interface {
 	GetIsUpload() bool
 	GetCert() string
 	GetKey() string
+	GetDnsZoneId() string
 }
