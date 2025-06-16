@@ -44,6 +44,7 @@ require (
 	github.com/mholt/caddy v0.10.11
 	github.com/miekg/dns v1.1.25
 	github.com/minio/minio-go v6.0.14+incompatible
+	github.com/petermattis/goid v0.0.0-20250508124226-395b08cebbdb
 	github.com/pierrec/lz4/v4 v4.1.15
 	github.com/pkg/errors v0.9.1
 	github.com/pkg/sftp v1.13.6
@@ -87,12 +88,12 @@ require (
 	k8s.io/client-go v0.19.3
 	k8s.io/cluster-bootstrap v0.19.3
 	moul.io/http2curl/v2 v2.3.0
-	yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20250606110740-befa6bb40ace
+	yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20250618092244-7be3d9614119
 	yunion.io/x/executor v0.0.0-20250518005516-5402e9e0bed0
 	yunion.io/x/jsonutils v1.0.1-0.20250507052344-1abcf4f443b1
 	yunion.io/x/log v1.0.1-0.20240305175729-7cf2d6cd5a91
 	yunion.io/x/ovsdb v0.0.0-20230306173834-f164f413a900
-	yunion.io/x/pkg v1.10.4-0.20250519013345-54017bf6c1f0
+	yunion.io/x/pkg v1.10.4-0.20250618071935-840c253075b0
 	yunion.io/x/s3cli v0.0.0-20241221171442-1c11599d28e1
 	yunion.io/x/sqlchemy v1.1.3-0.20250531010554-ce98f840b833
 	yunion.io/x/structarg v0.0.0-20231017124457-df4d5009457c

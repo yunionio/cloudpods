@@ -49,7 +49,7 @@ type ApplicationTestSuit struct {
 }
 
 func (suite *ApplicationTestSuit) SetupTest() {
-	suite.app = NewApplication("test", 4, false)
+	suite.app = NewApplication("test", 4, 10, false)
 	suite.app.AddHandler("GET", "/delay", func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		time.Sleep(time.Second * 1)
 		Send(w, "delay pong")

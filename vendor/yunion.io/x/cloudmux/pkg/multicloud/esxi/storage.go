@@ -147,6 +147,8 @@ func (self *SDatastore) getVolumeId() (string, error) {
 		return fsInfo.Vmfs.Uuid, nil
 	case *types.NasDatastoreInfo:
 		return fmt.Sprintf("%s:%s", fsInfo.Nas.RemoteHost, fsInfo.Nas.RemotePath), nil
+	case *types.PMemDatastoreInfo:
+		return strings.TrimPrefix(fsInfo.Url, "ds:///"), nil
 	}
 	if moStore.Summary.Type == "vsan" {
 		vsanId := moStore.Summary.Url
@@ -414,10 +416,12 @@ func (self *SDatastore) GetStorageType() string {
 		}
 	case "nfs", "nfs41":
 		return api.STORAGE_NFS
-	case "vsan":
+	case "vsan", "vsand":
 		return api.STORAGE_VSAN
 	case "cifs":
 		return api.STORAGE_CIFS
+	case "pmem":
+		return api.STORAGE_PMEM
 	default:
 		log.Fatalf("unsupported datastore type %s", moStore.Summary.Type)
 		return ""

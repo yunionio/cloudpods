@@ -21,6 +21,7 @@ const (
 	STORAGE_VSAN  = "vsan"
 	STORAGE_NFS   = "nfs"
 	STORAGE_CIFS  = "cifs"
+	STORAGE_PMEM  = "pmem"
 
 	STORAGE_PUBLIC_CLOUD     = "cloud"
 	STORAGE_CLOUD_EFFICIENCY = "cloud_efficiency"

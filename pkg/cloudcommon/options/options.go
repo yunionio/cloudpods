@@ -72,6 +72,8 @@ type BaseOptions struct {
 	RequestWorkerCount int    `default:"8" help:"Request worker thread count, default is 8"`
 	TaskWorkerCount    int    `default:"4" help:"Task manager worker thread count, default is 4"`
 
+	RequestWorkerQueueSize int `default:"10" help:"Request worker queue size, default is 10"`
+
 	DefaultProcessTimeoutSeconds int `default:"60" help:"request process timeout, default is 60 seconds"`
 
 	EnableSsl   bool   `help:"Enable https"`
