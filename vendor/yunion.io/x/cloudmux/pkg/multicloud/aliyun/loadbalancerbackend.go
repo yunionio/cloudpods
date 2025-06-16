@@ -41,7 +41,7 @@ func (backend *SLoadbalancerBackend) GetName() string {
 }
 
 func (backend *SLoadbalancerBackend) GetId() string {
-	return fmt.Sprintf("%s/%s", backend.lbbg.VServerGroupId, backend.ServerId)
+	return fmt.Sprintf("%s/%s/%s/%d", backend.lbbg.VServerGroupId, backend.ServerId, backend.ServerIp, backend.Port)
 }
 
 func (backend *SLoadbalancerBackend) GetGlobalId() string {
