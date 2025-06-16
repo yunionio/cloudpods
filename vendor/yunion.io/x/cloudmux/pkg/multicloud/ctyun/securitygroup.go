@@ -154,8 +154,15 @@ func (self *SSecurityGroup) CreateRule(opts *cloudprovider.SecurityGroupRuleCrea
 		}
 		for i := range self.SecurityGroupRuleList {
 			if !utils.IsInStringArray(self.SecurityGroupRuleList[i].Id, ruleIds) {
-				self.SecurityGroupRuleList[i].secgroup = self
-				return &self.SecurityGroupRuleList[i], nil
+				if self.SecurityGroupRuleList[i].GetDirection() == opts.Direction &&
+					self.SecurityGroupRuleList[i].GetProtocol() == opts.Protocol &&
+					self.SecurityGroupRuleList[i].GetPriority() == opts.Priority &&
+					self.SecurityGroupRuleList[i].GetPorts() == opts.Ports &&
+					self.SecurityGroupRuleList[i].DestCidrIP == opts.CIDR &&
+					self.SecurityGroupRuleList[i].GetAction() == opts.Action {
+					self.SecurityGroupRuleList[i].secgroup = self
+					return &self.SecurityGroupRuleList[i], nil
+				}
 			}
 		}
 		time.Sleep(time.Second * 3)

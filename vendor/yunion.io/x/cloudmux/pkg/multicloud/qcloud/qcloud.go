@@ -924,7 +924,7 @@ func (client *SQcloudClient) fetchBuckets() error {
 
 func (client *SQcloudClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
 	nodes, err := client.DescribeOrganizationMembers()
-	if err != nil && errors.Cause(err) != cloudprovider.ErrNotFound {
+	if err != nil && errors.Cause(err) != cloudprovider.ErrNotFound && errors.Cause(err) != cloudprovider.ErrNoPermission {
 		return nil, err
 	}
 	subAccount := cloudprovider.SSubAccount{}

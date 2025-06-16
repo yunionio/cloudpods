@@ -26,9 +26,33 @@ import (
 	"yunion.io/x/pkg/util/sets"
 )
 
+type StatusInfo struct {
+	Status              string `json:"status"`
+	TotalCount          int64  `json:"total_count"`
+	PendingDeletedCount int64  `json:"pending_deleted_count"`
+}
+
+type StatusInfoList []StatusInfo
+
+func (a StatusInfoList) Len() int      { return len(a) }
+func (a StatusInfoList) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
+func (a StatusInfoList) Less(i, j int) bool {
+	if a[i].TotalCount != a[j].TotalCount {
+		return a[i].TotalCount > a[j].TotalCount
+	}
+	if a[i].PendingDeletedCount != a[j].PendingDeletedCount {
+		return a[i].PendingDeletedCount > a[j].PendingDeletedCount
+	}
+	return a[i].Status < a[j].Status
+}
+
+type TotalCountWithStatusInfo struct {
+	StatusInfo StatusInfoList `json:"status_info"`
+}
+
 func PrintJSONList(list *ListResult, columns []string) {
 	colsWithData := make([]string, 0)
-	if columns == nil || len(columns) == 0 {
+	if len(columns) == 0 {
 		colsWithDataMap := make(map[string]bool)
 		for _, obj := range list.Data {
 			objdict, _ := obj.(*jsonutils.JSONDict)
@@ -140,21 +164,22 @@ func PrintJSONList(list *ListResult, columns []string) {
 	}
 	fmt.Println("*** ", title, " ***")
 	if list.Totals != nil {
-		if totalDict, ok := list.Totals.(*jsonutils.JSONDict); ok {
-			totalMap, err := totalDict.GetMap()
-			if err != nil {
-				fmt.Println("error to convert totals to JSONDict")
-			} else {
-				segs := make([]string, 0)
-				for k, v := range totalMap {
-					segs = append(segs, fmt.Sprintf("%s: %s", k, v.String()))
-				}
-				fmt.Printf("***%s***\n", strings.Join(segs, ", "))
+		totalWithStatusInfo := TotalCountWithStatusInfo{}
+		err := list.Totals.Unmarshal(&totalWithStatusInfo)
+		if err != nil {
+			fmt.Println("error to unmarshal totals to TotalCountWithStatusInfo", err)
+		} else if len(totalWithStatusInfo.StatusInfo) > 0 {
+			sort.Sort(totalWithStatusInfo.StatusInfo)
+			pt := prettytable.NewPrettyTableWithTryTermWidth([]string{"#", "Status", "Count", "PendingDeletedCount"}, tryTermWidth)
+			rows := make([][]string, 0)
+			for i, statusInfo := range totalWithStatusInfo.StatusInfo {
+				rows = append(rows, []string{fmt.Sprintf("#%d", i+1), statusInfo.Status, strconv.FormatInt(statusInfo.TotalCount, 10), strconv.FormatInt(statusInfo.PendingDeletedCount, 10)})
 			}
+			fmt.Print(pt.GetString(rows))
 		}
 	}
 	if colTruncated {
-		fmt.Println(fmt.Sprintf("!!!Some text truncated, set env %s=-1 to show full text!!!", OS_MAX_COLUMN_TEXT_LENGTH))
+		fmt.Println("!!!Some text truncated, set env", OS_MAX_COLUMN_TEXT_LENGTH, "=-1 to show full text!!!")
 	}
 }
 

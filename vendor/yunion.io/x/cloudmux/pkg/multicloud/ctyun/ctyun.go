@@ -323,6 +323,9 @@ func (self *SCtyunClient) request(method httputils.THttpMethod, service, resourc
 func (self *SCtyunClient) GetIRegions() ([]cloudprovider.ICloudRegion, error) {
 	ret := []cloudprovider.ICloudRegion{}
 	for i := range self.regions {
+		if !self.regions[i].OpenapiAvailable {
+			continue
+		}
 		self.regions[i].client = self
 		ret = append(ret, &self.regions[i])
 	}
