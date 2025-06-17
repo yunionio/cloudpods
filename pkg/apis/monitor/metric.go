@@ -14,7 +14,11 @@
 
 package monitor
 
-import "yunion.io/x/onecloud/pkg/apis"
+import (
+	"yunion.io/x/pkg/util/sets"
+
+	"yunion.io/x/onecloud/pkg/apis"
+)
 
 const EXT_PREFIX = "ext"
 
@@ -56,6 +60,18 @@ const (
 )
 
 var (
+	MetricCloudResTypes = sets.NewString(
+		METRIC_RES_TYPE_HOST,
+		METRIC_RES_TYPE_AGENT,
+		METRIC_RES_TYPE_GUEST,
+		METRIC_RES_TYPE_OSS,
+		METRIC_RES_TYPE_RDS,
+		METRIC_RES_TYPE_REDIS,
+		METRIC_RES_TYPE_TENANT,
+		METRIC_RES_TYPE_DOMAIN,
+		METRIC_RES_TYPE_STORAGE,
+		METRIC_RES_TYPE_CLOUDACCOUNT)
+
 	MetricResType = []string{METRIC_RES_TYPE_GUEST, METRIC_RES_TYPE_HOST, METRIC_RES_TYPE_REDIS, METRIC_RES_TYPE_OSS,
 		METRIC_RES_TYPE_RDS, METRIC_RES_TYPE_CLOUDACCOUNT}
 	MetricUnit = []string{METRIC_UNIT_PERCENT, METRIC_UNIT_BPS, METRIC_UNIT_MBPS, METRIC_UNIT_BYTEPS, "count/s",
