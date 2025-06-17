@@ -222,6 +222,9 @@ func (s *Service) metaData(ctx context.Context, w http.ResponseWriter, r *http.R
 			ips := make([]string, 0)
 			guestNics := guestDesc.Nics
 			for _, nic := range guestNics {
+				if nic.Networkaddresses == nil {
+					continue
+				}
 				nas, _ := nic.Networkaddresses.GetArray()
 				for _, na := range nas {
 					if typ, _ := na.GetString("type"); typ == "sub_ip" {
