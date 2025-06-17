@@ -182,11 +182,16 @@ func lang(ctx context.Context, contactType npk.TNotifyChannel, reIds []string, c
 	return langMap, nil
 }
 
-func isEmptyRecipients(recipientId []string) bool {
+func isEmptyRecipients(recipientId, robots []string) bool {
 	var recvs []string
 	for _, c := range recipientId {
 		if len(c) > 0 {
 			recvs = append(recvs, c)
+		}
+	}
+	for _, robot := range robots {
+		if len(robot) > 0 {
+			recvs = append(recvs, robot)
 		}
 	}
 	return len(recvs) == 0
@@ -216,7 +221,7 @@ func genMsgViaLang(ctx context.Context, p sNotifyParams) ([]npk.SNotifyMessage, 
 		reIds = p.recipientId
 	}
 
-	if isEmptyRecipients(p.recipientId) {
+	if isEmptyRecipients(p.recipientId, p.robots) {
 		return nil, errors.Wrap(errors.ErrEmpty, "empty receipients")
 	}
 
@@ -414,10 +419,10 @@ func (t *notifyTask) Run() {
 }
 
 func intelliNotify(ctx context.Context, p sNotifyParams) {
-	if isEmptyRecipients(p.recipientId) {
+	if isEmptyRecipients(p.recipientId, p.robots) {
 		return
 	}
-	log.Infof("recipientId: %v, contacts: %v, event %s priority %s", p.recipientId, p.contacts, p.event, p.priority)
+	log.Infof("recipientId: %v, robots: %v, contacts: %v, event %s priority %s", p.recipientId, p.robots, p.contacts, p.event, p.priority)
 	msgs, err := genMsgViaLang(ctx, p)
 	if err != nil {
 		log.Errorf("unable send notification: %v", err)

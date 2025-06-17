@@ -103,6 +103,14 @@ func (c *QueryCondition) GenerateFormatCond(meta *monitor.QueryResultMeta, metri
 		Evaluator:    c.Evaluator,
 	}
 }
+
+func (c *QueryCondition) IsCloudResource() bool {
+	if c.ResType == "" {
+		return false
+	}
+	return monitor.MetricCloudResTypes.Has(c.ResType)
+}
+
 func (c FormatCond) String() string {
 	if c.QueryMeta != nil {
 		return fmt.Sprintf("%s(%q) %s", c.Reducer, c.QueryMeta.RawQuery, c.Evaluator.String())
@@ -172,7 +180,7 @@ func (c *QueryCondition) Eval(context *alerting.EvalContext) (*alerting.Conditio
 	}
 
 	for _, series := range seriesList {
-		if len(c.ResType) != 0 {
+		if c.IsCloudResource() {
 			isLatestOfSerie, resource := c.serieIsLatestResource(nil, series)
 			if !isLatestOfSerie {
 				continue
@@ -542,7 +550,11 @@ func (c *QueryCondition) checkGroupByField() {
 	}
 	for i, group := range c.Query.Model.GroupBy {
 		if group.Params[0] == "*" {
-			c.Query.Model.GroupBy[i].Params = []string{monitor.GetMeasurementTagIdKeyByResType(metricMeasurement.ResType)}
+			tagId := monitor.GetMeasurementTagIdKeyByResType(metricMeasurement.ResType)
+			if tagId == "" {
+				tagId = "*"
+			}
+			c.Query.Model.GroupBy[i].Params = []string{tagId}
 		}
 	}
 }
