@@ -382,6 +382,11 @@ func (self *SUnifiedMonitorManager) ValidateInputQuery(query *monitor.AlertQuery
 	}
 	if input.Interval == "" {
 		input.Interval = "5m"
+		if input.To == "now" {
+			if input.From == "10m" {
+				input.Interval = "1m"
+			}
+		}
 	}
 
 	if query.From == "" {
