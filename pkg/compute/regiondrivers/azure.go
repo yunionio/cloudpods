@@ -76,10 +76,6 @@ func (self *SAzureRegionDriver) ValidateCreateWafInstanceData(ctx context.Contex
 	return input, nil
 }
 
-func (self *SAzureRegionDriver) ValidateCreateWafRuleData(ctx context.Context, userCred mcclient.TokenCredential, waf *models.SWafInstance, input api.WafRuleCreateInput) (api.WafRuleCreateInput, error) {
-	return input, nil
-}
-
 func (self *SAzureRegionDriver) ValidateCreateSecurityGroupInput(ctx context.Context, userCred mcclient.TokenCredential, input *api.SSecgroupCreateInput) (*api.SSecgroupCreateInput, error) {
 	for i := range input.Rules {
 		rule := input.Rules[i]

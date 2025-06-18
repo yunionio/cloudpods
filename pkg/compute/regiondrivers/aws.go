@@ -394,10 +394,6 @@ func (self *SAwsRegionDriver) ValidateCreateWafInstanceData(ctx context.Context,
 	return input, nil
 }
 
-func (self *SAwsRegionDriver) ValidateCreateWafRuleData(ctx context.Context, userCred mcclient.TokenCredential, waf *models.SWafInstance, input api.WafRuleCreateInput) (api.WafRuleCreateInput, error) {
-	return input, nil
-}
-
 func (self *SAwsRegionDriver) ValidateCreateSecurityGroupInput(ctx context.Context, userCred mcclient.TokenCredential, input *api.SSecgroupCreateInput) (*api.SSecgroupCreateInput, error) {
 	for i := range input.Rules {
 		if input.Rules[i].Action != string(secrules.SecurityRuleAllow) {
