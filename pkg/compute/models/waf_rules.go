@@ -60,7 +60,7 @@ type SWafRule struct {
 	db.SExternalizedResourceBase
 
 	// 规则优先级
-	Priority int `nullable:"false" list:"domain" create:"required"`
+	Priority int `nullable:"false" default:"0" list:"domain" create:"optional"`
 	// 规则默认行为
 	Action *cloudprovider.DefaultAction `charset:"utf8" nullable:"true" list:"user" update:"domain" create:"required"`
 	// 条件
@@ -211,6 +211,10 @@ func (manager *SWafRuleManager) ListItemFilter(
 	q, err = manager.SExternalizedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ExternalizedResourceBaseListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SExternalizedResourceBaseManager.ListItemFilter")
+	}
+
+	if len(query.Type) > 0 {
+		q = q.Equals("type", query.Type)
 	}
 
 	if len(query.WafInstanceId) > 0 {
