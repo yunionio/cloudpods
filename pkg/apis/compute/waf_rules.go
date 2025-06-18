@@ -41,6 +41,8 @@ type WafRuleListInput struct {
 
 	// WAF规则组Id
 	WafRuleGroupId string `json:"waf_rule_group_id"`
+
+	Type string `json:"type"`
 }
 
 type WafRuleCreateInput struct {
