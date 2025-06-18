@@ -471,6 +471,10 @@ func (m *SDataSourceManager) GetMetricMeasurement(userCred mcclient.TokenCredent
 	output.TagValue = make(map[string][]string, 0)
 
 	output.FieldKey = []string{field}
+	// 只查询过去 30m 的指标
+	if timeF.To == "now" {
+		timeF.From = "30m"
+	}
 	if err := getTagValues(userCred, output, timeF, tagFilter, true); err != nil {
 		return jsonutils.JSONNull, errors.Wrap(err, "getTagValues error")
 	}
