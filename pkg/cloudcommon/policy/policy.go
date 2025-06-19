@@ -31,12 +31,12 @@ import (
 
 	"yunion.io/x/onecloud/pkg/apis"
 	identity_api "yunion.io/x/onecloud/pkg/apis/identity"
-	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/identity"
+	"yunion.io/x/onecloud/pkg/util/ctx"
 	"yunion.io/x/onecloud/pkg/util/hashcache"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/tagutils"
@@ -76,7 +76,7 @@ type SPolicyManager struct {
 	policyCache     *hashcache.Cache // policy cache
 	permissionCache *hashcache.Cache // permission cache
 
-	fetchWorker *appsrv.SWorkerManager
+	// fetchWorker *appsrv.SWorkerManager
 
 	lock *sync.Mutex
 }
@@ -146,19 +146,19 @@ func (manager *SPolicyManager) init(refreshInterval time.Duration, workerCount i
 	defaultFetcherFuncAddr := reflect.ValueOf(DefaultPolicyFetcher).Pointer()
 	remoteFetcherFuncAddr := reflect.ValueOf(auth.FetchMatchPolicies).Pointer()
 	log.Debugf("DefaultPolicyFetcher: %x RemotePolicyFetcher: %x", defaultFetcherFuncAddr, remoteFetcherFuncAddr)
-	var isDB bool
-	if defaultFetcherFuncAddr == remoteFetcherFuncAddr {
-		// remote fetcher, so start watcher
-		isDB = false
-	} else {
-		isDB = true
-	}
+	// var isDB bool
+	// if defaultFetcherFuncAddr == remoteFetcherFuncAddr {
+	// remote fetcher, so start watcher
+	// isDB = false
+	// } else {
+	// 	isDB = true
+	// }
 
-	if workerCount <= 0 {
-		workerCount = 1
-	}
-	log.Infof("policy fetch worker count %d", workerCount)
-	manager.fetchWorker = appsrv.NewWorkerManager("policyFetchWorker", workerCount, 2048, isDB)
+	// if workerCount <= 0 {
+	//	workerCount = 1
+	// }
+	// log.Infof("policy fetch worker count %d", workerCount)
+	// manager.fetchWorker = appsrv.NewWorkerManager("policyFetchWorker", workerCount, 2048, isDB)
 }
 
 func getMaskedLoginIp(userCred mcclient.TokenCredential) string {
@@ -255,53 +255,22 @@ func (manager *SPolicyManager) Allow(targetScope rbacscope.TRbacScope, userCred 
 	return rbacutils.PolicyDeny
 }
 
-type fetchResult struct {
-	output *mcclient.SFetchMatchPoliciesOutput
-	err    error
-}
-
-type policyTask struct {
-	manager  *SPolicyManager
-	key      string
-	userCred mcclient.TokenCredential
-	resChan  chan fetchResult
-}
-
-func (t *policyTask) Run() {
-	val := t.manager.policyCache.AtomicGet(t.key)
-	result := fetchResult{}
-	if gotypes.IsNil(val) {
-		pg, err := DefaultPolicyFetcher(context.Background(), t.userCred)
-		if err != nil {
-			result.err = errors.Wrap(err, "DefaultPolicyFetcher")
-		} else {
-			t.manager.policyCache.AtomicSet(t.key, pg)
-			result.output = pg
-		}
-	} else {
-		result.output = val.(*mcclient.SFetchMatchPoliciesOutput)
-	}
-	t.resChan <- result
-}
-
-func (t *policyTask) Dump() string {
-	return ""
-}
-
 func (manager *SPolicyManager) fetchMatchedPolicies(userCred mcclient.TokenCredential) (*mcclient.SFetchMatchPoliciesOutput, error) {
 	key := policyKey(userCred)
 
-	task := policyTask{
-		manager:  manager,
-		key:      key,
-		userCred: userCred,
+	val := manager.policyCache.AtomicGet(key)
+	if !gotypes.IsNil(val) {
+		// cache hit
+		return val.(*mcclient.SFetchMatchPoliciesOutput), nil
 	}
-	task.resChan = make(chan fetchResult)
 
-	manager.fetchWorker.Run(&task, nil, nil)
+	pg, err := DefaultPolicyFetcher(ctx.CtxWithTime(), userCred)
+	if err != nil {
+		return nil, errors.Wrap(err, "DefaultPolicyFetcher")
+	}
 
-	res := <-task.resChan
-	return res.output, res.err
+	manager.policyCache.AtomicSet(key, pg)
+	return pg, nil
 }
 
 func (manager *SPolicyManager) allow(scope rbacscope.TRbacScope, userCred mcclient.TokenCredential, service string, resource string, action string, extra ...string) rbacutils.SPolicyResult {
