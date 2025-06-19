@@ -921,10 +921,12 @@ func (cprvd *SCloudprovider) purge(ctx context.Context, userCred mcclient.TokenC
 	dnszones := DnsZoneManager.Query("id").Equals("manager_id", cprvd.Id)
 	records := DnsRecordManager.Query("id").In("dns_zone_id", dnszones.SubQuery())
 	dnsVpcs := DnsZoneVpcManager.Query("row_id").In("dns_zone_id", dnszones.SubQuery())
+	ssls := SSLCertificateManager.Query("id").Equals("manager_id", cprvd.Id)
 	quotas := CloudproviderQuotaManager.Query("id").Equals("manager_id", cprvd.Id)
 
 	pairs := []purgePair{
 		{manager: CloudproviderQuotaManager, key: "id", q: quotas},
+		{manager: SSLCertificateManager, key: "id", q: ssls},
 		{manager: DnsZoneVpcManager, key: "row_id", q: dnsVpcs},
 		{manager: DnsRecordManager, key: "id", q: records},
 		{manager: DnsZoneManager, key: "id", q: dnszones},
