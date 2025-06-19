@@ -71,6 +71,8 @@ type BaseOptions struct {
 	ApplicationID      string `help:"Application ID"`
 	RequestWorkerCount int    `default:"8" help:"Request worker thread count, default is 8"`
 
+	RequestWorkerQueueSize int `default:"10" help:"Request worker queue size, default is 10"`
+
 	TaskWorkerCount      int `default:"4" help:"Task manager worker thread count, default is 4"`
 	LocalTaskWorkerCount int `default:"4" help:"Worker thread count that runs local tasks, default is 4"`
 

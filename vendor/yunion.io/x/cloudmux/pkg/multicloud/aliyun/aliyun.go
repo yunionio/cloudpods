@@ -808,7 +808,7 @@ func (self *SAliyunClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error)
 
 	accounts, err := self.ListAccounts()
 	if err != nil {
-		if e, ok := errors.Cause(err).(*alierr.ServerError); ok && e.ErrorCode() == "EntityNotExists.ResourceDirectory" {
+		if e, ok := errors.Cause(err).(*alierr.ServerError); ok && (e.ErrorCode() == "EntityNotExists.ResourceDirectory" || e.ErrorCode() == "NoPermission") {
 			return ret, nil
 		}
 		return nil, errors.Wrapf(err, "ListAccounts")
