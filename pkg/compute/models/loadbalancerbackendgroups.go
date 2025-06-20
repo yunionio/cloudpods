@@ -692,11 +692,6 @@ func (lbbg *SLoadbalancerBackendGroup) syncRemove(ctx context.Context, userCred 
 	lockman.LockObject(ctx, lbbg)
 	defer lockman.ReleaseObject(ctx, lbbg)
 
-	err := lbbg.ValidateDeleteCondition(ctx, nil)
-	if err != nil { // cannot delete
-		lbbg.SetStatus(ctx, userCred, api.LB_STATUS_UNKNOWN, "sync to delete")
-		return errors.Wrapf(err, "ValidateDeleteCondition")
-	}
 	notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
 		Obj:    lbbg,
 		Action: notifyclient.ActionSyncDelete,
