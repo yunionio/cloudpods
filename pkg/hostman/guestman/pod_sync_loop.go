@@ -150,7 +150,7 @@ func (m *SGuestManager) syncContainerLoopIteration(plegCh chan *pleg.PodLifecycl
 			log.Warningf("can not find pod manager by %s", jsonutils.Marshal(e))
 			return
 		}
-		if podMan.(*sPodGuestInstance).IsDirtyShutdown() {
+		if podMan.(*sPodGuestInstance).isPodDirtyShutdown() {
 			log.Infof("pod %s is dirty shutdown, waiting it to started", podMan.GetName())
 			return
 		}
