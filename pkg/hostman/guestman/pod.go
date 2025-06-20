@@ -1892,6 +1892,21 @@ func (s *sPodGuestInstance) createContainer(ctx context.Context, userCred mcclie
 				Key:   envKey,
 				Value: envVal,
 			})
+			for _, pEnv := range pm.Envs {
+				pEnvVal := ""
+				switch pEnv.ValueFrom {
+				case computeapi.GuestPortMappingEnvValueFromHostPort:
+					pEnvVal = fmt.Sprintf("%d", *pm.HostPort)
+				case computeapi.GuestPortMappingEnvValueFromPort:
+					pEnvVal = fmt.Sprintf("%d", pm.Port)
+				default:
+					return "", httperrors.NewInputParameterError("invalid value from %s", pEnv.ValueFrom)
+				}
+				ctrCfg.Envs = append(ctrCfg.Envs, &runtimeapi.KeyValue{
+					Key:   pEnv.Key,
+					Value: pEnvVal,
+				})
+			}
 		}
 	}
 	if s.GetDesc().HostAccessIp != "" {
