@@ -2668,7 +2668,7 @@ type SGuestSyncResult struct {
 }
 
 func IsNeedSkipSync(ext cloudprovider.ICloudResource) (bool, string) {
-	if len(options.Options.SkipServerBySysTagKeys) == 0 && len(options.Options.SkipServerByUserTagKeys) == 0 {
+	if len(options.Options.SkipServerBySysTagKeys) == 0 && len(options.Options.SkipServerByUserTagKeys) == 0 && len(options.Options.SkipServerByUserTagValues) == 0 {
 		return false, ""
 	}
 	if keys := strings.Split(options.Options.SkipServerBySysTagKeys, ","); len(keys) > 0 {
@@ -2685,6 +2685,15 @@ func IsNeedSkipSync(ext cloudprovider.ICloudResource) (bool, string) {
 			key = strings.Trim(key, "")
 			if len(key) > 0 && utils.IsInStringArray(key, userKeys) {
 				return true, key
+			}
+		}
+	}
+	if len(options.Options.SkipServerByUserTagValues) > 0 {
+		tags, _ := ext.GetTags()
+		for _, value := range tags {
+			value = strings.Trim(value, "")
+			if len(value) > 0 && utils.IsInStringArray(value, options.Options.SkipServerByUserTagValues) {
+				return true, value
 			}
 		}
 	}
@@ -2740,7 +2749,7 @@ func (hh *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCredent
 		for i := 0; i < len(commondb); i += 1 {
 			skip, key := IsNeedSkipSync(commonext[i])
 			if skip {
-				log.Infof("delete server %s(%s) with system tag key: %s", commonext[i].GetName(), commonext[i].GetGlobalId(), key)
+				log.Infof("delete server %s(%s) with tag key or value: %s", commonext[i].GetName(), commonext[i].GetGlobalId(), key)
 				err := commondb[i].purge(ctx, userCred)
 				if err != nil {
 					syncResult.DeleteError(err)
@@ -2767,7 +2776,7 @@ func (hh *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCredent
 	for i := 0; i < len(added); i += 1 {
 		skip, key := IsNeedSkipSync(added[i])
 		if skip {
-			log.Infof("skip server %s(%s) sync with system tag key: %s", added[i].GetName(), added[i].GetGlobalId(), key)
+			log.Infof("skip server %s(%s) sync with tag key or value: %s", added[i].GetName(), added[i].GetGlobalId(), key)
 			continue
 		}
 		vm, err := db.FetchByExternalIdAndManagerId(GuestManager, added[i].GetGlobalId(), func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
