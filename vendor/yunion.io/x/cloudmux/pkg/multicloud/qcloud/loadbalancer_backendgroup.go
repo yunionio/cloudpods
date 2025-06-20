@@ -31,16 +31,22 @@ type SLBBackendGroup struct {
 	QcloudTags
 	lb       *SLoadbalancer // 必须不能为nil
 	listener *SLBListener   // 可能为nil
+	domain   string
+	path     string
 }
 
 // 返回requestid
-func (self *SLBBackendGroup) appLBBackendServer(action string, serverId string, weight int, port int) (string, error) {
+func (self *SLBBackendGroup) appLBBackendServer(action string, serverId string, weight int, port int, domain, url string) (string, error) {
 	params := map[string]string{
 		"LoadBalancerId":       self.lb.LoadBalancerId,
 		"ListenerId":           self.listener.ListenerId,
 		"Targets.0.InstanceId": serverId,
 		"Targets.0.Port":       strconv.Itoa(port),
 		"Targets.0.Weight":     strconv.Itoa(weight),
+	}
+	if len(domain) > 0 {
+		params["Domain"] = domain
+		params["Url"] = url
 	}
 
 	resp, err := self.lb.region.clbRequest(action, params)
@@ -94,7 +100,7 @@ func (self *SLBBackendGroup) updateBackendServerPort(action string, serverId str
 // https://cloud.tencent.com/document/product/214/30676
 // https://cloud.tencent.com/document/product/214/31789
 func (self *SLBBackendGroup) AddBackendServer(serverId string, weight int, port int) (cloudprovider.ICloudLoadbalancerBackend, error) {
-	requestId, err := self.appLBBackendServer("RegisterTargets", serverId, weight, port)
+	requestId, err := self.appLBBackendServer("RegisterTargets", serverId, weight, port, self.domain, self.path)
 	if err != nil {
 		return nil, err
 	}
@@ -117,7 +123,7 @@ func (self *SLBBackendGroup) AddBackendServer(serverId string, weight int, port 
 // https://cloud.tencent.com/document/product/214/30687
 // https://cloud.tencent.com/document/product/214/31794
 func (self *SLBBackendGroup) RemoveBackendServer(serverId string, weight int, port int) error {
-	requestId, err := self.appLBBackendServer("DeregisterTargets", serverId, weight, port)
+	requestId, err := self.appLBBackendServer("DeregisterTargets", serverId, weight, port, self.domain, self.path)
 	if err != nil {
 		if strings.Contains(err.Error(), "not registered") {
 			return nil
@@ -146,7 +152,10 @@ func backendGroupIdGen(lbid string, secondId string) string {
 }
 
 func (self *SLBBackendGroup) GetId() string {
-	return self.listener.GetId()
+	if len(self.domain) == 0 {
+		return self.listener.GetGlobalId()
+	}
+	return fmt.Sprintf("%s:%s%s", self.listener.GetGlobalId(), self.domain, self.path)
 }
 
 func (self *SLBBackendGroup) GetName() string {
@@ -154,7 +163,7 @@ func (self *SLBBackendGroup) GetName() string {
 }
 
 func (self *SLBBackendGroup) GetGlobalId() string {
-	return self.listener.GetGlobalId()
+	return self.GetId()
 }
 
 func (self *SLBBackendGroup) GetStatus() string {
@@ -206,8 +215,12 @@ func (self *SLBBackendGroup) GetBackends() ([]SLBBackend, error) {
 	if err != nil {
 		return nil, err
 	}
+	ret := []SLBBackend{}
 	for i := range backends {
-		backends[i].group = self
+		if backends[i].Domain == self.domain && backends[i].Url == self.path {
+			backends[i].group = self
+			ret = append(ret, backends[i])
+		}
 	}
-	return backends, nil
+	return ret, nil
 }
