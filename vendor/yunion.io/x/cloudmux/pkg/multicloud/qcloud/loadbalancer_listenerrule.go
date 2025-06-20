@@ -104,25 +104,17 @@ func (self *SLBListenerRule) GetPath() string {
 }
 
 func (self *SLBListenerRule) GetBackendGroup() *SLBBackendGroup {
-	t := self.listener.GetListenerType()
-	if t == api.LB_LISTENER_TYPE_HTTP || t == api.LB_LISTENER_TYPE_HTTPS {
-		return &SLBBackendGroup{
-			lb:       self.listener.lb,
-			listener: self.listener,
-		}
+	return &SLBBackendGroup{
+		lb:       self.listener.lb,
+		listener: self.listener,
+		domain:   self.Domain,
+		path:     self.URL,
 	}
-
-	return nil
 }
 
 // 只有http、https协议监听规则有backendgroupid
 func (self *SLBListenerRule) GetBackendGroupId() string {
-	bg := self.GetBackendGroup()
-	if bg == nil {
-		return ""
-	}
-
-	return bg.GetId()
+	return self.GetBackendGroup().GetGlobalId()
 }
 
 // https://cloud.tencent.com/document/api/214/30688

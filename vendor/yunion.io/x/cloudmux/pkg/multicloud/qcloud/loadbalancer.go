@@ -289,10 +289,22 @@ func (self *SLoadbalancer) GetILoadBalancerBackendGroups() ([]cloudprovider.IClo
 	}
 	lbbgs := []SLBBackendGroup{}
 	for i := range listeners {
-		lbbgs = append(lbbgs, SLBBackendGroup{
-			lb:       self,
-			listener: &listeners[i],
-		})
+		if listeners[i].GetListenerType() == "http" || listeners[i].GetListenerType() == "https" {
+			for j := range listeners[i].Rules {
+				lbbgs = append(lbbgs, SLBBackendGroup{
+					lb:       self,
+					listener: &listeners[i],
+					domain:   listeners[i].Rules[j].Domain,
+					path:     listeners[i].Rules[j].URL,
+				})
+			}
+
+		} else {
+			lbbgs = append(lbbgs, SLBBackendGroup{
+				lb:       self,
+				listener: &listeners[i],
+			})
+		}
 	}
 
 	ret := []cloudprovider.ICloudLoadbalancerBackendGroup{}
