@@ -180,14 +180,33 @@ type GuestPortMappingPortRange struct {
 	End   int `json:"end"`
 }
 
+type GuestPortMappingEnvValueFrom string
+
+const (
+	GuestPortMappingEnvValueFromPort     GuestPortMappingEnvValueFrom = "port"
+	GuestPortMappingEnvValueFromHostPort GuestPortMappingEnvValueFrom = "host_port"
+)
+
+type GuestPortMappingEnv struct {
+	Key       string                       `json:"key"`
+	ValueFrom GuestPortMappingEnvValueFrom `json:"value_from"`
+}
+
 type GuestPortMapping struct {
-	Protocol      GuestPortMappingProtocol   `json:"protocol"`
+	Protocol GuestPortMappingProtocol `json:"protocol"`
+	// 容器内部 Port 端口范围 1-65535，-1表示由宿主机自动分配和 HostPort 相同的端口
 	Port          int                        `json:"port"`
 	HostPort      *int                       `json:"host_port,omitempty"`
 	HostIp        string                     `json:"host_ip"`
 	HostPortRange *GuestPortMappingPortRange `json:"host_port_range,omitempty"`
 	// whitelist for remote ips
-	RemoteIps []string `json:"remote_ips"`
+	RemoteIps []string              `json:"remote_ips"`
+	Rule      *GuestPortMappingRule `json:"rule,omitempty"`
+	Envs      []GuestPortMappingEnv `json:"envs,omitempty"`
+}
+
+type GuestPortMappingRule struct {
+	FirstPortOffset *int `json:"first_port_offset"`
 }
 
 type GuestPortMappings []*GuestPortMapping
