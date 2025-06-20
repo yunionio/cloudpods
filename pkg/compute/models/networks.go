@@ -1233,8 +1233,11 @@ func validatePortMapping(pm *api.GuestPortMapping) error {
 			return errors.Wrap(err, "validate host_port")
 		}
 	}
-	if err := validatePort(pm.Port, 1, 65535); err != nil {
-		return errors.Wrap(err, "validate port")
+	// -1 端口表示自动分配
+	if pm.Port != -1 {
+		if err := validatePort(pm.Port, 1, 65535); err != nil {
+			return errors.Wrap(err, "validate port")
+		}
 	}
 	if pm.Protocol == "" {
 		pm.Protocol = api.GuestPortMappingProtocolTCP
@@ -1247,6 +1250,18 @@ func validatePortMapping(pm *api.GuestPortMapping) error {
 			if !regutils.MatchIPAddr(ip) && !regutils.MatchCIDR(ip) {
 				return httperrors.NewInputParameterError("invalid ip or prefix %s", ip)
 			}
+		}
+	}
+	if pm.Rule != nil {
+		if pm.Rule.FirstPortOffset != nil {
+			if *pm.Rule.FirstPortOffset < 0 {
+				return httperrors.NewInputParameterError("first port offset %d is less than 0", *pm.Rule.FirstPortOffset)
+			}
+		}
+	}
+	for _, env := range pm.Envs {
+		if env.ValueFrom != api.GuestPortMappingEnvValueFromPort && env.ValueFrom != api.GuestPortMappingEnvValueFromHostPort {
+			return httperrors.NewInputParameterError("invalid value from %s", env.ValueFrom)
 		}
 	}
 	return nil
