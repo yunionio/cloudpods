@@ -218,6 +218,8 @@ func doRequest(client *sdk.Client, domain, apiVersion, apiName string, params ma
 					"Forbidden.AccessKeyDisabled",
 					"Forbidden.AccessKey":
 					return nil, errors.Wrapf(cloudprovider.ErrInvalidAccessKey, err.Error())
+				case "Forbidden.RAM":
+					return nil, errors.Wrapf(cloudprovider.ErrForbidden, err.Error())
 				case "404 Not Found", "InstanceNotFound":
 					return nil, errors.Wrap(cloudprovider.ErrNotFound, err.Error())
 				case "OperationDenied.NoStock":
