@@ -173,7 +173,7 @@ func (manager *STaskManager) FilterByOwner(ctx context.Context, q *sqlchemy.SQue
 	taskQ = taskQ.Snapshot()
 	taskQ = manager.SProjectizedResourceBaseManager.FilterByOwner(ctx, taskQ, man, userCred, owner, scope)
 	if taskQ.IsAltered() {
-		taskSubQ := taskQ.Distinct().SubQuery()
+		taskSubQ := taskQ.SubQuery()
 		q = q.Join(taskSubQ, sqlchemy.Equals(q.Field("id"), taskSubQ.Field("task_id")))
 	}
 

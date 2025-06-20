@@ -281,6 +281,11 @@ func listItemQueryFiltersRaw(
 		}
 	}
 
+	q, err = ListItemFilter(manager, ctx, q, userCred, query)
+	if err != nil {
+		return nil, errors.Wrap(err, "ListItemFilter")
+	}
+
 	// XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 	// TURN ON automatic filter by column name, ONLY if query key starts with @!!!!
 	// example: @name=abc&@city=111
@@ -311,10 +316,6 @@ func listItemQueryFiltersRaw(
 		if err != nil {
 			return nil, errors.Wrap(err, "applyListItemsGeneralJointFilters")
 		}
-	}
-	q, err = ListItemFilter(manager, ctx, q, userCred, query)
-	if err != nil {
-		return nil, errors.Wrap(err, "ListItemFilter")
 	}
 
 	if !useRawQuery {
