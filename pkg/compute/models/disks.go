@@ -1656,7 +1656,7 @@ func (manager *SDiskManager) SyncDisks(ctx context.Context, userCred mcclient.To
 	for i := 0; i < len(commondb); i += 1 {
 		skip, key := IsNeedSkipSync(commonext[i])
 		if skip {
-			log.Infof("delete disk %s(%s) with tag key: %s", commonext[i].GetName(), commonext[i].GetGlobalId(), key)
+			log.Infof("delete disk %s(%s) with tag key or value: %s", commonext[i].GetName(), commonext[i].GetGlobalId(), key)
 			err := commondb[i].RealDelete(ctx, userCred)
 			if err != nil {
 				syncResult.DeleteError(err)
@@ -1680,7 +1680,7 @@ func (manager *SDiskManager) SyncDisks(ctx context.Context, userCred mcclient.To
 	for i := 0; i < len(added); i += 1 {
 		skip, key := IsNeedSkipSync(added[i])
 		if skip {
-			log.Infof("skip disk %s(%s) sync with tag key: %s", added[i].GetName(), added[i].GetGlobalId(), key)
+			log.Infof("skip disk %s(%s) sync with tag key or value: %s", added[i].GetName(), added[i].GetGlobalId(), key)
 			continue
 		}
 		extId := added[i].GetGlobalId()
