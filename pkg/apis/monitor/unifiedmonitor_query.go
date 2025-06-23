@@ -108,6 +108,9 @@ type SimpleQueryInput struct {
 	EndTime time.Time `json:"end_time"`
 	// 指定标签
 	Tags map[string]string `json:"tag_pairs"`
+	// 间隔周期
+	// default: 5m
+	Interval string `json:"interval"`
 }
 
 type CdfQueryInput struct {

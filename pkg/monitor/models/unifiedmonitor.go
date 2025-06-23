@@ -564,7 +564,14 @@ func (self *SUnifiedMonitorManager) GetPropertySimpleQuery(ctx context.Context, 
 	for k, v := range input.Tags {
 		where.Equal(k, v)
 	}
-	data.From(input.StartTime).To(input.EndTime).Interval("5m")
+	if len(input.Interval) == 0 {
+		input.Interval = "5m"
+	}
+	_, err := time.ParseDuration(input.Interval)
+	if err != nil {
+		return nil, httperrors.NewInputParameterError("invalid interval %s", input.Interval)
+	}
+	data.From(input.StartTime).To(input.EndTime).Interval(input.Interval)
 
 	queryData := data.ToQueryData()
 	dbRtn, err := self.performQuery(ctx, userCred, queryData)
