@@ -762,7 +762,6 @@ github.com/huandu/xstrings
 github.com/huaweicloud/huaweicloud-sdk-go/auth/aksk
 # github.com/hugozhu/godingtalk v1.0.6
 ## explicit; go 1.13
-github.com/hugozhu/godingtalk
 # github.com/imdario/mergo v0.3.6
 ## explicit
 github.com/imdario/mergo
