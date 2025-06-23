@@ -16,21 +16,22 @@ package sender
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/base64"
 	"fmt"
+	"net/url"
 	"strings"
-
-	"github.com/hugozhu/godingtalk"
+	"time"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/httputils"
 
 	api "yunion.io/x/onecloud/pkg/apis/notify"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/notify/models"
-)
-
-const (
-	WEBHOOK_PREFIX = "https://oapi.dingtalk.com/robot/send?access_token="
 )
 
 type SDingTalkRobotSender struct {
@@ -40,35 +41,70 @@ type SDingTalkRobotSender struct {
 func (dingRobotSender *SDingTalkRobotSender) GetSenderType() string {
 	return api.DINGTALK_ROBOT
 }
+
 func (dingRobotSender *SDingTalkRobotSender) Send(ctx context.Context, args api.SendParams) error {
-	var token string
 	var atStr strings.Builder
 	title, msg := args.Title, args.Message
 
-	webhook := args.Receivers.Contact
-	if strings.HasPrefix(webhook, WEBHOOK_PREFIX) {
-		token = webhook[len(WEBHOOK_PREFIX):]
-	} else {
-		return errors.Wrap(InvalidWebhook, webhook)
+	urlAddr, err := url.Parse(args.Receivers.Contact)
+	if err != nil {
+		return errors.Wrapf(err, "invalid url %s", args.Receivers.Contact)
 	}
+	query := urlAddr.Query()
+	token := query.Get("access_token")
+	if len(token) == 0 {
+		return httperrors.NewMissingParameterError("access_token")
+	}
+
+	sign := query.Get("sign")
+	if len(sign) > 0 {
+		timestamp := time.Now().UnixNano() / 1e6
+		stringToSign := fmt.Sprintf("%d\n%s", timestamp, sign)
+
+		h := hmac.New(sha256.New, []byte(sign))
+		h.Write([]byte(stringToSign))
+		signature := h.Sum(nil)
+
+		encodedSignature := base64.StdEncoding.EncodeToString(signature)
+		sign = url.QueryEscape(encodedSignature)
+		query.Set("timestamp", fmt.Sprintf("%d", timestamp))
+		query.Set("sign", sign)
+	}
+
+	urlAddr.RawQuery = query.Encode()
 	processText := fmt.Sprintf("### %s\n%s%s", title, msg, atStr.String())
-	// atList := &godingtalk.RobotAtList{}
-	client := godingtalk.NewDingTalkClient("", "")
-	rep, err := client.SendRobotMarkdownMessage(token, title, processText)
-	if err == nil {
-		return nil
+	request := map[string]interface{}{
+		"msgtype": "markdown",
+		"markdown": map[string]interface{}{
+			"title": title,
+			"text":  processText,
+		},
 	}
-	if rep.ErrCode == 310000 {
-		if strings.Contains(rep.ErrMsg, "whitelist") {
-			return errors.Wrap(ErrIPWhiteList, rep.ErrMsg)
+	_, resp, err := httputils.JSONRequest(nil, ctx, httputils.POST, urlAddr.String(), nil, jsonutils.Marshal(request), true)
+	if err != nil {
+		return err
+	}
+
+	ret := struct {
+		Errcode int
+		Errmsg  string
+	}{}
+
+	err = resp.Unmarshal(&ret)
+	if err != nil {
+		return errors.Wrapf(err, "Unmarshal")
+	}
+	if ret.Errcode == 310000 {
+		if strings.Contains(ret.Errmsg, "whitelist") {
+			return errors.Wrap(ErrIPWhiteList, ret.Errmsg)
 		} else {
-			return errors.Wrap(err, jsonutils.Marshal(rep).PrettyString())
+			return errors.Errorf(resp.String())
 		}
 	}
-	if rep.ErrCode == 300001 && strings.Contains(rep.ErrMsg, "token") {
+	if ret.Errcode == 300001 && strings.Contains(ret.Errmsg, "token") {
 		return ErrNoSuchWebhook
 	}
-	return errors.Wrap(err, "this is res err")
+	return nil
 }
 
 func (dingRobotSender *SDingTalkRobotSender) ValidateConfig(ctx context.Context, config api.NotifyConfig) (string, error) {
