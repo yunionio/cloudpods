@@ -319,6 +319,26 @@ func (self *SRegion) _lbRequest(client *sdk.Client, apiName string, domain strin
 	return jsonRequest(client, domain, ALIYUN_API_VERSION_LB, apiName, params, self.client.debug)
 }
 
+func (self *SRegion) albRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+	client, err := self.getSdkClient()
+	if err != nil {
+		return nil, err
+	}
+	params = self.client.SetResourceGropuId(params)
+	domain := fmt.Sprintf("alb.%s.aliyuncs.com", self.RegionId)
+	return jsonRequest(client, domain, ALIYUN_API_VERSION_ALB, apiName, params, self.client.debug)
+}
+
+func (self *SRegion) nlbRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+	client, err := self.getSdkClient()
+	if err != nil {
+		return nil, err
+	}
+	params = self.client.SetResourceGropuId(params)
+	domain := fmt.Sprintf("nlb.%s.aliyuncs.com", self.RegionId)
+	return jsonRequest(client, domain, ALIYUN_API_VERSION_NLB, apiName, params, self.client.debug)
+}
+
 // ///////////////////////////////////////////////////////////////////////////
 func (self *SRegion) GetId() string {
 	return self.RegionId
@@ -910,6 +930,27 @@ func (region *SRegion) GetILoadBalancers() ([]cloudprovider.ICloudLoadbalancer, 
 		lbs[i].region = region
 		ilbs = append(ilbs, &lbs[i])
 	}
+
+	// 获取ALB实例
+	albs, err := region.GetAlbs()
+	if err != nil {
+		return nil, err
+	}
+	for i := 0; i < len(albs); i++ {
+		albs[i].region = region
+		ilbs = append(ilbs, &albs[i])
+	}
+
+	// 获取NLB实例
+	nlbs, err := region.GetNlbs()
+	if err != nil {
+		return nil, err
+	}
+	for i := 0; i < len(nlbs); i++ {
+		nlbs[i].region = region
+		ilbs = append(ilbs, &nlbs[i])
+	}
+
 	return ilbs, nil
 }
 
