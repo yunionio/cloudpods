@@ -584,6 +584,7 @@ func (cli *SCloudpodsClient) GetMetrics(opts *cloudprovider.MetricListOptions) (
 			"metric_name": opts.MetricType,
 			"start_time":  opts.StartTime,
 			"end_time":    opts.EndTime,
+			"interval":    "1m",
 			"tag_pairs": map[string]interface{}{
 				"brand": brandArr[i],
 			},
