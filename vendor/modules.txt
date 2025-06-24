@@ -760,8 +760,6 @@ github.com/huandu/xstrings
 # github.com/huaweicloud/huaweicloud-sdk-go v1.0.26
 ## explicit
 github.com/huaweicloud/huaweicloud-sdk-go/auth/aksk
-# github.com/hugozhu/godingtalk v1.0.6
-## explicit; go 1.13
 # github.com/imdario/mergo v0.3.6
 ## explicit
 github.com/imdario/mergo
@@ -1851,7 +1849,7 @@ sigs.k8s.io/structured-merge-diff/v4/value
 # sigs.k8s.io/yaml v1.2.0
 ## explicit; go 1.12
 sigs.k8s.io/yaml
-# yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20250529120044-ca8efb3b0df2
+# yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20250624083125-8bfa7e0fb4d6
 ## explicit; go 1.21
 yunion.io/x/cloudmux/pkg/apis
 yunion.io/x/cloudmux/pkg/apis/billing
