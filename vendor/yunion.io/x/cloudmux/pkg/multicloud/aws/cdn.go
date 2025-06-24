@@ -57,7 +57,7 @@ type DistributionConfigType struct {
 }
 
 type SCdnDomain struct {
-	multicloud.SResourceBase
+	multicloud.SCDNDomainBase
 	AwsTags
 
 	client *SAwsClient
