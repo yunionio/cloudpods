@@ -38,7 +38,7 @@ type SCdnOrigin struct {
 }
 
 type SCdnDomain struct {
-	multicloud.SResourceBase
+	multicloud.SCDNDomainBase
 	QcloudTags
 
 	client *SQcloudClient

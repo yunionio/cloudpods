@@ -38,7 +38,7 @@ type SCdnSource struct {
 }
 
 type SCdnDomain struct {
-	multicloud.SResourceBase
+	multicloud.SCDNDomainBase
 	HuaweiTags
 
 	client *SHuaweiClient
