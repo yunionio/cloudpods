@@ -273,6 +273,72 @@ func (self SCDNMaxAge) String() string {
 	return jsonutils.Marshal(self).String()
 }
 
+type CacheClearOptions struct {
+	PurgeEverything *bool
+	Tags            []string
+	Hosts           []string
+	Prefixes        []string
+	Filters         []interface{}
+}
+
+type CacheConfig struct {
+	DNSSECEnabled   *bool
+	HTTPSEnabled    *bool
+	CacheLevel      string
+	BrowserCacheTTL int
+	HTTPSRewrites   *bool
+	SSLSetting      string
+}
+
+type CustomHostname struct {
+	Id                    string
+	Hostname              string
+	OwnershipVerification struct {
+		Name  string
+		Type  string
+		Value string
+	}
+	OwnershipVerificationHttp struct {
+		HttpBody string
+		HttpUrl  string
+	}
+	SSL struct {
+		BundleMethod         string
+		CertificateAuthority string
+		DcvDelegationRecords []struct {
+			Cname       string
+			CnameTarget string
+		}
+		Id       string
+		Method   string
+		Settings struct {
+			MinTLSVersion string `json:"min_tls_version"`
+		}
+		Status            string
+		Type              string
+		ValidationRecords []struct {
+			Status   string
+			TxtName  string
+			TxtValue string
+		}
+		Wildcard bool
+	}
+	Status string
+}
+
+type CustomHostnameCreateOptions struct {
+	Hostname string
+	SSL      struct {
+		CertificateAuthority string
+		Method               string
+		Settings             struct {
+			MinTLSVersion string `json:"min_tls_version"`
+		}
+		Type     string
+		Wildcard bool
+	}
+}
+
 func init() {
 	gotypes.RegisterSerializable(reflect.TypeOf(&SCdnOrigins{}), func() gotypes.ISerializable {
 		return &SCdnOrigins{}
