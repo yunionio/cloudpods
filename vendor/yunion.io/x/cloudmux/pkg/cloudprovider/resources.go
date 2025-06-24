@@ -1741,6 +1741,19 @@ type ICloudCDNDomain interface {
 	// 浏览器缓存配置
 	GetMaxAge() (*SCDNMaxAge, error)
 
+	GetDNSSECEnabled() bool
+	// SSL/TLS加密模式
+	GetSSLSetting() string
+
+	GetHTTPSRewrites() bool
+	GetCacheLevel() string
+	ClearCache(opts *CacheClearOptions) error
+	GetBrowserCacheTTL() int
+	ChangeConfig(opts *CacheConfig) error
+	GetCustomHostnames() ([]CustomHostname, error)
+	AddCustomHostname(opts *CustomHostnameCreateOptions) error
+	DeleteCustomHostname(id string) error
+
 	Delete() error
 }
 

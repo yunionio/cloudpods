@@ -15,6 +15,7 @@
 package compute
 
 import (
+	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/mcclient/options"
@@ -25,7 +26,7 @@ type CDNDomainListOptions struct {
 }
 
 func (opts *CDNDomainListOptions) Params() (jsonutils.JSONObject, error) {
-	return options.StructToParams(opts)
+	return options.ListStructToParams(opts)
 }
 
 type CDNDomainCreateOptions struct {
@@ -73,4 +74,35 @@ func (opts *CDNDomainUpdateOptions) Params() (jsonutils.JSONObject, error) {
 		}
 	}
 	return params, nil
+}
+
+type CDNClearCacheOptions struct {
+	options.BaseIdOptions
+	cloudprovider.CacheClearOptions
+}
+
+func (opts *CDNClearCacheOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(opts.CacheClearOptions), nil
+}
+
+type CDNChangeConfigOptions struct {
+	options.BaseIdOptions
+	cloudprovider.CacheConfig
+}
+
+func (opts *CDNChangeConfigOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(opts.CacheConfig), nil
+}
+
+type CDNDeleteCustomHostnameOptions struct {
+	options.BaseIdOptions
+	CustomHostnameId string
+}
+
+func (opts *CDNDeleteCustomHostnameOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(map[string]string{"id": opts.CustomHostnameId}), nil
+}
+
+type CDNCustomHostnameOptions struct {
+	options.BaseIdOptions
 }

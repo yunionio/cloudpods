@@ -50,3 +50,43 @@ func (self *SCDNDomainBase) GetReferer() (*cloudprovider.SCDNReferer, error) {
 func (self *SCDNDomainBase) GetMaxAge() (*cloudprovider.SCDNMaxAge, error) {
 	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetMaxAge")
 }
+
+func (self *SCDNDomainBase) GetDNSSECEnabled() bool {
+	return false
+}
+
+func (self *SCDNDomainBase) GetSSLSetting() string {
+	return ""
+}
+
+func (self *SCDNDomainBase) GetHTTPSRewrites() bool {
+	return false
+}
+
+func (self *SCDNDomainBase) GetCacheLevel() string {
+	return ""
+}
+
+func (self *SCDNDomainBase) ClearCache(opts *cloudprovider.CacheClearOptions) error {
+	return errors.Wrapf(cloudprovider.ErrNotImplemented, "ClearCache")
+}
+
+func (self *SCDNDomainBase) GetBrowserCacheTTL() int {
+	return 0
+}
+
+func (self *SCDNDomainBase) ChangeConfig(opts *cloudprovider.CacheConfig) error {
+	return errors.Wrapf(cloudprovider.ErrNotImplemented, "ChangeConfig")
+}
+
+func (self *SCDNDomainBase) GetCustomHostnames() ([]cloudprovider.CustomHostname, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetCustomHostnames")
+}
+
+func (self *SCDNDomainBase) AddCustomHostname(opts *cloudprovider.CustomHostnameCreateOptions) error {
+	return errors.Wrapf(cloudprovider.ErrNotImplemented, "AddCustomHostname")
+}
+
+func (self *SCDNDomainBase) DeleteCustomHostname(id string) error {
+	return errors.Wrapf(cloudprovider.ErrNotImplemented, "DeleteCustomHostname")
+}
