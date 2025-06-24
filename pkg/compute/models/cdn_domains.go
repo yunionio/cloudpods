@@ -91,6 +91,16 @@ type SCDNDomain struct {
 	Referer *cloudprovider.SCDNReferer `list:"user" create:"domain_optional"`
 	// 浏览器缓存配置
 	MaxAge *cloudprovider.SCDNMaxAge `list:"user" create:"domain_optional"`
+	// 是否启用DNSSEC
+	DNSSECEnabled bool `default:"false" list:"user" create:"optional"`
+	// SSL加密模式
+	SSLSetting string `list:"user" width:"16" create:"domain_optional"`
+	// 是否启用HTTPS重写
+	HTTPSRewrites bool `default:"false" list:"user" create:"optional"`
+	// 缓存级别
+	CacheLevel string `list:"user" width:"32" create:"domain_optional"`
+	// 浏览器缓存TTL
+	BrowserCacheTTL int `nullable:"true" list:"user"`
 }
 
 func (manager *SCDNDomainManager) GetContextManagers() [][]db.IModelManager {
@@ -180,6 +190,72 @@ func (self *SCloudprovider) SyncCDNDomains(ctx context.Context, userCred mcclien
 	}
 
 	return result
+}
+
+func (self *SCDNDomain) PerformClearCache(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *cloudprovider.CacheClearOptions) (jsonutils.JSONObject, error) {
+	cdn, err := self.GetICloudCDNDomain(ctx)
+	if err != nil {
+		return nil, err
+	}
+	err = cdn.ClearCache(input)
+	if err != nil {
+		return nil, err
+	}
+	return nil, nil
+}
+
+func (self *SCDNDomain) PerformChangeConfig(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *cloudprovider.CacheConfig) (jsonutils.JSONObject, error) {
+	cdn, err := self.GetICloudCDNDomain(ctx)
+	if err != nil {
+		return nil, err
+	}
+	err = cdn.ChangeConfig(input)
+	if err != nil {
+		return nil, err
+	}
+
+	err = self.SyncWithCloudCDNDomain(ctx, userCred, cdn)
+	if err != nil {
+		return nil, err
+	}
+	return nil, nil
+}
+
+func (self *SCDNDomain) PerformDeleteCustomHostname(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.CDNDeleteCustomHostnameInput) (jsonutils.JSONObject, error) {
+	cdn, err := self.GetICloudCDNDomain(ctx)
+	if err != nil {
+		return nil, err
+	}
+	err = cdn.DeleteCustomHostname(input.Id)
+	if err != nil {
+		return nil, err
+	}
+	return nil, nil
+}
+
+func (self *SCDNDomain) PerformAddCustomHostname(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *cloudprovider.CustomHostnameCreateOptions) (jsonutils.JSONObject, error) {
+	cdn, err := self.GetICloudCDNDomain(ctx)
+	if err != nil {
+		return nil, err
+	}
+	err = cdn.AddCustomHostname(input)
+	if err != nil {
+		return nil, err
+	}
+	return nil, nil
+}
+
+func (self *SCDNDomain) GetDetailsCustomHostnames(ctx context.Context, userCred mcclient.TokenCredential, input jsonutils.JSONObject) (*api.CDNCustomHostnameOutput, error) {
+	cdn, err := self.GetICloudCDNDomain(ctx)
+	if err != nil {
+		return nil, err
+	}
+	ret := &api.CDNCustomHostnameOutput{}
+	ret.Data, err = cdn.GetCustomHostnames()
+	if err != nil {
+		return nil, err
+	}
+	return ret, nil
 }
 
 // 启用资源
@@ -273,6 +349,12 @@ func (self *SCDNDomain) SyncWithCloudCDNDomain(ctx context.Context, userCred mcc
 		if maxAge, err := ext.GetMaxAge(); err == nil {
 			self.MaxAge = maxAge
 		}
+
+		self.DNSSECEnabled = ext.GetDNSSECEnabled()
+		self.SSLSetting = ext.GetSSLSetting()
+		self.HTTPSRewrites = ext.GetHTTPSRewrites()
+		self.CacheLevel = ext.GetCacheLevel()
+		self.BrowserCacheTTL = ext.GetBrowserCacheTTL()
 		return nil
 	})
 	if err != nil {
@@ -316,6 +398,11 @@ func (self *SCloudprovider) newFromCloudCDNDomain(ctx context.Context, userCred 
 	domain.ForceRedirect, _ = ext.GetForceRedirect()
 	domain.Referer, _ = ext.GetReferer()
 	domain.MaxAge, _ = ext.GetMaxAge()
+	domain.DNSSECEnabled = ext.GetDNSSECEnabled()
+	domain.SSLSetting = ext.GetSSLSetting()
+	domain.HTTPSRewrites = ext.GetHTTPSRewrites()
+	domain.CacheLevel = ext.GetCacheLevel()
+	domain.BrowserCacheTTL = ext.GetBrowserCacheTTL()
 
 	err := CDNDomainManager.TableSpec().Insert(ctx, &domain)
 	if err != nil {
