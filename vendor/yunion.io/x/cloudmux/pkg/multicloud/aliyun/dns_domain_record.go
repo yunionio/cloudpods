@@ -114,42 +114,7 @@ func (client *SAliyunClient) DescribeDomainRecordInfo(recordId string) (*SDomain
 	return &srecord, nil
 }
 
-func GetRecordLineLineType(policyinfo cloudprovider.TDnsPolicyValue) string {
-	switch policyinfo {
-	case cloudprovider.DnsPolicyValueOversea:
-		return "oversea"
-	case cloudprovider.DnsPolicyValueTelecom:
-		return "telecom"
-	case cloudprovider.DnsPolicyValueUnicom:
-		return "unicom"
-	case cloudprovider.DnsPolicyValueChinaMobile:
-		return "mobile"
-	case cloudprovider.DnsPolicyValueCernet:
-		return "edu"
-	case cloudprovider.DnsPolicyValueDrPeng:
-		return "drpeng"
-	case cloudprovider.DnsPolicyValueBtvn:
-		return "btvn"
-	case cloudprovider.DnsPolicyValueNAmerica:
-		return "os_namerica"
-	case cloudprovider.DnsPolicyValueEuro:
-		return "os_euro"
-
-	case cloudprovider.DnsPolicyValueBaidu:
-		return "baidu"
-	case cloudprovider.DnsPolicyValueGoogle:
-		return "google"
-	case cloudprovider.DnsPolicyValueYoudao:
-		return "youdao"
-	case cloudprovider.DnsPolicyValueBing:
-		return "biying"
-	default:
-		return "default"
-	}
-}
-
 func (client *SAliyunClient) AddDomainRecord(domainName string, opts *cloudprovider.DnsRecord) (string, error) {
-	line := GetRecordLineLineType(opts.PolicyValue)
 	params := map[string]string{}
 	params["Action"] = "AddDomainRecord"
 	params["RR"] = opts.DnsName
@@ -157,7 +122,7 @@ func (client *SAliyunClient) AddDomainRecord(domainName string, opts *cloudprovi
 	params["Value"] = opts.DnsValue
 	params["DomainName"] = domainName
 	params["TTL"] = strconv.FormatInt(opts.Ttl, 10)
-	params["Line"] = line
+	params["Line"] = string(opts.PolicyValue)
 	if opts.DnsType == cloudprovider.DnsTypeMX {
 		params["Priority"] = strconv.FormatInt(opts.MxPriority, 10)
 	}
@@ -242,12 +207,14 @@ func (self *SDomainRecord) GetMxPriority() int64 {
 
 func (self *SDomainRecord) GetPolicyType() cloudprovider.TDnsPolicyType {
 	switch self.Line {
-	case "telecom", "unicom", "mobile", "edu", "drpeng", "btvn":
+	case "telecom", "unicom", "mobile", "edu", "drpeng", "btvn", "cstnet", "wexchange", "founder", "topway", "ocn", "cnix", "bgctv":
 		return cloudprovider.DnsPolicyTypeByCarrier
-	case "google", "baidu", "biying", "youdao":
+	case "google", "baidu", "biying", "youdao", "yahoo", "qihu", "sougou":
 		return cloudprovider.DnsPolicyTypeBySearchEngine
 	case "oversea":
 		return cloudprovider.DnsPolicyTypeByGeoLocation
+	case "aliyun", "os_aliyun":
+		return cloudprovider.DnsPolicyTypeByCloudPlatform
 	default:
 		for _, prefix := range []string{
 			"cn_telecom",
@@ -256,6 +223,9 @@ func (self *SDomainRecord) GetPolicyType() cloudprovider.TDnsPolicyType {
 			"cn_edu",
 			"cn_drpeng",
 			"cn_btvn",
+			"cn_cstnet",
+			"cn_wexchange",
+			"cn_founder",
 		} {
 			if strings.HasPrefix(self.Line, prefix) {
 				return cloudprovider.DnsPolicyTypeByCarrier
@@ -270,35 +240,19 @@ func (self *SDomainRecord) GetPolicyType() cloudprovider.TDnsPolicyType {
 				return cloudprovider.DnsPolicyTypeByGeoLocation
 			}
 		}
+		for _, prefix := range []string{
+			"aliyun_",
+		} {
+			if strings.HasPrefix(self.Line, prefix) {
+				return cloudprovider.DnsPolicyTypeByCloudPlatform
+			}
+		}
+
 		return cloudprovider.DnsPolicyTypeSimple
 	}
 }
 
 func (self *SDomainRecord) GetPolicyValue() cloudprovider.TDnsPolicyValue {
-	switch self.Line {
-	case "telecom":
-		return cloudprovider.DnsPolicyValueTelecom
-	case "unicom":
-		return cloudprovider.DnsPolicyValueUnicom
-	case "mobile":
-		return cloudprovider.DnsPolicyValueChinaMobile
-	case "oversea":
-		return cloudprovider.DnsPolicyValueOversea
-	case "edu":
-		return cloudprovider.DnsPolicyValueCernet
-	case "drpeng":
-		return cloudprovider.DnsPolicyValueDrPeng
-	case "btvn":
-		return cloudprovider.DnsPolicyValueBtvn
-	case "google":
-		return cloudprovider.DnsPolicyValueGoogle
-	case "baidu":
-		return cloudprovider.DnsPolicyValueBaidu
-	case "biying":
-		return cloudprovider.DnsPolicyValueBing
-	case "youdao":
-		return cloudprovider.DnsPolicyValueYoudao
-	}
 	return cloudprovider.TDnsPolicyValue(self.Line)
 }
 
@@ -382,7 +336,6 @@ func (self *SDomainRecord) GetExtraAddresses() ([]string, error) {
 
 // line
 func (client *SAliyunClient) UpdateDomainRecord(id string, opts *cloudprovider.DnsRecord) error {
-	line := GetRecordLineLineType(opts.PolicyValue)
 	params := map[string]string{}
 	params["Action"] = "UpdateDomainRecord"
 	params["RR"] = opts.DnsName
@@ -390,7 +343,7 @@ func (client *SAliyunClient) UpdateDomainRecord(id string, opts *cloudprovider.D
 	params["Type"] = string(opts.DnsType)
 	params["Value"] = opts.DnsValue
 	params["TTL"] = strconv.FormatInt(opts.Ttl, 10)
-	params["Line"] = line
+	params["Line"] = string(opts.PolicyValue)
 	if opts.DnsType == cloudprovider.DnsTypeMX {
 		params["Priority"] = strconv.FormatInt(opts.MxPriority, 10)
 	}

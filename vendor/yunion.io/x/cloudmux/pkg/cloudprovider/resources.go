@@ -1824,3 +1824,18 @@ type ICloudSSLCertificate interface {
 	GetKey() string
 	GetDnsZoneId() string
 }
+
+type IAiGateway interface {
+	IVirtualResource
+
+	IsAuthentication() bool
+	IsCacheInvalidateOnUpdate() bool
+	GetCacheTTL() int
+	IsCollectLogs() bool
+	GetRateLimitingInterval() int
+	GetRateLimitingLimit() int
+	GetRateLimitingTechnique() string
+
+	ChangeConfig(opts *AiGatewayChangeConfigOptions) error
+	Delete() error
+}
