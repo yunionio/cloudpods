@@ -278,14 +278,14 @@ type CacheClearOptions struct {
 	Tags            []string
 	Hosts           []string
 	Prefixes        []string
-	Filters         []interface{}
+	Files           []interface{}
 }
 
 type CacheConfig struct {
 	DNSSECEnabled   *bool
 	HTTPSEnabled    *bool
 	CacheLevel      string
-	BrowserCacheTTL int
+	BrowserCacheTTL *int
 	HTTPSRewrites   *bool
 	SSLSetting      string
 }

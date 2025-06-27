@@ -253,6 +253,8 @@ func InitHandlers(app *appsrv.Application) {
 		baremetalmodels.BaremetalProfileManager,
 
 		models.HostFileManager,
+
+		models.AiGatewayManager,
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewModelHandler(manager)
