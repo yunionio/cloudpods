@@ -16,6 +16,7 @@ package tasks
 
 import (
 	_ "yunion.io/x/onecloud/pkg/compute/tasks/access_group"
+	_ "yunion.io/x/onecloud/pkg/compute/tasks/ai_gateway"
 	_ "yunion.io/x/onecloud/pkg/compute/tasks/app"
 	_ "yunion.io/x/onecloud/pkg/compute/tasks/backup"
 	_ "yunion.io/x/onecloud/pkg/compute/tasks/baremetal"

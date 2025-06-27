@@ -44,6 +44,7 @@ const (
 	DnsPolicyTypeByCarrier        = TDnsPolicyType("ByCarrier")        //运营商
 	DnsPolicyTypeByGeoLocation    = TDnsPolicyType("ByGeoLocation")    //地理区域
 	DnsPolicyTypeBySearchEngine   = TDnsPolicyType("BySearchEngine")   //搜索引擎
+	DnsPolicyTypeByCloudPlatform  = TDnsPolicyType("ByCloudPlatform")  //云厂商
 	DnsPolicyTypeIpRange          = TDnsPolicyType("IpRange")          //自定义IP范围
 	DnsPolicyTypeWeighted         = TDnsPolicyType("Weighted")         //加权
 	DnsPolicyTypeFailover         = TDnsPolicyType("Failover")         //故障转移
