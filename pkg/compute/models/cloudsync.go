@@ -2826,6 +2826,13 @@ func SyncCloudproviderResources(ctx context.Context, userCred mcclient.TokenCred
 		}
 	}
 
+	if cloudprovider.IsSupportAiGateway(driver) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_AI_GATEWAY) {
+		err = syncAiGateways(ctx, userCred, SSyncResultSet{}, provider, driver, syncRange.Xor)
+		if err != nil {
+			log.Errorf("syncAiGateways error: %v", err)
+		}
+	}
+
 	if syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_NETWORK) {
 		err = syncGlobalVpcs(ctx, userCred, SSyncResultSet{}, provider, driver, syncRange.Xor)
 		if err != nil {
@@ -2892,6 +2899,22 @@ func syncDnsZones(ctx context.Context, userCred mcclient.TokenCredential, syncRe
 		}
 		localZones[i].SyncRecords(ctx, userCred, remoteZones[i], xor)
 	}
+	return nil
+}
+
+func syncAiGateways(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, driver cloudprovider.ICloudProvider, xor bool) error {
+	gateways, err := driver.GetIAiGateways()
+	if err != nil {
+		return errors.Wrapf(err, "GetIAiGateways")
+	}
+	result := func() compare.SyncResult {
+		defer syncResults.AddSqlCost(AiGatewayManager)()
+		return provider.SyncAiGateways(ctx, userCred, gateways, xor)
+	}()
+	syncResults.Add(AiGatewayManager, result)
+	notes := fmt.Sprintf("Sync ai gateways for cloudprovider %s result: %s", provider.GetName(), result.Result())
+	log.Infof(notes)
+	provider.SyncError(result, notes, userCred)
 	return nil
 }
 
