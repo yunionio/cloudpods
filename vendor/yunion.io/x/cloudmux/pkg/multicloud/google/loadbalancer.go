@@ -242,26 +242,27 @@ func (self *SLoadbalancer) GetEgressMbps() int {
 	return 0
 }
 
-func (self *SLoadbalancer) GetIEIP() (cloudprovider.ICloudEIP, error) {
+func (self *SLoadbalancer) GetIEIPs() ([]cloudprovider.ICloudEIP, error) {
 	frs, err := self.GetForwardingRules()
 	if err != nil {
 		log.Errorf("GetAddress.GetForwardingRules %s", err)
 	}
 
+	ret := []cloudprovider.ICloudEIP{}
 	for i := range frs {
 		if strings.ToLower(frs[i].LoadBalancingScheme) == "external" {
 			eips, err := self.region.GetEips(frs[i].IPAddress, 0, "")
 			if err != nil {
 				log.Errorf("GetEips %s", err)
 			}
-
-			if len(eips) > 0 {
-				return &eips[0], nil
+			for j := range eips {
+				eips[j].region = self.region
+				ret = append(ret, &eips[j])
 			}
 		}
 	}
 
-	return nil, nil
+	return ret, nil
 }
 
 func (self *SLoadbalancer) Delete(ctx context.Context) error {

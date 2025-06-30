@@ -37,12 +37,14 @@ type SRegion struct {
 
 	product *SProduct
 
-	IsMultiZones bool
-	RegionParent string
-	RegionId     string
-	RegionType   string
-	ZoneList     []string
-	RegionName   string
+	IsMultiZones     bool
+	OpenapiAvailable bool
+	RegionParent     string
+	RegionId         string
+	RegionCode       string
+	RegionType       string
+	ZoneList         []string
+	RegionName       string
 }
 
 func (self *SRegion) list(service, res string, params map[string]interface{}) (jsonutils.JSONObject, error) {
@@ -118,9 +120,8 @@ func (self *SRegion) CreateISecurityGroup(opts *cloudprovider.SecurityGroupCreat
 }
 
 func (self *SRegion) GetId() string {
-	id, ok := CtyunRegionIdMap[self.RegionId]
-	if ok {
-		return id
+	if len(self.RegionCode) > 0 {
+		return self.RegionCode
 	}
 	return self.RegionId
 }
@@ -136,25 +137,12 @@ func (self *SRegion) GetI18n() cloudprovider.SModelI18nTable {
 	return table
 }
 
-func (self *SRegion) getProduct() (*SProduct, error) {
-	if !gotypes.IsNil(self.product) {
-		return self.product, nil
-	}
-	var err error
-	self.product, err = self.GetProduct()
-	return self.product, err
-}
-
 func (self *SRegion) GetGlobalId() string {
 	return fmt.Sprintf("%s/%s", self.client.GetAccessEnv(), self.GetId())
 }
 
 func (self *SRegion) GetStatus() string {
-	product, err := self.getProduct()
-	if err != nil {
-		return api.CLOUD_REGION_STATUS_OUTOFSERVICE
-	}
-	if len(product.Other.Region) == 0 {
+	if !self.OpenapiAvailable {
 		return api.CLOUD_REGION_STATUS_OUTOFSERVICE
 	}
 	return api.CLOUD_REGION_STATUS_INSERVER

@@ -10,7 +10,7 @@ import (
 )
 
 type SSSLCertificate struct {
-	multicloud.SVirtualResourceBase
+	multicloud.SCertificateBase
 	AliyunTags
 	client *SAliyunClient
 

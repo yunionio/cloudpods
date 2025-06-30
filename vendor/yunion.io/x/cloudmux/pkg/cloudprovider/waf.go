@@ -142,8 +142,12 @@ type SWafRule struct {
 	Name               string
 	Desc               string
 	Action             *DefaultAction
+	Type               string
 	StatementCondition TWafStatementCondition
+	Expression         string
+	Config             jsonutils.JSONObject
 	Priority           int
+	Enable             bool
 	Statements         []SWafStatement
 }
 

@@ -248,13 +248,11 @@ func (self *SDomian) AddDnsRecord(opts *cloudprovider.DnsRecord) (string, error)
 func (self *SDomian) GetDnsProductType() cloudprovider.TDnsProductType {
 	switch self.GradeTitle {
 	case "企业旗舰版":
-		return cloudprovider.DnsProductEnterpriseUltimate
-	case "企业标准版":
-		return cloudprovider.DnsProductEnterpriseStandard
-	case "企业基础版":
-		return cloudprovider.DnsProductEnterpriseBasic
+		return cloudprovider.DnsProductUltimate
+	case "企业标准版", "企业基础版":
+		return cloudprovider.DnsProductEnterprise
 	case "个人专业版":
-		return cloudprovider.DnsProductPersonalProfessional
+		return cloudprovider.DnsProductProfessional
 	case "免费版":
 		return cloudprovider.DnsProductFree
 	default:

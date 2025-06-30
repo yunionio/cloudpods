@@ -20,10 +20,12 @@ import (
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
@@ -35,7 +37,7 @@ import (
 )
 
 type SWafRuleManager struct {
-	db.SStatusStandaloneResourceBaseManager
+	db.SEnabledStatusStandaloneResourceBaseManager
 	db.SExternalizedResourceBaseManager
 }
 
@@ -43,7 +45,7 @@ var WafRuleManager *SWafRuleManager
 
 func init() {
 	WafRuleManager = &SWafRuleManager{
-		SStatusStandaloneResourceBaseManager: db.NewStatusStandaloneResourceBaseManager(
+		SEnabledStatusStandaloneResourceBaseManager: db.NewEnabledStatusStandaloneResourceBaseManager(
 			SWafRule{},
 			"waf_rules_tbl",
 			"waf_rule",
@@ -54,15 +56,21 @@ func init() {
 }
 
 type SWafRule struct {
-	db.SStatusStandaloneResourceBase
+	db.SEnabledStatusStandaloneResourceBase
 	db.SExternalizedResourceBase
 
 	// 规则优先级
-	Priority int `nullable:"false" list:"domain" create:"required"`
+	Priority int `nullable:"false" default:"0" list:"domain" create:"optional"`
 	// 规则默认行为
 	Action *cloudprovider.DefaultAction `charset:"utf8" nullable:"true" list:"user" update:"domain" create:"required"`
 	// 条件
 	StatementConditon cloudprovider.TWafStatementCondition `width:"20" charset:"ascii" nullable:"false" list:"domain" create:"optional"`
+	// 条件表达式
+	Expression string `width:"512" charset:"ascii" nullable:"false" list:"domain" create:"optional"`
+	// 规则类型
+	Type string `width:"20" charset:"ascii" nullable:"false" list:"domain" create:"optional"`
+	// 规则配置
+	Config jsonutils.JSONObject `width:"512" charset:"utf8" nullable:"true" list:"domain" create:"optional"`
 	// 规则组的id
 	WafRuleGroupId string `width:"36" charset:"ascii" nullable:"false" list:"domain" create:"optional"`
 	// 所属waf实例id
@@ -152,7 +160,7 @@ func (manager *SWafRuleManager) ValidateCreateData(ctx context.Context, userCred
 	}
 
 	var err error
-	input.StatusStandaloneResourceCreateInput, err = manager.SStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.StatusStandaloneResourceCreateInput)
+	input.EnabledStatusStandaloneResourceCreateInput, err = manager.SEnabledStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.EnabledStatusStandaloneResourceCreateInput)
 	if err != nil {
 		return input, err
 	}
@@ -161,7 +169,7 @@ func (manager *SWafRuleManager) ValidateCreateData(ctx context.Context, userCred
 }
 
 func (self *SWafRule) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	self.SStatusStandaloneResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
+	self.SEnabledStatusStandaloneResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
 
 	input := &api.WafRuleCreateInput{}
 	data.Unmarshal(input)
@@ -195,7 +203,7 @@ func (manager *SWafRuleManager) ListItemFilter(
 ) (*sqlchemy.SQuery, error) {
 	var err error
 
-	q, err = manager.SStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StatusStandaloneResourceListInput)
+	q, err = manager.SEnabledStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.EnabledStatusStandaloneResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SEnabledStatusStandaloneResourceBaseManager.ListItemFilter")
 	}
@@ -203,6 +211,10 @@ func (manager *SWafRuleManager) ListItemFilter(
 	q, err = manager.SExternalizedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ExternalizedResourceBaseListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SExternalizedResourceBaseManager.ListItemFilter")
+	}
+
+	if len(query.Type) > 0 {
+		q = q.Equals("type", query.Type)
 	}
 
 	if len(query.WafInstanceId) > 0 {
@@ -232,11 +244,11 @@ func (manager *SWafRuleManager) FetchCustomizeColumns(
 	isList bool,
 ) []api.WafRuleDetails {
 	rows := make([]api.WafRuleDetails, len(objs))
-	stdRows := manager.SStatusStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	stdRows := manager.SEnabledStatusStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	ruleIds := make([]string, len(objs))
 	for i := range rows {
 		rows[i] = api.WafRuleDetails{
-			StatusStandaloneResourceDetails: stdRows[i],
+			EnabledStatusStandaloneResourceDetails: stdRows[i],
 		}
 		ruleIds[i] = objs[i].(*SWafRule).Id
 	}
@@ -349,7 +361,7 @@ func (self *SWafRule) ValidateUpdateData(ctx context.Context, userCred mcclient.
 	if len(input.Name) > 0 && input.Name != self.Name {
 		return input, httperrors.NewInputParameterError("Not allow update rule name")
 	}
-	input.StatusStandaloneResourceBaseUpdateInput, err = self.SStatusStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, input.StatusStandaloneResourceBaseUpdateInput)
+	input.EnabledStatusStandaloneResourceBaseUpdateInput, err = self.SEnabledStatusStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, input.EnabledStatusStandaloneResourceBaseUpdateInput)
 	if err != nil {
 		return input, err
 	}
@@ -357,7 +369,7 @@ func (self *SWafRule) ValidateUpdateData(ctx context.Context, userCred mcclient.
 }
 
 func (self *SWafRule) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	self.SStatusStandaloneResourceBase.PostUpdate(ctx, userCred, query, data)
+	self.SEnabledStatusStandaloneResourceBase.PostUpdate(ctx, userCred, query, data)
 
 	input := api.WafRuleUpdateInput{}
 	data.Unmarshal(&input)
@@ -396,12 +408,20 @@ func (self *SWafRule) StartUpdateTask(ctx context.Context, userCred mcclient.Tok
 
 func (self *SWafRule) SyncWithCloudRule(ctx context.Context, userCred mcclient.TokenCredential, rule cloudprovider.ICloudWafRule) error {
 	_, err := db.Update(self, func() error {
+		var err error
 		self.Action = rule.GetAction()
 		self.StatementConditon = rule.GetStatementCondition()
 		self.Priority = rule.GetPriority()
+		self.Type = rule.GetType()
 		self.Status = api.WAF_RULE_STATUS_AVAILABLE
 		self.Name = rule.GetName()
 		self.ExternalId = rule.GetGlobalId()
+		self.Expression = rule.GetExpression()
+		self.Config, err = rule.GetConfig()
+		if err != nil {
+			return errors.Wrapf(err, "GetConfig")
+		}
+		self.Enabled = tristate.NewFromBool(rule.GetEnabled())
 		return nil
 	})
 	if err != nil {
@@ -420,8 +440,16 @@ func (self *SWafInstance) newFromCloudRule(ctx context.Context, userCred mcclien
 	rule.Action = ext.GetAction()
 	rule.StatementConditon = ext.GetStatementCondition()
 	rule.Priority = ext.GetPriority()
+	rule.Type = ext.GetType()
 	rule.Status = api.WAF_RULE_STATUS_AVAILABLE
-	err := WafRuleManager.TableSpec().Insert(ctx, rule)
+	rule.Expression = ext.GetExpression()
+	var err error
+	rule.Config, err = ext.GetConfig()
+	if err != nil {
+		return errors.Wrapf(err, "GetConfig")
+	}
+	rule.Enabled = tristate.NewFromBool(ext.GetEnabled())
+	err = WafRuleManager.TableSpec().Insert(ctx, rule)
 	if err != nil {
 		return errors.Wrapf(err, "Insert")
 	}
@@ -572,4 +600,32 @@ func (self *SWafRule) GetICloudWafRule(ctx context.Context) (cloudprovider.IClou
 // 同步WAF规则状态
 func (self *SWafRule) PerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.WafSyncstatusInput) (jsonutils.JSONObject, error) {
 	return nil, StartResourceSyncStatusTask(ctx, userCred, self, "WafRuleSyncstatusTask", "")
+}
+
+// 启用
+func (self *SWafRule) PerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.WafRuleEnableInput) (jsonutils.JSONObject, error) {
+	_, err := self.SEnabledStatusStandaloneResourceBase.PerformEnable(ctx, userCred, query, input.PerformEnableInput)
+	if err != nil {
+		return nil, err
+	}
+	return nil, self.StartSetEnabledTask(ctx, userCred, "")
+}
+
+func (self *SWafRule) StartSetEnabledTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
+	params := jsonutils.NewDict()
+	task, err := taskman.TaskManager.NewTask(ctx, "WafRuleSetEnabledTask", self, userCred, params, parentTaskId, "", nil)
+	if err != nil {
+		return errors.Wrap(err, "NewTask")
+	}
+	self.SetStatus(ctx, userCred, apis.STATUS_SYNC_STATUS, "")
+	return task.ScheduleRun(nil)
+}
+
+// 禁用
+func (self *SWafRule) PerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.WafRuleDisableInput) (jsonutils.JSONObject, error) {
+	_, err := self.SEnabledStatusStandaloneResourceBase.PerformDisable(ctx, userCred, query, input.PerformDisableInput)
+	if err != nil {
+		return nil, err
+	}
+	return nil, self.StartSetEnabledTask(ctx, userCred, "")
 }

@@ -270,7 +270,7 @@ func (self *SLoadbalancerHTTPSListener) SetAcl(ctx context.Context, opts *cloudp
 }
 
 func (listerner *SLoadbalancerHTTPSListener) GetILoadbalancerListenerRules() ([]cloudprovider.ICloudLoadbalancerListenerRule, error) {
-	rules, err := listerner.lb.region.GetLoadbalancerListenerRules(listerner.lb.LoadBalancerId, listerner.ListenerPort)
+	rules, err := listerner.lb.region.GetLoadbalancerListenerRules(listerner.lb.LoadBalancerId, "HTTPS", listerner.ListenerPort)
 	if err != nil {
 		return nil, err
 	}

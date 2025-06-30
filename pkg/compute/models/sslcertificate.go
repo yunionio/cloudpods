@@ -41,6 +41,7 @@ type SSSLCertificateManager struct {
 	SDeletePreventableResourceBaseManager
 
 	SManagedResourceBaseManager
+	SDnsZoneResourceBaseManager
 }
 
 var SSLCertificateManager *SSSLCertificateManager
@@ -61,6 +62,7 @@ type SSSLCertificate struct {
 	db.SVirtualResourceBase
 	db.SExternalizedResourceBase
 	SManagedResourceBase
+	SDnsZoneResourceBase
 
 	SDeletePreventableResourceBase
 
@@ -140,6 +142,11 @@ func (man *SSSLCertificateManager) ListItemFilter(
 		return nil, errors.Wrap(err, "SManagedResourceBaseManager.ListItemFilter")
 	}
 
+	q, err = man.SDnsZoneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.DnsZoneFilterListBase)
+	if err != nil {
+		return nil, errors.Wrap(err, "SDnsZoneResourceBaseManager.ListItemFilter")
+	}
+
 	return q, nil
 }
 
@@ -169,6 +176,11 @@ func (man *SSSLCertificateManager) QueryDistinctExtraField(q *sqlchemy.SQuery, f
 	}
 
 	q, err = man.SManagedResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	q, err = man.SDnsZoneResourceBaseManager.QueryDistinctExtraField(q, field)
 	if err == nil {
 		return q, nil
 	}
@@ -286,7 +298,14 @@ func (s *SSSLCertificate) SyncWithCloudSSLCertificate(ctx context.Context, userC
 		s.OrgName = ext.GetOrgName()
 		s.Certificate = ext.GetCert()
 		s.PrivateKey = ext.GetKey()
-
+		if zoneId := ext.GetDnsZoneId(); len(zoneId) > 0 {
+			zone, err := db.FetchByExternalIdAndManagerId(DnsZoneManager, zoneId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+				return q.Equals("manager_id", s.ManagerId)
+			})
+			if err == nil {
+				s.DnsZoneId = zone.GetId()
+			}
+		}
 		return nil
 	})
 	if err != nil {
@@ -338,6 +357,14 @@ func (r *SCloudprovider) newFromCloudSSLCertificate(
 	s.OrgName = ext.GetOrgName()
 	s.Certificate = ext.GetCert()
 	s.PrivateKey = ext.GetKey()
+	if zoneId := ext.GetDnsZoneId(); len(zoneId) > 0 {
+		zone, err := db.FetchByExternalIdAndManagerId(DnsZoneManager, zoneId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+			return q.Equals("manager_id", r.Id)
+		})
+		if err == nil {
+			s.DnsZoneId = zone.GetId()
+		}
+	}
 
 	if createdAt := ext.GetCreatedAt(); !createdAt.IsZero() {
 		s.CreatedAt = createdAt

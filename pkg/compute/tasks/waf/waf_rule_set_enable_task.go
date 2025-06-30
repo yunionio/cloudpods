@@ -12,69 +12,48 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package disk
+package waf
 
 import (
 	"context"
-	"fmt"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/apis"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
-type DnsRecordSetEnabledTask struct {
+type WafRuleSetEnabledTask struct {
 	taskman.STask
 }
 
 func init() {
-	taskman.RegisterTask(DnsRecordSetEnabledTask{})
+	taskman.RegisterTask(WafRuleSetEnabledTask{})
 }
 
-func (self *DnsRecordSetEnabledTask) taskFailed(ctx context.Context, record *models.SDnsRecord, err error) {
+func (self *WafRuleSetEnabledTask) taskFailed(ctx context.Context, record *models.SWafRule, err error) {
 	record.SetStatus(ctx, self.UserCred, apis.STATUS_UNKNOWN, err.Error())
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 
-func (self *DnsRecordSetEnabledTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
-	record := obj.(*models.SDnsRecord)
+func (self *WafRuleSetEnabledTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	record := obj.(*models.SWafRule)
 
-	zone, err := record.GetDnsZone()
+	iRule, err := record.GetICloudWafRule(ctx)
 	if err != nil {
-		self.taskFailed(ctx, record, errors.Wrapf(err, "GetDnsZone"))
-		return
-	}
-
-	if len(record.ExternalId) == 0 {
-		if len(zone.ManagerId) == 0 { // 本地dns记录
-			self.taskComplete(ctx, record)
-			return
-		}
-		self.taskFailed(ctx, record, fmt.Errorf("empty external id"))
-		return
-	}
-
-	iZone, err := zone.GetICloudDnsZone(ctx)
-	if err != nil {
-		self.taskFailed(ctx, record, errors.Wrapf(err, "GetICloudDnsZone"))
-		return
-	}
-
-	iRec, err := iZone.GetIDnsRecordById(record.ExternalId)
-	if err != nil {
-		self.taskFailed(ctx, record, errors.Wrapf(err, "GetIDnsRecordById"))
+		self.taskFailed(ctx, record, errors.Wrapf(err, "GetICloudWafRule"))
 		return
 	}
 
 	if record.Enabled.Bool() {
-		err = iRec.Enable()
+		err = iRule.Enable()
 	} else {
-		err = iRec.Disable()
+		err = iRule.Disable()
 	}
 
 	if err != nil {
@@ -89,7 +68,7 @@ func (self *DnsRecordSetEnabledTask) OnInit(ctx context.Context, obj db.IStandal
 	self.taskComplete(ctx, record)
 }
 
-func (self *DnsRecordSetEnabledTask) taskComplete(ctx context.Context, record *models.SDnsRecord) {
-	record.SetStatus(ctx, self.UserCred, apis.SKU_STATUS_AVAILABLE, "")
+func (self *WafRuleSetEnabledTask) taskComplete(ctx context.Context, record *models.SWafRule) {
+	record.SetStatus(ctx, self.UserCred, api.WAF_RULE_STATUS_AVAILABLE, "")
 	self.SetStageComplete(ctx, nil)
 }

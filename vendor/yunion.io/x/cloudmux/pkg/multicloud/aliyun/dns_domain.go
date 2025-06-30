@@ -18,7 +18,6 @@ import (
 	"strconv"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
@@ -333,60 +332,20 @@ func (self *SDomain) Delete() error {
 	return self.client.DeleteDomain(self.DomainName)
 }
 
-func TDnsProductType(productName string) cloudprovider.TDnsProductType {
-	switch productName {
-	case "企业旗舰版":
-		return cloudprovider.DnsProductEnterpriseUltimate
-	case "企业标准版":
-		return cloudprovider.DnsProductEnterpriseStandard
-	case "个人版":
-		return cloudprovider.DnsProductPersonalProfessional
-	default:
-		return cloudprovider.DnsProductFree
-	}
-}
-
 func (self *SDomain) GetDnsProductType() cloudprovider.TDnsProductType {
-	sproducts, err := self.client.GetAllDnsProductInstances()
-	if err != nil {
-		log.Errorf("self.client.GetAllDnsProductInstances():%s", err)
+	switch self.VersionCode {
+	case "version_enterprise_advanced":
+		return cloudprovider.DnsProductEnterprise
+	case "mianfei":
 		return cloudprovider.DnsProductFree
+	default:
+		return cloudprovider.TDnsProductType(self.VersionCode)
 	}
-	// https://help.aliyun.com/document_detail/29806.html?spm=a2c4g.11186623.4.1.67728197c8SCN9
-	// 免费版，最低600
-	self.ttlMinValue = 600
-	for i := 0; i < len(sproducts); i++ {
-		if sproducts[i].Domain == self.DomainName {
-			return TDnsProductType(sproducts[i].VersionName)
-		}
-	}
-	return cloudprovider.DnsProductFree
-}
-
-func (self *SDomain) fetchTTLMinValue() (int64, error) {
-	if self.ttlMinValue != 0 {
-		return self.ttlMinValue, nil
-	}
-	sproducts, err := self.client.GetAllDnsProductInstances()
-	if err != nil {
-		return 0, errors.Wrap(err, "self.client.GetAllDnsProductInstances()")
-	}
-	// https://help.aliyun.com/document_detail/29806.html?spm=a2c4g.11186623.4.1.67728197c8SCN9
-	// 免费版，最低600
-	self.ttlMinValue = 600
-	for i := 0; i < len(sproducts); i++ {
-		if sproducts[i].Domain == self.DomainName {
-			self.ttlMinValue = sproducts[i].TTLMinValue
-			return self.ttlMinValue, nil
-		}
-	}
-	return self.ttlMinValue, nil
 }
 
 func (self *SDomain) GetProperlyTTL(ttl int64) int64 {
-	ttlMin, err := self.fetchTTLMinValue()
-	if err != nil {
-		log.Errorf("self.fetchTTLMinValue():%s", err)
+	ttlMin := int64(1)
+	if self.GetDnsProductType() == cloudprovider.DnsProductFree {
 		ttlMin = 600
 	}
 	if ttl <= ttlMin {

@@ -36,7 +36,7 @@ type SElbBackend struct {
 }
 
 type Target struct {
-	ID   string `json:"Id"`
+	Id   string `json:"Id"`
 	Port int    `json:"Port"`
 }
 
@@ -47,7 +47,7 @@ type TargetHealth struct {
 }
 
 func (self *SElbBackend) GetId() string {
-	return fmt.Sprintf("%s::%s::%d", self.group.GetId(), self.Target.ID, self.Target.Port)
+	return fmt.Sprintf("%s::%s::%d", self.group.GetId(), self.Target.Id, self.Target.Port)
 }
 
 func (self *SElbBackend) GetName() string {
@@ -91,7 +91,7 @@ func (self *SElbBackend) GetBackendRole() string {
 }
 
 func (self *SElbBackend) GetBackendId() string {
-	return self.Target.ID
+	return self.Target.Id
 }
 
 func (self *SElbBackend) SyncConf(ctx context.Context, port, weight int) error {

@@ -14,7 +14,7 @@ import (
 )
 
 type SSSLCertificate struct {
-	multicloud.SVirtualResourceBase
+	multicloud.SCertificateBase
 	HuaweiTags
 	client *SHuaweiClient
 
