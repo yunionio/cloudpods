@@ -847,9 +847,18 @@ func (man *SLoadbalancerManager) FetchCustomizeColumns(
 		log.Errorf("Fetch eips error: %v", err)
 		return rows
 	}
-	eipMap := map[string]*SElasticip{}
+	eipMap := map[string][]api.LbEip{}
 	for i := range eips {
-		eipMap[eips[i].AssociateId] = &eips[i]
+		associateId := eips[i].AssociateId
+		_, ok := eipMap[associateId]
+		if !ok {
+			eipMap[associateId] = []api.LbEip{}
+		}
+		eipMap[associateId] = append(eipMap[associateId], api.LbEip{
+			Eip:     eips[i].IpAddr,
+			EipId:   eips[i].Id,
+			EipMode: eips[i].Mode,
+		})
 	}
 
 	bgMap, err := db.FetchIdNameMap2(LoadbalancerBackendGroupManager, backendGroupIds)
@@ -898,11 +907,10 @@ func (man *SLoadbalancerManager) FetchCustomizeColumns(
 	}
 
 	for i := range rows {
-		eip, ok := eipMap[lbIds[i]]
+		eips, ok := eipMap[lbIds[i]]
 		if ok {
-			rows[i].Eip = eip.IpAddr
-			rows[i].EipMode = eip.Mode
-			rows[i].EipId = eip.Id
+			rows[i].Eips = eips
+			rows[i].Eip = eips[0].Eip
 		}
 		bg, ok := bgMap[backendGroupIds[i]]
 		if ok {
@@ -1239,56 +1247,82 @@ func (lb *SLoadbalancer) syncLoadbalancerNetwork(ctx context.Context, userCred m
 }
 
 func (self *SLoadbalancer) DeleteEip(ctx context.Context, userCred mcclient.TokenCredential, autoDelete bool) error {
-	eip, err := self.GetEip()
+	eips, err := self.GetEips()
 	if err != nil {
 		log.Errorf("Delete eip fail for get Eip %s", err)
 		return err
 	}
-	if eip == nil {
-		return nil
-	}
-	if eip.Mode == api.EIP_MODE_INSTANCE_PUBLICIP {
-		err = eip.RealDelete(ctx, userCred)
-		if err != nil {
-			log.Errorf("Delete eip on delete server fail %s", err)
-			return errors.Wrap(err, "RealDelete")
-		}
-	} else {
-		err = eip.Dissociate(ctx, userCred)
-		if err != nil {
-			log.Errorf("Dissociate eip on delete server fail %s", err)
-			return errors.Wrap(err, "Dissociate")
-		}
-		if autoDelete {
+	for _, eip := range eips {
+		if eip.Mode == api.EIP_MODE_INSTANCE_PUBLICIP {
 			err = eip.RealDelete(ctx, userCred)
 			if err != nil {
 				log.Errorf("Delete eip on delete server fail %s", err)
 				return errors.Wrap(err, "RealDelete")
 			}
+		} else {
+			err = eip.Dissociate(ctx, userCred)
+			if err != nil {
+				log.Errorf("Dissociate eip on delete server fail %s", err)
+				return errors.Wrap(err, "Dissociate")
+			}
+			if autoDelete {
+				err = eip.RealDelete(ctx, userCred)
+				if err != nil {
+					log.Errorf("Delete eip on delete server fail %s", err)
+					return errors.Wrap(err, "RealDelete")
+				}
+			}
 		}
 	}
+
 	return nil
 }
 
-func (self *SLoadbalancer) GetEip() (*SElasticip, error) {
-	return ElasticipManager.getEip(api.EIP_ASSOCIATE_TYPE_LOADBALANCER, self.Id, "")
+func (self *SLoadbalancer) GetEips() ([]SElasticip, error) {
+	q := ElasticipManager.Query().Equals("associate_id", self.Id).Equals("associate_type", api.EIP_ASSOCIATE_TYPE_LOADBALANCER)
+	ret := []SElasticip{}
+	err := db.FetchModelObjects(ElasticipManager, q, &ret)
+	if err != nil {
+		return nil, err
+	}
+	return ret, nil
 }
 
-func (self *SLoadbalancer) SyncLoadbalancerEip(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, extEip cloudprovider.ICloudEIP) compare.SyncResult {
+func (self *SLoadbalancer) SyncLoadbalancerEips(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, extEips []cloudprovider.ICloudEIP) compare.SyncResult {
 	result := compare.SyncResult{}
 
-	eip, err := self.GetEip()
+	eips, err := self.GetEips()
 	if err != nil {
 		result.Error(fmt.Errorf("getEip error %s", err))
 		return result
 	}
 
-	if eip == nil && extEip == nil {
-		// do nothing
-	} else if eip == nil && extEip != nil {
-		// add
+	removed := []SElasticip{}
+	commondb := []SElasticip{}
+	commonext := []cloudprovider.ICloudEIP{}
+	added := []cloudprovider.ICloudEIP{}
+
+	err = compare.CompareSets(eips, extEips, &removed, &commondb, &commonext, &added)
+	if err != nil {
+		result.Error(err)
+		return result
+	}
+
+	for i := 0; i < len(removed); i++ {
+		err = removed[i].Dissociate(ctx, userCred)
+		if err != nil {
+			result.DeleteError(err)
+		} else {
+			result.Delete()
+		}
+	}
+
+	for i := 0; i < len(commondb); i++ {
+		result.Update()
+	}
+	for i := 0; i < len(added); i++ {
 		region, _ := self.GetRegion()
-		neip, err := ElasticipManager.getEipByExtEip(ctx, userCred, extEip, provider, region, provider.GetOwnerId())
+		neip, err := ElasticipManager.getEipByExtEip(ctx, userCred, added[i], provider, region, provider.GetOwnerId())
 		if err != nil {
 			log.Errorf("getEipByExtEip error %v", err)
 			result.AddError(err)
@@ -1299,46 +1333,6 @@ func (self *SLoadbalancer) SyncLoadbalancerEip(ctx context.Context, userCred mcc
 				result.AddError(err)
 			} else {
 				result.Add()
-			}
-		}
-	} else if eip != nil && extEip == nil {
-		// remove
-		err = eip.Dissociate(ctx, userCred)
-		if err != nil {
-			result.DeleteError(err)
-		} else {
-			result.Delete()
-		}
-	} else {
-		// sync
-		if eip.IpAddr != extEip.GetIpAddr() {
-			// remove then add
-			err = eip.Dissociate(ctx, userCred)
-			if err != nil {
-				// fail to remove
-				result.DeleteError(err)
-			} else {
-				result.Delete()
-				region, _ := self.GetRegion()
-				neip, err := ElasticipManager.getEipByExtEip(ctx, userCred, extEip, provider, region, provider.GetOwnerId())
-				if err != nil {
-					result.AddError(err)
-				} else {
-					err = neip.AssociateLoadbalancer(ctx, userCred, self)
-					if err != nil {
-						result.AddError(err)
-					} else {
-						result.Add()
-					}
-				}
-			}
-		} else {
-			// do nothing
-			err := eip.SyncWithCloudEip(ctx, userCred, provider, extEip, provider.GetOwnerId())
-			if err != nil {
-				result.UpdateError(err)
-			} else {
-				result.Update()
 			}
 		}
 	}
@@ -1666,11 +1660,11 @@ func (lb *SLoadbalancer) IsEipAssociable() error {
 		return errors.Wrap(err, "ValidateAssociateEip")
 	}
 
-	eip, err := lb.GetEip()
+	eips, err := lb.GetEips()
 	if err != nil {
 		return errors.Wrap(err, "GetElasticIp")
 	}
-	if eip != nil {
+	if len(eips) > 0 {
 		return httperrors.NewInvalidStatusError("already associate with eip")
 	}
 	return nil
@@ -1765,16 +1759,16 @@ func (lb *SLoadbalancer) PerformDissociateEip(ctx context.Context, userCred mccl
 		return nil, httperrors.NewUnsupportOperationError("not support managed lb")
 	}
 
-	eip, err := lb.GetEip()
+	eips, err := lb.GetEips()
 	if err != nil {
 		log.Errorf("Fail to get Eip %s", err)
 		return nil, httperrors.NewGeneralError(err)
 	}
-	if eip == nil {
+	if len(eips) == 0 {
 		return nil, httperrors.NewInvalidStatusError("No eip to dissociate")
 	}
 
-	err = db.IsObjectRbacAllowed(ctx, eip, userCred, policy.PolicyActionGet)
+	err = db.IsObjectRbacAllowed(ctx, &eips[0], userCred, policy.PolicyActionGet)
 	if err != nil {
 		return nil, errors.Wrap(err, "eip is not accessible")
 	}

@@ -52,7 +52,7 @@ type projectInfo struct {
 
 // https://cloud.tencent.com/document/api/400/13675
 type SCertificate struct {
-	multicloud.SResourceBase
+	multicloud.SCertificateBase
 	QcloudTags
 	client *SQcloudClient
 

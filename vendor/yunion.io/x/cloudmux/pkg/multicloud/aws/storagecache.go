@@ -351,7 +351,11 @@ func (self *SRegion) initVmimportRole() error {
 			"AssumeRolePolicyDocument": roleDoc,
 		}
 		ret := struct{}{}
-		return self.client.iamRequest("CreateRole", params, &ret)
+		err := self.client.iamRequest("CreateRole", params, &ret)
+		if e, ok := err.(*sAwsError); ok && e.Errors.Code == "EntityAlreadyExists" {
+			return nil
+		}
+		return err
 	}
 	return nil
 }
@@ -410,11 +414,11 @@ func (self *SRegion) initVmimportRolePolicy() error {
 
 func (self *SRegion) InitVmimport() error {
 	if err := self.initVmimportRole(); err != nil {
-		return err
+		return errors.Wrapf(err, "initVmimportRole")
 	}
 
 	if err := self.initVmimportRolePolicy(); err != nil {
-		return err
+		return errors.Wrapf(err, "initVmimportRolePolicy")
 	}
 
 	return nil

@@ -295,10 +295,22 @@ func (self *SLoadbalancer) GetILoadBalancerBackendGroups() ([]cloudprovider.IClo
 	}
 	lbbgs := []SLBBackendGroup{}
 	for i := range listeners {
-		lbbgs = append(lbbgs, SLBBackendGroup{
-			lb:       self,
-			listener: &listeners[i],
-		})
+		if listeners[i].GetListenerType() == "http" || listeners[i].GetListenerType() == "https" {
+			for j := range listeners[i].Rules {
+				lbbgs = append(lbbgs, SLBBackendGroup{
+					lb:       self,
+					listener: &listeners[i],
+					domain:   listeners[i].Rules[j].Domain,
+					path:     listeners[i].Rules[j].URL,
+				})
+			}
+
+		} else {
+			lbbgs = append(lbbgs, SLBBackendGroup{
+				lb:       self,
+				listener: &listeners[i],
+			})
+		}
 	}
 
 	ret := []cloudprovider.ICloudLoadbalancerBackendGroup{}
@@ -309,16 +321,16 @@ func (self *SLoadbalancer) GetILoadBalancerBackendGroups() ([]cloudprovider.IClo
 	return ret, nil
 }
 
-func (self *SLoadbalancer) GetIEIP() (cloudprovider.ICloudEIP, error) {
+func (self *SLoadbalancer) GetIEIPs() ([]cloudprovider.ICloudEIP, error) {
 	if self.LoadBalancerType == "OPEN" && len(self.LoadBalancerVips) > 0 {
-		return &SEipAddress{
+		return []cloudprovider.ICloudEIP{&SEipAddress{
 			region:      self.region,
 			AddressId:   self.LoadBalancerId,
 			AddressIp:   self.LoadBalancerVips[0],
 			AddressType: EIP_STATUS_BIND,
 			InstanceId:  self.LoadBalancerId,
 			CreatedTime: self.CreateTime,
-		}, nil
+		}}, nil
 	}
 	return nil, nil
 }

@@ -296,21 +296,7 @@ func (self *SElbBackendGroup) AddBackendServer(serverId string, weight int, port
 }
 
 func (self *SElbBackendGroup) RemoveBackendServer(backendId string, weight int, port int) error {
-	ibackend, err := self.GetILoadbalancerBackendById(backendId)
-	if err != nil {
-		if errors.Cause(err) == cloudprovider.ErrNotFound {
-			return nil
-		}
-
-		return errors.Wrap(err, "ElbBackendGroup.GetILoadbalancerBackendById")
-	}
-
-	err = self.region.RemoveLoadBalancerBackend(self.GetId(), backendId)
-	if err != nil {
-		return errors.Wrap(err, "ElbBackendGroup.RemoveBackendServer")
-	}
-
-	return cloudprovider.WaitDeleted(ibackend, 2*time.Second, 30*time.Second)
+	return self.region.RemoveLoadBalancerBackend(self.GetId(), backendId)
 }
 
 func (self *SElbBackendGroup) Delete(ctx context.Context) error {
