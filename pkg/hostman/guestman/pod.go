@@ -847,7 +847,7 @@ func (s *sPodGuestInstance) getOtherPods() []*sPodGuestInstance {
 	return otherPods
 }
 
-func (s *sPodGuestInstance) getCgroupParent() string {
+func PodCgroupParent() string {
 	return "/cloudpods"
 }
 
@@ -987,7 +987,7 @@ func (s *sPodGuestInstance) _startPod(ctx context.Context, userCred mcclient.Tok
 		},
 		Annotations: nil,
 		Linux: &runtimeapi.LinuxPodSandboxConfig{
-			CgroupParent: s.getCgroupParent(),
+			CgroupParent: PodCgroupParent(),
 			SecurityContext: &runtimeapi.LinuxSandboxSecurityContext{
 				NamespaceOptions:   s.namespacesForPod(podInput),
 				SelinuxOptions:     nil,
@@ -1660,7 +1660,7 @@ func (s *sPodGuestInstance) getContainerMounts(ctrId string, input *hostapi.Cont
 }
 
 func (s *sPodGuestInstance) getCGUtil() pod.CgroupUtil {
-	return pod.NewPodCgroupV1Util(s.getCgroupParent())
+	return pod.NewPodCgroupV1Util(PodCgroupParent())
 }
 
 func (s *sPodGuestInstance) setContainerCgroupDevicesAllow(ctrId string, allowStrs []string) error {
@@ -2001,6 +2001,24 @@ func (s *sPodGuestInstance) ensureContainerSystemCpuDir(cpuDir string, cpuCnt in
 
 func (s *sPodGuestInstance) findHostCpuPath(ctrId string, cpuIndex int) (int, error) {
 	return s.getHostCPUMap().Get(ctrId, cpuIndex)
+}
+
+func (s *sPodGuestInstance) simulateContainerSystemCpuSetScalingCurFreq(ctrId string, scalingCurFreq int64) error {
+	cpuDir := s.getContainerSystemCpusDir(ctrId)
+	cpuCnt := s.GetDesc().Cpu
+	for i := 0; i < int(cpuCnt); i++ {
+		cpufreqPolicyCurFreqFile := path.Join(cpuDir, "cpufreq", fmt.Sprintf("policy%d", i), "scaling_cur_freq")
+		cpufreqPolicySetSpeedFile := path.Join(cpuDir, "cpufreq", fmt.Sprintf("policy%d", i), "scaling_setspeed")
+		scalingCurFreqStr := fmt.Sprintf("%d\n", scalingCurFreq)
+		if err := fileutils2.FilePutContents(cpufreqPolicyCurFreqFile, scalingCurFreqStr, false); err != nil {
+			return errors.Wrapf(err, "failed write %s", cpufreqPolicyCurFreqFile)
+		}
+		if err := fileutils2.FilePutContents(cpufreqPolicySetSpeedFile, scalingCurFreqStr, false); err != nil {
+			return errors.Wrapf(err, "failed write %s", cpufreqPolicySetSpeedFile)
+		}
+	}
+
+	return nil
 }
 
 func (s *sPodGuestInstance) simulateContainerSystemCpu(ctx context.Context, ctrId string) ([]*runtimeapi.Mount, error) {
