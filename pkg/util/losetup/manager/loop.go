@@ -136,6 +136,10 @@ func newLoopManager() (ILoopManager, error) {
 	return ret, nil
 }
 
+const (
+	MAX_LOOPDEV_COUNT = 512
+)
+
 func (m *loopManager) findNewDeviceNumber() (int, error) {
 	// 获取所有已使用的设备号
 	usedNumbers := make(map[int]bool)
@@ -150,7 +154,7 @@ func (m *loopManager) findNewDeviceNumber() (int, error) {
 	}
 
 	// 从0开始查找第一个未使用的设备号
-	for i := 0; i < 200; i++ {
+	for i := 0; i < MAX_LOOPDEV_COUNT; i++ {
 		if !usedNumbers[i] {
 			// 创建新的loop设备
 			return i, nil
