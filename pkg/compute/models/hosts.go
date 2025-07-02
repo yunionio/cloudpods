@@ -818,7 +818,11 @@ func (hh *SHost) GetMemSize() int {
 }
 
 func (hh *SHost) IsHugePage() bool {
-	return hh.PageSizeKB > 4
+	return isHugePage(hh.PageSizeKB)
+}
+
+func isHugePage(pageSizeKb int) bool {
+	return pageSizeKb > 4
 }
 
 func (hh *SHost) GetMemoryOvercommitBound() float32 {
@@ -2999,6 +3003,7 @@ func (manager *SHostManager) totalCountQ(
 	hosts := manager.Query().SubQuery()
 	q := hosts.Query(
 		hosts.Field("mem_size"),
+		hosts.Field("page_size_kb"),
 		hosts.Field("mem_reserved"),
 		hosts.Field("mem_cmtbound"),
 		hosts.Field("cpu_count"),
@@ -3058,6 +3063,7 @@ func (manager *SHostManager) totalCountQ(
 
 type HostStat struct {
 	MemSize                 int
+	PageSizeKB              int
 	MemReserved             int
 	MemCmtbound             float32
 	CpuCount                int
@@ -3128,8 +3134,11 @@ func (manager *SHostManager) calculateCount(q *sqlchemy.SQuery) HostsCountStat {
 		totalMem += int64(stat.MemSize)
 		tCPU += int64(aCpu)
 		totalCPU += int64(stat.CpuCount)
-		if stat.MemCmtbound <= 0.0 {
+		if isHugePage(stat.PageSizeKB) {
+			stat.MemCmtbound = 1.0
+		} else if stat.MemCmtbound <= 0.0 {
 			stat.MemCmtbound = options.Options.DefaultMemoryOvercommitBound
+
 		}
 		if stat.CpuCmtbound <= 0.0 {
 			stat.CpuCmtbound = options.Options.DefaultCPUOvercommitBound
