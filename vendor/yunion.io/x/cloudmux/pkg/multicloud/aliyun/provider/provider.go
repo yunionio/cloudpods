@@ -118,12 +118,8 @@ func (self *SAliyunProviderFactory) GetTTLRange(zoneType cloudprovider.TDnsZoneT
 	if zoneType == cloudprovider.PublicZone {
 		if len(productType) > 0 {
 			switch productType {
-			case cloudprovider.DnsProductEnterpriseUltimate:
-				return cloudprovider.TtlRangeAliyunEnterpriseUltimate
-			case cloudprovider.DnsProductEnterpriseStandard:
-				return cloudprovider.TtlRangeAliyunEnterpriseStandard
-			case cloudprovider.DnsProductPersonalProfessional:
-				return cloudprovider.TtlRangeAliyunPersonal
+			case cloudprovider.DnsProductEnterprise:
+				return cloudprovider.TtlRangeAliyunEnterprise
 			default:
 				return cloudprovider.TtlRangeAliyunFree
 			}
