@@ -268,10 +268,11 @@ const (
 )
 
 type SImageInfo struct {
-	Path     string
-	Format   TImageFormat
-	IoLevel  TIONiceLevel
-	Password string
+	Path        string
+	Format      TImageFormat
+	IoLevel     TIONiceLevel
+	Password    string
+	ClusterSize int
 
 	// only luks supported
 	EncryptFormat TEncryptFormat
@@ -358,9 +359,22 @@ func convertOther(srcInfo, destInfo SImageInfo, compact bool, workerOpions []str
 		cmdline = append(cmdline, "-c")
 	}
 	cmdline = append(cmdline, "-f", srcInfo.Format.String(), "-O", destInfo.Format.String())
+
+	options := []string{}
 	if destInfo.Format.String() == "vmdk" { // for esxi vmdk
+		options = append(options, vmdkOptions(compact)...)
+	}
+	if destInfo.ClusterSize > 0 {
+		options = append(options, fmt.Sprintf("cluster_size=%d", destInfo.ClusterSize))
+	} else if srcInfo.ClusterSize > 0 {
+		options = append(options, fmt.Sprintf("cluster_size=%d", srcInfo.ClusterSize))
+	}
+	if srcInfo.ClusterSize > 0 || destInfo.ClusterSize > 0 {
+
+	}
+	if len(options) > 0 {
 		cmdline = append(cmdline, "-o")
-		cmdline = append(cmdline, vmdkOptions(compact)...)
+		cmdline = append(cmdline, options...)
 	}
 	cmdline = append(cmdline, srcInfo.Path, destInfo.Path)
 	log.Infof("XXXX qemu-img command: %s", cmdline)
@@ -457,6 +471,7 @@ func (img *SQemuImage) doConvert(targetPath string, format TImageFormat, compact
 
 		EncryptFormat: img.EncryptFormat,
 		EncryptAlg:    img.EncryptAlg,
+		ClusterSize:   img.ClusterSize,
 	}, SImageInfo{
 		Path:     targetPath,
 		Format:   format,
@@ -464,6 +479,7 @@ func (img *SQemuImage) doConvert(targetPath string, format TImageFormat, compact
 
 		EncryptFormat: encryptFormat,
 		EncryptAlg:    encryptAlg,
+		ClusterSize:   img.ClusterSize,
 	}, compact, nil)
 }
 

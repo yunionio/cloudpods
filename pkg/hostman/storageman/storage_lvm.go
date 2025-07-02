@@ -746,6 +746,7 @@ func ConvertLVMDisk(vgName, lvName string, encryptInfo apis.SEncryptInfo) error 
 		Password:      encryptInfo.Key,
 		EncryptAlg:    encryptInfo.Alg,
 		EncryptFormat: qemuimg.EncryptFormatLuks,
+		ClusterSize:   qemuImg.ClusterSize,
 	}
 	destInfo := qemuimg.SImageInfo{
 		Path:    tmpVolumePath,
