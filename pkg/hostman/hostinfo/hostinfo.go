@@ -922,10 +922,12 @@ func (h *SHostInfo) detectKernelVersion() {
 func (h *SHostInfo) detectSyssoftwareInfo() error {
 	h.detectOsDist()
 	h.detectKernelVersion()
-	/*if err := h.detectQemuVersion(); err != nil {
-		log.Errorf("detect qemu version: %s", err.Error())
-		h.AppendHostError(fmt.Sprintf("detect qemu version: %s", err.Error()))
-	}*/
+	if !h.IsContainerHost() {
+		if err := h.detectQemuVersion(); err != nil {
+			log.Errorf("detect qemu version: %s", err.Error())
+			h.AppendHostError(fmt.Sprintf("detect qemu version: %s", err.Error()))
+		}
+	}
 	h.detectOvsVersion()
 	if err := h.detectOvsKOVersion(); err != nil {
 		log.Errorf("detect ovs kernel version: %s", err.Error())
