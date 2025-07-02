@@ -234,8 +234,15 @@ func (m *SGuestManager) InitQemuMaxCpus(machineCaps []monitor.MachineInfo, kvmMa
 }
 
 func (m *SGuestManager) InitQemuMaxMems(maxMems uint) {
-	if maxMems > arch.X86_MAX_MEM_MB {
-		arch.X86_MAX_MEM_MB = maxMems
+	if m.host.IsX8664() {
+		if maxMems > arch.X86_MAX_MEM_MB {
+			arch.X86_MAX_MEM_MB = maxMems
+		}
+	}
+	if m.host.IsAarch64() {
+		if maxMems > arch.ARM_MAX_MEM_MB {
+			arch.ARM_MAX_MEM_MB = maxMems
+		}
 	}
 }
 
