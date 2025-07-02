@@ -29,7 +29,6 @@ require (
 	github.com/gorilla/websocket v1.4.1
 	github.com/gosuri/uitable v0.0.0-20160404203958-36ee7e946282
 	github.com/hako/durafmt v0.0.0-20180520121703-7b7ae1e72ead
-	github.com/hugozhu/godingtalk v1.0.6
 	github.com/influxdata/influxql v1.1.0
 	github.com/influxdata/promql/v2 v2.12.0
 	github.com/jaypipes/ghw v0.11.0
@@ -88,7 +87,7 @@ require (
 	k8s.io/client-go v0.19.3
 	k8s.io/cluster-bootstrap v0.19.3
 	moul.io/http2curl/v2 v2.3.0
-	yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20250620092943-12b3acec0ab6
+	yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20250702103553-b2d82272e9de
 	yunion.io/x/executor v0.0.0-20250518005516-5402e9e0bed0
 	yunion.io/x/jsonutils v1.0.1-0.20250507052344-1abcf4f443b1
 	yunion.io/x/log v1.0.1-0.20240305175729-7cf2d6cd5a91
