@@ -149,7 +149,15 @@ func (self *SMongoDB) GetExpiredAt() time.Time {
 }
 
 func (self *SMongoDB) GetIpAddr() string {
-	return ""
+	nets, err := self.region.DescribeShardingNetworkAddress(self.DBInstanceId)
+	if err != nil {
+		return ""
+	}
+	ret := []string{}
+	for _, n := range nets {
+		ret = append(ret, n.IPAddress)
+	}
+	return strings.Join(ret, ",")
 }
 
 func (self *SMongoDB) GetEngine() string {
@@ -506,6 +514,32 @@ func getMongoDBSkuDetails(remark string) struct {
 		log.Warningf("not match sku remark %s", remark)
 	}
 	return ret
+}
+
+type SMongoDBNetworkAddress struct {
+	IPAddress      string
+	NetworkAddress string
+	NetworkType    string
+	Port           int
+	Role           string
+	VpcId          string
+	VswitchId      string
+}
+
+func (region *SRegion) DescribeShardingNetworkAddress(id string) ([]SMongoDBNetworkAddress, error) {
+	params := map[string]string{
+		"DBInstanceId": id,
+	}
+	resp, err := region.mongodbRequest("DescribeShardingNetworkAddress", params)
+	if err != nil {
+		return nil, errors.Wrapf(err, "DescribeAvailableResource")
+	}
+	ret := []SMongoDBNetworkAddress{}
+	err = resp.Unmarshal(&ret, "NetworkAddresses", "NetworkAddress")
+	if err != nil {
+		return nil, err
+	}
+	return ret, nil
 }
 
 func (self *SRegion) GetMongoDBAvailableResource() (*SMongoDBAvaibaleResource, error) {

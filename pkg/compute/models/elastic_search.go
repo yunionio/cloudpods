@@ -91,13 +91,13 @@ type SElasticSearch struct {
 
 	// 存储类型
 	// example: local_ssd
-	StorageType string `nullable:"false" list:"user" create:"required"`
+	StorageType string `width:"16" charset:"utf8" nullable:"false" list:"user" create:"required"`
 	// 存储大小
 	// example: 1024
 	DiskSizeGb int `nullable:"false" list:"user" create:"required"`
 	// 实例类型
 	// example: ha
-	Category string `nullable:"false" list:"user" create:"optional"`
+	Category string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"optional"`
 
 	VpcId     string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional" json:"vpc_id"`
 	NetworkId string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional" json:"network_id"`
