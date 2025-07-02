@@ -94,7 +94,7 @@ type SMongoDB struct {
 	Port int `nullable:"false" list:"user" create:"optional"`
 	// 实例类型
 	// example: ha
-	Category string `nullable:"false" list:"user" create:"optional"`
+	Category string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"optional"`
 
 	// 分片数量
 	// example: 3
@@ -105,7 +105,7 @@ type SMongoDB struct {
 	Iops           int `nullable:"true" list:"user" create:"optional"`
 
 	// 实例IP地址
-	IpAddr string `nullable:"false" list:"user"`
+	IpAddr string `width:"32" charset:"ascii" nullable:"true" list:"user"`
 
 	// 引擎
 	// example: MySQL
