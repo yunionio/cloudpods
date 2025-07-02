@@ -434,6 +434,7 @@ func (d *SLVMDisk) DiskBackup(ctx context.Context, params interface{}) (jsonutil
 		Password:      encKey,
 		EncryptAlg:    encAlg,
 		EncryptFormat: qemuimg.EncryptFormatLuks,
+		ClusterSize:   snapshotImg.ClusterSize,
 	}
 	destInfo := qemuimg.SImageInfo{
 		Path:          backupPath,
