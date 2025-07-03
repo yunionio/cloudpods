@@ -211,7 +211,7 @@ func (self *SDomainRecord) GetPolicyType() cloudprovider.TDnsPolicyType {
 		return cloudprovider.DnsPolicyTypeByCarrier
 	case "google", "baidu", "biying", "youdao", "yahoo", "qihu", "sougou":
 		return cloudprovider.DnsPolicyTypeBySearchEngine
-	case "oversea":
+	case "oversea", "internal":
 		return cloudprovider.DnsPolicyTypeByGeoLocation
 	case "aliyun", "os_aliyun":
 		return cloudprovider.DnsPolicyTypeByCloudPlatform
@@ -232,22 +232,31 @@ func (self *SDomainRecord) GetPolicyType() cloudprovider.TDnsPolicyType {
 			}
 		}
 		for _, prefix := range []string{
-			"cn_region",
-			"os_",
-			"aliyun_",
+			"cn_search",
+			"os_search",
 		} {
 			if strings.HasPrefix(self.Line, prefix) {
-				return cloudprovider.DnsPolicyTypeByGeoLocation
+				return cloudprovider.DnsPolicyTypeBySearchEngine
 			}
 		}
+
 		for _, prefix := range []string{
 			"aliyun_",
+			"cn_aliyun",
+			"os_aliyun",
 		} {
 			if strings.HasPrefix(self.Line, prefix) {
 				return cloudprovider.DnsPolicyTypeByCloudPlatform
 			}
 		}
-
+		for _, prefix := range []string{
+			"cn_region",
+			"os_",
+		} {
+			if strings.HasPrefix(self.Line, prefix) {
+				return cloudprovider.DnsPolicyTypeByGeoLocation
+			}
+		}
 		return cloudprovider.DnsPolicyTypeSimple
 	}
 }
