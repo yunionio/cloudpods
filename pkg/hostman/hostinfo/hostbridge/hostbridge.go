@@ -16,7 +16,6 @@ package hostbridge
 
 import (
 	"fmt"
-	"net"
 	"os"
 	"strconv"
 	"strings"
@@ -45,9 +44,9 @@ type IBridgeDriver interface {
 	GetVlanId() int
 	FetchConfig()
 	Setup(IBridgeDriver) error
-	SetupAddresses(net.IPMask) error
-	SetupSlaveAddresses([][]string) error
-	SetupRoutes(routes []iproute2.RouteSpec, add bool) error
+	SetupAddresses() error
+	SetupSlaveAddresses([]netutils2.SNicAddress) error
+	SetupRoutes(routes []iproute2.RouteSpec, add bool, dev string) error
 	BringupInterface() error
 
 	Exists() (bool, error)
@@ -74,12 +73,16 @@ type IBridgeDriver interface {
 type SBaseBridgeDriver struct {
 	bridge *netutils2.SNetInterface
 	ip     string
+	ip6    string
 	inter  *netutils2.SNetInterface
+
+	maskLen  int
+	mask6Len int
 
 	drv IBridgeDriver
 }
 
-func NewBaseBridgeDriver(bridge, inter, ip string) (*SBaseBridgeDriver, error) {
+func NewBaseBridgeDriver(bridge, inter, ip string, maskLen int, ip6 string, mask6Len int) (*SBaseBridgeDriver, error) {
 	var bd = new(SBaseBridgeDriver)
 	bd.bridge = netutils2.NewNetInterface(bridge)
 	if len(inter) > 0 {
@@ -88,6 +91,9 @@ func NewBaseBridgeDriver(bridge, inter, ip string) (*SBaseBridgeDriver, error) {
 			return nil, fmt.Errorf("%s not exists", inter)
 		}
 		bd.ip = ip
+		bd.maskLen = maskLen
+		bd.ip6 = ip6
+		bd.mask6Len = mask6Len
 		var enableGso bool
 		if len(options.HostOptions.EthtoolEnableGsoInterfaces) > 0 {
 			if utils.IsInStringArray(bridge, options.HostOptions.EthtoolEnableGsoInterfaces) ||
@@ -107,14 +113,14 @@ func NewBaseBridgeDriver(bridge, inter, ip string) (*SBaseBridgeDriver, error) {
 			enableGso = options.HostOptions.EthtoolEnableGso
 		}
 		bd.inter.SetupGso(enableGso)
-	} else if len(ip) > 0 {
+	} else if len(ip) > 0 || len(ip6) > 0 {
 		return nil, fmt.Errorf("A bridge without interface must have no IP")
 	}
 	return bd, nil
 }
 
 func (d *SBaseBridgeDriver) FetchConfig() {
-	d.bridge.FetchConfig()
+	d.bridge.FetchConfig2(d.ip, d.ip6)
 	d.inter.FetchConfig()
 }
 
@@ -159,7 +165,7 @@ func (d *SBaseBridgeDriver) BringupInterface() error {
 	return nil
 }
 
-func trySetupSlaveAddressesRoutes(o IBridgeDriver, migrateAddrs [][]string, delRoutes []iproute2.RouteSpec, migrateRoutes []iproute2.RouteSpec) error {
+func trySetupSlaveAddressesRoutes(o IBridgeDriver, migrateAddrs []netutils2.SNicAddress, delRoutes []iproute2.RouteSpec, migrateRoutes []iproute2.RouteSpec) error {
 	if len(migrateAddrs) > 0 {
 		tried := 0
 		const MAX_TRIES = 4
@@ -184,7 +190,7 @@ func trySetupSlaveAddressesRoutes(o IBridgeDriver, migrateAddrs [][]string, delR
 		const MAX_TRIES = 4
 		errs := make([]error, 0)
 		for {
-			if err := o.SetupRoutes(delRoutes, false); err != nil {
+			if err := o.SetupRoutes(delRoutes, false, o.Bridge()); err != nil {
 				errs = append(errs, err)
 				log.Errorf("delRoutes fail: %s", err)
 				tried += 1
@@ -203,7 +209,7 @@ func trySetupSlaveAddressesRoutes(o IBridgeDriver, migrateAddrs [][]string, delR
 		const MAX_TRIES = 4
 		errs := make([]error, 0)
 		for {
-			if err := o.SetupRoutes(migrateRoutes, true); err != nil {
+			if err := o.SetupRoutes(migrateRoutes, true, o.Bridge()); err != nil {
 				errs = append(errs, err)
 				log.Errorf("SetupRoutes fail: %s", err)
 				tried += 1
@@ -222,7 +228,7 @@ func trySetupSlaveAddressesRoutes(o IBridgeDriver, migrateAddrs [][]string, delR
 
 func (d *SBaseBridgeDriver) MigrateSlaveConfigs(o IBridgeDriver) error {
 	if d.inter != nil {
-		migrateAddrs := make([][]string, 0)
+		migrateAddrs := make([]netutils2.SNicAddress, 0)
 		migrateRoutes := make([]iproute2.RouteSpec, 0)
 		delRoutes := make([]iproute2.RouteSpec, 0)
 		{
@@ -234,16 +240,16 @@ func (d *SBaseBridgeDriver) MigrateSlaveConfigs(o IBridgeDriver) error {
 			log.Infof("to migrate routes: %s slaveAddress: %s", jsonutils.Marshal(routes), jsonutils.Marshal(slaveAddrs))
 
 			for i := range slaveAddrs {
-				if strings.HasPrefix(slaveAddrs[i][0], "fe80:") || strings.HasPrefix(slaveAddrs[i][0], "169.254.") {
+				if strings.HasPrefix(slaveAddrs[i].Addr, "fe80:") || strings.HasPrefix(slaveAddrs[i].Addr, "169.254.") {
 					// skip link local address
 					continue
 				}
-				if slaveAddrs[i][0] == d.bridge.Addr {
+				if slaveAddrs[i].Addr == d.bridge.Addr || slaveAddrs[i].Addr == d.bridge.Addr6 {
 					continue
 				}
 				find := false
 				for j := range currentSlaves {
-					if slaveAddrs[i][0] == currentSlaves[j][0] && slaveAddrs[i][1] == currentSlaves[j][1] {
+					if slaveAddrs[i].Addr == currentSlaves[j].Addr && slaveAddrs[i].MaskLen == currentSlaves[j].MaskLen {
 						find = true
 						break
 					}
@@ -270,7 +276,7 @@ func (d *SBaseBridgeDriver) MigrateSlaveConfigs(o IBridgeDriver) error {
 				}
 				if !find {
 					for j := range slaveAddrs {
-						if routes[i].Dst.String() == addr2Prefix(slaveAddrs[j][0], slaveAddrs[j][1]) {
+						if routes[i].Dst.String() == addr2Prefix(slaveAddrs[j].Addr, slaveAddrs[j].MaskLen) {
 							find = true
 							break
 						}
@@ -290,7 +296,7 @@ func (d *SBaseBridgeDriver) MigrateSlaveConfigs(o IBridgeDriver) error {
 			}
 		}
 		{
-			err := d.inter.ClearAddrs()
+			err := d.inter.Reset()
 			if err != nil {
 				return errors.Wrap(err, "ClearAddrs")
 			}
@@ -318,7 +324,7 @@ func (d *SBaseBridgeDriver) ConfirmToConfig() (bool, error) {
 		return false, err
 	}
 	if exist {
-		d.bridge.FetchConfig()
+		d.bridge.FetchConfig2(d.ip, d.ip6)
 		if len(d.ip) > 0 {
 			if len(d.bridge.Addr) == 0 {
 				log.Infof("bridge %s has no ip assignment initially", d.bridge)
@@ -349,6 +355,36 @@ func (d *SBaseBridgeDriver) ConfirmToConfig() (bool, error) {
 				return false, fmt.Errorf("%s should have address in 169.254.0.0/16", d.bridge)
 			}
 		}
+		if len(d.ip6) > 0 {
+			if len(d.bridge.Addr6) == 0 {
+				log.Infof("bridge %s has no ipv6 assignment initially", d.bridge)
+				if len(d.inter.Addr6) == 0 {
+					return false, fmt.Errorf("Neither %s nor %s owner ipv6 address %s",
+						d.inter, d.bridge, d.ip6)
+				}
+				if d.inter.Addr6 != d.ip6 {
+					return false, fmt.Errorf("%s!=%s, %s not same as config",
+						d.ip6, d.inter.Addr6, d.inter)
+				}
+				log.Infof("Bridge ipv6 address is not configured")
+				return false, nil
+			} else {
+				log.Infof("bridge %s already has ipv6 address %s", d.bridge, d.bridge.Addr6)
+			}
+			if d.bridge.Addr6 != d.ip6 {
+				return false, fmt.Errorf("%s IP %s!=%s, mismatch", d.bridge, d.bridge.Addr6, d.ip6)
+			}
+		} else {
+			if d.inter != nil && len(d.inter.Addr6) > 0 {
+				return false, fmt.Errorf("%s should have no ipv6 address", d.inter)
+			}
+			if len(d.bridge.Addr6) == 0 {
+				return false, nil
+			}
+			if !d.bridge.IsSecretInterface6() {
+				return false, fmt.Errorf("%s(%s,%s) should have link local address in fe80::/10", d.bridge, d.bridge.Addr6, d.bridge.Addr6LinkLocal)
+			}
+		}
 		infs, err := d.drv.Interfaces()
 		if err != nil {
 			return false, err
@@ -369,13 +405,36 @@ func (d *SBaseBridgeDriver) ConfirmToConfig() (bool, error) {
 		if len(d.ip) > 0 && (d.inter == nil || len(d.inter.Addr) == 0) {
 			return false, fmt.Errorf("Interface %s not configured", d.inter)
 		}
+		if len(d.ip6) > 0 && (d.inter == nil || len(d.inter.Addr6) == 0) {
+			return false, fmt.Errorf("Interface %s ipv6 not configured", d.inter)
+		}
 		return false, nil
 	}
 }
 
-func (d *SBaseBridgeDriver) SetupAddresses(mask net.IPMask) error {
+func (d *SBaseBridgeDriver) SetupAddresses() error {
 	br := d.bridge.String()
+	if d.inter != nil {
+		// first shutdown the origin interface
+		ifname := d.inter.String()
+		if err := d.inter.Shutdown(); err != nil {
+			return errors.Wrapf(err, "shutdown bridge %s slave ifname: %s", br, ifname)
+		}
+		for _, cmd := range [][]string{
+			{"/sbin/ifdown", ifname},
+			{"nmcli", "connection", "down", ifname},
+		} {
+			output, err := procutils.NewRemoteCommandAsFarAsPossible(cmd[0], cmd[1:]...).Output()
+			if err != nil {
+				log.Errorf("run cmd: %s, output: %s, error: %s", strings.Join(cmd, " "), string(output), err)
+			} else {
+				log.Infof("run cmd: %s, output: %s", strings.Join(cmd, " "), string(output))
+				break
+			}
+		}
+	}
 	{
+		// assign address to bridge interface
 		var (
 			addr    string
 			masklen int
@@ -384,14 +443,20 @@ func (d *SBaseBridgeDriver) SetupAddresses(mask net.IPMask) error {
 			addr, masklen = netutils2.GetSecretInterfaceAddress()
 		} else {
 			addr = d.ip
-			masklen, _ = mask.Size()
+			masklen = d.maskLen
 		}
-		addrStr := fmt.Sprintf("%s/%d", addr, masklen)
-		if err := iproute2.NewAddress(br, addrStr).Exact().Err(); err != nil {
+		addrStr := []string{
+			fmt.Sprintf("%s/%d", addr, masklen),
+		}
+		if len(d.ip6) > 0 {
+			addrStr = append(addrStr, fmt.Sprintf("%s/%d", d.ip6, d.mask6Len))
+		}
+		if err := iproute2.NewAddress(br, addrStr...).Exact().Err(); err != nil {
 			return errors.Wrapf(err, "set bridge %s address", br)
 		}
 	}
 	{
+		// bring up the bridge interface
 		brLink := iproute2.NewLink(br).Up()
 		if options.HostOptions.TunnelPaddingBytes > 0 {
 			mtu := 1500 + int(options.HostOptions.TunnelPaddingBytes)
@@ -400,24 +465,27 @@ func (d *SBaseBridgeDriver) SetupAddresses(mask net.IPMask) error {
 		if err := brLink.Err(); err != nil {
 			return errors.Wrapf(err, "setting bridge %s up", br)
 		}
-	}
-	if d.inter != nil {
-		ifname := d.inter.String()
-		if err := iproute2.NewAddress(ifname).Exact().Err(); err != nil {
-			return errors.Wrapf(err, "remove addresses on slave ifname: %s", ifname)
+		if d.inter != nil {
+			// bring up the origin interface
+			ethLink := iproute2.NewLink(d.inter.String()).Up()
+			if options.HostOptions.TunnelPaddingBytes > 0 {
+				mtu := 1500 + int(options.HostOptions.TunnelPaddingBytes)
+				ethLink.MTU(mtu)
+			}
+			if err := ethLink.Err(); err != nil {
+				return errors.Wrapf(err, "setting origin interface %s up", d.inter.String())
+			}
 		}
-		if err := iproute2.NewLink(ifname).Up().Err(); err != nil {
-			return errors.Wrapf(err, "setting bridge %s ifname %s up", br, ifname)
-		}
 	}
+
 	return nil
 }
 
-func (d *SBaseBridgeDriver) SetupSlaveAddresses(slaveAddrs [][]string) error {
+func (d *SBaseBridgeDriver) SetupSlaveAddresses(slaveAddrs []netutils2.SNicAddress) error {
 	br := d.bridge.String()
 	addrs := make([]string, len(slaveAddrs))
 	for i, slaveAddr := range slaveAddrs {
-		addrs[i] = fmt.Sprintf("%s/%s", slaveAddr[0], slaveAddr[1])
+		addrs[i] = fmt.Sprintf("%s/%d", slaveAddr.Addr, slaveAddr.MaskLen)
 	}
 	if err := iproute2.NewAddress(br, addrs...).Add().Err(); err != nil {
 		return errors.Wrap(err, "move secondary addresses to bridge interface")
@@ -425,20 +493,15 @@ func (d *SBaseBridgeDriver) SetupSlaveAddresses(slaveAddrs [][]string) error {
 	return nil
 }
 
-func (d *SBaseBridgeDriver) SetupRoutes(routespecs []iproute2.RouteSpec, add bool) error {
-	bridgeIP := d.inter.Addr
-	bridgeMask := d.inter.Mask
-	br := d.bridge.String()
+func (d *SBaseBridgeDriver) SetupRoutes(routespecs []iproute2.RouteSpec, add bool, dev string) error {
 	for i := 0; i < len(routespecs); i++ {
 		errs := []error{}
 		routespec := routespecs[i]
-		if routespec.Dst.Contains(net.ParseIP(bridgeIP)) && bridgeMask.String() == routespec.Dst.Mask.String() {
-			log.Infof("skip setup route: %s", routespec.String())
-			continue
+		var cmd []string
+		if regutils.MatchCIDR6(routespec.Dst.String()) {
+			cmd = append(cmd, "-6")
 		}
-		cmd := []string{
-			"route",
-		}
+		cmd = append(cmd, "route")
 		if add {
 			cmd = append(cmd, "add")
 		} else {
@@ -448,7 +511,7 @@ func (d *SBaseBridgeDriver) SetupRoutes(routespecs []iproute2.RouteSpec, add boo
 		if routespec.Gw != nil {
 			cmd = append(cmd, "via", routespec.Gw.String())
 		}
-		cmd = append(cmd, "dev", br)
+		cmd = append(cmd, "dev", dev)
 
 		output, err := procutils.NewRemoteCommandAsFarAsPossible("ip", cmd...).Output()
 		if err != nil {
@@ -467,21 +530,19 @@ func (d *SBaseBridgeDriver) SetupRoutes(routespecs []iproute2.RouteSpec, add boo
 	return nil
 }
 
-func addr2Prefix(addrStr string, maskLenStr string) string {
+func addr2Prefix(addrStr string, maskLen int) string {
 	if regutils.MatchIP6Addr(addrStr) {
 		v6Addr, _ := netutils.NewIPV6Addr(addrStr)
-		maskLen, _ := strconv.ParseInt(maskLenStr, 10, 64)
 		netAddr := v6Addr.NetAddr(uint8(maskLen))
 		return fmt.Sprintf("%s/%d", netAddr.String(), maskLen)
 	} else {
 		v4Addr, _ := netutils.NewIPV4Addr(addrStr)
-		maskLen, _ := strconv.ParseInt(maskLenStr, 10, 64)
 		netAddr := v4Addr.NetAddr(int8(maskLen))
 		return fmt.Sprintf("%s/%d", netAddr.String(), maskLen)
 	}
 }
 
-func addr2Prefix2(addrStr string, mask net.IPMask) string {
+/*func addr2Prefix2(addrStr string, mask net.IPMask) string {
 	if regutils.MatchIP6Addr(addrStr) {
 		v6Addr, _ := netutils.NewIPV6Addr(addrStr)
 		maskLen, _ := mask.Size()
@@ -493,11 +554,11 @@ func addr2Prefix2(addrStr string, mask net.IPMask) string {
 		netAddr := v4Addr.NetAddr(int8(maskLen))
 		return fmt.Sprintf("%s/%d", netAddr.String(), maskLen)
 	}
-}
+}*/
 
 func (d *SBaseBridgeDriver) Setup(o IBridgeDriver) error {
 	var routes []iproute2.RouteSpec
-	var slaveAddrs [][]string
+	var slaveAddrs []netutils2.SNicAddress
 	if d.inter != nil && len(d.inter.Addr) > 0 {
 		routes = d.inter.GetRouteSpecs()
 		slaveAddrs = d.inter.GetSlaveAddresses()
@@ -522,24 +583,28 @@ func (d *SBaseBridgeDriver) Setup(o IBridgeDriver) error {
 			return errors.Wrap(err, "SetupInterface")
 		}
 	}
-	if len(d.bridge.Addr) == 0 {
-		if len(d.ip) > 0 {
-			if err := o.SetupAddresses(d.inter.Mask); err != nil {
-				return errors.Wrap(err, "SetupAddresses")
-			}
-			time.Sleep(1 * time.Second)
+	if len(d.bridge.Addr) == 0 && len(d.bridge.Addr6) == 0 {
+		// need to do bridge setup
+		if err := o.SetupAddresses(); err != nil {
+			return errors.Wrap(err, "SetupAddresses")
+		}
+		// sleep 1 second to wait for bridge setup
+		time.Sleep(1 * time.Second)
+		// to setup default routes
+
+		if len(d.ip) > 0 || len(d.ip6) > 0 {
 			setupRoutes := make([]iproute2.RouteSpec, 0)
 			{
 				for i := range routes {
 					find := false
 					if !find {
-						if routes[i].Dst.String() == addr2Prefix2(d.ip, d.inter.Mask) {
+						if routes[i].Dst.String() == addr2Prefix(d.ip, d.maskLen) || routes[i].Dst.String() == addr2Prefix(d.ip6, d.mask6Len) {
 							find = true
 						}
 					}
 					if !find {
 						for j := range slaveAddrs {
-							if routes[i].Dst.String() == addr2Prefix(slaveAddrs[j][0], slaveAddrs[j][1]) {
+							if routes[i].Dst.String() == addr2Prefix(slaveAddrs[j].Addr, slaveAddrs[j].MaskLen) {
 								find = true
 								break
 							}
@@ -547,18 +612,23 @@ func (d *SBaseBridgeDriver) Setup(o IBridgeDriver) error {
 					}
 					if !find {
 						// need to migrate route
+						log.Infof("need to migrate route: %s", routes[i].String())
 						setupRoutes = append(setupRoutes, routes[i])
 					}
 				}
 			}
-			if err := trySetupSlaveAddressesRoutes(o, slaveAddrs, nil, setupRoutes); err != nil {
-				return errors.Wrap(err, "trySetupSlaveAddressesRoutes")
+			if len(setupRoutes) > 0 {
+				if err := o.SetupRoutes(setupRoutes, true, d.bridge.String()); err != nil {
+					return errors.Wrap(err, "SetupRoutes")
+				}
 			}
-		} else {
-			if err := o.SetupAddresses(nil); err != nil {
-				return errors.Wrap(err, "SetupAddresses nil")
-			}
+			/*if len(setupRoutes) > 0 {
+				if err := trySetupSlaveAddressesRoutes(o, slaveAddrs, nil, setupRoutes); err != nil {
+					return errors.Wrap(err, "trySetupSlaveAddressesRoutes")
+				}
+			}*/
 		}
+
 	}
 
 	return o.BringupInterface()
@@ -629,11 +699,11 @@ func (d *SBaseBridgeDriver) DisableDHCPClient() (bool, error) {
 	return false, nil
 }
 
-func NewDriver(bridgeDriver, bridge, inter, ip string) (IBridgeDriver, error) {
+func NewDriver(bridgeDriver, bridge, inter, ip string, maskLen int, ip6 string, mask6Len int) (IBridgeDriver, error) {
 	if bridgeDriver == DRV_OPEN_VSWITCH {
-		return NewOVSBridgeDriver(bridge, inter, ip)
+		return NewOVSBridgeDriver(bridge, inter, ip, maskLen, ip6, mask6Len)
 	} else if bridgeDriver == DRV_LINUX_BRIDGE {
-		return NewLinuxBridgeDeriver(bridge, inter, ip)
+		return NewLinuxBridgeDeriver(bridge, inter, ip, maskLen, ip6, mask6Len)
 	}
 	return nil, fmt.Errorf("Dirver %s not found", bridgeDriver)
 }

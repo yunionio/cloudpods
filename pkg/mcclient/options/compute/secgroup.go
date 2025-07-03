@@ -121,6 +121,16 @@ func (opts *SecgroupsAddRuleOptions) Params() (jsonutils.JSONObject, error) {
 	return params, nil
 }
 
+type SecgroupCloneOptions struct {
+	SecgroupIdOptions
+	NAME string `help:"Name of new secgroup"`
+	Desc string `help:"Description of new secgroup"`
+}
+
+func (opts *SecgroupCloneOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(map[string]string{"name": opts.NAME, "description": opts.Desc}), nil
+}
+
 type SecurityGroupCacheOptions struct {
 	SecgroupIdOptions
 	VPC_ID string `help:"ID or Name of vpc"`

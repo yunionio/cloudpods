@@ -172,7 +172,12 @@ func (h *SHostInfo) GetBridgeDev(bridge string) hostbridge.IBridgeDriver {
 
 func (h *SHostInfo) StartDHCPServer() {
 	for _, nic := range h.Nics {
-		nic.dhcpServer.Start(false)
+		if nic.dhcpServer != nil {
+			nic.dhcpServer.Start(false)
+		}
+		if nic.dhcpServer6 != nil {
+			nic.dhcpServer6.Start(false)
+		}
 	}
 }
 
