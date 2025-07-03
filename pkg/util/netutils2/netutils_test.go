@@ -17,6 +17,8 @@ package netutils2
 import (
 	"testing"
 
+	"yunion.io/x/jsonutils"
+
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 )
 
@@ -82,17 +84,14 @@ func TestNewNetInterface(t *testing.T) {
 	n := NewNetInterface("eth0")
 	t.Logf("NetInterface: %s %s %s %s", n.name, n.Addr, n.Mask.String(), n.mac)
 	addrs := n.GetAddresses()
-	t.Logf("addrs: %s", addrs)
+	t.Logf("addrs: %s", jsonutils.Marshal(addrs).String())
 	slaves := n.GetSlaveAddresses()
-	t.Logf("slaves: %s", slaves)
+	t.Logf("slaves: %s", jsonutils.Marshal(slaves).String())
 	routes := n.GetRouteSpecs()
-	t.Logf("routes: %s", routes)
+	t.Logf("routes: %s", jsonutils.Marshal(routes).String())
 	for i := range routes {
 		t.Logf("route to %s", routes[i].Dst.String())
 	}
-
-	m := NewNetInterface("docker0")
-	m.ClearAddrs()
 }
 
 func TestMyDefault(t *testing.T) {
