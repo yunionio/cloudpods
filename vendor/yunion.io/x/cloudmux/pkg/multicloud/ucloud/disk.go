@@ -363,11 +363,11 @@ func (self *SRegion) DeleteDisk(zoneId string, diskId string) error {
 }
 
 // https://docs.ucloud.cn/api/udisk-api/create_udisk
-func (self *SRegion) CreateDisk(zoneId string, category string, name string, sizeGb int) (string, error) {
+func (self *SRegion) CreateDisk(zoneId string, category string, opts *cloudprovider.DiskCreateConfig) (string, error) {
 	params := NewUcloudParams()
 	params.Set("Zone", zoneId)
-	params.Set("Size", sizeGb)
-	params.Set("Name", name)
+	params.Set("Size", opts.SizeGb)
+	params.Set("Name", opts.Name)
 	params.Set("DiskType", category)
 
 	diskIds := make([]string, 0)

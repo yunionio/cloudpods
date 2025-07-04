@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/util/encode"
 
 	billing "yunion.io/x/cloudmux/pkg/apis/billing"
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
@@ -219,20 +220,25 @@ func (disk *SDisk) GetProjectId() string {
 	return disk.storage.zone.region.GetProjectId()
 }
 
-func (region *SRegion) CreateDisk(name string, sizeGb int, zone string, storageType string, image string, desc string) (*SDisk, error) {
+func (region *SRegion) CreateDisk(zone string, storageType string, opts *cloudprovider.DiskCreateConfig) (*SDisk, error) {
 	if !strings.HasPrefix(storageType, GOOGLE_COMPUTE_DOMAIN) {
 		storageType = fmt.Sprintf("projects/%s/zones/%s/diskTypes/%s", region.GetProjectId(), zone, storageType)
 	}
+	labels := map[string]string{}
+	for k, v := range opts.Tags {
+		labels[encode.EncodeGoogleLabel(k)] = encode.EncodeGoogleLabel(v)
+	}
 	body := map[string]interface{}{
-		"name":        name,
-		"description": desc,
+		"name":        opts.Name,
+		"description": opts.Desc,
 		// https://www.googleapis.com/compute/v1/projects/my-project-15390453537169/zones/us-west2-c/diskTypes/pd-standard
 		// projects/my-project-15390453537169/zones/us-west2-c/diskTypes/pd-standard
-		"type": storageType,
+		"type":   storageType,
+		"labels": labels,
 	}
-	body["sizeGb"] = sizeGb
-	if len(image) > 0 {
-		body["sourceImage"] = image
+	body["sizeGb"] = opts.SizeGb
+	if len(opts.ImageId) > 0 {
+		body["sourceImage"] = opts.ImageId
 	}
 	disk := &SDisk{}
 	resource := fmt.Sprintf("zones/%s/disks", zone)

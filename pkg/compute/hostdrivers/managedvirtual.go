@@ -253,7 +253,7 @@ func (self *SManagedVirtualizationHostDriver) RequestAllocateDiskOnStorage(ctx c
 		if err != nil {
 			logclient.AddSimpleActionLog(disk, logclient.ACT_SYNC_CLOUD_PROJECT, err, userCred, false)
 		}
-		conf := cloudprovider.DiskCreateConfig{
+		opts := cloudprovider.DiskCreateConfig{
 			Name:       disk.GetName(),
 			SizeGb:     input.DiskSizeMb >> 10,
 			ProjectId:  projectId,
@@ -261,7 +261,9 @@ func (self *SManagedVirtualizationHostDriver) RequestAllocateDiskOnStorage(ctx c
 			Throughput: disk.Throughput,
 			Desc:       disk.Description,
 		}
-		iDisk, err := iCloudStorage.CreateIDisk(&conf)
+		opts.Tags, _ = disk.GetAllUserMetadata()
+
+		iDisk, err := iCloudStorage.CreateIDisk(&opts)
 		if err != nil {
 			return nil, err
 		}
