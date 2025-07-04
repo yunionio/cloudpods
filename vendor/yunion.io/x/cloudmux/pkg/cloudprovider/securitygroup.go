@@ -54,13 +54,13 @@ type SecurityGroupRuleUpdateOptions struct {
 	Priority int
 }
 
-func (self *SecurityGroupRuleCreateOptions) String() string {
-	ret := fmt.Sprintf("%s_%s_%s", self.Direction, self.Action, self.Protocol)
-	if len(self.CIDR) > 0 {
-		ret += "_" + self.CIDR
+func (rule *SecurityGroupRuleCreateOptions) String() string {
+	ret := fmt.Sprintf("%s_%s_%s", rule.Direction, rule.Action, rule.Protocol)
+	if len(rule.CIDR) > 0 {
+		ret += "_" + rule.CIDR
 	}
-	if len(self.Ports) > 0 {
-		ret += "_" + self.Ports
+	if len(rule.Ports) > 0 {
+		ret += "_" + rule.Ports
 	}
 	ret = strings.ReplaceAll(ret, ".", "_")
 	ret = strings.ReplaceAll(ret, ",", "_")

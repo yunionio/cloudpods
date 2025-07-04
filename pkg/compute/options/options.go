@@ -202,6 +202,9 @@ type ComputeOptions struct {
 	// 修改标签时不再同步至云上, 云账号同步资源时不会冲掉本地打的标签(key相同的会覆盖), 云账号开启只读同步和此参数效果相同,且仅影响开启只读同步的账号
 	KeepTagLocalization bool `help:"keep tag localization, not synchronized to the cloud" default:"false"`
 
+	// 调整虚拟机配置时，新增磁盘使用虚拟机标签
+	UseServerTagsForDisk bool `help:"use server tags for disk" default:"true"`
+
 	EnableMonitorAgent bool `help:"enable public cloud vm monitor agent" default:"false"`
 
 	EnableTlsMigration bool `help:"Enable TLS migration" default:"false"`

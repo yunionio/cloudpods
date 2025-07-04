@@ -243,18 +243,18 @@ func (region *SRegion) GetDisks(instanceId string, zoneId string, category strin
 	return ret, nil
 }
 
-func (region *SRegion) CreateDisk(zoneId string, category string, name string, sizeGb int, desc string, projectId string) (string, error) {
+func (region *SRegion) CreateDisk(zoneId string, category string, opts *cloudprovider.DiskCreateConfig) (string, error) {
 	params := make(map[string]string)
 	params["ZoneId"] = zoneId
-	params["VolumeName"] = name
-	if len(desc) > 0 {
-		params["Description"] = desc
+	params["VolumeName"] = opts.Name
+	if len(opts.Desc) > 0 {
+		params["Description"] = opts.Desc
 	}
 	params["VolumeType"] = category
 	// only data disk is supported
 	params["Kind"] = "data"
 
-	params["Size"] = fmt.Sprintf("%d", sizeGb)
+	params["Size"] = fmt.Sprintf("%d", opts.SizeGb)
 	params["ClientToken"] = utils.GenRequestId(20)
 
 	body, err := region.storageRequest("CreateVolume", params)

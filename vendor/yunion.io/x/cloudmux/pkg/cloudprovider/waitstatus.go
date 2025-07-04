@@ -23,7 +23,7 @@ import (
 
 func WaitStatusWithSync(res ICloudResource, expect string, sync func(status string), interval time.Duration, timeout time.Duration) error {
 	startTime := time.Now()
-	for time.Now().Sub(startTime) < timeout {
+	for time.Since(startTime) < timeout {
 		err := res.Refresh()
 		if err != nil {
 			return err
@@ -46,7 +46,7 @@ func WaitStatus(res ICloudResource, expect string, interval time.Duration, timeo
 
 func WaitMultiStatusWithSync(res ICloudResource, expects []string, sync func(string), interval time.Duration, timeout time.Duration) error {
 	startTime := time.Now()
-	for time.Now().Sub(startTime) < timeout {
+	for time.Since(startTime) < timeout {
 		err := res.Refresh()
 		if err != nil {
 			return errors.Wrap(err, "resource.Refresh()")
@@ -77,7 +77,7 @@ func WaitStatusWithDelay(res ICloudResource, expect string, delay time.Duration,
 
 func WaitStatusWithInstanceErrorCheck(res ICloudResource, expect string, interval time.Duration, timeout time.Duration, errCheck func() error) error {
 	startTime := time.Now()
-	for time.Now().Sub(startTime) < timeout {
+	for time.Since(startTime) < timeout {
 		err := res.Refresh()
 		if err != nil {
 			return err
@@ -102,7 +102,7 @@ func WaitDeletedWithDelay(res ICloudResource, delay time.Duration, interval time
 
 func WaitDeleted(res ICloudResource, interval time.Duration, timeout time.Duration) error {
 	startTime := time.Now()
-	for time.Now().Sub(startTime) < timeout {
+	for time.Since(startTime) < timeout {
 		err := res.Refresh()
 		if err != nil {
 			if errors.Cause(err) == ErrNotFound {
@@ -118,7 +118,7 @@ func WaitDeleted(res ICloudResource, interval time.Duration, timeout time.Durati
 
 func Wait(interval time.Duration, timeout time.Duration, callback func() (bool, error)) error {
 	startTime := time.Now()
-	for time.Now().Sub(startTime) < timeout {
+	for time.Since(startTime) < timeout {
 		ok, err := callback()
 		if err != nil {
 			return err
@@ -133,7 +133,7 @@ func Wait(interval time.Duration, timeout time.Duration, callback func() (bool, 
 
 func WaitCreated(interval time.Duration, timeout time.Duration, callback func() bool) error {
 	startTime := time.Now()
-	for time.Now().Sub(startTime) < timeout {
+	for time.Since(startTime) < timeout {
 		ok := callback()
 		if ok {
 			return nil
