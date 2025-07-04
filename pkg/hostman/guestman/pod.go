@@ -600,6 +600,22 @@ func (s *sPodGuestInstance) getCreateParams() (jsonutils.JSONObject, error) {
 	return jsonutils.ParseString(createParamsStr)
 }
 
+func (s *sPodGuestInstance) getPostStopCleanupConfig() (*computeapi.PodPostStopCleanupConfig, error) {
+	data, ok := s.GetDesc().Metadata[computeapi.POD_METADATA_POST_STOP_CLEANUP_CONFIG]
+	if !ok {
+		return nil, nil
+	}
+	jsonData, err := jsonutils.ParseString(data)
+	if err != nil {
+		return nil, errors.Wrapf(err, "parse to json")
+	}
+	input := new(computeapi.PodPostStopCleanupConfig)
+	if err := jsonData.Unmarshal(input); err != nil {
+		return nil, errors.Wrapf(err, "unmarshal to pod post stop cleanup config")
+	}
+	return input, nil
+}
+
 func (s *sPodGuestInstance) getPodCreateParams() (*computeapi.PodCreateInput, error) {
 	createParams, err := s.getCreateParams()
 	if err != nil {
@@ -1130,6 +1146,25 @@ func (s *sPodGuestInstance) stopPod(ctx context.Context, timeout int64) error {
 		return err
 	}
 	ReleaseGuestCpuset(s.manager, s)
+	if err := s.postStopCleanup(ctx); err != nil {
+		return errors.Wrapf(err, "post stop cleanup")
+	}
+	return nil
+}
+
+func (s *sPodGuestInstance) postStopCleanup(ctx context.Context) error {
+	config, err := s.getPostStopCleanupConfig()
+	if err != nil {
+		return errors.Wrapf(err, "get post stop cleanup config")
+	}
+	if config == nil {
+		return nil
+	}
+	for _, dir := range config.Dirs {
+		if err := os.RemoveAll(dir); err != nil {
+			return errors.Wrapf(err, "remove dir %s", dir)
+		}
+	}
 	return nil
 }
 
