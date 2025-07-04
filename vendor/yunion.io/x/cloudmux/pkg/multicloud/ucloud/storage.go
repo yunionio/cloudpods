@@ -119,13 +119,13 @@ func (self *SStorage) GetEnabled() bool {
 	return true
 }
 
-func (self *SStorage) CreateIDisk(conf *cloudprovider.DiskCreateConfig) (cloudprovider.ICloudDisk, error) {
+func (self *SStorage) CreateIDisk(opts *cloudprovider.DiskCreateConfig) (cloudprovider.ICloudDisk, error) {
 	diskType := "DataDisk"
 	switch self.storageType {
 	case api.STORAGE_UCLOUD_CLOUD_SSD:
 		diskType = "SSDDataDisk"
 	}
-	diskId, err := self.zone.region.CreateDisk(self.zone.GetId(), diskType, conf.Name, conf.SizeGb)
+	diskId, err := self.zone.region.CreateDisk(self.zone.GetId(), diskType, opts)
 	if err != nil {
 		return nil, err
 	}
