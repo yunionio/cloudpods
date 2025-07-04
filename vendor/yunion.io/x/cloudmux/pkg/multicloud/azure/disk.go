@@ -82,9 +82,9 @@ type SDisk struct {
 	Properties DiskProperties `json:"properties,omitempty"`
 }
 
-func (self *SRegion) CreateDisk(storageType string, name string, sizeGb int32, imageId, snapshotId, resourceGroup string) (*SDisk, error) {
+func (self *SRegion) CreateDisk(storageType string, opts *cloudprovider.DiskCreateConfig) (*SDisk, error) {
 	params := jsonutils.Marshal(map[string]interface{}{
-		"Name":     name,
+		"Name":     opts.Name,
 		"Location": self.Name,
 		"Sku": map[string]string{
 			"Name": storageType,
@@ -95,12 +95,12 @@ func (self *SRegion) CreateDisk(storageType string, name string, sizeGb int32, i
 		"CreationData": map[string]string{
 			"CreateOption": "Empty",
 		},
-		"DiskSizeGB": sizeGb,
+		"DiskSizeGB": opts.SizeGb,
 	}
-	if len(imageId) > 0 {
-		image, err := self.GetImageById(imageId)
+	if len(opts.ImageId) > 0 {
+		image, err := self.GetImageById(opts.ImageId)
 		if err != nil {
-			return nil, errors.Wrapf(err, "GetImageById(%s)", imageId)
+			return nil, errors.Wrapf(err, "GetImageById(%s)", opts.ImageId)
 		}
 		// 通过镜像创建的磁盘只能传ID参数，不能通过sku,offer等参数创建.
 		imageId, err := self.getOfferedImageId(&image)
@@ -115,17 +115,17 @@ func (self *SRegion) CreateDisk(storageType string, name string, sizeGb int32, i
 				},
 			},
 		}
-	} else if len(snapshotId) > 0 {
+	} else if len(opts.SnapshotId) > 0 {
 		properties = map[string]interface{}{
 			"CreationData": map[string]interface{}{
 				"CreateOption":     "Copy",
-				"sourceResourceId": snapshotId,
+				"sourceResourceId": opts.SnapshotId,
 			},
 		}
 	}
 	params.Add(jsonutils.Marshal(properties), "Properties")
 	disk := &SDisk{}
-	return disk, self.create(resourceGroup, params, disk)
+	return disk, self.create(opts.ProjectId, params, disk)
 }
 
 func (self *SRegion) DeleteDisk(diskId string) error {
@@ -312,7 +312,13 @@ func (self *SDisk) Reset(ctx context.Context, snapshotId string) (string, error)
 	if self.Properties.DiskState != "Unattached" {
 		return "", fmt.Errorf("Azure reset disk needs to be done in the Unattached state, current status: %s", self.Properties.DiskState)
 	}
-	disk, err := self.storage.zone.region.CreateDisk(self.Sku.Name, self.Name, 0, "", snapshotId, self.GetProjectId())
+	opts := &cloudprovider.DiskCreateConfig{
+		Name:       self.Name,
+		SizeGb:     0,
+		SnapshotId: snapshotId,
+		ProjectId:  self.GetProjectId(),
+	}
+	disk, err := self.storage.zone.region.CreateDisk(self.Sku.Name, opts)
 	if err != nil {
 		return "", errors.Wrap(err, "CreateDisk")
 	}

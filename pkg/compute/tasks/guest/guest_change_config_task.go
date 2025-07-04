@@ -30,6 +30,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/compute/options"
 	taskutils "yunion.io/x/onecloud/pkg/compute/tasks/utils"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
@@ -203,7 +204,7 @@ func (task *GuestChangeConfigTask) DoCreateDisksTask(ctx context.Context, guest 
 
 	disks := confs.Create
 	host, _ := guest.GetHost()
-	err = guest.CreateDisksOnHost(ctx, task.UserCred, host, disks, nil, false, false, nil, nil, false)
+	err = guest.CreateDisksOnHost(ctx, task.UserCred, host, disks, nil, false, options.Options.UseServerTagsForDisk, nil, nil, false)
 	if err != nil {
 		task.markStageFailed(ctx, guest, jsonutils.NewString(err.Error()))
 		return
