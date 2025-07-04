@@ -111,7 +111,11 @@ func SetTaskFail(task ITask, err error) {
 
 func onTaskEnd(task ITask) {
 	task.SetStage(nil)
-	ExecuteTask(task.GetTaskQueue().PopTask(), nil)
+	task.GetTaskQueue().PopTask()
+	nextTask := task.GetTaskQueue().GetTask()
+	if nextTask != nil {
+		ExecuteTask(nextTask, nil)
+	}
 }
 
 func OnInitStage(task ITask) error {
