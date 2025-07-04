@@ -34,8 +34,8 @@ type RouteTableAssociation struct {
 	AssociatedResourceId string
 }
 
-func (self RouteTableAssociation) GetGlobalId() string {
-	return self.AssociationId
+func (association RouteTableAssociation) GetGlobalId() string {
+	return association.AssociationId
 }
 
 type RouteSet struct {
