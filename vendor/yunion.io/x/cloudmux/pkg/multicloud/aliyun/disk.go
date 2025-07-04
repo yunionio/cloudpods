@@ -271,12 +271,12 @@ func (self *SDisk) GetMountpoint() string {
 	return ""
 }
 
-func (self *SRegion) CreateDisk(zoneId string, category string, name string, sizeGb int, desc string, projectId string) (string, error) {
+func (self *SRegion) CreateDisk(zoneId string, category string, opts *cloudprovider.DiskCreateConfig) (string, error) {
 	params := make(map[string]string)
 	params["ZoneId"] = zoneId
-	params["DiskName"] = name
-	if len(desc) > 0 {
-		params["Description"] = desc
+	params["DiskName"] = opts.Name
+	if len(opts.Desc) > 0 {
+		params["Description"] = opts.Desc
 	}
 	params["Encrypted"] = "false"
 	params["DiskCategory"] = category
@@ -296,10 +296,18 @@ func (self *SRegion) CreateDisk(zoneId string, category string, name string, siz
 		params["BurstingEnabled"] = "true"
 	}
 
-	if len(projectId) > 0 {
-		params["ResourceGroupId"] = projectId
+	if len(opts.ProjectId) > 0 {
+		params["ResourceGroupId"] = opts.ProjectId
 	}
-	params["Size"] = fmt.Sprintf("%d", sizeGb)
+
+	tagIdx := 1
+	for k, v := range opts.Tags {
+		params[fmt.Sprintf("Tag.%d.Key", tagIdx)] = k
+		params[fmt.Sprintf("Tag.%d.Value", tagIdx)] = v
+		tagIdx += 1
+	}
+
+	params["Size"] = fmt.Sprintf("%d", opts.SizeGb)
 	params["ClientToken"] = utils.GenRequestId(20)
 
 	body, err := self.ecsRequest("CreateDisk", params)

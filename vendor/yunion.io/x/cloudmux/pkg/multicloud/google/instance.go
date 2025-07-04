@@ -805,7 +805,12 @@ func (region *SRegion) RebuildRoot(instanceId string, imageId string, sysDiskSiz
 	}
 
 	diskName := fmt.Sprintf("vdisk-%s-%d", instance.Name, time.Now().UnixNano())
-	disk, err := region.CreateDisk(diskName, sysDiskSizeGb, zone.Name, diskType, imageId, "create for replace instance system disk")
+	disk, err := region.CreateDisk(zone.Name, diskType, &cloudprovider.DiskCreateConfig{
+		Name:    diskName,
+		SizeGb:  sysDiskSizeGb,
+		ImageId: imageId,
+		Desc:    "create for replace instance system disk",
+	})
 	if err != nil {
 		return "", errors.Wrap(err, "region.CreateDisk.systemDisk")
 	}
