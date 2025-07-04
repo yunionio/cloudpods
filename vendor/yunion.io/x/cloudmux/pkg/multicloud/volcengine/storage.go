@@ -102,8 +102,8 @@ func (storage *SStorage) GetIStoragecache() cloudprovider.ICloudStoragecache {
 	return storage.zone.region.getStoragecache()
 }
 
-func (storage *SStorage) CreateIDisk(conf *cloudprovider.DiskCreateConfig) (cloudprovider.ICloudDisk, error) {
-	diskId, err := storage.zone.region.CreateDisk(storage.zone.ZoneId, storage.storageType, conf.Name, conf.SizeGb, conf.Desc, conf.ProjectId)
+func (storage *SStorage) CreateIDisk(opts *cloudprovider.DiskCreateConfig) (cloudprovider.ICloudDisk, error) {
+	diskId, err := storage.zone.region.CreateDisk(storage.zone.ZoneId, storage.storageType, opts)
 	if err != nil {
 		log.Errorf("createDisk fail %s", err)
 		return nil, err

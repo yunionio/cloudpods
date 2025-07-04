@@ -46,12 +46,12 @@ type SubAccounts struct {
 	}
 }
 
-func (self SubAccounts) IsZero() bool {
-	return len(self.Accounts) == 0
+func (accounts SubAccounts) IsZero() bool {
+	return len(accounts.Accounts) == 0
 }
 
-func (self SubAccounts) String() string {
-	return jsonutils.Marshal(self).String()
+func (accounts SubAccounts) String() string {
+	return jsonutils.Marshal(accounts).String()
 }
 
 func init() {
