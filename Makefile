@@ -108,7 +108,7 @@ deb/fetcherfs: rpm/fetcherfs
 	docker run --rm \
 		--name docker-debian-build-fetcherfs \
 		-v $(CURDIR):/data \
-		registry.cn-beijing.aliyuncs.com/yunionio/debian10-base:1.0 \
+		registry.cn-beijing.aliyuncs.com/yunionio/debian13-base:1.0 \
 		/data/build/convert_rpm2deb.sh
 
 build:

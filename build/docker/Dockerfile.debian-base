@@ -1,4 +1,4 @@
-# registry.cn-beijing.aliyuncs.com/yunionio/debian10-base:1.0
+# registry.cn-beijing.aliyuncs.com/yunionio/debian13-base:1.0
 
 FROM debian:trixie
 
