@@ -310,6 +310,7 @@ type ICloudProvider interface {
 	GetMetrics(opts *MetricListOptions) ([]MetricValues, error)
 
 	GetISSLCertificates() ([]ICloudSSLCertificate, error)
+	CreateISSLCertificate(opts *SSLCertificateCreateOptions) (ICloudSSLCertificate, error)
 
 	GetIAiGateways() ([]IAiGateway, error)
 	GetIAiGatewayById(id string) (IAiGateway, error)
@@ -641,6 +642,10 @@ func (base *SBaseProvider) GetIModelartsPoolSku() ([]ICloudModelartsPoolSku, err
 
 func (base *SBaseProvider) GetISSLCertificates() ([]ICloudSSLCertificate, error) {
 	return nil, errors.Wrapf(ErrNotImplemented, "GetISSLCertificates")
+}
+
+func (base *SBaseProvider) CreateISSLCertificate(opts *SSLCertificateCreateOptions) (ICloudSSLCertificate, error) {
+	return nil, errors.Wrapf(ErrNotImplemented, "CreateISSLCertificate")
 }
 
 func (base *SBaseProvider) GetIAiGateways() ([]IAiGateway, error) {

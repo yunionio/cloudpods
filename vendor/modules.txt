@@ -518,6 +518,9 @@ github.com/eapache/queue
 # github.com/edsrzf/mmap-go v1.0.0
 ## explicit
 github.com/edsrzf/mmap-go
+# github.com/eggsampler/acme/v3 v3.6.2
+## explicit; go 1.11
+github.com/eggsampler/acme/v3
 # github.com/elgatito/upnp v0.0.0-20180711183757-2f244d205f9a
 ## explicit
 github.com/elgatito/upnp
@@ -1849,7 +1852,7 @@ sigs.k8s.io/structured-merge-diff/v4/value
 # sigs.k8s.io/yaml v1.2.0
 ## explicit; go 1.12
 sigs.k8s.io/yaml
-# yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20250704072711-92334fb5c0f5
+# yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20250714064133-dd6abd87348b
 ## explicit; go 1.21
 yunion.io/x/cloudmux/pkg/apis
 yunion.io/x/cloudmux/pkg/apis/billing
@@ -1946,7 +1949,7 @@ yunion.io/x/log/hooks
 yunion.io/x/ovsdb/cli_util
 yunion.io/x/ovsdb/schema/ovn_nb
 yunion.io/x/ovsdb/types
-# yunion.io/x/pkg v1.10.4-0.20250618071935-840c253075b0
+# yunion.io/x/pkg v1.10.4-0.20250712095850-7797c1f3ffa6
 ## explicit; go 1.18
 yunion.io/x/pkg/appctx
 yunion.io/x/pkg/errors
