@@ -3144,7 +3144,7 @@ func (s *SKVMGuestInstance) startHotPlugVcpus(vcpuSet []int) error {
 
 func (s *SKVMGuestInstance) hotPlugCpus() error {
 	var vcpuSet = make([]int, 0)
-	if len(s.Desc.MemDesc.Mem.Mems) > 0 {
+	if s.Desc.MemDesc.Mem != nil && len(s.Desc.MemDesc.Mem.Mems) > 0 {
 		for i := range s.Desc.CpuNumaPin {
 			vcpus, err := cpuset.Parse(*s.Desc.CpuNumaPin[i].Vcpus)
 			if err != nil {
