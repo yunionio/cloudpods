@@ -235,6 +235,8 @@ type ComputeOptions struct {
 
 	NetworkAlwaysManualConfig bool `help:"always manually configure network settings" default:"false"`
 
+	SSLAccounts []string `help:"SSL account"`
+
 	ComputeEEOptions
 }
 

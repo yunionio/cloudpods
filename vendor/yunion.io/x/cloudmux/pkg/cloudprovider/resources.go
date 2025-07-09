@@ -1814,7 +1814,6 @@ type ICloudSSLCertificate interface {
 	GetCommon() string
 	GetCountry() string
 	GetIssuer() string
-	GetExpired() bool
 	GetEndDate() time.Time
 	GetFingerprint() string
 	GetCity() string

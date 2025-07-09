@@ -27,3 +27,23 @@ type SslCertificateListOptions struct {
 func (opts *SslCertificateListOptions) Params() (jsonutils.JSONObject, error) {
 	return options.ListStructToParams(opts)
 }
+
+type SslCertificateCreateOptions struct {
+	options.BaseCreateOptions
+
+	Issuer    string `json:"issuer"`
+	DnsZoneId string `json:"dns_zone_id"`
+	Sans      string `json:"sans"`
+
+	Province    string
+	Common      string
+	Country     string
+	City        string
+	OrgName     string
+	Certificate string
+	PrivateKey  string
+}
+
+func (opts *SslCertificateCreateOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(opts), nil
+}

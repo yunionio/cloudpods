@@ -220,14 +220,6 @@ func (self *SCertificate) GetIssuer() string {
 	return self.ProductZhName
 }
 
-func (self *SCertificate) GetExpired() bool {
-	if self.Status == 3 {
-		return true
-	} else {
-		return false
-	}
-}
-
 func (self *SCertificate) GetEndDate() time.Time {
 	return self.CERTEndTime
 }
