@@ -52,6 +52,8 @@ type SNic struct {
 	Bandwidth int `json:"bandwidth"`
 
 	Index int `json:"index"`
+
+	IsDefault *bool `json:"is_default"`
 }
 
 type SRoute []string
@@ -132,5 +134,7 @@ func (n SServerNic) ToNic() SNic {
 		Ip6Addr:  n.Ip6,
 		Masklen6: uint8(n.Masklen6),
 		Gateway6: n.Gateway6,
+
+		IsDefault: &n.IsDefault,
 	}
 }

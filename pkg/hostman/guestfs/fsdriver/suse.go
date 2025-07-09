@@ -16,6 +16,7 @@ package fsdriver
 
 import (
 	"fmt"
+	"net"
 	"path"
 	"strings"
 
@@ -26,6 +27,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
+	"yunion.io/x/onecloud/pkg/util/dhcp"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
 )
 
@@ -85,7 +87,7 @@ func (r *sSuseLikeRootFs) enableBondingModule(rootFs IDiskPartition, bondNics []
 	return rootFs.FilePutContents("/etc/modprobe.d/bonding.conf", content.String(), false, false)
 }
 
-func (r *sSuseLikeRootFs) deployVlanNetworkingScripts(rootFs IDiskPartition, scriptPath, mainIp string, nicCnt int, nicDesc *types.SServerNic) error {
+func (r *sSuseLikeRootFs) deployVlanNetworkingScripts(rootFs IDiskPartition, scriptPath, mainIp, mainIp6 string, nicCnt int, nicDesc *types.SServerNic) error {
 	var cmds strings.Builder
 	var ifname = fmt.Sprintf("%s.%d", nicDesc.Name, nicDesc.Vlan)
 	cmds.WriteString("STARTMODE=auto\n")
@@ -104,26 +106,37 @@ func (r *sSuseLikeRootFs) deployVlanNetworkingScripts(rootFs IDiskPartition, scr
 	cmds.WriteString(fmt.Sprintf("VLAN_ID=%d\n", nicDesc.Vlan))
 	cmds.WriteString(fmt.Sprintf("ETHERDEVICE=%s\n", nicDesc.Name))
 
-	var routes = make([][]string, 0)
+	var routes4 = make([]dhcp.SRouteInfo, 0)
+	var routes6 = make([]dhcp.SRouteInfo, 0)
 	var dnsSrv []string
-	routes = netutils2.AddNicRoutes(routes, nicDesc, mainIp, nicCnt)
+	routes4, routes6 = netutils2.AddNicRoutes(routes4, routes6, nicDesc, mainIp, mainIp6, nicCnt)
 	if len(nicDesc.Gateway) > 0 && nicDesc.Ip == mainIp {
-		routes = append(routes, []string{
-			"default",
-			nicDesc.Gateway,
+		routes4 = append(routes4, dhcp.SRouteInfo{
+			Prefix:    net.ParseIP("0.0.0.0"),
+			PrefixLen: 0,
+			Gateway:   net.ParseIP(nicDesc.Gateway),
 		})
 	}
-	if len(nicDesc.Gateway6) > 0 && nicDesc.Ip == mainIp {
-		routes = append(routes, []string{
-			"default",
-			nicDesc.Gateway6,
+	if len(nicDesc.Gateway6) > 0 && nicDesc.Ip6 == mainIp6 {
+		routes6 = append(routes6, dhcp.SRouteInfo{
+			Prefix:    net.ParseIP("::"),
+			PrefixLen: 0,
+			Gateway:   net.ParseIP(nicDesc.Gateway6),
 		})
 	}
 	var rtbl strings.Builder
-	for _, r := range routes {
-		rtbl.WriteString(r[0])
+	for _, r := range routes4 {
+		rtbl.WriteString(fmt.Sprintf("%s/%d", r.Prefix, r.PrefixLen))
 		rtbl.WriteString(" ")
-		rtbl.WriteString(r[1])
+		rtbl.WriteString(r.Gateway.String())
+		rtbl.WriteString(" - ")
+		rtbl.WriteString(nicDesc.Name)
+		rtbl.WriteString("\n")
+	}
+	for _, r := range routes6 {
+		rtbl.WriteString(fmt.Sprintf("%s/%d", r.Prefix, r.PrefixLen))
+		rtbl.WriteString(" ")
+		rtbl.WriteString(r.Gateway.String())
 		rtbl.WriteString(" - ")
 		rtbl.WriteString(nicDesc.Name)
 		rtbl.WriteString("\n")
@@ -169,11 +182,18 @@ func (r *sSuseLikeRootFs) deployNetworkingScripts(rootFs IDiskPartition, nics []
 	nicCnt := len(allNics) - len(bondNics)
 
 	var dnsSrv []string
+
 	mainNic := getMainNic(allNics)
 	var mainIp string
 	if mainNic != nil {
 		mainIp = mainNic.Ip
 	}
+	mainNic6 := getMainNic6(allNics)
+	var mainIp6 string
+	if mainNic6 != nil {
+		mainIp6 = mainNic6.Ip6
+	}
+
 	for i := range allNics {
 		nicDesc := allNics[i]
 		var cmds strings.Builder
@@ -212,25 +232,36 @@ func (r *sSuseLikeRootFs) deployNetworkingScripts(rootFs IDiskPartition, nics []
 				cmds.WriteString(fmt.Sprintf("IPADDR_V6=%s/%d\n", nicDesc.Ip6, nicDesc.Masklen6))
 			}
 
-			var routes = make([][]string, 0)
-			routes = netutils2.AddNicRoutes(routes, nicDesc, mainIp, nicCnt)
+			var routes4 = make([]dhcp.SRouteInfo, 0)
+			var routes6 = make([]dhcp.SRouteInfo, 0)
+			routes4, routes6 = netutils2.AddNicRoutes(routes4, routes6, nicDesc, mainIp, mainIp6, nicCnt)
 			if len(nicDesc.Gateway) > 0 && nicDesc.Ip == mainIp {
-				routes = append(routes, []string{
-					"default",
-					nicDesc.Gateway,
+				routes4 = append(routes4, dhcp.SRouteInfo{
+					Prefix:    net.ParseIP("0.0.0.0"),
+					PrefixLen: 0,
+					Gateway:   net.ParseIP(nicDesc.Gateway),
 				})
 			}
-			if len(nicDesc.Gateway6) > 0 && nicDesc.Ip == mainIp {
-				routes = append(routes, []string{
-					"default",
-					nicDesc.Gateway6,
+			if len(nicDesc.Gateway6) > 0 && nicDesc.Ip6 == mainIp6 {
+				routes6 = append(routes6, dhcp.SRouteInfo{
+					Prefix:    net.ParseIP("::"),
+					PrefixLen: 0,
+					Gateway:   net.ParseIP(nicDesc.Gateway6),
 				})
 			}
 			var rtbl strings.Builder
-			for _, r := range routes {
-				rtbl.WriteString(r[0])
+			for _, r := range routes4 {
+				rtbl.WriteString(fmt.Sprintf("%s/%d", r.Prefix, r.PrefixLen))
 				rtbl.WriteString(" ")
-				rtbl.WriteString(r[1])
+				rtbl.WriteString(r.Gateway.String())
+				rtbl.WriteString(" - ")
+				rtbl.WriteString(nicDesc.Name)
+				rtbl.WriteString("\n")
+			}
+			for _, r := range routes6 {
+				rtbl.WriteString(fmt.Sprintf("%s/%d", r.Prefix, r.PrefixLen))
+				rtbl.WriteString(" ")
+				rtbl.WriteString(r.Gateway.String())
 				rtbl.WriteString(" - ")
 				rtbl.WriteString(nicDesc.Name)
 				rtbl.WriteString("\n")

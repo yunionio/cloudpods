@@ -31,6 +31,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
+	"yunion.io/x/onecloud/pkg/util/dhcp"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
@@ -288,6 +289,10 @@ func (w *SWindowsRootFs) DeployNetworkingScripts(rootfs IDiskPartition, nics []*
 	if mainNic != nil {
 		mainIp = mainNic.Ip
 	}
+	mainIp6 := ""
+	if mainNic != nil {
+		mainIp6 = mainNic.Ip6
+	}
 	bootScript := strings.Join([]string{
 		`set NETCFG_SCRIPT=%SystemRoot%\netcfg.bat`,
 		`if exist %NETCFG_SCRIPT% (`,
@@ -322,15 +327,19 @@ func (w *SWindowsRootFs) DeployNetworkingScripts(rootfs IDiskPartition, nics []*
 			if len(snic.Ip6) > 0 {
 				cfg := fmt.Sprintf(`      netsh interface ipv6 add address "%%%%b" %s/%d store=persistent`, snic.Ip6, snic.Masklen6)
 				lines = append(lines, cfg)
-				if len(snic.Gateway) > 0 && snic.Ip == mainIp {
+				if len(snic.Gateway6) > 0 && snic.Ip6 == mainIp6 {
 					cfg := fmt.Sprintf(`      netsh interface ipv6 add route ::/0 "%%%%b" %s`, snic.Gateway6)
 					lines = append(lines, cfg)
 				}
 			}
-			routes := [][]string{}
-			routes = netutils2.AddNicRoutes(routes, snic, mainIp, len(nics))
-			for _, r := range routes {
-				lines = append(lines, fmt.Sprintf(`      netsh interface ip add route %s "%%%%b" %s`, r[0], r[1]))
+			routes4 := []dhcp.SRouteInfo{}
+			routes6 := []dhcp.SRouteInfo{}
+			routes4, routes6 = netutils2.AddNicRoutes(routes4, routes6, snic, mainIp, mainIp6, len(nics))
+			for _, r := range routes4 {
+				lines = append(lines, fmt.Sprintf(`      netsh interface ip add route %s/%d %s "%%%%b"`, r.Prefix, r.PrefixLen, r.Gateway.String()))
+			}
+			for _, r := range routes6 {
+				lines = append(lines, fmt.Sprintf(`      netsh interface ipv6 add route %s/%d %s "%%%%b"`, r.Prefix, r.PrefixLen, r.Gateway.String()))
 			}
 			dnslist := netutils2.GetNicDns(snic)
 			if len(dnslist) > 0 {

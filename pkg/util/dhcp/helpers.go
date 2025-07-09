@@ -18,11 +18,11 @@ import (
 	"encoding/binary"
 	"fmt"
 	"net"
-	"strconv"
 	"strings"
 	"time"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 )
 
 const (
@@ -34,6 +34,8 @@ const (
 
 // http://www.networksorcery.com/enp/rfc/rfc2132.txt
 type ResponseConfig struct {
+	InterfaceMac net.HardwareAddr
+
 	OsName        string
 	ServerIP      net.IP // OptServerIdentifier 54
 	ClientIP      net.IP
@@ -45,13 +47,16 @@ type ResponseConfig struct {
 	Hostname      string        // OptHostname 12
 	SubnetMask    net.IP        // OptSubnetMask 1
 	DNSServers    []net.IP      // OptDNSServers
-	Routes        [][]string    // TODO: 249 for windows, 121 for linux
+	Routes        []SRouteInfo  // TODO: 249 for windows, 121 for linux
 	NTPServers    []net.IP      // OptNTPServers 42
 	MTU           uint16        // OptMTU 26
 
-	ClientIP6  net.IP
-	Gateway6   net.IP
-	PrefixLen6 uint8
+	ClientIP6   net.IP
+	Gateway6    net.IP
+	PrefixLen6  uint8
+	DNSServers6 []net.IP
+	NTPServers6 []net.IP
+	Routes6     []SRouteInfo
 
 	// Relay Info https://datatracker.ietf.org/doc/html/rfc3046
 	RelayInfo []byte
@@ -90,14 +95,40 @@ func GetOptTime(d time.Duration) []byte {
 	return timeBytes
 }
 
-func getClasslessRoutePack(route []string) []byte {
-	var snet, gw = route[0], route[1]
-	tmp := strings.Split(snet, "/")
-	netaddr := net.ParseIP(tmp[0])
+type SRouteInfo struct {
+	Prefix    net.IP
+	PrefixLen uint8
+	Gateway   net.IP
+}
+
+func (r SRouteInfo) String() string {
+	return fmt.Sprintf("%s/%d via %s", r.Prefix.String(), r.PrefixLen, r.Gateway.String())
+}
+
+func ParseRouteInfo(route []string) (*SRouteInfo, error) {
+	if len(route) < 2 {
+		return nil, errors.Wrapf(errors.ErrInvalidStatus, "invalid route %#v", route)
+	}
+	_, prefixLen, err := net.ParseCIDR(route[0])
+	if err != nil {
+		return nil, errors.Wrapf(err, "net.ParseCIDR %s", route[0])
+	}
+	ones, _ := prefixLen.Mask.Size()
+	return &SRouteInfo{
+		Prefix:    prefixLen.IP,
+		PrefixLen: uint8(ones),
+		Gateway:   net.ParseIP(route[1]),
+	}, nil
+}
+
+func getClasslessRoutePack(route SRouteInfo) []byte {
+	// var snet, gw = route[0], route[1]
+	// tmp := strings.Split(snet, "/")
+	netaddr := route.Prefix
 	if netaddr != nil {
 		netaddr = netaddr.To4()
 	}
-	masklen, _ := strconv.Atoi(tmp[1])
+	masklen := route.PrefixLen
 	netlen := masklen / 8
 	if masklen%8 > 0 {
 		netlen += 1
@@ -105,11 +136,10 @@ func getClasslessRoutePack(route []string) []byte {
 	if netlen < 4 {
 		netaddr = netaddr[0:netlen]
 	}
-	gwaddr := net.ParseIP(gw)
+	gwaddr := route.Gateway
 	if gwaddr != nil {
 		gwaddr = gwaddr.To4()
 	}
-
 	res := []byte{byte(masklen)}
 	res = append(res, []byte(netaddr)...)
 	return append(res, []byte(gwaddr)...)

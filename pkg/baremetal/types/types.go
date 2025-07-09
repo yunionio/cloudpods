@@ -41,4 +41,7 @@ type IBaremetalServer interface {
 	GetNicByMac(mac net.HardwareAddr) *types.SNic
 
 	GetRootTemplateId() string
+
+	GetHostName() string
+	GetOsName() string
 }

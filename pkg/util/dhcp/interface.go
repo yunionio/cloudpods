@@ -25,5 +25,5 @@ type DHCPHandler interface {
 type DHCP6Handler interface {
 	DHCPHandler
 
-	ServeRA(pkt Packet, cliMac net.HardwareAddr, addr *net.UDPAddr) (Packet, error)
+	ServeRA(pkt Packet, cliMac net.HardwareAddr, addr *net.UDPAddr) (Packet, net.IP, net.HardwareAddr, error)
 }
