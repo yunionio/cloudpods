@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
@@ -248,9 +249,11 @@ func (self *SLoadbalancer) GetIEIPs() ([]cloudprovider.ICloudEIP, error) {
 		log.Errorf("GetAddress.GetForwardingRules %s", err)
 	}
 
-	ret := []cloudprovider.ICloudEIP{}
+	ret, addrs := []cloudprovider.ICloudEIP{}, []string{}
 	for i := range frs {
-		if strings.ToLower(frs[i].LoadBalancingScheme) == "external" {
+		ipAddr, _ := netutils.NewIPV4Addr(frs[i].IPAddress)
+		if netutils.IsExitAddress(ipAddr) && !utils.IsInStringArray(frs[i].IPAddress, addrs) {
+			addrs = append(addrs, frs[i].IPAddress)
 			eips, err := self.region.GetEips(frs[i].IPAddress, 0, "")
 			if err != nil {
 				log.Errorf("GetEips %s", err)
