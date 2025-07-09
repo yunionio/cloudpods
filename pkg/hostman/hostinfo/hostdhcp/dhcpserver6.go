@@ -18,9 +18,11 @@ import (
 	"net"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	guestman "yunion.io/x/onecloud/pkg/hostman/guestman/types"
 	"yunion.io/x/onecloud/pkg/util/dhcp"
+	"yunion.io/x/onecloud/pkg/util/netutils2"
 )
 
 const (
@@ -34,7 +36,7 @@ type SGuestDHCP6Server struct {
 	relay  *SDHCP6Relay
 	conn   *dhcp.Conn
 
-	iface string
+	ifaceDev *netutils2.SNetInterface
 }
 
 func NewGuestDHCP6Server(iface string, port int, relay *SDHCPRelayUpstream) (*SGuestDHCP6Server, error) {
@@ -43,19 +45,25 @@ func NewGuestDHCP6Server(iface string, port int, relay *SDHCPRelayUpstream) (*SG
 		guestdhcp = new(SGuestDHCP6Server)
 	)
 
+	dev := netutils2.NewNetInterface(iface)
+	if dev.GetHardwareAddr() == nil {
+		return nil, errors.Wrapf(errors.ErrInvalidStatus, "iface %s no mac", iface)
+	}
+
+	guestdhcp.ifaceDev = dev
+
 	guestdhcp.server, guestdhcp.conn, err = dhcp.NewDHCP6Server2(iface, DEFAULT_DHCP6_SERVER_PORT)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "dhcp.NewDHCP6Server2")
 	}
 
 	if relay != nil {
 		guestdhcp.relay, err = NewDHCP6Relay(guestdhcp.conn, relay)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "NewDHCP6Relay")
 		}
 	}
 
-	guestdhcp.iface = iface
 	return guestdhcp, nil
 }
 
@@ -90,12 +98,12 @@ func (s *SGuestDHCP6Server) getConfig(cliMac net.HardwareAddr, _ dhcp.Packet) *d
 		ip, port    = "", ""
 		isCandidate = false
 	)
-	guestDesc, guestNic := guestman.GuestDescGetter.GetGuestNicDesc(cliMac.String(), ip, port, s.iface, isCandidate)
+	guestDesc, guestNic := guestman.GuestDescGetter.GetGuestNicDesc(cliMac.String(), ip, port, s.ifaceDev.String(), isCandidate)
 	if guestNic == nil {
-		guestDesc, guestNic = guestman.GuestDescGetter.GetGuestNicDesc(cliMac.String(), ip, port, s.iface, !isCandidate)
+		guestDesc, guestNic = guestman.GuestDescGetter.GetGuestNicDesc(cliMac.String(), ip, port, s.ifaceDev.String(), !isCandidate)
 	}
 	if guestNic != nil && !guestNic.Virtual && len(guestNic.Ip6) > 0 {
-		return getGuestConfig(guestDesc, guestNic)
+		return getGuestConfig(guestDesc, guestNic, s.ifaceDev.GetHardwareAddr())
 	}
 	return nil
 }
@@ -105,20 +113,21 @@ func (s *SGuestDHCP6Server) ServeDHCP(pkt dhcp.Packet, cliMac net.HardwareAddr, 
 	return pkg, nil, err
 }
 
-func (s *SGuestDHCP6Server) ServeRA(pkt dhcp.Packet, cliMac net.HardwareAddr, addr *net.UDPAddr) (dhcp.Packet, error) {
-	var conf = s.getConfig(cliMac, pkt)
+func (s *SGuestDHCP6Server) ServeRA(pkt dhcp.Packet, cliMac net.HardwareAddr, addr *net.UDPAddr) (dhcp.Packet, net.IP, net.HardwareAddr, error) {
+	log.Infof("SGuestDHCP6Server ServeRA from %s", cliMac.String())
+	var conf = s.getConfig(cliMac, nil)
 	if conf != nil {
-		return dhcp.MakeRouterAdverPacket(conf.Gateway6, conf.PrefixLen6, uint32(conf.MTU))
+		return dhcp.MakeRouterAdverPacket(conf.Gateway6, conf.PrefixLen6, conf.Routes6, uint32(conf.MTU))
 	}
-	return nil, nil
+	return nil, nil, nil, nil
 }
 
 func (s *SGuestDHCP6Server) serveDHCPInternal(pkt dhcp.Packet, cliMac net.HardwareAddr, addr *net.UDPAddr) (dhcp.Packet, error) {
 	var conf = s.getConfig(cliMac, pkt)
 	if conf != nil {
-		log.Infof("Make DHCPv6 Reply %s TO %s", conf.ClientIP6, pkt.CHAddr())
+		log.Infof("Make DHCPv6 Reply %s TO %s %s", conf.ClientIP6, cliMac.String(), addr.String())
 		// Guest request ip
-		return dhcp.MakeReplyPacket(pkt, conf)
+		return dhcp.MakeDHCP6Reply(pkt, conf)
 	} else if s.relay != nil && s.relay.server != nil {
 		// Host agent as dhcp relay, relay to baremetal
 		return s.relay.Relay(pkt, addr)

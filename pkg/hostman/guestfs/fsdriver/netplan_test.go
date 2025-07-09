@@ -28,6 +28,8 @@ func TestNewNetplanConfig(t *testing.T) {
 		mainIp string
 		nics   []*types.SServerNic
 		want   *netplan.Configuration
+
+		mainIp6 string
 	}{
 		{
 			mainIp: "10.168.222.175",
@@ -254,10 +256,138 @@ func TestNewNetplanConfig(t *testing.T) {
 				},
 			},
 		},
+		{
+			mainIp:  "10.168.22.175",
+			mainIp6: "2001:db8::23",
+			nics: []*types.SServerNic{
+				&types.SServerNic{
+					Name:      "eth0",
+					Index:     0,
+					Bridge:    "br0",
+					Domain:    "cloud.local",
+					Ip:        "10.168.222.175",
+					Vlan:      1,
+					Driver:    "virtio",
+					Masklen:   24,
+					Virtual:   false,
+					Manual:    true,
+					WireId:    "399a06f3-7925-46c1-8b9f-d5a8580a74df",
+					NetId:     "22c93412-5882-4de0-8357-45ce647ceada",
+					Mac:       "00:24:c7:16:80:f2",
+					BandWidth: 1000,
+					Mtu:       1500,
+					Dns:       "8.8.8.8",
+					Ntp:       "",
+					Net:       "vnet222",
+					Interface: "ens5",
+					Gateway:   "10.168.222.1",
+					Ifname:    "vnet222-175",
+					Routes:    nil,
+
+					LinkUp: true,
+
+					Ip6:      "2001:db8::23",
+					Masklen6: 64,
+					Gateway6: "2001:db8::1",
+				},
+				&types.SServerNic{
+					Name:      "eth1",
+					Index:     1,
+					Bridge:    "br0",
+					Domain:    "cloud.local",
+					Ip:        "",
+					Vlan:      1,
+					Driver:    "virtio",
+					Masklen:   0,
+					Virtual:   true,
+					Manual:    true,
+					WireId:    "399a06f3-7925-46c1-8b9f-d5a8580a74df",
+					NetId:     "22c93412-5882-4de0-8357-45ce647ceada",
+					Mac:       "00:24:c7:16:80:f3",
+					BandWidth: 1000,
+					Mtu:       1500,
+					Dns:       "8.8.8.8",
+					Ntp:       "",
+					Net:       "vnet222",
+					Interface: "ens5",
+					Gateway:   "",
+					Ifname:    "vnet222-bpg",
+					Routes:    nil,
+
+					LinkUp:   true,
+					TeamWith: "00:24:c7:16:80:f2",
+				},
+			},
+			want: &netplan.Configuration{
+				Network: &netplan.Network{
+					Version:  2,
+					Renderer: netplan.NetworkRendererNetworkd,
+					Ethernets: map[string]*netplan.EthernetConfig{
+						"eth0": &netplan.EthernetConfig{
+							MacAddress: "00:24:c7:16:80:f2",
+							Match: &netplan.EthernetConfigMatch{
+								MacAddress: "00:24:c7:16:80:f2",
+							},
+							Mtu: 1500,
+						},
+						"eth1": &netplan.EthernetConfig{
+							MacAddress: "00:24:c7:16:80:f3",
+							Match: &netplan.EthernetConfigMatch{
+								MacAddress: "00:24:c7:16:80:f3",
+							},
+							Mtu: 1500,
+						},
+					},
+					Bonds: map[string]*netplan.Bond{
+						"bond0": &netplan.Bond{
+							EthernetConfig: netplan.EthernetConfig{
+								Addresses: []string{
+									"10.168.222.175/24",
+									"2001:db8::23/64",
+								},
+								MacAddress: "00:24:c7:16:80:f2",
+								Gateway6:   "2001:db8::1",
+								Nameservers: &netplan.Nameservers{
+									Search: []string{
+										"cloud.local",
+									},
+									Addresses: []string{
+										"8.8.8.8",
+									},
+								},
+								Mtu: 1500,
+								Routes: []*netplan.Route{
+									{
+										Metric: 0,
+										To:     "fd00:ec2::254/128",
+										Via:    "::",
+									},
+									{
+										Metric: 0,
+										To:     "fe80::a9fe:a9fe/128",
+										Via:    "::",
+									},
+								},
+							},
+							Interfaces: []string{
+								"eth0",
+								"eth1",
+							},
+							Parameters: &netplan.BondMode4Params{
+								BondModeBaseParams: &netplan.BondModeBaseParams{
+									Mode:               "802.3ad",
+									MiiMonitorInterval: 100,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 	for i, c := range cases {
 		allNics, bondNics := convertNicConfigs(c.nics)
-		netplanConfig := NewNetplanConfig(allNics, bondNics, c.mainIp)
+		netplanConfig := NewNetplanConfig(allNics, bondNics, c.mainIp, c.mainIp6)
 		if jsonutils.Marshal(netplanConfig).String() != jsonutils.Marshal(c.want).String() {
 			t.Errorf("nics %d: %s want: %s got: %s", i, jsonutils.Marshal(c.nics), jsonutils.Marshal(c.want).PrettyString(), jsonutils.Marshal(netplanConfig).PrettyString())
 		}

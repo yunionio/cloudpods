@@ -68,8 +68,8 @@ const (
 
 	bpfProcDhcpResp6 uint8 = 8
 	bpfProcICMPv6    uint8 = 11
-	bpfProcReadPkt6  uint8 = 14
-	bpfProcEnd6      uint8 = 15
+	bpfProcReadPkt6  uint8 = 17
+	bpfProcEnd6      uint8 = 18
 
 	bpfProcReadPkt4 uint8 = 14
 	bpfProcEnd4     uint8 = 15
@@ -128,29 +128,35 @@ var (
 		&bpf.JumpIf{Cond: bpf.JumpNotEqual, Val: udpProtocol, SkipTrue: bpfGoto(4, bpfProcICMPv6), SkipFalse: bpfContinue},
 		/* 4 load 14 + 40 + 0 (UDP src port), 2 bytes */
 		bpf.LoadAbsolute{Off: 54, Size: 2},
-		/* 5 if udp_src_port != 547 then jump to ipv6_resp/21(19+2) else continue */
-		bpf.JumpIf{Cond: bpf.JumpNotEqual, Val: 547, SkipTrue: bpfGoto(6, bpfProcDhcpResp), SkipFalse: bpfContinue},
+		/* 5 if udp_src_port != 546 then jump to ipv6_resp/21(19+2) else continue */
+		bpf.JumpIf{Cond: bpf.JumpNotEqual, Val: 546, SkipTrue: bpfGoto(6, bpfProcDhcpResp), SkipFalse: bpfContinue},
 		/* 6 load 14 + 40 + 2 (udp dst port), 2 bytes */
 		bpf.LoadAbsolute{Off: 56, Size: 2},
-		/* 7 if udp_dst_port == 546 then jump to read/24(21+3) else jump to end/25(21+4) */
-		bpf.JumpIf{Cond: bpf.JumpEqual, Val: 546, SkipTrue: bpfGoto(8, bpfProcReadPkt6), SkipFalse: bpfGoto(8, bpfProcEnd6)},
-		/* 8 [dhcpv6_resp] if udp_src_port != 546 then jump to end/25(22+3) else continue, which means a UDP response */
-		bpf.JumpIf{Cond: bpf.JumpNotEqual, Val: 546, SkipTrue: bpfGoto(9, bpfProcEnd6), SkipFalse: bpfContinue},
+		/* 7 if udp_dst_port == 547 then jump to readPkt6 else jump to end */
+		bpf.JumpIf{Cond: bpf.JumpEqual, Val: 547, SkipTrue: bpfGoto(8, bpfProcReadPkt6), SkipFalse: bpfGoto(8, bpfProcEnd6)},
+		/* 8 [dhcpv6_resp] if udp_src_port != 547 then jump to end else continue, which means a DHCPv6 response */
+		bpf.JumpIf{Cond: bpf.JumpNotEqual, Val: 547, SkipTrue: bpfGoto(9, bpfProcEnd6), SkipFalse: bpfContinue},
 		/* 9 load 14 + 40 + 2 (udp dst port), 2 bytes */
 		bpf.LoadAbsolute{Off: 56, Size: 2},
-		/* 10 if udp_dst_port != 547 then jump to end/25(24+1) else jump to read/ */
-		bpf.JumpIf{Cond: bpf.JumpNotEqual, Val: 547, SkipTrue: bpfGoto(11, bpfProcEnd6), SkipFalse: bpfGoto(11, bpfProcReadPkt6)},
+		/* 10 if udp_dst_port != 546 then jump to end else jump to readPkt6 */
+		bpf.JumpIf{Cond: bpf.JumpNotEqual, Val: 546, SkipTrue: bpfGoto(11, bpfProcEnd6), SkipFalse: bpfGoto(11, bpfProcReadPkt6)},
 
-		/* 11 [icmp6] if ip_proto != ICMP then jump to [end]/24(17 + 7) else continue */
+		/* 11 [icmp6] if ip_proto != ICMP then jump to [end] else continue */
 		&bpf.JumpIf{Cond: bpf.JumpNotEqual, Val: icmpProtocol, SkipTrue: bpfGoto(12, bpfProcEnd6), SkipFalse: bpfContinue},
 		/* 12 [icmp6 type] load 14 + 40 + 0 (ICMPv6 type), 1 bytes */
 		bpf.LoadAbsolute{Off: 54, Size: 1},
-		/* 13 [Router Solicitation] if icmp6_type == 133 then jump to [read] else [end] */
-		bpf.JumpIf{Cond: bpf.JumpEqual, Val: 133, SkipTrue: bpfGoto(14, bpfProcReadPkt6), SkipFalse: bpfGoto(14, bpfProcEnd6)},
+		/* 13 [Router Solicitation] if icmp6_type == 133 then jump to [read] else [continue] */
+		bpf.JumpIf{Cond: bpf.JumpEqual, Val: 133, SkipTrue: bpfGoto(14, bpfProcReadPkt6), SkipFalse: bpfContinue},
+		/* 14 [Router Advertisement] if icmp6_type == 134 then jump to [read] else [continue] */
+		bpf.JumpIf{Cond: bpf.JumpEqual, Val: 134, SkipTrue: bpfGoto(15, bpfProcReadPkt6), SkipFalse: bpfContinue},
+		/* 15 [Neightbor Solicitation] if icmp6_type == 135 then jump to [read] else [continue] */
+		bpf.JumpIf{Cond: bpf.JumpEqual, Val: 135, SkipTrue: bpfGoto(16, bpfProcReadPkt6), SkipFalse: bpfContinue},
+		/* 16 [Neighbor Advertisement] if icmp6_type == 136 then jump to [read] else [end] */
+		bpf.JumpIf{Cond: bpf.JumpEqual, Val: 136, SkipTrue: bpfGoto(17, bpfProcReadPkt6), SkipFalse: bpfGoto(17, bpfProcEnd6)},
 
-		/* 14 [read] return the whole packet */
+		/* 17 [read] return the whole packet */
 		bpf.RetConstant{Val: 0x40000},
-		/* 15 [end] return none */
+		/* 18 [end] return none */
 		bpf.RetConstant{Val: 0x0},
 	}
 )
@@ -285,7 +291,7 @@ func (s *DHCP6Server) serveDHCP(handler DHCP6Handler) error {
 
 			if addr.Port == icmpRAFakePort {
 				// receive a RA solication
-				resp, err := handler.ServeRA(pkt, mac, addr)
+				resp, gwIp, gwMac, err := handler.ServeRA(pkt, mac, addr)
 				if err != nil {
 					log.Warningf("[DHCP6] handler ServeRA error: %s", err)
 					return
@@ -295,20 +301,21 @@ func (s *DHCP6Server) serveDHCP(handler DHCP6Handler) error {
 					return
 				}
 
-				//log.Debugf("[DHCP] send response packet: %s to interface: %#v", resp.DebugString(), intf)
-				err = s.conn.SendDHCP(resp, addr, mac)
+				// RA should be sent to FF02::1 from gwIP
+				err = s.conn.SendICMP6(resp, gwIp, gwMac, mac)
 				if err != nil {
-					log.Errorf("[DHCP] failed to response packet for %s: %v", pkt.CHAddr(), err)
+					log.Errorf("[DHCP6] failed to response packet for ICMP6 message: %s", err)
 				}
 				return
 			}
+
 			resp, targets, err := handler.ServeDHCP(pkt, mac, addr)
 			if err != nil {
-				log.Warningf("[DHCP] handler serve error: %s", err)
+				log.Warningf("[DHCP6] handler serve error: %s", err)
 				return
 			}
 			if resp == nil {
-				// log.Warningf("[DHCP] hander response null packet")
+				log.Warningf("[DHCP6] hander response null packet")
 				return
 			}
 			if len(targets) > 0 {
@@ -316,15 +323,14 @@ func (s *DHCP6Server) serveDHCP(handler DHCP6Handler) error {
 				for _, target := range targets {
 					log.Debugf("[DHCP6] Send packet back to %s", target)
 					targetUdpAddr.IP = net.ParseIP(target)
-					resp.SetGIAddr(targetUdpAddr.IP)
-					if err = s.conn.SendDHCP(resp, &targetUdpAddr, mac); err != nil {
+					if err = s.conn.SendDHCP6(resp, &targetUdpAddr, mac); err != nil {
 						log.Errorf("[DHCP6] failed to response packet for %s: %v", pkt.CHAddr(), err)
 					}
 				}
 				return
 			}
 			//log.Debugf("[DHCP] send response packet: %s to interface: %#v", resp.DebugString(), intf)
-			if err = s.conn.SendDHCP(resp, addr, mac); err != nil {
+			if err = s.conn.SendDHCP6(resp, addr, mac); err != nil {
 				log.Errorf("[DHCP6] failed to response packet for %s: %v", pkt.CHAddr(), err)
 				return
 			}

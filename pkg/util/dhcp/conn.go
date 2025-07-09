@@ -73,6 +73,7 @@ type conn interface {
 	Send(b []byte, addr *net.UDPAddr, destMac net.HardwareAddr) error
 	Recv(b []byte) ([]byte, *net.UDPAddr, net.HardwareAddr, int, error)
 	Send6(b []byte, addr *net.UDPAddr, destMac net.HardwareAddr) error
+	SendICMP6(b []byte, srcIp net.IP, srcMac, destMac net.HardwareAddr) error
 	Recv6(b []byte) ([]byte, *net.UDPAddr, net.HardwareAddr, int, error)
 	SetReadDeadline(t time.Time) error
 	SetWriteDeadline(t time.Time) error
@@ -206,6 +207,16 @@ func (c *Conn) SendDHCP(pkt Packet, addr *net.UDPAddr, mac net.HardwareAddr) err
 
 	}
 	return c.conn.Send(b, addr, mac)
+}
+
+func (c *Conn) SendDHCP6(pkt Packet, addr *net.UDPAddr, mac net.HardwareAddr) error {
+	b := pkt.Marshal()
+	return c.conn.Send6(b, addr, mac)
+}
+
+func (c *Conn) SendICMP6(pkt Packet, srcIp net.IP, srcmac, dstmac net.HardwareAddr) error {
+	b := pkt.Marshal()
+	return c.conn.SendICMP6(b, srcIp, srcmac, dstmac)
 }
 
 // SetReadDeadline sets the deadline for future Read calls.  If the
