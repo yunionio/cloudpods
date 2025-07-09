@@ -70,9 +70,9 @@ func (r *SDHCP6Relay) ServeDHCP(pkt dhcp.Packet, cliMac net.HardwareAddr, addr *
 	return pkg, nil, err
 }
 
-func (r *SDHCP6Relay) ServeRA(pkt dhcp.Packet, cliMac net.HardwareAddr, addr *net.UDPAddr) (dhcp.Packet, error) {
+func (r *SDHCP6Relay) ServeRA(pkt dhcp.Packet, cliMac net.HardwareAddr, addr *net.UDPAddr) (dhcp.Packet, net.IP, net.HardwareAddr, error) {
 	pkg, err := r.serveDHCPInternal(pkt, addr)
-	return pkg, err
+	return pkg, nil, nil, err
 }
 
 func (r *SDHCP6Relay) serveDHCPInternal(pkt dhcp.Packet, _ *net.UDPAddr) (dhcp.Packet, error) {

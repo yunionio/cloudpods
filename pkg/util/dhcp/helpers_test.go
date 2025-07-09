@@ -16,6 +16,7 @@ package dhcp
 
 import (
 	"fmt"
+	"net"
 	"testing"
 )
 
@@ -60,9 +61,69 @@ func TestGetClasslessRoutePack(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		got := getClasslessRoutePack([]string{c.net, c.gw})
+		routeInfo, err := ParseRouteInfo([]string{c.net, c.gw})
+		if err != nil {
+			t.Errorf("parse route %s error: %v", c.net, err)
+			continue
+		}
+		got := getClasslessRoutePack(*routeInfo)
 		if err := compareBytes(c.want, got); err != nil {
 			t.Errorf("net: %s gw: %s want: %#v got: %#v", c.net, c.gw, c.want, got)
+		}
+	}
+}
+
+func TestParseRouteInfo(t *testing.T) {
+	cases := []struct {
+		net  string
+		gw   string
+		want *SRouteInfo
+	}{
+		{
+			net: "10.0.0.0/8",
+			gw:  "10.168.120.1",
+			want: &SRouteInfo{
+				Prefix:    net.ParseIP("10.0.0.0"),
+				PrefixLen: 8,
+				Gateway:   net.ParseIP("10.168.120.1"),
+			},
+		},
+		{
+			net: "::/0",
+			gw:  "3ffe:3200:fe::1",
+			want: &SRouteInfo{
+				Prefix:    net.ParseIP("::"),
+				PrefixLen: 0,
+				Gateway:   net.ParseIP("3ffe:3200:fe::1"),
+			},
+		},
+		{
+			net: "fd00:ec2::254/128",
+			gw:  "::",
+			want: &SRouteInfo{
+				Prefix:    net.ParseIP("fd00:ec2::254"),
+				PrefixLen: 128,
+				Gateway:   net.ParseIP("::"),
+			},
+		},
+		{
+			net: "fe80::a9fe:a9fe/128",
+			gw:  "::",
+			want: &SRouteInfo{
+				Prefix:    net.ParseIP("fe80::a9fe:a9fe"),
+				PrefixLen: 128,
+				Gateway:   net.ParseIP("::"),
+			},
+		},
+	}
+	for _, c := range cases {
+		routeInfo, err := ParseRouteInfo([]string{c.net, c.gw})
+		if err != nil {
+			t.Errorf("parse route %s error: %v", c.net, err)
+			continue
+		}
+		if routeInfo.String() != c.want.String() {
+			t.Errorf("parse route expect %s got: %s", c.want.String(), routeInfo.String())
 		}
 	}
 }

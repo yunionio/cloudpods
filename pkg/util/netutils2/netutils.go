@@ -30,6 +30,7 @@ import (
 	"yunion.io/x/pkg/util/regutils"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
+	"yunion.io/x/onecloud/pkg/util/dhcp"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 )
 
@@ -131,20 +132,29 @@ func Netlen2Mask(netmasklen int) string {
 	return netutils.Netlen2Mask(netmasklen)
 }
 
-func addRoute(routes [][]string, net, gw string) [][]string {
-	for _, rt := range routes {
-		if rt[0] == net {
-			return routes
+func addRoute(routes []dhcp.SRouteInfo, net, gw string) []dhcp.SRouteInfo {
+	route, _ := dhcp.ParseRouteInfo([]string{net, gw})
+	if route != nil {
+		for _, rt := range routes {
+			if rt.Prefix.String() == route.Prefix.String() && rt.PrefixLen == route.PrefixLen {
+				return routes
+			}
 		}
-	}
-	return append(routes, []string{net, gw})
-}
-
-func extendRoutes(routes [][]string, nicRoutes []types.SRoute) [][]string {
-	for i := 0; i < len(nicRoutes); i++ {
-		routes = addRoute(routes, nicRoutes[i][0], nicRoutes[i][1])
+		// not found
+		routes = append(routes, *route)
 	}
 	return routes
+}
+
+func extendRoutes(routes4, routes6 []dhcp.SRouteInfo, nicRoutes []types.SRoute) ([]dhcp.SRouteInfo, []dhcp.SRouteInfo) {
+	for i := 0; i < len(nicRoutes); i++ {
+		if regutils.MatchCIDR6(nicRoutes[i][0]) {
+			routes6 = addRoute(routes6, nicRoutes[i][0], nicRoutes[i][1])
+		} else {
+			routes4 = addRoute(routes4, nicRoutes[i][0], nicRoutes[i][1])
+		}
+	}
+	return routes4, routes6
 }
 
 func isExitAddress(ip string) bool {
@@ -156,28 +166,33 @@ func isExitAddress(ip string) bool {
 	return netutils.IsExitAddress(ipv4)
 }
 
-func AddNicRoutes(routes [][]string, nicDesc *types.SServerNic, mainIp string, nicCnt int) [][]string {
+func AddNicRoutes(routes4 []dhcp.SRouteInfo, routes6 []dhcp.SRouteInfo, nicDesc *types.SServerNic, mainIp string, mainIp6 string, nicCnt int) ([]dhcp.SRouteInfo, []dhcp.SRouteInfo) {
 	// always add static routes, even if this is the default NIC
 	// if mainIp == nicDesc.Ip {
 	// 	return routes
 	// }
 	if len(nicDesc.Routes) > 0 {
-		routes = extendRoutes(routes, nicDesc.Routes)
+		routes4, routes6 = extendRoutes(routes4, routes6, nicDesc.Routes)
 	} else if len(nicDesc.Gateway) > 0 && !isExitAddress(nicDesc.Ip) &&
 		nicCnt == 2 && nicDesc.Ip != mainIp && isExitAddress(mainIp) {
 		for _, pref := range netutils.GetPrivateIPRanges() {
 			prefs := pref.ToPrefixes()
 			for _, p := range prefs {
-				routes = addRoute(routes, p.String(), nicDesc.Gateway)
+				routes4 = addRoute(routes4, p.String(), nicDesc.Gateway)
 			}
 		}
 	}
 
-	if nicDesc.Ip == mainIp {
+	if len(mainIp) > 0 && nicDesc.Ip == mainIp {
 		// always add 169.254.169.254 for default NIC
-		routes = addRoute(routes, "169.254.169.254/32", "0.0.0.0")
+		routes4 = addRoute(routes4, "169.254.169.254/32", "0.0.0.0")
 	}
-	return routes
+	if len(mainIp6) > 0 && nicDesc.Ip6 == mainIp6 {
+		routes6 = addRoute(routes6, "fd00:ec2::254/128", "::")
+		routes6 = addRoute(routes6, "fe80::a9fe:a9fe/128", "::")
+	}
+
+	return routes4, routes6
 }
 
 func GetNicDns(nicdesc *types.SServerNic) []string {
@@ -322,6 +337,14 @@ func (n *SNetInterface) FetchConfig2(expectIp string, expectIp6 string) {
 
 func (n *SNetInterface) GetMac() string {
 	return n.mac
+}
+
+func (n *SNetInterface) GetHardwareAddr() net.HardwareAddr {
+	mac, err := net.ParseMAC(n.mac)
+	if err != nil {
+		return nil
+	}
+	return mac
 }
 
 func (n *SNetInterface) GetAllMacs() []string {

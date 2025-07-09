@@ -38,6 +38,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/util/coreosutils"
+	"yunion.io/x/onecloud/pkg/util/dhcp"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/fstabutils"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
@@ -930,13 +931,18 @@ func (d *sDebianLikeRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics 
 	if mainNic != nil {
 		mainIp = mainNic.Ip
 	}
+	mainNic6 := getMainNic6(allNics)
+	var mainIp6 string
+	if mainNic6 != nil {
+		mainIp6 = mainNic6.Ip6
+	}
 
 	netplanDir := "/etc/netplan"
 	if rootFs.Exists(netplanDir, false) {
 		for _, f := range rootFs.ListDir(netplanDir, false) {
 			rootFs.Remove(filepath.Join(netplanDir, f), false)
 		}
-		netplanConfig := NewNetplanConfig(allNics, bondNics, mainIp)
+		netplanConfig := NewNetplanConfig(allNics, bondNics, mainIp, mainIp6)
 		log.Debugf("netplanConfig:\n %s", netplanConfig.YAMLString())
 		if err := rootFs.FilePutContents(path.Join(netplanDir, "config.yaml"), netplanConfig.YAMLString(), false, false); err != nil {
 			return errors.Wrap(err, "Put netplan config")
@@ -978,11 +984,16 @@ func (d *sDebianLikeRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics 
 			if nicDesc.Mtu > 0 {
 				cmds.WriteString(fmt.Sprintf("    mtu %d\n", nicDesc.Mtu))
 			}
-			var routes = make([][]string, 0)
-			routes = netutils2.AddNicRoutes(routes, nicDesc, mainIp, nicCnt)
-			for _, r := range routes {
-				cmds.WriteString(fmt.Sprintf("    up route add -net %s gw %s || true\n", r[0], r[1]))
-				cmds.WriteString(fmt.Sprintf("    down route del -net %s gw %s || true\n", r[0], r[1]))
+			routes4 := make([]dhcp.SRouteInfo, 0)
+			routes6 := make([]dhcp.SRouteInfo, 0)
+			routes4, routes6 = netutils2.AddNicRoutes(routes4, routes6, nicDesc, mainIp, mainIp6, nicCnt)
+			for _, r := range routes4 {
+				cmds.WriteString(fmt.Sprintf("    up ip route add %s/%d via %s || true\n", r.Prefix, r.PrefixLen, r.Gateway))
+				cmds.WriteString(fmt.Sprintf("    down ip route del %s/%d via %s || true\n", r.Prefix, r.PrefixLen, r.Gateway))
+			}
+			for _, r := range routes6 {
+				cmds.WriteString(fmt.Sprintf("    up ip -6 route add %s/%d via %s || true\n", r.Prefix, r.PrefixLen, r.Gateway))
+				cmds.WriteString(fmt.Sprintf("    down ip -6 route del %s/%d via %s || true\n", r.Prefix, r.PrefixLen, r.Gateway))
 			}
 			dnslist := netutils2.GetNicDns(nicDesc)
 			if len(dnslist) > 0 {
@@ -1326,7 +1337,21 @@ func getMainNic(nics []*types.SServerNic) *types.SServerNic {
 		}
 	}
 	for i := range nics {
-		if len(nics[i].Gateway) > 0 {
+		if len(nics[i].Ip) > 0 && len(nics[i].Gateway) > 0 {
+			return nics[i]
+		}
+	}
+	return nil
+}
+
+func getMainNic6(nics []*types.SServerNic) *types.SServerNic {
+	for i := range nics {
+		if nics[i].IsDefault {
+			return nics[i]
+		}
+	}
+	for i := range nics {
+		if len(nics[i].Ip6) > 0 && len(nics[i].Gateway6) > 0 {
 			return nics[i]
 		}
 	}
@@ -1386,6 +1411,12 @@ func (r *sRedhatLikeRootFs) deployNetworkingScripts(rootFs IDiskPartition, nics 
 	if mainNic != nil {
 		mainIp = mainNic.Ip
 	}
+	mainNic6 := getMainNic6(allNics)
+	var mainIp6 string
+	if mainNic6 != nil {
+		mainIp6 = mainNic6.Ip6
+	}
+
 	for i := range allNics {
 		nicDesc := allNics[i]
 		var cmds strings.Builder
@@ -1436,7 +1467,7 @@ func (r *sRedhatLikeRootFs) deployNetworkingScripts(rootFs IDiskPartition, nics 
 		} else if nicDesc.Manual {
 			cmds.WriteString("BOOTPROTO=none\n")
 			if nicDesc.VlanInterface {
-				if err := r.deployVlanNetworkingScripts(rootFs, scriptPath, mainIp, nicCnt, nicDesc); err != nil {
+				if err := r.deployVlanNetworkingScripts(rootFs, scriptPath, mainIp, mainIp6, nicCnt, nicDesc); err != nil {
 					return errors.Wrap(err, "deployVlanNetworkingScripts")
 				}
 			} else {
@@ -1452,13 +1483,14 @@ func (r *sRedhatLikeRootFs) deployNetworkingScripts(rootFs IDiskPartition, nics 
 					cmds.WriteString(nicDesc.Gateway)
 					cmds.WriteString("\n")
 				}
-				var routes = make([][]string, 0)
-				routes = netutils2.AddNicRoutes(routes, nicDesc, mainIp, nicCnt)
+				routes4 := make([]dhcp.SRouteInfo, 0)
+				routes6 := make([]dhcp.SRouteInfo, 0)
+				routes4, routes6 = netutils2.AddNicRoutes(routes4, routes6, nicDesc, mainIp, mainIp6, nicCnt)
 				var rtbl strings.Builder
-				for _, r := range routes {
-					rtbl.WriteString(r[0])
+				for _, r := range routes4 {
+					rtbl.WriteString(fmt.Sprintf("%s/%d", r.Prefix, r.PrefixLen))
 					rtbl.WriteString(" via ")
-					rtbl.WriteString(r[1])
+					rtbl.WriteString(r.Gateway.String())
 					rtbl.WriteString(" dev ")
 					rtbl.WriteString(nicDesc.Name)
 					rtbl.WriteString("\n")
@@ -1496,12 +1528,12 @@ func (r *sRedhatLikeRootFs) deployNetworkingScripts(rootFs IDiskPartition, nics 
 				// IPv6 support static temporarily
 				// TODO
 				cmds.WriteString("IPV6INIT=yes\n")
-				cmds.WriteString("DHCPV6C=no\n")
+				cmds.WriteString("DHCPV6C=yes\n")
 				cmds.WriteString("IPV6_AUTOCONF=no\n")
-				cmds.WriteString(fmt.Sprintf("IPV6ADDR=%s/%d\n", nicDesc.Ip6, nicDesc.Masklen6))
-				if len(nicDesc.Gateway6) > 0 {
-					cmds.WriteString(fmt.Sprintf("IPV6_DEFAULTGW=%s\n", nicDesc.Gateway6))
-				}
+				// cmds.WriteString(fmt.Sprintf("IPV6ADDR=%s/%d\n", nicDesc.Ip6, nicDesc.Masklen6))
+				// if len(nicDesc.Gateway6) > 0 {
+				// 	cmds.WriteString("IPV6_DEFROUTE=yes\n", nicDesc.Gateway6))
+				// }
 			}
 		}
 		var fn = fmt.Sprintf("%s/ifcfg-%s", scriptPath, nicDesc.Name)
@@ -1513,7 +1545,7 @@ func (r *sRedhatLikeRootFs) deployNetworkingScripts(rootFs IDiskPartition, nics 
 	return nil
 }
 
-func (r *sRedhatLikeRootFs) deployVlanNetworkingScripts(rootFs IDiskPartition, scriptPath, mainIp string, nicCnt int, nicDesc *types.SServerNic) error {
+func (r *sRedhatLikeRootFs) deployVlanNetworkingScripts(rootFs IDiskPartition, scriptPath, mainIp, mainIp6 string, nicCnt int, nicDesc *types.SServerNic) error {
 	if nicDesc.Vlan <= 1 {
 		return nil
 	}
@@ -1544,13 +1576,14 @@ func (r *sRedhatLikeRootFs) deployVlanNetworkingScripts(rootFs IDiskPartition, s
 		cmds.WriteString(nicDesc.Gateway)
 		cmds.WriteString("\n")
 	}
-	var routes = make([][]string, 0)
-	routes = netutils2.AddNicRoutes(routes, nicDesc, mainIp, nicCnt)
+	routes4 := make([]dhcp.SRouteInfo, 0)
+	routes6 := make([]dhcp.SRouteInfo, 0)
+	routes4, routes6 = netutils2.AddNicRoutes(routes4, routes6, nicDesc, mainIp, mainIp6, nicCnt)
 	var rtbl strings.Builder
-	for _, r := range routes {
-		rtbl.WriteString(r[0])
+	for _, r := range routes4 {
+		rtbl.WriteString(fmt.Sprintf("%s/%d", r.Prefix, r.PrefixLen))
 		rtbl.WriteString(" via ")
-		rtbl.WriteString(r[1])
+		rtbl.WriteString(r.Gateway.String())
 		rtbl.WriteString(" dev ")
 		rtbl.WriteString(fmt.Sprintf("%s.%d", nicDesc.Name, nicDesc.Vlan))
 		rtbl.WriteString("\n")
