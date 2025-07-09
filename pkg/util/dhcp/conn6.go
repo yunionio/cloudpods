@@ -70,11 +70,11 @@ func interfaceToIPv6Addr(ifi *net.Interface) (net.IP, error) {
 	for _, ifa := range ifat {
 		switch v := ifa.(type) {
 		case *net.IPAddr:
-			if len(v.IP) == net.IPv6len {
+			if v.IP.To4() == nil && v.IP.To16() != nil {
 				return v.IP, nil
 			}
 		case *net.IPNet:
-			if len(v.IP) == net.IPv6len {
+			if v.IP.To4() == nil && v.IP.To16() != nil {
 				return v.IP, nil
 			}
 		}
@@ -145,4 +145,8 @@ func (s *socketConn) Send6(b []byte, addr *net.UDPAddr, destMac net.HardwareAddr
 		Port: addr.Port,
 	}
 	return syscall.Sendto(s.sock, b, 0, destAddr)
+}
+
+func (s *socketConn) SendICMP6(b []byte, srcIp net.IP, srcMac, destMac net.HardwareAddr) error {
+	return errors.Wrap(errors.ErrNotImplemented, "SendICMP6 not implemented")
 }

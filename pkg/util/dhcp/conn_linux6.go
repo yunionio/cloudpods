@@ -106,6 +106,7 @@ func (s *rawSocketConn) Recv6(b []byte) ([]byte, *net.UDPAddr, net.HardwareAddr,
 
 	icmpLayer := p.Layer(layers.LayerTypeICMPv6)
 	if icmpLayer != nil {
+		log.Infof("rawSocketConn Recv6 icmpLayer %s", icmpLayer.LayerType())
 		raLayer := p.Layer(layers.LayerTypeICMPv6RouterSolicitation)
 		if raLayer != nil {
 			// icmp6, ra solitation
@@ -143,14 +144,56 @@ func (s *rawSocketConn) Recv6(b []byte) ([]byte, *net.UDPAddr, net.HardwareAddr,
 	}
 }
 
+func (s *rawSocketConn) SendICMP6(b []byte, srcIP net.IP, srcMac, destMac net.HardwareAddr) error {
+	var icmpRouterAdvMsg = new(layers.ICMPv6RouterAdvertisement)
+	if err := icmpRouterAdvMsg.DecodeFromBytes(b, gopacket.NilDecodeFeedback); err != nil {
+		return errors.Wrap(err, "Decode icmp router advertisement bytes error")
+	}
+
+	var eth = &layers.Ethernet{
+		EthernetType: layers.EthernetTypeIPv6,
+		SrcMAC:       s.iface.HardwareAddr,
+		DstMAC:       destMac,
+	}
+
+	dstIP := net.ParseIP("ff02::1")
+
+	var ip = &layers.IPv6{
+		Version:    6,
+		HopLimit:   64,
+		SrcIP:      srcIP,
+		DstIP:      dstIP,
+		NextHeader: layers.IPProtocolICMPv6,
+	}
+
+	var icmp6 = &layers.ICMPv6{
+		TypeCode: layers.CreateICMPv6TypeCode(layers.ICMPv6TypeRouterAdvertisement, 0),
+	}
+	icmp6.SetNetworkLayerForChecksum(ip)
+
+	var (
+		buf  = gopacket.NewSerializeBuffer()
+		opts = gopacket.SerializeOptions{ComputeChecksums: true, FixLengths: true}
+	)
+	if err := gopacket.SerializeLayers(buf, opts, eth, ip, icmp6, icmpRouterAdvMsg); err != nil {
+		return errors.Wrap(err, "SerializeLayers error")
+	}
+
+	// s.conn.SetWriteDeadline(time.Now().Add(DefaultWriteTimeout)) // 2 second
+	if _, err := s.conn.WriteTo(buf.Bytes(), &packet.Addr{HardwareAddr: destMac}); err != nil {
+		return errors.Wrap(err, "Send icmp packet error")
+	}
+	return nil
+}
+
 func (s *rawSocketConn) Send6(b []byte, addr *net.UDPAddr, destMac net.HardwareAddr) error {
-	var dhcp = new(layers.DHCPv4)
+	var dhcp = new(layers.DHCPv6)
 	if err := dhcp.DecodeFromBytes(b, gopacket.NilDecodeFeedback); err != nil {
 		return errors.Wrap(err, "Decode dhcp bytes error")
 	}
 
 	var eth = &layers.Ethernet{
-		EthernetType: layers.EthernetTypeIPv4,
+		EthernetType: layers.EthernetTypeIPv6,
 		SrcMAC:       s.iface.HardwareAddr,
 		DstMAC:       destMac,
 	}

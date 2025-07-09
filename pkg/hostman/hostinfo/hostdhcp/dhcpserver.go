@@ -20,7 +20,9 @@ import (
 	"time"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/netutils"
+	"yunion.io/x/pkg/util/regutils"
 
 	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
@@ -42,7 +44,7 @@ type SGuestDHCPServer struct {
 	relay  *SDHCPRelay
 	conn   *dhcp.Conn
 
-	iface string
+	ifaceDev *netutils2.SNetInterface
 }
 
 type SDHCPRelayUpstream struct {
@@ -56,19 +58,25 @@ func NewGuestDHCPServer(iface string, port int, relay *SDHCPRelayUpstream) (*SGu
 		guestdhcp = new(SGuestDHCPServer)
 	)
 
+	dev := netutils2.NewNetInterface(iface)
+	if dev.GetHardwareAddr() == nil {
+		return nil, errors.Wrapf(errors.ErrInvalidStatus, "iface %s no mac", iface)
+	}
+
+	guestdhcp.ifaceDev = dev
+
 	guestdhcp.server, guestdhcp.conn, err = dhcp.NewDHCPServer2(iface, DEFAULT_DHCP_SERVER_PORT)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "dhcp.NewDHCPServer2")
 	}
 
 	if relay != nil {
 		guestdhcp.relay, err = NewDHCPRelay(guestdhcp.conn, relay)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "NewDHCPRelay")
 		}
 	}
 
-	guestdhcp.iface = iface
 	return guestdhcp, nil
 }
 
@@ -143,11 +151,31 @@ func GetMainNic(nics []*desc.SGuestNetwork) *desc.SGuestNetwork {
 			return n
 		}
 	}
+	for _, n := range nics {
+		if n.Ip != "" && n.Gateway != "" {
+			return n
+		}
+	}
+	return nil
+}
+
+func GetMainNic6(nics []*desc.SGuestNetwork) *desc.SGuestNetwork {
+	for _, n := range nics {
+		if n.IsDefault {
+			return n
+		}
+	}
+	for _, n := range nics {
+		if n.Ip6 != "" && n.Gateway6 != "" {
+			return n
+		}
+	}
 	return nil
 }
 
 func getGuestConfig(
 	guestDesc *desc.SGuestDesc, guestNic *desc.SGuestNetwork,
+	serverMac net.HardwareAddr,
 ) *dhcp.ResponseConfig {
 	var nicdesc = new(types.SServerNic)
 	if err := gusetnetworkJsonDescToServerNic(nicdesc, guestNic); err != nil {
@@ -156,6 +184,9 @@ func getGuestConfig(
 	}
 
 	var conf = new(dhcp.ResponseConfig)
+
+	conf.InterfaceMac = serverMac
+
 	nicIp := nicdesc.Ip
 	v4Ip, _ := netutils.NewIPV4Addr(nicIp)
 	conf.ClientIP = net.ParseIP(nicdesc.Ip)
@@ -174,46 +205,87 @@ func getGuestConfig(
 
 	if len(nicdesc.Ip6) > 0 {
 		// ipv6
-		conf.Gateway6 = net.ParseIP(nicdesc.Gateway6)
-		conf.PrefixLen6 = uint8(nicdesc.Masklen6)
 		conf.ClientIP6 = net.ParseIP(nicdesc.Ip6)
 	}
 
 	// get main ip
 	guestNics := guestDesc.Nics
-	manNic := GetMainNic(guestNics)
+	mainNic := GetMainNic(guestNics)
 	var mainIp string
-	if manNic != nil {
-		mainIp = manNic.Ip
+	if mainNic != nil {
+		mainIp = mainNic.Ip
+	}
+	mainNic6 := GetMainNic6(guestNics)
+	var mainIp6 string
+	if mainNic6 != nil {
+		mainIp6 = mainNic6.Ip6
 	}
 
-	var route = [][]string{}
+	route4 := make([]dhcp.SRouteInfo, 0)
+	route6 := make([]dhcp.SRouteInfo, 0)
 	if nicdesc.IsDefault {
-		conf.Gateway = net.ParseIP(nicdesc.Gateway)
-
 		osName := guestDesc.OsName
 		if len(osName) == 0 {
 			osName = "Linux"
 		}
-		if !strings.HasPrefix(strings.ToLower(osName), "win") {
-			route = append(route, []string{"0.0.0.0/0", nicdesc.Gateway})
+
+		if nicdesc.Gateway != "" {
+			conf.Gateway = net.ParseIP(nicdesc.Gateway)
+
+			if !strings.HasPrefix(strings.ToLower(osName), "win") {
+				route4 = append(route4, dhcp.SRouteInfo{
+					Prefix:    net.ParseIP("0.0.0.0"),
+					PrefixLen: 0,
+					Gateway:   net.ParseIP(nicdesc.Gateway),
+				})
+			}
 		}
-		route = append(route, []string{"169.254.169.254/32", "0.0.0.0"})
+
+		if len(nicdesc.Gateway6) > 0 {
+			conf.Gateway6 = net.ParseIP(nicdesc.Gateway6)
+			conf.PrefixLen6 = uint8(nicdesc.Masklen6)
+			route6 = append(route6, dhcp.SRouteInfo{
+				Prefix:    net.ParseIP("::"),
+				PrefixLen: 0,
+				Gateway:   net.ParseIP(nicdesc.Gateway6),
+			})
+		}
 	}
-	route = netutils2.AddNicRoutes(route, nicdesc, mainIp, len(guestNics))
-	conf.Routes = route
+	route4, route6 = netutils2.AddNicRoutes(route4, route6, nicdesc, mainIp, mainIp6, len(guestNics))
+
+	conf.Routes = route4
+	conf.Routes6 = route6
 
 	if len(nicdesc.Dns) > 0 {
 		conf.DNSServers = make([]net.IP, 0)
+		conf.DNSServers6 = make([]net.IP, 0)
 		for _, dns := range strings.Split(nicdesc.Dns, ",") {
-			conf.DNSServers = append(conf.DNSServers, net.ParseIP(dns))
+			if regutils.MatchIP4Addr(dns) {
+				conf.DNSServers = append(conf.DNSServers, net.ParseIP(dns))
+			} else if regutils.MatchIP6Addr(dns) {
+				conf.DNSServers6 = append(conf.DNSServers6, net.ParseIP(dns))
+			}
 		}
 	}
 
 	if len(nicdesc.Ntp) > 0 {
 		conf.NTPServers = make([]net.IP, 0)
+		conf.NTPServers6 = make([]net.IP, 0)
 		for _, ntp := range strings.Split(nicdesc.Ntp, ",") {
-			conf.NTPServers = append(conf.NTPServers, net.ParseIP(ntp))
+			if regutils.MatchIP4Addr(ntp) {
+				conf.NTPServers = append(conf.NTPServers, net.ParseIP(ntp))
+			} else if regutils.MatchIP6Addr(ntp) {
+				conf.NTPServers6 = append(conf.NTPServers6, net.ParseIP(ntp))
+			} else if regutils.MatchDomainName(ntp) {
+				ntpAddrs, _ := net.LookupHost(ntp)
+				for _, ntpAddr := range ntpAddrs {
+					if regutils.MatchIP4Addr(ntpAddr) {
+						conf.NTPServers = append(conf.NTPServers, net.ParseIP(ntpAddr))
+					} else if regutils.MatchIP6Addr(ntpAddr) {
+						conf.NTPServers6 = append(conf.NTPServers6, net.ParseIP(ntpAddr))
+					}
+				}
+			}
 		}
 	}
 
@@ -237,12 +309,12 @@ func (s *SGuestDHCPServer) getConfig(pkt dhcp.Packet) *dhcp.ResponseConfig {
 		ip, port    = "", ""
 		isCandidate = false
 	)
-	guestDesc, guestNic := guestman.GuestDescGetter.GetGuestNicDesc(mac, ip, port, s.iface, isCandidate)
+	guestDesc, guestNic := guestman.GuestDescGetter.GetGuestNicDesc(mac, ip, port, s.ifaceDev.String(), isCandidate)
 	if guestNic == nil {
-		guestDesc, guestNic = guestman.GuestDescGetter.GetGuestNicDesc(mac, ip, port, s.iface, !isCandidate)
+		guestDesc, guestNic = guestman.GuestDescGetter.GetGuestNicDesc(mac, ip, port, s.ifaceDev.String(), !isCandidate)
 	}
-	if guestNic != nil && !guestNic.Virtual {
-		return getGuestConfig(guestDesc, guestNic)
+	if guestNic != nil && !guestNic.Virtual && len(guestNic.Ip6) > 0 {
+		return getGuestConfig(guestDesc, guestNic, s.ifaceDev.GetHardwareAddr())
 	}
 	return nil
 }
