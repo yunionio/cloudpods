@@ -38,7 +38,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/util/coreosutils"
-	"yunion.io/x/onecloud/pkg/util/dhcp"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/fstabutils"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
@@ -984,8 +983,8 @@ func (d *sDebianLikeRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics 
 			if nicDesc.Mtu > 0 {
 				cmds.WriteString(fmt.Sprintf("    mtu %d\n", nicDesc.Mtu))
 			}
-			routes4 := make([]dhcp.SRouteInfo, 0)
-			routes6 := make([]dhcp.SRouteInfo, 0)
+			routes4 := make([]netutils2.SRouteInfo, 0)
+			routes6 := make([]netutils2.SRouteInfo, 0)
 			routes4, routes6 = netutils2.AddNicRoutes(routes4, routes6, nicDesc, mainIp, mainIp6, nicCnt)
 			for _, r := range routes4 {
 				cmds.WriteString(fmt.Sprintf("    up ip route add %s/%d via %s || true\n", r.Prefix, r.PrefixLen, r.Gateway))
@@ -1483,8 +1482,8 @@ func (r *sRedhatLikeRootFs) deployNetworkingScripts(rootFs IDiskPartition, nics 
 					cmds.WriteString(nicDesc.Gateway)
 					cmds.WriteString("\n")
 				}
-				routes4 := make([]dhcp.SRouteInfo, 0)
-				routes6 := make([]dhcp.SRouteInfo, 0)
+				routes4 := make([]netutils2.SRouteInfo, 0)
+				routes6 := make([]netutils2.SRouteInfo, 0)
 				routes4, routes6 = netutils2.AddNicRoutes(routes4, routes6, nicDesc, mainIp, mainIp6, nicCnt)
 				var rtbl strings.Builder
 				for _, r := range routes4 {
@@ -1576,8 +1575,8 @@ func (r *sRedhatLikeRootFs) deployVlanNetworkingScripts(rootFs IDiskPartition, s
 		cmds.WriteString(nicDesc.Gateway)
 		cmds.WriteString("\n")
 	}
-	routes4 := make([]dhcp.SRouteInfo, 0)
-	routes6 := make([]dhcp.SRouteInfo, 0)
+	routes4 := make([]netutils2.SRouteInfo, 0)
+	routes6 := make([]netutils2.SRouteInfo, 0)
 	routes4, routes6 = netutils2.AddNicRoutes(routes4, routes6, nicDesc, mainIp, mainIp6, nicCnt)
 	var rtbl strings.Builder
 	for _, r := range routes4 {

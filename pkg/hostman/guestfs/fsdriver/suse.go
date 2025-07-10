@@ -27,7 +27,6 @@ import (
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
-	"yunion.io/x/onecloud/pkg/util/dhcp"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
 )
 
@@ -106,22 +105,26 @@ func (r *sSuseLikeRootFs) deployVlanNetworkingScripts(rootFs IDiskPartition, scr
 	cmds.WriteString(fmt.Sprintf("VLAN_ID=%d\n", nicDesc.Vlan))
 	cmds.WriteString(fmt.Sprintf("ETHERDEVICE=%s\n", nicDesc.Name))
 
-	var routes4 = make([]dhcp.SRouteInfo, 0)
-	var routes6 = make([]dhcp.SRouteInfo, 0)
+	var routes4 = make([]netutils2.SRouteInfo, 0)
+	var routes6 = make([]netutils2.SRouteInfo, 0)
 	var dnsSrv []string
 	routes4, routes6 = netutils2.AddNicRoutes(routes4, routes6, nicDesc, mainIp, mainIp6, nicCnt)
 	if len(nicDesc.Gateway) > 0 && nicDesc.Ip == mainIp {
-		routes4 = append(routes4, dhcp.SRouteInfo{
-			Prefix:    net.ParseIP("0.0.0.0"),
-			PrefixLen: 0,
-			Gateway:   net.ParseIP(nicDesc.Gateway),
+		routes4 = append(routes4, netutils2.SRouteInfo{
+			SPrefixInfo: netutils2.SPrefixInfo{
+				Prefix:    net.ParseIP("0.0.0.0"),
+				PrefixLen: 0,
+			},
+			Gateway: net.ParseIP(nicDesc.Gateway),
 		})
 	}
 	if len(nicDesc.Gateway6) > 0 && nicDesc.Ip6 == mainIp6 {
-		routes6 = append(routes6, dhcp.SRouteInfo{
-			Prefix:    net.ParseIP("::"),
-			PrefixLen: 0,
-			Gateway:   net.ParseIP(nicDesc.Gateway6),
+		routes6 = append(routes6, netutils2.SRouteInfo{
+			SPrefixInfo: netutils2.SPrefixInfo{
+				Prefix:    net.ParseIP("::"),
+				PrefixLen: 0,
+			},
+			Gateway: net.ParseIP(nicDesc.Gateway6),
 		})
 	}
 	var rtbl strings.Builder
@@ -232,21 +235,25 @@ func (r *sSuseLikeRootFs) deployNetworkingScripts(rootFs IDiskPartition, nics []
 				cmds.WriteString(fmt.Sprintf("IPADDR_V6=%s/%d\n", nicDesc.Ip6, nicDesc.Masklen6))
 			}
 
-			var routes4 = make([]dhcp.SRouteInfo, 0)
-			var routes6 = make([]dhcp.SRouteInfo, 0)
+			var routes4 = make([]netutils2.SRouteInfo, 0)
+			var routes6 = make([]netutils2.SRouteInfo, 0)
 			routes4, routes6 = netutils2.AddNicRoutes(routes4, routes6, nicDesc, mainIp, mainIp6, nicCnt)
 			if len(nicDesc.Gateway) > 0 && nicDesc.Ip == mainIp {
-				routes4 = append(routes4, dhcp.SRouteInfo{
-					Prefix:    net.ParseIP("0.0.0.0"),
-					PrefixLen: 0,
-					Gateway:   net.ParseIP(nicDesc.Gateway),
+				routes4 = append(routes4, netutils2.SRouteInfo{
+					SPrefixInfo: netutils2.SPrefixInfo{
+						Prefix:    net.ParseIP("0.0.0.0"),
+						PrefixLen: 0,
+					},
+					Gateway: net.ParseIP(nicDesc.Gateway),
 				})
 			}
 			if len(nicDesc.Gateway6) > 0 && nicDesc.Ip6 == mainIp6 {
-				routes6 = append(routes6, dhcp.SRouteInfo{
-					Prefix:    net.ParseIP("::"),
-					PrefixLen: 0,
-					Gateway:   net.ParseIP(nicDesc.Gateway6),
+				routes6 = append(routes6, netutils2.SRouteInfo{
+					SPrefixInfo: netutils2.SPrefixInfo{
+						Prefix:    net.ParseIP("::"),
+						PrefixLen: 0,
+					},
+					Gateway: net.ParseIP(nicDesc.Gateway6),
 				})
 			}
 			var rtbl strings.Builder

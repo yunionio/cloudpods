@@ -28,6 +28,7 @@ import (
 	o "yunion.io/x/onecloud/pkg/baremetal/options"
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	"yunion.io/x/onecloud/pkg/util/dhcp"
+	"yunion.io/x/onecloud/pkg/util/netutils2"
 )
 
 func GetNicDHCPConfig(
@@ -46,10 +47,10 @@ func GetNicDHCPConfig(
 		return nil, errors.Wrap(errors.ErrEmpty, "Nic no ip or ip6 address")
 	}
 
-	routes4 := make([]dhcp.SRouteInfo, 0)
-	routes6 := make([]dhcp.SRouteInfo, 0)
+	routes4 := make([]netutils2.SRouteInfo, 0)
+	routes6 := make([]netutils2.SRouteInfo, 0)
 	for _, route := range n.Routes {
-		routeInfo, err := dhcp.ParseRouteInfo([]string{route[0], route[1]})
+		routeInfo, err := netutils2.ParseRouteInfo([]string{route[0], route[1]})
 		if err != nil {
 			return nil, errors.Wrapf(err, "Parse route %s error: %q", route, err)
 		}
@@ -62,17 +63,21 @@ func GetNicDHCPConfig(
 
 	if n.IsDefault == nil || *n.IsDefault {
 		if n.Gateway != "" && !strings.HasPrefix(strings.ToLower(osName), "win") {
-			routes4 = append(routes4, dhcp.SRouteInfo{
-				Prefix:    net.ParseIP("0.0.0.0"),
-				PrefixLen: 0,
-				Gateway:   net.ParseIP(n.Gateway),
+			routes4 = append(routes4, netutils2.SRouteInfo{
+				SPrefixInfo: netutils2.SPrefixInfo{
+					Prefix:    net.ParseIP("0.0.0.0"),
+					PrefixLen: 0,
+				},
+				Gateway: net.ParseIP(n.Gateway),
 			})
 		}
 		if n.Gateway6 != "" {
-			routes6 = append(routes6, dhcp.SRouteInfo{
-				Prefix:    net.ParseIP("::"),
-				PrefixLen: 0,
-				Gateway:   net.ParseIP(n.Gateway6),
+			routes6 = append(routes6, netutils2.SRouteInfo{
+				SPrefixInfo: netutils2.SPrefixInfo{
+					Prefix:    net.ParseIP("::"),
+					PrefixLen: 0,
+				},
+				Gateway: net.ParseIP(n.Gateway6),
 			})
 		}
 	}

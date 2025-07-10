@@ -12,23 +12,4 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package dhcp
-
-import (
-	"net"
-)
-
-type DHCPHandler interface {
-	ServeDHCP(pkt Packet, cliMac net.HardwareAddr, addr *net.UDPAddr) (Packet, []string, error)
-}
-
-type SendPacket struct {
-	Packet  []byte
-	DestMac net.HardwareAddr
-}
-
-type DHCP6Handler interface {
-	DHCPHandler
-
-	OnRecvICMP6(pkt Packet, cliMac net.HardwareAddr, addr *net.UDPAddr) error
-}
+package icmp6 // import "yunion.io/x/onecloud/pkg/util/icmp6"
