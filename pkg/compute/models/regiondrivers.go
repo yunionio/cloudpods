@@ -16,7 +16,6 @@ package models
 
 import (
 	"context"
-	"time"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
@@ -236,7 +235,7 @@ type IElasticcacheDriver interface {
 	RequestCreateElasticcacheAccount(ctx context.Context, userCred mcclient.TokenCredential, elasticcacheAccount *SElasticcacheAccount, task taskman.ITask) error
 	RequestCreateElasticcacheAcl(ctx context.Context, userCred mcclient.TokenCredential, elasticcacheAcl *SElasticcacheAcl, task taskman.ITask) error
 	RequestCreateElasticcacheBackup(ctx context.Context, userCred mcclient.TokenCredential, elasticcacheBackup *SElasticcacheBackup, task taskman.ITask) error
-	RequestRenewElasticcache(ctx context.Context, userCred mcclient.TokenCredential, elasticcache *SElasticcache, bc billing.SBillingCycle) (time.Time, error)
+	RequestRenewElasticcache(ctx context.Context, userCred mcclient.TokenCredential, elasticcache *SElasticcache, bc billing.SBillingCycle) error
 	RequestElasticcacheSetAutoRenew(ctx context.Context, userCred mcclient.TokenCredential, elasticcache *SElasticcache, autoRenew bool, task taskman.ITask) error
 	RequestRestartElasticcache(ctx context.Context, userCred mcclient.TokenCredential, elasticcache *SElasticcache, task taskman.ITask) error
 	RequestSyncElasticcache(ctx context.Context, userCred mcclient.TokenCredential, elasticcache *SElasticcache, task taskman.ITask) error
