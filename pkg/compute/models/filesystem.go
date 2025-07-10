@@ -187,9 +187,10 @@ func (man *SFileSystemManager) ValidateCreateData(ctx context.Context, userCred 
 				return input, httperrors.NewInputParameterError("unsupported duration %s", input.Duration)
 			}
 		}
-		tm := time.Time{}
 		input.BillingCycle = billingCycle.String()
-		input.ExpiredAt = billingCycle.EndAt(tm)
+		if input.BillingType == billing_api.BILLING_TYPE_POSTPAID {
+			input.ReleaseAt = billingCycle.EndAt(time.Now())
+		}
 	}
 
 	input.SharableVirtualResourceCreateInput, err = man.SSharableVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.SharableVirtualResourceCreateInput)

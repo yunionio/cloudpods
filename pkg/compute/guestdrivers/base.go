@@ -78,7 +78,7 @@ func (drv *SBaseGuestDriver) OnGuestCreateTaskComplete(ctx context.Context, gues
 	if len(duration) > 0 {
 		bc, err := billing.ParseBillingCycle(duration)
 		if err == nil && guest.ExpiredAt.IsZero() {
-			guest.SaveRenewInfo(ctx, task.GetUserCred(), &bc, nil, "")
+			models.SaveRenewInfo(ctx, task.GetUserCred(), guest, &bc, nil, "")
 		}
 		if jsonutils.QueryBoolean(task.GetParams(), "auto_prepaid_recycle", false) {
 			err := guest.CanPerformPrepaidRecycle()
@@ -393,11 +393,6 @@ func (drv *SBaseGuestDriver) IsSupportGuestClone() bool {
 
 func (drv *SBaseGuestDriver) RequestSyncSecgroupsOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
 	return nil // do nothing
-}
-
-func (drv *SBaseGuestDriver) CancelExpireTime(
-	ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest) error {
-	return guest.CancelExpireTime(ctx, userCred)
 }
 
 func (drv *SBaseGuestDriver) IsSupportPublicipToEip() bool {
