@@ -113,13 +113,9 @@ func (s *SGuestDHCP6Server) ServeDHCP(pkt dhcp.Packet, cliMac net.HardwareAddr, 
 	return pkg, nil, err
 }
 
-func (s *SGuestDHCP6Server) ServeRA(pkt dhcp.Packet, cliMac net.HardwareAddr, addr *net.UDPAddr) (dhcp.Packet, net.IP, net.HardwareAddr, error) {
+func (s *SGuestDHCP6Server) OnRecvICMP6(pkt dhcp.Packet, cliMac net.HardwareAddr, addr *net.UDPAddr) error {
 	log.Infof("SGuestDHCP6Server ServeRA from %s", cliMac.String())
-	var conf = s.getConfig(cliMac, nil)
-	if conf != nil {
-		return dhcp.MakeRouterAdverPacket(conf.Gateway6, conf.PrefixLen6, conf.Routes6, uint32(conf.MTU))
-	}
-	return nil, nil, nil, nil
+	return nil
 }
 
 func (s *SGuestDHCP6Server) serveDHCPInternal(pkt dhcp.Packet, cliMac net.HardwareAddr, addr *net.UDPAddr) (dhcp.Packet, error) {

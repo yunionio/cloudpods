@@ -72,11 +72,11 @@ func newRawSocketConn6(iface string, filter []bpf.RawInstruction, serverPort uin
 	}, nil
 }
 
-func (s *rawSocketConn) Recv6(b []byte) ([]byte, *net.UDPAddr, net.HardwareAddr, int, error) {
+func (s *rawSocketConn) Recv6(b []byte) ([]byte, *net.UDPAddr, net.HardwareAddr, error) {
 	// read packet
 	n, addr, err := s.conn.ReadFrom(b)
 	if err != nil {
-		return nil, nil, nil, 0, errors.Wrap(err, "Read from errror")
+		return nil, nil, nil, errors.Wrap(err, "Read from errror")
 	}
 	log.Debugf("rawSocketConn Recv6 %d bytes from %s", n, addr.String())
 
@@ -84,12 +84,12 @@ func (s *rawSocketConn) Recv6(b []byte) ([]byte, *net.UDPAddr, net.HardwareAddr,
 
 	srcMac, err := net.ParseMAC(addr.String())
 	if err != nil {
-		return nil, nil, nil, 0, errors.Wrap(err, "Parse mac error")
+		return nil, nil, nil, errors.Wrap(err, "Parse mac error")
 	}
 
 	p := gopacket.NewPacket(b, layers.LayerTypeEthernet, gopacket.Default)
 	if p.ErrorLayer() != nil {
-		return nil, nil, nil, 0, errors.Wrap(p.ErrorLayer().Error(), "Failed to decode packet")
+		return nil, nil, nil, errors.Wrap(p.ErrorLayer().Error(), "Failed to decode packet")
 	}
 
 	var srcIp net.IP
@@ -100,14 +100,14 @@ func (s *rawSocketConn) Recv6(b []byte) ([]byte, *net.UDPAddr, net.HardwareAddr,
 			ip6 := ipLayer.(*layers.IPv6)
 			srcIp = ip6.SrcIP
 		} else {
-			return nil, nil, nil, 0, errors.Wrap(p.ErrorLayer().Error(), "Expect IPv6 packet")
+			return nil, nil, nil, errors.Wrap(p.ErrorLayer().Error(), "Expect IPv6 packet")
 		}
 	}
 
 	icmpLayer := p.Layer(layers.LayerTypeICMPv6)
 	if icmpLayer != nil {
 		log.Infof("rawSocketConn Recv6 icmpLayer %s", icmpLayer.LayerType())
-		raLayer := p.Layer(layers.LayerTypeICMPv6RouterSolicitation)
+		/*raLayer := p.Layer(layers.LayerTypeICMPv6RouterSolicitation)
 		if raLayer != nil {
 			// icmp6, ra solitation
 			raPkt := raLayer.(*layers.ICMPv6RouterSolicitation)
@@ -118,7 +118,8 @@ func (s *rawSocketConn) Recv6(b []byte) ([]byte, *net.UDPAddr, net.HardwareAddr,
 			return sbf.Bytes(), &net.UDPAddr{IP: srcIp, Port: icmpRAFakePort}, srcMac, 0, nil
 		} else {
 			return nil, nil, nil, 0, errors.Wrap(p.ErrorLayer().Error(), "expect an ICMPv6 RA solitation packet")
-		}
+		}*/
+		return b, &net.UDPAddr{IP: srcIp, Port: icmpRAFakePort}, srcMac, nil
 	}
 
 	var srcPort uint16
@@ -127,7 +128,7 @@ func (s *rawSocketConn) Recv6(b []byte) ([]byte, *net.UDPAddr, net.HardwareAddr,
 		udpInfo := udpLayer.(*layers.UDP)
 		srcPort = uint16(udpInfo.SrcPort)
 	} else {
-		return nil, nil, nil, 0, errors.Wrap(p.ErrorLayer().Error(), "expect UDP packet")
+		return nil, nil, nil, errors.Wrap(p.ErrorLayer().Error(), "expect UDP packet")
 	}
 
 	dhcpLayer := p.Layer(layers.LayerTypeDHCPv6)
@@ -136,51 +137,17 @@ func (s *rawSocketConn) Recv6(b []byte) ([]byte, *net.UDPAddr, net.HardwareAddr,
 		dhcp6 := dhcpLayer.(*layers.DHCPv6)
 		sbf := gopacket.NewSerializeBuffer()
 		if err := dhcp6.SerializeTo(sbf, gopacket.SerializeOptions{}); err != nil {
-			return nil, nil, nil, 0, errors.Wrap(err, "Serialize dhcp6 packet error")
+			return nil, nil, nil, errors.Wrap(err, "Serialize dhcp6 packet error")
 		}
-		return sbf.Bytes(), &net.UDPAddr{IP: srcIp, Port: int(srcPort)}, srcMac, 0, nil
+		return sbf.Bytes(), &net.UDPAddr{IP: srcIp, Port: int(srcPort)}, srcMac, nil
 	} else {
-		return nil, nil, nil, 0, errors.Wrap(p.ErrorLayer().Error(), "Fetch dhcp layer failed")
+		return nil, nil, nil, errors.Wrap(p.ErrorLayer().Error(), "Fetch dhcp layer failed")
 	}
 }
 
-func (s *rawSocketConn) SendICMP6(b []byte, srcIP net.IP, srcMac, destMac net.HardwareAddr) error {
-	var icmpRouterAdvMsg = new(layers.ICMPv6RouterAdvertisement)
-	if err := icmpRouterAdvMsg.DecodeFromBytes(b, gopacket.NilDecodeFeedback); err != nil {
-		return errors.Wrap(err, "Decode icmp router advertisement bytes error")
-	}
-
-	var eth = &layers.Ethernet{
-		EthernetType: layers.EthernetTypeIPv6,
-		SrcMAC:       s.iface.HardwareAddr,
-		DstMAC:       destMac,
-	}
-
-	dstIP := net.ParseIP("ff02::1")
-
-	var ip = &layers.IPv6{
-		Version:    6,
-		HopLimit:   64,
-		SrcIP:      srcIP,
-		DstIP:      dstIP,
-		NextHeader: layers.IPProtocolICMPv6,
-	}
-
-	var icmp6 = &layers.ICMPv6{
-		TypeCode: layers.CreateICMPv6TypeCode(layers.ICMPv6TypeRouterAdvertisement, 0),
-	}
-	icmp6.SetNetworkLayerForChecksum(ip)
-
-	var (
-		buf  = gopacket.NewSerializeBuffer()
-		opts = gopacket.SerializeOptions{ComputeChecksums: true, FixLengths: true}
-	)
-	if err := gopacket.SerializeLayers(buf, opts, eth, ip, icmp6, icmpRouterAdvMsg); err != nil {
-		return errors.Wrap(err, "SerializeLayers error")
-	}
-
+func (s *rawSocketConn) SendRaw(b []byte, destMac net.HardwareAddr) error {
 	// s.conn.SetWriteDeadline(time.Now().Add(DefaultWriteTimeout)) // 2 second
-	if _, err := s.conn.WriteTo(buf.Bytes(), &packet.Addr{HardwareAddr: destMac}); err != nil {
+	if _, err := s.conn.WriteTo(b, &packet.Addr{HardwareAddr: destMac}); err != nil {
 		return errors.Wrap(err, "Send icmp packet error")
 	}
 	return nil

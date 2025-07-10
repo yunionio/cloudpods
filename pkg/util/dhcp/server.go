@@ -229,9 +229,6 @@ func (s *DHCPServer) serveDHCP(handler DHCPHandler) error {
 			log.Errorf("Receiving DHCP packet: %s", err)
 			continue
 		}
-		// if intf == nil {
-		// 	return fmt.Errorf("Received DHCP packet with no interface information (this is a violation of dhcp4.Conn's contract)")
-		// }
 
 		go func() {
 			defer func() {
@@ -279,8 +276,6 @@ func (s *DHCP6Server) serveDHCP(handler DHCP6Handler) error {
 			continue
 		}
 
-		log.Debugf("[DHCP6] received packet %d from %s mac %s", len(pkt), addr, mac)
-
 		go func() {
 			defer func() {
 				if r := recover(); r != nil {
@@ -291,21 +286,7 @@ func (s *DHCP6Server) serveDHCP(handler DHCP6Handler) error {
 
 			if addr.Port == icmpRAFakePort {
 				// receive a RA solication
-				resp, gwIp, gwMac, err := handler.ServeRA(pkt, mac, addr)
-				if err != nil {
-					log.Warningf("[DHCP6] handler ServeRA error: %s", err)
-					return
-				}
-				if resp == nil {
-					log.Warningf("[DHCP6] hander ServeRA response null packet")
-					return
-				}
-
-				// RA should be sent to FF02::1 from gwIP
-				err = s.conn.SendICMP6(resp, gwIp, gwMac, mac)
-				if err != nil {
-					log.Errorf("[DHCP6] failed to response packet for ICMP6 message: %s", err)
-				}
+				handler.OnRecvICMP6(pkt, mac, addr)
 				return
 			}
 

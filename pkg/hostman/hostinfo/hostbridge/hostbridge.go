@@ -39,7 +39,7 @@ import (
 
 type IBridgeDriver interface {
 	MigrateSlaveConfigs(IBridgeDriver) error
-	ConfirmToConfig() (bool, error)
+	ConfirmToConfig() (bool, string, error)
 	GetMac() string
 	GetVlanId() int
 	FetchConfig()
@@ -318,10 +318,10 @@ func (d *SBaseBridgeDriver) MigrateSlaveConfigs(o IBridgeDriver) error {
 	return nil
 }
 
-func (d *SBaseBridgeDriver) ConfirmToConfig() (bool, error) {
+func (d *SBaseBridgeDriver) ConfirmToConfig() (bool, string, error) {
 	exist, err := d.drv.Exists()
 	if err != nil {
-		return false, err
+		return false, "", err
 	}
 	if exist {
 		d.bridge.FetchConfig2(d.ip, d.ip6)
@@ -329,86 +329,82 @@ func (d *SBaseBridgeDriver) ConfirmToConfig() (bool, error) {
 			if len(d.bridge.Addr) == 0 {
 				log.Infof("bridge %s has no ip assignment initially", d.bridge)
 				if len(d.inter.Addr) == 0 {
-					return false, fmt.Errorf("Neither %s nor %s owner address %s",
-						d.inter, d.bridge, d.ip)
+					return false, "", fmt.Errorf("Neither %s nor %s owner address %s", d.inter, d.bridge, d.ip)
 				}
 				if d.inter.Addr != d.ip {
-					return false, fmt.Errorf("%s!=%s, %s not same as config",
-						d.ip, d.inter.Addr, d.inter)
+					return false, "", fmt.Errorf("%s!=%s, %s not same as config", d.ip, d.inter.Addr, d.inter)
 				}
 				log.Infof("Bridge address is not configured")
-				return false, nil
+				return false, fmt.Sprintf("bridge %s address is empty, should be configured", d.bridge), nil
 			} else {
 				log.Infof("bridge %s already has ip %s", d.bridge, d.bridge.Addr)
 			}
 			if d.bridge.Addr != d.ip {
-				return false, fmt.Errorf("%s IP %s!=%s, mismatch", d.bridge, d.bridge.Addr, d.ip)
+				return false, "", fmt.Errorf("bridge %s IP %s is not expected IP %s, mismatch", d.bridge, d.bridge.Addr, d.ip)
 			}
 		} else {
 			if d.inter != nil && len(d.inter.Addr) > 0 {
-				return false, fmt.Errorf("%s should have no address", d.inter)
+				return false, "", fmt.Errorf("interface %s should have no address", d.inter)
 			}
 			if len(d.bridge.Addr) == 0 {
-				return false, nil
+				return false, "", fmt.Errorf("bridge %s should have 169.254.0.0/16 address", d.bridge)
 			}
 			if !d.bridge.IsSecretInterface() {
-				return false, fmt.Errorf("%s should have address in 169.254.0.0/16", d.bridge)
+				return false, "", fmt.Errorf("%s should have address in 169.254.0.0/16", d.bridge)
 			}
 		}
 		if len(d.ip6) > 0 {
 			if len(d.bridge.Addr6) == 0 {
 				log.Infof("bridge %s has no ipv6 assignment initially", d.bridge)
 				if len(d.inter.Addr6) == 0 {
-					return false, fmt.Errorf("Neither %s nor %s owner ipv6 address %s",
-						d.inter, d.bridge, d.ip6)
+					return false, "", fmt.Errorf("neither interface%s nor bridge %s owner ipv6 address %s", d.inter, d.bridge, d.ip6)
 				}
 				if d.inter.Addr6 != d.ip6 {
-					return false, fmt.Errorf("%s!=%s, %s not same as config",
-						d.ip6, d.inter.Addr6, d.inter)
+					return false, "", fmt.Errorf("interface %s IP %s is not %s as configured", d.inter, d.inter.Addr6, d.ip6)
 				}
 				log.Infof("Bridge ipv6 address is not configured")
-				return false, nil
+				return false, fmt.Sprintf("bridge %s ipv6 address is empty, should be configured", d.bridge), nil
 			} else {
 				log.Infof("bridge %s already has ipv6 address %s", d.bridge, d.bridge.Addr6)
 			}
 			if d.bridge.Addr6 != d.ip6 {
-				return false, fmt.Errorf("%s IP %s!=%s, mismatch", d.bridge, d.bridge.Addr6, d.ip6)
+				return false, "", fmt.Errorf("%s IP %s!=%s, mismatch", d.bridge, d.bridge.Addr6, d.ip6)
 			}
 		} else {
 			if d.inter != nil && len(d.inter.Addr6) > 0 {
-				return false, fmt.Errorf("%s should have no ipv6 address", d.inter)
+				return false, "", fmt.Errorf("interface %s should have no ipv6 address", d.inter)
 			}
-			if len(d.bridge.Addr6) == 0 {
-				return false, nil
+			if len(d.bridge.Addr6) != 0 {
+				return false, "", fmt.Errorf("bridge %s (%s) shoud have no ipv6 address", d.bridge, d.bridge.Addr6)
 			}
 			if !d.bridge.IsSecretInterface6() {
-				return false, fmt.Errorf("%s(%s,%s) should have link local address in fe80::/10", d.bridge, d.bridge.Addr6, d.bridge.Addr6LinkLocal)
+				return false, "", fmt.Errorf("bridge %s(%s,%s) should have link local address in fe80::/10", d.bridge, d.bridge.Addr6, d.bridge.Addr6LinkLocal)
 			}
 		}
 		infs, err := d.drv.Interfaces()
 		if err != nil {
-			return false, err
+			return false, "", fmt.Errorf("get all interfaces of bridge %s failed: %s", d.bridge, err)
 		}
 		if d.inter != nil && !utils.IsInStringArray(d.inter.String(), infs) {
 			log.Infof("Interface %s not in bridge...", d.inter)
-			return false, nil
+			return false, fmt.Sprintf("interface %s not in bridge %s", d.inter, d.bridge), nil
 		}
 		if err := d.BringupInterface(); err != nil {
 			log.Errorln(err)
-			return false, err
+			return false, "", fmt.Errorf("bring up bridge %s failed: %s", d.bridge, err)
 		}
-		return true, nil
+		return true, "", nil
 	} else {
 		if d.bridge.FetchInter() != nil {
-			return false, fmt.Errorf("Bridge %s exists, but not created by this driver????", d.bridge)
+			return false, "", fmt.Errorf("bridge %s exists, but not created by this driver????", d.bridge)
 		}
 		if len(d.ip) > 0 && (d.inter == nil || len(d.inter.Addr) == 0) {
-			return false, fmt.Errorf("Interface %s not configured", d.inter)
+			return false, "", fmt.Errorf("interface %s not configured", d.inter)
 		}
 		if len(d.ip6) > 0 && (d.inter == nil || len(d.inter.Addr6) == 0) {
-			return false, fmt.Errorf("Interface %s ipv6 not configured", d.inter)
+			return false, "", fmt.Errorf("interface %s ipv6 not configured", d.inter)
 		}
-		return false, nil
+		return false, fmt.Sprintf("bridge %s does not exist", d.bridge), nil
 	}
 }
 
@@ -420,17 +416,11 @@ func (d *SBaseBridgeDriver) SetupAddresses() error {
 		if err := d.inter.Shutdown(); err != nil {
 			return errors.Wrapf(err, "shutdown bridge %s slave ifname: %s", br, ifname)
 		}
-		for _, cmd := range [][]string{
-			{"/sbin/ifdown", ifname},
-			{"nmcli", "connection", "down", ifname},
-		} {
-			output, err := procutils.NewRemoteCommandAsFarAsPossible(cmd[0], cmd[1:]...).Output()
-			if err != nil {
-				log.Errorf("run cmd: %s, output: %s, error: %s", strings.Join(cmd, " "), string(output), err)
-			} else {
-				log.Infof("run cmd: %s, output: %s", strings.Join(cmd, " "), string(output))
-				break
-			}
+		// ensure the device is not managed by NetworkManager
+		// nmcli dev set <interface_name> managed no
+		output, err := procutils.NewRemoteCommandAsFarAsPossible("nmcli", "dev", "set", ifname, "managed", "no").Output()
+		if err != nil {
+			log.Errorf("run cmd: nmcli dev set %s managed no, output: %s, error: %s", ifname, string(output), err)
 		}
 	}
 	{
@@ -466,14 +456,18 @@ func (d *SBaseBridgeDriver) SetupAddresses() error {
 			return errors.Wrapf(err, "setting bridge %s up", br)
 		}
 		if d.inter != nil {
+			ifname := d.inter.String()
 			// bring up the origin interface
-			ethLink := iproute2.NewLink(d.inter.String()).Up()
+			ethLink := iproute2.NewLink(ifname).Up()
 			if options.HostOptions.TunnelPaddingBytes > 0 {
 				mtu := 1500 + int(options.HostOptions.TunnelPaddingBytes)
 				ethLink.MTU(mtu)
 			}
 			if err := ethLink.Err(); err != nil {
 				return errors.Wrapf(err, "setting origin interface %s up", d.inter.String())
+			}
+			if err := iproute2.NewAddress(ifname).Exact().Err(); err != nil {
+				return errors.Wrapf(err, "clear interface %s address", ifname)
 			}
 		}
 	}
@@ -591,14 +585,13 @@ func (d *SBaseBridgeDriver) Setup(o IBridgeDriver) error {
 		// sleep 1 second to wait for bridge setup
 		time.Sleep(1 * time.Second)
 		// to setup default routes
-
 		if len(d.ip) > 0 || len(d.ip6) > 0 {
 			setupRoutes := make([]iproute2.RouteSpec, 0)
 			{
 				for i := range routes {
 					find := false
 					if !find {
-						if routes[i].Dst.String() == addr2Prefix(d.ip, d.maskLen) || routes[i].Dst.String() == addr2Prefix(d.ip6, d.mask6Len) {
+						if (len(d.ip) > 0 && routes[i].Dst.String() == addr2Prefix(d.ip, d.maskLen)) || (len(d.ip6) > 0 && routes[i].Dst.String() == addr2Prefix(d.ip6, d.mask6Len)) {
 							find = true
 						}
 					}
