@@ -2843,25 +2843,25 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncSecgroupsForElasticca
 	return nil
 }
 
-func (self *SManagedVirtualizationRegionDriver) RequestRenewElasticcache(ctx context.Context, userCred mcclient.TokenCredential, ec *models.SElasticcache, bc billing.SBillingCycle) (time.Time, error) {
+func (self *SManagedVirtualizationRegionDriver) RequestRenewElasticcache(ctx context.Context, userCred mcclient.TokenCredential, ec *models.SElasticcache, bc billing.SBillingCycle) error {
 	iregion, err := ec.GetIRegion(ctx)
 	if err != nil {
-		return time.Time{}, errors.Wrap(err, "GetIRegion")
+		return errors.Wrap(err, "GetIRegion")
 	}
 
 	if len(ec.GetExternalId()) == 0 {
-		return time.Time{}, errors.Wrap(err, "ExternalId is empty")
+		return errors.Wrap(err, "ExternalId is empty")
 	}
 
 	iec, err := iregion.GetIElasticcacheById(ec.GetExternalId())
 	if err != nil {
-		return time.Time{}, errors.Wrap(err, "GetIElasticcacheById")
+		return errors.Wrap(err, "GetIElasticcacheById")
 	}
 
 	oldExpired := iec.GetExpiredAt()
 	err = iec.Renew(bc)
 	if err != nil {
-		return time.Time{}, err
+		return err
 	}
 	//避免有些云续费后过期时间刷新比较慢问题
 	cloudprovider.WaitCreated(15*time.Second, 5*time.Minute, func() bool {
@@ -2875,7 +2875,11 @@ func (self *SManagedVirtualizationRegionDriver) RequestRenewElasticcache(ctx con
 		}
 		return false
 	})
-	return iec.GetExpiredAt(), nil
+	db.Update(ec, func() error {
+		ec.ExpiredAt = iec.GetExpiredAt()
+		return nil
+	})
+	return nil
 }
 
 func (self *SManagedVirtualizationRegionDriver) IsSupportedElasticcacheAutoRenew() bool {

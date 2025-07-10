@@ -15,6 +15,8 @@
 package compute
 
 import (
+	"time"
+
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/apis"
@@ -648,6 +650,8 @@ type ServerCreateInput struct {
 	BillingType string `json:"billing_type"`
 	// swagger:ignore
 	BillingCycle string `json:"billing_cycle"`
+	// 到期释放时间
+	ReleaseAt time.Time `json:"release_at"`
 
 	// swagger:ignore
 	// Deprecated

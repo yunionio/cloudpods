@@ -202,7 +202,6 @@ type IGuestDriver interface {
 	GetUserDataType() string
 	GetWindowsUserDataType() string
 	IsWindowsUserDataTypeNeedEncode() bool
-	CancelExpireTime(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest) error
 
 	IsSupportCdrom(guest *SGuest) (bool, error)
 	IsSupportFloppy(guest *SGuest) (bool, error)

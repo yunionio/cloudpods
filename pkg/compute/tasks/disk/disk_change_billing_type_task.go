@@ -72,6 +72,7 @@ func (self *DiskChangeBillingTypeTask) OnInit(ctx context.Context, obj db.IStand
 	db.Update(disk, func() error {
 		disk.BillingType = billType
 		disk.ExpiredAt = time.Time{}
+		disk.AutoRenew = false
 		if disk.BillingType == billing_api.BILLING_TYPE_PREPAID {
 			disk.AutoRenew = idisk.IsAutoRenew()
 			disk.ExpiredAt = idisk.GetExpiredAt()

@@ -104,8 +104,8 @@ func init() {
 		EN("Guest Detach Isolated Device").
 		CN("卸载透传设备"),
 	)
-	t.Set(ACT_SET_EXPIRED_TIME, i18n.NewTableEntry().
-		EN("Set Resource Expire Time").
+	t.Set(ACT_SET_RELEASE_TIME, i18n.NewTableEntry().
+		EN("Set Resource Release Time").
 		CN("到期释放"),
 	)
 	t.Set(ACT_VM_SYNC_ISOLATED_DEVICE, i18n.NewTableEntry().
