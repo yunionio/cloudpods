@@ -437,10 +437,10 @@ func (self *SKafka) SyncWithCloudKafka(ctx context.Context, userCred mcclient.To
 		self.IsMultiAz = ext.IsMultiAz()
 
 		self.BillingType = ext.GetBillingType()
+		self.ExpiredAt = time.Time{}
+		self.AutoRenew = false
 		if self.BillingType == billing_api.BILLING_TYPE_PREPAID {
-			if expiredAt := ext.GetExpiredAt(); !expiredAt.IsZero() {
-				self.ExpiredAt = expiredAt
-			}
+			self.ExpiredAt = ext.GetExpiredAt()
 			self.AutoRenew = ext.IsAutoRenew()
 		}
 
@@ -538,10 +538,10 @@ func (self *SCloudregion) newFromCloudKafka(ctx context.Context, userCred mcclie
 	}
 
 	kafka.BillingType = ext.GetBillingType()
+	kafka.ExpiredAt = time.Time{}
+	kafka.AutoRenew = false
 	if kafka.BillingType == billing_api.BILLING_TYPE_PREPAID {
-		if expired := ext.GetExpiredAt(); !expired.IsZero() {
-			kafka.ExpiredAt = expired
-		}
+		kafka.ExpiredAt = ext.GetExpiredAt()
 		kafka.AutoRenew = ext.IsAutoRenew()
 	}
 

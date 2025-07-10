@@ -19,6 +19,7 @@ import (
 	"database/sql"
 	"fmt"
 	"sort"
+	"time"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
@@ -33,6 +34,7 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
+	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -593,12 +595,11 @@ func (self *SElasticip) SyncWithCloudEip(ctx context.Context, userCred mcclient.
 			self.ChargeType = chargeType
 		}
 
-		factory, _ := provider.GetProviderFactory()
-		if factory != nil && factory.IsSupportPrepaidResources() {
-			self.BillingType = ext.GetBillingType()
-			if expired := ext.GetExpiredAt(); !expired.IsZero() {
-				self.ExpiredAt = expired
-			}
+		self.BillingType = ext.GetBillingType()
+		self.ExpiredAt = time.Time{}
+		self.AutoRenew = false
+		if self.BillingType == billing_api.BILLING_TYPE_PREPAID {
+			self.ExpiredAt = ext.GetExpiredAt()
 			self.AutoRenew = ext.IsAutoRenew()
 		}
 
@@ -653,6 +654,13 @@ func (manager *SElasticipManager) newFromCloudEip(ctx context.Context, userCred 
 	eip.AssociateType = extEip.GetAssociationType()
 	if !extEip.GetCreatedAt().IsZero() {
 		eip.CreatedAt = extEip.GetCreatedAt()
+	}
+	eip.BillingType = extEip.GetBillingType()
+	eip.ExpiredAt = time.Time{}
+	eip.AutoRenew = false
+	if eip.BillingType == billing_api.BILLING_TYPE_PREPAID {
+		eip.ExpiredAt = extEip.GetExpiredAt()
+		eip.AutoRenew = extEip.IsAutoRenew()
 	}
 	if len(eip.ChargeType) == 0 {
 		eip.ChargeType = api.EIP_CHARGE_TYPE_BY_TRAFFIC

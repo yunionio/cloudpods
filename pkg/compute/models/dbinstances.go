@@ -403,9 +403,10 @@ func (man *SDBInstanceManager) ValidateCreateData(ctx context.Context, userCred 
 			}
 		}
 
-		tm := time.Time{}
 		input.BillingCycle = billingCycle.String()
-		input.ExpiredAt = billingCycle.EndAt(tm)
+		if input.BillingType == billing_api.BILLING_TYPE_POSTPAID {
+			input.ReleaseAt = billingCycle.EndAt(time.Now())
+		}
 	}
 
 	for k, v := range map[string]string{
@@ -1131,33 +1132,6 @@ func (self *SDBInstance) StartDBInstanceRenewTask(ctx context.Context, userCred 
 	return nil
 }
 
-func (self *SDBInstance) SaveRenewInfo(
-	ctx context.Context, userCred mcclient.TokenCredential,
-	bc *billing.SBillingCycle, expireAt *time.Time, billingType string,
-) error {
-	_, err := db.Update(self, func() error {
-		if billingType == "" {
-			billingType = billing_api.BILLING_TYPE_PREPAID
-		}
-		if self.BillingType == "" {
-			self.BillingType = billingType
-		}
-		if expireAt != nil && !expireAt.IsZero() {
-			self.ExpiredAt = *expireAt
-		} else {
-			self.BillingCycle = bc.String()
-			self.ExpiredAt = bc.EndAt(self.ExpiredAt)
-		}
-		return nil
-	})
-	if err != nil {
-		log.Errorf("Update error %s", err)
-		return err
-	}
-	db.OpsLog.LogEvent(self, db.ACT_RENEW, self.GetShortDesc(ctx), userCred)
-	return nil
-}
-
 func (self *SDBInstance) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
 	desc := self.SVirtualResourceBase.GetShortDesc(ctx)
 	region, _ := self.GetRegion()
@@ -1720,10 +1694,6 @@ func (self *SDBInstance) SyncWithCloudDBInstance(ctx context.Context, userCred m
 			self.CreatedAt = createdAt
 		}
 
-		if expiredAt := ext.GetExpiredAt(); !expiredAt.IsZero() {
-			self.ExpiredAt = expiredAt
-		}
-
 		if len(self.VpcId) == 0 {
 			if vpcId := ext.GetIVpcId(); len(vpcId) > 0 {
 				vpc, err := db.FetchByExternalIdAndManagerId(VpcManager, vpcId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
@@ -1749,19 +1719,13 @@ func (self *SDBInstance) SyncWithCloudDBInstance(ctx context.Context, userCred m
 			}
 		}
 
-		factory, err := provider.GetProviderFactory()
-		if err != nil {
-			return errors.Wrap(err, "SyncWithCloudDBInstance.GetProviderFactory")
-		}
-
-		if factory.IsSupportPrepaidResources() && !ext.GetExpiredAt().IsZero() {
-			self.BillingType = ext.GetBillingType()
-			if expired := ext.GetExpiredAt(); !expired.IsZero() {
-				self.ExpiredAt = expired
-			}
+		self.BillingType = ext.GetBillingType()
+		self.ExpiredAt = time.Time{}
+		self.AutoRenew = false
+		if self.BillingType == billing_api.BILLING_TYPE_PREPAID {
 			self.AutoRenew = ext.IsAutoRenew()
+			self.ExpiredAt = ext.GetExpiredAt()
 		}
-
 		return nil
 	})
 	if err != nil {
@@ -1839,23 +1803,19 @@ func (manager *SDBInstanceManager) newFromCloudDBInstance(ctx context.Context, u
 		instance.CreatedAt = createdAt
 	}
 
-	factory, err := provider.GetProviderFactory()
-	if err != nil {
-		return nil, errors.Wrap(err, "newFromCloudDBInstance.GetProviderFactory")
-	}
-
-	if factory.IsSupportPrepaidResources() {
-		instance.BillingType = extInstance.GetBillingType()
-		if expired := extInstance.GetExpiredAt(); !expired.IsZero() {
-			instance.ExpiredAt = expired
-		}
+	instance.BillingType = extInstance.GetBillingType()
+	instance.AutoRenew = false
+	instance.ExpiredAt = time.Time{}
+	if instance.BillingType == billing_api.BILLING_TYPE_PREPAID {
 		instance.AutoRenew = extInstance.IsAutoRenew()
+		instance.ExpiredAt = extInstance.GetExpiredAt()
 	}
 
-	err = func() error {
+	err := func() error {
 		lockman.LockRawObject(ctx, manager.Keyword(), "name")
 		defer lockman.ReleaseRawObject(ctx, manager.Keyword(), "name")
 
+		var err error
 		instance.Name, err = db.GenerateName(ctx, manager, ownerId, extInstance.GetName())
 		if err != nil {
 			return errors.Wrapf(err, "db.GenerateName")
@@ -2061,39 +2021,25 @@ func (self *SDBInstance) PerformPostpaidExpire(ctx context.Context, userCred mcc
 		return nil, httperrors.NewBadRequestError("dbinstance billing type is %s", self.BillingType)
 	}
 
-	bc, err := ParseBillingCycleInput(&self.SBillingResourceBase, input)
+	releaseAt, err := input.GetReleaseAt()
 	if err != nil {
 		return nil, err
 	}
 
-	err = self.SaveRenewInfo(ctx, userCred, bc, nil, billing_api.BILLING_TYPE_POSTPAID)
+	err = SaveReleaseAt(ctx, self, userCred, releaseAt)
+	if err != nil {
+		return nil, err
+	}
+
 	return nil, err
 }
 
 func (self *SDBInstance) PerformCancelExpire(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if err := self.CancelExpireTime(ctx, userCred); err != nil {
+	err := SaveReleaseAt(ctx, self, userCred, time.Time{})
+	if err != nil {
 		return nil, err
 	}
-
 	return nil, nil
-}
-
-func (self *SDBInstance) CancelExpireTime(ctx context.Context, userCred mcclient.TokenCredential) error {
-	if self.BillingType != billing_api.BILLING_TYPE_POSTPAID {
-		return httperrors.NewBadRequestError("dbinstance billing type %s not support cancel expire", self.BillingType)
-	}
-
-	_, err := sqlchemy.GetDB().Exec(
-		fmt.Sprintf(
-			"update %s set expired_at = NULL and billing_cycle = NULL where id = ?",
-			DBInstanceManager.TableSpec().Name(),
-		), self.Id,
-	)
-	if err != nil {
-		return errors.Wrap(err, "dbinstance cancel expire time")
-	}
-	db.OpsLog.LogEvent(self, db.ACT_RENEW, "dbinstance cancel expire time", userCred)
-	return nil
 }
 
 func (self *SDBInstance) PerformRemoteUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.DBInstanceRemoteUpdateInput) (jsonutils.JSONObject, error) {

@@ -26,17 +26,16 @@ import (
 	"yunion.io/x/pkg/util/billing"
 	"yunion.io/x/sqlchemy"
 
-	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/billing"
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	notifyapi "yunion.io/x/onecloud/pkg/apis/notify"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/compute/options"
-	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/notify"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -44,8 +43,10 @@ type SBillingResourceBase struct {
 	// 计费类型, 按量、包年包月
 	// example: postpaid
 	BillingType string `width:"36" charset:"ascii" nullable:"true" default:"postpaid" list:"user" create:"optional" json:"billing_type"`
-	// 过期时间
-	ExpiredAt time.Time `nullable:"true" list:"user" create:"optional" json:"expired_at"`
+	// 包年包月到期时间
+	ExpiredAt time.Time `nullable:"true" list:"user" json:"expired_at"`
+	// 到期释放时间
+	ReleaseAt time.Time `nullable:"true" list:"user" create:"optional" json:"release_at"`
 	// 计费周期
 	BillingCycle string `width:"10" charset:"ascii" nullable:"true" list:"user" create:"optional" json:"billing_cycle"`
 	// 是否自动续费
@@ -62,10 +63,35 @@ func (self *SBillingResourceBase) GetChargeType() string {
 	}
 }
 
+func (self *SBillingResourceBase) SetReleaseAt(releaseAt time.Time) {
+	self.ReleaseAt = releaseAt
+}
+
+func (self *SBillingResourceBase) GetExpiredAt() time.Time {
+	return self.ExpiredAt
+}
+
+func (self *SBillingResourceBase) SetExpiredAt(expireAt time.Time) {
+	self.ExpiredAt = expireAt
+}
+
+func (self *SBillingResourceBase) SetBillingCycle(billingCycle string) {
+	self.BillingCycle = billingCycle
+}
+
+func (self *SBillingResourceBase) SetBillingType(billingType string) {
+	self.BillingType = billingType
+}
+
+func (self *SBillingResourceBase) GetBillingType() string {
+	return self.BillingType
+}
+
 func (self *SBillingResourceBase) getBillingBaseInfo() SBillingBaseInfo {
 	info := SBillingBaseInfo{}
 	info.ChargeType = self.GetChargeType()
 	info.ExpiredAt = self.ExpiredAt
+	info.ReleaseAt = self.ReleaseAt
 	if self.GetChargeType() == api.BILLING_TYPE_PREPAID {
 		info.BillingCycle = self.BillingCycle
 	}
@@ -93,7 +119,7 @@ func (self *SBillingResourceBase) IsValidPrePaid() bool {
 func (self *SBillingResourceBase) IsValidPostPaid() bool {
 	if self.BillingType == api.BILLING_TYPE_POSTPAID {
 		now := time.Now().UTC()
-		if self.ExpiredAt.After(now) {
+		if self.ReleaseAt.After(now) {
 			return true
 		}
 	}
@@ -103,6 +129,7 @@ func (self *SBillingResourceBase) IsValidPostPaid() bool {
 type SBillingBaseInfo struct {
 	ChargeType   string    `json:",omitempty"`
 	ExpiredAt    time.Time `json:",omitempty"`
+	ReleaseAt    time.Time `json:",omitempty"`
 	BillingCycle string    `json:",omitempty"`
 }
 
@@ -170,41 +197,12 @@ func (manager *SBillingResourceBaseManager) OrderByExtraFields(
 func ListExpiredPostpaidResources(
 	q *sqlchemy.SQuery, limit int) *sqlchemy.SQuery {
 	q = q.Equals("billing_type", api.BILLING_TYPE_POSTPAID)
-	q = q.IsNotNull("expired_at")
-	q = q.LT("expired_at", time.Now())
+	q = q.IsNotNull("release_at")
+	q = q.LT("release_at", time.Now())
 	if limit > 0 {
 		q = q.Limit(limit)
 	}
 	return q
-}
-
-func ParseBillingCycleInput(billingBase *SBillingResourceBase, input apis.PostpaidExpireInput) (*billing.SBillingCycle, error) {
-	var (
-		bc          billing.SBillingCycle
-		err         error
-		durationStr string
-	)
-	if len(input.Duration) == 0 {
-		if input.ExpireTime.IsZero() {
-			return nil, httperrors.NewInputParameterError("missing duration/expire_time")
-		}
-		timeC := billingBase.ExpiredAt
-		if timeC.IsZero() {
-			timeC = time.Now()
-		}
-		dur := input.ExpireTime.Sub(timeC)
-		if dur <= 0 {
-			return nil, httperrors.NewInputParameterError("expire time is before current expire at")
-		}
-		bc = billing.DurationToBillingCycle(dur)
-	} else {
-		bc, err = billing.ParseBillingCycle(durationStr)
-		if err != nil {
-			return nil, httperrors.NewInputParameterError("invalid duration %s: %s", durationStr, err)
-		}
-	}
-
-	return &bc, nil
 }
 
 type SBillingResourceCheckManager struct {
@@ -242,6 +240,55 @@ type IBillingModelManager interface {
 type IBillingModel interface {
 	db.IModel
 	GetExpiredAt() time.Time
+	SetReleaseAt(releaseAt time.Time)
+	SetExpiredAt(expireAt time.Time)
+	SetBillingCycle(billingCycle string)
+	SetBillingType(billingType string)
+	GetBillingType() string
+}
+
+func SaveReleaseAt(ctx context.Context, model IBillingModel, userCred mcclient.TokenCredential, releaseAt time.Time) error {
+	diff, err := db.Update(model, func() error {
+		model.SetReleaseAt(releaseAt)
+		return nil
+	})
+	if err != nil {
+		return errors.Wrap(err, "Update")
+	}
+	if len(diff) > 0 {
+		db.OpsLog.LogEvent(model, db.ACT_SET_RELEASE_TIME, fmt.Sprintf("release at: %s", releaseAt), userCred)
+	}
+	if len(diff) > 0 && userCred != nil {
+		logclient.AddActionLogWithContext(ctx, model, logclient.ACT_SET_RELEASE_TIME, diff, userCred, true)
+	}
+	return nil
+}
+
+func SaveRenewInfo(
+	ctx context.Context, userCred mcclient.TokenCredential,
+	model IBillingModel, bc *billing.SBillingCycle, expireAt *time.Time, billingType string,
+) error {
+	_, err := db.Update(model, func() error {
+		if billingType == "" {
+			billingType = billing_api.BILLING_TYPE_PREPAID
+		}
+		if model.GetBillingType() == "" {
+			model.SetBillingType(billingType)
+		}
+		if expireAt != nil && !expireAt.IsZero() {
+			model.SetExpiredAt(*expireAt)
+		} else if bc != nil {
+			model.SetBillingCycle(bc.String())
+			model.SetExpiredAt(bc.EndAt(model.GetExpiredAt()))
+		}
+		return nil
+	})
+	if err != nil {
+		log.Errorf("UpdateItem error %s", err)
+		return err
+	}
+	db.OpsLog.LogEvent(model, db.ACT_RENEW, model.GetShortDesc(ctx), userCred)
+	return nil
 }
 
 func fetchExpiredModels(manager db.IModelManager, advanceDay int) ([]IBillingModel, error) {
