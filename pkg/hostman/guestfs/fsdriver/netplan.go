@@ -20,7 +20,6 @@ import (
 	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
-	"yunion.io/x/onecloud/pkg/util/dhcp"
 	"yunion.io/x/onecloud/pkg/util/netplan"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
 )
@@ -126,8 +125,8 @@ func getNetplanEthernetConfig(nic *types.SServerNic, isBond bool, mainIp, mainIp
 			}
 		}
 
-		routeArrs4 := make([]dhcp.SRouteInfo, 0)
-		routeArrs6 := make([]dhcp.SRouteInfo, 0)
+		routeArrs4 := make([]netutils2.SRouteInfo, 0)
+		routeArrs6 := make([]netutils2.SRouteInfo, 0)
 		routeArrs4, routeArrs6 = netutils2.AddNicRoutes(routeArrs4, routeArrs6, nic, mainIp, mainIp6, nicCnt)
 
 		var routes []*netplan.Route

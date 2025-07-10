@@ -15,6 +15,8 @@
 package hostman
 
 import (
+	"time"
+
 	execlient "yunion.io/x/executor/client"
 	"yunion.io/x/log"
 
@@ -85,7 +87,9 @@ func (host *SHostService) RunService() {
 
 	hostInstance := hostinfo.Instance()
 	if err := hostInstance.Init(app.GetContext()); err != nil {
-		log.Fatalf("Host instance init error: %v", err)
+		log.Errorf("Host instance init error: %s, wait 3 minutes to retry", err)
+		time.Sleep(time.Minute * 3)
+		log.Fatalf("Host instance init error: %s, reboot now", err)
 	}
 
 	app_common.InitAuth(&options.HostOptions.CommonOptions, func() {

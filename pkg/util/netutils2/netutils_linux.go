@@ -63,9 +63,8 @@ func (n *SNetInterface) getAddresses(listFunc func() ([]net.IPNet, error)) []SNi
 
 func (n *SNetInterface) GetRouteSpecs() []iproute2.RouteSpec {
 	routeList := iproute2.NewRoute(n.name)
-	routes4 := getRouteSpecs(routeList.List4)
-	routes6 := getRouteSpecs(routeList.List6)
 	rets := make([]iproute2.RouteSpec, 0)
+	routes4 := getRouteSpecs(routeList.List4)
 	for i := range routes4 {
 		if routes4[i].Gw == nil {
 			continue
@@ -75,6 +74,7 @@ func (n *SNetInterface) GetRouteSpecs() []iproute2.RouteSpec {
 		}
 		rets = append(rets, routes4[i])
 	}
+	routes6 := getRouteSpecs(routeList.List6)
 	for i := range routes6 {
 		if routes6[i].Gw == nil {
 			continue

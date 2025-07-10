@@ -31,7 +31,6 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
-	"yunion.io/x/onecloud/pkg/util/dhcp"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
@@ -332,8 +331,8 @@ func (w *SWindowsRootFs) DeployNetworkingScripts(rootfs IDiskPartition, nics []*
 					lines = append(lines, cfg)
 				}
 			}
-			routes4 := []dhcp.SRouteInfo{}
-			routes6 := []dhcp.SRouteInfo{}
+			routes4 := []netutils2.SRouteInfo{}
+			routes6 := []netutils2.SRouteInfo{}
 			routes4, routes6 = netutils2.AddNicRoutes(routes4, routes6, snic, mainIp, mainIp6, len(nics))
 			for _, r := range routes4 {
 				lines = append(lines, fmt.Sprintf(`      netsh interface ip add route %s/%d %s "%%%%b"`, r.Prefix, r.PrefixLen, r.Gateway.String()))

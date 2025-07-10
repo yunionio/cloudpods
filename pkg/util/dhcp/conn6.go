@@ -119,13 +119,13 @@ func newSocketConn6(addr net.IP, port int, disableBroadcast bool) (conn, error) 
 	return &socketConn{sock}, nil
 }
 
-func (s *socketConn) Recv6(b []byte) ([]byte, *net.UDPAddr, net.HardwareAddr, int, error) {
+func (s *socketConn) Recv6(b []byte) ([]byte, *net.UDPAddr, net.HardwareAddr, error) {
 	n, a, err := syscall.Recvfrom(s.sock, b, 0)
 	if err != nil {
-		return nil, nil, nil, 0, err
+		return nil, nil, nil, err
 	}
 	if addr, ok := a.(*syscall.SockaddrInet6); !ok {
-		return nil, nil, nil, 0, errors.Wrap(errors.ErrUnsupportedProtocol, "Recvfrom recevice address is not famliy Inet6")
+		return nil, nil, nil, errors.Wrap(errors.ErrUnsupportedProtocol, "Recvfrom recevice address is not famliy Inet6")
 	} else {
 		ip := net.IP(addr.Addr[:])
 		udpAddr := &net.UDPAddr{
@@ -133,7 +133,7 @@ func (s *socketConn) Recv6(b []byte) ([]byte, *net.UDPAddr, net.HardwareAddr, in
 			Port: addr.Port,
 		}
 		// there is no interface index info
-		return b[:n], udpAddr, nil, 0, nil
+		return b[:n], udpAddr, nil, nil
 	}
 }
 
@@ -147,6 +147,6 @@ func (s *socketConn) Send6(b []byte, addr *net.UDPAddr, destMac net.HardwareAddr
 	return syscall.Sendto(s.sock, b, 0, destAddr)
 }
 
-func (s *socketConn) SendICMP6(b []byte, srcIp net.IP, srcMac, destMac net.HardwareAddr) error {
+func (s *socketConn) SendRaw(b []byte, destMac net.HardwareAddr) error {
 	return errors.Wrap(errors.ErrNotImplemented, "SendICMP6 not implemented")
 }

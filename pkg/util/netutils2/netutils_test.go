@@ -15,6 +15,7 @@
 package netutils2
 
 import (
+	"os"
 	"testing"
 
 	"yunion.io/x/jsonutils"
@@ -179,6 +180,18 @@ func TestGetMainNicFromDeployApi(t *testing.T) {
 			t.Errorf("error %s", err)
 		} else if got != c.want {
 			t.Errorf("error: got %v want %v", got, c.want)
+		}
+	}
+}
+
+func TestGetRouteSpecs(t *testing.T) {
+	dirs, _ := os.ReadDir("/sys/class/net")
+	for _, file := range dirs {
+		t.Logf("dir: %s", file.Name())
+		n := NewNetInterface(file.Name())
+		routes := n.GetRouteSpecs()
+		for i := range routes {
+			t.Logf("route %s via %s", routes[i].Dst.String(), routes[i].Gw.String())
 		}
 	}
 }

@@ -30,7 +30,6 @@ import (
 	"yunion.io/x/pkg/util/regutils"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
-	"yunion.io/x/onecloud/pkg/util/dhcp"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 )
 
@@ -132,8 +131,8 @@ func Netlen2Mask(netmasklen int) string {
 	return netutils.Netlen2Mask(netmasklen)
 }
 
-func addRoute(routes []dhcp.SRouteInfo, net, gw string) []dhcp.SRouteInfo {
-	route, _ := dhcp.ParseRouteInfo([]string{net, gw})
+func addRoute(routes []SRouteInfo, net, gw string) []SRouteInfo {
+	route, _ := ParseRouteInfo([]string{net, gw})
 	if route != nil {
 		for _, rt := range routes {
 			if rt.Prefix.String() == route.Prefix.String() && rt.PrefixLen == route.PrefixLen {
@@ -146,7 +145,7 @@ func addRoute(routes []dhcp.SRouteInfo, net, gw string) []dhcp.SRouteInfo {
 	return routes
 }
 
-func extendRoutes(routes4, routes6 []dhcp.SRouteInfo, nicRoutes []types.SRoute) ([]dhcp.SRouteInfo, []dhcp.SRouteInfo) {
+func extendRoutes(routes4, routes6 []SRouteInfo, nicRoutes []types.SRoute) ([]SRouteInfo, []SRouteInfo) {
 	for i := 0; i < len(nicRoutes); i++ {
 		if regutils.MatchCIDR6(nicRoutes[i][0]) {
 			routes6 = addRoute(routes6, nicRoutes[i][0], nicRoutes[i][1])
@@ -166,7 +165,7 @@ func isExitAddress(ip string) bool {
 	return netutils.IsExitAddress(ipv4)
 }
 
-func AddNicRoutes(routes4 []dhcp.SRouteInfo, routes6 []dhcp.SRouteInfo, nicDesc *types.SServerNic, mainIp string, mainIp6 string, nicCnt int) ([]dhcp.SRouteInfo, []dhcp.SRouteInfo) {
+func AddNicRoutes(routes4 []SRouteInfo, routes6 []SRouteInfo, nicDesc *types.SServerNic, mainIp string, mainIp6 string, nicCnt int) ([]SRouteInfo, []SRouteInfo) {
 	// always add static routes, even if this is the default NIC
 	// if mainIp == nicDesc.Ip {
 	// 	return routes

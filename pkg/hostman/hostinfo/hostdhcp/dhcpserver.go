@@ -221,8 +221,8 @@ func getGuestConfig(
 		mainIp6 = mainNic6.Ip6
 	}
 
-	route4 := make([]dhcp.SRouteInfo, 0)
-	route6 := make([]dhcp.SRouteInfo, 0)
+	route4 := make([]netutils2.SRouteInfo, 0)
+	route6 := make([]netutils2.SRouteInfo, 0)
 	if nicdesc.IsDefault {
 		osName := guestDesc.OsName
 		if len(osName) == 0 {
@@ -233,10 +233,12 @@ func getGuestConfig(
 			conf.Gateway = net.ParseIP(nicdesc.Gateway)
 
 			if !strings.HasPrefix(strings.ToLower(osName), "win") {
-				route4 = append(route4, dhcp.SRouteInfo{
-					Prefix:    net.ParseIP("0.0.0.0"),
-					PrefixLen: 0,
-					Gateway:   net.ParseIP(nicdesc.Gateway),
+				route4 = append(route4, netutils2.SRouteInfo{
+					SPrefixInfo: netutils2.SPrefixInfo{
+						Prefix:    net.ParseIP("0.0.0.0"),
+						PrefixLen: 0,
+					},
+					Gateway: net.ParseIP(nicdesc.Gateway),
 				})
 			}
 		}
@@ -244,10 +246,12 @@ func getGuestConfig(
 		if len(nicdesc.Gateway6) > 0 {
 			conf.Gateway6 = net.ParseIP(nicdesc.Gateway6)
 			conf.PrefixLen6 = uint8(nicdesc.Masklen6)
-			route6 = append(route6, dhcp.SRouteInfo{
-				Prefix:    net.ParseIP("::"),
-				PrefixLen: 0,
-				Gateway:   net.ParseIP(nicdesc.Gateway6),
+			route6 = append(route6, netutils2.SRouteInfo{
+				SPrefixInfo: netutils2.SPrefixInfo{
+					Prefix:    net.ParseIP("::"),
+					PrefixLen: 0,
+				},
+				Gateway: net.ParseIP(nicdesc.Gateway6),
 			})
 		}
 	}
