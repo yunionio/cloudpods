@@ -87,8 +87,8 @@ type FileSystemCreateInput struct {
 	// default: false
 	AutoRenew bool `json:"auto_renew"`
 
-	// 到期释放时间，仅后付费支持
-	ExpiredAt time.Time `json:"expired_at"`
+	// 到期释放时间
+	ReleaseAt time.Time `json:"release_at"`
 
 	// 计费方式
 	// enum: postpaid, prepaid

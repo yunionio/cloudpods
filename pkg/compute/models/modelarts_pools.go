@@ -491,10 +491,10 @@ func (self *SCloudregion) newFromCloudModelartsPool(ctx context.Context, userCre
 	pool.CpuArch = sku.CpuArch
 
 	pool.BillingType = ext.GetBillingType()
+	pool.ExpiredAt = time.Time{}
+	pool.AutoRenew = false
 	if pool.BillingType == billing_api.BILLING_TYPE_PREPAID {
-		if expired := ext.GetExpiredAt(); !expired.IsZero() {
-			pool.ExpiredAt = expired
-		}
+		pool.ExpiredAt = ext.GetExpiredAt()
 		pool.AutoRenew = ext.IsAutoRenew()
 	}
 

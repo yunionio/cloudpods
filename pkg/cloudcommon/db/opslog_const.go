@@ -51,6 +51,8 @@ const (
 	ACT_BACKUP_START        = "backup_start"
 	ACT_BACKUP_START_FAILED = "backup_start_fail"
 
+	ACT_SET_RELEASE_TIME = "set_release_time"
+
 	ACT_FREEZE      = "freeze"
 	ACT_FREEZE_FAIL = "freeze_fail"
 	ACT_UNFREEZE    = "unfreeze"

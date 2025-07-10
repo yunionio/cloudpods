@@ -28,7 +28,6 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
-	"yunion.io/x/pkg/util/billing"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/util/pinyinutils"
 	"yunion.io/x/pkg/util/rbacscope"
@@ -1757,12 +1756,12 @@ func (self *SDisk) syncWithCloudDisk(ctx context.Context, userCred mcclient.Toke
 		if provider.GetFactory().IsSupportPrepaidResources() && !recycle {
 			if billintType := extDisk.GetBillingType(); len(billintType) > 0 {
 				self.BillingType = extDisk.GetBillingType()
+				self.ExpiredAt = time.Time{}
+				self.AutoRenew = false
 				if self.BillingType == billing_api.BILLING_TYPE_PREPAID {
+					self.ExpiredAt = extDisk.GetExpiredAt()
 					self.AutoRenew = extDisk.IsAutoRenew()
 				}
-			}
-			if expiredAt := extDisk.GetExpiredAt(); !expiredAt.IsZero() {
-				self.ExpiredAt = extDisk.GetExpiredAt()
 			}
 		}
 
@@ -2918,49 +2917,6 @@ func (self *SDisk) DeleteSnapshots(ctx context.Context, userCred mcclient.TokenC
 	} else {
 		task.ScheduleRun(nil)
 	}
-	return nil
-}
-
-func (self *SDisk) SaveRenewInfo(
-	ctx context.Context, userCred mcclient.TokenCredential,
-	bc *billing.SBillingCycle, expireAt *time.Time, billingType string,
-) error {
-	_, err := db.Update(self, func() error {
-		if billingType == "" {
-			billingType = billing_api.BILLING_TYPE_PREPAID
-		}
-		if self.BillingType == "" {
-			self.BillingType = billingType
-		}
-		if expireAt != nil && !expireAt.IsZero() {
-			self.ExpiredAt = *expireAt
-		} else if bc != nil {
-			self.BillingCycle = bc.String()
-			self.ExpiredAt = bc.EndAt(self.ExpiredAt)
-		}
-		return nil
-	})
-	if err != nil {
-		return errors.Wrapf(err, "SaveRenewInfo.Update")
-	}
-	db.OpsLog.LogEvent(self, db.ACT_RENEW, self.GetShortDesc(ctx), userCred)
-	return nil
-}
-
-func (self *SDisk) CancelExpireTime(ctx context.Context, userCred mcclient.TokenCredential) error {
-	if self.BillingType != billing_api.BILLING_TYPE_POSTPAID {
-		return fmt.Errorf("billing type %s not support cancel expire", self.BillingType)
-	}
-	_, err := sqlchemy.GetDB().Exec(
-		fmt.Sprintf(
-			"update %s set expired_at = NULL and billing_cycle = NULL where id = ?",
-			DiskManager.TableSpec().Name(),
-		), self.Id,
-	)
-	if err != nil {
-		return errors.Wrap(err, "disk cancel expire time")
-	}
-	db.OpsLog.LogEvent(self, db.ACT_RENEW, "disk cancel expire time", userCred)
 	return nil
 }
 

@@ -17,7 +17,6 @@ package regiondrivers
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
@@ -354,8 +353,8 @@ func (self *SBaseRegionDriver) GetRdsSupportSecgroupCount() int {
 	return 0
 }
 
-func (self *SBaseRegionDriver) RequestRenewElasticcache(ctx context.Context, userCred mcclient.TokenCredential, instance *models.SElasticcache, bc billing.SBillingCycle) (time.Time, error) {
-	return time.Time{}, fmt.Errorf("Not Implement RequestRenewElasticcache")
+func (self *SBaseRegionDriver) RequestRenewElasticcache(ctx context.Context, userCred mcclient.TokenCredential, instance *models.SElasticcache, bc billing.SBillingCycle) error {
+	return errors.Wrapf(cloudprovider.ErrNotImplemented, "RequestRenewElasticcache")
 }
 
 func (self *SBaseRegionDriver) IsSupportedElasticcacheAutoRenew() bool {
