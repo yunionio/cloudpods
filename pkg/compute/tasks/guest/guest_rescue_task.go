@@ -121,8 +121,6 @@ func (self *StartRescueTask) OnRescueStartServerComplete(ctx context.Context, gu
 	db.OpsLog.LogEvent(guest, db.ACT_START_RESCUE, guest.GetShortDesc(ctx), self.UserCred)
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_START_RESCUE, guest.GetShortDesc(ctx), self.UserCred, true)
 
-	// Set guest status to rescue running
-	guest.SetStatus(ctx, self.UserCred, api.VM_RESCUE, "OnRescueStartServerComplete")
 	self.SetStageComplete(ctx, nil)
 }
 
