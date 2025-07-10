@@ -3113,7 +3113,8 @@ func (self *SGuest) DoCancelPendingDelete(ctx context.Context, userCred mcclient
 	}
 
 	if self.BillingType == billing_api.BILLING_TYPE_POSTPAID && !self.ExpiredAt.IsZero() {
-		if err := self.CancelExpireTime(ctx, userCred); err != nil {
+		err := SaveReleaseAt(ctx, self, userCred, time.Time{})
+		if err != nil {
 			return err
 		}
 	}
@@ -4125,16 +4126,22 @@ func (self *SGuest) PerformCancelExpire(ctx context.Context, userCred mcclient.T
 	if self.BillingType != billing_api.BILLING_TYPE_POSTPAID {
 		return nil, httperrors.NewBadRequestError("guest billing type %s not support cancel expire", self.BillingType)
 	}
-	if err := self.GetDriver().CancelExpireTime(ctx, userCred, self); err != nil {
+
+	err := SaveReleaseAt(ctx, self, userCred, time.Time{})
+	if err != nil {
 		return nil, err
 	}
+
 	disks, err := self.GetDisks()
 	if err != nil {
 		return nil, err
 	}
 	for i := 0; i < len(disks); i += 1 {
-		if err := disks[i].CancelExpireTime(ctx, userCred); err != nil {
-			return nil, err
+		if disks[i].BillingType == billing_api.BILLING_TYPE_POSTPAID {
+			err := SaveReleaseAt(ctx, &disks[i], userCred, time.Time{})
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 	return nil, nil
@@ -4149,16 +4156,15 @@ func (self *SGuest) PerformPostpaidExpire(ctx context.Context, userCred mcclient
 		return nil, httperrors.NewBadRequestError("guest %s unsupport postpaid expire", self.Hypervisor)
 	}
 
-	bc, err := ParseBillingCycleInput(&self.SBillingResourceBase, input)
+	releaseAt, err := input.GetReleaseAt()
 	if err != nil {
 		return nil, err
 	}
 
-	err = self.SaveRenewInfo(ctx, userCred, bc, nil, billing_api.BILLING_TYPE_POSTPAID)
+	err = SaveReleaseAt(ctx, self, userCred, releaseAt)
 	if err != nil {
 		return nil, err
 	}
-	logclient.AddActionLogWithContext(ctx, self, logclient.ACT_SET_EXPIRED_TIME, input, userCred, true)
 	return nil, nil
 }
 
@@ -4216,7 +4222,7 @@ func (self *SGuest) SaveRenewInfo(
 	ctx context.Context, userCred mcclient.TokenCredential,
 	bc *billing.SBillingCycle, expireAt *time.Time, billingType string,
 ) error {
-	err := self.doSaveRenewInfo(ctx, userCred, bc, expireAt, billingType)
+	err := SaveRenewInfo(ctx, userCred, self, bc, expireAt, billingType)
 	if err != nil {
 		return err
 	}
@@ -4226,56 +4232,12 @@ func (self *SGuest) SaveRenewInfo(
 	}
 	for i := 0; i < len(disks); i += 1 {
 		if disks[i].AutoDelete {
-			err = disks[i].SaveRenewInfo(ctx, userCred, bc, expireAt, billingType)
+			err = SaveRenewInfo(ctx, userCred, &disks[i], bc, expireAt, billingType)
 			if err != nil {
 				return err
 			}
 		}
 	}
-	return nil
-}
-
-func (self *SGuest) doSaveRenewInfo(
-	ctx context.Context, userCred mcclient.TokenCredential,
-	bc *billing.SBillingCycle, expireAt *time.Time, billingType string,
-) error {
-	_, err := db.Update(self, func() error {
-		if billingType == "" {
-			billingType = billing_api.BILLING_TYPE_PREPAID
-		}
-		if self.BillingType == "" {
-			self.BillingType = billingType
-		}
-		if expireAt != nil && !expireAt.IsZero() {
-			self.ExpiredAt = *expireAt
-		} else if bc != nil {
-			self.BillingCycle = bc.String()
-			self.ExpiredAt = bc.EndAt(self.ExpiredAt)
-		}
-		return nil
-	})
-	if err != nil {
-		log.Errorf("UpdateItem error %s", err)
-		return err
-	}
-	db.OpsLog.LogEvent(self, db.ACT_RENEW, self.GetShortDesc(ctx), userCred)
-	return nil
-}
-
-func (self *SGuest) CancelExpireTime(ctx context.Context, userCred mcclient.TokenCredential) error {
-	if self.BillingType != billing_api.BILLING_TYPE_POSTPAID {
-		return fmt.Errorf("billing type %s not support cancel expire", self.BillingType)
-	}
-	_, err := sqlchemy.GetDB().Exec(
-		fmt.Sprintf(
-			"update %s set expired_at = NULL and billing_cycle = NULL where id = ?",
-			GuestManager.TableSpec().Name(),
-		), self.Id,
-	)
-	if err != nil {
-		return errors.Wrap(err, "guest cancel expire time")
-	}
-	db.OpsLog.LogEvent(self, db.ACT_RENEW, "guest cancel expire time", userCred)
 	return nil
 }
 

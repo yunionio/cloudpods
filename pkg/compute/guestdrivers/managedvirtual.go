@@ -1004,6 +1004,7 @@ func (drv *SManagedVirtualizedGuestDriver) RequestChangeBillingType(ctx context.
 			guest.BillingType = ivm.GetBillingType()
 			guest.Status = ivm.GetStatus()
 			guest.ExpiredAt = time.Time{}
+			guest.AutoRenew = false
 			if guest.BillingType == billing_api.BILLING_TYPE_PREPAID {
 				guest.AutoRenew = ivm.IsAutoRenew()
 				guest.ExpiredAt = ivm.GetExpiredAt()
@@ -1257,7 +1258,7 @@ func (drv *SManagedVirtualizedGuestDriver) OnGuestDeployTaskDataReceived(ctx con
 
 	exp, err := data.GetTime("expired_at")
 	if err == nil && !guest.IsPrepaidRecycle() {
-		guest.SaveRenewInfo(ctx, task.GetUserCred(), nil, &exp, "")
+		models.SaveRenewInfo(ctx, task.GetUserCred(), guest, nil, &exp, "")
 	}
 	if guest.GetDriver().IsSupportSetAutoRenew() {
 		autoRenew, _ := data.Bool("auto_renew")
