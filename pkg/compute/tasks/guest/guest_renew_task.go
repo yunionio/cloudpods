@@ -65,7 +65,7 @@ func (self *GuestRenewTask) OnInit(ctx context.Context, obj db.IStandaloneModel,
 		return
 	}
 
-	err = guest.SaveRenewInfo(ctx, self.UserCred, &bc, &exp, "")
+	err = models.SaveRenewInfo(ctx, self.UserCred, guest, &bc, &exp, "")
 	if err != nil {
 		msg := fmt.Sprintf("SaveRenewInfo fail %s", err)
 		log.Errorf(msg)
