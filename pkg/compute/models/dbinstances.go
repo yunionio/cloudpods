@@ -1722,10 +1722,6 @@ func (self *SDBInstance) SyncWithCloudDBInstance(ctx context.Context, userCred m
 			self.CreatedAt = createdAt
 		}
 
-		if expiredAt := ext.GetExpiredAt(); !expiredAt.IsZero() {
-			self.ExpiredAt = expiredAt
-		}
-
 		if len(self.VpcId) == 0 {
 			if vpcId := ext.GetIVpcId(); len(vpcId) > 0 {
 				vpc, err := db.FetchByExternalIdAndManagerId(VpcManager, vpcId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
@@ -1758,7 +1754,7 @@ func (self *SDBInstance) SyncWithCloudDBInstance(ctx context.Context, userCred m
 
 		if factory.IsSupportPrepaidResources() && !ext.GetExpiredAt().IsZero() {
 			self.BillingType = ext.GetBillingType()
-			if expired := ext.GetExpiredAt(); !expired.IsZero() {
+			if expired := ext.GetExpiredAt(); !expired.IsZero() && self.BillingType == billing_api.BILLING_TYPE_PREPAID {
 				self.ExpiredAt = expired
 			}
 			self.AutoRenew = ext.IsAutoRenew()
@@ -1848,7 +1844,7 @@ func (manager *SDBInstanceManager) newFromCloudDBInstance(ctx context.Context, u
 
 	if factory.IsSupportPrepaidResources() {
 		instance.BillingType = extInstance.GetBillingType()
-		if expired := extInstance.GetExpiredAt(); !expired.IsZero() {
+		if expired := extInstance.GetExpiredAt(); !expired.IsZero() && instance.BillingType == billing_api.BILLING_TYPE_PREPAID {
 			instance.ExpiredAt = expired
 		}
 		instance.AutoRenew = extInstance.IsAutoRenew()
