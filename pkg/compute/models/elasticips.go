@@ -33,6 +33,7 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
+	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -596,7 +597,7 @@ func (self *SElasticip) SyncWithCloudEip(ctx context.Context, userCred mcclient.
 		factory, _ := provider.GetProviderFactory()
 		if factory != nil && factory.IsSupportPrepaidResources() {
 			self.BillingType = ext.GetBillingType()
-			if expired := ext.GetExpiredAt(); !expired.IsZero() {
+			if expired := ext.GetExpiredAt(); !expired.IsZero() && self.BillingType == billing_api.BILLING_TYPE_PREPAID {
 				self.ExpiredAt = expired
 			}
 			self.AutoRenew = ext.IsAutoRenew()

@@ -522,7 +522,7 @@ func (self *SNatGateway) SyncWithCloudNatGateway(ctx context.Context, userCred m
 		factory, _ := provider.GetProviderFactory()
 		if factory.IsSupportPrepaidResources() {
 			self.BillingType = extNat.GetBillingType()
-			if expired := extNat.GetExpiredAt(); !expired.IsZero() {
+			if expired := extNat.GetExpiredAt(); !expired.IsZero() && self.BillingType == billing_api.BILLING_TYPE_PREPAID {
 				self.ExpiredAt = expired
 			}
 			self.AutoRenew = extNat.IsAutoRenew()
@@ -567,7 +567,7 @@ func (manager *SNatGatewayManager) newFromCloudNatGateway(ctx context.Context, u
 	factory, _ := provider.GetProviderFactory()
 	if factory.IsSupportPrepaidResources() {
 		nat.BillingType = extNat.GetBillingType()
-		if expired := extNat.GetExpiredAt(); !expired.IsZero() {
+		if expired := extNat.GetExpiredAt(); !expired.IsZero() && nat.BillingType == billing_api.BILLING_TYPE_PREPAID {
 			nat.ExpiredAt = expired
 		}
 		nat.AutoRenew = extNat.IsAutoRenew()
