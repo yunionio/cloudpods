@@ -648,7 +648,7 @@ func (self *SElasticcache) SyncWithCloudElasticcache(ctx context.Context, userCr
 
 		if factory.IsSupportPrepaidResources() {
 			self.BillingType = extInstance.GetBillingType()
-			if expired := extInstance.GetExpiredAt(); !expired.IsZero() {
+			if expired := extInstance.GetExpiredAt(); !expired.IsZero() && self.BillingType == billing_api.BILLING_TYPE_PREPAID {
 				self.ExpiredAt = expired
 			}
 			self.AutoRenew = extInstance.IsAutoRenew()
@@ -767,7 +767,7 @@ func (self *SCloudregion) newFromCloudElasticcache(ctx context.Context, userCred
 
 	if factory.IsSupportPrepaidResources() {
 		instance.BillingType = extInstance.GetBillingType()
-		if expired := extInstance.GetExpiredAt(); !expired.IsZero() {
+		if expired := extInstance.GetExpiredAt(); !expired.IsZero() && instance.BillingType == billing_api.BILLING_TYPE_PREPAID {
 			instance.ExpiredAt = expired
 		}
 		instance.AutoRenew = extInstance.IsAutoRenew()

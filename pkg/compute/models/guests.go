@@ -3267,7 +3267,11 @@ func (g *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.TokenCre
 
 		if provider.GetFactory().IsSupportPrepaidResources() && !recycle {
 			g.BillingType = extVM.GetBillingType()
-			g.ExpiredAt = extVM.GetExpiredAt()
+			if g.BillingType == billing_api.BILLING_TYPE_PREPAID {
+				if expired := extVM.GetExpiredAt(); !expired.IsZero() {
+					g.ExpiredAt = expired
+				}
+			}
 			drv, _ := g.GetDriver()
 			if drv != nil && drv.IsSupportSetAutoRenew() {
 				g.AutoRenew = extVM.IsAutoRenew()
@@ -3341,7 +3345,7 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 
 	if provider.GetFactory().IsSupportPrepaidResources() {
 		guest.BillingType = extVM.GetBillingType()
-		if expired := extVM.GetExpiredAt(); !expired.IsZero() {
+		if expired := extVM.GetExpiredAt(); !expired.IsZero() && guest.BillingType == billing_api.BILLING_TYPE_PREPAID {
 			guest.ExpiredAt = expired
 		}
 		drv, _ := guest.GetDriver()
