@@ -113,7 +113,7 @@ const (
 	ACT_UNFREEZE                     = "unfreeze"
 	ACT_CHANGE_BILLING_TYPE          = "change_billing_type"
 	// 到期释放
-	ACT_SET_EXPIRED_TIME        = "set_expired_time"
+	ACT_SET_RELEASE_TIME        = "set_release_time"
 	ACT_VM_SYNC_ISOLATED_DEVICE = "vm_sync_isolated_device"
 
 	ACT_CACHED_IMAGE = "cached_image"
