@@ -87,11 +87,11 @@ func (s *rawSocketConn) Close() error {
 	return s.conn.Close()
 }
 
-func (s *rawSocketConn) Recv(b []byte) ([]byte, *net.UDPAddr, net.HardwareAddr, int, error) {
+func (s *rawSocketConn) Recv(b []byte) ([]byte, *net.UDPAddr, net.HardwareAddr, error) {
 	// read packet
 	n, addr, err := s.conn.ReadFrom(b)
 	if err != nil {
-		return nil, nil, nil, 0, errors.Wrap(err, "Read from errror")
+		return nil, nil, nil, errors.Wrap(err, "Read from errror")
 	}
 	log.Debugf("rawSocketConn Recv %d bytes", n)
 
@@ -99,12 +99,12 @@ func (s *rawSocketConn) Recv(b []byte) ([]byte, *net.UDPAddr, net.HardwareAddr, 
 
 	srcMac, err := net.ParseMAC(addr.String())
 	if err != nil {
-		return nil, nil, nil, 0, errors.Wrap(err, "Parse mac error")
+		return nil, nil, nil, errors.Wrap(err, "Parse mac error")
 	}
 
 	p := gopacket.NewPacket(b, layers.LayerTypeEthernet, gopacket.Default)
 	if p.ErrorLayer() != nil {
-		return nil, nil, nil, 0, errors.Wrap(p.ErrorLayer().Error(), "Failed to decode packet")
+		return nil, nil, nil, errors.Wrap(p.ErrorLayer().Error(), "Failed to decode packet")
 	}
 
 	var srcIp net.IP
@@ -115,7 +115,7 @@ func (s *rawSocketConn) Recv(b []byte) ([]byte, *net.UDPAddr, net.HardwareAddr, 
 			ip4 := ipLayer.(*layers.IPv4)
 			srcIp = ip4.SrcIP
 		} else {
-			return nil, nil, nil, 0, errors.Wrap(p.ErrorLayer().Error(), "Expect IP packet")
+			return nil, nil, nil, errors.Wrap(p.ErrorLayer().Error(), "Expect IP packet")
 		}
 	}
 
@@ -125,7 +125,7 @@ func (s *rawSocketConn) Recv(b []byte) ([]byte, *net.UDPAddr, net.HardwareAddr, 
 		udpInfo := udpLayer.(*layers.UDP)
 		srcPort = uint16(udpInfo.SrcPort)
 	} else {
-		return nil, nil, nil, 0, errors.Wrap(p.ErrorLayer().Error(), "Expect UDP packet")
+		return nil, nil, nil, errors.Wrap(p.ErrorLayer().Error(), "Expect UDP packet")
 	}
 
 	dhcpLayer := p.Layer(layers.LayerTypeDHCPv4)
@@ -134,11 +134,11 @@ func (s *rawSocketConn) Recv(b []byte) ([]byte, *net.UDPAddr, net.HardwareAddr, 
 		dhcp4 := dhcpLayer.(*layers.DHCPv4)
 		sbf := gopacket.NewSerializeBuffer()
 		if err := dhcp4.SerializeTo(sbf, gopacket.SerializeOptions{}); err != nil {
-			return nil, nil, nil, 0, errors.Wrap(err, "Serialize dhcp packet error")
+			return nil, nil, nil, errors.Wrap(err, "Serialize dhcp packet error")
 		}
-		return sbf.Bytes(), &net.UDPAddr{IP: srcIp, Port: int(srcPort)}, srcMac, 0, nil
+		return sbf.Bytes(), &net.UDPAddr{IP: srcIp, Port: int(srcPort)}, srcMac, nil
 	} else {
-		return nil, nil, nil, 0, errors.Wrap(p.ErrorLayer().Error(), "Expect DHCP packet")
+		return nil, nil, nil, errors.Wrap(p.ErrorLayer().Error(), "Expect DHCP packet")
 	}
 }
 

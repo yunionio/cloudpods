@@ -71,12 +71,13 @@ const (
 type conn interface {
 	io.Closer
 	Send(b []byte, addr *net.UDPAddr, destMac net.HardwareAddr) error
-	Recv(b []byte) ([]byte, *net.UDPAddr, net.HardwareAddr, int, error)
+	Recv(b []byte) ([]byte, *net.UDPAddr, net.HardwareAddr, error)
 	Send6(b []byte, addr *net.UDPAddr, destMac net.HardwareAddr) error
-	SendICMP6(b []byte, srcIp net.IP, srcMac, destMac net.HardwareAddr) error
-	Recv6(b []byte) ([]byte, *net.UDPAddr, net.HardwareAddr, int, error)
+	Recv6(b []byte) ([]byte, *net.UDPAddr, net.HardwareAddr, error)
 	SetReadDeadline(t time.Time) error
 	SetWriteDeadline(t time.Time) error
+
+	SendRaw(b []byte, destMac net.HardwareAddr) error
 }
 
 // Conn is a DHCP-oriented packet socket.
@@ -171,7 +172,7 @@ func (c *Conn) Close() error {
 // packet and the interface it was received on.
 func (c *Conn) RecvDHCP() (Packet, *net.UDPAddr, net.HardwareAddr, error) {
 	var buf [1500]byte
-	b, addr, mac, _, err := c.conn.Recv(buf[:])
+	b, addr, mac, err := c.conn.Recv(buf[:])
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -181,7 +182,7 @@ func (c *Conn) RecvDHCP() (Packet, *net.UDPAddr, net.HardwareAddr, error) {
 
 func (c *Conn) RecvDHCP6() (Packet, *net.UDPAddr, net.HardwareAddr, error) {
 	var buf [1500]byte
-	b, addr, mac, _, err := c.conn.Recv6(buf[:])
+	b, addr, mac, err := c.conn.Recv6(buf[:])
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -214,9 +215,9 @@ func (c *Conn) SendDHCP6(pkt Packet, addr *net.UDPAddr, mac net.HardwareAddr) er
 	return c.conn.Send6(b, addr, mac)
 }
 
-func (c *Conn) SendICMP6(pkt Packet, srcIp net.IP, srcmac, dstmac net.HardwareAddr) error {
+func (c *Conn) SendRaw(pkt Packet, dstmac net.HardwareAddr) error {
 	b := pkt.Marshal()
-	return c.conn.SendICMP6(b, srcIp, srcmac, dstmac)
+	return c.conn.SendRaw(b, dstmac)
 }
 
 // SetReadDeadline sets the deadline for future Read calls.  If the
@@ -303,13 +304,13 @@ func (s *socketConn) Close() error {
 	return syscall.Close(s.sock)
 }
 
-func (s *socketConn) Recv(b []byte) ([]byte, *net.UDPAddr, net.HardwareAddr, int, error) {
+func (s *socketConn) Recv(b []byte) ([]byte, *net.UDPAddr, net.HardwareAddr, error) {
 	n, a, err := syscall.Recvfrom(s.sock, b, 0)
 	if err != nil {
-		return nil, nil, nil, 0, err
+		return nil, nil, nil, err
 	}
 	if addr, ok := a.(*syscall.SockaddrInet4); !ok {
-		return nil, nil, nil, 0, errors.Wrap(errors.ErrUnsupportedProtocol, "Recvfrom recevice address is not famliy Inet4")
+		return nil, nil, nil, errors.Wrap(errors.ErrUnsupportedProtocol, "Recvfrom recevice address is not famliy Inet4")
 	} else {
 		ip := net.IP{addr.Addr[0], addr.Addr[1], addr.Addr[2], addr.Addr[3]}
 		udpAddr := &net.UDPAddr{
@@ -317,7 +318,7 @@ func (s *socketConn) Recv(b []byte) ([]byte, *net.UDPAddr, net.HardwareAddr, int
 			Port: addr.Port,
 		}
 		// there is no interface index info
-		return b[:n], udpAddr, nil, 0, nil
+		return b[:n], udpAddr, nil, nil
 	}
 }
 

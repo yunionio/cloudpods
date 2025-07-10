@@ -329,12 +329,12 @@ func NewNIC(desc string) (*SNIC, error) {
 		return nil, errors.Wrapf(err, "hostbridge.NewDriver driver: %s, bridge: %s, interface: %s, ip: %s/%d, ip6: %s/%d", options.HostOptions.BridgeDriver, nic.Bridge, nic.Inter, nic.Ip, nic.Mask, nic.Ip6, nic.Mask6)
 	}
 
-	confirm, err := nic.BridgeDev.ConfirmToConfig()
+	confirm, msg, err := nic.BridgeDev.ConfirmToConfig()
 	if err != nil {
 		return nil, errors.Wrapf(err, "nic.BridgeDev.ConfirmToConfig %#v", nic.BridgeDev)
 	}
 	if !confirm {
-		log.Infof("Not confirm to configuration")
+		log.Infof("Not confirm to configuration, bridge %s reason: %s", nic.Bridge, msg)
 		if err = nic.BridgeDev.Setup(nic.BridgeDev); err != nil {
 			return nil, errors.Wrapf(err, "nic.BridgeDev.Setup %v", nic.BridgeDev)
 		}
