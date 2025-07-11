@@ -731,6 +731,191 @@ func (manager *SHostManager) OrderByExtraFields(
 		db.OrderByFields(q, []string{query.OrderByStorageUsed}, []sqlchemy.IQueryField{q.Field("storage_used")})
 	}
 
+	if db.NeedOrderQuery([]string{query.OrderByCpuUsage}) {
+		meta := db.Metadata.Query().
+			Equals("obj_type", HostManager.Keyword()).
+			Equals("key", api.HOST_METADATA_CPU_USAGE_PERCENT).SubQuery()
+		metaQ := meta.Query(
+			meta.Field("obj_id"),
+			sqlchemy.CASTFloat(meta.Field("value"), "cpu_usage"),
+		)
+		metaSQ := metaQ.GroupBy(metaQ.Field("obj_id")).SubQuery()
+
+		q = q.LeftJoin(metaSQ, sqlchemy.Equals(q.Field("id"), metaSQ.Field("obj_id")))
+
+		db.OrderByFields(q, []string{query.OrderByCpuUsage}, []sqlchemy.IQueryField{metaSQ.Field("cpu_usage")})
+	}
+
+	if db.NeedOrderQuery([]string{query.OrderByMemUsage}) {
+		meta := db.Metadata.Query().
+			Equals("obj_type", HostManager.Keyword()).
+			Equals("key", api.HOST_METADATA_MEMORY_USED_MB).SubQuery()
+		hosts := HostManager.Query().SubQuery()
+		metaQ := meta.Query(
+			meta.Field("obj_id"),
+			sqlchemy.DIV("mem_usage", sqlchemy.CASTFloat(meta.Field("value"), api.HOST_METADATA_MEMORY_USED_MB), hosts.Field("mem_size")),
+		).LeftJoin(hosts, sqlchemy.Equals(meta.Field("obj_id"), hosts.Field("id")))
+
+		metaSQ := metaQ.GroupBy(metaQ.Field("obj_id")).SubQuery()
+
+		q = q.LeftJoin(metaSQ, sqlchemy.Equals(q.Field("id"), metaSQ.Field("obj_id")))
+
+		db.OrderByFields(q, []string{query.OrderByMemUsage}, []sqlchemy.IQueryField{metaSQ.Field("mem_usage")})
+	}
+
+	if db.NeedOrderQuery([]string{query.OrderByStorageUsage}) {
+		hs := HoststorageManager.Query().SubQuery()
+		storages := StorageManager.Query().IsTrue("enabled").NotEquals("storage_type", api.STORAGE_BAREMETAL).In("storage_type", api.HOST_STORAGE_LOCAL_TYPES).SubQuery()
+		host := HostManager.Query().SubQuery()
+		hsSQ := hs.Query(
+			hs.Field("host_id"),
+			sqlchemy.SUM("actual_storage_used", storages.Field("actual_capacity_used")),
+		).LeftJoin(storages, sqlchemy.Equals(hs.Field("storage_id"), storages.Field("id"))).GroupBy(hs.Field("host_id")).SubQuery()
+
+		hsQ := hsSQ.Query(
+			hsSQ.Field("host_id"),
+			sqlchemy.DIV("storage_usage", hsSQ.Field("actual_storage_used"), host.Field("storage_size")),
+		).LeftJoin(host, sqlchemy.Equals(hsSQ.Field("host_id"), host.Field("id")))
+
+		hsSSQ := hsQ.GroupBy(hsQ.Field("host_id")).SubQuery()
+
+		q = q.LeftJoin(hsSSQ, sqlchemy.Equals(q.Field("id"), hsSSQ.Field("host_id")))
+
+		db.OrderByFields(q, []string{query.OrderByStorageUsage}, []sqlchemy.IQueryField{hsSSQ.Field("storage_usage")})
+	}
+
+	if db.NeedOrderQuery([]string{query.OrderByVirtualMemUsage}) {
+		guests := GuestManager.Query()
+		if options.Options.IgnoreNonrunningGuests {
+			guests = guests.Equals("status", api.VM_RUNNING)
+		}
+
+		sq := guests.SubQuery()
+		guestSQ := sq.Query(
+			sq.Field("host_id"),
+			sqlchemy.SUM("mem_commit", sq.Field("vmem_size")),
+		).GroupBy(sq.Field("host_id")).SubQuery()
+
+		host := HostManager.Query().SubQuery()
+
+		vq := guestSQ.Query(
+			guestSQ.Field("host_id"),
+			guestSQ.Field("mem_commit"),
+			sqlchemy.NewFunction(
+				sqlchemy.NewCase().When(
+					sqlchemy.GE(host.Field("mem_cmtbound"), 0),
+					host.Field("mem_cmtbound"),
+				).Else(sqlchemy.NewConstField(1)),
+				"mem_cmtbound",
+				true,
+			),
+			sqlchemy.SUB("host_mem_size", host.Field("mem_size"), host.Field("mem_reserved")),
+		).LeftJoin(host, sqlchemy.Equals(guestSQ.Field("host_id"), host.Field("id"))).GroupBy(guestSQ.Field("host_id")).SubQuery()
+
+		vsq := vq.Query(
+			vq.Field("host_id"),
+			sqlchemy.MUL("virtual_mem_usage", vq.Field("mem_commit"), sqlchemy.DIV("cmt_mem_size", vq.Field("mem_cmtbound"), vq.Field("host_mem_size"))),
+		)
+
+		vqq := vsq.GroupBy(vsq.Field("host_id")).SubQuery()
+
+		q = q.LeftJoin(vqq, sqlchemy.Equals(q.Field("id"), vqq.Field("host_id")))
+
+		db.OrderByFields(q, []string{query.OrderByVirtualMemUsage}, []sqlchemy.IQueryField{vqq.Field("virtual_mem_usage")})
+	}
+
+	if db.NeedOrderQuery([]string{query.OrderByVirtualCpuUsage}) {
+		guests := GuestManager.Query()
+		if options.Options.IgnoreNonrunningGuests {
+			guests = guests.Equals("status", api.VM_RUNNING)
+		}
+
+		sq := guests.SubQuery()
+		guestSQ := sq.Query(
+			sq.Field("host_id"),
+			sqlchemy.SUM("cpu_commit", sq.Field("vcpu_count")),
+		).GroupBy(sq.Field("host_id")).SubQuery()
+
+		host := HostManager.Query().SubQuery()
+
+		vq := guestSQ.Query(
+			guestSQ.Field("host_id"),
+			guestSQ.Field("cpu_commit"),
+			sqlchemy.NewFunction(
+				sqlchemy.NewCase().When(
+					sqlchemy.GE(host.Field("cpu_cmtbound"), 0),
+					host.Field("cpu_cmtbound"),
+				).Else(sqlchemy.NewConstField(1)),
+				"cpu_cmtbound",
+				true,
+			),
+			sqlchemy.SUB("host_cpu_size", host.Field("cpu_count"), host.Field("cpu_reserved")),
+		).LeftJoin(host, sqlchemy.Equals(guestSQ.Field("host_id"), host.Field("id"))).GroupBy(guestSQ.Field("host_id")).SubQuery()
+
+		vsq := vq.Query(
+			vq.Field("host_id"),
+			sqlchemy.MUL("virtual_cpu_usage", vq.Field("cpu_commit"), sqlchemy.DIV("cmt_cpu_size", vq.Field("cpu_cmtbound"), vq.Field("host_cpu_size"))),
+		)
+
+		vqq := vsq.GroupBy(vsq.Field("host_id")).SubQuery()
+
+		q = q.LeftJoin(vqq, sqlchemy.Equals(q.Field("id"), vqq.Field("host_id")))
+
+		db.OrderByFields(q, []string{query.OrderByVirtualCpuUsage}, []sqlchemy.IQueryField{vqq.Field("virtual_cpu_usage")})
+	}
+
+	if db.NeedOrderQuery([]string{query.OrderByVirtualStorageUsage}) {
+		hoststorages := HoststorageManager.Query().SubQuery()
+		storageQ := StorageManager.Query().IsTrue("enabled").NotEquals("storage_type", api.STORAGE_BAREMETAL).In("storage_type", api.HOST_STORAGE_LOCAL_TYPES).SubQuery()
+
+		diskReadySQ := DiskManager.Query().Equals("status", api.DISK_READY).SubQuery()
+		diskReadyQ := diskReadySQ.Query(sqlchemy.SUM("sum", diskReadySQ.Field("disk_size")).Label("used")).GroupBy(diskReadySQ.Field("storage_id"))
+		readySQ := diskReadyQ.SubQuery()
+
+		storageSQ := storageQ.Query(
+			storageQ.Field("id"),
+			sqlchemy.SUB("storage_capacity", storageQ.Field("capacity"), storageQ.Field("reserved")),
+			hoststorages.Field("host_id"),
+			sqlchemy.NewFunction(
+				sqlchemy.NewCase().When(
+					sqlchemy.GE(storageQ.Field("cmtbound"), 0),
+					storageQ.Field("cmtbound"),
+				).Else(sqlchemy.NewConstField(1)),
+				"cmtbound",
+				true,
+			),
+			readySQ.Field("used"),
+		)
+
+		storageSQ = storageSQ.Join(hoststorages, sqlchemy.Equals(storageSQ.Field("id"), hoststorages.Field("storage_id")))
+		storageSQ = storageSQ.LeftJoin(readySQ, sqlchemy.Equals(readySQ.Field("storage_id"), storageSQ.Field("id")))
+
+		sq := storageSQ.SubQuery()
+		sqMul := sq.Query(
+			sq.Field("host_id"),
+			sq.Field("id"),
+			sq.Field("used"),
+			sqlchemy.MUL("virtual_storage_size", sq.Field("storage_capacity"), sq.Field("cmtbound")),
+		).SubQuery()
+
+		sqSum := sqMul.Query(
+			sqMul.Field("host_id"),
+			sqMul.Field("id"),
+			sqlchemy.SUM("total_used", sqMul.Field("used")),
+			sqlchemy.SUM("total_virtual_storage_szie", sqMul.Field("virtual_storage_size")),
+		).GroupBy(sqMul.Field("host_id")).SubQuery()
+
+		sqDiv := sqSum.Query(
+			sqSum.Field("host_id"),
+			sqlchemy.DIV("virtual_storage_usage", sqSum.Field("total_used"), sqSum.Field("total_virtual_storage_szie")),
+		)
+
+		usageSQ := sqDiv.GroupBy(sqDiv.Field("host_id")).SubQuery()
+		q = q.LeftJoin(usageSQ, sqlchemy.Equals(q.Field("id"), usageSQ.Field("host_id")))
+
+		db.OrderByFields(q, []string{query.OrderByVirtualStorageUsage}, []sqlchemy.IQueryField{usageSQ.Field("virtual_storage_usage")})
+	}
+
 	return q, nil
 }
 
@@ -4805,7 +4990,7 @@ func (hh *SHost) PerformPing(ctx context.Context, userCred mcclient.TokenCredent
 		}
 		hh.SetMetadata(ctx, "root_partition_used_capacity_mb", input.RootPartitionUsedCapacityMb, userCred)
 		hh.SetMetadata(ctx, "memory_used_mb", input.MemoryUsedMb, userCred)
-		hh.SetMetadata(ctx, "cpu_usage_percent", input.CpuUsagePercent, userCred)
+		hh.SetMetadata(ctx, api.HOST_METADATA_CPU_USAGE_PERCENT, input.CpuUsagePercent, userCred)
 
 		guests, _ := hh.GetGuests()
 		for _, guest := range guests {

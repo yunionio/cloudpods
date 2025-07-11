@@ -119,6 +119,11 @@ const (
 	HostResourceTypeDedicated      = "dedicated"
 )
 
+const (
+	HOST_METADATA_CPU_USAGE_PERCENT = "cpu_usage_percent"
+	HOST_METADATA_MEMORY_USED_MB    = "memory_used_mb"
+)
+
 var HOST_TYPES = []string{
 	HOST_TYPE_BAREMETAL,
 	HOST_TYPE_HYPERVISOR,
