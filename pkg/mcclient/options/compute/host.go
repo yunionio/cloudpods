@@ -64,6 +64,14 @@ type HostListOptions struct {
 	OrderByCpuCommit   string `help:"Order by cpu commit" choices:"desc|asc"`
 	OrderByMemCommit   string `help:"Order by mem commit" choices:"desc|asc"`
 
+	OrderByCpuUsage string `help:"Order by cpu usage" choices:"desc|asc"`
+	OrderByMemUsage string `help:"Order by mem usage" choices:"desc|asc"`
+
+	OrderByStorageUsage        string `help:"Order by storage usage" choices:"desc|asc"`
+	OrderByVirtualMemUsage     string `help:"Order by virtual mem usage" choices:"desc|asc"`
+	OrderByVirtualCpuUsage     string `help:"Order by virtual cpu usage" choices:"desc|asc"`
+	OrderByVirtualStorageUsage string `help:"Order by virtual storage usage" choices:"desc|asc"`
+
 	HideCpuTopoInfo *bool `help:"Host list will remove cpu_info and topology info from sysinfo and metadata"`
 
 	options.BaseListOptions
