@@ -286,7 +286,7 @@ func (s *DHCP6Server) serveDHCP(handler DHCP6Handler) error {
 
 			if addr.Port == icmpRAFakePort {
 				// receive a RA solication
-				handler.OnRecvICMP6(pkt, mac, addr)
+				handler.OnRecvICMP6(pkt)
 				return
 			}
 

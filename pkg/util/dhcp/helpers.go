@@ -36,6 +36,7 @@ const (
 // http://www.networksorcery.com/enp/rfc/rfc2132.txt
 type ResponseConfig struct {
 	InterfaceMac net.HardwareAddr
+	VlanId       uint16
 
 	OsName        string
 	ServerIP      net.IP // OptServerIdentifier 54
@@ -59,6 +60,8 @@ type ResponseConfig struct {
 	NTPServers6 []net.IP
 	Routes6     []netutils2.SRouteInfo
 
+	IsDefaultGW bool
+
 	// Relay Info https://datatracker.ietf.org/doc/html/rfc3046
 	RelayInfo []byte
 
@@ -75,6 +78,12 @@ func (conf ResponseConfig) GetHostname() string {
 func GetOptUint16(val uint16) []byte {
 	opts := []byte{0, 0}
 	binary.BigEndian.PutUint16(opts, val)
+	return opts
+}
+
+func GetOptUint32(val uint32) []byte {
+	opts := []byte{0, 0, 0, 0}
+	binary.BigEndian.PutUint32(opts, val)
 	return opts
 }
 
@@ -149,33 +158,40 @@ func makeDHCPReplyPacket(req Packet, conf *ResponseConfig, msgType MessageType) 
 	opts := make([]Option, 0)
 
 	if conf.SubnetMask != nil {
-		opts = append(opts, Option{OptionSubnetMask, GetOptIP(conf.SubnetMask)})
+		opts = append(opts, Option{Code: OptionSubnetMask, Value: GetOptIP(conf.SubnetMask)})
 	}
 	if conf.Gateway != nil {
-		opts = append(opts, Option{OptionRouter, GetOptIP(conf.Gateway)})
+		opts = append(opts, Option{Code: OptionRouter, Value: GetOptIP(conf.Gateway)})
 	}
 	if conf.Domain != "" {
-		opts = append(opts, Option{OptionDomainName, []byte(conf.Domain)})
+		opts = append(opts, Option{Code: OptionDomainName, Value: []byte(conf.Domain)})
 	}
 	if conf.BroadcastAddr != nil {
-		opts = append(opts, Option{OptionBroadcastAddress, GetOptIP(conf.BroadcastAddr)})
+		opts = append(opts, Option{Code: OptionBroadcastAddress, Value: GetOptIP(conf.BroadcastAddr)})
 	}
 	if conf.Hostname != "" {
-		opts = append(opts, Option{OptionHostName, []byte(conf.GetHostname())})
+		opts = append(opts, Option{Code: OptionHostName, Value: []byte(conf.GetHostname())})
 	}
 	if len(conf.DNSServers) > 0 {
-		opts = append(opts, Option{OptionDomainNameServer, GetOptIPs(conf.DNSServers)})
+		opts = append(opts, Option{Code: OptionDomainNameServer, Value: GetOptIPs(conf.DNSServers)})
 	}
 	if len(conf.NTPServers) > 0 {
-		opts = append(opts, Option{OptionNetworkTimeProtocolServers, GetOptIPs(conf.NTPServers)})
+		opts = append(opts, Option{Code: OptionNetworkTimeProtocolServers, Value: GetOptIPs(conf.NTPServers)})
 	}
 	if conf.MTU > 0 {
-		opts = append(opts, Option{OptionInterfaceMTU, GetOptUint16(conf.MTU)})
+		opts = append(opts, Option{Code: OptionInterfaceMTU, Value: GetOptUint16(conf.MTU)})
 	}
 	if conf.RelayInfo != nil {
-		opts = append(opts, Option{OptionRelayAgentInformation, conf.RelayInfo})
+		opts = append(opts, Option{Code: OptionRelayAgentInformation, Value: conf.RelayInfo})
 	}
-	resp := ReplyPacket(req, msgType, conf.ServerIP, conf.ClientIP, conf.LeaseTime, opts)
+	var clientIP net.IP
+	if conf.ClientIP != nil {
+		clientIP = conf.ClientIP
+	} else {
+		clientIP = net.ParseIP("0.0.0.0")
+		opts = append(opts, Option{Code: OptionIPv6Only, Value: GetOptUint32(60)})
+	}
+	resp := ReplyPacket(req, msgType, conf.ServerIP, clientIP, conf.LeaseTime, opts)
 	if conf.BootServer != "" {
 		//resp.Options[OptOverload] = []byte{3}
 		resp.SetSIAddr(net.ParseIP(conf.BootServer))
