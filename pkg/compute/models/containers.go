@@ -630,6 +630,7 @@ func (c *SContainer) PerformStop(ctx context.Context, userCred mcclient.TokenCre
 		if !sets.NewString(
 			api.CONTAINER_STATUS_RUNNING,
 			api.CONTAINER_STATUS_PROBING,
+			api.CONTAINER_STATUS_PROBE_FAILED,
 			api.CONTAINER_STATUS_STOP_FAILED).Has(c.Status) {
 			return nil, httperrors.NewInvalidStatusError("Can't stop container in status %s", c.Status)
 		}
