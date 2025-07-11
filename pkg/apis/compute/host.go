@@ -163,6 +163,30 @@ type HostListInput struct {
 	// 按内存分配大小排序
 	// enmu: asc,desc
 	OrderByMemCommit string `json:"order_by_mem_commit"`
+
+	// 按物理cpu使用率排序
+	// enmu: asc,desc
+	OrderByCpuUsage string `json:"order_by_cpu_usage"`
+
+	// 按物理内存使用率排序
+	// enmu: asc,desc
+	OrderByMemUsage string `json:"order_by_mem_usage"`
+
+	// 按物理存储使用率排序
+	// enmu: asc,desc
+	OrderByStorageUsage string `json:"order_by_storage_usage"`
+
+	// 按虚拟内存使用率排序
+	// enmu: asc,desc
+	OrderByVirtualMemUsage string `json:"order_by_virtual_mem_usage"`
+
+	// 按虚拟cpu使用率排序
+	// enmu: asc,desc
+	OrderByVirtualCpuUsage string `json:"order_by_virtual_cpu_usage"`
+
+	// 按虚拟存储使用率排序
+	// enmu: asc,desc
+	OrderByVirtualStorageUsage string `json:"order_by_virtual_storage_usage"`
 }
 
 type HostDetails struct {
