@@ -93,7 +93,6 @@ func (s *rawSocketConn) Recv(b []byte) ([]byte, *net.UDPAddr, net.HardwareAddr, 
 	if err != nil {
 		return nil, nil, nil, errors.Wrap(err, "Read from errror")
 	}
-	log.Debugf("rawSocketConn Recv %d bytes", n)
 
 	b = b[:n]
 

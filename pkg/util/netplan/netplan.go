@@ -65,6 +65,7 @@ func NewEthernetConfigMatchMac(macAddr string) *EthernetConfigMatch {
 type EthernetConfig struct {
 	DHCP4       bool                 `json:"dhcp4,omitfalse"`
 	DHCP6       bool                 `json:"dhcp6,omitfalse"`
+	AcceptRa    bool                 `json:"accept-ra,omitfalse"`
 	Addresses   []string             `json:"addresses"`
 	Match       *EthernetConfigMatch `json:"match"`
 	MacAddress  string               `json:"macaddress"`
@@ -206,6 +207,7 @@ func NewDHCP4EthernetConfig() *EthernetConfig {
 
 func (c *EthernetConfig) EnableDHCP6() {
 	c.DHCP6 = true
+	c.AcceptRa = true
 }
 
 func NewStaticEthernetConfig(

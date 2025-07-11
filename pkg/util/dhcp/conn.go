@@ -196,16 +196,8 @@ func (c *Conn) RecvDHCP6() (Packet, *net.UDPAddr, net.HardwareAddr, error) {
 // which configuration is desired if acting as a client.
 func (c *Conn) SendDHCP(pkt Packet, addr *net.UDPAddr, mac net.HardwareAddr) error {
 	b := pkt.Marshal()
-
-	switch len(addr.IP) {
-	case net.IPv4len:
-		if addr.IP.Equal(net.IPv4zero) || pkt.txType() == txBroadcast {
-			addr = &net.UDPAddr{IP: net.IPv4bcast, Port: addr.Port}
-		}
-	case net.IPv6len:
-	default:
-		return errors.Wrapf(errors.ErrNotSupported, "unsupported length of IP address length %d", len(addr.IP))
-
+	if addr.IP.Equal(net.IPv4zero) || pkt.txType() == txBroadcast {
+		addr = &net.UDPAddr{IP: net.IPv4bcast, Port: addr.Port}
 	}
 	return c.conn.Send(b, addr, mac)
 }

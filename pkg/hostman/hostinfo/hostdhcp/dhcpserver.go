@@ -186,15 +186,23 @@ func getGuestConfig(
 	var conf = new(dhcp.ResponseConfig)
 
 	conf.InterfaceMac = serverMac
+	conf.VlanId = uint16(nicdesc.Vlan)
 
-	nicIp := nicdesc.Ip
-	v4Ip, _ := netutils.NewIPV4Addr(nicIp)
-	conf.ClientIP = net.ParseIP(nicdesc.Ip)
+	if len(nicdesc.Ip) > 0 {
+		nicIp := nicdesc.Ip
+		v4Ip, _ := netutils.NewIPV4Addr(nicIp)
+		conf.ClientIP = net.ParseIP(nicdesc.Ip)
 
-	masklen := nicdesc.Masklen
-	conf.ServerIP = net.ParseIP(v4Ip.NetAddr(int8(masklen)).String())
-	conf.SubnetMask = net.ParseIP(netutils2.Netlen2Mask(int(masklen)))
-	conf.BroadcastAddr = v4Ip.BroadcastAddr(int8(masklen)).ToBytes()
+		masklen := nicdesc.Masklen
+		conf.ServerIP = net.ParseIP(v4Ip.NetAddr(int8(masklen)).String())
+		conf.SubnetMask = net.ParseIP(netutils2.Netlen2Mask(int(masklen)))
+		conf.BroadcastAddr = v4Ip.BroadcastAddr(int8(masklen)).ToBytes()
+
+		if nicdesc.Gateway != "" {
+			conf.Gateway = net.ParseIP(nicdesc.Gateway)
+		}
+	}
+
 	if len(guestDesc.Hostname) > 0 {
 		conf.Hostname = guestDesc.Hostname
 	} else {
@@ -206,6 +214,10 @@ func getGuestConfig(
 	if len(nicdesc.Ip6) > 0 {
 		// ipv6
 		conf.ClientIP6 = net.ParseIP(nicdesc.Ip6)
+		conf.PrefixLen6 = uint8(nicdesc.Masklen6)
+		if nicdesc.Gateway6 != "" {
+			conf.Gateway6 = net.ParseIP(nicdesc.Gateway6)
+		}
 	}
 
 	// get main ip
@@ -224,36 +236,34 @@ func getGuestConfig(
 	route4 := make([]netutils2.SRouteInfo, 0)
 	route6 := make([]netutils2.SRouteInfo, 0)
 	if nicdesc.IsDefault {
+		conf.IsDefaultGW = true
+
 		osName := guestDesc.OsName
 		if len(osName) == 0 {
 			osName = "Linux"
 		}
 
-		if nicdesc.Gateway != "" {
-			conf.Gateway = net.ParseIP(nicdesc.Gateway)
-
+		if conf.Gateway != nil {
 			if !strings.HasPrefix(strings.ToLower(osName), "win") {
 				route4 = append(route4, netutils2.SRouteInfo{
 					SPrefixInfo: netutils2.SPrefixInfo{
 						Prefix:    net.ParseIP("0.0.0.0"),
 						PrefixLen: 0,
 					},
-					Gateway: net.ParseIP(nicdesc.Gateway),
+					Gateway: conf.Gateway,
 				})
 			}
 		}
 
-		if len(nicdesc.Gateway6) > 0 {
-			conf.Gateway6 = net.ParseIP(nicdesc.Gateway6)
-			conf.PrefixLen6 = uint8(nicdesc.Masklen6)
-			route6 = append(route6, netutils2.SRouteInfo{
-				SPrefixInfo: netutils2.SPrefixInfo{
-					Prefix:    net.ParseIP("::"),
-					PrefixLen: 0,
-				},
-				Gateway: net.ParseIP(nicdesc.Gateway6),
-			})
-		}
+		//if conf.Gateway6 != nil {
+		/*route6 = append(route6, netutils2.SRouteInfo{
+			SPrefixInfo: netutils2.SPrefixInfo{
+				Prefix:    net.ParseIP("::"),
+				PrefixLen: 0,
+			},
+			Gateway: conf.Gateway6,
+		})*/
+		//}
 	}
 	route4, route6 = netutils2.AddNicRoutes(route4, route6, nicdesc, mainIp, mainIp6, len(guestNics))
 
@@ -317,7 +327,7 @@ func (s *SGuestDHCPServer) getConfig(pkt dhcp.Packet) *dhcp.ResponseConfig {
 	if guestNic == nil {
 		guestDesc, guestNic = guestman.GuestDescGetter.GetGuestNicDesc(mac, ip, port, s.ifaceDev.String(), !isCandidate)
 	}
-	if guestNic != nil && !guestNic.Virtual && len(guestNic.Ip6) > 0 {
+	if guestNic != nil && !guestNic.Virtual {
 		return getGuestConfig(guestDesc, guestNic, s.ifaceDev.GetHardwareAddr())
 	}
 	return nil
@@ -338,7 +348,7 @@ func (s *SGuestDHCPServer) serveDHCPInternal(pkt dhcp.Packet, addr *net.UDPAddr)
 	}
 	var conf = s.getConfig(pkt)
 	if conf != nil {
-		log.Infof("Make DHCP Reply %s TO %s", conf.ClientIP, pkt.CHAddr())
+		log.Infof("Make DHCP Reply %s TO %s %s", conf.ClientIP, pkt.CHAddr(), addr.String())
 		// Guest request ip
 		return dhcp.MakeReplyPacket(pkt, conf)
 	} else if s.relay != nil && s.relay.server != nil {

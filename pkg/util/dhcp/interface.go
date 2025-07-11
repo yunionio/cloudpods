@@ -30,5 +30,5 @@ type SendPacket struct {
 type DHCP6Handler interface {
 	DHCPHandler
 
-	OnRecvICMP6(pkt Packet, cliMac net.HardwareAddr, addr *net.UDPAddr) error
+	OnRecvICMP6(pkt Packet) error
 }

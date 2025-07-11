@@ -78,7 +78,6 @@ func (s *rawSocketConn) Recv6(b []byte) ([]byte, *net.UDPAddr, net.HardwareAddr,
 	if err != nil {
 		return nil, nil, nil, errors.Wrap(err, "Read from errror")
 	}
-	log.Debugf("rawSocketConn Recv6 %d bytes from %s", n, addr.String())
 
 	b = b[:n]
 
@@ -106,19 +105,7 @@ func (s *rawSocketConn) Recv6(b []byte) ([]byte, *net.UDPAddr, net.HardwareAddr,
 
 	icmpLayer := p.Layer(layers.LayerTypeICMPv6)
 	if icmpLayer != nil {
-		log.Infof("rawSocketConn Recv6 icmpLayer %s", icmpLayer.LayerType())
-		/*raLayer := p.Layer(layers.LayerTypeICMPv6RouterSolicitation)
-		if raLayer != nil {
-			// icmp6, ra solitation
-			raPkt := raLayer.(*layers.ICMPv6RouterSolicitation)
-			sbf := gopacket.NewSerializeBuffer()
-			if err := raPkt.SerializeTo(sbf, gopacket.SerializeOptions{}); err != nil {
-				return nil, nil, nil, 0, errors.Wrap(err, "Serialize ICMPv6 ra solitation packet error")
-			}
-			return sbf.Bytes(), &net.UDPAddr{IP: srcIp, Port: icmpRAFakePort}, srcMac, 0, nil
-		} else {
-			return nil, nil, nil, 0, errors.Wrap(p.ErrorLayer().Error(), "expect an ICMPv6 RA solitation packet")
-		}*/
+		// receive icmp packet
 		return b, &net.UDPAddr{IP: srcIp, Port: icmpRAFakePort}, srcMac, nil
 	}
 

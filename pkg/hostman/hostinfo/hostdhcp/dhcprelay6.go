@@ -21,9 +21,20 @@ import (
 	"time"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/util/dhcp"
 )
+
+type SRelayCache6 struct {
+	peerMac net.HardwareAddr
+	peerUdp *net.UDPAddr
+
+	linkAddr net.IP
+	peerAddr net.IP
+
+	timer time.Time
+}
 
 type SDHCP6Relay struct {
 	server *dhcp.DHCP6Server
@@ -53,13 +64,13 @@ func NewDHCP6Relay(guestDHCPConn *dhcp.Conn, config *SDHCPRelayUpstream) (*SDHCP
 func (r *SDHCP6Relay) Setup(addr string) error {
 	r.ipv6srcAddr = net.ParseIP(addr)
 	if len(r.ipv6srcAddr) == 0 {
-		return fmt.Errorf("Wrong ip address %s", addr)
+		return fmt.Errorf("wrong ip address %s", addr)
 	}
 	log.Infof("DHCP6 Relay Setup on %s %d", addr, DEFAULT_DHCP6_RELAY_PORT)
 	var err error
 	r.server, err = dhcp.NewDHCP6Server3(addr, DEFAULT_DHCP6_RELAY_PORT)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "NewDHCP6Server3")
 	}
 	go r.server.ListenAndServe(r)
 	return nil
@@ -70,52 +81,101 @@ func (r *SDHCP6Relay) ServeDHCP(pkt dhcp.Packet, cliMac net.HardwareAddr, addr *
 	return pkg, nil, err
 }
 
-func (r *SDHCP6Relay) OnRecvICMP6(pkt dhcp.Packet, cliMac net.HardwareAddr, addr *net.UDPAddr) error {
+func (r *SDHCP6Relay) OnRecvICMP6(pkt dhcp.Packet) error {
+	// null operation
 	return nil
 }
 
+func getSessionKey(tid uint32, clientID []byte) string {
+	return fmt.Sprintf("%x-%x", tid, clientID)
+}
+
 func (r *SDHCP6Relay) serveDHCPInternal(pkt dhcp.Packet, _ *net.UDPAddr) (dhcp.Packet, error) {
-	log.Infof("DHCP Relay Reply TO %s", pkt.CHAddr())
-	v, ok := r.cache.Load(pkt.TransactionID())
+	if pkt.Type6() != dhcp.DHCPV6_RELAY_REPL {
+		return nil, errors.Wrapf(errors.ErrInvalidFormat, "not a valid relay reply message")
+	}
+
+	hopCount := pkt.HopCount()
+	decapPkt, err := dhcp.DecapDHCP6RelayMsg(pkt)
+	if err != nil {
+		return nil, errors.Wrapf(err, "DecapDHCP6RelayMsg")
+	}
+	tid, err := decapPkt.TID6()
+	if err != nil {
+		return nil, errors.Wrapf(err, "TID6")
+	}
+	cliID, err := decapPkt.ClientID()
+	if err != nil {
+		return nil, errors.Wrapf(err, "ClientID")
+	}
+
+	key := getSessionKey(tid, cliID)
+	v, ok := r.cache.Load(key)
 	if ok {
-		r.cache.Delete(pkt.TransactionID())
-		val := v.(*SRelayCache)
-		udpAddr := &net.UDPAddr{
-			IP:   pkt.CIAddr(),
-			Port: val.srcPort,
-		}
-		if err := r.guestDHCPConn.SendDHCP(pkt, udpAddr, pkt.CHAddr()); err != nil {
-			log.Errorln(err)
+		r.cache.Delete(key)
+		val := v.(*SRelayCache6)
+
+		if hopCount > 1 {
+			pkt.SetHopCount(hopCount - 1)
+			pkt.SetLinkAddr(val.linkAddr)
+			pkt.SetPeerAddr(val.peerAddr)
+			if err := r.server.GetConn().SendDHCP(pkt, val.peerUdp, val.peerMac); err != nil {
+				log.Errorf("send relay packet to client %s %s failed: %s", val.peerUdp, val.peerMac, err)
+			}
+		} else {
+			pkt = decapPkt
+			if err := r.guestDHCPConn.SendDHCP(pkt, val.peerUdp, val.peerMac); err != nil {
+				log.Errorf("last hop send dhcp packet to client %s %s failed: %s", val.peerUdp, val.peerMac, err)
+			}
 		}
 	}
 	return nil, nil
 }
 
-func (r *SDHCP6Relay) Relay(pkt dhcp.Packet, addr *net.UDPAddr) (dhcp.Packet, error) {
-	if addr.IP.Equal(r.ipv6srcAddr) {
+func (r *SDHCP6Relay) Relay(pkt dhcp.Packet, cliMac net.HardwareAddr, cliAddr *net.UDPAddr) (dhcp.Packet, error) {
+	if cliAddr.IP.Equal(r.ipv6srcAddr) {
+		// come from local? ignore it
 		return nil, nil
 	}
 
-	log.Infof("Receive DHCP Relay Rquest FROM %s %s", addr.IP, pkt.CHAddr())
-	// clean cache first
-	var now = time.Now().Add(time.Second * -30)
-	r.cache.Range(func(key, value interface{}) bool {
-		v := value.(*SRelayCache)
-		if v.timer.Before(now) {
-			r.cache.Delete(key)
-		}
-		return true
-	})
+	log.Infof("Receive IPv6 DHCPRequest FROM %s, relay to upstream %s:%d", cliAddr.IP, r.destaddr, r.destport)
 
-	// cache pkt info
-	r.cache.Store(pkt.TransactionID(), &SRelayCache{
-		mac:     pkt.CHAddr(),
-		srcPort: addr.Port,
+	if pkt.Type6() == dhcp.DHCPV6_RELAY_REPL {
+		return nil, errors.Wrapf(errors.ErrInvalidFormat, "cannot relay a reply message")
+	}
+
+	session := &SRelayCache6{
+		peerMac: cliMac,
+		peerUdp: cliAddr,
 		timer:   time.Now(),
-	})
+	}
+	hopCount := uint8(0)
+	if pkt.Type6() == dhcp.DHCPV6_RELAY_FORW {
+		hopCount = pkt.HopCount()
+		session.linkAddr = pkt.LinkAddr()
+		session.peerAddr = pkt.PeerAddr()
+	} else {
+		pkt = dhcp.EncapDHCP6RelayMsg(pkt)
+	}
+	pkt.SetHopCount(hopCount + 1)
+	pkt.SetLinkAddr(r.ipv6srcAddr)
+	pkt.SetPeerAddr(cliAddr.IP)
 
-	pkt.SetGIAddr(r.ipv6srcAddr)
+	tid, err := pkt.TID6()
+	if err != nil {
+		return nil, errors.Wrapf(err, "TID6")
+	}
+	cliID, err := pkt.ClientID()
+	if err != nil {
+		return nil, errors.Wrapf(err, "ClientID")
+	}
+	sessionKey := getSessionKey(tid, cliID)
+	r.cache.Store(sessionKey, session)
 
-	err := r.server.GetConn().SendDHCP(pkt, &net.UDPAddr{IP: r.destaddr, Port: r.destport}, nil)
-	return nil, err
+	err = r.server.GetConn().SendDHCP(pkt, &net.UDPAddr{IP: r.destaddr, Port: r.destport}, nil)
+	if err != nil {
+		return nil, errors.Wrapf(err, "SendDHCP to upstream %s:%d", r.destaddr, r.destport)
+	}
+
+	return nil, nil
 }

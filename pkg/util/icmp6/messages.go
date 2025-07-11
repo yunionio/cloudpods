@@ -49,13 +49,20 @@ type SBaseICMP6Message struct {
 	SrcIP  net.IP
 	DstMac net.HardwareAddr
 	DstIP  net.IP
+	Vlan   uint16
 }
 
 func (msg SBaseICMP6Message) String() string {
-	return fmt.Sprintf("%s[%s]->%s[%s]", msg.SrcIP.String(), msg.SrcMac.String(), msg.DstIP.String(), msg.DstMac.String())
+	var vlanStr string
+	if msg.Vlan > 1 {
+		vlanStr += fmt.Sprintf("(vlan %d)", msg.Vlan)
+	}
+	return fmt.Sprintf("%s[%s]->%s[%s]%s", msg.SrcIP.String(), msg.SrcMac.String(), msg.DstIP.String(), msg.DstMac.String(), vlanStr)
 }
 
 type IICMP6Message interface {
+	fmt.Stringer
+
 	Payload() gopacket.SerializableLayer
 	ICMP6TypeCode() layers.ICMPv6TypeCode
 
@@ -63,6 +70,8 @@ type IICMP6Message interface {
 	SourceIP() net.IP
 	DestinationMac() net.HardwareAddr
 	DestinationIP() net.IP
+
+	VlanId() uint16
 }
 
 func (msg SBaseICMP6Message) SourceIP() net.IP {
@@ -79,6 +88,10 @@ func (msg SBaseICMP6Message) DestinationIP() net.IP {
 
 func (msg SBaseICMP6Message) DestinationMac() net.HardwareAddr {
 	return msg.DstMac
+}
+
+func (msg SBaseICMP6Message) VlanId() uint16 {
+	return msg.Vlan
 }
 
 type SRouterSolicitation struct {
@@ -179,6 +192,10 @@ func (msg *SNeighborSolicitation) Unmarshal(data *layers.ICMPv6NeighborSolicitat
 	return nil
 }
 
+func (msg SNeighborSolicitation) String() string {
+	return fmt.Sprintf("NeighborSolicitation %s target %s", msg.SBaseICMP6Message.String(), msg.TargetAddr.String())
+}
+
 func (msg SNeighborAdvertisement) ICMP6TypeCode() layers.ICMPv6TypeCode {
 	return layers.CreateICMPv6TypeCode(layers.ICMPv6TypeNeighborAdvertisement, 0)
 }
@@ -211,6 +228,10 @@ func (msg *SNeighborAdvertisement) Unmarshal(data *layers.ICMPv6NeighborAdvertis
 	return nil
 }
 
+func (msg SNeighborAdvertisement) String() string {
+	return fmt.Sprintf("NeighborAdvertisement %s target %s", msg.SBaseICMP6Message.String(), msg.TargetAddr.String())
+}
+
 func (msg SRouterSolicitation) ICMP6TypeCode() layers.ICMPv6TypeCode {
 	return layers.CreateICMPv6TypeCode(layers.ICMPv6TypeRouterSolicitation, 0)
 }
@@ -230,6 +251,10 @@ func (msg SRouterSolicitation) Payload() gopacket.SerializableLayer {
 
 func (msg *SRouterSolicitation) Unmarshal(data *layers.ICMPv6RouterSolicitation) error {
 	return nil
+}
+
+func (msg SRouterSolicitation) String() string {
+	return fmt.Sprintf("RouterSolicitation %s", msg.SBaseICMP6Message.String())
 }
 
 func (msg SRouterAdvertisement) ICMP6TypeCode() layers.ICMPv6TypeCode {
@@ -265,16 +290,8 @@ func (msg SRouterAdvertisement) Payload() gopacket.SerializableLayer {
 	pkt.ReachableTime = msg.ReachableTime
 	pkt.RetransTimer = msg.RetransTimer
 
-	pkt.Options = layers.ICMPv6Options{
-		layers.ICMPv6Option{
-			Type: layers.ICMPv6OptSourceAddress,
-			Data: NewIcmpv6OptSourceTargetAddress(msg.SrcMac).Bytes(),
-		},
-		layers.ICMPv6Option{
-			Type: layers.ICMPv6OptMTU,
-			Data: NewIcmpV6OptMtu(msg.MTU).Bytes(),
-		},
-	}
+	pkt.Options = layers.ICMPv6Options{}
+
 	for i := range msg.PrefixInfo {
 		pref := msg.PrefixInfo[i]
 		pkt.Options = append(pkt.Options, layers.ICMPv6Option{
@@ -289,6 +306,16 @@ func (msg SRouterAdvertisement) Payload() gopacket.SerializableLayer {
 			Data: NewIcmpv6OptRouteInfo(rt).Bytes(),
 		})
 	}
+	if msg.MTU > 0 {
+		pkt.Options = append(pkt.Options, layers.ICMPv6Option{
+			Type: layers.ICMPv6OptMTU,
+			Data: NewIcmpV6OptMtu(msg.MTU).Bytes(),
+		})
+	}
+	pkt.Options = append(pkt.Options, layers.ICMPv6Option{
+		Type: layers.ICMPv6OptSourceAddress,
+		Data: NewIcmpv6OptSourceTargetAddress(msg.SrcMac).Bytes(),
+	})
 
 	return &pkt
 }
@@ -327,42 +354,58 @@ func (msg *SRouterAdvertisement) Unmarshal(data *layers.ICMPv6RouterAdvertisemen
 
 func (msg SRouterAdvertisement) String() string {
 	return fmt.Sprintf(`RouterAdvertisement %s 
-CurHopLimit: %d, IsManaged: %t, IsOther: %t, IsHomeAgent: %t, Preference: %s, RouterLifetime: %d, ReachableTime: %d, RetransTimer: %d
-MTU: %d
-PrefixInfo: %v
-RouteInfo: %v)`,
+    CurHopLimit: %d, IsManaged: %t, IsOther: %t, IsHomeAgent: %t, Preference: %s, RouterLifetime: %d, ReachableTime: %d, RetransTimer: %d
+    MTU: %d
+    PrefixInfo: %v
+    RouteInfo: %v)`,
 		msg.SBaseICMP6Message.String(),
 		msg.CurHopLimit, msg.IsManaged, msg.IsOther, msg.IsHomeAgent, msg.Preference.String(), msg.RouterLifetime, msg.ReachableTime, msg.RetransTimer,
 		msg.MTU, msg.PrefixInfo, msg.RouteInfo)
 }
 
 func EncodePacket(msg IICMP6Message) ([]byte, error) {
+	var pktLayers []gopacket.SerializableLayer
+
 	var eth = &layers.Ethernet{
 		EthernetType: layers.EthernetTypeIPv6,
 		SrcMAC:       msg.SourceMac(),
 		DstMAC:       msg.DestinationMac(),
 	}
+	pktLayers = append(pktLayers, eth)
+
+	if msg.VlanId() > 1 {
+		eth.EthernetType = layers.EthernetTypeDot1Q
+		dot1Q := &layers.Dot1Q{
+			VLANIdentifier: msg.VlanId(),
+			Priority:       6,
+			Type:           layers.EthernetTypeIPv6,
+		}
+		pktLayers = append(pktLayers, dot1Q)
+	}
 
 	var ip = &layers.IPv6{
-		Version:    6,
-		HopLimit:   64,
-		SrcIP:      msg.SourceIP(),
-		DstIP:      msg.DestinationIP(),
-		NextHeader: layers.IPProtocolICMPv6,
+		Version:      6,
+		HopLimit:     0xff,
+		TrafficClass: 0xc0,
+		SrcIP:        msg.SourceIP(),
+		DstIP:        msg.DestinationIP(),
+		NextHeader:   layers.IPProtocolICMPv6,
 	}
+	pktLayers = append(pktLayers, ip)
 
 	var icmp6 = &layers.ICMPv6{
 		TypeCode: msg.ICMP6TypeCode(),
 	}
 	icmp6.SetNetworkLayerForChecksum(ip)
+	pktLayers = append(pktLayers, icmp6)
 
-	var payload = msg.Payload()
+	pktLayers = append(pktLayers, msg.Payload())
 
 	var (
 		buf  = gopacket.NewSerializeBuffer()
 		opts = gopacket.SerializeOptions{ComputeChecksums: true, FixLengths: true}
 	)
-	if err := gopacket.SerializeLayers(buf, opts, eth, ip, icmp6, payload); err != nil {
+	if err := gopacket.SerializeLayers(buf, opts, pktLayers...); err != nil {
 		return nil, errors.Wrap(err, "SerializeLayers error")
 	}
 
@@ -385,6 +428,15 @@ func DecodePacket(data []byte) (IICMP6Message, error) {
 			baseMsg.DstMac = eth.DstMAC
 		} else {
 			return nil, errors.Wrap(packet.ErrorLayer().Error(), "Expect Ethernet layer")
+		}
+	}
+
+	{
+		// optional vlan layer
+		dot1qLayer := packet.Layer(layers.LayerTypeDot1Q)
+		if dot1qLayer != nil {
+			dot1q := dot1qLayer.(*layers.Dot1Q)
+			baseMsg.Vlan = dot1q.VLANIdentifier
 		}
 	}
 
@@ -415,6 +467,10 @@ func DecodePacket(data []byte) (IICMP6Message, error) {
 					msg := &SRouterSolicitation{
 						SBaseICMP6Message: baseMsg,
 					}
+					err := msg.Unmarshal(payload.(*layers.ICMPv6RouterSolicitation))
+					if err != nil {
+						return nil, errors.Wrap(err, "Unmarshal Router Solicitation packet")
+					}
 					return msg, nil
 				} else {
 					return nil, errors.Wrap(packet.ErrorLayer().Error(), "Expect ICMPv6 Router Solicitation packet")
@@ -424,6 +480,10 @@ func DecodePacket(data []byte) (IICMP6Message, error) {
 				if payload != nil {
 					msg := &SRouterAdvertisement{
 						SBaseICMP6Message: baseMsg,
+					}
+					err := msg.Unmarshal(payload.(*layers.ICMPv6RouterAdvertisement))
+					if err != nil {
+						return nil, errors.Wrap(err, "Unmarshal Router Advertisement packet")
 					}
 					return msg, nil
 				} else {
@@ -435,6 +495,10 @@ func DecodePacket(data []byte) (IICMP6Message, error) {
 					msg := &SNeighborSolicitation{
 						SBaseICMP6Message: baseMsg,
 					}
+					err := msg.Unmarshal(payload.(*layers.ICMPv6NeighborSolicitation))
+					if err != nil {
+						return nil, errors.Wrap(err, "Unmarshal Neighbor Solicitation packet")
+					}
 					return msg, nil
 				} else {
 					return nil, errors.Wrap(packet.ErrorLayer().Error(), "Expect ICMPv6 Neighbor Solicitation packet")
@@ -444,6 +508,10 @@ func DecodePacket(data []byte) (IICMP6Message, error) {
 				if payload != nil {
 					msg := &SNeighborAdvertisement{
 						SBaseICMP6Message: baseMsg,
+					}
+					err := msg.Unmarshal(payload.(*layers.ICMPv6NeighborAdvertisement))
+					if err != nil {
+						return nil, errors.Wrap(err, "Unmarshal Neighbor Advertisement packet")
 					}
 					return msg, nil
 				} else {
