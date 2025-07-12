@@ -48,6 +48,9 @@ type SHostBaseOptions struct {
 	DhcpLeaseTime   int `default:"100663296" help:"DHCP lease time in seconds"`
 	DhcpRenewalTime int `default:"67108864" help:"DHCP renewal time in seconds"`
 
+	Dhcp6RouterAdvertisementIntervalSecs int `default:"3" help:"DHCPv6 router advertisement interval in seconds, default 3 seconds"`
+	Dhcp6RouterAdvertisementAttempts     int `default:"3" help:"DHCPv6 router advertisement attempts, default 3 attempts"`
+
 	Ext4LargefileSizeGb int `default:"4096" help:"Use largefile options when the ext4 fs greater than this size"`
 	Ext4HugefileSizeGb  int `default:"512" help:"Use huge options when the ext4 fs greater than this size"`
 
