@@ -61,7 +61,10 @@ func GetNicDHCPConfig(
 		}
 	}
 
+	isDefaultGW := false
 	if n.IsDefault == nil || *n.IsDefault {
+		isDefaultGW = true
+
 		if n.Gateway != "" && !strings.HasPrefix(strings.ToLower(osName), "win") {
 			routes4 = append(routes4, netutils2.SRouteInfo{
 				SPrefixInfo: netutils2.SPrefixInfo{
@@ -84,6 +87,7 @@ func GetNicDHCPConfig(
 
 	conf := &dhcp.ResponseConfig{
 		InterfaceMac: serverMac,
+		VlanId:       uint16(n.VlanId),
 
 		ServerIP:    serverIP,
 		Domain:      n.Domain,
@@ -93,6 +97,8 @@ func GetNicDHCPConfig(
 		Routes6:     routes6,
 		LeaseTime:   time.Duration(o.Options.DhcpLeaseTime) * time.Second,
 		RenewalTime: time.Duration(o.Options.DhcpRenewalTime) * time.Second,
+
+		IsDefaultGW: isDefaultGW,
 	}
 
 	if n.IpAddr != "" {

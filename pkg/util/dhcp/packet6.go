@@ -17,6 +17,7 @@ package dhcp
 import (
 	"encoding/binary"
 	"net"
+	"strings"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -116,14 +117,111 @@ const (
 	OPTION_NEW_TZDB_TIMEZONE  OptionCode6 = 42
 )
 
+func (opt OptionCode6) String() string {
+	switch opt {
+	case DHCPV6_OPTION_CLIENTID:
+		return "DHCPV6_OPTION_CLIENTID"
+	case DHCPV6_OPTION_SERVERID:
+		return "DHCPV6_OPTION_SERVERID"
+	case DHCPV6_OPTION_IA_NA:
+		return "DHCPV6_OPTION_IA_NA"
+	case DHCPV6_OPTION_IA_TA:
+		return "DHCPV6_OPTION_IA_TA"
+	case DHCPV6_OPTION_IAADDR:
+		return "DHCPV6_OPTION_IAADDR"
+	case DHCPV6_OPTION_ORO:
+		return "DHCPV6_OPTION_ORO"
+	case DHCPV6_OPTION_PREFERENCE:
+		return "DHCPV6_OPTION_PREFERENCE"
+	case DHCPV6_OPTION_ELAPSED_TIME:
+		return "DHCPV6_OPTION_ELAPSED_TIME"
+	case DHCPV6_OPTION_RELAY_MSG:
+		return "DHCPV6_OPTION_RELAY_MSG"
+	case DHCPV6_OPTION_AUTH:
+		return "DHCPV6_OPTION_AUTH"
+	case DHCPV6_OPTION_UNICAST:
+		return "DHCPV6_OPTION_UNICAST"
+	case DHCPV6_OPTION_STATUS_CODE:
+		return "DHCPV6_OPTION_STATUS_CODE"
+	case DHCPV6_OPTION_RAPID_COMMIT:
+		return "DHCPV6_OPTION_RAPID_COMMIT"
+	case DHCPV6_OPTION_USER_CLASS:
+		return "DHCPV6_OPTION_USER_CLASS"
+	case DHCPV6_OPTION_VENDOR_CLASS:
+		return "DHCPV6_OPTION_VENDOR_CLASS"
+	case DHCPV6_OPTION_VENDOR_OPTS:
+		return "DHCPV6_OPTION_VENDOR_OPTS"
+	case DHCPV6_OPTION_INTERFACE_ID:
+		return "DHCPV6_OPTION_INTERFACE_ID"
+	case DHCPV6_OPTION_RECONF_MSG:
+		return "DHCPV6_OPTION_RECONF_MSG"
+	case DHCPV6_OPTION_RECONF_ACCEPT:
+		return "DHCPV6_OPTION_RECONF_ACCEPT"
+	case DHCPV6_OPTION_IA_PD:
+		return "DHCPV6_OPTION_IA_PD"
+	case DHCPV6_OPTION_IAPREFIX:
+		return "DHCPV6_OPTION_IAPREFIX"
+	case DHCPV6_OPTION_INFORMATION_REFRESH_TIME:
+		return "DHCPV6_OPTION_INFORMATION_REFRESH_TIME"
+	case DHCPV6_OPTION_SOL_MAX_RT:
+		return "DHCPV6_OPTION_SOL_MAX_RT"
+	case DHCPV6_OPTION_INF_MAX_RT:
+		return "DHCPV6_OPTION_INF_MAX_RT"
+	case OPTION_DNS_SERVERS:
+		return "OPTION_DNS_SERVERS"
+	case OPTION_DOMAIN_LIST:
+		return "OPTION_DOMAIN_LIST"
+	case OPTION_SNTP_SERVERS:
+		return "OPTION_SNTP_SERVERS"
+	case OPTION_NTP_SERVERS6:
+		return "OPTION_NTP_SERVERS6"
+	case OPTION_NEW_POSIX_TIMEZONE:
+		return "OPTION_NEW_POSIX_TIMEZONE"
+	case OPTION_NEW_TZDB_TIMEZONE:
+		return "OPTION_NEW_TZDB_TIMEZONE"
+	}
+	return "DHCPV6_OPTION_UNKNOWN"
+}
+
 // DHCPv6 message type
 func (p Packet) Type6() MessageType {
 	return MessageType(p[0])
 }
 
 // DHCPv6 transaction ID
-func (p Packet) TID() uint32 {
-	return binary.BigEndian.Uint32([]byte{0, p[1], p[2], p[3]})
+func (p Packet) TID6() (uint32, error) {
+	if !p.IsRelayMsg() {
+		if len(p) < 4 {
+			return 0, errors.Wrapf(errors.ErrInvalidFormat, "packet too short")
+		}
+		return binary.BigEndian.Uint32([]byte{0, p[1], p[2], p[3]}), nil
+	}
+	options := p.GetOption6s()
+	for _, o := range options {
+		if o.Code == DHCPV6_OPTION_RELAY_MSG {
+			return Packet(o.Value).TID6()
+		}
+	}
+	return 0, errors.Wrapf(errors.ErrInvalidFormat, "not a valid relay message")
+}
+
+func (p Packet) ClientID() ([]byte, error) {
+	if !p.IsRelayMsg() {
+		options := p.GetOption6s()
+		for _, o := range options {
+			if o.Code == DHCPV6_OPTION_CLIENTID {
+				return o.Value, nil
+			}
+		}
+		return nil, errors.Wrapf(errors.ErrInvalidFormat, "clientID option not found")
+	}
+	options := p.GetOption6s()
+	for _, o := range options {
+		if o.Code == DHCPV6_OPTION_RELAY_MSG {
+			return Packet(o.Value).ClientID()
+		}
+	}
+	return nil, errors.Wrapf(errors.ErrInvalidFormat, "not a valid relay message")
 }
 
 // DHCPv6 hop Count for relay message
@@ -173,6 +271,12 @@ func NewPacket6(opCode MessageType, tid uint32) Packet {
 	p := make(Packet, 4)
 	p.SetType6(opCode)
 	p.SetTID(tid)
+	return p
+}
+
+func NewRelayPacket6() Packet {
+	p := make(Packet, 34)
+	p.SetType6(DHCPV6_RELAY_FORW)
 	return p
 }
 
@@ -227,15 +331,6 @@ func (p Packet) GetOption6s() []Option6 {
 	return options
 }
 
-// Creates a request packet that a Client would send to a server.
-/*func RequestPacket6(mt MessageType, tid uint32, options []Option6) Packet {
-	p := NewPacket6(mt, tid)
-	for _, o := range options {
-		p.AddOption6(o)
-	}
-	return p
-}*/
-
 func MakeDHCP6Reply(pkt Packet, conf *ResponseConfig) (Packet, error) {
 	var msgType MessageType
 	pktType := pkt.Type6()
@@ -256,7 +351,7 @@ func MakeDHCP6Reply(pkt Packet, conf *ResponseConfig) (Packet, error) {
 		return nil, errors.Wrapf(errors.ErrNotSupported, "unsupported message type %d", pktType)
 	}
 
-	return makeDHCPReplyPacket6(pkt, conf, msgType), nil
+	return makeDHCPReplyPacket6(pkt, conf, msgType)
 }
 
 const (
@@ -282,14 +377,13 @@ func makeIAAddr(ip net.IP, preferLT, validLT uint32, opts []Option6) []byte {
 }
 
 func responseIANA(buf []byte, opts []Option6) []byte {
-	log.Debugf("responseIANA buf %d", len(buf))
 	if len(buf) > 12 {
 		buf = buf[:12]
 	}
-	iaID := binary.BigEndian.Uint32(buf[0:4])
-	t1 := binary.BigEndian.Uint32(buf[4:8])
-	t2 := binary.BigEndian.Uint32(buf[8:12])
-	log.Debugf("responseIANA IA_NA IAID %d t1 %d t2 %d", iaID, t1, t2)
+	// iaID := binary.BigEndian.Uint32(buf[0:4])
+	// t1 := binary.BigEndian.Uint32(buf[4:8])
+	// t2 := binary.BigEndian.Uint32(buf[8:12])
+	// log.Debugf("responseIANA IA_NA IAID %d t1 %d t2 %d", iaID, t1, t2)
 	buf = append(buf, optionsToBytes(opts)...)
 	return buf
 }
@@ -306,10 +400,21 @@ func makeIPv6s(ips []net.IP) []byte {
 	return buf
 }
 
-func makeDHCPReplyPacket6(pkt Packet, conf *ResponseConfig, msgType MessageType) Packet {
-	log.Debugf("makeDHCPReplyPacket6 msgType %d tid %x", msgType, pkt.TID())
+func decodeRequestOptions(value []byte) []OptionCode6 {
+	var optCodes []OptionCode6
+	for i := 0; i < len(value); i += 2 {
+		optCodes = append(optCodes, OptionCode6(binary.BigEndian.Uint16(value[i:i+2])))
+	}
+	return optCodes
+}
 
-	resp := NewPacket6(msgType, pkt.TID())
+func makeDHCPReplyPacket6(pkt Packet, conf *ResponseConfig, msgType MessageType) (Packet, error) {
+	tid, err := pkt.TID6()
+	if err != nil {
+		return nil, errors.Wrapf(err, "TID6")
+	}
+
+	resp := NewPacket6(msgType, tid)
 	originOpts := pkt.GetOption6s()
 	getOption := func(code OptionCode6) Option6 {
 		for _, o := range originOpts {
@@ -318,6 +423,16 @@ func makeDHCPReplyPacket6(pkt Packet, conf *ResponseConfig, msgType MessageType)
 			}
 		}
 		return Option6{}
+	}
+
+	reqInfo := getOption(DHCPV6_OPTION_ORO)
+	if len(reqInfo.Value) > 0 {
+		reqOpts := decodeRequestOptions(reqInfo.Value)
+		reqOptsStr := make([]string, len(reqOpts))
+		for i, opt := range reqOpts {
+			reqOptsStr[i] = opt.String()
+		}
+		log.Debugf("request options: %s", strings.Join(reqOptsStr, ","))
 	}
 
 	options := make([]Option6, 0)
@@ -362,5 +477,25 @@ func makeDHCPReplyPacket6(pkt Packet, conf *ResponseConfig, msgType MessageType)
 
 	resp = append(resp, optionsToBytes(options)...)
 
-	return resp
+	return resp, nil
+}
+
+func EncapDHCP6RelayMsg(pkt Packet) Packet {
+	relayMsg := NewRelayPacket6()
+	relayOpt := Option6{
+		Code:  DHCPV6_OPTION_RELAY_MSG,
+		Value: pkt,
+	}
+	relayMsg = append(relayMsg, optionsToBytes([]Option6{relayOpt})...)
+	return relayMsg
+}
+
+func DecapDHCP6RelayMsg(pkt Packet) (Packet, error) {
+	options := pkt.GetOption6s()
+	for _, o := range options {
+		if o.Code == DHCPV6_OPTION_RELAY_MSG {
+			return Packet(o.Value), nil
+		}
+	}
+	return nil, errors.Wrapf(errors.ErrInvalidFormat, "relay message not found")
 }

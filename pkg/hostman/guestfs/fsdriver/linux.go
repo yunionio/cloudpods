@@ -1528,7 +1528,7 @@ func (r *sRedhatLikeRootFs) deployNetworkingScripts(rootFs IDiskPartition, nics 
 				// TODO
 				cmds.WriteString("IPV6INIT=yes\n")
 				cmds.WriteString("DHCPV6C=yes\n")
-				cmds.WriteString("IPV6_AUTOCONF=no\n")
+				cmds.WriteString("IPV6_AUTOCONF=yes\n")
 				// cmds.WriteString(fmt.Sprintf("IPV6ADDR=%s/%d\n", nicDesc.Ip6, nicDesc.Masklen6))
 				// if len(nicDesc.Gateway6) > 0 {
 				// 	cmds.WriteString("IPV6_DEFROUTE=yes\n", nicDesc.Gateway6))

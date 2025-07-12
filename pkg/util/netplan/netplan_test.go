@@ -27,7 +27,7 @@ func TestNewEthernetConfig(t *testing.T) {
 	assert.YAMLEq("dhcp4: true", c.YAMLString())
 
 	c.EnableDHCP6()
-	assert.YAMLEq("dhcp4: true\ndhcp6: true", c.YAMLString())
+	assert.YAMLEq("dhcp4: true\ndhcp6: true\naccept-ra: true", c.YAMLString())
 }
 
 func TestNewBondMode4(t *testing.T) {

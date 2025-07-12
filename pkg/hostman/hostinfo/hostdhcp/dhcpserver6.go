@@ -16,12 +16,17 @@ package hostdhcp
 
 import (
 	"net"
+	"time"
+
+	"github.com/google/gopacket/layers"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	guestman "yunion.io/x/onecloud/pkg/hostman/guestman/types"
 	"yunion.io/x/onecloud/pkg/util/dhcp"
+	"yunion.io/x/onecloud/pkg/util/hashcache"
+	"yunion.io/x/onecloud/pkg/util/icmp6"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
 )
 
@@ -37,6 +42,12 @@ type SGuestDHCP6Server struct {
 	conn   *dhcp.Conn
 
 	ifaceDev *netutils2.SNetInterface
+
+	raExitCh   chan struct{}
+	raReqCh    chan *sRARequest
+	raReqQueue []*sRARequest
+
+	gwMacCache *hashcache.Cache
 }
 
 func NewGuestDHCP6Server(iface string, port int, relay *SDHCPRelayUpstream) (*SGuestDHCP6Server, error) {
@@ -64,12 +75,20 @@ func NewGuestDHCP6Server(iface string, port int, relay *SDHCPRelayUpstream) (*SG
 		}
 	}
 
+	guestdhcp.raExitCh = make(chan struct{})
+	guestdhcp.raReqCh = make(chan *sRARequest, 100)
+	guestdhcp.raReqQueue = make([]*sRARequest, 0)
+	guestdhcp.gwMacCache = hashcache.NewCache(1024, 5*time.Minute)
+
 	return guestdhcp, nil
 }
 
 func (s *SGuestDHCP6Server) Start(blocking bool) {
 	log.Infof("SGuestDHCP6Server starting ...")
 	serve := func() {
+		defer s.stopRAServer()
+
+		go s.startRAServer()
 		err := s.server.ListenAndServe(s)
 		if err != nil {
 			log.Errorf("DHCP serve error: %s", err)
@@ -89,7 +108,7 @@ func (s *SGuestDHCP6Server) RelaySetup(addr string) error {
 	return nil
 }
 
-func (s *SGuestDHCP6Server) getConfig(cliMac net.HardwareAddr, _ dhcp.Packet) *dhcp.ResponseConfig {
+func (s *SGuestDHCP6Server) getConfig(cliMac net.HardwareAddr) *dhcp.ResponseConfig {
 	if guestman.GuestDescGetter == nil {
 		return nil
 	}
@@ -113,20 +132,40 @@ func (s *SGuestDHCP6Server) ServeDHCP(pkt dhcp.Packet, cliMac net.HardwareAddr, 
 	return pkg, nil, err
 }
 
-func (s *SGuestDHCP6Server) OnRecvICMP6(pkt dhcp.Packet, cliMac net.HardwareAddr, addr *net.UDPAddr) error {
-	log.Infof("SGuestDHCP6Server ServeRA from %s", cliMac.String())
-	return nil
+func (s *SGuestDHCP6Server) OnRecvICMP6(pkt dhcp.Packet) error {
+	msg, err := icmp6.DecodePacket(pkt)
+	if err != nil {
+		return errors.Wrap(err, "icmp6.DecodePacket")
+	}
+	// log.Infof("SGuestDHCP6Server recv ICMP6 message %s", msg.String())
+	switch msg.ICMP6TypeCode().Type() {
+	case layers.ICMPv6TypeRouterSolicitation:
+		// Router Solicitation
+		return s.handleRouterSolicitation(msg.(*icmp6.SRouterSolicitation))
+	case layers.ICMPv6TypeRouterAdvertisement:
+		// Router Advertisement
+		return s.handleRouterAdvertisement(msg.(*icmp6.SRouterAdvertisement))
+	case layers.ICMPv6TypeNeighborSolicitation:
+		// Neighbor Solicitation
+		return s.handleNeighborSolicitation(msg.(*icmp6.SNeighborSolicitation))
+	case layers.ICMPv6TypeNeighborAdvertisement:
+		// Neighbor Advertisement
+		return s.handleNeighborAdvertisement(msg.(*icmp6.SNeighborAdvertisement))
+	default:
+		log.Errorf("SGuestDHCP6Server recv unknown ICMP6 message %s", msg.String())
+		return errors.Wrapf(errors.ErrNotSupported, "unknown ICMP6 message %s", msg.String())
+	}
 }
 
 func (s *SGuestDHCP6Server) serveDHCPInternal(pkt dhcp.Packet, cliMac net.HardwareAddr, addr *net.UDPAddr) (dhcp.Packet, error) {
-	var conf = s.getConfig(cliMac, pkt)
+	var conf = s.getConfig(cliMac)
 	if conf != nil {
 		log.Infof("Make DHCPv6 Reply %s TO %s %s", conf.ClientIP6, cliMac.String(), addr.String())
 		// Guest request ip
 		return dhcp.MakeDHCP6Reply(pkt, conf)
 	} else if s.relay != nil && s.relay.server != nil {
 		// Host agent as dhcp relay, relay to baremetal
-		return s.relay.Relay(pkt, addr)
+		return s.relay.Relay(pkt, cliMac, addr)
 	}
 	return nil, nil
 }
