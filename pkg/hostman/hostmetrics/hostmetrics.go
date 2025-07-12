@@ -123,7 +123,7 @@ func (m *SHostMetricsCollector) reportUsageToTelegraf(data string) {
 	defer res.Body.Close()
 	if res.StatusCode != 204 {
 		resBody, _ := io.ReadAll(res.Body)
-		log.Errorf("upload guest metric failed %d: %s", res.StatusCode, string(resBody))
+		log.Errorf("upload guest metric failed with %d %s, data: %s", res.StatusCode, string(resBody), data)
 		timestamp := time.Now().UnixNano()
 		for _, line := range strings.Split(data, "\n") {
 			m.waitingReportData = append(m.waitingReportData,
@@ -298,7 +298,7 @@ func (s *SGuestMonitorCollector) CollectReportData() (ret string) {
 	s.cleanedPrevData(gms)
 	reportData := make(map[string]*GuestMetrics)
 	for _, gm := range gms {
-		prevUsage, _ := s.prevReportData[gm.Id]
+		prevUsage := s.prevReportData[gm.Id]
 		reportData[gm.Id] = s.collectGmReport(gm, prevUsage)
 		s.prevPids[gm.Id] = gm.Pid
 	}
@@ -388,21 +388,29 @@ func (s *SGuestMonitorCollector) saveNicTraffics(reportData map[string]*GuestMet
 func (s *SGuestMonitorCollector) toTelegrafReportData(data map[string]*GuestMetrics) string {
 	ret := []string{}
 	for guestId, report := range data {
-		var vmName, vmIp, scalingGroupId, tenant, tenantId, domainId, projectDomain string
+		var vmName, vmIp, vmIp6, scalingGroupId, tenant, tenantId, domainId, projectDomain, hypervisor string
 		if gm, ok := s.monitors[guestId]; ok {
 			vmName = gm.Name
 			vmIp = gm.Ip
+			vmIp6 = gm.Ip6
 			scalingGroupId = gm.ScalingGroupId
 			tenant = gm.Tenant
 			tenantId = gm.TenantId
 			domainId = gm.DomainId
 			projectDomain = gm.ProjectDomain
+			hypervisor = gm.Hypervisor
 		}
 
 		tags := map[string]string{
-			"id": guestId, "vm_id": guestId, "vm_name": vmName, "vm_ip": vmIp,
+			"id": guestId, "vm_id": guestId, "vm_name": vmName, "hypervisor": hypervisor,
 			"is_vm": "true", hostconsts.TELEGRAF_TAG_KEY_BRAND: hostconsts.TELEGRAF_TAG_ONECLOUD_BRAND,
 			hostconsts.TELEGRAF_TAG_KEY_RES_TYPE: "guest",
+		}
+		if len(vmIp) > 0 {
+			tags["vm_ip"] = vmIp
+		}
+		if len(vmIp6) > 0 {
+			tags["vm_ip6"] = vmIp6
 		}
 		if len(scalingGroupId) > 0 {
 			tags["vm_scaling_group_id"] = scalingGroupId
@@ -543,7 +551,7 @@ func (s *SGuestMonitorCollector) reportDiskIo(cur, prev *DiskIOMetric) {
 func (s *SGuestMonitorCollector) addNetio(curInfo, prevInfo []*NetIOMetric) {
 	for _, v1 := range curInfo {
 		for _, v2 := range prevInfo {
-			if v1.Meta.Ip == v2.Meta.Ip {
+			if v1.Meta.Mac == v2.Meta.Mac {
 				s.reportNetIo(v1, v2)
 			}
 		}
@@ -588,6 +596,7 @@ type SGuestMonitor struct {
 	CpuCnt                  int
 	MemMB                   int64
 	Ip                      string
+	Ip6                     string
 	Process                 *process.Process
 	ScalingGroupId          string
 	Tenant                  string
@@ -601,6 +610,8 @@ type SGuestMonitor struct {
 	cphAmdGpuMetrics        []CphAmdGpuProcessMetrics
 	instance                guestman.GuestRuntimeInstance
 	sysFs                   sysfs.SysFs
+
+	Hypervisor string `json:"hypervisor"`
 }
 
 func NewGuestMonitor(instance guestman.GuestRuntimeInstance, name, id string, pid int, nics []*desc.SGuestNetwork, cpuCount int) (*SGuestMonitor, error) {
@@ -650,9 +661,16 @@ func NewGuestPodMonitor(
 }
 
 func newGuestMonitor(instance guestman.GuestRuntimeInstance, name, id string, proc *process.Process, nics []*desc.SGuestNetwork, cpuCount int) (*SGuestMonitor, error) {
-	var ip string
+	var ip, ip6 string
 	if len(nics) >= 1 {
-		ip = nics[0].Ip
+		for i := range nics {
+			if len(ip) == 0 && len(nics[i].Ip) > 0 {
+				ip = nics[i].Ip
+			}
+			if len(ip6) == 0 && len(nics[i].Ip6) > 0 {
+				ip6 = nics[i].Ip6
+			}
+		}
 	}
 	pid := 0
 	if proc != nil {
@@ -665,9 +683,12 @@ func newGuestMonitor(instance guestman.GuestRuntimeInstance, name, id string, pr
 		Nics:     nics,
 		CpuCnt:   cpuCount,
 		Ip:       ip,
+		Ip6:      ip6,
 		Process:  proc,
 		instance: instance,
 		sysFs:    sysfs.NewRealSysFs(),
+
+		Hypervisor: instance.GetDesc().Hypervisor,
 	}, nil
 }
 
@@ -684,6 +705,7 @@ func (m *SGuestMonitor) UpdateByInstance(instance guestman.GuestRuntimeInstance)
 	m.TenantId = instance.GetDesc().TenantId
 	m.DomainId = instance.GetDesc().DomainId
 	m.ProjectDomain = instance.GetDesc().ProjectDomain
+	m.Hypervisor = instance.GetDesc().Hypervisor
 }
 
 func (m *SGuestMonitor) SetNicDown(index int) {
@@ -795,13 +817,19 @@ func (m *SGuestMonitor) Netio() []*NetIOMetric {
 		data := new(NetIOMetric)
 
 		ip := nic.Ip
-		ipv4, _ := netutils.NewIPV4Addr(ip)
-		if netutils.IsExitAddress(ipv4) {
-			data.Meta.IpType = "external"
+		if len(ip) > 0 {
+			ipv4, _ := netutils.NewIPV4Addr(ip)
+			if netutils.IsExitAddress(ipv4) {
+				data.Meta.IpType = "external"
+			} else {
+				data.Meta.IpType = "internal"
+			}
 		} else {
-			data.Meta.IpType = "internal"
+			data.Meta.IpType = "none"
 		}
+
 		data.Meta.Ip = ip
+		data.Meta.Ip6 = nic.Ip6
 		data.Meta.Index = i
 		data.Meta.Mac = nic.Mac
 		data.Meta.Ifname = ifname
@@ -872,12 +900,19 @@ func (n *NetIOMetric) ToMap() map[string]interface{} {
 }
 
 func (n *NetIOMetric) ToTag() map[string]string {
-	return map[string]string{
+	tags := map[string]string{
 		"interface":      fmt.Sprintf("eth%d", n.Meta.Index),
 		"host_interface": n.Meta.Ifname,
 		"mac":            n.Meta.Mac,
-		"ip":             n.Meta.Ip,
+		"ip_type":        n.Meta.IpType,
 	}
+	if len(n.Meta.Ip) > 0 {
+		tags["ip"] = n.Meta.Ip
+	}
+	if len(n.Meta.Ip6) > 0 {
+		tags["ip6"] = n.Meta.Ip6
+	}
+	return tags
 }
 
 type NetMeta struct {
@@ -888,6 +923,7 @@ type NetMeta struct {
 	Ifname string `json:"ifname"`
 	NetId  string `json:"net_id"`
 	Uptime uint64 `json:"uptime"`
+	Ip6    string `json:"ip6"`
 }
 
 func (m *SGuestMonitor) Cpu() *CpuMetric {
