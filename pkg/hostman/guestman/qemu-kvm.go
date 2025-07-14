@@ -338,8 +338,18 @@ func (s *SKVMGuestInstance) initLiveDescFromSourceGuest(srcDesc *desc.SGuestDesc
 		for j := 0; j < len(s.SourceDesc.Disks); j++ {
 			if srcDesc.Disks[i].Index == s.SourceDesc.Disks[j].Index {
 				numQueues := srcDesc.Disks[i].NumQueues
+				var targetStorage string
+				if srcDesc.Disks[i].TargetStorageId != "" && storageman.GetManager().GetStorage(srcDesc.Disks[i].TargetStorageId) != nil {
+					targetStorage = srcDesc.Disks[i].TargetStorageId
+				}
+
 				srcDesc.Disks[i].GuestdiskJsonDesc = s.SourceDesc.Disks[j].GuestdiskJsonDesc
 				srcDesc.Disks[i].NumQueues = numQueues
+				if targetStorage != "" {
+					srcDesc.Disks[i].StorageId = targetStorage
+					srcDesc.Disks[i].TargetStorageId = ""
+				}
+
 			}
 		}
 	}
@@ -3318,7 +3328,9 @@ func (s *SKVMGuestInstance) PrepareDisksMigrate(liveMigrate bool) (*jsonutils.JS
 	disksBackFile := jsonutils.NewDict()
 	diskSnapsChain := jsonutils.NewDict()
 	sysDiskHasTemplate := false
-	for _, disk := range s.Desc.Disks {
+	storageIdUpdated := false
+	for i := range s.Desc.Disks {
+		disk := s.Desc.Disks[i]
 		if disk.Path != "" {
 			d, err := storageman.GetManager().GetDiskByPath(disk.Path)
 			if err != nil {
@@ -3345,8 +3357,22 @@ func (s *SKVMGuestInstance) PrepareDisksMigrate(liveMigrate bool) (*jsonutils.JS
 					}
 				}
 			}
+			storage := d.GetStorage()
+			if storage != nil && storage.GetId() != disk.StorageId && storage.GetId() == disk.TargetStorageId {
+				// fix storage id not correct
+				disk.StorageId = disk.TargetStorageId
+				disk.TargetStorageId = ""
+				storageIdUpdated = true
+			}
 		}
 	}
+	if storageIdUpdated {
+		err := SaveLiveDesc(s, s.Desc)
+		if err != nil {
+			return nil, nil, false, err
+		}
+	}
+
 	return disksBackFile, diskSnapsChain, sysDiskHasTemplate, nil
 }
 
