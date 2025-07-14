@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"time"
 
+	"yunion.io/x/cloudmux/pkg/apis"
 	"yunion.io/x/cloudmux/pkg/multicloud"
 	"yunion.io/x/pkg/errors"
 )
@@ -66,10 +67,6 @@ func (s *SSSLCertificate) GetIssuer() string {
 	return s.Brand
 }
 
-func (s *SSSLCertificate) GetExpired() bool {
-	return time.Now().After(s.GetEndDate())
-}
-
 func (s *SSSLCertificate) GetEndDate() time.Time {
 	t, _ := time.Parse("2006-01-02 15:04:05", s.ExpireTime)
 	return t
@@ -111,11 +108,7 @@ func (s *SSSLCertificate) GetGlobalId() string {
 }
 
 func (s *SSSLCertificate) GetStatus() string {
-	if s.GetExpired() {
-		return "expired"
-	} else {
-		return "normal"
-	}
+	return apis.STATUS_AVAILABLE
 }
 
 func (s *SSSLCertificate) GetIsUpload() bool {

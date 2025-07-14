@@ -24,6 +24,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"yunion.io/x/pkg/errors"
 )
 
 type selectFunc func(obj interface{}) (string, error)
@@ -535,6 +537,31 @@ func GetSizeKB(sizeStr, defaultSize string) (int64, error) {
 	return bytes / 1024, nil
 }
 
+func transMysqlQuery(dburl string) (string, error) {
+	queryPos := strings.IndexByte(dburl, '?')
+	if queryPos == 0 {
+		return "", fmt.Errorf("Missing database name")
+	}
+	var query url.Values
+	if queryPos > 0 {
+		queryStr := dburl[queryPos+1:]
+		if len(queryStr) > 0 {
+			var err error
+			query, err = url.ParseQuery(queryStr)
+			if err != nil {
+				return "", errors.Wrap(err, "ParseQuery")
+			}
+		}
+		dburl = dburl[:queryPos]
+	} else {
+		query = url.Values{}
+	}
+	query.Set("parseTime", "true")
+	query.Set("charset", "utf8mb4")
+	query.Set("interpolateParams", "true")
+	return dburl + "?" + query.Encode(), nil
+}
+
 func TransSQLAchemyURL(pySQLSrc string) (dialect, ret string, err error) {
 	if len(pySQLSrc) == 0 {
 		err = fmt.Errorf("Empty input")
@@ -543,6 +570,10 @@ func TransSQLAchemyURL(pySQLSrc string) (dialect, ret string, err error) {
 
 	dialect = "mysql"
 	if !strings.Contains(pySQLSrc, `//`) {
+		pySQLSrc, err = transMysqlQuery(pySQLSrc)
+		if err != nil {
+			return
+		}
 		return dialect, pySQLSrc, nil
 	}
 
@@ -560,26 +591,11 @@ func TransSQLAchemyURL(pySQLSrc string) (dialect, ret string, err error) {
 		return
 	}
 	user, passwd, host, port, dburl := strs[1], strs[2], strs[3], strs[4], strs[5]
-	queryPos := strings.IndexByte(dburl, '?')
-	if queryPos == 0 {
-		err = fmt.Errorf("Missing database name")
+	dburl, err = transMysqlQuery(dburl)
+	if err != nil {
 		return
 	}
-	var query url.Values
-	if queryPos > 0 {
-		queryStr := dburl[queryPos+1:]
-		if len(queryStr) > 0 {
-			query, err = url.ParseQuery(queryStr)
-			if err != nil {
-				return
-			}
-		}
-		dburl = dburl[:queryPos]
-	} else {
-		query = url.Values{}
-	}
-	query.Set("parseTime", "True")
-	ret = fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?%s", user, passwd, host, port, dburl, query.Encode())
+	ret = fmt.Sprintf("%s:%s@tcp(%s:%s)/%s", user, passwd, host, port, dburl)
 	return
 }
 

@@ -709,7 +709,7 @@ func (self *SDatastore) CheckFile(ctx context.Context, remotePath string) (*SDat
 
 	req, err := http.NewRequest("HEAD", url, nil)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "HEAD %s", url)
 	}
 
 	var size uint64

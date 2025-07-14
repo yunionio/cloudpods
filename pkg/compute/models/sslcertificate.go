@@ -24,10 +24,13 @@ import (
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
+	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
@@ -67,19 +70,18 @@ type SSSLCertificate struct {
 	SDeletePreventableResourceBase
 
 	Sans        string    `width:"2048" charset:"utf8" nullable:"false" list:"user" create:"required"`
-	StartDate   time.Time `nullable:"false" list:"user" json:"start_date"`
-	Province    string    `width:"2048" charset:"utf8" nullable:"false" list:"user" create:"required"`
-	Common      string    `width:"2048" charset:"utf8" nullable:"false" list:"user" create:"required"`
-	Country     string    `width:"2048" charset:"utf8" nullable:"false" list:"user" create:"required"`
-	Issuer      string    `width:"2048" charset:"utf8" nullable:"false" list:"user" create:"required"`
-	Expired     bool      `charset:"utf8" nullable:"false" list:"user" create:"required"`
-	IsUpload    bool      `charset:"utf8" nullable:"false" list:"user" create:"required"`
-	EndDate     time.Time `nullable:"false" list:"user" json:"end_date"`
-	Fingerprint string    `width:"128" charset:"utf8" nullable:"false" list:"user" create:"required"`
-	City        string    `width:"2048" charset:"utf8" nullable:"false" list:"user" create:"required"`
-	OrgName     string    `width:"2048" charset:"utf8" nullable:"false" list:"user" create:"required"`
-	Certificate string    `charset:"utf8" nullable:"true" list:"user" create:"required"`
-	PrivateKey  string    `charset:"utf8" nullable:"true" list:"user" create:"required"`
+	StartDate   time.Time `list:"user"`
+	Province    string    `width:"64" charset:"utf8" nullable:"false" list:"user" create:"optional"`
+	Common      string    `width:"128" charset:"utf8" nullable:"false" list:"user" create:"optional"`
+	Country     string    `width:"32" charset:"utf8" nullable:"false" list:"user" create:"optional"`
+	Issuer      string    `width:"128" charset:"utf8" nullable:"false" list:"user" create:"required"`
+	IsUpload    bool      `list:"user" create:"optional"`
+	EndDate     time.Time `list:"user" create:"optional"`
+	Fingerprint string    `width:"128" charset:"utf8" nullable:"false" list:"user" create:"optional"`
+	City        string    `width:"64" charset:"utf8" nullable:"false" list:"user" create:"optional"`
+	OrgName     string    `width:"256" charset:"utf8" nullable:"false" list:"user" create:"optional"`
+	Certificate string    `charset:"utf8" nullable:"true" list:"user" create:"optional"`
+	PrivateKey  string    `charset:"utf8" nullable:"true" list:"user" create:"optional"`
 }
 
 func (s SSSLCertificate) GetExternalId() string {
@@ -188,8 +190,53 @@ func (man *SSSLCertificateManager) QueryDistinctExtraField(q *sqlchemy.SQuery, f
 	return q, httperrors.ErrNotFound
 }
 
-func (man *SSSLCertificateManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.SSLCertificateCreateInput) (api.SSLCertificateCreateInput, error) {
-	return input, httperrors.NewNotImplementedError("Not Implemented")
+func (man *SSSLCertificateManager) ValidateCreateData(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	ownerId mcclient.IIdentityProvider,
+	query jsonutils.JSONObject,
+	input *api.SSLCertificateCreateInput,
+) (*api.SSLCertificateCreateInput, error) {
+	if len(input.DnsZoneId) > 0 {
+		obj, err := validators.ValidateModel(ctx, userCred, DnsZoneManager, &input.DnsZoneId)
+		if err != nil {
+			return nil, err
+		}
+		input.DnsZoneId = obj.GetId()
+	}
+	var err error
+	input.VirtualResourceCreateInput, err = man.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.VirtualResourceCreateInput)
+	if err != nil {
+		return nil, err
+	}
+
+	return input, nil
+}
+
+func (self *SSSLCertificate) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	self.SVirtualResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
+	self.StartSSLCertificateCreateTask(ctx, userCred, "")
+}
+
+func (self *SSSLCertificate) StartSSLCertificateCreateTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
+	params := jsonutils.NewDict()
+	task, err := taskman.TaskManager.NewTask(ctx, "SSLCertificateCreateTask", self, userCred, params, parentTaskId, "", nil)
+	if err != nil {
+		return errors.Wrap(err, "NewTask")
+	}
+	self.SetStatus(ctx, userCred, apis.STATUS_CREATING, "")
+	return task.ScheduleRun(nil)
+}
+
+func (self *SSSLCertificate) GetDnsZone() (*SDnsZone, error) {
+	if len(self.DnsZoneId) == 0 {
+		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "DnsZoneId is empty")
+	}
+	zone, err := DnsZoneManager.FetchById(self.DnsZoneId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "DnsZoneManager.FetchById")
+	}
+	return zone.(*SDnsZone), nil
 }
 
 func (r *SCloudprovider) GetSSLCertificates() ([]SSSLCertificate, error) {
@@ -290,7 +337,7 @@ func (s *SSSLCertificate) SyncWithCloudSSLCertificate(ctx context.Context, userC
 		s.Common = ext.GetCommon()
 		s.Country = ext.GetCountry()
 		s.Issuer = ext.GetIssuer()
-		s.Expired = ext.GetExpired()
+		//s.Expired = ext.GetExpired()
 		s.IsUpload = ext.GetIsUpload()
 		s.EndDate = ext.GetEndDate()
 		s.Fingerprint = ext.GetFingerprint()
@@ -349,7 +396,7 @@ func (r *SCloudprovider) newFromCloudSSLCertificate(
 	s.Common = ext.GetCommon()
 	s.Country = ext.GetCountry()
 	s.Issuer = ext.GetIssuer()
-	s.Expired = ext.GetExpired()
+	//s.Expired = ext.GetExpired()
 	s.IsUpload = ext.GetIsUpload()
 	s.EndDate = ext.GetEndDate()
 	s.Fingerprint = ext.GetFingerprint()

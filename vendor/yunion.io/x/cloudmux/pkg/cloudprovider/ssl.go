@@ -12,19 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package compute
+package cloudprovider
 
-import (
-	"yunion.io/x/onecloud/cmd/climc/shell"
-	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
-	"yunion.io/x/onecloud/pkg/mcclient/options"
-	compute "yunion.io/x/onecloud/pkg/mcclient/options/compute"
+const (
+	SSL_ISSUER_LETSENCRYPT = "Let's Encrypt"
+	SSL_ISSUER_ZEROSSL     = "ZeroSSL"
 )
 
-func init() {
-	cmd := shell.NewResourceCmd(&modules.SslCerticicate).WithKeyword("ssl-certificate")
-	cmd.List(&compute.SslCertificateListOptions{})
-	cmd.Create(&compute.SslCertificateCreateOptions{})
-	cmd.Show(&options.BaseShowOptions{})
-	cmd.Delete(&options.BaseIdOptions{})
+type SSLCertificateCreateOptions struct {
+	Certificate string
+	PrivateKey  string
 }
