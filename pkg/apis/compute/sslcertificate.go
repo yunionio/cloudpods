@@ -14,10 +14,31 @@
 
 package compute
 
-import "yunion.io/x/onecloud/pkg/apis"
+import (
+	"yunion.io/x/cloudmux/pkg/cloudprovider"
 
-// 资源创建参数, 目前仅占位
+	"yunion.io/x/onecloud/pkg/apis"
+)
+
+const (
+	SSL_ISSUER_LETSENCRYPT = cloudprovider.SSL_ISSUER_LETSENCRYPT
+	SSL_ISSUER_ZEROSSL     = cloudprovider.SSL_ISSUER_ZEROSSL
+)
+
 type SSLCertificateCreateInput struct {
+	apis.VirtualResourceCreateInput
+
+	Issuer    string `json:"issuer"`
+	DnsZoneId string `json:"dns_zone_id"`
+	Sans      string `json:"sans"`
+
+	Province    string
+	Common      string
+	Country     string
+	City        string
+	OrgName     string
+	Certificate string
+	PrivateKey  string
 }
 
 // 资源返回详情
