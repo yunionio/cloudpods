@@ -20,6 +20,7 @@ const (
 )
 
 type SSLCertificateCreateOptions struct {
+	DnsZoneId   string
 	Certificate string
 	PrivateKey  string
 }
