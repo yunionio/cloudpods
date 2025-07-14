@@ -294,6 +294,7 @@ func (self *SSLCertificateCreateTask) OnInit(ctx context.Context, obj db.IStanda
 			return errors.Wrapf(err, "GetProvider")
 		}
 		opts := &cloudprovider.SSLCertificateCreateOptions{
+			DnsZoneId:   zone.ExternalId,
 			Certificate: sc.Certificate,
 			PrivateKey:  sc.PrivateKey,
 		}
