@@ -253,6 +253,7 @@ type newGuestNetworkArgs struct {
 
 	ip6Addr     string
 	requireIPv6 bool
+	strictIPv6  bool
 
 	// 是否为缺省路由
 	isDefault bool
@@ -298,6 +299,7 @@ func (manager *SGuestnetworkManager) newGuestNetwork(
 
 		address6    = args.ip6Addr
 		requireIPv6 = args.requireIPv6
+		strictIPv6  = args.strictIPv6
 	)
 
 	gn.GuestId = guest.Id
@@ -325,7 +327,7 @@ func (manager *SGuestnetworkManager) newGuestNetwork(
 	}
 
 	provider := vpc.GetProviderName()
-	if !virtual {
+	if !virtual && !strictIPv6 && network.IsSupportIPv4() {
 		if len(address) > 0 && reUseAddr {
 			ipAddr, err := netutils.NewIPV4Addr(address)
 			if err != nil {
@@ -386,7 +388,7 @@ func (manager *SGuestnetworkManager) newGuestNetwork(
 
 	// assign ipv6 address
 	if !virtual {
-		if len(address6) > 0 || requireIPv6 {
+		if len(address6) > 0 || (requireIPv6 || len(gn.IpAddr) == 0) {
 			if provider == api.CLOUD_PROVIDER_ONECLOUD || options.Options.EnablePreAllocateIpAddr || (!options.Options.EnablePreAllocateIpAddr && len(address6) > 0) {
 				addrTable := network.GetUsedAddresses6(ctx)
 				recentAddrTable := manager.getRecentlyReleasedIPAddresses6(network.Id, network.getAllocTimoutDuration())
@@ -1081,7 +1083,7 @@ func (gn *SGuestnetwork) getMtu(net *SNetwork) int16 {
 func (gn *SGuestnetwork) IsAllocated() bool {
 	region, _ := gn.GetGuest().getRegion()
 	provider := region.Provider
-	if regutils.MatchMacAddr(gn.MacAddr) && (gn.Virtual || regutils.MatchIP4Addr(gn.IpAddr) || (provider != api.CLOUD_PROVIDER_ONECLOUD && !options.Options.EnablePreAllocateIpAddr)) {
+	if regutils.MatchMacAddr(gn.MacAddr) && (gn.Virtual || regutils.MatchIP4Addr(gn.IpAddr) || regutils.MatchIP6Addr(gn.Ip6Addr) || (provider != api.CLOUD_PROVIDER_ONECLOUD && !options.Options.EnablePreAllocateIpAddr)) {
 		return true
 	}
 	return false

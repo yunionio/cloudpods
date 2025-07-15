@@ -336,6 +336,9 @@ func ParseNetworkConfig(desc string, idx int) (*compute.NetworkConfig, error) {
 			netConfig.IsDefault = true
 		} else if p == "ipv6" {
 			netConfig.RequireIPv6 = true
+		} else if p == "strict-ipv6" {
+			netConfig.RequireIPv6 = true
+			netConfig.StrictIPv6 = true
 		} else if strings.HasPrefix(p, "standby-port=") {
 			netConfig.StandbyPortCount, _ = strconv.Atoi(p[len("standby-port="):])
 		} else if strings.HasPrefix(p, "standby-addr=") {

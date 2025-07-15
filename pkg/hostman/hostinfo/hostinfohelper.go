@@ -266,7 +266,7 @@ func NewNIC(desc string) (*SNIC, error) {
 			nic.Ip6 = data[3]
 		}
 	} else if regutils.MatchIP6Addr(data[2]) {
-		nic.Ip6 = data[3]
+		nic.Ip6 = data[2]
 		if len(data) > 3 && regutils.MatchIP4Addr(data[3]) {
 			nic.Ip = data[3]
 		}
@@ -366,9 +366,11 @@ func NewNIC(desc string) (*SNIC, error) {
 		}
 	}
 
-	nic.dhcpServer, err = hostdhcp.NewGuestDHCPServer(nic.Bridge, options.HostOptions.DhcpServerPort, relayConf)
-	if err != nil {
-		return nil, errors.Wrapf(err, "NewGuestDHCPServer(%s, %d, %#v)", nic.Bridge, options.HostOptions.DhcpServerPort, relayConf)
+	if len(nic.Ip) > 0 {
+		nic.dhcpServer, err = hostdhcp.NewGuestDHCPServer(nic.Bridge, options.HostOptions.DhcpServerPort, relayConf)
+		if err != nil {
+			return nil, errors.Wrapf(err, "NewGuestDHCPServer(%s, %d, %#v)", nic.Bridge, options.HostOptions.DhcpServerPort, relayConf)
+		}
 	}
 
 	var relayConf6 *hostdhcp.SDHCPRelayUpstream
@@ -382,9 +384,11 @@ func NewNIC(desc string) (*SNIC, error) {
 		}
 	}
 
-	nic.dhcpServer6, err = hostdhcp.NewGuestDHCP6Server(nic.Bridge, options.HostOptions.Dhcp6ServerPort, relayConf6)
-	if err != nil {
-		return nil, errors.Wrapf(err, "NewGuestDHCP6Server(%s, %d, %#v)", nic.Bridge, options.HostOptions.Dhcp6ServerPort, relayConf6)
+	if len(nic.Ip6) > 0 {
+		nic.dhcpServer6, err = hostdhcp.NewGuestDHCP6Server(nic.Bridge, options.HostOptions.Dhcp6ServerPort, relayConf6)
+		if err != nil {
+			return nil, errors.Wrapf(err, "NewGuestDHCP6Server(%s, %d, %#v)", nic.Bridge, options.HostOptions.Dhcp6ServerPort, relayConf6)
+		}
 	}
 	// dhcp server start after guest manager init
 	return nic, nil
