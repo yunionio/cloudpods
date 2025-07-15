@@ -77,6 +77,195 @@ func MyIPTo(dstIP string) (ip string, err error) {
 	return
 }
 
+func MyIPSmart() (ip string, err error) {
+	return MyIPSmartTo("114.114.114.114", "2001:4860:4860::8888")
+}
+
+func MyIPSmartTo(ipv4Target, ipv6Target string) (ip string, err error) {
+	// try IPv4 connect
+	if ipv4Target != "" {
+		conn, err4 := net.Dial("udp4", ipv4Target+":53")
+		if err4 == nil {
+			defer conn.Close()
+			if addr, ok := conn.LocalAddr().(*net.UDPAddr); ok {
+				return addr.IP.String(), nil
+			}
+		}
+	}
+
+	// try IPv6 connect
+	if ipv6Target != "" {
+		conn, err6 := net.Dial("udp6", "["+ipv6Target+"]:53")
+		if err6 == nil {
+			defer conn.Close()
+			if addr, ok := conn.LocalAddr().(*net.UDPAddr); ok {
+				return addr.IP.String(), nil
+			}
+		}
+	}
+
+	// try locallink
+	return getLocalIP()
+}
+
+func getLocalIP() (string, error) {
+	// get default route
+	if ip := getIPFromDefaultRoute(); ip != "" {
+		return ip, nil
+	}
+
+	interfaces, err := net.Interfaces()
+	if err != nil {
+		return "", errors.Wrap(err, "get network interfaces")
+	}
+
+	var candidateIPs []string
+	for _, iface := range interfaces {
+		if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
+			continue
+		}
+
+		addrs, err := iface.Addrs()
+		if err != nil {
+			continue
+		}
+
+		for _, addr := range addrs {
+			if ipnet, ok := addr.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+				if ipnet.IP.To4() != nil {
+					return ipnet.IP.String(), nil
+				} else if ipnet.IP.To16() != nil && !ipnet.IP.IsLinkLocalUnicast() {
+					candidateIPs = append(candidateIPs, ipnet.IP.String())
+				}
+			}
+		}
+	}
+
+	if len(candidateIPs) > 0 {
+		return candidateIPs[0], nil
+	}
+
+	return "", fmt.Errorf("no suitable IP address found")
+}
+
+func getIPFromDefaultRoute() string {
+	if ip := getIPFromDefaultRouteV4(); ip != "" {
+		return ip
+	}
+
+	if ip := getIPFromDefaultRouteV6(); ip != "" {
+		return ip
+	}
+
+	return ""
+}
+
+func getIPFromDefaultRouteV4() string {
+	output, err := procutils.NewCommand("ip", "route", "show", "default").Output()
+	if err != nil {
+		return ""
+	}
+
+	lines := strings.Split(string(output), "\n")
+	for _, line := range lines {
+		if strings.Contains(line, "default") && strings.Contains(line, "src") {
+			fields := strings.Fields(line)
+			for i, field := range fields {
+				if field == "src" && i+1 < len(fields) {
+					return fields[i+1]
+				}
+			}
+		}
+		if strings.Contains(line, "default") && strings.Contains(line, "dev") {
+			fields := strings.Fields(line)
+			for i, field := range fields {
+				if field == "dev" && i+1 < len(fields) {
+					if ip := getIPFromInterface(fields[i+1]); ip != "" {
+						return ip
+					}
+				}
+			}
+		}
+	}
+
+	return ""
+}
+
+func getIPFromDefaultRouteV6() string {
+	output, err := procutils.NewCommand("ip", "-6", "route", "show", "default").Output()
+	if err != nil {
+		return ""
+	}
+
+	lines := strings.Split(string(output), "\n")
+	for _, line := range lines {
+		if strings.Contains(line, "default") && strings.Contains(line, "src") {
+			fields := strings.Fields(line)
+			for i, field := range fields {
+				if field == "src" && i+1 < len(fields) {
+					return fields[i+1]
+				}
+			}
+		}
+		if strings.Contains(line, "default") && strings.Contains(line, "dev") {
+			fields := strings.Fields(line)
+			for i, field := range fields {
+				if field == "dev" && i+1 < len(fields) {
+					if ip := getIPFromInterfaceV6(fields[i+1]); ip != "" {
+						return ip
+					}
+				}
+			}
+		}
+	}
+
+	return ""
+}
+
+func getIPFromInterface(ifaceName string) string {
+	iface, err := net.InterfaceByName(ifaceName)
+	if err != nil {
+		return ""
+	}
+
+	addrs, err := iface.Addrs()
+	if err != nil {
+		return ""
+	}
+
+	for _, addr := range addrs {
+		if ipnet, ok := addr.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+			if ipv4 := ipnet.IP.To4(); ipv4 != nil {
+				return ipv4.String()
+			}
+		}
+	}
+
+	return ""
+}
+
+func getIPFromInterfaceV6(ifaceName string) string {
+	iface, err := net.InterfaceByName(ifaceName)
+	if err != nil {
+		return ""
+	}
+
+	addrs, err := iface.Addrs()
+	if err != nil {
+		return ""
+	}
+
+	for _, addr := range addrs {
+		if ipnet, ok := addr.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+			if ipv6 := ipnet.IP.To16(); ipv6 != nil && ipnet.IP.To4() == nil && !ipnet.IP.IsLinkLocalUnicast() {
+				return ipv6.String()
+			}
+		}
+	}
+
+	return ""
+}
+
 func GetPrivatePrefixes(privatePrefixes []string) []string {
 	if privatePrefixes != nil {
 		return privatePrefixes

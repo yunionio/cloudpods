@@ -90,6 +90,10 @@ type NetworkConfig struct {
 	// required: false
 	RequireIPv6 bool `json:"require_ipv6"`
 
+	// 只分配IPv6地址，禁用IPv4
+	// required: false
+	StrictIPv6 bool `json:"strict_ipv6"`
+
 	// 驱动方式
 	// 若指定镜像的网络驱动方式，此参数会被覆盖
 	Driver         string `json:"driver"`

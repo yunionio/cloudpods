@@ -1949,7 +1949,7 @@ yunion.io/x/log/hooks
 yunion.io/x/ovsdb/cli_util
 yunion.io/x/ovsdb/schema/ovn_nb
 yunion.io/x/ovsdb/types
-# yunion.io/x/pkg v1.10.4-0.20250712095850-7797c1f3ffa6
+# yunion.io/x/pkg v1.10.4-0.20250715023532-99a31ea00303
 ## explicit; go 1.18
 yunion.io/x/pkg/appctx
 yunion.io/x/pkg/errors

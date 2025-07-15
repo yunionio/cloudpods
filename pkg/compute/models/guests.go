@@ -3506,6 +3506,7 @@ type Attach2NetworkArgs struct {
 	RequireDesignatedIP bool
 	UseDesignatedIP     bool
 	RequireIPv6         bool
+	StrictIPv6          bool
 
 	BwLimit        int
 	NicDriver      string
@@ -3536,6 +3537,7 @@ func (args *Attach2NetworkArgs) onceArgs(i int) attach2NetworkOnceArgs {
 		requireDesignatedIP: args.RequireDesignatedIP,
 		useDesignatedIP:     args.UseDesignatedIP,
 		requireIPv6:         args.RequireIPv6,
+		strictIPv6:          args.StrictIPv6,
 
 		bwLimit:        args.BwLimit,
 		nicDriver:      args.NicDriver,
@@ -3578,6 +3580,7 @@ type attach2NetworkOnceArgs struct {
 	requireDesignatedIP bool
 	useDesignatedIP     bool
 	requireIPv6         bool
+	strictIPv6          bool
 
 	bwLimit        int
 	nicDriver      string
@@ -3656,6 +3659,7 @@ func (self *SGuest) attach2NetworkOnce(
 		requireDesignatedIP: args.requireDesignatedIP,
 		useDesignatedIP:     args.useDesignatedIP,
 		requireIPv6:         args.requireIPv6,
+		strictIPv6:          args.strictIPv6,
 
 		ifname:         args.nicConf.Ifname,
 		macAddr:        args.nicConf.Mac,
@@ -4429,6 +4433,7 @@ func (self *SGuest) attach2NamedNetworkDesc(ctx context.Context, userCred mcclie
 			IpAddr:              netConfig.Address,
 			Ip6Addr:             netConfig.Address6,
 			RequireIPv6:         netConfig.RequireIPv6,
+			StrictIPv6:          netConfig.StrictIPv6,
 			NicDriver:           netConfig.Driver,
 			NumQueues:           netConfig.NumQueues,
 			BwLimit:             netConfig.BwLimit,
@@ -6576,6 +6581,9 @@ func (self *SGuest) ToNetworksConfig() []*api.NetworkConfig {
 		netConf.Exit = guestNetwork.IsExit()
 		if len(guestNetwork.Ip6Addr) > 0 {
 			netConf.RequireIPv6 = true
+			if len(guestNetwork.IpAddr) == 0 {
+				netConf.StrictIPv6 = true
+			}
 		}
 		// netConf.Private
 		// netConf.Reserved
