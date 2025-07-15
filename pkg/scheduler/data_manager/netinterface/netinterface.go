@@ -40,7 +40,7 @@ func GetId(hostId, wireId, mac string) string {
 func NewResourceStore() common.IResourceStore[models.SNetInterface] {
 	return common.NewJointResourceStore(
 		models.NetInterfaceManager,
-		compute.Networkinterfaces,
+		compute.Netinterfaces,
 		func(o models.SNetInterface) string {
 			return GetId(o.BaremetalId, o.WireId, o.Mac)
 		},
@@ -52,14 +52,14 @@ func NewResourceStore() common.IResourceStore[models.SNetInterface] {
 		},
 		func(man db.IModelManager, id string, obj *jsonutils.JSONDict) (db.IModel, error) {
 			ids := strings.Split(id, "/")
-			if len(ids) != 3 {
+			if len(ids) < 3 {
 				return nil, errors.Errorf("Invalid id: %q", id)
 			}
 			q := man.Query()
 			hostId := ids[0]
 			wireId := ids[1]
 			mac := ids[2]
-			q = q.Equals("host_id", hostId).Equals("wire_id", wireId).Equals("mac", mac)
+			q = q.Equals("baremetal_id", hostId).Equals("wire_id", wireId).Equals("mac", mac)
 			objs, err := db.FetchIModelObjects(man, q)
 			errHint := fmt.Sprintf("hostId %q, wireId %q, mac %q", hostId, wireId, mac)
 			if err != nil {
