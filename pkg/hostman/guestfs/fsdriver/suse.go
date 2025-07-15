@@ -225,16 +225,23 @@ func (r *sSuseLikeRootFs) deployNetworkingScripts(rootFs IDiskPartition, nics []
 			cmds.WriteString(netutils2.PSEUDO_VIP)
 			cmds.WriteString("\n")
 		} else if nicDesc.Manual {
-			cmds.WriteString("STARTMODE=auto\n")
-			cmds.WriteString("BOOTPROTO=static\n")
-			cmds.WriteString(fmt.Sprintf("IPADDR=%s/%d\n", nicDesc.Ip, nicDesc.Masklen))
+			if nicDesc.VlanInterface {
+				if err := r.deployVlanNetworkingScripts(rootFs, "", mainIp, mainIp6, nicCnt, nicDesc); err != nil {
+					return err
+				}
+			} else {
 
-			if len(nicDesc.Ip6) > 0 {
-				cmds.WriteString("IPV6INIT=yes\n")
-				cmds.WriteString("IPV6_AUTOCONF=no\n")
-				cmds.WriteString(fmt.Sprintf("IPADDR_V6=%s/%d\n", nicDesc.Ip6, nicDesc.Masklen6))
+				cmds.WriteString("STARTMODE=auto\n")
+				cmds.WriteString("BOOTPROTO=static\n")
+				if len(nicDesc.Ip) > 0 {
+					cmds.WriteString(fmt.Sprintf("IPADDR=%s/%d\n", nicDesc.Ip, nicDesc.Masklen))
+				}
+				if len(nicDesc.Ip6) > 0 {
+					cmds.WriteString("IPV6INIT=yes\n")
+					cmds.WriteString("IPV6_AUTOCONF=no\n")
+					cmds.WriteString(fmt.Sprintf("IPADDR_V6=%s/%d\n", nicDesc.Ip6, nicDesc.Masklen6))
+				}
 			}
-
 			var routes4 = make([]netutils2.SRouteInfo, 0)
 			var routes6 = make([]netutils2.SRouteInfo, 0)
 			routes4, routes6 = netutils2.AddNicRoutes(routes4, routes6, nicDesc, mainIp, mainIp6, nicCnt)
@@ -279,17 +286,21 @@ func (r *sSuseLikeRootFs) deployNetworkingScripts(rootFs IDiskPartition, nics []
 				if err := rootFs.FilePutContents(fn, rtblStr, false, false); err != nil {
 					return err
 				}
-			}
 
-			dnslist := netutils2.GetNicDns(nicDesc)
-			for i := 0; i < len(dnslist); i++ {
-				if !utils.IsInArray(dnslist[i], dnsSrv) {
-					dnsSrv = append(dnsSrv, dnslist[i])
+				dnslist := netutils2.GetNicDns(nicDesc)
+				for i := 0; i < len(dnslist); i++ {
+					if !utils.IsInArray(dnslist[i], dnsSrv) {
+						dnsSrv = append(dnsSrv, dnslist[i])
+					}
 				}
 			}
+
 		} else {
 			cmds.WriteString("STARTMODE=auto\n")
-			cmds.WriteString("BOOTPROTO=dhcp4\n")
+			if len(nicDesc.Ip) > 0 {
+				cmds.WriteString("BOOTPROTO=dhcp4\n")
+			}
+
 			if len(nicDesc.Ip6) > 0 {
 				// IPv6 support static temporarily
 				// TODO
