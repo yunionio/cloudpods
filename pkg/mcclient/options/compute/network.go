@@ -67,9 +67,9 @@ func (opts *NetworkListOptions) Params() (jsonutils.JSONObject, error) {
 type NetworkCreateOptions struct {
 	WIRE    string `help:"ID or Name of wire in which the network is created"`
 	NETWORK string `help:"Name of new network"`
-	STARTIP string `help:"Start of IPv4 address range"`
-	ENDIP   string `help:"End of IPv4 address rnage"`
-	NETMASK int64  `help:"Length of network mask"`
+	StartIp string `help:"Start of IPv4 address range"`
+	EndIp   string `help:"End of IPv4 address rnage"`
+	NetMask int64  `help:"Length of network mask"`
 	Gateway string `help:"Default gateway"`
 
 	StartIp6 string `help:"IPv6 start ip"`
@@ -91,9 +91,16 @@ func (opts *NetworkCreateOptions) Params() (jsonutils.JSONObject, error) {
 
 	params.Add(jsonutils.NewString(opts.WIRE), "wire")
 	params.Add(jsonutils.NewString(opts.NETWORK), "name")
-	params.Add(jsonutils.NewString(opts.STARTIP), "guest_ip_start")
-	params.Add(jsonutils.NewString(opts.ENDIP), "guest_ip_end")
-	params.Add(jsonutils.NewInt(opts.NETMASK), "guest_ip_mask")
+
+	if len(opts.StartIp) > 0 {
+		params.Add(jsonutils.NewString(opts.StartIp), "guest_ip_start")
+	}
+	if len(opts.EndIp) > 0 {
+		params.Add(jsonutils.NewString(opts.EndIp), "guest_ip_end")
+	}
+	if opts.NetMask > 0 {
+		params.Add(jsonutils.NewInt(opts.NetMask), "guest_ip_mask")
+	}
 	if len(opts.Gateway) > 0 {
 		params.Add(jsonutils.NewString(opts.Gateway), "guest_gateway")
 	}

@@ -293,7 +293,7 @@ func (s *STelegraf) GetConfig(kwargs map[string]interface{}) string {
 	conf += "[[inputs.linux_sysctl_fs]]\n"
 	conf += "\n"
 	conf += "[[inputs.http_listener_v2]]\n"
-	conf += "  service_address = \"127.0.0.1:8087\"\n"
+	conf += "  service_address = \"localhost:8087\"\n"
 	conf += "  path = \"/write\"\n"
 	conf += "  data_source = \"body\"\n"
 	conf += "  data_format = \"influx\"\n"
@@ -418,7 +418,7 @@ func (s *STelegraf) reloadTelegrafByDocker() error {
 }
 
 func (s *STelegraf) reloadTelegrafByHTTP() error {
-	telegrafReoladUrl := "http://127.0.0.1:8087/reload"
+	telegrafReoladUrl := "http://localhost:8087/reload"
 	log.Infof("Reloading telegraf by %q ...", telegrafReoladUrl)
 	if _, _, err := httputils.JSONRequest(
 		httputils.GetDefaultClient(), context.Background(),

@@ -2630,6 +2630,10 @@ func (self *SGuest) PerformChangeIpaddr(
 	if err != nil {
 		return nil, httperrors.NewInputParameterError("parseNetworkInfo fail: %s", err)
 	}
+	if len(gn.IpAddr) == 0 && len(conf.Address) > 0 {
+		// strict ipv6 network, can't add ipv4 address
+		return nil, httperrors.NewBadRequestError("guest network has no ipv4 address")
+	}
 	reuseV4 := ""
 	if conf.Address == gn.IpAddr {
 		// 允许IPv4地址不变，只改IPv6地址
