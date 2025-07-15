@@ -297,18 +297,15 @@ func (r *sSuseLikeRootFs) deployNetworkingScripts(rootFs IDiskPartition, nics []
 
 		} else {
 			cmds.WriteString("STARTMODE=auto\n")
-			if len(nicDesc.Ip) > 0 {
+			if len(nicDesc.Ip) > 0 && len(nicDesc.Ip6) == 0 {
 				cmds.WriteString("BOOTPROTO=dhcp4\n")
+			} else if len(nicDesc.Ip) == 0 && len(nicDesc.Ip6) > 0 {
+				cmds.WriteString("BOOTPROTO=dhcp6\n")
+			} else if len(nicDesc.Ip) > 0 && len(nicDesc.Ip6) > 0 {
+				cmds.WriteString("BOOTPROTO=dhcp\n")
+			} else {
+				cmds.WriteString("BOOTPROTO=none\n")
 			}
-
-			if len(nicDesc.Ip6) > 0 {
-				// IPv6 support static temporarily
-				// TODO
-				cmds.WriteString("IPV6INIT=yes\n")
-				cmds.WriteString("IPV6_AUTOCONF=no\n")
-				cmds.WriteString(fmt.Sprintf("IPADDR_V6=%s/%d\n", nicDesc.Ip6, nicDesc.Masklen6))
-			}
-
 		}
 		var fn = fmt.Sprintf("/etc/sysconfig/network/ifcfg-%s", nicDesc.Name)
 		log.Debugf("%s: %s", fn, cmds.String())
