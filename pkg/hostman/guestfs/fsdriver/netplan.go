@@ -156,7 +156,10 @@ func getNetplanEthernetConfig(nic *types.SServerNic, isBond bool, mainIp, mainIp
 		}
 	} else {
 		// dhcp
-		nicConf = netplan.NewDHCP4EthernetConfig()
+		nicConf = netplan.NewDHCPEthernetConfig()
+		if len(nic.Ip) > 0 {
+			nicConf.EnableDHCP4()
+		}
 		if len(nic.Ip6) > 0 {
 			nicConf.EnableDHCP6()
 		}

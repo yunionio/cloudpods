@@ -464,6 +464,28 @@ func (l *sLinuxRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics []*ty
 			log.Errorf("rootFs.GenerateSshHostKeys fail %s", err)
 		}
 	}
+	// force dhclient for NetworkManager
+	{
+		err := forceNetworkManagerDhclient(rootFs)
+		if err != nil {
+			log.Errorf("force NetworkManager dhclient fail %s", err)
+		}
+	}
+	return nil
+}
+
+func forceNetworkManagerDhclient(rootFs IDiskPartition) error {
+	const nmConfPath = "/etc/NetworkManager/conf.d"
+	if !rootFs.Exists(nmConfPath, false) {
+		return nil
+	}
+	dhcpConfPath := path.Join(nmConfPath, "dhcp-client.conf")
+	content := `[main]
+dhcp=dhclient
+`
+	if err := rootFs.FilePutContents(dhcpConfPath, content, false, false); err != nil {
+		return errors.Wrapf(err, "write %s fail", dhcpConfPath)
+	}
 	return nil
 }
 
@@ -1034,20 +1056,13 @@ func (d *sDebianLikeRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics 
 		} else {
 			if len(nicDesc.Ip) > 0 {
 				cmds.WriteString(fmt.Sprintf("iface %s inet dhcp\n", nicDesc.Name))
+			}
+			if len(nicDesc.Ip6) > 0 {
+				cmds.WriteString(fmt.Sprintf("iface %s inet6 dhcp\n", nicDesc.Name))
+			}
+			if len(nicDesc.Ip) > 0 || len(nicDesc.Ip6) > 0 {
 				if len(nicDesc.TeamingSlaves) > 0 {
 					cmds.WriteString(getNicTeamingConfigCmds(nicDesc.TeamingSlaves))
-				}
-				cmds.WriteString("\n")
-			}
-
-			if len(nicDesc.Ip6) > 0 {
-				// ipv6 support static temporarily
-				// TODO
-				cmds.WriteString(fmt.Sprintf("iface %s inet6 static\n", nicDesc.Name))
-				cmds.WriteString(fmt.Sprintf("    address %s\n", nicDesc.Ip6))
-				cmds.WriteString(fmt.Sprintf("    netmask %d\n", nicDesc.Masklen6))
-				if len(nicDesc.Gateway6) > 0 && nicDesc.Ip == mainIp {
-					cmds.WriteString(fmt.Sprintf("    gateway %s\n", nicDesc.Gateway6))
 				}
 				cmds.WriteString("\n")
 			}
@@ -1496,17 +1511,34 @@ func (r *sRedhatLikeRootFs) deployNetworkingScripts(rootFs IDiskPartition, nics 
 					cmds.WriteString("IPADDR=")
 					cmds.WriteString(nicDesc.Ip)
 					cmds.WriteString("\n")
+					if len(nicDesc.Gateway) > 0 && nicDesc.Ip == mainIp {
+						cmds.WriteString("GATEWAY=")
+						cmds.WriteString(nicDesc.Gateway)
+						cmds.WriteString("\n")
+					}
 				}
-				if len(nicDesc.Gateway) > 0 && nicDesc.Ip == mainIp {
-					cmds.WriteString("GATEWAY=")
-					cmds.WriteString(nicDesc.Gateway)
-					cmds.WriteString("\n")
+				if len(nicDesc.Ip6) > 0 {
+					cmds.WriteString("IPV6INIT=yes\n")
+					cmds.WriteString("DHCPV6C=no\n")
+					cmds.WriteString("IPV6_AUTOCONF=no\n")
+					cmds.WriteString(fmt.Sprintf("IPV6ADDR=%s/%d\n", nicDesc.Ip6, nicDesc.Masklen6))
+					if len(nicDesc.Gateway6) > 0 && nicDesc.Ip6 == mainIp6 {
+						cmds.WriteString(fmt.Sprintf("IPV6_DEFAULTGW=%s\n", nicDesc.Gateway6))
+					}
 				}
 				routes4 := make([]netutils2.SRouteInfo, 0)
 				routes6 := make([]netutils2.SRouteInfo, 0)
 				routes4, routes6 = netutils2.AddNicRoutes(routes4, routes6, nicDesc, mainIp, mainIp6, nicCnt)
 				var rtbl strings.Builder
 				for _, r := range routes4 {
+					rtbl.WriteString(fmt.Sprintf("%s/%d", r.Prefix, r.PrefixLen))
+					rtbl.WriteString(" via ")
+					rtbl.WriteString(r.Gateway.String())
+					rtbl.WriteString(" dev ")
+					rtbl.WriteString(nicDesc.Name)
+					rtbl.WriteString("\n")
+				}
+				for _, r := range routes6 {
 					rtbl.WriteString(fmt.Sprintf("%s/%d", r.Prefix, r.PrefixLen))
 					rtbl.WriteString(" via ")
 					rtbl.WriteString(r.Gateway.String())
@@ -1531,16 +1563,6 @@ func (r *sRedhatLikeRootFs) deployNetworkingScripts(rootFs IDiskPartition, nics 
 						}
 					}
 				}
-
-				if len(nicDesc.Ip6) > 0 {
-					cmds.WriteString("IPV6INIT=yes\n")
-					cmds.WriteString("DHCPV6C=no\n")
-					cmds.WriteString("IPV6_AUTOCONF=no\n")
-					cmds.WriteString(fmt.Sprintf("IPV6ADDR=%s/%d\n", nicDesc.Ip6, nicDesc.Masklen6))
-					if len(nicDesc.Gateway6) > 0 {
-						cmds.WriteString(fmt.Sprintf("IPV6_DEFAULTGW=%s\n", nicDesc.Gateway6))
-					}
-				}
 			}
 		} else {
 			if len(nicDesc.Ip) > 0 {
@@ -1548,15 +1570,9 @@ func (r *sRedhatLikeRootFs) deployNetworkingScripts(rootFs IDiskPartition, nics 
 			}
 
 			if len(nicDesc.Ip6) > 0 {
-				// IPv6 support static temporarily
-				// TODO
 				cmds.WriteString("IPV6INIT=yes\n")
 				cmds.WriteString("DHCPV6C=yes\n")
 				cmds.WriteString("IPV6_AUTOCONF=yes\n")
-				cmds.WriteString(fmt.Sprintf("IPV6ADDR=%s/%d\n", nicDesc.Ip6, nicDesc.Masklen6))
-				if len(nicDesc.Gateway6) > 0 {
-					cmds.WriteString("IPV6_DEFROUTE=yes\n")
-				}
 			}
 		}
 		var fn = fmt.Sprintf("%s/ifcfg-%s", scriptPath, nicDesc.Name)
@@ -1586,24 +1602,42 @@ func (r *sRedhatLikeRootFs) deployVlanNetworkingScripts(rootFs IDiskPartition, s
 	if nicDesc.Mtu > 0 {
 		cmds.WriteString(fmt.Sprintf("MTU=%d\n", nicDesc.Mtu))
 	}
-
-	netmask := netutils2.Netlen2Mask(int(nicDesc.Masklen))
-	cmds.WriteString("NETMASK=")
-	cmds.WriteString(netmask)
-	cmds.WriteString("\n")
-	cmds.WriteString("IPADDR=")
-	cmds.WriteString(nicDesc.Ip)
-	cmds.WriteString("\n")
-	if len(nicDesc.Gateway) > 0 && nicDesc.Ip == mainIp {
-		cmds.WriteString("GATEWAY=")
-		cmds.WriteString(nicDesc.Gateway)
+	if len(nicDesc.Ip) > 0 {
+		netmask := netutils2.Netlen2Mask(int(nicDesc.Masklen))
+		cmds.WriteString("NETMASK=")
+		cmds.WriteString(netmask)
 		cmds.WriteString("\n")
+		cmds.WriteString("IPADDR=")
+		cmds.WriteString(nicDesc.Ip)
+		cmds.WriteString("\n")
+		if len(nicDesc.Gateway) > 0 && nicDesc.Ip == mainIp {
+			cmds.WriteString("GATEWAY=")
+			cmds.WriteString(nicDesc.Gateway)
+			cmds.WriteString("\n")
+		}
+	}
+	if len(nicDesc.Ip6) > 0 {
+		cmds.WriteString("IPV6INIT=yes\n")
+		cmds.WriteString("DHCPV6C=no\n")
+		cmds.WriteString("IPV6_AUTOCONF=no\n")
+		cmds.WriteString(fmt.Sprintf("IPV6ADDR=%s/%d\n", nicDesc.Ip6, nicDesc.Masklen6))
+		if len(nicDesc.Gateway6) > 0 && nicDesc.Ip6 == mainIp6 {
+			cmds.WriteString(fmt.Sprintf("IPV6_DEFAULTGW=%s\n", nicDesc.Gateway6))
+		}
 	}
 	routes4 := make([]netutils2.SRouteInfo, 0)
 	routes6 := make([]netutils2.SRouteInfo, 0)
 	routes4, routes6 = netutils2.AddNicRoutes(routes4, routes6, nicDesc, mainIp, mainIp6, nicCnt)
 	var rtbl strings.Builder
 	for _, r := range routes4 {
+		rtbl.WriteString(fmt.Sprintf("%s/%d", r.Prefix, r.PrefixLen))
+		rtbl.WriteString(" via ")
+		rtbl.WriteString(r.Gateway.String())
+		rtbl.WriteString(" dev ")
+		rtbl.WriteString(fmt.Sprintf("%s.%d", nicDesc.Name, nicDesc.Vlan))
+		rtbl.WriteString("\n")
+	}
+	for _, r := range routes6 {
 		rtbl.WriteString(fmt.Sprintf("%s/%d", r.Prefix, r.PrefixLen))
 		rtbl.WriteString(" via ")
 		rtbl.WriteString(r.Gateway.String())

@@ -199,15 +199,19 @@ func (n *Network) YAMLString() string {
 	return toYAMLString(n)
 }
 
-func NewDHCP4EthernetConfig() *EthernetConfig {
-	return &EthernetConfig{
-		DHCP4: true,
-	}
+func NewDHCPEthernetConfig() *EthernetConfig {
+	return &EthernetConfig{}
 }
 
-func (c *EthernetConfig) EnableDHCP6() {
+func (c *EthernetConfig) EnableDHCP4() *EthernetConfig {
+	c.DHCP4 = true
+	return c
+}
+
+func (c *EthernetConfig) EnableDHCP6() *EthernetConfig {
 	c.DHCP6 = true
 	c.AcceptRa = true
+	return c
 }
 
 func NewStaticEthernetConfig(
