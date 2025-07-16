@@ -16,6 +16,7 @@ package netutils2
 
 import (
 	"os"
+	"reflect"
 	"testing"
 
 	"yunion.io/x/jsonutils"
@@ -192,6 +193,34 @@ func TestGetRouteSpecs(t *testing.T) {
 		routes := n.GetRouteSpecs()
 		for i := range routes {
 			t.Logf("route %s via %s", routes[i].Dst.String(), routes[i].Gw.String())
+		}
+	}
+}
+
+func TestSplitV46Addr(t *testing.T) {
+	cases := []struct {
+		in    string
+		want4 []string
+		want6 []string
+	}{
+		{
+			in:    "192.168.1.1,192.168.1.2,192.168.1.3,192.168.1.10",
+			want4: []string{"192.168.1.1", "192.168.1.10", "192.168.1.2", "192.168.1.3"},
+			want6: []string{},
+		},
+		{
+			in:    "192.168.1.1,192.168.1.2,fe80::1,192.168.1.10",
+			want4: []string{"192.168.1.1", "192.168.1.10", "192.168.1.2"},
+			want6: []string{"fe80::1"},
+		},
+	}
+	for _, c := range cases {
+		got4, got6 := SplitV46Addr(c.in)
+		if !reflect.DeepEqual(got4, c.want4) {
+			t.Errorf("SplitV46Addr(%s) = %v, want %v", c.in, got4, c.want4)
+		}
+		if !reflect.DeepEqual(got6, c.want6) {
+			t.Errorf("SplitV46Addr(%s) = %v, want %v", c.in, got6, c.want6)
 		}
 	}
 }

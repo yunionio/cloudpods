@@ -43,6 +43,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/util/atexit"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
+	"yunion.io/x/onecloud/pkg/util/netutils2"
 )
 
 const (
@@ -115,6 +116,9 @@ type BaseOptions struct {
 	ApiServer string `help:"URL to access frontend webconsole"`
 
 	CustomizedPrivatePrefixes []string `help:"customized private prefixes"`
+
+	MetadataServerIp4s []string `help:"metadata server IPv4 addresses, default is 169.254.169.254" default:"169.254.169.254"`
+	MetadataServerIp6s []string `help:"metadata server IPv6 addresses, default is fd00:ec2::254" default:"'fd00:ec2::254'"`
 
 	structarg.BaseOptions
 
@@ -365,6 +369,8 @@ func parseOptions(optStruct interface{}, args []string, configFileName string, s
 
 	consts.SetServiceName(optionsRef.ApplicationID)
 	httperrors.SetTimeZone(optionsRef.TimeZone)
+	netutils2.SetIp4MetadataServers(optionsRef.MetadataServerIp4s)
+	netutils2.SetIp6MetadataServers(optionsRef.MetadataServerIp6s)
 
 	// log configuration
 	log.SetVerboseLevel(int32(optionsRef.LogVerboseLevel))

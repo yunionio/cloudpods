@@ -34,7 +34,7 @@ func TestNewNetplanConfig(t *testing.T) {
 		{
 			mainIp: "10.168.222.175",
 			nics: []*types.SServerNic{
-				&types.SServerNic{
+				{
 					Name:      "eth0",
 					Index:     0,
 					Bridge:    "br0",
@@ -60,7 +60,7 @@ func TestNewNetplanConfig(t *testing.T) {
 
 					LinkUp: true,
 				},
-				&types.SServerNic{
+				{
 					Name:      "eth1",
 					Index:     1,
 					Bridge:    "br0",
@@ -93,14 +93,14 @@ func TestNewNetplanConfig(t *testing.T) {
 					Version:  2,
 					Renderer: netplan.NetworkRendererNetworkd,
 					Ethernets: map[string]*netplan.EthernetConfig{
-						"eth0": &netplan.EthernetConfig{
+						"eth0": {
 							MacAddress: "00:24:c7:16:80:f2",
 							Match: &netplan.EthernetConfigMatch{
 								MacAddress: "00:24:c7:16:80:f2",
 							},
 							Mtu: 1500,
 						},
-						"eth1": &netplan.EthernetConfig{
+						"eth1": {
 							MacAddress: "00:24:c7:16:80:f3",
 							Match: &netplan.EthernetConfigMatch{
 								MacAddress: "00:24:c7:16:80:f3",
@@ -109,7 +109,7 @@ func TestNewNetplanConfig(t *testing.T) {
 						},
 					},
 					Bonds: map[string]*netplan.Bond{
-						"bond0": &netplan.Bond{
+						"bond0": {
 							EthernetConfig: netplan.EthernetConfig{
 								Addresses: []string{
 									"10.168.222.175/24",
@@ -150,7 +150,7 @@ func TestNewNetplanConfig(t *testing.T) {
 		{
 			mainIp: "10.168.22.175",
 			nics: []*types.SServerNic{
-				&types.SServerNic{
+				{
 					Name:      "eth0",
 					Index:     0,
 					Bridge:    "br0",
@@ -176,7 +176,7 @@ func TestNewNetplanConfig(t *testing.T) {
 
 					LinkUp: true,
 				},
-				&types.SServerNic{
+				{
 					Name:      "eth1",
 					Index:     1,
 					Bridge:    "br0",
@@ -209,14 +209,14 @@ func TestNewNetplanConfig(t *testing.T) {
 					Version:  2,
 					Renderer: netplan.NetworkRendererNetworkd,
 					Ethernets: map[string]*netplan.EthernetConfig{
-						"eth0": &netplan.EthernetConfig{
+						"eth0": {
 							MacAddress: "00:24:c7:16:80:f2",
 							Match: &netplan.EthernetConfigMatch{
 								MacAddress: "00:24:c7:16:80:f2",
 							},
 							Mtu: 1500,
 						},
-						"eth1": &netplan.EthernetConfig{
+						"eth1": {
 							MacAddress: "00:24:c7:16:80:f3",
 							Match: &netplan.EthernetConfigMatch{
 								MacAddress: "00:24:c7:16:80:f3",
@@ -225,7 +225,7 @@ func TestNewNetplanConfig(t *testing.T) {
 						},
 					},
 					Bonds: map[string]*netplan.Bond{
-						"bond0": &netplan.Bond{
+						"bond0": {
 							EthernetConfig: netplan.EthernetConfig{
 								Addresses: []string{
 									"10.168.222.175/24",
@@ -260,7 +260,7 @@ func TestNewNetplanConfig(t *testing.T) {
 			mainIp:  "10.168.22.175",
 			mainIp6: "2001:db8::23",
 			nics: []*types.SServerNic{
-				&types.SServerNic{
+				{
 					Name:      "eth0",
 					Index:     0,
 					Bridge:    "br0",
@@ -290,7 +290,7 @@ func TestNewNetplanConfig(t *testing.T) {
 					Masklen6: 64,
 					Gateway6: "2001:db8::1",
 				},
-				&types.SServerNic{
+				{
 					Name:      "eth1",
 					Index:     1,
 					Bridge:    "br0",
@@ -323,14 +323,14 @@ func TestNewNetplanConfig(t *testing.T) {
 					Version:  2,
 					Renderer: netplan.NetworkRendererNetworkd,
 					Ethernets: map[string]*netplan.EthernetConfig{
-						"eth0": &netplan.EthernetConfig{
+						"eth0": {
 							MacAddress: "00:24:c7:16:80:f2",
 							Match: &netplan.EthernetConfigMatch{
 								MacAddress: "00:24:c7:16:80:f2",
 							},
 							Mtu: 1500,
 						},
-						"eth1": &netplan.EthernetConfig{
+						"eth1": {
 							MacAddress: "00:24:c7:16:80:f3",
 							Match: &netplan.EthernetConfigMatch{
 								MacAddress: "00:24:c7:16:80:f3",
@@ -339,7 +339,7 @@ func TestNewNetplanConfig(t *testing.T) {
 						},
 					},
 					Bonds: map[string]*netplan.Bond{
-						"bond0": &netplan.Bond{
+						"bond0": {
 							EthernetConfig: netplan.EthernetConfig{
 								Addresses: []string{
 									"10.168.222.175/24",
@@ -360,11 +360,6 @@ func TestNewNetplanConfig(t *testing.T) {
 									{
 										Metric: 0,
 										To:     "fd00:ec2::254/128",
-										Via:    "::",
-									},
-									{
-										Metric: 0,
-										To:     "fe80::a9fe:a9fe/128",
 										Via:    "::",
 									},
 								},

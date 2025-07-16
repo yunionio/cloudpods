@@ -22,7 +22,6 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/netutils"
-	"yunion.io/x/pkg/util/regutils"
 
 	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
@@ -271,36 +270,11 @@ func getGuestConfig(
 	conf.Routes6 = route6
 
 	if len(nicdesc.Dns) > 0 {
-		conf.DNSServers = make([]net.IP, 0)
-		conf.DNSServers6 = make([]net.IP, 0)
-		for _, dns := range strings.Split(nicdesc.Dns, ",") {
-			if regutils.MatchIP4Addr(dns) {
-				conf.DNSServers = append(conf.DNSServers, net.ParseIP(dns))
-			} else if regutils.MatchIP6Addr(dns) {
-				conf.DNSServers6 = append(conf.DNSServers6, net.ParseIP(dns))
-			}
-		}
+		conf.DNSServers, conf.DNSServers6 = netutils2.SplitV46Addr2IP(nicdesc.Dns)
 	}
 
 	if len(nicdesc.Ntp) > 0 {
-		conf.NTPServers = make([]net.IP, 0)
-		conf.NTPServers6 = make([]net.IP, 0)
-		for _, ntp := range strings.Split(nicdesc.Ntp, ",") {
-			if regutils.MatchIP4Addr(ntp) {
-				conf.NTPServers = append(conf.NTPServers, net.ParseIP(ntp))
-			} else if regutils.MatchIP6Addr(ntp) {
-				conf.NTPServers6 = append(conf.NTPServers6, net.ParseIP(ntp))
-			} else if regutils.MatchDomainName(ntp) {
-				ntpAddrs, _ := net.LookupHost(ntp)
-				for _, ntpAddr := range ntpAddrs {
-					if regutils.MatchIP4Addr(ntpAddr) {
-						conf.NTPServers = append(conf.NTPServers, net.ParseIP(ntpAddr))
-					} else if regutils.MatchIP6Addr(ntpAddr) {
-						conf.NTPServers6 = append(conf.NTPServers6, net.ParseIP(ntpAddr))
-					}
-				}
-			}
-		}
+		conf.NTPServers, conf.NTPServers6 = netutils2.SplitV46Addr2IP(nicdesc.Ntp)
 	}
 
 	if nicdesc.Mtu > 0 {

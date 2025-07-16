@@ -26,12 +26,12 @@ import (
 	"yunion.io/x/ovsdb/types"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/netutils"
-	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/pkg/utils"
 
 	commonapis "yunion.io/x/onecloud/pkg/apis"
 	apis "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/util/netutils2"
 	agentmodels "yunion.io/x/onecloud/pkg/vpcagent/models"
 	"yunion.io/x/onecloud/pkg/vpcagent/options"
 	"yunion.io/x/onecloud/pkg/vpcagent/ovn/mac"
@@ -438,7 +438,7 @@ func (keeper *OVNNorthboundKeeper) ClaimVpcEipgw(ctx context.Context, vpc *agent
 	return keeper.cli.Must(ctx, "ClaimVpcEipgw", args)
 }
 
-func formatNtpServers(srvs string) string {
+/*func formatNtpServers(srvs string) string {
 	srv := make([]string, 0)
 	for _, part := range strings.Split(srvs, ",") {
 		part = strings.TrimSpace(part)
@@ -451,7 +451,7 @@ func formatNtpServers(srvs string) string {
 		}
 	}
 	return strings.Join(srv, ",")
-}
+}*/
 
 func generateDhcpOptions(ctx context.Context, guestnetwork *agentmodels.Guestnetwork, opts *options.Options) *ovn_nb.DHCPOptions {
 	var (
@@ -516,8 +516,9 @@ func generateDhcpOptions(ctx context.Context, guestnetwork *agentmodels.Guestnet
 		if dnsSrvs == "" {
 			dnsSrvs = opts.DNSServer
 		}
-		if len(dnsSrvs) > 0 {
-			dhcpopts.Options["dns_server"] = "{" + dnsSrvs + "}"
+		dnsSrvs4List, _ := netutils2.SplitV46Addr(dnsSrvs)
+		if len(dnsSrvs4List) > 0 {
+			dhcpopts.Options["dns_server"] = "{" + strings.Join(dnsSrvs4List, ",") + "}"
 		}
 	}
 	{
@@ -542,9 +543,10 @@ func generateDhcpOptions(ctx context.Context, guestnetwork *agentmodels.Guestnet
 				ntpSrvs = strings.Join(ntp, ",")
 			}
 		}
-		if len(ntpSrvs) > 0 {
+		ntpSrvs4List, _ := netutils2.SplitV46Addr(ntpSrvs)
+		if len(ntpSrvs4List) > 0 {
 			// bug on OVN, should not use ntp server: QiuJian
-			dhcpopts.Options["ntp_server"] = "{" + formatNtpServers(ntpSrvs) + "}"
+			dhcpopts.Options["ntp_server"] = "{" + strings.Join(ntpSrvs4List, ",") + "}"
 		}
 	}
 	return dhcpopts
@@ -562,13 +564,42 @@ func generateDhcp6Options(ctx context.Context, guestnetwork *agentmodels.Guestne
 	dhcpopts := &ovn_nb.DHCPOptions{
 		Cidr: cidr6,
 		Options: map[string]string{
-			"server_id": dhcpMac,
-			// "dhcpv6_stateless": "false",
+			"server_id":        dhcpMac,
+			"dhcpv6_stateless": "false",
 		},
 		ExternalIds: map[string]string{
 			externalKeyOcRef: ocDhcpRef,
 		},
 	}
+	{
+		dnsSrvs := network.GuestDns
+		if dnsSrvs == "" {
+			dns, err := auth.GetDNSServers(opts.Region, "")
+			if err != nil {
+				// ignore the error
+				// log.Errorf("auth.GetDNSServers fail %s", err)
+			} else {
+				dnsSrvs = strings.Join(dns, ",")
+			}
+		}
+		if dnsSrvs == "" {
+			dnsSrvs = opts.DNSServer
+		}
+		_, dnsSrvs6List := netutils2.SplitV46Addr(dnsSrvs)
+		if len(dnsSrvs6List) > 0 {
+			dhcpopts.Options["dns_server"] = "{" + strings.Join(dnsSrvs6List, ",") + "}"
+		}
+	}
+	{
+		dnsDomain := network.GuestDomain
+		if dnsDomain == "" {
+			dnsDomain = opts.DNSDomain
+		}
+		if len(dnsDomain) > 0 && !commonapis.IsIllegalSearchDomain(dnsDomain) {
+			dhcpopts.Options["domain_name"] = "\"" + dnsDomain + "\""
+		}
+	}
+
 	return dhcpopts
 }
 

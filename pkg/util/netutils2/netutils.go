@@ -31,6 +31,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	"yunion.io/x/onecloud/pkg/util/procutils"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 var PSEUDO_VIP = "169.254.169.231"
@@ -354,6 +355,33 @@ func isExitAddress(ip string) bool {
 	return netutils.IsExitAddress(ipv4)
 }
 
+var (
+	Ip4MetadataServers = []string{
+		"169.254.169.254",
+	}
+	Ip6MetadataServers = []string{
+		"fd00:ec2::254",
+	}
+)
+
+func SetIp4MetadataServers(ip4s []string) {
+	if len(ip4s) == 0 {
+		ip4s = []string{
+			"169.254.169.254",
+		}
+	}
+	Ip4MetadataServers = ip4s
+}
+
+func SetIp6MetadataServers(ip6s []string) {
+	if len(ip6s) == 0 {
+		ip6s = []string{
+			"fd00:ec2::254",
+		}
+	}
+	Ip6MetadataServers = ip6s
+}
+
 func AddNicRoutes(routes4 []SRouteInfo, routes6 []SRouteInfo, nicDesc *types.SServerNic, mainIp string, mainIp6 string, nicCnt int) ([]SRouteInfo, []SRouteInfo) {
 	// always add static routes, even if this is the default NIC
 	// if mainIp == nicDesc.Ip {
@@ -373,11 +401,16 @@ func AddNicRoutes(routes4 []SRouteInfo, routes6 []SRouteInfo, nicDesc *types.SSe
 
 	if len(mainIp) > 0 && nicDesc.Ip == mainIp {
 		// always add 169.254.169.254 for default NIC
-		routes4 = addRoute(routes4, "169.254.169.254/32", "0.0.0.0")
+		for _, ip := range Ip4MetadataServers {
+			pref := ip + "/32"
+			routes4 = addRoute(routes4, pref, "0.0.0.0")
+		}
 	}
 	if len(mainIp6) > 0 && nicDesc.Ip6 == mainIp6 {
-		routes6 = addRoute(routes6, "fd00:ec2::254/128", "::")
-		routes6 = addRoute(routes6, "fe80::a9fe:a9fe/128", "::")
+		for _, ip6 := range Ip6MetadataServers {
+			pref := ip6 + "/128"
+			routes6 = addRoute(routes6, pref, "::")
+		}
 	}
 
 	return routes4, routes6
@@ -701,4 +734,49 @@ func TestTcpPort(ip string, port int, timeoutSecs int, tries int) error {
 		time.Sleep(10 * time.Millisecond)
 	}
 	return errors.NewAggregate(errs)
+}
+
+func IP2SolicitMcastIP(ip6 net.IP) net.IP {
+	// Solicited-Node Multicast Address, FF02::1:FF00:0/104
+	return net.IP{0xff, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0xff, ip6[13], ip6[14], ip6[15]}
+}
+
+func IP2SolicitMcastMac(ip6 net.IP) net.HardwareAddr {
+	// Solicited-Node Multicast Address, 33:33:ff:00:00:00
+	return net.HardwareAddr{0x33, 0x33, 0xff, ip6[13], ip6[14], ip6[15]}
+}
+
+func SplitV46Addr(addrsStr string) ([]string, []string) {
+	servers4 := stringutils2.NewSortedStrings(nil)
+	servers6 := stringutils2.NewSortedStrings(nil)
+	for _, ntp := range strings.Split(addrsStr, ",") {
+		if regutils.MatchIP4Addr(ntp) {
+			servers4 = servers4.Append(ntp)
+		} else if regutils.MatchIP6Addr(ntp) {
+			servers6 = servers6.Append(ntp)
+		} else if regutils.MatchDomainName(ntp) {
+			ntpAddrs, _ := net.LookupHost(ntp)
+			for _, ntpAddr := range ntpAddrs {
+				if regutils.MatchIP4Addr(ntpAddr) {
+					servers4 = servers4.Append(ntpAddr)
+				} else if regutils.MatchIP6Addr(ntpAddr) {
+					servers6 = servers6.Append(ntpAddr)
+				}
+			}
+		}
+	}
+	return servers4, servers6
+}
+
+func SplitV46Addr2IP(addrsStr string) ([]net.IP, []net.IP) {
+	addrs4, addrs6 := SplitV46Addr(addrsStr)
+	ip4s := make([]net.IP, len(addrs4))
+	ip6s := make([]net.IP, len(addrs6))
+	for i := range addrs4 {
+		ip4s[i] = net.ParseIP(addrs4[i])
+	}
+	for i := range addrs6 {
+		ip6s[i] = net.ParseIP(addrs6[i])
+	}
+	return ip4s, ip6s
 }
