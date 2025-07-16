@@ -41,14 +41,15 @@ type SSLCertificateCreateInput struct {
 	PrivateKey  string
 }
 
-// 资源返回详情
 type SSLCertificateDetails struct {
 	apis.VirtualResourceDetails
 	ManagedResourceInfo
 	CloudregionResourceInfo
+
+	// 是否过期
+	IsExpired bool `json:"is_expired"`
 }
 
-// 资源列表请求参数
 type SSLCertificateListInput struct {
 	apis.VirtualResourceListInput
 	apis.ExternalizedResourceBaseListInput
@@ -57,4 +58,6 @@ type SSLCertificateListInput struct {
 	RegionalFilterListInput
 	ManagedResourceListInput
 	DnsZoneFilterListBase
+
+	IsExpired *bool `json:"is_expired"`
 }
