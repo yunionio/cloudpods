@@ -129,7 +129,7 @@ func (addr *SAddress) GetAssociationType() string {
 		return api.EIP_ASSOCIATE_TYPE_SERVER
 	}
 	for _, user := range addr.Users {
-		if strings.HasPrefix(user, "/instances/") {
+		if strings.Contains(user, "/instances/") {
 			return api.EIP_ASSOCIATE_TYPE_SERVER
 		}
 		if strings.Contains(user, "/forwardingRules/") {

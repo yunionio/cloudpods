@@ -578,23 +578,69 @@ func TransSQLAchemyURL(pySQLSrc string) (dialect, ret string, err error) {
 	}
 
 	lastAtIndex := strings.LastIndex(pySQLSrc, "@")
+	if lastAtIndex == -1 {
+		err = fmt.Errorf("Incorrect mysql connection url: %s", pySQLSrc)
+		return
+	}
+
 	firstPart := pySQLSrc[:lastAtIndex]
 	secondPart := pySQLSrc[lastAtIndex+1:]
 
 	r := regexp.MustCompile(`[/:]+`)
 	firstPartArr := r.Split(firstPart, -1)
-	secondPartArr := r.Split(secondPart, -1)
-
-	strs := append(firstPartArr, secondPartArr...)
-	if len(strs) != 6 {
+	if len(firstPartArr) < 3 {
 		err = fmt.Errorf("Incorrect mysql connection url: %s", pySQLSrc)
 		return
 	}
-	user, passwd, host, port, dburl := strs[1], strs[2], strs[3], strs[4], strs[5]
+
+	user := firstPartArr[1]
+	passwd := firstPartArr[2]
+
+	var host, port, dburl string
+	if strings.HasPrefix(secondPart, "[") {
+		endBracket := strings.Index(secondPart, "]")
+		if endBracket == -1 {
+			err = fmt.Errorf("Incorrect IPv6 address format: %s", pySQLSrc)
+			return
+		}
+
+		host = secondPart[:endBracket+1]
+		remaining := secondPart[endBracket+1:]
+		if !strings.HasPrefix(remaining, ":") {
+			err = fmt.Errorf("Incorrect mysql connection url: %s", pySQLSrc)
+			return
+		}
+		remaining = remaining[1:]
+		slashIndex := strings.Index(remaining, "/")
+		if slashIndex == -1 {
+			err = fmt.Errorf("Incorrect mysql connection url: %s", pySQLSrc)
+			return
+		}
+		port = remaining[:slashIndex]
+		dburl = remaining[slashIndex+1:]
+	} else {
+		colonIndex := strings.Index(secondPart, ":")
+		if colonIndex == -1 {
+			err = fmt.Errorf("Incorrect mysql connection url: %s", pySQLSrc)
+			return
+		}
+
+		host = secondPart[:colonIndex]
+		remaining := secondPart[colonIndex+1:]
+		slashIndex := strings.Index(remaining, "/")
+		if slashIndex == -1 {
+			err = fmt.Errorf("Incorrect mysql connection url: %s", pySQLSrc)
+			return
+		}
+		port = remaining[:slashIndex]
+		dburl = remaining[slashIndex+1:]
+	}
+
 	dburl, err = transMysqlQuery(dburl)
 	if err != nil {
 		return
 	}
+
 	ret = fmt.Sprintf("%s:%s@tcp(%s:%s)/%s", user, passwd, host, port, dburl)
 	return
 }
