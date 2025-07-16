@@ -98,7 +98,7 @@ func (self *SSLCertificateCreateTask) OnInit(ctx context.Context, obj db.IStanda
 	addr := ""
 	switch sc.Issuer {
 	case api.SSL_ISSUER_LETSENCRYPT:
-		addr = acme.LetsEncryptStaging
+		addr = acme.LetsEncryptProduction
 	case api.SSL_ISSUER_ZEROSSL:
 		addr = acme.ZeroSSLProduction
 	}
@@ -254,17 +254,19 @@ func (self *SSLCertificateCreateTask) OnInit(ctx context.Context, obj db.IStanda
 
 	start, end, country, province, city := time.Time{}, time.Time{}, "", "", ""
 	var pemData []string
-	for _, c := range certs {
-		start = c.NotBefore
-		end = c.NotAfter
-		if len(c.Subject.Country) > 0 {
-			country = c.Subject.Country[0]
-		}
-		if len(c.Subject.Province) > 0 {
-			province = c.Subject.Province[0]
-		}
-		if len(c.Subject.Locality) > 0 {
-			city = c.Subject.Locality[0]
+	for i, c := range certs {
+		if i == 0 {
+			start = c.NotBefore
+			end = c.NotAfter
+			if len(c.Subject.Country) > 0 {
+				country = c.Subject.Country[0]
+			}
+			if len(c.Subject.Province) > 0 {
+				province = c.Subject.Province[0]
+			}
+			if len(c.Subject.Locality) > 0 {
+				city = c.Subject.Locality[0]
+			}
 		}
 		pemData = append(pemData, strings.TrimSpace(string(pem.EncodeToMemory(&pem.Block{
 			Type:  "CERTIFICATE",
@@ -294,6 +296,7 @@ func (self *SSLCertificateCreateTask) OnInit(ctx context.Context, obj db.IStanda
 			return errors.Wrapf(err, "GetProvider")
 		}
 		opts := &cloudprovider.SSLCertificateCreateOptions{
+			Name:        sc.Name,
 			DnsZoneId:   zone.ExternalId,
 			Certificate: sc.Certificate,
 			PrivateKey:  sc.PrivateKey,

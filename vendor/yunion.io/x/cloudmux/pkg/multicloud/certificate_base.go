@@ -14,10 +14,19 @@
 
 package multicloud
 
+import (
+	"yunion.io/x/cloudmux/pkg/cloudprovider"
+	"yunion.io/x/pkg/errors"
+)
+
 type SCertificateBase struct {
 	SVirtualResourceBase
 }
 
 func (cert *SCertificateBase) GetDnsZoneId() string {
 	return ""
+}
+
+func (cert *SCertificateBase) Delete() error {
+	return errors.Wrapf(cloudprovider.ErrNotImplemented, "Delete")
 }
