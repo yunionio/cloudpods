@@ -297,10 +297,10 @@ type Option6 struct {
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 */
 func optionToBytes(o Option6) []byte {
-	buf := make([]byte, 4)
+	buf := make([]byte, 4+len(o.Value))
 	binary.BigEndian.PutUint16(buf[0:2], uint16(o.Code))
 	binary.BigEndian.PutUint16(buf[2:4], uint16(len(o.Value)))
-	buf = append(buf, o.Value...)
+	copy(buf[4:], o.Value)
 	return buf
 }
 
@@ -316,15 +316,17 @@ func (p Packet) GetOption6s() []Option6 {
 	options := make([]Option6, 0)
 	offset := 4
 	if p.IsRelayMsg() {
-		offset = 18
+		offset = 16*2 + 2
 	}
 	i := offset
 	for i < len(p) {
 		code := binary.BigEndian.Uint16(p[i : i+2])
 		length := binary.BigEndian.Uint16(p[i+2 : i+4])
+		value := make([]byte, length)
+		copy(value, p[i+4:i+4+int(length)])
 		options = append(options, Option6{
 			Code:  OptionCode6(code),
-			Value: p[i+4 : i+4+int(length)],
+			Value: value,
 		})
 		i += 4 + int(length)
 	}
@@ -377,13 +379,25 @@ func makeIAAddr(ip net.IP, preferLT, validLT uint32, opts []Option6) []byte {
 }
 
 func responseIANA(buf []byte, opts []Option6) []byte {
-	if len(buf) > 12 {
+	// IA_NA structure: IAID (4 bytes) + T1 (4 bytes) + T2 (4 bytes)
+	// Preserve the original IAID, T1, and T2 values from the client request
+	if len(buf) < 12 {
+		// If buffer is too short, pad with zeros
+		padding := make([]byte, 12-len(buf))
+		buf = append(buf, padding...)
+	} else if len(buf) > 12 {
+		// If buffer is too long, truncate to 12 bytes (IAID + T1 + T2)
 		buf = buf[:12]
 	}
-	// iaID := binary.BigEndian.Uint32(buf[0:4])
-	// t1 := binary.BigEndian.Uint32(buf[4:8])
-	// t2 := binary.BigEndian.Uint32(buf[8:12])
-	// log.Debugf("responseIANA IA_NA IAID %d t1 %d t2 %d", iaID, t1, t2)
+
+	// Log the IA_NA parameters for debugging
+	if len(buf) >= 12 {
+		iaID := binary.BigEndian.Uint32(buf[0:4])
+		t1 := binary.BigEndian.Uint32(buf[4:8])
+		t2 := binary.BigEndian.Uint32(buf[8:12])
+		log.Debugf("responseIANA IA_NA IAID %d t1 %d t2 %d", iaID, t1, t2)
+	}
+
 	buf = append(buf, optionsToBytes(opts)...)
 	return buf
 }
@@ -414,19 +428,18 @@ func makeDHCPReplyPacket6(pkt Packet, conf *ResponseConfig, msgType MessageType)
 		return nil, errors.Wrapf(err, "TID6")
 	}
 
-	resp := NewPacket6(msgType, tid)
 	originOpts := pkt.GetOption6s()
-	getOption := func(code OptionCode6) Option6 {
-		for _, o := range originOpts {
+	getOption := func(opts []Option6, code OptionCode6) *Option6 {
+		for _, o := range opts {
 			if o.Code == code {
-				return o
+				return &o
 			}
 		}
-		return Option6{}
+		return nil
 	}
 
-	reqInfo := getOption(DHCPV6_OPTION_ORO)
-	if len(reqInfo.Value) > 0 {
+	reqInfo := getOption(originOpts, DHCPV6_OPTION_ORO)
+	if reqInfo != nil && len(reqInfo.Value) > 0 {
 		reqOpts := decodeRequestOptions(reqInfo.Value)
 		reqOptsStr := make([]string, len(reqOpts))
 		for i, opt := range reqOpts {
@@ -437,21 +450,35 @@ func makeDHCPReplyPacket6(pkt Packet, conf *ResponseConfig, msgType MessageType)
 
 	options := make([]Option6, 0)
 
+	reqCliID := getOption(originOpts, DHCPV6_OPTION_CLIENTID)
+	if reqCliID == nil {
+		return nil, errors.Wrapf(errors.ErrInvalidFormat, "clientID option not found")
+	}
 	// copy clientID
-	options = append(options, getOption(DHCPV6_OPTION_CLIENTID))
+	options = append(options, Option6{
+		Code:  DHCPV6_OPTION_CLIENTID,
+		Value: reqCliID.Value,
+	})
 	// serverID
 	options = append(options, Option6{
 		Code:  DHCPV6_OPTION_SERVERID,
 		Value: makeServerId(conf.InterfaceMac),
 	})
 	// Identity Association for Non-temporary Addresses Option
-	ianaOpt := getOption(DHCPV6_OPTION_IA_NA)
+	ianaOpt := getOption(originOpts, DHCPV6_OPTION_IA_NA)
+	if ianaOpt == nil {
+		return nil, errors.Wrapf(errors.ErrInvalidFormat, "IA_NA option not found")
+	}
+	// Calculate proper timing values for IA_NA
+	validLifetime := uint32(conf.LeaseTime.Seconds()) // Valid lifetime should be longer than preferred
+	preferredLifetime := validLifetime / 2
+
 	options = append(options, Option6{
 		Code: DHCPV6_OPTION_IA_NA,
 		Value: responseIANA(ianaOpt.Value, []Option6{
 			{
 				Code: DHCPV6_OPTION_IAADDR,
-				Value: makeIAAddr(conf.ClientIP6, uint32(conf.LeaseTime.Seconds()), uint32(conf.LeaseTime.Seconds()), []Option6{
+				Value: makeIAAddr(conf.ClientIP6, preferredLifetime, validLifetime, []Option6{
 					{
 						Code:  DHCPV6_OPTION_STATUS_CODE,
 						Value: []byte{0, 0, 'S', 'u', 'c', 'c', 'e', 's', 's'},
@@ -475,6 +502,19 @@ func makeDHCPReplyPacket6(pkt Packet, conf *ResponseConfig, msgType MessageType)
 		})
 	}
 
+	// Handle rapid commit option for SOLICIT messages
+	if pkt.Type6() == DHCPV6_SOLICIT {
+		rapidCmtOpt := getOption(originOpts, DHCPV6_OPTION_RAPID_COMMIT)
+		if rapidCmtOpt != nil {
+			// Client requested rapid commit, respond with REPLY instead of ADVERTISE
+			msgType = DHCPV6_REPLY
+			options = append(options, Option6{
+				Code: DHCPV6_OPTION_RAPID_COMMIT,
+			})
+		}
+	}
+
+	resp := NewPacket6(msgType, tid)
 	resp = append(resp, optionsToBytes(options)...)
 
 	return resp, nil

@@ -464,28 +464,6 @@ func (l *sLinuxRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics []*ty
 			log.Errorf("rootFs.GenerateSshHostKeys fail %s", err)
 		}
 	}
-	// force dhclient for NetworkManager
-	{
-		err := forceNetworkManagerDhclient(rootFs)
-		if err != nil {
-			log.Errorf("force NetworkManager dhclient fail %s", err)
-		}
-	}
-	return nil
-}
-
-func forceNetworkManagerDhclient(rootFs IDiskPartition) error {
-	const nmConfPath = "/etc/NetworkManager/conf.d"
-	if !rootFs.Exists(nmConfPath, false) {
-		return nil
-	}
-	dhcpConfPath := path.Join(nmConfPath, "dhcp-client.conf")
-	content := `[main]
-dhcp=dhclient
-`
-	if err := rootFs.FilePutContents(dhcpConfPath, content, false, false); err != nil {
-		return errors.Wrapf(err, "write %s fail", dhcpConfPath)
-	}
 	return nil
 }
 
