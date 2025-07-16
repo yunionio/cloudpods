@@ -105,6 +105,8 @@ func (man *SSSLCertificateManager) FetchCustomizeColumns(
 			VirtualResourceDetails: virtRows[i],
 			ManagedResourceInfo:    manRows[i],
 		}
+		cert := objs[i].(*SSSLCertificate)
+		rows[i].IsExpired = cert.EndDate.Before(time.Now())
 	}
 
 	return rows
@@ -147,6 +149,14 @@ func (man *SSSLCertificateManager) ListItemFilter(
 	q, err = man.SDnsZoneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.DnsZoneFilterListBase)
 	if err != nil {
 		return nil, errors.Wrap(err, "SDnsZoneResourceBaseManager.ListItemFilter")
+	}
+
+	if query.IsExpired != nil {
+		if *query.IsExpired {
+			q = q.LT("end_date", time.Now())
+		} else {
+			q = q.GE("end_date", time.Now())
+		}
 	}
 
 	return q, nil
@@ -337,7 +347,6 @@ func (s *SSSLCertificate) SyncWithCloudSSLCertificate(ctx context.Context, userC
 		s.Common = ext.GetCommon()
 		s.Country = ext.GetCountry()
 		s.Issuer = ext.GetIssuer()
-		//s.Expired = ext.GetExpired()
 		s.IsUpload = ext.GetIsUpload()
 		s.EndDate = ext.GetEndDate()
 		s.Fingerprint = ext.GetFingerprint()
