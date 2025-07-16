@@ -331,6 +331,28 @@ func (s *SSSLCertificate) syncRemoveCloudSSLCertificate(ctx context.Context, use
 	return nil
 }
 
+// 删除证书
+func (s *SSSLCertificate) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input jsonutils.JSONObject) error {
+	err := s.StartSSLCertificateDeleteTask(ctx, userCred, nil)
+	if err != nil {
+		return errors.Wrapf(err, "StartSSLCertificateDeleteTask")
+	}
+	return nil
+}
+
+func (s *SSSLCertificate) StartSSLCertificateDeleteTask(ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "SSLCertificateDeleteTask", s, userCred, params, "", "", nil)
+	if err != nil {
+		return errors.Wrapf(err, "NewTask")
+	}
+	s.SetStatus(ctx, userCred, apis.STATUS_DELETING, "")
+	return task.ScheduleRun(nil)
+}
+
+func (s *SSSLCertificate) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	return nil
+}
+
 func (s *SSSLCertificate) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	return s.SVirtualResourceBase.Delete(ctx, userCred)
 }
@@ -455,6 +477,30 @@ func (r *SCloudprovider) newFromCloudSSLCertificate(
 	db.OpsLog.LogEvent(&s, db.ACT_CREATE, s.GetShortDesc(ctx), userCred)
 
 	return &s, nil
+}
+
+func (s *SSSLCertificate) GetICloudSSLCertificate(ctx context.Context) (cloudprovider.ICloudSSLCertificate, error) {
+	if len(s.ExternalId) == 0 {
+		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "ExternalId is empty")
+	}
+	provider := s.GetCloudprovider()
+	if provider == nil {
+		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "Cloudprovider is empty")
+	}
+	drv, err := provider.GetProvider(ctx)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetProvider")
+	}
+	certs, err := drv.GetISSLCertificates()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetICloudSSLCertificate")
+	}
+	for i := range certs {
+		if certs[i].GetGlobalId() == s.ExternalId {
+			return certs[i], nil
+		}
+	}
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "GetICloudSSLCertificate")
 }
 
 func (man *SSSLCertificateManager) ListItemExportKeys(ctx context.Context,
