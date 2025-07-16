@@ -1822,6 +1822,8 @@ type ICloudSSLCertificate interface {
 	GetCert() string
 	GetKey() string
 	GetDnsZoneId() string
+
+	Delete() error
 }
 
 type IAiGateway interface {
