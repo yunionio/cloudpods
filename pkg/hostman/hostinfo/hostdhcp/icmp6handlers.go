@@ -25,6 +25,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/util/icmp6"
+	"yunion.io/x/onecloud/pkg/util/netutils2"
 )
 
 type sRARequest struct {
@@ -72,8 +73,8 @@ func (s *SGuestDHCP6Server) handleNeighborAdvertisement(msg *icmp6.SNeighborAdve
 
 func (s *SGuestDHCP6Server) requestGatewayMac(gwIP net.IP, vlanId uint16) {
 	// Solicited-Node Multicast Address, FF02::1:FF00:0/104, 33:33:ff:00:00:00
-	destIP := net.IP{0xff, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0xff, gwIP[13], gwIP[14], gwIP[15]}
-	destMac := net.HardwareAddr{0x33, 0x33, 0xff, gwIP[13], gwIP[14], gwIP[15]}
+	destIP := netutils2.IP2SolicitMcastIP(gwIP)
+	destMac := netutils2.IP2SolicitMcastMac(gwIP)
 
 	ns := &icmp6.SNeighborSolicitation{
 		SBaseICMP6Message: icmp6.SBaseICMP6Message{
@@ -112,9 +113,9 @@ func (s *SGuestDHCP6Server) sendRouterAdvertisement(solicitation *icmp6.SRouterS
 		gwMac := gwMacObj.(net.HardwareAddr)
 
 		pref := icmp6.PreferenceMedium
-		if conf.IsDefaultGW {
-			pref = icmp6.PreferenceHigh
-		}
+		//if conf.IsDefaultGW {
+		//	pref = icmp6.PreferenceHigh
+		//}
 
 		_, ipnet, err := net.ParseCIDR(fmt.Sprintf("%s/%d", conf.ClientIP6, conf.PrefixLen6))
 		if err != nil {
@@ -170,7 +171,7 @@ func (s *SGuestDHCP6Server) sendRouterAdvertisement(solicitation *icmp6.SRouterS
 					RouteLifetime: 9000,
 					Prefix:        route.Prefix,
 					PrefixLen:     route.PrefixLen,
-					Preference:    icmp6.PreferenceMedium,
+					Preference:    pref,
 				})
 			}
 		}
