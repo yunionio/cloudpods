@@ -354,6 +354,33 @@ func isExitAddress(ip string) bool {
 	return netutils.IsExitAddress(ipv4)
 }
 
+var (
+	Ip4MetadataServers = []string{
+		"169.254.169.254",
+	}
+	Ip6MetadataServers = []string{
+		"fd00:ec2::254",
+	}
+)
+
+func SetIp4MetadataServers(ip4s []string) {
+	if len(ip4s) == 0 {
+		ip4s = []string{
+			"169.254.169.254",
+		}
+	}
+	Ip4MetadataServers = ip4s
+}
+
+func SetIp6MetadataServers(ip6s []string) {
+	if len(ip6s) == 0 {
+		ip6s = []string{
+			"fd00:ec2::254",
+		}
+	}
+	Ip6MetadataServers = ip6s
+}
+
 func AddNicRoutes(routes4 []SRouteInfo, routes6 []SRouteInfo, nicDesc *types.SServerNic, mainIp string, mainIp6 string, nicCnt int) ([]SRouteInfo, []SRouteInfo) {
 	// always add static routes, even if this is the default NIC
 	// if mainIp == nicDesc.Ip {
@@ -373,11 +400,16 @@ func AddNicRoutes(routes4 []SRouteInfo, routes6 []SRouteInfo, nicDesc *types.SSe
 
 	if len(mainIp) > 0 && nicDesc.Ip == mainIp {
 		// always add 169.254.169.254 for default NIC
-		routes4 = addRoute(routes4, "169.254.169.254/32", "0.0.0.0")
+		for _, ip := range Ip4MetadataServers {
+			pref := ip + "/32"
+			routes4 = addRoute(routes4, pref, "0.0.0.0")
+		}
 	}
 	if len(mainIp6) > 0 && nicDesc.Ip6 == mainIp6 {
-		routes6 = addRoute(routes6, "fd00:ec2::254/128", "::")
-		routes6 = addRoute(routes6, "fe80::a9fe:a9fe/128", "::")
+		for _, ip6 := range Ip6MetadataServers {
+			pref := ip6 + "/128"
+			routes6 = addRoute(routes6, pref, "::")
+		}
 	}
 
 	return routes4, routes6
@@ -701,4 +733,14 @@ func TestTcpPort(ip string, port int, timeoutSecs int, tries int) error {
 		time.Sleep(10 * time.Millisecond)
 	}
 	return errors.NewAggregate(errs)
+}
+
+func IP2SolicitMcastIP(ip6 net.IP) net.IP {
+	// Solicited-Node Multicast Address, FF02::1:FF00:0/104
+	return net.IP{0xff, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0xff, ip6[13], ip6[14], ip6[15]}
+}
+
+func IP2SolicitMcastMac(ip6 net.IP) net.HardwareAddr {
+	// Solicited-Node Multicast Address, 33:33:ff:00:00:00
+	return net.HardwareAddr{0x33, 0x33, 0xff, ip6[13], ip6[14], ip6[15]}
 }

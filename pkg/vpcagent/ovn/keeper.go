@@ -559,16 +559,36 @@ func generateDhcp6Options(ctx context.Context, guestnetwork *agentmodels.Guestne
 
 	guestStartIp6, _ := netutils.NewIPV6Addr(network.GuestIp6Start)
 	cidr6 := fmt.Sprintf("%s/%d", guestStartIp6.NetAddr(network.GuestIp6Mask).String(), network.GuestIp6Mask)
+
+	// Calculate timing values for DHCPv6
+	leaseTime := opts.DhcpLeaseTime
+	renewTime := opts.DhcpRenewalTime
+	rebindTime := opts.DhcpRenewalTime / 2
+
 	dhcpopts := &ovn_nb.DHCPOptions{
 		Cidr: cidr6,
 		Options: map[string]string{
-			"server_id": dhcpMac,
-			// "dhcpv6_stateless": "false",
+			"server_id":        dhcpMac,
+			"dhcpv6_stateless": "false",
+			"lease_time":       fmt.Sprintf("%d", leaseTime),
+			"T1":               fmt.Sprintf("%d", renewTime),
+			"T2":               fmt.Sprintf("%d", rebindTime),
 		},
 		ExternalIds: map[string]string{
 			externalKeyOcRef: ocDhcpRef,
 		},
 	}
+
+	// Add DNS servers if available
+	if len(network.GuestDns) > 0 {
+		dhcpopts.Options["dns_server"] = "{" + network.GuestDns + "}"
+	}
+
+	// Add domain name if available
+	if len(network.GuestDomain) > 0 {
+		dhcpopts.Options["domain_name"] = "\"" + network.GuestDomain + "\""
+	}
+
 	return dhcpopts
 }
 
