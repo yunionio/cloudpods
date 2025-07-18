@@ -684,6 +684,7 @@ func (svm *SVirtualMachine) doUnregister(ctx context.Context) error {
 func (svm *SVirtualMachine) DeleteVM(ctx context.Context) error {
 	err := svm.CheckFileInfo(ctx)
 	if err != nil {
+		log.Errorf("CheckFileInfo %s error: %v", svm.GetName(), err)
 		return svm.doUnregister(ctx)
 	}
 	return svm.doDestroy(ctx)
@@ -1355,7 +1356,7 @@ func (svm *SVirtualMachine) CheckFileInfo(ctx context.Context) error {
 			if ds.HasFile(file.Name) {
 				_, err := ds.CheckFile(ctx, file.Name)
 				if err != nil {
-					return errors.Wrap(err, "ds.CheckFile")
+					return errors.Wrapf(err, "CheckFile %s", file.Name)
 				}
 				break
 			}

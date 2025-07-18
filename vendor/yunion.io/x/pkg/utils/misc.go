@@ -24,6 +24,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"yunion.io/x/pkg/errors"
 )
 
 type selectFunc func(obj interface{}) (string, error)
@@ -535,6 +537,31 @@ func GetSizeKB(sizeStr, defaultSize string) (int64, error) {
 	return bytes / 1024, nil
 }
 
+func transMysqlQuery(dburl string) (string, error) {
+	queryPos := strings.IndexByte(dburl, '?')
+	if queryPos == 0 {
+		return "", fmt.Errorf("Missing database name")
+	}
+	var query url.Values
+	if queryPos > 0 {
+		queryStr := dburl[queryPos+1:]
+		if len(queryStr) > 0 {
+			var err error
+			query, err = url.ParseQuery(queryStr)
+			if err != nil {
+				return "", errors.Wrap(err, "ParseQuery")
+			}
+		}
+		dburl = dburl[:queryPos]
+	} else {
+		query = url.Values{}
+	}
+	query.Set("parseTime", "true")
+	query.Set("charset", "utf8mb4")
+	query.Set("interpolateParams", "true")
+	return dburl + "?" + query.Encode(), nil
+}
+
 func TransSQLAchemyURL(pySQLSrc string) (dialect, ret string, err error) {
 	if len(pySQLSrc) == 0 {
 		err = fmt.Errorf("Empty input")
@@ -543,43 +570,78 @@ func TransSQLAchemyURL(pySQLSrc string) (dialect, ret string, err error) {
 
 	dialect = "mysql"
 	if !strings.Contains(pySQLSrc, `//`) {
+		pySQLSrc, err = transMysqlQuery(pySQLSrc)
+		if err != nil {
+			return
+		}
 		return dialect, pySQLSrc, nil
 	}
 
 	lastAtIndex := strings.LastIndex(pySQLSrc, "@")
+	if lastAtIndex == -1 {
+		err = fmt.Errorf("Incorrect mysql connection url: %s", pySQLSrc)
+		return
+	}
+
 	firstPart := pySQLSrc[:lastAtIndex]
 	secondPart := pySQLSrc[lastAtIndex+1:]
 
 	r := regexp.MustCompile(`[/:]+`)
 	firstPartArr := r.Split(firstPart, -1)
-	secondPartArr := r.Split(secondPart, -1)
-
-	strs := append(firstPartArr, secondPartArr...)
-	if len(strs) != 6 {
+	if len(firstPartArr) < 3 {
 		err = fmt.Errorf("Incorrect mysql connection url: %s", pySQLSrc)
 		return
 	}
-	user, passwd, host, port, dburl := strs[1], strs[2], strs[3], strs[4], strs[5]
-	queryPos := strings.IndexByte(dburl, '?')
-	if queryPos == 0 {
-		err = fmt.Errorf("Missing database name")
+
+	user := firstPartArr[1]
+	passwd := firstPartArr[2]
+
+	var host, port, dburl string
+	if strings.HasPrefix(secondPart, "[") {
+		endBracket := strings.Index(secondPart, "]")
+		if endBracket == -1 {
+			err = fmt.Errorf("Incorrect IPv6 address format: %s", pySQLSrc)
+			return
+		}
+
+		host = secondPart[:endBracket+1]
+		remaining := secondPart[endBracket+1:]
+		if !strings.HasPrefix(remaining, ":") {
+			err = fmt.Errorf("Incorrect mysql connection url: %s", pySQLSrc)
+			return
+		}
+		remaining = remaining[1:]
+		slashIndex := strings.Index(remaining, "/")
+		if slashIndex == -1 {
+			err = fmt.Errorf("Incorrect mysql connection url: %s", pySQLSrc)
+			return
+		}
+		port = remaining[:slashIndex]
+		dburl = remaining[slashIndex+1:]
+	} else {
+		colonIndex := strings.Index(secondPart, ":")
+		if colonIndex == -1 {
+			err = fmt.Errorf("Incorrect mysql connection url: %s", pySQLSrc)
+			return
+		}
+
+		host = secondPart[:colonIndex]
+		remaining := secondPart[colonIndex+1:]
+		slashIndex := strings.Index(remaining, "/")
+		if slashIndex == -1 {
+			err = fmt.Errorf("Incorrect mysql connection url: %s", pySQLSrc)
+			return
+		}
+		port = remaining[:slashIndex]
+		dburl = remaining[slashIndex+1:]
+	}
+
+	dburl, err = transMysqlQuery(dburl)
+	if err != nil {
 		return
 	}
-	var query url.Values
-	if queryPos > 0 {
-		queryStr := dburl[queryPos+1:]
-		if len(queryStr) > 0 {
-			query, err = url.ParseQuery(queryStr)
-			if err != nil {
-				return
-			}
-		}
-		dburl = dburl[:queryPos]
-	} else {
-		query = url.Values{}
-	}
-	query.Set("parseTime", "True")
-	ret = fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?%s", user, passwd, host, port, dburl, query.Encode())
+
+	ret = fmt.Sprintf("%s:%s@tcp(%s:%s)/%s", user, passwd, host, port, dburl)
 	return
 }
 
