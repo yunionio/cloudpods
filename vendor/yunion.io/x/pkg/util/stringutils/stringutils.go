@@ -95,3 +95,22 @@ func ContainsWord(str, w string) bool {
 	reg := regexp.MustCompile(fmt.Sprintf("\\b%s\\b", w))
 	return reg.MatchString(str)
 }
+
+func byte2hex(b byte) byte {
+	if b >= 0 && b <= 9 {
+		return b + 0x30
+	}
+	if b >= 10 && b <= 15 {
+		return b - 10 + 0x61
+	}
+	return '?'
+}
+
+func Bytes2Str(b []byte) string {
+	buf := strings.Builder{}
+	for i := range b {
+		buf.WriteByte(byte2hex((b[i] & 0xf0) >> 4))
+		buf.WriteByte(byte2hex(b[i] & 0x0f))
+	}
+	return buf.String()
+}
