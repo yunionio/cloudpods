@@ -2630,7 +2630,7 @@ func (self *SGuest) PerformChangeIpaddr(
 	if err != nil {
 		return nil, httperrors.NewInputParameterError("parseNetworkInfo fail: %s", err)
 	}
-	if len(gn.IpAddr) == 0 && len(conf.Address) > 0 {
+	if conf.StrictIPv6 && len(conf.Address) > 0 {
 		// strict ipv6 network, can't add ipv4 address
 		return nil, httperrors.NewBadRequestError("guest network has no ipv4 address")
 	}
@@ -2639,7 +2639,16 @@ func (self *SGuest) PerformChangeIpaddr(
 		// 允许IPv4地址不变，只改IPv6地址
 		reuseV4 = conf.Address
 	}
-	err = isValidNetworkInfo(ctx, userCred, conf, reuseV4)
+	reuseV6 := ""
+	if gn.Ip6Addr != "" && conf.Address6 != "" {
+		inputIP := net.ParseIP(conf.Address6)
+		gnIP := net.ParseIP(gn.Ip6Addr)
+		if string(inputIP) == string(gnIP) {
+			conf.Address6 = gn.Ip6Addr
+			reuseV6 = gn.Ip6Addr
+		}
+	}
+	err = isValidNetworkInfo(ctx, userCred, conf, reuseV4, reuseV6)
 	if err != nil {
 		return nil, httperrors.NewInputParameterError("isValidNetworkInfo fail: %s", err)
 	}
@@ -2690,7 +2699,9 @@ func (self *SGuest) PerformChangeIpaddr(
 			// reserve = true
 		}
 
-		if len(conf.Address) == 0 || conf.Address != gn.IpAddr {
+		if conf.StrictIPv6 {
+			conf.Address = ""
+		} else if len(conf.Address) == 0 || conf.Address != gn.IpAddr {
 			// need to allocate new address
 			addr4, err := targetNetwork.GetFreeIP(ctx, userCred, nil, nil, conf.Address, api.IPAllocationDirection(targetNetwork.AllocPolicy), reserve, api.AddressTypeIPv4)
 			if err != nil {
@@ -2745,6 +2756,9 @@ func (self *SGuest) PerformChangeIpaddr(
 	newMaskLen := networkJsonDesc.Masklen
 	newGateway := networkJsonDesc.Gateway
 	ipMask := fmt.Sprintf("%s/%d", newIpAddr, newMaskLen)
+	if conf.StrictIPv6 {
+		ipMask = fmt.Sprintf("%s/%d", networkJsonDesc.Ip6, networkJsonDesc.Masklen6)
+	}
 
 	notes := gn.GetShortDesc(ctx)
 	if gn != nil {
@@ -2978,7 +2992,7 @@ func (self *SGuest) PerformAttachnetwork(
 	}
 	var inicCnt, enicCnt, isolatedDevCount, defaultGwCnt int
 	for i := range input.Nets {
-		err := isValidNetworkInfo(ctx, userCred, input.Nets[i], "")
+		err := isValidNetworkInfo(ctx, userCred, input.Nets[i], "", "")
 		if err != nil {
 			return nil, err
 		}
