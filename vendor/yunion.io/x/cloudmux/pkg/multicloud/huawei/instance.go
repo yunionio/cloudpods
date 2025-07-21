@@ -732,7 +732,6 @@ func (self *SInstance) Renew(bc billing.SBillingCycle) error {
 // https://console.huaweicloud.com/apiexplorer/#/openapi/ECS/doc?api=ListServersDetails
 func (self *SRegion) GetInstances(ip string) ([]SInstance, error) {
 	params := url.Values{}
-	params.Set("limit", "1000")
 	if len(ip) > 0 {
 		params.Set("ip", ip)
 	}
@@ -744,17 +743,16 @@ func (self *SRegion) GetInstances(ip string) ([]SInstance, error) {
 		}
 		part := struct {
 			Servers []SInstance
-			Count   int
 		}{}
 		err = resp.Unmarshal(&part)
 		if err != nil {
 			return nil, err
 		}
 		ret = append(ret, part.Servers...)
-		if len(ret) >= part.Count || len(part.Servers) == 0 {
+		if len(part.Servers) == 0 {
 			break
 		}
-		params.Set("offset", fmt.Sprintf("%d", len(ret)))
+		params.Set("marker", part.Servers[len(part.Servers)-1].ID)
 	}
 	return ret, nil
 }
