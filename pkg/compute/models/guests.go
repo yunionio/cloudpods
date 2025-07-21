@@ -2025,7 +2025,7 @@ func (manager *SGuestManager) validateCreateData(
 		if err != nil {
 			return nil, httperrors.NewInputParameterError("parse network description error %s", err)
 		}
-		err = isValidNetworkInfo(ctx, userCred, netConfig, "")
+		err = isValidNetworkInfo(ctx, userCred, netConfig, "", "")
 		if err != nil {
 			return nil, err
 		}

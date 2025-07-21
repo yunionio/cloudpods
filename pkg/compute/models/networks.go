@@ -1106,7 +1106,7 @@ func (snet *SNetwork) getFreeAddressCount() (int, error) {
 	return snet.GetTotalAddressCount() - used, nil
 }
 
-func isValidNetworkInfo(ctx context.Context, userCred mcclient.TokenCredential, netConfig *api.NetworkConfig, reuseAddr string) error {
+func isValidNetworkInfo(ctx context.Context, userCred mcclient.TokenCredential, netConfig *api.NetworkConfig, reuseAddr, reuseAddr6 string) error {
 	if len(netConfig.Network) > 0 {
 		netObj, err := NetworkManager.FetchByIdOrName(ctx, userCred, netConfig.Network)
 		if err != nil {
@@ -1169,7 +1169,7 @@ func isValidNetworkInfo(ctx context.Context, userCred mcclient.TokenCredential, 
 				if err != nil {
 					return httperrors.NewInternalServerError("isAddress6Used fail %s", err)
 				}
-				if used {
+				if used && netConfig.Address6 != reuseAddr6 {
 					return httperrors.NewInputParameterError("v6 address %s has been used", netConfig.Address6)
 				}
 			}
@@ -1845,7 +1845,7 @@ func (manager *SNetworkManager) ValidateCreateData(ctx context.Context, userCred
 
 	if vpc.Id != api.DEFAULT_VPC_ID {
 		// require prefix
-		if len(input.GuestIpPrefix) == 0 {
+		if len(input.GuestIpPrefix) == 0 && len(input.GuestIp6Start) > 0 && len(input.GuestIp6End) > 0 {
 			return input, errors.Wrap(httperrors.ErrInputParameter, "guest_ip_prefix is required")
 		}
 		if len(input.GuestIp6Prefix) == 0 && len(input.GuestIp6Start) > 0 && len(input.GuestIp6End) > 0 {
