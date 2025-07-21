@@ -38,7 +38,7 @@ type SMongoDBBackup struct {
 	BackupType                string
 }
 
-func (self *SRegion) GetMongoDBBackups(id string, start time.Time, end time.Time, pageSize, pageNum int) ([]SMongoDBBackup, int, error) {
+func (self *SRegion) GetMongoDBBackups(id string, nodeId string, start time.Time, end time.Time, pageSize, pageNum int) ([]SMongoDBBackup, int, error) {
 	if pageSize < 1 || pageSize > 100 {
 		pageSize = 100
 	}
@@ -51,6 +51,9 @@ func (self *SRegion) GetMongoDBBackups(id string, start time.Time, end time.Time
 		"DBInstanceId": id,
 		"PageSize":     fmt.Sprintf("%d", pageSize),
 		"PageNumber":   fmt.Sprintf("%d", pageNum),
+	}
+	if len(nodeId) > 0 {
+		params["NodeId"] = nodeId
 	}
 	resp, err := self.mongodbRequest("DescribeBackups", params)
 	if err != nil {
@@ -67,15 +70,29 @@ func (self *SRegion) GetMongoDBBackups(id string, start time.Time, end time.Time
 
 func (self *SMongoDB) GetIBackups() ([]cloudprovider.SMongoDBBackup, error) {
 	backups := []SMongoDBBackup{}
-	now := time.Now().Add(time.Minute * -1)
-	for {
-		part, total, err := self.region.GetMongoDBBackups(self.DBInstanceId, self.CreationTime, now, 100, len(backups)/100)
-		if err != nil {
-			return nil, errors.Wrapf(err, "GetMongoDBBackups")
+	err := self.Refresh()
+	if err != nil {
+		return nil, errors.Wrapf(err, "Refresh")
+	}
+	nodeIds := []string{}
+	if self.DBInstanceType == "sharding" {
+		for _, shard := range self.ShardList.ShardAttribute {
+			nodeIds = append(nodeIds, shard.NodeId)
 		}
-		backups = append(backups, part...)
-		if len(backups) >= total {
-			break
+	} else {
+		nodeIds = []string{""}
+	}
+	now := time.Now().Add(time.Minute * -1)
+	for _, nodeId := range nodeIds {
+		for {
+			part, total, err := self.region.GetMongoDBBackups(self.DBInstanceId, nodeId, self.CreationTime, now, 100, len(backups)/100)
+			if err != nil {
+				return nil, errors.Wrapf(err, "GetMongoDBBackups")
+			}
+			backups = append(backups, part...)
+			if len(backups) >= total {
+				break
+			}
 		}
 	}
 	ret := []cloudprovider.SMongoDBBackup{}
