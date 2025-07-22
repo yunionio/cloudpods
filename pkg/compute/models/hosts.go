@@ -803,7 +803,7 @@ func (manager *SHostManager) OrderByExtraFields(
 			guestSQ.Field("mem_commit"),
 			sqlchemy.NewFunction(
 				sqlchemy.NewCase().When(
-					sqlchemy.GE(host.Field("mem_cmtbound"), 0),
+					sqlchemy.GT(host.Field("mem_cmtbound"), 0),
 					host.Field("mem_cmtbound"),
 				).Else(sqlchemy.NewConstField(1)),
 				"mem_cmtbound",
@@ -843,7 +843,7 @@ func (manager *SHostManager) OrderByExtraFields(
 			guestSQ.Field("cpu_commit"),
 			sqlchemy.NewFunction(
 				sqlchemy.NewCase().When(
-					sqlchemy.GE(host.Field("cpu_cmtbound"), 0),
+					sqlchemy.GT(host.Field("cpu_cmtbound"), 0),
 					host.Field("cpu_cmtbound"),
 				).Else(sqlchemy.NewConstField(1)),
 				"cpu_cmtbound",
@@ -878,7 +878,7 @@ func (manager *SHostManager) OrderByExtraFields(
 			hoststorages.Field("host_id"),
 			sqlchemy.NewFunction(
 				sqlchemy.NewCase().When(
-					sqlchemy.GE(storageQ.Field("cmtbound"), 0),
+					sqlchemy.GT(storageQ.Field("cmtbound"), 0),
 					storageQ.Field("cmtbound"),
 				).Else(sqlchemy.NewConstField(1)),
 				"cmtbound",
