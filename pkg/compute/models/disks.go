@@ -2407,6 +2407,7 @@ func (manager *SDiskManager) FetchCustomizeColumns(
 		guestSQ.Field("id"),
 		guestSQ.Field("name"),
 		guestSQ.Field("status"),
+		guestSQ.Field("billing_type"),
 		gds.Field("disk_id"),
 		gds.Field("index"),
 		gds.Field("driver"),
@@ -2423,11 +2424,12 @@ func (manager *SDiskManager) FetchCustomizeColumns(
 		Status string
 		DiskId string
 
-		Index     int
-		Driver    string
-		CacheMode string
-		Iops      int
-		Bps       int
+		Index       int
+		Driver      string
+		CacheMode   string
+		Iops        int
+		Bps         int
+		BillingType string
 	}{}
 	err := q.All(&guestInfo)
 	if err != nil {
@@ -2446,11 +2448,12 @@ func (manager *SDiskManager) FetchCustomizeColumns(
 			Name:   guest.Name,
 			Status: guest.Status,
 
-			Index:     guest.Index,
-			Driver:    guest.Driver,
-			CacheMode: guest.CacheMode,
-			Iops:      guest.Iops,
-			Bps:       guest.Bps,
+			Index:       guest.Index,
+			Driver:      guest.Driver,
+			CacheMode:   guest.CacheMode,
+			Iops:        guest.Iops,
+			Bps:         guest.Bps,
+			BillingType: guest.BillingType,
 		})
 	}
 
@@ -2496,17 +2499,19 @@ func (manager *SDiskManager) FetchCustomizeColumns(
 
 	for i := range rows {
 		rows[i].Guests, _ = guests[diskIds[i]]
-		names, status := []string{}, []string{}
+		names, status, billingTypes := []string{}, []string{}, []string{}
 		var iops, bps int
 		for _, guest := range rows[i].Guests {
 			names = append(names, guest.Name)
 			status = append(status, guest.Status)
 			iops = guest.Iops
 			bps = guest.Bps
+			billingTypes = append(billingTypes, guest.BillingType)
 		}
 		rows[i].GuestCount = len(rows[i].Guests)
 		rows[i].Guest = strings.Join(names, ",")
 		rows[i].GuestStatus = strings.Join(status, ",")
+		rows[i].GuestBillingType = strings.Join(billingTypes, ",")
 
 		rows[i].Snapshotpolicies, _ = policies[diskIds[i]]
 
