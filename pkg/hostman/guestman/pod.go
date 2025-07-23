@@ -2336,7 +2336,7 @@ func (s *sPodGuestInstance) SaveVolumeMountToImage(ctx context.Context, userCred
 		return nil, errors.Wrapf(err, "get runtime host mount path of %s", jsonutils.Marshal(vol))
 	}
 	// 1. tar hostPath to tgz
-	imgPath, err := s.tarGzDir(input, ctrId, hostPath)
+	imgPath, originalSizeBytes, err := s.tarGzDir(input, ctrId, hostPath)
 	if err != nil {
 		return nil, errors.Wrapf(err, "tar and zip directory %s", hostPath)
 	}
@@ -2348,30 +2348,62 @@ func (s *sPodGuestInstance) SaveVolumeMountToImage(ctx context.Context, userCred
 	}()
 
 	// 2. upload target tgz to glance
-	if err := s.saveTarGzToGlance(ctx, input, imgPath); err != nil {
+	if err := s.saveTarGzToGlance(ctx, input, imgPath, originalSizeBytes); err != nil {
 		return nil, errors.Wrapf(err, "saveTarGzToGlance: %s", imgPath)
 	}
 	return nil, nil
 }
 
-func (s *sPodGuestInstance) tarGzDir(input *hostapi.ContainerSaveVolumeMountToImageInput, ctrId string, hostPath string) (string, error) {
+func (s *sPodGuestInstance) tarGzDir(input *hostapi.ContainerSaveVolumeMountToImageInput, ctrId string, hostPath string) (string, int64, error) {
 	fp := fmt.Sprintf("volimg-%s-ctr-%s-%d.tar.gz", input.ImageId, ctrId, input.VolumeMountIndex)
 	outputFp := filepath.Join(s.GetVolumesDir(), fp)
 	dirPath := "."
 	if len(input.VolumeMountDirs) != 0 {
 		dirPath = strings.Join(input.VolumeMountDirs, " ")
 	}
+
+	// 计算总字节数，兼容多个目录/文件
+	var totalSize int64
+	if len(input.VolumeMountDirs) == 0 {
+		sizeCmd := fmt.Sprintf("du -sb %s | awk '{print $1}'", hostPath)
+		out, err := procutils.NewRemoteCommandAsFarAsPossible("sh", "-c", sizeCmd).Output()
+		if err != nil {
+			return "", 0, errors.Wrapf(err, "calculate total size: %s", out)
+		}
+		outStr := strings.TrimSpace(string(out))
+		totalSize, err = strconv.ParseInt(outStr, 10, 64)
+		if err != nil {
+			return "", 0, errors.Wrapf(err, "parse total size: %s", outStr)
+		}
+	} else {
+		for _, d := range input.VolumeMountDirs {
+			// 兼容目录或文件名有空格
+			sizeCmd := fmt.Sprintf("du -sb '%s' | awk '{print $1}'", d)
+			cmd := fmt.Sprintf("cd %s && %s", hostPath, sizeCmd)
+			out, err := procutils.NewRemoteCommandAsFarAsPossible("sh", "-c", cmd).Output()
+			if err != nil {
+				return "", 0, errors.Wrapf(err, "calculate total size for %s: %s", d, out)
+			}
+			outStr := strings.TrimSpace(string(out))
+			sz, err := strconv.ParseInt(outStr, 10, 64)
+			if err != nil {
+				return "", 0, errors.Wrapf(err, "parse total size for %s: %s", d, outStr)
+			}
+			totalSize += sz
+		}
+	}
+
 	cmd := fmt.Sprintf("tar -czf %s -C %s %s", outputFp, hostPath, dirPath)
 	if input.VolumeMountPrefix != "" {
 		cmd += fmt.Sprintf(" --transform 's,^,%s/,'", input.VolumeMountPrefix)
 	}
 	if out, err := procutils.NewRemoteCommandAsFarAsPossible("sh", "-c", cmd).Output(); err != nil {
-		return "", errors.Wrapf(err, "%s: %s", cmd, out)
+		return "", 0, errors.Wrapf(err, "%s: %s", cmd, out)
 	}
-	return outputFp, nil
+	return outputFp, totalSize, nil
 }
 
-func (s *sPodGuestInstance) saveTarGzToGlance(ctx context.Context, input *hostapi.ContainerSaveVolumeMountToImageInput, imgPath string) error {
+func (s *sPodGuestInstance) saveTarGzToGlance(ctx context.Context, input *hostapi.ContainerSaveVolumeMountToImageInput, imgPath string, originalSizeBytes int64) error {
 	f, err := os.Open(imgPath)
 	if err != nil {
 		return err
@@ -2383,8 +2415,12 @@ func (s *sPodGuestInstance) saveTarGzToGlance(ctx context.Context, input *hostap
 	}
 	size := finfo.Size()
 
+	// 转换为 MB
+	originalSizeMB := originalSizeBytes / (1024 * 1024)
+
 	var params = jsonutils.NewDict()
 	params.Set("image_id", jsonutils.NewString(input.ImageId))
+	params.Set("min_disk", jsonutils.NewInt(originalSizeMB))
 
 	if _, err := imagemod.Images.Upload(hostutils.GetImageSession(ctx), params, f, size); err != nil {
 		return errors.Wrap(err, "upload image")
