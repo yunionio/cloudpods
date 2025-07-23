@@ -2485,6 +2485,10 @@ func (h *SHostInfo) IsX8664() bool {
 	return h.GetCpuArchitecture() == apis.OS_ARCH_X86_64
 }
 
+func (h *SHostInfo) IsLoongarch64() bool {
+	return h.GetCpuArchitecture() == apis.OS_ARCH_LOONGARCH64
+}
+
 func (h *SHostInfo) GetKubeletConfig() kubelet.KubeletConfig {
 	return h.kubeletConfig
 }
@@ -2521,6 +2525,8 @@ func NewHostInfo() (*SHostInfo, error) {
 
 	if res.IsAarch64() {
 		qemutils.UseAarch64()
+	} else if res.IsLoongarch64() {
+		qemutils.UseLoongarch64()
 	} else if !res.IsX8664() {
 		return nil, fmt.Errorf("unsupport cpu architecture %s", cpu.CpuArchitecture)
 	}

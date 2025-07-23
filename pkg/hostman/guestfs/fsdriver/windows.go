@@ -582,6 +582,9 @@ func (l *SWindowsRootFs) IsResizeFsPartitionSupport() bool {
 }
 
 func (w *SWindowsRootFs) DeployQgaService(part IDiskPartition) error {
+	if !fileutils2.Exists(QGA_WIN_MSI_INSTALLER_PATH) {
+		return nil
+	}
 	if err := w.rootFs.Mkdir(WIN_QGA_PATH, syscall.S_IRUSR|syscall.S_IWUSR|syscall.S_IXUSR, true); err != nil {
 		return errors.Wrap(err, "mkdir qemu-ga path")
 	}
@@ -604,6 +607,9 @@ func (w *SWindowsRootFs) DeployQgaBlackList(part IDiskPartition) error {
 }
 
 func (w *SWindowsRootFs) DeployTelegraf(config string) (bool, error) {
+	if !fileutils2.Exists(WIN_TELEGRAF_BINARY_PATH) {
+		return false, nil
+	}
 	if err := w.rootFs.Mkdir(WIN_TELEGRAF_PATH, syscall.S_IRUSR|syscall.S_IWUSR|syscall.S_IXUSR, true); err != nil {
 		return false, errors.Wrap(err, "mkdir telegraf path")
 	}

@@ -247,7 +247,7 @@ const (
 	VM_MACHINE_TYPE_PC  = "pc"
 	VM_MACHINE_TYPE_Q35 = "q35"
 
-	VM_MACHINE_TYPE_ARM_VIRT = "virt"
+	VM_MACHINE_TYPE_VIRT = "virt"
 
 	VM_VDI_PROTOCOL_VNC   = "vnc"
 	VM_VDI_PROTOCOL_SPICE = "spice"

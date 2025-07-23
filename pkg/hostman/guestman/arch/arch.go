@@ -17,8 +17,9 @@ package arch
 import "yunion.io/x/onecloud/pkg/hostman/guestman/desc"
 
 const (
-	Arch_x86_64  string = "x86_64"
-	Arch_aarch64 string = "aarch64"
+	Arch_x86_64      string = "x86_64"
+	Arch_aarch64     string = "aarch64"
+	Arch_loongarch64 string = "loongarch64"
 )
 
 type Arch interface {
@@ -50,6 +51,8 @@ func NewArch(arch string) Arch {
 		return &X86{}
 	case Arch_aarch64:
 		return &ARM{}
+	case Arch_loongarch64:
+		return &LOONGARCH64{}
 	}
 	return nil
 }

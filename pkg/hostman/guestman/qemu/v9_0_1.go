@@ -18,6 +18,7 @@ func init() {
 	RegisterCmd(
 		newCmd_9_0_1_x86_64(),
 		newCmd_9_0_1_aarch64(),
+		newCmd_9_0_1_loongarch64(),
 	)
 }
 
@@ -65,4 +66,34 @@ func newOpt_9_0_1_aarch64() QemuOptions {
 		baseOptions_aarch64: newBaseOptions_aarch64(),
 		baseOptions_ge_310:  newBaseOptionsGE310(),
 	}
+}
+
+func newCmd_9_0_1_loongarch64() QemuCommand {
+	return newBaseCommand(
+		Version_9_0_1,
+		Arch_loongarch64,
+		newOpt_9_0_1_loongarch64(),
+	)
+}
+
+type opt_901_loongarch64 struct {
+	*baseOptions
+}
+
+func newOpt_9_0_1_loongarch64() QemuOptions {
+	return &opt_901_loongarch64{
+		baseOptions: newBaseOptions(Arch_loongarch64),
+	}
+}
+
+func (o opt_901_loongarch64) Global() string {
+	return ""
+}
+
+func (o opt_901_loongarch64) NoHpet() (bool, string) {
+	return false, ""
+}
+
+func (o opt_901_loongarch64) Nodefconfig() string {
+	return "-no-user-config"
 }
