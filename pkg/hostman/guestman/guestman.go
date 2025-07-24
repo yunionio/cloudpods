@@ -128,6 +128,7 @@ func NewGuestManager(host hostutils.IHost, serversPath string, workerCnt int) (*
 
 	manager := &SGuestManager{}
 	manager.host = host
+	host.SetIGuestManager(manager)
 	manager.ServersPath = serversPath
 	manager.Servers = new(sync.Map)
 	manager.portsInUse = new(sync.Map)
@@ -500,7 +501,11 @@ func (m *SGuestManager) verifyDirtyServers() {
 
 func (m *SGuestManager) ClenaupCpuset() {
 	m.Servers.Range(func(k, v interface{}) bool {
-		guest := v.(*SKVMGuestInstance)
+		inst := v.(GuestRuntimeInstance)
+		guest, ok := inst.(*SKVMGuestInstance)
+		if !ok {
+			return true
+		}
 		guest.CleanupCpuset()
 		return true
 	})
@@ -616,7 +621,11 @@ func (m *SGuestManager) LoadServer(sid string) {
 
 func (m *SGuestManager) ShutdownServers() {
 	m.Servers.Range(func(k, v interface{}) bool {
-		guest := v.(*SKVMGuestInstance)
+		inst := v.(GuestRuntimeInstance)
+		guest, ok := inst.(*SKVMGuestInstance)
+		if !ok {
+			return true
+		}
 		log.Infof("Start shutdown server %s", guest.GetName())
 
 		// scriptStop maybe stuck on guest storage offline
@@ -1372,7 +1381,11 @@ func (m *SGuestManager) GetNBDServerFreePort() int {
 func (m *SGuestManager) GetFreeVncPort() int {
 	vncPorts := make(map[int]struct{}, 0)
 	m.Servers.Range(func(k, v interface{}) bool {
-		guest := v.(*SKVMGuestInstance)
+		inst := v.(GuestRuntimeInstance)
+		guest, ok := inst.(*SKVMGuestInstance)
+		if !ok {
+			return true
+		}
 		inUsePort := guest.GetVncPort()
 		if inUsePort > 0 {
 			vncPorts[inUsePort] = struct{}{}

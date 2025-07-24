@@ -74,6 +74,8 @@ type GuestRuntimeInstance interface {
 	DoSnapshot(ctx context.Context, params *SDiskSnapshot) (jsonutils.JSONObject, error)
 	DeleteSnapshot(ctx context.Context, params *SDeleteDiskSnapshot) (jsonutils.JSONObject, error)
 	OnlineResizeDisk(ctx context.Context, disk storageman.IDisk, sizeMB int64)
+
+	GetDependsImageIds(storageType string) []string
 }
 
 type sBaseGuestInstance struct {
