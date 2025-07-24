@@ -221,6 +221,10 @@ func NewGuestCpuSetCounter(info *hostapi.HostTopology, reservedCpus *cpuset.CPUS
 	cpuSetCounter := new(CpuSetCounter)
 	cpuSetCounter.Nodes = make([]*NumaNode, len(info.Nodes))
 	cpuSetCounter.NumaEnabled = numaAllocate
+	if len(info.Nodes) == 0 {
+		return cpuSetCounter, nil
+	}
+
 	hasL3Cache := false
 	for i := 0; i < len(info.Nodes); i++ {
 		node, err := NewNumaNode(info.Nodes[i].ID, cpuSetCounter.NumaEnabled, hugepageSizeKB)
