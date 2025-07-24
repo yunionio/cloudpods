@@ -1720,6 +1720,7 @@ func (manager *SGuestManager) validateCreateData(
 		}
 		var imgProperties map[string]string
 		var imgEncryptKeyId string
+		var imageDiskFormat string
 
 		if len(input.Disks) > 0 {
 			diskConfig := input.Disks[0]
@@ -1730,6 +1731,7 @@ func (manager *SGuestManager) validateCreateData(
 			input.Disks[0] = diskConfig
 			imgEncryptKeyId = diskConfig.ImageEncryptKeyId
 			imgProperties = diskConfig.ImageProperties
+			imageDiskFormat = imgProperties[imageapi.IMAGE_DISK_FORMAT]
 			if imgProperties[imageapi.IMAGE_DISK_FORMAT] == "iso" {
 				return nil, httperrors.NewInputParameterError("System disk does not support iso image, please consider using cdrom parameter")
 			}
@@ -1741,6 +1743,7 @@ func (manager *SGuestManager) validateCreateData(
 				return nil, httperrors.NewInputParameterError("parse cdrom device info error %s", err)
 			}
 			input.Cdrom = image.Id
+			imageDiskFormat = image.DiskFormat
 			if len(imgProperties) == 0 {
 				imgProperties = image.Properties
 			}
@@ -1764,28 +1767,29 @@ func (manager *SGuestManager) validateCreateData(
 			input.OsArch = apis.OS_ARCH_AARCH64
 		}
 
-		var imgSupportUEFI *bool
-		if desc, ok := imgProperties[imageapi.IMAGE_UEFI_SUPPORT]; ok {
-			support := desc == "true"
-			imgSupportUEFI = &support
-		}
-		if input.OsArch == apis.OS_ARCH_AARCH64 {
-			// arm image supports UEFI by default
-			support := true
-			imgSupportUEFI = &support
-		}
-
-		switch {
-		case imgSupportUEFI != nil && *imgSupportUEFI:
-			if len(input.Bios) == 0 {
-				input.Bios = "UEFI"
-			} else if input.Bios != "UEFI" {
-				return nil, httperrors.NewInputParameterError("UEFI image requires UEFI boot mode")
+		if imageDiskFormat != "iso" {
+			var imgSupportUEFI *bool
+			if desc, ok := imgProperties[imageapi.IMAGE_UEFI_SUPPORT]; ok {
+				support := desc == "true"
+				imgSupportUEFI = &support
 			}
-		default:
-			// not UEFI image
-			if input.Bios == "UEFI" && len(imgProperties) != 0 {
-				return nil, httperrors.NewInputParameterError("UEFI boot mode requires UEFI image")
+			if input.OsArch == apis.OS_ARCH_AARCH64 {
+				// arm image supports UEFI by default
+				support := true
+				imgSupportUEFI = &support
+			}
+			switch {
+			case imgSupportUEFI != nil && *imgSupportUEFI:
+				if len(input.Bios) == 0 {
+					input.Bios = "UEFI"
+				} else if input.Bios != "UEFI" {
+					return nil, httperrors.NewInputParameterError("UEFI image requires UEFI boot mode")
+				}
+			default:
+				// not UEFI image
+				if input.Bios == "UEFI" && len(imgProperties) != 0 {
+					return nil, httperrors.NewInputParameterError("UEFI boot mode requires UEFI image")
+				}
 			}
 		}
 
