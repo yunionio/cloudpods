@@ -1682,6 +1682,14 @@ func (manager *SGuestManager) validateCreateData(
 		return nil, errors.Wrap(err, "checkGuestImage")
 	}
 
+	if len(input.PreferManager) > 0 && len(input.Provider) == 0 {
+		providerObj, err := CloudproviderManager.FetchById(input.PreferManager)
+		if err != nil {
+			return nil, errors.Wrapf(err, "zone fetch by id %s", input.PreferZone)
+		}
+		provider := providerObj.(*SCloudprovider)
+		input.Provider = provider.Provider
+	}
 	if len(input.PreferZone) > 0 && len(input.Provider) == 0 {
 		zoneObj, err := ZoneManager.FetchById(input.PreferZone)
 		if err != nil {
@@ -2533,8 +2541,39 @@ func (guest *SGuest) PostCreate(ctx context.Context, userCred mcclient.TokenCred
 		guest.setUserData(ctx, userCred, userData)
 	}
 
-	provider, _ := data.GetString("provider")
-	drv, _ := GetDriver(guest.Hypervisor, provider)
+	input := struct {
+		PreferZone      string
+		PreferRegion    string
+		PreferManagerId string
+		Provider        string
+	}{}
+	data.Unmarshal(&input)
+
+	if len(input.PreferManagerId) > 0 && len(input.Provider) == 0 {
+		manObj, err := CloudproviderManager.FetchById(input.PreferManagerId)
+		if err == nil {
+			man := manObj.(*SCloudprovider)
+			input.Provider = man.Provider
+		}
+	}
+	if len(input.PreferZone) > 0 && len(input.Provider) == 0 {
+		zoneObj, err := ZoneManager.FetchById(input.PreferZone)
+		if err == nil {
+			zone := zoneObj.(*SZone)
+			input.PreferRegion = zone.CloudregionId
+		}
+	}
+	if len(input.PreferRegion) > 0 && len(input.Provider) == 0 {
+		regionObj, err := CloudregionManager.FetchById(input.PreferRegion)
+		if err == nil {
+			region := regionObj.(*SCloudregion)
+			input.Provider = region.Provider
+		}
+	}
+	if len(input.Provider) == 0 {
+		input.Provider = api.CLOUD_PROVIDER_ONECLOUD
+	}
+	drv, _ := GetDriver(guest.Hypervisor, input.Provider)
 	if drv != nil && drv.GetMaxSecurityGroupCount() > 0 {
 		secgroups, _ := jsonutils.GetStringArray(data, "secgroups")
 		for _, secgroupId := range secgroups {
