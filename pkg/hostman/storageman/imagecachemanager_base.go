@@ -52,6 +52,7 @@ type IImageCacheManger interface {
 	Lvmlockd() bool
 
 	IsLocal() bool
+	GetStorageType() string
 
 	// for diskhandler
 	PrefetchImageCache(ctx context.Context, data interface{}) (jsonutils.JSONObject, error)
