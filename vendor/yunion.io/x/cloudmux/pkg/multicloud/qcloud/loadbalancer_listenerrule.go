@@ -67,6 +67,18 @@ func (self *SLBListenerRule) GetStatus() string {
 	return api.LB_STATUS_ENABLED
 }
 
+func (self *SLBListenerRule) GetBackendGroups() ([]string, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (self *SLBListenerRule) GetRedirectPool() (cloudprovider.SRedirectPool, error) {
+	return cloudprovider.SRedirectPool{}, cloudprovider.ErrNotImplemented
+}
+
+func (self *SLBListenerRule) Update(ctx context.Context, opts *cloudprovider.SLoadbalancerListenerRule) error {
+	return cloudprovider.ErrNotImplemented
+}
+
 func (self *SLBListenerRule) Refresh() error {
 	err := self.listener.Refresh()
 	if err != nil {

@@ -104,20 +104,15 @@ func (self *SChinaUnionClient) GetRegions() ([]SRegion, error) {
 	if err != nil {
 		return nil, err
 	}
-	ret := struct {
-		Result struct {
-			Total int
-			List  []SRegion
-		}
-	}{}
+	ret := []SRegion{}
 	err = resp.Unmarshal(&ret)
 	if err != nil {
 		return nil, err
 	}
 	self.regions = []SRegion{}
-	for i := range ret.Result.List {
-		ret.Result.List[i].client = self
-		self.regions = append(self.regions, ret.Result.List[i])
+	for i := range ret {
+		ret[i].client = self
+		self.regions = append(self.regions, ret[i])
 	}
 	return self.regions, nil
 }
@@ -251,30 +246,61 @@ func (self *SChinaUnionClient) Do(req *http.Request) (*http.Response, error) {
 	return client.Do(req)
 }
 
-func (self *SChinaUnionClient) list(resource string, params map[string]interface{}) (jsonutils.JSONObject, error) {
-	return self.request(httputils.GET, resource, params)
+func (self *SChinaUnionClient) list(resource string, params url.Values) (jsonutils.JSONObject, error) {
+	return self._list(resource, params)
+}
+
+func (self *SChinaUnionClient) _list(resource string, params url.Values) (jsonutils.JSONObject, error) {
+	ret := jsonutils.NewArray()
+	if gotypes.IsNil(params) {
+		params = url.Values{}
+	}
+	pageNum := 1
+	pageSize := 100
+	for {
+		params.Set("pageNum", fmt.Sprintf("%d", pageNum))
+		params.Set("pageSize", fmt.Sprintf("%d", pageSize))
+		resp, err := self.request(httputils.GET, resource, params, nil)
+		if err != nil {
+			return nil, err
+		}
+		part := struct {
+			Result struct {
+				Total int
+				List  []jsonutils.JSONObject
+			}
+		}{}
+		err = resp.Unmarshal(&part)
+		if err != nil {
+			return nil, err
+		}
+		ret.Add(part.Result.List...)
+		if len(part.Result.List) == 0 || ret.Length() >= part.Result.Total {
+			break
+		}
+		pageNum++
+	}
+	return ret, nil
+}
+
+func (self *SChinaUnionClient) get(resource string) (jsonutils.JSONObject, error) {
+	return self.request(httputils.GET, resource, nil, nil)
 }
 
 func (self *SChinaUnionClient) post(resource string, params map[string]interface{}) (jsonutils.JSONObject, error) {
-	return self.request(httputils.POST, resource, params)
+	return self.request(httputils.POST, resource, nil, params)
 }
 
-func (self *SChinaUnionClient) request(method httputils.THttpMethod, resource string, params map[string]interface{}) (jsonutils.JSONObject, error) {
+func (self *SChinaUnionClient) request(method httputils.THttpMethod, resource string, query url.Values, params map[string]interface{}) (jsonutils.JSONObject, error) {
 	uri := self.getUrl(resource)
 	if params == nil {
 		params = map[string]interface{}{}
 	}
+	if len(query) > 0 {
+		uri = fmt.Sprintf("%s?%s", uri, query.Encode())
+	}
 	var body jsonutils.JSONObject = jsonutils.NewDict()
-	switch method {
-	case httputils.GET:
-		values := url.Values{}
-		for k, v := range params {
-			values.Set(k, v.(string))
-		}
-		if len(values) > 0 {
-			uri = fmt.Sprintf("%s?%s", uri, values.Encode())
-		}
-	case httputils.POST:
+	if len(params) > 0 {
 		body = jsonutils.Marshal(params)
 	}
 	req := httputils.NewJsonRequest(method, uri, body)
@@ -353,6 +379,8 @@ func (self *SChinaUnionClient) QueryBalance() (*CashBalance, error) {
 func (self *SChinaUnionClient) GetCapabilities() []string {
 	caps := []string{
 		cloudprovider.CLOUD_CAPABILITY_COMPUTE + cloudprovider.READ_ONLY_SUFFIX,
+		cloudprovider.CLOUD_CAPABILITY_NETWORK + cloudprovider.READ_ONLY_SUFFIX,
+		cloudprovider.CLOUD_CAPABILITY_SECURITY_GROUP + cloudprovider.READ_ONLY_SUFFIX,
 	}
 	return caps
 }

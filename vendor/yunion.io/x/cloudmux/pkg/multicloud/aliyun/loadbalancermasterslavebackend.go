@@ -87,6 +87,6 @@ func (backend *SLoadbalancerMasterSlaveBackend) GetProjectId() string {
 	return backend.lbbg.GetProjectId()
 }
 
-func (backend *SLoadbalancerMasterSlaveBackend) SyncConf(ctx context.Context, port, weight int) error {
+func (backend *SLoadbalancerMasterSlaveBackend) Update(ctx context.Context, opts *cloudprovider.SLoadbalancerBackend) error {
 	return cloudprovider.ErrNotSupported
 }

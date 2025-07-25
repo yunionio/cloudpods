@@ -184,8 +184,20 @@ func (rule *SAlbRule) GetBackendGroupId() string {
 	return ""
 }
 
+func (rule *SAlbRule) GetBackendGroups() ([]string, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (rule *SAlbRule) GetRedirectPool() (cloudprovider.SRedirectPool, error) {
+	return cloudprovider.SRedirectPool{}, cloudprovider.ErrNotImplemented
+}
+
 func (rule *SAlbRule) Delete(ctx context.Context) error {
 	return rule.albListener.alb.region.DeleteAlbRule(rule.RuleId)
+}
+
+func (rule *SAlbRule) Update(ctx context.Context, opts *cloudprovider.SLoadbalancerListenerRule) error {
+	return cloudprovider.ErrNotImplemented
 }
 
 // region methods

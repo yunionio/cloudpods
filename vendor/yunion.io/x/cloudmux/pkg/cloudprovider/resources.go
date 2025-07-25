@@ -824,7 +824,12 @@ type ICloudLoadbalancerListenerRule interface {
 	GetCondition() string
 	GetBackendGroupId() string
 
+	GetBackendGroups() ([]string, error)
+	GetRedirectPool() (SRedirectPool, error)
+
 	Delete(ctx context.Context) error
+
+	Update(ctx context.Context, rule *SLoadbalancerListenerRule) error
 }
 
 type ICloudLoadbalancerBackendGroup interface {
@@ -832,13 +837,14 @@ type ICloudLoadbalancerBackendGroup interface {
 
 	IsDefault() bool
 	GetType() string
+	GetScheduler() string
 	GetILoadbalancerBackends() ([]ICloudLoadbalancerBackend, error)
 	GetILoadbalancerBackendById(backendId string) (ICloudLoadbalancerBackend, error)
-	AddBackendServer(serverId string, weight int, port int) (ICloudLoadbalancerBackend, error)
-	RemoveBackendServer(serverId string, weight int, port int) error
+	AddBackendServer(opts *SLoadbalancerBackend) (ICloudLoadbalancerBackend, error)
+	RemoveBackendServer(opts *SLoadbalancerBackend) error
 
 	Delete(ctx context.Context) error
-	Sync(ctx context.Context, group *SLoadbalancerBackendGroup) error
+	Update(ctx context.Context, opts *SLoadbalancerBackendGroup) error
 }
 
 type ICloudLoadbalancerBackend interface {
@@ -856,7 +862,7 @@ type ICloudLoadbalancerBackend interface {
 	GetBackendRole() string
 	GetBackendId() string
 	GetIpAddress() string // backend type is ip
-	SyncConf(ctx context.Context, port, weight int) error
+	Update(ctx context.Context, opts *SLoadbalancerBackend) error
 }
 
 type ICloudLoadbalancerCertificate interface {
