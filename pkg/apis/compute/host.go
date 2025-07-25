@@ -18,6 +18,7 @@ import (
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/apis"
+	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 )
 
 type HostSpec struct {
@@ -162,14 +163,17 @@ type HostDetails struct {
 	// 网卡数量
 	NicCount int `json:"nic_count"`
 	// 网卡详情
-	NicInfo []jsonutils.JSONObject `json:"nic_info"`
+	NicInfo []*types.SNic `json:"nic_info"`
 	// CPU超分比
 	CpuCommit int `json:"cpu_commit"`
 	// 内存超分比
 	MemCommit int `json:"mem_commit"`
 	// 云主机数量
 	// example: 10
-	Guests int `json:"guests"`
+	Guests               int `json:"guests"`
+	OtherGuests          int
+	ReadyGuests          int
+	PendingDeletedGuests int
 	// 非系统云主机数量
 	// example: 0
 	NonsystemGuests int `json:"nonsystem_guests"`
@@ -209,7 +213,7 @@ type HostDetails struct {
 	AutoMigrateOnHostShutdown bool `json:"auto_migrate_on_host_shutdown"`
 
 	// reserved resource for isolated device
-	ReservedResourceForGpu IsolatedDeviceReservedResourceInput `json:"reserved_resource_for_gpu"`
+	ReservedResourceForGpu *IsolatedDeviceReservedResourceInput `json:"reserved_resource_for_gpu"`
 	// isolated device count
 	IsolatedDeviceCount int
 
