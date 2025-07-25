@@ -747,25 +747,6 @@ func (listener *SLoadbalancerListener) Stop() error {
 	return nil
 }
 
-/*
-func (listener *SLoadbalancerListener) Sync(ctx context.Context, lblis *cloudprovider.SLoadbalancerListenerCreateOptions) error {
-	// ensure listener status
-	err := waitLbResStatus(listener, 10*time.Second, 8*time.Minute)
-	if err != nil {
-		return errors.Wrap(err, ` waitLbResStatus(listener, 10*time.Second, 8*time.Minute)`)
-	}
-	err = listener.region.UpdateLoadBalancerListener(listener.ID, lblis)
-	if err != nil {
-		return errors.Wrapf(err, `listener.region.UpdateLoadBalancerListener(%s, lblis)`, listener.ID)
-	}
-	err = waitLbResStatus(listener, 10*time.Second, 8*time.Minute)
-	if err != nil {
-		return errors.Wrap(err, `waitLbResStatus(listener, 10*time.Second, 8*time.Minute)`)
-	}
-	return nil
-}
-*/
-
 func (self *SLoadbalancerListener) ChangeScheduler(ctx context.Context, opts *cloudprovider.ChangeListenerSchedulerOptions) error {
 	return cloudprovider.ErrNotImplemented
 }

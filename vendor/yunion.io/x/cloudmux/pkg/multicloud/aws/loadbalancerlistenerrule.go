@@ -124,8 +124,19 @@ func (self *SElbListenerRule) GetDomain() string {
 			return strings.Join(condition.Values, ",")
 		}
 	}
-
 	return ""
+}
+
+func (self *SElbListenerRule) GetBackendGroups() ([]string, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (self *SElbListenerRule) GetRedirectPool() (cloudprovider.SRedirectPool, error) {
+	return cloudprovider.SRedirectPool{}, cloudprovider.ErrNotImplemented
+}
+
+func (self *SElbListenerRule) Update(ctx context.Context, opts *cloudprovider.SLoadbalancerListenerRule) error {
+	return cloudprovider.ErrNotImplemented
 }
 
 func (self *SElbListenerRule) GetCondition() string {

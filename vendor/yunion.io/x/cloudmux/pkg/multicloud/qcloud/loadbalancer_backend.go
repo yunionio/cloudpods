@@ -157,8 +157,8 @@ func (self *SRegion) GetBackends(lbId, listenerId string) ([]SLBBackend, error) 
 	return backends, nil
 }
 
-func (self *SLBBackend) SyncConf(ctx context.Context, port, weight int) error {
-	self.Port = port
-	self.Weight = weight
+func (self *SLBBackend) Update(ctx context.Context, opts *cloudprovider.SLoadbalancerBackend) error {
+	self.Port = opts.Port
+	self.Weight = opts.Weight
 	return nil
 }

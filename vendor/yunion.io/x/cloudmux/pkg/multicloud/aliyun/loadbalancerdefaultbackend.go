@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/jsonutils"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
+	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
 )
 
@@ -85,7 +86,7 @@ func (backend *SLoadbalancerDefaultBackend) GetProjectId() string {
 	return backend.lbbg.GetProjectId()
 }
 
-func (backend *SLoadbalancerDefaultBackend) SyncConf(ctx context.Context, port, weight int) error {
+func (backend *SLoadbalancerDefaultBackend) Update(ctx context.Context, opts *cloudprovider.SLoadbalancerBackend) error {
 	params := map[string]string{}
 	params["RegionId"] = backend.lbbg.lb.region.RegionId
 	params["LoadBalancerId"] = backend.lbbg.lb.LoadBalancerId
@@ -98,7 +99,7 @@ func (backend *SLoadbalancerDefaultBackend) SyncConf(ctx context.Context, port, 
 		_backend := loadbalancer.BackendServers.BackendServer[i]
 		_backend.lbbg = backend.lbbg
 		if _backend.GetGlobalId() == backend.GetGlobalId() {
-			_backend.Weight = weight
+			_backend.Weight = opts.Weight
 		}
 		servers.Add(
 			jsonutils.Marshal(

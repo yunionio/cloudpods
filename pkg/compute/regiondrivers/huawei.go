@@ -162,7 +162,12 @@ func (self *SHuaWeiRegionDriver) RequestCreateLoadbalancerListener(ctx context.C
 			return nil, errors.Wrapf(err, "GetICloudLoadbalancerBackendGroup")
 		}
 		for i := range backends {
-			_, err := iLbbg.AddBackendServer(backends[i].ExternalId, backends[i].Port, backends[i].Weight)
+			opts := &cloudprovider.SLoadbalancerBackend{
+				Weight:     backends[i].Weight,
+				Port:       backends[i].Port,
+				ExternalId: backends[i].ExternalId,
+			}
+			_, err := iLbbg.AddBackendServer(opts)
 			if err != nil {
 				return nil, errors.Wrapf(err, "AddBackendServer")
 			}

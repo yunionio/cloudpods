@@ -25,7 +25,7 @@ import (
 )
 
 type SNlbServerGroup struct {
-	multicloud.SResourceBase
+	multicloud.SLoadbalancerBackendGroupBase
 	AliyunTags
 	nlb *SNlb
 
@@ -162,12 +162,12 @@ func (group *SNlbServerGroup) Delete(ctx context.Context) error {
 	return group.nlb.region.DeleteNlbServerGroup(group.ServerGroupId)
 }
 
-func (group *SNlbServerGroup) AddBackendServer(serverId string, weight, port int) (cloudprovider.ICloudLoadbalancerBackend, error) {
+func (group *SNlbServerGroup) AddBackendServer(opts *cloudprovider.SLoadbalancerBackend) (cloudprovider.ICloudLoadbalancerBackend, error) {
 	err := group.nlb.region.AddServersToNlbServerGroup(group.ServerGroupId, []cloudprovider.SLoadbalancerBackend{
 		{
-			ExternalID: serverId,
-			Weight:     weight,
-			Port:       port,
+			ExternalId: opts.ExternalId,
+			Weight:     opts.Weight,
+			Port:       opts.Port,
 		},
 	})
 	if err != nil {
@@ -177,15 +177,15 @@ func (group *SNlbServerGroup) AddBackendServer(serverId string, weight, port int
 	return &SNlbServerGroupServer{
 		nlbServerGroup: group,
 		NlbServer: NlbServer{
-			ServerId: serverId,
-			Weight:   weight,
-			Port:     port,
+			ServerId: opts.ExternalId,
+			Weight:   opts.Weight,
+			Port:     opts.Port,
 		},
 	}, nil
 }
 
-func (group *SNlbServerGroup) RemoveBackendServer(serverId string, weight, port int) error {
-	return group.nlb.region.RemoveServersFromNlbServerGroup(group.ServerGroupId, []string{serverId})
+func (group *SNlbServerGroup) RemoveBackendServer(opts *cloudprovider.SLoadbalancerBackend) error {
+	return group.nlb.region.RemoveServersFromNlbServerGroup(group.ServerGroupId, []string{opts.ExternalId})
 }
 
 func (group *SNlbServerGroup) GetProjectId() string {
@@ -291,7 +291,7 @@ func (region *SRegion) AddServersToNlbServerGroup(serverGroupId string, backends
 	servers := jsonutils.NewArray()
 	for _, backend := range backends {
 		servers.Add(jsonutils.Marshal(map[string]interface{}{
-			"ServerId":   backend.ExternalID,
+			"ServerId":   backend.ExternalId,
 			"ServerType": "Ecs",
 			"Port":       backend.Port,
 			"Weight":     backend.Weight,

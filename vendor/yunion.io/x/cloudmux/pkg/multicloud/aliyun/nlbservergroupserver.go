@@ -101,12 +101,12 @@ func (server *SNlbServerGroupServer) GetProjectId() string {
 	return server.nlbServerGroup.GetProjectId()
 }
 
-func (server *SNlbServerGroupServer) SyncConf(ctx context.Context, port, weight int) error {
+func (server *SNlbServerGroupServer) Update(ctx context.Context, opts *cloudprovider.SLoadbalancerBackend) error {
 	return server.nlbServerGroup.nlb.region.UpdateNlbServerGroupServerAttribute(
 		server.nlbServerGroup.ServerGroupId,
 		server.ServerId,
-		port,
-		weight,
+		opts.Port,
+		opts.Weight,
 	)
 }
 

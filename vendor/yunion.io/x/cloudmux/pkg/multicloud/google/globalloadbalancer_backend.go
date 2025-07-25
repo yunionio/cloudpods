@@ -115,7 +115,7 @@ func (self SGlobalLoadbalancerBackend) GetIpAddress() string {
 	return ""
 }
 
-func (self SGlobalLoadbalancerBackend) SyncConf(ctx context.Context, port, weight int) error {
+func (self SGlobalLoadbalancerBackend) Update(ctx context.Context, opts *cloudprovider.SLoadbalancerBackend) error {
 	return cloudprovider.ErrNotSupported
 }
 

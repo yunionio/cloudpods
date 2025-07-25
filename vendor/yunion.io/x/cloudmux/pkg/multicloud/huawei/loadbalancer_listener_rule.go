@@ -20,6 +20,7 @@ import (
 	"yunion.io/x/log"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
+	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
 )
 
@@ -116,6 +117,18 @@ func (self *SElbListenerPolicy) GetRules() ([]SElbListenerPolicyRule, error) {
 	}
 
 	return ret, nil
+}
+
+func (self *SElbListenerPolicy) GetBackendGroups() ([]string, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (self *SElbListenerPolicy) GetRedirectPool() (cloudprovider.SRedirectPool, error) {
+	return cloudprovider.SRedirectPool{}, cloudprovider.ErrNotImplemented
+}
+
+func (self *SElbListenerPolicy) Update(ctx context.Context, opts *cloudprovider.SLoadbalancerListenerRule) error {
+	return cloudprovider.ErrNotImplemented
 }
 
 func (self *SElbListenerPolicy) GetDomain() string {
