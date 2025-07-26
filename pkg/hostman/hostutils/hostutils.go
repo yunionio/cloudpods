@@ -61,6 +61,10 @@ type SContainerCpufreqSimulateConfig struct {
 	ScalingAvailableGovernors string `json:"scaling_available_governors"`
 }
 
+type IGuestManager interface {
+	GetImageDeps(storageType string) []string
+}
+
 type IHost interface {
 	GetZoneId() string
 	GetHostId() string
@@ -102,6 +106,9 @@ type IHost interface {
 	OnCatalogChanged(catalog mcclient.KeystoneServiceCatalogV3)
 
 	OnHostFilesChanged(hostfiles []computeapi.SHostFile) error
+
+	SetIGuestManager(guestman IGuestManager)
+	GetIGuestManager() IGuestManager
 }
 
 func GetComputeSession(ctx context.Context) *mcclient.ClientSession {

@@ -61,6 +61,10 @@ func (c *SLVMImageCacheManager) IsLocal() bool {
 	return c.storage.IsLocal()
 }
 
+func (c *SLVMImageCacheManager) GetStorageType() string {
+	return c.storage.StorageType()
+}
+
 func (c *SLVMImageCacheManager) Lvmlockd() bool {
 	return c.lvmlockd
 }
@@ -157,6 +161,11 @@ func (c *SLVMImageCacheManager) DeleteImageCache(ctx context.Context, data inter
 	input, ok := data.(api.UncacheImageInput)
 	if !ok {
 		return nil, hostutils.ParamsError
+	}
+
+	cachedImagesInUser := findCachedImagesInUse(c)
+	if cachedImagesInUser.Contains(input.ImageId) {
+		return nil, httperrors.NewResourceBusyError("image cache is in use")
 	}
 
 	if input.DeactivateImage != nil && *input.DeactivateImage {
