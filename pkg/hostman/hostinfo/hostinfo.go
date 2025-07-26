@@ -132,6 +132,8 @@ type SHostInfo struct {
 	hasNvidiaGpus                  *bool
 	hasVastaitechGpus              *bool
 	hasCphAmdGpus                  *bool
+
+	guestManager hostutils.IGuestManager
 }
 
 func (h *SHostInfo) GetContainerDeviceConfigurationFilePath() string {
@@ -140,6 +142,14 @@ func (h *SHostInfo) GetContainerDeviceConfigurationFilePath() string {
 
 func (h *SHostInfo) GetContainerCpufreqSimulateConfig() *jsonutils.JSONDict {
 	return h.containerCpufreqSimulateConfig
+}
+
+func (h *SHostInfo) SetIGuestManager(guestManager hostutils.IGuestManager) {
+	h.guestManager = guestManager
+}
+
+func (h *SHostInfo) GetIGuestManager() hostutils.IGuestManager {
+	return h.guestManager
 }
 
 func (h *SHostInfo) GetIsolatedDeviceManager() isolated_device.IsolatedDeviceManager {
