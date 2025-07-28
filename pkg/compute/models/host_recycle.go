@@ -196,6 +196,7 @@ func (self *SGuest) doPrepaidRecycleNoLock(ctx context.Context, userCred mcclien
 			1,
 			net.WireId,
 			"",
+			"",
 			1000,
 			nicType,
 			i,
@@ -205,7 +206,10 @@ func (self *SGuest) doPrepaidRecycleNoLock(ctx context.Context, userCred mcclien
 			&ifname,
 			&brname,
 			false,
-			false)
+			false,
+			false,
+			false,
+		)
 		if err != nil {
 			log.Errorf("fail to addNetInterface %d: %s", i, err)
 			fakeHost.RealDelete(ctx, userCred)
@@ -546,7 +550,7 @@ func (self *SHost) BorrowIpAddrsFromGuest(ctx context.Context, userCred mcclient
 			return fmt.Errorf(msg)
 		}
 
-		err = self.EnableNetif(ctx, userCred, netif, "", guestnics[i].IpAddr, "", "", false, false)
+		err = self.EnableNetif(ctx, userCred, netif, "", guestnics[i].IpAddr, guestnics[i].Ip6Addr, "", "", false, false, false, false)
 		if err != nil {
 			log.Errorf("fail to enable netif %s %s", guestnics[i].IpAddr, err)
 			return err
@@ -586,6 +590,7 @@ func (host *SHost) SetGuestCreateNetworkAndDiskParams(ctx context.Context, userC
 				Network:  hn.NetworkId,
 				Mac:      netifs[i].Mac,
 				Address:  hn.IpAddr,
+				Address6: hn.Ip6Addr,
 				Reserved: true,
 			})
 			netIdx += 1

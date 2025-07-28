@@ -16,7 +16,8 @@ package helper
 
 import (
 	"context"
-	"fmt"
+	"net"
+	"strconv"
 	"time"
 
 	"golang.org/x/crypto/ssh"
@@ -82,7 +83,7 @@ func GetValidPrivateKey(host string, port int, username string, projectId string
 				ssh.PublicKeys(signer),
 			},
 		}
-		addr := fmt.Sprintf("%s:%d", host, port)
+		addr := net.JoinHostPort(host, strconv.Itoa(port))
 		client, err := ssh.Dial("tcp", addr, config)
 		if err != nil {
 			errs = append(errs, errors.Wrapf(err, "dial %s by %s", addr, username))

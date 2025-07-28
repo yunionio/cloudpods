@@ -1203,7 +1203,17 @@ func (self *SKVMGuestDriver) RequestQgaCommand(ctx context.Context, userCred mcc
 
 func (self *SKVMGuestDriver) FetchMonitorUrl(ctx context.Context, guest *models.SGuest) string {
 	if options.Options.KvmMonitorAgentUseMetadataService && !guest.IsSriov() {
-		return apis.MetaServiceMonitorAgentUrl
+		var metadataIp string
+		strictIpv6, err := guest.IsStrictIpv6()
+		if err != nil {
+			log.Errorf("IsStrictIpv6 for guest %s error: %v", guest.Id, err)
+		}
+		if strictIpv6 {
+			metadataIp = "[" + options.Options.MetadataServerIp6s[0] + "]"
+		} else {
+			metadataIp = options.Options.MetadataServerIp4s[0]
+		}
+		return fmt.Sprintf(apis.MetaServiceMonitorAgentUrl, metadataIp)
 	}
 	return self.SVirtualizedGuestDriver.FetchMonitorUrl(ctx, guest)
 }
