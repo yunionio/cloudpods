@@ -1123,6 +1123,61 @@ func (self *SGuest) StartResumeTask(ctx context.Context, userCred mcclient.Token
 	return driver.StartResumeTask(ctx, userCred, self, nil, parentTaskId)
 }
 
+func (self *SGuest) PerformRestoreVirtualIsolatedDevices(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	config := self.GetMetadataJson(ctx, api.VM_METADATA_VIRTUAL_ISOLATED_DEVICE_CONFIG, userCred)
+	if config == nil {
+		return nil, nil
+	}
+	devConfigs := make([]api.IsolatedDeviceConfig, 0)
+	err := config.Unmarshal(&devConfigs)
+	if err != nil {
+		return nil, errors.Wrap(err, "unmarshal virtual dev configs")
+	}
+	devs, err := self.GetIsolatedDevices()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetIsolatedDevices")
+	}
+	devCount := map[string]int{}
+	for i := range devConfigs {
+		key := devConfigs[i].DevType + "-" + devConfigs[i].Model
+		if cnt, ok := devCount[key]; ok {
+			devCount[key] = cnt + 1
+		} else {
+			devCount[key] = 1
+		}
+	}
+	for i := range devs {
+		key := devConfigs[i].DevType + "-" + devConfigs[i].Model
+		if cnt, ok := devCount[key]; ok {
+			devCount[key] = cnt - 1
+		}
+	}
+
+	host, err := self.GetHost()
+	if err != nil {
+		return nil, errors.Wrap(err, "get host")
+	}
+	lockman.LockObject(ctx, host)
+	defer lockman.ReleaseObject(ctx, host)
+
+	usedDeviceMap := map[string]*SIsolatedDevice{}
+	for key, cnt := range devCount {
+		if cnt <= 0 {
+			continue
+		}
+		segs := strings.SplitN(key, "-", 2)
+		devConfig := &api.IsolatedDeviceConfig{
+			Model:   segs[1],
+			DevType: segs[0],
+		}
+		err := IsolatedDeviceManager.attachHostDeviceToGuestByModel(ctx, self, host, devConfig, userCred, usedDeviceMap, nil)
+		if err != nil {
+			return nil, errors.Wrap(err, "attachHostDeviceToGuestByModel")
+		}
+	}
+	return nil, nil
+}
+
 // 开机
 func (self *SGuest) PerformStart(
 	ctx context.Context,
@@ -1555,6 +1610,65 @@ func (self *SGuest) StartInsertVfdTask(ctx context.Context, floppyOrdinal int64,
 	return nil
 }
 
+func (self *SGuest) RebalanceVirtualIsolatedDevices(ctx context.Context, userCred mcclient.TokenCredential) error {
+	devs, err := self.GetIsolatedDevices()
+	if err != nil {
+		return errors.Wrap(err, "guest get isolated devices")
+	}
+	host, err := self.GetHost()
+	if err != nil {
+		return errors.Wrap(err, "guest get host")
+	}
+	var numaNodeBalance = true
+	detachDevs := make([]SIsolatedDevice, 0)
+	originDevConfigs := make([]api.IsolatedDeviceConfig, 0)
+	for i := range devs {
+		if utils.IsInStringArray(devs[i].DevType, api.VITRUAL_DEVICE_TYPES) {
+			originDevConfigs = append(originDevConfigs, api.IsolatedDeviceConfig{
+				Model:   devs[i].Model,
+				DevType: devs[i].DevType,
+			})
+			detachDevs = append(detachDevs, devs[i])
+			isBalance, err := host.VirtualDeviceNumaBalance(devs[i].DevType, devs[i].NumaNode)
+			if err != nil {
+				return errors.Wrap(err, "VirtualDeviceNumaBalance")
+			}
+			if numaNodeBalance && !isBalance {
+				numaNodeBalance = false
+			}
+		}
+	}
+	log.Infof("Guest %s on host %s start virtual devices numa node balance %v", self.Id, host.Id, numaNodeBalance)
+	if !numaNodeBalance {
+		err := self.SetMetadata(ctx, api.VM_METADATA_VIRTUAL_ISOLATED_DEVICE_CONFIG, originDevConfigs, userCred)
+		if err != nil {
+			return errors.Wrap(err, "set metadata virtual isolated device config")
+		}
+		lockman.LockObject(ctx, host)
+		defer lockman.ReleaseObject(ctx, host)
+
+		for i := 0; i < len(detachDevs); i++ {
+			err := self.detachIsolateDevice(ctx, userCred, &detachDevs[i])
+			if err != nil {
+				return errors.Wrapf(err, "detach device %s", detachDevs[i].GetId())
+			}
+		}
+
+		usedDeviceMap := map[string]*SIsolatedDevice{}
+		for i := range detachDevs {
+			devConfig := &api.IsolatedDeviceConfig{
+				Model:   detachDevs[i].Model,
+				DevType: detachDevs[i].DevType,
+			}
+			err := IsolatedDeviceManager.attachHostDeviceToGuestByModel(ctx, self, host, devConfig, userCred, usedDeviceMap, nil)
+			if err != nil {
+				return errors.Wrap(err, "attachHostDeviceToGuestByModel")
+			}
+		}
+	}
+	return nil
+}
+
 func (self *SGuest) StartGueststartTask(
 	ctx context.Context, userCred mcclient.TokenCredential,
 	data *jsonutils.JSONDict, parentTaskId string,
@@ -1576,6 +1690,13 @@ func (self *SGuest) StartGueststartTask(
 		err := self.SetCpuNumaPin(ctx, userCred, nil, nil)
 		if err != nil {
 			return errors.Wrap(err, "clean cpu numa pin")
+		}
+	}
+
+	if options.Options.VirtualDeviceNumaBalance {
+		err := self.RebalanceVirtualIsolatedDevices(ctx, userCred)
+		if err != nil {
+			return errors.Wrap(err, "rebalance virtual isolated devices")
 		}
 	}
 
