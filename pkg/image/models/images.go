@@ -1085,8 +1085,10 @@ func (self *SImage) migrateSubImage(ctx context.Context) error {
 	}
 	if self.GetImageType() != api.ImageTypeISO && imgInst.IsSparse() && utils.IsInStringArray(self.DiskFormat, options.Options.TargetImageFormats) {
 		// need to convert again
+		log.Debugf("migrateImage: image is not iso but sparse, need to convert the image")
 		return self.newSubformat(ctx, qemuimgfmt.String2ImageFormat(self.DiskFormat), false)
 	} else {
+		log.Debugf("migrateImage: no need to convert the image")
 		localPath := self.GetLocalLocation()
 		if !strings.HasSuffix(localPath, fmt.Sprintf(".%s", self.DiskFormat)) {
 			newLocalpath := fmt.Sprintf("%s.%s", localPath, self.DiskFormat)
@@ -1146,9 +1148,6 @@ func (self *SImage) doConvertAllSubformats() error {
 		}
 		if !utils.IsInStringArray(subimgs[i].Format, options.Options.TargetImageFormats) {
 			// cleanup
-			continue
-		}
-		if self.DiskFormat == subimgs[i].Format {
 			continue
 		}
 		err := subimgs[i].doConvert(self)
