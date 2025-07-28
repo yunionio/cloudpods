@@ -3730,7 +3730,6 @@ func (self *SGuest) attach2NetworkOnce(
 		teamWithMac  = args.teamWithMac
 	)
 	network.updateDnsRecord(guestnic, true)
-	network.updateGuestNetmap(guestnic)
 	if pendingUsage != nil && len(teamWithMac) == 0 {
 		cancelUsage := SRegionQuota{}
 		if network.IsExitNetwork() {

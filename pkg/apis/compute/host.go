@@ -672,6 +672,12 @@ type HostAddNetifInput struct {
 	Reserve *bool `json:"reserve"`
 
 	RequireDesignatedIp *bool `json:"require_designated_ip"`
+
+	Ip6Addr string `json:"ip6_addr"`
+
+	RequireIpv6 *bool `json:"require_ipv6"`
+
+	StrictIpv6 *bool `json:"strict_ipv6"`
 }
 
 type HostEnableNetifInput struct {
@@ -690,6 +696,12 @@ type HostEnableNetifInput struct {
 	Reserve *bool `json:"reserve"`
 
 	RequireDesignatedIp *bool `json:"require_designated_ip"`
+
+	Ip6Addr string `json:"ip6_addr"`
+
+	RequireIpv6 *bool `json:"require_ipv6"`
+
+	StrictIpv6 *bool `json:"strict_ipv6"`
 }
 
 type HostDisableNetifInput struct {

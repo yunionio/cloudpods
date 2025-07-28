@@ -168,6 +168,7 @@ type NetworkTopologyOutput struct {
 
 type HostnetworkTopologyOutput struct {
 	IpAddr  string `json:"ip_addr"`
+	Ip6Addr string `json:"ip6_addr"`
 	MacAddr string `json:"mac_addr"`
 }
 

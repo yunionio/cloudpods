@@ -21,7 +21,6 @@ import (
 	"math"
 	"math/big"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 
@@ -122,9 +121,9 @@ type SNetwork struct {
 	// IPv6网关
 	GuestGateway6 string `width:"64" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional"`
 	// IPv6域名服务器
-	GuestDns6 string `width:"64" charset:"ascii" nullable:"true"`
+	// GuestDns6 string `width:"64" charset:"ascii" nullable:"true"`
 
-	GuestDomain6 string `width:"128" charset:"ascii" nullable:"true"`
+	// GuestDomain6 string `width:"128" charset:"ascii" nullable:"true"`
 
 	VlanId int `nullable:"false" default:"1" list:"user" update:"user" create:"optional"`
 
@@ -582,19 +581,6 @@ func (snet *SNetwork) _updateDnsRecord(name string, ipAddr string, isAdd bool) {
 	}
 }
 
-func (snet *SNetwork) updateGuestNetmap(nic *SGuestnetwork) {
-	// TODO
-
-}
-
-func (snet *SNetwork) UpdateBaremetalNetmap(nic *SHostnetwork, name string) {
-	snet.UpdateNetmap(nic.IpAddr, auth.AdminCredential().GetTenantId(), name)
-}
-
-func (snet *SNetwork) UpdateNetmap(ip, project, name string) {
-	// TODO ??
-}
-
 type DNSUpdateKeySecret struct {
 	Key    string
 	Secret string
@@ -945,6 +931,23 @@ func (manager *SNetworkManager) GetOnPremiseNetworkOfIP(ipAddr string, serverTyp
 	}
 	for _, n := range nets {
 		if n.IsAddressInRange(address) {
+			return &n, nil
+		}
+	}
+	return nil, sql.ErrNoRows
+}
+
+func (manager *SNetworkManager) GetOnPremiseNetworkOfIP6(ip6Addr string, serverType string, isPublic tristate.TriState) (*SNetwork, error) {
+	address, err := netutils.NewIPV6Addr(ip6Addr)
+	if err != nil {
+		return nil, errors.Wrap(err, "NewIPV6Addr")
+	}
+	nets, err := manager.fetchAllOnpremiseNetworks(serverType, isPublic)
+	if err != nil {
+		return nil, errors.Wrap(err, "fetchAllOnpremiseNetworks")
+	}
+	for _, n := range nets {
+		if n.IsAddress6InRange(address) {
 			return &n, nil
 		}
 	}
@@ -2579,7 +2582,7 @@ func (snet *SNetwork) isOneCloudVpcNetwork() bool {
 	return IsOneCloudVpcResource(snet)
 }
 
-func parseIpToIntArray(ip string) ([]int, error) {
+/*func parseIpToIntArray(ip string) ([]int, error) {
 	ipSp := strings.Split(strings.Trim(ip, "."), ".")
 	if len(ipSp) > 4 {
 		return nil, httperrors.NewInputParameterError("Parse Ip Failed")
@@ -2596,7 +2599,7 @@ func parseIpToIntArray(ip string) ([]int, error) {
 		ipIa = append(ipIa, val)
 	}
 	return ipIa, nil
-}
+}*/
 
 // IP子网列表
 func (manager *SNetworkManager) ListItemFilter(
