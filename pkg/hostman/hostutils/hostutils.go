@@ -56,7 +56,7 @@ type IHost interface {
 	GetBridgeDev(bridge string) hostbridge.IBridgeDriver
 	GetIsolatedDeviceManager() isolated_device.IsolatedDeviceManager
 
-	SyncRootPartitionUsedCapacity() error
+	// SyncRootPartitionUsedCapacity() error
 
 	GetKubeletConfig() kubelet.KubeletConfig
 }
