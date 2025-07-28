@@ -49,6 +49,8 @@ const (
 	IONiceIdle       = TIONiceLevel(3)
 )
 
+const DefaultQcow2ClusterSize = 65536
+
 var preallocation = "metadata"
 
 func SetPreallocation(prealloc string) error {
@@ -356,6 +358,9 @@ func convertOther(srcInfo, destInfo SImageInfo, compact bool, workerOpions []str
 	}
 	if compact {
 		cmdline = append(cmdline, "-c")
+		if destInfo.ClusterSize <= 0 {
+			destInfo.ClusterSize = DefaultQcow2ClusterSize
+		}
 	}
 	cmdline = append(cmdline, "-f", srcInfo.Format.String(), "-O", destInfo.Format.String())
 
@@ -367,9 +372,6 @@ func convertOther(srcInfo, destInfo SImageInfo, compact bool, workerOpions []str
 		options = append(options, fmt.Sprintf("cluster_size=%d", destInfo.ClusterSize))
 	} else if srcInfo.ClusterSize > 0 {
 		options = append(options, fmt.Sprintf("cluster_size=%d", srcInfo.ClusterSize))
-	}
-	if srcInfo.ClusterSize > 0 || destInfo.ClusterSize > 0 {
-
 	}
 	if len(options) > 0 {
 		cmdline = append(cmdline, "-o")
@@ -470,6 +472,10 @@ func (img *SQemuImage) doConvert(targetPath string, format qemuimgfmt.TImageForm
 	if !img.IsValid() {
 		return fmt.Errorf("self is not valid")
 	}
+	destClusterSize := img.ClusterSize
+	if compact {
+		destClusterSize = DefaultQcow2ClusterSize
+	}
 	return Convert(SImageInfo{
 		Path:     img.Path,
 		Format:   img.Format,
@@ -486,7 +492,7 @@ func (img *SQemuImage) doConvert(targetPath string, format qemuimgfmt.TImageForm
 
 		EncryptFormat: encryptFormat,
 		EncryptAlg:    encryptAlg,
-		ClusterSize:   img.ClusterSize,
+		ClusterSize:   destClusterSize,
 	}, compact, nil)
 }
 
