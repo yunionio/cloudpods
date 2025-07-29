@@ -397,14 +397,16 @@ func convertOther(srcInfo, destInfo SImageInfo, compact bool, workerOpions []str
 	if destInfo.Format.String() == "vmdk" { // for esxi vmdk
 		options = append(options, vmdkOptions(compact)...)
 	}
-	if destInfo.ClusterSize > 0 {
-		options = append(options, fmt.Sprintf("cluster_size=%d", destInfo.ClusterSize))
-	} else if srcInfo.ClusterSize > 0 {
-		options = append(options, fmt.Sprintf("cluster_size=%d", srcInfo.ClusterSize))
+	if destInfo.Format == qemuimgfmt.QCOW2 {
+		if destInfo.ClusterSize > 0 {
+			options = append(options, fmt.Sprintf("cluster_size=%d", destInfo.ClusterSize))
+		} else if srcInfo.ClusterSize > 0 {
+			options = append(options, fmt.Sprintf("cluster_size=%d", srcInfo.ClusterSize))
+		}
 	}
+
 	if len(options) > 0 {
-		cmdline = append(cmdline, "-o")
-		cmdline = append(cmdline, options...)
+		cmdline = append(cmdline, "-o", strings.Join(options, ","))
 	}
 	cmdline = append(cmdline, srcInfo.Path, destInfo.Path)
 	log.Infof("XXXX qemu-img command: %s", cmdline)
