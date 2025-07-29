@@ -61,7 +61,7 @@ type GuestRuntimeInstance interface {
 	ImportServer(pendingDelete bool)
 	ExitCleanup(bool)
 
-	HandleGuestStatus(ctx context.Context, resp *computeapi.HostUploadGuestStatusInput) (jsonutils.JSONObject, error)
+	HandleGuestStatus(ctx context.Context, resp *computeapi.HostUploadGuestStatusInput, isBatch bool) *computeapi.HostUploadGuestStatusInput
 	GetUploadStatus(ctx context.Context, reason string) (*computeapi.HostUploadGuestStatusInput, error)
 	PostUploadStatus(resp *computeapi.HostUploadGuestStatusInput, reason string)
 	HandleGuestStart(ctx context.Context, userCred mcclient.TokenCredential, body jsonutils.JSONObject) (jsonutils.JSONObject, error)

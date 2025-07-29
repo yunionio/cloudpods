@@ -51,6 +51,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/guestman/pod/statusman"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/types"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
+	"yunion.io/x/onecloud/pkg/hostman/hostinfo"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostconsts"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/monitor"
@@ -1023,13 +1024,49 @@ func (m *SGuestManager) GetGuestStatus(ctx context.Context, params interface{}) 
 	sid := params.(string)
 	guest, _ := m.GetServer(sid)
 	resp := m.ProbeGuestInitStatus(sid)
-
-	if guest == nil {
-		hostutils.TaskComplete(ctx, jsonutils.Marshal(resp))
-		return nil, nil
+	if guest != nil {
+		// resp is nil ONLY IF the monitor not started
+		resp = guest.HandleGuestStatus(ctx, resp, false)
 	}
+	if resp != nil {
+		hostutils.TaskComplete(ctx, jsonutils.Marshal(resp))
+	}
+	return nil, nil
+}
 
-	return guest.HandleGuestStatus(ctx, resp)
+func (m *SGuestManager) UploadGuestsStatus(ctx context.Context, i interface{}) (jsonutils.JSONObject, error) {
+	input := i.(*compute.HostUploadGuestsStatusRequest)
+	// errs := []error{}
+	resp := &compute.HostUploadGuestsStatusInput{
+		Guests: make(map[string]*compute.HostUploadGuestStatusInput, 0),
+	}
+	reason := "upload guest status by host"
+	for _, sid := range input.GuestIds {
+		guest, _ := m.GetServer(sid)
+		status := m.ProbeGuestInitStatus(sid)
+		if guest != nil {
+			status = guest.HandleGuestStatus(ctx, status, true)
+		}
+		// if status, err := srv.GetUploadStatus(ctx, reason); err != nil {
+		//	errs = append(errs, errors.Wrapf(err, "upload guest %s status", srv.GetId()))
+		//} else {
+		resp.Guests[sid] = status
+		//}
+	}
+	// if len(errs) > 0 {
+	//	log.Errorf("Get upload guests status: %v", errors.NewAggregate(errs))
+	// }
+	ret, err := hostutils.UploadGuestsStatus(ctx, resp)
+	// do post action like marking container dirty after uploading guests status
+	for id, status := range resp.Guests {
+		srv, _ := m.GetServer(id)
+		if srv == nil {
+			continue
+		}
+		srv.PostUploadStatus(status, reason)
+	}
+	log.Infof("upload guest to region response: %s", jsonutils.Marshal(ret).String())
+	return ret, err
 }
 
 func (m *SGuestManager) getStatus(sid string) string {
@@ -1825,40 +1862,6 @@ func (m *SGuestManager) GetGuestTrafficRecord(sid string) (map[string]compute.SN
 	return record, nil
 }
 
-func (m *SGuestManager) UploadGuestsStatus(ctx context.Context, i interface{}) (jsonutils.JSONObject, error) {
-	input := i.(*compute.HostUploadGuestsStatusRequest)
-	errs := []error{}
-	resp := &compute.HostUploadGuestsStatusInput{
-		Guests: make(map[string]*compute.HostUploadGuestStatusInput, 0),
-	}
-	reason := "upload guest status by host"
-	for _, id := range input.GuestIds {
-		srv, _ := m.GetServer(id)
-		if srv == nil {
-			continue
-		}
-		if status, err := srv.GetUploadStatus(ctx, reason); err != nil {
-			errs = append(errs, errors.Wrapf(err, "upload guest %s status", srv.GetId()))
-		} else {
-			resp.Guests[id] = status
-		}
-	}
-	if len(errs) > 0 {
-		log.Errorf("Get upload guests status: %v", errors.NewAggregate(errs))
-	}
-	ret, err := hostutils.UploadGuestsStatus(ctx, resp)
-	// do post action like marking container dirty after uploading guests status
-	for id, status := range resp.Guests {
-		srv, _ := m.GetServer(id)
-		if srv == nil {
-			continue
-		}
-		srv.PostUploadStatus(status, reason)
-	}
-	log.Infof("upload guest to region response: %s", jsonutils.Marshal(ret).String())
-	return ret, err
-}
-
 func (m *SGuestManager) ProbeGuestInitStatus(sid string) *compute.HostUploadGuestStatusInput {
 	guest, _ := m.GetServer(sid)
 	status := m.getStatus(sid)
@@ -1866,6 +1869,7 @@ func (m *SGuestManager) ProbeGuestInitStatus(sid string) *compute.HostUploadGues
 		PerformStatusInput: apis.PerformStatusInput{
 			Status:         status,
 			BlockJobsCount: -1,
+			HostId:         hostinfo.Instance().HostId,
 		},
 	}
 	if guest == nil {
