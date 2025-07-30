@@ -953,32 +953,54 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateLoadbalancerListene
 		if err != nil {
 			return nil, err
 		}
-		iRegion, err := loadbalancer.GetIRegion(ctx)
+		iLb, err := loadbalancer.GetILoadbalancer(ctx)
 		if err != nil {
 			return nil, err
 		}
-		iLoadbalancer, err := iRegion.GetILoadBalancerById(loadbalancer.ExternalId)
+		iListener, err := iLb.GetILoadBalancerListenerById(listener.ExternalId)
 		if err != nil {
 			return nil, err
 		}
-		iListener, err := iLoadbalancer.GetILoadBalancerListenerById(listener.ExternalId)
-		if err != nil {
-			return nil, err
+		opts := &cloudprovider.SLoadbalancerListenerRule{
+			Name:          lbr.Name,
+			Domain:        lbr.Domain,
+			Path:          lbr.Path,
+			BackendGroups: []string{},
 		}
-		rule := &cloudprovider.SLoadbalancerListenerRule{
-			Name:   lbr.Name,
-			Domain: lbr.Domain,
-			Path:   lbr.Path,
+		if lbr.RedirectPool != nil {
+			opts.RedirectPool = cloudprovider.SRedirectPool{
+				CountryPools: map[string][]string{},
+				RegionPools:  map[string][]string{},
+			}
+			for poolName, pools := range lbr.RedirectPool.CountryPools {
+				poolIds := []string{}
+				for _, pool := range pools {
+					poolIds = append(poolIds, pool.ExternalId)
+				}
+				opts.RedirectPool.CountryPools[poolName] = poolIds
+			}
+			for poolName, pools := range lbr.RedirectPool.RegionPools {
+				poolIds := []string{}
+				for _, pool := range pools {
+					poolIds = append(poolIds, pool.ExternalId)
+				}
+				opts.RedirectPool.RegionPools[poolName] = poolIds
+			}
+		}
+		if lbr.BackendGroups != nil {
+			for _, backendGroup := range *lbr.BackendGroups {
+				opts.BackendGroups = append(opts.BackendGroups, backendGroup.ExternalId)
+			}
 		}
 		if len(lbr.BackendGroupId) > 0 {
 			group := lbr.GetLoadbalancerBackendGroup()
 			if group == nil {
 				return nil, fmt.Errorf("failed to find backend group for listener rule %s", lbr.Name)
 			}
-			rule.BackendGroupId = group.ExternalId
-			rule.BackendGroupType = group.Type
+			opts.BackendGroupId = group.ExternalId
+			opts.BackendGroupType = group.Type
 		}
-		iListenerRule, err := iListener.CreateILoadBalancerListenerRule(rule)
+		iListenerRule, err := iListener.CreateILoadBalancerListenerRule(opts)
 		if err != nil {
 			return nil, err
 		}
