@@ -110,7 +110,7 @@ func (self *SLoadbalancerBackend) GetIpAddress() string {
 	return self.IpAddr
 }
 
-func (self *SLoadbalancerBackend) SyncConf(ctx context.Context, port, weight int) error {
+func (self *SLoadbalancerBackend) Update(ctx context.Context, opts *cloudprovider.SLoadbalancerBackend) error {
 	return cloudprovider.ErrNotSupported
 }
 

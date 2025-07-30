@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/log"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
+	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
 	"yunion.io/x/cloudmux/pkg/multicloud/huawei"
 )
@@ -162,6 +163,18 @@ func (self *SElbListenerPolicy) GetPath() string {
 
 func (self *SElbListenerPolicy) GetBackendGroupId() string {
 	return self.RedirectPoolID
+}
+
+func (self *SElbListenerPolicy) GetBackendGroups() ([]string, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (self *SElbListenerPolicy) GetRedirectPool() (cloudprovider.SRedirectPool, error) {
+	return cloudprovider.SRedirectPool{}, cloudprovider.ErrNotImplemented
+}
+
+func (self *SElbListenerPolicy) Update(ctx context.Context, opts *cloudprovider.SLoadbalancerListenerRule) error {
+	return cloudprovider.ErrNotImplemented
 }
 
 func (self *SElbListenerPolicy) Delete(ctx context.Context) error {

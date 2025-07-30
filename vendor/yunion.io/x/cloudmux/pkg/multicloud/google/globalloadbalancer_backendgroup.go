@@ -22,9 +22,11 @@ import (
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
+	"yunion.io/x/cloudmux/pkg/multicloud"
 )
 
 type SGlobalLoadBalancerBackendGroup struct {
+	multicloud.SLoadbalancerBackendGroupBase
 	lb       *SGlobalLoadbalancer
 	backends []SGlobalLoadbalancerBackend
 
@@ -82,6 +84,10 @@ func (self *SGlobalLoadBalancerBackendGroup) IsDefault() bool {
 	return false
 }
 
+func (self *SGlobalLoadBalancerBackendGroup) GetScheduler() string {
+	return ""
+}
+
 func (self *SGlobalLoadBalancerBackendGroup) GetType() string {
 	return api.LB_BACKENDGROUP_TYPE_NORMAL
 }
@@ -101,11 +107,11 @@ func (self *SGlobalLoadBalancerBackendGroup) GetILoadbalancerBackendById(backend
 	return nil, cloudprovider.ErrNotFound
 }
 
-func (self *SGlobalLoadBalancerBackendGroup) AddBackendServer(serverId string, weight int, port int) (cloudprovider.ICloudLoadbalancerBackend, error) {
+func (self *SGlobalLoadBalancerBackendGroup) AddBackendServer(opts *cloudprovider.SLoadbalancerBackend) (cloudprovider.ICloudLoadbalancerBackend, error) {
 	return nil, cloudprovider.ErrNotSupported
 }
 
-func (self *SGlobalLoadBalancerBackendGroup) RemoveBackendServer(serverId string, weight int, port int) error {
+func (self *SGlobalLoadBalancerBackendGroup) RemoveBackendServer(opts *cloudprovider.SLoadbalancerBackend) error {
 	return cloudprovider.ErrNotSupported
 }
 
@@ -113,7 +119,7 @@ func (self *SGlobalLoadBalancerBackendGroup) Delete(ctx context.Context) error {
 	return cloudprovider.ErrNotSupported
 }
 
-func (self *SGlobalLoadBalancerBackendGroup) Sync(ctx context.Context, group *cloudprovider.SLoadbalancerBackendGroup) error {
+func (self *SGlobalLoadBalancerBackendGroup) Update(ctx context.Context, opts *cloudprovider.SLoadbalancerBackendGroup) error {
 	return cloudprovider.ErrNotSupported
 }
 

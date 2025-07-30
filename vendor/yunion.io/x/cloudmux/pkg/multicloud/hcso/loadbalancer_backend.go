@@ -125,14 +125,14 @@ func (self *SElbBackend) GetIpAddress() string {
 	return ""
 }
 
-func (self *SElbBackend) SyncConf(ctx context.Context, port, weight int) error {
-	if port > 0 {
-		log.Warningf("Elb backend SyncConf unsupport modify port")
+func (self *SElbBackend) Update(ctx context.Context, opts *cloudprovider.SLoadbalancerBackend) error {
+	if opts.Port > 0 {
+		log.Warningf("Elb backend Update unsupport modify port")
 	}
 
 	params := jsonutils.NewDict()
 	memberObj := jsonutils.NewDict()
-	memberObj.Set("weight", jsonutils.NewInt(int64(weight)))
+	memberObj.Set("weight", jsonutils.NewInt(int64(opts.Weight)))
 	params.Set("member", memberObj)
 	err := self.lb.region.ecsClient.ElbBackend.SetBackendGroupId(self.backendGroup.GetId())
 	if err != nil {

@@ -101,12 +101,12 @@ func (server *SAlbServerGroupServer) GetProjectId() string {
 	return server.albServerGroup.GetProjectId()
 }
 
-func (server *SAlbServerGroupServer) SyncConf(ctx context.Context, port, weight int) error {
+func (server *SAlbServerGroupServer) Update(ctx context.Context, opts *cloudprovider.SLoadbalancerBackend) error {
 	return server.albServerGroup.alb.region.UpdateAlbServerGroupServerAttribute(
 		server.albServerGroup.ServerGroupId,
 		server.ServerId,
-		port,
-		weight,
+		opts.Port,
+		opts.Weight,
 	)
 }
 

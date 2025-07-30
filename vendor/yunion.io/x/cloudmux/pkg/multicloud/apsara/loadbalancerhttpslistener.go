@@ -401,12 +401,6 @@ func (region *SRegion) SyncLoadbalancerHTTPSListener(lb *SLoadbalancer, listener
 	return err
 }
 
-/*
-func (listerner *SLoadbalancerHTTPSListener) Sync(ctx context.Context, lblis *cloudprovider.SLoadbalancerListenerCreateOptions) error {
-	return listerner.lb.region.SyncLoadbalancerHTTPSListener(listerner.lb, lblis)
-}
-*/
-
 func (self *SLoadbalancerHTTPSListener) ChangeScheduler(ctx context.Context, opts *cloudprovider.ChangeListenerSchedulerOptions) error {
 	return cloudprovider.ErrNotImplemented
 }

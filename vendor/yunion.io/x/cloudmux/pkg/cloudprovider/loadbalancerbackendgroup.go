@@ -17,6 +17,7 @@ package cloudprovider
 type SLoadbalancerBackendGroup struct {
 	Name      string
 	GroupType string
+	Status    string
 	Backends  []SLoadbalancerBackend
 
 	// huawei

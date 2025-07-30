@@ -22,9 +22,11 @@ import (
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
+	"yunion.io/x/cloudmux/pkg/multicloud"
 )
 
 type SLoadBalancerBackendGroup struct {
+	multicloud.SLoadbalancerBackendGroupBase
 	lb       *SLoadbalancer
 	backends []SLoadbalancerBackend
 
@@ -139,11 +141,11 @@ func (self *SLoadBalancerBackendGroup) GetStickySession() (*cloudprovider.SLoadb
 	return nil, nil
 }
 
-func (self *SLoadBalancerBackendGroup) AddBackendServer(serverId string, weight int, port int) (cloudprovider.ICloudLoadbalancerBackend, error) {
+func (self *SLoadBalancerBackendGroup) AddBackendServer(opts *cloudprovider.SLoadbalancerBackend) (cloudprovider.ICloudLoadbalancerBackend, error) {
 	return nil, cloudprovider.ErrNotSupported
 }
 
-func (self *SLoadBalancerBackendGroup) RemoveBackendServer(serverId string, weight int, port int) error {
+func (self *SLoadBalancerBackendGroup) RemoveBackendServer(opts *cloudprovider.SLoadbalancerBackend) error {
 	return cloudprovider.ErrNotSupported
 }
 
@@ -151,7 +153,7 @@ func (self *SLoadBalancerBackendGroup) Delete(ctx context.Context) error {
 	return cloudprovider.ErrNotSupported
 }
 
-func (self *SLoadBalancerBackendGroup) Sync(ctx context.Context, group *cloudprovider.SLoadbalancerBackendGroup) error {
+func (self *SLoadBalancerBackendGroup) Update(ctx context.Context, opts *cloudprovider.SLoadbalancerBackendGroup) error {
 	return cloudprovider.ErrNotSupported
 }
 

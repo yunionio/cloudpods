@@ -236,7 +236,7 @@ func (man *SLoadbalancerBackendGroupManager) ValidateCreateData(ctx context.Cont
 		if input.Backends[i].Port < 1 || input.Backends[i].Port > 65535 {
 			return nil, httperrors.NewInputParameterError("port %d not support, only support range 1 ~ 65535", input.Backends[i].Port)
 		}
-		if len(input.Backends[i].Id) == 0 {
+		if len(input.Backends[i].Id) == 0 && input.Backends[i].BackendType != api.LB_BACKEND_ADDRESS {
 			return nil, httperrors.NewMissingParameterError("Missing backend id")
 		}
 
@@ -592,9 +592,9 @@ func (lbbg *SLoadbalancerBackendGroup) GetBackendsParams() ([]cloudprovider.SLoa
 		ret[i] = cloudprovider.SLoadbalancerBackend{
 			Weight:      b.Weight,
 			Port:        b.Port,
-			ID:          b.Id,
+			Id:          b.Id,
 			Name:        b.Name,
-			ExternalID:  externalId,
+			ExternalId:  externalId,
 			BackendType: b.BackendType,
 			BackendRole: b.BackendRole,
 			Address:     b.Address,

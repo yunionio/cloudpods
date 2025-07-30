@@ -30,7 +30,7 @@ import (
 )
 
 type SElbBackendGroup struct {
-	multicloud.SResourceBase
+	multicloud.SLoadbalancerBackendGroupBase
 	HuaweiTags
 	lb     *SLoadbalancer
 	region *SRegion
@@ -248,8 +248,8 @@ func (self *SElbBackendGroup) GetILoadbalancerBackendById(serverId string) (clou
 	return backend, nil
 }
 
-func (self *SElbBackendGroup) AddBackendServer(serverId string, weight int, port int) (cloudprovider.ICloudLoadbalancerBackend, error) {
-	instance, err := self.lb.region.GetInstance(serverId)
+func (self *SElbBackendGroup) AddBackendServer(opts *cloudprovider.SLoadbalancerBackend) (cloudprovider.ICloudLoadbalancerBackend, error) {
+	instance, err := self.lb.region.GetInstance(opts.ExternalId)
 	if err != nil {
 		return nil, err
 	}
@@ -258,14 +258,14 @@ func (self *SElbBackendGroup) AddBackendServer(serverId string, weight int, port
 	if err != nil {
 		return nil, err
 	} else if len(nics) == 0 {
-		return nil, fmt.Errorf("AddBackendServer %s no network interface found", serverId)
+		return nil, fmt.Errorf("AddBackendServer %s no network interface found", opts.ExternalId)
 	}
 
 	subnets, err := self.lb.region.getSubnetIdsByInstanceId(instance.GetId())
 	if err != nil {
 		return nil, err
 	} else if len(subnets) == 0 {
-		return nil, fmt.Errorf("AddBackendServer %s no subnet found", serverId)
+		return nil, fmt.Errorf("AddBackendServer %s no subnet found", opts.ExternalId)
 	}
 
 	net, err := self.lb.region.GetNetwork(subnets[0])
@@ -273,7 +273,7 @@ func (self *SElbBackendGroup) AddBackendServer(serverId string, weight int, port
 		return nil, err
 	}
 
-	backend, err := self.region.AddLoadBalancerBackend(self.GetId(), net.NeutronSubnetID, nics[0].GetIP(), port, weight)
+	backend, err := self.region.AddLoadBalancerBackend(self.GetId(), net.NeutronSubnetID, nics[0].GetIP(), opts.Port, opts.Weight)
 	if err != nil {
 		return nil, err
 	}
@@ -283,8 +283,8 @@ func (self *SElbBackendGroup) AddBackendServer(serverId string, weight int, port
 	return backend, nil
 }
 
-func (self *SElbBackendGroup) RemoveBackendServer(backendId string, weight int, port int) error {
-	return self.region.RemoveLoadBalancerBackend(self.GetId(), backendId)
+func (self *SElbBackendGroup) RemoveBackendServer(opts *cloudprovider.SLoadbalancerBackend) error {
+	return self.region.RemoveLoadBalancerBackend(self.GetId(), opts.ExternalId)
 }
 
 func (self *SElbBackendGroup) Delete(ctx context.Context) error {
@@ -304,7 +304,11 @@ func (self *SElbBackendGroup) Delete(ctx context.Context) error {
 
 		for i := range backends {
 			backend := backends[i]
-			err := self.RemoveBackendServer(backend.GetId(), backend.GetPort(), backend.GetWeight())
+			err := self.RemoveBackendServer(&cloudprovider.SLoadbalancerBackend{
+				ExternalId: backend.GetId(),
+				Port:       backend.GetPort(),
+				Weight:     backend.GetWeight(),
+			})
 			if err != nil {
 				return errors.Wrap(err, "SElbBackendGroup.Delete.RemoveBackendServer")
 			}
@@ -317,10 +321,6 @@ func (self *SElbBackendGroup) Delete(ctx context.Context) error {
 	}
 
 	return cloudprovider.WaitDeleted(self, 2*time.Second, 30*time.Second)
-}
-
-func (self *SElbBackendGroup) Sync(ctx context.Context, group *cloudprovider.SLoadbalancerBackendGroup) error {
-	return nil
 }
 
 func (self *SRegion) GetLoadBalancerBackendGroup(backendGroupId string) (*SElbBackendGroup, error) {

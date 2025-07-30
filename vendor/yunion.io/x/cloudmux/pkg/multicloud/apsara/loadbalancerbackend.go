@@ -105,10 +105,10 @@ func (region *SRegion) GetLoadbalancerBackends(backendgroupId string) ([]SLoadba
 	return backends, body.Unmarshal(&backends, "BackendServers", "BackendServer")
 }
 
-func (backend *SLoadbalancerBackend) SyncConf(ctx context.Context, port, weight int) error {
+func (backend *SLoadbalancerBackend) Update(ctx context.Context, opts *cloudprovider.SLoadbalancerBackend) error {
 	err := backend.lbbg.lb.region.RemoveBackendVServer(backend.lbbg.lb.LoadBalancerId, backend.lbbg.VServerGroupId, backend.ServerId, backend.Port)
 	if err != nil {
 		return err
 	}
-	return backend.lbbg.lb.region.AddBackendVServer(backend.lbbg.lb.LoadBalancerId, backend.lbbg.VServerGroupId, backend.ServerId, weight, port)
+	return backend.lbbg.lb.region.AddBackendVServer(backend.lbbg.lb.LoadBalancerId, backend.lbbg.VServerGroupId, backend.ServerId, opts.Weight, opts.Port)
 }

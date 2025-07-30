@@ -26,7 +26,7 @@ import (
 )
 
 type SLoadbalancerBackendGroup struct {
-	multicloud.SResourceBase
+	multicloud.SLoadbalancerBackendGroupBase
 	AzureTags
 	lb *SLoadbalancer
 
@@ -152,11 +152,11 @@ func (self *SLoadbalancerBackendGroup) GetStickySession() (*cloudprovider.SLoadb
 	return nil, nil
 }
 
-func (self *SLoadbalancerBackendGroup) AddBackendServer(serverId string, weight int, port int) (cloudprovider.ICloudLoadbalancerBackend, error) {
+func (self *SLoadbalancerBackendGroup) AddBackendServer(opts *cloudprovider.SLoadbalancerBackend) (cloudprovider.ICloudLoadbalancerBackend, error) {
 	return nil, errors.Wrap(cloudprovider.ErrNotImplemented, "AddBackendServer")
 }
 
-func (self *SLoadbalancerBackendGroup) RemoveBackendServer(serverId string, weight int, port int) error {
+func (self *SLoadbalancerBackendGroup) RemoveBackendServer(opts *cloudprovider.SLoadbalancerBackend) error {
 	return errors.Wrap(cloudprovider.ErrNotImplemented, "RemoveBackendServer")
 }
 
@@ -164,6 +164,6 @@ func (self *SLoadbalancerBackendGroup) Delete(ctx context.Context) error {
 	return errors.Wrap(cloudprovider.ErrNotImplemented, "Delete")
 }
 
-func (self *SLoadbalancerBackendGroup) Sync(ctx context.Context, group *cloudprovider.SLoadbalancerBackendGroup) error {
-	return errors.Wrap(cloudprovider.ErrNotImplemented, "Sync")
+func (self *SLoadbalancerBackendGroup) Update(ctx context.Context, opts *cloudprovider.SLoadbalancerBackendGroup) error {
+	return errors.Wrap(cloudprovider.ErrNotImplemented, "Update")
 }

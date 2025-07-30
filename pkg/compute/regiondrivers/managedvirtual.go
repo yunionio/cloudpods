@@ -472,6 +472,21 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateLoadbalancerBackend
 		group := &cloudprovider.SLoadbalancerBackendGroup{
 			Name:      lbbg.Name,
 			GroupType: lbbg.Type,
+			Backends:  []cloudprovider.SLoadbalancerBackend{},
+		}
+		backends, err := lbbg.GetBackends()
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetBackends")
+		}
+		for i := range backends {
+			group.Backends = append(group.Backends, cloudprovider.SLoadbalancerBackend{
+				Weight:      backends[i].Weight,
+				Port:        backends[i].Port,
+				Name:        backends[i].Name,
+				BackendType: backends[i].BackendType,
+				BackendRole: backends[i].BackendRole,
+				Address:     backends[i].Address,
+			})
 		}
 		iLbbg, err := iLb.CreateILoadBalancerBackendGroup(group)
 		if err != nil {
@@ -555,7 +570,12 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateLoadbalancerBackend
 		if guest == nil {
 			return nil, fmt.Errorf("failed to find guest for lbb %s", lbb.Name)
 		}
-		iLoadbalancerBackend, err := iLoadbalancerBackendGroup.AddBackendServer(guest.ExternalId, lbb.Weight, lbb.Port)
+		opts := &cloudprovider.SLoadbalancerBackend{
+			Weight: lbb.Weight,
+			Port:   lbb.Port,
+			Id:     guest.ExternalId,
+		}
+		iLoadbalancerBackend, err := iLoadbalancerBackendGroup.AddBackendServer(opts)
 		if err != nil {
 			return nil, err
 		}
@@ -604,7 +624,12 @@ func (self *SManagedVirtualizationRegionDriver) RequestDeleteLoadbalancerBackend
 			}
 			return nil, err
 		}
-		return nil, iLoadbalancerBackendGroup.RemoveBackendServer(guest.ExternalId, lbb.Weight, lbb.Port)
+		opts := &cloudprovider.SLoadbalancerBackend{
+			Weight:     lbb.Weight,
+			Port:       lbb.Port,
+			ExternalId: guest.ExternalId,
+		}
+		return nil, iLoadbalancerBackendGroup.RemoveBackendServer(opts)
 	})
 	return nil
 }
@@ -637,7 +662,15 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncLoadbalancerBackend(c
 			return nil, errors.Wrap(err, "regionDriver.RequestSyncLoadbalancerBackend.GetILoadbalancerBackendById")
 		}
 
-		err = iBackend.SyncConf(ctx, lbb.Port, lbb.Weight)
+		opts := &cloudprovider.SLoadbalancerBackend{
+			Weight:      lbb.Weight,
+			Port:        lbb.Port,
+			ExternalId:  lbb.ExternalId,
+			BackendType: lbb.BackendType,
+			BackendRole: lbb.BackendRole,
+			Address:     lbb.Address,
+		}
+		err = iBackend.Update(ctx, opts)
 		if err != nil {
 			return nil, errors.Wrap(err, "regionDriver.RequestSyncLoadbalancerBackend.SyncConf")
 		}

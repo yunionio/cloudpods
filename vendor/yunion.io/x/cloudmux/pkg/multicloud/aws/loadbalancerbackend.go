@@ -19,6 +19,7 @@ import (
 	"fmt"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
+	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
 )
 
@@ -94,8 +95,8 @@ func (self *SElbBackend) GetBackendId() string {
 	return self.Target.Id
 }
 
-func (self *SElbBackend) SyncConf(ctx context.Context, port, weight int) error {
-	return self.group.lb.region.SyncElbBackend(self.GetId(), self.GetBackendId(), self.Target.Port, port)
+func (self *SElbBackend) Update(ctx context.Context, opts *cloudprovider.SLoadbalancerBackend) error {
+	return self.group.lb.region.SyncElbBackend(self.GetId(), self.GetBackendId(), self.Target.Port, opts.Port)
 }
 
 func (self *SElbBackend) GetIpAddress() string {
