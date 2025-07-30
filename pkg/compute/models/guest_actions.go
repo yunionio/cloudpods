@@ -3473,7 +3473,7 @@ func (g *SGuest) SetStatusFromHost(ctx context.Context, userCred mcclient.TokenC
 		statusStr = api.VM_RUNNING
 	case cloudprovider.CloudVMStatusSuspend:
 		statusStr = api.VM_SUSPEND
-	case cloudprovider.CloudVMStatusStopped:
+	case cloudprovider.CloudVMStatusStopped, api.VM_READY:
 		statusStr = api.VM_READY
 	case api.VM_BLOCK_STREAM, api.VM_BLOCK_STREAM_FAIL:
 		break

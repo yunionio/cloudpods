@@ -3665,7 +3665,8 @@ func (s *SKVMGuestInstance) GetUploadStatus(ctx context.Context, reason string) 
 func (s *SKVMGuestInstance) PostUploadStatus(resp *api.HostUploadGuestStatusInput, reason string) {
 }
 
-func (s *SKVMGuestInstance) HandleGuestStatus(ctx context.Context, resp *api.HostUploadGuestStatusInput) (jsonutils.JSONObject, error) {
+// except isBatch is false, the call is a sync call
+func (s *SKVMGuestInstance) HandleGuestStatus(ctx context.Context, resp *api.HostUploadGuestStatusInput, isBatch bool) *api.HostUploadGuestStatusInput {
 	if resp.Status == GUEST_RUNNING && s.pciUninitialized {
 		resp.Status = api.VM_UNSYNC
 	} else if resp.Status == GUEST_RUNNING {
@@ -3677,16 +3678,22 @@ func (s *SKVMGuestInstance) HandleGuestStatus(ctx context.Context, resp *api.Hos
 			resp.BlockJobsCount = blockJobsCount
 			hostutils.TaskComplete(ctx, jsonutils.Marshal(resp))
 		}
-		if s.Monitor == nil && !s.IsStopping() {
+		if s.Monitor == nil && !s.IsStopping() && !isBatch {
+			// 处理虚拟机手动启动，这里同步状态恢复monitor的情况，正常探测状态不会走这里，可以忽略
 			if err := s.StartMonitor(context.Background(), runCb, false); err != nil {
+				// 如果启动Monitor失败，则放弃启动，直接返回
 				log.Errorf("guest %s failed start monitor %s", s.GetName(), err)
-				hostutils.TaskComplete(ctx, jsonutils.Marshal(resp))
+			} else {
+				// start monitor success, the task will be handled there, return nil to inform the caller
+				return nil
 			}
-		} else {
-			runCb()
+		} else if s.Monitor != nil && s.IsRunning() {
+			blockJobsCount := s.BlockJobsCount()
+			if blockJobsCount > 0 {
+				resp.Status = GUEST_BLOCK_STREAM
+			}
+			resp.BlockJobsCount = blockJobsCount
 		}
-		return nil, nil
 	}
-	hostutils.TaskComplete(ctx, jsonutils.Marshal(resp))
-	return nil, nil
+	return resp
 }
