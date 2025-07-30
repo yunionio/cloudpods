@@ -29,6 +29,7 @@ type LoadbalancerListenerRuleDetails struct {
 	LoadbalancerListenerResourceInfo
 
 	SLoadbalancerListenerRule
+	LoadbalancerCertificateResourceInfo
 
 	BackendGroup string `json:"backend_group"`
 
@@ -56,6 +57,8 @@ type LoadbalancerListenerRuleCreateInput struct {
 	// swagger: ignore
 	Listener   string `json:"listener" yunion-deprecated-by:"listener_id"`
 	ListenerId string `json:"listener_id"`
+
+	CertificateId string `json:"certificate_id"`
 
 	// swagger:ignore
 	BackendGroup string `json:"backend_group" yunion-deprecated-by:"backend_group_id"`
