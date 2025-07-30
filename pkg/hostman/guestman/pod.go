@@ -564,10 +564,11 @@ func (s *sPodGuestInstance) probeGuestStatus(ctx context.Context, resp *computea
 	resp.Status = s.getStatus(ctx, resp.Status)
 }
 
-func (s *sPodGuestInstance) HandleGuestStatus(ctx context.Context, resp *computeapi.HostUploadGuestStatusInput) (jsonutils.JSONObject, error) {
-	s.probeGuestStatus(ctx, resp)
-	hostutils.TaskComplete(ctx, jsonutils.Marshal(resp))
-	return nil, nil
+func (s *sPodGuestInstance) HandleGuestStatus(ctx context.Context, resp *computeapi.HostUploadGuestStatusInput, isBatch bool) *computeapi.HostUploadGuestStatusInput {
+	//s.probeGuestStatus(ctx, resp)
+	//hostutils.TaskComplete(ctx, jsonutils.Marshal(resp))
+	ctrStatus, _ := s.GetUploadStatus(ctx, "")
+	return ctrStatus
 }
 
 func (s *sPodGuestInstance) HandleGuestStart(ctx context.Context, userCred mcclient.TokenCredential, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
