@@ -279,10 +279,11 @@ func (man *SLoadbalancerBackendGroupManager) ValidateCreateData(ctx context.Cont
 			input.Backends[i].ExternalId = host.ExternalId
 			input.Backends[i].Address = host.AccessIp
 			backendRegion, _ = host.GetRegion()
+		case api.LB_BACKEND_ADDRESS:
 		default:
 			return nil, httperrors.NewInputParameterError("unexpected backend type %s", input.Backends[i].BackendType)
 		}
-		if lbIsManaged && backendRegion.Id != region.Id {
+		if lbIsManaged && backendRegion != nil && backendRegion.Id != region.Id {
 			return nil, httperrors.NewInputParameterError("region of backend %d does not match that of lb's", i)
 		}
 	}
@@ -500,9 +501,12 @@ func (lbbg *SLoadbalancerBackendGroup) PostCreate(ctx context.Context, userCred 
 			Address:     input.Backends[i].Address,
 			Port:        input.Backends[i].Port,
 		}
+		backend.Name = input.Backends[i].Name
 		backend.BackendGroupId = lbbg.Id
 		backend.Status = api.LB_STATUS_ENABLED
-		backend.Name = fmt.Sprintf("%s-%s-%s", lbbg.Name, backend.BackendType, backend.Name)
+		if backend.BackendType == api.LB_BACKEND_GUEST {
+			backend.Name = fmt.Sprintf("%s-%s-%s", lbbg.Name, backend.BackendType, backend.Name)
+		}
 		backend.SetModelManager(LoadbalancerBackendManager, backend)
 		LoadbalancerBackendManager.TableSpec().Insert(ctx, backend)
 	}
