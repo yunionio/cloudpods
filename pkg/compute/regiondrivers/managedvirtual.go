@@ -93,7 +93,7 @@ func (self *SManagedVirtualizationRegionDriver) ValidateUpdateLoadbalancerBacken
 
 func (self *SManagedVirtualizationRegionDriver) ValidateCreateLoadbalancerBackendGroupData(ctx context.Context, userCred mcclient.TokenCredential, lb *models.SLoadbalancer, input *api.LoadbalancerBackendGroupCreateInput) (*api.LoadbalancerBackendGroupCreateInput, error) {
 	for _, backend := range input.Backends {
-		if len(backend.ExternalId) == 0 {
+		if len(backend.ExternalId) == 0 && backend.BackendType == api.LB_BACKEND_GUEST {
 			return nil, httperrors.NewInputParameterError("invalid guest %s", backend.Name)
 		}
 	}
@@ -496,6 +496,16 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateLoadbalancerBackend
 		if err != nil {
 			return nil, errors.Wrapf(err, "db.SetExternalId")
 		}
+		iBackends, err := iLbbg.GetILoadbalancerBackends()
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetILoadBalancerBackends")
+		}
+		for i := 0; i < len(backends) && i < len(iBackends); i++ {
+			db.Update(&backends[i], func() error {
+				backends[i].ExternalId = iBackends[i].GetGlobalId()
+				return nil
+			})
+		}
 		return nil, nil
 	})
 	return nil
@@ -566,14 +576,18 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateLoadbalancerBackend
 		if err != nil {
 			return nil, err
 		}
-		guest := lbb.GetGuest()
-		if guest == nil {
-			return nil, fmt.Errorf("failed to find guest for lbb %s", lbb.Name)
-		}
 		opts := &cloudprovider.SLoadbalancerBackend{
-			Weight: lbb.Weight,
-			Port:   lbb.Port,
-			Id:     guest.ExternalId,
+			Name:    lbb.Name,
+			Weight:  lbb.Weight,
+			Port:    lbb.Port,
+			Address: lbb.Address,
+		}
+		if lbb.BackendType == api.LB_BACKEND_GUEST {
+			guest := lbb.GetGuest()
+			if guest == nil {
+				return nil, fmt.Errorf("failed to find guest for lbb %s", lbb.Name)
+			}
+			opts.ExternalId = guest.ExternalId
 		}
 		iLoadbalancerBackend, err := iLoadbalancerBackendGroup.AddBackendServer(opts)
 		if err != nil {
@@ -612,22 +626,27 @@ func (self *SManagedVirtualizationRegionDriver) RequestDeleteLoadbalancerBackend
 		if err != nil {
 			return nil, err
 		}
-		guest := lbb.GetGuest()
-		if guest == nil {
-			log.Warningf("failed to find guest for lbb %s", lbb.Name)
-			return nil, nil
-		}
-		_, err = guest.GetIVM(ctx)
-		if err != nil {
-			if errors.Cause(err) == cloudprovider.ErrNotFound {
-				return nil, nil
-			}
-			return nil, err
-		}
 		opts := &cloudprovider.SLoadbalancerBackend{
 			Weight:     lbb.Weight,
 			Port:       lbb.Port,
-			ExternalId: guest.ExternalId,
+			Name:       lbb.Name,
+			Address:    lbb.Address,
+			ExternalId: lbb.ExternalId,
+		}
+		if lbb.BackendType == api.LB_BACKEND_GUEST {
+			guest := lbb.GetGuest()
+			if guest == nil {
+				log.Warningf("failed to find guest for lbb %s", lbb.Name)
+				return nil, nil
+			}
+			_, err = guest.GetIVM(ctx)
+			if err != nil {
+				if errors.Cause(err) == cloudprovider.ErrNotFound {
+					return nil, nil
+				}
+				return nil, err
+			}
+			opts.ExternalId = guest.ExternalId
 		}
 		return nil, iLoadbalancerBackendGroup.RemoveBackendServer(opts)
 	})
@@ -644,22 +663,18 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncLoadbalancerBackend(c
 		if err != nil {
 			return nil, err
 		}
-		iRegion, err := lb.GetIRegion(ctx)
+		iLb, err := lb.GetILoadbalancer(ctx)
 		if err != nil {
-			return nil, errors.Wrap(err, "regionDriver.RequestSyncLoadbalancerBackend.GetIRegion")
+			return nil, errors.Wrap(err, "GetILoadbalancer")
 		}
-		iLoadbalancer, err := iRegion.GetILoadBalancerById(lb.ExternalId)
+		iLoadbalancerBackendGroup, err := iLb.GetILoadBalancerBackendGroupById(lbbg.ExternalId)
 		if err != nil {
-			return nil, errors.Wrap(err, "regionDriver.RequestSyncLoadbalancerBackend.GetILoadBalancerById")
-		}
-		iLoadbalancerBackendGroup, err := iLoadbalancer.GetILoadBalancerBackendGroupById(lbbg.ExternalId)
-		if err != nil {
-			return nil, errors.Wrap(err, "regionDriver.RequestSyncLoadbalancerBackend.GetILoadBalancerBackendGroupById")
+			return nil, errors.Wrap(err, "GetILoadBalancerBackendGroupById")
 		}
 
 		iBackend, err := iLoadbalancerBackendGroup.GetILoadbalancerBackendById(lbb.ExternalId)
 		if err != nil {
-			return nil, errors.Wrap(err, "regionDriver.RequestSyncLoadbalancerBackend.GetILoadbalancerBackendById")
+			return nil, errors.Wrap(err, "GetILoadbalancerBackendById")
 		}
 
 		opts := &cloudprovider.SLoadbalancerBackend{
@@ -670,9 +685,12 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncLoadbalancerBackend(c
 			BackendRole: lbb.BackendRole,
 			Address:     lbb.Address,
 		}
+
+		opts.Enabled = jsonutils.QueryBoolean(task.GetParams(), "enabled", true)
+
 		err = iBackend.Update(ctx, opts)
 		if err != nil {
-			return nil, errors.Wrap(err, "regionDriver.RequestSyncLoadbalancerBackend.SyncConf")
+			return nil, errors.Wrap(err, "Update")
 		}
 
 		iBackend, err = iLoadbalancerBackendGroup.GetILoadbalancerBackendById(lbb.ExternalId)

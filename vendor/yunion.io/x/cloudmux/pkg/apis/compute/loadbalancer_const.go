@@ -155,9 +155,10 @@ const (
 
 // TODO raw type
 const (
-	LB_BACKEND_GUEST = "guest"
-	LB_BACKEND_HOST  = "host"
-	LB_BACKEND_IP    = "ip"
+	LB_BACKEND_GUEST   = "guest"
+	LB_BACKEND_HOST    = "host"
+	LB_BACKEND_IP      = "ip"
+	LB_BACKEND_ADDRESS = "address"
 )
 
 const (
