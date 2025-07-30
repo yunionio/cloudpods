@@ -44,6 +44,7 @@ type SLoadbalancerListenerRuleManager struct {
 	db.SStatusStandaloneResourceBaseManager
 	db.SExternalizedResourceBaseManager
 	SLoadbalancerListenerResourceBaseManager
+	SLoadbalancerCertificateResourceBaseManager
 }
 
 var LoadbalancerListenerRuleManager *SLoadbalancerListenerRuleManager
@@ -64,6 +65,7 @@ type SLoadbalancerListenerRule struct {
 	db.SStatusStandaloneResourceBase
 	db.SExternalizedResourceBase
 
+	SLoadbalancerCertificateResourceBase
 	SLoadbalancerListenerResourceBase `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 
 	// 默认转发策略，目前只有aws用到其它云都是false
@@ -544,6 +546,12 @@ func (man *SLoadbalancerListenerRuleManager) ValidateCreateData(ctx context.Cont
 	if err != nil {
 		return nil, errors.Wrap(err, "listener.GetRegion")
 	}
+	if len(input.CertificateId) > 0 {
+		_, err := validators.ValidateModel(ctx, userCred, LoadbalancerCertificateManager, &input.CertificateId)
+		if err != nil {
+			return nil, err
+		}
+	}
 	if region.GetDriver().IsSupportLoadbalancerListenerRuleRedirect() {
 		_, err := validators.ValidateModel(ctx, userCred, LoadbalancerBackendGroupManager, &input.BackendGroupId)
 		if err != nil {
@@ -599,8 +607,7 @@ func (lbr *SLoadbalancerListenerRule) StartLoadBalancerListenerRuleCreateTask(ct
 	if err != nil {
 		return err
 	}
-	task.ScheduleRun(nil)
-	return nil
+	return task.ScheduleRun(nil)
 }
 
 func (lbr *SLoadbalancerListenerRule) PerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -664,12 +671,14 @@ func (man *SLoadbalancerListenerRuleManager) FetchCustomizeColumns(
 
 	stdRows := man.SStatusStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	listenerRows := man.SLoadbalancerListenerResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	certificateRows := man.SLoadbalancerCertificateResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 
 	lbIds := make([]string, len(objs))
 	for i := range rows {
 		rows[i] = api.LoadbalancerListenerRuleDetails{
-			StatusStandaloneResourceDetails:  stdRows[i],
-			LoadbalancerListenerResourceInfo: listenerRows[i],
+			StatusStandaloneResourceDetails:     stdRows[i],
+			LoadbalancerListenerResourceInfo:    listenerRows[i],
+			LoadbalancerCertificateResourceInfo: certificateRows[i],
 		}
 		rows[i], _ = objs[i].(*SLoadbalancerListenerRule).getMoreDetails(rows[i])
 		lbIds[i] = rows[i].LoadbalancerId
@@ -812,6 +821,71 @@ func (lbr *SLoadbalancerListenerRule) constructFieldsFromCloudListenerRule(userC
 			log.Errorf("Fetch loadbalancer backendgroup by external id %s failed: %s", groupId, err)
 		} else {
 			lbr.BackendGroupId = group.GetId()
+		}
+	}
+
+	if groupIds, err := extRule.GetBackendGroups(); err == nil {
+		groups := api.ListenerRuleBackendGroups{}
+		for _, groupId := range groupIds {
+			groupObj, err := db.FetchByExternalIdAndManagerId(LoadbalancerBackendGroupManager, groupId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+				return q.Equals("loadbalancer_id", lis.LoadbalancerId)
+			})
+			if err != nil {
+				log.Errorf("Fetch loadbalancer backendgroup by external id %s failed: %s", groupId, err)
+				continue
+			}
+			group := groupObj.(*SLoadbalancerBackendGroup)
+			groups = append(groups, api.ListenerRuleBackendGroup{
+				Id:         group.Id,
+				ExternalId: group.ExternalId,
+				Name:       group.Name,
+			})
+		}
+		lbr.BackendGroups = &groups
+	}
+
+	if redirectPool, err := extRule.GetRedirectPool(); err == nil {
+		lbr.RedirectPool = &api.ListenerRuleRedirectPool{
+			RegionPools:  map[string]api.ListenerRuleBackendGroups{},
+			CountryPools: map[string]api.ListenerRuleBackendGroups{},
+		}
+		for poolName, poolIds := range redirectPool.RegionPools {
+			groups := api.ListenerRuleBackendGroups{}
+			for _, poolId := range poolIds {
+				groupObj, err := db.FetchByExternalIdAndManagerId(LoadbalancerBackendGroupManager, poolId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+					return q.Equals("loadbalancer_id", lis.LoadbalancerId)
+				})
+				if err != nil {
+					log.Errorf("Fetch loadbalancer backendgroup by external id %s failed: %s", poolId, err)
+					continue
+				}
+				group := groupObj.(*SLoadbalancerBackendGroup)
+				groups = append(groups, api.ListenerRuleBackendGroup{
+					Id:         group.Id,
+					ExternalId: group.ExternalId,
+					Name:       group.Name,
+				})
+			}
+			lbr.RedirectPool.RegionPools[poolName] = groups
+		}
+		for poolName, poolIds := range redirectPool.CountryPools {
+			groups := api.ListenerRuleBackendGroups{}
+			for _, poolId := range poolIds {
+				groupObj, err := db.FetchByExternalIdAndManagerId(LoadbalancerBackendGroupManager, poolId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+					return q.Equals("loadbalancer_id", lis.LoadbalancerId)
+				})
+				if err != nil {
+					log.Errorf("Fetch loadbalancer backendgroup by external id %s failed: %s", poolId, err)
+					continue
+				}
+				group := groupObj.(*SLoadbalancerBackendGroup)
+				groups = append(groups, api.ListenerRuleBackendGroup{
+					Id:         group.Id,
+					ExternalId: group.ExternalId,
+					Name:       group.Name,
+				})
+			}
+			lbr.RedirectPool.CountryPools[poolName] = groups
 		}
 	}
 }
