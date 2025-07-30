@@ -29,7 +29,7 @@ import (
 )
 
 type SElbBackendGroup struct {
-	multicloud.SResourceBase
+	multicloud.SLoadbalancerBackendGroupBase
 	AwsTags
 	lb *SElb
 
@@ -183,8 +183,8 @@ func (self *SElbBackendGroup) GetStickySession() (*cloudprovider.SLoadbalancerSt
 	return ret, nil
 }
 
-func (self *SElbBackendGroup) AddBackendServer(serverId string, weight int, port int) (cloudprovider.ICloudLoadbalancerBackend, error) {
-	backend, err := self.lb.region.AddElbBackend(self.GetId(), serverId, weight, port)
+func (self *SElbBackendGroup) AddBackendServer(opts *cloudprovider.SLoadbalancerBackend) (cloudprovider.ICloudLoadbalancerBackend, error) {
+	backend, err := self.lb.region.AddElbBackend(self.GetId(), opts.ExternalId, opts.Weight, opts.Port)
 	if err != nil {
 		return nil, errors.Wrap(err, "AddElbBackend")
 	}
@@ -193,16 +193,12 @@ func (self *SElbBackendGroup) AddBackendServer(serverId string, weight int, port
 	return backend, nil
 }
 
-func (self *SElbBackendGroup) RemoveBackendServer(serverId string, weight int, port int) error {
-	return self.lb.region.RemoveElbBackend(self.GetId(), serverId, weight, port)
+func (self *SElbBackendGroup) RemoveBackendServer(opts *cloudprovider.SLoadbalancerBackend) error {
+	return self.lb.region.RemoveElbBackend(self.GetId(), opts.ExternalId, opts.Weight, opts.Port)
 }
 
 func (self *SElbBackendGroup) Delete(ctx context.Context) error {
 	return self.lb.region.DeleteElbBackendGroup(self.GetId())
-}
-
-func (self *SElbBackendGroup) Sync(ctx context.Context, group *cloudprovider.SLoadbalancerBackendGroup) error {
-	return nil
 }
 
 func (self *SRegion) GetELbBackends(backendgroupId string) ([]SElbBackend, error) {

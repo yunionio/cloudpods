@@ -69,11 +69,18 @@ type SLoadbalancerListenerRule struct {
 	// 默认转发策略，目前只有aws用到其它云都是false
 	IsDefault bool `default:"false" nullable:"true" list:"user" create:"optional"`
 
+	// 默认后端服务器组
 	BackendGroupId string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
 
+	// 后端服务器组列表
+	BackendGroups *api.ListenerRuleBackendGroups `list:"user" update:"user" create:"optional"`
+
+	// 域名
 	Domain    string `width:"128" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 	Path      string `width:"128" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 	Condition string `charset:"ascii" nullable:"true" list:"user" create:"optional"`
+
+	RedirectPool *api.ListenerRuleRedirectPool `list:"user" update:"user" create:"optional"`
 
 	SLoadbalancerHealthCheck // 目前只有腾讯云HTTP、HTTPS类型的健康检查是和规则绑定的。
 	SLoadbalancerHTTPRateLimiter
@@ -541,6 +548,38 @@ func (man *SLoadbalancerListenerRuleManager) ValidateCreateData(ctx context.Cont
 		_, err := validators.ValidateModel(ctx, userCred, LoadbalancerBackendGroupManager, &input.BackendGroupId)
 		if err != nil {
 			return nil, errors.Wrap(err, "ValidateModel LoadbalancerBackendGroupManager")
+		}
+	}
+	for i := range input.BackendGroups {
+		groupObj, err := validators.ValidateModel(ctx, userCred, LoadbalancerBackendGroupManager, &input.BackendGroups[i].Id)
+		if err != nil {
+			return nil, errors.Wrap(err, "ValidateModel LoadbalancerBackendGroupManager")
+		}
+		group := groupObj.(*SLoadbalancerBackendGroup)
+		input.BackendGroups[i].ExternalId = group.ExternalId
+		input.BackendGroups[i].Name = group.Name
+	}
+
+	for poolName, pools := range input.RedirectPool.RegionPools {
+		for i, group := range pools {
+			groupObj, err := validators.ValidateModel(ctx, userCred, LoadbalancerBackendGroupManager, &group.Id)
+			if err != nil {
+				return nil, errors.Wrap(err, "ValidateModel LoadbalancerBackendGroupManager")
+			}
+			group := groupObj.(*SLoadbalancerBackendGroup)
+			input.RedirectPool.RegionPools[poolName][i].ExternalId = group.ExternalId
+			input.RedirectPool.RegionPools[poolName][i].Name = group.Name
+		}
+	}
+	for poolName, pools := range input.RedirectPool.CountryPools {
+		for i, group := range pools {
+			groupObj, err := validators.ValidateModel(ctx, userCred, LoadbalancerBackendGroupManager, &group.Id)
+			if err != nil {
+				return nil, errors.Wrap(err, "ValidateModel LoadbalancerBackendGroupManager")
+			}
+			group := groupObj.(*SLoadbalancerBackendGroup)
+			input.RedirectPool.CountryPools[poolName][i].ExternalId = group.ExternalId
+			input.RedirectPool.CountryPools[poolName][i].Name = group.Name
 		}
 	}
 	return region.GetDriver().ValidateCreateLoadbalancerListenerRuleData(ctx, userCred, ownerId, input)

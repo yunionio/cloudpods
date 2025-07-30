@@ -15,8 +15,11 @@
 package regiondrivers
 
 import (
+	"context"
+
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 type SCloudflareRegionDriver struct {
@@ -30,4 +33,12 @@ func init() {
 
 func (self *SCloudflareRegionDriver) GetProvider() string {
 	return api.CLOUD_PROVIDER_CLOUDFLARE
+}
+
+func (self *SCloudflareRegionDriver) IsSupportLoadbalancerListenerRuleRedirect() bool {
+	return true
+}
+
+func (self *SCloudflareRegionDriver) ValidateCreateLoadbalancerListenerRuleData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, input *api.LoadbalancerListenerRuleCreateInput) (*api.LoadbalancerListenerRuleCreateInput, error) {
+	return input, nil
 }

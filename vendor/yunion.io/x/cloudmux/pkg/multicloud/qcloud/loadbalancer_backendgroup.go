@@ -27,12 +27,16 @@ import (
 )
 
 type SLBBackendGroup struct {
-	multicloud.SResourceBase
+	multicloud.SLoadbalancerBackendGroupBase
 	QcloudTags
 	lb       *SLoadbalancer // 必须不能为nil
 	listener *SLBListener   // 可能为nil
 	domain   string
 	path     string
+}
+
+func (self *SLBBackendGroup) GetScheduler() string {
+	return ""
 }
 
 // 返回requestid
@@ -99,8 +103,8 @@ func (self *SLBBackendGroup) updateBackendServerPort(action string, serverId str
 
 // https://cloud.tencent.com/document/product/214/30676
 // https://cloud.tencent.com/document/product/214/31789
-func (self *SLBBackendGroup) AddBackendServer(serverId string, weight int, port int) (cloudprovider.ICloudLoadbalancerBackend, error) {
-	requestId, err := self.appLBBackendServer("RegisterTargets", serverId, weight, port, self.domain, self.path)
+func (self *SLBBackendGroup) AddBackendServer(opts *cloudprovider.SLoadbalancerBackend) (cloudprovider.ICloudLoadbalancerBackend, error) {
+	requestId, err := self.appLBBackendServer("RegisterTargets", opts.ExternalId, opts.Weight, opts.Port, self.domain, self.path)
 	if err != nil {
 		return nil, err
 	}
@@ -113,7 +117,7 @@ func (self *SLBBackendGroup) AddBackendServer(serverId string, weight int, port 
 		return nil, err
 	}
 	for _, backend := range backends {
-		if strings.HasSuffix(backend.GetId(), fmt.Sprintf("%s-%d", serverId, port)) {
+		if strings.HasSuffix(backend.GetId(), fmt.Sprintf("%s-%d", opts.ExternalId, opts.Port)) {
 			return &backend, nil
 		}
 	}
@@ -122,8 +126,8 @@ func (self *SLBBackendGroup) AddBackendServer(serverId string, weight int, port 
 
 // https://cloud.tencent.com/document/product/214/30687
 // https://cloud.tencent.com/document/product/214/31794
-func (self *SLBBackendGroup) RemoveBackendServer(serverId string, weight int, port int) error {
-	requestId, err := self.appLBBackendServer("DeregisterTargets", serverId, weight, port, self.domain, self.path)
+func (self *SLBBackendGroup) RemoveBackendServer(opts *cloudprovider.SLoadbalancerBackend) error {
+	requestId, err := self.appLBBackendServer("DeregisterTargets", opts.ExternalId, opts.Weight, opts.Port, self.domain, self.path)
 	if err != nil {
 		if strings.Contains(err.Error(), "not registered") {
 			return nil
@@ -135,11 +139,6 @@ func (self *SLBBackendGroup) RemoveBackendServer(serverId string, weight int, po
 
 // 腾讯云无后端服务器组。
 func (self *SLBBackendGroup) Delete(ctx context.Context) error {
-	return nil
-}
-
-// 腾讯云无后端服务器组
-func (self *SLBBackendGroup) Sync(ctx context.Context, group *cloudprovider.SLoadbalancerBackendGroup) error {
 	return nil
 }
 

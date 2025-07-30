@@ -26,7 +26,7 @@ import (
 )
 
 type SLoadbalancerDefaultBackendGroup struct {
-	multicloud.SResourceBase
+	multicloud.SLoadbalancerBackendGroupBase
 	AliyunTags
 	lb *SLoadbalancer
 }
@@ -113,10 +113,6 @@ func (backendgroup *SLoadbalancerDefaultBackendGroup) GetILoadbalancerBackendByI
 	return nil, cloudprovider.ErrNotFound
 }
 
-func (backendgroup *SLoadbalancerDefaultBackendGroup) Sync(ctx context.Context, group *cloudprovider.SLoadbalancerBackendGroup) error {
-	return cloudprovider.ErrNotSupported
-}
-
 func (backendgroup *SLoadbalancerDefaultBackendGroup) Delete(ctx context.Context) error {
 	return cloudprovider.ErrNotSupported
 }
@@ -132,11 +128,11 @@ func (region *SRegion) AddBackendServer(loadbalancerId, serverId string, weight,
 	return err
 }
 
-func (backendgroup *SLoadbalancerDefaultBackendGroup) AddBackendServer(serverId string, weight, port int) (cloudprovider.ICloudLoadbalancerBackend, error) {
-	if err := backendgroup.lb.region.AddBackendServer(backendgroup.lb.LoadBalancerId, serverId, weight, port); err != nil {
+func (backendgroup *SLoadbalancerDefaultBackendGroup) AddBackendServer(opts *cloudprovider.SLoadbalancerBackend) (cloudprovider.ICloudLoadbalancerBackend, error) {
+	if err := backendgroup.lb.region.AddBackendServer(backendgroup.lb.LoadBalancerId, opts.ExternalId, opts.Weight, opts.Port); err != nil {
 		return nil, err
 	}
-	return &SLoadbalancerDefaultBackend{lbbg: backendgroup, ServerId: serverId, Weight: weight}, nil
+	return &SLoadbalancerDefaultBackend{lbbg: backendgroup, ServerId: opts.ExternalId, Weight: opts.Weight}, nil
 }
 
 func (region *SRegion) RemoveBackendServer(loadbalancerId, serverId string) error {
@@ -150,8 +146,8 @@ func (region *SRegion) RemoveBackendServer(loadbalancerId, serverId string) erro
 	return err
 }
 
-func (backendgroup *SLoadbalancerDefaultBackendGroup) RemoveBackendServer(serverId string, weight, port int) error {
-	return backendgroup.lb.region.RemoveBackendServer(backendgroup.lb.LoadBalancerId, serverId)
+func (backendgroup *SLoadbalancerDefaultBackendGroup) RemoveBackendServer(opts *cloudprovider.SLoadbalancerBackend) error {
+	return backendgroup.lb.region.RemoveBackendServer(backendgroup.lb.LoadBalancerId, opts.ExternalId)
 }
 
 func (backendgroup *SLoadbalancerDefaultBackendGroup) GetProjectId() string {

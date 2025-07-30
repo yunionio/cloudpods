@@ -26,7 +26,7 @@ import (
 )
 
 type SLoadbalancerMasterSlaveBackendGroup struct {
-	multicloud.SResourceBase
+	multicloud.SLoadbalancerBackendGroupBase
 	ApsaraTags
 	lb *SLoadbalancer
 
@@ -154,7 +154,7 @@ func (region *SRegion) CreateLoadbalancerMasterSlaveBackendGroup(name, loadbalan
 		servers.Add(
 			jsonutils.Marshal(
 				map[string]string{
-					"ServerId":   backend.ExternalID,
+					"ServerId":   backend.ExternalId,
 					"Port":       fmt.Sprintf("%d", backend.Port),
 					"Weight":     fmt.Sprintf("%d", backend.Weight),
 					"ServerType": serverType,
@@ -186,7 +186,7 @@ func (region *SRegion) GetLoadbalancerMasterSlaveBackendgroupById(groupId string
 	return group, body.Unmarshal(group)
 }
 
-func (backendgroup *SLoadbalancerMasterSlaveBackendGroup) Sync(ctx context.Context, group *cloudprovider.SLoadbalancerBackendGroup) error {
+func (backendgroup *SLoadbalancerMasterSlaveBackendGroup) Update(ctx context.Context, opts *cloudprovider.SLoadbalancerBackendGroup) error {
 	return nil
 }
 
@@ -202,10 +202,10 @@ func (backendgroup *SLoadbalancerMasterSlaveBackendGroup) Delete(ctx context.Con
 	return backendgroup.lb.region.DeleteLoadbalancerMasterSlaveBackendgroup(backendgroup.MasterSlaveServerGroupId)
 }
 
-func (backendgroup *SLoadbalancerMasterSlaveBackendGroup) AddBackendServer(serverId string, weight, port int) (cloudprovider.ICloudLoadbalancerBackend, error) {
+func (backendgroup *SLoadbalancerMasterSlaveBackendGroup) AddBackendServer(opts *cloudprovider.SLoadbalancerBackend) (cloudprovider.ICloudLoadbalancerBackend, error) {
 	return nil, cloudprovider.ErrNotSupported
 }
 
-func (backendgroup *SLoadbalancerMasterSlaveBackendGroup) RemoveBackendServer(serverId string, weight, port int) error {
+func (backendgroup *SLoadbalancerMasterSlaveBackendGroup) RemoveBackendServer(opts *cloudprovider.SLoadbalancerBackend) error {
 	return cloudprovider.ErrNotSupported
 }

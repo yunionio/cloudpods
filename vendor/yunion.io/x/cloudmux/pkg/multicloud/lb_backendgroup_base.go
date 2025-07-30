@@ -12,18 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cloudprovider
+package multicloud
 
-type SLoadbalancerBackend struct {
-	Index       int
-	Weight      int
-	Port        int
-	Id          string
-	Name        string
-	ExternalId  string
-	BackendType string
-	BackendRole string
-	Address     string
-	ZoneId      string
-	HostName    string
+import (
+	"context"
+
+	"yunion.io/x/cloudmux/pkg/cloudprovider"
+)
+
+type SLoadbalancerBackendGroupBase struct {
+	SResourceBase
+}
+
+func (self *SLoadbalancerBackendGroupBase) Update(ctx context.Context, opts *cloudprovider.SLoadbalancerBackendGroup) error {
+	return cloudprovider.ErrNotImplemented
 }

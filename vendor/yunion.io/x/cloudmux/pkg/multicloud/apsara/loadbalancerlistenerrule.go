@@ -102,6 +102,18 @@ func (lbr *SLoadbalancerListenerRule) GetBackendGroupId() string {
 	return lbr.VServerGroupId
 }
 
+func (lbr *SLoadbalancerListenerRule) GetBackendGroups() ([]string, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (lbr *SLoadbalancerListenerRule) GetRedirectPool() (cloudprovider.SRedirectPool, error) {
+	return cloudprovider.SRedirectPool{}, cloudprovider.ErrNotImplemented
+}
+
+func (lbr *SLoadbalancerListenerRule) Update(ctx context.Context, opts *cloudprovider.SLoadbalancerListenerRule) error {
+	return cloudprovider.ErrNotImplemented
+}
+
 func (region *SRegion) GetLoadbalancerListenerRules(loadbalancerId string, listenerPort int) ([]SLoadbalancerListenerRule, error) {
 	params := map[string]string{}
 	params["RegionId"] = region.RegionId

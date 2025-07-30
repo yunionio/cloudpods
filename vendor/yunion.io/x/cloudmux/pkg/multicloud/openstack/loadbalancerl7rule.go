@@ -191,6 +191,18 @@ func (l7r *SLoadbalancerL7Rule) GetBackendGroupId() string {
 	return l7r.policy.RedirectPoolID
 }
 
+func (l7r *SLoadbalancerL7Rule) GetBackendGroups() ([]string, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (l7r *SLoadbalancerL7Rule) GetRedirectPool() (cloudprovider.SRedirectPool, error) {
+	return cloudprovider.SRedirectPool{}, cloudprovider.ErrNotImplemented
+}
+
+func (l7r *SLoadbalancerL7Rule) Update(ctx context.Context, opts *cloudprovider.SLoadbalancerListenerRule) error {
+	return cloudprovider.ErrNotImplemented
+}
+
 func (l7r *SLoadbalancerL7Rule) Delete(ctx context.Context) error {
 	return l7r.policy.region.DeleteLoadbalancerListenerL7policy(l7r.policy.ID)
 }

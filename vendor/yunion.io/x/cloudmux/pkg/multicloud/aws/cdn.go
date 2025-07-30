@@ -124,11 +124,11 @@ func (cd *SCdnDomain) GetEnabled() bool {
 }
 
 func (cd *SCdnDomain) GetId() string {
-	return cd.DomainName
+	return cd.ARN
 }
 
 func (cd *SCdnDomain) GetGlobalId() string {
-	return cd.DomainName
+	return cd.ARN
 }
 
 func (cd *SCdnDomain) GetName() string {

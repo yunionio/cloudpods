@@ -150,22 +150,16 @@ func (group *SAlbServerGroup) GetILoadbalancerBackendById(backendId string) (clo
 	return nil, cloudprovider.ErrNotFound
 }
 
-func (group *SAlbServerGroup) Sync(ctx context.Context, group2 *cloudprovider.SLoadbalancerBackendGroup) error {
-	return nil
+func (group *SAlbServerGroup) Update(ctx context.Context, opts *cloudprovider.SLoadbalancerBackendGroup) error {
+	return cloudprovider.ErrNotImplemented
 }
 
 func (group *SAlbServerGroup) Delete(ctx context.Context) error {
 	return group.alb.region.DeleteAlbServerGroup(group.ServerGroupId)
 }
 
-func (group *SAlbServerGroup) AddBackendServer(serverId string, weight, port int) (cloudprovider.ICloudLoadbalancerBackend, error) {
-	err := group.alb.region.AddServersToAlbServerGroup(group.ServerGroupId, []cloudprovider.SLoadbalancerBackend{
-		{
-			ExternalID: serverId,
-			Weight:     weight,
-			Port:       port,
-		},
-	})
+func (group *SAlbServerGroup) AddBackendServer(opts *cloudprovider.SLoadbalancerBackend) (cloudprovider.ICloudLoadbalancerBackend, error) {
+	err := group.alb.region.AddServersToAlbServerGroup(group.ServerGroupId, []cloudprovider.SLoadbalancerBackend{*opts})
 	if err != nil {
 		return nil, err
 	}
@@ -173,15 +167,15 @@ func (group *SAlbServerGroup) AddBackendServer(serverId string, weight, port int
 	return &SAlbServerGroupServer{
 		albServerGroup: group,
 		AlbServer: AlbServer{
-			ServerId: serverId,
-			Weight:   weight,
-			Port:     port,
+			ServerId: opts.ExternalId,
+			Weight:   opts.Weight,
+			Port:     opts.Port,
 		},
 	}, nil
 }
 
-func (group *SAlbServerGroup) RemoveBackendServer(serverId string, weight, port int) error {
-	return group.alb.region.RemoveServersFromAlbServerGroup(group.ServerGroupId, []string{serverId})
+func (group *SAlbServerGroup) RemoveBackendServer(opts *cloudprovider.SLoadbalancerBackend) error {
+	return group.alb.region.RemoveServersFromAlbServerGroup(group.ServerGroupId, []string{opts.ExternalId})
 }
 
 func (group *SAlbServerGroup) GetProjectId() string {
@@ -287,7 +281,7 @@ func (region *SRegion) AddServersToAlbServerGroup(serverGroupId string, backends
 	servers := jsonutils.NewArray()
 	for _, backend := range backends {
 		servers.Add(jsonutils.Marshal(map[string]interface{}{
-			"ServerId":   backend.ExternalID,
+			"ServerId":   backend.ExternalId,
 			"ServerType": "Ecs",
 			"Port":       backend.Port,
 			"Weight":     backend.Weight,

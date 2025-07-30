@@ -78,6 +78,6 @@ func (self *SLoadbalancerBackend) GetIpAddress() string {
 	return self.PrivateIPAddress + strings.Join(self.LoadBalancerBackendAddresses, ",")
 }
 
-func (self *SLoadbalancerBackend) SyncConf(ctx context.Context, port, weight int) error {
-	return errors.Wrap(cloudprovider.ErrNotImplemented, "SyncConf")
+func (self *SLoadbalancerBackend) Update(ctx context.Context, opts *cloudprovider.SLoadbalancerBackend) error {
+	return errors.Wrap(cloudprovider.ErrNotImplemented, "Update")
 }
