@@ -19,6 +19,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
@@ -40,5 +41,14 @@ func (self *SCloudflareRegionDriver) IsSupportLoadbalancerListenerRuleRedirect()
 }
 
 func (self *SCloudflareRegionDriver) ValidateCreateLoadbalancerListenerRuleData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, input *api.LoadbalancerListenerRuleCreateInput) (*api.LoadbalancerListenerRuleCreateInput, error) {
+	return input, nil
+}
+
+func (self *SCloudflareRegionDriver) ValidateCreateLoadbalancerBackendData(ctx context.Context, userCred mcclient.TokenCredential,
+	lb *models.SLoadbalancer, lbbg *models.SLoadbalancerBackendGroup,
+	input *api.LoadbalancerBackendCreateInput) (*api.LoadbalancerBackendCreateInput, error) {
+	if input.BackendType != api.LB_BACKEND_ADDRESS {
+		return nil, httperrors.NewUnsupportOperationError("internal error: unexpected backend type %s", input.BackendType)
+	}
 	return input, nil
 }

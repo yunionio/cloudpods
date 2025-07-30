@@ -277,7 +277,7 @@ func (man *SLoadbalancerBackendManager) ValidateCreateData(ctx context.Context, 
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetLoadbalancer")
 	}
-	if len(input.BackendId) == 0 {
+	if len(input.BackendId) == 0 && input.BackendType != api.LB_BACKEND_ADDRESS {
 		return nil, httperrors.NewMissingParameterError("backend_id")
 	}
 	region, err := lb.GetRegion()
@@ -348,6 +348,11 @@ func (man *SLoadbalancerBackendManager) ValidateCreateData(ctx context.Context, 
 		}
 		input.Address = input.BackendId
 		baseName = input.Address
+
+	case api.LB_BACKEND_ADDRESS:
+		if len(input.Address) == 0 {
+			return nil, httperrors.NewMissingParameterError("address")
+		}
 	default:
 		return input, httperrors.NewInputParameterError("invalid backend_type %s", input.BackendType)
 	}
@@ -420,20 +425,22 @@ func (lbb *SLoadbalancerBackend) ValidateUpdateData(ctx context.Context, userCre
 
 func (lbb *SLoadbalancerBackend) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	lbb.SStatusStandaloneResourceBase.PostUpdate(ctx, userCred, query, data)
-	if data.Contains("port") || data.Contains("weight") {
-		lbb.StartLoadBalancerBackendSyncTask(ctx, userCred, "")
+	if data.Contains("port") || data.Contains("weight") || data.Contains("enabled") {
+		params := data.(*jsonutils.JSONDict)
+		if !params.Contains("enabled") {
+			params.Add(jsonutils.NewBool(lbb.Status == api.LB_STATUS_ENABLED), "enabled")
+		}
+		lbb.StartLoadBalancerBackendSyncTask(ctx, userCred, params, "")
 	}
 }
 
-func (lbb *SLoadbalancerBackend) StartLoadBalancerBackendSyncTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
-	params := jsonutils.NewDict()
+func (lbb *SLoadbalancerBackend) StartLoadBalancerBackendSyncTask(ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict, parentTaskId string) error {
 	lbb.SetStatus(ctx, userCred, api.LB_SYNC_CONF, "")
 	task, err := taskman.TaskManager.NewTask(ctx, "LoadbalancerBackendSyncTask", lbb, userCred, params, parentTaskId, "", nil)
 	if err != nil {
 		return err
 	}
-	task.ScheduleRun(nil)
-	return nil
+	return task.ScheduleRun(nil)
 }
 
 func (lbb *SLoadbalancerBackend) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
