@@ -134,9 +134,10 @@ func newNvidiaGpuShare(devPath string, index int) (*nvidiaGpuShareDev, error) {
 
 	return &nvidiaGpuShareDev{
 		nvidiaGPU: nvidiaGPU{
-			BaseDevice: dev,
-			memSize:    devUsages[devAddr].memSize,
-			gpuIndex:   devUsages[devAddr].gpuIndex,
+			BaseDevice:  dev,
+			memSize:     devUsages[devAddr].memSize,
+			gpuIndex:    devUsages[devAddr].gpuIndex,
+			deviceMinor: devUsages[devAddr].deviceMinor,
 		},
 		CardPath:   cardLinkPath,
 		RenderPath: devPath,

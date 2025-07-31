@@ -1999,6 +1999,56 @@ func (s *sPodGuestInstance) createContainer(ctx context.Context, userCred mcclie
 	return criId, nil
 }
 
+func filterContainerDevices(devs []*hostapi.ContainerDevice) ([]*hostapi.ContainerDevice, []*hostapi.ContainerDevice) {
+	envDevs := []*hostapi.ContainerDevice{}
+	restDevs := []*hostapi.ContainerDevice{}
+	for _, dev := range devs {
+		if dev.IsolatedDevice != nil && len(dev.IsolatedDevice.OnlyEnv) > 0 {
+			envDevs = append(envDevs, dev)
+		} else {
+			restDevs = append(restDevs, dev)
+		}
+	}
+	return envDevs, restDevs
+}
+
+func getEnvsFromDevices(devs []*hostapi.ContainerDevice) []*runtimeapi.KeyValue {
+	retEnvs := []*runtimeapi.KeyValue{}
+	for _, dev := range devs {
+		if dev.IsolatedDevice == nil {
+			continue
+		}
+		if len(dev.IsolatedDevice.OnlyEnv) == 0 {
+			continue
+		}
+		for _, oe := range dev.IsolatedDevice.OnlyEnv {
+			var tmpEnv *runtimeapi.KeyValue
+			if oe.FromRenderPath {
+				tmpEnv = &runtimeapi.KeyValue{
+					Key:   oe.Key,
+					Value: dev.IsolatedDevice.RenderPath,
+				}
+			}
+			if oe.FromIndex {
+				tmpEnv = &runtimeapi.KeyValue{
+					Key:   oe.Key,
+					Value: fmt.Sprintf("%d", dev.IsolatedDevice.Index),
+				}
+			}
+			if oe.FromDeviceMinor {
+				tmpEnv = &runtimeapi.KeyValue{
+					Key:   oe.Key,
+					Value: fmt.Sprintf("%d", dev.IsolatedDevice.DeviceMinor),
+				}
+			}
+			if tmpEnv != nil {
+				retEnvs = append(retEnvs, tmpEnv)
+			}
+		}
+	}
+	return retEnvs
+}
+
 func (s *sPodGuestInstance) getIsolatedDeviceExtraConfig(spec *hostapi.ContainerSpec, ctrCfg *runtimeapi.ContainerConfig) error {
 	devTypes := []isolated_device.ContainerDeviceType{
 		isolated_device.ContainerDeviceTypeNvidiaGpu,
@@ -2011,7 +2061,9 @@ func (s *sPodGuestInstance) getIsolatedDeviceExtraConfig(spec *hostapi.Container
 		if err != nil {
 			return errors.Wrapf(err, "GetContainerDeviceManager by type %q", devType)
 		}
-		envs, mounts := devMan.GetContainerExtraConfigures(spec.Devices)
+		envDevs, restDevs := filterContainerDevices(spec.Devices)
+		ctrCfg.Envs = append(ctrCfg.Envs, getEnvsFromDevices(envDevs)...)
+		envs, mounts := devMan.GetContainerExtraConfigures(restDevs)
 		if len(envs) > 0 {
 			ctrCfg.Envs = append(ctrCfg.Envs, envs...)
 		}
