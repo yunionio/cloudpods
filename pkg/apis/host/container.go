@@ -86,13 +86,15 @@ type ContainerDevice struct {
 }
 
 type ContainerIsolatedDevice struct {
-	Id         string                                 `json:"id"`
-	Addr       string                                 `json:"addr"`
-	Path       string                                 `json:"path"`
-	DeviceType string                                 `json:"device_type"`
-	CardPath   string                                 `json:"card_path"`
-	RenderPath string                                 `json:"render_path"`
-	OnlyEnv    []*apis.ContainerIsolatedDeviceOnlyEnv `json:"only_env"`
+	Id          string                                 `json:"id"`
+	Addr        string                                 `json:"addr"`
+	Path        string                                 `json:"path"`
+	DeviceType  string                                 `json:"device_type"`
+	CardPath    string                                 `json:"card_path"`
+	RenderPath  string                                 `json:"render_path"`
+	Index       int                                    `json:"index"`
+	DeviceMinor int                                    `json:"device_minor"`
+	OnlyEnv     []*apis.ContainerIsolatedDeviceOnlyEnv `json:"only_env"`
 }
 
 type ContainerHostDevice struct {
