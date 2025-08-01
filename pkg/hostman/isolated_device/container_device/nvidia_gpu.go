@@ -15,6 +15,8 @@
 package container_device
 
 import (
+	"fmt"
+	"strconv"
 	"strings"
 
 	runtimeapi "k8s.io/cri-api/pkg/apis/runtime/v1"
@@ -56,7 +58,6 @@ func (m *nvidiaGPUManager) NewContainerDevices(input *hostapi.ContainerCreateInp
 
 func (m *nvidiaGPUManager) GetContainerExtraConfigures(devs []*hostapi.ContainerDevice) ([]*runtimeapi.KeyValue, []*runtimeapi.Mount) {
 	gpuIds := []string{}
-	retEnvs := []*runtimeapi.KeyValue{}
 	for _, dev := range devs {
 		if dev.IsolatedDevice == nil {
 			continue
@@ -68,23 +69,12 @@ func (m *nvidiaGPUManager) GetContainerExtraConfigures(devs []*hostapi.Container
 		if !types.Has(dev.IsolatedDevice.DeviceType) {
 			continue
 		}
-		if len(dev.IsolatedDevice.OnlyEnv) > 0 {
-			for _, oe := range dev.IsolatedDevice.OnlyEnv {
-				if !oe.FromRenderPath {
-					continue
-				}
-				retEnvs = append(retEnvs, &runtimeapi.KeyValue{
-					Key:   oe.Key,
-					Value: dev.IsolatedDevice.RenderPath,
-				})
-			}
-		} else {
-			gpuIds = append(gpuIds, dev.IsolatedDevice.Path)
-		}
+		gpuIds = append(gpuIds, dev.IsolatedDevice.Path)
 	}
-	if len(gpuIds) == 0 && len(retEnvs) == 0 {
+	if len(gpuIds) == 0 {
 		return nil, nil
 	}
+	retEnvs := []*runtimeapi.KeyValue{}
 	if len(gpuIds) > 0 {
 		retEnvs = append(retEnvs, []*runtimeapi.KeyValue{
 			{
@@ -103,8 +93,9 @@ func (m *nvidiaGPUManager) GetContainerExtraConfigures(devs []*hostapi.Container
 type nvidiaGPU struct {
 	*BaseDevice
 
-	memSize  int
-	gpuIndex string
+	memSize     int
+	gpuIndex    int
+	deviceMinor int
 }
 
 func (dev *nvidiaGPU) GetNvidiaDevMemSize() int {
@@ -112,7 +103,15 @@ func (dev *nvidiaGPU) GetNvidiaDevMemSize() int {
 }
 
 func (dev *nvidiaGPU) GetNvidiaDevIndex() string {
+	return fmt.Sprintf("%d", dev.gpuIndex)
+}
+
+func (dev *nvidiaGPU) GetIndex() int {
 	return dev.gpuIndex
+}
+
+func (dev *nvidiaGPU) GetDeviceMinor() int {
+	return dev.deviceMinor
 }
 
 func probeNvidiaGpus() ([]isolated_device.IDevice, error) {
@@ -165,6 +164,10 @@ func getNvidiaGPUs() ([]*nvidiaGPU, error) {
 			log.Warningf("gpu device %s compute mode %s, skip.", gpuId, computeMode)
 			continue
 		}
+		indexInt, err := parseInt(index)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed parse index %s", index)
+		}
 		memSize, err := parseMemSize(memTotal)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed parse memSize %s", memTotal)
@@ -175,10 +178,22 @@ func getNvidiaGPUs() ([]*nvidiaGPU, error) {
 			return nil, errors.Wrapf(err, "GetPCIStrByAddr %s", gpuPciAddr)
 		}
 		dev := isolated_device.NewPCIDevice2(pciOutput[0])
+
+		driverInfoPath := fmt.Sprintf("/proc/driver/nvidia/gpus/0000:%s/information", dev.Addr)
+		driverContent, err := procutils.NewRemoteCommandAsFarAsPossible("cat", driverInfoPath).Output()
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed get driver content from: %s", driverInfoPath)
+		}
+		driverInfo, err := parseNvidiaGPUDriverInformation(string(driverContent))
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed parse driver content from: %s", driverInfoPath)
+		}
+
 		gpuDev := &nvidiaGPU{
-			BaseDevice: NewBaseDevice(dev, isolated_device.ContainerDeviceTypeNvidiaGpu, gpuId),
-			memSize:    memSize,
-			gpuIndex:   index,
+			BaseDevice:  NewBaseDevice(dev, isolated_device.ContainerDeviceTypeNvidiaGpu, gpuId),
+			memSize:     memSize,
+			gpuIndex:    indexInt,
+			deviceMinor: driverInfo.DeviceMinor,
 		}
 		gpuDev.SetModelName(gpuName)
 		devs = append(devs, gpuDev)
@@ -187,4 +202,92 @@ func getNvidiaGPUs() ([]*nvidiaGPU, error) {
 		return nil, nil
 	}
 	return devs, nil
+}
+
+type NvidiaGPUDriverInformation struct {
+	Model       string
+	IRQ         int
+	UUID        string
+	VideoBIOS   string
+	BusType     string
+	DMASize     string
+	DMAMask     string
+	BusLocation string
+	DeviceMinor int
+	Firmware    string
+	Excluded    bool
+}
+
+// parseNvidiaGPUDriverInformation 解析下面文件的内容
+// cat /proc/driver/nvidia/gpus/0000\:61\:00.0/information
+// Model:           NVIDIA GeForce RTX 4060
+// IRQ:             483
+// GPU UUID:        GPU-2e1ab7a2-fda6-8b93-eba2-fa59e6135199
+// Video BIOS:      95.07.36.00.04
+// Bus Type:        PCIe
+// DMA Size:        47 bits
+// DMA Mask:        0x7fffffffffff
+// Bus Location:    0000:61:00.0
+// Device Minor:    0
+// GPU Firmware:    570.133.07
+// GPU Excluded:    No
+func parseNvidiaGPUDriverInformation(content string) (*NvidiaGPUDriverInformation, error) {
+	info := &NvidiaGPUDriverInformation{}
+	lines := strings.Split(content, "\n")
+
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+
+		// 解析 key: value 格式
+		parts := strings.SplitN(line, ":", 2)
+		if len(parts) != 2 {
+			continue
+		}
+
+		key := strings.TrimSpace(parts[0])
+		value := strings.TrimSpace(parts[1])
+
+		switch key {
+		case "Model":
+			info.Model = value
+		case "IRQ":
+			if irq, err := parseInt(value); err != nil {
+				return nil, errors.Wrapf(err, "failed parse IRQ %s", value)
+			} else {
+				info.IRQ = irq
+			}
+		case "GPU UUID":
+			info.UUID = value
+		case "Video BIOS":
+			info.VideoBIOS = value
+		case "Bus Type":
+			info.BusType = value
+		case "DMA Size":
+			info.DMASize = value
+		case "DMA Mask":
+			info.DMAMask = value
+		case "Bus Location":
+			info.BusLocation = value
+		case "Device Minor":
+			if minor, err := parseInt(value); err != nil {
+				return nil, errors.Wrapf(err, "failed parse Device Minor %s", value)
+			} else {
+				info.DeviceMinor = minor
+			}
+		case "GPU Firmware":
+			info.Firmware = value
+		case "GPU Excluded":
+			info.Excluded = (value != "No")
+		}
+	}
+
+	return info, nil
+}
+
+func parseInt(s string) (int, error) {
+	stringValue := strings.TrimSpace(s)
+	return strconv.Atoi(stringValue)
 }

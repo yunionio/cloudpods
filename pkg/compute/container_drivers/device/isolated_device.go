@@ -128,13 +128,15 @@ func (i isolatedDevice) ToHostDevice(dev *api.ContainerDevice) (*hostapi.Contain
 	return &hostapi.ContainerDevice{
 		Type: dev.Type,
 		IsolatedDevice: &hostapi.ContainerIsolatedDevice{
-			Id:         isoDev.GetId(),
-			Addr:       isoDev.Addr,
-			Path:       isoDev.DevicePath,
-			CardPath:   isoDev.CardPath,
-			DeviceType: isoDev.DevType,
-			RenderPath: isoDev.RenderPath,
-			OnlyEnv:    input.OnlyEnv,
+			Id:          isoDev.GetId(),
+			Addr:        isoDev.Addr,
+			Path:        isoDev.DevicePath,
+			CardPath:    isoDev.CardPath,
+			DeviceType:  isoDev.DevType,
+			RenderPath:  isoDev.RenderPath,
+			Index:       isoDev.Index,
+			DeviceMinor: isoDev.DeviceMinor,
+			OnlyEnv:     input.OnlyEnv,
 		},
 	}, nil
 }
