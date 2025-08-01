@@ -520,6 +520,9 @@ func (n *SNetInterface) FetchConfig2(expectIp string, expectIp6 string) {
 		for _, addr := range addrs {
 			if ipnet, ok := addr.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
 				if ipnet.IP.To4() != nil {
+					if len(expectIp) == 0 && n.Addr == "" && strings.HasPrefix(ipnet.IP.To4().String(), SECRET_PREFIX) {
+						continue
+					}
 					if (len(expectIp) > 0 && ipnet.IP.String() == expectIp) || (len(expectIp) == 0 && n.Addr == "") {
 						n.Addr = ipnet.IP.String()
 						n.Mask = ipnet.Mask
