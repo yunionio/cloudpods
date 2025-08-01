@@ -393,6 +393,14 @@ func (listener *SLoadbalancerListener) GetHealthCheckDomain() string {
 	return pool.healthmonitor.DomainName
 }
 
+func (listener *SLoadbalancerListener) GetHealthCheckMethod() string {
+	return ""
+}
+
+func (listener *SLoadbalancerListener) GetHealthCheckPort() int {
+	return 0
+}
+
 func (listener *SLoadbalancerListener) GetHealthCheckURI() string {
 	pool, err := listener.fetchFeaturePool()
 	if err != nil {

@@ -25,7 +25,7 @@ import (
 )
 
 type SAlbServerGroup struct {
-	multicloud.SResourceBase
+	multicloud.SLoadbalancerBackendGroupBase
 	AliyunTags
 	alb *SAlb
 

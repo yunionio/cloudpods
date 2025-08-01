@@ -239,6 +239,14 @@ func (listener *SAlbListener) GetHealthCheckDomain() string {
 	return ""
 }
 
+func (listener *SAlbListener) GetHealthCheckMethod() string {
+	return ""
+}
+
+func (listener *SAlbListener) GetHealthCheckPort() int {
+	return 0
+}
+
 func (listener *SAlbListener) GetHealthCheckURI() string {
 	return ""
 }

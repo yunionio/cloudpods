@@ -12,22 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package multicloud
+package compute
 
 import (
-	"context"
-
-	"yunion.io/x/cloudmux/pkg/cloudprovider"
+	"yunion.io/x/onecloud/cmd/climc/shell"
+	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
+	options "yunion.io/x/onecloud/pkg/mcclient/options/compute"
 )
 
-type SLoadbalancerBackendGroupBase struct {
-	SResourceBase
-}
-
-func (self *SLoadbalancerBackendGroupBase) Update(ctx context.Context, opts *cloudprovider.SLoadbalancerBackendGroup) error {
-	return cloudprovider.ErrNotImplemented
-}
-
-func (self *SLoadbalancerBackendGroupBase) GetHealthCheckId() string {
-	return ""
+func init() {
+	cmd := shell.NewResourceCmd(&modules.LoadbalancerHealthChecks).WithKeyword("lb-health-check")
+	cmd.List(&options.LoadbalancerHealthCheckListOptions{})
+	cmd.Show(&options.LoadbalancerHealthCheckIdOptions{})
+	cmd.Create(&options.LoadbalancerHealthCheckCreateOptions{})
+	cmd.Delete(&options.LoadbalancerHealthCheckIdOptions{})
+	cmd.Update(&options.LoadbalancerHealthCheckUpdateOptions{})
 }

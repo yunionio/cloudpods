@@ -241,11 +241,12 @@ func (self *SLoadbalancerListener) GetStickySession() string {
 /*
 https://cloud.google.com/load-balancing/docs/backend-service#sessionAffinity
 区域级外部 HTTP(S) 负载均衡器:
-   无 (NONE)
-   客户端 IP (CLIENT_IP)
-   生成的 Cookie (GENERATED_COOKIE)
-   标头字段 (HEADER_FIELD)
-   HTTP Cookie (HTTP_COOKIE)
+
+	无 (NONE)
+	客户端 IP (CLIENT_IP)
+	生成的 Cookie (GENERATED_COOKIE)
+	标头字段 (HEADER_FIELD)
+	HTTP Cookie (HTTP_COOKIE)
 */
 func (self *SLoadbalancerListener) GetStickySessionType() string {
 	switch self.backendService.SessionAffinity {
@@ -438,6 +439,14 @@ func (self *SLoadbalancerListener) GetHealthCheckDomain() string {
 	default:
 		return ""
 	}
+}
+
+func (self *SLoadbalancerListener) GetHealthCheckMethod() string {
+	return ""
+}
+
+func (self *SLoadbalancerListener) GetHealthCheckPort() int {
+	return 0
 }
 
 func (self *SLoadbalancerListener) GetHealthCheckURI() string {

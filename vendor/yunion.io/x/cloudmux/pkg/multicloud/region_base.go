@@ -396,3 +396,11 @@ func (self *SRegion) GetIMiscResources() ([]cloudprovider.ICloudMiscResource, er
 func (self *SRegion) GetISSLCertificates() ([]cloudprovider.ICloudSSLCertificate, error) {
 	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetISSLCertificate")
 }
+
+func (self *SRegion) GetILoadBalancerHealthChecks() ([]cloudprovider.ICloudLoadbalancerHealthCheck, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetILoadBalancerHealthChecks")
+}
+
+func (self *SRegion) CreateILoadBalancerHealthCheck(healthCheck *cloudprovider.SLoadbalancerHealthCheck) (cloudprovider.ICloudLoadbalancerHealthCheck, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "CreateILoadBalancerHealthCheck")
+}

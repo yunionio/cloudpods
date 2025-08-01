@@ -68,6 +68,8 @@ type SLoadbalancerBackendGroup struct {
 	db.SExternalizedResourceBase
 
 	SLoadbalancerResourceBase `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`
+	LoadbalancerHealthCheckId string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`
+	Scheduler                 string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 
 	Type string `width:"36" charset:"ascii" nullable:"false" list:"user" default:"normal" create:"optional"`
 }
@@ -219,6 +221,12 @@ func (man *SLoadbalancerBackendGroupManager) ValidateCreateData(ctx context.Cont
 	input.StatusStandaloneResourceCreateInput, err = man.SStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.StatusStandaloneResourceCreateInput)
 	if err != nil {
 		return nil, err
+	}
+	if len(input.LoadbalancerHealthCheckId) > 0 {
+		_, err := validators.ValidateModel(ctx, userCred, LoadbalancerHealthCheckManager, &input.LoadbalancerHealthCheckId)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	region, err := lb.GetRegion()
@@ -712,6 +720,15 @@ func (lbbg *SLoadbalancerBackendGroup) SyncWithCloudLoadbalancerBackendgroup(
 	diff, err := db.UpdateWithLock(ctx, lbbg, func() error {
 		lbbg.Type = ext.GetType()
 		lbbg.Status = ext.GetStatus()
+		lbbg.Scheduler = ext.GetScheduler()
+		if hcId := ext.GetHealthCheckId(); hcId != "" {
+			hc, err := db.FetchByExternalIdAndManagerId(LoadbalancerHealthCheckManager, hcId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+				return q.Equals("manager_id", lb.ManagerId)
+			})
+			if err == nil {
+				lbbg.LoadbalancerHealthCheckId = hc.GetId()
+			}
+		}
 		return nil
 	})
 	if err != nil {
@@ -755,7 +772,16 @@ func (lb *SLoadbalancer) newFromCloudLoadbalancerBackendgroup(
 
 	lbbg.Type = ext.GetType()
 	lbbg.Status = ext.GetStatus()
+	lbbg.Scheduler = ext.GetScheduler()
 	lbbg.Name = ext.GetName()
+	if hcId := ext.GetHealthCheckId(); hcId != "" {
+		hc, err := db.FetchByExternalIdAndManagerId(LoadbalancerHealthCheckManager, hcId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+			return q.Equals("manager_id", lb.ManagerId)
+		})
+		if err == nil {
+			lbbg.LoadbalancerHealthCheckId = hc.GetId()
+		}
+	}
 
 	err := LoadbalancerBackendGroupManager.TableSpec().Insert(ctx, lbbg)
 	if err != nil {
@@ -779,6 +805,14 @@ func (lb *SLoadbalancer) newFromCloudLoadbalancerBackendgroup(
 		}
 	}
 	return lbbg, nil
+}
+
+func (lbbg *SLoadbalancerBackendGroup) GetHealthCheck() (*SLoadbalancerHealthCheck, error) {
+	obj, err := db.FetchById(LoadbalancerHealthCheckManager, lbbg.LoadbalancerHealthCheckId)
+	if err != nil {
+		return nil, errors.Wrap(err, "FetchById")
+	}
+	return obj.(*SLoadbalancerHealthCheck), nil
 }
 
 func (manager *SLoadbalancerBackendGroupManager) ListItemExportKeys(ctx context.Context,
