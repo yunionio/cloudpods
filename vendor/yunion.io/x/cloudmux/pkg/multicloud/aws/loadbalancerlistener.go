@@ -299,6 +299,14 @@ func (self *SElbListener) GetHealthCheckDomain() string {
 	return health.HealthCheckDomain
 }
 
+func (self *SElbListener) GetHealthCheckMethod() string {
+	return ""
+}
+
+func (self *SElbListener) GetHealthCheckPort() int {
+	return 0
+}
+
 func (self *SElbListener) GetHealthCheckURI() string {
 	group, err := self.getBackendGroup()
 	if err != nil {

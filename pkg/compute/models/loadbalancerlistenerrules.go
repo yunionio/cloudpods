@@ -84,7 +84,7 @@ type SLoadbalancerListenerRule struct {
 
 	RedirectPool *api.ListenerRuleRedirectPool `list:"user" update:"user" create:"optional"`
 
-	SLoadbalancerHealthCheck // 目前只有腾讯云HTTP、HTTPS类型的健康检查是和规则绑定的。
+	SLoadbalancerHealthChecker // 目前只有腾讯云HTTP、HTTPS类型的健康检查是和规则绑定的。
 	SLoadbalancerHTTPRateLimiter
 	SLoadbalancerHTTPRedirect
 }

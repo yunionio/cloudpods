@@ -2348,6 +2348,9 @@ func syncPublicCloudProviderInfo(
 		if syncRange.IsNotSkipSyncResource(LoadbalancerCertificateManager) {
 			syncRegionLoadbalancerCertificates(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
 		}
+		if syncRange.IsNotSkipSyncResource(LoadbalancerHealthCheckManager) {
+			syncRegionLoadbalancerHealthChecks(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
+		}
 		if syncRange.IsNotSkipSyncResource(LoadbalancerManager) {
 			syncRegionLoadbalancers(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
 		}

@@ -299,6 +299,14 @@ func (self *SLBListener) GetHealthCheckDomain() string {
 	return self.HealthCheck.HTTPCheckDomain
 }
 
+func (self *SLBListener) GetHealthCheckMethod() string {
+	return ""
+}
+
+func (self *SLBListener) GetHealthCheckPort() int {
+	return 0
+}
+
 func (self *SLBListener) GetHealthCheckURI() string {
 	return self.HealthCheck.HTTPCheckPath
 }

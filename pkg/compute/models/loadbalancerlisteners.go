@@ -66,29 +66,46 @@ func init() {
 }
 
 type SLoadbalancerHTTPRateLimiter struct {
-	HTTPRequestRate       int `nullable:"true" list:"user" create:"optional" update:"user"` // 限定监听接收请示速率
-	HTTPRequestRatePerSrc int `nullable:"true" list:"user" create:"optional" update:"user"` // 源IP监听请求最大速率
+	// 限定监听接收请示速率
+	HTTPRequestRate int `nullable:"true" list:"user" create:"optional" update:"user"`
+	// 源IP监听请求最大速率
+	HTTPRequestRatePerSrc int `nullable:"true" list:"user" create:"optional" update:"user"`
 }
 
 type SLoadbalancerRateLimiter struct {
 	EgressMbps int `nullable:"true" list:"user" get:"user" create:"optional" update:"user" json:"egress_mbps"`
 }
 
-type SLoadbalancerHealthCheck struct {
-	HealthCheck     string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"` // 健康检查开启状态 on|off
-	HealthCheckType string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"` // 健康检查协议 HTTP|TCP
+type SLoadbalancerHealthChecker struct {
+	// 健康检查开启状态 on|off
+	HealthCheck string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
+	// 健康检查协议 HTTP|TCP
+	HealthCheckType string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
 
-	HealthCheckDomain   string `charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"` // 健康检查域名 yunion.cn
-	HealthCheckURI      string `charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"` // 健康检查路径 /
-	HealthCheckHttpCode string `charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"` // HTTP正常状态码 http_2xx,http_3xx
+	// 健康检查域名 yunion.cn
+	HealthCheckDomain string `charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
+	// 健康检查路径 /
+	HealthCheckURI string `charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
+	// HTTP正常状态码 http_2xx,http_3xx
+	HealthCheckHttpCode string `charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
+	// 健康检查方法 GET|POST|HEAD
+	HealthCheckMethod string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
+	// 健康检查端口 80
+	HealthCheckPort int `nullable:"true" list:"user" create:"optional" update:"user"`
 
-	HealthCheckRise     int `nullable:"true" list:"user" create:"optional" update:"user"` //  健康检查健康阈值 3秒
-	HealthCheckFall     int `nullable:"true" list:"user" create:"optional" update:"user"` //  健康检查不健康阈值 15秒
-	HealthCheckTimeout  int `nullable:"true" list:"user" create:"optional" update:"user"` // 健康检查超时时间 10秒
-	HealthCheckInterval int `nullable:"true" list:"user" create:"optional" update:"user"` // 健康检查间隔时间 5秒
+	// 健康检查健康阈值 3秒
+	HealthCheckRise int `nullable:"true" list:"user" create:"optional" update:"user"`
+	// 健康检查不健康阈值 15秒
+	HealthCheckFall int `nullable:"true" list:"user" create:"optional" update:"user"`
+	// 健康检查超时时间 10秒
+	HealthCheckTimeout int `nullable:"true" list:"user" create:"optional" update:"user"`
+	// 健康检查间隔时间 5秒
+	HealthCheckInterval int `nullable:"true" list:"user" create:"optional" update:"user"`
 
-	HealthCheckReq string `list:"user" create:"optional" update:"user"` // UDP监听健康检查的请求串
-	HealthCheckExp string `list:"user" create:"optional" update:"user"` // UDP监听健康检查的响应串
+	// UDP监听健康检查的请求串
+	HealthCheckReq string `list:"user" create:"optional" update:"user"`
+	// UDP监听健康检查的响应串
+	HealthCheckExp string `list:"user" create:"optional" update:"user"`
 }
 
 type SLoadbalancerTCPListener struct{}
@@ -96,21 +113,32 @@ type SLoadbalancerUDPListener struct{}
 
 // TODO sensible default for knobs
 type SLoadbalancerHTTPListener struct {
-	StickySession              string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`  // 会话保持开启状态 on|off
-	StickySessionType          string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`  // Cookie处理方式 insert(植入cookie)|server(重写cookie)
-	StickySessionCookie        string `width:"128" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"` // Cookie名称
-	StickySessionCookieTimeout int    `nullable:"true" list:"user" create:"optional" update:"user"`                             // 会话超时时间
+	// 会话保持开启状态 on|off
+	StickySession string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
+	// Cookie处理方式 insert(植入cookie)|server(重写cookie)
+	StickySessionType string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
+	// Cookie名称
+	StickySessionCookie string `width:"128" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
+	// 会话超时时间
+	StickySessionCookieTimeout int `nullable:"true" list:"user" create:"optional" update:"user"`
 
-	XForwardedFor bool `nullable:"true" list:"user" create:"optional" update:"user"` // 获取客户端真实IP
-	Gzip          bool `nullable:"true" list:"user" create:"optional" update:"user"` // Gzip数据压缩
+	// 获取客户端真实IP
+	XForwardedFor bool `nullable:"true" list:"user" create:"optional" update:"user"`
+	// Gzip数据压缩
+	Gzip bool `nullable:"true" list:"user" create:"optional" update:"user"`
 }
 
 type SLoadbalancerHTTPRedirect struct {
-	Redirect       string `width:"16" nullable:"true" list:"user" create:"optional" update:"user" default:"off"` // 跳转类型
-	RedirectCode   int    `nullable:"true" list:"user" create:"optional" update:"user"`                          // 跳转HTTP code
-	RedirectScheme string `width:"16" nullable:"true" list:"user" create:"optional" update:"user"`               // 跳转uri scheme
-	RedirectHost   string `nullable:"true" list:"user" create:"optional" update:"user"`                          // 跳转时变更Host
-	RedirectPath   string `nullable:"true" list:"user" create:"optional" update:"user"`                          // 跳转时变更Path
+	// 跳转类型
+	Redirect string `width:"16" nullable:"true" list:"user" create:"optional" update:"user" default:"off"`
+	// 跳转HTTP code
+	RedirectCode int `nullable:"true" list:"user" create:"optional" update:"user"`
+	// 跳转uri scheme
+	RedirectScheme string `width:"16" nullable:"true" list:"user" create:"optional" update:"user"`
+	// 跳转时变更Host
+	RedirectHost string `nullable:"true" list:"user" create:"optional" update:"user"`
+	// 跳转时变更Path
+	RedirectPath string `nullable:"true" list:"user" create:"optional" update:"user"`
 }
 
 // TODO
@@ -141,10 +169,14 @@ type SLoadbalancerListener struct {
 
 	SendProxy string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user" default:"off"`
 
-	ClientRequestTimeout  int `nullable:"true" list:"user" create:"optional" update:"user"` // 连接请求超时时间
-	ClientIdleTimeout     int `nullable:"true" list:"user" create:"optional" update:"user"` // 连接空闲超时时间
-	BackendConnectTimeout int `nullable:"true" list:"user" create:"optional" update:"user"` // 后端连接超时时间
-	BackendIdleTimeout    int `nullable:"true" list:"user" create:"optional" update:"user"` // 后端连接空闲时间
+	// 连接请求超时时间
+	ClientRequestTimeout int `nullable:"true" list:"user" create:"optional" update:"user"`
+	// 连接空闲超时时间
+	ClientIdleTimeout int `nullable:"true" list:"user" create:"optional" update:"user"`
+	// 后端连接超时时间
+	BackendConnectTimeout int `nullable:"true" list:"user" create:"optional" update:"user"`
+	// 后端连接空闲时间
+	BackendIdleTimeout int `nullable:"true" list:"user" create:"optional" update:"user"`
 
 	AclStatus                    string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
 	AclType                      string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
@@ -157,7 +189,7 @@ type SLoadbalancerListener struct {
 	SLoadbalancerHTTPListener
 	SLoadbalancerHTTPSListener
 
-	SLoadbalancerHealthCheck
+	SLoadbalancerHealthChecker
 	SLoadbalancerHTTPRateLimiter
 	SLoadbalancerHTTPRedirect
 }
