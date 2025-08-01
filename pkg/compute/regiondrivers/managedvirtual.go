@@ -472,7 +472,11 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateLoadbalancerBackend
 		group := &cloudprovider.SLoadbalancerBackendGroup{
 			Name:      lbbg.Name,
 			GroupType: lbbg.Type,
+			Scheduler: lbbg.Scheduler,
 			Backends:  []cloudprovider.SLoadbalancerBackend{},
+		}
+		if hc, err := lbbg.GetHealthCheck(); err == nil {
+			group.HealthCheckId = hc.ExternalId
 		}
 		backends, err := lbbg.GetBackends()
 		if err != nil {

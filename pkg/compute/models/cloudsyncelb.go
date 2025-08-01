@@ -60,6 +60,38 @@ func syncRegionLoadbalancerCertificates(
 	}
 }
 
+func syncRegionLoadbalancerHealthChecks(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	syncResults SSyncResultSet,
+	provider *SCloudprovider,
+	localRegion *SCloudregion,
+	remoteRegion cloudprovider.ICloudRegion,
+	syncRange *SSyncRange,
+) {
+	healthChecks, err := func() ([]cloudprovider.ICloudLoadbalancerHealthCheck, error) {
+		defer syncResults.AddRequestCost(LoadbalancerHealthCheckManager)()
+		return remoteRegion.GetILoadBalancerHealthChecks()
+	}()
+	if err != nil {
+		msg := fmt.Sprintf("GetILoadBalancerHealthChecks for region %s failed %s", remoteRegion.GetName(), err)
+		log.Errorln(msg)
+		return
+	}
+	result := func() compare.SyncResult {
+		defer syncResults.AddSqlCost(LoadbalancerHealthCheckManager)()
+		return localRegion.SyncLoadbalancerHealthChecks(ctx, userCred, provider, healthChecks)
+	}()
+
+	syncResults.Add(LoadbalancerHealthCheckManager, result)
+
+	msg := result.Result()
+	log.Infof("SyncLoadbalancerHealthChecks for region %s result: %s", localRegion.Name, msg)
+	if result.IsError() {
+		return
+	}
+}
+
 func syncRegionLoadbalancerAcls(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

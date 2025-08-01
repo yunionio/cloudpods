@@ -12,22 +12,36 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package multicloud
+package compute
 
 import (
-	"context"
-
-	"yunion.io/x/cloudmux/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
+	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
 
-type SLoadbalancerBackendGroupBase struct {
-	SResourceBase
+type LoadbalancerHealthCheckManager struct {
+	modulebase.ResourceManager
 }
 
-func (self *SLoadbalancerBackendGroupBase) Update(ctx context.Context, opts *cloudprovider.SLoadbalancerBackendGroup) error {
-	return cloudprovider.ErrNotImplemented
-}
+var (
+	LoadbalancerHealthChecks LoadbalancerHealthCheckManager
+)
 
-func (self *SLoadbalancerBackendGroupBase) GetHealthCheckId() string {
-	return ""
+func init() {
+	LoadbalancerHealthChecks = LoadbalancerHealthCheckManager{
+		modules.NewComputeManager(
+			"loadbalancer_health_check",
+			"loadbalancer_health_checks",
+			[]string{
+				"id",
+				"name",
+				"status",
+				"cloudregion",
+				"manager",
+				"project",
+			},
+			[]string{"tenant"},
+		),
+	}
+	modules.RegisterCompute(&LoadbalancerHealthChecks)
 }
