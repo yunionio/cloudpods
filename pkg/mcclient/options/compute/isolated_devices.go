@@ -35,6 +35,8 @@ type DeviceListOptions struct {
 	DevicePath     []string `help:"filter by device path"`
 	VendorDeviceId []string `help:"filter by vendor device id(PCIID)"`
 	NumaNode       []uint8  `help:"fitler by numa node index"`
+	Index          *int     `help:"filter by index"`
+	DeviceMinor    *int     `help:"filter by device minor"`
 }
 
 func (o *DeviceListOptions) Params() (jsonutils.JSONObject, error) {

@@ -28,7 +28,7 @@ func init() {
 		[]string{"ID", "Dev_type",
 			"Model", "Addr", "Vendor_device_id", "Mdev_id",
 			"Host_id", "Host", "numa_node",
-			"Guest_id", "Guest", "Guest_status", "Device_path", "Render_path", "PCIE_Info"},
+			"Guest_id", "Guest", "Guest_status", "Device_path", "Render_path", "PCIE_Info", "Index", "Device_minor"},
 		[]string{})
 	modules.RegisterCompute(&IsolatedDevices)
 }

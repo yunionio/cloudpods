@@ -360,6 +360,12 @@ func (manager *SIsolatedDeviceManager) ListItemFilter(
 	if len(query.NumaNode) > 0 {
 		q = q.In("numa_node", query.NumaNode)
 	}
+	if query.Index != nil && *query.Index >= 0 {
+		q = q.Equals("index", query.Index)
+	}
+	if query.DeviceMinor != nil && *query.DeviceMinor >= 0 {
+		q = q.Equals("device_minor", query.DeviceMinor)
+	}
 
 	if !query.ShowBaremetalIsolatedDevices {
 		sq := HostManager.Query("id").In("host_type", []string{api.HOST_TYPE_HYPERVISOR, api.HOST_TYPE_CONTAINER, api.HOST_TYPE_ZETTAKIT}).SubQuery()
