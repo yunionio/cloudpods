@@ -116,6 +116,8 @@ type ICloudRegion interface {
 
 	GetILoadBalancers() ([]ICloudLoadbalancer, error)
 	GetILoadBalancerAcls() ([]ICloudLoadbalancerAcl, error)
+	GetILoadBalancerHealthChecks() ([]ICloudLoadbalancerHealthCheck, error)
+
 	GetILoadBalancerCertificates() ([]ICloudLoadbalancerCertificate, error)
 
 	GetILoadBalancerById(loadbalancerId string) (ICloudLoadbalancer, error)
@@ -125,6 +127,7 @@ type ICloudRegion interface {
 	CreateILoadBalancer(loadbalancer *SLoadbalancerCreateOptions) (ICloudLoadbalancer, error)
 	CreateILoadBalancerAcl(acl *SLoadbalancerAccessControlList) (ICloudLoadbalancerAcl, error)
 	CreateILoadBalancerCertificate(cert *SLoadbalancerCertificate) (ICloudLoadbalancerCertificate, error)
+	CreateILoadBalancerHealthCheck(healthCheck *SLoadbalancerHealthCheck) (ICloudLoadbalancerHealthCheck, error)
 
 	GetISkus() ([]ICloudSku, error)
 	CreateISku(opts *SServerSkuCreateOption) (ICloudSku, error)
@@ -749,7 +752,7 @@ type ICloudLoadbalancerRedirect interface {
 	GetRedirectPath() string
 }
 
-type ICloudloadbalancerHealthCheck interface {
+type ICloudloadbalancerHealthCheckInfo interface {
 	GetHealthCheck() string
 	GetHealthCheckType() string
 	GetHealthCheckTimeout() int
@@ -763,7 +766,17 @@ type ICloudloadbalancerHealthCheck interface {
 	// HTTP && HTTPS
 	GetHealthCheckDomain() string
 	GetHealthCheckURI() string
+	GetHealthCheckMethod() string
+	GetHealthCheckPort() int
 	GetHealthCheckCode() string
+}
+
+type ICloudLoadbalancerHealthCheck interface {
+	IVirtualResource
+	ICloudloadbalancerHealthCheckInfo
+
+	Delete() error
+	Update(ctx context.Context, opts *SLoadbalancerHealthCheck) error
 }
 
 type ICloudLoadbalancerListener interface {
@@ -801,7 +814,7 @@ type ICloudLoadbalancerListener interface {
 
 	// http redirect
 	ICloudLoadbalancerRedirect
-	ICloudloadbalancerHealthCheck
+	ICloudloadbalancerHealthCheckInfo
 
 	Start() error
 	Stop() error
@@ -838,6 +851,7 @@ type ICloudLoadbalancerBackendGroup interface {
 	IsDefault() bool
 	GetType() string
 	GetScheduler() string
+	GetHealthCheckId() string
 	GetILoadbalancerBackends() ([]ICloudLoadbalancerBackend, error)
 	GetILoadbalancerBackendById(backendId string) (ICloudLoadbalancerBackend, error)
 	AddBackendServer(opts *SLoadbalancerBackend) (ICloudLoadbalancerBackend, error)

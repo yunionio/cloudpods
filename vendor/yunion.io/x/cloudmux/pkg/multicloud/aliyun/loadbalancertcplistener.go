@@ -147,6 +147,14 @@ func (listerner *SLoadbalancerTCPListener) GetHealthCheckDomain() string {
 	return ""
 }
 
+func (listerner *SLoadbalancerTCPListener) GetHealthCheckMethod() string {
+	return ""
+}
+
+func (listerner *SLoadbalancerTCPListener) GetHealthCheckPort() int {
+	return listerner.HealthCheckConnectPort
+}
+
 func (listerner *SLoadbalancerTCPListener) GetHealthCheckURI() string {
 	return ""
 }

@@ -152,6 +152,14 @@ func (listener *SNlbListener) GetHealthCheckDomain() string {
 	return ""
 }
 
+func (listener *SNlbListener) GetHealthCheckMethod() string {
+	return ""
+}
+
+func (listener *SNlbListener) GetHealthCheckPort() int {
+	return 0
+}
+
 func (listener *SNlbListener) GetHealthCheckURI() string {
 	return ""
 }
