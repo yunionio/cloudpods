@@ -127,7 +127,9 @@ type IsolatedDeviceUpdateInput struct {
 	// PCIE information
 	PCIEInfo *IsolatedDevicePCIEInfo `json:"pcie_info"`
 	// Host device path
-	DevicePath string `json:"device_path"`
+	DevicePath  string `json:"device_path"`
+	Index       int    `json:"index"`
+	DeviceMinor int    `json:"device_minor"`
 }
 
 type IsolatedDeviceJsonDesc struct {
