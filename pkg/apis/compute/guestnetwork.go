@@ -127,6 +127,8 @@ type GuestnetworkBaseDesc struct {
 		Id           string `json:"id"`
 		Provider     string `json:"provider"`
 		MappedIpAddr string `json:"mapped_ip_addr"`
+
+		MappedIp6Addr string `json:"mapped_ip6_addr"`
 	} `json:"vpc"`
 
 	Networkaddresses jsonutils.JSONObject `json:"networkaddresses"`

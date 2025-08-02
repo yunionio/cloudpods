@@ -263,6 +263,7 @@ func init() {
 		INDEX     int64  `help:"nic index"`
 		Type      string `help:"Nic type" choices:"admin|ipmi"`
 		IpAddr    string `help:"IP address"`
+		Ip6Addr   string `help:"IPv6 address"`
 		Bridge    string `help:"Bridge of hostwire"`
 		Interface string `help:"Interface name, eg:eth0, en0"`
 	}
@@ -277,6 +278,9 @@ func init() {
 		}
 		if len(args.IpAddr) > 0 {
 			params.Add(jsonutils.NewString(args.IpAddr), "ip_addr")
+		}
+		if len(args.Ip6Addr) > 0 {
+			params.Add(jsonutils.NewString(args.Ip6Addr), "ip6_addr")
 		}
 		if len(args.Bridge) > 0 {
 			params.Add(jsonutils.NewString(args.Bridge), "bridge")
@@ -310,7 +314,8 @@ func init() {
 	type HostEnableNetIfOptions struct {
 		ID       string `help:"ID or Name of host"`
 		MAC      string `help:"MAC of NIC to enable"`
-		Ip       string `help:"IP address"`
+		Ip       string `help:"IPv4 address"`
+		Ip6      string `help:"IPv6 address"`
 		Network  string `help:"network to connect"`
 		Reserved bool   `help:"fetch IP from reserved pool"`
 	}
@@ -319,6 +324,11 @@ func init() {
 		params.Add(jsonutils.NewString(args.MAC), "mac")
 		if len(args.Ip) > 0 {
 			params.Add(jsonutils.NewString(args.Ip), "ip_addr")
+		}
+		if len(args.Ip6) > 0 {
+			params.Add(jsonutils.NewString(args.Ip6), "ip6_addr")
+		}
+		if len(args.Ip) > 0 || len(args.Ip6) > 0 {
 			if args.Reserved {
 				params.Add(jsonutils.JSONTrue, "reserve")
 			}

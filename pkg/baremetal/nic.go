@@ -115,12 +115,12 @@ func GetNicDHCPConfig(
 		conf.Gateway = net.ParseIP(n.Gateway)
 	}
 	if n.Ip6Addr != "" {
-		ipAddr6, err := netutils.NewIPV6Addr(n.Ip6Addr)
+		ip6Addr, err := netutils.NewIPV6Addr(n.Ip6Addr)
 		if err != nil {
 			return nil, errors.Wrapf(err, "Parse IPv6 address error: %q", n.Ip6Addr)
 		}
 
-		conf.ClientIP6 = net.ParseIP(ipAddr6.String())
+		conf.ClientIP6 = net.ParseIP(ip6Addr.String())
 		conf.PrefixLen6 = n.Masklen6
 		conf.Gateway6 = net.ParseIP(n.Gateway6)
 	}

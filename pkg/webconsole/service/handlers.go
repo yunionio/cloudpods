@@ -254,6 +254,7 @@ func handleSshShell(ctx context.Context, w http.ResponseWriter, r *http.Request)
 }
 
 func handleSshSession(ctx context.Context, session *session.SSshSession, w http.ResponseWriter) {
+	log.Infof("handleSshSession %s", jsonutils.Marshal(session).String())
 	handleDataSession(ctx, session, w, "ws", nil, false)
 }
 
