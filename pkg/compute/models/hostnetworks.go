@@ -62,6 +62,8 @@ type SHostnetwork struct {
 	NetworkId string `width:"36" charset:"ascii" nullable:"false" list:"domain"`
 	// IP地址
 	IpAddr string `width:"16" charset:"ascii" list:"domain"`
+	// IPv6地址
+	Ip6Addr string `width:"64" charset:"ascii" list:"domain"`
 	// MAC地址
 	MacAddr string `width:"18" charset:"ascii" list:"domain"`
 	// VLAN

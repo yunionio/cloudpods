@@ -167,7 +167,8 @@ var (
 
 func init() {
 	Hosts = HostManager{modules.NewComputeManager("host", "hosts",
-		[]string{"ID", "Name", "Access_mac", "Access_ip", "Ipmi_Ip", "Ovn_Mapped_Ip_Addr",
+		[]string{"ID", "Name", "Access_mac", "Access_ip", "Ipmi_Ip",
+			"Ovn_Mapped_Ip_Addr", "Ovn_Mapped_Ip6_Addr",
 			"Manager_URI",
 			"Status", "enabled", "host_status",
 			"Guests", "Running_guests",

@@ -209,6 +209,8 @@ type SHost struct {
 
 	// IPv4地址，作为私有云vpc访问外网时的网关
 	OvnMappedIpAddr string `width:"16" charset:"ascii" nullable:"true" list:"user"`
+	// IPv6地址，作为私有云vpc访问外网时的网关
+	OvnMappedIp6Addr string `width:"64" charset:"ascii" nullable:"true" list:"user"`
 
 	// UEFI详情
 	UefiInfo jsonutils.JSONObject `nullable:"true" get:"domain" update:"domain" create:"domain_optional"`
@@ -2148,8 +2150,13 @@ func (hh *SHost) DeleteBaremetalnetwork(ctx context.Context, userCred mcclient.T
 	net := bn.GetNetwork()
 	bn.Delete(ctx, userCred)
 	db.OpsLog.LogDetachEvent(ctx, hh, net, userCred, nil)
-	if reserve && net != nil && len(bn.IpAddr) > 0 && regutils.MatchIP4Addr(bn.IpAddr) {
-		ReservedipManager.ReserveIP(ctx, userCred, net, bn.IpAddr, "Delete baremetalnetwork to reserve", api.AddressTypeIPv4)
+	if reserve && net != nil {
+		if len(bn.IpAddr) > 0 && regutils.MatchIP4Addr(bn.IpAddr) {
+			ReservedipManager.ReserveIP(ctx, userCred, net, bn.IpAddr, "Delete baremetalnetwork to reserve", api.AddressTypeIPv4)
+		}
+		if len(bn.Ip6Addr) > 0 && regutils.MatchIP6Addr(bn.Ip6Addr) {
+			ReservedipManager.ReserveIP(ctx, userCred, net, bn.Ip6Addr, "Delete baremetalnetwork to reserve", api.AddressTypeIPv6)
+		}
 	}
 }
 
@@ -3675,11 +3682,14 @@ func fetchHostNics(hostIds []string) (map[string][]*types.SNic, error) {
 		wires.Field("name").Label("wire"),
 		wires.Field("bandwidth"),
 		hn.Field("ip_addr"),
+		hn.Field("ip6_addr"),
 		networks.Field("guest_gateway").Label("gateway"),
+		networks.Field("guest_gateway6").Label("gateway6"),
 		networks.Field("guest_dns").Label("dns"),
 		networks.Field("guest_domain").Label("domain"),
 		networks.Field("guest_ntp").Label("ntp"),
 		networks.Field("guest_ip_mask").Label("masklen"),
+		networks.Field("guest_ip6_mask").Label("masklen6"),
 		networks.Field("name").Label("net"),
 		networks.Field("id").Label("net_id"),
 		zones.Field("name").Label("zone"),
@@ -4306,6 +4316,7 @@ func (hh *SHost) PostCreate(
 	if hh.OvnVersion != "" && hh.OvnMappedIpAddr == "" {
 		HostManager.lockAllocOvnMappedIpAddr(ctx)
 		defer HostManager.unlockAllocOvnMappedIpAddr(ctx)
+
 		addr, err := HostManager.allocOvnMappedIpAddr(ctx)
 		if err != nil {
 			log.Errorf("host %s(%s): alloc vpc mapped addr: %v",
@@ -4313,6 +4324,7 @@ func (hh *SHost) PostCreate(
 		}
 		if _, err := db.Update(hh, func() error {
 			hh.OvnMappedIpAddr = addr
+			hh.OvnMappedIp6Addr = api.GenVpcMappedIP6(addr)
 			return nil
 		}); err != nil {
 			log.Errorf("host %s(%s): db update vpc mapped addr: %v",
@@ -4722,6 +4734,7 @@ func (hh *SHost) PostUpdate(ctx context.Context, userCred mcclient.TokenCredenti
 	if hh.OvnVersion != "" && hh.OvnMappedIpAddr == "" {
 		HostManager.lockAllocOvnMappedIpAddr(ctx)
 		defer HostManager.unlockAllocOvnMappedIpAddr(ctx)
+
 		addr, err := HostManager.allocOvnMappedIpAddr(ctx)
 		if err != nil {
 			log.Errorf("host %s(%s): alloc vpc mapped addr: %v",
@@ -4730,6 +4743,7 @@ func (hh *SHost) PostUpdate(ctx context.Context, userCred mcclient.TokenCredenti
 		}
 		if _, err := db.Update(hh, func() error {
 			hh.OvnMappedIpAddr = addr
+			hh.OvnMappedIp6Addr = api.GenVpcMappedIP6(addr)
 			return nil
 		}); err != nil {
 			log.Errorf("host %s(%s): db update vpc mapped addr: %v",
@@ -5590,6 +5604,10 @@ func (h *SHost) PerformAddNetif(
 	if len(ipAddr) > 0 && !regutils.MatchIP4Addr(ipAddr) {
 		return nil, errors.Wrapf(httperrors.ErrInputParameter, "invalid ip_addr %s", ipAddr)
 	}
+	ip6Addr := input.Ip6Addr
+	if len(ip6Addr) > 0 && !regutils.MatchIP6Addr(ip6Addr) {
+		return nil, errors.Wrapf(httperrors.ErrInputParameter, "invalid ip6_addr %s", ip6Addr)
+	}
 	rate := input.Rate
 	nicType := input.NicType
 	index := input.Index
@@ -5600,6 +5618,8 @@ func (h *SHost) PerformAddNetif(
 	bridge := input.Bridge
 	reserve := (input.Reserve != nil && *input.Reserve)
 	requireDesignatedIp := (input.RequireDesignatedIp != nil && *input.RequireDesignatedIp)
+	requireIpv6 := (input.RequireIpv6 != nil && *input.RequireIpv6)
+	strictIpv6 := (input.StrictIpv6 != nil && *input.StrictIpv6)
 
 	isLinkUp := tristate.None
 	if linkUp != "" {
@@ -5610,16 +5630,16 @@ func (h *SHost) PerformAddNetif(
 		}
 	}
 
-	err = h.addNetif(ctx, userCred, mac, vlan, wire, ipAddr, int(rate), nicType, index, isLinkUp,
-		int16(mtu), reset, netIf, bridge, reserve, requireDesignatedIp)
+	err = h.addNetif(ctx, userCred, mac, vlan, wire, ipAddr, ip6Addr, int(rate), nicType, index, isLinkUp,
+		int16(mtu), reset, netIf, bridge, reserve, requireDesignatedIp, requireIpv6, strictIpv6)
 	return nil, errors.Wrap(err, "addNetif")
 }
 
 func (h *SHost) addNetif(ctx context.Context, userCred mcclient.TokenCredential,
-	mac string, vlanId int, wire string, ipAddr string,
+	mac string, vlanId int, wire string, ipAddr string, ip6Addr string,
 	rate int, nicType compute.TNicType, index int, linkUp tristate.TriState, mtu int16,
 	reset bool, strInterface *string, strBridge *string,
-	reserve bool, requireDesignatedIp bool,
+	reserve bool, requireDesignatedIp bool, requireIpv6 bool, strictIpv6 bool,
 ) error {
 	var sw *SWire
 	if len(wire) > 0 {
@@ -5632,32 +5652,78 @@ func (h *SHost) addNetif(ctx context.Context, userCred mcclient.TokenCredential,
 			}
 		}
 		sw = iWire.(*SWire)
-		if len(ipAddr) > 0 {
-			iIpAddr, err := netutils.NewIPV4Addr(ipAddr)
-			if err != nil {
-				return httperrors.NewInputParameterError("invalid ipaddr %s", ipAddr)
+		if len(ipAddr) > 0 || len(ip6Addr) > 0 {
+			var v4addr *netutils.IPV4Addr
+			var v6addr *netutils.IPV6Addr
+			if len(ipAddr) > 0 {
+				iIpAddr, err := netutils.NewIPV4Addr(ipAddr)
+				if err != nil {
+					return httperrors.NewInputParameterError("invalid ipaddr %s", ipAddr)
+				}
+				v4addr = &iIpAddr
 			}
-			findAddr := false
+			if len(ip6Addr) > 0 {
+				iIp6Addr, err := netutils.NewIPV6Addr(ip6Addr)
+				if err != nil {
+					return httperrors.NewInputParameterError("invalid ip6addr %s", ip6Addr)
+				}
+				v6addr = &iIp6Addr
+			}
+
+			var v4net, v6net *SNetwork
 			swNets, err := sw.getNetworks(ctx, userCred, userCred, NetworkManager.AllowScope(userCred))
 			if err != nil {
 				return httperrors.NewInputParameterError("no networks on wire %s", wire)
 			}
 			for i := range swNets {
-				if swNets[i].IsAddressInRange(iIpAddr) {
-					findAddr = true
+				if v4net == nil && v4addr != nil && swNets[i].IsAddressInRange(*v4addr) {
+					v4net = &swNets[i]
+				}
+				if v6net == nil && v6addr != nil && swNets[i].IsAddress6InRange(*v6addr) {
+					v6net = &swNets[i]
+				}
+				if v4net != nil && v6net != nil {
 					break
 				}
 			}
-			if !findAddr {
-				return httperrors.NewBadRequestError("IP %s not attach to wire %s", ipAddr, wire)
+			if v4net == nil && v6net == nil {
+				var addrs []string
+				if len(ipAddr) > 0 {
+					addrs = append(addrs, ipAddr)
+				}
+				if len(ip6Addr) > 0 {
+					addrs = append(addrs, ip6Addr)
+				}
+				return httperrors.NewBadRequestError("IP %s not attach to wire %s", strings.Join(addrs, ","), wire)
+			}
+			if v4net != nil && v6net != nil && v4net.Id != v6net.Id {
+				return httperrors.NewConflictError("IPv4 %s and IPv6 %s must be on the same network", ipAddr, ip6Addr)
 			}
 		}
-	} else if len(ipAddr) > 0 && len(wire) == 0 {
-		ipWire, err := WireManager.GetOnPremiseWireOfIp(ipAddr)
-		if err != nil {
-			return httperrors.NewBadRequestError("IP %s not attach to any wire", ipAddr)
+	} else {
+		var v4wire, v6wire *SWire
+		if len(ipAddr) > 0 {
+			ipWire, err := WireManager.GetOnPremiseWireOfIp(ipAddr)
+			if err != nil {
+				return httperrors.NewBadRequestError("IP %s not attach to any wire", ipAddr)
+			}
+			v4wire = ipWire
 		}
-		sw = ipWire
+		if len(ip6Addr) > 0 {
+			ipWire, err := WireManager.GetOnPremiseWireOfIp6(ip6Addr)
+			if err != nil {
+				return httperrors.NewBadRequestError("IPv6 %s not attach to any wire", ip6Addr)
+			}
+			v6wire = ipWire
+		}
+		if v4wire != nil && v6wire != nil && v4wire.Id != v6wire.Id {
+			return httperrors.NewConflictError("IPv4 %s and IPv6 %s must be on the same wire", ipAddr, ip6Addr)
+		}
+		if v4wire != nil {
+			sw = v4wire
+		} else if v6wire != nil {
+			sw = v6wire
+		}
 	}
 	netif, err := NetInterfaceManager.FetchByMacVlan(mac, vlanId)
 	if err != nil {
@@ -5762,8 +5828,8 @@ func (h *SHost) addNetif(ctx context.Context, userCred mcclient.TokenCredential,
 			}
 		}
 	}
-	if len(ipAddr) > 0 {
-		err = h.EnableNetif(ctx, userCred, netif, "", ipAddr, "", "", reserve, requireDesignatedIp)
+	if len(ipAddr) > 0 || len(ip6Addr) > 0 {
+		err = h.EnableNetif(ctx, userCred, netif, "", ipAddr, ip6Addr, "", "", reserve, requireDesignatedIp, requireIpv6, strictIpv6)
 		if err != nil {
 			return httperrors.NewBadRequestError("%v", err)
 		}
@@ -5795,8 +5861,10 @@ func (h *SHost) PerformEnableNetif(
 
 	reserve := (input.Reserve != nil && *input.Reserve)
 	requireDesignatedIp := (input.RequireDesignatedIp != nil && *input.RequireDesignatedIp)
+	requireIpv6 := (input.RequireIpv6 != nil && *input.RequireIpv6)
+	strictIpv6 := (input.StrictIpv6 != nil && *input.StrictIpv6)
 
-	err = h.EnableNetif(ctx, userCred, netif, input.NetworkId, input.IpAddr, input.AllocDir, input.NetType, reserve, requireDesignatedIp)
+	err = h.EnableNetif(ctx, userCred, netif, input.NetworkId, input.IpAddr, input.Ip6Addr, input.AllocDir, input.NetType, reserve, requireDesignatedIp, requireIpv6, strictIpv6)
 	if err != nil {
 		return nil, httperrors.NewBadRequestError("%v", err)
 	}
@@ -5804,26 +5872,63 @@ func (h *SHost) PerformEnableNetif(
 }
 
 func (h *SHost) EnableNetif(ctx context.Context, userCred mcclient.TokenCredential, netif *SNetInterface,
-	network, ipAddr, allocDir string, netType api.TNetworkType, reserve, requireDesignatedIp bool) error {
-	bn := netif.GetHostNetwork()
-	if bn != nil {
-		log.Debugf("Netif has been attach2network? %s", jsonutils.Marshal(bn))
-		return nil
-	}
-	var net *SNetwork
+	network, ipAddr, ip6Addr, allocDir string, netType api.TNetworkType, reserve, requireDesignatedIp bool,
+	requireIpv6 bool, strictIpv6 bool) error {
+	// bn := netif.GetHostNetwork()
+	// if bn != nil {
+	//	log.Debugf("Netif has been attach2network? %s", jsonutils.Marshal(bn))
+	//	return nil
+	// }
+	var v4net, v6net *SNetwork
 	var err error
-	if len(ipAddr) > 0 {
-		net, err = netif.GetCandidateNetworkForIp(ctx, userCred, userCred, NetworkManager.AllowScope(userCred), ipAddr)
+	if len(ipAddr) > 0 && !strictIpv6 {
+		net, err := netif.GetCandidateNetworkForIp(ctx, userCred, userCred, NetworkManager.AllowScope(userCred), ipAddr)
 		if net != nil {
-			log.Infof("find network %s for ip %s", net.GetName(), ipAddr)
+			log.Infof("find network %s for ip4 %s", net.GetName(), ipAddr)
+			v4net = net
 		} else if requireDesignatedIp {
-			log.Errorf("Cannot allocate IP %s, not reachable", ipAddr)
-			return fmt.Errorf("Cannot allocate IP %s, not reachable", ipAddr)
+			log.Errorf("Cannot allocate IP %s, not reachable: %s", ipAddr, err)
+			return fmt.Errorf("Cannot allocate IP %s, not reachable: %s", ipAddr, err)
 		} else {
-			log.Infof("not found network with scope: %s, ip_addr: %s", NetworkManager.AllowScope(userCred), ipAddr)
+			log.Infof("not found network with scope: %s, ip_addr: %s, err: %s", NetworkManager.AllowScope(userCred), ipAddr, err)
 			// the ipaddr is not usable, should be reset to empty
 			ipAddr = ""
 		}
+	}
+	if len(ip6Addr) > 0 {
+		if v4net != nil {
+			ip6, err := netutils.NewIPV6Addr(ip6Addr)
+			if err != nil {
+				return errors.Wrapf(err, "netutils.NewIPV6Addr: %s", ip6Addr)
+			}
+			if v4net.IsAddress6InRange(ip6) {
+				v6net = v4net
+			}
+		} else {
+			net, err := netif.GetCandidateNetworkForIp6(ctx, userCred, userCred, NetworkManager.AllowScope(userCred), ip6Addr)
+			if net != nil {
+				log.Infof("find network %s for ip %s", net.GetName(), ip6Addr)
+				v6net = net
+			} else if requireIpv6 {
+				log.Errorf("Cannot allocate IPv6 %s, not reachable: %s", ip6Addr, err)
+				return fmt.Errorf("Cannot allocate IPv6 %s, not reachable: %s", ip6Addr, err)
+			} else {
+				log.Infof("not found network with scope: %s, ip6_addr: %s, err: %s", NetworkManager.AllowScope(userCred), ip6Addr, err)
+				// the ipaddr is not usable, should be reset to empty
+				ip6Addr = ""
+			}
+		}
+	}
+	var net *SNetwork
+	if v4net != nil && v6net != nil {
+		if v4net.Id != v6net.Id {
+			return errors.Wrap(httperrors.ErrConflict, "v4net and v6net must be on the same network")
+		}
+		net = v4net
+	} else if v6net != nil {
+		net = v6net
+	} else if v4net != nil {
+		net = v4net
 	}
 	wire := netif.GetWire()
 	if wire == nil {
@@ -5879,20 +5984,28 @@ func (h *SHost) EnableNetif(ctx context.Context, userCred mcclient.TokenCredenti
 		allocDir:            allocDir,
 		reserved:            reserve,
 		requireDesignatedIp: requireDesignatedIp,
+
+		ip6Addr:     ip6Addr,
+		requireIpv6: requireIpv6,
+		strictIpv6:  strictIpv6,
 	}
 
-	bn, err = h.Attach2Network(ctx, userCred, attachOpt)
+	bn, err := h.attach2Network(ctx, userCred, attachOpt)
 	if err != nil {
 		return errors.Wrap(err, "hh.Attach2Network")
 	}
+	bnIP := bn.IpAddr
+	if len(bnIP) == 0 {
+		bnIP = bn.Ip6Addr
+	}
 	switch netif.NicType {
 	case api.NIC_TYPE_IPMI:
-		err = h.setIpmiIp(userCred, bn.IpAddr)
+		err = h.setIpmiIp(userCred, bnIP)
 		if err != nil {
 			return errors.Wrap(err, "setIpmiIp")
 		}
 	case api.NIC_TYPE_ADMIN:
-		err = h.setAccessIp(userCred, bn.IpAddr)
+		err = h.setAccessIp(userCred, bnIP)
 		if err != nil {
 			return errors.Wrap(err, "setAccessIp")
 		}
@@ -5928,20 +6041,21 @@ func (hh *SHost) PerformDisableNetif(
  */
 func (hh *SHost) DisableNetif(ctx context.Context, userCred mcclient.TokenCredential, netif *SNetInterface, reserve bool) error {
 	bn := netif.GetHostNetwork()
-	var ipAddr string
+	var ipAddr, ip6Addr string
 	if bn != nil {
 		ipAddr = bn.IpAddr
+		ip6Addr = bn.Ip6Addr
 		hh.UpdateDnsRecord(netif, false)
 		hh.DeleteBaremetalnetwork(ctx, userCred, bn, reserve)
 	}
 	var err error
 	switch netif.NicType {
 	case api.NIC_TYPE_IPMI:
-		if ipAddr == hh.IpmiIp {
+		if ipAddr == hh.IpmiIp || ip6Addr == hh.IpmiIp {
 			err = hh.setIpmiIp(userCred, "")
 		}
 	case api.NIC_TYPE_ADMIN:
-		if ipAddr == hh.AccessIp {
+		if ipAddr == hh.AccessIp || ip6Addr == hh.AccessIp {
 			err = hh.setAccessIp(userCred, "")
 		}
 	}
@@ -5955,16 +6069,21 @@ type hostAttachNetworkOption struct {
 	allocDir            string
 	reserved            bool
 	requireDesignatedIp bool
+
+	ip6Addr     string
+	requireIpv6 bool
+	strictIpv6  bool
 }
 
-func (hh *SHost) IsIpAddrWithinConvertedGuest(ctx context.Context, userCred mcclient.TokenCredential, ipAddr string, netif *SNetInterface) error {
+func (hh *SHost) IsIpAddrWithinConvertedGuest(ctx context.Context, userCred mcclient.TokenCredential, ipAddr, ip6Addr string, netif *SNetInterface) error {
 	if !hh.IsBaremetal {
 		return httperrors.NewNotAcceptableError("Not a baremetal")
 	}
 
-	if hh.HostType == api.HOST_TYPE_KVM {
-		return httperrors.NewNotAcceptableError("Not being convert to hypervisor")
-	}
+	// ?
+	// if hh.HostType == api.HOST_TYPE_KVM {
+	// 	return httperrors.NewNotAcceptableError("Not being convert to hypervisor")
+	// }
 
 	bmServer := hh.GetBaremetalServer()
 	if bmServer == nil {
@@ -5987,59 +6106,118 @@ func (hh *SHost) IsIpAddrWithinConvertedGuest(ctx context.Context, userCred mccl
 		return httperrors.NewNotFoundError("Not found guest nic by mac %s", netif.Mac)
 	}
 
-	if findNic.IpAddr != ipAddr {
+	if len(ipAddr) > 0 && findNic.IpAddr != ipAddr {
 		return httperrors.NewNotAcceptableError("Guest nic ip addr %s not equal %s", findNic.IpAddr, ipAddr)
+	}
+	if len(ip6Addr) > 0 && findNic.Ip6Addr != ip6Addr {
+		return httperrors.NewNotAcceptableError("Guest nic ip addr6 %s not equal %s", findNic.Ip6Addr, ip6Addr)
 	}
 
 	return nil
 }
 
-func (hh *SHost) Attach2Network(
+func (hh *SHost) attach2Network(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
 	opt *hostAttachNetworkOption,
 ) (*SHostnetwork, error) {
+	log.Infof("host attach2Network: %s", jsonutils.Marshal(opt))
+
 	netif := opt.netif
 	net := opt.net
 	ipAddr := opt.ipAddr
+	ip6Addr := opt.ip6Addr
 	allocDir := opt.allocDir
 	reserved := opt.reserved
 	requireDesignatedIp := opt.requireDesignatedIp
 
+	bn := opt.netif.GetHostNetwork()
+
 	lockman.LockObject(ctx, net)
 	defer lockman.ReleaseObject(ctx, net)
 
-	usedAddrs := net.GetUsedAddresses(ctx)
-	if ipAddr != "" {
-		// converted baremetal can resuse related guest network ip
-		if err := hh.IsIpAddrWithinConvertedGuest(ctx, userCred, ipAddr, netif); err == nil {
-			// force remove used server addr for reuse
-			delete(usedAddrs, ipAddr)
-		} else {
-			log.Warningf("check IsIpAddrWithinConvertedGuest: %v", err)
+	var freeIp4, freeIp6 string
+	if (!opt.strictIpv6 || len(ipAddr) > 0) && (bn == nil || bn.IpAddr != ipAddr) {
+		// allocate ipv4 address
+		usedAddrs := net.GetUsedAddresses(ctx)
+		if ipAddr != "" {
+			// converted baremetal can resuse related guest network ip
+			if err := hh.IsIpAddrWithinConvertedGuest(ctx, userCred, ipAddr, "", netif); err == nil {
+				// force remove used server addr for reuse
+				delete(usedAddrs, ipAddr)
+			} else {
+				log.Warningf("check IsIpAddrWithinConvertedGuest: %v", err)
+			}
 		}
+		freeIp, err := net.GetFreeIP(ctx, userCred, usedAddrs, nil, ipAddr, api.IPAllocationDirection(allocDir), reserved, api.AddressTypeIPv4)
+		if err != nil {
+			return nil, errors.Wrap(err, "net.GetFreeIPv4")
+		}
+		if len(ipAddr) > 0 && ipAddr != freeIp && requireDesignatedIp {
+			return nil, fmt.Errorf("IPv4 address %s is occupied, get %s instead", ipAddr, freeIp)
+		}
+		freeIp4 = freeIp
+	}
+	if (opt.requireIpv6 || len(ip6Addr) > 0) && (bn == nil || bn.Ip6Addr != ip6Addr) {
+		usedAddrs6 := net.GetUsedAddresses6(ctx)
+		if ip6Addr != "" {
+			// converted baremetal can resuse related guest network ip
+			if err := hh.IsIpAddrWithinConvertedGuest(ctx, userCred, "", ip6Addr, netif); err == nil {
+				// force remove used server addr for reuse
+				delete(usedAddrs6, ip6Addr)
+			} else {
+				log.Warningf("check IsIpAddrWithinConvertedGuest: %v", err)
+			}
+		}
+		freeIp, err := net.GetFreeIP(ctx, userCred, usedAddrs6, nil, ip6Addr, api.IPAllocationDirection(allocDir), reserved, api.AddressTypeIPv6)
+		if err != nil {
+			return nil, errors.Wrap(err, "net.GetFreeIPv6")
+		}
+		if len(ip6Addr) > 0 && ip6Addr != freeIp && requireDesignatedIp {
+			return nil, fmt.Errorf("IPv6 address %s is occupied, get %s instead", ip6Addr, freeIp)
+		}
+		freeIp6 = freeIp
 	}
 
-	freeIp, err := net.GetFreeIP(ctx, userCred, usedAddrs, nil, ipAddr, api.IPAllocationDirection(allocDir), reserved, api.AddressTypeIPv4)
-	if err != nil {
-		return nil, errors.Wrap(err, "net.GetFreeIP")
+	if bn == nil {
+		bn = &SHostnetwork{}
+		bn.SetModelManager(HostnetworkManager, bn)
+		bn.BaremetalId = hh.Id
+		bn.NetworkId = net.Id
+		bn.MacAddr = netif.Mac
+		bn.IpAddr = freeIp4
+		bn.Ip6Addr = freeIp6
+		err := HostnetworkManager.TableSpec().Insert(ctx, bn)
+		if err != nil {
+			return nil, errors.Wrap(err, "HostnetworkManager.TableSpec().Insert")
+		}
+	} else if (freeIp4 != "" && freeIp4 != bn.IpAddr) || (freeIp6 != "" && freeIp6 != bn.Ip6Addr) {
+		_, err := db.Update(bn, func() error {
+			if freeIp4 != "" {
+				bn.IpAddr = freeIp4
+			}
+			if freeIp6 != "" {
+				bn.Ip6Addr = freeIp6
+			}
+			return nil
+		})
+		if err != nil {
+			return nil, errors.Wrap(err, "HostnetworkManager.TableSpec().Insert")
+		}
+	} else {
+		return bn, nil
 	}
-	if len(ipAddr) > 0 && ipAddr != freeIp && requireDesignatedIp {
-		return nil, fmt.Errorf("IP address %s is occupied, get %s instead", ipAddr, freeIp)
+
+	var addrs []string
+	if len(freeIp4) > 0 {
+		addrs = append(addrs, freeIp4)
 	}
-	bn := &SHostnetwork{}
-	bn.BaremetalId = hh.Id
-	bn.SetModelManager(HostnetworkManager, bn)
-	bn.NetworkId = net.Id
-	bn.IpAddr = freeIp
-	bn.MacAddr = netif.Mac
-	err = HostnetworkManager.TableSpec().Insert(ctx, bn)
-	if err != nil {
-		return nil, errors.Wrap(err, "HostnetworkManager.TableSpec().Insert")
+	if len(freeIp6) > 0 {
+		addrs = append(addrs, freeIp6)
 	}
-	db.OpsLog.LogAttachEvent(ctx, hh, net, userCred, jsonutils.NewString(freeIp))
+	db.OpsLog.LogAttachEvent(ctx, hh, net, userCred, jsonutils.NewString(strings.Join(addrs, ",")))
 	hh.UpdateDnsRecord(netif, true)
-	net.UpdateBaremetalNetmap(bn, hh.GetNetifName(netif))
+	// net.UpdateBaremetalNetmap(bn, hh.GetNetifName(netif))
 	return bn, nil
 }
 
@@ -6587,7 +6765,7 @@ func (host *SHost) SyncHostExternalNics(ctx context.Context, userCred mcclient.T
 		netif := host.GetNetInterface(enables[i].GetMac(), enables[i].GetVlanId())
 		// always true reserved address pool
 		log.Debugf("enable netif %s", enables[i].GetMac())
-		err = host.EnableNetif(ctx, userCred, netif, "", enables[i].GetIpAddr(), "", "", true, true)
+		err = host.EnableNetif(ctx, userCred, netif, "", enables[i].GetIpAddr(), "", "", "", true, true, false, false)
 		if err != nil {
 			result.AddError(err)
 		} else {
@@ -6618,9 +6796,9 @@ func (host *SHost) SyncHostExternalNics(ctx context.Context, userCred mcclient.T
 				wireId = wire.Id
 			}
 		}
-		err = host.addNetif(ctx, userCred, extNic.GetMac(), extNic.GetVlanId(), wireId, extNic.GetIpAddr(), 0,
+		err = host.addNetif(ctx, userCred, extNic.GetMac(), extNic.GetVlanId(), wireId, extNic.GetIpAddr(), "", 0,
 			compute.TNicType(extNic.GetNicType()), int(extNic.GetIndex()),
-			extNic.IsLinkUp(), int16(extNic.GetMtu()), false, strNetIf, strBridge, true, true)
+			extNic.IsLinkUp(), int16(extNic.GetMtu()), false, strNetIf, strBridge, true, true, false, false)
 		if err != nil {
 			result.AddError(err)
 		} else {
@@ -7499,8 +7677,54 @@ func (manager *SHostManager) initHostname() error {
 	return nil
 }
 
+func (manager *SHostManager) initOvnMappedIp6Addr() error {
+	hosts := []SHost{}
+	q := manager.Query().IsNotEmpty("ovn_version")
+	q = q.Filter(
+		sqlchemy.OR(
+			sqlchemy.IsNullOrEmpty(q.Field("ovn_mapped_ip6_addr")),
+			sqlchemy.IsNullOrEmpty(q.Field("ovn_mapped_ip_addr")),
+		),
+	)
+	err := db.FetchModelObjects(manager, q, &hosts)
+	if err != nil {
+		return errors.Wrapf(err, "db.FetchModelObjects")
+	}
+	for i := range hosts {
+		hh := &hosts[i]
+		var v4addr string
+		if hh.OvnMappedIp6Addr == "" {
+			addr, err := HostManager.allocOvnMappedIpAddr(context.Background())
+			if err != nil {
+				return errors.Wrapf(err, "host %s(%s): alloc vpc mapped addr", hh.Name, hh.Id)
+			}
+			v4addr = addr
+		} else {
+			v4addr = hh.OvnMappedIpAddr
+		}
+
+		if _, err := db.Update(hh, func() error {
+			hh.OvnMappedIpAddr = v4addr
+			hh.OvnMappedIp6Addr = api.GenVpcMappedIP6(v4addr)
+			return nil
+		}); err != nil {
+			return errors.Wrapf(err, "host %s(%s): db update vpc mapped addr", hh.Name, hh.Id)
+		}
+	}
+	return nil
+}
+
 func (manager *SHostManager) InitializeData() error {
-	return manager.initHostname()
+	var err error
+	err = manager.initHostname()
+	if err != nil {
+		return errors.Wrapf(err, "initHostname")
+	}
+	err = manager.initOvnMappedIp6Addr()
+	if err != nil {
+		return errors.Wrapf(err, "initOvnMappedIp6Addr")
+	}
+	return nil
 }
 
 func (hh *SHost) PerformProbeIsolatedDevices(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {

@@ -36,6 +36,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/pkg/util/version"
 	"yunion.io/x/pkg/utils"
 
@@ -1588,7 +1589,7 @@ func (h *SHostInfo) updateOrCreateHost(hostId string) (*api.HostDetails, error) 
 	if options.HostOptions.EnableSsl {
 		schema = "https"
 	}
-	if strings.Contains(masterIp, ":") {
+	if regutils.MatchIP6Addr(masterIp) {
 		input.ManagerUri = fmt.Sprintf("%s://[%s]:%d", schema, masterIp, options.HostOptions.Port)
 	} else {
 		input.ManagerUri = fmt.Sprintf("%s://%s:%d", schema, masterIp, options.HostOptions.Port)
@@ -1906,7 +1907,7 @@ func (h *SHostInfo) uploadNetworkInfo() error {
 
 func (h *SHostInfo) doSendPhysicalNicInfo(nic *types.SNicDevInfo) error {
 	log.Infof("upload physical nic: %s(%s)", nic.Dev, nic.Mac)
-	_, err := h.doUploadNicInfoInternal(nic.Dev, nic.Mac.String(), 1, "", "", "", nic.Up != nil && *nic.Up)
+	_, err := h.doUploadNicInfoInternal(nic.Dev, nic.Mac.String(), 1, "", "", "", "", nic.Up != nil && *nic.Up)
 	if err != nil {
 		return errors.Wrap(err, "doUploadNicInfoInternal")
 	}
@@ -1914,15 +1915,15 @@ func (h *SHostInfo) doSendPhysicalNicInfo(nic *types.SNicDevInfo) error {
 }
 
 func (h *SHostInfo) doUploadNicInfo(nic *SNIC) (*api.HostDetails, error) {
-	hostDetails, err := h.doUploadNicInfoInternal(nic.Inter, nic.BridgeDev.GetMac(), nic.BridgeDev.GetVlanId(), nic.Wire, nic.Bridge, nic.Ip, true)
+	hostDetails, err := h.doUploadNicInfoInternal(nic.Inter, nic.BridgeDev.GetMac(), nic.BridgeDev.GetVlanId(), nic.Wire, nic.Bridge, nic.Ip, nic.Ip6, true)
 	if err != nil {
 		return nil, errors.Wrap(err, "doUploadNicInfoInternal")
 	}
 	return hostDetails, nil
 }
 
-func (h *SHostInfo) doUploadNicInfoInternal(ifname, mac string, vlanId int, wire, bridge, ipaddr string, isUp bool) (*api.HostDetails, error) {
-	log.Infof("Upload NIC br:%s if:%s", bridge, ifname)
+func (h *SHostInfo) doUploadNicInfoInternal(ifname, mac string, vlanId int, wire, bridge, ipaddr, ip6addr string, isUp bool) (*api.HostDetails, error) {
+	log.Infof("Upload NIC br:%s if:%s ip:%s ip6:%s", bridge, ifname, ipaddr, ip6addr)
 	content := jsonutils.NewDict()
 	content.Set("mac", jsonutils.NewString(mac))
 	content.Set("vlan_id", jsonutils.NewInt(int64(vlanId)))
@@ -1937,6 +1938,14 @@ func (h *SHostInfo) doUploadNicInfoInternal(ifname, mac string, vlanId int, wire
 	if len(ipaddr) > 0 {
 		content.Set("ip_addr", jsonutils.NewString(ipaddr))
 		if ipaddr == h.GetMasterIp() {
+			content.Set("nic_type", jsonutils.NewString(string(api.NIC_TYPE_ADMIN)))
+		}
+		// always try to allocate from reserved pool
+		content.Set("reserve", jsonutils.JSONTrue)
+	}
+	if len(ip6addr) > 0 {
+		content.Set("ip6_addr", jsonutils.NewString(ip6addr))
+		if ip6addr == h.GetMasterIp() {
 			content.Set("nic_type", jsonutils.NewString(string(api.NIC_TYPE_ADMIN)))
 		}
 		// always try to allocate from reserved pool

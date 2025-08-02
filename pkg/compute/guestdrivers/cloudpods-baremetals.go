@@ -163,9 +163,10 @@ func (self *SCloudpodsBaremetalGuestDriver) GetNamedNetworkConfiguration(guest *
 		reuseAddr := false
 		hn := host.GetAttach2Network(netConfig.Network)
 		if hn != nil && options.Options.BaremetalServerReuseHostIp {
-			if netConfig.Address == "" || netConfig.Address == hn.IpAddr {
+			if (netConfig.Address == "" && netConfig.Address6 == "") || (netConfig.Address == hn.IpAddr && netConfig.Address6 == hn.Ip6Addr) {
 				// try to reuse host network IP address
 				netConfig.Address = hn.IpAddr
+				netConfig.Address6 = hn.Ip6Addr
 				reuseAddr = true
 			}
 		}
@@ -248,17 +249,20 @@ func (self *SCloudpodsBaremetalGuestDriver) Attach2RandomNetwork(guest *models.S
 			nicConfs = append(nicConfs, nicConf)
 		}
 		address := ""
+		address6 := ""
 		reuseAddr := false
 		hn := host.GetAttach2Network(net.Id)
 		if hn != nil && options.Options.BaremetalServerReuseHostIp {
 			// try to reuse host network IP address
 			address = hn.IpAddr
+			address6 = hn.Ip6Addr
 			reuseAddr = true
 		}
 		return guest.Attach2Network(ctx, userCred, models.Attach2NetworkArgs{
 			Network:             net,
 			PendingUsage:        pendingUsage,
 			IpAddr:              address,
+			Ip6Addr:             address6,
 			NicDriver:           netConfig.Driver,
 			BwLimit:             netConfig.BwLimit,
 			Virtual:             netConfig.Vip,

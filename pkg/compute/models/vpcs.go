@@ -1982,6 +1982,7 @@ func (svpc *SVpc) GetDetailsTopology(ctx context.Context, userCred mcclient.Toke
 			for j := range hns {
 				host.Networks = append(host.Networks, api.HostnetworkTopologyOutput{
 					IpAddr:  hns[j].IpAddr,
+					Ip6Addr: hns[j].Ip6Addr,
 					MacAddr: hns[j].MacAddr,
 				})
 			}

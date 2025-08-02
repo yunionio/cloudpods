@@ -139,8 +139,12 @@ func (self *SBaseHostDriver) FinishUnconvert(ctx context.Context, userCred mccli
 	if adminNic == nil {
 		return fmt.Errorf("admin nic is nil")
 	}
+	accessIp := adminNic.IpAddr
+	if accessIp == "" {
+		accessIp = adminNic.Ip6Addr
+	}
 	db.Update(host, func() error {
-		host.AccessIp = adminNic.IpAddr
+		host.AccessIp = accessIp
 		host.SetEnabled(true)
 		host.HostType = api.HOST_TYPE_BAREMETAL
 		host.HostStatus = api.HOST_OFFLINE
