@@ -429,16 +429,14 @@ func (d *SBaseBridgeDriver) SetupAddresses() error {
 			addr    string
 			masklen int
 		)
-		if len(d.ip) == 0 && len(d.ip6) == 0 {
+		if len(d.ip) == 0 {
 			addr, masklen = netutils2.GetSecretInterfaceAddress()
 		} else {
 			addr = d.ip
 			masklen = d.maskLen
 		}
 		addrStr := []string{}
-		if len(d.ip) > 0 {
-			addrStr = append(addrStr, fmt.Sprintf("%s/%d", addr, masklen))
-		}
+		addrStr = append(addrStr, fmt.Sprintf("%s/%d", addr, masklen))
 		if len(d.ip6) > 0 {
 			addrStr = append(addrStr, fmt.Sprintf("%s/%d", d.ip6, d.mask6Len))
 		}
