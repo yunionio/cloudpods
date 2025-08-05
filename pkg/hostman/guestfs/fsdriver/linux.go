@@ -1029,10 +1029,10 @@ func (r *sRedhatLikeRootFs) DeployHostname(rootFs IDiskPartition, hn, domain str
 	centosHn += "NETWORKING=yes\n"
 	centosHn += fmt.Sprintf("HOSTNAME=%s\n", getHostname(hn, domain))
 	if err := rootFs.FilePutContents(sPath, centosHn, false, false); err != nil {
-		return err
+		return errors.Wrapf(err, "DeployHostname %s", sPath)
 	}
-	if rootFs.Exists("/etc/hostname", false) {
-		return rootFs.FilePutContents("/etc/hostname", hn, false, false)
+	if err := rootFs.FilePutContents("/etc/hostname", hn, false, false); err != nil {
+		return errors.Wrapf(err, "DeployHostname %s", "/etc/hostname")
 	}
 	return nil
 }
