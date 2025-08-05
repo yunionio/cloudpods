@@ -619,6 +619,11 @@ func (d *SLVMDisk) ConvertSnapshot(convertSnapshot string, encryptInfo apis.SEnc
 	return ConvertLVMDisk(d.Storage.GetPath(), convertSnapshotName, encryptInfo)
 }
 
+func (d *SLVMDisk) ConvertSnapshotRelyOnReloadDisk(convertSnapshot string, encryptInfo apis.SEncryptInfo) (func() error, error) {
+	convertSnapshotName := d.GetSnapshotName(convertSnapshot)
+	return ConvertLVMDiskNeedReload(d.Storage.GetPath(), convertSnapshotName, encryptInfo)
+}
+
 func (d *SLVMDisk) DoDeleteSnapshot(snapshotId string) error {
 	snapshotPath := d.GetSnapshotPath(snapshotId)
 	return lvmutils.LvRemove(snapshotPath)
