@@ -511,13 +511,13 @@ func (d *SLocalDisk) CreateSnapshot(snapshotId string, encryptKey string, encFor
 	return nil
 }
 
-func (d *SLocalDisk) ConvertSnapshot(convertSnapshotId string, encryptInfo apis.SEncryptInfo) error {
+func (d *SLocalDisk) ConvertSnapshotRelyOnReloadDisk(convertSnapshotId string, encryptInfo apis.SEncryptInfo) (func() error, error) {
 	snapshotDir := d.GetSnapshotDir()
 	snapshotPath := path.Join(snapshotDir, convertSnapshotId)
 	img, err := qemuimg.NewQemuImage(snapshotPath)
 	if err != nil {
 		log.Errorln(err)
-		return err
+		return nil, err
 	}
 	convertedDisk := snapshotPath + ".tmp"
 	if err = img.Convert2Qcow2To(convertedDisk, false, "", "", ""); err != nil {
@@ -525,13 +525,13 @@ func (d *SLocalDisk) ConvertSnapshot(convertSnapshotId string, encryptInfo apis.
 		if fileutils2.Exists(convertedDisk) {
 			os.Remove(convertedDisk)
 		}
-		return err
+		return nil, err
 	}
 	if output, err := procutils.NewCommand("mv", "-f", convertedDisk, snapshotPath).Output(); err != nil {
 		log.Errorf("mv %s to %s failed: %s, %s", convertedDisk, snapshotPath, err, output)
-		return err
+		return nil, err
 	}
-	return nil
+	return nil, nil
 }
 
 func (d *SLocalDisk) DeleteSnapshot(snapshotId, convertSnapshot string, blockStream bool, encryptInfo apis.SEncryptInfo) error {
