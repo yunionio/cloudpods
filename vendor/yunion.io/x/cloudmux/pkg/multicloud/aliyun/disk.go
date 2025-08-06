@@ -164,6 +164,10 @@ func (self *SDisk) ChangeBillingType(billingType string) error {
 	return self.storage.zone.region.ChangeDiskChargeType(self.InstanceId, self.DiskId, billingType)
 }
 
+func (self *SDisk) SetTags(tags map[string]string, replace bool) error {
+	return self.storage.zone.region.SetResourceTags(ALIYUN_SERVICE_ECS, "disk", self.DiskId, tags, replace)
+}
+
 func (self *SRegion) ChangeDiskChargeType(vmId, diskId string, billingType string) error {
 	params := make(map[string]string)
 	params["RegionId"] = self.RegionId

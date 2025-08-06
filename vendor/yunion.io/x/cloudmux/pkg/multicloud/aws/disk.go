@@ -198,6 +198,10 @@ func (self *SDisk) Delete(ctx context.Context) error {
 	return self.storage.zone.region.DeleteDisk(self.VolumeId)
 }
 
+func (self *SDisk) SetTags(tags map[string]string, replace bool) error {
+	return self.storage.zone.region.setTags("volume", self.VolumeId, tags, replace)
+}
+
 func (self *SDisk) CreateISnapshot(ctx context.Context, name string, desc string) (cloudprovider.ICloudSnapshot, error) {
 	snapshot, err := self.storage.zone.region.CreateSnapshot(self.VolumeId, name, desc)
 	if err != nil {
