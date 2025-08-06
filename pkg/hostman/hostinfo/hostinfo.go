@@ -421,6 +421,14 @@ func (h *SHostInfo) parseConfig() error {
 		}
 	}
 
+	if h.MasterNic != nil {
+		if regutils.MatchIP4Addr(h.GetMasterIp()) {
+			options.HostOptions.Address = "0.0.0.0"
+		} else {
+			options.HostOptions.Address = "::"
+		}
+	}
+
 	h.IsolatedDeviceMan = isolated_device.NewManager(h)
 
 	return nil
@@ -1860,12 +1868,17 @@ func (h *SHostInfo) uploadNetworkInfo() error {
 
 	var hostDetails *api.HostDetails
 	for _, nic := range h.Nics {
+		log.Infof("host nic: %s", jsonutils.Marshal(nic).String())
 		if len(nic.WireId) == 0 {
 			// nic info not uploaded yet
 			if len(nic.Wire) == 0 {
 				// no wire defined, find from region
 				kwargs := jsonutils.NewDict()
-				kwargs.Set("ip", jsonutils.NewString(nic.Ip))
+				if len(nic.Ip) > 0 {
+					kwargs.Set("ip", jsonutils.NewString(nic.Ip))
+				} else if len(nic.Ip6) > 0 {
+					kwargs.Set("ip", jsonutils.NewString(nic.Ip6))
+				}
 				kwargs.Set("is_classic", jsonutils.JSONTrue)
 				kwargs.Set("scope", jsonutils.NewString("system"))
 				kwargs.Set("limit", jsonutils.NewInt(0))

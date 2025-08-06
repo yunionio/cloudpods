@@ -711,6 +711,8 @@ type ServerDetachnetworkInput struct {
 	NetId string `json:"net_id"`
 	// 通过IP解绑网卡, 优先级高于mac
 	IpAddr string `json:"ip_addr"`
+	// 通过IP6 addr解绑网卡, 优先级高于mac
+	Ip6Addr string `json:"ip6_addr"`
 	// 通过Mac解绑网卡, 优先级低于ip_addr
 	Mac string `json:"mac"`
 	// 解绑后不立即同步配置

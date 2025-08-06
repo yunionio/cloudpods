@@ -2847,8 +2847,14 @@ func (self *SGuest) PerformDetachnetwork(
 		if err != nil {
 			return nil, httperrors.NewGeneralError(err)
 		}
-	} else if len(input.IpAddr) > 0 {
-		gn, err := self.GetGuestnetworkByIp(input.IpAddr)
+	} else if len(input.IpAddr) > 0 || len(input.Ip6Addr) > 0 {
+		var gn *SGuestnetwork
+		var err error
+		if len(input.IpAddr) > 0 {
+			gn, err = self.GetGuestnetworkByIp(input.IpAddr)
+		} else if len(input.Ip6Addr) > 0 {
+			gn, err = self.GetGuestnetworkByIp6(input.Ip6Addr)
+		}
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return nil, httperrors.NewNotFoundError("ip %s not found", input.IpAddr)
@@ -2944,7 +2950,7 @@ func (guest *SGuest) fixDefaultGatewayByNics(ctx context.Context, userCred mccli
 		}
 		net, _ := nics[i].GetNetwork()
 		if net != nil {
-			nicList = nicList.Add(nics[i].IpAddr, nics[i].MacAddr, net.GuestGateway)
+			nicList = nicList.Add(nics[i].MacAddr, nics[i].IpAddr, net.GuestGateway, nics[i].Ip6Addr, net.GuestGateway6, nics[i].IsDefault)
 		}
 	}
 

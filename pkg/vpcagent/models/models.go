@@ -158,7 +158,7 @@ func (el *Guest) FixIsDefaults() {
 		if gn.IsDefault {
 			defaultCnt++
 		}
-		nics = nics.Add(gn.IpAddr, gn.MacAddr, gn.Network.GuestGateway)
+		nics = nics.Add(gn.MacAddr, gn.IpAddr, gn.Network.GuestGateway, gn.Ip6Addr, gn.Network.GuestGateway6, gn.IsDefault)
 	}
 	if defaultCnt != 1 {
 		gwMac, _ := nics.FindDefaultNicMac()

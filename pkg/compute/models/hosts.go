@@ -5588,7 +5588,7 @@ func (h *SHost) PerformAddNetif(
 	mac := input.Mac
 	vlan := input.VlanId
 
-	wire := input.WireId
+	wireId := input.WireId
 	if len(input.WireId) > 0 {
 		wireObj, err := WireManager.FetchByIdOrName(ctx, userCred, input.WireId)
 		if err != nil {
@@ -5598,7 +5598,7 @@ func (h *SHost) PerformAddNetif(
 				return nil, errors.Wrap(err, "FetchByIdOrName")
 			}
 		}
-		wire = wireObj.GetId()
+		wireId = wireObj.GetId()
 	}
 	ipAddr := input.IpAddr
 	if len(ipAddr) > 0 && !regutils.MatchIP4Addr(ipAddr) {
@@ -5630,25 +5630,25 @@ func (h *SHost) PerformAddNetif(
 		}
 	}
 
-	err = h.addNetif(ctx, userCred, mac, vlan, wire, ipAddr, ip6Addr, int(rate), nicType, index, isLinkUp,
+	err = h.addNetif(ctx, userCred, mac, vlan, wireId, ipAddr, ip6Addr, int(rate), nicType, index, isLinkUp,
 		int16(mtu), reset, netIf, bridge, reserve, requireDesignatedIp, requireIpv6, strictIpv6)
 	return nil, errors.Wrap(err, "addNetif")
 }
 
 func (h *SHost) addNetif(ctx context.Context, userCred mcclient.TokenCredential,
-	mac string, vlanId int, wire string, ipAddr string, ip6Addr string,
+	mac string, vlanId int, wireId string, ipAddr string, ip6Addr string,
 	rate int, nicType compute.TNicType, index int, linkUp tristate.TriState, mtu int16,
 	reset bool, strInterface *string, strBridge *string,
 	reserve bool, requireDesignatedIp bool, requireIpv6 bool, strictIpv6 bool,
 ) error {
 	var sw *SWire
-	if len(wire) > 0 {
-		iWire, err := WireManager.FetchByIdOrName(ctx, userCred, wire)
+	if len(wireId) > 0 {
+		iWire, err := WireManager.FetchById(wireId)
 		if err != nil {
 			if err == sql.ErrNoRows {
-				return httperrors.NewResourceNotFoundError2(WireManager.Keyword(), wire)
+				return httperrors.NewResourceNotFoundError2(WireManager.Keyword(), wireId)
 			} else {
-				return httperrors.NewInternalServerError("find Wire %s error: %s", wire, err)
+				return httperrors.NewInternalServerError("find Wire %s error: %s", wireId, err)
 			}
 		}
 		sw = iWire.(*SWire)
@@ -5673,7 +5673,7 @@ func (h *SHost) addNetif(ctx context.Context, userCred mcclient.TokenCredential,
 			var v4net, v6net *SNetwork
 			swNets, err := sw.getNetworks(ctx, userCred, userCred, NetworkManager.AllowScope(userCred))
 			if err != nil {
-				return httperrors.NewInputParameterError("no networks on wire %s", wire)
+				return httperrors.NewInputParameterError("no networks on wire %s", wireId)
 			}
 			for i := range swNets {
 				if v4net == nil && v4addr != nil && swNets[i].IsAddressInRange(*v4addr) {
@@ -5694,7 +5694,7 @@ func (h *SHost) addNetif(ctx context.Context, userCred mcclient.TokenCredential,
 				if len(ip6Addr) > 0 {
 					addrs = append(addrs, ip6Addr)
 				}
-				return httperrors.NewBadRequestError("IP %s not attach to wire %s", strings.Join(addrs, ","), wire)
+				return httperrors.NewBadRequestError("IP %s not attach to wire %s", strings.Join(addrs, ","), wireId)
 			}
 			if v4net != nil && v6net != nil && v4net.Id != v6net.Id {
 				return httperrors.NewConflictError("IPv4 %s and IPv6 %s must be on the same network", ipAddr, ip6Addr)
@@ -6137,7 +6137,7 @@ func (hh *SHost) attach2Network(
 	defer lockman.ReleaseObject(ctx, net)
 
 	var freeIp4, freeIp6 string
-	if (!opt.strictIpv6 || len(ipAddr) > 0) && (bn == nil || bn.IpAddr != ipAddr) {
+	if (!opt.strictIpv6 || len(ipAddr) > 0) && (bn == nil || bn.IpAddr != ipAddr) && net.HasIPv4Addr() {
 		// allocate ipv4 address
 		usedAddrs := net.GetUsedAddresses(ctx)
 		if ipAddr != "" {
@@ -6158,7 +6158,7 @@ func (hh *SHost) attach2Network(
 		}
 		freeIp4 = freeIp
 	}
-	if (opt.requireIpv6 || len(ip6Addr) > 0) && (bn == nil || bn.Ip6Addr != ip6Addr) {
+	if (opt.requireIpv6 || len(ip6Addr) > 0) && (bn == nil || bn.Ip6Addr != ip6Addr) && net.HasIPv6Addr() {
 		usedAddrs6 := net.GetUsedAddresses6(ctx)
 		if ip6Addr != "" {
 			// converted baremetal can resuse related guest network ip
