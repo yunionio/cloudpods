@@ -27,4 +27,5 @@ func init() {
 	cmd.Create(&options.LoadbalancerHealthCheckCreateOptions{})
 	cmd.Delete(&options.LoadbalancerHealthCheckIdOptions{})
 	cmd.Update(&options.LoadbalancerHealthCheckUpdateOptions{})
+	cmd.Perform("syncstatus", &options.LoadbalancerHealthCheckIdOptions{})
 }
