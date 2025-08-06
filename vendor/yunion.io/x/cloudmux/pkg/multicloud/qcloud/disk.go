@@ -312,6 +312,10 @@ func (self *SDisk) GetExpiredAt() time.Time {
 	return self.DeadlineTime.Add(time.Hour * -8)
 }
 
+func (self *SDisk) SetTags(tags map[string]string, replace bool) error {
+	return self.storage.zone.region.SetResourceTags("cvm", "volume", []string{self.DiskId}, tags, replace)
+}
+
 func (self *SDisk) GetISnapshot(snapshotId string) (cloudprovider.ICloudSnapshot, error) {
 	snapshots, total, err := self.storage.zone.region.GetSnapshots("", "", "", []string{snapshotId}, 0, 1)
 	if err != nil {
