@@ -175,7 +175,7 @@ func (hc *SLoadbalancerHealthCheck) ValidateUpdateData(
 	if err != nil {
 		return nil, errors.Wrap(err, "SVirtualResourceBase.ValidateUpdateData")
 	}
-	return nil, cloudprovider.ErrNotImplemented
+	return input, nil
 }
 
 func (hc *SLoadbalancerHealthCheck) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
@@ -415,6 +415,10 @@ func (hc *SLoadbalancerHealthCheck) syncRemove(ctx context.Context, userCred mcc
 	defer lockman.ReleaseObject(ctx, hc)
 
 	return hc.RealDelete(ctx, userCred)
+}
+
+func (hc *SLoadbalancerHealthCheck) PerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	return nil, StartResourceSyncStatusTask(ctx, userCred, hc, "LoadbalancerHealthCheckSyncstatusTask", "")
 }
 
 func (manager *SLoadbalancerHealthCheckManager) ListItemExportKeys(ctx context.Context,

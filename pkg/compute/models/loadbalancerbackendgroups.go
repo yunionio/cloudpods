@@ -450,6 +450,7 @@ func (man *SLoadbalancerBackendGroupManager) FetchCustomizeColumns(
 
 	lbIds := make([]string, len(objs))
 	lbbgIds := make([]string, len(objs))
+	hcIds := make([]string, len(objs))
 	for i := range rows {
 		rows[i] = api.LoadbalancerBackendGroupDetails{
 			StatusStandaloneResourceDetails: stdRows[i],
@@ -458,6 +459,7 @@ func (man *SLoadbalancerBackendGroupManager) FetchCustomizeColumns(
 		lbbg := objs[i].(*SLoadbalancerBackendGroup)
 		lbIds[i] = lbbg.LoadbalancerId
 		lbbgIds[i] = lbbg.Id
+		hcIds[i] = lbbg.LoadbalancerHealthCheckId
 	}
 
 	lbs := map[string]SLoadbalancer{}
@@ -477,8 +479,17 @@ func (man *SLoadbalancerBackendGroupManager) FetchCustomizeColumns(
 			}
 		}
 	}
+
+	hcMap, err := db.FetchIdNameMap2(LoadbalancerHealthCheckManager, hcIds)
+	if err != nil {
+		return rows
+	}
+
 	for i := range rows {
 		rows[i].IsDefault = utils.IsInStringArray(lbbgIds[i], defaultLbgIds)
+		if hcId, ok := hcMap[hcIds[i]]; ok {
+			rows[i].LoadbalancerHealthCheck = hcId
+		}
 	}
 
 	for i := range objs {

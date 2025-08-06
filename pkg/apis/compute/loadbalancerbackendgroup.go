@@ -29,6 +29,8 @@ type LoadbalancerBackendGroupDetails struct {
 
 	SLoadbalancerBackendGroup
 
+	LoadbalancerHealthCheck string `json:"loadbalancer_health_check"`
+
 	LbListenerCount int `json:"lb_listener_count"`
 
 	IsDefault bool   `json:"is_default"`
