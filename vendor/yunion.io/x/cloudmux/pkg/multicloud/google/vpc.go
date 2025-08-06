@@ -122,7 +122,7 @@ func (vpc *SVpc) GetIWireById(id string) (cloudprovider.ICloudWire, error) {
 
 func (self *SRegion) CreateVpc(name string, gvpcId string, cidr string, desc string) (*SVpc, error) {
 	body := map[string]interface{}{
-		"name":        name,
+		"name":        normalizeString(name),
 		"description": desc,
 		"network":     gvpcId,
 		"ipCidrRange": cidr,

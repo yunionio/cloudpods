@@ -175,7 +175,7 @@ func (addr *SAddress) ChangeBandwidth(bw int) error {
 
 func (region *SRegion) CreateEip(name string, desc string) (*SAddress, error) {
 	body := map[string]string{
-		"name":        name,
+		"name":        normalizeString(name),
 		"description": desc,
 	}
 	resource := fmt.Sprintf("regions/%s/addresses", region.Name)

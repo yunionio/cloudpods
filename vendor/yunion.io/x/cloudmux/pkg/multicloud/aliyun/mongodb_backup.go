@@ -67,6 +67,39 @@ func (self *SRegion) GetMongoDBBackups(id string, start time.Time, end time.Time
 
 func (self *SMongoDB) GetIBackups() ([]cloudprovider.SMongoDBBackup, error) {
 	backups := []SMongoDBBackup{}
+	err := self.Refresh()
+	if err != nil {
+		return nil, errors.Wrapf(err, "Refresh")
+	}
+	ret := []cloudprovider.SMongoDBBackup{}
+	if self.DBInstanceType == "sharding" {
+		backups, err := self.region.DescribeClusterBackups(self.DBInstanceId)
+		if err != nil {
+			return nil, errors.Wrapf(err, "DescribeClusterBackups")
+		}
+		for _, res := range backups {
+			backup := cloudprovider.SMongoDBBackup{}
+			backup.Name = res.ClusterBackupId
+			backup.StartTime = res.ClusterBackupStartTime
+			backup.EndTime = res.ClusterBackupEndTime
+			backup.BackupSizeKb = int(res.ClusterBackupSize / 1024)
+			switch res.ClusterBackupStatus {
+			case "OK":
+				backup.Status = cloudprovider.MongoDBBackupStatusAvailable
+			case "Failed":
+				backup.Status = cloudprovider.MongoDBBackupStatusFailed
+			default:
+				backup.Status = cloudprovider.TMongoDBBackupStatus(strings.ToLower(res.ClusterBackupStatus))
+			}
+			backup.BackupMethod = cloudprovider.TMongoDBBackupMethod(strings.ToLower(res.ClusterBackupMode))
+			backup.BackupType = cloudprovider.MongoDBBackupTypeAuto
+			if res.ClusterBackupMode == "Manual" {
+				backup.BackupType = cloudprovider.MongoDBBackupTypeManual
+			}
+			ret = append(ret, backup)
+		}
+		return ret, nil
+	}
 	now := time.Now().Add(time.Minute * -1)
 	for {
 		part, total, err := self.region.GetMongoDBBackups(self.DBInstanceId, self.CreationTime, now, 100, len(backups)/100)
@@ -78,7 +111,7 @@ func (self *SMongoDB) GetIBackups() ([]cloudprovider.SMongoDBBackup, error) {
 			break
 		}
 	}
-	ret := []cloudprovider.SMongoDBBackup{}
+
 	for _, res := range backups {
 		backup := cloudprovider.SMongoDBBackup{}
 		backup.Name = res.BackupId
@@ -101,4 +134,65 @@ func (self *SMongoDB) GetIBackups() ([]cloudprovider.SMongoDBBackup, error) {
 		ret = append(ret, backup)
 	}
 	return ret, nil
+}
+
+type SMongoDBClusterBackup struct {
+	AttachLogStatus  string
+	BackupExpireTime time.Time
+	Backups          []struct {
+		BackupEndTime   time.Time
+		BackupId        string
+		BackupName      string
+		BackupSize      string
+		BackupStartTime time.Time
+		BackupStatus    string
+		ExtraInfo       struct {
+			InstanceClass string
+			NodeId        string
+			NodeType      string
+			StorageSize   string
+		}
+		InstanceName string
+		IsAvail      int
+	}
+	ClusterBackupEndTime   time.Time
+	ClusterBackupId        string
+	ClusterBackupMode      string
+	ClusterBackupSize      int64
+	ClusterBackupStartTime time.Time
+	ClusterBackupStatus    string
+	EngineVersion          string
+	ExtraInfo              struct{}
+	IsAvail                int
+}
+
+func (region *SRegion) DescribeClusterBackups(id string) ([]SMongoDBClusterBackup, error) {
+	backups := []SMongoDBClusterBackup{}
+	pageNum := 1
+	params := map[string]string{
+		"DBInstanceId": id,
+		"PageSize":     "50",
+		"PageNumber":   fmt.Sprintf("%d", pageNum),
+	}
+	for {
+		resp, err := region.mongodbRequest("DescribeClusterBackups", params)
+		if err != nil {
+			return nil, errors.Wrapf(err, "DescribeClusterBackups")
+		}
+		part := struct {
+			MaxResults     int
+			ClusterBackups []SMongoDBClusterBackup
+		}{}
+		err = resp.Unmarshal(&part)
+		if err != nil {
+			return nil, errors.Wrapf(err, "resp.Unmarshal")
+		}
+		backups = append(backups, part.ClusterBackups...)
+		if len(backups) >= part.MaxResults {
+			break
+		}
+		pageNum++
+		params["PageNumber"] = fmt.Sprintf("%d", pageNum)
+	}
+	return backups, nil
 }

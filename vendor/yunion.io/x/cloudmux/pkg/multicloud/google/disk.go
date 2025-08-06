@@ -229,7 +229,7 @@ func (region *SRegion) CreateDisk(zone string, storageType string, opts *cloudpr
 		labels[encode.EncodeGoogleLabel(k)] = encode.EncodeGoogleLabel(v)
 	}
 	body := map[string]interface{}{
-		"name":        opts.Name,
+		"name":        normalizeString(opts.Name),
 		"description": opts.Desc,
 		// https://www.googleapis.com/compute/v1/projects/my-project-15390453537169/zones/us-west2-c/diskTypes/pd-standard
 		// projects/my-project-15390453537169/zones/us-west2-c/diskTypes/pd-standard
@@ -258,7 +258,7 @@ func (region *SRegion) ResizeDisk(id string, sizeGb int) error {
 
 func (self *SRegion) CreateSnapshot(diskId string, name string, desc string) (*SSnapshot, error) {
 	body := map[string]string{
-		"name":        name,
+		"name":        normalizeString(name),
 		"description": desc,
 	}
 	err := self.Do(diskId, "createSnapshot", nil, jsonutils.Marshal(body))
