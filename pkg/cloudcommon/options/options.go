@@ -418,6 +418,10 @@ func parseOptions(optStruct interface{}, args []string, configFileName string, s
 	consts.SetTaskWorkerCount(optionsRef.TaskWorkerCount)
 	consts.SetLocalTaskWorkerCount(optionsRef.LocalTaskWorkerCount)
 	consts.SetTaskArchiveThresholdHours(optionsRef.TaskArchiveThresholdHours)
+
+	if optionsRef.Address == "0.0.0.0" {
+		optionsRef.Address = ""
+	}
 }
 
 func (self *BaseOptions) HttpTransportProxyFunc() httputils.TransportProxyFunc {
