@@ -36,6 +36,10 @@ import (
 type SBaseHostDriver struct {
 }
 
+func (self *SBaseHostDriver) RequestRemoteUpdateDisk(ctx context.Context, userCred mcclient.TokenCredential, storage *models.SStorage, disk *models.SDisk, replaceTags bool) error {
+	return nil
+}
+
 func (self *SBaseHostDriver) RequestBaremetalUnmaintence(ctx context.Context, userCred mcclient.TokenCredential, baremetal *models.SHost, task taskman.ITask) error {
 	return errors.Wrapf(cloudprovider.ErrNotSupported, "RequestBaremetalUnmaintence")
 }

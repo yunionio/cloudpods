@@ -284,13 +284,13 @@ func GetAddrPort(urlStr string) (string, int, error) {
 		return "", 0, err
 	}
 	host := parts.Host
-	commaPos := strings.IndexByte(host, ':')
-	if commaPos > 0 {
-		port, err := strconv.ParseInt(host[commaPos+1:], 10, 32)
+	hostAddr, hostPortStr, err := net.SplitHostPort(host)
+	if err == nil {
+		hostPort, err := strconv.ParseInt(hostPortStr, 10, 32)
 		if err != nil {
-			return "", 0, err
+			return "", 0, errors.Wrapf(err, "strconv.ParseInt port string %s", hostPortStr)
 		} else {
-			return host[:commaPos], int(port), nil
+			return hostAddr, int(hostPort), nil
 		}
 	} else {
 		switch parts.Scheme {
@@ -299,7 +299,7 @@ func GetAddrPort(urlStr string) (string, int, error) {
 		case "https":
 			return parts.Host, 443, nil
 		default:
-			return "", 0, fmt.Errorf("Unknown schema %s", parts.Scheme)
+			return "", 0, errors.Wrapf(errors.ErrInvalidFormat, "Unknown schema %s", parts.Scheme)
 		}
 	}
 }
@@ -515,7 +515,7 @@ func request(client sClient, ctx context.Context, method THttpMethod, urlStr str
 		var reqBody string
 		if bodySeeker, ok := body.(io.ReadSeeker); ok {
 			bodySeeker.Seek(0, io.SeekStart)
-			reqBodyBytes, _ := ioutil.ReadAll(bodySeeker)
+			reqBodyBytes, _ := io.ReadAll(bodySeeker)
 			if reqBodyBytes != nil {
 				reqBody = string(reqBodyBytes)
 			}
