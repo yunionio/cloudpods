@@ -39,6 +39,10 @@ func (self *SBaseHostDriver) ValidateUpdateDisk(ctx context.Context, userCred mc
 	return input, nil
 }
 
+func (self *SBaseHostDriver) RequestRemoteUpdateDisk(ctx context.Context, userCred mcclient.TokenCredential, storage *models.SStorage, disk *models.SDisk, replaceTags bool) error {
+	return nil
+}
+
 func (self *SBaseHostDriver) ValidateResetDisk(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, snapshot *models.SSnapshot, guests []models.SGuest, input *api.DiskResetInput) (*api.DiskResetInput, error) {
 	return nil, httperrors.NewNotImplementedError("Not Implement ValidateResetDisk")
 }

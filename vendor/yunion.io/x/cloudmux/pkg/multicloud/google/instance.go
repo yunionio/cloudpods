@@ -28,7 +28,6 @@ import (
 	"yunion.io/x/pkg/util/encode"
 	"yunion.io/x/pkg/util/fileutils"
 	"yunion.io/x/pkg/util/imagetools"
-	"yunion.io/x/pkg/util/pinyinutils"
 	"yunion.io/x/pkg/utils"
 
 	billing_api "yunion.io/x/cloudmux/pkg/apis/billing"
@@ -564,18 +563,6 @@ func (region *SRegion) _createVM(zone string, desc *cloudprovider.SManagedVMCrea
 	if len(desc.SysDisk.Name) == 0 {
 		desc.SysDisk.Name = fmt.Sprintf("vdisk-%s-%d", desc.Name, time.Now().UnixNano())
 	}
-	nameConv := func(name string) string {
-		name = strings.Replace(name, "_", "-", -1)
-		name = pinyinutils.Text2Pinyin(name)
-		name = strings.ToLower(name)
-		if len(name) > 63 {
-			name = name[:63]
-		}
-		if name[len(name)-1] == '-' {
-			name = name[:len(name)-1] + "1"
-		}
-		return name
-	}
 
 	labels := map[string]string{}
 	for k, v := range desc.Tags {
@@ -585,7 +572,7 @@ func (region *SRegion) _createVM(zone string, desc *cloudprovider.SManagedVMCrea
 	disks = append(disks, map[string]interface{}{
 		"boot": true,
 		"initializeParams": map[string]interface{}{
-			"diskName":    nameConv(desc.SysDisk.Name),
+			"diskName":    normalizeString(desc.SysDisk.Name),
 			"sourceImage": desc.ExternalImageId,
 			"diskSizeGb":  desc.SysDisk.SizeGB,
 			"diskType":    fmt.Sprintf("zones/%s/diskTypes/%s", zone, desc.SysDisk.StorageType),
@@ -600,7 +587,7 @@ func (region *SRegion) _createVM(zone string, desc *cloudprovider.SManagedVMCrea
 		disks = append(disks, map[string]interface{}{
 			"boot": false,
 			"initializeParams": map[string]interface{}{
-				"diskName":   nameConv(disk.Name),
+				"diskName":   normalizeString(disk.Name),
 				"diskSizeGb": disk.SizeGB,
 				"diskType":   fmt.Sprintf("zones/%s/diskTypes/%s", zone, disk.StorageType),
 				"labels":     labels,
@@ -616,7 +603,7 @@ func (region *SRegion) _createVM(zone string, desc *cloudprovider.SManagedVMCrea
 		networkInterface["networkIp"] = desc.IpAddr
 	}
 	params := map[string]interface{}{
-		"name":        desc.NameEn,
+		"name":        normalizeString(desc.NameEn),
 		"description": desc.Description,
 		"machineType": fmt.Sprintf("zones/%s/machineTypes/%s", zone, desc.InstanceType),
 		"networkInterfaces": []map[string]string{
@@ -840,7 +827,7 @@ func (region *SRegion) RebuildRoot(instanceId string, imageId string, sysDiskSiz
 
 func (self *SRegion) SaveImage(diskId string, opts *cloudprovider.SaveImageOptions) (*SImage, error) {
 	params := map[string]interface{}{
-		"name":        opts.Name,
+		"name":        normalizeString(opts.Name),
 		"description": opts.Notes,
 		"sourceDisk":  diskId,
 	}
