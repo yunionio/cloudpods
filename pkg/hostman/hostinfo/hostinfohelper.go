@@ -382,9 +382,11 @@ func NewNIC(desc string) (*SNIC, error) {
 		}
 	}
 
-	nic.dhcpServer6, err = hostdhcp.NewGuestDHCP6Server(nic.Bridge, options.HostOptions.Dhcp6ServerPort, relayConf6)
-	if err != nil {
-		return nil, errors.Wrapf(err, "NewGuestDHCP6Server(%s, %d, %#v)", nic.Bridge, options.HostOptions.Dhcp6ServerPort, relayConf6)
+	if !nic.BridgeDev.IsV4Only() {
+		nic.dhcpServer6, err = hostdhcp.NewGuestDHCP6Server(nic.Bridge, options.HostOptions.Dhcp6ServerPort, relayConf6)
+		if err != nil {
+			return nil, errors.Wrapf(err, "NewGuestDHCP6Server(%s, %d, %#v)", nic.Bridge, options.HostOptions.Dhcp6ServerPort, relayConf6)
+		}
 	}
 
 	// dhcp server start after guest manager init

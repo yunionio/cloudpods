@@ -966,7 +966,10 @@ func (swire *SWire) getNetworks(ctx context.Context, userCred mcclient.TokenCred
 
 func (swire *SWire) getGatewayNetworkQuery(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	q := swire.getNetworkQuery(ctx, userCred, ownerId, scope)
-	q = q.IsNotNull("guest_gateway").IsNotEmpty("guest_gateway")
+	q = q.Filter(sqlchemy.OR(
+		sqlchemy.AND(sqlchemy.IsNotNull(q.Field("guest_gateway")), sqlchemy.IsNotEmpty(q.Field("guest_gateway"))),
+		sqlchemy.AND(sqlchemy.IsNotNull(q.Field("guest_gateway6")), sqlchemy.IsNotEmpty(q.Field("guest_gateway6"))),
+	))
 	q = q.Equals("status", api.NETWORK_STATUS_AVAILABLE)
 	return q
 }

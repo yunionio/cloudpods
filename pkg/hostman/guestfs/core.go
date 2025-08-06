@@ -74,12 +74,21 @@ func DoDeployGuestFs(rootfs fsdriver.IRootFsDriver, guestDesc *deployapi.GuestDe
 		hn = guestDesc.Hostname
 	}
 	for _, n := range nics {
-		var addr netutils.IPV4Addr
-		if addr, err = netutils.NewIPV4Addr(n.Ip); err != nil {
-			return nil, fmt.Errorf("Fail to get ip addr from %#v: %s", n, err)
+		if len(n.Ip) > 0 {
+			var addr netutils.IPV4Addr
+			if addr, err = netutils.NewIPV4Addr(n.Ip); err != nil {
+				return nil, errors.Wrapf(err, "Fail to get ip addr from %#v", n)
+			}
+			if netutils.IsPrivate(addr) {
+				ips = append(ips, addr.String())
+			}
 		}
-		if netutils.IsPrivate(addr) {
-			ips = append(ips, n.Ip)
+		if len(n.Ip6) > 0 {
+			var addr netutils.IPV6Addr
+			if addr, err = netutils.NewIPV6Addr(n.Ip6); err != nil {
+				return nil, errors.Wrapf(err, "Fail to get ipv6 addr from %#v", n)
+			}
+			ips = append(ips, addr.String())
 		}
 	}
 	if releaseInfo != nil {

@@ -31,6 +31,7 @@ import (
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/regutils"
 
 	"yunion.io/x/onecloud/pkg/util/procutils"
 )
@@ -356,6 +357,25 @@ func (hf HostsFile) String() string {
 		}
 	}
 	return ret
+}
+
+func FormatHostsFile(content string, ips []string, hostname, hostdomain string) string {
+	hf := make(HostsFile, 0)
+	hf.Parse(content)
+	hf.Add("127.0.0.1", "localhost")
+	isV6 := false
+	for _, ip := range ips {
+		if regutils.MatchIP6Addr(ip) {
+			isV6 = true
+		}
+	}
+	if isV6 {
+		hf.Add("::1", "localhost", "ip6-localhost", "ip6-loopback")
+	}
+	for _, ip := range ips {
+		hf.Add(ip, hostdomain, hostname)
+	}
+	return hf.String()
 }
 
 func FsFormatToDiskType(fsFormat string) string {

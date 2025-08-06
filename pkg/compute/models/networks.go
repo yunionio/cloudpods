@@ -3966,3 +3966,11 @@ func (net *SNetwork) StartRemoteUpdateTask(ctx context.Context, userCred mcclien
 	net.SetStatus(ctx, userCred, apis.STATUS_UPDATE_TAGS, "StartRemoteUpdateTask")
 	return task.ScheduleRun(nil)
 }
+
+func (net SNetwork) HasIPv4Addr() bool {
+	return len(net.GuestIpStart) > 0 && len(net.GuestIpEnd) > 0
+}
+
+func (net SNetwork) HasIPv6Addr() bool {
+	return len(net.GuestIp6Start) > 0 && len(net.GuestIp6End) > 0
+}

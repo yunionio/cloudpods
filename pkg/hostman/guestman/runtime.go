@@ -395,7 +395,7 @@ func SaveLiveDesc(s GuestRuntimeInstance, guestDesc *desc.SGuestDesc) error {
 		if nic.IsDefault {
 			defaultGwCnt++
 		}
-		defNics = defNics.Add(nic.Ip, nic.Mac, nic.Gateway)
+		defNics = defNics.Add(nic.Mac, nic.Ip, nic.Gateway, nic.Ip6, nic.Gateway6, nic.IsDefault)
 	}
 
 	// there should 1 and only 1 default gateway

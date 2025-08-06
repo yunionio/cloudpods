@@ -426,7 +426,7 @@ func (manager *SGuestnetworkManager) newGuestNetwork(
 	gn.Ifname = ifname
 	gn.TeamWith = teamWithMac
 
-	if isDefault && len(gn.IpAddr) > 0 && len(network.GuestGateway) > 0 {
+	if isDefault && ((len(gn.IpAddr) > 0 && len(network.GuestGateway) > 0) || (len(gn.Ip6Addr) > 0 && len(network.GuestGateway6) > 0)) {
 		gn.IsDefault = isDefault
 	}
 
@@ -853,10 +853,10 @@ func (gn *SGuestnetwork) ValidateUpdateData(
 		if err != nil {
 			return input, errors.Wrapf(err, "GetNetwork")
 		}
-		if len(net.GuestGateway) == 0 {
+		if len(net.GuestGateway) == 0 && len(net.GuestGateway6) == 0 {
 			return input, errors.Wrap(httperrors.ErrInvalidStatus, "network of default gateway has no gateway")
 		}
-		if len(gn.IpAddr) == 0 {
+		if (len(gn.IpAddr) == 0 || (len(gn.IpAddr) > 0 && len(net.GuestGateway) == 0)) && (len(gn.Ip6Addr) == 0 || (len(gn.Ip6Addr) > 0 && len(net.GuestGateway6) == 0)) {
 			return input, errors.Wrap(httperrors.ErrInvalidStatus, "nic of default gateway has no ip")
 		}
 	}

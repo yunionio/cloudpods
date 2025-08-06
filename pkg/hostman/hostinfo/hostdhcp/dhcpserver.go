@@ -80,7 +80,7 @@ func NewGuestDHCPServer(iface string, port int, relay *SDHCPRelayUpstream) (*SGu
 }
 
 func (s *SGuestDHCPServer) Start(blocking bool) {
-	log.Infof("SGuestDHCPServer starting ...")
+	log.Infof("SGuestDHCPServer %s starting (blocking: %v) ...", s.ifaceDev.String(), blocking)
 	serve := func() {
 		err := s.server.ListenAndServe(s)
 		if err != nil {
