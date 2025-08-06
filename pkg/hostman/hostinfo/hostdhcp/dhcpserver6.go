@@ -84,7 +84,7 @@ func NewGuestDHCP6Server(iface string, port int, relay *SDHCPRelayUpstream) (*SG
 }
 
 func (s *SGuestDHCP6Server) Start(blocking bool) {
-	log.Infof("SGuestDHCP6Server starting ...")
+	log.Infof("SGuestDHCP6Server %s starting (blocking: %v) ...", s.ifaceDev.String(), blocking)
 	serve := func() {
 		defer s.stopRAServer()
 

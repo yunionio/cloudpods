@@ -193,13 +193,7 @@ func (l *sLinuxRootFs) DeployHosts(rootFs IDiskPartition, hostname, domain strin
 		}
 		oldHostFile = string(oldhf)
 	}
-	hf := make(fileutils2.HostsFile, 0)
-	hf.Parse(oldHostFile)
-	hf.Add("127.0.0.1", "localhost")
-	for _, ip := range ips {
-		hf.Add(ip, getHostname(hostname, domain), hostname)
-	}
-	return rootFs.FilePutContents(etcHosts, hf.String(), false, false)
+	return rootFs.FilePutContents(etcHosts, fileutils2.FormatHostsFile(oldHostFile, ips, hostname, getHostname(hostname, domain)), false, false)
 }
 
 func (l *sLinuxRootFs) GetLoginAccount(rootFs IDiskPartition, sUser string, defaultRootUser bool, windowsDefaultAdminUser bool) (string, error) {
@@ -1316,10 +1310,10 @@ func (r *sRedhatLikeRootFs) DeployHostname(rootFs IDiskPartition, hn, domain str
 	centosHn += "NETWORKING=yes\n"
 	centosHn += fmt.Sprintf("HOSTNAME=%s\n", getHostname(hn, domain))
 	if err := rootFs.FilePutContents(sPath, centosHn, false, false); err != nil {
-		return err
+		return errors.Wrapf(err, "DeployHostname %s", sPath)
 	}
-	if rootFs.Exists("/etc/hostname", false) {
-		return rootFs.FilePutContents("/etc/hostname", hn, false, false)
+	if err := rootFs.FilePutContents("/etc/hostname", hn, false, false); err != nil {
+		return errors.Wrapf(err, "DeployHostname %s", "/etc/hostname")
 	}
 	return nil
 }

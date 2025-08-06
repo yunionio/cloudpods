@@ -125,7 +125,7 @@ func NormalizeDbHost(db string) (string, error) {
 			if len(addrs) == 0 {
 				return "", fmt.Errorf("dns lookup (%s) returned empty result", host)
 			}
-			return "tcp:" + addrs[0] + ":" + port, nil
+			return "tcp:" + net.JoinHostPort(addrs[0], port), nil
 		}
 	}
 	return db, nil

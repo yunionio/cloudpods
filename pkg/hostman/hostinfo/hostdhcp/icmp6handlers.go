@@ -145,7 +145,7 @@ func (s *SGuestDHCP6Server) sendRouterAdvertisement(solicitation *icmp6.SRouterS
 			PrefixInfo: []icmp6.SPrefixInfoOption{
 				{
 					IsOnlink:          true,
-					IsAutoconf:        true,
+					IsAutoconf:        false,
 					Prefix:            ipnet.IP,
 					PrefixLen:         conf.PrefixLen6,
 					ValidLifetime:     4500,
