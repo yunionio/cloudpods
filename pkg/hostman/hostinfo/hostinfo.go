@@ -2539,6 +2539,8 @@ func (h *SHostInfo) OnCatalogChanged(catalog mcclient.KeystoneServiceCatalogV3) 
 		hostconsts.TELEGRAF_TAG_KEY_BRAND:     hostconsts.TELEGRAF_TAG_ONECLOUD_BRAND,
 		hostconsts.TELEGRAF_TAG_KEY_RES_TYPE:  hostconsts.TELEGRAF_TAG_ONECLOUD_RES_TYPE,
 		hostconsts.TELEGRAF_TAG_KEY_HOST_TYPE: hostconsts.TELEGRAF_TAG_ONECLOUD_HOST_TYPE_HOST,
+
+		hostconsts.TELEGRAF_TAG_KEY_HYPERVISOR: options.HostOptions.HostType,
 	}
 	conf["nics"] = h.getNicsTelegrafConf()
 	urls, _ := s.GetServiceURLs("kafka", defaultEndpointType)
