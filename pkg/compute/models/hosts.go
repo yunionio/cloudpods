@@ -285,18 +285,24 @@ func (manager *SHostManager) ListItemFilter(
 		}
 	}
 	if len(query.AnyIp) > 0 {
+		cmpFunc := sqlchemy.Equals
+		if len(query.AnyIp) == 1 {
+			cmpFunc = func(f sqlchemy.IQueryField, v interface{}) sqlchemy.ICondition {
+				return sqlchemy.Regexp(f, v.(string))
+			}
+		}
 		hnQ := HostnetworkManager.Query("baremetal_id") //.Contains("ip_addr", query.AnyIp).SubQuery()
 		conditions := []sqlchemy.ICondition{}
 		for _, ip := range query.AnyIp {
-			conditions = append(conditions, sqlchemy.Contains(hnQ.Field("ip_addr"), ip))
+			conditions = append(conditions, cmpFunc(hnQ.Field("ip_addr"), ip))
 		}
 		hn := hnQ.Filter(
 			sqlchemy.OR(conditions...),
 		)
 		conditions = []sqlchemy.ICondition{}
 		for _, ip := range query.AnyIp {
-			conditions = append(conditions, sqlchemy.Contains(q.Field("access_ip"), ip))
-			conditions = append(conditions, sqlchemy.Contains(q.Field("ipmi_ip"), ip))
+			conditions = append(conditions, cmpFunc(q.Field("access_ip"), ip))
+			conditions = append(conditions, cmpFunc(q.Field("ipmi_ip"), ip))
 		}
 		conditions = append(conditions, sqlchemy.In(q.Field("id"), hn))
 		q = q.Filter(sqlchemy.OR(
@@ -453,8 +459,10 @@ func (manager *SHostManager) ListItemFilter(
 
 	for f, vars := range fieldQueryMap {
 		vars = stringutils2.FilterEmpty(vars)
-		if len(vars) > 0 {
+		if len(vars) > 1 {
 			q = q.In(f, vars)
+		} else if len(vars) == 1 {
+			q = q.Regexp(f, vars[0])
 		}
 	}
 
