@@ -52,6 +52,10 @@ func (d *loopDevice) GetDevicePath() string {
 }
 
 func (d *loopDevice) IsUsed() bool {
+	// 修复在 host 服务运行期间，有些 loop 设备被其他程序使用的情况
+	if fileutils2.IsBlockDeviceUsed(d.devicePath) {
+		return true
+	}
 	return d.used
 }
 
@@ -140,29 +144,6 @@ const (
 	MAX_LOOPDEV_COUNT = 512
 )
 
-func (m *loopManager) findNewDeviceNumber() (int, error) {
-	// 获取所有已使用的设备号
-	usedNumbers := make(map[int]bool)
-	for name := range m.devices {
-		// 从设备名称中提取数字,例如从 /dev/loop0 中提取 0
-		numStr := strings.TrimPrefix(name, "/dev/loop")
-		num, err := strconv.Atoi(numStr)
-		if err != nil {
-			return -1, errors.Wrapf(err, "parse device number from %s", name)
-		}
-		usedNumbers[num] = true
-	}
-
-	// 从0开始查找第一个未使用的设备号
-	for i := 0; i < MAX_LOOPDEV_COUNT; i++ {
-		if !usedNumbers[i] {
-			// 创建新的loop设备
-			return i, nil
-		}
-	}
-	return -1, errors.Wrap(errors.ErrNotFound, "No available device found")
-}
-
 func (m *loopManager) AttachDevice(filePath string, partScan bool) (*losetup.Device, error) {
 	m.actionLock.Lock()
 	defer m.actionLock.Unlock()
@@ -190,6 +171,45 @@ func (m *loopManager) DetachDevice(devPath string) error {
 	return nil
 }
 
+func (m *loopManager) findNewDevice() (ILoopDevice, error) {
+	// 获取所有已使用的设备号
+	usedNumbers := make(map[int]bool)
+	for name := range m.devices {
+		// 从设备名称中提取数字,例如从 /dev/loop0 中提取 0
+		numStr := strings.TrimPrefix(name, "/dev/loop")
+		num, err := strconv.Atoi(numStr)
+		if err != nil {
+			return nil, errors.Wrapf(err, "parse device number from %s", name)
+		}
+		usedNumbers[num] = true
+	}
+
+	notFound := true
+	errs := make([]error, 0)
+	// 从0开始查找第一个未使用的设备号
+	for i := 0; i < MAX_LOOPDEV_COUNT; i++ {
+		if usedNumbers[i] {
+			continue
+		}
+		notFound = false
+		// 创建新的loop设备
+		devPath, err := ioctl.AddDevice(i)
+		if err != nil {
+			errs = append(errs, errors.Wrapf(err, "add device %d", i))
+			continue
+		}
+		device := NewLoopDevice(devPath)
+		m.devices[devPath] = device
+		device.SetUsed(true)
+		return device, nil
+	}
+	if notFound {
+		return nil, errors.Wrap(errors.ErrNotFound, "No available device found")
+	} else {
+		return nil, errors.NewAggregate(errs)
+	}
+}
+
 func (m *loopManager) acquireDevice() (ILoopDevice, error) {
 	m.mapLock.Lock()
 	defer m.mapLock.Unlock()
@@ -207,17 +227,10 @@ func (m *loopManager) acquireDevice() (ILoopDevice, error) {
 	}
 
 	// create new device
-	num, err := m.findNewDeviceNumber()
+	device, err := m.findNewDevice()
 	if err != nil {
-		return nil, errors.Wrap(err, "findNewDeviceNumber")
+		return nil, errors.Wrap(err, "findNewDevice")
 	}
-	devPath, err := ioctl.AddDevice(num)
-	if err != nil {
-		return nil, errors.Wrapf(err, "add device %d", num)
-	}
-	device := NewLoopDevice(devPath)
-	m.devices[devPath] = device
-	device.SetUsed(true)
 
 	return device, nil
 }
