@@ -2155,6 +2155,8 @@ type SGuestSnapshotDeleteTask struct {
 	encryptInfo     apis.SEncryptInfo
 
 	tmpPath string
+
+	delSnapshotPathAfterReload func() error
 }
 
 func NewGuestSnapshotDeleteTask(
@@ -2176,10 +2178,12 @@ func (s *SGuestSnapshotDeleteTask) Start(totalDeleteSnapshotCount, deletedSnapsh
 		return
 	}
 
-	if err := s.doDiskConvert(); err != nil {
+	cb, err := s.disk.ConvertSnapshotRelyOnReloadDisk(s.convertSnapshot, s.encryptInfo)
+	if err != nil {
 		s.taskFailed(err.Error())
 		return
 	}
+	s.delSnapshotPathAfterReload = cb
 	s.fetchDisksInfo(s.doReloadDisk)
 }
 
@@ -2205,15 +2209,17 @@ func (s *SGuestSnapshotDeleteTask) onStreamDiskComplete() {
 	hostutils.TaskComplete(s.ctx, body)
 }
 
-func (s *SGuestSnapshotDeleteTask) doDiskConvert() error {
-	return s.disk.ConvertSnapshot(s.convertSnapshot, s.encryptInfo)
-}
-
 func (s *SGuestSnapshotDeleteTask) doReloadDisk(device string) {
 	s.SGuestReloadDiskTask.doReloadDisk(device, s.onReloadBlkdevSucc)
 }
 
 func (s *SGuestSnapshotDeleteTask) onReloadBlkdevSucc(err string) {
+	if s.delSnapshotPathAfterReload != nil {
+		if e := s.delSnapshotPathAfterReload(); e != nil {
+			log.Errorf("failed do delSnapshotPathAfterReload: %s", e)
+		}
+	}
+
 	var callback = s.onResumeSucc
 	if len(err) > 0 {
 		callback = func(string) {
