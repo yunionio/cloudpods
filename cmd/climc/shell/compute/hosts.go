@@ -72,6 +72,7 @@ func init() {
 	cmd.Get("ipmi", &options.BaseIdOptions{})
 	cmd.Get("vnc", &options.BaseIdOptions{})
 	cmd.Get("app-options", &options.BaseIdOptions{})
+	cmd.Get("isolated-device-numa-stats", &compute.HostIsolatedDeviceNumaStatsOptions{})
 	cmd.GetWithCustomShow("worker-stats", func(data jsonutils.JSONObject) {
 		stats, _ := data.GetArray("workers")
 		printList(&printutils.ListResult{Data: stats}, nil)
