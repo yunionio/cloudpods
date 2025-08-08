@@ -171,6 +171,9 @@ type DiskListInput struct {
 
 	// 根据虚拟机状态过滤
 	GuestStatus string `json:"guest_status"`
+
+	// 根据是否绑定快照策略过滤
+	BindingSnapshotpolicy *bool `json:"binding_snapshotpolicy"`
 }
 
 type DiskResourceInput struct {

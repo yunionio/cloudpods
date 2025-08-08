@@ -30,6 +30,9 @@ const (
 	SNAPSHOT_POLICY_APPLY_FAILED  = "apply_failed"
 	SNAPSHOT_POLICY_CANCEL        = "canceling"
 	SNAPSHOT_POLICY_CANCEL_FAILED = "cancel_failed"
+
+	SNAPSHOT_POLICY_TYPE_DISK   = "disk"
+	SNAPSHOT_POLICY_TYPE_SERVER = "server"
 )
 
 type SnapshotPolicyDetails struct {
@@ -41,7 +44,8 @@ type SnapshotPolicyDetails struct {
 
 	RetentionDays int `json:"retention_days"`
 
-	BindingDiskCount int `json:"binding_disk_count"`
+	BindingDiskCount     int `json:"binding_disk_count"`
+	BindingResourceCount int `json:"binding_resource_count"`
 }
 
 type SSnapshotPolicyCreateInput struct {
@@ -49,7 +53,10 @@ type SSnapshotPolicyCreateInput struct {
 	CloudproviderResourceInput
 	CloudregionResourceInput
 
-	RetentionDays int `json:"retention_days"`
+	RetentionDays  int `json:"retention_days"`
+	RetentionCount int `json:"retention_count"`
+	// 快照类型, 目前支持 disk, server
+	Type string `json:"type"`
 
 	RepeatWeekdays []int `json:"repeat_weekdays"`
 
@@ -92,7 +99,8 @@ func (self *SSnapshotPolicyCreateInput) Validate() error {
 type SSnapshotPolicyUpdateInput struct {
 	apis.VirtualResourceBaseUpdateInput
 
-	RetentionDays *int
+	RetentionDays  *int
+	RegentionCount *int
 
 	RepeatWeekdays *[]int `json:"repeat_weekdays"`
 	TimePoints     *[]int `json:"time_points"`
@@ -129,6 +137,13 @@ func (self *SSnapshotPolicyUpdateInput) Validate() error {
 
 type SnapshotPolicyDisksInput struct {
 	Disks []string `json:"disk"`
+}
+
+type SnapshotPolicyResourcesInput struct {
+	Resources []struct {
+		Id   string `json:"id"`
+		Type string `json:"type"`
+	} `json:"resources"`
 }
 
 type RepeatWeekdays []int
