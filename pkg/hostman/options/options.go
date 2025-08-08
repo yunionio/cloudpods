@@ -148,7 +148,7 @@ type SHostOptions struct {
 	UseBootVga             bool `default:"false" help:"Use boot VGA GPU for guest"`
 
 	EnableStrictCpuBind         bool   `default:"false" help:"Enable strict cpu bind, one vcpu bind one pcpu"`
-	EnableHostAgentNumaAllocate bool   `default:"false" help:"Enable host agent numa allocate"`
+	EnableHostAgentNumaAllocate bool   `default:"true" help:"Enable host agent numa allocate"`
 	EnableCpuBinding            bool   `default:"true" help:"Enable cpu binding and rebalance"`
 	EnableOpenflowController    bool   `default:"false"`
 	BootVgaPciAddr              string `help:"Specific boot vga pci addr incase detect wrong device"`
