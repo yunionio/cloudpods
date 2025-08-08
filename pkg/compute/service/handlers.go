@@ -143,6 +143,7 @@ func InitHandlers(app *appsrv.Application) {
 		models.InstanceSnapshotManager,
 		models.SnapshotManager,
 		models.SnapshotPolicyManager,
+		models.SnapshotPolicyResourceManager,
 		models.BaremetalagentManager,
 		models.LoadbalancerManager,
 		models.LoadbalancerListenerManager,

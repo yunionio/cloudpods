@@ -5025,6 +5025,7 @@ func (self *SGuest) validateCreateInstanceBackup(
 	return input, nil
 }
 
+// 创建主机快照
 // 1. validate guest status, guest hypervisor
 // 2. validate every disk manual snapshot count
 // 3. validate snapshot quota with disk count

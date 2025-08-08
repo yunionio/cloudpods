@@ -716,6 +716,23 @@ func (manager *SGuestManager) ListItemFilter(
 			q = q.IsNullOrEmpty("host_id")
 		}
 	}
+	if len(query.SnapshotpolicyId) > 0 {
+		sp := SnapshotPolicyResourceManager.Query("resource_id").
+			Equals("resource_type", api.SNAPSHOT_POLICY_TYPE_SERVER).
+			Equals("snapshotpolicy_id", query.SnapshotpolicyId).SubQuery()
+		q = q.In("id", sp)
+	}
+
+	if query.BindingSnapshotpolicy != nil {
+		spjsq := SnapshotPolicyResourceManager.Query("resource_id").
+			Equals("resource_type", api.SNAPSHOT_POLICY_TYPE_SERVER).
+			SubQuery()
+		if *query.BindingSnapshotpolicy {
+			q = q.In("id", spjsq)
+		} else {
+			q = q.NotIn("id", spjsq)
+		}
+	}
 
 	return q, nil
 }

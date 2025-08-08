@@ -1198,6 +1198,77 @@ func (manager *SSnapshotManager) CleanupSnapshots(ctx context.Context, userCred 
 		log.Errorf("Start snaphsot cleanup task failed %s", err)
 		return
 	}
+
+	sq := manager.Query().Equals("status", api.SNAPSHOT_READY).Equals("created_by", api.SNAPSHOT_AUTO).Equals("fake_deleted", false).SubQuery()
+
+	disks := []struct {
+		DiskCnt int
+		DiskId  string
+	}{}
+	q := sq.Query(
+		sqlchemy.COUNT("disk_cnt", sq.Field("disk_id")),
+		sq.Field("disk_id"),
+	).GroupBy(sq.Field("disk_id"))
+	err = q.All(&disks)
+	if err != nil {
+		log.Errorf("Cleanup snapshots job fetch disk count failed %s", err)
+		return
+	}
+
+	diskCount := map[string]int{}
+	for i := range disks {
+		diskCount[disks[i].DiskId] = disks[i].DiskCnt
+	}
+
+	{
+		sq = SnapshotPolicyManager.Query().Equals("type", api.SNAPSHOT_POLICY_TYPE_DISK).GT("retention_count", 0).SubQuery()
+		spd := SnapshotPolicyDiskManager.Query().SubQuery()
+		q = sq.Query(
+			sq.Field("retention_count"),
+			spd.Field("disk_id"),
+		)
+		q = q.Join(spd, sqlchemy.Equals(q.Field("id"), spd.Field("snapshotpolicy_id")))
+
+		diskRetentions := []struct {
+			DiskId         string
+			RetentionCount int
+		}{}
+		err = q.All(&diskRetentions)
+		if err != nil {
+			log.Errorf("Cleanup snapshots job fetch disk retentions failed %s", err)
+			return
+		}
+
+		diskRetentionMap := map[string]int{}
+		for i := range diskRetentions {
+			if _, ok := diskRetentionMap[diskRetentions[i].DiskId]; !ok {
+				diskRetentionMap[diskRetentions[i].DiskId] = diskRetentions[i].RetentionCount
+			}
+			// 取最小保留个数
+			if diskRetentionMap[diskRetentions[i].DiskId] > diskRetentions[i].RetentionCount {
+				diskRetentionMap[diskRetentions[i].DiskId] = diskRetentions[i].RetentionCount
+			}
+		}
+
+		for diskId, retentionCnt := range diskRetentionMap {
+			if cnt, ok := diskCount[diskId]; ok && cnt > retentionCnt {
+				manager.startCleanupRetentionCount(ctx, userCred, diskId, cnt-retentionCnt)
+			}
+		}
+	}
+}
+
+func (manager *SSnapshotManager) startCleanupRetentionCount(ctx context.Context, userCred mcclient.TokenCredential, diskId string, cnt int) error {
+	q := manager.Query().Equals("disk_id", diskId).Equals("created_by", api.SNAPSHOT_AUTO).Asc("created_at").Limit(cnt)
+	snapshots := []SSnapshot{}
+	err := db.FetchModelObjects(manager, q, &snapshots)
+	if err != nil {
+		return errors.Wrapf(err, "FetchModelObjects")
+	}
+	for i := range snapshots {
+		snapshots[i].StartSnapshotDeleteTask(ctx, userCred, false, "", 0, 0)
+	}
+	return nil
 }
 
 func (manager *SSnapshotManager) StartSnapshotCleanupTask(

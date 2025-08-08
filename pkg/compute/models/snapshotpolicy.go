@@ -36,6 +36,7 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -53,12 +54,18 @@ type SSnapshotPolicy struct {
 
 	SCloudregionResourceBase `width:"36" charset:"ascii" nullable:"false" list:"domain" create:"domain_required" default:"default"`
 
-	RetentionDays int `nullable:"false" list:"user" get:"user" create:"required"`
+	// 快照保留天数
+	RetentionDays int `nullable:"false" list:"user" get:"user" update:"user" create:"required"`
+	// 快照保留数量, 优先级高于 RetentionDays, 且仅对本地IDC资源有效
+	RetentionCount int `nullable:"true" list:"user" get:"user" update:"user" create:"optional"`
+
+	// 快照类型, 目前支持 disk, server
+	Type string `width:"36" charset:"ascii" default:"disk" list:"user" create:"required"`
 
 	// 1~7, 1 is Monday
-	RepeatWeekdays api.RepeatWeekdays `charset:"utf8" create:"required" list:"user" get:"user"`
+	RepeatWeekdays api.RepeatWeekdays `charset:"utf8" create:"required" list:"user" get:"user" update:"user"`
 	// 0~23
-	TimePoints api.TimePoints `charset:"utf8" create:"required" list:"user" get:"user"`
+	TimePoints api.TimePoints `charset:"utf8" create:"required" list:"user" get:"user" update:"user"`
 }
 
 var SnapshotPolicyManager *SSnapshotPolicyManager
@@ -86,10 +93,18 @@ func (manager *SSnapshotPolicyManager) ValidateCreateData(
 		return nil, httperrors.NewInputParameterError("Retention days must in 1~%d or -1", options.Options.RetentionDaysLimit)
 	}
 
+	if input.RetentionCount > options.Options.RetentionCountLimit {
+		return nil, httperrors.NewInputParameterError("Retention count must less than %d", options.Options.RetentionCountLimit)
+	}
+
 	var err error
 	input.VirtualResourceCreateInput, err = manager.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.VirtualResourceCreateInput)
 	if err != nil {
 		return nil, err
+	}
+
+	if len(input.Type) == 0 {
+		input.Type = api.SNAPSHOT_POLICY_TYPE_DISK
 	}
 
 	input.Status = apis.STATUS_CREATING
@@ -137,6 +152,11 @@ func (self *SSnapshotPolicy) ValidateUpdateData(ctx context.Context, userCred mc
 	if input.RetentionDays != nil {
 		if *input.RetentionDays < -1 || *input.RetentionDays == 0 || *input.RetentionDays > options.Options.RetentionDaysLimit {
 			return nil, httperrors.NewInputParameterError("Retention days must in 1~%d or -1", options.Options.RetentionDaysLimit)
+		}
+	}
+	if input.RegentionCount != nil {
+		if *input.RegentionCount > options.Options.RetentionCountLimit {
+			return nil, httperrors.NewInputParameterError("Retention count must less than %d", options.Options.RetentionCountLimit)
 		}
 	}
 
@@ -200,9 +220,25 @@ func (manager *SSnapshotPolicyManager) FetchCustomizeColumns(
 		}
 		pdMap[pd.SnapshotpolicyId] = append(pdMap[pd.SnapshotpolicyId], pd)
 	}
+	q = SnapshotPolicyResourceManager.Query().In("snapshotpolicy_id", policyIds)
+	sprs := []SSnapshotPolicyResource{}
+	err = q.All(&sprs)
+	if err != nil {
+		return rows
+	}
+	sprmap := map[string][]SSnapshotPolicyResource{}
+	for _, sp := range sprs {
+		_, ok := sprmap[sp.SnapshotpolicyId]
+		if !ok {
+			sprmap[sp.SnapshotpolicyId] = []SSnapshotPolicyResource{}
+		}
+		sprmap[sp.SnapshotpolicyId] = append(sprmap[sp.SnapshotpolicyId], sp)
+	}
 	for i := range rows {
-		res, _ := pdMap[policyIds[i]]
-		rows[i].BindingDiskCount = len(res)
+		disks := pdMap[policyIds[i]]
+		rows[i].BindingDiskCount = len(disks)
+		resources := sprmap[policyIds[i]]
+		rows[i].BindingResourceCount = len(resources)
 	}
 
 	return rows
@@ -396,6 +432,10 @@ func (sp *SSnapshotPolicy) RealDelete(ctx context.Context, userCred mcclient.Tok
 	if err != nil {
 		return errors.Wrapf(err, "delete snapshot policy disks for policy %s", sp.Name)
 	}
+	err = SnapshotPolicyResourceManager.RemoveBySnapshotpolicy(sp.Id)
+	if err != nil {
+		return errors.Wrapf(err, "delete snapshot policy resources for policy %s", sp.Name)
+	}
 	return db.DeleteModel(ctx, userCred, sp)
 }
 
@@ -415,6 +455,9 @@ func (sp *SSnapshotPolicy) PerformBindDisks(
 	query jsonutils.JSONObject,
 	input *api.SnapshotPolicyDisksInput,
 ) (jsonutils.JSONObject, error) {
+	if sp.Type != api.SNAPSHOT_POLICY_TYPE_DISK {
+		return nil, httperrors.NewBadRequestError("The snapshot policy %s is not a disk snapshot policy", sp.Name)
+	}
 	if len(input.Disks) == 0 {
 		return nil, httperrors.NewMissingParameterError("disks")
 	}
@@ -448,6 +491,78 @@ func (sp *SSnapshotPolicy) PerformBindDisks(
 	return nil, sp.StartBindDisksTask(ctx, userCred, diskIds)
 }
 
+func (sp *SSnapshotPolicy) PerformBindResources(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input *api.SnapshotPolicyResourcesInput,
+) (jsonutils.JSONObject, error) {
+	if len(input.Resources) == 0 {
+		return nil, httperrors.NewMissingParameterError("resources")
+	}
+	for i := range input.Resources {
+		switch input.Resources[i].Type {
+		case api.SNAPSHOT_POLICY_TYPE_DISK:
+			_, err := validators.ValidateModel(ctx, userCred, DiskManager, &input.Resources[i].Id)
+			if err != nil {
+				return nil, err
+			}
+		case api.SNAPSHOT_POLICY_TYPE_SERVER:
+			_, err := validators.ValidateModel(ctx, userCred, GuestManager, &input.Resources[i].Id)
+			if err != nil {
+				return nil, err
+			}
+		default:
+			return nil, httperrors.NewBadRequestError("Invalid resource type: %s", input.Resources[i].Type)
+		}
+	}
+	for i := range input.Resources {
+		sr := &SSnapshotPolicyResource{}
+		sr.SetModelManager(SnapshotPolicyResourceManager, sr)
+		sr.SnapshotpolicyId = sp.Id
+		sr.ResourceId = input.Resources[i].Id
+		sr.ResourceType = input.Resources[i].Type
+		err := SnapshotPolicyResourceManager.TableSpec().Insert(ctx, sr)
+		if err != nil {
+			return nil, errors.Wrapf(err, "Insert")
+		}
+	}
+	logclient.AddActionLogWithContext(ctx, sp, logclient.ACT_BIND, input, userCred, true)
+	return nil, nil
+}
+
+func (sp *SSnapshotPolicy) PerformUnbindResources(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input *api.SnapshotPolicyResourcesInput,
+) (jsonutils.JSONObject, error) {
+	for i := range input.Resources {
+		switch input.Resources[i].Type {
+		case api.SNAPSHOT_POLICY_TYPE_DISK:
+			_, err := validators.ValidateModel(ctx, userCred, DiskManager, &input.Resources[i].Id)
+			if err != nil {
+				return nil, err
+			}
+		case api.SNAPSHOT_POLICY_TYPE_SERVER:
+			_, err := validators.ValidateModel(ctx, userCred, GuestManager, &input.Resources[i].Id)
+			if err != nil {
+				return nil, err
+			}
+		default:
+			return nil, httperrors.NewBadRequestError("Invalid resource type: %s", input.Resources[i].Type)
+		}
+	}
+	for i := range input.Resources {
+		err := SnapshotPolicyResourceManager.RemoveByResource(input.Resources[i].Id, input.Resources[i].Type)
+		if err != nil {
+			return nil, errors.Wrapf(err, "RemoveByResource")
+		}
+	}
+	logclient.AddActionLogWithContext(ctx, sp, logclient.ACT_UNBIND, input, userCred, true)
+	return nil, nil
+}
+
 func (sp *SSnapshotPolicy) StartUnbindDisksTask(ctx context.Context, userCred mcclient.TokenCredential, diskIds []string) error {
 	sp.SetStatus(ctx, userCred, api.SNAPSHOT_POLICY_CANCEL, jsonutils.Marshal(diskIds).String())
 	params := jsonutils.Marshal(map[string]interface{}{"disk_ids": diskIds}).(*jsonutils.JSONDict)
@@ -464,6 +579,9 @@ func (sp *SSnapshotPolicy) PerformUnbindDisks(
 	query jsonutils.JSONObject,
 	input *api.SnapshotPolicyDisksInput,
 ) (jsonutils.JSONObject, error) {
+	if sp.Type != api.SNAPSHOT_POLICY_TYPE_DISK {
+		return nil, httperrors.NewBadRequestError("The snapshot policy %s is not a disk snapshot policy", sp.Name)
+	}
 	if len(input.Disks) == 0 {
 		return nil, httperrors.NewMissingParameterError("disks")
 	}
@@ -521,6 +639,9 @@ func (manager *SSnapshotPolicyManager) ListItemFilter(
 	q, err = manager.SCloudregionResourceBaseManager.ListItemFilter(ctx, q, userCred, input.RegionalFilterListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.ListItemFilter")
+	}
+	if len(input.Type) > 0 {
+		q = q.Equals("type", input.Type)
 	}
 
 	return q, nil

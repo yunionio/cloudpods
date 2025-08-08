@@ -155,6 +155,7 @@ func StartServiceWithJobs(jobs func(cron *cronman.SCronJobManager)) {
 		if opts.PrepaidAutoRenew {
 			cron.AddJobAtIntervals("AutoRenewPrepaidServers", time.Duration(opts.PrepaidAutoRenewHours)*time.Hour, models.GuestManager.AutoRenewPrepaidServer)
 		}
+
 		cron.AddJobAtIntervals("CleanExpiredPostpaidElasticCaches", time.Duration(opts.PrepaidExpireCheckSeconds)*time.Second, models.ElasticcacheManager.DeleteExpiredPostpaids)
 		cron.AddJobAtIntervals("CleanExpiredPostpaidDBInstances", time.Duration(opts.PrepaidExpireCheckSeconds)*time.Second, models.DBInstanceManager.DeleteExpiredPostpaids)
 		cron.AddJobAtIntervals("CleanExpiredPostpaidServers", time.Duration(opts.PrepaidExpireCheckSeconds)*time.Second, models.GuestManager.DeleteExpiredPostpaidServers)
@@ -177,7 +178,9 @@ func StartServiceWithJobs(jobs func(cron *cronman.SCronJobManager)) {
 		cron.AddJobEveryFewHour("AutoPurgeSplitable", 4, 30, 0, db.AutoPurgeSplitable, false)
 
 		cron.AddJobEveryFewHour("AutoDiskSnapshot", 1, 5, 0, models.DiskManager.AutoDiskSnapshot, false)
+		cron.AddJobEveryFewHour("AutoServerSnapshot", 1, 5, 0, models.InstanceSnapshotManager.AutoServerSnapshot, false)
 		cron.AddJobEveryFewHour("SnapshotsCleanup", 1, 35, 0, models.SnapshotManager.CleanupSnapshots, false)
+		cron.AddJobEveryFewHour("InstanceSnapshotsCleanup", 1, 35, 0, models.InstanceSnapshotManager.CleanupInstanceSnapshots, false)
 
 		cron.AddJobEveryFewHour("AutoCleanImageCache", 1, 5, 0, models.CachedimageManager.AutoCleanImageCaches, false)
 
