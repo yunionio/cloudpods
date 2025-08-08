@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"net/http"
 
-	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/workmanager"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
@@ -49,13 +48,12 @@ func performImageCache(
 ) {
 	_, _, body := appsrv.FetchEnv(ctx, w, r)
 
-	input := compute.CacheImageInput{}
-	err := body.Unmarshal(&input, "disk")
+	disk, err := body.Get("disk")
 	if err != nil {
-		httperrors.BadRequestError(ctx, w, "unmarshal disk %s", err)
+		httperrors.MissingParameterError(ctx, w, "disk")
 		return
 	}
 
-	hostutils.DelayImageCacheTask(ctx, performTask, input)
+	hostutils.DelayImageCacheTask(ctx, performTask, disk)
 	hostutils.ResponseOk(ctx, w)
 }
