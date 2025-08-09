@@ -1742,3 +1742,49 @@ func (model *SIsolatedDevice) PerformPrivate(ctx context.Context, userCred mccli
 	}
 	return nil, nil
 }
+
+type HostIsolatedDevicesNumaStat struct {
+	NumaNode         int8
+	NumaNodeDevCount int
+}
+
+func (manager *SIsolatedDeviceManager) GetHostAllocatedIsolatedDeviceNumaStats(devType, hostId string) ([]HostIsolatedDevicesNumaStat, error) {
+	q := manager.Query().Equals("host_id", hostId).Equals("dev_type", devType)
+	guestQ := GuestManager.Query().SubQuery()
+	q = q.Join(guestQ, sqlchemy.Equals(q.Field("guest_id"), guestQ.Field("id")))
+	q = q.Filter(sqlchemy.NotEquals(guestQ.Field("status"), api.VM_READY)).GroupBy(q.Field("numa_node"))
+	q = q.AppendField(sqlchemy.COUNT("numa_node_dev_count", q.Field("numa_node")))
+
+	subQ := q.SubQuery()
+	numaQ := subQ.Query(subQ.Field("numa_node"), subQ.Field("numa_node_dev_count"))
+	stats := make([]HostIsolatedDevicesNumaStat, 0)
+	err := numaQ.All(&stats)
+	if err != nil {
+		return nil, err
+	}
+	return stats, nil
+}
+
+func (host *SHost) VirtualDeviceNumaBalance(devType string, numaNode int8) (bool, error) {
+	if numaNode < 0 {
+		return true, nil
+	}
+	stats, err := IsolatedDeviceManager.GetHostAllocatedIsolatedDeviceNumaStats(devType, host.Id)
+	if err != nil {
+		return true, err
+	}
+	log.Debugf("VirtualDeviceNumaBalance numa stats %s", jsonutils.Marshal(stats))
+
+	if len(stats) <= 1 {
+		return true, nil
+	}
+
+	sort.Slice(stats, func(i, j int) bool {
+		return stats[i].NumaNodeDevCount > stats[j].NumaNodeDevCount
+	})
+
+	if stats[0].NumaNodeDevCount-stats[len(stats)-1].NumaNodeDevCount > 1 {
+		return false, nil
+	}
+	return true, nil
+}
