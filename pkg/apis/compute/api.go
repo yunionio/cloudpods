@@ -710,6 +710,18 @@ type ServerCreateInput struct {
 	Pod *PodCreateInput `json:"pod"`
 }
 
+// ServerUpdateKickstartStatusInput 更新虚拟机 kickstart 状态的输入
+type ServerUpdateKickstartStatusInput struct {
+	// kickstart 状态
+	// enum: pending,installing,completed,failed,normal
+	// required: true
+	Status string `json:"status" validate:"required,oneof=pending installing completed failed normal"`
+
+	// 错误信息（可选）
+	// required: false
+	ErrorMessage string `json:"error_message,omitempty"`
+}
+
 func (input *ServerCreateInput) AfterUnmarshal() {
 	if input.Baremetal {
 		input.Hypervisor = HYPERVISOR_BAREMETAL
