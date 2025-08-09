@@ -2194,6 +2194,13 @@ func (manager *SGuestManager) validateCreateData(
 		return nil, httperrors.NewInputParameterError("Invalid userdata: %v", err)
 	}
 
+	// validate KickstartConfig
+	if input.KickstartConfig != nil {
+		if err := manager.validateKickstartConfig(input.KickstartConfig); err != nil {
+			return nil, httperrors.NewInputParameterError("Invalid kickstart config: %v", err)
+		}
+	}
+
 	err = manager.ValidatePolicyDefinitions(ctx, userCred, ownerId, query, input)
 	if err != nil {
 		return nil, err
@@ -2292,6 +2299,45 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 	}
 
 	return input.JSON(input), nil
+}
+
+func (manager *SGuestManager) validateKickstartConfig(config *api.KickstartConfig) error {
+	// 验证操作系统类型
+	if config.OSType == "" {
+		return fmt.Errorf("os_type is required")
+	}
+
+	supportedOSTypes := []string{"centos", "rhel", "fedora", "ubuntu"}
+	if !utils.IsInStringArray(config.OSType, supportedOSTypes) {
+		return fmt.Errorf("unsupported os_type: %s, supported types: %v", config.OSType, supportedOSTypes)
+	}
+
+	// 验证配置内容和URL二选一
+	if config.Config == "" && config.ConfigURL == "" {
+		return fmt.Errorf("either config or config_url must be provided")
+	}
+
+	if config.Config != "" && config.ConfigURL != "" {
+		return fmt.Errorf("config and config_url cannot be both provided, choose one")
+	}
+
+	// TODO: 验证URL/配置文件的正确性
+
+	// 设置默认值
+	if config.Enabled == nil {
+		enabled := true
+		config.Enabled = &enabled
+	}
+
+	if config.MaxRetries <= 0 {
+		config.MaxRetries = 3
+	}
+
+	if config.TimeoutMinutes <= 0 {
+		config.TimeoutMinutes = 60
+	}
+
+	return nil
 }
 
 func (manager *SGuestManager) validateEip(ctx context.Context, userCred mcclient.TokenCredential, input *api.ServerCreateInput,

@@ -462,6 +462,37 @@ type DeployConfig struct {
 	Content string `json:"content"`
 }
 
+// KickstartConfig Kickstart/Autoinstall自动化安装配置
+type KickstartConfig struct {
+	// 配置文件内容 (当用户直接提供配置时使用)
+	// required: false
+	Config string `json:"config,omitempty"`
+
+	// 配置文件 URL (当配置文件位于外部服务器时使用)
+	// required: false
+	ConfigURL string `json:"config_url,omitempty"`
+
+	// 操作系统类型 (用于确定内核参数和文件路径)
+	// enum: centos,rhel,fedora,ubuntu
+	// required: true
+	OSType string `json:"os_type" validate:"required,oneof=centos rhel fedora ubuntu"`
+
+	// 是否启用 (用于临时禁用而不删除配置)
+	// default: true
+	// required: false
+	Enabled *bool `json:"enabled,omitempty"`
+
+	// 最大重试次数
+	// default: 3
+	// required: false
+	MaxRetries int `json:"max_retries,omitempty"`
+
+	// 安装超时时间 (分钟)
+	// default: 60
+	// required: false
+	TimeoutMinutes int `json:"timeout_minutes,omitempty"`
+}
+
 type ServerCreateInput struct {
 	apis.VirtualResourceCreateInput
 	DeletePreventableCreateInput
@@ -671,6 +702,10 @@ type ServerCreateInput struct {
 
 	// 指定用于新建主机的主机镜像ID
 	GuestImageID string `json:"guest_image_id"`
+
+	// Kickstart/Autoinstall自动化安装配置
+	// required: false
+	KickstartConfig *KickstartConfig `json:"kickstart_config,omitempty"`
 
 	Pod *PodCreateInput `json:"pod"`
 }
