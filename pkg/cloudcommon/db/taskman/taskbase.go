@@ -31,10 +31,10 @@ type STaskBase struct {
 	// 完成任务时间
 	EndAt time.Time `nullable:"true" list:"user" json:"end_at"`
 
-	ObjType  string `old_name:"obj_name" json:"obj_type" width:"128" charset:"utf8" nullable:"true" list:"user"`
-	Object   string `json:"object" width:"128" charset:"utf8" nullable:"true" list:"user"`  //  Column(VARCHAR(128, charset='utf8'), nullable=False)
-	ObjId    string `width:"128" charset:"ascii" nullable:"false" list:"user" index:"true"` // Column(VARCHAR(ID_LENGTH, charset='ascii'), nullable=False)
-	TaskName string `width:"64" charset:"ascii" nullable:"false" list:"user" index:"true"`  // Column(VARCHAR(64, charset='ascii'), nullable=False)
+	ObjType  string `old_name:"obj_name" json:"obj_type" width:"128" charset:"utf8" nullable:"false" default:"" list:"user"`
+	Object   string `json:"object" width:"128" charset:"utf8" nullable:"false" default:"" list:"user"` //  Column(VARCHAR(128, charset='utf8'), nullable=False)
+	ObjId    string `width:"128" charset:"ascii" nullable:"false" list:"user" index:"true"`            // Column(VARCHAR(ID_LENGTH, charset='ascii'), nullable=False)
+	TaskName string `width:"64" charset:"ascii" nullable:"false" list:"user" index:"true"`             // Column(VARCHAR(64, charset='ascii'), nullable=False)
 
 	UserCred mcclient.TokenCredential `width:"1024" charset:"utf8" nullable:"false" get:"user"` // Column(VARCHAR(1024, charset='ascii'), nullable=False)
 	// OwnerCred string `width:"512" charset:"ascii" nullable:"true"` // Column(VARCHAR(512, charset='ascii'), nullable=True)
