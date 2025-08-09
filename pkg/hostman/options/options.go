@@ -240,6 +240,8 @@ type SHostOptions struct {
 	ContainerDeviceConfigFile                string `help:"container device configuration file path"`
 	LxcfsPath                                string `help:"lxcfs directory path" default:"/var/lib/lxcfs"`
 	ContainerSystemCpufreqSimulateConfigFile string `help:"container system cpu simulate config file path" default:"/etc/yunion/container_cpufreq_simulate.conf"`
+	EnableRealtimeCpufreqSimulate            bool   `help:"realtime cpufreq simulate" default:"true"`
+	RealtimeCpufreqSimulateInterval          int    `help:"realtime cpufreq simulate interval(second)" default:"2"`
 
 	EnableCudaMPS        bool   `help:"enable cuda mps" default:"false"`
 	CudaMPSPipeDirectory string `help:"cuda mps pipe dir" default:"/tmp/nvidia-mps/pipe"`
