@@ -1429,6 +1429,38 @@ func (self *SGuest) GetDetailsIso(ctx context.Context, userCred mcclient.TokenCr
 	return desc, nil
 }
 
+// 获取Kickstart信息
+func (self *SGuest) GetDetailsKickstart(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	result := jsonutils.NewDict()
+
+	kickstartConfig, err := self.GetKickstartConfig(ctx, userCred)
+	if err != nil {
+		return nil, httperrors.NewInternalServerError("Failed to get kickstart config: %v", err)
+	}
+
+	status := self.GetMetadata(ctx, api.VM_METADATA_KICKSTART_STATUS, userCred)
+	if status == "" {
+		status = api.KICKSTART_STATUS_NORMAL
+	}
+
+	attempt := self.GetMetadata(ctx, api.VM_METADATA_KICKSTART_ATTEMPT, userCred)
+	if attempt == "" {
+		attempt = "0"
+	}
+
+	if kickstartConfig != nil {
+		configDict := jsonutils.Marshal(kickstartConfig)
+		result.Set("config", configDict)
+	} else {
+		result.Set("config", jsonutils.NewDict())
+	}
+
+	result.Set("status", jsonutils.NewString(status))
+	result.Set("attempt", jsonutils.NewString(attempt))
+
+	return result, nil
+}
+
 // 挂载ISO镜像
 func (self *SGuest) PerformInsertiso(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if !utils.IsInStringArray(self.Hypervisor, []string{api.HYPERVISOR_KVM, api.HYPERVISOR_BAREMETAL}) {
@@ -6933,4 +6965,66 @@ func (self *SGuest) StartChangeBillingTypeTask(ctx context.Context, userCred mcc
 func (self *SGuest) PerformDisableAutoMergeSnapshots(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	disableAutoMergeSnapshot := jsonutils.QueryBoolean(data, "disable_auto_merge_snapshot", false)
 	return nil, self.SetMetadata(ctx, api.VM_METADATA_DISABLE_AUTO_MERGE_SNAPSHOT, disableAutoMergeSnapshot, userCred)
+}
+
+func (self *SGuest) PerformSetKickstart(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.KickstartConfig) (jsonutils.JSONObject, error) {
+	if !utils.IsInStringArray(self.Status, []string{api.VM_READY, api.VM_INIT}) {
+		return nil, httperrors.NewInvalidStatusError("cannot set kickstart config in status %s", self.Status)
+	}
+
+	if err := self.SetKickstartConfig(ctx, &input, userCred); err != nil {
+		return nil, errors.Wrap(err, "set kickstart config")
+	}
+
+	if err := self.SetKickstartStatus(ctx, api.KICKSTART_STATUS_PENDING, userCred); err != nil {
+		return nil, errors.Wrap(err, "set kickstart status")
+	}
+
+	if err := self.SetMetadata(ctx, api.VM_METADATA_KICKSTART_ATTEMPT, "0", userCred); err != nil {
+		return nil, errors.Wrap(err, "set kickstart attempt")
+	}
+
+	db.OpsLog.LogEvent(self, db.ACT_UPDATE, "set kickstart config", userCred)
+
+	return jsonutils.Marshal(map[string]string{
+		"status": "success",
+	}), nil
+}
+
+func (self *SGuest) PerformDeleteKickstart(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if utils.IsInStringArray(self.Status, []string{api.VM_STARTING, api.VM_RUNNING}) {
+		status := self.GetKickstartStatus(ctx, userCred)
+		if status == api.KICKSTART_STATUS_INSTALLING {
+			return nil, httperrors.NewInvalidStatusError("cannot delete kickstart config while installation is in progress")
+		}
+	}
+
+	if err := self.SetKickstartConfig(ctx, nil, userCred); err != nil {
+		return nil, errors.Wrap(err, "delete kickstart config")
+	}
+
+	self.RemoveMetadata(ctx, api.VM_METADATA_KICKSTART_STATUS, userCred)
+	self.RemoveMetadata(ctx, api.VM_METADATA_KICKSTART_ATTEMPT, userCred)
+
+	db.OpsLog.LogEvent(self, db.ACT_DELETE, "delete kickstart config", userCred)
+
+	return jsonutils.Marshal(map[string]string{
+		"status": "success",
+	}), nil
+}
+
+func (self *SGuest) PerformUpdateKickstartStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ServerUpdateKickstartStatusInput) (jsonutils.JSONObject, error) {
+	if err := self.SetKickstartStatus(ctx, input.Status, userCred); err != nil {
+		return nil, errors.Wrap(err, "update kickstart status")
+	}
+
+	if input.ErrorMessage != "" {
+		db.OpsLog.LogEvent(self, db.ACT_UPDATE, fmt.Sprintf("kickstart status: %s, error: %s", input.Status, input.ErrorMessage), userCred)
+	} else {
+		db.OpsLog.LogEvent(self, db.ACT_UPDATE, fmt.Sprintf("kickstart status: %s", input.Status), userCred)
+	}
+
+	return jsonutils.Marshal(map[string]string{
+		"status": input.Status,
+	}), nil
 }
