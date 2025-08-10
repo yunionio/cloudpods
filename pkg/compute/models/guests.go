@@ -2589,6 +2589,24 @@ func (guest *SGuest) PostCreate(ctx context.Context, userCred mcclient.TokenCred
 		guest.setUserData(ctx, userCred, userData)
 	}
 
+	// set kickstart metadata
+	kickstartConfigJson, _ := data.Get("kickstart_config")
+	if kickstartConfigJson != nil {
+		kickstartConfig := &api.KickstartConfig{}
+		if err := kickstartConfigJson.Unmarshal(kickstartConfig); err != nil {
+			log.Errorf("unmarshal kickstart config fail: %s", err)
+		} else {
+			if err := guest.SetKickstartConfig(ctx, kickstartConfig, userCred); err != nil {
+				log.Errorf("Failed to set kickstart config for guest %s: %v", guest.Name, err)
+			} else {
+				if err := guest.SetKickstartStatus(ctx, api.KICKSTART_STATUS_PENDING, userCred); err != nil {
+					log.Errorf("Failed to set kickstart status for guest %s: %v", guest.Name, err)
+				}
+				log.Infof("Successfully set kickstart config for guest %s with OS type %s", guest.Name, kickstartConfig.OSType)
+			}
+		}
+	}
+
 	input := struct {
 		PreferZone      string
 		PreferRegion    string
