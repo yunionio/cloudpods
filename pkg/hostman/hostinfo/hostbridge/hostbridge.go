@@ -344,12 +344,12 @@ func (d *SBaseBridgeDriver) ConfirmToConfig() (bool, string, error) {
 			if d.bridge.Addr != d.ip {
 				return false, "", fmt.Errorf("bridge %s IP %s is not expected IP %s, mismatch", d.bridge, d.bridge.Addr, d.ip)
 			}
-		} else if len(d.ip6) == 0 {
+		} else {
 			if d.inter != nil && len(d.inter.Addr) > 0 {
 				return false, "", fmt.Errorf("interface %s should have no address", d.inter)
 			}
-			if len(d.bridge.Addr) == 0 {
-				return false, "", fmt.Errorf("bridge %s should have 169.254.0.0/16 address", d.bridge)
+			if len(d.bridge.Addr) > 0 {
+				return false, "", fmt.Errorf("bridge %s (%s) should have no ipv4 address", d.bridge, d.bridge.Addr)
 			}
 			if !d.bridge.IsSecretInterface() {
 				return false, "", fmt.Errorf("%s should have address in 169.254.0.0/16", d.bridge)

@@ -175,6 +175,10 @@ func (manager *SGuestnetworkManager) FetchCustomizeColumns(
 		if net, ok := netMap[netIds[i]]; ok {
 			rows[i].Network = net.Name
 			rows[i].WireId = net.WireId
+			rows[i].GuestIpMask = net.GuestIpMask
+			rows[i].GuestGateway = net.GuestGateway
+			rows[i].GuestIp6Mask = net.GuestIp6Mask
+			rows[i].GuestGateway6 = net.GuestGateway6
 		}
 	}
 
@@ -408,7 +412,7 @@ func (manager *SGuestnetworkManager) newGuestNetwork(
 		}
 	}
 
-	if vpc.Id != api.DEFAULT_VPC_ID && provider == api.CLOUD_PROVIDER_ONECLOUD && len(gn.IpAddr) > 0 || len(gn.Ip6Addr) > 0 {
+	if vpc.Id != api.DEFAULT_VPC_ID && provider == api.CLOUD_PROVIDER_ONECLOUD && (len(gn.IpAddr) > 0 || len(gn.Ip6Addr) > 0) {
 		var err error
 		GuestnetworkManager.lockAllocMappedAddr(ctx)
 		defer GuestnetworkManager.unlockAllocMappedAddr(ctx)

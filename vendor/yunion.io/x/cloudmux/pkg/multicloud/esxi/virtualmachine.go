@@ -682,12 +682,11 @@ func (svm *SVirtualMachine) doUnregister(ctx context.Context) error {
 }
 
 func (svm *SVirtualMachine) DeleteVM(ctx context.Context) error {
-	err := svm.CheckFileInfo(ctx)
+	err := svm.doDestroy(ctx)
 	if err != nil {
-		log.Errorf("CheckFileInfo %s error: %v", svm.GetName(), err)
 		return svm.doUnregister(ctx)
 	}
-	return svm.doDestroy(ctx)
+	return nil
 }
 
 func (svm *SVirtualMachine) doDetachAndDeleteDisk(ctx context.Context, vdisk *SVirtualDisk) error {

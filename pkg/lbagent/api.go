@@ -308,7 +308,7 @@ func (h *ApiHelper) agentUpdateSeen(ctx context.Context) *computemodels.SLoadbal
 }
 
 func (h *ApiHelper) newAgentHbParams(ctx context.Context) (*jsonutils.JSONDict, error) {
-	ip, err := netutils2.MyIP()
+	ip, err := netutils2.MyIPSmart()
 	if err != nil {
 		return nil, err
 	}

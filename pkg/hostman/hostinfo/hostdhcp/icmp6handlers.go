@@ -113,9 +113,9 @@ func (s *SGuestDHCP6Server) sendRouterAdvertisement(solicitation *icmp6.SRouterS
 		gwMac := gwMacObj.(net.HardwareAddr)
 
 		pref := icmp6.PreferenceMedium
-		//if conf.IsDefaultGW {
-		//	pref = icmp6.PreferenceHigh
-		//}
+		if conf.IsDefaultGW {
+			pref = icmp6.PreferenceHigh
+		}
 
 		_, ipnet, err := net.ParseCIDR(fmt.Sprintf("%s/%d", conf.ClientIP6, conf.PrefixLen6))
 		if err != nil {

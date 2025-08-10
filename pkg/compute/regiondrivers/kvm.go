@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
+	"strings"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
@@ -517,8 +518,14 @@ func (self *SKVMRegionDriver) RequestDeleteLoadbalancerListenerRule(ctx context.
 }
 
 func (self *SKVMRegionDriver) ValidateCreateVpcData(ctx context.Context, userCred mcclient.TokenCredential, input api.VpcCreateInput) (api.VpcCreateInput, error) {
-	if !utils.IsInStringArray(input.CidrBlock, []string{"192.168.0.0/16", "10.0.0.0/8", "172.16.0.0/12"}) {
+	if len(input.CidrBlock) > 0 && !utils.IsInStringArray(input.CidrBlock, []string{"192.168.0.0/16", "10.0.0.0/8", "172.16.0.0/12"}) {
 		return input, httperrors.NewInputParameterError("Invalid cidr_block, want 192.168.0.0/16|10.0.0.0/8|172.16.0.0/12, got %s", input.CidrBlock)
+	}
+	if len(input.CidrBlock6) > 0 {
+		input.CidrBlock6 = strings.ToLower(input.CidrBlock6)
+		if !strings.HasPrefix(input.CidrBlock6, "fd") {
+			return input, httperrors.NewInputParameterError("Invalid ipv6 cidr_block, %s outside of IPv6 private unicast address range fd00::/8", input.CidrBlock6)
+		}
 	}
 	return input, nil
 }

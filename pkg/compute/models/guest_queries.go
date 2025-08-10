@@ -571,6 +571,8 @@ func fetchGuestNICs(ctx context.Context, guestIds []string, virtual tristate.Tri
 
 		gnwq.Field("port_mappings"),
 
+		gnwq.Field("is_default"),
+
 		wirq.Field("vpc_id"),
 		subIP.Field("sub_ips"),
 	)
