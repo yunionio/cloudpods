@@ -44,8 +44,25 @@ func NewServer(cfg *config.Config, logger *logrus.Logger) *CloudpodsMCPServer {
 
 	var allTools []tools.Tool
 
+	adapter := adapters.NewCloudpodsAdapter(cfg, logger)
+
+	regionsTool := tools.NewCloudpodsRegionsTool(adapter, logger)
+	vpcsTool := tools.NewCloudpodsVPCsTool(adapter, logger)
+	networksTool := tools.NewCloudpodsNetworksTool(adapter, logger)
+	imagesTool := tools.NewCloudpodsImagesTool(adapter, logger)
+	skusTool := tools.NewCloudpodsServerSkusTool(adapter, logger)
+	storagesTool := tools.NewCloudpodsStoragesTool(adapter, logger)
+	serversTool := tools.NewCloudpodsServersTool(adapter, logger)
+
 	allTools = append(
 		allTools,
+		regionsTool,
+		vpcsTool,
+		networksTool,
+		imagesTool,
+		skusTool,
+		storagesTool,
+		serversTool,
 	)
 
 	return &CloudpodsMCPServer{
