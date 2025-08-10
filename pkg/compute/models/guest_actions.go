@@ -1357,6 +1357,38 @@ func (self *SGuest) GetDetailsIso(ctx context.Context, userCred mcclient.TokenCr
 	return desc, nil
 }
 
+// 获取Kickstart信息
+func (self *SGuest) GetDetailsKickstart(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	result := jsonutils.NewDict()
+
+	kickstartConfig, err := self.GetKickstartConfig(ctx, userCred)
+	if err != nil {
+		return nil, httperrors.NewInternalServerError("Failed to get kickstart config: %v", err)
+	}
+
+	status := self.GetMetadata(ctx, api.VM_METADATA_KICKSTART_STATUS, userCred)
+	if status == "" {
+		status = api.KICKSTART_STATUS_NORMAL
+	}
+
+	attempt := self.GetMetadata(ctx, api.VM_METADATA_KICKSTART_ATTEMPT, userCred)
+	if attempt == "" {
+		attempt = "0"
+	}
+
+	if kickstartConfig != nil {
+		configDict := jsonutils.Marshal(kickstartConfig)
+		result.Set("config", configDict)
+	} else {
+		result.Set("config", jsonutils.NewDict())
+	}
+
+	result.Set("status", jsonutils.NewString(status))
+	result.Set("attempt", jsonutils.NewString(attempt))
+
+	return result, nil
+}
+
 // 挂载ISO镜像
 func (self *SGuest) PerformInsertiso(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if !utils.IsInStringArray(self.Hypervisor, []string{api.HYPERVISOR_KVM, api.HYPERVISOR_BAREMETAL}) {

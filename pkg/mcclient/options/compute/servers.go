@@ -926,6 +926,28 @@ func (o *ServerSendKeyOptions) Params() (jsonutils.JSONObject, error) {
 	return options.StructToParams(o)
 }
 
+// Kickstart related options
+
+type ServerKickstartConfigOptions struct {
+	ServerIdOptions
+	OSType         string `help:"Kickstart OS type" choices:"centos|rhel|fedora|ubuntu" json:"os_type"`
+	Config         string `help:"Kickstart configuration content" json:"config,omitempty"`
+	ConfigURL      string `help:"Kickstart configuration URL" json:"config_url,omitempty"`
+	Enabled        *bool  `help:"Enable kickstart" json:"enabled,omitempty"`
+	MaxRetries     int    `help:"Kickstart max retries" default:"3" json:"max_retries,omitempty"`
+	TimeoutMinutes int    `help:"Kickstart timeout in minutes" default:"60" json:"timeout_minutes,omitempty"`
+}
+
+func (o *ServerKickstartConfigOptions) Params() (jsonutils.JSONObject, error) {
+	if o.Config == "" && o.ConfigURL == "" {
+		return nil, fmt.Errorf("either --config or --config-url must be provided")
+	}
+	if o.Config != "" && o.ConfigURL != "" {
+		return nil, fmt.Errorf("--config and --config-url cannot be both provided, choose one")
+	}
+	return options.StructToParams(o)
+}
+
 func (o *ServerSendKeyOptions) Description() string {
 	return "Send keys to server"
 }
