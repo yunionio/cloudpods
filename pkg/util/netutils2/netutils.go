@@ -18,7 +18,6 @@ import (
 	"bytes"
 	"fmt"
 	"net"
-	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -447,6 +446,7 @@ type SNetInterface struct {
 	Addr6 string
 	Mask6 net.IPMask
 
+	Addr4LinkLocal string
 	Addr6LinkLocal string
 
 	Mtu int
@@ -520,10 +520,9 @@ func (n *SNetInterface) FetchConfig2(expectIp string, expectIp6 string) {
 		for _, addr := range addrs {
 			if ipnet, ok := addr.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
 				if ipnet.IP.To4() != nil {
-					if len(expectIp) == 0 && n.Addr == "" && strings.HasPrefix(ipnet.IP.To4().String(), SECRET_PREFIX) {
-						continue
-					}
-					if (len(expectIp) > 0 && ipnet.IP.String() == expectIp) || (len(expectIp) == 0 && n.Addr == "") {
+					if strings.HasPrefix(ipnet.IP.To4().String(), SECRET_PREFIX) {
+						n.Addr4LinkLocal = ipnet.IP.String()
+					} else if (len(expectIp) > 0 && ipnet.IP.String() == expectIp) || (len(expectIp) == 0 && n.Addr == "") {
 						n.Addr = ipnet.IP.String()
 						n.Mask = ipnet.Mask
 					}
@@ -603,21 +602,21 @@ func (n *SNetInterface) SetupGso(on bool) {
 }
 
 func (n *SNetInterface) IsSecretInterface() bool {
-	return n.IsSecretAddress(n.Addr, n.Mask)
+	return n.Addr4LinkLocal != "" && n.Addr == ""
 }
 
 func (n *SNetInterface) IsSecretInterface6() bool {
 	return n.Addr6LinkLocal != "" && n.Addr6 == ""
 }
 
-func (n *SNetInterface) IsSecretAddress(addr string, mask []byte) bool {
+/*func (n *SNetInterface) IsSecretAddress(addr string, mask []byte) bool {
 	log.Infof("MASK --- %s", mask)
 	if reflect.DeepEqual(mask, SECRET_MASK) && strings.HasPrefix(addr, SECRET_PREFIX) {
 		return true
 	} else {
 		return false
 	}
-}
+}*/
 
 func GetSecretInterfaceAddress() (string, int) {
 	addr := fmt.Sprintf("%s.%d.1", SECRET_PREFIX, secretInterfaceIndex)

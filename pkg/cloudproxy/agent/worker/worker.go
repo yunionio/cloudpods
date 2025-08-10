@@ -120,7 +120,7 @@ func (w *Worker) initProxyAgent_(ctx context.Context) error {
 	)
 	if agentDetail.BindAddr == "" || !bindAddrExist(bindAddr) {
 		var err error
-		bindAddr, err = netutils2.MyIP()
+		bindAddr, err = netutils2.MyIPSmart()
 		if err != nil {
 			return errors.Wrap(err, "find bind Addr")
 		}

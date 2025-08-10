@@ -36,6 +36,14 @@ type GuestnetworkDetails struct {
 	EipAddr string `json:"eip_addr"`
 
 	NetworkAddresses []NetworkAddrConf `json:"network_addresses"`
+
+	GuestIpMask int8 `json:"guest_ip_mask"`
+	// 网关地址
+	GuestGateway string `json:"guest_gateway"`
+
+	GuestIp6Mask uint8 `json:"guest_ip6_mask"`
+	// 网关地址
+	GuestGateway6 string `json:"guest_gateway6"`
 }
 
 type GuestnetworkShortDesc struct {
@@ -58,6 +66,8 @@ type GuestnetworkShortDesc struct {
 	SubIps string `json:"sub_ips"`
 	// 端口映射
 	PortMappings GuestPortMappings `json:"port_mappings"`
+
+	IsDefault bool `json:"is_default"`
 }
 
 type GuestnetworkListInput struct {

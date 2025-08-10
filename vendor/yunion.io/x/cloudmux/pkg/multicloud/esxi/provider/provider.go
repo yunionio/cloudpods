@@ -154,22 +154,21 @@ func (self *SESXiProviderFactory) GetClientRC(info cloudprovider.SProviderInfo) 
 	}, nil
 }
 
-func (self *SESXiProviderFactory) GetAccountIdEqualizer() func(origin, now string) bool {
-	return func(origin, now string) bool {
-		if len(now) == 0 {
-			return true
-		}
-		originUserName, nowUserName := origin, now
-		index1 := strings.Index(origin, "@")
-		index2 := strings.Index(now, "@")
-		if index1 != -1 {
-			originUserName = originUserName[:index1]
-		}
-		if index2 != -1 {
-			nowUserName = nowUserName[:index2]
-		}
-		return originUserName == nowUserName
+// admin@vsphere.local@192.168.1.100:443 test@vsphere.local@192.168.1.100:443
+func isAccountEqual(origin, now string) bool {
+	if len(now) == 0 {
+		return true
 	}
+	host := origin
+	hostIdx := strings.LastIndex(origin, "@")
+	if hostIdx > 0 {
+		host = origin[hostIdx+1:]
+	}
+	return strings.HasSuffix(now, host)
+}
+
+func (self *SESXiProviderFactory) GetAccountIdEqualizer() func(origin, now string) bool {
+	return isAccountEqual
 }
 
 func init() {
