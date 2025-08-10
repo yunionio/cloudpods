@@ -363,6 +363,15 @@ func (addr IPV6Addr) Ge(addr2 IPV6Addr) bool {
 	return !addr.Lt(addr2)
 }
 
+func (addr IPV6Addr) IsZero() bool {
+	for _, v := range addr {
+		if v != 0 {
+			return false
+		}
+	}
+	return true
+}
+
 type IPV6AddrRange struct {
 	start IPV6Addr
 	end   IPV6Addr

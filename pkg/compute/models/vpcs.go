@@ -997,8 +997,8 @@ func (manager *SVpcManager) ValidateCreateData(
 		return input, err
 	}
 
-	if region.GetDriver().IsVpcCreateNeedInputCidr() && len(input.CidrBlock) == 0 {
-		return input, httperrors.NewMissingParameterError("cidr")
+	if region.GetDriver().IsVpcCreateNeedInputCidr() && len(input.CidrBlock) == 0 && len(input.CidrBlock6) == 0 {
+		return input, httperrors.NewMissingParameterError("cidr_block or cidr_block6")
 	}
 
 	keys := GetVpcQuotaKeysFromCreateInput(ownerId, input)

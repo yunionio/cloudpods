@@ -3294,13 +3294,37 @@ func (manager *SNetworkManager) PerformTryCreateNetwork(ctx context.Context, use
 	if len(input.Ip) == 0 {
 		return nil, httperrors.NewMissingParameterError("ip")
 	}
-	ipV4, err := netutils.NewIPV4Addr(input.Ip)
-	if err != nil {
-		return nil, httperrors.NewInputParameterError("ip")
-	}
+
+	var ipV4, ipV4NetAddr netutils.IPV4Addr
+	var ipV6, ipV6NetAddr netutils.IPV6Addr
+	var err error
+
 	if input.Mask == 0 {
 		return nil, httperrors.NewMissingParameterError("mask")
 	}
+
+	if regutils.MatchIP4Addr(input.Ip) {
+		ipV4, err = netutils.NewIPV4Addr(input.Ip)
+		if err != nil {
+			return nil, errors.Wrapf(err, "invalid ipv4 address %s", input.Ip)
+		}
+		if ipV4.IsZero() {
+			return nil, errors.Wrapf(errors.ErrInvalidFormat, "invalid ipv4 address %s", input.Ip)
+		}
+		ipV4NetAddr = ipV4.NetAddr(int8(input.Mask))
+	} else if regutils.MatchIP6Addr(input.Ip) {
+		ipV6, err = netutils.NewIPV6Addr(input.Ip)
+		if err != nil {
+			return nil, errors.Wrapf(err, "invalid ipv6 address %s", input.Ip)
+		}
+		if ipV6.IsZero() {
+			return nil, errors.Wrapf(errors.ErrInvalidFormat, "invalid ipv6 address %s", input.Ip)
+		}
+		ipV6NetAddr = ipV6.NetAddr(uint8(input.Mask))
+	} else {
+		return nil, errors.Wrapf(errors.ErrInvalidFormat, "invalid ip address %s", input.Ip)
+	}
+
 	if len(input.ServerType) == 0 {
 		return nil, httperrors.NewMissingParameterError("server_type")
 	}
@@ -3312,12 +3336,16 @@ func (manager *SNetworkManager) PerformTryCreateNetwork(ctx context.Context, use
 	}
 
 	var (
-		ipV4NetAddr = ipV4.NetAddr(int8(input.Mask))
-		nm          *SNetwork
-		matched     bool
+		nm      *SNetwork
+		matched bool
 	)
 
-	q := NetworkManager.Query().Equals("server_type", input.ServerType).Equals("guest_ip_mask", input.Mask)
+	q := NetworkManager.Query().Equals("server_type", input.ServerType)
+	if !ipV4.IsZero() {
+		q = q.Equals("guest_ip_mask", input.Mask)
+	} else if !ipV6.IsZero() {
+		q = q.Equals("guest_ip6_mask", input.Mask)
+	}
 
 	listQuery := api.NetworkListInput{}
 	err = query.Unmarshal(&listQuery)
@@ -3350,14 +3378,27 @@ func (manager *SNetworkManager) PerformTryCreateNetwork(ctx context.Context, use
 			return nil, err
 		}
 		n := item.(*SNetwork)
-		if n.GetIPRange().Contains(ipV4) {
-			nm = n
-			matched = true
-			break
-		} else if nIpV4, _ := netutils.NewIPV4Addr(n.GuestIpStart); nIpV4.NetAddr(n.GuestIpMask) == ipV4NetAddr {
-			nm = n
-			matched = false
-			break
+
+		if !ipV4.IsZero() {
+			if n.getIPRange().Contains(ipV4) {
+				nm = n
+				matched = true
+				break
+			} else if nIpV4, _ := netutils.NewIPV4Addr(n.GuestIpStart); nIpV4.NetAddr(n.GuestIpMask) == ipV4NetAddr {
+				nm = n
+				matched = false
+				break
+			}
+		} else if !ipV6.IsZero() {
+			if n.getIPRange6().Contains(ipV6) {
+				nm = n
+				matched = true
+				break
+			} else if nIpV6, _ := netutils.NewIPV6Addr(n.GuestIp6Start); nIpV6.NetAddr(n.GuestIp6Mask) == ipV6NetAddr {
+				nm = n
+				matched = false
+				break
+			}
 		}
 	}
 
@@ -3369,13 +3410,20 @@ func (manager *SNetworkManager) PerformTryCreateNetwork(ctx context.Context, use
 	ret.Set("find_matched", jsonutils.JSONTrue)
 	ret.Set("wire_id", jsonutils.NewString(nm.WireId))
 	if !matched {
-		log.Infof("Find same subnet network %s %s/%d", nm.Name, nm.GuestGateway, nm.GuestIpMask)
+		log.Infof("Find same subnet network %s %s/%d %s/%d", nm.Name, nm.GuestGateway, nm.GuestIpMask, nm.GuestGateway6, nm.GuestIp6Mask)
 		newNetwork := new(SNetwork)
 		newNetwork.SetModelManager(NetworkManager, newNetwork)
-		newNetwork.GuestIpStart = input.Ip
-		newNetwork.GuestIpEnd = input.Ip
-		newNetwork.GuestGateway = nm.GuestGateway
-		newNetwork.GuestIpMask = int8(input.Mask)
+		if !ipV4.IsZero() {
+			newNetwork.GuestIpStart = ipV4.String()
+			newNetwork.GuestIpEnd = ipV4.String()
+			newNetwork.GuestGateway = nm.GuestGateway
+			newNetwork.GuestIpMask = int8(input.Mask)
+		} else if !ipV6.IsZero() {
+			newNetwork.GuestIp6Start = ipV6.String()
+			newNetwork.GuestIp6End = ipV6.String()
+			newNetwork.GuestGateway6 = nm.GuestGateway6
+			newNetwork.GuestIp6Mask = uint8(input.Mask)
+		}
 		newNetwork.GuestDns = nm.GuestDns
 		newNetwork.GuestDhcp = nm.GuestDhcp
 		newNetwork.GuestNtp = nm.GuestNtp
