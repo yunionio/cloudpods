@@ -234,6 +234,9 @@ func (d *SLocalDisk) CreateFromRemoteHostImage(ctx context.Context, url string, 
 		return errors.Wrap(err, "RequestExportNbdImage")
 	}
 	remoteHostIp := netutils2.ParseIpFromUrl(url)
+	if strings.Contains(remoteHostIp, ":") {
+		remoteHostIp = "[" + remoteHostIp + "]"
+	}
 	nbdImagePath := fmt.Sprintf("nbd://%s:%d/%s", remoteHostIp, nbdPort, d.GetId())
 	log.Infof("remote nbd image exported %s", nbdImagePath)
 
