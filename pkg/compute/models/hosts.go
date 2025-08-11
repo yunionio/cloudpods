@@ -1364,7 +1364,11 @@ func (hh *SHost) GetFetchUrl(disableHttps bool) string {
 			port = 80
 		}
 	}
-	return fmt.Sprintf("%s://%s:%d", managerUrl.Scheme, strings.Split(managerUrl.Host, ":")[0], port+40000)
+	hostname := managerUrl.Hostname()
+	if strings.Contains(hostname, ":") {
+		hostname = "[" + hostname + "]"
+	}
+	return fmt.Sprintf("%s://%s:%d", managerUrl.Scheme, hostname, port+40000)
 }
 
 func (hh *SHost) GetAttachedEnabledHostStorages(storageType []string) []SStorage {
