@@ -1500,12 +1500,24 @@ func (manager *SElasticipManager) FetchCustomizeColumns(
 		log.Errorf("FetchIdNameMap2 group")
 		return rows
 	}
+	gns := []SGuestnetwork{}
+	err = GuestnetworkManager.Query().In("guest_id", guestIds).All(&gns)
+	if err != nil {
+		log.Errorf("FetchModelObjects GuestnetworkManager")
+		return rows
+	}
+	gnMap := map[string]string{}
+	for i := range gns {
+		gnMap[gns[i].GuestId] = gns[i].IpAddr
+	}
+
 	for i := range rows {
 		eip := objs[i].(*SElasticip)
 		if len(eip.AssociateId) > 0 {
 			switch eip.AssociateType {
 			case api.EIP_ASSOCIATE_TYPE_SERVER:
 				rows[i].AssociateName, _ = guests[eip.AssociateId]
+				rows[i].ServerPrivateIp = gnMap[eip.AssociateId]
 			case api.EIP_ASSOCIATE_TYPE_LOADBALANCER:
 				rows[i].AssociateName, _ = lbs[eip.AssociateId]
 			case api.EIP_ASSOCIATE_TYPE_NAT_GATEWAY:
