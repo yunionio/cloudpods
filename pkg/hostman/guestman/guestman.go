@@ -121,6 +121,7 @@ type SGuestManager struct {
 	containerRuntimeManager    runtime.Runtime
 	pleg                       pleg.PodLifecycleEventGenerator
 	podCache                   runtime.Cache
+	cpufreqSimulateManager     *SCpuFreqRealTimeSimulateManager
 }
 
 func NewGuestManager(host hostutils.IHost, serversPath string, workerCnt int) (*SGuestManager, error) {
@@ -163,6 +164,16 @@ func NewGuestManager(host hostutils.IHost, serversPath string, workerCnt int) (*
 				log.Fatalf("start containerd snapshot service: %s", err)
 			}
 		}()
+		if options.HostOptions.EnableRealtimeCpufreqSimulate {
+			cpufreqConfig := manager.host.GetContainerCpufreqSimulateConfig()
+			if cpufreqConfig != nil {
+				maxFreq, _ := cpufreqConfig.Int("scaling_max_freq")
+				minFreq, _ := cpufreqConfig.Int("scaling_min_freq")
+				interval := options.HostOptions.RealtimeCpufreqSimulateInterval
+				manager.cpufreqSimulateManager = newCpuFreqRealTimeSimulateManager(interval, maxFreq, minFreq)
+			}
+		}
+
 	}
 	return manager, nil
 }
@@ -383,6 +394,10 @@ func (m *SGuestManager) Bootstrap() (chan struct{}, error) {
 			log.Infof("[%s removed] enable dirty recovery feature at next bootstrap", m.disableDirtyRecoveryFilePath())
 		}
 	})
+	if m.cpufreqSimulateManager != nil {
+		go m.cpufreqSimulateManager.StartSetCpuFreqSimulate()
+	}
+
 	return m.dirtyServersChan, nil
 }
 
@@ -1645,6 +1660,9 @@ func (m *SGuestManager) HotplugCpuMem(ctx context.Context, params interface{}) (
 }
 
 func (m *SGuestManager) ExitGuestCleanup() {
+	if m.cpufreqSimulateManager != nil {
+		m.cpufreqSimulateManager.Stop()
+	}
 	m.Servers.Range(func(k, v interface{}) bool {
 		guest := v.(GuestRuntimeInstance)
 		guest.ExitCleanup(false)
