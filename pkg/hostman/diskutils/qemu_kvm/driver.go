@@ -660,7 +660,7 @@ func (d *QemuBaseDriver) startCmds(
 		disksPath = []string{imageInfo.Path}
 	}
 	for i, diskPath := range disksPath {
-		diskDrive := __("-drive file=%s,if=none,id=drive_%d,cache=none", diskPath, i)
+		diskDrive := __("-drive file=%s,if=none,id=drive_%d,cache=none", strings.ReplaceAll(diskPath, "\\", "\\\\"), i)
 		if imageInfo.Format != qemuimgfmt.RAW && imageInfo.Encrypted() {
 			diskDrive += ",encrypt.format=luks,encrypt.key-secret=sec0"
 		}
