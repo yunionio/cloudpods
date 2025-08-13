@@ -241,18 +241,22 @@ func (self *SDnsRecord) RealDelete(ctx context.Context, userCred mcclient.TokenC
 }
 
 type sRecordUniqValues struct {
-	DnsZoneId string
-	DnsType   string
-	DnsName   string
-	DnsValue  string
+	DnsZoneId   string
+	DnsType     string
+	DnsName     string
+	DnsValue    string
+	PolicyType  string
+	PolicyValue string
 }
 
 func (self *SDnsRecord) GetUniqValues() jsonutils.JSONObject {
 	return jsonutils.Marshal(sRecordUniqValues{
-		DnsZoneId: self.DnsZoneId,
-		DnsName:   self.Name,
-		DnsType:   self.DnsType,
-		DnsValue:  self.DnsValue,
+		DnsZoneId:   self.DnsZoneId,
+		DnsName:     self.Name,
+		DnsType:     self.DnsType,
+		DnsValue:    self.DnsValue,
+		PolicyType:  self.PolicyType,
+		PolicyValue: self.PolicyValue,
 	})
 }
 
@@ -276,6 +280,12 @@ func (manager *SDnsRecordManager) FilterByUniqValues(q *sqlchemy.SQuery, values 
 	}
 	if len(uniq.DnsValue) > 0 {
 		q = q.Equals("dns_value", uniq.DnsValue)
+	}
+	if len(uniq.PolicyType) > 0 {
+		q = q.Equals("policy_type", uniq.PolicyType)
+	}
+	if len(uniq.PolicyValue) > 0 {
+		q = q.Equals("policy_value", uniq.PolicyValue)
 	}
 
 	return q
