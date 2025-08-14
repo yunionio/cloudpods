@@ -74,6 +74,10 @@ type HostListOptions struct {
 
 	HideCpuTopoInfo *bool `help:"Host list will remove cpu_info and topology info from sysinfo and metadata"`
 
+	AccessIp []string `help:"Access ip address"`
+	IpmiIp   []string `help:"Ipmi ip address"`
+	PublicIp []string `help:"Public ip address"`
+
 	options.BaseListOptions
 }
 

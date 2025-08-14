@@ -451,6 +451,7 @@ func (manager *SHostManager) ListItemFilter(
 		"sn":               query.SN,
 		"storage_type":     query.StorageType,
 		"ipmi_ip":          query.IpmiIp,
+		"public_ip":        query.PublicIp,
 		"host_status":      query.HostStatus,
 		"host_type":        query.HostType,
 		"version":          query.Version,
