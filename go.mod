@@ -96,12 +96,12 @@ require (
 	k8s.io/cri-api v0.22.17
 	k8s.io/klog/v2 v2.20.0
 	moul.io/http2curl/v2 v2.3.0
-	yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20250807082238-ddfb05be205b
+	yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20250813115411-5660a2f63397
 	yunion.io/x/executor v0.0.0-20250518005516-5402e9e0bed0
 	yunion.io/x/jsonutils v1.0.1-0.20250507052344-1abcf4f443b1
 	yunion.io/x/log v1.0.1-0.20240305175729-7cf2d6cd5a91
 	yunion.io/x/ovsdb v0.0.0-20230306173834-f164f413a900
-	yunion.io/x/pkg v1.10.4-0.20250810004221-0a408931e156
+	yunion.io/x/pkg v1.10.4-0.20250814065738-8df5d9d07297
 	yunion.io/x/s3cli v0.0.0-20241221171442-1c11599d28e1
 	yunion.io/x/sqlchemy v1.1.3-0.20250806073422-e37f5197cec0
 	yunion.io/x/structarg v0.0.0-20231017124457-df4d5009457c
