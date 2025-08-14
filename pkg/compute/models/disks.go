@@ -206,6 +206,15 @@ func (manager *SDiskManager) ListItemFilter(
 		}
 	}
 
+	if query.BindingSnapshotpolicy != nil {
+		spjsq := SnapshotPolicyDiskManager.Query("disk_id").SubQuery()
+		if *query.BindingSnapshotpolicy {
+			q = q.In("id", spjsq)
+		} else {
+			q = q.NotIn("id", spjsq)
+		}
+	}
+
 	guestId := query.ServerId
 	if len(guestId) > 0 {
 		server, err := validators.ValidateModel(ctx, userCred, GuestManager, &guestId)
@@ -2752,7 +2761,7 @@ func (manager *SDiskManager) GetNeedAutoSnapshotDisks() ([]SSnapshotPolicyDisk, 
 	}
 	timePoint := t.Hour()
 
-	policy := SnapshotPolicyManager.Query().Equals("cloudregion_id", api.DEFAULT_REGION_ID)
+	policy := SnapshotPolicyManager.Query().Equals("type", api.SNAPSHOT_POLICY_TYPE_DISK).Equals("cloudregion_id", api.DEFAULT_REGION_ID)
 	policy = policy.Filter(sqlchemy.Contains(policy.Field("repeat_weekdays"), fmt.Sprintf("%d", week)))
 	sq := policy.Filter(
 		sqlchemy.OR(

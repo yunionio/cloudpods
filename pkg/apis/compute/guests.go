@@ -127,8 +127,13 @@ type ServerListInput struct {
 	// 根据镜像发行版排序
 	OrderByOsDist string `json:"order_by_os_dist"`
 
+	SnapshotpolicyId string `json:"snapshotpolicy_id"`
+
 	// 是否调度到宿主机上
 	WithHost *bool `json:"with_host"`
+
+	// 根据是否绑定快照策略过滤
+	BindingSnapshotpolicy *bool `json:"binding_snapshotpolicy"`
 }
 
 func (input *ServerListInput) AfterUnmarshal() {
