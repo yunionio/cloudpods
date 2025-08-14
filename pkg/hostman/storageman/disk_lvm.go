@@ -17,7 +17,9 @@ package storageman
 import (
 	"context"
 	"fmt"
+	"net"
 	"path"
+	"strconv"
 	"strings"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
@@ -184,7 +186,8 @@ func (d *SLVMDisk) CreateFromRemoteHostImage(ctx context.Context, url string, si
 	log.Infof("Create from remote host image %s", url)
 	nbdPort, err := d.RequestExportNbdImage(ctx, url, encryptInfo)
 	remoteHostIp := netutils2.ParseIpFromUrl(url)
-	nbdImagePath := fmt.Sprintf("nbd://%s:%d/%s", remoteHostIp, nbdPort, d.GetId())
+	remoteHostAndPort := net.JoinHostPort(remoteHostIp, strconv.Itoa(int(nbdPort)))
+	nbdImagePath := fmt.Sprintf("nbd://%s/%s", remoteHostAndPort, d.GetId())
 	log.Infof("remote nbd image exported %s", nbdImagePath)
 
 	newImg, err := qemuimg.NewQemuImage(d.GetPath())

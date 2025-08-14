@@ -291,6 +291,13 @@ keyring = %s
 
 func CephConfString(monHost, key string, radosMonOpTimeout, radosOsdOpTimeout, clientMountTimeout int64) string {
 	conf := []string{}
+	monHosts := strings.Split(monHost, ",")
+	for i := range monHosts {
+		if strings.Contains(monHosts[i], ":") {
+			monHosts[i] = `\[` + strings.ReplaceAll(monHosts[i], ":", `\:`) + `\]`
+		}
+	}
+	monHost = strings.Join(monHosts, ",")
 	conf = append(conf, "mon_host="+strings.ReplaceAll(monHost, ",", `\;`))
 	if len(key) > 0 {
 		for _, k := range []string{":", "@", "="} {
