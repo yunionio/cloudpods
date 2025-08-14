@@ -19,7 +19,10 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"net/http"
+	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -2364,7 +2367,39 @@ func (manager *SGuestManager) validateKickstartConfig(config *api.KickstartConfi
 		return fmt.Errorf("config and config_url cannot be both provided, choose one")
 	}
 
-	// TODO: 验证URL/配置文件的正确性
+	if config.Config != "" {
+		const maxConfigSize = 64 * 1024
+		if len(config.Config) > maxConfigSize {
+			return fmt.Errorf("config content too large: %d bytes, maximum allowed: %d bytes", len(config.Config), maxConfigSize)
+		}
+		if len(strings.TrimSpace(config.Config)) == 0 {
+			return fmt.Errorf("config content cannot be empty")
+		}
+	}
+
+	if config.ConfigURL != "" {
+		if len(config.ConfigURL) > 2048 {
+			return fmt.Errorf("config URL too long: %d characters, maximum allowed: 2048", len(config.ConfigURL))
+		}
+		if strings.TrimSpace(config.ConfigURL) == "" {
+			return fmt.Errorf("config URL cannot be empty")
+		}
+
+		parsedURL, err := url.Parse(config.ConfigURL)
+		if err != nil {
+			return fmt.Errorf("invalid URL format: %v", err)
+		}
+		if parsedURL.Scheme != "http" && parsedURL.Scheme != "https" {
+			return fmt.Errorf("invalid URL scheme: %s, only http and https are allowed", parsedURL.Scheme)
+		}
+		if parsedURL.Host == "" {
+			return fmt.Errorf("URL must specify a host")
+		}
+
+		if err := manager.checkURLContentSize(config.ConfigURL); err != nil {
+			return fmt.Errorf("URL content validation failed: %v", err)
+		}
+	}
 
 	// 设置默认值
 	if config.Enabled == nil {
@@ -2378,6 +2413,48 @@ func (manager *SGuestManager) validateKickstartConfig(config *api.KickstartConfi
 
 	if config.TimeoutMinutes <= 0 {
 		config.TimeoutMinutes = 60
+	}
+
+	return nil
+}
+
+func (manager *SGuestManager) checkURLContentSize(configURL string) error {
+	const maxURLContentSize = 64 * 1024
+	const requestTimeout = 10 * time.Second
+
+	client := &http.Client{Timeout: requestTimeout}
+
+	req, err := http.NewRequest("HEAD", configURL, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %v", err)
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Warningf("Failed to check URL content size for %s: %v", configURL, err)
+		return nil
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("URL returned status code: %d", resp.StatusCode)
+	}
+
+	contentLengthStr := resp.Header.Get("Content-Length")
+	if contentLengthStr != "" {
+		contentLength, err := strconv.ParseInt(contentLengthStr, 10, 64)
+		if err != nil {
+			log.Warningf("Failed to parse Content-Length header: %v", err)
+			return nil
+		}
+
+		if contentLength > maxURLContentSize {
+			return fmt.Errorf("URL content too large: %d bytes, maximum allowed: %d bytes", contentLength, maxURLContentSize)
+		}
+
+		log.Infof("URL content size validated: %d bytes", contentLength)
+	} else {
+		log.Warningf("URL %s does not provide Content-Length header, size validation skipped", configURL)
 	}
 
 	return nil
