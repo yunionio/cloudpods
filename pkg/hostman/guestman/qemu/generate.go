@@ -261,6 +261,18 @@ func generateInitrdOptions(drvOpt QemuOptions, initrdPath, kernel string) []stri
 	return opts
 }
 
+func generateKickstartBootOptions(drvOpt QemuOptions, kickstartBoot *KickstartBootInfo) []string {
+	opts := make([]string, 0)
+	opts = append(opts, drvOpt.Kernel(kickstartBoot.KernelPath))
+	opts = append(opts, drvOpt.Initrd(kickstartBoot.InitrdPath))
+	if kickstartBoot.KernelArgs != "" {
+		// due to blank space in kickstart args, '' is needed
+		opts = append(opts, fmt.Sprintf("-append '%s'", kickstartBoot.KernelArgs))
+	}
+
+	return opts
+}
+
 func generateDisksOptions(drvOpt QemuOptions, disks []*desc.SGuestDisk, isEncrypt, isMaster bool, osName string) []string {
 	opts := make([]string, 0)
 	for _, disk := range disks {
@@ -697,6 +709,15 @@ type GenerateStartOptionsInput struct {
 
 	RescueInitrdPath string // rescue initramfs path
 	RescueKernelPath string // rescue kernel path
+
+	KickstartBoot *KickstartBootInfo
+}
+type KickstartBootInfo struct {
+	Config     *api.KickstartConfig
+	MountPath  string
+	KernelPath string
+	InitrdPath string
+	KernelArgs string
 }
 
 func (input *GenerateStartOptionsInput) HasBootIndex() bool {
@@ -826,6 +847,11 @@ func GenerateStartOptions(
 			drvOpt,
 			input.RescueInitrdPath,
 			input.RescueKernelPath,
+		)...)
+	} else if input.KickstartBoot != nil {
+		opts = append(opts, generateKickstartBootOptions(
+			drvOpt,
+			input.KickstartBoot,
 		)...)
 	}
 
