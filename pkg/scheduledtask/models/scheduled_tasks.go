@@ -672,7 +672,7 @@ func init() {
 	}
 	paramsAccoutSync := jsonutils.NewDict()
 	paramsAccoutSync.Add(jsonutils.JSONTrue, "full_sync")
-	paramsAccoutSync.Add(jsonutils.JSONFalse, "force")
+	paramsAccoutSync.Add(jsonutils.JSONTrue, "force")
 	CloudAccountSync = ResourceOperation{
 		Resource:  ResourceCloudAccount,
 		Operation: api.ST_RESOURCE_OPERATION_SYNC,
