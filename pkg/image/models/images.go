@@ -2192,9 +2192,9 @@ func (img *SImage) cacheToCephStorages(ctx context.Context) {
 				storageConfString := cephutils.CephConfString(
 					storageConf.MonHost,
 					storageConf.Key,
-					int64(storageConf.RadosMonOpTimeout),
-					int64(storageConf.RadosOsdOpTimeout),
-					int64(storageConf.ClientMountTimeout),
+					storageConf.RadosMonOpTimeout,
+					storageConf.RadosOsdOpTimeout,
+					storageConf.ClientMountTimeout,
 				)
 				rbdPath := fmt.Sprintf("rbd:%s/%s%s", storageConf.Pool, imgTmpName, storageConfString)
 				log.Infof("convert local image %s to rbd pool %s", img.Id, storageConf.Pool)
@@ -2245,7 +2245,7 @@ func (img *SImage) cacheToCephStorages(ctx context.Context) {
 }
 
 func (img *SImage) removeCephImage(storageConf *computeapi.RbdStorageConf, imgName string) error {
-	cli, err := cephutils.NewClient(storageConf.MonHost, storageConf.Key, storageConf.Pool, storageConf.EnableMessengerV2)
+	cli, err := cephutils.NewClient(storageConf.MonHost, storageConf.Key, storageConf.Pool, storageConf.EnableMessengerV2, 0, 0, 0)
 	if err != nil {
 		return errors.Wrap(err, "cephutils.NewClient")
 	}
@@ -2261,7 +2261,7 @@ func (img *SImage) removeCephImage(storageConf *computeapi.RbdStorageConf, imgNa
 }
 
 func (img *SImage) renameCephImage(storageConf *computeapi.RbdStorageConf, srcImgName, destImgName string) error {
-	cli, err := cephutils.NewClient(storageConf.MonHost, storageConf.Key, storageConf.Pool, storageConf.EnableMessengerV2)
+	cli, err := cephutils.NewClient(storageConf.MonHost, storageConf.Key, storageConf.Pool, storageConf.EnableMessengerV2, 0, 0, 0)
 	if err != nil {
 		return errors.Wrap(err, "cephutils.NewClient")
 	}
@@ -2277,7 +2277,7 @@ func (img *SImage) getCephImage(storageConf *computeapi.RbdStorageConf, imgName 
 	if imgName == "" {
 		imgName = "image_cache_" + img.Id
 	}
-	cli, err := cephutils.NewClient(storageConf.MonHost, storageConf.Key, storageConf.Pool, storageConf.EnableMessengerV2)
+	cli, err := cephutils.NewClient(storageConf.MonHost, storageConf.Key, storageConf.Pool, storageConf.EnableMessengerV2, 0, 0, 0)
 	if err != nil {
 		return nil, errors.Wrap(err, "cephutils.NewClient")
 	}
@@ -2292,9 +2292,9 @@ func (img *SImage) getCephImage(storageConf *computeapi.RbdStorageConf, imgName 
 	storageConfString := cephutils.CephConfString(
 		storageConf.MonHost,
 		storageConf.Key,
-		int64(storageConf.RadosMonOpTimeout),
-		int64(storageConf.RadosOsdOpTimeout),
-		int64(storageConf.ClientMountTimeout),
+		storageConf.RadosMonOpTimeout,
+		storageConf.RadosOsdOpTimeout,
+		storageConf.ClientMountTimeout,
 	)
 	rbdPath := fmt.Sprintf("rbd:%s/%s%s", storageConf.Pool, imgName, storageConfString)
 	origin, err := qemuimg.NewQemuImage(rbdPath)
@@ -2309,7 +2309,7 @@ func (img *SImage) getCephImage(storageConf *computeapi.RbdStorageConf, imgName 
 
 func (img *SImage) cloneToCephStorage(ctx context.Context, monHost, key, pool string, enableMessengerV2 bool, destPool string) error {
 	imgName := "image_cache_" + img.Id
-	cli, err := cephutils.NewClient(monHost, key, pool, enableMessengerV2)
+	cli, err := cephutils.NewClient(monHost, key, pool, enableMessengerV2, 0, 0, 0)
 	if err != nil {
 		return errors.Wrap(err, "cephutils.NewClient")
 	}
