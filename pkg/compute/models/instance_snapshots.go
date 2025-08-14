@@ -17,6 +17,8 @@ package models
 import (
 	"context"
 	"database/sql"
+	"fmt"
+	"time"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
@@ -32,6 +34,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
@@ -802,4 +805,190 @@ func (self *SInstanceSnapshot) CustomizeCreate(
 	}
 	ownerId = guestObj.(*SGuest).GetOwnerId()
 	return self.SVirtualResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
+}
+
+func (manager *SInstanceSnapshotManager) GetNeedAutoSnapshotServers() ([]SSnapshotPolicyResource, error) {
+	tz, _ := time.LoadLocation(options.Options.TimeZone)
+	t := time.Now().In(tz)
+	week := t.Weekday()
+	if week == 0 { // sunday is zero
+		week += 7
+	}
+	timePoint := t.Hour()
+
+	policy := SnapshotPolicyManager.Query().Equals("type", api.SNAPSHOT_POLICY_TYPE_SERVER).Equals("cloudregion_id", api.DEFAULT_REGION_ID)
+	policy = policy.Filter(sqlchemy.Contains(policy.Field("repeat_weekdays"), fmt.Sprintf("%d", week)))
+	sq := policy.Filter(
+		sqlchemy.OR(
+			sqlchemy.Contains(policy.Field("time_points"), fmt.Sprintf(",%d,", timePoint)),
+			sqlchemy.Startswith(policy.Field("time_points"), fmt.Sprintf("[%d,", timePoint)),
+			sqlchemy.Endswith(policy.Field("time_points"), fmt.Sprintf(",%d]", timePoint)),
+			sqlchemy.Equals(policy.Field("time_points"), fmt.Sprintf("[%d]", timePoint)),
+		),
+	).SubQuery()
+	servers := GuestManager.Query().SubQuery()
+	q := SnapshotPolicyResourceManager.Query().Equals("resource_type", api.SNAPSHOT_POLICY_TYPE_SERVER)
+	q = q.Join(sq, sqlchemy.Equals(q.Field("snapshotpolicy_id"), sq.Field("id")))
+	q = q.Join(servers, sqlchemy.Equals(q.Field("resource_id"), servers.Field("id")))
+	ret := []SSnapshotPolicyResource{}
+	err := db.FetchModelObjects(SnapshotPolicyResourceManager, q, &ret)
+	if err != nil {
+		return nil, err
+	}
+	return ret, nil
+}
+
+func (manager *SInstanceSnapshotManager) AutoServerSnapshot(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
+	servers, err := manager.GetNeedAutoSnapshotServers()
+	if err != nil {
+		log.Errorf("Get auto snapshot servers id failed: %s", err)
+		return
+	}
+	log.Infof("auto snapshot %d servers", len(servers))
+
+	serverMap := map[string]*SGuest{}
+	for i := range servers {
+		server, err := servers[i].GetServer()
+		if err != nil {
+			log.Errorf("get server error: %v", err)
+			continue
+		}
+		serverMap[server.Id] = server
+	}
+	for i := range serverMap {
+		input := api.ServerInstanceSnapshot{}
+		input.GenerateName = fmt.Sprintf("auto-%s-%d", serverMap[i].Name, time.Now().Unix())
+		serverMap[i].PerformInstanceSnapshot(ctx, userCred, jsonutils.NewDict(), input)
+	}
+}
+
+var instanceSnapshotCleanupTaskRunning int32 = 0
+
+func (manager *SInstanceSnapshotManager) CleanupInstanceSnapshots(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
+	if instanceSnapshotCleanupTaskRunning > 0 {
+		log.Errorf("Previous CleanupInstanceSnapshots tasks still running !!!")
+		return
+	}
+	instanceSnapshotCleanupTaskRunning = 1
+	defer func() {
+		instanceSnapshotCleanupTaskRunning = 0
+	}()
+	sq := manager.Query().Equals("status", api.INSTANCE_SNAPSHOT_READY).Startswith("name", "auto-").SubQuery()
+
+	iss := []struct {
+		GuestCnt int
+		GuestId  string
+	}{}
+	q := sq.Query(
+		sqlchemy.COUNT("guest_cnt", sq.Field("guest_id")),
+		sq.Field("guest_id"),
+	).GroupBy(sq.Field("guest_id"))
+	err := q.All(&iss)
+	if err != nil {
+		log.Errorf("Cleanup instance snapshots job fetch instance snapshot failed %s", err)
+		return
+	}
+
+	guestCount := map[string]int{}
+	for i := range iss {
+		guestCount[iss[i].GuestId] = iss[i].GuestCnt
+	}
+
+	// cleanup retention count instance snapshots
+	{
+		sq = SnapshotPolicyManager.Query().Equals("type", api.SNAPSHOT_POLICY_TYPE_SERVER).GT("retention_count", 0).SubQuery()
+		spr := SnapshotPolicyResourceManager.Query().Equals("resource_type", api.SNAPSHOT_POLICY_TYPE_SERVER).SubQuery()
+		q = sq.Query(
+			sq.Field("retention_count"),
+			spr.Field("resource_id").Label("guest_id"),
+		)
+		q = q.Join(spr, sqlchemy.Equals(q.Field("id"), spr.Field("snapshotpolicy_id")))
+
+		guestRetentions := []struct {
+			GuestId        string
+			RetentionCount int
+		}{}
+		err = q.All(&guestRetentions)
+		if err != nil {
+			log.Errorf("Cleanup instance snapshots job fetch guest retentions failed %s", err)
+			return
+		}
+		guestRetentionMap := map[string]int{}
+		for i := range guestRetentions {
+			if _, ok := guestRetentionMap[guestRetentions[i].GuestId]; !ok {
+				guestRetentionMap[guestRetentions[i].GuestId] = guestRetentions[i].RetentionCount
+			}
+			// 取最小保留个数
+			if guestRetentionMap[guestRetentions[i].GuestId] > guestRetentions[i].RetentionCount {
+				guestRetentionMap[guestRetentions[i].GuestId] = guestRetentions[i].RetentionCount
+			}
+		}
+
+		for guestId, retentionCnt := range guestRetentionMap {
+			if cnt, ok := guestCount[guestId]; ok && cnt > retentionCnt {
+				manager.startCleanupRetentionCount(ctx, userCred, guestId, cnt-retentionCnt)
+			}
+		}
+	}
+
+	// cleanup retention days instance snapshots
+	{
+		sq = SnapshotPolicyManager.Query().Equals("type", api.SNAPSHOT_POLICY_TYPE_SERVER).GT("retention_days", 0).SubQuery()
+		spr := SnapshotPolicyResourceManager.Query().Equals("resource_type", api.SNAPSHOT_POLICY_TYPE_SERVER).SubQuery()
+		q = sq.Query(
+			sq.Field("retention_days"),
+			spr.Field("resource_id").Label("guest_id"),
+		)
+		q = q.Join(spr, sqlchemy.Equals(q.Field("id"), spr.Field("snapshotpolicy_id")))
+
+		guestRetentions := []struct {
+			GuestId       string
+			RetentionDays int
+		}{}
+		err = q.All(&guestRetentions)
+		if err != nil {
+			log.Errorf("Cleanup instance snapshots job fetch guest retentions failed %s", err)
+			return
+		}
+		guestRetentionMap := map[string]int{}
+		for i := range guestRetentions {
+			if _, ok := guestRetentionMap[guestRetentions[i].GuestId]; !ok {
+				guestRetentionMap[guestRetentions[i].GuestId] = guestRetentions[i].RetentionDays
+			}
+			// 取最小保留天数
+			if guestRetentionMap[guestRetentions[i].GuestId] > guestRetentions[i].RetentionDays {
+				guestRetentionMap[guestRetentions[i].GuestId] = guestRetentions[i].RetentionDays
+			}
+		}
+		for guestId, retentionDays := range guestRetentionMap {
+			manager.startCleanupRetentionDays(ctx, userCred, guestId, retentionDays)
+		}
+	}
+}
+
+func (manager *SInstanceSnapshotManager) startCleanupRetentionCount(ctx context.Context, userCred mcclient.TokenCredential, guestId string, cnt int) error {
+	q := manager.Query().Equals("guest_id", guestId).Equals("status", api.INSTANCE_SNAPSHOT_READY).Startswith("name", "auto-").Asc("created_at").Limit(cnt)
+	vms := []SInstanceSnapshot{}
+	err := db.FetchModelObjects(manager, q, &vms)
+	if err != nil {
+		return errors.Wrapf(err, "FetchModelObjects")
+	}
+	for i := range vms {
+		vms[i].StartInstanceSnapshotDeleteTask(ctx, userCred, "")
+	}
+	return nil
+}
+
+func (manager *SInstanceSnapshotManager) startCleanupRetentionDays(ctx context.Context, userCred mcclient.TokenCredential, guestId string, day int) error {
+	expiredTime := time.Now().AddDate(0, 0, -day)
+	q := manager.Query().Equals("guest_id", guestId).Equals("status", api.INSTANCE_SNAPSHOT_READY).Startswith("name", "auto-").LE("created_at", expiredTime)
+	vms := []SInstanceSnapshot{}
+	err := db.FetchModelObjects(manager, q, &vms)
+	if err != nil {
+		return errors.Wrapf(err, "FetchModelObjects")
+	}
+	for i := range vms {
+		vms[i].StartInstanceSnapshotDeleteTask(ctx, userCred, "")
+	}
+	return nil
 }
