@@ -44,6 +44,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
+	"yunion.io/x/onecloud/pkg/util/mountutils"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/qemutils"
 )
@@ -574,6 +575,11 @@ function nic_mtu() {
 		input.RescueKernelPath = s.getRescueKernelPath()
 	}
 
+	// check if kickstart is needed for KVM guests
+	if err := s.handleKickstartMount(input); err != nil {
+		return "", errors.Wrap(err, "handle kickstart mount")
+	}
+
 	qemuOpts, err := qemu.GenerateStartOptions(input)
 	if err != nil {
 		return "", errors.Wrap(err, "GenerateStartCommand")
@@ -584,6 +590,72 @@ function nic_mtu() {
 	cmd += "echo $CMD\n"
 
 	return cmd, nil
+}
+
+func (s *SKVMGuestInstance) handleKickstartMount(input *qemu.GenerateStartOptionsInput) error {
+	// mount when Hypervisor is KVM and kickstart is enabled and status is pending or installing
+	if s.Desc.Hypervisor != api.HYPERVISOR_KVM {
+		return nil
+	}
+
+	kickstartConfigStr, exists := s.Desc.Metadata[api.VM_METADATA_KICKSTART_CONFIG]
+	if !exists || kickstartConfigStr == "" {
+		return nil
+	}
+
+	kickstartStatus, exists := s.Desc.Metadata[api.VM_METADATA_KICKSTART_STATUS]
+	if !exists || kickstartStatus == "" {
+		kickstartStatus = api.KICKSTART_STATUS_NORMAL
+	}
+
+	if kickstartStatus != api.KICKSTART_STATUS_PENDING && kickstartStatus != api.KICKSTART_STATUS_INSTALLING {
+		return nil
+	}
+
+	kickstartConfigJson, err := jsonutils.ParseString(kickstartConfigStr)
+	if err != nil {
+		return errors.Wrap(err, "parse kickstart config")
+	}
+
+	kickstartConfig := &api.KickstartConfig{}
+	if err := kickstartConfigJson.Unmarshal(kickstartConfig); err != nil {
+		return errors.Wrap(err, "unmarshal kickstart config")
+	}
+
+	if kickstartConfig.Enabled != nil && !*kickstartConfig.Enabled {
+		log.Infof("kickstart is disabled, skip")
+		return nil
+	}
+
+	// Find ISO file for kickstart installation from CDROM devices
+	var isoPath string
+
+	if len(s.Desc.Cdroms) > 0 {
+		for _, cdrom := range s.Desc.Cdroms {
+			if cdrom.Path != "" {
+				isoPath = cdrom.Path
+				break
+			}
+		}
+	}
+
+	if isoPath == "" {
+		log.Warningf("no ISO path found for kickstart, skip")
+		return nil
+	}
+
+	// mount ISO to /tmp
+	mountPath, err := mountutils.MountISOToTmp(isoPath)
+	if err != nil {
+		return errors.Wrapf(err, "mount ISO %s for kickstart", isoPath)
+	}
+	log.Infof("Successfully mounted kickstart ISO %s to %s for guest %s", isoPath, mountPath, s.GetName())
+
+	// TODO: Save kickstart related info to input
+
+	// TODO: Unmount ISO when VM stops/autoinstall finishes
+
+	return nil
 }
 
 func (s *SKVMGuestInstance) getRescueInitrdPath() string {
