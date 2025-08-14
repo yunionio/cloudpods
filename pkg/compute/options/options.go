@@ -108,8 +108,9 @@ type ComputeOptions struct {
 	AutoSnapshotHour int `default:"2" help:"What hour take sanpshot, default 02:00"`
 
 	//snapshot policy options
-	RetentionDaysLimit int `default:"49" help:"Days of snapshot retention, default 49 days"`
-	TimePointsLimit    int `default:"1" help:"time point of every days, default 1 point"`
+	RetentionDaysLimit  int `default:"49" help:"Days of snapshot retention, default 49 days"`
+	RetentionCountLimit int `default:"10" help:"Count of snapshot retention, default 10"`
+	TimePointsLimit     int `default:"1" help:"time point of every days, default 1 point"`
 
 	CloudAccountBatchSyncSize int `default:"10" help:"How many cloud account syncing in a batch"`
 

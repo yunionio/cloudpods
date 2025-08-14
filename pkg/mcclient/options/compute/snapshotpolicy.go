@@ -15,8 +15,11 @@
 package compute
 
 import (
+	"strings"
+
 	"yunion.io/x/jsonutils"
 
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
@@ -35,9 +38,11 @@ type SnapshotPolicyCreateOptions struct {
 	CloudregionId string
 	ManagerId     string
 
-	RetentionDays  int   `help:"snapshot retention days" default:"-1"`
-	RepeatWeekdays []int `help:"snapshot create days on week"`
-	TimePoints     []int `help:"snapshot create time points on one day"`
+	Type           string `help:"snapshot type" default:"disk" choices:"disk|server"`
+	RetentionDays  int    `help:"snapshot retention days" default:"-1"`
+	RetentionCount int    `help:"snapshot retention count" default:"-1"`
+	RepeatWeekdays []int  `help:"snapshot create days on week"`
+	TimePoints     []int  `help:"snapshot create time points on one day"`
 }
 
 func (opts *SnapshotPolicyCreateOptions) Params() (jsonutils.JSONObject, error) {
@@ -51,4 +56,30 @@ type SnapshotPolicyDisksOptions struct {
 
 func (opts *SnapshotPolicyDisksOptions) Params() (jsonutils.JSONObject, error) {
 	return jsonutils.Marshal(map[string]interface{}{"disks": opts.Disks}), nil
+}
+
+type SnapshotPolicyResourcesOptions struct {
+	options.BaseIdOptions
+	Resources []string `help:"resource info etc: disk:id,server:id"`
+}
+
+func (opts *SnapshotPolicyResourcesOptions) Params() (jsonutils.JSONObject, error) {
+	resources := []struct {
+		Id   string `json:"id"`
+		Type string `json:"type"`
+	}{}
+	for _, resource := range opts.Resources {
+		parts := strings.SplitN(resource, ":", 2)
+		if len(parts) != 2 {
+			return nil, httperrors.NewBadRequestError("Invalid resource info: %s", resource)
+		}
+		resources = append(resources, struct {
+			Id   string `json:"id"`
+			Type string `json:"type"`
+		}{
+			Id:   parts[1],
+			Type: parts[0],
+		})
+	}
+	return jsonutils.Marshal(map[string]interface{}{"resources": resources}), nil
 }
