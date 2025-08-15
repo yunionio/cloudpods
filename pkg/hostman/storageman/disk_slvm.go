@@ -323,7 +323,30 @@ func (d *SSLVMDisk) ConvertSnapshot(convertSnapshot string, encryptInfo apis.SEn
 	if e != nil {
 		log.Errorf("failed active convert snapshot %s with share mode: %s", convertSnapshotPath, e)
 	}
-	return nil
+	return err
+}
+
+func (d *SSLVMDisk) ConvertSnapshotRelyOnReloadDisk(convertSnapshot string, encryptInfo apis.SEncryptInfo) (func() error, error) {
+	err := lvmutils.LVActive(d.GetPath(), false, d.Storage.Lvmlockd())
+	if err != nil {
+		return nil, errors.Wrap(err, "LVActive")
+	}
+	convertSnapshotPath := d.GetSnapshotPath(convertSnapshot)
+	err = lvmutils.LVActive(convertSnapshotPath, false, d.Storage.Lvmlockd())
+	if err != nil {
+		return nil, errors.Wrap(err, "LVActive convert snapshot")
+	}
+	retFunc, err := d.SLVMDisk.ConvertSnapshotRelyOnReloadDisk(convertSnapshot, encryptInfo)
+	// active disk share mode
+	e := lvmutils.LVActive(d.GetPath(), d.Storage.Lvmlockd(), false)
+	if e != nil {
+		log.Errorf("failed active with share mode: %s", e)
+	}
+	e = lvmutils.LVActive(convertSnapshotPath, d.Storage.Lvmlockd(), false)
+	if e != nil {
+		log.Errorf("failed active convert snapshot %s with share mode: %s", convertSnapshotPath, e)
+	}
+	return retFunc, err
 }
 
 func (d *SSLVMDisk) CreateFromSnapshotLocation(ctx context.Context, snapshotLocation string, size int64, encryptInfo *apis.SEncryptInfo) (jsonutils.JSONObject, error) {
