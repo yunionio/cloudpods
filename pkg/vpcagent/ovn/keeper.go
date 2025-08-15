@@ -504,7 +504,7 @@ func generateDhcpOptions(ctx context.Context, guestnetwork *agentmodels.Guestnet
 		Options: map[string]string{
 			"server_id":  network.GuestGateway,
 			"server_mac": dhcpMac,
-			"router":     network.GuestGateway,
+			//"router":     network.GuestGateway,
 			"mtu":        fmt.Sprintf("%d", mtu),
 			"lease_time": fmt.Sprintf("%d", leaseTime),
 			"T1":         fmt.Sprintf("%d", renewTime),
@@ -517,6 +517,7 @@ func generateDhcpOptions(ctx context.Context, guestnetwork *agentmodels.Guestnet
 	{
 		routes := []string{}
 		if guestnetwork.IsDefault {
+			dhcpopts.Options["router"] = network.GuestGateway
 			routes = append(routes,
 				mdIp, "0.0.0.0",
 				"0.0.0.0/0", network.GuestGateway,
