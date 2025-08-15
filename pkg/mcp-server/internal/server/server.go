@@ -54,6 +54,13 @@ func NewServer(cfg *config.Config, logger *logrus.Logger) *CloudpodsMCPServer {
 	storagesTool := tools.NewCloudpodsStoragesTool(adapter, logger)
 	serversTool := tools.NewCloudpodsServersTool(adapter, logger)
 
+	serverStartTool := tools.NewCloudpodsServerStartTool(adapter, logger)
+	serverStopTool := tools.NewCloudpodsServerStopTool(adapter, logger)
+	serverRestartTool := tools.NewCloudpodsServerRestartTool(adapter, logger)
+	serverResetPasswordTool := tools.NewCloudpodsServerResetPasswordTool(adapter, logger)
+	serverDeleteTool := tools.NewCloudpodsServerDeleteTool(adapter, logger)
+	serverCreateTool := tools.NewCloudpodsServerCreateTool(adapter, logger)
+
 	allTools = append(
 		allTools,
 		regionsTool,
@@ -63,6 +70,13 @@ func NewServer(cfg *config.Config, logger *logrus.Logger) *CloudpodsMCPServer {
 		skusTool,
 		storagesTool,
 		serversTool,
+
+		serverStartTool,
+		serverStopTool,
+		serverRestartTool,
+		serverResetPasswordTool,
+		serverDeleteTool,
+		serverCreateTool,
 	)
 
 	return &CloudpodsMCPServer{
