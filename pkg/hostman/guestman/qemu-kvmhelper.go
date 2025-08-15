@@ -44,6 +44,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
+	"yunion.io/x/onecloud/pkg/util/mountutils"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/qemutils"
 )
@@ -72,10 +73,12 @@ import sys
 import os
 import time
 import subprocess
+import shlex
 
 with open(os.devnull, 'w')  as FNULL:
     try:
-        cmd = subprocess.check_output(['bash', '%s'], stderr=FNULL).split()
+        cmd_str = subprocess.check_output(['bash', '%s'], stderr=FNULL).decode('utf-8').strip()
+        cmd = shlex.split(cmd_str)
     except BaseException as e:
         sys.stderr.write('%%s' %% e)
         sys.exit(1)
@@ -574,6 +577,11 @@ function nic_mtu() {
 		input.RescueKernelPath = s.getRescueKernelPath()
 	}
 
+	// check if kickstart is needed for KVM guests
+	if err := s.handleKickstartMount(input); err != nil {
+		return "", errors.Wrap(err, "handle kickstart mount")
+	}
+
 	qemuOpts, err := qemu.GenerateStartOptions(input)
 	if err != nil {
 		return "", errors.Wrap(err, "GenerateStartCommand")
@@ -584,6 +592,89 @@ function nic_mtu() {
 	cmd += "echo $CMD\n"
 
 	return cmd, nil
+}
+
+func (s *SKVMGuestInstance) handleKickstartMount(input *qemu.GenerateStartOptionsInput) error {
+	// mount when Hypervisor is KVM and kickstart is enabled and status is pending or installing
+	if s.Desc.Hypervisor != api.HYPERVISOR_KVM {
+		return nil
+	}
+
+	kickstartConfigStr, exists := s.Desc.Metadata[api.VM_METADATA_KICKSTART_CONFIG]
+	if !exists || kickstartConfigStr == "" {
+		return nil
+	}
+
+	kickstartStatus, exists := s.Desc.Metadata[api.VM_METADATA_KICKSTART_STATUS]
+	if !exists || kickstartStatus == "" {
+		kickstartStatus = api.KICKSTART_STATUS_NORMAL
+	}
+
+	if kickstartStatus != api.KICKSTART_STATUS_PENDING && kickstartStatus != api.KICKSTART_STATUS_INSTALLING {
+		return nil
+	}
+
+	kickstartConfigJson, err := jsonutils.ParseString(kickstartConfigStr)
+	if err != nil {
+		return errors.Wrap(err, "parse kickstart config")
+	}
+
+	kickstartConfig := &api.KickstartConfig{}
+	if err := kickstartConfigJson.Unmarshal(kickstartConfig); err != nil {
+		return errors.Wrap(err, "unmarshal kickstart config")
+	}
+
+	if kickstartConfig.Enabled != nil && !*kickstartConfig.Enabled {
+		log.Infof("kickstart is disabled, skip")
+		return nil
+	}
+
+	// Find ISO file for kickstart installation from CDROM devices
+	var isoPath string
+
+	if len(s.Desc.Cdroms) > 0 {
+		for _, cdrom := range s.Desc.Cdroms {
+			if cdrom.Path != "" {
+				isoPath = cdrom.Path
+				break
+			}
+		}
+	}
+
+	if isoPath == "" {
+		log.Warningf("no ISO path found for kickstart, skip")
+		return nil
+	}
+
+	// mount ISO to /tmp
+	mountPath, err := mountutils.MountISOToTmp(isoPath)
+	if err != nil {
+		return errors.Wrapf(err, "mount ISO %s for kickstart", isoPath)
+	}
+	log.Infof("Successfully mounted kickstart ISO %s to %s for guest %s", isoPath, mountPath, s.GetName())
+
+	// get kernel and initrd path from mounted ISO
+	kernelPath, initrdPath, err := s.getKickstartKernelPaths(mountPath, kickstartConfig.OSType)
+	if err != nil {
+		return errors.Wrap(err, "get kickstart kernel paths")
+	}
+
+	kernelArgs := s.generateKickstartKernelArgs(kickstartConfig)
+
+	input.KickstartBoot = &qemu.KickstartBootInfo{
+		Config:     kickstartConfig,
+		MountPath:  mountPath,
+		KernelPath: kernelPath,
+		InitrdPath: initrdPath,
+		KernelArgs: kernelArgs,
+	}
+
+	log.Infof("Kickstart boot configured for guest %s: kernel=%s, initrd=%s, args=%s",
+		s.GetName(), kernelPath, initrdPath, kernelArgs)
+
+	// TODO: Unmount ISO when VM stops/autoinstall finishes
+
+	return nil
 }
 
 func (s *SKVMGuestInstance) getRescueInitrdPath() string {
@@ -1190,4 +1281,67 @@ func (s *SKVMGuestInstance) setUefiBootOrder(ctx context.Context) error {
 		return errors.Wrap(err, "SetOvmfBootOrder")
 	}
 	return nil
+}
+
+func (s *SKVMGuestInstance) getKickstartKernelPaths(mountPath, osType string) (string, string, error) {
+	var kernelRelPath, initrdRelPath string
+
+	// TODO: 写在这里可能有点不适, 后续需要新建一个 map[string]map[string]string
+	// 来存储不同发行版的内核和 initrd 路径，以便于扩展和维护
+	switch osType {
+	case "centos", "rhel", "fedora":
+		kernelRelPath = "images/pxeboot/vmlinuz"
+		initrdRelPath = "images/pxeboot/initrd.img"
+	case "ubuntu":
+		kernelRelPath = "casper/vmlinuz"
+		initrdRelPath = "casper/initrd"
+	default:
+		return "", "", errors.Errorf("unsupported OS type: %s", osType)
+	}
+
+	kernelPath := path.Join(mountPath, kernelRelPath)
+	initrdPath := path.Join(mountPath, initrdRelPath)
+
+	if !fileutils2.Exists(kernelPath) {
+		return "", "", errors.Errorf("kernel file not found: %s", kernelPath)
+	}
+	if !fileutils2.Exists(initrdPath) {
+		return "", "", errors.Errorf("initrd file not found: %s", initrdPath)
+	}
+
+	return kernelPath, initrdPath, nil
+}
+
+func (s *SKVMGuestInstance) generateKickstartKernelArgs(config *api.KickstartConfig) string {
+	baseArgs := []string{}
+
+	var kickstartArgs []string
+
+	switch config.OSType {
+	case "centos", "rhel", "fedora":
+		if config.ConfigURL != "" {
+			kickstartArgs = append(kickstartArgs, fmt.Sprintf("inst.ks=%s", config.ConfigURL))
+		} else {
+			kickstartArgs = append(kickstartArgs, "inst.ks=cdrom:/ks.cfg")
+		}
+
+	case "ubuntu":
+		// ip=dhcp is needed for ubuntu
+		if config.ConfigURL != "" {
+			kickstartArgs = append(kickstartArgs,
+				"autoinstall",
+				"ip=dhcp",
+				fmt.Sprintf("ds=nocloud-net;s=%s", config.ConfigURL),
+			)
+		} else {
+			kickstartArgs = append(kickstartArgs,
+				"autoinstall",
+				"ip=dhcp",
+				"ds=nocloud;s=/cdrom/",
+			)
+		}
+	}
+
+	allArgs := append(baseArgs, kickstartArgs...)
+	return strings.Join(allArgs, " ")
 }
