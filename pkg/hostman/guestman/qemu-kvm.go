@@ -2189,6 +2189,14 @@ func (s *SKVMGuestInstance) StartDelete(ctx context.Context, migrated bool) erro
 		s.ForceStop()
 		time.Sleep(time.Second * 1)
 	}
+	// ensure interface down
+	for i := range s.Desc.Nics {
+		scriptPath := s.getNicDownScriptPath(s.Desc.Nics[i])
+		out, err := procutils.NewRemoteCommandAsFarAsPossible("bash", scriptPath).Output()
+		if err != nil {
+			log.Errorf("failed run nic down script %s: %s", out, err)
+		}
+	}
 	return s.Delete(ctx, migrated, false)
 }
 
