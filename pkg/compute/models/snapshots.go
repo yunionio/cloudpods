@@ -212,6 +212,10 @@ func (manager *SSnapshotManager) ListItemFilter(
 		q = q.NotIn("disk_id", sq)
 	}
 
+	if len(query.StorageId) > 0 {
+		q = q.Equals("storage_id", query.StorageId)
+	}
+
 	return q, nil
 }
 
@@ -294,6 +298,19 @@ func (manager *SSnapshotManager) QueryDistinctExtraField(q *sqlchemy.SQuery, fie
 		return q, nil
 	}
 
+	return q, httperrors.ErrNotFound
+}
+
+func (manager *SSnapshotManager) QueryDistinctExtraFields(q *sqlchemy.SQuery, resource string, fields []string) (*sqlchemy.SQuery, error) {
+	switch resource {
+	case StorageManager.Keyword():
+		storages := StorageManager.Query().SubQuery()
+		for _, field := range fields {
+			q = q.AppendField(storages.Field(field))
+		}
+		q = q.Join(storages, sqlchemy.Equals(q.Field("storage_id"), storages.Field("id")))
+		return q, nil
+	}
 	return q, httperrors.ErrNotFound
 }
 
