@@ -150,7 +150,7 @@ func (d *SLVMDisk) CreateRaw(ctx context.Context, sizeMB int, diskFormat string,
 		diskInfo.EncryptPassword = encryptInfo.Key
 		diskInfo.EncryptAlg = string(encryptInfo.Alg)
 	}
-	if utils.IsInStringArray(fsFormat, []string{"swap", "ext2", "ext3", "ext4", "xfs"}) {
+	if utils.IsInStringArray(fsFormat, api.SUPPORTED_FS) {
 		d.FormatFs(fsFormat, nil, diskId, diskInfo)
 	}
 	return d.GetDiskDesc(), nil
