@@ -985,7 +985,7 @@ func (s *SKVMGuestInstance) StartMonitorWithImportGuestSocketFile(ctx context.Co
 	mon = monitor.NewQmpMonitor(
 		s.GetName(),
 		s.Id,
-		s.onImportGuestMonitorDisConnect, // on monitor disconnect
+		s.onImportGuestMonitorDisConnect,                            // on monitor disconnect
 		func(err error) { s.onImportGuestMonitorTimeout(ctx, err) }, // on monitor timeout
 		func() {
 			s.Monitor = mon
@@ -993,7 +993,7 @@ func (s *SKVMGuestInstance) StartMonitorWithImportGuestSocketFile(ctx context.Co
 			if cb != nil {
 				cb()
 			}
-		}, // on monitor connected
+		},                   // on monitor connected
 		s.onReceiveQMPEvent, // on reveive qmp event
 	)
 	return mon.ConnectWithSocket(socketFile, 0)
@@ -2581,6 +2581,11 @@ func (s *SKVMGuestInstance) SyncConfig(ctx context.Context, guestDesc *desc.SGue
 	// update guest live desc, don't be here update cpu and mem
 	// cpu and memory should update from SGuestHotplugCpuMemTask
 	s.UpdateLiveDesc(guestDesc)
+	// hack: update the props of s.Desc.Nics to fix the issue like
+	// port_mappings are not refreshed when the driver is e1000
+	if len(delNetworks)+len(addNetworks)+len(changedNetworks) == 0 {
+		s.Desc.Nics = guestDesc.Nics
+	}
 
 	SaveLiveDesc(s, s.Desc)
 

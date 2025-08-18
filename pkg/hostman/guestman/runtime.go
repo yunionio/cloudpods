@@ -298,7 +298,7 @@ func (s *sBaseGuestInstance) GetVpcNIC() *desc.SGuestNetwork {
 }
 
 func (s *sBaseGuestInstance) UpdateLiveDesc(guestDesc *desc.SGuestDesc) {
-	// update guest live desc, don't be here update cpu and mem
+	// update guest live desc, don't be here to update cpu and mem
 	// cpu and memory should update from SGuestHotplugCpuMemTask
 	s.Desc.SGuestControlDesc = guestDesc.SGuestControlDesc
 	s.Desc.SGuestProjectDesc = guestDesc.SGuestProjectDesc
