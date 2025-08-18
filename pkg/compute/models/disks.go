@@ -3289,6 +3289,9 @@ func (disk *SDisk) resetDiskinfo(
 		if diskSize > 0 {
 			disk.DiskSize = diskSize
 		}
+		if input.Fs != nil {
+			disk.FsFormat = *input.Fs
+		}
 		return nil
 	})
 	if err != nil {
