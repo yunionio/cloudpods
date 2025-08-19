@@ -941,7 +941,9 @@ func (self *SElasticip) AssociateInstance(ctx context.Context, userCred mcclient
 		if self.AssociateType == insType && self.AssociateId == ins.GetId() {
 			return nil
 		}
-		return fmt.Errorf("EIP has been associated!!")
+		if self.GetAssociateResource() != nil {
+			return fmt.Errorf("eip has been associated!!")
+		}
 	}
 	_, err := db.Update(self, func() error {
 		self.AssociateType = insType
@@ -971,7 +973,9 @@ func (self *SElasticip) AssociateInstanceGroup(ctx context.Context, userCred mcc
 		if self.AssociateType == insType && self.AssociateId == ins.GetId() {
 			return nil
 		}
-		return fmt.Errorf("EIP has been associated!!")
+		if self.GetAssociateResource() != nil {
+			return fmt.Errorf("eip has been associated!!")
+		}
 	}
 	_, err := db.Update(self, func() error {
 		self.AssociateType = insType
