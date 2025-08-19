@@ -247,7 +247,26 @@ func (alb *SAlb) GetEgressMbps() int {
 }
 
 func (alb *SAlb) GetIEIPs() ([]cloudprovider.ICloudEIP, error) {
-	return []cloudprovider.ICloudEIP{}, nil
+	ret := []cloudprovider.ICloudEIP{}
+	info, err := alb.region.GetAlbDetail(alb.LoadBalancerId)
+	if err != nil {
+		return nil, err
+	}
+	for _, zone := range info.ZoneMappings {
+		for _, addr := range zone.LoadBalancerAddresses {
+			if len(addr.Address) > 0 {
+				eips, err := alb.region.GetEips("", "", addr.Address)
+				if err != nil {
+					return nil, err
+				}
+				for i := range eips {
+					eips[i].region = alb.region
+					ret = append(ret, &eips[i])
+				}
+			}
+		}
+	}
+	return ret, nil
 }
 
 func (alb *SAlb) Start() error {
