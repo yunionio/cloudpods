@@ -1354,6 +1354,10 @@ type ICloudDnsZone interface {
 
 	AddDnsRecord(*DnsRecord) (string, error)
 
+	GetNameServers() ([]string, error)
+	GetOriginalNameServers() ([]string, error)
+	GetRegistrar() string
+
 	Delete() error
 
 	GetDnsProductType() TDnsProductType

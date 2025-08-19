@@ -240,15 +240,10 @@ func (self *SEipAddress) ChangeBandwidth(bw int) error {
 	return self.region.UpdateEipBandwidth(self.AllocationId, bw)
 }
 
-func (region *SRegion) GetEips(eipId string, associatedId, addr string, offset int, limit int) ([]SEipAddress, int, error) {
-	if limit > 50 || limit <= 0 {
-		limit = 50
-	}
-
+func (region *SRegion) GetEips(eipId string, associatedId, addr string) ([]SEipAddress, error) {
 	params := make(map[string]string)
 	params["RegionId"] = region.RegionId
-	params["PageSize"] = fmt.Sprintf("%d", limit)
-	params["PageNumber"] = fmt.Sprintf("%d", (offset/limit)+1)
+	params["PageSize"] = "100"
 	if len(addr) > 0 {
 		params["EipAddress"] = addr
 	}
@@ -266,27 +261,36 @@ func (region *SRegion) GetEips(eipId string, associatedId, addr string, offset i
 		}
 	}
 
-	body, err := region.vpcRequest("DescribeEipAddresses", params)
-	if err != nil {
-		log.Errorf("DescribeEipAddresses fail %s", err)
-		return nil, 0, err
+	pageNumber := 1
+	ret := []SEipAddress{}
+	for {
+		params["PageNumber"] = fmt.Sprintf("%d", pageNumber)
+		body, err := region.vpcRequest("DescribeEipAddresses", params)
+		if err != nil {
+			log.Errorf("DescribeEipAddresses fail %s", err)
+			return nil, err
+		}
+		part := struct {
+			EipAddresses struct {
+				EipAddress []SEipAddress
+			} `json:"EipAddresses"`
+			TotalCount int `json:"TotalCount"`
+		}{}
+		err = body.Unmarshal(&part)
+		if err != nil {
+			return nil, errors.Wrapf(err, "Unmarshal EipAddress details")
+		}
+		ret = append(ret, part.EipAddresses.EipAddress...)
+		if len(ret) >= part.TotalCount {
+			break
+		}
+		pageNumber++
 	}
-
-	eips := make([]SEipAddress, 0)
-	err = body.Unmarshal(&eips, "EipAddresses", "EipAddress")
-	if err != nil {
-		log.Errorf("Unmarshal EipAddress details fail %s", err)
-		return nil, 0, err
-	}
-	total, _ := body.Int("TotalCount")
-	for i := 0; i < len(eips); i += 1 {
-		eips[i].region = region
-	}
-	return eips, int(total), nil
+	return ret, nil
 }
 
 func (region *SRegion) GetEip(eipId string) (*SEipAddress, error) {
-	eips, _, err := region.GetEips(eipId, "", "", 0, 1)
+	eips, err := region.GetEips(eipId, "", "")
 	if err != nil {
 		return nil, err
 	}
