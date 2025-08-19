@@ -15,7 +15,11 @@
 package compute
 
 import (
+	"reflect"
+
 	"yunion.io/x/cloudmux/pkg/apis/compute"
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/gotypes"
 
 	"yunion.io/x/onecloud/pkg/apis"
 )
@@ -96,4 +100,20 @@ type DnsZoneRemoveVpcsInput struct {
 }
 
 type DnsZonePurgeInput struct {
+}
+
+type SNameServers []string
+
+func (ns SNameServers) String() string {
+	return jsonutils.Marshal(ns).String()
+}
+
+func (ns SNameServers) IsZero() bool {
+	return len(ns) == 0
+}
+
+func init() {
+	gotypes.RegisterSerializable(reflect.TypeOf(&SNameServers{}), func() gotypes.ISerializable {
+		return &SNameServers{}
+	})
 }
