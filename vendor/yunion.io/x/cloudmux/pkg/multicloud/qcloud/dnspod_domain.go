@@ -28,7 +28,7 @@ import (
 )
 
 type SDomian struct {
-	multicloud.SVirtualResourceBase
+	multicloud.SDnsZoneBase
 	QcloudTags
 	client *SQcloudClient
 
