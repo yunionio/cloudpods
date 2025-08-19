@@ -2317,23 +2317,7 @@ func (snet *SNetwork) ValidateUpdateData(
 	query jsonutils.JSONObject,
 	input api.NetworkUpdateInput,
 ) (api.NetworkUpdateInput, error) {
-	if !snet.isManaged() {
-		if !snet.isOneCloudVpcNetwork() {
-			// classic network
-		} else {
-			// vpc network, not allow to update ip_start, ip_end, ip_mask, gateway, dhcp
-			input.GuestIpStart = ""
-			input.GuestIpEnd = ""
-			input.GuestIpMask = 0
-			input.GuestGateway = nil
-			input.GuestDhcp = nil
-
-			input.GuestIp6Start = nil
-			input.GuestIp6End = nil
-			input.GuestIp6Mask = nil
-			input.GuestGateway6 = nil
-		}
-	} else {
+	if snet.isManaged() {
 		// managed network, not allow to update
 		input.GuestIpStart = ""
 		input.GuestIpEnd = ""
