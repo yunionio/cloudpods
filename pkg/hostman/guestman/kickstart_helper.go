@@ -23,8 +23,13 @@ import (
 	"strings"
 	"time"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+
+	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/hostman/hostutils"
+	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 )
 
 const (
@@ -48,7 +53,7 @@ type SKickstartSerialMonitor struct {
 // NewKickstartSerialMonitor creates a new kickstart serial monitor
 func NewKickstartSerialMonitor(serverId, logFilePath string) *SKickstartSerialMonitor {
 	ctx, cancel := context.WithTimeout(context.Background(), KICKSTART_MONITOR_TIMEOUT)
-	
+
 	return &SKickstartSerialMonitor{
 		serverId:    serverId,
 		logFilePath: logFilePath,
@@ -56,7 +61,6 @@ func NewKickstartSerialMonitor(serverId, logFilePath string) *SKickstartSerialMo
 		cancel:      cancel,
 	}
 }
-
 
 // waitForSerialDevice waits for the serial device to become available
 func (m *SKickstartSerialMonitor) waitForSerialDevice() (string, error) {
@@ -124,6 +128,22 @@ func (m *SKickstartSerialMonitor) read() {
 
 		if line == "KICKSTART_SUCCESS" || line == "KICKSTART_FAILED" {
 			log.Infof("Kickstart status update for server %s: %s", m.serverId, line)
+
+			// TODO: logic should vary based on the status
+			var status string
+			switch line {
+			case "KICKSTART_SUCCESS":
+				status = api.KICKSTART_STATUS_COMPLETED
+			case "KICKSTART_FAILED":
+				status = api.KICKSTART_STATUS_FAILED
+			}
+
+			if err := m.updateKickstartStatus(status); err != nil {
+				log.Errorf("Failed to update kickstart status for server %s: %v", m.serverId, err)
+			} else {
+				log.Infof("Kickstart status for server %s updated to %s", m.serverId, status)
+				m.Close()
+			}
 		}
 	}
 
@@ -149,6 +169,26 @@ func (m *SKickstartSerialMonitor) Close() error {
 	return nil
 }
 
+// updateKickstartStatus updates the kickstart status via Region API
+func (m *SKickstartSerialMonitor) updateKickstartStatus(status string) error {
+	ctx := context.Background()
+	session := hostutils.GetComputeSession(ctx)
+
+	input := api.ServerUpdateKickstartStatusInput{
+		Status: status,
+	}
+
+	log.Infof("Updating kickstart status for server %s to %s", m.serverId, status)
+
+	_, err := modules.Servers.PerformAction(session, m.serverId, "update-kickstart-status", jsonutils.Marshal(input))
+	if err != nil {
+		return errors.Wrapf(err, "failed to update kickstart status for server %s", m.serverId)
+	}
+
+	log.Infof("Successfully updated kickstart status for server %s to %s", m.serverId, status)
+	return nil
+}
+
 // Start starts the kickstart serial monitor
 func (m *SKickstartSerialMonitor) Start() error {
 	log.Infof("Starting kickstart monitor for server %s", m.serverId)
@@ -170,4 +210,3 @@ func (m *SKickstartSerialMonitor) Start() error {
 
 	return nil
 }
-
