@@ -53,6 +53,7 @@ const (
 	STATUS_SYNC_STATUS   = "sync_status"
 	STATUS_DELETING      = "deleting"
 	STATUS_DELETE_FAILED = "delete_failed"
+	STATUS_CHANGE_CONFIG = "change_config"
 	STATUS_UNKNOWN       = "unknown"
 	STATUS_CREATING      = "creating"
 	STATUS_AVAILABLE     = "available"
