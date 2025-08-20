@@ -445,13 +445,13 @@ func (adapter *MegaRaidAdaptor) GetDevices() []*baremetal.BaremetalStorage {
 
 func (adapter *MegaRaidAdaptor) GetLogicVolumes() ([]*raiddrivers.RaidLogicalVolume, error) {
 	errs := make([]error, 0)
-	megaLvs, err := adapter.getMegacliLogicVolumes()
-	if err != nil {
-		errs = append(errs, err)
+	megaLvs, megacliErr := adapter.getMegacliLogicVolumes()
+	if megacliErr != nil {
+		errs = append(errs, megacliErr)
 	}
-	storeLvs, err := adapter.getStorcliLogicVolums()
-	if err != nil {
-		errs = append(errs, err)
+	storeLvs, storcliErr := adapter.getStorcliLogicVolums()
+	if storcliErr != nil {
+		errs = append(errs, storcliErr)
 	}
 	if len(megaLvs) > 0 {
 		return megaLvs, nil
@@ -459,7 +459,7 @@ func (adapter *MegaRaidAdaptor) GetLogicVolumes() ([]*raiddrivers.RaidLogicalVol
 	if len(storeLvs) > 0 {
 		return storeLvs, nil
 	}
-	if len(errs) == 0 {
+	if len(errs) == 0 || megacliErr == nil || storcliErr == nil {
 		// no error, no volume
 		return []*raiddrivers.RaidLogicalVolume{}, nil
 	}
