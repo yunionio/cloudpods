@@ -909,8 +909,9 @@ func (self *SElasticip) AssociateLoadbalancer(ctx context.Context, userCred mccl
 	if len(self.AssociateType) > 0 && len(self.AssociateId) > 0 {
 		if self.AssociateType == api.EIP_ASSOCIATE_TYPE_LOADBALANCER && self.AssociateId == lb.Id {
 			return nil
-		} else {
-			return fmt.Errorf("EIP has been associated!!")
+		}
+		if self.GetAssociateResource() != nil {
+			return fmt.Errorf("eip has been associated!!")
 		}
 	}
 	_, err := db.Update(self, func() error {
