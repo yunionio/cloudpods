@@ -703,13 +703,20 @@ func (s *SKVMGuestInstance) handleKickstartMount(input *qemu.GenerateStartOption
 
 	kernelArgs := s.generateKickstartKernelArgs(kickstartConfig)
 
+	// Create kickstart serial monitor for status monitoring
+	kickstartMonitor := NewKickstartSerialMonitor(s.Id)
+	serialFilePath := kickstartMonitor.GetSerialFilePath()
+
 	input.KickstartBoot = &qemu.KickstartBootInfo{
-		Config:     kickstartConfig,
-		MountPath:  mountPath,
-		KernelPath: kernelPath,
-		InitrdPath: initrdPath,
-		KernelArgs: kernelArgs,
+		Config:         kickstartConfig,
+		MountPath:      mountPath,
+		KernelPath:     kernelPath,
+		InitrdPath:     initrdPath,
+		KernelArgs:     kernelArgs,
+		SerialFilePath: serialFilePath,
 	}
+
+	s.kickstartMonitor = kickstartMonitor
 
 	log.Infof("Kickstart boot configured for guest %s: kernel=%s, initrd=%s, args=%s",
 		s.GetName(), kernelPath, initrdPath, kernelArgs)

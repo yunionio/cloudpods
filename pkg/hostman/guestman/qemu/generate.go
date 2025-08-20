@@ -643,6 +643,25 @@ func generateISASerialOptions(isaSerial *desc.SGuestIsaSerial) []string {
 	return opts
 }
 
+func generateKickstartSerialOptions(kickstartBoot *KickstartBootInfo) []string {
+	if kickstartBoot == nil || kickstartBoot.SerialFilePath == "" {
+		return nil
+	}
+
+	opts := make([]string, 0)
+	chardevId := "kickstart_serial"
+
+	// Create chardev with file backend
+	chardevOpt := fmt.Sprintf("-chardev file,path=%s,id=%s", kickstartBoot.SerialFilePath, chardevId)
+	opts = append(opts, chardevOpt)
+
+	// Create ISA serial device
+	serialOpt := fmt.Sprintf("-device isa-serial,chardev=%s,id=kickstart_serial_device", chardevId)
+	opts = append(opts, serialOpt)
+
+	return opts
+}
+
 func generatePvpanicDeviceOption(pvpanic *desc.SGuestPvpanic) string {
 	return fmt.Sprintf("-device pvpanic,id=%s,ioport=0x%x", pvpanic.Id, pvpanic.Ioport)
 }
@@ -703,11 +722,12 @@ type GenerateStartOptionsInput struct {
 	KickstartBoot *KickstartBootInfo
 }
 type KickstartBootInfo struct {
-	Config     *api.KickstartConfig
-	MountPath  string
-	KernelPath string
-	InitrdPath string
-	KernelArgs string
+	Config         *api.KickstartConfig
+	MountPath      string
+	KernelPath     string
+	InitrdPath     string
+	KernelArgs     string
+	SerialFilePath string
 }
 
 func (input *GenerateStartOptionsInput) HasBootIndex() bool {
@@ -903,6 +923,11 @@ func GenerateStartOptions(
 	// serial device
 	if input.GuestDesc.IsaSerial != nil {
 		opts = append(opts, generateISASerialOptions(input.GuestDesc.IsaSerial)...)
+	}
+
+	// kickstart serial device
+	if input.KickstartBoot != nil {
+		opts = append(opts, generateKickstartSerialOptions(input.KickstartBoot)...)
 	}
 
 	// migrate options
