@@ -155,23 +155,16 @@ func (nat *SNatGateway) GetExpiredAt() time.Time {
 }
 
 func (nat *SNatGateway) GetIEips() ([]cloudprovider.ICloudEIP, error) {
-	eips := []SEipAddress{}
-	for {
-		parts, total, err := nat.vpc.region.GetEips("", nat.NatGatewayId, "", len(eips), 50)
-		if err != nil {
-			return nil, err
-		}
-		eips = append(eips, parts...)
-		if len(eips) >= total {
-			break
-		}
+	eips, err := nat.vpc.region.GetEips("", nat.NatGatewayId, "")
+	if err != nil {
+		return nil, err
 	}
-	ieips := []cloudprovider.ICloudEIP{}
-	for i := 0; i < len(eips); i++ {
+	ret := []cloudprovider.ICloudEIP{}
+	for i := range eips {
 		eips[i].region = nat.vpc.region
-		ieips = append(ieips, &eips[i])
+		ret = append(ret, &eips[i])
 	}
-	return ieips, nil
+	return ret, nil
 }
 
 func (nat *SNatGateway) GetINatDTable() ([]cloudprovider.ICloudNatDEntry, error) {

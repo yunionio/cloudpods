@@ -851,37 +851,24 @@ func (self *SRegion) UpdateInstancePassword(instId string, passwd string) error 
 }
 
 func (self *SRegion) GetIEips() ([]cloudprovider.ICloudEIP, error) {
-	eips, total, err := self.GetEips("", "", "", 0, 50)
+	eips, err := self.GetEips("", "", "")
 	if err != nil {
 		return nil, err
 	}
-	for len(eips) < total {
-		var parts []SEipAddress
-		parts, total, err = self.GetEips("", "", "", len(eips), 50)
-		if err != nil {
-			return nil, err
-		}
-		eips = append(eips, parts...)
-	}
 	ret := make([]cloudprovider.ICloudEIP, len(eips))
-	for i := 0; i < len(eips); i += 1 {
+	for i := range eips {
+		eips[i].region = self
 		ret[i] = &eips[i]
 	}
 	return ret, nil
 }
 
 func (self *SRegion) GetIEipById(eipId string) (cloudprovider.ICloudEIP, error) {
-	eips, total, err := self.GetEips(eipId, "", "", 0, 1)
+	eip, err := self.GetEip(eipId)
 	if err != nil {
 		return nil, err
 	}
-	if total == 0 {
-		return nil, cloudprovider.ErrNotFound
-	}
-	if total > 1 {
-		return nil, cloudprovider.ErrDuplicateId
-	}
-	return &eips[0], nil
+	return eip, nil
 }
 
 func (region *SRegion) GetISecurityGroupById(secgroupId string) (cloudprovider.ICloudSecurityGroup, error) {

@@ -1100,6 +1100,12 @@ func syncHostVMs(ctx context.Context, userCred mcclient.TokenCredential, syncRes
 				return
 			}
 
+			// 快速同步可能会导致guest被删除，所以需要重新获取
+			guest := GuestManager.FetchGuestById(syncVMPairs[i].Local.Id)
+			if guest == nil || guest.Deleted || guest.PendingDeleted {
+				return
+			}
+
 			SyncVMPeripherals(ctx, userCred, syncVMPairs[i].Local, syncVMPairs[i].Remote, localHost, provider, driver)
 		}()
 	}

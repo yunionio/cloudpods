@@ -317,15 +317,15 @@ func (lb *SLoadbalancer) GetIEIP() (cloudprovider.ICloudEIP, error) {
 		}
 		return &eip, nil
 	}
-	eips, total, err := lb.region.GetEips("", lb.LoadBalancerId, "", 0, 1)
+	eips, err := lb.region.GetEips("", lb.LoadBalancerId, "")
 	if err != nil {
 		return nil, errors.Wrapf(err, "lb.region.GetEips(%s)", lb.LoadBalancerId)
 	}
-	if total != 1 {
-		return nil, cloudprovider.ErrNotFound
+	for i := range eips {
+		eips[i].region = lb.region
+		return &eips[i], nil
 	}
-	eips[0].region = lb.region
-	return &eips[0], nil
+	return nil, cloudprovider.ErrNotFound
 }
 
 func (region *SRegion) loadbalancerOperation(loadbalancerId, status string) error {
