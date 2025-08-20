@@ -163,6 +163,9 @@ func (self *SEipAddress) GetMode() string {
 func (self *SEipAddress) GetAssociationType() string {
 	switch self.InstanceType {
 	case EIP_INSTANCE_TYPE_ECS, "NetworkInterface":
+		if strings.HasPrefix(self.Name, "CREATE_BY_ALB") || strings.HasPrefix(self.Name, "CREATE_BY_NLB") {
+			return api.EIP_ASSOCIATE_TYPE_LOADBALANCER
+		}
 		return api.EIP_ASSOCIATE_TYPE_SERVER
 	case EIP_INSTANCE_TYPE_NAT:
 		return api.EIP_ASSOCIATE_TYPE_NAT_GATEWAY
