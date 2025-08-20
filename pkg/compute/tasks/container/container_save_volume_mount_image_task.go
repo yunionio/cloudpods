@@ -18,11 +18,18 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	hostapi "yunion.io/x/onecloud/pkg/apis/host"
+	imageapi "yunion.io/x/onecloud/pkg/apis/image"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/compute/options"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/image"
 )
 
 func init() {
@@ -51,7 +58,19 @@ func (t *ContainerSaveVolumeMountImageTask) OnImageSaved(ctx context.Context, co
 }
 
 func (t *ContainerSaveVolumeMountImageTask) OnImageSavedFailed(ctx context.Context, container *models.SContainer, reason jsonutils.JSONObject) {
+	input := &hostapi.ContainerSaveVolumeMountToImageInput{}
+	t.GetParams().Unmarshal(input)
 	container.SetStatus(ctx, t.GetUserCred(), api.CONTAINER_STATUS_SAVE_IMAGE_FAILED, reason.String())
+	if input.ImageId != "" {
+		s := auth.GetSession(ctx, t.GetUserCred(), options.Options.Region)
+		imgStatus := apis.PerformStatusInput{
+			Status: imageapi.IMAGE_STATUS_SAVE_FAIL,
+			Reason: reason.String(),
+		}
+		if _, err := image.Images.PerformAction(s, input.ImageId, "status", jsonutils.Marshal(imgStatus)); err != nil {
+			log.Warningf("update image %s status failed: %v", input.ImageId, err)
+		}
+	}
 	t.SetStageFailed(ctx, reason)
 }
 
