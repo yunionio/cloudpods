@@ -1411,9 +1411,13 @@ func (self *SGuest) ValidateUpdateData(ctx context.Context, userCred mcclient.To
 	}
 
 	var err error
-	input, err = self.GetDriver().ValidateUpdateData(ctx, self, userCred, input)
-	if err != nil {
-		return input, errors.Wrap(err, "GetDriver().ValidateUpdateData")
+	// 避免调度失败的机器修改删除保护时报no rows in result set 错误，导致前端删不掉机器
+	if len(self.HostId) > 0 {
+		drv := self.GetDriver()
+		input, err = drv.ValidateUpdateData(ctx, self, userCred, input)
+		if err != nil {
+			return input, errors.Wrap(err, "GetDriver().ValidateUpdateData")
+		}
 	}
 
 	input.VirtualResourceBaseUpdateInput, err = self.SVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, input.VirtualResourceBaseUpdateInput)
