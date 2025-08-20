@@ -322,15 +322,13 @@ func (self *SLoadbalancer) GetILoadBalancerBackendGroups() ([]cloudprovider.IClo
 }
 
 func (self *SLoadbalancer) GetIEIP() (cloudprovider.ICloudEIP, error) {
-	if self.LoadBalancerType == "OPEN" && len(self.LoadBalancerVips) > 0 {
-		return &SEipAddress{
-			region:      self.region,
-			AddressId:   self.LoadBalancerId,
-			AddressIp:   self.LoadBalancerVips[0],
-			AddressType: EIP_STATUS_BIND,
-			InstanceId:  self.LoadBalancerId,
-			CreatedTime: self.CreateTime,
-		}, nil
+	eips, _, err := self.region.GetEips("", self.LoadBalancerId, 0, 50)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetEips")
+	}
+	for i := range eips {
+		eips[i].region = self.region
+		return &eips[i], nil
 	}
 	return nil, nil
 }

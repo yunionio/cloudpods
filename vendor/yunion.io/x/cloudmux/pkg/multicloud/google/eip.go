@@ -128,6 +128,17 @@ func (addr *SAddress) GetAssociationType() string {
 	if len(addr.GetAssociationExternalId()) > 0 {
 		return api.EIP_ASSOCIATE_TYPE_SERVER
 	}
+	for _, user := range addr.Users {
+		if strings.Contains(user, "/instances/") {
+			return api.EIP_ASSOCIATE_TYPE_SERVER
+		}
+		if strings.Contains(user, "/forwardingRules/") {
+			return api.EIP_ASSOCIATE_TYPE_LOADBALANCER
+		}
+		if strings.Contains(user, "/routers/") {
+			return api.EIP_ASSOCIATE_TYPE_NAT_GATEWAY
+		}
+	}
 	return ""
 }
 
