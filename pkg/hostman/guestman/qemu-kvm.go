@@ -110,8 +110,9 @@ type SKVMGuestInstance struct {
 	SKVMInstanceRuntime
 	*sBaseGuestInstance
 
-	Monitor    monitor.Monitor
-	guestAgent *qga.QemuGuestAgent
+	Monitor          monitor.Monitor
+	guestAgent       *qga.QemuGuestAgent
+	kickstartMonitor *SKickstartSerialMonitor
 
 	archMan arch.Arch
 }
@@ -1233,6 +1234,8 @@ func (s *SKVMGuestInstance) onMonitorConnected(ctx context.Context) {
 	s.Monitor.GetVersion(func(v string) {
 		s.onGetQemuVersion(ctx, v)
 	})
+
+	s.startKickstartMonitorIfNeeded()
 }
 
 func (s *SKVMGuestInstance) setDestMigrateTLS(ctx context.Context, data *jsonutils.JSONDict) {
@@ -2036,6 +2039,7 @@ func (s *SKVMGuestInstance) ForceStop() bool {
 }
 
 func (s *SKVMGuestInstance) ExitCleanup(clear bool) {
+	s.cleanupKickstartMonitor()
 	if clear {
 		pid := s.GetPid()
 		if pid > 0 {
@@ -3696,4 +3700,26 @@ func (s *SKVMGuestInstance) HandleGuestStatus(ctx context.Context, resp *api.Hos
 		}
 	}
 	return resp
+}
+
+func (s *SKVMGuestInstance) startKickstartMonitorIfNeeded() {
+	kickstartStatus := s.Desc.Metadata[api.VM_METADATA_KICKSTART_STATUS]
+	if kickstartStatus != api.KICKSTART_STATUS_PENDING && kickstartStatus != api.KICKSTART_STATUS_INSTALLING {
+		return
+	}
+
+	log.Infof("Starting kickstart monitor for server %s", s.Id)
+
+	s.kickstartMonitor = NewKickstartSerialMonitor(s.Id, s.LogFilePath())
+	if err := s.kickstartMonitor.Start(); err != nil {
+		log.Errorf("Failed to start kickstart monitor for server %s: %s", s.Id, err)
+	}
+}
+
+func (s *SKVMGuestInstance) cleanupKickstartMonitor() {
+	if s.kickstartMonitor != nil {
+		s.kickstartMonitor.Close()
+		s.kickstartMonitor = nil
+		log.Infof("Kickstart monitor cleaned up for server %s", s.Id)
+	}
 }
