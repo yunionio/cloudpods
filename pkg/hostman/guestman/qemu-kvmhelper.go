@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"os"
 	"path"
 	"strconv"
 	"strings"
@@ -631,11 +632,17 @@ func (s *SKVMGuestInstance) handleKickstartMount(input *qemu.GenerateStartOption
 
 	// Find ISO file for kickstart installation from CDROM devices
 	var isoPath string
+	var imageId string
 
 	if len(s.Desc.Cdroms) > 0 {
 		for _, cdrom := range s.Desc.Cdroms {
 			if cdrom.Path != "" {
 				isoPath = cdrom.Path
+				// Extract image ID from path
+				if path.Base(cdrom.Path) != "" {
+					filename := path.Base(cdrom.Path)
+					imageId = strings.TrimSuffix(filename, ".iso")
+				}
 				break
 			}
 		}
@@ -646,12 +653,47 @@ func (s *SKVMGuestInstance) handleKickstartMount(input *qemu.GenerateStartOption
 		return nil
 	}
 
-	// mount ISO to /tmp
-	mountPath, err := mountutils.MountISOToTmp(isoPath)
-	if err != nil {
-		return errors.Wrapf(err, "mount ISO %s for kickstart", isoPath)
+	mountPoint := fmt.Sprintf("/tmp/kickstart-iso-%s", imageId)
+
+	// Check if mount point already exists and is mounted
+	if fileutils2.Exists(mountPoint) {
+		mountFile := "/proc/mounts"
+		if data, err := os.ReadFile(mountFile); err == nil {
+			lines := strings.Split(string(data), "\n")
+			mounted := false
+			for _, line := range lines {
+				parts := strings.Split(line, " ")
+				if len(parts) >= 2 && parts[1] == mountPoint {
+					mounted = true
+					break
+				}
+			}
+			if mounted {
+				log.Infof("Reusing existing kickstart ISO mount at %s for guest %s", mountPoint, s.GetName())
+			} else {
+				os.RemoveAll(mountPoint)
+				if err := os.MkdirAll(mountPoint, 0755); err != nil {
+					return errors.Wrap(err, "create mount point")
+				}
+				if err := mountutils.MountWithParams(isoPath, mountPoint, "iso9660", []string{"-o", "loop,ro"}); err != nil {
+					os.RemoveAll(mountPoint)
+					return errors.Wrapf(err, "mount ISO %s to %s", isoPath, mountPoint)
+				}
+				log.Infof("Successfully mounted kickstart ISO %s to %s for guest %s", isoPath, mountPoint, s.GetName())
+			}
+		}
+	} else {
+		if err := os.MkdirAll(mountPoint, 0755); err != nil {
+			return errors.Wrap(err, "create mount point")
+		}
+		if err := mountutils.MountWithParams(isoPath, mountPoint, "iso9660", []string{"-o", "loop,ro"}); err != nil {
+			os.RemoveAll(mountPoint)
+			return errors.Wrapf(err, "mount ISO %s to %s", isoPath, mountPoint)
+		}
+		log.Infof("Successfully mounted kickstart ISO %s to %s for guest %s", isoPath, mountPoint, s.GetName())
 	}
-	log.Infof("Successfully mounted kickstart ISO %s to %s for guest %s", isoPath, mountPath, s.GetName())
+
+	mountPath := mountPoint
 
 	// get kernel and initrd path from mounted ISO
 	kernelPath, initrdPath, err := s.getKickstartKernelPaths(mountPath, kickstartConfig.OSType)

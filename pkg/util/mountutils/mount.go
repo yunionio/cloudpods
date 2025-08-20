@@ -25,7 +25,6 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/sets"
-	"yunion.io/x/pkg/util/stringutils"
 
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
@@ -233,20 +232,6 @@ func useLsofFindDevProcess(dev string) ([]int, error) {
 		pids.Insert(pid)
 	}
 	return pids.List(), err
-}
-
-func MountISOToTmp(isoPath string) (string, error) {
-	mountPoint, err := os.MkdirTemp("/tmp", "kickstart-iso-"+stringutils.UUID4()[:8]+"-")
-	if err != nil {
-		return "", errors.Wrap(err, "create temp mount point in /tmp")
-	}
-
-	if err := MountWithParams(isoPath, mountPoint, "iso9660", []string{"-o", "loop,ro"}); err != nil {
-		os.RemoveAll(mountPoint)
-		return "", errors.Wrapf(err, "mount ISO %s to %s", isoPath, mountPoint)
-	}
-
-	return mountPoint, nil
 }
 
 func getMountPointDevices(mountPoint string) ([]string, error) {
