@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"os"
 	"path"
-	"regexp"
 	"runtime/debug"
 	"strings"
 	"time"
@@ -36,91 +35,102 @@ import (
 )
 
 const (
-	KICKSTART_MONITOR_TIMEOUT        = 30 * time.Minute
-	SERIAL_DEVICE_CHECK_INTERVAL     = 5 * time.Second
-	SERIAL_DEVICE_CHECK_MAX_ATTEMPTS = 10
+	KICKSTART_MONITOR_TIMEOUT    = 30 * time.Minute
+	SERIAL_FILE_CHECK_INTERVAL   = 5 * time.Second
+	KICKSTART_SERIAL_FILE_PREFIX = "/tmp/kickstart-serial"
 )
 
 type SKickstartSerialMonitor struct {
-	serverId     string
-	logFilePath  string
-	serialDevice string
-
-	scanner *bufio.Scanner
-	file    *os.File
+	serverId       string
+	serialFilePath string
 
 	ctx    context.Context
 	cancel context.CancelFunc
 }
 
 // NewKickstartSerialMonitor creates a new kickstart serial monitor
-func NewKickstartSerialMonitor(serverId, logFilePath string) *SKickstartSerialMonitor {
+func NewKickstartSerialMonitor(serverId string) *SKickstartSerialMonitor {
 	ctx, cancel := context.WithTimeout(context.Background(), KICKSTART_MONITOR_TIMEOUT)
+	serialFilePath := fmt.Sprintf("%s-%s.log", KICKSTART_SERIAL_FILE_PREFIX, serverId)
 
 	return &SKickstartSerialMonitor{
-		serverId:    serverId,
-		logFilePath: logFilePath,
-		ctx:         ctx,
-		cancel:      cancel,
+		serverId:       serverId,
+		serialFilePath: serialFilePath,
+		ctx:            ctx,
+		cancel:         cancel,
 	}
 }
 
-// waitForSerialDevice waits for the serial device to become available
-func (m *SKickstartSerialMonitor) waitForSerialDevice() (string, error) {
-	pattern := regexp.MustCompile(`char device redirected to (/dev/pts/\d+) \(label charserial0\)`)
+func (m *SKickstartSerialMonitor) GetSerialFilePath() string {
+	return m.serialFilePath
+}
 
-	for attempts := 0; attempts < SERIAL_DEVICE_CHECK_MAX_ATTEMPTS; attempts++ {
+func (m *SKickstartSerialMonitor) ensureSerialFile() error {
+	if _, err := os.Stat(m.serialFilePath); os.IsNotExist(err) {
+		file, err := os.Create(m.serialFilePath)
+		if err != nil {
+			return errors.Wrapf(err, "create serial file %s", m.serialFilePath)
+		}
+		file.Close()
+		log.Infof("Created kickstart serial file %s for server %s", m.serialFilePath, m.serverId)
+	}
+	return nil
+}
+
+func (m *SKickstartSerialMonitor) monitorSerialFile() {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Errorf("KickstartSerialMonitor monitor %v %s", r, debug.Stack())
+		}
+	}()
+
+	var lastSize int64 = 0
+
+	ticker := time.NewTicker(SERIAL_FILE_CHECK_INTERVAL)
+	defer ticker.Stop()
+
+	for {
 		select {
 		case <-m.ctx.Done():
-			return "", errors.Errorf("context cancelled while waiting for serial device")
-		default:
-		}
-
-		if content, err := os.ReadFile(m.logFilePath); err == nil {
-			if matches := pattern.FindStringSubmatch(string(content)); len(matches) >= 2 {
-				devicePath := matches[1]
-				if _, err := os.Stat(devicePath); err == nil {
-					return devicePath, nil
-				}
+			return
+		case <-ticker.C:
+			if err := m.scanSerialForStatus(&lastSize); err != nil {
+				log.Errorf("Failed to scan serial file for status for server %s: %v", m.serverId, err)
 			}
 		}
-
-		time.Sleep(SERIAL_DEVICE_CHECK_INTERVAL)
 	}
-
-	return "", errors.Errorf("serial device not available after %d attempts", SERIAL_DEVICE_CHECK_MAX_ATTEMPTS)
 }
 
-// connect establishes connection to the serial device
-func (m *SKickstartSerialMonitor) connect() error {
-	devicePath, err := m.waitForSerialDevice()
+// scanSerialForStatus scans the serial file for a kickstart status update.
+// It reads new content since the last check, parses it for status keywords,
+// and triggers status updates and cleanup when a final status is detected.
+func (m *SKickstartSerialMonitor) scanSerialForStatus(lastSize *int64) error {
+	fileInfo, err := os.Stat(m.serialFilePath)
+	if os.IsNotExist(err) {
+		return nil
+	}
 	if err != nil {
 		return err
 	}
 
-	file, err := os.Open(devicePath)
-	if err != nil {
-		return errors.Wrapf(err, "open serial device %s", devicePath)
+	currentSize := fileInfo.Size()
+	if currentSize <= *lastSize {
+		return nil
 	}
 
-	m.file = file
-	m.serialDevice = devicePath
-	m.scanner = bufio.NewScanner(file)
+	// Read new content
+	file, err := os.Open(m.serialFilePath)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
 
-	log.Infof("Kickstart monitor connected to serial device %s for server %s", devicePath, m.serverId)
-	return nil
-}
+	_, err = file.Seek(*lastSize, 0)
+	if err != nil {
+		return err
+	}
 
-// read reads messages from the serial device
-func (m *SKickstartSerialMonitor) read() {
-	defer func() {
-		if r := recover(); r != nil {
-			log.Errorf("KickstartSerialMonitor read %v %s", r, debug.Stack())
-		}
-	}()
-
-	// process messages by line
-	scanner := m.scanner
+	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		if len(line) == 0 {
@@ -151,29 +161,29 @@ func (m *SKickstartSerialMonitor) read() {
 			} else {
 				log.Infof("Kickstart status for server %s updated to %s", m.serverId, status)
 				m.Close()
+				return nil
 			}
 		}
 	}
 
-	if err := scanner.Err(); err != nil {
-		log.Debugf("Kickstart serial monitor disconnected %s: %s", m.serverId, err)
-	}
+	*lastSize = currentSize
+	return scanner.Err()
 }
 
-// Close closes the serial monitor connection
 func (m *SKickstartSerialMonitor) Close() error {
 	if m.cancel != nil {
 		m.cancel()
 	}
 
-	if m.file != nil {
-		err := m.file.Close()
-		m.file = nil
-		m.scanner = nil
-		log.Infof("Kickstart monitor closed for server %s", m.serverId)
-		return err
+	if m.serialFilePath != "" {
+		if err := os.Remove(m.serialFilePath); err != nil && !os.IsNotExist(err) {
+			log.Warningf("Failed to remove serial file %s: %v", m.serialFilePath, err)
+		} else {
+			log.Debugf("Removed serial file %s", m.serialFilePath)
+		}
 	}
 
+	log.Infof("Kickstart monitor closed for server %s", m.serverId)
 	return nil
 }
 
@@ -199,13 +209,13 @@ func (m *SKickstartSerialMonitor) updateKickstartStatus(status string) error {
 
 // Start starts the kickstart serial monitor
 func (m *SKickstartSerialMonitor) Start() error {
-	log.Infof("Starting kickstart monitor for server %s", m.serverId)
+	log.Infof("Starting kickstart monitor for server %s, serial file: %s", m.serverId, m.serialFilePath)
 
-	if err := m.connect(); err != nil {
-		return errors.Wrap(err, "connect to serial device")
+	if err := m.ensureSerialFile(); err != nil {
+		return errors.Wrap(err, "ensure serial file")
 	}
 
-	go m.read()
+	go m.monitorSerialFile()
 
 	// Setup timeout handler
 	go func() {

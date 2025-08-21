@@ -3708,11 +3708,11 @@ func (s *SKVMGuestInstance) startKickstartMonitorIfNeeded() {
 		return
 	}
 
-	log.Infof("Starting kickstart monitor for server %s", s.Id)
-
-	s.kickstartMonitor = NewKickstartSerialMonitor(s.Id, s.LogFilePath())
-	if err := s.kickstartMonitor.Start(); err != nil {
-		log.Errorf("Failed to start kickstart monitor for server %s: %s", s.Id, err)
+	if s.kickstartMonitor != nil {
+		log.Infof("Starting kickstart monitor for server %s", s.Id)
+		if err := s.kickstartMonitor.Start(); err != nil {
+			log.Errorf("Failed to start kickstart monitor for server %s: %s", s.Id, err)
+		}
 	}
 }
 
