@@ -42,14 +42,12 @@ func (c *CloudpodsImagesTool) GetTool() mcp.Tool {
 	return mcp.NewTool(
 		"cloudpods_list_images",
 		mcp.WithDescription("查询Cloudpods磁盘镜像列表，获取系统镜像信息"),
-		mcp.WithString("limit",
-			mcp.Description("返回结果数量限制，默认为20")),
-		mcp.WithString("offset",
-			mcp.Description("返回结果偏移量，默认为0")),
-		mcp.WithString("search",
-			mcp.Description("搜索关键词，可以按镜像名称搜索")),
-		mcp.WithString("os_types",
-			mcp.Description("操作系统类型，多个用逗号分隔，如：Linux,Windows,FreeBSD")),
+		mcp.WithString("limit", mcp.Description("返回结果数量限制，默认为20")),
+		mcp.WithString("offset", mcp.Description("返回结果偏移量，默认为0")),
+		mcp.WithString("search", mcp.Description("搜索关键词，可以按镜像名称搜索")),
+		mcp.WithString("os_types", mcp.Description("操作系统类型，多个用逗号分隔，如：Linux,Windows,FreeBSD")),
+		mcp.WithString("ak", mcp.Description("用户登录cloudpods后获取的access key")),
+		mcp.WithString("sk", mcp.Description("用户登录cloudpods后获取的secret key")),
 	)
 }
 
@@ -85,7 +83,10 @@ func (c *CloudpodsImagesTool) Handle(ctx context.Context, req mcp.CallToolReques
 		"os_types": osTypes,
 	}).Info("开始查询Cloudpods镜像列表")
 
-	imagesResponse, err := c.adapter.ListImages(limit, offset, search, osTypes)
+	ak := req.GetString("ak", "")
+	sk := req.GetString("sk", "")
+
+	imagesResponse, err := c.adapter.ListImages(limit, offset, search, osTypes, ak, sk)
 	if err != nil {
 		c.logger.WithError(err).Error("查询镜像列表失败")
 		return nil, fmt.Errorf("查询镜像列表失败: %w", err)

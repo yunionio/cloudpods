@@ -41,13 +41,11 @@ func (c *CloudpodsServerStartTool) GetTool() mcp.Tool {
 	return mcp.NewTool(
 		"cloudpods_start_server",
 		mcp.WithDescription("启动指定的Cloudpods虚拟机实例"),
-		mcp.WithString("server_id",
-			mcp.Required(),
-			mcp.Description("虚拟机ID")),
-		mcp.WithString("auto_prepaid",
-			mcp.Description("按量机器自动转换为包年包月，默认为false")),
-		mcp.WithString("qemu_version",
-			mcp.Description("指定启动虚拟机的Qemu版本，可选值：2.12.1, 4.2.0，仅适用于KVM虚拟机")),
+		mcp.WithString("server_id", mcp.Required(), mcp.Description("虚拟机ID")),
+		mcp.WithString("auto_prepaid", mcp.Description("按量机器自动转换为包年包月，默认为false")),
+		mcp.WithString("qemu_version", mcp.Description("指定启动虚拟机的Qemu版本，可选值：2.12.1, 4.2.0，仅适用于KVM虚拟机")),
+		mcp.WithString("ak", mcp.Description("用户登录cloudpods后获取的access key")),
+		mcp.WithString("sk", mcp.Description("用户登录cloudpods后获取的secret key")),
 	)
 }
 
@@ -75,7 +73,10 @@ func (c *CloudpodsServerStartTool) Handle(ctx context.Context, req mcp.CallToolR
 		QemuVersion: qemuVersion,
 	}
 
-	response, err := c.adapter.StartServer(ctx, serverID, startReq)
+	ak := req.GetString("ak", "")
+	sk := req.GetString("sk", "")
+
+	response, err := c.adapter.StartServer(ctx, serverID, startReq, ak, sk)
 	if err != nil {
 		c.logger.WithError(err).Error("启动虚拟机失败")
 		return nil, fmt.Errorf("启动虚拟机失败: %w", err)
@@ -121,15 +122,12 @@ func (c *CloudpodsServerStopTool) GetTool() mcp.Tool {
 	return mcp.NewTool(
 		"cloudpods_stop_server",
 		mcp.WithDescription("停止指定的Cloudpods虚拟机实例"),
-		mcp.WithString("server_id",
-			mcp.Required(),
-			mcp.Description("虚拟机ID")),
-		mcp.WithString("is_force",
-			mcp.Description("是否强制停止，默认为false")),
-		mcp.WithString("stop_charging",
-			mcp.Description("是否关机停止计费，默认为false")),
-		mcp.WithString("timeout_secs",
-			mcp.Description("关机等待时间，如果是强制关机，则等待时间为0，如果不设置，默认为30秒")),
+		mcp.WithString("server_id", mcp.Required(), mcp.Description("虚拟机ID")),
+		mcp.WithString("is_force", mcp.Description("是否强制停止，默认为false")),
+		mcp.WithString("stop_charging", mcp.Description("是否关机停止计费，默认为false")),
+		mcp.WithString("timeout_secs", mcp.Description("关机等待时间，如果是强制关机，则等待时间为0，如果不设置，默认为30秒")),
+		mcp.WithString("ak", mcp.Description("用户登录cloudpods后获取的access key")),
+		mcp.WithString("sk", mcp.Description("用户登录cloudpods后获取的secret key")),
 	)
 }
 
@@ -169,7 +167,10 @@ func (c *CloudpodsServerStopTool) Handle(ctx context.Context, req mcp.CallToolRe
 		TimeoutSecs:  timeoutSecs,
 	}
 
-	response, err := c.adapter.StopServer(ctx, serverID, stopReq)
+	ak := req.GetString("ak", "")
+	sk := req.GetString("sk", "")
+
+	response, err := c.adapter.StopServer(ctx, serverID, stopReq, ak, sk)
 	if err != nil {
 		c.logger.WithError(err).Error("停止虚拟机失败")
 		return nil, fmt.Errorf("停止虚拟机失败: %w", err)
@@ -215,11 +216,10 @@ func (c *CloudpodsServerRestartTool) GetTool() mcp.Tool {
 	return mcp.NewTool(
 		"cloudpods_restart_server",
 		mcp.WithDescription("重启指定的Cloudpods虚拟机实例"),
-		mcp.WithString("server_id",
-			mcp.Required(),
-			mcp.Description("虚拟机ID")),
-		mcp.WithString("is_force",
-			mcp.Description("是否强制重启，默认为false")),
+		mcp.WithString("server_id", mcp.Required(), mcp.Description("虚拟机ID")),
+		mcp.WithString("is_force", mcp.Description("是否强制重启，默认为false")),
+		mcp.WithString("ak", mcp.Description("用户登录cloudpods后获取的access key")),
+		mcp.WithString("sk", mcp.Description("用户登录cloudpods后获取的secret key")),
 	)
 }
 
@@ -243,7 +243,10 @@ func (c *CloudpodsServerRestartTool) Handle(ctx context.Context, req mcp.CallToo
 		IsForce: isForce,
 	}
 
-	response, err := c.adapter.RestartServer(ctx, serverID, restartReq)
+	ak := req.GetString("ak", "")
+	sk := req.GetString("sk", "")
+
+	response, err := c.adapter.RestartServer(ctx, serverID, restartReq, ak, sk)
 	if err != nil {
 		c.logger.WithError(err).Error("重启虚拟机失败")
 		return nil, fmt.Errorf("重启虚拟机失败: %w", err)
@@ -289,18 +292,13 @@ func (c *CloudpodsServerResetPasswordTool) GetTool() mcp.Tool {
 	return mcp.NewTool(
 		"cloudpods_reset_server_password",
 		mcp.WithDescription("重置指定Cloudpods虚拟机的登录密码"),
-		mcp.WithString("server_id",
-			mcp.Required(),
-			mcp.Description("虚拟机ID")),
-		mcp.WithString("password",
-			mcp.Required(),
-			mcp.Description("新密码，长度8-30个字符")),
-		mcp.WithString("reset_password",
-			mcp.Description("是否重置密码，默认为true")),
-		mcp.WithString("auto_start",
-			mcp.Description("重置后是否自动启动，默认为true")),
-		mcp.WithString("username",
-			mcp.Description("用户名，可选，默认为空")),
+		mcp.WithString("server_id", mcp.Required(), mcp.Description("虚拟机ID")),
+		mcp.WithString("password", mcp.Required(), mcp.Description("新密码，长度8-30个字符")),
+		mcp.WithString("reset_password", mcp.Description("是否重置密码，默认为true")),
+		mcp.WithString("auto_start", mcp.Description("重置后是否自动启动，默认为true")),
+		mcp.WithString("username", mcp.Description("用户名，可选，默认为空")),
+		mcp.WithString("ak", mcp.Description("用户登录cloudpods后获取的access key")),
+		mcp.WithString("sk", mcp.Description("用户登录cloudpods后获取的secret key")),
 	)
 }
 
@@ -345,7 +343,10 @@ func (c *CloudpodsServerResetPasswordTool) Handle(ctx context.Context, req mcp.C
 		Username:      username,
 	}
 
-	response, err := c.adapter.ResetServerPassword(ctx, serverID, resetPasswordReq)
+	ak := req.GetString("ak", "")
+	sk := req.GetString("sk", "")
+
+	response, err := c.adapter.ResetServerPassword(ctx, serverID, resetPasswordReq, ak, sk)
 	if err != nil {
 		c.logger.WithError(err).Error("重置虚拟机密码失败")
 		return nil, fmt.Errorf("重置虚拟机密码失败: %w", err)
@@ -391,19 +392,14 @@ func (c *CloudpodsServerDeleteTool) GetTool() mcp.Tool {
 	return mcp.NewTool(
 		"cloudpods_delete_server",
 		mcp.WithDescription("删除指定的Cloudpods虚拟机实例"),
-		mcp.WithString("server_id",
-			mcp.Required(),
-			mcp.Description("虚拟机ID")),
-		mcp.WithString("override_pending_delete",
-			mcp.Description("是否强制删除（包括在回收站中的实例），默认为false")),
-		mcp.WithString("purge",
-			mcp.Description("是否仅删除本地资源，默认为false")),
-		mcp.WithString("delete_snapshots",
-			mcp.Description("是否删除快照，默认为false")),
-		mcp.WithString("delete_eip",
-			mcp.Description("是否删除关联的EIP，默认为false")),
-		mcp.WithString("delete_disks",
-			mcp.Description("是否删除关联的数据盘，默认为false")),
+		mcp.WithString("server_id", mcp.Required(), mcp.Description("虚拟机ID")),
+		mcp.WithString("override_pending_delete", mcp.Description("是否强制删除（包括在回收站中的实例），默认为false")),
+		mcp.WithString("purge", mcp.Description("是否仅删除本地资源，默认为false")),
+		mcp.WithString("delete_snapshots", mcp.Description("是否删除快照，默认为false")),
+		mcp.WithString("delete_eip", mcp.Description("是否删除关联的EIP，默认为false")),
+		mcp.WithString("delete_disks", mcp.Description("是否删除关联的数据盘，默认为false")),
+		mcp.WithString("ak", mcp.Description("用户登录cloudpods后获取的access key")),
+		mcp.WithString("sk", mcp.Description("用户登录cloudpods后获取的secret key")),
 	)
 }
 
@@ -455,7 +451,10 @@ func (c *CloudpodsServerDeleteTool) Handle(ctx context.Context, req mcp.CallTool
 		DeleteDisks:           deleteDisks,
 	}
 
-	response, err := c.adapter.DeleteServer(ctx, serverID, deleteReq)
+	ak := req.GetString("ak", "")
+	sk := req.GetString("sk", "")
+
+	response, err := c.adapter.DeleteServer(ctx, serverID, deleteReq, ak, sk)
 	if err != nil {
 		c.logger.WithError(err).Error("删除虚拟机失败")
 		return nil, fmt.Errorf("删除虚拟机失败: %w", err)

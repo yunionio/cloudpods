@@ -44,15 +44,12 @@ func (c *CloudpodsServerMonitorTool) GetTool() mcp.Tool {
 	return mcp.NewTool(
 		"cloudpods_get_server_monitor",
 		mcp.WithDescription("获取Cloudpods虚拟机监控信息，包括CPU、内存、磁盘、网络等指标"),
-		mcp.WithString("server_id",
-			mcp.Required(),
-			mcp.Description("虚拟机ID")),
-		mcp.WithString("start_time",
-			mcp.Description("开始时间戳（秒），默认为1小时前")),
-		mcp.WithString("end_time",
-			mcp.Description("结束时间戳（秒），默认为当前时间")),
-		mcp.WithString("metrics",
-			mcp.Description("监控指标，多个用逗号分隔，例如：cpu_usage,mem_usage,disk_usage,net_bps_rx,net_bps_tx")),
+		mcp.WithString("server_id", mcp.Required(), mcp.Description("虚拟机ID")),
+		mcp.WithString("start_time", mcp.Description("开始时间戳（秒），默认为1小时前")),
+		mcp.WithString("end_time", mcp.Description("结束时间戳（秒），默认为当前时间")),
+		mcp.WithString("metrics", mcp.Description("监控指标，多个用逗号分隔，例如：cpu_usage,mem_usage,disk_usage,net_bps_rx,net_bps_tx")),
+		mcp.WithString("ak", mcp.Description("用户登录cloudpods后获取的access key")),
+		mcp.WithString("sk", mcp.Description("用户登录cloudpods后获取的secret key")),
 	)
 }
 
@@ -95,7 +92,10 @@ func (c *CloudpodsServerMonitorTool) Handle(ctx context.Context, req mcp.CallToo
 		"metrics":    metrics,
 	}).Info("开始获取虚拟机监控信息")
 
-	monitorResponse, err := c.adapter.GetServerMonitor(ctx, serverID, startTime, endTime, metrics)
+	ak := req.GetString("search", "")
+	sk := req.GetString("provider", "")
+
+	monitorResponse, err := c.adapter.GetServerMonitor(ctx, serverID, startTime, endTime, metrics, ak, sk)
 	if err != nil {
 		c.logger.WithError(err).Error("获取监控信息失败")
 		return nil, fmt.Errorf("获取监控信息失败: %w", err)
@@ -208,9 +208,9 @@ func (c *CloudpodsServerStatsTool) GetTool() mcp.Tool {
 	return mcp.NewTool(
 		"cloudpods_get_server_stats",
 		mcp.WithDescription("获取Cloudpods虚拟机实时统计信息，包括CPU使用率、内存使用率、磁盘使用率和网络流量"),
-		mcp.WithString("server_id",
-			mcp.Required(),
-			mcp.Description("虚拟机ID")),
+		mcp.WithString("server_id", mcp.Required(), mcp.Description("虚拟机ID")),
+		mcp.WithString("ak", mcp.Description("用户登录cloudpods后获取的access key")),
+		mcp.WithString("sk", mcp.Description("用户登录cloudpods后获取的secret key")),
 	)
 }
 
@@ -222,7 +222,10 @@ func (c *CloudpodsServerStatsTool) Handle(ctx context.Context, req mcp.CallToolR
 
 	c.logger.WithField("server_id", serverID).Info("开始获取虚拟机统计信息")
 
-	statsResponse, err := c.adapter.GetServerStats(ctx, serverID)
+	ak := req.GetString("ak", "")
+	sk := req.GetString("sk", "")
+
+	statsResponse, err := c.adapter.GetServerStats(ctx, serverID, ak, sk)
 	if err != nil {
 		c.logger.WithError(err).Error("获取统计信息失败")
 		return nil, fmt.Errorf("获取统计信息失败: %w", err)

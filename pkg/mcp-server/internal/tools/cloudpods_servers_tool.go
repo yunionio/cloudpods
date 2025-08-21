@@ -42,14 +42,12 @@ func (c *CloudpodsServersTool) GetTool() mcp.Tool {
 	return mcp.NewTool(
 		"cloudpods_list_servers",
 		mcp.WithDescription("查询Cloudpods虚拟机实例列表，获取虚拟机信息"),
-		mcp.WithString("limit",
-			mcp.Description("返回结果数量限制，默认为50")),
-		mcp.WithString("offset",
-			mcp.Description("结果偏移量，默认为0")),
-		mcp.WithString("search",
-			mcp.Description("按名称或ID模糊搜索")),
-		mcp.WithString("status",
-			mcp.Description("虚拟机状态，例如：running、stopped、creating等")),
+		mcp.WithString("limit", mcp.Description("返回结果数量限制，默认为50")),
+		mcp.WithString("offset", mcp.Description("结果偏移量，默认为0")),
+		mcp.WithString("search", mcp.Description("按名称或ID模糊搜索")),
+		mcp.WithString("status", mcp.Description("虚拟机状态，例如：running、stopped、creating等")),
+		mcp.WithString("ak", mcp.Description("用户登录cloudpods后获取的access key")),
+		mcp.WithString("sk", mcp.Description("用户登录cloudpods后获取的secret key")),
 	)
 }
 
@@ -78,7 +76,10 @@ func (c *CloudpodsServersTool) Handle(ctx context.Context, req mcp.CallToolReque
 		"status": status,
 	}).Info("开始查询Cloudpods虚拟机列表")
 
-	serversResponse, err := c.adapter.ListServers(ctx, limit, offset, search, status)
+	ak := req.GetString("ak", "")
+	sk := req.GetString("sk", "")
+
+	serversResponse, err := c.adapter.ListServers(ctx, limit, offset, search, status, ak, sk)
 	if err != nil {
 		c.logger.WithError(err).Error("查询虚拟机列表失败")
 		return nil, fmt.Errorf("查询虚拟机列表失败: %w", err)

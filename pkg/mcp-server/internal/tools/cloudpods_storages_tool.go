@@ -43,22 +43,16 @@ func (c *CloudpodsStoragesTool) GetTool() mcp.Tool {
 	return mcp.NewTool(
 		"cloudpods_list_storages",
 		mcp.WithDescription("查询Cloudpods块存储列表，获取存储资源信息"),
-		mcp.WithString("limit",
-			mcp.Description("返回结果数量限制，默认为20")),
-		mcp.WithString("offset",
-			mcp.Description("返回结果偏移量，默认为0")),
-		mcp.WithString("search",
-			mcp.Description("搜索关键词，可以按存储名称搜索")),
-		mcp.WithString("cloudregion_ids",
-			mcp.Description("云区域ID，多个用逗号分隔")),
-		mcp.WithString("zone_ids",
-			mcp.Description("可用区ID，多个用逗号分隔")),
-		mcp.WithString("providers",
-			mcp.Description("云平台提供商，多个用逗号分隔，如：OneCloud,Aliyun,Huawei")),
-		mcp.WithString("storage_types",
-			mcp.Description("存储类型，多个用逗号分隔，如：local,rbd,nfs,cephfs")),
-		mcp.WithString("host_id",
-			mcp.Description("主机ID，过滤关联指定主机的存储")),
+		mcp.WithString("limit", mcp.Description("返回结果数量限制，默认为20")),
+		mcp.WithString("offset", mcp.Description("返回结果偏移量，默认为0")),
+		mcp.WithString("search", mcp.Description("搜索关键词，可以按存储名称搜索")),
+		mcp.WithString("cloudregion_ids", mcp.Description("云区域ID，多个用逗号分隔")),
+		mcp.WithString("zone_ids", mcp.Description("可用区ID，多个用逗号分隔")),
+		mcp.WithString("providers", mcp.Description("云平台提供商，多个用逗号分隔，如：OneCloud,Aliyun,Huawei")),
+		mcp.WithString("storage_types", mcp.Description("存储类型，多个用逗号分隔，如：local,rbd,nfs,cephfs")),
+		mcp.WithString("host_id", mcp.Description("主机ID，过滤关联指定主机的存储")),
+		mcp.WithString("ak", mcp.Description("用户登录cloudpods后获取的access key")),
+		mcp.WithString("sk", mcp.Description("用户登录cloudpods后获取的secret key")),
 	)
 }
 
@@ -124,7 +118,10 @@ func (c *CloudpodsStoragesTool) Handle(ctx context.Context, req mcp.CallToolRequ
 		"host_id":         hostId,
 	}).Info("开始查询Cloudpods块存储列表")
 
-	storagesResponse, err := c.adapter.ListStorages(limit, offset, search, cloudregionIds, zoneIds, providers, storageTypes, hostId)
+	ak := req.GetString("ak", "")
+	sk := req.GetString("sk", "")
+
+	storagesResponse, err := c.adapter.ListStorages(limit, offset, search, cloudregionIds, zoneIds, providers, storageTypes, hostId, ak, sk)
 	if err != nil {
 		c.logger.WithError(err).Error("查询块存储列表失败")
 		return nil, fmt.Errorf("查询块存储列表失败: %w", err)

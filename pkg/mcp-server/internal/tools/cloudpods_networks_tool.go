@@ -41,14 +41,12 @@ func (c *CloudpodsNetworksTool) GetTool() mcp.Tool {
 	return mcp.NewTool(
 		"cloudpods_list_networks",
 		mcp.WithDescription("查询Cloudpods IP子网列表，获取网络配置信息"),
-		mcp.WithString("limit",
-			mcp.Description("返回结果数量限制，默认为20")),
-		mcp.WithString("offset",
-			mcp.Description("返回结果偏移量，默认为0")),
-		mcp.WithString("search",
-			mcp.Description("搜索关键词，可以按网络名称搜索")),
-		mcp.WithString("vpc_id",
-			mcp.Description("过滤指定VPC的网络资源")),
+		mcp.WithString("limit", mcp.Description("返回结果数量限制，默认为20")),
+		mcp.WithString("offset", mcp.Description("返回结果偏移量，默认为0")),
+		mcp.WithString("search", mcp.Description("搜索关键词，可以按网络名称搜索")),
+		mcp.WithString("vpc_id", mcp.Description("过滤指定VPC的网络资源")),
+		mcp.WithString("ak", mcp.Description("用户登录cloudpods后获取的access key")),
+		mcp.WithString("sk", mcp.Description("用户登录cloudpods后获取的secret key")),
 	)
 }
 
@@ -77,7 +75,10 @@ func (c *CloudpodsNetworksTool) Handle(ctx context.Context, req mcp.CallToolRequ
 		"vpc_id": vpcId,
 	}).Info("开始查询Cloudpods网络列表")
 
-	networksResponse, err := c.adapter.ListNetworks(limit, offset, search, vpcId)
+	ak := req.GetString("ak", "")
+	sk := req.GetString("sk", "")
+
+	networksResponse, err := c.adapter.ListNetworks(limit, offset, search, vpcId, ak, sk)
 	if err != nil {
 		c.logger.WithError(err).Error("查询网络列表失败")
 		return nil, fmt.Errorf("查询网络列表失败: %w", err)

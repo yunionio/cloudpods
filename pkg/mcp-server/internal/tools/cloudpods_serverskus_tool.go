@@ -42,24 +42,17 @@ func (c *CloudpodsServerSkusTool) GetTool() mcp.Tool {
 	return mcp.NewTool(
 		"cloudpods_list_serverskus",
 		mcp.WithDescription("查询Cloudpods主机套餐规格列表，获取虚拟机规格信息"),
-		mcp.WithString("limit",
-			mcp.Description("返回结果数量限制，默认为20")),
-		mcp.WithString("offset",
-			mcp.Description("返回结果偏移量，默认为0")),
-		mcp.WithString("search",
-			mcp.Description("搜索关键词，可以按规格名称搜索")),
-		mcp.WithString("cloudregion_ids",
-			mcp.Description("云区域ID，多个用逗号分隔")),
-		mcp.WithString("zone_ids",
-			mcp.Description("可用区ID，多个用逗号分隔")),
-		mcp.WithString("cpu_core_count",
-			mcp.Description("CPU核心数，多个用逗号分隔，如：1,2,4,8")),
-		mcp.WithString("memory_size_mb",
-			mcp.Description("内存大小MB，多个用逗号分隔，如：1024,2048,4096")),
-		mcp.WithString("providers",
-			mcp.Description("云平台提供商，多个用逗号分隔，如：OneCloud,Aliyun,Huawei")),
-		mcp.WithString("cpu_arch",
-			mcp.Description("CPU架构，多个用逗号分隔，如：x86,arm")),
+		mcp.WithString("limit", mcp.Description("返回结果数量限制，默认为20")),
+		mcp.WithString("offset", mcp.Description("返回结果偏移量，默认为0")),
+		mcp.WithString("search", mcp.Description("搜索关键词，可以按规格名称搜索")),
+		mcp.WithString("cloudregion_ids", mcp.Description("云区域ID，多个用逗号分隔")),
+		mcp.WithString("zone_ids", mcp.Description("可用区ID，多个用逗号分隔")),
+		mcp.WithString("cpu_core_count", mcp.Description("CPU核心数，多个用逗号分隔，如：1,2,4,8")),
+		mcp.WithString("memory_size_mb", mcp.Description("内存大小MB，多个用逗号分隔，如：1024,2048,4096")),
+		mcp.WithString("providers", mcp.Description("云平台提供商，多个用逗号分隔，如：OneCloud,Aliyun,Huawei")),
+		mcp.WithString("cpu_arch", mcp.Description("CPU架构，多个用逗号分隔，如：x86,arm")),
+		mcp.WithString("ak", mcp.Description("用户登录cloudpods后获取的access key")),
+		mcp.WithString("sk", mcp.Description("用户登录cloudpods后获取的secret key")),
 	)
 }
 
@@ -140,7 +133,10 @@ func (c *CloudpodsServerSkusTool) Handle(ctx context.Context, req mcp.CallToolRe
 		"cpu_arch":        cpuArch,
 	}).Info("开始查询Cloudpods主机套餐规格列表")
 
-	skusResponse, err := c.adapter.ListServerSkus(limit, offset, search, cloudregionIds, zoneIds, cpuCoreCount, memorySizeMB, providers, cpuArch)
+	ak := req.GetString("ak", "")
+	sk := req.GetString("sk", "")
+
+	skusResponse, err := c.adapter.ListServerSkus(limit, offset, search, cloudregionIds, zoneIds, cpuCoreCount, memorySizeMB, providers, cpuArch, ak, sk)
 	if err != nil {
 		c.logger.WithError(err).Error("查询主机套餐规格列表失败")
 		return nil, fmt.Errorf("查询主机套餐规格列表失败: %w", err)

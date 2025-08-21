@@ -41,14 +41,12 @@ func (c *CloudpodsVPCsTool) GetTool() mcp.Tool {
 	return mcp.NewTool(
 		"cloudpods_list_vpcs",
 		mcp.WithDescription("查询Cloudpods VPC列表，获取虚拟私有网络信息"),
-		mcp.WithString("limit",
-			mcp.Description("返回结果数量限制，默认为20")),
-		mcp.WithString("offset",
-			mcp.Description("返回结果偏移量，默认为0")),
-		mcp.WithString("search",
-			mcp.Description("搜索关键词，可以按VPC名称搜索")),
-		mcp.WithString("cloudregion_id",
-			mcp.Description("过滤指定云区域的VPC资源")),
+		mcp.WithString("limit", mcp.Description("返回结果数量限制，默认为20")),
+		mcp.WithString("offset", mcp.Description("返回结果偏移量，默认为0")),
+		mcp.WithString("search", mcp.Description("搜索关键词，可以按VPC名称搜索")),
+		mcp.WithString("cloudregion_id", mcp.Description("过滤指定云区域的VPC资源")),
+		mcp.WithString("ak", mcp.Description("用户登录cloudpods后获取的access key")),
+		mcp.WithString("sk", mcp.Description("用户登录cloudpods后获取的secret key")),
 	)
 }
 
@@ -77,7 +75,10 @@ func (c *CloudpodsVPCsTool) Handle(ctx context.Context, req mcp.CallToolRequest)
 		"cloudregion_id": cloudRegionID,
 	}).Info("开始查询Cloudpods VPC列表")
 
-	vpcsResponse, err := c.adapter.ListVPCs(limit, offset, search, cloudRegionID)
+	ak := req.GetString("ak", "")
+	sk := req.GetString("sk", "")
+
+	vpcsResponse, err := c.adapter.ListVPCs(limit, offset, search, cloudRegionID, ak, sk)
 	if err != nil {
 		c.logger.WithError(err).Error("查询VPC列表失败")
 		return nil, fmt.Errorf("查询VPC列表失败: %w", err)

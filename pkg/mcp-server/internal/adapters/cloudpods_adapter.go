@@ -59,12 +59,12 @@ func NewCloudpodsAdapter(cfg *config.Config, logger *logrus.Logger) *CloudpodsAd
 	}
 }
 
-func (a *CloudpodsAdapter) authenticate() error {
+func (a *CloudpodsAdapter) authenticate(ak string, sk string) error {
 	if a.session != nil {
 		return nil
 	}
 
-	token, err := a.client.AuthenticateByAccessKey("", "", "")
+	token, err := a.client.AuthenticateByAccessKey(ak, sk, "")
 	if err != nil {
 		return err
 	}
@@ -80,15 +80,15 @@ func (a *CloudpodsAdapter) authenticate() error {
 	return nil
 }
 
-func (a *CloudpodsAdapter) getSession() (*mcclient.ClientSession, error) {
-	if err := a.authenticate(); err != nil {
+func (a *CloudpodsAdapter) getSession(ak string, sk string) (*mcclient.ClientSession, error) {
+	if err := a.authenticate(ak, sk); err != nil {
 		return nil, err
 	}
 	return a.session, nil
 }
 
-func (a CloudpodsAdapter) ListCloudRegions(ctx context.Context, limit int, offset int, search string, provider string) (*models.CloudregionListResponse, error) {
-	session, err := a.getSession()
+func (a CloudpodsAdapter) ListCloudRegions(ctx context.Context, limit int, offset int, search string, provider string, ak string, sk string) (*models.CloudregionListResponse, error) {
+	session, err := a.getSession(ak, sk)
 	if err != nil {
 		return nil, err
 	}
@@ -132,8 +132,8 @@ func (a CloudpodsAdapter) ListCloudRegions(ctx context.Context, limit int, offse
 	return response, nil
 }
 
-func (a *CloudpodsAdapter) ListVPCs(limit int, offset int, search string, cloudregionId string) (*models.VpcListResponse, error) {
-	session, err := a.getSession()
+func (a *CloudpodsAdapter) ListVPCs(limit int, offset int, search string, cloudregionId string, ak string, sk string) (*models.VpcListResponse, error) {
+	session, err := a.getSession(ak, sk)
 	if err != nil {
 		return nil, err
 	}
@@ -178,8 +178,8 @@ func (a *CloudpodsAdapter) ListVPCs(limit int, offset int, search string, cloudr
 	return response, nil
 }
 
-func (a *CloudpodsAdapter) ListNetworks(limit int, offset int, search string, vpcId string) (*models.NetworkListResponse, error) {
-	session, err := a.getSession()
+func (a *CloudpodsAdapter) ListNetworks(limit int, offset int, search string, vpcId string, ak string, sk string) (*models.NetworkListResponse, error) {
+	session, err := a.getSession(ak, sk)
 	if err != nil {
 		return nil, err
 	}
@@ -224,8 +224,8 @@ func (a *CloudpodsAdapter) ListNetworks(limit int, offset int, search string, vp
 	return response, nil
 }
 
-func (a *CloudpodsAdapter) ListImages(limit int, offset int, search string, osTypes []string) (*models.ImageListResponse, error) {
-	session, err := a.getSession()
+func (a *CloudpodsAdapter) ListImages(limit int, offset int, search string, osTypes []string, ak string, sk string) (*models.ImageListResponse, error) {
+	session, err := a.getSession(ak, sk)
 	if err != nil {
 		return nil, err
 	}
@@ -272,8 +272,8 @@ func (a *CloudpodsAdapter) ListImages(limit int, offset int, search string, osTy
 	return response, nil
 }
 
-func (a *CloudpodsAdapter) ListServerSkus(limit int, offset int, search string, cloudregionIds []string, zoneIds []string, cpuCoreCount []string, memorySizeMB []string, providers []string, cpuArch []string) (*models.ServerSkuListResponse, error) {
-	session, err := a.getSession()
+func (a *CloudpodsAdapter) ListServerSkus(limit int, offset int, search string, cloudregionIds []string, zoneIds []string, cpuCoreCount []string, memorySizeMB []string, providers []string, cpuArch []string, ak string, sk string) (*models.ServerSkuListResponse, error) {
+	session, err := a.getSession(ak, sk)
 	if err != nil {
 		return nil, err
 	}
@@ -355,8 +355,8 @@ func (a *CloudpodsAdapter) ListServerSkus(limit int, offset int, search string, 
 	return response, nil
 }
 
-func (a *CloudpodsAdapter) ListStorages(limit int, offset int, search string, cloudregionIds []string, zoneIds []string, providers []string, storageTypes []string, hostId string) (*models.StorageListResponse, error) {
-	session, err := a.getSession()
+func (a *CloudpodsAdapter) ListStorages(limit int, offset int, search string, cloudregionIds []string, zoneIds []string, providers []string, storageTypes []string, hostId string, ak string, sk string) (*models.StorageListResponse, error) {
+	session, err := a.getSession(ak, sk)
 	if err != nil {
 		return nil, err
 	}
@@ -426,8 +426,8 @@ func (a *CloudpodsAdapter) ListStorages(limit int, offset int, search string, cl
 	return response, nil
 }
 
-func (a *CloudpodsAdapter) ListServers(ctx context.Context, limit int, offset int, search string, status string) (*models.ServerListResponse, error) {
-	session, err := a.getSession()
+func (a *CloudpodsAdapter) ListServers(ctx context.Context, limit int, offset int, search string, status string, ak string, sk string) (*models.ServerListResponse, error) {
+	session, err := a.getSession(ak, sk)
 	if err != nil {
 		return nil, err
 	}
@@ -470,8 +470,8 @@ func (a *CloudpodsAdapter) ListServers(ctx context.Context, limit int, offset in
 	return response, nil
 }
 
-func (a *CloudpodsAdapter) StartServer(ctx context.Context, serverId string, req models.ServerStartRequest) (*models.ServerOperationResponse, error) {
-	session, err := a.getSession()
+func (a *CloudpodsAdapter) StartServer(ctx context.Context, serverId string, req models.ServerStartRequest, ak string, sk string) (*models.ServerOperationResponse, error) {
+	session, err := a.getSession(ak, sk)
 	if err != nil {
 		return nil, err
 	}
@@ -504,8 +504,8 @@ func (a *CloudpodsAdapter) StartServer(ctx context.Context, serverId string, req
 	return response, nil
 }
 
-func (a *CloudpodsAdapter) StopServer(ctx context.Context, serverId string, req models.ServerStopRequest) (*models.ServerOperationResponse, error) {
-	session, err := a.getSession()
+func (a *CloudpodsAdapter) StopServer(ctx context.Context, serverId string, req models.ServerStopRequest, ak string, sk string) (*models.ServerOperationResponse, error) {
+	session, err := a.getSession(ak, sk)
 	if err != nil {
 		return nil, err
 	}
@@ -542,8 +542,8 @@ func (a *CloudpodsAdapter) StopServer(ctx context.Context, serverId string, req 
 	return response, nil
 }
 
-func (a *CloudpodsAdapter) RestartServer(ctx context.Context, serverId string, req models.ServerRestartRequest) (*models.ServerOperationResponse, error) {
-	session, err := a.getSession()
+func (a *CloudpodsAdapter) RestartServer(ctx context.Context, serverId string, req models.ServerRestartRequest, ak string, sk string) (*models.ServerOperationResponse, error) {
+	session, err := a.getSession(ak, sk)
 	if err != nil {
 		return nil, err
 	}
@@ -571,8 +571,8 @@ func (a *CloudpodsAdapter) RestartServer(ctx context.Context, serverId string, r
 	return response, nil
 }
 
-func (a *CloudpodsAdapter) ResetServerPassword(ctx context.Context, serverId string, req models.ServerResetPasswordRequest) (*models.ServerOperationResponse, error) {
-	session, err := a.getSession()
+func (a *CloudpodsAdapter) ResetServerPassword(ctx context.Context, serverId string, req models.ServerResetPasswordRequest, ak string, sk string) (*models.ServerOperationResponse, error) {
+	session, err := a.getSession(ak, sk)
 	if err != nil {
 		return nil, err
 	}
@@ -611,8 +611,8 @@ func (a *CloudpodsAdapter) ResetServerPassword(ctx context.Context, serverId str
 	return response, nil
 }
 
-func (a *CloudpodsAdapter) DeleteServer(ctx context.Context, serverId string, req models.ServerDeleteRequest) (*models.ServerOperationResponse, error) {
-	session, err := a.getSession()
+func (a *CloudpodsAdapter) DeleteServer(ctx context.Context, serverId string, req models.ServerDeleteRequest, ak string, sk string) (*models.ServerOperationResponse, error) {
+	session, err := a.getSession(ak, sk)
 	if err != nil {
 		return nil, err
 	}
@@ -652,8 +652,8 @@ func (a *CloudpodsAdapter) DeleteServer(ctx context.Context, serverId string, re
 	return response, nil
 }
 
-func (a *CloudpodsAdapter) CreateServer(ctx context.Context, req models.CreateServerRequest) (*models.CreateServerResponse, error) {
-	session, err := a.getSession()
+func (a *CloudpodsAdapter) CreateServer(ctx context.Context, req models.CreateServerRequest, ak string, sk string) (*models.CreateServerResponse, error) {
+	session, err := a.getSession(ak, sk)
 	if err != nil {
 		return nil, err
 	}
@@ -796,8 +796,8 @@ func (a *CloudpodsAdapter) CreateServer(ctx context.Context, req models.CreateSe
 	return response, nil
 }
 
-func (a *CloudpodsAdapter) GetServerMonitor(ctx context.Context, serverId string, startTime, endTime int64, metrics []string) (*models.MonitorResponse, error) {
-	session, err := a.getSession()
+func (a *CloudpodsAdapter) GetServerMonitor(ctx context.Context, serverId string, startTime, endTime int64, metrics []string, ak string, sk string) (*models.MonitorResponse, error) {
+	session, err := a.getSession(ak, sk)
 	if err != nil {
 		return nil, err
 	}
@@ -946,8 +946,8 @@ func (a *CloudpodsAdapter) GetServerMonitor(ctx context.Context, serverId string
 	return response, nil
 }
 
-func (a *CloudpodsAdapter) GetServerStats(ctx context.Context, serverId string) (*models.ServerStatsResponse, error) {
-	session, err := a.getSession()
+func (a *CloudpodsAdapter) GetServerStats(ctx context.Context, serverId string, ak string, sk string) (*models.ServerStatsResponse, error) {
+	session, err := a.getSession(ak, sk)
 	if err != nil {
 		return nil, err
 	}

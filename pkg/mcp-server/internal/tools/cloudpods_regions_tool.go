@@ -41,14 +41,12 @@ func (c *CloudpodsRegionsTool) GetTool() mcp.Tool {
 	return mcp.NewTool(
 		"cloudpods_list_regions",
 		mcp.WithDescription("查询Cloudpods区域列表，获取所有可用的云区域信息"),
-		mcp.WithString("limit",
-			mcp.Description("返回结果数量限制，默认为50")),
-		mcp.WithString("offset",
-			mcp.Description("返回结果偏移量，默认为0")),
-		mcp.WithString("search",
-			mcp.Description("搜索关键词，可以按区域名称搜索")),
-		mcp.WithString("provider",
-			mcp.Description("云平台提供商，例如：aws、azure、aliyun等")),
+		mcp.WithString("limit", mcp.Description("返回结果数量限制，默认为50")),
+		mcp.WithString("offset", mcp.Description("返回结果偏移量，默认为0")),
+		mcp.WithString("search", mcp.Description("搜索关键词，可以按区域名称搜索")),
+		mcp.WithString("provider", mcp.Description("云平台提供商，例如：aws、azure、aliyun等")),
+		mcp.WithString("ak", mcp.Description("用户登录cloudpods后获取的access key")),
+		mcp.WithString("sk", mcp.Description("用户登录cloudpods后获取的secret key")),
 	)
 }
 
@@ -70,7 +68,10 @@ func (c *CloudpodsRegionsTool) Handle(ctx context.Context, req mcp.CallToolReque
 	search := req.GetString("search", "")
 	provider := req.GetString("provider", "")
 
-	regionsResponse, err := c.adapter.ListCloudRegions(ctx, limit, offset, search, provider)
+	ak := req.GetString("ak", "")
+	sk := req.GetString("sk", "")
+
+	regionsResponse, err := c.adapter.ListCloudRegions(ctx, limit, offset, search, provider, ak, sk)
 	if err != nil {
 		c.logger.WithError(err).Error("查询区域列表失败")
 		return nil, fmt.Errorf("查询区域列表失败: %w", err)
