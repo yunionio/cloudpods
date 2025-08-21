@@ -17,7 +17,9 @@ package guestman
 import (
 	"bufio"
 	"context"
+	"fmt"
 	"os"
+	"path"
 	"regexp"
 	"runtime/debug"
 	"strings"
@@ -30,6 +32,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
+	"yunion.io/x/onecloud/pkg/util/mountutils"
 )
 
 const (
@@ -134,7 +137,12 @@ func (m *SKickstartSerialMonitor) read() {
 			switch line {
 			case "KICKSTART_SUCCESS":
 				status = api.KICKSTART_STATUS_COMPLETED
+				// Unmount ISO and restart VM if kickstart install successfully
+				if err := m.handleKickstartSuccess(); err != nil {
+					log.Errorf("Failed to handle kickstart success for server %s: %v", m.serverId, err)
+				}
 			case "KICKSTART_FAILED":
+				// TODO: auto retry or alert and stop
 				status = api.KICKSTART_STATUS_FAILED
 			}
 
@@ -208,5 +216,75 @@ func (m *SKickstartSerialMonitor) Start() error {
 		m.Close()
 	}()
 
+	return nil
+}
+
+// handleKickstartSuccess handles the successful kickstart completion
+// It unmounts the ISO image and restarts the VM
+func (m *SKickstartSerialMonitor) handleKickstartSuccess() error {
+	// Get the server instance to access CDROM information
+	server, exists := guestManager.GetServer(m.serverId)
+	if !exists {
+		return errors.Errorf("server %s not found", m.serverId)
+	}
+
+	kvmGuest, ok := server.(*SKVMGuestInstance)
+	if !ok {
+		return errors.Errorf("server %s is not a KVM guest", m.serverId)
+	}
+
+	// Get image ID from CDROM devices to construct mount point
+	var imageId string
+	if len(kvmGuest.Desc.Cdroms) > 0 {
+		for _, cdrom := range kvmGuest.Desc.Cdroms {
+			if cdrom.Path != "" {
+				filename := path.Base(cdrom.Path)
+				imageId = strings.TrimSuffix(filename, ".iso")
+				break
+			}
+		}
+	}
+
+	if imageId == "" {
+		log.Warningf("No ISO image ID found for server %s, skip unmounting", m.serverId)
+	} else {
+		// Unmount the ISO image with lazy=true
+		mountPoint := fmt.Sprintf("/tmp/kickstart-iso-%s", imageId)
+		log.Infof("Unmounting kickstart ISO at %s for server %s", mountPoint, m.serverId)
+
+		if err := mountutils.Unmount(mountPoint, true); err != nil {
+			log.Errorf("Failed to unmount ISO at %s: %v", mountPoint, err)
+		} else {
+			log.Infof("Successfully unmounted kickstart ISO at %s for server %s", mountPoint, m.serverId)
+		}
+	}
+
+	log.Infof("Restarting VM %s after successful kickstart", m.serverId)
+
+	if err := m.restartServer(); err != nil {
+		return errors.Wrapf(err, "failed to restart server %s", m.serverId)
+	}
+
+	return nil
+}
+
+// restartServer restarts the server using Region API,
+// because the kickstart process requires a fully reboot
+// to regenerate qemu parameters
+func (m *SKickstartSerialMonitor) restartServer() error {
+	ctx := context.Background()
+	session := hostutils.GetComputeSession(ctx)
+
+	input := jsonutils.NewDict()
+	input.Set("is_force", jsonutils.JSONFalse)
+
+	log.Infof("Restarting server %s via Region API", m.serverId)
+
+	_, err := modules.Servers.PerformAction(session, m.serverId, "restart", input)
+	if err != nil {
+		return errors.Wrapf(err, "failed to restart server %s via API", m.serverId)
+	}
+
+	log.Infof("Successfully restarted server %s", m.serverId)
 	return nil
 }
