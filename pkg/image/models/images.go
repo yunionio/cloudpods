@@ -1798,26 +1798,12 @@ func (image *SImage) updateImageInfo(
 
 	imageProperties.Set(api.IMAGE_OS_TYPE, jsonutils.NewString(imageInfo.OsType))
 	imageProperties.Set(api.IMAGE_PARTITION_TYPE, jsonutils.NewString(imageInfo.PhysicalPartitionType))
-	if imageInfo.IsUefiSupport {
-		imageProperties.Set(api.IMAGE_UEFI_SUPPORT, jsonutils.JSONTrue)
-	} else {
-		imageProperties.Set(api.IMAGE_UEFI_SUPPORT, jsonutils.JSONFalse)
-	}
-	if imageInfo.IsLvmPartition {
-		imageProperties.Set(api.IMAGE_IS_LVM_PARTITION, jsonutils.JSONTrue)
-	} else {
-		imageProperties.Set(api.IMAGE_IS_LVM_PARTITION, jsonutils.JSONFalse)
-	}
-	if imageInfo.IsReadonly {
-		imageProperties.Set(api.IMAGE_IS_READONLY, jsonutils.JSONTrue)
-	} else {
-		imageProperties.Set(api.IMAGE_IS_READONLY, jsonutils.JSONFalse)
-	}
-	if imageInfo.IsInstalledCloudInit {
-		imageProperties.Set(api.IMAGE_INSTALLED_CLOUDINIT, jsonutils.JSONTrue)
-	} else {
-		imageProperties.Set(api.IMAGE_INSTALLED_CLOUDINIT, jsonutils.JSONFalse)
-	}
+	imageProperties.Set(api.IMAGE_UEFI_SUPPORT, jsonutils.NewBool(imageInfo.IsUefiSupport))
+	imageProperties.Set(api.IMAGE_BIOS_SUPPORT, jsonutils.NewBool(imageInfo.IsBiosSupport))
+	imageProperties.Set(api.IMAGE_IS_LVM_PARTITION, jsonutils.NewBool(imageInfo.IsLvmPartition))
+	imageProperties.Set(api.IMAGE_IS_READONLY, jsonutils.NewBool(imageInfo.IsReadonly))
+	imageProperties.Set(api.IMAGE_INSTALLED_CLOUDINIT, jsonutils.NewBool(imageInfo.IsInstalledCloudInit))
+
 	return ImagePropertyManager.SaveProperties(ctx, userCred, image.Id, imageProperties)
 }
 

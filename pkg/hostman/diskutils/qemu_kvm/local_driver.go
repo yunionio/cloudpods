@@ -110,6 +110,10 @@ func (d *LocalDiskDriver) DetectIsUEFISupport(rootfs fsdriver.IRootFsDriver) boo
 	return fsutils.DetectIsUEFISupport(rootfs, d.GetPartitions())
 }
 
+func (d *LocalDiskDriver) DetectIsBIOSSupport(rootfs fsdriver.IRootFsDriver) bool {
+	return fsutils.DetectIsBIOSSupport("/dev/sda", rootfs)
+}
+
 func (d *LocalDiskDriver) MountRootfs(readonly bool) (fsdriver.IRootFsDriver, error) {
 	return fsutils.MountRootfs(readonly, d.GetPartitions())
 }
