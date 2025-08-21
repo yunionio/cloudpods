@@ -25,11 +25,18 @@ import (
 	"yunion.io/x/onecloud/pkg/mcp-server/models"
 )
 
+// CloudpodsNetworksTool 是一个用于查询 Cloudpods 网络列表的工具
 type CloudpodsNetworksTool struct {
+	// adapter 用于与 Cloudpods API 进行交互
 	adapter *adapters.CloudpodsAdapter
+	// logger 用于记录日志信息
 	logger  *logrus.Logger
 }
 
+// NewCloudpodsNetworksTool 创建一个新的 CloudpodsNetworksTool 实例
+// adapter: 用于与 Cloudpods API 进行交互的适配器
+// logger: 用于记录日志的 logger 实例
+// 返回值: 指向新创建的 CloudpodsNetworksTool 实例的指针
 func NewCloudpodsNetworksTool(adapter *adapters.CloudpodsAdapter, logger *logrus.Logger) *CloudpodsNetworksTool {
 	return &CloudpodsNetworksTool{
 		adapter: adapter,
@@ -37,6 +44,15 @@ func NewCloudpodsNetworksTool(adapter *adapters.CloudpodsAdapter, logger *logrus
 	}
 }
 
+// GetTool 定义并返回网络列表查询工具的元数据
+// 该工具用于查询Cloudpods中的IP子网列表，获取网络配置信息
+// 支持的参数包括：
+// - limit: 返回结果数量限制，默认为20
+// - offset: 返回结果偏移量，默认为0
+// - search: 搜索关键词，可以按网络名称搜索
+// - vpc_id: 过滤指定VPC的网络资源
+// - ak: 用户登录cloudpods后获取的access key
+// - sk: 用户登录cloudpods后获取的secret key
 func (c *CloudpodsNetworksTool) GetTool() mcp.Tool {
 	return mcp.NewTool(
 		"cloudpods_list_networks",
@@ -50,24 +66,34 @@ func (c *CloudpodsNetworksTool) GetTool() mcp.Tool {
 	)
 }
 
+// Handle 处理网络列表查询请求
+// ctx: 控制请求生命周期的上下文
+// req: 包含查询参数的请求对象
+// 返回值: 包含查询结果的工具结果对象或错误信息
 func (c *CloudpodsNetworksTool) Handle(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	// 设置默认查询限制为20
 	limit := 20
 	if limitStr := req.GetString("limit", ""); limitStr != "" {
+		// 解析limit参数，如果解析成功且大于0，则使用解析后的值
 		if parsedLimit, err := strconv.Atoi(limitStr); err == nil && parsedLimit > 0 {
 			limit = parsedLimit
 		}
 	}
 
+	// 设置默认偏移量为0
 	offset := 0
 	if offsetStr := req.GetString("offset", ""); offsetStr != "" {
+		// 解析offset参数，如果解析成功且大于等于0，则使用解析后的值
 		if parsedOffset, err := strconv.Atoi(offsetStr); err == nil && parsedOffset >= 0 {
 			offset = parsedOffset
 		}
 	}
 
+	// 获取搜索关键词和VPC ID参数
 	search := req.GetString("search", "")
 	vpcId := req.GetString("vpc_id", "")
 
+	// 记录查询参数日志
 	c.logger.WithFields(logrus.Fields{
 		"limit":  limit,
 		"offset": offset,
@@ -75,31 +101,46 @@ func (c *CloudpodsNetworksTool) Handle(ctx context.Context, req mcp.CallToolRequ
 		"vpc_id": vpcId,
 	}).Info("开始查询Cloudpods网络列表")
 
+	// 获取访问凭证
 	ak := req.GetString("ak", "")
 	sk := req.GetString("sk", "")
 
+	// 调用适配器获取网络列表
 	networksResponse, err := c.adapter.ListNetworks(limit, offset, search, vpcId, ak, sk)
 	if err != nil {
 		c.logger.WithError(err).Error("查询网络列表失败")
 		return nil, fmt.Errorf("查询网络列表失败: %w", err)
 	}
 
+	// 格式化查询结果
 	formattedResult := c.formatNetworksResult(networksResponse, limit, offset, search, vpcId)
 
+	// 将结果序列化为JSON格式
 	resultJSON, err := json.MarshalIndent(formattedResult, "", "  ")
 	if err != nil {
 		c.logger.WithError(err).Error("序列化结果失败")
 		return nil, fmt.Errorf("序列化结果失败: %w", err)
 	}
 
+	// 返回格式化后的结果
 	return mcp.NewToolResultText(string(resultJSON)), nil
 }
 
+// GetName 返回工具的名称标识符
+// 返回值: 工具名称字符串，用于唯一标识该工具
 func (c *CloudpodsNetworksTool) GetName() string {
 	return "cloudpods_list_networks"
 }
 
+// formatNetworksResult 格式化网络列表查询结果
+// response: 从适配器获取的原始网络数据
+// limit: 查询限制数量
+// offset: 查询偏移量
+// search: 搜索关键词
+// vpcId: VPC ID过滤条件
+// 返回值: 格式化后的网络列表数据，包含查询信息、网络列表和摘要信息
 func (c *CloudpodsNetworksTool) formatNetworksResult(response *models.NetworkListResponse, limit, offset int, search, vpcId string) map[string]interface{} {
+	// 初始化结果结构，包含查询信息和网络列表
 	formatted := map[string]interface{}{
 		"query_info": map[string]interface{}{
 			"limit":  limit,
@@ -112,7 +153,9 @@ func (c *CloudpodsNetworksTool) formatNetworksResult(response *models.NetworkLis
 		"networks": make([]map[string]interface{}, 0, len(response.Networks)),
 	}
 
+	// 遍历原始网络数据，构造每个网络的详细信息
 	for _, network := range response.Networks {
+		// 构造单个网络信息
 		networkInfo := map[string]interface{}{
 			"id":                     network.Id,
 			"name":                   network.Name,
@@ -214,9 +257,11 @@ func (c *CloudpodsNetworksTool) formatNetworksResult(response *models.NetworkLis
 			"updated_at":             network.UpdatedAt,
 			"imported_at":            network.ImportedAt,
 		}
+		// 将网络信息添加到结果数组中
 		formatted["networks"] = append(formatted["networks"].([]map[string]interface{}), networkInfo)
 	}
 
+	// 构造摘要信息
 	formatted["summary"] = map[string]interface{}{
 		"total_networks": response.Total,
 		"returned_count": len(response.Networks),
@@ -224,5 +269,6 @@ func (c *CloudpodsNetworksTool) formatNetworksResult(response *models.NetworkLis
 		"next_offset":    offset + len(response.Networks),
 	}
 
+	// 返回格式化后的结果
 	return formatted
 }

@@ -19,6 +19,10 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 )
 
+// Tool 是所有工具的接口，定义了工具的基本方法
+// GetTool 返回 MCP 工具定义
+// Handle 处理工具调用请求
+// GetName 返回工具名称
 type Tool interface {
 	GetTool() mcp.Tool
 	Handle(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error)

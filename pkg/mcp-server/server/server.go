@@ -24,6 +24,7 @@ import (
 	tools2 "yunion.io/x/onecloud/pkg/mcp-server/tools"
 )
 
+// CloudpodsMCPServer 是 MCP 服务器的核心结构体，包含配置、日志、MCP 实例、注册中心和工具列表
 type CloudpodsMCPServer struct {
 	config    *config.Config
 	logger    *logrus.Logger
@@ -32,6 +33,7 @@ type CloudpodsMCPServer struct {
 	tools     []tools2.Tool
 }
 
+// NewServer 创建一个新的 Cloudpods MCP 服务器实例，初始化 MCP 服务器和注册中心，并创建所有工具
 func NewServer(cfg *config.Config, logger *logrus.Logger) *CloudpodsMCPServer {
 
 	mcpServer := server.NewMCPServer(
@@ -89,6 +91,7 @@ func NewServer(cfg *config.Config, logger *logrus.Logger) *CloudpodsMCPServer {
 	}
 }
 
+// Initialize 初始化注册中心和所有工具
 // Initialize 初始化服务器
 func (s *CloudpodsMCPServer) Initialize() error {
 
@@ -105,6 +108,7 @@ func (s *CloudpodsMCPServer) Initialize() error {
 	return nil
 }
 
+// registerAllTools 将所有工具注册到注册中心
 // registerBuiltinTools 注册内置工具
 func (s *CloudpodsMCPServer) registerAllTools() error {
 	for _, tool := range s.tools {
@@ -122,6 +126,7 @@ func (s *CloudpodsMCPServer) registerAllTools() error {
 	return nil
 }
 
+// Start 启动 SSE 服务器
 // Start 启动服务器
 func (s *CloudpodsMCPServer) Start() error {
 

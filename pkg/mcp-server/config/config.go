@@ -38,19 +38,12 @@ type MCPConfig struct {
 }
 
 type ExternalConfig struct {
-	BilibiliAPI  BilibiliConfig  `mapstructure:"bilibili"`
-	CloudpodsAPI CloudpodsConfig `mapstructure:"cloudpods"`
-	Cloudpods    CloudpodsConfig `mapstructure:"cloudpods"`
-}
-
-type BilibiliConfig struct {
-	BaseURL string `mapstructure:"base_url"`
-	Cookie  string `mapstructure:"cookie"`
+	Cloudpods CloudpodsConfig `mapstructure:"cloudpods"`
 }
 
 type CloudpodsConfig struct {
 	BaseURL   string `mapstructure:"base_url" yaml:"base_url"`
-	APIKey    string `mapstructure:"api_key" yaml:"api_key"`
+	AccessKey string `mapstructure:"access_key" yaml:"access_key"`
 	SecretKey string `mapstructure:"secret_key" yaml:"secret_key"`
 	Timeout   int    `mapstructure:"timeout" yaml:"timeout"`
 
@@ -66,32 +59,32 @@ type LogConfig struct {
 	Format string `mapstructure:"format"`
 }
 
-func Load(configPath string) (*Config, error) {
-	viper.SetConfigFile(configPath)
-	viper.AutomaticEnv()
+func Load() (*Config, error) {
+	v := viper.New()
+	v.SetConfigName("config")   // 主配置文件名（无扩展名）
+	v.SetConfigType("yaml")     // 显式指定 YAML 格式
+	v.AddConfigPath("./config") // 配置文件路径（当前目录下的 conf 目录）
+	v.AddConfigPath(".")        // 备用路径：当前目录
+	v.AutomaticEnv()
 
-	setDefaults()
+	v.SetDefault("server.host", "localhost")
+	v.SetDefault("server.port", 8080)
+	v.SetDefault("mcp.name", "cloudpods-mcp-server")
+	v.SetDefault("mcp.version", "1.0.0")
+	v.SetDefault("mcp.description", "the mcp server of the cloudpods server")
+	v.SetDefault("log.level", "info")
+	v.SetDefault("log.format", "json")
+	v.SetDefault("external.cloudpods.base_url", "https://api.cloudpods.com")
+	v.SetDefault("external.cloudpods.timeout", 30)
 
-	if err := viper.ReadInConfig(); err != nil {
+	if err := v.ReadInConfig(); err != nil {
 		return nil, fmt.Errorf("fail to load config: %w", err)
 	}
 
 	var config Config
-	if err := viper.Unmarshal(&config); err != nil {
+	if err := v.Unmarshal(&config); err != nil {
 		return nil, fmt.Errorf("fail to parse config: %w", err)
 	}
 
 	return &config, nil
-}
-
-func setDefaults() {
-	viper.SetDefault("server.host", "localhost")
-	viper.SetDefault("server.port", 8080)
-	viper.SetDefault("mcp.name", "cloudpods-mcp-server")
-	viper.SetDefault("mcp.version", "1.0.0")
-	viper.SetDefault("mcp.description", "the mcp server of the cloudpods server")
-	viper.SetDefault("log.level", "info")
-	viper.SetDefault("log.format", "json")
-	viper.SetDefault("external.cloudpods.base_url", "https://api.cloudpods.com")
-	viper.SetDefault("external.cloudpods.timeout", 30)
 }

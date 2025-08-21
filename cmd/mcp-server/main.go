@@ -22,8 +22,7 @@ import (
 )
 
 var (
-	configPath = flag.String("config", "C:\\Users\\root\\Desktop\\cloudpods-mcp-serrver\\config\\config.yaml", "配置文件路径")
-	logLevel   = flag.String("log-level", "info", "日志级别 (debug, info, warn, error)")
+	logLevel = flag.String("log-level", "info", "日志级别 (debug, info, warn, error)")
 )
 
 func main() {
@@ -41,7 +40,7 @@ func main() {
 	})
 
 	// 加载配置
-	cfg, err := config.Load(*configPath)
+	cfg, err := config.Load()
 	if err != nil {
 		logger.WithError(err).Fatal("加载配置文件失败")
 	}

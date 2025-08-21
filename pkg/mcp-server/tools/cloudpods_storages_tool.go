@@ -27,11 +27,22 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// CloudpodsStoragesTool 用于查询Cloudpods块存储列表的工具
 type CloudpodsStoragesTool struct {
+	// adapter 用于与Cloudpods API进行交互
 	adapter *adapters.CloudpodsAdapter
+	// logger 用于记录日志
 	logger  *logrus.Logger
 }
 
+// NewCloudpodsStoragesTool 创建一个新的CloudpodsStoragesTool实例
+// 
+// 参数:
+//   - adapter: 用于与Cloudpods API交互的适配器
+//   - logger: 用于记录日志的logger实例
+// 
+// 返回值:
+//   - *CloudpodsStoragesTool: CloudpodsStoragesTool实例指针
 func NewCloudpodsStoragesTool(adapter *adapters.CloudpodsAdapter, logger *logrus.Logger) *CloudpodsStoragesTool {
 	return &CloudpodsStoragesTool{
 		adapter: adapter,
@@ -39,6 +50,22 @@ func NewCloudpodsStoragesTool(adapter *adapters.CloudpodsAdapter, logger *logrus
 	}
 }
 
+// GetTool 定义并返回查询块存储列表工具的元数据
+// 
+// 工具用途:
+//   查询Cloudpods块存储列表，获取存储资源信息
+// 
+// 参数说明:
+//   - limit: 返回结果数量限制，默认为20
+//   - offset: 返回结果偏移量，默认为0
+//   - search: 搜索关键词，可以按存储名称搜索
+//   - cloudregion_ids: 云区域ID，多个用逗号分隔
+//   - zone_ids: 可用区ID，多个用逗号分隔
+//   - providers: 云平台提供商，多个用逗号分隔，如：OneCloud,Aliyun,Huawei
+//   - storage_types: 存储类型，多个用逗号分隔，如：local,rbd,nfs,cephfs
+//   - host_id: 主机ID，过滤关联指定主机的存储
+//   - ak: 用户登录cloudpods后获取的access key
+//   - sk: 用户登录cloudpods后获取的secret key
 func (c *CloudpodsStoragesTool) GetTool() mcp.Tool {
 	return mcp.NewTool(
 		"cloudpods_list_storages",
@@ -56,7 +83,17 @@ func (c *CloudpodsStoragesTool) GetTool() mcp.Tool {
 	)
 }
 
+// Handle 处理查询块存储列表的请求
+// 
+// 参数:
+//   - ctx: 控制生命周期的上下文
+//   - req: 包含查询参数的请求对象
+// 
+// 返回值:
+//   - *mcp.CallToolResult: 包含块存储列表的响应对象
+//   - error: 可能的错误信息
 func (c *CloudpodsStoragesTool) Handle(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	// 获取可选参数：返回结果数量限制，如果指定则转换为整数
 	limit := 20
 	if limitStr := req.GetString("limit", ""); limitStr != "" {
 		if parsedLimit, err := strconv.Atoi(limitStr); err == nil && parsedLimit > 0 {
@@ -64,6 +101,7 @@ func (c *CloudpodsStoragesTool) Handle(ctx context.Context, req mcp.CallToolRequ
 		}
 	}
 
+	// 获取可选参数：结果偏移量，如果指定则转换为整数
 	offset := 0
 	if offsetStr := req.GetString("offset", ""); offsetStr != "" {
 		if parsedOffset, err := strconv.Atoi(offsetStr); err == nil && parsedOffset >= 0 {
@@ -71,8 +109,10 @@ func (c *CloudpodsStoragesTool) Handle(ctx context.Context, req mcp.CallToolRequ
 		}
 	}
 
+	// 获取可选参数：搜索关键词
 	search := req.GetString("search", "")
 
+	// 获取可选参数：云区域ID列表
 	var cloudregionIds []string
 	if cloudregionIdsStr := req.GetString("cloudregion_ids", ""); cloudregionIdsStr != "" {
 		cloudregionIds = strings.Split(cloudregionIdsStr, ",")
@@ -81,6 +121,7 @@ func (c *CloudpodsStoragesTool) Handle(ctx context.Context, req mcp.CallToolRequ
 		}
 	}
 
+	// 获取可选参数：可用区ID列表
 	var zoneIds []string
 	if zoneIdsStr := req.GetString("zone_ids", ""); zoneIdsStr != "" {
 		zoneIds = strings.Split(zoneIdsStr, ",")
@@ -89,6 +130,7 @@ func (c *CloudpodsStoragesTool) Handle(ctx context.Context, req mcp.CallToolRequ
 		}
 	}
 
+	// 获取可选参数：云平台提供商列表
 	var providers []string
 	if providersStr := req.GetString("providers", ""); providersStr != "" {
 		providers = strings.Split(providersStr, ",")
@@ -97,6 +139,7 @@ func (c *CloudpodsStoragesTool) Handle(ctx context.Context, req mcp.CallToolRequ
 		}
 	}
 
+	// 获取可选参数：存储类型列表
 	var storageTypes []string
 	if storageTypesStr := req.GetString("storage_types", ""); storageTypesStr != "" {
 		storageTypes = strings.Split(storageTypesStr, ",")
@@ -105,8 +148,10 @@ func (c *CloudpodsStoragesTool) Handle(ctx context.Context, req mcp.CallToolRequ
 		}
 	}
 
+	// 获取可选参数：主机ID
 	hostId := req.GetString("host_id", "")
 
+	// 记录查询块存储列表的日志
 	c.logger.WithFields(logrus.Fields{
 		"limit":           limit,
 		"offset":          offset,
@@ -118,17 +163,21 @@ func (c *CloudpodsStoragesTool) Handle(ctx context.Context, req mcp.CallToolRequ
 		"host_id":         hostId,
 	}).Info("开始查询Cloudpods块存储列表")
 
+	// 获取可选参数：访问凭证
 	ak := req.GetString("ak", "")
 	sk := req.GetString("sk", "")
 
+	// 调用适配器查询块存储列表
 	storagesResponse, err := c.adapter.ListStorages(limit, offset, search, cloudregionIds, zoneIds, providers, storageTypes, hostId, ak, sk)
 	if err != nil {
-		c.logger.WithError(err).Error("查询块存储列表失败")
+		c.logger.WithError(err).Error("查询Cloudpods块存储列表失败")
 		return nil, fmt.Errorf("查询块存储列表失败: %w", err)
 	}
 
+	// 格式化查询结果
 	formattedResult := c.formatStoragesResult(storagesResponse, limit, offset, search, cloudregionIds, zoneIds, providers, storageTypes, hostId)
 
+	// 将结果序列化为JSON格式
 	resultJSON, err := json.MarshalIndent(formattedResult, "", "  ")
 	if err != nil {
 		c.logger.WithError(err).Error("序列化结果失败")
@@ -138,10 +187,29 @@ func (c *CloudpodsStoragesTool) Handle(ctx context.Context, req mcp.CallToolRequ
 	return mcp.NewToolResultText(string(resultJSON)), nil
 }
 
+// GetName 返回工具的名称标识符
+// 
+// 返回值:
+//   - string: 工具名称字符串，用于唯一标识该工具
 func (c *CloudpodsStoragesTool) GetName() string {
 	return "cloudpods_list_storages"
 }
 
+// formatStoragesResult 格式化块存储列表的响应结果
+//
+// 参数:
+//   - response: 原始响应数据
+//   - limit: 查询限制
+//   - offset: 查询偏移量
+//   - search: 搜索关键词
+//   - cloudregionIds: 云区域ID列表
+//   - zoneIds: 可用区ID列表
+//   - providers: 云平台提供商列表
+//   - storageTypes: 存储类型列表
+//   - hostId: 主机ID
+//
+// 返回值:
+//   - map[string]interface{}: 包含块存储列表的格式化结果
 func (c *CloudpodsStoragesTool) formatStoragesResult(
 	response *models.StorageListResponse,
 	limit, offset int,
@@ -149,6 +217,7 @@ func (c *CloudpodsStoragesTool) formatStoragesResult(
 	cloudregionIds, zoneIds, providers, storageTypes []string,
 	hostId string,
 ) map[string]interface{} {
+	// 初始化格式化结果结构
 	formatted := map[string]interface{}{
 		"query_info": map[string]interface{}{
 			"limit":           limit,
@@ -165,6 +234,7 @@ func (c *CloudpodsStoragesTool) formatStoragesResult(
 		"storages": make([]map[string]interface{}, 0, len(response.Storages)),
 	}
 
+	// 遍历块存储列表，构造每个块存储的详细信息
 	for _, storage := range response.Storages {
 		capacityGB := float64(storage.Capacity) / 1024
 		usedCapacityGB := float64(storage.UsedCapacity) / 1024
@@ -250,11 +320,12 @@ func (c *CloudpodsStoragesTool) formatStoragesResult(
 		formatted["storages"] = append(formatted["storages"].([]map[string]interface{}), storageInfo)
 	}
 
+	// 构造摘要信息
 	formatted["summary"] = map[string]interface{}{
-		"total_storages": response.Total,
-		"returned_count": len(response.Storages),
-		"has_more":       response.Total > int64(offset+len(response.Storages)),
-		"next_offset":    offset + len(response.Storages),
+		"total_storages": response.Total, // 总存储数量
+		"returned_count": len(response.Storages), // 当前返回的存储数量
+		"has_more":       response.Total > int64(offset+len(response.Storages)), // 是否还有更多数据
+		"next_offset":    offset + len(response.Storages), // 下一页的偏移量
 	}
 
 	return formatted

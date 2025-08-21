@@ -1,0 +1,25 @@
+# ==================== 服务器基础配置 ====================
+server:
+  host: localhost       # 服务器监听地址（默认：localhost）
+  port: 8080            # 服务器监听端口（默认：8080）
+
+
+# ==================== MCP 服务配置 ====================
+mcp:
+  name: cloudpods-mcp-server    # MCP 服务名称（默认：cloudpods-mcp-server）
+  version: 1.0.0                # MCP 服务版本（默认：1.0.0）
+  description: the mcp server of the cloudpods server  # MCP 服务描述（默认）
+
+
+# ==================== 外部服务配置 ====================
+external:
+  # cloudpods服务配置
+  cloudpods:
+    base_url: "https://api.cloudpods.com"  # Cloudpods API 基础地址（默认：https://api.cloudpods.com）
+    access_key: "your_cloudpods_access_key"      # Cloudpods API Key（如需要认证）
+    secret_key: "your_cloudpods_secret_key"# Cloudpods Secret Key（如需要认证）
+
+# ==================== 日志配置 ====================
+log:
+  level: info     # 日志输出级别（默认：info；可选：debug, warn, error, fatal, panic）
+  format: json    # 日志格式（默认：json；可选：text）

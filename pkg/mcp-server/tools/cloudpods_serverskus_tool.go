@@ -26,11 +26,22 @@ import (
 	"yunion.io/x/onecloud/pkg/mcp-server/models"
 )
 
+// CloudpodsServerSkusTool 用于查询Cloudpods主机套餐规格列表的工具
 type CloudpodsServerSkusTool struct {
+	// adapter 用于与Cloudpods API进行交互
 	adapter *adapters.CloudpodsAdapter
+	// logger 用于记录日志
 	logger  *logrus.Logger
 }
 
+// NewCloudpodsServerSkusTool 创建一个新的CloudpodsServerSkusTool实例
+// 
+// 参数:
+//   - adapter: 用于与Cloudpods API交互的适配器
+//   - logger: 用于记录日志的logger实例
+// 
+// 返回值:
+//   - *CloudpodsServerSkusTool: CloudpodsServerSkusTool实例指针
 func NewCloudpodsServerSkusTool(adapter *adapters.CloudpodsAdapter, logger *logrus.Logger) *CloudpodsServerSkusTool {
 	return &CloudpodsServerSkusTool{
 		adapter: adapter,
@@ -38,6 +49,23 @@ func NewCloudpodsServerSkusTool(adapter *adapters.CloudpodsAdapter, logger *logr
 	}
 }
 
+// GetTool 定义并返回查询主机套餐规格列表工具的元数据
+// 
+// 工具用途:
+//   查询Cloudpods主机套餐规格列表，获取虚拟机规格信息
+// 
+// 参数说明:
+//   - limit: 返回结果数量限制，默认为20
+//   - offset: 返回结果偏移量，默认为0
+//   - search: 搜索关键词，可以按规格名称搜索
+//   - cloudregion_ids: 云区域ID，多个用逗号分隔
+//   - zone_ids: 可用区ID，多个用逗号分隔
+//   - cpu_core_count: CPU核心数，多个用逗号分隔，如：1,2,4,8
+//   - memory_size_mb: 内存大小MB，多个用逗号分隔，如：1024,2048,4096
+//   - providers: 云平台提供商，多个用逗号分隔，如：OneCloud,Aliyun,Huawei
+//   - cpu_arch: CPU架构，多个用逗号分隔，如：x86,arm
+//   - ak: 用户登录cloudpods后获取的access key
+//   - sk: 用户登录cloudpods后获取的secret key
 func (c *CloudpodsServerSkusTool) GetTool() mcp.Tool {
 	return mcp.NewTool(
 		"cloudpods_list_serverskus",
@@ -56,7 +84,17 @@ func (c *CloudpodsServerSkusTool) GetTool() mcp.Tool {
 	)
 }
 
+// Handle 处理查询主机套餐规格列表的请求
+// 
+// 参数:
+//   - ctx: 控制生命周期的上下文
+//   - req: 包含查询参数的请求对象
+// 
+// 返回值:
+//   - *mcp.CallToolResult: 包含主机套餐规格列表的响应对象
+//   - error: 可能的错误信息
 func (c *CloudpodsServerSkusTool) Handle(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	// 获取可选参数：返回结果数量限制，如果指定则转换为整数
 	limit := 20
 	if limitStr := req.GetString("limit", ""); limitStr != "" {
 		if parsedLimit, err := strconv.Atoi(limitStr); err == nil && parsedLimit > 0 {
@@ -64,6 +102,7 @@ func (c *CloudpodsServerSkusTool) Handle(ctx context.Context, req mcp.CallToolRe
 		}
 	}
 
+	// 获取可选参数：结果偏移量，如果指定则转换为整数
 	offset := 0
 	if offsetStr := req.GetString("offset", ""); offsetStr != "" {
 		if parsedOffset, err := strconv.Atoi(offsetStr); err == nil && parsedOffset >= 0 {
@@ -71,8 +110,10 @@ func (c *CloudpodsServerSkusTool) Handle(ctx context.Context, req mcp.CallToolRe
 		}
 	}
 
+	// 获取可选参数：搜索关键词
 	search := req.GetString("search", "")
 
+	// 获取可选参数：云区域ID列表
 	var cloudregionIds []string
 	if cloudregionIdsStr := req.GetString("cloudregion_ids", ""); cloudregionIdsStr != "" {
 		cloudregionIds = strings.Split(cloudregionIdsStr, ",")
@@ -81,6 +122,7 @@ func (c *CloudpodsServerSkusTool) Handle(ctx context.Context, req mcp.CallToolRe
 		}
 	}
 
+	// 获取可选参数：可用区ID列表
 	var zoneIds []string
 	if zoneIdsStr := req.GetString("zone_ids", ""); zoneIdsStr != "" {
 		zoneIds = strings.Split(zoneIdsStr, ",")
@@ -89,6 +131,7 @@ func (c *CloudpodsServerSkusTool) Handle(ctx context.Context, req mcp.CallToolRe
 		}
 	}
 
+	// 获取可选参数：CPU核心数列表
 	var cpuCoreCount []string
 	if cpuCoreCountStr := req.GetString("cpu_core_count", ""); cpuCoreCountStr != "" {
 		cpuCoreCount = strings.Split(cpuCoreCountStr, ",")
@@ -97,6 +140,7 @@ func (c *CloudpodsServerSkusTool) Handle(ctx context.Context, req mcp.CallToolRe
 		}
 	}
 
+	// 获取可选参数：内存大小列表（MB）
 	var memorySizeMB []string
 	if memorySizeMBStr := req.GetString("memory_size_mb", ""); memorySizeMBStr != "" {
 		memorySizeMB = strings.Split(memorySizeMBStr, ",")
@@ -105,6 +149,7 @@ func (c *CloudpodsServerSkusTool) Handle(ctx context.Context, req mcp.CallToolRe
 		}
 	}
 
+	// 获取可选参数：云平台提供商列表
 	var providers []string
 	if providersStr := req.GetString("providers", ""); providersStr != "" {
 		providers = strings.Split(providersStr, ",")
@@ -113,6 +158,7 @@ func (c *CloudpodsServerSkusTool) Handle(ctx context.Context, req mcp.CallToolRe
 		}
 	}
 
+	// 获取可选参数：CPU架构列表
 	var cpuArch []string
 	if cpuArchStr := req.GetString("cpu_arch", ""); cpuArchStr != "" {
 		cpuArch = strings.Split(cpuArchStr, ",")
@@ -136,14 +182,17 @@ func (c *CloudpodsServerSkusTool) Handle(ctx context.Context, req mcp.CallToolRe
 	ak := req.GetString("ak", "")
 	sk := req.GetString("sk", "")
 
+	// 调用适配器查询主机套餐规格列表
 	skusResponse, err := c.adapter.ListServerSkus(limit, offset, search, cloudregionIds, zoneIds, cpuCoreCount, memorySizeMB, providers, cpuArch, ak, sk)
 	if err != nil {
 		c.logger.WithError(err).Error("查询主机套餐规格列表失败")
 		return nil, fmt.Errorf("查询主机套餐规格列表失败: %w", err)
 	}
 
+	// 格式化查询结果
 	formattedResult := c.formatServerSkusResult(skusResponse, limit, offset, search, cloudregionIds, zoneIds, cpuCoreCount, memorySizeMB, providers, cpuArch)
 
+	// 将结果序列化为JSON格式
 	resultJSON, err := json.MarshalIndent(formattedResult, "", "  ")
 	if err != nil {
 		c.logger.WithError(err).Error("序列化结果失败")
@@ -153,16 +202,37 @@ func (c *CloudpodsServerSkusTool) Handle(ctx context.Context, req mcp.CallToolRe
 	return mcp.NewToolResultText(string(resultJSON)), nil
 }
 
+// GetName 返回工具的名称标识符
+// 
+// 返回值:
+//   - string: 工具名称字符串，用于唯一标识该工具
 func (c *CloudpodsServerSkusTool) GetName() string {
 	return "cloudpods_list_serverskus"
 }
 
+// formatServerSkusResult 格式化主机套餐规格列表的响应结果
+// 
+// 参数:
+//   - response: 原始主机套餐规格列表响应数据
+//   - limit: 查询限制数量
+//   - offset: 查询偏移量
+//   - search: 搜索关键词
+//   - cloudregionIds: 云区域ID列表
+//   - zoneIds: 可用区ID列表
+//   - cpuCoreCount: CPU核心数列表
+//   - memorySizeMB: 内存大小列表（MB）
+//   - providers: 云平台提供商列表
+//   - cpuArch: CPU架构列表
+// 
+// 返回值:
+//   - map[string]interface{}: 包含主机套餐规格列表的格式化结果
 func (c *CloudpodsServerSkusTool) formatServerSkusResult(
 	response *models.ServerSkuListResponse,
 	limit, offset int,
 	search string,
 	cloudregionIds, zoneIds, cpuCoreCount, memorySizeMB, providers, cpuArch []string,
 ) map[string]interface{} {
+	// 初始化格式化结果结构
 	formatted := map[string]interface{}{
 		"query_info": map[string]interface{}{
 			"limit":           limit,
@@ -180,6 +250,7 @@ func (c *CloudpodsServerSkusTool) formatServerSkusResult(
 		"serverskus": make([]map[string]interface{}, 0, len(response.Serverskus)),
 	}
 
+	// 遍历主机套餐列表，构造每个主机套餐的详细信息
 	for _, sku := range response.Serverskus {
 		skuInfo := map[string]interface{}{
 			"id":                     sku.Id,
@@ -239,6 +310,7 @@ func (c *CloudpodsServerSkusTool) formatServerSkusResult(
 		formatted["serverskus"] = append(formatted["serverskus"].([]map[string]interface{}), skuInfo)
 	}
 
+	// 构造摘要信息
 	formatted["summary"] = map[string]interface{}{
 		"total_serverskus": response.Total,
 		"returned_count":   len(response.Serverskus),
