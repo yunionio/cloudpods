@@ -52,6 +52,8 @@ type SchedOptions struct {
 	ExpireQueueMaxLength          int    `help:"Expire queue max length" default:"1000"`
 	ExpireQueueDealLength         int    `help:"Expire queue deal length" default:"100"`
 
+	ExpireSessionUsageTimeout int `help:"Expire Session usage timeout second" default:"60"`
+
 	// completed queue options
 	CompletedQueueConsumptionPeriod  string `help:"Completed queue consumption period" default:"30s"`
 	CompletedQueueConsumptionTimeout string `help:"Completed queue consumption timeout" default:"30s"`
