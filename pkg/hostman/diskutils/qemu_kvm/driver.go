@@ -380,6 +380,10 @@ func (d *QemuKvmDriver) DetectIsUEFISupport(rootfs fsdriver.IRootFsDriver) bool 
 	return false
 }
 
+func (d *QemuKvmDriver) DetectIsBIOSSupport(rootfs fsdriver.IRootFsDriver) bool {
+	return false
+}
+
 func (d *QemuKvmDriver) MountRootfs(readonly bool) (fsdriver.IRootFsDriver, error) {
 	return nil, nil
 }
