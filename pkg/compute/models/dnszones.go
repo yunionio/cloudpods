@@ -74,7 +74,7 @@ type SDnsZone struct {
 	OriginalNameServers *api.SNameServers `width:"256" charset:"utf8" nullable:"true" list:"user" create:"optional"`
 
 	ZoneType    string `width:"32" charset:"ascii" nullable:"false" list:"domain" create:"domain_required"`
-	Registrar   string `width:"32" charset:"ascii" nullable:"true" list:"domain" create:"domain_optional"`
+	Registrar   string `width:"32" charset:"utf8" nullable:"true" list:"domain" create:"domain_optional"`
 	ProductType string `width:"32" charset:"ascii" nullable:"false" list:"domain" create:"domain_optional"`
 }
 
