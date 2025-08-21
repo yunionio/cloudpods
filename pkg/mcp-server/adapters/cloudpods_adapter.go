@@ -26,8 +26,8 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/image"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/monitor"
-	"yunion.io/x/onecloud/pkg/mcp-server/internal/config"
-	"yunion.io/x/onecloud/pkg/mcp-server/internal/models"
+	"yunion.io/x/onecloud/pkg/mcp-server/config"
+	"yunion.io/x/onecloud/pkg/mcp-server/models"
 )
 
 type CloudpodsAdapter struct {

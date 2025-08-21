@@ -19,8 +19,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
-	"yunion.io/x/onecloud/pkg/mcp-server/internal/adapters"
-	models "yunion.io/x/onecloud/pkg/mcp-server/internal/models"
+	"yunion.io/x/onecloud/pkg/mcp-server/adapters"
+	"yunion.io/x/onecloud/pkg/mcp-server/models"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/sirupsen/logrus"

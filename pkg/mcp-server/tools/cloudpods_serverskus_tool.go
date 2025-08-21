@@ -22,8 +22,8 @@ import (
 	"github.com/sirupsen/logrus"
 	"strconv"
 	"strings"
-	"yunion.io/x/onecloud/pkg/mcp-server/internal/adapters"
-	"yunion.io/x/onecloud/pkg/mcp-server/internal/models"
+	"yunion.io/x/onecloud/pkg/mcp-server/adapters"
+	"yunion.io/x/onecloud/pkg/mcp-server/models"
 )
 
 type CloudpodsServerSkusTool struct {
