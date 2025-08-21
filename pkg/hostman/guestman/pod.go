@@ -2430,7 +2430,10 @@ func (s *sPodGuestInstance) tarGzDir(input *hostapi.ContainerSaveVolumeMountToIm
 	outputFp := filepath.Join(s.GetVolumesDir(), fp)
 	dirPath := "."
 	if len(input.VolumeMountDirs) != 0 {
-		dirPath = strings.Join(input.VolumeMountDirs, " ")
+		dirPath = ""
+		for _, vd := range input.VolumeMountDirs {
+			dirPath = fmt.Sprintf("%s '%s'", dirPath, vd)
+		}
 	}
 
 	// 计算总字节数，兼容多个目录/文件
