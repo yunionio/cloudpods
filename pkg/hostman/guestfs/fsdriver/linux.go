@@ -752,27 +752,26 @@ func (l *sLinuxRootFs) DetectIsUEFISupport(part IDiskPartition) bool {
 	// ref: https://wiki.archlinux.org/title/EFI_system_partition#Check_for_an_existing_partition
 	// To confirm this is the ESP, mount it and check whether it contains a directory named EFI,
 	// if it does this is definitely the ESP.
-	efiDir := "/EFI"
-	exits := part.Exists(efiDir, false)
-	if !exits {
-		return false
-	}
-
 	hasEFIFirmware := false
 
-	l.dirWalk(part, efiDir, func(path string, isDir bool) bool {
-		if isDir {
+	for _, efiDir := range []string{"/EFI", "/efi"} {
+		if !part.Exists(efiDir, false) {
+			continue
+		}
+		l.dirWalk(part, efiDir, func(path string, isDir bool) bool {
+			if isDir {
+				return false
+			}
+			// check file is UEFI firmware
+			if strings.HasSuffix(path, ".efi") {
+				log.Infof("EFI firmware %s found", path)
+				hasEFIFirmware = true
+				return true
+			}
+			// continue walk
 			return false
-		}
-		// check file is UEFI firmware
-		if strings.HasSuffix(path, ".efi") {
-			log.Infof("EFI firmware %s found", path)
-			hasEFIFirmware = true
-			return true
-		}
-		// continue walk
-		return false
-	})
+		})
+	}
 
 	return hasEFIFirmware
 }

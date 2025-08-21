@@ -62,6 +62,7 @@ const (
 	IMAGE_OS_VERSION           = "os_version"
 	IMAGE_DISK_FORMAT          = "disk_format"
 	IMAGE_UEFI_SUPPORT         = "uefi_support"
+	IMAGE_BIOS_SUPPORT         = "bios_support"
 	IMAGE_IS_LVM_PARTITION     = "is_lvm_partition"
 	IMAGE_IS_READONLY          = "is_readonly"
 	IMAGE_PARTITION_TYPE       = "partition_type"
