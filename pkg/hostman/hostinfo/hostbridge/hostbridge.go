@@ -403,6 +403,16 @@ func (d *SBaseBridgeDriver) SetupAddresses(mask net.IPMask) error {
 	}
 	if d.inter != nil {
 		ifname := d.inter.String()
+		{
+			// if the interface is managed by NetworkManager, we need to unmanage it
+			// ignore error if nmcli is not present or NetworkManger is not running
+			args := []string{"nmcli", "device", "set", ifname, "managed", "no"}
+			nmcli := procutils.NewRemoteCommandAsFarAsPossible("nmcli", args...)
+			output, err := nmcli.Output()
+			if err != nil {
+				log.Warningf("try to unmanage interface %s failed: %s(%s)", ifname, err, output)
+			}
+		}
 		if err := iproute2.NewAddress(ifname).Exact().Err(); err != nil {
 			return errors.Wrapf(err, "remove addresses on slave ifname: %s", ifname)
 		}
