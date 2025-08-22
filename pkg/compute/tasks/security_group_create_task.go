@@ -53,7 +53,7 @@ func (self *SecurityGroupCreateTask) OnInit(ctx context.Context, obj db.IStandal
 	}
 
 	rules := api.SSecgroupRuleResourceSet{}
-	self.GetParams().Unmarshal(&rules)
+	self.GetParams().Unmarshal(&rules, "rules")
 
 	driver := region.GetDriver()
 	err = driver.RequestCreateSecurityGroup(ctx, self.GetUserCred(), secgroup, rules)
