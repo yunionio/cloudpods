@@ -882,47 +882,45 @@ func (manager *SCachedimageManager) ListItemFilter(
 	}
 
 	{
-		var idFilter bool
-		storagecachedImages := StoragecachedimageManager.Query("cachedimage_id").Equals("status", api.CACHED_IMAGE_STATUS_ACTIVE).SubQuery()
-		storageCaches := StoragecacheManager.Query().SubQuery()
+		storagecachedImages := StoragecachedimageManager.Query("cachedimage_id").Equals("status", api.CACHED_IMAGE_STATUS_ACTIVE) // .SubQuery()
+		storagecachedImages = storagecachedImages.Snapshot()
 
-		storagesQ := StorageManager.Query()
+		storagesQ := StorageManager.Query("storagecache_id")
+		storagesQ = storagesQ.Snapshot()
 		if query.Valid {
-			idFilter = true
 			storagesQ = storagesQ.In("status", []string{api.STORAGE_ENABLED, api.STORAGE_ONLINE}).IsTrue("enabled")
 		}
 		if len(query.CloudproviderId) > 0 {
-			idFilter = true
 			storagesQ = storagesQ.In("manager_id", query.CloudproviderId)
 		}
-		storages := storagesQ.SubQuery()
-		zonesQ := ZoneManager.Query()
+		if len(query.HostSchedtagId) > 0 {
+			hostschedtags := HostschedtagManager.Query("host_id").Equals("schedtag_id", query.HostSchedtagId)
+			hoststorages := HoststorageManager.Query("storage_id").In("host_id", hostschedtags.Distinct().SubQuery())
+			storagesQ = storagesQ.In("id", hoststorages.Distinct().SubQuery())
+		}
+
+		zonesQ := ZoneManager.Query("id")
+		zonesQ = zonesQ.Snapshot()
 		if len(query.ZoneId) > 0 {
-			idFilter = true
 			zonesQ = zonesQ.Equals("id", query.ZoneId)
 		}
 		if len(query.CloudregionId) > 0 {
-			idFilter = true
 			zonesQ = zonesQ.In("cloudregion_id", query.CloudregionId)
 		}
-		zones := zonesQ.SubQuery()
-
-		subq := storagecachedImages.Query(storagecachedImages.Field("cachedimage_id"))
-		subq = subq.Join(storageCaches, sqlchemy.Equals(storagecachedImages.Field("storagecache_id"), storageCaches.Field("id")))
-		subq = subq.Join(storages, sqlchemy.Equals(storageCaches.Field("id"), storages.Field("storagecache_id")))
-		subq = subq.Join(zones, sqlchemy.Equals(storages.Field("zone_id"), zones.Field("id")))
-
-		if len(query.HostSchedtagId) > 0 {
-			idFilter = true
-			hoststorages := HoststorageManager.Query("host_id", "storage_id").SubQuery()
-			hostschedtags := HostschedtagManager.Query().Equals("schedtag_id", query.HostSchedtagId).SubQuery()
-			subq = subq.Join(hoststorages, sqlchemy.Equals(hoststorages.Field("storage_id"), storages.Field("id")))
-			subq = subq.Join(hostschedtags, sqlchemy.Equals(hostschedtags.Field("host_id"), hoststorages.Field("host_id")))
+		if zonesQ.IsAltered() {
+			storagesQ = storagesQ.Filter(
+				sqlchemy.In(storagesQ.Field("zone_id"), zonesQ.Distinct().SubQuery()),
+			)
 		}
 
-		if idFilter {
-			subQ := subq.Distinct().SubQuery()
-			q = q.Join(subQ, sqlchemy.Equals(q.Field("id"), subQ.Field("cachedimage_id")))
+		if storagesQ.IsAltered() {
+			storagecachedImages = storagecachedImages.Filter(
+				sqlchemy.In(storagecachedImages.Field("storagecache_id"), storagesQ.Distinct().SubQuery()),
+			)
+		}
+
+		if storagecachedImages.IsAltered() {
+			q = q.In("id", storagecachedImages.Distinct().SubQuery())
 		}
 	}
 
