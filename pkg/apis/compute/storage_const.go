@@ -196,6 +196,8 @@ var (
 
 	// supported shared storage types
 	SHARED_STORAGE = []string{STORAGE_NFS, STORAGE_GPFS, STORAGE_RBD, STORAGE_CLVM, STORAGE_SLVM}
+
+	SUPPORTED_FS = []string{"swap", "ext2", "ext3", "ext4", "xfs", "f2fs"}
 )
 
 func IsDiskTypeMatch(t1, t2 string) bool {

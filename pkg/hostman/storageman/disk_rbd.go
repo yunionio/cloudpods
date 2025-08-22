@@ -227,7 +227,7 @@ func (d *SRBDDisk) CreateRaw(ctx context.Context, sizeMb int, diskFormat string,
 	diskInfo := &deployapi.DiskInfo{
 		Path: d.GetPath(),
 	}
-	if utils.IsInStringArray(fsFormat, []string{"swap", "ext2", "ext3", "ext4", "xfs"}) {
+	if utils.IsInStringArray(fsFormat, api.SUPPORTED_FS) {
 		d.FormatFs(fsFormat, nil, diskId, diskInfo)
 	}
 
