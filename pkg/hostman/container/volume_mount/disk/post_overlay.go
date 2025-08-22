@@ -26,8 +26,10 @@ import (
 )
 
 const (
-	POST_OVERLAY_PREFIX_WORK_DIR  = "_post_overlay_work_"
-	POST_OVERLAY_PREFIX_UPPER_DIR = "_post_overlay_upper_"
+	POST_OVERLAY_PREFIX_LOWER_DIR  = "_post_overlay_lower_"
+	POST_OVERLAY_PREFIX_WORK_DIR   = "_post_overlay_work_"
+	POST_OVERLAY_PREFIX_UPPER_DIR  = "_post_overlay_upper_"
+	POST_OVERLAY_PREFIX_MERGED_DIR = "_post_overlay_merged_"
 )
 
 func (d disk) MountPostOverlays(pod volume_mount.IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount, ovs []*apis.ContainerVolumeMountDiskPostOverlay) error {
@@ -128,7 +130,7 @@ func (d diskPostOverlay) getPostOverlayDirWithPrefix(
 	workDir := filepath.Join(rootPath, ov.ContainerTargetDir)
 	if ensure {
 		if err := volume_mount.EnsureDir(workDir); err != nil {
-			return "", errors.Wrapf(err, "make %s", workDir)
+			return "", errors.Wrapf(err, "makeDir %s", workDir)
 		}
 	}
 	return workDir, nil
@@ -152,7 +154,20 @@ func (d diskPostOverlay) getPostOverlayUpperDir(
 	return d.getPostOverlayDirWithPrefix(POST_OVERLAY_PREFIX_UPPER_DIR, pod, ctrId, vm, ov, ensure)
 }
 
-func (d diskPostOverlay) getPostOverlayMountpoint(pod volume_mount.IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount, ov *apis.ContainerVolumeMountDiskPostOverlay) (string, error) {
+func (d diskPostOverlay) getPostOverlayLowerDir(
+	pod volume_mount.IPodInfo, ctrId string,
+	vm *hostapi.ContainerVolumeMount,
+	ov *apis.ContainerVolumeMountDiskPostOverlay,
+	ensure bool,
+) (string, error) {
+	return d.getPostOverlayDirWithPrefix(POST_OVERLAY_PREFIX_LOWER_DIR, pod, ctrId, vm, ov, ensure)
+}
+
+func (d diskPostOverlay) getPostOverlayMergedDir(pod volume_mount.IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount, ov *apis.ContainerVolumeMountDiskPostOverlay, ensure bool) (string, error) {
+	return d.getPostOverlayDirWithPrefix(POST_OVERLAY_PREFIX_MERGED_DIR, pod, ctrId, vm, ov, ensure)
+}
+
+func (d diskPostOverlay) getPostOverlayMountpoint(pod volume_mount.IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount, ov *apis.ContainerVolumeMountDiskPostOverlay, ensure bool) (string, error) {
 	ctrMountHostPath, err := d.disk.GetRuntimeMountHostPath(pod, ctrId, vm)
 	if err != nil {
 		return "", errors.Wrap(err, "get runtime mount host_path")
@@ -160,8 +175,10 @@ func (d diskPostOverlay) getPostOverlayMountpoint(pod volume_mount.IPodInfo, ctr
 	// remove hostPath sub_directory path
 	ctrMountHostPath = strings.TrimSuffix(ctrMountHostPath, vm.Disk.SubDirectory)
 	mergedDir := filepath.Join(ctrMountHostPath, ov.ContainerTargetDir)
-	if err := volume_mount.EnsureDir(mergedDir); err != nil {
-		return "", errors.Wrap(err, "make merged mountpoint dir")
+	if ensure {
+		if err := volume_mount.EnsureDir(mergedDir); err != nil {
+			return "", errors.Wrap(err, "make merged mountpoint dir")
+		}
 	}
 	return mergedDir, nil
 }
