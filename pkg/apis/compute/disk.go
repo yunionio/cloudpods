@@ -359,6 +359,7 @@ type DiskRebuildInput struct {
 	BackupId   *string `json:"backup_id,allowempty"`
 	TemplateId *string `json:"template_id,allowempty"`
 	Size       *string `json:"size,allowempty"`
+	Fs         *string `json:"fs,allowempty"`
 }
 
 type DiskFsExt4Features struct {
