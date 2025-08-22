@@ -1,7 +1,7 @@
 # ==================== 服务器基础配置 ====================
 server:
   host: localhost       # 服务器监听地址（默认：localhost）
-  port: 8080            # 服务器监听端口（默认：8080）
+  port: 12001            # 服务器监听端口
 
 
 # ==================== MCP 服务配置 ====================
@@ -15,9 +15,7 @@ mcp:
 external:
   # cloudpods服务配置
   cloudpods:
-    base_url: "https://api.cloudpods.com"  # Cloudpods API 基础地址（默认：https://api.cloudpods.com）
-    access_key: "your_cloudpods_access_key"      # Cloudpods API Key（如需要认证）
-    secret_key: "your_cloudpods_secret_key"# Cloudpods Secret Key（如需要认证）
+    base_url: "https://<ip_or_domain_of_apigatway>/api/s/identity/v3"  # 认证服务入口
 
 # ==================== 日志配置 ====================
 log:

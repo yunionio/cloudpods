@@ -59,22 +59,31 @@ type LogConfig struct {
 	Format string `mapstructure:"format"`
 }
 
-func Load() (*Config, error) {
+func Load(configPath string) (*Config, error) {
 	v := viper.New()
-	v.SetConfigName("config")   // 主配置文件名（无扩展名）
-	v.SetConfigType("yaml")     // 显式指定 YAML 格式
-	v.AddConfigPath("./config") // 配置文件路径（当前目录下的 conf 目录）
-	v.AddConfigPath(".")        // 备用路径：当前目录
+	v.SetConfigType("properties") // 显式指定 properties 格式
+
+	// 如果指定了配置文件路径，则使用该路径
+	if configPath != "" {
+		v.SetConfigFile(configPath)
+	} else {
+		// 否则使用默认路径
+		v.SetConfigName("config")                 // 主配置文件名（无扩展名）
+		v.AddConfigPath("/etc/yunion/mcp-server") // 系统配置文件路径
+		v.AddConfigPath("./config")               // 配置文件路径（当前目录下的 conf 目录）
+		v.AddConfigPath(".")                      // 备用路径：当前目录
+	}
+
 	v.AutomaticEnv()
 
 	v.SetDefault("server.host", "localhost")
-	v.SetDefault("server.port", 8080)
+	v.SetDefault("server.port", 12001)
 	v.SetDefault("mcp.name", "cloudpods-mcp-server")
 	v.SetDefault("mcp.version", "1.0.0")
 	v.SetDefault("mcp.description", "the mcp server of the cloudpods server")
 	v.SetDefault("log.level", "info")
 	v.SetDefault("log.format", "json")
-	v.SetDefault("external.cloudpods.base_url", "https://api.cloudpods.com")
+	v.SetDefault("external.cloudpods.base_url", "https://<ip_or_domain_of_apigatway>/api/s/identity/v3")
 	v.SetDefault("external.cloudpods.timeout", 30)
 
 	if err := v.ReadInConfig(); err != nil {

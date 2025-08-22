@@ -22,7 +22,8 @@ import (
 )
 
 var (
-	logLevel = flag.String("log-level", "info", "日志级别 (debug, info, warn, error)")
+	logLevel   = flag.String("log-level", "info", "日志级别 (debug, info, warn, error)")
+	configPath = flag.String("conf", "", "配置文件路径")
 )
 
 func main() {
@@ -40,7 +41,7 @@ func main() {
 	})
 
 	// 加载配置
-	cfg, err := config.Load()
+	cfg, err := config.Load(*configPath)
 	if err != nil {
 		logger.WithError(err).Fatal("加载配置文件失败")
 	}
