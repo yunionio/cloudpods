@@ -2724,6 +2724,21 @@ func (guest *SGuest) PostCreate(ctx context.Context, userCred mcclient.TokenCred
 				if err := guest.SetKickstartStatus(ctx, api.KICKSTART_STATUS_PENDING, userCred); err != nil {
 					log.Errorf("Failed to set kickstart status for guest %s: %v", guest.Name, err)
 				}
+				
+				// Determine and set kickstart type based on config
+				var kickstartType string
+				if kickstartConfig.Config != "" {
+					kickstartType = api.KICKSTART_TYPE_CONTENT
+				} else if kickstartConfig.ConfigURL != "" {
+					kickstartType = api.KICKSTART_TYPE_URL
+				} else {
+					kickstartType = api.KICKSTART_TYPE_URL
+				}
+				
+				if err := guest.SetKickstartType(ctx, kickstartType, userCred); err != nil {
+					log.Errorf("Failed to set kickstart type for guest %s: %v", guest.Name, err)
+				}
+				
 				log.Infof("Successfully set kickstart config for guest %s with OS type %s", guest.Name, kickstartConfig.OSType)
 			}
 		}
@@ -7253,6 +7268,21 @@ func (guest *SGuest) GetKickstartStatus(ctx context.Context, userCred mcclient.T
 		return api.KICKSTART_STATUS_NORMAL
 	}
 	return status
+}
+
+func (guest *SGuest) SetKickstartType(ctx context.Context, kickstartType string, userCred mcclient.TokenCredential) error {
+	if !utils.IsInStringArray(kickstartType, api.KICKSTART_VALID_TYPES) {
+		return errors.Errorf("invalid kickstart type: %s", kickstartType)
+	}
+	return guest.SetMetadata(ctx, api.VM_METADATA_KICKSTART_TYPE, kickstartType, userCred)
+}
+
+func (guest *SGuest) GetKickstartType(ctx context.Context, userCred mcclient.TokenCredential) string {
+	kickstartType := guest.GetMetadata(ctx, api.VM_METADATA_KICKSTART_TYPE, userCred)
+	if kickstartType == "" {
+		return api.KICKSTART_TYPE_URL
+	}
+	return kickstartType
 }
 
 func (guest *SGuest) IsKickstartEnabled(ctx context.Context, userCred mcclient.TokenCredential) bool {

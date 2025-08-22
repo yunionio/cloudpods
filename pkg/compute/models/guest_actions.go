@@ -1448,6 +1448,8 @@ func (self *SGuest) GetDetailsKickstart(ctx context.Context, userCred mcclient.T
 		attempt = "0"
 	}
 
+	kickstartType := self.GetKickstartType(ctx, userCred)
+
 	if kickstartConfig != nil {
 		configDict := jsonutils.Marshal(kickstartConfig)
 		result.Set("config", configDict)
@@ -1457,6 +1459,7 @@ func (self *SGuest) GetDetailsKickstart(ctx context.Context, userCred mcclient.T
 
 	result.Set("status", jsonutils.NewString(status))
 	result.Set("attempt", jsonutils.NewString(attempt))
+	result.Set("type", jsonutils.NewString(kickstartType))
 
 	return result, nil
 }
@@ -6978,6 +6981,20 @@ func (self *SGuest) PerformSetKickstart(ctx context.Context, userCred mcclient.T
 
 	if err := self.SetKickstartStatus(ctx, api.KICKSTART_STATUS_PENDING, userCred); err != nil {
 		return nil, errors.Wrap(err, "set kickstart status")
+	}
+
+	// Determine and set kickstart type based on input
+	var kickstartType string
+	if input.Config != "" {
+		kickstartType = api.KICKSTART_TYPE_CONTENT
+	} else if input.ConfigURL != "" {
+		kickstartType = api.KICKSTART_TYPE_URL
+	} else {
+		kickstartType = api.KICKSTART_TYPE_URL // default
+	}
+	
+	if err := self.SetKickstartType(ctx, kickstartType, userCred); err != nil {
+		return nil, errors.Wrap(err, "set kickstart type")
 	}
 
 	if err := self.SetMetadata(ctx, api.VM_METADATA_KICKSTART_ATTEMPT, "0", userCred); err != nil {
