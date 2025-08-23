@@ -37,6 +37,7 @@ import (
 	_ "yunion.io/x/onecloud/pkg/compute/tasks/inter_vpc"
 	_ "yunion.io/x/onecloud/pkg/compute/tasks/kafka"
 	_ "yunion.io/x/onecloud/pkg/compute/tasks/kube"
+	_ "yunion.io/x/onecloud/pkg/compute/tasks/llm"
 	_ "yunion.io/x/onecloud/pkg/compute/tasks/loadbalancer"
 	_ "yunion.io/x/onecloud/pkg/compute/tasks/modelarts"
 	_ "yunion.io/x/onecloud/pkg/compute/tasks/mongodb"
