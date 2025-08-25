@@ -139,14 +139,19 @@ func (m *SKickstartSerialMonitor) scanSerialForStatus(lastSize *int64) error {
 
 		log.Debugf("Received serial message for server %s: %s", m.serverId, line)
 
-		if line == "KICKSTART_SUCCESS" || line == "KICKSTART_FAILED" {
+		if line == "KICKSTART_INSTALLING" || line == "KICKSTART_SUCCESS" || line == "KICKSTART_FAILED" {
 			log.Infof("Kickstart status update for server %s: %s", m.serverId, line)
 
 			// TODO: logic should vary based on the status
 			var status string
+			var shouldClose bool = false
 			switch line {
+			case "KICKSTART_INSTALLING":
+				status = api.KICKSTART_STATUS_INSTALLING
+				shouldClose = false
 			case "KICKSTART_SUCCESS":
 				status = api.KICKSTART_STATUS_COMPLETED
+				shouldClose = true
 				// Unmount ISO and restart VM if kickstart install successfully
 				if err := m.handleKickstartSuccess(); err != nil {
 					log.Errorf("Failed to handle kickstart success for server %s: %v", m.serverId, err)
@@ -154,14 +159,17 @@ func (m *SKickstartSerialMonitor) scanSerialForStatus(lastSize *int64) error {
 			case "KICKSTART_FAILED":
 				// TODO: auto retry or alert and stop
 				status = api.KICKSTART_STATUS_FAILED
+				shouldClose = true
 			}
 
 			if err := m.updateKickstartStatus(status); err != nil {
 				log.Errorf("Failed to update kickstart status for server %s: %v", m.serverId, err)
 			} else {
 				log.Infof("Kickstart status for server %s updated to %s", m.serverId, status)
-				m.Close()
-				return nil
+				if shouldClose {
+					m.Close()
+					return nil
+				}
 			}
 		}
 	}
