@@ -1205,9 +1205,11 @@ type ServerQgaGuestInfoTaskInput struct {
 
 type ServerQgaSetNetworkInput struct {
 	ServerQgaTimeoutInput
-	Device  string
-	Ipmask  string
-	Gateway string
+	Device   string
+	Ipmask   string
+	Gateway  string
+	Ip6mask  string
+	Gateway6 string
 }
 
 type ServerQgaGetNetworkInput struct {
