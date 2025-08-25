@@ -11,7 +11,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"gopkg.in/asn1-ber.v1"
+	ber "github.com/go-asn1-ber/asn1-ber"
 )
 
 const (
@@ -112,8 +112,63 @@ var _ Client = &Conn{}
 // multiple places will probably result in undesired behaviour.
 var DefaultTimeout = 60 * time.Second
 
+// DialOpt configures DialContext.
+type DialOpt func(*DialContext)
+
+// DialWithDialer updates net.Dialer in DialContext.
+func DialWithDialer(d *net.Dialer) DialOpt {
+	return func(dc *DialContext) {
+		dc.d = d
+	}
+}
+
+// DialWithTLSConfig updates tls.Config in DialContext.
+func DialWithTLSConfig(tc *tls.Config) DialOpt {
+	return func(dc *DialContext) {
+		dc.tc = tc
+	}
+}
+
+// DialContext contains necessary parameters to dial the given ldap URL.
+type DialContext struct {
+	d  *net.Dialer
+	tc *tls.Config
+}
+
+func (dc *DialContext) dial(u *url.URL) (net.Conn, error) {
+	if u.Scheme == "ldapi" {
+		if u.Path == "" || u.Path == "/" {
+			u.Path = "/var/run/slapd/ldapi"
+		}
+		return dc.d.Dial("unix", u.Path)
+	}
+
+	host, port, err := net.SplitHostPort(u.Host)
+	if err != nil {
+		// we asume that error is due to missing port
+		host = u.Host
+		port = ""
+	}
+
+	switch u.Scheme {
+	case "ldap":
+		if port == "" {
+			port = DefaultLdapPort
+		}
+		return dc.d.Dial("tcp", net.JoinHostPort(host, port))
+	case "ldaps":
+		if port == "" {
+			port = DefaultLdapsPort
+		}
+		return tls.DialWithDialer(dc.d, "tcp", net.JoinHostPort(host, port), dc.tc)
+	}
+
+	return nil, fmt.Errorf("Unknown scheme '%s'", u.Scheme)
+}
+
 // Dial connects to the given address on the given network using net.Dial
 // and then returns a new Conn for the connection.
+// @deprecated Use DialURL instead.
 func Dial(network, addr string) (*Conn, error) {
 	c, err := net.DialTimeout(network, addr, DefaultTimeout)
 	if err != nil {
@@ -126,6 +181,7 @@ func Dial(network, addr string) (*Conn, error) {
 
 // DialTLS connects to the given address on the given network using tls.Dial
 // and then returns a new Conn for the connection.
+// @deprecated Use DialURL instead.
 func DialTLS(network, addr string, config *tls.Config) (*Conn, error) {
 	c, err := tls.DialWithDialer(&net.Dialer{Timeout: DefaultTimeout}, network, addr, config)
 	if err != nil {
@@ -136,40 +192,31 @@ func DialTLS(network, addr string, config *tls.Config) (*Conn, error) {
 	return conn, nil
 }
 
-// DialURL connects to the given ldap URL vie TCP using tls.Dial or net.Dial if ldaps://
-// or ldap:// specified as protocol. On success a new Conn for the connection
-// is returned.
-func DialURL(addr string) (*Conn, error) {
-
-	lurl, err := url.Parse(addr)
+// DialURL connects to the given ldap URL.
+// The following schemas are supported: ldap://, ldaps://, ldapi://.
+// On success a new Conn for the connection is returned.
+func DialURL(addr string, opts ...DialOpt) (*Conn, error) {
+	u, err := url.Parse(addr)
 	if err != nil {
 		return nil, NewError(ErrorNetwork, err)
 	}
 
-	host, port, err := net.SplitHostPort(lurl.Host)
+	var dc DialContext
+	for _, opt := range opts {
+		opt(&dc)
+	}
+	if dc.d == nil {
+		dc.d = &net.Dialer{Timeout: DefaultTimeout}
+	}
+
+	c, err := dc.dial(u)
 	if err != nil {
-		// we asume that error is due to missing port
-		host = lurl.Host
-		port = ""
+		return nil, NewError(ErrorNetwork, err)
 	}
 
-	switch lurl.Scheme {
-	case "ldap":
-		if port == "" {
-			port = DefaultLdapPort
-		}
-		return Dial("tcp", net.JoinHostPort(host, port))
-	case "ldaps":
-		if port == "" {
-			port = DefaultLdapsPort
-		}
-		tlsConf := &tls.Config{
-			ServerName: host,
-		}
-		return DialTLS("tcp", net.JoinHostPort(host, port), tlsConf)
-	}
-
-	return nil, NewError(ErrorNetwork, fmt.Errorf("Unknown scheme '%s'", lurl.Scheme))
+	conn := NewConn(c, u.Scheme == "ldaps")
+	conn.Start()
+	return conn, nil
 }
 
 // NewConn returns a new Conn using conn for network I/O.
@@ -187,9 +234,9 @@ func NewConn(conn net.Conn, isTLS bool) *Conn {
 
 // Start initializes goroutines to read responses and process messages
 func (l *Conn) Start() {
+	l.wgClose.Add(1)
 	go l.reader()
 	go l.processMessages()
-	l.wgClose.Add(1)
 }
 
 // IsClosing returns whether or not we're currently closing.
@@ -274,7 +321,7 @@ func (l *Conn) StartTLS(config *tls.Config) error {
 			l.Close()
 			return err
 		}
-		ber.PrintPacket(packet)
+		l.Debug.PrintPacket(packet)
 	}
 
 	if err := GetLDAPError(packet); err == nil {
@@ -447,7 +494,7 @@ func (l *Conn) processMessages() {
 					msgCtx.sendResponse(&PacketResponse{message.Packet, nil})
 				} else {
 					log.Printf("Received unexpected message %d, %v", message.MessageID, l.IsClosing())
-					ber.PrintPacket(message.Packet)
+					l.Debug.PrintPacket(message.Packet)
 				}
 			case MessageTimeout:
 				// Handle the timeout by closing the channel
@@ -490,11 +537,13 @@ func (l *Conn) reader() {
 			// A read error is expected here if we are closing the connection...
 			if !l.IsClosing() {
 				l.closeErr.Store(fmt.Errorf("unable to read LDAP response packet: %s", err))
-				l.Debug.Printf("reader error: %s", err.Error())
+				l.Debug.Printf("reader error: %s", err)
 			}
 			return
 		}
-		addLDAPDescriptions(packet)
+		if err := addLDAPDescriptions(packet); err != nil {
+			l.Debug.Printf("descriptions error: %s", err)
+		}
 		if len(packet.Children) == 0 {
 			l.Debug.Printf("Received bad ldap packet")
 			continue
