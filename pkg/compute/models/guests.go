@@ -2724,7 +2724,7 @@ func (guest *SGuest) PostCreate(ctx context.Context, userCred mcclient.TokenCred
 				if err := guest.SetKickstartStatus(ctx, api.KICKSTART_STATUS_PENDING, userCred); err != nil {
 					log.Errorf("Failed to set kickstart status for guest %s: %v", guest.Name, err)
 				}
-				
+
 				// Determine and set kickstart type based on config
 				var kickstartType string
 				if kickstartConfig.Config != "" {
@@ -2734,11 +2734,11 @@ func (guest *SGuest) PostCreate(ctx context.Context, userCred mcclient.TokenCred
 				} else {
 					kickstartType = api.KICKSTART_TYPE_URL
 				}
-				
+
 				if err := guest.SetKickstartType(ctx, kickstartType, userCred); err != nil {
 					log.Errorf("Failed to set kickstart type for guest %s: %v", guest.Name, err)
 				}
-				
+
 				log.Infof("Successfully set kickstart config for guest %s with OS type %s", guest.Name, kickstartConfig.OSType)
 			}
 		}
