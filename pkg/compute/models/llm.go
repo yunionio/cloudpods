@@ -16,16 +16,20 @@ package models
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/sets"
 	"yunion.io/x/pkg/util/stringutils"
 )
 
@@ -48,6 +52,23 @@ func init() {
 	LLMManager.SetAlias("llm", "llms")
 	LLMManager.NameRequireAscii = false
 	notifyclient.AddNotifyDBHookResources(LLMManager.KeywordPlural(), LLMManager.AliasPlural())
+}
+
+func (manager *SLLMManager) DeleteByContainerId(ctx context.Context, userCred mcclient.TokenCredential, ctrId string) error {
+	q := manager.Query().Equals("container_id", ctrId)
+	llms := make([]SLLM, 0)
+	if err := db.FetchModelObjects(manager, q, &llms); err != nil {
+		return errors.Wrap(err, "db.FetchModelObjects")
+	}
+
+	// log.Infoln("get in delete by container id", llms)
+
+	for _, llm := range llms {
+		if err := llm.RealDelete(ctx, userCred); nil != err {
+			return err
+		}
+	}
+	return nil
 }
 
 type SLLM struct {
@@ -75,6 +96,13 @@ func (llm *SLLM) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCre
 	params.Remove("model")
 	params.Set("__parent_task_id", jsonutils.NewString(task.GetId()))
 
+	// set enviroment OLLAMA_HOST=0.0.0.0:11434
+	// envs := []*apis.ContainerKeyValue{&apis.ContainerKeyValue{
+	// 	Key:   api.LLM_OLLAMA_EXPORT_ENV_KEY,
+	// 	Value: api.LLM_OLLAMA_EXPORT_ENV_VALUE,
+	// }}
+	// params.Set("envs", envs)
+
 	// use data to create a pod
 	handler := db.NewModelHandler(GuestManager)
 	server, err := handler.Create(ctx, jsonutils.NewDict(), params, nil)
@@ -91,44 +119,7 @@ func (llm *SLLM) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCre
 	return llm.SVirtualResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }
 
-func (llm *SLLM) llmFetchContainerById(ctrMngr *SContainerManager) (*SContainer, error) {
-	ctr := &SContainer{}
-	ctr.Id = llm.ContainerId
-	if err := ctrMngr.Query().First(ctr); err != nil {
-		return nil, errors.Wrap(err, "Query.First Container")
-	}
-	return ctr, nil
-}
-
-func (llm *SLLM) llmGetOllamaContainer(ctrMngr *SContainerManager) (*SContainer, error) {
-	ctrs, err := ctrMngr.GetContainersByPod(llm.GuestId)
-	if err != nil {
-		return nil, err
-	}
-	// found ollama
-	for _, ctr := range ctrs {
-		if strings.Contains(ctr.Spec.Image, "ollama") {
-			/* TODO: set and update ContainerId */
-			llm.ContainerId = ctr.GetId()
-			return &ctr, nil
-		}
-	}
-	return nil, errors.Wrapf(errors.ErrNotFound, "ollama container for guest %s not found", llm.GuestId)
-}
-
-func (llm *SLLM) GetContainer() (*SContainer, error) {
-	ctrMngr := GetContainerManager()
-	if llm.ContainerId == "" {
-		return llm.llmGetOllamaContainer(ctrMngr)
-	} else {
-		return llm.llmFetchContainerById(ctrMngr)
-	}
-}
-
-// func (manager *SLLMManager) OnCreateComplete(ctx context.Context, items []db.IModel, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data []jsonutils.JSONObject) {
-// }
-
-func (llm *SLLM) CheckModelExists(ctx context.Context, userCred mcclient.TokenCredential, ctr *SContainer, model string) (exists bool, err error) {
+func (llm *SLLM) CheckModelExists(ctx context.Context, userCred mcclient.TokenCredential, ctr *SContainer, model string) (bool, error) {
 	listInput := &api.ContainerExecSyncInput{
 		Command: []string{api.LLM_OLLAMA_EXEC_PATH, api.LLM_OLLAMA_LIST_ACTION},
 		Timeout: 0,
@@ -137,25 +128,24 @@ func (llm *SLLM) CheckModelExists(ctx context.Context, userCred mcclient.TokenCr
 	list, err := ctr.PerformExecSync(ctx, userCred, nil, listInput)
 	if nil != err {
 		errors.Wrap(err, "Ollama list")
-		return
+		return false, err
 	}
 
 	listResp := new(api.ContainerExecSyncResponse)
 	if err = list.Unmarshal(listResp); err != nil {
 		errors.Wrap(err, "Unmarshal list response")
-		return
+		return false, err
 	}
 
 	// Check if the model exists in the output
 	// ollama list output format: NAME  ID  SIZE  MODIFIED
-	lines := strings.Split(listResp.Stdout, "\n")
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if line == "" {
-			continue
-		}
-		fields := strings.Fields(line)
-		if len(fields) > 0 && fields[0] == model {
+	line := strings.TrimSpace(listResp.Stdout)
+
+	fields := strings.Fields(line)
+
+	for i := 4; i < len(fields); i += 4 {
+		// log.Infoln("check model list, fields:", fields[i], model)
+		if fields[i] == model {
 			return true, nil
 		}
 	}
@@ -163,18 +153,97 @@ func (llm *SLLM) CheckModelExists(ctx context.Context, userCred mcclient.TokenCr
 	return false, nil
 }
 
+func (llm *SLLM) PerformStart(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if !sets.NewString(api.CONTAINER_STATUS_EXITED, api.CONTAINER_STATUS_START_FAILED).Has(llm.Status) {
+		return nil, httperrors.NewInvalidStatusError("Can't start llm in status %s", llm.Status)
+	}
+	return nil, llm.StartStartTask(ctx, userCred, "")
+}
+
+func (llm *SLLM) StartStartTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
+	llm.SetStatus(ctx, userCred, api.CONTAINER_STATUS_STARTING, "")
+	task, err := taskman.TaskManager.NewTask(ctx, "LLMStartTask", llm, userCred, nil, parentTaskId, "", nil)
+	if err != nil {
+		return errors.Wrap(err, "NewTask")
+	}
+	return task.ScheduleRun(nil)
+}
+
+func (llm *SLLM) RunModel(ctx context.Context, userCred mcclient.TokenCredential) error {
+	return nil
+}
+
+func (llm *SLLM) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	return llm.SVirtualResourceBase.Delete(ctx, userCred)
+}
+
+func llmFetchContainerById(ctrMngr *SContainerManager, llm *SLLM) (*SContainer, error) {
+	ctr := &SContainer{}
+	if err := ctrMngr.Query().Equals("id", llm.ContainerId).First(ctr); err != nil {
+		return nil, errors.Wrap(err, "Query.First Container")
+	}
+	return ctr, nil
+}
+
+func llmGetOllamaContainer(ctrMngr *SContainerManager, llm *SLLM) (*SContainer, error) {
+	ctrs, err := ctrMngr.GetContainersByPod(llm.GuestId)
+	if err != nil {
+		return nil, err
+	}
+	// found ollama
+	for _, ctr := range ctrs {
+		if strings.Contains(ctr.Spec.Image, "ollama") {
+			// update ContainerId
+			llm.SetContainer(ctr.GetId())
+			return &ctr, nil
+		}
+	}
+	return nil, errors.Wrapf(errors.ErrNotFound, "ollama container for guest %s not found", llm.GuestId)
+}
+
+func (llm *SLLM) GetContainer() (*SContainer, error) {
+	ctrMngr := GetContainerManager()
+	// log.Infoln("get container", llm.ContainerId)
+	if llm.ContainerId == "default" {
+		return llmGetOllamaContainer(ctrMngr, llm)
+	} else {
+		return llmFetchContainerById(ctrMngr, llm)
+	}
+}
+
+func (llm *SLLM) SetContainer(ctrId string) error {
+
+	if _, err := db.Update(llm, func() error {
+		llm.ContainerId = ctrId
+		return nil
+	}); nil != err {
+		return errors.Wrapf(err, "update llm container with %s", ctrId)
+	}
+	// log.Infoln("update container id", ret.String())
+	return nil
+}
+
+// func (manager *SLLMManager) OnCreateComplete(ctx context.Context, items []db.IModel, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data []jsonutils.JSONObject) {
+// }
+
 func (llm *SLLM) PullModel(ctx context.Context, userCred mcclient.TokenCredential) error {
 	// get container
 	ctr, err := llm.GetContainer()
 	if nil != err {
 		return err
 	}
-	// init input
-	pullInput := &api.ContainerExecSyncInput{
-		Command: []string{api.LLM_OLLAMA_EXEC_PATH, api.LLM_OLLAMA_PULL_ACTION, llm.Model, "&"},
-		Timeout: 0,
-	}
 	// pull model
+	pullInput := &api.ContainerExecSyncInput{
+		Command: []string{
+			"/bin/sh", "-c",
+			fmt.Sprintf("nohup %s %s %s > /dev/null 2>&1 &",
+				api.LLM_OLLAMA_EXEC_PATH,
+				api.LLM_OLLAMA_PULL_ACTION,
+				llm.Model),
+		},
+		Timeout: 5,
+	}
+
 	_, err = ctr.PerformExecSync(ctx, userCred, nil, pullInput)
 	if nil != err {
 		return err
@@ -195,12 +264,15 @@ func (llm *SLLM) PullModel(ctx context.Context, userCred mcclient.TokenCredentia
 				return errors.Wrap(err, "CheckModelExists")
 			}
 			if exists {
+				log.Infoln("check model success", llm.Model)
 				return nil
 			}
 		}
 	}
 }
 
-// func (llm *SLLM) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-// 	llm.SVirtualResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
-// }
+func (llm *SLLM) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	llm.SVirtualResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
+	// set status to creating pod
+	llm.SetStatus(ctx, userCred, api.LLM_STATUS_CREATING_POD, "")
+}
