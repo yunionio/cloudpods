@@ -337,7 +337,46 @@ const (
 	VM_METADATA_RELEASED_DEVICES = "released_devices"
 
 	VM_METADATA_CPU_NUMA_PIN = "__cpu_numa_pin"
+
+	// Kickstart相关metadata常量
+	VM_METADATA_KICKSTART_CONFIG  = "kickstart_config"
+	VM_METADATA_KICKSTART_TYPE    = "kickstart_type"
+	VM_METADATA_KICKSTART_STATUS  = "kickstart_status"
+	VM_METADATA_KICKSTART_ATTEMPT = "kickstart_attempt"
 )
+
+const (
+	KICKSTART_STATUS_PENDING    = "pending"
+	KICKSTART_STATUS_INSTALLING = "installing"
+	KICKSTART_STATUS_COMPLETED  = "completed"
+	KICKSTART_STATUS_FAILED     = "failed"
+	KICKSTART_STATUS_NORMAL     = "normal"
+)
+
+const (
+	KICKSTART_TYPE_URL     = "url"
+	KICKSTART_TYPE_CONTENT = "content"
+)
+
+var KICKSTART_VALID_STATUSES = []string{
+	KICKSTART_STATUS_PENDING,
+	KICKSTART_STATUS_INSTALLING,
+	KICKSTART_STATUS_COMPLETED,
+	KICKSTART_STATUS_FAILED,
+	KICKSTART_STATUS_NORMAL,
+}
+
+var KICKSTART_VALID_TYPES = []string{
+	KICKSTART_TYPE_URL,
+	KICKSTART_TYPE_CONTENT,
+}
+
+var KICKSTART_VALID_OS_TYPES = []string{
+	"centos",
+	"rhel",
+	"fedora",
+	"ubuntu",
+}
 
 // windows allow a maximal length of 15
 // http://support.microsoft.com/kb/909264

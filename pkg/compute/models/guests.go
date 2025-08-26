@@ -19,7 +19,10 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"net/http"
+	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -2223,6 +2226,13 @@ func (manager *SGuestManager) validateCreateData(
 		return nil, httperrors.NewInputParameterError("Invalid userdata: %v", err)
 	}
 
+	// validate KickstartConfig
+	if input.KickstartConfig != nil {
+		if err := manager.validateKickstartConfig(input.KickstartConfig); err != nil {
+			return nil, httperrors.NewInputParameterError("Invalid kickstart config: %v", err)
+		}
+	}
+
 	err = manager.ValidatePolicyDefinitions(ctx, userCred, ownerId, query, input)
 	if err != nil {
 		return nil, err
@@ -2321,6 +2331,117 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 	}
 
 	return input.JSON(input), nil
+}
+
+func (manager *SGuestManager) validateKickstartConfig(config *api.KickstartConfig) error {
+	if config.OSType == "" {
+		return fmt.Errorf("os_type is required")
+	}
+
+	if !utils.IsInStringArray(config.OSType, api.KICKSTART_VALID_OS_TYPES) {
+		return fmt.Errorf("unsupported os_type: %s, supported types: %v", config.OSType, api.KICKSTART_VALID_OS_TYPES)
+	}
+
+	// 验证配置内容和URL二选一
+	if config.Config == "" && config.ConfigURL == "" {
+		return fmt.Errorf("either config or config_url must be provided")
+	}
+
+	if config.Config != "" && config.ConfigURL != "" {
+		return fmt.Errorf("config and config_url cannot be both provided, choose one")
+	}
+
+	if config.Config != "" {
+		const maxConfigSize = 64 * 1024
+		if len(config.Config) > maxConfigSize {
+			return fmt.Errorf("config content too large: %d bytes, maximum allowed: %d bytes", len(config.Config), maxConfigSize)
+		}
+		if len(strings.TrimSpace(config.Config)) == 0 {
+			return fmt.Errorf("config content cannot be empty")
+		}
+	}
+
+	if config.ConfigURL != "" {
+		if len(config.ConfigURL) > 2048 {
+			return fmt.Errorf("config URL too long: %d characters, maximum allowed: 2048", len(config.ConfigURL))
+		}
+		if strings.TrimSpace(config.ConfigURL) == "" {
+			return fmt.Errorf("config URL cannot be empty")
+		}
+
+		parsedURL, err := url.Parse(config.ConfigURL)
+		if err != nil {
+			return fmt.Errorf("invalid URL format: %v", err)
+		}
+		if parsedURL.Scheme != "http" && parsedURL.Scheme != "https" {
+			return fmt.Errorf("invalid URL scheme: %s, only http and https are allowed", parsedURL.Scheme)
+		}
+		if parsedURL.Host == "" {
+			return fmt.Errorf("URL must specify a host")
+		}
+
+		if err := manager.checkURLContentSize(config.ConfigURL); err != nil {
+			return fmt.Errorf("URL content validation failed: %v", err)
+		}
+	}
+
+	// 设置默认值
+	if config.Enabled == nil {
+		enabled := true
+		config.Enabled = &enabled
+	}
+
+	if config.MaxRetries <= 0 {
+		config.MaxRetries = 3
+	}
+
+	if config.TimeoutMinutes <= 0 {
+		config.TimeoutMinutes = 60
+	}
+
+	return nil
+}
+
+func (manager *SGuestManager) checkURLContentSize(configURL string) error {
+	const maxURLContentSize = 64 * 1024
+	const requestTimeout = 10 * time.Second
+
+	client := &http.Client{Timeout: requestTimeout}
+
+	req, err := http.NewRequest("HEAD", configURL, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %v", err)
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Warningf("Failed to check URL content size for %s: %v", configURL, err)
+		return nil
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("URL returned status code: %d", resp.StatusCode)
+	}
+
+	contentLengthStr := resp.Header.Get("Content-Length")
+	if contentLengthStr != "" {
+		contentLength, err := strconv.ParseInt(contentLengthStr, 10, 64)
+		if err != nil {
+			log.Warningf("Failed to parse Content-Length header: %v", err)
+			return nil
+		}
+
+		if contentLength > maxURLContentSize {
+			return fmt.Errorf("URL content too large: %d bytes, maximum allowed: %d bytes", contentLength, maxURLContentSize)
+		}
+
+		log.Infof("URL content size validated: %d bytes", contentLength)
+	} else {
+		log.Warningf("URL %s does not provide Content-Length header, size validation skipped", configURL)
+	}
+
+	return nil
 }
 
 func (manager *SGuestManager) validateEip(ctx context.Context, userCred mcclient.TokenCredential, input *api.ServerCreateInput,
@@ -2572,6 +2693,39 @@ func (guest *SGuest) PostCreate(ctx context.Context, userCred mcclient.TokenCred
 	userData, _ := data.GetString("user_data")
 	if len(userData) > 0 {
 		guest.setUserData(ctx, userCred, userData)
+	}
+
+	// set kickstart metadata
+	kickstartConfigJson, _ := data.Get("kickstart_config")
+	if kickstartConfigJson != nil {
+		kickstartConfig := &api.KickstartConfig{}
+		if err := kickstartConfigJson.Unmarshal(kickstartConfig); err != nil {
+			log.Errorf("unmarshal kickstart config fail: %s", err)
+		} else {
+			if err := guest.SetKickstartConfig(ctx, kickstartConfig, userCred); err != nil {
+				log.Errorf("Failed to set kickstart config for guest %s: %v", guest.Name, err)
+			} else {
+				if err := guest.SetKickstartStatus(ctx, api.KICKSTART_STATUS_PENDING, userCred); err != nil {
+					log.Errorf("Failed to set kickstart status for guest %s: %v", guest.Name, err)
+				}
+
+				// Determine and set kickstart type based on config
+				var kickstartType string
+				if kickstartConfig.Config != "" {
+					kickstartType = api.KICKSTART_TYPE_CONTENT
+				} else if kickstartConfig.ConfigURL != "" {
+					kickstartType = api.KICKSTART_TYPE_URL
+				} else {
+					kickstartType = api.KICKSTART_TYPE_URL
+				}
+
+				if err := guest.SetKickstartType(ctx, kickstartType, userCred); err != nil {
+					log.Errorf("Failed to set kickstart type for guest %s: %v", guest.Name, err)
+				}
+
+				log.Infof("Successfully set kickstart config for guest %s with OS type %s", guest.Name, kickstartConfig.OSType)
+			}
+		}
 	}
 
 	input := struct {
@@ -7023,6 +7177,106 @@ func (guest *SGuest) HasBackupGuest() bool {
 
 func (guest *SGuest) SetGuestBackupMirrorJobInProgress(ctx context.Context, userCred mcclient.TokenCredential) error {
 	return guest.SetMetadata(ctx, api.MIRROR_JOB, api.MIRROR_JOB_INPROGRESS, userCred)
+}
+
+func (guest *SGuest) SetKickstartConfig(ctx context.Context, config *api.KickstartConfig, userCred mcclient.TokenCredential) error {
+	if config == nil {
+		return guest.RemoveMetadata(ctx, api.VM_METADATA_KICKSTART_CONFIG, userCred)
+	}
+
+	if err := guest.validateKickstartConfig(config); err != nil {
+		return errors.Wrap(err, "validate kickstart config")
+	}
+
+	configJson := jsonutils.Marshal(config)
+	return guest.SetMetadata(ctx, api.VM_METADATA_KICKSTART_CONFIG, configJson, userCred)
+}
+
+func (guest *SGuest) GetKickstartConfig(ctx context.Context, userCred mcclient.TokenCredential) (*api.KickstartConfig, error) {
+	configJson := guest.GetMetadataJson(ctx, api.VM_METADATA_KICKSTART_CONFIG, userCred)
+	if configJson == nil {
+		return nil, nil
+	}
+
+	config := &api.KickstartConfig{}
+	if err := configJson.Unmarshal(config); err != nil {
+		return nil, errors.Wrap(err, "unmarshal kickstart config")
+	}
+
+	return config, nil
+}
+
+func (guest *SGuest) SetKickstartStatus(ctx context.Context, status string, userCred mcclient.TokenCredential) error {
+	if !utils.IsInStringArray(status, api.KICKSTART_VALID_STATUSES) {
+		return errors.Errorf("invalid kickstart status: %s", status)
+	}
+	return guest.SetMetadata(ctx, api.VM_METADATA_KICKSTART_STATUS, status, userCred)
+}
+
+func (guest *SGuest) GetKickstartStatus(ctx context.Context, userCred mcclient.TokenCredential) string {
+	status := guest.GetMetadata(ctx, api.VM_METADATA_KICKSTART_STATUS, userCred)
+	if status == "" {
+		return api.KICKSTART_STATUS_NORMAL
+	}
+	return status
+}
+
+func (guest *SGuest) SetKickstartType(ctx context.Context, kickstartType string, userCred mcclient.TokenCredential) error {
+	if !utils.IsInStringArray(kickstartType, api.KICKSTART_VALID_TYPES) {
+		return errors.Errorf("invalid kickstart type: %s", kickstartType)
+	}
+	return guest.SetMetadata(ctx, api.VM_METADATA_KICKSTART_TYPE, kickstartType, userCred)
+}
+
+func (guest *SGuest) GetKickstartType(ctx context.Context, userCred mcclient.TokenCredential) string {
+	kickstartType := guest.GetMetadata(ctx, api.VM_METADATA_KICKSTART_TYPE, userCred)
+	if kickstartType == "" {
+		return api.KICKSTART_TYPE_URL
+	}
+	return kickstartType
+}
+
+func (guest *SGuest) IsKickstartEnabled(ctx context.Context, userCred mcclient.TokenCredential) bool {
+	config, err := guest.GetKickstartConfig(ctx, userCred)
+	if err != nil || config == nil {
+		return false
+	}
+
+	if config.Enabled == nil {
+		return true
+	}
+
+	return *config.Enabled
+}
+
+func (guest *SGuest) validateKickstartConfig(config *api.KickstartConfig) error {
+	if !utils.IsInStringArray(config.OSType, api.KICKSTART_VALID_OS_TYPES) {
+		return errors.Errorf("unsupported OS type: %s", config.OSType)
+	}
+
+	if config.Config == "" && config.ConfigURL == "" {
+		return errors.Errorf("either config content or config_url must be provided")
+	}
+
+	if config.Config != "" && config.ConfigURL != "" {
+		return errors.Errorf("config content and config_url cannot be provided at the same time")
+	}
+
+	if config.ConfigURL != "" {
+		if !strings.HasPrefix(config.ConfigURL, "http://") && !strings.HasPrefix(config.ConfigURL, "https://") {
+			return errors.Errorf("config_url must be a valid HTTP or HTTPS URL")
+		}
+	}
+
+	if config.MaxRetries <= 0 {
+		config.MaxRetries = 3
+	}
+
+	if config.TimeoutMinutes <= 0 {
+		config.TimeoutMinutes = 60
+	}
+
+	return nil
 }
 
 func (guest *SGuest) SetGuestBackupMirrorJobNotReady(ctx context.Context, userCred mcclient.TokenCredential) error {
