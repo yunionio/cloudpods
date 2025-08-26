@@ -9,8 +9,8 @@ sidebar_position: 6
 1) 首先配置MCP Server的配置文件
 
 ```sh
-# 编译mcp-server
-$ cd /root/cloudpods && make cmd/mcp-server
+# 编译mcp-server 
+$ cd /root/cloudpods && go build -o bin/mcp-server ./cmd/mcp-server
 
 # 编写mcp-server服务的配置文件
 $ mkdir -p /etc/yunion/mcp-server
@@ -47,10 +47,10 @@ EOF
 ```sh
 # 启动mcp-server服务
 # 默认会从以下路径查找配置文件: /etc/yunion/mcp-server/mcp-server.yaml, ./config/mcp-server.yaml, ./mcp-server.yaml
-$ /root/cloudpods/_output/bin/mcp-server --log-level debug
+$ /root/cloudpods/bin/mcp-server --log-level debug
 
 # 或者使用 --conf 参数指定配置文件路径
-$ /root/cloudpods/_output/bin/mcp-server --log-level debug --conf /etc/yunion/mcp-server/mcp-server.yaml
+$ /root/cloudpods/bin/mcp-server --log-level debug --conf /etc/yunion/mcp-server/mcp-server.yaml
 ```
 
 ## 验证服务
