@@ -523,6 +523,29 @@ func ParseIPAndSubnet(input string) (string, string, error) {
 	return ip, subnetMask, nil
 }
 
+func ParseIP6AndSubnet(input string) (string, string, error) {
+	//Converting IP/MASK format to IP and MASK
+	parts := strings.Split(input, "/")
+	if len(parts) != 2 {
+		return "", "", fmt.Errorf("Invalid input format")
+	}
+
+	ip := parts[0]
+	subnetSizeStr := parts[1]
+
+	subnetSize := 0
+	for _, c := range subnetSizeStr {
+		if c < '0' || c > '9' {
+			return "", "", fmt.Errorf("Invalid subnet size")
+		}
+		subnetSize = subnetSize*10 + int(c-'0')
+	}
+
+	mask := net.CIDRMask(subnetSize, 32)
+	subnetMask := net.IP(mask).To16().String()
+	return ip, subnetMask, nil
+}
+
 func (qga *QemuGuestAgent) QgaAddFileExec(filePath string) error {
 	//Adding execution permissions to file
 	shellAddAuth := "chmod +x " + filePath
@@ -545,15 +568,35 @@ func (qga *QemuGuestAgent) QgaAddFileExec(filePath string) error {
 }
 
 func (qga *QemuGuestAgent) QgaSetWindowsNetwork(qgaNetMod *monitor.NetworkModify) error {
-	ip, subnetMask, err := ParseIPAndSubnet(qgaNetMod.Ipmask)
-	if err != nil {
-		return err
+	var ip, ip6, mask, mask6 string
+	var err error
+	var networkCmd string
+
+	if len(qgaNetMod.Ipmask) > 0 {
+		ip, mask, err = ParseIPAndSubnet(qgaNetMod.Ipmask)
+		if err != nil {
+			return err
+		}
+		networkCmd += fmt.Sprintf(
+			"netsh interface ip set address name=\"%s\" source=static addr=%s mask=%s gateway=%s & "+
+				"netsh interface ip set address name=\"%s\" dhcp",
+			qgaNetMod.Device, ip, mask, qgaNetMod.Gateway, qgaNetMod.Device,
+		)
 	}
-	networkCmd := fmt.Sprintf(
-		"netsh interface ip set address name=\"%s\" source=static addr=%s mask=%s gateway=%s & "+
-			"netsh interface ip set address name=\"%s\" dhcp",
-		qgaNetMod.Device, ip, subnetMask, qgaNetMod.Gateway, qgaNetMod.Device,
-	)
+	if len(qgaNetMod.Ip6mask) > 0 {
+		ip6, mask6, err = ParseIP6AndSubnet(qgaNetMod.Ip6mask)
+		if err != nil {
+			return err
+		}
+		if networkCmd != "" {
+			networkCmd += " & "
+		}
+		networkCmd += fmt.Sprintf("netsh interface ipv6 set address interface=\"%s\" address=%s/%s & "+
+			"netsh interface ipv6 add route ::/0 interface=\"%s\" %s & "+
+			"netsh interface ipv6 set address interface=\"%s\" source=dhcp",
+			qgaNetMod.Device, ip6, mask6, qgaNetMod.Device, qgaNetMod.Gateway6, qgaNetMod.Device,
+		)
+	}
 
 	log.Infof("networkCmd: %s", networkCmd)
 	arg := []string{"/C", networkCmd}

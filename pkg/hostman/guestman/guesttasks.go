@@ -634,10 +634,15 @@ func (n *SGuestNetworkSyncTask) Start(callback func(...error)) {
 			addNicConfs := make([]*monitor.NetworkModify, 0)
 			for i := range n.addNics {
 				addNicMacs = append(addNicMacs, n.addNics[i].Mac)
-				addNicConfs = append(addNicConfs, &monitor.NetworkModify{
-					Ipmask:  fmt.Sprintf("%s/%d", n.addNics[i].Ip, n.addNics[i].Masklen),
-					Gateway: n.addNics[i].Gateway,
-				})
+				netMod := &monitor.NetworkModify{}
+				if len(n.addNics[i].Ip) > 0 {
+					netMod.Ipmask = fmt.Sprintf("%s/%d", n.addNics[i].Ip, n.addNics[i].Masklen)
+					netMod.Gateway = n.addNics[i].Gateway
+				}
+				if len(n.addNics[i].Ip6) > 0 {
+					netMod.Ip6mask = fmt.Sprintf("%s/%d", n.addNics[i].Ip6, n.addNics[i].Masklen6)
+				}
+				addNicConfs = append(addNicConfs, netMod)
 			}
 			n.addNicMacs = addNicMacs
 			n.addNicConfs = addNicConfs
