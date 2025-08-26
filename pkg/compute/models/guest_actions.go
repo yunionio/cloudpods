@@ -1031,13 +1031,18 @@ func (self *SGuest) StartRestartNetworkTask(ctx context.Context, userCred mcclie
 	return nil
 }
 
-func (self *SGuest) StartQgaRestartNetworkTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string, device string, ipMask string, gateway string, prevIp string, inBlockStream bool) error {
+func (self *SGuest) StartQgaRestartNetworkTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId, device, ipMask, gateway, ip6Mask, gateway6 string) error {
 	data := jsonutils.NewDict()
 	data.Set("device", jsonutils.NewString(device))
-	data.Set("ip_mask", jsonutils.NewString(ipMask))
-	data.Set("gateway", jsonutils.NewString(gateway))
-	data.Set("prev_ip", jsonutils.NewString(prevIp))
-	data.Set("in_block_stream", jsonutils.NewBool(inBlockStream))
+	if len(ipMask) > 0 {
+		data.Set("ip_mask", jsonutils.NewString(ipMask))
+		data.Set("gateway", jsonutils.NewString(gateway))
+	}
+	if len(ip6Mask) > 0 {
+		data.Set("ip6_mask", jsonutils.NewString(ip6Mask))
+		data.Set("gateway6", jsonutils.NewString(gateway6))
+	}
+
 	if task, err := taskman.TaskManager.NewTask(ctx, "GuestQgaRestartNetworkTask", self, userCred, data, parentTaskId, "", nil); err != nil {
 		log.Errorln(err)
 		return err
@@ -2755,9 +2760,13 @@ func (self *SGuest) PerformChangeIpaddr(
 	newMacAddr := networkJsonDesc.Mac
 	newMaskLen := networkJsonDesc.Masklen
 	newGateway := networkJsonDesc.Gateway
-	ipMask := fmt.Sprintf("%s/%d", newIpAddr, newMaskLen)
-	if conf.StrictIPv6 {
-		ipMask = fmt.Sprintf("%s/%d", networkJsonDesc.Ip6, networkJsonDesc.Masklen6)
+	ipMask := ""
+	if networkJsonDesc.Ip != "" {
+		ipMask = fmt.Sprintf("%s/%d", newIpAddr, newMaskLen)
+	}
+	ip6Mask := ""
+	if networkJsonDesc.Ip6 != "" {
+		ip6Mask = fmt.Sprintf("%s/%d", networkJsonDesc.Ip6, networkJsonDesc.Masklen6)
 	}
 
 	notes := gn.GetShortDesc(ctx)
@@ -2781,8 +2790,15 @@ func (self *SGuest) PerformChangeIpaddr(
 			return nil, errors.Wrapf(err, "GetNetwork")
 		}
 		taskData.Set("is_vpc_network", jsonutils.NewBool(net.isOneCloudVpcNetwork()))
-		taskData.Set("ip_mask", jsonutils.NewString(ipMask))
-		taskData.Set("gateway", jsonutils.NewString(newGateway))
+		if len(ipMask) > 0 {
+			taskData.Set("ip_mask", jsonutils.NewString(ipMask))
+			taskData.Set("gateway", jsonutils.NewString(newGateway))
+		}
+		if len(ip6Mask) > 0 {
+			taskData.Set("ip6_mask", jsonutils.NewString(ip6Mask))
+			taskData.Set("gateway6", jsonutils.NewString(networkJsonDesc.Gateway6))
+		}
+
 		if self.Status == api.VM_BLOCK_STREAM {
 			taskData.Set("in_block_stream", jsonutils.JSONTrue)
 		}

@@ -434,6 +434,10 @@ func (manager *SGuestnetworkManager) newGuestNetwork(
 		gn.IsDefault = isDefault
 	}
 
+	if len(gn.Ip6Addr) > 0 && len(gn.IpAddr) == 0 {
+		gn.NumQueues = 1
+	}
+
 	err = manager.TableSpec().Insert(ctx, &gn)
 	if err != nil {
 		return nil, err
