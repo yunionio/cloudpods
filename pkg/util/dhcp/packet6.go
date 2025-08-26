@@ -313,11 +313,15 @@ func optionsToBytes(opts []Option6) []byte {
 }
 
 func (p Packet) GetOption6s() []Option6 {
-	options := make([]Option6, 0)
 	offset := 4
 	if p.IsRelayMsg() {
 		offset = 16*2 + 2
 	}
+	return decodeDHCP6Options(p, offset)
+}
+
+func decodeDHCP6Options(p []byte, offset int) []Option6 {
+	options := make([]Option6, 0)
 	i := offset
 	for i < len(p) {
 		code := binary.BigEndian.Uint16(p[i : i+2])
@@ -378,28 +382,137 @@ func makeIAAddr(ip net.IP, preferLT, validLT uint32, opts []Option6) []byte {
 	return buf
 }
 
-func responseIANA(buf []byte, opts []Option6) []byte {
+func decodeIAAddr(buf []byte) (net.IP, uint32, uint32, []Option6) {
+	ipBuf := make([]byte, 16)
+	copy(ipBuf, buf[0:16])
+	ip := net.IP(ipBuf)
+	preferLT := binary.BigEndian.Uint32(buf[16:20])
+	validLT := binary.BigEndian.Uint32(buf[20:24])
+	opts := decodeDHCP6Options(buf, 24)
+	return ip, preferLT, validLT, opts
+}
+
+/*
++---------------+------+--------------------------------------------+
+| Name          | Code | Description                                |
++---------------+------+--------------------------------------------+
+| Success       |    0 | Success.                                   |
+|               |      |                                            |
+| UnspecFail    |    1 | Failure, reason unspecified; this status   |
+|               |      | code is sent by either a client or a       |
+|               |      | server to indicate a failure not           |
+|               |      | explicitly specified in this document.     |
+|               |      |                                            |
+| NoAddrsAvail  |    2 | The server has no addresses available to   |
+|               |      | assign to the IA(s).                       |
+|               |      |                                            |
+| NoBinding     |    3 | Client record (binding) unavailable.       |
+|               |      |                                            |
+| NotOnLink     |    4 | The prefix for the address is not          |
+|               |      | appropriate for the link to which the      |
+|               |      | client is attached.                        |
+|               |      |                                            |
+| UseMulticast  |    5 | Sent by a server to a client to force the  |
+|               |      | client to send messages to the server      |
+|               |      | using the                                  |
+|               |      | All_DHCP_Relay_Agents_and_Servers          |
+|               |      | multicast address.                         |
+|               |      |                                            |
+| NoPrefixAvail |    6 | The server has no prefixes available to    |
+|               |      | assign to the IA_PD(s).                    |
++---------------+------+--------------------------------------------+
+*/
+type DHCP6StatusCode uint16
+
+const (
+	Dhcp6StatusSuccess       DHCP6StatusCode = 0
+	Dhcp6StatusUnspecFail    DHCP6StatusCode = 1
+	Dhcp6StatusNoAddrsAvail  DHCP6StatusCode = 2
+	Dhcp6StatusNoBinding     DHCP6StatusCode = 3
+	Dhcp6StatusNotOnLink     DHCP6StatusCode = 4
+	Dhcp6StatusUseMulticast  DHCP6StatusCode = 5
+	Dhcp6StatusNoPrefixAvail DHCP6StatusCode = 6
+)
+
+func (code DHCP6StatusCode) Encode() []byte {
+	var msg string
+	switch code {
+	case Dhcp6StatusSuccess:
+		msg = "Success"
+	case Dhcp6StatusUnspecFail:
+		msg = "UnspecFail"
+	case Dhcp6StatusNoAddrsAvail:
+		msg = "NoAddrsAvail"
+	case Dhcp6StatusNoBinding:
+		msg = "NoBinding"
+	case Dhcp6StatusNotOnLink:
+		msg = "NotOnLink"
+	case Dhcp6StatusUseMulticast:
+		msg = "UseMulticast"
+	case Dhcp6StatusNoPrefixAvail:
+		msg = "NoPrefixAvail"
+	}
+	buf := make([]byte, 2)
+	binary.BigEndian.PutUint16(buf, uint16(code))
+	buf = append(buf, []byte(msg)...)
+	return buf
+}
+
+func responseIANA(buf []byte, ip net.IP, preferLT, validLT uint32) ([]byte, DHCP6StatusCode) {
 	// IA_NA structure: IAID (4 bytes) + T1 (4 bytes) + T2 (4 bytes)
 	// Preserve the original IAID, T1, and T2 values from the client request
+	opts := make([]Option6, 0)
+	status := Dhcp6StatusSuccess
+	resp := make([]byte, 12)
 	if len(buf) < 12 {
+		copy(resp, buf)
 		// If buffer is too short, pad with zeros
-		padding := make([]byte, 12-len(buf))
-		buf = append(buf, padding...)
-	} else if len(buf) > 12 {
-		// If buffer is too long, truncate to 12 bytes (IAID + T1 + T2)
-		buf = buf[:12]
-	}
-
-	// Log the IA_NA parameters for debugging
-	if len(buf) >= 12 {
+		// padding := make([]byte, 12-len(buf))
+		// copy(resp[len(buf):], padding)
+	} else {
+		// Log the IA_NA parameters for debugging
 		iaID := binary.BigEndian.Uint32(buf[0:4])
 		t1 := binary.BigEndian.Uint32(buf[4:8])
 		t2 := binary.BigEndian.Uint32(buf[8:12])
 		log.Debugf("responseIANA IA_NA IAID %d t1 %d t2 %d", iaID, t1, t2)
+		if len(buf) > 12 {
+			iaOpts := decodeDHCP6Options(buf, 12)
+			for i := range iaOpts {
+				if iaOpts[i].Code == DHCPV6_OPTION_IAADDR {
+					oldIp, oldPreferLT, oldValidLT, _ := decodeIAAddr(iaOpts[i].Value)
+					if !oldIp.Equal(ip) {
+						// send NotOnLink
+						opts = append(opts, Option6{
+							Code: DHCPV6_OPTION_IAADDR,
+							Value: makeIAAddr(oldIp, oldPreferLT, oldValidLT, []Option6{
+								{
+									Code:  DHCPV6_OPTION_STATUS_CODE,
+									Value: Dhcp6StatusNotOnLink.Encode(),
+								},
+							}),
+						})
+						if status == Dhcp6StatusSuccess {
+							status = Dhcp6StatusNotOnLink
+						}
+					}
+				}
+			}
+		}
+		copy(resp, buf[:12])
 	}
 
-	buf = append(buf, optionsToBytes(opts)...)
-	return buf
+	opts = append(opts, Option6{
+		Code: DHCPV6_OPTION_IAADDR,
+		Value: makeIAAddr(ip, preferLT, validLT, []Option6{
+			{
+				Code:  DHCPV6_OPTION_STATUS_CODE,
+				Value: Dhcp6StatusSuccess.Encode(),
+			},
+		}),
+	})
+
+	resp = append(resp, optionsToBytes(opts)...)
+	return resp, status
 }
 
 func makeIPv6s(ips []net.IP) []byte {
@@ -473,19 +586,11 @@ func makeDHCPReplyPacket6(pkt Packet, conf *ResponseConfig, msgType MessageType)
 	validLifetime := uint32(conf.LeaseTime.Seconds()) // Valid lifetime should be longer than preferred
 	preferredLifetime := validLifetime / 2
 
+	ianaResp, status := responseIANA(ianaOpt.Value, conf.ClientIP6, preferredLifetime, validLifetime)
+
 	options = append(options, Option6{
-		Code: DHCPV6_OPTION_IA_NA,
-		Value: responseIANA(ianaOpt.Value, []Option6{
-			{
-				Code: DHCPV6_OPTION_IAADDR,
-				Value: makeIAAddr(conf.ClientIP6, preferredLifetime, validLifetime, []Option6{
-					{
-						Code:  DHCPV6_OPTION_STATUS_CODE,
-						Value: []byte{0, 0, 'S', 'u', 'c', 'c', 'e', 's', 's'},
-					},
-				}),
-			},
-		}),
+		Code:  DHCPV6_OPTION_IA_NA,
+		Value: ianaResp,
 	})
 
 	if len(conf.DNSServers6) > 0 {
@@ -513,6 +618,11 @@ func makeDHCPReplyPacket6(pkt Packet, conf *ResponseConfig, msgType MessageType)
 			})
 		}
 	}
+
+	options = append(options, Option6{
+		Code:  DHCPV6_OPTION_STATUS_CODE,
+		Value: status.Encode(),
+	})
 
 	resp := NewPacket6(msgType, tid)
 	resp = append(resp, optionsToBytes(options)...)
