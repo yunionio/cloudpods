@@ -1616,6 +1616,9 @@ func (manager *SGuestManager) ExpandBatchCreateData(
 	return input, nil
 }
 
+// validateCreateData 是虚拟机创建参数的核心校验方法，执行全面的参数验证和规范化处理
+// 该方法确保所有输入参数符合平台要求，为虚拟机创建提供可靠的数据基础
+// 校验过程包括：基础参数验证、资源配置校验、网络配置校验、安全配置校验等
 func (manager *SGuestManager) validateCreateData(
 	ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider,
 	query jsonutils.JSONObject, data *jsonutils.JSONDict) (*api.ServerCreateInput, error) {
@@ -1625,10 +1628,12 @@ func (manager *SGuestManager) validateCreateData(
 		return nil, err
 	}
 
+	// 元数据条目数量限制：不能超过20个
 	if len(input.Metadata) > 20 {
 		return nil, httperrors.NewInputParameterError("metdata must less then 20")
 	}
 
+	// 实例快照处理：解析快照信息并保留用户输入的资源配置
 	if len(input.InstanceSnapshotId) > 0 {
 		inputMem := input.VmemSize
 		inputCpu := input.VcpuCount
@@ -1637,7 +1642,7 @@ func (manager *SGuestManager) validateCreateData(
 		if err != nil {
 			return nil, err
 		}
-		// keep input cpu mem flavor
+		// 保留用户输入的CPU、内存和实例类型配置
 		if inputMem > 0 {
 			input.VmemSize = inputMem
 		}
@@ -1672,6 +1677,7 @@ func (manager *SGuestManager) validateCreateData(
 		resetPassword = *input.ResetPassword
 	}
 
+	// 密码强度校验：如果提供了密码，必须通过密码强度验证
 	passwd := input.Password
 	if len(passwd) > 0 {
 		err = seclib2.ValidatePassword(passwd)
@@ -1682,6 +1688,7 @@ func (manager *SGuestManager) validateCreateData(
 		input.ResetPassword = &resetPassword
 	}
 
+	// 登录账户校验：长度限制和格式验证
 	if resetPassword && len(input.LoginAccount) > 0 {
 		if len(input.LoginAccount) > 32 {
 			return nil, httperrors.NewInputParameterError("login_account is longer than 32 chars")
@@ -1691,7 +1698,7 @@ func (manager *SGuestManager) validateCreateData(
 		}
 	}
 
-	// check group
+	// 实例组校验：验证所有指定的实例组是否存在，支持ID或名称指定
 	if input.InstanceGroupIds != nil && len(input.InstanceGroupIds) != 0 {
 		newGroupIds := make([]string, len(input.InstanceGroupIds))
 		for index, id := range input.InstanceGroupIds {
@@ -1701,11 +1708,11 @@ func (manager *SGuestManager) validateCreateData(
 			}
 			newGroupIds[index] = model.GetId()
 		}
-		// list of id or name ==> ids
+		// 统一转换为ID格式
 		input.InstanceGroupIds = newGroupIds
 	}
 
-	// check that all image of disk is the part of guest imgae, if use guest image to create guest
+	// 镜像完整性校验：检查所有磁盘镜像是否为虚拟机镜像的一部分
 	err = manager.checkGuestImage(ctx, input)
 	if err != nil {
 		return nil, errors.Wrap(err, "checkGuestImage")
@@ -1743,6 +1750,7 @@ func (manager *SGuestManager) validateCreateData(
 	// var rootStorageType string
 	var osProf osprofile.SOSProfile
 	hypervisor = input.Hypervisor
+	// 启动磁盘校验：非容器虚拟机必须提供启动磁盘或光驱
 	if hypervisor != api.HYPERVISOR_POD {
 		if len(input.Disks) == 0 && input.Cdrom == "" {
 			return nil, httperrors.NewInputParameterError("No bootable disk information provided")
@@ -1761,6 +1769,7 @@ func (manager *SGuestManager) validateCreateData(
 			imgEncryptKeyId = diskConfig.ImageEncryptKeyId
 			imgProperties = diskConfig.ImageProperties
 			imageDiskFormat = imgProperties[imageapi.IMAGE_DISK_FORMAT]
+			// 系统磁盘格式校验：不支持ISO镜像格式，需使用cdrom参数
 			if imgProperties[imageapi.IMAGE_DISK_FORMAT] == "iso" {
 				return nil, httperrors.NewInputParameterError("System disk does not support iso image, please consider using cdrom parameter")
 			}
@@ -1778,7 +1787,7 @@ func (manager *SGuestManager) validateCreateData(
 			}
 		}
 
-		// check boot indexes
+		// 启动索引唯一性校验：使用位图确保启动索引不重复
 		bm := bitmap.NewBitMap(128)
 		if input.CdromBootIndex != nil && *input.CdromBootIndex >= 0 {
 			bm.Set(int64(*input.CdromBootIndex))
@@ -1807,6 +1816,7 @@ func (manager *SGuestManager) validateCreateData(
 				support := true
 				imgSupportUEFI = &support
 			}
+			// UEFI支持校验：UEFI镜像必须使用UEFI启动模式，非UEFI镜像不能使用UEFI启动模式
 			switch {
 			case imgSupportUEFI != nil && *imgSupportUEFI:
 				if len(input.Bios) == 0 {
@@ -1815,7 +1825,7 @@ func (manager *SGuestManager) validateCreateData(
 					return nil, httperrors.NewInputParameterError("UEFI image requires UEFI boot mode")
 				}
 			default:
-				// not UEFI image
+				// 非UEFI镜像
 				if input.Bios == "UEFI" && len(imgProperties) != 0 {
 					return nil, httperrors.NewInputParameterError("UEFI boot mode requires UEFI image")
 				}
@@ -1847,6 +1857,7 @@ func (manager *SGuestManager) validateCreateData(
 		if input.EncryptKeyId == nil && len(imgEncryptKeyId) > 0 {
 			input.EncryptKeyId = &imgEncryptKeyId
 		}
+		// 加密配置校验：验证加密资源配置和密钥一致性
 		if input.EncryptKeyId != nil || input.EncryptKeyNew != nil {
 			input.EncryptedResourceCreateInput, err = manager.SEncryptedResourceManager.ValidateCreateData(ctx, userCred, ownerId, query, input.EncryptedResourceCreateInput)
 			if err != nil {
@@ -1900,7 +1911,7 @@ func (manager *SGuestManager) validateCreateData(
 		return nil, err
 	}
 	if hypervisor != api.HYPERVISOR_POD {
-		// support sku here
+		// SKU配置校验：验证SKU存在性并从SKU获取资源配置
 		var sku *SServerSku
 		skuName := input.InstanceType
 		if len(skuName) > 0 {
@@ -1913,6 +1924,7 @@ func (manager *SGuestManager) validateCreateData(
 			input.VmemSize = sku.MemorySizeMB
 			input.VcpuCount = sku.CpuCoreCount
 		} else {
+			// 内存和CPU配置合法性校验
 			vmemSize, vcpuCount, err := ValidateMemCpuData(input.VmemSize, input.VcpuCount, input.Hypervisor, input.Provider)
 			if err != nil {
 				return nil, err
@@ -1955,8 +1967,9 @@ func (manager *SGuestManager) validateCreateData(
 		if err != nil {
 			return nil, httperrors.NewGeneralError(err) // should no error
 		}
-		// validate root disk config
+		// 根磁盘配置校验
 		{
+			// NVMe设备不能作为根磁盘
 			if rootDiskConfig.NVMEDevice != nil {
 				return nil, httperrors.NewBadRequestError("NVMe device can't assign as root disk")
 			}
@@ -2023,6 +2036,7 @@ func (manager *SGuestManager) validateCreateData(
 			input.Disks[i+1] = diskConfig
 		}
 
+		// 计费配置校验：预付费资源类型冲突检查
 		if len(input.Duration) > 0 {
 			if input.ResourceType == api.HostResourceTypePrepaidRecycle {
 				return nil, httperrors.NewConflictError("cannot create prepaid server on prepaid resource type")
@@ -2054,7 +2068,7 @@ func (manager *SGuestManager) validateCreateData(
 		}
 	}
 
-	// HACK: if input networks is empty, add one random network config
+	// 网络配置默认处理：如果没有指定网络，添加一个默认网络配置
 	if len(input.Networks) == 0 {
 		input.Networks = append(input.Networks, &api.NetworkConfig{Exit: false})
 	}
@@ -2099,14 +2113,14 @@ func (manager *SGuestManager) validateCreateData(
 		}
 		input.Networks[idx] = netConfig
 	}
-	// check default gateway
+	// 默认网关校验：确保只有一个默认网关，优先选择出口网络
 	if defaultGwCnt == 0 {
 		defIdx := 0
 		if firstExit >= 0 {
-			// there is a exit network, make it the default
+			// 存在出口网络时，将其设为默认网关
 			defIdx = firstExit
 		}
-		// make the first nic as default
+		// 将第一个网卡设为默认网关
 		input.Networks[defIdx].IsDefault = true
 	} else if defaultGwCnt > 1 {
 		return nil, errors.Wrapf(httperrors.ErrInputParameter, "more than 1 nic(%d) assigned as default gateway", defaultGwCnt)
@@ -2128,6 +2142,7 @@ func (manager *SGuestManager) validateCreateData(
 		input.IsolatedDevices[idx] = devConfig
 	}
 
+	// GPU设备校验：NVIDIA vGPU数量限制和兼容性检查
 	nvidiaVgpuCnt := 0
 	gpuCnt := 0
 	for i := 0; i < len(input.IsolatedDevices); i++ {
@@ -2138,9 +2153,11 @@ func (manager *SGuestManager) validateCreateData(
 		}
 	}
 
+	// NVIDIA vGPU数量不能超过1个
 	if nvidiaVgpuCnt > 1 {
 		return nil, httperrors.NewBadRequestError("Nvidia vgpu count exceed > 1")
 	}
+	// NVIDIA vGPU不能与其他GPU同时使用
 	if nvidiaVgpuCnt > 0 && gpuCnt > 0 {
 		return nil, httperrors.NewBadRequestError("Nvidia vgpu can't passthrough with other gpus")
 	}
@@ -2178,8 +2195,9 @@ func (manager *SGuestManager) validateCreateData(
 		input.SecgroupId = options.Options.GetDefaultSecurityGroupId(hypervisor)
 	}
 
+	// 安全组数量限制：根据虚拟化类型限制安全组数量
 	maxSecgrpCount := driver.GetMaxSecurityGroupCount()
-	if maxSecgrpCount == 0 { //esxi 不支持安全组
+	if maxSecgrpCount == 0 { // ESXi不支持安全组
 		input.SecgroupId = ""
 		input.Secgroups = []string{}
 	} else if len(input.Secgroups)+1 > maxSecgrpCount {
@@ -2218,11 +2236,12 @@ func (manager *SGuestManager) validateCreateData(
 		return nil, err
 	}
 
-	// validate UserData
+	// 用户数据格式校验：根据操作系统类型验证用户数据格式
 	if err := userdata.ValidateUserdata(input.UserData, input.OsType); err != nil {
 		return nil, httperrors.NewInputParameterError("Invalid userdata: %v", err)
 	}
 
+	// 策略定义验证：确保所有相关的策略定义有效
 	err = manager.ValidatePolicyDefinitions(ctx, userCred, ownerId, query, input)
 	if err != nil {
 		return nil, err

@@ -95,4 +95,4 @@ Apache license 2.0，详情请看 [LICENSE](./LICENSE)。
 
 ## AI生成文档
 
-[DeepWiki](https://deepwiki.com/yunionio/cloudpods) 提供了对本项目代码详细和全面的AI解读，可以参考。
+[DeepWiki](https://deepwiki.com/yunionio/cloudpods) 和 [Zread](https://zread.ai/yunionio/cloudpods) 提供了对本项目代码详细和全面的AI解读，可以参考。
