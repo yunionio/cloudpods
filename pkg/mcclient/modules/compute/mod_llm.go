@@ -12,7 +12,7 @@ var (
 func init() {
 	LLMs = LLMManager{
 		modules.NewComputeManager("llm", "llms",
-			[]string{},
+			[]string{"ID", "Name", "Model", "Guest_ID", "Container_ID", "Status"},
 			[]string{}),
 	}
 	modules.RegisterCompute(&LLMs)

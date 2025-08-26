@@ -9,4 +9,8 @@ import (
 func init() {
 	cmd := shell.NewResourceCmd(&modules.LLMs)
 	cmd.Create(new(options.LLMCreateOptions))
+	cmd.List(new(options.LLMListOptions))
+	cmd.Show(new(options.LLMShowOptions))
+	cmd.BatchPerform("stop", new(options.LLMStopOptions))
+	cmd.BatchPerform("start", new(options.LLMStartOptions))
 }
