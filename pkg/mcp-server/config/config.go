@@ -61,7 +61,7 @@ type LogConfig struct {
 
 func Load(configPath string) (*Config, error) {
 	v := viper.New()
-	v.SetConfigType("properties") // 显式指定 properties 格式
+	v.SetConfigType("yaml") // 显式指定 properties 格式
 
 	// 如果指定了配置文件路径，则使用该路径
 	if configPath != "" {

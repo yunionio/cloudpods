@@ -130,7 +130,7 @@ func (s *CloudpodsMCPServer) registerAllTools() error {
 // Start 启动服务器
 func (s *CloudpodsMCPServer) Start() error {
 
-	if err := server.NewSSEServer(s.mcpServer).Start("localhost:12005"); err != nil {
+	if err := server.NewSSEServer(s.mcpServer).Start(fmt.Sprintf("%s:%d", s.config.Server.Host, s.config.Server.Port)); err != nil {
 		return err
 	}
 	s.logger.WithField("address", "mcp server stdio").Info("启动mcp server")

@@ -1,0 +1,23 @@
+# ==================== 服务器基础配置 ====================
+server:
+  host: localhost       # 服务器监听地址（默认：localhost）
+  port: 12001            # 服务器监听端口
+
+
+# ==================== MCP 服务配置 ====================
+mcp:
+  name: cloudpods-mcp-server    # MCP 服务名称（默认：cloudpods-mcp-server）
+  version: 1.0.0                # MCP 服务版本（默认：1.0.0）
+  description: the mcp server of the cloudpods server  # MCP 服务描述（默认）
+
+
+# ==================== 外部服务配置 ====================
+external:
+  # cloudpods服务配置
+  cloudpods:
+    base_url: "https://<ip_or_domain_of_apigatway>/api/s/identity/v3"  # 认证服务入口
+
+# ==================== 日志配置 ====================
+log:
+  level: info     # 日志输出级别（默认：info；可选：debug, warn, error, fatal, panic）
+  format: json    # 日志格式（默认：json；可选：text）
