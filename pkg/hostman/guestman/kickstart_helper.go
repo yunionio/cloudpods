@@ -50,7 +50,7 @@ type SKickstartSerialMonitor struct {
 
 // NewKickstartSerialMonitor creates a new kickstart serial monitor
 func NewKickstartSerialMonitor(serverId string) *SKickstartSerialMonitor {
-	ctx, cancel := context.WithTimeout(context.Background(), KICKSTART_MONITOR_TIMEOUT)
+	ctx, cancel := context.WithCancel(context.Background())
 	serialFilePath := fmt.Sprintf("%s-%s.log", KICKSTART_SERIAL_FILE_PREFIX, serverId)
 
 	return &SKickstartSerialMonitor{
@@ -63,6 +63,42 @@ func NewKickstartSerialMonitor(serverId string) *SKickstartSerialMonitor {
 
 func (m *SKickstartSerialMonitor) GetSerialFilePath() string {
 	return m.serialFilePath
+}
+
+// getKickstartTimeout gets kickstart timeout from kickstart config, defaults to KICKSTART_MONITOR_TIMEOUT
+func (m *SKickstartSerialMonitor) getKickstartTimeout() time.Duration {
+	server, exists := guestManager.GetServer(m.serverId)
+	if !exists {
+		return KICKSTART_MONITOR_TIMEOUT
+	}
+
+	kvmGuest, ok := server.(*SKVMGuestInstance)
+	if !ok {
+		return KICKSTART_MONITOR_TIMEOUT
+	}
+
+	kickstartConfigStr, exists := kvmGuest.Desc.Metadata[api.VM_METADATA_KICKSTART_CONFIG]
+	if !exists || kickstartConfigStr == "" {
+		return KICKSTART_MONITOR_TIMEOUT
+	}
+
+	configObj, err := jsonutils.ParseString(kickstartConfigStr)
+	if err != nil {
+		return KICKSTART_MONITOR_TIMEOUT
+	}
+
+	var config api.KickstartConfig
+	if err := configObj.Unmarshal(&config); err != nil {
+		return KICKSTART_MONITOR_TIMEOUT
+	}
+
+	if config.TimeoutMinutes <= 0 {
+		return KICKSTART_MONITOR_TIMEOUT
+	}
+
+	timeout := time.Duration(config.TimeoutMinutes) * time.Minute
+	log.Infof("Using kickstart timeout %v for server %s", timeout, m.serverId)
+	return timeout
 }
 
 func (m *SKickstartSerialMonitor) ensureSerialFile() error {
@@ -227,11 +263,20 @@ func (m *SKickstartSerialMonitor) Start() error {
 
 	// Setup timeout handler
 	go func() {
-		<-m.ctx.Done()
-		if m.ctx.Err() == context.DeadlineExceeded {
-			log.Warningf("Kickstart monitor timeout for server %s", m.serverId)
+		timeout := m.getKickstartTimeout()
+		timer := time.NewTimer(timeout)
+		defer timer.Stop()
+
+		select {
+		case <-m.ctx.Done():
+			return
+		case <-timer.C:
+			log.Warningf("Kickstart monitor timeout (%v) for server %s, setting status to failed", timeout, m.serverId)
+			if err := m.updateKickstartStatus(api.KICKSTART_STATUS_FAILED); err != nil {
+				log.Errorf("Failed to update kickstart status to failed on timeout for server %s: %v", m.serverId, err)
+			}
+			m.Close()
 		}
-		m.Close()
 	}()
 
 	return nil
