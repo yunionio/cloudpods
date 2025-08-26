@@ -563,6 +563,12 @@ github.com/gin-gonic/gin/render
 # github.com/glycerine/go-unsnap-stream v0.0.0-20181221182339-f9677308dec2
 ## explicit
 github.com/glycerine/go-unsnap-stream
+# github.com/go-asn1-ber/asn1-ber v1.5.8-0.20250403174932-29230038a667
+## explicit; go 1.13
+github.com/go-asn1-ber/asn1-ber
+# github.com/go-ldap/ldap/v3 v3.1.5
+## explicit; go 1.13
+github.com/go-ldap/ldap/v3
 # github.com/go-logfmt/logfmt v0.5.0
 ## explicit; go 1.13
 github.com/go-logfmt/logfmt
@@ -1648,9 +1654,6 @@ google.golang.org/protobuf/types/known/timestamppb
 # gopkg.in/alexcesaro/quotedprintable.v3 v3.0.0-20150716171945-2caba252f4dc
 ## explicit
 gopkg.in/alexcesaro/quotedprintable.v3
-# gopkg.in/asn1-ber.v1 v1.0.0-20181015200546-f715ec2f112d
-## explicit
-gopkg.in/asn1-ber.v1
 # gopkg.in/fatih/set.v0 v0.2.1
 ## explicit
 gopkg.in/fatih/set.v0
@@ -1660,9 +1663,6 @@ gopkg.in/inf.v0
 # gopkg.in/ini.v1 v1.62.0
 ## explicit
 gopkg.in/ini.v1
-# gopkg.in/ldap.v3 v3.0.3
-## explicit
-gopkg.in/ldap.v3
 # gopkg.in/mail.v2 v2.3.1
 ## explicit
 gopkg.in/mail.v2
@@ -1852,7 +1852,7 @@ sigs.k8s.io/structured-merge-diff/v4/value
 # sigs.k8s.io/yaml v1.2.0
 ## explicit; go 1.12
 sigs.k8s.io/yaml
-# yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20250820024120-20f73c47b078
+# yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20250821083217-bda20d3c26a5
 ## explicit; go 1.21
 yunion.io/x/cloudmux/pkg/apis
 yunion.io/x/cloudmux/pkg/apis/billing
@@ -1949,7 +1949,7 @@ yunion.io/x/log/hooks
 yunion.io/x/ovsdb/cli_util
 yunion.io/x/ovsdb/schema/ovn_nb
 yunion.io/x/ovsdb/types
-# yunion.io/x/pkg v1.10.4-0.20250814065738-8df5d9d07297
+# yunion.io/x/pkg v1.10.4-0.20250820035218-6008459eb4f0
 ## explicit; go 1.18
 yunion.io/x/pkg/appctx
 yunion.io/x/pkg/errors
