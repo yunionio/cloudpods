@@ -214,11 +214,13 @@ type SQgaGuestSetPassword struct {
 }
 
 type SQgaGuestSetNetwork struct {
-	Timeout int
-	Sid     string
-	Device  string
-	Ipmask  string
-	Gateway string
+	Timeout  int
+	Sid      string
+	Device   string
+	Ipmask   string
+	Gateway  string
+	Ip6mask  string
+	Gateway6 string
 }
 
 type CpuSetCounter struct {
