@@ -2932,9 +2932,11 @@ func (self *SGuest) GetRealIPs() []string {
 
 func (self *SGuest) IsExitOnly() bool {
 	for _, ip := range self.GetRealIPs() {
-		addr, _ := netutils.NewIPV4Addr(ip)
-		if !netutils.IsExitAddress(addr) {
-			return false
+		if regutils.MatchIP4Addr(ip) {
+			addr, _ := netutils.NewIPV4Addr(ip)
+			if !netutils.IsExitAddress(addr) {
+				return false
+			}
 		}
 	}
 	return true
@@ -2949,7 +2951,12 @@ func (self *SGuest) getVirtualIPs() []string {
 			continue
 		}
 		for _, groupnetwork := range groupnets {
-			ips = append(ips, groupnetwork.IpAddr)
+			if len(groupnetwork.IpAddr) > 0 {
+				ips = append(ips, groupnetwork.IpAddr)
+			}
+			if len(groupnetwork.Ip6Addr) > 0 {
+				ips = append(ips, groupnetwork.Ip6Addr)
+			}
 		}
 	}
 	return ips
@@ -2958,13 +2965,15 @@ func (self *SGuest) getVirtualIPs() []string {
 func (self *SGuest) GetPrivateIPs() []string {
 	ips := self.GetRealIPs()
 	for i := len(ips) - 1; i >= 0; i-- {
-		ipAddr, err := netutils.NewIPV4Addr(ips[i])
-		if err != nil {
-			log.Errorf("guest %s(%s) has bad ipv4 address (%s): %v", self.Name, self.Id, ips[i], err)
-			continue
-		}
-		if !netutils.IsPrivate(ipAddr) {
-			ips = append(ips[:i], ips[i+1:]...)
+		if regutils.MatchIP4Addr(ips[i]) {
+			ipAddr, err := netutils.NewIPV4Addr(ips[i])
+			if err != nil {
+				log.Errorf("guest %s(%s) has bad ipv4 address (%s): %v", self.Name, self.Id, ips[i], err)
+				continue
+			}
+			if !netutils.IsPrivate(ipAddr) {
+				ips = append(ips[:i], ips[i+1:]...)
+			}
 		}
 	}
 	return ips
