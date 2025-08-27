@@ -84,7 +84,7 @@ func Load(configPath string) (*Config, error) {
 	v.SetDefault("log.level", "info")
 	v.SetDefault("log.format", "json")
 	v.SetDefault("external.cloudpods.base_url", "https://<ip_or_domain_of_apigatway>/api/s/identity/v3")
-	v.SetDefault("external.cloudpods.timeout", 30)
+	v.SetDefault("external.cloudpods.timeout", 60)
 
 	if err := v.ReadInConfig(); err != nil {
 		return nil, fmt.Errorf("fail to load config: %w", err)

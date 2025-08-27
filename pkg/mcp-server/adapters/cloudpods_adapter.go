@@ -77,7 +77,7 @@ func (a *CloudpodsAdapter) authenticate(ak string, sk string) error {
 		context.Background(),
 		"",
 		"",
-		"publicURL",
+		"apigateway",
 		token,
 	)
 

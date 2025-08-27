@@ -64,6 +64,9 @@ func NewServer(cfg *config.Config, logger *logrus.Logger) *CloudpodsMCPServer {
 	serverDeleteTool := tools2.NewCloudpodsServerDeleteTool(adapter, logger)
 	serverCreateTool := tools2.NewCloudpodsServerCreateTool(adapter, logger)
 
+	serverMonitorTool := tools2.NewCloudpodsServerMonitorTool(adapter, logger)
+	serverStatsTool := tools2.NewCloudpodsServerStatsTool(adapter, logger)
+
 	allTools = append(
 		allTools,
 		regionsTool,
@@ -80,6 +83,9 @@ func NewServer(cfg *config.Config, logger *logrus.Logger) *CloudpodsMCPServer {
 		serverResetPasswordTool,
 		serverDeleteTool,
 		serverCreateTool,
+
+		serverMonitorTool,
+		serverStatsTool,
 	)
 
 	return &CloudpodsMCPServer{
@@ -135,5 +141,15 @@ func (s *CloudpodsMCPServer) Start() error {
 	}
 	s.logger.WithField("address", "mcp server stdio").Info("启动mcp server")
 
+	return nil
+}
+
+func (s *CloudpodsMCPServer) StartStdio() error {
+
+	err := server.ServeStdio(s.mcpServer)
+	if err != nil {
+		return err
+	}
+	s.logger.WithField("address", "mcp server stdio").Info("启动mcp server")
 	return nil
 }
