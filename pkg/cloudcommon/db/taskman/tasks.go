@@ -1404,7 +1404,7 @@ func (manager *STaskManager) migrateObjectInfo() error {
 	q = q.Filter(sqlchemy.IsNull(taskObj.Field("task_id")))
 	q = q.Asc("created_at")
 
-	q.DebugQuery2("migrateObjectInfo")
+	// q.DebugQuery2("migrateObjectInfo")
 
 	rows, err := q.Rows()
 	if err != nil {
