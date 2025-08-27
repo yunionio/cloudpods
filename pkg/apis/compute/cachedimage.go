@@ -86,4 +86,7 @@ type CachedimageListInput struct {
 
 	// valid cachedimage
 	Valid bool `json:"valid"`
+
+	// enum: [public, private]
+	CloudEnv string `json:"cloud_env"`
 }
