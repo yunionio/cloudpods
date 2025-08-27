@@ -1017,7 +1017,7 @@ func GetTagValueCountMap(
 	}
 	objSubQ = objSubQ.AppendField(sumFieldQ)
 
-	objSubQ.DebugQuery2("GetTagValueCountMap objSubQ")
+	// objSubQ.DebugQuery2("GetTagValueCountMap objSubQ")
 
 	q := objSubQ.SubQuery().Query()
 	q = q.AppendField(sqlchemy.SUM(tagValueCountKey, q.Field("_sub_count_")))
@@ -1040,7 +1040,7 @@ func GetTagValueCountMap(
 	}
 	q = q.GroupBy(groupBy...)
 
-	q.DebugQuery2("GetTagValueCountMap")
+	// q.DebugQuery2("GetTagValueCountMap")
 
 	valueMap, err := q.AllStringMap()
 	if err != nil {
