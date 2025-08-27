@@ -912,6 +912,26 @@ func (manager *SCachedimageManager) ListItemFilter(
 		if len(query.CloudproviderId) > 0 {
 			storagesQ = storagesQ.In("manager_id", query.CloudproviderId)
 		}
+		if len(query.CloudEnv) > 0 {
+			switch query.CloudEnv {
+			case api.CLOUD_ENV_PUBLIC_CLOUD:
+				pubQ := CloudproviderManager.GetPublicProviderIdsQuery()
+				storagesQ = storagesQ.In("manager_id", pubQ)
+			case api.CLOUD_ENV_PRIVATE_CLOUD:
+				privQ := CloudproviderManager.GetPrivateProviderIdsQuery()
+				storagesQ = storagesQ.In("manager_id", privQ)
+			case api.CLOUD_ENV_ON_PREMISE:
+				storagesQ = storagesQ.IsNullOrEmpty("manager_id")
+			case api.CLOUD_ENV_PRIVATE_ON_PREMISE:
+				privQ := CloudproviderManager.GetPrivateProviderIdsQuery()
+				storagesQ = storagesQ.Filter(
+					sqlchemy.OR(
+						sqlchemy.In(storagesQ.Field("manager_id"), privQ),
+						sqlchemy.IsNullOrEmpty(storagesQ.Field("manager_id")),
+					),
+				)
+			}
+		}
 		if len(query.HostSchedtagId) > 0 {
 			hostschedtags := HostschedtagManager.Query("host_id").Equals("schedtag_id", query.HostSchedtagId)
 			hoststorages := HoststorageManager.Query("storage_id").In("host_id", hostschedtags.Distinct().SubQuery())
