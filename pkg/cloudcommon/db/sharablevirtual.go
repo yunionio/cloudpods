@@ -171,6 +171,7 @@ func (model *SSharableVirtualResourceBase) GetSharedDomains() []string {
 	return SharableGetSharedProjects(model, SharedTargetDomain)
 }
 
+// 更改项目
 func (model *SSharableVirtualResourceBase) PerformChangeOwner(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

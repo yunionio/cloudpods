@@ -225,6 +225,7 @@ func (manager *SMetadataManager) fetchKeyValueQuery(
 	return q, nil
 }
 
+// +onecloud:swagger-gen-ignore
 func (manager *SMetadataManager) GetPropertyTagValuePairs(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

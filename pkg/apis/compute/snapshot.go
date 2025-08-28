@@ -113,3 +113,8 @@ type SnapshotDetails struct {
 
 type SnapshotSyncstatusInput struct {
 }
+
+type SnapshotDeleteDiskSnapshotsInput struct {
+	// 磁盘ID
+	DiskId string `json:"disk_id"`
+}
