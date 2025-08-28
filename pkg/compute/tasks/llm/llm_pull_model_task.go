@@ -36,9 +36,7 @@ func (t *LLMPullModelTask) OnInit(ctx context.Context, obj db.IStandaloneModel, 
 
 func (t *LLMPullModelTask) requestPullModel(ctx context.Context, llm *models.SLLM) {
 	// t.SetStage("OnPulledModel", nil)
-	// log.Infoln("set stage success", t, llm.Id, llm.ContainerId)
 	llm.SetStatus(ctx, t.GetUserCred(), api.LLM_STATUS_PULLING_MODEL, "")
-	// log.Infoln("request LLM Pull Model", t, llm.Id, llm.ContainerId)
 	if err := llm.PullModel(ctx, t.GetUserCred()); err != nil {
 		t.OnPulledModelFailed(ctx, llm, jsonutils.NewString(err.Error()))
 		return
