@@ -649,6 +649,14 @@ func (manager *SDiskManager) ValidateFsFeatures(fsType string, feature *api.Disk
 			return httperrors.NewInputParameterError("ext4.reserved_blocks_percentage must in range [1, 99]")
 		}
 	}
+	if feature.F2fs != nil {
+		if fsType != "f2fs" {
+			return httperrors.NewInputParameterError("only f2fs fs can set fs_features.f2fs, current is %q", fsType)
+		}
+		if feature.F2fs.OverprovisionRatioPercentage < 0 || feature.F2fs.OverprovisionRatioPercentage >= 100 {
+			return httperrors.NewInputParameterError("f2fs.reserved_blocks_percentage must in range [1, 99]")
+		}
+	}
 	return nil
 }
 
@@ -3272,6 +3280,15 @@ func (disk *SDisk) resetDiskinfo(
 	if len(disk.FsFormat) == 0 {
 		return errors.Wrap(errors.ErrInvalidStatus, "fs_format must be set")
 	}
+	if input.Fs != nil {
+		if disk.FsFeatures != nil {
+			err := DiskManager.ValidateFsFeatures(*input.Fs, input.FsFeatures)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
 	if input.TemplateId != nil {
 		if len(*input.TemplateId) > 0 {
 			imageObj, err := CachedimageManager.FetchByIdOrName(ctx, userCred, *input.TemplateId)
@@ -3320,6 +3337,7 @@ func (disk *SDisk) resetDiskinfo(
 		}
 		if input.Fs != nil {
 			disk.FsFormat = *input.Fs
+			disk.FsFeatures = input.FsFeatures
 		}
 		return nil
 	})

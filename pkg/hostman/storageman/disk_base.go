@@ -232,6 +232,12 @@ func ConvertDiskFsFeaturesToDeploy(fsFeatures *api.DiskFsFeatures) *deployapi.Fs
 			ReservedBlocksPercentage: int32(fsFeatures.Ext4.ReservedBlocksPercentage),
 		}
 	}
+	if fsFeatures.F2fs != nil {
+		ret.F2Fs = &deployapi.FsF2FsFeatures{
+			CaseInsensitive:              fsFeatures.F2fs.CaseInsensitive,
+			OverprovisionRatioPercentage: int32((fsFeatures.F2fs.OverprovisionRatioPercentage)),
+		}
+	}
 	return ret
 }
 
