@@ -35,6 +35,18 @@ func TestGenerateDSASSHKeypair(t *testing.T) {
 	t.Logf("%s", pub)
 }
 
+func TestGenerateECDSASHAP521SSHKeypair(t *testing.T) {
+	priv, pub, _ := GenerateECDSASHAP521SSHKeypair()
+	t.Logf("%s", priv)
+	t.Logf("%s", pub)
+}
+
+func TestGenerateED25519SSHKeypair(t *testing.T) {
+	priv, pub, _ := GenerateED25519SSHKeypair()
+	t.Logf("%s", priv)
+	t.Logf("%s", pub)
+}
+
 func getPublicKeyPem(privateKey string) ([]byte, error) {
 	block, _ := pem.Decode([]byte(privateKey))
 	if block == nil {
