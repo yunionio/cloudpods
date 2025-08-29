@@ -1580,17 +1580,20 @@ func (dispatcher *DBModelDispatcher) BatchCreate(ctx context.Context, query json
 
 	results := make([]printutils.SubmitResult, count)
 	models := make([]IModel, 0)
-	for i, res := range createResults {
+	for i := range createResults {
+		res := createResults[i]
 		result := printutils.SubmitResult{}
 		if res.err != nil {
 			jsonErr := httperrors.NewGeneralError(res.err)
 			result.Status = jsonErr.Code
 			result.Data = jsonutils.Marshal(jsonErr)
 		} else {
-			lockman.LockObject(ctx, res.model)
-			defer lockman.ReleaseObject(ctx, res.model)
+			func() {
+				lockman.LockObject(ctx, res.model)
+				defer lockman.ReleaseObject(ctx, res.model)
 
-			res.model.PostCreate(ctx, userCred, ownerId, query, data)
+				res.model.PostCreate(ctx, userCred, ownerId, query, data)
+			}()
 
 			models = append(models, res.model)
 			body, err := getItemDetails(manager, res.model, ctx, userCred, query)
@@ -1605,10 +1608,12 @@ func (dispatcher *DBModelDispatcher) BatchCreate(ctx context.Context, query json
 		results[i] = result
 	}
 	if len(models) > 0 {
-		lockman.LockClass(ctx, manager, GetLockClassKey(manager, ownerId))
-		defer lockman.ReleaseClass(ctx, manager, GetLockClassKey(manager, ownerId))
+		func() {
+			lockman.LockClass(ctx, manager, GetLockClassKey(manager, ownerId))
+			defer lockman.ReleaseClass(ctx, manager, GetLockClassKey(manager, ownerId))
 
-		manager.OnCreateComplete(ctx, models, userCred, ownerId, query, multiData)
+			manager.OnCreateComplete(ctx, models, userCred, ownerId, query, multiData)
+		}()
 	}
 	return results, nil
 }
