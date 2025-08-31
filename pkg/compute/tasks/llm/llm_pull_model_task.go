@@ -31,15 +31,29 @@ func init() {
 }
 
 func (t *LLMPullModelTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
-	t.requestPullModel(ctx, obj.(*models.SLLM))
+	t.requestRestoreModel(ctx, obj.(*models.SLLM))
+}
+
+func (t *LLMPullModelTask) requestRestoreModel(ctx context.Context, llm *models.SLLM) {
+	if err := llm.RestoreModel(t.GetUserCred()); nil != err {
+		t.requestPullModel(ctx, llm)
+	}
+	t.OnPulledModel(ctx, llm, nil)
 }
 
 func (t *LLMPullModelTask) requestPullModel(ctx context.Context, llm *models.SLLM) {
 	// t.SetStage("OnPulledModel", nil)
 	llm.SetStatus(ctx, t.GetUserCred(), api.LLM_STATUS_PULLING_MODEL, "")
-	if err := llm.PullModel(ctx, t.GetUserCred()); err != nil {
+	if err := llm.PullModel(ctx, t.GetUserCred()); nil != err {
 		t.OnPulledModelFailed(ctx, llm, jsonutils.NewString(err.Error()))
 		return
+	}
+	t.requestCacheModel(ctx, llm)
+}
+
+func (t *LLMPullModelTask) requestCacheModel(ctx context.Context, llm *models.SLLM) {
+	if err := llm.CacheModel(t.GetUserCred()); nil != err {
+		t.OnPulledModelFailed(ctx, llm, jsonutils.NewString(err.Error()))
 	}
 	t.OnPulledModel(ctx, llm, nil)
 }
