@@ -781,9 +781,6 @@ func (c *SContainer) StartPullImageTask(ctx context.Context, userCred mcclient.T
 }
 
 func (c *SContainer) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
-	// delete related llm
-	LLMManager.DeleteByContainerId(ctx, userCred, c.GetId())
-
 	return c.SVirtualResourceBase.Delete(ctx, userCred)
 }
 

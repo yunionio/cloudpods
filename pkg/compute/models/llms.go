@@ -30,6 +30,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/pod/remotecommand"
@@ -59,8 +60,8 @@ func init() {
 	// notifyclient.AddNotifyDBHookResources(LLMManager.KeywordPlural(), LLMManager.AliasPlural())
 }
 
-func (manager *SLLMManager) DeleteByContainerId(ctx context.Context, userCred mcclient.TokenCredential, ctrId string) error {
-	q := manager.Query().Equals("container_id", ctrId)
+func (manager *SLLMManager) DeleteByGuestId(ctx context.Context, userCred mcclient.TokenCredential, gstId string) error {
+	q := manager.Query().Equals("guest_id", gstId)
 	llms := make([]SLLM, 0)
 	if err := db.FetchModelObjects(manager, q, &llms); err != nil {
 		return errors.Wrap(err, "db.FetchModelObjects")
@@ -152,7 +153,6 @@ func (llm *SLLM) exec(userCred mcclient.TokenCredential, command ...string) (str
 	if nil != err {
 		return "", errors.Wrapf(err, "LLM exec error")
 	}
-	log.Infoln("get exec stream result", ret)
 
 	// check error and return result
 	return ret, nil
@@ -188,7 +188,7 @@ func (llm *SLLM) InitPodCreateData(data jsonutils.JSONObject, taskId string) (js
 
 	// mount volume
 	hostPath := &apis.ContainerVolumeMountHostPath{
-		Path:       api.LLM_OLLAMA_CACHE_HOST_PATH,
+		Path:       options.HostOptions.ImageCachePath + api.LLM_OLLAMA_CACHE_HOST_DIR,
 		AutoCreate: true,
 	}
 	volumeMount := &apis.ContainerVolumeMount{
@@ -206,7 +206,7 @@ func (llm *SLLM) InitPodCreateData(data jsonutils.JSONObject, taskId string) (js
 	}
 	ctr.Envs = append(ctr.Envs, env)
 
-	log.Infoln("In llm create: pod create input", jsonutils.Marshal(input).String())
+	// log.Infoln("In llm create: pod create input", jsonutils.Marshal(input).String())
 	return jsonutils.Marshal(input), nil
 }
 
@@ -224,6 +224,22 @@ func (llm *SLLM) StartStartTask(ctx context.Context, userCred mcclient.TokenCred
 		return errors.Wrap(err, "NewTask")
 	}
 	return task.ScheduleRun(nil)
+}
+
+func (llm *SLLM) CacheModel(userCred mcclient.TokenCredential) error {
+	// finish sh
+	cacheScript := fmt.Sprintf(api.LLM_CACHE_OLLAMA_MODEL, api.LLM_OLLAMA_CACHE_MOUNT_PATH)
+	// exec
+	_, err := llm.exec(userCred, "/bin/sh", "-c", cacheScript, "_", llm.Model)
+	return err
+}
+
+func (llm *SLLM) RestoreModel(userCred mcclient.TokenCredential) error {
+	// finish sh
+	restoreScript := fmt.Sprintf(api.LLM_RESTORE_OLLAMA_MODEL, api.LLM_OLLAMA_CACHE_MOUNT_PATH)
+	// exec
+	_, err := llm.exec(userCred, "/bin/sh", "-c", restoreScript, "_", llm.Model)
+	return err
 }
 
 func (llm *SLLM) RunModel(ctx context.Context, userCred mcclient.TokenCredential) error {
@@ -277,23 +293,6 @@ func cleanFinalANSI(input string) string {
 	return ansiRegexp.ReplaceAllString(input, "")
 }
 
-func processTerminalStream(input string) string {
-	input = strings.ReplaceAll(input, "\x1b[1G", "\r")
-	lines := strings.Split(input, "\n")
-	var resultLines []string
-
-	for _, line := range lines {
-		parts := strings.Split(line, "\r")
-		finalPart := parts[len(parts)-1]
-		cleanedLine := cleanFinalANSI(finalPart)
-		if cleanedLine != "" {
-			resultLines = append(resultLines, cleanedLine)
-		}
-	}
-
-	return strings.Join(resultLines, "\n")
-}
-
 func execStream(url *url.URL, headers http.Header) (string, error) {
 	// define out stream and err stream
 	var outBuf, errBuf strings.Builder
@@ -333,11 +332,13 @@ func execStream(url *url.URL, headers http.Header) (string, error) {
 	errWriter.Close()
 	wg.Wait()
 
+	// remove ansi
 	outResult := processTerminalStream(outBuf.String())
 	errResult := processTerminalStream(errBuf.String())
 	if err != nil {
 		return "", errors.Wrapf(err, "exec stream error (stdout [%s], stderr [%s])", outResult, errResult)
 	}
+	log.Infof("get exec stream result (stdout [%s], stderr [%s])", outResult, errResult)
 	return outResult, nil
 }
 
@@ -363,4 +364,21 @@ func llmGetOllamaContainer(ctrMngr *SContainerManager, llm *SLLM) (*SContainer, 
 		}
 	}
 	return nil, errors.Wrapf(errors.ErrNotFound, "ollama container for guest %s not found", llm.GuestId)
+}
+
+func processTerminalStream(input string) string {
+	input = strings.ReplaceAll(input, "\x1b[1G", "\r")
+	lines := strings.Split(input, "\n")
+	var resultLines []string
+
+	for _, line := range lines {
+		parts := strings.Split(line, "\r")
+		finalPart := parts[len(parts)-1]
+		cleanedLine := cleanFinalANSI(finalPart)
+		if cleanedLine != "" {
+			resultLines = append(resultLines, cleanedLine)
+		}
+	}
+
+	return strings.Join(resultLines, "\n")
 }
