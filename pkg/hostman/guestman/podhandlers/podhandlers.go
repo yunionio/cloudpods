@@ -34,6 +34,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/guestman"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/options"
+	"yunion.io/x/onecloud/pkg/hostman/storageman"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
@@ -43,6 +44,7 @@ import (
 const (
 	POD_ID       = "<podId>"
 	CONTAINER_ID = "<containerId>"
+	LLM_ID       = "<llmId>"
 )
 
 type containerActionFunc func(ctx context.Context, userCred mcclient.TokenCredential, pod guestman.PodInstance, containerId string, body jsonutils.JSONObject) (jsonutils.JSONObject, error)
@@ -154,6 +156,8 @@ func AddPodHandlers(prefix string, app *appsrv.Application) {
 
 	syncWorker := appsrv.NewWorkerManager("container-sync-action-worker", 16, appsrv.DEFAULT_BACKLOG, false)
 	app.AddHandler3(newContainerWorkerHandler("POST", fmt.Sprintf("%s/pods/%s/containers/%s/set-resources-limit", prefix, POD_ID, CONTAINER_ID), syncWorker, containerSyncActionHandler(containerSetResourcesLimit)))
+
+	app.AddHandler("POST", fmt.Sprintf("%s/pods/%s/containers/%s/llms/%s/llm-ollama-access-cache", prefix, POD_ID, CONTAINER_ID, LLM_ID), auth.Authenticate(llmOllamaAccessCacheHandler))
 }
 
 func pullImage(ctx context.Context, userCred mcclient.TokenCredential, pod guestman.PodInstance, ctrId string, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -340,4 +344,41 @@ func containerRemoveVolumeMountPostOverlay(ctx context.Context, userCred mcclien
 		return nil, errors.Wrap(err, "unmarshal to ContainerMountVolumeRemovePostOverlayInput")
 	}
 	return nil, pod.RemoveContainerVolumeMountPostOverlay(ctx, userCred, containerId, input)
+}
+
+type llmDelayActionParams struct {
+	llmId string
+	body  jsonutils.JSONObject
+}
+
+func llmOllamaAccessCacheHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	params, _, body := appsrv.FetchEnv(ctx, w, r)
+	llmId := params[LLM_ID]
+	if body == nil {
+		hostutils.Response(ctx, w, httperrors.NewBadRequestError("Error request body"))
+	}
+	delayParams := &llmDelayActionParams{
+		llmId: llmId,
+		body:  body,
+	}
+	delayFunc := func(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+		dp := params.(*llmDelayActionParams)
+		bd := dp.body
+		input := new(compute.LLMAccessCacheInput)
+		if err := bd.Unmarshal(input); err != nil {
+			return nil, err
+		}
+		cacheManager := storageman.GetManager().LocalStorageImagecacheManager.(*storageman.SLocalImageCacheManager)
+		if cacheManager == nil {
+			return nil, errors.Error("Can't get LocalStorageImagecacheManager")
+		}
+		for _, blob := range input.Blobs {
+			if err := cacheManager.AccessModelCache(ctx, input.ModelName, blob); nil != err {
+				return nil, errors.Wrapf(err, "Failed to attatch model cache")
+			}
+		}
+		return jsonutils.NewDict(), nil
+	}
+	hostutils.DelayTask(ctx, delayFunc, delayParams)
+	hostutils.ResponseOk(ctx, w)
 }

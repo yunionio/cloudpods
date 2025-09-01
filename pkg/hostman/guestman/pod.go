@@ -1776,6 +1776,28 @@ func (s *sPodGuestInstance) createContainer(ctx context.Context, userCred mcclie
 		return "", errors.Wrap(err, "getPodSandboxConfig")
 	}
 	spec := input.Spec
+	if spec.OllamaContainer {
+		// mount cache dir for ollama container
+		localCacheMan := storageman.GetManager().LocalStorageImagecacheManager.(*storageman.SLocalImageCacheManager)
+		hostPath := &apis.ContainerVolumeMountHostPath{
+			Path:       localCacheMan.GetModelPath(),
+			AutoCreate: false,
+			Type:       apis.CONTAINER_VOLUME_MOUNT_HOST_PATH_TYPE_DIRECTORY,
+		}
+		volumeMount := &hostapi.ContainerVolumeMount{
+			HostPath:  hostPath,
+			ReadOnly:  true,
+			MountPath: path.Join(computeapi.LLM_OLLAMA_CACHE_MOUNT_PATH, computeapi.LLM_OLLAMA_CACHE_DIR),
+			Type:      apis.CONTAINER_VOLUME_MOUNT_TYPE_HOST_PATH,
+		}
+		spec.VolumeMounts = append(spec.VolumeMounts, volumeMount)
+		// set enviroment OLLAMA_HOST=0.0.0.0:11434 for ollama container
+		env := &apis.ContainerKeyValue{
+			Key:   computeapi.LLM_OLLAMA_EXPORT_ENV_KEY,
+			Value: computeapi.LLM_OLLAMA_EXPORT_ENV_VALUE,
+		}
+		spec.Envs = append(spec.Envs, env)
+	}
 	mounts, err := s.getContainerMounts(ctrId, input)
 	if err != nil {
 		return "", errors.Wrap(err, "get container mounts")

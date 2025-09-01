@@ -15,26 +15,23 @@
 package models
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
+	"path"
 	"regexp"
 	"strings"
-	"sync"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
-	apis "yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
-	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/pod/remotecommand"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/httputils"
 	"yunion.io/x/pkg/util/sets"
 	"yunion.io/x/pkg/util/stringutils"
 )
@@ -76,34 +73,73 @@ func (manager *SLLMManager) DeleteByGuestId(ctx context.Context, userCred mcclie
 	return nil
 }
 
+func (manager *SLLMManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, _ jsonutils.JSONObject, input *api.LLMCreateInput) (*api.LLMCreateInput, error) {
+	if input.Model == "" {
+		return nil, httperrors.NewNotEmptyError("model is required")
+	}
+
+	// find ollama container and set it
+	var ctr *api.PodContainerCreateInput
+	finded := false
+	for _, c := range input.Pod.Containers {
+		if strings.Contains(c.Image, api.LLM_OLLAMA) {
+			ctr = c
+			finded = true
+			break
+		}
+	}
+	if !finded {
+		return nil, errors.Errorf("Image must be ollama")
+	}
+	ctr.OllamaContainer = true
+
+	// set autostart
+	input.AutoStart = true
+
+	return input, nil
+}
+
 type SLLM struct {
 	db.SVirtualResourceBase
 
 	// GuestId is also the pod id
 	GuestId     string `width:"36" charset:"ascii" default:"default" list:"user" index:"true" create:"optional"`
 	ContainerId string `width:"36" charset:"ascii" default:"default" list:"user" index:"true" create:"optional"`
-	Model       string `width:"64" charset:"ascii" default:"qwen3:1.7b" list:"user" update:"user" create:"required"`
+	ModelName   string `width:"64" charset:"ascii" default:"qwen3" list:"user" update:"user" create:"optional"`
+	ModelTag    string `width:"64" charset:"ascii" default:"latest" list:"user" update:"user" create:"optional"`
+}
+
+func (llm *SLLM) GetModelName() string {
+	return llm.ModelName
 }
 
 func (llm *SLLM) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
-	// manually generate llm Id
-	llm.Id = stringutils.UUID4()
+	// unmarshal input
+	input := &api.LLMCreateInput{}
+	if err := data.Unmarshal(input); err != nil {
+		return errors.Wrap(err, "Unmarshal ServerCreateInput")
+	}
+
+	// get model name and model tag
+	model := input.Model
+	parts := strings.Split(model, ":")
+	llm.ModelName = parts[0]
+	llm.ModelTag = "latest"
+	if len(parts) > 1 {
+		llm.ModelTag = parts[1]
+	}
 
 	// init task
+	llm.Id = stringutils.UUID4()
 	task, err := taskman.TaskManager.NewTask(ctx, "LLMPullModelTask", llm, userCred, jsonutils.NewDict(), "", "", nil)
 	if err != nil {
 		return errors.Wrap(err, "NewTask")
 	}
-
-	// init params
-	params, err := llm.InitPodCreateData(data, task.GetId())
-	if err != nil {
-		return errors.Wrap(err, "Customize pod create")
-	}
+	input.ParentTaskId = task.GetId()
 
 	// use data to create a pod
 	handler := db.NewModelHandler(GuestManager)
-	server, err := handler.Create(ctx, jsonutils.NewDict(), params, nil)
+	server, err := handler.Create(ctx, jsonutils.NewDict(), jsonutils.Marshal(input.ServerCreateInput), nil)
 	if err != nil {
 		return errors.Wrap(err, "CreateServer")
 	}
@@ -117,7 +153,7 @@ func (llm *SLLM) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCre
 	return llm.SVirtualResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }
 
-func (llm *SLLM) exec(userCred mcclient.TokenCredential, command ...string) (string, error) {
+func (llm *SLLM) exec(ctx context.Context, userCred mcclient.TokenCredential, stdin io.Reader, isSync bool, command ...string) (string, error) {
 	// get container
 	ctr, err := llm.GetContainer()
 	if nil != err {
@@ -132,115 +168,44 @@ func (llm *SLLM) exec(userCred mcclient.TokenCredential, command ...string) (str
 		return "", httperrors.NewInvalidStatusError("Can't exec container in status %s", ctr.Status)
 	}
 
-	// get Guest and Host
-	guest := ctr.GetPod()
-	host, _ := guest.GetHost()
-
 	// exec command
-	input := &api.ContainerExecInput{
-		Command: command,
-		Tty:     false,
-		SetIO:   true,
-		Stdin:   false,
-		Stdout:  true,
-	}
-	urlLoc := fmt.Sprintf("%s/pods/%s/containers/%s/exec?%s", host.ManagerUri, guest.GetId(), ctr.GetId(), jsonutils.Marshal(input).QueryString())
-	url, err := url.Parse(urlLoc)
-	if err != nil {
-		return "", errors.Wrapf(err, "parse url: %s", urlLoc)
-	}
-	ret, err := execStream(url, mcclient.GetTokenHeaders(userCred))
-	if nil != err {
-		return "", errors.Wrapf(err, "LLM exec error")
+	var ret string
+	if isSync {
+		var resp jsonutils.JSONObject
+		input := &api.ContainerExecSyncInput{
+			Command: command,
+		}
+		resp, err = ctr.GetPodDriver().RequestExecSyncContainer(ctx, userCred, ctr, input)
+		ret = resp.String()
+	} else {
+		input := &api.ContainerExecInput{
+			Command: command,
+		}
+		ret, err = ctr.GetPodDriver().RequestExecStreamContainer(ctx, userCred, ctr, input, stdin)
 	}
 
 	// check error and return result
+	if nil != err {
+		return "", errors.Wrapf(err, "LLM exec error")
+	}
 	return ret, nil
 }
 
-func (llm *SLLM) InitPodCreateData(data jsonutils.JSONObject, taskId string) (jsonutils.JSONObject, error) {
-	// init input and set parend task id
-	input := &api.ServerCreateInput{}
-	if err := data.Unmarshal(input); err != nil {
-		return nil, errors.Wrap(err, "Unmarshal ServerCreateInput")
-	}
-	input.ParentTaskId = taskId
+// func (llm *SLLM) PerformStart(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+// 	if !sets.NewString(api.CONTAINER_STATUS_EXITED, api.CONTAINER_STATUS_START_FAILED).Has(llm.Status) {
+// 		return nil, httperrors.NewInvalidStatusError("Can't start llm in status %s", llm.Status)
+// 	}
+// 	return nil, llm.StartStartTask(ctx, userCred, "")
+// }
 
-	// set auto_start
-	input.AutoStart = true
-
-	// get pod container
-	if len(input.Pod.Containers) == 0 {
-		return nil, errors.Errorf("Miss container in llm create")
-	}
-	var ctr *api.PodContainerCreateInput
-	finded := false
-	for _, c := range input.Pod.Containers {
-		if strings.Contains(c.Image, api.LLM_OLLAMA) {
-			ctr = c
-			finded = true
-			break
-		}
-	}
-	if !finded {
-		return nil, errors.Errorf("Image must be ollama")
-	}
-
-	// mount volume
-	hostPath := &apis.ContainerVolumeMountHostPath{
-		Path:       options.HostOptions.ImageCachePath + api.LLM_OLLAMA_CACHE_HOST_DIR,
-		AutoCreate: true,
-	}
-	volumeMount := &apis.ContainerVolumeMount{
-		HostPath:  hostPath,
-		ReadOnly:  false,
-		MountPath: api.LLM_OLLAMA_CACHE_MOUNT_PATH,
-		Type:      apis.CONTAINER_VOLUME_MOUNT_TYPE_HOST_PATH,
-	}
-	ctr.VolumeMounts = append(ctr.VolumeMounts, volumeMount)
-
-	// set enviroment OLLAMA_HOST=0.0.0.0:11434
-	env := &apis.ContainerKeyValue{
-		Key:   api.LLM_OLLAMA_EXPORT_ENV_KEY,
-		Value: api.LLM_OLLAMA_EXPORT_ENV_VALUE,
-	}
-	ctr.Envs = append(ctr.Envs, env)
-
-	// log.Infoln("In llm create: pod create input", jsonutils.Marshal(input).String())
-	return jsonutils.Marshal(input), nil
-}
-
-func (llm *SLLM) PerformStart(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if !sets.NewString(api.CONTAINER_STATUS_EXITED, api.CONTAINER_STATUS_START_FAILED).Has(llm.Status) {
-		return nil, httperrors.NewInvalidStatusError("Can't start llm in status %s", llm.Status)
-	}
-	return nil, llm.StartStartTask(ctx, userCred, "")
-}
-
-func (llm *SLLM) StartStartTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
-	llm.SetStatus(ctx, userCred, api.CONTAINER_STATUS_STARTING, "")
-	task, err := taskman.TaskManager.NewTask(ctx, "LLMStartTask", llm, userCred, nil, parentTaskId, "", nil)
-	if err != nil {
-		return errors.Wrap(err, "NewTask")
-	}
-	return task.ScheduleRun(nil)
-}
-
-func (llm *SLLM) CacheModel(userCred mcclient.TokenCredential) error {
-	// finish sh
-	cacheScript := fmt.Sprintf(api.LLM_CACHE_OLLAMA_MODEL, api.LLM_OLLAMA_CACHE_MOUNT_PATH)
-	// exec
-	_, err := llm.exec(userCred, "/bin/sh", "-c", cacheScript, "_", llm.Model)
-	return err
-}
-
-func (llm *SLLM) RestoreModel(userCred mcclient.TokenCredential) error {
-	// finish sh
-	restoreScript := fmt.Sprintf(api.LLM_RESTORE_OLLAMA_MODEL, api.LLM_OLLAMA_CACHE_MOUNT_PATH)
-	// exec
-	_, err := llm.exec(userCred, "/bin/sh", "-c", restoreScript, "_", llm.Model)
-	return err
-}
+// func (llm *SLLM) StartStartTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
+// 	llm.SetStatus(ctx, userCred, api.CONTAINER_STATUS_STARTING, "")
+// 	task, err := taskman.TaskManager.NewTask(ctx, "LLMStartTask", llm, userCred, nil, parentTaskId, "", nil)
+// 	if err != nil {
+// 		return errors.Wrap(err, "NewTask")
+// 	}
+// 	return task.ScheduleRun(nil)
+// }
 
 func (llm *SLLM) RunModel(ctx context.Context, userCred mcclient.TokenCredential) error {
 	return nil
@@ -260,7 +225,7 @@ func (llm *SLLM) GetContainer() (*SContainer, error) {
 	}
 }
 
-func (llm *SLLM) SetContainer(ctrId string) error {
+func (llm *SLLM) SetContainerId(ctrId string) error {
 
 	if _, err := db.Update(llm, func() error {
 		llm.ContainerId = ctrId
@@ -275,10 +240,71 @@ func (llm *SLLM) SetContainer(ctrId string) error {
 // func (manager *SLLMManager) OnCreateComplete(ctx context.Context, items []db.IModel, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data []jsonutils.JSONObject) {
 // }
 
-func (llm *SLLM) PullModel(ctx context.Context, userCred mcclient.TokenCredential) error {
-	// pull model
-	_, err := llm.exec(userCred, api.LLM_OLLAMA_EXEC_PATH, api.LLM_OLLAMA_PULL_ACTION, llm.Model)
-	return err
+func (llm *SLLM) GetManifests(ctx context.Context, userCred mcclient.TokenCredential) ([]string, error) {
+	// wget manifests
+	suffix := fmt.Sprintf("%s/manifests/%s", llm.ModelName, llm.ModelTag)
+	url := fmt.Sprintf(api.LLM_OLLAMA_LIBRARY_BASE_URL, suffix)
+	resp, err := webGet(url)
+	if nil != err {
+		return nil, err
+	}
+	defer resp.Close()
+
+	// write manifests into container
+	manifestBytes, err := io.ReadAll(resp)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to read response body")
+	}
+	filePath := path.Join(api.LLM_OLLAMA_BASE_PATH, api.LLM_OLLAMA_MANIFESTS_BASE_PATH, llm.ModelName, llm.ModelTag)
+	dirPath := path.Dir(filePath)
+	writeCommand := fmt.Sprintf("mkdir -p %s && cat > %s", dirPath, filePath)
+	if _, err := llm.exec(ctx, userCred, bytes.NewReader(manifestBytes), false, "/bin/sh", "-c", writeCommand); nil != err {
+		return nil, errors.Wrapf(err, "failed to write manifests into container")
+	}
+
+	// find all blobs
+	var results []string
+	re := regexp.MustCompile(`"digest":"(sha256:[^"]*)"`)
+	matches := re.FindAllStringSubmatch(string(manifestBytes), -1)
+	for _, match := range matches {
+		if len(match) > 1 {
+			digest := match[1]
+			processedDigest := strings.Replace(digest, "sha256:", "sha256-", 1)
+			results = append(results, processedDigest)
+		}
+	}
+
+	return results, nil
+}
+
+func (llm *SLLM) AccessBlobsCache(ctx context.Context, userCred mcclient.TokenCredential, task taskman.ITask) error {
+	// update status
+	llm.SetStatus(ctx, userCred, api.LLM_STATUS_DOWNLOADING_BLOBS, "")
+	// access blobs
+	if _, err := accessModelCache(ctx, llm, task); nil != err {
+		return err
+	}
+	return nil
+}
+
+func (llm *SLLM) CopyBlobs(ctx context.Context, userCred mcclient.TokenCredential, blobs []string) error {
+	// mkdir blobs
+	blobsTargetDir := path.Join(api.LLM_OLLAMA_BASE_PATH, api.LLM_OLLAMA_BLOBS_DIR)
+	_, err := llm.exec(ctx, userCred, nil, true, "/bin/mkdir", "-p", blobsTargetDir)
+	if nil != err {
+		return err
+	}
+	// cp blobs
+	blobsSrcDir := path.Join(api.LLM_OLLAMA_CACHE_MOUNT_PATH, api.LLM_OLLAMA_CACHE_DIR)
+	for _, blob := range blobs {
+		src := path.Join(blobsSrcDir, blob)
+		target := path.Join(blobsTargetDir, blob)
+		_, err = llm.exec(ctx, userCred, nil, true, "/bin/cp", src, target)
+		if nil != err {
+			return err
+		}
+	}
+	return nil
 }
 
 func (llm *SLLM) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
@@ -287,59 +313,17 @@ func (llm *SLLM) PostCreate(ctx context.Context, userCred mcclient.TokenCredenti
 	llm.SetStatus(ctx, userCred, api.LLM_STATUS_CREATING_POD, "")
 }
 
-func cleanFinalANSI(input string) string {
-	ansiRegexp := regexp.MustCompile(`\x1b\[[0-9;?]*[ -/]*[@-~]`)
-	input = strings.ReplaceAll(input, "\r", "")
-	return ansiRegexp.ReplaceAllString(input, "")
-}
-
-func execStream(url *url.URL, headers http.Header) (string, error) {
-	// define out stream and err stream
-	var outBuf, errBuf strings.Builder
-	outReader, outWriter := io.Pipe()
-	errReader, errWriter := io.Pipe()
-
-	// define goroutine to copy result
-	var wg sync.WaitGroup
-	wg.Add(2)
-
-	go func() {
-		defer wg.Done()
-		io.Copy(&outBuf, outReader)
-	}()
-
-	go func() {
-		defer wg.Done()
-		io.Copy(&errBuf, errReader)
-	}()
-
-	// exec stream
-	exec, err := remotecommand.NewSPDYExecutor("POST", url)
-	if err != nil {
-		return "", errors.Wrap(err, "NewSPDYExecutor")
+func accessModelCache(ctx context.Context, llm *SLLM, task taskman.ITask) (jsonutils.JSONObject, error) {
+	container, err := llm.GetContainer()
+	if nil != err {
+		return nil, err
 	}
-	err = exec.Stream(remotecommand.StreamOptions{
-		Stdin:             nil,
-		Stdout:            outWriter,
-		Stderr:            errWriter,
-		Tty:               false,
-		TerminalSizeQueue: nil,
-		Header:            headers,
-	})
-
-	// copy result
-	outWriter.Close()
-	errWriter.Close()
-	wg.Wait()
-
-	// remove ansi
-	outResult := processTerminalStream(outBuf.String())
-	errResult := processTerminalStream(errBuf.String())
-	if err != nil {
-		return "", errors.Wrapf(err, "exec stream error (stdout [%s], stderr [%s])", outResult, errResult)
-	}
-	log.Infof("get exec stream result (stdout [%s], stderr [%s])", outResult, errResult)
-	return outResult, nil
+	pod := container.GetPod()
+	host, _ := pod.GetHost()
+	url := fmt.Sprintf("%s/pods/%s/containers/%s/llms/%s/llm-ollama-access-cache", host.ManagerUri, pod.GetId(), container.GetId(), llm.GetId())
+	header := task.GetTaskRequestHeader()
+	_, ret, err := httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, header, task.GetParams(), false)
+	return ret, err
 }
 
 func llmFetchContainerById(ctrMngr *SContainerManager, llm *SLLM) (*SContainer, error) {
@@ -359,26 +343,27 @@ func llmGetOllamaContainer(ctrMngr *SContainerManager, llm *SLLM) (*SContainer, 
 	for _, ctr := range ctrs {
 		if strings.Contains(ctr.Spec.Image, api.LLM_OLLAMA) {
 			// update ContainerId
-			llm.SetContainer(ctr.GetId())
+			llm.SetContainerId(ctr.GetId())
 			return &ctr, nil
 		}
 	}
 	return nil, errors.Wrapf(errors.ErrNotFound, "ollama container for guest %s not found", llm.GuestId)
 }
 
-func processTerminalStream(input string) string {
-	input = strings.ReplaceAll(input, "\x1b[1G", "\r")
-	lines := strings.Split(input, "\n")
-	var resultLines []string
-
-	for _, line := range lines {
-		parts := strings.Split(line, "\r")
-		finalPart := parts[len(parts)-1]
-		cleanedLine := cleanFinalANSI(finalPart)
-		if cleanedLine != "" {
-			resultLines = append(resultLines, cleanedLine)
-		}
+func webGet(url string) (io.ReadCloser, error) {
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to create http request")
 	}
 
-	return strings.Join(resultLines, "\n")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, errors.Wrapf(err, "http get request failed")
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, errors.Errorf("failed to get web file, status code: %d, url: %s", resp.StatusCode, url)
+	}
+
+	return resp.Body, nil
 }

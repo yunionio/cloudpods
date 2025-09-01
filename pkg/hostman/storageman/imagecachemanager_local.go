@@ -17,6 +17,8 @@ package storageman
 import (
 	"context"
 	"os"
+	"path"
+	"regexp"
 	"sync"
 
 	"yunion.io/x/jsonutils"
@@ -41,6 +43,9 @@ type SLocalImageCacheManager struct {
 	lock lockman.ILockManager
 
 	storage IStorage
+
+	modelCacheDir string // a subdir of the cachepath
+	cachedModels  *sync.Map
 }
 
 func NewLocalImageCacheManager(manager IStorageManager, cachePath string, storagecacheId string, storage IStorage) *SLocalImageCacheManager {
@@ -57,6 +62,10 @@ func NewLocalImageCacheManager(manager IStorageManager, cachePath string, storag
 		procutils.NewCommand("mkdir", "-p", cachePath).Run()
 	}
 	imageCacheManager.loadCache(context.Background())
+
+	imageCacheManager.modelCacheDir = api.LLM_OLLAMA_CACHE_DIR
+	imageCacheManager.cachedModels = &sync.Map{}
+	imageCacheManager.loadModels(context.Background())
 	return imageCacheManager
 }
 
@@ -246,5 +255,47 @@ func (c *SLocalImageCacheManager) CleanImageCachefiles(ctx context.Context) {
 		log.Errorf("SLocalImageCacheManager clean image %s fail %s", c.cachePath, err)
 	} else {
 		log.Infof("SLocalImageCacheManager %s cleanup %dMB", c.cachePath, deletedMb)
+	}
+}
+
+func (c *SLocalImageCacheManager) GetModelPath() string {
+	return path.Join(c.cachePath, c.modelCacheDir)
+}
+
+func (c *SLocalImageCacheManager) loadModels(ctx context.Context) {
+	if len(c.cachePath) == 0 || len(c.modelCacheDir) == 0 {
+		return
+	}
+	c.lock.LockRawObject(ctx, "LOCAL", "model-cache")
+	defer c.lock.ReleaseRawObject(ctx, "LOCAL", "model-cache")
+	modelPath := c.GetModelPath()
+	if !fileutils2.Exists(modelPath) {
+		procutils.NewCommand("mkdir", "-p", modelPath).Run()
+	}
+	files, _ := os.ReadDir(modelPath)
+	SHA256_PREFIX_REG := regexp.MustCompile(`^sha256-[a-f0-9]{64}$`)
+	for _, f := range files {
+		if SHA256_PREFIX_REG.MatchString(f.Name()) && !f.IsDir() {
+			c.loadModelCache(f.Name())
+		}
+	}
+}
+
+func (c *SLocalImageCacheManager) AccessModelCache(ctx context.Context, modelName string, blobName string) error {
+	c.lock.LockRawObject(ctx, "model-cache", blobName)
+	defer c.lock.ReleaseRawObject(ctx, "model-cache", blobName)
+
+	blobObj, ok := c.cachedModels.Load(blobName)
+	if !ok {
+		blobObj = NewLocalModelCache(blobName, c)
+		c.cachedModels.Store(blobName, blobObj)
+	}
+	return blobObj.(*SLocalModelCache).Access(modelName)
+}
+
+func (c *SLocalImageCacheManager) loadModelCache(blobId string) {
+	modelCache := NewLocalModelCache(blobId, c)
+	if modelCache.Load() == nil {
+		c.cachedModels.Store(blobId, modelCache)
 	}
 }
