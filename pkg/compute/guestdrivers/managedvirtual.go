@@ -1110,7 +1110,7 @@ func (drv *SManagedVirtualizedGuestDriver) RequestChangeVmConfig(ctx context.Con
 		}
 		err := iVM.ChangeConfig(ctx, config)
 		if err != nil {
-			return nil, errors.Wrap(err, "GuestDriver.RequestChangeVmConfig.ChangeConfig")
+			return nil, errors.Wrap(err, "ChangeConfig")
 		}
 
 		err = cloudprovider.WaitCreated(time.Second*5, time.Minute*5, func() bool {
@@ -1133,7 +1133,7 @@ func (drv *SManagedVirtualizedGuestDriver) RequestChangeVmConfig(ctx context.Con
 			return false
 		})
 		if err != nil {
-			return nil, errors.Wrap(err, "GuestDriver.RequestChangeVmConfig.WaitCreated")
+			return nil, errors.Wrap(err, "wait config change")
 		}
 
 		instanceType = iVM.GetInstanceType()
@@ -1143,7 +1143,7 @@ func (drv *SManagedVirtualizedGuestDriver) RequestChangeVmConfig(ctx context.Con
 				return nil
 			})
 			if err != nil {
-				return nil, errors.Wrap(err, "GuestDriver.RequestChangeVmConfig.Update")
+				return nil, errors.Wrap(err, "Update")
 			}
 		}
 

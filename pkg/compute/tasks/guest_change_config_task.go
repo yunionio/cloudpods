@@ -208,7 +208,7 @@ func (task *GuestChangeConfigTask) OnCreateDisksComplete(ctx context.Context, ob
 		return
 	}
 
-	if confs.CpuChanged() || confs.MemChanged() {
+	if confs.CpuChanged() || confs.MemChanged() || (guest.GetDriver().DoScheduleSKUFilter() && confs.InstanceTypeChanged()) {
 		task.SetStage("OnGuestChangeCpuMemSpecComplete", nil)
 		task.startGuestChangeCpuMemSpec(ctx, guest, confs.InstanceType, confs.VcpuCount, confs.CpuSockets, confs.VmemSize)
 	} else {
@@ -465,7 +465,13 @@ func (task *GuestChangeConfigTask) OnSyncStatusComplete(ctx context.Context, obj
 		dt.Add(jsonutils.NewString(guest.Id), "id")
 		task.SetStageComplete(ctx, dt)
 	}
-	logclient.AddActionLogWithStartable(task, guest, logclient.ACT_VM_CHANGE_FLAVOR, "", task.UserCred, true)
+	confs, err := task.getChangeConfigSetting()
+	if err != nil {
+		task.markStageFailed(ctx, guest, jsonutils.NewString(err.Error()))
+		return
+	}
+	notes := fmt.Sprintf("instance_type: %s => %s vcpu: %d => %d mem: %d => %d", confs.Old.InstanceType, confs.InstanceType, confs.Old.VcpuCount, confs.VcpuCount, confs.Old.VmemSize, confs.VmemSize)
+	logclient.AddActionLogWithStartable(task, guest, logclient.ACT_VM_CHANGE_FLAVOR, notes, task.UserCred, true)
 	guest.EventNotify(ctx, task.UserCred, notifyclient.ActionChangeConfig)
 }
 
