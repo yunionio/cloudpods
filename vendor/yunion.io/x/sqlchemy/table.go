@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"reflect"
 	"sort"
-	"sync"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -86,12 +85,6 @@ type ITableSpec interface {
 
 	// Drop drops table
 	Drop() error
-
-	// getter of Extra Options
-	GetExtraOptions() TableExtraOptions
-
-	// setter of Extra Options
-	SetExtraOptions(opts TableExtraOptions)
 }
 
 // STableSpec defines the table specification, which implements ITableSpec
@@ -102,14 +95,7 @@ type STableSpec struct {
 	_indexes    []STableIndex
 	_contraints []STableConstraint
 
-	extraOptions TableExtraOptions
-
 	sDBReferer
-
-	IsLinked bool
-
-	syncedIndex   bool
-	syncIndexLock *sync.Mutex
 }
 
 // STable is an instance of table for query, system will automatically give a alias to this table
@@ -142,26 +128,8 @@ func NewTableSpecFromStructWithDBName(s interface{}, name string, dbName DBName)
 		sDBReferer: sDBReferer{
 			dbName: dbName,
 		},
-
-		syncedIndex:   false,
-		syncIndexLock: &sync.Mutex{},
 	}
-	return table
-}
-
-func NewTableSpecFromISpecWithDBName(spec ITableSpec, name string, dbName DBName, extraOpts TableExtraOptions) *STableSpec {
-	table := &STableSpec{
-		name:       name,
-		structType: spec.DataType(),
-		sDBReferer: sDBReferer{
-			dbName: dbName,
-		},
-		extraOptions: extraOpts,
-		IsLinked:     true,
-
-		syncedIndex:   false,
-		syncIndexLock: &sync.Mutex{},
-	}
+	// table.struct2TableSpec(val)
 	return table
 }
 
@@ -172,8 +140,7 @@ func (ts *STableSpec) Name() string {
 
 // Expression implementation of STableSpec for ITableSpec
 func (ts *STableSpec) Expression() string {
-	qChar := ts.Database().backend.QuoteChar()
-	return fmt.Sprintf("%s%s%s", qChar, ts.name, qChar)
+	return fmt.Sprintf("`%s`", ts.name)
 }
 
 func (ts *STableSpec) SyncColumnIndexes() error {
@@ -181,29 +148,13 @@ func (ts *STableSpec) SyncColumnIndexes() error {
 		return errors.Wrap(errors.ErrNotFound, "table not exists")
 	}
 
-	ts.syncIndexLock.Lock()
-	defer ts.syncIndexLock.Unlock()
-
-	if ts.syncedIndex {
-		return nil
-	}
-
 	cols, err := ts.Database().backend.FetchTableColumnSpecs(ts)
 	if err != nil {
+		log.Errorf("fetchColumnDefs fail: %s", err)
 		return errors.Wrap(err, "FetchTableColumnSpecs")
 	}
 	if len(cols) != len(ts._columns) {
-		colsName := map[string]bool{}
-		for _, col := range ts._columns {
-			colsName[col.Name()] = true
-		}
-		removed := []string{}
-		for _, col := range cols {
-			if _, ok := colsName[col.Name()]; !ok {
-				removed = append(removed, col.Name())
-			}
-		}
-		return errors.Wrapf(errors.ErrInvalidStatus, "ts %s col %d != actual col %d need remove columns %s", ts.Name(), len(ts._columns), len(cols), removed)
+		return errors.Wrapf(errors.ErrInvalidStatus, "ts col %d != actual col %d", len(ts._columns), len(cols))
 	}
 	for i := range cols {
 		cols[i].SetColIndex(i)
@@ -228,8 +179,6 @@ func (ts *STableSpec) SyncColumnIndexes() error {
 	sort.Slice(ts._columns, func(i, j int) bool {
 		return compareColumnIndex(ts._columns[i], ts._columns[j]) < 0
 	})
-
-	ts.syncedIndex = true
 
 	return nil
 }
@@ -270,9 +219,6 @@ func (ts *STableSpec) CloneWithSyncColumnOrder(name string, autoIncOffset int64,
 		_columns:    newCols,
 		_contraints: ts._contraints,
 		sDBReferer:  ts.sDBReferer,
-
-		syncedIndex:   false,
-		syncIndexLock: &sync.Mutex{},
 	}
 	newIndexes := make([]STableIndex, len(ts._indexes))
 	for i := range ts._indexes {
@@ -284,9 +230,6 @@ func (ts *STableSpec) CloneWithSyncColumnOrder(name string, autoIncOffset int64,
 
 // Columns implementation of STableSpec for ITableSpec
 func (ts *STableSpec) Columns() []IColumnSpec {
-	ts.syncIndexLock.Lock()
-	defer ts.syncIndexLock.Unlock()
-
 	if ts._columns == nil {
 		val := reflect.Indirect(reflect.New(ts.structType))
 		ts.struct2TableSpec(val)
@@ -353,7 +296,7 @@ func (tbl *STable) Field(name string, alias ...string) IQueryField {
 	}
 	col := STableField{table: tbl, spec: spec}
 	if len(alias) > 0 {
-		return col.Label(alias[0])
+		col.Label(alias[0])
 	}
 	return &col
 }
@@ -389,8 +332,10 @@ func (tbl *STable) Variables() []interface{} {
 
 // Expression implementation of STableField for IQueryField
 func (c *STableField) Expression() string {
-	qChar := c.database().backend.QuoteChar()
-	return fmt.Sprintf("%s%s%s.%s%s%s", qChar, c.table.Alias(), qChar, qChar, c.spec.Name(), qChar)
+	if len(c.alias) > 0 {
+		return fmt.Sprintf("`%s`.`%s` as `%s`", c.table.Alias(), c.spec.Name(), c.alias)
+	}
+	return fmt.Sprintf("`%s`.`%s`", c.table.Alias(), c.spec.Name())
 }
 
 // Name implementation of STableField for IQueryField
@@ -403,30 +348,20 @@ func (c *STableField) Name() string {
 
 // Reference implementation of STableField for IQueryField
 func (c *STableField) Reference() string {
-	qChar := c.database().backend.QuoteChar()
-	return fmt.Sprintf("%s%s%s.%s%s%s", qChar, c.table.Alias(), qChar, qChar, c.Name(), qChar)
+	return fmt.Sprintf("`%s`.`%s`", c.table.Alias(), c.Name())
 }
 
 // Label implementation of STableField for IQueryField
 func (c *STableField) Label(label string) IQueryField {
 	if len(label) > 0 {
-		// label make a copy of the field
-		nc := *c
-		nc.alias = label
-		return &nc
-	} else {
-		return c
+		c.alias = label
 	}
+	return c
 }
 
 // Variables implementation of STableField for IQueryField
 func (c *STableField) Variables() []interface{} {
 	return nil
-}
-
-// ConvertFromValue implementation of STableField for IQueryField
-func (c *STableField) ConvertFromValue(val interface{}) interface{} {
-	return c.spec.ConvertFromValue(val)
 }
 
 // database implementation of STableField for IQueryField

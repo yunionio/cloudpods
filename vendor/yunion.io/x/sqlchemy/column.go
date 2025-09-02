@@ -72,8 +72,6 @@ type IColumnSpec interface {
 	// IsNumeric returns whether this column is a numeric type column, e.g. integer or float
 	IsNumeric() bool
 
-	GetWidth() int
-
 	// ConvertFromString returns the SQL representation of a value in string format for this column
 	ConvertFromString(str string) interface{}
 
@@ -129,17 +127,10 @@ type IColumnSpec interface {
 	SetColIndex(idx int)
 }
 
-type iColumnInternal interface {
-	IColumnSpec
-
-	Oldname() string
-}
-
 // SBaseColumn is the base structure represents a column
 type SBaseColumn struct {
 	name          string
 	dbName        string
-	oldName       string
 	sqlType       string
 	defaultString string
 	isPointer     bool
@@ -163,11 +154,6 @@ func (c *SBaseColumn) Name() string {
 		return c.dbName
 	}
 	return c.name
-}
-
-// Name implementation of SBaseColumn for IColumnSpec
-func (c *SBaseColumn) Oldname() string {
-	return c.oldName
 }
 
 // ColType implementation of SBaseColumn for IColumnSpec
@@ -306,10 +292,6 @@ func (c *SBaseColumn) SetColIndex(idx int) {
 	c.colIndex = idx
 }
 
-func (c *SBaseColumn) GetWidth() int {
-	return 0
-}
-
 // NewBaseColumn returns an instance of SBaseColumn
 func NewBaseColumn(name string, sqltype string, tagmap map[string]string, isPointer bool) SBaseColumn {
 	var val string
@@ -318,11 +300,6 @@ func NewBaseColumn(name string, sqltype string, tagmap map[string]string, isPoin
 	tagmap, val, ok = utils.TagPop(tagmap, TAG_NAME)
 	if ok {
 		dbName = val
-	}
-	oldName := ""
-	tagmap, val, ok = utils.TagPop(tagmap, TAG_OLD_NAME)
-	if ok {
-		oldName = val
 	}
 	defStr := ""
 	tagmap, val, ok = utils.TagPop(tagmap, TAG_DEFAULT)
@@ -360,7 +337,6 @@ func NewBaseColumn(name string, sqltype string, tagmap map[string]string, isPoin
 	return SBaseColumn{
 		name:          name,
 		dbName:        dbName,
-		oldName:       oldName,
 		sqlType:       sqltype,
 		defaultString: defStr,
 		isNullable:    isNullable,
@@ -386,10 +362,6 @@ func (c *SBaseWidthColumn) ColType() string {
 		return fmt.Sprintf("%s(%d)", c.sqlType, c.width)
 	}
 	return c.sqlType
-}
-
-func (c *SBaseWidthColumn) GetWidth() int {
-	return c.width
 }
 
 // NewBaseWidthColumn return an instance of SBaseWidthColumn
@@ -422,9 +394,6 @@ func (c *SBaseCompoundColumn) ConvertFromValue(val interface{}) interface{} {
 	bVal, ok := val.(gotypes.ISerializable)
 	if ok && bVal != nil {
 		return bVal.String()
-	}
-	if _, ok := val.(string); ok {
-		return val
 	}
 	return jsonutils.Marshal(val).String()
 }

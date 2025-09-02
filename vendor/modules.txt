@@ -25,13 +25,6 @@ cloud.google.com/go/storage
 cloud.google.com/go/storage/internal
 cloud.google.com/go/storage/internal/apiv2
 cloud.google.com/go/storage/internal/apiv2/storagepb
-# gitee.com/chunanyong/dm v1.8.14
-## explicit; go 1.13
-gitee.com/chunanyong/dm
-gitee.com/chunanyong/dm/i18n
-gitee.com/chunanyong/dm/parser
-gitee.com/chunanyong/dm/security
-gitee.com/chunanyong/dm/util
 # github.com/360EntSecGroup-Skylar/excelize v1.4.0
 ## explicit
 github.com/360EntSecGroup-Skylar/excelize
@@ -1457,7 +1450,6 @@ golang.org/x/term
 golang.org/x/text/encoding
 golang.org/x/text/encoding/charmap
 golang.org/x/text/encoding/htmlindex
-golang.org/x/text/encoding/ianaindex
 golang.org/x/text/encoding/internal
 golang.org/x/text/encoding/internal/identifier
 golang.org/x/text/encoding/japanese
@@ -1852,7 +1844,7 @@ sigs.k8s.io/structured-merge-diff/v4/value
 # sigs.k8s.io/yaml v1.2.0
 ## explicit; go 1.12
 sigs.k8s.io/yaml
-# yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20250721091651-7572a3d284ce
+# yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20250829114859-d5e440233b39
 ## explicit; go 1.21
 yunion.io/x/cloudmux/pkg/apis
 yunion.io/x/cloudmux/pkg/apis/billing
@@ -1949,7 +1941,7 @@ yunion.io/x/log/hooks
 yunion.io/x/ovsdb/cli_util
 yunion.io/x/ovsdb/schema/ovn_nb
 yunion.io/x/ovsdb/types
-# yunion.io/x/pkg v1.10.4-0.20250715170922-d5b8a92716b6
+# yunion.io/x/pkg v1.10.4-0.20250820035218-6008459eb4f0
 ## explicit; go 1.18
 yunion.io/x/pkg/appctx
 yunion.io/x/pkg/errors
@@ -2003,12 +1995,11 @@ yunion.io/x/pkg/utils
 # yunion.io/x/s3cli v0.0.0-20241221171442-1c11599d28e1
 ## explicit; go 1.12
 yunion.io/x/s3cli
-# yunion.io/x/sqlchemy v1.1.3-0.20250531010554-ce98f840b833
+# yunion.io/x/sqlchemy v1.1.2
 ## explicit; go 1.17
 yunion.io/x/sqlchemy
 yunion.io/x/sqlchemy/backends
 yunion.io/x/sqlchemy/backends/clickhouse
-yunion.io/x/sqlchemy/backends/dameng
 yunion.io/x/sqlchemy/backends/mysql
 yunion.io/x/sqlchemy/backends/sqlite
 # yunion.io/x/structarg v0.0.0-20231017124457-df4d5009457c

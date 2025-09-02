@@ -21,26 +21,6 @@ import (
 	"yunion.io/x/pkg/util/reflectutils"
 )
 
-type sNoop struct{}
-
-var noop = &sNoop{}
-
-func (s sNoop) WhereClause() string {
-	return ""
-}
-
-func (s sNoop) Variables() []interface{} {
-	return nil
-}
-
-func (s sNoop) database() *SDatabase {
-	return nil
-}
-
-func Noop() ICondition {
-	return noop
-}
-
 // ICondition is the interface representing a condition for SQL query
 // e.g. WHERE a1 = b1 is a condition of equal
 // the condition support nested condition, with AND, OR and NOT boolean operators
@@ -124,9 +104,6 @@ func (c *SOrConditions) WhereClause() string {
 func AND(cond ...ICondition) ICondition {
 	conds := make([]ICondition, 0)
 	for _, c := range cond {
-		if c == nil || c == noop {
-			continue
-		}
 		andCond, ok := c.(*SAndConditions)
 		if ok {
 			conds = append(conds, andCond.conditions...)
@@ -142,10 +119,6 @@ func AND(cond ...ICondition) ICondition {
 func OR(cond ...ICondition) ICondition {
 	conds := make([]ICondition, 0)
 	for _, c := range cond {
-		if c == nil || c == noop {
-			conds = conds[0:0]
-			break
-		}
 		orCond, ok := c.(*SOrConditions)
 		if ok {
 			conds = append(conds, orCond.conditions...)
@@ -164,25 +137,16 @@ type SNotCondition struct {
 
 // WhereClause implementationq of SNotCondition for ICondition
 func (c *SNotCondition) WhereClause() string {
-	if c.condition == nil || c.condition == noop {
-		return "1!=1"
-	}
 	return fmt.Sprintf("%s (%s)", SQL_OP_NOT, c.condition.WhereClause())
 }
 
 // Variables implementation of SNotCondition for ICondition
 func (c *SNotCondition) Variables() []interface{} {
-	if c.condition == nil {
-		return nil
-	}
 	return c.condition.Variables()
 }
 
 // database implementation of SNotCondition for ICondition
 func (c *SNotCondition) database() *SDatabase {
-	if c.condition == nil {
-		return nil
-	}
 	return c.condition.database()
 }
 
@@ -251,8 +215,7 @@ type SIsEmptyCondition struct {
 
 // WhereClause implementation of SIsEmptyCondition for ICondition
 func (c *SIsEmptyCondition) WhereClause() string {
-	// DAMENG LENGTH('') = NULL
-	return fmt.Sprintf("%s = 0 OR %s IS NULL", c.field.Reference(), c.field.Reference())
+	return fmt.Sprintf("%s = 0", c.field.Reference())
 }
 
 // IsEmpty method that justifies where a text field is empty, e.g. length is zero
@@ -269,8 +232,7 @@ type SIsNullOrEmptyCondition struct {
 // WhereClause implementation of SIsNullOrEmptyCondition for ICondition
 func (c *SIsNullOrEmptyCondition) WhereClause() string {
 	originField := c.field.(*SFunctionFieldBase).queryFields()[0]
-	// DAMENG: LENGTH('') = NULL
-	return fmt.Sprintf("%s IS NULL OR %s = 0 OR %s IS NULL", originField.Reference(), c.field.Reference(), c.field.Reference())
+	return fmt.Sprintf("%s IS NULL OR %s = 0", originField.Reference(), c.field.Reference())
 }
 
 // IsNullOrEmpty is the ethod justifies a field is null or empty, e.g. a is null or length(a) == 0
@@ -328,7 +290,7 @@ func IsFalse(f IQueryField) ICondition {
 	return &c
 }
 
-// SNoLaterThanCondition compares a DATETIME field with current time and ensure the field is no later than now, e.g. a <= NOW()
+// SNoLaterThanCondition coompares a DATETIME field with current time and ensure the field is no later than now, e.g. a <= NOW()
 type SNoLaterThanCondition struct {
 	SSingleCondition
 }
@@ -369,30 +331,12 @@ type STupleCondition struct {
 }
 
 func tupleConditionWhereClause(t *STupleCondition, op string) string {
-	return tupleConditionWhereClauseInternal(t, op, "")
-}
-
-func TupleConditionWhereClauseWithFuncname(t *STupleCondition, funcName string) string {
-	return tupleConditionWhereClauseInternal(t, ",", funcName)
-}
-
-func tupleConditionWhereClauseInternal(t *STupleCondition, op string, funcName string) string {
-	if isFieldRequireAscii(t.left) && !isVariableAscii(t.right) {
-		return "0"
-	}
 	var buf bytes.Buffer
-	if len(funcName) > 0 {
-		buf.WriteString(funcName)
-		buf.WriteByte('(')
-	}
 	buf.WriteString(t.left.Reference())
 	buf.WriteByte(' ')
 	buf.WriteString(op)
 	buf.WriteByte(' ')
 	buf.WriteString(VarConditionWhereClause(t.right))
-	if len(funcName) > 0 {
-		buf.WriteByte(')')
-	}
 	return buf.String()
 }
 
@@ -430,13 +374,15 @@ func VarConditionWhereClause(v interface{}) string {
 }
 
 func varConditionVariables(v interface{}) []interface{} {
-	switch vv := v.(type) {
+	switch v.(type) {
 	case IQueryField:
 		return []interface{}{}
 	case *SQuery:
-		return vv.Variables()
+		q := v.(*SQuery)
+		return q.Variables()
 	case *SSubQuery:
-		return vv.query.Variables()
+		q := v.(*SSubQuery)
+		return q.query.Variables()
 	default:
 		return reflectutils.ExpandInterface(v)
 	}
@@ -457,14 +403,7 @@ func (t *STupleCondition) GetRight() interface{} {
 
 // Variables implementation of STupleCondition for ICondition
 func (t *STupleCondition) Variables() []interface{} {
-	if isFieldRequireAscii(t.left) && !isVariableAscii(t.right) {
-		return []interface{}{}
-	}
-	vars := varConditionVariables(t.right)
-	for i := range vars {
-		vars[i] = t.left.ConvertFromValue(vars[i])
-	}
-	return vars
+	return varConditionVariables(t.right)
 }
 
 // database implementation of STupleCondition for ICondition
@@ -619,7 +558,8 @@ func (t *SEqualsCondition) WhereClause() string {
 
 // Equals method represents equal of two fields
 func Equals(f IQueryField, v interface{}) ICondition {
-	return f.database().backend.Equals(f, v)
+	c := SEqualsCondition{NewTupleCondition(f, v)}
+	return &c
 }
 
 // SNotEqualsCondition is the opposite of equal condition
@@ -712,13 +652,9 @@ type STripleCondition struct {
 func (t *STripleCondition) Variables() []interface{} {
 	ret := make([]interface{}, 0)
 	vars := varConditionVariables(t.right)
-	for i := range vars {
-		ret = append(ret, t.left.ConvertFromValue(vars[i]))
-	}
+	ret = append(ret, vars...)
 	vars = varConditionVariables(t.right2)
-	for i := range vars {
-		ret = append(ret, t.left.ConvertFromValue(vars[i]))
-	}
+	ret = append(ret, vars...)
 	return ret
 }
 
@@ -778,8 +714,3 @@ func (t *SFalseCondition) Variables() []interface{} {
 func (t *SFalseCondition) database() *SDatabase {
 	return nil
 }
-
-var (
-	AlwaysTrue  = &STrueCondition{}
-	AlwaysFalse = &SFalseCondition{}
-)

@@ -27,27 +27,20 @@ var (
 	DEBUG_SQLCHEMY = false
 )
 
-func sqlDebug(key, sqlstr string, variables []interface{}) {
+func sqlDebug(sqlstr string, variables []interface{}) {
 	sqlstr = _sqlDebug(sqlstr, variables)
-	if key == "" {
-		key = "SQuery"
-	}
-	log.Debugln(key, sqlstr)
+	log.Debugln("SQuery ", sqlstr)
 }
 
 func _sqlDebug(sqlstr string, variables []interface{}) string {
-	return SQLPrintf(sqlstr, variables)
-}
-
-func SQLPrintf(sqlstr string, variables []interface{}) string {
 	for _, v := range variables {
 		switch v.(type) {
 		case bool, int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, float32, float64:
-			sqlstr = strings.Replace(sqlstr, "?", fmt.Sprintf("%v", v), 1)
+			sqlstr = strings.Replace(sqlstr, "?", fmt.Sprintf(`%v`, v), 1)
 		case string, time.Time:
-			sqlstr = strings.Replace(sqlstr, "?", fmt.Sprintf("'%s'", v), 1)
+			sqlstr = strings.Replace(sqlstr, "?", fmt.Sprintf(`'%s'`, v), 1)
 		default:
-			sqlstr = strings.Replace(sqlstr, "?", fmt.Sprintf("'%v'", v), 1)
+			sqlstr = strings.Replace(sqlstr, "?", fmt.Sprintf(`'%v'`, v), 1)
 		}
 	}
 	return sqlstr
@@ -55,30 +48,16 @@ func SQLPrintf(sqlstr string, variables []interface{}) string {
 
 // DebugQuery show the full query string for debug
 func (tq *SQuery) DebugQuery() {
-	tq.DebugQuery2("")
-}
-
-// DebugQuery show the full query string for debug
-func (tq *SQuery) DebugQuery2(key string) {
 	sqlstr := tq.String()
 	vars := tq.Variables()
-	sqlDebug(key, sqlstr, vars)
-}
-
-func (tq *SQuery) DebugString() string {
-	return _sqlDebug(tq.String(), tq.Variables())
-}
-
-// DebugQuery show the full query string for a subquery for debug
-func (sqf *SSubQuery) DebugQuery2(key string) {
-	sqlstr := sqf.Expression()
-	vars := sqf.query.Variables()
-	sqlDebug(key, sqlstr, vars)
+	sqlDebug(sqlstr, vars)
 }
 
 // DebugQuery show the full query string for a subquery for debug
 func (sqf *SSubQuery) DebugQuery() {
-	sqf.DebugQuery2("")
+	sqlstr := sqf.Expression()
+	vars := sqf.query.Variables()
+	sqlDebug(sqlstr, vars)
 }
 
 // DebugInsert does insert with debug mode on

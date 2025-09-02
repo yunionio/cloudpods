@@ -22,15 +22,10 @@ import (
 	"yunion.io/x/log"
 )
 
-func (ts *STableSpec) getSQLFilters(filter map[string]interface{}, qChar string) ([]string, []interface{}) {
+func getSQLFilters(filter map[string]interface{}) ([]string, []interface{}) {
 	conds := make([]string, 0, len(filter))
 	params := make([]interface{}, 0, len(filter))
 	for k, v := range filter {
-		col := ts.ColumnSpec(k)
-		if col == nil {
-			log.Warningf("getSQLFilters: column %s not found", k)
-			continue
-		}
 		if reflect.TypeOf(v).Kind() == reflect.Slice || reflect.TypeOf(v).Kind() == reflect.Array {
 			value := reflect.ValueOf(v)
 			if value.Len() == 0 {
@@ -39,12 +34,12 @@ func (ts *STableSpec) getSQLFilters(filter map[string]interface{}, qChar string)
 			arr := make([]string, value.Len())
 			for i := 0; i < value.Len(); i++ {
 				arr[i] = "?"
-				params = append(params, col.ConvertFromValue(value.Index(i).Interface()))
+				params = append(params, value.Index(i).Interface())
 			}
-			conds = append(conds, fmt.Sprintf("%s%s%s in (%s)", qChar, k, qChar, strings.Join(arr, ", ")))
+			conds = append(conds, fmt.Sprintf("`%s` in (%s)", k, strings.Join(arr, ", ")))
 		} else {
-			conds = append(conds, fmt.Sprintf("%s%s%s = ?", qChar, k, qChar))
-			params = append(params, col.ConvertFromValue(v))
+			conds = append(conds, fmt.Sprintf("`%s` = ?", k))
+			params = append(params, v)
 		}
 	}
 	return conds, params
@@ -53,14 +48,11 @@ func (ts *STableSpec) getSQLFilters(filter map[string]interface{}, qChar string)
 func (ts *STableSpec) DeleteFrom(filters map[string]interface{}) error {
 	buf := strings.Builder{}
 
-	qChar := ts.Database().backend.QuoteChar()
-
-	buf.WriteString("DELETE FROM ")
-	buf.WriteString(qChar)
+	buf.WriteString("DELETE FROM `")
 	buf.WriteString(ts.Name())
-	buf.WriteString(qChar)
+	buf.WriteString("`")
 
-	conds, params := ts.getSQLFilters(filters, qChar)
+	conds, params := getSQLFilters(filters)
 
 	if len(conds) > 0 {
 		buf.WriteString(" WHERE ")

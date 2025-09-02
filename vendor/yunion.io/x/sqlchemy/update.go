@@ -189,38 +189,29 @@ func (us *SUpdateSession) SaveUpdateSql(dt interface{}) (*SUpdateSQLResult, erro
 		return nil, ErrEmptyPrimaryKey
 	}
 
-	qChar := us.tableSpec.Database().backend.QuoteChar()
-
 	vars := make([]interface{}, 0)
 	colsets := make([]string, 0)
 	conditions := make([]string, 0)
 	for _, udif := range setters {
 		if gotypes.IsNil(udif.new) {
-			colsets = append(colsets, fmt.Sprintf("%s%s%s = NULL", qChar, udif.col.Name(), qChar))
+			colsets = append(colsets, fmt.Sprintf("`%s` = NULL", udif.col.Name()))
 		} else {
-			// validate text length
-			if udif.col.IsString() && udif.col.GetWidth() > 0 {
-				newStr, ok := udif.new.(string)
-				if ok && len(newStr) > udif.col.GetWidth() {
-					udif.new = newStr[:udif.col.GetWidth()]
-				}
-			}
-			colsets = append(colsets, fmt.Sprintf("%s%s%s = ?", qChar, udif.col.Name(), qChar))
+			colsets = append(colsets, fmt.Sprintf("`%s` = ?", udif.col.Name()))
 			vars = append(vars, udif.col.ConvertFromValue(udif.new))
 		}
 	}
 	for _, versionField := range versionFields {
-		colsets = append(colsets, fmt.Sprintf("%s%s%s = %s%s%s + 1", qChar, versionField, qChar, qChar, versionField, qChar))
+		colsets = append(colsets, fmt.Sprintf("`%s` = `%s` + 1", versionField, versionField))
 	}
 	for _, updatedField := range updatedFields {
-		colsets = append(colsets, fmt.Sprintf("%s%s%s = %s", qChar, updatedField, qChar, us.tableSpec.Database().backend.CurrentUTCTimeStampString()))
+		colsets = append(colsets, fmt.Sprintf("`%s` = %s", updatedField, us.tableSpec.Database().backend.CurrentUTCTimeStampString()))
 	}
 	for _, pkv := range primaries {
-		conditions = append(conditions, fmt.Sprintf("%s%s%s = ?", qChar, pkv.key, qChar))
+		conditions = append(conditions, fmt.Sprintf("`%s` = ?", pkv.key))
 		vars = append(vars, pkv.value)
 	}
 
-	updateSql := TemplateEval(us.tableSpec.Database().backend.UpdateSQLTemplate(), struct {
+	updateSql := templateEval(us.tableSpec.Database().backend.UpdateSQLTemplate(), struct {
 		Table      string
 		Columns    string
 		Conditions string
@@ -231,7 +222,7 @@ func (us *SUpdateSession) SaveUpdateSql(dt interface{}) (*SUpdateSQLResult, erro
 	})
 
 	if DEBUG_SQLCHEMY {
-		log.Infof("Update: %s", _sqlDebug(updateSql, vars))
+		log.Infof("Update: %s %s", updateSql, vars)
 	}
 
 	return &SUpdateSQLResult{
@@ -277,7 +268,7 @@ func (ts *STableSpec) execUpdateSql(dt interface{}, result *SUpdateSQLResult) er
 	}
 	err = q.First(dt)
 	if err != nil {
-		return errors.Wrapf(err, "query after update failed %s", q.DebugString())
+		return errors.Wrap(err, "query after update failed")
 	}
 	return nil
 }

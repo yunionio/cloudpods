@@ -16,7 +16,6 @@ package sqlchemy
 
 import (
 	"database/sql"
-	"strings"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -133,7 +132,7 @@ func (db *SDatabase) GetTables() []string {
 	}
 	ret := make([]string, len(tables))
 	for i, t := range tables {
-		ret[i] = strings.ToLower(t.Name)
+		ret[i] = t.Name
 	}
 	return ret
 }
@@ -160,10 +159,9 @@ func (db *SDatabase) TxBatchExec(sqlstr string, varsList [][]interface{}) ([]SSq
 		return nil, errors.Wrap(err, "Begin transaction")
 	}
 	defer tx.Rollback()
-
 	stmt, err := tx.Prepare(sqlstr)
 	if err != nil {
-		return nil, errors.Wrapf(err, "Prepare sql %s", SQLPrintf(sqlstr, varsList[0]))
+		return nil, errors.Wrapf(err, "Prepare sql %s", sqlstr)
 	}
 	defer stmt.Close()
 

@@ -88,10 +88,10 @@ func (index *STableIndex) IsIdentical(cols ...string) bool {
 	return true
 }
 
-func (index *STableIndex) QuotedColumns(quoteStr string) []string {
+func (index *STableIndex) QuotedColumns() []string {
 	ret := make([]string, len(index.columns))
 	for i := 0; i < len(ret); i++ {
-		ret[i] = fmt.Sprintf("%s%s%s", quoteStr, index.columns[i], quoteStr)
+		ret[i] = fmt.Sprintf("`%s`", index.columns[i])
 	}
 	return ret
 }

@@ -16,11 +16,13 @@ package google
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/pinyinutils"
 	"yunion.io/x/pkg/util/secrules"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
@@ -124,7 +126,7 @@ func (self *SSecurityGroup) GetRules() ([]cloudprovider.ISecurityGroupRule, erro
 func (self *SGoogleClient) CreateSecurityGroupRule(globalnetworkId, tag string, opts *cloudprovider.SecurityGroupRuleCreateOptions) (*SFirewall, error) {
 	name := fmt.Sprintf("%s-%d-auto-%d", opts.String(), opts.Priority, time.Now().Unix())
 	body := map[string]interface{}{
-		"name":        strings.ToLower(name),
+		"name":        normalizeString(name),
 		"description": opts.Desc,
 		"priority":    opts.Priority,
 		"network":     globalnetworkId,
@@ -181,8 +183,41 @@ func (self *SSecurityGroup) CreateRule(opts *cloudprovider.SecurityGroupRuleCrea
 	return rule, nil
 }
 
+func normalizeString(input string) string {
+	// 1. 转换为小写
+	lowerStr := strings.ToLower(input)
+	lowerStr = strings.Replace(lowerStr, "_", "-", -1)
+	lowerStr = pinyinutils.Text2Pinyin(lowerStr)
+
+	// 2. 移除所有不符合要求的字符（只保留a-z、0-9和-）
+	reg := regexp.MustCompile(`[^a-z0-9-]`)
+	cleaned := reg.ReplaceAllString(lowerStr, "")
+
+	// 3. 处理开头：如果不以字母开头，添加一个默认字母a
+	if len(cleaned) == 0 || !regexp.MustCompile(`^[a-z]`).MatchString(cleaned) {
+		cleaned = "a" + cleaned
+	}
+
+	// 4. 处理结尾：如果以连字符结尾，移除
+	cleaned = regexp.MustCompile(`-$`).ReplaceAllString(cleaned, "")
+
+	// 5. 限制长度为63个字符（域名标签的最大长度）
+	if len(cleaned) > 63 {
+		cleaned = cleaned[:63]
+		// 确保截断后不以连字符结尾
+		cleaned = regexp.MustCompile(`-$`).ReplaceAllString(cleaned, "")
+		// 如果截断后为空，添加一个数字1
+		if len(cleaned) == 0 {
+			cleaned = "1"
+		}
+	}
+
+	return cleaned
+}
+
 func (self *SGlobalNetwork) CreateISecurityGroup(opts *cloudprovider.SecurityGroupCreateInput) (cloudprovider.ICloudSecurityGroup, error) {
-	secgroup := &SSecurityGroup{gvpc: self, Tag: strings.ToLower(opts.Name)}
+	tag := normalizeString(opts.Name)
+	secgroup := &SSecurityGroup{gvpc: self, Tag: tag}
 	groups, err := self.GetISecurityGroups()
 	if err != nil {
 		return nil, err

@@ -14,7 +14,9 @@
 
 package sqlchemy
 
-import "strings"
+import (
+	"strings"
+)
 
 type STableConstraint struct {
 	name         string

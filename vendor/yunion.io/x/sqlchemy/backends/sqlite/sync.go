@@ -90,31 +90,16 @@ func (sqlite *SSqliteBackend) CommitTableChangeSQL(ts sqlchemy.ITableSpec, chang
 		newTableName := fmt.Sprintf("%s_tmp", ts.Name())
 		oldTableName := fmt.Sprintf("%s_old", ts.Name())
 		// create a table with alter name
-		// var newTable *sqlchemy.STableSpec
-		newTable := ts.(*sqlchemy.STableSpec).Clone(newTableName, 0)
+		var newTable *sqlchemy.STableSpec
+		newTable = ts.(*sqlchemy.STableSpec).Clone(newTableName, 0)
 		createSqls := newTable.CreateSQLs()
 		ret = append(ret, createSqls...)
 		// insert
-		colNameMap := make(map[string]string)
-
-		for _, cols := range changes.UpdatedColumns {
-			if cols.OldCol.Name() != cols.NewCol.Name() {
-				colNameMap[cols.NewCol.Name()] = cols.OldCol.Name()
-			}
-
-		}
 		colNames := make([]string, 0)
-		srcCols := make([]string, 0)
 		for _, col := range ts.Columns() {
-			colName := col.Name()
-			srcName := colName
-			if n, ok := colNameMap[colName]; ok {
-				srcName = n
-			}
-			colNames = append(colNames, fmt.Sprintf("`%s`", colName))
-			srcCols = append(srcCols, fmt.Sprintf("`%s`", srcName))
+			colNames = append(colNames, fmt.Sprintf("`%s`", col.Name()))
 		}
-		sql := fmt.Sprintf("INSERT INTO `%s`(%s) SELECT %s FROM `%s`", newTableName, strings.Join(colNames, ", "), strings.Join(srcCols, ", "), ts.Name())
+		sql := fmt.Sprintf("INSERT INTO `%s` SELECT %s FROM `%s`", newTableName, strings.Join(colNames, ", "), ts.Name())
 		ret = append(ret, sql)
 		// change name
 		sql = fmt.Sprintf("ALTER TABLE `%s` RENAME TO `%s`", ts.Name(), oldTableName)
@@ -133,5 +118,5 @@ func (sqlite *SSqliteBackend) CommitTableChangeSQL(ts sqlchemy.ITableSpec, chang
 }
 
 func createIndexSQL(ts sqlchemy.ITableSpec, idx sqlchemy.STableIndex) string {
-	return fmt.Sprintf("CREATE INDEX `%s` ON `%s` (%s)", idx.Name(), ts.Name(), strings.Join(idx.QuotedColumns("`"), ","))
+	return fmt.Sprintf("CREATE INDEX `%s` ON `%s` (%s)", idx.Name(), ts.Name(), strings.Join(idx.QuotedColumns(), ","))
 }

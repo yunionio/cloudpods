@@ -54,8 +54,6 @@ func (t *STableSpec) incrementInternalSql(diff interface{}, opcode string, targe
 		targetFields = reflectutils.FetchStructFieldValueSet(targetValue)
 	}
 
-	qChar := t.Database().backend.QuoteChar()
-
 	primaries := make([]sPrimaryKeyValue, 0)
 	vars := make([]interface{}, 0)
 	versionFields := make([]string, 0)
@@ -107,7 +105,7 @@ func (t *STableSpec) incrementInternalSql(diff interface{}, opcode string, targe
 	}
 
 	var buf bytes.Buffer
-	buf.WriteString(fmt.Sprintf("UPDATE %s%s%s SET ", qChar, t.name, qChar))
+	buf.WriteString(fmt.Sprintf("UPDATE `%s` SET ", t.name))
 	first := true
 	for _, k := range incFields {
 		if first {
@@ -115,13 +113,13 @@ func (t *STableSpec) incrementInternalSql(diff interface{}, opcode string, targe
 		} else {
 			buf.WriteString(", ")
 		}
-		buf.WriteString(fmt.Sprintf("%s%s%s = %s%s%s %s ?", qChar, k, qChar, qChar, k, qChar, opcode))
+		buf.WriteString(fmt.Sprintf("`%s` = `%s` %s ?", k, k, opcode))
 	}
 	for _, versionField := range versionFields {
-		buf.WriteString(fmt.Sprintf(", %s%s%s = %s%s%s + 1", qChar, versionField, qChar, qChar, versionField, qChar))
+		buf.WriteString(fmt.Sprintf(", `%s` = `%s` + 1", versionField, versionField))
 	}
 	for _, updatedField := range updatedFields {
-		buf.WriteString(fmt.Sprintf(", %s%s%s = %s", qChar, updatedField, qChar, t.Database().backend.CurrentUTCTimeStampString()))
+		buf.WriteString(fmt.Sprintf(", `%s` = %s", updatedField, t.Database().backend.CurrentUTCTimeStampString()))
 	}
 
 	buf.WriteString(" WHERE ")
@@ -129,7 +127,7 @@ func (t *STableSpec) incrementInternalSql(diff interface{}, opcode string, targe
 		if i > 0 {
 			buf.WriteString(" AND ")
 		}
-		buf.WriteString(fmt.Sprintf("%s%s%s = ?", qChar, pkv.key, qChar))
+		buf.WriteString(fmt.Sprintf("`%s` = ?", pkv.key))
 		vars = append(vars, pkv.value)
 	}
 

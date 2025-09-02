@@ -17,7 +17,6 @@ package sqlchemy
 import (
 	"bytes"
 	"fmt"
-	"sort"
 )
 
 // IQuery is an interface that reprsents a SQL query, e.g.
@@ -81,9 +80,6 @@ type IQueryField interface {
 	// return variables
 	Variables() []interface{}
 
-	// ConvertFromValue returns the SQL representation of a value for this
-	ConvertFromValue(val interface{}) interface{}
-
 	// Database returns the database of this IQuerySource
 	database() *SDatabase
 }
@@ -105,123 +101,48 @@ func queryString(tq *SQuery, tmpFields ...IQueryField) string {
 		return tq.rawSql
 	}
 
-	qChar := tq.database().backend.QuoteChar()
-
 	var buf bytes.Buffer
 	buf.WriteString("SELECT ")
 	if tq.distinct {
 		buf.WriteString("DISTINCT ")
 	}
-
-	fields := tmpFields
+	fields := tq.fields
 	if len(fields) == 0 {
-		if len(tq.fields) > 0 {
-			fields = append(fields, tq.fields...)
-		} else {
-			fields = append(fields, tq.from.Fields()...)
-			for i := range fields {
-				tq.from.Field(fields[i].Name())
-			}
+		fields = tmpFields
+	}
+	if len(fields) == 0 {
+		fields = tq.QueryFields()
+		for i := range fields {
+			tq.from.Field(fields[i].Name())
 		}
 	}
-	{
-		// add reference query fields
-		queryFields := make(map[string]IQueryField)
-		for i, f := range fields {
-			queryFields[f.Name()] = fields[i]
-		}
-		refFields := make([]IQueryField, 0)
-		for _, f := range tq.refFieldMap {
-			if _, ok := queryFields[f.Name()]; !ok {
-				queryFields[f.Name()] = f
-				refFields = append(refFields, f)
-			}
-		}
-		sort.Sort(queryFieldList(refFields))
-		fields = append(fields, refFields...)
-	}
-
-	groupFields := make(map[string]IQueryField)
-	if len(tq.groupBy) > 0 {
-		for i := range tq.groupBy {
-			f := tq.groupBy[i]
-			groupFields[f.Name()] = f
-		}
-	}
-
 	for i := range fields {
 		if i > 0 {
 			buf.WriteString(", ")
 		}
-		f := fields[i]
-		if len(tq.groupBy) > 0 {
-			if gf, ok := groupFields[f.Name()]; ok && f.Reference() == gf.Reference() {
-				// in group by, normal
-				buf.WriteString(f.Expression())
-			} else {
-				// not in group by, check if the field is a group aggregate function
-				if gf, ok := f.(IFunctionQueryField); ok && gf.IsAggregate() {
-					// is a aggregate function field
-					buf.WriteString(f.Expression())
-				} else {
-					f = MAX(f.Name(), f)
-					buf.WriteString(f.Expression())
-				}
-			}
-		} else {
-			// normal
-			buf.WriteString(f.Expression())
-		}
-		if f.Name() != "" {
-			buf.WriteString(fmt.Sprintf(" AS %s%s%s", qChar, f.Name(), qChar))
-		}
+		buf.WriteString(fields[i].Expression())
 	}
 	buf.WriteString(" FROM ")
-	buf.WriteString(fmt.Sprintf("%s AS %s%s%s", tq.from.Expression(), qChar, tq.from.Alias(), qChar))
+	buf.WriteString(fmt.Sprintf("%s AS `%s`", tq.from.Expression(), tq.from.Alias()))
 	for _, join := range tq.joins {
 		buf.WriteByte(' ')
 		buf.WriteString(string(join.jointype))
 		buf.WriteByte(' ')
-		buf.WriteString(fmt.Sprintf("%s AS %s%s%s", join.from.Expression(), qChar, join.from.Alias(), qChar))
-		whereCls := join.condition.WhereClause()
-		if len(whereCls) > 0 {
-			buf.WriteString(" ON ")
-			buf.WriteString(whereCls)
-		}
+		buf.WriteString(fmt.Sprintf("%s AS `%s`", join.from.Expression(), join.from.Alias()))
+		buf.WriteString(" ON ")
+		buf.WriteString(join.condition.WhereClause())
 	}
 	if tq.where != nil {
-		whereCls := tq.where.WhereClause()
-		if len(whereCls) > 0 {
-			buf.WriteString(" WHERE ")
-			buf.WriteString(whereCls)
-		}
+		buf.WriteString(" WHERE ")
+		buf.WriteString(tq.where.WhereClause())
 	}
 	if tq.groupBy != nil && len(tq.groupBy) > 0 {
 		buf.WriteString(" GROUP BY ")
-		groupByFields := make(map[string]IQueryField)
-		for i := range tq.groupBy {
-			f := tq.groupBy[i]
-			if _, ok := groupByFields[f.Reference()]; ok {
-				continue
-			}
+		for i, f := range tq.groupBy {
 			if i > 0 {
 				buf.WriteString(", ")
 			}
 			buf.WriteString(f.Reference())
-			groupByFields[f.Reference()] = f
-		}
-		// DAMENG SQL Compatibility, all order by fields should be in group by
-		for i := range tq.orderBy {
-			f := tq.orderBy[i]
-			if _, ok := groupByFields[f.field.Reference()]; ok {
-				continue
-			}
-			if ff, ok := f.field.(IFunctionQueryField); ok && ff.IsAggregate() {
-				continue
-			}
-			buf.WriteString(", ")
-			buf.WriteString(f.field.Reference())
-			groupByFields[f.field.Reference()] = f.field
 		}
 	}
 	/*if tq.having != nil {
@@ -230,8 +151,7 @@ func queryString(tq *SQuery, tmpFields ...IQueryField) string {
 	}*/
 	if tq.orderBy != nil && len(tq.orderBy) > 0 {
 		buf.WriteString(" ORDER BY ")
-		for i := range tq.orderBy {
-			f := tq.orderBy[i]
+		for i, f := range tq.orderBy {
 			if i > 0 {
 				buf.WriteString(", ")
 			}

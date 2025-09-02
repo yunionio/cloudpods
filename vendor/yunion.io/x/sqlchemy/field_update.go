@@ -86,31 +86,29 @@ func (ts *STableSpec) updateFieldSql(dt interface{}, fields map[string]interface
 		return nil, ErrEmptyPrimaryKey
 	}
 
-	qChar := ts.Database().backend.QuoteChar()
-
 	vars := make([]interface{}, 0)
 	var buf bytes.Buffer
-	buf.WriteString(fmt.Sprintf("UPDATE %s%s%s SET ", qChar, ts.name, qChar))
+	buf.WriteString(fmt.Sprintf("UPDATE `%s` SET ", ts.name))
 	for i, k := range cnames {
 		v := cv[k]
 		if i > 0 {
 			buf.WriteString(", ")
 		}
-		buf.WriteString(fmt.Sprintf("%s%s%s = ?", qChar, k, qChar))
+		buf.WriteString(fmt.Sprintf("`%s` = ?", k))
 		vars = append(vars, v)
 	}
 	for _, versionField := range versionFields {
-		buf.WriteString(fmt.Sprintf(", %s%s%s = %s%s%s + 1", qChar, versionField, qChar, qChar, versionField, qChar))
+		buf.WriteString(fmt.Sprintf(", `%s` = `%s` + 1", versionField, versionField))
 	}
 	for _, updatedField := range updatedFields {
-		buf.WriteString(fmt.Sprintf(", %s%s%s = %s", qChar, updatedField, qChar, ts.Database().backend.CurrentUTCTimeStampString()))
+		buf.WriteString(fmt.Sprintf(", `%s` = %s", updatedField, ts.Database().backend.CurrentUTCTimeStampString()))
 	}
 	buf.WriteString(" WHERE ")
 	for i, pkv := range primaryCols {
 		if i > 0 {
 			buf.WriteString(" AND ")
 		}
-		buf.WriteString(fmt.Sprintf("%s%s%s = ?", qChar, pkv.key, qChar))
+		buf.WriteString(fmt.Sprintf("`%s` = ?", pkv.key))
 		vars = append(vars, pkv.value)
 	}
 

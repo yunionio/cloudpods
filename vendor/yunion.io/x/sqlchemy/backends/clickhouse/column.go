@@ -20,11 +20,13 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
+	"strings"
 	"time"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/tristate"
+	"yunion.io/x/pkg/util/timeutils"
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/sqlchemy"
@@ -155,8 +157,8 @@ func (c *SBooleanColumn) DefinitionString() string {
 
 // ConvertFromString implementation of SBooleanColumn for IColumnSpec
 func (c *SBooleanColumn) ConvertFromString(str string) interface{} {
-	switch sqlchemy.ConvertValueToBool(str) {
-	case true:
+	switch strings.ToLower(str) {
+	case "true", "yes", "on", "ok", "1":
 		return uint8(1)
 	default:
 		return uint8(0)
@@ -165,12 +167,11 @@ func (c *SBooleanColumn) ConvertFromString(str string) interface{} {
 
 // ConvertFromValue implementation of STristateColumn for IColumnSpec
 func (c *SBooleanColumn) ConvertFromValue(val interface{}) interface{} {
-	switch sqlchemy.ConvertValueToBool(val) {
-	case true:
+	bVal := val.(bool)
+	if bVal {
 		return uint8(1)
-	default:
-		return uint8(0)
 	}
+	return uint8(0)
 }
 
 // IsZero implementation of SBooleanColumn for IColumnSpec
@@ -206,24 +207,24 @@ func (c *STristateColumn) DefinitionString() string {
 
 // ConvertFromString implementation of STristateColumn for IColumnSpec
 func (c *STristateColumn) ConvertFromString(str string) interface{} {
-	switch sqlchemy.ConvertValueToTriState(str) {
-	case tristate.True:
+	switch strings.ToLower(str) {
+	case "true", "yes", "on", "ok", "1":
 		return uint8(1)
-	case tristate.False:
-		return uint8(0)
-	default:
+	case "none", "null", "unknown":
 		return sql.NullInt32{}
+	default:
+		return uint8(0)
 	}
 }
 
 // ConvertFromValue implementation of STristateColumn for IColumnSpec
 func (c *STristateColumn) ConvertFromValue(val interface{}) interface{} {
-	switch sqlchemy.ConvertValueToTriState(val) {
-	case tristate.True:
+	bVal := val.(tristate.TriState)
+	if bVal == tristate.True {
 		return uint8(1)
-	case tristate.False:
+	} else if bVal == tristate.False {
 		return uint8(0)
-	default:
+	} else {
 		return sql.NullInt32{}
 	}
 }
@@ -281,26 +282,37 @@ func (c *SIntegerColumn) IsZero(val interface{}) bool {
 
 // ConvertFromString implementation of STristateColumn for IColumnSpec
 func (c *SIntegerColumn) ConvertFromString(str string) interface{} {
-	val := sqlchemy.ConvertValueToInteger(str)
-	switch c.ColType() {
-	case "UInt8":
-		return uint8(val)
-	case "UInt16":
-		return uint16(val)
-	case "UInt32":
-		return uint32(val)
-	case "UInt64":
-		return val
-	case "Int8":
-		return int8(val)
-	case "Int16":
-		return int16(val)
-	case "Int32":
-		return int32(val)
-	case "Int64":
-		return val
+	ctype := c.SBaseColumn.ColType()
+	if ctype[0] == 'U' {
+		// unsigned
+		val, _ := strconv.ParseUint(str, 10, 64)
+		switch ctype {
+		case "UInt8":
+			return uint8(val)
+		case "UInt16":
+			return uint16(val)
+		case "UInt32":
+			return uint32(val)
+		case "UInt64":
+			return val
+		default:
+			panic(fmt.Sprintf("unsupported type %s", ctype))
+		}
+	} else {
+		val, _ := strconv.ParseInt(str, 10, 64)
+		switch ctype {
+		case "Int8":
+			return int8(val)
+		case "Int16":
+			return int16(val)
+		case "Int32":
+			return int32(val)
+		case "Int64":
+			return val
+		default:
+			panic(fmt.Sprintf("unsupported type %s", ctype))
+		}
 	}
-	panic(fmt.Sprintf("unsupported type %s", c.ColType()))
 }
 
 // IsAutoVersion implements IsAutoVersion for IColumnSpec
@@ -362,14 +374,16 @@ func (c *SFloatColumn) IsZero(val interface{}) bool {
 
 // ConvertFromString implementation of STristateColumn for IColumnSpec
 func (c *SFloatColumn) ConvertFromString(str string) interface{} {
-	floatVal := sqlchemy.ConvertValueToFloat(str)
-	switch c.ColType() {
+	ctype := c.SBaseColumn.ColType()
+	val, _ := strconv.ParseFloat(str, 64)
+	switch ctype {
 	case "Float32":
-		return float32(floatVal)
+		return float32(val)
 	case "Float64":
-		return floatVal
+		return val
+	default:
+		panic(fmt.Sprintf("unsupported type %s", ctype))
 	}
-	panic(fmt.Sprintf("unsupported type %s", c.ColType()))
 }
 
 // NewFloatColumn returns an instance of SFloatColumn
@@ -389,10 +403,7 @@ type SDecimalColumn struct {
 // ColType implementation of SDecimalColumn for IColumnSpec
 func (c *SDecimalColumn) ColType() string {
 	str := c.SClickhouseBaseColumn.ColType()
-	if str == "Decimal" {
-		return fmt.Sprintf("%s(%d, %d)", str, c.width, c.Precision)
-	}
-	return fmt.Sprintf("%s(%d)", str, c.Precision)
+	return fmt.Sprintf("%s(%d, %d)", str, c.width, c.Precision)
 }
 
 // IsNumeric implementation of SDecimalColumn for IColumnSpec
@@ -428,7 +439,8 @@ func (c *SDecimalColumn) IsZero(val interface{}) bool {
 
 // ConvertFromString implementation of STristateColumn for IColumnSpec
 func (c *SDecimalColumn) ConvertFromString(str string) interface{} {
-	return sqlchemy.ConvertValueToFloat(str)
+	val, _ := strconv.ParseFloat(str, 64)
+	return val
 }
 
 // NewDecimalColumn returns an instance of SDecimalColumn
@@ -549,12 +561,8 @@ func (c *STimeTypeColumn) IsZero(val interface{}) bool {
 
 // ConvertFromString implementation of STristateColumn for IColumnSpec
 func (c *STimeTypeColumn) ConvertFromString(str string) interface{} {
-	return sqlchemy.ConvertValueToTime(str)
-}
-
-// ConvertFromValue implementation of STimeTypeColumn for IColumnSpec
-func (c *STimeTypeColumn) ConvertFromValue(val interface{}) interface{} {
-	return sqlchemy.ConvertValueToTime(val)
+	tm, _ := timeutils.ParseTimeStr(str)
+	return tm
 }
 
 func (c *STimeTypeColumn) GetTTL() (int, string) {
@@ -595,12 +603,6 @@ type SDateTimeColumn struct {
 
 	// Is this column a 'updated_at' field, whichi records the time when this record was updated
 	isUpdatedAt bool
-}
-
-// DefinitionString implementation of SDateTimeColumn for IColumnSpec
-func (c *SDateTimeColumn) DefinitionString() string {
-	buf := columnDefinitionBuffer(c)
-	return buf.String()
 }
 
 func (c *SDateTimeColumn) IsCreatedAt() bool {

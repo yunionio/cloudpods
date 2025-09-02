@@ -47,18 +47,6 @@ func findTtlColumn(cols []sqlchemy.IColumnSpec) sColumnTTL {
 	return ret
 }
 
-func findOrderByColumns(cols []sqlchemy.IColumnSpec) []string {
-	var ret []string
-	for _, col := range cols {
-		if clickCol, ok := col.(IClickhouseColumnSpec); ok {
-			if (clickCol.IsOrderBy() || clickCol.IsPrimary()) && len(clickCol.PartitionBy()) == 0 {
-				ret = append(ret, clickCol.Name())
-			}
-		}
-	}
-	return ret
-}
-
 func findPartitions(cols []sqlchemy.IColumnSpec) []string {
 	parts := make([]string, 0)
 	for i := range cols {
@@ -83,6 +71,8 @@ func arrayContainsWord(strs []string, word string) bool {
 }
 
 func (clickhouse *SClickhouseBackend) CommitTableChangeSQL(ts sqlchemy.ITableSpec, changes sqlchemy.STableChanges) []string {
+	ret := make([]string, 0)
+
 	needCopyTable := false
 
 	alters := make([]string, 0)
@@ -142,10 +132,7 @@ func (clickhouse *SClickhouseBackend) CommitTableChangeSQL(ts sqlchemy.ITableSpe
 
 	oldPartitions := findPartitions(changes.OldColumns)
 	for _, cols := range changes.UpdatedColumns {
-		if cols.OldCol.Name() != cols.NewCol.Name() {
-			sql := fmt.Sprintf("RENAME COLUMN %s TO %s", cols.OldCol.Name(), cols.NewCol.Name())
-			alters = append(alters, sql)
-		} else if cols.OldCol.IsNullable() && !cols.NewCol.IsNullable() && arrayContainsWord(oldPartitions, cols.NewCol.Name()) {
+		if cols.OldCol.IsNullable() && !cols.NewCol.IsNullable() && arrayContainsWord(oldPartitions, cols.NewCol.Name()) {
 			needCopyTable = true
 		} else {
 			sql := fmt.Sprintf("MODIFY COLUMN %s", cols.NewCol.DefinitionString())
@@ -170,42 +157,24 @@ func (clickhouse *SClickhouseBackend) CommitTableChangeSQL(ts sqlchemy.ITableSpe
 	}*/
 
 	// check TTL
-	{
-		oldTtlSpec := findTtlColumn(changes.OldColumns)
-		newTtlSpec := findTtlColumn(ts.Columns())
-		log.Debugf("old: %s new: %s", jsonutils.Marshal(oldTtlSpec), jsonutils.Marshal(newTtlSpec))
-		if oldTtlSpec != newTtlSpec {
-			if oldTtlSpec.Count > 0 && newTtlSpec.Count == 0 {
-				// remove
-				sql := fmt.Sprintf("REMOVE TTL")
-				alters = append(alters, sql)
-			} else {
-				// alter
-				sql := fmt.Sprintf("MODIFY TTL `%s` + INTERVAL %d %s", newTtlSpec.ColName, newTtlSpec.Count, newTtlSpec.Unit)
-				alters = append(alters, sql)
-			}
+	oldTtlSpec := findTtlColumn(changes.OldColumns)
+	newTtlSpec := findTtlColumn(ts.Columns())
+	log.Debugf("old: %s new: %s", jsonutils.Marshal(oldTtlSpec), jsonutils.Marshal(newTtlSpec))
+	if oldTtlSpec != newTtlSpec {
+		if oldTtlSpec.Count > 0 && newTtlSpec.Count == 0 {
+			// remove
+			sql := fmt.Sprintf("REMOVE TTL")
+			alters = append(alters, sql)
+		} else {
+			// alter
+			sql := fmt.Sprintf("MODIFY TTL `%s` + INTERVAL %d %s", newTtlSpec.ColName, newTtlSpec.Count, newTtlSpec.Unit)
+			alters = append(alters, sql)
 		}
 	}
 
-	// check order by
-	{
-		oldOrderBys := findOrderByColumns(changes.OldColumns)
-		newOrderBys := findOrderByColumns(ts.Columns())
-		log.Debugf("old: %s new: %s", jsonutils.Marshal(oldOrderBys), jsonutils.Marshal(newOrderBys))
-		if jsonutils.Marshal(oldOrderBys).String() != jsonutils.Marshal(newOrderBys).String() {
-			// alter
-			altered := false
-			for i := range newOrderBys {
-				if !utils.IsInStringArray(newOrderBys[i], oldOrderBys) {
-					oldOrderBys = append(oldOrderBys, newOrderBys[i])
-					altered = true
-				}
-			}
-			if altered {
-				sql := fmt.Sprintf("MODIFY ORDER BY (%s)", strings.Join(oldOrderBys, ", "))
-				alters = append(alters, sql)
-			}
-		}
+	if len(alters) > 0 {
+		sql := fmt.Sprintf("ALTER TABLE `%s` %s;", ts.Name(), strings.Join(alters, ", "))
+		ret = append(ret, sql)
 	}
 
 	// check partitions
@@ -214,8 +183,6 @@ func (clickhouse *SClickhouseBackend) CommitTableChangeSQL(ts sqlchemy.ITableSpe
 		log.Infof("partition inconsistemt: old=%s new=%s", oldPartitions, newPartitions)
 		needCopyTable = true
 	}
-
-	ret := make([]string, 0)
 
 	// needCopyTable
 	if needCopyTable {
@@ -237,17 +204,6 @@ func (clickhouse *SClickhouseBackend) CommitTableChangeSQL(ts sqlchemy.ITableSpe
 		ret = append(ret, sql)
 		sql = fmt.Sprintf("RENAME TABLE `%s` TO `%s`", alterTableName, ts.Name())
 		ret = append(ret, sql)
-	} else if len(alters) > 0 {
-		tableSpec := ts.(*sqlchemy.STableSpec)
-		if tableSpec.IsLinked {
-			// if the table is a linked table, simply re-create the table
-			ret = append(ret, fmt.Sprintf("DROP TABLE IF EXISTS `%s`", tableSpec.Name()))
-			createSqls := tableSpec.CreateSQLs()
-			ret = append(ret, createSqls...)
-		} else {
-			sql := fmt.Sprintf("ALTER TABLE `%s` %s;", ts.Name(), strings.Join(alters, ", "))
-			ret = append(ret, sql)
-		}
 	}
 
 	return ret

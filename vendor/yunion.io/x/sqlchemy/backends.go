@@ -25,12 +25,9 @@ const (
 	MySQLBackend = DBBackendName("MySQL")
 	// Clickhouse is the backend name of Clickhouse
 	ClickhouseBackend = DBBackendName("Clickhouse")
-	// SQLite is the backend name of Sqlite3
+	// SQLiteBackend is the backend name of Sqlite3
 	SQLiteBackend = DBBackendName("SQLite")
 	// PostgreSQLBackend = DBBackendName("PostgreSQL")
-
-	// DAMENG is the backend name of DAMENG
-	DamengBackend = DBBackendName("DAMENG")
 )
 
 // IBackend is the interface for all kinds of sql backends, e.g. MySQL, ClickHouse, Sqlite, PostgreSQL, etc.
@@ -84,15 +81,6 @@ type IBackend interface {
 	UpdateSQLTemplate() string
 	// InsertOrUpdateSQLTemplate returns the template of insert or update SQL
 	InsertOrUpdateSQLTemplate() string
-	// prepare insert or update sql
-	// t: ITableSpec
-	// names: insert target column names
-	// insertFields: insert target column values format
-	// primaryKeys: on conditions primary keys
-	// updates: update set values
-	// values: insert values
-	// updateupdateValues: update values
-	PrepareInsertOrUpdateSQL(ts ITableSpec, insertColNames []string, insertFields []string, onPrimaryCols []string, updateSetCols []string, insertValues []interface{}, updateValues []interface{}) (string, []interface{})
 
 	// CanSupportRowAffected returns wether the backend support RowAffected method after update
 	//     MySQL: true
@@ -103,20 +91,12 @@ type IBackend interface {
 	// CommitTableChangeSQL outputs the SQLs to alter a table
 	CommitTableChangeSQL(ts ITableSpec, changes STableChanges) []string
 
-	QuoteChar() string
-
 	///////////////////////////////////////////////////////////////////////
 	////////////////// FUNCTIONS //////////////////////////////////////////
 	///////////////////////////////////////////////////////////////////////
 
-	// cast field to specified type
+	// cast
 	CAST(field IQueryField, typeStr string, fieldname string) IQueryField
-	// cast field to string
-	CASTString(field IQueryField, fieldname string) IQueryField
-	// cast field to integer
-	CASTInt(field IQueryField, fieldname string) IQueryField
-	// cast field to float
-	CASTFloat(field IQueryField, fieldname string) IQueryField
 	// TIMESTAMPADD
 	TIMESTAMPADD(name string, field IQueryField, offsetSeconds int) IQueryField
 	// DATE_FORMAT
@@ -145,8 +125,6 @@ type IBackend interface {
 	MIN(name string, field IQueryField) IQueryField
 	// SUM
 	SUM(name string, field IQueryField) IQueryField
-	// AVG
-	AVG(name string, field IQueryField) IQueryField
 	// LENGTH
 	LENGTH(name string, field IQueryField) IQueryField
 	// LOWER
@@ -155,12 +133,6 @@ type IBackend interface {
 	UPPER(name string, field IQueryField) IQueryField
 	// DATEDIFF
 	DATEDIFF(unit string, field1, field2 IQueryField) IQueryField
-
-	/////////////////////////////////////////////////////////////////////////////
-	///////////////////// Filters ///////////////////////////////////////////////
-	/////////////////////////////////////////////////////////////////////////////
-
-	Equals(f IQueryField, v interface{}) ICondition
 }
 
 var _driver_tbl = make(map[DBBackendName]IBackend)

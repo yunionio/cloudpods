@@ -281,27 +281,24 @@ func ErrorMsg(err error) string {
 func GetAddrPort(urlStr string) (string, int, error) {
 	parts, err := url.Parse(urlStr)
 	if err != nil {
-		return "", 0, err
+		return "", 0, errors.Wrapf(err, "url.Parse %s", urlStr)
 	}
-	host := parts.Host
-	commaPos := strings.IndexByte(host, ':')
-	if commaPos > 0 {
-		port, err := strconv.ParseInt(host[commaPos+1:], 10, 32)
-		if err != nil {
-			return "", 0, err
-		} else {
-			return host[:commaPos], int(port), nil
-		}
-	} else {
+	portStr := parts.Port()
+	if len(portStr) == 0 {
 		switch parts.Scheme {
 		case "http":
-			return parts.Host, 80, nil
+			return parts.Hostname(), 80, nil
 		case "https":
-			return parts.Host, 443, nil
+			return parts.Hostname(), 443, nil
 		default:
-			return "", 0, fmt.Errorf("Unknown schema %s", parts.Scheme)
+			return "", 0, errors.Errorf("Unknown schema %s", parts.Scheme)
 		}
 	}
+	port, err := strconv.Atoi(portStr)
+	if err != nil {
+		return "", 0, errors.Wrapf(err, "strconv.Atoi port string %s", portStr)
+	}
+	return parts.Hostname(), port, nil
 }
 
 func GetTransport(insecure bool) *http.Transport {
@@ -515,7 +512,7 @@ func request(client sClient, ctx context.Context, method THttpMethod, urlStr str
 		var reqBody string
 		if bodySeeker, ok := body.(io.ReadSeeker); ok {
 			bodySeeker.Seek(0, io.SeekStart)
-			reqBodyBytes, _ := ioutil.ReadAll(bodySeeker)
+			reqBodyBytes, _ := io.ReadAll(bodySeeker)
 			if reqBodyBytes != nil {
 				reqBody = string(reqBodyBytes)
 			}
