@@ -701,7 +701,22 @@ func (s *SKVMGuestInstance) handleKickstartMount(input *qemu.GenerateStartOption
 		return errors.Wrap(err, "get kickstart kernel paths")
 	}
 
-	kernelArgs := s.generateKickstartKernelArgs(kickstartConfig)
+	var kickstartConfigIsoPath string
+	log.Infof("Kickstart config for guest %s: Config length=%d, ConfigURL=%s",
+		s.GetName(), len(kickstartConfig.Config), kickstartConfig.ConfigURL)
+
+	if kickstartConfig.Config != "" {
+		isoPath, err := CreateKickstartConfigISO(kickstartConfig, s.Id)
+		if err != nil {
+			log.Errorf("Failed to create kickstart config ISO for guest %s: %v, falling back to URL/cdrom method", s.GetName(), err)
+		} else {
+			kickstartConfigIsoPath = isoPath
+			log.Infof("Successfully created kickstart ISO for guest %s: %s", s.GetName(), isoPath)
+		}
+	}
+
+	kernelArgs := s.GenerateKickstartKernelArgs(kickstartConfig, kickstartConfigIsoPath)
+	log.Infof("Generated kickstart kernel args for guest %s: %s", s.GetName(), kernelArgs)
 
 	// Create kickstart serial monitor for status monitoring
 	kickstartMonitor := NewKickstartSerialMonitor(s.Id)
@@ -714,14 +729,20 @@ func (s *SKVMGuestInstance) handleKickstartMount(input *qemu.GenerateStartOption
 		InitrdPath:     initrdPath,
 		KernelArgs:     kernelArgs,
 		SerialFilePath: serialFilePath,
+		ConfigIsoPath:  kickstartConfigIsoPath,
+	}
+
+	// Add kickstart config ISO as additional CDROM device if created
+	if kickstartConfigIsoPath != "" {
+		if err := s.attachKickstartISO(kickstartConfigIsoPath); err != nil {
+			log.Warningf("Failed to attach kickstart config ISO %s: %v", kickstartConfigIsoPath, err)
+		}
 	}
 
 	s.kickstartMonitor = kickstartMonitor
 
-	log.Infof("Kickstart boot configured for guest %s: kernel=%s, initrd=%s, args=%s",
-		s.GetName(), kernelPath, initrdPath, kernelArgs)
-
-	// TODO: Unmount ISO when VM stops/autoinstall finishes
+	log.Infof("Kickstart boot configured for guest %s: kernel=%s, initrd=%s, args=%s, isoPath=%s",
+		s.GetName(), kernelPath, initrdPath, kernelArgs, kickstartConfigIsoPath)
 
 	return nil
 }
@@ -1361,7 +1382,38 @@ func (s *SKVMGuestInstance) getKickstartKernelPaths(mountPath, osType string) (s
 	return kernelPath, initrdPath, nil
 }
 
-func (s *SKVMGuestInstance) generateKickstartKernelArgs(config *api.KickstartConfig) string {
+// attachKickstartISO attaches the kickstart ISO as an additional CDROM device
+// if the kickstart is not provided by URL
+func (s *SKVMGuestInstance) attachKickstartISO(isoPath string) error {
+	cdromId := fmt.Sprintf("kickstart_iso_%s", s.Id)
+
+	log.Infof("Attaching kickstart ISO %s as CDROM device for guest %s", isoPath, s.GetName())
+
+	kickstartCdrom := &desc.SGuestCdrom{
+		Id:      cdromId,
+		Path:    isoPath,
+		Ordinal: int64(len(s.Desc.Cdroms)),
+		Scsi:    desc.NewScsiDevice("scsi.0", "scsi-cd", fmt.Sprintf("scsi-cd-%s", cdromId)),
+		DriveOptions: map[string]string{
+			"readonly": "on",
+			"media":    "cdrom",
+			"if":       "none",
+		},
+	}
+
+	s.Desc.Cdroms = append(s.Desc.Cdroms, kickstartCdrom)
+
+	log.Infof("Successfully attached kickstart ISO %s as SCSI CDROM device %s (ordinal=%d) for guest %s",
+		isoPath, cdromId, kickstartCdrom.Ordinal, s.GetName())
+
+	return nil
+}
+
+func (s *SKVMGuestInstance) GenerateKickstartKernelArgs(config *api.KickstartConfig, isoPath string) string {
+	if config == nil {
+		return ""
+	}
+
 	baseArgs := []string{}
 
 	var kickstartArgs []string
@@ -1370,6 +1422,8 @@ func (s *SKVMGuestInstance) generateKickstartKernelArgs(config *api.KickstartCon
 	case "centos", "rhel", "fedora":
 		if config.ConfigURL != "" {
 			kickstartArgs = append(kickstartArgs, fmt.Sprintf("inst.ks=%s", config.ConfigURL))
+		} else if isoPath != "" {
+			kickstartArgs = append(kickstartArgs, fmt.Sprintf("inst.ks=hd:LABEL=%s:/anaconda-ks.cfg", REDHAT_KICKSTART_ISO_VOLUME_LABEL))
 		} else {
 			kickstartArgs = append(kickstartArgs, "inst.ks=cdrom:/ks.cfg")
 		}
@@ -1381,6 +1435,10 @@ func (s *SKVMGuestInstance) generateKickstartKernelArgs(config *api.KickstartCon
 				"autoinstall",
 				"ip=dhcp",
 				fmt.Sprintf("ds=nocloud-net;s=%s", config.ConfigURL),
+			)
+		} else if isoPath != "" {
+			kickstartArgs = append(kickstartArgs,
+				"autoinstall",
 			)
 		} else {
 			kickstartArgs = append(kickstartArgs,

@@ -19,7 +19,9 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"path"
+	"path/filepath"
 	"runtime/debug"
 	"strings"
 	"time"
@@ -35,9 +37,12 @@ import (
 )
 
 const (
-	KICKSTART_MONITOR_TIMEOUT    = 30 * time.Minute
-	SERIAL_FILE_CHECK_INTERVAL   = 5 * time.Second
-	KICKSTART_SERIAL_FILE_PREFIX = "/tmp/kickstart-serial"
+	KICKSTART_MONITOR_TIMEOUT         = 30 * time.Minute
+	SERIAL_FILE_CHECK_INTERVAL        = 5 * time.Second
+	KICKSTART_SERIAL_FILE_PREFIX      = "/tmp/kickstart-serial"
+	KICKSTART_ISO_DIR_PREFIX          = "/tmp/kickstart-iso"
+	REDHAT_KICKSTART_ISO_VOLUME_LABEL = "OEMDRV"
+	UBUNTU_KICKSTART_ISO_VOLUME_LABEL = "CIDATA"
 )
 
 type SKickstartSerialMonitor struct {
@@ -298,11 +303,17 @@ func (m *SKickstartSerialMonitor) handleKickstartSuccess() error {
 
 	// Get image ID from CDROM devices to construct mount point
 	var imageId string
+	var kickstartConfigIsoPath string
 	if len(kvmGuest.Desc.Cdroms) > 0 {
 		for _, cdrom := range kvmGuest.Desc.Cdroms {
 			if cdrom.Path != "" {
 				filename := path.Base(cdrom.Path)
 				imageId = strings.TrimSuffix(filename, ".iso")
+
+				// Check if this is a kickstart ISO
+				if strings.HasPrefix(filename, "kickstart-") {
+					kickstartConfigIsoPath = cdrom.Path
+				}
 				break
 			}
 		}
@@ -319,6 +330,15 @@ func (m *SKickstartSerialMonitor) handleKickstartSuccess() error {
 			log.Errorf("Failed to unmount ISO at %s: %v", mountPoint, err)
 		} else {
 			log.Infof("Successfully unmounted kickstart ISO at %s for server %s", mountPoint, m.serverId)
+		}
+	}
+
+	// Clean up kickstart ISO file if it exists
+	if kickstartConfigIsoPath != "" {
+		if err := os.Remove(kickstartConfigIsoPath); err != nil && !os.IsNotExist(err) {
+			log.Errorf("Failed to cleanup kickstart ISO %s: %v", kickstartConfigIsoPath, err)
+		} else {
+			log.Infof("Cleaned up kickstart ISO: %s", kickstartConfigIsoPath)
 		}
 	}
 
@@ -350,4 +370,84 @@ func (m *SKickstartSerialMonitor) restartServer() error {
 
 	log.Infof("Successfully restarted server %s", m.serverId)
 	return nil
+}
+
+// CreateKickstartConfigISO creates an ISO image containing kickstart configuration files
+// For Red Hat systems: creates ks.cfg in a ISO with label 'OEMDRV'
+// For Ubuntu systems: creates user-data and meta-data files in a ISO with label 'CIDATA'
+// reference: https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/10/html/automatically_installing_rhel/starting-kickstart-installations#starting-a-kickstart-installation-automatically-using-a-local-volume
+// https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/10/html/automatically_installing_rhel/starting-kickstart-installations#starting-a-kickstart-installation-automatically-using-a-local-volume
+func CreateKickstartConfigISO(config *api.KickstartConfig, serverId string) (string, error) {
+	log.Infof("Creating kickstart ISO for server %s with OS type %s", serverId, config.OSType)
+
+	if config == nil {
+		return "", errors.Errorf("kickstart config is nil")
+	}
+
+	if config.Config == "" {
+		return "", errors.Errorf("kickstart config content is empty")
+	}
+
+	log.Infof("Kickstart config content length: %d characters", len(config.Config))
+
+	// Create temporary directory for ISO contents
+	tmpDir := fmt.Sprintf("%s-%s", KICKSTART_ISO_DIR_PREFIX, serverId)
+	if err := os.MkdirAll(tmpDir, 0755); err != nil {
+		return "", errors.Wrapf(err, "failed to create temp directory %s", tmpDir)
+	}
+	defer func() {
+		if err := os.RemoveAll(tmpDir); err != nil {
+			log.Warningf("Failed to cleanup temp directory %s: %v", tmpDir, err)
+		}
+	}()
+
+	var filePaths []string
+	var volumeLabel string
+
+	switch config.OSType {
+	case "centos", "rhel", "fedora":
+		// Create anaconda-ks.cfg for Red Hat systems
+		ksFilePath := filepath.Join(tmpDir, "anaconda-ks.cfg")
+		if err := os.WriteFile(ksFilePath, []byte(config.Config), 0644); err != nil {
+			return "", errors.Wrapf(err, "failed to write kickstart file %s", ksFilePath)
+		}
+		filePaths = []string{ksFilePath}
+		volumeLabel = REDHAT_KICKSTART_ISO_VOLUME_LABEL
+
+	case "ubuntu":
+		// Create user-data file for Ubuntu systems
+		userDataPath := filepath.Join(tmpDir, "user-data")
+		if err := os.WriteFile(userDataPath, []byte(config.Config), 0644); err != nil {
+			return "", errors.Wrapf(err, "failed to write user-data file %s", userDataPath)
+		}
+
+		// Create empty meta-data file
+		metaDataPath := filepath.Join(tmpDir, "meta-data")
+		if err := os.WriteFile(metaDataPath, []byte(""), 0644); err != nil {
+			return "", errors.Wrapf(err, "failed to write meta-data file %s", metaDataPath)
+		}
+		filePaths = []string{userDataPath, metaDataPath}
+		volumeLabel = UBUNTU_KICKSTART_ISO_VOLUME_LABEL
+
+	default:
+		return "", errors.Errorf("unsupported OS type: %s", config.OSType)
+	}
+
+	// Create ISO using mkisofs
+	isoPath := fmt.Sprintf("/tmp/kickstart-%s.iso", serverId)
+	args := []string{
+		"-o", isoPath,
+		"-V", volumeLabel,
+		"-r",
+		"-J",
+	}
+	args = append(args, filePaths...)
+
+	cmd := exec.Command("/usr/bin/mkisofs", args...)
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return "", errors.Wrapf(err, "mkisofs failed: %s", string(output))
+	}
+
+	log.Infof("Successfully created kickstart ISO: %s", isoPath)
+	return isoPath, nil
 }
