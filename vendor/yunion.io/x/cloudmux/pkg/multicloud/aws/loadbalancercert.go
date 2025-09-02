@@ -38,11 +38,11 @@ type SElbCertificate struct {
 	cert   *x509.Certificate
 
 	Path                  string    `json:"Path"`
-	ServerCertificateName string    `json:"ServerCertificateName"`
-	ServerCertificateID   string    `json:"ServerCertificateId"`
-	Arn                   string    `json:"Arn"`
-	UploadDate            time.Time `json:"UploadDate"`
-	Expiration            time.Time `json:"Expiration"`
+	ServerCertificateName string    `xml:"ServerCertificateName"`
+	ServerCertificateID   string    `xml:"ServerCertificateId"`
+	Arn                   string    `xml:"Arn"`
+	UploadDate            time.Time `xml:"UploadDate"`
+	Expiration            time.Time `xml:"Expiration"`
 	PublicKey             string
 }
 

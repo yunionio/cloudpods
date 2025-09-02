@@ -768,4 +768,22 @@ var (
 		City:        CITY_NAGPUR,
 		CountryCode: COUNTRY_CODE_IN,
 	}
+	RegionNewZealand = cloudprovider.SGeographicInfo{
+		Latitude:    -41.287,
+		Longitude:   174.776,
+		City:        CITY_NEW_ZEALAND,
+		CountryCode: COUNTRY_CODE_NZ,
+	}
+	RegionTaipei = cloudprovider.SGeographicInfo{
+		Latitude:    25.038,
+		Longitude:   121.525,
+		City:        CITY_TAI_BEI,
+		CountryCode: COUNTRY_CODE_CN,
+	}
+	RegionCalgary = cloudprovider.SGeographicInfo{
+		Latitude:    51.0486,
+		Longitude:   -114.0708,
+		City:        CITY_CALGARY,
+		CountryCode: COUNTRY_CODE_CA,
+	}
 )

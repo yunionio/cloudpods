@@ -108,20 +108,15 @@ type SDBInstance struct {
 	PerformanceInsightsEnabled       bool                     `xml:"PerformanceInsightsEnabled"`
 	DBName                           string                   `xml:"DBName"`
 	MultiAZ                          bool                     `xml:"MultiAZ"`
-	//DomainMemberships                string                  `xml:"DomainMemberships"`
-	StorageEncrypted           bool               `xml:"StorageEncrypted"`
-	DBSubnetGroup              SDBSubnetGroup     `xml:"DBSubnetGroup"`
-	VpcSecurityGroups          SVpcSecurityGroups `xml:"VpcSecurityGroups"`
-	LicenseModel               string             `xml:"LicenseModel"`
-	PreferredMaintenanceWindow string             `xml:"PreferredMaintenanceWindow"`
-	StorageType                string             `xml:"StorageType"`
-	AutoMinorVersionUpgrade    bool               `xml:"AutoMinorVersionUpgrade"`
-	CopyTagsToSnapshot         bool               `xml:"CopyTagsToSnapshot"`
-}
-
-type SDBInstances struct {
-	DBInstances []SDBInstance `xml:"DBInstances>DBInstance"`
-	Marker      string        `xml:"Marker"`
+	DBClusterIdentifier              string                   `xml:"DBClusterIdentifier"`
+	StorageEncrypted                 bool                     `xml:"StorageEncrypted"`
+	DBSubnetGroup                    SDBSubnetGroup           `xml:"DBSubnetGroup"`
+	VpcSecurityGroups                SVpcSecurityGroups       `xml:"VpcSecurityGroups"`
+	LicenseModel                     string                   `xml:"LicenseModel"`
+	PreferredMaintenanceWindow       string                   `xml:"PreferredMaintenanceWindow"`
+	StorageType                      string                   `xml:"StorageType"`
+	AutoMinorVersionUpgrade          bool                     `xml:"AutoMinorVersionUpgrade"`
+	CopyTagsToSnapshot               bool                     `xml:"CopyTagsToSnapshot"`
 }
 
 func (rds *SDBInstance) GetName() string {
@@ -169,6 +164,10 @@ func (rds *SDBInstance) Reboot() error {
 	return rds.region.RebootDBInstance(rds.DBInstanceIdentifier)
 }
 
+func (rds *SDBInstance) GetMasterInstanceId() string {
+	return rds.DBClusterIdentifier
+}
+
 func (self *SDBInstance) GetCategory() string {
 	switch self.Engine {
 	case "aurora", "aurora-mysql":
@@ -185,6 +184,20 @@ func (self *SDBInstance) GetCategory() string {
 		return api.AWS_DBINSTANCE_CATEGORY_EXPRESS_EDITION
 	case "sqlserver-web":
 		return api.AWS_DBINSTANCE_CATEGORY_WEB_EDITION
+	case "docdb":
+		cluster, err := self.region.GetDBInstanceCluster(self.DBClusterIdentifier)
+		if err != nil {
+			return api.AWS_DBINSTANCE_CATEGORY_GENERAL_PURPOSE
+		}
+		for _, member := range cluster.DBClusterMembers {
+			if member.DBInstanceIdentifier == self.DBInstanceIdentifier {
+				if member.IsClusterWriter {
+					return api.AWS_DBINSTANCE_CATEGORY_MASTER
+				}
+				return api.AWS_DBINSTANCE_CATEGORY_SLAVE
+			}
+		}
+		return api.AWS_DBINSTANCE_CATEGORY_GENERAL_PURPOSE
 	default:
 		if strings.HasPrefix(self.DBInstanceClass, "db.r") || strings.HasPrefix(self.DBInstanceClass, "db.x") || strings.HasPrefix(self.DBInstanceClass, "db.d") {
 			return api.AWS_DBINSTANCE_CATEGORY_MEMORY_OPTIMIZED
@@ -297,24 +310,17 @@ func (rds *SDBInstance) Refresh() error {
 }
 
 func (region *SRegion) GetDBInstance(instanceId string) (*SDBInstance, error) {
-	instances, _, err := region.GetDBInstances(instanceId, "")
+	instances, err := region.GetDBInstances(instanceId)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetDBInstances")
 	}
-
-	if len(instances) == 1 {
-		if instances[0].DbiResourceId == instanceId {
-			instances[0].region = region
-			return &instances[0], nil
+	for i := range instances {
+		if instances[i].DbiResourceId == instanceId {
+			instances[i].region = region
+			return &instances[i], nil
 		}
-		return nil, cloudprovider.ErrNotFound
 	}
-
-	if len(instances) == 0 {
-		return nil, cloudprovider.ErrNotFound
-	}
-
-	return nil, cloudprovider.ErrDuplicateId
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, instanceId)
 }
 
 func (rds *SDBInstance) GetZone1Id() string {
@@ -421,65 +427,67 @@ func (rds *SDBInstance) CreateIBackup(conf *cloudprovider.SDBInstanceBackupCreat
 	return ret.DBSnapshot.GetGlobalId(), nil
 }
 
-func (region *SRegion) GetDBInstances(instanceId, marker string) ([]SDBInstance, string, error) {
-	instances := SDBInstances{}
+func (region *SRegion) GetDBInstances(instanceId string) ([]SDBInstance, error) {
 	params := map[string]string{}
 	idx := 1
 	if len(instanceId) > 0 {
 		params[fmt.Sprintf("Filters.Filter.%d.Name", idx)] = "dbi-resource-id"
 		params[fmt.Sprintf("Filters.Filter.%d.Values.Value.1", idx)] = instanceId
 	}
-
-	if len(marker) > 0 {
-		params["Marker"] = marker
+	ret := []SDBInstance{}
+	for {
+		part := struct {
+			DBInstances []SDBInstance `xml:"DBInstances>DBInstance"`
+			Marker      string        `xml:"Marker"`
+		}{}
+		err := region.rdsRequest("DescribeDBInstances", params, &part)
+		if err != nil {
+			return nil, errors.Wrap(err, "DescribeDBInstances")
+		}
+		ret = append(ret, part.DBInstances...)
+		if len(part.DBInstances) == 0 || len(part.Marker) == 0 {
+			break
+		}
+		params["Marker"] = part.Marker
 	}
 
-	err := region.rdsRequest("DescribeDBInstances", params, &instances)
-	if err != nil {
-		return nil, "", errors.Wrap(err, "DescribeDBInstances")
-	}
-	return instances.DBInstances, instances.Marker, nil
+	return ret, nil
 }
 
 func (region *SRegion) GetIDBInstances() ([]cloudprovider.ICloudDBInstance, error) {
-	idbinstances := []cloudprovider.ICloudDBInstance{}
-	instances, marker, err := region.GetDBInstances("", "")
+	ret := []cloudprovider.ICloudDBInstance{}
+	instances, err := region.GetDBInstances("")
 	if err != nil {
 		return nil, errors.Wrap(err, "GetDBInstances")
 	}
-	for i := 0; i < len(instances); i++ {
+	for i := range instances {
 		instances[i].region = region
-		idbinstances = append(idbinstances, &instances[i])
+		ret = append(ret, &instances[i])
 	}
-	for len(marker) > 0 {
-		instances, marker, err = region.GetDBInstances("", marker)
-		if err != nil {
-			return nil, errors.Wrap(err, "GetDBInstances")
-		}
-		for i := 0; i < len(instances); i++ {
-			instances[i].region = region
-			idbinstances = append(idbinstances, &instances[i])
-		}
+	clusters, err := region.GetDBInstanceClusters("")
+	if err != nil {
+		return nil, errors.Wrap(err, "GetDBInstanceClusters")
 	}
-	return idbinstances, nil
+	for i := range clusters {
+		clusters[i].region = region
+		ret = append(ret, &clusters[i])
+	}
+	return ret, nil
 }
 
 func (self *SRegion) GetIDBInstanceById(id string) (cloudprovider.ICloudDBInstance, error) {
-	instances, _, err := self.GetDBInstances(id, "")
+	if strings.HasPrefix(id, "db-") {
+		ret, err := self.GetDBInstance(id)
+		if err != nil {
+			return nil, errors.Wrap(err, "GetDBInstance")
+		}
+		return ret, nil
+	}
+	cluster, err := self.GetDBInstanceCluster(id)
 	if err != nil {
-		return nil, errors.Wrap(err, "GetDBInstances")
+		return nil, errors.Wrap(err, "GetDBInstanceCluster")
 	}
-
-	if len(instances) > 1 {
-		return nil, errors.Wrapf(cloudprovider.ErrDuplicateId, id)
-	}
-
-	if len(instances) == 0 {
-		return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
-	}
-
-	instances[0].region = self
-	return &instances[0], nil
+	return cluster, nil
 }
 
 func (self *SRegion) CreateIDBInstance(desc *cloudprovider.SManagedDBInstanceCreateConfig) (cloudprovider.ICloudDBInstance, error) {
