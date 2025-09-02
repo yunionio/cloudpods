@@ -310,6 +310,9 @@ func (manager *SSnapshotManager) QueryDistinctExtraFields(q *sqlchemy.SQuery, re
 		}
 		q = q.Join(storages, sqlchemy.Equals(q.Field("storage_id"), storages.Field("id")))
 		return q, nil
+
+	case CloudproviderManager.Keyword():
+		return manager.SManagedResourceBaseManager.QueryDistinctExtraFields(q, resource, fields)
 	}
 	return q, httperrors.ErrNotFound
 }
