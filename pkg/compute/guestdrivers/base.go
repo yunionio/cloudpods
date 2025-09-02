@@ -719,7 +719,7 @@ func (base *SBaseGuestDriver) RequestUploadGuestStatus(ctx context.Context, gues
 }
 
 func (base *SBaseGuestDriver) CanStop(guest *models.SGuest) error {
-	if utils.IsInStringArray(guest.Status, []string{api.VM_RUNNING, api.VM_STOP_FAILED, api.POD_STATUS_CRASH_LOOP_BACK_OFF, api.POD_STATUS_CONTAINER_EXITED}) {
+	if utils.IsInStringArray(guest.Status, []string{api.VM_RUNNING, api.VM_STOP_FAILED, api.POD_STATUS_CRASH_LOOP_BACK_OFF, api.POD_STATUS_CONTAINER_EXITED, api.VM_KICKSTART_INSTALLING, api.VM_KICKSTART_FAILED, api.VM_KICKSTART_COMPLETED}) {
 		return nil
 	}
 	return errors.Wrapf(errors.ErrInvalidStatus, "Cannot stop server in status %s", guest.Status)
