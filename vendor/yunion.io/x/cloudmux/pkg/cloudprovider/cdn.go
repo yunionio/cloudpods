@@ -293,6 +293,7 @@ type CacheConfig struct {
 type CustomHostname struct {
 	Id                    string
 	Hostname              string
+	CustomOriginServer    string
 	OwnershipVerification struct {
 		Name  string
 		Type  string
@@ -327,10 +328,14 @@ type CustomHostname struct {
 }
 
 type CustomHostnameCreateOptions struct {
-	Hostname string
-	SSL      struct {
+	CustomOriginServer string
+	Hostname           string
+	SSL                struct {
 		CertificateAuthority string
 		Method               string
+		BundleMethod         string
+		CustomCertificate    string
+		CustomKey            string
 		Settings             struct {
 			MinTLSVersion string `json:"min_tls_version"`
 		}
