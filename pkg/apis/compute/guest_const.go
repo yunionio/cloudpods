@@ -180,6 +180,12 @@ const (
 	VM_QGA_SET_NETWORK        = "qga_set_network"
 	VM_QGA_SET_NETWORK_FAILED = "qga_set_network_failed"
 
+	// Kickstart自动安装相关状态
+	VM_KICKSTART_PENDING    = "kickstart_pending"    // kickstart配置完成，等待VM启动
+	VM_KICKSTART_INSTALLING = "kickstart_installing" // kickstart正在安装
+	VM_KICKSTART_COMPLETED  = "kickstart_completed"  // kickstart安装完成，准备转为running
+	VM_KICKSTART_FAILED     = "kickstart_failed"     // kickstart安装失败
+
 	SHUTDOWN_STOP             = "stop"
 	SHUTDOWN_TERMINATE        = "terminate"
 	SHUTDOWN_STOP_RELEASE_GPU = "stop_release_gpu"
@@ -269,6 +275,7 @@ const (
 
 var VM_RUNNING_STATUS = []string{VM_START_START, VM_STARTING, VM_RUNNING, VM_BLOCK_STREAM, VM_BLOCK_STREAM_FAIL}
 var VM_CREATING_STATUS = []string{VM_CREATE_NETWORK, VM_CREATE_DISK, VM_START_DEPLOY, VM_DEPLOYING}
+var VM_KICKSTART_STATUS = []string{VM_KICKSTART_PENDING, VM_KICKSTART_INSTALLING, VM_KICKSTART_COMPLETED, VM_KICKSTART_FAILED}
 
 var HYPERVISORS = []string{
 	HYPERVISOR_KVM,
@@ -341,32 +348,16 @@ const (
 	VM_METADATA_CPU_NUMA_PIN                   = "__cpu_numa_pin"
 	VM_METADATA_VIRTUAL_ISOLATED_DEVICE_CONFIG = "__virtual_isolated_device_config"
 	// Kickstart相关metadata常量
-	VM_METADATA_KICKSTART_CONFIG  = "kickstart_config"
-	VM_METADATA_KICKSTART_TYPE    = "kickstart_type"
-	VM_METADATA_KICKSTART_STATUS  = "kickstart_status"
-	VM_METADATA_KICKSTART_ATTEMPT = "kickstart_attempt"
-)
-
-const (
-	KICKSTART_STATUS_PENDING    = "pending"
-	KICKSTART_STATUS_INSTALLING = "installing"
-	KICKSTART_STATUS_COMPLETED  = "completed"
-	KICKSTART_STATUS_FAILED     = "failed"
-	KICKSTART_STATUS_NORMAL     = "normal"
+	VM_METADATA_KICKSTART_CONFIG         = "kickstart_config"
+	VM_METADATA_KICKSTART_TYPE           = "kickstart_type"
+	VM_METADATA_KICKSTART_ATTEMPT        = "kickstart_attempt"
+	VM_METADATA_KICKSTART_COMPLETED_FLAG = "kickstart_completed_flag"
 )
 
 const (
 	KICKSTART_TYPE_URL     = "url"
 	KICKSTART_TYPE_CONTENT = "content"
 )
-
-var KICKSTART_VALID_STATUSES = []string{
-	KICKSTART_STATUS_PENDING,
-	KICKSTART_STATUS_INSTALLING,
-	KICKSTART_STATUS_COMPLETED,
-	KICKSTART_STATUS_FAILED,
-	KICKSTART_STATUS_NORMAL,
-}
 
 var KICKSTART_VALID_TYPES = []string{
 	KICKSTART_TYPE_URL,

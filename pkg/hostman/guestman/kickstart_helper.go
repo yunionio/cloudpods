@@ -22,6 +22,7 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"regexp"
 	"runtime/debug"
 	"strings"
 	"time"
@@ -33,16 +34,25 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
+	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/mountutils"
 )
 
 const (
 	KICKSTART_MONITOR_TIMEOUT         = 60 * time.Minute
 	SERIAL_FILE_CHECK_INTERVAL        = 5 * time.Second
-	KICKSTART_SERIAL_FILE_PREFIX      = "/tmp/kickstart-serial"
-	KICKSTART_ISO_DIR_PREFIX          = "/tmp/kickstart-iso"
+	KICKSTART_BASE_DIR                = "/tmp/kickstart"
+	KICKSTART_ISO_MOUNT_DIR           = "iso-mount"
+	KICKSTART_ISO_BUILD_DIR           = "iso-build"
+	KICKSTART_ISO_FILENAME            = "config.iso"
 	REDHAT_KICKSTART_ISO_VOLUME_LABEL = "OEMDRV"
 	UBUNTU_KICKSTART_ISO_VOLUME_LABEL = "CIDATA"
+)
+
+var (
+	kickstartInstallingRegex = regexp.MustCompile(`(?i).*KICKSTART_INSTALLING.*`)
+	kickstartCompletedRegex  = regexp.MustCompile(`(?i).*KICKSTART_COMPLETED.*`)
+	kickstartFailedRegex     = regexp.MustCompile(`(?i).*KICKSTART_FAILED.*`)
 )
 
 type SKickstartSerialMonitor struct {
@@ -56,7 +66,16 @@ type SKickstartSerialMonitor struct {
 // NewKickstartSerialMonitor creates a new kickstart serial monitor
 func NewKickstartSerialMonitor(serverId string) *SKickstartSerialMonitor {
 	ctx, cancel := context.WithCancel(context.Background())
-	serialFilePath := fmt.Sprintf("%s-%s.log", KICKSTART_SERIAL_FILE_PREFIX, serverId)
+
+	// Get the server instance to access its homeDir
+	var serialFilePath string
+	server, exists := guestManager.GetServer(serverId)
+	if exists {
+		serialFilePath = path.Join(server.HomeDir(), "kickstart-serial.log")
+	} else {
+		// Fallback to use /tmp if server not found
+		serialFilePath = fmt.Sprintf("/tmp/kickstart-serial-%s.log", serverId)
+	}
 
 	return &SKickstartSerialMonitor{
 		serverId:       serverId,
@@ -102,7 +121,7 @@ func (m *SKickstartSerialMonitor) getKickstartTimeout() time.Duration {
 	}
 
 	timeout := time.Duration(config.TimeoutMinutes) * time.Minute
-	log.Infof("Using kickstart timeout %v for server %s", timeout, m.serverId)
+	log.Debugf("Using kickstart timeout %v for server %s", timeout, m.serverId)
 	return timeout
 }
 
@@ -113,7 +132,7 @@ func (m *SKickstartSerialMonitor) ensureSerialFile() error {
 			return errors.Wrapf(err, "create serial file %s", m.serialFilePath)
 		}
 		file.Close()
-		log.Infof("Created kickstart serial file %s for server %s", m.serialFilePath, m.serverId)
+		log.Debugf("Created kickstart serial file %s for server %s", m.serialFilePath, m.serverId)
 	}
 	return nil
 }
@@ -178,35 +197,35 @@ func (m *SKickstartSerialMonitor) scanSerialForStatus(lastSize *int64) error {
 			continue
 		}
 
-		log.Debugf("Received serial message for server %s: %s", m.serverId, line)
+		var status string
+		var shouldClose bool = false
+		var matched bool = false
 
-		if line == "KICKSTART_INSTALLING" || line == "KICKSTART_SUCCESS" || line == "KICKSTART_FAILED" {
-			log.Infof("Kickstart status update for server %s: %s", m.serverId, line)
-
-			// TODO: logic should vary based on the status
-			var status string
-			var shouldClose bool = false
-			switch line {
-			case "KICKSTART_INSTALLING":
-				status = api.KICKSTART_STATUS_INSTALLING
-				shouldClose = false
-			case "KICKSTART_SUCCESS":
-				status = api.KICKSTART_STATUS_COMPLETED
-				shouldClose = true
-				// Unmount ISO and restart VM if kickstart install successfully
-				if err := m.handleKickstartSuccess(); err != nil {
-					log.Errorf("Failed to handle kickstart success for server %s: %v", m.serverId, err)
-				}
-			case "KICKSTART_FAILED":
-				// TODO: auto retry or alert and stop
-				status = api.KICKSTART_STATUS_FAILED
-				shouldClose = true
+		if kickstartInstallingRegex.MatchString(line) {
+			status = api.VM_KICKSTART_INSTALLING
+			shouldClose = false
+			matched = true
+		} else if kickstartCompletedRegex.MatchString(line) {
+			status = api.VM_KICKSTART_COMPLETED
+			shouldClose = true
+			matched = true
+			// Unmount ISO and restart VM if kickstart install successfully
+			if err := m.handleKickstartCompleted(); err != nil {
+				log.Errorf("Failed to handle kickstart success for server %s: %v", m.serverId, err)
 			}
+		} else if kickstartFailedRegex.MatchString(line) {
+			// TODO: auto retry or alert and stop
+			status = api.VM_KICKSTART_FAILED
+			shouldClose = true
+			matched = true
+		}
+
+		if matched {
+			log.Infof("Kickstart status update for server %s: %s", m.serverId, status)
 
 			if err := m.updateKickstartStatus(status); err != nil {
 				log.Errorf("Failed to update kickstart status for server %s: %v", m.serverId, err)
 			} else {
-				log.Infof("Kickstart status for server %s updated to %s", m.serverId, status)
 				if shouldClose {
 					m.Close()
 					return nil
@@ -227,12 +246,10 @@ func (m *SKickstartSerialMonitor) Close() error {
 	if m.serialFilePath != "" {
 		if err := os.Remove(m.serialFilePath); err != nil && !os.IsNotExist(err) {
 			log.Warningf("Failed to remove serial file %s: %v", m.serialFilePath, err)
-		} else {
-			log.Debugf("Removed serial file %s", m.serialFilePath)
 		}
 	}
 
-	log.Infof("Kickstart monitor closed for server %s", m.serverId)
+	log.Debugf("Kickstart monitor closed for server %s", m.serverId)
 	return nil
 }
 
@@ -245,20 +262,16 @@ func (m *SKickstartSerialMonitor) updateKickstartStatus(status string) error {
 		Status: status,
 	}
 
-	log.Infof("Updating kickstart status for server %s to %s", m.serverId, status)
-
 	_, err := modules.Servers.PerformAction(session, m.serverId, "update-kickstart-status", jsonutils.Marshal(input))
 	if err != nil {
 		return errors.Wrapf(err, "failed to update kickstart status for server %s", m.serverId)
 	}
-
-	log.Infof("Successfully updated kickstart status for server %s to %s", m.serverId, status)
 	return nil
 }
 
 // Start starts the kickstart serial monitor
 func (m *SKickstartSerialMonitor) Start() error {
-	log.Infof("Starting kickstart monitor for server %s, serial file: %s", m.serverId, m.serialFilePath)
+	log.Debugf("Starting kickstart monitor for server %s, serial file: %s", m.serverId, m.serialFilePath)
 
 	if err := m.ensureSerialFile(); err != nil {
 		return errors.Wrap(err, "ensure serial file")
@@ -277,7 +290,7 @@ func (m *SKickstartSerialMonitor) Start() error {
 			return
 		case <-timer.C:
 			log.Warningf("Kickstart monitor timeout (%v) for server %s, setting status to failed", timeout, m.serverId)
-			if err := m.updateKickstartStatus(api.KICKSTART_STATUS_FAILED); err != nil {
+			if err := m.updateKickstartStatus(api.VM_KICKSTART_FAILED); err != nil {
 				log.Errorf("Failed to update kickstart status to failed on timeout for server %s: %v", m.serverId, err)
 			}
 			m.Close()
@@ -287,9 +300,9 @@ func (m *SKickstartSerialMonitor) Start() error {
 	return nil
 }
 
-// handleKickstartSuccess handles the successful kickstart completion
+// handleKickstartCompleted handles the successful kickstart completion
 // It unmounts the ISO image and restarts the VM
-func (m *SKickstartSerialMonitor) handleKickstartSuccess() error {
+func (m *SKickstartSerialMonitor) handleKickstartCompleted() error {
 	// Get the server instance to access CDROM information
 	server, exists := guestManager.GetServer(m.serverId)
 	if !exists {
@@ -323,13 +336,13 @@ func (m *SKickstartSerialMonitor) handleKickstartSuccess() error {
 		log.Warningf("No ISO image ID found for server %s, skip unmounting", m.serverId)
 	} else {
 		// Unmount the ISO image with lazy=true
-		mountPoint := fmt.Sprintf("/tmp/kickstart-iso-%s", imageId)
+		mountPoint := filepath.Join(KICKSTART_BASE_DIR, m.serverId, KICKSTART_ISO_MOUNT_DIR)
 		log.Infof("Unmounting kickstart ISO at %s for server %s", mountPoint, m.serverId)
 
 		if err := mountutils.Unmount(mountPoint, true); err != nil {
 			log.Errorf("Failed to unmount ISO at %s: %v", mountPoint, err)
 		} else {
-			log.Infof("Successfully unmounted kickstart ISO at %s for server %s", mountPoint, m.serverId)
+			log.Debugf("Successfully unmounted kickstart ISO at %s for server %s", mountPoint, m.serverId)
 		}
 	}
 
@@ -337,12 +350,10 @@ func (m *SKickstartSerialMonitor) handleKickstartSuccess() error {
 	if kickstartConfigIsoPath != "" {
 		if err := os.Remove(kickstartConfigIsoPath); err != nil && !os.IsNotExist(err) {
 			log.Errorf("Failed to cleanup kickstart ISO %s: %v", kickstartConfigIsoPath, err)
-		} else {
-			log.Infof("Cleaned up kickstart ISO: %s", kickstartConfigIsoPath)
 		}
 	}
 
-	log.Infof("Restarting VM %s after successful kickstart", m.serverId)
+	log.Debugf("Restarting VM %s after successful kickstart", m.serverId)
 
 	if err := m.restartServer(); err != nil {
 		return errors.Wrapf(err, "failed to restart server %s", m.serverId)
@@ -361,14 +372,12 @@ func (m *SKickstartSerialMonitor) restartServer() error {
 	input := jsonutils.NewDict()
 	input.Set("is_force", jsonutils.JSONFalse)
 
-	log.Infof("Restarting server %s via Region API", m.serverId)
-
 	_, err := modules.Servers.PerformAction(session, m.serverId, "restart", input)
 	if err != nil {
 		return errors.Wrapf(err, "failed to restart server %s via API", m.serverId)
 	}
 
-	log.Infof("Successfully restarted server %s", m.serverId)
+	log.Infof("Server %s restarted after kickstart completion", m.serverId)
 	return nil
 }
 
@@ -378,7 +387,7 @@ func (m *SKickstartSerialMonitor) restartServer() error {
 // reference: https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/10/html/automatically_installing_rhel/starting-kickstart-installations#starting-a-kickstart-installation-automatically-using-a-local-volume
 // https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/10/html/automatically_installing_rhel/starting-kickstart-installations#starting-a-kickstart-installation-automatically-using-a-local-volume
 func CreateKickstartConfigISO(config *api.KickstartConfig, serverId string) (string, error) {
-	log.Infof("Creating kickstart ISO for server %s with OS type %s", serverId, config.OSType)
+	log.Debugf("Creating kickstart ISO for server %s with OS type %s", serverId, config.OSType)
 
 	if config == nil {
 		return "", errors.Errorf("kickstart config is nil")
@@ -388,10 +397,8 @@ func CreateKickstartConfigISO(config *api.KickstartConfig, serverId string) (str
 		return "", errors.Errorf("kickstart config content is empty")
 	}
 
-	log.Infof("Kickstart config content length: %d characters", len(config.Config))
-
 	// Create temporary directory for ISO contents
-	tmpDir := fmt.Sprintf("%s-%s", KICKSTART_ISO_DIR_PREFIX, serverId)
+	tmpDir := filepath.Join(KICKSTART_BASE_DIR, serverId, KICKSTART_ISO_BUILD_DIR)
 	if err := os.MkdirAll(tmpDir, 0755); err != nil {
 		return "", errors.Wrapf(err, "failed to create temp directory %s", tmpDir)
 	}
@@ -434,7 +441,7 @@ func CreateKickstartConfigISO(config *api.KickstartConfig, serverId string) (str
 	}
 
 	// Create ISO using mkisofs
-	isoPath := fmt.Sprintf("/tmp/kickstart-%s.iso", serverId)
+	isoPath := filepath.Join(KICKSTART_BASE_DIR, serverId, KICKSTART_ISO_FILENAME)
 	args := []string{
 		"-o", isoPath,
 		"-V", volumeLabel,
@@ -448,6 +455,68 @@ func CreateKickstartConfigISO(config *api.KickstartConfig, serverId string) (str
 		return "", errors.Wrapf(err, "mkisofs failed: %s", string(output))
 	}
 
-	log.Infof("Successfully created kickstart ISO: %s", isoPath)
+	log.Debugf("Successfully created kickstart ISO: %s", isoPath)
 	return isoPath, nil
+}
+
+// ComputeKickstartKernelInitrdPaths returns absolute kernel and initrd paths by combining
+// mountPath with OS-specific relative paths and validating that files exist.
+// GetKernelInitrdPaths resolves absolute kernel and initrd paths under a mounted ISO.
+func GetKernelInitrdPaths(mountPath, osType string) (string, string, error) {
+	var kernelRelPath, initrdRelPath string
+	switch osType {
+	case "centos", "rhel", "fedora":
+		kernelRelPath = "images/pxeboot/vmlinuz"
+		initrdRelPath = "images/pxeboot/initrd.img"
+	case "ubuntu":
+		kernelRelPath = "casper/vmlinuz"
+		initrdRelPath = "casper/initrd"
+	default:
+		return "", "", errors.Errorf("unsupported OS type: %s", osType)
+	}
+
+	kernelPath := path.Join(mountPath, kernelRelPath)
+	initrdPath := path.Join(mountPath, initrdRelPath)
+
+	if !fileutils2.Exists(kernelPath) {
+		return "", "", errors.Errorf("kernel file not found: %s", kernelPath)
+	}
+	if !fileutils2.Exists(initrdPath) {
+		return "", "", errors.Errorf("initrd file not found: %s", initrdPath)
+	}
+	return kernelPath, initrdPath, nil
+}
+
+// BuildKickstartAppendArgs builds kernel append args for kickstart/autoinstall
+// based on OS type and whether a local config ISO is present.
+// isoPath non-empty indicates a locally attached config ISO.
+func BuildKickstartAppendArgs(config *api.KickstartConfig, isoPath string) string {
+	if config == nil {
+		return ""
+	}
+	baseArgs := []string{}
+	var kickstartArgs []string
+	switch config.OSType {
+	case "centos", "rhel", "fedora":
+		if config.ConfigURL != "" {
+			kickstartArgs = append(kickstartArgs, fmt.Sprintf("inst.ks=%s", config.ConfigURL))
+		} else if isoPath != "" {
+			kickstartArgs = append(kickstartArgs, fmt.Sprintf("inst.ks=hd:LABEL=%s:/anaconda-ks.cfg", REDHAT_KICKSTART_ISO_VOLUME_LABEL))
+		} else {
+			kickstartArgs = append(kickstartArgs, "inst.ks=cdrom:/anaconda-ks.cfg")
+		}
+	case "ubuntu":
+		if config.ConfigURL != "" {
+			kickstartArgs = append(kickstartArgs,
+				"autoinstall",
+				"ip=dhcp",
+				fmt.Sprintf("ds=nocloud-net;s=%s", config.ConfigURL),
+			)
+		} else if isoPath != "" {
+			kickstartArgs = append(kickstartArgs, "autoinstall")
+		} else {
+			kickstartArgs = append(kickstartArgs, "autoinstall", "ip=dhcp", "ds=nocloud;s=/cdrom/")
+		}
+	}
+	return strings.Join(append(baseArgs, kickstartArgs...), " ")
 }

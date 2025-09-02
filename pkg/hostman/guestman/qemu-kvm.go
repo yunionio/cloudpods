@@ -3748,26 +3748,25 @@ func (s *SKVMGuestInstance) HandleGuestStatus(ctx context.Context, resp *api.Hos
 }
 
 func (s *SKVMGuestInstance) startKickstartMonitorIfNeeded() {
-	kickstartStatus := s.Desc.Metadata[api.VM_METADATA_KICKSTART_STATUS]
-	if kickstartStatus != api.KICKSTART_STATUS_PENDING && kickstartStatus != api.KICKSTART_STATUS_INSTALLING {
+	if s.kickstartMonitor == nil {
 		return
 	}
 
-	if s.kickstartMonitor != nil {
-		log.Infof("Starting kickstart monitor for server %s", s.Id)
+	if !s.shouldUseKickstart() {
+		log.Infof("Kickstart not needed for server %s, skip starting monitor", s.Id)
+		return
+	}
 
-		// Set status to installing when machine successfully boots for kickstart
-		if kickstartStatus == api.KICKSTART_STATUS_PENDING {
-			if err := s.kickstartMonitor.updateKickstartStatus(api.KICKSTART_STATUS_INSTALLING); err != nil {
-				log.Errorf("Failed to update kickstart status to installing for server %s: %v", s.Id, err)
-			} else {
-				log.Infof("Kickstart status updated to installing for server %s", s.Id)
-			}
-		}
+	log.Infof("Starting kickstart monitor for server %s", s.Id)
 
-		if err := s.kickstartMonitor.Start(); err != nil {
-			log.Errorf("Failed to start kickstart monitor for server %s: %s", s.Id, err)
-		}
+	if err := s.kickstartMonitor.updateKickstartStatus(api.VM_KICKSTART_INSTALLING); err != nil {
+		log.Errorf("Failed to update kickstart status to installing for server %s: %v", s.Id, err)
+	} else {
+		log.Debugf("Kickstart status updated to installing for server %s", s.Id)
+	}
+
+	if err := s.kickstartMonitor.Start(); err != nil {
+		log.Errorf("Failed to start kickstart monitor for server %s: %s", s.Id, err)
 	}
 }
 

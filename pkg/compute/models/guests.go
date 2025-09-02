@@ -2721,8 +2721,11 @@ func (guest *SGuest) PostCreate(ctx context.Context, userCred mcclient.TokenCred
 			if err := guest.SetKickstartConfig(ctx, kickstartConfig, userCred); err != nil {
 				log.Errorf("Failed to set kickstart config for guest %s: %v", guest.Name, err)
 			} else {
-				if err := guest.SetKickstartStatus(ctx, api.KICKSTART_STATUS_PENDING, userCred); err != nil {
+				if err := guest.SetKickstartStatus(ctx, api.VM_KICKSTART_PENDING, userCred); err != nil {
 					log.Errorf("Failed to set kickstart status for guest %s: %v", guest.Name, err)
+				}
+				if err := guest.SetMetadata(ctx, api.VM_METADATA_KICKSTART_COMPLETED_FLAG, "false", userCred); err != nil {
+					log.Errorf("Failed to set kickstart completed flag for guest %s: %v", guest.Name, err)
 				}
 
 				// Determine and set kickstart type based on config
@@ -2739,7 +2742,7 @@ func (guest *SGuest) PostCreate(ctx context.Context, userCred mcclient.TokenCred
 					log.Errorf("Failed to set kickstart type for guest %s: %v", guest.Name, err)
 				}
 
-				log.Infof("Successfully set kickstart config for guest %s with OS type %s", guest.Name, kickstartConfig.OSType)
+				log.Debugf("Successfully set kickstart config for guest %s with OS type %s", guest.Name, kickstartConfig.OSType)
 			}
 		}
 	}
@@ -7256,18 +7259,21 @@ func (guest *SGuest) GetKickstartConfig(ctx context.Context, userCred mcclient.T
 }
 
 func (guest *SGuest) SetKickstartStatus(ctx context.Context, status string, userCred mcclient.TokenCredential) error {
-	if !utils.IsInStringArray(status, api.KICKSTART_VALID_STATUSES) {
+	if !utils.IsInStringArray(status, api.VM_KICKSTART_STATUS) {
 		return errors.Errorf("invalid kickstart status: %s", status)
 	}
-	return guest.SetMetadata(ctx, api.VM_METADATA_KICKSTART_STATUS, status, userCred)
+	return guest.SetStatus(ctx, userCred, status, "")
 }
 
 func (guest *SGuest) GetKickstartStatus(ctx context.Context, userCred mcclient.TokenCredential) string {
-	status := guest.GetMetadata(ctx, api.VM_METADATA_KICKSTART_STATUS, userCred)
-	if status == "" {
-		return api.KICKSTART_STATUS_NORMAL
+	if utils.IsInStringArray(guest.Status, api.VM_KICKSTART_STATUS) {
+		return guest.Status
 	}
-	return status
+	return ""
+}
+
+func (guest *SGuest) IsInKickstartStatus() bool {
+	return utils.IsInStringArray(guest.Status, api.VM_KICKSTART_STATUS)
 }
 
 func (guest *SGuest) SetKickstartType(ctx context.Context, kickstartType string, userCred mcclient.TokenCredential) error {

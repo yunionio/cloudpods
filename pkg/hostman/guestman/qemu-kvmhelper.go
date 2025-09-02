@@ -20,6 +20,7 @@ import (
 	"net"
 	"os"
 	"path"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -579,7 +580,7 @@ function nic_mtu() {
 	}
 
 	// check if kickstart is needed for KVM guests
-	if err := s.handleKickstartMount(input); err != nil {
+	if err := s.configureKickstartBoot(input); err != nil {
 		return "", errors.Wrap(err, "handle kickstart mount")
 	}
 
@@ -595,25 +596,58 @@ function nic_mtu() {
 	return cmd, nil
 }
 
-func (s *SKVMGuestInstance) handleKickstartMount(input *qemu.GenerateStartOptionsInput) error {
-	// mount when Hypervisor is KVM and kickstart is enabled and status is pending or installing
+// shouldUseKickstart 判断是否需要启用kickstart自动化安装
+// 启动kickstart的条件：1. 虚拟机处于KVM虚拟化环境；2. 存在kickstart配置且未禁用；3. kickstart未完成
+func (s *SKVMGuestInstance) shouldUseKickstart() bool {
+	// 只在KVM虚拟化环境下处理kickstart
 	if s.Desc.Hypervisor != api.HYPERVISOR_KVM {
+		return false
+	}
+
+	// 检查是否存在kickstart配置
+	kickstartConfigStr, configExists := s.Desc.Metadata[api.VM_METADATA_KICKSTART_CONFIG]
+	if !configExists || kickstartConfigStr == "" {
+		return false
+	} else {
+		kickstartConfigJson, err := jsonutils.ParseString(kickstartConfigStr)
+		if err != nil {
+			log.Errorf("Failed to parse kickstart config for VM %s: %v", s.Id, err)
+			return false
+		}
+		kickstartConfig := &api.KickstartConfig{}
+		if err := kickstartConfigJson.Unmarshal(kickstartConfig); err != nil {
+			log.Errorf("Failed to unmarshal kickstart config for VM %s: %v", s.Id, err)
+			return false
+		}
+		if kickstartConfig.Enabled != nil && !*kickstartConfig.Enabled {
+			log.Debugf("Kickstart is disabled in config for VM %s, skipping kickstart boot", s.Id)
+			return false
+		}
+	}
+
+	kickstartCompleted, completedExists := s.Desc.Metadata[api.VM_METADATA_KICKSTART_COMPLETED_FLAG]
+	if completedExists && kickstartCompleted == "true" {
+		log.Debugf("Kickstart already completed for VM %s, skipping kickstart boot", s.Id)
+		return false
+	}
+
+	log.Debugf("VM %s needs kickstart: config exists and not completed yet", s.Id)
+	return true
+}
+
+// configureKickstartBoot 配置 kickstart 自动化安装的启动流程
+// 1. 挂载安装 ISO，获取内核和 initrd 路径
+// 2. 生成内核启动参数
+// 3. 创建 kickstart 监控器
+// 4. 如果包含完整配置，生成 kickstart 配置 ISO 并添加为 CDROM 设备
+func (s *SKVMGuestInstance) configureKickstartBoot(input *qemu.GenerateStartOptionsInput) error {
+	if !s.shouldUseKickstart() {
 		return nil
 	}
 
-	kickstartConfigStr, exists := s.Desc.Metadata[api.VM_METADATA_KICKSTART_CONFIG]
-	if !exists || kickstartConfigStr == "" {
-		return nil
-	}
+	log.Debugf("Enabling kickstart boot for VM %s", s.Id)
 
-	kickstartStatus, exists := s.Desc.Metadata[api.VM_METADATA_KICKSTART_STATUS]
-	if !exists || kickstartStatus == "" {
-		kickstartStatus = api.KICKSTART_STATUS_NORMAL
-	}
-
-	if kickstartStatus != api.KICKSTART_STATUS_PENDING && kickstartStatus != api.KICKSTART_STATUS_INSTALLING {
-		return nil
-	}
+	kickstartConfigStr := s.Desc.Metadata[api.VM_METADATA_KICKSTART_CONFIG]
 
 	kickstartConfigJson, err := jsonutils.ParseString(kickstartConfigStr)
 	if err != nil {
@@ -625,24 +659,12 @@ func (s *SKVMGuestInstance) handleKickstartMount(input *qemu.GenerateStartOption
 		return errors.Wrap(err, "unmarshal kickstart config")
 	}
 
-	if kickstartConfig.Enabled != nil && !*kickstartConfig.Enabled {
-		log.Infof("kickstart is disabled, skip")
-		return nil
-	}
-
 	// Find ISO file for kickstart installation from CDROM devices
 	var isoPath string
-	var imageId string
-
 	if len(s.Desc.Cdroms) > 0 {
 		for _, cdrom := range s.Desc.Cdroms {
 			if cdrom.Path != "" {
 				isoPath = cdrom.Path
-				// Extract image ID from path
-				if path.Base(cdrom.Path) != "" {
-					filename := path.Base(cdrom.Path)
-					imageId = strings.TrimSuffix(filename, ".iso")
-				}
 				break
 			}
 		}
@@ -653,7 +675,8 @@ func (s *SKVMGuestInstance) handleKickstartMount(input *qemu.GenerateStartOption
 		return nil
 	}
 
-	mountPoint := fmt.Sprintf("/tmp/kickstart-iso-%s", imageId)
+	kickstartDir := filepath.Join(KICKSTART_BASE_DIR, s.GetId())
+	mountPoint := filepath.Join(kickstartDir, KICKSTART_ISO_MOUNT_DIR)
 
 	// Check if mount point already exists and is mounted
 	if fileutils2.Exists(mountPoint) {
@@ -669,7 +692,7 @@ func (s *SKVMGuestInstance) handleKickstartMount(input *qemu.GenerateStartOption
 				}
 			}
 			if mounted {
-				log.Infof("Reusing existing kickstart ISO mount at %s for guest %s", mountPoint, s.GetName())
+				log.Debugf("Reusing existing kickstart ISO mount at %s for guest %s", mountPoint, s.GetName())
 			} else {
 				os.RemoveAll(mountPoint)
 				if err := os.MkdirAll(mountPoint, 0755); err != nil {
@@ -679,7 +702,7 @@ func (s *SKVMGuestInstance) handleKickstartMount(input *qemu.GenerateStartOption
 					os.RemoveAll(mountPoint)
 					return errors.Wrapf(err, "mount ISO %s to %s", isoPath, mountPoint)
 				}
-				log.Infof("Successfully mounted kickstart ISO %s to %s for guest %s", isoPath, mountPoint, s.GetName())
+				log.Debugf("Successfully mounted kickstart ISO %s to %s for guest %s", isoPath, mountPoint, s.GetName())
 			}
 		}
 	} else {
@@ -690,19 +713,19 @@ func (s *SKVMGuestInstance) handleKickstartMount(input *qemu.GenerateStartOption
 			os.RemoveAll(mountPoint)
 			return errors.Wrapf(err, "mount ISO %s to %s", isoPath, mountPoint)
 		}
-		log.Infof("Successfully mounted kickstart ISO %s to %s for guest %s", isoPath, mountPoint, s.GetName())
+		log.Debugf("Successfully mounted kickstart ISO %s to %s for guest %s", isoPath, mountPoint, s.GetName())
 	}
 
 	mountPath := mountPoint
 
 	// get kernel and initrd path from mounted ISO
-	kernelPath, initrdPath, err := s.getKickstartKernelPaths(mountPath, kickstartConfig.OSType)
+	kernelPath, initrdPath, err := GetKernelInitrdPaths(mountPath, kickstartConfig.OSType)
 	if err != nil {
 		return errors.Wrap(err, "get kickstart kernel paths")
 	}
 
 	var kickstartConfigIsoPath string
-	log.Infof("Kickstart config for guest %s: Config length=%d, ConfigURL=%s",
+	log.Debugf("Kickstart config for guest %s: Config length=%d, ConfigURL=%s",
 		s.GetName(), len(kickstartConfig.Config), kickstartConfig.ConfigURL)
 
 	if kickstartConfig.Config != "" {
@@ -711,12 +734,12 @@ func (s *SKVMGuestInstance) handleKickstartMount(input *qemu.GenerateStartOption
 			log.Errorf("Failed to create kickstart config ISO for guest %s: %v, falling back to URL/cdrom method", s.GetName(), err)
 		} else {
 			kickstartConfigIsoPath = isoPath
-			log.Infof("Successfully created kickstart ISO for guest %s: %s", s.GetName(), isoPath)
+			log.Debugf("Successfully created kickstart ISO for guest %s: %s", s.GetName(), isoPath)
 		}
 	}
 
-	kernelArgs := s.GenerateKickstartKernelArgs(kickstartConfig, kickstartConfigIsoPath)
-	log.Infof("Generated kickstart kernel args for guest %s: %s", s.GetName(), kernelArgs)
+	kernelArgs := BuildKickstartAppendArgs(kickstartConfig, kickstartConfigIsoPath)
+	log.Debugf("Generated kickstart kernel args for guest %s: %s", s.GetName(), kernelArgs)
 
 	// Create kickstart serial monitor for status monitoring
 	kickstartMonitor := NewKickstartSerialMonitor(s.Id)
@@ -741,7 +764,7 @@ func (s *SKVMGuestInstance) handleKickstartMount(input *qemu.GenerateStartOption
 
 	s.kickstartMonitor = kickstartMonitor
 
-	log.Infof("Kickstart boot configured for guest %s: kernel=%s, initrd=%s, args=%s, isoPath=%s",
+	log.Debugf("Kickstart boot configured for guest %s: kernel=%s, initrd=%s, args=%s, isoPath=%s",
 		s.GetName(), kernelPath, initrdPath, kernelArgs, kickstartConfigIsoPath)
 
 	return nil
@@ -1353,41 +1376,12 @@ func (s *SKVMGuestInstance) setUefiBootOrder(ctx context.Context) error {
 	return nil
 }
 
-func (s *SKVMGuestInstance) getKickstartKernelPaths(mountPath, osType string) (string, string, error) {
-	var kernelRelPath, initrdRelPath string
-
-	// TODO: 写在这里可能有点不适, 后续需要新建一个 map[string]map[string]string
-	// 来存储不同发行版的内核和 initrd 路径，以便于扩展和维护
-	switch osType {
-	case "centos", "rhel", "fedora":
-		kernelRelPath = "images/pxeboot/vmlinuz"
-		initrdRelPath = "images/pxeboot/initrd.img"
-	case "ubuntu":
-		kernelRelPath = "casper/vmlinuz"
-		initrdRelPath = "casper/initrd"
-	default:
-		return "", "", errors.Errorf("unsupported OS type: %s", osType)
-	}
-
-	kernelPath := path.Join(mountPath, kernelRelPath)
-	initrdPath := path.Join(mountPath, initrdRelPath)
-
-	if !fileutils2.Exists(kernelPath) {
-		return "", "", errors.Errorf("kernel file not found: %s", kernelPath)
-	}
-	if !fileutils2.Exists(initrdPath) {
-		return "", "", errors.Errorf("initrd file not found: %s", initrdPath)
-	}
-
-	return kernelPath, initrdPath, nil
-}
-
 // attachKickstartISO attaches the kickstart ISO as an additional CDROM device
 // if the kickstart is not provided by URL
 func (s *SKVMGuestInstance) attachKickstartISO(isoPath string) error {
 	cdromId := fmt.Sprintf("kickstart_iso_%s", s.Id)
 
-	log.Infof("Attaching kickstart ISO %s as CDROM device for guest %s", isoPath, s.GetName())
+	log.Debugf("Attaching kickstart ISO %s as CDROM device for guest %s", isoPath, s.GetName())
 
 	kickstartCdrom := &desc.SGuestCdrom{
 		Id:      cdromId,
@@ -1403,52 +1397,8 @@ func (s *SKVMGuestInstance) attachKickstartISO(isoPath string) error {
 
 	s.Desc.Cdroms = append(s.Desc.Cdroms, kickstartCdrom)
 
-	log.Infof("Successfully attached kickstart ISO %s as SCSI CDROM device %s (ordinal=%d) for guest %s",
+	log.Debugf("Successfully attached kickstart ISO %s as SCSI CDROM device %s (ordinal=%d) for guest %s",
 		isoPath, cdromId, kickstartCdrom.Ordinal, s.GetName())
 
 	return nil
-}
-
-func (s *SKVMGuestInstance) GenerateKickstartKernelArgs(config *api.KickstartConfig, isoPath string) string {
-	if config == nil {
-		return ""
-	}
-
-	baseArgs := []string{}
-
-	var kickstartArgs []string
-
-	switch config.OSType {
-	case "centos", "rhel", "fedora":
-		if config.ConfigURL != "" {
-			kickstartArgs = append(kickstartArgs, fmt.Sprintf("inst.ks=%s", config.ConfigURL))
-		} else if isoPath != "" {
-			kickstartArgs = append(kickstartArgs, fmt.Sprintf("inst.ks=hd:LABEL=%s:/anaconda-ks.cfg", REDHAT_KICKSTART_ISO_VOLUME_LABEL))
-		} else {
-			kickstartArgs = append(kickstartArgs, "inst.ks=cdrom:/ks.cfg")
-		}
-
-	case "ubuntu":
-		// ip=dhcp is needed for ubuntu
-		if config.ConfigURL != "" {
-			kickstartArgs = append(kickstartArgs,
-				"autoinstall",
-				"ip=dhcp",
-				fmt.Sprintf("ds=nocloud-net;s=%s", config.ConfigURL),
-			)
-		} else if isoPath != "" {
-			kickstartArgs = append(kickstartArgs,
-				"autoinstall",
-			)
-		} else {
-			kickstartArgs = append(kickstartArgs,
-				"autoinstall",
-				"ip=dhcp",
-				"ds=nocloud;s=/cdrom/",
-			)
-		}
-	}
-
-	allArgs := append(baseArgs, kickstartArgs...)
-	return strings.Join(allArgs, " ")
 }
