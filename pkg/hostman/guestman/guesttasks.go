@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"net"
 	"os"
 	"path"
 	"regexp"
@@ -1262,7 +1263,7 @@ func (s *SGuestLiveMigrateTask) waitMirrorJobsReady() {
 			s.waitMirrorJobsReady()
 			return
 		}
-		s.Monitor.Migrate(fmt.Sprintf("tcp:%s:%d", s.params.DestIp, s.params.DestPort),
+		s.Monitor.Migrate(fmt.Sprintf("tcp:%s", net.JoinHostPort(s.params.DestIp, strconv.Itoa(s.params.DestPort))),
 			false, false, s.setMaxBandwidth)
 	}
 	s.Monitor.GetBlockJobs(cb)
@@ -1313,7 +1314,7 @@ func (s *SGuestLiveMigrateTask) doMigrate() {
 			// copy disk data
 			copyIncremental = true
 		}
-		s.Monitor.Migrate(fmt.Sprintf("tcp:%s:%d", s.params.DestIp, s.params.DestPort),
+		s.Monitor.Migrate(fmt.Sprintf("tcp:%s", net.JoinHostPort(s.params.DestIp, strconv.Itoa(s.params.DestPort))),
 			copyIncremental, false, s.setMaxBandwidth)
 	}
 }
