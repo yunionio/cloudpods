@@ -17,6 +17,7 @@ package qcloud
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 
@@ -58,14 +59,15 @@ type Rule struct {
 	Targets    []SLBBackend `json:"Targets"`
 }
 
-// ==========================================================
-
-// backend InstanceId + protocol  +Port + ip + rip全局唯一
+// backend InstanceId + protocol  + port + ip + rip全局唯一
 func (self *SLBBackend) GetId() string {
-	if len(self.Domain) == 0 {
-		return fmt.Sprintf("%s/%s-%d", self.group.GetId(), self.InstanceId, self.Port)
+	ret := []string{self.group.GetId(), self.InstanceId, fmt.Sprintf("%d", self.Port)}
+	ret = append(ret, self.PrivateIPAddresses...)
+	if len(self.Domain) > 0 {
+		ret = append(ret, self.Domain)
+		ret = append(ret, self.Url)
 	}
-	return fmt.Sprintf("%s/%s-%d:%s%s", self.group.GetId(), self.InstanceId, self.Port, self.Domain, self.Url)
+	return strings.Join(ret, "/")
 }
 
 func (self *SLBBackend) GetName() string {

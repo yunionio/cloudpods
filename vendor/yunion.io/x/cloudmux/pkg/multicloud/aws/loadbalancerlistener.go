@@ -42,22 +42,22 @@ type SElbListener struct {
 	lb    *SElb
 	group *SElbBackendGroup
 
-	Port            int             `json:"Port"`
-	Protocol        string          `json:"Protocol"`
+	Port            int             `xml:"Port"`
+	Protocol        string          `xml:"Protocol"`
 	DefaultActions  []DefaultAction `xml:"DefaultActions>member"`
-	SSLPolicy       string          `json:"SslPolicy"`
-	Certificates    []Certificate   `json:"Certificates"`
-	LoadBalancerArn string          `json:"LoadBalancerArn"`
-	ListenerArn     string          `json:"ListenerArn"`
+	SSLPolicy       string          `xml:"SslPolicy"`
+	Certificates    []Certificate   `xml:"Certificates>member"`
+	LoadBalancerArn string          `xml:"LoadBalancerArn"`
+	ListenerArn     string          `xml:"ListenerArn"`
 }
 
 type Certificate struct {
-	CertificateArn string `json:"CertificateArn"`
+	CertificateArn string `xml:"CertificateArn"`
 }
 
 type DefaultAction struct {
-	TargetGroupArn string `json:"TargetGroupArn"`
-	Type           string `json:"Type"`
+	TargetGroupArn string `xml:"TargetGroupArn"`
+	Type           string `xml:"Type"`
 }
 
 func (self *SElbListener) GetId() string {
@@ -371,7 +371,7 @@ func (self *SElbListener) CreateILoadBalancerListenerRule(rule *cloudprovider.SL
 }
 
 func (self *SElbListener) GetILoadBalancerListenerRuleById(ruleId string) (cloudprovider.ICloudLoadbalancerListenerRule, error) {
-	rule, err := self.lb.region.GetElbListenerRule(ruleId)
+	rule, err := self.lb.region.GetElbListenerRule(self.ListenerArn, ruleId)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetElbListenerRule")
 	}
@@ -381,19 +381,13 @@ func (self *SElbListener) GetILoadBalancerListenerRuleById(ruleId string) (cloud
 
 func (self *SElbListener) GetILoadbalancerListenerRules() ([]cloudprovider.ICloudLoadbalancerListenerRule, error) {
 	ret := []cloudprovider.ICloudLoadbalancerListenerRule{}
-	marker := ""
-	for {
-		part, marker, err := self.lb.region.GetElbListenerRules(self.ListenerArn, "", marker)
-		if err != nil {
-			return nil, err
-		}
-		for i := range part {
-			part[i].listener = self
-			ret = append(ret, &part[i])
-		}
-		if len(marker) == 0 || len(part) == 0 {
-			break
-		}
+	rules, err := self.lb.region.GetElbListenerRules(self.ListenerArn, "")
+	if err != nil {
+		return nil, err
+	}
+	for i := range rules {
+		rules[i].listener = self
+		ret = append(ret, &rules[i])
 	}
 	return ret, nil
 }
@@ -595,7 +589,7 @@ func (self *SRegion) CreateElbListener(lbId string, opts *cloudprovider.SLoadbal
 	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "after created")
 }
 
-func (self *SRegion) GetElbListenerRules(listenerId string, ruleId, marker string) ([]SElbListenerRule, string, error) {
+func (self *SRegion) GetElbListenerRules(listenerId string, ruleId string) ([]SElbListenerRule, error) {
 	params := map[string]string{}
 	if len(listenerId) > 0 {
 		params["ListenerArn"] = listenerId
@@ -603,28 +597,37 @@ func (self *SRegion) GetElbListenerRules(listenerId string, ruleId, marker strin
 	if len(ruleId) > 0 {
 		params["RuleArns.member.1"] = ruleId
 	}
-	if len(marker) > 0 {
-		params["Marker"] = marker
+
+	ret := []SElbListenerRule{}
+	for {
+		part := struct {
+			Rules      []SElbListenerRule `xml:"Rules>member"`
+			NextMarker string
+		}{}
+		err := self.elbRequest("DescribeRules", params, &part)
+		if err != nil {
+			return nil, errors.Wrapf(err, "DescribeRules")
+		}
+		ret = append(ret, part.Rules...)
+		if len(part.NextMarker) == 0 || len(part.Rules) == 0 {
+			break
+		}
+		params["Marker"] = part.NextMarker
 	}
-	ret := &SElbListenerRules{}
-	err := self.elbRequest("DescribeRules", params, ret)
-	if err != nil {
-		return nil, "", errors.Wrapf(err, "DescribeRules")
-	}
-	return ret.Rules, ret.NextMarker, nil
+	return ret, nil
 }
 
-func (self *SRegion) GetElbListenerRule(id string) (*SElbListenerRule, error) {
-	rules, _, err := self.GetElbListenerRules("", id, "")
+func (self *SRegion) GetElbListenerRule(lisId, ruleId string) (*SElbListenerRule, error) {
+	rules, err := self.GetElbListenerRules(lisId, ruleId)
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetElbListenerRules")
 	}
 	for i := range rules {
-		if rules[i].RuleArn == id {
+		if rules[i].RuleArn == ruleId {
 			return &rules[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, ruleId)
 }
 
 func (self *SRegion) DeleteElbListener(id string) error {

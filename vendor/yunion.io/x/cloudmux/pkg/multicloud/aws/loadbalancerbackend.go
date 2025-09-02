@@ -20,6 +20,7 @@ import (
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/multicloud"
+	"yunion.io/x/pkg/util/netutils"
 )
 
 type SElbBackends struct {
@@ -99,7 +100,11 @@ func (self *SElbBackend) SyncConf(ctx context.Context, port, weight int) error {
 }
 
 func (self *SElbBackend) GetIpAddress() string {
-	return ""
+	_, err := netutils.NewIPV4Addr(self.Target.Id)
+	if err != nil {
+		return ""
+	}
+	return self.Target.Id
 }
 
 func (self *SRegion) SyncElbBackend(backendId, serverId string, oldPort, newPort int) error {
