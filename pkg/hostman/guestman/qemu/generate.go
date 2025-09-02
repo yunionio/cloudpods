@@ -738,6 +738,7 @@ type KickstartBootInfo struct {
 	InitrdPath     string
 	KernelArgs     string
 	SerialFilePath string
+	ConfigIsoPath  string
 }
 
 func (input *GenerateStartOptionsInput) HasBootIndex() bool {
