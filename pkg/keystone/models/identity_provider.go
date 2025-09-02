@@ -915,7 +915,7 @@ func (self *SIdentityProvider) Purge(ctx context.Context, userCred mcclient.Toke
 				return errors.Wrap(err, "domains[i].UnlinkIdp")
 			}
 		} else {
-			err = domains[i].ValidateDeleteCondition(ctx, nil)
+			err = domains[i].validateDeleteConditionInternal(ctx, nil, true)
 			if err != nil {
 				db.OpsLog.LogEvent(&domains[i], db.ACT_DELETE_FAIL, err, userCred)
 				return errors.Wrap(err, "domain.ValidateDeleteCondition")
