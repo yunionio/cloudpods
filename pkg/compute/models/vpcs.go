@@ -1380,6 +1380,15 @@ func (manager *SVpcManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field st
 	return q, httperrors.ErrNotFound
 }
 
+func (manager *SVpcManager) QueryDistinctExtraFields(q *sqlchemy.SQuery, resource string, fields []string) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SManagedResourceBaseManager.QueryDistinctExtraFields(q, resource, fields)
+	if err == nil {
+		return q, nil
+	}
+	return q, httperrors.ErrNotFound
+}
+
 func (manager *SVpcManager) OrderByExtraFields(
 	ctx context.Context,
 	q *sqlchemy.SQuery,

@@ -527,6 +527,15 @@ func (manager *SStoragecacheManager) QueryDistinctExtraField(q *sqlchemy.SQuery,
 	return q, httperrors.ErrNotFound
 }
 
+func (manager *SStoragecacheManager) QueryDistinctExtraFields(q *sqlchemy.SQuery, resource string, fields []string) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SManagedResourceBaseManager.QueryDistinctExtraFields(q, resource, fields)
+	if err == nil {
+		return q, nil
+	}
+	return q, httperrors.ErrNotFound
+}
+
 func (manager *SStoragecacheManager) FetchStoragecacheById(storageCacheId string) *SStoragecache {
 	iStorageCache, _ := manager.FetchById(storageCacheId)
 	if iStorageCache == nil {
