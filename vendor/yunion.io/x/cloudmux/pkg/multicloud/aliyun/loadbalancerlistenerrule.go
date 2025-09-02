@@ -98,6 +98,9 @@ func (lbr *SLoadbalancerListenerRule) GetDomain() string {
 }
 
 func (lbr *SLoadbalancerListenerRule) GetPath() string {
+	if len(lbr.Url) == 0 {
+		return "/"
+	}
 	return lbr.Url
 }
 
