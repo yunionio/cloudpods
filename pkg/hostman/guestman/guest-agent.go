@@ -103,9 +103,11 @@ func (m *SGuestManager) QgaGuestInfoTask(sid string) (string, error) {
 func (m *SGuestManager) QgaSetNetwork(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
 	input := params.(*SQgaGuestSetNetwork)
 	netmod := &monitor.NetworkModify{
-		Device:  input.Device,
-		Ipmask:  input.Ipmask,
-		Gateway: input.Gateway,
+		Device:   input.Device,
+		Ipmask:   input.Ipmask,
+		Gateway:  input.Gateway,
+		Ip6mask:  input.Ip6mask,
+		Gateway6: input.Gateway6,
 	}
 
 	guest, err := m.checkAndInitGuestQga(input.Sid)

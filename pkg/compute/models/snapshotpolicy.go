@@ -56,17 +56,20 @@ type SSnapshotPolicy struct {
 
 	SCloudregionResourceBase `width:"36" charset:"ascii" nullable:"false" list:"domain" create:"domain_required" default:"default"`
 
-	// 快照保留天数
+	// 快照保留天数, -1: 表示永久保留
 	RetentionDays int `nullable:"false" list:"user" get:"user" update:"user" create:"required"`
 	// 快照保留数量, 优先级高于 RetentionDays, 且仅对本地IDC资源有效
 	RetentionCount int `nullable:"true" list:"user" get:"user" update:"user" create:"optional"`
 
 	// 快照类型, 目前支持 disk, server
+	// disk: 自动磁盘快照策略， 只能关联磁盘
+	// server: 自动主机快照策略, 只能关联主机
 	Type string `width:"36" charset:"ascii" default:"disk" list:"user" create:"required"`
 
-	// 1~7, 1 is Monday
+	// 1~7, 1 is Monday, 7 is Sunday
 	RepeatWeekdays api.RepeatWeekdays `charset:"utf8" create:"required" list:"user" get:"user" update:"user"`
-	// 0~23
+	// 0~23, 每小时
+	// 创建自动快照策略的时间必须与 RepeatWeekdays 对应的创建周期相一致
 	TimePoints api.TimePoints `charset:"utf8" create:"required" list:"user" get:"user" update:"user"`
 }
 
@@ -84,6 +87,7 @@ func init() {
 	SnapshotPolicyManager.SetVirtualObject(SnapshotPolicyManager)
 }
 
+// 创建自动快照策略
 func (manager *SSnapshotPolicyManager) ValidateCreateData(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
@@ -144,6 +148,7 @@ func (sp *SSnapshotPolicy) StartCreateTask(ctx context.Context, userCred mcclien
 	return task.ScheduleRun(nil)
 }
 
+// 更新自动快照策略
 func (self *SSnapshotPolicy) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.SSnapshotPolicyUpdateInput) (*api.SSnapshotPolicyUpdateInput, error) {
 	var err error
 	input.VirtualResourceBaseUpdateInput, err = self.SVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, input.VirtualResourceBaseUpdateInput)
@@ -156,8 +161,8 @@ func (self *SSnapshotPolicy) ValidateUpdateData(ctx context.Context, userCred mc
 			return nil, httperrors.NewInputParameterError("Retention days must in 1~%d or -1", options.Options.RetentionDaysLimit)
 		}
 	}
-	if input.RegentionCount != nil {
-		if *input.RegentionCount > options.Options.RetentionCountLimit {
+	if input.RetentionCount != nil {
+		if *input.RetentionCount > options.Options.RetentionCountLimit {
 			return nil, httperrors.NewInputParameterError("Retention count must less than %d", options.Options.RetentionCountLimit)
 		}
 	}
@@ -451,6 +456,7 @@ func (sp *SSnapshotPolicy) StartBindDisksTask(ctx context.Context, userCred mccl
 	return task.ScheduleRun(nil)
 }
 
+// 绑定磁盘
 func (sp *SSnapshotPolicy) PerformBindDisks(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
@@ -493,6 +499,7 @@ func (sp *SSnapshotPolicy) PerformBindDisks(
 	return nil, sp.StartBindDisksTask(ctx, userCred, diskIds)
 }
 
+// 绑定主机
 func (sp *SSnapshotPolicy) PerformBindResources(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
@@ -533,6 +540,7 @@ func (sp *SSnapshotPolicy) PerformBindResources(
 	return nil, nil
 }
 
+// 解绑主机
 func (sp *SSnapshotPolicy) PerformUnbindResources(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
@@ -575,6 +583,7 @@ func (sp *SSnapshotPolicy) StartUnbindDisksTask(ctx context.Context, userCred mc
 	return task.ScheduleRun(nil)
 }
 
+// 解绑磁盘
 func (sp *SSnapshotPolicy) PerformUnbindDisks(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
@@ -601,6 +610,7 @@ func (sp *SSnapshotPolicy) PerformUnbindDisks(
 	return nil, sp.StartUnbindDisksTask(ctx, userCred, diskIds)
 }
 
+// 同步快照策略状态
 func (self *SSnapshotPolicy) PerformSyncstatus(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
