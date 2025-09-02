@@ -7,7 +7,7 @@ COPY . /root/go/src/yunion.io/x/onecloud
 WORKDIR /root/go/src/yunion.io/x/onecloud
 RUN make cmd/host
 
-FROM registry.cn-beijing.aliyuncs.com/yunionio/host-base:v0.7.0
+FROM registry.cn-beijing.aliyuncs.com/yunionio/host-base:v0.8.0
 
 MAINTAINER "Yaoqi Wan wanyaoqi@yunionyun.com"
 
