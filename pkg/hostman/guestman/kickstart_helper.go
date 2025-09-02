@@ -39,7 +39,6 @@ import (
 const (
 	KICKSTART_MONITOR_TIMEOUT         = 30 * time.Minute
 	SERIAL_FILE_CHECK_INTERVAL        = 5 * time.Second
-	KICKSTART_SERIAL_FILE_PREFIX      = "/tmp/kickstart-serial"
 	KICKSTART_ISO_DIR_PREFIX          = "/tmp/kickstart-iso"
 	REDHAT_KICKSTART_ISO_VOLUME_LABEL = "OEMDRV"
 	UBUNTU_KICKSTART_ISO_VOLUME_LABEL = "CIDATA"
@@ -56,7 +55,16 @@ type SKickstartSerialMonitor struct {
 // NewKickstartSerialMonitor creates a new kickstart serial monitor
 func NewKickstartSerialMonitor(serverId string) *SKickstartSerialMonitor {
 	ctx, cancel := context.WithCancel(context.Background())
-	serialFilePath := fmt.Sprintf("%s-%s.log", KICKSTART_SERIAL_FILE_PREFIX, serverId)
+	
+	// Get the server instance to access its homeDir
+	var serialFilePath string
+	server, exists := guestManager.GetServer(serverId)
+	if exists {
+		serialFilePath = path.Join(server.HomeDir(), "kickstart-serial.log")
+	} else {
+		// Fallback to use /tmp if server not found
+		serialFilePath = fmt.Sprintf("/tmp/kickstart-serial-%s.log", serverId)
+	}
 
 	return &SKickstartSerialMonitor{
 		serverId:       serverId,
