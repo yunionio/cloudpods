@@ -390,7 +390,7 @@ func (img *SImage) GetExtraDetailsHeaders(ctx context.Context, userCred mcclient
 		headers[fmt.Sprintf("%s%s", modules.IMAGE_META, "auto_delete_at")] = timeutils.FullIsoTime(pendingDeletedAt)
 	}
 
-	if strings.HasPrefix(img.Location, api.S3Prefix) {
+	if options.Options.S3DirectDownload && strings.HasPrefix(img.Location, api.S3Prefix) {
 		headers[fmt.Sprintf("%s%s", modules.IMAGE_META, "s3_info_url")] = s3.GetEndpoint(options.Options.S3Endpoint, options.Options.S3UseSSL)
 		headers[fmt.Sprintf("%s%s", modules.IMAGE_META, "s3_info_access_key")] = options.Options.S3AccessKey
 		headers[fmt.Sprintf("%s%s", modules.IMAGE_META, "s3_info_secret")] = options.Options.S3SecretKey
