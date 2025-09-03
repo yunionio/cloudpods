@@ -45,7 +45,7 @@ func (m *SLocalModelCache) GetPath() string {
 }
 
 func (m *SLocalModelCache) GetTmpPath() string {
-	return path.Join(m.GetPath(), MODEL_CACHE_DOWNLOADING_SUFFIX)
+	return m.GetPath() + MODEL_CACHE_DOWNLOADING_SUFFIX
 }
 
 func (m *SLocalModelCache) GetSizeMb() int64 {
@@ -104,12 +104,6 @@ func (m *SLocalModelCache) fetch(model string) error {
 		tmpPath  = m.GetTmpPath()
 	)
 
-	out, err := os.Create(tmpPath)
-	if nil != err {
-		return err
-	}
-	defer out.Close()
-
 	req, _ := http.NewRequest("GET", url, nil)
 	resp, err := http.DefaultClient.Do(req)
 	if nil != err {
@@ -121,6 +115,12 @@ func (m *SLocalModelCache) fetch(model string) error {
 	if resp.StatusCode != http.StatusOK {
 		return errors.Errorf("bad status: %s", resp.Status)
 	}
+
+	out, err := os.Create(tmpPath)
+	if nil != err {
+		return err
+	}
+	defer out.Close()
 
 	// copy to get resp
 	if _, err := io.Copy(out, resp.Body); nil != err {
