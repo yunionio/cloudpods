@@ -238,15 +238,15 @@ func (self *ManagedGuestCreateDiskTask) OnManagedDiskPrepared(ctx context.Contex
 			return
 		}
 
-		time.Sleep(time.Second * 5)
+		time.Sleep(time.Second * 10)
+
+		log.Debugf("guest %s(%s) billing type: %s disk %s(%s)", guest.Name, guest.Id, guest.BillingType, disk.Name, disk.Id)
 
 		if guest.BillingType == billing_api.BILLING_TYPE_PREPAID {
 			idisk, err := disk.GetIDisk(ctx)
 			if err != nil {
-				if errors.Cause(err) != cloudprovider.ErrNotFound {
-					logclient.AddActionLogWithStartable(self, guest, logclient.ACT_CHANGE_BILLING_TYPE, errors.Wrapf(err, "GetIDisk %s", disk.ExternalId), self.UserCred, false)
-					continue
-				}
+				logclient.AddActionLogWithStartable(self, guest, logclient.ACT_CHANGE_BILLING_TYPE, errors.Wrapf(err, "GetIDisk %s", disk.ExternalId), self.UserCred, false)
+				continue
 			}
 			err = idisk.ChangeBillingType(guest.BillingType)
 			if err != nil {
