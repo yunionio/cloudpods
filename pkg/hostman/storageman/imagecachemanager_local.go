@@ -250,7 +250,7 @@ func (c *SLocalImageCacheManager) CleanImageCachefiles(ctx context.Context) {
 		storageSize = c.storageManager.(*SStorageManager).GetTotalLocalCapacity()
 	}
 	ratio := float64(totalSize) / float64(storageSize)
-	log.Infof("SLocalImageCacheManager %s total size %dMB storage %dMB ratio %f expect ratio %d", c.cachePath, totalSize, storageSize, ratio, options.HostOptions.ImageCacheCleanupPercentage)
+	log.Infof("SLocalImageCacheManager %s total size %dMB storage %dMB ratio %f expect ratio %d", c.cachePath, totalSize, storageSize, ratio*100, options.HostOptions.ImageCacheCleanupPercentage)
 	if int(ratio*100) < options.HostOptions.ImageCacheCleanupPercentage {
 		return
 	}
@@ -312,10 +312,16 @@ func (c *SLocalImageCacheManager) loadModels(ctx context.Context) {
 		procutils.NewCommand("mkdir", "-p", modelPath).Run()
 	}
 	files, _ := os.ReadDir(modelPath)
-	SHA256_PREFIX_REG := regexp.MustCompile(`^sha256-[a-f0-9]{64}$`)
+	SHA256_PREFIX_REG := regexp.MustCompile(`^sha256-[a-f0-9]{64}(\.\w+)?$`)
 	for _, f := range files {
 		if SHA256_PREFIX_REG.MatchString(f.Name()) && !f.IsDir() {
-			c.loadModelCache(f.Name())
+			blobFileName := f.Name()
+			c.loadModelCache(blobFileName)
+			// 清理 tmp 文件
+			dotIndex := len("sha256-") + 64
+			if dotIndex < len(blobFileName) {
+				c.RemoveModelCache(ctx, blobFileName)
+			}
 		}
 	}
 }
