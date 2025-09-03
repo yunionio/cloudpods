@@ -705,6 +705,15 @@ func (manager *SBucketManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field
 	return q, httperrors.ErrNotFound
 }
 
+func (manager *SBucketManager) QueryDistinctExtraFields(q *sqlchemy.SQuery, resource string, fields []string) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SManagedResourceBaseManager.QueryDistinctExtraFields(q, resource, fields)
+	if err == nil {
+		return q, nil
+	}
+	return q, httperrors.ErrNotFound
+}
+
 func (manager *SBucketManager) OrderByExtraFields(
 	ctx context.Context,
 	q *sqlchemy.SQuery,

@@ -236,6 +236,15 @@ func (man *SMongoDBManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field st
 	return q, httperrors.ErrNotFound
 }
 
+func (manager *SMongoDBManager) QueryDistinctExtraFields(q *sqlchemy.SQuery, resource string, fields []string) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SManagedResourceBaseManager.QueryDistinctExtraFields(q, resource, fields)
+	if err == nil {
+		return q, nil
+	}
+	return q, httperrors.ErrNotFound
+}
+
 func (manager *SMongoDBManager) BatchCreateValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input *api.MongoDBCreateInput) (*api.MongoDBCreateInput, error) {
 	return input, httperrors.NewNotImplementedError("Not Implemented")
 }

@@ -410,6 +410,15 @@ func (manager *SDiskBackupManager) QueryDistinctExtraField(q *sqlchemy.SQuery, f
 	return q, httperrors.ErrNotFound
 }
 
+func (manager *SDiskBackupManager) QueryDistinctExtraFields(q *sqlchemy.SQuery, resource string, fields []string) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SManagedResourceBaseManager.QueryDistinctExtraFields(q, resource, fields)
+	if err == nil {
+		return q, nil
+	}
+	return q, httperrors.ErrNotFound
+}
+
 func (manager *SDiskBackupManager) OrderByExtraFields(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.DiskBackupListInput) (*sqlchemy.SQuery, error) {
 	var err error
 	q, err = manager.SVirtualResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.VirtualResourceListInput)

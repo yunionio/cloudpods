@@ -292,6 +292,15 @@ func (manager *SFileSystemManager) QueryDistinctExtraField(q *sqlchemy.SQuery, f
 	return q, httperrors.ErrNotFound
 }
 
+func (manager *SFileSystemManager) QueryDistinctExtraFields(q *sqlchemy.SQuery, resource string, fields []string) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SManagedResourceBaseManager.QueryDistinctExtraFields(q, resource, fields)
+	if err == nil {
+		return q, nil
+	}
+	return q, httperrors.ErrNotFound
+}
+
 func (manager *SFileSystemManager) OrderByExtraFields(
 	ctx context.Context,
 	q *sqlchemy.SQuery,

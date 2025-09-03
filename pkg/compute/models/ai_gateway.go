@@ -127,6 +127,15 @@ func (manager *SAiGatewayManager) QueryDistinctExtraField(q *sqlchemy.SQuery, fi
 	return q, httperrors.ErrNotFound
 }
 
+func (manager *SAiGatewayManager) QueryDistinctExtraFields(q *sqlchemy.SQuery, resource string, fields []string) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SManagedResourceBaseManager.QueryDistinctExtraFields(q, resource, fields)
+	if err == nil {
+		return q, nil
+	}
+	return q, httperrors.ErrNotFound
+}
+
 func (self *SAiGateway) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.AiGatewayUpdateInput) (*api.AiGatewayUpdateInput, error) {
 	var err error
 

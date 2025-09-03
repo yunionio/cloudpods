@@ -365,6 +365,15 @@ func (manager *SElasticipManager) QueryDistinctExtraField(q *sqlchemy.SQuery, fi
 	return q, httperrors.ErrNotFound
 }
 
+func (manager *SElasticipManager) QueryDistinctExtraFields(q *sqlchemy.SQuery, resource string, fields []string) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SManagedResourceBaseManager.QueryDistinctExtraFields(q, resource, fields)
+	if err == nil {
+		return q, nil
+	}
+	return q, httperrors.ErrNotFound
+}
+
 func (self *SElasticip) GetNetwork() (*SNetwork, error) {
 	network, err := NetworkManager.FetchById(self.NetworkId)
 	if err != nil {
