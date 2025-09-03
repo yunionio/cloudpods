@@ -1,6 +1,7 @@
 package storageman
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"io/fs"
@@ -16,9 +17,6 @@ import (
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/pkg/errors"
 )
-
-// todo 被加载后文件被删除时的处理
-// todo 在存储大小超过设定值后的处理
 
 const (
 	MODEL_CACHE_DOWNLOADING_SUFFIX = ".tmp"
@@ -46,7 +44,15 @@ func (m *SLocalModelCache) GetPath() string {
 	return path.Join(m.Manager.GetModelPath(), m.blobId)
 }
 
-func (m *SLocalModelCache) Access(modelName string) error {
+func (m *SLocalModelCache) GetTmpPath() string {
+	return path.Join(m.GetPath(), MODEL_CACHE_DOWNLOADING_SUFFIX)
+}
+
+func (m *SLocalModelCache) GetSizeMb() int64 {
+	return m.Size / 1024 / 1024
+}
+
+func (m *SLocalModelCache) Access(ctx context.Context, modelName string) error {
 	mPath := m.GetPath()
 	// check exist, if not, fetch it
 	if !fileutils2.Exists(mPath) {
@@ -75,11 +81,27 @@ func (m *SLocalModelCache) Load() error {
 	return nil
 }
 
+func (m *SLocalModelCache) Remove(ctx context.Context) error {
+	if fileutils2.Exists(m.GetPath()) {
+		if err := syscall.Unlink(m.GetPath()); err != nil {
+			return errors.Wrap(err, m.GetPath())
+		}
+	}
+
+	if fileutils2.Exists(m.GetTmpPath()) {
+		if err := syscall.Unlink(m.GetTmpPath()); err != nil {
+			return errors.Wrap(err, m.GetTmpPath())
+		}
+	}
+
+	return nil
+}
+
 func (m *SLocalModelCache) fetch(model string) error {
 	var (
 		url      = fmt.Sprintf(api.LLM_OLLAMA_LIBRARY_BASE_URL, fmt.Sprintf("%s/blobs/%s", model, m.blobId))
 		filePath = m.GetPath()
-		tmpPath  = filePath + MODEL_CACHE_DOWNLOADING_SUFFIX
+		tmpPath  = m.GetTmpPath()
 	)
 
 	out, err := os.Create(tmpPath)
@@ -127,7 +149,7 @@ func (m *SLocalModelCache) getFileInfo() fs.FileInfo {
 func (m *SLocalModelCache) updateCacheInfo() {
 	fi := m.getFileInfo()
 	if fi != nil {
-		m.Size = fi.Size() / 1024 / 1024
+		m.Size = fi.Size()
 		if fi.Sys() != nil {
 			atime := fi.Sys().(*syscall.Stat_t).Atim
 			m.AccessAt = time.Unix(atime.Sec, atime.Nsec)
