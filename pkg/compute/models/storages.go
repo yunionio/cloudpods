@@ -1900,6 +1900,15 @@ func (manager *SStorageManager) QueryDistinctExtraField(q *sqlchemy.SQuery, fiel
 	return q, httperrors.ErrNotFound
 }
 
+func (manager *SStorageManager) QueryDistinctExtraFields(q *sqlchemy.SQuery, resource string, fields []string) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SManagedResourceBaseManager.QueryDistinctExtraFields(q, resource, fields)
+	if err == nil {
+		return q, nil
+	}
+	return q, httperrors.ErrNotFound
+}
+
 func (self *SStorage) ClearSchedDescCache() error {
 	hosts := self.GetAllAttachingHosts()
 	if hosts == nil {

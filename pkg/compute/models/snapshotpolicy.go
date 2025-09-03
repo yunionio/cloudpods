@@ -702,6 +702,15 @@ func (manager *SSnapshotPolicyManager) QueryDistinctExtraField(q *sqlchemy.SQuer
 	return q, httperrors.ErrNotFound
 }
 
+func (manager *SSnapshotPolicyManager) QueryDistinctExtraFields(q *sqlchemy.SQuery, resource string, fields []string) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SManagedResourceBaseManager.QueryDistinctExtraFields(q, resource, fields)
+	if err == nil {
+		return q, nil
+	}
+	return q, httperrors.ErrNotFound
+}
+
 func (manager *SSnapshotPolicyManager) ListItemExportKeys(ctx context.Context,
 	q *sqlchemy.SQuery,
 	userCred mcclient.TokenCredential,

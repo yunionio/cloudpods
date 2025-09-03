@@ -238,6 +238,15 @@ func (manager *SInstanceSnapshotManager) QueryDistinctExtraField(q *sqlchemy.SQu
 	return q, httperrors.ErrNotFound
 }
 
+func (manager *SInstanceSnapshotManager) QueryDistinctExtraFields(q *sqlchemy.SQuery, resource string, fields []string) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SManagedResourceBaseManager.QueryDistinctExtraFields(q, resource, fields)
+	if err == nil {
+		return q, nil
+	}
+	return q, httperrors.ErrNotFound
+}
+
 func (self *SInstanceSnapshot) GetGuest() (*SGuest, error) {
 	if len(self.GuestId) == 0 {
 		return nil, errors.ErrNotFound

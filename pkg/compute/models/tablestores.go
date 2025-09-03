@@ -336,6 +336,15 @@ func (manager *STablestoreManager) QueryDistinctExtraField(q *sqlchemy.SQuery, f
 	return q, httperrors.ErrNotFound
 }
 
+func (manager *STablestoreManager) QueryDistinctExtraFields(q *sqlchemy.SQuery, resource string, fields []string) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SManagedResourceBaseManager.QueryDistinctExtraFields(q, resource, fields)
+	if err == nil {
+		return q, nil
+	}
+	return q, httperrors.ErrNotFound
+}
+
 func (self *STablestore) ValidateUpdateCondition(ctx context.Context) error {
 	return self.SVirtualResourceBase.ValidateUpdateCondition(ctx)
 }

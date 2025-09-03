@@ -361,6 +361,15 @@ func (man *SLoadbalancerManager) QueryDistinctExtraField(q *sqlchemy.SQuery, fie
 	return q, httperrors.ErrNotFound
 }
 
+func (manager *SLoadbalancerManager) QueryDistinctExtraFields(q *sqlchemy.SQuery, resource string, fields []string) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SVpcResourceBaseManager.QueryDistinctExtraFields(q, resource, fields)
+	if err == nil {
+		return q, nil
+	}
+	return q, httperrors.ErrNotFound
+}
+
 func (man *SLoadbalancerManager) BatchCreateValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input *api.LoadbalancerCreateInput) (*api.LoadbalancerCreateInput, error) {
 	return man.ValidateCreateData(ctx, userCred, ownerId, query, input)
 }
