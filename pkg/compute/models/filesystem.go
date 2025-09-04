@@ -532,7 +532,8 @@ func (region *SCloudregion) getZoneIdBySuffix(zoneId string) (string, error) {
 			return zone.Id, nil
 		}
 	}
-	return "", errors.Wrapf(cloudprovider.ErrNotFound, zoneId)
+	msg := zoneId
+	return "", errors.Wrapf(cloudprovider.ErrNotFound, "%s", msg)
 }
 
 func (region *SCloudregion) newFromCloudFileSystem(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, fs cloudprovider.ICloudFileSystem) (*SFileSystem, error) {

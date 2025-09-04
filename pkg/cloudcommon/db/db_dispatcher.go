@@ -1401,7 +1401,7 @@ func (dispatcher *DBModelDispatcher) Create(ctx context.Context, query jsonutils
 		}
 		failErr := manager.OnCreateFailed(ctx, userCred, ownerId, query, data)
 		if failErr != nil {
-			err = errors.Wrapf(err, failErr.Error())
+			err = errors.Wrapf(err, "%s", failErr.Error())
 		}
 		return nil, httperrors.NewGeneralError(err)
 	}
@@ -1565,7 +1565,7 @@ func (dispatcher *DBModelDispatcher) BatchCreate(ctx context.Context, query json
 	if err != nil {
 		failErr := manager.OnCreateFailed(ctx, userCred, ownerId, query, data)
 		if failErr != nil {
-			err = errors.Wrapf(err, failErr.Error())
+			err = errors.Wrapf(err, "%s", failErr.Error())
 		}
 		return nil, httperrors.NewGeneralError(errors.Wrap(err, "createResults"))
 	}

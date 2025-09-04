@@ -380,7 +380,7 @@ func (tm *STemplateManager) ValidateCreateData(ctx context.Context, userCred mcc
 	}
 	if input.TemplateType != api.TEMPLATE_TYPE_REMOTE {
 		if err := tm.validate(input.Content, input.Example); err != nil {
-			return input, httperrors.NewInputParameterError(err.Error())
+			return input, httperrors.NewInputParameterError("%s", err.Error())
 		}
 	}
 	if input.Lang == "" {
@@ -441,7 +441,7 @@ func (t *STemplate) ValidateUpdateData(ctx context.Context, userCred mcclient.To
 		return input, nil
 	}
 	if err := TemplateManager.validate(input.Content, input.Example); err != nil {
-		return input, httperrors.NewInputParameterError(err.Error())
+		return input, httperrors.NewInputParameterError("%s", err.Error())
 	}
 	return input, nil
 }

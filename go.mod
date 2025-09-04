@@ -1,6 +1,6 @@
 module yunion.io/x/onecloud
 
-go 1.21
+go 1.24
 
 require (
 	bazil.org/fuse v0.0.0-20180421153158-65cc252bf669
@@ -51,7 +51,7 @@ require (
 	github.com/miekg/dns v1.1.25
 	github.com/minio/minio-go v6.0.14+incompatible
 	github.com/mitchellh/go-wordwrap v1.0.1
-	github.com/petermattis/goid v0.0.0-20250508124226-395b08cebbdb
+	github.com/petermattis/goid v0.0.0-20250904145737-900bdf8bb490
 	github.com/pierrec/lz4/v4 v4.1.15
 	github.com/pkg/errors v0.9.1
 	github.com/pkg/sftp v1.13.6
@@ -96,7 +96,7 @@ require (
 	k8s.io/cri-api v0.22.17
 	k8s.io/klog/v2 v2.20.0
 	moul.io/http2curl/v2 v2.3.0
-	yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20250902085711-5b2719ee9f5e
+	yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20250904062602-6f9598bef05d
 	yunion.io/x/executor v0.0.0-20250518005516-5402e9e0bed0
 	yunion.io/x/jsonutils v1.0.1-0.20250507052344-1abcf4f443b1
 	yunion.io/x/log v1.0.1-0.20240305175729-7cf2d6cd5a91

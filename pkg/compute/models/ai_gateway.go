@@ -66,7 +66,7 @@ type SAiGateway struct {
 	CacheTTL                int    `default:"0" list:"user" create:"optional"`
 	CollectLogs             bool   `default:"false" list:"user" create:"optional"`
 	RateLimitingInterval    int    `default:"0" list:"user" create:"optional"`
-	RateLimitingLimit       int    `default:"0" list:"user" create:"optional`
+	RateLimitingLimit       int    `default:"0" list:"user" create:"optional"`
 	RateLimitingTechnique   string `width:"32" charset:"ascii" default:"" list:"user" create:"optional"`
 }
 

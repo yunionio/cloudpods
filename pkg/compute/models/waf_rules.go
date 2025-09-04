@@ -592,7 +592,7 @@ func (self *SWafRule) GetICloudWafRule(ctx context.Context) (cloudprovider.IClou
 				return rules[i], nil
 			}
 		}
-		return nil, errors.Wrapf(cloudprovider.ErrNotFound, self.ExternalId)
+		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", self.ExternalId)
 	}
 	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "")
 }

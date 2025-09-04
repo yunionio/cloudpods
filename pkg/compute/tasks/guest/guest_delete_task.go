@@ -315,7 +315,7 @@ func (self *GuestDeleteTask) DoDeleteGuest(ctx context.Context, guest *models.SG
 		err := host.BorrowIpAddrsFromGuest(ctx, self.UserCred, guest)
 		if err != nil {
 			msg := fmt.Sprintf("host.BorrowIpAddrsFromGuest fail %s", err)
-			log.Errorf(msg)
+			log.Errorf("%v", msg)
 			self.OnGuestDeleteFailed(ctx, guest, jsonutils.NewString(msg))
 			return
 		}

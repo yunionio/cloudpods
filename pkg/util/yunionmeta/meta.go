@@ -167,7 +167,7 @@ func (self *SSkuResourcesMeta) Index(resType string) (map[string]string, error) 
 	case "cloudrate":
 		url = fmt.Sprintf("%s/index.json", self.RateBase)
 	default:
-		return nil, errors.Wrapf(cloudprovider.ErrNotFound, resType)
+		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%v", resType)
 	}
 	ret := map[string]string{}
 	resp, err := self.request(url)
@@ -201,11 +201,11 @@ func (self *SSkuResourcesMeta) List(resType string, regionId string, retVal inte
 	case "cloudpolicy":
 		url = fmt.Sprintf("%s/%s.json", self.CloudpolicyBase, regionId)
 	default:
-		return errors.Wrapf(cloudprovider.ErrNotFound, resType)
+		return errors.Wrapf(cloudprovider.ErrNotFound, "%v", resType)
 	}
 	resp, err := self._get(url)
 	if err != nil {
-		return errors.Wrapf(err, resType)
+		return errors.Wrapf(err, "%v", resType)
 	}
 	return jsonutils.Update(retVal, resp)
 }

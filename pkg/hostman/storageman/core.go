@@ -242,7 +242,7 @@ func (s *SStorageManager) GetStoragesByPath(sPath string) ([]IStorage, error) {
 		}
 	}
 	if len(ret) == 0 {
-		return nil, errors.Wrapf(cloudprovider.ErrNotFound, sPath)
+		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", sPath)
 	}
 	return ret, nil
 }
@@ -253,7 +253,7 @@ func (s *SStorageManager) GetStorageByPath(sPath string) (IStorage, error) {
 			return storage, nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, sPath)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", sPath)
 }
 
 func (s *SStorageManager) GetDiskById(diskId string) (IDisk, error) {
@@ -266,7 +266,7 @@ func (s *SStorageManager) GetDiskById(diskId string) (IDisk, error) {
 			return disk, nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, diskId)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", diskId)
 }
 
 func (s *SStorageManager) GetDiskByPath(diskPath string) (IDisk, error) {
@@ -283,7 +283,7 @@ func (s *SStorageManager) GetDiskByPath(diskPath string) (IDisk, error) {
 	}
 	storages, err := s.GetStoragesByPath(sPath)
 	if err != nil {
-		return nil, errors.Wrapf(err, "GetStoragesByPath")
+		return nil, errors.Wrapf(err, "%s", "GetStoragesByPath")
 	}
 	for i := range storages {
 		disk, err := storages[i].GetDiskById(diskId)
@@ -294,7 +294,7 @@ func (s *SStorageManager) GetDiskByPath(diskPath string) (IDisk, error) {
 			return disk, nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, diskId)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", diskId)
 }
 
 func (s *SStorageManager) GetTotalCapacity() int {

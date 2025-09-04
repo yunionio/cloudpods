@@ -87,7 +87,7 @@ func (self *DiskRemoteUpdateTask) OnRemoteUpdateComplete(ctx context.Context, di
 }
 
 func (self *DiskRemoteUpdateTask) OnRemoteUpdateCompleteFailed(ctx context.Context, disk *models.SDisk, data jsonutils.JSONObject) {
-	self.taskFail(ctx, disk, errors.Errorf(data.String()))
+	self.taskFail(ctx, disk, errors.Errorf("%s", data.String()))
 }
 
 func (self *DiskRemoteUpdateTask) OnSyncStatusComplete(ctx context.Context, disk *models.SDisk, data jsonutils.JSONObject) {

@@ -98,7 +98,7 @@ func (dingRobotSender *SDingTalkRobotSender) Send(ctx context.Context, args api.
 		if strings.Contains(ret.Errmsg, "whitelist") {
 			return errors.Wrap(ErrIPWhiteList, ret.Errmsg)
 		} else {
-			return errors.Errorf(resp.String())
+			return errors.Errorf("%s", resp.String())
 		}
 	}
 	if ret.Errcode == 300001 && strings.Contains(ret.Errmsg, "token") {

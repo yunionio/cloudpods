@@ -61,5 +61,5 @@ func StatisticHandler(ctx context.Context, w http.ResponseWriter, r *http.Reques
 	result.Add(jsonutils.NewFloat64(total.counter4XX.duration), "duration.4XX")
 	result.Add(jsonutils.NewInt(total.counter5XX.hit), "hit.5XX")
 	result.Add(jsonutils.NewFloat64(total.counter5XX.duration), "duration.5XX")
-	fmt.Fprintf(w, result.String())
+	fmt.Fprintf(w, "%s", result.String())
 }

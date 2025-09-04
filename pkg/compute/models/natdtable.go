@@ -382,7 +382,7 @@ func (self *SNatDEntry) GetEip() (*SElasticip, error) {
 		return &eips[0], nil
 	}
 	if len(eips) == 0 {
-		return nil, errors.Wrapf(cloudprovider.ErrNotFound, self.ExternalIP)
+		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%v", self.ExternalIP)
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrDuplicateId, self.ExternalIP)
+	return nil, errors.Wrapf(cloudprovider.ErrDuplicateId, "%v", self.ExternalIP)
 }

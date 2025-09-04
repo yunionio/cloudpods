@@ -1050,7 +1050,7 @@ github.com/openzipkin/zipkin-go-opentracing/wire
 # github.com/oracle/oci-go-sdk v24.3.0+incompatible
 ## explicit
 github.com/oracle/oci-go-sdk/common
-# github.com/petermattis/goid v0.0.0-20250508124226-395b08cebbdb
+# github.com/petermattis/goid v0.0.0-20250904145737-900bdf8bb490
 ## explicit; go 1.17
 github.com/petermattis/goid
 # github.com/philhofer/fwd v1.0.0
@@ -1852,7 +1852,7 @@ sigs.k8s.io/structured-merge-diff/v4/value
 # sigs.k8s.io/yaml v1.2.0
 ## explicit; go 1.12
 sigs.k8s.io/yaml
-# yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20250902085711-5b2719ee9f5e
+# yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20250904062602-6f9598bef05d
 ## explicit; go 1.21
 yunion.io/x/cloudmux/pkg/apis
 yunion.io/x/cloudmux/pkg/apis/billing
