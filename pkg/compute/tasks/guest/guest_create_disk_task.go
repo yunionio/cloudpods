@@ -259,8 +259,15 @@ func (self *ManagedGuestCreateDiskTask) OnManagedDiskPrepared(ctx context.Contex
 				continue
 			}
 
+			idisk.Refresh()
+
 			db.Update(disk, func() error {
 				disk.BillingType = guest.BillingType
+				disk.AutoRenew = guest.AutoRenew
+				disk.ExpiredAt = guest.ExpiredAt
+				if expiredAt := idisk.GetExpiredAt(); !expiredAt.IsZero() {
+					disk.ExpiredAt = expiredAt
+				}
 				return nil
 			})
 		}
