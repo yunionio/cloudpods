@@ -594,7 +594,7 @@ func (sp *SSnapshotPolicy) PerformUnbindDisks(
 			return nil, err
 		}
 		disk := diskObj.(*SDisk)
-		if utils.IsInStringArray(disk.Id, diskIds) {
+		if !utils.IsInStringArray(disk.Id, diskIds) {
 			diskIds = append(diskIds, disk.Id)
 		}
 	}
