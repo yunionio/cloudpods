@@ -2543,7 +2543,7 @@ func (manager *SHostManager) NewFromCloudHost(ctx context.Context, userCred mccl
 		accessIp := extHost.GetAccessIp()
 		if len(accessIp) == 0 {
 			msg := fmt.Sprintf("fail to find wire for host %s: empty host access ip", extHost.GetName())
-			return nil, fmt.Errorf(msg)
+			return nil, fmt.Errorf("%s", msg)
 		}
 		wire, err := WireManager.GetOnPremiseWireOfIp(accessIp)
 		if err != nil {
@@ -4848,8 +4848,8 @@ func fetchIpmiInfo(data api.HostIpmiAttributes, hostId string) (types.SIPMIInfo,
 		}
 	}
 	if len(data.IpmiIpAddr) > 0 && !regutils.MatchIP4Addr(data.IpmiIpAddr) {
-		msg := fmt.Sprintf("ipmi_ip_addr: %s not valid ipv4 address", data.IpmiIpAddr)
-		log.Errorf(msg)
+		msg := fmt.Sprintf("ipmi_ip_addr: %v not valid ipv4 address", data.IpmiIpAddr)
+		log.Errorf("%s", msg)
 		return info, errors.Wrap(httperrors.ErrInvalidFormat, msg)
 	}
 	info.IpAddr = data.IpmiIpAddr

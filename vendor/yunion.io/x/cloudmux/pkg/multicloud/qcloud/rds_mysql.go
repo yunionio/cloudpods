@@ -154,6 +154,7 @@ type SMySQLInstance struct {
 	VpcId        int
 	Vport        int
 	WanDomain    string
+	DiskType     string
 	WanPort      int
 	WanStatus    int
 	Zone         string
@@ -354,6 +355,9 @@ func (self *SMySQLInstance) GetCategory() string {
 }
 
 func (self *SMySQLInstance) GetStorageType() string {
+	if len(self.DiskType) > 0 {
+		return strings.ToLower(self.DiskType)
+	}
 	switch self.DeviceType {
 	case "BASIC":
 		return api.QCLOUD_DBINSTANCE_STORAGE_TYPE_CLOUD_SSD

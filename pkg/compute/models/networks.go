@@ -3611,7 +3611,7 @@ func (network *SNetwork) GetUsedAddressDetails(ctx context.Context, addr string)
 			return &address[i], nil
 		}
 	}
-	return nil, errors.Wrapf(errors.ErrNotFound, addr)
+	return nil, errors.Wrapf(errors.ErrNotFound, "%s", addr)
 }
 
 func (network *SNetwork) GetAddressDetails(ctx context.Context, userCred mcclient.TokenCredential, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) ([]api.SNetworkUsedAddress, error) {

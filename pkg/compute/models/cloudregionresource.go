@@ -85,10 +85,10 @@ func (self *SCloudregionResourceBase) GetZoneBySuffix(suffix string) (*SZone, er
 		return nil, err
 	}
 	if count == 0 {
-		return nil, errors.Wrapf(cloudprovider.ErrNotFound, suffix)
+		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", suffix)
 	}
 	if count > 1 {
-		return nil, errors.Wrapf(cloudprovider.ErrDuplicateId, suffix)
+		return nil, errors.Wrapf(cloudprovider.ErrDuplicateId, "%s", suffix)
 	}
 	zone := &SZone{}
 	zone.SetModelManager(ZoneManager, zone)

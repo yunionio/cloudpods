@@ -352,5 +352,5 @@ func (self *SWafIPSet) GetICloudWafIPSet(ctx context.Context) (cloudprovider.ICl
 			return caches[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, self.ExternalId)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%v", self.ExternalId)
 }

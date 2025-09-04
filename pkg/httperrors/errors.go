@@ -27,8 +27,8 @@ func NewNotImplementedError(msg string, params ...interface{}) *httputils.JSONCl
 	return httputils.NewJsonClientError(httpErrorCode[ErrNotImplemented], string(ErrNotImplemented), msg, params...)
 }
 
-func NewInternalServerError(msg string, params ...interface{}) *httputils.JSONClientError {
-	return httputils.NewJsonClientError(httpErrorCode[ErrInternalError], string(ErrInternalError), msg, params...)
+func NewInternalServerError(format string, params ...interface{}) *httputils.JSONClientError {
+	return httputils.NewJsonClientError(httpErrorCode[ErrInternalError], string(ErrInternalError), format, params...)
 }
 
 func NewResourceNotReadyError(msg string, params ...interface{}) *httputils.JSONClientError {
@@ -75,8 +75,8 @@ func NewUserNotFoundError(msg string, params ...interface{}) *httputils.JSONClie
 	return httputils.NewJsonClientError(httpErrorCode[ErrUserNotFound], string(ErrUserNotFound), msg, params...)
 }
 
-func NewInvalidStatusError(msg string, params ...interface{}) *httputils.JSONClientError {
-	return httputils.NewJsonClientError(httpErrorCode[ErrInvalidStatus], string(ErrInvalidStatus), msg, params...)
+func NewInvalidStatusError(format string, params ...interface{}) *httputils.JSONClientError {
+	return httputils.NewJsonClientError(httpErrorCode[ErrInvalidStatus], string(ErrInvalidStatus), format, params...)
 }
 
 func NewInputParameterError(msg string, params ...interface{}) *httputils.JSONClientError {
@@ -85,7 +85,7 @@ func NewInputParameterError(msg string, params ...interface{}) *httputils.JSONCl
 
 func NewWeakPasswordError() *httputils.JSONClientError {
 	msg := ("password must be 12 chars of at least one digit, letter, uppercase letter and punctuate")
-	return httputils.NewJsonClientError(httpErrorCode[ErrWeakPassword], string(ErrWeakPassword), msg)
+	return httputils.NewJsonClientError(httpErrorCode[ErrWeakPassword], string(ErrWeakPassword), "%s", msg)
 }
 
 func NewMissingParameterError(paramName string) *httputils.JSONClientError {
@@ -129,16 +129,16 @@ func NewNotEmptyError(msg string, params ...interface{}) *httputils.JSONClientEr
 	return httputils.NewJsonClientError(httpErrorCode[ErrNotEmpty], string(ErrNotEmpty), msg, params...)
 }
 
-func NewBadRequestError(msg string, params ...interface{}) *httputils.JSONClientError {
-	return httputils.NewJsonClientError(httpErrorCode[ErrBadRequest], string(ErrBadRequest), msg, params...)
+func NewBadRequestError(format string, params ...interface{}) *httputils.JSONClientError {
+	return httputils.NewJsonClientError(httpErrorCode[ErrBadRequest], string(ErrBadRequest), format, params...)
 }
 
 func NewUnauthorizedError(msg string, params ...interface{}) *httputils.JSONClientError {
 	return httputils.NewJsonClientError(httpErrorCode[ErrUnauthorized], string(ErrUnauthorized), msg, params...)
 }
 
-func NewInvalidCredentialError(msg string, params ...interface{}) *httputils.JSONClientError {
-	return httputils.NewJsonClientError(httpErrorCode[ErrInvalidCredential], string(ErrInvalidCredential), msg, params...)
+func NewInvalidCredentialError(format string, params ...interface{}) *httputils.JSONClientError {
+	return httputils.NewJsonClientError(httpErrorCode[ErrInvalidCredential], string(ErrInvalidCredential), format, params...)
 }
 
 func NewForbiddenError(msg string, params ...interface{}) *httputils.JSONClientError {

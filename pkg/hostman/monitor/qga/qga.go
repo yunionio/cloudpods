@@ -292,7 +292,7 @@ func (qga *QemuGuestAgent) execCmd(cmd *monitor.Command, expectResp bool, readTi
 		if err := json.Unmarshal(*val, res); err != nil {
 			return nil, errors.Wrapf(err, "unmarshal qemu error resp: %s", *val)
 		}
-		return nil, errors.Errorf(res.Error())
+		return nil, errors.Errorf("%s", res.Error())
 	} else {
 		return nil, nil
 	}

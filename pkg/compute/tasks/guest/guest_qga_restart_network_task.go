@@ -87,7 +87,7 @@ func (self *GuestQgaRestartNetworkTask) OnSetNetwork(ctx context.Context, guest 
 }
 
 func (self *GuestQgaRestartNetworkTask) OnSetNetworkFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
-	self.taskFailed(ctx, guest, errors.Errorf(data.String()))
+	self.taskFailed(ctx, guest, errors.Errorf("%s", data.String()))
 }
 
 func (self *GuestQgaRestartNetworkTask) taskFailed(ctx context.Context, guest *models.SGuest, err error) {

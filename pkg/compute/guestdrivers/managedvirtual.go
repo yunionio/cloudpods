@@ -1261,7 +1261,7 @@ func (drv *SManagedVirtualizedGuestDriver) OnGuestDeployTaskDataReceived(ctx con
 			})
 			if err != nil {
 				msg := fmt.Sprintf("save disk info failed %s", err)
-				log.Errorf(msg)
+				log.Errorf("%s", msg)
 				break
 			}
 			db.OpsLog.LogEvent(disk, db.ACT_ALLOCATE, disk.GetShortDesc(ctx), task.GetUserCred())
@@ -1273,7 +1273,7 @@ func (drv *SManagedVirtualizedGuestDriver) OnGuestDeployTaskDataReceived(ctx con
 			})
 			if err != nil {
 				msg := fmt.Sprintf("save disk info failed %s", err)
-				log.Errorf(msg)
+				log.Errorf("%s", msg)
 				break
 			}
 		}
@@ -1475,7 +1475,7 @@ func (self *SManagedVirtualizedGuestDriver) requestMigrate(ctx context.Context, 
 			vmStatus := iVM.GetStatus()
 			log.Debugf("vm %s migrate status: %s", guest.Name, vmStatus)
 			if vmStatus == api.VM_UNKNOWN || strings.Contains(vmStatus, "fail") {
-				return false, errors.Wrapf(cloudprovider.ErrInvalidStatus, vmStatus)
+				return false, errors.Wrapf(cloudprovider.ErrInvalidStatus, "%s", vmStatus)
 			}
 			if !utils.IsInStringArray(vmStatus, []string{api.VM_RUNNING, api.VM_READY}) {
 				return false, nil

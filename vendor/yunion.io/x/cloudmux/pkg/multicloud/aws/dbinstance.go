@@ -169,6 +169,21 @@ func (rds *SDBInstance) GetMasterInstanceId() string {
 }
 
 func (self *SDBInstance) GetCategory() string {
+	if len(self.DBClusterIdentifier) > 0 {
+		cluster, err := self.region.GetDBInstanceCluster(self.DBClusterIdentifier)
+		if err != nil {
+			return api.AWS_DBINSTANCE_CATEGORY_GENERAL_PURPOSE
+		}
+		for _, member := range cluster.DBClusterMembers {
+			if member.DBInstanceIdentifier == self.DBInstanceIdentifier {
+				if member.IsClusterWriter {
+					return api.AWS_DBINSTANCE_CATEGORY_MASTER
+				}
+				return api.AWS_DBINSTANCE_CATEGORY_SLAVE
+			}
+		}
+		return api.AWS_DBINSTANCE_CATEGORY_GENERAL_PURPOSE
+	}
 	switch self.Engine {
 	case "aurora", "aurora-mysql":
 		return api.DBINSTANCE_TYPE_MYSQL
@@ -184,20 +199,6 @@ func (self *SDBInstance) GetCategory() string {
 		return api.AWS_DBINSTANCE_CATEGORY_EXPRESS_EDITION
 	case "sqlserver-web":
 		return api.AWS_DBINSTANCE_CATEGORY_WEB_EDITION
-	case "docdb":
-		cluster, err := self.region.GetDBInstanceCluster(self.DBClusterIdentifier)
-		if err != nil {
-			return api.AWS_DBINSTANCE_CATEGORY_GENERAL_PURPOSE
-		}
-		for _, member := range cluster.DBClusterMembers {
-			if member.DBInstanceIdentifier == self.DBInstanceIdentifier {
-				if member.IsClusterWriter {
-					return api.AWS_DBINSTANCE_CATEGORY_MASTER
-				}
-				return api.AWS_DBINSTANCE_CATEGORY_SLAVE
-			}
-		}
-		return api.AWS_DBINSTANCE_CATEGORY_GENERAL_PURPOSE
 	default:
 		if strings.HasPrefix(self.DBInstanceClass, "db.r") || strings.HasPrefix(self.DBInstanceClass, "db.x") || strings.HasPrefix(self.DBInstanceClass, "db.d") {
 			return api.AWS_DBINSTANCE_CATEGORY_MEMORY_OPTIMIZED

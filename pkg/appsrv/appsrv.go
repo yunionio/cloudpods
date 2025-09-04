@@ -303,7 +303,7 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	if lrw.status >= 500 && app.exception != nil {
 		url := fmt.Sprintf("%d %s (%s) %.2fms", lrw.status, r.URL.String(), remote, duration)
-		app.exception(r.Method, url, params.Body, errors.Errorf(string(lrw.data)))
+		app.exception(r.Method, url, params.Body, errors.Errorf("%s", string(lrw.data)))
 	}
 }
 
