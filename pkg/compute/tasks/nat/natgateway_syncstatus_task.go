@@ -64,5 +64,5 @@ func (self *NatGatewaySyncstatusTask) OnNatGatewaySyncStatusComplete(ctx context
 }
 
 func (self *NatGatewaySyncstatusTask) OnNatGatewaySyncStatusCompleteFailed(ctx context.Context, natgateway *models.SNatGateway, data jsonutils.JSONObject) {
-	self.taskFailed(ctx, natgateway, errors.Errorf(data.String()))
+	self.taskFailed(ctx, natgateway, errors.Errorf("%s", data.String()))
 }

@@ -398,7 +398,7 @@ func (self *SInstance) GetError() error {
 		actions := []apis.OpsLogDetails{}
 		self.host.zone.region.list(&logger.Actions, params, &actions)
 		if len(actions) > 0 {
-			return fmt.Errorf(actions[0].Notes)
+			return fmt.Errorf("%s", actions[0].Notes)
 		}
 		return fmt.Errorf("vm create failed with status %s", self.Status)
 	}

@@ -285,7 +285,7 @@ type BmRegisterInput struct {
 }
 
 func (i *BmRegisterInput) responseSucc(bmId string) {
-	fmt.Fprintf(i.W, bmId)
+	fmt.Fprintf(i.W, "%s", bmId)
 	close(i.C)
 }
 

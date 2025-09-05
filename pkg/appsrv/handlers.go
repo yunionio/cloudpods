@@ -30,7 +30,7 @@ type FilterHandler func(ctx context.Context, w http.ResponseWriter, r *http.Requ
 type TMiddleware func(handler FilterHandler) FilterHandler
 
 func VersionHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, version.GetShortString())
+	fmt.Fprintf(w, "%s", version.GetShortString())
 }
 
 func PingHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {

@@ -381,7 +381,7 @@ func WorkerStatsHandler(ctx context.Context, w http.ResponseWriter, r *http.Requ
 	}
 	result := jsonutils.NewDict()
 	result.Add(jsonutils.Marshal(&stats), "workers")
-	fmt.Fprintf(w, result.String())
+	fmt.Fprintf(w, "%s", result.String())
 }
 
 func GetDBConnectionCount() int {

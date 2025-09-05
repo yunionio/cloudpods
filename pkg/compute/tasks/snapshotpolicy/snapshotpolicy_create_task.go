@@ -69,5 +69,5 @@ func (self *SnapshotPolicyCreateTask) OnCreateSnapshotPolicyComplete(ctx context
 }
 
 func (self *SnapshotPolicyCreateTask) OnCreateSnapshotPolicyCompleteFailed(ctx context.Context, sp *models.SSnapshotPolicy, data jsonutils.JSONObject) {
-	self.taskFailed(ctx, sp, errors.Errorf(data.String()))
+	self.taskFailed(ctx, sp, errors.Errorf("%s", data.String()))
 }

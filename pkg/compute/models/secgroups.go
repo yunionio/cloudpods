@@ -947,7 +947,7 @@ func (self *SSecurityGroup) GetISecurityGroup(ctx context.Context) (cloudprovide
 				return securityGroups[i], nil
 			}
 		}
-		return nil, errors.Wrapf(cloudprovider.ErrNotFound, self.ExternalId)
+		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%v", self.ExternalId)
 	}
 	iRegion, err := self.GetIRegion(ctx)
 	if err != nil {

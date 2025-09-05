@@ -522,7 +522,7 @@ func MountRootfs(readonly bool, partitions []fsdriver.IDiskPartition) (fsdriver.
 	}
 	var err error = errors.ErrNotFound
 	if len(errs) > 0 {
-		err = errors.Wrapf(errors.ErrNotFound, errors.NewAggregate(errs).Error())
+		err = errors.Wrapf(errors.ErrNotFound, "%s", errors.NewAggregate(errs).Error())
 	}
 	return nil, err
 }

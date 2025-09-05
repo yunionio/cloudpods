@@ -243,7 +243,7 @@ func (self *SWafRuleGroup) GetICloudWafRuleGroup(ctx context.Context) (cloudprov
 			return caches[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, self.ExternalId)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%v", self.ExternalId)
 }
 
 func (self *SWafRuleGroup) syncWithCloudRuleGroup(ctx context.Context, userCred mcclient.TokenCredential, ext cloudprovider.ICloudWafRuleGroup) error {

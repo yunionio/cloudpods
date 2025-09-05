@@ -73,5 +73,5 @@ func (self *SnapshotpolicyUnbindDisksTask) OnSnapshotPolicyUnbindDisksComplete(c
 }
 
 func (self *SnapshotpolicyUnbindDisksTask) OnSnapshotPolicyUnbindDisksCompleteFailed(ctx context.Context, sp *models.SSnapshotPolicy, data jsonutils.JSONObject) {
-	self.taskFailed(ctx, sp, errors.Errorf(data.String()))
+	self.taskFailed(ctx, sp, errors.Errorf("%s", data.String()))
 }

@@ -249,7 +249,7 @@ func (self *SWafRegexSet) GetICloudWafRegexSet(ctx context.Context) (cloudprovid
 			return caches[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, self.ExternalId)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%v", self.ExternalId)
 }
 
 func (self *SWafRegexSet) syncWithCloudRegexSet(ctx context.Context, userCred mcclient.TokenCredential, ext cloudprovider.ICloudWafRegexSet) error {
