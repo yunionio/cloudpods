@@ -451,7 +451,7 @@ func CreateKickstartConfigISO(config *api.KickstartConfig, serverId string) (str
 	}
 	args = append(args, filePaths...)
 
-	cmd := exec.Command("/usr/bin/mkisofs", args...)
+	cmd := exec.Command("mkisofs", args...)
 	if output, err := cmd.CombinedOutput(); err != nil {
 		return "", errors.Wrapf(err, "mkisofs failed: %s", string(output))
 	}
