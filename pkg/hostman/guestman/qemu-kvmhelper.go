@@ -579,7 +579,7 @@ function nic_mtu() {
 	}
 
 	// check if kickstart is needed for KVM guests
-	if err := s.handleKickstartMount(input); err != nil {
+	if err := s.configureKickstartBoot(input); err != nil {
 		return "", errors.Wrap(err, "handle kickstart mount")
 	}
 
@@ -595,25 +595,58 @@ function nic_mtu() {
 	return cmd, nil
 }
 
-func (s *SKVMGuestInstance) handleKickstartMount(input *qemu.GenerateStartOptionsInput) error {
-	// mount when Hypervisor is KVM and kickstart is enabled and status is pending or installing
+// shouldUseKickstart 判断是否需要启用kickstart自动化安装
+// 启动kickstart的条件：1. 虚拟机处于KVM虚拟化环境；2. 存在kickstart配置且未禁用；3. kickstart未完成
+func (s *SKVMGuestInstance) shouldUseKickstart() bool {
+	// 只在KVM虚拟化环境下处理kickstart
 	if s.Desc.Hypervisor != api.HYPERVISOR_KVM {
+		return false
+	}
+
+	// 检查是否存在kickstart配置
+	kickstartConfigStr, configExists := s.Desc.Metadata[api.VM_METADATA_KICKSTART_CONFIG]
+	if !configExists || kickstartConfigStr == "" {
+		return false
+	} else {
+		kickstartConfigJson, err := jsonutils.ParseString(kickstartConfigStr)
+		if err != nil {
+			log.Errorf("Failed to parse kickstart config for VM %s: %v", s.Id, err)
+			return false
+		}
+		kickstartConfig := &api.KickstartConfig{}
+		if err := kickstartConfigJson.Unmarshal(kickstartConfig); err != nil {
+			log.Errorf("Failed to unmarshal kickstart config for VM %s: %v", s.Id, err)
+			return false
+		}
+		if kickstartConfig.Enabled != nil && !*kickstartConfig.Enabled {
+			log.Infof("Kickstart is disabled in config for VM %s, skipping kickstart boot", s.Id)
+			return false
+		}
+	}
+
+	kickstartCompleted, completedExists := s.Desc.Metadata[api.VM_METADATA_KICKSTART_COMPLETED_FLAG]
+	if completedExists && kickstartCompleted == "true" {
+		log.Infof("Kickstart already completed for VM %s, skipping kickstart boot", s.Id)
+		return false
+	}
+
+	log.Infof("VM %s needs kickstart: config exists and not completed yet", s.Id)
+	return true
+}
+
+// configureKickstartBoot 配置 kickstart 自动化安装的启动流程
+// 1. 挂载安装 ISO，获取内核和 initrd 路径
+// 2. 生成内核启动参数
+// 3. 创建 kickstart 监控器
+// 4. 如果包含完整配置，生成 kickstart 配置 ISO 并添加为 CDROM 设备
+func (s *SKVMGuestInstance) configureKickstartBoot(input *qemu.GenerateStartOptionsInput) error {
+	if !s.shouldUseKickstart() {
 		return nil
 	}
 
-	kickstartConfigStr, exists := s.Desc.Metadata[api.VM_METADATA_KICKSTART_CONFIG]
-	if !exists || kickstartConfigStr == "" {
-		return nil
-	}
+	log.Infof("Enabling kickstart boot for VM %s", s.Id)
 
-	kickstartStatus, exists := s.Desc.Metadata[api.VM_METADATA_KICKSTART_STATUS]
-	if !exists || kickstartStatus == "" {
-		kickstartStatus = api.KICKSTART_STATUS_NORMAL
-	}
-
-	if kickstartStatus != api.KICKSTART_STATUS_PENDING && kickstartStatus != api.KICKSTART_STATUS_INSTALLING {
-		return nil
-	}
+	kickstartConfigStr := s.Desc.Metadata[api.VM_METADATA_KICKSTART_CONFIG]
 
 	kickstartConfigJson, err := jsonutils.ParseString(kickstartConfigStr)
 	if err != nil {
@@ -623,11 +656,6 @@ func (s *SKVMGuestInstance) handleKickstartMount(input *qemu.GenerateStartOption
 	kickstartConfig := &api.KickstartConfig{}
 	if err := kickstartConfigJson.Unmarshal(kickstartConfig); err != nil {
 		return errors.Wrap(err, "unmarshal kickstart config")
-	}
-
-	if kickstartConfig.Enabled != nil && !*kickstartConfig.Enabled {
-		log.Infof("kickstart is disabled, skip")
-		return nil
 	}
 
 	// Find ISO file for kickstart installation from CDROM devices

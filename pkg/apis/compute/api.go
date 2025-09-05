@@ -713,9 +713,9 @@ type ServerCreateInput struct {
 // ServerUpdateKickstartStatusInput 更新虚拟机 kickstart 状态的输入
 type ServerUpdateKickstartStatusInput struct {
 	// kickstart 状态
-	// enum: pending,installing,completed,failed,normal
+	// enum: kickstart_pending,kickstart_installing,kickstart_completed,kickstart_failed
 	// required: true
-	Status string `json:"status" validate:"required,oneof=pending installing completed failed normal"`
+	Status string `json:"status" validate:"required,oneof=kickstart_pending kickstart_installing kickstart_completed kickstart_failed"`
 
 	// 错误信息（可选）
 	// required: false

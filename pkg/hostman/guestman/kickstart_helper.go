@@ -55,7 +55,7 @@ type SKickstartSerialMonitor struct {
 // NewKickstartSerialMonitor creates a new kickstart serial monitor
 func NewKickstartSerialMonitor(serverId string) *SKickstartSerialMonitor {
 	ctx, cancel := context.WithCancel(context.Background())
-	
+
 	// Get the server instance to access its homeDir
 	var serialFilePath string
 	server, exists := guestManager.GetServer(serverId)
@@ -188,7 +188,7 @@ func (m *SKickstartSerialMonitor) scanSerialForStatus(lastSize *int64) error {
 
 		log.Debugf("Received serial message for server %s: %s", m.serverId, line)
 
-		if line == "KICKSTART_INSTALLING" || line == "KICKSTART_SUCCESS" || line == "KICKSTART_FAILED" {
+		if line == "KICKSTART_INSTALLING" || line == "KICKSTART_COMPLETED" || line == "KICKSTART_FAILED" {
 			log.Infof("Kickstart status update for server %s: %s", m.serverId, line)
 
 			// TODO: logic should vary based on the status
@@ -196,18 +196,18 @@ func (m *SKickstartSerialMonitor) scanSerialForStatus(lastSize *int64) error {
 			var shouldClose bool = false
 			switch line {
 			case "KICKSTART_INSTALLING":
-				status = api.KICKSTART_STATUS_INSTALLING
+				status = api.VM_KICKSTART_INSTALLING
 				shouldClose = false
-			case "KICKSTART_SUCCESS":
-				status = api.KICKSTART_STATUS_COMPLETED
+			case "KICKSTART_COMPLETED":
+				status = api.VM_KICKSTART_COMPLETED
 				shouldClose = true
 				// Unmount ISO and restart VM if kickstart install successfully
-				if err := m.handleKickstartSuccess(); err != nil {
+				if err := m.handleKickstartCompleted(); err != nil {
 					log.Errorf("Failed to handle kickstart success for server %s: %v", m.serverId, err)
 				}
 			case "KICKSTART_FAILED":
 				// TODO: auto retry or alert and stop
-				status = api.KICKSTART_STATUS_FAILED
+				status = api.VM_KICKSTART_FAILED
 				shouldClose = true
 			}
 
@@ -285,7 +285,7 @@ func (m *SKickstartSerialMonitor) Start() error {
 			return
 		case <-timer.C:
 			log.Warningf("Kickstart monitor timeout (%v) for server %s, setting status to failed", timeout, m.serverId)
-			if err := m.updateKickstartStatus(api.KICKSTART_STATUS_FAILED); err != nil {
+			if err := m.updateKickstartStatus(api.VM_KICKSTART_FAILED); err != nil {
 				log.Errorf("Failed to update kickstart status to failed on timeout for server %s: %v", m.serverId, err)
 			}
 			m.Close()
@@ -295,9 +295,9 @@ func (m *SKickstartSerialMonitor) Start() error {
 	return nil
 }
 
-// handleKickstartSuccess handles the successful kickstart completion
+// handleKickstartCompleted handles the successful kickstart completion
 // It unmounts the ISO image and restarts the VM
-func (m *SKickstartSerialMonitor) handleKickstartSuccess() error {
+func (m *SKickstartSerialMonitor) handleKickstartCompleted() error {
 	// Get the server instance to access CDROM information
 	server, exists := guestManager.GetServer(m.serverId)
 	if !exists {

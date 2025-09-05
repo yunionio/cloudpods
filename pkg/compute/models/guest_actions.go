@@ -1130,7 +1130,8 @@ func (self *SGuest) PerformStart(
 	query jsonutils.JSONObject,
 	input api.GuestPerformStartInput,
 ) (jsonutils.JSONObject, error) {
-	if utils.IsInStringArray(self.Status, []string{api.VM_READY, api.VM_START_FAILED, api.VM_SAVE_DISK_FAILED, api.VM_SUSPEND}) {
+	validStartStatuses := []string{api.VM_READY, api.VM_START_FAILED, api.VM_SAVE_DISK_FAILED, api.VM_SUSPEND, api.VM_KICKSTART_PENDING, api.VM_KICKSTART_FAILED}
+	if utils.IsInStringArray(self.Status, validStartStatuses) {
 		if err := self.ValidateEncryption(ctx, userCred); err != nil {
 			return nil, errors.Wrap(httperrors.ErrForbidden, "encryption key not accessible")
 		}
@@ -1366,10 +1367,7 @@ func (self *SGuest) GetDetailsKickstart(ctx context.Context, userCred mcclient.T
 		return nil, httperrors.NewInternalServerError("Failed to get kickstart config: %v", err)
 	}
 
-	status := self.GetMetadata(ctx, api.VM_METADATA_KICKSTART_STATUS, userCred)
-	if status == "" {
-		status = api.KICKSTART_STATUS_NORMAL
-	}
+	status := self.GetKickstartStatus(ctx, userCred)
 
 	attempt := self.GetMetadata(ctx, api.VM_METADATA_KICKSTART_ATTEMPT, userCred)
 	if attempt == "" {
@@ -3445,7 +3443,7 @@ func (self *SGuest) PerformReset(ctx context.Context, userCred mcclient.TokenCre
 		return nil, err
 	}
 	isHard := jsonutils.QueryBoolean(data, "is_hard", false)
-	if self.Status == api.VM_RUNNING || self.Status == api.VM_STOP_FAILED {
+	if utils.IsInStringArray(self.Status, []string{api.VM_RUNNING, api.VM_STOP_FAILED, api.VM_KICKSTART_INSTALLING, api.VM_KICKSTART_FAILED, api.VM_KICKSTART_COMPLETED}) {
 		drv.StartGuestResetTask(self, ctx, userCred, isHard, "")
 		return nil, nil
 	}
@@ -3541,6 +3539,11 @@ func (g *SGuest) SetStatusFromHost(ctx context.Context, userCred mcclient.TokenC
 			statusStr = api.VM_UNKNOWN
 		}
 	}
+	// Do not override kickstart_installing with running
+	if statusStr == api.VM_RUNNING && g.Status == api.VM_KICKSTART_INSTALLING {
+		statusStr = g.Status
+		log.Infof("guest %s is installing, skip set running status", g.Name)
+	}
 	if !hasParentTask {
 		// migrating status hack
 		// not change migrating when:
@@ -3623,6 +3626,12 @@ func (self *SGuest) PerformStatus(ctx context.Context, userCred mcclient.TokenCr
 		}
 	}
 
+	// Do not override kickstart_installing with running
+	if input.Status == api.VM_RUNNING && self.Status == api.VM_KICKSTART_INSTALLING {
+		log.Infof("guest %s is in kickstart_installing state, skip set running status", self.Name)
+		return nil, nil
+	}
+
 	preStatus := self.Status
 	_, err := self.SVirtualResourceBase.PerformStatus(ctx, userCred, query, input.PerformStatusInput)
 	if err != nil {
@@ -3681,7 +3690,7 @@ func (self *SGuest) PerformStatus(ctx context.Context, userCred mcclient.TokenCr
 func (self *SGuest) PerformStop(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject,
 	input api.ServerStopInput) (jsonutils.JSONObject, error) {
 	// XXX if is force, force stop guest
-	if input.IsForce || utils.IsInStringArray(self.Status, []string{api.VM_RUNNING, api.VM_STOP_FAILED, api.POD_STATUS_CRASH_LOOP_BACK_OFF, api.POD_STATUS_CONTAINER_EXITED}) {
+	if input.IsForce || utils.IsInStringArray(self.Status, []string{api.VM_RUNNING, api.VM_STOP_FAILED, api.POD_STATUS_CRASH_LOOP_BACK_OFF, api.POD_STATUS_CONTAINER_EXITED, api.VM_KICKSTART_INSTALLING, api.VM_KICKSTART_FAILED, api.VM_KICKSTART_COMPLETED}) {
 		if err := self.ValidateEncryption(ctx, userCred); err != nil {
 			return nil, errors.Wrap(httperrors.ErrForbidden, "encryption key not accessible")
 		}
@@ -3715,7 +3724,7 @@ func (self *SGuest) StartGuestStopAndFreezeTask(ctx context.Context, userCred mc
 // 重启
 func (self *SGuest) PerformRestart(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	isForce := jsonutils.QueryBoolean(data, "is_force", false)
-	if utils.IsInStringArray(self.Status, []string{api.VM_RUNNING, api.VM_STOP_FAILED}) || (isForce && self.Status == api.VM_STOPPING) {
+	if utils.IsInStringArray(self.Status, []string{api.VM_RUNNING, api.VM_STOP_FAILED, api.VM_KICKSTART_INSTALLING, api.VM_KICKSTART_FAILED, api.VM_KICKSTART_COMPLETED}) || (isForce && self.Status == api.VM_STOPPING) {
 		driver, err := self.GetDriver()
 		if err != nil {
 			return nil, err
@@ -6815,7 +6824,7 @@ func (self *SGuest) PerformSetKickstart(ctx context.Context, userCred mcclient.T
 		return nil, errors.Wrap(err, "set kickstart config")
 	}
 
-	if err := self.SetKickstartStatus(ctx, api.KICKSTART_STATUS_PENDING, userCred); err != nil {
+	if err := self.SetKickstartStatus(ctx, api.VM_KICKSTART_PENDING, userCred); err != nil {
 		return nil, errors.Wrap(err, "set kickstart status")
 	}
 
@@ -6845,19 +6854,28 @@ func (self *SGuest) PerformSetKickstart(ctx context.Context, userCred mcclient.T
 }
 
 func (self *SGuest) PerformDeleteKickstart(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if utils.IsInStringArray(self.Status, []string{api.VM_STARTING, api.VM_RUNNING}) {
-		status := self.GetKickstartStatus(ctx, userCred)
-		if status == api.KICKSTART_STATUS_INSTALLING {
-			return nil, httperrors.NewInvalidStatusError("cannot delete kickstart config while installation is in progress")
-		}
+	if self.Status == api.VM_KICKSTART_INSTALLING {
+		return nil, httperrors.NewInvalidStatusError("cannot delete kickstart config while installation is in progress")
 	}
 
 	if err := self.SetKickstartConfig(ctx, nil, userCred); err != nil {
 		return nil, errors.Wrap(err, "delete kickstart config")
 	}
 
-	self.RemoveMetadata(ctx, api.VM_METADATA_KICKSTART_STATUS, userCred)
+	// 如果当前是kickstart状态，需要转换回适当的状态
+	if self.IsInKickstartStatus() {
+		if self.Status == api.VM_KICKSTART_PENDING {
+			self.SetStatus(ctx, userCred, api.VM_READY, "kickstart config deleted")
+		} else if self.Status == api.VM_KICKSTART_COMPLETED {
+			self.SetStatus(ctx, userCred, api.VM_RUNNING, "kickstart config deleted")
+		} else if self.Status == api.VM_KICKSTART_FAILED {
+			self.SetStatus(ctx, userCred, api.VM_READY, "kickstart config deleted")
+		}
+	}
+
+	// 清理kickstart相关metadata
 	self.RemoveMetadata(ctx, api.VM_METADATA_KICKSTART_ATTEMPT, userCred)
+	self.RemoveMetadata(ctx, api.VM_METADATA_KICKSTART_COMPLETED_FLAG, userCred)
 
 	db.OpsLog.LogEvent(self, db.ACT_DELETE, "delete kickstart config", userCred)
 
@@ -6869,6 +6887,12 @@ func (self *SGuest) PerformDeleteKickstart(ctx context.Context, userCred mcclien
 func (self *SGuest) PerformUpdateKickstartStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ServerUpdateKickstartStatusInput) (jsonutils.JSONObject, error) {
 	if err := self.SetKickstartStatus(ctx, input.Status, userCred); err != nil {
 		return nil, errors.Wrap(err, "update kickstart status")
+	}
+
+	if input.Status == api.VM_KICKSTART_COMPLETED {
+		if err := self.SetMetadata(ctx, api.VM_METADATA_KICKSTART_COMPLETED_FLAG, "true", userCred); err != nil {
+			log.Errorf("Failed to set kickstart completed flag for VM %s: %v", self.Name, err)
+		}
 	}
 
 	if input.ErrorMessage != "" {
