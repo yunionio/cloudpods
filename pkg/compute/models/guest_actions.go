@@ -78,7 +78,7 @@ func (self *SGuest) GetDetailsVnc(ctx context.Context, userCred mcclient.TokenCr
 		utils.IsInStringArray(self.Status, []string{api.VM_RUNNING, api.VM_BLOCK_STREAM, api.VM_MIGRATING}) {
 		host, err := self.GetHost()
 		if err != nil {
-			return nil, httperrors.NewInternalServerError(errors.Wrapf(err, "GetHost").Error())
+			return nil, httperrors.NewInternalServerError("get host %v", err)
 		}
 		if options.Options.ForceUseOriginVnc {
 			input.Origin = true
@@ -2165,12 +2165,12 @@ func (self *SGuest) DetachIsolatedDevices(ctx context.Context, userCred mcclient
 			if devModel, err := IsolatedDeviceModelManager.GetByDevType(dev.DevType); err != nil {
 				msg := fmt.Sprintf("Can't separately detach dev type %s", dev.DevType)
 				logclient.AddActionLogWithContext(ctx, self, logclient.ACT_GUEST_DETACH_ISOLATED_DEVICE, msg, userCred, false)
-				return httperrors.NewBadRequestError(msg)
+				return httperrors.NewBadRequestError("%s", msg)
 			} else {
 				if !devModel.HotPluggable.Bool() && self.GetStatus() == api.VM_RUNNING {
 					msg := fmt.Sprintf("dev type %s model %s unhotpluggable", dev.DevType, devModel.Model)
 					logclient.AddActionLogWithContext(ctx, self, logclient.ACT_GUEST_DETACH_ISOLATED_DEVICE, msg, userCred, false)
-					return httperrors.NewBadRequestError(msg)
+					return httperrors.NewBadRequestError("%s", msg)
 				}
 			}
 		}
@@ -2193,7 +2193,7 @@ func (self *SGuest) PerformDetachIsolatedDevice(ctx context.Context, userCred mc
 		(self.Hypervisor == api.HYPERVISOR_POD && self.GetStatus() != api.VM_READY) {
 		msg := fmt.Sprintf("Can't detach isolated device when guest is %s", self.GetStatus())
 		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_GUEST_DETACH_ISOLATED_DEVICE, msg, userCred, false)
-		return nil, httperrors.NewInvalidStatusError(msg)
+		return nil, httperrors.NewInvalidStatusError("%s", msg)
 	}
 	var detachAllDevice = jsonutils.QueryBoolean(data, "detach_all", false)
 	devs := make([]SIsolatedDevice, 0)
@@ -2202,7 +2202,7 @@ func (self *SGuest) PerformDetachIsolatedDevice(ctx context.Context, userCred mc
 		if err != nil {
 			msg := "Missing isolated device"
 			logclient.AddActionLogWithContext(ctx, self, logclient.ACT_GUEST_DETACH_ISOLATED_DEVICE, msg, userCred, false)
-			return nil, httperrors.NewBadRequestError(msg)
+			return nil, httperrors.NewBadRequestError("%s", msg)
 		}
 		iDev, err := IsolatedDeviceManager.FetchByIdOrName(ctx, userCred, device)
 		if err != nil {
@@ -2237,7 +2237,7 @@ func (self *SGuest) detachIsolateDevice(ctx context.Context, userCred mcclient.T
 	if dev.GuestId != self.Id {
 		msg := "Isolated device is not attached to this guest"
 		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_GUEST_DETACH_ISOLATED_DEVICE, msg, userCred, false)
-		return httperrors.NewBadRequestError(msg)
+		return httperrors.NewBadRequestError("%s", msg)
 	}
 	drv, _ := self.GetDriver()
 	if err := drv.BeforeDetachIsolatedDevice(ctx, userCred, self, dev); err != nil {
@@ -2263,9 +2263,9 @@ func (self *SGuest) PerformAttachIsolatedDevice(ctx context.Context, userCred mc
 	}
 	if !utils.IsInStringArray(self.GetStatus(), []string{api.VM_READY, api.VM_RUNNING}) ||
 		(self.Hypervisor == api.HYPERVISOR_POD && self.GetStatus() != api.VM_READY) {
-		msg := fmt.Sprintf("Can't attach isolated device when guest is %s", self.GetStatus())
+		msg := fmt.Sprintf("Can't attach isolated device when guest is %v", self.GetStatus())
 		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_GUEST_ATTACH_ISOLATED_DEVICE, msg, userCred, false)
-		return nil, httperrors.NewInvalidStatusError(msg)
+		return nil, httperrors.NewInvalidStatusError("%s", msg)
 	}
 	var err error
 	autoStart := jsonutils.QueryBoolean(data, "auto_start", false)

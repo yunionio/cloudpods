@@ -81,7 +81,6 @@ func writeToWebsocket(reader io.Reader, s *WebsocketServer) error {
 			return errors.Wrapf(err, "write data to websocket, out: %s", string(out))
 		}
 	}
-	return nil
 }
 
 func (s *WebsocketServer) initWs(w http.ResponseWriter, r *http.Request) error {

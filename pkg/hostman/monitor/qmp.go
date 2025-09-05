@@ -679,7 +679,7 @@ func (m *QmpMonitor) GetMigrateStats(callback MigrateStatsCallback) {
 		cmd = &Command{Execute: "query-migrate"}
 		cb  = func(res *Response) {
 			if res.ErrorVal != nil {
-				callback(nil, errors.Errorf(res.ErrorVal.Error()))
+				callback(nil, errors.Errorf("%s", res.ErrorVal.Error()))
 			} else {
 				migStats := new(MigrationInfo)
 				err := json.Unmarshal(res.Return, migStats)

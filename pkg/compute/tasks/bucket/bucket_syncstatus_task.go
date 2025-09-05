@@ -65,5 +65,5 @@ func (self *BucketSyncstatusTask) OnBucketSyncStatusComplete(ctx context.Context
 }
 
 func (self *BucketSyncstatusTask) OnBucketSyncStatusCompleteFailed(ctx context.Context, bucket *models.SBucket, data jsonutils.JSONObject) {
-	self.taskFailed(ctx, bucket, fmt.Errorf(data.String()))
+	self.taskFailed(ctx, bucket, fmt.Errorf("%s", data.String()))
 }

@@ -61,7 +61,7 @@ func (self *NetworkRemoteUpdateTask) OnRemoteUpdateComplete(ctx context.Context,
 }
 
 func (self *NetworkRemoteUpdateTask) OnRemoteUpdateCompleteFailed(ctx context.Context, net *models.SNetwork, data jsonutils.JSONObject) {
-	self.taskFail(ctx, net, errors.Errorf(data.String()))
+	self.taskFail(ctx, net, errors.Errorf("%s", data.String()))
 }
 
 func (self *NetworkRemoteUpdateTask) OnSyncStatusComplete(ctx context.Context, net *models.SNetwork, data jsonutils.JSONObject) {

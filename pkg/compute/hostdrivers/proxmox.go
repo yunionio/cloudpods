@@ -116,7 +116,7 @@ func (self *SProxmoxHostDriver) CheckAndSetCacheImage(ctx context.Context, userC
 				}
 			}
 			if !find {
-				return nil, errors.Wrapf(cloudprovider.ErrNotFound, image.ExternalId)
+				return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", image.ExternalId)
 			}
 			opts.ExternalId = image.ExternalId
 		} else {

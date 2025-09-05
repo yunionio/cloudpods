@@ -519,7 +519,8 @@ func (m *SDataSourceManager) filterRtnTags(output *monitor.InfluxMeasurement) {
 
 func (m *SDataSourceManager) filterTagValue(measurement monitor.InfluxMeasurement, timeF timeFilter,
 	db *influxdb.SInfluxdb, tagValChan *influxdbTagValueChan, tagFilter string) error {
-	ctx, _ := context.WithTimeout(context.Background(), time.Second*15)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*15)
+	defer cancel()
 	tagValGroup2, _ := errgroup.WithContext(ctx)
 	tagValChan2 := influxdbTagValueChan{
 		rtnChan: make(chan map[string][]string, len(measurement.TagKey)),

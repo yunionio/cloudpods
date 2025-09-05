@@ -70,5 +70,5 @@ func (self *SecurityGroupDeleteTask) OnSecurityGroupDeleteComplete(ctx context.C
 }
 
 func (self *SecurityGroupDeleteTask) OnSecurityGroupDeleteCompleteFailed(ctx context.Context, secgroup *models.SSecurityGroup, data jsonutils.JSONObject) {
-	self.taskFailed(ctx, secgroup, errors.Errorf(data.String()))
+	self.taskFailed(ctx, secgroup, errors.Errorf("%s", data.String()))
 }

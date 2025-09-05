@@ -54,7 +54,7 @@ func toQrcode(secret string, token mcclient.TokenCredential) (string, error) {
 
 	c, err := qrcode.Encode(uri, qrcode.High, 256)
 	if err != nil {
-		log.Errorf(err.Error())
+		log.Errorf("%s", err.Error())
 		return "", httperrors.NewInternalServerError("generate totp qrcode failed")
 	}
 

@@ -1395,7 +1395,7 @@ func (s *SKVMGuestInstance) getHotpluggableCPUList() ([]monitor.HotpluggableCPU,
 	var errChan = make(chan error)
 	cb := func(cpuList []monitor.HotpluggableCPU, err string) {
 		if err != "" {
-			errChan <- errors.Errorf(err)
+			errChan <- errors.Errorf("%s", err)
 		} else {
 			res = cpuList
 			errChan <- nil
@@ -1497,7 +1497,7 @@ func (s *SKVMGuestInstance) getPciDevices() ([]monitor.PCIInfo, error) {
 	var errChan = make(chan error)
 	cb := func(pciInfoList []monitor.PCIInfo, err string) {
 		if err != "" {
-			errChan <- errors.Errorf(err)
+			errChan <- errors.Errorf("%s", err)
 		} else {
 			res = pciInfoList
 			errChan <- nil
@@ -1513,7 +1513,7 @@ func (s *SKVMGuestInstance) getMemoryDevs() ([]monitor.Memdev, error) {
 	var errChan = make(chan error)
 	cb := func(memDevs []monitor.Memdev, err string) {
 		if err != "" {
-			errChan <- errors.Errorf(err)
+			errChan <- errors.Errorf("%s", err)
 		} else {
 			res = memDevs
 			errChan <- nil
@@ -1529,7 +1529,7 @@ func (s *SKVMGuestInstance) getMemoryDevices() ([]monitor.MemoryDeviceInfo, erro
 	var errChan = make(chan error)
 	cb := func(memoryDevicesInfoList []monitor.MemoryDeviceInfo, err string) {
 		if err != "" {
-			errChan <- errors.Errorf(err)
+			errChan <- errors.Errorf("%s", err)
 		} else {
 			res = memoryDevicesInfoList
 			errChan <- nil
@@ -2242,7 +2242,7 @@ func (s *SKVMGuestInstance) scriptStart(ctx context.Context) error {
 		err = proc.Signal(syscall.Signal(0))
 		if err != nil { // qemu process exited
 			log.Errorf("Guest %s check qemu(%d) process failed: %s", s.Id, pid, err)
-			return errors.Errorf(s.readQemuLogFileEnd(64))
+			return errors.Errorf("%s", s.readQemuLogFileEnd(64))
 		}
 		if err = s.StartMonitor(ctx, nil, true); err == nil {
 			return nil

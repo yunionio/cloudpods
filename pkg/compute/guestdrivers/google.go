@@ -228,7 +228,7 @@ func (self *SGoogleGuestDriver) RequestStartOnHost(ctx context.Context, guest *m
 				}
 				log.Debugf("wait for google startup scripts finish")
 				if strings.Contains(output, keyword) {
-					log.Debugf(keyword)
+					log.Debugf("%s", keyword)
 					return true, nil
 				}
 				return false, nil
@@ -261,7 +261,7 @@ func (self *SGoogleGuestDriver) RemoteActionAfterGuestCreated(ctx context.Contex
 			}
 			log.Debugf("wait for google sysprep finish")
 			if strings.Contains(output, keyword) {
-				log.Debugf(keyword)
+				log.Debugf("%s", keyword)
 				return true, nil
 			}
 			return false, nil
