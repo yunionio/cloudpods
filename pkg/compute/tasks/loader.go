@@ -25,6 +25,7 @@ import (
 	_ "yunion.io/x/onecloud/pkg/compute/tasks/cloudaccount"
 	_ "yunion.io/x/onecloud/pkg/compute/tasks/container"
 	_ "yunion.io/x/onecloud/pkg/compute/tasks/dbinstance"
+	_ "yunion.io/x/onecloud/pkg/compute/tasks/dify"
 	_ "yunion.io/x/onecloud/pkg/compute/tasks/disk"
 	_ "yunion.io/x/onecloud/pkg/compute/tasks/dnszone"
 	_ "yunion.io/x/onecloud/pkg/compute/tasks/eip"
