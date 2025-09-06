@@ -252,13 +252,9 @@ func (d *SLVMDisk) PreResize(ctx context.Context, sizeMb int64) error {
 	return nil
 }
 
-func (d *SLVMDisk) Resize(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
-	diskInfo, ok := params.(*jsonutils.JSONDict)
-	if !ok {
-		return nil, hostutils.ParamsError
-	}
+func (d *SLVMDisk) Resize(ctx context.Context, params *SDiskResizeInput) (jsonutils.JSONObject, error) {
+	diskInfo := params.DiskInfo
 	sizeMb, _ := diskInfo.Int("size")
-
 	qemuImg, err := qemuimg.NewQemuImage(d.GetPath())
 	if err != nil {
 		return nil, errors.Wrap(err, "lvm qemuimg.NewQemuImage")
@@ -275,7 +271,8 @@ func (d *SLVMDisk) Resize(ctx context.Context, params interface{}) (jsonutils.JS
 	}
 
 	resizeFsInfo := &deployapi.DiskInfo{
-		Path: d.GetPath(),
+		Path:   d.GetPath(),
+		DiskId: d.GetId(),
 	}
 	if diskInfo.Contains("encrypt_info") {
 		var encryptInfo apis.SEncryptInfo
@@ -295,7 +292,7 @@ func (d *SLVMDisk) Resize(ctx context.Context, params interface{}) (jsonutils.JS
 		return nil, errors.Wrap(err, "qemuImg resize")
 	}
 
-	if err := d.ResizeFs(resizeFsInfo); err != nil {
+	if err := d.ResizeFs(resizeFsInfo, params.GuestDesc); err != nil {
 		log.Errorf("Resize fs %s fail %s", d.GetPath(), err)
 	}
 	return d.GetDiskDesc(), nil
@@ -318,11 +315,13 @@ func (d *SLVMDisk) CreateFromTemplate(
 	retSize, _ := ret.Int("disk_size")
 	log.Infof("REQSIZE: %d, RETSIZE: %d", sizeMb, retSize)
 	if sizeMb > retSize {
-		params := jsonutils.NewDict()
-		params.Set("size", jsonutils.NewInt(sizeMb))
+		params := new(SDiskResizeInput)
+		diskInfo := jsonutils.NewDict()
+		diskInfo.Set("size", jsonutils.NewInt(sizeMb))
 		if encryptInfo != nil {
-			params.Set("encrypt_info", jsonutils.Marshal(encryptInfo))
+			diskInfo.Set("encrypt_info", jsonutils.Marshal(encryptInfo))
 		}
+		params.DiskInfo = diskInfo
 		return d.Resize(ctx, params)
 	}
 	return ret, nil

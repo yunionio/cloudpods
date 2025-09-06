@@ -131,8 +131,8 @@ func (*DeployerServer) ResizeFs(ctx context.Context, req *deployapi.ResizeFsPara
 			res, err = nil, errors.Error(msg)
 		}
 	}()
-	log.Infof("********* Resize fs on %#v", apiDiskInfo(req.DiskInfo))
 
+	log.Infof("********* Resize fs on %#v", req.DiskInfo)
 	if strings.HasPrefix(req.DiskInfo.Path, "/dev/loop") {
 		// HACK: container loop device, do resize locally
 		if err := fsutils.ResizeDiskFs(req.DiskInfo.Path, 0, true); err != nil {
@@ -151,12 +151,16 @@ func (*DeployerServer) ResizeFs(ctx context.Context, req *deployapi.ResizeFsPara
 	}
 	defer disk.Cleanup()
 
-	if err := disk.Connect(nil); err != nil {
+	var diskId string
+	if req.DiskInfo != nil {
+		diskId = req.DiskInfo.DiskId
+	}
+	if err := disk.ConnectWithDiskId(req.GuestDesc, diskId); err != nil {
 		return new(deployapi.Empty), errors.Wrap(err, "disk connect failed")
 	}
 	defer disk.Disconnect()
 
-	return disk.ResizeFs()
+	return disk.ResizeFs(req)
 }
 
 func (*DeployerServer) FormatFs(ctx context.Context, req *deployapi.FormatFsParams) (*deployapi.Empty, error) {

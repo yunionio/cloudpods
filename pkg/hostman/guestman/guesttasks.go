@@ -2504,6 +2504,12 @@ func (task *SGuestOnlineResizeDiskTask) OnGetBlocksSucc(blocks []monitor.QemuBlo
 
 func (task *SGuestOnlineResizeDiskTask) OnResizeSucc(err string) {
 	if len(err) == 0 {
+		if e := task.guestAgent.GuestPing(1); e == nil {
+			if e := task.guestAgent.QgaResizeDisk(task.disk.GetId()); e != nil {
+				log.Errorf("failed qga resize disk %s: %s", task.disk.GetId(), e)
+			}
+		}
+
 		params := jsonutils.NewDict()
 		params.Add(jsonutils.NewInt(task.sizeMB), "disk_size")
 		hostutils.TaskComplete(task.ctx, params)

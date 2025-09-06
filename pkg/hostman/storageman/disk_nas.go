@@ -73,13 +73,14 @@ func (d *SNasDisk) CreateFromSnapshotLocation(ctx context.Context, snapshotLocat
 	retSize, _ := d.GetDiskDesc().Int("disk_size")
 	log.Infof("REQSIZE: %d, RETSIZE: %d", size, retSize)
 	if size > retSize {
-		params := jsonutils.NewDict()
-		params.Set("size", jsonutils.NewInt(size))
+		params := new(SDiskResizeInput)
+		diskInfo := jsonutils.NewDict()
+		diskInfo.Set("size", jsonutils.NewInt(size))
 		if encryptInfo != nil {
-			params.Set("encrypt_info", jsonutils.Marshal(encryptInfo))
+			diskInfo.Set("encrypt_info", jsonutils.Marshal(encryptInfo))
 		}
-		_, err = d.Resize(ctx, params)
-		return nil, err
+		params.DiskInfo = diskInfo
+		return d.Resize(ctx, params)
 	}
 	return d.GetDiskDesc(), nil
 }
