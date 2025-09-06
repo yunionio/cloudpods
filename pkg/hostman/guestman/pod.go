@@ -1656,6 +1656,19 @@ func (s *sPodGuestInstance) CreateContainer(ctx context.Context, userCred mcclie
 	if err := s.setContainerCRIInfo(ctx, userCred, id, ctrCriId); err != nil {
 		return nil, errors.Wrap(err, "setContainerCRIInfo")
 	}
+	// Add Container Desc
+	ctrDesc := s.GetContainerById(id)
+	if ctrDesc == nil {
+		gstDesc := s.GetDesc()
+		gstDesc.Containers = append(gstDesc.Containers, &hostapi.ContainerDesc{
+			Id:   id,
+			Name: input.Name,
+			Spec: input.Spec,
+		})
+		if err := SaveDesc(s, gstDesc); nil != err {
+			return nil, errors.Wrap(err, "Add Container Desc")
+		}
+	}
 	return nil, nil
 }
 
@@ -1777,7 +1790,7 @@ func (s *sPodGuestInstance) createContainer(ctx context.Context, userCred mcclie
 		return "", errors.Wrap(err, "getPodSandboxConfig")
 	}
 	spec := input.Spec
-	if spec.OllamaContainer {
+	if spec.OllamaContainer != nil && *spec.OllamaContainer {
 		// mount cache dir for ollama container
 		localCacheMan := storageman.GetManager().LocalStorageImagecacheManager.(*storageman.SLocalImageCacheManager)
 		hostPath := &apis.ContainerVolumeMountHostPath{
