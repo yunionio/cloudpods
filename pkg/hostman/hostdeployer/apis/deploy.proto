@@ -131,6 +131,7 @@ message DiskInfo {
   string encrypt_password = 2;
   string encrypt_format = 3;
   string encrypt_alg = 4;
+  string disk_id = 5;
 }
 
 message DeployParams {
@@ -144,6 +145,7 @@ message ResizeFsParams {
   DiskInfo disk_info = 1;
   string hypervisor = 2;
   VDDKConInfo vddk_info = 3;
+  GuestDesc guest_desc = 4;
 }
 
 message FormatFsParams {
