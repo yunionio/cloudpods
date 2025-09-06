@@ -118,11 +118,8 @@ func (d *SRBDDisk) OnRebuildRoot(ctx context.Context, params api.DiskAllocateInp
 	return storage.renameImage(pool, d.Id, params.BackingDiskId)
 }
 
-func (d *SRBDDisk) Resize(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
-	diskInfo, ok := params.(*jsonutils.JSONDict)
-	if !ok {
-		return nil, hostutils.ParamsError
-	}
+func (d *SRBDDisk) Resize(ctx context.Context, params *SDiskResizeInput) (jsonutils.JSONObject, error) {
+	diskInfo := params.DiskInfo
 	storage := d.Storage.(*SRbdStorage)
 	sizeMb, _ := diskInfo.Int("size")
 	if err := storage.resizeImage(d.Id, uint64(sizeMb)); err != nil {
@@ -130,9 +127,10 @@ func (d *SRBDDisk) Resize(ctx context.Context, params interface{}) (jsonutils.JS
 	}
 
 	resizeFsInfo := &deployapi.DiskInfo{
-		Path: d.GetPath(),
+		Path:   d.GetPath(),
+		DiskId: d.GetId(),
 	}
-	if err := d.ResizeFs(resizeFsInfo); err != nil {
+	if err := d.ResizeFs(resizeFsInfo, params.GuestDesc); err != nil {
 		log.Errorf("Resize fs %s fail %s", d.GetPath(), err)
 		// return nil, errors.Wrapf(err, "resize fs %s", d.GetPath())
 	}
@@ -176,8 +174,10 @@ func (d *SRBDDisk) CreateFromTemplate(ctx context.Context, imageId string, forma
 	retSize, _ := ret.Int("disk_size")
 	log.Infof("REQSIZE: %d, RETSIZE: %d", size, retSize)
 	if size > retSize {
-		params := jsonutils.NewDict()
-		params.Set("size", jsonutils.NewInt(size))
+		params := new(SDiskResizeInput)
+		diskInfo := jsonutils.NewDict()
+		diskInfo.Set("size", jsonutils.NewInt(size))
+		params.DiskInfo = diskInfo
 		return d.Resize(ctx, params)
 	}
 

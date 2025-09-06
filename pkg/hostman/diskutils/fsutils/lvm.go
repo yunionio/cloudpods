@@ -12,54 +12,29 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package qemu_kvm
+package fsutils
 
 import (
 	"encoding/json"
 	"fmt"
 
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
-	"yunion.io/x/onecloud/pkg/hostman/guestfs/kvmpart"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 )
 
-func (d *LocalDiskDriver) setupLVMS() {
-	for _, part := range d.partitions {
-		vg, err := d.findVg(part.GetPartDev())
-		if err != nil {
-			log.Infof("failed find vg %s", err)
-			continue
-		}
-		if vg == nil {
-			continue
-		}
-
-		log.Infof("found vg %s from %s", vg.VgName, part.GetPartDev())
-		err = d.vgActive(vg.VgName)
-		if err != nil {
-			log.Infof("failed active vg %s: %s", vg.VgName, err)
-			continue
-		}
-		lvs, err := d.getVgLvs(vg.VgName)
-		if err != nil {
-			log.Infof("failed get vg lvs %s: %s", vg.VgName, err)
-			continue
-		}
-		log.Infof("found lvs %v from vg %s", lvs, vg.VgName)
-		for _, lv := range lvs {
-			lvmpart := kvmpart.NewKVMGuestDiskPartition(lv.LvPath, "", true)
-			d.lvmPartitions = append(d.lvmPartitions, lvmpart)
-			log.Infof("found lvm part dev %v", lvmpart.GetPartDev())
-		}
-	}
-}
-
-func (d *LocalDiskDriver) vgActive(vgname string) error {
+func VgActive(vgname string) error {
 	out, err := procutils.NewCommand("vgchange", "-ay", vgname).Output()
 	if err != nil {
 		return errors.Wrapf(err, "vgchange -ay %s %s", vgname, out)
+	}
+	return nil
+}
+
+func (d *SFsutilDriver) ExtendLv(lvPath string) error {
+	out, err := d.Exec("lvextend", "-l", "+100%FREE", lvPath)
+	if err != nil {
+		return errors.Wrapf(err, "extend lv %s failed %s", lvPath, out)
 	}
 	return nil
 }
@@ -78,9 +53,9 @@ type LvNames struct {
 	} `json:"report"`
 }
 
-func (d *LocalDiskDriver) getVgLvs(vg string) ([]LvProps, error) {
+func (d *SFsutilDriver) GetVgLvs(vg string) ([]LvProps, error) {
 	cmd := fmt.Sprintf("lvs --reportformat json -o lv_name,lv_path %s 2>/dev/null", vg)
-	out, err := procutils.NewCommand("sh", "-c", cmd).Output()
+	out, err := d.Exec("sh", "-c", cmd)
 	if err != nil {
 		return nil, errors.Wrap(err, "find vg lvs")
 	}
@@ -116,7 +91,7 @@ type VgReports struct {
 	} `json:"report"`
 }
 
-func (d *LocalDiskDriver) findVg(partDev string) (*VgProps, error) {
+func FindVg(partDev string) (*VgProps, error) {
 	cmd := fmt.Sprintf("vgs --reportformat json -o vg_name,vg_uuid --devices %s 2>/dev/null", partDev)
 	out, err := procutils.NewCommand("sh", "-c", cmd).Output()
 	if err != nil {
