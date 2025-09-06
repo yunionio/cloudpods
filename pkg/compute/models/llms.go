@@ -91,7 +91,8 @@ func (manager *SLLMManager) ValidateCreateData(ctx context.Context, userCred mcc
 	if !finded {
 		return nil, errors.Errorf("Image must be ollama")
 	}
-	ctr.OllamaContainer = true
+	ollamaTrue := true
+	ctr.OllamaContainer = &ollamaTrue
 
 	// set autostart
 	input.AutoStart = true
