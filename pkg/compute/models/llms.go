@@ -91,7 +91,8 @@ func (manager *SLLMManager) ValidateCreateData(ctx context.Context, userCred mcc
 	if !finded {
 		return nil, errors.Errorf("Image must be ollama")
 	}
-	ctr.OllamaContainer = true
+	ollamaTrue := true
+	ctr.OllamaContainer = &ollamaTrue
 
 	// set autostart
 	input.AutoStart = true
@@ -122,12 +123,7 @@ func (llm *SLLM) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCre
 
 	// get model name and model tag
 	model := input.Model
-	parts := strings.Split(model, ":")
-	llm.ModelName = parts[0]
-	llm.ModelTag = "latest"
-	if len(parts) > 1 {
-		llm.ModelTag = parts[1]
-	}
+	llm.ModelName, llm.ModelTag = llm.parseModel(model)
 
 	// init task
 	llm.Id = stringutils.UUID4()
@@ -189,6 +185,29 @@ func (llm *SLLM) exec(ctx context.Context, userCred mcclient.TokenCredential, st
 		return "", errors.Wrapf(err, "LLM exec error")
 	}
 	return ret, nil
+}
+
+func (llm *SLLM) PerformChangeModel(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.LLMPullModelInput) (jsonutils.JSONObject, error) {
+	// check model is the same with current
+	if input.Model == llm.GetModel() {
+		return nil, errors.Errorf("LLM run with model %s already", input.Model)
+	}
+
+	// delete model
+	if err := llm.DeleteModel(ctx, userCred); nil != err {
+		return nil, err
+	}
+
+	// set modelName and modelTag
+	llm.UpdateModel(input.Model)
+
+	// pull new model
+	task, err := taskman.TaskManager.NewTask(ctx, "LLMPullModelTask", llm, userCred, jsonutils.NewDict(), "", "", nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "NewTask")
+	}
+
+	return jsonutils.NewDict(), task.ScheduleRun(nil)
 }
 
 // func (llm *SLLM) PerformStart(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -255,7 +274,7 @@ func (llm *SLLM) GetManifests(ctx context.Context, userCred mcclient.TokenCreden
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to read response body")
 	}
-	filePath := path.Join(api.LLM_OLLAMA_BASE_PATH, api.LLM_OLLAMA_MANIFESTS_BASE_PATH, llm.ModelName, llm.ModelTag)
+	filePath := llm.getManifestsPath()
 	dirPath := path.Dir(filePath)
 	writeCommand := fmt.Sprintf("mkdir -p %s && cat > %s", dirPath, filePath)
 	if _, err := llm.exec(ctx, userCred, bytes.NewReader(manifestBytes), false, "/bin/sh", "-c", writeCommand); nil != err {
@@ -289,7 +308,7 @@ func (llm *SLLM) AccessBlobsCache(ctx context.Context, userCred mcclient.TokenCr
 
 func (llm *SLLM) CopyBlobs(ctx context.Context, userCred mcclient.TokenCredential, blobs []string) error {
 	// mkdir blobs
-	blobsTargetDir := path.Join(api.LLM_OLLAMA_BASE_PATH, api.LLM_OLLAMA_BLOBS_DIR)
+	blobsTargetDir := llm.getBlobsPath()
 	_, err := llm.exec(ctx, userCred, nil, true, "/bin/mkdir", "-p", blobsTargetDir)
 	if nil != err {
 		return err
@@ -307,10 +326,61 @@ func (llm *SLLM) CopyBlobs(ctx context.Context, userCred mcclient.TokenCredentia
 	return nil
 }
 
+func (llm *SLLM) DeleteModel(ctx context.Context, userCred mcclient.TokenCredential) error {
+	// stop running proccess
+	if _, err := llm.exec(ctx, userCred, nil, true, "/bin/ollama", "stop", llm.GetModel()); nil != err {
+		return errors.Wrapf(err, "Stop ollama running model failed")
+	}
+
+	// delete manifests and blobs in container
+	if _, err := llm.exec(ctx, userCred, nil, true, "/bin/rm", "-r", "-f", path.Dir(llm.getManifestsPath())); nil != err {
+		return errors.Wrapf(err, "Delete manifests file failed")
+	}
+
+	if _, err := llm.exec(ctx, userCred, nil, true, "/bin/rm", "-r", "-f", llm.getBlobsPath()); nil != err {
+		return errors.Wrapf(err, "Delete blobs file failed")
+	}
+
+	return nil
+}
+
+func (llm *SLLM) GetModel() string {
+	return llm.ModelName + ":" + llm.ModelTag
+}
+
 func (llm *SLLM) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	llm.SVirtualResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
 	// set status to creating pod
 	llm.SetStatus(ctx, userCred, api.LLM_STATUS_CREATING_POD, "")
+}
+
+func (llm *SLLM) UpdateModel(model string) error {
+	if _, err := db.Update(llm, func() error {
+		llm.ModelName, llm.ModelTag = llm.parseModel(model)
+		return nil
+	}); nil != err {
+		return errors.Wrapf(err, "update llm model %s", model)
+	}
+
+	return nil
+}
+
+func (llm *SLLM) getBlobsPath() string {
+	return path.Join(api.LLM_OLLAMA_BASE_PATH, api.LLM_OLLAMA_BLOBS_DIR)
+}
+
+func (llm *SLLM) getManifestsPath() string {
+	return path.Join(api.LLM_OLLAMA_BASE_PATH, api.LLM_OLLAMA_MANIFESTS_BASE_PATH, llm.ModelName, llm.ModelTag)
+}
+
+func (llm *SLLM) parseModel(model string) (string, string) {
+	parts := strings.Split(model, ":")
+	modelName := parts[0]
+	modelTag := "latest"
+	if len(parts) > 1 {
+		modelTag = parts[1]
+	}
+	return modelName, modelTag
 }
 
 func accessModelCache(ctx context.Context, llm *SLLM, task taskman.ITask) (jsonutils.JSONObject, error) {
