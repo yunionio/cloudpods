@@ -68,7 +68,7 @@ func (m *DifyContainersManager) GetContainer(name, containerKey string) (*api.Po
 	case api.DIFY_REDIS_KEY:
 		return getRedisContainer(name, containerKey), nil
 	case api.DIFY_POSTGRES_KEY:
-		return getPostgreContainer(name, containerKey), nil
+		return getPostgresContainer(name, containerKey), nil
 	case api.DIFY_API_KEY:
 		return getApiContainer(name, containerKey), nil
 	case api.DIFY_WORKER_KEY:
@@ -83,6 +83,10 @@ func (m *DifyContainersManager) GetContainer(name, containerKey string) (*api.Po
 		return getSsrfContainer(name, containerKey), nil
 	case api.DIFY_NGINX_KEY:
 		return getNginxContainer(name, containerKey), nil
+	case api.DIFY_WEAVIATE_KEY:
+		return getWeaviateContainer(name, containerKey), nil
+	case api.DIFY_SANDBOX_KEY:
+		return getSandboxContainer(name, containerKey), nil
 	default:
 		return nil, errors.New("unsupported container key")
 	}
@@ -93,7 +97,7 @@ func getRedisContainer(name, key string) *api.PodContainerCreateInput {
 	ctr := &api.PodContainerCreateInput{
 		Name: name + "-" + key,
 	}
-	ctr.Image = "registry.noteikoh.top/dockerhub/redis:6-alpine"
+	ctr.Image = api.DIFY_IMAGE_REGISTRY + api.DIFY_REDIS_IMAGE
 
 	// set container environments
 	envs := &DifyContainerEnv{
@@ -114,12 +118,12 @@ func getRedisContainer(name, key string) *api.PodContainerCreateInput {
 	return ctr
 }
 
-func getPostgreContainer(name, key string) *api.PodContainerCreateInput {
+func getPostgresContainer(name, key string) *api.PodContainerCreateInput {
 	// set name and image
 	ctr := &api.PodContainerCreateInput{
 		Name: name + "-" + key,
 	}
-	ctr.Image = "registry.noteikoh.top/dockerhub/postgres:15-alpine"
+	ctr.Image = api.DIFY_IMAGE_REGISTRY + api.DIFY_POSTGRES_IMAGE
 
 	// set container environments
 	envs := &DifyContainerEnv{
@@ -153,7 +157,7 @@ func getApiContainer(name, key string) *api.PodContainerCreateInput {
 	ctr := &api.PodContainerCreateInput{
 		Name: name + "-" + key,
 	}
-	ctr.Image = "registry.noteikoh.top/langgenius/dify-api:1.7.2"
+	ctr.Image = api.DIFY_IMAGE_REGISTRY + api.DIFY_API_IMAGE
 
 	// set container environments
 	envs := &DifyContainerEnv{
@@ -181,7 +185,7 @@ func getWorkerContainer(name, key string) *api.PodContainerCreateInput {
 	ctr := &api.PodContainerCreateInput{
 		Name: name + "-" + key,
 	}
-	ctr.Image = "registry.noteikoh.top/langgenius/dify-api:1.7.2"
+	ctr.Image = api.DIFY_IMAGE_REGISTRY + api.DIFY_API_IMAGE
 
 	// set container environments
 	envs := &DifyContainerEnv{
@@ -207,7 +211,7 @@ func getWorkerBeatContainer(name, key string) *api.PodContainerCreateInput {
 	ctr := &api.PodContainerCreateInput{
 		Name: name + "-" + key,
 	}
-	ctr.Image = "registry.noteikoh.top/langgenius/dify-api:1.7.2"
+	ctr.Image = api.DIFY_IMAGE_REGISTRY + api.DIFY_API_IMAGE
 
 	// set container environments
 	envs := &DifyContainerEnv{
@@ -223,7 +227,7 @@ func getPluginContainer(name, key string) *api.PodContainerCreateInput {
 	ctr := &api.PodContainerCreateInput{
 		Name: name + "-" + key,
 	}
-	ctr.Image = "registry.noteikoh.top/langgenius/dify-plugin-daemon:0.2.0-local"
+	ctr.Image = api.DIFY_IMAGE_REGISTRY + api.DIFY_PLUGIN_IMAGE
 
 	// set container environments
 	envs := &DifyContainerEnv{
@@ -240,7 +244,7 @@ func getPluginContainer(name, key string) *api.PodContainerCreateInput {
 		"FORCE_VERIFYING_SIGNATURE":     api.PLUGIN_FORCE_VERIFYING_SIGNATURE,
 		"PYTHON_ENV_INIT_TIMEOUT":       api.PLUGIN_PYTHON_ENV_INIT_TIMEOUT,
 		"PLUGIN_MAX_EXECUTION_TIMEOUT":  api.PLUGIN_MAX_EXECUTION_TIMEOUT,
-		"PIP_MIRROR_URL":                api.PLUGIN_PIP_MIRROR_URL,
+		"PIP_MIRROR_URL":                api.PIP_MIRROR_URL,
 		"PLUGIN_STORAGE_TYPE":           api.PLUGIN_STORAGE_TYPE,
 		"PLUGIN_STORAGE_LOCAL_ROOT":     api.PLUGIN_STORAGE_LOCAL_ROOT,
 		"PLUGIN_INSTALLED_PATH":         api.PLUGIN_INSTALLED_PATH,
@@ -262,7 +266,7 @@ func getWebContainer(name, key string) *api.PodContainerCreateInput {
 	ctr := &api.PodContainerCreateInput{
 		Name: name + "-" + key,
 	}
-	ctr.Image = "registry.noteikoh.top/langgenius/dify-web:1.7.2"
+	ctr.Image = api.DIFY_IMAGE_REGISTRY + api.DIFY_WEB_IMAGE
 
 	// set container environments
 	envs := &DifyContainerEnv{
@@ -298,7 +302,7 @@ func getSsrfContainer(name, key string) *api.PodContainerCreateInput {
 	ctr := &api.PodContainerCreateInput{
 		Name: name + "-" + key,
 	}
-	ctr.Image = "registry.noteikoh.top/ubuntu/squid:latest"
+	ctr.Image = api.DIFY_IMAGE_REGISTRY + api.DIFY_SSRF_IMAGE
 
 	// set container environments
 	envs := &DifyContainerEnv{
@@ -330,7 +334,7 @@ func getNginxContainer(name, key string) *api.PodContainerCreateInput {
 	ctr := &api.PodContainerCreateInput{
 		Name: name + "-" + key,
 	}
-	ctr.Image = "registry.noteikoh.top/dockerhub/nginx:latest"
+	ctr.Image = api.DIFY_IMAGE_REGISTRY + api.DIFY_NGINX_IMAGE
 
 	// set container environments
 	envs := &DifyContainerEnv{
@@ -353,6 +357,71 @@ func getNginxContainer(name, key string) *api.PodContainerCreateInput {
 	entrypointSH := fmt.Sprintf(api.NGINX_ENTRYPINT_SHELL, api.NGINX_NGINX_CONF_FILE, api.NGINX_PROXY_CONF_FILE, api.NGINX_DEFAULT_CONF_FILE)
 	ctr.Command = []string{
 		"/bin/sh", "-c", entrypointSH,
+	}
+
+	return ctr
+}
+
+func getWeaviateContainer(name, key string) *api.PodContainerCreateInput {
+	// set name and image
+	ctr := &api.PodContainerCreateInput{
+		Name: name + "-" + key,
+	}
+	ctr.Image = api.DIFY_IMAGE_REGISTRY + api.DIFY_WEAVIATE_IAMGE
+
+	// set container environments
+	envs := &DifyContainerEnv{
+		"PERSISTENCE_DATA_PATH":                   api.WEAVIATE_PERSISTENCE_DATA_PATH,
+		"QUERY_DEFAULTS_LIMIT":                    api.WEAVIATE_QUERY_DEFAULTS_LIMIT,
+		"AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED": api.WEAVIATE_AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED,
+		"DEFAULT_VECTORIZER_MODULE":               api.WEAVIATE_DEFAULT_VECTORIZER_MODULE,
+		"CLUSTER_HOSTNAME":                        api.WEAVIATE_CLUSTER_HOSTNAME,
+		"AUTHENTICATION_APIKEY_ENABLED":           api.WEAVIATE_AUTHENTICATION_APIKEY_ENABLED,
+		"AUTHENTICATION_APIKEY_ALLOWED_KEYS":      api.WEAVIATE_AUTHENTICATION_APIKEY_ALLOWED_KEYS,
+		"AUTHENTICATION_APIKEY_USERS":             api.WEAVIATE_AUTHENTICATION_APIKEY_USERS,
+		"AUTHORIZATION_ADMINLIST_ENABLED":         api.WEAVIATE_AUTHORIZATION_ADMINLIST_ENABLED,
+		"AUTHORIZATION_ADMINLIST_USERS":           api.WEAVIATE_AUTHORIZATION_ADMINLIST_USERS,
+	}
+	ctr.Envs = envs.GetContainerEnvs()
+
+	// set PVC to store data
+	ctr.VolumeMounts = []*apis.ContainerVolumeMount{
+		getPVCMount(key, key, api.WEAVIATE_PERSISTENCE_DATA_PATH),
+	}
+
+	return ctr
+}
+
+func getSandboxContainer(name, key string) *api.PodContainerCreateInput {
+	// set name and image
+	ctr := &api.PodContainerCreateInput{
+		Name: name + "-" + key,
+	}
+	ctr.Image = api.DIFY_IMAGE_REGISTRY + api.DIFY_SANDBOX_IMAGE
+
+	// set container environments
+	envs := &DifyContainerEnv{
+		"API_KEY":        api.SANDBOX_API_KEY,
+		"GIN_MODE":       api.SANDBOX_GIN_MODE,
+		"WORKER_TIMEOUT": api.SANDBOX_WORKER_TIMEOUT,
+		"ENABLE_NETWORK": api.SANDBOX_ENABLE_NETWORK,
+		"HTTP_PROXY":     api.SANDBOX_HTTP_PROXY,
+		"HTTPS_PROXY":    api.SANDBOX_HTTPS_PROXY,
+		"SANDBOX_PORT":   api.SANDBOX_PORT,
+		"PIP_MIRROR_URL": api.PIP_MIRROR_URL,
+	}
+	ctr.Envs = envs.GetContainerEnvs()
+
+	// set PVC to store data
+	ctr.VolumeMounts = []*apis.ContainerVolumeMount{
+		getPVCMount(key+"conf", key+"conf", api.SANDBOX_CONF_MOUNT_PATH),
+		getPVCMount(key+"dep", key+"dep", api.SANDBOX_DEP_MOUNT_PATH),
+	}
+
+	// set command
+	writeConfigCommand := fmt.Sprintf(api.SANDBOX_WRITE_CONF_SHELL, api.SANDBOX_CONF_FILE, api.SANDBOX_CONF_TEMP_FILE)
+	ctr.Command = []string{
+		"/bin/sh", "-c", writeConfigCommand,
 	}
 
 	return ctr

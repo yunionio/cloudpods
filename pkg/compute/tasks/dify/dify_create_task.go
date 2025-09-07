@@ -147,9 +147,35 @@ func (t *DifyCreateTask) OnPluginCreateFailed(ctx context.Context, dify *models.
 	t.SetStageFailed(ctx, data)
 }
 
-// ssrf
+// sandbox
 
 func (t *DifyCreateTask) OnPluginCreate(ctx context.Context, dify *models.SDify, data jsonutils.JSONObject) {
+	t.SetStage("OnSandboxCreate", nil)
+
+	if err := dify.CreateContainer(ctx, t.GetUserCred(), api.DIFY_SANDBOX_KEY, t.GetId()); nil != err {
+		t.OnSandboxCreateFailed(ctx, dify, jsonutils.NewString(err.Error()))
+		return
+	}
+}
+
+func (t *DifyCreateTask) OnSandboxCreateFailed(ctx context.Context, dify *models.SDify, data jsonutils.JSONObject) {
+	dify.SetStatus(ctx, t.GetUserCred(), api.DIFY_DEPLOY_SANDBOX_FAILED, data.String())
+	t.SetStageFailed(ctx, data)
+}
+
+func (t *DifyCreateTask) OnSandboxCreate(ctx context.Context, dify *models.SDify, data jsonutils.JSONObject) {
+	// check status
+	if err := dify.CheckContainerHealth(ctx, t.GetUserCred(), api.DIFY_SANDBOX_KEY,
+		"curl", "-f", "http://localhost:8194/health"); nil != err {
+		t.OnSandboxCreateFailed(ctx, dify, jsonutils.NewString(err.Error()))
+		return
+	}
+	t.requestCreateSsrf(ctx, dify)
+}
+
+// ssrf
+
+func (t *DifyCreateTask) requestCreateSsrf(ctx context.Context, dify *models.SDify) {
 	t.SetStage("OnSsrfCreate", nil)
 
 	if err := dify.CreateContainer(ctx, t.GetUserCred(), api.DIFY_SSRF_KEY, t.GetId()); nil != err {
@@ -179,7 +205,23 @@ func (t *DifyCreateTask) OnNginxCreateFailed(ctx context.Context, dify *models.S
 	t.SetStageFailed(ctx, data)
 }
 
+// weaviate
+
 func (t *DifyCreateTask) OnNginxCreate(ctx context.Context, dify *models.SDify, data jsonutils.JSONObject) {
+	t.SetStage("OnWeaviateCreate", nil)
+
+	if err := dify.CreateContainer(ctx, t.GetUserCred(), api.DIFY_WEAVIATE_KEY, t.GetId()); nil != err {
+		t.OnWeaviateCreateFailed(ctx, dify, jsonutils.NewString(err.Error()))
+		return
+	}
+}
+
+func (t *DifyCreateTask) OnWeaviateCreateFailed(ctx context.Context, dify *models.SDify, data jsonutils.JSONObject) {
+	dify.SetStatus(ctx, t.GetUserCred(), api.DIFY_DEPLOY_WEAVIATE_FAILED, data.String())
+	t.SetStageFailed(ctx, data)
+}
+
+func (t *DifyCreateTask) OnWeaviateCreate(ctx context.Context, dify *models.SDify, data jsonutils.JSONObject) {
 	t.OnCreateDify(ctx, dify, nil)
 }
 

@@ -215,3 +215,76 @@ server {
 }
 `
 )
+
+const (
+	SANDBOX_WRITE_CONF_SHELL = `
+cat > /conf/config.yaml <<'EOF'
+%s
+EOF
+
+cat > /conf/config.yaml.template <<'EOF'
+%s
+EOF
+
+touch /dependencies/python-requirements.txt
+
+# decompress nodejs
+tar -xvf $NODE_TAR_XZ -C /opt
+ln -s $NODE_DIR/bin/node /usr/local/bin/node
+rm -f $NODE_TAR_XZ
+
+# start main
+/main
+  `
+	SANDBOX_CONF_FILE = `app:
+  port: 8194
+  debug: True
+  key: dify-sandbox
+max_workers: 4
+max_requests: 50
+worker_timeout: 5
+python_path: /usr/local/bin/python3
+enable_network: True # please make sure there is no network risk in your environment
+allowed_syscalls: # please leave it empty if you have no idea how seccomp works
+proxy:
+  socks5: ''
+  http: ''
+  https: ''
+`
+	SANDBOX_CONF_TEMP_FILE = `app:
+  port: 8194
+  debug: True
+  key: dify-sandbox
+max_workers: 4
+max_requests: 50
+worker_timeout: 5
+python_path: /usr/local/bin/python3
+python_lib_path:
+  - /usr/local/lib/python3.10
+  - /usr/lib/python3.10
+  - /usr/lib/python3
+  - /usr/lib/x86_64-linux-gnu
+  - /etc/ssl/certs/ca-certificates.crt
+  - /etc/nsswitch.conf
+  - /etc/hosts
+  - /etc/resolv.conf
+  - /run/systemd/resolve/stub-resolv.conf
+  - /run/resolvconf/resolv.conf
+  - /etc/localtime
+  - /usr/share/zoneinfo
+  - /etc/timezone
+  # add more paths if needed
+python_pip_mirror_url: https://pypi.tuna.tsinghua.edu.cn/simple
+nodejs_path: /usr/local/bin/node
+enable_network: True
+allowed_syscalls:
+  - 1
+  - 2
+  - 3
+  # add all the syscalls which you require
+proxy:
+  socks5: ''
+  http: ''
+  https: ''
+`
+)

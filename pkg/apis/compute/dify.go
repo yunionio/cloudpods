@@ -10,6 +10,25 @@ const (
 	DIFY_WEB_KEY         = "web"
 	DIFY_SSRF_KEY        = "ssrf"
 	DIFY_NGINX_KEY       = "nginx"
+	DIFY_WEAVIATE_KEY    = "weaviate"
+	DIFY_SANDBOX_KEY     = "sandbox"
+)
+
+const (
+	DIFY_IMAGE_REGISTRY = "registry.noteikoh.top"
+	DIFY_POSTGRES_IMAGE = "/dockerhub/postgres:15-alpine"
+	DIFY_REDIS_IMAGE    = "/dockerhub/redis:6-alpine"
+	DIFY_API_IMAGE      = "/langgenius/dify-api:1.7.2"
+	DIFY_PLUGIN_IMAGE   = "/langgenius/dify-plugin-daemon:0.2.0-local"
+	DIFY_WEB_IMAGE      = "/langgenius/dify-web:1.7.2"
+	DIFY_SSRF_IMAGE     = "/ubuntu/squid:latest"
+	DIFY_SANDBOX_IMAGE  = "/langgenius/dify-sandbox:0.2.12"
+	DIFY_NGINX_IMAGE    = "/dockerhub/nginx:latest"
+	DIFY_WEAVIATE_IAMGE = "/semitechnologies/weaviate:1.19.0"
+)
+
+const (
+	PIP_MIRROR_URL = "https://mirrors.aliyun.com/pypi/simple"
 )
 
 const (
@@ -23,8 +42,6 @@ const (
 	POSTGRES_PASSWORD             = "difyai123456"
 	POSTGRES_DB                   = "dify"
 	PGDATA                        = "/pgdata"
-	POSTGRES_UMASK                = 70
-	POSTGRES_GMASK                = 70
 )
 
 const (
@@ -63,7 +80,6 @@ const (
 	PLUGIN_FORCE_VERIFYING_SIGNATURE = "true"
 	PLUGIN_PYTHON_ENV_INIT_TIMEOUT   = "120"
 	PLUGIN_MAX_EXECUTION_TIMEOUT     = "600"
-	PLUGIN_PIP_MIRROR_URL            = "https://mirrors.aliyun.com/pypi/simple"
 	PLUGIN_STORAGE_TYPE              = "local"
 	PLUGIN_STORAGE_LOCAL_ROOT        = "/app/storage"
 	PLUGIN_INSTALLED_PATH            = "plugin"
@@ -72,8 +88,8 @@ const (
 )
 
 const (
-	WEB_CONSOLE_API_URL                         = "http://localhost:5001"
-	WEB_APP_API_URL                             = "http://localhost:3000"
+	WEB_CONSOLE_API_URL                         = ""
+	WEB_APP_API_URL                             = ""
 	WEB_SENTRY_DSN                              = ""
 	WEB_NEXT_TELEMETRY_DISABLED                 = "0"
 	WEB_TEXT_GENERATION_TIMEOUT_MS              = "60000"
@@ -115,6 +131,31 @@ const (
 )
 
 const (
+	WEAVIATE_PERSISTENCE_DATA_PATH                   = "/var/lib/weaviate"
+	WEAVIATE_QUERY_DEFAULTS_LIMIT                    = "25"
+	WEAVIATE_AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED = "false"
+	WEAVIATE_DEFAULT_VECTORIZER_MODULE               = "none"
+	WEAVIATE_CLUSTER_HOSTNAME                        = "node1"
+	WEAVIATE_AUTHENTICATION_APIKEY_ENABLED           = "true"
+	WEAVIATE_AUTHENTICATION_APIKEY_ALLOWED_KEYS      = "WVF5YThaHlkYwhGUSmCRgsX3tD5ngdN8pkih"
+	WEAVIATE_AUTHENTICATION_APIKEY_USERS             = "hello@dify.ai"
+	WEAVIATE_AUTHORIZATION_ADMINLIST_ENABLED         = "true"
+	WEAVIATE_AUTHORIZATION_ADMINLIST_USERS           = "hello@dify.ai"
+)
+
+const (
+	SANDBOX_CONF_MOUNT_PATH = "/conf"
+	SANDBOX_DEP_MOUNT_PATH  = "/dependencies"
+	SANDBOX_API_KEY         = "dify-sandbox"
+	SANDBOX_GIN_MODE        = "release"
+	SANDBOX_WORKER_TIMEOUT  = "15"
+	SANDBOX_ENABLE_NETWORK  = "true"
+	SANDBOX_HTTP_PROXY      = "http://localhost:3128"
+	SANDBOX_HTTPS_PROXY     = "http://localhost:3128"
+	SANDBOX_PORT            = "8194"
+)
+
+const (
 	DIFY_CREATED                   = "running"
 	DIFY_DEPLOY_REDIS_FAILED       = "dify_deploy_redis_failed"
 	DIFY_DEPLOY_POSTGRES_FAILED    = "dify_deploy_postgres_failed"
@@ -123,8 +164,10 @@ const (
 	DIFY_DEPLOY_WORKER_BEAT_FAILED = "dify_deploy_worker_beat_failed"
 	DIFY_DEPLOY_WEB_FAILED         = "dify_deploy_web_failed"
 	DIFY_DEPLOY_PLUGIN_FAILED      = "dify_deploy_plugin_failed"
+	DIFY_DEPLOY_SANDBOX_FAILED     = "dify_deploy_sandbox_failed"
 	DIFY_DEPLOY_SSRF_FAILED        = "dify_deploy_ssrf_failed"
 	DIFY_DEPLOY_NGINX_FAILED       = "dify_deploy_nginx_failed"
+	DIFY_DEPLOY_WEAVIATE_FAILED    = "dify_deploy_weaviate_failed"
 	DIFY_CREATE_FAILED             = "create_dify_failed"
 )
 
