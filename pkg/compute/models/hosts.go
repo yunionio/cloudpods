@@ -2910,9 +2910,14 @@ type SGuestSyncResult struct {
 }
 
 func IsNeedSkipSync(ext cloudprovider.ICloudResource) (bool, string) {
-	if len(options.Options.SkipServerBySysTagKeys) == 0 && len(options.Options.SkipServerByUserTagKeys) == 0 && len(options.Options.SkipServerByUserTagValues) == 0 {
+	if len(options.Options.SkipServerBySysTagKeys) == 0 &&
+		len(options.Options.SkipServerByUserTagKeys) == 0 &&
+		len(options.Options.SkipServerByUserTagValues) == 0 &&
+		len(options.Options.RetentionServerByUserTagKeys) == 0 &&
+		len(options.Options.RetentionServerByUserTagValues) == 0 {
 		return false, ""
 	}
+	tags, _ := ext.GetTags()
 	if keys := strings.Split(options.Options.SkipServerBySysTagKeys, ","); len(keys) > 0 {
 		for key := range ext.GetSysTags() {
 			key = strings.Trim(key, "")
@@ -2922,7 +2927,6 @@ func IsNeedSkipSync(ext cloudprovider.ICloudResource) (bool, string) {
 		}
 	}
 	if userKeys := strings.Split(options.Options.SkipServerByUserTagKeys, ","); len(userKeys) > 0 {
-		tags, _ := ext.GetTags()
 		for key := range tags {
 			key = strings.Trim(key, "")
 			if len(key) > 0 && utils.IsInStringArray(key, userKeys) {
@@ -2931,7 +2935,6 @@ func IsNeedSkipSync(ext cloudprovider.ICloudResource) (bool, string) {
 		}
 	}
 	if len(options.Options.SkipServerByUserTagValues) > 0 {
-		tags, _ := ext.GetTags()
 		for _, value := range tags {
 			value = strings.Trim(value, "")
 			if len(value) > 0 && utils.IsInStringArray(value, options.Options.SkipServerByUserTagValues) {
@@ -2939,6 +2942,37 @@ func IsNeedSkipSync(ext cloudprovider.ICloudResource) (bool, string) {
 			}
 		}
 	}
+	keys, values := []string{}, []string{}
+	for key, value := range tags {
+		key = strings.Trim(key, "")
+		keys = append(keys, key)
+		values = append(values, value)
+	}
+
+	if len(options.Options.RetentionServerByUserTagKeys) > 0 {
+		skip, tagKey := true, ""
+		for _, key := range options.Options.RetentionServerByUserTagKeys {
+			key = strings.Trim(key, "")
+			if len(key) > 0 && utils.IsInStringArray(key, keys) {
+				skip, tagKey = false, key
+				break
+			}
+		}
+		return skip, tagKey
+	}
+
+	if len(options.Options.RetentionServerByUserTagValues) > 0 {
+		skip, tagValue := true, ""
+		for _, value := range options.Options.RetentionServerByUserTagValues {
+			value = strings.Trim(value, "")
+			if len(value) > 0 && utils.IsInStringArray(value, values) {
+				skip, tagValue = false, value
+				break
+			}
+		}
+		return skip, tagValue
+	}
+
 	return false, ""
 }
 
