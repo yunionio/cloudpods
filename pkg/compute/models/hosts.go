@@ -2914,7 +2914,8 @@ func IsNeedSkipSync(ext cloudprovider.ICloudResource) (bool, string) {
 		len(options.Options.SkipServerByUserTagKeys) == 0 &&
 		len(options.Options.SkipServerByUserTagValues) == 0 &&
 		len(options.Options.RetentionServerByUserTagKeys) == 0 &&
-		len(options.Options.RetentionServerByUserTagValues) == 0 {
+		len(options.Options.RetentionServerByUserTagValues) == 0 &&
+		len(options.Options.RetentionServerByUserTags) == 0 {
 		return false, ""
 	}
 	tags, _ := ext.GetTags()
