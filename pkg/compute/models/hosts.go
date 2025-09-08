@@ -2942,11 +2942,12 @@ func IsNeedSkipSync(ext cloudprovider.ICloudResource) (bool, string) {
 			}
 		}
 	}
-	keys, values := []string{}, []string{}
+	keys, values, pairs := []string{}, []string{}, []string{}
 	for key, value := range tags {
 		key = strings.Trim(key, "")
 		keys = append(keys, key)
 		values = append(values, value)
+		pairs = append(pairs, fmt.Sprintf("%s:%s", key, value))
 	}
 
 	if len(options.Options.RetentionServerByUserTagKeys) > 0 {
@@ -2971,6 +2972,17 @@ func IsNeedSkipSync(ext cloudprovider.ICloudResource) (bool, string) {
 			}
 		}
 		return skip, tagValue
+	}
+	if len(options.Options.RetentionServerByUserTags) > 0 {
+		skip, tagPair := true, ""
+		for _, pair := range options.Options.RetentionServerByUserTags {
+			pair = strings.Trim(pair, "")
+			if len(pair) > 0 && utils.IsInStringArray(pair, pairs) {
+				skip, tagPair = false, pair
+				break
+			}
+		}
+		return skip, tagPair
 	}
 
 	return false, ""
