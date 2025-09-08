@@ -202,6 +202,7 @@ type ComputeOptions struct {
 	SkipServerByUserTagValues      []string `help:"skip server,disk sync and create with user tag values"`
 	RetentionServerByUserTagKeys   []string `help:"retain server,disk with user tags" default:""`
 	RetentionServerByUserTagValues []string `help:"retain server,disk with user tag values" default:""`
+	RetentionServerByUserTags      []string `help:"retain server,disk with user tags" default:""`
 	// 修改标签时不再同步至云上, 云账号同步资源时不会冲掉本地打的标签(key相同的会覆盖), 云账号开启只读同步和此参数效果相同,且仅影响开启只读同步的账号
 	KeepTagLocalization bool `help:"keep tag localization, not synchronized to the cloud" default:"false"`
 
