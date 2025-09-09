@@ -323,7 +323,7 @@ func (region *SRegion) GetHost(id string) (*SHost, error) {
 }
 
 func (region *SRegion) GetIpmiInfo(hostId string) jsonutils.JSONObject {
-	resp, _ := modules.Hosts.GetIpmiInfo(region.cli.s, hostId, nil)
+	resp, _ := modules.Hosts.GetSpecific(region.cli.s, hostId, "ipmi", nil)
 	return resp
 }
 
