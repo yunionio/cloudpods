@@ -22,6 +22,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/tristate"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -164,6 +165,10 @@ func (host *SHost) GetStorageDriver() string {
 }
 
 func (host *SHost) GetStorageInfo() jsonutils.JSONObject {
+	if !gotypes.IsNil(host.Spec) {
+		ret, _ := host.Spec.Get("storage_info")
+		return ret
+	}
 	return host.StorageInfo
 }
 
