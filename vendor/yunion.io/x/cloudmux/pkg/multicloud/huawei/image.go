@@ -225,7 +225,7 @@ func (self *SRegion) GetImage(imageId string) (*SImage, error) {
 			return &images[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, imageId)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", imageId)
 }
 
 // https://console.huaweicloud.com/apiexplorer/#/openapi/IMS/doc?api=ListImages
@@ -288,7 +288,7 @@ func (self *SRegion) GetImageByName(name string) (*SImage, error) {
 			return &images[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, name)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", name)
 }
 
 func (self *SRegion) ImportImageJob(name string, osDist string, osVersion string, osArch string, bucket string, key string, minDiskGB int64) (string, error) {

@@ -325,7 +325,7 @@ func (self *SElbBackendGroup) Delete(ctx context.Context) error {
 
 func (self *SRegion) GetLoadBalancerBackendGroup(backendGroupId string) (*SElbBackendGroup, error) {
 	ret := &SElbBackendGroup{region: self}
-	res := fmt.Sprintf("elb/pools/" + backendGroupId)
+	res := fmt.Sprintf("elb/pools/%s", backendGroupId)
 	resp, err := self.list(SERVICE_ELB, res, nil)
 	if err != nil {
 		return nil, err

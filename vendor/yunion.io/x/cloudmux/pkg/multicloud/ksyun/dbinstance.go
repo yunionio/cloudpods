@@ -106,7 +106,7 @@ func (region *SRegion) GetDBInstance(id string) (*SDBInstance, error) {
 			return &vms[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", id)
 }
 
 func (region *SRegion) GetDBInstances(id string) ([]SDBInstance, error) {

@@ -142,7 +142,7 @@ func (r *SRegion) GetEIPById(id string) (*SEip, error) {
 		return nil, err
 	}
 	if resp.Error.Code >= 400 {
-		return nil, fmt.Errorf(resp.Error.Message)
+		return nil, fmt.Errorf("%s", resp.Error.Message)
 	}
 	return &SEip{
 		region:    r,

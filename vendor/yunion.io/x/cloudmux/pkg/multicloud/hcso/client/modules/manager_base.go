@@ -270,7 +270,7 @@ func (self *SBaseManager) jsonRequest(request requests.IRequest) (http.Header, j
 		switch err := e.(type) {
 		case *HuaweiClientError:
 			if err.ErrorCode == "APIGW.0301" {
-				return h, b, errors.Wrapf(cloudprovider.ErrInvalidAccessKey, e.Error())
+				return h, b, errors.Wrapf(cloudprovider.ErrInvalidAccessKey, "%s", e.Error())
 			} else if err.Code == 499 && retry > 0 && request.GetMethod() == "GET" {
 				retry -= 1
 				time.Sleep(3 * time.Second * time.Duration(MAX_RETRY-retry))

@@ -132,7 +132,7 @@ func (self *SRegion) lookUpAwsKeypair(publicKey string) (string, error) {
 	if len(keyparis) > 0 {
 		return keyparis[0].KeyName, nil
 	}
-	return "", errors.Wrapf(cloudprovider.ErrNotFound, publicKey)
+	return "", errors.Wrapf(cloudprovider.ErrNotFound, "%s", publicKey)
 }
 
 func (self *SRegion) importAwsKeypair(publicKey string) (string, error) {

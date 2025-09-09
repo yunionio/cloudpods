@@ -315,7 +315,7 @@ func (self *SChinaUnionClient) request(method httputils.THttpMethod, resource st
 	}
 	code, _ := resp.GetString("code")
 	if code != "200" {
-		return nil, errors.Errorf(resp.String())
+		return nil, errors.Errorf("%s", resp.String())
 	}
 	return resp, nil
 }

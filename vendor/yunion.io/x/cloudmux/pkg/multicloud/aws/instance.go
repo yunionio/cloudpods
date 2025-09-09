@@ -750,7 +750,7 @@ func (self *SRegion) GetInstance(instanceId string) (*SInstance, error) {
 			return &instances[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, instanceId)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", instanceId)
 }
 
 func (self *SRegion) GetInstanceIdByImageId(imageId string) (string, error) {
@@ -1120,7 +1120,7 @@ func (self *SInstance) SetTags(tags map[string]string, replace bool) error {
 func (self *SInstance) GetAccountId() string {
 	identity, err := self.host.zone.region.client.GetCallerIdentity()
 	if err != nil {
-		log.Errorf(err.Error() + "self.region.client.GetCallerIdentity()")
+		log.Errorf("GetCallerIdentity %v", err)
 		return ""
 	}
 	return identity.Account

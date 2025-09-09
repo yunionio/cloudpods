@@ -82,7 +82,7 @@ func (self *SRegion) GetNetworkInterface(id string) (*SNetworkInterface, error) 
 			return &nets[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", id)
 }
 
 func (self *SRegion) GetNetworkInterfaces(id string) ([]SNetworkInterface, error) {

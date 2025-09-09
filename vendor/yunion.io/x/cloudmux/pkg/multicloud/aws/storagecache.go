@@ -249,7 +249,7 @@ func (self *SRegion) DescribeExportTasks(id string) (*SExportTask, error) {
 			return &ret.ExportTaskSet[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", id)
 }
 
 func (self *SRegion) CheckBucket(bucketName string) error {

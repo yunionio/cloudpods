@@ -36,6 +36,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/util/fileutils"
@@ -2318,6 +2319,15 @@ func (hh *SHost) SyncWithCloudHost(ctx context.Context, userCred mcclient.TokenC
 			hh.StorageDriver = storageDriver
 		}
 		hh.OvnVersion = extHost.GetOvnVersion()
+		if ipmiInfo := extHost.GetIpmiInfo(); !gotypes.IsNil(ipmiInfo) {
+			info := jsonutils.Marshal(ipmiInfo).(*jsonutils.JSONDict)
+			passwd, _ := info.GetString("password")
+			if len(passwd) > 0 {
+				passwd, _ = utils.EncryptAESBase64(hh.Id, passwd)
+				info.Set("password", jsonutils.NewString(passwd))
+			}
+			hh.IpmiInfo = info
+		}
 
 		if provider != nil && !utils.IsInStringArray(provider.Provider, strings.Split(options.Options.SkipSyncHostConfigInfoProviders, ",")) {
 			hh.CpuCount = extHost.GetCpuCount()
@@ -2565,6 +2575,15 @@ func (manager *SHostManager) NewFromCloudHost(ctx context.Context, userCred mccl
 	host.StorageInfo = extHost.GetStorageInfo()
 
 	host.OvnVersion = extHost.GetOvnVersion()
+	if ipmiInfo := extHost.GetIpmiInfo(); !gotypes.IsNil(ipmiInfo) {
+		info := jsonutils.Marshal(ipmiInfo).(*jsonutils.JSONDict)
+		passwd, _ := info.GetString("password")
+		if len(passwd) > 0 {
+			passwd, _ = utils.EncryptAESBase64(host.Id, passwd)
+			info.Set("password", jsonutils.NewString(passwd))
+		}
+		host.IpmiInfo = info
+	}
 
 	host.Status = extHost.GetStatus()
 	host.HostStatus = extHost.GetHostStatus()

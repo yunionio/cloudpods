@@ -127,7 +127,7 @@ const (
 	// 支持平台: kvm, aliyun, apsara, azure, esxi, bingocloud, jdcloud, ecloud, qcloud, volcengine
 	VM_METRIC_TYPE_MEM_USAGE TMetricType = "vm_mem.used_percent"
 	// 虚拟机磁盘使用率
-	// 支持平台: aliyun, apsara, jdcloud, azure
+	// 支持平台: aliyun, apsara, jdcloud, azure, baidu, ctyun, huawei, hcso, volcengine, qcloud
 	// 支持按盘符(group_by=device)平台: aliyun, apsara
 	VM_METRIC_TYPE_DISK_USAGE TMetricType = "vm_disk.used_percent"
 

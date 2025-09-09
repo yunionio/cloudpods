@@ -321,7 +321,7 @@ func (region *SRegion) GetDBInstance(instanceId string) (*SDBInstance, error) {
 			return &instances[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, instanceId)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", instanceId)
 }
 
 func (rds *SDBInstance) GetZone1Id() string {

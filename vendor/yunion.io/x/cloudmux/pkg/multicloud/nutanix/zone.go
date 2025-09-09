@@ -75,7 +75,7 @@ func (self *SZone) GetIHostById(id string) (cloudprovider.ICloudHost, error) {
 		return nil, errors.Wrapf(err, "GetIHostById(%s)", id)
 	}
 	if host.ClusterUUID != self.UUID {
-		return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
+		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", id)
 	}
 	host.zone = self
 	return host, nil
@@ -111,7 +111,7 @@ func (self *SZone) GetIStorageById(id string) (cloudprovider.ICloudStorage, erro
 		return nil, errors.Wrapf(err, "GetStorage %s", id)
 	}
 	if storage.ClusterUUID != self.UUID {
-		return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
+		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", id)
 	}
 	storage.zone = self
 	return storage, nil

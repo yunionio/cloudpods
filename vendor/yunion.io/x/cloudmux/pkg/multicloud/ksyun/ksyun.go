@@ -185,7 +185,7 @@ func (cli *sKsyunError) ParseErrorFromJsonResponse(statusCode int, status string
 		body.Unmarshal(cli)
 	}
 	if cli.ErrorMsg.Message == "Not Found" {
-		return errors.Wrapf(cloudprovider.ErrNotFound, jsonutils.Marshal(cli.ErrorMsg).String())
+		return errors.Wrapf(cloudprovider.ErrNotFound, "%s", jsonutils.Marshal(cli.ErrorMsg).String())
 	}
 	cli.StatusCode = statusCode
 	return cli

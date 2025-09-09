@@ -288,7 +288,7 @@ func (self *SRegion) getDisk(diskId string) (*SDisk, error) {
 			return &disks[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, diskId)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", diskId)
 }
 
 func (self *SRegion) DeleteDisk(diskId string) error {

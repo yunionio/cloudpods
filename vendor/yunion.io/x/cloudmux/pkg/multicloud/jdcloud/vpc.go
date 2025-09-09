@@ -181,7 +181,7 @@ func (r *SRegion) GetVpcById(id string) (*SVpc, error) {
 		return nil, err
 	}
 	if resp.Error.Code >= 400 {
-		return nil, fmt.Errorf(resp.Error.Message)
+		return nil, fmt.Errorf("%s", resp.Error.Message)
 	}
 	return &SVpc{
 		region: r,

@@ -217,7 +217,7 @@ func (self *SRegion) GetDBInstance(id string) (*SDBInstance, error) {
 		return nil, errors.Wrapf(err, "DescribeInstanceAttributes")
 	}
 	if resp.Error.Code == 404 || strings.Contains(resp.Error.Status, "NotFound") {
-		return nil, errors.Wrapf(cloudprovider.ErrNotFound, jsonutils.Marshal(resp.Error).String())
+		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", jsonutils.Marshal(resp.Error).String())
 	} else if resp.Error.Code != 0 {
 		return nil, errors.Error(jsonutils.Marshal(resp.Error).String())
 	}
@@ -251,7 +251,7 @@ func (self *SRegion) GetDBInstances(pageNumber int, pageSize int) ([]SDBInstance
 		return nil, 0, errors.Wrapf(err, "DescribeInstances")
 	}
 	if resp.Error.Code >= 400 {
-		err = fmt.Errorf(resp.Error.Message)
+		err = fmt.Errorf("%s", resp.Error.Message)
 		return nil, 0, err
 	}
 	total := resp.Result.TotalCount
