@@ -324,6 +324,7 @@ type ICloudHost interface {
 	GetOvnVersion() string // just for cloudpods host
 
 	GetIsolateDevices() ([]IsolateDevice, error)
+	GetIpmiInfo() jsonutils.JSONObject
 }
 
 type IsolateDevice interface {

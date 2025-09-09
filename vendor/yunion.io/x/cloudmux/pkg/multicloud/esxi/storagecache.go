@@ -290,7 +290,7 @@ func (self *SDatastoreImageCache) GetIImageInTemplateVMsById(id string) (cloudpr
 			return NewVMTemplate(vm, self), nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", id)
 }
 
 func (self *SDatastoreImageCache) GetICustomizedCloudImages() ([]cloudprovider.ICloudImage, error) {

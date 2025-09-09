@@ -89,7 +89,7 @@ func (r *SRegion) GetSecurityGroups(vpcId string, securityGroupIds []string, pag
 		return nil, 0, err
 	}
 	if resp.Error.Code >= 400 {
-		err = fmt.Errorf(resp.Error.Message)
+		err = fmt.Errorf("%s", resp.Error.Message)
 		return nil, 0, err
 	}
 	total := resp.Result.TotalCount

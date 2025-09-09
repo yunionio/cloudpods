@@ -254,7 +254,7 @@ func (br *SBaseRequest) ForMateResponseBody(jrbody jsonutils.JSONObject) (jsonut
 		if jrbody.Contains("errorMessage") {
 			msg, _ := jrbody.GetString("errorMessage")
 			if strings.Contains(msg, "Invalid parameter AccessKey") {
-				return nil, errors.Wrapf(cloudprovider.ErrInvalidAccessKey, msg)
+				return nil, errors.Wrapf(cloudprovider.ErrInvalidAccessKey, "%s", msg)
 			}
 			return nil, &httputils.JSONClientError{Code: 400, Details: msg}
 		}

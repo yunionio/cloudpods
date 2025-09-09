@@ -214,7 +214,7 @@ func (self *SBingoCloudClient) invoke(action string, params map[string]string) (
 	if self.cpcfg.ReadOnly {
 		for _, prefix := range []string{"Get", "List", "Describe"} {
 			if strings.HasPrefix(action, prefix) {
-				return nil, errors.Wrapf(cloudprovider.ErrAccountReadOnly, action)
+				return nil, errors.Wrapf(cloudprovider.ErrAccountReadOnly, "%s", action)
 			}
 		}
 	}
@@ -379,7 +379,7 @@ func (self *SBingoCloudClient) GetIRegionById(id string) (cloudprovider.ICloudRe
 			return iregions[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", id)
 }
 
 func (self *SBingoCloudClient) GetCapabilities() []string {

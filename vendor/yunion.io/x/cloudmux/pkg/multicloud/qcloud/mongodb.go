@@ -396,7 +396,7 @@ func (self *SRegion) GetMongoDB(id string) (*SMongoDB, error) {
 		dbs[i].region = self
 		return &dbs[i], nil
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", id)
 }
 
 func (self *SRegion) GetICloudMongoDBById(id string) (cloudprovider.ICloudMongoDB, error) {

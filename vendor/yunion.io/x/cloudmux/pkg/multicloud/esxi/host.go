@@ -1600,7 +1600,7 @@ func (host *SHost) newLocalStorageCache() (*SDatastoreImageCache, error) {
 	}
 
 	if cacheDs == nil {
-		return nil, fmt.Errorf(errmsg)
+		return nil, fmt.Errorf("%s", errmsg)
 	}
 
 	return &SDatastoreImageCache{

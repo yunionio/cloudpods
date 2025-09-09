@@ -563,7 +563,7 @@ func (self *SRegion) GetElbListener(listenerId string) (*SElbListener, error) {
 			return &ret[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, listenerId)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", listenerId)
 }
 
 func (self *SRegion) CreateElbListener(lbId string, opts *cloudprovider.SLoadbalancerListenerCreateOptions) (*SElbListener, error) {
@@ -635,7 +635,7 @@ func (self *SRegion) GetElbListenerRule(lisId, ruleId string) (*SElbListenerRule
 			return &rules[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, ruleId)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", ruleId)
 }
 
 func (self *SRegion) DeleteElbListener(id string) error {

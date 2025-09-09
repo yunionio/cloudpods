@@ -368,7 +368,7 @@ func (self *SRegion) GetLoadbalancer(id string) (*SLoadbalancer, error) {
 			return &lbs[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", id)
 }
 
 /*
@@ -528,7 +528,7 @@ func (self *SRegion) CreateILoadBalancer(opts *cloudprovider.SLoadbalancerCreate
 		return nil, errors.Wrapf(err, "resp.Unmarshal")
 	}
 	if len(ret.RequestId) == 0 || len(ret.LoadBalancerIds) != 1 {
-		return nil, errors.Wrapf(cloudprovider.ErrNotFound, resp.String())
+		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", resp.String())
 	}
 	err = self.WaitLBTaskSuccess(ret.RequestId, 5*time.Second, time.Minute*1)
 	if err != nil {

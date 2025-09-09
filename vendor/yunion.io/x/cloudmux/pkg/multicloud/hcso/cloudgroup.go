@@ -337,7 +337,7 @@ func (self *SHuaweiClient) GetCustomRole(name string) (*SRole, error) {
 			return &roles[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, name)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", name)
 }
 
 func (self *SHuaweiClient) GetRole(name string) (*SRole, error) {
@@ -350,7 +350,7 @@ func (self *SHuaweiClient) GetRole(name string) (*SRole, error) {
 			return &roles[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, name)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", name)
 }
 
 func (self *SHuaweiClient) AttachGroupRole(groupId, roleId string) error {

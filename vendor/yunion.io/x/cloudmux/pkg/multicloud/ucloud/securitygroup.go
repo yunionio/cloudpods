@@ -104,7 +104,7 @@ func (self *SRegion) GetSecurityGroup(secGroupId string) (*SSecurityGroup, error
 			return &secgroups[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, secGroupId)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", secGroupId)
 }
 
 // https://docs.ucloud.cn/api/unet-api/create_firewall

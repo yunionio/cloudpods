@@ -134,7 +134,7 @@ func (self *SRegion) GetInstanceType(name string) (*InstanceType, error) {
 			return &ret.InstanceTypeSet[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, name)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", name)
 }
 
 func (self *SRegion) GetInstanceTypes() ([]SInstanceType, error) {

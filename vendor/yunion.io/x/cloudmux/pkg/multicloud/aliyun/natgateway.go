@@ -141,7 +141,7 @@ func (self *SNatGateway) Refresh() error {
 		return errors.Wrapf(cloudprovider.ErrDuplicateId, "get %d natgateways by id %s", total, self.NatGatewayId)
 	}
 	if total == 0 {
-		return errors.Wrapf(cloudprovider.ErrNotFound, self.NatGatewayId)
+		return errors.Wrapf(cloudprovider.ErrNotFound, "%s", self.NatGatewayId)
 	}
 	return jsonutils.Update(self, nat[0])
 }

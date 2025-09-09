@@ -96,7 +96,7 @@ func (self *SHuaweiClient) CreateExterpriseProject(name, desc string) (*SEnterpr
 			return nil, cloudprovider.ErrNotSupported
 		}
 		if strings.Contains(err.Error(), "EPS.0039") {
-			return nil, errors.Wrapf(cloudprovider.ErrForbidden, err.Error())
+			return nil, errors.Wrapf(cloudprovider.ErrForbidden, "%s", err.Error())
 		}
 		return nil, errors.Wrap(err, "EnterpriseProjects.Create")
 	}

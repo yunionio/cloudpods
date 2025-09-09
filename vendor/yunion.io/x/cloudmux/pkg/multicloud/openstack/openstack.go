@@ -463,7 +463,7 @@ func (cli *SOpenStackClient) getDefaultToken() (oscli.TokenCredential, error) {
 	if err != nil {
 		if e, ok := err.(*httputils.JSONClientError); ok {
 			if e.Class == "Unauthorized" {
-				return nil, errors.Wrapf(cloudprovider.ErrInvalidAccessKey, err.Error())
+				return nil, errors.Wrapf(cloudprovider.ErrInvalidAccessKey, "%s", err.Error())
 			}
 		}
 		return nil, errors.Wrap(err, "Authenticate")

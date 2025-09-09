@@ -120,7 +120,7 @@ func (cli *SBaiduClient) GetRegion(id string) (*SRegion, error) {
 			return &regions[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", id)
 }
 
 func (cli *SBaiduClient) getUrl(service, regionId, resource string) (string, error) {
@@ -143,7 +143,7 @@ func (cli *SBaiduClient) getUrl(service, regionId, resource string) (string, err
 	case SERVICE_BCM:
 		return fmt.Sprintf("http://bcm.%s.baidubce.com/%s", regionId, strings.TrimPrefix(resource, "/")), nil
 	default:
-		return "", errors.Wrapf(cloudprovider.ErrNotSupported, service)
+		return "", errors.Wrapf(cloudprovider.ErrNotSupported, "%s", service)
 	}
 }
 
@@ -190,7 +190,7 @@ func (e *sBaiduError) ParseErrorFromJsonResponse(statusCode int, status string, 
 	e.StatusCode = statusCode
 	log.Infof("%s %s body: %s error: %v", e.method, e.url, e.body, e.Error())
 	if e.StatusCode == 404 {
-		return errors.Wrapf(cloudprovider.ErrNotFound, e.Error())
+		return errors.Wrapf(cloudprovider.ErrNotFound, "%s", e.Error())
 	}
 	return e
 }

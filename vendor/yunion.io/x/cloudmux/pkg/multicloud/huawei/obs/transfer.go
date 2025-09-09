@@ -148,7 +148,7 @@ func getCheckpointFile(ufc *UploadCheckpoint, uploadFileStat os.FileInfo, input 
 	checkpointFilePath := input.CheckpointFile
 	checkpointFileStat, err := os.Stat(checkpointFilePath)
 	if err != nil {
-		doLog(LEVEL_DEBUG, fmt.Sprintf("Stat checkpoint file failed with error: [%v].", err))
+		doLog(LEVEL_DEBUG, "Stat checkpoint file failed with error: [%v].", err)
 		return true, nil
 	}
 	if checkpointFileStat.IsDir() {
@@ -157,7 +157,7 @@ func getCheckpointFile(ufc *UploadCheckpoint, uploadFileStat os.FileInfo, input 
 	}
 	err = loadCheckpointFile(checkpointFilePath, ufc)
 	if err != nil {
-		doLog(LEVEL_WARN, fmt.Sprintf("Load checkpoint file failed with error: [%v].", err))
+		doLog(LEVEL_WARN, "Load checkpoint file failed with error: [%v].", err)
 		return true, nil
 	} else if !ufc.isValid(input.Bucket, input.Key, input.UploadFile, uploadFileStat) {
 		if ufc.Bucket != "" && ufc.Key != "" && ufc.UploadId != "" {
@@ -168,7 +168,7 @@ func getCheckpointFile(ufc *UploadCheckpoint, uploadFileStat os.FileInfo, input 
 		}
 		_err := os.Remove(checkpointFilePath)
 		if _err != nil {
-			doLog(LEVEL_WARN, fmt.Sprintf("Failed to remove checkpoint file with error: [%v].", _err))
+			doLog(LEVEL_WARN, "Failed to remove checkpoint file with error: [%v].", _err)
 		}
 	} else {
 		return false, nil
@@ -315,7 +315,7 @@ func completeParts(ufc *UploadCheckpoint, enableCheckpoint bool, checkpointFileP
 func (obsClient ObsClient) resumeUpload(input *UploadFileInput, extensions []extensionOptions) (output *CompleteMultipartUploadOutput, err error) {
 	uploadFileStat, err := os.Stat(input.UploadFile)
 	if err != nil {
-		doLog(LEVEL_ERROR, fmt.Sprintf("Failed to stat uploadFile with error: [%v].", err))
+		doLog(LEVEL_ERROR, "Failed to stat uploadFile with error: [%v].", err)
 		return nil, err
 	}
 	if uploadFileStat.IsDir() {
@@ -555,7 +555,7 @@ func getDownloadCheckpointFile(dfc *DownloadCheckpoint, input *DownloadFileInput
 	checkpointFilePath := input.CheckpointFile
 	checkpointFileStat, err := os.Stat(checkpointFilePath)
 	if err != nil {
-		doLog(LEVEL_DEBUG, fmt.Sprintf("Stat checkpoint file failed with error: [%v].", err))
+		doLog(LEVEL_DEBUG, "Stat checkpoint file failed with error: [%v].", err)
 		return true, nil
 	}
 	if checkpointFileStat.IsDir() {
@@ -564,7 +564,7 @@ func getDownloadCheckpointFile(dfc *DownloadCheckpoint, input *DownloadFileInput
 	}
 	err = loadCheckpointFile(checkpointFilePath, dfc)
 	if err != nil {
-		doLog(LEVEL_WARN, fmt.Sprintf("Load checkpoint file failed with error: [%v].", err))
+		doLog(LEVEL_WARN, "Load checkpoint file failed with error: [%v].", err)
 		return true, nil
 	} else if !dfc.isValid(input, output) {
 		if dfc.TempFileInfo.TempFileUrl != "" {
