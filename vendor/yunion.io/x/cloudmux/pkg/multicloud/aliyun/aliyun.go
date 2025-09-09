@@ -241,9 +241,9 @@ func doRequest(client *sdk.Client, domain, apiVersion, apiName string, params ma
 					"InvalidAccessKeyId.Inactive",
 					"Forbidden.AccessKeyDisabled",
 					"Forbidden.AccessKey":
-					return nil, errors.Wrapf(cloudprovider.ErrInvalidAccessKey, err.Error())
+					return nil, errors.Wrapf(cloudprovider.ErrInvalidAccessKey, "%s", err.Error())
 				case "Forbidden.RAM":
-					return nil, errors.Wrapf(cloudprovider.ErrForbidden, err.Error())
+					return nil, errors.Wrapf(cloudprovider.ErrForbidden, "%s", err.Error())
 				case "404 Not Found", "InstanceNotFound":
 					return nil, errors.Wrap(cloudprovider.ErrNotFound, err.Error())
 				case "OperationDenied.NoStock":
@@ -393,7 +393,7 @@ func _jsonRequest(client *sdk.Client, domain string, version string, apiName str
 	if respBody.Contains("Code") {
 		code, _ := respBody.GetString("Code")
 		if len(code) > 0 && !utils.IsInStringArray(code, []string{"200", "Success"}) {
-			return nil, fmt.Errorf(respBody.String())
+			return nil, fmt.Errorf("%s", respBody.String())
 		}
 	}
 	return respBody, nil
@@ -513,7 +513,7 @@ func (self *SAliyunClient) _getSdkClient(regionId string) (*sdk.Client, error) {
 			}
 		}
 		if self.cpcfg.ReadOnly {
-			return respCheck, errors.Wrapf(cloudprovider.ErrAccountReadOnly, action)
+			return respCheck, errors.Wrapf(cloudprovider.ErrAccountReadOnly, "%s", action)
 		}
 		return respCheck, nil
 	})

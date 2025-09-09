@@ -457,7 +457,7 @@ func (self *SElasticcache) GetAttribute() (*SElasticcacheAttribute, error) {
 	for i := range ret {
 		return &ret[i], nil
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, self.GetId())
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", self.GetId())
 }
 
 func (self *SElasticcache) GetNetInfo() ([]SNetInfo, error) {
@@ -582,7 +582,7 @@ func (self *SRegion) GetElasticCacheAccountByName(instanceId string, accountName
 	for i := range ret {
 		return &ret[i], nil
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, accountName)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", accountName)
 }
 
 // https://help.aliyun.com/document_detail/63889.html?spm=a2c4g.11186623.6.764.3cb43852R7lnoS

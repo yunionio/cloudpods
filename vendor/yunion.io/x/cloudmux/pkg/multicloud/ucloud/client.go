@@ -157,7 +157,7 @@ func parseUcloudResponse(params SParams, resp jsonutils.JSONObject) (jsonutils.J
 
 	if err.RetCode > 0 {
 		if err.RetCode == 171 {
-			return nil, errors.Wrapf(cloudprovider.ErrInvalidAccessKey, err.Error())
+			return nil, errors.Wrapf(cloudprovider.ErrInvalidAccessKey, "%s", err.Error())
 		}
 		return nil, err
 	}

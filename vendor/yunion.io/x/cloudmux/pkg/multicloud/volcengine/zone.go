@@ -71,7 +71,7 @@ func (zone *SZone) GetGlobalId() string {
 }
 
 func (zone *SZone) GetName() string {
-	return fmt.Sprintf(zone.ZoneId)
+	return fmt.Sprintf("%s", zone.ZoneId)
 }
 
 func (zone *SZone) GetI18n() cloudprovider.SModelI18nTable {
@@ -164,7 +164,7 @@ func (zone *SZone) GetIStorageById(id string) (cloudprovider.ICloudStorage, erro
 			return storages[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", id)
 }
 
 func (self *SRegion) GetStorageTypes(zoneId string) ([]sStorageType, error) {

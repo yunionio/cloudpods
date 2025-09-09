@@ -133,7 +133,7 @@ func (self *SLoadbalancerBackendGroup) GetILoadbalancerBackendById(backendId str
 		}
 	}
 
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, backendId)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", backendId)
 }
 
 func (self *SLoadbalancerBackendGroup) GetProtocolType() string {

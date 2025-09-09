@@ -319,7 +319,7 @@ func (self *SRegion) GetElasticSearch(id string) (*SElasticSearch, error) {
 		ret[i].region = self
 		return &ret[i], nil
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", id)
 }
 
 func (self *SRegion) GetElasticSearchs(ids []string, limit, offset int) ([]SElasticSearch, int, error) {

@@ -706,10 +706,10 @@ func (ae *AzureResponseError) ParseErrorFromJsonResponse(statusCode int, status 
 		return errors.Wrap(cloudprovider.ErrNotFound, msg)
 	}
 	if ae.AzureError.Code == "AuthorizationFailed" {
-		return errors.Wrapf(cloudprovider.ErrForbidden, jsonutils.Marshal(ae).String())
+		return errors.Wrapf(cloudprovider.ErrForbidden, "%s", jsonutils.Marshal(ae).String())
 	}
 	if ae.AzureError.Code == "ResourceCollectionRequestsThrottled" {
-		return errors.Wrapf(cloudprovider.ErrTooManyRequests, jsonutils.Marshal(ae).String())
+		return errors.Wrapf(cloudprovider.ErrTooManyRequests, "%s", jsonutils.Marshal(ae).String())
 	}
 	if len(ae.OdataError.Code) > 0 || len(ae.AzureError.Code) > 0 || (len(ae.Code) > 0 && len(ae.Message) > 0) {
 		return ae
@@ -725,7 +725,7 @@ func _jsonRequest(client *autorest.Client, method, domain, path string, body jso
 	header, body, err := cli.Send(context.TODO(), req, &ae, debug)
 	if err != nil {
 		if strings.Contains(err.Error(), "azure.BearerAuthorizer#WithAuthorization") {
-			return nil, errors.Wrapf(cloudprovider.ErrInvalidAccessKey, err.Error())
+			return nil, errors.Wrapf(cloudprovider.ErrInvalidAccessKey, "%s", err.Error())
 		}
 		return nil, err
 	}

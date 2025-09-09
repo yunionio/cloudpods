@@ -66,5 +66,5 @@ func (region *SRegion) GetDBInstanceGlobalCluster(id string) (*SDBInstanceGlobal
 			return &clusters[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", id)
 }

@@ -196,6 +196,10 @@ func (host *SHost) GetSchedtags() ([]string, error) {
 	return ret, nil
 }
 
+func (host *SHost) GetIpmiInfo() jsonutils.JSONObject {
+	return host.zone.region.GetIpmiInfo(host.Id)
+}
+
 type SHostNic struct {
 	host *SHost
 
@@ -316,6 +320,11 @@ func (region *SRegion) GetHost(id string) (*SHost, error) {
 		return nil, errors.Wrap(err, "get")
 	}
 	return host, nil
+}
+
+func (region *SRegion) GetIpmiInfo(hostId string) jsonutils.JSONObject {
+	resp, _ := modules.Hosts.GetIpmiInfo(region.cli.s, hostId, nil)
+	return resp
 }
 
 func (zone *SZone) GetIHostById(id string) (cloudprovider.ICloudHost, error) {

@@ -267,7 +267,7 @@ func (self *SRegion) GetDisk(id string) (*SDisk, error) {
 			return &disks[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", id)
 }
 
 func (self *SStorage) CreateIDisk(conf *cloudprovider.DiskCreateConfig) (cloudprovider.ICloudDisk, error) {

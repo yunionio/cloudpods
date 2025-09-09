@@ -151,6 +151,9 @@ func (self *SQcloudClient) GetEcsMetrics(opts *cloudprovider.MetricListOptions) 
 		cloudprovider.VM_METRIC_TYPE_MEM_USAGE: {
 			"MemUsage": "",
 		},
+		cloudprovider.VM_METRIC_TYPE_DISK_USAGE: {
+			"CvmDiskUsage": "",
+		},
 		cloudprovider.VM_METRIC_TYPE_NET_BPS_TX: {
 			"lanOuttraffic": cloudprovider.METRIC_TAG_NET_TYPE + ":" + cloudprovider.METRIC_TAG_NET_TYPE_INTRANET,
 			"WanOuttraffic": cloudprovider.METRIC_TAG_NET_TYPE + ":" + cloudprovider.METRIC_TAG_NET_TYPE_INTERNET,

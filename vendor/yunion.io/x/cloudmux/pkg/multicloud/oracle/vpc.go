@@ -104,7 +104,7 @@ func (self *SVpc) GetIWireById(id string) (cloudprovider.ICloudWire, error) {
 			return wires[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", id)
 }
 
 func (self *SVpc) getRegionWire() *SWire {

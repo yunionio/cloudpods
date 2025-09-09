@@ -105,7 +105,7 @@ func (self *SVpc) GetIRouteTableById(routeTableId string) (cloudprovider.ICloudR
 func (self *SVpc) GetIWireById(wireId string) (cloudprovider.ICloudWire, error) {
 	wire := self.getWire()
 	if wire.GetGlobalId() != wireId {
-		return nil, errors.Wrapf(cloudprovider.ErrNotFound, wireId)
+		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", wireId)
 	}
 	return wire, nil
 }
