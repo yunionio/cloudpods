@@ -55,6 +55,8 @@ type SImageOptions struct {
 	S3CheckImageStatus bool   `help:"Enable s3 check image status"`
 
 	ImageStreamWorkerCount int `help:"Image stream worker count" default:"10"`
+
+	VerifyImageStatusIntervalMinutes int `help:"verify image status periodically, default 15 minutes" default:"15"`
 }
 
 var (

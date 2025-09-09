@@ -389,3 +389,18 @@ func (self *SImageSubformat) SetStatusSeeding(seeding bool) {
 		torrent.SetTorrentSeeding(filePath, seeding)
 	}
 }
+
+func (subimg *SImageSubformat) verifyStatusSelf(ctx context.Context) error {
+	if len(subimg.Location) == 0 {
+		return nil
+	}
+	filePath := subimg.Location
+	_, rc, err := GetImage(ctx, filePath)
+	if err != nil {
+		subimg.SetStatus(api.IMAGE_STATUS_UNKNOWN)
+		return errors.Wrap(err, "GetImage")
+	}
+	defer rc.Close()
+	subimg.SetStatus(api.IMAGE_STATUS_ACTIVE)
+	return nil
+}
