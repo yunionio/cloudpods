@@ -56,6 +56,7 @@ type GuestRuntimeInstance interface {
 	IsSuspend() bool
 	IsLoaded() bool
 	GetNicDescMatch(mac, ip, port, bridge string) *desc.SGuestNetwork
+	GetIpv6NicMacs(bridge string) []string
 	CleanGuest(ctx context.Context, params interface{}) (jsonutils.JSONObject, error)
 	CleanDirtyGuest(ctx context.Context) error
 	ImportServer(pendingDelete bool)
@@ -170,6 +171,16 @@ func (s *sBaseGuestInstance) GetNicDescMatch(mac, ip, port, bridge string) *desc
 		}
 	}
 	return nil
+}
+
+func (s *sBaseGuestInstance) GetIpv6NicMacs(bridge string) []string {
+	macs := []string{}
+	for _, nic := range s.Desc.Nics {
+		if nic.Bridge == bridge && len(nic.Ip6) > 0 {
+			macs = append(macs, nic.Mac)
+		}
+	}
+	return macs
 }
 
 func LoadGuestCpuset(m *SGuestManager, s GuestRuntimeInstance) error {
