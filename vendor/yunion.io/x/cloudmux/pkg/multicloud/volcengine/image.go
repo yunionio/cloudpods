@@ -249,7 +249,7 @@ func (region *SRegion) GetImage(imageId string) (*SImage, error) {
 			return &images[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, imageId)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", imageId)
 }
 
 func (region *SRegion) GetImageByName(name string) (*SImage, error) {
@@ -262,7 +262,7 @@ func (region *SRegion) GetImageByName(name string) (*SImage, error) {
 			return &images[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, name)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", name)
 }
 
 func (region *SRegion) GetImageStatus(imageId string) (ImageStatusType, error) {

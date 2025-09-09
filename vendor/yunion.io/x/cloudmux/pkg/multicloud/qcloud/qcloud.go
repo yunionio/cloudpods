@@ -365,13 +365,13 @@ func _baseJsonRequest(client *common.Client, req tchttp.Request, resp qcloudResp
 					"InvalidParameter.PermissionDenied",
 					"AuthFailure",
 				}) {
-				return nil, errors.Wrapf(cloudprovider.ErrNoPermission, err.Error())
+				return nil, errors.Wrapf(cloudprovider.ErrNoPermission, "%s", err.Error())
 			}
 			if utils.IsInStringArray(e.Code, []string{
 				"AuthFailure.SecretIdNotFound",
 				"AuthFailure.SignatureFailure",
 			}) {
-				return nil, errors.Wrapf(cloudprovider.ErrInvalidAccessKey, err.Error())
+				return nil, errors.Wrapf(cloudprovider.ErrInvalidAccessKey, "%s", err.Error())
 			}
 			if utils.IsInStringArray(e.Code, []string{
 				"InvalidParameter.RoleNotExist",
@@ -379,7 +379,7 @@ func _baseJsonRequest(client *common.Client, req tchttp.Request, resp qcloudResp
 				"FailedOperation.CertificateNotFound",
 				"ResourceNotFound.OrganizationNotExist",
 			}) {
-				return nil, errors.Wrapf(cloudprovider.ErrNotFound, err.Error())
+				return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", err.Error())
 			}
 
 			if utils.IsInStringArray(e.Code, []string{
@@ -512,7 +512,7 @@ func (client *SQcloudClient) getSdkClient(regionId string) (*common.Client, erro
 					return respCheck, nil
 				}
 			}
-			return nil, errors.Wrapf(cloudprovider.ErrAccountReadOnly, action)
+			return nil, errors.Wrapf(cloudprovider.ErrAccountReadOnly, "%s", action)
 		}
 		return respCheck, nil
 	}))

@@ -121,7 +121,7 @@ func (self *SZone) GetIStorageById(id string) (cloudprovider.ICloudStorage, erro
 			return storages[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", id)
 }
 
 func (self *SZone) GetIWires() ([]cloudprovider.ICloudWire, error) {

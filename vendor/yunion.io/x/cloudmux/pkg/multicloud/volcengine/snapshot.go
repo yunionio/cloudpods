@@ -172,7 +172,7 @@ func (self *SRegion) GetSnapshot(id string) (*SSnapshot, error) {
 			return &snapshots[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", id)
 }
 
 func (self *SRegion) GetISnapshotById(id string) (cloudprovider.ICloudSnapshot, error) {

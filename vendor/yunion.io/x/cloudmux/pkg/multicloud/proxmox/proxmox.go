@@ -349,7 +349,7 @@ func (cli *SProxmoxClient) upload(node, storageName, filename string, reader io.
 		return nil, err
 	}
 	if obj.Contains("errors") {
-		return nil, fmt.Errorf(string(data))
+		return nil, fmt.Errorf("%s", string(data))
 	}
 
 	now := time.Now()

@@ -81,7 +81,7 @@ func (self *SRegion) GetDBInstanceAccounts(id string, pageNumber, pageSize int) 
 		return nil, 0, errors.Wrapf(err, "DescribeAccounts")
 	}
 	if resp.Error.Code >= 400 {
-		err = fmt.Errorf(resp.Error.Message)
+		err = fmt.Errorf("%s", resp.Error.Message)
 		return nil, 0, err
 	}
 	total := resp.Result.TotalCount

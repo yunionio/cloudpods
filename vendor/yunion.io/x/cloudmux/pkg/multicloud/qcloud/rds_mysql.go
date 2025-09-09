@@ -479,12 +479,12 @@ func (self *SRegion) waitAsyncAction(action string, resId, asyncRequestId string
 	return cloudprovider.Wait(time.Second*10, time.Minute*20, func() (bool, error) {
 		result, err := self.DescribeMySQLAsyncRequestInfo(asyncRequestId)
 		if err != nil {
-			return false, errors.Wrapf(err, action)
+			return false, errors.Wrapf(err, "%s", action)
 		}
 		log.Debugf("task %s(%s) for mysql instance %s status: %s", action, asyncRequestId, resId, result.Status)
 		switch result.Status {
 		case "FAILED", "KILLED", "REMOVED", "PAUSED":
-			return true, errors.Errorf(result.Info)
+			return true, errors.Errorf("%s", result.Info)
 		case "SUCCESS":
 			return true, nil
 		default:
@@ -881,7 +881,7 @@ func (self *SRegion) GetMySQLInstanceById(id string) (*SMySQLInstance, error) {
 		return nil, errors.Wrapf(cloudprovider.ErrDuplicateId, "id: [%s]", id)
 	}
 	if total < 1 {
-		return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
+		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", id)
 	}
 	part[0].region = self
 	return &part[0], nil

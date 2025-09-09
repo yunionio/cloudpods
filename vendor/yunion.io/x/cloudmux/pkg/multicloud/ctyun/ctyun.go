@@ -136,7 +136,7 @@ func (self *sCtyunError) ParseErrorFromJsonResponse(statusCode int, status strin
 		body.Unmarshal(self)
 	}
 	if strings.Contains(self.Message, "signature verification failed") {
-		return errors.Wrapf(cloudprovider.ErrInvalidAccessKey, jsonutils.Marshal(self).String())
+		return errors.Wrapf(cloudprovider.ErrInvalidAccessKey, "%s", jsonutils.Marshal(self).String())
 	}
 	return self
 }
@@ -314,10 +314,10 @@ func (self *SCtyunClient) request(method httputils.THttpMethod, service, resourc
 		return resp, nil
 	}
 	if strings.HasSuffix(ret.ErrorCode, "NotFound") || ret.ErrorCode == "ebs.ebsInfo.get volume resourceId failed" {
-		return nil, errors.Wrapf(cloudprovider.ErrNotFound, resp.String())
+		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", resp.String())
 	}
 	log.Errorf("request %s with params %s error: %s", uri, jsonutils.Marshal(body).String(), resp.String())
-	return nil, fmt.Errorf(resp.String())
+	return nil, fmt.Errorf("%s", resp.String())
 }
 
 func (self *SCtyunClient) GetIRegions() ([]cloudprovider.ICloudRegion, error) {
@@ -370,7 +370,7 @@ func (self *SCtyunClient) GetRegion(id string) (*SRegion, error) {
 			return &self.regions[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", id)
 }
 
 func (self *SCtyunClient) GetCloudRegionExternalIdPrefix() string {

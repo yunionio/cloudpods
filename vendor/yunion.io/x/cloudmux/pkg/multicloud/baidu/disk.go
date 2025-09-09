@@ -309,7 +309,7 @@ func (region *SRegion) CreateDisk(storageType, zoneName string, opts *cloudprovi
 	for _, id := range ret.VolumeIds {
 		return region.GetDisk(id)
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, resp.String())
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", resp.String())
 }
 
 func (region *SRegion) ResizeDisk(diskId string, sizeGb int64) error {

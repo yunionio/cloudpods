@@ -135,11 +135,11 @@ func (self *SNatGateway) GetINatSTable() ([]cloudprovider.ICloudNatSEntry, error
 }
 
 func (self *SNatGateway) GetINatDEntryById(id string) (cloudprovider.ICloudNatDEntry, error) {
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", id)
 }
 
 func (self *SNatGateway) GetINatSEntryById(id string) (cloudprovider.ICloudNatSEntry, error) {
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", id)
 }
 
 func (self *SNatGateway) CreateINatDEntry(rule cloudprovider.SNatDRule) (cloudprovider.ICloudNatDEntry, error) {
@@ -235,7 +235,7 @@ func (self *SRegion) GetNatGateway(id string) (*SNatGateway, error) {
 			return &nats[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", id)
 }
 
 func (self *SVpc) GetINatGateways() ([]cloudprovider.ICloudNatGateway, error) {

@@ -79,7 +79,7 @@ func (self *SDisk) Refresh() error {
 			return jsonutils.Update(self, disks[i])
 		}
 	}
-	return errors.Wrapf(cloudprovider.ErrNotFound, self.VolId)
+	return errors.Wrapf(cloudprovider.ErrNotFound, "%s", self.VolId)
 }
 
 func (self *SDisk) Delete(ctx context.Context) error {
@@ -150,7 +150,7 @@ func (self *SDisk) Resize(ctx context.Context, sizeMb int64) error {
 			return self.storage.zone.region.ResizeDisk(vm.Node, self.Vmid, disk.Driver, int(sizeMb-int64(self.GetDiskSizeMB()))/1024)
 		}
 	}
-	return errors.Wrapf(cloudprovider.ErrNotFound, self.VolId)
+	return errors.Wrapf(cloudprovider.ErrNotFound, "%s", self.VolId)
 }
 
 func (self *SDisk) GetTemplateId() string {

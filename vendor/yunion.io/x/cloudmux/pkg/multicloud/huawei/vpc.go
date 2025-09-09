@@ -122,7 +122,7 @@ func (self *SVpc) GetIWireById(wireId string) (cloudprovider.ICloudWire, error) 
 			return wires[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, wireId)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", wireId)
 }
 
 func (self *SVpc) GetINatGateways() ([]cloudprovider.ICloudNatGateway, error) {
