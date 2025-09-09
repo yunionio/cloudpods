@@ -2347,3 +2347,69 @@ func (img *SImage) markDataImage(userCred mcclient.TokenCredential) error {
 	db.OpsLog.LogEvent(img, db.ACT_UPDATE, diff, userCred)
 	return nil
 }
+
+func (manager *SImageManager) FetchImages(filter func(q *sqlchemy.SQuery) *sqlchemy.SQuery) ([]SImage, error) {
+	q := manager.Query()
+	if filter != nil {
+		q = filter(q)
+	}
+	images := make([]SImage, 0)
+	err := db.FetchModelObjects(manager, q, &images)
+	if err != nil {
+		return nil, errors.Wrap(err, "db.FetchModelObjects")
+	}
+	return images, nil
+}
+
+func (manager *SImageManager) VerifyActiveImageStatus(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
+	images, err := manager.FetchImages(func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+		return q.In("status", []string{api.IMAGE_STATUS_ACTIVE, api.IMAGE_STATUS_UNKNOWN})
+	})
+	if err != nil {
+		log.Errorf("FetchImages failed: %s", err)
+		return
+	}
+	for i := range images {
+		img := &images[i]
+		err := img.verifyStatus(ctx, userCred)
+		if err != nil {
+			log.Errorf("VerifyStatus %s(%s) failed: %s", img.Id, img.Name, err)
+		}
+	}
+}
+
+func (img *SImage) verifyStatus(ctx context.Context, userCred mcclient.TokenCredential) error {
+	errs := make([]error, 0)
+	subImages := ImageSubformatManager.GetAllSubImages(img.Id)
+	for i := range subImages {
+		err := subImages[i].verifyStatusSelf(ctx)
+		if err != nil {
+			errs = append(errs, err)
+		}
+	}
+	err := img.verifyStatusSelf(ctx, userCred)
+	if err != nil {
+		errs = append(errs, err)
+	}
+	if len(errs) > 0 {
+		return errors.NewAggregate(errs)
+	}
+	return nil
+}
+
+func (img *SImage) verifyStatusSelf(ctx context.Context, userCred mcclient.TokenCredential) error {
+	if len(img.Location) == 0 {
+		return nil
+	}
+	filePath := img.Location
+	_, rc, err := GetImage(ctx, filePath)
+	if err != nil {
+		img.SetStatus(ctx, userCred, api.IMAGE_STATUS_UNKNOWN, errors.Wrap(err, "verifyStatusSelf").Error())
+		return errors.Wrap(err, "GetImage")
+	}
+	defer rc.Close()
+	if img.Status != api.IMAGE_STATUS_ACTIVE {
+		img.SetStatus(ctx, userCred, api.IMAGE_STATUS_ACTIVE, "verifyStatusSelf")
+	}
+	return nil
+}

@@ -58,6 +58,8 @@ type SImageOptions struct {
 	S3UploadParallel   int    `help:"s3 upload parallel count" default:"4"`
 
 	ImageStreamWorkerCount int `help:"Image stream worker count" default:"10"`
+
+	VerifyImageStatusIntervalMinutes int `help:"verify image status periodically, default 15 minutes" default:"15"`
 }
 
 var (
