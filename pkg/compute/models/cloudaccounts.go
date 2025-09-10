@@ -1189,7 +1189,7 @@ func (acnt *SCloudaccount) importSubAccount(ctx context.Context, userCred mcclie
 		}
 		provider.markProviderConnected(ctx, userCred, subAccount.HealthStatus)
 		provider.updateName(ctx, userCred, subAccount.Name, subAccount.Desc)
-		if provider.ExternalId != subAccount.Id {
+		if len(provider.ExternalId) == 0 || provider.ExternalId != subAccount.Id {
 			_, err := db.Update(provider, func() error {
 				provider.ExternalId = subAccount.Id
 				return nil
