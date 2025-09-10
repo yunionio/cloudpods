@@ -28,6 +28,7 @@ import (
 	"yunion.io/x/pkg/util/encode"
 	"yunion.io/x/pkg/util/fileutils"
 	"yunion.io/x/pkg/util/imagetools"
+	"yunion.io/x/pkg/util/stringutils"
 	"yunion.io/x/pkg/utils"
 
 	billing_api "yunion.io/x/cloudmux/pkg/apis/billing"
@@ -384,6 +385,12 @@ func (instance *SInstance) StopVM(ctx context.Context, opts *cloudprovider.Serve
 }
 
 func (instance *SInstance) DeleteVM(ctx context.Context) error {
+	if instance.DeletionProtection {
+		err := instance.host.zone.region.DisableDeletionProtection(instance.SelfLink)
+		if err != nil {
+			return errors.Wrapf(err, "DisableDeletionProtection(%s)", instance.Name)
+		}
+	}
 	return instance.host.zone.region.Delete(instance.SelfLink)
 }
 
@@ -507,7 +514,9 @@ func getDiskInfo(disk string) (cloudprovider.SDiskInfo, error) {
 	result := cloudprovider.SDiskInfo{}
 	diskInfo := strings.Split(disk, ":")
 	for _, d := range diskInfo {
-		if utils.IsInStringArray(d, []string{api.STORAGE_GOOGLE_PD_STANDARD, api.STORAGE_GOOGLE_PD_SSD, api.STORAGE_GOOGLE_LOCAL_SSD, api.STORAGE_GOOGLE_PD_BALANCED}) {
+		if utils.IsInStringArray(d, []string{
+			api.STORAGE_GOOGLE_PD_STANDARD, api.STORAGE_GOOGLE_PD_SSD, api.STORAGE_GOOGLE_LOCAL_SSD, api.STORAGE_GOOGLE_PD_BALANCED, api.STORAGE_GOOGLE_PD_EXTREME,
+			api.STORAGE_GOOGLE_HYPERDISK_THROUGHPUT, api.STORAGE_GOOGLE_HYPERDISK_ML, api.STORAGE_GOOGLE_HYPERDISK_BALANCED, api.STORAGE_GOOGLE_HYPERDISK_EXTREME}) {
 			result.StorageType = d
 		} else if memSize, err := fileutils.GetSizeMb(d, 'M', 1024); err == nil {
 			result.SizeGB = memSize >> 10
@@ -520,17 +529,17 @@ func getDiskInfo(disk string) (cloudprovider.SDiskInfo, error) {
 	}
 
 	if result.SizeGB == 0 {
-		return result, fmt.Errorf("Missing disk size")
+		return result, fmt.Errorf("missing disk size")
 	}
 	return result, nil
 }
 
 func (region *SRegion) CreateInstance(zone, name, desc, instanceType string, cpu, memoryMb int, networkId string, ipAddr, imageId string, disks []string) (*SInstance, error) {
 	if len(instanceType) == 0 && (cpu == 0 || memoryMb == 0) {
-		return nil, fmt.Errorf("Missing instanceType or cpu &memory info")
+		return nil, fmt.Errorf("missing instanceType or cpu &memory info")
 	}
 	if len(disks) == 0 {
-		return nil, fmt.Errorf("Missing disk info")
+		return nil, fmt.Errorf("missing disk info")
 	}
 	sysDisk, err := getDiskInfo(disks[0])
 	if err != nil {
@@ -669,6 +678,14 @@ func (region *SRegion) StopInstance(id string) error {
 func (region *SRegion) ResetInstance(id string) error {
 	params := map[string]string{}
 	return region.Do(id, "reset", nil, jsonutils.Marshal(params))
+}
+
+func (region *SRegion) DisableDeletionProtection(id string) error {
+	params := map[string]string{
+		"requestId":          stringutils.UUID4(),
+		"deletionProtection": "false",
+	}
+	return region.Do(id, "setDeletionProtection", params, nil)
 }
 
 func (region *SRegion) DetachDisk(instanceId, deviceName string) error {
