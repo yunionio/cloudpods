@@ -60,6 +60,8 @@ type SImageOptions struct {
 	S3DirectDownload bool `help:"enable s3 direct download" default:"true"`
 
 	ImageStreamWorkerCount int `help:"Image stream worker count" default:"10"`
+
+	VerifyImageStatusIntervalMinutes int `help:"verify image status periodically, default 15 minutes" default:"15"`
 }
 
 var (
