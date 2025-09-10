@@ -41,7 +41,6 @@ func (m *SMonitorScopedResourceManager) FilterByOwner(ctx context.Context, q *sq
 	case rbacscope.ScopeDomain:
 		q = q.Equals("domain_id", ownerId.GetProjectDomainId())
 	case rbacscope.ScopeProject:
-
 		q = q.Equals("tenant_id", ownerId.GetProjectId())
 	}
 	return q
