@@ -233,6 +233,9 @@ func (self *SMongoDB) GetPort() int {
 }
 
 func (self *SMongoDB) GetReplicationNum() int {
+	if self.DBInstanceType == "sharding" {
+		return len(self.ShardList.ShardAttribute)
+	}
 	if len(self.ReplicationFactor) == 0 {
 		self.Refresh()
 	}

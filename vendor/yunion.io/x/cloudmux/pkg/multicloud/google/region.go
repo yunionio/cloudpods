@@ -848,13 +848,26 @@ func (region *SRegion) CreateIDBInstance(desc *cloudprovider.SManagedDBInstanceC
 }
 
 func (region *SRegion) GetIVMs() ([]cloudprovider.ICloudVM, error) {
-	instances, err := region.GetInstances("", 0, "")
+	if utils.IsInStringArray(region.Name, MultiRegions) || utils.IsInStringArray(region.Name, DualRegions) {
+		return []cloudprovider.ICloudVM{}, nil
+	}
+	zones, err := region.GetIZones()
 	if err != nil {
 		return nil, err
 	}
-	iVMs := []cloudprovider.ICloudVM{}
-	for i := range instances {
-		iVMs = append(iVMs, &instances[i])
+	ret := []cloudprovider.ICloudVM{}
+	for i := range zones {
+		hosts, err := zones[i].GetIHosts()
+		if err != nil {
+			return nil, err
+		}
+		for j := range hosts {
+			instances, err := hosts[j].GetIVMs()
+			if err != nil {
+				return nil, err
+			}
+			ret = append(ret, instances...)
+		}
 	}
-	return iVMs, nil
+	return ret, nil
 }

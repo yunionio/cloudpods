@@ -35,13 +35,18 @@ import (
 
 var (
 	EngineVersions = map[string]GoogleSQLVersion{
-		"MYSQL_5_5":                 GoogleSQLVersion{Engine: api.DBINSTANCE_TYPE_MYSQL, Version: "5.5"},
-		"MYSQL_5_6":                 GoogleSQLVersion{Engine: api.DBINSTANCE_TYPE_MYSQL, Version: "5.6"},
-		"MYSQL_5_7":                 GoogleSQLVersion{Engine: api.DBINSTANCE_TYPE_MYSQL, Version: "5.7"},
-		"POSTGRES_9_6":              GoogleSQLVersion{Engine: api.DBINSTANCE_TYPE_POSTGRESQL, Version: "9.6"},
-		"POSTGRES_10":               GoogleSQLVersion{Engine: api.DBINSTANCE_TYPE_POSTGRESQL, Version: "10"},
-		"POSTGRES_11":               GoogleSQLVersion{Engine: api.DBINSTANCE_TYPE_POSTGRESQL, Version: "11"},
-		"POSTGRES_12":               GoogleSQLVersion{Engine: api.DBINSTANCE_TYPE_POSTGRESQL, Version: "12"},
+		"MYSQL_5_5":    GoogleSQLVersion{Engine: api.DBINSTANCE_TYPE_MYSQL, Version: "5.5"},
+		"MYSQL_5_6":    GoogleSQLVersion{Engine: api.DBINSTANCE_TYPE_MYSQL, Version: "5.6"},
+		"MYSQL_5_7":    GoogleSQLVersion{Engine: api.DBINSTANCE_TYPE_MYSQL, Version: "5.7"},
+		"MYSQL_8_0_41": GoogleSQLVersion{Engine: api.DBINSTANCE_TYPE_MYSQL, Version: "8.0"},
+		"MYSQL_8_0_40": GoogleSQLVersion{Engine: api.DBINSTANCE_TYPE_MYSQL, Version: "8.0"},
+
+		"POSTGRES_9_6": GoogleSQLVersion{Engine: api.DBINSTANCE_TYPE_POSTGRESQL, Version: "9.6"},
+		"POSTGRES_10":  GoogleSQLVersion{Engine: api.DBINSTANCE_TYPE_POSTGRESQL, Version: "10"},
+		"POSTGRES_11":  GoogleSQLVersion{Engine: api.DBINSTANCE_TYPE_POSTGRESQL, Version: "11"},
+		"POSTGRES_12":  GoogleSQLVersion{Engine: api.DBINSTANCE_TYPE_POSTGRESQL, Version: "12"},
+		"POSTGRES_14":  GoogleSQLVersion{Engine: api.DBINSTANCE_TYPE_POSTGRESQL, Version: "14"},
+
 		"SQLSERVER_2017_STANDARD":   GoogleSQLVersion{Engine: api.DBINSTANCE_TYPE_SQLSERVER, Version: "2017 Standard"},
 		"SQLSERVER_2017_ENTERPRISE": GoogleSQLVersion{Engine: api.DBINSTANCE_TYPE_SQLSERVER, Version: "2017 Enterprise"},
 		"SQLSERVER_2017_EXPRESS":    GoogleSQLVersion{Engine: api.DBINSTANCE_TYPE_SQLSERVER, Version: "2017 Express"},
@@ -265,6 +270,15 @@ func (rds *SDBInstance) GetEngine() string {
 	if e, ok := EngineVersions[rds.DatabaseVersion]; ok {
 		return e.Engine
 	}
+	if strings.Contains(rds.DatabaseVersion, "MYSQL") {
+		return api.DBINSTANCE_TYPE_MYSQL
+	}
+	if strings.Contains(rds.DatabaseVersion, "POSTGRES") {
+		return api.DBINSTANCE_TYPE_POSTGRESQL
+	}
+	if strings.Contains(rds.DatabaseVersion, "SQLSERVER") {
+		return api.DBINSTANCE_TYPE_SQLSERVER
+	}
 	return rds.DatabaseVersion
 }
 
@@ -272,7 +286,11 @@ func (rds *SDBInstance) GetEngineVersion() string {
 	if e, ok := EngineVersions[rds.DatabaseVersion]; ok {
 		return e.Version
 	}
-	return rds.DatabaseVersion
+	version := strings.TrimPrefix(rds.DatabaseVersion, "MYSQL_")
+	version = strings.TrimPrefix(version, "POSTGRES_")
+	version = strings.TrimPrefix(version, "SQLSERVER_")
+	version = strings.ReplaceAll(version, "_", ".")
+	return version
 }
 
 func (rds *SDBInstance) GetInstanceType() string {

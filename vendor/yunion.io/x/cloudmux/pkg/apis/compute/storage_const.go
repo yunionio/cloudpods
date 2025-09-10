@@ -87,10 +87,15 @@ const (
 	STORAGE_ZSTACK_SHARED_BLOCK  = "sharedblock"
 
 	// Google storage type
-	STORAGE_GOOGLE_LOCAL_SSD   = "local-ssd"   //本地SSD暂存盘 (最多8个)
-	STORAGE_GOOGLE_PD_STANDARD = "pd-standard" //标准永久性磁盘
-	STORAGE_GOOGLE_PD_SSD      = "pd-ssd"      //SSD永久性磁盘
-	STORAGE_GOOGLE_PD_BALANCED = "pd-balanced" //平衡永久性磁盘
+	STORAGE_GOOGLE_LOCAL_SSD            = "local-ssd"            //本地SSD暂存盘 (最多8个)
+	STORAGE_GOOGLE_PD_STANDARD          = "pd-standard"          //标准永久性磁盘
+	STORAGE_GOOGLE_PD_SSD               = "pd-ssd"               //SSD永久性磁盘
+	STORAGE_GOOGLE_PD_BALANCED          = "pd-balanced"          //平衡永久性磁盘
+	STORAGE_GOOGLE_PD_EXTREME           = "pd-extreme"           //极端永久性磁盘
+	STORAGE_GOOGLE_HYPERDISK_THROUGHPUT = "hyperdisk-throughput" //Hyperdisk Throughput
+	STORAGE_GOOGLE_HYPERDISK_ML         = "hyperdisk-ml"         //Hyperdisk ML
+	STORAGE_GOOGLE_HYPERDISK_BALANCED   = "hyperdisk-balanced"   //平衡 Hyperdisk
+	STORAGE_GOOGLE_HYPERDISK_EXTREME    = "hyperdisk-extreme"    //Hyperdisk Extreme
 
 	// ctyun storage type
 	STORAGE_CTYUN_SSD        = "SSD"        // 超高IO云硬盘
