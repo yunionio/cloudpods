@@ -398,6 +398,8 @@ func (m *SGuestManager) Bootstrap() (chan struct{}, error) {
 		go m.cpufreqSimulateManager.StartSetCpuFreqSimulate()
 	}
 
+	m.host.OnGuestLoadingComplete()
+
 	return m.dirtyServersChan, nil
 }
 
@@ -570,8 +572,12 @@ func (m *SGuestManager) CPUSetRemove(ctx context.Context, sid string) error {
 	return guest.CPUSetRemove(ctx)
 }
 
-func (m *SGuestManager) IsGuestDir(f os.FileInfo) bool {
-	return hostutils.IsGuestDir(f, m.ServersPath)
+func (m *SGuestManager) IsGuestDir(f os.DirEntry) bool {
+	fi, err := f.Info()
+	if err != nil {
+		return false
+	}
+	return hostutils.IsGuestDir(fi, m.ServersPath)
 }
 
 func (m *SGuestManager) IsGuestExist(sid string) bool {
@@ -583,7 +589,7 @@ func (m *SGuestManager) IsGuestExist(sid string) bool {
 }
 
 func (m *SGuestManager) LoadExistingGuests() {
-	files, err := ioutil.ReadDir(m.ServersPath)
+	files, err := os.ReadDir(m.ServersPath)
 	if err != nil {
 		log.Errorf("List servers path %s error %s", m.ServersPath, err)
 	}
@@ -601,7 +607,7 @@ func (m *SGuestManager) GetServerDescFilePath(sid string) string {
 
 func (m *SGuestManager) GetServerDesc(sid string) (*desc.SGuestDesc, error) {
 	descPath := m.GetServerDescFilePath(sid)
-	descStr, err := ioutil.ReadFile(descPath)
+	descStr, err := os.ReadFile(descPath)
 	if err != nil {
 		return nil, errors.Wrapf(err, "read file %s", descPath)
 	}
@@ -700,6 +706,19 @@ func (m *SGuestManager) GetGuestNicDesc(
 		return true
 	})
 	return guestDesc, nic
+}
+
+func (m *SGuestManager) GetAllGuestIPv6Macs(bridge string) []string {
+	macs := []string{}
+	m.Servers.Range(func(k, v interface{}) bool {
+		guest := v.(GuestRuntimeInstance)
+		if guest.IsLoaded() {
+			nicMacs := guest.GetIpv6NicMacs(bridge)
+			macs = append(macs, nicMacs...)
+		}
+		return true
+	})
+	return macs
 }
 
 func (m *SGuestManager) getGuestNicDescInCandidate(
