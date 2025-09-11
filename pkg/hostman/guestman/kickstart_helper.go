@@ -22,6 +22,7 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"regexp"
 	"runtime/debug"
 	"strings"
 	"time"
@@ -43,6 +44,12 @@ const (
 	KICKSTART_ISO_DIR_PREFIX          = "/tmp/kickstart-iso"
 	REDHAT_KICKSTART_ISO_VOLUME_LABEL = "OEMDRV"
 	UBUNTU_KICKSTART_ISO_VOLUME_LABEL = "CIDATA"
+)
+
+var (
+	kickstartInstallingRegex = regexp.MustCompile(`(?i).*KICKSTART_INSTALLING.*`)
+	kickstartCompletedRegex  = regexp.MustCompile(`(?i).*KICKSTART_COMPLETED.*`)
+	kickstartFailedRegex     = regexp.MustCompile(`(?i).*KICKSTART_FAILED.*`)
 )
 
 type SKickstartSerialMonitor struct {
@@ -189,28 +196,31 @@ func (m *SKickstartSerialMonitor) scanSerialForStatus(lastSize *int64) error {
 
 		log.Debugf("Received serial message for server %s: %s", m.serverId, line)
 
-		if line == "KICKSTART_INSTALLING" || line == "KICKSTART_COMPLETED" || line == "KICKSTART_FAILED" {
-			log.Infof("Kickstart status update for server %s: %s", m.serverId, line)
+		var status string
+		var shouldClose bool = false
+		var matched bool = false
 
-			// TODO: logic should vary based on the status
-			var status string
-			var shouldClose bool = false
-			switch line {
-			case "KICKSTART_INSTALLING":
-				status = api.VM_KICKSTART_INSTALLING
-				shouldClose = false
-			case "KICKSTART_COMPLETED":
-				status = api.VM_KICKSTART_COMPLETED
-				shouldClose = true
-				// Unmount ISO and restart VM if kickstart install successfully
-				if err := m.handleKickstartCompleted(); err != nil {
-					log.Errorf("Failed to handle kickstart success for server %s: %v", m.serverId, err)
-				}
-			case "KICKSTART_FAILED":
-				// TODO: auto retry or alert and stop
-				status = api.VM_KICKSTART_FAILED
-				shouldClose = true
+		if kickstartInstallingRegex.MatchString(line) {
+			status = api.VM_KICKSTART_INSTALLING
+			shouldClose = false
+			matched = true
+		} else if kickstartCompletedRegex.MatchString(line) {
+			status = api.VM_KICKSTART_COMPLETED
+			shouldClose = true
+			matched = true
+			// Unmount ISO and restart VM if kickstart install successfully
+			if err := m.handleKickstartCompleted(); err != nil {
+				log.Errorf("Failed to handle kickstart success for server %s: %v", m.serverId, err)
 			}
+		} else if kickstartFailedRegex.MatchString(line) {
+			// TODO: auto retry or alert and stop
+			status = api.VM_KICKSTART_FAILED
+			shouldClose = true
+			matched = true
+		}
+
+		if matched {
+			log.Infof("Kickstart status update for server %s: %s (matched: %s)", m.serverId, status, line)
 
 			if err := m.updateKickstartStatus(status); err != nil {
 				log.Errorf("Failed to update kickstart status for server %s: %v", m.serverId, err)
