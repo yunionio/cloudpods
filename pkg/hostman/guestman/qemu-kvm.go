@@ -1395,7 +1395,7 @@ func (s *SKVMGuestInstance) getHotpluggableCPUList() ([]monitor.HotpluggableCPU,
 	var errChan = make(chan error)
 	cb := func(cpuList []monitor.HotpluggableCPU, err string) {
 		if err != "" {
-			errChan <- errors.Errorf(err)
+			errChan <- errors.Errorf("%s", err)
 		} else {
 			res = cpuList
 			errChan <- nil
@@ -1497,7 +1497,7 @@ func (s *SKVMGuestInstance) getPciDevices() ([]monitor.PCIInfo, error) {
 	var errChan = make(chan error)
 	cb := func(pciInfoList []monitor.PCIInfo, err string) {
 		if err != "" {
-			errChan <- errors.Errorf(err)
+			errChan <- errors.Errorf("%s", err)
 		} else {
 			res = pciInfoList
 			errChan <- nil
@@ -1513,7 +1513,7 @@ func (s *SKVMGuestInstance) getMemoryDevs() ([]monitor.Memdev, error) {
 	var errChan = make(chan error)
 	cb := func(memDevs []monitor.Memdev, err string) {
 		if err != "" {
-			errChan <- errors.Errorf(err)
+			errChan <- errors.Errorf("%s", err)
 		} else {
 			res = memDevs
 			errChan <- nil
@@ -1529,7 +1529,7 @@ func (s *SKVMGuestInstance) getMemoryDevices() ([]monitor.MemoryDeviceInfo, erro
 	var errChan = make(chan error)
 	cb := func(memoryDevicesInfoList []monitor.MemoryDeviceInfo, err string) {
 		if err != "" {
-			errChan <- errors.Errorf(err)
+			errChan <- errors.Errorf("%s", err)
 		} else {
 			res = memoryDevicesInfoList
 			errChan <- nil
@@ -2012,6 +2012,14 @@ func (s *SKVMGuestInstance) StartDelete(ctx context.Context, migrated bool) erro
 		s.ForceStop()
 		time.Sleep(time.Second * 1)
 	}
+	// ensure interface down
+	for i := range s.Desc.Nics {
+		scriptPath := s.getNicDownScriptPath(s.Desc.Nics[i])
+		out, err := procutils.NewRemoteCommandAsFarAsPossible("bash", scriptPath).Output()
+		if err != nil {
+			log.Errorf("failed run nic down script %s: %s", out, err)
+		}
+	}
 	return s.Delete(ctx, migrated, false)
 }
 
@@ -2234,7 +2242,7 @@ func (s *SKVMGuestInstance) scriptStart(ctx context.Context) error {
 		err = proc.Signal(syscall.Signal(0))
 		if err != nil { // qemu process exited
 			log.Errorf("Guest %s check qemu(%d) process failed: %s", s.Id, pid, err)
-			return errors.Errorf(s.readQemuLogFileEnd(64))
+			return errors.Errorf("%s", s.readQemuLogFileEnd(64))
 		}
 		if err = s.StartMonitor(ctx, nil, true); err == nil {
 			return nil
@@ -2407,10 +2415,7 @@ func (s *SKVMGuestInstance) compareDescFloppys(newDesc *desc.SGuestDesc) []*desc
 
 func (s *SKVMGuestInstance) compareDescNetworks(newDesc *desc.SGuestDesc,
 ) ([]*desc.SGuestNetwork, []*desc.SGuestNetwork, [][2]*desc.SGuestNetwork) {
-	var isValid = func(net *desc.SGuestNetwork) bool {
-		return net.Driver == "virtio" || net.Driver == "vfio-pci"
-	}
-	var isChangeNetworkValid = func(net *desc.SGuestNetwork) bool {
+	var isValidHotplug = func(net *desc.SGuestNetwork) bool {
 		return net.Driver == "virtio" || net.Driver == "vfio-pci"
 	}
 
@@ -2426,28 +2431,26 @@ func (s *SKVMGuestInstance) compareDescNetworks(newDesc *desc.SGuestDesc,
 	var delNics, addNics = []*desc.SGuestNetwork{}, []*desc.SGuestNetwork{}
 	var changedNics = [][2]*desc.SGuestNetwork{}
 	for _, n := range newDesc.Nics {
-		if isValid(n) {
-			newNic := *n
-			// assume all nics in new desc are new
-			addNics = append(addNics, &newNic)
-		}
+		newNic := *n
+		// assume all nics in new desc are new
+		addNics = append(addNics, &newNic)
 	}
 
 	for _, n := range s.Desc.Nics {
-		if isValid(n) {
-			idx := findNet(addNics, n)
-			if idx >= 0 {
-				if isChangeNetworkValid(n) {
-					// check if bridge changed
-					changedNics = append(changedNics, [2]*desc.SGuestNetwork{
-						n,            // old
-						addNics[idx], // new
-					})
-				}
+		idx := findNet(addNics, n)
+		if idx >= 0 {
+			// check if bridge changed
+			changedNics = append(changedNics, [2]*desc.SGuestNetwork{
+				n,            // old
+				addNics[idx], // new
+			})
 
+			if isValidHotplug(n) {
 				// remove existing nic from new
 				addNics = append(addNics[:idx], addNics[idx+1:]...)
-			} else {
+			}
+		} else {
+			if isValidHotplug(n) {
 				// not found, remove the nic
 				delNics = append(delNics, n)
 			}
@@ -2470,63 +2473,64 @@ func getNicBridge(nic *desc.SGuestNetwork) string {
 
 func (s *SKVMGuestInstance) onNicChange(oldNic, newNic *desc.SGuestNetwork) error {
 	log.Infof("nic changed old: %s new: %s", jsonutils.Marshal(oldNic), jsonutils.Marshal(newNic))
-	// override network base desc
-	oldNic.GuestnetworkBaseDesc = newNic.GuestnetworkBaseDesc
-
 	if oldNic.Driver == "vfio-pci" {
-		err := s.reconfigureVfioNicsBandwidth(oldNic)
+		err := s.reconfigureVfioNicsBandwidth(newNic)
 		if err != nil {
 			log.Errorf("failed configure %s:%s vfio nics bandwidth %s", s.GetId(), oldNic.Mac, err)
 		}
 		return nil
-	}
+	} else if oldNic.Driver == "virtio" {
+		oldbr := getNicBridge(oldNic)
+		oldifname := oldNic.Ifname
+		newbr := getNicBridge(newNic)
+		newifname := newNic.Ifname
+		newvlan := newNic.Vlan
 
-	oldbr := getNicBridge(oldNic)
-	oldifname := oldNic.Ifname
-	newbr := getNicBridge(newNic)
-	newifname := newNic.Ifname
-	newvlan := newNic.Vlan
-	if oldbr != newbr {
-		// bridge changed
-		if oldifname == newifname {
-			args := []string{
-				"--", "del-port", oldbr, oldifname,
-				"--", "add-port", newbr, newifname,
-			}
-			if newvlan > 1 {
-				args = append(args, fmt.Sprintf("tag=%d", newvlan))
-			}
-			output, err := procutils.NewRemoteCommandAsFarAsPossible("ovs-vsctl", args...).Output()
-			log.Infof("ovs-vsctl %v: %s", args, output)
-			if err != nil {
-				return errors.Wrap(err, "NewRemoteCommandAsFarAsPossible")
-			}
-		} else {
-			log.Errorf("cannot change both bridge(%s!=%s) and ifname(%s!=%s)!!!!!", oldbr, newbr, oldifname, newifname)
-		}
-	} else {
-		// bridge not changed
-		if oldifname == newifname {
-			if newvlan > 1 {
-				output, err := procutils.NewRemoteCommandAsFarAsPossible("ovs-vsctl", "set", "port", newifname, fmt.Sprintf("tag=%d", newvlan)).Output()
+		if oldbr != newbr {
+			// bridge changed
+			if oldifname == newifname {
+				args := []string{
+					"--", "del-port", oldbr, oldifname,
+					"--", "add-port", newbr, newifname,
+				}
+				if newvlan > 1 {
+					args = append(args, fmt.Sprintf("tag=%d", newvlan))
+				}
+				output, err := procutils.NewRemoteCommandAsFarAsPossible("ovs-vsctl", args...).Output()
+				log.Infof("ovs-vsctl %v: %s", args, output)
 				if err != nil {
-					return errors.Wrapf(err, "NewRemoteCommandAsFarAsPossible change vlan tag to %d: %s", newvlan, output)
+					return errors.Wrap(err, "NewRemoteCommandAsFarAsPossible")
 				}
 			} else {
-				// clear vlan
-				output, err := procutils.NewRemoteCommandAsFarAsPossible("ovs-vsctl", "get", "port", newifname, "tag").Output()
-				if err != nil {
-					return errors.Wrapf(err, "NewRemoteCommandAsFarAsPossible get vlan tag: %s", output)
-				}
-				tagStr := strings.TrimSpace(string(output))
-				if tag, err := strconv.Atoi(tagStr); err == nil && tag > 1 {
-					if output, err := procutils.NewRemoteCommandAsFarAsPossible("ovs-vsctl", "remove", "port", newifname, "tag", tagStr).Output(); err != nil {
-						return errors.Wrapf(err, "NewRemoteCommandAsFarAsPossible remove vlan tag %s: %s", tagStr, output)
+				log.Errorf("cannot change both bridge(%s!=%s) and ifname(%s!=%s)!!!!!", oldbr, newbr, oldifname, newifname)
+			}
+		} else {
+			// bridge not changed
+			if oldifname == newifname {
+				if newvlan > 1 {
+					output, err := procutils.NewRemoteCommandAsFarAsPossible("ovs-vsctl", "set", "port", newifname, fmt.Sprintf("tag=%d", newvlan)).Output()
+					if err != nil {
+						return errors.Wrapf(err, "NewRemoteCommandAsFarAsPossible change vlan tag to %d: %s", newvlan, output)
+					}
+				} else {
+					// clear vlan
+					output, err := procutils.NewRemoteCommandAsFarAsPossible("ovs-vsctl", "get", "port", newifname, "tag").Output()
+					if err != nil {
+						return errors.Wrapf(err, "NewRemoteCommandAsFarAsPossible get vlan tag: %s", output)
+					}
+					tagStr := strings.TrimSpace(string(output))
+					if tag, err := strconv.Atoi(tagStr); err == nil && tag > 1 {
+						if output, err := procutils.NewRemoteCommandAsFarAsPossible("ovs-vsctl", "remove", "port", newifname, "tag", tagStr).Output(); err != nil {
+							return errors.Wrapf(err, "NewRemoteCommandAsFarAsPossible remove vlan tag %s: %s", tagStr, output)
+						}
 					}
 				}
 			}
 		}
 	}
+
+	// override network base desc
+	oldNic.GuestnetworkBaseDesc = newNic.GuestnetworkBaseDesc
 	return nil
 }
 

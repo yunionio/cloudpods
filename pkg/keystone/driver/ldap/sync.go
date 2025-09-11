@@ -18,7 +18,7 @@ import (
 	"context"
 	"database/sql"
 
-	"gopkg.in/ldap.v3"
+	"github.com/go-ldap/ldap/v3"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"

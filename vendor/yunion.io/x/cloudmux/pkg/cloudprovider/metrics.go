@@ -62,38 +62,38 @@ const (
 	// RDS监控指标
 
 	// RDS CPU利用率
-	// 支持的平台: huawei, aliyun, apsara, azure, jdcloud, qcloud, aws
+	// 支持的平台: huawei, aliyun, apsara, azure, jdcloud, qcloud, aws, hcso
 	// 仅azure的sqlserver支持group_by = database
 	RDS_METRIC_TYPE_CPU_USAGE TMetricType = "rds_cpu.usage_active"
 	// RDS 内存利用率
-	// 支持平台: huawei, aliyun, apsara, azure, jdcloud, qcloud
+	// 支持平台: huawei, aliyun, apsara, azure, jdcloud, qcloud, hcso
 	// 仅azure的sqlserver支持group_by = database
 	RDS_METRIC_TYPE_MEM_USAGE TMetricType = "rds_mem.used_percent"
 	// RDS 网络入流量
-	// 支持平台: huawei, aliyun, apsara, azure, aws, jdcloud, qcloud
+	// 支持平台: huawei, aliyun, apsara, azure, aws, jdcloud, qcloud, hcso
 	// 仅azure的sqlserver支持group_by = database
 	RDS_METRIC_TYPE_NET_BPS_RX TMetricType = "rds_netio.bps_recv"
 	// RDS 网络出流量
-	// 支持平台: huawei, aliyun, apsara, azure, aws, jdcloud, qcloud
+	// 支持平台: huawei, aliyun, apsara, azure, aws, jdcloud, qcloud, hcso
 	// 仅azure的sqlserver支持group_by = database
 	RDS_METRIC_TYPE_NET_BPS_TX TMetricType = "rds_netio.bps_sent"
 
 	// RDS磁盘使用率
-	// 支持平台: huawei, aliyun, apsara, azure, jdcloud, qcloud
+	// 支持平台: huawei, aliyun, apsara, azure, jdcloud, qcloud, hcso
 	// 仅azure的sqlserver支持group_by = database
 	RDS_METRIC_TYPE_DISK_USAGE TMetricType = "rds_disk.used_percent"
 	// RDS磁盘读取IO
-	// 支持平台: huawei
+	// 支持平台: huawei, hcso
 	RDS_METRIC_TYPE_DISK_READ_BPS TMetricType = "rds_diskio.read_bps"
 	// RDS磁盘写IO
-	// 支持平台: huawei
+	// 支持平台: huawei, hcso
 	RDS_METRIC_TYPE_DISK_WRITE_BPS TMetricType = "rds_diskio.write_bps"
 	// ---
 	// 支持平台: azure
 	RDS_METRIC_TYPE_DISK_IO_PERCENT TMetricType = "rds_diskio.used_percent"
 
 	// RDS 连接数
-	// 支持平台: huawei, aws, qcloud
+	// 支持平台: huawei, aws, qcloud, hcso
 	RDS_METRIC_TYPE_CONN_COUNT TMetricType = "rds_conn.used_count"
 	// RDS 活跃连接数
 	// 支持平台: azure
@@ -108,47 +108,47 @@ const (
 	METRIC_TAG_DATABASE = "database"
 
 	// RDS QPS(每秒查询数)
-	// 支持平台: huawei, qcloud, aliyun, apsara
+	// 支持平台: huawei, qcloud, aliyun, apsara, hcso
 	RDS_METRIC_TYPE_QPS TMetricType = "rds_qps.query_qps"
 	// RDS TPS
-	// 支持平台: huawei, qcloud
+	// 支持平台: huawei, qcloud, hcso
 	RDS_METRIC_TYPE_TPS TMetricType = "rds_tps.trans_qps"
 	// RDS innodb读IO
-	// 支持平台: huawei, qcloud
+	// 支持平台: huawei, qcloud, hcso
 	RDS_METRIC_TYPE_INNODB_READ_BPS TMetricType = "rds_innodb.read_bps"
 	// RDS innodb写IO
-	// 支持平台 huawei, qcloud
+	// 支持平台 huawei, qcloud, hcso
 	RDS_METRIC_TYPE_INNODB_WRITE_BPS TMetricType = "rds_innodb.write_bps"
 
 	// 虚拟机CPU使用率
-	// 支持平台: kvm, huawei, aliyun, apsara, azure, esxi, google, bingocloud, aws, jdcloud, ecloud, zstack, qcloud, volcengine
+	// 支持平台: kvm, huawei, aliyun, apsara, azure, esxi, google, bingocloud, aws, jdcloud, ecloud, zstack, qcloud, volcengine, baidu, ctyun, oracle
 	VM_METRIC_TYPE_CPU_USAGE TMetricType = "vm_cpu.usage_active"
 	// 虚拟机内存使用率
-	// 支持平台: kvm, aliyun, apsara, azure, esxi, bingocloud, jdcloud, ecloud, qcloud, volcengine
+	// 支持平台: kvm, aliyun, apsara, azure, esxi, bingocloud, jdcloud, ecloud, qcloud, volcengine, baidu, ctyun, oracle
 	VM_METRIC_TYPE_MEM_USAGE TMetricType = "vm_mem.used_percent"
 	// 虚拟机磁盘使用率
-	// 支持平台: aliyun, apsara, jdcloud, azure
+	// 支持平台: aliyun, apsara, jdcloud, azure, baidu, ctyun, huawei, hcso, volcengine, qcloud
 	// 支持按盘符(group_by=device)平台: aliyun, apsara
 	VM_METRIC_TYPE_DISK_USAGE TMetricType = "vm_disk.used_percent"
 
 	// 虚拟机磁盘读速率
-	// 支持平台: huawei, aliyun, apsara, azure, esxi, google, bingocloud, aws, jdcloud, ecloud, zstack, volcengine
+	// 支持平台: huawei, aliyun, apsara, azure, esxi, google, bingocloud, aws, jdcloud, ecloud, zstack, volcengine, ctyun, hcso, oracle
 	VM_METRIC_TYPE_DISK_IO_READ_BPS TMetricType = "vm_diskio.read_bps"
 	// 虚拟机磁盘写速率
-	// 支持平台: huawei, aliyun, apsara, azure, esxi, google, bingocloud, aws, jdcloud, ecloud, zstack, volcengine
+	// 支持平台: huawei, aliyun, apsara, azure, esxi, google, bingocloud, aws, jdcloud, ecloud, zstack, volcengine, ctyun, hcso, oracle
 	VM_METRIC_TYPE_DISK_IO_WRITE_BPS TMetricType = "vm_diskio.write_bps"
 	// 虚拟机磁盘读IOPS
-	// 支持平台: huawei, aliyun, apsara, azure, google, bingocloud, aws, jdcloud, ecloud, zstack, volcengine
+	// 支持平台: huawei, aliyun, apsara, azure, google, bingocloud, aws, jdcloud, ecloud, zstack, volcengine, ctyun, oracle
 	VM_METRIC_TYPE_DISK_IO_READ_IOPS TMetricType = "vm_diskio.read_iops"
 	// 虚拟机磁盘写IOPS
-	// 支持平台: huawei, aliyun, apsara, azure, google, bingocloud, aws, jdcloud, ecloud, zstack, volcengine
+	// 支持平台: huawei, aliyun, apsara, azure, google, bingocloud, aws, jdcloud, ecloud, zstack, volcengine, ctyun, oracle
 	VM_METRIC_TYPE_DISK_IO_WRITE_IOPS TMetricType = "vm_diskio.write_iops"
 
 	// 虚拟机网络入速率
-	// 支持平台: huawei, aliyun, apsara, azure, esxi, google, bingocloud, aws, jdcloud, ecloud, zstack, qcloud, volcengine
+	// 支持平台: huawei, aliyun, apsara, azure, esxi, google, bingocloud, aws, jdcloud, ecloud, zstack, qcloud, volcengine, baidu, ctyun, hcso, oracle
 	VM_METRIC_TYPE_NET_BPS_RX TMetricType = "vm_netio.bps_recv"
 	// 虚拟机网络出速率
-	// 支持平台: huawei, aliyun, apsara, azure, esxi, google, bingocloud, aws, jdcloud, ecloud, zstack, qcloud, volcengine
+	// 支持平台: huawei, aliyun, apsara, azure, esxi, google, bingocloud, aws, jdcloud, ecloud, zstack, qcloud, volcengine, baidu, ctyun, hcso, oracle
 	VM_METRIC_TYPE_NET_BPS_TX TMetricType = "vm_netio.bps_sent"
 
 	// 虚拟机TCP连接数
@@ -159,28 +159,28 @@ const (
 	VM_METRIC_TYPE_PROCESS_NUMBER = "vm_process.number"
 
 	// 宿主机CPU使用率
-	// 支持平台: esxi
+	// 支持平台: esxi, bingocloud, zstack
 	HOST_METRIC_TYPE_CPU_USAGE TMetricType = "cpu.usage_active"
 	// 宿主机内存使用率
-	// 支持平台: esxi
+	// 支持平台: esxi, bingocloud, zstack
 	HOST_METRIC_TYPE_MEM_USAGE TMetricType = "mem.used_percent"
 	// 宿主机磁盘读速率
-	// 支持平台: esxi
+	// 支持平台: esxi, bingocloud, zstack
 	HOST_METRIC_TYPE_DISK_IO_READ_BPS TMetricType = "diskio.read_bps"
 	// 宿主机磁盘写速率
-	// 支持平台: esxi
+	// 支持平台: esxi, bingocloud, zstack
 	HOST_METRIC_TYPE_DISK_IO_WRITE_BPS TMetricType = "diskio.write_bps"
 	// 宿主机网络入速率
-	// 支持平台: esxi
+	// 支持平台: esxi, bingocloud, zstack
 	HOST_METRIC_TYPE_NET_BPS_RX TMetricType = "net.bps_recv"
 	// 宿主机网络出速率
-	// 支持平台: esxi
+	// 支持平台: esxi, bingocloud, zstack
 	HOST_METRIC_TYPE_NET_BPS_TX TMetricType = "net.bps_sent"
 	//宿主机磁盘读IOPS
-	// 支持平台: bingocloud
+	// 支持平台: bingocloud, zstack
 	HOST_METRIC_TYPE_DISK_IO_READ_IOPS TMetricType = "diskio.read_iops"
 	//宿主机磁盘写IOPS
-	// 支持平台: bingocloud
+	// 支持平台: bingocloud, zstack
 	HOST_METRIC_TYPE_DISK_IO_WRITE_IOPS TMetricType = "diskio.write_iops"
 
 	// Redis CPU使用率
@@ -216,40 +216,40 @@ const (
 	// 支持平台: azure
 	LB_METRIC_TYPE_SNAT_CONN_COUNT TMetricType = "haproxy.snat_conn_count"
 	// 入带宽速率
-	// 支持平台: huawei, aliyun, apsara
+	// 支持平台: huawei, aliyun, apsara, hcso
 	LB_METRIC_TYPE_NET_BPS_RX TMetricType = "haproxy.bin"
 	// 出带宽速率
-	// 支持平台: huawei, aliyun, apsara
+	// 支持平台: huawei, aliyun, apsara, hcso
 	LB_METRIC_TYPE_NET_BPS_TX TMetricType = "haproxy.bout"
 	// 入包速率
-	// 支持平台: aliyun, apsara
+	// 支持平台: apsara
 	LB_METRIC_TYPE_NET_PACKET_RX TMetricType = "haproxy.packet_rx"
 	// 出包速率
-	// 支持平台: aliyun, apsara
+	// 支持平台: apsara
 	LB_METRIC_TYPE_NET_PACKET_TX TMetricType = "haproxy.packet_tx"
 	// 非活跃连接数
-	// 支持平台: apsara, aliyun, huawei
+	// 支持平台: apsara
 	LB_METRIC_TYPE_NET_INACTIVE_CONNECTION = "haproxy.inactive_connection"
 	// 活跃连接数
-	// 支持平台: apsara, aliyun, huawei
+	// 支持平台: hcso
 	LB_METRIC_TYPE_NET_ACTIVE_CONNECTION = "haproxy.active_connection"
 	// 最大并发数
-	// 支持平台: apsara, aliyun, huawei
+	// 支持平台: apsara, hcso
 	LB_METRIC_TYPE_MAX_CONNECTION = "haproxy.max_connection"
 	// 后端异常ECS实例个数
-	// 支持平台: apsara, aliyun
+	// 支持平台: apsara
 	LB_METRIC_TYPE_UNHEALTHY_SERVER_COUNT = "haproxy.unhealthy_server_count"
 	// 状态码统计
 	// 支持平台: huawei, aliyun, apsara
 	LB_METRIC_TYPE_HRSP_COUNT TMetricType = "haproxy.hrsp_Nxx"
 	// 入方向丢弃流量
-	// 支持平台: aliyun
+	// 支持平台: aliyun, apsara
 	LB_METRIC_TYPE_DROP_TRAFFIC_TX = "haproxy.drop_traffic_tx"
 	// 出方向丢弃流量
 	// 支持平台: aliyun, apsara
 	LB_METRIC_TYPE_DROP_TRAFFIC_RX = "haproxy.drop_traffic_rx"
 	// 入方向丢弃包数
-	// 支持平台: aliyun
+	// 支持平台: aliyun, apsara
 	LB_METRIC_TYPE_DROP_PACKET_TX = "haproxy.drop_packet_tx"
 	// 出方向丢弃包数
 	// 支持平台: aliyun, apsara
@@ -265,7 +265,7 @@ const (
 	// 支持平台: huawei, aliyun, apsara
 	BUCKET_METRIC_TYPE_LATECY TMetricType = "oss_latency.req_late"
 	// 总请求数量
-	// 支持平台: huawei, aliyun, apsara
+	// 支持平台: huawei, aliyun, apsara, hcso
 	BUCKET_METRYC_TYPE_REQ_COUNT TMetricType = "oss_req.req_count"
 	// 服务端请求错误数量
 	// 支持平台: aliyun, apsara, volcengine
@@ -280,7 +280,7 @@ const (
 	// 支持平台: aliyun, apsara, volcengine
 	BUCKET_METRIC_TYPE_REQ_2XX_COUNT TMetricType = "oss_req.2xx_count"
 	// 存储总容量(bit)
-	// 支持平台: aliyun, apsara
+	// 支持平台: aliyun, apsara, volcengine
 	BUCKET_METRIC_TYPE_STORAGE_SIZE = "oss_storage.size"
 
 	METRIC_TAG_REQUST      = "request"
@@ -339,11 +339,14 @@ const (
 	WIRE_METRIC_TYPE_NET_UNREACHABLE_RATE TMetricType = "wire_net.unreachable_rate" // 不可达率
 
 	// EIP入带宽
+	// 支持平台: aliyun, apsara
 	EIP_METRIC_TYPE_NET_BPS_RX TMetricType = "eip_net.bps_recv"
 	// EIP出带宽
+	// 支持平台: aliyun, apsara
 	EIP_METRIC_TYPE_NET_BPS_TX TMetricType = "eip_net.bps_sent"
 
 	// EIP 出方向限速丢包率
+	// 支持平台: aliyun, apsara
 	EIP_METRIC_TYPE_NET_DROP_SPEED_TX TMetricType = "eip_net.drop_speed_rx"
 )
 

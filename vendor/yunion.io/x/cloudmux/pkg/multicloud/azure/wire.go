@@ -98,7 +98,7 @@ func (self *SWire) GetINetworkById(netid string) (cloudprovider.ICloudNetwork, e
 			return networks[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, netid)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", netid)
 }
 
 func (self *SWire) GetINetworks() ([]cloudprovider.ICloudNetwork, error) {

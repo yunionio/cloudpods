@@ -92,7 +92,7 @@ func (self *SRegion) GetIZoneById(id string) (cloudprovider.ICloudZone, error) {
 			return zones[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", id)
 }
 
 func (self *SRegion) GetClusters() ([]SCluster, error) {

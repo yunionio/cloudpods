@@ -290,7 +290,7 @@ func (self *SRegion) GetICloudWafInstanceById(id string) (cloudprovider.ICloudWa
 			return &wafs[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", id)
 }
 
 func (self *SRegion) GetWafInstance(domain, domainId, instanceId string) (*SWafInstance, error) {

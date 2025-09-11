@@ -159,7 +159,7 @@ func jsonRequest(client *sdk.Client, domain, apiVersion, apiName string, params 
 			}
 			for _, code := range []string{"404 Not Found", "EntityNotExist.Role", "EntityNotExist.Group"} {
 				if strings.Contains(err.Error(), code) {
-					return nil, errors.Wrapf(cloudprovider.ErrNotFound, err.Error())
+					return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", err.Error())
 				}
 			}
 			for _, code := range []string{
@@ -236,11 +236,11 @@ func _jsonRequest(client *sdk.Client, domain string, version string, apiName str
 	if body.Contains("Code") {
 		code, _ := body.GetString("Code")
 		if len(code) > 0 && !utils.IsInStringArray(code, []string{"200"}) {
-			return nil, fmt.Errorf(body.String())
+			return nil, fmt.Errorf("%s", body.String())
 		}
 	}
 	if body.Contains("errorKey") {
-		return nil, errors.Errorf(body.String())
+		return nil, errors.Errorf("%s", body.String())
 	}
 	return body, nil
 }
@@ -297,7 +297,7 @@ func (self *SApsaraClient) getDefaultClient(regionId string) (*sdk.Client, error
 							return respCheck, nil
 						}
 					}
-					return nil, errors.Wrapf(cloudprovider.ErrAccountReadOnly, action)
+					return nil, errors.Wrapf(cloudprovider.ErrAccountReadOnly, "%s", action)
 				}
 				return respCheck, nil
 			}),

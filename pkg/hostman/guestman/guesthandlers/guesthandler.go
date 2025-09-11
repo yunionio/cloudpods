@@ -995,18 +995,20 @@ func qgaSetNetwork(ctx context.Context, userCred mcclient.TokenCredential, sid s
 	if input.Device == "" {
 		return nil, httperrors.NewMissingParameterError("device")
 	}
-	if input.Ipmask == "" {
+	if input.Ipmask == "" && input.Ip6mask == "" {
 		return nil, httperrors.NewMissingParameterError("ipmask")
 	}
-	if input.Gateway == "" {
+	if input.Gateway == "" && input.Gateway6 == "" {
 		return nil, httperrors.NewMissingParameterError("gateway")
 	}
 
 	hostutils.DelayTask(ctx, guestman.GetGuestManager().QgaSetNetwork, &guestman.SQgaGuestSetNetwork{
-		Sid:     sid,
-		Device:  input.Device,
-		Ipmask:  input.Ipmask,
-		Gateway: input.Gateway,
+		Sid:      sid,
+		Device:   input.Device,
+		Ipmask:   input.Ipmask,
+		Gateway:  input.Gateway,
+		Ip6mask:  input.Ip6mask,
+		Gateway6: input.Gateway6,
 	})
 
 	return nil, nil

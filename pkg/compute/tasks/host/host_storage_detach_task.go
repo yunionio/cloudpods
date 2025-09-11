@@ -81,5 +81,5 @@ func (self *HostStorageDetachTask) OnDetachStorageComplete(ctx context.Context, 
 }
 
 func (self *HostStorageDetachTask) OnDetachStorageCompleteFailed(ctx context.Context, host *models.SHost, reason jsonutils.JSONObject) {
-	self.taskFail(ctx, host, errors.Errorf(reason.String()))
+	self.taskFail(ctx, host, errors.Errorf("%s", reason.String()))
 }

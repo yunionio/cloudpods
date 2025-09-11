@@ -233,7 +233,7 @@ func (self *SRegion) GetELbBackend(backendId string) (*SElbBackend, error) {
 			return &ret.TargetHealthDescriptions[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, backendId)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", backendId)
 }
 
 func parseElbBackendId(id string) (string, string, int, error) {

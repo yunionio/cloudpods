@@ -148,7 +148,7 @@ func (self *SKubeNodePool) GetIKubeNodePool(ctx context.Context) (cloudprovider.
 			return pools[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, self.ExternalId)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", self.ExternalId)
 }
 
 func (manager *SKubeNodePoolManager) FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {

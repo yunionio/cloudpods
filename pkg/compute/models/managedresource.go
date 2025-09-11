@@ -300,6 +300,19 @@ func (manager *SManagedResourceBaseManager) QueryDistinctExtraField(q *sqlchemy.
 	return q, httperrors.ErrNotFound
 }
 
+func (manager *SManagedResourceBaseManager) QueryDistinctExtraFields(q *sqlchemy.SQuery, resource string, fields []string) (*sqlchemy.SQuery, error) {
+	switch resource {
+	case CloudproviderManager.Keyword():
+		cpQuery := CloudproviderManager.Query().SubQuery()
+		for _, field := range fields {
+			q = q.AppendField(cpQuery.Field(field))
+		}
+		q = q.Join(cpQuery, sqlchemy.Equals(q.Field("manager_id"), cpQuery.Field("id")))
+		return q, nil
+	}
+	return q, httperrors.ErrNotFound
+}
+
 func (manager *SManagedResourceBaseManager) OrderByExtraFields(
 	ctx context.Context,
 	q *sqlchemy.SQuery,

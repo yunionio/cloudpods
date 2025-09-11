@@ -79,7 +79,7 @@ func (self *SElasticacheUser) Refresh() error {
 			return jsonutils.Update(self, users[i])
 		}
 	}
-	return errors.Wrapf(cloudprovider.ErrNotFound, self.UserId)
+	return errors.Wrapf(cloudprovider.ErrNotFound, "%s", self.UserId)
 }
 
 func (self *SElasticacheUser) GetAccountType() string {

@@ -263,6 +263,15 @@ func (manager *SMountTargetManager) QueryDistinctExtraField(q *sqlchemy.SQuery, 
 	return q, httperrors.ErrNotFound
 }
 
+func (manager *SMountTargetManager) QueryDistinctExtraFields(q *sqlchemy.SQuery, resource string, fields []string) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SVpcResourceBaseManager.QueryDistinctExtraFields(q, resource, fields)
+	if err == nil {
+		return q, nil
+	}
+	return q, httperrors.ErrNotFound
+}
+
 func (self *SMountTarget) GetOwnerId() mcclient.IIdentityProvider {
 	fs, err := self.GetFileSystem()
 	if err != nil {

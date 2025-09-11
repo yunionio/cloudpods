@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 
 	"yunion.io/x/jsonutils"
@@ -54,9 +55,9 @@ type sStorageConf struct {
 	// The messenger v2 protocol, or msgr2, is the second major
 	// revision on Ceph’s on-wire protocol.
 	EnableMessengerV2  bool
-	RadosMonOpTimeout  int64
-	RadosOsdOpTimeout  int64
-	ClientMountTimeout int64
+	RadosMonOpTimeout  int
+	RadosOsdOpTimeout  int
+	ClientMountTimeout int
 }
 
 type SRbdStorage struct {
@@ -102,7 +103,7 @@ func (s *SRbdStorage) getCephClient(pool string) (*cephutils.CephClient, error) 
 	if pool == "" {
 		pool = s.Pool
 	}
-	return cephutils.NewClient(s.MonHost, s.Key, pool, s.EnableMessengerV2)
+	return cephutils.NewClient(s.MonHost, s.Key, pool, s.EnableMessengerV2, s.RadosMonOpTimeout, s.RadosOsdOpTimeout, s.ClientMountTimeout)
 }
 
 func (s *SRbdStorage) getClient() (*cephutils.CephClient, error) {
@@ -139,9 +140,17 @@ func (s *SRbdStorage) GetImgsaveBackupPath() string {
 	return ""
 }
 
+func (s *SRbdStorage) getStorageConfDir() string {
+	workspacePath := filepath.Dir(options.HostOptions.ServersPath)
+	cephConfDir := path.Join(workspacePath, "ceph_config", s.StorageId)
+	return cephConfDir
+}
+
 // Tip Configuration values containing :, @, or = can be escaped with a leading \ character.
 func (s *SRbdStorage) getStorageConfString() string {
-	return cephutils.CephConfString(s.MonHost, s.Key, s.RadosMonOpTimeout, s.RadosOsdOpTimeout, s.ClientMountTimeout)
+	cephConfDir := s.getStorageConfDir()
+	cephConfPath := path.Join(cephConfDir, "ceph.conf")
+	return ":" + fmt.Sprintf("conf=%s", cephConfPath)
 }
 
 func (s *SRbdStorage) listImages() ([]string, error) {
@@ -697,6 +706,25 @@ func (s *SRbdStorage) SetStorageInfo(storageId, storageName string, conf jsonuti
 	if s.ClientMountTimeout == 0 {
 		s.ClientMountTimeout = api.RBD_DEFAULT_MOUNT_TIMEOUT
 	}
+	confDir := s.getStorageConfDir()
+	if err := os.MkdirAll(confDir, os.ModePerm); err != nil {
+		return errors.Wrapf(err, "mkdir all %s", confDir)
+	}
+	confPath := path.Join(confDir, "ceph.conf")
+	keyringPath := path.Join(confDir, "ceph.keyring")
+
+	cli, err := cephutils.NewClientAndPersistentConf(
+		s.MonHost, s.Key, s.Pool,
+		s.EnableMessengerV2, s.RadosMonOpTimeout,
+		s.RadosOsdOpTimeout, s.ClientMountTimeout,
+		confPath, keyringPath,
+	)
+	if err != nil {
+		log.Errorf("failed get ceph client %s:", err)
+		return errors.Wrap(err, "getClient")
+	}
+	defer cli.Close()
+
 	return nil
 }
 

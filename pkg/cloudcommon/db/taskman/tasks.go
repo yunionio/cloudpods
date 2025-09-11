@@ -524,10 +524,10 @@ func execITask(taskValue reflect.Value, task *STask, odata jsonutils.JSONObject,
 		msg := fmt.Sprintf("Stage %s not found", stageName)
 		if taskFailed {
 			// failed handler is optional, ignore the error
-			log.Warningf(msg)
+			log.Warningf("%s", msg)
 			msg, _ = data.GetString()
 		} else {
-			log.Errorf(msg)
+			log.Errorf("%s", msg)
 		}
 		task.SetStageFailed(ctx, jsonutils.NewString(msg))
 		task.SaveRequestContext(&ctxData)
@@ -537,7 +537,7 @@ func execITask(taskValue reflect.Value, task *STask, odata jsonutils.JSONObject,
 	objManager := db.GetModelManager(task.ObjType)
 	if objManager == nil {
 		msg := fmt.Sprintf("model %s %s(%s) not found??? ...", task.ObjType, task.Object, task.ObjId)
-		log.Errorf(msg)
+		log.Errorf("%s", msg)
 		task.SetStageFailed(ctx, jsonutils.NewString(msg))
 		task.SaveRequestContext(&ctxData)
 		return
@@ -546,7 +546,7 @@ func execITask(taskValue reflect.Value, task *STask, odata jsonutils.JSONObject,
 	objResManager, ok := objManager.(db.IStandaloneModelManager)
 	if !ok {
 		msg := fmt.Sprintf("model %s %s(%s) is not a resource??? ...", task.ObjType, task.Object, task.ObjId)
-		log.Errorf(msg)
+		log.Errorf("%s", msg)
 		task.SetStageFailed(ctx, jsonutils.NewString(msg))
 		task.SaveRequestContext(&ctxData)
 		return
@@ -562,7 +562,7 @@ func execITask(taskValue reflect.Value, task *STask, odata jsonutils.JSONObject,
 			obj, err := objResManager.FetchById(objId)
 			if err != nil {
 				msg := fmt.Sprintf("fail to find %s object %s", task.ObjType, objId)
-				log.Errorf(msg)
+				log.Errorf("%s", msg)
 				task.SetStageFailed(ctx, jsonutils.NewString(msg))
 				task.SaveRequestContext(&ctxData)
 				return
@@ -584,7 +584,7 @@ func execITask(taskValue reflect.Value, task *STask, odata jsonutils.JSONObject,
 		obj, err := objResManager.FetchById(task.ObjId)
 		if err != nil {
 			msg := fmt.Sprintf("fail to find %s object %s", task.ObjType, task.ObjId)
-			log.Errorf(msg)
+			log.Errorf("%s", msg)
 			task.SetStageFailed(ctx, jsonutils.NewString(msg))
 			task.SaveRequestContext(&ctxData)
 			return
@@ -1404,7 +1404,7 @@ func (manager *STaskManager) migrateObjectInfo() error {
 	q = q.Filter(sqlchemy.IsNull(taskObj.Field("task_id")))
 	q = q.Asc("created_at")
 
-	q.DebugQuery2("migrateObjectInfo")
+	// q.DebugQuery2("migrateObjectInfo")
 
 	rows, err := q.Rows()
 	if err != nil {

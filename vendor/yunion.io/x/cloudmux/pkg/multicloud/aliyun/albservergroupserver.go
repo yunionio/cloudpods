@@ -37,7 +37,7 @@ func (server *SAlbServerGroupServer) GetName() string {
 }
 
 func (server *SAlbServerGroupServer) GetId() string {
-	return fmt.Sprintf("%s/%s/%d", server.albServerGroup.ServerGroupId, server.ServerId, server.Port)
+	return fmt.Sprintf("%s/%s/%s/%d", server.albServerGroup.ServerGroupId, server.ServerId, server.ServerIp, server.Port)
 }
 
 func (server *SAlbServerGroupServer) GetGlobalId() string {
@@ -60,12 +60,12 @@ func (server *SAlbServerGroupServer) IsEmulated() bool {
 }
 
 func (server *SAlbServerGroupServer) Refresh() error {
-	serverGroup, err := server.albServerGroup.alb.region.GetAlbServerGroup(server.albServerGroup.ServerGroupId)
+	servers, err := server.albServerGroup.alb.region.ListServerGroupServers(server.albServerGroup.ServerGroupId)
 	if err != nil {
 		return err
 	}
 
-	for _, s := range serverGroup.Servers {
+	for _, s := range servers {
 		if s.ServerId == server.ServerId && s.Port == server.Port {
 			return jsonutils.Update(server, &s)
 		}

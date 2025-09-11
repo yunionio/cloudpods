@@ -641,10 +641,10 @@ func getMigrateOptions(drvOpt QemuOptions, input *GenerateStartOptionsInput) []s
 		if input.LiveMigrateUseTLS {
 			opts = append(opts, "-incoming defer")
 		} else {
-			opts = append(opts, fmt.Sprintf("-incoming tcp:0:%d", input.LiveMigratePort))
+			opts = append(opts, fmt.Sprintf("-incoming tcp:[::]:%d", input.LiveMigratePort))
 		}
 	} else if input.GuestDesc.IsSlave {
-		opts = append(opts, fmt.Sprintf("-incoming tcp:0:%d", input.LiveMigratePort))
+		opts = append(opts, fmt.Sprintf("-incoming tcp:[::]:%d", input.LiveMigratePort))
 	}
 	return opts
 }

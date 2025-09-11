@@ -224,7 +224,7 @@ func (self *SGlobalNetwork) CreateISecurityGroup(opts *cloudprovider.SecurityGro
 	}
 	for i := range groups {
 		if groups[i].GetGlobalId() == secgroup.GetGlobalId() {
-			return nil, errors.Wrapf(cloudprovider.ErrDuplicateId, secgroup.GetGlobalId())
+			return nil, errors.Wrapf(cloudprovider.ErrDuplicateId, "%s", secgroup.GetGlobalId())
 		}
 	}
 	rule, err := secgroup.gvpc.client.CreateSecurityGroupRule(secgroup.gvpc.SelfLink, secgroup.Tag, &cloudprovider.SecurityGroupRuleCreateOptions{

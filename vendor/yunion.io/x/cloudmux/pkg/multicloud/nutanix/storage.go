@@ -250,7 +250,7 @@ func (self *SStorage) GetIDiskById(id string) (cloudprovider.ICloudDisk, error) 
 		return nil, err
 	}
 	if disk.StorageContainerUUID != self.GetGlobalId() {
-		return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
+		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", id)
 	}
 	disk.storage = self
 	return disk, nil
@@ -328,5 +328,5 @@ func (self *SRegion) GetIStorageById(id string) (cloudprovider.ICloudStorage, er
 			return storage, nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", id)
 }

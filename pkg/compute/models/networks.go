@@ -2317,23 +2317,7 @@ func (snet *SNetwork) ValidateUpdateData(
 	query jsonutils.JSONObject,
 	input api.NetworkUpdateInput,
 ) (api.NetworkUpdateInput, error) {
-	if !snet.isManaged() {
-		if !snet.isOneCloudVpcNetwork() {
-			// classic network
-		} else {
-			// vpc network, not allow to update ip_start, ip_end, ip_mask, gateway, dhcp
-			input.GuestIpStart = ""
-			input.GuestIpEnd = ""
-			input.GuestIpMask = 0
-			input.GuestGateway = nil
-			input.GuestDhcp = nil
-
-			input.GuestIp6Start = nil
-			input.GuestIp6End = nil
-			input.GuestIp6Mask = nil
-			input.GuestGateway6 = nil
-		}
-	} else {
+	if snet.isManaged() {
 		// managed network, not allow to update
 		input.GuestIpStart = ""
 		input.GuestIpEnd = ""
@@ -2754,9 +2738,11 @@ func (manager *SNetworkManager) ListItemFilter(
 				ipStart := sqlchemy.INET_ATON(q.Field("guest_ip_start"))
 				ipEnd := sqlchemy.INET_ATON(q.Field("guest_ip_end"))
 
+				ipConst := sqlchemy.INET_ATON(q.StringField(ip4Addr.String()))
+
 				ipCondtion = sqlchemy.AND(
-					sqlchemy.GE(ipEnd, uint32(ip4Addr)),
-					sqlchemy.LE(ipStart, uint32(ip4Addr)),
+					sqlchemy.GE(ipEnd, ipConst),
+					sqlchemy.LE(ipStart, ipConst),
 				)
 				if !exactIpMatch {
 					ipCondtion = sqlchemy.OR(
@@ -2767,18 +2753,20 @@ func (manager *SNetworkManager) ListItemFilter(
 				}
 			} else if ip6Addr, err := netutils.NewIPV6Addr(ipstr); err == nil {
 				// ipv6 address, exactly
-				ipStart := q.Field("guest_ip6_start")
-				ipEnd := q.Field("guest_ip6_end")
+				ipStart := sqlchemy.INET6_ATON(q.Field("guest_ip6_start"))
+				ipEnd := sqlchemy.INET6_ATON(q.Field("guest_ip6_end"))
+
+				ipConst := sqlchemy.INET6_ATON(q.StringField(ip6Addr.String()))
 
 				ipCondtion = sqlchemy.AND(
-					sqlchemy.GE(ipEnd, ip6Addr.String()),
-					sqlchemy.LE(ipStart, ip6Addr.String()),
+					sqlchemy.GE(ipEnd, ipConst),
+					sqlchemy.LE(ipStart, ipConst),
 				)
 				if !exactIpMatch {
 					ipCondtion = sqlchemy.OR(
 						ipCondtion,
-						sqlchemy.Contains(q.Field("guest_ip6_start"), ipstr),
-						sqlchemy.Contains(q.Field("guest_ip6_end"), ipstr),
+						sqlchemy.Contains(q.Field("guest_ip6_start"), ip6Addr.String()),
+						sqlchemy.Contains(q.Field("guest_ip6_end"), ip6Addr.String()),
 					)
 				}
 			} else {
@@ -2899,6 +2887,8 @@ func (manager *SNetworkManager) ListItemFilter(
 		subq = subq.Join(hostschedtags, sqlchemy.Equals(hostschedtags.Field("host_id"), subq.Field("baremetal_id")))
 		q = q.In("wire_id", subq.SubQuery())
 	}
+
+	q.DebugQuery()
 
 	return q, nil
 }
@@ -3621,7 +3611,7 @@ func (network *SNetwork) GetUsedAddressDetails(ctx context.Context, addr string)
 			return &address[i], nil
 		}
 	}
-	return nil, errors.Wrapf(errors.ErrNotFound, addr)
+	return nil, errors.Wrapf(errors.ErrNotFound, "%s", addr)
 }
 
 func (network *SNetwork) GetAddressDetails(ctx context.Context, userCred mcclient.TokenCredential, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) ([]api.SNetworkUsedAddress, error) {

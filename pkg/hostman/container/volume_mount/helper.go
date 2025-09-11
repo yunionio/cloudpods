@@ -23,6 +23,14 @@ import (
 	"yunion.io/x/onecloud/pkg/util/procutils"
 )
 
+func TouchFile(file string) error {
+	out, err := procutils.NewRemoteCommandAsFarAsPossible("touch", file).Output()
+	if err != nil {
+		return errors.Wrapf(err, "touch %s: %s", file, out)
+	}
+	return nil
+}
+
 func EnsureDir(dir string) error {
 	out, err := procutils.NewRemoteCommandAsFarAsPossible("mkdir", "-p", dir).Output()
 	if err != nil {
@@ -63,7 +71,15 @@ func ChangeDirOwnerDirectly(hostPath string, fsUser, fsGroup *int64) error {
 	}
 	out, err := procutils.NewRemoteCommandAsFarAsPossible("chown", args, hostPath).Output()
 	if err != nil {
-		return errors.Wrapf(err, "chown -R %s %s: %s", args, hostPath, string(out))
+		return errors.Wrapf(err, "chown %s %s: %s", args, hostPath, string(out))
+	}
+	return nil
+}
+
+func CopyFile(src, dst string) error {
+	out, err := procutils.NewRemoteCommandAsFarAsPossible("cp", src, dst).Output()
+	if err != nil {
+		return errors.Wrapf(err, "cp %s %s: %s", src, dst, string(out))
 	}
 	return nil
 }

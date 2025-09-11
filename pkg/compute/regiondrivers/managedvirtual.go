@@ -116,7 +116,7 @@ func validateUniqueById(ctx context.Context, userCred mcclient.TokenCredential, 
 	}
 
 	if count > 1 {
-		return httperrors.NewDuplicateResourceError(id)
+		return httperrors.NewDuplicateResourceError("%s", id)
 	}
 
 	return nil
@@ -1405,7 +1405,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateDBInstance(ctx cont
 				return iRds, nil
 			}
 			if len(errMsgs) > 0 {
-				return nil, fmt.Errorf(strings.Join(errMsgs, "\n"))
+				return nil, fmt.Errorf("%s", strings.Join(errMsgs, "\n"))
 			}
 			return nil, fmt.Errorf("no avaiable skus %s(%dC%d) for create", dbinstance.InstanceType, desc.VcpuCount, desc.VmemSizeMb)
 		}
@@ -1577,7 +1577,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateDBInstanceFromBacku
 				return iRds, nil
 			}
 			if len(errMsgs) > 0 {
-				return nil, fmt.Errorf(strings.Join(errMsgs, "\n"))
+				return nil, fmt.Errorf("%s", strings.Join(errMsgs, "\n"))
 			}
 			return nil, fmt.Errorf("no avaiable skus %s(%dC%d) for create", rds.InstanceType, desc.VcpuCount, desc.VmemSizeMb)
 		}

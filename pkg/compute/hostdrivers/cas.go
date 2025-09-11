@@ -112,7 +112,7 @@ func (self *SCasHostDriver) CheckAndSetCacheImage(ctx context.Context, userCred 
 				}
 			}
 			if !find {
-				return nil, errors.Wrapf(cloudprovider.ErrNotFound, image.ExternalId)
+				return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", image.ExternalId)
 			}
 			opts.ExternalId = image.ExternalId
 		} else {

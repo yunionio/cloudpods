@@ -208,11 +208,11 @@ func (self *SBaremetalIpmiProbeTask) doRawIpmiProbe(ctx context.Context, cli ipm
 			// ignore error
 			err := errors.Wrapf(err, "ipmitool.GetLanConfig for channel %d failed", lanChannel)
 			errs = append(errs, err)
-			log.Warningf(err.Error())
+			log.Warningf("%s", err.Error())
 		} else if conf.IPAddr == "0.0.0.0" {
 			err := errors.Errorf("get 0.0.0.0 ip address of channel %d", lanChannel)
 			errs = append(errs, err)
-			log.Warningf(err.Error())
+			log.Warningf("%s", err.Error())
 			continue
 		} else {
 			channel = lanChannel

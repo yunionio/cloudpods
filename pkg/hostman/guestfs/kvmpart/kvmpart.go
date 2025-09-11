@@ -255,6 +255,9 @@ func (p *SKVMGuestDiskPartition) fsck() error {
 	case "ntfs":
 		checkCmd = []string{"ntfsfix", "-n", p.partDev}
 		fixCmd = []string{"ntfsfix", p.partDev}
+	case "f2fs":
+		checkCmd = []string{"fsck.f2fs", "-f", p.partDev}
+		fixCmd = []string{"fsck.f2fs", "-a", p.partDev}
 	}
 	if len(checkCmd) > 0 {
 		_, err := procutils.NewCommand(checkCmd[0], checkCmd[1:]...).Output()

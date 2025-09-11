@@ -217,6 +217,16 @@ func (manager *SVpcResourceBaseManager) QueryDistinctExtraField(q *sqlchemy.SQue
 	return q, httperrors.ErrNotFound
 }
 
+func (manager *SVpcResourceBaseManager) QueryDistinctExtraFields(q *sqlchemy.SQuery, resource string, fields []string) (*sqlchemy.SQuery, error) {
+	switch resource {
+	case CloudproviderManager.Keyword():
+		vpcs := VpcManager.Query("id", "manager_id").SubQuery()
+		q = q.LeftJoin(vpcs, sqlchemy.Equals(q.Field("vpc_id"), vpcs.Field("id")))
+		return manager.SManagedResourceBaseManager.QueryDistinctExtraFields(q, resource, fields)
+	}
+	return q, httperrors.ErrNotFound
+}
+
 func (manager *SVpcResourceBaseManager) OrderByExtraFields(
 	ctx context.Context,
 	q *sqlchemy.SQuery,

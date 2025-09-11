@@ -117,7 +117,7 @@ func (self *SQingCloudClient) getUrl(service string) (string, error) {
 	case "ec2":
 		return fmt.Sprintf("https://api.qingcloud.com/iaas/"), nil
 	default:
-		return "", errors.Wrapf(cloudprovider.ErrNotSupported, service)
+		return "", errors.Wrapf(cloudprovider.ErrNotSupported, "%s", service)
 	}
 }
 
@@ -233,9 +233,9 @@ func (self *SQingCloudClient) request(service, action, regionId string, params m
 	if retCode > 0 {
 		// https://docs.qingcloud.com/product/api/common/error_code.html
 		if retCode == 1200 {
-			return nil, errors.Wrapf(cloudprovider.ErrInvalidAccessKey, resp.String())
+			return nil, errors.Wrapf(cloudprovider.ErrInvalidAccessKey, "%s", resp.String())
 		}
-		return nil, errors.Errorf(resp.String())
+		return nil, errors.Errorf("%s", resp.String())
 	}
 	return resp, nil
 }

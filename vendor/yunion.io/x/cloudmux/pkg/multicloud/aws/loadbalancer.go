@@ -343,7 +343,7 @@ func (self *SRegion) GetElbBackendgroup(id string) (*SElbBackendGroup, error) {
 			return &groups[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", id)
 }
 
 func ToAwsHealthCode(s string) string {

@@ -16,6 +16,7 @@ package aliyun
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -251,7 +252,20 @@ func (nlb *SNlb) GetEgressMbps() int {
 }
 
 func (nlb *SNlb) GetIEIPs() ([]cloudprovider.ICloudEIP, error) {
-	return []cloudprovider.ICloudEIP{}, nil
+	ret := []cloudprovider.ICloudEIP{}
+	for _, zone := range nlb.ZoneMappings {
+		for _, addr := range zone.LoadBalancerAddresses {
+			if strings.HasPrefix(addr.AllocationId, "eip-") {
+				eip, err := nlb.region.GetEip(addr.AllocationId)
+				if err != nil {
+					return nil, err
+				}
+				eip.region = nlb.region
+				ret = append(ret, eip)
+			}
+		}
+	}
+	return ret, nil
 }
 
 func (nlb *SNlb) Start() error {

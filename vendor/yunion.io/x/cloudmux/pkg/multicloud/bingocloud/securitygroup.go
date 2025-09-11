@@ -188,7 +188,7 @@ func (self *SRegion) GetISecurityGroupById(id string) (cloudprovider.ICloudSecur
 			return &groups[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", id)
 }
 
 func (self *SRegion) deleteSecurityGroup(id string) error {

@@ -365,6 +365,15 @@ func (manager *SElasticipManager) QueryDistinctExtraField(q *sqlchemy.SQuery, fi
 	return q, httperrors.ErrNotFound
 }
 
+func (manager *SElasticipManager) QueryDistinctExtraFields(q *sqlchemy.SQuery, resource string, fields []string) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SManagedResourceBaseManager.QueryDistinctExtraFields(q, resource, fields)
+	if err == nil {
+		return q, nil
+	}
+	return q, httperrors.ErrNotFound
+}
+
 func (self *SElasticip) GetNetwork() (*SNetwork, error) {
 	network, err := NetworkManager.FetchById(self.NetworkId)
 	if err != nil {
@@ -909,8 +918,9 @@ func (self *SElasticip) AssociateLoadbalancer(ctx context.Context, userCred mccl
 	if len(self.AssociateType) > 0 && len(self.AssociateId) > 0 {
 		if self.AssociateType == api.EIP_ASSOCIATE_TYPE_LOADBALANCER && self.AssociateId == lb.Id {
 			return nil
-		} else {
-			return fmt.Errorf("EIP has been associated!!")
+		}
+		if self.GetAssociateResource() != nil {
+			return fmt.Errorf("eip has been associated!!")
 		}
 	}
 	_, err := db.Update(self, func() error {
@@ -941,7 +951,9 @@ func (self *SElasticip) AssociateInstance(ctx context.Context, userCred mcclient
 		if self.AssociateType == insType && self.AssociateId == ins.GetId() {
 			return nil
 		}
-		return fmt.Errorf("EIP has been associated!!")
+		if self.GetAssociateResource() != nil {
+			return fmt.Errorf("eip has been associated!!")
+		}
 	}
 	_, err := db.Update(self, func() error {
 		self.AssociateType = insType
@@ -971,7 +983,9 @@ func (self *SElasticip) AssociateInstanceGroup(ctx context.Context, userCred mcc
 		if self.AssociateType == insType && self.AssociateId == ins.GetId() {
 			return nil
 		}
-		return fmt.Errorf("EIP has been associated!!")
+		if self.GetAssociateResource() != nil {
+			return fmt.Errorf("eip has been associated!!")
+		}
 	}
 	_, err := db.Update(self, func() error {
 		self.AssociateType = insType
@@ -1500,12 +1514,24 @@ func (manager *SElasticipManager) FetchCustomizeColumns(
 		log.Errorf("FetchIdNameMap2 group")
 		return rows
 	}
+	gns := []SGuestnetwork{}
+	err = GuestnetworkManager.Query().In("guest_id", guestIds).All(&gns)
+	if err != nil {
+		log.Errorf("FetchModelObjects GuestnetworkManager")
+		return rows
+	}
+	gnMap := map[string]string{}
+	for i := range gns {
+		gnMap[gns[i].GuestId] = gns[i].IpAddr
+	}
+
 	for i := range rows {
 		eip := objs[i].(*SElasticip)
 		if len(eip.AssociateId) > 0 {
 			switch eip.AssociateType {
 			case api.EIP_ASSOCIATE_TYPE_SERVER:
 				rows[i].AssociateName, _ = guests[eip.AssociateId]
+				rows[i].ServerPrivateIp = gnMap[eip.AssociateId]
 			case api.EIP_ASSOCIATE_TYPE_LOADBALANCER:
 				rows[i].AssociateName, _ = lbs[eip.AssociateId]
 			case api.EIP_ASSOCIATE_TYPE_NAT_GATEWAY:

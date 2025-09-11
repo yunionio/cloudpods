@@ -267,14 +267,14 @@ func (region *SRegion) CreateDisk(zoneId string, category string, opts *cloudpro
 func (region *SRegion) GetDisk(diskId string) (*SDisk, error) {
 	disks, err := region.GetDisks("", "", "", []string{diskId})
 	if err != nil {
-		return nil, errors.Wrapf(err, fmt.Sprintf("%s not found", diskId))
+		return nil, errors.Wrapf(err, "%s not found", diskId)
 	}
 	for _, disk := range disks {
 		if disk.VolumeId == diskId {
 			return &disk, nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, fmt.Sprintf("%s not found", diskId))
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s not found", diskId)
 }
 
 func (region *SRegion) DeleteDisk(diskId string) error {

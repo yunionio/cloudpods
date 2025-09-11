@@ -252,7 +252,7 @@ func (r *SRegion) GetDisks(instanceId, zoneId, diskType string, diskIds []string
 		return nil, 0, err
 	}
 	if resp.Error.Code >= 400 {
-		return nil, 0, fmt.Errorf(resp.Error.Message)
+		return nil, 0, fmt.Errorf("%s", resp.Error.Message)
 	}
 	total := resp.Result.TotalCount
 	disks := make([]SDisk, 0, len(resp.Result.Disks))
@@ -273,7 +273,7 @@ func (r *SRegion) GetDiskById(id string) (*SDisk, error) {
 		return nil, err
 	}
 	if resp.Error.Code >= 400 {
-		return nil, fmt.Errorf(resp.Error.Message)
+		return nil, fmt.Errorf("%s", resp.Error.Message)
 	}
 	return &SDisk{
 		Disk: resp.Result.Disk,

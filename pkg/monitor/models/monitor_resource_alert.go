@@ -176,6 +176,29 @@ func (obj *SMonitorResourceAlert) GetData() (*monitor.EvalMatch, error) {
 	return match, nil
 }
 
+func (m *SMonitorResourceAlertManager) GetNowAlertingAlerts(ctx context.Context, userCred mcclient.TokenCredential, input *monitor.AlertRecordListInput) ([]SMonitorResourceAlert, error) {
+	ownerId, err := m.FetchOwnerId(ctx, jsonutils.Marshal(&input))
+	if err != nil {
+		return nil, errors.Wrapf(err, "FetchOwnerId by input: %s", jsonutils.Marshal(input))
+	}
+	if ownerId == nil {
+		ownerId = userCred
+	}
+
+	alertsQuery := CommonAlertManager.Query("id").Equals("state", monitor.AlertStateAlerting).IsTrue("enabled").
+		IsNull("used_by")
+	alertsQuery = CommonAlertManager.FilterByOwner(ctx, alertsQuery, CommonAlertManager, userCred, ownerId, rbacscope.String2Scope(input.Scope))
+
+	alertRess := make([]SMonitorResourceAlert, 0)
+	q := m.Query()
+	q = q.Equals("alert_state", monitor.AlertStateAlerting)
+	q = q.In("alert_id", alertsQuery)
+	if err := db.FetchModelObjects(m, q, &alertRess); err != nil {
+		return nil, errors.Wrapf(err, "FetchModelObjects by GetNowAlertingAlerts err")
+	}
+	return alertRess, nil
+}
+
 func (m *SMonitorResourceAlertManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, input *monitor.MonitorResourceJointListInput) (*sqlchemy.SQuery, error) {
 	var err error
 	q, err = m.SJointResourceBaseManager.ListItemFilter(ctx, q, userCred, input.JointResourceBaseListInput)

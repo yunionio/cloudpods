@@ -1107,10 +1107,10 @@ func (acnt *SCloudaccount) getDefaultExternalProject(id string) (*SExternalProje
 		return nil, errors.Wrapf(err, "db.FetchModelObjects")
 	}
 	if len(projects) > 1 {
-		return nil, errors.Wrapf(cloudprovider.ErrDuplicateId, id)
+		return nil, errors.Wrapf(cloudprovider.ErrDuplicateId, "%s", id)
 	}
 	if len(projects) == 0 {
-		return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
+		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", id)
 	}
 	return &projects[0], nil
 }
@@ -1207,7 +1207,7 @@ func (acnt *SCloudaccount) importSubAccount(ctx context.Context, userCred mcclie
 		}
 		provider.markProviderConnected(ctx, userCred, subAccount.HealthStatus)
 		provider.updateName(ctx, userCred, subAccount.Name, subAccount.Desc)
-		if provider.ExternalId != subAccount.Id {
+		if len(provider.ExternalId) == 0 || provider.ExternalId != subAccount.Id {
 			_, err := db.Update(provider, func() error {
 				provider.ExternalId = subAccount.Id
 				return nil
@@ -1662,8 +1662,8 @@ func migrateCloudprovider(cloudprovider *SCloudprovider) error {
 			}
 		} else {
 			msg := fmt.Sprintf("error azure provider account format %s", cloudprovider.Account)
-			log.Errorf(msg)
-			return fmt.Errorf(msg)
+			log.Errorf("%s", msg)
+			return fmt.Errorf("%s", msg)
 		}
 	}
 

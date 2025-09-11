@@ -74,7 +74,7 @@ func (self *SWire) GetINetworkById(id string) (cloudprovider.ICloudNetwork, erro
 			return networks[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", id)
 }
 
 func (wire *SWire) GetBandwidth() int {

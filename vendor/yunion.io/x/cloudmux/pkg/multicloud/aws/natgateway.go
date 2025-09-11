@@ -113,14 +113,15 @@ func (self *SNatGateway) Refresh() error {
 }
 
 func (self *SNatGateway) GetIEips() ([]cloudprovider.ICloudEIP, error) {
-	eips, err := self.region.GetEips("", "", self.NatGatewayId)
-	if err != nil {
-		return nil, errors.Wrapf(err, "GetEIPs")
-	}
 	ret := []cloudprovider.ICloudEIP{}
-	for i := range eips {
-		eips[i].region = self.region
-		ret = append(ret, &eips[i])
+	for _, addr := range self.NatGatewayAddresses {
+		if len(addr.PublicIp) > 0 {
+			eip, err := self.region.GetEipByIpAddress(addr.PublicIp)
+			if err != nil {
+				return nil, errors.Wrapf(err, "GetEipByIpAddress")
+			}
+			ret = append(ret, eip)
+		}
 	}
 	return ret, nil
 }
@@ -134,11 +135,11 @@ func (self *SNatGateway) GetINatSTable() ([]cloudprovider.ICloudNatSEntry, error
 }
 
 func (self *SNatGateway) GetINatDEntryById(id string) (cloudprovider.ICloudNatDEntry, error) {
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", id)
 }
 
 func (self *SNatGateway) GetINatSEntryById(id string) (cloudprovider.ICloudNatSEntry, error) {
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", id)
 }
 
 func (self *SNatGateway) CreateINatDEntry(rule cloudprovider.SNatDRule) (cloudprovider.ICloudNatDEntry, error) {
@@ -234,7 +235,7 @@ func (self *SRegion) GetNatGateway(id string) (*SNatGateway, error) {
 			return &nats[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", id)
 }
 
 func (self *SVpc) GetINatGateways() ([]cloudprovider.ICloudNatGateway, error) {

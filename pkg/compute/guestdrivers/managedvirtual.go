@@ -1146,7 +1146,7 @@ func (drv *SManagedVirtualizedGuestDriver) RequestChangeVmConfig(ctx context.Con
 		}
 		err := iVM.ChangeConfig(ctx, config)
 		if err != nil {
-			return nil, errors.Wrap(err, "GuestDriver.RequestChangeVmConfig.ChangeConfig")
+			return nil, errors.Wrap(err, "ChangeConfig")
 		}
 
 		err = cloudprovider.WaitCreated(time.Second*5, time.Minute*5, func() bool {
@@ -1169,7 +1169,7 @@ func (drv *SManagedVirtualizedGuestDriver) RequestChangeVmConfig(ctx context.Con
 			return false
 		})
 		if err != nil {
-			return nil, errors.Wrap(err, "GuestDriver.RequestChangeVmConfig.WaitCreated")
+			return nil, errors.Wrap(err, "wait config change")
 		}
 
 		instanceType = iVM.GetInstanceType()
@@ -1179,7 +1179,7 @@ func (drv *SManagedVirtualizedGuestDriver) RequestChangeVmConfig(ctx context.Con
 				return nil
 			})
 			if err != nil {
-				return nil, errors.Wrap(err, "GuestDriver.RequestChangeVmConfig.Update")
+				return nil, errors.Wrap(err, "Update")
 			}
 		}
 
@@ -1261,7 +1261,7 @@ func (drv *SManagedVirtualizedGuestDriver) OnGuestDeployTaskDataReceived(ctx con
 			})
 			if err != nil {
 				msg := fmt.Sprintf("save disk info failed %s", err)
-				log.Errorf(msg)
+				log.Errorf("%s", msg)
 				break
 			}
 			db.OpsLog.LogEvent(disk, db.ACT_ALLOCATE, disk.GetShortDesc(ctx), task.GetUserCred())
@@ -1273,7 +1273,7 @@ func (drv *SManagedVirtualizedGuestDriver) OnGuestDeployTaskDataReceived(ctx con
 			})
 			if err != nil {
 				msg := fmt.Sprintf("save disk info failed %s", err)
-				log.Errorf(msg)
+				log.Errorf("%s", msg)
 				break
 			}
 		}
@@ -1475,7 +1475,7 @@ func (self *SManagedVirtualizedGuestDriver) requestMigrate(ctx context.Context, 
 			vmStatus := iVM.GetStatus()
 			log.Debugf("vm %s migrate status: %s", guest.Name, vmStatus)
 			if vmStatus == api.VM_UNKNOWN || strings.Contains(vmStatus, "fail") {
-				return false, errors.Wrapf(cloudprovider.ErrInvalidStatus, vmStatus)
+				return false, errors.Wrapf(cloudprovider.ErrInvalidStatus, "%s", vmStatus)
 			}
 			if !utils.IsInStringArray(vmStatus, []string{api.VM_RUNNING, api.VM_READY}) {
 				return false, nil

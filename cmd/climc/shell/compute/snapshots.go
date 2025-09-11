@@ -33,6 +33,7 @@ func init() {
 		DiskType    string `help:"Filter by disk type" choices:"sys|data"`
 		Server      string `help:"Filter by server" json:"server_id"`
 		Unused      bool
+		StorageId   string `help:"Filter by storage id"`
 
 		OrderByGuest    string
 		OrderByDiskName string

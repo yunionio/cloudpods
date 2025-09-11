@@ -76,5 +76,5 @@ func (self *VpcDeleteTask) OnDeleteVpcComplete(ctx context.Context, vpc *models.
 }
 
 func (self *VpcDeleteTask) OnDeleteVpcCompleteFailed(ctx context.Context, vpc *models.SVpc, reason jsonutils.JSONObject) {
-	self.taskFailed(ctx, vpc, errors.Errorf(reason.String()))
+	self.taskFailed(ctx, vpc, errors.Errorf("%s", reason.String()))
 }

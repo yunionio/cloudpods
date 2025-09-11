@@ -544,7 +544,7 @@ type uploadPartOfMultipartJob struct {
 	offset    int64
 	debug     bool
 	etags     []string
-	errs      []error
+	errs      *[]error
 }
 
 func uploadPartOfMultipartWorker(wg *sync.WaitGroup, queue chan uploadPartOfMultipartJob) {
@@ -552,7 +552,7 @@ func uploadPartOfMultipartWorker(wg *sync.WaitGroup, queue chan uploadPartOfMult
 	for job := range queue {
 		tag, err := uploadPartOfMultipart(job.ctx, job.bucket, job.key, job.input, job.sizeBytes, job.uploadId, job.partIndex, job.partSize, job.offset, job.debug)
 		if err != nil {
-			job.errs = append(job.errs, err)
+			*job.errs = append(*job.errs, err)
 		} else {
 			job.etags[job.partIndex] = tag
 		}
@@ -640,7 +640,7 @@ func UploadObjectParallel(ctx context.Context, bucket ICloudBucket, key string, 
 				offset:    offset,
 				debug:     debug,
 				etags:     etags,
-				errs:      errs,
+				errs:      &errs,
 			}
 			queue <- job
 		}
@@ -721,7 +721,7 @@ type copyPartOfMultipartJob struct {
 	partIndex int
 	debug     bool
 	etags     []string
-	errs      []error
+	errs      *[]error
 }
 
 func copyPartOfMultipartWorker(wg *sync.WaitGroup, queue chan copyPartOfMultipartJob) {
@@ -729,7 +729,7 @@ func copyPartOfMultipartWorker(wg *sync.WaitGroup, queue chan copyPartOfMultipar
 	for job := range queue {
 		tag, err := copyPartOfMultipart(job.ctx, job.dstBucket, job.dstKey, job.srcBucket, job.srcKey, job.rangeOpt, job.sizeBytes, job.uploadId, job.partIndex, job.debug)
 		if err != nil {
-			job.errs = append(job.errs, err)
+			*job.errs = append(*job.errs, err)
 		} else {
 			job.etags[job.partIndex] = tag
 		}
@@ -844,7 +844,7 @@ func CopyObjectParallel(ctx context.Context, blocksz int64, dstBucket ICloudBuck
 				partIndex: partIndex,
 				debug:     debug,
 				etags:     etags,
-				errs:      errs,
+				errs:      &errs,
 			}
 			queue <- job
 		}
@@ -1052,7 +1052,7 @@ func (ow *sOffsetWriter) Write(p []byte) (int, error) {
 }
 
 func calculateRateMbps(sizeBytes int64, duration time.Duration) float64 {
-	return float64(sizeBytes*8) / (float64(duration) / float64(time.Second)) / 1000 / 1000
+	return float64(sizeBytes*8/1000/1000) / (float64(duration) / float64(time.Second))
 }
 
 type downloadPartOfMultipartJob struct {
@@ -1064,7 +1064,7 @@ type downloadPartOfMultipartJob struct {
 	partIndex int
 	debug     bool
 	segSizes  []int64
-	errs      []error
+	errs      *[]error
 	callback  func(saved int64, written int64)
 }
 
@@ -1073,7 +1073,7 @@ func downloadPartOfMultipartWorker(wg *sync.WaitGroup, queue chan downloadPartOf
 	for job := range queue {
 		sz, err := downloadPartOfMultipart(job.ctx, job.bucket, job.key, job.rangeOpt, job.output, job.partIndex, job.debug, job.callback)
 		if err != nil {
-			job.errs = append(job.errs, err)
+			*job.errs = append(*job.errs, err)
 		} else {
 			job.segSizes[job.partIndex] = sz
 		}
@@ -1237,7 +1237,7 @@ func DownloadObjectParallelWithProgress(ctx context.Context, bucket ICloudBucket
 				partIndex: partIndex,
 				debug:     debug,
 				segSizes:  segSizes,
-				errs:      errs,
+				errs:      &errs,
 				callback:  progressCallback,
 			}
 			queue <- job

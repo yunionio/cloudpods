@@ -402,7 +402,7 @@ func (r *SRegion) GetInstances(zoneId string, ids []string, pangeNumber, pageSiz
 		return nil, 0, err
 	}
 	if resp.Error.Code >= 400 {
-		return nil, 0, fmt.Errorf(resp.Error.Message)
+		return nil, 0, fmt.Errorf("%s", resp.Error.Message)
 	}
 	ins := make([]SInstance, len(resp.Result.Instances))
 	for i := range ins {

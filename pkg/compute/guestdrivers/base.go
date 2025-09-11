@@ -689,7 +689,7 @@ func (base *SBaseGuestDriver) ValidateGuestChangeConfigInput(ctx context.Context
 		return nil, errors.Wrap(err, "SchedManager.DoScheduleForecast")
 	}
 	if !canChangeConf {
-		return nil, httperrors.NewInsufficientResourceError(res.String())
+		return nil, httperrors.NewInsufficientResourceError("%s", res.String())
 	}
 
 	confs.SchedDesc = jsonutils.Marshal(schedDesc)

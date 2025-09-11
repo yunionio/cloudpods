@@ -16,7 +16,6 @@ package handler
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 
 	"yunion.io/x/jsonutils"
@@ -71,7 +70,7 @@ func fetchEnv3Csrf(ctx context.Context, w http.ResponseWriter, r *http.Request) 
 	}
 	module3, e := modulebase.GetModule(session, params[ResName3])
 	if e != nil || module == nil {
-		httperrors.NotFoundError(ctx, w, fmt.Sprintf("resource %s not found", params[ResName3]))
+		httperrors.NotFoundError(ctx, w, "resource %s not found", params[ResName3])
 		return nil, nil, nil, nil, nil, nil, nil
 	}
 	return module, module2, module3, session, params, query, body
@@ -84,7 +83,7 @@ func fetchEnv2Csrf(ctx context.Context, w http.ResponseWriter, r *http.Request) 
 	}
 	module2, e := modulebase.GetModule(session, params[ResName2])
 	if e != nil || module == nil {
-		httperrors.NotFoundError(ctx, w, fmt.Sprintf("resource %s not found", params[ResName2]))
+		httperrors.NotFoundError(ctx, w, "resource %s not found", params[ResName2])
 		return nil, nil, nil, nil, nil, nil
 	}
 	return module, module2, session, params, query, body
@@ -94,7 +93,7 @@ func fetchEnvCsrf(ctx context.Context, w http.ResponseWriter, r *http.Request) (
 	session, params, query, body := fetchEnvCsrf0(ctx, w, r)
 	module, e := modulebase.GetModule(session, params[ResName])
 	if e != nil || module == nil {
-		httperrors.NotFoundError(ctx, w, fmt.Sprintf("resource %s not found", params[ResName]))
+		httperrors.NotFoundError(ctx, w, "resource %s not found", params[ResName])
 		return nil, nil, nil, nil, nil
 	}
 	return module, session, params, query, body
@@ -105,7 +104,7 @@ func fetchEnvCsrf0(ctx context.Context, w http.ResponseWriter, r *http.Request) 
 	region := r.URL.Query().Get("region")
 	log.Println("csrf region from url:", region)
 	if len(region) < 1 {
-		httperrors.NotFoundError(ctx, w, fmt.Sprintf("region %s is empty", region))
+		httperrors.NotFoundError(ctx, w, "region %s is empty", region)
 		return nil, nil, nil, nil
 	}
 	log.Infof("csrf region from url: %s", region)

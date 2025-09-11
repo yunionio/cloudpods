@@ -44,6 +44,10 @@ type IdentityProviderDetails struct {
 	// 该认证源关联的所有域的组数量
 	GroupCount int `json:"group_count,allowempty"`
 
+	// 该认证源的URL, 可以区分ladp是否使用TLS
+	// example: ldaps://192.168.100.10, ldap://192.168.100.10
+	URL string `json:"url,allowempty"`
+
 	SIdentityProvider
 }
 

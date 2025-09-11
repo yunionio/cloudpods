@@ -207,7 +207,7 @@ func (self *SRegion) GetKafka(id string) (*SKafka, error) {
 			return &kafkas[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", id)
 }
 
 func (self *SRegion) GetKafkas(ids []string) ([]SKafka, error) {

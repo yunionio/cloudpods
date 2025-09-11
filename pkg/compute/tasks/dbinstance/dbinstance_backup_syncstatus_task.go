@@ -65,5 +65,5 @@ func (self *DBInstanceBackupSyncstatusTask) OnDBInstanceBackupSyncStatusComplete
 }
 
 func (self *DBInstanceBackupSyncstatusTask) OnDBInstanceBackupSyncStatusCompleteFailed(ctx context.Context, backup *models.SDBInstanceBackup, data jsonutils.JSONObject) {
-	self.taskFailed(ctx, backup, fmt.Errorf(data.String()))
+	self.taskFailed(ctx, backup, fmt.Errorf("%s", data.String()))
 }

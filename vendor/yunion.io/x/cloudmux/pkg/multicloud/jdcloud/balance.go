@@ -34,7 +34,7 @@ func (self *SJDCloudClient) DescribeAccountAmount() (*SBalance, error) {
 		return nil, errors.Wrapf(err, "DescribeAccountAmoun")
 	}
 	if resp.Error.Code != 0 {
-		return nil, errors.Errorf(resp.Error.Message)
+		return nil, errors.Errorf("%s", resp.Error.Message)
 	}
 	return &SBalance{DescribeAccountAmountResult: resp.Result}, nil
 }

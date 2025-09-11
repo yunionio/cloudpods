@@ -123,6 +123,8 @@ type IBackend interface {
 	DATE_FORMAT(name string, field IQueryField, format string) IQueryField
 	// INET_ATON
 	INET_ATON(field IQueryField) IQueryField
+	// INET6_ATON
+	INET6_ATON(field IQueryField) IQueryField
 	// AND_Val
 	AND_Val(name string, field IQueryField, v interface{}) IQueryField
 	// OR_Val

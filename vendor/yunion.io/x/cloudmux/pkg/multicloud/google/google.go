@@ -319,7 +319,7 @@ func (self *SGoogleClient) ecsGet(resourceType, id string, retval interface{}) e
 			}
 		}
 	}
-	return errors.Wrapf(cloudprovider.ErrNotFound, id)
+	return errors.Wrapf(cloudprovider.ErrNotFound, "%s", id)
 }
 
 func (self *SGoogleClient) ecsList(resource string, params map[string]string) (jsonutils.JSONObject, error) {

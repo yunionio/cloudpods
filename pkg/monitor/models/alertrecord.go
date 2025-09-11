@@ -443,30 +443,23 @@ func (manager *SAlertRecordManager) GetPropertyTotalAlert(ctx context.Context, u
 	if err != nil {
 		return nil, errors.Wrap(err, "Unmarshal AlertRecordListInput error")
 	}
-	alertRecords, err := manager.getNowAlertingRecord(ctx, userCred, *input)
+	alertRess, err := MonitorResourceAlertManager.GetNowAlertingAlerts(ctx, userCred, input)
 	if err != nil {
 		return nil, errors.Wrap(err, "getNowAlertingRecord error")
 	}
-	if input.Details != nil && *input.Details {
-
-	}
 	alertCountMap := jsonutils.NewDict()
-	for _, record := range alertRecords {
-		evalMatches, err := record.GetEvalData()
-		if err != nil {
-			return nil, errors.Wrapf(err, "get record:%s evalData error", record.GetId())
-		}
-		count := int64(len(evalMatches))
-		if alertCountMap.Contains(record.ResType) {
-			resTypeCount, _ := alertCountMap.Int(record.ResType)
+	for _, res := range alertRess {
+		var count int64 = 1
+		if alertCountMap.Contains(res.ResType) {
+			resTypeCount, _ := alertCountMap.Int(res.ResType)
 			count = count + resTypeCount
 		}
-		alertCountMap.Set(record.ResType, jsonutils.NewInt(count))
+		alertCountMap.Set(res.ResType, jsonutils.NewInt(count))
 	}
 	return alertCountMap, nil
 }
 
-func (manager *SAlertRecordManager) getNowAlertingRecord(ctx context.Context, userCred mcclient.TokenCredential,
+/*func (manager *SAlertRecordManager) getNowAlertingRecord(ctx context.Context, userCred mcclient.TokenCredential,
 	input monitor.AlertRecordListInput) ([]SAlertRecord, error) {
 	//now := time.Now()
 	//startTime := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 1, now.Location())
@@ -500,11 +493,13 @@ func (manager *SAlertRecordManager) getNowAlertingRecord(ctx context.Context, us
 		tmp := *query
 		recordModel, err := db.NewModelObject(manager)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrapf(err, "NewModelObject %s", manager.Keyword())
 		}
 		if err := (&tmp).Equals("alert_id", alert.GetId()).First(recordModel); err == nil {
 			records = append(records, *(recordModel.(*SAlertRecord)))
+		} else {
+			log.Warningf("get records of alert_id %s error: %v", alert.GetId(), err)
 		}
 	}
 	return records, nil
-}
+}*/

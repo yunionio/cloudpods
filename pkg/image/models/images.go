@@ -390,7 +390,7 @@ func (img *SImage) GetExtraDetailsHeaders(ctx context.Context, userCred mcclient
 		headers[fmt.Sprintf("%s%s", modules.IMAGE_META, "auto_delete_at")] = timeutils.FullIsoTime(pendingDeletedAt)
 	}
 
-	if strings.HasPrefix(img.Location, api.S3Prefix) {
+	if options.Options.S3DirectDownload && strings.HasPrefix(img.Location, api.S3Prefix) {
 		headers[fmt.Sprintf("%s%s", modules.IMAGE_META, "s3_info_url")] = s3.GetEndpoint(options.Options.S3Endpoint, options.Options.S3UseSSL)
 		headers[fmt.Sprintf("%s%s", modules.IMAGE_META, "s3_info_access_key")] = options.Options.S3AccessKey
 		headers[fmt.Sprintf("%s%s", modules.IMAGE_META, "s3_info_secret")] = options.Options.S3SecretKey
@@ -2192,9 +2192,9 @@ func (img *SImage) cacheToCephStorages(ctx context.Context) {
 				storageConfString := cephutils.CephConfString(
 					storageConf.MonHost,
 					storageConf.Key,
-					int64(storageConf.RadosMonOpTimeout),
-					int64(storageConf.RadosOsdOpTimeout),
-					int64(storageConf.ClientMountTimeout),
+					storageConf.RadosMonOpTimeout,
+					storageConf.RadosOsdOpTimeout,
+					storageConf.ClientMountTimeout,
 				)
 				rbdPath := fmt.Sprintf("rbd:%s/%s%s", storageConf.Pool, imgTmpName, storageConfString)
 				log.Infof("convert local image %s to rbd pool %s", img.Id, storageConf.Pool)
@@ -2245,7 +2245,7 @@ func (img *SImage) cacheToCephStorages(ctx context.Context) {
 }
 
 func (img *SImage) removeCephImage(storageConf *computeapi.RbdStorageConf, imgName string) error {
-	cli, err := cephutils.NewClient(storageConf.MonHost, storageConf.Key, storageConf.Pool, storageConf.EnableMessengerV2)
+	cli, err := cephutils.NewClient(storageConf.MonHost, storageConf.Key, storageConf.Pool, storageConf.EnableMessengerV2, 0, 0, 0)
 	if err != nil {
 		return errors.Wrap(err, "cephutils.NewClient")
 	}
@@ -2261,7 +2261,7 @@ func (img *SImage) removeCephImage(storageConf *computeapi.RbdStorageConf, imgNa
 }
 
 func (img *SImage) renameCephImage(storageConf *computeapi.RbdStorageConf, srcImgName, destImgName string) error {
-	cli, err := cephutils.NewClient(storageConf.MonHost, storageConf.Key, storageConf.Pool, storageConf.EnableMessengerV2)
+	cli, err := cephutils.NewClient(storageConf.MonHost, storageConf.Key, storageConf.Pool, storageConf.EnableMessengerV2, 0, 0, 0)
 	if err != nil {
 		return errors.Wrap(err, "cephutils.NewClient")
 	}
@@ -2277,7 +2277,7 @@ func (img *SImage) getCephImage(storageConf *computeapi.RbdStorageConf, imgName 
 	if imgName == "" {
 		imgName = "image_cache_" + img.Id
 	}
-	cli, err := cephutils.NewClient(storageConf.MonHost, storageConf.Key, storageConf.Pool, storageConf.EnableMessengerV2)
+	cli, err := cephutils.NewClient(storageConf.MonHost, storageConf.Key, storageConf.Pool, storageConf.EnableMessengerV2, 0, 0, 0)
 	if err != nil {
 		return nil, errors.Wrap(err, "cephutils.NewClient")
 	}
@@ -2292,9 +2292,9 @@ func (img *SImage) getCephImage(storageConf *computeapi.RbdStorageConf, imgName 
 	storageConfString := cephutils.CephConfString(
 		storageConf.MonHost,
 		storageConf.Key,
-		int64(storageConf.RadosMonOpTimeout),
-		int64(storageConf.RadosOsdOpTimeout),
-		int64(storageConf.ClientMountTimeout),
+		storageConf.RadosMonOpTimeout,
+		storageConf.RadosOsdOpTimeout,
+		storageConf.ClientMountTimeout,
 	)
 	rbdPath := fmt.Sprintf("rbd:%s/%s%s", storageConf.Pool, imgName, storageConfString)
 	origin, err := qemuimg.NewQemuImage(rbdPath)
@@ -2309,7 +2309,7 @@ func (img *SImage) getCephImage(storageConf *computeapi.RbdStorageConf, imgName 
 
 func (img *SImage) cloneToCephStorage(ctx context.Context, monHost, key, pool string, enableMessengerV2 bool, destPool string) error {
 	imgName := "image_cache_" + img.Id
-	cli, err := cephutils.NewClient(monHost, key, pool, enableMessengerV2)
+	cli, err := cephutils.NewClient(monHost, key, pool, enableMessengerV2, 0, 0, 0)
 	if err != nil {
 		return errors.Wrap(err, "cephutils.NewClient")
 	}
@@ -2345,5 +2345,71 @@ func (img *SImage) markDataImage(userCred mcclient.TokenCredential) error {
 		return errors.Wrap(err, "update")
 	}
 	db.OpsLog.LogEvent(img, db.ACT_UPDATE, diff, userCred)
+	return nil
+}
+
+func (manager *SImageManager) FetchImages(filter func(q *sqlchemy.SQuery) *sqlchemy.SQuery) ([]SImage, error) {
+	q := manager.Query()
+	if filter != nil {
+		q = filter(q)
+	}
+	images := make([]SImage, 0)
+	err := db.FetchModelObjects(manager, q, &images)
+	if err != nil {
+		return nil, errors.Wrap(err, "db.FetchModelObjects")
+	}
+	return images, nil
+}
+
+func (manager *SImageManager) VerifyActiveImageStatus(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
+	images, err := manager.FetchImages(func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+		return q.In("status", []string{api.IMAGE_STATUS_ACTIVE, api.IMAGE_STATUS_UNKNOWN})
+	})
+	if err != nil {
+		log.Errorf("FetchImages failed: %s", err)
+		return
+	}
+	for i := range images {
+		img := &images[i]
+		err := img.verifyStatus(ctx, userCred)
+		if err != nil {
+			log.Errorf("VerifyStatus %s(%s) failed: %s", img.Id, img.Name, err)
+		}
+	}
+}
+
+func (img *SImage) verifyStatus(ctx context.Context, userCred mcclient.TokenCredential) error {
+	errs := make([]error, 0)
+	subImages := ImageSubformatManager.GetAllSubImages(img.Id)
+	for i := range subImages {
+		err := subImages[i].verifyStatusSelf(ctx)
+		if err != nil {
+			errs = append(errs, err)
+		}
+	}
+	err := img.verifyStatusSelf(ctx, userCred)
+	if err != nil {
+		errs = append(errs, err)
+	}
+	if len(errs) > 0 {
+		return errors.NewAggregate(errs)
+	}
+	return nil
+}
+
+func (img *SImage) verifyStatusSelf(ctx context.Context, userCred mcclient.TokenCredential) error {
+	if len(img.Location) == 0 {
+		return nil
+	}
+	filePath := img.Location
+	_, rc, err := GetImage(ctx, filePath)
+	if err != nil {
+		img.SetStatus(ctx, userCred, api.IMAGE_STATUS_UNKNOWN, errors.Wrap(err, "verifyStatusSelf").Error())
+		return errors.Wrap(err, "GetImage")
+	}
+	defer rc.Close()
+	if img.Status != api.IMAGE_STATUS_ACTIVE {
+		img.SetStatus(ctx, userCred, api.IMAGE_STATUS_ACTIVE, "verifyStatusSelf")
+	}
 	return nil
 }

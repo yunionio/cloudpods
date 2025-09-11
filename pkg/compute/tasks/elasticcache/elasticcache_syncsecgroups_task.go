@@ -93,5 +93,5 @@ func (self *ElasticcacheSyncsecgroupsTask) OnElasticcacheSyncSecgroupsComplete(c
 }
 
 func (self *ElasticcacheSyncsecgroupsTask) OnElasticcacheSyncSecgroupsCompleteFailed(ctx context.Context, cache *models.SElasticcache, data jsonutils.JSONObject) {
-	self.taskFailed(ctx, cache, fmt.Errorf(data.String()))
+	self.taskFailed(ctx, cache, fmt.Errorf("%s", data.String()))
 }

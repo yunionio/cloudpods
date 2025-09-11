@@ -200,7 +200,7 @@ func main() {
 		options.HostOptions.CudaMPSReplicas,
 	)
 	if err != nil {
-		log.Fatalf(err.Error())
+		log.Fatalf("%s", err.Error())
 		return
 	}
 
@@ -214,7 +214,7 @@ func main() {
 	signalutils.StartTrap()
 
 	if err = daemon.Start(); err != nil {
-		log.Fatalf(err.Error())
+		log.Fatalf("%s", err.Error())
 	}
 
 	log.Infof("MPS daemon started ......")

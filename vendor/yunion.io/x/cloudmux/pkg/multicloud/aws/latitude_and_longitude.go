@@ -55,4 +55,11 @@ var LatitudeAndLongitude = map[string]cloudprovider.SGeographicInfo{
 	"ap-southeast-3": api.RegionJakarta,
 	"me-central-1":   api.RegionDubai,
 	"il-central-1":   api.RegionTelAviv,
+
+	"ap-southeast-6": api.RegionNewZealand,
+	"ap-east-2":      api.RegionTaipei,
+	"mx-central-1":   api.RegionMexico,
+	"ap-southeast-7": api.RegionBangkok,
+	"ap-southeast-5": api.RegionKualaLumpur,
+	"ca-west-1":      api.RegionCalgary,
 }

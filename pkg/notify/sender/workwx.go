@@ -65,10 +65,10 @@ func (workwxSender *SWorkwxSender) Send(ctx context.Context, args api.SendParams
 			if err == nil && resp.ErrCode == 0 {
 				return nil
 			} else {
-				return errors.Errorf(resp.ErrMsg)
+				return errors.Errorf("%s", resp.ErrMsg)
 			}
 		}
-		return errors.Errorf(resp.ErrMsg)
+		return errors.Errorf("%s", resp.ErrMsg)
 	}
 	return nil
 }

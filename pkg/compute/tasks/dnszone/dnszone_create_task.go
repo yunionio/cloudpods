@@ -88,12 +88,9 @@ func (self *DnsZoneCreateTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 		self.taskFailed(ctx, zone, errors.Wrapf(err, "CreateICloudDnsZone"))
 		return
 	}
-	_, err = db.Update(zone, func() error {
-		zone.ExternalId = iZone.GetGlobalId()
-		return nil
-	})
+	err = zone.SyncWithDnsZone(ctx, self.UserCred, iZone)
 	if err != nil {
-		self.taskFailed(ctx, zone, errors.Wrapf(err, "set external id"))
+		self.taskFailed(ctx, zone, errors.Wrapf(err, "SyncWithDnsZone"))
 		return
 	}
 
@@ -104,6 +101,5 @@ func (self *DnsZoneCreateTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 }
 
 func (self *DnsZoneCreateTask) taskComplete(ctx context.Context, zone *models.SDnsZone) {
-	zone.SetStatus(ctx, self.GetUserCred(), api.DNS_ZONE_STATUS_AVAILABLE, "")
 	self.SetStageComplete(ctx, nil)
 }

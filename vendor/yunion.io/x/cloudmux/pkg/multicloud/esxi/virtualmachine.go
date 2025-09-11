@@ -1201,28 +1201,31 @@ func (svm *SVirtualMachine) getDatastoreAndRootImagePath() (string, *SDatastore,
 	if layoutEx == nil || len(layoutEx.File) == 0 {
 		return "", nil, fmt.Errorf("invalid LayoutEx")
 	}
-	file := layoutEx.File[0].Name
-	// find stroage
-	host := svm.GetIHost()
-	storages, err := host.GetIStorages()
-	if err != nil {
-		return "", nil, errors.Wrap(err, "host.GetIStorages")
-	}
-	var datastore *SDatastore
-	for i := range storages {
-		ds := storages[i].(*SDatastore)
-		if ds.HasFile(file) {
-			datastore = ds
-			break
+	for _, f := range layoutEx.File {
+		if !strings.HasSuffix(f.Name, ".vmdk") {
+			continue
 		}
+		file := f.Name
+		// find stroage
+		host := svm.GetIHost()
+		storages, err := host.GetIStorages()
+		if err != nil {
+			return "", nil, errors.Wrap(err, "host.GetIStorages")
+		}
+		var datastore *SDatastore
+		for i := range storages {
+			ds := storages[i].(*SDatastore)
+			if ds.HasFile(file) {
+				datastore = ds
+				break
+			}
+		}
+		if datastore == nil {
+			return "", nil, fmt.Errorf("can't find storage associated with vm %q", svm.GetName())
+		}
+		return datastore.getPathString(datastore.cleanPath(file)), datastore, nil
 	}
-	if datastore == nil {
-		return "", nil, fmt.Errorf("can't find storage associated with vm %q", svm.GetName())
-	}
-	path := datastore.cleanPath(file)
-	vmDir := strings.Split(path, "/")[0]
-	// TODO find a non-conflicting path
-	return datastore.getPathString(fmt.Sprintf("%s/%s.vmdk", vmDir, vmDir)), datastore, nil
+	return "", nil, fmt.Errorf("can't find root image path")
 }
 
 func (svm *SVirtualMachine) GetRootImagePath() (string, error) {

@@ -78,7 +78,7 @@ func (policy *SPolicy) GetDocument() (*jsonutils.JSONDict, error) {
 	}
 	ret, ok := doc.(*jsonutils.JSONDict)
 	if !ok {
-		return nil, errors.Wrapf(cloudprovider.ErrNotSupported, policy.PolicyDocument)
+		return nil, errors.Wrapf(cloudprovider.ErrNotSupported, "%s", policy.PolicyDocument)
 	}
 	return ret, nil
 }

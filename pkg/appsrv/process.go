@@ -38,10 +38,10 @@ func ProcessStatsHandler(ctx context.Context, w http.ResponseWriter, r *http.Req
 	ret.ProcessStat.MemSize = m.Alloc
 	process, err := process.NewProcess(int32(os.Getpid()))
 	if err != nil {
-		fmt.Fprintf(w, jsonutils.Marshal(ret).String())
+		fmt.Fprintf(w, "%s", jsonutils.Marshal(ret).String())
 		return
 	}
 	ret.ProcessStat.CpuPercent, _ = process.CPUPercent()
 	ret.ProcessStat.MemPercent, _ = process.MemoryPercent()
-	fmt.Fprintf(w, jsonutils.Marshal(ret).String())
+	fmt.Fprintf(w, "%s", jsonutils.Marshal(ret).String())
 }

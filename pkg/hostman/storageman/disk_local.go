@@ -18,8 +18,10 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"os"
 	"path"
+	"strconv"
 	"strings"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
@@ -234,7 +236,8 @@ func (d *SLocalDisk) CreateFromRemoteHostImage(ctx context.Context, url string, 
 		return errors.Wrap(err, "RequestExportNbdImage")
 	}
 	remoteHostIp := netutils2.ParseIpFromUrl(url)
-	nbdImagePath := fmt.Sprintf("nbd://%s:%d/%s", remoteHostIp, nbdPort, d.GetId())
+	remoteHostAndPort := net.JoinHostPort(remoteHostIp, strconv.Itoa(int(nbdPort)))
+	nbdImagePath := fmt.Sprintf("nbd://%s/%s", remoteHostAndPort, d.GetId())
 	log.Infof("remote nbd image exported %s", nbdImagePath)
 
 	newImg, err := qemuimg.NewQemuImage(d.getPath())
@@ -423,7 +426,7 @@ func (d *SLocalDisk) CreateRaw(ctx context.Context, sizeMB int, diskFormat strin
 		diskInfo.EncryptPassword = encryptInfo.Key
 		diskInfo.EncryptAlg = string(encryptInfo.Alg)
 	}
-	if utils.IsInStringArray(fsFormat, []string{"swap", "ext2", "ext3", "ext4", "xfs"}) {
+	if utils.IsInStringArray(fsFormat, api.SUPPORTED_FS) {
 		d.FormatFs(fsFormat, fsFeatures, diskId, diskInfo)
 	}
 

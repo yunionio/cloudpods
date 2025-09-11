@@ -246,7 +246,7 @@ func TokenStrDecode(ctx context.Context, tokenStr string) (*SAuthToken, error) {
 func (t *SAuthToken) parseFernetToken(tokenStr string) error {
 	tk := keys.TokenKeysManager.Decrypt([]byte(tokenStr)) // , time.Duration(options.Options.TokenExpirationSeconds)*time.Second)
 	if tk == nil {
-		return errors.Wrapf(ErrInvalidFernetToken, tokenStr)
+		return errors.Wrapf(ErrInvalidFernetToken, "%v", tokenStr)
 	}
 	err := t.Decode(tk)
 	if err != nil {

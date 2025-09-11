@@ -2,15 +2,6 @@ basePath: /
 consumes:
     - application/json
 definitions:
-    ChangeOwnerCandidateDomainsOutput:
-        properties:
-            candidates:
-                items:
-                    $ref: '#/definitions/SharedDomain'
-                type: array
-                x-go-name: Candidates
-        type: object
-        x-go-package: yunion.io/x/onecloud/pkg/apis
     Error:
         properties:
             class:
@@ -62,15 +53,6 @@ definitions:
                     type: string
                 type: array
                 x-go-name: SharedDomainIds
-        type: object
-        x-go-package: yunion.io/x/onecloud/pkg/apis
-    PurgeSplitTableInput:
-        properties:
-            tables:
-                items:
-                    type: string
-                type: array
-                x-go-name: Tables
         type: object
         x-go-package: yunion.io/x/onecloud/pkg/apis
     ResourceBaseCreateInput:
@@ -664,80 +646,6 @@ paths:
             summary: 执行操作Clone
             tags:
                 - parameter
-    /parameters/distinct-field:
-        get:
-            description: 获取指定资源类的信息DistinctField
-            operationId: parameter_GetPropertyDistinctField
-            responses:
-                "200":
-                    $ref: '#/responses/parameter_GetPropertyDistinctFieldOutput'
-            summary: 获取指定资源类的信息DistinctField
-            tags:
-                - parameter
-    /parameters/distinct-fields:
-        get:
-            description: 获取指定资源类的信息DistinctFields
-            operationId: parameter_GetPropertyDistinctFields
-            responses:
-                "200":
-                    $ref: '#/responses/parameter_GetPropertyDistinctFieldsOutput'
-            summary: 获取指定资源类的信息DistinctFields
-            tags:
-                - parameter
-    /parameters/purge-splitable:
-        post:
-            description: 执行操作PurgeSplitable
-            operationId: parameter_PerformPurgeSplitable
-            parameters:
-                - in: body
-                  name: body
-                  schema:
-                    properties:
-                        parameter:
-                            $ref: '#/definitions/PurgeSplitTableInput'
-                    type: object
-                  x-go-name: Body
-            responses:
-                "200":
-                    $ref: '#/responses/parameter_PerformPurgeSplitableOutput'
-            summary: 执行操作PurgeSplitable
-            tags:
-                - parameter
-    /parameters/splitable:
-        get:
-            description: 获取指定资源类的信息Splitable
-            operationId: parameter_GetPropertySplitable
-            responses:
-                "200":
-                    $ref: '#/responses/parameter_GetPropertySplitableOutput'
-            summary: 获取指定资源类的信息Splitable
-            tags:
-                - parameter
-    /parameters/splitable-export:
-        get:
-            description: 获取指定资源类的信息SplitableExport
-            operationId: parameter_GetPropertySplitableExport
-            parameters:
-                - in: query
-                  name: table
-                  type: string
-                  x-go-name: Table
-                - format: int64
-                  in: query
-                  name: offset
-                  type: integer
-                  x-go-name: Offset
-                - format: int64
-                  in: query
-                  name: limit
-                  type: integer
-                  x-go-name: Limit
-            responses:
-                "200":
-                    $ref: '#/responses/parameter_GetPropertySplitableExportOutput'
-            summary: 获取指定资源类的信息SplitableExport
-            tags:
-                - parameter
     /scopedpolicies:
         get:
             description: 列表
@@ -1108,67 +1016,6 @@ paths:
             summary: 执行操作ChangeOwner
             tags:
                 - scopedpolicy
-    /scopedpolicies/{id}/change-owner-candidate-domains:
-        get:
-            description: 获取指定信息ChangeOwnerCandidateDomains
-            operationId: scopedpolicy_GetDetailsChangeOwnerCandidateDomains
-            parameters:
-                - description: The Id or Name of scopedpolicy
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-            responses:
-                "200":
-                    $ref: '#/responses/scopedpolicy_GetDetailsChangeOwnerCandidateDomainsOutput'
-            summary: 获取指定信息ChangeOwnerCandidateDomains
-            tags:
-                - scopedpolicy
-    /scopedpolicies/{id}/class-metadata:
-        get:
-            description: 获取指定信息ClassMetadata
-            operationId: scopedpolicy_GetDetailsClassMetadata
-            parameters:
-                - description: The Id or Name of scopedpolicy
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-            responses:
-                "200":
-                    $ref: '#/responses/scopedpolicy_GetDetailsClassMetadataOutput'
-            summary: 获取指定信息ClassMetadata
-            tags:
-                - scopedpolicy
-        post:
-            description: 执行操作ClassMetadata
-            operationId: scopedpolicy_PerformClassMetadata
-            parameters:
-                - description: The Id or Name of scopedpolicy
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-                - in: body
-                  name: body
-                  schema:
-                    properties:
-                        scopedpolicy:
-                            additionalProperties:
-                                type: string
-                            type: object
-                            x-go-name: Input
-                    type: object
-                  x-go-name: Body
-            responses:
-                "200":
-                    $ref: '#/responses/scopedpolicy_PerformClassMetadataOutput'
-            summary: 更新资源的 class 标签
-            tags:
-                - scopedpolicy
     /scopedpolicies/{id}/metadata:
         get:
             description: 获取指定信息Metadata
@@ -1204,23 +1051,6 @@ paths:
                 "200":
                     $ref: '#/responses/scopedpolicy_GetDetailsMetadataOutput'
             summary: 获取资源标签（元数据）
-            tags:
-                - scopedpolicy
-    /scopedpolicies/{id}/org-metadata:
-        get:
-            description: 获取指定信息OrgMetadata
-            operationId: scopedpolicy_GetDetailsOrgMetadata
-            parameters:
-                - description: The Id or Name of scopedpolicy
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-            responses:
-                "200":
-                    $ref: '#/responses/scopedpolicy_GetDetailsOrgMetadataOutput'
-            summary: 获取指定信息OrgMetadata
             tags:
                 - scopedpolicy
     /scopedpolicies/{id}/private:
@@ -1271,204 +1101,6 @@ paths:
                 "200":
                     $ref: '#/responses/scopedpolicy_PerformPublicOutput'
             summary: 执行操作Public
-            tags:
-                - scopedpolicy
-    /scopedpolicies/{id}/set-class-metadata:
-        post:
-            description: 执行操作SetClassMetadata
-            operationId: scopedpolicy_PerformSetClassMetadata
-            parameters:
-                - description: The Id or Name of scopedpolicy
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-                - in: body
-                  name: body
-                  schema:
-                    properties:
-                        scopedpolicy:
-                            additionalProperties:
-                                type: string
-                            type: object
-                            x-go-name: Input
-                    type: object
-                  x-go-name: Body
-            responses:
-                "200":
-                    $ref: '#/responses/scopedpolicy_PerformSetClassMetadataOutput'
-            summary: 全量替换资源的所有 class 标签
-            tags:
-                - scopedpolicy
-    /scopedpolicies/{id}/set-org-metadata:
-        post:
-            description: 执行操作SetOrgMetadata
-            operationId: scopedpolicy_PerformSetOrgMetadata
-            parameters:
-                - description: The Id or Name of scopedpolicy
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-                - in: body
-                  name: body
-                  schema:
-                    properties:
-                        scopedpolicy:
-                            additionalProperties:
-                                type: string
-                            type: object
-                            x-go-name: Input
-                    type: object
-                  x-go-name: Body
-            responses:
-                "200":
-                    $ref: '#/responses/scopedpolicy_PerformSetOrgMetadataOutput'
-            summary: 全量替换资源的所有 class 标签
-            tags:
-                - scopedpolicy
-    /scopedpolicies/{id}/set-user-metadata:
-        post:
-            description: 执行操作SetUserMetadata
-            operationId: scopedpolicy_PerformSetUserMetadata
-            parameters:
-                - description: The Id or Name of scopedpolicy
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-                - in: body
-                  name: body
-                  schema:
-                    properties:
-                        scopedpolicy:
-                            additionalProperties:
-                                type: string
-                            type: object
-                            x-go-name: Input
-                    type: object
-                  x-go-name: Body
-            responses:
-                "200":
-                    $ref: '#/responses/scopedpolicy_PerformSetUserMetadataOutput'
-            summary: 全量替换资源的所有用户标签
-            tags:
-                - scopedpolicy
-    /scopedpolicies/distinct-field:
-        get:
-            description: 获取指定资源类的信息DistinctField
-            operationId: scopedpolicy_GetPropertyDistinctField
-            responses:
-                "200":
-                    $ref: '#/responses/scopedpolicy_GetPropertyDistinctFieldOutput'
-            summary: 获取指定资源类的信息DistinctField
-            tags:
-                - scopedpolicy
-    /scopedpolicies/distinct-fields:
-        get:
-            description: 获取指定资源类的信息DistinctFields
-            operationId: scopedpolicy_GetPropertyDistinctFields
-            responses:
-                "200":
-                    $ref: '#/responses/scopedpolicy_GetPropertyDistinctFieldsOutput'
-            summary: 获取指定资源类的信息DistinctFields
-            tags:
-                - scopedpolicy
-    /scopedpolicies/domain-tag-value-pairs:
-        get:
-            description: 获取指定资源类的信息DomainTagValuePairs
-            operationId: scopedpolicy_GetPropertyDomainTagValuePairs
-            responses:
-                "200":
-                    $ref: '#/responses/scopedpolicy_GetPropertyDomainTagValuePairsOutput'
-            summary: 获取指定资源类的信息DomainTagValuePairs
-            tags:
-                - scopedpolicy
-    /scopedpolicies/domain-tag-value-tree:
-        get:
-            description: 获取指定资源类的信息DomainTagValueTree
-            operationId: scopedpolicy_GetPropertyDomainTagValueTree
-            responses:
-                "200":
-                    $ref: '#/responses/scopedpolicy_GetPropertyDomainTagValueTreeOutput'
-            summary: 获取指定资源类的信息DomainTagValueTree
-            tags:
-                - scopedpolicy
-    /scopedpolicies/purge-splitable:
-        post:
-            description: 执行操作PurgeSplitable
-            operationId: scopedpolicy_PerformPurgeSplitable
-            parameters:
-                - in: body
-                  name: body
-                  schema:
-                    properties:
-                        scopedpolicy:
-                            $ref: '#/definitions/PurgeSplitTableInput'
-                    type: object
-                  x-go-name: Body
-            responses:
-                "200":
-                    $ref: '#/responses/scopedpolicy_PerformPurgeSplitableOutput'
-            summary: 执行操作PurgeSplitable
-            tags:
-                - scopedpolicy
-    /scopedpolicies/splitable:
-        get:
-            description: 获取指定资源类的信息Splitable
-            operationId: scopedpolicy_GetPropertySplitable
-            responses:
-                "200":
-                    $ref: '#/responses/scopedpolicy_GetPropertySplitableOutput'
-            summary: 获取指定资源类的信息Splitable
-            tags:
-                - scopedpolicy
-    /scopedpolicies/splitable-export:
-        get:
-            description: 获取指定资源类的信息SplitableExport
-            operationId: scopedpolicy_GetPropertySplitableExport
-            parameters:
-                - in: query
-                  name: table
-                  type: string
-                  x-go-name: Table
-                - format: int64
-                  in: query
-                  name: offset
-                  type: integer
-                  x-go-name: Offset
-                - format: int64
-                  in: query
-                  name: limit
-                  type: integer
-                  x-go-name: Limit
-            responses:
-                "200":
-                    $ref: '#/responses/scopedpolicy_GetPropertySplitableExportOutput'
-            summary: 获取指定资源类的信息SplitableExport
-            tags:
-                - scopedpolicy
-    /scopedpolicies/tag-value-pairs:
-        get:
-            description: 获取指定资源类的信息TagValuePairs
-            operationId: scopedpolicy_GetPropertyTagValuePairs
-            responses:
-                "200":
-                    $ref: '#/responses/scopedpolicy_GetPropertyTagValuePairsOutput'
-            summary: 获取指定资源类的信息TagValuePairs
-            tags:
-                - scopedpolicy
-    /scopedpolicies/tag-value-tree:
-        get:
-            description: 获取指定资源类的信息TagValueTree
-            operationId: scopedpolicy_GetPropertyTagValueTree
-            responses:
-                "200":
-                    $ref: '#/responses/scopedpolicy_GetPropertyTagValueTreeOutput'
-            summary: 获取指定资源类的信息TagValueTree
             tags:
                 - scopedpolicy
     /scopedpolicybindings:
@@ -1706,80 +1338,6 @@ paths:
             summary: 更新
             tags:
                 - scopedpolicybinding
-    /scopedpolicybindings/distinct-field:
-        get:
-            description: 获取指定资源类的信息DistinctField
-            operationId: scopedpolicybinding_GetPropertyDistinctField
-            responses:
-                "200":
-                    $ref: '#/responses/scopedpolicybinding_GetPropertyDistinctFieldOutput'
-            summary: 获取指定资源类的信息DistinctField
-            tags:
-                - scopedpolicybinding
-    /scopedpolicybindings/distinct-fields:
-        get:
-            description: 获取指定资源类的信息DistinctFields
-            operationId: scopedpolicybinding_GetPropertyDistinctFields
-            responses:
-                "200":
-                    $ref: '#/responses/scopedpolicybinding_GetPropertyDistinctFieldsOutput'
-            summary: 获取指定资源类的信息DistinctFields
-            tags:
-                - scopedpolicybinding
-    /scopedpolicybindings/purge-splitable:
-        post:
-            description: 执行操作PurgeSplitable
-            operationId: scopedpolicybinding_PerformPurgeSplitable
-            parameters:
-                - in: body
-                  name: body
-                  schema:
-                    properties:
-                        scopedpolicybinding:
-                            $ref: '#/definitions/PurgeSplitTableInput'
-                    type: object
-                  x-go-name: Body
-            responses:
-                "200":
-                    $ref: '#/responses/scopedpolicybinding_PerformPurgeSplitableOutput'
-            summary: 执行操作PurgeSplitable
-            tags:
-                - scopedpolicybinding
-    /scopedpolicybindings/splitable:
-        get:
-            description: 获取指定资源类的信息Splitable
-            operationId: scopedpolicybinding_GetPropertySplitable
-            responses:
-                "200":
-                    $ref: '#/responses/scopedpolicybinding_GetPropertySplitableOutput'
-            summary: 获取指定资源类的信息Splitable
-            tags:
-                - scopedpolicybinding
-    /scopedpolicybindings/splitable-export:
-        get:
-            description: 获取指定资源类的信息SplitableExport
-            operationId: scopedpolicybinding_GetPropertySplitableExport
-            parameters:
-                - in: query
-                  name: table
-                  type: string
-                  x-go-name: Table
-                - format: int64
-                  in: query
-                  name: offset
-                  type: integer
-                  x-go-name: Offset
-                - format: int64
-                  in: query
-                  name: limit
-                  type: integer
-                  x-go-name: Limit
-            responses:
-                "200":
-                    $ref: '#/responses/scopedpolicybinding_GetPropertySplitableExportOutput'
-            summary: 获取指定资源类的信息SplitableExport
-            tags:
-                - scopedpolicybinding
 produces:
     - application/json
 responses:
@@ -1797,14 +1355,6 @@ responses:
                 parameter:
                     $ref: '#/definitions/ResourceBaseDetails'
             type: object
-    parameter_GetPropertyDistinctFieldOutput:
-        description: ""
-    parameter_GetPropertyDistinctFieldsOutput:
-        description: ""
-    parameter_GetPropertySplitableExportOutput:
-        description: ""
-    parameter_GetPropertySplitableOutput:
-        description: ""
     parameter_ListItemFilterOutput:
         description: ""
         schema:
@@ -1828,8 +1378,6 @@ responses:
                     x-go-name: Total
             type: object
     parameter_PerformCloneOutput:
-        description: ""
-    parameter_PerformPurgeSplitableOutput:
         description: ""
     parameter_ValidateCreateDataOutput:
         description: ""
@@ -1859,23 +1407,6 @@ responses:
                 scopedpolicy:
                     $ref: '#/definitions/ScopedPolicyDetails'
             type: object
-    scopedpolicy_GetDetailsChangeOwnerCandidateDomainsOutput:
-        description: ""
-        schema:
-            properties:
-                scopedpolicy:
-                    $ref: '#/definitions/ChangeOwnerCandidateDomainsOutput'
-            type: object
-    scopedpolicy_GetDetailsClassMetadataOutput:
-        description: ""
-        schema:
-            properties:
-                scopedpolicy:
-                    additionalProperties:
-                        type: string
-                    type: object
-                    x-go-name: Output
-            type: object
     scopedpolicy_GetDetailsMetadataOutput:
         description: ""
         schema:
@@ -1886,32 +1417,6 @@ responses:
                     type: object
                     x-go-name: Output
             type: object
-    scopedpolicy_GetDetailsOrgMetadataOutput:
-        description: ""
-        schema:
-            properties:
-                scopedpolicy:
-                    additionalProperties:
-                        type: string
-                    type: object
-                    x-go-name: Output
-            type: object
-    scopedpolicy_GetPropertyDistinctFieldOutput:
-        description: ""
-    scopedpolicy_GetPropertyDistinctFieldsOutput:
-        description: ""
-    scopedpolicy_GetPropertyDomainTagValuePairsOutput:
-        description: ""
-    scopedpolicy_GetPropertyDomainTagValueTreeOutput:
-        description: ""
-    scopedpolicy_GetPropertySplitableExportOutput:
-        description: ""
-    scopedpolicy_GetPropertySplitableOutput:
-        description: ""
-    scopedpolicy_GetPropertyTagValuePairsOutput:
-        description: ""
-    scopedpolicy_GetPropertyTagValueTreeOutput:
-        description: ""
     scopedpolicy_ListItemFilterOutput:
         description: ""
         schema:
@@ -1938,19 +1443,9 @@ responses:
         description: ""
     scopedpolicy_PerformChangeOwnerOutput:
         description: ""
-    scopedpolicy_PerformClassMetadataOutput:
-        description: ""
     scopedpolicy_PerformPrivateOutput:
         description: ""
     scopedpolicy_PerformPublicOutput:
-        description: ""
-    scopedpolicy_PerformPurgeSplitableOutput:
-        description: ""
-    scopedpolicy_PerformSetClassMetadataOutput:
-        description: ""
-    scopedpolicy_PerformSetOrgMetadataOutput:
-        description: ""
-    scopedpolicy_PerformSetUserMetadataOutput:
         description: ""
     scopedpolicy_ValidateCreateDataOutput:
         description: ""
@@ -1980,14 +1475,6 @@ responses:
                 scopedpolicybinding:
                     $ref: '#/definitions/ScopedPolicyBindingDetails'
             type: object
-    scopedpolicybinding_GetPropertyDistinctFieldOutput:
-        description: ""
-    scopedpolicybinding_GetPropertyDistinctFieldsOutput:
-        description: ""
-    scopedpolicybinding_GetPropertySplitableExportOutput:
-        description: ""
-    scopedpolicybinding_GetPropertySplitableOutput:
-        description: ""
     scopedpolicybinding_ListItemFilterOutput:
         description: ""
         schema:
@@ -2010,8 +1497,6 @@ responses:
                     type: integer
                     x-go-name: Total
             type: object
-    scopedpolicybinding_PerformPurgeSplitableOutput:
-        description: ""
     scopedpolicybinding_ValidateCreateDataOutput:
         description: ""
         schema:

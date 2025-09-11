@@ -202,7 +202,7 @@ func (self *SRegion) GetRouteTable(id string) (*SRouteTable, error) {
 func (self *SRouteTable) CreateRoute(route cloudprovider.RouteSet) error {
 	routeType, ok := hoptypes[route.NextHopType]
 	if !ok {
-		return errors.Wrapf(cloudprovider.ErrNotSupported, route.NextHopType)
+		return errors.Wrapf(cloudprovider.ErrNotSupported, "%s", route.NextHopType)
 	}
 	params := map[string]interface{}{
 		"route": map[string]interface{}{
@@ -219,7 +219,7 @@ func (self *SRouteTable) CreateRoute(route cloudprovider.RouteSet) error {
 func (self *SRouteTable) RemoveRoute(route cloudprovider.RouteSet) error {
 	_, ok := hoptypes[route.NextHopType]
 	if !ok {
-		return errors.Wrapf(cloudprovider.ErrNotSupported, route.NextHopType)
+		return errors.Wrapf(cloudprovider.ErrNotSupported, "%s", route.NextHopType)
 	}
 	_, err := self.vpc.region.delete(SERVICE_VPC, "vpc/routes/"+route.RouteId)
 	return err

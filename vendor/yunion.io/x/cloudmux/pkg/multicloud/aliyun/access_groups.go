@@ -278,5 +278,5 @@ func (self *SAccessGroup) CreateRule(opts *cloudprovider.AccessGroupRule) (cloud
 			return &rules[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, ruleId)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", ruleId)
 }

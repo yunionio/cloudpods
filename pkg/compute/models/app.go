@@ -150,6 +150,15 @@ func (am *SAppManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string)
 	return q, nil
 }
 
+func (manager *SAppManager) QueryDistinctExtraFields(q *sqlchemy.SQuery, resource string, fields []string) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SManagedResourceBaseManager.QueryDistinctExtraFields(q, resource, fields)
+	if err == nil {
+		return q, nil
+	}
+	return q, httperrors.ErrNotFound
+}
+
 func (am *SAppManager) ListItemExportKeys(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, keys stringutils2.SSortedStrings) (*sqlchemy.SQuery, error) {
 	var err error
 	q, err = am.SVirtualResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)

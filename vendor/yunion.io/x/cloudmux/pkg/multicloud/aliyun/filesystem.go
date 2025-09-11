@@ -235,9 +235,9 @@ func (self *SRegion) GetFileSystem(id string) (*SFileSystem, error) {
 		return &nas[0], nil
 	}
 	if total == 0 {
-		return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
+		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", id)
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrDuplicateId, id)
+	return nil, errors.Wrapf(cloudprovider.ErrDuplicateId, "%s", id)
 }
 
 func (self *SRegion) GetICloudFileSystemById(id string) (cloudprovider.ICloudFileSystem, error) {

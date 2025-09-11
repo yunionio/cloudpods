@@ -2801,6 +2801,14 @@ func (h *SHostInfo) startBindReservedCpus(processesPrefix []string) {
 	}
 }
 
+func (h *SHostInfo) OnGuestLoadingComplete() {
+	for _, nic := range h.Nics {
+		if nic.dhcpServer6 != nil {
+			nic.dhcpServer6.InitRAQueue()
+		}
+	}
+}
+
 func NewHostInfo() (*SHostInfo, error) {
 	var res = new(SHostInfo)
 	res.sysinfo = &SSysInfo{}

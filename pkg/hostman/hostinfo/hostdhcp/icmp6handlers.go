@@ -29,28 +29,19 @@ import (
 )
 
 type sRARequest struct {
-	solicitation *icmp6.SRouterSolicitation
+	vmMac        net.HardwareAddr
 	attempts     int
 	succAttempts int
+	nextAttempt  time.Time
+}
+
+func (s *SGuestDHCP6Server) requestRA(vmMac net.HardwareAddr) {
+	s.raReqCh <- vmMac
 }
 
 func (s *SGuestDHCP6Server) handleRouterSolicitation(msg *icmp6.SRouterSolicitation) error {
 	// solicitation request from guest
-	var conf = s.getConfig(msg.SrcMac)
-	if conf != nil && conf.ClientIP6 != nil && conf.Gateway6 != nil {
-		req := &sRARequest{
-			solicitation: msg,
-			attempts:     1,
-		}
-		succ, err := s.sendRouterAdvertisement(msg)
-		if err != nil {
-			return errors.Wrapf(err, "sendRouterAdvertisement")
-		}
-		if succ {
-			req.succAttempts++
-		}
-		s.raReqCh <- req
-	}
+	s.requestRA(msg.SrcMac)
 	return nil
 }
 
@@ -100,8 +91,11 @@ func (s *SGuestDHCP6Server) requestGatewayMac(gwIP net.IP, vlanId uint16) {
 	}
 }
 
-func (s *SGuestDHCP6Server) sendRouterAdvertisement(solicitation *icmp6.SRouterSolicitation) (bool, error) {
-	var conf = s.getConfig(solicitation.SrcMac)
+func (s *SGuestDHCP6Server) sendRouterAdvertisement(vmMac net.HardwareAddr) (bool, error) {
+	var conf = s.getConfig(vmMac)
+	if conf == nil {
+		return false, errors.Wrapf(errors.ErrNotFound, "getConfig %s", vmMac.String())
+	}
 	if conf != nil && conf.ClientIP6 != nil && conf.Gateway6 != nil {
 		gwMacObj := s.gwMacCache.AtomicGet(conf.Gateway6.String())
 		if gwMacObj == nil {
@@ -130,7 +124,7 @@ func (s *SGuestDHCP6Server) sendRouterAdvertisement(solicitation *icmp6.SRouterS
 				// https://www.rfc-editor.org/rfc/rfc4861.html#page-18
 				// !!! MUST be the link-local address assigned to the interface from which this message is sent.
 				SrcIP:  gwLinkLocalIP,
-				DstMac: solicitation.SrcMac,
+				DstMac: vmMac,
 				DstIP:  net.ParseIP("ff02::1"),
 			},
 			CurHopLimit:    64,
@@ -138,7 +132,7 @@ func (s *SGuestDHCP6Server) sendRouterAdvertisement(solicitation *icmp6.SRouterS
 			IsOther:        true,
 			IsHomeAgent:    false,
 			Preference:     pref,
-			RouterLifetime: 9000,
+			RouterLifetime: uint16(options.HostOptions.Dhcp6RouterLifetimeSeconds),
 			ReachableTime:  0,
 			RetransTimer:   0,
 			MTU:            uint32(conf.MTU),
@@ -148,8 +142,8 @@ func (s *SGuestDHCP6Server) sendRouterAdvertisement(solicitation *icmp6.SRouterS
 					IsAutoconf:        false,
 					Prefix:            ipnet.IP,
 					PrefixLen:         conf.PrefixLen6,
-					ValidLifetime:     4500,
-					PreferredLifetime: 2250,
+					ValidLifetime:     uint32(options.HostOptions.Dhcp6RouterLifetimeSeconds / 2),
+					PreferredLifetime: uint32(options.HostOptions.Dhcp6RouterLifetimeSeconds / 4),
 				},
 			},
 		}
@@ -162,13 +156,13 @@ func (s *SGuestDHCP6Server) sendRouterAdvertisement(solicitation *icmp6.SRouterS
 					IsAutoconf:        false,
 					Prefix:            route.Prefix,
 					PrefixLen:         route.PrefixLen,
-					ValidLifetime:     4500,
-					PreferredLifetime: 2250,
+					ValidLifetime:     uint32(options.HostOptions.Dhcp6RouterLifetimeSeconds / 2),
+					PreferredLifetime: uint32(options.HostOptions.Dhcp6RouterLifetimeSeconds / 4),
 				})
 			} else if route.Gateway.String() != conf.Gateway6.String() {
 				// routes forwarded by router
 				ra.RouteInfo = append(ra.RouteInfo, icmp6.SRouteInfoOption{
-					RouteLifetime: 9000,
+					RouteLifetime: uint32(options.HostOptions.Dhcp6RouterLifetimeSeconds),
 					Prefix:        route.Prefix,
 					PrefixLen:     route.PrefixLen,
 					Preference:    pref,
@@ -182,7 +176,7 @@ func (s *SGuestDHCP6Server) sendRouterAdvertisement(solicitation *icmp6.SRouterS
 			return false, errors.Wrapf(err, "EncodePacket")
 		}
 
-		err = s.conn.SendRaw(bytes, solicitation.SrcMac)
+		err = s.conn.SendRaw(bytes, vmMac)
 		if err != nil {
 			log.Errorf("Send RouterAdvertisement error: %v", err)
 		}
@@ -195,6 +189,46 @@ func (s *SGuestDHCP6Server) stopRAServer() {
 	close(s.raReqCh)
 }
 
+func (s *SGuestDHCP6Server) handleRARequest(vmMac net.HardwareAddr) {
+	vmMacStr := vmMac.String()
+	raReq, ok := s.raReqQueue[vmMacStr]
+	if !ok {
+		raReq = &sRARequest{
+			vmMac: vmMac,
+		}
+		s.raReqQueue[vmMacStr] = raReq
+	} else {
+		raReq.nextAttempt = time.Time{}
+	}
+	// send RA immediately
+	raReq.attempts++
+	succ, err := s.sendRouterAdvertisement(vmMac)
+	if err != nil {
+		if errors.Cause(err) == errors.ErrNotFound {
+			// no such vm, giveup
+			delete(s.raReqQueue, vmMacStr)
+			return
+		}
+		log.Errorf("sendRouterAdvertisement error: %v", err)
+	}
+	if succ {
+		raReq.succAttempts++
+	}
+	if raReq.succAttempts < options.HostOptions.Dhcp6RouterAdvertisementAttempts {
+		if raReq.attempts > 2*options.HostOptions.Dhcp6RouterAdvertisementAttempts {
+			// giveup
+			delete(s.raReqQueue, vmMacStr)
+		} else {
+			// retry next round
+		}
+	} else {
+		// schedule RA when prefix router lifetime expires
+		raReq.attempts = 0
+		raReq.succAttempts = 0
+		raReq.nextAttempt = time.Now().Add(time.Second * time.Duration(options.HostOptions.Dhcp6RouterLifetimeSeconds/4))
+	}
+}
+
 func (s *SGuestDHCP6Server) startRAServer() {
 	// a tiny RA server
 	stop := false
@@ -204,29 +238,14 @@ func (s *SGuestDHCP6Server) startRAServer() {
 			stop = true
 		case raReq := <-s.raReqCh:
 			// handle RA request
-			s.raReqQueue = append(s.raReqQueue, raReq)
+			s.handleRARequest(raReq)
 		case <-time.After(time.Second * time.Duration(options.HostOptions.Dhcp6RouterAdvertisementIntervalSecs)):
 			// send RA
-			// log.Infof("timeout, to announce RA %d requests", len(s.raReqQueue))
-			if len(s.raReqQueue) > 0 {
-				raReqQueue := s.raReqQueue
-				s.raReqQueue = make([]*sRARequest, 0)
-
-				for i := range raReqQueue {
-					raReq := raReqQueue[i]
-					raReq.attempts++
-					succ, err := s.sendRouterAdvertisement(raReq.solicitation)
-					if err != nil {
-						log.Errorf("sendRouterAdvertisement error: %v", err)
-						continue
-					}
-					if succ {
-						raReq.succAttempts++
-					}
-					if raReq.succAttempts < options.HostOptions.Dhcp6RouterAdvertisementAttempts && raReq.attempts < 2*options.HostOptions.Dhcp6RouterAdvertisementAttempts {
-						s.raReqCh <- raReq
-					}
+			for _, raReq := range s.raReqQueue {
+				if !raReq.nextAttempt.IsZero() && raReq.nextAttempt.After(time.Now()) {
+					continue
 				}
+				s.handleRARequest(raReq.vmMac)
 			}
 		}
 	}

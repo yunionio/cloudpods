@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"net"
 	"os"
 	"path"
 	"regexp"
@@ -634,10 +635,15 @@ func (n *SGuestNetworkSyncTask) Start(callback func(...error)) {
 			addNicConfs := make([]*monitor.NetworkModify, 0)
 			for i := range n.addNics {
 				addNicMacs = append(addNicMacs, n.addNics[i].Mac)
-				addNicConfs = append(addNicConfs, &monitor.NetworkModify{
-					Ipmask:  fmt.Sprintf("%s/%d", n.addNics[i].Ip, n.addNics[i].Masklen),
-					Gateway: n.addNics[i].Gateway,
-				})
+				netMod := &monitor.NetworkModify{}
+				if len(n.addNics[i].Ip) > 0 {
+					netMod.Ipmask = fmt.Sprintf("%s/%d", n.addNics[i].Ip, n.addNics[i].Masklen)
+					netMod.Gateway = n.addNics[i].Gateway
+				}
+				if len(n.addNics[i].Ip6) > 0 {
+					netMod.Ip6mask = fmt.Sprintf("%s/%d", n.addNics[i].Ip6, n.addNics[i].Masklen6)
+				}
+				addNicConfs = append(addNicConfs, netMod)
 			}
 			n.addNicMacs = addNicMacs
 			n.addNicConfs = addNicConfs
@@ -1257,7 +1263,7 @@ func (s *SGuestLiveMigrateTask) waitMirrorJobsReady() {
 			s.waitMirrorJobsReady()
 			return
 		}
-		s.Monitor.Migrate(fmt.Sprintf("tcp:%s:%d", s.params.DestIp, s.params.DestPort),
+		s.Monitor.Migrate(fmt.Sprintf("tcp:%s", net.JoinHostPort(s.params.DestIp, strconv.Itoa(s.params.DestPort))),
 			false, false, s.setMaxBandwidth)
 	}
 	s.Monitor.GetBlockJobs(cb)
@@ -1308,7 +1314,7 @@ func (s *SGuestLiveMigrateTask) doMigrate() {
 			// copy disk data
 			copyIncremental = true
 		}
-		s.Monitor.Migrate(fmt.Sprintf("tcp:%s:%d", s.params.DestIp, s.params.DestPort),
+		s.Monitor.Migrate(fmt.Sprintf("tcp:%s", net.JoinHostPort(s.params.DestIp, strconv.Itoa(s.params.DestPort))),
 			copyIncremental, false, s.setMaxBandwidth)
 	}
 }

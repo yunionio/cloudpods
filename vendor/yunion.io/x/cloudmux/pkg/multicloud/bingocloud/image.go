@@ -215,7 +215,7 @@ func (self *SRegion) GetImageById(id string) (*SImage, error) {
 		return nil, err
 	}
 	if len(imgs) == 0 {
-		return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
+		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", id)
 	}
 	return &imgs[0], nil
 }
@@ -255,5 +255,5 @@ func (self *SStoragecache) GetIImageById(id string) (cloudprovider.ICloudImage, 
 			return &images[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", id)
 }

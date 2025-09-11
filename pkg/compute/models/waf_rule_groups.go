@@ -136,6 +136,15 @@ func (manager *SWafRuleGroupManager) QueryDistinctExtraField(q *sqlchemy.SQuery,
 	return q, httperrors.ErrNotFound
 }
 
+func (manager *SWafRuleGroupManager) QueryDistinctExtraFields(q *sqlchemy.SQuery, resource string, fields []string) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SManagedResourceBaseManager.QueryDistinctExtraFields(q, resource, fields)
+	if err == nil {
+		return q, nil
+	}
+	return q, httperrors.ErrNotFound
+}
+
 func (manager *SWafRuleGroupManager) OrderByExtraFields(
 	ctx context.Context,
 	q *sqlchemy.SQuery,
@@ -234,7 +243,7 @@ func (self *SWafRuleGroup) GetICloudWafRuleGroup(ctx context.Context) (cloudprov
 			return caches[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, self.ExternalId)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%v", self.ExternalId)
 }
 
 func (self *SWafRuleGroup) syncWithCloudRuleGroup(ctx context.Context, userCred mcclient.TokenCredential, ext cloudprovider.ICloudWafRuleGroup) error {

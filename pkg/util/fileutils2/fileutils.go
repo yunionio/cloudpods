@@ -382,7 +382,7 @@ func FsFormatToDiskType(fsFormat string) string {
 	switch {
 	case fsFormat == "swap":
 		return "linux-swap"
-	case strings.HasPrefix(fsFormat, "ext") || fsFormat == "xfs":
+	case strings.HasPrefix(fsFormat, "ext") || fsFormat == "xfs" || fsFormat == "f2fs":
 		return "ext2"
 	case strings.HasPrefix(fsFormat, "fat"):
 		return "fat32"

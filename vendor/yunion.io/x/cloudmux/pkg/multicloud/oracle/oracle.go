@@ -197,7 +197,7 @@ func (self *SOracleClient) getUrl(service, regionId, resource string) (string, e
 	case SERVICE_TELEMETRY:
 		return fmt.Sprintf("https://%s.%s.oraclecloud.com/%s/%s", service, regionId, MONITORY_API_VERSION, strings.TrimPrefix(resource, "/")), nil
 	default:
-		return "", errors.Wrapf(cloudprovider.ErrNotSupported, service)
+		return "", errors.Wrapf(cloudprovider.ErrNotSupported, "%s", service)
 	}
 }
 

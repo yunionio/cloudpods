@@ -629,7 +629,7 @@ func (self *SRegion) GetICloudWafInstanceById(id string) (cloudprovider.ICloudWa
 	if strings.Contains(id, "microsoft.network/applicationgatewaywebapplicationfirewallpolicies") {
 		return self.GetAppGatewayWaf(id)
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotSupported, id)
+	return nil, errors.Wrapf(cloudprovider.ErrNotSupported, "%s", id)
 }
 
 func (self *SRegion) CreateAppWafInstance(name string, action *cloudprovider.DefaultAction) (*SAppGatewayWaf, error) {

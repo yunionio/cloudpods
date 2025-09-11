@@ -68,7 +68,7 @@ func (self *LoadbalancerListenerCreateTask) OnLoadbalancerListenerCreateComplete
 }
 
 func (self *LoadbalancerListenerCreateTask) OnLoadbalancerListenerCreateCompleteFailed(ctx context.Context, lblis *models.SLoadbalancerListener, reason jsonutils.JSONObject) {
-	self.taskFail(ctx, lblis, errors.Errorf(reason.String()))
+	self.taskFail(ctx, lblis, errors.Errorf("%s", reason.String()))
 }
 
 func (self *LoadbalancerListenerCreateTask) OnLoadbalancerListenerStartComplete(ctx context.Context, lblis *models.SLoadbalancerListener, data jsonutils.JSONObject) {

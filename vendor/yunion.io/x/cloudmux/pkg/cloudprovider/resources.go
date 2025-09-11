@@ -324,6 +324,7 @@ type ICloudHost interface {
 	GetOvnVersion() string // just for cloudpods host
 
 	GetIsolateDevices() ([]IsolateDevice, error)
+	GetIpmiInfo() jsonutils.JSONObject
 }
 
 type IsolateDevice interface {
@@ -1353,6 +1354,10 @@ type ICloudDnsZone interface {
 	GetIDnsRecordById(id string) (ICloudDnsRecord, error)
 
 	AddDnsRecord(*DnsRecord) (string, error)
+
+	GetNameServers() ([]string, error)
+	GetOriginalNameServers() ([]string, error)
+	GetRegistrar() string
 
 	Delete() error
 

@@ -51,7 +51,7 @@ func TestRunManu(t *testing.T) {
 			ctx := context.Background()
 			now := time.Now()
 			ms := now.UnixMilli()
-			ctx = context.WithValue(ctx, "Time", ms)
+			ctx = context.WithValue(ctx, "time", ms)
 			lockman.LockKey(ctx, "test")
 			defer lockman.UnlockKey(ctx, "test")
 			counter++

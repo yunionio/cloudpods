@@ -721,6 +721,23 @@ func (manager *SGuestManager) ListItemFilter(
 			q = q.IsNullOrEmpty("host_id")
 		}
 	}
+	if len(query.SnapshotpolicyId) > 0 {
+		sp := SnapshotPolicyResourceManager.Query("resource_id").
+			Equals("resource_type", api.SNAPSHOT_POLICY_TYPE_SERVER).
+			Equals("snapshotpolicy_id", query.SnapshotpolicyId).SubQuery()
+		q = q.In("id", sp)
+	}
+
+	if query.BindingSnapshotpolicy != nil {
+		spjsq := SnapshotPolicyResourceManager.Query("resource_id").
+			Equals("resource_type", api.SNAPSHOT_POLICY_TYPE_SERVER).
+			SubQuery()
+		if *query.BindingSnapshotpolicy {
+			q = q.In("id", spjsq)
+		} else {
+			q = q.NotIn("id", spjsq)
+		}
+	}
 
 	return q, nil
 }
@@ -1453,15 +1470,19 @@ func (self *SGuest) ValidateUpdateData(ctx context.Context, userCred mcclient.To
 		}
 	}
 
-	drv, err := self.GetDriver()
-	if err != nil {
-		return input, err
-	}
-	input, err = drv.ValidateUpdateData(ctx, self, userCred, input)
-	if err != nil {
-		return input, errors.Wrap(err, "GetDriver().ValidateUpdateData")
+	// 避免调度失败的机器修改删除保护时报no rows in result set 错误，导致前端删不掉机器
+	if len(self.HostId) > 0 {
+		drv, err := self.GetDriver()
+		if err != nil {
+			return input, err
+		}
+		input, err = drv.ValidateUpdateData(ctx, self, userCred, input)
+		if err != nil {
+			return input, errors.Wrap(err, "GetDriver().ValidateUpdateData")
+		}
 	}
 
+	var err error
 	input.VirtualResourceBaseUpdateInput, err = self.SVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, input.VirtualResourceBaseUpdateInput)
 	if err != nil {
 		return input, errors.Wrap(err, "SVirtualResourceBase.ValidateUpdateData")
@@ -2932,9 +2953,11 @@ func (self *SGuest) GetRealIPs() []string {
 
 func (self *SGuest) IsExitOnly() bool {
 	for _, ip := range self.GetRealIPs() {
-		addr, _ := netutils.NewIPV4Addr(ip)
-		if !netutils.IsExitAddress(addr) {
-			return false
+		if regutils.MatchIP4Addr(ip) {
+			addr, _ := netutils.NewIPV4Addr(ip)
+			if !netutils.IsExitAddress(addr) {
+				return false
+			}
 		}
 	}
 	return true
@@ -2949,7 +2972,12 @@ func (self *SGuest) getVirtualIPs() []string {
 			continue
 		}
 		for _, groupnetwork := range groupnets {
-			ips = append(ips, groupnetwork.IpAddr)
+			if len(groupnetwork.IpAddr) > 0 {
+				ips = append(ips, groupnetwork.IpAddr)
+			}
+			if len(groupnetwork.Ip6Addr) > 0 {
+				ips = append(ips, groupnetwork.Ip6Addr)
+			}
 		}
 	}
 	return ips
@@ -2958,13 +2986,15 @@ func (self *SGuest) getVirtualIPs() []string {
 func (self *SGuest) GetPrivateIPs() []string {
 	ips := self.GetRealIPs()
 	for i := len(ips) - 1; i >= 0; i-- {
-		ipAddr, err := netutils.NewIPV4Addr(ips[i])
-		if err != nil {
-			log.Errorf("guest %s(%s) has bad ipv4 address (%s): %v", self.Name, self.Id, ips[i], err)
-			continue
-		}
-		if !netutils.IsPrivate(ipAddr) {
-			ips = append(ips[:i], ips[i+1:]...)
+		if regutils.MatchIP4Addr(ips[i]) {
+			ipAddr, err := netutils.NewIPV4Addr(ips[i])
+			if err != nil {
+				log.Errorf("guest %s(%s) has bad ipv4 address (%s): %v", self.Name, self.Id, ips[i], err)
+				continue
+			}
+			if !netutils.IsPrivate(ipAddr) {
+				ips = append(ips[:i], ips[i+1:]...)
+			}
 		}
 	}
 	return ips

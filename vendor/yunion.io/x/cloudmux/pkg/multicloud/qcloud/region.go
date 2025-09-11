@@ -292,7 +292,7 @@ func (self *SRegion) getZoneById(id string) (*SZone, error) {
 			return &zones[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", id)
 }
 
 func (self *SRegion) GetIVpcs() ([]cloudprovider.ICloudVpc, error) {
@@ -590,7 +590,7 @@ func (self *SRegion) GetNetwork(id string) (*SNetwork, error) {
 			return &networks[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", id)
 }
 
 func (self *SRegion) getStoragecache() *SStoragecache {
@@ -867,7 +867,7 @@ func (region *SRegion) GetIElasticcacheById(id string) (cloudprovider.ICloudElas
 				return &memcacheds[i], nil
 			}
 		}
-		return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
+		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", id)
 	}
 	caches, err := region.GetCloudElasticcaches(id)
 	if err != nil {

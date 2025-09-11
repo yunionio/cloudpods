@@ -155,6 +155,15 @@ func (man *SCloudproviderQuotaManager) QueryDistinctExtraField(q *sqlchemy.SQuer
 	return q, httperrors.ErrNotFound
 }
 
+func (manager *SCloudproviderQuotaManager) QueryDistinctExtraFields(q *sqlchemy.SQuery, resource string, fields []string) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SManagedResourceBaseManager.QueryDistinctExtraFields(q, resource, fields)
+	if err == nil {
+		return q, nil
+	}
+	return q, httperrors.ErrNotFound
+}
+
 func (manager *SCloudproviderQuotaManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

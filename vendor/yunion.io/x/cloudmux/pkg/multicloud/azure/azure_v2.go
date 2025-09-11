@@ -108,7 +108,7 @@ func (self *SAzureClient) auth(resource string) (string, error) {
 		return "", errors.Wrapf(err, "parse body %s", string(body))
 	}
 	if obj.Contains("error") {
-		return "", errors.Errorf(string(body))
+		return "", errors.Errorf("%s", string(body))
 	}
 	token := &Token{}
 	err = obj.Unmarshal(token)

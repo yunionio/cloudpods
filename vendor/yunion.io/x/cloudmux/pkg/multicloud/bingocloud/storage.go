@@ -137,7 +137,7 @@ func (self *SCluster) GetIStorageById(id string) (cloudprovider.ICloudStorage, e
 			return storages[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", id)
 }
 
 func (self *SCluster) GetIStorages() ([]cloudprovider.ICloudStorage, error) {

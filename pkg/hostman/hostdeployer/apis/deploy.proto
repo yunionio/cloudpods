@@ -151,8 +151,14 @@ message FsExt4Features {
   int32 ReservedBlocksPercentage = 2;
 }
 
+message FsF2fsFeatures {
+  bool CaseInsensitive = 1;
+  int32 OverprovisionRatioPercentage = 2;
+}
+
 message FsFeatures {
   FsExt4Features ext4 = 1;
+  FsF2fsFeatures f2fs = 2;
 }
 
 message FormatFsParams {

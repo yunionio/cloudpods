@@ -77,6 +77,15 @@ func (manager *SInterVpcNetworkManager) QueryDistinctExtraField(q *sqlchemy.SQue
 	return q, httperrors.ErrNotFound
 }
 
+func (manager *SInterVpcNetworkManager) QueryDistinctExtraFields(q *sqlchemy.SQuery, resource string, fields []string) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SManagedResourceBaseManager.QueryDistinctExtraFields(q, resource, fields)
+	if err == nil {
+		return q, nil
+	}
+	return q, httperrors.ErrNotFound
+}
+
 func (manager *SInterVpcNetworkManager) OrderByExtraFields(
 	ctx context.Context,
 	q *sqlchemy.SQuery,

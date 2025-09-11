@@ -26,7 +26,7 @@ import (
 )
 
 type SDomain struct {
-	multicloud.SVirtualResourceBase
+	multicloud.SDnsZoneBase
 	AliyunTags
 	client      *SAliyunClient
 	ttlMinValue int64

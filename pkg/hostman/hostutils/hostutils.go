@@ -109,6 +109,8 @@ type IHost interface {
 
 	SetIGuestManager(guestman IGuestManager)
 	GetIGuestManager() IGuestManager
+
+	OnGuestLoadingComplete()
 }
 
 func GetComputeSession(ctx context.Context) *mcclient.ClientSession {

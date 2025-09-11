@@ -98,7 +98,7 @@ func (region *SRegion) AttachServiceForl3Network(l3Id string, services []string)
 		if err != nil || len(networkServiceProviders) == 0 {
 			msg := fmt.Sprintf("failed to find network services %s error: %v", service, err)
 			log.Errorln(msg)
-			return fmt.Errorf(msg)
+			return fmt.Errorf("%s", msg)
 		}
 		attachServices := []string{}
 		for i := 0; i < len(networkServiceProviders[0].NetworkServiceTypes); i++ {

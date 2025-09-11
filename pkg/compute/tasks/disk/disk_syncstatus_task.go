@@ -71,5 +71,5 @@ func (self *DiskSyncstatusTask) OnDiskSyncStatusComplete(ctx context.Context, ob
 }
 
 func (self *DiskSyncstatusTask) OnDiskSyncStatusCompleteFailed(ctx context.Context, disk *models.SDisk, data jsonutils.JSONObject) {
-	self.taskFailed(ctx, disk, fmt.Errorf(data.String()))
+	self.taskFailed(ctx, disk, fmt.Errorf("%s", data.String()))
 }

@@ -96,7 +96,7 @@ func (cm *SConfigManager) ValidateCreateData(ctx context.Context, userCred mccli
 			DomainId:             input.ProjectDomainId,
 		})
 		if err != nil {
-			return input, errors.Wrapf(err, message)
+			return input, errors.Wrapf(err, "%s", message)
 		}
 	}
 	if len(input.Name) == 0 {
@@ -175,7 +175,7 @@ func (c *SConfig) ValidateUpdateData(ctx context.Context, userCred mcclient.Toke
 				DomainId:             c.DomainId,
 			})
 			if err != nil {
-				return input, errors.Wrapf(err, message)
+				return input, errors.Wrapf(err, "%s", message)
 			}
 		}
 	}
@@ -376,7 +376,7 @@ func (cm *SConfigManager) PerformValidate(ctx context.Context, userCred mcclient
 		DomainId:             userCred.GetDomainId(),
 	})
 	if err != nil {
-		return output, errors.Wrapf(err, message)
+		return output, errors.Wrapf(err, "%s", message)
 	}
 	output.IsValid = true
 	output.Message = message

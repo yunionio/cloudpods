@@ -210,6 +210,15 @@ func (manager *SDiskManager) ListItemFilter(
 		}
 	}
 
+	if query.BindingSnapshotpolicy != nil {
+		spjsq := SnapshotPolicyDiskManager.Query("disk_id").SubQuery()
+		if *query.BindingSnapshotpolicy {
+			q = q.In("id", spjsq)
+		} else {
+			q = q.NotIn("id", spjsq)
+		}
+	}
+
 	guestId := query.ServerId
 	if len(guestId) > 0 {
 		server, err := validators.ValidateModel(ctx, userCred, GuestManager, &guestId)
@@ -638,6 +647,14 @@ func (manager *SDiskManager) ValidateFsFeatures(fsType string, feature *api.Disk
 		}
 		if feature.Ext4.ReservedBlocksPercentage < 0 || feature.Ext4.ReservedBlocksPercentage >= 100 {
 			return httperrors.NewInputParameterError("ext4.reserved_blocks_percentage must in range [1, 99]")
+		}
+	}
+	if feature.F2fs != nil {
+		if fsType != "f2fs" {
+			return httperrors.NewInputParameterError("only f2fs fs can set fs_features.f2fs, current is %q", fsType)
+		}
+		if feature.F2fs.OverprovisionRatioPercentage < 0 || feature.F2fs.OverprovisionRatioPercentage >= 100 {
+			return httperrors.NewInputParameterError("f2fs.reserved_blocks_percentage must in range [1, 99]")
 		}
 	}
 	return nil
@@ -2852,7 +2869,7 @@ func (manager *SDiskManager) GetNeedAutoSnapshotDisks() ([]SSnapshotPolicyDisk, 
 	}
 	timePoint := t.Hour()
 
-	policy := SnapshotPolicyManager.Query().Equals("cloudregion_id", api.DEFAULT_REGION_ID)
+	policy := SnapshotPolicyManager.Query().Equals("type", api.SNAPSHOT_POLICY_TYPE_DISK).Equals("cloudregion_id", api.DEFAULT_REGION_ID)
 	policy = policy.Filter(sqlchemy.Contains(policy.Field("repeat_weekdays"), fmt.Sprintf("%d", week)))
 	sq := policy.Filter(
 		sqlchemy.OR(
@@ -3263,6 +3280,15 @@ func (disk *SDisk) resetDiskinfo(
 	if len(disk.FsFormat) == 0 {
 		return errors.Wrap(errors.ErrInvalidStatus, "fs_format must be set")
 	}
+	if input.Fs != nil {
+		if disk.FsFeatures != nil {
+			err := DiskManager.ValidateFsFeatures(*input.Fs, input.FsFeatures)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
 	if input.TemplateId != nil {
 		if len(*input.TemplateId) > 0 {
 			imageObj, err := CachedimageManager.FetchByIdOrName(ctx, userCred, *input.TemplateId)
@@ -3308,6 +3334,10 @@ func (disk *SDisk) resetDiskinfo(
 		}
 		if diskSize > 0 {
 			disk.DiskSize = diskSize
+		}
+		if input.Fs != nil {
+			disk.FsFormat = *input.Fs
+			disk.FsFeatures = input.FsFeatures
 		}
 		return nil
 	})

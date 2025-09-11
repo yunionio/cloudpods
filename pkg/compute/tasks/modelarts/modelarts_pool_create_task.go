@@ -86,9 +86,9 @@ func (modelartsCreateTask *ModelartsPoolCreateTask) WaitStatus(ctx context.Conte
 		case api.MODELARTS_POOL_STATUS_RUNNING:
 			return nil, nil
 		case api.MODELARTS_POOL_STATUS_CREATE_FAILED:
-			return nil, errors.Errorf(ipool.GetStatusMessage())
+			return nil, errors.Errorf("%s", ipool.GetStatusMessage())
 		default:
-			return nil, errors.Errorf(ipool.GetStatus())
+			return nil, errors.Errorf("%s", ipool.GetStatus())
 		}
 	})
 	return nil
@@ -96,9 +96,9 @@ func (modelartsCreateTask *ModelartsPoolCreateTask) WaitStatus(ctx context.Conte
 
 func (modelartsCreateTask *ModelartsPoolCreateTask) OnModelartsPoolCreateCompleteFailed(ctx context.Context, modelarts *models.SModelartsPool, err jsonutils.JSONObject) {
 	if strings.Contains(err.String(), errors.ErrTimeout.Error()) {
-		modelartsCreateTask.taskFailed(ctx, modelarts, api.MODELARTS_POOL_STATUS_TIMEOUT, errors.Errorf(err.String()))
+		modelartsCreateTask.taskFailed(ctx, modelarts, api.MODELARTS_POOL_STATUS_TIMEOUT, errors.Errorf("%s", err.String()))
 	} else {
-		modelartsCreateTask.taskFailed(ctx, modelarts, api.MODELARTS_POOL_STATUS_CREATE_FAILED, errors.Errorf(err.String()))
+		modelartsCreateTask.taskFailed(ctx, modelarts, api.MODELARTS_POOL_STATUS_CREATE_FAILED, errors.Errorf("%s", err.String()))
 	}
 }
 

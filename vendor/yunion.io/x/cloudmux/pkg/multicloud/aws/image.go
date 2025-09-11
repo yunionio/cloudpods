@@ -158,7 +158,7 @@ func (self *SRegion) GetImportImageTask(id string) (*ImageImportTask, error) {
 			return &tasks[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", id)
 }
 
 func (self *ImageImportTask) IsEmulated() bool {

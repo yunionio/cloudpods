@@ -274,7 +274,7 @@ func (region *SRegion) GetEip(eipId string) (*SEipAddress, error) {
 			return &eips[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, eipId)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", eipId)
 }
 
 func (region *SRegion) AllocateEIP(opts *cloudprovider.SEip) (*SEipAddress, error) {

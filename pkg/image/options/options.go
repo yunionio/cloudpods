@@ -57,7 +57,11 @@ type SImageOptions struct {
 	S3UploadPartSizeMb int64  `help:"s3 upload part size in MB, default to 50MB" default:"50"`
 	S3UploadParallel   int    `help:"s3 upload parallel count" default:"4"`
 
+	S3DirectDownload bool `help:"enable s3 direct download" default:"true"`
+
 	ImageStreamWorkerCount int `help:"Image stream worker count" default:"10"`
+
+	VerifyImageStatusIntervalMinutes int `help:"verify image status periodically, default 15 minutes" default:"15"`
 }
 
 var (

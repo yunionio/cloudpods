@@ -137,7 +137,7 @@ func (region *SRegion) GetInstance(instanceId string) (*SInstance, error) {
 			return &instances[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, instanceId)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", instanceId)
 }
 
 func (region *SRegion) GetInstances(zoneId string, ids []string) ([]SInstance, error) {

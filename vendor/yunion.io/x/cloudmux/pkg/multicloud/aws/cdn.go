@@ -216,7 +216,7 @@ func (ac *SAwsClient) GetCDNDomainByName(name string) (*SCdnDomain, error) {
 		}
 	}
 
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, name)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", name)
 }
 
 func (ac *SAwsClient) GetCdnDomains() ([]SCdnDomain, error) {

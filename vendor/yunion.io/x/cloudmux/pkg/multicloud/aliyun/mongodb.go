@@ -87,6 +87,7 @@ type SMongoDB struct {
 	VSwitchId         string `json:"VSwitchId"`
 	VpcAuthMode       string `json:"VpcAuthMode"`
 	ReplicationFactor string `json:"ReplicationFactor"`
+	KindCode          string `json:"KindCode"`
 }
 
 var mongoSpec = map[string]struct {
@@ -126,6 +127,16 @@ func (self *SMongoDB) GetStatus() string {
 	default:
 		return strings.ToLower(self.DBInstanceStatus)
 	}
+}
+
+func (self *SMongoDB) GetSysTags() map[string]string {
+	ret := self.AliyunTags.GetSysTags()
+	if len(self.KindCode) == 0 {
+		self.Refresh()
+	}
+	// 用户需要通过KindCode区分是否是快照备份
+	ret["KindCode"] = self.KindCode
+	return ret
 }
 
 func (self *SMongoDB) GetProjectId() string {
@@ -233,6 +244,9 @@ func (self *SMongoDB) GetPort() int {
 }
 
 func (self *SMongoDB) GetReplicationNum() int {
+	if self.DBInstanceType == "sharding" {
+		return len(self.ShardList.ShardAttribute)
+	}
 	if len(self.ReplicationFactor) == 0 {
 		self.Refresh()
 	}
@@ -410,11 +424,13 @@ func (self *SRegion) GetMongoDB(id string) (*SMongoDB, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "resp.Unmarshal")
 	}
-	if len(ret) == 1 {
-		ret[0].region = self
-		return &ret[0], nil
+	for i := range ret {
+		ret[i].region = self
+		if ret[i].DBInstanceId == id {
+			return &ret[i], nil
+		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", id)
 }
 
 func (self *SRegion) DeleteMongoDB(id string) error {

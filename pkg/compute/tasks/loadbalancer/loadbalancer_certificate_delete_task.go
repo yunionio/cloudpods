@@ -66,5 +66,5 @@ func (self *LoadbalancerCertificateDeleteTask) OnLoadbalancerCertificateDeleteCo
 }
 
 func (self *LoadbalancerCertificateDeleteTask) OnLoadbalancerCertificateDeleteCompleteFailed(ctx context.Context, lbcert *models.SLoadbalancerCertificate, reason jsonutils.JSONObject) {
-	self.taskFail(ctx, lbcert, errors.Errorf(reason.String()))
+	self.taskFail(ctx, lbcert, errors.Errorf("%s", reason.String()))
 }

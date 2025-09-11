@@ -62,7 +62,7 @@ func (self *DBInstanceRemoteUpdateTask) OnRemoteUpdateComplete(ctx context.Conte
 }
 
 func (self *DBInstanceRemoteUpdateTask) OnRemoteUpdateCompleteFailed(ctx context.Context, rds *models.SDBInstance, data jsonutils.JSONObject) {
-	self.taskFail(ctx, rds, errors.Errorf(data.String()))
+	self.taskFail(ctx, rds, errors.Errorf("%s", data.String()))
 }
 
 func (self *DBInstanceRemoteUpdateTask) OnSyncStatusComplete(ctx context.Context, rds *models.SDBInstance, data jsonutils.JSONObject) {

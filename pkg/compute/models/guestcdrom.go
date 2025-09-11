@@ -136,7 +136,9 @@ func (self *SGuestcdrom) GetImage() (*SCachedimage, error) {
 func (self *SGuestcdrom) GetDetails() string {
 	if len(self.ImageId) > 0 {
 		if self.Size > 0 {
-			return fmt.Sprintf("%s(%s/%dMB)", self.Name, self.ImageId, self.Size)
+			// Size is stored in bytes, convert to MB for display
+			sizeMB := self.Size / 1024 / 1024
+			return fmt.Sprintf("%s(%s/%dMB)", self.Name, self.ImageId, sizeMB)
 		} else {
 			return fmt.Sprintf("%s(inserting)", self.ImageId)
 		}

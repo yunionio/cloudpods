@@ -66,5 +66,5 @@ func (self *LoadbalancerListenerStopTask) OnLoadbalancerListenerStopComplete(ctx
 }
 
 func (self *LoadbalancerListenerStopTask) OnLoadbalancerListenerStopCompleteFailed(ctx context.Context, lblis *models.SLoadbalancerListener, reason jsonutils.JSONObject) {
-	self.taskFail(ctx, lblis, errors.Errorf(reason.String()))
+	self.taskFail(ctx, lblis, errors.Errorf("%s", reason.String()))
 }

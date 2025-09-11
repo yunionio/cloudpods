@@ -203,37 +203,6 @@ definitions:
     PerformEnableInput:
         type: object
         x-go-package: yunion.io/x/onecloud/pkg/apis
-    PerformStatusInput:
-        properties:
-            host_id:
-                description: call from host id
-                type: string
-                x-go-name: HostId
-            power_states:
-                description: 电源状态
-                type: string
-                x-go-name: PowerStates
-            reason:
-                description: 更改状态的原因描述
-                type: string
-                x-go-name: Reason
-            status:
-                description: 更改的目标状态值
-                type: string
-                x-go-name: Status
-        required:
-            - status
-        type: object
-        x-go-package: yunion.io/x/onecloud/pkg/apis
-    PurgeSplitTableInput:
-        properties:
-            tables:
-                items:
-                    type: string
-                type: array
-                x-go-name: Tables
-        type: object
-        x-go-package: yunion.io/x/onecloud/pkg/apis
     STag:
         properties:
             key:
@@ -246,45 +215,6 @@ definitions:
                 x-go-name: Value
         type: object
         x-go-package: yunion.io/x/onecloud/pkg/util/tagutils
-    StatusStatistic:
-        properties:
-            TotalCpuCount:
-                description: CPU总量
-                format: int64
-                type: integer
-            TotalDiskSizeMb:
-                description: 存储总量
-                format: int64
-                type: integer
-            TotalMemSizeMb:
-                description: 内存总量
-                format: int64
-                type: integer
-            status_info:
-                items:
-                    $ref: '#/definitions/StatusStatisticStatusInfo'
-                type: array
-                x-go-name: StatusInfo
-        type: object
-        x-go-package: yunion.io/x/onecloud/pkg/apis
-    StatusStatisticStatusInfo:
-        properties:
-            Status:
-                type: string
-            pending_deleted_count:
-                description: |-
-                    回收站数量
-                    需要指定pending_delete=all
-                format: int64
-                type: integer
-                x-go-name: PendingDeletedCount
-            total_count:
-                description: 资源总数
-                format: int64
-                type: integer
-                x-go-name: TotalCount
-        type: object
-        x-go-package: yunion.io/x/onecloud/pkg/apis
     TTagSet:
         items:
             $ref: '#/definitions/STag'
@@ -687,70 +617,6 @@ paths:
             summary: 获取指定资源类的信息DistinctField
             tags:
                 - cloudevent
-    /cloudevents/distinct-fields:
-        get:
-            description: 获取指定资源类的信息DistinctFields
-            operationId: cloudevent_GetPropertyDistinctFields
-            responses:
-                "200":
-                    $ref: '#/responses/cloudevent_GetPropertyDistinctFieldsOutput'
-            summary: 获取指定资源类的信息DistinctFields
-            tags:
-                - cloudevent
-    /cloudevents/purge-splitable:
-        post:
-            description: 执行操作PurgeSplitable
-            operationId: cloudevent_PerformPurgeSplitable
-            parameters:
-                - in: body
-                  name: body
-                  schema:
-                    properties:
-                        cloudevent:
-                            $ref: '#/definitions/PurgeSplitTableInput'
-                    type: object
-                  x-go-name: Body
-            responses:
-                "200":
-                    $ref: '#/responses/cloudevent_PerformPurgeSplitableOutput'
-            summary: 执行操作PurgeSplitable
-            tags:
-                - cloudevent
-    /cloudevents/splitable:
-        get:
-            description: 获取指定资源类的信息Splitable
-            operationId: cloudevent_GetPropertySplitable
-            responses:
-                "200":
-                    $ref: '#/responses/cloudevent_GetPropertySplitableOutput'
-            summary: 获取指定资源类的信息Splitable
-            tags:
-                - cloudevent
-    /cloudevents/splitable-export:
-        get:
-            description: 获取指定资源类的信息SplitableExport
-            operationId: cloudevent_GetPropertySplitableExport
-            parameters:
-                - in: query
-                  name: table
-                  type: string
-                  x-go-name: Table
-                - format: int64
-                  in: query
-                  name: offset
-                  type: integer
-                  x-go-name: Offset
-                - format: int64
-                  in: query
-                  name: limit
-                  type: integer
-                  x-go-name: Limit
-            responses:
-                "200":
-                    $ref: '#/responses/cloudevent_GetPropertySplitableExportOutput'
-            summary: 获取指定资源类的信息SplitableExport
-            tags:
-                - cloudevent
     /cloudproviders:
         get:
             description: 列表
@@ -1033,50 +899,6 @@ paths:
             summary: 更新
             tags:
                 - cloudprovider
-    /cloudproviders/{id}/class-metadata:
-        get:
-            description: 获取指定信息ClassMetadata
-            operationId: cloudprovider_GetDetailsClassMetadata
-            parameters:
-                - description: The Id or Name of cloudprovider
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-            responses:
-                "200":
-                    $ref: '#/responses/cloudprovider_GetDetailsClassMetadataOutput'
-            summary: 获取指定信息ClassMetadata
-            tags:
-                - cloudprovider
-        post:
-            description: 执行操作ClassMetadata
-            operationId: cloudprovider_PerformClassMetadata
-            parameters:
-                - description: The Id or Name of cloudprovider
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-                - in: body
-                  name: body
-                  schema:
-                    properties:
-                        cloudprovider:
-                            additionalProperties:
-                                type: string
-                            type: object
-                            x-go-name: Input
-                    type: object
-                  x-go-name: Body
-            responses:
-                "200":
-                    $ref: '#/responses/cloudprovider_PerformClassMetadataOutput'
-            summary: 更新资源的 class 标签
-            tags:
-                - cloudprovider
     /cloudproviders/{id}/disable:
         post:
             description: 执行操作Disable
@@ -1164,107 +986,6 @@ paths:
             summary: 获取资源标签（元数据）
             tags:
                 - cloudprovider
-    /cloudproviders/{id}/org-metadata:
-        get:
-            description: 获取指定信息OrgMetadata
-            operationId: cloudprovider_GetDetailsOrgMetadata
-            parameters:
-                - description: The Id or Name of cloudprovider
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-            responses:
-                "200":
-                    $ref: '#/responses/cloudprovider_GetDetailsOrgMetadataOutput'
-            summary: 获取指定信息OrgMetadata
-            tags:
-                - cloudprovider
-    /cloudproviders/{id}/set-class-metadata:
-        post:
-            description: 执行操作SetClassMetadata
-            operationId: cloudprovider_PerformSetClassMetadata
-            parameters:
-                - description: The Id or Name of cloudprovider
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-                - in: body
-                  name: body
-                  schema:
-                    properties:
-                        cloudprovider:
-                            additionalProperties:
-                                type: string
-                            type: object
-                            x-go-name: Input
-                    type: object
-                  x-go-name: Body
-            responses:
-                "200":
-                    $ref: '#/responses/cloudprovider_PerformSetClassMetadataOutput'
-            summary: 全量替换资源的所有 class 标签
-            tags:
-                - cloudprovider
-    /cloudproviders/{id}/set-org-metadata:
-        post:
-            description: 执行操作SetOrgMetadata
-            operationId: cloudprovider_PerformSetOrgMetadata
-            parameters:
-                - description: The Id or Name of cloudprovider
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-                - in: body
-                  name: body
-                  schema:
-                    properties:
-                        cloudprovider:
-                            additionalProperties:
-                                type: string
-                            type: object
-                            x-go-name: Input
-                    type: object
-                  x-go-name: Body
-            responses:
-                "200":
-                    $ref: '#/responses/cloudprovider_PerformSetOrgMetadataOutput'
-            summary: 全量替换资源的所有 class 标签
-            tags:
-                - cloudprovider
-    /cloudproviders/{id}/set-user-metadata:
-        post:
-            description: 执行操作SetUserMetadata
-            operationId: cloudprovider_PerformSetUserMetadata
-            parameters:
-                - description: The Id or Name of cloudprovider
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-                - in: body
-                  name: body
-                  schema:
-                    properties:
-                        cloudprovider:
-                            additionalProperties:
-                                type: string
-                            type: object
-                            x-go-name: Input
-                    type: object
-                  x-go-name: Body
-            responses:
-                "200":
-                    $ref: '#/responses/cloudprovider_PerformSetUserMetadataOutput'
-            summary: 全量替换资源的所有用户标签
-            tags:
-                - cloudprovider
     /cloudproviders/{id}/status:
         get:
             description: 获取指定信息Status
@@ -1280,134 +1001,6 @@ paths:
                 "200":
                     $ref: '#/responses/cloudprovider_GetDetailsStatusOutput'
             summary: 获取资源状态
-            tags:
-                - cloudprovider
-        post:
-            description: 执行操作Status
-            operationId: cloudprovider_PerformStatus
-            parameters:
-                - description: The Id or Name of cloudprovider
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-                - in: body
-                  name: body
-                  schema:
-                    properties:
-                        cloudprovider:
-                            $ref: '#/definitions/PerformStatusInput'
-                    type: object
-                  x-go-name: Body
-            responses:
-                "200":
-                    $ref: '#/responses/cloudprovider_PerformStatusOutput'
-            summary: 更新资源状态
-            tags:
-                - cloudprovider
-    /cloudproviders/distinct-field:
-        get:
-            description: 获取指定资源类的信息DistinctField
-            operationId: cloudprovider_GetPropertyDistinctField
-            responses:
-                "200":
-                    $ref: '#/responses/cloudprovider_GetPropertyDistinctFieldOutput'
-            summary: 获取指定资源类的信息DistinctField
-            tags:
-                - cloudprovider
-    /cloudproviders/distinct-fields:
-        get:
-            description: 获取指定资源类的信息DistinctFields
-            operationId: cloudprovider_GetPropertyDistinctFields
-            responses:
-                "200":
-                    $ref: '#/responses/cloudprovider_GetPropertyDistinctFieldsOutput'
-            summary: 获取指定资源类的信息DistinctFields
-            tags:
-                - cloudprovider
-    /cloudproviders/purge-splitable:
-        post:
-            description: 执行操作PurgeSplitable
-            operationId: cloudprovider_PerformPurgeSplitable
-            parameters:
-                - in: body
-                  name: body
-                  schema:
-                    properties:
-                        cloudprovider:
-                            $ref: '#/definitions/PurgeSplitTableInput'
-                    type: object
-                  x-go-name: Body
-            responses:
-                "200":
-                    $ref: '#/responses/cloudprovider_PerformPurgeSplitableOutput'
-            summary: 执行操作PurgeSplitable
-            tags:
-                - cloudprovider
-    /cloudproviders/splitable:
-        get:
-            description: 获取指定资源类的信息Splitable
-            operationId: cloudprovider_GetPropertySplitable
-            responses:
-                "200":
-                    $ref: '#/responses/cloudprovider_GetPropertySplitableOutput'
-            summary: 获取指定资源类的信息Splitable
-            tags:
-                - cloudprovider
-    /cloudproviders/splitable-export:
-        get:
-            description: 获取指定资源类的信息SplitableExport
-            operationId: cloudprovider_GetPropertySplitableExport
-            parameters:
-                - in: query
-                  name: table
-                  type: string
-                  x-go-name: Table
-                - format: int64
-                  in: query
-                  name: offset
-                  type: integer
-                  x-go-name: Offset
-                - format: int64
-                  in: query
-                  name: limit
-                  type: integer
-                  x-go-name: Limit
-            responses:
-                "200":
-                    $ref: '#/responses/cloudprovider_GetPropertySplitableExportOutput'
-            summary: 获取指定资源类的信息SplitableExport
-            tags:
-                - cloudprovider
-    /cloudproviders/statistics:
-        get:
-            description: 获取指定资源类的信息Statistics
-            operationId: cloudprovider_GetPropertyStatistics
-            responses:
-                "200":
-                    $ref: '#/responses/cloudprovider_GetPropertyStatisticsOutput'
-            summary: 获取指定资源类的信息Statistics
-            tags:
-                - cloudprovider
-    /cloudproviders/tag-value-pairs:
-        get:
-            description: 获取指定资源类的信息TagValuePairs
-            operationId: cloudprovider_GetPropertyTagValuePairs
-            responses:
-                "200":
-                    $ref: '#/responses/cloudprovider_GetPropertyTagValuePairsOutput'
-            summary: 获取指定资源类的信息TagValuePairs
-            tags:
-                - cloudprovider
-    /cloudproviders/tag-value-tree:
-        get:
-            description: 获取指定资源类的信息TagValueTree
-            operationId: cloudprovider_GetPropertyTagValueTree
-            responses:
-                "200":
-                    $ref: '#/responses/cloudprovider_GetPropertyTagValueTreeOutput'
-            summary: 获取指定资源类的信息TagValueTree
             tags:
                 - cloudprovider
 produces:
@@ -1428,12 +1021,6 @@ responses:
                     $ref: '#/definitions/CloudeventDetails'
             type: object
     cloudevent_GetPropertyDistinctFieldOutput:
-        description: ""
-    cloudevent_GetPropertyDistinctFieldsOutput:
-        description: ""
-    cloudevent_GetPropertySplitableExportOutput:
-        description: ""
-    cloudevent_GetPropertySplitableOutput:
         description: ""
     cloudevent_ListItemFilterOutput:
         description: ""
@@ -1457,8 +1044,6 @@ responses:
                     type: integer
                     x-go-name: Total
             type: object
-    cloudevent_PerformPurgeSplitableOutput:
-        description: ""
     cloudevent_ValidateCreateDataOutput:
         description: ""
         schema:
@@ -1487,27 +1072,7 @@ responses:
                 cloudprovider:
                     $ref: '#/definitions/EnabledStatusStandaloneResourceDetails'
             type: object
-    cloudprovider_GetDetailsClassMetadataOutput:
-        description: ""
-        schema:
-            properties:
-                cloudprovider:
-                    additionalProperties:
-                        type: string
-                    type: object
-                    x-go-name: Output
-            type: object
     cloudprovider_GetDetailsMetadataOutput:
-        description: ""
-        schema:
-            properties:
-                cloudprovider:
-                    additionalProperties:
-                        type: string
-                    type: object
-                    x-go-name: Output
-            type: object
-    cloudprovider_GetDetailsOrgMetadataOutput:
         description: ""
         schema:
             properties:
@@ -1524,25 +1089,6 @@ responses:
                 cloudprovider:
                     $ref: '#/definitions/GetDetailsStatusOutput'
             type: object
-    cloudprovider_GetPropertyDistinctFieldOutput:
-        description: ""
-    cloudprovider_GetPropertyDistinctFieldsOutput:
-        description: ""
-    cloudprovider_GetPropertySplitableExportOutput:
-        description: ""
-    cloudprovider_GetPropertySplitableOutput:
-        description: ""
-    cloudprovider_GetPropertyStatisticsOutput:
-        description: ""
-        schema:
-            properties:
-                cloudprovider:
-                    $ref: '#/definitions/StatusStatistic'
-            type: object
-    cloudprovider_GetPropertyTagValuePairsOutput:
-        description: ""
-    cloudprovider_GetPropertyTagValueTreeOutput:
-        description: ""
     cloudprovider_ListItemFilterOutput:
         description: ""
         schema:
@@ -1565,21 +1111,9 @@ responses:
                     type: integer
                     x-go-name: Total
             type: object
-    cloudprovider_PerformClassMetadataOutput:
-        description: ""
     cloudprovider_PerformDisableOutput:
         description: ""
     cloudprovider_PerformEnableOutput:
-        description: ""
-    cloudprovider_PerformPurgeSplitableOutput:
-        description: ""
-    cloudprovider_PerformSetClassMetadataOutput:
-        description: ""
-    cloudprovider_PerformSetOrgMetadataOutput:
-        description: ""
-    cloudprovider_PerformSetUserMetadataOutput:
-        description: ""
-    cloudprovider_PerformStatusOutput:
         description: ""
     cloudprovider_ValidateCreateDataOutput:
         description: ""

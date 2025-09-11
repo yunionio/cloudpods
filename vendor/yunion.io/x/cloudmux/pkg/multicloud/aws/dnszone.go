@@ -39,7 +39,7 @@ type AssociatedVPC struct {
 }
 
 type SDnsZone struct {
-	multicloud.SVirtualResourceBase
+	multicloud.SDnsZoneBase
 	AwsTags
 	client *SAwsClient
 

@@ -28,7 +28,7 @@ func NewGeneralError(err error) *httputils.JSONClientError {
 		if !ok {
 			code = 500
 		}
-		return httputils.NewJsonClientError(code, string(nerr), err.Error())
+		return httputils.NewJsonClientError(code, string(nerr), "%s", err.Error())
 	default:
 		root := errors.Cause(err)
 		switch nerr := root.(type) {
@@ -40,9 +40,9 @@ func NewGeneralError(err error) *httputils.JSONClientError {
 			if !ok {
 				code = 500
 			}
-			return httputils.NewJsonClientError(code, string(nerr), err.Error())
+			return httputils.NewJsonClientError(code, string(nerr), "%s", err.Error())
 		default:
-			return NewUnclassifiedError(err.Error())
+			return NewUnclassifiedError("%s", err.Error())
 		}
 	}
 }

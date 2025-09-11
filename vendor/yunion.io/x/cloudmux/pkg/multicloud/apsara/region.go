@@ -158,7 +158,7 @@ func (self *SRegion) lbRequest(apiName string, params map[string]string) (jsonut
 	return self.productRequest(client, APSARA_PRODUCT_SLB, domain, APSARA_API_VERSION_LB, apiName, params, self.client.debug)
 }
 
-/////////////////////////////////////////////////////////////////////////////
+// ///////////////////////////////////////////////////////////////////////////
 func (self *SRegion) GetId() string {
 	return self.RegionId
 }
@@ -1058,7 +1058,7 @@ func (self *SRegion) GetIBucketById(name string) (cloudprovider.ICloudBucket, er
 			return &buckets[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, name)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", name)
 }
 
 func (region *SRegion) GetIBucketByName(name string) (cloudprovider.ICloudBucket, error) {

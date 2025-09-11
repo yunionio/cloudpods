@@ -563,6 +563,12 @@ github.com/gin-gonic/gin/render
 # github.com/glycerine/go-unsnap-stream v0.0.0-20181221182339-f9677308dec2
 ## explicit
 github.com/glycerine/go-unsnap-stream
+# github.com/go-asn1-ber/asn1-ber v1.5.8-0.20250403174932-29230038a667
+## explicit; go 1.13
+github.com/go-asn1-ber/asn1-ber
+# github.com/go-ldap/ldap/v3 v3.1.5
+## explicit; go 1.13
+github.com/go-ldap/ldap/v3
 # github.com/go-logfmt/logfmt v0.5.0
 ## explicit; go 1.13
 github.com/go-logfmt/logfmt
@@ -1044,7 +1050,7 @@ github.com/openzipkin/zipkin-go-opentracing/wire
 # github.com/oracle/oci-go-sdk v24.3.0+incompatible
 ## explicit
 github.com/oracle/oci-go-sdk/common
-# github.com/petermattis/goid v0.0.0-20250508124226-395b08cebbdb
+# github.com/petermattis/goid v0.0.0-20250904145737-900bdf8bb490
 ## explicit; go 1.17
 github.com/petermattis/goid
 # github.com/philhofer/fwd v1.0.0
@@ -1648,9 +1654,6 @@ google.golang.org/protobuf/types/known/timestamppb
 # gopkg.in/alexcesaro/quotedprintable.v3 v3.0.0-20150716171945-2caba252f4dc
 ## explicit
 gopkg.in/alexcesaro/quotedprintable.v3
-# gopkg.in/asn1-ber.v1 v1.0.0-20181015200546-f715ec2f112d
-## explicit
-gopkg.in/asn1-ber.v1
 # gopkg.in/fatih/set.v0 v0.2.1
 ## explicit
 gopkg.in/fatih/set.v0
@@ -1660,9 +1663,6 @@ gopkg.in/inf.v0
 # gopkg.in/ini.v1 v1.62.0
 ## explicit
 gopkg.in/ini.v1
-# gopkg.in/ldap.v3 v3.0.3
-## explicit
-gopkg.in/ldap.v3
 # gopkg.in/mail.v2 v2.3.1
 ## explicit
 gopkg.in/mail.v2
@@ -1852,8 +1852,8 @@ sigs.k8s.io/structured-merge-diff/v4/value
 # sigs.k8s.io/yaml v1.2.0
 ## explicit; go 1.12
 sigs.k8s.io/yaml
-# yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20250807082238-ddfb05be205b
-## explicit; go 1.21
+# yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20250910065010-3f3e23356086
+## explicit; go 1.24
 yunion.io/x/cloudmux/pkg/apis
 yunion.io/x/cloudmux/pkg/apis/billing
 yunion.io/x/cloudmux/pkg/apis/cloudid
@@ -1949,7 +1949,7 @@ yunion.io/x/log/hooks
 yunion.io/x/ovsdb/cli_util
 yunion.io/x/ovsdb/schema/ovn_nb
 yunion.io/x/ovsdb/types
-# yunion.io/x/pkg v1.10.4-0.20250810004221-0a408931e156
+# yunion.io/x/pkg v1.10.4-0.20250820035218-6008459eb4f0
 ## explicit; go 1.18
 yunion.io/x/pkg/appctx
 yunion.io/x/pkg/errors
@@ -2003,7 +2003,7 @@ yunion.io/x/pkg/utils
 # yunion.io/x/s3cli v0.0.0-20241221171442-1c11599d28e1
 ## explicit; go 1.12
 yunion.io/x/s3cli
-# yunion.io/x/sqlchemy v1.1.3-0.20250806073422-e37f5197cec0
+# yunion.io/x/sqlchemy v1.1.3-0.20250902120005-3b18bc6371c7
 ## explicit; go 1.17
 yunion.io/x/sqlchemy
 yunion.io/x/sqlchemy/backends

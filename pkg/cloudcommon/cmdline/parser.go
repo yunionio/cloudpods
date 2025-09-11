@@ -166,6 +166,16 @@ func ParseDiskConfig(diskStr string, idx int) (*compute.DiskConfig, error) {
 						return nil, errors.Errorf("invalid feature %s of %s", feature, diskConfig.Fs)
 					}
 				}
+				if diskConfig.Fs == "f2fs" {
+					if diskConfig.FsFeatures.F2fs == nil {
+						diskConfig.FsFeatures.F2fs = &compute.DiskFsF2fsFeatures{}
+					}
+					if feature == "casefold" {
+						diskConfig.FsFeatures.F2fs.CaseInsensitive = true
+					} else {
+						return nil, errors.Errorf("invalid feature %s of %s", feature, diskConfig.Fs)
+					}
+				}
 			}
 		case "format":
 			if !utils.IsInStringArray(str, osprofile.IMAGE_FORMAT_TYPES) {

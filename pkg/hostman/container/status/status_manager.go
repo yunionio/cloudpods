@@ -63,7 +63,7 @@ func (m *manager) SetContainerStartup(podId string, containerId string, started 
 
 	if err := statusman.GetManager().UpdateStatus(input); err != nil {
 		err = errors.Wrapf(err, "set container(%s/%s) status failed, input: %s", podId, containerId, jsonutils.Marshal(input.ToServerPerformStatusInput()))
-		log.Warningf(err.Error())
+		log.Warningf("%s", err.Error())
 		errMsg := []string{
 			"can't set container status",
 		}
@@ -96,7 +96,7 @@ func (m *manager) SetContainerStartupOld(podId string, containerId string, start
 	}
 	if _, err := hostutils.UpdateContainerStatus(context.Background(), containerId, input); err != nil {
 		err = errors.Wrapf(err, "set container(%s/%s) status failed, input: %s", podId, containerId, jsonutils.Marshal(input))
-		log.Warningf(err.Error())
+		log.Warningf("%s", err.Error())
 		errMsg := []string{
 			"can't set container status",
 		}

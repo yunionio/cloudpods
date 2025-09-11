@@ -252,7 +252,7 @@ func (cli *SZStackClient) _list(resource string, start int, limit int, params ur
 	if err != nil {
 		if e, ok := err.(*httputils.JSONClientError); ok {
 			if strings.Contains(e.Details, "wrong accessKey signature") || strings.Contains(e.Details, "access key id") {
-				return nil, errors.Wrapf(cloudprovider.ErrInvalidAccessKey, err.Error())
+				return nil, errors.Wrapf(cloudprovider.ErrInvalidAccessKey, "%s", err.Error())
 			}
 		}
 		return nil, err
@@ -285,7 +285,7 @@ func (cli *SZStackClient) _delete(resource, resourceId, deleteMode string) (json
 	}
 	_, resp, err := httputils.JSONRequest(cli.httpClient, context.Background(), "DELETE", requestURL, header, nil, cli.debug)
 	if err != nil {
-		return nil, errors.Wrapf(err, fmt.Sprintf("DELETE %s %s %s", resource, resourceId, deleteMode))
+		return nil, errors.Wrapf(err, "DELETE %s %s %s", resource, resourceId, deleteMode)
 	}
 	if resp.Contains("location") {
 		location, _ := resp.GetString("location")
@@ -380,7 +380,7 @@ func (cli *SZStackClient) _getMonitor(resource string, params jsonutils.JSONObje
 				time.Sleep(time.Second * 5)
 				continue
 			}
-			return nil, errors.Wrapf(err, fmt.Sprintf("GET %s %s", resource, params))
+			return nil, errors.Wrapf(err, "GET %s %s", resource, params)
 		}
 		break
 	}
@@ -412,7 +412,7 @@ func (cli *SZStackClient) _get(resource, resourceId string, spec string) (jsonut
 				time.Sleep(time.Second * 5)
 				continue
 			}
-			return nil, errors.Wrapf(err, fmt.Sprintf("GET %s %s %s", resource, resourceId, spec))
+			return nil, errors.Wrapf(err, "GET %s %s %s", resource, resourceId, spec)
 		}
 		break
 	}
@@ -485,7 +485,7 @@ func (cli *SZStackClient) _post(resource string, params jsonutils.JSONObject) (j
 	}
 	_, resp, err := cli.jsonRequest(context.TODO(), "POST", requestURL, header, params)
 	if err != nil {
-		return nil, errors.Wrapf(err, fmt.Sprintf("POST %s %s", resource, params.String()))
+		return nil, errors.Wrapf(err, "POST %s %s", resource, params.String())
 	}
 	if resp.Contains("location") {
 		location, _ := resp.GetString("location")

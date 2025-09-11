@@ -771,7 +771,7 @@ func (self *SNatGateway) GetINatGateway(ctx context.Context) (cloudprovider.IClo
 			return iNats[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, self.ExternalId)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%v", self.ExternalId)
 }
 
 func (self *SNatGateway) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {

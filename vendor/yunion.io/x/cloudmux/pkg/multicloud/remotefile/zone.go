@@ -57,7 +57,7 @@ func (self *SZone) GetIHostById(id string) (cloudprovider.ICloudHost, error) {
 			return hosts[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", id)
 }
 
 func (self *SZone) GetIStorages() ([]cloudprovider.ICloudStorage, error) {

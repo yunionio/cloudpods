@@ -48,6 +48,7 @@ func (self *SStatusStandaloneResourceBase) GetIStatusStandaloneModel() IStatusSt
 	return self.GetVirtualObject().(IStatusStandaloneModel)
 }
 
+// +onecloud:swagger-gen-ignore
 func (manager *SStatusStandaloneResourceBaseManager) GetPropertyStatistics(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*apis.StatusStatistic, error) {
 	im, ok := manager.GetVirtualObject().(IModelManager)
 	if !ok {
@@ -85,7 +86,7 @@ func (manager *SStatusStandaloneResourceBaseManager) GetPropertyStatistics(ctx c
 	return result, nil
 }
 
-// 更新资源状态
+// +onecloud:swagger-gen-ignore
 func (self *SStatusStandaloneResourceBase) PerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformStatusInput) (jsonutils.JSONObject, error) {
 	err := StatusBasePerformStatus(ctx, self.GetIStatusStandaloneModel(), userCred, input)
 	if err != nil {

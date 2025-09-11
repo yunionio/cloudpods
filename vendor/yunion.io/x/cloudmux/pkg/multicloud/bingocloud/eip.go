@@ -180,5 +180,5 @@ func (self *SRegion) GetIEipById(id string) (cloudprovider.ICloudEIP, error) {
 			return &eips[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", id)
 }

@@ -362,7 +362,7 @@ Loop:
 	}
 
 	backup := vd.Proc.stdouterr.String()
-	log.Debugf(backup)
+	log.Debugf("%s", backup)
 	err := vd.ParsePartitions(backup)
 	if err != nil {
 		return errors.Wrap(err, "VDDKDisk.ParsePartitions")

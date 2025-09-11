@@ -77,7 +77,7 @@ func DBStatsHandler(ctx context.Context, w http.ResponseWriter, r *http.Request)
 		stats := dbConn.DB().Stats()
 		result.Add(jsonutils.Marshal(&stats), "db_stats")
 	}
-	fmt.Fprintf(w, result.String())
+	fmt.Fprintf(w, "%s", result.String())
 }
 
 func AutoPurgeSplitable(ctx context.Context, userCred mcclient.TokenCredential, startRun bool) {

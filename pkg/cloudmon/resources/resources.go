@@ -771,7 +771,7 @@ func (res *SResources) CollectMetrics(ctx context.Context, userCred mcclient.Tok
 				err = driver.CollectServerMetrics(ctx, manager, provider, servers, startTime, endTime)
 				if err != nil && errors.Cause(err) != cloudprovider.ErrNotImplemented && errors.Cause(err) != cloudprovider.ErrNotSupported {
 					logmsg := fmt.Sprintf("CollectServerMetrics for %s(%s) error: %v", manager.Name, manager.Provider, err)
-					log.Errorf(logmsg)
+					log.Errorf("%s", logmsg)
 					msgs = append(msgs, logmsg)
 					succ = false
 				}
@@ -791,7 +791,7 @@ func (res *SResources) CollectMetrics(ctx context.Context, userCred mcclient.Tok
 				err = driver.CollectHostMetrics(ctx, manager, provider, hosts, startTime, endTime)
 				if err != nil && errors.Cause(err) != cloudprovider.ErrNotImplemented && errors.Cause(err) != cloudprovider.ErrNotSupported {
 					logmsg := fmt.Sprintf("CollectHostMetrics for %s(%s) error: %v", manager.Name, manager.Provider, err)
-					log.Errorln(logmsg)
+					log.Errorf("%s", logmsg)
 					msgs = append(msgs, logmsg)
 					succ = false
 				}
@@ -802,7 +802,7 @@ func (res *SResources) CollectMetrics(ctx context.Context, userCred mcclient.Tok
 			err = jsonutils.Update(&storages, resources)
 			if err != nil {
 				logmsg := fmt.Sprintf("unmarsha storage resources error: %v", err)
-				log.Errorln(logmsg)
+				log.Errorf("%s", logmsg)
 				msgs = append(msgs, logmsg)
 				succ = false
 			}
@@ -810,7 +810,7 @@ func (res *SResources) CollectMetrics(ctx context.Context, userCred mcclient.Tok
 				err = driver.CollectStorageMetrics(ctx, manager, provider, storages, startTime, endTime)
 				if err != nil && errors.Cause(err) != cloudprovider.ErrNotImplemented && errors.Cause(err) != cloudprovider.ErrNotSupported {
 					logmsg := fmt.Sprintf("CollectStorageMetrics for %s(%s) error: %v", manager.Name, manager.Provider, err)
-					log.Errorln(logmsg)
+					log.Errorf("%s", logmsg)
 					msgs = append(msgs, logmsg)
 					succ = false
 				}
@@ -821,7 +821,7 @@ func (res *SResources) CollectMetrics(ctx context.Context, userCred mcclient.Tok
 			err = jsonutils.Update(&caches, resources)
 			if err != nil {
 				logmsg := fmt.Sprintf("unmarsha redis resources error: %v", err)
-				log.Errorln(logmsg)
+				log.Errorf("%s", logmsg)
 				msgs = append(msgs, logmsg)
 				succ = false
 			}
@@ -830,7 +830,7 @@ func (res *SResources) CollectMetrics(ctx context.Context, userCred mcclient.Tok
 				err = driver.CollectRedisMetrics(ctx, manager, provider, caches, startTime, endTime)
 				if err != nil && errors.Cause(err) != cloudprovider.ErrNotImplemented && errors.Cause(err) != cloudprovider.ErrNotSupported {
 					logmsg := fmt.Sprintf("CollectRedisMetrics for %s(%s) error: %v", manager.Name, manager.Provider, err)
-					log.Errorf(logmsg)
+					log.Errorf("%s", logmsg)
 					msgs = append(msgs, logmsg)
 					succ = false
 				}
@@ -841,7 +841,7 @@ func (res *SResources) CollectMetrics(ctx context.Context, userCred mcclient.Tok
 			err = jsonutils.Update(&lbs, resources)
 			if err != nil {
 				logmsg := fmt.Sprintf("unmarsha lb resources error: %v", err)
-				log.Errorln(logmsg)
+				log.Errorf("%s", logmsg)
 				msgs = append(msgs, logmsg)
 				succ = false
 			}
@@ -850,7 +850,7 @@ func (res *SResources) CollectMetrics(ctx context.Context, userCred mcclient.Tok
 				err = driver.CollectLoadbalancerMetrics(ctx, manager, provider, lbs, startTime, endTime)
 				if err != nil && errors.Cause(err) != cloudprovider.ErrNotImplemented && errors.Cause(err) != cloudprovider.ErrNotSupported {
 					logmsg := fmt.Sprintf("CollectLoadbalancerMetrics for %s(%s) error: %v", manager.Name, manager.Provider, err)
-					log.Errorf(logmsg)
+					log.Errorf("%s", logmsg)
 					msgs = append(msgs, logmsg)
 					succ = false
 				}
@@ -861,7 +861,7 @@ func (res *SResources) CollectMetrics(ctx context.Context, userCred mcclient.Tok
 			err = jsonutils.Update(&buckets, resources)
 			if err != nil {
 				logmsg := fmt.Sprintf("unmarsha bucket resources error: %v", err)
-				log.Errorln(logmsg)
+				log.Errorf("%s", logmsg)
 				msgs = append(msgs, logmsg)
 				succ = false
 			}
@@ -870,7 +870,7 @@ func (res *SResources) CollectMetrics(ctx context.Context, userCred mcclient.Tok
 				err = driver.CollectBucketMetrics(ctx, manager, provider, buckets, startTime, endTime)
 				if err != nil && errors.Cause(err) != cloudprovider.ErrNotImplemented && errors.Cause(err) != cloudprovider.ErrNotSupported {
 					logmsg := fmt.Sprintf("CollectBucketMetrics for %s(%s) error: %v", manager.Name, manager.Provider, err)
-					log.Errorln(logmsg)
+					log.Errorf("%s", logmsg)
 					msgs = append(msgs, logmsg)
 					succ = false
 				}

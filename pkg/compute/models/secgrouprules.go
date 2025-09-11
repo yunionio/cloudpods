@@ -253,6 +253,15 @@ func (manager *SSecurityGroupRuleManager) QueryDistinctExtraField(q *sqlchemy.SQ
 	return q, httperrors.ErrNotFound
 }
 
+func (manager *SSecurityGroupRuleManager) QueryDistinctExtraFields(q *sqlchemy.SQuery, resource string, fields []string) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SSecurityGroupResourceBaseManager.QueryDistinctExtraFields(q, resource, fields)
+	if err == nil {
+		return q, nil
+	}
+	return q, httperrors.ErrNotFound
+}
+
 func (self *SSecurityGroupRule) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	return nil
 }

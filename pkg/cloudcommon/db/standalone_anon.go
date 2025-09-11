@@ -644,6 +644,7 @@ func (model *SStandaloneAnonResourceBase) PerformUserMetadata(ctx context.Contex
 }
 
 // 全量替换资源的所有用户标签
+// +onecloud:swagger-gen-ignore
 func (model *SStandaloneAnonResourceBase) PerformSetUserMetadata(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformSetUserMetadataInput) (jsonutils.JSONObject, error) {
 	err := model.SetUserMetadataAll(ctx, input, userCred)
 	if err != nil {
@@ -653,6 +654,7 @@ func (model *SStandaloneAnonResourceBase) PerformSetUserMetadata(ctx context.Con
 }
 
 // 更新资源的 class 标签
+// +onecloud:swagger-gen-ignore
 func (model *SStandaloneAnonResourceBase) PerformClassMetadata(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformClassMetadataInput) (jsonutils.JSONObject, error) {
 	err := model.SetClassMetadataValues(ctx, input, userCred)
 	if err != nil {
@@ -662,6 +664,7 @@ func (model *SStandaloneAnonResourceBase) PerformClassMetadata(ctx context.Conte
 }
 
 // 全量替换资源的所有 class 标签
+// +onecloud:swagger-gen-ignore
 func (model *SStandaloneAnonResourceBase) PerformSetClassMetadata(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformSetClassMetadataInput) (jsonutils.JSONObject, error) {
 	err := model.SetClassMetadataAll(ctx, input, userCred)
 	if err != nil {
@@ -671,6 +674,7 @@ func (model *SStandaloneAnonResourceBase) PerformSetClassMetadata(ctx context.Co
 }
 
 // 全量替换资源的所有 class 标签
+// +onecloud:swagger-gen-ignore
 func (model *SStandaloneAnonResourceBase) PerformSetOrgMetadata(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformSetClassMetadataInput) (jsonutils.JSONObject, error) {
 	err := model.SetOrganizationMetadataAll(ctx, input, userCred)
 	if err != nil {
@@ -693,10 +697,12 @@ func validateDictStore(input map[string]string, prefix string) (map[string]strin
 	return dictStore, nil
 }
 
+// +onecloud:swagger-gen-ignore
 func (model *SStandaloneAnonResourceBase) GetDetailsClassMetadata(ctx context.Context, userCred mcclient.TokenCredential, input apis.GetClassMetadataInput) (apis.GetClassMetadataOutput, error) {
 	return model.GetAllClassMetadata()
 }
 
+// +onecloud:swagger-gen-ignore
 func (model *SStandaloneAnonResourceBase) GetDetailsOrgMetadata(ctx context.Context, userCred mcclient.TokenCredential, input apis.GetClassMetadataInput) (apis.GetClassMetadataOutput, error) {
 	return model.GetAllOrganizationMetadata()
 }
@@ -844,6 +850,7 @@ type SGetResourceTagValuePairsInput struct {
 	OrderByTagKey string `json:"order_by_tag_key"`
 }
 
+// +onecloud:swagger-gen-ignore
 func (manager *SStandaloneAnonResourceBaseManager) GetPropertyTagValuePairs(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
@@ -946,6 +953,7 @@ type SGetResourceTagValueTreeInput struct {
 	ShowMap *bool    `json:"show_map"`
 }
 
+// +onecloud:swagger-gen-ignore
 func (manager *SStandaloneAnonResourceBaseManager) GetPropertyTagValueTree(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
@@ -1017,7 +1025,7 @@ func GetTagValueCountMap(
 	}
 	objSubQ = objSubQ.AppendField(sumFieldQ)
 
-	objSubQ.DebugQuery2("GetTagValueCountMap objSubQ")
+	// objSubQ.DebugQuery2("GetTagValueCountMap objSubQ")
 
 	q := objSubQ.SubQuery().Query()
 	q = q.AppendField(sqlchemy.SUM(tagValueCountKey, q.Field("_sub_count_")))
@@ -1040,7 +1048,7 @@ func GetTagValueCountMap(
 	}
 	q = q.GroupBy(groupBy...)
 
-	q.DebugQuery2("GetTagValueCountMap")
+	// q.DebugQuery2("GetTagValueCountMap")
 
 	valueMap, err := q.AllStringMap()
 	if err != nil {

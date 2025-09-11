@@ -262,5 +262,5 @@ func (self *SRegion) GetImage(imageId string) (*SImage, error) {
 			return &ret[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, imageId)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", imageId)
 }

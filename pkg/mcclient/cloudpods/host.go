@@ -22,6 +22,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/tristate"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -164,6 +165,10 @@ func (host *SHost) GetStorageDriver() string {
 }
 
 func (host *SHost) GetStorageInfo() jsonutils.JSONObject {
+	if !gotypes.IsNil(host.Spec) {
+		ret, _ := host.Spec.Get("storage_info")
+		return ret
+	}
 	return host.StorageInfo
 }
 
@@ -189,6 +194,10 @@ func (host *SHost) GetSchedtags() ([]string, error) {
 		ret = append(ret, tag.Name)
 	}
 	return ret, nil
+}
+
+func (host *SHost) GetIpmiInfo() jsonutils.JSONObject {
+	return host.zone.region.GetIpmiInfo(host.Id)
 }
 
 type SHostNic struct {
@@ -311,6 +320,11 @@ func (region *SRegion) GetHost(id string) (*SHost, error) {
 		return nil, errors.Wrap(err, "get")
 	}
 	return host, nil
+}
+
+func (region *SRegion) GetIpmiInfo(hostId string) jsonutils.JSONObject {
+	resp, _ := modules.Hosts.GetSpecific(region.cli.s, hostId, "ipmi", nil)
+	return resp
 }
 
 func (zone *SZone) GetIHostById(id string) (cloudprovider.ICloudHost, error) {

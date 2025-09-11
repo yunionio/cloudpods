@@ -397,6 +397,6 @@ func (self *SRegion) GetIElasticcacheById(id string) (cloudprovider.ICloudElasti
 	} else if strings.Index(id, "Microsoft.Cache/redisEnterprise") > 0 {
 		return self.GetEnterpriseRedisCache(id)
 	} else {
-		return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
+		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", id)
 	}
 }

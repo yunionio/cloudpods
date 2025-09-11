@@ -96,6 +96,8 @@ type HostListInput struct {
 	AccessMac []string `json:"access_mac"`
 	// 管理口Ip地址
 	AccessIp []string `json:"access_ip"`
+	// 公网IP地址
+	PublicIp []string `json:"public_ip"`
 	// 物理机序列号信息
 	SN []string `json:"sn"`
 	// CPU大小

@@ -78,7 +78,7 @@ func (self *SGuest) GetDetailsVnc(ctx context.Context, userCred mcclient.TokenCr
 		utils.IsInStringArray(self.Status, []string{api.VM_RUNNING, api.VM_BLOCK_STREAM, api.VM_MIGRATING}) {
 		host, err := self.GetHost()
 		if err != nil {
-			return nil, httperrors.NewInternalServerError(errors.Wrapf(err, "GetHost").Error())
+			return nil, httperrors.NewInternalServerError("get host %v", err)
 		}
 		if options.Options.ForceUseOriginVnc {
 			input.Origin = true
@@ -1031,13 +1031,18 @@ func (self *SGuest) StartRestartNetworkTask(ctx context.Context, userCred mcclie
 	return nil
 }
 
-func (self *SGuest) StartQgaRestartNetworkTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string, device string, ipMask string, gateway string, prevIp string, inBlockStream bool) error {
+func (self *SGuest) StartQgaRestartNetworkTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId, device, ipMask, gateway, ip6Mask, gateway6 string) error {
 	data := jsonutils.NewDict()
 	data.Set("device", jsonutils.NewString(device))
-	data.Set("ip_mask", jsonutils.NewString(ipMask))
-	data.Set("gateway", jsonutils.NewString(gateway))
-	data.Set("prev_ip", jsonutils.NewString(prevIp))
-	data.Set("in_block_stream", jsonutils.NewBool(inBlockStream))
+	if len(ipMask) > 0 {
+		data.Set("ip_mask", jsonutils.NewString(ipMask))
+		data.Set("gateway", jsonutils.NewString(gateway))
+	}
+	if len(ip6Mask) > 0 {
+		data.Set("ip6_mask", jsonutils.NewString(ip6Mask))
+		data.Set("gateway6", jsonutils.NewString(gateway6))
+	}
+
 	if task, err := taskman.TaskManager.NewTask(ctx, "GuestQgaRestartNetworkTask", self, userCred, data, parentTaskId, "", nil); err != nil {
 		log.Errorln(err)
 		return err
@@ -2160,12 +2165,12 @@ func (self *SGuest) DetachIsolatedDevices(ctx context.Context, userCred mcclient
 			if devModel, err := IsolatedDeviceModelManager.GetByDevType(dev.DevType); err != nil {
 				msg := fmt.Sprintf("Can't separately detach dev type %s", dev.DevType)
 				logclient.AddActionLogWithContext(ctx, self, logclient.ACT_GUEST_DETACH_ISOLATED_DEVICE, msg, userCred, false)
-				return httperrors.NewBadRequestError(msg)
+				return httperrors.NewBadRequestError("%s", msg)
 			} else {
 				if !devModel.HotPluggable.Bool() && self.GetStatus() == api.VM_RUNNING {
 					msg := fmt.Sprintf("dev type %s model %s unhotpluggable", dev.DevType, devModel.Model)
 					logclient.AddActionLogWithContext(ctx, self, logclient.ACT_GUEST_DETACH_ISOLATED_DEVICE, msg, userCred, false)
-					return httperrors.NewBadRequestError(msg)
+					return httperrors.NewBadRequestError("%s", msg)
 				}
 			}
 		}
@@ -2188,7 +2193,7 @@ func (self *SGuest) PerformDetachIsolatedDevice(ctx context.Context, userCred mc
 		(self.Hypervisor == api.HYPERVISOR_POD && self.GetStatus() != api.VM_READY) {
 		msg := fmt.Sprintf("Can't detach isolated device when guest is %s", self.GetStatus())
 		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_GUEST_DETACH_ISOLATED_DEVICE, msg, userCred, false)
-		return nil, httperrors.NewInvalidStatusError(msg)
+		return nil, httperrors.NewInvalidStatusError("%s", msg)
 	}
 	var detachAllDevice = jsonutils.QueryBoolean(data, "detach_all", false)
 	devs := make([]SIsolatedDevice, 0)
@@ -2197,7 +2202,7 @@ func (self *SGuest) PerformDetachIsolatedDevice(ctx context.Context, userCred mc
 		if err != nil {
 			msg := "Missing isolated device"
 			logclient.AddActionLogWithContext(ctx, self, logclient.ACT_GUEST_DETACH_ISOLATED_DEVICE, msg, userCred, false)
-			return nil, httperrors.NewBadRequestError(msg)
+			return nil, httperrors.NewBadRequestError("%s", msg)
 		}
 		iDev, err := IsolatedDeviceManager.FetchByIdOrName(ctx, userCred, device)
 		if err != nil {
@@ -2232,7 +2237,7 @@ func (self *SGuest) detachIsolateDevice(ctx context.Context, userCred mcclient.T
 	if dev.GuestId != self.Id {
 		msg := "Isolated device is not attached to this guest"
 		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_GUEST_DETACH_ISOLATED_DEVICE, msg, userCred, false)
-		return httperrors.NewBadRequestError(msg)
+		return httperrors.NewBadRequestError("%s", msg)
 	}
 	drv, _ := self.GetDriver()
 	if err := drv.BeforeDetachIsolatedDevice(ctx, userCred, self, dev); err != nil {
@@ -2258,9 +2263,9 @@ func (self *SGuest) PerformAttachIsolatedDevice(ctx context.Context, userCred mc
 	}
 	if !utils.IsInStringArray(self.GetStatus(), []string{api.VM_READY, api.VM_RUNNING}) ||
 		(self.Hypervisor == api.HYPERVISOR_POD && self.GetStatus() != api.VM_READY) {
-		msg := fmt.Sprintf("Can't attach isolated device when guest is %s", self.GetStatus())
+		msg := fmt.Sprintf("Can't attach isolated device when guest is %v", self.GetStatus())
 		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_GUEST_ATTACH_ISOLATED_DEVICE, msg, userCred, false)
-		return nil, httperrors.NewInvalidStatusError(msg)
+		return nil, httperrors.NewInvalidStatusError("%s", msg)
 	}
 	var err error
 	autoStart := jsonutils.QueryBoolean(data, "auto_start", false)
@@ -2755,9 +2760,13 @@ func (self *SGuest) PerformChangeIpaddr(
 	newMacAddr := networkJsonDesc.Mac
 	newMaskLen := networkJsonDesc.Masklen
 	newGateway := networkJsonDesc.Gateway
-	ipMask := fmt.Sprintf("%s/%d", newIpAddr, newMaskLen)
-	if conf.StrictIPv6 {
-		ipMask = fmt.Sprintf("%s/%d", networkJsonDesc.Ip6, networkJsonDesc.Masklen6)
+	ipMask := ""
+	if networkJsonDesc.Ip != "" {
+		ipMask = fmt.Sprintf("%s/%d", newIpAddr, newMaskLen)
+	}
+	ip6Mask := ""
+	if networkJsonDesc.Ip6 != "" {
+		ip6Mask = fmt.Sprintf("%s/%d", networkJsonDesc.Ip6, networkJsonDesc.Masklen6)
 	}
 
 	notes := gn.GetShortDesc(ctx)
@@ -2781,8 +2790,15 @@ func (self *SGuest) PerformChangeIpaddr(
 			return nil, errors.Wrapf(err, "GetNetwork")
 		}
 		taskData.Set("is_vpc_network", jsonutils.NewBool(net.isOneCloudVpcNetwork()))
-		taskData.Set("ip_mask", jsonutils.NewString(ipMask))
-		taskData.Set("gateway", jsonutils.NewString(newGateway))
+		if len(ipMask) > 0 {
+			taskData.Set("ip_mask", jsonutils.NewString(ipMask))
+			taskData.Set("gateway", jsonutils.NewString(newGateway))
+		}
+		if len(ip6Mask) > 0 {
+			taskData.Set("ip6_mask", jsonutils.NewString(ip6Mask))
+			taskData.Set("gateway6", jsonutils.NewString(networkJsonDesc.Gateway6))
+		}
+
 		if self.Status == api.VM_BLOCK_STREAM {
 			taskData.Set("in_block_stream", jsonutils.JSONTrue)
 		}
@@ -5440,6 +5456,7 @@ func (self *SGuest) validateCreateInstanceBackup(
 	return input, nil
 }
 
+// 创建主机快照
 // 1. validate guest status, guest hypervisor
 // 2. validate every disk manual snapshot count
 // 3. validate snapshot quota with disk count

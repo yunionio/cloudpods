@@ -110,7 +110,7 @@ func (self *SElasticache) Refresh() error {
 			return jsonutils.Update(&self, caches[i])
 		}
 	}
-	return errors.Wrapf(cloudprovider.ErrNotFound, self.GetGlobalId())
+	return errors.Wrapf(cloudprovider.ErrNotFound, "%s", self.GetGlobalId())
 }
 
 func (self *SElasticache) GetBillingType() string {

@@ -403,6 +403,7 @@ func (manager *SModelBaseManager) GetPagingConfig() *SPagingConfig {
 	return nil
 }
 
+// +onecloud:swagger-gen-ignore
 func (manager *SModelBaseManager) GetPropertyDistinctField(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	im, ok := manager.GetVirtualObject().(IModelManager)
 	if !ok {
@@ -481,6 +482,7 @@ func (manager *SModelBaseManager) GetPropertyDistinctField(ctx context.Context, 
 	return res, nil
 }
 
+// +onecloud:swagger-gen-ignore
 func (manager *SModelBaseManager) GetPropertyDistinctFields(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	im, ok := manager.GetVirtualObject().(IModelManager)
 	if !ok {
@@ -588,6 +590,7 @@ func (manager *SModelBaseManager) GetI18N(ctx context.Context, idstr string, res
 	return nil
 }
 
+// +onecloud:swagger-gen-ignore
 func (manager *SModelBaseManager) GetPropertySplitable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	stable := manager.GetIModelManager().GetImmutableInstance(ctx, userCred, query).GetSplitTable()
 	if stable == nil {
@@ -620,6 +623,7 @@ func (manager *SModelBaseManager) GetPropertySplitable(ctx context.Context, user
 	return jsonutils.Marshal(metas), nil
 }
 
+// +onecloud:swagger-gen-ignore
 func (manager *SModelBaseManager) GetPropertySplitableExport(ctx context.Context, userCred mcclient.TokenCredential, input apis.SplitTableExportInput) (jsonutils.JSONObject, error) {
 	splitable := manager.GetIModelManager().GetImmutableInstance(ctx, userCred, jsonutils.Marshal(input)).GetSplitTable()
 	if splitable == nil {
@@ -655,6 +659,7 @@ func (manager *SModelBaseManager) GetPropertySplitableExport(ctx context.Context
 	return nil, httperrors.NewResourceNotFoundError("table %s not found", input.Table)
 }
 
+// +onecloud:swagger-gen-ignore
 func (manager *SModelBaseManager) PerformPurgeSplitable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PurgeSplitTableInput) (jsonutils.JSONObject, error) {
 	splitable := manager.GetIModelManager().GetImmutableInstance(ctx, userCred, query).GetSplitTable()
 	if splitable == nil {

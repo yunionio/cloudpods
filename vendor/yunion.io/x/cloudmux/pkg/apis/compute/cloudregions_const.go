@@ -73,6 +73,7 @@ const (
 	CITY_HUAI_NAN       = "HuaiNan"      //淮南
 	CITY_SU_QIAN        = "SuQian"       //宿迁
 	CITY_DA_LIAN        = "Dalian"       //大连
+	CITY_TAI_BEI        = "TaiBei"       //台北
 
 	// 日本
 	CITY_TOKYO = "Tokyo" //东京
@@ -161,6 +162,7 @@ const (
 	CITY_QUEBEC         = "Quebec"         //魁北克市
 	CITY_TORONTO        = "Toronto"        //多伦多
 	CITY_MONTREAL       = "Montreal"       //蒙特利尔
+	CITY_CALGARY        = "Calgary"        //卡尔加里
 
 	// 爱尔兰
 	CITY_IRELAND = "Ireland" //爱尔兰
@@ -224,6 +226,9 @@ const (
 	// 卡塔尔
 	CITY_DOHA = "Doha" // 多哈
 
+	// 新西兰
+	CITY_NEW_ZEALAND = "New Zealand" // 新西兰
+
 	COUNTRY_CODE_CN = "CN" //中国
 	COUNTRY_CODE_JP = "JP" //日本
 	COUNTRY_CODE_SG = "SG" //新加坡
@@ -259,4 +264,5 @@ const (
 	COUNTRY_CODE_IT = "IT" //意大利
 	COUNTRY_CODE_ES = "ES" //西班牙
 	COUNTRY_CODE_QA = "QA" //卡塔尔
+	COUNTRY_CODE_NZ = "NZ" //新西兰
 )

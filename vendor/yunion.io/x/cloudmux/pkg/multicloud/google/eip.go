@@ -135,6 +135,9 @@ func (addr *SAddress) GetAssociationType() string {
 		if strings.Contains(user, "/forwardingRules/") {
 			return api.EIP_ASSOCIATE_TYPE_LOADBALANCER
 		}
+		if strings.Contains(user, "/routers/") {
+			return api.EIP_ASSOCIATE_TYPE_NAT_GATEWAY
+		}
 	}
 	return ""
 }

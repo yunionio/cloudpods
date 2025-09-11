@@ -61,13 +61,13 @@ type SAiGateway struct {
 	db.SExternalizedResourceBase
 	SManagedResourceBase
 
-	Authentication          bool   `default:"false" list:"user" json:"authentication"`
-	CacheInvalidateOnUpdate bool   `default:"false" list:"user" json:"cache_invalidate_on_update"`
-	CacheTTL                int    `default:"0" list:"user" json:"cache_ttl"`
-	CollectLogs             bool   `default:"false" list:"user" json:"collect_logs"`
-	RateLimitingInterval    int    `default:"0" list:"user" json:"rate_limiting_interval"`
-	RateLimitingLimit       int    `default:"0" list:"user" json:"rate_limiting_limit"`
-	RateLimitingTechnique   string `width:"32" charset:"ascii" default:"" list:"user" json:"rate_limiting_technique"`
+	Authentication          bool   `default:"false" list:"user" create:"optional"`
+	CacheInvalidateOnUpdate bool   `default:"false" list:"user" create:"optional"`
+	CacheTTL                int    `default:"0" list:"user" create:"optional"`
+	CollectLogs             bool   `default:"false" list:"user" create:"optional"`
+	RateLimitingInterval    int    `default:"0" list:"user" create:"optional"`
+	RateLimitingLimit       int    `default:"0" list:"user" create:"optional"`
+	RateLimitingTechnique   string `width:"32" charset:"ascii" default:"" list:"user" create:"optional"`
 }
 
 // AI网关列表
@@ -121,6 +121,15 @@ func (manager *SAiGatewayManager) QueryDistinctExtraField(q *sqlchemy.SQuery, fi
 	}
 
 	q, err = manager.SManagedResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	return q, httperrors.ErrNotFound
+}
+
+func (manager *SAiGatewayManager) QueryDistinctExtraFields(q *sqlchemy.SQuery, resource string, fields []string) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SManagedResourceBaseManager.QueryDistinctExtraFields(q, resource, fields)
 	if err == nil {
 		return q, nil
 	}
@@ -431,5 +440,6 @@ func (self *SAiGateway) StartAiGatewayChangeConfigTask(ctx context.Context, user
 	if err != nil {
 		return err
 	}
+	self.SetStatus(ctx, userCred, apis.STATUS_CHANGE_CONFIG, "")
 	return task.ScheduleRun(nil)
 }

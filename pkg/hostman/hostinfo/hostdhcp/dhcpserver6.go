@@ -44,8 +44,8 @@ type SGuestDHCP6Server struct {
 	ifaceDev *netutils2.SNetInterface
 
 	raExitCh   chan struct{}
-	raReqCh    chan *sRARequest
-	raReqQueue []*sRARequest
+	raReqCh    chan net.HardwareAddr
+	raReqQueue map[string]*sRARequest
 
 	gwMacCache *hashcache.Cache
 }
@@ -76,8 +76,8 @@ func NewGuestDHCP6Server(iface string, port int, relay *SDHCPRelayUpstream) (*SG
 	}
 
 	guestdhcp.raExitCh = make(chan struct{})
-	guestdhcp.raReqCh = make(chan *sRARequest, 100)
-	guestdhcp.raReqQueue = make([]*sRARequest, 0)
+	guestdhcp.raReqCh = make(chan net.HardwareAddr, 1024)
+	guestdhcp.raReqQueue = make(map[string]*sRARequest)
 	guestdhcp.gwMacCache = hashcache.NewCache(1024, 5*time.Minute)
 
 	return guestdhcp, nil
@@ -168,4 +168,16 @@ func (s *SGuestDHCP6Server) serveDHCPInternal(pkt dhcp.Packet, cliMac net.Hardwa
 		return s.relay.Relay(pkt, cliMac, addr)
 	}
 	return nil, nil
+}
+
+func (s *SGuestDHCP6Server) InitRAQueue() {
+	macs := guestman.GuestDescGetter.GetAllGuestIPv6Macs(s.ifaceDev.String())
+	for _, mac := range macs {
+		hw, err := net.ParseMAC(mac)
+		if err != nil {
+			log.Errorf("ParseMAC %s: %v", mac, err)
+			continue
+		}
+		s.requestRA(hw)
+	}
 }

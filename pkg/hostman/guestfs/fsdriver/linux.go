@@ -458,6 +458,26 @@ func (l *sLinuxRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics []*ty
 			log.Errorf("rootFs.GenerateSshHostKeys fail %s", err)
 		}
 	}
+	{
+		// deploy /etc/gai.conf if both IPv4 and IPv6 are enabled
+		v4Enabled := false
+		v6Enabled := false
+		for _, nic := range nics {
+			if nic.Ip != "" {
+				v4Enabled = true
+			}
+			if nic.Ip6 != "" {
+				v6Enabled = true
+			}
+			if v4Enabled && v6Enabled {
+				// prefer IPv4 over IPv6 by default of /etc/gai.conf not present
+				if !rootFs.Exists("/etc/gai.conf", false) {
+					rootFs.FilePutContents("/etc/gai.conf", "precedence ::ffff:0:0/96 100\n", false, false)
+				}
+				break
+			}
+		}
+	}
 	return nil
 }
 

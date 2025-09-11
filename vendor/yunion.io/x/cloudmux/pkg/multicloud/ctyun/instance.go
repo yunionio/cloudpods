@@ -212,7 +212,7 @@ func (self *SInstance) GetIEIP() (cloudprovider.ICloudEIP, error) {
 			return &eips[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, self.FloatingIP)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", self.FloatingIP)
 }
 
 func (self *SInstance) GetVcpuCount() int {

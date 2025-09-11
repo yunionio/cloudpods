@@ -106,7 +106,7 @@ func (dir *SCephFsDir) Refresh() error {
 			return jsonutils.Update(dir, &dirs[i])
 		}
 	}
-	return errors.Wrapf(cloudprovider.ErrNotFound, dir.Path)
+	return errors.Wrapf(cloudprovider.ErrNotFound, "%s", dir.Path)
 }
 
 func (dir *SCephFsDir) SetQuota(input *cloudprovider.SFileSystemSetQuotaInput) error {
@@ -167,7 +167,7 @@ func (cli *SCephFSClient) GetICloudFileSystemById(id string) (cloudprovider.IClo
 			return &dirs[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", id)
 }
 
 func (cli *SCephFSClient) CreateDir(fsId, path string) error {

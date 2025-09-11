@@ -120,7 +120,7 @@ func startServices() {
 			continue
 		}
 
-		log.Infof("Initializing " + svc.Name)
+		log.Infof("Initializing %s", svc.Name)
 		if err := svc.Instance.Init(); err != nil {
 			log.Fatalf("Service %s init failed: %v", svc.Name, err)
 		}

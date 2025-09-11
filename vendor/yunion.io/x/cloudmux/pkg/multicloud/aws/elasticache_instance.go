@@ -178,7 +178,7 @@ func (self *SReplicationGroup) Refresh() error {
 			return jsonutils.Update(&self, caches[i])
 		}
 	}
-	return errors.Wrapf(cloudprovider.ErrNotFound, self.GetGlobalId())
+	return errors.Wrapf(cloudprovider.ErrNotFound, "%s", self.GetGlobalId())
 }
 
 func (self *SReplicationGroup) GetBillingType() string {
@@ -650,7 +650,7 @@ func (region *SRegion) GetIElasticcacheById(id string) (cloudprovider.ICloudElas
 			return &memcaches[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", id)
 }
 
 type SubnetOutpost struct {

@@ -264,7 +264,7 @@ func (self *sHuaweiError) ParseErrorFromJsonResponse(statusCode int, status stri
 		self.ConvertMsg = convertMsg[code]
 	}
 	if statusCode == 404 {
-		return errors.Wrapf(cloudprovider.ErrNotFound, self.Error())
+		return errors.Wrapf(cloudprovider.ErrNotFound, "%s", self.Error())
 	}
 	return self
 }
@@ -478,7 +478,7 @@ func (self *SHuaweiClient) GetIRegionById(id string) (cloudprovider.ICloudRegion
 			return regions[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", id)
 }
 
 func (self *SHuaweiClient) GetRegion(regionId string) *SRegion {

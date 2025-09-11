@@ -79,7 +79,8 @@ type ServerListOptions struct {
 
 	WithUserMeta *bool `help:"filter by user metadata" negative:"without_user_meta"`
 
-	WithHost *bool `help:"filter guest with host or not" negative:"without_host"`
+	WithHost         *bool  `help:"filter guest with host or not" negative:"without_host"`
+	SnapshotpolicyId string `help:"filter guest with snapshotpolicy or not" json:"snapshotpolicy_id"`
 }
 
 func (o *ServerListOptions) Params() (jsonutils.JSONObject, error) {

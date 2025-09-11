@@ -228,7 +228,7 @@ func UnmarshalJsonError(r *request.Request) {
 	}
 
 	if r.HTTPResponse.StatusCode == 404 {
-		r.Error = errors.Wrapf(cloudprovider.ErrNotFound, string(result))
+		r.Error = errors.Wrapf(cloudprovider.ErrNotFound, "%s", string(result))
 		return
 	}
 
@@ -245,7 +245,7 @@ func UnmarshalJsonError(r *request.Request) {
 	respErr := &sAwsInvokeError{}
 	err = obj.Unmarshal(respErr)
 	if err != nil {
-		r.Error = errors.Wrapf(err, obj.String())
+		r.Error = errors.Wrapf(err, "%s", obj.String())
 		return
 	}
 

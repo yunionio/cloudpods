@@ -40,7 +40,13 @@ menuentry 'YunionOS for PXE' --class os {
 `, sleepTime, kernel, kernel, kernelArgs, initrd, initrd)
 }
 
-// REF: https://github.com/bluebanquise/infrastructure/blob/master/packages/ipxe-bluebanquise/grub2-efi-autofind.cfg
+var (
+	BOOT_EFI_MATCHER = "(hd*,gpt*)/EFI/BOOT/BOOTX64.EFI (hd*,msdos*)/EFI/BOOT/BOOTX64.EFI (hd*,gpt*)/EFI/BOOT/BOOTAA64.EFI (hd*,msdos*)/EFI/BOOT/BOOTAA64.EFI"
+	GRUB_EFI_MATCHER = "(md*)/EFI/*/shimx64.efi (md*)/EFI/*/grubx64.efi (hd*,gpt*)/EFI/*/shimx64.efi (hd*,msdos*)/EFI/*/shimx64.efi (hd*,gpt*)/EFI/*/grubx64.efi (hd*,mosdos*)/EFI/*/grubx64.efi (hd*,gpt*)/EFI/*/shimaa64.efi (hd*,msdos*)/EFI/*/shimaa64.efi (hd*,gpt*)/EFI/*/grubaa64.efi (hd*,mosdos*)/EFI/*/grubaa64.efi"
+	GRUB_CFG_MATCHER = "(md*)/boot/*/grub.cfg (md*)/*/grub.cfg (md*)/grub.cfg (md*)/EFI/*/grub.cfg (md*)/EFI/*/*/grub.cfg (hd*,gpt*)/boot/*/grub.cfg (hd*,gpt*)/*/grub.cfg (hd*,gpt*)/grub.cfg (hd*,gpt*)/EFI/*/grub.cfg (hd*,gpt*)/EFI/*/*/grub.cfg (hd*,mosdos*)/boot/*/grub.cfg (hd*,mosdos*)/*/grub.cfg (hd*,mosdos*)/grub.cfg (hd*,mosdos*)/EFI/*/grub.cfg (hd*,mosdos*)/EFI/*/*/grub.cfg"
+)
+
+// REF: https://github.com/bluebanquise/infrastructure/blob/master/packages/bluebanquise-ipxe/grub2-efi-autofind.cfg
 const autoFindCfg = `
 echo "Loading modules..."
 insmod part_gpt
@@ -48,34 +54,114 @@ insmod fat
 insmod chain
 insmod part_msdos
 insmod ext2
+insmod regexp
 insmod xfs
+insmod mdraid1x
+insmod mdraid09
+
 echo
-echo "Scanning, first pass..."
-for cfg in (*,gpt*)/efi/*/grub.cfg (*,gpt*)/efi/*/*/grub.cfg (*,gpt*)/grub.cfg (*,gpt*)/*/grub.cfg (*,gpt*)/*/*/grub.cfg (*,msdos*)/grub.cfg (*,msdos*)/*/grub.cfg (*,mosdos*)/*/*/grub.cfg; do
-	regexp --set=1:cfg_device '^\((.*)\)/' "${cfg}"
+echo "======================= lsmod ======================================="
+lsmod
+
+echo
+echo "======================= devices ====================================="
+ls
+
+echo
+echo "======================= Searching for the BOOT EFI executable ======="
+echo "Scanning, 1st pass"
+for efi in %s; do
+	regexp --set=1:root '^\(([^)]+)\)/' "${efi}"
+	echo "- Scanning: $efi"
+	if [ -e "$efi" ] ; then
+		echo "	Found: $efi"
+	else
+		echo "		$efi does not exist"
+	fi
 done
 
-echo "Scanning, second pass..."
-for cfg in (*,gpt*)/efi/*/grub.cfg (*,gpt*)/efi/*/*/grub.cfg (*,gpt*)/grub.cfg (*,gpt*)/*/grub.cfg (*,gpt*)/*/*/grub.cfg (*,msdos*)/grub.cfg (*,msdos*)/*/grub.cfg (*,mosdos*)/*/*/grub.cfg; do
-	regexp --set=1:cfg_device '^\((.*)\)/' "${cfg}"
-	echo "Try configfile ${cfg}"
-	if [ -e "${cfg}" ]; then
-		cfg_found=true
-		echo " >> Found operating system grub config! <<"
-		echo " Path: ${cfg}"
-		echo " Booting in 5s..."
-		sleep --interruptible --verbose 5
-		configfile "${cfg}"
+echo
+echo "Scanning, 2nd pass..."
+for efi in %s; do
+	echo "- Scanning: $efi"
+	if [ -e "$efi" ] ; then
+		regexp --set 1:root '^\(([^)]+)\)/' "${efi}"
+		echo "	Found: $efi"
+		echo "	Root: $root"
+		echo "	Chainloading $efi"
+		chainloader "$efi"
 		boot
 	fi
 done
 
-echo "No grub.cfg known OS found. Fall back on shell after 5s."
-sleep 5s
+echo
+echo "		Found no BOOT EFI executable.  Falling back to shell..."
+
+echo
+echo "======================= Searching for Grub EFI executables =========="
+echo "Scanning, 1st pass"
+for efi in %s ; do
+	regexp --set=1:root '^\(([^)]+)\)/' "${efi}"
+	echo "- Scanning: $efi"
+	if [ -e "$efi" ] ; then
+		echo "	Found: $efi"
+	else
+		echo "		$efi does not exist"
+	fi
+done
+
+echo
+echo "Scanning, 2nd pass..."
+for efi in %s ; do
+	echo "- Scanning: $efi"
+	if [ -e "$efi" ] ; then
+		regexp --set 1:root '^\(([^)]+)\)/' "${efi}"
+		echo "	Found: $efi"
+		echo "	Root: $root"
+		echo "	Chainloading $efi"
+		chainloader "$efi"
+		boot
+	fi
+done
+
+echo
+echo "		Found no Grub EFI executable to load an OS."
+
+echo
+echo "======================= Searching for grub.cfg on local disks ======="
+echo "Scanning, 1st pass..."
+for grubcfg in %s ; do
+	regexp --set=1:root '^\(([^)]+)\)/' "${grubcfg}"
+	if [ -e "$grubcfg" ] ; then
+		echo "	Found: $grubcfg"
+	else
+		echo "		$grubcfg does not exist"
+	fi
+done
+
+echo
+echo "Scanning, 2nd pass..."
+for grubcfg in %s ; do
+	echo "- Scanning: $grubcfg"
+	if [ -e "${grubcfg}" ]; then
+		regexp --set=1:root '^\(([^)]+)\)/' "${grubcfg}"
+		echo "	Found: $grubcfg"
+		echo "	Root: $root"
+#		echo "	Contents:"
+#		cat "$grubcfg"
+		configfile "${grubcfg}"
+		boot
+	fi
+done
+
+echo
+echo "		Found no grub.cfg configuration file to load."
+
+sleep 4s
 `
 
 func GetAutoFindConfig() string {
-	return autoFindCfg
+	return fmt.Sprintf(autoFindCfg, BOOT_EFI_MATCHER, BOOT_EFI_MATCHER, GRUB_EFI_MATCHER, GRUB_EFI_MATCHER, GRUB_CFG_MATCHER, GRUB_CFG_MATCHER)
 }
 
 // REF: https://archived.forum.manjaro.org/t/detecting-efi-files-and-booting-them-from-grub/38083

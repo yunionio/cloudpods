@@ -413,7 +413,7 @@ func (self *SHuaweiClient) patchRequest(method httputils.THttpMethod, url string
 	_, respValue, err := httputils.ParseJSONResponse(bodystr, resp, err, self.debug)
 	if err != nil {
 		if e, ok := err.(*httputils.JSONClientError); ok && e.Code == 404 {
-			return nil, errors.Wrapf(cloudprovider.ErrNotFound, err.Error())
+			return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", err.Error())
 		}
 		return nil, err
 	}

@@ -133,7 +133,7 @@ func (self *GuacamoleTunnel) Handshake() error {
 	}
 
 	if args.Opcode != "args" {
-		return errors.Wrapf(InvalidInstruction, args.String())
+		return errors.Wrapf(InvalidInstruction, "%v", args.String())
 	}
 
 	for i, arg := range args.Args {
@@ -172,7 +172,7 @@ func (self *GuacamoleTunnel) Handshake() error {
 	}
 
 	if ready.Opcode != "ready" {
-		return errors.Wrapf(InvalidInstruction, ready.String())
+		return errors.Wrapf(InvalidInstruction, "%v", ready.String())
 	}
 
 	if len(ready.Args) == 0 {

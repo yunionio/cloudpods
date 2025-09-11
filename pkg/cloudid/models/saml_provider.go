@@ -163,7 +163,7 @@ func (self *SSAMLProvider) GetISAMLProvider() (cloudprovider.ICloudSAMLProvider,
 			return samlProviders[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, self.ExternalId)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%v", self.ExternalId)
 }
 
 func (self *SSAMLProvider) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {

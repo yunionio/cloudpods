@@ -102,6 +102,12 @@ func (d disk) validateCaseInsensitive(disk *models.SDisk, vm *apis.ContainerVolu
 	if !disk.FsFeatures.Ext4.CaseInsensitive {
 		return httperrors.NewInputParameterError("disk(%s) fs_features.ext4.case_insensitive is not set", disk.GetId())
 	}
+	if disk.FsFeatures.F2fs == nil {
+		return httperrors.NewInputParameterError("disk(%s) fs_features.f2fs is not set", disk.GetId())
+	}
+	if !disk.FsFeatures.F2fs.CaseInsensitive {
+		return httperrors.NewInputParameterError("disk(%s) fs_features.f2fs.case_insensitive is not set", disk.GetId())
+	}
 	if vm.Overlay != nil {
 		return httperrors.NewInputParameterError("can't use case_insensitive and overlay at the same time")
 	}
