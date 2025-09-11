@@ -59,7 +59,7 @@ func (manager *SDifyManager) ValidateCreateData(ctx context.Context, userCred mc
 		return nil, httperrors.NewNotEmptyError("disk is required")
 	}
 
-	// change origin container to redis containers
+	// first deploy redis containers
 	redis, err := manager.GetDifyContainersManager().GetContainer(input.Name, api.DIFY_REDIS_KEY)
 	if nil != err {
 		return nil, err
@@ -67,9 +67,6 @@ func (manager *SDifyManager) ValidateCreateData(ctx context.Context, userCred mc
 	input.Pod.Containers = []*api.PodContainerCreateInput{
 		redis,
 	}
-
-	// set autostart
-	input.AutoStart = true
 
 	return input, nil
 }

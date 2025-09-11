@@ -1,7 +1,7 @@
 package compute
 
 const (
-	SSRF_ENTRYPINT_SHELL = `
+	DIFY_SSRF_ENTRYPINT_SHELL = `
 mkdir -p /etc/squid
 
 cat > /etc/squid/squid.conf.template <<'EOF'
@@ -34,7 +34,7 @@ chown -R "$SQUID_USER":"$SQUID_USER" /etc/squid
 echo "[ENTRYPOINT] starting squid"
 /usr/sbin/squid -f /etc/squid/squid.conf -NYC 1
 `
-	SSRF_SQUID_CONFIGURATION_FILE = `visible_hostname localhost # set visible_hostname to avoid WARNING: Could not determine this machines public hostname. 
+	DIFY_SSRF_SQUID_CONFIGURATION_FILE = `visible_hostname localhost # set visible_hostname to avoid WARNING: Could not determine this machines public hostname. 
 acl localnet src 0.0.0.1-0.255.255.255	# RFC 1122 "this" network (LAN)
 acl localnet src 10.0.0.0/8		# RFC 1918 local private network (LAN)
 acl localnet src 100.64.0.0/10		# RFC 6598 shared address space (CGN)
@@ -95,7 +95,7 @@ client_request_buffer_max_size 100 MB
 )
 
 const (
-	NGINX_ENTRYPINT_SHELL = `
+	DIFY_NGINX_ENTRYPINT_SHELL = `
 mkdir -p /etc/nginx
 cat > /etc/nginx/nginx.conf.template <<'EOF'
 %s
@@ -117,7 +117,7 @@ envsubst "$env_vars" < /etc/nginx/proxy.conf.template > /etc/nginx/proxy.conf
 envsubst "$env_vars" < /etc/nginx/conf.d/default.conf.template > /etc/nginx/conf.d/default.conf
 
 exec nginx -g 'daemon off;'`
-	NGINX_NGINX_CONF_FILE = `
+	DIFY_NGINX_NGINX_CONF_FILE = `
 user  nginx;
 worker_processes  ${NGINX_WORKER_PROCESSES};
 
@@ -151,7 +151,7 @@ http {
     include /etc/nginx/conf.d/*.conf;
 }
 `
-	NGINX_PROXY_CONF_FILE = `
+	DIFY_NGINX_PROXY_CONF_FILE = `
 proxy_set_header Host $host;
 proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
 proxy_set_header X-Forwarded-Proto $scheme;
@@ -162,7 +162,7 @@ proxy_buffering off;
 proxy_read_timeout ${NGINX_PROXY_READ_TIMEOUT};
 proxy_send_timeout ${NGINX_PROXY_SEND_TIMEOUT};
 `
-	NGINX_DEFAULT_CONF_FILE = `# Please do not directly edit this file. Instead, modify the .env variables related to NGINX configuration.
+	DIFY_NGINX_DEFAULT_CONF_FILE = `# Please do not directly edit this file. Instead, modify the .env variables related to NGINX configuration.
 
 server {
     listen ${NGINX_PORT};
@@ -217,7 +217,7 @@ server {
 )
 
 const (
-	SANDBOX_WRITE_CONF_SHELL = `
+	DIFY_SANDBOX_WRITE_CONF_SHELL = `
 cat > /conf/config.yaml <<'EOF'
 %s
 EOF
@@ -236,7 +236,7 @@ rm -f $NODE_TAR_XZ
 # start main
 /main
   `
-	SANDBOX_CONF_FILE = `app:
+	DIFY_SANDBOX_CONF_FILE = `app:
   port: 8194
   debug: True
   key: dify-sandbox
@@ -251,7 +251,7 @@ proxy:
   http: ''
   https: ''
 `
-	SANDBOX_CONF_TEMP_FILE = `app:
+	DIFY_SANDBOX_CONF_TEMP_FILE = `app:
   port: 8194
   debug: True
   key: dify-sandbox

@@ -101,18 +101,18 @@ func getRedisContainer(name, key string) *api.PodContainerCreateInput {
 
 	// set container environments
 	envs := &DifyContainerEnv{
-		"REDISCLI_AUTH": api.REDISCLI_AUTH,
+		"REDISCLI_AUTH": api.DIFY_REDISCLI_AUTH,
 	}
 	ctr.Envs = envs.GetContainerEnvs()
 
 	// set PVC to store data
 	ctr.VolumeMounts = []*apis.ContainerVolumeMount{
-		getPVCMount(key, key, api.REDIS_PVC_MOUNT_PATH),
+		getPVCMount(key, key, api.DIFY_REDIS_PVC_MOUNT_PATH),
 	}
 
 	// set command
 	ctr.Args = []string{
-		"redis-server", "--requirepass", api.REDISCLI_AUTH,
+		"redis-server", "--requirepass", api.DIFY_REDISCLI_AUTH,
 	}
 
 	return ctr
@@ -127,26 +127,26 @@ func getPostgresContainer(name, key string) *api.PodContainerCreateInput {
 
 	// set container environments
 	envs := &DifyContainerEnv{
-		"POSTGRES_USER":     api.POSTGRES_USER,
-		"POSTGRES_PASSWORD": api.POSTGRES_PASSWORD,
-		"POSTGRES_DB":       api.POSTGRES_DB,
-		"PGDATA":            path.Join(api.POSTGRES_PVC_MOUNT_PATH, api.PGDATA),
+		"POSTGRES_USER":     api.DIFY_POSTGRES_USER,
+		"POSTGRES_PASSWORD": api.DIFY_POSTGRES_PASSWORD,
+		"POSTGRES_DB":       api.DIFY_POSTGRES_DB,
+		"PGDATA":            path.Join(api.DIFY_POSTGRES_PVC_MOUNT_PATH, api.DIFY_POSTGRES_PGDATA),
 	}
 	ctr.Envs = envs.GetContainerEnvs()
 
 	// set PVC to store data
 	ctr.VolumeMounts = []*apis.ContainerVolumeMount{
-		getPVCMount(key, key, api.POSTGRES_PVC_MOUNT_PATH),
+		getPVCMount(key, key, api.DIFY_POSTGRES_PVC_MOUNT_PATH),
 	}
 
 	// set command for ctr
 	ctr.Args = []string{
 		"postgres",
-		"-c", "max_connections=" + api.POSTGRES_MAX_CONNECTIONS,
-		"-c", "shared_buffers=" + api.POSTGRES_SHARED_BUFFERS,
-		"-c", "work_mem=" + api.POSTGRES_WORK_MEM,
-		"-c", "maintenance_work_mem=" + api.POSTGRES_MAINTENANCE_WORK_MEM,
-		"-c", "effective_cache_size=" + api.POSTGRES_EFFECTIVE_CACHE_SIZE,
+		"-c", "max_connections=" + api.DIFY_POSTGRES_MAX_CONNECTIONS,
+		"-c", "shared_buffers=" + api.DIFY_POSTGRES_SHARED_BUFFERS,
+		"-c", "work_mem=" + api.DIFY_POSTGRES_WORK_MEM,
+		"-c", "maintenance_work_mem=" + api.DIFY_POSTGRES_MAINTENANCE_WORK_MEM,
+		"-c", "effective_cache_size=" + api.DIFY_POSTGRES_EFFECTIVE_CACHE_SIZE,
 	}
 
 	return ctr
@@ -161,20 +161,20 @@ func getApiContainer(name, key string) *api.PodContainerCreateInput {
 
 	// set container environments
 	envs := &DifyContainerEnv{
-		"MODE":                        api.API_MODE,
-		"SENTRY_DSN":                  api.API_SENTRY_DSN,
-		"SENTRY_TRACES_SAMPLE_RATE":   api.API_SENTRY_TRACES_SAMPLE_RATE,
-		"SENTRY_PROFILES_SAMPLE_RATE": api.API_SENTRY_PROFILES_SAMPLE_RATE,
-		"PLUGIN_REMOTE_INSTALL_HOST":  api.API_PLUGIN_REMOTE_INSTALL_HOST,
-		"PLUGIN_REMOTE_INSTALL_PORT":  api.API_PLUGIN_REMOTE_INSTALL_PORT,
-		"PLUGIN_MAX_PACKAGE_SIZE":     api.API_PLUGIN_MAX_PACKAGE_SIZE,
-		"INNER_API_KEY_FOR_PLUGIN":    api.API_INNER_API_KEY_FOR_PLUGIN,
+		"MODE":                        api.DIFY_API_MODE,
+		"SENTRY_DSN":                  api.DIFY_API_SENTRY_DSN,
+		"SENTRY_TRACES_SAMPLE_RATE":   api.DIFY_API_SENTRY_TRACES_SAMPLE_RATE,
+		"SENTRY_PROFILES_SAMPLE_RATE": api.DIFY_API_SENTRY_PROFILES_SAMPLE_RATE,
+		"PLUGIN_REMOTE_INSTALL_HOST":  api.DIFY_LOCALHOST,
+		"PLUGIN_REMOTE_INSTALL_PORT":  api.DIFY_PLUGIN_REMOTE_INSTALLING_PORT,
+		"PLUGIN_MAX_PACKAGE_SIZE":     api.DIFY_PLUGIN_MAX_PACKAGE_SIZE,
+		"INNER_API_KEY_FOR_PLUGIN":    api.DIFY_API_INNER_KEY,
 	}
 	ctr.Envs = append(getSharedApiWorkerEnv(), envs.GetContainerEnvs()...)
 
 	// set PVC to store data
 	ctr.VolumeMounts = []*apis.ContainerVolumeMount{
-		getPVCMount(key, "api", api.API_PVC_MOUNT_PATH),
+		getPVCMount(key, "api", api.DIFY_API_PVC_MOUNT_PATH),
 	}
 
 	return ctr
@@ -189,18 +189,18 @@ func getWorkerContainer(name, key string) *api.PodContainerCreateInput {
 
 	// set container environments
 	envs := &DifyContainerEnv{
-		"MODE":                        api.WORKER_MODE,
-		"SENTRY_DSN":                  api.API_SENTRY_DSN,
-		"SENTRY_TRACES_SAMPLE_RATE":   api.API_SENTRY_TRACES_SAMPLE_RATE,
-		"SENTRY_PROFILES_SAMPLE_RATE": api.API_SENTRY_PROFILES_SAMPLE_RATE,
-		"PLUGIN_MAX_PACKAGE_SIZE":     api.API_PLUGIN_MAX_PACKAGE_SIZE,
-		"INNER_API_KEY_FOR_PLUGIN":    api.API_INNER_API_KEY_FOR_PLUGIN,
+		"MODE":                        api.DIFY_WORKER_MODE,
+		"SENTRY_DSN":                  api.DIFY_API_SENTRY_DSN,
+		"SENTRY_TRACES_SAMPLE_RATE":   api.DIFY_API_SENTRY_TRACES_SAMPLE_RATE,
+		"SENTRY_PROFILES_SAMPLE_RATE": api.DIFY_API_SENTRY_PROFILES_SAMPLE_RATE,
+		"PLUGIN_MAX_PACKAGE_SIZE":     api.DIFY_PLUGIN_MAX_PACKAGE_SIZE,
+		"INNER_API_KEY_FOR_PLUGIN":    api.DIFY_API_INNER_KEY,
 	}
 	ctr.Envs = append(getSharedApiWorkerEnv(), envs.GetContainerEnvs()...)
 
 	// set PVC to store data
 	ctr.VolumeMounts = []*apis.ContainerVolumeMount{
-		getPVCMount(key, "api", api.API_PVC_MOUNT_PATH),
+		getPVCMount(key, "api", api.DIFY_API_PVC_MOUNT_PATH),
 	}
 
 	return ctr
@@ -215,7 +215,7 @@ func getWorkerBeatContainer(name, key string) *api.PodContainerCreateInput {
 
 	// set container environments
 	envs := &DifyContainerEnv{
-		"MODE": api.WORKER_BEAT_MODE,
+		"MODE": api.DIFY_WORKER_BEAT_MODE,
 	}
 	ctr.Envs = append(getSharedApiWorkerEnv(), envs.GetContainerEnvs()...)
 
@@ -231,31 +231,31 @@ func getPluginContainer(name, key string) *api.PodContainerCreateInput {
 
 	// set container environments
 	envs := &DifyContainerEnv{
-		"DB_DATABASE":                   api.PLUGIN_DB_DATABASE,
-		"SERVER_PORT":                   api.PLUGIN_SERVER_PORT,
-		"SERVER_KEY":                    api.PLUGIN_SERVER_KEY,
-		"MAX_PACKAGE_CACHE_PATH":        api.PLUGIN_PACKAGE_CACHE_PATH,
-		"PPROF_ENABLED":                 api.PLUGIN_PPROF_ENABLED,
-		"DIFY_INNER_API_URL":            api.PLUGIN_DIFY_INNER_API_URL,
-		"DIFY_INNER_API_KEY":            api.PLUGIN_DIFY_INNER_API_KEY,
-		"PLUGIN_REMOTE_INSTALLING_HOST": api.PLUGIN_REMOTE_INSTALLING_HOST,
-		"PLUGIN_REMOTE_INSTALLING_PORT": api.PLUGIN_REMOTE_INSTALLING_PORT,
-		"PLUGIN_WORKING_PATH":           api.PLUGIN_WORKING_PATH,
-		"FORCE_VERIFYING_SIGNATURE":     api.PLUGIN_FORCE_VERIFYING_SIGNATURE,
-		"PYTHON_ENV_INIT_TIMEOUT":       api.PLUGIN_PYTHON_ENV_INIT_TIMEOUT,
-		"PLUGIN_MAX_EXECUTION_TIMEOUT":  api.PLUGIN_MAX_EXECUTION_TIMEOUT,
+		"DB_DATABASE":                   api.DIFY_PLUGIN_DB_DATABASE,
+		"SERVER_PORT":                   api.DIFY_PLUGIN_SERVER_PORT,
+		"SERVER_KEY":                    api.DIFY_PLUGIN_SERVER_KEY,
+		"MAX_PACKAGE_CACHE_PATH":        api.DIFY_PLUGIN_PACKAGE_CACHE_PATH,
+		"PPROF_ENABLED":                 api.DIFY_PLUGIN_PPROF_ENABLED,
+		"DIFY_INNER_API_URL":            api.DIFY_PLUGIN_DIFY_INNER_API_URL,
+		"DIFY_INNER_API_KEY":            api.DIFY_API_INNER_KEY,
+		"PLUGIN_REMOTE_INSTALLING_HOST": api.DIFY_PLUGIN_REMOTE_INSTALLING_HOST,
+		"PLUGIN_REMOTE_INSTALLING_PORT": api.DIFY_PLUGIN_REMOTE_INSTALLING_PORT,
+		"PLUGIN_WORKING_PATH":           api.DIFY_PLUGIN_WORKING_PATH,
+		"FORCE_VERIFYING_SIGNATURE":     api.DIFY_PLUGIN_FORCE_VERIFYING_SIGNATURE,
+		"PYTHON_ENV_INIT_TIMEOUT":       api.DIFY_PLUGIN_PYTHON_ENV_INIT_TIMEOUT,
+		"PLUGIN_MAX_EXECUTION_TIMEOUT":  api.DIFY_PLUGIN_MAX_EXECUTION_TIMEOUT,
 		"PIP_MIRROR_URL":                api.PIP_MIRROR_URL,
-		"PLUGIN_STORAGE_TYPE":           api.PLUGIN_STORAGE_TYPE,
-		"PLUGIN_STORAGE_LOCAL_ROOT":     api.PLUGIN_STORAGE_LOCAL_ROOT,
-		"PLUGIN_INSTALLED_PATH":         api.PLUGIN_INSTALLED_PATH,
-		"PLUGIN_PACKAGE_CACHE_PATH":     api.PLUGIN_PACKAGE_CACHE_PATH,
-		"PLUGIN_MEDIA_CACHE_PATH":       api.PLUGIN_MEDIA_CACHE_PATH,
+		"PLUGIN_STORAGE_TYPE":           api.DIFY_PLUGIN_STORAGE_TYPE,
+		"PLUGIN_STORAGE_LOCAL_ROOT":     api.DIFY_PLUGIN_STORAGE_LOCAL_ROOT,
+		"PLUGIN_INSTALLED_PATH":         api.DIFY_PLUGIN_INSTALLED_PATH,
+		"PLUGIN_PACKAGE_CACHE_PATH":     api.DIFY_PLUGIN_PACKAGE_CACHE_PATH,
+		"PLUGIN_MEDIA_CACHE_PATH":       api.DIFY_PLUGIN_MEDIA_CACHE_PATH,
 	}
 	ctr.Envs = append(getSharedApiWorkerEnv(), envs.GetContainerEnvs()...)
 
 	// set PVC to store data
 	ctr.VolumeMounts = []*apis.ContainerVolumeMount{
-		getPVCMount(key, key, api.PLUGIN_STORAGE_LOCAL_ROOT),
+		getPVCMount(key, key, api.DIFY_PLUGIN_STORAGE_LOCAL_ROOT),
 	}
 
 	return ctr
@@ -271,26 +271,26 @@ func getWebContainer(name, key string) *api.PodContainerCreateInput {
 	// set container environments
 	envs := &DifyContainerEnv{
 		"HOSTNAME":                                "", // set HOSTNAME to empty, to avoid Error: getaddrinfo ENOTFOUND
-		"CONSOLE_API_URL":                         api.WEB_CONSOLE_API_URL,
-		"APP_API_URL":                             api.WEB_APP_API_URL,
-		"SENTRY_DSN":                              api.WEB_SENTRY_DSN,
-		"NEXT_TELEMETRY_DISABLED":                 api.WEB_NEXT_TELEMETRY_DISABLED,
-		"TEXT_GENERATION_TIMEOUT_MS":              api.WEB_TEXT_GENERATION_TIMEOUT_MS,
-		"CSP_WHITELIST":                           api.WEB_CSP_WHITELIST,
-		"ALLOW_EMBED":                             api.WEB_ALLOW_EMBED,
-		"ALLOW_UNSAFE_DATA_SCHEME":                api.WEB_ALLOW_UNSAFE_DATA_SCHEME,
-		"MARKETPLACE_API_URL":                     api.WEB_MARKETPLACE_API_URL,
-		"MARKETPLACE_URL":                         api.WEB_MARKETPLACE_URL,
-		"TOP_K_MAX_VALUE":                         api.WEB_TOP_K_MAX_VALUE,
-		"INDEXING_MAX_SEGMENTATION_TOKENS_LENGTH": api.WEB_INDEXING_MAX_SEGMENTATION_TOKENS_LENGTH,
-		"PM2_INSTANCES":                           api.WEB_PM2_INSTANCES,
-		"LOOP_NODE_MAX_COUNT":                     api.WEB_LOOP_NODE_MAX_COUNT,
-		"MAX_TOOLS_NUM":                           api.WEB_MAX_TOOLS_NUM,
-		"MAX_PARALLEL_LIMIT":                      api.WEB_MAX_PARALLEL_LIMIT,
-		"MAX_ITERATIONS_NUM":                      api.WEB_MAX_ITERATIONS_NUM,
-		"ENABLE_WEBSITE_JINAREADER":               api.WEB_ENABLE_WEBSITE_JINAREADER,
-		"ENABLE_WEBSITE_FIRECRAWL":                api.WEB_ENABLE_WEBSITE_FIRECRAWL,
-		"ENABLE_WEBSITE_WATERCRAWL":               api.WEB_ENABLE_WEBSITE_WATERCRAWL,
+		"CONSOLE_API_URL":                         api.DIFY_WEB_CONSOLE_API_URL,
+		"APP_API_URL":                             api.DIFY_WEB_APP_API_URL,
+		"SENTRY_DSN":                              api.DIFY_WEB_SENTRY_DSN,
+		"NEXT_TELEMETRY_DISABLED":                 api.DIFY_WEB_NEXT_TELEMETRY_DISABLED,
+		"TEXT_GENERATION_TIMEOUT_MS":              api.DIFY_WEB_TEXT_GENERATION_TIMEOUT_MS,
+		"CSP_WHITELIST":                           api.DIFY_WEB_CSP_WHITELIST,
+		"ALLOW_EMBED":                             api.DIFY_WEB_ALLOW_EMBED,
+		"ALLOW_UNSAFE_DATA_SCHEME":                api.DIFY_WEB_ALLOW_UNSAFE_DATA_SCHEME,
+		"MARKETPLACE_API_URL":                     api.DIFY_WEB_MARKETPLACE_API_URL,
+		"MARKETPLACE_URL":                         api.DIFY_WEB_MARKETPLACE_URL,
+		"TOP_K_MAX_VALUE":                         api.DIFY_WEB_TOP_K_MAX_VALUE,
+		"INDEXING_MAX_SEGMENTATION_TOKENS_LENGTH": api.DIFY_WEB_INDEXING_MAX_SEGMENTATION_TOKENS_LENGTH,
+		"PM2_INSTANCES":                           api.DIFY_WEB_PM2_INSTANCES,
+		"LOOP_NODE_MAX_COUNT":                     api.DIFY_WEB_LOOP_NODE_MAX_COUNT,
+		"MAX_TOOLS_NUM":                           api.DIFY_WEB_MAX_TOOLS_NUM,
+		"MAX_PARALLEL_LIMIT":                      api.DIFY_WEB_MAX_PARALLEL_LIMIT,
+		"MAX_ITERATIONS_NUM":                      api.DIFY_WEB_MAX_ITERATIONS_NUM,
+		"ENABLE_WEBSITE_JINAREADER":               api.DIFY_WEB_ENABLE_WEBSITE_JINAREADER,
+		"ENABLE_WEBSITE_FIRECRAWL":                api.DIFY_WEB_ENABLE_WEBSITE_FIRECRAWL,
+		"ENABLE_WEBSITE_WATERCRAWL":               api.DIFY_WEB_ENABLE_WEBSITE_WATERCRAWL,
 	}
 	ctr.Envs = envs.GetContainerEnvs()
 
@@ -307,11 +307,11 @@ func getSsrfContainer(name, key string) *api.PodContainerCreateInput {
 	// set container environments
 	envs := &DifyContainerEnv{
 		// "VISIBLE_HOSTNAME":   "localhost", // set VISIBLE_HOSTNAME to localhost, to avoid rDNS test failed
-		"HTTP_PORT":          api.SSRF_HTTP_PORT,
-		"COREDUMP_DIR":       api.SSRF_COREDUMP_DIR,
-		"REVERSE_PROXY_PORT": api.SSRF_REVERSE_PROXY_PORT,
-		"SANDBOX_HOST":       api.SSRF_SANDBOX_HOST,
-		"SANDBOX_PORT":       api.SSRF_SANDBOX_PORT,
+		"HTTP_PORT":          api.DIFY_SSRF_HTTP_PORT,
+		"COREDUMP_DIR":       api.DIFY_SSRF_COREDUMP_DIR,
+		"REVERSE_PROXY_PORT": api.DIFY_SANDBOX_PORT,
+		"SANDBOX_HOST":       api.DIFY_LOCALHOST,
+		"SANDBOX_PORT":       api.DIFY_SANDBOX_PORT,
 	}
 	ctr.Envs = envs.GetContainerEnvs()
 
@@ -321,7 +321,7 @@ func getSsrfContainer(name, key string) *api.PodContainerCreateInput {
 	// }
 
 	// generate entrypoint
-	entrypointSH := fmt.Sprintf(api.SSRF_ENTRYPINT_SHELL, api.SSRF_SQUID_CONFIGURATION_FILE)
+	entrypointSH := fmt.Sprintf(api.DIFY_SSRF_ENTRYPINT_SHELL, api.DIFY_SSRF_SQUID_CONFIGURATION_FILE)
 	ctr.Command = []string{
 		"/bin/sh", "-c", entrypointSH,
 	}
@@ -338,23 +338,23 @@ func getNginxContainer(name, key string) *api.PodContainerCreateInput {
 
 	// set container environments
 	envs := &DifyContainerEnv{
-		"NGINX_SERVER_NAME":          api.NGINX_SERVER_NAME,
-		"NGINX_PORT":                 api.NGINX_PORT,
-		"NGINX_WORKER_PROCESSES":     api.NGINX_WORKER_PROCESSES,
-		"NGINX_CLIENT_MAX_BODY_SIZE": api.NGINX_CLIENT_MAX_BODY_SIZE,
-		"NGINX_KEEPALIVE_TIMEOUT":    api.NGINX_KEEPALIVE_TIMEOUT,
-		"NGINX_PROXY_READ_TIMEOUT":   api.NGINX_PROXY_READ_TIMEOUT,
-		"NGINX_PROXY_SEND_TIMEOUT":   api.NGINX_PROXY_SEND_TIMEOUT,
+		"NGINX_SERVER_NAME":          api.DIFY_NGINX_SERVER_NAME,
+		"NGINX_PORT":                 api.DIFY_NGINX_PORT,
+		"NGINX_WORKER_PROCESSES":     api.DIFY_NGINX_WORKER_PROCESSES,
+		"NGINX_CLIENT_MAX_BODY_SIZE": api.DIFY_NGINX_CLIENT_MAX_BODY_SIZE,
+		"NGINX_KEEPALIVE_TIMEOUT":    api.DIFY_NGINX_KEEPALIVE_TIMEOUT,
+		"NGINX_PROXY_READ_TIMEOUT":   api.DIFY_NGINX_PROXY_READ_TIMEOUT,
+		"NGINX_PROXY_SEND_TIMEOUT":   api.DIFY_NGINX_PROXY_SEND_TIMEOUT,
 	}
 	ctr.Envs = envs.GetContainerEnvs()
 
 	// set PVC to store data
 	ctr.VolumeMounts = []*apis.ContainerVolumeMount{
-		getPVCMount(key, key, api.NGINX_MOUNT_PATH),
+		getPVCMount(key, key, api.DIFY_NGINX_MOUNT_PATH),
 	}
 
 	// generate entrypoint
-	entrypointSH := fmt.Sprintf(api.NGINX_ENTRYPINT_SHELL, api.NGINX_NGINX_CONF_FILE, api.NGINX_PROXY_CONF_FILE, api.NGINX_DEFAULT_CONF_FILE)
+	entrypointSH := fmt.Sprintf(api.DIFY_NGINX_ENTRYPINT_SHELL, api.DIFY_NGINX_NGINX_CONF_FILE, api.DIFY_NGINX_PROXY_CONF_FILE, api.DIFY_NGINX_DEFAULT_CONF_FILE)
 	ctr.Command = []string{
 		"/bin/sh", "-c", entrypointSH,
 	}
@@ -371,22 +371,22 @@ func getWeaviateContainer(name, key string) *api.PodContainerCreateInput {
 
 	// set container environments
 	envs := &DifyContainerEnv{
-		"PERSISTENCE_DATA_PATH":                   api.WEAVIATE_PERSISTENCE_DATA_PATH,
-		"QUERY_DEFAULTS_LIMIT":                    api.WEAVIATE_QUERY_DEFAULTS_LIMIT,
-		"AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED": api.WEAVIATE_AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED,
-		"DEFAULT_VECTORIZER_MODULE":               api.WEAVIATE_DEFAULT_VECTORIZER_MODULE,
-		"CLUSTER_HOSTNAME":                        api.WEAVIATE_CLUSTER_HOSTNAME,
-		"AUTHENTICATION_APIKEY_ENABLED":           api.WEAVIATE_AUTHENTICATION_APIKEY_ENABLED,
-		"AUTHENTICATION_APIKEY_ALLOWED_KEYS":      api.WEAVIATE_AUTHENTICATION_APIKEY_ALLOWED_KEYS,
-		"AUTHENTICATION_APIKEY_USERS":             api.WEAVIATE_AUTHENTICATION_APIKEY_USERS,
-		"AUTHORIZATION_ADMINLIST_ENABLED":         api.WEAVIATE_AUTHORIZATION_ADMINLIST_ENABLED,
-		"AUTHORIZATION_ADMINLIST_USERS":           api.WEAVIATE_AUTHORIZATION_ADMINLIST_USERS,
+		"PERSISTENCE_DATA_PATH":                   api.DIFY_WEAVIATE_PERSISTENCE_DATA_PATH,
+		"QUERY_DEFAULTS_LIMIT":                    api.DIFY_WEAVIATE_QUERY_DEFAULTS_LIMIT,
+		"AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED": api.DIFY_WEAVIATE_AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED,
+		"DEFAULT_VECTORIZER_MODULE":               api.DIFY_WEAVIATE_DEFAULT_VECTORIZER_MODULE,
+		"CLUSTER_HOSTNAME":                        api.DIFY_WEAVIATE_CLUSTER_HOSTNAME,
+		"AUTHENTICATION_APIKEY_ENABLED":           api.DIFY_WEAVIATE_AUTHENTICATION_APIKEY_ENABLED,
+		"AUTHENTICATION_APIKEY_ALLOWED_KEYS":      api.DIFY_WEAVIATE_AUTHENTICATION_APIKEY_ALLOWED_KEYS,
+		"AUTHENTICATION_APIKEY_USERS":             api.DIFY_WEAVIATE_AUTHENTICATION_APIKEY_USERS,
+		"AUTHORIZATION_ADMINLIST_ENABLED":         api.DIFY_WEAVIATE_AUTHORIZATION_ADMINLIST_ENABLED,
+		"AUTHORIZATION_ADMINLIST_USERS":           api.DIFY_WEAVIATE_AUTHORIZATION_ADMINLIST_USERS,
 	}
 	ctr.Envs = envs.GetContainerEnvs()
 
 	// set PVC to store data
 	ctr.VolumeMounts = []*apis.ContainerVolumeMount{
-		getPVCMount(key, key, api.WEAVIATE_PERSISTENCE_DATA_PATH),
+		getPVCMount(key, key, api.DIFY_WEAVIATE_PERSISTENCE_DATA_PATH),
 	}
 
 	return ctr
@@ -401,25 +401,25 @@ func getSandboxContainer(name, key string) *api.PodContainerCreateInput {
 
 	// set container environments
 	envs := &DifyContainerEnv{
-		"API_KEY":        api.SANDBOX_API_KEY,
-		"GIN_MODE":       api.SANDBOX_GIN_MODE,
-		"WORKER_TIMEOUT": api.SANDBOX_WORKER_TIMEOUT,
-		"ENABLE_NETWORK": api.SANDBOX_ENABLE_NETWORK,
-		"HTTP_PROXY":     api.SANDBOX_HTTP_PROXY,
-		"HTTPS_PROXY":    api.SANDBOX_HTTPS_PROXY,
-		"SANDBOX_PORT":   api.SANDBOX_PORT,
+		"API_KEY":        api.DIFY_SANDBOX_API_KEY,
+		"GIN_MODE":       api.DIFY_SANDBOX_GIN_MODE,
+		"WORKER_TIMEOUT": api.DIFY_SANDBOX_WORKER_TIMEOUT,
+		"ENABLE_NETWORK": api.DIFY_SANDBOX_ENABLE_NETWORK,
+		"HTTP_PROXY":     api.DIFY_SANDBOX_HTTP_PROXY,
+		"HTTPS_PROXY":    api.DIFY_SANDBOX_HTTPS_PROXY,
+		"SANDBOX_PORT":   api.DIFY_SANDBOX_PORT,
 		"PIP_MIRROR_URL": api.PIP_MIRROR_URL,
 	}
 	ctr.Envs = envs.GetContainerEnvs()
 
 	// set PVC to store data
 	ctr.VolumeMounts = []*apis.ContainerVolumeMount{
-		getPVCMount(key+"conf", key+"conf", api.SANDBOX_CONF_MOUNT_PATH),
-		getPVCMount(key+"dep", key+"dep", api.SANDBOX_DEP_MOUNT_PATH),
+		getPVCMount(key+"conf", key+"conf", api.DIFY_SANDBOX_CONF_MOUNT_PATH),
+		getPVCMount(key+"dep", key+"dep", api.DIFY_SANDBOX_DEP_MOUNT_PATH),
 	}
 
 	// set command
-	writeConfigCommand := fmt.Sprintf(api.SANDBOX_WRITE_CONF_SHELL, api.SANDBOX_CONF_FILE, api.SANDBOX_CONF_TEMP_FILE)
+	writeConfigCommand := fmt.Sprintf(api.DIFY_SANDBOX_WRITE_CONF_SHELL, api.DIFY_SANDBOX_CONF_FILE, api.DIFY_SANDBOX_CONF_TEMP_FILE)
 	ctr.Command = []string{
 		"/bin/sh", "-c", writeConfigCommand,
 	}
