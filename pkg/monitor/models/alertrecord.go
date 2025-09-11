@@ -459,47 +459,72 @@ func (manager *SAlertRecordManager) GetPropertyTotalAlert(ctx context.Context, u
 	return alertCountMap, nil
 }
 
-/*func (manager *SAlertRecordManager) getNowAlertingRecord(ctx context.Context, userCred mcclient.TokenCredential,
-	input monitor.AlertRecordListInput) ([]SAlertRecord, error) {
-	//now := time.Now()
-	//startTime := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 1, now.Location())
-	ownerId, err := manager.FetchOwnerId(ctx, jsonutils.Marshal(&input))
+// 获取过去一天的报警历史分布
+func (manager *SAlertRecordManager) GetPropertyHistoryAlert(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+) (*monitor.AlertRecordHistoryAlert, error) {
+	q := manager.Query().GE("created_at", time.Now().Add(-time.Hour*24)).IsNotEmpty("eval_data").NotEquals("state", monitor.AlertStateOK)
+	alerts := []SAlertRecord{}
+	err := q.All(&alerts)
 	if err != nil {
-		return nil, errors.Wrap(err, "FetchOwnerId error")
+		return nil, errors.Wrap(err, "q.All")
 	}
-	if ownerId == nil {
-		ownerId = userCred
-	}
-	query := manager.Query()
-	query = manager.FilterByOwner(ctx, query, manager, userCred, ownerId, rbacscope.String2Scope(input.Scope))
-	//query = query.GE("created_at", startTime.UTC().Format(timeutils.MysqlTimeFormat))
-	query = query.Equals("state", monitor.AlertStateAlerting)
-	query = query.IsNotNull("res_type").IsNotEmpty("res_type").Desc("created_at")
-
-	if len(input.ResType) != 0 {
-		query = query.Equals("res_type", input.ResType)
-	}
-
-	alertsQuery := CommonAlertManager.Query("id").Equals("state", monitor.AlertStateAlerting).IsTrue("enabled").
-		IsNull("used_by")
-	alertsQuery = CommonAlertManager.FilterByOwner(ctx, alertsQuery, CommonAlertManager, userCred, userCred, rbacscope.String2Scope(input.Scope))
-	alerts := make([]SCommonAlert, 0)
-	records := make([]SAlertRecord, 0)
-	err = db.FetchModelObjects(CommonAlertManager, alertsQuery, &alerts)
-	if err != nil {
-		return nil, err
-	}
+	ret := map[string]map[string]map[string]int64{}
+	domainIds, projectIds := []string{}, []string{}
+	domainMap := map[string]string{}
+	projectMap := map[string]string{}
 	for _, alert := range alerts {
-		tmp := *query
-		recordModel, err := db.NewModelObject(manager)
-		if err != nil {
-			return nil, errors.Wrapf(err, "NewModelObject %s", manager.Keyword())
+		if _, ok := ret[alert.DomainId]; !ok {
+			ret[alert.DomainId] = map[string]map[string]int64{}
+			domainIds = append(domainIds, alert.DomainId)
 		}
-		if err := (&tmp).Equals("alert_id", alert.GetId()).First(recordModel); err == nil {
-			records = append(records, *(recordModel.(*SAlertRecord)))
-		} else {
-			log.Warningf("get records of alert_id %s error: %v", alert.GetId(), err)
+		if _, ok := ret[alert.DomainId][alert.ProjectId]; !ok {
+			ret[alert.DomainId][alert.ProjectId] = map[string]int64{}
+			projectIds = append(projectIds, alert.ProjectId)
+		}
+		if _, ok := ret[alert.DomainId][alert.ProjectId][alert.ResType]; !ok {
+			ret[alert.DomainId][alert.ProjectId][alert.ResType] = 0
+		}
+		eval := make([]monitor.EvalMatch, 0)
+		err := alert.EvalData.Unmarshal(&eval)
+		if err != nil {
+			continue
+		}
+		ret[alert.DomainId][alert.ProjectId][alert.ResType] += int64(len(eval))
+	}
+	domains := []db.STenant{}
+	err = db.TenantCacheManager.GetDomainQuery().In("id", domainIds).All(&domains)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetDomainQuery.In.All")
+	}
+	for _, domain := range domains {
+		domainMap[domain.Id] = domain.Name
+	}
+
+	projects := []db.STenant{}
+	err = db.TenantCacheManager.GetTenantQuery().In("id", projectIds).All(&projects)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetTenantQuery.In.All")
+	}
+	for _, project := range projects {
+		projectMap[project.Id] = project.Name
+	}
+	result := &monitor.AlertRecordHistoryAlert{}
+	for domainId, projects := range ret {
+		for projectId, resTypes := range projects {
+			for resType, alert := range resTypes {
+				result.Data = append(result.Data, monitor.AlertRecordHistoryAlertData{
+					ProjectId: projectId,
+					Project:   projectMap[projectId],
+					DomainId:  domainId,
+					Domain:    domainMap[domainId],
+					ResType:   resType,
+					ResNum:    alert,
+				})
+			}
 		}
 	}
-	return records, nil
-}*/
+	return result, nil
+}
