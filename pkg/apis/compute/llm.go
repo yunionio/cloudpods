@@ -28,6 +28,10 @@ const (
 	LLM_STATUS_PULLED_MODEL             = "pulled_model"
 )
 
+type LLMPullModelInput struct {
+	Model string `json:"model_name"`
+}
+
 type LLMCreateInput struct {
 	ServerCreateInput
 	Model string `json:"model"`

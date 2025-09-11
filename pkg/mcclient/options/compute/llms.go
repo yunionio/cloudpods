@@ -5,9 +5,13 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
+type LLMModelOptions struct {
+	MODEL string `json:"model" help:"Chosen large language model"`
+}
+
 type LLMCreateOptions struct {
 	PodCreateOptions
-	MODEL string `json:"model" help:"Chosen large language model"`
+	LLMModelOptions
 }
 
 func (o *LLMCreateOptions) Params() (jsonutils.JSONObject, error) {
@@ -72,4 +76,13 @@ func (o *LLMStopOptions) Params() (jsonutils.JSONObject, error) {
 
 type LLMStartOptions struct {
 	LLMIdsOptions
+}
+
+type LLMChangeModelOptions struct {
+	LLMIdOptions
+	LLMModelOptions
+}
+
+func (o *LLMChangeModelOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(o), nil
 }
