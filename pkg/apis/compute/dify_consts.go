@@ -1,5 +1,36 @@
 package compute
 
+import (
+	"crypto/rand"
+	"encoding/base64"
+	"encoding/hex"
+)
+
+var (
+	DIFY_SECRET_KEY                                  string
+	DIFY_API_INNER_KEY                               string
+	DIFY_PLUGIN_SERVER_KEY                           string
+	DIFY_WEAVIATE_AUTHENTICATION_APIKEY_ALLOWED_KEYS string
+)
+
+func init() {
+	skBytes := make([]byte, 32)
+	rand.Read(skBytes)
+	DIFY_SECRET_KEY = "sk-" + hex.EncodeToString(skBytes)
+
+	innerKeyBytes := make([]byte, 32)
+	rand.Read(innerKeyBytes)
+	DIFY_API_INNER_KEY = base64.StdEncoding.EncodeToString(innerKeyBytes)
+
+	pluginKeyBytes := make([]byte, 32)
+	rand.Read(pluginKeyBytes)
+	DIFY_PLUGIN_SERVER_KEY = base64.StdEncoding.EncodeToString(pluginKeyBytes)
+
+	weaviateKeyBytes := make([]byte, 32)
+	rand.Read(weaviateKeyBytes)
+	DIFY_WEAVIATE_AUTHENTICATION_APIKEY_ALLOWED_KEYS = base64.URLEncoding.EncodeToString(weaviateKeyBytes)
+}
+
 const (
 	DIFY_POSTGRES_KEY    = "postgres"
 	DIFY_REDIS_KEY       = "redis"
@@ -28,10 +59,8 @@ const (
 )
 
 const (
-	DIFY_LOCALHOST     = "localhost"
-	PIP_MIRROR_URL     = "https://mirrors.aliyun.com/pypi/simple"
-	DIFY_SECRET_KEY    = "sk-9f73s3ljTXVcMT3Blb3ljTqtsKiGHXVcMT3BlbkFJLK7U"
-	DIFY_API_INNER_KEY = "QaHbTe77CtuXmsfyhR7+vRjI/+XbV1AaFy691iy+kGDv2Jvy0/eAh8Y1"
+	DIFY_LOCALHOST = "localhost"
+	PIP_MIRROR_URL = "https://mirrors.aliyun.com/pypi/simple"
 )
 
 const (
@@ -70,7 +99,6 @@ const (
 const (
 	DIFY_PLUGIN_DB_DATABASE               = "dify_plugin"
 	DIFY_PLUGIN_SERVER_PORT               = "5002"
-	DIFY_PLUGIN_SERVER_KEY                = "lYkiYYT6owG+71oLerGzA7GXCgOT++6ovaezWAjpCjf+Sjc3ZtU+qUEi"
 	DIFY_PLUGIN_MAX_PACKAGE_SIZE          = "52428800"
 	DIFY_PLUGIN_PPROF_ENABLED             = "false"
 	DIFY_PLUGIN_DIFY_INNER_API_URL        = "http://localhost:5001"
@@ -134,7 +162,6 @@ const (
 	DIFY_WEAVIATE_DEFAULT_VECTORIZER_MODULE               = "none"
 	DIFY_WEAVIATE_CLUSTER_HOSTNAME                        = "node1"
 	DIFY_WEAVIATE_AUTHENTICATION_APIKEY_ENABLED           = "true"
-	DIFY_WEAVIATE_AUTHENTICATION_APIKEY_ALLOWED_KEYS      = "WVF5YThaHlkYwhGUSmCRgsX3tD5ngdN8pkih"
 	DIFY_WEAVIATE_AUTHENTICATION_APIKEY_USERS             = "hello@dify.ai"
 	DIFY_WEAVIATE_AUTHORIZATION_ADMINLIST_ENABLED         = "true"
 	DIFY_WEAVIATE_AUTHORIZATION_ADMINLIST_USERS           = "hello@dify.ai"
