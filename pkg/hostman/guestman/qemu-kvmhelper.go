@@ -724,7 +724,7 @@ func (s *SKVMGuestInstance) configureKickstartBoot(input *qemu.GenerateStartOpti
 	mountPath := mountPoint
 
 	// get kernel and initrd path from mounted ISO
-	kernelPath, initrdPath, err := s.getKickstartKernelPaths(mountPath, kickstartConfig.OSType)
+	kernelPath, initrdPath, err := GetKernelInitrdPaths(mountPath, kickstartConfig.OSType)
 	if err != nil {
 		return errors.Wrap(err, "get kickstart kernel paths")
 	}
@@ -743,7 +743,7 @@ func (s *SKVMGuestInstance) configureKickstartBoot(input *qemu.GenerateStartOpti
 		}
 	}
 
-	kernelArgs := s.GenerateKickstartKernelArgs(kickstartConfig, kickstartConfigIsoPath)
+	kernelArgs := BuildKickstartAppendArgs(kickstartConfig, kickstartConfigIsoPath)
 	log.Infof("Generated kickstart kernel args for guest %s: %s", s.GetName(), kernelArgs)
 
 	// Create kickstart serial monitor for status monitoring
@@ -1381,35 +1381,6 @@ func (s *SKVMGuestInstance) setUefiBootOrder(ctx context.Context) error {
 	return nil
 }
 
-func (s *SKVMGuestInstance) getKickstartKernelPaths(mountPath, osType string) (string, string, error) {
-	var kernelRelPath, initrdRelPath string
-
-	// TODO: 写在这里可能有点不适, 后续需要新建一个 map[string]map[string]string
-	// 来存储不同发行版的内核和 initrd 路径，以便于扩展和维护
-	switch osType {
-	case "centos", "rhel", "fedora":
-		kernelRelPath = "images/pxeboot/vmlinuz"
-		initrdRelPath = "images/pxeboot/initrd.img"
-	case "ubuntu":
-		kernelRelPath = "casper/vmlinuz"
-		initrdRelPath = "casper/initrd"
-	default:
-		return "", "", errors.Errorf("unsupported OS type: %s", osType)
-	}
-
-	kernelPath := path.Join(mountPath, kernelRelPath)
-	initrdPath := path.Join(mountPath, initrdRelPath)
-
-	if !fileutils2.Exists(kernelPath) {
-		return "", "", errors.Errorf("kernel file not found: %s", kernelPath)
-	}
-	if !fileutils2.Exists(initrdPath) {
-		return "", "", errors.Errorf("initrd file not found: %s", initrdPath)
-	}
-
-	return kernelPath, initrdPath, nil
-}
-
 // attachKickstartISO attaches the kickstart ISO as an additional CDROM device
 // if the kickstart is not provided by URL
 func (s *SKVMGuestInstance) attachKickstartISO(isoPath string) error {
@@ -1435,48 +1406,4 @@ func (s *SKVMGuestInstance) attachKickstartISO(isoPath string) error {
 		isoPath, cdromId, kickstartCdrom.Ordinal, s.GetName())
 
 	return nil
-}
-
-func (s *SKVMGuestInstance) GenerateKickstartKernelArgs(config *api.KickstartConfig, isoPath string) string {
-	if config == nil {
-		return ""
-	}
-
-	baseArgs := []string{}
-
-	var kickstartArgs []string
-
-	switch config.OSType {
-	case "centos", "rhel", "fedora":
-		if config.ConfigURL != "" {
-			kickstartArgs = append(kickstartArgs, fmt.Sprintf("inst.ks=%s", config.ConfigURL))
-		} else if isoPath != "" {
-			kickstartArgs = append(kickstartArgs, fmt.Sprintf("inst.ks=hd:LABEL=%s:/anaconda-ks.cfg", REDHAT_KICKSTART_ISO_VOLUME_LABEL))
-		} else {
-			kickstartArgs = append(kickstartArgs, "inst.ks=cdrom:/ks.cfg")
-		}
-
-	case "ubuntu":
-		// ip=dhcp is needed for ubuntu
-		if config.ConfigURL != "" {
-			kickstartArgs = append(kickstartArgs,
-				"autoinstall",
-				"ip=dhcp",
-				fmt.Sprintf("ds=nocloud-net;s=%s", config.ConfigURL),
-			)
-		} else if isoPath != "" {
-			kickstartArgs = append(kickstartArgs,
-				"autoinstall",
-			)
-		} else {
-			kickstartArgs = append(kickstartArgs,
-				"autoinstall",
-				"ip=dhcp",
-				"ds=nocloud;s=/cdrom/",
-			)
-		}
-	}
-
-	allArgs := append(baseArgs, kickstartArgs...)
-	return strings.Join(allArgs, " ")
 }

@@ -33,6 +33,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
+	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/mountutils"
 )
 
@@ -458,4 +459,66 @@ func CreateKickstartConfigISO(config *api.KickstartConfig, serverId string) (str
 
 	log.Infof("Successfully created kickstart ISO: %s", isoPath)
 	return isoPath, nil
+}
+
+// ComputeKickstartKernelInitrdPaths returns absolute kernel and initrd paths by combining
+// mountPath with OS-specific relative paths and validating that files exist.
+// GetKernelInitrdPaths resolves absolute kernel and initrd paths under a mounted ISO.
+func GetKernelInitrdPaths(mountPath, osType string) (string, string, error) {
+	var kernelRelPath, initrdRelPath string
+	switch osType {
+	case "centos", "rhel", "fedora":
+		kernelRelPath = "images/pxeboot/vmlinuz"
+		initrdRelPath = "images/pxeboot/initrd.img"
+	case "ubuntu":
+		kernelRelPath = "casper/vmlinuz"
+		initrdRelPath = "casper/initrd"
+	default:
+		return "", "", errors.Errorf("unsupported OS type: %s", osType)
+	}
+
+	kernelPath := path.Join(mountPath, kernelRelPath)
+	initrdPath := path.Join(mountPath, initrdRelPath)
+
+	if !fileutils2.Exists(kernelPath) {
+		return "", "", errors.Errorf("kernel file not found: %s", kernelPath)
+	}
+	if !fileutils2.Exists(initrdPath) {
+		return "", "", errors.Errorf("initrd file not found: %s", initrdPath)
+	}
+	return kernelPath, initrdPath, nil
+}
+
+// BuildKickstartAppendArgs builds kernel append args for kickstart/autoinstall
+// based on OS type and whether a local config ISO is present.
+// isoPath non-empty indicates a locally attached config ISO.
+func BuildKickstartAppendArgs(config *api.KickstartConfig, isoPath string) string {
+	if config == nil {
+		return ""
+	}
+	baseArgs := []string{}
+	var kickstartArgs []string
+	switch config.OSType {
+	case "centos", "rhel", "fedora":
+		if config.ConfigURL != "" {
+			kickstartArgs = append(kickstartArgs, fmt.Sprintf("inst.ks=%s", config.ConfigURL))
+		} else if isoPath != "" {
+			kickstartArgs = append(kickstartArgs, fmt.Sprintf("inst.ks=hd:LABEL=%s:/anaconda-ks.cfg", REDHAT_KICKSTART_ISO_VOLUME_LABEL))
+		} else {
+			kickstartArgs = append(kickstartArgs, "inst.ks=cdrom:/ks.cfg")
+		}
+	case "ubuntu":
+		if config.ConfigURL != "" {
+			kickstartArgs = append(kickstartArgs,
+				"autoinstall",
+				"ip=dhcp",
+				fmt.Sprintf("ds=nocloud-net;s=%s", config.ConfigURL),
+			)
+		} else if isoPath != "" {
+			kickstartArgs = append(kickstartArgs, "autoinstall")
+		} else {
+			kickstartArgs = append(kickstartArgs, "autoinstall", "ip=dhcp", "ds=nocloud;s=/cdrom/")
+		}
+	}
+	return strings.Join(append(baseArgs, kickstartArgs...), " ")
 }
