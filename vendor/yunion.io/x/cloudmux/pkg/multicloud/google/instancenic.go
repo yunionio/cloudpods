@@ -15,6 +15,8 @@
 package google
 
 import (
+	"strings"
+
 	"yunion.io/x/pkg/util/netutils"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
@@ -56,6 +58,9 @@ func (nic *SNetworkInterface) InClassicNetwork() bool {
 }
 
 func (nic *SNetworkInterface) GetINetworkId() string {
+	if !strings.Contains(nic.Subnetwork, nic.instance.host.zone.region.client.projectId) {
+		return getGlobalId(nic.Subnetwork)
+	}
 	vpc := &SVpc{region: nic.instance.host.zone.region}
 	err := nic.instance.host.zone.region.GetBySelfId(nic.Subnetwork, vpc)
 	if err != nil {

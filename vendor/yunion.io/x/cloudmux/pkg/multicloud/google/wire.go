@@ -28,19 +28,32 @@ import (
 type SWire struct {
 	multicloud.SResourceBase
 	GoogleTags
-	vpc *SVpc
+	vpc      *SVpc
+	shareVpc *SXpnNetwork
 }
 
 func (wire *SWire) GetId() string {
-	return wire.vpc.GetGlobalId()
+	if wire.vpc != nil {
+		return wire.vpc.GetGlobalId()
+	}
+	return wire.shareVpc.GetGlobalId()
 }
 
 func (wire *SWire) GetGlobalId() string {
-	return fmt.Sprintf("%s-%s", wire.GetId(), wire.vpc.region.Name)
+	name := ""
+	if wire.vpc != nil {
+		name = wire.vpc.region.Name
+	} else {
+		name = wire.shareVpc.region.Name
+	}
+	return fmt.Sprintf("%s-%s", wire.GetId(), name)
 }
 
 func (wire *SWire) GetName() string {
-	return wire.vpc.GetName()
+	if wire.vpc != nil {
+		return wire.vpc.GetName()
+	}
+	return wire.shareVpc.GetName()
 }
 
 func (wire *SWire) GetCreatedAt() time.Time {
@@ -52,7 +65,10 @@ func (wire *SWire) CreateINetwork(opts *cloudprovider.SNetworkCreateOptions) (cl
 }
 
 func (wire *SWire) GetIVpc() cloudprovider.ICloudVpc {
-	return wire.vpc
+	if wire.vpc != nil {
+		return wire.vpc
+	}
+	return wire.shareVpc
 }
 
 func (wire *SWire) GetIZone() cloudprovider.ICloudZone {
