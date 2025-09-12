@@ -329,6 +329,28 @@ func (self *SGoogleRegionDriver) GetSecurityGroupFilter(vpc *models.SVpc) (func(
 	}, nil
 }
 
+func (self *SGoogleRegionDriver) RequestPrepareSecurityGroups(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	ownerId mcclient.IIdentityProvider,
+	secgroups []models.SSecurityGroup,
+	vpc *models.SVpc,
+	callback func(ids []string) error,
+	task taskman.ITask,
+) error {
+	// 共享vpc不支持创建安全组
+	if strings.HasPrefix(vpc.ExternalId, "projects/") {
+		if callback != nil {
+			err := callback([]string{})
+			if err != nil {
+				return errors.Wrapf(err, "callback")
+			}
+		}
+		return task.ScheduleRun(nil)
+	}
+	return self.SManagedVirtualizationRegionDriver.RequestPrepareSecurityGroups(ctx, userCred, ownerId, secgroups, vpc, callback, task)
+}
+
 func (self *SGoogleRegionDriver) CreateDefaultSecurityGroup(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

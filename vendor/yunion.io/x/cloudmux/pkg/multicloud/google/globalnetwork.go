@@ -156,5 +156,13 @@ func (self *SGoogleClient) GetICloudGlobalVpcs() ([]cloudprovider.ICloudGlobalVp
 		gvpcs[i].client = self
 		ret = append(ret, &gvpcs[i])
 	}
+	sharedVpcs, err := self.GetSharedGlobalNetworks()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetSharedVpcs")
+	}
+	for i := range sharedVpcs {
+		sharedVpcs[i].client = self
+		ret = append(ret, &sharedVpcs[i])
+	}
 	return ret, nil
 }

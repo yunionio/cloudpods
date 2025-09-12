@@ -561,10 +561,6 @@ func (region *SRegion) CreateInstance(zone, name, desc, instanceType string, cpu
 }
 
 func (region *SRegion) _createVM(zone string, desc *cloudprovider.SManagedVMCreateConfig) (*SInstance, error) {
-	vpc, err := region.GetVpc(desc.ExternalNetworkId)
-	if err != nil {
-		return nil, errors.Wrap(err, "region.GetNetwork")
-	}
 	if len(desc.InstanceType) == 0 {
 		desc.InstanceType = fmt.Sprintf("custom-%d-%d", desc.Cpu, desc.MemoryMB)
 	}
@@ -604,9 +600,16 @@ func (region *SRegion) _createVM(zone string, desc *cloudprovider.SManagedVMCrea
 			"autoDelete": true,
 		})
 	}
+
 	networkInterface := map[string]string{
-		"network":    vpc.Network,
-		"subnetwork": vpc.SelfLink,
+		"subnetwork": desc.ExternalNetworkId,
+	}
+	if !strings.HasPrefix(desc.ExternalNetworkId, "projects/") {
+		vpc, err := region.GetVpc(desc.ExternalNetworkId)
+		if err != nil {
+			return nil, errors.Wrap(err, "region.GetNetwork")
+		}
+		networkInterface["network"] = vpc.SelfLink
 	}
 	if len(desc.IpAddr) > 0 {
 		networkInterface["networkIp"] = desc.IpAddr
@@ -651,7 +654,7 @@ func (region *SRegion) _createVM(zone string, desc *cloudprovider.SManagedVMCrea
 	log.Debugf("create google instance params: %s", jsonutils.Marshal(params).String())
 	instance := &SInstance{}
 	resource := fmt.Sprintf("zones/%s/instances", zone)
-	err = region.Insert(resource, jsonutils.Marshal(params), instance)
+	err := region.Insert(resource, jsonutils.Marshal(params), instance)
 	if err != nil {
 		return nil, err
 	}
