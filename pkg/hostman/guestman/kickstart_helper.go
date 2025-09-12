@@ -427,7 +427,7 @@ func CreateKickstartConfigISO(config *api.KickstartConfig, serverId string) (str
 	var volumeLabel string
 
 	switch config.OSType {
-	case "centos", "rhel", "fedora":
+	case "centos", "rhel", "fedora", "openeuler":
 		// Create anaconda-ks.cfg for Red Hat systems
 		ksFilePath := filepath.Join(tmpDir, "anaconda-ks.cfg")
 		if err := os.WriteFile(ksFilePath, []byte(config.Config), 0644); err != nil {
@@ -480,7 +480,7 @@ func CreateKickstartConfigISO(config *api.KickstartConfig, serverId string) (str
 func GetKernelInitrdPaths(mountPath, osType string) (string, string, error) {
 	var kernelRelPath, initrdRelPath string
 	switch osType {
-	case "centos", "rhel", "fedora":
+	case "centos", "rhel", "fedora", "openeuler":
 		kernelRelPath = "images/pxeboot/vmlinuz"
 		initrdRelPath = "images/pxeboot/initrd.img"
 	case "ubuntu":
@@ -512,7 +512,7 @@ func BuildKickstartAppendArgs(config *api.KickstartConfig, isoPath string) strin
 	baseArgs := []string{}
 	var kickstartArgs []string
 	switch config.OSType {
-	case "centos", "rhel", "fedora":
+	case "centos", "rhel", "fedora", "openeuler":
 		if config.ConfigURL != "" {
 			kickstartArgs = append(kickstartArgs, fmt.Sprintf("inst.ks=%s", config.ConfigURL))
 		} else if isoPath != "" {
