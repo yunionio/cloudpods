@@ -676,7 +676,7 @@ func (s *sPodGuestInstance) umountRootFs(ctrId string, rootFs *hostapi.Container
 	return nil
 }
 
-func (s *sPodGuestInstance) getRootFsMountPath(ctrId string) (string, error) {
+func (s *sPodGuestInstance) GetRootFsMountPath(ctrId string) (string, error) {
 	ctr := s.GetContainerById(ctrId)
 	if ctr == nil {
 		return "", errors.Wrapf(httperrors.ErrNotFound, "not found container %s", ctrId)
@@ -692,10 +692,6 @@ func (s *sPodGuestInstance) getRootFsMountPath(ctrId string) (string, error) {
 		return "", errors.Wrapf(err, "get runtime mount host path %s, ctrId %s", jsonutils.Marshal(vol), ctrId)
 	}
 	return hostPath, nil
-}
-
-func (s *sPodGuestInstance) GetRootFsMountPath(ctx context.Context, ctrId string) (string, error) {
-	return s.getRootFsMountPath(ctrId)
 }
 
 func (s *sPodGuestInstance) mountPodVolumes() error {
@@ -1778,6 +1774,14 @@ func (s *sPodGuestInstance) createContainer(ctx context.Context, userCred mcclie
 			HostPath:      shmPath,
 		})
 	}
+	// inject /etc/hosts to hide host storage
+	if spec.Rootfs != nil {
+		if etcFilesMount, err := s.getEtcFilesMount(ctrId); err != nil {
+			return "", errors.Wrapf(err, "get etc hosts mount")
+		} else {
+			mounts = append(mounts, etcFilesMount...)
+		}
+	}
 
 	var cpuSetCpus string
 	var cpuSetMems string
@@ -1999,6 +2003,75 @@ func (s *sPodGuestInstance) createContainer(ctx context.Context, userCred mcclie
 	return criId, nil
 }
 
+// copyEtcFile 复制主机上的 etc 文件到容器根文件系统
+func (s *sPodGuestInstance) copyEtcFile(hostPath, etcFilePath string) (*runtimeapi.Mount, error) {
+	hostEtcFilePath := filepath.Join(hostPath, etcFilePath)
+
+	// 确保目录存在
+	if err := volume_mount.EnsureDir(filepath.Dir(hostEtcFilePath)); err != nil {
+		return nil, errors.Wrapf(err, "ensure dir %s", filepath.Dir(hostEtcFilePath))
+	}
+
+	// 复制文件
+	if err := volume_mount.CopyFile(etcFilePath, hostEtcFilePath); err != nil {
+		return nil, errors.Wrapf(err, "copy file %s to %s", etcFilePath, hostEtcFilePath)
+	}
+
+	// 创建挂载点
+	return &runtimeapi.Mount{
+		ContainerPath: etcFilePath,
+		HostPath:      hostEtcFilePath,
+	}, nil
+}
+
+// generateEtcFile 生成 etc 文件内容到容器根文件系统
+func (s *sPodGuestInstance) generateEtcFile(hostPath, etcFilePath, content string) (*runtimeapi.Mount, error) {
+	hostEtcFilePath := filepath.Join(hostPath, etcFilePath)
+
+	// 确保目录存在
+	if err := volume_mount.EnsureDir(filepath.Dir(hostEtcFilePath)); err != nil {
+		return nil, errors.Wrapf(err, "ensure dir %s", filepath.Dir(hostEtcFilePath))
+	}
+
+	// 生成文件内容
+	if err := fileutils2.FilePutContents(hostEtcFilePath, content, false); err != nil {
+		return nil, errors.Wrapf(err, "put file %s to %s", etcFilePath, hostEtcFilePath)
+	}
+
+	// 创建挂载点
+	return &runtimeapi.Mount{
+		ContainerPath: etcFilePath,
+		HostPath:      hostEtcFilePath,
+	}, nil
+}
+
+func (s *sPodGuestInstance) getEtcFilesMount(ctrId string) ([]*runtimeapi.Mount, error) {
+	hostPath, err := s.GetRootFsMountPath(ctrId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "get container root fs path of %s", ctrId)
+	}
+
+	// 复制 /etc/hosts 文件
+	etcHostsMount, err := s.copyEtcFile(hostPath, "/etc/hosts")
+	if err != nil {
+		return nil, errors.Wrap(err, "copy /etc/hosts")
+	}
+
+	// 生成 /etc/hostname 文件
+	etcHostnameMount, err := s.generateEtcFile(hostPath, "/etc/hostname", s.GetDesc().Hostname)
+	if err != nil {
+		return nil, errors.Wrap(err, "generate /etc/hostname")
+	}
+
+	// 复制 /etc/resolv.conf 文件
+	etcResolvConfMount, err := s.copyEtcFile(hostPath, "/etc/resolv.conf")
+	if err != nil {
+		return nil, errors.Wrap(err, "copy /etc/resolv.conf")
+	}
+
+	return []*runtimeapi.Mount{etcHostsMount, etcHostnameMount, etcResolvConfMount}, nil
+}
+
 func filterContainerDevices(devs []*hostapi.ContainerDevice) ([]*hostapi.ContainerDevice, []*hostapi.ContainerDevice) {
 	envDevs := []*hostapi.ContainerDevice{}
 	restDevs := []*hostapi.ContainerDevice{}
@@ -2075,6 +2148,10 @@ func (s *sPodGuestInstance) getIsolatedDeviceExtraConfig(spec *hostapi.Container
 }
 
 func (s *sPodGuestInstance) getContainerSystemCpusDir(ctrId string) string {
+	rootFsPath, _ := s.GetRootFsMountPath(ctrId)
+	if rootFsPath != "" {
+		return filepath.Join(rootFsPath, "cpus", ctrId)
+	}
 	return filepath.Join(s.HomeDir(), "cpus", ctrId)
 }
 
