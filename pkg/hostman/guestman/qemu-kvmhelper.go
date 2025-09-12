@@ -20,6 +20,7 @@ import (
 	"net"
 	"os"
 	"path"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -660,17 +661,10 @@ func (s *SKVMGuestInstance) configureKickstartBoot(input *qemu.GenerateStartOpti
 
 	// Find ISO file for kickstart installation from CDROM devices
 	var isoPath string
-	var imageId string
-
 	if len(s.Desc.Cdroms) > 0 {
 		for _, cdrom := range s.Desc.Cdroms {
 			if cdrom.Path != "" {
 				isoPath = cdrom.Path
-				// Extract image ID from path
-				if path.Base(cdrom.Path) != "" {
-					filename := path.Base(cdrom.Path)
-					imageId = strings.TrimSuffix(filename, ".iso")
-				}
 				break
 			}
 		}
@@ -681,7 +675,8 @@ func (s *SKVMGuestInstance) configureKickstartBoot(input *qemu.GenerateStartOpti
 		return nil
 	}
 
-	mountPoint := fmt.Sprintf("/tmp/kickstart-iso-%s", imageId)
+	kickstartDir := filepath.Join(KICKSTART_BASE_DIR, s.GetId())
+	mountPoint := filepath.Join(kickstartDir, KICKSTART_ISO_MOUNT_DIR)
 
 	// Check if mount point already exists and is mounted
 	if fileutils2.Exists(mountPoint) {

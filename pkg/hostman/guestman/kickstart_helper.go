@@ -41,7 +41,10 @@ import (
 const (
 	KICKSTART_MONITOR_TIMEOUT         = 30 * time.Minute
 	SERIAL_FILE_CHECK_INTERVAL        = 5 * time.Second
-	KICKSTART_ISO_DIR_PREFIX          = "/tmp/kickstart-iso"
+	KICKSTART_BASE_DIR                = "/tmp/kickstart"
+	KICKSTART_ISO_MOUNT_DIR           = "iso-mount"
+	KICKSTART_ISO_BUILD_DIR           = "iso-build"
+	KICKSTART_ISO_FILENAME            = "config.iso"
 	REDHAT_KICKSTART_ISO_VOLUME_LABEL = "OEMDRV"
 	UBUNTU_KICKSTART_ISO_VOLUME_LABEL = "CIDATA"
 )
@@ -342,7 +345,7 @@ func (m *SKickstartSerialMonitor) handleKickstartCompleted() error {
 		log.Warningf("No ISO image ID found for server %s, skip unmounting", m.serverId)
 	} else {
 		// Unmount the ISO image with lazy=true
-		mountPoint := fmt.Sprintf("/tmp/kickstart-iso-%s", imageId)
+		mountPoint := filepath.Join(KICKSTART_BASE_DIR, m.serverId, KICKSTART_ISO_MOUNT_DIR)
 		log.Infof("Unmounting kickstart ISO at %s for server %s", mountPoint, m.serverId)
 
 		if err := mountutils.Unmount(mountPoint, true); err != nil {
@@ -410,7 +413,7 @@ func CreateKickstartConfigISO(config *api.KickstartConfig, serverId string) (str
 	log.Infof("Kickstart config content length: %d characters", len(config.Config))
 
 	// Create temporary directory for ISO contents
-	tmpDir := fmt.Sprintf("%s-%s", KICKSTART_ISO_DIR_PREFIX, serverId)
+	tmpDir := filepath.Join(KICKSTART_BASE_DIR, serverId, KICKSTART_ISO_BUILD_DIR)
 	if err := os.MkdirAll(tmpDir, 0755); err != nil {
 		return "", errors.Wrapf(err, "failed to create temp directory %s", tmpDir)
 	}
@@ -453,7 +456,7 @@ func CreateKickstartConfigISO(config *api.KickstartConfig, serverId string) (str
 	}
 
 	// Create ISO using mkisofs
-	isoPath := fmt.Sprintf("/tmp/kickstart-%s.iso", serverId)
+	isoPath := filepath.Join(KICKSTART_BASE_DIR, serverId, KICKSTART_ISO_FILENAME)
 	args := []string{
 		"-o", isoPath,
 		"-V", volumeLabel,
