@@ -227,6 +227,9 @@ func (awscli *SAwsClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error) 
 			subAccount.Name = awscli.cpcfg.Name
 			subAccount.Account = awscli.accessKey
 			subAccount.Id = awscli.accountId
+			if len(subAccount.Id) == 0 {
+				subAccount.Id = awscli.GetAccountId()
+			}
 			subAccount.HealthStatus = api.CLOUD_PROVIDER_HEALTH_NORMAL
 			return []cloudprovider.SSubAccount{subAccount}, nil
 		} else {

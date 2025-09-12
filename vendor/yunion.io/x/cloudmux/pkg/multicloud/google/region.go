@@ -189,10 +189,37 @@ func (self *SRegion) GetIVpcs() ([]cloudprovider.ICloudVpc, error) {
 		vpcs[i].region = self
 		ret = append(ret, &vpcs[i])
 	}
+	sharedNetworks, err := self.client.GetSharedGlobalNetworks()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetSharedGlobalNetworks")
+	}
+	for i := range sharedNetworks {
+		for j := range sharedNetworks[i].Subnetworks {
+			if strings.Contains(sharedNetworks[i].Subnetworks[j].Subnetwork, fmt.Sprintf("/%s/", self.Name)) {
+				sharedNetworks[i].Subnetworks[j].region = self
+				ret = append(ret, &sharedNetworks[i].Subnetworks[j])
+			}
+		}
+	}
 	return ret, nil
 }
 
 func (self *SRegion) GetIVpcById(id string) (cloudprovider.ICloudVpc, error) {
+	if utils.IsInStringArray(self.Name, MultiRegions) || utils.IsInStringArray(self.Name, DualRegions) {
+		return nil, cloudprovider.ErrNotFound
+	}
+	if strings.Contains(id, "projects/") {
+		vpcs, err := self.GetIVpcs()
+		if err != nil {
+			return nil, err
+		}
+		for i := range vpcs {
+			if vpcs[i].GetGlobalId() == id {
+				return vpcs[i], nil
+			}
+		}
+		return nil, cloudprovider.ErrNotFound
+	}
 	vpc, err := self.GetVpc(id)
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetVpc")
