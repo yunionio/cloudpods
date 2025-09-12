@@ -85,6 +85,8 @@ func (s *overlayRootFsUpperSnapshotter) Prepare(ctx context.Context, key string,
 	if err != nil {
 		return nil, errors.Wrapf(err, "Prepare with %s", key)
 	}
+	infoJson := jsonutils.Marshal(mounts)
+	log.Debugf("prepare request key: %s, parent: %s, mounts: %s", key, parent, infoJson.String())
 	mounts, err = s.changeUpper(ctx, key, mounts)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Prepare.changeUpper with %s", key)
@@ -97,6 +99,8 @@ func (s *overlayRootFsUpperSnapshotter) View(ctx context.Context, key string, pa
 	if err != nil {
 		return nil, errors.Wrapf(err, "View with %s", key)
 	}
+	infoJson := jsonutils.Marshal(mounts)
+	log.Debugf("view request key: %s, parent: %s, info: %s", key, parent, infoJson.String())
 	mounts, err = s.changeUpper(ctx, key, mounts)
 	if err != nil {
 		return nil, errors.Wrapf(err, "View.changeUpper with %s", key)
@@ -112,6 +116,7 @@ func (s *overlayRootFsUpperSnapshotter) changeUpper(ctx context.Context, key str
 	if err != nil {
 		return nil, errors.Wrapf(err, "Stat with %s", key)
 	}
+	log.Debugf("change upper key: %s, info: %s", key, jsonutils.Marshal(info))
 	serverId, ok := info.Labels[LabelServerId]
 	if !ok || serverId == "" {
 		return mounts, nil
@@ -128,6 +133,7 @@ func (s *overlayRootFsUpperSnapshotter) changeUpper(ctx context.Context, key str
 	if err != nil {
 		return mounts, errors.Wrapf(err, "GetRootFsMountPath with %s, %s", serverId, containerId)
 	}
+	log.Debugf("changeUpper: rootFsPath: %s , container: %s", rootFsPath, containerId)
 	upperPath := path.Join(rootFsPath, "upper")
 	workPath := path.Join(rootFsPath, "work")
 	for _, dir := range []string{upperPath, workPath} {

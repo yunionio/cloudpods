@@ -145,8 +145,9 @@ func (d disk) ToHostRootFs(rootFs *apis.ContainerRootfs) (*hostapi.ContainerRoot
 	return &hostapi.ContainerRootfs{
 		Type: rootFs.Type,
 		Disk: &hostapi.ContainerVolumeMountDisk{
-			Index: disk.Index,
-			Id:    disk.Id,
+			Index:        disk.Index,
+			Id:           disk.Id,
+			SubDirectory: disk.SubDirectory,
 		},
 	}, nil
 }
