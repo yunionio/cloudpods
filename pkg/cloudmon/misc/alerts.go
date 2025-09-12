@@ -19,13 +19,12 @@ import (
 	"fmt"
 	"time"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/monitor"
 	"yunion.io/x/onecloud/pkg/cloudcommon/tsdb"
-	"yunion.io/x/onecloud/pkg/cloutpost/options"
+	"yunion.io/x/onecloud/pkg/cloudmon/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/monitor"
@@ -40,67 +39,35 @@ const (
 func AlertHistoryReport(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
 	err := func() error {
 		s := auth.GetAdminSession(ctx, options.Options.Region)
-		params := map[string]interface{}{
-			"field":    "res_type",
-			"scope":    "system",
-			"filter.0": fmt.Sprintf("created_at.ge('%s')", time.Now().Add(time.Hour*-24)),
-		}
-		ret, err := monitor.AlertRecordManager.Get(s, "distinct-field", jsonutils.Marshal(params))
+		resp, err := monitor.AlertRecordManager.Get(s, "history-alert", nil)
 		if err != nil {
-			return errors.Wrapf(err, "distinct-filed")
+			return errors.Wrapf(err, "history-alert")
 		}
-		resTypes := []string{}
-		ret.Unmarshal(&resTypes, "res_type")
+		alerts := api.AlertRecordHistoryAlert{}
+		err = resp.Unmarshal(&alerts)
+		if err != nil {
+			return errors.Wrapf(err, "Unmarshal AlertRecordHistoryAlert")
+		}
 		metrics := []influxdb.SMetricData{}
-		for _, resType := range resTypes {
-			records := []api.AlertRecordDetails{}
-			for {
-				query := map[string]interface{}{
-					"limit":    40,
-					"offset":   len(records),
-					"@state":   "alerting",
-					"scope":    "system",
-					"filter.0": fmt.Sprintf(`res_type.equals('%s')`, resType),
-					"filter.1": fmt.Sprintf("created_at.ge('%s')", time.Now().Add(time.Hour*-24)),
-				}
-				ret, err := monitor.AlertRecordManager.List(s, jsonutils.Marshal(query))
-				if err != nil {
-					log.Errorf("AlertRecordManager.List error: %v", err)
-					break
-				}
-				part := []api.AlertRecordDetails{}
-				err = jsonutils.Update(&part, ret.Data)
-				if err != nil {
-					break
-				}
-				records = append(records, part...)
-				if len(records) >= ret.Total {
-					break
-				}
-			}
+		for _, alert := range alerts.Data {
 			metric := influxdb.SMetricData{}
 			metric.Name = ALERT_RECORD_HISTORY_MEASUREMENT
-			cnt := 0
-			for i, record := range records {
-				cnt += int(record.ResNum)
-				if i == 0 {
-					for k, v := range record.GetMetricTags() {
-						metric.Tags = append(metric.Tags, influxdb.SKeyValue{
-							Key:   k,
-							Value: v,
-						})
-					}
-				}
-			}
 			metric.Timestamp = time.Now()
 			metric.Metrics = []influxdb.SKeyValue{
 				{
 					Key:   "res_num",
-					Value: fmt.Sprintf("%d", cnt),
+					Value: fmt.Sprintf("%d", alert.ResNum),
 				},
+			}
+			for k, v := range alert.GetMetricTags() {
+				metric.Tags = append(metric.Tags, influxdb.SKeyValue{
+					Key:   k,
+					Value: v,
+				})
 			}
 			metrics = append(metrics, metric)
 		}
+
 		urls, err := tsdb.GetDefaultServiceSourceURLs(s, options.Options.SessionEndpointType)
 		if err != nil {
 			return errors.Wrap(err, "GetServiceURLs")
