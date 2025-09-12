@@ -24,4 +24,5 @@ func init() {
 	cmd.List(new(options.AlertRecordListOptions))
 	cmd.Show(new(options.AlertRecordShowOptions))
 	cmd.GetProperty(new(options.AlertRecordTotalOptions))
+	cmd.GetProperty(new(options.AlertRecordHistoryAlertOptions))
 }

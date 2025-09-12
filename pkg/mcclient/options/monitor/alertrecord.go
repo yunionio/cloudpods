@@ -64,6 +64,18 @@ func (o *AlertRecordTotalOptions) Property() string {
 	return "total-alert"
 }
 
+type AlertRecordHistoryAlertOptions struct {
+	options.BaseListOptions
+}
+
+func (o *AlertRecordHistoryAlertOptions) Params() (jsonutils.JSONObject, error) {
+	return options.ListStructToParams(o)
+}
+
+func (o *AlertRecordHistoryAlertOptions) Property() string {
+	return "history-alert"
+}
+
 type AlertRecordShieldListOptions struct {
 	options.BaseListOptions
 
