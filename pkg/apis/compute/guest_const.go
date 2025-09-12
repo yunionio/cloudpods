@@ -369,6 +369,7 @@ var KICKSTART_VALID_OS_TYPES = []string{
 	"rhel",
 	"fedora",
 	"ubuntu",
+	"openeuler",
 }
 
 // windows allow a maximal length of 15

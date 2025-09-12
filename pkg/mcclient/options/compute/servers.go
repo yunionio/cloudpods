@@ -489,7 +489,7 @@ type ServerCreateOptionalOptions struct {
 	AutoPrepaidRecycle bool `help:"automatically enable prepaid recycling after server is created successfully" json:"auto_prepaid_recycle,omitfalse"`
 
 	// Kickstart related options
-	KickstartOSType         string `help:"Kickstart OS type" choices:"centos|rhel|fedora|ubuntu" json:"-"`
+	KickstartOSType         string `help:"Kickstart OS type" choices:"centos|rhel|fedora|openeuler|ubuntu" json:"-"`
 	KickstartConfig         string `help:"Kickstart configuration content" json:"-"`
 	KickstartConfigURL      string `help:"Kickstart configuration URL" json:"-"`
 	KickstartEnabled        *bool  `help:"Enable kickstart" json:"-"`
@@ -931,7 +931,7 @@ func (o *ServerSendKeyOptions) Params() (jsonutils.JSONObject, error) {
 
 type ServerKickstartConfigOptions struct {
 	ServerIdOptions
-	OSType         string `help:"Kickstart OS type" choices:"centos|rhel|fedora|ubuntu" json:"os_type"`
+	OSType         string `help:"Kickstart OS type" choices:"centos|rhel|fedora|openeuler|ubuntu" json:"os_type"`
 	Config         string `help:"Kickstart configuration content" json:"config,omitempty"`
 	ConfigURL      string `help:"Kickstart configuration URL" json:"config_url,omitempty"`
 	Enabled        *bool  `help:"Enable kickstart" json:"enabled,omitempty"`

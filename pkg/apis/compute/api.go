@@ -473,9 +473,9 @@ type KickstartConfig struct {
 	ConfigURL string `json:"config_url,omitempty"`
 
 	// 操作系统类型 (用于确定内核参数和文件路径)
-	// enum: centos,rhel,fedora,ubuntu
+	// enum: centos,rhel,fedora,openeuler,ubuntu
 	// required: true
-	OSType string `json:"os_type" validate:"required,oneof=centos rhel fedora ubuntu"`
+	OSType string `json:"os_type" validate:"required,oneof=centos rhel fedora openeuler ubuntu"`
 
 	// 是否启用 (用于临时禁用而不删除配置)
 	// default: true
