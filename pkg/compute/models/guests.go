@@ -2697,7 +2697,7 @@ func (guest *SGuest) PostCreate(ctx context.Context, userCred mcclient.TokenCred
 					log.Errorf("Failed to set kickstart type for guest %s: %v", guest.Name, err)
 				}
 
-				log.Infof("Successfully set kickstart config for guest %s with OS type %s", guest.Name, kickstartConfig.OSType)
+				log.Debugf("Successfully set kickstart config for guest %s with OS type %s", guest.Name, kickstartConfig.OSType)
 			}
 		}
 	}

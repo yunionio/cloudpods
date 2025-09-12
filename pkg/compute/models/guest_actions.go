@@ -3628,7 +3628,7 @@ func (self *SGuest) PerformStatus(ctx context.Context, userCred mcclient.TokenCr
 
 	// Do not override kickstart_installing with running
 	if input.Status == api.VM_RUNNING && self.Status == api.VM_KICKSTART_INSTALLING {
-		log.Infof("guest %s is in kickstart_installing state, skip set running status", self.Name)
+		log.Debugf("guest %s is in kickstart_installing state, skip set running status", self.Name)
 		return nil, nil
 	}
 

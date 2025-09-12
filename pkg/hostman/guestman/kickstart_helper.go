@@ -121,7 +121,7 @@ func (m *SKickstartSerialMonitor) getKickstartTimeout() time.Duration {
 	}
 
 	timeout := time.Duration(config.TimeoutMinutes) * time.Minute
-	log.Infof("Using kickstart timeout %v for server %s", timeout, m.serverId)
+	log.Debugf("Using kickstart timeout %v for server %s", timeout, m.serverId)
 	return timeout
 }
 
@@ -132,7 +132,7 @@ func (m *SKickstartSerialMonitor) ensureSerialFile() error {
 			return errors.Wrapf(err, "create serial file %s", m.serialFilePath)
 		}
 		file.Close()
-		log.Infof("Created kickstart serial file %s for server %s", m.serialFilePath, m.serverId)
+		log.Debugf("Created kickstart serial file %s for server %s", m.serialFilePath, m.serverId)
 	}
 	return nil
 }
@@ -197,8 +197,6 @@ func (m *SKickstartSerialMonitor) scanSerialForStatus(lastSize *int64) error {
 			continue
 		}
 
-		log.Debugf("Received serial message for server %s: %s", m.serverId, line)
-
 		var status string
 		var shouldClose bool = false
 		var matched bool = false
@@ -223,12 +221,11 @@ func (m *SKickstartSerialMonitor) scanSerialForStatus(lastSize *int64) error {
 		}
 
 		if matched {
-			log.Infof("Kickstart status update for server %s: %s (matched: %s)", m.serverId, status, line)
+			log.Infof("Kickstart status update for server %s: %s", m.serverId, status)
 
 			if err := m.updateKickstartStatus(status); err != nil {
 				log.Errorf("Failed to update kickstart status for server %s: %v", m.serverId, err)
 			} else {
-				log.Infof("Kickstart status for server %s updated to %s", m.serverId, status)
 				if shouldClose {
 					m.Close()
 					return nil
@@ -249,12 +246,10 @@ func (m *SKickstartSerialMonitor) Close() error {
 	if m.serialFilePath != "" {
 		if err := os.Remove(m.serialFilePath); err != nil && !os.IsNotExist(err) {
 			log.Warningf("Failed to remove serial file %s: %v", m.serialFilePath, err)
-		} else {
-			log.Debugf("Removed serial file %s", m.serialFilePath)
 		}
 	}
 
-	log.Infof("Kickstart monitor closed for server %s", m.serverId)
+	log.Debugf("Kickstart monitor closed for server %s", m.serverId)
 	return nil
 }
 
@@ -267,20 +262,16 @@ func (m *SKickstartSerialMonitor) updateKickstartStatus(status string) error {
 		Status: status,
 	}
 
-	log.Infof("Updating kickstart status for server %s to %s", m.serverId, status)
-
 	_, err := modules.Servers.PerformAction(session, m.serverId, "update-kickstart-status", jsonutils.Marshal(input))
 	if err != nil {
 		return errors.Wrapf(err, "failed to update kickstart status for server %s", m.serverId)
 	}
-
-	log.Infof("Successfully updated kickstart status for server %s to %s", m.serverId, status)
 	return nil
 }
 
 // Start starts the kickstart serial monitor
 func (m *SKickstartSerialMonitor) Start() error {
-	log.Infof("Starting kickstart monitor for server %s, serial file: %s", m.serverId, m.serialFilePath)
+	log.Debugf("Starting kickstart monitor for server %s, serial file: %s", m.serverId, m.serialFilePath)
 
 	if err := m.ensureSerialFile(); err != nil {
 		return errors.Wrap(err, "ensure serial file")
@@ -351,7 +342,7 @@ func (m *SKickstartSerialMonitor) handleKickstartCompleted() error {
 		if err := mountutils.Unmount(mountPoint, true); err != nil {
 			log.Errorf("Failed to unmount ISO at %s: %v", mountPoint, err)
 		} else {
-			log.Infof("Successfully unmounted kickstart ISO at %s for server %s", mountPoint, m.serverId)
+			log.Debugf("Successfully unmounted kickstart ISO at %s for server %s", mountPoint, m.serverId)
 		}
 	}
 
@@ -359,12 +350,10 @@ func (m *SKickstartSerialMonitor) handleKickstartCompleted() error {
 	if kickstartConfigIsoPath != "" {
 		if err := os.Remove(kickstartConfigIsoPath); err != nil && !os.IsNotExist(err) {
 			log.Errorf("Failed to cleanup kickstart ISO %s: %v", kickstartConfigIsoPath, err)
-		} else {
-			log.Infof("Cleaned up kickstart ISO: %s", kickstartConfigIsoPath)
 		}
 	}
 
-	log.Infof("Restarting VM %s after successful kickstart", m.serverId)
+	log.Debugf("Restarting VM %s after successful kickstart", m.serverId)
 
 	if err := m.restartServer(); err != nil {
 		return errors.Wrapf(err, "failed to restart server %s", m.serverId)
@@ -383,14 +372,12 @@ func (m *SKickstartSerialMonitor) restartServer() error {
 	input := jsonutils.NewDict()
 	input.Set("is_force", jsonutils.JSONFalse)
 
-	log.Infof("Restarting server %s via Region API", m.serverId)
-
 	_, err := modules.Servers.PerformAction(session, m.serverId, "restart", input)
 	if err != nil {
 		return errors.Wrapf(err, "failed to restart server %s via API", m.serverId)
 	}
 
-	log.Infof("Successfully restarted server %s", m.serverId)
+	log.Infof("Server %s restarted after kickstart completion", m.serverId)
 	return nil
 }
 
@@ -400,7 +387,7 @@ func (m *SKickstartSerialMonitor) restartServer() error {
 // reference: https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/10/html/automatically_installing_rhel/starting-kickstart-installations#starting-a-kickstart-installation-automatically-using-a-local-volume
 // https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/10/html/automatically_installing_rhel/starting-kickstart-installations#starting-a-kickstart-installation-automatically-using-a-local-volume
 func CreateKickstartConfigISO(config *api.KickstartConfig, serverId string) (string, error) {
-	log.Infof("Creating kickstart ISO for server %s with OS type %s", serverId, config.OSType)
+	log.Debugf("Creating kickstart ISO for server %s with OS type %s", serverId, config.OSType)
 
 	if config == nil {
 		return "", errors.Errorf("kickstart config is nil")
@@ -409,8 +396,6 @@ func CreateKickstartConfigISO(config *api.KickstartConfig, serverId string) (str
 	if config.Config == "" {
 		return "", errors.Errorf("kickstart config content is empty")
 	}
-
-	log.Infof("Kickstart config content length: %d characters", len(config.Config))
 
 	// Create temporary directory for ISO contents
 	tmpDir := filepath.Join(KICKSTART_BASE_DIR, serverId, KICKSTART_ISO_BUILD_DIR)
@@ -470,7 +455,7 @@ func CreateKickstartConfigISO(config *api.KickstartConfig, serverId string) (str
 		return "", errors.Wrapf(err, "mkisofs failed: %s", string(output))
 	}
 
-	log.Infof("Successfully created kickstart ISO: %s", isoPath)
+	log.Debugf("Successfully created kickstart ISO: %s", isoPath)
 	return isoPath, nil
 }
 

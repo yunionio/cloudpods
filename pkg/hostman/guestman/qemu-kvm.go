@@ -3717,7 +3717,7 @@ func (s *SKVMGuestInstance) startKickstartMonitorIfNeeded() {
 	if err := s.kickstartMonitor.updateKickstartStatus(api.VM_KICKSTART_INSTALLING); err != nil {
 		log.Errorf("Failed to update kickstart status to installing for server %s: %v", s.Id, err)
 	} else {
-		log.Infof("Kickstart status updated to installing for server %s", s.Id)
+		log.Debugf("Kickstart status updated to installing for server %s", s.Id)
 	}
 
 	if err := s.kickstartMonitor.Start(); err != nil {

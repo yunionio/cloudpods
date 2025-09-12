@@ -620,18 +620,18 @@ func (s *SKVMGuestInstance) shouldUseKickstart() bool {
 			return false
 		}
 		if kickstartConfig.Enabled != nil && !*kickstartConfig.Enabled {
-			log.Infof("Kickstart is disabled in config for VM %s, skipping kickstart boot", s.Id)
+			log.Debugf("Kickstart is disabled in config for VM %s, skipping kickstart boot", s.Id)
 			return false
 		}
 	}
 
 	kickstartCompleted, completedExists := s.Desc.Metadata[api.VM_METADATA_KICKSTART_COMPLETED_FLAG]
 	if completedExists && kickstartCompleted == "true" {
-		log.Infof("Kickstart already completed for VM %s, skipping kickstart boot", s.Id)
+		log.Debugf("Kickstart already completed for VM %s, skipping kickstart boot", s.Id)
 		return false
 	}
 
-	log.Infof("VM %s needs kickstart: config exists and not completed yet", s.Id)
+	log.Debugf("VM %s needs kickstart: config exists and not completed yet", s.Id)
 	return true
 }
 
@@ -645,7 +645,7 @@ func (s *SKVMGuestInstance) configureKickstartBoot(input *qemu.GenerateStartOpti
 		return nil
 	}
 
-	log.Infof("Enabling kickstart boot for VM %s", s.Id)
+	log.Debugf("Enabling kickstart boot for VM %s", s.Id)
 
 	kickstartConfigStr := s.Desc.Metadata[api.VM_METADATA_KICKSTART_CONFIG]
 
@@ -692,7 +692,7 @@ func (s *SKVMGuestInstance) configureKickstartBoot(input *qemu.GenerateStartOpti
 				}
 			}
 			if mounted {
-				log.Infof("Reusing existing kickstart ISO mount at %s for guest %s", mountPoint, s.GetName())
+				log.Debugf("Reusing existing kickstart ISO mount at %s for guest %s", mountPoint, s.GetName())
 			} else {
 				os.RemoveAll(mountPoint)
 				if err := os.MkdirAll(mountPoint, 0755); err != nil {
@@ -702,7 +702,7 @@ func (s *SKVMGuestInstance) configureKickstartBoot(input *qemu.GenerateStartOpti
 					os.RemoveAll(mountPoint)
 					return errors.Wrapf(err, "mount ISO %s to %s", isoPath, mountPoint)
 				}
-				log.Infof("Successfully mounted kickstart ISO %s to %s for guest %s", isoPath, mountPoint, s.GetName())
+				log.Debugf("Successfully mounted kickstart ISO %s to %s for guest %s", isoPath, mountPoint, s.GetName())
 			}
 		}
 	} else {
@@ -713,7 +713,7 @@ func (s *SKVMGuestInstance) configureKickstartBoot(input *qemu.GenerateStartOpti
 			os.RemoveAll(mountPoint)
 			return errors.Wrapf(err, "mount ISO %s to %s", isoPath, mountPoint)
 		}
-		log.Infof("Successfully mounted kickstart ISO %s to %s for guest %s", isoPath, mountPoint, s.GetName())
+		log.Debugf("Successfully mounted kickstart ISO %s to %s for guest %s", isoPath, mountPoint, s.GetName())
 	}
 
 	mountPath := mountPoint
@@ -725,7 +725,7 @@ func (s *SKVMGuestInstance) configureKickstartBoot(input *qemu.GenerateStartOpti
 	}
 
 	var kickstartConfigIsoPath string
-	log.Infof("Kickstart config for guest %s: Config length=%d, ConfigURL=%s",
+	log.Debugf("Kickstart config for guest %s: Config length=%d, ConfigURL=%s",
 		s.GetName(), len(kickstartConfig.Config), kickstartConfig.ConfigURL)
 
 	if kickstartConfig.Config != "" {
@@ -734,12 +734,12 @@ func (s *SKVMGuestInstance) configureKickstartBoot(input *qemu.GenerateStartOpti
 			log.Errorf("Failed to create kickstart config ISO for guest %s: %v, falling back to URL/cdrom method", s.GetName(), err)
 		} else {
 			kickstartConfigIsoPath = isoPath
-			log.Infof("Successfully created kickstart ISO for guest %s: %s", s.GetName(), isoPath)
+			log.Debugf("Successfully created kickstart ISO for guest %s: %s", s.GetName(), isoPath)
 		}
 	}
 
 	kernelArgs := BuildKickstartAppendArgs(kickstartConfig, kickstartConfigIsoPath)
-	log.Infof("Generated kickstart kernel args for guest %s: %s", s.GetName(), kernelArgs)
+	log.Debugf("Generated kickstart kernel args for guest %s: %s", s.GetName(), kernelArgs)
 
 	// Create kickstart serial monitor for status monitoring
 	kickstartMonitor := NewKickstartSerialMonitor(s.Id)
@@ -764,7 +764,7 @@ func (s *SKVMGuestInstance) configureKickstartBoot(input *qemu.GenerateStartOpti
 
 	s.kickstartMonitor = kickstartMonitor
 
-	log.Infof("Kickstart boot configured for guest %s: kernel=%s, initrd=%s, args=%s, isoPath=%s",
+	log.Debugf("Kickstart boot configured for guest %s: kernel=%s, initrd=%s, args=%s, isoPath=%s",
 		s.GetName(), kernelPath, initrdPath, kernelArgs, kickstartConfigIsoPath)
 
 	return nil
@@ -1381,7 +1381,7 @@ func (s *SKVMGuestInstance) setUefiBootOrder(ctx context.Context) error {
 func (s *SKVMGuestInstance) attachKickstartISO(isoPath string) error {
 	cdromId := fmt.Sprintf("kickstart_iso_%s", s.Id)
 
-	log.Infof("Attaching kickstart ISO %s as CDROM device for guest %s", isoPath, s.GetName())
+	log.Debugf("Attaching kickstart ISO %s as CDROM device for guest %s", isoPath, s.GetName())
 
 	kickstartCdrom := &desc.SGuestCdrom{
 		Id:      cdromId,
@@ -1397,7 +1397,7 @@ func (s *SKVMGuestInstance) attachKickstartISO(isoPath string) error {
 
 	s.Desc.Cdroms = append(s.Desc.Cdroms, kickstartCdrom)
 
-	log.Infof("Successfully attached kickstart ISO %s as SCSI CDROM device %s (ordinal=%d) for guest %s",
+	log.Debugf("Successfully attached kickstart ISO %s as SCSI CDROM device %s (ordinal=%d) for guest %s",
 		isoPath, cdromId, kickstartCdrom.Ordinal, s.GetName())
 
 	return nil
