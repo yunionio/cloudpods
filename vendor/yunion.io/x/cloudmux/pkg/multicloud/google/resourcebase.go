@@ -32,11 +32,15 @@ func (r *SResourceBase) GetId() string {
 	return r.SelfLink
 }
 
+func getGlobalId(selfLink string) string {
+	return strings.TrimPrefix(selfLink, fmt.Sprintf("%s/%s/", GOOGLE_COMPUTE_DOMAIN, GOOGLE_API_VERSION))
+}
+
 func (r *SResourceBase) GetGlobalId() string {
 	if len(r.Id) > 0 {
 		return r.Id
 	}
-	return strings.TrimPrefix(r.SelfLink, fmt.Sprintf("%s/%s/", GOOGLE_COMPUTE_DOMAIN, GOOGLE_API_VERSION))
+	return getGlobalId(r.SelfLink)
 }
 
 func (r *SResourceBase) GetName() string {

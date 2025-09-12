@@ -169,8 +169,14 @@ func (image *SImage) Refresh() error {
 }
 
 func (image *SImage) GetImageType() cloudprovider.TImageType {
-	if strings.Index(image.SelfLink, image.storagecache.region.GetProjectId()) >= 0 {
+	projects, err := image.storagecache.region.client.GetProjects()
+	if err != nil {
 		return cloudprovider.ImageTypeCustomized
+	}
+	for _, project := range projects {
+		if strings.Contains(image.SelfLink, project.ProjectId) {
+			return cloudprovider.ImageTypeCustomized
+		}
 	}
 	return cloudprovider.ImageTypeSystem
 }

@@ -314,7 +314,9 @@ func (self *SGoogleClient) ecsList(resource string, params map[string]string) (j
 }
 
 func (self *SGoogleClient) _ecsList(method, resource string, params map[string]string) (jsonutils.JSONObject, error) {
-	resource = fmt.Sprintf("projects/%s/%s", self.projectId, resource)
+	if !strings.HasPrefix(resource, "projects/") {
+		resource = fmt.Sprintf("projects/%s/%s", self.projectId, resource)
+	}
 	return jsonRequest(self.client, httputils.THttpMethod(method), GOOGLE_COMPUTE_DOMAIN, GOOGLE_API_VERSION, resource, params, nil, self.debug)
 }
 
@@ -440,9 +442,13 @@ func (self *SGoogleClient) ecsPatch(resource string, action string, params map[s
 	return selfLink, nil
 }
 
-func (self *SGoogleClient) ecsDo(resource string, action string, params map[string]string, body jsonutils.JSONObject) (string, error) {
+func (self *SGoogleClient) ecsPost(resource string, action string, params map[string]string, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	resource = fmt.Sprintf("%s/%s", resource, action)
-	resp, err := jsonRequest(self.client, "POST", GOOGLE_COMPUTE_DOMAIN, GOOGLE_API_VERSION, resource, params, body, self.debug)
+	return jsonRequest(self.client, "POST", GOOGLE_COMPUTE_DOMAIN, GOOGLE_API_VERSION, resource, params, body, self.debug)
+}
+
+func (self *SGoogleClient) ecsDo(resource string, action string, params map[string]string, body jsonutils.JSONObject) (string, error) {
+	resp, err := self.ecsPost(resource, action, params, body)
 	if err != nil {
 		return "", err
 	}
