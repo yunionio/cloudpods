@@ -43,7 +43,7 @@ type IGuestManager interface {
 }
 
 type ISnapshotContainerManager interface {
-	GetRootFsMountPath(ctx context.Context, containerId string) (string, error)
+	GetRootFsMountPath(containerId string) (string, error)
 }
 
 func NewSnapshotter(guestMan IGuestManager, root string, opts ...overlay.Opt) (snapshots.Snapshotter, error) {
@@ -129,7 +129,7 @@ func (s *overlayRootFsUpperSnapshotter) changeUpper(ctx context.Context, key str
 	if err != nil {
 		return mounts, errors.Wrapf(err, "GetContainerManager with %s", serverId)
 	}
-	rootFsPath, err := ctrMan.GetRootFsMountPath(ctx, containerId)
+	rootFsPath, err := ctrMan.GetRootFsMountPath(containerId)
 	if err != nil {
 		return mounts, errors.Wrapf(err, "GetRootFsMountPath with %s, %s", serverId, containerId)
 	}
