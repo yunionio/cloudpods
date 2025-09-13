@@ -74,7 +74,7 @@ func NewLibguestfsDriver(imageInfo qemuimg.SImageInfo) *SLibguestfsDriver {
 	}
 }
 
-func (d *SLibguestfsDriver) Connect(*apis.GuestDesc) error {
+func (d *SLibguestfsDriver) Connect(*apis.GuestDesc, string) error {
 	fish, err := guestfsManager.AcquireFish()
 	if err != nil {
 		return err
@@ -209,7 +209,7 @@ func (d *SLibguestfsDriver) Zerofree() {
 		len(d.parts), time.Now().Sub(startTime).Seconds())
 }
 
-func (d *SLibguestfsDriver) ResizePartition() error {
+func (d *SLibguestfsDriver) ResizePartition(string, string) error {
 	if d.IsLVMPartition() {
 		// do not try to resize LVM partition
 		return nil
@@ -271,8 +271,8 @@ func (d *SLibguestfsDriver) DeployGuestfs(req *apis.DeployParams) (res *apis.Dep
 	return fsutils.DeployGuestfs(d, req)
 }
 
-func (d *SLibguestfsDriver) ResizeFs() (*apis.Empty, error) {
-	return fsutils.ResizeFs(d)
+func (d *SLibguestfsDriver) ResizeFs(*apis.ResizeFsParams) (*apis.Empty, error) {
+	return fsutils.ResizeFs(d, "")
 }
 
 func (d *SLibguestfsDriver) SaveToGlance(req *apis.SaveToGlanceParams) (*apis.SaveToGlanceResponse, error) {

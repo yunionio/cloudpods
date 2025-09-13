@@ -142,7 +142,7 @@ func (d *SSLVMDisk) PreResize(ctx context.Context, sizeMb int64) error {
 	return nil
 }
 
-func (d *SSLVMDisk) Resize(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+func (d *SSLVMDisk) Resize(ctx context.Context, params *SDiskResizeInput) (jsonutils.JSONObject, error) {
 	if ok, err := lvmutils.LvIsActivated(d.GetPath()); err != nil {
 		return nil, err
 	} else if ok && d.Storage.Lvmlockd() {

@@ -20,13 +20,13 @@ import (
 )
 
 type IDeployer interface {
-	Connect(desc *apis.GuestDesc) error
+	Connect(desc *apis.GuestDesc, diskId string) error
 	Disconnect() error
 
 	GetPartitions() []fsdriver.IDiskPartition
 	IsLVMPartition() bool
 	Zerofree()
-	ResizePartition() error
+	ResizePartition(diskId string, rootPartDev string) error
 	FormatPartition(fs, uuid string) error
 	MakePartition(fs string) error
 
@@ -35,7 +35,7 @@ type IDeployer interface {
 	DetectIsUEFISupport(rootfs fsdriver.IRootFsDriver) bool
 
 	DeployGuestfs(req *apis.DeployParams) (res *apis.DeployGuestFsResponse, err error)
-	ResizeFs() (res *apis.Empty, err error)
+	ResizeFs(req *apis.ResizeFsParams) (res *apis.Empty, err error)
 	FormatFs(req *apis.FormatFsParams) (*apis.Empty, error)
 	SaveToGlance(req *apis.SaveToGlanceParams) (*apis.SaveToGlanceResponse, error)
 	ProbeImageInfo(req *apis.ProbeImageInfoPramas) (*apis.ImageInfo, error)

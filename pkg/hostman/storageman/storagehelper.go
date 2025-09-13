@@ -21,6 +21,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
@@ -119,4 +120,9 @@ type SStorageUnpackInstanceBackup struct {
 type SStorageSaveToGlanceInfo struct {
 	UserCred mcclient.TokenCredential
 	DiskInfo *jsonutils.JSONDict
+}
+
+type SDiskResizeInput struct {
+	DiskInfo  jsonutils.JSONObject
+	GuestDesc *deployapi.GuestDesc
 }

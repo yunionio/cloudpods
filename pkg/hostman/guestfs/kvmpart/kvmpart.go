@@ -95,7 +95,7 @@ func (p *SKVMGuestDiskPartition) IsReadonly() bool {
 }
 
 func (p *SKVMGuestDiskPartition) getFsFormat() string {
-	return fileutils2.GetFsFormat(p.partDev)
+	return fsutils.GetFsFormat(p.partDev)
 }
 
 func (p *SKVMGuestDiskPartition) MountPartReadOnly() bool {
