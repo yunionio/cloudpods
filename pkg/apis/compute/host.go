@@ -761,6 +761,10 @@ type HostUploadGuestsStatusInput struct {
 	Guests map[string]*HostUploadGuestStatusInput `json:"guests"`
 }
 
+type HostIsolatedDeviceNumaStatsInput struct {
+	DevType string
+}
+
 type GuestUploadContainerStatusResponse struct {
 	Error string `json:"error"`
 	OK    bool   `json:"ok"`

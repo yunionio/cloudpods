@@ -8021,6 +8021,17 @@ func (h *SHost) GetDetailsWorkerStats(ctx context.Context, userCred mcclient.Tok
 	return h.Request(ctx, userCred, httputils.GET, "/worker_stats", nil, nil)
 }
 
+func (hh *SHost) GetDetailsIsolatedDeviceNumaStats(ctx context.Context, userCred mcclient.TokenCredential, input *api.HostIsolatedDeviceNumaStatsInput) (jsonutils.JSONObject, error) {
+	if !utils.IsInStringArray(input.DevType, api.VALID_PASSTHROUGH_TYPES) {
+		return nil, httperrors.NewInputParameterError("dev_type %s is invalid", input.DevType)
+	}
+	stats, err := IsolatedDeviceManager.GetHostAllocatedIsolatedDeviceNumaStats(input.DevType, hh.Id)
+	if err != nil {
+		return nil, err
+	}
+	return jsonutils.Marshal(stats), nil
+}
+
 func (hh *SHost) IsAttach2Wire(wireId string) bool {
 	netifs := hh.getNetifsOnWire(wireId)
 	return len(netifs) > 0
