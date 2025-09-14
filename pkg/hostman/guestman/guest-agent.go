@@ -145,7 +145,7 @@ func (m *SGuestManager) QgaGetOsInfo(sid string) (jsonutils.JSONObject, error) {
 	return jsonutils.Marshal(res), nil
 }
 
-func (guest *SKVMGuestInstance) QgaAddNicsConfigure(addNics []*desc.SGuestNetwork) error {
+func (guest *SKVMGuestInstance) QgaDeployNicsConfigure(nics []*desc.SGuestNetwork) error {
 	if guest.guestAgent == nil {
 		if err := guest.InitQga(); err != nil {
 			return errors.Wrap(err, "init qga")
@@ -154,5 +154,5 @@ func (guest *SKVMGuestInstance) QgaAddNicsConfigure(addNics []*desc.SGuestNetwor
 	if err := guest.guestAgent.GuestPing(1); err != nil {
 		return errors.Wrap(err, "Qga ping")
 	}
-	return guest.guestAgent.QgaDeployNics(deployapi.GuestNicsToServerNics(addNics))
+	return guest.guestAgent.QgaDeployNics(deployapi.GuestNicsToServerNics(nics))
 }
