@@ -19,14 +19,13 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 	"github.com/sirupsen/logrus"
 	"yunion.io/x/onecloud/pkg/mcp-server/adapters"
-	"yunion.io/x/onecloud/pkg/mcp-server/config"
+	"yunion.io/x/onecloud/pkg/mcp-server/options"
 	"yunion.io/x/onecloud/pkg/mcp-server/registry"
 	"yunion.io/x/onecloud/pkg/mcp-server/tools"
 )
 
 // CloudpodsMCPServer 是 MCP 服务器的核心结构体，包含配置、日志、MCP 实例、注册中心和工具列表
 type CloudpodsMCPServer struct {
-	config    *config.Config
 	logger    *logrus.Logger
 	mcpServer *server.MCPServer
 	registry  *registry.Registry
@@ -34,12 +33,12 @@ type CloudpodsMCPServer struct {
 }
 
 // NewServer 创建一个新的 Cloudpods MCP 服务器实例，初始化 MCP 服务器和注册中心，并创建所有工具
-func NewServer(cfg *config.Config, logger *logrus.Logger) *CloudpodsMCPServer {
+func NewServer(logger *logrus.Logger) *CloudpodsMCPServer {
 
 	// 创建mcp server对象
 	mcpServer := server.NewMCPServer(
-		cfg.MCP.Name,
-		cfg.MCP.Version,
+		options.Options.MCPServerName,
+		options.Options.MCPServerVersion,
 		server.WithToolCapabilities(false),
 		server.WithRecovery(),
 	)
@@ -50,7 +49,7 @@ func NewServer(cfg *config.Config, logger *logrus.Logger) *CloudpodsMCPServer {
 	var allTools []tools.Tool
 
 	// 创建mcclient sdk的适配器对象
-	adapter := adapters.NewCloudpodsAdapter(cfg, logger)
+	adapter := adapters.NewCloudpodsAdapter(logger)
 
 	// 创建具体的工具函数对象
 	// 用于查询资源的工具函数
@@ -94,7 +93,6 @@ func NewServer(cfg *config.Config, logger *logrus.Logger) *CloudpodsMCPServer {
 	)
 
 	return &CloudpodsMCPServer{
-		config:    cfg,
 		logger:    logger,
 		mcpServer: mcpServer,
 		registry:  reg,
@@ -138,7 +136,7 @@ func (s *CloudpodsMCPServer) registerAllTools() error {
 // Start 以sse模式启动 mcp 服务
 func (s *CloudpodsMCPServer) Start() error {
 
-	if err := server.NewSSEServer(s.mcpServer).Start(fmt.Sprintf("%s:%d", s.config.Server.Host, s.config.Server.Port)); err != nil {
+	if err := server.NewSSEServer(s.mcpServer).Start(fmt.Sprintf("%s:%d", options.Options.Server.Host, options.Options.Server.Port)); err != nil {
 		return err
 	}
 	s.logger.WithField("address", "mcp server stdio").Info("启动mcp server")
