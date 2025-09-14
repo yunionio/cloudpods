@@ -48,6 +48,7 @@ type IPodInfo interface {
 	GetVolumesOverlayDir() string
 	GetDisks() []*desc.SGuestDisk
 	GetDiskMountPoint(disk storageman.IDisk) string
+	GetRootFsMountPath(ctrId string) (string, error)
 }
 
 type IVolumeMount interface {
