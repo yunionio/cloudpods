@@ -19,8 +19,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/mark3labs/mcp-go/mcp"
-	"github.com/sirupsen/logrus"
 	"strconv"
+	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/mcp-server/adapters"
 	"yunion.io/x/onecloud/pkg/mcp-server/models"
 )
@@ -29,31 +29,28 @@ import (
 //
 // 字段:
 //   - adapter: 用于与Cloudpods API进行交互的适配器
-//   - logger: 用于记录日志的logger实例
 type CloudpodsVPCsTool struct {
 	adapter *adapters.CloudpodsAdapter
-	logger  *logrus.Logger
 }
 
 // NewCloudpodsVPCsTool 创建CloudpodsVPCsTool实例
 //
 // 参数:
 //   - adapter: 用于与Cloudpods API交互的适配器
-//   - logger: 用于记录日志的logger实例
 //
 // 返回值:
 //   - *CloudpodsVPCsTool: CloudpodsVPCsTool实例指针
-func NewCloudpodsVPCsTool(adapter *adapters.CloudpodsAdapter, logger *logrus.Logger) *CloudpodsVPCsTool {
+func NewCloudpodsVPCsTool(adapter *adapters.CloudpodsAdapter) *CloudpodsVPCsTool {
 	return &CloudpodsVPCsTool{
 		adapter: adapter,
-		logger:  logger,
 	}
 }
 
 // GetTool 定义并返回查询VPC列表工具的元数据
 //
 // 工具用途:
-//   查询Cloudpods VPC列表，获取虚拟私有网络信息
+//
+//	查询Cloudpods VPC列表，获取虚拟私有网络信息
 //
 // 参数说明:
 //   - limit: 返回结果数量限制，默认为20
@@ -106,14 +103,6 @@ func (c *CloudpodsVPCsTool) Handle(ctx context.Context, req mcp.CallToolRequest)
 	// 获取可选参数：云区域ID
 	cloudRegionID := req.GetString("cloudregion_id", "")
 
-	// 记录查询VPC列表的日志
-	c.logger.WithFields(logrus.Fields{
-		"limit":          limit,
-		"offset":         offset,
-		"search":         search,
-		"cloudregion_id": cloudRegionID,
-	}).Info("开始查询Cloudpods VPC列表")
-
 	// 获取可选参数：访问凭证
 	ak := req.GetString("ak", "")
 	sk := req.GetString("sk", "")
@@ -121,8 +110,8 @@ func (c *CloudpodsVPCsTool) Handle(ctx context.Context, req mcp.CallToolRequest)
 	// 调用适配器查询VPC列表
 	vpcsResponse, err := c.adapter.ListVPCs(limit, offset, search, cloudRegionID, ak, sk)
 	if err != nil {
-		c.logger.WithError(err).Error("查询VPC列表失败")
-		return nil, fmt.Errorf("查询VPC列表失败: %w", err)
+		log.Errorf("Fail to query vpc: %s", err)
+		return nil, fmt.Errorf("fail to query vpc: %w", err)
 	}
 
 	// 格式化查询结果
@@ -131,8 +120,8 @@ func (c *CloudpodsVPCsTool) Handle(ctx context.Context, req mcp.CallToolRequest)
 	// 将结果序列化为JSON格式
 	resultJSON, err := json.MarshalIndent(formattedResult, "", "  ")
 	if err != nil {
-		c.logger.WithError(err).Error("序列化结果失败")
-		return nil, fmt.Errorf("序列化结果失败: %w", err)
+		log.Errorf("Fail to serialize result: %s", err)
+		return nil, fmt.Errorf("fail to serialize result: %w", err)
 	}
 
 	return mcp.NewToolResultText(string(resultJSON)), nil

@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/image"
 	"yunion.io/x/onecloud/pkg/mcp-server/models"
@@ -70,7 +71,7 @@ func (a CloudpodsAdapter) ListCloudRegions(ctx context.Context, limit int, offse
 		region := models.CloudregionDetails{}
 		if err := data.Unmarshal(&region); err != nil {
 			// 如果数据转换失败，记录警告日志并跳过该条数据
-			a.logger.WithError(err).Warn("Failed to unmarshal cloudregion details")
+			log.Warningf("Failed to unmarshal cloudregion details: %s", err)
 			continue
 		}
 		response.Cloudregions = append(response.Cloudregions, region)
@@ -126,7 +127,7 @@ func (a *CloudpodsAdapter) ListVPCs(limit int, offset int, search string, cloudr
 		vpc := models.VpcDetails{}
 		if err := data.Unmarshal(&vpc); err != nil {
 			// 如果数据转换失败，记录警告日志并跳过该条数据
-			a.logger.WithError(err).Warn("Failed to unmarshal vpc details")
+			log.Warningf("Failed to unmarshal vpc details: %s", err)
 			continue
 		}
 		response.Vpcs = append(response.Vpcs, vpc)
@@ -183,7 +184,7 @@ func (a *CloudpodsAdapter) ListNetworks(limit int, offset int, search string, vp
 		network := models.NetworkDetails{}
 		if err := data.Unmarshal(&network); err != nil {
 			// 如果数据转换失败，记录警告日志并跳过该条数据
-			a.logger.WithError(err).Warn("Failed to unmarshal network details")
+			log.Warningf("Failed to unmarshal network details: %s", err)
 			continue
 		}
 		response.Networks = append(response.Networks, network)
@@ -241,7 +242,7 @@ func (a *CloudpodsAdapter) ListImages(limit int, offset int, search string, osTy
 		image := models.ImageDetails{}
 		if err := data.Unmarshal(&image); err != nil {
 			// 如果数据转换失败，记录警告日志并跳过该条数据
-			a.logger.WithError(err).Warn("Failed to unmarshal image details")
+			log.Warningf("Failed to unmarshal image details: %s", err)
 			continue
 		}
 		response.Images = append(response.Images, image)
@@ -339,7 +340,7 @@ func (a *CloudpodsAdapter) ListServerSkus(limit int, offset int, search string, 
 		sku := models.ServerSkuDetails{}
 		if err := data.Unmarshal(&sku); err != nil {
 			// 如果数据转换失败，记录警告日志并跳过该条数据
-			a.logger.WithError(err).Warn("Failed to unmarshal server sku details")
+			log.Warningf("Failed to unmarshal server sku details: %s", err)
 			continue
 		}
 		response.Serverskus = append(response.Serverskus, sku)
@@ -425,7 +426,7 @@ func (a *CloudpodsAdapter) ListStorages(limit int, offset int, search string, cl
 		storage := models.StorageDetails{}
 		if err := data.Unmarshal(&storage); err != nil {
 			// 如果数据转换失败，记录警告日志并跳过该条数据
-			a.logger.WithError(err).Warn("Failed to unmarshal storage details")
+			log.Warningf("Failed to unmarshal storage details: %s", err)
 			continue
 		}
 		response.Storages = append(response.Storages, storage)
@@ -480,7 +481,7 @@ func (a *CloudpodsAdapter) ListServers(ctx context.Context, limit int, offset in
 		server := models.ServerDetails{}
 		if err := data.Unmarshal(&server); err != nil {
 			// 如果数据转换失败，记录警告日志并跳过该条数据
-			a.logger.WithError(err).Warn("Failed to unmarshal server details")
+			log.Warningf("Failed to unmarshal server details: %s", err)
 			continue
 		}
 		response.Servers = append(response.Servers, server)

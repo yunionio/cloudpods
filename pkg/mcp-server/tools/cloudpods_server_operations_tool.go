@@ -21,6 +21,7 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/sirupsen/logrus"
 	"strconv"
+	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/mcp-server/adapters"
 	"yunion.io/x/onecloud/pkg/mcp-server/models"
 )
@@ -28,14 +29,12 @@ import (
 // CloudpodsServerStartTool 用于启动指定的Cloudpods虚拟机实例
 type CloudpodsServerStartTool struct {
 	adapter *adapters.CloudpodsAdapter
-	logger  *logrus.Logger
 }
 
 // NewCloudpodsServerStartTool 创建一个新的CloudpodsServerStartTool实例
-func NewCloudpodsServerStartTool(adapter *adapters.CloudpodsAdapter, logger *logrus.Logger) *CloudpodsServerStartTool {
+func NewCloudpodsServerStartTool(adapter *adapters.CloudpodsAdapter) *CloudpodsServerStartTool {
 	return &CloudpodsServerStartTool{
 		adapter: adapter,
-		logger:  logger,
 	}
 }
 
@@ -69,13 +68,6 @@ func (c *CloudpodsServerStartTool) Handle(ctx context.Context, req mcp.CallToolR
 	// 获取 qemu_version 参数，用于指定启动虚拟机的 Qemu 版本
 	qemuVersion := req.GetString("qemu_version", "")
 
-	// 记录启动虚拟机的日志信息
-	c.logger.WithFields(logrus.Fields{
-		"server_id":    serverID,
-		"auto_prepaid": autoPrepaid,
-		"qemu_version": qemuVersion,
-	}).Info("开始启动虚拟机")
-
 	// 构造启动虚拟机的请求参数
 	startReq := models.ServerStartRequest{
 		AutoPrepaid: autoPrepaid,
@@ -89,8 +81,8 @@ func (c *CloudpodsServerStartTool) Handle(ctx context.Context, req mcp.CallToolR
 	// 调用适配器的 StartServer 方法执行启动操作
 	response, err := c.adapter.StartServer(ctx, serverID, startReq, ak, sk)
 	if err != nil {
-		c.logger.WithError(err).Error("启动虚拟机失败")
-		return nil, fmt.Errorf("启动虚拟机失败: %w", err)
+		log.Errorf("Fail to start server: %s", err)
+		return nil, fmt.Errorf("fail to start server: %w", err)
 	}
 
 	// 构造返回结果，包含任务ID、成功状态和状态信息
@@ -125,14 +117,12 @@ func (c *CloudpodsServerStartTool) GetName() string {
 // CloudpodsServerStopTool 用于停止指定的Cloudpods虚拟机实例
 type CloudpodsServerStopTool struct {
 	adapter *adapters.CloudpodsAdapter
-	logger  *logrus.Logger
 }
 
 // NewCloudpodsServerStopTool 创建一个新的CloudpodsServerStopTool实例
-func NewCloudpodsServerStopTool(adapter *adapters.CloudpodsAdapter, logger *logrus.Logger) *CloudpodsServerStopTool {
+func NewCloudpodsServerStopTool(adapter *adapters.CloudpodsAdapter) *CloudpodsServerStopTool {
 	return &CloudpodsServerStopTool{
 		adapter: adapter,
-		logger:  logger,
 	}
 }
 
@@ -178,14 +168,6 @@ func (c *CloudpodsServerStopTool) Handle(ctx context.Context, req mcp.CallToolRe
 		}
 	}
 
-	// 记录停止虚拟机的日志信息
-	c.logger.WithFields(logrus.Fields{
-		"server_id":     serverID,
-		"is_force":      isForce,
-		"stop_charging": stopCharging,
-		"timeout_secs":  timeoutSecs,
-	}).Info("开始停止虚拟机")
-
 	// 构造停止虚拟机的请求参数
 	stopReq := models.ServerStopRequest{
 		IsForce:      isForce,
@@ -200,8 +182,8 @@ func (c *CloudpodsServerStopTool) Handle(ctx context.Context, req mcp.CallToolRe
 	// 调用适配器的 StopServer 方法执行停止操作
 	response, err := c.adapter.StopServer(ctx, serverID, stopReq, ak, sk)
 	if err != nil {
-		c.logger.WithError(err).Error("停止虚拟机失败")
-		return nil, fmt.Errorf("停止虚拟机失败: %w", err)
+		log.Errorf("Fail to stop server: %s", err)
+		return nil, fmt.Errorf("fail to stop server: %w", err)
 	}
 
 	// 构造返回结果，包含任务ID、成功状态和状态信息
@@ -236,14 +218,12 @@ func (c *CloudpodsServerStopTool) GetName() string {
 // CloudpodsServerRestartTool 用于重启指定的Cloudpods虚拟机实例
 type CloudpodsServerRestartTool struct {
 	adapter *adapters.CloudpodsAdapter
-	logger  *logrus.Logger
 }
 
 // NewCloudpodsServerRestartTool 创建一个新的CloudpodsServerRestartTool实例
-func NewCloudpodsServerRestartTool(adapter *adapters.CloudpodsAdapter, logger *logrus.Logger) *CloudpodsServerRestartTool {
+func NewCloudpodsServerRestartTool(adapter *adapters.CloudpodsAdapter) *CloudpodsServerRestartTool {
 	return &CloudpodsServerRestartTool{
 		adapter: adapter,
-		logger:  logger,
 	}
 }
 
@@ -273,12 +253,6 @@ func (c *CloudpodsServerRestartTool) Handle(ctx context.Context, req mcp.CallToo
 		isForce = true
 	}
 
-	// 记录重启虚拟机的日志信息
-	c.logger.WithFields(logrus.Fields{
-		"server_id": serverID,
-		"is_force":  isForce,
-	}).Info("开始重启虚拟机")
-
 	// 构造重启虚拟机的请求参数
 	restartReq := models.ServerRestartRequest{
 		IsForce: isForce,
@@ -291,8 +265,8 @@ func (c *CloudpodsServerRestartTool) Handle(ctx context.Context, req mcp.CallToo
 	// 调用适配器的 RestartServer 方法执行重启操作
 	response, err := c.adapter.RestartServer(ctx, serverID, restartReq, ak, sk)
 	if err != nil {
-		c.logger.WithError(err).Error("重启虚拟机失败")
-		return nil, fmt.Errorf("重启虚拟机失败: %w", err)
+		log.Errorf("Fail to query restart server: %s", err)
+		return nil, fmt.Errorf("fail to restart server: %w", err)
 	}
 
 	// 构造返回结果，包含任务ID、成功状态和状态信息
@@ -327,14 +301,12 @@ func (c *CloudpodsServerRestartTool) GetName() string {
 // CloudpodsServerResetPasswordTool 用于重置指定Cloudpods虚拟机的登录密码
 type CloudpodsServerResetPasswordTool struct {
 	adapter *adapters.CloudpodsAdapter
-	logger  *logrus.Logger
 }
 
 // NewCloudpodsServerResetPasswordTool 创建一个新的CloudpodsServerResetPasswordTool实例
-func NewCloudpodsServerResetPasswordTool(adapter *adapters.CloudpodsAdapter, logger *logrus.Logger) *CloudpodsServerResetPasswordTool {
+func NewCloudpodsServerResetPasswordTool(adapter *adapters.CloudpodsAdapter) *CloudpodsServerResetPasswordTool {
 	return &CloudpodsServerResetPasswordTool{
 		adapter: adapter,
-		logger:  logger,
 	}
 }
 
@@ -386,14 +358,6 @@ func (c *CloudpodsServerResetPasswordTool) Handle(ctx context.Context, req mcp.C
 	// 获取 username 参数，可选
 	username := req.GetString("username", "")
 
-	// 记录重置虚拟机密码的日志信息
-	c.logger.WithFields(logrus.Fields{
-		"server_id":      serverID,
-		"reset_password": resetPassword,
-		"auto_start":     autoStart,
-		"username":       username,
-	}).Info("开始重置虚拟机密码")
-
 	// 构造重置虚拟机密码的请求参数
 	resetPasswordReq := models.ServerResetPasswordRequest{
 		Password:      password,
@@ -409,8 +373,8 @@ func (c *CloudpodsServerResetPasswordTool) Handle(ctx context.Context, req mcp.C
 	// 调用适配器的 ResetServerPassword 方法执行密码重置操作
 	response, err := c.adapter.ResetServerPassword(ctx, serverID, resetPasswordReq, ak, sk)
 	if err != nil {
-		c.logger.WithError(err).Error("重置虚拟机密码失败")
-		return nil, fmt.Errorf("重置虚拟机密码失败: %w", err)
+		log.Errorf("Fail to reset server password: %s", err)
+		return nil, fmt.Errorf("fail to reset server password: %w", err)
 	}
 
 	// 构造返回结果，包含任务ID、成功状态和状态信息
@@ -445,14 +409,12 @@ func (c *CloudpodsServerResetPasswordTool) GetName() string {
 // CloudpodsServerDeleteTool 用于删除指定的Cloudpods虚拟机实例
 type CloudpodsServerDeleteTool struct {
 	adapter *adapters.CloudpodsAdapter
-	logger  *logrus.Logger
 }
 
 // NewCloudpodsServerDeleteTool 创建一个新的CloudpodsServerDeleteTool实例
-func NewCloudpodsServerDeleteTool(adapter *adapters.CloudpodsAdapter, logger *logrus.Logger) *CloudpodsServerDeleteTool {
+func NewCloudpodsServerDeleteTool(adapter *adapters.CloudpodsAdapter) *CloudpodsServerDeleteTool {
 	return &CloudpodsServerDeleteTool{
 		adapter: adapter,
-		logger:  logger,
 	}
 }
 
@@ -510,16 +472,6 @@ func (c *CloudpodsServerDeleteTool) Handle(ctx context.Context, req mcp.CallTool
 		deleteDisks = true
 	}
 
-	// 记录删除虚拟机的日志信息
-	c.logger.WithFields(logrus.Fields{
-		"server_id":               serverID,
-		"override_pending_delete": overridePendingDelete,
-		"purge":                   purge,
-		"delete_snapshots":        deleteSnapshots,
-		"delete_eip":              deleteEip,
-		"delete_disks":            deleteDisks,
-	}).Info("开始删除虚拟机")
-
 	// 构造删除虚拟机的请求参数
 	deleteReq := models.ServerDeleteRequest{
 		OverridePendingDelete: overridePendingDelete,
@@ -536,8 +488,8 @@ func (c *CloudpodsServerDeleteTool) Handle(ctx context.Context, req mcp.CallTool
 	// 调用适配器的 DeleteServer 方法执行删除操作
 	response, err := c.adapter.DeleteServer(ctx, serverID, deleteReq, ak, sk)
 	if err != nil {
-		c.logger.WithError(err).Error("删除虚拟机失败")
-		return nil, fmt.Errorf("删除虚拟机失败: %w", err)
+		log.Errorf("Fail to delete server: %s", err)
+		return nil, fmt.Errorf("fail to delete server: %w", err)
 	}
 
 	// 构造返回结果，包含任务ID、成功状态和状态信息

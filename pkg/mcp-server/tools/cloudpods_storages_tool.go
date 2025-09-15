@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/mcp-server/adapters"
 	"yunion.io/x/onecloud/pkg/mcp-server/models"
 
@@ -31,30 +32,27 @@ import (
 type CloudpodsStoragesTool struct {
 	// adapter 用于与Cloudpods API进行交互
 	adapter *adapters.CloudpodsAdapter
-	// logger 用于记录日志
-	logger  *logrus.Logger
 }
 
 // NewCloudpodsStoragesTool 创建一个新的CloudpodsStoragesTool实例
-// 
+//
 // 参数:
 //   - adapter: 用于与Cloudpods API交互的适配器
-//   - logger: 用于记录日志的logger实例
-// 
+//
 // 返回值:
 //   - *CloudpodsStoragesTool: CloudpodsStoragesTool实例指针
-func NewCloudpodsStoragesTool(adapter *adapters.CloudpodsAdapter, logger *logrus.Logger) *CloudpodsStoragesTool {
+func NewCloudpodsStoragesTool(adapter *adapters.CloudpodsAdapter) *CloudpodsStoragesTool {
 	return &CloudpodsStoragesTool{
 		adapter: adapter,
-		logger:  logger,
 	}
 }
 
 // GetTool 定义并返回查询块存储列表工具的元数据
-// 
+//
 // 工具用途:
-//   查询Cloudpods块存储列表，获取存储资源信息
-// 
+//
+//	查询Cloudpods块存储列表，获取存储资源信息
+//
 // 参数说明:
 //   - limit: 返回结果数量限制，默认为20
 //   - offset: 返回结果偏移量，默认为0
@@ -84,11 +82,11 @@ func (c *CloudpodsStoragesTool) GetTool() mcp.Tool {
 }
 
 // Handle 处理查询块存储列表的请求
-// 
+//
 // 参数:
 //   - ctx: 控制生命周期的上下文
 //   - req: 包含查询参数的请求对象
-// 
+//
 // 返回值:
 //   - *mcp.CallToolResult: 包含块存储列表的响应对象
 //   - error: 可能的错误信息
@@ -151,18 +149,6 @@ func (c *CloudpodsStoragesTool) Handle(ctx context.Context, req mcp.CallToolRequ
 	// 获取可选参数：主机ID
 	hostId := req.GetString("host_id", "")
 
-	// 记录查询块存储列表的日志
-	c.logger.WithFields(logrus.Fields{
-		"limit":           limit,
-		"offset":          offset,
-		"search":          search,
-		"cloudregion_ids": cloudregionIds,
-		"zone_ids":        zoneIds,
-		"providers":       providers,
-		"storage_types":   storageTypes,
-		"host_id":         hostId,
-	}).Info("开始查询Cloudpods块存储列表")
-
 	// 获取可选参数：访问凭证
 	ak := req.GetString("ak", "")
 	sk := req.GetString("sk", "")
@@ -170,8 +156,8 @@ func (c *CloudpodsStoragesTool) Handle(ctx context.Context, req mcp.CallToolRequ
 	// 调用适配器查询块存储列表
 	storagesResponse, err := c.adapter.ListStorages(limit, offset, search, cloudregionIds, zoneIds, providers, storageTypes, hostId, ak, sk)
 	if err != nil {
-		c.logger.WithError(err).Error("查询Cloudpods块存储列表失败")
-		return nil, fmt.Errorf("查询块存储列表失败: %w", err)
+		log.Errorf("Fail to query storage: %s", err)
+		return nil, fmt.Errorf("fail to query storage: %w", err)
 	}
 
 	// 格式化查询结果
@@ -180,15 +166,15 @@ func (c *CloudpodsStoragesTool) Handle(ctx context.Context, req mcp.CallToolRequ
 	// 将结果序列化为JSON格式
 	resultJSON, err := json.MarshalIndent(formattedResult, "", "  ")
 	if err != nil {
-		c.logger.WithError(err).Error("序列化结果失败")
-		return nil, fmt.Errorf("序列化结果失败: %w", err)
+		log.Errorf("Fail to serialize result: %s", err)
+		return nil, fmt.Errorf("fail to serialize result: %w", err)
 	}
 
 	return mcp.NewToolResultText(string(resultJSON)), nil
 }
 
 // GetName 返回工具的名称标识符
-// 
+//
 // 返回值:
 //   - string: 工具名称字符串，用于唯一标识该工具
 func (c *CloudpodsStoragesTool) GetName() string {
@@ -322,10 +308,10 @@ func (c *CloudpodsStoragesTool) formatStoragesResult(
 
 	// 构造摘要信息
 	formatted["summary"] = map[string]interface{}{
-		"total_storages": response.Total, // 总存储数量
-		"returned_count": len(response.Storages), // 当前返回的存储数量
+		"total_storages": response.Total,                                        // 总存储数量
+		"returned_count": len(response.Storages),                                // 当前返回的存储数量
 		"has_more":       response.Total > int64(offset+len(response.Storages)), // 是否还有更多数据
-		"next_offset":    offset + len(response.Storages), // 下一页的偏移量
+		"next_offset":    offset + len(response.Storages),                       // 下一页的偏移量
 	}
 
 	return formatted

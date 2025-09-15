@@ -18,30 +18,27 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/sirupsen/logrus"
 	"strconv"
+	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/mcp-server/adapters"
 	"yunion.io/x/onecloud/pkg/mcp-server/models"
 
 	"github.com/mark3labs/mcp-go/mcp"
-	"github.com/sirupsen/logrus"
 )
 
 // CloudpodsServersTool 是用于查询 Cloudpods 虚拟机实例列表的工具
 type CloudpodsServersTool struct {
 	// adapter 用于与 Cloudpods API 进行交互
 	adapter *adapters.CloudpodsAdapter
-	// logger 用于记录日志
-	logger  *logrus.Logger
 }
 
 // NewCloudpodsServersTool 创建一个新的 Cloudpods 虚拟机查询工具
 // adapter: 用于与Cloudpods API交互的适配器
-// logger: 用于记录日志的logger实例
 // 返回值: CloudpodsServersTool实例指针
-func NewCloudpodsServersTool(adapter *adapters.CloudpodsAdapter, logger *logrus.Logger) *CloudpodsServersTool {
+func NewCloudpodsServersTool(adapter *adapters.CloudpodsAdapter) *CloudpodsServersTool {
 	return &CloudpodsServersTool{
 		adapter: adapter,
-		logger:  logger,
 	}
 }
 
@@ -91,14 +88,6 @@ func (c *CloudpodsServersTool) Handle(ctx context.Context, req mcp.CallToolReque
 	search := req.GetString("search", "")
 	status := req.GetString("status", "")
 
-	// 记录查询虚拟机列表的日志
-	c.logger.WithFields(logrus.Fields{
-		"limit":  limit,
-		"offset": offset,
-		"search": search,
-		"status": status,
-	}).Info("开始查询Cloudpods虚拟机列表")
-
 	// 获取可选参数：访问凭证
 	ak := req.GetString("ak", "")
 	sk := req.GetString("sk", "")
@@ -106,8 +95,8 @@ func (c *CloudpodsServersTool) Handle(ctx context.Context, req mcp.CallToolReque
 	// 调用适配器查询虚拟机列表
 	serversResponse, err := c.adapter.ListServers(ctx, limit, offset, search, status, ak, sk)
 	if err != nil {
-		c.logger.WithError(err).Error("查询虚拟机列表失败")
-		return nil, fmt.Errorf("查询虚拟机列表失败: %w", err)
+		log.Errorf("Fail to query server: %s", err)
+		return nil, fmt.Errorf("fail to query server: %w", err)
 	}
 
 	// 格式化查询结果
@@ -116,8 +105,8 @@ func (c *CloudpodsServersTool) Handle(ctx context.Context, req mcp.CallToolReque
 	// 将结果序列化为JSON格式
 	resultJSON, err := json.MarshalIndent(formattedResult, "", "  ")
 	if err != nil {
-		c.logger.WithError(err).Error("序列化结果失败")
-		return nil, fmt.Errorf("序列化结果失败: %w", err)
+		log.Errorf("Fail to serialize result: %s", err)
+		return nil, fmt.Errorf("fail to serialize result: %w", err)
 	}
 
 	// 返回格式化后的结果
