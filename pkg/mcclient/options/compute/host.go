@@ -178,6 +178,16 @@ func (h HostValidateIPMI) Params() (jsonutils.JSONObject, error) {
 	}), nil
 }
 
+type HostIsolatedDeviceNumaStatsOptions struct {
+	options.BaseIdOptions
+
+	DevType string `json:"dev_type"`
+}
+
+func (o *HostIsolatedDeviceNumaStatsOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(o), nil
+}
+
 type HostUpdateOptions struct {
 	options.BaseIdOptions
 	Name        string  `help:"New name of the host"`
