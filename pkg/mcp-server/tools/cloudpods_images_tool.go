@@ -19,9 +19,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/mark3labs/mcp-go/mcp"
-	"github.com/sirupsen/logrus"
 	"strconv"
 	"strings"
+	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/mcp-server/adapters"
 	"yunion.io/x/onecloud/pkg/mcp-server/models"
 )
@@ -31,20 +31,17 @@ import (
 type CloudpodsImagesTool struct {
 	// adapter 用于与 Cloudpods API 进行交互
 	adapter *adapters.CloudpodsAdapter
-	// logger 用于记录工具执行过程中的日志信息
-	logger  *logrus.Logger
 }
 
 // NewCloudpodsImagesTool 创建一个新的 CloudpodsImagesTool 实例
 // 参数:
 //   - adapter: Cloudpods 适配器实例，用于与 Cloudpods API 交互
-//   - logger: 日志记录器实例，用于记录工具执行过程中的日志
+//
 // 返回值:
 //   - *CloudpodsImagesTool: 新创建的 CloudpodsImagesTool 实例
-func NewCloudpodsImagesTool(adapter *adapters.CloudpodsAdapter, logger *logrus.Logger) *CloudpodsImagesTool {
+func NewCloudpodsImagesTool(adapter *adapters.CloudpodsAdapter) *CloudpodsImagesTool {
 	return &CloudpodsImagesTool{
 		adapter: adapter,
-		logger:  logger,
 	}
 }
 
@@ -70,6 +67,7 @@ func (c *CloudpodsImagesTool) GetTool() mcp.Tool {
 // 参数:
 //   - ctx: 上下文对象，用于控制请求生命周期
 //   - req: 工具调用请求对象，包含查询参数
+//
 // 返回值:
 //   - *mcp.CallToolResult: 格式化后的镜像列表查询结果
 //   - error: 如果查询过程中发生错误，则返回相应的错误信息
@@ -104,14 +102,6 @@ func (c *CloudpodsImagesTool) Handle(ctx context.Context, req mcp.CallToolReques
 		}
 	}
 
-	// 记录查询参数日志
-	c.logger.WithFields(logrus.Fields{
-		"limit":    limit,
-		"offset":   offset,
-		"search":   search,
-		"os_types": osTypes,
-	}).Info("开始查询Cloudpods镜像列表")
-
 	// 获取访问凭证
 	ak := req.GetString("ak", "")
 	sk := req.GetString("sk", "")
@@ -119,8 +109,8 @@ func (c *CloudpodsImagesTool) Handle(ctx context.Context, req mcp.CallToolReques
 	// 调用适配器查询镜像列表
 	imagesResponse, err := c.adapter.ListImages(limit, offset, search, osTypes, ak, sk)
 	if err != nil {
-		c.logger.WithError(err).Error("查询镜像列表失败")
-		return nil, fmt.Errorf("查询镜像列表失败: %w", err)
+		log.Errorf("Fail to query image: %s", err)
+		return nil, fmt.Errorf("fail to query image: %w", err)
 	}
 
 	// 格式化查询结果
@@ -129,8 +119,8 @@ func (c *CloudpodsImagesTool) Handle(ctx context.Context, req mcp.CallToolReques
 	// 将结果序列化为JSON格式
 	resultJSON, err := json.MarshalIndent(formattedResult, "", "  ")
 	if err != nil {
-		c.logger.WithError(err).Error("序列化结果失败")
-		return nil, fmt.Errorf("序列化结果失败: %w", err)
+		log.Errorf("Fail to serialize result: %s", err)
+		return nil, fmt.Errorf("fail to serialize result: %w", err)
 	}
 
 	// 返回格式化后的结果
@@ -152,6 +142,7 @@ func (c *CloudpodsImagesTool) GetName() string {
 //   - offset: 查询偏移量
 //   - search: 搜索关键词
 //   - osTypes: 操作系统类型过滤条件
+//
 // 返回值:
 //   - map[string]interface{}: 格式化后的镜像列表数据，包含查询信息、镜像详情和摘要
 func (c *CloudpodsImagesTool) formatImagesResult(response *models.ImageListResponse, limit, offset int, search string, osTypes []string) map[string]interface{} {

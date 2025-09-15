@@ -22,6 +22,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"strconv"
 	"strings"
+	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/mcp-server/adapters"
 	"yunion.io/x/onecloud/pkg/mcp-server/models"
 )
@@ -30,30 +31,27 @@ import (
 type CloudpodsServerSkusTool struct {
 	// adapter 用于与Cloudpods API进行交互
 	adapter *adapters.CloudpodsAdapter
-	// logger 用于记录日志
-	logger  *logrus.Logger
 }
 
 // NewCloudpodsServerSkusTool 创建一个新的CloudpodsServerSkusTool实例
-// 
+//
 // 参数:
 //   - adapter: 用于与Cloudpods API交互的适配器
-//   - logger: 用于记录日志的logger实例
-// 
+//
 // 返回值:
 //   - *CloudpodsServerSkusTool: CloudpodsServerSkusTool实例指针
-func NewCloudpodsServerSkusTool(adapter *adapters.CloudpodsAdapter, logger *logrus.Logger) *CloudpodsServerSkusTool {
+func NewCloudpodsServerSkusTool(adapter *adapters.CloudpodsAdapter) *CloudpodsServerSkusTool {
 	return &CloudpodsServerSkusTool{
 		adapter: adapter,
-		logger:  logger,
 	}
 }
 
 // GetTool 定义并返回查询主机套餐规格列表工具的元数据
-// 
+//
 // 工具用途:
-//   查询Cloudpods主机套餐规格列表，获取虚拟机规格信息
-// 
+//
+//	查询Cloudpods主机套餐规格列表，获取虚拟机规格信息
+//
 // 参数说明:
 //   - limit: 返回结果数量限制，默认为20
 //   - offset: 返回结果偏移量，默认为0
@@ -85,11 +83,11 @@ func (c *CloudpodsServerSkusTool) GetTool() mcp.Tool {
 }
 
 // Handle 处理查询主机套餐规格列表的请求
-// 
+//
 // 参数:
 //   - ctx: 控制生命周期的上下文
 //   - req: 包含查询参数的请求对象
-// 
+//
 // 返回值:
 //   - *mcp.CallToolResult: 包含主机套餐规格列表的响应对象
 //   - error: 可能的错误信息
@@ -167,26 +165,14 @@ func (c *CloudpodsServerSkusTool) Handle(ctx context.Context, req mcp.CallToolRe
 		}
 	}
 
-	c.logger.WithFields(logrus.Fields{
-		"limit":           limit,
-		"offset":          offset,
-		"search":          search,
-		"cloudregion_ids": cloudregionIds,
-		"zone_ids":        zoneIds,
-		"cpu_core_count":  cpuCoreCount,
-		"memory_size_mb":  memorySizeMB,
-		"providers":       providers,
-		"cpu_arch":        cpuArch,
-	}).Info("开始查询Cloudpods主机套餐规格列表")
-
 	ak := req.GetString("ak", "")
 	sk := req.GetString("sk", "")
 
 	// 调用适配器查询主机套餐规格列表
 	skusResponse, err := c.adapter.ListServerSkus(limit, offset, search, cloudregionIds, zoneIds, cpuCoreCount, memorySizeMB, providers, cpuArch, ak, sk)
 	if err != nil {
-		c.logger.WithError(err).Error("查询主机套餐规格列表失败")
-		return nil, fmt.Errorf("查询主机套餐规格列表失败: %w", err)
+		log.Errorf("Fail to query server skus: %s", err)
+		return nil, fmt.Errorf("fail to query server skus: %w", err)
 	}
 
 	// 格式化查询结果
@@ -195,15 +181,15 @@ func (c *CloudpodsServerSkusTool) Handle(ctx context.Context, req mcp.CallToolRe
 	// 将结果序列化为JSON格式
 	resultJSON, err := json.MarshalIndent(formattedResult, "", "  ")
 	if err != nil {
-		c.logger.WithError(err).Error("序列化结果失败")
-		return nil, fmt.Errorf("序列化结果失败: %w", err)
+		log.Errorf("Fail to serialize result: %s", err)
+		return nil, fmt.Errorf("fail to serialize result: %w", err)
 	}
 
 	return mcp.NewToolResultText(string(resultJSON)), nil
 }
 
 // GetName 返回工具的名称标识符
-// 
+//
 // 返回值:
 //   - string: 工具名称字符串，用于唯一标识该工具
 func (c *CloudpodsServerSkusTool) GetName() string {
@@ -211,7 +197,7 @@ func (c *CloudpodsServerSkusTool) GetName() string {
 }
 
 // formatServerSkusResult 格式化主机套餐规格列表的响应结果
-// 
+//
 // 参数:
 //   - response: 原始主机套餐规格列表响应数据
 //   - limit: 查询限制数量
@@ -223,7 +209,7 @@ func (c *CloudpodsServerSkusTool) GetName() string {
 //   - memorySizeMB: 内存大小列表（MB）
 //   - providers: 云平台提供商列表
 //   - cpuArch: CPU架构列表
-// 
+//
 // 返回值:
 //   - map[string]interface{}: 包含主机套餐规格列表的格式化结果
 func (c *CloudpodsServerSkusTool) formatServerSkusResult(

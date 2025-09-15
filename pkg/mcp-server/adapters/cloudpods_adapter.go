@@ -16,14 +16,12 @@ package adapters
 
 import (
 	"context"
-	"github.com/sirupsen/logrus"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcp-server/options"
 )
 
 // CloudpodsAdapter 是与 Cloudpods API 交互的适配器，负责认证和资源管理
 type CloudpodsAdapter struct {
-	logger  *logrus.Logger
 	client  *mcclient.Client
 	session *mcclient.ClientSession
 }
@@ -33,7 +31,7 @@ type CloudRegion struct {
 }
 
 // NewCloudpodsAdapter 创建一个新的 Cloudpods 适配器实例
-func NewCloudpodsAdapter(logger *logrus.Logger) *CloudpodsAdapter {
+func NewCloudpodsAdapter() *CloudpodsAdapter {
 
 	client := mcclient.NewClient(
 		options.Options.IdentityBaseURL,
@@ -45,7 +43,6 @@ func NewCloudpodsAdapter(logger *logrus.Logger) *CloudpodsAdapter {
 	)
 
 	return &CloudpodsAdapter{
-		logger: logger,
 		client: client,
 	}
 }

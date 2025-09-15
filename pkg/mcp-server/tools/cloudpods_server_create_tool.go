@@ -18,31 +18,28 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/sirupsen/logrus"
 	"strconv"
 	"strings"
+	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/mcp-server/adapters"
 	"yunion.io/x/onecloud/pkg/mcp-server/models"
 
 	"github.com/mark3labs/mcp-go/mcp"
-	"github.com/sirupsen/logrus"
 )
 
 // CloudpodsServerCreateTool 用于创建Cloudpods虚拟机实例
 type CloudpodsServerCreateTool struct {
 	// adapter 用于与 Cloudpods API 进行交互
 	adapter *adapters.CloudpodsAdapter
-	// logger 用于记录日志
-	logger  *logrus.Logger
 }
 
 // NewCloudpodsServerCreateTool 创建一个新的CloudpodsServerCreateTool实例
 // adapter: 用于与Cloudpods API交互的适配器
-// logger: 用于记录日志的logger实例
 // 返回值: CloudpodsServerCreateTool实例指针
-func NewCloudpodsServerCreateTool(adapter *adapters.CloudpodsAdapter, logger *logrus.Logger) *CloudpodsServerCreateTool {
+func NewCloudpodsServerCreateTool(adapter *adapters.CloudpodsAdapter) *CloudpodsServerCreateTool {
 	return &CloudpodsServerCreateTool{
 		adapter: adapter,
-		logger:  logger,
 	}
 }
 
@@ -227,33 +224,6 @@ func (c *CloudpodsServerCreateTool) Handle(ctx context.Context, req mcp.CallTool
 		}
 	}
 
-	// 记录创建虚拟机的请求参数日志
-	c.logger.WithFields(logrus.Fields{
-		"name":           name,
-		"image_id":       imageID,
-		"vcpu_count":     vcpuCount,
-		"vmem_size":      vmemSize,
-		"disk_size":      diskSize,
-		"network_id":     networkID,
-		"serversku_id":   serverSkuID,
-		"count":          count,
-		"auto_start":     autoStart,
-		"billing_type":   billingType,
-		"duration":       duration,
-		"description":    description,
-		"hostname":       hostname,
-		"hypervisor":     hypervisor,
-		"secgroup_id":    secgroupID,
-		"secgroups":      secgroups,
-		"keypair_id":     keypairID,
-		"project_id":     projectID,
-		"zone_id":        zoneID,
-		"region_id":      regionID,
-		"disable_delete": disableDelete,
-		"boot_order":     bootOrder,
-		"data_disks":     len(dataDisks),
-	}).Info("开始创建虚拟机")
-
 	// 构造创建虚拟机的请求对象
 	createRequest := models.CreateServerRequest{
 		Name:          name,
@@ -291,8 +261,8 @@ func (c *CloudpodsServerCreateTool) Handle(ctx context.Context, req mcp.CallTool
 	// 调用适配器创建虚拟机
 	response, err := c.adapter.CreateServer(ctx, createRequest, ak, sk)
 	if err != nil {
-		c.logger.WithError(err).Error("创建虚拟机失败")
-		return nil, fmt.Errorf("创建虚拟机失败: %w", err)
+		log.Errorf("Fail to create server: %s", err)
+		return nil, fmt.Errorf("fail to create server: %w", err)
 	}
 
 	// 格式化创建结果
@@ -301,8 +271,8 @@ func (c *CloudpodsServerCreateTool) Handle(ctx context.Context, req mcp.CallTool
 	// 将结果序列化为JSON格式
 	resultJSON, err := json.MarshalIndent(formattedResult, "", "  ")
 	if err != nil {
-		c.logger.WithError(err).Error("序列化结果失败")
-		return nil, fmt.Errorf("序列化结果失败: %w", err)
+		log.Errorf("Fail to serialize result: %s", err)
+		return nil, fmt.Errorf("fail to serialize result: %w", err)
 	}
 
 	// 返回格式化后的结果
@@ -370,9 +340,9 @@ func (c *CloudpodsServerCreateTool) formatCreateResult(response *models.CreateSe
 
 	// 构造摘要信息
 	formatted["summary"] = map[string]interface{}{
-		"requested_count": request.Count,     // 请求创建的虚拟机数量
+		"requested_count": request.Count,              // 请求创建的虚拟机数量
 		"created_count":   len(response.Data.Servers), // 实际创建的虚拟机数量
-		"success":         response.Status == 200,      // 创建是否成功
+		"success":         response.Status == 200,     // 创建是否成功
 	}
 
 	return formatted

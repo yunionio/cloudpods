@@ -21,6 +21,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/mcp-server/adapters"
 	"yunion.io/x/onecloud/pkg/mcp-server/models"
 
@@ -32,18 +33,14 @@ import (
 type CloudpodsServerMonitorTool struct {
 	// adapter 用于与 Cloudpods API 进行交互
 	adapter *adapters.CloudpodsAdapter
-	// logger 用于记录日志
-	logger  *logrus.Logger
 }
 
 // NewCloudpodsServerMonitorTool 创建一个新的CloudpodsServerMonitorTool实例
 // adapter: 用于与Cloudpods API交互的适配器
-// logger: 用于记录日志的logger实例
 // 返回值: CloudpodsServerMonitorTool实例指针
-func NewCloudpodsServerMonitorTool(adapter *adapters.CloudpodsAdapter, logger *logrus.Logger) *CloudpodsServerMonitorTool {
+func NewCloudpodsServerMonitorTool(adapter *adapters.CloudpodsAdapter) *CloudpodsServerMonitorTool {
 	return &CloudpodsServerMonitorTool{
 		adapter: adapter,
-		logger:  logger,
 	}
 }
 
@@ -109,14 +106,6 @@ func (c *CloudpodsServerMonitorTool) Handle(ctx context.Context, req mcp.CallToo
 		metrics = []string{"cpu_usage", "mem_usage", "disk_usage", "net_bps_rx", "net_bps_tx"}
 	}
 
-	// 记录获取虚拟机监控信息的日志
-	c.logger.WithFields(logrus.Fields{
-		"server_id":  serverID,
-		"start_time": startTime,
-		"end_time":   endTime,
-		"metrics":    metrics,
-	}).Info("开始获取虚拟机监控信息")
-
 	// 获取ak和sk参数，用于认证
 	ak := req.GetString("ak", "")
 	sk := req.GetString("sk", "")
@@ -124,8 +113,8 @@ func (c *CloudpodsServerMonitorTool) Handle(ctx context.Context, req mcp.CallToo
 	// 调用适配器获取虚拟机监控信息
 	monitorResponse, err := c.adapter.GetServerMonitor(ctx, serverID, startTime, endTime, metrics, ak, sk)
 	if err != nil {
-		c.logger.WithError(err).Error("获取监控信息失败")
-		return nil, fmt.Errorf("获取监控信息失败: %w", err)
+		log.Errorf("Fail to get server monitor: %s", err)
+		return nil, fmt.Errorf("fail to get server monitor: %w", err)
 	}
 
 	// 格式化监控结果
@@ -134,8 +123,8 @@ func (c *CloudpodsServerMonitorTool) Handle(ctx context.Context, req mcp.CallToo
 	// 将结果序列化为JSON格式
 	resultJSON, err := json.MarshalIndent(formattedResult, "", "  ")
 	if err != nil {
-		c.logger.WithError(err).Error("序列化结果失败")
-		return nil, fmt.Errorf("序列化结果失败: %w", err)
+		log.Errorf("Fail to serialize result: %s", err)
+		return nil, fmt.Errorf("fail to serialize result: %w", err)
 	}
 
 	// 返回格式化后的结果
@@ -237,18 +226,14 @@ func (c *CloudpodsServerMonitorTool) formatMonitorResult(response *models.Monito
 type CloudpodsServerStatsTool struct {
 	// adapter 用于与 Cloudpods API 进行交互
 	adapter *adapters.CloudpodsAdapter
-	// logger 用于记录日志
-	logger  *logrus.Logger
 }
 
 // NewCloudpodsServerStatsTool 创建一个新的CloudpodsServerStatsTool实例
 // adapter: 用于与Cloudpods API交互的适配器
-// logger: 用于记录日志的logger实例
 // 返回值: CloudpodsServerStatsTool实例指针
-func NewCloudpodsServerStatsTool(adapter *adapters.CloudpodsAdapter, logger *logrus.Logger) *CloudpodsServerStatsTool {
+func NewCloudpodsServerStatsTool(adapter *adapters.CloudpodsAdapter) *CloudpodsServerStatsTool {
 	return &CloudpodsServerStatsTool{
 		adapter: adapter,
-		logger:  logger,
 	}
 }
 
@@ -282,14 +267,14 @@ func (c *CloudpodsServerStatsTool) Handle(ctx context.Context, req mcp.CallToolR
 	c.logger.WithField("server_id", serverID).Info("开始获取虚拟机统计信息")
 
 	// 获取可选参数：访问凭证
-	ak := req.GetString("ak", "");
-	sk := req.GetString("sk", "");
+	ak := req.GetString("ak", "")
+	sk := req.GetString("sk", "")
 
 	// 调用适配器获取虚拟机统计信息
 	statsResponse, err := c.adapter.GetServerStats(ctx, serverID, ak, sk)
 	if err != nil {
-		c.logger.WithError(err).Error("获取统计信息失败")
-		return nil, fmt.Errorf("获取统计信息失败: %w", err)
+		log.Errorf("Fail to get server stats: %s", err)
+		return nil, fmt.Errorf("fail to get server stats: %w", err)
 	}
 
 	// 格式化统计结果
@@ -298,8 +283,8 @@ func (c *CloudpodsServerStatsTool) Handle(ctx context.Context, req mcp.CallToolR
 	// 将结果序列化为JSON格式
 	resultJSON, err := json.MarshalIndent(formattedResult, "", "  ")
 	if err != nil {
-		c.logger.WithError(err).Error("序列化结果失败")
-		return nil, fmt.Errorf("序列化结果失败: %w", err)
+		log.Errorf("Fail to serialize result: %s", err)
+		return nil, fmt.Errorf("fail to serialize result: %w", err)
 	}
 
 	// 返回格式化后的结果

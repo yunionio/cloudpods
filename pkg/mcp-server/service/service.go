@@ -15,8 +15,8 @@
 package service
 
 import (
-	"github.com/sirupsen/logrus"
 	"os"
+	"yunion.io/x/log"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/mcp-server/options"
 	"yunion.io/x/onecloud/pkg/mcp-server/server"
@@ -27,27 +27,16 @@ func StartService() {
 	opts := &options.Options
 	common_options.ParseOptions(opts, os.Args, "mcpserver.conf", "mcpserver")
 
-	// 初始化日志
-	logger := logrus.New()
-	level, err := logrus.ParseLevel(opts.LogLevel)
-	if err != nil {
-		logger.WithError(err).Fatal("无效的日志级别")
-	}
-	logger.SetLevel(level)
-	logger.SetFormatter(&logrus.JSONFormatter{
-		TimestampFormat: "2006-01-02 15:04:05",
-	})
-
 	// 创建服务器
-	srv := server.NewServer(logger)
+	srv := server.NewServer()
 
 	// 初始化服务器
 	if err := srv.Initialize(); err != nil {
-		logger.WithError(err).Fatal("服务器初始化失败")
+		log.Fatalf("Fail to init mcp server: %s", err)
 	}
 
 	// 启动服务器
 	if err := srv.Start(); err != nil {
-		logger.WithError(err).Error("服务器启动失败")
+		log.Fatalf("Fail to start mcp server: %s", err)
 	}
 }

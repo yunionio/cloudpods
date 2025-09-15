@@ -19,8 +19,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/mark3labs/mcp-go/mcp"
-	"github.com/sirupsen/logrus"
 	"strconv"
+	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/mcp-server/adapters"
 	"yunion.io/x/onecloud/pkg/mcp-server/models"
 )
@@ -29,18 +29,14 @@ import (
 type CloudpodsRegionsTool struct {
 	// adapter 用于与 Cloudpods API 进行交互
 	adapter *adapters.CloudpodsAdapter
-	// logger 用于记录日志信息
-	logger  *logrus.Logger
 }
 
 // NewCloudpodsRegionsTool 创建一个新的 Cloudpods 区域查询工具
 // adapter: 用于与 Cloudpods API 进行交互的适配器
-// logger: 用于记录日志的 logger 实例
 // 返回值: 指向新创建的 CloudpodsRegionsTool 实例的指针
-func NewCloudpodsRegionsTool(adapter *adapters.CloudpodsAdapter, logger *logrus.Logger) *CloudpodsRegionsTool {
+func NewCloudpodsRegionsTool(adapter *adapters.CloudpodsAdapter) *CloudpodsRegionsTool {
 	return &CloudpodsRegionsTool{
 		adapter: adapter,
-		logger:  logger,
 	}
 }
 
@@ -100,8 +96,8 @@ func (c *CloudpodsRegionsTool) Handle(ctx context.Context, req mcp.CallToolReque
 	// 调用适配器获取区域列表
 	regionsResponse, err := c.adapter.ListCloudRegions(ctx, limit, offset, search, provider, ak, sk)
 	if err != nil {
-		c.logger.WithError(err).Error("查询区域列表失败")
-		return nil, fmt.Errorf("查询区域列表失败: %w", err)
+		log.Errorf("Fail to query region: %s", err)
+		return nil, fmt.Errorf("fail to query region: %w", err)
 	}
 
 	// 格式化查询结果
@@ -110,8 +106,8 @@ func (c *CloudpodsRegionsTool) Handle(ctx context.Context, req mcp.CallToolReque
 	// 将结果序列化为JSON格式
 	resultJSON, err := json.MarshalIndent(formattedResult, "", "  ")
 	if err != nil {
-		c.logger.WithError(err).Error("序列化结果失败")
-		return nil, fmt.Errorf("序列化结果失败: %w", err)
+		log.Errorf("Fail to serialize result: %s", err)
+		return nil, fmt.Errorf("fail to serialize result: %w", err)
 	}
 	// 返回格式化后的结果
 	return mcp.NewToolResultText(string(resultJSON)), nil

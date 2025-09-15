@@ -18,15 +18,14 @@ import (
 	"fmt"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
-	"github.com/sirupsen/logrus"
 	"sync"
+	"yunion.io/x/log"
 )
 
 type Registry struct {
 	mu          sync.RWMutex
 	tools       map[string]*ToolRegistration
 	mcpServer   *server.MCPServer
-	logger      *logrus.Logger
 	initialized bool
 }
 
@@ -35,10 +34,9 @@ type ToolRegistration struct {
 	Handler server.ToolHandlerFunc
 }
 
-func NewRegistry(logger *logrus.Logger) *Registry {
+func NewRegistry() *Registry {
 	return &Registry{
-		tools:  make(map[string]*ToolRegistration),
-		logger: logger,
+		tools: make(map[string]*ToolRegistration),
 	}
 }
 
@@ -48,7 +46,7 @@ func (r *Registry) Initialize(mcpServer *server.MCPServer) error {
 	defer r.mu.Unlock()
 
 	if r.initialized {
-		return fmt.Errorf("注册中心已经初始化")
+		return fmt.Errorf("Fail to init register ")
 	}
 
 	r.mcpServer = mcpServer
@@ -59,7 +57,6 @@ func (r *Registry) Initialize(mcpServer *server.MCPServer) error {
 	}
 
 	r.initialized = true
-	r.logger.WithField("tool_count", len(r.tools)).Info("工具注册中心初始化完成")
 
 	return nil
 }
@@ -70,7 +67,7 @@ func (r *Registry) RegisterTool(toolName string, tool mcp.Tool, handler server.T
 	defer r.mu.Unlock()
 
 	if _, exists := r.tools[toolName]; exists {
-		return fmt.Errorf("工具 '%s' 已经注册", toolName)
+		return fmt.Errorf("Tool already register: '%s' ", toolName)
 	}
 
 	registration := &ToolRegistration{
@@ -79,7 +76,7 @@ func (r *Registry) RegisterTool(toolName string, tool mcp.Tool, handler server.T
 	}
 
 	r.tools[toolName] = registration
-	r.logger.WithField("tool", toolName).Info("工具注册成功")
+	log.Infof("Tool register successfully: %s", toolName)
 
 	// 如果MCP服务器已设置，立即注册到服务器
 	if r.mcpServer != nil {

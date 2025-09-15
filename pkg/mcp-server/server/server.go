@@ -17,7 +17,7 @@ package server
 import (
 	"fmt"
 	"github.com/mark3labs/mcp-go/server"
-	"github.com/sirupsen/logrus"
+	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/mcp-server/adapters"
 	"yunion.io/x/onecloud/pkg/mcp-server/options"
 	"yunion.io/x/onecloud/pkg/mcp-server/registry"
@@ -26,14 +26,13 @@ import (
 
 // CloudpodsMCPServer 是 MCP 服务器的核心结构体，包含配置、日志、MCP 实例、注册中心和工具列表
 type CloudpodsMCPServer struct {
-	logger    *logrus.Logger
 	mcpServer *server.MCPServer
 	registry  *registry.Registry
 	tools     []tools.Tool
 }
 
 // NewServer 创建一个新的 Cloudpods MCP 服务器实例，初始化 MCP 服务器和注册中心，并创建所有工具
-func NewServer(logger *logrus.Logger) *CloudpodsMCPServer {
+func NewServer() *CloudpodsMCPServer {
 
 	// 创建mcp server对象
 	mcpServer := server.NewMCPServer(
@@ -44,32 +43,32 @@ func NewServer(logger *logrus.Logger) *CloudpodsMCPServer {
 	)
 
 	// 创建注册中心对象
-	reg := registry.NewRegistry(logger)
+	reg := registry.NewRegistry()
 
 	var allTools []tools.Tool
 
 	// 创建mcclient sdk的适配器对象
-	adapter := adapters.NewCloudpodsAdapter(logger)
+	adapter := adapters.NewCloudpodsAdapter()
 
 	// 创建具体的工具函数对象
 	// 用于查询资源的工具函数
-	regionsTool := tools.NewCloudpodsRegionsTool(adapter, logger)
-	vpcsTool := tools.NewCloudpodsVPCsTool(adapter, logger)
-	networksTool := tools.NewCloudpodsNetworksTool(adapter, logger)
-	imagesTool := tools.NewCloudpodsImagesTool(adapter, logger)
-	skusTool := tools.NewCloudpodsServerSkusTool(adapter, logger)
-	storagesTool := tools.NewCloudpodsStoragesTool(adapter, logger)
-	serversTool := tools.NewCloudpodsServersTool(adapter, logger)
+	regionsTool := tools.NewCloudpodsRegionsTool(adapter)
+	vpcsTool := tools.NewCloudpodsVPCsTool(adapter)
+	networksTool := tools.NewCloudpodsNetworksTool(adapter)
+	imagesTool := tools.NewCloudpodsImagesTool(adapter)
+	skusTool := tools.NewCloudpodsServerSkusTool(adapter)
+	storagesTool := tools.NewCloudpodsStoragesTool(adapter)
+	serversTool := tools.NewCloudpodsServersTool(adapter)
 
 	// 用于操作资源的工具函数
-	serverStartTool := tools.NewCloudpodsServerStartTool(adapter, logger)
-	serverStopTool := tools.NewCloudpodsServerStopTool(adapter, logger)
-	serverRestartTool := tools.NewCloudpodsServerRestartTool(adapter, logger)
-	serverResetPasswordTool := tools.NewCloudpodsServerResetPasswordTool(adapter, logger)
-	serverDeleteTool := tools.NewCloudpodsServerDeleteTool(adapter, logger)
-	serverCreateTool := tools.NewCloudpodsServerCreateTool(adapter, logger)
-	serverMonitorTool := tools.NewCloudpodsServerMonitorTool(adapter, logger)
-	serverStatsTool := tools.NewCloudpodsServerStatsTool(adapter, logger)
+	serverStartTool := tools.NewCloudpodsServerStartTool(adapter)
+	serverStopTool := tools.NewCloudpodsServerStopTool(adapter)
+	serverRestartTool := tools.NewCloudpodsServerRestartTool(adapter)
+	serverResetPasswordTool := tools.NewCloudpodsServerResetPasswordTool(adapter)
+	serverDeleteTool := tools.NewCloudpodsServerDeleteTool(adapter)
+	serverCreateTool := tools.NewCloudpodsServerCreateTool(adapter)
+	serverMonitorTool := tools.NewCloudpodsServerMonitorTool(adapter)
+	serverStatsTool := tools.NewCloudpodsServerStatsTool(adapter)
 
 	// 将所有的工具函数存储到一个切片中
 	allTools = append(
@@ -93,7 +92,6 @@ func NewServer(logger *logrus.Logger) *CloudpodsMCPServer {
 	)
 
 	return &CloudpodsMCPServer{
-		logger:    logger,
 		mcpServer: mcpServer,
 		registry:  reg,
 		tools:     allTools,
@@ -129,7 +127,7 @@ func (s *CloudpodsMCPServer) registerAllTools() error {
 		}
 	}
 
-	s.logger.WithField("total_tools", len(s.tools)).Info("所有工具注册完成")
+	log.Infof("All tools register completed")
 	return nil
 }
 
@@ -139,7 +137,7 @@ func (s *CloudpodsMCPServer) Start() error {
 	if err := server.NewSSEServer(s.mcpServer).Start(fmt.Sprintf("%s:%d", options.Options.Server.Host, options.Options.Server.Port)); err != nil {
 		return err
 	}
-	s.logger.WithField("address", "mcp server stdio").Info("启动mcp server")
+	log.Infof("Start mcp server successfully")
 
 	return nil
 }
@@ -151,6 +149,6 @@ func (s *CloudpodsMCPServer) StartStdio() error {
 	if err != nil {
 		return err
 	}
-	s.logger.WithField("address", "mcp server stdio").Info("启动mcp server")
+	log.Infof("Start mcp server successfully")
 	return nil
 }
