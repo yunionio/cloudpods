@@ -522,6 +522,10 @@ func (drv *SBaseGuestDriver) RequestQgaCommand(ctx context.Context, userCred mcc
 	return nil, httperrors.ErrNotImplemented
 }
 
+func (self *SBaseGuestDriver) RequestGuestScreenDump(ctx context.Context, userCred mcclient.TokenCredential, body jsonutils.JSONObject, host *models.SHost, guest *models.SGuest) (jsonutils.JSONObject, error) {
+	return nil, httperrors.ErrNotImplemented
+}
+
 func (drv *SBaseGuestDriver) FetchMonitorUrl(ctx context.Context, guest *models.SGuest) string {
 	s := auth.GetAdminSessionWithPublic(ctx, consts.GetRegion())
 	tsdbURL, err := tsdb.GetDefaultServiceSourceURL(s, options.Options.MonitorEndpointType)

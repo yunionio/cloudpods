@@ -150,6 +150,7 @@ type CommonOptions struct {
 
 type HostCommonOptions struct {
 	CommonOptions
+	S3ScreenDumpOptions
 
 	ExecutorSocketPath     string `help:"Executor socket path" default:"/var/run/onecloud/exec.sock"`
 	DeployServerSocketPath string `help:"Deploy server listen socket path" default:"/var/run/onecloud/deploy.sock"`
@@ -161,6 +162,15 @@ type HostCommonOptions struct {
 	ImageDeployDriver             string `help:"Image deploy driver" default:"qemu-kvm" choices:"qemu-kvm|nbd|libguestfs"`
 	DeployConcurrent              int    `help:"qemu-kvm deploy driver concurrent" default:"5"`
 	Qcow2Preallocation            string `help:"Qcow2 image create preallocation" default:"metadata" choices:"disable|metadata|falloc|full"`
+}
+
+type S3ScreenDumpOptions struct {
+	S3AccessKey              string `help:"s3 access key"`
+	S3SecretKey              string `help:"s3 secret key"`
+	S3Endpoint               string `help:"s3 endpoint"`
+	S3UseSSL                 bool   `help:"s3 access use ssl"`
+	S3BucketName             string `help:"s3 bucket name" default:"onecloud-screendump"`
+	S3BucketLifecycleKeepDay int    `help:"s3 bucket lifecycle keep day" default:"180"`
 }
 
 type DBOptions struct {

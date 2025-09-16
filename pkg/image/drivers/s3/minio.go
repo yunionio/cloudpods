@@ -87,6 +87,13 @@ func ensureBucket() error {
 	return nil
 }
 
+func SetBucketLifecycle(lifecycle string) error {
+	if client == nil {
+		return ErrClientNotInit
+	}
+	return client.osc.SetBucketLifecycle(client.bucket, lifecycle)
+}
+
 func Put(ctx context.Context, filePath, objName string) (string, error) {
 	if client == nil {
 		return "", ErrClientNotInit

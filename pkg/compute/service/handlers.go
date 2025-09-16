@@ -158,6 +158,7 @@ func InitHandlers(app *appsrv.Application) {
 		models.RouteTableAssociationManager,
 		models.RouteTableRouteSetManager,
 		models.InterVpcNetworkRouteSetManager,
+		models.GuestScreenDumpManager,
 
 		models.SchedpolicyManager,
 		models.DynamicschedtagManager,
