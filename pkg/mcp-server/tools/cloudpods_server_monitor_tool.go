@@ -26,7 +26,6 @@ import (
 	"yunion.io/x/onecloud/pkg/mcp-server/models"
 
 	"github.com/mark3labs/mcp-go/mcp"
-	"github.com/sirupsen/logrus"
 )
 
 // CloudpodsServerMonitorTool 用于获取Cloudpods虚拟机监控信息
@@ -262,9 +261,6 @@ func (c *CloudpodsServerStatsTool) Handle(ctx context.Context, req mcp.CallToolR
 	if err != nil {
 		return nil, err
 	}
-
-	// 记录获取虚拟机统计信息的日志
-	c.logger.WithField("server_id", serverID).Info("开始获取虚拟机统计信息")
 
 	// 获取可选参数：访问凭证
 	ak := req.GetString("ak", "")

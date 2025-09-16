@@ -19,7 +19,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/mark3labs/mcp-go/mcp"
-	"github.com/sirupsen/logrus"
 	"strconv"
 	"strings"
 	"yunion.io/x/log"

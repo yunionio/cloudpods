@@ -25,7 +25,6 @@ import (
 	"yunion.io/x/onecloud/pkg/mcp-server/models"
 
 	"github.com/mark3labs/mcp-go/mcp"
-	"github.com/sirupsen/logrus"
 )
 
 // CloudpodsStoragesTool 用于查询Cloudpods块存储列表的工具

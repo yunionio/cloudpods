@@ -18,7 +18,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/sirupsen/logrus"
 	"strconv"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/mcp-server/adapters"
