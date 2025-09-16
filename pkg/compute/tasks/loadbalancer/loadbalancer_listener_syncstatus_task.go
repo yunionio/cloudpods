@@ -65,5 +65,5 @@ func (self *LoadbalancerListenerSyncstatusTask) OnLoadbalancerListenerSyncstatus
 }
 
 func (self *LoadbalancerListenerSyncstatusTask) OnLoadbalancerListenerSyncstatusCompleteFailed(ctx context.Context, lblis *models.SLoadbalancerListener, reason jsonutils.JSONObject) {
-	self.taskFail(ctx, lblis, errors.Errorf("%s", reason.String()))
+	self.taskFail(ctx, lblis, errors.Errorf(reason.String()))
 }

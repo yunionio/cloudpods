@@ -48,7 +48,7 @@ func RegistryResourceSync(sync IResourceSync) error {
 		resourceSyncMap = make(map[string]IResourceSync)
 	}
 	if _, ok := resourceSyncMap[sync.SyncType()]; ok {
-		return errors.Errorf("syncType:%s has registered", sync.SyncType())
+		return errors.Errorf(fmt.Sprintf("syncType:%s has registered", sync.SyncType()))
 	}
 	resourceSyncMap[sync.SyncType()] = sync
 	return nil
@@ -218,7 +218,7 @@ func (self *SyncObject) SyncResources(ctx context.Context, userCred mcclient.Tok
 	log.Errorf("start sync %s", self.sync.SyncType())
 	resources, err := GetOnecloudResources(self.sync.SyncType())
 	if err != nil {
-		return errors.Wrapf(err, "syncType:%s GetOnecloudResources err", self.sync.SyncType())
+		return errors.Wrapf(err, fmt.Sprintf("syncType:%s GetOnecloudResources err", self.sync.SyncType()))
 	}
 	input := monitor.MonitorResourceListInput{
 		OnlyResId: true,

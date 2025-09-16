@@ -225,5 +225,5 @@ func refreshHandler(ctx context.Context, w http.ResponseWriter, r *http.Request)
 			"status": "ok",
 		},
 	}
-	fmt.Fprintf(w, "%s", jsonutils.Marshal(ret).String())
+	fmt.Fprintf(w, jsonutils.Marshal(ret).String())
 }

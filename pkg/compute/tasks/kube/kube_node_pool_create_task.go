@@ -64,5 +64,5 @@ func (self *KubeNodePoolCreateTask) OnKubeNodePoolCreateComplate(ctx context.Con
 }
 
 func (self *KubeNodePoolCreateTask) OnKubeNodePoolCreateComplateFailed(ctx context.Context, pool *models.SKubeNodePool, reason jsonutils.JSONObject) {
-	self.taskFail(ctx, pool, errors.Errorf("%s", reason.String()))
+	self.taskFail(ctx, pool, errors.Errorf(reason.String()))
 }

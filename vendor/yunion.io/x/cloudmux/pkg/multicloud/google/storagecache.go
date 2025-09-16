@@ -66,20 +66,14 @@ func (cache *SStoragecache) GetICloudImages() ([]cloudprovider.ICloudImage, erro
 }
 
 func (cache *SStoragecache) GetICustomizedCloudImages() ([]cloudprovider.ICloudImage, error) {
-	projects, err := cache.region.client.GetProjects()
+	images, err := cache.region.GetImages(cache.region.client.projectId, 1000, "")
 	if err != nil {
-		return nil, errors.Wrapf(err, "GetProjects")
+		return nil, errors.Wrapf(err, "GetImages")
 	}
 	ret := []cloudprovider.ICloudImage{}
-	for _, project := range projects {
-		images, err := cache.region.GetImages(project.ProjectId, 1000, "")
-		if err != nil {
-			return nil, errors.Wrapf(err, "GetImages")
-		}
-		for i := range images {
-			images[i].storagecache = cache
-			ret = append(ret, &images[i])
-		}
+	for i := range images {
+		images[i].storagecache = cache
+		ret = append(ret, &images[i])
 	}
 	return ret, nil
 }

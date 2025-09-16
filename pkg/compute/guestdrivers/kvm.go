@@ -666,9 +666,6 @@ func (self *SKVMGuestDriver) RequestSyncConfigOnHost(ctx context.Context, guest 
 	if fw_only, _ := task.GetParams().Bool("fw_only"); fw_only {
 		body.Add(jsonutils.JSONTrue, "fw_only")
 	}
-	if setUefiBootOrder, _ := task.GetParams().Bool("set_uefi_boot_order"); setUefiBootOrder {
-		body.Add(jsonutils.JSONTrue, "set_uefi_boot_order")
-	}
 	url := fmt.Sprintf("%s/servers/%s/sync", host.ManagerUri, guest.Id)
 	header := self.getTaskRequestHeader(task)
 	_, _, err = httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, header, body, false)
@@ -1203,17 +1200,7 @@ func (self *SKVMGuestDriver) RequestQgaCommand(ctx context.Context, userCred mcc
 
 func (self *SKVMGuestDriver) FetchMonitorUrl(ctx context.Context, guest *models.SGuest) string {
 	if options.Options.KvmMonitorAgentUseMetadataService && !guest.IsSriov() {
-		var metadataIp string
-		strictIpv6, err := guest.IsStrictIpv6()
-		if err != nil {
-			log.Errorf("IsStrictIpv6 for guest %s error: %v", guest.Id, err)
-		}
-		if strictIpv6 {
-			metadataIp = "[" + options.Options.MetadataServerIp6s[0] + "]"
-		} else {
-			metadataIp = options.Options.MetadataServerIp4s[0]
-		}
-		return fmt.Sprintf(apis.MetaServiceMonitorAgentUrl, metadataIp)
+		return apis.MetaServiceMonitorAgentUrl
 	}
 	return self.SVirtualizedGuestDriver.FetchMonitorUrl(ctx, guest)
 }

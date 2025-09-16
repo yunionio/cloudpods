@@ -300,8 +300,8 @@ func cleanOvsBridge() {
 	//ovsutils.CleanAllHiddenPorts()
 }
 
-func NewOVSBridgeDriver(bridge, inter, ip string, maskLen int, ip6 string, mask6Len int) (*SOVSBridgeDriver, error) {
-	base, err := NewBaseBridgeDriver(bridge, inter, ip, maskLen, ip6, mask6Len)
+func NewOVSBridgeDriver(bridge, inter, ip string) (*SOVSBridgeDriver, error) {
+	base, err := NewBaseBridgeDriver(bridge, inter, ip)
 	if err != nil {
 		return nil, err
 	}
@@ -311,5 +311,5 @@ func NewOVSBridgeDriver(bridge, inter, ip string, maskLen int, ip6 string, mask6
 }
 
 func NewOVSBridgeDriverByName(bridge string) (*SOVSBridgeDriver, error) {
-	return NewOVSBridgeDriver(bridge, "", "", 0, "", 0)
+	return NewOVSBridgeDriver(bridge, "", "")
 }

@@ -322,14 +322,6 @@ func (self *SGlobalLoadbalancerListener) GetHealthCheckDomain() string {
 	}
 }
 
-func (self *SGlobalLoadbalancerListener) GetHealthCheckMethod() string {
-	return ""
-}
-
-func (self *SGlobalLoadbalancerListener) GetHealthCheckPort() int {
-	return 0
-}
-
 func (self *SGlobalLoadbalancerListener) GetHealthCheckURI() string {
 	hcs := self.GetHealthChecks()
 	if hcs == nil {

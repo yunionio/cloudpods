@@ -44,14 +44,12 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/container/lifecycle"
 	"yunion.io/x/onecloud/pkg/hostman/container/prober"
 	proberesults "yunion.io/x/onecloud/pkg/hostman/container/prober/results"
-	"yunion.io/x/onecloud/pkg/hostman/container/snapshot_service"
 	"yunion.io/x/onecloud/pkg/hostman/container/status"
 	"yunion.io/x/onecloud/pkg/hostman/container/volume_mount"
 	"yunion.io/x/onecloud/pkg/hostman/container/volume_mount/disk"
 	_ "yunion.io/x/onecloud/pkg/hostman/container/volume_mount/disk"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/pod/runtime"
-	"yunion.io/x/onecloud/pkg/hostman/guestman/pod/statusman"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
@@ -191,7 +189,7 @@ func (h startStatHelper) removeStatFile(fp string) error {
 	if !fileutils2.Exists(fp) {
 		return nil
 	}
-	if err := os.Remove(fp); err != nil && !strings.Contains(err.Error(), "no such file or directory") {
+	if err := os.Remove(fp); err != nil {
 		return errors.Wrapf(err, "remove file %s", fp)
 	}
 	return nil
@@ -347,13 +345,13 @@ func (s *sPodGuestInstance) getStatus(ctx context.Context, defaultStatus string)
 			continue
 		}
 		if cs != nil {
-			status = GetPodStatusByContainerStatus(status, cStatus, s.IsPrimaryContainer(c.Id))
+			status = GetPodStatusByContainerStatus(status, cStatus)
 		}
 	}
 	return status
 }
 
-func (s *sPodGuestInstance) GetUploadStatus(ctx context.Context, reason string) (*computeapi.HostUploadGuestStatusInput, error) {
+func (s *sPodGuestInstance) GetUploadStatus(ctx context.Context, reason string) (*computeapi.HostUploadGuestStatusResponse, error) {
 	// sync pod status
 	var status = computeapi.VM_READY
 	if s.IsRunning() {
@@ -363,12 +361,12 @@ func (s *sPodGuestInstance) GetUploadStatus(ctx context.Context, reason string) 
 	if err := s.expectedStatus.SetStatus(status); err != nil {
 		log.Warningf("set expected status to %s, reason: %s, err: %s", status, reason, err.Error())
 	}
-	/*if status == computeapi.VM_READY {
+	if status == computeapi.VM_READY {
 		// remove pod
 		if err := s.stopPod(ctx, 5); err != nil {
 			log.Warningf("stop cri pod when sync status: %s: %v", s.Id, err)
 		}
-	}*/
+	}
 	// sync container's status
 	cStatuss := make(map[string]*computeapi.ContainerPerformStatusInput)
 	for _, c := range s.containers {
@@ -410,7 +408,7 @@ func (s *sPodGuestInstance) GetUploadStatus(ctx context.Context, reason string) 
 			}
 		}
 		cStatuss[c.Id] = ctrStatusInput
-		status = GetPodStatusByContainerStatus(status, cStatus, s.IsPrimaryContainer(c.Id))
+		status = GetPodStatusByContainerStatus(status, cStatus)
 	}
 	if len(errs) > 0 {
 		log.Errorf("get upload status error: %v", errors.NewAggregate(errs))
@@ -423,14 +421,14 @@ func (s *sPodGuestInstance) GetUploadStatus(ctx context.Context, reason string) 
 		HostId:      hostinfo.Instance().HostId,
 	}
 
-	return &computeapi.HostUploadGuestStatusInput{
+	return &computeapi.HostUploadGuestStatusResponse{
 		PerformStatusInput: *statusInput,
 		Containers:         cStatuss,
 	}, nil
 }
 
 func (s *sPodGuestInstance) UploadStatus(ctx context.Context, reason string) error {
-	/*resp, err := s.GetUploadStatus(ctx, reason)
+	resp, err := s.GetUploadStatus(ctx, reason)
 	if err != nil {
 		return errors.Wrapf(err, "get upload status of pod: %s", reason)
 	}
@@ -446,35 +444,11 @@ func (s *sPodGuestInstance) UploadStatus(ctx context.Context, reason string) err
 
 	if _, err := hostutils.UpdateServerStatus(ctx, s.Id, &resp.PerformStatusInput); err != nil {
 		errs = append(errs, errors.Wrapf(err, "failed update guest status"))
-	}*/
-	// return errors.NewAggregate(errs)
-
-	resp, err := s.GetUploadStatus(ctx, reason)
-	if err != nil {
-		return errors.Wrapf(err, "get upload status of pod: %s", reason)
 	}
-	containerStatuses := make(map[string]*statusman.ContainerStatus)
-	for ctrId, cStatus := range resp.Containers {
-		containerStatuses[ctrId] = &statusman.ContainerStatus{
-			Status:         cStatus.Status,
-			RestartCount:   cStatus.RestartCount,
-			StartedAt:      cStatus.StartedAt,
-			LastFinishedAt: cStatus.LastFinishedAt,
-		}
-	}
-	if err := statusman.GetManager().UpdateStatus(&statusman.PodStatusUpdateRequest{
-		Id:                s.Id,
-		Pod:               s,
-		Status:            resp.Status,
-		ContainerStatuses: containerStatuses,
-		Reason:            reason,
-	}); err != nil {
-		return errors.Wrapf(err, "update status of pod: %s", reason)
-	}
-	return nil
+	return errors.NewAggregate(errs)
 }
 
-func (s *sPodGuestInstance) PostUploadStatus(resp *computeapi.HostUploadGuestStatusInput, reason string) {
+func (s *sPodGuestInstance) PostUploadStatus(resp *computeapi.HostUploadGuestStatusResponse, reason string) {
 	for ctrId, cStatus := range resp.Containers {
 		s.markContainerProbeDirty(cStatus.Status, ctrId, reason)
 	}
@@ -560,15 +534,14 @@ func (s *sPodGuestInstance) IsContainerRunning(ctx context.Context, ctrId string
 	return false, nil
 }
 
-func (s *sPodGuestInstance) probeGuestStatus(ctx context.Context, resp *computeapi.HostUploadGuestStatusInput) {
+func (s *sPodGuestInstance) probeGuestStatus(ctx context.Context, resp *computeapi.HostUploadGuestStatusResponse) {
 	resp.Status = s.getStatus(ctx, resp.Status)
 }
 
-func (s *sPodGuestInstance) HandleGuestStatus(ctx context.Context, resp *computeapi.HostUploadGuestStatusInput, isBatch bool) *computeapi.HostUploadGuestStatusInput {
-	//s.probeGuestStatus(ctx, resp)
-	//hostutils.TaskComplete(ctx, jsonutils.Marshal(resp))
-	ctrStatus, _ := s.GetUploadStatus(ctx, "")
-	return ctrStatus
+func (s *sPodGuestInstance) HandleGuestStatus(ctx context.Context, resp *computeapi.HostUploadGuestStatusResponse) (jsonutils.JSONObject, error) {
+	s.probeGuestStatus(ctx, resp)
+	hostutils.TaskComplete(ctx, jsonutils.Marshal(resp))
+	return nil, nil
 }
 
 func (s *sPodGuestInstance) HandleGuestStart(ctx context.Context, userCred mcclient.TokenCredential, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -601,22 +574,6 @@ func (s *sPodGuestInstance) getCreateParams() (jsonutils.JSONObject, error) {
 	return jsonutils.ParseString(createParamsStr)
 }
 
-func (s *sPodGuestInstance) getPostStopCleanupConfig() (*computeapi.PodPostStopCleanupConfig, error) {
-	data, ok := s.GetDesc().Metadata[computeapi.POD_METADATA_POST_STOP_CLEANUP_CONFIG]
-	if !ok {
-		return nil, nil
-	}
-	jsonData, err := jsonutils.ParseString(data)
-	if err != nil {
-		return nil, errors.Wrapf(err, "parse to json")
-	}
-	input := new(computeapi.PodPostStopCleanupConfig)
-	if err := jsonData.Unmarshal(input); err != nil {
-		return nil, errors.Wrapf(err, "unmarshal to pod post stop cleanup config")
-	}
-	return input, nil
-}
-
 func (s *sPodGuestInstance) getPodCreateParams() (*computeapi.PodCreateInput, error) {
 	createParams, err := s.getCreateParams()
 	if err != nil {
@@ -645,64 +602,7 @@ func (s *sPodGuestInstance) GetDisks() []*desc.SGuestDisk {
 	return s.GetDesc().Disks
 }
 
-func (s *sPodGuestInstance) ConvertRootFsToVolumeMount(rootFs *hostapi.ContainerRootfs) *hostapi.ContainerVolumeMount {
-	return &hostapi.ContainerVolumeMount{
-		Type: rootFs.Type,
-		Disk: rootFs.Disk,
-	}
-}
-
-func (s *sPodGuestInstance) mountRootFs(ctrId string, rootFs *hostapi.ContainerRootfs) error {
-	drv := volume_mount.GetDriver(rootFs.Type)
-	vol := &hostapi.ContainerVolumeMount{
-		Type: rootFs.Type,
-		Disk: rootFs.Disk,
-	}
-	if err := drv.Mount(s, ctrId, vol); err != nil {
-		return errors.Wrapf(err, "mount root fs %s, ctrId %s", jsonutils.Marshal(rootFs), ctrId)
-	}
-	return nil
-}
-
-func (s *sPodGuestInstance) umountRootFs(ctrId string, rootFs *hostapi.ContainerRootfs) error {
-	drv := volume_mount.GetDriver(rootFs.Type)
-	vol := &hostapi.ContainerVolumeMount{
-		Type: rootFs.Type,
-		Disk: rootFs.Disk,
-	}
-	if err := drv.Unmount(s, ctrId, vol); err != nil {
-		return errors.Wrapf(err, "unmount root fs %s, ctrId %s", jsonutils.Marshal(rootFs), ctrId)
-	}
-	return nil
-}
-
-func (s *sPodGuestInstance) GetRootFsMountPath(ctrId string) (string, error) {
-	ctr := s.GetContainerById(ctrId)
-	if ctr == nil {
-		return "", errors.Wrapf(httperrors.ErrNotFound, "not found container %s", ctrId)
-	}
-	rootFs := ctr.Spec.Rootfs
-	if rootFs == nil {
-		return "", errors.Wrapf(httperrors.ErrNotFound, "not found root fs %s", ctrId)
-	}
-	vol := s.ConvertRootFsToVolumeMount(rootFs)
-	drv := volume_mount.GetDriver(vol.Type)
-	hostPath, err := drv.GetRuntimeMountHostPath(s, ctrId, vol)
-	if err != nil {
-		return "", errors.Wrapf(err, "get runtime mount host path %s, ctrId %s", jsonutils.Marshal(vol), ctrId)
-	}
-	return hostPath, nil
-}
-
 func (s *sPodGuestInstance) mountPodVolumes() error {
-	for _, ctr := range s.GetDesc().Containers {
-		if ctr.Spec.Rootfs == nil {
-			continue
-		}
-		if err := s.mountRootFs(ctr.Id, ctr.Spec.Rootfs); err != nil {
-			return errors.Wrapf(err, "mount root fs %s, ctrId %s", jsonutils.Marshal(ctr.Spec.Rootfs), ctr.Id)
-		}
-	}
 	for ctrId, vols := range s.getContainerVolumeMounts() {
 		for _, vol := range vols {
 			drv := volume_mount.GetDriver(vol.Type)
@@ -721,14 +621,6 @@ func (s *sPodGuestInstance) mountPodVolumes() error {
 }
 
 func (s *sPodGuestInstance) umountPodVolumes() error {
-	for _, ctr := range s.GetDesc().Containers {
-		if ctr.Spec.Rootfs == nil {
-			continue
-		}
-		if err := s.umountRootFs(ctr.Id, ctr.Spec.Rootfs); err != nil {
-			return errors.Wrapf(err, "umount root fs %s, ctrId %s", jsonutils.Marshal(ctr.Spec.Rootfs), ctr.Id)
-		}
-	}
 	for ctrId, vols := range s.getContainerVolumeMounts() {
 		for _, vol := range vols {
 			if err := volume_mount.GetDriver(vol.Type).Unmount(s, ctrId, vol); err != nil {
@@ -860,7 +752,7 @@ func (s *sPodGuestInstance) getOtherPods() []*sPodGuestInstance {
 	return otherPods
 }
 
-func PodCgroupParent() string {
+func (s *sPodGuestInstance) getCgroupParent() string {
 	return "/cloudpods"
 }
 
@@ -879,20 +771,14 @@ func newLocalDirtyPodStartTask(ctx context.Context, userCred mcclient.TokenCrede
 }
 
 func (t *localDirtyPodStartTask) Run() {
-	/*if t.pod.isPodDirtyShutdown() {
+	if t.pod.isPodDirtyShutdown() {
 		log.Infof("start dirty pod locally (%s/%s)", t.pod.Id, t.pod.GetName())
 		if _, err := t.pod.startPod(t.ctx, t.userCred); err != nil {
 			log.Errorf("start dirty pod(%s/%s) err: %s", t.pod.GetId(), t.pod.GetName(), err.Error())
 		}
-	}*/
+	}
 	for _, ctr := range t.pod.GetContainers() {
 		if t.pod.isContainerDirtyShutdown(ctr.Id) {
-			if !t.pod.IsRunning() {
-				log.Infof("start dirty pod locally (%s/%s)", t.pod.Id, t.pod.GetName())
-				if _, err := t.pod.startPod(t.ctx, t.userCred); err != nil {
-					log.Errorf("start dirty pod(%s/%s) err: %s", t.pod.GetId(), t.pod.GetName(), err.Error())
-				}
-			}
 			log.Infof("start dirty container locally (%s/%s/%s/%s)", t.pod.Id, t.pod.GetName(), ctr.Id, ctr.Name)
 			if _, err := t.pod.StartLocalContainer(t.ctx, t.userCred, ctr.Id); err != nil {
 				log.Errorf("start dirty container %s err: %s", ctr.Id, err.Error())
@@ -1000,7 +886,7 @@ func (s *sPodGuestInstance) _startPod(ctx context.Context, userCred mcclient.Tok
 		},
 		Annotations: nil,
 		Linux: &runtimeapi.LinuxPodSandboxConfig{
-			CgroupParent: PodCgroupParent(),
+			CgroupParent: s.getCgroupParent(),
 			SecurityContext: &runtimeapi.LinuxSandboxSecurityContext{
 				NamespaceOptions:   s.namespacesForPod(podInput),
 				SelinuxOptions:     nil,
@@ -1143,25 +1029,6 @@ func (s *sPodGuestInstance) stopPod(ctx context.Context, timeout int64) error {
 		return err
 	}
 	ReleaseGuestCpuset(s.manager, s)
-	if err := s.postStopCleanup(ctx); err != nil {
-		return errors.Wrapf(err, "post stop cleanup")
-	}
-	return nil
-}
-
-func (s *sPodGuestInstance) postStopCleanup(ctx context.Context) error {
-	config, err := s.getPostStopCleanupConfig()
-	if err != nil {
-		return errors.Wrapf(err, "get post stop cleanup config")
-	}
-	if config == nil {
-		return nil
-	}
-	for _, dir := range config.Dirs {
-		if err := os.RemoveAll(dir); err != nil {
-			return errors.Wrapf(err, "remove dir %s", dir)
-		}
-	}
 	return nil
 }
 
@@ -1202,7 +1069,7 @@ func (s *sPodGuestInstance) PostLoad(m *SGuestManager) error {
 	return LoadGuestCpuset(m, s)
 }
 
-func (s *sPodGuestInstance) SyncConfig(ctx context.Context, guestDesc *desc.SGuestDesc, fwOnly, setUefiBootOrder bool) (jsonutils.JSONObject, error) {
+func (s *sPodGuestInstance) SyncConfig(ctx context.Context, guestDesc *desc.SGuestDesc, fwOnly bool) (jsonutils.JSONObject, error) {
 	if err := SaveDesc(s, guestDesc); err != nil {
 		return nil, errors.Wrap(err, "SaveDesc")
 	}
@@ -1692,7 +1559,7 @@ func (s *sPodGuestInstance) getContainerMounts(ctrId string, input *hostapi.Cont
 }
 
 func (s *sPodGuestInstance) getCGUtil() pod.CgroupUtil {
-	return pod.NewPodCgroupV1Util(PodCgroupParent())
+	return pod.NewPodCgroupV1Util(s.getCgroupParent())
 }
 
 func (s *sPodGuestInstance) setContainerCgroupDevicesAllow(ctrId string, allowStrs []string) error {
@@ -1773,14 +1640,6 @@ func (s *sPodGuestInstance) createContainer(ctx context.Context, userCred mcclie
 			ContainerPath: "/dev/shm",
 			HostPath:      shmPath,
 		})
-	}
-	// inject /etc/hosts to hide host storage
-	if spec.Rootfs != nil {
-		if etcFilesMount, err := s.getEtcFilesMount(ctrId); err != nil {
-			return "", errors.Wrapf(err, "get etc hosts mount")
-		} else {
-			mounts = append(mounts, etcFilesMount...)
-		}
 	}
 
 	var cpuSetCpus string
@@ -1880,10 +1739,6 @@ func (s *sPodGuestInstance) createContainer(ctx context.Context, userCred mcclie
 		ctrCfg.Linux.SecurityContext.NamespaceOptions.Pid = runtimeapi.NamespaceMode_TARGET
 		ctrCfg.Linux.SecurityContext.NamespaceOptions.TargetId = s.GetCRIId()
 	}*/
-	if spec.Rootfs != nil {
-		ctrCfg.Labels[snapshot_service.LabelServerId] = s.GetId()
-		ctrCfg.Labels[snapshot_service.LabelContainerId] = ctrId
-	}
 
 	// inherit security context
 	if spec.SecurityContext != nil {
@@ -1932,21 +1787,6 @@ func (s *sPodGuestInstance) createContainer(ctx context.Context, userCred mcclie
 				Key:   envKey,
 				Value: envVal,
 			})
-			for _, pEnv := range pm.Envs {
-				pEnvVal := ""
-				switch pEnv.ValueFrom {
-				case computeapi.GuestPortMappingEnvValueFromHostPort:
-					pEnvVal = fmt.Sprintf("%d", *pm.HostPort)
-				case computeapi.GuestPortMappingEnvValueFromPort:
-					pEnvVal = fmt.Sprintf("%d", pm.Port)
-				default:
-					return "", httperrors.NewInputParameterError("invalid value from %s", pEnv.ValueFrom)
-				}
-				ctrCfg.Envs = append(ctrCfg.Envs, &runtimeapi.KeyValue{
-					Key:   pEnv.Key,
-					Value: pEnvVal,
-				})
-			}
 		}
 	}
 	if s.GetDesc().HostAccessIp != "" {
@@ -2003,125 +1843,6 @@ func (s *sPodGuestInstance) createContainer(ctx context.Context, userCred mcclie
 	return criId, nil
 }
 
-// copyEtcFile 复制主机上的 etc 文件到容器根文件系统
-func (s *sPodGuestInstance) copyEtcFile(hostPath, etcFilePath string) (*runtimeapi.Mount, error) {
-	hostEtcFilePath := filepath.Join(hostPath, etcFilePath)
-
-	// 确保目录存在
-	if err := volume_mount.EnsureDir(filepath.Dir(hostEtcFilePath)); err != nil {
-		return nil, errors.Wrapf(err, "ensure dir %s", filepath.Dir(hostEtcFilePath))
-	}
-
-	// 复制文件
-	if err := volume_mount.CopyFile(etcFilePath, hostEtcFilePath); err != nil {
-		return nil, errors.Wrapf(err, "copy file %s to %s", etcFilePath, hostEtcFilePath)
-	}
-
-	// 创建挂载点
-	return &runtimeapi.Mount{
-		ContainerPath: etcFilePath,
-		HostPath:      hostEtcFilePath,
-	}, nil
-}
-
-// generateEtcFile 生成 etc 文件内容到容器根文件系统
-func (s *sPodGuestInstance) generateEtcFile(hostPath, etcFilePath, content string) (*runtimeapi.Mount, error) {
-	hostEtcFilePath := filepath.Join(hostPath, etcFilePath)
-
-	// 确保目录存在
-	if err := volume_mount.EnsureDir(filepath.Dir(hostEtcFilePath)); err != nil {
-		return nil, errors.Wrapf(err, "ensure dir %s", filepath.Dir(hostEtcFilePath))
-	}
-
-	// 生成文件内容
-	if err := fileutils2.FilePutContents(hostEtcFilePath, content, false); err != nil {
-		return nil, errors.Wrapf(err, "put file %s to %s", etcFilePath, hostEtcFilePath)
-	}
-
-	// 创建挂载点
-	return &runtimeapi.Mount{
-		ContainerPath: etcFilePath,
-		HostPath:      hostEtcFilePath,
-	}, nil
-}
-
-func (s *sPodGuestInstance) getEtcFilesMount(ctrId string) ([]*runtimeapi.Mount, error) {
-	hostPath, err := s.GetRootFsMountPath(ctrId)
-	if err != nil {
-		return nil, errors.Wrapf(err, "get container root fs path of %s", ctrId)
-	}
-
-	// 复制 /etc/hosts 文件
-	etcHostsMount, err := s.copyEtcFile(hostPath, "/etc/hosts")
-	if err != nil {
-		return nil, errors.Wrap(err, "copy /etc/hosts")
-	}
-
-	// 生成 /etc/hostname 文件
-	etcHostnameMount, err := s.generateEtcFile(hostPath, "/etc/hostname", s.GetDesc().Hostname)
-	if err != nil {
-		return nil, errors.Wrap(err, "generate /etc/hostname")
-	}
-
-	// 复制 /etc/resolv.conf 文件
-	etcResolvConfMount, err := s.copyEtcFile(hostPath, "/etc/resolv.conf")
-	if err != nil {
-		return nil, errors.Wrap(err, "copy /etc/resolv.conf")
-	}
-
-	return []*runtimeapi.Mount{etcHostsMount, etcHostnameMount, etcResolvConfMount}, nil
-}
-
-func filterContainerDevices(devs []*hostapi.ContainerDevice) ([]*hostapi.ContainerDevice, []*hostapi.ContainerDevice) {
-	envDevs := []*hostapi.ContainerDevice{}
-	restDevs := []*hostapi.ContainerDevice{}
-	for _, dev := range devs {
-		if dev.IsolatedDevice != nil && len(dev.IsolatedDevice.OnlyEnv) > 0 {
-			envDevs = append(envDevs, dev)
-		} else {
-			restDevs = append(restDevs, dev)
-		}
-	}
-	return envDevs, restDevs
-}
-
-func getEnvsFromDevices(devs []*hostapi.ContainerDevice) []*runtimeapi.KeyValue {
-	retEnvs := []*runtimeapi.KeyValue{}
-	for _, dev := range devs {
-		if dev.IsolatedDevice == nil {
-			continue
-		}
-		if len(dev.IsolatedDevice.OnlyEnv) == 0 {
-			continue
-		}
-		for _, oe := range dev.IsolatedDevice.OnlyEnv {
-			var tmpEnv *runtimeapi.KeyValue
-			if oe.FromRenderPath {
-				tmpEnv = &runtimeapi.KeyValue{
-					Key:   oe.Key,
-					Value: dev.IsolatedDevice.RenderPath,
-				}
-			}
-			if oe.FromIndex {
-				tmpEnv = &runtimeapi.KeyValue{
-					Key:   oe.Key,
-					Value: fmt.Sprintf("%d", dev.IsolatedDevice.Index),
-				}
-			}
-			if oe.FromDeviceMinor {
-				tmpEnv = &runtimeapi.KeyValue{
-					Key:   oe.Key,
-					Value: fmt.Sprintf("%d", dev.IsolatedDevice.DeviceMinor),
-				}
-			}
-			if tmpEnv != nil {
-				retEnvs = append(retEnvs, tmpEnv)
-			}
-		}
-	}
-	return retEnvs
-}
-
 func (s *sPodGuestInstance) getIsolatedDeviceExtraConfig(spec *hostapi.ContainerSpec, ctrCfg *runtimeapi.ContainerConfig) error {
 	devTypes := []isolated_device.ContainerDeviceType{
 		isolated_device.ContainerDeviceTypeNvidiaGpu,
@@ -2134,9 +1855,7 @@ func (s *sPodGuestInstance) getIsolatedDeviceExtraConfig(spec *hostapi.Container
 		if err != nil {
 			return errors.Wrapf(err, "GetContainerDeviceManager by type %q", devType)
 		}
-		envDevs, restDevs := filterContainerDevices(spec.Devices)
-		ctrCfg.Envs = append(ctrCfg.Envs, getEnvsFromDevices(envDevs)...)
-		envs, mounts := devMan.GetContainerExtraConfigures(restDevs)
+		envs, mounts := devMan.GetContainerExtraConfigures(spec.Devices)
 		if len(envs) > 0 {
 			ctrCfg.Envs = append(ctrCfg.Envs, envs...)
 		}
@@ -2148,10 +1867,6 @@ func (s *sPodGuestInstance) getIsolatedDeviceExtraConfig(spec *hostapi.Container
 }
 
 func (s *sPodGuestInstance) getContainerSystemCpusDir(ctrId string) string {
-	rootFsPath, _ := s.GetRootFsMountPath(ctrId)
-	if rootFsPath != "" {
-		return filepath.Join(rootFsPath, "cpus", ctrId)
-	}
 	return filepath.Join(s.HomeDir(), "cpus", ctrId)
 }
 
@@ -2166,24 +1881,6 @@ func (s *sPodGuestInstance) ensureContainerSystemCpuDir(cpuDir string, cpuCnt in
 
 func (s *sPodGuestInstance) findHostCpuPath(ctrId string, cpuIndex int) (int, error) {
 	return s.getHostCPUMap().Get(ctrId, cpuIndex)
-}
-
-func (s *sPodGuestInstance) simulateContainerSystemCpuSetScalingCurFreq(ctrId string, scalingCurFreq int64) error {
-	cpuDir := s.getContainerSystemCpusDir(ctrId)
-	cpuCnt := s.GetDesc().Cpu
-	for i := 0; i < int(cpuCnt); i++ {
-		cpufreqPolicyCurFreqFile := path.Join(cpuDir, "cpufreq", fmt.Sprintf("policy%d", i), "scaling_cur_freq")
-		cpufreqPolicySetSpeedFile := path.Join(cpuDir, "cpufreq", fmt.Sprintf("policy%d", i), "scaling_setspeed")
-		scalingCurFreqStr := fmt.Sprintf("%d\n", scalingCurFreq)
-		if err := fileutils2.FilePutContents(cpufreqPolicyCurFreqFile, scalingCurFreqStr, false); err != nil {
-			return errors.Wrapf(err, "failed write %s", cpufreqPolicyCurFreqFile)
-		}
-		if err := fileutils2.FilePutContents(cpufreqPolicySetSpeedFile, scalingCurFreqStr, false); err != nil {
-			return errors.Wrapf(err, "failed write %s", cpufreqPolicySetSpeedFile)
-		}
-	}
-
-	return nil
 }
 
 func (s *sPodGuestInstance) simulateContainerSystemCpu(ctx context.Context, ctrId string) ([]*runtimeapi.Mount, error) {
@@ -2378,10 +2075,6 @@ func (s *sPodGuestInstance) getContainerStatus(ctx context.Context, ctrId string
 	return status, cs, nil
 }
 
-func (s *sPodGuestInstance) MarkContainerProbeDirty(ctrStatus string, ctrId string, reason string) {
-	s.markContainerProbeDirty(ctrStatus, ctrId, reason)
-}
-
 func (s *sPodGuestInstance) markContainerProbeDirty(status, ctrId string, reason string) {
 	if status == computeapi.CONTAINER_STATUS_PROBING {
 		reason = fmt.Sprintf("status is probing: %s", reason)
@@ -2484,7 +2177,7 @@ func (s *sPodGuestInstance) SaveVolumeMountToImage(ctx context.Context, userCred
 		return nil, errors.Wrapf(err, "get runtime host mount path of %s", jsonutils.Marshal(vol))
 	}
 	// 1. tar hostPath to tgz
-	imgPath, originalSizeBytes, err := s.tarGzDir(input, ctrId, hostPath)
+	imgPath, err := s.tarGzDir(input, ctrId, hostPath)
 	if err != nil {
 		return nil, errors.Wrapf(err, "tar and zip directory %s", hostPath)
 	}
@@ -2496,65 +2189,27 @@ func (s *sPodGuestInstance) SaveVolumeMountToImage(ctx context.Context, userCred
 	}()
 
 	// 2. upload target tgz to glance
-	if err := s.saveTarGzToGlance(ctx, input, imgPath, originalSizeBytes); err != nil {
+	if err := s.saveTarGzToGlance(ctx, input, imgPath); err != nil {
 		return nil, errors.Wrapf(err, "saveTarGzToGlance: %s", imgPath)
 	}
 	return nil, nil
 }
 
-func (s *sPodGuestInstance) tarGzDir(input *hostapi.ContainerSaveVolumeMountToImageInput, ctrId string, hostPath string) (string, int64, error) {
+func (s *sPodGuestInstance) tarGzDir(input *hostapi.ContainerSaveVolumeMountToImageInput, ctrId string, hostPath string) (string, error) {
 	fp := fmt.Sprintf("volimg-%s-ctr-%s-%d.tar.gz", input.ImageId, ctrId, input.VolumeMountIndex)
 	outputFp := filepath.Join(s.GetVolumesDir(), fp)
 	dirPath := "."
 	if len(input.VolumeMountDirs) != 0 {
-		dirPath = ""
-		for _, vd := range input.VolumeMountDirs {
-			dirPath = fmt.Sprintf("%s '%s'", dirPath, vd)
-		}
+		dirPath = strings.Join(input.VolumeMountDirs, " ")
 	}
-
-	// 计算总字节数，兼容多个目录/文件
-	var totalSize int64
-	if len(input.VolumeMountDirs) == 0 {
-		sizeCmd := fmt.Sprintf("du -sb %s | awk '{print $1}'", hostPath)
-		out, err := procutils.NewRemoteCommandAsFarAsPossible("sh", "-c", sizeCmd).Output()
-		if err != nil {
-			return "", 0, errors.Wrapf(err, "calculate total size: %s", out)
-		}
-		outStr := strings.TrimSpace(string(out))
-		totalSize, err = strconv.ParseInt(outStr, 10, 64)
-		if err != nil {
-			return "", 0, errors.Wrapf(err, "parse total size: %s", outStr)
-		}
-	} else {
-		for _, d := range input.VolumeMountDirs {
-			// 兼容目录或文件名有空格
-			sizeCmd := fmt.Sprintf("du -sb '%s' | awk '{print $1}'", d)
-			cmd := fmt.Sprintf("cd %s && %s", hostPath, sizeCmd)
-			out, err := procutils.NewRemoteCommandAsFarAsPossible("sh", "-c", cmd).Output()
-			if err != nil {
-				return "", 0, errors.Wrapf(err, "calculate total size for %s: %s", d, out)
-			}
-			outStr := strings.TrimSpace(string(out))
-			sz, err := strconv.ParseInt(outStr, 10, 64)
-			if err != nil {
-				return "", 0, errors.Wrapf(err, "parse total size for %s: %s", d, outStr)
-			}
-			totalSize += sz
-		}
-	}
-
 	cmd := fmt.Sprintf("tar -czf %s -C %s %s", outputFp, hostPath, dirPath)
-	if input.VolumeMountPrefix != "" {
-		cmd += fmt.Sprintf(" --transform 's,^,%s/,'", input.VolumeMountPrefix)
-	}
 	if out, err := procutils.NewRemoteCommandAsFarAsPossible("sh", "-c", cmd).Output(); err != nil {
-		return "", 0, errors.Wrapf(err, "%s: %s", cmd, out)
+		return "", errors.Wrapf(err, "%s: %s", cmd, out)
 	}
-	return outputFp, totalSize, nil
+	return outputFp, nil
 }
 
-func (s *sPodGuestInstance) saveTarGzToGlance(ctx context.Context, input *hostapi.ContainerSaveVolumeMountToImageInput, imgPath string, originalSizeBytes int64) error {
+func (s *sPodGuestInstance) saveTarGzToGlance(ctx context.Context, input *hostapi.ContainerSaveVolumeMountToImageInput, imgPath string) error {
 	f, err := os.Open(imgPath)
 	if err != nil {
 		return err
@@ -2566,12 +2221,8 @@ func (s *sPodGuestInstance) saveTarGzToGlance(ctx context.Context, input *hostap
 	}
 	size := finfo.Size()
 
-	// 转换为 MB
-	originalSizeMB := originalSizeBytes / (1024 * 1024)
-
 	var params = jsonutils.NewDict()
 	params.Set("image_id", jsonutils.NewString(input.ImageId))
-	params.Set("min_disk", jsonutils.NewInt(originalSizeMB))
 
 	if _, err := imagemod.Images.Upload(hostutils.GetImageSession(ctx), params, f, size); err != nil {
 		return errors.Wrap(err, "upload image")
@@ -2809,7 +2460,7 @@ func (s *sPodGuestInstance) tarHostDir(srcDir, targetPath string,
 	if len(includeFiles) > 0 {
 		includeStr = strings.Join(includeFiles, " ")
 	}
-	cmd := fmt.Sprintf("%s --ignore-failed-read -cf %s -C %s %s", baseCmd, targetPath, srcDir, includeStr)
+	cmd := fmt.Sprintf("%s --warning=no-file-changed --ignore-failed-read -cf %s -C %s %s", baseCmd, targetPath, srcDir, includeStr)
 	log.Infof("[%s] tar cmd: %s", s.GetName(), cmd)
 	if out, err := procutils.NewRemoteCommandAsFarAsPossible("sh", "-c", cmd).Output(); err != nil {
 		outErr := errors.Wrapf(err, "%s: %s", cmd, out)

@@ -74,13 +74,6 @@ type SCapabilities struct {
 	DisabledObjectStorageBrands  []string `json:",allowempty"`
 	DisabledModelartsPoolsBrands []string `json:",allowempty"`
 	ModelartsPoolsBrands         []string `json:",allowempty"`
-	MongoDBBrands                []string `json:"mongodb_brands,allowempty"`
-	DisabledMongoDBBrands        []string `json:"disabled_mongodb_brands,allowempty"`
-	KafkaBrands                  []string `json:"kafka_brands,allowempty"`
-	DisabledKafkaBrands          []string `json:"disabled_kafka_brands,allowempty"`
-
-	DisabledDnsBrands []string `json:",allowempty"`
-	DnsBrands         []string `json:",allowempty"`
 
 	ContainerBrands         []string `json:",allowempty"`
 	DisabledContainerBrands []string `json:",allowempty"`
@@ -125,13 +118,6 @@ type SCapabilities struct {
 	ReadOnlyDisabledObjectStorageBrands  []string `json:",allowempty"`
 	ReadOnlyModelartsPoolsBrands         []string `json:",allowempty"`
 	ReadOnlyDisabledModelartsPoolsBrands []string `json:",allowempty"`
-	ReadOnlyMongoDBBrands                []string `json:"readonly_mongodb_brands,allowempty"`
-	ReadOnlyDisabledMongoDBBrands        []string `json:"readonly_disabled_mongodb_brands,allowempty"`
-	ReadOnlyKafkaBrands                  []string `json:"readonly_kafka_brands,allowempty"`
-	ReadOnlyDisabledKafkaBrands          []string `json:"readonly_disabled_kafka_brands,allowempty"`
-
-	ReadOnlyDnsBrands         []string `json:",allowempty"`
-	ReadOnlyDisabledDnsBrands []string `json:",allowempty"`
 
 	ReadOnlyContainerBrands         []string `json:",allowempty"`
 	ReadOnlyDisabledContainerBrands []string `json:",allowempty"`
@@ -436,7 +422,6 @@ func getBrands(region *SCloudregion, domainId string, capa *SCapabilities) {
 			capa.SecurityGroupBrands = append(capa.SecurityGroupBrands, api.ONECLOUD_BRAND_ONECLOUD)
 			capa.ComputeEngineBrands = append(capa.ComputeEngineBrands, api.ONECLOUD_BRAND_ONECLOUD)
 			capa.SnapshotPolicyBrands = append(capa.SnapshotPolicyBrands, api.ONECLOUD_BRAND_ONECLOUD)
-			capa.DnsBrands = append(capa.DnsBrands, api.ONECLOUD_BRAND_ONECLOUD)
 		} else if utils.IsInStringArray(api.HYPERVISOR_POD, capa.Hypervisors) {
 			capa.Brands = append(capa.Brands, api.ONECLOUD_BRAND_ONECLOUD)
 			capa.ComputeEngineBrands = append(capa.ComputeEngineBrands, api.ONECLOUD_BRAND_ONECLOUD)
@@ -534,12 +519,6 @@ func getBrands(region *SCloudregion, domainId string, capa *SCapabilities) {
 				appendBrand(&capa.SnapshotPolicyBrands, &capa.DisabledSnapshotPolicyBrands, &capa.ReadOnlySnapshotPolicyBrands, &capa.ReadOnlyDisabledSnapshotPolicyBrands, brand, capability, enabled, readOnly)
 			case cloudprovider.CLOUD_CAPABILITY_MODELARTES:
 				appendBrand(&capa.ModelartsPoolsBrands, &capa.DisabledModelartsPoolsBrands, &capa.ReadOnlyModelartsPoolsBrands, &capa.ReadOnlyDisabledModelartsPoolsBrands, brand, capability, enabled, readOnly)
-			case cloudprovider.CLOUD_CAPABILITY_DNSZONE:
-				appendBrand(&capa.DnsBrands, &capa.DisabledDnsBrands, &capa.ReadOnlyDnsBrands, &capa.ReadOnlyDisabledDnsBrands, brand, capability, enabled, readOnly)
-			case cloudprovider.CLOUD_CAPABILITY_MONGO_DB:
-				appendBrand(&capa.MongoDBBrands, &capa.DisabledMongoDBBrands, &capa.ReadOnlyMongoDBBrands, &capa.ReadOnlyDisabledMongoDBBrands, brand, capability, enabled, readOnly)
-			case cloudprovider.CLOUD_CAPABILITY_KAFKA:
-				appendBrand(&capa.KafkaBrands, &capa.DisabledKafkaBrands, &capa.ReadOnlyKafkaBrands, &capa.ReadOnlyDisabledKafkaBrands, brand, capability, enabled, readOnly)
 			default:
 			}
 		}

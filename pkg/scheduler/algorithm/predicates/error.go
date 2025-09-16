@@ -23,7 +23,6 @@ const (
 	ErrServerTypeIsNotMatch = `server type is not match`
 	ErrExitIsNotMatch       = `exit is not match`
 	ErrWireIsNotMatch       = `wire is not match`
-	ErrNotSupportIpv6       = `not support ipv6`
 
 	ErrNoPorts               = `no ports`
 	ErrNotOwner              = `not owner`

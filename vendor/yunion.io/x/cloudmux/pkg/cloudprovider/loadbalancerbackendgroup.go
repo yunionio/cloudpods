@@ -15,11 +15,9 @@
 package cloudprovider
 
 type SLoadbalancerBackendGroup struct {
-	Name          string
-	GroupType     string
-	Status        string
-	Backends      []SLoadbalancerBackend
-	HealthCheckId string
+	Name      string
+	GroupType string
+	Backends  []SLoadbalancerBackend
 
 	// huawei
 	Scheduler string
@@ -31,8 +29,6 @@ type SLoadbalancerBackendGroup struct {
 }
 
 type SLoadbalancerHealthCheck struct {
-	Name string
-
 	HealthCheckType string
 	HealthCheckReq  string
 	HealthCheckExp  string
@@ -43,8 +39,6 @@ type SLoadbalancerHealthCheck struct {
 	HealthCheckHttpCode string
 	HealthCheckURI      string
 	HealthCheckInterval int
-	HealthCheckMethod   string
-	HealthCheckPort     int
 
 	HealthCheckRise int
 	HealthCheckFail int

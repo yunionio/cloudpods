@@ -72,7 +72,7 @@ func (self *SZone) GetIHostById(id string) (cloudprovider.ICloudHost, error) {
 }
 
 func (self *SZone) GetStorages() ([]SStorage, error) {
-	product, err := self.region.GetProduct()
+	product, err := self.region.getProduct()
 	if err != nil {
 		return nil, errors.Wrapf(err, "getProduct")
 	}

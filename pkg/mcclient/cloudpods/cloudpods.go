@@ -114,7 +114,7 @@ func (self *SCloudpodsClient) auth() error {
 	token, err := client.AuthenticateByAccessKey(self.accessKey, self.accessSecret, "cli")
 	if err != nil {
 		if errors.Cause(err) == cloudprovider.ErrUnauthorized {
-			return errors.Wrapf(cloudprovider.ErrInvalidAccessKey, "%v", err)
+			return errors.Wrapf(cloudprovider.ErrInvalidAccessKey, err.Error())
 		}
 		return err
 	}
@@ -161,7 +161,7 @@ func (self *SCloudpodsClient) get(manager ModelManager, id string, params map[st
 	resp, err := manager.Get(self.s, id, body)
 	if err != nil {
 		if strings.Contains(err.Error(), "NotFoundError") {
-			return errors.Wrapf(cloudprovider.ErrNotFound, "%v", err)
+			return errors.Wrapf(cloudprovider.ErrNotFound, err.Error())
 		}
 		return errors.Wrapf(err, "Get(%s)", id)
 	}
@@ -265,7 +265,7 @@ func (self *SCloudpodsClient) GetIRegionById(id string) (cloudprovider.ICloudReg
 			return &regions[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", id)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
 }
 
 func (self *SCloudpodsClient) GetIRegions() ([]cloudprovider.ICloudRegion, error) {

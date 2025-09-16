@@ -95,11 +95,3 @@ type CDNDomainListInput struct {
 
 	ManagedResourceListInput
 }
-
-type CDNCustomHostnameOutput struct {
-	Data []cloudprovider.CustomHostname
-}
-
-type CDNDeleteCustomHostnameInput struct {
-	Id string
-}

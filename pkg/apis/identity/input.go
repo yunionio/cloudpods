@@ -369,7 +369,7 @@ type PolicyListInput struct {
 
 	// filter policies by role id
 	RoleId string `json:"role_id"`
-	// swagger:ignore
+	// swagger: ignore
 	// Deprecated
 	Role string `json:"role" yunion-deprecated-by:"role_id"`
 }

@@ -34,6 +34,8 @@ func init() {
 	models.RegisterGuestDriver(&driver)
 }
 
+func (self *SCucloudGuestDriver) DoScheduleSKUFilter() bool { return false }
+
 func (self *SCucloudGuestDriver) GetHypervisor() string {
 	return api.HYPERVISOR_CUCLOUD
 }

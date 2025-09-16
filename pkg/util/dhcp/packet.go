@@ -469,9 +469,6 @@ const (
 	OptionTZPOSIXString    OptionCode = 100
 	OptionTZDatabaseString OptionCode = 101
 
-	// https://datatracker.ietf.org/doc/html/rfc8925
-	OptionIPv6Only OptionCode = 108
-
 	OptionDomainSearch OptionCode = 119
 
 	OptionClasslessRouteFormat OptionCode = 121

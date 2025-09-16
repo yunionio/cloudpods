@@ -1535,6 +1535,17 @@ definitions:
                     type: string
                 type: array
                 x-go-name: Key
+            keys:
+                description: |-
+                    keys
+                    swagger: ignore
+                type: string
+                x-go-name: Keys
+            level:
+                description: 'swagger: ignore'
+                format: int64
+                type: integer
+                x-go-name: Level
             name:
                 description: |-
                     资源名称，如果generate_name为空，则为必填项
@@ -1707,6 +1718,28 @@ definitions:
                     type: string
                 type: array
                 x-go-name: SharedDomainIds
+        type: object
+        x-go-package: yunion.io/x/onecloud/pkg/apis
+    PerformStatusInput:
+        properties:
+            host_id:
+                description: call from host id
+                type: string
+                x-go-name: HostId
+            power_states:
+                description: 电源状态
+                type: string
+                x-go-name: PowerStates
+            reason:
+                description: 更改状态的原因描述
+                type: string
+                x-go-name: Reason
+            status:
+                description: 更改的目标状态值
+                type: string
+                x-go-name: Status
+        required:
+            - status
         type: object
         x-go-package: yunion.io/x/onecloud/pkg/apis
     PolicyBindRoleInput:
@@ -2228,6 +2261,15 @@ definitions:
                 x-go-name: Name
         type: object
         x-go-package: yunion.io/x/onecloud/pkg/apis/identity
+    PurgeSplitTableInput:
+        properties:
+            tables:
+                items:
+                    type: string
+                type: array
+                x-go-name: Tables
+        type: object
+        x-go-package: yunion.io/x/onecloud/pkg/apis
     RegionDetails:
         properties:
             can_delete:
@@ -3813,6 +3855,45 @@ definitions:
                 $ref: '#/definitions/Error'
         type: object
         x-go-package: yunion.io/x/onecloud/pkg/apis
+    StatusStatistic:
+        properties:
+            TotalCpuCount:
+                description: CPU总量
+                format: int64
+                type: integer
+            TotalDiskSizeMb:
+                description: 存储总量
+                format: int64
+                type: integer
+            TotalMemSizeMb:
+                description: 内存总量
+                format: int64
+                type: integer
+            status_info:
+                items:
+                    $ref: '#/definitions/StatusStatisticStatusInfo'
+                type: array
+                x-go-name: StatusInfo
+        type: object
+        x-go-package: yunion.io/x/onecloud/pkg/apis
+    StatusStatisticStatusInfo:
+        properties:
+            Status:
+                type: string
+            pending_deleted_count:
+                description: |-
+                    回收站数量
+                    需要指定pending_delete=all
+                format: int64
+                type: integer
+                x-go-name: PendingDeletedCount
+            total_count:
+                description: 资源总数
+                format: int64
+                type: integer
+                x-go-name: TotalCount
+        type: object
+        x-go-package: yunion.io/x/onecloud/pkg/apis
     TConfigs:
         additionalProperties:
             additionalProperties:
@@ -4338,11 +4419,6 @@ paths:
                   name: show_fail_reason
                   type: boolean
                   x-go-name: ShowFailReason
-                - description: 是否返回状态统计信息，默认为False
-                  in: query
-                  name: summary_stats
-                  type: boolean
-                  x-go-name: SummaryStats
                 - $ref: '#/definitions/TTagSet'
                   description: 通过标签过滤（包含这些标签）
                   in: query
@@ -4530,6 +4606,50 @@ paths:
             summary: 更新
             tags:
                 - credential
+    /credentials/{id}/class-metadata:
+        get:
+            description: 获取指定信息ClassMetadata
+            operationId: credential_GetDetailsClassMetadata
+            parameters:
+                - description: The Id or Name of credential
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+            responses:
+                "200":
+                    $ref: '#/responses/credential_GetDetailsClassMetadataOutput'
+            summary: 获取指定信息ClassMetadata
+            tags:
+                - credential
+        post:
+            description: 执行操作ClassMetadata
+            operationId: credential_PerformClassMetadata
+            parameters:
+                - description: The Id or Name of credential
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        credential:
+                            additionalProperties:
+                                type: string
+                            type: object
+                            x-go-name: Input
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/credential_PerformClassMetadataOutput'
+            summary: 更新资源的 class 标签
+            tags:
+                - credential
     /credentials/{id}/metadata:
         get:
             description: 获取指定信息Metadata
@@ -4565,6 +4685,201 @@ paths:
                 "200":
                     $ref: '#/responses/credential_GetDetailsMetadataOutput'
             summary: 获取资源标签（元数据）
+            tags:
+                - credential
+    /credentials/{id}/org-metadata:
+        get:
+            description: 获取指定信息OrgMetadata
+            operationId: credential_GetDetailsOrgMetadata
+            parameters:
+                - description: The Id or Name of credential
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+            responses:
+                "200":
+                    $ref: '#/responses/credential_GetDetailsOrgMetadataOutput'
+            summary: 获取指定信息OrgMetadata
+            tags:
+                - credential
+    /credentials/{id}/set-class-metadata:
+        post:
+            description: 执行操作SetClassMetadata
+            operationId: credential_PerformSetClassMetadata
+            parameters:
+                - description: The Id or Name of credential
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        credential:
+                            additionalProperties:
+                                type: string
+                            type: object
+                            x-go-name: Input
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/credential_PerformSetClassMetadataOutput'
+            summary: 全量替换资源的所有 class 标签
+            tags:
+                - credential
+    /credentials/{id}/set-org-metadata:
+        post:
+            description: 执行操作SetOrgMetadata
+            operationId: credential_PerformSetOrgMetadata
+            parameters:
+                - description: The Id or Name of credential
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        credential:
+                            additionalProperties:
+                                type: string
+                            type: object
+                            x-go-name: Input
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/credential_PerformSetOrgMetadataOutput'
+            summary: 全量替换资源的所有 class 标签
+            tags:
+                - credential
+    /credentials/{id}/set-user-metadata:
+        post:
+            description: 执行操作SetUserMetadata
+            operationId: credential_PerformSetUserMetadata
+            parameters:
+                - description: The Id or Name of credential
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        credential:
+                            additionalProperties:
+                                type: string
+                            type: object
+                            x-go-name: Input
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/credential_PerformSetUserMetadataOutput'
+            summary: 全量替换资源的所有用户标签
+            tags:
+                - credential
+    /credentials/distinct-field:
+        get:
+            description: 获取指定资源类的信息DistinctField
+            operationId: credential_GetPropertyDistinctField
+            responses:
+                "200":
+                    $ref: '#/responses/credential_GetPropertyDistinctFieldOutput'
+            summary: 获取指定资源类的信息DistinctField
+            tags:
+                - credential
+    /credentials/distinct-fields:
+        get:
+            description: 获取指定资源类的信息DistinctFields
+            operationId: credential_GetPropertyDistinctFields
+            responses:
+                "200":
+                    $ref: '#/responses/credential_GetPropertyDistinctFieldsOutput'
+            summary: 获取指定资源类的信息DistinctFields
+            tags:
+                - credential
+    /credentials/purge-splitable:
+        post:
+            description: 执行操作PurgeSplitable
+            operationId: credential_PerformPurgeSplitable
+            parameters:
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        credential:
+                            $ref: '#/definitions/PurgeSplitTableInput'
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/credential_PerformPurgeSplitableOutput'
+            summary: 执行操作PurgeSplitable
+            tags:
+                - credential
+    /credentials/splitable:
+        get:
+            description: 获取指定资源类的信息Splitable
+            operationId: credential_GetPropertySplitable
+            responses:
+                "200":
+                    $ref: '#/responses/credential_GetPropertySplitableOutput'
+            summary: 获取指定资源类的信息Splitable
+            tags:
+                - credential
+    /credentials/splitable-export:
+        get:
+            description: 获取指定资源类的信息SplitableExport
+            operationId: credential_GetPropertySplitableExport
+            parameters:
+                - in: query
+                  name: table
+                  type: string
+                  x-go-name: Table
+                - format: int64
+                  in: query
+                  name: offset
+                  type: integer
+                  x-go-name: Offset
+                - format: int64
+                  in: query
+                  name: limit
+                  type: integer
+                  x-go-name: Limit
+            responses:
+                "200":
+                    $ref: '#/responses/credential_GetPropertySplitableExportOutput'
+            summary: 获取指定资源类的信息SplitableExport
+            tags:
+                - credential
+    /credentials/tag-value-pairs:
+        get:
+            description: 获取指定资源类的信息TagValuePairs
+            operationId: credential_GetPropertyTagValuePairs
+            responses:
+                "200":
+                    $ref: '#/responses/credential_GetPropertyTagValuePairsOutput'
+            summary: 获取指定资源类的信息TagValuePairs
+            tags:
+                - credential
+    /credentials/tag-value-tree:
+        get:
+            description: 获取指定资源类的信息TagValueTree
+            operationId: credential_GetPropertyTagValueTree
+            responses:
+                "200":
+                    $ref: '#/responses/credential_GetPropertyTagValueTreeOutput'
+            summary: 获取指定资源类的信息TagValueTree
             tags:
                 - credential
     /domains:
@@ -4675,11 +4990,6 @@ paths:
                   name: show_fail_reason
                   type: boolean
                   x-go-name: ShowFailReason
-                - description: 是否返回状态统计信息，默认为False
-                  in: query
-                  name: summary_stats
-                  type: boolean
-                  x-go-name: SummaryStats
                 - $ref: '#/definitions/TTagSet'
                   description: 通过标签过滤（包含这些标签）
                   in: query
@@ -4856,6 +5166,50 @@ paths:
             summary: 更新
             tags:
                 - domain
+    /domains/{id}/class-metadata:
+        get:
+            description: 获取指定信息ClassMetadata
+            operationId: domain_GetDetailsClassMetadata
+            parameters:
+                - description: The Id or Name of domain
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+            responses:
+                "200":
+                    $ref: '#/responses/domain_GetDetailsClassMetadataOutput'
+            summary: 获取指定信息ClassMetadata
+            tags:
+                - domain
+        post:
+            description: 执行操作ClassMetadata
+            operationId: domain_PerformClassMetadata
+            parameters:
+                - description: The Id or Name of domain
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        domain:
+                            additionalProperties:
+                                type: string
+                            type: object
+                            x-go-name: Input
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/domain_PerformClassMetadataOutput'
+            summary: 更新资源的 class 标签
+            tags:
+                - domain
     /domains/{id}/metadata:
         get:
             description: 获取指定信息Metadata
@@ -4893,6 +5247,107 @@ paths:
             summary: 获取资源标签（元数据）
             tags:
                 - domain
+    /domains/{id}/org-metadata:
+        get:
+            description: 获取指定信息OrgMetadata
+            operationId: domain_GetDetailsOrgMetadata
+            parameters:
+                - description: The Id or Name of domain
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+            responses:
+                "200":
+                    $ref: '#/responses/domain_GetDetailsOrgMetadataOutput'
+            summary: 获取指定信息OrgMetadata
+            tags:
+                - domain
+    /domains/{id}/set-class-metadata:
+        post:
+            description: 执行操作SetClassMetadata
+            operationId: domain_PerformSetClassMetadata
+            parameters:
+                - description: The Id or Name of domain
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        domain:
+                            additionalProperties:
+                                type: string
+                            type: object
+                            x-go-name: Input
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/domain_PerformSetClassMetadataOutput'
+            summary: 全量替换资源的所有 class 标签
+            tags:
+                - domain
+    /domains/{id}/set-org-metadata:
+        post:
+            description: 执行操作SetOrgMetadata
+            operationId: domain_PerformSetOrgMetadata
+            parameters:
+                - description: The Id or Name of domain
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        domain:
+                            additionalProperties:
+                                type: string
+                            type: object
+                            x-go-name: Input
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/domain_PerformSetOrgMetadataOutput'
+            summary: 全量替换资源的所有 class 标签
+            tags:
+                - domain
+    /domains/{id}/set-user-metadata:
+        post:
+            description: 执行操作SetUserMetadata
+            operationId: domain_PerformSetUserMetadata
+            parameters:
+                - description: The Id or Name of domain
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        domain:
+                            additionalProperties:
+                                type: string
+                            type: object
+                            x-go-name: Input
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/domain_PerformSetUserMetadataOutput'
+            summary: 全量替换资源的所有用户标签
+            tags:
+                - domain
     /domains/{id}/unlink-idp:
         post:
             description: 执行操作UnlinkIdp
@@ -4916,6 +5371,100 @@ paths:
                 "200":
                     $ref: '#/responses/domain_PerformUnlinkIdpOutput'
             summary: domain和IDP的指定entityId解除关联
+            tags:
+                - domain
+    /domains/distinct-field:
+        get:
+            description: 获取指定资源类的信息DistinctField
+            operationId: domain_GetPropertyDistinctField
+            responses:
+                "200":
+                    $ref: '#/responses/domain_GetPropertyDistinctFieldOutput'
+            summary: 获取指定资源类的信息DistinctField
+            tags:
+                - domain
+    /domains/distinct-fields:
+        get:
+            description: 获取指定资源类的信息DistinctFields
+            operationId: domain_GetPropertyDistinctFields
+            responses:
+                "200":
+                    $ref: '#/responses/domain_GetPropertyDistinctFieldsOutput'
+            summary: 获取指定资源类的信息DistinctFields
+            tags:
+                - domain
+    /domains/purge-splitable:
+        post:
+            description: 执行操作PurgeSplitable
+            operationId: domain_PerformPurgeSplitable
+            parameters:
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        domain:
+                            $ref: '#/definitions/PurgeSplitTableInput'
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/domain_PerformPurgeSplitableOutput'
+            summary: 执行操作PurgeSplitable
+            tags:
+                - domain
+    /domains/splitable:
+        get:
+            description: 获取指定资源类的信息Splitable
+            operationId: domain_GetPropertySplitable
+            responses:
+                "200":
+                    $ref: '#/responses/domain_GetPropertySplitableOutput'
+            summary: 获取指定资源类的信息Splitable
+            tags:
+                - domain
+    /domains/splitable-export:
+        get:
+            description: 获取指定资源类的信息SplitableExport
+            operationId: domain_GetPropertySplitableExport
+            parameters:
+                - in: query
+                  name: table
+                  type: string
+                  x-go-name: Table
+                - format: int64
+                  in: query
+                  name: offset
+                  type: integer
+                  x-go-name: Offset
+                - format: int64
+                  in: query
+                  name: limit
+                  type: integer
+                  x-go-name: Limit
+            responses:
+                "200":
+                    $ref: '#/responses/domain_GetPropertySplitableExportOutput'
+            summary: 获取指定资源类的信息SplitableExport
+            tags:
+                - domain
+    /domains/tag-value-pairs:
+        get:
+            description: 获取指定资源类的信息TagValuePairs
+            operationId: domain_GetPropertyTagValuePairs
+            responses:
+                "200":
+                    $ref: '#/responses/domain_GetPropertyTagValuePairsOutput'
+            summary: 获取指定资源类的信息TagValuePairs
+            tags:
+                - domain
+    /domains/tag-value-tree:
+        get:
+            description: 获取指定资源类的信息TagValueTree
+            operationId: domain_GetPropertyTagValueTree
+            responses:
+                "200":
+                    $ref: '#/responses/domain_GetPropertyTagValueTreeOutput'
+            summary: 获取指定资源类的信息TagValueTree
             tags:
                 - domain
     /endpoints:
@@ -5026,11 +5575,6 @@ paths:
                   name: show_fail_reason
                   type: boolean
                   x-go-name: ShowFailReason
-                - description: 是否返回状态统计信息，默认为False
-                  in: query
-                  name: summary_stats
-                  type: boolean
-                  x-go-name: SummaryStats
                 - $ref: '#/definitions/TTagSet'
                   description: 通过标签过滤（包含这些标签）
                   in: query
@@ -5196,6 +5740,50 @@ paths:
             summary: 更新
             tags:
                 - endpoint
+    /endpoints/{id}/class-metadata:
+        get:
+            description: 获取指定信息ClassMetadata
+            operationId: endpoint_GetDetailsClassMetadata
+            parameters:
+                - description: The Id or Name of endpoint
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+            responses:
+                "200":
+                    $ref: '#/responses/endpoint_GetDetailsClassMetadataOutput'
+            summary: 获取指定信息ClassMetadata
+            tags:
+                - endpoint
+        post:
+            description: 执行操作ClassMetadata
+            operationId: endpoint_PerformClassMetadata
+            parameters:
+                - description: The Id or Name of endpoint
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        endpoint:
+                            additionalProperties:
+                                type: string
+                            type: object
+                            x-go-name: Input
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/endpoint_PerformClassMetadataOutput'
+            summary: 更新资源的 class 标签
+            tags:
+                - endpoint
     /endpoints/{id}/metadata:
         get:
             description: 获取指定信息Metadata
@@ -5231,6 +5819,201 @@ paths:
                 "200":
                     $ref: '#/responses/endpoint_GetDetailsMetadataOutput'
             summary: 获取资源标签（元数据）
+            tags:
+                - endpoint
+    /endpoints/{id}/org-metadata:
+        get:
+            description: 获取指定信息OrgMetadata
+            operationId: endpoint_GetDetailsOrgMetadata
+            parameters:
+                - description: The Id or Name of endpoint
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+            responses:
+                "200":
+                    $ref: '#/responses/endpoint_GetDetailsOrgMetadataOutput'
+            summary: 获取指定信息OrgMetadata
+            tags:
+                - endpoint
+    /endpoints/{id}/set-class-metadata:
+        post:
+            description: 执行操作SetClassMetadata
+            operationId: endpoint_PerformSetClassMetadata
+            parameters:
+                - description: The Id or Name of endpoint
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        endpoint:
+                            additionalProperties:
+                                type: string
+                            type: object
+                            x-go-name: Input
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/endpoint_PerformSetClassMetadataOutput'
+            summary: 全量替换资源的所有 class 标签
+            tags:
+                - endpoint
+    /endpoints/{id}/set-org-metadata:
+        post:
+            description: 执行操作SetOrgMetadata
+            operationId: endpoint_PerformSetOrgMetadata
+            parameters:
+                - description: The Id or Name of endpoint
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        endpoint:
+                            additionalProperties:
+                                type: string
+                            type: object
+                            x-go-name: Input
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/endpoint_PerformSetOrgMetadataOutput'
+            summary: 全量替换资源的所有 class 标签
+            tags:
+                - endpoint
+    /endpoints/{id}/set-user-metadata:
+        post:
+            description: 执行操作SetUserMetadata
+            operationId: endpoint_PerformSetUserMetadata
+            parameters:
+                - description: The Id or Name of endpoint
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        endpoint:
+                            additionalProperties:
+                                type: string
+                            type: object
+                            x-go-name: Input
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/endpoint_PerformSetUserMetadataOutput'
+            summary: 全量替换资源的所有用户标签
+            tags:
+                - endpoint
+    /endpoints/distinct-field:
+        get:
+            description: 获取指定资源类的信息DistinctField
+            operationId: endpoint_GetPropertyDistinctField
+            responses:
+                "200":
+                    $ref: '#/responses/endpoint_GetPropertyDistinctFieldOutput'
+            summary: 获取指定资源类的信息DistinctField
+            tags:
+                - endpoint
+    /endpoints/distinct-fields:
+        get:
+            description: 获取指定资源类的信息DistinctFields
+            operationId: endpoint_GetPropertyDistinctFields
+            responses:
+                "200":
+                    $ref: '#/responses/endpoint_GetPropertyDistinctFieldsOutput'
+            summary: 获取指定资源类的信息DistinctFields
+            tags:
+                - endpoint
+    /endpoints/purge-splitable:
+        post:
+            description: 执行操作PurgeSplitable
+            operationId: endpoint_PerformPurgeSplitable
+            parameters:
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        endpoint:
+                            $ref: '#/definitions/PurgeSplitTableInput'
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/endpoint_PerformPurgeSplitableOutput'
+            summary: 执行操作PurgeSplitable
+            tags:
+                - endpoint
+    /endpoints/splitable:
+        get:
+            description: 获取指定资源类的信息Splitable
+            operationId: endpoint_GetPropertySplitable
+            responses:
+                "200":
+                    $ref: '#/responses/endpoint_GetPropertySplitableOutput'
+            summary: 获取指定资源类的信息Splitable
+            tags:
+                - endpoint
+    /endpoints/splitable-export:
+        get:
+            description: 获取指定资源类的信息SplitableExport
+            operationId: endpoint_GetPropertySplitableExport
+            parameters:
+                - in: query
+                  name: table
+                  type: string
+                  x-go-name: Table
+                - format: int64
+                  in: query
+                  name: offset
+                  type: integer
+                  x-go-name: Offset
+                - format: int64
+                  in: query
+                  name: limit
+                  type: integer
+                  x-go-name: Limit
+            responses:
+                "200":
+                    $ref: '#/responses/endpoint_GetPropertySplitableExportOutput'
+            summary: 获取指定资源类的信息SplitableExport
+            tags:
+                - endpoint
+    /endpoints/tag-value-pairs:
+        get:
+            description: 获取指定资源类的信息TagValuePairs
+            operationId: endpoint_GetPropertyTagValuePairs
+            responses:
+                "200":
+                    $ref: '#/responses/endpoint_GetPropertyTagValuePairsOutput'
+            summary: 获取指定资源类的信息TagValuePairs
+            tags:
+                - endpoint
+    /endpoints/tag-value-tree:
+        get:
+            description: 获取指定资源类的信息TagValueTree
+            operationId: endpoint_GetPropertyTagValueTree
+            responses:
+                "200":
+                    $ref: '#/responses/endpoint_GetPropertyTagValueTreeOutput'
+            summary: 获取指定资源类的信息TagValueTree
             tags:
                 - endpoint
     /groups:
@@ -5341,11 +6124,6 @@ paths:
                   name: show_fail_reason
                   type: boolean
                   x-go-name: ShowFailReason
-                - description: 是否返回状态统计信息，默认为False
-                  in: query
-                  name: summary_stats
-                  type: boolean
-                  x-go-name: SummaryStats
                 - $ref: '#/definitions/TTagSet'
                   description: 通过标签过滤（包含这些标签）
                   in: query
@@ -5586,6 +6364,50 @@ paths:
             summary: 组添加用户
             tags:
                 - group
+    /groups/{id}/class-metadata:
+        get:
+            description: 获取指定信息ClassMetadata
+            operationId: group_GetDetailsClassMetadata
+            parameters:
+                - description: The Id or Name of group
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+            responses:
+                "200":
+                    $ref: '#/responses/group_GetDetailsClassMetadataOutput'
+            summary: 获取指定信息ClassMetadata
+            tags:
+                - group
+        post:
+            description: 执行操作ClassMetadata
+            operationId: group_PerformClassMetadata
+            parameters:
+                - description: The Id or Name of group
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        group:
+                            additionalProperties:
+                                type: string
+                            type: object
+                            x-go-name: Input
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/group_PerformClassMetadataOutput'
+            summary: 更新资源的 class 标签
+            tags:
+                - group
     /groups/{id}/join:
         post:
             description: 执行操作Join
@@ -5673,6 +6495,23 @@ paths:
             summary: 获取资源标签（元数据）
             tags:
                 - group
+    /groups/{id}/org-metadata:
+        get:
+            description: 获取指定信息OrgMetadata
+            operationId: group_GetDetailsOrgMetadata
+            parameters:
+                - description: The Id or Name of group
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+            responses:
+                "200":
+                    $ref: '#/responses/group_GetDetailsOrgMetadataOutput'
+            summary: 获取指定信息OrgMetadata
+            tags:
+                - group
     /groups/{id}/remove-users:
         post:
             description: 执行操作RemoveUsers
@@ -5698,6 +6537,110 @@ paths:
             summary: 组删除用户
             tags:
                 - group
+    /groups/{id}/set-class-metadata:
+        post:
+            description: 执行操作SetClassMetadata
+            operationId: group_PerformSetClassMetadata
+            parameters:
+                - description: The Id or Name of group
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        group:
+                            additionalProperties:
+                                type: string
+                            type: object
+                            x-go-name: Input
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/group_PerformSetClassMetadataOutput'
+            summary: 全量替换资源的所有 class 标签
+            tags:
+                - group
+    /groups/{id}/set-org-metadata:
+        post:
+            description: 执行操作SetOrgMetadata
+            operationId: group_PerformSetOrgMetadata
+            parameters:
+                - description: The Id or Name of group
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        group:
+                            additionalProperties:
+                                type: string
+                            type: object
+                            x-go-name: Input
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/group_PerformSetOrgMetadataOutput'
+            summary: 全量替换资源的所有 class 标签
+            tags:
+                - group
+    /groups/{id}/set-user-metadata:
+        post:
+            description: 执行操作SetUserMetadata
+            operationId: group_PerformSetUserMetadata
+            parameters:
+                - description: The Id or Name of group
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        group:
+                            additionalProperties:
+                                type: string
+                            type: object
+                            x-go-name: Input
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/group_PerformSetUserMetadataOutput'
+            summary: 全量替换资源的所有用户标签
+            tags:
+                - group
+    /groups/distinct-field:
+        get:
+            description: 获取指定资源类的信息DistinctField
+            operationId: group_GetPropertyDistinctField
+            responses:
+                "200":
+                    $ref: '#/responses/group_GetPropertyDistinctFieldOutput'
+            summary: 获取指定资源类的信息DistinctField
+            tags:
+                - group
+    /groups/distinct-fields:
+        get:
+            description: 获取指定资源类的信息DistinctFields
+            operationId: group_GetPropertyDistinctFields
+            responses:
+                "200":
+                    $ref: '#/responses/group_GetPropertyDistinctFieldsOutput'
+            summary: 获取指定资源类的信息DistinctFields
+            tags:
+                - group
     /groups/domain-tag-value-pairs:
         get:
             description: 获取指定资源类的信息DomainTagValuePairs
@@ -5716,6 +6659,80 @@ paths:
                 "200":
                     $ref: '#/responses/group_GetPropertyDomainTagValueTreeOutput'
             summary: 获取指定资源类的信息DomainTagValueTree
+            tags:
+                - group
+    /groups/purge-splitable:
+        post:
+            description: 执行操作PurgeSplitable
+            operationId: group_PerformPurgeSplitable
+            parameters:
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        group:
+                            $ref: '#/definitions/PurgeSplitTableInput'
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/group_PerformPurgeSplitableOutput'
+            summary: 执行操作PurgeSplitable
+            tags:
+                - group
+    /groups/splitable:
+        get:
+            description: 获取指定资源类的信息Splitable
+            operationId: group_GetPropertySplitable
+            responses:
+                "200":
+                    $ref: '#/responses/group_GetPropertySplitableOutput'
+            summary: 获取指定资源类的信息Splitable
+            tags:
+                - group
+    /groups/splitable-export:
+        get:
+            description: 获取指定资源类的信息SplitableExport
+            operationId: group_GetPropertySplitableExport
+            parameters:
+                - in: query
+                  name: table
+                  type: string
+                  x-go-name: Table
+                - format: int64
+                  in: query
+                  name: offset
+                  type: integer
+                  x-go-name: Offset
+                - format: int64
+                  in: query
+                  name: limit
+                  type: integer
+                  x-go-name: Limit
+            responses:
+                "200":
+                    $ref: '#/responses/group_GetPropertySplitableExportOutput'
+            summary: 获取指定资源类的信息SplitableExport
+            tags:
+                - group
+    /groups/tag-value-pairs:
+        get:
+            description: 获取指定资源类的信息TagValuePairs
+            operationId: group_GetPropertyTagValuePairs
+            responses:
+                "200":
+                    $ref: '#/responses/group_GetPropertyTagValuePairsOutput'
+            summary: 获取指定资源类的信息TagValuePairs
+            tags:
+                - group
+    /groups/tag-value-tree:
+        get:
+            description: 获取指定资源类的信息TagValueTree
+            operationId: group_GetPropertyTagValueTree
+            responses:
+                "200":
+                    $ref: '#/responses/group_GetPropertyTagValueTreeOutput'
+            summary: 获取指定资源类的信息TagValueTree
             tags:
                 - group
     /identity_providers:
@@ -5826,11 +6843,6 @@ paths:
                   name: show_fail_reason
                   type: boolean
                   x-go-name: ShowFailReason
-                - description: 是否返回状态统计信息，默认为False
-                  in: query
-                  name: summary_stats
-                  type: boolean
-                  x-go-name: SummaryStats
                 - $ref: '#/definitions/TTagSet'
                   description: 通过标签过滤（包含这些标签）
                   in: query
@@ -6068,6 +7080,50 @@ paths:
             summary: 更新
             tags:
                 - identity_provider
+    /identity_providers/{id}/class-metadata:
+        get:
+            description: 获取指定信息ClassMetadata
+            operationId: identity_provider_GetDetailsClassMetadata
+            parameters:
+                - description: The Id or Name of identity_provider
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+            responses:
+                "200":
+                    $ref: '#/responses/identity_provider_GetDetailsClassMetadataOutput'
+            summary: 获取指定信息ClassMetadata
+            tags:
+                - identity_provider
+        post:
+            description: 执行操作ClassMetadata
+            operationId: identity_provider_PerformClassMetadata
+            parameters:
+                - description: The Id or Name of identity_provider
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        identity_provider:
+                            additionalProperties:
+                                type: string
+                            type: object
+                            x-go-name: Input
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/identity_provider_PerformClassMetadataOutput'
+            summary: 更新资源的 class 标签
+            tags:
+                - identity_provider
     /identity_providers/{id}/config:
         get:
             description: 获取指定信息Config
@@ -6221,6 +7277,23 @@ paths:
             summary: 获取资源标签（元数据）
             tags:
                 - identity_provider
+    /identity_providers/{id}/org-metadata:
+        get:
+            description: 获取指定信息OrgMetadata
+            operationId: identity_provider_GetDetailsOrgMetadata
+            parameters:
+                - description: The Id or Name of identity_provider
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+            responses:
+                "200":
+                    $ref: '#/responses/identity_provider_GetDetailsOrgMetadataOutput'
+            summary: 获取指定信息OrgMetadata
+            tags:
+                - identity_provider
     /identity_providers/{id}/saml-metadata:
         get:
             description: 获取指定信息SamlMetadata
@@ -6246,6 +7319,90 @@ paths:
                 "200":
                     $ref: '#/responses/identity_provider_GetDetailsSamlMetadataOutput'
             summary: 获取指定信息SamlMetadata
+            tags:
+                - identity_provider
+    /identity_providers/{id}/set-class-metadata:
+        post:
+            description: 执行操作SetClassMetadata
+            operationId: identity_provider_PerformSetClassMetadata
+            parameters:
+                - description: The Id or Name of identity_provider
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        identity_provider:
+                            additionalProperties:
+                                type: string
+                            type: object
+                            x-go-name: Input
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/identity_provider_PerformSetClassMetadataOutput'
+            summary: 全量替换资源的所有 class 标签
+            tags:
+                - identity_provider
+    /identity_providers/{id}/set-org-metadata:
+        post:
+            description: 执行操作SetOrgMetadata
+            operationId: identity_provider_PerformSetOrgMetadata
+            parameters:
+                - description: The Id or Name of identity_provider
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        identity_provider:
+                            additionalProperties:
+                                type: string
+                            type: object
+                            x-go-name: Input
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/identity_provider_PerformSetOrgMetadataOutput'
+            summary: 全量替换资源的所有 class 标签
+            tags:
+                - identity_provider
+    /identity_providers/{id}/set-user-metadata:
+        post:
+            description: 执行操作SetUserMetadata
+            operationId: identity_provider_PerformSetUserMetadata
+            parameters:
+                - description: The Id or Name of identity_provider
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        identity_provider:
+                            additionalProperties:
+                                type: string
+                            type: object
+                            x-go-name: Input
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/identity_provider_PerformSetUserMetadataOutput'
+            summary: 全量替换资源的所有用户标签
             tags:
                 - identity_provider
     /identity_providers/{id}/sso-callback-uri:
@@ -6314,6 +7471,30 @@ paths:
             summary: 获取资源状态
             tags:
                 - identity_provider
+        post:
+            description: 执行操作Status
+            operationId: identity_provider_PerformStatus
+            parameters:
+                - description: The Id or Name of identity_provider
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        identity_provider:
+                            $ref: '#/definitions/PerformStatusInput'
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/identity_provider_PerformStatusOutput'
+            summary: 更新资源状态
+            tags:
+                - identity_provider
     /identity_providers/{id}/sync:
         post:
             description: 执行操作Sync
@@ -6329,6 +7510,110 @@ paths:
                 "200":
                     $ref: '#/responses/identity_provider_PerformSyncOutput'
             summary: 手动同步认证源
+            tags:
+                - identity_provider
+    /identity_providers/distinct-field:
+        get:
+            description: 获取指定资源类的信息DistinctField
+            operationId: identity_provider_GetPropertyDistinctField
+            responses:
+                "200":
+                    $ref: '#/responses/identity_provider_GetPropertyDistinctFieldOutput'
+            summary: 获取指定资源类的信息DistinctField
+            tags:
+                - identity_provider
+    /identity_providers/distinct-fields:
+        get:
+            description: 获取指定资源类的信息DistinctFields
+            operationId: identity_provider_GetPropertyDistinctFields
+            responses:
+                "200":
+                    $ref: '#/responses/identity_provider_GetPropertyDistinctFieldsOutput'
+            summary: 获取指定资源类的信息DistinctFields
+            tags:
+                - identity_provider
+    /identity_providers/purge-splitable:
+        post:
+            description: 执行操作PurgeSplitable
+            operationId: identity_provider_PerformPurgeSplitable
+            parameters:
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        identity_provider:
+                            $ref: '#/definitions/PurgeSplitTableInput'
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/identity_provider_PerformPurgeSplitableOutput'
+            summary: 执行操作PurgeSplitable
+            tags:
+                - identity_provider
+    /identity_providers/splitable:
+        get:
+            description: 获取指定资源类的信息Splitable
+            operationId: identity_provider_GetPropertySplitable
+            responses:
+                "200":
+                    $ref: '#/responses/identity_provider_GetPropertySplitableOutput'
+            summary: 获取指定资源类的信息Splitable
+            tags:
+                - identity_provider
+    /identity_providers/splitable-export:
+        get:
+            description: 获取指定资源类的信息SplitableExport
+            operationId: identity_provider_GetPropertySplitableExport
+            parameters:
+                - in: query
+                  name: table
+                  type: string
+                  x-go-name: Table
+                - format: int64
+                  in: query
+                  name: offset
+                  type: integer
+                  x-go-name: Offset
+                - format: int64
+                  in: query
+                  name: limit
+                  type: integer
+                  x-go-name: Limit
+            responses:
+                "200":
+                    $ref: '#/responses/identity_provider_GetPropertySplitableExportOutput'
+            summary: 获取指定资源类的信息SplitableExport
+            tags:
+                - identity_provider
+    /identity_providers/statistics:
+        get:
+            description: 获取指定资源类的信息Statistics
+            operationId: identity_provider_GetPropertyStatistics
+            responses:
+                "200":
+                    $ref: '#/responses/identity_provider_GetPropertyStatisticsOutput'
+            summary: 获取指定资源类的信息Statistics
+            tags:
+                - identity_provider
+    /identity_providers/tag-value-pairs:
+        get:
+            description: 获取指定资源类的信息TagValuePairs
+            operationId: identity_provider_GetPropertyTagValuePairs
+            responses:
+                "200":
+                    $ref: '#/responses/identity_provider_GetPropertyTagValuePairsOutput'
+            summary: 获取指定资源类的信息TagValuePairs
+            tags:
+                - identity_provider
+    /identity_providers/tag-value-tree:
+        get:
+            description: 获取指定资源类的信息TagValueTree
+            operationId: identity_provider_GetPropertyTagValueTree
+            responses:
+                "200":
+                    $ref: '#/responses/identity_provider_GetPropertyTagValueTreeOutput'
+            summary: 获取指定资源类的信息TagValueTree
             tags:
                 - identity_provider
     /identity_quotas/domains:
@@ -6519,11 +7804,6 @@ paths:
                   name: show_fail_reason
                   type: boolean
                   x-go-name: ShowFailReason
-                - description: 是否返回状态统计信息，默认为False
-                  in: query
-                  name: summary_stats
-                  type: boolean
-                  x-go-name: SummaryStats
                 - $ref: '#/definitions/TTagSet'
                   description: 通过标签过滤（包含这些标签）
                   in: query
@@ -6734,6 +8014,50 @@ paths:
             summary: 执行操作Bind
             tags:
                 - organization_node
+    /organization_nodes/{id}/class-metadata:
+        get:
+            description: 获取指定信息ClassMetadata
+            operationId: organization_node_GetDetailsClassMetadata
+            parameters:
+                - description: The Id or Name of organization_node
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+            responses:
+                "200":
+                    $ref: '#/responses/organization_node_GetDetailsClassMetadataOutput'
+            summary: 获取指定信息ClassMetadata
+            tags:
+                - organization_node
+        post:
+            description: 执行操作ClassMetadata
+            operationId: organization_node_PerformClassMetadata
+            parameters:
+                - description: The Id or Name of organization_node
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        organization_node:
+                            additionalProperties:
+                                type: string
+                            type: object
+                            x-go-name: Input
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/organization_node_PerformClassMetadataOutput'
+            summary: 更新资源的 class 标签
+            tags:
+                - organization_node
     /organization_nodes/{id}/metadata:
         get:
             description: 获取指定信息Metadata
@@ -6771,6 +8095,107 @@ paths:
             summary: 获取资源标签（元数据）
             tags:
                 - organization_node
+    /organization_nodes/{id}/org-metadata:
+        get:
+            description: 获取指定信息OrgMetadata
+            operationId: organization_node_GetDetailsOrgMetadata
+            parameters:
+                - description: The Id or Name of organization_node
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+            responses:
+                "200":
+                    $ref: '#/responses/organization_node_GetDetailsOrgMetadataOutput'
+            summary: 获取指定信息OrgMetadata
+            tags:
+                - organization_node
+    /organization_nodes/{id}/set-class-metadata:
+        post:
+            description: 执行操作SetClassMetadata
+            operationId: organization_node_PerformSetClassMetadata
+            parameters:
+                - description: The Id or Name of organization_node
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        organization_node:
+                            additionalProperties:
+                                type: string
+                            type: object
+                            x-go-name: Input
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/organization_node_PerformSetClassMetadataOutput'
+            summary: 全量替换资源的所有 class 标签
+            tags:
+                - organization_node
+    /organization_nodes/{id}/set-org-metadata:
+        post:
+            description: 执行操作SetOrgMetadata
+            operationId: organization_node_PerformSetOrgMetadata
+            parameters:
+                - description: The Id or Name of organization_node
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        organization_node:
+                            additionalProperties:
+                                type: string
+                            type: object
+                            x-go-name: Input
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/organization_node_PerformSetOrgMetadataOutput'
+            summary: 全量替换资源的所有 class 标签
+            tags:
+                - organization_node
+    /organization_nodes/{id}/set-user-metadata:
+        post:
+            description: 执行操作SetUserMetadata
+            operationId: organization_node_PerformSetUserMetadata
+            parameters:
+                - description: The Id or Name of organization_node
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        organization_node:
+                            additionalProperties:
+                                type: string
+                            type: object
+                            x-go-name: Input
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/organization_node_PerformSetUserMetadataOutput'
+            summary: 全量替换资源的所有用户标签
+            tags:
+                - organization_node
     /organization_nodes/{id}/unbind:
         post:
             description: 执行操作Unbind
@@ -6794,6 +8219,100 @@ paths:
                 "200":
                     $ref: '#/responses/organization_node_PerformUnbindOutput'
             summary: 执行操作Unbind
+            tags:
+                - organization_node
+    /organization_nodes/distinct-field:
+        get:
+            description: 获取指定资源类的信息DistinctField
+            operationId: organization_node_GetPropertyDistinctField
+            responses:
+                "200":
+                    $ref: '#/responses/organization_node_GetPropertyDistinctFieldOutput'
+            summary: 获取指定资源类的信息DistinctField
+            tags:
+                - organization_node
+    /organization_nodes/distinct-fields:
+        get:
+            description: 获取指定资源类的信息DistinctFields
+            operationId: organization_node_GetPropertyDistinctFields
+            responses:
+                "200":
+                    $ref: '#/responses/organization_node_GetPropertyDistinctFieldsOutput'
+            summary: 获取指定资源类的信息DistinctFields
+            tags:
+                - organization_node
+    /organization_nodes/purge-splitable:
+        post:
+            description: 执行操作PurgeSplitable
+            operationId: organization_node_PerformPurgeSplitable
+            parameters:
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        organization_node:
+                            $ref: '#/definitions/PurgeSplitTableInput'
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/organization_node_PerformPurgeSplitableOutput'
+            summary: 执行操作PurgeSplitable
+            tags:
+                - organization_node
+    /organization_nodes/splitable:
+        get:
+            description: 获取指定资源类的信息Splitable
+            operationId: organization_node_GetPropertySplitable
+            responses:
+                "200":
+                    $ref: '#/responses/organization_node_GetPropertySplitableOutput'
+            summary: 获取指定资源类的信息Splitable
+            tags:
+                - organization_node
+    /organization_nodes/splitable-export:
+        get:
+            description: 获取指定资源类的信息SplitableExport
+            operationId: organization_node_GetPropertySplitableExport
+            parameters:
+                - in: query
+                  name: table
+                  type: string
+                  x-go-name: Table
+                - format: int64
+                  in: query
+                  name: offset
+                  type: integer
+                  x-go-name: Offset
+                - format: int64
+                  in: query
+                  name: limit
+                  type: integer
+                  x-go-name: Limit
+            responses:
+                "200":
+                    $ref: '#/responses/organization_node_GetPropertySplitableExportOutput'
+            summary: 获取指定资源类的信息SplitableExport
+            tags:
+                - organization_node
+    /organization_nodes/tag-value-pairs:
+        get:
+            description: 获取指定资源类的信息TagValuePairs
+            operationId: organization_node_GetPropertyTagValuePairs
+            responses:
+                "200":
+                    $ref: '#/responses/organization_node_GetPropertyTagValuePairsOutput'
+            summary: 获取指定资源类的信息TagValuePairs
+            tags:
+                - organization_node
+    /organization_nodes/tag-value-tree:
+        get:
+            description: 获取指定资源类的信息TagValueTree
+            operationId: organization_node_GetPropertyTagValueTree
+            responses:
+                "200":
+                    $ref: '#/responses/organization_node_GetPropertyTagValueTreeOutput'
+            summary: 获取指定资源类的信息TagValueTree
             tags:
                 - organization_node
     /organizations:
@@ -6904,11 +8423,6 @@ paths:
                   name: show_fail_reason
                   type: boolean
                   x-go-name: ShowFailReason
-                - description: 是否返回状态统计信息，默认为False
-                  in: query
-                  name: summary_stats
-                  type: boolean
-                  x-go-name: SummaryStats
                 - $ref: '#/definitions/TTagSet'
                   description: 通过标签过滤（包含这些标签）
                   in: query
@@ -7181,6 +8695,50 @@ paths:
             summary: 执行操作AddNode
             tags:
                 - organization
+    /organizations/{id}/class-metadata:
+        get:
+            description: 获取指定信息ClassMetadata
+            operationId: organization_GetDetailsClassMetadata
+            parameters:
+                - description: The Id or Name of organization
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+            responses:
+                "200":
+                    $ref: '#/responses/organization_GetDetailsClassMetadataOutput'
+            summary: 获取指定信息ClassMetadata
+            tags:
+                - organization
+        post:
+            description: 执行操作ClassMetadata
+            operationId: organization_PerformClassMetadata
+            parameters:
+                - description: The Id or Name of organization
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        organization:
+                            additionalProperties:
+                                type: string
+                            type: object
+                            x-go-name: Input
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/organization_PerformClassMetadataOutput'
+            summary: 更新资源的 class 标签
+            tags:
+                - organization
     /organizations/{id}/clean:
         post:
             description: 执行操作Clean
@@ -7293,6 +8851,107 @@ paths:
             summary: 获取资源标签（元数据）
             tags:
                 - organization
+    /organizations/{id}/org-metadata:
+        get:
+            description: 获取指定信息OrgMetadata
+            operationId: organization_GetDetailsOrgMetadata
+            parameters:
+                - description: The Id or Name of organization
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+            responses:
+                "200":
+                    $ref: '#/responses/organization_GetDetailsOrgMetadataOutput'
+            summary: 获取指定信息OrgMetadata
+            tags:
+                - organization
+    /organizations/{id}/set-class-metadata:
+        post:
+            description: 执行操作SetClassMetadata
+            operationId: organization_PerformSetClassMetadata
+            parameters:
+                - description: The Id or Name of organization
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        organization:
+                            additionalProperties:
+                                type: string
+                            type: object
+                            x-go-name: Input
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/organization_PerformSetClassMetadataOutput'
+            summary: 全量替换资源的所有 class 标签
+            tags:
+                - organization
+    /organizations/{id}/set-org-metadata:
+        post:
+            description: 执行操作SetOrgMetadata
+            operationId: organization_PerformSetOrgMetadata
+            parameters:
+                - description: The Id or Name of organization
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        organization:
+                            additionalProperties:
+                                type: string
+                            type: object
+                            x-go-name: Input
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/organization_PerformSetOrgMetadataOutput'
+            summary: 全量替换资源的所有 class 标签
+            tags:
+                - organization
+    /organizations/{id}/set-user-metadata:
+        post:
+            description: 执行操作SetUserMetadata
+            operationId: organization_PerformSetUserMetadata
+            parameters:
+                - description: The Id or Name of organization
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        organization:
+                            additionalProperties:
+                                type: string
+                            type: object
+                            x-go-name: Input
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/organization_PerformSetUserMetadataOutput'
+            summary: 全量替换资源的所有用户标签
+            tags:
+                - organization
     /organizations/{id}/status:
         get:
             description: 获取指定信息Status
@@ -7335,6 +8994,26 @@ paths:
             summary: 执行操作Sync
             tags:
                 - organization
+    /organizations/distinct-field:
+        get:
+            description: 获取指定资源类的信息DistinctField
+            operationId: organization_GetPropertyDistinctField
+            responses:
+                "200":
+                    $ref: '#/responses/organization_GetPropertyDistinctFieldOutput'
+            summary: 获取指定资源类的信息DistinctField
+            tags:
+                - organization
+    /organizations/distinct-fields:
+        get:
+            description: 获取指定资源类的信息DistinctFields
+            operationId: organization_GetPropertyDistinctFields
+            responses:
+                "200":
+                    $ref: '#/responses/organization_GetPropertyDistinctFieldsOutput'
+            summary: 获取指定资源类的信息DistinctFields
+            tags:
+                - organization
     /organizations/domain-tag-value-pairs:
         get:
             description: 获取指定资源类的信息DomainTagValuePairs
@@ -7353,6 +9032,80 @@ paths:
                 "200":
                     $ref: '#/responses/organization_GetPropertyDomainTagValueTreeOutput'
             summary: 获取指定资源类的信息DomainTagValueTree
+            tags:
+                - organization
+    /organizations/purge-splitable:
+        post:
+            description: 执行操作PurgeSplitable
+            operationId: organization_PerformPurgeSplitable
+            parameters:
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        organization:
+                            $ref: '#/definitions/PurgeSplitTableInput'
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/organization_PerformPurgeSplitableOutput'
+            summary: 执行操作PurgeSplitable
+            tags:
+                - organization
+    /organizations/splitable:
+        get:
+            description: 获取指定资源类的信息Splitable
+            operationId: organization_GetPropertySplitable
+            responses:
+                "200":
+                    $ref: '#/responses/organization_GetPropertySplitableOutput'
+            summary: 获取指定资源类的信息Splitable
+            tags:
+                - organization
+    /organizations/splitable-export:
+        get:
+            description: 获取指定资源类的信息SplitableExport
+            operationId: organization_GetPropertySplitableExport
+            parameters:
+                - in: query
+                  name: table
+                  type: string
+                  x-go-name: Table
+                - format: int64
+                  in: query
+                  name: offset
+                  type: integer
+                  x-go-name: Offset
+                - format: int64
+                  in: query
+                  name: limit
+                  type: integer
+                  x-go-name: Limit
+            responses:
+                "200":
+                    $ref: '#/responses/organization_GetPropertySplitableExportOutput'
+            summary: 获取指定资源类的信息SplitableExport
+            tags:
+                - organization
+    /organizations/tag-value-pairs:
+        get:
+            description: 获取指定资源类的信息TagValuePairs
+            operationId: organization_GetPropertyTagValuePairs
+            responses:
+                "200":
+                    $ref: '#/responses/organization_GetPropertyTagValuePairsOutput'
+            summary: 获取指定资源类的信息TagValuePairs
+            tags:
+                - organization
+    /organizations/tag-value-tree:
+        get:
+            description: 获取指定资源类的信息TagValueTree
+            operationId: organization_GetPropertyTagValueTree
+            responses:
+                "200":
+                    $ref: '#/responses/organization_GetPropertyTagValueTreeOutput'
+            summary: 获取指定资源类的信息TagValueTree
             tags:
                 - organization
     /policies:
@@ -7463,11 +9216,6 @@ paths:
                   name: show_fail_reason
                   type: boolean
                   x-go-name: ShowFailReason
-                - description: 是否返回状态统计信息，默认为False
-                  in: query
-                  name: summary_stats
-                  type: boolean
-                  x-go-name: SummaryStats
                 - $ref: '#/definitions/TTagSet'
                   description: 通过标签过滤（包含这些标签）
                   in: query
@@ -7604,6 +9352,13 @@ paths:
                   name: role_id
                   type: string
                   x-go-name: RoleId
+                - description: |-
+                    swagger: ignore
+                    Deprecated
+                  in: query
+                  name: role
+                  type: string
+                  x-go-name: Role
             responses:
                 "200":
                     $ref: '#/responses/policy_ListItemFilterOutput'
@@ -7715,6 +9470,50 @@ paths:
             summary: 绑定角色
             tags:
                 - policy
+    /policies/{id}/class-metadata:
+        get:
+            description: 获取指定信息ClassMetadata
+            operationId: policy_GetDetailsClassMetadata
+            parameters:
+                - description: The Id or Name of policy
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+            responses:
+                "200":
+                    $ref: '#/responses/policy_GetDetailsClassMetadataOutput'
+            summary: 获取指定信息ClassMetadata
+            tags:
+                - policy
+        post:
+            description: 执行操作ClassMetadata
+            operationId: policy_PerformClassMetadata
+            parameters:
+                - description: The Id or Name of policy
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        policy:
+                            additionalProperties:
+                                type: string
+                            type: object
+                            x-go-name: Input
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/policy_PerformClassMetadataOutput'
+            summary: 更新资源的 class 标签
+            tags:
+                - policy
     /policies/{id}/disable:
         post:
             description: 执行操作Disable
@@ -7802,6 +9601,23 @@ paths:
             summary: 获取资源标签（元数据）
             tags:
                 - policy
+    /policies/{id}/org-metadata:
+        get:
+            description: 获取指定信息OrgMetadata
+            operationId: policy_GetDetailsOrgMetadata
+            parameters:
+                - description: The Id or Name of policy
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+            responses:
+                "200":
+                    $ref: '#/responses/policy_GetDetailsOrgMetadataOutput'
+            summary: 获取指定信息OrgMetadata
+            tags:
+                - policy
     /policies/{id}/private:
         post:
             description: 执行操作Private
@@ -7852,6 +9668,110 @@ paths:
             summary: 共享Policy
             tags:
                 - policy
+    /policies/{id}/set-class-metadata:
+        post:
+            description: 执行操作SetClassMetadata
+            operationId: policy_PerformSetClassMetadata
+            parameters:
+                - description: The Id or Name of policy
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        policy:
+                            additionalProperties:
+                                type: string
+                            type: object
+                            x-go-name: Input
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/policy_PerformSetClassMetadataOutput'
+            summary: 全量替换资源的所有 class 标签
+            tags:
+                - policy
+    /policies/{id}/set-org-metadata:
+        post:
+            description: 执行操作SetOrgMetadata
+            operationId: policy_PerformSetOrgMetadata
+            parameters:
+                - description: The Id or Name of policy
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        policy:
+                            additionalProperties:
+                                type: string
+                            type: object
+                            x-go-name: Input
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/policy_PerformSetOrgMetadataOutput'
+            summary: 全量替换资源的所有 class 标签
+            tags:
+                - policy
+    /policies/{id}/set-user-metadata:
+        post:
+            description: 执行操作SetUserMetadata
+            operationId: policy_PerformSetUserMetadata
+            parameters:
+                - description: The Id or Name of policy
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        policy:
+                            additionalProperties:
+                                type: string
+                            type: object
+                            x-go-name: Input
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/policy_PerformSetUserMetadataOutput'
+            summary: 全量替换资源的所有用户标签
+            tags:
+                - policy
+    /policies/distinct-field:
+        get:
+            description: 获取指定资源类的信息DistinctField
+            operationId: policy_GetPropertyDistinctField
+            responses:
+                "200":
+                    $ref: '#/responses/policy_GetPropertyDistinctFieldOutput'
+            summary: 获取指定资源类的信息DistinctField
+            tags:
+                - policy
+    /policies/distinct-fields:
+        get:
+            description: 获取指定资源类的信息DistinctFields
+            operationId: policy_GetPropertyDistinctFields
+            responses:
+                "200":
+                    $ref: '#/responses/policy_GetPropertyDistinctFieldsOutput'
+            summary: 获取指定资源类的信息DistinctFields
+            tags:
+                - policy
     /policies/domain-tag-value-pairs:
         get:
             description: 获取指定资源类的信息DomainTagValuePairs
@@ -7870,6 +9790,80 @@ paths:
                 "200":
                     $ref: '#/responses/policy_GetPropertyDomainTagValueTreeOutput'
             summary: 获取指定资源类的信息DomainTagValueTree
+            tags:
+                - policy
+    /policies/purge-splitable:
+        post:
+            description: 执行操作PurgeSplitable
+            operationId: policy_PerformPurgeSplitable
+            parameters:
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        policy:
+                            $ref: '#/definitions/PurgeSplitTableInput'
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/policy_PerformPurgeSplitableOutput'
+            summary: 执行操作PurgeSplitable
+            tags:
+                - policy
+    /policies/splitable:
+        get:
+            description: 获取指定资源类的信息Splitable
+            operationId: policy_GetPropertySplitable
+            responses:
+                "200":
+                    $ref: '#/responses/policy_GetPropertySplitableOutput'
+            summary: 获取指定资源类的信息Splitable
+            tags:
+                - policy
+    /policies/splitable-export:
+        get:
+            description: 获取指定资源类的信息SplitableExport
+            operationId: policy_GetPropertySplitableExport
+            parameters:
+                - in: query
+                  name: table
+                  type: string
+                  x-go-name: Table
+                - format: int64
+                  in: query
+                  name: offset
+                  type: integer
+                  x-go-name: Offset
+                - format: int64
+                  in: query
+                  name: limit
+                  type: integer
+                  x-go-name: Limit
+            responses:
+                "200":
+                    $ref: '#/responses/policy_GetPropertySplitableExportOutput'
+            summary: 获取指定资源类的信息SplitableExport
+            tags:
+                - policy
+    /policies/tag-value-pairs:
+        get:
+            description: 获取指定资源类的信息TagValuePairs
+            operationId: policy_GetPropertyTagValuePairs
+            responses:
+                "200":
+                    $ref: '#/responses/policy_GetPropertyTagValuePairsOutput'
+            summary: 获取指定资源类的信息TagValuePairs
+            tags:
+                - policy
+    /policies/tag-value-tree:
+        get:
+            description: 获取指定资源类的信息TagValueTree
+            operationId: policy_GetPropertyTagValueTree
+            responses:
+                "200":
+                    $ref: '#/responses/policy_GetPropertyTagValueTreeOutput'
+            summary: 获取指定资源类的信息TagValueTree
             tags:
                 - policy
     /projects:
@@ -7980,11 +9974,6 @@ paths:
                   name: show_fail_reason
                   type: boolean
                   x-go-name: ShowFailReason
-                - description: 是否返回状态统计信息，默认为False
-                  in: query
-                  name: summary_stats
-                  type: boolean
-                  x-go-name: SummaryStats
                 - $ref: '#/definitions/TTagSet'
                   description: 通过标签过滤（包含这些标签）
                   in: query
@@ -8217,6 +10206,50 @@ paths:
             summary: 更新
             tags:
                 - project
+    /projects/{id}/class-metadata:
+        get:
+            description: 获取指定信息ClassMetadata
+            operationId: project_GetDetailsClassMetadata
+            parameters:
+                - description: The Id or Name of project
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+            responses:
+                "200":
+                    $ref: '#/responses/project_GetDetailsClassMetadataOutput'
+            summary: 获取指定信息ClassMetadata
+            tags:
+                - project
+        post:
+            description: 执行操作ClassMetadata
+            operationId: project_PerformClassMetadata
+            parameters:
+                - description: The Id or Name of project
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        project:
+                            additionalProperties:
+                                type: string
+                            type: object
+                            x-go-name: Input
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/project_PerformClassMetadataOutput'
+            summary: 更新资源的 class 标签
+            tags:
+                - project
     /projects/{id}/join:
         post:
             description: 执行操作Join
@@ -8304,6 +10337,23 @@ paths:
             summary: 获取资源标签（元数据）
             tags:
                 - project
+    /projects/{id}/org-metadata:
+        get:
+            description: 获取指定信息OrgMetadata
+            operationId: project_GetDetailsOrgMetadata
+            parameters:
+                - description: The Id or Name of project
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+            responses:
+                "200":
+                    $ref: '#/responses/project_GetDetailsOrgMetadataOutput'
+            summary: 获取指定信息OrgMetadata
+            tags:
+                - project
     /projects/{id}/set-admin:
         post:
             description: 执行操作SetAdmin
@@ -8329,6 +10379,90 @@ paths:
             summary: 执行操作SetAdmin
             tags:
                 - project
+    /projects/{id}/set-class-metadata:
+        post:
+            description: 执行操作SetClassMetadata
+            operationId: project_PerformSetClassMetadata
+            parameters:
+                - description: The Id or Name of project
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        project:
+                            additionalProperties:
+                                type: string
+                            type: object
+                            x-go-name: Input
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/project_PerformSetClassMetadataOutput'
+            summary: 全量替换资源的所有 class 标签
+            tags:
+                - project
+    /projects/{id}/set-org-metadata:
+        post:
+            description: 执行操作SetOrgMetadata
+            operationId: project_PerformSetOrgMetadata
+            parameters:
+                - description: The Id or Name of project
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        project:
+                            additionalProperties:
+                                type: string
+                            type: object
+                            x-go-name: Input
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/project_PerformSetOrgMetadataOutput'
+            summary: 全量替换资源的所有 class 标签
+            tags:
+                - project
+    /projects/{id}/set-user-metadata:
+        post:
+            description: 执行操作SetUserMetadata
+            operationId: project_PerformSetUserMetadata
+            parameters:
+                - description: The Id or Name of project
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        project:
+                            additionalProperties:
+                                type: string
+                            type: object
+                            x-go-name: Input
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/project_PerformSetUserMetadataOutput'
+            summary: 全量替换资源的所有用户标签
+            tags:
+                - project
     /projects/clean:
         post:
             description: 执行操作Clean
@@ -8346,6 +10480,26 @@ paths:
                 "200":
                     $ref: '#/responses/project_PerformCleanOutput'
             summary: 执行操作Clean
+            tags:
+                - project
+    /projects/distinct-field:
+        get:
+            description: 获取指定资源类的信息DistinctField
+            operationId: project_GetPropertyDistinctField
+            responses:
+                "200":
+                    $ref: '#/responses/project_GetPropertyDistinctFieldOutput'
+            summary: 获取指定资源类的信息DistinctField
+            tags:
+                - project
+    /projects/distinct-fields:
+        get:
+            description: 获取指定资源类的信息DistinctFields
+            operationId: project_GetPropertyDistinctFields
+            responses:
+                "200":
+                    $ref: '#/responses/project_GetPropertyDistinctFieldsOutput'
+            summary: 获取指定资源类的信息DistinctFields
             tags:
                 - project
     /projects/domain-tag-value-pairs:
@@ -8366,6 +10520,80 @@ paths:
                 "200":
                     $ref: '#/responses/project_GetPropertyDomainTagValueTreeOutput'
             summary: 获取指定资源类的信息DomainTagValueTree
+            tags:
+                - project
+    /projects/purge-splitable:
+        post:
+            description: 执行操作PurgeSplitable
+            operationId: project_PerformPurgeSplitable
+            parameters:
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        project:
+                            $ref: '#/definitions/PurgeSplitTableInput'
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/project_PerformPurgeSplitableOutput'
+            summary: 执行操作PurgeSplitable
+            tags:
+                - project
+    /projects/splitable:
+        get:
+            description: 获取指定资源类的信息Splitable
+            operationId: project_GetPropertySplitable
+            responses:
+                "200":
+                    $ref: '#/responses/project_GetPropertySplitableOutput'
+            summary: 获取指定资源类的信息Splitable
+            tags:
+                - project
+    /projects/splitable-export:
+        get:
+            description: 获取指定资源类的信息SplitableExport
+            operationId: project_GetPropertySplitableExport
+            parameters:
+                - in: query
+                  name: table
+                  type: string
+                  x-go-name: Table
+                - format: int64
+                  in: query
+                  name: offset
+                  type: integer
+                  x-go-name: Offset
+                - format: int64
+                  in: query
+                  name: limit
+                  type: integer
+                  x-go-name: Limit
+            responses:
+                "200":
+                    $ref: '#/responses/project_GetPropertySplitableExportOutput'
+            summary: 获取指定资源类的信息SplitableExport
+            tags:
+                - project
+    /projects/tag-value-pairs:
+        get:
+            description: 获取指定资源类的信息TagValuePairs
+            operationId: project_GetPropertyTagValuePairs
+            responses:
+                "200":
+                    $ref: '#/responses/project_GetPropertyTagValuePairsOutput'
+            summary: 获取指定资源类的信息TagValuePairs
+            tags:
+                - project
+    /projects/tag-value-tree:
+        get:
+            description: 获取指定资源类的信息TagValueTree
+            operationId: project_GetPropertyTagValueTree
+            responses:
+                "200":
+                    $ref: '#/responses/project_GetPropertyTagValueTreeOutput'
+            summary: 获取指定资源类的信息TagValueTree
             tags:
                 - project
     /regions:
@@ -8476,11 +10704,6 @@ paths:
                   name: show_fail_reason
                   type: boolean
                   x-go-name: ShowFailReason
-                - description: 是否返回状态统计信息，默认为False
-                  in: query
-                  name: summary_stats
-                  type: boolean
-                  x-go-name: SummaryStats
                 - $ref: '#/definitions/TTagSet'
                   description: 通过标签过滤（包含这些标签）
                   in: query
@@ -8624,6 +10847,50 @@ paths:
             summary: 更新
             tags:
                 - region
+    /regions/{id}/class-metadata:
+        get:
+            description: 获取指定信息ClassMetadata
+            operationId: region_GetDetailsClassMetadata
+            parameters:
+                - description: The Id or Name of region
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+            responses:
+                "200":
+                    $ref: '#/responses/region_GetDetailsClassMetadataOutput'
+            summary: 获取指定信息ClassMetadata
+            tags:
+                - region
+        post:
+            description: 执行操作ClassMetadata
+            operationId: region_PerformClassMetadata
+            parameters:
+                - description: The Id or Name of region
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        region:
+                            additionalProperties:
+                                type: string
+                            type: object
+                            x-go-name: Input
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/region_PerformClassMetadataOutput'
+            summary: 更新资源的 class 标签
+            tags:
+                - region
     /regions/{id}/metadata:
         get:
             description: 获取指定信息Metadata
@@ -8659,6 +10926,201 @@ paths:
                 "200":
                     $ref: '#/responses/region_GetDetailsMetadataOutput'
             summary: 获取资源标签（元数据）
+            tags:
+                - region
+    /regions/{id}/org-metadata:
+        get:
+            description: 获取指定信息OrgMetadata
+            operationId: region_GetDetailsOrgMetadata
+            parameters:
+                - description: The Id or Name of region
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+            responses:
+                "200":
+                    $ref: '#/responses/region_GetDetailsOrgMetadataOutput'
+            summary: 获取指定信息OrgMetadata
+            tags:
+                - region
+    /regions/{id}/set-class-metadata:
+        post:
+            description: 执行操作SetClassMetadata
+            operationId: region_PerformSetClassMetadata
+            parameters:
+                - description: The Id or Name of region
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        region:
+                            additionalProperties:
+                                type: string
+                            type: object
+                            x-go-name: Input
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/region_PerformSetClassMetadataOutput'
+            summary: 全量替换资源的所有 class 标签
+            tags:
+                - region
+    /regions/{id}/set-org-metadata:
+        post:
+            description: 执行操作SetOrgMetadata
+            operationId: region_PerformSetOrgMetadata
+            parameters:
+                - description: The Id or Name of region
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        region:
+                            additionalProperties:
+                                type: string
+                            type: object
+                            x-go-name: Input
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/region_PerformSetOrgMetadataOutput'
+            summary: 全量替换资源的所有 class 标签
+            tags:
+                - region
+    /regions/{id}/set-user-metadata:
+        post:
+            description: 执行操作SetUserMetadata
+            operationId: region_PerformSetUserMetadata
+            parameters:
+                - description: The Id or Name of region
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        region:
+                            additionalProperties:
+                                type: string
+                            type: object
+                            x-go-name: Input
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/region_PerformSetUserMetadataOutput'
+            summary: 全量替换资源的所有用户标签
+            tags:
+                - region
+    /regions/distinct-field:
+        get:
+            description: 获取指定资源类的信息DistinctField
+            operationId: region_GetPropertyDistinctField
+            responses:
+                "200":
+                    $ref: '#/responses/region_GetPropertyDistinctFieldOutput'
+            summary: 获取指定资源类的信息DistinctField
+            tags:
+                - region
+    /regions/distinct-fields:
+        get:
+            description: 获取指定资源类的信息DistinctFields
+            operationId: region_GetPropertyDistinctFields
+            responses:
+                "200":
+                    $ref: '#/responses/region_GetPropertyDistinctFieldsOutput'
+            summary: 获取指定资源类的信息DistinctFields
+            tags:
+                - region
+    /regions/purge-splitable:
+        post:
+            description: 执行操作PurgeSplitable
+            operationId: region_PerformPurgeSplitable
+            parameters:
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        region:
+                            $ref: '#/definitions/PurgeSplitTableInput'
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/region_PerformPurgeSplitableOutput'
+            summary: 执行操作PurgeSplitable
+            tags:
+                - region
+    /regions/splitable:
+        get:
+            description: 获取指定资源类的信息Splitable
+            operationId: region_GetPropertySplitable
+            responses:
+                "200":
+                    $ref: '#/responses/region_GetPropertySplitableOutput'
+            summary: 获取指定资源类的信息Splitable
+            tags:
+                - region
+    /regions/splitable-export:
+        get:
+            description: 获取指定资源类的信息SplitableExport
+            operationId: region_GetPropertySplitableExport
+            parameters:
+                - in: query
+                  name: table
+                  type: string
+                  x-go-name: Table
+                - format: int64
+                  in: query
+                  name: offset
+                  type: integer
+                  x-go-name: Offset
+                - format: int64
+                  in: query
+                  name: limit
+                  type: integer
+                  x-go-name: Limit
+            responses:
+                "200":
+                    $ref: '#/responses/region_GetPropertySplitableExportOutput'
+            summary: 获取指定资源类的信息SplitableExport
+            tags:
+                - region
+    /regions/tag-value-pairs:
+        get:
+            description: 获取指定资源类的信息TagValuePairs
+            operationId: region_GetPropertyTagValuePairs
+            responses:
+                "200":
+                    $ref: '#/responses/region_GetPropertyTagValuePairsOutput'
+            summary: 获取指定资源类的信息TagValuePairs
+            tags:
+                - region
+    /regions/tag-value-tree:
+        get:
+            description: 获取指定资源类的信息TagValueTree
+            operationId: region_GetPropertyTagValueTree
+            responses:
+                "200":
+                    $ref: '#/responses/region_GetPropertyTagValueTreeOutput'
+            summary: 获取指定资源类的信息TagValueTree
             tags:
                 - region
     /role_policies:
@@ -8769,11 +11231,6 @@ paths:
                   name: show_fail_reason
                   type: boolean
                   x-go-name: ShowFailReason
-                - description: 是否返回状态统计信息，默认为False
-                  in: query
-                  name: summary_stats
-                  type: boolean
-                  x-go-name: SummaryStats
                 - in: query
                   items:
                     type: string
@@ -8876,6 +11333,80 @@ paths:
                 "200":
                     $ref: '#/responses/role_policy_ValidateUpdateDataOutput'
             summary: 更新
+            tags:
+                - role_policy
+    /role_policies/distinct-field:
+        get:
+            description: 获取指定资源类的信息DistinctField
+            operationId: role_policy_GetPropertyDistinctField
+            responses:
+                "200":
+                    $ref: '#/responses/role_policy_GetPropertyDistinctFieldOutput'
+            summary: 获取指定资源类的信息DistinctField
+            tags:
+                - role_policy
+    /role_policies/distinct-fields:
+        get:
+            description: 获取指定资源类的信息DistinctFields
+            operationId: role_policy_GetPropertyDistinctFields
+            responses:
+                "200":
+                    $ref: '#/responses/role_policy_GetPropertyDistinctFieldsOutput'
+            summary: 获取指定资源类的信息DistinctFields
+            tags:
+                - role_policy
+    /role_policies/purge-splitable:
+        post:
+            description: 执行操作PurgeSplitable
+            operationId: role_policy_PerformPurgeSplitable
+            parameters:
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        role_policy:
+                            $ref: '#/definitions/PurgeSplitTableInput'
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/role_policy_PerformPurgeSplitableOutput'
+            summary: 执行操作PurgeSplitable
+            tags:
+                - role_policy
+    /role_policies/splitable:
+        get:
+            description: 获取指定资源类的信息Splitable
+            operationId: role_policy_GetPropertySplitable
+            responses:
+                "200":
+                    $ref: '#/responses/role_policy_GetPropertySplitableOutput'
+            summary: 获取指定资源类的信息Splitable
+            tags:
+                - role_policy
+    /role_policies/splitable-export:
+        get:
+            description: 获取指定资源类的信息SplitableExport
+            operationId: role_policy_GetPropertySplitableExport
+            parameters:
+                - in: query
+                  name: table
+                  type: string
+                  x-go-name: Table
+                - format: int64
+                  in: query
+                  name: offset
+                  type: integer
+                  x-go-name: Offset
+                - format: int64
+                  in: query
+                  name: limit
+                  type: integer
+                  x-go-name: Limit
+            responses:
+                "200":
+                    $ref: '#/responses/role_policy_GetPropertySplitableExportOutput'
+            summary: 获取指定资源类的信息SplitableExport
             tags:
                 - role_policy
     /roles:
@@ -8986,11 +11517,6 @@ paths:
                   name: show_fail_reason
                   type: boolean
                   x-go-name: ShowFailReason
-                - description: 是否返回状态统计信息，默认为False
-                  in: query
-                  name: summary_stats
-                  type: boolean
-                  x-go-name: SummaryStats
                 - $ref: '#/definitions/TTagSet'
                   description: 通过标签过滤（包含这些标签）
                   in: query
@@ -9241,6 +11767,50 @@ paths:
             summary: 执行操作AddPolicy
             tags:
                 - role
+    /roles/{id}/class-metadata:
+        get:
+            description: 获取指定信息ClassMetadata
+            operationId: role_GetDetailsClassMetadata
+            parameters:
+                - description: The Id or Name of role
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+            responses:
+                "200":
+                    $ref: '#/responses/role_GetDetailsClassMetadataOutput'
+            summary: 获取指定信息ClassMetadata
+            tags:
+                - role
+        post:
+            description: 执行操作ClassMetadata
+            operationId: role_PerformClassMetadata
+            parameters:
+                - description: The Id or Name of role
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        role:
+                            additionalProperties:
+                                type: string
+                            type: object
+                            x-go-name: Input
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/role_PerformClassMetadataOutput'
+            summary: 更新资源的 class 标签
+            tags:
+                - role
     /roles/{id}/metadata:
         get:
             description: 获取指定信息Metadata
@@ -9276,6 +11846,23 @@ paths:
                 "200":
                     $ref: '#/responses/role_GetDetailsMetadataOutput'
             summary: 获取资源标签（元数据）
+            tags:
+                - role
+    /roles/{id}/org-metadata:
+        get:
+            description: 获取指定信息OrgMetadata
+            operationId: role_GetDetailsOrgMetadata
+            parameters:
+                - description: The Id or Name of role
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+            responses:
+                "200":
+                    $ref: '#/responses/role_GetDetailsOrgMetadataOutput'
+            summary: 获取指定信息OrgMetadata
             tags:
                 - role
     /roles/{id}/private:
@@ -9353,6 +11940,62 @@ paths:
             summary: 执行操作RemovePolicy
             tags:
                 - role
+    /roles/{id}/set-class-metadata:
+        post:
+            description: 执行操作SetClassMetadata
+            operationId: role_PerformSetClassMetadata
+            parameters:
+                - description: The Id or Name of role
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        role:
+                            additionalProperties:
+                                type: string
+                            type: object
+                            x-go-name: Input
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/role_PerformSetClassMetadataOutput'
+            summary: 全量替换资源的所有 class 标签
+            tags:
+                - role
+    /roles/{id}/set-org-metadata:
+        post:
+            description: 执行操作SetOrgMetadata
+            operationId: role_PerformSetOrgMetadata
+            parameters:
+                - description: The Id or Name of role
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        role:
+                            additionalProperties:
+                                type: string
+                            type: object
+                            x-go-name: Input
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/role_PerformSetOrgMetadataOutput'
+            summary: 全量替换资源的所有 class 标签
+            tags:
+                - role
     /roles/{id}/set-policies:
         post:
             description: 执行操作SetPolicies
@@ -9378,6 +12021,54 @@ paths:
             summary: 执行操作SetPolicies
             tags:
                 - role
+    /roles/{id}/set-user-metadata:
+        post:
+            description: 执行操作SetUserMetadata
+            operationId: role_PerformSetUserMetadata
+            parameters:
+                - description: The Id or Name of role
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        role:
+                            additionalProperties:
+                                type: string
+                            type: object
+                            x-go-name: Input
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/role_PerformSetUserMetadataOutput'
+            summary: 全量替换资源的所有用户标签
+            tags:
+                - role
+    /roles/distinct-field:
+        get:
+            description: 获取指定资源类的信息DistinctField
+            operationId: role_GetPropertyDistinctField
+            responses:
+                "200":
+                    $ref: '#/responses/role_GetPropertyDistinctFieldOutput'
+            summary: 获取指定资源类的信息DistinctField
+            tags:
+                - role
+    /roles/distinct-fields:
+        get:
+            description: 获取指定资源类的信息DistinctFields
+            operationId: role_GetPropertyDistinctFields
+            responses:
+                "200":
+                    $ref: '#/responses/role_GetPropertyDistinctFieldsOutput'
+            summary: 获取指定资源类的信息DistinctFields
+            tags:
+                - role
     /roles/domain-tag-value-pairs:
         get:
             description: 获取指定资源类的信息DomainTagValuePairs
@@ -9396,6 +12087,80 @@ paths:
                 "200":
                     $ref: '#/responses/role_GetPropertyDomainTagValueTreeOutput'
             summary: 获取指定资源类的信息DomainTagValueTree
+            tags:
+                - role
+    /roles/purge-splitable:
+        post:
+            description: 执行操作PurgeSplitable
+            operationId: role_PerformPurgeSplitable
+            parameters:
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        role:
+                            $ref: '#/definitions/PurgeSplitTableInput'
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/role_PerformPurgeSplitableOutput'
+            summary: 执行操作PurgeSplitable
+            tags:
+                - role
+    /roles/splitable:
+        get:
+            description: 获取指定资源类的信息Splitable
+            operationId: role_GetPropertySplitable
+            responses:
+                "200":
+                    $ref: '#/responses/role_GetPropertySplitableOutput'
+            summary: 获取指定资源类的信息Splitable
+            tags:
+                - role
+    /roles/splitable-export:
+        get:
+            description: 获取指定资源类的信息SplitableExport
+            operationId: role_GetPropertySplitableExport
+            parameters:
+                - in: query
+                  name: table
+                  type: string
+                  x-go-name: Table
+                - format: int64
+                  in: query
+                  name: offset
+                  type: integer
+                  x-go-name: Offset
+                - format: int64
+                  in: query
+                  name: limit
+                  type: integer
+                  x-go-name: Limit
+            responses:
+                "200":
+                    $ref: '#/responses/role_GetPropertySplitableExportOutput'
+            summary: 获取指定资源类的信息SplitableExport
+            tags:
+                - role
+    /roles/tag-value-pairs:
+        get:
+            description: 获取指定资源类的信息TagValuePairs
+            operationId: role_GetPropertyTagValuePairs
+            responses:
+                "200":
+                    $ref: '#/responses/role_GetPropertyTagValuePairsOutput'
+            summary: 获取指定资源类的信息TagValuePairs
+            tags:
+                - role
+    /roles/tag-value-tree:
+        get:
+            description: 获取指定资源类的信息TagValueTree
+            operationId: role_GetPropertyTagValueTree
+            responses:
+                "200":
+                    $ref: '#/responses/role_GetPropertyTagValueTreeOutput'
+            summary: 获取指定资源类的信息TagValueTree
             tags:
                 - role
     /scope_resources:
@@ -9506,11 +12271,6 @@ paths:
                   name: show_fail_reason
                   type: boolean
                   x-go-name: ShowFailReason
-                - description: 是否返回状态统计信息，默认为False
-                  in: query
-                  name: summary_stats
-                  type: boolean
-                  x-go-name: SummaryStats
             responses:
                 "200":
                     $ref: '#/responses/scope_resource_ListItemFilterOutput'
@@ -9595,6 +12355,80 @@ paths:
                 "200":
                     $ref: '#/responses/scope_resource_ValidateUpdateDataOutput'
             summary: 更新
+            tags:
+                - scope_resource
+    /scope_resources/distinct-field:
+        get:
+            description: 获取指定资源类的信息DistinctField
+            operationId: scope_resource_GetPropertyDistinctField
+            responses:
+                "200":
+                    $ref: '#/responses/scope_resource_GetPropertyDistinctFieldOutput'
+            summary: 获取指定资源类的信息DistinctField
+            tags:
+                - scope_resource
+    /scope_resources/distinct-fields:
+        get:
+            description: 获取指定资源类的信息DistinctFields
+            operationId: scope_resource_GetPropertyDistinctFields
+            responses:
+                "200":
+                    $ref: '#/responses/scope_resource_GetPropertyDistinctFieldsOutput'
+            summary: 获取指定资源类的信息DistinctFields
+            tags:
+                - scope_resource
+    /scope_resources/purge-splitable:
+        post:
+            description: 执行操作PurgeSplitable
+            operationId: scope_resource_PerformPurgeSplitable
+            parameters:
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        scope_resource:
+                            $ref: '#/definitions/PurgeSplitTableInput'
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/scope_resource_PerformPurgeSplitableOutput'
+            summary: 执行操作PurgeSplitable
+            tags:
+                - scope_resource
+    /scope_resources/splitable:
+        get:
+            description: 获取指定资源类的信息Splitable
+            operationId: scope_resource_GetPropertySplitable
+            responses:
+                "200":
+                    $ref: '#/responses/scope_resource_GetPropertySplitableOutput'
+            summary: 获取指定资源类的信息Splitable
+            tags:
+                - scope_resource
+    /scope_resources/splitable-export:
+        get:
+            description: 获取指定资源类的信息SplitableExport
+            operationId: scope_resource_GetPropertySplitableExport
+            parameters:
+                - in: query
+                  name: table
+                  type: string
+                  x-go-name: Table
+                - format: int64
+                  in: query
+                  name: offset
+                  type: integer
+                  x-go-name: Offset
+                - format: int64
+                  in: query
+                  name: limit
+                  type: integer
+                  x-go-name: Limit
+            responses:
+                "200":
+                    $ref: '#/responses/scope_resource_GetPropertySplitableExportOutput'
+            summary: 获取指定资源类的信息SplitableExport
             tags:
                 - scope_resource
     /service_certificates:
@@ -9705,11 +12539,6 @@ paths:
                   name: show_fail_reason
                   type: boolean
                   x-go-name: ShowFailReason
-                - description: 是否返回状态统计信息，默认为False
-                  in: query
-                  name: summary_stats
-                  type: boolean
-                  x-go-name: SummaryStats
                 - $ref: '#/definitions/TTagSet'
                   description: 通过标签过滤（包含这些标签）
                   in: query
@@ -9845,6 +12674,50 @@ paths:
             summary: 更新
             tags:
                 - service_certificate
+    /service_certificates/{id}/class-metadata:
+        get:
+            description: 获取指定信息ClassMetadata
+            operationId: service_certificate_GetDetailsClassMetadata
+            parameters:
+                - description: The Id or Name of service_certificate
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+            responses:
+                "200":
+                    $ref: '#/responses/service_certificate_GetDetailsClassMetadataOutput'
+            summary: 获取指定信息ClassMetadata
+            tags:
+                - service_certificate
+        post:
+            description: 执行操作ClassMetadata
+            operationId: service_certificate_PerformClassMetadata
+            parameters:
+                - description: The Id or Name of service_certificate
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        service_certificate:
+                            additionalProperties:
+                                type: string
+                            type: object
+                            x-go-name: Input
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/service_certificate_PerformClassMetadataOutput'
+            summary: 更新资源的 class 标签
+            tags:
+                - service_certificate
     /service_certificates/{id}/metadata:
         get:
             description: 获取指定信息Metadata
@@ -9880,6 +12753,201 @@ paths:
                 "200":
                     $ref: '#/responses/service_certificate_GetDetailsMetadataOutput'
             summary: 获取资源标签（元数据）
+            tags:
+                - service_certificate
+    /service_certificates/{id}/org-metadata:
+        get:
+            description: 获取指定信息OrgMetadata
+            operationId: service_certificate_GetDetailsOrgMetadata
+            parameters:
+                - description: The Id or Name of service_certificate
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+            responses:
+                "200":
+                    $ref: '#/responses/service_certificate_GetDetailsOrgMetadataOutput'
+            summary: 获取指定信息OrgMetadata
+            tags:
+                - service_certificate
+    /service_certificates/{id}/set-class-metadata:
+        post:
+            description: 执行操作SetClassMetadata
+            operationId: service_certificate_PerformSetClassMetadata
+            parameters:
+                - description: The Id or Name of service_certificate
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        service_certificate:
+                            additionalProperties:
+                                type: string
+                            type: object
+                            x-go-name: Input
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/service_certificate_PerformSetClassMetadataOutput'
+            summary: 全量替换资源的所有 class 标签
+            tags:
+                - service_certificate
+    /service_certificates/{id}/set-org-metadata:
+        post:
+            description: 执行操作SetOrgMetadata
+            operationId: service_certificate_PerformSetOrgMetadata
+            parameters:
+                - description: The Id or Name of service_certificate
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        service_certificate:
+                            additionalProperties:
+                                type: string
+                            type: object
+                            x-go-name: Input
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/service_certificate_PerformSetOrgMetadataOutput'
+            summary: 全量替换资源的所有 class 标签
+            tags:
+                - service_certificate
+    /service_certificates/{id}/set-user-metadata:
+        post:
+            description: 执行操作SetUserMetadata
+            operationId: service_certificate_PerformSetUserMetadata
+            parameters:
+                - description: The Id or Name of service_certificate
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        service_certificate:
+                            additionalProperties:
+                                type: string
+                            type: object
+                            x-go-name: Input
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/service_certificate_PerformSetUserMetadataOutput'
+            summary: 全量替换资源的所有用户标签
+            tags:
+                - service_certificate
+    /service_certificates/distinct-field:
+        get:
+            description: 获取指定资源类的信息DistinctField
+            operationId: service_certificate_GetPropertyDistinctField
+            responses:
+                "200":
+                    $ref: '#/responses/service_certificate_GetPropertyDistinctFieldOutput'
+            summary: 获取指定资源类的信息DistinctField
+            tags:
+                - service_certificate
+    /service_certificates/distinct-fields:
+        get:
+            description: 获取指定资源类的信息DistinctFields
+            operationId: service_certificate_GetPropertyDistinctFields
+            responses:
+                "200":
+                    $ref: '#/responses/service_certificate_GetPropertyDistinctFieldsOutput'
+            summary: 获取指定资源类的信息DistinctFields
+            tags:
+                - service_certificate
+    /service_certificates/purge-splitable:
+        post:
+            description: 执行操作PurgeSplitable
+            operationId: service_certificate_PerformPurgeSplitable
+            parameters:
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        service_certificate:
+                            $ref: '#/definitions/PurgeSplitTableInput'
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/service_certificate_PerformPurgeSplitableOutput'
+            summary: 执行操作PurgeSplitable
+            tags:
+                - service_certificate
+    /service_certificates/splitable:
+        get:
+            description: 获取指定资源类的信息Splitable
+            operationId: service_certificate_GetPropertySplitable
+            responses:
+                "200":
+                    $ref: '#/responses/service_certificate_GetPropertySplitableOutput'
+            summary: 获取指定资源类的信息Splitable
+            tags:
+                - service_certificate
+    /service_certificates/splitable-export:
+        get:
+            description: 获取指定资源类的信息SplitableExport
+            operationId: service_certificate_GetPropertySplitableExport
+            parameters:
+                - in: query
+                  name: table
+                  type: string
+                  x-go-name: Table
+                - format: int64
+                  in: query
+                  name: offset
+                  type: integer
+                  x-go-name: Offset
+                - format: int64
+                  in: query
+                  name: limit
+                  type: integer
+                  x-go-name: Limit
+            responses:
+                "200":
+                    $ref: '#/responses/service_certificate_GetPropertySplitableExportOutput'
+            summary: 获取指定资源类的信息SplitableExport
+            tags:
+                - service_certificate
+    /service_certificates/tag-value-pairs:
+        get:
+            description: 获取指定资源类的信息TagValuePairs
+            operationId: service_certificate_GetPropertyTagValuePairs
+            responses:
+                "200":
+                    $ref: '#/responses/service_certificate_GetPropertyTagValuePairsOutput'
+            summary: 获取指定资源类的信息TagValuePairs
+            tags:
+                - service_certificate
+    /service_certificates/tag-value-tree:
+        get:
+            description: 获取指定资源类的信息TagValueTree
+            operationId: service_certificate_GetPropertyTagValueTree
+            responses:
+                "200":
+                    $ref: '#/responses/service_certificate_GetPropertyTagValueTreeOutput'
+            summary: 获取指定资源类的信息TagValueTree
             tags:
                 - service_certificate
     /services:
@@ -9990,11 +13058,6 @@ paths:
                   name: show_fail_reason
                   type: boolean
                   x-go-name: ShowFailReason
-                - description: 是否返回状态统计信息，默认为False
-                  in: query
-                  name: summary_stats
-                  type: boolean
-                  x-go-name: SummaryStats
                 - $ref: '#/definitions/TTagSet'
                   description: 通过标签过滤（包含这些标签）
                   in: query
@@ -10164,6 +13227,50 @@ paths:
             summary: 更新
             tags:
                 - service
+    /services/{id}/class-metadata:
+        get:
+            description: 获取指定信息ClassMetadata
+            operationId: service_GetDetailsClassMetadata
+            parameters:
+                - description: The Id or Name of service
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+            responses:
+                "200":
+                    $ref: '#/responses/service_GetDetailsClassMetadataOutput'
+            summary: 获取指定信息ClassMetadata
+            tags:
+                - service
+        post:
+            description: 执行操作ClassMetadata
+            operationId: service_PerformClassMetadata
+            parameters:
+                - description: The Id or Name of service
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        service:
+                            additionalProperties:
+                                type: string
+                            type: object
+                            x-go-name: Input
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/service_PerformClassMetadataOutput'
+            summary: 更新资源的 class 标签
+            tags:
+                - service
     /services/{id}/config:
         get:
             description: 获取指定信息Config
@@ -10240,6 +13347,201 @@ paths:
                 "200":
                     $ref: '#/responses/service_GetDetailsMetadataOutput'
             summary: 获取资源标签（元数据）
+            tags:
+                - service
+    /services/{id}/org-metadata:
+        get:
+            description: 获取指定信息OrgMetadata
+            operationId: service_GetDetailsOrgMetadata
+            parameters:
+                - description: The Id or Name of service
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+            responses:
+                "200":
+                    $ref: '#/responses/service_GetDetailsOrgMetadataOutput'
+            summary: 获取指定信息OrgMetadata
+            tags:
+                - service
+    /services/{id}/set-class-metadata:
+        post:
+            description: 执行操作SetClassMetadata
+            operationId: service_PerformSetClassMetadata
+            parameters:
+                - description: The Id or Name of service
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        service:
+                            additionalProperties:
+                                type: string
+                            type: object
+                            x-go-name: Input
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/service_PerformSetClassMetadataOutput'
+            summary: 全量替换资源的所有 class 标签
+            tags:
+                - service
+    /services/{id}/set-org-metadata:
+        post:
+            description: 执行操作SetOrgMetadata
+            operationId: service_PerformSetOrgMetadata
+            parameters:
+                - description: The Id or Name of service
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        service:
+                            additionalProperties:
+                                type: string
+                            type: object
+                            x-go-name: Input
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/service_PerformSetOrgMetadataOutput'
+            summary: 全量替换资源的所有 class 标签
+            tags:
+                - service
+    /services/{id}/set-user-metadata:
+        post:
+            description: 执行操作SetUserMetadata
+            operationId: service_PerformSetUserMetadata
+            parameters:
+                - description: The Id or Name of service
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        service:
+                            additionalProperties:
+                                type: string
+                            type: object
+                            x-go-name: Input
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/service_PerformSetUserMetadataOutput'
+            summary: 全量替换资源的所有用户标签
+            tags:
+                - service
+    /services/distinct-field:
+        get:
+            description: 获取指定资源类的信息DistinctField
+            operationId: service_GetPropertyDistinctField
+            responses:
+                "200":
+                    $ref: '#/responses/service_GetPropertyDistinctFieldOutput'
+            summary: 获取指定资源类的信息DistinctField
+            tags:
+                - service
+    /services/distinct-fields:
+        get:
+            description: 获取指定资源类的信息DistinctFields
+            operationId: service_GetPropertyDistinctFields
+            responses:
+                "200":
+                    $ref: '#/responses/service_GetPropertyDistinctFieldsOutput'
+            summary: 获取指定资源类的信息DistinctFields
+            tags:
+                - service
+    /services/purge-splitable:
+        post:
+            description: 执行操作PurgeSplitable
+            operationId: service_PerformPurgeSplitable
+            parameters:
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        service:
+                            $ref: '#/definitions/PurgeSplitTableInput'
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/service_PerformPurgeSplitableOutput'
+            summary: 执行操作PurgeSplitable
+            tags:
+                - service
+    /services/splitable:
+        get:
+            description: 获取指定资源类的信息Splitable
+            operationId: service_GetPropertySplitable
+            responses:
+                "200":
+                    $ref: '#/responses/service_GetPropertySplitableOutput'
+            summary: 获取指定资源类的信息Splitable
+            tags:
+                - service
+    /services/splitable-export:
+        get:
+            description: 获取指定资源类的信息SplitableExport
+            operationId: service_GetPropertySplitableExport
+            parameters:
+                - in: query
+                  name: table
+                  type: string
+                  x-go-name: Table
+                - format: int64
+                  in: query
+                  name: offset
+                  type: integer
+                  x-go-name: Offset
+                - format: int64
+                  in: query
+                  name: limit
+                  type: integer
+                  x-go-name: Limit
+            responses:
+                "200":
+                    $ref: '#/responses/service_GetPropertySplitableExportOutput'
+            summary: 获取指定资源类的信息SplitableExport
+            tags:
+                - service
+    /services/tag-value-pairs:
+        get:
+            description: 获取指定资源类的信息TagValuePairs
+            operationId: service_GetPropertyTagValuePairs
+            responses:
+                "200":
+                    $ref: '#/responses/service_GetPropertyTagValuePairsOutput'
+            summary: 获取指定资源类的信息TagValuePairs
+            tags:
+                - service
+    /services/tag-value-tree:
+        get:
+            description: 获取指定资源类的信息TagValueTree
+            operationId: service_GetPropertyTagValueTree
+            responses:
+                "200":
+                    $ref: '#/responses/service_GetPropertyTagValueTreeOutput'
+            summary: 获取指定资源类的信息TagValueTree
             tags:
                 - service
     /token_caches:
@@ -10350,11 +13652,6 @@ paths:
                   name: show_fail_reason
                   type: boolean
                   x-go-name: ShowFailReason
-                - description: 是否返回状态统计信息，默认为False
-                  in: query
-                  name: summary_stats
-                  type: boolean
-                  x-go-name: SummaryStats
                 - $ref: '#/definitions/TTagSet'
                   description: 通过标签过滤（包含这些标签）
                   in: query
@@ -10505,6 +13802,50 @@ paths:
             summary: 更新
             tags:
                 - token_cache
+    /token_caches/{id}/class-metadata:
+        get:
+            description: 获取指定信息ClassMetadata
+            operationId: token_cache_GetDetailsClassMetadata
+            parameters:
+                - description: The Id or Name of token_cache
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+            responses:
+                "200":
+                    $ref: '#/responses/token_cache_GetDetailsClassMetadataOutput'
+            summary: 获取指定信息ClassMetadata
+            tags:
+                - token_cache
+        post:
+            description: 执行操作ClassMetadata
+            operationId: token_cache_PerformClassMetadata
+            parameters:
+                - description: The Id or Name of token_cache
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        token_cache:
+                            additionalProperties:
+                                type: string
+                            type: object
+                            x-go-name: Input
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/token_cache_PerformClassMetadataOutput'
+            summary: 更新资源的 class 标签
+            tags:
+                - token_cache
     /token_caches/{id}/metadata:
         get:
             description: 获取指定信息Metadata
@@ -10540,6 +13881,201 @@ paths:
                 "200":
                     $ref: '#/responses/token_cache_GetDetailsMetadataOutput'
             summary: 获取资源标签（元数据）
+            tags:
+                - token_cache
+    /token_caches/{id}/org-metadata:
+        get:
+            description: 获取指定信息OrgMetadata
+            operationId: token_cache_GetDetailsOrgMetadata
+            parameters:
+                - description: The Id or Name of token_cache
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+            responses:
+                "200":
+                    $ref: '#/responses/token_cache_GetDetailsOrgMetadataOutput'
+            summary: 获取指定信息OrgMetadata
+            tags:
+                - token_cache
+    /token_caches/{id}/set-class-metadata:
+        post:
+            description: 执行操作SetClassMetadata
+            operationId: token_cache_PerformSetClassMetadata
+            parameters:
+                - description: The Id or Name of token_cache
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        token_cache:
+                            additionalProperties:
+                                type: string
+                            type: object
+                            x-go-name: Input
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/token_cache_PerformSetClassMetadataOutput'
+            summary: 全量替换资源的所有 class 标签
+            tags:
+                - token_cache
+    /token_caches/{id}/set-org-metadata:
+        post:
+            description: 执行操作SetOrgMetadata
+            operationId: token_cache_PerformSetOrgMetadata
+            parameters:
+                - description: The Id or Name of token_cache
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        token_cache:
+                            additionalProperties:
+                                type: string
+                            type: object
+                            x-go-name: Input
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/token_cache_PerformSetOrgMetadataOutput'
+            summary: 全量替换资源的所有 class 标签
+            tags:
+                - token_cache
+    /token_caches/{id}/set-user-metadata:
+        post:
+            description: 执行操作SetUserMetadata
+            operationId: token_cache_PerformSetUserMetadata
+            parameters:
+                - description: The Id or Name of token_cache
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        token_cache:
+                            additionalProperties:
+                                type: string
+                            type: object
+                            x-go-name: Input
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/token_cache_PerformSetUserMetadataOutput'
+            summary: 全量替换资源的所有用户标签
+            tags:
+                - token_cache
+    /token_caches/distinct-field:
+        get:
+            description: 获取指定资源类的信息DistinctField
+            operationId: token_cache_GetPropertyDistinctField
+            responses:
+                "200":
+                    $ref: '#/responses/token_cache_GetPropertyDistinctFieldOutput'
+            summary: 获取指定资源类的信息DistinctField
+            tags:
+                - token_cache
+    /token_caches/distinct-fields:
+        get:
+            description: 获取指定资源类的信息DistinctFields
+            operationId: token_cache_GetPropertyDistinctFields
+            responses:
+                "200":
+                    $ref: '#/responses/token_cache_GetPropertyDistinctFieldsOutput'
+            summary: 获取指定资源类的信息DistinctFields
+            tags:
+                - token_cache
+    /token_caches/purge-splitable:
+        post:
+            description: 执行操作PurgeSplitable
+            operationId: token_cache_PerformPurgeSplitable
+            parameters:
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        token_cache:
+                            $ref: '#/definitions/PurgeSplitTableInput'
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/token_cache_PerformPurgeSplitableOutput'
+            summary: 执行操作PurgeSplitable
+            tags:
+                - token_cache
+    /token_caches/splitable:
+        get:
+            description: 获取指定资源类的信息Splitable
+            operationId: token_cache_GetPropertySplitable
+            responses:
+                "200":
+                    $ref: '#/responses/token_cache_GetPropertySplitableOutput'
+            summary: 获取指定资源类的信息Splitable
+            tags:
+                - token_cache
+    /token_caches/splitable-export:
+        get:
+            description: 获取指定资源类的信息SplitableExport
+            operationId: token_cache_GetPropertySplitableExport
+            parameters:
+                - in: query
+                  name: table
+                  type: string
+                  x-go-name: Table
+                - format: int64
+                  in: query
+                  name: offset
+                  type: integer
+                  x-go-name: Offset
+                - format: int64
+                  in: query
+                  name: limit
+                  type: integer
+                  x-go-name: Limit
+            responses:
+                "200":
+                    $ref: '#/responses/token_cache_GetPropertySplitableExportOutput'
+            summary: 获取指定资源类的信息SplitableExport
+            tags:
+                - token_cache
+    /token_caches/tag-value-pairs:
+        get:
+            description: 获取指定资源类的信息TagValuePairs
+            operationId: token_cache_GetPropertyTagValuePairs
+            responses:
+                "200":
+                    $ref: '#/responses/token_cache_GetPropertyTagValuePairsOutput'
+            summary: 获取指定资源类的信息TagValuePairs
+            tags:
+                - token_cache
+    /token_caches/tag-value-tree:
+        get:
+            description: 获取指定资源类的信息TagValueTree
+            operationId: token_cache_GetPropertyTagValueTree
+            responses:
+                "200":
+                    $ref: '#/responses/token_cache_GetPropertyTagValueTreeOutput'
+            summary: 获取指定资源类的信息TagValueTree
             tags:
                 - token_cache
     /users:
@@ -10650,11 +14186,6 @@ paths:
                   name: show_fail_reason
                   type: boolean
                   x-go-name: ShowFailReason
-                - description: 是否返回状态统计信息，默认为False
-                  in: query
-                  name: summary_stats
-                  type: boolean
-                  x-go-name: SummaryStats
                 - $ref: '#/definitions/TTagSet'
                   description: 通过标签过滤（包含这些标签）
                   in: query
@@ -10920,6 +14451,50 @@ paths:
             summary: 更新
             tags:
                 - user
+    /users/{id}/class-metadata:
+        get:
+            description: 获取指定信息ClassMetadata
+            operationId: user_GetDetailsClassMetadata
+            parameters:
+                - description: The Id or Name of user
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+            responses:
+                "200":
+                    $ref: '#/responses/user_GetDetailsClassMetadataOutput'
+            summary: 获取指定信息ClassMetadata
+            tags:
+                - user
+        post:
+            description: 执行操作ClassMetadata
+            operationId: user_PerformClassMetadata
+            parameters:
+                - description: The Id or Name of user
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        user:
+                            additionalProperties:
+                                type: string
+                            type: object
+                            x-go-name: Input
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/user_PerformClassMetadataOutput'
+            summary: 更新资源的 class 标签
+            tags:
+                - user
     /users/{id}/disable:
         post:
             description: 执行操作Disable
@@ -11082,6 +14657,23 @@ paths:
             summary: 获取资源标签（元数据）
             tags:
                 - user
+    /users/{id}/org-metadata:
+        get:
+            description: 获取指定信息OrgMetadata
+            operationId: user_GetDetailsOrgMetadata
+            parameters:
+                - description: The Id or Name of user
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+            responses:
+                "200":
+                    $ref: '#/responses/user_GetDetailsOrgMetadataOutput'
+            summary: 获取指定信息OrgMetadata
+            tags:
+                - user
     /users/{id}/reset-credentials:
         post:
             description: 执行操作ResetCredentials
@@ -11105,6 +14697,90 @@ paths:
                 "200":
                     $ref: '#/responses/user_PerformResetCredentialsOutput'
             summary: 用户加入项目
+            tags:
+                - user
+    /users/{id}/set-class-metadata:
+        post:
+            description: 执行操作SetClassMetadata
+            operationId: user_PerformSetClassMetadata
+            parameters:
+                - description: The Id or Name of user
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        user:
+                            additionalProperties:
+                                type: string
+                            type: object
+                            x-go-name: Input
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/user_PerformSetClassMetadataOutput'
+            summary: 全量替换资源的所有 class 标签
+            tags:
+                - user
+    /users/{id}/set-org-metadata:
+        post:
+            description: 执行操作SetOrgMetadata
+            operationId: user_PerformSetOrgMetadata
+            parameters:
+                - description: The Id or Name of user
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        user:
+                            additionalProperties:
+                                type: string
+                            type: object
+                            x-go-name: Input
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/user_PerformSetOrgMetadataOutput'
+            summary: 全量替换资源的所有 class 标签
+            tags:
+                - user
+    /users/{id}/set-user-metadata:
+        post:
+            description: 执行操作SetUserMetadata
+            operationId: user_PerformSetUserMetadata
+            parameters:
+                - description: The Id or Name of user
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        user:
+                            additionalProperties:
+                                type: string
+                            type: object
+                            x-go-name: Input
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/user_PerformSetUserMetadataOutput'
+            summary: 全量替换资源的所有用户标签
             tags:
                 - user
     /users/{id}/unlink-idp:
@@ -11132,6 +14808,26 @@ paths:
             summary: 用户和IDP的指定entityId解除关联
             tags:
                 - user
+    /users/distinct-field:
+        get:
+            description: 获取指定资源类的信息DistinctField
+            operationId: user_GetPropertyDistinctField
+            responses:
+                "200":
+                    $ref: '#/responses/user_GetPropertyDistinctFieldOutput'
+            summary: 获取指定资源类的信息DistinctField
+            tags:
+                - user
+    /users/distinct-fields:
+        get:
+            description: 获取指定资源类的信息DistinctFields
+            operationId: user_GetPropertyDistinctFields
+            responses:
+                "200":
+                    $ref: '#/responses/user_GetPropertyDistinctFieldsOutput'
+            summary: 获取指定资源类的信息DistinctFields
+            tags:
+                - user
     /users/domain-tag-value-pairs:
         get:
             description: 获取指定资源类的信息DomainTagValuePairs
@@ -11150,6 +14846,80 @@ paths:
                 "200":
                     $ref: '#/responses/user_GetPropertyDomainTagValueTreeOutput'
             summary: 获取指定资源类的信息DomainTagValueTree
+            tags:
+                - user
+    /users/purge-splitable:
+        post:
+            description: 执行操作PurgeSplitable
+            operationId: user_PerformPurgeSplitable
+            parameters:
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        user:
+                            $ref: '#/definitions/PurgeSplitTableInput'
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/user_PerformPurgeSplitableOutput'
+            summary: 执行操作PurgeSplitable
+            tags:
+                - user
+    /users/splitable:
+        get:
+            description: 获取指定资源类的信息Splitable
+            operationId: user_GetPropertySplitable
+            responses:
+                "200":
+                    $ref: '#/responses/user_GetPropertySplitableOutput'
+            summary: 获取指定资源类的信息Splitable
+            tags:
+                - user
+    /users/splitable-export:
+        get:
+            description: 获取指定资源类的信息SplitableExport
+            operationId: user_GetPropertySplitableExport
+            parameters:
+                - in: query
+                  name: table
+                  type: string
+                  x-go-name: Table
+                - format: int64
+                  in: query
+                  name: offset
+                  type: integer
+                  x-go-name: Offset
+                - format: int64
+                  in: query
+                  name: limit
+                  type: integer
+                  x-go-name: Limit
+            responses:
+                "200":
+                    $ref: '#/responses/user_GetPropertySplitableExportOutput'
+            summary: 获取指定资源类的信息SplitableExport
+            tags:
+                - user
+    /users/tag-value-pairs:
+        get:
+            description: 获取指定资源类的信息TagValuePairs
+            operationId: user_GetPropertyTagValuePairs
+            responses:
+                "200":
+                    $ref: '#/responses/user_GetPropertyTagValuePairsOutput'
+            summary: 获取指定资源类的信息TagValuePairs
+            tags:
+                - user
+    /users/tag-value-tree:
+        get:
+            description: 获取指定资源类的信息TagValueTree
+            operationId: user_GetPropertyTagValueTree
+            responses:
+                "200":
+                    $ref: '#/responses/user_GetPropertyTagValueTreeOutput'
+            summary: 获取指定资源类的信息TagValueTree
             tags:
                 - user
     /v2.0/tokens:
@@ -11246,6 +15016,16 @@ responses:
                 credential:
                     $ref: '#/definitions/CredentialDetails'
             type: object
+    credential_GetDetailsClassMetadataOutput:
+        description: ""
+        schema:
+            properties:
+                credential:
+                    additionalProperties:
+                        type: string
+                    type: object
+                    x-go-name: Output
+            type: object
     credential_GetDetailsMetadataOutput:
         description: ""
         schema:
@@ -11256,6 +15036,28 @@ responses:
                     type: object
                     x-go-name: Output
             type: object
+    credential_GetDetailsOrgMetadataOutput:
+        description: ""
+        schema:
+            properties:
+                credential:
+                    additionalProperties:
+                        type: string
+                    type: object
+                    x-go-name: Output
+            type: object
+    credential_GetPropertyDistinctFieldOutput:
+        description: ""
+    credential_GetPropertyDistinctFieldsOutput:
+        description: ""
+    credential_GetPropertySplitableExportOutput:
+        description: ""
+    credential_GetPropertySplitableOutput:
+        description: ""
+    credential_GetPropertyTagValuePairsOutput:
+        description: ""
+    credential_GetPropertyTagValueTreeOutput:
+        description: ""
     credential_ListItemFilterOutput:
         description: ""
         schema:
@@ -11278,6 +15080,16 @@ responses:
                     type: integer
                     x-go-name: Total
             type: object
+    credential_PerformClassMetadataOutput:
+        description: ""
+    credential_PerformPurgeSplitableOutput:
+        description: ""
+    credential_PerformSetClassMetadataOutput:
+        description: ""
+    credential_PerformSetOrgMetadataOutput:
+        description: ""
+    credential_PerformSetUserMetadataOutput:
+        description: ""
     credential_ValidateCreateDataOutput:
         description: ""
         schema:
@@ -11306,6 +15118,16 @@ responses:
                 domain:
                     $ref: '#/definitions/DomainDetails'
             type: object
+    domain_GetDetailsClassMetadataOutput:
+        description: ""
+        schema:
+            properties:
+                domain:
+                    additionalProperties:
+                        type: string
+                    type: object
+                    x-go-name: Output
+            type: object
     domain_GetDetailsMetadataOutput:
         description: ""
         schema:
@@ -11316,6 +15138,28 @@ responses:
                     type: object
                     x-go-name: Output
             type: object
+    domain_GetDetailsOrgMetadataOutput:
+        description: ""
+        schema:
+            properties:
+                domain:
+                    additionalProperties:
+                        type: string
+                    type: object
+                    x-go-name: Output
+            type: object
+    domain_GetPropertyDistinctFieldOutput:
+        description: ""
+    domain_GetPropertyDistinctFieldsOutput:
+        description: ""
+    domain_GetPropertySplitableExportOutput:
+        description: ""
+    domain_GetPropertySplitableOutput:
+        description: ""
+    domain_GetPropertyTagValuePairsOutput:
+        description: ""
+    domain_GetPropertyTagValueTreeOutput:
+        description: ""
     domain_ListItemFilterOutput:
         description: ""
         schema:
@@ -11338,6 +15182,16 @@ responses:
                     type: integer
                     x-go-name: Total
             type: object
+    domain_PerformClassMetadataOutput:
+        description: ""
+    domain_PerformPurgeSplitableOutput:
+        description: ""
+    domain_PerformSetClassMetadataOutput:
+        description: ""
+    domain_PerformSetOrgMetadataOutput:
+        description: ""
+    domain_PerformSetUserMetadataOutput:
+        description: ""
     domain_PerformUnlinkIdpOutput:
         description: ""
     domain_ValidateCreateDataOutput:
@@ -11368,6 +15222,16 @@ responses:
                 endpoint:
                     $ref: '#/definitions/EndpointDetails'
             type: object
+    endpoint_GetDetailsClassMetadataOutput:
+        description: ""
+        schema:
+            properties:
+                endpoint:
+                    additionalProperties:
+                        type: string
+                    type: object
+                    x-go-name: Output
+            type: object
     endpoint_GetDetailsMetadataOutput:
         description: ""
         schema:
@@ -11378,6 +15242,28 @@ responses:
                     type: object
                     x-go-name: Output
             type: object
+    endpoint_GetDetailsOrgMetadataOutput:
+        description: ""
+        schema:
+            properties:
+                endpoint:
+                    additionalProperties:
+                        type: string
+                    type: object
+                    x-go-name: Output
+            type: object
+    endpoint_GetPropertyDistinctFieldOutput:
+        description: ""
+    endpoint_GetPropertyDistinctFieldsOutput:
+        description: ""
+    endpoint_GetPropertySplitableExportOutput:
+        description: ""
+    endpoint_GetPropertySplitableOutput:
+        description: ""
+    endpoint_GetPropertyTagValuePairsOutput:
+        description: ""
+    endpoint_GetPropertyTagValueTreeOutput:
+        description: ""
     endpoint_ListItemFilterOutput:
         description: ""
         schema:
@@ -11400,6 +15286,16 @@ responses:
                     type: integer
                     x-go-name: Total
             type: object
+    endpoint_PerformClassMetadataOutput:
+        description: ""
+    endpoint_PerformPurgeSplitableOutput:
+        description: ""
+    endpoint_PerformSetClassMetadataOutput:
+        description: ""
+    endpoint_PerformSetOrgMetadataOutput:
+        description: ""
+    endpoint_PerformSetUserMetadataOutput:
+        description: ""
     endpoint_ValidateCreateDataOutput:
         description: ""
         schema:
@@ -11428,6 +15324,16 @@ responses:
                 group:
                     $ref: '#/definitions/GroupDetails'
             type: object
+    group_GetDetailsClassMetadataOutput:
+        description: ""
+        schema:
+            properties:
+                group:
+                    additionalProperties:
+                        type: string
+                    type: object
+                    x-go-name: Output
+            type: object
     group_GetDetailsMetadataOutput:
         description: ""
         schema:
@@ -11438,9 +15344,31 @@ responses:
                     type: object
                     x-go-name: Output
             type: object
+    group_GetDetailsOrgMetadataOutput:
+        description: ""
+        schema:
+            properties:
+                group:
+                    additionalProperties:
+                        type: string
+                    type: object
+                    x-go-name: Output
+            type: object
+    group_GetPropertyDistinctFieldOutput:
+        description: ""
+    group_GetPropertyDistinctFieldsOutput:
+        description: ""
     group_GetPropertyDomainTagValuePairsOutput:
         description: ""
     group_GetPropertyDomainTagValueTreeOutput:
+        description: ""
+    group_GetPropertySplitableExportOutput:
+        description: ""
+    group_GetPropertySplitableOutput:
+        description: ""
+    group_GetPropertyTagValuePairsOutput:
+        description: ""
+    group_GetPropertyTagValueTreeOutput:
         description: ""
     group_ListItemFilterOutput:
         description: ""
@@ -11466,11 +15394,21 @@ responses:
             type: object
     group_PerformAddUsersOutput:
         description: ""
+    group_PerformClassMetadataOutput:
+        description: ""
     group_PerformJoinOutput:
         description: ""
     group_PerformLeaveOutput:
         description: ""
+    group_PerformPurgeSplitableOutput:
+        description: ""
     group_PerformRemoveUsersOutput:
+        description: ""
+    group_PerformSetClassMetadataOutput:
+        description: ""
+    group_PerformSetOrgMetadataOutput:
+        description: ""
+    group_PerformSetUserMetadataOutput:
         description: ""
     group_ValidateCreateDataOutput:
         description: ""
@@ -11500,9 +15438,29 @@ responses:
                 identity_provider:
                     $ref: '#/definitions/IdentityProviderDetails'
             type: object
+    identity_provider_GetDetailsClassMetadataOutput:
+        description: ""
+        schema:
+            properties:
+                identity_provider:
+                    additionalProperties:
+                        type: string
+                    type: object
+                    x-go-name: Output
+            type: object
     identity_provider_GetDetailsConfigOutput:
         description: ""
     identity_provider_GetDetailsMetadataOutput:
+        description: ""
+        schema:
+            properties:
+                identity_provider:
+                    additionalProperties:
+                        type: string
+                    type: object
+                    x-go-name: Output
+            type: object
+    identity_provider_GetDetailsOrgMetadataOutput:
         description: ""
         schema:
             properties:
@@ -11540,6 +15498,25 @@ responses:
                 identity_provider:
                     $ref: '#/definitions/GetDetailsStatusOutput'
             type: object
+    identity_provider_GetPropertyDistinctFieldOutput:
+        description: ""
+    identity_provider_GetPropertyDistinctFieldsOutput:
+        description: ""
+    identity_provider_GetPropertySplitableExportOutput:
+        description: ""
+    identity_provider_GetPropertySplitableOutput:
+        description: ""
+    identity_provider_GetPropertyStatisticsOutput:
+        description: ""
+        schema:
+            properties:
+                identity_provider:
+                    $ref: '#/definitions/StatusStatistic'
+            type: object
+    identity_provider_GetPropertyTagValuePairsOutput:
+        description: ""
+    identity_provider_GetPropertyTagValueTreeOutput:
+        description: ""
     identity_provider_ListItemFilterOutput:
         description: ""
         schema:
@@ -11562,6 +15539,8 @@ responses:
                     type: integer
                     x-go-name: Total
             type: object
+    identity_provider_PerformClassMetadataOutput:
+        description: ""
     identity_provider_PerformConfigOutput:
         description: ""
     identity_provider_PerformDefaultSsoOutput:
@@ -11569,6 +15548,16 @@ responses:
     identity_provider_PerformDisableOutput:
         description: ""
     identity_provider_PerformEnableOutput:
+        description: ""
+    identity_provider_PerformPurgeSplitableOutput:
+        description: ""
+    identity_provider_PerformSetClassMetadataOutput:
+        description: ""
+    identity_provider_PerformSetOrgMetadataOutput:
+        description: ""
+    identity_provider_PerformSetUserMetadataOutput:
+        description: ""
+    identity_provider_PerformStatusOutput:
         description: ""
     identity_provider_PerformSyncOutput:
         description: ""
@@ -11630,7 +15619,27 @@ responses:
                 organization:
                     $ref: '#/definitions/SOrganizationDetails'
             type: object
+    organization_GetDetailsClassMetadataOutput:
+        description: ""
+        schema:
+            properties:
+                organization:
+                    additionalProperties:
+                        type: string
+                    type: object
+                    x-go-name: Output
+            type: object
     organization_GetDetailsMetadataOutput:
+        description: ""
+        schema:
+            properties:
+                organization:
+                    additionalProperties:
+                        type: string
+                    type: object
+                    x-go-name: Output
+            type: object
+    organization_GetDetailsOrgMetadataOutput:
         description: ""
         schema:
             properties:
@@ -11647,9 +15656,21 @@ responses:
                 organization:
                     $ref: '#/definitions/GetDetailsStatusOutput'
             type: object
+    organization_GetPropertyDistinctFieldOutput:
+        description: ""
+    organization_GetPropertyDistinctFieldsOutput:
+        description: ""
     organization_GetPropertyDomainTagValuePairsOutput:
         description: ""
     organization_GetPropertyDomainTagValueTreeOutput:
+        description: ""
+    organization_GetPropertySplitableExportOutput:
+        description: ""
+    organization_GetPropertySplitableOutput:
+        description: ""
+    organization_GetPropertyTagValuePairsOutput:
+        description: ""
+    organization_GetPropertyTagValueTreeOutput:
         description: ""
     organization_ListItemFilterOutput:
         description: ""
@@ -11677,11 +15698,21 @@ responses:
         description: ""
     organization_PerformAddNodeOutput:
         description: ""
+    organization_PerformClassMetadataOutput:
+        description: ""
     organization_PerformCleanOutput:
         description: ""
     organization_PerformDisableOutput:
         description: ""
     organization_PerformEnableOutput:
+        description: ""
+    organization_PerformPurgeSplitableOutput:
+        description: ""
+    organization_PerformSetClassMetadataOutput:
+        description: ""
+    organization_PerformSetOrgMetadataOutput:
+        description: ""
+    organization_PerformSetUserMetadataOutput:
         description: ""
     organization_PerformSyncOutput:
         description: ""
@@ -11713,6 +15744,16 @@ responses:
                 organization_node:
                     $ref: '#/definitions/SOrganizationNodeDetails'
             type: object
+    organization_node_GetDetailsClassMetadataOutput:
+        description: ""
+        schema:
+            properties:
+                organization_node:
+                    additionalProperties:
+                        type: string
+                    type: object
+                    x-go-name: Output
+            type: object
     organization_node_GetDetailsMetadataOutput:
         description: ""
         schema:
@@ -11723,6 +15764,28 @@ responses:
                     type: object
                     x-go-name: Output
             type: object
+    organization_node_GetDetailsOrgMetadataOutput:
+        description: ""
+        schema:
+            properties:
+                organization_node:
+                    additionalProperties:
+                        type: string
+                    type: object
+                    x-go-name: Output
+            type: object
+    organization_node_GetPropertyDistinctFieldOutput:
+        description: ""
+    organization_node_GetPropertyDistinctFieldsOutput:
+        description: ""
+    organization_node_GetPropertySplitableExportOutput:
+        description: ""
+    organization_node_GetPropertySplitableOutput:
+        description: ""
+    organization_node_GetPropertyTagValuePairsOutput:
+        description: ""
+    organization_node_GetPropertyTagValueTreeOutput:
+        description: ""
     organization_node_ListItemFilterOutput:
         description: ""
         schema:
@@ -11746,6 +15809,16 @@ responses:
                     x-go-name: Total
             type: object
     organization_node_PerformBindOutput:
+        description: ""
+    organization_node_PerformClassMetadataOutput:
+        description: ""
+    organization_node_PerformPurgeSplitableOutput:
+        description: ""
+    organization_node_PerformSetClassMetadataOutput:
+        description: ""
+    organization_node_PerformSetOrgMetadataOutput:
+        description: ""
+    organization_node_PerformSetUserMetadataOutput:
         description: ""
     organization_node_PerformUnbindOutput:
         description: ""
@@ -11777,6 +15850,16 @@ responses:
                 policy:
                     $ref: '#/definitions/PolicyDetails'
             type: object
+    policy_GetDetailsClassMetadataOutput:
+        description: ""
+        schema:
+            properties:
+                policy:
+                    additionalProperties:
+                        type: string
+                    type: object
+                    x-go-name: Output
+            type: object
     policy_GetDetailsMetadataOutput:
         description: ""
         schema:
@@ -11787,9 +15870,31 @@ responses:
                     type: object
                     x-go-name: Output
             type: object
+    policy_GetDetailsOrgMetadataOutput:
+        description: ""
+        schema:
+            properties:
+                policy:
+                    additionalProperties:
+                        type: string
+                    type: object
+                    x-go-name: Output
+            type: object
+    policy_GetPropertyDistinctFieldOutput:
+        description: ""
+    policy_GetPropertyDistinctFieldsOutput:
+        description: ""
     policy_GetPropertyDomainTagValuePairsOutput:
         description: ""
     policy_GetPropertyDomainTagValueTreeOutput:
+        description: ""
+    policy_GetPropertySplitableExportOutput:
+        description: ""
+    policy_GetPropertySplitableOutput:
+        description: ""
+    policy_GetPropertyTagValuePairsOutput:
+        description: ""
+    policy_GetPropertyTagValueTreeOutput:
         description: ""
     policy_ListItemFilterOutput:
         description: ""
@@ -11815,6 +15920,8 @@ responses:
             type: object
     policy_PerformBindRoleOutput:
         description: ""
+    policy_PerformClassMetadataOutput:
+        description: ""
     policy_PerformDisableOutput:
         description: ""
     policy_PerformEnableOutput:
@@ -11822,6 +15929,14 @@ responses:
     policy_PerformPrivateOutput:
         description: ""
     policy_PerformPublicOutput:
+        description: ""
+    policy_PerformPurgeSplitableOutput:
+        description: ""
+    policy_PerformSetClassMetadataOutput:
+        description: ""
+    policy_PerformSetOrgMetadataOutput:
+        description: ""
+    policy_PerformSetUserMetadataOutput:
         description: ""
     policy_ValidateCreateDataOutput:
         description: ""
@@ -11851,6 +15966,16 @@ responses:
                 project:
                     $ref: '#/definitions/ProjectDetails'
             type: object
+    project_GetDetailsClassMetadataOutput:
+        description: ""
+        schema:
+            properties:
+                project:
+                    additionalProperties:
+                        type: string
+                    type: object
+                    x-go-name: Output
+            type: object
     project_GetDetailsMetadataOutput:
         description: ""
         schema:
@@ -11861,9 +15986,31 @@ responses:
                     type: object
                     x-go-name: Output
             type: object
+    project_GetDetailsOrgMetadataOutput:
+        description: ""
+        schema:
+            properties:
+                project:
+                    additionalProperties:
+                        type: string
+                    type: object
+                    x-go-name: Output
+            type: object
+    project_GetPropertyDistinctFieldOutput:
+        description: ""
+    project_GetPropertyDistinctFieldsOutput:
+        description: ""
     project_GetPropertyDomainTagValuePairsOutput:
         description: ""
     project_GetPropertyDomainTagValueTreeOutput:
+        description: ""
+    project_GetPropertySplitableExportOutput:
+        description: ""
+    project_GetPropertySplitableOutput:
+        description: ""
+    project_GetPropertyTagValuePairsOutput:
+        description: ""
+    project_GetPropertyTagValueTreeOutput:
         description: ""
     project_ListItemFilterOutput:
         description: ""
@@ -11887,13 +16034,23 @@ responses:
                     type: integer
                     x-go-name: Total
             type: object
+    project_PerformClassMetadataOutput:
+        description: ""
     project_PerformCleanOutput:
         description: ""
     project_PerformJoinOutput:
         description: ""
     project_PerformLeaveOutput:
         description: ""
+    project_PerformPurgeSplitableOutput:
+        description: ""
     project_PerformSetAdminOutput:
+        description: ""
+    project_PerformSetClassMetadataOutput:
+        description: ""
+    project_PerformSetOrgMetadataOutput:
+        description: ""
+    project_PerformSetUserMetadataOutput:
         description: ""
     project_ValidateCreateDataOutput:
         description: ""
@@ -11923,6 +16080,16 @@ responses:
                 region:
                     $ref: '#/definitions/RegionDetails'
             type: object
+    region_GetDetailsClassMetadataOutput:
+        description: ""
+        schema:
+            properties:
+                region:
+                    additionalProperties:
+                        type: string
+                    type: object
+                    x-go-name: Output
+            type: object
     region_GetDetailsMetadataOutput:
         description: ""
         schema:
@@ -11933,6 +16100,28 @@ responses:
                     type: object
                     x-go-name: Output
             type: object
+    region_GetDetailsOrgMetadataOutput:
+        description: ""
+        schema:
+            properties:
+                region:
+                    additionalProperties:
+                        type: string
+                    type: object
+                    x-go-name: Output
+            type: object
+    region_GetPropertyDistinctFieldOutput:
+        description: ""
+    region_GetPropertyDistinctFieldsOutput:
+        description: ""
+    region_GetPropertySplitableExportOutput:
+        description: ""
+    region_GetPropertySplitableOutput:
+        description: ""
+    region_GetPropertyTagValuePairsOutput:
+        description: ""
+    region_GetPropertyTagValueTreeOutput:
+        description: ""
     region_ListItemFilterOutput:
         description: ""
         schema:
@@ -11955,6 +16144,16 @@ responses:
                     type: integer
                     x-go-name: Total
             type: object
+    region_PerformClassMetadataOutput:
+        description: ""
+    region_PerformPurgeSplitableOutput:
+        description: ""
+    region_PerformSetClassMetadataOutput:
+        description: ""
+    region_PerformSetOrgMetadataOutput:
+        description: ""
+    region_PerformSetUserMetadataOutput:
+        description: ""
     region_ValidateCreateDataOutput:
         description: ""
         schema:
@@ -11983,6 +16182,16 @@ responses:
                 role:
                     $ref: '#/definitions/RoleDetails'
             type: object
+    role_GetDetailsClassMetadataOutput:
+        description: ""
+        schema:
+            properties:
+                role:
+                    additionalProperties:
+                        type: string
+                    type: object
+                    x-go-name: Output
+            type: object
     role_GetDetailsMetadataOutput:
         description: ""
         schema:
@@ -11993,9 +16202,31 @@ responses:
                     type: object
                     x-go-name: Output
             type: object
+    role_GetDetailsOrgMetadataOutput:
+        description: ""
+        schema:
+            properties:
+                role:
+                    additionalProperties:
+                        type: string
+                    type: object
+                    x-go-name: Output
+            type: object
+    role_GetPropertyDistinctFieldOutput:
+        description: ""
+    role_GetPropertyDistinctFieldsOutput:
+        description: ""
     role_GetPropertyDomainTagValuePairsOutput:
         description: ""
     role_GetPropertyDomainTagValueTreeOutput:
+        description: ""
+    role_GetPropertySplitableExportOutput:
+        description: ""
+    role_GetPropertySplitableOutput:
+        description: ""
+    role_GetPropertyTagValuePairsOutput:
+        description: ""
+    role_GetPropertyTagValueTreeOutput:
         description: ""
     role_ListItemFilterOutput:
         description: ""
@@ -12021,13 +16252,23 @@ responses:
             type: object
     role_PerformAddPolicyOutput:
         description: ""
+    role_PerformClassMetadataOutput:
+        description: ""
     role_PerformPrivateOutput:
         description: ""
     role_PerformPublicOutput:
         description: ""
+    role_PerformPurgeSplitableOutput:
+        description: ""
     role_PerformRemovePolicyOutput:
         description: ""
+    role_PerformSetClassMetadataOutput:
+        description: ""
+    role_PerformSetOrgMetadataOutput:
+        description: ""
     role_PerformSetPoliciesOutput:
+        description: ""
+    role_PerformSetUserMetadataOutput:
         description: ""
     role_ValidateCreateDataOutput:
         description: ""
@@ -12057,6 +16298,14 @@ responses:
                 role_policy:
                     $ref: '#/definitions/RolePolicyDetails'
             type: object
+    role_policy_GetPropertyDistinctFieldOutput:
+        description: ""
+    role_policy_GetPropertyDistinctFieldsOutput:
+        description: ""
+    role_policy_GetPropertySplitableExportOutput:
+        description: ""
+    role_policy_GetPropertySplitableOutput:
+        description: ""
     role_policy_ListItemFilterOutput:
         description: ""
         schema:
@@ -12079,6 +16328,8 @@ responses:
                     type: integer
                     x-go-name: Total
             type: object
+    role_policy_PerformPurgeSplitableOutput:
+        description: ""
     role_policy_ValidateCreateDataOutput:
         description: ""
         schema:
@@ -12107,6 +16358,14 @@ responses:
                 scope_resource:
                     $ref: '#/definitions/ModelBaseDetails'
             type: object
+    scope_resource_GetPropertyDistinctFieldOutput:
+        description: ""
+    scope_resource_GetPropertyDistinctFieldsOutput:
+        description: ""
+    scope_resource_GetPropertySplitableExportOutput:
+        description: ""
+    scope_resource_GetPropertySplitableOutput:
+        description: ""
     scope_resource_ListItemFilterOutput:
         description: ""
         schema:
@@ -12129,6 +16388,8 @@ responses:
                     type: integer
                     x-go-name: Total
             type: object
+    scope_resource_PerformPurgeSplitableOutput:
+        description: ""
     scope_resource_ValidateCreateDataOutput:
         description: ""
         schema:
@@ -12157,6 +16418,16 @@ responses:
                 service:
                     $ref: '#/definitions/ServiceDetails'
             type: object
+    service_GetDetailsClassMetadataOutput:
+        description: ""
+        schema:
+            properties:
+                service:
+                    additionalProperties:
+                        type: string
+                    type: object
+                    x-go-name: Output
+            type: object
     service_GetDetailsConfigOutput:
         description: ""
     service_GetDetailsMetadataOutput:
@@ -12169,6 +16440,28 @@ responses:
                     type: object
                     x-go-name: Output
             type: object
+    service_GetDetailsOrgMetadataOutput:
+        description: ""
+        schema:
+            properties:
+                service:
+                    additionalProperties:
+                        type: string
+                    type: object
+                    x-go-name: Output
+            type: object
+    service_GetPropertyDistinctFieldOutput:
+        description: ""
+    service_GetPropertyDistinctFieldsOutput:
+        description: ""
+    service_GetPropertySplitableExportOutput:
+        description: ""
+    service_GetPropertySplitableOutput:
+        description: ""
+    service_GetPropertyTagValuePairsOutput:
+        description: ""
+    service_GetPropertyTagValueTreeOutput:
+        description: ""
     service_ListItemFilterOutput:
         description: ""
         schema:
@@ -12191,7 +16484,17 @@ responses:
                     type: integer
                     x-go-name: Total
             type: object
+    service_PerformClassMetadataOutput:
+        description: ""
     service_PerformConfigOutput:
+        description: ""
+    service_PerformPurgeSplitableOutput:
+        description: ""
+    service_PerformSetClassMetadataOutput:
+        description: ""
+    service_PerformSetOrgMetadataOutput:
+        description: ""
+    service_PerformSetUserMetadataOutput:
         description: ""
     service_ValidateCreateDataOutput:
         description: ""
@@ -12221,6 +16524,16 @@ responses:
                 service_certificate:
                     $ref: '#/definitions/StandaloneResourceDetails'
             type: object
+    service_certificate_GetDetailsClassMetadataOutput:
+        description: ""
+        schema:
+            properties:
+                service_certificate:
+                    additionalProperties:
+                        type: string
+                    type: object
+                    x-go-name: Output
+            type: object
     service_certificate_GetDetailsMetadataOutput:
         description: ""
         schema:
@@ -12231,6 +16544,28 @@ responses:
                     type: object
                     x-go-name: Output
             type: object
+    service_certificate_GetDetailsOrgMetadataOutput:
+        description: ""
+        schema:
+            properties:
+                service_certificate:
+                    additionalProperties:
+                        type: string
+                    type: object
+                    x-go-name: Output
+            type: object
+    service_certificate_GetPropertyDistinctFieldOutput:
+        description: ""
+    service_certificate_GetPropertyDistinctFieldsOutput:
+        description: ""
+    service_certificate_GetPropertySplitableExportOutput:
+        description: ""
+    service_certificate_GetPropertySplitableOutput:
+        description: ""
+    service_certificate_GetPropertyTagValuePairsOutput:
+        description: ""
+    service_certificate_GetPropertyTagValueTreeOutput:
+        description: ""
     service_certificate_ListItemFilterOutput:
         description: ""
         schema:
@@ -12253,6 +16588,16 @@ responses:
                     type: integer
                     x-go-name: Total
             type: object
+    service_certificate_PerformClassMetadataOutput:
+        description: ""
+    service_certificate_PerformPurgeSplitableOutput:
+        description: ""
+    service_certificate_PerformSetClassMetadataOutput:
+        description: ""
+    service_certificate_PerformSetOrgMetadataOutput:
+        description: ""
+    service_certificate_PerformSetUserMetadataOutput:
+        description: ""
     service_certificate_ValidateCreateDataOutput:
         description: ""
         schema:
@@ -12281,6 +16626,16 @@ responses:
                 token_cache:
                     $ref: '#/definitions/StandaloneAnonResourceDetails'
             type: object
+    token_cache_GetDetailsClassMetadataOutput:
+        description: ""
+        schema:
+            properties:
+                token_cache:
+                    additionalProperties:
+                        type: string
+                    type: object
+                    x-go-name: Output
+            type: object
     token_cache_GetDetailsMetadataOutput:
         description: ""
         schema:
@@ -12291,6 +16646,28 @@ responses:
                     type: object
                     x-go-name: Output
             type: object
+    token_cache_GetDetailsOrgMetadataOutput:
+        description: ""
+        schema:
+            properties:
+                token_cache:
+                    additionalProperties:
+                        type: string
+                    type: object
+                    x-go-name: Output
+            type: object
+    token_cache_GetPropertyDistinctFieldOutput:
+        description: ""
+    token_cache_GetPropertyDistinctFieldsOutput:
+        description: ""
+    token_cache_GetPropertySplitableExportOutput:
+        description: ""
+    token_cache_GetPropertySplitableOutput:
+        description: ""
+    token_cache_GetPropertyTagValuePairsOutput:
+        description: ""
+    token_cache_GetPropertyTagValueTreeOutput:
+        description: ""
     token_cache_ListItemFilterOutput:
         description: ""
         schema:
@@ -12313,6 +16690,16 @@ responses:
                     type: integer
                     x-go-name: Total
             type: object
+    token_cache_PerformClassMetadataOutput:
+        description: ""
+    token_cache_PerformPurgeSplitableOutput:
+        description: ""
+    token_cache_PerformSetClassMetadataOutput:
+        description: ""
+    token_cache_PerformSetOrgMetadataOutput:
+        description: ""
+    token_cache_PerformSetUserMetadataOutput:
+        description: ""
     token_cache_ValidateCreateDataOutput:
         description: ""
         schema:
@@ -12355,6 +16742,16 @@ responses:
                 user:
                     $ref: '#/definitions/UserDetails'
             type: object
+    user_GetDetailsClassMetadataOutput:
+        description: ""
+        schema:
+            properties:
+                user:
+                    additionalProperties:
+                        type: string
+                    type: object
+                    x-go-name: Output
+            type: object
     user_GetDetailsMetadataOutput:
         description: ""
         schema:
@@ -12365,9 +16762,31 @@ responses:
                     type: object
                     x-go-name: Output
             type: object
+    user_GetDetailsOrgMetadataOutput:
+        description: ""
+        schema:
+            properties:
+                user:
+                    additionalProperties:
+                        type: string
+                    type: object
+                    x-go-name: Output
+            type: object
+    user_GetPropertyDistinctFieldOutput:
+        description: ""
+    user_GetPropertyDistinctFieldsOutput:
+        description: ""
     user_GetPropertyDomainTagValuePairsOutput:
         description: ""
     user_GetPropertyDomainTagValueTreeOutput:
+        description: ""
+    user_GetPropertySplitableExportOutput:
+        description: ""
+    user_GetPropertySplitableOutput:
+        description: ""
+    user_GetPropertyTagValuePairsOutput:
+        description: ""
+    user_GetPropertyTagValueTreeOutput:
         description: ""
     user_ListItemFilterOutput:
         description: ""
@@ -12391,6 +16810,8 @@ responses:
                     type: array
                     x-go-name: Output
             type: object
+    user_PerformClassMetadataOutput:
+        description: ""
     user_PerformDisableOutput:
         description: ""
     user_PerformEnableOutput:
@@ -12401,7 +16822,15 @@ responses:
         description: ""
     user_PerformLinkIdpOutput:
         description: ""
+    user_PerformPurgeSplitableOutput:
+        description: ""
     user_PerformResetCredentialsOutput:
+        description: ""
+    user_PerformSetClassMetadataOutput:
+        description: ""
+    user_PerformSetOrgMetadataOutput:
+        description: ""
+    user_PerformSetUserMetadataOutput:
         description: ""
     user_PerformUnlinkIdpOutput:
         description: ""

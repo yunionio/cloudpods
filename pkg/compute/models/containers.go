@@ -178,9 +178,6 @@ func (m *SContainerManager) ValidateSpec(ctx context.Context, userCred mcclient.
 	}
 
 	if pod != nil {
-		if err := m.ValidateSpecRootFs(ctx, userCred, pod, spec, ctr); err != nil {
-			return errors.Wrap(err, "ValidateSpecRootFs")
-		}
 		if err := m.ValidateSpecVolumeMounts(ctx, userCred, pod, spec, ctr); err != nil {
 			return errors.Wrap(err, "ValidateSpecVolumeMounts")
 		}
@@ -232,21 +229,6 @@ func (m *SContainerManager) ValidateSpecDevice(ctx context.Context, userCred mcc
 		return nil, httperrors.NewInputParameterError("get device driver: %v", err)
 	}
 	return drv.ValidateCreateData(ctx, userCred, pod, dev)
-}
-
-func (m *SContainerManager) ValidateSpecRootFs(ctx context.Context, userCred mcclient.TokenCredential, pod *SGuest, spec *api.ContainerSpec, ctr *SContainer) error {
-	if spec.RootFs == nil {
-		return nil
-	}
-	rootFs := spec.RootFs
-	drv, err := GetContainerRootFsDriverWithError(rootFs.Type)
-	if err != nil {
-		return errors.Wrapf(err, "get container volume mount driver %q", rootFs.Type)
-	}
-	if err := drv.ValidateRootFsCreateData(ctx, userCred, pod, rootFs); err != nil {
-		return errors.Wrapf(err, "validate %s create data", drv.GetType())
-	}
-	return nil
 }
 
 func (m *SContainerManager) ValidateSpecVolumeMounts(ctx context.Context, userCred mcclient.TokenCredential, pod *SGuest, spec *api.ContainerSpec, ctr *SContainer) error {
@@ -349,7 +331,7 @@ func (m *SContainerManager) validateSpecProbe(ctx context.Context, userCred mccl
 		"failure_threshold": probe.FailureThreshold,
 	} {
 		if val < 0 {
-			return httperrors.NewInputParameterError("%s is negative", key)
+			return httperrors.NewInputParameterError(key + " is negative")
 		}
 	}
 
@@ -479,23 +461,6 @@ func (c *SContainer) GetVolumeMounts() []*apis.ContainerVolumeMount {
 	return c.Spec.VolumeMounts
 }
 
-type ContainerRootFsRelation struct {
-	RootFs *apis.ContainerRootfs
-	pod    *SGuest
-}
-
-func (rr *ContainerRootFsRelation) ToHostRootFs() (*hostapi.ContainerRootfs, error) {
-	drv, err := GetContainerRootFsDriverWithError(rr.RootFs.Type)
-	if err != nil {
-		return nil, errors.Wrapf(err, "get container root fs driver %q", rr.RootFs.Type)
-	}
-	rootFs, err := drv.ToHostRootFs(rr.RootFs)
-	if err != nil {
-		return nil, errors.Wrapf(err, "to host root fs")
-	}
-	return rootFs, nil
-}
-
 type ContainerVolumeMountRelation struct {
 	VolumeMount *apis.ContainerVolumeMount
 
@@ -582,13 +547,6 @@ func (vm *ContainerVolumeMountRelation) ToHostMount(ctx context.Context, userCre
 	return ret, nil
 }
 
-func (m *SContainerManager) GetRootFsRelation(pod *SGuest, spec *api.ContainerSpec) (*ContainerRootFsRelation, error) {
-	return &ContainerRootFsRelation{
-		RootFs: spec.RootFs,
-		pod:    pod,
-	}, nil
-}
-
 func (m *SContainerManager) GetVolumeMountRelations(pod *SGuest, spec *api.ContainerSpec) ([]*ContainerVolumeMountRelation, error) {
 	relation := make([]*ContainerVolumeMountRelation, len(spec.VolumeMounts))
 	for idx, vm := range spec.VolumeMounts {
@@ -599,10 +557,6 @@ func (m *SContainerManager) GetVolumeMountRelations(pod *SGuest, spec *api.Conta
 		}
 	}
 	return relation, nil
-}
-
-func (c *SContainer) GetRootFsRelation() (*ContainerRootFsRelation, error) {
-	return GetContainerManager().GetRootFsRelation(c.GetPod(), c.Spec)
 }
 
 func (c *SContainer) GetVolumeMountRelations() ([]*ContainerVolumeMountRelation, error) {
@@ -630,7 +584,6 @@ func (c *SContainer) PerformStop(ctx context.Context, userCred mcclient.TokenCre
 		if !sets.NewString(
 			api.CONTAINER_STATUS_RUNNING,
 			api.CONTAINER_STATUS_PROBING,
-			api.CONTAINER_STATUS_PROBE_FAILED,
 			api.CONTAINER_STATUS_STOP_FAILED).Has(c.Status) {
 			return nil, httperrors.NewInvalidStatusError("Can't stop container in status %s", c.Status)
 		}
@@ -763,27 +716,7 @@ func (m *SContainerManager) ConvertVolumeMountRelationToSpec(ctx context.Context
 	return mounts, nil
 }
 
-func (m *SContainerManager) ConvertRootFsRelationToSpec(ctx context.Context, userCred mcclient.TokenCredential, relation *ContainerRootFsRelation) (*hostapi.ContainerRootfs, error) {
-	if relation.RootFs == nil {
-		return nil, nil
-	}
-	rootFs, err := relation.ToHostRootFs()
-	if err != nil {
-		return nil, errors.Wrap(err, "ToHostRootFs")
-	}
-	return rootFs, nil
-}
-
 func (c *SContainer) ToHostContainerSpec(ctx context.Context, userCred mcclient.TokenCredential) (*hostapi.ContainerSpec, error) {
-	rootFsRelation, err := c.GetRootFsRelation()
-	if err != nil {
-		return nil, errors.Wrap(err, "GetRootFsRelation")
-	}
-	rootFs, err := GetContainerManager().ConvertRootFsRelationToSpec(ctx, userCred, rootFsRelation)
-	if err != nil {
-		return nil, errors.Wrap(err, "ConvertRootFsRelationToSpec")
-	}
-
 	vmRelation, err := c.GetVolumeMountRelations()
 	if err != nil {
 		return nil, errors.Wrap(err, "GetVolumeMountRelations")
@@ -804,7 +737,6 @@ func (c *SContainer) ToHostContainerSpec(ctx context.Context, userCred mcclient.
 	spec := c.Spec.ContainerSpec
 	hSpec := &hostapi.ContainerSpec{
 		ContainerSpec: spec,
-		Rootfs:        rootFs,
 		VolumeMounts:  mounts,
 		Devices:       ctrDevs,
 	}
@@ -885,32 +817,11 @@ func (c *SContainer) PerformSaveVolumeMountImage(ctx context.Context, userCred m
 	if err != nil {
 		return nil, errors.Wrap(err, "ToHostMount")
 	}
-
-	cleanupDirPath := func(dirPath string) string {
-		nPath := ""
-		pathSegs := strings.Split(dirPath, "/")
-		for _, seg := range pathSegs {
-			if len(seg) > 0 {
-				nPath = filepath.Join(nPath, seg)
-			}
-		}
-		return nPath
-	}
-
-	cleanupDirPaths := func(dirPaths []string) []string {
-		for i := range dirPaths {
-			dirPaths[i] = cleanupDirPath(dirPaths[i])
-		}
-		return dirPaths
-	}
-
 	hostInput := &hostapi.ContainerSaveVolumeMountToImageInput{
 		ImageId:          imageId,
 		VolumeMountIndex: input.Index,
 		VolumeMount:      hvm,
-
-		VolumeMountDirs:   cleanupDirPaths(input.Dirs),
-		VolumeMountPrefix: cleanupDirPath(input.DirPrefix),
+		VolumeMountDirs:  input.Dirs,
 	}
 
 	return hostInput, c.StartSaveVolumeMountImage(ctx, userCred, hostInput, "")

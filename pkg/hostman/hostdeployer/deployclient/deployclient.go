@@ -127,13 +127,3 @@ func (c *DeployClient) DisconnectEsxiDisks(
 	client := deployapi.NewDeployAgentClient(conn)
 	return client.DisconnectEsxiDisks(ctx, in, opts...)
 }
-
-func (c *DeployClient) SetOvmfBootOrder(ctx context.Context, in *deployapi.OvmfBootOrderParams, opts ...grpc.CallOption) (*deployapi.Empty, error) {
-	conn, err := grcpDialWithUnixSocket(ctx, c.socketPath)
-	if err != nil {
-		return nil, err
-	}
-	defer conn.Close()
-	client := deployapi.NewDeployAgentClient(conn)
-	return client.SetOvmfBootOrder(ctx, in, opts...)
-}

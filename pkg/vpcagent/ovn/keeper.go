@@ -26,12 +26,12 @@ import (
 	"yunion.io/x/ovsdb/types"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/netutils"
+	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/pkg/utils"
 
 	commonapis "yunion.io/x/onecloud/pkg/apis"
 	apis "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/util/netutils2"
 	agentmodels "yunion.io/x/onecloud/pkg/vpcagent/models"
 	"yunion.io/x/onecloud/pkg/vpcagent/options"
 	"yunion.io/x/onecloud/pkg/vpcagent/ovn/mac"
@@ -122,12 +122,9 @@ func (keeper *OVNNorthboundKeeper) ClaimVpc(ctx context.Context, vpc *agentmodel
 			Name: vpcExtLsName(vpc.Id),
 		}
 		vpcR1extp = &ovn_nb.LogicalRouterPort{
-			Name: vpcR1extpName(vpc.Id),
-			Mac:  apis.VpcInterExtMac1,
-			Networks: []string{
-				fmt.Sprintf("%s/%d", apis.VpcInterExtIP1(), apis.VpcInterExtMask),
-				fmt.Sprintf("%s/%d", apis.VpcInterExtIP16(), apis.VpcInterExtMask6),
-			},
+			Name:     vpcR1extpName(vpc.Id),
+			Mac:      apis.VpcInterExtMac1,
+			Networks: []string{fmt.Sprintf("%s/%d", apis.VpcInterExtIP1(), apis.VpcInterExtMask)},
 		}
 		vpcExtr1p = &ovn_nb.LogicalSwitchPort{
 			Name:      vpcExtr1pName(vpc.Id),
@@ -138,12 +135,9 @@ func (keeper *OVNNorthboundKeeper) ClaimVpc(ctx context.Context, vpc *agentmodel
 			},
 		}
 		vpcR2extp = &ovn_nb.LogicalRouterPort{
-			Name: vpcR2extpName(vpc.Id),
-			Mac:  apis.VpcInterExtMac2,
-			Networks: []string{
-				fmt.Sprintf("%s/%d", apis.VpcInterExtIP2(), apis.VpcInterExtMask),
-				fmt.Sprintf("%s/%d", apis.VpcInterExtIP26(), apis.VpcInterExtMask6),
-			},
+			Name:     vpcR2extpName(vpc.Id),
+			Mac:      apis.VpcInterExtMac2,
+			Networks: []string{fmt.Sprintf("%s/%d", apis.VpcInterExtIP2(), apis.VpcInterExtMask)},
 		}
 		vpcExtr2p = &ovn_nb.LogicalSwitchPort{
 			Name:      vpcExtr2pName(vpc.Id),
@@ -181,12 +175,9 @@ func (keeper *OVNNorthboundKeeper) ClaimVpc(ctx context.Context, vpc *agentmodel
 			Name: vpcHostLsName(vpc.Id),
 		}
 		vpcRhp = &ovn_nb.LogicalRouterPort{
-			Name: vpcRhpName(vpc.Id),
-			Mac:  apis.VpcMappedGatewayMac,
-			Networks: []string{
-				fmt.Sprintf("%s/%d", apis.VpcMappedGatewayIP(), apis.VpcMappedIPMask),
-				fmt.Sprintf("%s/%d", apis.VpcMappedGatewayIP6(), apis.VpcMappedIPMask6),
-			},
+			Name:     vpcRhpName(vpc.Id),
+			Mac:      apis.VpcMappedGatewayMac,
+			Networks: []string{fmt.Sprintf("%s/%d", apis.VpcMappedGatewayIP(), apis.VpcMappedIPMask)},
 		}
 		vpcHrp = &ovn_nb.LogicalSwitchPort{
 			Name:      vpcHrpName(vpc.Id),
@@ -214,12 +205,9 @@ func (keeper *OVNNorthboundKeeper) ClaimVpc(ctx context.Context, vpc *agentmodel
 			Name: vpcEipLsName(vpc.Id),
 		}
 		vpcRep = &ovn_nb.LogicalRouterPort{
-			Name: vpcRepName(vpc.Id),
-			Mac:  apis.VpcEipGatewayMac,
-			Networks: []string{
-				fmt.Sprintf("%s/%d", apis.VpcEipGatewayIP(), apis.VpcEipGatewayIPMask),
-				fmt.Sprintf("%s/%d", apis.VpcEipGatewayIP6(), apis.VpcEipGatewayIPMask6),
-			},
+			Name:     vpcRepName(vpc.Id),
+			Mac:      apis.VpcEipGatewayMac,
+			Networks: []string{fmt.Sprintf("%s/%d", apis.VpcEipGatewayIP(), apis.VpcEipGatewayIPMask)},
 		}
 		vpcErp = &ovn_nb.LogicalSwitchPort{
 			Name:      vpcErpName(vpc.Id),
@@ -277,7 +265,7 @@ func (keeper *OVNNorthboundKeeper) ClaimNetwork(ctx context.Context, network *ag
 		vpc   = network.Vpc
 		rpMac = mac.HashSubnetRouterPortMac(network.Id)
 		mdMac = mac.HashSubnetMetadataMac(network.Id)
-		// mdIp  = "169.254.169.254"
+		mdIp  = "169.254.169.254"
 	)
 	netLs := &ovn_nb.LogicalSwitch{
 		Name: netLsName(network.Id),
@@ -287,22 +275,16 @@ func (keeper *OVNNorthboundKeeper) ClaimNetwork(ctx context.Context, network *ag
 	}
 	if len(network.GuestGateway6) > 0 && network.GuestIp6Mask > 0 {
 		networks = append(networks, fmt.Sprintf("%s/%d", network.GuestGateway6, network.GuestIp6Mask))
-		for _, ip6 := range opts.MetadataServerIp6s {
-			networks = append(networks, fmt.Sprintf("%s/128", ip6))
-		}
 	}
 	netRnp := &ovn_nb.LogicalRouterPort{
 		Name:     netRnpName(network.Id),
 		Mac:      rpMac,
 		Networks: networks,
 	}
-	mtu := opts.OvnUnderlayMtu
-	mtu -= apis.VPC_OVN_ENCAP_COST
 	if len(network.GuestGateway6) > 0 && network.GuestIp6Mask > 0 {
 		netRnp.Ipv6RaConfigs = map[string]string{
-			"address_mode":  "dhcpv6_stateful",
-			"mtu":           fmt.Sprintf("%d", mtu),
-			"send_periodic": "true",
+			"address_mode": "dhcpv6_stateful",
+			// "send_periodic": "false",
 		}
 	}
 	netNrp := &ovn_nb.LogicalSwitchPort{
@@ -313,13 +295,10 @@ func (keeper *OVNNorthboundKeeper) ClaimNetwork(ctx context.Context, network *ag
 			"router-port": netRnpName(network.Id),
 		},
 	}
-	netMdpAddrs := []string{mdMac}
-	netMdpAddrs = append(netMdpAddrs, opts.MetadataServerIp4s...)
-	netMdpAddrs = append(netMdpAddrs, opts.MetadataServerIp6s...)
 	netMdp := &ovn_nb.LogicalSwitchPort{
 		Name:      netMdpName(network.Id),
 		Type:      "localport",
-		Addresses: []string{strings.Join(netMdpAddrs, " ")},
+		Addresses: []string{fmt.Sprintf("%s %s", mdMac, mdIp)},
 	}
 	var (
 		vpcExtBackRoute       *ovn_nb.LogicalRouterStaticRoute
@@ -327,7 +306,7 @@ func (keeper *OVNNorthboundKeeper) ClaimNetwork(ctx context.Context, network *ag
 		vpcExtBackRoute6      *ovn_nb.LogicalRouterStaticRoute
 		vpcExtBackRoute6IdRef string
 	)
-	if len(network.GuestGateway) > 0 && network.GuestIpMask > 0 {
+	{
 		if ipAddr, err := netutils.NewIPV4Addr(network.GuestGateway); err != nil {
 			return errors.Wrap(err, "NewIPV4Addr GuestGateway")
 		} else {
@@ -346,7 +325,7 @@ func (keeper *OVNNorthboundKeeper) ClaimNetwork(ctx context.Context, network *ag
 			vpcExtBackRouteIdRef = "vpcExtBackRoute"
 		}
 	}
-	if len(network.GuestGateway6) > 0 && network.GuestIp6Mask > 0 {
+	/*if len(network.GuestGateway6) > 0 && network.GuestIp6Mask > 0 {
 		if ip6Addr, err := netutils.NewIPV6Addr(network.GuestGateway6); err != nil {
 			return errors.Wrap(err, "NewIPV6Addr GuestGateway6")
 		} else {
@@ -356,7 +335,7 @@ func (keeper *OVNNorthboundKeeper) ClaimNetwork(ctx context.Context, network *ag
 			vpcExtBackRoute6 = &ovn_nb.LogicalRouterStaticRoute{
 				Policy:     ptr("dst-ip"),
 				IpPrefix:   netAddrCidr6,
-				Nexthop:    apis.VpcInterExtIP16().String(),
+				Nexthop:    apis.VpcInterExtIP1().String(),
 				OutputPort: ptr(vpcR2extpName(vpc.Id)),
 				ExternalIds: map[string]string{
 					externalKeyOcRef: ocStaticRoute6Ref,
@@ -364,7 +343,7 @@ func (keeper *OVNNorthboundKeeper) ClaimNetwork(ctx context.Context, network *ag
 			}
 			vpcExtBackRoute6IdRef = "vpcExtBackRoute6"
 		}
-	}
+	}*/
 
 	var (
 		args      []string
@@ -375,9 +354,7 @@ func (keeper *OVNNorthboundKeeper) ClaimNetwork(ctx context.Context, network *ag
 		netRnp,
 		netNrp,
 		netMdp,
-	}
-	if vpcExtBackRoute != nil {
-		irows = append(irows, vpcExtBackRoute)
+		vpcExtBackRoute,
 	}
 	if vpcExtBackRoute6 != nil {
 		irows = append(irows, vpcExtBackRoute6)
@@ -391,17 +368,13 @@ func (keeper *OVNNorthboundKeeper) ClaimNetwork(ctx context.Context, network *ag
 	args = append(args, ovnCreateArgs(netRnp, netRnp.Name)...)
 	args = append(args, ovnCreateArgs(netNrp, netNrp.Name)...)
 	args = append(args, ovnCreateArgs(netMdp, netMdp.Name)...)
-	if vpcExtBackRoute != nil {
-		args = append(args, ovnCreateArgs(vpcExtBackRoute, vpcExtBackRouteIdRef)...)
-	}
+	args = append(args, ovnCreateArgs(vpcExtBackRoute, vpcExtBackRouteIdRef)...)
 	if vpcExtBackRoute6 != nil {
 		args = append(args, ovnCreateArgs(vpcExtBackRoute6, vpcExtBackRoute6IdRef)...)
 	}
 	args = append(args, "--", "add", "Logical_Switch", netLs.Name, "ports", "@"+netNrp.Name, "@"+netMdp.Name)
 	args = append(args, "--", "add", "Logical_Router", vpcLrName(vpc.Id), "ports", "@"+netRnp.Name)
-	if vpcExtBackRoute != nil {
-		args = append(args, "--", "add", "Logical_Router", vpcExtLrName(vpc.Id), "static_routes", "@"+vpcExtBackRouteIdRef)
-	}
+	args = append(args, "--", "add", "Logical_Router", vpcExtLrName(vpc.Id), "static_routes", "@"+vpcExtBackRouteIdRef)
 	if vpcExtBackRoute6 != nil {
 		args = append(args, "--", "add", "Logical_Router", vpcExtLrName(vpc.Id), "static_routes", "@"+vpcExtBackRoute6IdRef)
 	}
@@ -414,7 +387,7 @@ func (keeper *OVNNorthboundKeeper) ClaimVpcHost(ctx context.Context, vpc *agentm
 	)
 	vpcHostLsp := &ovn_nb.LogicalSwitchPort{
 		Name:      vpcHostLspName(vpc.Id, host.Id),
-		Addresses: []string{fmt.Sprintf("%s %s %s", mac.HashVpcHostDistgwMac(host.Id), host.OvnMappedIpAddr, host.OvnMappedIp6Addr)},
+		Addresses: []string{fmt.Sprintf("%s %s", mac.HashVpcHostDistgwMac(host.Id), host.OvnMappedIpAddr)},
 	}
 	if m := keeper.DB.LogicalSwitchPort.FindOneMatchNonZeros(vpcHostLsp); m != nil {
 		m.SetExternalId(externalKeyOcVersion, ocVersion)
@@ -440,11 +413,10 @@ func (keeper *OVNNorthboundKeeper) ClaimVpcEipgw(ctx context.Context, vpc *agent
 	var (
 		ocVersion = fmt.Sprintf("%s.%d", vpc.UpdatedAt, vpc.UpdateVersion)
 		eipgwVip  = apis.VpcEipGatewayIP3().String()
-		eipgwVip6 = apis.VpcEipGatewayIP63().String()
 	)
 	vpcEipLsp := &ovn_nb.LogicalSwitchPort{
 		Name:      vpcEipLspName(vpc.Id, eipgwVip),
-		Addresses: []string{fmt.Sprintf("%s %s %s", apis.VpcEipGatewayMac3, eipgwVip, eipgwVip6)},
+		Addresses: []string{fmt.Sprintf("%s %s", apis.VpcEipGatewayMac3, eipgwVip)},
 	}
 	if m := keeper.DB.LogicalSwitchPort.FindOneMatchNonZeros(vpcEipLsp); m != nil {
 		m.SetExternalId(externalKeyOcVersion, ocVersion)
@@ -466,7 +438,7 @@ func (keeper *OVNNorthboundKeeper) ClaimVpcEipgw(ctx context.Context, vpc *agent
 	return keeper.cli.Must(ctx, "ClaimVpcEipgw", args)
 }
 
-/*func formatNtpServers(srvs string) string {
+func formatNtpServers(srvs string) string {
 	srv := make([]string, 0)
 	for _, part := range strings.Split(srvs, ",") {
 		part = strings.TrimSpace(part)
@@ -479,13 +451,13 @@ func (keeper *OVNNorthboundKeeper) ClaimVpcEipgw(ctx context.Context, vpc *agent
 		}
 	}
 	return strings.Join(srv, ",")
-}*/
+}
 
 func generateDhcpOptions(ctx context.Context, guestnetwork *agentmodels.Guestnetwork, opts *options.Options) *ovn_nb.DHCPOptions {
 	var (
 		network = guestnetwork.Network
 		dhcpMac = mac.HashSubnetDhcpMac(network.Id)
-		mdIp    = fmt.Sprintf("%s/32", opts.MetadataServerIp4s[0])
+		mdIp    = "169.254.169.254/32"
 
 		ocDhcpRef = fmt.Sprintf("dhcp/%s/%s", guestnetwork.GuestId, guestnetwork.Ifname)
 	)
@@ -504,7 +476,7 @@ func generateDhcpOptions(ctx context.Context, guestnetwork *agentmodels.Guestnet
 		Options: map[string]string{
 			"server_id":  network.GuestGateway,
 			"server_mac": dhcpMac,
-			//"router":     network.GuestGateway,
+			"router":     network.GuestGateway,
 			"mtu":        fmt.Sprintf("%d", mtu),
 			"lease_time": fmt.Sprintf("%d", leaseTime),
 			"T1":         fmt.Sprintf("%d", renewTime),
@@ -517,7 +489,6 @@ func generateDhcpOptions(ctx context.Context, guestnetwork *agentmodels.Guestnet
 	{
 		routes := []string{}
 		if guestnetwork.IsDefault {
-			dhcpopts.Options["router"] = network.GuestGateway
 			routes = append(routes,
 				mdIp, "0.0.0.0",
 				"0.0.0.0/0", network.GuestGateway,
@@ -545,9 +516,8 @@ func generateDhcpOptions(ctx context.Context, guestnetwork *agentmodels.Guestnet
 		if dnsSrvs == "" {
 			dnsSrvs = opts.DNSServer
 		}
-		dnsSrvs4List, _ := netutils2.SplitV46Addr(dnsSrvs)
-		if len(dnsSrvs4List) > 0 {
-			dhcpopts.Options["dns_server"] = "{" + strings.Join(dnsSrvs4List, ",") + "}"
+		if len(dnsSrvs) > 0 {
+			dhcpopts.Options["dns_server"] = "{" + dnsSrvs + "}"
 		}
 	}
 	{
@@ -572,10 +542,9 @@ func generateDhcpOptions(ctx context.Context, guestnetwork *agentmodels.Guestnet
 				ntpSrvs = strings.Join(ntp, ",")
 			}
 		}
-		ntpSrvs4List, _ := netutils2.SplitV46Addr(ntpSrvs)
-		if len(ntpSrvs4List) > 0 {
+		if len(ntpSrvs) > 0 {
 			// bug on OVN, should not use ntp server: QiuJian
-			dhcpopts.Options["ntp_server"] = "{" + strings.Join(ntpSrvs4List, ",") + "}"
+			dhcpopts.Options["ntp_server"] = "{" + formatNtpServers(ntpSrvs) + "}"
 		}
 	}
 	return dhcpopts
@@ -593,42 +562,13 @@ func generateDhcp6Options(ctx context.Context, guestnetwork *agentmodels.Guestne
 	dhcpopts := &ovn_nb.DHCPOptions{
 		Cidr: cidr6,
 		Options: map[string]string{
-			"server_id":        dhcpMac,
-			"dhcpv6_stateless": "false",
+			"server_id": dhcpMac,
+			// "dhcpv6_stateless": "false",
 		},
 		ExternalIds: map[string]string{
 			externalKeyOcRef: ocDhcpRef,
 		},
 	}
-	{
-		dnsSrvs := network.GuestDns
-		if dnsSrvs == "" {
-			dns, err := auth.GetDNSServers(opts.Region, "")
-			if err != nil {
-				// ignore the error
-				// log.Errorf("auth.GetDNSServers fail %s", err)
-			} else {
-				dnsSrvs = strings.Join(dns, ",")
-			}
-		}
-		if dnsSrvs == "" {
-			dnsSrvs = opts.DNSServer
-		}
-		_, dnsSrvs6List := netutils2.SplitV46Addr(dnsSrvs)
-		if len(dnsSrvs6List) > 0 {
-			dhcpopts.Options["dns_server"] = "{" + strings.Join(dnsSrvs6List, ",") + "}"
-		}
-	}
-	{
-		dnsDomain := network.GuestDomain
-		if dnsDomain == "" {
-			dnsDomain = opts.DNSDomain
-		}
-		if len(dnsDomain) > 0 && !commonapis.IsIllegalSearchDomain(dnsDomain) {
-			dhcpopts.Options["domain_name"] = "\"" + dnsDomain + "\""
-		}
-	}
-
 	return dhcpopts
 }
 
@@ -647,8 +587,6 @@ func (keeper *OVNNorthboundKeeper) ClaimGuestnetwork(ctx context.Context, guestn
 		ocAclRef        = fmt.Sprintf("acl/%s/%s/%s", network.Id, guestnetwork.GuestId, guestnetwork.Ifname)
 		ocQosRef        = fmt.Sprintf("qos/%s/%s/%s", network.Id, guestnetwork.GuestId, guestnetwork.Ifname)
 		ocQosEipRef     = fmt.Sprintf("qos-eip/%s/%s/%s/v2", vpc.Id, guestnetwork.GuestId, guestnetwork.Ifname)
-
-		ocGnrDefault6Ref = fmt.Sprintf("gnrDefault6/%s/%s/%s", vpc.Id, guestnetwork.GuestId, guestnetwork.Ifname)
 	)
 
 	var (
@@ -739,11 +677,10 @@ func (keeper *OVNNorthboundKeeper) ClaimGuestnetwork(ctx context.Context, guestn
 	}
 
 	var (
-		gnrDefault  *ovn_nb.LogicalRouterStaticRoute
-		gnrDefault6 *ovn_nb.LogicalRouterStaticRoute
-		qosEipIn    *ovn_nb.QoS
-		qosEipOut   *ovn_nb.QoS
-		hasQoSEip   bool
+		gnrDefault *ovn_nb.LogicalRouterStaticRoute
+		qosEipIn   *ovn_nb.QoS
+		qosEipOut  *ovn_nb.QoS
+		hasQoSEip  bool
 	)
 	{
 		gnrDefaultPolicy := "src-ip"
@@ -791,27 +728,14 @@ func (keeper *OVNNorthboundKeeper) ClaimGuestnetwork(ctx context.Context, guestn
 			}
 
 		} else if vpcHasDistgw(vpc) {
-			if len(guestnetwork.IpAddr) > 0 {
-				gnrDefault = &ovn_nb.LogicalRouterStaticRoute{
-					Policy:     &gnrDefaultPolicy,
-					IpPrefix:   guestnetwork.IpAddr + "/32",
-					Nexthop:    host.OvnMappedIpAddr,
-					OutputPort: ptr(vpcRhpName(vpc.Id)),
-					ExternalIds: map[string]string{
-						externalKeyOcRef: ocGnrDefaultRef,
-					},
-				}
-			}
-			if len(guestnetwork.Ip6Addr) > 0 {
-				gnrDefault6 = &ovn_nb.LogicalRouterStaticRoute{
-					Policy:     &gnrDefaultPolicy,
-					IpPrefix:   guestnetwork.Ip6Addr + "/32",
-					Nexthop:    host.OvnMappedIp6Addr,
-					OutputPort: ptr(vpcRhpName(vpc.Id)),
-					ExternalIds: map[string]string{
-						externalKeyOcRef: ocGnrDefault6Ref,
-					},
-				}
+			gnrDefault = &ovn_nb.LogicalRouterStaticRoute{
+				Policy:     &gnrDefaultPolicy,
+				IpPrefix:   guestnetwork.IpAddr + "/32",
+				Nexthop:    host.OvnMappedIpAddr,
+				OutputPort: ptr(vpcRhpName(vpc.Id)),
+				ExternalIds: map[string]string{
+					externalKeyOcRef: ocGnrDefaultRef,
+				},
 			}
 		}
 	}
@@ -839,18 +763,13 @@ func (keeper *OVNNorthboundKeeper) ClaimGuestnetwork(ctx context.Context, guestn
 
 	irows := []types.IRow{
 		gnp,
-	}
-	if len(guestnetwork.IpAddr) > 0 {
-		irows = append(irows, dhcpOpt)
+		dhcpOpt,
 	}
 	if len(guestnetwork.Ip6Addr) > 0 {
 		irows = append(irows, dhcp6Opt)
 	}
 	if gnrDefault != nil {
 		irows = append(irows, gnrDefault)
-	}
-	if gnrDefault6 != nil {
-		irows = append(irows, gnrDefault6)
 	}
 	for _, acl := range acls {
 		irows = append(irows, acl)
@@ -877,10 +796,6 @@ func (keeper *OVNNorthboundKeeper) ClaimGuestnetwork(ctx context.Context, guestn
 	if gnrDefault != nil {
 		args = append(args, ovnCreateArgs(gnrDefault, "gnrDefault")...)
 		args = append(args, "--", "add", "Logical_Router", vpcExtLrName(vpc.Id), "static_routes", "@gnrDefault")
-	}
-	if gnrDefault6 != nil {
-		args = append(args, ovnCreateArgs(gnrDefault6, "gnrDefault6")...)
-		args = append(args, "--", "add", "Logical_Router", vpcExtLrName(vpc.Id), "static_routes", "@gnrDefault6")
 	}
 	for i, acl := range acls {
 		ref := fmt.Sprintf("acl%d", i)

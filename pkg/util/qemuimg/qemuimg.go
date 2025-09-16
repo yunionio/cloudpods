@@ -67,21 +67,6 @@ const (
 
 const DefaultConvertCorutines = 8
 
-const DefaultQcow2ClusterSize = 65536
-
-var preallocation = "metadata"
-
-func SetPreallocation(prealloc string) error {
-	if !utils.IsInStringArray(prealloc, []string{"", "disable", "metadata", "falloc", "full"}) {
-		return errors.Errorf("unsupported preallocation %s", prealloc)
-	}
-	if prealloc == "disable" {
-		prealloc = ""
-	}
-	preallocation = prealloc
-	return nil
-}
-
 type SQemuImage struct {
 	Path            string
 	Password        string
@@ -290,11 +275,10 @@ const (
 )
 
 type SImageInfo struct {
-	Path        string
-	Format      qemuimgfmt.TImageFormat
-	IoLevel     TIONiceLevel
-	Password    string
-	ClusterSize int
+	Path     string
+	Format   qemuimgfmt.TImageFormat
+	IoLevel  TIONiceLevel
+	Password string
 
 	// only luks supported
 	EncryptFormat TEncryptFormat
@@ -387,26 +371,11 @@ func convertOther(srcInfo, destInfo SImageInfo, compact bool, workerOpions []str
 
 	if compact {
 		cmdline = append(cmdline, "-c")
-		if destInfo.ClusterSize <= 0 {
-			destInfo.ClusterSize = DefaultQcow2ClusterSize
-		}
 	}
 	cmdline = append(cmdline, "-f", srcInfo.Format.String(), "-O", destInfo.Format.String())
-
-	options := []string{}
 	if destInfo.Format.String() == "vmdk" { // for esxi vmdk
-		options = append(options, vmdkOptions(compact)...)
-	}
-	if destInfo.Format == qemuimgfmt.QCOW2 {
-		if destInfo.ClusterSize > 0 {
-			options = append(options, fmt.Sprintf("cluster_size=%d", destInfo.ClusterSize))
-		} else if srcInfo.ClusterSize > 0 {
-			options = append(options, fmt.Sprintf("cluster_size=%d", srcInfo.ClusterSize))
-		}
-	}
-
-	if len(options) > 0 {
-		cmdline = append(cmdline, "-o", strings.Join(options, ","))
+		cmdline = append(cmdline, "-o")
+		cmdline = append(cmdline, vmdkOptions(compact)...)
 	}
 	cmdline = append(cmdline, srcInfo.Path, destInfo.Path)
 	log.Infof("XXXX qemu-img command: %s", cmdline)
@@ -511,10 +480,6 @@ func (img *SQemuImage) doConvert(targetPath string, format qemuimgfmt.TImageForm
 	if !img.IsValid() {
 		return fmt.Errorf("self is not valid")
 	}
-	destClusterSize := img.ClusterSize
-	if compact {
-		destClusterSize = DefaultQcow2ClusterSize
-	}
 	return Convert(SImageInfo{
 		Path:     img.Path,
 		Format:   img.Format,
@@ -523,7 +488,6 @@ func (img *SQemuImage) doConvert(targetPath string, format qemuimgfmt.TImageForm
 
 		EncryptFormat: img.EncryptFormat,
 		EncryptAlg:    img.EncryptAlg,
-		ClusterSize:   img.ClusterSize,
 	}, SImageInfo{
 		Path:     targetPath,
 		Format:   format,
@@ -531,7 +495,6 @@ func (img *SQemuImage) doConvert(targetPath string, format qemuimgfmt.TImageForm
 
 		EncryptFormat: encryptFormat,
 		EncryptAlg:    encryptAlg,
-		ClusterSize:   destClusterSize,
 	}, compact, nil)
 }
 
@@ -776,10 +739,8 @@ func (img *SQemuImage) CreateQcow2(sizeMB int, compact bool, backPath string, pa
 		}
 	} else if !compact {
 		sparseOpts := qcow2SparseOptions()
-		if preallocation != "" {
-			if sizeMB <= 1024*1024*4 {
-				options = append(options, fmt.Sprintf("preallocation=%s", preallocation))
-			}
+		if sizeMB <= 1024*1024*4 {
+			options = append(options, "preallocation=metadata")
 		}
 		options = append(options, sparseOpts...)
 	}

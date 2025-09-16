@@ -398,7 +398,7 @@ func (self *SInstance) GetError() error {
 		actions := []apis.OpsLogDetails{}
 		self.host.zone.region.list(&logger.Actions, params, &actions)
 		if len(actions) > 0 {
-			return fmt.Errorf("%s", actions[0].Notes)
+			return fmt.Errorf(actions[0].Notes)
 		}
 		return fmt.Errorf("vm create failed with status %s", self.Status)
 	}
@@ -584,7 +584,6 @@ func (cli *SCloudpodsClient) GetMetrics(opts *cloudprovider.MetricListOptions) (
 			"metric_name": opts.MetricType,
 			"start_time":  opts.StartTime,
 			"end_time":    opts.EndTime,
-			"interval":    "1m",
 			"tag_pairs": map[string]interface{}{
 				"brand": brandArr[i],
 			},

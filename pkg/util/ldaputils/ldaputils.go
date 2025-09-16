@@ -15,12 +15,11 @@
 package ldaputils
 
 import (
-	"crypto/tls"
 	"encoding/hex"
 	"fmt"
 	"strings"
 
-	"github.com/go-ldap/ldap/v3"
+	"gopkg.in/ldap.v3"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -60,11 +59,12 @@ func NewLDAPClient(url, account, password string, baseDN string, isDebug bool) *
 }
 
 func (cli *SLDAPClient) Connect() error {
-	var err error
-	cli.conn, err = ldap.DialURL(cli.url, ldap.DialWithTLSConfig(&tls.Config{InsecureSkipVerify: true}))
+	conn, err := ldap.DialURL(cli.url)
 	if err != nil {
 		return errors.Wrap(err, "DiaURL")
 	}
+	cli.conn = conn
+
 	return cli.bind()
 }
 

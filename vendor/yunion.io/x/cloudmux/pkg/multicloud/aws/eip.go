@@ -113,8 +113,6 @@ func (self *SEipAddress) GetAssociationType() string {
 		switch net.InterfaceType {
 		case "nat_gateway":
 			return api.EIP_ASSOCIATE_TYPE_NAT_GATEWAY
-		case "network_load_balancer":
-			return api.EIP_ASSOCIATE_TYPE_LOADBALANCER
 		default:
 			return net.InterfaceType
 		}
@@ -231,7 +229,7 @@ func (self *SRegion) GetEip(id string) (*SEipAddress, error) {
 			return &eips[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", id)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
 }
 
 func (self *SRegion) GetEipByIpAddress(eipAddress string) (*SEipAddress, error) {
@@ -245,7 +243,7 @@ func (self *SRegion) GetEipByIpAddress(eipAddress string) (*SEipAddress, error) 
 			return &eips[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", eipAddress)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, eipAddress)
 }
 
 func (self *SRegion) AllocateEIP(opts *cloudprovider.SEip) (*SEipAddress, error) {

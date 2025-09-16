@@ -249,7 +249,7 @@ func (self *SRegion) DescribeExportTasks(id string) (*SExportTask, error) {
 			return &ret.ExportTaskSet[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", id)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
 }
 
 func (self *SRegion) CheckBucket(bucketName string) error {
@@ -351,11 +351,7 @@ func (self *SRegion) initVmimportRole() error {
 			"AssumeRolePolicyDocument": roleDoc,
 		}
 		ret := struct{}{}
-		err := self.client.iamRequest("CreateRole", params, &ret)
-		if e, ok := err.(*sAwsError); ok && e.Errors.Code == "EntityAlreadyExists" {
-			return nil
-		}
-		return err
+		return self.client.iamRequest("CreateRole", params, &ret)
 	}
 	return nil
 }
@@ -414,11 +410,11 @@ func (self *SRegion) initVmimportRolePolicy() error {
 
 func (self *SRegion) InitVmimport() error {
 	if err := self.initVmimportRole(); err != nil {
-		return errors.Wrapf(err, "initVmimportRole")
+		return err
 	}
 
 	if err := self.initVmimportRolePolicy(); err != nil {
-		return errors.Wrapf(err, "initVmimportRolePolicy")
+		return err
 	}
 
 	return nil

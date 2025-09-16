@@ -147,7 +147,7 @@ func parseNvidiaGpuProcessMetrics(gpuMetricsStr string) []NvidiaGpuProcessMetric
 func (s *SGuestMonitorCollector) collectGpuPodsProcesses() map[string]map[string]struct{} {
 	podProcIds := map[string]map[string]struct{}{}
 	guestmanager := guestman.GetGuestManager()
-	cgroupRoot := path.Join(cgrouputils.GetSubModulePath("cpuset"), guestman.PodCgroupParent())
+	cgroupRoot := path.Join(cgrouputils.GetSubModulePath("cpuset"), "cloudpods")
 	guestmanager.Servers.Range(func(k, v interface{}) bool {
 		pod, ok := v.(guestman.PodInstance)
 		if !ok {
@@ -174,7 +174,7 @@ func (s *SGuestMonitorCollector) collectGpuPodsProcesses() map[string]map[string
 			cgroupPath := path.Join(cgroupRoot, criIds[i], "cgroup.procs")
 			pids, err := ReadProccessFromCgroupProcs(cgroupPath)
 			if err != nil {
-				log.Errorf("collectGpuPodsProcesses: %s", err)
+				log.Errorf("collectNvidiaGpuPodsProcesses: %s", err)
 				continue
 			}
 			for _, pid := range pids {

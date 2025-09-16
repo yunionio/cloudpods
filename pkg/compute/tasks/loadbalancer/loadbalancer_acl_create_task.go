@@ -67,5 +67,5 @@ func (self *LoadbalancerAclCreateTask) OnLoadbalancerAclCreateComplete(ctx conte
 }
 
 func (self *LoadbalancerAclCreateTask) OnLoadbalancerAclCreateCompleteFailed(ctx context.Context, lbacl *models.SLoadbalancerAcl, reason jsonutils.JSONObject) {
-	self.taskFail(ctx, lbacl, errors.Errorf("%s", reason.String()))
+	self.taskFail(ctx, lbacl, errors.Errorf(reason.String()))
 }

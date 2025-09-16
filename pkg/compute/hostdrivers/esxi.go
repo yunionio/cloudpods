@@ -56,10 +56,6 @@ func (self *SESXiHostDriver) ValidateDiskSize(storage *models.SStorage, sizeGb i
 	return nil
 }
 
-func (self *SESXiHostDriver) RequestRemoteUpdateDisk(ctx context.Context, userCred mcclient.TokenCredential, storage *models.SStorage, disk *models.SDisk, replaceTags bool) error {
-	return nil
-}
-
 func (self *SESXiHostDriver) CheckAndSetCacheImage(ctx context.Context, userCred mcclient.TokenCredential, host *models.SHost, storageCache *models.SStoragecache, task taskman.ITask) error {
 	params := task.GetParams()
 	imageId, err := params.GetString("image_id")
@@ -119,7 +115,7 @@ func (self *SESXiHostDriver) CheckAndSetCacheImage(ctx context.Context, userCred
 	storage := host.GetStorageByFilePath(storageCache.Path)
 	if storage == nil {
 		msg := fmt.Sprintf("fail to find storage for storageCache %s", storageCache.Path)
-		log.Errorf("%s", msg)
+		log.Errorf(msg)
 		return errors.Error(msg)
 	}
 

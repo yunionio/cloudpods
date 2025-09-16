@@ -14,55 +14,6 @@
 
 package hostdrivers
 
-import (
-	"context"
-
-	"yunion.io/x/cloudmux/pkg/cloudprovider"
-	"yunion.io/x/pkg/errors"
-
-	"yunion.io/x/onecloud/pkg/compute/models"
-	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/logclient"
-)
-
 type SVirtualizationHostDriver struct {
 	SBaseHostDriver
-}
-
-func (self *SVirtualizationHostDriver) RequestRemoteUpdateDisk(ctx context.Context, userCred mcclient.TokenCredential, storage *models.SStorage, disk *models.SDisk, replaceTags bool) error {
-	iDisk, err := disk.GetIDisk(ctx)
-	if err != nil {
-		return errors.Wrap(err, "GetIDisk")
-	}
-
-	err = func() error {
-		oldTags, err := iDisk.GetTags()
-		if err != nil {
-			if errors.Cause(err) == cloudprovider.ErrNotSupported || errors.Cause(err) == cloudprovider.ErrNotImplemented {
-				return nil
-			}
-			return errors.Wrap(err, "iVM.GetTags()")
-		}
-		tags, err := disk.GetAllUserMetadata()
-		if err != nil {
-			return errors.Wrapf(err, "GetAllUserMetadata")
-		}
-		tagsUpdateInfo := cloudprovider.TagsUpdateInfo{OldTags: oldTags, NewTags: tags}
-
-		err = cloudprovider.SetTags(ctx, iDisk, storage.ManagerId, tags, replaceTags)
-		if err != nil {
-			if errors.Cause(err) == cloudprovider.ErrNotSupported || errors.Cause(err) == cloudprovider.ErrNotImplemented {
-				return nil
-			}
-			logclient.AddSimpleActionLog(disk, logclient.ACT_UPDATE_TAGS, err, userCred, false)
-			return errors.Wrap(err, "iVM.SetTags")
-		}
-		logclient.AddSimpleActionLog(disk, logclient.ACT_UPDATE_TAGS, tagsUpdateInfo, userCred, true)
-		return nil
-	}()
-	if err != nil {
-		return err
-	}
-
-	return nil
 }

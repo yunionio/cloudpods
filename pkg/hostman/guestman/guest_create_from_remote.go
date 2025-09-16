@@ -96,7 +96,7 @@ func (m *SGuestManager) GuestCreateFromEsxi(
 			diskInfo, err = iDisk.CreateRaw(ctx, 0, "qcow2", "", nil, nil, "", connections.Disks[i].DiskPath)
 			if err != nil {
 				err = errors.Wrapf(err, "create disk %s failed", diskId)
-				log.Errorf("%s", err.Error())
+				log.Errorf(err.Error())
 				break
 			}
 			diskInfo.(*jsonutils.JSONDict).Set("esxi_flat_filepath",

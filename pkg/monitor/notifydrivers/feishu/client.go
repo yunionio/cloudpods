@@ -89,7 +89,7 @@ type Tenant struct {
 
 func BuildTokenHeader(token string) http.Header {
 	h := http.Header{}
-	h.Add("Authorization", fmt.Sprintf("Bearer %s", token))
+	h.Add("Authorization", fmt.Sprintf("Bearer "+token))
 	return h
 }
 

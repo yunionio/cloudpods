@@ -104,14 +104,14 @@ func (m *SNbdExportManager) QemuNbdStartExport(imageInfo qemuimg.SImageInfo, dis
 	if imageInfo.Encrypted() {
 		cmd = []string{
 			qemutils.GetQemuNbd(),
-			"--read-only", "--persistent", "-x", diskId, "-b", "::", "-p", strconv.Itoa(nbdPort),
+			"--read-only", "--persistent", "-x", diskId, "-p", strconv.Itoa(nbdPort),
 			"--object", imageInfo.SecretOptions(),
 			"--image-opts", imageInfo.ImageOptions(),
 		}
 	} else {
 		cmd = []string{
 			qemutils.GetQemuNbd(),
-			"--read-only", "--persistent", "-x", diskId, "-b", "::", "-p", strconv.Itoa(nbdPort),
+			"--read-only", "--persistent", "-x", diskId, "-p", strconv.Itoa(nbdPort),
 			imageInfo.Path,
 		}
 	}

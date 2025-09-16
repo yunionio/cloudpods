@@ -560,7 +560,7 @@ type SyncRangeInput struct {
 	Zone   []string `json:"zone"`
 	Host   []string `json:"host"`
 
-	// swagger:ignore
+	// swagger: ignore
 	SkipSyncResources []string `json:"skip_sync_resources"`
 
 	// 按资源类型同步，可输入多个

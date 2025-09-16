@@ -142,5 +142,5 @@ func (self *DiskSaveTask) OnUploadDiskComplete(ctx context.Context, disk *models
 }
 
 func (self *DiskSaveTask) OnUploadDiskCompleteFailed(ctx context.Context, disk *models.SDisk, data jsonutils.JSONObject) {
-	self.taskFailed(ctx, disk, fmt.Errorf("%s", data.String()))
+	self.taskFailed(ctx, disk, fmt.Errorf(data.String()))
 }

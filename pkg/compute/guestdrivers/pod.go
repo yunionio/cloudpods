@@ -602,7 +602,10 @@ func (p *SPodDriver) BeforeDetachIsolatedDevice(ctx context.Context, userCred mc
 		newDevs := make([]*api.ContainerDevice, 0)
 		releasedDevs := make(map[string]models.ContainerReleasedDevice)
 		for _, curDev := range devs {
-			if curDev.IsolatedDevice == nil || curDev.IsolatedDevice.Id != dev.GetId() {
+			if curDev.IsolatedDevice == nil {
+				continue
+			}
+			if curDev.IsolatedDevice.Id != dev.GetId() {
 				tmpDev := curDev
 				newDevs = append(newDevs, tmpDev)
 			} else {

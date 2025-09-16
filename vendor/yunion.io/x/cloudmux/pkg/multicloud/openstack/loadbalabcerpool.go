@@ -68,7 +68,7 @@ type SSessionPersistence struct {
 }
 
 type SLoadbalancerPool struct {
-	multicloud.SLoadbalancerBackendGroupBase
+	multicloud.SResourceBase
 	OpenStackTags
 	region             *SRegion
 	members            []SLoadbalancerMember
@@ -394,6 +394,10 @@ func (pool *SLoadbalancerPool) GetILoadbalancerBackendById(memberId string) (clo
 	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "GetILoadbalancerBackendById(%s)", memberId)
 }
 
+func (pool *SLoadbalancerPool) Sync(ctx context.Context, opts *cloudprovider.SLoadbalancerBackendGroup) error {
+	return nil
+}
+
 func (region *SRegion) DeleteLoadBalancerPool(poolId string) error {
 	_, err := region.lbDelete(fmt.Sprintf("/v2/lbaas/pools/%s", poolId))
 	if err != nil {
@@ -414,7 +418,7 @@ func (pool *SLoadbalancerPool) Delete(ctx context.Context) error {
 	return pool.region.DeleteLoadBalancerPool(pool.ID)
 }
 
-func (pool *SLoadbalancerPool) AddBackendServer(opts *cloudprovider.SLoadbalancerBackend) (cloudprovider.ICloudLoadbalancerBackend, error) {
+func (pool *SLoadbalancerPool) AddBackendServer(serverId string, weight, port int) (cloudprovider.ICloudLoadbalancerBackend, error) {
 	// ensure lb status
 	lb, err := pool.region.GetLoadbalancerbyId(pool.GetLoadbalancerId())
 	if err != nil {
@@ -424,9 +428,9 @@ func (pool *SLoadbalancerPool) AddBackendServer(opts *cloudprovider.SLoadbalance
 	if err != nil {
 		return nil, errors.Wrap(err, `waitLbResStatus(lb, 10*time.Second, 8*time.Minute)`)
 	}
-	smemeber, err := pool.region.CreateLoadbalancerMember(pool.ID, opts.ExternalId, opts.Weight, opts.Port)
+	smemeber, err := pool.region.CreateLoadbalancerMember(pool.ID, serverId, weight, port)
 	if err != nil {
-		return nil, errors.Wrapf(err, `CreateLoadbalancerMember(%s,%s,%d,%d)`, pool.ID, opts.ExternalId, opts.Weight, opts.Port)
+		return nil, errors.Wrapf(err, `CreateLoadbalancerMember(%s,%s,%d,%d)`, pool.ID, serverId, weight, port)
 	}
 	err = waitLbResStatus(smemeber, 10*time.Second, 8*time.Minute)
 	if err != nil {
@@ -439,8 +443,8 @@ func (pool *SLoadbalancerPool) AddBackendServer(opts *cloudprovider.SLoadbalance
 }
 
 // 不是serverId，是memberId
-func (pool *SLoadbalancerPool) RemoveBackendServer(opts *cloudprovider.SLoadbalancerBackend) error {
-	return pool.region.DeleteLoadbalancerMember(pool.ID, opts.ExternalId)
+func (pool *SLoadbalancerPool) RemoveBackendServer(id string, weight, port int) error {
+	return pool.region.DeleteLoadbalancerMember(pool.ID, id)
 }
 
 func (pool *SLoadbalancerPool) GetProjectId() string {

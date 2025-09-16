@@ -268,7 +268,7 @@ func (self *SCluster) GetIHostById(id string) (cloudprovider.ICloudHost, error) 
 			return &nodes[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", id)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
 }
 
 func (self *SCluster) GetIHosts() ([]cloudprovider.ICloudHost, error) {

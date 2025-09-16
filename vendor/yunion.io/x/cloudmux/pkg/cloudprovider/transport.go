@@ -21,16 +21,16 @@ type transport struct {
 	ts    *http.Transport
 }
 
-func (t *transport) RoundTrip(req *http.Request) (*http.Response, error) {
+func (self *transport) RoundTrip(req *http.Request) (*http.Response, error) {
 	var respCheck func(resp *http.Response) error = nil
 	var err error
-	if t.check != nil {
-		respCheck, err = t.check(req)
+	if self.check != nil {
+		respCheck, err = self.check(req)
 		if err != nil {
 			return nil, err
 		}
 	}
-	resp, err := t.ts.RoundTrip(req)
+	resp, err := self.ts.RoundTrip(req)
 	if err != nil {
 		return nil, err
 	}

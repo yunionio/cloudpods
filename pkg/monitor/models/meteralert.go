@@ -54,7 +54,6 @@ type IMeterAlertDriver interface {
 	ToAlertCreateInput(input monitor.MeterAlertCreateInput, allAccountIds []string, level string) monitor.AlertCreateInput
 }
 
-// +onecloud:swagger-gen-ignore
 type SMeterAlertManager struct {
 	SV1AlertManager
 
@@ -73,7 +72,6 @@ func NewMeterAlertManager() *SMeterAlertManager {
 	return man
 }
 
-// +onecloud:swagger-gen-ignore
 type SMeterAlert struct {
 	SV1Alert
 }

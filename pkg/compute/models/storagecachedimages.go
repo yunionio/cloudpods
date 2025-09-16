@@ -468,7 +468,7 @@ func (manager *SStoragecachedimageManager) Register(ctx context.Context, userCre
 	}
 	cachedimage.Status = status
 
-	err := manager.TableSpec().Insert(ctx, cachedimage)
+	err := manager.TableSpec().InsertOrUpdate(ctx, cachedimage)
 
 	if err != nil {
 		log.Errorf("insert error %s", err)

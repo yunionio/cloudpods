@@ -58,5 +58,5 @@ func (self *LoadbalancerCertificateSyncstatusTask) OnLoadbalancerCertificateSync
 }
 
 func (self *LoadbalancerCertificateSyncstatusTask) OnLoadbalancerCertificateSyncstatusCompleteFailed(ctx context.Context, lbcert *models.SLoadbalancerCertificate, reason jsonutils.JSONObject) {
-	self.taskFail(ctx, lbcert, errors.Errorf("%s", reason.String()))
+	self.taskFail(ctx, lbcert, errors.Errorf(reason.String()))
 }

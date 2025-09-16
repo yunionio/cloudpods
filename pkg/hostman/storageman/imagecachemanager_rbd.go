@@ -114,10 +114,6 @@ func (c *SRbdImageCacheManager) IsLocal() bool {
 	return false
 }
 
-func (c *SRbdImageCacheManager) GetStorageType() string {
-	return c.storage.StorageType()
-}
-
 func (c *SRbdImageCacheManager) GetPath() string {
 	return c.Pool
 }
@@ -158,11 +154,6 @@ func (c *SRbdImageCacheManager) DeleteImageCache(ctx context.Context, data inter
 	input, ok := data.(api.UncacheImageInput)
 	if !ok {
 		return nil, hostutils.ParamsError
-	}
-
-	cachedImagesInUser := findCachedImagesInUse(c)
-	if cachedImagesInUser.Contains(input.ImageId) {
-		return nil, httperrors.NewResourceBusyError("image cache is in use")
 	}
 
 	return nil, c.RemoveImage(ctx, input.ImageId)

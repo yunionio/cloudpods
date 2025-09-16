@@ -93,7 +93,7 @@ func (self *SRegion) getVMSize(name string) (*SVMSize, error) {
 			return &vmSizes[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", name)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, name)
 }
 
 func (self *SRegion) GetId() string {

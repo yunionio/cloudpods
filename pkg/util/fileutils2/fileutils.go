@@ -31,7 +31,6 @@ import (
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/util/regutils"
 
 	"yunion.io/x/onecloud/pkg/util/procutils"
 )
@@ -148,7 +147,7 @@ func IsBlockDeviceUsed(dev string) bool {
 
 func GetAllBlkdevsIoSchedulers() ([]string, error) {
 	if _, err := os.Stat("/sys/block"); !os.IsNotExist(err) {
-		blockDevs, err := os.ReadDir("/sys/block")
+		blockDevs, err := ioutil.ReadDir("/sys/block")
 		if err != nil {
 			log.Errorf("ReadDir /sys/block error: %s", err)
 			return nil, errors.Wrap(err, "ioutil.ReadDir(/sys/block)")
@@ -214,7 +213,7 @@ func BlockDevIsSsd(dev string) bool {
 
 func ChangeSsdBlkdevsParams(params map[string]string) {
 	if _, err := os.Stat("/sys/block"); !os.IsNotExist(err) {
-		blockDevs, err := os.ReadDir("/sys/block")
+		blockDevs, err := ioutil.ReadDir("/sys/block")
 		if err != nil {
 			log.Errorf("ReadDir /sys/block error: %s", err)
 			return
@@ -235,7 +234,7 @@ func ChangeSsdBlkdevsParams(params map[string]string) {
 
 func ChangeHddBlkdevsParams(params map[string]string) {
 	if _, err := os.Stat("/sys/block"); !os.IsNotExist(err) {
-		blockDevs, err := os.ReadDir("/sys/block")
+		blockDevs, err := ioutil.ReadDir("/sys/block")
 		if err != nil {
 			log.Errorf("ReadDir /sys/block error: %s", err)
 			return
@@ -359,30 +358,11 @@ func (hf HostsFile) String() string {
 	return ret
 }
 
-func FormatHostsFile(content string, ips []string, hostname, hostdomain string) string {
-	hf := make(HostsFile, 0)
-	hf.Parse(content)
-	hf.Add("127.0.0.1", "localhost")
-	isV6 := false
-	for _, ip := range ips {
-		if regutils.MatchIP6Addr(ip) {
-			isV6 = true
-		}
-	}
-	if isV6 {
-		hf.Add("::1", "localhost", "ip6-localhost", "ip6-loopback")
-	}
-	for _, ip := range ips {
-		hf.Add(ip, hostdomain, hostname)
-	}
-	return hf.String()
-}
-
 func FsFormatToDiskType(fsFormat string) string {
 	switch {
 	case fsFormat == "swap":
 		return "linux-swap"
-	case strings.HasPrefix(fsFormat, "ext") || fsFormat == "xfs" || fsFormat == "f2fs":
+	case strings.HasPrefix(fsFormat, "ext") || fsFormat == "xfs":
 		return "ext2"
 	case strings.HasPrefix(fsFormat, "fat"):
 		return "fat32"

@@ -73,17 +73,9 @@ func mustPrepOvsdbConfig(opts SOvnOptions) {
 			)
 			switch {
 			case strings.HasPrefix(meth, "can-reach:"):
-				target := meth[10:]
-				if strings.Contains(target, ":") {
-					encapIp, err = netutils2.MyIPSmartTo("", target)
-				} else {
-					encapIp, err = netutils2.MyIPSmartTo(target, "")
-				}
+				encapIp, err = netutils2.MyIPTo(meth[10:])
 			default:
-				encapIp, err = netutils2.MyIPSmart()
-				if err != nil {
-					encapIp, err = netutils2.MyIP()
-				}
+				encapIp, err = netutils2.MyIP()
 			}
 			if err != nil {
 				panic(errors.Wrapf(ErrOvnConfig, "determine encap ip, method: %q: %v", meth, err))

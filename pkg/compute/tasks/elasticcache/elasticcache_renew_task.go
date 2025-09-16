@@ -16,8 +16,10 @@ package elasticcache
 
 import (
 	"context"
+	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/billing"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -35,27 +37,27 @@ func init() {
 	taskman.RegisterTask(ElasticcacheRenewTask{})
 }
 
-func (self *ElasticcacheRenewTask) taskFail(ctx context.Context, cache *models.SElasticcache, err error) {
-	db.OpsLog.LogEvent(cache, db.ACT_REW_FAIL, err, self.UserCred)
-	logclient.AddActionLogWithStartable(self, cache, logclient.ACT_RENEW, err, self.UserCred, false)
-	cache.SetStatus(ctx, self.GetUserCred(), api.ELASTIC_CACHE_RENEW_FAILED, err.Error())
-	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
-}
-
 func (self *ElasticcacheRenewTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	instance := obj.(*models.SElasticcache)
 
 	durationStr, _ := self.GetParams().GetString("duration")
 	bc, _ := billing.ParseBillingCycle(durationStr)
 
-	region, err := instance.GetRegion()
+	region, _ := instance.GetRegion()
+	exp, err := region.GetDriver().RequestRenewElasticcache(ctx, self.UserCred, instance, bc)
 	if err != nil {
-		self.taskFail(ctx, instance, err)
+		db.OpsLog.LogEvent(instance, db.ACT_REW_FAIL, err, self.UserCred)
+		logclient.AddActionLogWithStartable(self, instance, logclient.ACT_RENEW, err, self.UserCred, false)
+		instance.SetStatus(ctx, self.GetUserCred(), api.ELASTIC_CACHE_RENEW_FAILED, err.Error())
+		self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 		return
 	}
-	err = region.GetDriver().RequestRenewElasticcache(ctx, self.UserCred, instance, bc)
+
+	err = instance.SaveRenewInfo(ctx, self.UserCred, &bc, &exp, "")
 	if err != nil {
-		self.taskFail(ctx, instance, err)
+		msg := fmt.Sprintf("SaveRenewInfo fail %s", err)
+		log.Errorf(msg)
+		self.SetStageFailed(ctx, jsonutils.NewString(msg))
 		return
 	}
 

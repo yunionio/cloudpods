@@ -60,7 +60,7 @@ func (self *LoadbalancerRemoteUpdateTask) OnRemoteUpdateComplete(ctx context.Con
 }
 
 func (self *LoadbalancerRemoteUpdateTask) OnRemoteUpdateCompleteFailed(ctx context.Context, lb *models.SLoadbalancer, data jsonutils.JSONObject) {
-	self.taskFail(ctx, lb, errors.Errorf("%s", data.String()))
+	self.taskFail(ctx, lb, errors.Errorf(data.String()))
 }
 
 func (self *LoadbalancerRemoteUpdateTask) OnSyncStatusComplete(ctx context.Context, lb *models.SLoadbalancer, data jsonutils.JSONObject) {

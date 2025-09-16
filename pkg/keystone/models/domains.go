@@ -320,12 +320,8 @@ func (domain *SDomain) GetIdpCount() (int, error) {
 }
 
 func (domain *SDomain) ValidateDeleteCondition(ctx context.Context, info *api.DomainDetails) error {
-	return domain.validateDeleteConditionInternal(ctx, info, false)
-}
-
-func (domain *SDomain) validateDeleteConditionInternal(ctx context.Context, info *api.DomainDetails, skipIdpCheck bool) error {
 	if gotypes.IsNil(info) {
-		info = &api.DomainDetails{}
+		info := &api.DomainDetails{}
 		if usage, _ := DomainManager.TotalResourceCount([]string{domain.Id}); usage != nil {
 			info.DomainUsage, _ = usage[domain.Id]
 		}
@@ -334,7 +330,7 @@ func (domain *SDomain) validateDeleteConditionInternal(ctx context.Context, info
 			info.IdpResourceInfo = idpInfo[0]
 		}
 	}
-	if !skipIdpCheck && len(info.IdpId) > 0 {
+	if len(info.IdpId) > 0 {
 		return httperrors.NewForbiddenError("readonly")
 	}
 	if domain.Id == api.DEFAULT_DOMAIN_ID {

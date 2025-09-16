@@ -165,9 +165,8 @@ func init() {
 	})
 
 	type ServerAttachNetworkOptions struct {
-		SERVER            string   `help:"ID or Name of server"`
-		DisableSyncConfig bool     `help:"Disable sync config"`
-		NETDESC           []string `help:"Network description"`
+		SERVER  string   `help:"ID or Name of server"`
+		NETDESC []string `help:"Network description"`
 	}
 	R(&ServerAttachNetworkOptions{}, "server-attach-network", "Attach a server to a virtual network", func(s *mcclient.ClientSession, args *ServerAttachNetworkOptions) error {
 		input := compute.AttachNetworkInput{}
@@ -178,7 +177,6 @@ func init() {
 			}
 			input.Nets = append(input.Nets, conf)
 		}
-		input.DisableSyncConfig = &args.DisableSyncConfig
 		params := jsonutils.Marshal(input)
 		srv, err := modules.Servers.PerformAction(s, args.SERVER, "attachnetwork", params)
 		if err != nil {

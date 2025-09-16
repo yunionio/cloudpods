@@ -57,7 +57,7 @@ type DistributionConfigType struct {
 }
 
 type SCdnDomain struct {
-	multicloud.SCDNDomainBase
+	multicloud.SResourceBase
 	AwsTags
 
 	client *SAwsClient
@@ -124,11 +124,11 @@ func (cd *SCdnDomain) GetEnabled() bool {
 }
 
 func (cd *SCdnDomain) GetId() string {
-	return cd.ARN
+	return cd.DomainName
 }
 
 func (cd *SCdnDomain) GetGlobalId() string {
-	return cd.ARN
+	return cd.DomainName
 }
 
 func (cd *SCdnDomain) GetName() string {
@@ -216,7 +216,7 @@ func (ac *SAwsClient) GetCDNDomainByName(name string) (*SCdnDomain, error) {
 		}
 	}
 
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", name)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, name)
 }
 
 func (ac *SAwsClient) GetCdnDomains() ([]SCdnDomain, error) {

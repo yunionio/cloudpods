@@ -84,7 +84,7 @@ func (region *SRegion) GetSecurityGroup(secGroupId string) (*SSecurityGroup, err
 			return &secgroups[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", secGroupId)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, secGroupId)
 }
 
 func (region *SRegion) GetSecurityGroupRules(secGroupId string) ([]SSecurityGroupRule, error) {

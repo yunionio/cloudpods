@@ -37,10 +37,7 @@ func init() {
 func (t *PodStartTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	t.SetStage("OnPodStarted", nil)
 	pod := obj.(*models.SGuest)
-	err := pod.StartGueststartTask(ctx, t.GetUserCred(), jsonutils.NewDict(), t.GetTaskId())
-	if err != nil {
-		t.OnPodStartedFailed(ctx, pod, jsonutils.NewString(err.Error()))
-	}
+	pod.StartGueststartTask(ctx, t.GetUserCred(), jsonutils.NewDict(), t.GetTaskId())
 }
 
 func (t *PodStartTask) OnPodStarted(ctx context.Context, pod *models.SGuest, _ jsonutils.JSONObject) {

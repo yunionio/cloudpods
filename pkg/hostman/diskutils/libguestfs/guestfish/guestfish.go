@@ -142,7 +142,7 @@ func (fish *Guestfish) fetch() ([]string, error) {
 	}
 	var stderrErr error
 	if len(output) > 0 {
-		stderrErr = errors.Errorf("%s", string(output))
+		stderrErr = errors.Errorf(string(output))
 	}
 	return stdout, stderrErr
 }

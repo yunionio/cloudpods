@@ -125,12 +125,7 @@ func (self *SQcloudRegionDriver) RequestCreateLoadbalancerListener(ctx context.C
 			return nil, errors.Wrapf(err, "GetICloudLoadbalancerBackendGroup")
 		}
 		for i := range backends {
-			opts := &cloudprovider.SLoadbalancerBackend{
-				Weight:     backends[i].Weight,
-				Port:       backends[i].Port,
-				ExternalId: backends[i].ExternalId,
-			}
-			_, err := iLbbg.AddBackendServer(opts)
+			_, err := iLbbg.AddBackendServer(backends[i].ExternalId, backends[i].Port, backends[i].Weight)
 			if err != nil {
 				return nil, errors.Wrapf(err, "AddBackendServer")
 			}

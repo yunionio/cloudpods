@@ -19,11 +19,9 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"strconv"
 
 	"github.com/gorilla/websocket"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/webconsole/session"
@@ -71,7 +69,7 @@ func (s *WebsockifyServer) isBase64Subprotocol(wsConn *websocket.Conn) bool {
 }
 
 func (s *WebsockifyServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	log.Debugf("ServeHTTP: %s, %s", r.URL.String(), jsonutils.Marshal(r.Header))
+	targetAddr := fmt.Sprintf("%s:%d", s.TargetHost, s.TargetPort)
 	wsConn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Errorf("New websocket connection error: %v", err)
@@ -79,7 +77,6 @@ func (s *WebsockifyServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	log.Debugf("Get coordinate subprotocol: %s", wsConn.Subprotocol())
 
-	targetAddr := net.JoinHostPort(s.TargetHost, strconv.Itoa(int(s.TargetPort)))
 	log.Debugf("Handle websocket connect, target: %s", targetAddr)
 	targetConn, err := net.Dial("tcp", targetAddr)
 	if err != nil {
@@ -92,7 +89,6 @@ func (s *WebsockifyServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *WebsockifyServer) doProxy(wsConn *websocket.Conn, tcpConn net.Conn) {
-	log.Infof("doProxy bewteen ws: %s <--> tcp: %s", wsConn.RemoteAddr(), tcpConn.RemoteAddr())
 	s.Session.RegisterDuplicateHook(func() {
 		wsConn.Close()
 		tcpConn.Close()

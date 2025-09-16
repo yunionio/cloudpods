@@ -242,7 +242,7 @@ func (f *ResourceHandlers) fetchExportQuery(query jsonutils.JSONObject) (jsonuti
 func (f *ResourceHandlers) doList(ctx context.Context, session *mcclient.ClientSession, module modulebase.IBaseManager, query jsonutils.JSONObject, w http.ResponseWriter, r *http.Request) {
 	query, export, err := f.fetchExportQuery(query)
 	if err != nil {
-		httperrors.InvalidInputError(ctx, w, "%s", err.Error())
+		httperrors.InvalidInputError(ctx, w, err.Error())
 		return
 	}
 
@@ -323,7 +323,7 @@ func (f *ResourceHandlers) getSpecHandler(ctx context.Context, w http.ResponseWr
 	// list in 1 context
 	query, export, err := f.fetchExportQuery(query)
 	if err != nil {
-		httperrors.InvalidInputError(ctx, w, "%s", err.Error())
+		httperrors.InvalidInputError(ctx, w, err.Error())
 		return
 	}
 	jmod, e := modulebase.GetJointModule2(session, module, module2)
@@ -367,7 +367,7 @@ func (f *ResourceHandlers) getJointHandler(ctx context.Context, w http.ResponseW
 
 	jmod, e := modulebase.GetJointModule2(session, module, module2)
 	if e != nil {
-		httperrors.NotFoundError(ctx, w, "resource %s-%s not exist", req.ResName(), req.ResName2())
+		httperrors.NotFoundError(ctx, w, fmt.Sprintf("resource %s-%s not exist", req.ResName(), req.ResName2()))
 		return
 	}
 	obj, e := jmod.Get(session, req.ResID(), req.ResID2(), req.Query())
@@ -525,7 +525,7 @@ func (f *ResourceHandlers) attachHandler(ctx context.Context, w http.ResponseWri
 
 	jmod, e := modulebase.GetJointModule2(session, module, module2)
 	if e != nil {
-		httperrors.NotFoundError(ctx, w, "resource %s-%s not exists", req.ResName(), req.ResName2())
+		httperrors.NotFoundError(ctx, w, fmt.Sprintf("resource %s-%s not exists", req.ResName(), req.ResName2()))
 		return
 	}
 	obj, e := jmod.Attach(session, req.ResID(), req.ResID2(), body)

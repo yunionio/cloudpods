@@ -64,5 +64,5 @@ func (self *KubeClusterCreateTask) OnKubeClusterCreateComplate(ctx context.Conte
 }
 
 func (self *KubeClusterCreateTask) OnKubeClusterCreateComplateFailed(ctx context.Context, cluster *models.SKubeCluster, reason jsonutils.JSONObject) {
-	self.taskFail(ctx, cluster, errors.Errorf("%s", reason.String()))
+	self.taskFail(ctx, cluster, errors.Errorf(reason.String()))
 }

@@ -30,7 +30,6 @@ import (
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	baseoptions "yunion.io/x/onecloud/pkg/mcclient/options"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
-	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 func cleanImages(ctx context.Context, manager IImageCacheManger, images map[string]IImageCache) (int64, error) {
@@ -62,8 +61,39 @@ func cleanImages(ctx context.Context, manager IImageCacheManger, images map[stri
 		}
 	}
 
-	inUseCacheImageIds := findCachedImagesInUse(manager)
+	var inUseCacheImageIds = make(map[string]struct{})
+	for i := range storageManager.Storages {
+		storage := storageManager.Storages[i]
+		if storage.GetStoragecacheId() != manager.GetId() {
+			continue
+		}
+		// load storage disks used image cache
+		disksPath, err := storage.GetDisksPath()
+		if err != nil {
+			log.Errorf("storage %s failed get disksPath: %s", storage.GetPath(), err)
+			continue
+		}
 
+		for j := range disksPath {
+			diskPath := disksPath[j]
+			img, err := qemuimg.NewQemuImage(diskPath)
+			if err != nil {
+				log.Errorf("failed NewQemuImage of %s", diskPath)
+				continue
+			}
+			backingChain, err := img.GetBackingChain()
+			if err != nil {
+				log.Errorf("disk %s failed get backing chain", diskPath)
+				continue
+			}
+			for _, backingPath := range backingChain {
+				if strings.HasPrefix(backingPath, manager.GetPath()) {
+					imageId := strings.Trim(strings.TrimPrefix(backingPath, manager.GetPath()), "/")
+					inUseCacheImageIds[imageId] = struct{}{}
+				}
+			}
+		}
+	}
 	log.Infof("found image caches in use: %v", inUseCacheImageIds)
 
 	deleteSizeMb := int64(0)
@@ -73,8 +103,7 @@ func cleanImages(ctx context.Context, manager IImageCacheManger, images map[stri
 			if !atime.IsZero() && time.Now().Sub(atime) > time.Duration(options.HostOptions.ImageCacheExpireDays*86400)*time.Second {
 				continue
 			}
-
-			if inUseCacheImageIds.Contains(imageId) {
+			if _, ok := inUseCacheImageIds[imageId]; ok {
 				log.Infof("cached image not found but referenced by disks backing file")
 				continue
 			}
@@ -107,8 +136,7 @@ func cleanImages(ctx context.Context, manager IImageCacheManger, images map[stri
 			if img.Size == 0 {
 				img.Size = images[imgId].GetDesc().SizeMb * 1024 * 1024
 			}
-
-			if inUseCacheImageIds.Contains(imgId) {
+			if _, ok := inUseCacheImageIds[imgId]; ok {
 				log.Infof("cached image database reference zero but referenced by disks locally")
 				continue
 			}
@@ -126,52 +154,4 @@ func cleanImages(ctx context.Context, manager IImageCacheManger, images map[stri
 	}
 
 	return deleteSizeMb, nil
-}
-
-func findCachedImagesInUse(manager IImageCacheManger) stringutils2.SSortedStrings {
-	imageIds := stringutils2.NewSortedStrings(nil)
-	for _, imageId := range findQumuImagesInUse(manager) {
-		imageIds = imageIds.Append(imageId)
-	}
-	for _, imageId := range storageManager.host.GetIGuestManager().GetImageDeps(manager.GetStorageType()) {
-		imageIds = imageIds.Append(imageId)
-	}
-	return imageIds
-}
-
-func findQumuImagesInUse(manager IImageCacheManger) stringutils2.SSortedStrings {
-	imageIds := stringutils2.NewSortedStrings(nil)
-	for i := range storageManager.Storages {
-		storage := storageManager.Storages[i]
-		if storage.GetStoragecacheId() != manager.GetId() {
-			continue
-		}
-		// load storage disks used image cache
-		disksPath, err := storage.GetDisksPath()
-		if err != nil {
-			log.Errorf("storage %s failed get disksPath: %s", storage.GetPath(), err)
-			continue
-		}
-
-		for j := range disksPath {
-			diskPath := disksPath[j]
-			img, err := qemuimg.NewQemuImage(diskPath)
-			if err != nil {
-				log.Errorf("failed NewQemuImage of %s", diskPath)
-				continue
-			}
-			backingChain, err := img.GetBackingChain()
-			if err != nil {
-				log.Errorf("disk %s failed get backing chain", diskPath)
-				continue
-			}
-			for _, backingPath := range backingChain {
-				if strings.HasPrefix(backingPath, manager.GetPath()) {
-					imageId := strings.Trim(strings.TrimPrefix(backingPath, manager.GetPath()), "/")
-					imageIds = imageIds.Append(imageId)
-				}
-			}
-		}
-	}
-	return imageIds
 }

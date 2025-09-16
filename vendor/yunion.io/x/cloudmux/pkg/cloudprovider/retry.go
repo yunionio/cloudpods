@@ -21,7 +21,7 @@ import (
 
 func IsError(err error, errs []string) bool {
 	for i := range errs {
-		if strings.Contains(err.Error(), errs[i]) {
+		if strings.Index(err.Error(), errs[i]) >= 0 {
 			return true
 		}
 	}

@@ -29,6 +29,4 @@ func init() {
 	cmd.Show(&options.BaseIdOptions{})
 	cmd.Delete(&options.BaseIdOptions{})
 	cmd.Perform("syncstatus", &options.BaseIdOptions{})
-	cmd.Perform("enable", &options.BaseIdOptions{})
-	cmd.Perform("disable", &options.BaseIdOptions{})
 }

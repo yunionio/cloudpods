@@ -27,7 +27,7 @@ import (
 func TestParseAndSuggest(t *testing.T) {
 	_, err := structureTestData()
 	if err != nil {
-		t.Fatalf("%v", err)
+		t.Fatalf(err.Error())
 	}
 	/*out := CloudaccountManager.parseAndSuggestSingleWire(param)
 	for _, net := range out.CAWireNets[0].GuestSuggestedNetworks {

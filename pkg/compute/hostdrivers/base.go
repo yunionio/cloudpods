@@ -36,10 +36,6 @@ import (
 type SBaseHostDriver struct {
 }
 
-func (self *SBaseHostDriver) RequestRemoteUpdateDisk(ctx context.Context, userCred mcclient.TokenCredential, storage *models.SStorage, disk *models.SDisk, replaceTags bool) error {
-	return nil
-}
-
 func (self *SBaseHostDriver) RequestBaremetalUnmaintence(ctx context.Context, userCred mcclient.TokenCredential, baremetal *models.SHost, task taskman.ITask) error {
 	return errors.Wrapf(cloudprovider.ErrNotSupported, "RequestBaremetalUnmaintence")
 }
@@ -143,12 +139,8 @@ func (self *SBaseHostDriver) FinishUnconvert(ctx context.Context, userCred mccli
 	if adminNic == nil {
 		return fmt.Errorf("admin nic is nil")
 	}
-	accessIp := adminNic.IpAddr
-	if accessIp == "" {
-		accessIp = adminNic.Ip6Addr
-	}
 	db.Update(host, func() error {
-		host.AccessIp = accessIp
+		host.AccessIp = adminNic.IpAddr
 		host.SetEnabled(true)
 		host.HostType = api.HOST_TYPE_BAREMETAL
 		host.HostStatus = api.HOST_OFFLINE

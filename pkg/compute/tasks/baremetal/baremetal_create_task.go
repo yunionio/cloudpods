@@ -68,7 +68,7 @@ func (self *BaremetalCreateTask) OnIpmiProbeComplete(ctx context.Context, obj db
 	}
 	if baremetal.AccessMac == "" && baremetal.Uuid == "" && !ipmiInfo.CdromBoot {
 		msg := "Fail to find access_mac or uuid, host-prepare aborted. Please supply either access_mac or uuid and try host-prepare"
-		log.Errorf("%s", msg)
+		log.Errorf(msg)
 		self.taskFailed(ctx, baremetal, msg)
 		baremetal.SetStatus(ctx, self.UserCred, api.BAREMETAL_PREPARE_FAIL, msg)
 		return

@@ -106,8 +106,6 @@ func InitHandlers(app *appsrv.Application) {
 
 		models.SnapshotPolicyDiskManager,
 		models.LoadbalancerSecurityGroupManager,
-
-		models.HostFileJointsManager,
 	} {
 		db.RegisterModelManager(manager)
 	}
@@ -150,7 +148,6 @@ func InitHandlers(app *appsrv.Application) {
 		models.InstanceSnapshotManager,
 		models.SnapshotManager,
 		models.SnapshotPolicyManager,
-		models.SnapshotPolicyResourceManager,
 		models.BaremetalagentManager,
 		models.LoadbalancerManager,
 		models.LoadbalancerListenerManager,
@@ -161,7 +158,6 @@ func InitHandlers(app *appsrv.Application) {
 		models.LoadbalancerAclManager,
 		models.LoadbalancerAgentManager,
 		models.LoadbalancerClusterManager,
-		models.LoadbalancerHealthCheckManager,
 		models.RouteTableManager,
 		models.RouteTableAssociationManager,
 		models.RouteTableRouteSetManager,
@@ -253,10 +249,6 @@ func InitHandlers(app *appsrv.Application) {
 		models.SSLCertificateManager,
 
 		baremetalmodels.BaremetalProfileManager,
-
-		models.HostFileManager,
-
-		models.AiGatewayManager,
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewModelHandler(manager)

@@ -385,8 +385,9 @@ func SyncRegionNatSkus(ctx context.Context, userCred mcclient.TokenCredential, r
 		db.Metadata.SetValue(ctx, skuMeta, db.SKU_METADAT_KEY, newMd5, userCred)
 
 		result := regions[i].SyncNatSkus(ctx, userCred, xor)
-		notes := fmt.Sprintf("SyncNatSkus for region %s result: %v", regions[i].Name, result.Result())
-		log.Infof("%s", notes)
+		msg := result.Result()
+		notes := fmt.Sprintf("SyncNatSkus for region %s result: %s", regions[i].Name, msg)
+		log.Infof(notes)
 	}
 	return nil
 }

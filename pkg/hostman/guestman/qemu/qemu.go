@@ -97,7 +97,7 @@ type QemuOptions interface {
 	MemDev(sizeMB uint64) string
 	MemFd(sizeMB uint64) string
 	Boot(order *string, enableMenu bool) string
-	BIOS(ovmfPath, ovmfVarsPath, homedir string) (string, error)
+	BIOS(ovmfPath, homedir string) (string, error)
 	Device(devStr string) string
 	Drive(driveStr string) string
 	Chardev(backend string, id string, name string) string
@@ -272,21 +272,17 @@ func (o baseOptions) Boot(order *string, enableMenu bool) string {
 	return fmt.Sprintf("-boot %s", strings.Join(opts, ","))
 }
 
-func (o baseOptions) BIOS(ovmfPath, ovmfVarsPath, homedir string) (string, error) {
-	if ovmfVarsPath == "" || !fileutils2.Exists(ovmfVarsPath) {
-		ovmfVarsPath = ovmfPath
-	}
-
-	destOvmfVarsPath := path.Join(homedir, "OVMF_VARS.fd")
-	if !fileutils2.Exists(destOvmfVarsPath) {
-		err := procutils.NewRemoteCommandAsFarAsPossible("cp", "-f", ovmfVarsPath, destOvmfVarsPath).Run()
+func (o baseOptions) BIOS(ovmfPath, homedir string) (string, error) {
+	ovmfVarsPath := path.Join(homedir, "OVMF_VARS.fd")
+	if !fileutils2.Exists(ovmfVarsPath) {
+		err := procutils.NewRemoteCommandAsFarAsPossible("cp", "-f", ovmfPath, ovmfVarsPath).Run()
 		if err != nil {
 			return "", errors.Wrap(err, "failed copy ovmf vars")
 		}
 	}
 	return fmt.Sprintf(
 		"-drive if=pflash,format=raw,unit=0,file=%s,readonly=on -drive if=pflash,format=raw,unit=1,file=%s",
-		ovmfPath, destOvmfVarsPath,
+		ovmfPath, ovmfVarsPath,
 	), nil
 }
 

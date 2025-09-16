@@ -101,7 +101,7 @@ func prepareServer() error {
 		return errors.Wrapf(httperrors.ErrInputParameter, "cert %s not found", options.Cert)
 	}
 
-	app := appsrv.NewApplication("samldemo", 4, 10, false)
+	app := appsrv.NewApplication("samldemo", 4, false)
 
 	saml, err := samlutils.NewSAMLInstance(options.Entity, options.Cert, options.Key)
 	if err != nil {

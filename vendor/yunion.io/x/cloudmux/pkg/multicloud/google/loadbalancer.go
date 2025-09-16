@@ -23,7 +23,6 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
@@ -243,29 +242,26 @@ func (self *SLoadbalancer) GetEgressMbps() int {
 	return 0
 }
 
-func (self *SLoadbalancer) GetIEIPs() ([]cloudprovider.ICloudEIP, error) {
+func (self *SLoadbalancer) GetIEIP() (cloudprovider.ICloudEIP, error) {
 	frs, err := self.GetForwardingRules()
 	if err != nil {
 		log.Errorf("GetAddress.GetForwardingRules %s", err)
 	}
 
-	ret, addrs := []cloudprovider.ICloudEIP{}, []string{}
 	for i := range frs {
-		ipAddr, _ := netutils.NewIPV4Addr(frs[i].IPAddress)
-		if netutils.IsExitAddress(ipAddr) && !utils.IsInStringArray(frs[i].IPAddress, addrs) {
-			addrs = append(addrs, frs[i].IPAddress)
+		if strings.ToLower(frs[i].LoadBalancingScheme) == "external" {
 			eips, err := self.region.GetEips(frs[i].IPAddress, 0, "")
 			if err != nil {
 				log.Errorf("GetEips %s", err)
 			}
-			for j := range eips {
-				eips[j].region = self.region
-				ret = append(ret, &eips[j])
+
+			if len(eips) > 0 {
+				return &eips[0], nil
 			}
 		}
 	}
 
-	return ret, nil
+	return nil, nil
 }
 
 func (self *SLoadbalancer) Delete(ctx context.Context) error {

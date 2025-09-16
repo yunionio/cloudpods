@@ -74,5 +74,5 @@ func (self *LoadbalancerListenerRuleDeleteTask) OnLoadbalancerListenerRuleDelete
 }
 
 func (self *LoadbalancerListenerRuleDeleteTask) OnLoadbalancerListenerRuleDeleteCompleteFailed(ctx context.Context, lbr *models.SLoadbalancerListenerRule, reason jsonutils.JSONObject) {
-	self.taskFail(ctx, lbr, errors.Errorf("%s", reason.String()))
+	self.taskFail(ctx, lbr, errors.Errorf(reason.String()))
 }

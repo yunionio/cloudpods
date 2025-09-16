@@ -234,7 +234,7 @@ func init() {
 
 		fmt.Println("[Slave Addresses]")
 		for _, addr := range netIf.GetSlaveAddresses() {
-			fmt.Printf("%s/%d\n", addr.Addr, addr.MaskLen)
+			fmt.Printf("%s/%s\n", addr[0], addr[1])
 		}
 		fmt.Println("[Routes]")
 		for _, r := range netIf.GetRouteSpecs() {

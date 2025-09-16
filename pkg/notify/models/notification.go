@@ -234,9 +234,6 @@ func (nm *SNotificationManager) PerformEventNotify(ctx context.Context, userCred
 			robots[robot] = groupTime
 		}
 	}
-	for _, id := range input.RobotIds {
-		robots[id] = 0
-	}
 
 	var webhookRobots []string
 	realRobot := make(map[string]uint32)
@@ -901,35 +898,35 @@ func (n *SNotification) GetTemplate(ctx context.Context, topicId, lang string, n
 		stemplateTitle, err = template.New("template").Parse(topic.TitleCn)
 		if err != nil {
 			stemplateTitle, _ = template.New("template").Parse(api.COMMON_TITLE_CN)
-			failedReason = append(failedReason, errors.Wrapf(err, "parse title cn %s", topic.TitleCn))
+			failedReason = append(failedReason, errors.Errorf("unable to parse title_cn template:%s", err.Error()))
 		}
 		stemplateContent, err = template.New("template").Parse(topic.ContentCn)
 		if err != nil {
 			stemplateTitle, _ = template.New("template").Parse(api.COMMON_TITLE_CN)
-			failedReason = append(failedReason, errors.Wrapf(err, "parse content cn %s", topic.ContentCn))
+			failedReason = append(failedReason, errors.Errorf("unable to parse content_cn template:%s", err.Error()))
 		}
 	case api.TEMPLATE_LANG_EN:
 		stemplateTitle, err = template.New("template").Parse(topic.TitleEn)
 		if err != nil {
 			stemplateTitle, _ = template.New("template").Parse(api.COMMON_TITLE_EN)
-			failedReason = append(failedReason, errors.Wrapf(err, "parse title en %s", topic.TitleEn))
+			failedReason = append(failedReason, errors.Errorf("unable to parse title_en template:%s", err.Error()))
 		}
 		stemplateContent, err = template.New("template").Parse(topic.ContentEn)
 		if err != nil {
 			stemplateTitle, _ = template.New("template").Parse(api.COMMON_TITLE_CN)
-			failedReason = append(failedReason, errors.Wrapf(err, "parse content en %s", topic.ContentEn))
+			failedReason = append(failedReason, errors.Errorf("unable to parse content_en template:%s", err.Error()))
 		}
 	default:
 		failedReason = append(failedReason, errors.Errorf("empty lang"))
 		stemplateTitle, err = template.New("template").Parse(topic.TitleEn)
 		if err != nil {
 			stemplateTitle, _ = template.New("template").Parse(api.COMMON_TITLE_EN)
-			failedReason = append(failedReason, errors.Wrapf(err, "parse topic en %s", topic.TitleEn))
+			failedReason = append(failedReason, errors.Errorf("unable to parse title_en template:%s", err.Error()))
 		}
 		stemplateContent, err = template.New("template").Parse(topic.ContentEn)
 		if err != nil {
 			stemplateTitle, _ = template.New("template").Parse(api.COMMON_TITLE_CN)
-			failedReason = append(failedReason, errors.Wrapf(err, "parse content en: %s", topic.ContentEn))
+			failedReason = append(failedReason, errors.Errorf("unable to parse content_en template:%s", err.Error()))
 		}
 	}
 	if len(failedReason) > 0 {

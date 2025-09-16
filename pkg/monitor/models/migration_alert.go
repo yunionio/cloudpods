@@ -48,8 +48,6 @@ func GetMigrationAlertManager() *SMigrationAlertManager {
 	return migrationAlertMan
 }
 
-// +onecloud:swagger-gen-model-singular=migrationalert
-// +onecloud:swagger-gen-model-plural=migrationalerts
 type SMigrationAlertManager struct {
 	SAlertManager
 }

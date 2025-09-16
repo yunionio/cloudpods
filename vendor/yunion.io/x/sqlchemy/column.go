@@ -423,8 +423,5 @@ func (c *SBaseCompoundColumn) ConvertFromValue(val interface{}) interface{} {
 	if ok && bVal != nil {
 		return bVal.String()
 	}
-	if _, ok := val.(string); ok {
-		return val
-	}
 	return jsonutils.Marshal(val).String()
 }

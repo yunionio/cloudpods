@@ -29,7 +29,6 @@ var HealthCheckReactor IHealthCheckReactor
 
 type IGuestDescGetter interface {
 	GetGuestNicDesc(mac, ip, port, bridge string, isCandidate bool) (*desc.SGuestDesc, *desc.SGuestNetwork)
-	GetAllGuestIPv6Macs(bridge string) []string
 }
 
 var GuestDescGetter IGuestDescGetter

@@ -649,13 +649,13 @@ func (grp *SGroup) PerformAttachnetwork(ctx context.Context, userCred mcclient.T
 		return nil, errors.Wrapf(httperrors.ErrConflict, "candidate ip %s is occupied!", input.IpAddr)
 	}
 
-	var ip6Addr string
+	var ipAddr6 string
 	if len(input.Ip6Addr) > 0 || input.RequireIPv6 {
-		ip6Addr, err = net.GetFreeIP(ctx, userCred, nil, nil, input.Ip6Addr, input.AllocDir, input.Reserved != nil && *input.Reserved, api.AddressTypeIPv6)
+		ipAddr6, err = net.GetFreeIP(ctx, userCred, nil, nil, input.Ip6Addr, input.AllocDir, input.Reserved != nil && *input.Reserved, api.AddressTypeIPv6)
 		if err != nil {
 			return nil, errors.Wrap(err, "GetFreeIPv6")
 		}
-		if len(input.Ip6Addr) > 0 && ip6Addr != input.Ip6Addr && input.RequireDesignatedIp != nil && *input.RequireDesignatedIp {
+		if len(input.Ip6Addr) > 0 && ipAddr6 != input.Ip6Addr && input.RequireDesignatedIp != nil && *input.RequireDesignatedIp {
 			return nil, errors.Wrapf(httperrors.ErrConflict, "candidate v6 ip %s is occupied!", input.Ip6Addr)
 		}
 	}
@@ -664,7 +664,7 @@ func (grp *SGroup) PerformAttachnetwork(ctx context.Context, userCred mcclient.T
 	gn.NetworkId = net.Id
 	gn.GroupId = grp.Id
 	gn.IpAddr = ipAddr
-	gn.Ip6Addr = ip6Addr
+	gn.Ip6Addr = ipAddr6
 
 	gn.SetModelManager(GroupnetworkManager, &gn)
 

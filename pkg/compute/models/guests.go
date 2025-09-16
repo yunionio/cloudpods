@@ -427,20 +427,12 @@ func (manager *SGuestManager) ListItemFilter(
 	}
 
 	if len(query.IpAddrs) > 0 {
-		// 如果只有一个ip地址，则使用正则匹配，否则使用等于匹配
-		cmpFunc := sqlchemy.Equals
-		if len(query.IpAddrs) == 1 {
-			cmpFunc = func(f sqlchemy.IQueryField, v interface{}) sqlchemy.ICondition {
-				return sqlchemy.Regexp(f, v.(string))
-			}
-		}
-
 		grpnets := GroupnetworkManager.Query().SubQuery()
 		vipq := GroupguestManager.Query("guest_id")
 		conditions := []sqlchemy.ICondition{}
 		for _, ipAddr := range query.IpAddrs {
-			conditions = append(conditions, cmpFunc(grpnets.Field("ip_addr"), ipAddr))
-			conditions = append(conditions, cmpFunc(grpnets.Field("ip6_addr"), ipAddr))
+			conditions = append(conditions, sqlchemy.Regexp(grpnets.Field("ip_addr"), ipAddr))
+			conditions = append(conditions, sqlchemy.Regexp(grpnets.Field("ip6_addr"), ipAddr))
 		}
 		vipq = vipq.Join(grpnets, sqlchemy.Equals(grpnets.Field("group_id"), vipq.Field("group_id"))).Filter(
 			sqlchemy.OR(conditions...),
@@ -449,7 +441,7 @@ func (manager *SGuestManager) ListItemFilter(
 		grpeips := ElasticipManager.Query().Equals("associate_type", api.EIP_ASSOCIATE_TYPE_INSTANCE_GROUP).SubQuery()
 		conditions = []sqlchemy.ICondition{}
 		for _, ipAddr := range query.IpAddrs {
-			conditions = append(conditions, cmpFunc(grpeips.Field("ip_addr"), ipAddr))
+			conditions = append(conditions, sqlchemy.Regexp(grpeips.Field("ip_addr"), ipAddr))
 		}
 		vipeipq := GroupguestManager.Query("guest_id")
 		vipeipq = vipeipq.Join(grpeips, sqlchemy.Equals(grpeips.Field("associate_id"), vipeipq.Field("group_id"))).Filter(
@@ -459,15 +451,15 @@ func (manager *SGuestManager) ListItemFilter(
 		gnQ := GuestnetworkManager.Query("guest_id")
 		conditions = []sqlchemy.ICondition{}
 		for _, ipAddr := range query.IpAddrs {
-			conditions = append(conditions, cmpFunc(gnQ.Field("ip_addr"), ipAddr))
-			conditions = append(conditions, cmpFunc(gnQ.Field("ip6_addr"), ipAddr))
+			conditions = append(conditions, sqlchemy.Regexp(gnQ.Field("ip_addr"), ipAddr))
+			conditions = append(conditions, sqlchemy.Regexp(gnQ.Field("ip6_addr"), ipAddr))
 		}
 		gn := gnQ.Filter(sqlchemy.OR(conditions...))
 
 		guestEipQ := ElasticipManager.Query("associate_id").Equals("associate_type", api.EIP_ASSOCIATE_TYPE_SERVER)
 		conditions = []sqlchemy.ICondition{}
 		for _, ipAddr := range query.IpAddrs {
-			conditions = append(conditions, cmpFunc(guestEipQ.Field("ip_addr"), ipAddr))
+			conditions = append(conditions, sqlchemy.Regexp(guestEipQ.Field("ip_addr"), ipAddr))
 		}
 		guestEip := guestEipQ.Filter(sqlchemy.OR(conditions...))
 
@@ -475,7 +467,7 @@ func (manager *SGuestManager) ListItemFilter(
 		conditions = []sqlchemy.ICondition{}
 		for _, ipAddr := range query.IpAddrs {
 			conditions = append(conditions, sqlchemy.AND(
-				cmpFunc(metadataQ.Field("value"), ipAddr),
+				sqlchemy.Regexp(metadataQ.Field("value"), ipAddr),
 				sqlchemy.Equals(metadataQ.Field("key"), "sync_ips"),
 				sqlchemy.Equals(metadataQ.Field("obj_type"), "server"),
 			))
@@ -719,23 +711,6 @@ func (manager *SGuestManager) ListItemFilter(
 			q = q.IsNotEmpty("host_id")
 		} else {
 			q = q.IsNullOrEmpty("host_id")
-		}
-	}
-	if len(query.SnapshotpolicyId) > 0 {
-		sp := SnapshotPolicyResourceManager.Query("resource_id").
-			Equals("resource_type", api.SNAPSHOT_POLICY_TYPE_SERVER).
-			Equals("snapshotpolicy_id", query.SnapshotpolicyId).SubQuery()
-		q = q.In("id", sp)
-	}
-
-	if query.BindingSnapshotpolicy != nil {
-		spjsq := SnapshotPolicyResourceManager.Query("resource_id").
-			Equals("resource_type", api.SNAPSHOT_POLICY_TYPE_SERVER).
-			SubQuery()
-		if *query.BindingSnapshotpolicy {
-			q = q.In("id", spjsq)
-		} else {
-			q = q.NotIn("id", spjsq)
 		}
 	}
 
@@ -1470,19 +1445,15 @@ func (self *SGuest) ValidateUpdateData(ctx context.Context, userCred mcclient.To
 		}
 	}
 
-	// 避免调度失败的机器修改删除保护时报no rows in result set 错误，导致前端删不掉机器
-	if len(self.HostId) > 0 {
-		drv, err := self.GetDriver()
-		if err != nil {
-			return input, err
-		}
-		input, err = drv.ValidateUpdateData(ctx, self, userCred, input)
-		if err != nil {
-			return input, errors.Wrap(err, "GetDriver().ValidateUpdateData")
-		}
+	drv, err := self.GetDriver()
+	if err != nil {
+		return input, err
+	}
+	input, err = drv.ValidateUpdateData(ctx, self, userCred, input)
+	if err != nil {
+		return input, errors.Wrap(err, "GetDriver().ValidateUpdateData")
 	}
 
-	var err error
 	input.VirtualResourceBaseUpdateInput, err = self.SVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, input.VirtualResourceBaseUpdateInput)
 	if err != nil {
 		return input, errors.Wrap(err, "SVirtualResourceBase.ValidateUpdateData")
@@ -1711,14 +1682,6 @@ func (manager *SGuestManager) validateCreateData(
 		return nil, errors.Wrap(err, "checkGuestImage")
 	}
 
-	if len(input.PreferManager) > 0 && len(input.Provider) == 0 {
-		providerObj, err := CloudproviderManager.FetchById(input.PreferManager)
-		if err != nil {
-			return nil, errors.Wrapf(err, "zone fetch by id %s", input.PreferZone)
-		}
-		provider := providerObj.(*SCloudprovider)
-		input.Provider = provider.Provider
-	}
 	if len(input.PreferZone) > 0 && len(input.Provider) == 0 {
 		zoneObj, err := ZoneManager.FetchById(input.PreferZone)
 		if err != nil {
@@ -1749,7 +1712,6 @@ func (manager *SGuestManager) validateCreateData(
 		}
 		var imgProperties map[string]string
 		var imgEncryptKeyId string
-		var imageDiskFormat string
 
 		if len(input.Disks) > 0 {
 			diskConfig := input.Disks[0]
@@ -1760,7 +1722,6 @@ func (manager *SGuestManager) validateCreateData(
 			input.Disks[0] = diskConfig
 			imgEncryptKeyId = diskConfig.ImageEncryptKeyId
 			imgProperties = diskConfig.ImageProperties
-			imageDiskFormat = imgProperties[imageapi.IMAGE_DISK_FORMAT]
 			if imgProperties[imageapi.IMAGE_DISK_FORMAT] == "iso" {
 				return nil, httperrors.NewInputParameterError("System disk does not support iso image, please consider using cdrom parameter")
 			}
@@ -1772,7 +1733,6 @@ func (manager *SGuestManager) validateCreateData(
 				return nil, httperrors.NewInputParameterError("parse cdrom device info error %s", err)
 			}
 			input.Cdrom = image.Id
-			imageDiskFormat = image.DiskFormat
 			if len(imgProperties) == 0 {
 				imgProperties = image.Properties
 			}
@@ -1796,29 +1756,28 @@ func (manager *SGuestManager) validateCreateData(
 			input.OsArch = apis.OS_ARCH_AARCH64
 		}
 
-		if imageDiskFormat != "iso" {
-			var imgSupportUEFI *bool
-			if desc, ok := imgProperties[imageapi.IMAGE_UEFI_SUPPORT]; ok {
-				support := desc == "true"
-				imgSupportUEFI = &support
+		var imgSupportUEFI *bool
+		if desc, ok := imgProperties[imageapi.IMAGE_UEFI_SUPPORT]; ok {
+			support := desc == "true"
+			imgSupportUEFI = &support
+		}
+		if input.OsArch == apis.OS_ARCH_AARCH64 {
+			// arm image supports UEFI by default
+			support := true
+			imgSupportUEFI = &support
+		}
+
+		switch {
+		case imgSupportUEFI != nil && *imgSupportUEFI:
+			if len(input.Bios) == 0 {
+				input.Bios = "UEFI"
+			} else if input.Bios != "UEFI" {
+				return nil, httperrors.NewInputParameterError("UEFI image requires UEFI boot mode")
 			}
-			if input.OsArch == apis.OS_ARCH_AARCH64 {
-				// arm image supports UEFI by default
-				support := true
-				imgSupportUEFI = &support
-			}
-			switch {
-			case imgSupportUEFI != nil && *imgSupportUEFI:
-				if len(input.Bios) == 0 {
-					input.Bios = "UEFI"
-				} else if input.Bios != "UEFI" {
-					return nil, httperrors.NewInputParameterError("UEFI image requires UEFI boot mode")
-				}
-			default:
-				// not UEFI image
-				if input.Bios == "UEFI" && len(imgProperties) != 0 {
-					return nil, httperrors.NewInputParameterError("UEFI boot mode requires UEFI image")
-				}
+		default:
+			// not UEFI image
+			if input.Bios == "UEFI" && len(imgProperties) != 0 {
+				return nil, httperrors.NewInputParameterError("UEFI boot mode requires UEFI image")
 			}
 		}
 
@@ -2024,6 +1983,10 @@ func (manager *SGuestManager) validateCreateData(
 		}
 
 		if len(input.Duration) > 0 {
+			/*if !userCred.IsAllow(rbacutils.ScopeSystem, consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionPerform, "renew") {
+				return nil, httperrors.NewForbiddenError("only admin can create prepaid resource")
+			}*/
+
 			if input.ResourceType == api.HostResourceTypePrepaidRecycle {
 				return nil, httperrors.NewConflictError("cannot create prepaid server on prepaid resource type")
 			}
@@ -2047,10 +2010,10 @@ func (manager *SGuestManager) validateCreateData(
 				input.BillingType = billing_api.BILLING_TYPE_PREPAID
 			}
 			input.BillingCycle = billingCycle.String()
+			// expired_at will be set later by callback
+			// data.Add(jsonutils.NewTimeString(billingCycle.EndAt(time.Time{})), "expired_at")
+
 			input.Duration = billingCycle.String()
-			if input.BillingType == billing_api.BILLING_TYPE_POSTPAID {
-				input.ReleaseAt = billingCycle.EndAt(time.Now())
-			}
 		}
 	}
 
@@ -2066,7 +2029,7 @@ func (manager *SGuestManager) validateCreateData(
 		if err != nil {
 			return nil, httperrors.NewInputParameterError("parse network description error %s", err)
 		}
-		err = isValidNetworkInfo(ctx, userCred, netConfig, "", "")
+		err = isValidNetworkInfo(ctx, userCred, netConfig, "")
 		if err != nil {
 			return nil, err
 		}
@@ -2574,39 +2537,8 @@ func (guest *SGuest) PostCreate(ctx context.Context, userCred mcclient.TokenCred
 		guest.setUserData(ctx, userCred, userData)
 	}
 
-	input := struct {
-		PreferZone      string
-		PreferRegion    string
-		PreferManagerId string
-		Provider        string
-	}{}
-	data.Unmarshal(&input)
-
-	if len(input.PreferManagerId) > 0 && len(input.Provider) == 0 {
-		manObj, err := CloudproviderManager.FetchById(input.PreferManagerId)
-		if err == nil {
-			man := manObj.(*SCloudprovider)
-			input.Provider = man.Provider
-		}
-	}
-	if len(input.PreferZone) > 0 && len(input.Provider) == 0 {
-		zoneObj, err := ZoneManager.FetchById(input.PreferZone)
-		if err == nil {
-			zone := zoneObj.(*SZone)
-			input.PreferRegion = zone.CloudregionId
-		}
-	}
-	if len(input.PreferRegion) > 0 && len(input.Provider) == 0 {
-		regionObj, err := CloudregionManager.FetchById(input.PreferRegion)
-		if err == nil {
-			region := regionObj.(*SCloudregion)
-			input.Provider = region.Provider
-		}
-	}
-	if len(input.Provider) == 0 {
-		input.Provider = api.CLOUD_PROVIDER_ONECLOUD
-	}
-	drv, _ := GetDriver(guest.Hypervisor, input.Provider)
+	provider, _ := data.GetString("provider")
+	drv, _ := GetDriver(guest.Hypervisor, provider)
 	if drv != nil && drv.GetMaxSecurityGroupCount() > 0 {
 		secgroups, _ := jsonutils.GetStringArray(data, "secgroups")
 		for _, secgroupId := range secgroups {
@@ -2953,11 +2885,9 @@ func (self *SGuest) GetRealIPs() []string {
 
 func (self *SGuest) IsExitOnly() bool {
 	for _, ip := range self.GetRealIPs() {
-		if regutils.MatchIP4Addr(ip) {
-			addr, _ := netutils.NewIPV4Addr(ip)
-			if !netutils.IsExitAddress(addr) {
-				return false
-			}
+		addr, _ := netutils.NewIPV4Addr(ip)
+		if !netutils.IsExitAddress(addr) {
+			return false
 		}
 	}
 	return true
@@ -2972,12 +2902,7 @@ func (self *SGuest) getVirtualIPs() []string {
 			continue
 		}
 		for _, groupnetwork := range groupnets {
-			if len(groupnetwork.IpAddr) > 0 {
-				ips = append(ips, groupnetwork.IpAddr)
-			}
-			if len(groupnetwork.Ip6Addr) > 0 {
-				ips = append(ips, groupnetwork.Ip6Addr)
-			}
+			ips = append(ips, groupnetwork.IpAddr)
 		}
 	}
 	return ips
@@ -2986,15 +2911,13 @@ func (self *SGuest) getVirtualIPs() []string {
 func (self *SGuest) GetPrivateIPs() []string {
 	ips := self.GetRealIPs()
 	for i := len(ips) - 1; i >= 0; i-- {
-		if regutils.MatchIP4Addr(ips[i]) {
-			ipAddr, err := netutils.NewIPV4Addr(ips[i])
-			if err != nil {
-				log.Errorf("guest %s(%s) has bad ipv4 address (%s): %v", self.Name, self.Id, ips[i], err)
-				continue
-			}
-			if !netutils.IsPrivate(ipAddr) {
-				ips = append(ips[:i], ips[i+1:]...)
-			}
+		ipAddr, err := netutils.NewIPV4Addr(ips[i])
+		if err != nil {
+			log.Errorf("guest %s(%s) has bad ipv4 address (%s): %v", self.Name, self.Id, ips[i], err)
+			continue
+		}
+		if !netutils.IsPrivate(ipAddr) {
+			ips = append(ips[:i], ips[i+1:]...)
 		}
 	}
 	return ips
@@ -3340,15 +3263,16 @@ func (g *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.TokenCre
 		if len(extVM.GetDescription()) > 0 {
 			g.Description = extVM.GetDescription()
 		}
+		g.IsEmulated = extVM.IsEmulated()
 
-		g.BillingType = extVM.GetBillingType()
-		g.ExpiredAt = time.Time{}
-		g.AutoRenew = false
-		if g.BillingType == billing_api.BILLING_TYPE_PREPAID {
+		if provider.GetFactory().IsSupportPrepaidResources() && !recycle {
+			g.BillingType = extVM.GetBillingType()
 			g.ExpiredAt = extVM.GetExpiredAt()
-			g.AutoRenew = extVM.IsAutoRenew()
+			drv, _ := g.GetDriver()
+			if drv != nil && drv.IsSupportSetAutoRenew() {
+				g.AutoRenew = extVM.IsAutoRenew()
+			}
 		}
-
 		return nil
 	})
 	if err != nil {
@@ -3415,12 +3339,15 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 
 	guest.IsEmulated = extVM.IsEmulated()
 
-	guest.BillingType = extVM.GetBillingType()
-	guest.ExpiredAt = time.Time{}
-	guest.AutoRenew = false
-	if guest.BillingType == billing_api.BILLING_TYPE_PREPAID {
-		guest.ExpiredAt = extVM.GetExpiredAt()
-		guest.AutoRenew = extVM.IsAutoRenew()
+	if provider.GetFactory().IsSupportPrepaidResources() {
+		guest.BillingType = extVM.GetBillingType()
+		if expired := extVM.GetExpiredAt(); !expired.IsZero() {
+			guest.ExpiredAt = expired
+		}
+		drv, _ := guest.GetDriver()
+		if drv != nil && drv.IsSupportSetAutoRenew() {
+			guest.AutoRenew = extVM.IsAutoRenew()
+		}
 	}
 
 	if createdAt := extVM.GetCreatedAt(); !createdAt.IsZero() {
@@ -3430,6 +3357,18 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 	guest.HostId = host.Id
 
 	instanceType := extVM.GetInstanceType()
+
+	/*zoneExtId, err := metaData.GetString("zone_ext_id")
+	if err != nil {
+		log.Errorf("get zone external id fail %s", err)
+	}
+
+	isku, err := ServerSkuManager.FetchByZoneExtId(zoneExtId, instanceType)
+	if err != nil {
+		log.Errorf("get sku zone %s instance type %s fail %s", zoneExtId, instanceType, err)
+	} else {
+		guest.SkuId = isku.GetId()
+	}*/
 
 	if len(instanceType) > 0 {
 		guest.InstanceType = instanceType
@@ -3587,7 +3526,6 @@ type Attach2NetworkArgs struct {
 	RequireDesignatedIP bool
 	UseDesignatedIP     bool
 	RequireIPv6         bool
-	StrictIPv6          bool
 
 	BwLimit        int
 	NicDriver      string
@@ -3618,7 +3556,6 @@ func (args *Attach2NetworkArgs) onceArgs(i int) attach2NetworkOnceArgs {
 		requireDesignatedIP: args.RequireDesignatedIP,
 		useDesignatedIP:     args.UseDesignatedIP,
 		requireIPv6:         args.RequireIPv6,
-		strictIPv6:          args.StrictIPv6,
 
 		bwLimit:        args.BwLimit,
 		nicDriver:      args.NicDriver,
@@ -3661,7 +3598,6 @@ type attach2NetworkOnceArgs struct {
 	requireDesignatedIP bool
 	useDesignatedIP     bool
 	requireIPv6         bool
-	strictIPv6          bool
 
 	bwLimit        int
 	nicDriver      string
@@ -3740,7 +3676,6 @@ func (self *SGuest) attach2NetworkOnce(
 		requireDesignatedIP: args.requireDesignatedIP,
 		useDesignatedIP:     args.useDesignatedIP,
 		requireIPv6:         args.requireIPv6,
-		strictIPv6:          args.strictIPv6,
 
 		ifname:         args.nicConf.Ifname,
 		macAddr:        args.nicConf.Mac,
@@ -3768,6 +3703,7 @@ func (self *SGuest) attach2NetworkOnce(
 		teamWithMac  = args.teamWithMac
 	)
 	network.updateDnsRecord(guestnic, true)
+	network.updateGuestNetmap(guestnic)
 	if pendingUsage != nil && len(teamWithMac) == 0 {
 		cancelUsage := SRegionQuota{}
 		if network.IsExitNetwork() {
@@ -4513,7 +4449,6 @@ func (self *SGuest) attach2NamedNetworkDesc(ctx context.Context, userCred mcclie
 			IpAddr:              netConfig.Address,
 			Ip6Addr:             netConfig.Address6,
 			RequireIPv6:         netConfig.RequireIPv6,
-			StrictIPv6:          netConfig.StrictIPv6,
 			NicDriver:           netConfig.Driver,
 			NumQueues:           netConfig.NumQueues,
 			BwLimit:             netConfig.BwLimit,
@@ -6661,9 +6596,6 @@ func (self *SGuest) ToNetworksConfig() []*api.NetworkConfig {
 		netConf.Exit = guestNetwork.IsExit()
 		if len(guestNetwork.Ip6Addr) > 0 {
 			netConf.RequireIPv6 = true
-			if len(guestNetwork.IpAddr) == 0 {
-				netConf.StrictIPv6 = true
-			}
 		}
 		// netConf.Private
 		// netConf.Reserved

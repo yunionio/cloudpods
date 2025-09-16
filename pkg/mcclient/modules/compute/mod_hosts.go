@@ -96,7 +96,7 @@ func parseHosts(titles []string, data string) []*jsonutils.JSONDict {
 	for i, host := range hosts {
 		host = strings.TrimSpace(host)
 		if len(host) == 0 {
-			log.Warningf("DoBatchRegister 第%d行： 空白行（已忽略）\n", i)
+			log.Warningf(fmt.Sprintf("DoBatchRegister 第%d行： 空白行（已忽略）\n", i))
 			continue
 		}
 
@@ -167,8 +167,7 @@ var (
 
 func init() {
 	Hosts = HostManager{modules.NewComputeManager("host", "hosts",
-		[]string{"ID", "Name", "Access_mac", "Access_ip", "Ipmi_Ip",
-			"Ovn_Mapped_Ip_Addr", "Ovn_Mapped_Ip6_Addr",
+		[]string{"ID", "Name", "Access_mac", "Access_ip", "Ipmi_Ip", "Ovn_Mapped_Ip_Addr",
 			"Manager_URI",
 			"Status", "enabled", "host_status",
 			"Guests", "Running_guests",

@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/go-ldap/ldap/v3"
+	"gopkg.in/ldap.v3"
 
 	"yunion.io/x/pkg/util/shellutils"
 

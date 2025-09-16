@@ -134,11 +134,11 @@ type DiskBackupCreateInput struct {
 
 	// description: disk id
 	DiskId string `json:"disk_id"`
-	// swagger:ignore
+	// swagger: ignore
 	BackStorageId string `json:"back_storage_id" yunion-deprecated-by:"backup_storage_id"`
 	// description: backup storage id
 	BackupStorageId string `json:"backup_storage_id"`
-	// swagger:ignore
+	// swagger: ignore
 	CloudregionId string `json:"cloudregion_id"`
 	// swagger:ignore
 	ManagerId   string                `json:"manager_id"`

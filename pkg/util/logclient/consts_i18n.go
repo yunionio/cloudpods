@@ -104,8 +104,8 @@ func init() {
 		EN("Guest Detach Isolated Device").
 		CN("卸载透传设备"),
 	)
-	t.Set(ACT_SET_RELEASE_TIME, i18n.NewTableEntry().
-		EN("Set Resource Release Time").
+	t.Set(ACT_SET_EXPIRED_TIME, i18n.NewTableEntry().
+		EN("Set Resource Expire Time").
 		CN("到期释放"),
 	)
 	t.Set(ACT_VM_SYNC_ISOLATED_DEVICE, i18n.NewTableEntry().
@@ -1533,7 +1533,7 @@ func init() {
 		EN("Set Commit Bound").
 		CN("设置超售比"),
 	)
-	o.Set(ACT_CHANGE_BILLING_TYPE, i18n.NewTableEntry().
+	o.Set(ACT_VM_CHANGE_BILLING_TYPE, i18n.NewTableEntry().
 		EN("Change Billing Type").
 		CN("更改计费模式"),
 	)

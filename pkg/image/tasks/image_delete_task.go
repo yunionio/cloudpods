@@ -66,7 +66,7 @@ func (self *ImageDeleteTask) startDeleteImage(ctx context.Context, image *models
 	err := image.Remove(ctx, self.UserCred)
 	if err != nil {
 		msg := fmt.Sprintf("fail to remove %s %s", image.Name, err)
-		log.Errorf("%v", msg)
+		log.Errorf(msg)
 		self.SetStageFailed(ctx, jsonutils.NewString(msg))
 		return
 	}

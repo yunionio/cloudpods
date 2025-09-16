@@ -30,15 +30,16 @@
 package dhcp
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net"
+	"strconv"
 	"syscall"
 	"time"
 
 	"golang.org/x/net/bpf"
-
-	"yunion.io/x/pkg/errors"
+	"golang.org/x/net/ipv4"
 )
 
 // defined as a var so tests can override it.
@@ -70,14 +71,10 @@ const (
 
 type conn interface {
 	io.Closer
-	Send(b []byte, addr *net.UDPAddr, destMac net.HardwareAddr) error
-	Recv(b []byte) ([]byte, *net.UDPAddr, net.HardwareAddr, error)
-	Send6(b []byte, addr *net.UDPAddr, destMac net.HardwareAddr) error
-	Recv6(b []byte) ([]byte, *net.UDPAddr, net.HardwareAddr, error)
+	Send(b []byte, addr *net.UDPAddr, destMac net.HardwareAddr, ifidx int) error
+	Recv(b []byte) ([]byte, *net.UDPAddr, net.HardwareAddr, int, error)
 	SetReadDeadline(t time.Time) error
 	SetWriteDeadline(t time.Time) error
-
-	SendRaw(b []byte, destMac net.HardwareAddr) error
 }
 
 // Conn is a DHCP-oriented packet socket.
@@ -88,8 +85,8 @@ type Conn struct {
 	ifIndex int
 }
 
-func NewRawSocketConn(iface string, filter []bpf.RawInstruction, serverPort uint16) (*Conn, error) {
-	conn, err := newRawSocketConn(iface, filter, serverPort)
+func NewRawSocketConn(iface string, filter []bpf.RawInstruction, dhcpServerPort uint16) (*Conn, error) {
+	conn, err := newRawSocketConn(iface, filter, dhcpServerPort)
 	if err != nil {
 		return nil, err
 	}
@@ -105,11 +102,11 @@ func NewSocketConn(addr string, port int) (*Conn, error) {
 }
 
 // NewConn creates a Conn bound to the given UDP ip:port.
-// func NewConn(addr string, disableBroadcast bool) (*Conn, error) {
-//	return newConn(addr, disableBroadcast, newPortableConn)
-// }
+func NewConn(addr string, disableBroadcast bool) (*Conn, error) {
+	return newConn(addr, disableBroadcast, newPortableConn)
+}
 
-/*func newConn(addr string, disableBroadcast bool, n func(net.IP, int, bool) (conn, error)) (*Conn, error) {
+func newConn(addr string, disableBroadcast bool, n func(net.IP, int, bool) (conn, error)) (*Conn, error) {
 	if addr == "" {
 		addr = "0.0.0.0:67"
 	}
@@ -139,7 +136,7 @@ func NewSocketConn(addr string, port int) (*Conn, error) {
 		conn:    c,
 		ifIndex: ifIndex,
 	}, nil
-}*/
+}
 
 func ipToIfindex(ip net.IP) (int, error) {
 	intfs, err := net.Interfaces()
@@ -170,46 +167,69 @@ func (c *Conn) Close() error {
 
 // RecvDHCP reads a Packet from the connection. It returns the
 // packet and the interface it was received on.
-func (c *Conn) RecvDHCP() (Packet, *net.UDPAddr, net.HardwareAddr, error) {
+func (c *Conn) RecvDHCP() (Packet, *net.UDPAddr, net.HardwareAddr, *net.Interface, error) {
 	var buf [1500]byte
-	b, addr, mac, err := c.conn.Recv(buf[:])
+	b, addr, mac, _, err := c.conn.Recv(buf[:])
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
+	/*if c.ifIndex != 0 && ifidx != c.ifIndex {
+		log.Errorf("======= ifIndex continue, c.ifIndex: %d, ifidx: %d", c.ifIndex, ifidx)
+		continue
+	}*/
 	pkt := Unmarshal(b)
-	return pkt, addr, mac, nil
-}
+	// intf, err := net.InterfaceByIndex(ifidx)
+	// if err != nil {
+	// 	return nil, nil, nil, err
+	// }
 
-func (c *Conn) RecvDHCP6() (Packet, *net.UDPAddr, net.HardwareAddr, error) {
-	var buf [1500]byte
-	b, addr, mac, err := c.conn.Recv6(buf[:])
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	pkt := Unmarshal(b)
-	return pkt, addr, mac, nil
+	// TODO: possibly more validation that the source lines up
+	// with what the packet says.
+	return pkt, addr, mac, nil, nil
 }
 
 // SendDHCP sends pkt. The precise transmission mechanism depends
 // on pkt.txType(). intf should be the net.Interface returned by
 // RecvDHCP if responding to a DHCP client, or the interface for
 // which configuration is desired if acting as a client.
-func (c *Conn) SendDHCP(pkt Packet, addr *net.UDPAddr, mac net.HardwareAddr) error {
+func (c *Conn) SendDHCP(pkt Packet, addr *net.UDPAddr, mac net.HardwareAddr, intf *net.Interface) error {
 	b := pkt.Marshal()
-	if addr.IP.Equal(net.IPv4zero) || pkt.txType() == txBroadcast {
-		addr = &net.UDPAddr{IP: net.IPv4bcast, Port: addr.Port}
+
+	ipStr, portStr, err := net.SplitHostPort(addr.String())
+	if err != nil {
+		return err
 	}
-	return c.conn.Send(b, addr, mac)
-}
 
-func (c *Conn) SendDHCP6(pkt Packet, addr *net.UDPAddr, mac net.HardwareAddr) error {
-	b := pkt.Marshal()
-	return c.conn.Send6(b, addr, mac)
-}
+	if net.ParseIP(ipStr).Equal(net.IPv4zero) || pkt.txType() == txBroadcast {
+		port, _ := strconv.Atoi(portStr)
+		addr = &net.UDPAddr{IP: net.IPv4bcast, Port: port}
+	}
+	return c.conn.Send(b, addr, mac, 0)
 
-func (c *Conn) SendRaw(pkt Packet, dstmac net.HardwareAddr) error {
-	b := pkt.Marshal()
-	return c.conn.SendRaw(b, dstmac)
+	/*
+		switch pkt.txType() {
+		case txBroadcast, txHardwareAddr:
+			addr := net.UDPAddr{
+				IP:   net.IPv4bcast,
+				Port: dhcpClientPort,
+			}
+			return c.conn.Send(b, &addr, intf.Index)
+		case txRelayAddr:
+			addr := net.UDPAddr{
+				IP:   pkt.RelayAddr(),
+				Port: dhcpClientPort,
+			}
+			log.Errorf("===============relay type pkt, addr: %#v", addr)
+			return c.conn.Send(b, &addr, 0)
+		case txClientAddr:
+			addr := net.UDPAddr{
+				IP:   pkt.CIAddr(),
+				Port: dhcpClientPort,
+			}
+			return c.conn.Send(b, &addr, 0)
+		default:
+			return errors.New("unknown TX type for packet")
+		}*/
 }
 
 // SetReadDeadline sets the deadline for future Read calls.  If the
@@ -225,6 +245,56 @@ func (c *Conn) SetReadDeadline(t time.Time) error {
 // instead of blocking.  A zero value for t means Write will not time
 // out.
 func (c *Conn) SetWriteDeadline(t time.Time) error {
+	return c.conn.SetWriteDeadline(t)
+}
+
+type portableConn struct {
+	conn *ipv4.PacketConn
+}
+
+func newPortableConn(_ net.IP, port int, _ bool) (conn, error) {
+	c, err := net.ListenPacket("udp4", fmt.Sprintf(":%d", port))
+	if err != nil {
+		return nil, err
+	}
+
+	l := ipv4.NewPacketConn(c)
+	if err = l.SetControlMessage(ipv4.FlagInterface, true); err != nil {
+		l.Close()
+		return nil, err
+	}
+	return &portableConn{l}, nil
+}
+
+func (c *portableConn) Close() error {
+	return c.conn.Close()
+}
+
+func (c *portableConn) Recv(b []byte) (rb []byte, addr *net.UDPAddr, mac net.HardwareAddr, ifidx int, err error) {
+	n, cm, a, err := c.conn.ReadFrom(b)
+	if err != nil {
+		return nil, nil, nil, 0, err
+	}
+	return b[:n], a.(*net.UDPAddr), nil, cm.IfIndex, nil
+}
+
+func (c *portableConn) Send(b []byte, addr *net.UDPAddr, _ net.HardwareAddr, ifidx int) error {
+	if ifidx <= 0 {
+		_, err := c.conn.WriteTo(b, nil, addr)
+		return err
+	}
+	cm := ipv4.ControlMessage{
+		IfIndex: ifidx,
+	}
+	_, err := c.conn.WriteTo(b, &cm, addr)
+	return err
+}
+
+func (c *portableConn) SetReadDeadline(t time.Time) error {
+	return c.conn.SetReadDeadline(t)
+}
+
+func (c *portableConn) SetWriteDeadline(t time.Time) error {
 	return c.conn.SetWriteDeadline(t)
 }
 
@@ -248,7 +318,7 @@ func interfaceToIPv4Addr(ifi *net.Interface) (net.IP, error) {
 			}
 		}
 	}
-	return nil, errors.Wrapf(errors.ErrNotFound, "no such network interface %s", ifi.Name)
+	return nil, errors.New("no such network interface")
 }
 
 type socketConn struct {
@@ -296,13 +366,13 @@ func (s *socketConn) Close() error {
 	return syscall.Close(s.sock)
 }
 
-func (s *socketConn) Recv(b []byte) ([]byte, *net.UDPAddr, net.HardwareAddr, error) {
+func (s *socketConn) Recv(b []byte) ([]byte, *net.UDPAddr, net.HardwareAddr, int, error) {
 	n, a, err := syscall.Recvfrom(s.sock, b, 0)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, 0, err
 	}
 	if addr, ok := a.(*syscall.SockaddrInet4); !ok {
-		return nil, nil, nil, errors.Wrap(errors.ErrUnsupportedProtocol, "Recvfrom recevice address is not famliy Inet4")
+		return nil, nil, nil, 0, errors.New("Recvfrom recevice address is not famliy Inet4")
 	} else {
 		ip := net.IP{addr.Addr[0], addr.Addr[1], addr.Addr[2], addr.Addr[3]}
 		udpAddr := &net.UDPAddr{
@@ -310,11 +380,11 @@ func (s *socketConn) Recv(b []byte) ([]byte, *net.UDPAddr, net.HardwareAddr, err
 			Port: addr.Port,
 		}
 		// there is no interface index info
-		return b[:n], udpAddr, nil, nil
+		return b[:n], udpAddr, nil, 0, nil
 	}
 }
 
-func (s *socketConn) Send(b []byte, addr *net.UDPAddr, destMac net.HardwareAddr) error {
+func (s *socketConn) Send(b []byte, addr *net.UDPAddr, destMac net.HardwareAddr, ifidx int) error {
 	destIp := [4]byte{}
 	copy(destIp[:], addr.IP.To4()[:4])
 	destAddr := &syscall.SockaddrInet4{
@@ -325,9 +395,9 @@ func (s *socketConn) Send(b []byte, addr *net.UDPAddr, destMac net.HardwareAddr)
 }
 
 func (s *socketConn) SetReadDeadline(t time.Time) error {
-	return errors.ErrNotImplemented
+	return errors.New("Not Implement")
 }
 
 func (s *socketConn) SetWriteDeadline(t time.Time) error {
-	return errors.ErrNotImplemented
+	return errors.New("Not Implement")
 }

@@ -169,7 +169,7 @@ func (self *NatGatewayCreateTask) OnCreateNatGatewayCreateComplete(ctx context.C
 }
 
 func (self *NatGatewayCreateTask) OnCreateNatGatewayCreateCompleteFailed(ctx context.Context, nat *models.SNatGateway, body jsonutils.JSONObject) {
-	self.taskFailed(ctx, nat, errors.Errorf("%s", body.String()))
+	self.taskFailed(ctx, nat, errors.Errorf(body.String()))
 }
 
 func (self *NatGatewayCreateTask) OnDeployEipCompleteFailed(ctx context.Context, nat *models.SNatGateway, data jsonutils.JSONObject) {

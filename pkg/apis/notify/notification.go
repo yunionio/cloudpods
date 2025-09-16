@@ -102,8 +102,6 @@ type NotificationManagerEventNotifyInput struct {
 	// description: direct contact, admin privileges required
 	// required: false
 	Contacts []SContact `json:"contacts"`
-	// 消息机器人列表
-	RobotIds []string `json:"robot_ids"`
 	// description: contact types
 	// required: false
 	// example: email

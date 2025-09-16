@@ -183,7 +183,7 @@ type ElasticcacheCreateInput struct {
 	// 主可用区名称或Id
 	ZoneId string `json:"zone_id"`
 
-	// swagger:ignore
+	// swagger: ignore
 	Zone string `json:"zone" yunion-deprecated-by:"zone_id"`
 
 	// 备可用区名称或Id列表, split by: ,
@@ -196,7 +196,7 @@ type ElasticcacheCreateInput struct {
 	// required: true
 	NetworkId string `json:"network_id"`
 
-	// swagger:ignore
+	// swagger: ignore
 	Network string `json:"network" yunion-deprecated-by:"network_id"`
 
 	// 网络类型
@@ -219,7 +219,7 @@ type ElasticcacheCreateInput struct {
 
 	NodeType string `json:"node_type"`
 
-	// swagger:ignore
+	// swagger: ignore
 	MemorySizeMb int `json:"memory_size_mb" yunion-deprecated-by:"capacity_mb"`
 
 	// 初始密码
@@ -246,12 +246,12 @@ type ElasticcacheCreateInput struct {
 	// 包年包月时间周期
 	Duration string `json:"duration"`
 
-	// 到期释放时间
-	ReleaseAt time.Time `json:"release_at"`
-
 	// 是否自动续费(仅包年包月时生效)
 	// default: false
 	AutoRenew bool `json:"auto_renew"`
+
+	// swagger:ignore
+	ExpiredAt time.Time `json:"expired_at"`
 
 	// 计费方式
 	// enum: ["postpaid", "prepaid"]

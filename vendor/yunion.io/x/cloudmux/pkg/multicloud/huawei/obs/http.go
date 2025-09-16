@@ -15,6 +15,7 @@ package obs
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"io"
 	"math/rand"
 	"net"
@@ -122,7 +123,7 @@ func (obsClient ObsClient) doAction(action, method, bucketName, objectKey string
 	for _, extension := range extensions {
 		if extensionHeader, ok := extension.(extensionHeaders); ok {
 			if _err := extensionHeader(headers, isObs); err != nil {
-				doLog(LEVEL_INFO, "set header with error: %v", _err)
+				doLog(LEVEL_INFO, fmt.Sprintf("set header with error: %v", _err))
 			}
 		} else {
 			doLog(LEVEL_INFO, "Unsupported extensionOptions")

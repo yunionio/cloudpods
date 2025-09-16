@@ -38,7 +38,7 @@ type SCdnOrigin struct {
 }
 
 type SCdnDomain struct {
-	multicloud.SCDNDomainBase
+	multicloud.SResourceBase
 	QcloudTags
 
 	client *SQcloudClient
@@ -251,7 +251,7 @@ func (self *SQcloudClient) GetCdnDomain(domain string) (*SCdnDomain, error) {
 			return &domains[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", domain)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, domain)
 }
 
 func (self *SCdnDomain) Refresh() error {
@@ -332,7 +332,7 @@ func (self *SQcloudClient) GetICloudCDNDomainByName(name string) (cloudprovider.
 			return &domains[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", name)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, name)
 }
 
 func (client *SQcloudClient) AddCdnDomain(domain string, originType string, origins []string, cosPrivateAccess string) error {
@@ -469,7 +469,7 @@ func (self *SQcloudClient) GetCdnConfig(resourceId string) (*SCdnConfig, error) 
 	for i := range result.Domains {
 		return &result.Domains[i], nil
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", resourceId)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, resourceId)
 }
 
 func (self *SCdnDomain) GetCacheKeys() (*cloudprovider.SCDNCacheKeys, error) {

@@ -22,7 +22,6 @@ import (
 	"yunion.io/x/log"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
-	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
 )
 
@@ -103,13 +102,13 @@ func (self *SElbBackend) GetIpAddress() string {
 	return ""
 }
 
-func (self *SElbBackend) Update(ctx context.Context, opts *cloudprovider.SLoadbalancerBackend) error {
-	if opts.Port > 0 {
-		log.Warningf("Elb backend Update unsupport modify port")
+func (self *SElbBackend) SyncConf(ctx context.Context, port, weight int) error {
+	if port > 0 {
+		log.Warningf("Elb backend SyncConf unsupport modify port")
 	}
 
 	params := map[string]interface{}{
-		"weight": opts.Weight,
+		"weight": weight,
 	}
 	res := fmt.Sprintf("elb/pools/%s/members/%s", self.backendGroupId, self.ID)
 	_, err := self.region.put(SERVICE_ELB, res, map[string]interface{}{"member": params})

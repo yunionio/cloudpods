@@ -15,7 +15,6 @@
 package sqlchemy
 
 import (
-	"database/sql"
 	"fmt"
 	"reflect"
 	"strconv"
@@ -383,80 +382,35 @@ func ConvertValueToBool(val interface{}) bool {
 	case float64:
 		return v > 0
 	case *string:
-		if gotypes.IsNil(v) {
-			return false
-		}
 		nv := strings.ToLower(*v)
 		return nv == "1" || nv == "true" || nv == "ok" || nv == "yes" || nv == "on"
 	case *bool:
-		if gotypes.IsNil(v) {
-			return false
-		}
 		return *v
 	case *tristate.TriState:
-		if gotypes.IsNil(v) {
-			return false
-		}
 		return *v == tristate.True
 	case *int8:
-		if gotypes.IsNil(v) {
-			return false
-		}
 		return *v > 0
 	case *int16:
-		if gotypes.IsNil(v) {
-			return false
-		}
 		return *v > 0
 	case *int:
-		if gotypes.IsNil(v) {
-			return false
-		}
 		return *v > 0
 	case *int32:
-		if gotypes.IsNil(v) {
-			return false
-		}
 		return *v > 0
 	case *int64:
-		if gotypes.IsNil(v) {
-			return false
-		}
 		return *v > 0
 	case *uint8:
-		if gotypes.IsNil(v) {
-			return false
-		}
 		return *v > 0
 	case *uint16:
-		if gotypes.IsNil(v) {
-			return false
-		}
 		return *v > 0
 	case *uint:
-		if gotypes.IsNil(v) {
-			return false
-		}
 		return *v > 0
 	case *uint32:
-		if gotypes.IsNil(v) {
-			return false
-		}
 		return *v > 0
 	case *uint64:
-		if gotypes.IsNil(v) {
-			return false
-		}
 		return *v > 0
 	case *float32:
-		if gotypes.IsNil(v) {
-			return false
-		}
 		return *v > 0
 	case *float64:
-		if gotypes.IsNil(v) {
-			return false
-		}
 		return *v > 0
 	}
 	return false
@@ -481,99 +435,115 @@ func ConvertValueToTriState(val interface{}) tristate.TriState {
 		} else {
 			return tristate.False
 		}
-	case sql.NullInt32:
-		if v.Valid {
-			return ConvertValueToTriState(v.Int32)
-		}
-		return tristate.None
 	case int8:
 		switch {
 		case v > 0:
 			return tristate.True
-		default:
+		case v < 0:
 			return tristate.False
+		default:
+			return tristate.None
 		}
 	case int16:
 		switch {
 		case v > 0:
 			return tristate.True
-		default:
+		case v < 0:
 			return tristate.False
+		default:
+			return tristate.None
 		}
 	case int:
 		switch {
 		case v > 0:
 			return tristate.True
-		default:
+		case v < 0:
 			return tristate.False
+		default:
+			return tristate.None
 		}
 	case int32:
 		switch {
 		case v > 0:
 			return tristate.True
-		default:
+		case v < 0:
 			return tristate.False
+		default:
+			return tristate.None
 		}
 	case int64:
 		switch {
 		case v > 0:
 			return tristate.True
-		default:
+		case v < 0:
 			return tristate.False
+		default:
+			return tristate.None
 		}
 	case uint8:
 		switch {
 		case v > 0:
 			return tristate.True
-		default:
+		case v < 0:
 			return tristate.False
+		default:
+			return tristate.None
 		}
 	case uint16:
 		switch {
 		case v > 0:
 			return tristate.True
-		default:
+		case v < 0:
 			return tristate.False
+		default:
+			return tristate.None
 		}
 	case uint:
 		switch {
 		case v > 0:
 			return tristate.True
-		default:
+		case v < 0:
 			return tristate.False
+		default:
+			return tristate.None
 		}
 	case uint32:
 		switch {
 		case v > 0:
 			return tristate.True
-		default:
+		case v < 0:
 			return tristate.False
+		default:
+			return tristate.None
 		}
 	case uint64:
 		switch {
 		case v > 0:
 			return tristate.True
-		default:
+		case v < 0:
 			return tristate.False
+		default:
+			return tristate.None
 		}
 	case float32:
 		switch {
 		case v > 0:
 			return tristate.True
-		default:
+		case v < 0:
 			return tristate.False
+		default:
+			return tristate.None
 		}
 	case float64:
 		switch {
 		case v > 0:
 			return tristate.True
-		default:
+		case v < 0:
 			return tristate.False
-		}
-	case *string:
-		if gotypes.IsNil(v) {
+		default:
 			return tristate.None
 		}
+	case *string:
 		switch strings.ToLower(*v) {
 		case "true", "yes", "on", "ok", "1":
 			return tristate.True
@@ -583,9 +553,6 @@ func ConvertValueToTriState(val interface{}) tristate.TriState {
 			return tristate.False
 		}
 	case *bool:
-		if gotypes.IsNil(v) {
-			return tristate.None
-		}
 		if *v {
 			return tristate.True
 		} else {
@@ -594,112 +561,103 @@ func ConvertValueToTriState(val interface{}) tristate.TriState {
 	case *tristate.TriState:
 		return *v
 	case *int8:
-		if gotypes.IsNil(v) {
-			return tristate.None
-		}
-		if *v > 0 {
+		switch {
+		case *v > 0:
 			return tristate.True
-		} else {
+		case *v < 0:
 			return tristate.False
-		}
-	case *int16:
-		if gotypes.IsNil(v) {
+		default:
 			return tristate.None
-		}
-		if *v > 0 {
-			return tristate.True
-		} else {
-			return tristate.False
 		}
 	case *int:
-		if gotypes.IsNil(v) {
-			return tristate.None
-		}
-		if *v > 0 {
+		switch {
+		case *v > 0:
 			return tristate.True
-		} else {
+		case *v < 0:
 			return tristate.False
+		default:
+			return tristate.None
 		}
 	case *int32:
-		if gotypes.IsNil(v) {
-			return tristate.None
-		}
-		if *v > 0 {
+		switch {
+		case *v > 0:
 			return tristate.True
-		} else {
+		case *v < 0:
 			return tristate.False
+		default:
+			return tristate.None
 		}
 	case *int64:
-		if gotypes.IsNil(v) {
-			return tristate.None
-		}
-		if *v > 0 {
+		switch {
+		case *v > 0:
 			return tristate.True
-		} else {
+		case *v < 0:
 			return tristate.False
+		default:
+			return tristate.None
 		}
 	case *uint8:
-		if gotypes.IsNil(v) {
-			return tristate.None
-		}
-		if *v > 0 {
+		switch {
+		case *v > 0:
 			return tristate.True
-		} else {
+		case *v < 0:
 			return tristate.False
+		default:
+			return tristate.None
 		}
 	case *uint16:
-		if gotypes.IsNil(v) {
-			return tristate.None
-		}
-		if *v > 0 {
+		switch {
+		case *v > 0:
 			return tristate.True
-		} else {
+		case *v < 0:
 			return tristate.False
+		default:
+			return tristate.None
 		}
 	case *uint:
-		if gotypes.IsNil(v) {
-			return tristate.None
-		}
-		if *v > 0 {
+		switch {
+		case *v > 0:
 			return tristate.True
-		} else {
+		case *v < 0:
 			return tristate.False
+		default:
+			return tristate.None
 		}
 	case *uint32:
-		if gotypes.IsNil(v) {
-			return tristate.None
-		}
-		if *v > 0 {
+		switch {
+		case *v > 0:
 			return tristate.True
-		} else {
+		case *v < 0:
 			return tristate.False
+		default:
+			return tristate.None
 		}
 	case *uint64:
-		if gotypes.IsNil(v) {
-			return tristate.None
-		}
-		if *v > 0 {
+		switch {
+		case *v > 0:
 			return tristate.True
-		} else {
+		case *v < 0:
 			return tristate.False
+		default:
+			return tristate.None
 		}
 	case *float32:
-		if gotypes.IsNil(v) {
-			return tristate.None
-		}
-		if *v > 0 {
+		switch {
+		case *v > 0:
 			return tristate.True
-		} else {
+		case *v < 0:
 			return tristate.False
+		default:
+			return tristate.None
 		}
 	case *float64:
-		if gotypes.IsNil(v) {
-			return tristate.None
-		}
-		if *v > 0 {
+		switch {
+		case *v > 0:
 			return tristate.True
-		} else {
+		case *v < 0:
 			return tristate.False
+		default:
+			return tristate.None
 		}
 	}
 	return tristate.None

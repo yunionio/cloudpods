@@ -23,14 +23,6 @@ import (
 	"yunion.io/x/onecloud/pkg/util/procutils"
 )
 
-func TouchFile(file string) error {
-	out, err := procutils.NewRemoteCommandAsFarAsPossible("touch", file).Output()
-	if err != nil {
-		return errors.Wrapf(err, "touch %s: %s", file, out)
-	}
-	return nil
-}
-
 func EnsureDir(dir string) error {
 	out, err := procutils.NewRemoteCommandAsFarAsPossible("mkdir", "-p", dir).Output()
 	if err != nil {
@@ -55,31 +47,16 @@ func ChangeDirOwner(pod IPodInfo, drv IVolumeMount, ctrId string, vol *hostapi.C
 	if err != nil {
 		return errors.Wrap(err, "GetRuntimeMountHostPath")
 	}
-	return ChangeDirOwnerDirectly(hostPath, vol.FsUser, vol.FsGroup)
-}
-
-func ChangeDirOwnerDirectly(hostPath string, fsUser, fsGroup *int64) error {
 	args := ""
-	if fsUser != nil {
-		args = fmt.Sprintf("%d", *fsUser)
+	if vol.FsUser != nil {
+		args = fmt.Sprintf("%d", *vol.FsUser)
 	}
-	if fsGroup != nil {
-		args = fmt.Sprintf("%s:%d", args, *fsGroup)
-	}
-	if args == "" {
-		return nil
+	if vol.FsGroup != nil {
+		args = fmt.Sprintf("%s:%d", args, *vol.FsGroup)
 	}
 	out, err := procutils.NewRemoteCommandAsFarAsPossible("chown", args, hostPath).Output()
 	if err != nil {
-		return errors.Wrapf(err, "chown %s %s: %s", args, hostPath, string(out))
-	}
-	return nil
-}
-
-func CopyFile(src, dst string) error {
-	out, err := procutils.NewRemoteCommandAsFarAsPossible("cp", src, dst).Output()
-	if err != nil {
-		return errors.Wrapf(err, "cp %s %s: %s", src, dst, string(out))
+		return errors.Wrapf(err, "chown -R %s %s: %s", args, hostPath, string(out))
 	}
 	return nil
 }

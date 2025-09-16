@@ -118,8 +118,12 @@ func (self *SAliyunProviderFactory) GetTTLRange(zoneType cloudprovider.TDnsZoneT
 	if zoneType == cloudprovider.PublicZone {
 		if len(productType) > 0 {
 			switch productType {
-			case cloudprovider.DnsProductEnterprise:
-				return cloudprovider.TtlRangeAliyunEnterprise
+			case cloudprovider.DnsProductEnterpriseUltimate:
+				return cloudprovider.TtlRangeAliyunEnterpriseUltimate
+			case cloudprovider.DnsProductEnterpriseStandard:
+				return cloudprovider.TtlRangeAliyunEnterpriseStandard
+			case cloudprovider.DnsProductPersonalProfessional:
+				return cloudprovider.TtlRangeAliyunPersonal
 			default:
 				return cloudprovider.TtlRangeAliyunFree
 			}
@@ -368,18 +372,15 @@ func (self *SAliyunProvider) GetSamlEntityId() string {
 
 func (self *SAliyunProvider) GetICloudDnsZones() ([]cloudprovider.ICloudDnsZone, error) {
 	izones := []cloudprovider.ICloudDnsZone{}
-	{
-		privateZone, err := self.client.GetPrivateICloudDnsZones()
-		if err != nil && errors.Cause(err) != cloudprovider.ErrForbidden {
-			return nil, errors.Wrap(err, "self.client.GetPrivateICloudDnsZones()")
-		} else {
-			izones = append(izones, privateZone...)
-		}
+	privateZone, err := self.client.GetPrivateICloudDnsZones()
+	if err != nil {
+		return nil, errors.Wrap(err, "self.client.GetPrivateICloudDnsZones()")
 	}
 	publicZone, err := self.client.GetPublicICloudDnsZones()
 	if err != nil {
 		return nil, errors.Wrap(err, "self.client.GetPrivateICloudDnsZones()")
 	}
+	izones = append(izones, privateZone...)
 	izones = append(izones, publicZone...)
 	return izones, nil
 }
@@ -388,7 +389,7 @@ func (self *SAliyunProvider) GetICloudDnsZoneById(id string) (cloudprovider.IClo
 	if err == nil {
 		return privateIzone, nil
 	} else {
-		if errors.Cause(err) != cloudprovider.ErrNotFound && errors.Cause(err) != cloudprovider.ErrForbidden {
+		if errors.Cause(err) != cloudprovider.ErrNotFound {
 			return nil, err
 		}
 	}

@@ -37,6 +37,8 @@ func init() {
 	models.RegisterGuestDriver(&driver)
 }
 
+func (self *SBaiduGuestDriver) DoScheduleSKUFilter() bool { return false }
+
 func (self *SBaiduGuestDriver) GetHypervisor() string {
 	return api.HYPERVISOR_BAIDU
 }

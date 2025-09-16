@@ -50,11 +50,11 @@ type SAddress struct {
 func (region *SRegion) GetEips(address string, maxResults int, pageToken string) ([]SAddress, error) {
 	eips := []SAddress{}
 	params := map[string]string{}
-	filters := []string{`(addressType eq "EXTERNAL")`}
+	filters := []string{"addressType=EXTERNAL"}
 	if len(address) > 0 {
-		filters = append(filters, fmt.Sprintf(`(address eq "%s")`, address))
+		filters = append(filters, fmt.Sprintf(`address="%s"`, address))
 	}
-	params["filter"] = strings.Join(filters, "")
+	params["filter"] = strings.Join(filters, " ADN ")
 	resource := fmt.Sprintf("regions/%s/addresses", region.Name)
 	return eips, region.List(resource, params, maxResults, pageToken, &eips)
 }
@@ -125,19 +125,8 @@ func (addr *SAddress) GetINetworkId() string {
 }
 
 func (addr *SAddress) GetAssociationType() string {
-	if len(addr.instanceId) > 0 {
+	if len(addr.GetAssociationExternalId()) > 0 {
 		return api.EIP_ASSOCIATE_TYPE_SERVER
-	}
-	for _, user := range addr.Users {
-		if strings.Contains(user, "/instances/") {
-			return api.EIP_ASSOCIATE_TYPE_SERVER
-		}
-		if strings.Contains(user, "/forwardingRules/") {
-			return api.EIP_ASSOCIATE_TYPE_LOADBALANCER
-		}
-		if strings.Contains(user, "/routers/") {
-			return api.EIP_ASSOCIATE_TYPE_NAT_GATEWAY
-		}
 	}
 	return ""
 }
@@ -186,7 +175,7 @@ func (addr *SAddress) ChangeBandwidth(bw int) error {
 
 func (region *SRegion) CreateEip(name string, desc string) (*SAddress, error) {
 	body := map[string]string{
-		"name":        normalizeString(name),
+		"name":        name,
 		"description": desc,
 	}
 	resource := fmt.Sprintf("regions/%s/addresses", region.Name)

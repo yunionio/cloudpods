@@ -269,7 +269,7 @@ func verifyCommon(ctx context.Context, w http.ResponseWriter, tokenStr string) (
 	}
 	token, err := TokenStrDecode(ctx, tokenStr)
 	if err != nil {
-		return nil, httperrors.NewInvalidCredentialError("invalid token: %v", err)
+		return nil, httperrors.NewInvalidCredentialError(errors.Wrapf(err, "invalid token").Error())
 	}
 	return token, nil
 }

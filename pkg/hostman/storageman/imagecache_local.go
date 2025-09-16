@@ -159,7 +159,7 @@ func (l *SLocalImageCache) Load() error {
 	if fileutils2.Exists(tmpPath) {
 		syscall.Unlink(tmpPath)
 	}
-	return errors.Wrap(cloudprovider.ErrNotFound, imgPath)
+	return errors.Wrapf(cloudprovider.ErrNotFound, imgPath)
 }
 
 func (l *SLocalImageCache) needCheck() bool {

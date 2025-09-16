@@ -15,8 +15,10 @@
 package hostdhcp
 
 import (
+	"context"
 	"fmt"
 	"net"
+	"strconv"
 	"sync"
 	"time"
 
@@ -24,6 +26,8 @@ import (
 
 	"yunion.io/x/onecloud/pkg/util/dhcp"
 )
+
+const DEFAULT_DHCP_RELAY_PORT = 68
 
 type recvFunc func(pkt *dhcp.Packet)
 
@@ -48,13 +52,18 @@ type SDHCPRelay struct {
 	cache sync.Map
 }
 
-func NewDHCPRelay(guestDHCPConn *dhcp.Conn, config *SDHCPRelayUpstream) (*SDHCPRelay, error) {
+func NewDHCPRelay(guestDHCPConn *dhcp.Conn, addrs []string) (*SDHCPRelay, error) {
 	relay := new(SDHCPRelay)
 	relay.guestDHCPConn = guestDHCPConn
+	addr := addrs[0]
+	port, err := strconv.Atoi(addrs[1])
+	if err != nil {
+		return nil, fmt.Errorf("Pares dhcp relay addrs error %s", err)
+	}
 
-	log.Infof("Set Relay To Address: %s, %d", config.IP, config.Port)
-	relay.destaddr = net.ParseIP(config.IP)
-	relay.destport = config.Port
+	log.Infof("Set Relay To Address: %s, %d", addr, port)
+	relay.destaddr = net.ParseIP(addr)
+	relay.destport = port
 	relay.cache = sync.Map{}
 
 	return relay, nil
@@ -75,12 +84,12 @@ func (r *SDHCPRelay) Setup(addr string) error {
 	return nil
 }
 
-func (r *SDHCPRelay) ServeDHCP(pkt dhcp.Packet, cliMac net.HardwareAddr, addr *net.UDPAddr) (dhcp.Packet, []string, error) {
-	pkg, err := r.serveDHCPInternal(pkt, addr)
+func (r *SDHCPRelay) ServeDHCP(ctx context.Context, pkt dhcp.Packet, addr *net.UDPAddr, intf *net.Interface) (dhcp.Packet, []string, error) {
+	pkg, err := r.serveDHCPInternal(pkt, addr, intf)
 	return pkg, nil, err
 }
 
-func (r *SDHCPRelay) serveDHCPInternal(pkt dhcp.Packet, _ *net.UDPAddr) (dhcp.Packet, error) {
+func (r *SDHCPRelay) serveDHCPInternal(pkt dhcp.Packet, _ *net.UDPAddr, intf *net.Interface) (dhcp.Packet, error) {
 	log.Infof("DHCP Relay Reply TO %s", pkt.CHAddr())
 	v, ok := r.cache.Load(pkt.TransactionID())
 	if ok {
@@ -90,14 +99,14 @@ func (r *SDHCPRelay) serveDHCPInternal(pkt dhcp.Packet, _ *net.UDPAddr) (dhcp.Pa
 			IP:   pkt.CIAddr(),
 			Port: val.srcPort,
 		}
-		if err := r.guestDHCPConn.SendDHCP(pkt, udpAddr, pkt.CHAddr()); err != nil {
+		if err := r.guestDHCPConn.SendDHCP(pkt, udpAddr, pkt.CHAddr(), intf); err != nil {
 			log.Errorln(err)
 		}
 	}
 	return nil, nil
 }
 
-func (r *SDHCPRelay) Relay(pkt dhcp.Packet, addr *net.UDPAddr) (dhcp.Packet, error) {
+func (r *SDHCPRelay) Relay(pkt dhcp.Packet, addr *net.UDPAddr, intf *net.Interface) (dhcp.Packet, error) {
 	if addr.IP.Equal(r.ipv4srcAddr) {
 		return nil, nil
 	}
@@ -122,6 +131,6 @@ func (r *SDHCPRelay) Relay(pkt dhcp.Packet, addr *net.UDPAddr) (dhcp.Packet, err
 
 	pkt.SetGIAddr(r.ipv4srcAddr)
 
-	err := r.server.GetConn().SendDHCP(pkt, &net.UDPAddr{IP: r.destaddr, Port: r.destport}, nil)
+	err := r.server.GetConn().SendDHCP(pkt, &net.UDPAddr{IP: r.destaddr, Port: r.destport}, nil, intf)
 	return nil, err
 }

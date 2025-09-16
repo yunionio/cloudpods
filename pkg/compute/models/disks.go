@@ -28,6 +28,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
+	"yunion.io/x/pkg/util/billing"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/util/fileutils"
 	"yunion.io/x/pkg/util/pinyinutils"
@@ -207,15 +208,6 @@ func (manager *SDiskManager) ListItemFilter(
 			q = q.Filter(sqlchemy.NotIn(q.Field("id"), sq))
 		} else {
 			q = q.Filter(sqlchemy.In(q.Field("id"), sq))
-		}
-	}
-
-	if query.BindingSnapshotpolicy != nil {
-		spjsq := SnapshotPolicyDiskManager.Query("disk_id").SubQuery()
-		if *query.BindingSnapshotpolicy {
-			q = q.In("id", spjsq)
-		} else {
-			q = q.NotIn("id", spjsq)
 		}
 	}
 
@@ -649,14 +641,6 @@ func (manager *SDiskManager) ValidateFsFeatures(fsType string, feature *api.Disk
 			return httperrors.NewInputParameterError("ext4.reserved_blocks_percentage must in range [1, 99]")
 		}
 	}
-	if feature.F2fs != nil {
-		if fsType != "f2fs" {
-			return httperrors.NewInputParameterError("only f2fs fs can set fs_features.f2fs, current is %q", fsType)
-		}
-		if feature.F2fs.OverprovisionRatioPercentage < 0 || feature.F2fs.OverprovisionRatioPercentage >= 100 {
-			return httperrors.NewInputParameterError("f2fs.reserved_blocks_percentage must in range [1, 99]")
-		}
-	}
 	return nil
 }
 
@@ -785,28 +769,12 @@ func getDiskResourceRequirements(ctx context.Context, userCred mcclient.TokenCre
 	return req
 }
 
-func (disk *SDisk) OnMetadataUpdated(ctx context.Context, userCred mcclient.TokenCredential) {
-	if len(disk.ExternalId) == 0 || options.Options.KeepTagLocalization {
-		return
-	}
-	err := disk.StartRemoteUpdateTask(ctx, userCred, true, "")
-	if err != nil {
-		log.Errorf("StartRemoteUpdateTask fail: %s", err)
-	}
-}
-
-func (disk *SDisk) StartRemoteUpdateTask(ctx context.Context, userCred mcclient.TokenCredential, replaceTags bool, parentTaskId string) error {
-	data := jsonutils.NewDict()
-	if replaceTags {
-		data.Add(jsonutils.JSONTrue, "replace_tags")
-	}
-	task, err := taskman.TaskManager.NewTask(ctx, "DiskRemoteUpdateTask", disk, userCred, data, parentTaskId, "", nil)
-	if err != nil {
-		return errors.Wrap(err, "Start DiskRemoteUpdateTask")
-	}
-	disk.SetStatus(ctx, userCred, apis.STATUS_UPDATE_TAGS, "StartRemoteUpdateTask")
-	return task.ScheduleRun(nil)
-}
+/*func (manager *SDiskManager) convertToBatchCreateData(data jsonutils.JSONObject) *jsonutils.JSONDict {
+	diskConfig, _ := data.Get("disk")
+	newData := data.(*jsonutils.JSONDict).CopyExcludes("disk")
+	newData.Add(diskConfig, "disk.0")
+	return newData
+}*/
 
 func (disk *SDisk) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	disk.SVirtualResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
@@ -1688,7 +1656,7 @@ func (manager *SDiskManager) SyncDisks(ctx context.Context, userCred mcclient.To
 	for i := 0; i < len(commondb); i += 1 {
 		skip, key := IsNeedSkipSync(commonext[i])
 		if skip {
-			log.Infof("delete disk %s(%s) with tag key or value: %s", commonext[i].GetName(), commonext[i].GetGlobalId(), key)
+			log.Infof("delete disk %s(%s) with tag key: %s", commonext[i].GetName(), commonext[i].GetGlobalId(), key)
 			err := commondb[i].RealDelete(ctx, userCred)
 			if err != nil {
 				syncResult.DeleteError(err)
@@ -1712,7 +1680,7 @@ func (manager *SDiskManager) SyncDisks(ctx context.Context, userCred mcclient.To
 	for i := 0; i < len(added); i += 1 {
 		skip, key := IsNeedSkipSync(added[i])
 		if skip {
-			log.Infof("skip disk %s(%s) sync with tag key or value: %s", added[i].GetName(), added[i].GetGlobalId(), key)
+			log.Infof("skip disk %s(%s) sync with tag key: %s", added[i].GetName(), added[i].GetGlobalId(), key)
 			continue
 		}
 		extId := added[i].GetGlobalId()
@@ -1884,12 +1852,12 @@ func (self *SDisk) syncWithCloudDisk(ctx context.Context, userCred mcclient.Toke
 		if provider.GetFactory().IsSupportPrepaidResources() && !recycle {
 			if billintType := extDisk.GetBillingType(); len(billintType) > 0 {
 				self.BillingType = extDisk.GetBillingType()
-				self.ExpiredAt = time.Time{}
-				self.AutoRenew = false
 				if self.BillingType == billing_api.BILLING_TYPE_PREPAID {
-					self.ExpiredAt = extDisk.GetExpiredAt()
 					self.AutoRenew = extDisk.IsAutoRenew()
 				}
+			}
+			if expiredAt := extDisk.GetExpiredAt(); !expiredAt.IsZero() {
+				self.ExpiredAt = extDisk.GetExpiredAt()
 			}
 		}
 
@@ -2456,11 +2424,7 @@ func (self *SDisk) PerformSyncstatus(ctx context.Context, userCred mcclient.Toke
 		return nil, httperrors.NewBadRequestError("Disk has %d task active, can't sync status", count)
 	}
 
-	return nil, self.StartSyncstatus(ctx, userCred, "")
-}
-
-func (disk *SDisk) StartSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
-	return StartResourceSyncStatusTask(ctx, userCred, disk, "DiskSyncstatusTask", parentTaskId)
+	return nil, StartResourceSyncStatusTask(ctx, userCred, self, "DiskSyncstatusTask", "")
 }
 
 func (self *SDisk) PerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -2544,7 +2508,6 @@ func (manager *SDiskManager) FetchCustomizeColumns(
 		guestSQ.Field("id"),
 		guestSQ.Field("name"),
 		guestSQ.Field("status"),
-		guestSQ.Field("billing_type"),
 		gds.Field("disk_id"),
 		gds.Field("index"),
 		gds.Field("driver"),
@@ -2561,12 +2524,11 @@ func (manager *SDiskManager) FetchCustomizeColumns(
 		Status string
 		DiskId string
 
-		Index       int
-		Driver      string
-		CacheMode   string
-		Iops        int
-		Bps         int
-		BillingType string
+		Index     int
+		Driver    string
+		CacheMode string
+		Iops      int
+		Bps       int
 	}{}
 	err := q.All(&guestInfo)
 	if err != nil {
@@ -2585,12 +2547,11 @@ func (manager *SDiskManager) FetchCustomizeColumns(
 			Name:   guest.Name,
 			Status: guest.Status,
 
-			Index:       guest.Index,
-			Driver:      guest.Driver,
-			CacheMode:   guest.CacheMode,
-			Iops:        guest.Iops,
-			Bps:         guest.Bps,
-			BillingType: guest.BillingType,
+			Index:     guest.Index,
+			Driver:    guest.Driver,
+			CacheMode: guest.CacheMode,
+			Iops:      guest.Iops,
+			Bps:       guest.Bps,
 		})
 	}
 
@@ -2636,19 +2597,17 @@ func (manager *SDiskManager) FetchCustomizeColumns(
 
 	for i := range rows {
 		rows[i].Guests, _ = guests[diskIds[i]]
-		names, status, billingTypes := []string{}, []string{}, []string{}
+		names, status := []string{}, []string{}
 		var iops, bps int
 		for _, guest := range rows[i].Guests {
 			names = append(names, guest.Name)
 			status = append(status, guest.Status)
 			iops = guest.Iops
 			bps = guest.Bps
-			billingTypes = append(billingTypes, guest.BillingType)
 		}
 		rows[i].GuestCount = len(rows[i].Guests)
 		rows[i].Guest = strings.Join(names, ",")
 		rows[i].GuestStatus = strings.Join(status, ",")
-		rows[i].GuestBillingType = strings.Join(billingTypes, ",")
 
 		rows[i].Snapshotpolicies, _ = policies[diskIds[i]]
 
@@ -2657,8 +2616,9 @@ func (manager *SDiskManager) FetchCustomizeColumns(
 			rows[i].Brand = "Unknown"
 			rows[i].Provider = "Unknown"
 		}
-		// 仅kvm使用
-		if len(rows[i].ManagerId) == 0 {
+		if len(rows[i].ExternalId) == 0 {
+			//rows[i].Iops = iops
+			//rows[i].Throughput = bps
 			disk.Iops = iops
 			disk.Throughput = bps
 		}
@@ -2869,7 +2829,7 @@ func (manager *SDiskManager) GetNeedAutoSnapshotDisks() ([]SSnapshotPolicyDisk, 
 	}
 	timePoint := t.Hour()
 
-	policy := SnapshotPolicyManager.Query().Equals("type", api.SNAPSHOT_POLICY_TYPE_DISK).Equals("cloudregion_id", api.DEFAULT_REGION_ID)
+	policy := SnapshotPolicyManager.Query().Equals("cloudregion_id", api.DEFAULT_REGION_ID)
 	policy = policy.Filter(sqlchemy.Contains(policy.Field("repeat_weekdays"), fmt.Sprintf("%d", week)))
 	sq := policy.Filter(
 		sqlchemy.OR(
@@ -3059,6 +3019,49 @@ func (self *SDisk) DeleteSnapshots(ctx context.Context, userCred mcclient.TokenC
 	} else {
 		task.ScheduleRun(nil)
 	}
+	return nil
+}
+
+func (self *SDisk) SaveRenewInfo(
+	ctx context.Context, userCred mcclient.TokenCredential,
+	bc *billing.SBillingCycle, expireAt *time.Time, billingType string,
+) error {
+	_, err := db.Update(self, func() error {
+		if billingType == "" {
+			billingType = billing_api.BILLING_TYPE_PREPAID
+		}
+		if self.BillingType == "" {
+			self.BillingType = billingType
+		}
+		if expireAt != nil && !expireAt.IsZero() {
+			self.ExpiredAt = *expireAt
+		} else if bc != nil {
+			self.BillingCycle = bc.String()
+			self.ExpiredAt = bc.EndAt(self.ExpiredAt)
+		}
+		return nil
+	})
+	if err != nil {
+		return errors.Wrapf(err, "SaveRenewInfo.Update")
+	}
+	db.OpsLog.LogEvent(self, db.ACT_RENEW, self.GetShortDesc(ctx), userCred)
+	return nil
+}
+
+func (self *SDisk) CancelExpireTime(ctx context.Context, userCred mcclient.TokenCredential) error {
+	if self.BillingType != billing_api.BILLING_TYPE_POSTPAID {
+		return fmt.Errorf("billing type %s not support cancel expire", self.BillingType)
+	}
+	_, err := sqlchemy.GetDB().Exec(
+		fmt.Sprintf(
+			"update %s set expired_at = NULL and billing_cycle = NULL where id = ?",
+			DiskManager.TableSpec().Name(),
+		), self.Id,
+	)
+	if err != nil {
+		return errors.Wrap(err, "disk cancel expire time")
+	}
+	db.OpsLog.LogEvent(self, db.ACT_RENEW, "disk cancel expire time", userCred)
 	return nil
 }
 
@@ -3280,15 +3283,6 @@ func (disk *SDisk) resetDiskinfo(
 	if len(disk.FsFormat) == 0 {
 		return errors.Wrap(errors.ErrInvalidStatus, "fs_format must be set")
 	}
-	if input.Fs != nil {
-		if disk.FsFeatures != nil {
-			err := DiskManager.ValidateFsFeatures(*input.Fs, input.FsFeatures)
-			if err != nil {
-				return err
-			}
-		}
-	}
-
 	if input.TemplateId != nil {
 		if len(*input.TemplateId) > 0 {
 			imageObj, err := CachedimageManager.FetchByIdOrName(ctx, userCred, *input.TemplateId)
@@ -3335,10 +3329,6 @@ func (disk *SDisk) resetDiskinfo(
 		if diskSize > 0 {
 			disk.DiskSize = diskSize
 		}
-		if input.Fs != nil {
-			disk.FsFormat = *input.Fs
-			disk.FsFeatures = input.FsFeatures
-		}
 		return nil
 	})
 	if err != nil {
@@ -3348,30 +3338,4 @@ func (disk *SDisk) resetDiskinfo(
 	logclient.AddActionLogWithContext(ctx, disk, logclient.ACT_UPDATE, err, userCred, true)
 	db.OpsLog.LogEvent(disk, db.ACT_UPDATE, notes, userCred)
 	return nil
-}
-
-func (disk *SDisk) PerformChangeBillingType(ctx context.Context, userCred mcclient.TokenCredential, _ jsonutils.JSONObject, input *api.DiskChangeBillingTypeInput) (jsonutils.JSONObject, error) {
-	if !utils.IsInStringArray(disk.Status, []string{api.DISK_READY}) {
-		return nil, httperrors.NewServerStatusError("Cannot change disk billing type in status %s", disk.Status)
-	}
-	if len(input.BillingType) == 0 {
-		return nil, httperrors.NewMissingParameterError("billing_type")
-	}
-	if !utils.IsInStringArray(input.BillingType, []string{billing_api.BILLING_TYPE_POSTPAID, billing_api.BILLING_TYPE_PREPAID}) {
-		return nil, httperrors.NewInputParameterError("invalid billing_type %s", input.BillingType)
-	}
-	if disk.BillingType == input.BillingType {
-		return nil, nil
-	}
-	return nil, disk.StartChangeBillingTypeTask(ctx, userCred, "")
-}
-
-func (disk *SDisk) StartChangeBillingTypeTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
-	disk.SetStatus(ctx, userCred, apis.STATUS_CHANGE_BILLING_TYPE, "")
-	kwargs := jsonutils.NewDict()
-	task, err := taskman.TaskManager.NewTask(ctx, "DiskChangeBillingTypeTask", disk, userCred, kwargs, parentTaskId, "", nil)
-	if err != nil {
-		return err
-	}
-	return task.ScheduleRun(nil)
 }

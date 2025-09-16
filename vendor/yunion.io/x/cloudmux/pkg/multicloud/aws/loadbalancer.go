@@ -284,20 +284,8 @@ func (self *SElb) GetILoadBalancerListenerById(listenerId string) (cloudprovider
 	return lis, nil
 }
 
-func (self *SElb) GetIEIPs() ([]cloudprovider.ICloudEIP, error) {
-	ret := []cloudprovider.ICloudEIP{}
-	for _, zone := range self.AvailabilityZones {
-		for _, addr := range zone.LoadBalancerAddresses {
-			if len(addr.IPAddress) > 0 && strings.Contains(addr.AllocationID, "eip") {
-				eip, err := self.region.GetEipByIpAddress(addr.IPAddress)
-				if err != nil {
-					return nil, err
-				}
-				ret = append(ret, eip)
-			}
-		}
-	}
-	return ret, nil
+func (self *SElb) GetIEIP() (cloudprovider.ICloudEIP, error) {
+	return nil, nil
 }
 
 func (self *SRegion) DeleteElb(id string) error {
@@ -343,7 +331,7 @@ func (self *SRegion) GetElbBackendgroup(id string) (*SElbBackendGroup, error) {
 			return &groups[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", id)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
 }
 
 func ToAwsHealthCode(s string) string {

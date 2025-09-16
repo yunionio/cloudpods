@@ -141,7 +141,7 @@ func (uncacheTask *StorageUncacheImageTask) OnTaskFailed(ctx context.Context, st
 func (uncacheTask *StorageUncacheImageTask) OnImageUncacheCompleteFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	storageCache := obj.(*models.SStoragecache)
 
-	uncacheTask.OnTaskFailed(ctx, storageCache, errors.Errorf("%s", data.String()))
+	uncacheTask.OnTaskFailed(ctx, storageCache, errors.Errorf(data.String()))
 }
 
 func (uncacheTask *StorageUncacheImageTask) OnImageUncacheComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {

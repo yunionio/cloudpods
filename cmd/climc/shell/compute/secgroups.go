@@ -32,7 +32,6 @@ func init() {
 	cmd.Perform("syncstatus", &options.SecgroupIdOptions{})
 	cmd.Perform("private", &options.SecgroupIdOptions{})
 	cmd.Perform("add-rule", &options.SecgroupsAddRuleOptions{})
-	cmd.Perform("clone", &options.SecgroupCloneOptions{})
 	cmd.Perform("change-owner", &options.SecgroupChangeOwnerOptions{})
 	cmd.Perform("import-rules", &options.SecgroupImportRulesOptions{})
 	cmd.PerformClass("clean", &options.SecgroupCleanOptions{})

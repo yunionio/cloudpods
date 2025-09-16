@@ -310,11 +310,6 @@ type ICloudProvider interface {
 	GetMetrics(opts *MetricListOptions) ([]MetricValues, error)
 
 	GetISSLCertificates() ([]ICloudSSLCertificate, error)
-	CreateISSLCertificate(opts *SSLCertificateCreateOptions) (ICloudSSLCertificate, error)
-
-	GetIAiGateways() ([]IAiGateway, error)
-	GetIAiGatewayById(id string) (IAiGateway, error)
-	CreateIAiGateway(opts *AiGatewayCreateOptions) (IAiGateway, error)
 }
 
 func IsSupportCapability(prod ICloudProvider, capa string) bool {
@@ -335,10 +330,6 @@ func IsSupportQuota(prod ICloudProvider) bool {
 
 func IsSupportDnsZone(prod ICloudProvider) bool {
 	return IsSupportCapability(prod, CLOUD_CAPABILITY_DNSZONE)
-}
-
-func IsSupportAiGateway(prod ICloudProvider) bool {
-	return IsSupportCapability(prod, CLOUD_CAPABILITY_AI_GATEWAY)
 }
 
 func IsSupportInterVpcNetwork(prod ICloudProvider) bool {
@@ -428,7 +419,7 @@ func GetProviderFactory(provider string) (ICloudProviderFactory, error) {
 	if ok {
 		return factory, nil
 	}
-	return nil, fmt.Errorf("no such provider %s", provider)
+	return nil, fmt.Errorf("No such provider %s", provider)
 }
 
 func GetRegistedProviderIds() []string {
@@ -476,188 +467,172 @@ type SBaseProvider struct {
 	factory ICloudProviderFactory
 }
 
-func (base *SBaseProvider) GetFactory() ICloudProviderFactory {
-	return base.factory
+func (provider *SBaseProvider) GetFactory() ICloudProviderFactory {
+	return provider.factory
 }
 
-func (base *SBaseProvider) GetOnPremiseIRegion() (ICloudRegion, error) {
+func (self *SBaseProvider) GetOnPremiseIRegion() (ICloudRegion, error) {
 	return nil, ErrNotImplemented
 }
 
-func (base *SBaseProvider) GetIamLoginUrl() string {
+func (self *SBaseProvider) GetIamLoginUrl() string {
 	return ""
 }
 
-func (base *SBaseProvider) IsClouduserSupportPassword() bool {
+func (self *SBaseProvider) IsClouduserSupportPassword() bool {
 	return true
 }
 
-func (base *SBaseProvider) GetICloudusers() ([]IClouduser, error) {
+func (self *SBaseProvider) GetICloudusers() ([]IClouduser, error) {
 	return nil, ErrNotImplemented
 }
 
-func (base *SBaseProvider) GetICloudgroups() ([]ICloudgroup, error) {
+func (self *SBaseProvider) GetICloudgroups() ([]ICloudgroup, error) {
 	return nil, ErrNotImplemented
 }
 
-func (base *SBaseProvider) GetICloudgroupByName(name string) (ICloudgroup, error) {
+func (self *SBaseProvider) GetICloudgroupByName(name string) (ICloudgroup, error) {
 	return nil, ErrNotImplemented
 }
 
-func (base *SBaseProvider) CreateICloudgroup(name, desc string) (ICloudgroup, error) {
+func (self *SBaseProvider) CreateICloudgroup(name, desc string) (ICloudgroup, error) {
 	return nil, ErrNotImplemented
 }
 
-func (base *SBaseProvider) GetICloudpolicies() ([]ICloudpolicy, error) {
+func (self *SBaseProvider) GetICloudpolicies() ([]ICloudpolicy, error) {
 	return nil, ErrNotImplemented
 }
 
-func (base *SBaseProvider) GetIClouduserByName(name string) (IClouduser, error) {
+func (self *SBaseProvider) GetIClouduserByName(name string) (IClouduser, error) {
 	return nil, ErrNotImplemented
 }
 
-func (base *SBaseProvider) CreateIClouduser(conf *SClouduserCreateConfig) (IClouduser, error) {
+func (self *SBaseProvider) CreateIClouduser(conf *SClouduserCreateConfig) (IClouduser, error) {
 	return nil, ErrNotImplemented
 }
 
-func (base *SBaseProvider) GetICloudSAMLProviders() ([]ICloudSAMLProvider, error) {
+func (self *SBaseProvider) GetICloudSAMLProviders() ([]ICloudSAMLProvider, error) {
 	return nil, errors.Wrapf(ErrNotImplemented, "GetICloudSAMLProviders")
 }
 
-func (base *SBaseProvider) GetICloudroles() ([]ICloudrole, error) {
+func (self *SBaseProvider) GetICloudroles() ([]ICloudrole, error) {
 	return nil, errors.Wrapf(ErrNotImplemented, "GetICloudroles")
 }
 
-func (base *SBaseProvider) GetICloudroleById(id string) (ICloudrole, error) {
+func (self *SBaseProvider) GetICloudroleById(id string) (ICloudrole, error) {
 	return nil, errors.Wrapf(ErrNotImplemented, "GetICloudroleById")
 }
 
-func (base *SBaseProvider) GetICloudroleByName(name string) (ICloudrole, error) {
+func (self *SBaseProvider) GetICloudroleByName(name string) (ICloudrole, error) {
 	return nil, errors.Wrapf(ErrNotImplemented, "GetICloudroleByName")
 }
 
-func (base *SBaseProvider) CreateICloudrole(opts *SRoleCreateOptions) (ICloudrole, error) {
+func (self *SBaseProvider) CreateICloudrole(opts *SRoleCreateOptions) (ICloudrole, error) {
 	return nil, errors.Wrapf(ErrNotImplemented, "CreateICloudrole")
 }
 
-func (base *SBaseProvider) CreateICloudSAMLProvider(opts *SAMLProviderCreateOptions) (ICloudSAMLProvider, error) {
+func (self *SBaseProvider) CreateICloudSAMLProvider(opts *SAMLProviderCreateOptions) (ICloudSAMLProvider, error) {
 	return nil, errors.Wrapf(ErrNotImplemented, "CreateICloudSAMLProvider")
 }
 
-func (base *SBaseProvider) CreateICloudpolicy(opts *SCloudpolicyCreateOptions) (ICloudpolicy, error) {
+func (self *SBaseProvider) CreateICloudpolicy(opts *SCloudpolicyCreateOptions) (ICloudpolicy, error) {
 	return nil, ErrNotImplemented
 }
 
-func (base *SBaseProvider) GetEnrollmentAccounts() ([]SEnrollmentAccount, error) {
+func (self *SBaseProvider) GetEnrollmentAccounts() ([]SEnrollmentAccount, error) {
 	return nil, ErrNotImplemented
 }
 
-func (base *SBaseProvider) CreateSubscription(SubscriptionCreateInput) error {
+func (self *SBaseProvider) CreateSubscription(SubscriptionCreateInput) error {
 	return ErrNotImplemented
 }
 
-func (base *SBaseProvider) GetICloudDnsZones() ([]ICloudDnsZone, error) {
+func (self *SBaseProvider) GetICloudDnsZones() ([]ICloudDnsZone, error) {
 	return nil, ErrNotImplemented
 }
 
-func (base *SBaseProvider) GetICloudDnsZoneById(id string) (ICloudDnsZone, error) {
+func (self *SBaseProvider) GetICloudDnsZoneById(id string) (ICloudDnsZone, error) {
 	return nil, ErrNotImplemented
 }
 
-func (base *SBaseProvider) CreateICloudDnsZone(opts *SDnsZoneCreateOptions) (ICloudDnsZone, error) {
+func (self *SBaseProvider) CreateICloudDnsZone(opts *SDnsZoneCreateOptions) (ICloudDnsZone, error) {
 	return nil, ErrNotImplemented
 }
 
-func (base *SBaseProvider) GetCloudRegionExternalIdPrefix() string {
-	return base.factory.GetId()
+func (self *SBaseProvider) GetCloudRegionExternalIdPrefix() string {
+	return self.factory.GetId()
 }
 
-func (base *SBaseProvider) CreateIProject(name string) (ICloudProject, error) {
+func (self *SBaseProvider) CreateIProject(name string) (ICloudProject, error) {
 	return nil, ErrNotImplemented
 }
 
-func (base *SBaseProvider) GetSamlEntityId() string {
+func (self *SBaseProvider) GetSamlEntityId() string {
 	return ""
 }
 
-func (base *SBaseProvider) GetSamlSpInitiatedLoginUrl(idpName string) string {
+func (self *SBaseProvider) GetSamlSpInitiatedLoginUrl(idpName string) string {
 	return ""
 }
 
-func (base *SBaseProvider) GetICloudInterVpcNetworks() ([]ICloudInterVpcNetwork, error) {
+func (self *SBaseProvider) GetICloudInterVpcNetworks() ([]ICloudInterVpcNetwork, error) {
 	return nil, ErrNotImplemented
 }
 
-func (base *SBaseProvider) GetICloudInterVpcNetworkById(id string) (ICloudInterVpcNetwork, error) {
+func (self *SBaseProvider) GetICloudInterVpcNetworkById(id string) (ICloudInterVpcNetwork, error) {
 	return nil, ErrNotImplemented
 }
 
-func (base *SBaseProvider) CreateICloudInterVpcNetwork(opts *SInterVpcNetworkCreateOptions) (ICloudInterVpcNetwork, error) {
+func (self *SBaseProvider) CreateICloudInterVpcNetwork(opts *SInterVpcNetworkCreateOptions) (ICloudInterVpcNetwork, error) {
 	return nil, ErrNotImplemented
 }
 
-func (base *SBaseProvider) GetICloudGlobalVpcs() ([]ICloudGlobalVpc, error) {
+func (self *SBaseProvider) GetICloudGlobalVpcs() ([]ICloudGlobalVpc, error) {
 	return nil, errors.Wrapf(ErrNotImplemented, "GetICloudGlobalVpcs")
 }
 
-func (base *SBaseProvider) GetICloudGlobalVpcById(id string) (ICloudGlobalVpc, error) {
+func (self *SBaseProvider) GetICloudGlobalVpcById(id string) (ICloudGlobalVpc, error) {
 	return nil, errors.Wrapf(ErrNotImplemented, "GetICloudGlobalVpcById")
 }
 
-func (base *SBaseProvider) CreateICloudGlobalVpc(opts *GlobalVpcCreateOptions) (ICloudGlobalVpc, error) {
+func (self *SBaseProvider) CreateICloudGlobalVpc(opts *GlobalVpcCreateOptions) (ICloudGlobalVpc, error) {
 	return nil, errors.Wrapf(ErrNotImplemented, "CreateICloudGlobalVpc")
 }
 
-func (base *SBaseProvider) GetICloudCDNDomains() ([]ICloudCDNDomain, error) {
+func (self *SBaseProvider) GetICloudCDNDomains() ([]ICloudCDNDomain, error) {
 	return nil, errors.Wrapf(ErrNotImplemented, "GetICloudCDNDomains")
 }
 
-func (base *SBaseProvider) GetICloudCDNDomainByName(name string) (ICloudCDNDomain, error) {
+func (self *SBaseProvider) GetICloudCDNDomainByName(name string) (ICloudCDNDomain, error) {
 	return nil, errors.Wrapf(ErrNotImplemented, "GetICloudCDNDomainByName")
 }
 
-func (base *SBaseProvider) CreateICloudCDNDomain(opts *CdnCreateOptions) (ICloudCDNDomain, error) {
+func (self *SBaseProvider) CreateICloudCDNDomain(opts *CdnCreateOptions) (ICloudCDNDomain, error) {
 	return nil, errors.Wrapf(ErrNotImplemented, "CreateICloudCDNDomain")
 }
 
-func (base *SBaseProvider) GetMetrics(opts *MetricListOptions) ([]MetricValues, error) {
+func (self *SBaseProvider) GetMetrics(opts *MetricListOptions) ([]MetricValues, error) {
 	return nil, errors.Wrapf(ErrNotImplemented, "GetMetric")
 }
 
-func (base *SBaseProvider) GetIModelartsPools() ([]ICloudModelartsPool, error) {
+func (self *SBaseProvider) GetIModelartsPools() ([]ICloudModelartsPool, error) {
 	return nil, errors.Wrapf(ErrNotImplemented, "GetIModelartsPools")
 }
 
-func (base *SBaseProvider) GetIModelartsPoolById(id string) (ICloudModelartsPool, error) {
+func (self *SBaseProvider) GetIModelartsPoolById(id string) (ICloudModelartsPool, error) {
 	return nil, errors.Wrapf(ErrNotImplemented, "GetIModelartsPoolDetail")
 }
 
-func (base *SBaseProvider) CreateIModelartsPool(pool *ModelartsPoolCreateOption, callback func(id string)) (ICloudModelartsPool, error) {
+func (self *SBaseProvider) CreateIModelartsPool(pool *ModelartsPoolCreateOption, callback func(id string)) (ICloudModelartsPool, error) {
 	return nil, errors.Wrapf(ErrNotImplemented, "CreateIModelartsPool")
 }
 
-func (base *SBaseProvider) GetIModelartsPoolSku() ([]ICloudModelartsPoolSku, error) {
+func (self *SBaseProvider) GetIModelartsPoolSku() ([]ICloudModelartsPoolSku, error) {
 	return nil, errors.Wrapf(ErrNotImplemented, "GetIModelartsPoolSku")
 }
 
-func (base *SBaseProvider) GetISSLCertificates() ([]ICloudSSLCertificate, error) {
+func (self *SBaseProvider) GetISSLCertificates() ([]ICloudSSLCertificate, error) {
 	return nil, errors.Wrapf(ErrNotImplemented, "GetISSLCertificates")
-}
-
-func (base *SBaseProvider) CreateISSLCertificate(opts *SSLCertificateCreateOptions) (ICloudSSLCertificate, error) {
-	return nil, errors.Wrapf(ErrNotImplemented, "CreateISSLCertificate")
-}
-
-func (base *SBaseProvider) GetIAiGateways() ([]IAiGateway, error) {
-	return nil, errors.Wrapf(ErrNotImplemented, "GetIAiGateways")
-}
-
-func (base *SBaseProvider) GetIAiGatewayById(id string) (IAiGateway, error) {
-	return nil, errors.Wrapf(ErrNotImplemented, "GetIAiGateways")
-}
-
-func (base *SBaseProvider) CreateIAiGateway(opts *AiGatewayCreateOptions) (IAiGateway, error) {
-	return nil, errors.Wrapf(ErrNotImplemented, "CreateIAiGateway")
 }
 
 func NewBaseProvider(factory ICloudProviderFactory) SBaseProvider {

@@ -176,7 +176,7 @@ func (self *SRegion) GetSecurityGroup(id string) (*SSecurityGroup, error) {
 			return &groups[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", id)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
 }
 
 func (self *SRegion) DeleteSecurityGroup(secGroupId string) error {

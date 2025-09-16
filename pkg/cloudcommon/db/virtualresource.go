@@ -71,7 +71,6 @@ func (manager *SVirtualResourceBaseManager) GetIVirtualModelManager() IVirtualMo
 	return manager.GetVirtualObject().(IVirtualModelManager)
 }
 
-// +onecloud:swagger-gen-ignore
 func (manager *SVirtualResourceBaseManager) GetPropertyStatistics(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*apis.StatusStatistic, error) {
 	im, ok := manager.GetVirtualObject().(IModelManager)
 	if !ok {
@@ -135,7 +134,6 @@ func (manager *SVirtualResourceBaseManager) CustomizedTotalCount(ctx context.Con
 	return results.Count, jsonutils.Marshal(results), nil
 }
 
-// +onecloud:swagger-gen-ignore
 func (manager *SVirtualResourceBaseManager) GetPropertyProjectStatistics(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) ([]apis.ProjectStatistic, error) {
 	im, ok := manager.GetVirtualObject().(IModelManager)
 	if !ok {
@@ -165,7 +163,6 @@ func (manager *SVirtualResourceBaseManager) GetPropertyProjectStatistics(ctx con
 	return result, q.All(&result)
 }
 
-// +onecloud:swagger-gen-ignore
 func (manager *SVirtualResourceBaseManager) GetPropertyDomainStatistics(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) ([]apis.ProjectStatistic, error) {
 	im, ok := manager.GetVirtualObject().(IModelManager)
 	if !ok {
@@ -322,7 +319,6 @@ func (model *SVirtualResourceBase) GetTenantCache(ctx context.Context) (*STenant
 	return TenantCacheManager.FetchTenantById(ctx, model.ProjectId)
 }
 
-// +onecloud:swagger-gen-ignore
 // freezed update and perform action operation except for unfreeze
 func (model *SVirtualResourceBase) PerformFreeze(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformFreezeInput) (jsonutils.JSONObject, error) {
 	if model.Freezed {
@@ -341,7 +337,6 @@ func (model *SVirtualResourceBase) PerformFreeze(ctx context.Context, userCred m
 	return nil, nil
 }
 
-// +onecloud:swagger-gen-ignore
 func (model *SVirtualResourceBase) PerformUnfreeze(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformUnfreezeInput) (jsonutils.JSONObject, error) {
 	if !model.Freezed {
 		return nil, httperrors.NewBadRequestError("virtual resource not freezed")
@@ -359,7 +354,6 @@ func (model *SVirtualResourceBase) PerformUnfreeze(ctx context.Context, userCred
 	return nil, nil
 }
 
-// 更改项目
 func (model *SVirtualResourceBase) PerformChangeOwner(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformChangeProjectOwnerInput) (jsonutils.JSONObject, error) {
 	if model.GetIStandaloneModel().IsShared() {
 		return nil, errors.Wrap(httperrors.ErrForbidden, "cannot change owner of shared resource")
@@ -526,7 +520,6 @@ func (model *SVirtualResourceBase) Delete(ctx context.Context, userCred mcclient
 	return DeleteModel(ctx, userCred, model.GetIVirtualModel())
 }
 
-// +onecloud:swagger-gen-ignore
 func (model *SVirtualResourceBase) PerformCancelDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if model.PendingDeleted && !model.Deleted {
 		err := model.DoCancelPendingDelete(ctx, userCred)
@@ -646,7 +639,6 @@ func (model *SVirtualResourceBase) ValidateUpdateData(
 	return input, nil
 }
 
-// +onecloud:swagger-gen-ignore
 func (model *SVirtualResourceBase) GetDetailsChangeOwnerCandidateDomains(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (apis.ChangeOwnerCandidateDomainsOutput, error) {
 	return IOwnerResourceBaseModelGetChangeOwnerCandidateDomains(model.GetIVirtualModel())
 }
@@ -672,7 +664,6 @@ func (manager *SVirtualResourceBaseManager) GetExportExtraKeys(ctx context.Conte
 	return res
 }
 
-// +onecloud:swagger-gen-ignore
 func (manager *SVirtualResourceBaseManager) GetPropertyProjectTagValuePairs(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
@@ -688,7 +679,6 @@ func (manager *SVirtualResourceBaseManager) GetPropertyProjectTagValuePairs(
 	)
 }
 
-// +onecloud:swagger-gen-ignore
 func (manager *SVirtualResourceBaseManager) GetPropertyProjectTagValueTree(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

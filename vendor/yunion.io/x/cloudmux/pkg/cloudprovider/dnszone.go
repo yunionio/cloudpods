@@ -44,7 +44,6 @@ const (
 	DnsPolicyTypeByCarrier        = TDnsPolicyType("ByCarrier")        //运营商
 	DnsPolicyTypeByGeoLocation    = TDnsPolicyType("ByGeoLocation")    //地理区域
 	DnsPolicyTypeBySearchEngine   = TDnsPolicyType("BySearchEngine")   //搜索引擎
-	DnsPolicyTypeByCloudPlatform  = TDnsPolicyType("ByCloudPlatform")  //云厂商
 	DnsPolicyTypeIpRange          = TDnsPolicyType("IpRange")          //自定义IP范围
 	DnsPolicyTypeWeighted         = TDnsPolicyType("Weighted")         //加权
 	DnsPolicyTypeFailover         = TDnsPolicyType("Failover")         //故障转移
@@ -75,14 +74,11 @@ const (
 )
 
 const (
-	// 旗舰版
-	DnsProductUltimate = TDnsProductType("Ultimate")
-	// 企业版
-	DnsProductEnterprise = TDnsProductType("Enterprise")
-	// 专业版
-	DnsProductProfessional = TDnsProductType("Professional")
-	// 免费版
-	DnsProductFree = TDnsProductType("Free")
+	DnsProductEnterpriseUltimate   = TDnsProductType("DP_EnterpriseUltimate")
+	DnsProductEnterpriseStandard   = TDnsProductType("DP_EnterpriseStandard")
+	DnsProductEnterpriseBasic      = TDnsProductType("DP_EnterpriseBasic")
+	DnsProductPersonalProfessional = TDnsProductType("DP_PersonalProfessional")
+	DnsProductFree                 = TDnsProductType("DP_Free")
 )
 
 var (
@@ -508,7 +504,9 @@ func (ttlR TTlRange) GetSuppportedTTL(ttl int64) int64 {
 	return ttl
 }
 
-var TtlRangeAliyunEnterprise = TTlRange{RangeType: ContinuousTTlRange, TTLMinValue: 1, TTLMaxValue: 86400}
+var TtlRangeAliyunEnterpriseUltimate = TTlRange{RangeType: ContinuousTTlRange, TTLMinValue: 1, TTLMaxValue: 86400}
+var TtlRangeAliyunEnterpriseStandard = TTlRange{RangeType: ContinuousTTlRange, TTLMinValue: 60, TTLMaxValue: 86400}
+var TtlRangeAliyunPersonal = TTlRange{RangeType: ContinuousTTlRange, TTLMinValue: 600, TTLMaxValue: 86400}
 var TtlRangeAliyunFree = TTlRange{RangeType: ContinuousTTlRange, TTLMinValue: 600, TTLMaxValue: 86400}
 
 var TtlRangeAliyunPvtz = TTlRange{RangeType: DiscreteTTlRange, AllowedTTLs: []int64{5, 10, 15, 20, 30, 60, 120, 300, 600, 1800, 3600, 43200, 86400}}
@@ -541,7 +539,6 @@ type DnsRecord struct {
 	DnsName  string
 	DnsType  TDnsType
 	DnsValue string
-	Proxied  bool
 
 	Enabled     bool
 	Ttl         int64

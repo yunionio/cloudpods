@@ -91,17 +91,17 @@ func (pb *prober) probe(probeType apis.ContainerProbeType, pod IPod, container *
 		// Probe failed in one way or another
 		if err != nil {
 			msg = fmt.Sprintf("%s probe for %q errored: %v", probeType, ctrName, err)
-			log.Errorf("%s", msg)
+			log.Errorf(msg)
 		} else {
 			// result != probe.Success
 			msg = fmt.Sprintf("%s probe for %q failed (%v): %s", probeType, ctrName, result, output)
-			log.Debugf("%s", msg)
+			log.Debugf(msg)
 		}
 		return results.NewFailure(msg), err
 	}
 	if result == probe.Warning {
 		msg = fmt.Sprintf("%s probe for %q succeeded with a warning: %s", probeType, ctrName, output)
-		log.Warningf("%s", msg)
+		log.Warningf(msg)
 	} else {
 		msg = fmt.Sprintf("%s probe for %q succeeded", probeType, ctrName)
 		//log.Debugf(msg)
@@ -148,7 +148,7 @@ func (pb *prober) runProbe(probeType apis.ContainerProbeType, p *apis.ContainerP
 		return pb.tcp.Probe(host, port, timeout)
 	}
 	errMsg := fmt.Sprintf("Failed to find probe builder for pod %v, container: %v", pod.GetName(), container.Name)
-	log.Warningf("%s", errMsg)
+	log.Warningf(errMsg)
 	return probe.Unknown, "", errors.Error(errMsg)
 }
 

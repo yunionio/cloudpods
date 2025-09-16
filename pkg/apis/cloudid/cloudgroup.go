@@ -99,7 +99,7 @@ type CloudgroupCreateInput struct {
 
 	// 子账号Id
 	ManagerId string `json:"manager_id"`
-	// swagger:ignore
+	// swagger: ignore
 	CloudaccountId string `json:"cloudaccount_id"`
 
 	// 权限Id列表, 权限provider必须和权限组provider一致

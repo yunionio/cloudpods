@@ -279,10 +279,6 @@ func ResizePartitionFs(fpath, fs string, raiseError, mounted bool) (error, bool)
 		// comment out the following codes only impact Windows 2003
 		// as windows 2003 deprecated, so choose to sacrifies windows 2003
 		// cmds = [][]string{{"ntfsresize", "-c", fpath}, {"ntfsresize", "-P", "-f", fpath}}
-	} else if fs == "f2fs" {
-		if !mounted {
-			cmds = [][]string{{"resize.f2fs"}}
-		}
 	}
 
 	if len(cmds) > 0 {
@@ -440,20 +436,6 @@ func FormatPartition(path, fs, uuid string, fsFeatures *apis.FsFeatures) error {
 	case fs == "xfs":
 		cmd = []string{"mkfs.xfs", "-f", "-m", "crc=0", "-i", "projid32bit=0", "-n", "ftype=1"}
 		cmdUuid = []string{"xfs_admin", "-U", uuid}
-	case fs == "f2fs":
-		cmd = []string{"mkfs.f2fs", "-U", uuid, "-O"}
-		options := "extra_attr,inode_checksum,sb_checksum"
-		if fsFeatures != nil && fsFeatures.F2Fs.CaseInsensitive {
-			options += ",casefold"
-		}
-		cmd = append(cmd, options)
-		if fsFeatures != nil && fsFeatures.F2Fs.CaseInsensitive {
-			cmd = append(cmd, "-C", "utf8")
-		}
-
-		if fsFeatures != nil && fsFeatures.F2Fs.OverprovisionRatioPercentage > 0 {
-			cmd = append(cmd, "-o", fmt.Sprintf("%d", fsFeatures.F2Fs.OverprovisionRatioPercentage))
-		}
 	}
 
 	if len(cmd) > 0 {
@@ -522,7 +504,7 @@ func MountRootfs(readonly bool, partitions []fsdriver.IDiskPartition) (fsdriver.
 	}
 	var err error = errors.ErrNotFound
 	if len(errs) > 0 {
-		err = errors.Wrapf(errors.ErrNotFound, "%s", errors.NewAggregate(errs).Error())
+		err = errors.Wrapf(errors.ErrNotFound, errors.NewAggregate(errs).Error())
 	}
 	return nil, err
 }

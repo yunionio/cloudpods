@@ -60,38 +60,6 @@ func syncRegionLoadbalancerCertificates(
 	}
 }
 
-func syncRegionLoadbalancerHealthChecks(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	syncResults SSyncResultSet,
-	provider *SCloudprovider,
-	localRegion *SCloudregion,
-	remoteRegion cloudprovider.ICloudRegion,
-	syncRange *SSyncRange,
-) {
-	healthChecks, err := func() ([]cloudprovider.ICloudLoadbalancerHealthCheck, error) {
-		defer syncResults.AddRequestCost(LoadbalancerHealthCheckManager)()
-		return remoteRegion.GetILoadBalancerHealthChecks()
-	}()
-	if err != nil {
-		msg := fmt.Sprintf("GetILoadBalancerHealthChecks for region %s failed %s", remoteRegion.GetName(), err)
-		log.Errorln(msg)
-		return
-	}
-	result := func() compare.SyncResult {
-		defer syncResults.AddSqlCost(LoadbalancerHealthCheckManager)()
-		return localRegion.SyncLoadbalancerHealthChecks(ctx, userCred, provider, healthChecks)
-	}()
-
-	syncResults.Add(LoadbalancerHealthCheckManager, result)
-
-	msg := result.Result()
-	log.Infof("SyncLoadbalancerHealthChecks for region %s result: %s", localRegion.Name, msg)
-	if result.IsError() {
-		return
-	}
-}
-
 func syncRegionLoadbalancerAcls(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
@@ -168,9 +136,9 @@ func syncRegionLoadbalancers(
 }
 
 func syncLbPeripherals(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, local *SLoadbalancer, remote cloudprovider.ICloudLoadbalancer) {
-	err := syncLoadbalancerEips(ctx, userCred, provider, local, remote)
+	err := syncLoadbalancerEip(ctx, userCred, provider, local, remote)
 	if err != nil {
-		log.Errorf("syncLoadbalancerEips error %s", err)
+		log.Errorf("syncLoadbalancerEip error %s", err)
 	}
 	err = syncLoadbalancerBackendgroups(ctx, userCred, SSyncResultSet{}, provider, local, remote)
 	if err != nil {
@@ -201,14 +169,14 @@ func syncLoadbalancerSecurityGroups(ctx context.Context, userCred mcclient.Token
 	return nil
 }
 
-func syncLoadbalancerEips(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, localLb *SLoadbalancer, remoteLb cloudprovider.ICloudLoadbalancer) error {
-	eips, err := remoteLb.GetIEIPs()
+func syncLoadbalancerEip(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, localLb *SLoadbalancer, remoteLb cloudprovider.ICloudLoadbalancer) error {
+	eip, err := remoteLb.GetIEIP()
 	if err != nil {
-		return errors.Wrapf(err, "GetIEIPs")
+		return errors.Wrapf(err, "GetIEIP")
 	}
-	result := localLb.SyncLoadbalancerEips(ctx, userCred, provider, eips)
+	result := localLb.SyncLoadbalancerEip(ctx, userCred, provider, eip)
 	msg := result.Result()
-	log.Infof("SyncEips for Loadbalancer %s result: %s", localLb.Name, msg)
+	log.Infof("SyncEip for Loadbalancer %s result: %s", localLb.Name, msg)
 	if result.IsError() {
 		return result.AllError()
 	}

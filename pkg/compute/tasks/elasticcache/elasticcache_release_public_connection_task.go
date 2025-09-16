@@ -67,5 +67,5 @@ func (self *ElasticcacheReleasePublicConnectionTask) OnElasticcacheReleasePublic
 }
 
 func (self *ElasticcacheReleasePublicConnectionTask) OnElasticcacheReleasePublicConnectionCompleteFailed(ctx context.Context, elasticcache *models.SElasticcache, reason jsonutils.JSONObject) {
-	self.taskFail(ctx, elasticcache, fmt.Errorf("%s", reason.String()))
+	self.taskFail(ctx, elasticcache, fmt.Errorf(reason.String()))
 }

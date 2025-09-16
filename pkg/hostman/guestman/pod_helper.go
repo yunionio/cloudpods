@@ -17,10 +17,7 @@ package guestman
 import (
 	"context"
 	"fmt"
-	"path"
-	"strconv"
 	"strings"
-	"time"
 
 	"github.com/shirou/gopsutil/v3/disk"
 
@@ -33,8 +30,6 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/container/volume_mount"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/cgrouputils"
-	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/pod/image"
 	"yunion.io/x/onecloud/pkg/util/pod/nerdctl"
 )
@@ -237,111 +232,12 @@ func (t *localPodRestartTask) Dump() string {
 	return fmt.Sprintf("pod restart task %s/%s", t.pod.GetId(), t.pod.GetName())
 }
 
-func GetPodStatusByContainerStatus(status string, cStatus string, isPrimary bool) string {
+func GetPodStatusByContainerStatus(status string, cStatus string) string {
 	if cStatus == computeapi.CONTAINER_STATUS_CRASH_LOOP_BACK_OFF {
 		status = computeapi.POD_STATUS_CRASH_LOOP_BACK_OFF
 	}
 	if cStatus == computeapi.CONTAINER_STATUS_EXITED && status != computeapi.VM_READY {
 		status = computeapi.POD_STATUS_CONTAINER_EXITED
-		if isPrimary {
-			status = computeapi.VM_READY
-		}
 	}
 	return status
-}
-
-type SCpuFreqRealTimeSimulateManager struct {
-	lastTimeCpuUsage map[string]int64
-	lastTime         *int64
-
-	interval int
-	stop     chan struct{}
-
-	cpufreqMax int64
-	cpufreqMin int64
-}
-
-func newCpuFreqRealTimeSimulateManager(intervalSecond int, cpufreqMax, cpufreqMin int64) *SCpuFreqRealTimeSimulateManager {
-	return &SCpuFreqRealTimeSimulateManager{
-		interval:   intervalSecond,
-		stop:       make(chan struct{}),
-		cpufreqMax: cpufreqMax,
-		cpufreqMin: cpufreqMin,
-	}
-}
-
-func (m *SCpuFreqRealTimeSimulateManager) StartSetCpuFreqSimulate() {
-	log.Infof("StartSetCpuFreqSimulate")
-	ticker := time.NewTicker(time.Duration(m.interval) * time.Second)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ticker.C:
-			m.startSetCpuFreqSimulate()
-		case <-m.stop:
-			return
-		}
-	}
-}
-
-func (m *SCpuFreqRealTimeSimulateManager) Stop() {
-	close(m.stop)
-}
-
-func (m *SCpuFreqRealTimeSimulateManager) startSetCpuFreqSimulate() {
-	newCpuUsage := map[string]int64{}
-	startTime := time.Now().UnixNano()
-	guestManager.Servers.Range(func(k, v interface{}) bool {
-		pod, ok := v.(*sPodGuestInstance)
-		if !ok {
-			log.Errorf("is not pod instance")
-			return false
-		}
-		cgroupRoot := path.Join(cgrouputils.GetSubModulePath("cpuacct"), PodCgroupParent())
-		criIds := pod.GetPodContainerCriIds()
-		for i := range criIds {
-			ctr, err := pod.GetContainerByCRIId(criIds[i])
-			if err != nil {
-				log.Errorf("failed get %s ctrid by criId %s", pod.GetName(), criIds[i])
-				continue
-			}
-			cpuDir := pod.getContainerSystemCpusDir(ctr.Id)
-			if !fileutils2.Exists(cpuDir) {
-				log.Errorf("%s %s has no cpuDir", pod.GetName(), criIds[i])
-				continue
-			}
-
-			usagePath := path.Join(cgroupRoot, criIds[i], "cpuacct.usage")
-			criCpuUsageStr, err := fileutils2.FileGetContents(usagePath)
-			if err != nil {
-				continue
-			}
-			criCpuUsageStr = strings.TrimSpace(criCpuUsageStr)
-			criCpuUsage, err := strconv.ParseInt(criCpuUsageStr, 10, 0)
-			if err != nil {
-				log.Errorf("failed parse %s %s: %s", usagePath, criCpuUsageStr, err)
-				continue
-			}
-
-			newCpuUsage[criIds[i]] = criCpuUsage
-			if m.lastTime != nil {
-				if lastTimeUsage, ok := m.lastTimeCpuUsage[criIds[i]]; ok {
-					timeDiff := float64(startTime - *m.lastTime)
-					usageDiff := float64(criCpuUsage - lastTimeUsage)
-					cpuUsagePercent := (usageDiff / timeDiff) * 100
-					freqRange := float64(m.cpufreqMax - m.cpufreqMin)
-					estimatedFreq := m.cpufreqMin + int64(freqRange*cpuUsagePercent/100)
-
-					err := pod.simulateContainerSystemCpuSetScalingCurFreq(ctr.Id, estimatedFreq)
-					if err != nil {
-						log.Errorf("failed set %s(%s) simulate cpufreq: %s", pod.GetId(), criIds[i], err)
-					}
-				}
-			}
-		}
-		return true
-	})
-	m.lastTime = &startTime
-	m.lastTimeCpuUsage = newCpuUsage
 }

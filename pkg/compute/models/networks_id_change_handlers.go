@@ -66,20 +66,8 @@ func (manager *SHostnetworkManager) handleNetworkIdChange(ctx context.Context, a
 		return err
 	}
 	for _, hn := range hns {
-		inNet := false
-		if len(hn.IpAddr) > 0 {
-			addr, _ := netutils.NewIPV4Addr(hn.IpAddr)
-			if args.newNet.IsAddressInRange(addr) {
-				inNet = true
-			}
-		}
-		if len(hn.Ip6Addr) > 0 {
-			addr, _ := netutils.NewIPV6Addr(hn.Ip6Addr)
-			if args.newNet.IsAddress6InRange(addr) {
-				inNet = true
-			}
-		}
-		if inNet {
+		addr, _ := netutils.NewIPV4Addr(hn.IpAddr)
+		if args.newNet.IsAddressInRange(addr) {
 			_, err = db.Update(&hn, func() error {
 				hn.NetworkId = args.newNet.Id
 				return nil

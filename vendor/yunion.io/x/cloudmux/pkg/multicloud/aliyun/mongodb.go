@@ -87,7 +87,6 @@ type SMongoDB struct {
 	VSwitchId         string `json:"VSwitchId"`
 	VpcAuthMode       string `json:"VpcAuthMode"`
 	ReplicationFactor string `json:"ReplicationFactor"`
-	KindCode          string `json:"KindCode"`
 }
 
 var mongoSpec = map[string]struct {
@@ -129,16 +128,6 @@ func (self *SMongoDB) GetStatus() string {
 	}
 }
 
-func (self *SMongoDB) GetSysTags() map[string]string {
-	ret := self.AliyunTags.GetSysTags()
-	if len(self.KindCode) == 0 {
-		self.Refresh()
-	}
-	// 用户需要通过KindCode区分是否是快照备份
-	ret["KindCode"] = self.KindCode
-	return ret
-}
-
 func (self *SMongoDB) GetProjectId() string {
 	return self.ResourceGroupId
 }
@@ -160,15 +149,7 @@ func (self *SMongoDB) GetExpiredAt() time.Time {
 }
 
 func (self *SMongoDB) GetIpAddr() string {
-	nets, err := self.region.DescribeShardingNetworkAddress(self.DBInstanceId)
-	if err != nil {
-		return ""
-	}
-	ret := []string{}
-	for _, n := range nets {
-		ret = append(ret, n.IPAddress)
-	}
-	return strings.Join(ret, ",")
+	return ""
 }
 
 func (self *SMongoDB) GetEngine() string {
@@ -244,9 +225,6 @@ func (self *SMongoDB) GetPort() int {
 }
 
 func (self *SMongoDB) GetReplicationNum() int {
-	if self.DBInstanceType == "sharding" {
-		return len(self.ShardList.ShardAttribute)
-	}
 	if len(self.ReplicationFactor) == 0 {
 		self.Refresh()
 	}
@@ -424,13 +402,11 @@ func (self *SRegion) GetMongoDB(id string) (*SMongoDB, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "resp.Unmarshal")
 	}
-	for i := range ret {
-		ret[i].region = self
-		if ret[i].DBInstanceId == id {
-			return &ret[i], nil
-		}
+	if len(ret) == 1 {
+		ret[0].region = self
+		return &ret[0], nil
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", id)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
 }
 
 func (self *SRegion) DeleteMongoDB(id string) error {
@@ -530,32 +506,6 @@ func getMongoDBSkuDetails(remark string) struct {
 		log.Warningf("not match sku remark %s", remark)
 	}
 	return ret
-}
-
-type SMongoDBNetworkAddress struct {
-	IPAddress      string
-	NetworkAddress string
-	NetworkType    string
-	Port           int
-	Role           string
-	VpcId          string
-	VswitchId      string
-}
-
-func (region *SRegion) DescribeShardingNetworkAddress(id string) ([]SMongoDBNetworkAddress, error) {
-	params := map[string]string{
-		"DBInstanceId": id,
-	}
-	resp, err := region.mongodbRequest("DescribeShardingNetworkAddress", params)
-	if err != nil {
-		return nil, errors.Wrapf(err, "DescribeAvailableResource")
-	}
-	ret := []SMongoDBNetworkAddress{}
-	err = resp.Unmarshal(&ret, "NetworkAddresses", "NetworkAddress")
-	if err != nil {
-		return nil, err
-	}
-	return ret, nil
 }
 
 func (self *SRegion) GetMongoDBAvailableResource() (*SMongoDBAvaibaleResource, error) {

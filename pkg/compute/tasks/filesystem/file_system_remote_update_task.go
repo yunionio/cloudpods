@@ -84,7 +84,7 @@ func (self *FileSystemRemoteUpdateTask) OnRemoteUpdateComplete(ctx context.Conte
 }
 
 func (self *FileSystemRemoteUpdateTask) OnRemoteUpdateCompleteFailed(ctx context.Context, fs *models.SFileSystem, data jsonutils.JSONObject) {
-	self.taskFail(ctx, fs, errors.Errorf("%s", data.String()))
+	self.taskFail(ctx, fs, errors.Errorf(data.String()))
 }
 
 func (self *FileSystemRemoteUpdateTask) OnSyncStatusComplete(ctx context.Context, fs *models.SFileSystem, data jsonutils.JSONObject) {

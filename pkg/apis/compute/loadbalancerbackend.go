@@ -53,11 +53,11 @@ type LoadbalancerBackendListInput struct {
 type LoadbalancerBackendCreateInput struct {
 	apis.StatusStandaloneResourceCreateInput
 
-	//swagger:ignore
+	//swagger: ignore
 	BackendGroup   string `json:"backend_group" yunion-deprecated-by:"backend_group_id"`
 	BackendGroupId string `json:"backend_group_id"`
 
-	//swagger:ignore
+	//swagger: ignore
 	Backend   string `json:"backend" yunion-deprecated-by:"backend_id"`
 	BackendId string `json:"backend_id"`
 

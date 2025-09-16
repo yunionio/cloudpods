@@ -89,5 +89,5 @@ func (self *HostStorageAttachTask) OnAttachStorageComplete(ctx context.Context, 
 }
 
 func (self *HostStorageAttachTask) OnAttachStorageCompleteFailed(ctx context.Context, host *models.SHost, reason jsonutils.JSONObject) {
-	self.taskFail(ctx, host, errors.Errorf("%s", reason.String()))
+	self.taskFail(ctx, host, errors.Errorf(reason.String()))
 }

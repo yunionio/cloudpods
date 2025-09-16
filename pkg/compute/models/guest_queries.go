@@ -71,15 +71,7 @@ func (manager *SGuestManager) FetchCustomizeColumns(
 		gds := fetchGuestDisksInfo(guestIds)
 		if gds != nil {
 			for i := range rows {
-				rows[i].DisksInfo = []api.GuestDiskInfo{}
-				if disks, ok := gds[guestIds[i]]; ok {
-					for j := range disks {
-						if len(rows[i].ManagerId) > 0 {
-							disks[j].Iops = disks[j].DiskIops
-						}
-						rows[i].DisksInfo = append(rows[i].DisksInfo, disks[j].GuestDiskInfo)
-					}
-				}
+				rows[i].DisksInfo, _ = gds[guestIds[i]]
 				rows[i].DiskCount = len(rows[i].DisksInfo)
 				shortDescs := []string{}
 				for _, info := range rows[i].DisksInfo {
@@ -376,17 +368,12 @@ type sGustDiskSize struct {
 	DiskCount  int
 }
 
-type GuestDiskInfo struct {
-	DiskIops int
-	api.GuestDiskInfo
-}
-
 type sGuestDiskInfo struct {
-	GuestDiskInfo
+	api.GuestDiskInfo
 	GuestId string
 }
 
-func fetchGuestDisksInfo(guestIds []string) map[string][]GuestDiskInfo {
+func fetchGuestDisksInfo(guestIds []string) map[string][]api.GuestDiskInfo {
 	disks := DiskManager.Query().SubQuery()
 	guestdisks := GuestdiskManager.Query().SubQuery()
 	storages := StorageManager.Query().SubQuery()
@@ -405,8 +392,6 @@ func fetchGuestDisksInfo(guestIds []string) map[string][]GuestDiskInfo {
 		storages.Field("medium_type"),
 		storages.Field("storage_type"),
 		guestdisks.Field("iops"),
-		disks.Field("iops").Label("disk_iops"),
-		disks.Field("throughput"),
 		guestdisks.Field("bps"),
 		disks.Field("template_id").Label("image_id"),
 		guestdisks.Field("guest_id"),
@@ -420,18 +405,17 @@ func fetchGuestDisksInfo(guestIds []string) map[string][]GuestDiskInfo {
 	gds := []sGuestDiskInfo{}
 	err := q.All(&gds)
 	if err != nil {
-		log.Errorf("fetchGuestDisksInfo: %v", err)
 		return nil
 	}
 	imageIds := []string{}
-	ret := map[string][]GuestDiskInfo{}
+	ret := map[string][]api.GuestDiskInfo{}
 	for i := range gds {
 		if len(gds[i].ImageId) > 0 {
 			imageIds = append(imageIds, gds[i].ImageId)
 		}
 		_, ok := ret[gds[i].GuestId]
 		if !ok {
-			ret[gds[i].GuestId] = []GuestDiskInfo{}
+			ret[gds[i].GuestId] = []api.GuestDiskInfo{}
 		}
 		ret[gds[i].GuestId] = append(ret[gds[i].GuestId], gds[i].GuestDiskInfo)
 	}
@@ -502,12 +486,11 @@ func fetchGuestIPs(guestIds []string, virtual tristate.TriState) map[string][]st
 func fetchGuestVips(guestIds []string) map[string][]string {
 	groupguests := GroupguestManager.Query().SubQuery()
 	groupnetworks := GroupnetworkManager.Query().SubQuery()
-	q := groupnetworks.Query(groupnetworks.Field("ip_addr"), groupnetworks.Field("ip6_addr"), groupguests.Field("guest_id"))
+	q := groupnetworks.Query(groupnetworks.Field("ip_addr"), groupguests.Field("guest_id"))
 	q = q.Join(groupguests, sqlchemy.Equals(q.Field("group_id"), groupguests.Field("group_id")))
 	q = q.In("guest_id", guestIds)
 	type sGuestVip struct {
 		IpAddr  string
-		Ip6Addr string
 		GuestId string
 	}
 	gvips := make([]sGuestVip, 0)
@@ -520,12 +503,7 @@ func fetchGuestVips(guestIds []string) map[string][]string {
 		if _, ok := ret[gvips[i].GuestId]; !ok {
 			ret[gvips[i].GuestId] = make([]string, 0)
 		}
-		if len(gvips[i].IpAddr) > 0 {
-			ret[gvips[i].GuestId] = append(ret[gvips[i].GuestId], gvips[i].IpAddr)
-		}
-		if len(gvips[i].Ip6Addr) > 0 {
-			ret[gvips[i].GuestId] = append(ret[gvips[i].GuestId], gvips[i].Ip6Addr)
-		}
+		ret[gvips[i].GuestId] = append(ret[gvips[i].GuestId], gvips[i].IpAddr)
 	}
 	return ret
 }
@@ -576,8 +554,6 @@ func fetchGuestNICs(ctx context.Context, guestIds []string, virtual tristate.Tri
 		gnwq.Field("network_id"), // caution: do not alias netq.id as network_id
 
 		gnwq.Field("port_mappings"),
-
-		gnwq.Field("is_default"),
 
 		wirq.Field("vpc_id"),
 		subIP.Field("sub_ips"),

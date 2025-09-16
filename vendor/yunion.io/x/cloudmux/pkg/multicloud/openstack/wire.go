@@ -84,7 +84,7 @@ func (wire *SWire) GetINetworkById(netid string) (cloudprovider.ICloudNetwork, e
 			return networks[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", netid)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, netid)
 }
 
 func (wire *SWire) GetINetworks() ([]cloudprovider.ICloudNetwork, error) {

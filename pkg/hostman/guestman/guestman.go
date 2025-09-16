@@ -41,17 +41,14 @@ import (
 	hostapi "yunion.io/x/onecloud/pkg/apis/host"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/hostman/container/prober"
-	"yunion.io/x/onecloud/pkg/hostman/container/snapshot_service"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/arch"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
 	fwd "yunion.io/x/onecloud/pkg/hostman/guestman/forwarder"
 	fwdpb "yunion.io/x/onecloud/pkg/hostman/guestman/forwarder/api"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/pod/pleg"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/pod/runtime"
-	"yunion.io/x/onecloud/pkg/hostman/guestman/pod/statusman"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/types"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
-	"yunion.io/x/onecloud/pkg/hostman/hostinfo"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostconsts"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/monitor"
@@ -121,7 +118,6 @@ type SGuestManager struct {
 	containerRuntimeManager    runtime.Runtime
 	pleg                       pleg.PodLifecycleEventGenerator
 	podCache                   runtime.Cache
-	cpufreqSimulateManager     *SCpuFreqRealTimeSimulateManager
 }
 
 func NewGuestManager(host hostutils.IHost, serversPath string, workerCnt int) (*SGuestManager, error) {
@@ -130,7 +126,6 @@ func NewGuestManager(host hostutils.IHost, serversPath string, workerCnt int) (*
 
 	manager := &SGuestManager{}
 	manager.host = host
-	host.SetIGuestManager(manager)
 	manager.ServersPath = serversPath
 	manager.Servers = new(sync.Map)
 	manager.portsInUse = new(sync.Map)
@@ -149,7 +144,6 @@ func NewGuestManager(host hostutils.IHost, serversPath string, workerCnt int) (*
 		return nil, errors.Wrap(err, "mkdir qemu log dir")
 	}
 	if manager.host.IsContainerHost() {
-		statusman.GetManager().Start()
 		manager.startContainerProbeManager()
 		runtimeMan, err := runtime.NewRuntimeManager(manager.GetCRI())
 		if err != nil {
@@ -159,40 +153,8 @@ func NewGuestManager(host hostutils.IHost, serversPath string, workerCnt int) (*
 		manager.containerRuntimeManager = runtimeMan
 		manager.pleg = pleg.NewGenericPLEG(runtimeMan, pleg.ChannelCapacity, pleg.RelistPeriod, manager.podCache, clock.RealClock{})
 		manager.pleg.Start()
-		go func() {
-			if err := manager.startContainerdSnapshotService(); err != nil {
-				log.Fatalf("start containerd snapshot service: %s", err)
-			}
-		}()
-		if options.HostOptions.EnableRealtimeCpufreqSimulate {
-			cpufreqConfig := manager.host.GetContainerCpufreqSimulateConfig()
-			if cpufreqConfig != nil {
-				maxFreq, _ := cpufreqConfig.Int("scaling_max_freq")
-				minFreq, _ := cpufreqConfig.Int("scaling_min_freq")
-				interval := options.HostOptions.RealtimeCpufreqSimulateInterval
-				manager.cpufreqSimulateManager = newCpuFreqRealTimeSimulateManager(interval, maxFreq, minFreq)
-			}
-		}
-
 	}
 	return manager, nil
-}
-
-func (h *SGuestManager) startContainerdSnapshotService() error {
-	root := filepath.Join(options.HostOptions.ServersPath, "containerd_snapshots")
-	err := snapshot_service.StartService(h, root)
-	if err != nil {
-		return errors.Wrap(err, "new snapshot service")
-	}
-	return nil
-}
-
-func (h *SGuestManager) GetContainerManager(serverId string) (snapshot_service.ISnapshotContainerManager, error) {
-	pod, ok := h.GetServer(serverId)
-	if !ok {
-		return nil, errors.Wrapf(httperrors.ErrNotFound, "server %s not found", serverId)
-	}
-	return pod.(snapshot_service.ISnapshotContainerManager), nil
 }
 
 func (m *SGuestManager) startContainerSyncLoop() {
@@ -247,15 +209,8 @@ func (m *SGuestManager) InitQemuMaxCpus(machineCaps []monitor.MachineInfo, kvmMa
 }
 
 func (m *SGuestManager) InitQemuMaxMems(maxMems uint) {
-	if m.host.IsX8664() {
-		if maxMems > arch.X86_MAX_MEM_MB {
-			arch.X86_MAX_MEM_MB = maxMems
-		}
-	}
-	if m.host.IsAarch64() {
-		if maxMems > arch.ARM_MAX_MEM_MB {
-			arch.ARM_MAX_MEM_MB = maxMems
-		}
+	if maxMems > arch.X86_MAX_MEM_MB {
+		arch.X86_MAX_MEM_MB = maxMems
 	}
 }
 
@@ -394,12 +349,6 @@ func (m *SGuestManager) Bootstrap() (chan struct{}, error) {
 			log.Infof("[%s removed] enable dirty recovery feature at next bootstrap", m.disableDirtyRecoveryFilePath())
 		}
 	})
-	if m.cpufreqSimulateManager != nil {
-		go m.cpufreqSimulateManager.StartSetCpuFreqSimulate()
-	}
-
-	m.host.OnGuestLoadingComplete()
-
 	return m.dirtyServersChan, nil
 }
 
@@ -519,11 +468,7 @@ func (m *SGuestManager) verifyDirtyServers() {
 
 func (m *SGuestManager) ClenaupCpuset() {
 	m.Servers.Range(func(k, v interface{}) bool {
-		inst := v.(GuestRuntimeInstance)
-		guest, ok := inst.(*SKVMGuestInstance)
-		if !ok {
-			return true
-		}
+		guest := v.(*SKVMGuestInstance)
 		guest.CleanupCpuset()
 		return true
 	})
@@ -572,12 +517,8 @@ func (m *SGuestManager) CPUSetRemove(ctx context.Context, sid string) error {
 	return guest.CPUSetRemove(ctx)
 }
 
-func (m *SGuestManager) IsGuestDir(f os.DirEntry) bool {
-	fi, err := f.Info()
-	if err != nil {
-		return false
-	}
-	return hostutils.IsGuestDir(fi, m.ServersPath)
+func (m *SGuestManager) IsGuestDir(f os.FileInfo) bool {
+	return hostutils.IsGuestDir(f, m.ServersPath)
 }
 
 func (m *SGuestManager) IsGuestExist(sid string) bool {
@@ -589,7 +530,7 @@ func (m *SGuestManager) IsGuestExist(sid string) bool {
 }
 
 func (m *SGuestManager) LoadExistingGuests() {
-	files, err := os.ReadDir(m.ServersPath)
+	files, err := ioutil.ReadDir(m.ServersPath)
 	if err != nil {
 		log.Errorf("List servers path %s error %s", m.ServersPath, err)
 	}
@@ -607,7 +548,7 @@ func (m *SGuestManager) GetServerDescFilePath(sid string) string {
 
 func (m *SGuestManager) GetServerDesc(sid string) (*desc.SGuestDesc, error) {
 	descPath := m.GetServerDescFilePath(sid)
-	descStr, err := os.ReadFile(descPath)
+	descStr, err := ioutil.ReadFile(descPath)
 	if err != nil {
 		return nil, errors.Wrapf(err, "read file %s", descPath)
 	}
@@ -643,11 +584,7 @@ func (m *SGuestManager) LoadServer(sid string) {
 
 func (m *SGuestManager) ShutdownServers() {
 	m.Servers.Range(func(k, v interface{}) bool {
-		inst := v.(GuestRuntimeInstance)
-		guest, ok := inst.(*SKVMGuestInstance)
-		if !ok {
-			return true
-		}
+		guest := v.(*SKVMGuestInstance)
 		log.Infof("Start shutdown server %s", guest.GetName())
 
 		// scriptStop maybe stuck on guest storage offline
@@ -706,19 +643,6 @@ func (m *SGuestManager) GetGuestNicDesc(
 		return true
 	})
 	return guestDesc, nic
-}
-
-func (m *SGuestManager) GetAllGuestIPv6Macs(bridge string) []string {
-	macs := []string{}
-	m.Servers.Range(func(k, v interface{}) bool {
-		guest := v.(GuestRuntimeInstance)
-		if guest.IsLoaded() {
-			nicMacs := guest.GetIpv6NicMacs(bridge)
-			macs = append(macs, nicMacs...)
-		}
-		return true
-	})
-	return macs
 }
 
 func (m *SGuestManager) getGuestNicDescInCandidate(
@@ -1058,49 +982,13 @@ func (m *SGuestManager) GetGuestStatus(ctx context.Context, params interface{}) 
 	sid := params.(string)
 	guest, _ := m.GetServer(sid)
 	resp := m.ProbeGuestInitStatus(sid)
-	if guest != nil {
-		// resp is nil ONLY IF the monitor not started
-		resp = guest.HandleGuestStatus(ctx, resp, false)
-	}
-	if resp != nil {
-		hostutils.TaskComplete(ctx, jsonutils.Marshal(resp))
-	}
-	return nil, nil
-}
 
-func (m *SGuestManager) UploadGuestsStatus(ctx context.Context, i interface{}) (jsonutils.JSONObject, error) {
-	input := i.(*compute.HostUploadGuestsStatusRequest)
-	// errs := []error{}
-	resp := &compute.HostUploadGuestsStatusInput{
-		Guests: make(map[string]*compute.HostUploadGuestStatusInput, 0),
+	if guest == nil {
+		hostutils.TaskComplete(ctx, jsonutils.Marshal(resp))
+		return nil, nil
 	}
-	reason := "upload guest status by host"
-	for _, sid := range input.GuestIds {
-		guest, _ := m.GetServer(sid)
-		status := m.ProbeGuestInitStatus(sid)
-		if guest != nil {
-			status = guest.HandleGuestStatus(ctx, status, true)
-		}
-		// if status, err := srv.GetUploadStatus(ctx, reason); err != nil {
-		//	errs = append(errs, errors.Wrapf(err, "upload guest %s status", srv.GetId()))
-		//} else {
-		resp.Guests[sid] = status
-		//}
-	}
-	// if len(errs) > 0 {
-	//	log.Errorf("Get upload guests status: %v", errors.NewAggregate(errs))
-	// }
-	ret, err := hostutils.UploadGuestsStatus(ctx, resp)
-	// do post action like marking container dirty after uploading guests status
-	for id, status := range resp.Guests {
-		srv, _ := m.GetServer(id)
-		if srv == nil {
-			continue
-		}
-		srv.PostUploadStatus(status, reason)
-	}
-	log.Infof("upload guest to region response: %s", jsonutils.Marshal(ret).String())
-	return ret, err
+
+	return guest.HandleGuestStatus(ctx, resp)
 }
 
 func (m *SGuestManager) getStatus(sid string) string {
@@ -1184,8 +1072,7 @@ func (m *SGuestManager) GuestSync(ctx context.Context, params interface{}) (json
 		}
 
 		fwOnly := jsonutils.QueryBoolean(syncParams.Body, "fw_only", false)
-		setUefiBootOrder := jsonutils.QueryBoolean(syncParams.Body, "set_uefi_boot_order", false)
-		return guest.SyncConfig(ctx, guestDesc, fwOnly, setUefiBootOrder)
+		return guest.SyncConfig(ctx, guestDesc, fwOnly)
 	}
 	return nil, nil
 }
@@ -1452,11 +1339,7 @@ func (m *SGuestManager) GetNBDServerFreePort() int {
 func (m *SGuestManager) GetFreeVncPort() int {
 	vncPorts := make(map[int]struct{}, 0)
 	m.Servers.Range(func(k, v interface{}) bool {
-		inst := v.(GuestRuntimeInstance)
-		guest, ok := inst.(*SKVMGuestInstance)
-		if !ok {
-			return true
-		}
+		guest := v.(*SKVMGuestInstance)
 		inUsePort := guest.GetVncPort()
 		if inUsePort > 0 {
 			vncPorts[inUsePort] = struct{}{}
@@ -1679,9 +1562,6 @@ func (m *SGuestManager) HotplugCpuMem(ctx context.Context, params interface{}) (
 }
 
 func (m *SGuestManager) ExitGuestCleanup() {
-	if m.cpufreqSimulateManager != nil {
-		m.cpufreqSimulateManager.Stop()
-	}
 	m.Servers.Range(func(k, v interface{}) bool {
 		guest := v.(GuestRuntimeInstance)
 		guest.ExitCleanup(false)
@@ -1899,14 +1779,47 @@ func (m *SGuestManager) GetGuestTrafficRecord(sid string) (map[string]compute.SN
 	return record, nil
 }
 
-func (m *SGuestManager) ProbeGuestInitStatus(sid string) *compute.HostUploadGuestStatusInput {
+func (m *SGuestManager) UploadGuestsStatus(ctx context.Context, i interface{}) (jsonutils.JSONObject, error) {
+	input := i.(*compute.HostUploadGuestsStatusRequest)
+	errs := []error{}
+	resp := &compute.HostUploadGuestsStatusResponse{
+		Guests: make(map[string]*compute.HostUploadGuestStatusResponse, 0),
+	}
+	reason := "upload guest status by host"
+	for _, id := range input.GuestIds {
+		srv, _ := m.GetServer(id)
+		if srv == nil {
+			continue
+		}
+		if status, err := srv.GetUploadStatus(ctx, reason); err != nil {
+			errs = append(errs, errors.Wrapf(err, "upload guest %s status", srv.GetId()))
+		} else {
+			resp.Guests[id] = status
+		}
+	}
+	if len(errs) > 0 {
+		log.Errorf("Get upload guests status: %v", errors.NewAggregate(errs))
+	}
+	ret, err := hostutils.UploadGuestsStatus(ctx, resp)
+	// do post action like marking container dirty after uploading guests status
+	for id, status := range resp.Guests {
+		srv, _ := m.GetServer(id)
+		if srv == nil {
+			continue
+		}
+		srv.PostUploadStatus(status, reason)
+	}
+	log.Infof("upload guest to region response: %s", jsonutils.Marshal(ret).String())
+	return ret, err
+}
+
+func (m *SGuestManager) ProbeGuestInitStatus(sid string) *compute.HostUploadGuestStatusResponse {
 	guest, _ := m.GetServer(sid)
 	status := m.getStatus(sid)
-	resp := &compute.HostUploadGuestStatusInput{
+	resp := &compute.HostUploadGuestStatusResponse{
 		PerformStatusInput: apis.PerformStatusInput{
 			Status:         status,
 			BlockJobsCount: -1,
-			HostId:         hostinfo.Instance().HostId,
 		},
 	}
 	if guest == nil {

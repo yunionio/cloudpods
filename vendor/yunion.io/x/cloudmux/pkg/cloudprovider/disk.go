@@ -21,8 +21,4 @@ type DiskCreateConfig struct {
 	Iops       int
 	Throughput int
 	ProjectId  string
-	SnapshotId string
-	ImageId    string
-
-	Tags map[string]string
 }

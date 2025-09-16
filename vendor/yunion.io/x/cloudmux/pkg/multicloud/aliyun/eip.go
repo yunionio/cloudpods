@@ -163,9 +163,6 @@ func (self *SEipAddress) GetMode() string {
 func (self *SEipAddress) GetAssociationType() string {
 	switch self.InstanceType {
 	case EIP_INSTANCE_TYPE_ECS, "NetworkInterface":
-		if strings.HasPrefix(self.Name, "CREATE_BY_ALB") || strings.HasPrefix(self.Name, "CREATE_BY_NLB") {
-			return api.EIP_ASSOCIATE_TYPE_LOADBALANCER
-		}
 		return api.EIP_ASSOCIATE_TYPE_SERVER
 	case EIP_INSTANCE_TYPE_NAT:
 		return api.EIP_ASSOCIATE_TYPE_NAT_GATEWAY
@@ -243,10 +240,15 @@ func (self *SEipAddress) ChangeBandwidth(bw int) error {
 	return self.region.UpdateEipBandwidth(self.AllocationId, bw)
 }
 
-func (region *SRegion) GetEips(eipId string, associatedId, addr string) ([]SEipAddress, error) {
+func (region *SRegion) GetEips(eipId string, associatedId, addr string, offset int, limit int) ([]SEipAddress, int, error) {
+	if limit > 50 || limit <= 0 {
+		limit = 50
+	}
+
 	params := make(map[string]string)
 	params["RegionId"] = region.RegionId
-	params["PageSize"] = "100"
+	params["PageSize"] = fmt.Sprintf("%d", limit)
+	params["PageNumber"] = fmt.Sprintf("%d", (offset/limit)+1)
 	if len(addr) > 0 {
 		params["EipAddress"] = addr
 	}
@@ -264,36 +266,27 @@ func (region *SRegion) GetEips(eipId string, associatedId, addr string) ([]SEipA
 		}
 	}
 
-	pageNumber := 1
-	ret := []SEipAddress{}
-	for {
-		params["PageNumber"] = fmt.Sprintf("%d", pageNumber)
-		body, err := region.vpcRequest("DescribeEipAddresses", params)
-		if err != nil {
-			log.Errorf("DescribeEipAddresses fail %s", err)
-			return nil, err
-		}
-		part := struct {
-			EipAddresses struct {
-				EipAddress []SEipAddress
-			} `json:"EipAddresses"`
-			TotalCount int `json:"TotalCount"`
-		}{}
-		err = body.Unmarshal(&part)
-		if err != nil {
-			return nil, errors.Wrapf(err, "Unmarshal EipAddress details")
-		}
-		ret = append(ret, part.EipAddresses.EipAddress...)
-		if len(ret) >= part.TotalCount {
-			break
-		}
-		pageNumber++
+	body, err := region.vpcRequest("DescribeEipAddresses", params)
+	if err != nil {
+		log.Errorf("DescribeEipAddresses fail %s", err)
+		return nil, 0, err
 	}
-	return ret, nil
+
+	eips := make([]SEipAddress, 0)
+	err = body.Unmarshal(&eips, "EipAddresses", "EipAddress")
+	if err != nil {
+		log.Errorf("Unmarshal EipAddress details fail %s", err)
+		return nil, 0, err
+	}
+	total, _ := body.Int("TotalCount")
+	for i := 0; i < len(eips); i += 1 {
+		eips[i].region = region
+	}
+	return eips, int(total), nil
 }
 
 func (region *SRegion) GetEip(eipId string) (*SEipAddress, error) {
-	eips, err := region.GetEips(eipId, "", "")
+	eips, _, err := region.GetEips(eipId, "", "", 0, 1)
 	if err != nil {
 		return nil, err
 	}
@@ -303,7 +296,7 @@ func (region *SRegion) GetEip(eipId string) (*SEipAddress, error) {
 			return &eips[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", eipId)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, eipId)
 }
 
 func (region *SRegion) AllocateEIP(opts *cloudprovider.SEip) (*SEipAddress, error) {

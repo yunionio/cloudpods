@@ -187,10 +187,9 @@ func (man *SFileSystemManager) ValidateCreateData(ctx context.Context, userCred 
 				return input, httperrors.NewInputParameterError("unsupported duration %s", input.Duration)
 			}
 		}
+		tm := time.Time{}
 		input.BillingCycle = billingCycle.String()
-		if input.BillingType == billing_api.BILLING_TYPE_POSTPAID {
-			input.ReleaseAt = billingCycle.EndAt(time.Now())
-		}
+		input.ExpiredAt = billingCycle.EndAt(tm)
 	}
 
 	input.SharableVirtualResourceCreateInput, err = man.SSharableVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.SharableVirtualResourceCreateInput)
@@ -289,15 +288,6 @@ func (manager *SFileSystemManager) QueryDistinctExtraField(q *sqlchemy.SQuery, f
 		return q, nil
 	}
 
-	return q, httperrors.ErrNotFound
-}
-
-func (manager *SFileSystemManager) QueryDistinctExtraFields(q *sqlchemy.SQuery, resource string, fields []string) (*sqlchemy.SQuery, error) {
-	var err error
-	q, err = manager.SManagedResourceBaseManager.QueryDistinctExtraFields(q, resource, fields)
-	if err == nil {
-		return q, nil
-	}
 	return q, httperrors.ErrNotFound
 }
 
@@ -532,8 +522,7 @@ func (region *SCloudregion) getZoneIdBySuffix(zoneId string) (string, error) {
 			return zone.Id, nil
 		}
 	}
-	msg := zoneId
-	return "", errors.Wrapf(cloudprovider.ErrNotFound, "%s", msg)
+	return "", errors.Wrapf(cloudprovider.ErrNotFound, zoneId)
 }
 
 func (region *SCloudregion) newFromCloudFileSystem(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, fs cloudprovider.ICloudFileSystem) (*SFileSystem, error) {

@@ -69,7 +69,6 @@ func (self *DnsRecordCreateTask) OnInit(ctx context.Context, obj db.IStandaloneM
 		Enabled:     record.Enabled.Bool(),
 		DnsType:     cloudprovider.TDnsType(record.DnsType),
 		DnsValue:    record.DnsValue,
-		Proxied:     record.Proxied.Bool(),
 		Ttl:         record.TTL,
 		MxPriority:  record.MxPriority,
 		PolicyType:  cloudprovider.TDnsPolicyType(record.PolicyType),

@@ -88,9 +88,8 @@ func (self *BaremetalServerSyncStatusTask) OnGuestStatusTaskComplete(ctx context
 }
 
 func (self *BaremetalServerSyncStatusTask) OnGuestStatusTaskCompleteFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
-	input := api.ServerPerformStatusInput{
-		PerformStatusInput: apis.PerformStatusInput{
-			Status: api.VM_UNKNOWN},
+	input := apis.PerformStatusInput{
+		Status: api.VM_UNKNOWN,
 	}
 	guest.PerformStatus(ctx, self.UserCred, nil, input)
 }
@@ -98,10 +97,8 @@ func (self *BaremetalServerSyncStatusTask) OnGuestStatusTaskCompleteFailed(ctx c
 func (self *BaremetalServerSyncStatusTask) OnGetStatusFail(ctx context.Context, guest *models.SGuest) {
 	kwargs := jsonutils.NewDict()
 	kwargs.Set("status", jsonutils.NewString(api.VM_UNKNOWN))
-	input := api.ServerPerformStatusInput{
-		PerformStatusInput: apis.PerformStatusInput{
-			Status: api.VM_UNKNOWN,
-		},
+	input := apis.PerformStatusInput{
+		Status: api.VM_UNKNOWN,
 	}
 	guest.PerformStatus(ctx, self.UserCred, nil, input)
 	self.SetStageComplete(ctx, nil)

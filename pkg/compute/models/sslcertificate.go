@@ -24,13 +24,10 @@ import (
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/sqlchemy"
 
-	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
-	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
-	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
@@ -44,7 +41,6 @@ type SSSLCertificateManager struct {
 	SDeletePreventableResourceBaseManager
 
 	SManagedResourceBaseManager
-	SDnsZoneResourceBaseManager
 }
 
 var SSLCertificateManager *SSSLCertificateManager
@@ -65,23 +61,23 @@ type SSSLCertificate struct {
 	db.SVirtualResourceBase
 	db.SExternalizedResourceBase
 	SManagedResourceBase
-	SDnsZoneResourceBase
 
 	SDeletePreventableResourceBase
 
 	Sans        string    `width:"2048" charset:"utf8" nullable:"false" list:"user" create:"required"`
-	StartDate   time.Time `list:"user"`
-	Province    string    `width:"64" charset:"utf8" nullable:"false" list:"user" create:"optional"`
-	Common      string    `width:"128" charset:"utf8" nullable:"false" list:"user" create:"optional"`
-	Country     string    `width:"32" charset:"utf8" nullable:"false" list:"user" create:"optional"`
-	Issuer      string    `width:"128" charset:"utf8" nullable:"false" list:"user" create:"required"`
-	IsUpload    bool      `list:"user" create:"optional"`
-	EndDate     time.Time `list:"user" create:"optional"`
-	Fingerprint string    `width:"128" charset:"utf8" nullable:"false" list:"user" create:"optional"`
-	City        string    `width:"64" charset:"utf8" nullable:"false" list:"user" create:"optional"`
-	OrgName     string    `width:"256" charset:"utf8" nullable:"false" list:"user" create:"optional"`
-	Certificate string    `charset:"utf8" nullable:"true" list:"user" create:"optional"`
-	PrivateKey  string    `charset:"utf8" nullable:"true" list:"user" create:"optional"`
+	StartDate   time.Time `nullable:"false" list:"user" json:"start_date"`
+	Province    string    `width:"2048" charset:"utf8" nullable:"false" list:"user" create:"required"`
+	Common      string    `width:"2048" charset:"utf8" nullable:"false" list:"user" create:"required"`
+	Country     string    `width:"2048" charset:"utf8" nullable:"false" list:"user" create:"required"`
+	Issuer      string    `width:"2048" charset:"utf8" nullable:"false" list:"user" create:"required"`
+	Expired     bool      `charset:"utf8" nullable:"false" list:"user" create:"required"`
+	IsUpload    bool      `charset:"utf8" nullable:"false" list:"user" create:"required"`
+	EndDate     time.Time `nullable:"false" list:"user" json:"end_date"`
+	Fingerprint string    `width:"128" charset:"utf8" nullable:"false" list:"user" create:"required"`
+	City        string    `width:"2048" charset:"utf8" nullable:"false" list:"user" create:"required"`
+	OrgName     string    `width:"2048" charset:"utf8" nullable:"false" list:"user" create:"required"`
+	Certificate string    `charset:"utf8" nullable:"true" list:"user" create:"required"`
+	PrivateKey  string    `charset:"utf8" nullable:"true" list:"user" create:"required"`
 }
 
 func (s SSSLCertificate) GetExternalId() string {
@@ -105,8 +101,6 @@ func (man *SSSLCertificateManager) FetchCustomizeColumns(
 			VirtualResourceDetails: virtRows[i],
 			ManagedResourceInfo:    manRows[i],
 		}
-		cert := objs[i].(*SSSLCertificate)
-		rows[i].IsExpired = cert.EndDate.Before(time.Now())
 	}
 
 	return rows
@@ -146,19 +140,6 @@ func (man *SSSLCertificateManager) ListItemFilter(
 		return nil, errors.Wrap(err, "SManagedResourceBaseManager.ListItemFilter")
 	}
 
-	q, err = man.SDnsZoneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.DnsZoneFilterListBase)
-	if err != nil {
-		return nil, errors.Wrap(err, "SDnsZoneResourceBaseManager.ListItemFilter")
-	}
-
-	if query.IsExpired != nil {
-		if *query.IsExpired {
-			q = q.LT("end_date", time.Now())
-		} else {
-			q = q.GE("end_date", time.Now())
-		}
-	}
-
 	return q, nil
 }
 
@@ -192,70 +173,11 @@ func (man *SSSLCertificateManager) QueryDistinctExtraField(q *sqlchemy.SQuery, f
 		return q, nil
 	}
 
-	q, err = man.SDnsZoneResourceBaseManager.QueryDistinctExtraField(q, field)
-	if err == nil {
-		return q, nil
-	}
-
 	return q, httperrors.ErrNotFound
 }
 
-func (manager *SSSLCertificateManager) QueryDistinctExtraFields(q *sqlchemy.SQuery, resource string, fields []string) (*sqlchemy.SQuery, error) {
-	var err error
-	q, err = manager.SManagedResourceBaseManager.QueryDistinctExtraFields(q, resource, fields)
-	if err == nil {
-		return q, nil
-	}
-	return q, httperrors.ErrNotFound
-}
-
-func (man *SSSLCertificateManager) ValidateCreateData(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	ownerId mcclient.IIdentityProvider,
-	query jsonutils.JSONObject,
-	input *api.SSLCertificateCreateInput,
-) (*api.SSLCertificateCreateInput, error) {
-	if len(input.DnsZoneId) > 0 {
-		obj, err := validators.ValidateModel(ctx, userCred, DnsZoneManager, &input.DnsZoneId)
-		if err != nil {
-			return nil, err
-		}
-		input.DnsZoneId = obj.GetId()
-	}
-	var err error
-	input.VirtualResourceCreateInput, err = man.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.VirtualResourceCreateInput)
-	if err != nil {
-		return nil, err
-	}
-
-	return input, nil
-}
-
-func (self *SSSLCertificate) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	self.SVirtualResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
-	self.StartSSLCertificateCreateTask(ctx, userCred, "")
-}
-
-func (self *SSSLCertificate) StartSSLCertificateCreateTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
-	params := jsonutils.NewDict()
-	task, err := taskman.TaskManager.NewTask(ctx, "SSLCertificateCreateTask", self, userCred, params, parentTaskId, "", nil)
-	if err != nil {
-		return errors.Wrap(err, "NewTask")
-	}
-	self.SetStatus(ctx, userCred, apis.STATUS_CREATING, "")
-	return task.ScheduleRun(nil)
-}
-
-func (self *SSSLCertificate) GetDnsZone() (*SDnsZone, error) {
-	if len(self.DnsZoneId) == 0 {
-		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "DnsZoneId is empty")
-	}
-	zone, err := DnsZoneManager.FetchById(self.DnsZoneId)
-	if err != nil {
-		return nil, errors.Wrapf(err, "DnsZoneManager.FetchById")
-	}
-	return zone.(*SDnsZone), nil
+func (man *SSSLCertificateManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.SSLCertificateCreateInput) (api.SSLCertificateCreateInput, error) {
+	return input, httperrors.NewNotImplementedError("Not Implemented")
 }
 
 func (r *SCloudprovider) GetSSLCertificates() ([]SSSLCertificate, error) {
@@ -340,28 +262,6 @@ func (s *SSSLCertificate) syncRemoveCloudSSLCertificate(ctx context.Context, use
 	return nil
 }
 
-// 删除证书
-func (s *SSSLCertificate) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input jsonutils.JSONObject) error {
-	err := s.StartSSLCertificateDeleteTask(ctx, userCred, nil)
-	if err != nil {
-		return errors.Wrapf(err, "StartSSLCertificateDeleteTask")
-	}
-	return nil
-}
-
-func (s *SSSLCertificate) StartSSLCertificateDeleteTask(ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict) error {
-	task, err := taskman.TaskManager.NewTask(ctx, "SSLCertificateDeleteTask", s, userCred, params, "", "", nil)
-	if err != nil {
-		return errors.Wrapf(err, "NewTask")
-	}
-	s.SetStatus(ctx, userCred, apis.STATUS_DELETING, "")
-	return task.ScheduleRun(nil)
-}
-
-func (s *SSSLCertificate) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
-	return nil
-}
-
 func (s *SSSLCertificate) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	return s.SVirtualResourceBase.Delete(ctx, userCred)
 }
@@ -378,6 +278,7 @@ func (s *SSSLCertificate) SyncWithCloudSSLCertificate(ctx context.Context, userC
 		s.Common = ext.GetCommon()
 		s.Country = ext.GetCountry()
 		s.Issuer = ext.GetIssuer()
+		s.Expired = ext.GetExpired()
 		s.IsUpload = ext.GetIsUpload()
 		s.EndDate = ext.GetEndDate()
 		s.Fingerprint = ext.GetFingerprint()
@@ -385,14 +286,7 @@ func (s *SSSLCertificate) SyncWithCloudSSLCertificate(ctx context.Context, userC
 		s.OrgName = ext.GetOrgName()
 		s.Certificate = ext.GetCert()
 		s.PrivateKey = ext.GetKey()
-		if zoneId := ext.GetDnsZoneId(); len(zoneId) > 0 {
-			zone, err := db.FetchByExternalIdAndManagerId(DnsZoneManager, zoneId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
-				return q.Equals("manager_id", s.ManagerId)
-			})
-			if err == nil {
-				s.DnsZoneId = zone.GetId()
-			}
-		}
+
 		return nil
 	})
 	if err != nil {
@@ -436,7 +330,7 @@ func (r *SCloudprovider) newFromCloudSSLCertificate(
 	s.Common = ext.GetCommon()
 	s.Country = ext.GetCountry()
 	s.Issuer = ext.GetIssuer()
-	//s.Expired = ext.GetExpired()
+	s.Expired = ext.GetExpired()
 	s.IsUpload = ext.GetIsUpload()
 	s.EndDate = ext.GetEndDate()
 	s.Fingerprint = ext.GetFingerprint()
@@ -444,14 +338,6 @@ func (r *SCloudprovider) newFromCloudSSLCertificate(
 	s.OrgName = ext.GetOrgName()
 	s.Certificate = ext.GetCert()
 	s.PrivateKey = ext.GetKey()
-	if zoneId := ext.GetDnsZoneId(); len(zoneId) > 0 {
-		zone, err := db.FetchByExternalIdAndManagerId(DnsZoneManager, zoneId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
-			return q.Equals("manager_id", r.Id)
-		})
-		if err == nil {
-			s.DnsZoneId = zone.GetId()
-		}
-	}
 
 	if createdAt := ext.GetCreatedAt(); !createdAt.IsZero() {
 		s.CreatedAt = createdAt
@@ -486,30 +372,6 @@ func (r *SCloudprovider) newFromCloudSSLCertificate(
 	db.OpsLog.LogEvent(&s, db.ACT_CREATE, s.GetShortDesc(ctx), userCred)
 
 	return &s, nil
-}
-
-func (s *SSSLCertificate) GetICloudSSLCertificate(ctx context.Context) (cloudprovider.ICloudSSLCertificate, error) {
-	if len(s.ExternalId) == 0 {
-		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "ExternalId is empty")
-	}
-	provider := s.GetCloudprovider()
-	if provider == nil {
-		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "Cloudprovider is empty")
-	}
-	drv, err := provider.GetProvider(ctx)
-	if err != nil {
-		return nil, errors.Wrapf(err, "GetProvider")
-	}
-	certs, err := drv.GetISSLCertificates()
-	if err != nil {
-		return nil, errors.Wrapf(err, "GetICloudSSLCertificate")
-	}
-	for i := range certs {
-		if certs[i].GetGlobalId() == s.ExternalId {
-			return certs[i], nil
-		}
-	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "GetICloudSSLCertificate")
 }
 
 func (man *SSSLCertificateManager) ListItemExportKeys(ctx context.Context,

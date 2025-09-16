@@ -17,6 +17,7 @@ package aws
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -198,10 +199,6 @@ func (self *SDisk) Delete(ctx context.Context) error {
 	return self.storage.zone.region.DeleteDisk(self.VolumeId)
 }
 
-func (self *SDisk) SetTags(tags map[string]string, replace bool) error {
-	return self.storage.zone.region.setTags("volume", self.VolumeId, tags, replace)
-}
-
 func (self *SDisk) CreateISnapshot(ctx context.Context, name string, desc string) (cloudprovider.ICloudSnapshot, error) {
 	snapshot, err := self.storage.zone.region.CreateSnapshot(self.VolumeId, name, desc)
 	if err != nil {
@@ -244,14 +241,7 @@ func (self *SDisk) Reset(ctx context.Context, snapshotId string) (string, error)
 	if self.State != "available" {
 		return "", errors.Wrapf(cloudprovider.ErrInvalidStatus, "invalid status %s", self.State)
 	}
-	opts := &cloudprovider.DiskCreateConfig{
-		Name:       self.GetName(),
-		SizeGb:     self.GetDiskSizeMB() / 1024,
-		Iops:       self.Iops,
-		Throughput: self.Throughput,
-		SnapshotId: snapshotId,
-	}
-	disk, err := self.storage.zone.region.CreateDisk(self.AvailabilityZone, self.VolumeType, opts)
+	disk, err := self.storage.zone.region.CreateDisk(self.AvailabilityZone, self.VolumeType, self.GetName(), self.GetDiskSizeMB()/1024, self.Iops, self.Throughput, snapshotId, self.GetDescription())
 	if err != nil {
 		return "", errors.Wrapf(err, "CreateDisk")
 	}
@@ -304,6 +294,13 @@ func (self *SRegion) GetDisks(instanceId string, zoneId string, storageType stri
 		params["NextToken"] = part.NextToken
 	}
 
+	if len(instanceId) > 0 {
+		// 	系统盘必须放在第零个位置
+		sort.Slice(disks, func(i, j int) bool {
+			return disks[i].getDevice() < disks[j].getDevice()
+		})
+	}
+
 	return disks, nil
 }
 
@@ -323,7 +320,7 @@ func (self *SRegion) GetDisk(diskId string) (*SDisk, error) {
 			return &disks[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", diskId)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, diskId)
 }
 
 func (self *SRegion) DeleteDisk(diskId string) error {
@@ -364,39 +361,33 @@ func GenDiskIops(diskType string, sizeGB int) int64 {
 	return 0
 }
 
-func (self *SRegion) CreateDisk(zoneId string, volumeType string, opts *cloudprovider.DiskCreateConfig) (*SDisk, error) {
+func (self *SRegion) CreateDisk(zoneId string, volumeType string, name string, sizeGb, iops, throughput int, snapshotId string, desc string) (*SDisk, error) {
 	params := map[string]string{
 		"AvailabilityZone": zoneId,
 		"ClientToken":      utils.GenRequestId(20),
-		"Size":             fmt.Sprintf("%d", opts.SizeGb),
+		"Size":             fmt.Sprintf("%d", sizeGb),
 		"VolumeType":       volumeType,
 	}
 	tagIdx := 1
-	if len(opts.Name) > 0 {
-		params["TagSpecification.1.ResourceType"] = "volume"
-		params[fmt.Sprintf("TagSpecification.1.Tag.%d.Key", tagIdx)] = "Name"
-		params[fmt.Sprintf("TagSpecification.1.Tag.%d.Value", tagIdx)] = opts.Name
-		tagIdx++
-		if len(opts.Desc) > 0 {
-			params[fmt.Sprintf("TagSpecification.1.Tag.%d.Key", tagIdx)] = "Description"
-			params[fmt.Sprintf("TagSpecification.1.Tag.%d.Value", tagIdx)] = opts.Desc
+	if len(name) > 0 {
+		params[fmt.Sprintf("TagSpecification.%d.ResourceType", tagIdx)] = "volume"
+		params[fmt.Sprintf("TagSpecification.%d.Tag.1.Key", tagIdx)] = "Name"
+		params[fmt.Sprintf("TagSpecification.%d.Tag.1.Value", tagIdx)] = name
+		if len(desc) > 0 {
+			params[fmt.Sprintf("TagSpecification.%d.Tag.2.Key", tagIdx)] = "Description"
+			params[fmt.Sprintf("TagSpecification.%d.Tag.2.Value", tagIdx)] = desc
 		}
-	}
-	for k, v := range opts.Tags {
-		params["TagSpecification.1.ResourceType"] = "volume"
-		params[fmt.Sprintf("TagSpecification.1.Tag.%d.Key", tagIdx)] = k
-		params[fmt.Sprintf("TagSpecification.1.Tag.%d.Value", tagIdx)] = v
 		tagIdx++
 	}
-	if len(opts.SnapshotId) > 0 {
-		params["SnapshotId"] = opts.SnapshotId
+	if len(snapshotId) > 0 {
+		params["SnapshotId"] = snapshotId
 	}
-	if opts.Throughput >= 125 && opts.Throughput <= 1000 && volumeType == api.STORAGE_GP3_SSD {
-		params["Throughput"] = fmt.Sprintf("%d", opts.Throughput)
+	if throughput >= 125 && throughput <= 1000 && volumeType == api.STORAGE_GP3_SSD {
+		params["Throughput"] = fmt.Sprintf("%d", throughput)
 	}
 
-	if opts.Iops == 0 {
-		opts.Iops = int(GenDiskIops(volumeType, opts.SizeGb))
+	if iops == 0 {
+		iops = int(GenDiskIops(volumeType, sizeGb))
 	}
 
 	if utils.IsInStringArray(volumeType, []string{
@@ -404,7 +395,7 @@ func (self *SRegion) CreateDisk(zoneId string, volumeType string, opts *cloudpro
 		api.STORAGE_IO2_SSD,
 		api.STORAGE_GP3_SSD,
 	}) {
-		params["Iops"] = fmt.Sprintf("%d", opts.Iops)
+		params["Iops"] = fmt.Sprintf("%d", iops)
 	}
 	ret := &SDisk{}
 	return ret, self.ec2Request("CreateVolume", params, ret)

@@ -93,7 +93,7 @@ func (self *ElasticcacheCreateTask) OnSyncSecurityGroupComplete(ctx context.Cont
 }
 
 func (self *ElasticcacheCreateTask) OnSyncSecurityGroupCompleteFailed(ctx context.Context, elasticcache *models.SElasticcache, reason jsonutils.JSONObject) {
-	self.taskFail(ctx, elasticcache, fmt.Errorf("%s", reason.String()))
+	self.taskFail(ctx, elasticcache, fmt.Errorf(reason.String()))
 }
 
 func (self *ElasticcacheCreateTask) OnElasticcacheCreateComplete(ctx context.Context, elasticcache *models.SElasticcache, data jsonutils.JSONObject) {
@@ -107,5 +107,5 @@ func (self *ElasticcacheCreateTask) OnElasticcacheCreateComplete(ctx context.Con
 }
 
 func (self *ElasticcacheCreateTask) OnElasticcacheCreateCompleteFailed(ctx context.Context, elasticcache *models.SElasticcache, reason jsonutils.JSONObject) {
-	self.taskFail(ctx, elasticcache, fmt.Errorf("%s", reason.String()))
+	self.taskFail(ctx, elasticcache, fmt.Errorf(reason.String()))
 }

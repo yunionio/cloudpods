@@ -15,11 +15,7 @@
 package seclib2
 
 import (
-	"crypto"
 	"crypto/dsa"
-	"crypto/ecdsa"
-	"crypto/ed25519"
-	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
@@ -29,13 +25,14 @@ import (
 
 	"golang.org/x/crypto/ssh"
 
-	"yunion.io/x/pkg/errors"
+	"yunion.io/x/log"
 )
 
 func GenerateRSASSHKeypair() (string, string, error) {
 	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
-		return "", "", errors.Wrapf(err, "generate rsa key")
+		log.Errorf("generate rsa key error %s", err)
+		return "", "", err
 	}
 
 	privateKeyPEM := &pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(privateKey)}
@@ -43,51 +40,7 @@ func GenerateRSASSHKeypair() (string, string, error) {
 
 	pub, err := exportSshPublicKey(&privateKey.PublicKey)
 	if err != nil {
-		return "", "", errors.Wrapf(err, "export ssh public key")
-	}
-	publicStr := string(pub)
-
-	return privateStr, publicStr, nil
-}
-
-func GenerateED25519SSHKeypair() (string, string, error) {
-	publicKey, privateKey, err := ed25519.GenerateKey(rand.Reader)
-	if err != nil {
-		return "", "", errors.Wrapf(err, "generate ed25519 key")
-	}
-
-	pemBlock, err := ssh.MarshalPrivateKey(crypto.PrivateKey(privateKey), "")
-	if err != nil {
-		return "", "", errors.Wrapf(err, "marshal pkix private key")
-	}
-
-	privateStr := string(pem.EncodeToMemory(pemBlock))
-
-	pub, err := exportSshPublicKey(publicKey)
-	if err != nil {
-		return "", "", errors.Wrapf(err, "export ssh public key")
-	}
-	publicStr := string(pub)
-
-	return privateStr, publicStr, nil
-}
-
-func GenerateECDSASHAP521SSHKeypair() (string, string, error) {
-	privateKey, err := ecdsa.GenerateKey(elliptic.P521(), rand.Reader)
-	if err != nil {
-		return "", "", errors.Wrapf(err, "generate ecdsa key")
-	}
-
-	pemBlock, err := ssh.MarshalPrivateKey(crypto.PrivateKey(privateKey), "")
-	if err != nil {
-		return "", "", errors.Wrapf(err, "marshal pkix private key")
-	}
-
-	privateStr := string(pem.EncodeToMemory(pemBlock))
-
-	pub, err := exportSshPublicKey(&privateKey.PublicKey)
-	if err != nil {
-		return "", "", errors.Wrapf(err, "export ssh public key")
+		return "", "", err
 	}
 	publicStr := string(pub)
 
@@ -100,11 +53,13 @@ func GenerateDSASSHKeypair() (string, string, error) {
 	params := &privateKey.Parameters
 	err := dsa.GenerateParameters(params, rand.Reader, dsa.L1024N160)
 	if err != nil {
-		return "", "", errors.Wrapf(err, "generate dsa key")
+		log.Errorf("generateParameter error %s", err)
+		return "", "", err
 	}
 	err = dsa.GenerateKey(&privateKey, rand.Reader)
 	if err != nil {
-		return "", "", errors.Wrapf(err, "generate dsa key")
+		log.Errorf("generate key error %s", err)
+		return "", "", err
 	}
 
 	type DsaASN1 struct {
@@ -125,7 +80,8 @@ func GenerateDSASSHKeypair() (string, string, error) {
 
 	privBytes, err := asn1.Marshal(k)
 	if err != nil {
-		return "", "", errors.Wrapf(err, "asn1 marshal")
+		log.Errorf("asn1 marshal error %s", err)
+		return "", "", err
 	}
 
 	privateKeyPEM := &pem.Block{Type: "DSA PRIVATE KEY", Bytes: privBytes}
@@ -133,7 +89,7 @@ func GenerateDSASSHKeypair() (string, string, error) {
 
 	pub, err := exportSshPublicKey(&privateKey.PublicKey)
 	if err != nil {
-		return "", "", errors.Wrapf(err, "export ssh public key")
+		return "", "", err
 	}
 	publicStr := string(pub)
 
@@ -148,8 +104,8 @@ func GetPublicKeyScheme(pubkey ssh.PublicKey) string {
 		return "DSA"
 	case ssh.KeyAlgoECDSA256, ssh.KeyAlgoECDSA384, ssh.KeyAlgoECDSA521:
 		return "ECDSA"
-	case ssh.KeyAlgoED25519:
-		return "ED25519"
+		// case ssh.KeyAlgoED25519:
+		//	return "ED"
 	}
 	return "UNKNOWN"
 }

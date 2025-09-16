@@ -205,7 +205,3 @@ func ProtectedResourceError(ctx context.Context, w http.ResponseWriter, msg stri
 func NoProjectError(ctx context.Context, w http.ResponseWriter, msg string, params ...interface{}) {
 	JsonClientError(ctx, w, NewNoProjectError(msg, params...))
 }
-
-func TooManyRequestsError(ctx context.Context, w http.ResponseWriter, msg string, params ...interface{}) {
-	JsonClientError(ctx, w, NewTooManyRequestsError(msg, params...))
-}

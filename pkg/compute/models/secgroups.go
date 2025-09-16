@@ -286,15 +286,6 @@ func (manager *SSecurityGroupManager) QueryDistinctExtraField(q *sqlchemy.SQuery
 	return q, httperrors.ErrNotFound
 }
 
-func (manager *SSecurityGroupManager) QueryDistinctExtraFields(q *sqlchemy.SQuery, resource string, fields []string) (*sqlchemy.SQuery, error) {
-	var err error
-	q, err = manager.SManagedResourceBaseManager.QueryDistinctExtraFields(q, resource, fields)
-	if err == nil {
-		return q, nil
-	}
-	return q, httperrors.ErrNotFound
-}
-
 func (self *SSecurityGroup) GetChangeOwnerCandidateDomainIds() []string {
 	candidates := [][]string{}
 	vpc, _ := self.GetVpc()
@@ -947,7 +938,7 @@ func (self *SSecurityGroup) GetISecurityGroup(ctx context.Context) (cloudprovide
 				return securityGroups[i], nil
 			}
 		}
-		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%v", self.ExternalId)
+		return nil, errors.Wrapf(cloudprovider.ErrNotFound, self.ExternalId)
 	}
 	iRegion, err := self.GetIRegion(ctx)
 	if err != nil {

@@ -122,7 +122,7 @@ func (cli *SGoogleClient) GetGlobalNetworks(maxResults int, pageToken string) ([
 
 func (self *SGoogleClient) CreateGlobalNetwork(name string, desc string) (*SGlobalNetwork, error) {
 	body := map[string]interface{}{
-		"name":                  normalizeString(name),
+		"name":                  name,
 		"description":           desc,
 		"autoCreateSubnetworks": false,
 		"mtu":                   1460,
@@ -155,14 +155,6 @@ func (self *SGoogleClient) GetICloudGlobalVpcs() ([]cloudprovider.ICloudGlobalVp
 	for i := range gvpcs {
 		gvpcs[i].client = self
 		ret = append(ret, &gvpcs[i])
-	}
-	sharedVpcs, err := self.GetSharedGlobalNetworks()
-	if err != nil {
-		return nil, errors.Wrapf(err, "GetSharedVpcs")
-	}
-	for i := range sharedVpcs {
-		sharedVpcs[i].client = self
-		ret = append(ret, &sharedVpcs[i])
 	}
 	return ret, nil
 }

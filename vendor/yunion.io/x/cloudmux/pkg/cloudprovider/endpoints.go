@@ -85,10 +85,10 @@ type SHCSOEndpoints struct {
 	Modelarts string `default:"$HUAWEI_MODELARTS_ENDPOINT"`
 }
 
-func (endpoints *SHCSOEndpoints) GetEndpoint(defaultRegion, serviceName string, region string) string {
+func (self *SHCSOEndpoints) GetEndpoint(defaultRegion, serviceName string, region string) string {
 	sn := utils.Kebab2Camel(serviceName, "-")
-	if endpoints.caches == nil {
-		endpoints.caches = make(map[string]string, 0)
+	if self.caches == nil {
+		self.caches = make(map[string]string, 0)
 	}
 
 	key := defaultRegion + "." + sn
@@ -96,12 +96,12 @@ func (endpoints *SHCSOEndpoints) GetEndpoint(defaultRegion, serviceName string, 
 		key = region + "." + sn
 	}
 
-	if endpoint, ok := endpoints.caches[key]; ok && len(endpoint) > 0 {
+	if endpoint, ok := self.caches[key]; ok && len(endpoint) > 0 {
 		return endpoint
 	}
 
 	var endpoint string
-	fileds := reflect.Indirect(reflect.ValueOf(endpoints))
+	fileds := reflect.Indirect(reflect.ValueOf(self))
 	f := fileds.FieldByNameFunc(func(c string) bool {
 		return c == sn
 	})
@@ -111,13 +111,13 @@ func (endpoints *SHCSOEndpoints) GetEndpoint(defaultRegion, serviceName string, 
 	}
 
 	if len(endpoint) == 0 {
-		endpoint = strings.Join([]string{serviceName, defaultRegion, endpoints.EndpointDomain}, ".")
+		endpoint = strings.Join([]string{serviceName, defaultRegion, self.EndpointDomain}, ".")
 	}
 
 	if len(region) > 0 {
 		endpoint = strings.Replace(endpoint, defaultRegion, region, 1)
 	}
 
-	endpoints.caches[key] = endpoint
+	self.caches[key] = endpoint
 	return endpoint
 }

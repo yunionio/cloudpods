@@ -285,7 +285,7 @@ type BmRegisterInput struct {
 }
 
 func (i *BmRegisterInput) responseSucc(bmId string) {
-	fmt.Fprintf(i.W, "%s", bmId)
+	fmt.Fprintf(i.W, bmId)
 	close(i.C)
 }
 
@@ -1040,22 +1040,20 @@ func (b *SBaremetalInstance) GetIPMINicIPAddr() string {
 func (b *SBaremetalInstance) GetDHCPConfig(cliMac net.HardwareAddr) (*dhcp.ResponseConfig, error) {
 	var nic *types.SNic
 	var hostname string
-	var osName string
 	if b.GetServer() != nil && (b.GetTask() == nil || !b.GetTask().NeedPXEBoot()) {
 		nic = b.GetServer().GetNicByMac(cliMac)
-		hostname = b.GetServer().GetHostName()
-		osName = b.GetServer().GetOsName()
+		hostname = b.GetServer().GetName()
 	} else {
 		nic = b.GetNicByMac(cliMac)
 	}
 	if nic == nil {
 		return nil, fmt.Errorf("GetNicDHCPConfig no nic found by mac: %s", cliMac)
 	}
-	return b.getDHCPConfig(nic, hostname, false, 0, osName)
+	return b.getDHCPConfig(nic, hostname, false, 0)
 }
 
 func (b *SBaremetalInstance) GetPXEDHCPConfig(arch uint16) (*dhcp.ResponseConfig, error) {
-	return b.getDHCPConfig(b.GetAdminNic(), "", true, arch, "Linux")
+	return b.getDHCPConfig(b.GetAdminNic(), "", true, arch)
 }
 
 func (b *SBaremetalInstance) getDHCPConfig(
@@ -1063,13 +1061,9 @@ func (b *SBaremetalInstance) getDHCPConfig(
 	hostName string,
 	isPxe bool,
 	arch uint16,
-	osName string,
 ) (*dhcp.ResponseConfig, error) {
 	if hostName == "" {
 		hostName = b.GetName()
-	}
-	if osName == "" {
-		osName = "Linux"
 	}
 	serverIP, err := b.manager.Agent.GetDHCPServerIP()
 	if err != nil {
@@ -1084,7 +1078,7 @@ func (b *SBaremetalInstance) getDHCPConfig(
 			return nil, errors.Errorf("Baremetal %s not need UEFI PXE boot", b.GetName())
 		}
 	}
-	return GetNicDHCPConfig(nic, serverIP, b.manager.Agent.ListenInterface.HardwareAddr, hostName, isPxe, arch, osName)
+	return GetNicDHCPConfig(nic, serverIP.String(), hostName, isPxe, arch)
 }
 
 func (b *SBaremetalInstance) GetNotifyUrl() string {
@@ -2554,22 +2548,6 @@ func (server *SBaremetalServer) GetName() string {
 		log.Errorf("Get name from desc %s error: %v", server.desc.String(), err)
 	}
 	return id
-}
-
-func (server *SBaremetalServer) GetHostName() string {
-	hostname, err := server.desc.GetString("hostname")
-	if err != nil {
-		log.Errorf("Get hostname from desc %s error: %v", server.desc.String(), err)
-	}
-	return hostname
-}
-
-func (server *SBaremetalServer) GetOsName() string {
-	osName, err := server.desc.GetString("os_name")
-	if err != nil {
-		log.Errorf("Get os name from desc %s error: %v", server.desc.String(), err)
-	}
-	return osName
 }
 
 func (server *SBaremetalServer) SaveDesc(desc jsonutils.JSONObject) error {

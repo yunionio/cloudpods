@@ -32,49 +32,31 @@ type SNetwork struct {
 }
 
 func (network *SNetwork) GetProjectId() string {
-	if network.wire.vpc != nil {
-		return network.wire.vpc.region.GetProjectId()
-	}
-	return network.wire.shareVpc.region.GetProjectId()
+	return network.wire.vpc.region.GetProjectId()
 }
 
-func (network *SNetwork) GetName() string {
-	if network.wire.vpc != nil {
-		return network.wire.vpc.GetName()
-	}
-	return network.wire.shareVpc.GetName()
+func (self *SNetwork) GetName() string {
+	return self.wire.vpc.GetName()
 }
 
-func (network *SNetwork) GetId() string {
-	if network.wire.vpc != nil {
-		return network.wire.vpc.GetId()
-	}
-	return network.wire.shareVpc.GetId()
+func (self *SNetwork) GetId() string {
+	return self.wire.vpc.GetId()
 }
 
-func (network *SNetwork) GetDescription() string {
+func (self *SNetwork) GetDescription() string {
 	return ""
 }
 
-func (network *SNetwork) GetGlobalId() string {
-	if network.wire.vpc != nil {
-		return network.wire.vpc.GetGlobalId()
-	}
-	return network.wire.shareVpc.GetGlobalId()
+func (self *SNetwork) GetGlobalId() string {
+	return self.wire.vpc.GetGlobalId()
 }
 
-func (network *SNetwork) Refresh() error {
-	if network.wire.vpc != nil {
-		return network.wire.vpc.Refresh()
-	}
-	return network.wire.shareVpc.Refresh()
+func (self *SNetwork) Refresh() error {
+	return self.wire.vpc.Refresh()
 }
 
 func (network *SNetwork) IsEmulated() bool {
-	if network.wire.vpc != nil {
-		return network.wire.vpc.IsEmulated()
-	}
-	return network.wire.shareVpc.IsEmulated()
+	return false
 }
 
 func (network *SNetwork) GetStatus() string {
@@ -97,48 +79,27 @@ func (network *SNetwork) GetIWire() cloudprovider.ICloudWire {
 	return network.wire
 }
 
-func (network *SNetwork) GetIpStart() string {
-	cidr := ""
-	if network.wire.vpc != nil {
-		cidr = network.wire.vpc.IpCidrRange
-	} else {
-		cidr = network.wire.shareVpc.IpCidrRange
-	}
-	pref, _ := netutils.NewIPV4Prefix(cidr)
+func (self *SNetwork) GetIpStart() string {
+	pref, _ := netutils.NewIPV4Prefix(self.wire.vpc.IpCidrRange)
 	startIp := pref.Address.NetAddr(pref.MaskLen) // 0
 	startIp = startIp.StepUp()                    // 1
 	return startIp.String()
 }
 
-func (network *SNetwork) GetIpEnd() string {
-	cidr := ""
-	if network.wire.vpc != nil {
-		cidr = network.wire.vpc.IpCidrRange
-	} else {
-		cidr = network.wire.shareVpc.IpCidrRange
-	}
-	pref, _ := netutils.NewIPV4Prefix(cidr)
+func (self *SNetwork) GetIpEnd() string {
+	pref, _ := netutils.NewIPV4Prefix(self.wire.vpc.IpCidrRange)
 	endIp := pref.Address.BroadcastAddr(pref.MaskLen) // 255
 	endIp = endIp.StepDown()                          // 254
 	return endIp.String()
 }
 
-func (network *SNetwork) GetIpMask() int8 {
-	cidr := ""
-	if network.wire.vpc != nil {
-		cidr = network.wire.vpc.IpCidrRange
-	} else {
-		cidr = network.wire.shareVpc.IpCidrRange
-	}
-	pref, _ := netutils.NewIPV4Prefix(cidr)
+func (self *SNetwork) GetIpMask() int8 {
+	pref, _ := netutils.NewIPV4Prefix(self.wire.vpc.IpCidrRange)
 	return pref.MaskLen
 }
 
-func (network *SNetwork) GetGateway() string {
-	if network.wire.vpc != nil {
-		return network.wire.vpc.GatewayAddress
-	}
-	return network.GetIpStart()
+func (self *SNetwork) GetGateway() string {
+	return self.wire.vpc.GatewayAddress
 }
 
 func (network *SNetwork) GetServerType() string {

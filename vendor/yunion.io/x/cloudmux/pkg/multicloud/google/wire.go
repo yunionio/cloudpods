@@ -28,32 +28,19 @@ import (
 type SWire struct {
 	multicloud.SResourceBase
 	GoogleTags
-	vpc      *SVpc
-	shareVpc *SXpnNetwork
+	vpc *SVpc
 }
 
 func (wire *SWire) GetId() string {
-	if wire.vpc != nil {
-		return wire.vpc.GetGlobalId()
-	}
-	return wire.shareVpc.GetGlobalId()
+	return wire.vpc.GetGlobalId()
 }
 
 func (wire *SWire) GetGlobalId() string {
-	name := ""
-	if wire.vpc != nil {
-		name = wire.vpc.region.Name
-	} else {
-		name = wire.shareVpc.region.Name
-	}
-	return fmt.Sprintf("%s-%s", wire.GetId(), name)
+	return fmt.Sprintf("%s-%s", wire.GetId(), wire.vpc.region.Name)
 }
 
 func (wire *SWire) GetName() string {
-	if wire.vpc != nil {
-		return wire.vpc.GetName()
-	}
-	return wire.shareVpc.GetName()
+	return wire.vpc.GetName()
 }
 
 func (wire *SWire) GetCreatedAt() time.Time {
@@ -65,10 +52,7 @@ func (wire *SWire) CreateINetwork(opts *cloudprovider.SNetworkCreateOptions) (cl
 }
 
 func (wire *SWire) GetIVpc() cloudprovider.ICloudVpc {
-	if wire.vpc != nil {
-		return wire.vpc
-	}
-	return wire.shareVpc
+	return wire.vpc
 }
 
 func (wire *SWire) GetIZone() cloudprovider.ICloudZone {
@@ -90,7 +74,7 @@ func (self *SWire) GetINetworkById(id string) (cloudprovider.ICloudNetwork, erro
 			return networks[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", id)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
 }
 
 func (wire *SWire) GetBandwidth() int {

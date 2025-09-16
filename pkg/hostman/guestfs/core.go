@@ -65,8 +65,8 @@ func DoDeployGuestFs(rootfs fsdriver.IRootFsDriver, guestDesc *deployapi.GuestDe
 		hn          = guestDesc.Name
 		domain      = guestDesc.Domain
 		gid         = guestDesc.Uuid
-		nics        = fsdriver.ToServerNics(guestDesc, guestDesc.Nics)
-		nicsStandby = fsdriver.ToServerNics(guestDesc, guestDesc.NicsStandby)
+		nics        = fsdriver.ToServerNics(guestDesc.Nics)
+		nicsStandby = fsdriver.ToServerNics(guestDesc.NicsStandby)
 		partition   = rootfs.GetPartition()
 		releaseInfo = rootfs.GetReleaseInfo(partition)
 	)
@@ -74,21 +74,12 @@ func DoDeployGuestFs(rootfs fsdriver.IRootFsDriver, guestDesc *deployapi.GuestDe
 		hn = guestDesc.Hostname
 	}
 	for _, n := range nics {
-		if len(n.Ip) > 0 {
-			var addr netutils.IPV4Addr
-			if addr, err = netutils.NewIPV4Addr(n.Ip); err != nil {
-				return nil, errors.Wrapf(err, "Fail to get ip addr from %#v", n)
-			}
-			if netutils.IsPrivate(addr) {
-				ips = append(ips, addr.String())
-			}
+		var addr netutils.IPV4Addr
+		if addr, err = netutils.NewIPV4Addr(n.Ip); err != nil {
+			return nil, fmt.Errorf("Fail to get ip addr from %#v: %s", n, err)
 		}
-		if len(n.Ip6) > 0 {
-			var addr netutils.IPV6Addr
-			if addr, err = netutils.NewIPV6Addr(n.Ip6); err != nil {
-				return nil, errors.Wrapf(err, "Fail to get ipv6 addr from %#v", n)
-			}
-			ips = append(ips, addr.String())
+		if netutils.IsPrivate(addr) {
+			ips = append(ips, n.Ip)
 		}
 	}
 	if releaseInfo != nil {

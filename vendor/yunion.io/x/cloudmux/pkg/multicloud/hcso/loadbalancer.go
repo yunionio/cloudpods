@@ -86,12 +86,12 @@ type Pool struct {
 	ID string `json:"id"`
 }
 
-func (self *SLoadbalancer) GetIEIPs() ([]cloudprovider.ICloudEIP, error) {
+func (self *SLoadbalancer) GetIEIP() (cloudprovider.ICloudEIP, error) {
 	if self.GetEip() == nil {
 		return nil, nil
 	}
 
-	return []cloudprovider.ICloudEIP{self.eip}, nil
+	return self.eip, nil
 }
 
 func (self *SLoadbalancer) GetId() string {

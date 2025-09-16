@@ -52,7 +52,7 @@ func (workwxRobotSender *SWorkwxRobotSender) Send(ctx context.Context, args api.
 		return errors.Wrap(err, "req.GetString")
 	}
 	if errCode != "0" {
-		errs = append(errs, errors.Errorf("%s", req.PrettyString()))
+		errs = append(errs, errors.Errorf(req.PrettyString()))
 	}
 	return errors.NewAggregate(errs)
 }

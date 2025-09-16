@@ -31,7 +31,6 @@ type SLoadbalancerBackend struct {
 	lbbg *SLoadbalancerBackendGroup
 
 	ServerId string
-	ServerIp string
 	Port     int
 	Weight   int
 }
@@ -41,7 +40,7 @@ func (backend *SLoadbalancerBackend) GetName() string {
 }
 
 func (backend *SLoadbalancerBackend) GetId() string {
-	return fmt.Sprintf("%s/%s/%s/%d", backend.lbbg.VServerGroupId, backend.ServerId, backend.ServerIp, backend.Port)
+	return fmt.Sprintf("%s/%s", backend.lbbg.VServerGroupId, backend.ServerId)
 }
 
 func (backend *SLoadbalancerBackend) GetGlobalId() string {
@@ -90,7 +89,7 @@ func (backend *SLoadbalancerBackend) GetBackendId() string {
 }
 
 func (backend *SLoadbalancerBackend) GetIpAddress() string {
-	return backend.ServerIp
+	return ""
 }
 
 func (region *SRegion) GetLoadbalancerBackends(backendgroupId string) ([]SLoadbalancerBackend, error) {
@@ -109,10 +108,10 @@ func (backend *SLoadbalancerBackend) GetProjectId() string {
 	return backend.lbbg.GetProjectId()
 }
 
-func (backend *SLoadbalancerBackend) Update(ctx context.Context, opts *cloudprovider.SLoadbalancerBackend) error {
+func (backend *SLoadbalancerBackend) SyncConf(ctx context.Context, port, weight int) error {
 	err := backend.lbbg.lb.region.RemoveBackendVServer(backend.lbbg.lb.LoadBalancerId, backend.lbbg.VServerGroupId, backend.ServerId, backend.Port)
 	if err != nil {
 		return err
 	}
-	return backend.lbbg.lb.region.AddBackendVServer(backend.lbbg.lb.LoadBalancerId, backend.lbbg.VServerGroupId, backend.ServerId, opts.Weight, opts.Port)
+	return backend.lbbg.lb.region.AddBackendVServer(backend.lbbg.lb.LoadBalancerId, backend.lbbg.VServerGroupId, backend.ServerId, weight, port)
 }

@@ -443,7 +443,7 @@ func (b *SBucket) PutObject(ctx context.Context, key string, body io.Reader, siz
 
 func (region *SRegion) GetBucket(name string) (*SBucket, error) {
 	resource := "b/" + name
-	bucket := &SBucket{region: region}
+	bucket := &SBucket{}
 	err := region.StorageGet(resource, bucket)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetBucket")
@@ -484,7 +484,7 @@ func (region *SRegion) CreateBucket(name string, storageClass string, acl cloudp
 		params.Set("predefinedAcl", "publicReadWrite")
 	}
 	params.Set("project", region.GetProjectId())
-	bucket := &SBucket{region: region}
+	bucket := &SBucket{}
 	resource := fmt.Sprintf("b?%s", params.Encode())
 	err := region.StorageInsert(resource, jsonutils.Marshal(body), bucket)
 	if err != nil {

@@ -166,16 +166,6 @@ func ParseDiskConfig(diskStr string, idx int) (*compute.DiskConfig, error) {
 						return nil, errors.Errorf("invalid feature %s of %s", feature, diskConfig.Fs)
 					}
 				}
-				if diskConfig.Fs == "f2fs" {
-					if diskConfig.FsFeatures.F2fs == nil {
-						diskConfig.FsFeatures.F2fs = &compute.DiskFsF2fsFeatures{}
-					}
-					if feature == "casefold" {
-						diskConfig.FsFeatures.F2fs.CaseInsensitive = true
-					} else {
-						return nil, errors.Errorf("invalid feature %s of %s", feature, diskConfig.Fs)
-					}
-				}
 			}
 		case "format":
 			if !utils.IsInStringArray(str, osprofile.IMAGE_FORMAT_TYPES) {
@@ -346,9 +336,6 @@ func ParseNetworkConfig(desc string, idx int) (*compute.NetworkConfig, error) {
 			netConfig.IsDefault = true
 		} else if p == "ipv6" {
 			netConfig.RequireIPv6 = true
-		} else if p == "strict-ipv6" {
-			netConfig.RequireIPv6 = true
-			netConfig.StrictIPv6 = true
 		} else if strings.HasPrefix(p, "standby-port=") {
 			netConfig.StandbyPortCount, _ = strconv.Atoi(p[len("standby-port="):])
 		} else if strings.HasPrefix(p, "standby-addr=") {

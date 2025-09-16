@@ -28,7 +28,5 @@ func init() {
 	cmd.Create(&compute.SnapshotPolicyCreateOptions{})
 	cmd.Perform("bind-disks", &compute.SnapshotPolicyDisksOptions{})
 	cmd.Perform("unbind-disks", &compute.SnapshotPolicyDisksOptions{})
-	cmd.Perform("bind-resources", &compute.SnapshotPolicyResourcesOptions{})
-	cmd.Perform("unbind-resources", &compute.SnapshotPolicyResourcesOptions{})
 	cmd.Perform("syncstatus", &options.BaseIdOptions{})
 }

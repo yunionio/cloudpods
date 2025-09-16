@@ -149,7 +149,7 @@ func (self *DiskResetTask) RequestResetDisk(ctx context.Context, disk *models.SD
 }
 
 func (self *DiskResetTask) OnRequestResetDiskFailed(ctx context.Context, disk *models.SDisk, data jsonutils.JSONObject) {
-	self.TaskFailed(ctx, disk, fmt.Errorf("%s", data.String()))
+	self.TaskFailed(ctx, disk, fmt.Errorf(data.String()))
 }
 
 func (self *DiskResetTask) OnRequestResetDisk(ctx context.Context, disk *models.SDisk, data jsonutils.JSONObject) {

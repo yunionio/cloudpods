@@ -89,25 +89,10 @@ func GetContainerVolumeMountDriverWithError(typ apis.ContainerVolumeMountType) (
 	return getContainerDriverWithError[apis.ContainerVolumeMountType, IContainerVolumeMountDriver](containerVolumeDrivers, typ)
 }
 
-func GetContainerRootFsDriverWithError(typ apis.ContainerVolumeMountType) (IContainerRootFsDriver, error) {
-	return getContainerDriverWithError[apis.ContainerVolumeMountType, IContainerRootFsDriver](containerVolumeDrivers, typ)
-}
-
-func GetContainerRootFsDriver(typ apis.ContainerVolumeMountType) IContainerRootFsDriver {
-	return getContainerDriver[apis.ContainerVolumeMountType, IContainerRootFsDriver](containerVolumeDrivers, typ)
-}
-
 type IContainerVolumeMountDriver interface {
 	GetType() apis.ContainerVolumeMountType
 	ValidatePodCreateData(ctx context.Context, userCred mcclient.TokenCredential, vm *apis.ContainerVolumeMount, input *api.ServerCreateInput) error
 	ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, pod *SGuest, vm *apis.ContainerVolumeMount) (*apis.ContainerVolumeMount, error)
-}
-
-type IContainerRootFsDriver interface {
-	IContainerVolumeMountDriver
-
-	ToHostRootFs(rootFs *apis.ContainerRootfs) (*hostapi.ContainerRootfs, error)
-	ValidateRootFsCreateData(ctx context.Context, userCred mcclient.TokenCredential, pod *SGuest, rootFs *apis.ContainerRootfs) error
 }
 
 type IContainerVolumeMountDiskDriver interface {

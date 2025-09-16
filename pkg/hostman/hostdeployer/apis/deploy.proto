@@ -151,14 +151,8 @@ message FsExt4Features {
   int32 ReservedBlocksPercentage = 2;
 }
 
-message FsF2fsFeatures {
-  bool CaseInsensitive = 1;
-  int32 OverprovisionRatioPercentage = 2;
-}
-
 message FsFeatures {
   FsExt4Features ext4 = 1;
-  FsF2fsFeatures f2fs = 2;
 }
 
 message FormatFsParams {
@@ -212,19 +206,6 @@ message EsxiDisksConnectionInfo {
   repeated EsxiDiskInfo disks = 1;
 }
 
-
-// cdrom, scsi cdrom, hard drive, scsi, pci
-message BootDevices {
-  int32 BootOrder = 1;
-  int32 DevType = 2;
-  int32 AttachOrder = 3;
-}
-
-message OvmfBootOrderParams {
-  string OvmfVarsPath = 1;
-  repeated BootDevices devs = 2;
-}
-
 service DeployAgent {
   rpc DeployGuestFs (DeployParams) returns (DeployGuestFsResponse);
   rpc ResizeFs (ResizeFsParams) returns (Empty);
@@ -233,5 +214,4 @@ service DeployAgent {
   rpc ProbeImageInfo(ProbeImageInfoPramas) returns (ImageInfo);
   rpc ConnectEsxiDisks(ConnectEsxiDisksParams) returns (EsxiDisksConnectionInfo);
   rpc DisconnectEsxiDisks(EsxiDisksConnectionInfo) returns (Empty);
-  rpc SetOvmfBootOrder(OvmfBootOrderParams) returns (Empty);
 }

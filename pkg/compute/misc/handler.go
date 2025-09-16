@@ -67,7 +67,7 @@ func getBmAgentUrl(ctx context.Context, w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	fmt.Fprintf(w, "%s", bmAgent.ManagerUri)
+	fmt.Fprintf(w, bmAgent.ManagerUri)
 }
 
 func getBmPrepareScript(ctx context.Context, w http.ResponseWriter, r *http.Request) {
@@ -88,5 +88,5 @@ func getBmPrepareScript(ctx context.Context, w http.ResponseWriter, r *http.Requ
 	script += "tar -zxf ./baremetal_prepare.tar.gz -C ./baremetal_prepare;"
 	script += fmt.Sprintf("./baremetal_prepare/prepare.sh %s %s",
 		userCred.GetTokenString(), regionUrl)
-	fmt.Fprintf(w, "%s", script)
+	fmt.Fprintf(w, script)
 }

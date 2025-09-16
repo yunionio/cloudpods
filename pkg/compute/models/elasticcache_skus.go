@@ -846,7 +846,7 @@ func SyncElasticCacheSkus(ctx context.Context, userCred mcclient.TokenCredential
 
 		result := ElasticcacheSkuManager.SyncElasticcacheSkus(ctx, userCred, region, false)
 		notes := fmt.Sprintf("SyncElasticCacheSkusByRegion %s result: %s", region.Name, result.Result())
-		log.Debugf("%s", notes)
+		log.Debugf(notes)
 	}
 }
 
@@ -854,12 +854,12 @@ func SyncElasticCacheSkus(ctx context.Context, userCred mcclient.TokenCredential
 func SyncElasticCacheSkusByRegion(ctx context.Context, userCred mcclient.TokenCredential, region *SCloudregion, xor bool) error {
 	if !region.GetDriver().IsSupportedElasticcache() {
 		notes := fmt.Sprintf("SyncElasticCacheSkusByRegion %s not support elasticcache", region.Name)
-		log.Infof("%s", notes)
+		log.Infof(notes)
 		return nil
 	}
 
 	result := ElasticcacheSkuManager.SyncElasticcacheSkus(ctx, userCred, region, xor)
 	notes := fmt.Sprintf("SyncElasticCacheSkusByRegion %s result: %s", region.Name, result.Result())
-	log.Infof("%s", notes)
+	log.Infof(notes)
 	return nil
 }

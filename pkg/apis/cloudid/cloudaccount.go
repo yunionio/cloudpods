@@ -16,12 +16,12 @@ package cloudid
 
 type CloudaccountResourceListInput struct {
 	// 根据云账号名称过滤资源
-	// swagger:ignore
 	Cloudaccount string `json:"cloudaccount" yunion-deprecated-by:"cloudaccount_id"`
 
 	// 根据平台过滤
 	Provider []string `json:"provider"`
 
+	// swagger:ignore
 	CloudaccountId string `json:"cloudaccount_id"`
 }
 

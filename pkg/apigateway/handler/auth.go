@@ -252,7 +252,7 @@ func (h *AuthHandlers) getScopedPolicyBindings(ctx context.Context, w http.Respo
 func (h *AuthHandlers) getUser(ctx context.Context, w http.ResponseWriter, req *http.Request) {
 	data, err := getUserInfo(ctx, req)
 	if err != nil {
-		httperrors.NotFoundError(ctx, w, "%s", err.Error())
+		httperrors.NotFoundError(ctx, w, err.Error())
 		return
 	}
 	body := jsonutils.NewDict()

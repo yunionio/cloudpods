@@ -213,7 +213,7 @@ func (self *SVpc) GetIWireById(wireId string) (cloudprovider.ICloudWire, error) 
 			return wires[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", wireId)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, wireId)
 }
 
 func (self *SVpc) GetICloudVpcPeeringConnections() ([]cloudprovider.ICloudVpcPeeringConnection, error) {
@@ -268,7 +268,7 @@ func (self *SVpc) AcceptICloudVpcPeeringConnection(id string) error {
 func (self *SVpc) GetAuthorityOwnerId() string {
 	identity, err := self.region.client.GetCallerIdentity()
 	if err != nil {
-		log.Errorf("GetCallerIdentity error: %v", err)
+		log.Errorf(err.Error() + "self.region.client.GetCallerIdentity()")
 		return ""
 	}
 	return identity.Account
@@ -393,7 +393,7 @@ func (self *SRegion) getVpc(vpcId string) (*SVpc, error) {
 			return &vpcs[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", vpcId)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, vpcId)
 }
 
 func (self *SRegion) assignSecurityGroups(secgroupIds []string, instanceId string) error {

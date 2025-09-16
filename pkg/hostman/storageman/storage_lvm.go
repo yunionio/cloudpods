@@ -653,27 +653,23 @@ func (d *SLVMStorage) GetDisksPath() ([]string, error) {
 	return disksPath, nil
 }
 
-func ConvertLVMDiskNeedReload(vgName, lvName string, encryptInfo apis.SEncryptInfo) (func() error, error) {
-	return convertLVMDisk(vgName, lvName, encryptInfo)
-}
-
-func convertLVMDisk(vgName, lvName string, encryptInfo apis.SEncryptInfo) (func() error, error) {
+func ConvertLVMDisk(vgName, lvName string, encryptInfo apis.SEncryptInfo) error {
 	diskPath := path.Join("/dev", vgName, lvName)
 	qemuImg, err := qemuimg.NewQemuImage(diskPath)
 	if err != nil {
 		log.Errorln(err)
-		return nil, err
+		return err
 	}
 	lvSize, err := lvmutils.GetLvSize(diskPath)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	tmpVolume := lvName + "-convert.tmp"
 	tmpVolumePath := path.Join("/dev", vgName, tmpVolume)
 	// create /dev/vg/disk-convert.tmp
 	if err := lvmutils.LvCreate(vgName, tmpVolume, lvSize); err != nil {
-		return nil, errors.Wrap(err, "delete snapshot LvCreate")
+		return errors.Wrap(err, "delete snapshot LvCreate")
 	}
 	srcInfo := qemuimg.SImageInfo{
 		Path:    diskPath,
@@ -683,7 +679,6 @@ func convertLVMDisk(vgName, lvName string, encryptInfo apis.SEncryptInfo) (func(
 		Password:      encryptInfo.Key,
 		EncryptAlg:    encryptInfo.Alg,
 		EncryptFormat: qemuimg.EncryptFormatLuks,
-		ClusterSize:   qemuImg.ClusterSize,
 	}
 	destInfo := qemuimg.SImageInfo{
 		Path:    tmpVolumePath,
@@ -696,41 +691,25 @@ func convertLVMDisk(vgName, lvName string, encryptInfo apis.SEncryptInfo) (func(
 	}
 	// convert /dev/vg/disk to /dev/vg/disk-convert.tmp
 	if err = qemuimg.Convert(srcInfo, destInfo, false, nil); err != nil {
-		if e := lvmutils.LvRemove(tmpVolumePath); e != nil {
-			log.Errorf("failed remote lvm convert tmp volume %s", tmpVolumePath)
-		}
-		return nil, errors.Wrap(err, "failed convert tmp disk")
+		lvmutils.LvRemove(tmpVolumePath)
+		return errors.Wrap(err, "failed convert tmp disk")
 	}
 	tmpVolume2 := lvName + "-convert.tmp2"
 	tmpVolume2Path := path.Join("/dev", vgName, tmpVolume2)
 	// rename /dev/vg/disk to /dev/vg/disk-convert.tmp2
 	err = lvmutils.LvRename(vgName, diskPath, tmpVolume2)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed rename disk to tmp")
+		return errors.Wrap(err, "failed rename disk to tmp")
 	}
 	// rename /dev/vg/disk-convert.tmp to /dev/vg/disk
 	err = lvmutils.LvRename(vgName, tmpVolume, diskPath)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed rename tmp to disk")
+		return errors.Wrap(err, "failed rename tmp to disk")
 	}
-	return func() error {
-		// delete /dev/vg/disk-convert.tmp2
-		e1 := lvmutils.LvRemove(tmpVolume2Path)
-		if e1 != nil {
-			return errors.Wrap(err, "failed remove tmp disk")
-		}
-		return nil
-	}, nil
-}
-
-func ConvertLVMDisk(vgName, lvName string, encryptInfo apis.SEncryptInfo) error {
-	delTmpVolume2Disk, err := convertLVMDisk(vgName, lvName, encryptInfo)
+	// delete /dev/vg/disk-convert.tmp2
+	err = lvmutils.LvRemove(tmpVolume2Path)
 	if err != nil {
-		return err
-	}
-	err = delTmpVolume2Disk()
-	if err != nil {
-		return err
+		return errors.Wrap(err, "failed remove tmp disk")
 	}
 	return nil
 }

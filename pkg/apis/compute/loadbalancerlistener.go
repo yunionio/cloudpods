@@ -93,12 +93,12 @@ type LoadbalancerListenerListInput struct {
 type LoadbalancerListenerCreateInput struct {
 	apis.StatusStandaloneResourceCreateInput
 
-	// swagger:ignore
+	// swagger: ignore
 	Loadbalancer string `json:"loadbalancer" yunion-deprecated-by:"loadbalancer_id"`
 	// 负载均衡ID
 	LoadbalancerId string `json:"loadbalancer_id"`
 
-	//swagger:ignore
+	//swagger: ignore
 	BackendGroup   string `json:"backend_group" yunion-deprecated-by:"backend_group_id"`
 	BackendGroupId string `json:"backend_group_id"`
 
@@ -131,7 +131,7 @@ type LoadbalancerListenerCreateInput struct {
 
 	EgressMbps int `json:"egress_mbps"`
 
-	//swagger:ignore
+	//swagger: ignore
 	Certificate   string `json:"certificate" yunion-deprecated-by:"certificate_id"`
 	CertificateId string `json:"certificate_id"`
 
@@ -173,7 +173,7 @@ type LoadbalancerListenerCreateInput struct {
 	RedirectHost   string `json:"redirect_host"`
 	RedirectPath   string `json:"redirect_path"`
 
-	//swagger:ignore
+	//swagger: ignore
 	Acl string `json:"acl" yunion-deprecated-by:"acl_id"`
 
 	AclId     string `json:"acl_id"`
@@ -286,7 +286,7 @@ type LoadbalancerListenerUpdateInput struct {
 
 	AclStatus *string `json:"acl_status"`
 	AclType   *string `json:"acl_type"`
-	//swagger:ignore
+	//swagger: ignore
 	Acl   *string `json:"acl" yunion-deprecated-by:"acl_id"`
 	AclId *string `json:"acl_id"`
 
@@ -313,7 +313,7 @@ type LoadbalancerListenerUpdateInput struct {
 	XForwardedFor *bool `json:"x_forwarded_for"`
 	Gzip          *bool `json:"gzip"`
 
-	//swagger:ignore
+	//swagger: ignore
 	Certificate   *string `json:"certificate" yunion-deprecated-by:"certificate_id"`
 	CertificateId *string `json:"certificate_id"`
 

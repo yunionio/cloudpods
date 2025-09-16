@@ -141,7 +141,7 @@ func (self *SNatGateway) Refresh() error {
 		return errors.Wrapf(cloudprovider.ErrDuplicateId, "get %d natgateways by id %s", total, self.NatGatewayId)
 	}
 	if total == 0 {
-		return errors.Wrapf(cloudprovider.ErrNotFound, "%s", self.NatGatewayId)
+		return errors.Wrapf(cloudprovider.ErrNotFound, self.NatGatewayId)
 	}
 	return jsonutils.Update(self, nat[0])
 }
@@ -155,16 +155,23 @@ func (nat *SNatGateway) GetExpiredAt() time.Time {
 }
 
 func (nat *SNatGateway) GetIEips() ([]cloudprovider.ICloudEIP, error) {
-	eips, err := nat.vpc.region.GetEips("", nat.NatGatewayId, "")
-	if err != nil {
-		return nil, err
+	eips := []SEipAddress{}
+	for {
+		parts, total, err := nat.vpc.region.GetEips("", nat.NatGatewayId, "", len(eips), 50)
+		if err != nil {
+			return nil, err
+		}
+		eips = append(eips, parts...)
+		if len(eips) >= total {
+			break
+		}
 	}
-	ret := []cloudprovider.ICloudEIP{}
-	for i := range eips {
+	ieips := []cloudprovider.ICloudEIP{}
+	for i := 0; i < len(eips); i++ {
 		eips[i].region = nat.vpc.region
-		ret = append(ret, &eips[i])
+		ieips = append(ieips, &eips[i])
 	}
-	return ret, nil
+	return ieips, nil
 }
 
 func (nat *SNatGateway) GetINatDTable() ([]cloudprovider.ICloudNatDEntry, error) {

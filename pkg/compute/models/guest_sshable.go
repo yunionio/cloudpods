@@ -352,8 +352,7 @@ func (guest *SGuest) sshableTry(
 		return true
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, 7*time.Second)
-	defer cancel()
+	ctx, _ = context.WithTimeout(ctx, 7*time.Second)
 	conf := ssh_util.ClientConfig{
 		Username:   tryData.User,
 		Host:       methodData.Host,

@@ -36,10 +36,7 @@ type SSecurityGroupResourceBase struct {
 	SecgroupId string `width:"36" charset:"ascii" nullable:"false" create:"required"  index:"true" list:"user" json:"secgroup_id"`
 }
 
-type SSecurityGroupResourceBaseManager struct {
-	SCloudregionResourceBaseManager
-	SManagedResourceBaseManager
-}
+type SSecurityGroupResourceBaseManager struct{}
 
 func ValidateSecurityGroupResourceInput(ctx context.Context, userCred mcclient.TokenCredential, query api.SecgroupResourceInput) (*SSecurityGroup, api.SecgroupResourceInput, error) {
 	secgrpObj, err := SecurityGroupManager.FetchByIdOrName(ctx, userCred, query.SecgroupId)
@@ -81,34 +78,16 @@ func (manager *SSecurityGroupResourceBaseManager) FetchCustomizeColumns(
 		}
 		secgrpIds[i] = base.SecgroupId
 	}
-
-	groups := make(map[string]SSecurityGroup)
-	err := db.FetchStandaloneObjectsByIds(SecurityGroupManager, secgrpIds, groups)
+	secgrpNames, err := db.FetchIdNameMap2(SecurityGroupManager, secgrpIds)
 	if err != nil {
-		log.Errorf("FetchStandaloneObjectsByIds fail %s", err)
-		return nil
+		log.Errorf("FetchIdNameMap2 fail %s", err)
+		return rows
 	}
-
-	regionList := make([]interface{}, len(rows))
-	managerList := make([]interface{}, len(rows))
 	for i := range rows {
-		rows[i] = api.SecurityGroupResourceInfo{}
-		if group, ok := groups[secgrpIds[i]]; ok {
-			rows[i].Secgroup = group.Name
-			rows[i].CloudregionId = group.CloudregionId
-			rows[i].ManagerId = group.ManagerId
+		if name, ok := secgrpNames[secgrpIds[i]]; ok {
+			rows[i].Secgroup = name
 		}
-		regionList[i] = &SCloudregionResourceBase{rows[i].CloudregionId}
-		managerList[i] = &SManagedResourceBase{rows[i].ManagerId}
 	}
-
-	regionRows := manager.SCloudregionResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, regionList, fields, isList)
-	managerRows := manager.SManagedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, managerList, fields, isList)
-	for i := range rows {
-		rows[i].CloudregionResourceInfo = regionRows[i]
-		rows[i].ManagedResourceInfo = managerRows[i]
-	}
-
 	return rows
 }
 
@@ -125,27 +104,10 @@ func (manager *SSecurityGroupResourceBaseManager) ListItemFilter(
 		}
 		q = q.Equals("secgroup_id", secgrpObj.GetId())
 	}
-
 	if len(query.SecgroupName) > 0 {
 		sq := SecurityGroupManager.Query("id").Like("name", "%"+query.SecgroupName+"%")
 		q = q.In("secgroup_id", sq.SubQuery())
 	}
-
-	var err error
-	subq := SecurityGroupManager.Query("id").Snapshot()
-	subq, err = manager.SManagedResourceBaseManager.ListItemFilter(ctx, subq, userCred, query.ManagedResourceListInput)
-	if err != nil {
-		return nil, errors.Wrap(err, "SManagedResourceBaseManager.ListItemFilter")
-	}
-
-	subq, err = manager.SCloudregionResourceBaseManager.ListItemFilter(ctx, subq, userCred, query.RegionalFilterListInput)
-	if err != nil {
-		return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.ListItemFilter")
-	}
-	if subq.IsAltered() {
-		q = q.Filter(sqlchemy.In(q.Field("secgroup_id"), subq.SubQuery()))
-	}
-
 	return q, nil
 }
 

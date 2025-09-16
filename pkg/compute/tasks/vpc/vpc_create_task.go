@@ -70,5 +70,5 @@ func (self *VpcCreateTask) OnCreateVpcComplete(ctx context.Context, vpc *models.
 }
 
 func (self *VpcCreateTask) OnCreateVpcCompleteFailed(ctx context.Context, vpc *models.SVpc, data jsonutils.JSONObject) {
-	self.taskFailed(ctx, vpc, errors.Errorf("%s", data.String()))
+	self.taskFailed(ctx, vpc, errors.Errorf(data.String()))
 }

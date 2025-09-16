@@ -268,7 +268,7 @@ func (s *ResourceStore[O]) Update(oldObj, newObj *jsonutils.JSONDict) {
 	newObj = s.removeIgnoreKeys(newObj)
 	isEq := oldObj.String() == newObj.String()
 	if id != "" && !isEq {
-		dbObj, err := s.getDBObject(s.modelMan, id, newObj)
+		dbObj, err := s.modelMan.FetchById(id)
 		if err == nil {
 			v := reflect.ValueOf(dbObj)
 			tmpObj := v.Elem().Interface()

@@ -78,7 +78,7 @@ func (drv *SBaseGuestDriver) OnGuestCreateTaskComplete(ctx context.Context, gues
 	if len(duration) > 0 {
 		bc, err := billing.ParseBillingCycle(duration)
 		if err == nil && guest.ExpiredAt.IsZero() {
-			models.SaveRenewInfo(ctx, task.GetUserCred(), guest, &bc, nil, "")
+			guest.SaveRenewInfo(ctx, task.GetUserCred(), &bc, nil, "")
 		}
 		if jsonutils.QueryBoolean(task.GetParams(), "auto_prepaid_recycle", false) {
 			err := guest.CanPerformPrepaidRecycle()
@@ -395,6 +395,11 @@ func (drv *SBaseGuestDriver) RequestSyncSecgroupsOnHost(ctx context.Context, gue
 	return nil // do nothing
 }
 
+func (drv *SBaseGuestDriver) CancelExpireTime(
+	ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest) error {
+	return guest.CancelExpireTime(ctx, userCred)
+}
+
 func (drv *SBaseGuestDriver) IsSupportPublicipToEip() bool {
 	return false
 }
@@ -689,7 +694,7 @@ func (base *SBaseGuestDriver) ValidateGuestChangeConfigInput(ctx context.Context
 		return nil, errors.Wrap(err, "SchedManager.DoScheduleForecast")
 	}
 	if !canChangeConf {
-		return nil, httperrors.NewInsufficientResourceError("%s", res.String())
+		return nil, httperrors.NewInsufficientResourceError(res.String())
 	}
 
 	confs.SchedDesc = jsonutils.Marshal(schedDesc)

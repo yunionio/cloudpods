@@ -186,12 +186,6 @@ func IsNetworkAvailable(
 	exit := req.Exit
 	wire := req.Wire
 
-	if req.RequireIPv6 && !n.IsSupportIPv6() {
-		return FailReason{
-			Reason: fmt.Sprintf("%v(%v): %s", n.Name, n.Id, ErrNotSupportIpv6),
-		}
-	}
-
 	isMatchServerType := func(network *models.SNetwork) bool {
 		return computeapi.IsInNetworkTypes(network.ServerType, netTypes)
 	}

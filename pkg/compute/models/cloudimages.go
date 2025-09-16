@@ -23,9 +23,7 @@ import (
 	"yunion.io/x/pkg/gotypes"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
-	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/util/yunionmeta"
 )
 
@@ -155,7 +153,6 @@ func (self *SCloudimage) syncWithImage(ctx context.Context, userCred mcclient.To
 
 	skuUrl := region.getMetaUrl(meta.ImageBase, image.GetGlobalId())
 
-	s := auth.GetAdminSession(ctx, options.Options.Region)
 	obj, err := db.FetchByExternalId(CachedimageManager, image.GetGlobalId())
 	if err != nil {
 		if errors.Cause(err) != sql.ErrNoRows {
@@ -171,7 +168,7 @@ func (self *SCloudimage) syncWithImage(ctx context.Context, userCred mcclient.To
 		}
 
 		cachedImage.IsPublic = true
-		cachedImage.ProjectId = s.GetProjectId()
+		cachedImage.ProjectId = "system"
 		err = CachedimageManager.TableSpec().Insert(ctx, cachedImage)
 		if err != nil {
 			return errors.Wrapf(err, "Insert cachedimage")
@@ -179,23 +176,18 @@ func (self *SCloudimage) syncWithImage(ctx context.Context, userCred mcclient.To
 		return nil
 	}
 	cachedImage := obj.(*SCachedimage)
-	_, err = db.Update(cachedImage, func() error {
-		if gotypes.IsNil(cachedImage.Info) {
-			err = meta.Get(skuUrl, &image)
-			if err != nil {
-				return errors.Wrapf(err, "Get")
-			}
+	if gotypes.IsNil(cachedImage.Info) {
+		err = meta.Get(skuUrl, &image)
+		if err != nil {
+			return errors.Wrapf(err, "Get")
+		}
+		_, err := db.Update(cachedImage, func() error {
 			cachedImage.Info = image.Info
 			cachedImage.Size = image.Size
 			cachedImage.UEFI = image.UEFI
-		}
-		if cachedImage.ProjectId == "system" {
-			cachedImage.ProjectId = s.GetProjectId()
-		}
-		return nil
-	})
-	if err != nil {
-		return errors.Wrapf(err, "Update cachedimage")
+			return nil
+		})
+		return err
 	}
 	return nil
 }

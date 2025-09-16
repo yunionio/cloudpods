@@ -78,11 +78,6 @@ type IsolatedDeviceListInput struct {
 
 	// 列出虚拟机上挂载的设备
 	GuestId string `json:"guest_id"`
-
-	// GPU index
-	Index *int `json:"index"`
-	// Nvidia GPU minor number, parsing from /proc/driver/nvidia/gpus/*/information
-	DeviceMinor *int `json:"device_minor"`
 }
 
 type IsolatedDeviceCreateInput struct {
@@ -132,9 +127,7 @@ type IsolatedDeviceUpdateInput struct {
 	// PCIE information
 	PCIEInfo *IsolatedDevicePCIEInfo `json:"pcie_info"`
 	// Host device path
-	DevicePath  string `json:"device_path"`
-	Index       int    `json:"index"`
-	DeviceMinor int    `json:"device_minor"`
+	DevicePath string `json:"device_path"`
 }
 
 type IsolatedDeviceJsonDesc struct {

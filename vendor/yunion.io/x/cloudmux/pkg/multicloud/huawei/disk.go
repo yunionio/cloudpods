@@ -441,19 +441,19 @@ func (self *SRegion) GetDisks(zoneId, storageTypeId string) ([]SDisk, error) {
 }
 
 // https://console.huaweicloud.com/apiexplorer/#/openapi/EVS/doc?api=CreateVolume
-func (self *SRegion) CreateDisk(zoneId string, category string, opts *cloudprovider.DiskCreateConfig) (string, error) {
+func (self *SRegion) CreateDisk(zoneId string, category string, name string, sizeGb int, snapshotId string, desc string, projectId string) (string, error) {
 	params := map[string]interface{}{
-		"name":              opts.Name,
+		"name":              name,
 		"availability_zone": zoneId,
-		"description":       opts.Desc,
+		"description":       desc,
 		"volume_type":       category,
-		"size":              opts.SizeGb,
+		"size":              sizeGb,
 	}
-	if len(opts.SnapshotId) > 0 {
-		params["snapshot_id"] = opts.SnapshotId
+	if len(snapshotId) > 0 {
+		params["snapshot_id"] = snapshotId
 	}
-	if len(opts.ProjectId) > 0 {
-		params["enterprise_project_id"] = opts.ProjectId
+	if len(projectId) > 0 {
+		params["enterprise_project_id"] = projectId
 	}
 
 	resp, err := self.post(SERVICE_EVS_V2_1, "cloudvolumes", map[string]interface{}{"volume": params})

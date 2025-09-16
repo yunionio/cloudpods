@@ -62,7 +62,6 @@ func (self *SEnabledStatusInfrasResourceBase) PerformDisable(ctx context.Context
 	return nil, nil
 }
 
-// +onecloud:swagger-gen-ignore
 func (manager *SEnabledStatusInfrasResourceBaseManager) GetPropertyStatistics(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*apis.StatusStatistic, error) {
 	im, ok := manager.GetVirtualObject().(IModelManager)
 	if !ok {

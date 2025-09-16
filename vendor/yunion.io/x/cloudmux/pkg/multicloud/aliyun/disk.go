@@ -24,7 +24,6 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
-	billing_api "yunion.io/x/cloudmux/pkg/apis/billing"
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
@@ -160,31 +159,6 @@ func (self *SDisk) Resize(ctx context.Context, sizeMb int64) error {
 	return self.storage.zone.region.resizeDisk(self.DiskId, sizeMb)
 }
 
-func (self *SDisk) ChangeBillingType(billingType string) error {
-	return self.storage.zone.region.ChangeDiskChargeType(self.InstanceId, self.DiskId, billingType)
-}
-
-func (self *SDisk) SetTags(tags map[string]string, replace bool) error {
-	return self.storage.zone.region.SetResourceTags(ALIYUN_SERVICE_ECS, "disk", self.DiskId, tags, replace)
-}
-
-func (self *SRegion) ChangeDiskChargeType(vmId, diskId string, billingType string) error {
-	params := make(map[string]string)
-	params["RegionId"] = self.RegionId
-	params["DiskIds"] = jsonutils.Marshal([]string{diskId}).String()
-	switch billingType {
-	case billing_api.BILLING_TYPE_POSTPAID:
-		params["DiskChargeType"] = "PostPaid"
-	case billing_api.BILLING_TYPE_PREPAID:
-		params["DiskChargeType"] = "PrePaid"
-	}
-	params["AutoPay"] = "true"
-	params["ClientToken"] = utils.GenRequestId(20)
-	params["InstanceId"] = vmId
-	_, err := self.ecsRequest("ModifyDiskChargeType", params)
-	return err
-}
-
 func (self *SDisk) GetName() string {
 	if len(self.DiskName) > 0 {
 		return self.DiskName
@@ -275,12 +249,12 @@ func (self *SDisk) GetMountpoint() string {
 	return ""
 }
 
-func (self *SRegion) CreateDisk(zoneId string, category string, opts *cloudprovider.DiskCreateConfig) (string, error) {
+func (self *SRegion) CreateDisk(zoneId string, category string, name string, sizeGb int, desc string, projectId string) (string, error) {
 	params := make(map[string]string)
 	params["ZoneId"] = zoneId
-	params["DiskName"] = opts.Name
-	if len(opts.Desc) > 0 {
-		params["Description"] = opts.Desc
+	params["DiskName"] = name
+	if len(desc) > 0 {
+		params["Description"] = desc
 	}
 	params["Encrypted"] = "false"
 	params["DiskCategory"] = category
@@ -300,18 +274,10 @@ func (self *SRegion) CreateDisk(zoneId string, category string, opts *cloudprovi
 		params["BurstingEnabled"] = "true"
 	}
 
-	if len(opts.ProjectId) > 0 {
-		params["ResourceGroupId"] = opts.ProjectId
+	if len(projectId) > 0 {
+		params["ResourceGroupId"] = projectId
 	}
-
-	tagIdx := 1
-	for k, v := range opts.Tags {
-		params[fmt.Sprintf("Tag.%d.Key", tagIdx)] = k
-		params[fmt.Sprintf("Tag.%d.Value", tagIdx)] = v
-		tagIdx += 1
-	}
-
-	params["Size"] = fmt.Sprintf("%d", opts.SizeGb)
+	params["Size"] = fmt.Sprintf("%d", sizeGb)
 	params["ClientToken"] = utils.GenRequestId(20)
 
 	body, err := self.ecsRequest("CreateDisk", params)
@@ -331,7 +297,7 @@ func (self *SRegion) getDisk(diskId string) (*SDisk, error) {
 			return &disks[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", diskId)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, diskId)
 }
 
 func (self *SRegion) DeleteDisk(diskId string) error {
@@ -346,12 +312,12 @@ func (self *SRegion) resizeDisk(diskId string, sizeMb int64) error {
 	sizeGb := sizeMb / 1024
 	params := make(map[string]string)
 	params["DiskId"] = diskId
-	params["Type"] = "online"
 	params["NewSize"] = fmt.Sprintf("%d", sizeGb)
 
 	_, err := self.ecsRequest("ResizeDisk", params)
 	if err != nil {
-		return errors.Wrapf(err, "ResizeDisk %d GB", sizeGb)
+		log.Errorf("resizing disk (%s) to %d GiB failed: %s", diskId, sizeGb, err)
+		return err
 	}
 
 	return nil

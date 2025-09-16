@@ -126,7 +126,7 @@ func (dd *DingDingNotifier) genBody(ctx *alerting.EvalContext, matches []*monito
 	// Refer: https://open-doc.dingtalk.com/docs/doc.htm?treeId=385&articleId=104972&docType=1#s9
 	messageURL := "dingtalk://dingtalkclient/page/link?" + q.Encode()
 
-	log.Infof("messageUrl: %s", messageURL)
+	log.Infof("messageUrl: " + messageURL)
 
 	config := GetNotifyTemplateConfig(ctx, isRecoverd, matches)
 	contentConfig := templates.NewTemplateConfig(config)

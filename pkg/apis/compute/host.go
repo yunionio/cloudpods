@@ -96,8 +96,6 @@ type HostListInput struct {
 	AccessMac []string `json:"access_mac"`
 	// 管理口Ip地址
 	AccessIp []string `json:"access_ip"`
-	// 公网IP地址
-	PublicIp []string `json:"public_ip"`
 	// 物理机序列号信息
 	SN []string `json:"sn"`
 	// CPU大小
@@ -165,30 +163,6 @@ type HostListInput struct {
 	// 按内存分配大小排序
 	// enmu: asc,desc
 	OrderByMemCommit string `json:"order_by_mem_commit"`
-
-	// 按物理cpu使用率排序
-	// enmu: asc,desc
-	OrderByCpuUsage string `json:"order_by_cpu_usage"`
-
-	// 按物理内存使用率排序
-	// enmu: asc,desc
-	OrderByMemUsage string `json:"order_by_mem_usage"`
-
-	// 按物理存储使用率排序
-	// enmu: asc,desc
-	OrderByStorageUsage string `json:"order_by_storage_usage"`
-
-	// 按虚拟内存使用率排序
-	// enmu: asc,desc
-	OrderByVirtualMemUsage string `json:"order_by_virtual_mem_usage"`
-
-	// 按虚拟cpu使用率排序
-	// enmu: asc,desc
-	OrderByVirtualCpuUsage string `json:"order_by_virtual_cpu_usage"`
-
-	// 按虚拟存储使用率排序
-	// enmu: asc,desc
-	OrderByVirtualStorageUsage string `json:"order_by_virtual_storage_usage"`
 }
 
 type HostDetails struct {
@@ -276,8 +250,6 @@ type HostDetails struct {
 	SysWarn string `json:"sys_warn"`
 	// host init error info
 	SysError string `json:"sys_error"`
-
-	HostFiles []string `json:"host_files"`
 }
 
 func (self HostDetails) GetMetricTags() map[string]string {
@@ -674,19 +646,12 @@ type HostAddNetifInput struct {
 	Reserve *bool `json:"reserve"`
 
 	RequireDesignatedIp *bool `json:"require_designated_ip"`
-
-	Ip6Addr string `json:"ip6_addr"`
-
-	RequireIpv6 *bool `json:"require_ipv6"`
-
-	StrictIpv6 *bool `json:"strict_ipv6"`
 }
 
 type HostEnableNetifInput struct {
 	HostNetifInput
 
 	// Deprecated
-	// swagger:ignore
 	Network   string `json:"network" yunion-deprecated-by:"network_id"`
 	NetworkId string `json:"network_id"`
 
@@ -699,12 +664,6 @@ type HostEnableNetifInput struct {
 	Reserve *bool `json:"reserve"`
 
 	RequireDesignatedIp *bool `json:"require_designated_ip"`
-
-	Ip6Addr string `json:"ip6_addr"`
-
-	RequireIpv6 *bool `json:"require_ipv6"`
-
-	StrictIpv6 *bool `json:"strict_ipv6"`
 }
 
 type HostDisableNetifInput struct {
@@ -752,17 +711,13 @@ type HostUploadGuestsStatusRequest struct {
 	GuestIds []string `json:"guest_ids"`
 }
 
-type HostUploadGuestStatusInput struct {
+type HostUploadGuestStatusResponse struct {
 	apis.PerformStatusInput
 	Containers map[string]*ContainerPerformStatusInput `json:"containers"`
 }
 
-type HostUploadGuestsStatusInput struct {
-	Guests map[string]*HostUploadGuestStatusInput `json:"guests"`
-}
-
-type HostIsolatedDeviceNumaStatsInput struct {
-	DevType string
+type HostUploadGuestsStatusResponse struct {
+	Guests map[string]*HostUploadGuestStatusResponse `json:"guests"`
 }
 
 type GuestUploadContainerStatusResponse struct {

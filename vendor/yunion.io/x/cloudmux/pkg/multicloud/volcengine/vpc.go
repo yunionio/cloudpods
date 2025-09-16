@@ -110,7 +110,7 @@ func (vpc *SVpc) GetIWireById(wireId string) (cloudprovider.ICloudWire, error) {
 			return wires[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", wireId)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, wireId)
 }
 
 func (vpc *SVpc) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, error) {
@@ -177,7 +177,7 @@ func (vpc *SVpc) GetIRouteTableById(routeTableId string) (cloudprovider.ICloudRo
 			return tables[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", routeTableId)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, routeTableId)
 }
 
 func (vpc *SVpc) Delete() error {

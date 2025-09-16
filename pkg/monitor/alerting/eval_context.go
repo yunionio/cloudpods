@@ -17,7 +17,6 @@ package alerting
 import (
 	"context"
 	"fmt"
-	"sort"
 	"strings"
 	"time"
 
@@ -270,30 +269,14 @@ func (c *EvalContext) GetEvalMatches() []monitor.EvalMatch {
 	return ret
 }
 
-func (c *EvalContext) getTagsDesc(tags map[string]string) string {
-	strs := make([]string, 0)
-	for k, v := range tags {
-		if v == "" {
-			continue
-		}
-		strs = append(strs, k+"="+v)
-	}
-	sort.Strings(strs)
-	ret := strings.Join(strs, ",")
-	return "{" + ret + "}"
-}
-
 func (c *EvalContext) GetResourceNameOfMatches(matches []*monitor.EvalMatch) string {
 	names := strings.Builder{}
-	names.WriteString("\n")
 	for i, match := range matches {
-		if name, ok := match.Tags["name"]; ok && name != "" {
-			names.WriteString(fmt.Sprintf("- %s.%s: %s", name, match.Metric, match.ValueStr))
-		} else {
-			names.WriteString(fmt.Sprintf("- %s%s: %s", match.Metric, c.getTagsDesc(match.Tags), match.ValueStr))
-		}
-		if i < len(matches)-1 {
-			names.WriteString("\n")
+		if name, ok := match.Tags["name"]; ok {
+			names.WriteString(fmt.Sprintf("%s.%s(%s)", name, match.Metric, match.ValueStr))
+			if i < len(matches)-1 {
+				names.WriteString(", ")
+			}
 		}
 	}
 	return names.String()

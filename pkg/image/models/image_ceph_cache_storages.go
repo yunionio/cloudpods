@@ -114,7 +114,7 @@ func getCephStorages() *SCephStorageConf {
 }
 
 func getStorageFsid(conf *computeapi.RbdStorageConf) string {
-	cli, err := cephutils.NewClient(conf.MonHost, conf.Key, conf.Pool, conf.EnableMessengerV2, 0, 0, 0)
+	cli, err := cephutils.NewClient(conf.MonHost, conf.Key, conf.Pool, conf.EnableMessengerV2)
 	if err != nil {
 		log.Errorf("failed new client of ceph storage %s:%s", conf.MonHost, conf.Pool)
 		return ""

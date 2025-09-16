@@ -48,7 +48,7 @@ func (mh *MiscHandler) getServiceSettings(ctx context.Context, w http.ResponseWr
 	}
 	resp, err := identity.ServicesV3.List(s, jsonutils.Marshal(params))
 	if err != nil {
-		e := httperrors.NewInternalServerError("%s", err.Error())
+		e := httperrors.NewInternalServerError(err.Error())
 		httperrors.JsonClientError(ctx, w, e)
 		return
 	}
@@ -58,7 +58,7 @@ func (mh *MiscHandler) getServiceSettings(ctx context.Context, w http.ResponseWr
 	}{}
 	err = jsonutils.Update(&services, resp.Data)
 	if err != nil {
-		e := httperrors.NewInternalServerError("%s", err.Error())
+		e := httperrors.NewInternalServerError(err.Error())
 		httperrors.JsonClientError(ctx, w, e)
 		return
 	}
@@ -67,7 +67,7 @@ func (mh *MiscHandler) getServiceSettings(ctx context.Context, w http.ResponseWr
 		result[service.Type] = map[string]interface{}{}
 		data, err := identity.ServicesV3.GetSpecific(s, service.Id, "config", nil)
 		if err != nil {
-			e := httperrors.NewInternalServerError("%s", err.Error())
+			e := httperrors.NewInternalServerError(err.Error())
 			httperrors.JsonClientError(ctx, w, e)
 			return
 		}

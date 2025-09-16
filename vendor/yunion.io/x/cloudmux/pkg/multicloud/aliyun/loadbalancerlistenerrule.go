@@ -73,10 +73,6 @@ func (lbr *SLoadbalancerListenerRule) getRegion() *SRegion {
 	return nil
 }
 
-func (lbr *SLoadbalancerListenerRule) Update(ctx context.Context, opts *cloudprovider.SLoadbalancerListenerRule) error {
-	return cloudprovider.ErrNotImplemented
-}
-
 func (lbr *SLoadbalancerListenerRule) Refresh() error {
 	region := lbr.getRegion()
 	if region == nil {
@@ -98,9 +94,6 @@ func (lbr *SLoadbalancerListenerRule) GetDomain() string {
 }
 
 func (lbr *SLoadbalancerListenerRule) GetPath() string {
-	if len(lbr.Url) == 0 {
-		return "/"
-	}
 	return lbr.Url
 }
 
@@ -118,19 +111,10 @@ func (lbr *SLoadbalancerListenerRule) GetBackendGroupId() string {
 	return lbr.VServerGroupId
 }
 
-func (lbr *SLoadbalancerListenerRule) GetBackendGroups() ([]string, error) {
-	return nil, cloudprovider.ErrNotImplemented
-}
-
-func (lbr *SLoadbalancerListenerRule) GetRedirectPool() (cloudprovider.SRedirectPool, error) {
-	return cloudprovider.SRedirectPool{}, cloudprovider.ErrNotImplemented
-}
-
-func (region *SRegion) GetLoadbalancerListenerRules(loadbalancerId, protocol string, listenerPort int) ([]SLoadbalancerListenerRule, error) {
+func (region *SRegion) GetLoadbalancerListenerRules(loadbalancerId string, listenerPort int) ([]SLoadbalancerListenerRule, error) {
 	params := map[string]string{}
 	params["RegionId"] = region.RegionId
 	params["LoadBalancerId"] = loadbalancerId
-	params["ListenerProtocol"] = protocol
 	params["ListenerPort"] = fmt.Sprintf("%d", listenerPort)
 	body, err := region.lbRequest("DescribeRules", params)
 	if err != nil {

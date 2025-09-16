@@ -158,15 +158,6 @@ func (manager *SNetworkInterfaceManager) QueryDistinctExtraField(q *sqlchemy.SQu
 	return q, httperrors.ErrNotFound
 }
 
-func (manager *SNetworkInterfaceManager) QueryDistinctExtraFields(q *sqlchemy.SQuery, resource string, fields []string) (*sqlchemy.SQuery, error) {
-	var err error
-	q, err = manager.SManagedResourceBaseManager.QueryDistinctExtraFields(q, resource, fields)
-	if err == nil {
-		return q, nil
-	}
-	return q, httperrors.ErrNotFound
-}
-
 func (self *SNetworkInterface) getMoreDetails(out api.NetworkInterfaceDetails) (api.NetworkInterfaceDetails, error) {
 	networks, err := self.GetNetworks()
 	if err != nil {

@@ -227,7 +227,7 @@ func (self *SVpc) GetIRouteTableById(routeTableId string) (cloudprovider.ICloudR
 			return tables[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", routeTableId)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, routeTableId)
 }
 
 func (self *SVpc) Delete() error {

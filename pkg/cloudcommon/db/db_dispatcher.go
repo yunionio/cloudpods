@@ -281,11 +281,6 @@ func listItemQueryFiltersRaw(
 		}
 	}
 
-	q, err = ListItemFilter(manager, ctx, q, userCred, query)
-	if err != nil {
-		return nil, errors.Wrap(err, "ListItemFilter")
-	}
-
 	// XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 	// TURN ON automatic filter by column name, ONLY if query key starts with @!!!!
 	// example: @name=abc&@city=111
@@ -316,6 +311,10 @@ func listItemQueryFiltersRaw(
 		if err != nil {
 			return nil, errors.Wrap(err, "applyListItemsGeneralJointFilters")
 		}
+	}
+	q, err = ListItemFilter(manager, ctx, q, userCred, query)
+	if err != nil {
+		return nil, errors.Wrap(err, "ListItemFilter")
 	}
 
 	if !useRawQuery {
@@ -1401,7 +1400,7 @@ func (dispatcher *DBModelDispatcher) Create(ctx context.Context, query jsonutils
 		}
 		failErr := manager.OnCreateFailed(ctx, userCred, ownerId, query, data)
 		if failErr != nil {
-			err = errors.Wrapf(err, "%s", failErr.Error())
+			err = errors.Wrapf(err, failErr.Error())
 		}
 		return nil, httperrors.NewGeneralError(err)
 	}
@@ -1565,27 +1564,24 @@ func (dispatcher *DBModelDispatcher) BatchCreate(ctx context.Context, query json
 	if err != nil {
 		failErr := manager.OnCreateFailed(ctx, userCred, ownerId, query, data)
 		if failErr != nil {
-			err = errors.Wrapf(err, "%s", failErr.Error())
+			err = errors.Wrapf(err, failErr.Error())
 		}
 		return nil, httperrors.NewGeneralError(errors.Wrap(err, "createResults"))
 	}
 
 	results := make([]printutils.SubmitResult, count)
 	models := make([]IModel, 0)
-	for i := range createResults {
-		res := createResults[i]
+	for i, res := range createResults {
 		result := printutils.SubmitResult{}
 		if res.err != nil {
 			jsonErr := httperrors.NewGeneralError(res.err)
 			result.Status = jsonErr.Code
 			result.Data = jsonutils.Marshal(jsonErr)
 		} else {
-			func() {
-				lockman.LockObject(ctx, res.model)
-				defer lockman.ReleaseObject(ctx, res.model)
+			lockman.LockObject(ctx, res.model)
+			defer lockman.ReleaseObject(ctx, res.model)
 
-				res.model.PostCreate(ctx, userCred, ownerId, query, data)
-			}()
+			res.model.PostCreate(ctx, userCred, ownerId, query, data)
 
 			models = append(models, res.model)
 			body, err := getItemDetails(manager, res.model, ctx, userCred, query)
@@ -1600,12 +1596,10 @@ func (dispatcher *DBModelDispatcher) BatchCreate(ctx context.Context, query json
 		results[i] = result
 	}
 	if len(models) > 0 {
-		func() {
-			lockman.LockClass(ctx, manager, GetLockClassKey(manager, ownerId))
-			defer lockman.ReleaseClass(ctx, manager, GetLockClassKey(manager, ownerId))
+		lockman.LockClass(ctx, manager, GetLockClassKey(manager, ownerId))
+		defer lockman.ReleaseClass(ctx, manager, GetLockClassKey(manager, ownerId))
 
-			manager.OnCreateComplete(ctx, models, userCred, ownerId, query, multiData)
-		}()
+		manager.OnCreateComplete(ctx, models, userCred, ownerId, query, multiData)
 	}
 	return results, nil
 }

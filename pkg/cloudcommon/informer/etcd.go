@@ -25,7 +25,6 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/etcd"
-	"yunion.io/x/onecloud/pkg/util/ctx"
 )
 
 const (
@@ -86,7 +85,7 @@ func NewEtcdBackend(opt *etcd.SEtcdOptions, onKeepaliveFailure func()) (*EtcdBac
 	if err != nil {
 		return nil, err
 	}
-	ctx := ctx.CtxWithTime()
+	ctx := context.Background()
 	be.initClientResources(ctx)
 	be.StartClientWatch(ctx)
 	return be, nil

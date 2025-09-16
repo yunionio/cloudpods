@@ -18,12 +18,11 @@ import (
 	"encoding/binary"
 	"fmt"
 	"net"
+	"strconv"
 	"strings"
 	"time"
 
 	"yunion.io/x/log"
-
-	"yunion.io/x/onecloud/pkg/util/netutils2"
 )
 
 const (
@@ -35,32 +34,20 @@ const (
 
 // http://www.networksorcery.com/enp/rfc/rfc2132.txt
 type ResponseConfig struct {
-	InterfaceMac net.HardwareAddr
-	VlanId       uint16
-
 	OsName        string
 	ServerIP      net.IP // OptServerIdentifier 54
 	ClientIP      net.IP
-	Gateway       net.IP                 // OptRouters 3
-	Domain        string                 // OptDomainName 15
-	LeaseTime     time.Duration          // OptLeaseTime 51
-	RenewalTime   time.Duration          // OptRenewalTime 58
-	BroadcastAddr net.IP                 // OptBroadcastAddr 28
-	Hostname      string                 // OptHostname 12
-	SubnetMask    net.IP                 // OptSubnetMask 1
-	DNSServers    []net.IP               // OptDNSServers
-	Routes        []netutils2.SRouteInfo // TODO: 249 for windows, 121 for linux
-	NTPServers    []net.IP               // OptNTPServers 42
-	MTU           uint16                 // OptMTU 26
-
-	ClientIP6   net.IP
-	Gateway6    net.IP
-	PrefixLen6  uint8
-	DNSServers6 []net.IP
-	NTPServers6 []net.IP
-	Routes6     []netutils2.SRouteInfo
-
-	IsDefaultGW bool
+	Gateway       net.IP        // OptRouters 3
+	Domain        string        // OptDomainName 15
+	LeaseTime     time.Duration // OptLeaseTime 51
+	RenewalTime   time.Duration // OptRenewalTime 58
+	BroadcastAddr net.IP        // OptBroadcastAddr 28
+	Hostname      string        // OptHostname 12
+	SubnetMask    net.IP        // OptSubnetMask 1
+	DNSServers    []net.IP      // OptDNSServers
+	Routes        [][]string    // TODO: 249 for windows, 121 for linux
+	NTPServers    []net.IP      // OptNTPServers 42
+	MTU           uint16        // OptMTU 26
 
 	// Relay Info https://datatracker.ietf.org/doc/html/rfc3046
 	RelayInfo []byte
@@ -78,12 +65,6 @@ func (conf ResponseConfig) GetHostname() string {
 func GetOptUint16(val uint16) []byte {
 	opts := []byte{0, 0}
 	binary.BigEndian.PutUint16(opts, val)
-	return opts
-}
-
-func GetOptUint32(val uint32) []byte {
-	opts := []byte{0, 0, 0, 0}
-	binary.BigEndian.PutUint32(opts, val)
 	return opts
 }
 
@@ -105,14 +86,14 @@ func GetOptTime(d time.Duration) []byte {
 	return timeBytes
 }
 
-func getClasslessRoutePack(route netutils2.SRouteInfo) []byte {
-	// var snet, gw = route[0], route[1]
-	// tmp := strings.Split(snet, "/")
-	netaddr := route.Prefix
+func getClasslessRoutePack(route []string) []byte {
+	var snet, gw = route[0], route[1]
+	tmp := strings.Split(snet, "/")
+	netaddr := net.ParseIP(tmp[0])
 	if netaddr != nil {
 		netaddr = netaddr.To4()
 	}
-	masklen := route.PrefixLen
+	masklen, _ := strconv.Atoi(tmp[1])
 	netlen := masklen / 8
 	if masklen%8 > 0 {
 		netlen += 1
@@ -120,10 +101,11 @@ func getClasslessRoutePack(route netutils2.SRouteInfo) []byte {
 	if netlen < 4 {
 		netaddr = netaddr[0:netlen]
 	}
-	gwaddr := route.Gateway
+	gwaddr := net.ParseIP(gw)
 	if gwaddr != nil {
 		gwaddr = gwaddr.To4()
 	}
+
 	res := []byte{byte(masklen)}
 	res = append(res, []byte(netaddr)...)
 	return append(res, []byte(gwaddr)...)
@@ -158,40 +140,33 @@ func makeDHCPReplyPacket(req Packet, conf *ResponseConfig, msgType MessageType) 
 	opts := make([]Option, 0)
 
 	if conf.SubnetMask != nil {
-		opts = append(opts, Option{Code: OptionSubnetMask, Value: GetOptIP(conf.SubnetMask)})
+		opts = append(opts, Option{OptionSubnetMask, GetOptIP(conf.SubnetMask)})
 	}
 	if conf.Gateway != nil {
-		opts = append(opts, Option{Code: OptionRouter, Value: GetOptIP(conf.Gateway)})
+		opts = append(opts, Option{OptionRouter, GetOptIP(conf.Gateway)})
 	}
 	if conf.Domain != "" {
-		opts = append(opts, Option{Code: OptionDomainName, Value: []byte(conf.Domain)})
+		opts = append(opts, Option{OptionDomainName, []byte(conf.Domain)})
 	}
 	if conf.BroadcastAddr != nil {
-		opts = append(opts, Option{Code: OptionBroadcastAddress, Value: GetOptIP(conf.BroadcastAddr)})
+		opts = append(opts, Option{OptionBroadcastAddress, GetOptIP(conf.BroadcastAddr)})
 	}
 	if conf.Hostname != "" {
-		opts = append(opts, Option{Code: OptionHostName, Value: []byte(conf.GetHostname())})
+		opts = append(opts, Option{OptionHostName, []byte(conf.GetHostname())})
 	}
 	if len(conf.DNSServers) > 0 {
-		opts = append(opts, Option{Code: OptionDomainNameServer, Value: GetOptIPs(conf.DNSServers)})
+		opts = append(opts, Option{OptionDomainNameServer, GetOptIPs(conf.DNSServers)})
 	}
 	if len(conf.NTPServers) > 0 {
-		opts = append(opts, Option{Code: OptionNetworkTimeProtocolServers, Value: GetOptIPs(conf.NTPServers)})
+		opts = append(opts, Option{OptionNetworkTimeProtocolServers, GetOptIPs(conf.NTPServers)})
 	}
 	if conf.MTU > 0 {
-		opts = append(opts, Option{Code: OptionInterfaceMTU, Value: GetOptUint16(conf.MTU)})
+		opts = append(opts, Option{OptionInterfaceMTU, GetOptUint16(conf.MTU)})
 	}
 	if conf.RelayInfo != nil {
-		opts = append(opts, Option{Code: OptionRelayAgentInformation, Value: conf.RelayInfo})
+		opts = append(opts, Option{OptionRelayAgentInformation, conf.RelayInfo})
 	}
-	var clientIP net.IP
-	if conf.ClientIP != nil {
-		clientIP = conf.ClientIP
-	} else {
-		clientIP = net.ParseIP("0.0.0.0")
-		opts = append(opts, Option{Code: OptionIPv6Only, Value: GetOptUint32(60)})
-	}
-	resp := ReplyPacket(req, msgType, conf.ServerIP, clientIP, conf.LeaseTime, opts)
+	resp := ReplyPacket(req, msgType, conf.ServerIP, conf.ClientIP, conf.LeaseTime, opts)
 	if conf.BootServer != "" {
 		//resp.Options[OptOverload] = []byte{3}
 		resp.SetSIAddr(net.ParseIP(conf.BootServer))

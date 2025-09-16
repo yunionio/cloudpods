@@ -47,7 +47,7 @@ func (self *SStatusDomainLevelResourceBase) GetIStatusDomainLevelModel() IStatus
 	return self.GetVirtualObject().(IStatusDomainLevelModel)
 }
 
-// +onecloud:swagger-gen-ignore
+// 更新资源状态
 func (self *SStatusDomainLevelResourceBase) PerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformStatusInput) (jsonutils.JSONObject, error) {
 	err := StatusBasePerformStatus(ctx, self.GetIStatusDomainLevelModel(), userCred, input)
 	if err != nil {

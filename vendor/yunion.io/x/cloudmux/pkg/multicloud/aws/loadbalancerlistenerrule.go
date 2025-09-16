@@ -40,45 +40,45 @@ type SElbListenerRule struct {
 	listener *SElbListener
 	region   *SRegion
 
-	Priority      string      `xml:"Priority"`
-	IsDefaultRule bool        `xml:"IsDefault"`
-	Actions       []Action    `xml:"Actions>member"`
-	RuleArn       string      `xml:"RuleArn"`
-	Conditions    []Condition `xml:"Conditions>member"`
+	Priority      string      `json:"Priority"`
+	IsDefaultRule bool        `json:"IsDefault"`
+	Actions       []Action    `json:"Actions"`
+	RuleArn       string      `json:"RuleArn"`
+	Conditions    []Condition `json:"Conditions"`
 }
 
 type Action struct {
-	TargetGroupArn string `xml:"TargetGroupArn"`
-	Type           string `xml:"Type"`
+	TargetGroupArn string `json:"TargetGroupArn"`
+	Type           string `json:"Type"`
 }
 
 type Condition struct {
-	Field                   string             `xml:"Field"`
-	HTTPRequestMethodConfig *Config            `xml:"HttpRequestMethodConfig"`
-	Values                  []string           `xml:"Values>member"`
-	SourceIPConfig          *Config            `xml:"SourceIpConfig"`
-	QueryStringConfig       *QueryStringConfig `xml:"QueryStringConfig"`
-	HTTPHeaderConfig        *HTTPHeaderConfig  `xml:"HttpHeaderConfig"`
-	PathPatternConfig       *Config            `xml:"PathPatternConfig"`
-	HostHeaderConfig        *Config            `xml:"HostHeaderConfig"`
+	Field                   string             `json:"field"`
+	HTTPRequestMethodConfig *Config            `json:"httpRequestMethodConfig,omitempty"`
+	Values                  []string           `json:"values"`
+	SourceIPConfig          *Config            `json:"sourceIpConfig,omitempty"`
+	QueryStringConfig       *QueryStringConfig `json:"queryStringConfig,omitempty"`
+	HTTPHeaderConfig        *HTTPHeaderConfig  `json:"httpHeaderConfig,omitempty"`
+	PathPatternConfig       *Config            `json:"pathPatternConfig,omitempty"`
+	HostHeaderConfig        *Config            `json:"hostHeaderConfig,omitempty"`
 }
 
 type HTTPHeaderConfig struct {
-	HTTPHeaderName string   `xml:"HttpHeaderName"`
-	Values         []string `xml:"Values>member"`
+	HTTPHeaderName string   `json:"HttpHeaderName"`
+	Values         []string `json:"values"`
 }
 
 type Config struct {
-	Values []string `xml:"Values>member"`
+	Values []string `json:"values"`
 }
 
 type QueryStringConfig struct {
-	Values []Query `xml:"Values>member"`
+	Values []Query `json:"values"`
 }
 
 type Query struct {
-	Key   string `xml:"key"`
-	Value string `xml:"value"`
+	Key   string `json:"key"`
+	Value string `json:"value"`
 }
 
 func (self *SElbListenerRule) GetId() string {
@@ -99,7 +99,7 @@ func (self *SElbListenerRule) GetStatus() string {
 }
 
 func (self *SElbListenerRule) Refresh() error {
-	rule, err := self.region.GetElbListenerRule(self.listener.ListenerArn, self.RuleArn)
+	rule, err := self.region.GetElbListenerRule(self.RuleArn)
 	if err != nil {
 		return err
 	}
@@ -124,19 +124,8 @@ func (self *SElbListenerRule) GetDomain() string {
 			return strings.Join(condition.Values, ",")
 		}
 	}
+
 	return ""
-}
-
-func (self *SElbListenerRule) GetBackendGroups() ([]string, error) {
-	return nil, cloudprovider.ErrNotImplemented
-}
-
-func (self *SElbListenerRule) GetRedirectPool() (cloudprovider.SRedirectPool, error) {
-	return cloudprovider.SRedirectPool{}, cloudprovider.ErrNotImplemented
-}
-
-func (self *SElbListenerRule) Update(ctx context.Context, opts *cloudprovider.SLoadbalancerListenerRule) error {
-	return cloudprovider.ErrNotImplemented
 }
 
 func (self *SElbListenerRule) GetCondition() string {

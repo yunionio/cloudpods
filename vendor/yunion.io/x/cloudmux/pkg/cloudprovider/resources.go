@@ -116,8 +116,6 @@ type ICloudRegion interface {
 
 	GetILoadBalancers() ([]ICloudLoadbalancer, error)
 	GetILoadBalancerAcls() ([]ICloudLoadbalancerAcl, error)
-	GetILoadBalancerHealthChecks() ([]ICloudLoadbalancerHealthCheck, error)
-
 	GetILoadBalancerCertificates() ([]ICloudLoadbalancerCertificate, error)
 
 	GetILoadBalancerById(loadbalancerId string) (ICloudLoadbalancer, error)
@@ -127,7 +125,6 @@ type ICloudRegion interface {
 	CreateILoadBalancer(loadbalancer *SLoadbalancerCreateOptions) (ICloudLoadbalancer, error)
 	CreateILoadBalancerAcl(acl *SLoadbalancerAccessControlList) (ICloudLoadbalancerAcl, error)
 	CreateILoadBalancerCertificate(cert *SLoadbalancerCertificate) (ICloudLoadbalancerCertificate, error)
-	CreateILoadBalancerHealthCheck(healthCheck *SLoadbalancerHealthCheck) (ICloudLoadbalancerHealthCheck, error)
 
 	GetISkus() ([]ICloudSku, error)
 	CreateISku(opts *SServerSkuCreateOption) (ICloudSku, error)
@@ -324,7 +321,6 @@ type ICloudHost interface {
 	GetOvnVersion() string // just for cloudpods host
 
 	GetIsolateDevices() ([]IsolateDevice, error)
-	GetIpmiInfo() jsonutils.JSONObject
 }
 
 type IsolateDevice interface {
@@ -726,7 +722,7 @@ type ICloudLoadbalancer interface {
 	GetChargeType() string
 	GetEgressMbps() int
 
-	GetIEIPs() ([]ICloudEIP, error)
+	GetIEIP() (ICloudEIP, error)
 
 	Delete(ctx context.Context) error
 
@@ -753,7 +749,7 @@ type ICloudLoadbalancerRedirect interface {
 	GetRedirectPath() string
 }
 
-type ICloudloadbalancerHealthCheckInfo interface {
+type ICloudloadbalancerHealthCheck interface {
 	GetHealthCheck() string
 	GetHealthCheckType() string
 	GetHealthCheckTimeout() int
@@ -767,17 +763,7 @@ type ICloudloadbalancerHealthCheckInfo interface {
 	// HTTP && HTTPS
 	GetHealthCheckDomain() string
 	GetHealthCheckURI() string
-	GetHealthCheckMethod() string
-	GetHealthCheckPort() int
 	GetHealthCheckCode() string
-}
-
-type ICloudLoadbalancerHealthCheck interface {
-	IVirtualResource
-	ICloudloadbalancerHealthCheckInfo
-
-	Delete() error
-	Update(ctx context.Context, opts *SLoadbalancerHealthCheck) error
 }
 
 type ICloudLoadbalancerListener interface {
@@ -815,7 +801,7 @@ type ICloudLoadbalancerListener interface {
 
 	// http redirect
 	ICloudLoadbalancerRedirect
-	ICloudloadbalancerHealthCheckInfo
+	ICloudloadbalancerHealthCheck
 
 	Start() error
 	Stop() error
@@ -838,12 +824,7 @@ type ICloudLoadbalancerListenerRule interface {
 	GetCondition() string
 	GetBackendGroupId() string
 
-	GetBackendGroups() ([]string, error)
-	GetRedirectPool() (SRedirectPool, error)
-
 	Delete(ctx context.Context) error
-
-	Update(ctx context.Context, rule *SLoadbalancerListenerRule) error
 }
 
 type ICloudLoadbalancerBackendGroup interface {
@@ -851,25 +832,17 @@ type ICloudLoadbalancerBackendGroup interface {
 
 	IsDefault() bool
 	GetType() string
-	GetScheduler() string
-	GetHealthCheckId() string
 	GetILoadbalancerBackends() ([]ICloudLoadbalancerBackend, error)
 	GetILoadbalancerBackendById(backendId string) (ICloudLoadbalancerBackend, error)
-	AddBackendServer(opts *SLoadbalancerBackend) (ICloudLoadbalancerBackend, error)
-	RemoveBackendServer(opts *SLoadbalancerBackend) error
+	AddBackendServer(serverId string, weight int, port int) (ICloudLoadbalancerBackend, error)
+	RemoveBackendServer(serverId string, weight int, port int) error
 
 	Delete(ctx context.Context) error
-	Update(ctx context.Context, opts *SLoadbalancerBackendGroup) error
+	Sync(ctx context.Context, group *SLoadbalancerBackendGroup) error
 }
 
 type ICloudLoadbalancerBackend interface {
-	GetId() string
-	GetName() string
-	GetGlobalId() string
-	GetCreatedAt() time.Time
-	GetDescription() string
-
-	GetStatus() string
+	ICloudResource
 
 	GetWeight() int
 	GetPort() int
@@ -877,7 +850,7 @@ type ICloudLoadbalancerBackend interface {
 	GetBackendRole() string
 	GetBackendId() string
 	GetIpAddress() string // backend type is ip
-	Update(ctx context.Context, opts *SLoadbalancerBackend) error
+	SyncConf(ctx context.Context, port, weight int) error
 }
 
 type ICloudLoadbalancerCertificate interface {
@@ -1355,10 +1328,6 @@ type ICloudDnsZone interface {
 
 	AddDnsRecord(*DnsRecord) (string, error)
 
-	GetNameServers() ([]string, error)
-	GetOriginalNameServers() ([]string, error)
-	GetRegistrar() string
-
 	Delete() error
 
 	GetDnsProductType() TDnsProductType
@@ -1369,7 +1338,6 @@ type ICloudDnsRecord interface {
 
 	GetDnsName() string
 	GetStatus() string
-	IsProxied() bool
 	GetEnabled() bool
 	GetDnsType() TDnsType
 	GetDnsValue() string
@@ -1563,15 +1531,9 @@ type ICloudWafRule interface {
 	GetDesc() string
 	GetGlobalId() string
 	GetPriority() int
-	GetType() string
 	GetAction() *DefaultAction
 	GetStatementCondition() TWafStatementCondition
-	GetExpression() string
 	GetStatements() ([]SWafStatement, error)
-	GetConfig() (jsonutils.JSONObject, error)
-	GetEnabled() bool
-	Enable() error
-	Disable() error
 
 	Update(opts *SWafRule) error
 	Delete() error
@@ -1766,19 +1728,6 @@ type ICloudCDNDomain interface {
 	// 浏览器缓存配置
 	GetMaxAge() (*SCDNMaxAge, error)
 
-	GetDNSSECEnabled() bool
-	// SSL/TLS加密模式
-	GetSSLSetting() string
-
-	GetHTTPSRewrites() bool
-	GetCacheLevel() string
-	ClearCache(opts *CacheClearOptions) error
-	GetBrowserCacheTTL() int
-	ChangeConfig(opts *CacheConfig) error
-	GetCustomHostnames() ([]CustomHostname, error)
-	AddCustomHostname(opts *CustomHostnameCreateOptions) error
-	DeleteCustomHostname(id string) error
-
 	Delete() error
 }
 
@@ -1839,6 +1788,7 @@ type ICloudSSLCertificate interface {
 	GetCommon() string
 	GetCountry() string
 	GetIssuer() string
+	GetExpired() bool
 	GetEndDate() time.Time
 	GetFingerprint() string
 	GetCity() string
@@ -1846,22 +1796,4 @@ type ICloudSSLCertificate interface {
 	GetIsUpload() bool
 	GetCert() string
 	GetKey() string
-	GetDnsZoneId() string
-
-	Delete() error
-}
-
-type IAiGateway interface {
-	IVirtualResource
-
-	IsAuthentication() bool
-	IsCacheInvalidateOnUpdate() bool
-	GetCacheTTL() int
-	IsCollectLogs() bool
-	GetRateLimitingInterval() int
-	GetRateLimitingLimit() int
-	GetRateLimitingTechnique() string
-
-	ChangeConfig(opts *AiGatewayChangeConfigOptions) error
-	Delete() error
 }

@@ -24,7 +24,6 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
-	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
@@ -65,14 +64,9 @@ func (self *SnapshotpolicyBindDisksTask) OnInit(ctx context.Context, obj db.ISta
 
 func (self *SnapshotpolicyBindDisksTask) OnSnapshotPolicyBindDisksComplete(ctx context.Context, sp *models.SSnapshotPolicy, data jsonutils.JSONObject) {
 	sp.SetStatus(ctx, self.UserCred, apis.STATUS_AVAILABLE, "")
-
-	notifyclient.EventNotify(ctx, self.UserCred, notifyclient.SEventNotifyParam{
-		Obj:    sp,
-		Action: notifyclient.ActionExecute,
-	})
 	self.SetStageComplete(ctx, nil)
 }
 
 func (self *SnapshotpolicyBindDisksTask) OnSnapshotPolicyBindDisksCompleteFailed(ctx context.Context, sp *models.SSnapshotPolicy, data jsonutils.JSONObject) {
-	self.taskFailed(ctx, sp, errors.Errorf("%s", data.String()))
+	self.taskFailed(ctx, sp, errors.Errorf(data.String()))
 }

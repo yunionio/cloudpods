@@ -326,10 +326,10 @@ func (manager *SImageManager) FetchCustomizeColumns(
 	return rows
 }
 
-func (img *SImage) GetExtraDetailsHeaders(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) map[string]string {
+func (self *SImage) GetExtraDetailsHeaders(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) map[string]string {
 	headers := make(map[string]string)
 
-	details := ImageManager.FetchCustomizeColumns(ctx, userCred, query, []interface{}{img}, nil, false)
+	details := ImageManager.FetchCustomizeColumns(ctx, userCred, query, []interface{}{self}, nil, false)
 	extra := jsonutils.Marshal(details[0]).(*jsonutils.JSONDict)
 	for _, k := range extra.SortedKeys() {
 		if k == "properties" {
@@ -341,8 +341,8 @@ func (img *SImage) GetExtraDetailsHeaders(ctx context.Context, userCred mcclient
 		}
 	}
 
-	jsonDict := jsonutils.Marshal(img).(*jsonutils.JSONDict)
-	fields, _ := db.GetDetailFields(img.GetModelManager(), userCred)
+	jsonDict := jsonutils.Marshal(self).(*jsonutils.JSONDict)
+	fields, _ := db.GetDetailFields(self.GetModelManager(), userCred)
 	for _, k := range jsonDict.SortedKeys() {
 		if utils.IsInStringArray(k, fields) {
 			val, _ := jsonDict.GetString(k)
@@ -352,16 +352,9 @@ func (img *SImage) GetExtraDetailsHeaders(ctx context.Context, userCred mcclient
 		}
 	}
 
-	// none of subimage business
-	var ossChksum = img.OssChecksum
-	if len(img.OssChecksum) == 0 {
-		ossChksum = img.Checksum
-	}
-	headers[fmt.Sprintf("%s%s", modules.IMAGE_META, "oss_checksum")] = ossChksum
-
 	formatStr := jsonutils.GetAnyString(query, []string{"format", "disk_format"})
 	if len(formatStr) > 0 {
-		subimg := ImageSubformatManager.FetchSubImage(img.Id, formatStr)
+		subimg := ImageSubformatManager.FetchSubImage(self.Id, formatStr)
 		if subimg != nil {
 			headers[fmt.Sprintf("%s%s", modules.IMAGE_META, "disk_format")] = formatStr
 			isTorrent := jsonutils.QueryBoolean(query, "torrent", false)
@@ -369,7 +362,6 @@ func (img *SImage) GetExtraDetailsHeaders(ctx context.Context, userCred mcclient
 				headers[fmt.Sprintf("%s%s", modules.IMAGE_META, "status")] = subimg.Status
 				headers[fmt.Sprintf("%s%s", modules.IMAGE_META, "size")] = fmt.Sprintf("%d", subimg.Size)
 				headers[fmt.Sprintf("%s%s", modules.IMAGE_META, "checksum")] = subimg.Checksum
-				headers[fmt.Sprintf("%s%s", modules.IMAGE_META, "oss_checksum")] = subimg.Checksum
 			} else {
 				headers[fmt.Sprintf("%s%s", modules.IMAGE_META, "status")] = subimg.TorrentStatus
 				headers[fmt.Sprintf("%s%s", modules.IMAGE_META, "size")] = fmt.Sprintf("%d", subimg.TorrentSize)
@@ -378,24 +370,31 @@ func (img *SImage) GetExtraDetailsHeaders(ctx context.Context, userCred mcclient
 		}
 	}
 
-	properties, _ := ImagePropertyManager.GetProperties(img.Id)
+	// none of subimage business
+	var ossChksum = self.OssChecksum
+	if len(self.OssChecksum) == 0 {
+		ossChksum = self.Checksum
+	}
+	headers[fmt.Sprintf("%s%s", modules.IMAGE_META, "oss_checksum")] = ossChksum
+
+	properties, _ := ImagePropertyManager.GetProperties(self.Id)
 	if len(properties) > 0 {
 		for k, v := range properties {
 			headers[fmt.Sprintf("%s%s", modules.IMAGE_META_PROPERTY, k)] = v
 		}
 	}
 
-	if img.PendingDeleted {
-		pendingDeletedAt := img.PendingDeletedAt.Add(time.Second * time.Duration(options.Options.PendingDeleteExpireSeconds))
+	if self.PendingDeleted {
+		pendingDeletedAt := self.PendingDeletedAt.Add(time.Second * time.Duration(options.Options.PendingDeleteExpireSeconds))
 		headers[fmt.Sprintf("%s%s", modules.IMAGE_META, "auto_delete_at")] = timeutils.FullIsoTime(pendingDeletedAt)
 	}
 
-	if options.Options.S3DirectDownload && strings.HasPrefix(img.Location, api.S3Prefix) {
+	if strings.HasPrefix(self.Location, api.S3Prefix) {
 		headers[fmt.Sprintf("%s%s", modules.IMAGE_META, "s3_info_url")] = s3.GetEndpoint(options.Options.S3Endpoint, options.Options.S3UseSSL)
 		headers[fmt.Sprintf("%s%s", modules.IMAGE_META, "s3_info_access_key")] = options.Options.S3AccessKey
 		headers[fmt.Sprintf("%s%s", modules.IMAGE_META, "s3_info_secret")] = options.Options.S3SecretKey
 		headers[fmt.Sprintf("%s%s", modules.IMAGE_META, "s3_info_bucket")] = options.Options.S3BucketName
-		headers[fmt.Sprintf("%s%s", modules.IMAGE_META, "s3_info_key")] = imagePathToName(img.Location)
+		headers[fmt.Sprintf("%s%s", modules.IMAGE_META, "s3_info_key")] = imagePathToName(self.Location)
 		headers[fmt.Sprintf("%s%s", modules.IMAGE_META, "s3_info_sign_ver")] = options.Options.S3SignVersion
 	}
 
@@ -1085,44 +1084,42 @@ func (self *SImage) newSubformat(ctx context.Context, format qemuimgfmt.TImageFo
 	return nil
 }
 
-func (img *SImage) migrateSubImage(ctx context.Context) error {
+func (self *SImage) migrateSubImage(ctx context.Context) error {
 	log.Debugf("migrateSubImage")
-	if !qemuimgfmt.IsSupportedImageFormat(img.DiskFormat) {
-		log.Warningf("Unsupported image format %s, no need to migrate", img.DiskFormat)
+	if !qemuimgfmt.IsSupportedImageFormat(self.DiskFormat) {
+		log.Warningf("Unsupported image format %s, no need to migrate", self.DiskFormat)
 		return nil
 	}
 
-	subimg := ImageSubformatManager.FetchSubImage(img.Id, img.DiskFormat)
+	subimg := ImageSubformatManager.FetchSubImage(self.Id, self.DiskFormat)
 	if subimg != nil {
 		return nil
 	}
 
-	imgInst, err := img.getQemuImage()
+	imgInst, err := self.getQemuImage()
 	if err != nil {
 		return errors.Wrap(err, "getQemuImage")
 	}
-	if img.GetImageType() != api.ImageTypeISO && imgInst.IsSparse() && utils.IsInStringArray(img.DiskFormat, options.Options.TargetImageFormats) {
+	if self.GetImageType() != api.ImageTypeISO && imgInst.IsSparse() && utils.IsInStringArray(self.DiskFormat, options.Options.TargetImageFormats) {
 		// need to convert again
-		log.Debugf("migrateImage: image is not iso but sparse, need to convert the image")
-		return img.newSubformat(ctx, qemuimgfmt.String2ImageFormat(img.DiskFormat), false)
+		return self.newSubformat(ctx, qemuimgfmt.String2ImageFormat(self.DiskFormat), false)
 	} else {
-		log.Debugf("migrateImage: no need to convert the image")
-		localPath := img.GetLocalLocation()
-		if !strings.HasSuffix(localPath, fmt.Sprintf(".%s", img.DiskFormat)) {
-			newLocalpath := fmt.Sprintf("%s.%s", localPath, img.DiskFormat)
+		localPath := self.GetLocalLocation()
+		if !strings.HasSuffix(localPath, fmt.Sprintf(".%s", self.DiskFormat)) {
+			newLocalpath := fmt.Sprintf("%s.%s", localPath, self.DiskFormat)
 			out, err := procutils.NewCommand("mv", "-f", localPath, newLocalpath).Output()
 			if err != nil {
 				return errors.Wrapf(err, "rename file failed %s", out)
 			}
-			_, err = db.Update(img, func() error {
-				img.Location = img.GetNewLocation(newLocalpath)
+			_, err = db.Update(self, func() error {
+				self.Location = self.GetNewLocation(newLocalpath)
 				return nil
 			})
 			if err != nil {
 				return err
 			}
 		}
-		return img.newSubformat(ctx, qemuimgfmt.String2ImageFormat(img.DiskFormat), true)
+		return self.newSubformat(ctx, qemuimgfmt.String2ImageFormat(self.DiskFormat), true)
 	}
 }
 
@@ -1166,6 +1163,9 @@ func (self *SImage) doConvertAllSubformats() error {
 		}
 		if !utils.IsInStringArray(subimgs[i].Format, options.Options.TargetImageFormats) {
 			// cleanup
+			continue
+		}
+		if self.DiskFormat == subimgs[i].Format {
 			continue
 		}
 		err := subimgs[i].doConvert(self)
@@ -1915,7 +1915,7 @@ func (image *SImage) doUploadPermanentStorage(ctx context.Context, userCred mccl
 		if !subimgs[i].isLocal() {
 			continue
 		}
-		if subimgs[i].Format == image.DiskFormat && subimgs[i].Checksum == image.Checksum {
+		if subimgs[i].Format == image.DiskFormat {
 			_, err := db.Update(&subimgs[i], func() error {
 				subimgs[i].Location = image.Location
 				subimgs[i].Status = api.IMAGE_STATUS_ACTIVE
@@ -1927,7 +1927,7 @@ func (image *SImage) doUploadPermanentStorage(ctx context.Context, userCred mccl
 		} else {
 			imagePath := subimgs[i].GetLocalLocation()
 			storage := GetStorage()
-			location, err := storage.SaveImage(ctx, imagePath, nil)
+			location, err := GetStorage().SaveImage(ctx, imagePath, nil)
 			if err != nil {
 				log.Errorf("Failed save image to sepcific storage %s", err)
 				subimgs[i].SetStatus(api.IMAGE_STATUS_SAVE_FAIL)
@@ -2192,9 +2192,9 @@ func (img *SImage) cacheToCephStorages(ctx context.Context) {
 				storageConfString := cephutils.CephConfString(
 					storageConf.MonHost,
 					storageConf.Key,
-					storageConf.RadosMonOpTimeout,
-					storageConf.RadosOsdOpTimeout,
-					storageConf.ClientMountTimeout,
+					int64(storageConf.RadosMonOpTimeout),
+					int64(storageConf.RadosOsdOpTimeout),
+					int64(storageConf.ClientMountTimeout),
 				)
 				rbdPath := fmt.Sprintf("rbd:%s/%s%s", storageConf.Pool, imgTmpName, storageConfString)
 				log.Infof("convert local image %s to rbd pool %s", img.Id, storageConf.Pool)
@@ -2245,7 +2245,7 @@ func (img *SImage) cacheToCephStorages(ctx context.Context) {
 }
 
 func (img *SImage) removeCephImage(storageConf *computeapi.RbdStorageConf, imgName string) error {
-	cli, err := cephutils.NewClient(storageConf.MonHost, storageConf.Key, storageConf.Pool, storageConf.EnableMessengerV2, 0, 0, 0)
+	cli, err := cephutils.NewClient(storageConf.MonHost, storageConf.Key, storageConf.Pool, storageConf.EnableMessengerV2)
 	if err != nil {
 		return errors.Wrap(err, "cephutils.NewClient")
 	}
@@ -2261,7 +2261,7 @@ func (img *SImage) removeCephImage(storageConf *computeapi.RbdStorageConf, imgNa
 }
 
 func (img *SImage) renameCephImage(storageConf *computeapi.RbdStorageConf, srcImgName, destImgName string) error {
-	cli, err := cephutils.NewClient(storageConf.MonHost, storageConf.Key, storageConf.Pool, storageConf.EnableMessengerV2, 0, 0, 0)
+	cli, err := cephutils.NewClient(storageConf.MonHost, storageConf.Key, storageConf.Pool, storageConf.EnableMessengerV2)
 	if err != nil {
 		return errors.Wrap(err, "cephutils.NewClient")
 	}
@@ -2277,7 +2277,7 @@ func (img *SImage) getCephImage(storageConf *computeapi.RbdStorageConf, imgName 
 	if imgName == "" {
 		imgName = "image_cache_" + img.Id
 	}
-	cli, err := cephutils.NewClient(storageConf.MonHost, storageConf.Key, storageConf.Pool, storageConf.EnableMessengerV2, 0, 0, 0)
+	cli, err := cephutils.NewClient(storageConf.MonHost, storageConf.Key, storageConf.Pool, storageConf.EnableMessengerV2)
 	if err != nil {
 		return nil, errors.Wrap(err, "cephutils.NewClient")
 	}
@@ -2292,9 +2292,9 @@ func (img *SImage) getCephImage(storageConf *computeapi.RbdStorageConf, imgName 
 	storageConfString := cephutils.CephConfString(
 		storageConf.MonHost,
 		storageConf.Key,
-		storageConf.RadosMonOpTimeout,
-		storageConf.RadosOsdOpTimeout,
-		storageConf.ClientMountTimeout,
+		int64(storageConf.RadosMonOpTimeout),
+		int64(storageConf.RadosOsdOpTimeout),
+		int64(storageConf.ClientMountTimeout),
 	)
 	rbdPath := fmt.Sprintf("rbd:%s/%s%s", storageConf.Pool, imgName, storageConfString)
 	origin, err := qemuimg.NewQemuImage(rbdPath)
@@ -2309,7 +2309,7 @@ func (img *SImage) getCephImage(storageConf *computeapi.RbdStorageConf, imgName 
 
 func (img *SImage) cloneToCephStorage(ctx context.Context, monHost, key, pool string, enableMessengerV2 bool, destPool string) error {
 	imgName := "image_cache_" + img.Id
-	cli, err := cephutils.NewClient(monHost, key, pool, enableMessengerV2, 0, 0, 0)
+	cli, err := cephutils.NewClient(monHost, key, pool, enableMessengerV2)
 	if err != nil {
 		return errors.Wrap(err, "cephutils.NewClient")
 	}
@@ -2345,71 +2345,5 @@ func (img *SImage) markDataImage(userCred mcclient.TokenCredential) error {
 		return errors.Wrap(err, "update")
 	}
 	db.OpsLog.LogEvent(img, db.ACT_UPDATE, diff, userCred)
-	return nil
-}
-
-func (manager *SImageManager) FetchImages(filter func(q *sqlchemy.SQuery) *sqlchemy.SQuery) ([]SImage, error) {
-	q := manager.Query()
-	if filter != nil {
-		q = filter(q)
-	}
-	images := make([]SImage, 0)
-	err := db.FetchModelObjects(manager, q, &images)
-	if err != nil {
-		return nil, errors.Wrap(err, "db.FetchModelObjects")
-	}
-	return images, nil
-}
-
-func (manager *SImageManager) VerifyActiveImageStatus(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
-	images, err := manager.FetchImages(func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
-		return q.In("status", []string{api.IMAGE_STATUS_ACTIVE, api.IMAGE_STATUS_UNKNOWN})
-	})
-	if err != nil {
-		log.Errorf("FetchImages failed: %s", err)
-		return
-	}
-	for i := range images {
-		img := &images[i]
-		err := img.verifyStatus(ctx, userCred)
-		if err != nil {
-			log.Errorf("VerifyStatus %s(%s) failed: %s", img.Id, img.Name, err)
-		}
-	}
-}
-
-func (img *SImage) verifyStatus(ctx context.Context, userCred mcclient.TokenCredential) error {
-	errs := make([]error, 0)
-	subImages := ImageSubformatManager.GetAllSubImages(img.Id)
-	for i := range subImages {
-		err := subImages[i].verifyStatusSelf(ctx)
-		if err != nil {
-			errs = append(errs, err)
-		}
-	}
-	err := img.verifyStatusSelf(ctx, userCred)
-	if err != nil {
-		errs = append(errs, err)
-	}
-	if len(errs) > 0 {
-		return errors.NewAggregate(errs)
-	}
-	return nil
-}
-
-func (img *SImage) verifyStatusSelf(ctx context.Context, userCred mcclient.TokenCredential) error {
-	if len(img.Location) == 0 {
-		return nil
-	}
-	filePath := img.Location
-	_, rc, err := GetImage(ctx, filePath)
-	if err != nil {
-		img.SetStatus(ctx, userCred, api.IMAGE_STATUS_UNKNOWN, errors.Wrap(err, "verifyStatusSelf").Error())
-		return errors.Wrap(err, "GetImage")
-	}
-	defer rc.Close()
-	if img.Status != api.IMAGE_STATUS_ACTIVE {
-		img.SetStatus(ctx, userCred, api.IMAGE_STATUS_ACTIVE, "verifyStatusSelf")
-	}
 	return nil
 }

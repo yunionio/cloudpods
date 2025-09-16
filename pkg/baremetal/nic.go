@@ -15,155 +15,84 @@
 package baremetal
 
 import (
+	"fmt"
 	"net"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
-	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/netutils"
-	"yunion.io/x/pkg/util/regutils"
 
 	o "yunion.io/x/onecloud/pkg/baremetal/options"
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	"yunion.io/x/onecloud/pkg/util/dhcp"
-	"yunion.io/x/onecloud/pkg/util/netutils2"
 )
 
 func GetNicDHCPConfig(
 	n *types.SNic,
-	serverIP net.IP,
-	serverMac net.HardwareAddr,
+	serverIP string,
 	hostName string,
 	isPxe bool,
 	arch uint16,
-	osName string,
 ) (*dhcp.ResponseConfig, error) {
 	if n == nil {
-		return nil, errors.Wrap(errors.ErrEmpty, "Nic is nil")
+		return nil, fmt.Errorf("Nic is nil")
 	}
-	if n.IpAddr == "" && n.Ip6Addr == "" {
-		return nil, errors.Wrap(errors.ErrEmpty, "Nic no ip or ip6 address")
+	if n.IpAddr == "" {
+		return nil, fmt.Errorf("Nic no ip address")
+	}
+	ipAddr, err := netutils.NewIPV4Addr(n.IpAddr)
+	if err != nil {
+		return nil, fmt.Errorf("Parse IP address error: %q", n.IpAddr)
 	}
 
-	routes4 := make([]netutils2.SRouteInfo, 0)
-	routes6 := make([]netutils2.SRouteInfo, 0)
+	subnetMask := net.ParseIP(netutils.Masklen2Mask(n.Masklen).String())
+
+	routes := make([][]string, 0)
 	for _, route := range n.Routes {
-		routeInfo, err := netutils2.ParseRouteInfo([]string{route[0], route[1]})
-		if err != nil {
-			return nil, errors.Wrapf(err, "Parse route %s error: %q", route, err)
-		}
-		if regutils.MatchCIDR6(route[0]) {
-			routes6 = append(routes6, *routeInfo)
-		} else {
-			routes4 = append(routes4, *routeInfo)
-		}
+		routes = append(routes, []string{route[0], route[1]})
 	}
 
-	isDefaultGW := false
-	if n.IsDefault == nil || *n.IsDefault {
-		isDefaultGW = true
+	parseIPs := func(ips string) []net.IP {
+		ret := make([]net.IP, 0)
+		iplist := strings.Split(ips, ",")
+		for _, ip := range iplist {
+			ret = append(ret, net.ParseIP(ip))
+		}
+		return ret
+	}
 
-		if n.Gateway != "" && !strings.HasPrefix(strings.ToLower(osName), "win") {
-			routes4 = append(routes4, netutils2.SRouteInfo{
-				SPrefixInfo: netutils2.SPrefixInfo{
-					Prefix:    net.ParseIP("0.0.0.0"),
-					PrefixLen: 0,
-				},
-				Gateway: net.ParseIP(n.Gateway),
-			})
+	parseDomains := func(domains string) []net.IP {
+		ret := make([]net.IP, 0)
+		domainlist := strings.Split(domains, ",")
+		for _, domain := range domainlist {
+			addrs, _ := net.LookupHost(domain)
+			for _, addr := range addrs {
+				ret = append(ret, net.ParseIP(addr))
+			}
 		}
-		if n.Gateway6 != "" {
-			routes6 = append(routes6, netutils2.SRouteInfo{
-				SPrefixInfo: netutils2.SPrefixInfo{
-					Prefix:    net.ParseIP("::"),
-					PrefixLen: 0,
-				},
-				Gateway: net.ParseIP(n.Gateway6),
-			})
-		}
+		return ret
 	}
 
 	conf := &dhcp.ResponseConfig{
-		InterfaceMac: serverMac,
-		VlanId:       uint16(n.VlanId),
-
-		ServerIP:    serverIP,
-		Domain:      n.Domain,
-		OsName:      osName,
-		Hostname:    strings.ToLower(hostName),
-		Routes:      routes4,
-		Routes6:     routes6,
-		LeaseTime:   time.Duration(o.Options.DhcpLeaseTime) * time.Second,
-		RenewalTime: time.Duration(o.Options.DhcpRenewalTime) * time.Second,
-
-		IsDefaultGW: isDefaultGW,
-	}
-
-	if n.IpAddr != "" {
-		ipAddr, err := netutils.NewIPV4Addr(n.IpAddr)
-		if err != nil {
-			return nil, errors.Wrapf(err, "Parse IP address error: %q", n.IpAddr)
-		}
-
-		subnetMask := net.ParseIP(netutils.Masklen2Mask(n.Masklen).String())
-
-		conf.ClientIP = net.ParseIP(ipAddr.String())
-		conf.SubnetMask = subnetMask
-		conf.BroadcastAddr = net.ParseIP(ipAddr.BroadcastAddr(n.Masklen).String())
-		conf.Gateway = net.ParseIP(n.Gateway)
-	}
-	if n.Ip6Addr != "" {
-		ip6Addr, err := netutils.NewIPV6Addr(n.Ip6Addr)
-		if err != nil {
-			return nil, errors.Wrapf(err, "Parse IPv6 address error: %q", n.Ip6Addr)
-		}
-
-		conf.ClientIP6 = net.ParseIP(ip6Addr.String())
-		conf.PrefixLen6 = n.Masklen6
-		conf.Gateway6 = net.ParseIP(n.Gateway6)
-	}
-
-	if len(n.Dns) > 0 {
-		conf.DNSServers = make([]net.IP, 0)
-		conf.DNSServers6 = make([]net.IP, 0)
-		for _, dns := range strings.Split(n.Dns, ",") {
-			if regutils.MatchIP4Addr(dns) {
-				conf.DNSServers = append(conf.DNSServers, net.ParseIP(dns))
-			} else if regutils.MatchIP6Addr(dns) {
-				conf.DNSServers6 = append(conf.DNSServers6, net.ParseIP(dns))
-			}
-		}
-	}
-
-	if len(n.Ntp) > 0 {
-		conf.NTPServers = make([]net.IP, 0)
-		conf.NTPServers6 = make([]net.IP, 0)
-		for _, ntp := range strings.Split(n.Ntp, ",") {
-			if regutils.MatchIP4Addr(ntp) {
-				conf.NTPServers = append(conf.NTPServers, net.ParseIP(ntp))
-			} else if regutils.MatchIP6Addr(ntp) {
-				conf.NTPServers6 = append(conf.NTPServers6, net.ParseIP(ntp))
-			} else if regutils.MatchDomainName(ntp) {
-				ntpAddrs, _ := net.LookupHost(ntp)
-				for _, ntpAddr := range ntpAddrs {
-					if regutils.MatchIP4Addr(ntpAddr) {
-						conf.NTPServers = append(conf.NTPServers, net.ParseIP(ntpAddr))
-					} else if regutils.MatchIP6Addr(ntpAddr) {
-						conf.NTPServers6 = append(conf.NTPServers6, net.ParseIP(ntpAddr))
-					}
-				}
-			}
-		}
-	}
-
-	if n.Mtu > 0 {
-		conf.MTU = uint16(n.Mtu)
+		ServerIP:      net.ParseIP(serverIP),
+		ClientIP:      net.ParseIP(ipAddr.String()),
+		Gateway:       net.ParseIP(n.Gateway),
+		SubnetMask:    subnetMask,
+		BroadcastAddr: net.ParseIP(ipAddr.BroadcastAddr(n.Masklen).String()),
+		DNSServers:    parseIPs(n.Dns),
+		NTPServers:    parseDomains(n.Ntp),
+		Domain:        n.Domain,
+		OsName:        "Linux",
+		Hostname:      hostName,
+		Routes:        routes,
+		LeaseTime:     time.Duration(o.Options.DhcpLeaseTime) * time.Second,
+		RenewalTime:   time.Duration(o.Options.DhcpRenewalTime) * time.Second,
 	}
 
 	if isPxe {
-		conf.BootServer = serverIP.String()
+		conf.BootServer = serverIP
 		if len(o.Options.TftpBootServer) > 0 {
 			conf.BootServer = o.Options.TftpBootServer
 		}

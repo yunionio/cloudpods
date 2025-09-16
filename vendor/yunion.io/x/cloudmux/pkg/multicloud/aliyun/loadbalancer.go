@@ -297,7 +297,7 @@ func (lb *SLoadbalancer) GetILoadBalancerBackendGroupById(groupId string) (cloud
 	return nil, cloudprovider.ErrNotFound
 }
 
-func (lb *SLoadbalancer) GetIEIPs() ([]cloudprovider.ICloudEIP, error) {
+func (lb *SLoadbalancer) GetIEIP() (cloudprovider.ICloudEIP, error) {
 	if lb.AddressType == "internet" {
 		eip := SEipAddress{
 			region:         lb.region,
@@ -315,18 +315,17 @@ func (lb *SLoadbalancer) GetIEIPs() ([]cloudprovider.ICloudEIP, error) {
 		case api.LB_CHARGE_TYPE_BY_TRAFFIC:
 			eip.InternetChargeType = InternetChargeByTraffic
 		}
-		return []cloudprovider.ICloudEIP{&eip}, nil
+		return &eip, nil
 	}
-	eips, err := lb.region.GetEips("", lb.LoadBalancerId, "")
+	eips, total, err := lb.region.GetEips("", lb.LoadBalancerId, "", 0, 1)
 	if err != nil {
 		return nil, errors.Wrapf(err, "lb.region.GetEips(%s)", lb.LoadBalancerId)
 	}
-	ret := []cloudprovider.ICloudEIP{}
-	for i := range eips {
-		eips[i].region = lb.region
-		ret = append(ret, &eips[i])
+	if total != 1 {
+		return nil, cloudprovider.ErrNotFound
 	}
-	return ret, nil
+	eips[0].region = lb.region
+	return &eips[0], nil
 }
 
 func (region *SRegion) loadbalancerOperation(loadbalancerId, status string) error {

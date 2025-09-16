@@ -37,14 +37,12 @@ type SRegion struct {
 
 	product *SProduct
 
-	IsMultiZones     bool
-	OpenapiAvailable bool
-	RegionParent     string
-	RegionId         string
-	RegionCode       string
-	RegionType       string
-	ZoneList         []string
-	RegionName       string
+	IsMultiZones bool
+	RegionParent string
+	RegionId     string
+	RegionType   string
+	ZoneList     []string
+	RegionName   string
 }
 
 func (self *SRegion) list(service, res string, params map[string]interface{}) (jsonutils.JSONObject, error) {
@@ -120,8 +118,9 @@ func (self *SRegion) CreateISecurityGroup(opts *cloudprovider.SecurityGroupCreat
 }
 
 func (self *SRegion) GetId() string {
-	if len(self.RegionCode) > 0 {
-		return self.RegionCode
+	id, ok := CtyunRegionIdMap[self.RegionId]
+	if ok {
+		return id
 	}
 	return self.RegionId
 }
@@ -137,12 +136,25 @@ func (self *SRegion) GetI18n() cloudprovider.SModelI18nTable {
 	return table
 }
 
+func (self *SRegion) getProduct() (*SProduct, error) {
+	if !gotypes.IsNil(self.product) {
+		return self.product, nil
+	}
+	var err error
+	self.product, err = self.GetProduct()
+	return self.product, err
+}
+
 func (self *SRegion) GetGlobalId() string {
 	return fmt.Sprintf("%s/%s", self.client.GetAccessEnv(), self.GetId())
 }
 
 func (self *SRegion) GetStatus() string {
-	if !self.OpenapiAvailable {
+	product, err := self.getProduct()
+	if err != nil {
+		return api.CLOUD_REGION_STATUS_OUTOFSERVICE
+	}
+	if len(product.Other.Region) == 0 {
 		return api.CLOUD_REGION_STATUS_OUTOFSERVICE
 	}
 	return api.CLOUD_REGION_STATUS_INSERVER
@@ -218,7 +230,7 @@ func (self *SRegion) GetIVpcById(id string) (cloudprovider.ICloudVpc, error) {
 			return ivpcs[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", id)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
 }
 
 func (self *SRegion) GetIZoneById(id string) (cloudprovider.ICloudZone, error) {
@@ -375,7 +387,7 @@ func (self *SRegion) GetInstance(id string) (*SInstance, error) {
 			return &vms[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", id)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
 }
 
 func (self *SRegion) GetInstances(zoneId string, ids []string) ([]SInstance, error) {

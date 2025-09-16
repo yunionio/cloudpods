@@ -36,10 +36,9 @@ const (
 )
 
 const (
-	POD_METADATA_CRI_ID                   = "cri_id"
-	POD_METADATA_CRI_CONFIG               = "cri_config"
-	POD_METADATA_PORT_MAPPINGS            = "port_mappings"
-	POD_METADATA_POST_STOP_CLEANUP_CONFIG = "post_stop_cleanup_config"
+	POD_METADATA_CRI_ID        = "cri_id"
+	POD_METADATA_CRI_CONFIG    = "cri_config"
+	POD_METADATA_PORT_MAPPINGS = "port_mappings"
 )
 
 type PodContainerCreateInput struct {
@@ -164,8 +163,4 @@ func ValidatePodLogOptions(opts *PodLogOptions) error {
 		}
 	}
 	return nil
-}
-
-type PodPostStopCleanupConfig struct {
-	Dirs []string `json:"dirs"`
 }

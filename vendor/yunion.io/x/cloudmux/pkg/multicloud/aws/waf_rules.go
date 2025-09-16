@@ -20,11 +20,9 @@ import (
 
 	"github.com/aws/aws-sdk-go/service/wafv2"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
-	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 )
 
@@ -49,10 +47,6 @@ func (self *sWafRule) GetAction() *cloudprovider.DefaultAction {
 
 func (self *sWafRule) GetDesc() string {
 	return ""
-}
-
-func (self *sWafRule) GetType() string {
-	return api.WAF_RULE_TYPE_CUSTOM
 }
 
 func (self *sWafRule) GetName() string {
@@ -96,10 +90,6 @@ func (self *sWafRule) Update(opts *cloudprovider.SWafRule) error {
 	return cloudprovider.ErrNotImplemented
 }
 
-func (self *sWafRule) GetExpression() string {
-	return ""
-}
-
 func (self *sWafRule) GetStatementCondition() cloudprovider.TWafStatementCondition {
 	if self.Rule.Statement == nil {
 		return cloudprovider.WafStatementConditionNone
@@ -112,22 +102,6 @@ func (self *sWafRule) GetStatementCondition() cloudprovider.TWafStatementConditi
 		return cloudprovider.WafStatementConditionNot
 	}
 	return cloudprovider.WafStatementConditionNone
-}
-
-func (self *sWafRule) GetEnabled() bool {
-	return true
-}
-
-func (self *sWafRule) Enable() error {
-	return cloudprovider.ErrNotImplemented
-}
-
-func (self *sWafRule) Disable() error {
-	return cloudprovider.ErrNotImplemented
-}
-
-func (self *sWafRule) GetConfig() (jsonutils.JSONObject, error) {
-	return jsonutils.NewDict(), nil
 }
 
 type sWafStatement struct {

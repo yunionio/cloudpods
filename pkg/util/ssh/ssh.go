@@ -21,7 +21,6 @@ import (
 	"io"
 	"net"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 
@@ -76,7 +75,7 @@ func (conf ClientConfig) Connect() (*ssh.Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	addr := net.JoinHostPort(conf.Host, strconv.Itoa(conf.Port))
+	addr := fmt.Sprintf("%s:%d", conf.Host, conf.Port)
 	client, err := ssh.Dial("tcp", addr, cliConfig)
 	if err != nil {
 		return nil, err
@@ -90,7 +89,7 @@ func (conf ClientConfig) ConnectContext(ctx context.Context) (*ssh.Client, error
 		return nil, err
 	}
 
-	addr := net.JoinHostPort(conf.Host, strconv.Itoa(conf.Port))
+	addr := fmt.Sprintf("%s:%d", conf.Host, conf.Port)
 	d := &net.Dialer{}
 	netconn, err := d.DialContext(ctx, "tcp", addr)
 	if err != nil {

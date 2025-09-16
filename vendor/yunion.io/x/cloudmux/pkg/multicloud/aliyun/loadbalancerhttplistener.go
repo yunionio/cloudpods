@@ -172,14 +172,6 @@ func (listerner *SLoadbalancerHTTPListener) GetHealthCheckDomain() string {
 	return listerner.HealthCheckDomain
 }
 
-func (listerner *SLoadbalancerHTTPListener) GetHealthCheckMethod() string {
-	return ""
-}
-
-func (listerner *SLoadbalancerHTTPListener) GetHealthCheckPort() int {
-	return listerner.HealthCheckConnectPort
-}
-
 func (listerner *SLoadbalancerHTTPListener) GetHealthCheckURI() string {
 	return listerner.HealthCheckURI
 }
@@ -277,7 +269,7 @@ func (self *SLoadbalancerHTTPListener) SetAcl(ctx context.Context, opts *cloudpr
 }
 
 func (listerner *SLoadbalancerHTTPListener) GetILoadbalancerListenerRules() ([]cloudprovider.ICloudLoadbalancerListenerRule, error) {
-	rules, err := listerner.lb.region.GetLoadbalancerListenerRules(listerner.lb.LoadBalancerId, "HTTP", listerner.ListenerPort)
+	rules, err := listerner.lb.region.GetLoadbalancerListenerRules(listerner.lb.LoadBalancerId, listerner.ListenerPort)
 	if err != nil {
 		return nil, err
 	}

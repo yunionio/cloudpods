@@ -22,7 +22,6 @@ import (
 	"net"
 	"os"
 	"runtime/debug"
-	"sort"
 	"strings"
 	"time"
 
@@ -33,7 +32,6 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/netutils"
-	"yunion.io/x/pkg/utils"
 
 	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
 	commonconsts "yunion.io/x/onecloud/pkg/cloudcommon/consts"
@@ -47,7 +45,6 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/guestfs/fsdriver"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/consts"
-	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/uefi"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
@@ -264,75 +261,6 @@ func (*DeployerServer) DisconnectEsxiDisks(
 			continue
 		}
 	}
-	return new(deployapi.Empty), nil
-}
-
-func (*DeployerServer) SetOvmfBootOrder(ctx context.Context, req *deployapi.OvmfBootOrderParams) (*deployapi.Empty, error) {
-	log.Infof("Request SetOvmfBootOrder of %s", req.OvmfVarsPath)
-	if !fileutils2.Exists(req.OvmfVarsPath) {
-		return new(deployapi.Empty), errors.Errorf("ovmf %s not found", req.OvmfVarsPath)
-	}
-
-	// parse boot entry from ovmf vars
-	bootEntries, bootOrder, ovmfJsonTmpPath, err := uefi.ParseUefiVars(req.OvmfVarsPath)
-	if err != nil {
-		return new(deployapi.Empty), errors.Wrapf(err, "failed parse uefi vars %s", req.OvmfVarsPath)
-	}
-
-	sort.Slice(req.Devs, func(i, j int) bool {
-		return req.Devs[i].AttachOrder < req.Devs[j].AttachOrder
-	})
-	bootEntryIdx := map[string]*deployapi.BootDevices{}
-	bootentryOrder := map[int32]string{}
-	findBootentry := func(dev *deployapi.BootDevices) {
-		for x, bootEntry := range bootEntries {
-			if _, ok := bootEntryIdx[bootEntry.ID]; ok {
-				continue
-			}
-			log.Errorf("bootentry %v type %v", x, bootEntry.GetType())
-			if bootEntry.GetType() == uefi.OvmfDevicePathType(dev.DevType) {
-				bootEntryIdx[bootEntry.ID] = dev
-				bootentryOrder[dev.BootOrder] = bootEntry.ID
-				break
-			}
-		}
-	}
-	for i := range req.Devs {
-		findBootentry(req.Devs[i])
-	}
-	sort.Slice(req.Devs, func(i, j int) bool {
-		return req.Devs[i].BootOrder < req.Devs[j].BootOrder
-	})
-	newBootOrder := []uint16{}
-	for i := range req.Devs {
-		bentry, ok := bootentryOrder[req.Devs[i].BootOrder]
-		if !ok {
-			continue
-		}
-		order, err := uefi.ParseBootentryToBootorder(bentry)
-		if err != nil {
-			log.Errorf("failed ParseBootentryToBootorder %s %s", bentry, err)
-			continue
-		}
-		newBootOrder = append(newBootOrder, order)
-	}
-	for i := range bootOrder {
-		if utils.IsInArray(bootOrder[i], newBootOrder) {
-			continue
-		}
-		newBootOrder = append(newBootOrder, bootOrder[i])
-	}
-
-	if err := uefi.UpdateBootOrderInJson(ovmfJsonTmpPath, newBootOrder); err != nil {
-		log.Errorf("failed UpdateBootOrderInJson %s", err)
-		return new(deployapi.Empty), errors.Wrapf(err, "failed UpdateBootOrderInJson %v", newBootOrder)
-	}
-	out, err := uefi.ApplyJsonToVars(ovmfJsonTmpPath, req.OvmfVarsPath, req.OvmfVarsPath)
-	if err != nil {
-		log.Errorf("failed ApplyJsonToVars %s %s", out, err)
-		return new(deployapi.Empty), errors.Wrapf(err, "failed ApplyJsonToVars %v", out)
-	}
-
 	return new(deployapi.Empty), nil
 }
 

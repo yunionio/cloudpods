@@ -428,7 +428,7 @@ func (d *QemuKvmDriver) DeployGuestfs(req *apis.DeployParams) (*apis.DeployGuest
 	log.Infof("deploy error str %v", errStrs)
 	var retErr error = nil
 	if len(errStrs[0]) > 0 {
-		retErr = errors.Errorf("%s", errStrs[0])
+		retErr = errors.Errorf(errStrs[0])
 	}
 
 	responseStrs, err := d.sshRun("test -f /response && cat /response || true")
@@ -466,7 +466,7 @@ func (d *QemuKvmDriver) ResizeFs() (*apis.Empty, error) {
 	}
 	var retErr error = nil
 	if len(errStrs[0]) > 0 {
-		retErr = errors.Errorf("%s", errStrs[0])
+		retErr = errors.Errorf(errStrs[0])
 	}
 	return new(apis.Empty), retErr
 }
@@ -491,7 +491,7 @@ func (d *QemuKvmDriver) FormatFs(req *apis.FormatFsParams) (*apis.Empty, error) 
 	}
 	var retErr error = nil
 	if len(errStrs[0]) > 0 {
-		retErr = errors.Errorf("%s", errStrs[0])
+		retErr = errors.Errorf(errStrs[0])
 	}
 	return new(apis.Empty), retErr
 }
@@ -528,7 +528,7 @@ func (d *QemuKvmDriver) SaveToGlance(req *apis.SaveToGlanceParams) (*apis.SaveTo
 	}
 	var retErr error = nil
 	if len(errStrs[0]) > 0 {
-		retErr = errors.Errorf("%s", errStrs[0])
+		retErr = errors.Errorf(errStrs[0])
 	}
 	return res, retErr
 }
@@ -565,7 +565,7 @@ func (d *QemuKvmDriver) ProbeImageInfo(req *apis.ProbeImageInfoPramas) (*apis.Im
 	}
 	var retErr error = nil
 	if len(errStrs[0]) > 0 {
-		retErr = errors.Errorf("%s", errStrs[0])
+		retErr = errors.Errorf(errStrs[0])
 	}
 	return res, retErr
 }
@@ -660,7 +660,7 @@ func (d *QemuBaseDriver) startCmds(
 		disksPath = []string{imageInfo.Path}
 	}
 	for i, diskPath := range disksPath {
-		diskDrive := __("-drive file=%s,if=none,id=drive_%d,cache=none", strings.ReplaceAll(diskPath, "\\", "\\\\"), i)
+		diskDrive := __("-drive file=%s,if=none,id=drive_%d,cache=none", diskPath, i)
 		if imageInfo.Format != qemuimgfmt.RAW && imageInfo.Encrypted() {
 			diskDrive += ",encrypt.format=luks,encrypt.key-secret=sec0"
 		}

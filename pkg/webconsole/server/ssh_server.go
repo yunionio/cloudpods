@@ -20,7 +20,6 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -81,6 +80,7 @@ func writeToWebsocket(reader io.Reader, s *WebsocketServer) error {
 			return errors.Wrapf(err, "write data to websocket, out: %s", string(out))
 		}
 	}
+	return nil
 }
 
 func (s *WebsocketServer) initWs(w http.ResponseWriter, r *http.Request) error {
@@ -102,7 +102,7 @@ func (s *WebsocketServer) initWs(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	var err error
-	addr := net.JoinHostPort(s.Host, strconv.Itoa(s.Port))
+	addr := fmt.Sprintf("%s:%d", s.Host, s.Port)
 	s.conn, s.sshNetConn, err = NewSshClient("tcp", addr, config)
 	if err != nil {
 		return errors.Wrapf(err, "dial %s", addr)

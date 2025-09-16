@@ -67,17 +67,6 @@ type LoadbalancerListInput struct {
 	UsableLoadbalancerForEip string `json:"usable_loadbalancer_for_eip"`
 }
 
-type LbEip struct {
-	// 公网IP地址
-	Eip string `json:"eip"`
-
-	EipId string `json:"eip_id"`
-
-	// 公网IP地址类型: 弹性、非弹性
-	// example: public_ip
-	EipMode string `json:"eip_mode"`
-}
-
 type LoadbalancerDetails struct {
 	apis.VirtualResourceDetails
 
@@ -93,9 +82,14 @@ type LoadbalancerDetails struct {
 
 	SLoadbalancer
 
-	LbEip
+	// 公网IP地址
+	Eip string `json:"eip"`
 
-	Eips []LbEip `json:"eips"`
+	EipId string `json:"eip_id"`
+
+	// 公网IP地址类型: 弹性、非弹性
+	// example: public_ip
+	EipMode string `json:"eip_mode"`
 
 	// 后端服务器组名称
 	BackendGroup string `json:"backend_group"`
@@ -185,7 +179,7 @@ type LoadbalancerCreateInput struct {
 	// 是否跟随主机删除而自动释放
 	EipAutoDellocate bool `json:"eip_auto_dellocate,omitempty"`
 
-	// swagger:ignore
+	// swagger: ignore
 	Eip string `json:"eip" yunion-deprecated-by:"eip_id"`
 	// EIP Id
 	EipId string `json:"eip_id"`
@@ -212,7 +206,7 @@ type LoadbalancerCreateInput struct {
 	// Cloudregion string `json:"cloudregion"`
 	NetworkResourceInput
 	// 多子网
-	// swagger:ignore
+	// swagger: ignore
 	Networks []string
 	// Network     string `json:"network"`
 	CloudproviderResourceInput

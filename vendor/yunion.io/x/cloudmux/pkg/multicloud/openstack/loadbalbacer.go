@@ -12,6 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http:// www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package openstack
 
 import (
@@ -168,7 +182,7 @@ func (lb *SLoadbalancer) GetAddress() string {
 }
 
 func (lb *SLoadbalancer) GetAddressType() string {
-	eip, err := lb.GetIEIPs()
+	eip, err := lb.GetIEIP()
 	if err != nil {
 		return api.LB_ADDR_TYPE_INTRANET
 	}
@@ -354,9 +368,12 @@ func (lb *SLoadbalancer) GetLoadbalancerSpec() string {
 }
 
 func (lb *SLoadbalancer) GetChargeType() string {
-	_, err := lb.GetIEIPs()
+	eip, err := lb.GetIEIP()
 	if err != nil {
 		log.Errorf("lb.GetIEIP(): %s", err)
+	}
+	if err != nil {
+		return eip.GetInternetChargeType()
 	}
 
 	return api.EIP_CHARGE_TYPE_BY_TRAFFIC
@@ -390,14 +407,14 @@ func (lb *SLoadbalancer) GetILoadBalancerBackendGroupById(poolId string) (cloudp
 	return spool, nil
 }
 
-func (lb *SLoadbalancer) GetIEIPs() ([]cloudprovider.ICloudEIP, error) {
+func (lb *SLoadbalancer) GetIEIP() (cloudprovider.ICloudEIP, error) {
 	eips, err := lb.region.GetEips("")
 	if err != nil {
 		return nil, errors.Wrapf(err, "lb.region.GetEips()")
 	}
 	for _, eip := range eips {
 		if eip.PortId == lb.VipPortID {
-			return []cloudprovider.ICloudEIP{&eip}, nil
+			return &eip, nil
 		}
 	}
 	return nil, nil

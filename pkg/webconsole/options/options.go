@@ -40,7 +40,7 @@ type WebConsoleOptions struct {
 
 	KeepWebsocketSession bool `help:"keep websocket session" default:"false"`
 
-	RefererWhitelist []string `help:"referer whitelist" default:"skip_check"`
+	RefererWhitelist []string `help:"referer whitelist"`
 }
 
 func OnOptionsChange(oldO, newO interface{}) bool {

@@ -67,5 +67,5 @@ func (self *LoadbalancerCertificateCreateTask) OnLoadbalancerCertificateCreateCo
 }
 
 func (self *LoadbalancerCertificateCreateTask) OnLoadbalancerCertificateCreateCompleteFailed(ctx context.Context, lbcert *models.SLoadbalancerCertificate, reason jsonutils.JSONObject) {
-	self.taskFail(ctx, lbcert, errors.Errorf("%s", reason.String()))
+	self.taskFail(ctx, lbcert, errors.Errorf(reason.String()))
 }

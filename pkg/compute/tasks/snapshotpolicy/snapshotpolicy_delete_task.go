@@ -73,5 +73,5 @@ func (self *SnapshotPolicyDeleteTask) OnSnapshotPolicyDeleteComplete(ctx context
 }
 
 func (self *SnapshotPolicyDeleteTask) OnSnapshotPolicyDeleteCompleteFailed(ctx context.Context, sp *models.SSnapshotPolicy, data jsonutils.JSONObject) {
-	self.taskFail(ctx, sp, errors.Errorf("%s", data.String()))
+	self.taskFail(ctx, sp, errors.Errorf(data.String()))
 }

@@ -78,7 +78,7 @@ func (self *SGuest) GetDetailsVnc(ctx context.Context, userCred mcclient.TokenCr
 		utils.IsInStringArray(self.Status, []string{api.VM_RUNNING, api.VM_BLOCK_STREAM, api.VM_MIGRATING}) {
 		host, err := self.GetHost()
 		if err != nil {
-			return nil, httperrors.NewInternalServerError("get host %v", err)
+			return nil, httperrors.NewInternalServerError(errors.Wrapf(err, "GetHost").Error())
 		}
 		if options.Options.ForceUseOriginVnc {
 			input.Origin = true
@@ -1031,18 +1031,13 @@ func (self *SGuest) StartRestartNetworkTask(ctx context.Context, userCred mcclie
 	return nil
 }
 
-func (self *SGuest) StartQgaRestartNetworkTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId, device, ipMask, gateway, ip6Mask, gateway6 string) error {
+func (self *SGuest) StartQgaRestartNetworkTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string, device string, ipMask string, gateway string, prevIp string, inBlockStream bool) error {
 	data := jsonutils.NewDict()
 	data.Set("device", jsonutils.NewString(device))
-	if len(ipMask) > 0 {
-		data.Set("ip_mask", jsonutils.NewString(ipMask))
-		data.Set("gateway", jsonutils.NewString(gateway))
-	}
-	if len(ip6Mask) > 0 {
-		data.Set("ip6_mask", jsonutils.NewString(ip6Mask))
-		data.Set("gateway6", jsonutils.NewString(gateway6))
-	}
-
+	data.Set("ip_mask", jsonutils.NewString(ipMask))
+	data.Set("gateway", jsonutils.NewString(gateway))
+	data.Set("prev_ip", jsonutils.NewString(prevIp))
+	data.Set("in_block_stream", jsonutils.NewBool(inBlockStream))
 	if task, err := taskman.TaskManager.NewTask(ctx, "GuestQgaRestartNetworkTask", self, userCred, data, parentTaskId, "", nil); err != nil {
 		log.Errorln(err)
 		return err
@@ -1126,61 +1121,6 @@ func (self *SGuest) StartResumeTask(ctx context.Context, userCred mcclient.Token
 	}
 
 	return driver.StartResumeTask(ctx, userCred, self, nil, parentTaskId)
-}
-
-func (self *SGuest) PerformRestoreVirtualIsolatedDevices(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	config := self.GetMetadataJson(ctx, api.VM_METADATA_VIRTUAL_ISOLATED_DEVICE_CONFIG, userCred)
-	if config == nil {
-		return nil, nil
-	}
-	devConfigs := make([]api.IsolatedDeviceConfig, 0)
-	err := config.Unmarshal(&devConfigs)
-	if err != nil {
-		return nil, errors.Wrap(err, "unmarshal virtual dev configs")
-	}
-	devs, err := self.GetIsolatedDevices()
-	if err != nil {
-		return nil, errors.Wrap(err, "GetIsolatedDevices")
-	}
-	devCount := map[string]int{}
-	for i := range devConfigs {
-		key := devConfigs[i].DevType + "-" + devConfigs[i].Model
-		if cnt, ok := devCount[key]; ok {
-			devCount[key] = cnt + 1
-		} else {
-			devCount[key] = 1
-		}
-	}
-	for i := range devs {
-		key := devConfigs[i].DevType + "-" + devConfigs[i].Model
-		if cnt, ok := devCount[key]; ok {
-			devCount[key] = cnt - 1
-		}
-	}
-
-	host, err := self.GetHost()
-	if err != nil {
-		return nil, errors.Wrap(err, "get host")
-	}
-	lockman.LockObject(ctx, host)
-	defer lockman.ReleaseObject(ctx, host)
-
-	usedDeviceMap := map[string]*SIsolatedDevice{}
-	for key, cnt := range devCount {
-		if cnt <= 0 {
-			continue
-		}
-		segs := strings.SplitN(key, "-", 2)
-		devConfig := &api.IsolatedDeviceConfig{
-			Model:   segs[1],
-			DevType: segs[0],
-		}
-		err := IsolatedDeviceManager.attachHostDeviceToGuestByModel(ctx, self, host, devConfig, userCred, usedDeviceMap, nil)
-		if err != nil {
-			return nil, errors.Wrap(err, "attachHostDeviceToGuestByModel")
-		}
-	}
-	return nil, nil
 }
 
 // 开机
@@ -1615,68 +1555,6 @@ func (self *SGuest) StartInsertVfdTask(ctx context.Context, floppyOrdinal int64,
 	return nil
 }
 
-func (self *SGuest) RebalanceVirtualIsolatedDevices(ctx context.Context, userCred mcclient.TokenCredential) error {
-	devs, err := self.GetIsolatedDevices()
-	if err != nil {
-		return errors.Wrap(err, "guest get isolated devices")
-	}
-	if len(devs) == 0 {
-		return nil
-	}
-	host, err := self.GetHost()
-	if err != nil {
-		return errors.Wrap(err, "guest get host")
-	}
-	var numaNodeBalance = true
-	detachDevs := make([]SIsolatedDevice, 0)
-	originDevConfigs := make([]api.IsolatedDeviceConfig, 0)
-	for i := range devs {
-		if utils.IsInStringArray(devs[i].DevType, api.VITRUAL_DEVICE_TYPES) {
-			originDevConfigs = append(originDevConfigs, api.IsolatedDeviceConfig{
-				Model:   devs[i].Model,
-				DevType: devs[i].DevType,
-			})
-			detachDevs = append(detachDevs, devs[i])
-			isBalance, err := host.VirtualDeviceNumaBalance(devs[i].DevType, devs[i].NumaNode)
-			if err != nil {
-				return errors.Wrap(err, "VirtualDeviceNumaBalance")
-			}
-			if numaNodeBalance && !isBalance {
-				numaNodeBalance = false
-			}
-		}
-	}
-	log.Infof("Guest %s on host %s start virtual devices numa node balance %v", self.Id, host.Id, numaNodeBalance)
-	if !numaNodeBalance {
-		err := self.SetMetadata(ctx, api.VM_METADATA_VIRTUAL_ISOLATED_DEVICE_CONFIG, originDevConfigs, userCred)
-		if err != nil {
-			return errors.Wrap(err, "set metadata virtual isolated device config")
-		}
-		lockman.LockObject(ctx, host)
-		defer lockman.ReleaseObject(ctx, host)
-
-		for i := 0; i < len(detachDevs); i++ {
-			err := self.detachIsolateDevice(ctx, userCred, &detachDevs[i])
-			if err != nil {
-				return errors.Wrapf(err, "detach device %s", detachDevs[i].GetId())
-			}
-		}
-
-		usedDeviceMap := map[string]*SIsolatedDevice{}
-		for i := range detachDevs {
-			devConfig := &api.IsolatedDeviceConfig{
-				Model:   detachDevs[i].Model,
-				DevType: detachDevs[i].DevType,
-			}
-			err := IsolatedDeviceManager.attachHostDeviceToGuestByModel(ctx, self, host, devConfig, userCred, usedDeviceMap, nil)
-			if err != nil {
-				return errors.Wrap(err, "attachHostDeviceToGuestByModel")
-			}
-		}
-	}
-	return nil
-}
-
 func (self *SGuest) StartGueststartTask(
 	ctx context.Context, userCred mcclient.TokenCredential,
 	data *jsonutils.JSONDict, parentTaskId string,
@@ -1698,13 +1576,6 @@ func (self *SGuest) StartGueststartTask(
 		err := self.SetCpuNumaPin(ctx, userCred, nil, nil)
 		if err != nil {
 			return errors.Wrap(err, "clean cpu numa pin")
-		}
-	}
-
-	if options.Options.VirtualDeviceNumaBalance {
-		err := self.RebalanceVirtualIsolatedDevices(ctx, userCred)
-		if err != nil {
-			return errors.Wrap(err, "rebalance virtual isolated devices")
 		}
 	}
 
@@ -2157,7 +2028,7 @@ func (self *SGuest) PerformCreatedisk(ctx context.Context, userCred mcclient.Tok
 	lockman.LockObject(ctx, host)
 	defer lockman.ReleaseObject(ctx, host)
 
-	err = self.CreateDisksOnHost(ctx, userCred, host, disksConf, pendingUsage, false, options.Options.UseServerTagsForDisk, nil, nil, false)
+	err = self.CreateDisksOnHost(ctx, userCred, host, disksConf, pendingUsage, false, false, nil, nil, false)
 	if err != nil {
 		quotas.CancelPendingUsage(ctx, userCred, pendingUsage, pendingUsage, false)
 		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_CREATE, err.Error(), userCred, false)
@@ -2289,12 +2160,12 @@ func (self *SGuest) DetachIsolatedDevices(ctx context.Context, userCred mcclient
 			if devModel, err := IsolatedDeviceModelManager.GetByDevType(dev.DevType); err != nil {
 				msg := fmt.Sprintf("Can't separately detach dev type %s", dev.DevType)
 				logclient.AddActionLogWithContext(ctx, self, logclient.ACT_GUEST_DETACH_ISOLATED_DEVICE, msg, userCred, false)
-				return httperrors.NewBadRequestError("%s", msg)
+				return httperrors.NewBadRequestError(msg)
 			} else {
 				if !devModel.HotPluggable.Bool() && self.GetStatus() == api.VM_RUNNING {
 					msg := fmt.Sprintf("dev type %s model %s unhotpluggable", dev.DevType, devModel.Model)
 					logclient.AddActionLogWithContext(ctx, self, logclient.ACT_GUEST_DETACH_ISOLATED_DEVICE, msg, userCred, false)
-					return httperrors.NewBadRequestError("%s", msg)
+					return httperrors.NewBadRequestError(msg)
 				}
 			}
 		}
@@ -2317,7 +2188,7 @@ func (self *SGuest) PerformDetachIsolatedDevice(ctx context.Context, userCred mc
 		(self.Hypervisor == api.HYPERVISOR_POD && self.GetStatus() != api.VM_READY) {
 		msg := fmt.Sprintf("Can't detach isolated device when guest is %s", self.GetStatus())
 		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_GUEST_DETACH_ISOLATED_DEVICE, msg, userCred, false)
-		return nil, httperrors.NewInvalidStatusError("%s", msg)
+		return nil, httperrors.NewInvalidStatusError(msg)
 	}
 	var detachAllDevice = jsonutils.QueryBoolean(data, "detach_all", false)
 	devs := make([]SIsolatedDevice, 0)
@@ -2326,7 +2197,7 @@ func (self *SGuest) PerformDetachIsolatedDevice(ctx context.Context, userCred mc
 		if err != nil {
 			msg := "Missing isolated device"
 			logclient.AddActionLogWithContext(ctx, self, logclient.ACT_GUEST_DETACH_ISOLATED_DEVICE, msg, userCred, false)
-			return nil, httperrors.NewBadRequestError("%s", msg)
+			return nil, httperrors.NewBadRequestError(msg)
 		}
 		iDev, err := IsolatedDeviceManager.FetchByIdOrName(ctx, userCred, device)
 		if err != nil {
@@ -2361,7 +2232,7 @@ func (self *SGuest) detachIsolateDevice(ctx context.Context, userCred mcclient.T
 	if dev.GuestId != self.Id {
 		msg := "Isolated device is not attached to this guest"
 		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_GUEST_DETACH_ISOLATED_DEVICE, msg, userCred, false)
-		return httperrors.NewBadRequestError("%s", msg)
+		return httperrors.NewBadRequestError(msg)
 	}
 	drv, _ := self.GetDriver()
 	if err := drv.BeforeDetachIsolatedDevice(ctx, userCred, self, dev); err != nil {
@@ -2387,9 +2258,9 @@ func (self *SGuest) PerformAttachIsolatedDevice(ctx context.Context, userCred mc
 	}
 	if !utils.IsInStringArray(self.GetStatus(), []string{api.VM_READY, api.VM_RUNNING}) ||
 		(self.Hypervisor == api.HYPERVISOR_POD && self.GetStatus() != api.VM_READY) {
-		msg := fmt.Sprintf("Can't attach isolated device when guest is %v", self.GetStatus())
+		msg := fmt.Sprintf("Can't attach isolated device when guest is %s", self.GetStatus())
 		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_GUEST_ATTACH_ISOLATED_DEVICE, msg, userCred, false)
-		return nil, httperrors.NewInvalidStatusError("%s", msg)
+		return nil, httperrors.NewInvalidStatusError(msg)
 	}
 	var err error
 	autoStart := jsonutils.QueryBoolean(data, "auto_start", false)
@@ -2564,7 +2435,8 @@ func (self *SGuest) attachIsolatedDevice(ctx context.Context, userCred mcclient.
 	if len(dev.GuestId) > 0 {
 		return fmt.Errorf("Isolated device already attached to another guest: %s", dev.GuestId)
 	}
-	if dev.HostId != self.HostId {
+	if dev.HostId !=
+		self.HostId {
 		return fmt.Errorf("Isolated device and guest are not located in the same host")
 	}
 	drv, _ := self.GetDriver()
@@ -2759,25 +2631,12 @@ func (self *SGuest) PerformChangeIpaddr(
 	if err != nil {
 		return nil, httperrors.NewInputParameterError("parseNetworkInfo fail: %s", err)
 	}
-	if conf.StrictIPv6 && len(conf.Address) > 0 {
-		// strict ipv6 network, can't add ipv4 address
-		return nil, httperrors.NewBadRequestError("guest network has no ipv4 address")
-	}
 	reuseV4 := ""
 	if conf.Address == gn.IpAddr {
 		// 允许IPv4地址不变，只改IPv6地址
 		reuseV4 = conf.Address
 	}
-	reuseV6 := ""
-	if gn.Ip6Addr != "" && conf.Address6 != "" {
-		inputIP := net.ParseIP(conf.Address6)
-		gnIP := net.ParseIP(gn.Ip6Addr)
-		if string(inputIP) == string(gnIP) {
-			conf.Address6 = gn.Ip6Addr
-			reuseV6 = gn.Ip6Addr
-		}
-	}
-	err = isValidNetworkInfo(ctx, userCred, conf, reuseV4, reuseV6)
+	err = isValidNetworkInfo(ctx, userCred, conf, reuseV4)
 	if err != nil {
 		return nil, httperrors.NewInputParameterError("isValidNetworkInfo fail: %s", err)
 	}
@@ -2828,9 +2687,7 @@ func (self *SGuest) PerformChangeIpaddr(
 			// reserve = true
 		}
 
-		if conf.StrictIPv6 {
-			conf.Address = ""
-		} else if len(conf.Address) == 0 || conf.Address != gn.IpAddr {
+		if len(conf.Address) == 0 || conf.Address != gn.IpAddr {
 			// need to allocate new address
 			addr4, err := targetNetwork.GetFreeIP(ctx, userCred, nil, nil, conf.Address, api.IPAllocationDirection(targetNetwork.AllocPolicy), reserve, api.AddressTypeIPv4)
 			if err != nil {
@@ -2884,14 +2741,7 @@ func (self *SGuest) PerformChangeIpaddr(
 	newMacAddr := networkJsonDesc.Mac
 	newMaskLen := networkJsonDesc.Masklen
 	newGateway := networkJsonDesc.Gateway
-	ipMask := ""
-	if networkJsonDesc.Ip != "" {
-		ipMask = fmt.Sprintf("%s/%d", newIpAddr, newMaskLen)
-	}
-	ip6Mask := ""
-	if networkJsonDesc.Ip6 != "" {
-		ip6Mask = fmt.Sprintf("%s/%d", networkJsonDesc.Ip6, networkJsonDesc.Masklen6)
-	}
+	ipMask := fmt.Sprintf("%s/%d", newIpAddr, newMaskLen)
 
 	notes := gn.GetShortDesc(ctx)
 	if gn != nil {
@@ -2914,15 +2764,8 @@ func (self *SGuest) PerformChangeIpaddr(
 			return nil, errors.Wrapf(err, "GetNetwork")
 		}
 		taskData.Set("is_vpc_network", jsonutils.NewBool(net.isOneCloudVpcNetwork()))
-		if len(ipMask) > 0 {
-			taskData.Set("ip_mask", jsonutils.NewString(ipMask))
-			taskData.Set("gateway", jsonutils.NewString(newGateway))
-		}
-		if len(ip6Mask) > 0 {
-			taskData.Set("ip6_mask", jsonutils.NewString(ip6Mask))
-			taskData.Set("gateway6", jsonutils.NewString(networkJsonDesc.Gateway6))
-		}
-
+		taskData.Set("ip_mask", jsonutils.NewString(ipMask))
+		taskData.Set("gateway", jsonutils.NewString(newGateway))
 		if self.Status == api.VM_BLOCK_STREAM {
 			taskData.Set("in_block_stream", jsonutils.JSONTrue)
 		}
@@ -2987,14 +2830,8 @@ func (self *SGuest) PerformDetachnetwork(
 		if err != nil {
 			return nil, httperrors.NewGeneralError(err)
 		}
-	} else if len(input.IpAddr) > 0 || len(input.Ip6Addr) > 0 {
-		var gn *SGuestnetwork
-		var err error
-		if len(input.IpAddr) > 0 {
-			gn, err = self.GetGuestnetworkByIp(input.IpAddr)
-		} else if len(input.Ip6Addr) > 0 {
-			gn, err = self.GetGuestnetworkByIp6(input.Ip6Addr)
-		}
+	} else if len(input.IpAddr) > 0 {
+		gn, err := self.GetGuestnetworkByIp(input.IpAddr)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return nil, httperrors.NewNotFoundError("ip %s not found", input.IpAddr)
@@ -3090,7 +2927,7 @@ func (guest *SGuest) fixDefaultGatewayByNics(ctx context.Context, userCred mccli
 		}
 		net, _ := nics[i].GetNetwork()
 		if net != nil {
-			nicList = nicList.Add(nics[i].MacAddr, nics[i].IpAddr, net.GuestGateway, nics[i].Ip6Addr, net.GuestGateway6, nics[i].IsDefault)
+			nicList = nicList.Add(nics[i].IpAddr, nics[i].MacAddr, net.GuestGateway)
 		}
 	}
 
@@ -3138,7 +2975,7 @@ func (self *SGuest) PerformAttachnetwork(
 	}
 	var inicCnt, enicCnt, isolatedDevCount, defaultGwCnt int
 	for i := range input.Nets {
-		err := isValidNetworkInfo(ctx, userCred, input.Nets[i], "", "")
+		err := isValidNetworkInfo(ctx, userCred, input.Nets[i], "")
 		if err != nil {
 			return nil, err
 		}
@@ -3513,8 +3350,7 @@ func (self *SGuest) DoCancelPendingDelete(ctx context.Context, userCred mcclient
 	}
 
 	if self.BillingType == billing_api.BILLING_TYPE_POSTPAID && !self.ExpiredAt.IsZero() {
-		err := SaveReleaseAt(ctx, self, userCred, time.Time{})
-		if err != nil {
+		if err := self.CancelExpireTime(ctx, userCred); err != nil {
 			return err
 		}
 	}
@@ -3630,14 +3466,14 @@ func (self *SGuest) SetBackupGuestStatus(userCred mcclient.TokenCredential, stat
 	return nil
 }
 
-func (g *SGuest) SetStatusFromHost(ctx context.Context, userCred mcclient.TokenCredential, resp api.HostUploadGuestStatusInput, hasParentTask bool, originStatus string) error {
+func (g *SGuest) SetStatusFromHost(ctx context.Context, userCred mcclient.TokenCredential, resp api.HostUploadGuestStatusResponse, hasParentTask bool, originStatus string) error {
 	statusStr := resp.Status
 	switch statusStr {
 	case cloudprovider.CloudVMStatusRunning:
 		statusStr = api.VM_RUNNING
 	case cloudprovider.CloudVMStatusSuspend:
 		statusStr = api.VM_SUSPEND
-	case cloudprovider.CloudVMStatusStopped, api.VM_READY:
+	case cloudprovider.CloudVMStatusStopped:
 		statusStr = api.VM_READY
 	case api.VM_BLOCK_STREAM, api.VM_BLOCK_STREAM_FAIL:
 		break
@@ -3654,9 +3490,7 @@ func (g *SGuest) SetStatusFromHost(ctx context.Context, userCred mcclient.TokenC
 			statusStr = originStatus
 		}
 	}
-	input := api.ServerPerformStatusInput{
-		PerformStatusInput: resp.PerformStatusInput,
-	}
+	input := resp.PerformStatusInput
 	input.Status = statusStr
 	if _, err := g.PerformStatus(ctx, userCred, nil, input); err != nil {
 		return errors.Wrapf(err, "perform status of %s", jsonutils.Marshal(resp))
@@ -3664,7 +3498,7 @@ func (g *SGuest) SetStatusFromHost(ctx context.Context, userCred mcclient.TokenC
 	return nil
 }
 
-func (m *SGuestManager) PerformUploadStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.HostUploadGuestsStatusInput) (*api.GuestUploadStatusesResponse, error) {
+func (m *SGuestManager) PerformUploadStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.HostUploadGuestsStatusResponse) (*api.GuestUploadStatusesResponse, error) {
 	out := &api.GuestUploadStatusesResponse{
 		Guests: make(map[string]*api.GuestUploadStatusResponse),
 	}
@@ -3711,7 +3545,7 @@ func (m *SGuestManager) PerformUploadStatus(ctx context.Context, userCred mcclie
 }
 
 // 同步状态
-func (self *SGuest) PerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ServerPerformStatusInput) (jsonutils.JSONObject, error) {
+func (self *SGuest) PerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformStatusInput) (jsonutils.JSONObject, error) {
 	if input.HostId != "" && self.BackupHostId != "" && input.HostId == self.BackupHostId {
 		// perform status called from slave guest
 		return nil, self.SetBackupGuestStatus(userCred, input.Status, input.Reason)
@@ -3729,7 +3563,7 @@ func (self *SGuest) PerformStatus(ctx context.Context, userCred mcclient.TokenCr
 	}
 
 	preStatus := self.Status
-	_, err := self.SVirtualResourceBase.PerformStatus(ctx, userCred, query, input.PerformStatusInput)
+	_, err := self.SVirtualResourceBase.PerformStatus(ctx, userCred, query, input)
 	if err != nil {
 		return nil, errors.Wrap(err, "SVirtualResourceBase.PerformStatus")
 	}
@@ -3768,15 +3602,6 @@ func (self *SGuest) PerformStatus(ctx context.Context, userCred mcclient.TokenCr
 		if self.Status == api.VM_READY && !self.DisableDelete.Bool() && self.ShutdownBehavior == api.SHUTDOWN_TERMINATE {
 			err = self.StartAutoDeleteGuestTask(ctx, userCred, "")
 			return nil, err
-		}
-	}
-	for cId, cStatus := range input.Containers {
-		ctr, err := GetContainerManager().FetchById(cId)
-		if err != nil {
-			return nil, errors.Wrapf(err, "GetContainerManager(%s)", cId)
-		}
-		if _, err := ctr.(*SContainer).PerformStatus(ctx, userCred, query, *cStatus); err != nil {
-			return nil, errors.Wrapf(err, "PerformStatus(%s) of container", cId)
 		}
 	}
 	return nil, nil
@@ -4647,22 +4472,20 @@ func (self *SGuest) PerformCancelExpire(ctx context.Context, userCred mcclient.T
 	if self.BillingType != billing_api.BILLING_TYPE_POSTPAID {
 		return nil, httperrors.NewBadRequestError("guest billing type %s not support cancel expire", self.BillingType)
 	}
-
-	err := SaveReleaseAt(ctx, self, userCred, time.Time{})
+	driver, err := self.GetDriver()
 	if err != nil {
 		return nil, err
 	}
-
+	if err := driver.CancelExpireTime(ctx, userCred, self); err != nil {
+		return nil, err
+	}
 	disks, err := self.GetDisks()
 	if err != nil {
 		return nil, err
 	}
 	for i := 0; i < len(disks); i += 1 {
-		if disks[i].BillingType == billing_api.BILLING_TYPE_POSTPAID {
-			err := SaveReleaseAt(ctx, &disks[i], userCred, time.Time{})
-			if err != nil {
-				return nil, err
-			}
+		if err := disks[i].CancelExpireTime(ctx, userCred); err != nil {
+			return nil, err
 		}
 	}
 	return nil, nil
@@ -4683,15 +4506,16 @@ func (self *SGuest) PerformPostpaidExpire(ctx context.Context, userCred mcclient
 		return nil, httperrors.NewBadRequestError("guest %s unsupport postpaid expire", self.Hypervisor)
 	}
 
-	releaseAt, err := input.GetReleaseAt()
+	bc, err := ParseBillingCycleInput(&self.SBillingResourceBase, input)
 	if err != nil {
 		return nil, err
 	}
 
-	err = SaveReleaseAt(ctx, self, userCred, releaseAt)
+	err = self.SaveRenewInfo(ctx, userCred, bc, nil, billing_api.BILLING_TYPE_POSTPAID)
 	if err != nil {
 		return nil, err
 	}
+	logclient.AddActionLogWithContext(ctx, self, logclient.ACT_SET_EXPIRED_TIME, input, userCred, true)
 	return nil, nil
 }
 
@@ -4755,7 +4579,7 @@ func (self *SGuest) SaveRenewInfo(
 	ctx context.Context, userCred mcclient.TokenCredential,
 	bc *billing.SBillingCycle, expireAt *time.Time, billingType string,
 ) error {
-	err := SaveRenewInfo(ctx, userCred, self, bc, expireAt, billingType)
+	err := self.doSaveRenewInfo(ctx, userCred, bc, expireAt, billingType)
 	if err != nil {
 		return err
 	}
@@ -4765,12 +4589,56 @@ func (self *SGuest) SaveRenewInfo(
 	}
 	for i := 0; i < len(disks); i += 1 {
 		if disks[i].AutoDelete {
-			err = SaveRenewInfo(ctx, userCred, &disks[i], bc, expireAt, billingType)
+			err = disks[i].SaveRenewInfo(ctx, userCred, bc, expireAt, billingType)
 			if err != nil {
 				return err
 			}
 		}
 	}
+	return nil
+}
+
+func (self *SGuest) doSaveRenewInfo(
+	ctx context.Context, userCred mcclient.TokenCredential,
+	bc *billing.SBillingCycle, expireAt *time.Time, billingType string,
+) error {
+	_, err := db.Update(self, func() error {
+		if billingType == "" {
+			billingType = billing_api.BILLING_TYPE_PREPAID
+		}
+		if self.BillingType == "" {
+			self.BillingType = billingType
+		}
+		if expireAt != nil && !expireAt.IsZero() {
+			self.ExpiredAt = *expireAt
+		} else if bc != nil {
+			self.BillingCycle = bc.String()
+			self.ExpiredAt = bc.EndAt(self.ExpiredAt)
+		}
+		return nil
+	})
+	if err != nil {
+		log.Errorf("UpdateItem error %s", err)
+		return err
+	}
+	db.OpsLog.LogEvent(self, db.ACT_RENEW, self.GetShortDesc(ctx), userCred)
+	return nil
+}
+
+func (self *SGuest) CancelExpireTime(ctx context.Context, userCred mcclient.TokenCredential) error {
+	if self.BillingType != billing_api.BILLING_TYPE_POSTPAID {
+		return fmt.Errorf("billing type %s not support cancel expire", self.BillingType)
+	}
+	_, err := sqlchemy.GetDB().Exec(
+		fmt.Sprintf(
+			"update %s set expired_at = NULL and billing_cycle = NULL where id = ?",
+			GuestManager.TableSpec().Name(),
+		), self.Id,
+	)
+	if err != nil {
+		return errors.Wrap(err, "guest cancel expire time")
+	}
+	db.OpsLog.LogEvent(self, db.ACT_RENEW, "guest cancel expire time", userCred)
 	return nil
 }
 
@@ -5580,7 +5448,6 @@ func (self *SGuest) validateCreateInstanceBackup(
 	return input, nil
 }
 
-// 创建主机快照
 // 1. validate guest status, guest hypervisor
 // 2. validate every disk manual snapshot count
 // 3. validate snapshot quota with disk count
@@ -6527,14 +6394,6 @@ func (self *SGuest) PerformSetBootIndex(ctx context.Context, userCred mcclient.T
 		}
 	}
 
-	if self.Bios == api.VM_BOOT_MODE_UEFI {
-		data := jsonutils.NewDict()
-		data.Set("set_uefi_boot_order", jsonutils.JSONTrue)
-		if err := self.startSyncTask(ctx, userCred, false, "", data); err != nil {
-			return nil, err
-		}
-	}
-
 	return nil, nil
 }
 
@@ -6898,16 +6757,11 @@ func (g *SGuest) PerformChangeBillingType(ctx context.Context, userCred mcclient
 }
 
 func (self *SGuest) StartChangeBillingTypeTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
-	self.SetStatus(ctx, userCred, apis.STATUS_CHANGE_BILLING_TYPE, "")
+	self.SetStatus(ctx, userCred, api.VM_CHANGE_BILLING_TYPE, "")
 	kwargs := jsonutils.NewDict()
 	task, err := taskman.TaskManager.NewTask(ctx, "GuestChangeBillingTypeTask", self, userCred, kwargs, parentTaskId, "", nil)
 	if err != nil {
 		return err
 	}
 	return task.ScheduleRun(nil)
-}
-
-func (self *SGuest) PerformDisableAutoMergeSnapshots(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	disableAutoMergeSnapshot := jsonutils.QueryBoolean(data, "disable_auto_merge_snapshot", false)
-	return nil, self.SetMetadata(ctx, api.VM_METADATA_DISABLE_AUTO_MERGE_SNAPSHOT, disableAutoMergeSnapshot, userCred)
 }

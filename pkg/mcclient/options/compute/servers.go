@@ -79,8 +79,7 @@ type ServerListOptions struct {
 
 	WithUserMeta *bool `help:"filter by user metadata" negative:"without_user_meta"`
 
-	WithHost         *bool  `help:"filter guest with host or not" negative:"without_host"`
-	SnapshotpolicyId string `help:"filter guest with snapshotpolicy or not" json:"snapshotpolicy_id"`
+	WithHost *bool `help:"filter guest with host or not" negative:"without_host"`
 }
 
 func (o *ServerListOptions) Params() (jsonutils.JSONObject, error) {
@@ -852,16 +851,6 @@ func (o *ServerModifySrcCheckOptions) Description() string {
 	return "Modify src ip, mac check settings"
 }
 
-type ServerDisableAutoMergeSnapshot struct {
-	ServerIdOptions
-
-	DisableAutoMergeSnapshot bool `help:"Disable auto merge snapshots"`
-}
-
-func (o *ServerDisableAutoMergeSnapshot) Params() (jsonutils.JSONObject, error) {
-	return options.StructToParams(o)
-}
-
 type ServerSendKeyOptions struct {
 	ID   string `help:"ID or Name of server" metavar:"Guest" json:"-"`
 	KEYS string `help:"Special keys to send, eg. ctrl, alt, f12, shift, etc, separated by \"-\""`
@@ -906,7 +895,7 @@ type ServerQgaCommand struct {
 	ServerIdOptions
 
 	COMMAND string `help:"qga command"`
-	Timeout int    `help:"qga command execute timeout (s)"`
+	Timeout int    `help:"qga command execute timeout (ms)"`
 }
 
 func (o *ServerQgaCommand) Params() (jsonutils.JSONObject, error) {
@@ -916,7 +905,7 @@ func (o *ServerQgaCommand) Params() (jsonutils.JSONObject, error) {
 type ServerQgaPing struct {
 	ServerIdOptions
 
-	Timeout int `help:"qga command execute timeout (s)"`
+	Timeout int `help:"qga command execute timeout (ms)"`
 }
 
 func (o *ServerQgaPing) Params() (jsonutils.JSONObject, error) {

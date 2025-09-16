@@ -27,7 +27,6 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
-	api "yunion.io/x/onecloud/pkg/apis/compute"
 	comapi "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
@@ -150,9 +149,7 @@ func (c *SAgentImageCacheManager) prefetchImageCacheByCopy(ctx context.Context, 
 func (c *SAgentImageCacheManager) prefetchImageCacheByUpload(ctx context.Context, data *sImageCacheData,
 	origin *jsonutils.JSONDict) (jsonutils.JSONObject, error) {
 
-	input := api.CacheImageInput{}
-	origin.Unmarshal(&input)
-	localImage, err := c.imageCacheManger.PrefetchImageCache(ctx, input)
+	localImage, err := c.imageCacheManger.PrefetchImageCache(ctx, origin)
 	if err != nil {
 		return nil, err
 	}

@@ -20,7 +20,6 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
-	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/hostman/monitor"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -103,13 +102,12 @@ func (m *SGuestManager) QgaGuestInfoTask(sid string) (string, error) {
 func (m *SGuestManager) QgaSetNetwork(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
 	input := params.(*SQgaGuestSetNetwork)
 	netmod := &monitor.NetworkModify{
-		Device:   input.Device,
-		Ipmask:   input.Ipmask,
-		Gateway:  input.Gateway,
-		Ip6mask:  input.Ip6mask,
-		Gateway6: input.Gateway6,
+		Device:  input.Device,
+		Ipmask:  input.Ipmask,
+		Gateway: input.Gateway,
 	}
 
+	//func (m *SGuestManager) QgaSetNetwork(netmod *monitor.NetworkModify, sid string, execTimeout int) (string, error) {
 	guest, err := m.checkAndInitGuestQga(input.Sid)
 	if err != nil {
 		return nil, err
@@ -145,16 +143,4 @@ func (m *SGuestManager) QgaGetOsInfo(sid string) (jsonutils.JSONObject, error) {
 		return nil, errors.Wrap(err, "qga get os info fail")
 	}
 	return jsonutils.Marshal(res), nil
-}
-
-func (guest *SKVMGuestInstance) QgaAddNicsConfigure(addNics []*desc.SGuestNetwork) error {
-	if guest.guestAgent == nil {
-		if err := guest.InitQga(); err != nil {
-			return errors.Wrap(err, "init qga")
-		}
-	}
-	if err := guest.guestAgent.GuestPing(1); err != nil {
-		return errors.Wrap(err, "Qga ping")
-	}
-	return guest.guestAgent.QgaDeployNics(deployapi.GuestNicsToServerNics(addNics))
 }

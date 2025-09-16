@@ -52,12 +52,12 @@ func NewJointResourceBaseManager(dt interface{}, tableName string, keyword strin
 	log.Debugf("Initialize %s", keywordPlural)
 	if master == nil {
 		msg := fmt.Sprintf("%s master is nil, retry initialization later...", keywordPlural)
-		log.Errorf("%s", msg)
+		log.Errorf(msg)
 		panic(msg)
 	}
 	if slave == nil {
 		msg := fmt.Sprintf("%s slave is nil, retry initialization later...", keywordPlural)
-		log.Errorf("%s", msg)
+		log.Errorf(msg)
 		panic(msg)
 	}
 	return SJointResourceBaseManager{

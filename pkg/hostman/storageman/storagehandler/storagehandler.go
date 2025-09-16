@@ -125,7 +125,7 @@ func storageIsVgExist(ctx context.Context, w http.ResponseWriter, r *http.Reques
 	}
 	if err := lvmutils.VgDisplay(vgName); err != nil {
 		log.Errorf("vg %s display failed %s", vgName, err)
-		hostutils.Response(ctx, w, httperrors.NewInternalServerError("%s", err.Error()))
+		hostutils.Response(ctx, w, httperrors.NewInternalServerError(err.Error()))
 		return
 	}
 	hostutils.ResponseOk(ctx, w)
@@ -341,7 +341,7 @@ func storagePackInstanceBackup(ctx context.Context, w http.ResponseWriter, r *ht
 	pb := storageman.SStoragePackInstanceBackup{}
 	err := body.Unmarshal(&pb)
 	if err != nil {
-		hostutils.Response(ctx, w, httperrors.NewInputParameterError("%s", err.Error()))
+		hostutils.Response(ctx, w, httperrors.NewInputParameterError(err.Error()))
 		return
 	}
 
@@ -357,7 +357,7 @@ func storageUnpackInstanceBackup(ctx context.Context, w http.ResponseWriter, r *
 	pb := storageman.SStorageUnpackInstanceBackup{}
 	err := body.Unmarshal(&pb)
 	if err != nil {
-		hostutils.Response(ctx, w, httperrors.NewInputParameterError("%s", err.Error()))
+		hostutils.Response(ctx, w, httperrors.NewInputParameterError(err.Error()))
 		return
 	}
 

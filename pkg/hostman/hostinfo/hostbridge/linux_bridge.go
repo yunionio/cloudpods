@@ -31,8 +31,8 @@ import (
 	"yunion.io/x/onecloud/pkg/util/procutils"
 )
 
-func NewLinuxBridgeDeriver(bridge, inter, ip string, maskLen int, ip6 string, mask6Len int) (*SLinuxBridgeDriver, error) {
-	base, err := NewBaseBridgeDriver(bridge, inter, ip, maskLen, ip6, mask6Len)
+func NewLinuxBridgeDeriver(bridge, inter, ip string) (*SLinuxBridgeDriver, error) {
+	base, err := NewBaseBridgeDriver(bridge, inter, ip)
 	if err != nil {
 		return nil, err
 	}

@@ -166,15 +166,6 @@ func (p *SHostPingTask) ping(div int, hostId string) error {
 		} else {
 			log.Errorf("get catalog from res %s: %v", res.String(), err)
 		}
-
-		if res.Contains("host_files") {
-			hostfiles := make([]api.SHostFile, 0)
-			res.Unmarshal(&hostfiles, "host_files")
-			err := p.host.OnHostFilesChanged(hostfiles)
-			if err != nil {
-				log.Errorf("on host files changed failed %s", err)
-			}
-		}
 	}
 	return nil
 }

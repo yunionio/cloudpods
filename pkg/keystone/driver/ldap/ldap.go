@@ -20,7 +20,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/go-ldap/ldap/v3"
+	"gopkg.in/ldap.v3"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"

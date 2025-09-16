@@ -583,39 +583,10 @@ func (manager *SIdentityProviderManager) FetchCustomizeColumns(
 
 	stdRows := manager.SEnabledStatusStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	domainRows := manager.SDomainizedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
-	targetDomainIds := make([]string, len(objs))
-	idpIds := make([]string, len(objs))
 	for i := range rows {
 		rows[i].EnabledStatusStandaloneResourceDetails = stdRows[i]
 		rows[i].DomainizedResourceInfo = domainRows[i]
-		idp := objs[i].(*SIdentityProvider)
-		rows[i].SyncIntervalSeconds = idp.getSyncIntervalSeconds()
-		targetDomainIds[i] = idp.TargetDomainId
-		idpIds[i] = idp.Id
 		rows[i] = objs[i].(*SIdentityProvider).getMoreDetails(rows[i])
-	}
-	domainMap, err := db.FetchIdNameMap2(DomainManager, targetDomainIds)
-	if err != nil {
-		log.Errorf("FetchIdNameMap2 error: %s", err)
-	}
-
-	opts := []struct {
-		DomainId string
-		Value    string
-	}{}
-
-	err = WhitelistedConfigManager.Query("domain_id", "value").In("domain_id", idpIds).Equals("option", "url").All(&opts)
-	if err != nil {
-		log.Errorf("FetchModelObjects error: %s", err)
-	}
-	optMap := make(map[string]string)
-	for i := range opts {
-		optMap[opts[i].DomainId] = strings.Trim(opts[i].Value, `"`)
-	}
-
-	for i := range rows {
-		rows[i].TargetDomain = domainMap[targetDomainIds[i]]
-		rows[i].URL = optMap[idpIds[i]]
 	}
 
 	return rows
@@ -628,6 +599,13 @@ func (self *SIdentityProvider) getMoreDetails(out api.IdentityProviderDetails) a
 	out.DomainCount, _ = self.GetDomainCount()
 	out.ProjectCount, _ = self.GetProjectCount()
 	out.GroupCount, _ = self.GetGroupCount()
+	out.SyncIntervalSeconds = self.getSyncIntervalSeconds()
+	if len(self.TargetDomainId) > 0 {
+		domain, _ := DomainManager.FetchDomainById(self.TargetDomainId)
+		if domain != nil {
+			out.TargetDomain = domain.Name
+		}
+	}
 	return out
 }
 
@@ -913,7 +891,7 @@ func (self *SIdentityProvider) Purge(ctx context.Context, userCred mcclient.Toke
 				return errors.Wrap(err, "domains[i].UnlinkIdp")
 			}
 		} else {
-			err = domains[i].validateDeleteConditionInternal(ctx, nil, true)
+			err = domains[i].ValidateDeleteCondition(ctx, nil)
 			if err != nil {
 				db.OpsLog.LogEvent(&domains[i], db.ACT_DELETE_FAIL, err, userCred)
 				return errors.Wrap(err, "domain.ValidateDeleteCondition")

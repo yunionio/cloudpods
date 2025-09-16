@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
-	"strings"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
@@ -30,6 +29,7 @@ import (
 	randutil "yunion.io/x/pkg/util/rand"
 	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/pkg/util/secrules"
+	"yunion.io/x/pkg/util/sets"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
@@ -518,14 +518,8 @@ func (self *SKVMRegionDriver) RequestDeleteLoadbalancerListenerRule(ctx context.
 }
 
 func (self *SKVMRegionDriver) ValidateCreateVpcData(ctx context.Context, userCred mcclient.TokenCredential, input api.VpcCreateInput) (api.VpcCreateInput, error) {
-	if len(input.CidrBlock) > 0 && !utils.IsInStringArray(input.CidrBlock, []string{"192.168.0.0/16", "10.0.0.0/8", "172.16.0.0/12"}) {
+	if !utils.IsInStringArray(input.CidrBlock, []string{"192.168.0.0/16", "10.0.0.0/8", "172.16.0.0/12"}) {
 		return input, httperrors.NewInputParameterError("Invalid cidr_block, want 192.168.0.0/16|10.0.0.0/8|172.16.0.0/12, got %s", input.CidrBlock)
-	}
-	if len(input.CidrBlock6) > 0 {
-		input.CidrBlock6 = strings.ToLower(input.CidrBlock6)
-		if !strings.HasPrefix(input.CidrBlock6, "fd") {
-			return input, httperrors.NewInputParameterError("Invalid ipv6 cidr_block, %s outside of IPv6 private unicast address range fd00::/8", input.CidrBlock6)
-		}
 	}
 	return input, nil
 }
@@ -894,12 +888,7 @@ func (self *SKVMRegionDriver) RequestSyncDiskStatus(ctx context.Context, userCre
 		originStatus, _ := task.GetParams().GetString("origin_status")
 		status, _ := res.GetString("status")
 		if status == api.DISK_EXIST {
-			if utils.IsInArray(originStatus, []string{
-				api.DISK_UNKNOWN,
-				api.DISK_REBUILD_FAILED,
-				api.DISK_ATTACHING,
-				api.DISK_DETACHING,
-			}) {
+			if sets.NewString(api.DISK_UNKNOWN, api.DISK_REBUILD_FAILED).Has(originStatus) {
 				diskStatus = api.DISK_READY
 			} else {
 				diskStatus = originStatus

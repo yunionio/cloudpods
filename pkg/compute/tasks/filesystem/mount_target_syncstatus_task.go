@@ -69,5 +69,5 @@ func (self *MountTargetSyncstatusTask) OnInit(ctx context.Context, obj db.IStand
 		}
 	}
 
-	self.taskFail(ctx, mt, errors.Wrapf(cloudprovider.ErrNotFound, "%s", mt.ExternalId))
+	self.taskFail(ctx, mt, errors.Wrapf(cloudprovider.ErrNotFound, mt.ExternalId))
 }

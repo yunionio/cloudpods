@@ -59,10 +59,7 @@ func (self *SSnapshot) GetId() string {
 }
 
 func (self *SSnapshot) GetName() string {
-	if len(self.SnapshotName) > 0 {
-		return self.SnapshotName
-	}
-	return self.SnapshotId
+	return self.SnapshotName
 }
 
 func (self *SSnapshot) GetStatus() string {

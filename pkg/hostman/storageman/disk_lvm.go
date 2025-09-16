@@ -17,9 +17,7 @@ package storageman
 import (
 	"context"
 	"fmt"
-	"net"
 	"path"
-	"strconv"
 	"strings"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
@@ -150,7 +148,7 @@ func (d *SLVMDisk) CreateRaw(ctx context.Context, sizeMB int, diskFormat string,
 		diskInfo.EncryptPassword = encryptInfo.Key
 		diskInfo.EncryptAlg = string(encryptInfo.Alg)
 	}
-	if utils.IsInStringArray(fsFormat, api.SUPPORTED_FS) {
+	if utils.IsInStringArray(fsFormat, []string{"swap", "ext2", "ext3", "ext4", "xfs"}) {
 		d.FormatFs(fsFormat, nil, diskId, diskInfo)
 	}
 	return d.GetDiskDesc(), nil
@@ -186,8 +184,7 @@ func (d *SLVMDisk) CreateFromRemoteHostImage(ctx context.Context, url string, si
 	log.Infof("Create from remote host image %s", url)
 	nbdPort, err := d.RequestExportNbdImage(ctx, url, encryptInfo)
 	remoteHostIp := netutils2.ParseIpFromUrl(url)
-	remoteHostAndPort := net.JoinHostPort(remoteHostIp, strconv.Itoa(int(nbdPort)))
-	nbdImagePath := fmt.Sprintf("nbd://%s/%s", remoteHostAndPort, d.GetId())
+	nbdImagePath := fmt.Sprintf("nbd://%s:%d/%s", remoteHostIp, nbdPort, d.GetId())
 	log.Infof("remote nbd image exported %s", nbdImagePath)
 
 	newImg, err := qemuimg.NewQemuImage(d.GetPath())
@@ -437,7 +434,6 @@ func (d *SLVMDisk) DiskBackup(ctx context.Context, params interface{}) (jsonutil
 		Password:      encKey,
 		EncryptAlg:    encAlg,
 		EncryptFormat: qemuimg.EncryptFormatLuks,
-		ClusterSize:   snapshotImg.ClusterSize,
 	}
 	destInfo := qemuimg.SImageInfo{
 		Path:          backupPath,
@@ -614,11 +610,6 @@ func (d *SLVMDisk) DeleteAllSnapshot(skipRecycle bool) error {
 func (d *SLVMDisk) ConvertSnapshot(convertSnapshot string, encryptInfo apis.SEncryptInfo) error {
 	convertSnapshotName := d.GetSnapshotName(convertSnapshot)
 	return ConvertLVMDisk(d.Storage.GetPath(), convertSnapshotName, encryptInfo)
-}
-
-func (d *SLVMDisk) ConvertSnapshotRelyOnReloadDisk(convertSnapshot string, encryptInfo apis.SEncryptInfo) (func() error, error) {
-	convertSnapshotName := d.GetSnapshotName(convertSnapshot)
-	return ConvertLVMDiskNeedReload(d.Storage.GetPath(), convertSnapshotName, encryptInfo)
 }
 
 func (d *SLVMDisk) DoDeleteSnapshot(snapshotId string) error {

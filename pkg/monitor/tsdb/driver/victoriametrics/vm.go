@@ -346,19 +346,7 @@ func (vm *vmAdapter) FillSelect(query *monitor.AlertQuery, isAlert bool) *monito
 
 func (vm *vmAdapter) FillGroupBy(query *monitor.AlertQuery, inputQuery *monitor.MetricQueryInput, tagId string, isAlert bool) *monitor.AlertQuery {
 	if isAlert {
-		query = FillGroupByWithWildChar(query, inputQuery, tagId)
+		query = influxdb.FillGroupByWithWildChar(query, inputQuery, tagId)
 	}
-	return query
-}
-
-func FillGroupByWithWildChar(query *monitor.AlertQuery, inputQuery *monitor.MetricQueryInput, tagId string) *monitor.AlertQuery {
-	if len(tagId) == 0 {
-		tagId = "*"
-	}
-	query.Model.GroupBy = append(query.Model.GroupBy,
-		monitor.MetricQueryPart{
-			Type:   "field",
-			Params: []string{tagId},
-		})
 	return query
 }

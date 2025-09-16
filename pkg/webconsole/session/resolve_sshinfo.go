@@ -107,11 +107,13 @@ func resolveServerIPPortById(ctx context.Context, s *mcclient.ClientSession, id 
 			ip = guestNicDetails.EipAddr
 		} else if len(guestNicDetails.IpAddr) > 0 {
 			ip = guestNicDetails.IpAddr
-		} else if len(guestNicDetails.Ip6Addr) > 0 {
-			ip = guestNicDetails.Ip6Addr
 		} else {
 			return "", 0, nil, errors.Wrap(httperrors.ErrNotSupported, "no valid ipv4 addr")
 		}
+	}
+
+	if ip == guestNicDetails.Ip6Addr {
+		return "", 0, nil, errors.Wrap(httperrors.ErrNotSupported, "ipv6 not supported")
 	}
 
 	if ip == guestNicDetails.IpAddr && len(guestNicDetails.MappedIpAddr) > 0 {

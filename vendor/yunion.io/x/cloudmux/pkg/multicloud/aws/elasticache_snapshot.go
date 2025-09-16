@@ -110,7 +110,7 @@ func (self *SElasticacheSnapshop) Refresh() error {
 			return jsonutils.Update(self, snapshots[i])
 		}
 	}
-	return errors.Wrapf(cloudprovider.ErrNotFound, "%s", self.GetName())
+	return errors.Wrapf(cloudprovider.ErrNotFound, self.GetName())
 }
 
 func (self *SElasticacheSnapshop) GetBackupSizeMb() int {
@@ -151,6 +151,7 @@ func (self *SElasticacheSnapshop) GetBackupMode() string {
 	default:
 		return self.SnapshotSource
 	}
+	return ""
 }
 
 func (self *SElasticacheSnapshop) GetDownloadURL() string {
@@ -196,7 +197,7 @@ func (region *SRegion) GetCacheSnapshots(replicaGroupId string, snapshotName str
 		}
 		ret = append(ret, part.Snapshots...)
 		if len(part.Snapshots) == 0 || len(part.Marker) == 0 {
-			break
+			return nil, err
 		}
 		params["Marker"] = part.Marker
 	}

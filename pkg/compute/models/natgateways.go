@@ -186,10 +186,9 @@ func (man *SNatGatewayManager) ValidateCreateData(
 				return input, httperrors.NewInputParameterError("unsupported duration %s", input.Duration)
 			}
 		}
+		tm := time.Time{}
 		input.BillingCycle = billingCycle.String()
-		if input.BillingType == billing_api.BILLING_TYPE_POSTPAID {
-			input.ReleaseAt = billingCycle.EndAt(time.Now())
-		}
+		input.ExpiredAt = billingCycle.EndAt(tm)
 	}
 	if len(input.Eip) > 0 || input.EipBw > 0 {
 		if len(input.Eip) > 0 {
@@ -522,11 +521,12 @@ func (self *SNatGateway) SyncWithCloudNatGateway(ctx context.Context, userCred m
 			}
 		}
 
-		self.BillingType = extNat.GetBillingType()
-		self.ExpiredAt = time.Time{}
-		self.AutoRenew = false
-		if self.BillingType == billing_api.BILLING_TYPE_PREPAID {
-			self.ExpiredAt = extNat.GetExpiredAt()
+		factory, _ := provider.GetProviderFactory()
+		if factory.IsSupportPrepaidResources() {
+			self.BillingType = extNat.GetBillingType()
+			if expired := extNat.GetExpiredAt(); !expired.IsZero() {
+				self.ExpiredAt = expired
+			}
 			self.AutoRenew = extNat.IsAutoRenew()
 		}
 
@@ -566,14 +566,14 @@ func (manager *SNatGatewayManager) newFromCloudNatGateway(ctx context.Context, u
 	nat.ExternalId = extNat.GetGlobalId()
 	nat.IsEmulated = extNat.IsEmulated()
 
-	nat.BillingType = extNat.GetBillingType()
-	nat.ExpiredAt = time.Time{}
-	nat.AutoRenew = false
-	if nat.BillingType == billing_api.BILLING_TYPE_PREPAID {
-		nat.ExpiredAt = extNat.GetExpiredAt()
+	factory, _ := provider.GetProviderFactory()
+	if factory.IsSupportPrepaidResources() {
+		nat.BillingType = extNat.GetBillingType()
+		if expired := extNat.GetExpiredAt(); !expired.IsZero() {
+			nat.ExpiredAt = expired
+		}
 		nat.AutoRenew = extNat.IsAutoRenew()
 	}
-
 	if networId := extNat.GetINetworkId(); len(networId) > 0 {
 		_network, err := db.FetchByExternalIdAndManagerId(NetworkManager, networId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
 			sq := WireManager.Query("id").Equals("vpc_id", vpc.Id).SubQuery()
@@ -771,7 +771,7 @@ func (self *SNatGateway) GetINatGateway(ctx context.Context) (cloudprovider.IClo
 			return iNats[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%v", self.ExternalId)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, self.ExternalId)
 }
 
 func (self *SNatGateway) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
@@ -892,7 +892,25 @@ func (manager *SNatEntryManager) FetchCustomizeColumns(
 }
 
 func (self *SNatGateway) PerformCancelExpire(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	return nil, SaveReleaseAt(ctx, self, userCred, time.Time{})
+	return nil, self.CancelExpireTime(ctx, userCred)
+}
+
+func (self *SNatGateway) CancelExpireTime(ctx context.Context, userCred mcclient.TokenCredential) error {
+	if self.BillingType != billing_api.BILLING_TYPE_POSTPAID {
+		return httperrors.NewBadRequestError("nat billing type %s not support cancel expire", self.BillingType)
+	}
+
+	_, err := sqlchemy.GetDB().Exec(
+		fmt.Sprintf(
+			"update %s set expired_at = NULL and billing_cycle = NULL where id = ?",
+			NatGatewayManager.TableSpec().Name(),
+		), self.Id,
+	)
+	if err != nil {
+		return errors.Wrap(err, "nat cancel expire time")
+	}
+	db.OpsLog.LogEvent(self, db.ACT_RENEW, "nat cancel expire time", userCred)
+	return nil
 }
 
 func (self *SNatGateway) PerformPostpaidExpire(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PostpaidExpireInput) (jsonutils.JSONObject, error) {
@@ -900,13 +918,39 @@ func (self *SNatGateway) PerformPostpaidExpire(ctx context.Context, userCred mcc
 		return nil, httperrors.NewBadRequestError("nat gateway billing type is %s", self.BillingType)
 	}
 
-	releaseAt, err := input.GetReleaseAt()
+	bc, err := ParseBillingCycleInput(&self.SBillingResourceBase, input)
 	if err != nil {
 		return nil, err
 	}
 
-	err = SaveReleaseAt(ctx, self, userCred, releaseAt)
+	err = self.SaveRenewInfo(ctx, userCred, bc, nil, billing_api.BILLING_TYPE_POSTPAID)
 	return nil, err
+}
+
+func (self *SNatGateway) SaveRenewInfo(
+	ctx context.Context, userCred mcclient.TokenCredential,
+	bc *billing.SBillingCycle, expireAt *time.Time, billingType string,
+) error {
+	_, err := db.Update(self, func() error {
+		if billingType == "" {
+			billingType = billing_api.BILLING_TYPE_PREPAID
+		}
+		if self.BillingType == "" {
+			self.BillingType = billingType
+		}
+		if expireAt != nil && !expireAt.IsZero() {
+			self.ExpiredAt = *expireAt
+		} else {
+			self.BillingCycle = bc.String()
+			self.ExpiredAt = bc.EndAt(self.ExpiredAt)
+		}
+		return nil
+	})
+	if err != nil {
+		return errors.Wrapf(err, "db.Update")
+	}
+	db.OpsLog.LogEvent(self, db.ACT_RENEW, self.GetShortDesc(ctx), userCred)
+	return nil
 }
 
 func (self *SNatGateway) PerformRenew(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.RenewInput) (jsonutils.JSONObject, error) {

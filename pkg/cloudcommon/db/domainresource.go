@@ -110,7 +110,6 @@ func (model *SDomainLevelResourceBase) CustomizeCreate(ctx context.Context, user
 	return model.SStandaloneResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }
 
-// 更改项目
 func (model *SDomainLevelResourceBase) PerformChangeOwner(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformChangeDomainOwnerInput) (jsonutils.JSONObject, error) {
 	if !consts.GetNonDefaultDomainProjects() {
 		return nil, errors.Wrap(httperrors.ErrForbidden, "not allow to change owner of domain resource if non_default_domain_projects is turned off")
@@ -291,7 +290,6 @@ func (model *SDomainLevelResourceBase) ValidateUpdateData(
 	return input, nil
 }
 
-// +onecloud:swagger-gen-ignore
 func (model *SDomainLevelResourceBase) GetDetailsChangeOwnerCandidateDomains(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (apis.ChangeOwnerCandidateDomainsOutput, error) {
 	return IOwnerResourceBaseModelGetChangeOwnerCandidateDomains(model.GetIDomainLevelModel())
 }
@@ -308,7 +306,6 @@ func (manager *SDomainLevelResourceBaseManager) ListItemExportKeys(ctx context.C
 	return q, nil
 }
 
-// +onecloud:swagger-gen-ignore
 func (manager *SDomainLevelResourceBaseManager) GetPropertyDomainTagValuePairs(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
@@ -324,7 +321,6 @@ func (manager *SDomainLevelResourceBaseManager) GetPropertyDomainTagValuePairs(
 	)
 }
 
-// +onecloud:swagger-gen-ignore
 func (manager *SDomainLevelResourceBaseManager) GetPropertyDomainTagValueTree(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

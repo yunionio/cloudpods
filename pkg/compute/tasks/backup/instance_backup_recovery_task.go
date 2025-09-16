@@ -128,7 +128,7 @@ func (self *InstanceBackupRecoveryTask) OnCreateGuest(ctx context.Context, ib *m
 	sysDisk := &disks[0]
 	backups, err := ib.GetBackups()
 	if err != nil {
-		self.taskFailed(ctx, ib, jsonutils.NewString(fmt.Sprintf("%v", err)))
+		self.taskFailed(ctx, ib, jsonutils.NewString(fmt.Sprintf(err.Error())))
 		return
 	}
 	db.Update(sysDisk, func() error {

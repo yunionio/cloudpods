@@ -32,7 +32,6 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/informer"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/identity"
-	"yunion.io/x/onecloud/pkg/util/ctx"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -193,7 +192,7 @@ func (manager *SRoleCacheManager) OnAdd(obj *jsonutils.JSONDict) {
 		log.Errorf("unable to get Id: %v", err)
 		return
 	}
-	ctx := ctx.CtxWithTime()
+	ctx := context.Background()
 	lockman.LockRawObject(ctx, manager.KeywordPlural(), id)
 	defer lockman.ReleaseRawObject(ctx, manager.KeywordPlural(), id)
 	role := new(SRole)
@@ -213,7 +212,7 @@ func (manager *SRoleCacheManager) OnUpdate(oldObj, newObj *jsonutils.JSONDict) {
 		log.Errorf("unable to get Id: %v", err)
 		return
 	}
-	ctx := ctx.CtxWithTime()
+	ctx := context.Background()
 	role, err := manager.fetchRole(ctx, id, true, nil)
 	if err != nil {
 		log.Errorf("unable to fetch Role from db: %v", err)
@@ -243,7 +242,7 @@ func (manager *SRoleCacheManager) OnDelete(obj *jsonutils.JSONDict) {
 		log.Errorf("unable to get Id: %v", err)
 		return
 	}
-	ctx := ctx.CtxWithTime()
+	ctx := context.Background()
 	role, err := manager.fetchRole(ctx, id, true, nil)
 	if err != nil {
 		log.Errorf("unable to fetch Role from db: %v", err)
@@ -264,7 +263,7 @@ func (manager *SRoleCacheManager) StartWatchRoleInKeystone() error {
 	if manager.watching {
 		return nil
 	}
-	ctx := ctx.CtxWithTime()
+	ctx := context.Background()
 	s := auth.GetAdminSession(ctx, "")
 	watchMan, err := informer.NewWatchManagerBySession(s)
 	if err != nil {

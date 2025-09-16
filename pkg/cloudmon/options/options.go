@@ -37,17 +37,6 @@ type CloudMonOptions struct {
 	CloudAccountCollectMetricsBatchCount        int `help:"Cloud Account Collect Metrics Batch Count" default:"10"`
 	CloudResourceCollectMetricsBatchCount       int `help:"Cloud Resource Collect Metrics BatchC ount" default:"40"`
 	OracleCloudResourceCollectMetricsBatchCount int `help:"OracleCloud Resource Collect Metrics BatchC ount" default:"1"`
-
-	StatusProbeIntervalMinutes int      `help:"Status Probe Interval unit:minute" default:"15"`
-	StatusProbeModels          []string `help:"Status Probe Models" default:"compute-servers,compute-hosts"`
-	EnableStatusProbe          bool     `help:"Enable Status Probe" default:"false"`
-	EnableStatusProbeDebug     bool     `help:"Enable Status Probe Debug" default:"false"`
-
-	BucketProbeIntervalMinutes int    `help:"Bucket Probe Interval unit:minute" default:"15"`
-	EnableBucketProbe          bool   `help:"Enable Bucket Probe" default:"false"`
-	EnableBucketProbeDebug     bool   `help:"Enable Bucket Probe Debug" default:"false"`
-	BucketProbeTestKey         string `help:"Bucket Probe Test Key" default:"bucket_performance_test_object"`
-	BucketProbeTestSizeMb      int    `help:"Bucket Probe Test Size" default:"4"`
 }
 
 type PingProbeOptions struct {

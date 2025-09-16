@@ -93,13 +93,13 @@ const (
 
 var quitHandlerRegisted bool
 
-func NewApplication(name string, connMax int, queueSize int, db bool) *Application {
+func NewApplication(name string, connMax int, db bool) *Application {
 	app := Application{name: name,
 		context:           ctx.CtxWithTime(),
 		connMax:           connMax,
-		session:           NewWorkerManager("HttpRequestWorkerManager", connMax, connMax*queueSize, db),
-		readSession:       NewWorkerManager("HttpGetRequestWorkerManager", connMax, connMax*queueSize, db),
-		systemSession:     NewWorkerManager("InternalHttpRequestWorkerManager", 1, queueSize, false),
+		session:           NewWorkerManager("HttpRequestWorkerManager", connMax, DEFAULT_BACKLOG, db),
+		readSession:       NewWorkerManager("HttpGetRequestWorkerManager", connMax, DEFAULT_BACKLOG, db),
+		systemSession:     NewWorkerManager("InternalHttpRequestWorkerManager", 1, DEFAULT_BACKLOG, false),
 		roots:             make(map[string]*RadixNode),
 		rootLock:          &sync.RWMutex{},
 		idleTimeout:       DEFAULT_IDLE_TIMEOUT,
@@ -303,7 +303,7 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	if lrw.status >= 500 && app.exception != nil {
 		url := fmt.Sprintf("%d %s (%s) %.2fms", lrw.status, r.URL.String(), remote, duration)
-		app.exception(r.Method, url, params.Body, errors.Errorf("%s", string(lrw.data)))
+		app.exception(r.Method, url, params.Body, errors.Errorf(string(lrw.data)))
 	}
 }
 
@@ -424,7 +424,7 @@ func (app *Application) defaultHandle(w http.ResponseWriter, r *http.Request, ri
 				task.appParams.Body, _ = jsonutils.Parse(data)
 				r.Body = io.NopCloser(bytes.NewBuffer(data))
 			}
-			inqueue := session.Run(
+			session.Run(
 				task,
 				currentWorker,
 				func(err error) {
@@ -432,17 +432,13 @@ func (app *Application) defaultHandle(w http.ResponseWriter, r *http.Request, ri
 					task.fw.closeChannels()
 				},
 			)
-			if !inqueue {
-				httperrors.TooManyRequestsError(task.ctx, w, "Request queue is full")
-			} else {
-				runErr := task.fw.wait(task.ctx, currentWorker)
-				if runErr != nil {
-					switch je := runErr.(type) {
-					case *httputils.JSONClientError:
-						httperrors.GeneralServerError(task.ctx, w, je)
-					default:
-						httperrors.InternalServerError(task.ctx, w, "Internal server error")
-					}
+			runErr := task.fw.wait(task.ctx, currentWorker)
+			if runErr != nil {
+				switch je := runErr.(type) {
+				case *httputils.JSONClientError:
+					httperrors.GeneralServerError(task.ctx, w, je)
+				default:
+					httperrors.InternalServerError(task.ctx, w, "Internal server error")
 				}
 			}
 			task.fw.closeChannels()

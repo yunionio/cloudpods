@@ -36,7 +36,7 @@ type ScalingPolicyCreateInput struct {
 	// example: sg-test-one
 	ScalingGroup string `json:"scaling_group"`
 
-	// swagger:ignore
+	// swagger: ignore
 	ScalingGroupId string `json:"scaling_group_id"`
 
 	// description: trigger type

@@ -18,10 +18,8 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
-	"net"
 	"os"
 	"path"
-	"strconv"
 	"strings"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
@@ -29,7 +27,6 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/appctx"
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/util/qemuimgfmt"
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/apis"
@@ -43,7 +40,6 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/losetup"
-	"yunion.io/x/onecloud/pkg/util/mountutils"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
@@ -131,9 +127,6 @@ func (d *SLocalDisk) UmountFuseImage() {
 func (d *SLocalDisk) Delete(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
 	p := params.(api.DiskDeleteInput)
 	dpath := d.GetPath()
-	if err := d.cleanLoopDevice(dpath); err != nil {
-		return nil, errors.Wrapf(err, "clean loop device")
-	}
 	log.Infof("Delete guest disk %s", dpath)
 	if err := d.Storage.DeleteDiskfile(dpath, p.SkipRecycle != nil && *p.SkipRecycle); err != nil {
 		return nil, err
@@ -236,8 +229,7 @@ func (d *SLocalDisk) CreateFromRemoteHostImage(ctx context.Context, url string, 
 		return errors.Wrap(err, "RequestExportNbdImage")
 	}
 	remoteHostIp := netutils2.ParseIpFromUrl(url)
-	remoteHostAndPort := net.JoinHostPort(remoteHostIp, strconv.Itoa(int(nbdPort)))
-	nbdImagePath := fmt.Sprintf("nbd://%s/%s", remoteHostAndPort, d.GetId())
+	nbdImagePath := fmt.Sprintf("nbd://%s:%d/%s", remoteHostIp, nbdPort, d.GetId())
 	log.Infof("remote nbd image exported %s", nbdImagePath)
 
 	newImg, err := qemuimg.NewQemuImage(d.getPath())
@@ -341,47 +333,6 @@ func (d *SLocalDisk) CreateFromUrl(ctx context.Context, url string, size int64, 
 	return nil
 }
 
-func (d *SLocalDisk) cleanLoopDevice(diskPath string) error {
-	diskFmt, _ := d.GetFormat()
-	if diskFmt != string(qemuimgfmt.RAW) {
-		return nil
-	}
-	devs, err := losetup.ListDevices()
-	if err != nil {
-		return errors.Wrap(err, "list devices fail")
-	}
-	dev := devs.GetDeviceByFile(diskPath)
-	if dev == nil {
-		return nil
-	}
-	drv, _ := d.GetContainerStorageDriver()
-	if drv == nil {
-		return nil
-	}
-	devPart := fmt.Sprintf("%sp1", dev.Name)
-	cmd := fmt.Sprintf("mount | grep %s | awk '{print $3}'", devPart)
-	out, err := procutils.NewRemoteCommandAsFarAsPossible("sh", "-c", cmd).Output()
-	if err != nil {
-		return errors.Wrapf(err, "exec cmd %s: %s", cmd, out)
-	}
-	mntPoints := strings.Split(string(out), "\n")
-	lastMntPoint := ""
-	for _, mntPoint := range mntPoints {
-		if mntPoint == "" {
-			continue
-		}
-		lastMntPoint = mntPoint
-		if err := mountutils.Unmount(mntPoint, false); err != nil {
-			return errors.Wrapf(err, "umount %s", mntPoint)
-		}
-	}
-
-	if err := drv.DisconnectDisk(diskPath, lastMntPoint); err != nil {
-		return errors.Wrapf(err, "DisconnectDisk(%s)", diskPath)
-	}
-	return nil
-}
-
 func (d *SLocalDisk) CreateRaw(ctx context.Context, sizeMB int, diskFormat string, fsFormat string, fsFeatures *api.DiskFsFeatures, encryptInfo *apis.SEncryptInfo, diskId string, back string) (jsonutils.JSONObject, error) {
 	if fileutils2.Exists(d.GetPath()) {
 		if err := os.Remove(d.GetPath()); err != nil {
@@ -426,7 +377,7 @@ func (d *SLocalDisk) CreateRaw(ctx context.Context, sizeMB int, diskFormat strin
 		diskInfo.EncryptPassword = encryptInfo.Key
 		diskInfo.EncryptAlg = string(encryptInfo.Alg)
 	}
-	if utils.IsInStringArray(fsFormat, api.SUPPORTED_FS) {
+	if utils.IsInStringArray(fsFormat, []string{"swap", "ext2", "ext3", "ext4", "xfs"}) {
 		d.FormatFs(fsFormat, fsFeatures, diskId, diskInfo)
 	}
 
@@ -514,13 +465,13 @@ func (d *SLocalDisk) CreateSnapshot(snapshotId string, encryptKey string, encFor
 	return nil
 }
 
-func (d *SLocalDisk) ConvertSnapshotRelyOnReloadDisk(convertSnapshotId string, encryptInfo apis.SEncryptInfo) (func() error, error) {
+func (d *SLocalDisk) ConvertSnapshot(convertSnapshotId string, encryptInfo apis.SEncryptInfo) error {
 	snapshotDir := d.GetSnapshotDir()
 	snapshotPath := path.Join(snapshotDir, convertSnapshotId)
 	img, err := qemuimg.NewQemuImage(snapshotPath)
 	if err != nil {
 		log.Errorln(err)
-		return nil, err
+		return err
 	}
 	convertedDisk := snapshotPath + ".tmp"
 	if err = img.Convert2Qcow2To(convertedDisk, false, "", "", ""); err != nil {
@@ -528,13 +479,13 @@ func (d *SLocalDisk) ConvertSnapshotRelyOnReloadDisk(convertSnapshotId string, e
 		if fileutils2.Exists(convertedDisk) {
 			os.Remove(convertedDisk)
 		}
-		return nil, err
+		return err
 	}
 	if output, err := procutils.NewCommand("mv", "-f", convertedDisk, snapshotPath).Output(); err != nil {
 		log.Errorf("mv %s to %s failed: %s, %s", convertedDisk, snapshotPath, err, output)
-		return nil, err
+		return err
 	}
-	return nil, nil
+	return nil
 }
 
 func (d *SLocalDisk) DeleteSnapshot(snapshotId, convertSnapshot string, blockStream bool, encryptInfo apis.SEncryptInfo) error {

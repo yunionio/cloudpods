@@ -85,7 +85,7 @@ type SBigQueryResult struct {
 	Rows                []jsonutils.JSONObject `json:"rows"`
 	Schema              SBigQuerySchema        `json:"schema"`
 	TotalBytesProcessed int64                  `json:"totalBytesProcessed"`
-	TotalRows           int64                  `json:"totalRows"`
+	totalRows           int64                  `json:"totalRows"`
 }
 
 func (res SBigQueryResult) GetRows() ([]jsonutils.JSONObject, error) {

@@ -51,7 +51,7 @@ type AssociatedObjects struct {
 }
 
 type SLoadbalancerBackendGroup struct {
-	multicloud.SLoadbalancerBackendGroupBase
+	multicloud.SResourceBase
 	AliyunTags
 	lb *SLoadbalancer
 
@@ -174,7 +174,7 @@ func (region *SRegion) CreateLoadbalancerBackendGroup(name, loadbalancerId strin
 			servers.Add(
 				jsonutils.Marshal(
 					map[string]string{
-						"ServerId": backend.ExternalId,
+						"ServerId": backend.ExternalID,
 						"Port":     fmt.Sprintf("%d", backend.Port),
 						"Weight":   fmt.Sprintf("%d", backend.Weight),
 					},
@@ -214,9 +214,13 @@ func (region *SRegion) UpdateLoadBalancerBackendGroupName(name, groupId string) 
 	return err
 }
 
-func (backendgroup *SLoadbalancerBackendGroup) Update(ctx context.Context, opts *cloudprovider.SLoadbalancerBackendGroup) error {
-	if backendgroup.VServerGroupName != opts.Name {
-		return backendgroup.lb.region.UpdateLoadBalancerBackendGroupName(backendgroup.VServerGroupId, opts.Name)
+func (backendgroup *SLoadbalancerBackendGroup) Sync(ctx context.Context, group *cloudprovider.SLoadbalancerBackendGroup) error {
+	if group == nil {
+		return nil
+	}
+
+	if backendgroup.VServerGroupName != group.Name {
+		return backendgroup.lb.region.UpdateLoadBalancerBackendGroupName(backendgroup.VServerGroupId, group.Name)
 	}
 	return nil
 }
@@ -257,15 +261,15 @@ func (region *SRegion) RemoveBackendVServer(loadbalancerId, backendgroupId, serv
 	return err
 }
 
-func (backendgroup *SLoadbalancerBackendGroup) AddBackendServer(opts *cloudprovider.SLoadbalancerBackend) (cloudprovider.ICloudLoadbalancerBackend, error) {
-	if err := backendgroup.lb.region.AddBackendVServer(backendgroup.lb.LoadBalancerId, backendgroup.VServerGroupId, opts.ExternalId, opts.Weight, opts.Port); err != nil {
+func (backendgroup *SLoadbalancerBackendGroup) AddBackendServer(serverId string, weight, port int) (cloudprovider.ICloudLoadbalancerBackend, error) {
+	if err := backendgroup.lb.region.AddBackendVServer(backendgroup.lb.LoadBalancerId, backendgroup.VServerGroupId, serverId, weight, port); err != nil {
 		return nil, err
 	}
-	return &SLoadbalancerBackend{lbbg: backendgroup, ServerId: opts.ExternalId, Weight: opts.Weight, Port: opts.Port}, nil
+	return &SLoadbalancerBackend{lbbg: backendgroup, ServerId: serverId, Weight: weight, Port: port}, nil
 }
 
-func (backendgroup *SLoadbalancerBackendGroup) RemoveBackendServer(opts *cloudprovider.SLoadbalancerBackend) error {
-	return backendgroup.lb.region.RemoveBackendVServer(backendgroup.lb.LoadBalancerId, backendgroup.VServerGroupId, opts.ExternalId, opts.Port)
+func (backendgroup *SLoadbalancerBackendGroup) RemoveBackendServer(serverId string, weight, port int) error {
+	return backendgroup.lb.region.RemoveBackendVServer(backendgroup.lb.LoadBalancerId, backendgroup.VServerGroupId, serverId, port)
 }
 
 func (backendgroup *SLoadbalancerBackendGroup) GetProjectId() string {

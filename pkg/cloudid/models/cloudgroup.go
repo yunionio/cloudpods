@@ -857,7 +857,7 @@ func (group *SCloudgroup) GetICloudgroup() (cloudprovider.ICloudgroup, error) {
 			return groups[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%v", group.ExternalId)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, group.ExternalId)
 }
 
 func (group *SCloudgroup) SyncWithCloudgroup(ctx context.Context, userCred mcclient.TokenCredential, iGroup cloudprovider.ICloudgroup) error {

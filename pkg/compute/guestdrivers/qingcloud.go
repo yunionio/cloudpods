@@ -34,6 +34,8 @@ func init() {
 	models.RegisterGuestDriver(&driver)
 }
 
+func (self *SQingCloudGuestDriver) DoScheduleSKUFilter() bool { return false }
+
 func (self *SQingCloudGuestDriver) GetHypervisor() string {
 	return api.HYPERVISOR_QINGCLOUD
 }

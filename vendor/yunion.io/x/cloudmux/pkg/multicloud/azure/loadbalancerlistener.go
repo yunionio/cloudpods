@@ -224,14 +224,6 @@ func (self *SLoadBalancerListener) GetHealthCheckDomain() string {
 	return ""
 }
 
-func (self *SLoadBalancerListener) GetHealthCheckMethod() string {
-	return ""
-}
-
-func (self *SLoadBalancerListener) GetHealthCheckPort() int {
-	return 0
-}
-
 func (self *SLoadBalancerListener) GetHealthCheckURI() string {
 	return ""
 }

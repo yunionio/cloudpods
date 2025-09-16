@@ -51,32 +51,32 @@ type SEmailConfig struct {
 type EmailQueueCreateInput struct {
 	SEmailMessage
 
-	// swagger:ignore
+	// swagger: ignore
 	Dest string `json:"dest"`
-	// swagger:ignore
+	// swagger: ignore
 	DestCc string `json:"dest_cc"`
-	// swagger:ignore
+	// swagger: ignore
 	DestBcc string `json:"dest_bcc"`
-	// swagger:ignore
+	// swagger: ignore
 	Content jsonutils.JSONObject `json:"content"`
 
-	// swagger:ignore
+	// swagger: ignore
 	ProjectId string `json:"project_id"`
-	// swagger:ignore
+	// swagger: ignore
 	Project string `json:"project"`
-	// swagger:ignore
+	// swagger: ignore
 	ProjectDomainId string `json:"project_domain_id"`
-	// swagger:ignore
+	// swagger: ignore
 	ProjectDomain string `json:"project_domain"`
-	// swagger:ignore
+	// swagger: ignore
 	UserId string `json:"user_id"`
-	// swagger:ignore
+	// swagger: ignore
 	User string `json:"user"`
-	// swagger:ignore
+	// swagger: ignore
 	DomainId string `json:"domain_id"`
-	// swagger:ignore
+	// swagger: ignore
 	Domain string `json:"domain"`
-	// swagger:ignore
+	// swagger: ignore
 	Roles string `json:"roles"`
 
 	MoreDetails map[string]string `json:"more_datails"`

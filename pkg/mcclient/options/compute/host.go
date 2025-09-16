@@ -64,19 +64,7 @@ type HostListOptions struct {
 	OrderByCpuCommit   string `help:"Order by cpu commit" choices:"desc|asc"`
 	OrderByMemCommit   string `help:"Order by mem commit" choices:"desc|asc"`
 
-	OrderByCpuUsage string `help:"Order by cpu usage" choices:"desc|asc"`
-	OrderByMemUsage string `help:"Order by mem usage" choices:"desc|asc"`
-
-	OrderByStorageUsage        string `help:"Order by storage usage" choices:"desc|asc"`
-	OrderByVirtualMemUsage     string `help:"Order by virtual mem usage" choices:"desc|asc"`
-	OrderByVirtualCpuUsage     string `help:"Order by virtual cpu usage" choices:"desc|asc"`
-	OrderByVirtualStorageUsage string `help:"Order by virtual storage usage" choices:"desc|asc"`
-
 	HideCpuTopoInfo *bool `help:"Host list will remove cpu_info and topology info from sysinfo and metadata"`
-
-	AccessIp []string `help:"Access ip address"`
-	IpmiIp   []string `help:"Ipmi ip address"`
-	PublicIp []string `help:"Public ip address"`
 
 	options.BaseListOptions
 }
@@ -141,22 +129,13 @@ func (o *HostAutoMigrateOnHostDownOptions) Params() (jsonutils.JSONObject, error
 }
 
 type HostSetCommitBoundOptions struct {
-	options.BaseIdsOptions
+	options.BaseIdOptions
 	CpuCmtbound *float32 `help:"Cpu commit bound"`
 	MemCmtBound *float32 `help:"Mem commit bound"`
 }
 
 func (o *HostSetCommitBoundOptions) Params() (jsonutils.JSONObject, error) {
 	return options.StructToParams(o)
-}
-
-type HostSetHostFilesOptions struct {
-	options.BaseIdsOptions
-	HostFiles []string `help:"Host files"`
-}
-
-func (o *HostSetHostFilesOptions) Params() (jsonutils.JSONObject, error) {
-	return jsonutils.Marshal(o), nil
 }
 
 type HostStatusStatisticsOptions struct {
@@ -176,16 +155,6 @@ func (h HostValidateIPMI) Params() (jsonutils.JSONObject, error) {
 		Username: h.USERNAME,
 		Password: h.PASSWORD,
 	}), nil
-}
-
-type HostIsolatedDeviceNumaStatsOptions struct {
-	options.BaseIdOptions
-
-	DevType string `json:"dev_type"`
-}
-
-func (o *HostIsolatedDeviceNumaStatsOptions) Params() (jsonutils.JSONObject, error) {
-	return jsonutils.Marshal(o), nil
 }
 
 type HostUpdateOptions struct {

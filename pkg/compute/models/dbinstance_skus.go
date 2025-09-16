@@ -687,8 +687,9 @@ func SyncRegionDBInstanceSkus(ctx context.Context, userCred mcclient.TokenCreden
 		db.Metadata.SetValue(ctx, skuMeta, db.SKU_METADAT_KEY, newMd5, userCred)
 
 		result := DBInstanceSkuManager.SyncDBInstanceSkus(ctx, userCred, &region, xor)
-		notes := fmt.Sprintf("sync rds sku for region %s result: %s", region.Name, result.Result())
-		log.Debugf("%s", notes)
+		msg := result.Result()
+		notes := fmt.Sprintf("sync rds sku for region %s result: %s", region.Name, msg)
+		log.Debugf(notes)
 	}
 
 }

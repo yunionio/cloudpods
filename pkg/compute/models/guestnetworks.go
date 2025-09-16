@@ -112,8 +112,6 @@ type SGuestnetwork struct {
 
 	// IPv4映射地址，当子网属于私有云vpc的时候分配，用于访问外网
 	MappedIpAddr string `width:"16" charset:"ascii" nullable:"true" list:"user"`
-	// IPv6映射地址，当子网属于私有云vpc的时候分配，用于访问外网
-	MappedIp6Addr string `width:"64" charset:"ascii" nullable:"true" list:"user"`
 
 	// 网卡关联的Eip实例
 	EipId string `width:"36" charset:"ascii" nullable:"true" list:"user"`
@@ -175,10 +173,6 @@ func (manager *SGuestnetworkManager) FetchCustomizeColumns(
 		if net, ok := netMap[netIds[i]]; ok {
 			rows[i].Network = net.Name
 			rows[i].WireId = net.WireId
-			rows[i].GuestIpMask = net.GuestIpMask
-			rows[i].GuestGateway = net.GuestGateway
-			rows[i].GuestIp6Mask = net.GuestIp6Mask
-			rows[i].GuestGateway6 = net.GuestGateway6
 		}
 	}
 
@@ -259,7 +253,6 @@ type newGuestNetworkArgs struct {
 
 	ip6Addr     string
 	requireIPv6 bool
-	strictIPv6  bool
 
 	// 是否为缺省路由
 	isDefault bool
@@ -305,7 +298,6 @@ func (manager *SGuestnetworkManager) newGuestNetwork(
 
 		address6    = args.ip6Addr
 		requireIPv6 = args.requireIPv6
-		strictIPv6  = args.strictIPv6
 	)
 
 	gn.GuestId = guest.Id
@@ -333,7 +325,7 @@ func (manager *SGuestnetworkManager) newGuestNetwork(
 	}
 
 	provider := vpc.GetProviderName()
-	if !virtual && !strictIPv6 && network.IsSupportIPv4() {
+	if !virtual {
 		if len(address) > 0 && reUseAddr {
 			ipAddr, err := netutils.NewIPV4Addr(address)
 			if err != nil {
@@ -365,8 +357,18 @@ func (manager *SGuestnetworkManager) newGuestNetwork(
 				gn.IpAddr = ipAddr
 			}
 		}
-	}
 
+		if vpc.Id != api.DEFAULT_VPC_ID && provider == api.CLOUD_PROVIDER_ONECLOUD {
+			var err error
+			GuestnetworkManager.lockAllocMappedAddr(ctx)
+			defer GuestnetworkManager.unlockAllocMappedAddr(ctx)
+			gn.MappedIpAddr, err = GuestnetworkManager.allocMappedIpAddr(ctx)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+	}
 	var err error
 	if ipBindMac := NetworkIpMacManager.GetMacFromIp(network.Id, gn.IpAddr); ipBindMac != "" {
 		gn.MacAddr = ipBindMac
@@ -384,7 +386,7 @@ func (manager *SGuestnetworkManager) newGuestNetwork(
 
 	// assign ipv6 address
 	if !virtual {
-		if len(address6) > 0 || (requireIPv6 || len(gn.IpAddr) == 0) {
+		if len(address6) > 0 || requireIPv6 {
 			if provider == api.CLOUD_PROVIDER_ONECLOUD || options.Options.EnablePreAllocateIpAddr || (!options.Options.EnablePreAllocateIpAddr && len(address6) > 0) {
 				addrTable := network.GetUsedAddresses6(ctx)
 				recentAddrTable := manager.getRecentlyReleasedIPAddresses6(network.Id, network.getAllocTimoutDuration())
@@ -412,17 +414,6 @@ func (manager *SGuestnetworkManager) newGuestNetwork(
 		}
 	}
 
-	if vpc.Id != api.DEFAULT_VPC_ID && provider == api.CLOUD_PROVIDER_ONECLOUD && (len(gn.IpAddr) > 0 || len(gn.Ip6Addr) > 0) {
-		var err error
-		GuestnetworkManager.lockAllocMappedAddr(ctx)
-		defer GuestnetworkManager.unlockAllocMappedAddr(ctx)
-		gn.MappedIpAddr, err = GuestnetworkManager.allocMappedIpAddr(ctx)
-		if err != nil {
-			return nil, errors.Wrap(err, "GuestnetworkManager.allocMappedIpAddr")
-		}
-		gn.MappedIp6Addr = api.GenVpcMappedIP6(gn.MappedIpAddr)
-	}
-
 	ifname, err = gn.checkOrAllocateIfname(network, ifname)
 	if err != nil {
 		return nil, err
@@ -430,12 +421,8 @@ func (manager *SGuestnetworkManager) newGuestNetwork(
 	gn.Ifname = ifname
 	gn.TeamWith = teamWithMac
 
-	if isDefault && ((len(gn.IpAddr) > 0 && len(network.GuestGateway) > 0) || (len(gn.Ip6Addr) > 0 && len(network.GuestGateway6) > 0)) {
+	if isDefault && len(gn.IpAddr) > 0 && len(network.GuestGateway) > 0 {
 		gn.IsDefault = isDefault
-	}
-
-	if len(gn.Ip6Addr) > 0 && len(gn.IpAddr) == 0 {
-		gn.NumQueues = 1
 	}
 
 	err = manager.TableSpec().Insert(ctx, &gn)
@@ -620,21 +607,11 @@ func (gn *SGuestnetwork) getJsonDescOneCloudVpc(network *SNetwork) *api.Guestnet
 		} else {
 			if _, err := db.Update(gn, func() error {
 				gn.MappedIpAddr = addr
-				gn.MappedIp6Addr = api.GenVpcMappedIP6(addr)
 				return nil
 			}); err != nil {
 				log.Errorf("getJsonDescOneCloudVpc: row %d: db update mapped addr: %v", gn.RowId, err)
 				gn.MappedIpAddr = ""
-				gn.MappedIp6Addr = ""
 			}
-		}
-	} else if gn.MappedIp6Addr == "" {
-		if _, err := db.Update(gn, func() error {
-			gn.MappedIp6Addr = api.GenVpcMappedIP6(gn.MappedIpAddr)
-			return nil
-		}); err != nil {
-			log.Errorf("getJsonDescOneCloudVpc for v6: row %d: db update mapped addr6: %v", gn.RowId, err)
-			gn.MappedIp6Addr = ""
 		}
 	}
 
@@ -644,7 +621,6 @@ func (gn *SGuestnetwork) getJsonDescOneCloudVpc(network *SNetwork) *api.Guestnet
 	desc.Vpc.Id = vpc.Id
 	desc.Vpc.Provider = api.VPC_PROVIDER_OVN
 	desc.Vpc.MappedIpAddr = gn.MappedIpAddr
-	desc.Vpc.MappedIp6Addr = gn.MappedIp6Addr
 
 	return desc
 }
@@ -861,10 +837,10 @@ func (gn *SGuestnetwork) ValidateUpdateData(
 		if err != nil {
 			return input, errors.Wrapf(err, "GetNetwork")
 		}
-		if len(net.GuestGateway) == 0 && len(net.GuestGateway6) == 0 {
+		if len(net.GuestGateway) == 0 {
 			return input, errors.Wrap(httperrors.ErrInvalidStatus, "network of default gateway has no gateway")
 		}
-		if (len(gn.IpAddr) == 0 || (len(gn.IpAddr) > 0 && len(net.GuestGateway) == 0)) && (len(gn.Ip6Addr) == 0 || (len(gn.Ip6Addr) > 0 && len(net.GuestGateway6) == 0)) {
+		if len(gn.IpAddr) == 0 {
 			return input, errors.Wrap(httperrors.ErrInvalidStatus, "nic of default gateway has no ip")
 		}
 	}
@@ -1105,7 +1081,7 @@ func (gn *SGuestnetwork) getMtu(net *SNetwork) int16 {
 func (gn *SGuestnetwork) IsAllocated() bool {
 	region, _ := gn.GetGuest().getRegion()
 	provider := region.Provider
-	if regutils.MatchMacAddr(gn.MacAddr) && (gn.Virtual || regutils.MatchIP4Addr(gn.IpAddr) || regutils.MatchIP6Addr(gn.Ip6Addr) || (provider != api.CLOUD_PROVIDER_ONECLOUD && !options.Options.EnablePreAllocateIpAddr)) {
+	if regutils.MatchMacAddr(gn.MacAddr) && (gn.Virtual || regutils.MatchIP4Addr(gn.IpAddr) || (provider != api.CLOUD_PROVIDER_ONECLOUD && !options.Options.EnablePreAllocateIpAddr)) {
 		return true
 	}
 	return false
@@ -1385,71 +1361,4 @@ func (manager *SGuestnetworkManager) ListItemExportKeys(ctx context.Context,
 	}
 
 	return q, nil
-}
-
-func (manager *SGuestnetworkManager) InitializeData() error {
-	err := manager.initOvnMappedIps()
-	if err != nil {
-		return errors.Wrap(err, "initOvnMappedIps")
-	}
-	return nil
-}
-
-func (manager *SGuestnetworkManager) initOvnMappedIps() error {
-	q := manager.Query()
-	networksQ := NetworkManager.Query().SubQuery()
-	wiresQ := WireManager.Query().SubQuery()
-	vpcQ := VpcManager.Query().SubQuery()
-	regionQ := CloudregionManager.Query().SubQuery()
-
-	q = q.Join(networksQ, sqlchemy.Equals(q.Field("network_id"), networksQ.Field("id")))
-	q = q.Join(wiresQ, sqlchemy.Equals(networksQ.Field("wire_id"), wiresQ.Field("id")))
-	q = q.Join(vpcQ, sqlchemy.Equals(wiresQ.Field("vpc_id"), vpcQ.Field("id")))
-	q = q.Join(regionQ, sqlchemy.Equals(vpcQ.Field("cloudregion_id"), regionQ.Field("id")))
-
-	q = q.Filter(sqlchemy.Equals(regionQ.Field("provider"), api.CLOUD_PROVIDER_ONECLOUD))
-	q = q.Filter(sqlchemy.NotEquals(vpcQ.Field("id"), api.DEFAULT_VPC_ID))
-	q = q.Filter(sqlchemy.OR(
-		sqlchemy.IsEmpty(q.Field("mapped_ip_addr")),
-		sqlchemy.IsEmpty(q.Field("mapped_ip6_addr")),
-	))
-
-	gns := make([]SGuestnetwork, 0)
-	err := db.FetchModelObjects(manager, q, &gns)
-	if err != nil {
-		return errors.Wrap(err, "FetchModelObjects")
-	}
-
-	for i := range gns {
-		gn := &gns[i]
-		var v4addr string
-		if gn.MappedIpAddr == "" {
-			addr, err := manager.allocMappedIpAddr(context.Background())
-			if err != nil {
-				return errors.Wrap(err, "allocMappedIpAddr")
-			}
-			v4addr = addr
-		} else {
-			v4addr = gn.MappedIpAddr
-		}
-		if _, err := db.Update(gn, func() error {
-			gn.MappedIpAddr = v4addr
-			gn.MappedIp6Addr = api.GenVpcMappedIP6(v4addr)
-			return nil
-		}); err != nil {
-			return errors.Wrap(err, "db.Update")
-		}
-	}
-
-	return nil
-}
-
-func (guest *SGuest) IsStrictIpv6() (bool, error) {
-	q := GuestnetworkManager.Query().Equals("guest_id", guest.Id)
-	q = q.IsNotEmpty("ip6_addr").IsNullOrEmpty("ip_addr").IsFalse("virtual")
-	cnt, err := q.CountWithError()
-	if err != nil {
-		return false, errors.Wrap(err, "CountWithError")
-	}
-	return cnt > 0, nil
 }

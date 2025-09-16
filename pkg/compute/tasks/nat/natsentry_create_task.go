@@ -78,7 +78,7 @@ func (self *SNatSEntryCreateTask) OnInit(ctx context.Context, obj db.IStandalone
 }
 
 func (self *SNatSEntryCreateTask) OnAssociateEipCompleteFailed(ctx context.Context, snatEntry *models.SNatSEntry, reason jsonutils.JSONObject) {
-	self.taskFailed(ctx, snatEntry, errors.Errorf("%s", reason.String()))
+	self.taskFailed(ctx, snatEntry, errors.Errorf(reason.String()))
 }
 
 func (self *SNatSEntryCreateTask) OnAssociateEipComplete(ctx context.Context, snat *models.SNatSEntry, body jsonutils.JSONObject) {

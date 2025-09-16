@@ -33,7 +33,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudmon/options"
 	"yunion.io/x/onecloud/pkg/cloudmon/resources"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	_ "yunion.io/x/onecloud/pkg/mcclient/modules/loader"
 )
 
 func StartService() {
@@ -57,10 +56,6 @@ func StartService() {
 		cron.AddJobAtIntervalsWithStarTime("CollectResources", time.Duration(opts.CollectMetricInterval)*time.Minute, res.CollectMetrics)
 
 		cron.AddJobAtIntervalsWithStartRun("PingProb", time.Duration(opts.PingProbIntervalHours)*time.Hour, misc.PingProbe, true)
-
-		cron.AddJobAtIntervalsWithStartRun("StatusProbe", time.Duration(opts.StatusProbeIntervalMinutes)*time.Minute, misc.StatusProbe, true)
-
-		cron.AddJobAtIntervalsWithStartRun("BucketProbe", time.Duration(opts.BucketProbeIntervalMinutes)*time.Minute, misc.BucketProbe, true)
 
 		cron.AddJobEveryFewDays("UsageMetricCollect", 1, 23, 10, 10, misc.UsegReport, false)
 		cron.AddJobEveryFewDays("AlertHistoryMetricCollect", 1, 23, 59, 59, misc.AlertHistoryReport, false)

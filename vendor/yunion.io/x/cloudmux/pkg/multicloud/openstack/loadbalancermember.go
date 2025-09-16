@@ -25,7 +25,6 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
-	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
 )
 
@@ -245,18 +244,18 @@ func (region *SRegion) UpdateLoadBalancerMemberWtight(poolId, memberId string, w
 	return nil
 }
 
-func (member *SLoadbalancerMember) Update(ctx context.Context, opts *cloudprovider.SLoadbalancerBackend) error {
-	if opts.Port > 0 {
-		log.Warningf("Elb backend Update unsupport modify port")
+func (member *SLoadbalancerMember) SyncConf(ctx context.Context, port, weight int) error {
+	if port > 0 {
+		log.Warningf("Elb backend SyncConf unsupport modify port")
 	}
 	// ensure member status
 	err := waitLbResStatus(member, 10*time.Second, 8*time.Minute)
 	if err != nil {
 		return errors.Wrap(err, "waitLbResStatus(member, 10*time.Second, 8*time.Minute)")
 	}
-	err = member.region.UpdateLoadBalancerMemberWtight(member.poolID, member.ID, opts.Weight)
+	err = member.region.UpdateLoadBalancerMemberWtight(member.poolID, member.ID, weight)
 	if err != nil {
-		return errors.Wrapf(err, "member.region.UpdateLoadBalancerMemberWtight(%s,%s,%d)", member.poolID, member.ID, opts.Weight)
+		return errors.Wrapf(err, "member.region.UpdateLoadBalancerMemberWtight(%s,%s,%d)", member.poolID, member.ID, weight)
 	}
 	err = waitLbResStatus(member, 10*time.Second, 8*time.Minute)
 	if err != nil {

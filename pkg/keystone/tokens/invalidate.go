@@ -52,7 +52,7 @@ func invalidateToken(ctx context.Context, tokenStr string) error {
 	}
 	token, err := TokenStrDecode(ctx, tokenStr)
 	if err != nil {
-		return httperrors.NewInvalidCredentialError("invalid token: %v", err)
+		return httperrors.NewInvalidCredentialError(errors.Wrapf(err, "invalid token").Error())
 	}
 	if adminToken.GetUserId() != token.UserId && policy.PolicyManager.Allow(rbacscope.ScopeSystem, adminToken, api.SERVICE_TYPE, "tokens", "delete").Result.IsDeny() {
 		return httperrors.NewForbiddenError("%s not allow to delete token", adminToken.GetUserName())

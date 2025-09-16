@@ -107,8 +107,7 @@ func sortHosts(hosts []*sSchedResultItem, guestInfo *sGuestInfo, isBackup *bool)
 		}
 		sortIndexi[1], sortIndexj[1] = hosts[i].Count, hosts[j].Count
 		sortIndexi[2], sortIndexj[2] = -(hosts[i].minInstanceGroupCapacity(guestInfo.instanceGroupsDetail)), -(hosts[j].minInstanceGroupCapacity(guestInfo.instanceGroupsDetail))
-		iScore, jScore := scoreNormalization(hosts[i].Score, hosts[j].Score)
-		sortIndexi[3], sortIndexj[3] = -iScore, -jScore
+		sortIndexi[3], sortIndexj[3] = scoreNormalization(hosts[i].Score, hosts[j].Score)
 		sortIndexi[4], sortIndexj[4] = -(hosts[i].Capacity), -(hosts[j].Capacity)
 		for i := 0; i < 5; i++ {
 			if sortIndexi[i] == sortIndexj[i] {

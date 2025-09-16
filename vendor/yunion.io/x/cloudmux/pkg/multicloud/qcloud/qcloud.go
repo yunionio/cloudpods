@@ -100,7 +100,11 @@ func (cfg *QcloudClientConfig) CloudproviderConfig(cpcfg cloudprovider.ProviderC
 }
 
 func (cfg *QcloudClientConfig) AccountId(accountId string) *QcloudClientConfig {
-	cfg.accountId = accountId
+	if len(accountId) == 12 {
+		cfg.accountId = accountId
+	} else {
+		cfg.appId = accountId
+	}
 	return cfg
 }
 
@@ -111,11 +115,8 @@ func (cfg *QcloudClientConfig) Debug(debug bool) *QcloudClientConfig {
 
 type SQcloudClient struct {
 	*QcloudClientConfig
-	masterAccountId string
-	masterAppId     string
-	ownerId         string
-	ownerName       string
-	appId           string
+	ownerId   string
+	ownerName string
 
 	iregions []cloudprovider.ICloudRegion
 	ibuckets []cloudprovider.ICloudBucket
@@ -125,16 +126,7 @@ func NewQcloudClient(cfg *QcloudClientConfig) (*SQcloudClient, error) {
 	client := SQcloudClient{
 		QcloudClientConfig: cfg,
 	}
-	caller, err := client.GetCallerIdentity()
-	if err != nil {
-		return nil, errors.Wrapf(err, "GetCallerIdentity")
-	}
-	client.masterAppId, err = client.GetAppId()
-	if err != nil {
-		return nil, errors.Wrapf(err, "GetAppId")
-	}
-	client.masterAccountId = caller.AccountId
-	err = client.fetchRegions()
+	err := client.fetchRegions()
 	if err != nil {
 		return nil, errors.Wrap(err, "fetchRegions")
 	}
@@ -365,13 +357,13 @@ func _baseJsonRequest(client *common.Client, req tchttp.Request, resp qcloudResp
 					"InvalidParameter.PermissionDenied",
 					"AuthFailure",
 				}) {
-				return nil, errors.Wrapf(cloudprovider.ErrNoPermission, "%s", err.Error())
+				return nil, errors.Wrapf(cloudprovider.ErrNoPermission, err.Error())
 			}
 			if utils.IsInStringArray(e.Code, []string{
 				"AuthFailure.SecretIdNotFound",
 				"AuthFailure.SignatureFailure",
 			}) {
-				return nil, errors.Wrapf(cloudprovider.ErrInvalidAccessKey, "%s", err.Error())
+				return nil, errors.Wrapf(cloudprovider.ErrInvalidAccessKey, err.Error())
 			}
 			if utils.IsInStringArray(e.Code, []string{
 				"InvalidParameter.RoleNotExist",
@@ -379,7 +371,7 @@ func _baseJsonRequest(client *common.Client, req tchttp.Request, resp qcloudResp
 				"FailedOperation.CertificateNotFound",
 				"ResourceNotFound.OrganizationNotExist",
 			}) {
-				return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", err.Error())
+				return nil, errors.Wrapf(cloudprovider.ErrNotFound, err.Error())
 			}
 
 			if utils.IsInStringArray(e.Code, []string{
@@ -463,9 +455,7 @@ func (client *SQcloudClient) getSdkClient(regionId string) (*common.Client, erro
 	if err != nil {
 		return nil, err
 	}
-	if len(client.accountId) > 0 &&
-		client.accountId != client.masterAccountId && len(client.masterAccountId) > 0 &&
-		client.accountId != client.masterAppId && len(client.masterAppId) > 0 {
+	if len(client.accountId) > 0 {
 		arn := fmt.Sprintf("qcs::cam::uin/%s:roleName/%s", client.accountId, "OrganizationAccessControlRole")
 		sts := common.DefaultRoleArnProvider(client.secretId, client.secretKey, arn)
 		cli, err = cli.WithProvider(sts)
@@ -512,7 +502,7 @@ func (client *SQcloudClient) getSdkClient(regionId string) (*common.Client, erro
 					return respCheck, nil
 				}
 			}
-			return nil, errors.Wrapf(cloudprovider.ErrAccountReadOnly, "%s", action)
+			return nil, errors.Wrapf(cloudprovider.ErrAccountReadOnly, action)
 		}
 		return respCheck, nil
 	}))
@@ -875,9 +865,8 @@ func (client *SQcloudClient) fetchBuckets() error {
 		createAt, _ := timeutils.ParseTimeStr(bInfo.CreationDate)
 		slashPos := strings.LastIndexByte(bInfo.Name, '-')
 		appId := bInfo.Name[slashPos+1:]
-		_appId, _ := client.GetAppId()
-		if appId != _appId {
-			log.Errorf("[%s %s] Inconsistent appId: %s expect %s", bInfo.Name, bInfo.Region, appId, _appId)
+		if appId != client.GetAppId() {
+			log.Errorf("[%s %s] Inconsistent appId: %s expect %s", bInfo.Name, bInfo.Region, appId, client.GetAppId())
 		}
 		name := bInfo.Name[:slashPos]
 		region, err := client.getIRegionByRegionId(bInfo.Region)
@@ -924,7 +913,7 @@ func (client *SQcloudClient) fetchBuckets() error {
 
 func (client *SQcloudClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
 	nodes, err := client.DescribeOrganizationMembers()
-	if err != nil && errors.Cause(err) != cloudprovider.ErrNotFound && errors.Cause(err) != cloudprovider.ErrNoPermission {
+	if err != nil && errors.Cause(err) != cloudprovider.ErrNotFound {
 		return nil, err
 	}
 	subAccount := cloudprovider.SSubAccount{}
@@ -1096,16 +1085,16 @@ func (client *SQcloudClient) GetIProjects() ([]cloudprovider.ICloudProject, erro
 	return iprojects, nil
 }
 
-func (client *SQcloudClient) GetAppId() (string, error) {
+func (client *SQcloudClient) GetAppId() string {
 	if len(client.appId) > 0 {
-		return client.appId, nil
+		return client.appId
 	}
 	resp, err := client.camRequest("GetUserAppId", map[string]string{})
 	if err != nil {
-		return "", errors.Wrapf(err, "GetUserAppId")
+		return ""
 	}
-	client.appId, err = resp.GetString("AppId")
-	return client.appId, err
+	client.appId, _ = resp.GetString("AppId")
+	return client.appId
 }
 
 func (self *SQcloudClient) GetISSLCertificates() ([]cloudprovider.ICloudSSLCertificate, error) {

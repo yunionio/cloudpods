@@ -23,7 +23,6 @@ import (
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
-	"yunion.io/x/cloudmux/pkg/multicloud"
 )
 
 type SRecordCreateRet struct {
@@ -40,7 +39,6 @@ type SRecordCountInfo struct {
 }
 
 type SDnsRecord struct {
-	multicloud.SDnsRecordBase
 	domain *SDomian
 
 	Line          string `json:"Line"`

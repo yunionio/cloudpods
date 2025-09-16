@@ -25,7 +25,6 @@ var (
 	AlertDashBoardPanelManager *SAlertDashboardPanelManager
 )
 
-// +onecloud:swagger-gen-ignore
 type SAlertDashboardPanelManager struct {
 	db.SJointResourceBaseManager
 }
@@ -47,7 +46,6 @@ func init() {
 	})
 }
 
-// +onecloud:swagger-gen-ignore
 type SAlertDashboardPanel struct {
 	db.SVirtualJointResourceBase
 

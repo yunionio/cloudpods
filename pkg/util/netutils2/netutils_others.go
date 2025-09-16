@@ -25,13 +25,8 @@ import (
 	"yunion.io/x/onecloud/pkg/util/iproute2"
 )
 
-type SNicAddress struct {
-	Addr    string
-	MaskLen int
-}
-
-func (n *SNetInterface) GetAddresses() []SNicAddress {
-	return []SNicAddress{}
+func (n *SNetInterface) GetAddresses() [][]string {
+	return nil
 }
 
 func (n *SNetInterface) GetRouteSpecs() []iproute2.RouteSpec {

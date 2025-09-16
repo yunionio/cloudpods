@@ -108,56 +108,13 @@ func (o *DiskResetTemplateOptions) Params() (jsonutils.JSONObject, error) {
 
 type DiskRebuildOptions struct {
 	options.ResourceIdOptions
-	BackupId                                  string `help:"disk backup id" json:"backup_id"`
-	TemplateId                                string `help:"disk template id" json:"template_id"`
-	Size                                      string `help:"disk size in MB" json:"size"`
-	Fs                                        string `help:"disk fs type"`
-	FsFeatureF2fsCaseInsensitive              *bool  `help:"f2fs enable CaseInsensitive" json:"-"`
-	FsFeatureF2fsOverprovisionRatioPercentage *int   `help:"f2fs OverprovisionRatioPercentage" json:"-"`
-	FsFeatureExt4CaseInsensitive              *bool  `help:"ext4 enable CaseInsensitive" json:"-"`
-	FsFeatureExt4ReservedBlocksPercentage     *int   `help:"ext4 ReservedBlocksPercentage" json:"-"`
+	BackupId   string `help:"disk backup id" json:"backup_id"`
+	TemplateId string `help:"disk template id" json:"template_id"`
+	Size       string `help:"disk size in MB" json:"size"`
 }
 
 func (o *DiskRebuildOptions) Params() (jsonutils.JSONObject, error) {
-	res := api.DiskRebuildInput{}
-	if o.BackupId != "" {
-		res.BackupId = &o.BackupId
-	}
-	if o.TemplateId != "" {
-		res.TemplateId = &o.TemplateId
-	}
-	if o.Size != "" {
-		res.TemplateId = &o.Size
-	}
-	if o.Fs != "" {
-		res.Fs = &o.Fs
-	}
-
-	if o.FsFeatureExt4CaseInsensitive != nil || o.FsFeatureExt4ReservedBlocksPercentage != nil {
-		if res.FsFeatures == nil {
-			res.FsFeatures = &api.DiskFsFeatures{}
-		}
-		res.FsFeatures.Ext4 = &api.DiskFsExt4Features{}
-		if o.FsFeatureExt4CaseInsensitive != nil {
-			res.FsFeatures.Ext4.CaseInsensitive = *o.FsFeatureExt4CaseInsensitive
-		}
-		if o.FsFeatureExt4ReservedBlocksPercentage != nil {
-			res.FsFeatures.Ext4.ReservedBlocksPercentage = *o.FsFeatureExt4ReservedBlocksPercentage
-		}
-	}
-	if o.FsFeatureF2fsCaseInsensitive != nil || o.FsFeatureF2fsOverprovisionRatioPercentage != nil {
-		if res.FsFeatures == nil {
-			res.FsFeatures = &api.DiskFsFeatures{}
-		}
-		res.FsFeatures.F2fs = &api.DiskFsF2fsFeatures{}
-		if o.FsFeatureF2fsCaseInsensitive != nil {
-			res.FsFeatures.F2fs.CaseInsensitive = *o.FsFeatureF2fsCaseInsensitive
-		}
-		if o.FsFeatureF2fsOverprovisionRatioPercentage != nil {
-			res.FsFeatures.F2fs.OverprovisionRatioPercentage = *o.FsFeatureF2fsOverprovisionRatioPercentage
-		}
-	}
-	return jsonutils.Marshal(res), nil
+	return jsonutils.Marshal(o), nil
 }
 
 type DiskListOptions struct {
@@ -194,17 +151,4 @@ func (opts *DiskListOptions) Params() (jsonutils.JSONObject, error) {
 		}
 	}
 	return params, nil
-}
-
-type DiskChangeBillingTypeOptions struct {
-	ID          string
-	BillingType string `choices:"prepaid|postpaid"`
-}
-
-func (o *DiskChangeBillingTypeOptions) GetId() string {
-	return o.ID
-}
-
-func (o *DiskChangeBillingTypeOptions) Params() (jsonutils.JSONObject, error) {
-	return jsonutils.Marshal(map[string]string{"billing_type": o.BillingType}), nil
 }

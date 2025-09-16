@@ -37,7 +37,6 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 	"yunion.io/x/onecloud/pkg/util/yunionmeta"
 )
@@ -156,12 +155,11 @@ func (self *SCloudregion) GetZoneBySuffix(suffix string) (*SZone, error) {
 	if err != nil {
 		return nil, err
 	}
-	msg := suffix
 	if count == 0 {
-		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", msg)
+		return nil, errors.Wrapf(cloudprovider.ErrNotFound, suffix)
 	}
 	if count > 1 {
-		return nil, errors.Wrapf(cloudprovider.ErrDuplicateId, "%s", msg)
+		return nil, errors.Wrapf(cloudprovider.ErrDuplicateId, suffix)
 	}
 	zone := &SZone{}
 	zone.SetModelManager(ZoneManager, zone)
@@ -1266,8 +1264,7 @@ func (self *SCloudregion) newCloudimage(ctx context.Context, userCred mcclient.T
 		}
 
 		image.IsPublic = true
-		s := auth.GetAdminSession(ctx, options.Options.Region)
-		image.ProjectId = s.GetProjectId()
+		image.ProjectId = "system"
 		err = CachedimageManager.TableSpec().Insert(ctx, image)
 		if err != nil {
 			return errors.Wrapf(err, "Insert cachedimage")

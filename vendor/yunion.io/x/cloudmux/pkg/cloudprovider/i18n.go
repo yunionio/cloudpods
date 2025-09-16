@@ -28,25 +28,26 @@ func NewSModelI18nEntry(value string) *SModelI18nEntry {
 	return &SModelI18nEntry{Value: value, valueI18n: vn}
 }
 
-func (entry *SModelI18nEntry) GetKeyValue() string {
-	return entry.Value
+func (self *SModelI18nEntry) GetKeyValue() string {
+	return self.Value
 }
 
-func (entry *SModelI18nEntry) Lookup(tag language.Tag) string {
-	if v, ok := entry.valueI18n[tag]; ok {
+func (self *SModelI18nEntry) Lookup(tag language.Tag) string {
+	if v, ok := self.valueI18n[tag]; ok {
 		return v
 	}
-	return entry.Value
+
+	return self.Value
 }
 
-func (entry *SModelI18nEntry) CN(v string) *SModelI18nEntry {
-	entry.valueI18n[language.Chinese] = v
-	return entry
+func (self *SModelI18nEntry) CN(v string) *SModelI18nEntry {
+	self.valueI18n[language.Chinese] = v
+	return self
 }
 
-func (entry *SModelI18nEntry) EN(v string) *SModelI18nEntry {
-	entry.valueI18n[language.English] = v
-	return entry
+func (self *SModelI18nEntry) EN(v string) *SModelI18nEntry {
+	self.valueI18n[language.English] = v
+	return self
 }
 
 type SModelI18nTable map[string]*SModelI18nEntry

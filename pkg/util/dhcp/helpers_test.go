@@ -17,8 +17,6 @@ package dhcp
 import (
 	"fmt"
 	"testing"
-
-	"yunion.io/x/onecloud/pkg/util/netutils2"
 )
 
 func compareBytes(b1, b2 []byte) error {
@@ -62,12 +60,7 @@ func TestGetClasslessRoutePack(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		routeInfo, err := netutils2.ParseRouteInfo([]string{c.net, c.gw})
-		if err != nil {
-			t.Errorf("parse route %s error: %v", c.net, err)
-			continue
-		}
-		got := getClasslessRoutePack(*routeInfo)
+		got := getClasslessRoutePack([]string{c.net, c.gw})
 		if err := compareBytes(c.want, got); err != nil {
 			t.Errorf("net: %s gw: %s want: %#v got: %#v", c.net, c.gw, c.want, got)
 		}

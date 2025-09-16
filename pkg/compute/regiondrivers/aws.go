@@ -279,12 +279,7 @@ func (self *SAwsRegionDriver) RequestCreateLoadbalancerListener(ctx context.Cont
 			return nil, errors.Wrapf(err, "GetICloudLoadbalancerBackendGroup")
 		}
 		for i := range backends {
-			opts := &cloudprovider.SLoadbalancerBackend{
-				Weight:     backends[i].Weight,
-				Port:       backends[i].Port,
-				ExternalId: backends[i].ExternalId,
-			}
-			_, err := iLbbg.AddBackendServer(opts)
+			_, err := iLbbg.AddBackendServer(backends[i].ExternalId, backends[i].Port, backends[i].Weight)
 			if err != nil {
 				return nil, errors.Wrapf(err, "AddBackendServer")
 			}
@@ -396,6 +391,10 @@ func (self *SAwsRegionDriver) ValidateCreateWafInstanceData(ctx context.Context,
 			Action: cloudprovider.WafActionAllow,
 		}
 	}
+	return input, nil
+}
+
+func (self *SAwsRegionDriver) ValidateCreateWafRuleData(ctx context.Context, userCred mcclient.TokenCredential, waf *models.SWafInstance, input api.WafRuleCreateInput) (api.WafRuleCreateInput, error) {
 	return input, nil
 }
 

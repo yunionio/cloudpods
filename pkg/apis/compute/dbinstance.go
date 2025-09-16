@@ -82,8 +82,8 @@ type DBInstanceCreateInput struct {
 	// default: false
 	AutoRenew bool `json:"auto_renew"`
 
-	// 到期释放时间
-	ReleaseAt time.Time `json:"release_at"`
+	// swagger:ignore
+	ExpiredAt time.Time `json:"expired_at"`
 
 	// 计费方式
 	// enum: ["postpaid", "prepaid"]

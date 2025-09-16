@@ -58,8 +58,6 @@ func GetAlertResourceManager() *SAlertResourceManager {
 	return alertResourceManager
 }
 
-// +onecloud:swagger-gen-model-singular=alertresource
-// +onecloud:swagger-gen-model-plural=alertresources
 type SAlertResourceManager struct {
 	db.SStandaloneResourceBaseManager
 }

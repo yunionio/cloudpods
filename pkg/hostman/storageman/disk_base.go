@@ -77,7 +77,7 @@ type IDisk interface {
 	DeleteSnapshot(snapshotId, convertSnapshot string, blockStream bool, encryptInfo apis.SEncryptInfo) error
 	DeployGuestFs(diskInfo *deployapi.DiskInfo, guestDesc *desc.SGuestDesc,
 		deployInfo *deployapi.DeployInfo) (jsonutils.JSONObject, error)
-	ConvertSnapshotRelyOnReloadDisk(convertSnapshotId string, encryptInfo apis.SEncryptInfo) (func() error, error)
+	ConvertSnapshot(convertSnapshotId string, encryptInfo apis.SEncryptInfo) error
 
 	// GetBackupDir() string
 	DiskBackup(ctx context.Context, params interface{}) (jsonutils.JSONObject, error)
@@ -147,8 +147,8 @@ func (d *SBaseDisk) CreateSnapshot(snapshotId string, encryptKey string, encForm
 	return errors.Errorf("unsupported operation")
 }
 
-func (d *SBaseDisk) ConvertSnapshotRelyOnReloadDisk(convertSnapshotId string, encryptInfo apis.SEncryptInfo) (func() error, error) {
-	return nil, errors.Errorf("unsupported operation")
+func (d *SBaseDisk) ConvertSnapshot(convertSnapshotId string, encryptInfo apis.SEncryptInfo) error {
+	return errors.Errorf("unsupported operation")
 }
 
 func (d *SBaseDisk) DeleteSnapshot(snapshotId, convertSnapshot string, blockStream bool, encryptInfo apis.SEncryptInfo) error {
@@ -230,12 +230,6 @@ func ConvertDiskFsFeaturesToDeploy(fsFeatures *api.DiskFsFeatures) *deployapi.Fs
 		ret.Ext4 = &deployapi.FsExt4Features{
 			CaseInsensitive:          fsFeatures.Ext4.CaseInsensitive,
 			ReservedBlocksPercentage: int32(fsFeatures.Ext4.ReservedBlocksPercentage),
-		}
-	}
-	if fsFeatures.F2fs != nil {
-		ret.F2Fs = &deployapi.FsF2FsFeatures{
-			CaseInsensitive:              fsFeatures.F2fs.CaseInsensitive,
-			OverprovisionRatioPercentage: int32((fsFeatures.F2fs.OverprovisionRatioPercentage)),
 		}
 	}
 	return ret

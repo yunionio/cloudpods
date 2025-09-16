@@ -67,13 +67,6 @@ func (c *SLocalImageCacheManager) IsLocal() bool {
 	return true
 }
 
-func (c *SLocalImageCacheManager) GetStorageType() string {
-	if c.storage == nil {
-		return api.STORAGE_LOCAL
-	}
-	return c.storage.StorageType()
-}
-
 func (c *SLocalImageCacheManager) loadCache(ctx context.Context) {
 	if len(c.cachePath) == 0 {
 		return
@@ -128,11 +121,6 @@ func (c *SLocalImageCacheManager) DeleteImageCache(ctx context.Context, data int
 	input, ok := data.(api.UncacheImageInput)
 	if !ok {
 		return nil, hostutils.ParamsError
-	}
-
-	cachedImagesInUser := findCachedImagesInUse(c)
-	if cachedImagesInUser.Contains(input.ImageId) {
-		return nil, httperrors.NewResourceBusyError("image cache is in use")
 	}
 
 	return nil, c.RemoveImage(ctx, input.ImageId)

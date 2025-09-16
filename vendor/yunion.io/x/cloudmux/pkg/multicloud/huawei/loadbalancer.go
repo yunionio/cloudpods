@@ -93,8 +93,7 @@ type Pool struct {
 	Id string `json:"id"`
 }
 
-func (self *SLoadbalancer) GetIEIPs() ([]cloudprovider.ICloudEIP, error) {
-	ret := []cloudprovider.ICloudEIP{}
+func (self *SLoadbalancer) GetEip() (*SEipAddress, error) {
 	for _, ip := range self.Publicips {
 		if ip.IpVersion != "4" {
 			continue
@@ -103,9 +102,17 @@ func (self *SLoadbalancer) GetIEIPs() ([]cloudprovider.ICloudEIP, error) {
 		if err != nil {
 			return nil, err
 		}
-		ret = append(ret, eip)
+		return eip, nil
 	}
-	return ret, nil
+	return nil, cloudprovider.ErrNotFound
+}
+
+func (self *SLoadbalancer) GetIEIP() (cloudprovider.ICloudEIP, error) {
+	eip, err := self.GetEip()
+	if err != nil {
+		return nil, err
+	}
+	return eip, nil
 }
 
 func (self *SLoadbalancer) GetId() string {
@@ -205,10 +212,19 @@ func (self *SLoadbalancer) GetLoadbalancerSpec() string {
 }
 
 func (self *SLoadbalancer) GetChargeType() string {
+	eip, _ := self.GetEip()
+	if eip != nil {
+		return eip.GetInternetChargeType()
+	}
 	return api.EIP_CHARGE_TYPE_BY_TRAFFIC
 }
 
 func (self *SLoadbalancer) GetEgressMbps() int {
+	eip, _ := self.GetEip()
+	if eip != nil {
+		return eip.GetBandwidth()
+	}
+
 	return 0
 }
 

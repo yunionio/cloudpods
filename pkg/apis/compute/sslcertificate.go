@@ -14,42 +14,20 @@
 
 package compute
 
-import (
-	"yunion.io/x/cloudmux/pkg/cloudprovider"
+import "yunion.io/x/onecloud/pkg/apis"
 
-	"yunion.io/x/onecloud/pkg/apis"
-)
-
-const (
-	SSL_ISSUER_LETSENCRYPT = cloudprovider.SSL_ISSUER_LETSENCRYPT
-	SSL_ISSUER_ZEROSSL     = cloudprovider.SSL_ISSUER_ZEROSSL
-)
-
+// 资源创建参数, 目前仅占位
 type SSLCertificateCreateInput struct {
-	apis.VirtualResourceCreateInput
-
-	Issuer    string `json:"issuer"`
-	DnsZoneId string `json:"dns_zone_id"`
-	Sans      string `json:"sans"`
-
-	Province    string
-	Common      string
-	Country     string
-	City        string
-	OrgName     string
-	Certificate string
-	PrivateKey  string
 }
 
+// 资源返回详情
 type SSLCertificateDetails struct {
 	apis.VirtualResourceDetails
 	ManagedResourceInfo
 	CloudregionResourceInfo
-
-	// 是否过期
-	IsExpired bool `json:"is_expired"`
 }
 
+// 资源列表请求参数
 type SSLCertificateListInput struct {
 	apis.VirtualResourceListInput
 	apis.ExternalizedResourceBaseListInput
@@ -57,7 +35,4 @@ type SSLCertificateListInput struct {
 
 	RegionalFilterListInput
 	ManagedResourceListInput
-	DnsZoneFilterListBase
-
-	IsExpired *bool `json:"is_expired"`
 }

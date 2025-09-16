@@ -119,8 +119,8 @@ func (self *SStorage) GetIStoragecache() cloudprovider.ICloudStoragecache {
 	return self.zone.region.getStoragecache()
 }
 
-func (self *SStorage) CreateIDisk(opts *cloudprovider.DiskCreateConfig) (cloudprovider.ICloudDisk, error) {
-	diskId, err := self.zone.region.CreateDisk(self.zone.Zone, self.storageType, opts)
+func (self *SStorage) CreateIDisk(conf *cloudprovider.DiskCreateConfig) (cloudprovider.ICloudDisk, error) {
+	diskId, err := self.zone.region.CreateDisk(self.zone.Zone, self.storageType, conf.Name, conf.SizeGb, conf.Desc, conf.ProjectId)
 	if err != nil {
 		log.Errorf("createDisk fail %s", err)
 		return nil, err
@@ -152,5 +152,5 @@ func (self *SStorage) GetMountPoint() string {
 }
 
 func (self *SStorage) IsSysDiskStore() bool {
-	return true
+	return strings.ToLower(self.storageType) != api.STORAGE_CLOUD_HSSD
 }

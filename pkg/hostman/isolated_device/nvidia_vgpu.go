@@ -121,14 +121,6 @@ func (dev *sNVIDIAVgpuDevice) GetRenderPath() string {
 	return ""
 }
 
-func (dev *sNVIDIAVgpuDevice) GetIndex() int {
-	return -1
-}
-
-func (dev *sNVIDIAVgpuDevice) GetDeviceMinor() int {
-	return -1
-}
-
 func (dev *sNVIDIAVgpuDevice) SetDeviceInfo(info CloudDeviceInfo) {
 	if len(info.Id) != 0 {
 		dev.cloudId = info.Id

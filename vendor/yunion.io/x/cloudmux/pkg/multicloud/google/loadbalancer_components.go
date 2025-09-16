@@ -559,15 +559,15 @@ func (self *SLoadbalancer) GetForwardingRules() ([]SForwardingRule, error) {
 
 	targets := make([]string, 0)
 	for i := range hps {
-		targets = append(targets, fmt.Sprintf(`(target = "%s")`, hps[i].SelfLink))
+		targets = append(targets, fmt.Sprintf(`(target="%s")`, hps[i].GetId()))
 	}
 
 	for i := range hsps {
-		targets = append(targets, fmt.Sprintf(`(target = "%s")`, hsps[i].SelfLink))
+		targets = append(targets, fmt.Sprintf(`(target="%s")`, hsps[i].GetId()))
 	}
 
-	if strings.Contains(self.SelfLink, "/backendServices/") {
-		targets = append(targets, fmt.Sprintf(`(backendService = "%s")`, self.SelfLink))
+	if strings.Contains(self.GetId(), "/backendServices/") {
+		targets = append(targets, fmt.Sprintf(`(backendService="%s")`, self.GetId()))
 	}
 
 	if len(targets) == 0 {

@@ -83,21 +83,12 @@ type ListenerAclOptions struct {
 	AclType   string
 }
 
-type SRedirectPool struct {
-	RegionPools  map[string][]string
-	CountryPools map[string][]string
-}
-
 type SLoadbalancerListenerRule struct {
 	Name             string
 	Domain           string
 	Path             string
 	BackendGroupId   string
 	BackendGroupType string
-	Status           string
-
-	BackendGroups []string      // for cloudflare only
-	RedirectPool  SRedirectPool // for cloudflare only
 
 	Condition string // for aws only
 

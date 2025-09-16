@@ -34,6 +34,8 @@ func init() {
 	models.RegisterGuestDriver(&driver)
 }
 
+func (self *SKsyunGuestDriver) DoScheduleSKUFilter() bool { return false }
+
 func (self *SKsyunGuestDriver) GetHypervisor() string {
 	return api.HYPERVISOR_KSYUN
 }

@@ -153,14 +153,6 @@ func (listerner *SLoadbalancerUDPListener) GetHealthCheckDomain() string {
 	return ""
 }
 
-func (listerner *SLoadbalancerUDPListener) GetHealthCheckMethod() string {
-	return ""
-}
-
-func (listerner *SLoadbalancerUDPListener) GetHealthCheckPort() int {
-	return listerner.HealthCheckConnectPort
-}
-
 func (listerner *SLoadbalancerUDPListener) GetHealthCheckURI() string {
 	return ""
 }
@@ -293,6 +285,12 @@ func (region *SRegion) SyncLoadbalancerUDPListener(lb *SLoadbalancer, listener *
 	_, err := region.lbRequest("SetLoadBalancerUDPListenerAttribute", params)
 	return err
 }
+
+/*
+func (listerner *SLoadbalancerUDPListener) Sync(ctx context.Context, lblis *cloudprovider.SLoadbalancerListenerCreateOptions) error {
+	return listerner.lb.region.SyncLoadbalancerUDPListener(listerner.lb, lblis)
+}
+*/
 
 func (self *SLoadbalancerUDPListener) ChangeScheduler(ctx context.Context, opts *cloudprovider.ChangeListenerSchedulerOptions) error {
 	return cloudprovider.ErrNotImplemented

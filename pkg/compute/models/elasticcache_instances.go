@@ -27,6 +27,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
+	"yunion.io/x/pkg/util/billing"
 	bc "yunion.io/x/pkg/util/billing"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/util/netutils"
@@ -520,15 +521,6 @@ func (manager *SElasticcacheManager) QueryDistinctExtraField(q *sqlchemy.SQuery,
 	return q, httperrors.ErrNotFound
 }
 
-func (manager *SElasticcacheManager) QueryDistinctExtraFields(q *sqlchemy.SQuery, resource string, fields []string) (*sqlchemy.SQuery, error) {
-	var err error
-	q, err = manager.SVpcResourceBaseManager.QueryDistinctExtraFields(q, resource, fields)
-	if err == nil {
-		return q, nil
-	}
-	return q, httperrors.ErrNotFound
-}
-
 func (self *SCloudregion) SyncElasticcaches(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
@@ -649,11 +641,16 @@ func (self *SElasticcache) SyncWithCloudElasticcache(ctx context.Context, userCr
 			self.Connections = cnns
 		}
 
-		self.BillingType = extInstance.GetBillingType()
-		self.ExpiredAt = time.Time{}
-		self.AutoRenew = false
-		if self.BillingType == billing_api.BILLING_TYPE_PREPAID {
-			self.ExpiredAt = extInstance.GetExpiredAt()
+		factory, err := provider.GetProviderFactory()
+		if err != nil {
+			return errors.Wrap(err, "SyncWithCloudElasticcache.GetProviderFactory")
+		}
+
+		if factory.IsSupportPrepaidResources() {
+			self.BillingType = extInstance.GetBillingType()
+			if expired := extInstance.GetExpiredAt(); !expired.IsZero() {
+				self.ExpiredAt = expired
+			}
 			self.AutoRenew = extInstance.IsAutoRenew()
 		}
 
@@ -763,19 +760,23 @@ func (self *SCloudregion) newFromCloudElasticcache(ctx context.Context, userCred
 		instance.CreatedAt = createdAt
 	}
 
-	instance.BillingType = extInstance.GetBillingType()
-	instance.ExpiredAt = time.Time{}
-	instance.AutoRenew = false
-	if instance.BillingType == billing_api.BILLING_TYPE_PREPAID {
-		instance.ExpiredAt = extInstance.GetExpiredAt()
+	factory, err := provider.GetProviderFactory()
+	if err != nil {
+		return nil, errors.Wrap(err, "newFromCloudElasticcache.GetProviderFactory")
+	}
+
+	if factory.IsSupportPrepaidResources() {
+		instance.BillingType = extInstance.GetBillingType()
+		if expired := extInstance.GetExpiredAt(); !expired.IsZero() {
+			instance.ExpiredAt = expired
+		}
 		instance.AutoRenew = extInstance.IsAutoRenew()
 	}
 
-	err := func() error {
+	err = func() error {
 		lockman.LockRawObject(ctx, ElasticcacheManager.Keyword(), "name")
 		defer lockman.ReleaseRawObject(ctx, ElasticcacheManager.Keyword(), "name")
 
-		var err error
 		instance.Name, err = db.GenerateName(ctx, ElasticcacheManager, ownerId, extInstance.GetName())
 		if err != nil {
 			return err
@@ -882,15 +883,25 @@ func (manager *SElasticcacheManager) validateCreateData(ctx context.Context, use
 		}
 	}
 
-	if len(input.Duration) > 0 {
-		cycle, err := bc.ParseBillingCycle(input.Duration)
+	// postpiad billing cycle
+	if input.BillingType == billing_api.BILLING_TYPE_POSTPAID {
+		if len(input.Duration) > 0 {
+			cycle, err := bc.ParseBillingCycle(input.Duration)
+			if err != nil {
+				return nil, httperrors.NewInputParameterError("invalid duration %s", input.Duration)
+			}
+
+			tm := time.Time{}
+			input.BillingCycle = cycle.String()
+			// .Format("2006-01-02 15:04:05")
+			input.ExpiredAt = cycle.EndAt(tm)
+		}
+	} else if input.BillingType == billing_api.BILLING_TYPE_PREPAID {
+		cycle, err := billing.ParseBillingCycle(input.BillingCycle)
 		if err != nil {
-			return nil, httperrors.NewInputParameterError("invalid duration %s", input.Duration)
+			return nil, httperrors.NewInputParameterError("invalid billing_cycle %s", input.BillingCycle)
 		}
 		input.BillingCycle = cycle.String()
-		if input.BillingType == billing_api.BILLING_TYPE_POSTPAID {
-			input.ReleaseAt = cycle.EndAt(time.Now())
-		}
 	}
 
 	// validate password
@@ -1558,6 +1569,33 @@ func (manager *SElasticcacheManager) getExpiredPostpaids() []SElasticcache {
 	return ecs
 }
 
+func (cache *SElasticcache) SaveRenewInfo(
+	ctx context.Context, userCred mcclient.TokenCredential,
+	bcycle *bc.SBillingCycle, expireAt *time.Time, billingType string,
+) error {
+	_, err := db.Update(cache, func() error {
+		if billingType == "" {
+			billingType = billing_api.BILLING_TYPE_PREPAID
+		}
+		if cache.BillingType == "" {
+			cache.BillingType = billingType
+		}
+		if expireAt != nil && !expireAt.IsZero() {
+			cache.ExpiredAt = *expireAt
+		} else if bcycle != nil {
+			cache.BillingCycle = bcycle.String()
+			cache.ExpiredAt = bcycle.EndAt(cache.ExpiredAt)
+		}
+		return nil
+	})
+	if err != nil {
+		log.Errorf("Update error %s", err)
+		return err
+	}
+	db.OpsLog.LogEvent(cache, db.ACT_RENEW, cache.GetShortDesc(ctx), userCred)
+	return nil
+}
+
 func (cache *SElasticcache) SetDisableDelete(userCred mcclient.TokenCredential, val bool) error {
 	diff, err := db.Update(cache, func() error {
 		if val {
@@ -1639,21 +1677,39 @@ func (self *SElasticcache) PerformPostpaidExpire(ctx context.Context, userCred m
 		return nil, httperrors.NewBadRequestError("elasticcache billing type is %s", self.BillingType)
 	}
 
-	releaseAt, err := input.GetReleaseAt()
+	bc, err := ParseBillingCycleInput(&self.SBillingResourceBase, input)
 	if err != nil {
 		return nil, err
 	}
 
-	err = SaveReleaseAt(ctx, self, userCred, releaseAt)
+	err = self.SaveRenewInfo(ctx, userCred, bc, nil, billing_api.BILLING_TYPE_POSTPAID)
 	return nil, err
 }
 
 func (self *SElasticcache) PerformCancelExpire(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	err := SaveReleaseAt(ctx, self, userCred, time.Time{})
-	if err != nil {
+	if err := self.CancelExpireTime(ctx, userCred); err != nil {
 		return nil, err
 	}
+
 	return nil, nil
+}
+
+func (self *SElasticcache) CancelExpireTime(ctx context.Context, userCred mcclient.TokenCredential) error {
+	if self.BillingType != billing_api.BILLING_TYPE_POSTPAID {
+		return httperrors.NewBadRequestError("elasticcache billing type %s not support cancel expire", self.BillingType)
+	}
+
+	_, err := sqlchemy.GetDB().Exec(
+		fmt.Sprintf(
+			"update %s set expired_at = NULL and billing_cycle = NULL where id = ?",
+			ElasticcacheManager.TableSpec().Name(),
+		), self.Id,
+	)
+	if err != nil {
+		return errors.Wrap(err, "elasticcache cancel expire time")
+	}
+	db.OpsLog.LogEvent(self, db.ACT_RENEW, "elasticcache cancel expire time", userCred)
+	return nil
 }
 
 func (self *SElasticcache) PerformRemoteUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ElasticcacheRemoteUpdateInput) (jsonutils.JSONObject, error) {

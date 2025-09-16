@@ -24,12 +24,10 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
-	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
-	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 type GuestCreateDiskTask struct {
@@ -213,12 +211,12 @@ func (self *ManagedGuestCreateDiskTask) OnManagedDiskPrepared(ctx context.Contex
 
 	for _, d := range disks {
 		diskId := d.DiskId
-		_disk, err := models.DiskManager.FetchById(diskId)
+		iDisk, err := models.DiskManager.FetchById(diskId)
 		if err != nil {
 			self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 			return
 		}
-		disk := _disk.(*models.SDisk)
+		disk := iDisk.(*models.SDisk)
 		if disk.Status != api.DISK_READY {
 			self.SetStageFailed(ctx, jsonutils.NewString(fmt.Sprintf("disk %s is not ready(status=%s)", disk.Id, disk.Status)))
 			return
@@ -242,35 +240,7 @@ func (self *ManagedGuestCreateDiskTask) OnManagedDiskPrepared(ctx context.Contex
 			self.SetStageFailed(ctx, jsonutils.NewString(fmt.Sprintf("Attach Disk to guest fail error: %v", err)))
 			return
 		}
-
-		time.Sleep(time.Second * 10)
-
-		log.Debugf("guest %s(%s) billing type: %s disk %s(%s)", guest.Name, guest.Id, guest.BillingType, disk.Name, disk.Id)
-
-		if guest.BillingType == billing_api.BILLING_TYPE_PREPAID {
-			idisk, err := disk.GetIDisk(ctx)
-			if err != nil {
-				logclient.AddActionLogWithStartable(self, guest, logclient.ACT_CHANGE_BILLING_TYPE, errors.Wrapf(err, "GetIDisk %s", disk.ExternalId), self.UserCred, false)
-				continue
-			}
-			err = idisk.ChangeBillingType(guest.BillingType)
-			if err != nil {
-				logclient.AddActionLogWithStartable(self, guest, logclient.ACT_CHANGE_BILLING_TYPE, errors.Wrapf(err, "ChangeBillingType %s", disk.ExternalId), self.UserCred, false)
-				continue
-			}
-
-			idisk.Refresh()
-
-			db.Update(disk, func() error {
-				disk.BillingType = guest.BillingType
-				disk.AutoRenew = guest.AutoRenew
-				disk.ExpiredAt = guest.ExpiredAt
-				if expiredAt := idisk.GetExpiredAt(); !expiredAt.IsZero() {
-					disk.ExpiredAt = expiredAt
-				}
-				return nil
-			})
-		}
+		time.Sleep(time.Second * 5)
 	}
 
 	self.SetStageComplete(ctx, nil)

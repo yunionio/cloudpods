@@ -138,11 +138,13 @@ func (self *SQcloudProviderFactory) GetSupportedDnsPolicyValues() map[cloudprovi
 func (self *SQcloudProviderFactory) GetTTLRange(zoneType cloudprovider.TDnsZoneType, productType cloudprovider.TDnsProductType) cloudprovider.TTlRange {
 	if len(productType) > 0 {
 		switch productType {
-		case cloudprovider.DnsProductUltimate:
+		case cloudprovider.DnsProductEnterpriseUltimate:
 			return cloudprovider.TtlRangeQcloudEnterpriseUltimate
-		case cloudprovider.DnsProductEnterprise:
+		case cloudprovider.DnsProductEnterpriseStandard:
 			return cloudprovider.TtlRangeQcloudEnterpriseStandard
-		case cloudprovider.DnsProductProfessional:
+		case cloudprovider.DnsProductEnterpriseBasic:
+			return cloudprovider.TtlRangeQcloudEnterpriseBasic
+		case cloudprovider.DnsProductPersonalProfessional:
 			return cloudprovider.TtlRangeQcloudPersonalProfessional
 		case cloudprovider.DnsProductFree:
 			return cloudprovider.TtlRangeQcloudFree

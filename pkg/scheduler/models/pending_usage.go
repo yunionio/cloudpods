@@ -29,7 +29,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	computemodels "yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/scheduler/api"
-	"yunion.io/x/onecloud/pkg/scheduler/options"
 )
 
 var HostPendingUsageManager *SHostPendingUsageManager
@@ -528,7 +527,7 @@ func (self *SessionPendingUsage) cancelSelf() {
 }
 
 func (self *SessionPendingUsage) StartTimer() {
-	timeout := time.Duration(options.Options.ExpireSessionUsageTimeout) * time.Second
+	timeout := 1 * time.Minute
 	go func() {
 		for {
 			select {

@@ -39,7 +39,7 @@ type SPvtzBindVpcs struct {
 }
 
 type SPrivateZone struct {
-	multicloud.SDnsZoneBase
+	multicloud.SResourceBase
 	AliyunTags
 	client *SAliyunClient
 

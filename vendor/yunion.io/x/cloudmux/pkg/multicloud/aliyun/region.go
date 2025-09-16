@@ -319,26 +319,6 @@ func (self *SRegion) _lbRequest(client *sdk.Client, apiName string, domain strin
 	return jsonRequest(client, domain, ALIYUN_API_VERSION_LB, apiName, params, self.client.debug)
 }
 
-func (self *SRegion) albRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
-	client, err := self.getSdkClient()
-	if err != nil {
-		return nil, err
-	}
-	params = self.client.SetResourceGropuId(params)
-	domain := fmt.Sprintf("alb.%s.aliyuncs.com", self.RegionId)
-	return jsonRequest(client, domain, ALIYUN_API_VERSION_ALB, apiName, params, self.client.debug)
-}
-
-func (self *SRegion) nlbRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
-	client, err := self.getSdkClient()
-	if err != nil {
-		return nil, err
-	}
-	params = self.client.SetResourceGropuId(params)
-	domain := fmt.Sprintf("nlb.%s.aliyuncs.com", self.RegionId)
-	return jsonRequest(client, domain, ALIYUN_API_VERSION_NLB, apiName, params, self.client.debug)
-}
-
 // ///////////////////////////////////////////////////////////////////////////
 func (self *SRegion) GetId() string {
 	return self.RegionId
@@ -871,24 +851,37 @@ func (self *SRegion) UpdateInstancePassword(instId string, passwd string) error 
 }
 
 func (self *SRegion) GetIEips() ([]cloudprovider.ICloudEIP, error) {
-	eips, err := self.GetEips("", "", "")
+	eips, total, err := self.GetEips("", "", "", 0, 50)
 	if err != nil {
 		return nil, err
 	}
+	for len(eips) < total {
+		var parts []SEipAddress
+		parts, total, err = self.GetEips("", "", "", len(eips), 50)
+		if err != nil {
+			return nil, err
+		}
+		eips = append(eips, parts...)
+	}
 	ret := make([]cloudprovider.ICloudEIP, len(eips))
-	for i := range eips {
-		eips[i].region = self
+	for i := 0; i < len(eips); i += 1 {
 		ret[i] = &eips[i]
 	}
 	return ret, nil
 }
 
 func (self *SRegion) GetIEipById(eipId string) (cloudprovider.ICloudEIP, error) {
-	eip, err := self.GetEip(eipId)
+	eips, total, err := self.GetEips(eipId, "", "", 0, 1)
 	if err != nil {
 		return nil, err
 	}
-	return eip, nil
+	if total == 0 {
+		return nil, cloudprovider.ErrNotFound
+	}
+	if total > 1 {
+		return nil, cloudprovider.ErrDuplicateId
+	}
+	return &eips[0], nil
 }
 
 func (region *SRegion) GetISecurityGroupById(secgroupId string) (cloudprovider.ICloudSecurityGroup, error) {
@@ -917,36 +910,10 @@ func (region *SRegion) GetILoadBalancers() ([]cloudprovider.ICloudLoadbalancer, 
 		lbs[i].region = region
 		ilbs = append(ilbs, &lbs[i])
 	}
-
-	// 获取ALB实例
-	albs, err := region.GetAlbs()
-	if err != nil {
-		return nil, err
-	}
-	for i := 0; i < len(albs); i++ {
-		albs[i].region = region
-		ilbs = append(ilbs, &albs[i])
-	}
-
-	// 获取NLB实例
-	nlbs, err := region.GetNlbs()
-	if err != nil {
-		return nil, err
-	}
-	for i := 0; i < len(nlbs); i++ {
-		nlbs[i].region = region
-		ilbs = append(ilbs, &nlbs[i])
-	}
-
 	return ilbs, nil
 }
 
 func (region *SRegion) GetILoadBalancerById(loadbalancerId string) (cloudprovider.ICloudLoadbalancer, error) {
-	if strings.HasPrefix(loadbalancerId, "alb-") {
-		return region.GetAlbDetail(loadbalancerId)
-	} else if strings.HasPrefix(loadbalancerId, "nlb-") {
-		return region.GetNlbDetail(loadbalancerId)
-	}
 	return region.GetLoadbalancerDetail(loadbalancerId)
 }
 

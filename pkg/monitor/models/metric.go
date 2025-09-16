@@ -54,8 +54,6 @@ func init() {
 	registry.RegisterService(MetricMeasurementManager)
 }
 
-// +onecloud:swagger-gen-model-singular=metricmeasurement
-// +onecloud:swagger-gen-model-plural=metricmeasurements
 type SMetricMeasurementManager struct {
 	db.SEnabledResourceBaseManager
 	db.SStatusStandaloneResourceBaseManager

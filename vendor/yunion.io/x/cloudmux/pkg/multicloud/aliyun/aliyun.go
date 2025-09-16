@@ -94,30 +94,6 @@ const (
 	ALIYUN_SERVICE_MONGO_DB = "mongodb"
 
 	DefaultAssumeRoleName = "ResourceDirectoryAccountAccessRole"
-
-	ALIYUN_API_VERSION_ECS = "2014-05-26"
-	ALIYUN_API_VERSION_EIP = "2016-04-28"
-	ALIYUN_API_VERSION_ELB = "2016-04-28"
-	ALIYUN_API_VERSION_VGW = "2016-04-28"
-	ALIYUN_API_VERSION_NAS = "2017-06-26"
-	ALIYUN_API_VERSION_CON = "2018-12-01"
-	ALIYUN_API_VERSION_VHH = "2019-06-01"
-	ALIYUN_API_VERSION_BSS = "2017-12-14"
-	ALIYUN_API_VERSION_FC  = "2021-04-06"
-	ALIYUN_API_VERSION_NLB = "2022-04-30"
-	ALIYUN_API_VERSION_ALB = "2020-06-16"
-
-	ALIYUN_BSS_BILLING_METHOD_PREPAID  = "Subscription"
-	ALIYUN_BSS_BILLING_METHOD_POSTPAID = "PayAsYouGo"
-
-	ALIYUN_API_INTERVAL = 5 * time.Second
-
-	DEFAULT_SESSION_DURATION_SECONDS = 3600
-
-	ALIYUN_SERVICE_ALB = "alb"
-	ALIYUN_SERVICE_NLB = "nlb"
-	ALIYUN_SERVICE_OSS = "oss"
-	ALIYUN_SERVICE_EIP = "eip"
 )
 
 var (
@@ -241,9 +217,7 @@ func doRequest(client *sdk.Client, domain, apiVersion, apiName string, params ma
 					"InvalidAccessKeyId.Inactive",
 					"Forbidden.AccessKeyDisabled",
 					"Forbidden.AccessKey":
-					return nil, errors.Wrapf(cloudprovider.ErrInvalidAccessKey, "%s", err.Error())
-				case "Forbidden.RAM":
-					return nil, errors.Wrapf(cloudprovider.ErrForbidden, "%s", err.Error())
+					return nil, errors.Wrapf(cloudprovider.ErrInvalidAccessKey, err.Error())
 				case "404 Not Found", "InstanceNotFound":
 					return nil, errors.Wrap(cloudprovider.ErrNotFound, err.Error())
 				case "OperationDenied.NoStock":
@@ -327,7 +301,7 @@ func _jsonRequest(client *sdk.Client, domain string, version string, apiName str
 		"List":     requests.GET,
 		"Delete":   requests.DELETE,
 	} {
-		if strings.HasPrefix(apiName, prefix) && !strings.HasPrefix(domain, "mongodb") {
+		if strings.HasPrefix(apiName, prefix) {
 			method = _method
 			break
 		}
@@ -374,9 +348,6 @@ func _jsonRequest(client *sdk.Client, domain string, version string, apiName str
 		req.PathPattern = fmt.Sprintf("/%s/%s", req.Version, strings.TrimPrefix(pathPattern, "/"))
 		req.Method = method
 		req.GetHeaders()["Content-Type"] = "application/json"
-	} else if strings.HasPrefix(domain, "mongodb") {
-		req.Method = requests.POST
-		req.GetHeaders()["Content-Type"] = "application/json"
 	}
 
 	resp, err := processCommonRequest(client, req)
@@ -393,7 +364,7 @@ func _jsonRequest(client *sdk.Client, domain string, version string, apiName str
 	if respBody.Contains("Code") {
 		code, _ := respBody.GetString("Code")
 		if len(code) > 0 && !utils.IsInStringArray(code, []string{"200", "Success"}) {
-			return nil, fmt.Errorf("%s", respBody.String())
+			return nil, fmt.Errorf(respBody.String())
 		}
 	}
 	return respBody, nil
@@ -513,7 +484,7 @@ func (self *SAliyunClient) _getSdkClient(regionId string) (*sdk.Client, error) {
 			}
 		}
 		if self.cpcfg.ReadOnly {
-			return respCheck, errors.Wrapf(cloudprovider.ErrAccountReadOnly, "%s", action)
+			return respCheck, errors.Wrapf(cloudprovider.ErrAccountReadOnly, action)
 		}
 		return respCheck, nil
 	})
@@ -837,7 +808,7 @@ func (self *SAliyunClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error)
 
 	accounts, err := self.ListAccounts()
 	if err != nil {
-		if e, ok := errors.Cause(err).(*alierr.ServerError); ok && (e.ErrorCode() == "EntityNotExists.ResourceDirectory" || e.ErrorCode() == "NoPermission") {
+		if e, ok := errors.Cause(err).(*alierr.ServerError); ok && e.ErrorCode() == "EntityNotExists.ResourceDirectory" {
 			return ret, nil
 		}
 		return nil, errors.Wrapf(err, "ListAccounts")
