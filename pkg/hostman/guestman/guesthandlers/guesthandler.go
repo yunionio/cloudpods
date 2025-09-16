@@ -108,6 +108,7 @@ func AddGuestTaskHandler(prefix string, app *appsrv.Application) {
 			"qga-set-network":          qgaSetNetwork,
 			"qga-get-os-info":          qgaGetOsInfo,
 			"start-rescue":             guestStartRescue,
+			"guest-screen-dump":        guestScreenDump,
 		} {
 			app.AddHandler("POST",
 				fmt.Sprintf("%s/%s/<sid>/%s", prefix, keyWord, action),
@@ -1003,6 +1004,11 @@ func qgaSetNetwork(ctx context.Context, userCred mcclient.TokenCredential, sid s
 func qgaGetOsInfo(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (interface{}, error) {
 	gm := guestman.GetGuestManager()
 	return gm.QgaGetOsInfo(sid)
+}
+
+func guestScreenDump(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (interface{}, error) {
+	gm := guestman.GetGuestManager()
+	return gm.RequestGuestScreenDump(sid)
 }
 
 // prepare rescue files

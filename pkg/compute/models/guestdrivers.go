@@ -251,6 +251,7 @@ type IGuestDriver interface {
 	ValidateSetOSInfo(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, input *api.ServerSetOSInfoInput) error
 	ValidateSyncOSInfo(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest) error
 	RequestStartRescue(ctx context.Context, task taskman.ITask, body jsonutils.JSONObject, host *SHost, guest *SGuest) error
+	RequestGuestScreenDump(ctx context.Context, userCred mcclient.TokenCredential, body jsonutils.JSONObject, host *SHost, guest *SGuest) (jsonutils.JSONObject, error)
 }
 
 var guestDrivers map[string]IGuestDriver
