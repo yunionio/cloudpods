@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/sqlchemy"
 
@@ -465,6 +466,9 @@ func (self *SDBInstanceBackup) SyncWithCloudDBInstanceBackup(
 		if dbinstanceId := extBackup.GetDBInstanceId(); len(dbinstanceId) > 0 {
 			//有可能云上删除了实例，未删除备份
 			_instance, err := db.FetchByExternalIdAndManagerId(DBInstanceManager, dbinstanceId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+				if len(self.CloudregionId) > 0 {
+					q = q.Equals("cloudregion_id", self.CloudregionId)
+				}
 				return q.Equals("manager_id", provider.Id)
 			})
 			if err == sql.ErrNoRows {
@@ -515,6 +519,9 @@ func (manager *SDBInstanceBackupManager) newFromCloudDBInstanceBackup(
 
 	if dbinstanceId := extBackup.GetDBInstanceId(); len(dbinstanceId) > 0 {
 		_dbinstance, err := db.FetchByExternalIdAndManagerId(DBInstanceManager, dbinstanceId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+			if !gotypes.IsNil(region) {
+				q = q.Equals("cloudregion_id", region.Id)
+			}
 			return q.Equals("manager_id", provider.Id)
 		})
 		if err != nil {
