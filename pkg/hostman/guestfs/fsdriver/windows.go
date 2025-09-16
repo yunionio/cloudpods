@@ -647,3 +647,7 @@ func (w *SWindowsRootFs) DeployTelegraf(config string) (bool, error) {
 	}
 	return true, nil
 }
+
+func (w *SWindowsRootFs) ConfigSshd(loginAccount, loginPassword string, sshPort int) error {
+	return nil
+}
