@@ -252,6 +252,7 @@ type Monitor interface {
 	NetdevAdd(id, netType string, params map[string]string, callback StringCallback)
 	NetdevDel(id string, callback StringCallback)
 
+	ScreenDump(savePath string, callback StringCallback)
 	SaveState(statFilePath string, callback StringCallback)
 	QueryMachines(callback QueryMachinesCallback)
 	Quit(StringCallback)

@@ -877,7 +877,7 @@ func (n *SGuestNetworkSyncTask) onDeviceAdd(nic *desc.SGuestNetwork) {
 func NewGuestNetworkSyncTask(
 	guest *SKVMGuestInstance, delNics, addNics []*desc.SGuestNetwork,
 ) *SGuestNetworkSyncTask {
-	return &SGuestNetworkSyncTask{guest, delNics, addNics, make([]error, 0), nil, nil, nil}
+	return &SGuestNetworkSyncTask{guest, delNics, addNics, make([]error, 0), 0, nil, nil, nil}
 }
 
 /**
