@@ -15,6 +15,8 @@
 package hostman
 
 import (
+	"fmt"
+	"strings"
 	"time"
 
 	execlient "yunion.io/x/executor/client"
@@ -40,6 +42,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
 	"yunion.io/x/onecloud/pkg/hostman/storageman/diskhandlers"
 	"yunion.io/x/onecloud/pkg/hostman/storageman/storagehandler"
+	"yunion.io/x/onecloud/pkg/image/drivers/s3"
 	losetupman "yunion.io/x/onecloud/pkg/util/losetup/manager"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
@@ -101,6 +104,8 @@ func (host *SHostService) RunService() {
 	if err := storageman.Init(hostInstance); err != nil {
 		log.Fatalf("Storage manager init error: %v", err)
 	}
+
+	initS3()
 
 	var guestChan chan struct{}
 
@@ -165,6 +170,41 @@ func (host *SHostService) initHandlers(app *appsrv.Application) {
 	hosthandler.AddHostHandler("", app)
 
 	app_common.ExportOptionsHandler(app, &options.HostOptions)
+}
+
+func initS3() {
+	url := options.HostOptions.S3Endpoint
+	if len(url) == 0 {
+		return
+	}
+
+	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
+		prefix := "http://"
+		if options.HostOptions.S3UseSSL {
+			prefix = "https://"
+		}
+		url = prefix + url
+	}
+	err := s3.Init(
+		url,
+		options.HostOptions.S3AccessKey,
+		options.HostOptions.S3SecretKey,
+		options.HostOptions.S3BucketName,
+		options.HostOptions.S3UseSSL,
+		"",
+	)
+	if err != nil {
+		log.Fatalf("failed init s3 client %s", err)
+	}
+
+	lifecycle := fmt.Sprintf(
+		`<LifecycleConfiguration><Rule><ID>%s</ID><Prefix></Prefix><Status>Enabled</Status><Expiration><Days>%d</Days></Expiration></Rule></LifecycleConfiguration>`,
+		options.HostOptions.S3BucketName, options.HostOptions.S3BucketLifecycleKeepDay,
+	)
+	err = s3.SetBucketLifecycle(lifecycle)
+	if err != nil {
+		log.Fatalf("failed set bucket lifecycle %s", lifecycle)
+	}
 }
 
 func StartService() {
