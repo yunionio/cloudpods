@@ -36,5 +36,27 @@ var worker = SMeasurement{
 		{
 			"queue_cnt", "Worker Queue Count", monitor.METRIC_UNIT_NULL,
 		},
+		{
+			"total_workload", "Total workload", monitor.METRIC_UNIT_NULL,
+		},
+		{
+			"active_workload", "Active workload", monitor.METRIC_UNIT_NULL,
+		},
+	},
+}
+
+var statusProbe = SMeasurement{
+	Context: []SMonitorContext{
+		{
+			"status_probe", "Resource status probe results", monitor.METRIC_RES_TYPE_SYSTEM, monitor.METRIC_DATABASE_SYSTEM,
+		},
+	},
+	Metrics: []SMetric{
+		{
+			"count", "Resouce count for each status", monitor.METRIC_UNIT_NULL,
+		},
+		{
+			"pending_deleted", "Pending deleted resource count for each status", monitor.METRIC_UNIT_NULL,
+		},
 	},
 }

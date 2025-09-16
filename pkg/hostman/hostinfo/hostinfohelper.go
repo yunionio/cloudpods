@@ -171,22 +171,45 @@ type SNIC struct {
 	Inter  string
 	Bridge string
 	Ip     string
+	Ip6    string
 	Wire   string
 	WireId string
 	Mask   int
+	Mask6  int
 
-	Bandwidth  int
-	BridgeDev  hostbridge.IBridgeDriver
-	dhcpServer *hostdhcp.SGuestDHCPServer
+	Bandwidth int
+	BridgeDev hostbridge.IBridgeDriver
+
+	dhcpServer  *hostdhcp.SGuestDHCPServer
+	dhcpServer6 *hostdhcp.SGuestDHCP6Server
 }
 
 func (n *SNIC) EnableDHCPRelay() bool {
+	if len(n.Ip) == 0 {
+		return false
+	}
 	v4Ip, err := netutils.NewIPV4Addr(n.Ip)
 	if err != nil {
 		log.Errorf("EnableDHCPRelay netutils.NewIPV4Addr(%s) error: %v", n.Ip, err)
 		return false
 	}
-	if len(options.HostOptions.DhcpRelay) > 0 && !netutils.IsExitAddress(v4Ip) {
+	if len(options.HostOptions.DhcpRelay) == 2 && !netutils.IsExitAddress(v4Ip) {
+		return true
+	} else {
+		return false
+	}
+}
+
+func (n *SNIC) EnableDHCP6Relay() bool {
+	if len(n.Ip6) == 0 {
+		return false
+	}
+	_, err := netutils.NewIPV6Addr(n.Ip6)
+	if err != nil {
+		log.Errorf("EnableDHCP6Relay netutils.NewIPV6Addr(%s) error: %v", n.Ip6, err)
+		return false
+	}
+	if len(options.HostOptions.Dhcp6Relay) == 2 {
 		return true
 	} else {
 		return false
@@ -200,7 +223,12 @@ func (n *SNIC) SetupDhcpRelay() error {
 			return errors.Wrapf(err, "setup dhcp relay on ip: %s", n.Ip)
 		}
 	}
-	log.Infof("Not enable dhcp relay on nic: %#v", n)
+	if n.EnableDHCP6Relay() {
+		log.Infof("Enable dhcpv6 relay on nic: %#v", n)
+		if err := n.dhcpServer6.RelaySetup(n.Ip6); err != nil {
+			return errors.Wrapf(err, "setup dhcpv6 relay on ip: %s", n.Ip6)
+		}
+	}
 	return nil
 }
 
@@ -231,26 +259,42 @@ func NewNIC(desc string) (*SNIC, error) {
 	}
 	nic.Inter = data[0]
 	nic.Bridge = data[1]
+
 	if regutils.MatchIP4Addr(data[2]) {
 		nic.Ip = data[2]
+		if len(data) > 3 && regutils.MatchIP6Addr(data[3]) {
+			nic.Ip6 = data[3]
+		}
+	} else if regutils.MatchIP6Addr(data[2]) {
+		nic.Ip6 = data[2]
+		if len(data) > 3 && regutils.MatchIP4Addr(data[3]) {
+			nic.Ip = data[3]
+		}
 	} else {
 		nic.Wire = data[2]
 	}
+
 	nic.Bandwidth = 1000
 
-	log.Infof("IP %s/%s/%s", nic.Ip, nic.Bridge, nic.Inter)
-	if len(nic.Ip) > 0 {
+	log.Infof("IP %s/%s/%s/%s", nic.Ip, nic.Ip6, nic.Bridge, nic.Inter)
+	// fetch ip and ip6 netmask from interface and bridge
+	if len(nic.Ip) > 0 || len(nic.Ip6) > 0 {
 		// waiting for interface assign ip
 		// in case nic bonding is too slow
 		var max, wait = 30, 0
 		for wait < max {
-			inf := netutils2.NewNetInterfaceWithExpectIp(nic.Inter, nic.Ip)
-			if inf.Addr == nic.Ip {
+			inf := netutils2.NewNetInterfaceWithExpectIp(nic.Inter, nic.Ip, nic.Ip6)
+			if len(nic.Ip) > 0 && inf.Addr == nic.Ip {
 				mask, _ := inf.Mask.Size()
 				if mask > 0 {
 					nic.Mask = mask
 				}
-				break
+			}
+			if len(nic.Ip6) > 0 && inf.Addr6 == nic.Ip6 {
+				mask, _ := inf.Mask6.Size()
+				if mask > 0 {
+					nic.Mask6 = mask
+				}
 			}
 			br := netutils2.NewNetInterface(nic.Bridge)
 			if br.Addr == nic.Ip {
@@ -258,6 +302,14 @@ func NewNIC(desc string) (*SNIC, error) {
 				if nic.Mask == 0 && mask > 0 {
 					nic.Mask = mask
 				}
+			}
+			if br.Addr6 == nic.Ip6 {
+				mask, _ := br.Mask6.Size()
+				if nic.Mask6 == 0 && mask > 0 {
+					nic.Mask6 = mask
+				}
+			}
+			if nic.Mask > 0 || nic.Mask6 > 0 {
 				break
 			}
 			time.Sleep(time.Second * 2)
@@ -272,17 +324,17 @@ func NewNIC(desc string) (*SNIC, error) {
 	var err error
 
 	nic.BridgeDev, err = hostbridge.NewDriver(options.HostOptions.BridgeDriver,
-		nic.Bridge, nic.Inter, nic.Ip)
+		nic.Bridge, nic.Inter, nic.Ip, nic.Mask, nic.Ip6, nic.Mask6)
 	if err != nil {
-		return nil, errors.Wrapf(err, "hostbridge.NewDriver driver: %s, bridge: %s, interface: %s, ip: %s", options.HostOptions.BridgeDriver, nic.Bridge, nic.Inter, nic.Ip)
+		return nil, errors.Wrapf(err, "hostbridge.NewDriver driver: %s, bridge: %s, interface: %s, ip: %s/%d, ip6: %s/%d", options.HostOptions.BridgeDriver, nic.Bridge, nic.Inter, nic.Ip, nic.Mask, nic.Ip6, nic.Mask6)
 	}
 
-	confirm, err := nic.BridgeDev.ConfirmToConfig()
+	confirm, msg, err := nic.BridgeDev.ConfirmToConfig()
 	if err != nil {
 		return nil, errors.Wrapf(err, "nic.BridgeDev.ConfirmToConfig %#v", nic.BridgeDev)
 	}
 	if !confirm {
-		log.Infof("Not confirm to configuration")
+		log.Infof("Not confirm to configuration, bridge %s reason: %s", nic.Bridge, msg)
 		if err = nic.BridgeDev.Setup(nic.BridgeDev); err != nil {
 			return nil, errors.Wrapf(err, "nic.BridgeDev.Setup %v", nic.BridgeDev)
 		}
@@ -303,15 +355,40 @@ func NewNIC(desc string) (*SNIC, error) {
 		Instance().AppendHostError("dhcp client is enabled before host agent start, please disable it")
 	}
 
-	var dhcpRelay []string
+	var relayConf *hostdhcp.SDHCPRelayUpstream
 	if nic.EnableDHCPRelay() {
 		log.Infof("EnableDHCPRelay on nic %#v", nic)
-		dhcpRelay = options.HostOptions.DhcpRelay
+		relayConf = &hostdhcp.SDHCPRelayUpstream{}
+		relayConf.IP = options.HostOptions.DhcpRelay[0]
+		relayConf.Port, err = strconv.Atoi(options.HostOptions.DhcpRelay[1])
+		if err != nil {
+			return nil, errors.Wrapf(err, "invalid relay port %s", options.HostOptions.DhcpRelay[1])
+		}
 	}
-	nic.dhcpServer, err = hostdhcp.NewGuestDHCPServer(nic.Bridge, options.HostOptions.DhcpServerPort, dhcpRelay)
+
+	nic.dhcpServer, err = hostdhcp.NewGuestDHCPServer(nic.Bridge, options.HostOptions.DhcpServerPort, relayConf)
 	if err != nil {
-		return nil, errors.Wrapf(err, "NewGuestDHCPServer(%s, %d, %#v)", nic.Bridge, options.HostOptions.DhcpServerPort, dhcpRelay)
+		return nil, errors.Wrapf(err, "NewGuestDHCPServer(%s, %d, %#v)", nic.Bridge, options.HostOptions.DhcpServerPort, relayConf)
 	}
+
+	var relayConf6 *hostdhcp.SDHCPRelayUpstream
+	if nic.EnableDHCP6Relay() {
+		log.Infof("EnableDHCP6Relay on nic %#v", nic)
+		relayConf6 = &hostdhcp.SDHCPRelayUpstream{}
+		relayConf6.IP = options.HostOptions.Dhcp6Relay[0]
+		relayConf6.Port, err = strconv.Atoi(options.HostOptions.Dhcp6Relay[1])
+		if err != nil {
+			return nil, errors.Wrapf(err, "invalid relay port %s", options.HostOptions.Dhcp6Relay[1])
+		}
+	}
+
+	if !nic.BridgeDev.IsV4Only() {
+		nic.dhcpServer6, err = hostdhcp.NewGuestDHCP6Server(nic.Bridge, options.HostOptions.Dhcp6ServerPort, relayConf6)
+		if err != nil {
+			return nil, errors.Wrapf(err, "NewGuestDHCP6Server(%s, %d, %#v)", nic.Bridge, options.HostOptions.Dhcp6ServerPort, relayConf6)
+		}
+	}
+
 	// dhcp server start after guest manager init
 	return nic, nil
 }

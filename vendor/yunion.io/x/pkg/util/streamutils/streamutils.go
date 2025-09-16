@@ -33,21 +33,30 @@ type SStreamProperty struct {
 type sXZReadAheadReader struct {
 	offset   int64
 	header   []byte
+	hdrEof   bool
 	upstream io.Reader
 }
 
 func newXZReadAheadReader(stream io.Reader) (*sXZReadAheadReader, error) {
 	xzHdr := make([]byte, xz.HeaderLen)
 	n, err := stream.Read(xzHdr)
+	hdrEof := false
 	if err != nil {
-		return nil, errors.Wrap(err, "Read XZ hader")
-	}
-	if n != len(xzHdr) {
-		return nil, errors.Wrap(errors.ErrEOF, "too few header bytes")
+		if errors.Cause(err) == io.EOF {
+			// delay the EOF
+			hdrEof = true
+			xzHdr = xzHdr[:n]
+		} else {
+			return nil, errors.Wrap(err, "Read XZ header")
+		}
+	} else if n != len(xzHdr) {
+		hdrEof = true
+		xzHdr = xzHdr[:n]
 	}
 	return &sXZReadAheadReader{
 		offset:   0,
 		header:   xzHdr,
+		hdrEof:   hdrEof,
 		upstream: stream,
 	}, nil
 }
@@ -57,6 +66,7 @@ func (s *sXZReadAheadReader) IsXz() bool {
 }
 
 func (s *sXZReadAheadReader) Read(buf []byte) (int, error) {
+	bufOffset := 0
 	if s.offset < int64(len(s.header)) {
 		// read from header
 		rdSize := len(s.header) - int(s.offset)
@@ -65,12 +75,19 @@ func (s *sXZReadAheadReader) Read(buf []byte) (int, error) {
 		}
 		n := copy(buf, s.header[s.offset:s.offset+int64(rdSize)])
 		s.offset += int64(n)
-		return n, nil
-	} else {
-		n, err := s.upstream.Read(buf)
-		s.offset += int64(n)
-		return n, err
+		bufOffset = n
 	}
+	// read buffer is full
+	if bufOffset >= len(buf) {
+		return bufOffset, nil
+	}
+	if s.offset >= int64(len(s.header)) && s.hdrEof {
+		return bufOffset, io.EOF
+	}
+
+	n, err := s.upstream.Read(buf[bufOffset:])
+	s.offset += int64(n)
+	return n + bufOffset, err
 }
 
 func StreamPipe(upstream io.Reader, writer io.Writer, CalChecksum bool, callback func(savedTotal int64)) (*SStreamProperty, error) {

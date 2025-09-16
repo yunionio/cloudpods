@@ -132,7 +132,7 @@ func (self *InstanceSnapshotAndCloneTask) doGuestCreate(
 		models.GuestManager.OnCreateComplete(ctx, []db.IModel{newGuest}, self.UserCred, self.UserCred, nil, []jsonutils.JSONObject{params})
 	}
 	if len(errStr) > 0 {
-		return fmt.Errorf(errStr)
+		return fmt.Errorf("%s", errStr)
 	}
 	return nil
 }

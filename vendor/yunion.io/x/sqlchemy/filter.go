@@ -61,6 +61,12 @@ func (tq *SQuery) Contains(f string, v string) *SQuery {
 	return tq.Filter(cond)
 }
 
+// Contains filters query with a contains condition
+func (tq *SQuery) ContainsAny(f string, v []string) *SQuery {
+	cond := ContainsAny(tq.Field(f), v)
+	return tq.Filter(cond)
+}
+
 // Startswith filters query with a startswith condition
 func (tq *SQuery) Startswith(f string, v string) *SQuery {
 	cond := Startswith(tq.Field(f), v)

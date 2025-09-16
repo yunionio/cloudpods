@@ -2,15 +2,6 @@ basePath: /
 consumes:
     - application/json
 definitions:
-    ChangeOwnerCandidateDomainsOutput:
-        properties:
-            candidates:
-                items:
-                    $ref: '#/definitions/SharedDomain'
-                type: array
-                x-go-name: Candidates
-        type: object
-        x-go-package: yunion.io/x/onecloud/pkg/apis
     Error:
         properties:
             class:
@@ -777,6 +768,50 @@ definitions:
                 x-go-name: UpdatedAt
         type: object
         x-go-package: yunion.io/x/onecloud/pkg/apis/image
+    ImageUpdateInput:
+        properties:
+            description:
+                description: 资源描述
+                type: string
+                x-go-name: Description
+            is_data:
+                description: 是否是数据盘镜像
+                type: boolean
+                x-go-name: IsData
+            is_standard:
+                description: 是否是标准镜像
+                type: boolean
+                x-go-name: IsStandard
+            min_disk:
+                description: 最小系统盘要求
+                format: int32
+                type: integer
+                x-go-name: MinDiskMB
+            min_ram:
+                description: 最小内存要求
+                format: int32
+                type: integer
+                x-go-name: MinRamMB
+            name:
+                description: 资源名称
+                type: string
+                x-go-name: Name
+            progress:
+                format: float
+                type: number
+                x-go-name: Progress
+            properties:
+                additionalProperties:
+                    type: string
+                description: 镜像属性
+                type: object
+                x-go-name: Properties
+            protected:
+                description: 是否有删除保护
+                type: boolean
+                x-go-name: Protected
+        type: object
+        x-go-package: yunion.io/x/onecloud/pkg/apis/image
     ImageUpdateStatusInput:
         properties:
             reason:
@@ -799,9 +834,6 @@ definitions:
                 description: 指定项目的名称或ID
                 type: string
                 x-go-name: ProjectId
-        type: object
-        x-go-package: yunion.io/x/onecloud/pkg/apis
-    PerformFreezeInput:
         type: object
         x-go-package: yunion.io/x/onecloud/pkg/apis
     PerformPrivateInput:
@@ -829,51 +861,6 @@ definitions:
                     type: string
                 type: array
                 x-go-name: SharedProjectIds
-        type: object
-        x-go-package: yunion.io/x/onecloud/pkg/apis
-    PerformStatusInput:
-        properties:
-            host_id:
-                description: call from host id
-                type: string
-                x-go-name: HostId
-            power_states:
-                description: 电源状态
-                type: string
-                x-go-name: PowerStates
-            reason:
-                description: 更改状态的原因描述
-                type: string
-                x-go-name: Reason
-            status:
-                description: 更改的目标状态值
-                type: string
-                x-go-name: Status
-        required:
-            - status
-        type: object
-        x-go-package: yunion.io/x/onecloud/pkg/apis
-    PerformUnfreezeInput:
-        type: object
-        x-go-package: yunion.io/x/onecloud/pkg/apis
-    ProjectStatistic:
-        properties:
-            Count:
-                format: int64
-                type: integer
-            Id:
-                type: string
-            Name:
-                type: string
-        type: object
-        x-go-package: yunion.io/x/onecloud/pkg/apis
-    PurgeSplitTableInput:
-        properties:
-            tables:
-                items:
-                    type: string
-                type: array
-                x-go-name: Tables
         type: object
         x-go-package: yunion.io/x/onecloud/pkg/apis
     SImageQuotaDetail:
@@ -1034,45 +1021,6 @@ definitions:
             name:
                 type: string
                 x-go-name: Name
-        type: object
-        x-go-package: yunion.io/x/onecloud/pkg/apis
-    StatusStatistic:
-        properties:
-            TotalCpuCount:
-                description: CPU总量
-                format: int64
-                type: integer
-            TotalDiskSizeMb:
-                description: 存储总量
-                format: int64
-                type: integer
-            TotalMemSizeMb:
-                description: 内存总量
-                format: int64
-                type: integer
-            status_info:
-                items:
-                    $ref: '#/definitions/StatusStatisticStatusInfo'
-                type: array
-                x-go-name: StatusInfo
-        type: object
-        x-go-package: yunion.io/x/onecloud/pkg/apis
-    StatusStatisticStatusInfo:
-        properties:
-            Status:
-                type: string
-            pending_deleted_count:
-                description: |-
-                    回收站数量
-                    需要指定pending_delete=all
-                format: int64
-                type: integer
-                x-go-name: PendingDeletedCount
-            total_count:
-                description: 资源总数
-                format: int64
-                type: integer
-                x-go-name: TotalCount
         type: object
         x-go-package: yunion.io/x/onecloud/pkg/apis
     SubImageInfo:
@@ -1238,6 +1186,11 @@ paths:
                   name: show_fail_reason
                   type: boolean
                   x-go-name: ShowFailReason
+                - description: 是否返回状态统计信息，默认为False
+                  in: query
+                  name: summary_stats
+                  type: boolean
+                  x-go-name: SummaryStats
                 - $ref: '#/definitions/TTagSet'
                   description: 通过标签过滤（包含这些标签）
                   in: query
@@ -1559,93 +1512,7 @@ paths:
             responses:
                 "200":
                     $ref: '#/responses/guest_image_PerformChangeOwnerOutput'
-            summary: 执行操作ChangeOwner
-            tags:
-                - guest_image
-    /guest_images/{id}/change-owner-candidate-domains:
-        get:
-            description: 获取指定信息ChangeOwnerCandidateDomains
-            operationId: guest_image_GetDetailsChangeOwnerCandidateDomains
-            parameters:
-                - description: The Id or Name of guest_image
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-            responses:
-                "200":
-                    $ref: '#/responses/guest_image_GetDetailsChangeOwnerCandidateDomainsOutput'
-            summary: 获取指定信息ChangeOwnerCandidateDomains
-            tags:
-                - guest_image
-    /guest_images/{id}/class-metadata:
-        get:
-            description: 获取指定信息ClassMetadata
-            operationId: guest_image_GetDetailsClassMetadata
-            parameters:
-                - description: The Id or Name of guest_image
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-            responses:
-                "200":
-                    $ref: '#/responses/guest_image_GetDetailsClassMetadataOutput'
-            summary: 获取指定信息ClassMetadata
-            tags:
-                - guest_image
-        post:
-            description: 执行操作ClassMetadata
-            operationId: guest_image_PerformClassMetadata
-            parameters:
-                - description: The Id or Name of guest_image
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-                - in: body
-                  name: body
-                  schema:
-                    properties:
-                        guest_image:
-                            additionalProperties:
-                                type: string
-                            type: object
-                            x-go-name: Input
-                    type: object
-                  x-go-name: Body
-            responses:
-                "200":
-                    $ref: '#/responses/guest_image_PerformClassMetadataOutput'
-            summary: 更新资源的 class 标签
-            tags:
-                - guest_image
-    /guest_images/{id}/freeze:
-        post:
-            description: 执行操作Freeze
-            operationId: guest_image_PerformFreeze
-            parameters:
-                - description: The Id or Name of guest_image
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-                - in: body
-                  name: body
-                  schema:
-                    properties:
-                        guest_image:
-                            $ref: '#/definitions/PerformFreezeInput'
-                    type: object
-                  x-go-name: Body
-            responses:
-                "200":
-                    $ref: '#/responses/guest_image_PerformFreezeOutput'
-            summary: freezed update and perform action operation except for unfreeze
+            summary: 更改项目
             tags:
                 - guest_image
     /guest_images/{id}/metadata:
@@ -1683,23 +1550,6 @@ paths:
                 "200":
                     $ref: '#/responses/guest_image_GetDetailsMetadataOutput'
             summary: 获取资源标签（元数据）
-            tags:
-                - guest_image
-    /guest_images/{id}/org-metadata:
-        get:
-            description: 获取指定信息OrgMetadata
-            operationId: guest_image_GetDetailsOrgMetadata
-            parameters:
-                - description: The Id or Name of guest_image
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-            responses:
-                "200":
-                    $ref: '#/responses/guest_image_GetDetailsOrgMetadataOutput'
-            summary: 获取指定信息OrgMetadata
             tags:
                 - guest_image
     /guest_images/{id}/private:
@@ -1780,62 +1630,6 @@ paths:
             summary: 执行操作SetClassMetadata
             tags:
                 - guest_image
-    /guest_images/{id}/set-org-metadata:
-        post:
-            description: 执行操作SetOrgMetadata
-            operationId: guest_image_PerformSetOrgMetadata
-            parameters:
-                - description: The Id or Name of guest_image
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-                - in: body
-                  name: body
-                  schema:
-                    properties:
-                        guest_image:
-                            additionalProperties:
-                                type: string
-                            type: object
-                            x-go-name: Input
-                    type: object
-                  x-go-name: Body
-            responses:
-                "200":
-                    $ref: '#/responses/guest_image_PerformSetOrgMetadataOutput'
-            summary: 全量替换资源的所有 class 标签
-            tags:
-                - guest_image
-    /guest_images/{id}/set-user-metadata:
-        post:
-            description: 执行操作SetUserMetadata
-            operationId: guest_image_PerformSetUserMetadata
-            parameters:
-                - description: The Id or Name of guest_image
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-                - in: body
-                  name: body
-                  schema:
-                    properties:
-                        guest_image:
-                            additionalProperties:
-                                type: string
-                            type: object
-                            x-go-name: Input
-                    type: object
-                  x-go-name: Body
-            responses:
-                "200":
-                    $ref: '#/responses/guest_image_PerformSetUserMetadataOutput'
-            summary: 全量替换资源的所有用户标签
-            tags:
-                - guest_image
     /guest_images/{id}/status:
         get:
             description: 获取指定信息Status
@@ -1851,199 +1645,6 @@ paths:
                 "200":
                     $ref: '#/responses/guest_image_GetDetailsStatusOutput'
             summary: 获取资源状态
-            tags:
-                - guest_image
-        post:
-            description: 执行操作Status
-            operationId: guest_image_PerformStatus
-            parameters:
-                - description: The Id or Name of guest_image
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-                - in: body
-                  name: body
-                  schema:
-                    properties:
-                        guest_image:
-                            $ref: '#/definitions/PerformStatusInput'
-                    type: object
-                  x-go-name: Body
-            responses:
-                "200":
-                    $ref: '#/responses/guest_image_PerformStatusOutput'
-            summary: 更新资源状态
-            tags:
-                - guest_image
-    /guest_images/{id}/unfreeze:
-        post:
-            description: 执行操作Unfreeze
-            operationId: guest_image_PerformUnfreeze
-            parameters:
-                - description: The Id or Name of guest_image
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-                - in: body
-                  name: body
-                  schema:
-                    properties:
-                        guest_image:
-                            $ref: '#/definitions/PerformUnfreezeInput'
-                    type: object
-                  x-go-name: Body
-            responses:
-                "200":
-                    $ref: '#/responses/guest_image_PerformUnfreezeOutput'
-            summary: 执行操作Unfreeze
-            tags:
-                - guest_image
-    /guest_images/distinct-field:
-        get:
-            description: 获取指定资源类的信息DistinctField
-            operationId: guest_image_GetPropertyDistinctField
-            responses:
-                "200":
-                    $ref: '#/responses/guest_image_GetPropertyDistinctFieldOutput'
-            summary: 获取指定资源类的信息DistinctField
-            tags:
-                - guest_image
-    /guest_images/distinct-fields:
-        get:
-            description: 获取指定资源类的信息DistinctFields
-            operationId: guest_image_GetPropertyDistinctFields
-            responses:
-                "200":
-                    $ref: '#/responses/guest_image_GetPropertyDistinctFieldsOutput'
-            summary: 获取指定资源类的信息DistinctFields
-            tags:
-                - guest_image
-    /guest_images/domain-statistics:
-        get:
-            description: 获取指定资源类的信息DomainStatistics
-            operationId: guest_image_GetPropertyDomainStatistics
-            responses:
-                "200":
-                    $ref: '#/responses/guest_image_GetPropertyDomainStatisticsOutput'
-            summary: 获取指定资源类的信息DomainStatistics
-            tags:
-                - guest_image
-    /guest_images/project-statistics:
-        get:
-            description: 获取指定资源类的信息ProjectStatistics
-            operationId: guest_image_GetPropertyProjectStatistics
-            responses:
-                "200":
-                    $ref: '#/responses/guest_image_GetPropertyProjectStatisticsOutput'
-            summary: 获取指定资源类的信息ProjectStatistics
-            tags:
-                - guest_image
-    /guest_images/project-tag-value-pairs:
-        get:
-            description: 获取指定资源类的信息ProjectTagValuePairs
-            operationId: guest_image_GetPropertyProjectTagValuePairs
-            responses:
-                "200":
-                    $ref: '#/responses/guest_image_GetPropertyProjectTagValuePairsOutput'
-            summary: 获取指定资源类的信息ProjectTagValuePairs
-            tags:
-                - guest_image
-    /guest_images/project-tag-value-tree:
-        get:
-            description: 获取指定资源类的信息ProjectTagValueTree
-            operationId: guest_image_GetPropertyProjectTagValueTree
-            responses:
-                "200":
-                    $ref: '#/responses/guest_image_GetPropertyProjectTagValueTreeOutput'
-            summary: 获取指定资源类的信息ProjectTagValueTree
-            tags:
-                - guest_image
-    /guest_images/purge-splitable:
-        post:
-            description: 执行操作PurgeSplitable
-            operationId: guest_image_PerformPurgeSplitable
-            parameters:
-                - in: body
-                  name: body
-                  schema:
-                    properties:
-                        guest_image:
-                            $ref: '#/definitions/PurgeSplitTableInput'
-                    type: object
-                  x-go-name: Body
-            responses:
-                "200":
-                    $ref: '#/responses/guest_image_PerformPurgeSplitableOutput'
-            summary: 执行操作PurgeSplitable
-            tags:
-                - guest_image
-    /guest_images/splitable:
-        get:
-            description: 获取指定资源类的信息Splitable
-            operationId: guest_image_GetPropertySplitable
-            responses:
-                "200":
-                    $ref: '#/responses/guest_image_GetPropertySplitableOutput'
-            summary: 获取指定资源类的信息Splitable
-            tags:
-                - guest_image
-    /guest_images/splitable-export:
-        get:
-            description: 获取指定资源类的信息SplitableExport
-            operationId: guest_image_GetPropertySplitableExport
-            parameters:
-                - in: query
-                  name: table
-                  type: string
-                  x-go-name: Table
-                - format: int64
-                  in: query
-                  name: offset
-                  type: integer
-                  x-go-name: Offset
-                - format: int64
-                  in: query
-                  name: limit
-                  type: integer
-                  x-go-name: Limit
-            responses:
-                "200":
-                    $ref: '#/responses/guest_image_GetPropertySplitableExportOutput'
-            summary: 获取指定资源类的信息SplitableExport
-            tags:
-                - guest_image
-    /guest_images/statistics:
-        get:
-            description: 获取指定资源类的信息Statistics
-            operationId: guest_image_GetPropertyStatistics
-            responses:
-                "200":
-                    $ref: '#/responses/guest_image_GetPropertyStatisticsOutput'
-            summary: 获取指定资源类的信息Statistics
-            tags:
-                - guest_image
-    /guest_images/tag-value-pairs:
-        get:
-            description: 获取指定资源类的信息TagValuePairs
-            operationId: guest_image_GetPropertyTagValuePairs
-            responses:
-                "200":
-                    $ref: '#/responses/guest_image_GetPropertyTagValuePairsOutput'
-            summary: 获取指定资源类的信息TagValuePairs
-            tags:
-                - guest_image
-    /guest_images/tag-value-tree:
-        get:
-            description: 获取指定资源类的信息TagValueTree
-            operationId: guest_image_GetPropertyTagValueTree
-            responses:
-                "200":
-                    $ref: '#/responses/guest_image_GetPropertyTagValueTreeOutput'
-            summary: 获取指定资源类的信息TagValueTree
             tags:
                 - guest_image
     /image_quotas/{scope}:
@@ -2252,6 +1853,11 @@ paths:
                   name: show_fail_reason
                   type: boolean
                   x-go-name: ShowFailReason
+                - description: 是否返回状态统计信息，默认为False
+                  in: query
+                  name: summary_stats
+                  type: boolean
+                  x-go-name: SummaryStats
                 - $ref: '#/definitions/TTagSet'
                   description: 通过标签过滤（包含这些标签）
                   in: query
@@ -2583,6 +2189,14 @@ paths:
                   required: true
                   type: string
                   x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        image:
+                            $ref: '#/definitions/ImageUpdateInput'
+                    type: object
+                  x-go-name: Body
             responses:
                 "200":
                     $ref: '#/responses/image_ValidateUpdateDataOutput'
@@ -2629,92 +2243,6 @@ paths:
                 "200":
                     $ref: '#/responses/image_PerformChangeOwnerOutput'
             summary: 执行操作ChangeOwner
-            tags:
-                - image
-    /images/{id}/change-owner-candidate-domains:
-        get:
-            description: 获取指定信息ChangeOwnerCandidateDomains
-            operationId: image_GetDetailsChangeOwnerCandidateDomains
-            parameters:
-                - description: The Id or Name of image
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-            responses:
-                "200":
-                    $ref: '#/responses/image_GetDetailsChangeOwnerCandidateDomainsOutput'
-            summary: 获取指定信息ChangeOwnerCandidateDomains
-            tags:
-                - image
-    /images/{id}/class-metadata:
-        get:
-            description: 获取指定信息ClassMetadata
-            operationId: image_GetDetailsClassMetadata
-            parameters:
-                - description: The Id or Name of image
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-            responses:
-                "200":
-                    $ref: '#/responses/image_GetDetailsClassMetadataOutput'
-            summary: 获取指定信息ClassMetadata
-            tags:
-                - image
-        post:
-            description: 执行操作ClassMetadata
-            operationId: image_PerformClassMetadata
-            parameters:
-                - description: The Id or Name of image
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-                - in: body
-                  name: body
-                  schema:
-                    properties:
-                        image:
-                            additionalProperties:
-                                type: string
-                            type: object
-                            x-go-name: Input
-                    type: object
-                  x-go-name: Body
-            responses:
-                "200":
-                    $ref: '#/responses/image_PerformClassMetadataOutput'
-            summary: 更新资源的 class 标签
-            tags:
-                - image
-    /images/{id}/freeze:
-        post:
-            description: 执行操作Freeze
-            operationId: image_PerformFreeze
-            parameters:
-                - description: The Id or Name of image
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-                - in: body
-                  name: body
-                  schema:
-                    properties:
-                        image:
-                            $ref: '#/definitions/PerformFreezeInput'
-                    type: object
-                  x-go-name: Body
-            responses:
-                "200":
-                    $ref: '#/responses/image_PerformFreezeOutput'
-            summary: freezed update and perform action operation except for unfreeze
             tags:
                 - image
     /images/{id}/mark-standard:
@@ -2769,23 +2297,6 @@ paths:
                 "200":
                     $ref: '#/responses/image_GetDetailsMetadataOutput'
             summary: 获取资源标签（元数据）
-            tags:
-                - image
-    /images/{id}/org-metadata:
-        get:
-            description: 获取指定信息OrgMetadata
-            operationId: image_GetDetailsOrgMetadata
-            parameters:
-                - description: The Id or Name of image
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-            responses:
-                "200":
-                    $ref: '#/responses/image_GetDetailsOrgMetadataOutput'
-            summary: 获取指定信息OrgMetadata
             tags:
                 - image
     /images/{id}/private:
@@ -2891,62 +2402,6 @@ paths:
             summary: 执行操作SetClassMetadata
             tags:
                 - image
-    /images/{id}/set-org-metadata:
-        post:
-            description: 执行操作SetOrgMetadata
-            operationId: image_PerformSetOrgMetadata
-            parameters:
-                - description: The Id or Name of image
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-                - in: body
-                  name: body
-                  schema:
-                    properties:
-                        image:
-                            additionalProperties:
-                                type: string
-                            type: object
-                            x-go-name: Input
-                    type: object
-                  x-go-name: Body
-            responses:
-                "200":
-                    $ref: '#/responses/image_PerformSetOrgMetadataOutput'
-            summary: 全量替换资源的所有 class 标签
-            tags:
-                - image
-    /images/{id}/set-user-metadata:
-        post:
-            description: 执行操作SetUserMetadata
-            operationId: image_PerformSetUserMetadata
-            parameters:
-                - description: The Id or Name of image
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-                - in: body
-                  name: body
-                  schema:
-                    properties:
-                        image:
-                            additionalProperties:
-                                type: string
-                            type: object
-                            x-go-name: Input
-                    type: object
-                  x-go-name: Body
-            responses:
-                "200":
-                    $ref: '#/responses/image_PerformSetUserMetadataOutput'
-            summary: 全量替换资源的所有用户标签
-            tags:
-                - image
     /images/{id}/status:
         get:
             description: 获取指定信息Status
@@ -2964,30 +2419,6 @@ paths:
             summary: 获取资源状态
             tags:
                 - image
-        post:
-            description: 执行操作Status
-            operationId: image_PerformStatus
-            parameters:
-                - description: The Id or Name of image
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-                - in: body
-                  name: body
-                  schema:
-                    properties:
-                        image:
-                            $ref: '#/definitions/PerformStatusInput'
-                    type: object
-                  x-go-name: Body
-            responses:
-                "200":
-                    $ref: '#/responses/image_PerformStatusOutput'
-            summary: 更新资源状态
-            tags:
-                - image
     /images/{id}/subformats:
         get:
             description: 获取指定信息Subformats
@@ -3003,31 +2434,6 @@ paths:
                 "200":
                     $ref: '#/responses/image_GetDetailsSubformatsOutput'
             summary: 获取指定信息Subformats
-            tags:
-                - image
-    /images/{id}/unfreeze:
-        post:
-            description: 执行操作Unfreeze
-            operationId: image_PerformUnfreeze
-            parameters:
-                - description: The Id or Name of image
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-                - in: body
-                  name: body
-                  schema:
-                    properties:
-                        image:
-                            $ref: '#/definitions/PerformUnfreezeInput'
-                    type: object
-                  x-go-name: Body
-            responses:
-                "200":
-                    $ref: '#/responses/image_PerformUnfreezeOutput'
-            summary: 执行操作Unfreeze
             tags:
                 - image
     /images/{id}/update-status:
@@ -3082,150 +2488,6 @@ paths:
             summary: 获取指定资源类的信息Detail
             tags:
                 - image
-    /images/distinct-field:
-        get:
-            description: 获取指定资源类的信息DistinctField
-            operationId: image_GetPropertyDistinctField
-            responses:
-                "200":
-                    $ref: '#/responses/image_GetPropertyDistinctFieldOutput'
-            summary: 获取指定资源类的信息DistinctField
-            tags:
-                - image
-    /images/distinct-fields:
-        get:
-            description: 获取指定资源类的信息DistinctFields
-            operationId: image_GetPropertyDistinctFields
-            responses:
-                "200":
-                    $ref: '#/responses/image_GetPropertyDistinctFieldsOutput'
-            summary: 获取指定资源类的信息DistinctFields
-            tags:
-                - image
-    /images/domain-statistics:
-        get:
-            description: 获取指定资源类的信息DomainStatistics
-            operationId: image_GetPropertyDomainStatistics
-            responses:
-                "200":
-                    $ref: '#/responses/image_GetPropertyDomainStatisticsOutput'
-            summary: 获取指定资源类的信息DomainStatistics
-            tags:
-                - image
-    /images/project-statistics:
-        get:
-            description: 获取指定资源类的信息ProjectStatistics
-            operationId: image_GetPropertyProjectStatistics
-            responses:
-                "200":
-                    $ref: '#/responses/image_GetPropertyProjectStatisticsOutput'
-            summary: 获取指定资源类的信息ProjectStatistics
-            tags:
-                - image
-    /images/project-tag-value-pairs:
-        get:
-            description: 获取指定资源类的信息ProjectTagValuePairs
-            operationId: image_GetPropertyProjectTagValuePairs
-            responses:
-                "200":
-                    $ref: '#/responses/image_GetPropertyProjectTagValuePairsOutput'
-            summary: 获取指定资源类的信息ProjectTagValuePairs
-            tags:
-                - image
-    /images/project-tag-value-tree:
-        get:
-            description: 获取指定资源类的信息ProjectTagValueTree
-            operationId: image_GetPropertyProjectTagValueTree
-            responses:
-                "200":
-                    $ref: '#/responses/image_GetPropertyProjectTagValueTreeOutput'
-            summary: 获取指定资源类的信息ProjectTagValueTree
-            tags:
-                - image
-    /images/purge-splitable:
-        post:
-            description: 执行操作PurgeSplitable
-            operationId: image_PerformPurgeSplitable
-            parameters:
-                - in: body
-                  name: body
-                  schema:
-                    properties:
-                        image:
-                            $ref: '#/definitions/PurgeSplitTableInput'
-                    type: object
-                  x-go-name: Body
-            responses:
-                "200":
-                    $ref: '#/responses/image_PerformPurgeSplitableOutput'
-            summary: 执行操作PurgeSplitable
-            tags:
-                - image
-    /images/splitable:
-        get:
-            description: 获取指定资源类的信息Splitable
-            operationId: image_GetPropertySplitable
-            responses:
-                "200":
-                    $ref: '#/responses/image_GetPropertySplitableOutput'
-            summary: 获取指定资源类的信息Splitable
-            tags:
-                - image
-    /images/splitable-export:
-        get:
-            description: 获取指定资源类的信息SplitableExport
-            operationId: image_GetPropertySplitableExport
-            parameters:
-                - in: query
-                  name: table
-                  type: string
-                  x-go-name: Table
-                - format: int64
-                  in: query
-                  name: offset
-                  type: integer
-                  x-go-name: Offset
-                - format: int64
-                  in: query
-                  name: limit
-                  type: integer
-                  x-go-name: Limit
-            responses:
-                "200":
-                    $ref: '#/responses/image_GetPropertySplitableExportOutput'
-            summary: 获取指定资源类的信息SplitableExport
-            tags:
-                - image
-    /images/statistics:
-        get:
-            description: 获取指定资源类的信息Statistics
-            operationId: image_GetPropertyStatistics
-            responses:
-                "200":
-                    $ref: '#/responses/image_GetPropertyStatisticsOutput'
-            summary: 获取指定资源类的信息Statistics
-            tags:
-                - image
-    /images/tag-value-pairs:
-        get:
-            description: 获取指定资源类的信息TagValuePairs
-            operationId: image_GetPropertyTagValuePairs
-            responses:
-                "200":
-                    $ref: '#/responses/image_GetPropertyTagValuePairsOutput'
-            summary: 获取指定资源类的信息TagValuePairs
-            tags:
-                - image
-    /images/tag-value-tree:
-        get:
-            description: 获取指定资源类的信息TagValueTree
-            operationId: image_GetPropertyTagValueTree
-            responses:
-                "200":
-                    $ref: '#/responses/image_GetPropertyTagValueTreeOutput'
-            summary: 获取指定资源类的信息TagValueTree
-            tags:
-                - image
     /images/vmware-account-added:
         post:
             description: 执行操作VmwareAccountAdded
@@ -3262,34 +2524,7 @@ responses:
                 guest_image:
                     $ref: '#/definitions/GuestImageDetails'
             type: object
-    guest_image_GetDetailsChangeOwnerCandidateDomainsOutput:
-        description: ""
-        schema:
-            properties:
-                guest_image:
-                    $ref: '#/definitions/ChangeOwnerCandidateDomainsOutput'
-            type: object
-    guest_image_GetDetailsClassMetadataOutput:
-        description: ""
-        schema:
-            properties:
-                guest_image:
-                    additionalProperties:
-                        type: string
-                    type: object
-                    x-go-name: Output
-            type: object
     guest_image_GetDetailsMetadataOutput:
-        description: ""
-        schema:
-            properties:
-                guest_image:
-                    additionalProperties:
-                        type: string
-                    type: object
-                    x-go-name: Output
-            type: object
-    guest_image_GetDetailsOrgMetadataOutput:
         description: ""
         schema:
             properties:
@@ -3306,49 +2541,6 @@ responses:
                 guest_image:
                     $ref: '#/definitions/GetDetailsStatusOutput'
             type: object
-    guest_image_GetPropertyDistinctFieldOutput:
-        description: ""
-    guest_image_GetPropertyDistinctFieldsOutput:
-        description: ""
-    guest_image_GetPropertyDomainStatisticsOutput:
-        description: ""
-        schema:
-            properties:
-                guest_image:
-                    items:
-                        $ref: '#/definitions/ProjectStatistic'
-                    type: array
-                    x-go-name: Output
-            type: object
-    guest_image_GetPropertyProjectStatisticsOutput:
-        description: ""
-        schema:
-            properties:
-                guest_image:
-                    items:
-                        $ref: '#/definitions/ProjectStatistic'
-                    type: array
-                    x-go-name: Output
-            type: object
-    guest_image_GetPropertyProjectTagValuePairsOutput:
-        description: ""
-    guest_image_GetPropertyProjectTagValueTreeOutput:
-        description: ""
-    guest_image_GetPropertySplitableExportOutput:
-        description: ""
-    guest_image_GetPropertySplitableOutput:
-        description: ""
-    guest_image_GetPropertyStatisticsOutput:
-        description: ""
-        schema:
-            properties:
-                guest_image:
-                    $ref: '#/definitions/StatusStatistic'
-            type: object
-    guest_image_GetPropertyTagValuePairsOutput:
-        description: ""
-    guest_image_GetPropertyTagValueTreeOutput:
-        description: ""
     guest_image_ListItemFilterOutput:
         description: ""
         schema:
@@ -3375,25 +2567,11 @@ responses:
         description: ""
     guest_image_PerformChangeOwnerOutput:
         description: ""
-    guest_image_PerformClassMetadataOutput:
-        description: ""
-    guest_image_PerformFreezeOutput:
-        description: ""
     guest_image_PerformPrivateOutput:
         description: ""
     guest_image_PerformPublicOutput:
         description: ""
-    guest_image_PerformPurgeSplitableOutput:
-        description: ""
     guest_image_PerformSetClassMetadataOutput:
-        description: ""
-    guest_image_PerformSetOrgMetadataOutput:
-        description: ""
-    guest_image_PerformSetUserMetadataOutput:
-        description: ""
-    guest_image_PerformStatusOutput:
-        description: ""
-    guest_image_PerformUnfreezeOutput:
         description: ""
     guest_image_ValidateCreateDataOutput:
         description: ""
@@ -3423,34 +2601,7 @@ responses:
                 image:
                     $ref: '#/definitions/ImageDetails'
             type: object
-    image_GetDetailsChangeOwnerCandidateDomainsOutput:
-        description: ""
-        schema:
-            properties:
-                image:
-                    $ref: '#/definitions/ChangeOwnerCandidateDomainsOutput'
-            type: object
-    image_GetDetailsClassMetadataOutput:
-        description: ""
-        schema:
-            properties:
-                image:
-                    additionalProperties:
-                        type: string
-                    type: object
-                    x-go-name: Output
-            type: object
     image_GetDetailsMetadataOutput:
-        description: ""
-        schema:
-            properties:
-                image:
-                    additionalProperties:
-                        type: string
-                    type: object
-                    x-go-name: Output
-            type: object
-    image_GetDetailsOrgMetadataOutput:
         description: ""
         schema:
             properties:
@@ -3470,49 +2621,6 @@ responses:
     image_GetDetailsSubformatsOutput:
         description: ""
     image_GetPropertyDetailOutput:
-        description: ""
-    image_GetPropertyDistinctFieldOutput:
-        description: ""
-    image_GetPropertyDistinctFieldsOutput:
-        description: ""
-    image_GetPropertyDomainStatisticsOutput:
-        description: ""
-        schema:
-            properties:
-                image:
-                    items:
-                        $ref: '#/definitions/ProjectStatistic'
-                    type: array
-                    x-go-name: Output
-            type: object
-    image_GetPropertyProjectStatisticsOutput:
-        description: ""
-        schema:
-            properties:
-                image:
-                    items:
-                        $ref: '#/definitions/ProjectStatistic'
-                    type: array
-                    x-go-name: Output
-            type: object
-    image_GetPropertyProjectTagValuePairsOutput:
-        description: ""
-    image_GetPropertyProjectTagValueTreeOutput:
-        description: ""
-    image_GetPropertySplitableExportOutput:
-        description: ""
-    image_GetPropertySplitableOutput:
-        description: ""
-    image_GetPropertyStatisticsOutput:
-        description: ""
-        schema:
-            properties:
-                image:
-                    $ref: '#/definitions/StatusStatistic'
-            type: object
-    image_GetPropertyTagValuePairsOutput:
-        description: ""
-    image_GetPropertyTagValueTreeOutput:
         description: ""
     image_ListItemFilterOutput:
         description: ""
@@ -3540,10 +2648,6 @@ responses:
         description: ""
     image_PerformChangeOwnerOutput:
         description: ""
-    image_PerformClassMetadataOutput:
-        description: ""
-    image_PerformFreezeOutput:
-        description: ""
     image_PerformMarkStandardOutput:
         description: ""
     image_PerformPrivateOutput:
@@ -3552,17 +2656,7 @@ responses:
         description: ""
     image_PerformPublicOutput:
         description: ""
-    image_PerformPurgeSplitableOutput:
-        description: ""
     image_PerformSetClassMetadataOutput:
-        description: ""
-    image_PerformSetOrgMetadataOutput:
-        description: ""
-    image_PerformSetUserMetadataOutput:
-        description: ""
-    image_PerformStatusOutput:
-        description: ""
-    image_PerformUnfreezeOutput:
         description: ""
     image_PerformUpdateStatusOutput:
         description: ""

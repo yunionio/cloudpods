@@ -21,6 +21,7 @@ const (
 	STORAGE_VSAN  = "vsan"
 	STORAGE_NFS   = "nfs"
 	STORAGE_CIFS  = "cifs"
+	STORAGE_PMEM  = "pmem"
 
 	STORAGE_PUBLIC_CLOUD     = "cloud"
 	STORAGE_CLOUD_EFFICIENCY = "cloud_efficiency"
@@ -58,6 +59,8 @@ const (
 	STORAGE_CLOUD_BASIC   = "cloud_basic"
 	STORAGE_CLOUD_PREMIUM = "cloud_premium" //高性能云硬盘
 	STORAGE_CLOUD_HSSD    = "cloud_hssd"    //增强型SSD云硬盘
+	STORAGE_CLOUD_TSSD    = "cloud_tssd"    //极速型SSD云硬盘
+	STORAGE_CLOUD_BSSD    = "cloud_bssd"    //通用型SSD云硬盘
 
 	// huawei storage type
 	STORAGE_HUAWEI_SSD    = "SSD"    // 超高IO云硬盘
@@ -84,10 +87,15 @@ const (
 	STORAGE_ZSTACK_SHARED_BLOCK  = "sharedblock"
 
 	// Google storage type
-	STORAGE_GOOGLE_LOCAL_SSD   = "local-ssd"   //本地SSD暂存盘 (最多8个)
-	STORAGE_GOOGLE_PD_STANDARD = "pd-standard" //标准永久性磁盘
-	STORAGE_GOOGLE_PD_SSD      = "pd-ssd"      //SSD永久性磁盘
-	STORAGE_GOOGLE_PD_BALANCED = "pd-balanced" //平衡永久性磁盘
+	STORAGE_GOOGLE_LOCAL_SSD            = "local-ssd"            //本地SSD暂存盘 (最多8个)
+	STORAGE_GOOGLE_PD_STANDARD          = "pd-standard"          //标准永久性磁盘
+	STORAGE_GOOGLE_PD_SSD               = "pd-ssd"               //SSD永久性磁盘
+	STORAGE_GOOGLE_PD_BALANCED          = "pd-balanced"          //平衡永久性磁盘
+	STORAGE_GOOGLE_PD_EXTREME           = "pd-extreme"           //极端永久性磁盘
+	STORAGE_GOOGLE_HYPERDISK_THROUGHPUT = "hyperdisk-throughput" //Hyperdisk Throughput
+	STORAGE_GOOGLE_HYPERDISK_ML         = "hyperdisk-ml"         //Hyperdisk ML
+	STORAGE_GOOGLE_HYPERDISK_BALANCED   = "hyperdisk-balanced"   //平衡 Hyperdisk
+	STORAGE_GOOGLE_HYPERDISK_EXTREME    = "hyperdisk-extreme"    //Hyperdisk Extreme
 
 	// ctyun storage type
 	STORAGE_CTYUN_SSD        = "SSD"        // 超高IO云硬盘

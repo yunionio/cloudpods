@@ -138,8 +138,8 @@ func (storage *SStorage) GetIDiskById(id string) (cloudprovider.ICloudDisk, erro
 	return disk, nil
 }
 
-func (storage *SStorage) CreateIDisk(conf *cloudprovider.DiskCreateConfig) (cloudprovider.ICloudDisk, error) {
-	disk, err := storage.zone.region.CreateDisk(conf.Name, conf.SizeGb, storage.zone.Name, storage.Name, "", conf.Desc)
+func (storage *SStorage) CreateIDisk(opts *cloudprovider.DiskCreateConfig) (cloudprovider.ICloudDisk, error) {
+	disk, err := storage.zone.region.CreateDisk(storage.zone.Name, storage.Name, opts)
 	if err != nil {
 		return nil, err
 	}

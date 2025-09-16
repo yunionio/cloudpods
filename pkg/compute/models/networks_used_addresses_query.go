@@ -103,14 +103,18 @@ func (manager *SHostnetworkManager) usedAddressQuery(ctx context.Context, args *
 		baseq = HostnetworkManager.Query().Equals("network_id", args.network.Id).SubQuery()
 		retq  *sqlchemy.SQuery
 	)
+	field := "ip_addr"
+	if args.addrType == api.AddressTypeIPv6 {
+		field = "ip6_addr"
+	}
 	if args.addrOnly {
 		retq = baseq.Query(
-			baseq.Field("ip_addr"),
+			baseq.Field(field),
 		)
 	} else {
 		ownerq := HostManager.FilterByOwner(ctx, HostManager.Query(), HostManager, args.userCred, args.owner, args.scope).SubQuery()
 		retq = baseq.Query(
-			baseq.Field("ip_addr"),
+			baseq.Field(field),
 			baseq.Field("mac_addr"),
 			sqlchemy.NewStringField(HostManager.KeywordPlural()).Label("owner_type"),
 			ownerq.Field("id").Label("owner_id"),

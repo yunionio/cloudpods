@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/onecloud/pkg/apis"
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/hostman/container/prober/results"
+	"yunion.io/x/onecloud/pkg/hostman/guestman/pod/statusman"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 )
 
@@ -49,6 +50,44 @@ func (m *manager) SetContainerStartup(podId string, containerId string, started 
 			status = computeapi.CONTAINER_STATUS_NET_FAILED
 		}
 	}
+
+	input := &statusman.PodStatusUpdateRequest{
+		Id:     podId,
+		Pod:    pod.(statusman.IPod),
+		Status: computeapi.VM_RUNNING,
+		Reason: result.Reason,
+		ContainerStatuses: map[string]*statusman.ContainerStatus{
+			containerId: {Status: status},
+		},
+	}
+
+	if err := statusman.GetManager().UpdateStatus(input); err != nil {
+		err = errors.Wrapf(err, "set container(%s/%s) status failed, input: %s", podId, containerId, jsonutils.Marshal(input.ToServerPerformStatusInput()))
+		log.Warningf("%s", err.Error())
+		errMsg := []string{
+			"can't set container status",
+		}
+		for _, msg := range errMsg {
+			if strings.Contains(err.Error(), msg) {
+				return nil
+			}
+		}
+		return errors.Wrap(err, "update container status")
+	} else {
+		log.Infof("set container(%s/%s) status to %s", podId, containerId, jsonutils.Marshal(input).String())
+	}
+	return nil
+}
+
+func (m *manager) SetContainerStartupOld(podId string, containerId string, started bool, result results.ProbeResult, pod results.IPod) error {
+	status := computeapi.CONTAINER_STATUS_PROBE_FAILED
+	if started {
+		status = computeapi.CONTAINER_STATUS_RUNNING
+	} else {
+		if result.IsNetFailedError() && pod.IsRunning() {
+			status = computeapi.CONTAINER_STATUS_NET_FAILED
+		}
+	}
 	input := &computeapi.ContainerPerformStatusInput{
 		PerformStatusInput: apis.PerformStatusInput{
 			Status: status,
@@ -57,7 +96,7 @@ func (m *manager) SetContainerStartup(podId string, containerId string, started 
 	}
 	if _, err := hostutils.UpdateContainerStatus(context.Background(), containerId, input); err != nil {
 		err = errors.Wrapf(err, "set container(%s/%s) status failed, input: %s", podId, containerId, jsonutils.Marshal(input))
-		log.Warningf(err.Error())
+		log.Warningf("%s", err.Error())
 		errMsg := []string{
 			"can't set container status",
 		}

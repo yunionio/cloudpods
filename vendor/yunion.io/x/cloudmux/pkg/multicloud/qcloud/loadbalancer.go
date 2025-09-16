@@ -295,10 +295,22 @@ func (self *SLoadbalancer) GetILoadBalancerBackendGroups() ([]cloudprovider.IClo
 	}
 	lbbgs := []SLBBackendGroup{}
 	for i := range listeners {
-		lbbgs = append(lbbgs, SLBBackendGroup{
-			lb:       self,
-			listener: &listeners[i],
-		})
+		if listeners[i].GetListenerType() == "http" || listeners[i].GetListenerType() == "https" {
+			for j := range listeners[i].Rules {
+				lbbgs = append(lbbgs, SLBBackendGroup{
+					lb:       self,
+					listener: &listeners[i],
+					domain:   listeners[i].Rules[j].Domain,
+					path:     listeners[i].Rules[j].URL,
+				})
+			}
+
+		} else {
+			lbbgs = append(lbbgs, SLBBackendGroup{
+				lb:       self,
+				listener: &listeners[i],
+			})
+		}
 	}
 
 	ret := []cloudprovider.ICloudLoadbalancerBackendGroup{}
@@ -309,18 +321,17 @@ func (self *SLoadbalancer) GetILoadBalancerBackendGroups() ([]cloudprovider.IClo
 	return ret, nil
 }
 
-func (self *SLoadbalancer) GetIEIP() (cloudprovider.ICloudEIP, error) {
-	if self.LoadBalancerType == "OPEN" && len(self.LoadBalancerVips) > 0 {
-		return &SEipAddress{
-			region:      self.region,
-			AddressId:   self.LoadBalancerId,
-			AddressIp:   self.LoadBalancerVips[0],
-			AddressType: EIP_STATUS_BIND,
-			InstanceId:  self.LoadBalancerId,
-			CreatedTime: self.CreateTime,
-		}, nil
+func (self *SLoadbalancer) GetIEIPs() ([]cloudprovider.ICloudEIP, error) {
+	eips, _, err := self.region.GetEips("", self.LoadBalancerId, 0, 50)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetEips")
 	}
-	return nil, nil
+	ret := []cloudprovider.ICloudEIP{}
+	for i := range eips {
+		eips[i].region = self.region
+		ret = append(ret, &eips[i])
+	}
+	return ret, nil
 }
 
 func (self *SRegion) GetLoadbalancers(ids []string, limit, offset int) ([]SLoadbalancer, int, error) {
@@ -357,7 +368,7 @@ func (self *SRegion) GetLoadbalancer(id string) (*SLoadbalancer, error) {
 			return &lbs[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", id)
 }
 
 /*
@@ -517,7 +528,7 @@ func (self *SRegion) CreateILoadBalancer(opts *cloudprovider.SLoadbalancerCreate
 		return nil, errors.Wrapf(err, "resp.Unmarshal")
 	}
 	if len(ret.RequestId) == 0 || len(ret.LoadBalancerIds) != 1 {
-		return nil, errors.Wrapf(cloudprovider.ErrNotFound, resp.String())
+		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", resp.String())
 	}
 	err = self.WaitLBTaskSuccess(ret.RequestId, 5*time.Second, time.Minute*1)
 	if err != nil {

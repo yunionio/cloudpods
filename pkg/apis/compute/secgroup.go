@@ -92,7 +92,7 @@ type SSecgroupRuleCreateInput struct {
 	// swagger:ignore
 	Secgroup string `json:"secgroup"  yunion-deprecated-by:"secgroup_id"`
 
-	// swagger: ignore
+	// swagger:ignore
 	Status string `json:"status"`
 
 	// 安全组ID
@@ -176,12 +176,12 @@ type SSecgroupCreateInput struct {
 	// vpc id
 	// defualt: default
 	VpcResourceInput
-	// swagger: ignore
+	// swagger:ignore
 	CloudproviderResourceInput
-	// swagger: ignore
+	// swagger:ignore
 	CloudregionResourceInput
 
-	// swagger: ignore
+	// swagger:ignore
 	GlobalvpcId string `json:"globalvpc_id"`
 
 	// 规则列表
@@ -255,6 +255,8 @@ type SecgroupResourceInput struct {
 
 type SecgroupFilterListInput struct {
 	SecgroupResourceInput
+	RegionalFilterListInput
+	ManagedResourceListInput
 
 	// 以安全组排序
 	OrderBySecgroup string `json:"order_by_secgroup"`
@@ -291,6 +293,16 @@ type SecgroupDetails struct {
 type SecurityGroupResourceInfo struct {
 	// 安全组名称
 	Secgroup string `json:"secgroup"`
+
+	// VPC归属区域ID
+	CloudregionId string `json:"cloudregion_id"`
+
+	CloudregionResourceInfo
+
+	// VPC归属云订阅ID
+	ManagerId string `json:"manager_id"`
+
+	ManagedResourceInfo
 }
 
 type GuestsecgroupListInput struct {

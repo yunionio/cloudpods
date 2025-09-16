@@ -36,6 +36,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/pkg/util/version"
 	"yunion.io/x/pkg/utils"
 
@@ -132,6 +133,8 @@ type SHostInfo struct {
 	hasNvidiaGpus                  *bool
 	hasVastaitechGpus              *bool
 	hasCphAmdGpus                  *bool
+
+	guestManager hostutils.IGuestManager
 }
 
 func (h *SHostInfo) GetContainerDeviceConfigurationFilePath() string {
@@ -140,6 +143,14 @@ func (h *SHostInfo) GetContainerDeviceConfigurationFilePath() string {
 
 func (h *SHostInfo) GetContainerCpufreqSimulateConfig() *jsonutils.JSONDict {
 	return h.containerCpufreqSimulateConfig
+}
+
+func (h *SHostInfo) SetIGuestManager(guestManager hostutils.IGuestManager) {
+	h.guestManager = guestManager
+}
+
+func (h *SHostInfo) GetIGuestManager() hostutils.IGuestManager {
+	return h.guestManager
 }
 
 func (h *SHostInfo) GetIsolatedDeviceManager() isolated_device.IsolatedDeviceManager {
@@ -172,7 +183,12 @@ func (h *SHostInfo) GetBridgeDev(bridge string) hostbridge.IBridgeDriver {
 
 func (h *SHostInfo) StartDHCPServer() {
 	for _, nic := range h.Nics {
-		nic.dhcpServer.Start(false)
+		if nic.dhcpServer != nil {
+			nic.dhcpServer.Start(false)
+		}
+		if nic.dhcpServer6 != nil {
+			nic.dhcpServer6.Start(false)
+		}
 	}
 }
 
@@ -389,19 +405,27 @@ func (h *SHostInfo) parseConfig() error {
 
 	if len(options.HostOptions.ListenInterface) > 0 {
 		h.MasterNic = netutils2.NewNetInterface(options.HostOptions.ListenInterface)
-		if len(h.MasterNic.Addr) == 0 {
+		if len(h.MasterNic.Addr) == 0 && len(h.MasterNic.Addr6) == 0 {
 			return fmt.Errorf("Listen interface %s master have no IP", options.HostOptions.ListenInterface)
 		}
 	} else {
 		// set MasterNic to the first NIC with IP
 		h.MasterNic = nil
 		for _, n := range h.Nics {
-			if len(n.Ip) > 0 {
+			if len(n.Ip) > 0 || len(n.Ip6) > 0 {
 				h.MasterNic = netutils2.NewNetInterface(n.Bridge)
 			}
 		}
 		if h.MasterNic == nil {
 			return fmt.Errorf("No interface suitable to be master NIC")
+		}
+	}
+
+	if h.MasterNic != nil {
+		if regutils.MatchIP4Addr(h.GetMasterIp()) {
+			options.HostOptions.Address = "0.0.0.0"
+		} else {
+			options.HostOptions.Address = "::"
 		}
 	}
 
@@ -773,11 +797,10 @@ func (h *SHostInfo) tuneSystem() {
 	if minMemMb < 100 {
 		minMemMb = 100
 	}
-	minMemKB := fmt.Sprintf("%d", 2*minMemMb*1024)
+	minMemKB := 2 * minMemMb * 1024
 	kv := map[string]string{
 		"/proc/sys/vm/swappiness":                        "0",
 		"/proc/sys/vm/vfs_cache_pressure":                "350",
-		"/proc/sys/vm/min_free_kbytes":                   minMemKB,
 		"/proc/sys/net/ipv4/tcp_mtu_probing":             "2",
 		"/proc/sys/net/ipv4/neigh/default/gc_thresh1":    "1024",
 		"/proc/sys/net/ipv4/neigh/default/gc_thresh2":    "4096",
@@ -787,6 +810,13 @@ func (h *SHostInfo) tuneSystem() {
 
 		"/proc/sys/net/netfilter/nf_conntrack_tcp_be_liberal": "1",
 	}
+	ret, err := fileutils2.FileGetIntContent("/proc/sys/vm/min_free_kbytes")
+	if err != nil {
+		log.Errorf("failed get /proc/sys/vm/min_free_kbytes: %s", err)
+	} else if ret < minMemKB {
+		kv["/proc/sys/vm/min_free_kbytes"] = fmt.Sprintf("%d", minMemKB)
+	}
+
 	for k, v := range kv {
 		sysutils.SetSysConfig(k, v)
 	}
@@ -916,10 +946,12 @@ func (h *SHostInfo) detectKernelVersion() {
 func (h *SHostInfo) detectSyssoftwareInfo() error {
 	h.detectOsDist()
 	h.detectKernelVersion()
-	/*if err := h.detectQemuVersion(); err != nil {
-		log.Errorf("detect qemu version: %s", err.Error())
-		h.AppendHostError(fmt.Sprintf("detect qemu version: %s", err.Error()))
-	}*/
+	if !h.IsContainerHost() {
+		if err := h.detectQemuVersion(); err != nil {
+			log.Errorf("detect qemu version: %s", err.Error())
+			h.AppendHostError(fmt.Sprintf("detect qemu version: %s", err.Error()))
+		}
+	}
 	h.detectOvsVersion()
 	if err := h.detectOvsKOVersion(); err != nil {
 		log.Errorf("detect ovs kernel version: %s", err.Error())
@@ -1122,12 +1154,19 @@ func (h *SHostInfo) detectOvsKOVersion() error {
 }
 
 func (h *SHostInfo) GetMasterNicIpAndMask() (string, int) {
-	mask, _ := h.MasterNic.Mask.Size()
-	return h.MasterNic.Addr, mask
+	if h.MasterNic.Addr != "" {
+		mask, _ := h.MasterNic.Mask.Size()
+		return h.MasterNic.Addr, mask
+	}
+	mask, _ := h.MasterNic.Mask6.Size()
+	return h.MasterNic.Addr6, mask
 }
 
 func (h *SHostInfo) GetMasterIp() string {
-	return h.MasterNic.Addr
+	if h.MasterNic.Addr != "" {
+		return h.MasterNic.Addr
+	}
+	return h.MasterNic.Addr6
 }
 
 func (h *SHostInfo) GetMasterMac() string {
@@ -1215,6 +1254,11 @@ func (h *SHostInfo) register() {
 	if err != nil {
 		h.onFail(errors.Wrap(err, "finalizeNetworkSetup"))
 		return
+	}
+	if err := h.initHostFiles(); err != nil {
+		log.Errorf("initHostFiles failed: %s", err)
+	} else {
+		log.Infof("initHostFiles success")
 	}
 	h.deployAdminAuthorizedKeys()
 	h.onSucc()
@@ -1403,12 +1447,12 @@ func (h *SHostInfo) initZoneInfo(zoneId string) error {
 func (h *SHostInfo) waitMasterNicIp() error {
 	const maxWaitSeconds = 900
 	waitSeconds := 0
-	for h.MasterNic.Addr == "" && waitSeconds < maxWaitSeconds {
+	for h.MasterNic.Addr == "" && h.MasterNic.Addr6 == "" && waitSeconds < maxWaitSeconds {
 		time.Sleep(time.Second)
 		waitSeconds++
 		h.MasterNic.FetchConfig()
 	}
-	if h.MasterNic.Addr == "" {
+	if h.MasterNic.Addr == "" && h.MasterNic.Addr6 == "" {
 		return errors.Wrap(httperrors.ErrInvalidStatus, "fail to fetch master nic IP address")
 	}
 	if h.MasterNic.GetMac() == "" {
@@ -1553,7 +1597,11 @@ func (h *SHostInfo) updateOrCreateHost(hostId string) (*api.HostDetails, error) 
 	if options.HostOptions.EnableSsl {
 		schema = "https"
 	}
-	input.ManagerUri = fmt.Sprintf("%s://%s:%d", schema, masterIp, options.HostOptions.Port)
+	if regutils.MatchIP6Addr(masterIp) {
+		input.ManagerUri = fmt.Sprintf("%s://[%s]:%d", schema, masterIp, options.HostOptions.Port)
+	} else {
+		input.ManagerUri = fmt.Sprintf("%s://%s:%d", schema, masterIp, options.HostOptions.Port)
+	}
 	input.CpuCount = &h.Cpu.cpuInfoProc.Count
 	nodeCount := int8(h.Cpu.cpuInfoDmi.Nodes)
 	if sysutils.IsHypervisor() {
@@ -1820,12 +1868,17 @@ func (h *SHostInfo) uploadNetworkInfo() error {
 
 	var hostDetails *api.HostDetails
 	for _, nic := range h.Nics {
+		log.Infof("host nic: %s", jsonutils.Marshal(nic).String())
 		if len(nic.WireId) == 0 {
 			// nic info not uploaded yet
 			if len(nic.Wire) == 0 {
 				// no wire defined, find from region
 				kwargs := jsonutils.NewDict()
-				kwargs.Set("ip", jsonutils.NewString(nic.Ip))
+				if len(nic.Ip) > 0 {
+					kwargs.Set("ip", jsonutils.NewString(nic.Ip))
+				} else if len(nic.Ip6) > 0 {
+					kwargs.Set("ip", jsonutils.NewString(nic.Ip6))
+				}
 				kwargs.Set("is_classic", jsonutils.JSONTrue)
 				kwargs.Set("scope", jsonutils.NewString("system"))
 				kwargs.Set("limit", jsonutils.NewInt(0))
@@ -1867,7 +1920,7 @@ func (h *SHostInfo) uploadNetworkInfo() error {
 
 func (h *SHostInfo) doSendPhysicalNicInfo(nic *types.SNicDevInfo) error {
 	log.Infof("upload physical nic: %s(%s)", nic.Dev, nic.Mac)
-	_, err := h.doUploadNicInfoInternal(nic.Dev, nic.Mac.String(), 1, "", "", "", nic.Up != nil && *nic.Up)
+	_, err := h.doUploadNicInfoInternal(nic.Dev, nic.Mac.String(), 1, "", "", "", "", nic.Up != nil && *nic.Up)
 	if err != nil {
 		return errors.Wrap(err, "doUploadNicInfoInternal")
 	}
@@ -1875,15 +1928,15 @@ func (h *SHostInfo) doSendPhysicalNicInfo(nic *types.SNicDevInfo) error {
 }
 
 func (h *SHostInfo) doUploadNicInfo(nic *SNIC) (*api.HostDetails, error) {
-	hostDetails, err := h.doUploadNicInfoInternal(nic.Inter, nic.BridgeDev.GetMac(), nic.BridgeDev.GetVlanId(), nic.Wire, nic.Bridge, nic.Ip, true)
+	hostDetails, err := h.doUploadNicInfoInternal(nic.Inter, nic.BridgeDev.GetMac(), nic.BridgeDev.GetVlanId(), nic.Wire, nic.Bridge, nic.Ip, nic.Ip6, true)
 	if err != nil {
 		return nil, errors.Wrap(err, "doUploadNicInfoInternal")
 	}
 	return hostDetails, nil
 }
 
-func (h *SHostInfo) doUploadNicInfoInternal(ifname, mac string, vlanId int, wire, bridge, ipaddr string, isUp bool) (*api.HostDetails, error) {
-	log.Infof("Upload NIC br:%s if:%s", bridge, ifname)
+func (h *SHostInfo) doUploadNicInfoInternal(ifname, mac string, vlanId int, wire, bridge, ipaddr, ip6addr string, isUp bool) (*api.HostDetails, error) {
+	log.Infof("Upload NIC br:%s if:%s ip:%s ip6:%s", bridge, ifname, ipaddr, ip6addr)
 	content := jsonutils.NewDict()
 	content.Set("mac", jsonutils.NewString(mac))
 	content.Set("vlan_id", jsonutils.NewInt(int64(vlanId)))
@@ -1898,6 +1951,14 @@ func (h *SHostInfo) doUploadNicInfoInternal(ifname, mac string, vlanId int, wire
 	if len(ipaddr) > 0 {
 		content.Set("ip_addr", jsonutils.NewString(ipaddr))
 		if ipaddr == h.GetMasterIp() {
+			content.Set("nic_type", jsonutils.NewString(string(api.NIC_TYPE_ADMIN)))
+		}
+		// always try to allocate from reserved pool
+		content.Set("reserve", jsonutils.JSONTrue)
+	}
+	if len(ip6addr) > 0 {
+		content.Set("ip6_addr", jsonutils.NewString(ip6addr))
+		if ip6addr == h.GetMasterIp() {
 			content.Set("nic_type", jsonutils.NewString(string(api.NIC_TYPE_ADMIN)))
 		}
 		// always try to allocate from reserved pool
@@ -2478,6 +2539,8 @@ func (h *SHostInfo) OnCatalogChanged(catalog mcclient.KeystoneServiceCatalogV3) 
 		hostconsts.TELEGRAF_TAG_KEY_BRAND:     hostconsts.TELEGRAF_TAG_ONECLOUD_BRAND,
 		hostconsts.TELEGRAF_TAG_KEY_RES_TYPE:  hostconsts.TELEGRAF_TAG_ONECLOUD_RES_TYPE,
 		hostconsts.TELEGRAF_TAG_KEY_HOST_TYPE: hostconsts.TELEGRAF_TAG_ONECLOUD_HOST_TYPE_HOST,
+
+		hostconsts.TELEGRAF_TAG_KEY_HYPERVISOR: options.HostOptions.HostType,
 	}
 	conf["nics"] = h.getNicsTelegrafConf()
 	urls, _ := s.GetServiceURLs("kafka", defaultEndpointType)
@@ -2735,6 +2798,14 @@ func (h *SHostInfo) startBindReservedCpus(processesPrefix []string) {
 			}
 		}
 		time.Sleep(time.Second * 100)
+	}
+}
+
+func (h *SHostInfo) OnGuestLoadingComplete() {
+	for _, nic := range h.Nics {
+		if nic.dhcpServer6 != nil {
+			nic.dhcpServer6.InitRAQueue()
+		}
 	}
 }
 

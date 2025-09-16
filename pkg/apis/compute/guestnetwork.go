@@ -36,6 +36,14 @@ type GuestnetworkDetails struct {
 	EipAddr string `json:"eip_addr"`
 
 	NetworkAddresses []NetworkAddrConf `json:"network_addresses"`
+
+	GuestIpMask int8 `json:"guest_ip_mask"`
+	// 网关地址
+	GuestGateway string `json:"guest_gateway"`
+
+	GuestIp6Mask uint8 `json:"guest_ip6_mask"`
+	// 网关地址
+	GuestGateway6 string `json:"guest_gateway6"`
 }
 
 type GuestnetworkShortDesc struct {
@@ -58,6 +66,8 @@ type GuestnetworkShortDesc struct {
 	SubIps string `json:"sub_ips"`
 	// 端口映射
 	PortMappings GuestPortMappings `json:"port_mappings"`
+
+	IsDefault bool `json:"is_default"`
 }
 
 type GuestnetworkListInput struct {
@@ -127,6 +137,8 @@ type GuestnetworkBaseDesc struct {
 		Id           string `json:"id"`
 		Provider     string `json:"provider"`
 		MappedIpAddr string `json:"mapped_ip_addr"`
+
+		MappedIp6Addr string `json:"mapped_ip6_addr"`
 	} `json:"vpc"`
 
 	Networkaddresses jsonutils.JSONObject `json:"networkaddresses"`
@@ -180,14 +192,33 @@ type GuestPortMappingPortRange struct {
 	End   int `json:"end"`
 }
 
+type GuestPortMappingEnvValueFrom string
+
+const (
+	GuestPortMappingEnvValueFromPort     GuestPortMappingEnvValueFrom = "port"
+	GuestPortMappingEnvValueFromHostPort GuestPortMappingEnvValueFrom = "host_port"
+)
+
+type GuestPortMappingEnv struct {
+	Key       string                       `json:"key"`
+	ValueFrom GuestPortMappingEnvValueFrom `json:"value_from"`
+}
+
 type GuestPortMapping struct {
-	Protocol      GuestPortMappingProtocol   `json:"protocol"`
+	Protocol GuestPortMappingProtocol `json:"protocol"`
+	// 容器内部 Port 端口范围 1-65535，-1表示由宿主机自动分配和 HostPort 相同的端口
 	Port          int                        `json:"port"`
 	HostPort      *int                       `json:"host_port,omitempty"`
 	HostIp        string                     `json:"host_ip"`
 	HostPortRange *GuestPortMappingPortRange `json:"host_port_range,omitempty"`
 	// whitelist for remote ips
-	RemoteIps []string `json:"remote_ips"`
+	RemoteIps []string              `json:"remote_ips"`
+	Rule      *GuestPortMappingRule `json:"rule,omitempty"`
+	Envs      []GuestPortMappingEnv `json:"envs,omitempty"`
+}
+
+type GuestPortMappingRule struct {
+	FirstPortOffset *int `json:"first_port_offset"`
 }
 
 type GuestPortMappings []*GuestPortMapping

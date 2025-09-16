@@ -10,7 +10,7 @@ import (
 )
 
 type SSSLCertificate struct {
-	multicloud.SVirtualResourceBase
+	multicloud.SCertificateBase
 	AliyunTags
 	client *SAliyunClient
 
@@ -57,10 +57,6 @@ func (s *SSSLCertificate) GetCountry() string {
 
 func (s *SSSLCertificate) GetIssuer() string {
 	return s.Issuer
-}
-
-func (s *SSSLCertificate) GetExpired() bool {
-	return s.Expired
 }
 
 func (s *SSSLCertificate) GetEndDate() time.Time {

@@ -55,8 +55,8 @@ func init() {
 	cmd.Perform("class-metadata", &options.ResourceMetadataOptions{})
 	cmd.Perform("set-class-metadata", &options.ResourceMetadataOptions{})
 	cmd.PerformClass("validate-ipmi", &compute.HostValidateIPMI{})
-	cmd.Perform("set-commit-bound", &compute.HostSetCommitBoundOptions{})
 
+	cmd.BatchPerform("set-commit-bound", &compute.HostSetCommitBoundOptions{})
 	cmd.BatchPerform("enable", &options.BaseIdsOptions{})
 	cmd.BatchPerform("disable", &options.BaseIdsOptions{})
 	cmd.BatchPerform("syncstatus", &options.BaseIdsOptions{})
@@ -67,10 +67,12 @@ func init() {
 	cmd.BatchPerform("unreserve-cpus", &options.BaseIdsOptions{})
 	cmd.BatchPerform("auto-migrate-on-host-down", &compute.HostAutoMigrateOnHostDownOptions{})
 	cmd.BatchPerform("restart-host-agent", &options.BaseIdsOptions{})
+	cmd.BatchPerform("set-host-files", &compute.HostSetHostFilesOptions{})
 
 	cmd.Get("ipmi", &options.BaseIdOptions{})
 	cmd.Get("vnc", &options.BaseIdOptions{})
 	cmd.Get("app-options", &options.BaseIdOptions{})
+	cmd.Get("isolated-device-numa-stats", &compute.HostIsolatedDeviceNumaStatsOptions{})
 	cmd.GetWithCustomShow("worker-stats", func(data jsonutils.JSONObject) {
 		stats, _ := data.GetArray("workers")
 		printList(&printutils.ListResult{Data: stats}, nil)
@@ -92,6 +94,9 @@ func init() {
 		} else {
 			fmt.Println("error", err)
 		}
+	}, &options.BaseIdOptions{})
+	cmd.GetWithCustomShow("host-files", func(data jsonutils.JSONObject) {
+		printObject(data)
 	}, &options.BaseIdOptions{})
 
 	R(&compute.HostShowOptions{}, "host-show", "Show details of a host", func(s *mcclient.ClientSession, args *compute.HostShowOptions) error {
@@ -259,6 +264,7 @@ func init() {
 		INDEX     int64  `help:"nic index"`
 		Type      string `help:"Nic type" choices:"admin|ipmi"`
 		IpAddr    string `help:"IP address"`
+		Ip6Addr   string `help:"IPv6 address"`
 		Bridge    string `help:"Bridge of hostwire"`
 		Interface string `help:"Interface name, eg:eth0, en0"`
 	}
@@ -273,6 +279,9 @@ func init() {
 		}
 		if len(args.IpAddr) > 0 {
 			params.Add(jsonutils.NewString(args.IpAddr), "ip_addr")
+		}
+		if len(args.Ip6Addr) > 0 {
+			params.Add(jsonutils.NewString(args.Ip6Addr), "ip6_addr")
 		}
 		if len(args.Bridge) > 0 {
 			params.Add(jsonutils.NewString(args.Bridge), "bridge")
@@ -306,7 +315,8 @@ func init() {
 	type HostEnableNetIfOptions struct {
 		ID       string `help:"ID or Name of host"`
 		MAC      string `help:"MAC of NIC to enable"`
-		Ip       string `help:"IP address"`
+		Ip       string `help:"IPv4 address"`
+		Ip6      string `help:"IPv6 address"`
 		Network  string `help:"network to connect"`
 		Reserved bool   `help:"fetch IP from reserved pool"`
 	}
@@ -315,6 +325,11 @@ func init() {
 		params.Add(jsonutils.NewString(args.MAC), "mac")
 		if len(args.Ip) > 0 {
 			params.Add(jsonutils.NewString(args.Ip), "ip_addr")
+		}
+		if len(args.Ip6) > 0 {
+			params.Add(jsonutils.NewString(args.Ip6), "ip6_addr")
+		}
+		if len(args.Ip) > 0 || len(args.Ip6) > 0 {
 			if args.Reserved {
 				params.Add(jsonutils.JSONTrue, "reserve")
 			}

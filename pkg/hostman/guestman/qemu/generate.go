@@ -641,10 +641,10 @@ func getMigrateOptions(drvOpt QemuOptions, input *GenerateStartOptionsInput) []s
 		if input.LiveMigrateUseTLS {
 			opts = append(opts, "-incoming defer")
 		} else {
-			opts = append(opts, fmt.Sprintf("-incoming tcp:0:%d", input.LiveMigratePort))
+			opts = append(opts, fmt.Sprintf("-incoming tcp:[::]:%d", input.LiveMigratePort))
 		}
 	} else if input.GuestDesc.IsSlave {
-		opts = append(opts, fmt.Sprintf("-incoming tcp:0:%d", input.LiveMigratePort))
+		opts = append(opts, fmt.Sprintf("-incoming tcp:[::]:%d", input.LiveMigratePort))
 	}
 	return opts
 }
@@ -665,6 +665,7 @@ type GenerateStartOptionsInput struct {
 	OVNIntegrationBridge string
 	Devices              []string
 	OVMFPath             string
+	OVMFVarsPath         string
 	VNCPort              uint
 	VNCPassword          bool
 	EnableLog            bool
@@ -763,7 +764,7 @@ func GenerateStartOptions(
 		if input.OVMFPath == "" {
 			return "", errors.Errorf("input OVMF path is empty")
 		}
-		fmOpt, err := drvOpt.BIOS(input.OVMFPath, input.HomeDir)
+		fmOpt, err := drvOpt.BIOS(input.OVMFPath, input.OVMFVarsPath, input.HomeDir)
 		if err != nil {
 			return "", errors.Wrap(err, "bios option")
 		}
@@ -862,11 +863,6 @@ func GenerateStartOptions(
 	// pidfile
 	opts = append(opts, drvOpt.Pidfile(input.PidFilePath))
 
-	// extra options
-	if len(input.ExtraOptions) != 0 {
-		opts = append(opts, input.ExtraOptions...)
-	}
-
 	// qga
 	// opts = append(opts, drvOpt.QGA(input.HomeDir)...)
 	if input.GuestDesc.Qga != nil {
@@ -889,6 +885,11 @@ func GenerateStartOptions(
 	// pvpanic device
 	if input.GuestDesc.Pvpanic != nil {
 		opts = append(opts, generatePvpanicDeviceOption(input.GuestDesc.Pvpanic))
+	}
+
+	// move extra options to end of cmdline
+	if len(input.ExtraOptions) != 0 {
+		opts = append(opts, input.ExtraOptions...)
 	}
 
 	return strings.Join(opts, " "), nil

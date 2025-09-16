@@ -352,7 +352,7 @@ func (self *SAzureClient) GetRdsMetrics(opts *cloudprovider.MetricListOptions) (
 		metricnamespace = fmt.Sprintf("Microsoft.DBforPostgreSQL/%s", rdsType)
 		metricnames = "cpu_percent,memory_percent,storage_percent,network_bytes_ingress,network_bytes_egress,io_consumption_percent,connections_failed,active_connections"
 	default:
-		return nil, errors.Wrapf(cloudprovider.ErrNotSupported, opts.Engine)
+		return nil, errors.Wrapf(cloudprovider.ErrNotSupported, "%s", opts.Engine)
 	}
 	return self.getMetricValues(opts.ResourceId, metricnamespace, metricnames, nil, "", opts.StartTime, opts.EndTime)
 }

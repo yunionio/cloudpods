@@ -271,7 +271,7 @@ func (self *SRegion) getNetwork(networkId string) (*SNetwork, error) {
 			return &networks[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, networkId)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", networkId)
 }
 
 func (self *SRegion) DeleteNetwork(id string) error {

@@ -91,13 +91,13 @@ type SElasticSearch struct {
 
 	// 存储类型
 	// example: local_ssd
-	StorageType string `nullable:"false" list:"user" create:"required"`
+	StorageType string `width:"16" charset:"utf8" nullable:"false" list:"user" create:"required"`
 	// 存储大小
 	// example: 1024
 	DiskSizeGb int `nullable:"false" list:"user" create:"required"`
 	// 实例类型
 	// example: ha
-	Category string `nullable:"false" list:"user" create:"optional"`
+	Category string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"optional"`
 
 	VpcId     string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional" json:"vpc_id"`
 	NetworkId string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional" json:"network_id"`
@@ -189,6 +189,15 @@ func (man *SElasticSearchManager) QueryDistinctExtraField(q *sqlchemy.SQuery, fi
 		return q, nil
 	}
 	q, err = man.SVpcResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	return q, httperrors.ErrNotFound
+}
+
+func (manager *SElasticSearchManager) QueryDistinctExtraFields(q *sqlchemy.SQuery, resource string, fields []string) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SManagedResourceBaseManager.QueryDistinctExtraFields(q, resource, fields)
 	if err == nil {
 		return q, nil
 	}
@@ -440,10 +449,10 @@ func (self *SElasticSearch) SyncWithCloudElasticSearch(ctx context.Context, user
 		self.IsMultiAz = ext.IsMultiAz()
 
 		self.BillingType = ext.GetBillingType()
+		self.ExpiredAt = time.Time{}
+		self.AutoRenew = false
 		if self.BillingType == billing_api.BILLING_TYPE_PREPAID {
-			if expiredAt := ext.GetExpiredAt(); !expiredAt.IsZero() {
-				self.ExpiredAt = expiredAt
-			}
+			self.ExpiredAt = ext.GetExpiredAt()
 			self.AutoRenew = ext.IsAutoRenew()
 		}
 
@@ -586,10 +595,10 @@ func (self *SCloudregion) newFromCloudElasticSearch(ctx context.Context, userCre
 	}
 
 	es.BillingType = ext.GetBillingType()
+	es.ExpiredAt = time.Time{}
+	es.AutoRenew = false
 	if es.BillingType == billing_api.BILLING_TYPE_PREPAID {
-		if expired := ext.GetExpiredAt(); !expired.IsZero() {
-			es.ExpiredAt = expired
-		}
+		es.ExpiredAt = ext.GetExpiredAt()
 		es.AutoRenew = ext.IsAutoRenew()
 	}
 

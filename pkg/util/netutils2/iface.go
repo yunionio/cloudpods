@@ -31,6 +31,8 @@ func getIfaceIPs(iface *net.Interface) ([]net.IP, error) {
 		if ipnet, ok := a.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
 			if ipnet.IP.To4() != nil {
 				ips = append(ips, ipnet.IP)
+			} else if ipnet.IP.To16() != nil {
+				ips = append(ips, ipnet.IP)
 			}
 		}
 	}

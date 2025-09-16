@@ -49,6 +49,8 @@ func init() {
 	AlertPanelManager.SetVirtualObject(AlertPanelManager)
 }
 
+// +onecloud:swagger-gen-model-singular=alertpanel
+// +onecloud:swagger-gen-model-plural=alertpanels
 type SAlertPanelManager struct {
 	db.SStatusStandaloneResourceBaseManager
 	db.SScopedResourceBaseManager

@@ -22,36 +22,54 @@ import (
 type SNicInfo struct {
 	IpAddr  string
 	Gateway string
+
+	Ip6Addr  string
+	Gateway6 string
+
 	MacAddr string
+
+	IsDefault bool
 }
 
 type SNicInfoList []SNicInfo
 
-func (nics SNicInfoList) Add(ip, mac, gw string) SNicInfoList {
+func (nics SNicInfoList) Add(mac, ip, gw, ip6, gw6 string, isDefault bool) SNicInfoList {
 	return append(nics, SNicInfo{
 		IpAddr:  ip,
 		MacAddr: mac,
 		Gateway: gw,
+
+		Ip6Addr:  ip6,
+		Gateway6: gw6,
+
+		IsDefault: isDefault,
 	})
 }
 
 func (nics SNicInfoList) FindDefaultNicMac() (string, int) {
-	var intMac, exitMac string
-	var intIdx, exitIdx int
+	var intMac, exitMac, defMac string
+	var intIdx, exitIdx, defIdx int
 	for i, nic := range nics {
-		if len(nic.IpAddr) == 0 {
+		if len(nic.IpAddr) == 0 && len(nic.Ip6Addr) == 0 {
 			continue
 		}
-		if len(nic.Gateway) == 0 {
+		if len(nic.IpAddr) > 0 && len(nic.Gateway) == 0 {
 			continue
 		}
-		addr, err := netutils.NewIPV4Addr(nic.IpAddr)
-		if err != nil {
-			log.Errorf("NewIPV4Addr %s fail %s", nic.IpAddr, err)
+		if len(nic.Ip6Addr) > 0 && len(nic.Gateway6) == 0 {
 			continue
 		}
-		if len(exitMac) == 0 || len(intMac) == 0 {
-			isExit := netutils.IsExitAddress(addr)
+
+		var isExit bool
+		if len(nic.IpAddr) > 0 {
+			addr, err := netutils.NewIPV4Addr(nic.IpAddr)
+			if err != nil {
+				log.Errorf("NewIPV4Addr %s fail %s", nic.IpAddr, err)
+				continue
+			}
+			isExit = netutils.IsExitAddress(addr)
+		}
+		if len(exitMac) == 0 || len(intMac) == 0 || len(defMac) == 0 {
 			if len(exitMac) == 0 && isExit {
 				exitMac = nic.MacAddr
 				exitIdx = i
@@ -60,12 +78,19 @@ func (nics SNicInfoList) FindDefaultNicMac() (string, int) {
 				intMac = nic.MacAddr
 				intIdx = i
 			}
-		} else if len(exitMac) > 0 && len(intMac) > 0 {
+			if len(defMac) == 0 && nic.IsDefault && !isExit {
+				defMac = nic.MacAddr
+				defIdx = i
+			}
+		} else if len(exitMac) > 0 && len(intMac) > 0 && len(defMac) > 0 {
 			break
 		}
 	}
 	if len(exitMac) > 0 {
 		return exitMac, exitIdx
+	}
+	if len(defMac) > 0 {
+		return defMac, defIdx
 	}
 	if len(intMac) > 0 {
 		return intMac, intIdx

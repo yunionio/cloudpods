@@ -243,18 +243,18 @@ func (region *SRegion) GetDisks(instanceId string, zoneId string, category strin
 	return ret, nil
 }
 
-func (region *SRegion) CreateDisk(zoneId string, category string, name string, sizeGb int, desc string, projectId string) (string, error) {
+func (region *SRegion) CreateDisk(zoneId string, category string, opts *cloudprovider.DiskCreateConfig) (string, error) {
 	params := make(map[string]string)
 	params["ZoneId"] = zoneId
-	params["VolumeName"] = name
-	if len(desc) > 0 {
-		params["Description"] = desc
+	params["VolumeName"] = opts.Name
+	if len(opts.Desc) > 0 {
+		params["Description"] = opts.Desc
 	}
 	params["VolumeType"] = category
 	// only data disk is supported
 	params["Kind"] = "data"
 
-	params["Size"] = fmt.Sprintf("%d", sizeGb)
+	params["Size"] = fmt.Sprintf("%d", opts.SizeGb)
 	params["ClientToken"] = utils.GenRequestId(20)
 
 	body, err := region.storageRequest("CreateVolume", params)
@@ -267,14 +267,14 @@ func (region *SRegion) CreateDisk(zoneId string, category string, name string, s
 func (region *SRegion) GetDisk(diskId string) (*SDisk, error) {
 	disks, err := region.GetDisks("", "", "", []string{diskId})
 	if err != nil {
-		return nil, errors.Wrapf(err, fmt.Sprintf("%s not found", diskId))
+		return nil, errors.Wrapf(err, "%s not found", diskId)
 	}
 	for _, disk := range disks {
 		if disk.VolumeId == diskId {
 			return &disk, nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, fmt.Sprintf("%s not found", diskId))
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s not found", diskId)
 }
 
 func (region *SRegion) DeleteDisk(diskId string) error {

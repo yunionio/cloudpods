@@ -75,24 +75,20 @@ func (self *GuestSyncConfTask) OnSyncComplete(ctx context.Context, obj db.IStand
 
 func (self *GuestSyncConfTask) StartRestartNetworkTask(ctx context.Context, guest *models.SGuest) {
 	defer self.SetStageComplete(ctx, guest.GetShortDesc(ctx))
-	prevIp, err := self.Params.GetString("prev_ip")
-	if err != nil {
-		log.Errorf("unable to get prev_ip when restart_network is true when sync guest")
-		return
-	}
-	inBlockStream := jsonutils.QueryBoolean(self.Params, "in_block_stream", false)
 	preMac, err := self.Params.GetString("prev_mac")
 	if err != nil {
 		log.Errorf("unable to get prev_mac when restart_network is true when sync guest")
 		return
 	}
 	ipMask, err := self.Params.GetString("ip_mask")
-	if err != nil {
+	gateway, err := self.Params.GetString("gateway")
+	ip6Mask, err := self.Params.GetString("ip6_mask")
+	gateway6, err := self.Params.GetString("gateway6")
+	if ipMask == "" && ip6Mask == "" {
 		log.Errorf("unable to get ip_mask when restart_network is true when sync guest")
 		return
 	}
-	gateway, err := self.Params.GetString("gateway")
-	if err != nil {
+	if gateway == "" && gateway6 == "" {
 		log.Errorf("unable to get gateway when restart_network is true when sync guest")
 		return
 	}
@@ -108,7 +104,7 @@ func (self *GuestSyncConfTask) StartRestartNetworkTask(ctx context.Context, gues
 		if err != nil {
 			return err
 		}
-		err = drv.QgaRequestGuestPing(ctx, self.GetTaskRequestHeader(), host, guest, false, &api.ServerQgaTimeoutInput{Timeout: 1000})
+		err = drv.QgaRequestGuestPing(ctx, self.GetTaskRequestHeader(), host, guest, false, &api.ServerQgaTimeoutInput{Timeout: 1})
 		if err != nil {
 			return errors.Wrap(err, "qga guest-ping")
 		}
@@ -128,8 +124,7 @@ func (self *GuestSyncConfTask) StartRestartNetworkTask(ctx context.Context, gues
 			// wait for vpcagent sync network topo
 			time.Sleep(10 * time.Second)
 		}
-		return guest.StartQgaRestartNetworkTask(
-			ctx, self.UserCred, "", ifnameDevice, ipMask, gateway, prevIp, inBlockStream)
+		return guest.StartQgaRestartNetworkTask(ctx, self.UserCred, "", ifnameDevice, ipMask, gateway, ip6Mask, gateway6)
 	}()
 	if err != nil {
 		log.Errorf("guest %s failed start qga restart network task: %s", guest.GetName(), err)

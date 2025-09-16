@@ -24,7 +24,6 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/util/rbacscope"
-	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
@@ -230,24 +229,34 @@ func (self *SKeypair) GetLinkedGuestsCount() (int, error) {
 	return GuestManager.Query().Equals("keypair_id", self.Id).CountWithError()
 }
 
-func (manager *SKeypairManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.KeypairCreateInput) (api.KeypairCreateInput, error) {
+func (manager *SKeypairManager) ValidateCreateData(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	ownerId mcclient.IIdentityProvider,
+	query jsonutils.JSONObject,
+	input *api.KeypairCreateInput,
+) (*api.KeypairCreateInput, error) {
 	input.PublicKey = strings.TrimSpace(input.PublicKey)
 	if len(input.PublicKey) == 0 {
 		if len(input.Scheme) == 0 {
 			input.Scheme = api.KEYPAIRE_SCHEME_RSA
 		}
-		if !utils.IsInStringArray(input.Scheme, api.KEYPAIR_SCHEMAS) {
-			return input, httperrors.NewInputParameterError("Unsupported scheme %s", input.Scheme)
-		}
 
 		var err error
-		if input.Scheme == api.KEYPAIRE_SCHEME_RSA {
+		switch input.Scheme {
+		case api.KEYPAIRE_SCHEME_RSA:
 			input.PrivateKey, input.PublicKey, err = seclib2.GenerateRSASSHKeypair()
-		} else {
+		case api.KEYPAIRE_SCHEME_DSA:
 			input.PrivateKey, input.PublicKey, err = seclib2.GenerateDSASSHKeypair()
+		case api.KEYPAIRE_SCHEME_ECDSA:
+			input.PrivateKey, input.PublicKey, err = seclib2.GenerateECDSASHAP521SSHKeypair()
+		case api.KEYPAIRE_SCHEME_ED25519:
+			input.PrivateKey, input.PublicKey, err = seclib2.GenerateED25519SSHKeypair()
+		default:
+			return nil, httperrors.NewInputParameterError("Unsupported scheme %s", input.Scheme)
 		}
 		if err != nil {
-			return input, httperrors.NewGeneralError(errors.Wrapf(err, "Generate%sSSHKeypair", input.Scheme))
+			return nil, httperrors.NewGeneralError(errors.Wrapf(err, "Generate%sSSHKeypair", input.Scheme))
 		}
 	}
 	pubKey, _, _, _, err := ssh.ParseAuthorizedKey([]byte(input.PublicKey))
@@ -255,11 +264,7 @@ func (manager *SKeypairManager) ValidateCreateData(ctx context.Context, userCred
 		return input, httperrors.NewInputParameterError("invalid public error: %v", err)
 	}
 
-	// 只允许上传RSA格式密钥。PS: AWS只支持RSA格式。
 	input.Scheme = seclib2.GetPublicKeyScheme(pubKey)
-	if input.Scheme != api.KEYPAIRE_SCHEME_RSA {
-		return input, httperrors.NewInputParameterError("Unsupported scheme %s", input.Scheme)
-	}
 
 	input.Fingerprint = ssh.FingerprintLegacyMD5(pubKey)
 	input.UserResourceCreateInput, err = manager.SUserResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.UserResourceCreateInput)

@@ -24,6 +24,7 @@ type WireCreateInput struct {
 	Bandwidth int `json:"bandwidth"`
 
 	// Deprecated
+	// swagger:ignore
 	Bw int `json:"bw" yunion-deprecated-by:"bandwidth"`
 
 	// mtu

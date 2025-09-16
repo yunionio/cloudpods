@@ -68,12 +68,12 @@ type CdnCreateOptions struct {
 // +onecloud:model-api-gen
 type SCdnOrigins []SCdnOrigin
 
-func (self SCdnOrigins) IsZero() bool {
-	return len(self) == 0
+func (origins SCdnOrigins) IsZero() bool {
+	return len(origins) == 0
 }
 
-func (self SCdnOrigins) String() string {
-	return jsonutils.Marshal(self).String()
+func (origins SCdnOrigins) String() string {
+	return jsonutils.Marshal(origins).String()
 }
 
 // 是否忽略参数
@@ -102,12 +102,12 @@ type CacheKeyRuleQueryString struct {
 	Value   string
 }
 
-func (self SCDNCacheKeys) IsZero() bool {
-	return jsonutils.Marshal(self) == jsonutils.Marshal(&SCDNCacheKeys{})
+func (keys SCDNCacheKeys) IsZero() bool {
+	return jsonutils.Marshal(keys) == jsonutils.Marshal(&SCDNCacheKeys{})
 }
 
-func (self SCDNCacheKeys) String() string {
-	return jsonutils.Marshal(self).String()
+func (keys SCDNCacheKeys) String() string {
+	return jsonutils.Marshal(keys).String()
 }
 
 // 是否分片回源
@@ -123,12 +123,12 @@ type SRangeOriginPullRule struct {
 	RulePaths []string
 }
 
-func (self SCDNRangeOriginPull) IsZero() bool {
-	return jsonutils.Marshal(self) == jsonutils.Marshal(&SCDNRangeOriginPull{})
+func (pull SCDNRangeOriginPull) IsZero() bool {
+	return jsonutils.Marshal(pull) == jsonutils.Marshal(&SCDNRangeOriginPull{})
 }
 
-func (self SCDNRangeOriginPull) String() string {
-	return jsonutils.Marshal(self).String()
+func (pull SCDNRangeOriginPull) String() string {
+	return jsonutils.Marshal(pull).String()
 }
 
 type CacheRule struct {
@@ -181,12 +181,12 @@ type RuleCacheConfig struct {
 	}
 }
 
-func (self SCDNCache) IsZero() bool {
-	return jsonutils.Marshal(self) == jsonutils.Marshal(&SCDNCache{})
+func (cache SCDNCache) IsZero() bool {
+	return jsonutils.Marshal(cache) == jsonutils.Marshal(&SCDNCache{})
 }
 
-func (self SCDNCache) String() string {
-	return jsonutils.Marshal(self).String()
+func (cache SCDNCache) String() string {
+	return jsonutils.Marshal(cache).String()
 }
 
 // +onecloud:model-api-gen
@@ -197,12 +197,12 @@ type SCDNHttps struct {
 	Http2 *bool
 }
 
-func (self SCDNHttps) IsZero() bool {
-	return jsonutils.Marshal(self) == jsonutils.Marshal(&SCDNHttps{})
+func (https SCDNHttps) IsZero() bool {
+	return jsonutils.Marshal(https) == jsonutils.Marshal(&SCDNHttps{})
 }
 
-func (self SCDNHttps) String() string {
-	return jsonutils.Marshal(self).String()
+func (https SCDNHttps) String() string {
+	return jsonutils.Marshal(https).String()
 }
 
 // +onecloud:model-api-gen
@@ -214,12 +214,12 @@ type SCDNForceRedirect struct {
 	RedirectType string
 }
 
-func (self SCDNForceRedirect) IsZero() bool {
-	return jsonutils.Marshal(self) == jsonutils.Marshal(&SCDNForceRedirect{})
+func (redirect SCDNForceRedirect) IsZero() bool {
+	return jsonutils.Marshal(redirect) == jsonutils.Marshal(&SCDNForceRedirect{})
 }
 
-func (self SCDNForceRedirect) String() string {
-	return jsonutils.Marshal(self).String()
+func (redirect SCDNForceRedirect) String() string {
+	return jsonutils.Marshal(redirect).String()
 }
 
 type RefererRule struct {
@@ -243,12 +243,12 @@ type SCDNReferer struct {
 	RefererRules []RefererRule
 }
 
-func (self SCDNReferer) IsZero() bool {
-	return jsonutils.Marshal(self) == jsonutils.Marshal(&SCDNReferer{})
+func (referer SCDNReferer) IsZero() bool {
+	return jsonutils.Marshal(referer) == jsonutils.Marshal(&SCDNReferer{})
 }
 
-func (self SCDNReferer) String() string {
-	return jsonutils.Marshal(self).String()
+func (referer SCDNReferer) String() string {
+	return jsonutils.Marshal(referer).String()
 }
 
 type SMaxAgeRule struct {
@@ -265,12 +265,83 @@ type SCDNMaxAge struct {
 	MaxAgeRules []SMaxAgeRule
 }
 
-func (self SCDNMaxAge) IsZero() bool {
-	return jsonutils.Marshal(self) == jsonutils.Marshal(&SCDNMaxAge{})
+func (maxAge SCDNMaxAge) IsZero() bool {
+	return jsonutils.Marshal(maxAge) == jsonutils.Marshal(&SCDNMaxAge{})
 }
 
-func (self SCDNMaxAge) String() string {
-	return jsonutils.Marshal(self).String()
+func (maxAge SCDNMaxAge) String() string {
+	return jsonutils.Marshal(maxAge).String()
+}
+
+type CacheClearOptions struct {
+	PurgeEverything *bool
+	Tags            []string
+	Hosts           []string
+	Prefixes        []string
+	Files           []interface{}
+}
+
+type CacheConfig struct {
+	DNSSECEnabled   *bool
+	HTTPSEnabled    *bool
+	CacheLevel      string
+	BrowserCacheTTL *int
+	HTTPSRewrites   *bool
+	SSLSetting      string
+}
+
+type CustomHostname struct {
+	Id                    string
+	Hostname              string
+	CustomOriginServer    string
+	OwnershipVerification struct {
+		Name  string
+		Type  string
+		Value string
+	}
+	OwnershipVerificationHttp struct {
+		HttpBody string
+		HttpUrl  string
+	}
+	SSL struct {
+		BundleMethod         string
+		CertificateAuthority string
+		DcvDelegationRecords []struct {
+			Cname       string
+			CnameTarget string
+		}
+		Id       string
+		Method   string
+		Settings struct {
+			MinTLSVersion string `json:"min_tls_version"`
+		}
+		Status            string
+		Type              string
+		ValidationRecords []struct {
+			Status   string
+			TxtName  string
+			TxtValue string
+		}
+		Wildcard bool
+	}
+	Status string
+}
+
+type CustomHostnameCreateOptions struct {
+	CustomOriginServer string
+	Hostname           string
+	SSL                struct {
+		CertificateAuthority string
+		Method               string
+		BundleMethod         string
+		CustomCertificate    string
+		CustomKey            string
+		Settings             struct {
+			MinTLSVersion string `json:"min_tls_version"`
+		}
+		Type     string
+		Wildcard bool
+	}
 }
 
 func init() {

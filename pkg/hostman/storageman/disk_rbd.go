@@ -227,7 +227,7 @@ func (d *SRBDDisk) CreateRaw(ctx context.Context, sizeMb int, diskFormat string,
 	diskInfo := &deployapi.DiskInfo{
 		Path: d.GetPath(),
 	}
-	if utils.IsInStringArray(fsFormat, []string{"swap", "ext2", "ext3", "ext4", "xfs"}) {
+	if utils.IsInStringArray(fsFormat, api.SUPPORTED_FS) {
 		d.FormatFs(fsFormat, nil, diskId, diskInfo)
 	}
 
@@ -256,8 +256,8 @@ func (d *SRBDDisk) CreateSnapshot(snapshotId string, encryptKey string, encForma
 	return storage.createSnapshot(d.Id, snapshotId)
 }
 
-func (d *SRBDDisk) ConvertSnapshot(convertSnapshotId string, encryptInfo apis.SEncryptInfo) error {
-	return nil
+func (d *SRBDDisk) ConvertSnapshotRelyOnReloadDisk(convertSnapshotId string, encryptInfo apis.SEncryptInfo) (func() error, error) {
+	return nil, nil
 }
 
 func (d *SRBDDisk) DeleteSnapshot(snapshotId, convertSnapshot string, blockStream bool, encryptInfo apis.SEncryptInfo) error {

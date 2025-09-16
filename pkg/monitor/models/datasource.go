@@ -71,6 +71,8 @@ func init() {
 	DataSourceManager.SetVirtualObject(DataSourceManager)
 }
 
+// +onecloud:swagger-gen-model-singular=datasource
+// +onecloud:swagger-gen-model-plural=datasources
 type SDataSourceManager struct {
 	db.SStandaloneResourceBaseManager
 }
@@ -178,11 +180,11 @@ func (m *SDataSourceManager) GetMeasurementsWithDescriptionInfos(query jsonutils
 	if err != nil {
 		return jsonutils.JSONNull, errors.Wrap(err, "getMeasurementsFromDB")
 	}
-	filterMeasurements, err := m.filterMeasurementsByTime(measurements, query, tagFilter)
+	/*filterMeasurements, err := m.filterMeasurementsByTime(measurements, query, tagFilter)
 	if err != nil {
 		return jsonutils.JSONNull, errors.Wrap(err, "filterMeasurementsByTime error")
-	}
-	filterMeasurements = m.getMetricDescriptions(filterMeasurements)
+	}*/
+	filterMeasurements := m.getMetricDescriptions(measurements)
 	if len(filterMeasurements) != 0 {
 		rtnMeasurements = append(rtnMeasurements, filterMeasurements...)
 	}
@@ -472,6 +474,10 @@ func (m *SDataSourceManager) GetMetricMeasurement(userCred mcclient.TokenCredent
 	output.TagValue = make(map[string][]string, 0)
 
 	output.FieldKey = []string{field}
+	// 只查询过去 30m 的指标
+	if timeF.To == "now" {
+		timeF.From = "30m"
+	}
 	if err := getTagValues(userCred, output, timeF, tagFilter, true); err != nil {
 		return jsonutils.JSONNull, errors.Wrap(err, "getTagValues error")
 	}
@@ -490,7 +496,7 @@ func (m *SDataSourceManager) filterRtnTags(output *monitor.InfluxMeasurement) {
 		}
 	}
 	for _, tag := range []string{
-		"source", "status", hostconsts.TELEGRAF_TAG_KEY_HOST_TYPE, hostconsts.TELEGRAF_TAG_KEY_RES_TYPE,
+		"source", hostconsts.TELEGRAF_TAG_KEY_HOST_TYPE, hostconsts.TELEGRAF_TAG_KEY_RES_TYPE,
 		"is_vm", "os_type", hostconsts.TELEGRAF_TAG_KEY_PLATFORM, hostconsts.TELEGRAF_TAG_KEY_HYPERVISOR,
 		"domain_name", "region", "ips", "vip", "vip_eip", "eip", "eip_mode",
 		labels.MetricName, translator.UNION_RESULT_NAME,
@@ -515,7 +521,8 @@ func (m *SDataSourceManager) filterRtnTags(output *monitor.InfluxMeasurement) {
 
 func (m *SDataSourceManager) filterTagValue(measurement monitor.InfluxMeasurement, timeF timeFilter,
 	db *influxdb.SInfluxdb, tagValChan *influxdbTagValueChan, tagFilter string) error {
-	ctx, _ := context.WithTimeout(context.Background(), time.Second*15)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*15)
+	defer cancel()
 	tagValGroup2, _ := errgroup.WithContext(ctx)
 	tagValChan2 := influxdbTagValueChan{
 		rtnChan: make(chan map[string][]string, len(measurement.TagKey)),

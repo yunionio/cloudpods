@@ -90,8 +90,10 @@ const (
 )
 
 type ContainerIsolatedDeviceOnlyEnv struct {
-	Key            string `json:"key"`
-	FromRenderPath bool   `json:"from_render_path"`
+	Key             string `json:"key"`
+	FromRenderPath  bool   `json:"from_render_path"`
+	FromIndex       bool   `json:"from_index"`
+	FromDeviceMinor bool   `json:"from_device_minor"`
 }
 
 type ContainerSpec struct {
@@ -275,6 +277,8 @@ type ContainerVolumeMountDiskPostOverlay struct {
 	// 合并后要挂载到容器的目录
 	ContainerTargetDir string                                    `json:"container_target_dir"`
 	Image              *ContainerVolumeMountDiskPostImageOverlay `json:"image"`
+	FsUser             *int64                                    `json:"fs_user,omitempty"`
+	FsGroup            *int64                                    `json:"fs_group,omitempty"`
 }
 
 func (o ContainerVolumeMountDiskPostOverlay) IsEqual(input ContainerVolumeMountDiskPostOverlay) bool {
@@ -320,9 +324,17 @@ const (
 	CONTAINER_VOLUME_MOUNT_HOST_PATH_TYPE_FILE      ContainerVolumeMountHostPathType = "file"
 )
 
+type ContainerVolumeMountHostPathAutoCreateConfig struct {
+	Uid         uint   `json:"uid"`
+	Gid         uint   `json:"gid"`
+	Permissions string `json:"permissions"`
+}
+
 type ContainerVolumeMountHostPath struct {
-	Type ContainerVolumeMountHostPathType `json:"type"`
-	Path string                           `json:"path"`
+	Type             ContainerVolumeMountHostPathType              `json:"type"`
+	Path             string                                        `json:"path"`
+	AutoCreate       bool                                          `json:"auto_create"`
+	AutoCreateConfig *ContainerVolumeMountHostPathAutoCreateConfig `json:"auto_create_config,omitempty"`
 }
 
 type ContainerVolumeMountText struct {
@@ -343,4 +355,10 @@ type ContainerPullImageAuthConfig struct {
 	IdentityToken string `json:"identity_token,omitempty"`
 	// RegistryToken is a bearer token to be sent to a registry
 	RegistryToken string `json:"registry_token,omitempty"`
+}
+
+type ContainerRootfs struct {
+	Type ContainerVolumeMountType  `json:"type"`
+	Disk *ContainerVolumeMountDisk `json:"disk"`
+	//CephFS *ContainerVolumeMountCephFS `json:"ceph_fs"`
 }

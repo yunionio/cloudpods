@@ -123,7 +123,7 @@ func (self *SLBListener) CreateILoadBalancerListenerRule(rule *cloudprovider.SLo
 			return &r, nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, jsonutils.Marshal(resp).String())
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", jsonutils.Marshal(resp).String())
 }
 
 func (self *SLBListener) GetILoadBalancerListenerRuleById(ruleId string) (cloudprovider.ICloudLoadbalancerListenerRule, error) {
@@ -299,6 +299,14 @@ func (self *SLBListener) GetHealthCheckDomain() string {
 	return self.HealthCheck.HTTPCheckDomain
 }
 
+func (self *SLBListener) GetHealthCheckMethod() string {
+	return ""
+}
+
+func (self *SLBListener) GetHealthCheckPort() int {
+	return 0
+}
+
 func (self *SLBListener) GetHealthCheckURI() string {
 	return self.HealthCheck.HTTPCheckPath
 }
@@ -425,7 +433,7 @@ func (self *SRegion) GetLoadbalancerListener(lbId, lisId string) (*SLBListener, 
 			return &ret[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, lisId)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", lisId)
 }
 
 func (self *SRegion) GetLoadbalancerListeners(lbId string, lblisIds []string, protocol string) ([]SLBListener, error) {
@@ -686,5 +694,5 @@ func (self *SRegion) CreateLoadbalancerListener(lbId string, opts *cloudprovider
 	for i := range ret {
 		return ret[i], nil
 	}
-	return "", errors.Wrapf(cloudprovider.ErrNotFound, resp.String())
+	return "", errors.Wrapf(cloudprovider.ErrNotFound, "%s", resp.String())
 }

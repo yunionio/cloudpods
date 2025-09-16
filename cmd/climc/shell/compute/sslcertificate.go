@@ -24,6 +24,7 @@ import (
 func init() {
 	cmd := shell.NewResourceCmd(&modules.SslCerticicate).WithKeyword("ssl-certificate")
 	cmd.List(&compute.SslCertificateListOptions{})
+	cmd.Create(&compute.SslCertificateCreateOptions{})
 	cmd.Show(&options.BaseShowOptions{})
 	cmd.Delete(&options.BaseIdOptions{})
 }

@@ -16,6 +16,7 @@ package tasks
 
 import (
 	_ "yunion.io/x/onecloud/pkg/compute/tasks/access_group"
+	_ "yunion.io/x/onecloud/pkg/compute/tasks/ai_gateway"
 	_ "yunion.io/x/onecloud/pkg/compute/tasks/app"
 	_ "yunion.io/x/onecloud/pkg/compute/tasks/backup"
 	_ "yunion.io/x/onecloud/pkg/compute/tasks/baremetal"
@@ -47,6 +48,7 @@ import (
 	_ "yunion.io/x/onecloud/pkg/compute/tasks/server_sku"
 	_ "yunion.io/x/onecloud/pkg/compute/tasks/snapshot"
 	_ "yunion.io/x/onecloud/pkg/compute/tasks/snapshotpolicy"
+	_ "yunion.io/x/onecloud/pkg/compute/tasks/ssl_certificate"
 	_ "yunion.io/x/onecloud/pkg/compute/tasks/storage"
 	_ "yunion.io/x/onecloud/pkg/compute/tasks/vpc"
 	_ "yunion.io/x/onecloud/pkg/compute/tasks/vpc_peering"

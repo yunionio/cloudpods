@@ -14,7 +14,6 @@ package obs
 
 import (
 	"errors"
-	"fmt"
 )
 
 // CreateSignedUrl creates signed url with the specified CreateSignedUrlInput, and returns the CreateSignedUrlOutput and error
@@ -41,7 +40,7 @@ func (obsClient ObsClient) CreateSignedUrl(input *CreateSignedUrlInput, extensio
 		if extensionHeader, ok := extension.(extensionHeaders); ok {
 			_err := extensionHeader(headers, obsClient.conf.signature == SignatureObs)
 			if _err != nil {
-				doLog(LEVEL_INFO, fmt.Sprintf("set header with error: %v", _err))
+				doLog(LEVEL_INFO, "set header with error: %v", _err)
 			}
 		} else {
 			doLog(LEVEL_INFO, "Unsupported extensionOptions")

@@ -338,8 +338,18 @@ func (s *SKVMGuestInstance) initLiveDescFromSourceGuest(srcDesc *desc.SGuestDesc
 		for j := 0; j < len(s.SourceDesc.Disks); j++ {
 			if srcDesc.Disks[i].Index == s.SourceDesc.Disks[j].Index {
 				numQueues := srcDesc.Disks[i].NumQueues
+				var targetStorage string
+				if srcDesc.Disks[i].TargetStorageId != "" && storageman.GetManager().GetStorage(srcDesc.Disks[i].TargetStorageId) != nil {
+					targetStorage = srcDesc.Disks[i].TargetStorageId
+				}
+
 				srcDesc.Disks[i].GuestdiskJsonDesc = s.SourceDesc.Disks[j].GuestdiskJsonDesc
 				srcDesc.Disks[i].NumQueues = numQueues
+				if targetStorage != "" {
+					srcDesc.Disks[i].StorageId = targetStorage
+					srcDesc.Disks[i].TargetStorageId = ""
+				}
+
 			}
 		}
 	}
@@ -1385,7 +1395,7 @@ func (s *SKVMGuestInstance) getHotpluggableCPUList() ([]monitor.HotpluggableCPU,
 	var errChan = make(chan error)
 	cb := func(cpuList []monitor.HotpluggableCPU, err string) {
 		if err != "" {
-			errChan <- errors.Errorf(err)
+			errChan <- errors.Errorf("%s", err)
 		} else {
 			res = cpuList
 			errChan <- nil
@@ -1487,7 +1497,7 @@ func (s *SKVMGuestInstance) getPciDevices() ([]monitor.PCIInfo, error) {
 	var errChan = make(chan error)
 	cb := func(pciInfoList []monitor.PCIInfo, err string) {
 		if err != "" {
-			errChan <- errors.Errorf(err)
+			errChan <- errors.Errorf("%s", err)
 		} else {
 			res = pciInfoList
 			errChan <- nil
@@ -1503,7 +1513,7 @@ func (s *SKVMGuestInstance) getMemoryDevs() ([]monitor.Memdev, error) {
 	var errChan = make(chan error)
 	cb := func(memDevs []monitor.Memdev, err string) {
 		if err != "" {
-			errChan <- errors.Errorf(err)
+			errChan <- errors.Errorf("%s", err)
 		} else {
 			res = memDevs
 			errChan <- nil
@@ -1519,7 +1529,7 @@ func (s *SKVMGuestInstance) getMemoryDevices() ([]monitor.MemoryDeviceInfo, erro
 	var errChan = make(chan error)
 	cb := func(memoryDevicesInfoList []monitor.MemoryDeviceInfo, err string) {
 		if err != "" {
-			errChan <- errors.Errorf(err)
+			errChan <- errors.Errorf("%s", err)
 		} else {
 			res = memoryDevicesInfoList
 			errChan <- nil
@@ -1942,8 +1952,10 @@ func (s *SKVMGuestInstance) DeployFs(ctx context.Context, userCred mcclient.Toke
 	}
 	var sysDisk storageman.IDisk
 	disks := s.Desc.Disks
+	var diskPaths = make([]string, len(disks))
 	for i := range disks {
 		diskPath := disks[i].Path
+		diskPaths[i] = diskPath
 		// GetDiskByPath will probe disks
 		disk, err := storageman.GetManager().GetDiskByPath(diskPath)
 		if err != nil {
@@ -1954,11 +1966,13 @@ func (s *SKVMGuestInstance) DeployFs(ctx context.Context, userCred mcclient.Toke
 			diskInfo.Path = disk.GetPath()
 			sysDisk = disk
 		}
+		disks[i].Path = disk.GetPath()
 	}
 
 	ret, err := sysDisk.DeployGuestFs(&diskInfo, s.Desc, deployInfo)
-	for i := range disks {
-		diskPath := disks[i].Path
+	for i := range diskPaths {
+		diskPath := diskPaths[i]
+		disks[i].Path = diskPath
 		disk, e := storageman.GetManager().GetDiskByPath(diskPath)
 		if e != nil {
 			log.Errorf("failed get disk bypath %s %s", diskPath, e)
@@ -1997,6 +2011,14 @@ func (s *SKVMGuestInstance) StartDelete(ctx context.Context, migrated bool) erro
 	for s.IsRunning() {
 		s.ForceStop()
 		time.Sleep(time.Second * 1)
+	}
+	// ensure interface down
+	for i := range s.Desc.Nics {
+		scriptPath := s.getNicDownScriptPath(s.Desc.Nics[i])
+		out, err := procutils.NewRemoteCommandAsFarAsPossible("bash", scriptPath).Output()
+		if err != nil {
+			log.Errorf("failed run nic down script %s: %s", out, err)
+		}
 	}
 	return s.Delete(ctx, migrated, false)
 }
@@ -2220,7 +2242,7 @@ func (s *SKVMGuestInstance) scriptStart(ctx context.Context) error {
 		err = proc.Signal(syscall.Signal(0))
 		if err != nil { // qemu process exited
 			log.Errorf("Guest %s check qemu(%d) process failed: %s", s.Id, pid, err)
-			return errors.Errorf(s.readQemuLogFileEnd(64))
+			return errors.Errorf("%s", s.readQemuLogFileEnd(64))
 		}
 		if err = s.StartMonitor(ctx, nil, true); err == nil {
 			return nil
@@ -2393,10 +2415,7 @@ func (s *SKVMGuestInstance) compareDescFloppys(newDesc *desc.SGuestDesc) []*desc
 
 func (s *SKVMGuestInstance) compareDescNetworks(newDesc *desc.SGuestDesc,
 ) ([]*desc.SGuestNetwork, []*desc.SGuestNetwork, [][2]*desc.SGuestNetwork) {
-	var isValid = func(net *desc.SGuestNetwork) bool {
-		return net.Driver == "virtio" || net.Driver == "vfio-pci"
-	}
-	var isChangeNetworkValid = func(net *desc.SGuestNetwork) bool {
+	var isValidHotplug = func(net *desc.SGuestNetwork) bool {
 		return net.Driver == "virtio" || net.Driver == "vfio-pci"
 	}
 
@@ -2412,28 +2431,26 @@ func (s *SKVMGuestInstance) compareDescNetworks(newDesc *desc.SGuestDesc,
 	var delNics, addNics = []*desc.SGuestNetwork{}, []*desc.SGuestNetwork{}
 	var changedNics = [][2]*desc.SGuestNetwork{}
 	for _, n := range newDesc.Nics {
-		if isValid(n) {
-			newNic := *n
-			// assume all nics in new desc are new
-			addNics = append(addNics, &newNic)
-		}
+		newNic := *n
+		// assume all nics in new desc are new
+		addNics = append(addNics, &newNic)
 	}
 
 	for _, n := range s.Desc.Nics {
-		if isValid(n) {
-			idx := findNet(addNics, n)
-			if idx >= 0 {
-				if isChangeNetworkValid(n) {
-					// check if bridge changed
-					changedNics = append(changedNics, [2]*desc.SGuestNetwork{
-						n,            // old
-						addNics[idx], // new
-					})
-				}
+		idx := findNet(addNics, n)
+		if idx >= 0 {
+			// check if bridge changed
+			changedNics = append(changedNics, [2]*desc.SGuestNetwork{
+				n,            // old
+				addNics[idx], // new
+			})
 
+			if isValidHotplug(n) {
 				// remove existing nic from new
 				addNics = append(addNics[:idx], addNics[idx+1:]...)
-			} else {
+			}
+		} else {
+			if isValidHotplug(n) {
 				// not found, remove the nic
 				delNics = append(delNics, n)
 			}
@@ -2456,69 +2473,68 @@ func getNicBridge(nic *desc.SGuestNetwork) string {
 
 func (s *SKVMGuestInstance) onNicChange(oldNic, newNic *desc.SGuestNetwork) error {
 	log.Infof("nic changed old: %s new: %s", jsonutils.Marshal(oldNic), jsonutils.Marshal(newNic))
-	// override network base desc
-	oldNic.GuestnetworkBaseDesc = newNic.GuestnetworkBaseDesc
-
 	if oldNic.Driver == "vfio-pci" {
-		err := s.reconfigureVfioNicsBandwidth(oldNic)
+		err := s.reconfigureVfioNicsBandwidth(newNic)
 		if err != nil {
 			log.Errorf("failed configure %s:%s vfio nics bandwidth %s", s.GetId(), oldNic.Mac, err)
 		}
 		return nil
-	}
+	} else if oldNic.Driver == "virtio" {
+		oldbr := getNicBridge(oldNic)
+		oldifname := oldNic.Ifname
+		newbr := getNicBridge(newNic)
+		newifname := newNic.Ifname
+		newvlan := newNic.Vlan
 
-	oldbr := getNicBridge(oldNic)
-	oldifname := oldNic.Ifname
-	newbr := getNicBridge(newNic)
-	newifname := newNic.Ifname
-	newvlan := newNic.Vlan
-	if oldbr != newbr {
-		// bridge changed
-		if oldifname == newifname {
-			args := []string{
-				"--", "del-port", oldbr, oldifname,
-				"--", "add-port", newbr, newifname,
-			}
-			if newvlan > 1 {
-				args = append(args, fmt.Sprintf("tag=%d", newvlan))
-			}
-			output, err := procutils.NewRemoteCommandAsFarAsPossible("ovs-vsctl", args...).Output()
-			log.Infof("ovs-vsctl %v: %s", args, output)
-			if err != nil {
-				return errors.Wrap(err, "NewRemoteCommandAsFarAsPossible")
-			}
-		} else {
-			log.Errorf("cannot change both bridge(%s!=%s) and ifname(%s!=%s)!!!!!", oldbr, newbr, oldifname, newifname)
-		}
-	} else {
-		// bridge not changed
-		if oldifname == newifname {
-			if newvlan > 1 {
-				output, err := procutils.NewRemoteCommandAsFarAsPossible("ovs-vsctl", "set", "port", newifname, fmt.Sprintf("tag=%d", newvlan)).Output()
+		if oldbr != newbr {
+			// bridge changed
+			if oldifname == newifname {
+				args := []string{
+					"--", "del-port", oldbr, oldifname,
+					"--", "add-port", newbr, newifname,
+				}
+				if newvlan > 1 {
+					args = append(args, fmt.Sprintf("tag=%d", newvlan))
+				}
+				output, err := procutils.NewRemoteCommandAsFarAsPossible("ovs-vsctl", args...).Output()
+				log.Infof("ovs-vsctl %v: %s", args, output)
 				if err != nil {
-					return errors.Wrapf(err, "NewRemoteCommandAsFarAsPossible change vlan tag to %d: %s", newvlan, output)
+					return errors.Wrap(err, "NewRemoteCommandAsFarAsPossible")
 				}
 			} else {
-				// clear vlan
-				output, err := procutils.NewRemoteCommandAsFarAsPossible("ovs-vsctl", "get", "port", newifname, "tag").Output()
-				if err != nil {
-					return errors.Wrapf(err, "NewRemoteCommandAsFarAsPossible get vlan tag: %s", output)
-				}
-				tagStr := strings.TrimSpace(string(output))
-				if tag, err := strconv.Atoi(tagStr); err == nil && tag > 1 {
-					if output, err := procutils.NewRemoteCommandAsFarAsPossible("ovs-vsctl", "remove", "port", newifname, "tag", tagStr).Output(); err != nil {
-						return errors.Wrapf(err, "NewRemoteCommandAsFarAsPossible remove vlan tag %s: %s", tagStr, output)
+				log.Errorf("cannot change both bridge(%s!=%s) and ifname(%s!=%s)!!!!!", oldbr, newbr, oldifname, newifname)
+			}
+		} else {
+			// bridge not changed
+			if oldifname == newifname {
+				if newvlan > 1 {
+					output, err := procutils.NewRemoteCommandAsFarAsPossible("ovs-vsctl", "set", "port", newifname, fmt.Sprintf("tag=%d", newvlan)).Output()
+					if err != nil {
+						return errors.Wrapf(err, "NewRemoteCommandAsFarAsPossible change vlan tag to %d: %s", newvlan, output)
+					}
+				} else {
+					// clear vlan
+					output, err := procutils.NewRemoteCommandAsFarAsPossible("ovs-vsctl", "get", "port", newifname, "tag").Output()
+					if err != nil {
+						return errors.Wrapf(err, "NewRemoteCommandAsFarAsPossible get vlan tag: %s", output)
+					}
+					tagStr := strings.TrimSpace(string(output))
+					if tag, err := strconv.Atoi(tagStr); err == nil && tag > 1 {
+						if output, err := procutils.NewRemoteCommandAsFarAsPossible("ovs-vsctl", "remove", "port", newifname, "tag", tagStr).Output(); err != nil {
+							return errors.Wrapf(err, "NewRemoteCommandAsFarAsPossible remove vlan tag %s: %s", tagStr, output)
+						}
 					}
 				}
 			}
 		}
 	}
+
+	// override network base desc
+	oldNic.GuestnetworkBaseDesc = newNic.GuestnetworkBaseDesc
 	return nil
 }
 
-func (s *SKVMGuestInstance) SyncConfig(
-	ctx context.Context, guestDesc *desc.SGuestDesc, fwOnly bool,
-) (jsonutils.JSONObject, error) {
+func (s *SKVMGuestInstance) SyncConfig(ctx context.Context, guestDesc *desc.SGuestDesc, fwOnly, setUefiBootOrder bool) (jsonutils.JSONObject, error) {
 	var delDisks, addDisks []*desc.SGuestDisk
 	var delNetworks, addNetworks []*desc.SGuestNetwork
 	var changedNetworks [][2]*desc.SGuestNetwork
@@ -2549,6 +2565,12 @@ func (s *SKVMGuestInstance) SyncConfig(
 	}
 
 	if !s.IsRunning() {
+		if setUefiBootOrder && s.getBios() == api.VM_BOOT_MODE_UEFI {
+			if err := s.setUefiBootOrder(ctx); err != nil {
+				log.Errorf("failed set uefi boot order %s", err)
+				return nil, errors.Wrap(err, "setUefiBootOrder")
+			}
+		}
 		return nil, nil
 	}
 
@@ -2595,6 +2617,13 @@ func (s *SKVMGuestInstance) SyncConfig(
 			data.Set("sync_qemu_cmdline", jsonutils.JSONTrue)
 			if err := s.saveScripts(data); err != nil {
 				log.Errorf("failed save script: %s", err)
+			}
+		}
+
+		if setUefiBootOrder && s.getBios() == api.VM_BOOT_MODE_UEFI {
+			if err := s.setUefiBootOrder(ctx); err != nil {
+				log.Errorf("failed set uefi boot order %s", err)
+				errs = append(errs, err)
 			}
 		}
 
@@ -2825,6 +2854,9 @@ func (s *SKVMGuestInstance) allocGuestNumaCpuset() error {
 }
 
 func (s *SKVMGuestInstance) GetNeedMergeBackingFileDiskIndexs() []int {
+	if s.isDisableAutoMergeSnapshots() {
+		return nil
+	}
 	res := make([]int, 0)
 	for _, disk := range s.Desc.Disks {
 		if disk.MergeSnapshot {
@@ -2997,7 +3029,7 @@ func (s *SKVMGuestInstance) startHotPlugVcpus(vcpuSet []int) error {
 
 func (s *SKVMGuestInstance) hotPlugCpus() error {
 	var vcpuSet = make([]int, 0)
-	if len(s.Desc.MemDesc.Mem.Mems) > 0 {
+	if s.Desc.MemDesc.Mem != nil && len(s.Desc.MemDesc.Mem.Mems) > 0 {
 		for i := range s.Desc.CpuNumaPin {
 			for j := range s.Desc.CpuNumaPin[i].VcpuPin {
 				vcpuSet = append(vcpuSet, s.Desc.CpuNumaPin[i].VcpuPin[j].Vcpu)
@@ -3300,7 +3332,9 @@ func (s *SKVMGuestInstance) PrepareDisksMigrate(liveMigrate bool) (*jsonutils.JS
 	disksBackFile := jsonutils.NewDict()
 	diskSnapsChain := jsonutils.NewDict()
 	sysDiskHasTemplate := false
-	for _, disk := range s.Desc.Disks {
+	storageIdUpdated := false
+	for i := range s.Desc.Disks {
+		disk := s.Desc.Disks[i]
 		if disk.Path != "" {
 			d, err := storageman.GetManager().GetDiskByPath(disk.Path)
 			if err != nil {
@@ -3327,8 +3361,22 @@ func (s *SKVMGuestInstance) PrepareDisksMigrate(liveMigrate bool) (*jsonutils.JS
 					}
 				}
 			}
+			storage := d.GetStorage()
+			if storage != nil && storage.GetId() != disk.StorageId && storage.GetId() == disk.TargetStorageId {
+				// fix storage id not correct
+				disk.StorageId = disk.TargetStorageId
+				disk.TargetStorageId = ""
+				storageIdUpdated = true
+			}
 		}
 	}
+	if storageIdUpdated {
+		err := SaveLiveDesc(s, s.Desc)
+		if err != nil {
+			return nil, nil, false, err
+		}
+	}
+
 	return disksBackFile, diskSnapsChain, sysDiskHasTemplate, nil
 }
 
@@ -3595,7 +3643,7 @@ func (s *SKVMGuestInstance) CPUSetRemove(ctx context.Context) error {
 	return nil
 }
 
-func (s *SKVMGuestInstance) GetUploadStatus(ctx context.Context, reason string) (*api.HostUploadGuestStatusResponse, error) {
+func (s *SKVMGuestInstance) GetUploadStatus(ctx context.Context, reason string) (*api.HostUploadGuestStatusInput, error) {
 	var status = api.VM_READY
 	if s.IsSuspend() {
 		status = api.VM_SUSPEND
@@ -3613,15 +3661,16 @@ func (s *SKVMGuestInstance) GetUploadStatus(ctx context.Context, reason string) 
 			statusInput.Status = api.VM_BLOCK_STREAM
 		}
 	}
-	return &api.HostUploadGuestStatusResponse{
+	return &api.HostUploadGuestStatusInput{
 		PerformStatusInput: *statusInput,
 	}, nil
 }
 
-func (s *SKVMGuestInstance) PostUploadStatus(resp *api.HostUploadGuestStatusResponse, reason string) {
+func (s *SKVMGuestInstance) PostUploadStatus(resp *api.HostUploadGuestStatusInput, reason string) {
 }
 
-func (s *SKVMGuestInstance) HandleGuestStatus(ctx context.Context, resp *api.HostUploadGuestStatusResponse) (jsonutils.JSONObject, error) {
+// except isBatch is false, the call is a sync call
+func (s *SKVMGuestInstance) HandleGuestStatus(ctx context.Context, resp *api.HostUploadGuestStatusInput, isBatch bool) *api.HostUploadGuestStatusInput {
 	if resp.Status == GUEST_RUNNING && s.pciUninitialized {
 		resp.Status = api.VM_UNSYNC
 	} else if resp.Status == GUEST_RUNNING {
@@ -3633,16 +3682,22 @@ func (s *SKVMGuestInstance) HandleGuestStatus(ctx context.Context, resp *api.Hos
 			resp.BlockJobsCount = blockJobsCount
 			hostutils.TaskComplete(ctx, jsonutils.Marshal(resp))
 		}
-		if s.Monitor == nil && !s.IsStopping() {
+		if s.Monitor == nil && !s.IsStopping() && !isBatch {
+			// 处理虚拟机手动启动，这里同步状态恢复monitor的情况，正常探测状态不会走这里，可以忽略
 			if err := s.StartMonitor(context.Background(), runCb, false); err != nil {
+				// 如果启动Monitor失败，则放弃启动，直接返回
 				log.Errorf("guest %s failed start monitor %s", s.GetName(), err)
-				hostutils.TaskComplete(ctx, jsonutils.Marshal(resp))
+			} else {
+				// start monitor success, the task will be handled there, return nil to inform the caller
+				return nil
 			}
-		} else {
-			runCb()
+		} else if s.Monitor != nil && s.IsRunning() {
+			blockJobsCount := s.BlockJobsCount()
+			if blockJobsCount > 0 {
+				resp.Status = GUEST_BLOCK_STREAM
+			}
+			resp.BlockJobsCount = blockJobsCount
 		}
-		return nil, nil
 	}
-	hostutils.TaskComplete(ctx, jsonutils.Marshal(resp))
-	return nil, nil
+	return resp
 }

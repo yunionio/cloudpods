@@ -153,9 +153,9 @@ func (self *SGuest) doPrepaidRecycleNoLock(ctx context.Context, userCred mcclien
 
 	guestnics, err := self.GetNetworks("")
 	if err != nil || len(guestnics) == 0 {
-		msg := fmt.Sprintf("no network info on guest???? %s", err)
-		log.Errorf(msg)
-		return fmt.Errorf(msg)
+		msg := fmt.Sprintf("no network info on guest???? %v", err)
+		log.Errorf("%s", msg)
+		return fmt.Errorf("%s", msg)
 	}
 	fakeHost.AccessIp = guestnics[0].IpAddr
 	fakeHost.AccessMac = guestnics[0].MacAddr
@@ -196,6 +196,7 @@ func (self *SGuest) doPrepaidRecycleNoLock(ctx context.Context, userCred mcclien
 			1,
 			net.WireId,
 			"",
+			"",
 			1000,
 			nicType,
 			i,
@@ -205,7 +206,10 @@ func (self *SGuest) doPrepaidRecycleNoLock(ctx context.Context, userCred mcclien
 			&ifname,
 			&brname,
 			false,
-			false)
+			false,
+			false,
+			false,
+		)
 		if err != nil {
 			log.Errorf("fail to addNetInterface %d: %s", i, err)
 			fakeHost.RealDelete(ctx, userCred)
@@ -225,7 +229,7 @@ func (self *SGuest) doPrepaidRecycleNoLock(ctx context.Context, userCred mcclien
 			} else {
 				if externalId != storage.ExternalId {
 					msg := "inconsistent storage !!!!"
-					log.Errorf(msg)
+					log.Errorf("%s", msg)
 					fakeHost.RealDelete(ctx, userCred)
 					return errors.Wrap(httperrors.ErrConflict, msg)
 				}
@@ -402,7 +406,7 @@ func doUndoPrepaidRecycleLockHost(ctx context.Context, userCred mcclient.TokenCr
 func doUndoPrepaidRecycleNoLock(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, server *SGuest) error {
 	if host.RealExternalId != server.ExternalId {
 		msg := "host and server external id not match!!!!"
-		log.Errorf(msg)
+		log.Errorf("%v", msg)
 		return errors.Wrap(httperrors.ErrConflict, msg)
 	}
 
@@ -422,12 +426,12 @@ func doUndoPrepaidRecycleNoLock(ctx context.Context, userCred mcclient.TokenCred
 
 	if oHostCnt == 0 {
 		msg := "orthordox host not found???"
-		log.Errorf(msg)
+		log.Errorf("%s", msg)
 		return errors.Wrap(httperrors.ErrConflict, msg)
 	}
 	if oHostCnt > 1 {
 		msg := fmt.Sprintf("more than 1 (%d) orthordox host found???", oHostCnt)
-		log.Errorf(msg)
+		log.Errorf("%s", msg)
 		return errors.Wrap(httperrors.ErrConflict, msg)
 	}
 
@@ -436,8 +440,8 @@ func doUndoPrepaidRecycleNoLock(ctx context.Context, userCred mcclient.TokenCred
 
 	err = q.First(&oHost)
 	if err != nil {
-		msg := fmt.Sprintf("fail to query orthordox host %s", err)
-		log.Errorf(msg)
+		msg := fmt.Sprintf("fail to query orthordox host %v", err)
+		log.Errorf("%s", msg)
 		return errors.Wrap(err, msg)
 	}
 
@@ -451,7 +455,7 @@ func doUndoPrepaidRecycleNoLock(ctx context.Context, userCred mcclient.TokenCred
 			oHostStorage := oHost.GetHoststorageByExternalId(storage.ExternalId)
 			if oHostStorage == nil {
 				msg := fmt.Sprintf("oHost.GetHoststorageByExternalId not found %s", storage.ExternalId)
-				log.Errorf(msg)
+				log.Errorf("%s", msg)
 				return errors.Wrap(httperrors.ErrConflict, msg)
 			}
 		}
@@ -480,7 +484,7 @@ func doUndoPrepaidRecycleNoLock(ctx context.Context, userCred mcclient.TokenCred
 			oHostStorage := oHost.GetHoststorageByExternalId(storage.ExternalId)
 			if oHostStorage == nil {
 				msg := fmt.Sprintf("oHost.GetHoststorageByExternalId not found %s", storage.ExternalId)
-				log.Errorf(msg)
+				log.Errorf("%s", msg)
 				return errors.Wrap(httperrors.ErrConflict, msg)
 			}
 			oStorage := oHostStorage.GetStorage()
@@ -542,11 +546,11 @@ func (self *SHost) BorrowIpAddrsFromGuest(ctx context.Context, userCred mcclient
 		netif := self.GetNetInterface(guestnics[i].MacAddr, 1)
 		if netif == nil {
 			msg := fmt.Sprintf("fail to find netinterface for mac %s", guestnics[i].MacAddr)
-			log.Errorf(msg)
-			return fmt.Errorf(msg)
+			log.Errorf("%s", msg)
+			return fmt.Errorf("%s", msg)
 		}
 
-		err = self.EnableNetif(ctx, userCred, netif, "", guestnics[i].IpAddr, "", "", false, false)
+		err = self.EnableNetif(ctx, userCred, netif, "", guestnics[i].IpAddr, guestnics[i].Ip6Addr, "", "", false, false, false, false)
 		if err != nil {
 			log.Errorf("fail to enable netif %s %s", guestnics[i].IpAddr, err)
 			return err
@@ -586,6 +590,7 @@ func (host *SHost) SetGuestCreateNetworkAndDiskParams(ctx context.Context, userC
 				Network:  hn.NetworkId,
 				Mac:      netifs[i].Mac,
 				Address:  hn.IpAddr,
+				Address6: hn.Ip6Addr,
 				Reserved: true,
 			})
 			netIdx += 1

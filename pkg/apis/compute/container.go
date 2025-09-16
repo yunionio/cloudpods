@@ -130,6 +130,7 @@ const (
 type ContainerSpec struct {
 	apis.ContainerSpec
 	// Volume mounts
+	RootFs       *apis.ContainerRootfs        `json:"rootfs"`
 	VolumeMounts []*apis.ContainerVolumeMount `json:"volume_mounts"`
 	Devices      []*ContainerDevice           `json:"devices"`
 }
@@ -207,6 +208,8 @@ type ContainerSaveVolumeMountToImageInput struct {
 	Index             int      `json:"index"`
 	Dirs              []string `json:"dirs"`
 	UsedByPostOverlay bool     `json:"used_by_post_overlay"`
+
+	DirPrefix string `json:"dir_prefix"`
 }
 
 type ContainerExecInfoOutput struct {

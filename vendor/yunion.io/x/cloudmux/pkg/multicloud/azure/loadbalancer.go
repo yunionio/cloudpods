@@ -188,21 +188,22 @@ func (self *SLoadbalancer) GetEgressMbps() int {
 	return 0
 }
 
-func (self *SLoadbalancer) GetIEIP() (cloudprovider.ICloudEIP, error) {
+func (self *SLoadbalancer) GetIEIPs() ([]cloudprovider.ICloudEIP, error) {
 	properties, err := self.GetProperties()
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetProperties")
 	}
+	ret := []cloudprovider.ICloudEIP{}
 	for _, front := range properties.FrontendIPConfigurations {
 		if len(front.Properties.PublicIPAddress.ID) > 0 {
 			eip, err := self.region.GetEip(front.Properties.PublicIPAddress.ID)
 			if err != nil {
 				return nil, err
 			}
-			return eip, nil
+			ret = append(ret, eip)
 		}
 	}
-	return nil, cloudprovider.ErrNotFound
+	return ret, nil
 }
 
 func (self *SLoadbalancer) Delete(ctx context.Context) error {
@@ -272,7 +273,7 @@ func (self *SLoadbalancer) GetILoadBalancerListenerById(id string) (cloudprovide
 			return lblis[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", id)
 }
 
 func (self *SLoadbalancer) GetILoadBalancerCertificates() ([]cloudprovider.ICloudLoadbalancerCertificate, error) {
@@ -322,7 +323,7 @@ func (self *SLoadbalancer) GetILoadBalancerBackendGroupById(groupId string) (clo
 			return lbbgs[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, groupId)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", groupId)
 }
 
 func (self *SRegion) GetLoadbalancers() ([]SLoadbalancer, error) {

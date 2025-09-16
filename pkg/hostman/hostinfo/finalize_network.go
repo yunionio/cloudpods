@@ -17,7 +17,6 @@ package hostinfo
 import (
 	"context"
 	"fmt"
-	"strconv"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -88,14 +87,14 @@ func (n *SNIC) setupSlaveIp(ctx context.Context, gatewayIp string, maskLen byte)
 	bridgeIf := netutils2.NewNetInterface(n.Bridge)
 	slaveAddrs := bridgeIf.GetSlaveAddresses()
 	var curGatewayIp string
-	var curMaskLen string
+	var curMaskLen int
 	isMaskUpdate := false
 	for i := range slaveAddrs {
 		addr := slaveAddrs[i]
-		curGatewayIp = addr[0]
-		curMaskLen = addr[1]
+		curGatewayIp = addr.Addr
+		curMaskLen = addr.MaskLen
 		if curGatewayIp == gatewayIp {
-			if curMaskLen == fmt.Sprintf("%d", maskLen) {
+			if curMaskLen == int(maskLen) {
 				// already configured, skip
 				return nil
 			} else {
@@ -104,8 +103,8 @@ func (n *SNIC) setupSlaveIp(ctx context.Context, gatewayIp string, maskLen byte)
 			}
 		}
 	}
-	if err := n.BridgeDev.SetupSlaveAddresses([][]string{
-		{gatewayIp, fmt.Sprintf("%d", maskLen)},
+	if err := n.BridgeDev.SetupSlaveAddresses([]netutils2.SNicAddress{
+		{Addr: gatewayIp, MaskLen: int(maskLen)},
 	}); err != nil {
 		return errors.Wrap(err, "SetupSlaveAddresses")
 	}
@@ -114,13 +113,13 @@ func (n *SNIC) setupSlaveIp(ctx context.Context, gatewayIp string, maskLen byte)
 	}
 	if isMaskUpdate {
 		brName := n.BridgeDev.Bridge()
-		logPrefix := fmt.Sprintf("%s slave address %s mask is update from %s to %d", brName, gatewayIp, curMaskLen, maskLen)
-		addr := fmt.Sprintf("%s/%s", gatewayIp, curMaskLen)
+		logPrefix := fmt.Sprintf("%s slave address %s mask is update from %d to %d", brName, gatewayIp, curMaskLen, maskLen)
+		addr := fmt.Sprintf("%s/%d", gatewayIp, curMaskLen)
 		log.Infof("%s: delete addr %s", logPrefix, addr)
 		if err := iproute2.NewAddress(n.BridgeDev.Bridge(), addr).Del().Err(); err != nil {
 			log.Warningf("%s: delete addr %s: %v", logPrefix, addr, err)
 		}
-		curMaskLenInt, _ := strconv.Atoi(curMaskLen)
+		curMaskLenInt := curMaskLen
 		if err := n.deleteMasqueradeRule(ctx, gatewayIp, byte(curMaskLenInt)); err != nil {
 			log.Warningf("%s: delete iptables masqueradeRule: %v", logPrefix, err)
 		}

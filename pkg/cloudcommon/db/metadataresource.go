@@ -66,13 +66,12 @@ func ObjectIdQueryWithTagFiltersOptimized(ctx context.Context, q *sqlchemy.SQuer
 	if len(filters.Filters) > 0 || len(filters.NoFilters) > 0 {
 		idSubQ := q.Copy().SubQuery().Query()
 		idSubQ.AppendField(sqlchemy.DISTINCT(idField, idSubQ.Field(idField)))
-		subQ := idSubQ.SubQuery()
 		if len(filters.Filters) > 0 {
 			if GetMetadaManagerInContext(ctx) == Metadata {
 				sq := tenantIdQueryWithTags(ctx, modelName, filters.Filters)
 				q = q.In(idField, sq.SubQuery())
 			} else { // clickhouse
-				ids := objIdQueryWithTagsOptimized(ctx, subQ, idField, modelName, filters.Filters)
+				ids := tenantIdQueryWithTagsWithCache(ctx, modelName, filters.Filters)
 				if len(ids) > 0 {
 					q = q.In(idField, ids)
 				}
@@ -83,7 +82,7 @@ func ObjectIdQueryWithTagFiltersOptimized(ctx context.Context, q *sqlchemy.SQuer
 				sq := tenantIdQueryWithTags(ctx, modelName, filters.Filters)
 				q = q.NotIn(idField, sq.SubQuery())
 			} else { // clickhouse
-				ids := objIdQueryWithTagsOptimized(ctx, subQ, idField, modelName, filters.NoFilters)
+				ids := tenantIdQueryWithTagsWithCache(ctx, modelName, filters.NoFilters)
 				if len(ids) > 0 {
 					q = q.NotIn(idField, ids)
 				}
@@ -153,6 +152,50 @@ func tenantIdQueryWithTags(ctx context.Context, modelName string, tagsList []map
 	return sq.Filter(sqlchemy.OR(conditions...)).Distinct()
 }
 
+var (
+	tagsCache = hashcache.NewCache(1024, time.Minute*15)
+)
+
+func tenantIdQueryWithTagsWithCache(ctx context.Context, modelName string, tagsList []map[string][]string) []string {
+	manager := Metadata
+
+	ret := []string{}
+	sq := manager.Query("obj_id")
+	for _, tags := range tagsList {
+		if len(tags) == 0 {
+			continue
+		}
+		hashKeys := []string{modelName, jsonutils.Marshal(tags).String()}
+		hash := fmt.Sprintf("%x", md5.Sum([]byte(jsonutils.Marshal(hashKeys).String())))
+		cache := tagsCache.Get(hash)
+		if cache != nil {
+			ids := cache.([]string)
+			ret = append(ret, ids...)
+			log.Debugf("cache hit %s %s %s", hash, hashKeys, ids)
+			continue
+		}
+		conditions := []sqlchemy.ICondition{}
+		for key, val := range tags {
+			if len(val) > 0 {
+				sqq := sq.Copy().Equals("obj_type", modelName).Equals("key", key).In("value", val)
+				conditions = append(conditions, sqlchemy.In(sq.Field("obj_id"), sqq.SubQuery()))
+			} else {
+				sqq := sq.Copy().Equals("obj_type", modelName).Equals("key", key)
+				conditions = append(conditions, sqlchemy.In(sq.Field("obj_id"), sqq.SubQuery()))
+			}
+		}
+		ids, err := FetchIds(sq.Copy().Filter(sqlchemy.AND(conditions...)).Distinct())
+		if err != nil {
+			log.Errorf("FetchIds %s %v", sq.String(), err)
+			continue
+		}
+		ret = append(ret, ids...)
+		log.Debugf("cache miss %s %s %s", hash, hashKeys, ids)
+		tagsCache.AtomicSet(hash, ids)
+	}
+	return ret
+}
+
 func objIdQueryWithTags(ctx context.Context, objIdSubQ *sqlchemy.SSubQuery, idField string, modelName string, tagsList []map[string][]string) *sqlchemy.SQuery {
 	manager := GetMetadaManagerInContext(ctx)
 
@@ -190,53 +233,6 @@ func objIdQueryWithTags(ctx context.Context, objIdSubQ *sqlchemy.SSubQuery, idFi
 		query = uq.Query()
 	}
 	return query
-}
-
-var (
-	tagsCache = hashcache.NewCache(1024, time.Minute*15)
-)
-
-func objIdQueryWithTagsOptimized(ctx context.Context, objIdSubQ *sqlchemy.SSubQuery, idField string, modelName string, tagsList []map[string][]string) []string {
-	manager := GetMetadaManagerInContext(ctx)
-
-	ret := []string{}
-	for _, tags := range tagsList {
-		if len(tags) == 0 {
-			continue
-		}
-		objIdQ := objIdSubQ.Query()
-		objIdQ = objIdQ.AppendField(objIdQ.Field(idField))
-		for key, val := range tags {
-			hashKeys := []string{idField, key, modelName}
-			hashKeys = append(hashKeys, val...)
-			hash := fmt.Sprintf("%x", md5.Sum([]byte(jsonutils.Marshal(hashKeys).String())))
-			cache := tagsCache.Get(hash)
-			if cache != nil {
-				ids := cache.([]string)
-				ret = append(ret, ids...)
-				continue
-			}
-			sq := manager.Query("obj_id").Equals("obj_type", modelName).Equals("key", key)
-			if len(val) > 0 {
-				ssq := sq.In("value", val).SubQuery()
-				if utils.IsInArray(tagutils.NoValue, val) {
-					objIdQ = objIdQ.LeftJoin(ssq, sqlchemy.Equals(objIdQ.Field(idField), ssq.Field("obj_id")))
-				} else {
-					objIdQ = objIdQ.Join(ssq, sqlchemy.Equals(objIdQ.Field(idField), ssq.Field("obj_id")))
-				}
-			} else {
-				ssq := sq.SubQuery()
-				objIdQ = objIdQ.Join(ssq, sqlchemy.Equals(objIdQ.Field(idField), ssq.Field("obj_id")))
-			}
-			ids, err := FetchIds(objIdQ)
-			if err != nil {
-				continue
-			}
-			ret = append(ret, ids...)
-			tagsCache.AtomicSet(hash, ids)
-		}
-	}
-	return ret
 }
 
 func (meta *SMetadataResourceBaseModelManager) ListItemFilter(

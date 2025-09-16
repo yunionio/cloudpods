@@ -261,7 +261,7 @@ func (self *SGuest) createConvertedServer(ctx context.Context, userCred mcclient
 		return nil, nil, errors.Wrap(err, "Do schedule migrate forecast")
 	}
 	if !succ {
-		return nil, nil, httperrors.NewInsufficientResourceError(res.String())
+		return nil, nil, httperrors.NewInsufficientResourceError("%s", res.String())
 	}
 
 	lockman.LockClass(ctx, GuestManager, userCred.GetProjectId())

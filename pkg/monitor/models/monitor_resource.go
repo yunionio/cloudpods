@@ -16,7 +16,6 @@ package models
 
 import (
 	"context"
-	"fmt"
 	"reflect"
 	"sync"
 	"time"
@@ -92,6 +91,8 @@ func (manager *SMonitorResourceManager) GetModelSets() *MonitorResModelSets {
 	return manager.monitorResModelSets
 }
 
+// +onecloud:swagger-gen-model-singular=monitorresource
+// +onecloud:swagger-gen-model-plural=monitorresources
 type SMonitorResourceManager struct {
 	db.SVirtualResourceBaseManager
 	db.SEnabledResourceBaseManager
@@ -168,7 +169,7 @@ func (manager *SMonitorResourceManager) DeleteMonitorResources(ctx context.Conte
 func (manager *SMonitorResourceManager) GetMonitorResourceById(id string) (*SMonitorResource, error) {
 	iModel, err := db.FetchById(manager, id)
 	if err != nil {
-		return nil, errors.Wrapf(err, fmt.Sprintf("GetMonitorResourceById:%s err", id))
+		return nil, errors.Wrapf(err, "GetMonitorResourceById:%s err", id)
 	}
 	return iModel.(*SMonitorResource), nil
 }

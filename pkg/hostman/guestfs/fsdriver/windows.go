@@ -270,13 +270,7 @@ func (w *SWindowsRootFs) DeployHosts(part IDiskPartition, hn, domain string, ips
 		oldHf = string(oldHfBytes)
 	}
 
-	hf := fileutils2.HostsFile{}
-	hf.Parse(oldHf)
-	hf.Add("127.0.0.1", "localhost")
-	for _, ip := range ips {
-		hf.Add(ip, getHostname(hn, domain), hn)
-	}
-	return w.rootFs.FilePutContents(ETC_HOSTS, hf.String(), false, true)
+	return w.rootFs.FilePutContents(ETC_HOSTS, fileutils2.FormatHostsFile(oldHf, ips, hn, getHostname(hn, domain)), false, true)
 }
 
 func (w *SWindowsRootFs) DeployNetworkingScripts(rootfs IDiskPartition, nics []*types.SServerNic) error {
@@ -287,6 +281,10 @@ func (w *SWindowsRootFs) DeployNetworkingScripts(rootfs IDiskPartition, nics []*
 	mainIp := ""
 	if mainNic != nil {
 		mainIp = mainNic.Ip
+	}
+	mainIp6 := ""
+	if mainNic != nil {
+		mainIp6 = mainNic.Ip6
 	}
 	bootScript := strings.Join([]string{
 		`set NETCFG_SCRIPT=%SystemRoot%\netcfg.bat`,
@@ -305,6 +303,21 @@ func (w *SWindowsRootFs) DeployNetworkingScripts(rootfs IDiskPartition, nics []*
 		`  for /f "delims=,,, tokens=1,3" %%b in ("!line!") do (`,
 	}
 
+	hasV6 := false
+	for _, snic := range nics {
+		if len(snic.Ip6) > 0 {
+			hasV6 = true
+			break
+		}
+	}
+	if hasV6 {
+		lines = append(lines, `    netsh interface teredo set state disable`)
+		lines = append(lines, `    netsh interface 6to4 set state state=disabled`)
+		lines = append(lines, `    netsh interface isatap set state state=disabled`)
+		lines = append(lines, `    netsh interface ipv6 set privacy disabled store=persistent`)
+		lines = append(lines, `    netsh interface ipv6 set global randomizeidentifiers=disabled store=persistent`)
+	}
+
 	for _, snic := range nics {
 		mac := snic.Mac
 		mac = strings.Replace(strings.ToUpper(mac), ":", "-", -1)
@@ -313,24 +326,30 @@ func (w *SWindowsRootFs) DeployNetworkingScripts(rootfs IDiskPartition, nics []*
 			lines = append(lines, fmt.Sprintf(`      netsh interface ipv4 set subinterface "%%%%b" mtu=%d`, snic.Mtu))
 		}
 		if snic.Manual {
-			netmask := netutils2.Netlen2Mask(int(snic.Masklen))
-			cfg := fmt.Sprintf(`      netsh interface ip set address "%%%%b" static %s %s`, snic.Ip, netmask)
-			if len(snic.Gateway) > 0 && snic.Ip == mainIp {
-				cfg += fmt.Sprintf(" %s", snic.Gateway)
+			if len(snic.Ip) > 0 {
+				netmask := netutils2.Netlen2Mask(int(snic.Masklen))
+				cfg := fmt.Sprintf(`      netsh interface ip set address "%%%%b" static %s %s`, snic.Ip, netmask)
+				if len(snic.Gateway) > 0 && snic.Ip == mainIp {
+					cfg += fmt.Sprintf(" %s", snic.Gateway)
+				}
+				lines = append(lines, cfg)
 			}
-			lines = append(lines, cfg)
 			if len(snic.Ip6) > 0 {
 				cfg := fmt.Sprintf(`      netsh interface ipv6 add address "%%%%b" %s/%d store=persistent`, snic.Ip6, snic.Masklen6)
 				lines = append(lines, cfg)
-				if len(snic.Gateway) > 0 && snic.Ip == mainIp {
+				if len(snic.Gateway6) > 0 && snic.Ip6 == mainIp6 {
 					cfg := fmt.Sprintf(`      netsh interface ipv6 add route ::/0 "%%%%b" %s`, snic.Gateway6)
 					lines = append(lines, cfg)
 				}
 			}
-			routes := [][]string{}
-			routes = netutils2.AddNicRoutes(routes, snic, mainIp, len(nics))
-			for _, r := range routes {
-				lines = append(lines, fmt.Sprintf(`      netsh interface ip add route %s "%%%%b" %s`, r[0], r[1]))
+			routes4 := []netutils2.SRouteInfo{}
+			routes6 := []netutils2.SRouteInfo{}
+			routes4, routes6 = netutils2.AddNicRoutes(routes4, routes6, snic, mainIp, mainIp6, len(nics))
+			for _, r := range routes4 {
+				lines = append(lines, fmt.Sprintf(`      netsh interface ip add route %s/%d %s "%%%%b"`, r.Prefix, r.PrefixLen, r.Gateway.String()))
+			}
+			for _, r := range routes6 {
+				lines = append(lines, fmt.Sprintf(`      netsh interface ipv6 add route %s/%d %s "%%%%b"`, r.Prefix, r.PrefixLen, r.Gateway.String()))
 			}
 			dnslist := netutils2.GetNicDns(snic)
 			if len(dnslist) > 0 {
@@ -347,15 +366,15 @@ func (w *SWindowsRootFs) DeployNetworkingScripts(rootfs IDiskPartition, nics []*
 				lines = append(lines, w.regAdd(TCPIP_PARAM_KEY, "SearchList", snic.Domain, "REG_SZ"))
 			}
 		} else {
-			lines = append(lines, `      netsh interface ip set address "%%b" dhcp`)
-			lines = append(lines, `      netsh interface ip set dns "%%b" dhcp`)
+			if len(snic.Ip) > 0 {
+				lines = append(lines, `      netsh interface ip set address "%%b" dhcp`)
+				lines = append(lines, `      netsh interface ip set dns "%%b" dhcp`)
+			}
 			if len(snic.Ip6) > 0 {
-				cfg := fmt.Sprintf(`      netsh interface ipv6 add address "%%%%b" %s/%d store=persistent`, snic.Ip6, snic.Masklen6)
+				cfg := `      netsh interface ipv6 set interface "%%b" routerdiscovery=enabled store=persistent`
 				lines = append(lines, cfg)
-				if len(snic.Gateway) > 0 && snic.Ip == mainIp {
-					cfg := fmt.Sprintf(`      netsh interface ipv6 add route ::/0 "%%%%b" %s`, snic.Gateway6)
-					lines = append(lines, cfg)
-				}
+				cfg = `      netsh interface ipv6 set interface "%%b" managedaddress=enabled otherstateful=enabled store=persistent`
+				lines = append(lines, cfg)
 			}
 		}
 		lines = append(lines, `    )`)

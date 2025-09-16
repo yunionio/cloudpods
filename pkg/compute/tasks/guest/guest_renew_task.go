@@ -65,10 +65,10 @@ func (self *GuestRenewTask) OnInit(ctx context.Context, obj db.IStandaloneModel,
 		return
 	}
 
-	err = guest.SaveRenewInfo(ctx, self.UserCred, &bc, &exp, "")
+	err = models.SaveRenewInfo(ctx, self.UserCred, guest, &bc, &exp, "")
 	if err != nil {
 		msg := fmt.Sprintf("SaveRenewInfo fail %s", err)
-		log.Errorf(msg)
+		log.Errorf("%v", msg)
 		self.SetStageFailed(ctx, jsonutils.NewString(msg))
 		return
 	}
@@ -92,7 +92,7 @@ func (self *PrepaidRecycleHostRenewTask) OnInit(ctx context.Context, obj db.ISta
 	ihost, err := host.GetIHost(ctx)
 	if err != nil {
 		msg := fmt.Sprintf("host.GetIHost fail %s", err)
-		log.Errorf(msg)
+		log.Errorf("%v", msg)
 		self.SetStageFailed(ctx, jsonutils.NewString(msg))
 		return
 	}
@@ -100,7 +100,7 @@ func (self *PrepaidRecycleHostRenewTask) OnInit(ctx context.Context, obj db.ISta
 	iVM, err := ihost.GetIVMById(host.RealExternalId)
 	if err != nil {
 		msg := fmt.Sprintf("ihost.GetIVMById fail %s", err)
-		log.Errorf(msg)
+		log.Errorf("%v", msg)
 		self.SetStageFailed(ctx, jsonutils.NewString(msg))
 		return
 	}
@@ -110,7 +110,7 @@ func (self *PrepaidRecycleHostRenewTask) OnInit(ctx context.Context, obj db.ISta
 	err = iVM.Renew(bc)
 	if err != nil {
 		msg := fmt.Sprintf("iVM.Renew fail %s", err)
-		log.Errorf(msg)
+		log.Errorf("%v", msg)
 		self.SetStageFailed(ctx, jsonutils.NewString(msg))
 		return
 	}
@@ -118,7 +118,7 @@ func (self *PrepaidRecycleHostRenewTask) OnInit(ctx context.Context, obj db.ISta
 	err = iVM.Refresh()
 	if err != nil {
 		msg := fmt.Sprintf("refresh after renew fail %s", err)
-		log.Errorf(msg)
+		log.Errorf("%v", msg)
 		self.SetStageFailed(ctx, jsonutils.NewString(msg))
 		return
 	}
@@ -130,7 +130,7 @@ func (self *PrepaidRecycleHostRenewTask) OnInit(ctx context.Context, obj db.ISta
 	err = host.DoSaveRenewInfo(ctx, self.UserCred, &bc, &exp)
 	if err != nil {
 		msg := fmt.Sprintf("SaveRenewInfo fail %s", err)
-		log.Errorf(msg)
+		log.Errorf("%v", msg)
 		self.SetStageFailed(ctx, jsonutils.NewString(msg))
 		return
 	}

@@ -230,11 +230,11 @@ func (self *SKVMHostDriver) CheckAndSetCacheImage(ctx context.Context, userCred 
 			return err
 		}
 
-		srcHost, err := srcHostCacheImage.GetHost()
+		/*srcHost, err := srcHostCacheImage.GetHost()
 		if err != nil {
 			return errors.Wrapf(err, "Get storage cached image %s host", srcHostCacheImage.GetId())
 		}
-		input.SrcUrl = fmt.Sprintf("%s/download/images/%s", srcHost.ManagerUri, input.ImageId)
+		input.SrcUrl = fmt.Sprintf("%s/download/images/%s", srcHost.ManagerUri, input.ImageId)*/
 	}
 
 	url := fmt.Sprintf("%s/disks/image_cache", host.ManagerUri)

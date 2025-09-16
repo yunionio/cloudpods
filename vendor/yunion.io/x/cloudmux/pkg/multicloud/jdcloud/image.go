@@ -180,7 +180,7 @@ func (r *SRegion) GetImage(imageId string) (*SImage, error) {
 		return nil, err
 	}
 	if resp.Error.Code >= 400 {
-		err = fmt.Errorf(resp.Error.Message)
+		err = fmt.Errorf("%s", resp.Error.Message)
 		return nil, err
 	}
 	return &SImage{
@@ -199,9 +199,9 @@ func (r *SRegion) GetImages(imageIds []string, imageSource string, pageNumber, p
 	}
 	if resp.Error.Code >= 400 {
 		if strings.Contains(resp.Error.Message, "secret key is nul") || strings.Contains(resp.Error.Message, "sign result is not same") {
-			return nil, 0, errors.Wrapf(cloudprovider.ErrInvalidAccessKey, resp.Error.Message)
+			return nil, 0, errors.Wrapf(cloudprovider.ErrInvalidAccessKey, "%s", resp.Error.Message)
 		}
-		err = fmt.Errorf(resp.Error.Message)
+		err = fmt.Errorf("%s", resp.Error.Message)
 		return nil, 0, err
 	}
 	images := make([]SImage, len(resp.Result.Images))

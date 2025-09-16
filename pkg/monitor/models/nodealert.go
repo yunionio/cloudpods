@@ -51,10 +51,13 @@ func init() {
 	NodeAlertManager = NewNodeAlertManager()
 }
 
+// +onecloud:swagger-gen-ignore
 type SV1AlertManager struct {
 	SAlertManager
 }
 
+// +onecloud:swagger-gen-model-singular=nodealert
+// +onecloud:swagger-gen-model-plural=nodealerts
 type SNodeAlertManager struct {
 	SCommonAlertManager
 }
@@ -69,6 +72,7 @@ func NewNodeAlertManager() *SNodeAlertManager {
 	return man
 }
 
+// +onecloud:swagger-gen-ignore
 type SV1Alert struct {
 	SAlert
 }

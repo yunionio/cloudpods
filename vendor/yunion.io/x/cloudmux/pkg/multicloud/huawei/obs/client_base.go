@@ -57,7 +57,7 @@ func New(ak, sk, endpoint string, configurers ...configurer) (*ObsClient, error)
 			accessMode = "Path"
 		}
 		info[2] = fmt.Sprintf("Access Mode=%s]", accessMode)
-		doLog(LEVEL_WARN, strings.Join(info, "];["))
+		doLog(LEVEL_WARN, "%s", strings.Join(info, "];["))
 	}
 
 	if conf.httpClient != nil {

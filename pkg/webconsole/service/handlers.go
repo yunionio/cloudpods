@@ -254,6 +254,7 @@ func handleSshShell(ctx context.Context, w http.ResponseWriter, r *http.Request)
 }
 
 func handleSshSession(ctx context.Context, session *session.SSshSession, w http.ResponseWriter) {
+	log.Infof("handleSshSession %s", jsonutils.Marshal(session).String())
 	handleDataSession(ctx, session, w, "ws", nil, false)
 }
 
@@ -469,7 +470,7 @@ func handleAdbShell(ctx context.Context, w http.ResponseWriter, r *http.Request)
 				errMsgs = append(errMsgs, "adb port not found")
 			}
 			if len(errMsgs) > 0 {
-				httperrors.GeneralServerError(ctx, w, httperrors.NewNotSupportedError(strings.Join(errMsgs, ";")))
+				httperrors.GeneralServerError(ctx, w, httperrors.NewNotSupportedError("%s", strings.Join(errMsgs, ";")))
 				return
 			}
 		} else {

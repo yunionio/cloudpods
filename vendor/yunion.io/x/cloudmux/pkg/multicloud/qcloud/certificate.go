@@ -52,7 +52,7 @@ type projectInfo struct {
 
 // https://cloud.tencent.com/document/api/400/13675
 type SCertificate struct {
-	multicloud.SResourceBase
+	multicloud.SCertificateBase
 	QcloudTags
 	client *SQcloudClient
 
@@ -80,7 +80,7 @@ type SCertificate struct {
 	IsVulnerability     bool        `json:"is_vulnerability"`
 
 	// certificate details
-	detailsInitd          bool     `json:"details_initd"`
+	DetailsInitd          bool     `json:"details_initd"`
 	SubjectAltName        []string `json:"subjectAltName"`
 	CertificatePrivateKey string   `json:"CertificatePrivateKey"`
 	CertificatePublicKey  string   `json:"CertificatePublicKey"`
@@ -88,7 +88,7 @@ type SCertificate struct {
 }
 
 func (self *SCertificate) GetDetails() (*SCertificate, error) {
-	if !self.detailsInitd {
+	if !self.DetailsInitd {
 		var (
 			cert *SCertificate
 			err  error
@@ -97,7 +97,7 @@ func (self *SCertificate) GetDetails() (*SCertificate, error) {
 		if err != nil {
 			return nil, err
 		}
-		self.detailsInitd = true
+		self.DetailsInitd = true
 		self.SubjectAltName = cert.SubjectAltName
 		self.CertificatePrivateKey = cert.CertificatePrivateKey
 		self.CertificatePublicKey = cert.CertificatePublicKey
@@ -218,14 +218,6 @@ func (self *SCertificate) GetCountry() string {
 
 func (self *SCertificate) GetIssuer() string {
 	return self.ProductZhName
-}
-
-func (self *SCertificate) GetExpired() bool {
-	if self.Status == 3 {
-		return true
-	} else {
-		return false
-	}
 }
 
 func (self *SCertificate) GetEndDate() time.Time {

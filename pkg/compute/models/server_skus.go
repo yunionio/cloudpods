@@ -122,13 +122,18 @@ type SServerSku struct {
 
 func (manager *SServerSkuManager) FetchUniqValues(ctx context.Context, data jsonutils.JSONObject) jsonutils.JSONObject {
 	regionId, _ := data.GetString("cloudregion_id")
-	return jsonutils.Marshal(map[string]string{"cloudregion_id": regionId})
+	zoneId, _ := data.GetString("zone_id")
+	return jsonutils.Marshal(map[string]string{"cloudregion_id": regionId, "zone_id": zoneId})
 }
 
 func (manager *SServerSkuManager) FilterByUniqValues(q *sqlchemy.SQuery, values jsonutils.JSONObject) *sqlchemy.SQuery {
 	regionId, _ := values.GetString("cloudregion_id")
 	if len(regionId) > 0 {
 		q = q.Equals("cloudregion_id", regionId)
+	}
+	zoneId, _ := values.GetString("zone_id")
+	if len(zoneId) > 0 {
+		q = q.Equals("zone_id", zoneId)
 	}
 	return q
 }
@@ -351,8 +356,6 @@ func (self *SServerSkuManager) ValidateCreateData(ctx context.Context, userCred 
 	if input.Provider == api.CLOUD_PROVIDER_ONECLOUD {
 	} else if utils.IsInStringArray(input.Provider, api.PRIVATE_CLOUD_PROVIDERS) {
 		input.Status = api.SkuStatusCreating
-	} else {
-		return input, httperrors.NewUnsupportOperationError("Not support create public cloud sku")
 	}
 
 	input.LocalCategory = input.InstanceTypeCategory
@@ -1199,7 +1202,7 @@ func (region *SCloudregion) newPublicCloudSku(ctx context.Context, userCred mccl
 		zoneId := sku.ZoneId
 		sku.ZoneId = yunionmeta.GetZoneIdBySuffix(zoneMaps, zoneId)
 		if len(sku.ZoneId) == 0 {
-			return errors.Wrapf(cloudprovider.ErrNotFound, zoneId)
+			return errors.Wrapf(cloudprovider.ErrNotFound, "%v", zoneId)
 		}
 	}
 
@@ -1486,7 +1489,7 @@ func (self *SServerSku) GetICloudSku(ctx context.Context) (cloudprovider.ICloudS
 			}
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, self.ExternalId)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%v", self.ExternalId)
 }
 
 func fetchSkuSyncCloudregions() []SCloudregion {
@@ -1552,8 +1555,8 @@ func SyncServerSkus(ctx context.Context, userCred mcclient.TokenCredential, isSt
 		db.Metadata.SetValue(ctx, skuMeta, db.SKU_METADAT_KEY, newMd5, userCred)
 
 		result := ServerSkuManager.SyncServerSkus(ctx, userCred, region, false)
-		notes := fmt.Sprintf("SyncServerSkusByRegion %s result: %s", region.Name, result.Result())
-		log.Debugf(notes)
+		notes := fmt.Sprintf("SyncServerSkusByRegion %s result: %v", region.Name, result.Result())
+		log.Debugf("%s", notes)
 	}
 
 }
@@ -1562,7 +1565,7 @@ func SyncServerSkus(ctx context.Context, userCred mcclient.TokenCredential, isSt
 func SyncServerSkusByRegion(ctx context.Context, userCred mcclient.TokenCredential, region *SCloudregion, xor bool) compare.SyncResult {
 	result := compare.SyncResult{}
 	result = ServerSkuManager.SyncServerSkus(ctx, userCred, region, xor)
-	notes := fmt.Sprintf("SyncServerSkusByRegion %s result: %s", region.Name, result.Result())
-	log.Infof(notes)
+	notes := fmt.Sprintf("SyncServerSkusByRegion %s result: %v", region.Name, result.Result())
+	log.Infof("%s", notes)
 	return result
 }

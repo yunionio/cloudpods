@@ -106,22 +106,22 @@ var (
 
 type TWafMatchFieldValues []string
 
-func (self TWafMatchFieldValues) IsZero() bool {
-	return len(self) == 0
+func (values TWafMatchFieldValues) IsZero() bool {
+	return len(values) == 0
 }
 
-func (self TWafMatchFieldValues) String() string {
-	return jsonutils.Marshal(self).String()
+func (values TWafMatchFieldValues) String() string {
+	return jsonutils.Marshal(values).String()
 }
 
 type TextTransformations []TWafTextTransformation
 
-func (self TextTransformations) IsZero() bool {
-	return len(self) == 0
+func (transformations TextTransformations) IsZero() bool {
+	return len(transformations) == 0
 }
 
-func (self TextTransformations) String() string {
-	return jsonutils.Marshal(self).String()
+func (transformations TextTransformations) String() string {
+	return jsonutils.Marshal(transformations).String()
 }
 
 type SExcludeRule struct {
@@ -130,20 +130,24 @@ type SExcludeRule struct {
 
 type SExcludeRules []SExcludeRule
 
-func (self SExcludeRules) IsZero() bool {
-	return len(self) == 0
+func (rules SExcludeRules) IsZero() bool {
+	return len(rules) == 0
 }
 
-func (self SExcludeRules) String() string {
-	return jsonutils.Marshal(self).String()
+func (rules SExcludeRules) String() string {
+	return jsonutils.Marshal(rules).String()
 }
 
 type SWafRule struct {
 	Name               string
 	Desc               string
 	Action             *DefaultAction
+	Type               string
 	StatementCondition TWafStatementCondition
+	Expression         string
+	Config             jsonutils.JSONObject
 	Priority           int
+	Enable             bool
 	Statements         []SWafStatement
 }
 
@@ -181,22 +185,22 @@ type SWafStatement struct {
 	RuleGroupId string `width:"36" charset:"ascii" nullable:"false" list:"user"`
 }
 
-func (self SWafStatement) GetGlobalId() string {
+func (statement SWafStatement) GetGlobalId() string {
 	id := fmt.Sprintf("%s-%s-%s-%s-%s",
-		self.Type,
-		self.MatchField,
-		self.MatchFieldKey,
-		self.ManagedRuleGroupName,
-		self.SearchString,
+		statement.Type,
+		statement.MatchField,
+		statement.MatchFieldKey,
+		statement.ManagedRuleGroupName,
+		statement.SearchString,
 	)
-	if self.Type == WafStatementTypeGeoMatch || self.Type == WafStatementTypeRate || self.Type == WafStatementTypeLabelMatch {
-		id = fmt.Sprintf("%s-%s", id, self.MatchFieldValues)
+	if statement.Type == WafStatementTypeGeoMatch || statement.Type == WafStatementTypeRate || statement.Type == WafStatementTypeLabelMatch {
+		id = fmt.Sprintf("%s-%s", id, statement.MatchFieldValues)
 	}
 	return id
 }
 
-func (self SWafStatement) GetExternalId() string {
-	return self.GetGlobalId()
+func (statement SWafStatement) GetExternalId() string {
+	return statement.GetGlobalId()
 }
 
 // +onecloud:model-api-gen
@@ -219,31 +223,31 @@ type WafSourceIps []string
 // +onecloud:model-api-gen
 type WafRegexPatterns []string
 
-func (self WafRegexPatterns) IsZero() bool {
-	return len(self) == 0
+func (patterns WafRegexPatterns) IsZero() bool {
+	return len(patterns) == 0
 }
 
-func (self WafRegexPatterns) String() string {
-	return jsonutils.Marshal(self).String()
+func (patterns WafRegexPatterns) String() string {
+	return jsonutils.Marshal(patterns).String()
 }
 
 // +onecloud:model-api-gen
 type WafAddresses []string
 
-func (self WafAddresses) IsZero() bool {
-	return len(self) == 0
+func (addresses WafAddresses) IsZero() bool {
+	return len(addresses) == 0
 }
 
-func (self WafAddresses) String() string {
-	return jsonutils.Marshal(self).String()
+func (addresses WafAddresses) String() string {
+	return jsonutils.Marshal(addresses).String()
 }
 
-func (self DefaultAction) IsZero() bool {
+func (action DefaultAction) IsZero() bool {
 	return false
 }
 
-func (self DefaultAction) String() string {
-	return jsonutils.Marshal(self).String()
+func (action DefaultAction) String() string {
+	return jsonutils.Marshal(action).String()
 }
 
 type SCloudResource struct {
@@ -260,7 +264,7 @@ type SCloudResource struct {
 }
 
 type SCloudResources struct {
-	Data  []SCloudResource `json:",allowempty"`
+	Data  []SCloudResource `json:"data,allowempty"`
 	Total int
 }
 

@@ -23,7 +23,7 @@ type SLoadbalancerBase struct {
 	SVirtualResourceBase
 }
 
-func (lb *SLoadbalancerBase) GetIEIP() (cloudprovider.ICloudEIP, error) {
+func (lb *SLoadbalancerBase) GetIEIPs() ([]cloudprovider.ICloudEIP, error) {
 	return nil, nil
 }
 

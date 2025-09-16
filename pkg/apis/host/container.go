@@ -41,6 +41,12 @@ type ContainerVolumeMountCephFS struct {
 	Name    string `json:"name"`
 }
 
+type ContainerRootfs struct {
+	Type apis.ContainerVolumeMountType `json:"type"`
+	Disk *ContainerVolumeMountDisk     `json:"disk"`
+	// CephFS *ContainerVolumeMountCephFS   `json:"ceph_fs"`
+}
+
 type ContainerVolumeMount struct {
 	// 用于标识当前 pod volume mount 的唯一性
 	UniqueName string                             `json:"unique_name"`
@@ -65,6 +71,7 @@ type ContainerVolumeMount struct {
 type ContainerSpec struct {
 	apis.ContainerSpec
 	ImageCredentialToken string                  `json:"image_credential_token"`
+	Rootfs               *ContainerRootfs        `json:"rootfs"`
 	VolumeMounts         []*ContainerVolumeMount `json:"volume_mounts"`
 	Devices              []*ContainerDevice      `json:"devices"`
 }
@@ -79,13 +86,15 @@ type ContainerDevice struct {
 }
 
 type ContainerIsolatedDevice struct {
-	Id         string                                 `json:"id"`
-	Addr       string                                 `json:"addr"`
-	Path       string                                 `json:"path"`
-	DeviceType string                                 `json:"device_type"`
-	CardPath   string                                 `json:"card_path"`
-	RenderPath string                                 `json:"render_path"`
-	OnlyEnv    []*apis.ContainerIsolatedDeviceOnlyEnv `json:"only_env"`
+	Id          string                                 `json:"id"`
+	Addr        string                                 `json:"addr"`
+	Path        string                                 `json:"path"`
+	DeviceType  string                                 `json:"device_type"`
+	CardPath    string                                 `json:"card_path"`
+	RenderPath  string                                 `json:"render_path"`
+	Index       int                                    `json:"index"`
+	DeviceMinor int                                    `json:"device_minor"`
+	OnlyEnv     []*apis.ContainerIsolatedDeviceOnlyEnv `json:"only_env"`
 }
 
 type ContainerHostDevice struct {
@@ -130,6 +139,8 @@ type ContainerSaveVolumeMountToImageInput struct {
 	VolumeMountIndex int                   `json:"volume_mount_index"`
 	VolumeMount      *ContainerVolumeMount `json:"volume_mount"`
 	VolumeMountDirs  []string              `json:"volume_mount_dirs"`
+
+	VolumeMountPrefix string `json:"volume_mount_prefix"`
 }
 
 type ContainerCommitInput struct {

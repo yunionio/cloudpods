@@ -44,6 +44,12 @@ type Network struct {
 	Renderer  NetworkRenderer            `json:"renderer"`
 	Ethernets map[string]*EthernetConfig `json:"ethernets"`
 	Bonds     map[string]*Bond           `json:"bonds"`
+	Vlans     map[string]*VlanConfig     `json:"vlans"`
+}
+
+func (n *Network) AddVlan(name string, vlan *VlanConfig) *Network {
+	n.Vlans[name] = vlan
+	return n
 }
 
 type EthernetConfigMatch struct {
@@ -59,6 +65,7 @@ func NewEthernetConfigMatchMac(macAddr string) *EthernetConfigMatch {
 type EthernetConfig struct {
 	DHCP4       bool                 `json:"dhcp4,omitfalse"`
 	DHCP6       bool                 `json:"dhcp6,omitfalse"`
+	AcceptRa    bool                 `json:"accept-ra,omitfalse"`
 	Addresses   []string             `json:"addresses"`
 	Match       *EthernetConfigMatch `json:"match"`
 	MacAddress  string               `json:"macaddress"`
@@ -67,6 +74,12 @@ type EthernetConfig struct {
 	Routes      []*Route             `json:"routes"`
 	Nameservers *Nameservers         `json:"nameservers"`
 	Mtu         int16                `json:"mtu,omitzero"`
+}
+
+type VlanConfig struct {
+	EthernetConfig
+	Id   int    `json:"id"`
+	Link string `json:"link"`
 }
 
 type Route struct {
@@ -168,6 +181,7 @@ func NewNetwork() *Network {
 		Renderer:  NetworkRendererNetworkd,
 		Ethernets: make(map[string]*EthernetConfig),
 		Bonds:     make(map[string]*Bond),
+		Vlans:     make(map[string]*VlanConfig),
 	}
 }
 
@@ -185,14 +199,19 @@ func (n *Network) YAMLString() string {
 	return toYAMLString(n)
 }
 
-func NewDHCP4EthernetConfig() *EthernetConfig {
-	return &EthernetConfig{
-		DHCP4: true,
-	}
+func NewDHCPEthernetConfig() *EthernetConfig {
+	return &EthernetConfig{}
 }
 
-func (c *EthernetConfig) EnableDHCP6() {
+func (c *EthernetConfig) EnableDHCP4() *EthernetConfig {
+	c.DHCP4 = true
+	return c
+}
+
+func (c *EthernetConfig) EnableDHCP6() *EthernetConfig {
 	c.DHCP6 = true
+	c.AcceptRa = true
+	return c
 }
 
 func NewStaticEthernetConfig(

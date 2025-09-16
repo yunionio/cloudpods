@@ -56,24 +56,27 @@ type GuestRuntimeInstance interface {
 	IsSuspend() bool
 	IsLoaded() bool
 	GetNicDescMatch(mac, ip, port, bridge string) *desc.SGuestNetwork
+	GetIpv6NicMacs(bridge string) []string
 	CleanGuest(ctx context.Context, params interface{}) (jsonutils.JSONObject, error)
 	CleanDirtyGuest(ctx context.Context) error
 	ImportServer(pendingDelete bool)
 	ExitCleanup(bool)
 
-	HandleGuestStatus(ctx context.Context, resp *computeapi.HostUploadGuestStatusResponse) (jsonutils.JSONObject, error)
-	GetUploadStatus(ctx context.Context, reason string) (*computeapi.HostUploadGuestStatusResponse, error)
-	PostUploadStatus(resp *computeapi.HostUploadGuestStatusResponse, reason string)
+	HandleGuestStatus(ctx context.Context, resp *computeapi.HostUploadGuestStatusInput, isBatch bool) *computeapi.HostUploadGuestStatusInput
+	GetUploadStatus(ctx context.Context, reason string) (*computeapi.HostUploadGuestStatusInput, error)
+	PostUploadStatus(resp *computeapi.HostUploadGuestStatusInput, reason string)
 	HandleGuestStart(ctx context.Context, userCred mcclient.TokenCredential, body jsonutils.JSONObject) (jsonutils.JSONObject, error)
 
 	HandleStop(ctx context.Context, timeout int64) error
 
 	LoadDesc() error
 	PostLoad(m *SGuestManager) error
-	SyncConfig(ctx context.Context, guestDesc *desc.SGuestDesc, fwOnly bool) (jsonutils.JSONObject, error)
+	SyncConfig(ctx context.Context, guestDesc *desc.SGuestDesc, fwOnly, setUefiBootOrder bool) (jsonutils.JSONObject, error)
 	DoSnapshot(ctx context.Context, params *SDiskSnapshot) (jsonutils.JSONObject, error)
 	DeleteSnapshot(ctx context.Context, params *SDeleteDiskSnapshot) (jsonutils.JSONObject, error)
 	OnlineResizeDisk(ctx context.Context, disk storageman.IDisk, sizeMB int64)
+
+	GetDependsImageIds(storageType string) []string
 }
 
 type sBaseGuestInstance struct {
@@ -168,6 +171,16 @@ func (s *sBaseGuestInstance) GetNicDescMatch(mac, ip, port, bridge string) *desc
 		}
 	}
 	return nil
+}
+
+func (s *sBaseGuestInstance) GetIpv6NicMacs(bridge string) []string {
+	macs := []string{}
+	for _, nic := range s.Desc.Nics {
+		if nic.Bridge == bridge && len(nic.Ip6) > 0 {
+			macs = append(macs, nic.Mac)
+		}
+	}
+	return macs
 }
 
 func LoadGuestCpuset(m *SGuestManager, s GuestRuntimeInstance) error {
@@ -393,7 +406,7 @@ func SaveLiveDesc(s GuestRuntimeInstance, guestDesc *desc.SGuestDesc) error {
 		if nic.IsDefault {
 			defaultGwCnt++
 		}
-		defNics = defNics.Add(nic.Ip, nic.Mac, nic.Gateway)
+		defNics = defNics.Add(nic.Mac, nic.Ip, nic.Gateway, nic.Ip6, nic.Gateway6, nic.IsDefault)
 	}
 
 	// there should 1 and only 1 default gateway

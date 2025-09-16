@@ -360,6 +360,14 @@ func (self *SElbListener) GetHealthCheckDomain() string {
 	return ""
 }
 
+func (self *SElbListener) GetHealthCheckMethod() string {
+	return ""
+}
+
+func (self *SElbListener) GetHealthCheckPort() int {
+	return 0
+}
+
 func (self *SElbListener) GetHealthCheckURI() string {
 	lbbg, err := self.GetBackendGroup()
 	if err != nil {

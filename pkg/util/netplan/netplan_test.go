@@ -21,13 +21,13 @@ import (
 )
 
 func TestNewEthernetConfig(t *testing.T) {
-	c := NewDHCP4EthernetConfig()
+	c := NewDHCPEthernetConfig().EnableDHCP4()
 
 	assert := assert.New(t)
 	assert.YAMLEq("dhcp4: true", c.YAMLString())
 
 	c.EnableDHCP6()
-	assert.YAMLEq("dhcp4: true\ndhcp6: true", c.YAMLString())
+	assert.YAMLEq("dhcp4: true\ndhcp6: true\naccept-ra: true", c.YAMLString())
 }
 
 func TestNewBondMode4(t *testing.T) {
@@ -72,7 +72,7 @@ parameters:
 
 func TestNewNetwork(t *testing.T) {
 	n := NewNetwork()
-	n.AddEthernet("eth0", NewDHCP4EthernetConfig())
+	n.AddEthernet("eth0", NewDHCPEthernetConfig().EnableDHCP4())
 	n.AddEthernet("eth1", NewStaticEthernetConfig(
 		"10.10.10.2/24",
 		"",

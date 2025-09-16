@@ -79,14 +79,25 @@ func (self *SGoogleGuestDriver) GetInstanceCapability() cloudprovider.SInstanceC
 		},
 		Storages: cloudprovider.Storage{
 			DataDisk: []cloudprovider.StorageInfo{
-				cloudprovider.StorageInfo{StorageType: api.STORAGE_GOOGLE_PD_SSD, MaxSizeGb: 65536, MinSizeGb: 10, StepSizeGb: 1, Resizable: false},
-				cloudprovider.StorageInfo{StorageType: api.STORAGE_GOOGLE_PD_STANDARD, MaxSizeGb: 65536, MinSizeGb: 10, StepSizeGb: 1, Resizable: false},
-				cloudprovider.StorageInfo{StorageType: api.STORAGE_GOOGLE_PD_BALANCED, MaxSizeGb: 65536, MinSizeGb: 10, StepSizeGb: 1, Resizable: false},
+				{StorageType: api.STORAGE_GOOGLE_PD_SSD, MaxSizeGb: 65536, MinSizeGb: 10, StepSizeGb: 1, Resizable: false},
+				{StorageType: api.STORAGE_GOOGLE_PD_STANDARD, MaxSizeGb: 65536, MinSizeGb: 10, StepSizeGb: 1, Resizable: false},
+				{StorageType: api.STORAGE_GOOGLE_PD_BALANCED, MaxSizeGb: 65536, MinSizeGb: 10, StepSizeGb: 1, Resizable: false},
+				{StorageType: api.STORAGE_GOOGLE_PD_EXTREME, MaxSizeGb: 65536, MinSizeGb: 500, StepSizeGb: 1, Resizable: false},
+				{StorageType: api.STORAGE_GOOGLE_LOCAL_SSD, MaxSizeGb: 375, MinSizeGb: 375, StepSizeGb: 1, Resizable: false},
+				{StorageType: api.STORAGE_GOOGLE_HYPERDISK_BALANCED, MaxSizeGb: 65536, MinSizeGb: 4, StepSizeGb: 1, Resizable: false},
+				{StorageType: api.STORAGE_GOOGLE_HYPERDISK_EXTREME, MaxSizeGb: 65536, MinSizeGb: 64, StepSizeGb: 1, Resizable: false},
+				{StorageType: api.STORAGE_GOOGLE_HYPERDISK_THROUGHPUT, MaxSizeGb: 32768, MinSizeGb: 2048, StepSizeGb: 1, Resizable: false},
+				{StorageType: api.STORAGE_GOOGLE_HYPERDISK_ML, MaxSizeGb: 65536, MinSizeGb: 4, StepSizeGb: 1, Resizable: false},
 			},
 			SysDisk: []cloudprovider.StorageInfo{
-				cloudprovider.StorageInfo{StorageType: api.STORAGE_GOOGLE_PD_SSD, MaxSizeGb: 65536, MinSizeGb: 10, StepSizeGb: 1, Resizable: false},
-				cloudprovider.StorageInfo{StorageType: api.STORAGE_GOOGLE_PD_STANDARD, MaxSizeGb: 65536, MinSizeGb: 10, StepSizeGb: 1, Resizable: false},
-				cloudprovider.StorageInfo{StorageType: api.STORAGE_GOOGLE_PD_BALANCED, MaxSizeGb: 65536, MinSizeGb: 10, StepSizeGb: 1, Resizable: false},
+				{StorageType: api.STORAGE_GOOGLE_PD_SSD, MaxSizeGb: 65536, MinSizeGb: 10, StepSizeGb: 1, Resizable: false},
+				{StorageType: api.STORAGE_GOOGLE_PD_STANDARD, MaxSizeGb: 65536, MinSizeGb: 10, StepSizeGb: 1, Resizable: false},
+				{StorageType: api.STORAGE_GOOGLE_PD_BALANCED, MaxSizeGb: 65536, MinSizeGb: 10, StepSizeGb: 1, Resizable: false},
+				{StorageType: api.STORAGE_GOOGLE_PD_EXTREME, MaxSizeGb: 65536, MinSizeGb: 500, StepSizeGb: 1, Resizable: false},
+				{StorageType: api.STORAGE_GOOGLE_HYPERDISK_BALANCED, MaxSizeGb: 65536, MinSizeGb: 4, StepSizeGb: 1, Resizable: false},
+				{StorageType: api.STORAGE_GOOGLE_HYPERDISK_EXTREME, MaxSizeGb: 65536, MinSizeGb: 64, StepSizeGb: 1, Resizable: false},
+				{StorageType: api.STORAGE_GOOGLE_HYPERDISK_THROUGHPUT, MaxSizeGb: 32768, MinSizeGb: 2048, StepSizeGb: 1, Resizable: false},
+				{StorageType: api.STORAGE_GOOGLE_HYPERDISK_ML, MaxSizeGb: 65536, MinSizeGb: 4, StepSizeGb: 1, Resizable: false},
 			},
 		},
 	}
@@ -105,7 +116,12 @@ func (self *SGoogleGuestDriver) GetStorageTypes() []string {
 		api.STORAGE_GOOGLE_PD_SSD,
 		api.STORAGE_GOOGLE_PD_STANDARD,
 		api.STORAGE_GOOGLE_PD_BALANCED,
+		api.STORAGE_GOOGLE_PD_EXTREME,
 		api.STORAGE_GOOGLE_LOCAL_SSD,
+		api.STORAGE_GOOGLE_HYPERDISK_BALANCED,
+		api.STORAGE_GOOGLE_HYPERDISK_EXTREME,
+		api.STORAGE_GOOGLE_HYPERDISK_THROUGHPUT,
+		api.STORAGE_GOOGLE_HYPERDISK_ML,
 	}
 }
 
@@ -141,7 +157,12 @@ func (self *SGoogleGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk *m
 	if !utils.IsInStringArray(guest.Status, []string{api.VM_READY, api.VM_RUNNING}) {
 		return fmt.Errorf("Cannot resize disk when guest in status %s", guest.Status)
 	}
-	if !utils.IsInStringArray(storage.StorageType, []string{api.STORAGE_GOOGLE_PD_SSD, api.STORAGE_GOOGLE_PD_STANDARD, api.STORAGE_GOOGLE_PD_BALANCED}) {
+	if !utils.IsInStringArray(storage.StorageType, []string{
+		api.STORAGE_GOOGLE_PD_SSD, api.STORAGE_GOOGLE_PD_STANDARD,
+		api.STORAGE_GOOGLE_PD_BALANCED, api.STORAGE_GOOGLE_PD_EXTREME,
+		api.STORAGE_GOOGLE_HYPERDISK_BALANCED, api.STORAGE_GOOGLE_HYPERDISK_EXTREME,
+		api.STORAGE_GOOGLE_HYPERDISK_THROUGHPUT, api.STORAGE_GOOGLE_HYPERDISK_ML,
+	}) {
 		return fmt.Errorf("Cannot resize %s disk", storage.StorageType)
 	}
 	return nil
@@ -163,10 +184,22 @@ func (self *SGoogleGuestDriver) ValidateCreateData(ctx context.Context, userCred
 		case api.STORAGE_GOOGLE_PD_SSD, api.STORAGE_GOOGLE_PD_STANDARD, api.STORAGE_GOOGLE_PD_BALANCED:
 			minGB = 10
 			maxGB = 65536
+		case api.STORAGE_GOOGLE_PD_EXTREME:
+			minGB = 500
+			maxGB = 65536
 		case api.STORAGE_GOOGLE_LOCAL_SSD:
 			minGB = 375
 			maxGB = 375
 			localDisk++
+		case api.STORAGE_GOOGLE_HYPERDISK_BALANCED, api.STORAGE_GOOGLE_HYPERDISK_ML:
+			minGB = 4
+			maxGB = 65536
+		case api.STORAGE_GOOGLE_HYPERDISK_THROUGHPUT:
+			minGB = 2048
+			maxGB = 32768
+		case api.STORAGE_GOOGLE_HYPERDISK_EXTREME:
+			minGB = 64
+			maxGB = 65536
 		default:
 			return nil, httperrors.NewInputParameterError("Unknown google storage type %s", disk.Backend)
 		}
@@ -228,7 +261,7 @@ func (self *SGoogleGuestDriver) RequestStartOnHost(ctx context.Context, guest *m
 				}
 				log.Debugf("wait for google startup scripts finish")
 				if strings.Contains(output, keyword) {
-					log.Debugf(keyword)
+					log.Debugf("%s", keyword)
 					return true, nil
 				}
 				return false, nil
@@ -261,7 +294,7 @@ func (self *SGoogleGuestDriver) RemoteActionAfterGuestCreated(ctx context.Contex
 			}
 			log.Debugf("wait for google sysprep finish")
 			if strings.Contains(output, keyword) {
-				log.Debugf(keyword)
+				log.Debugf("%s", keyword)
 				return true, nil
 			}
 			return false, nil

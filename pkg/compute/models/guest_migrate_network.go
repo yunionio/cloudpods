@@ -125,7 +125,8 @@ func (guest *SGuest) PerformMigrateNetwork(ctx context.Context, userCred mcclien
 	// perform the database change
 	_, err = db.Update(&srcNic, func() error {
 		srcNic.NetworkId = destNet.Id
-		srcNic.MappedIpAddr = "" // reset MappedIpAddr anyway
+		srcNic.MappedIpAddr = ""  // reset MappedIpAddr anyway
+		srcNic.MappedIp6Addr = "" // reset MappedIp6Addr anyway
 		return nil
 	})
 	if err != nil {

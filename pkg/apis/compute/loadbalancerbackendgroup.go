@@ -14,13 +14,22 @@
 
 package compute
 
-import "yunion.io/x/onecloud/pkg/apis"
+import (
+	"reflect"
+
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/gotypes"
+
+	"yunion.io/x/onecloud/pkg/apis"
+)
 
 type LoadbalancerBackendGroupDetails struct {
 	apis.StatusStandaloneResourceDetails
 	LoadbalancerResourceInfo
 
 	SLoadbalancerBackendGroup
+
+	LoadbalancerHealthCheck string `json:"loadbalancer_health_check"`
 
 	LbListenerCount int `json:"lb_listener_count"`
 
@@ -59,10 +68,12 @@ type LoadbalancerBackendGroupFilterListInput struct {
 type LoadbalancerBackendGroupCreateInput struct {
 	apis.StatusStandaloneResourceCreateInput
 
-	//swagger: ignore
+	//swagger:ignore
 	Loadbalancer string `json:"loadbalancer" yunion-deprecated-by:"loadbalancer_id"`
 	// 负载均衡ID
-	LoadbalancerId string `json:"loadbalancer_id"`
+	LoadbalancerId            string `json:"loadbalancer_id"`
+	Scheduler                 string `json:"scheduler"`
+	LoadbalancerHealthCheckId string `json:"loadbalancer_health_check_id"`
 
 	Type string `json:"type"`
 
@@ -91,4 +102,46 @@ type LoadbalancerBackendGroupListInput struct {
 	NoRef *bool `json:"no_ref"`
 
 	Type []string `json:"type"`
+}
+
+type ListenerRuleBackendGroup struct {
+	// 后端服务器组组ID
+	Id string
+	// swagger:ignore
+	Name string
+	// swagger:ignore
+	ExternalId string
+}
+
+type ListenerRuleBackendGroups []ListenerRuleBackendGroup
+
+func (groups ListenerRuleBackendGroups) String() string {
+	return jsonutils.Marshal(groups).String()
+}
+
+func (groups ListenerRuleBackendGroups) IsZero() bool {
+	return len(groups) == 0
+}
+
+type ListenerRuleRedirectPool struct {
+	RegionPools  map[string]ListenerRuleBackendGroups
+	CountryPools map[string]ListenerRuleBackendGroups
+}
+
+func (pool ListenerRuleRedirectPool) String() string {
+	return jsonutils.Marshal(pool).String()
+}
+
+func (pool ListenerRuleRedirectPool) IsZero() bool {
+	return len(pool.RegionPools) == 0 && len(pool.CountryPools) == 0
+}
+
+func init() {
+	gotypes.RegisterSerializable(reflect.TypeOf(&ListenerRuleBackendGroups{}), func() gotypes.ISerializable {
+		return &ListenerRuleBackendGroups{}
+	})
+
+	gotypes.RegisterSerializable(reflect.TypeOf(&ListenerRuleRedirectPool{}), func() gotypes.ISerializable {
+		return &ListenerRuleRedirectPool{}
+	})
 }

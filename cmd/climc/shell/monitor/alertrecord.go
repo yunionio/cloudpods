@@ -23,5 +23,6 @@ func init() {
 	cmd := NewResourceCmd(modules.AlertRecordManager)
 	cmd.List(new(options.AlertRecordListOptions))
 	cmd.Show(new(options.AlertRecordShowOptions))
-	cmd.Get("", new(options.AlertRecordTotalOptions))
+	cmd.GetProperty(new(options.AlertRecordTotalOptions))
+	cmd.GetProperty(new(options.AlertRecordHistoryAlertOptions))
 }

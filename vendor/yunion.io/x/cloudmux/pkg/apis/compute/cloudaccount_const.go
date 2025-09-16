@@ -56,6 +56,8 @@ const (
 	CLOUD_PROVIDER_CEPHFS    = "CephFS"
 	CLOUD_PROVIDER_XSKY      = "Xsky"
 
+	CLOUD_PROVIDER_CLOUDFLARE = "Cloudflare"
+
 	CLOUD_PROVIDER_HEALTH_NORMAL        = "normal"        // 远端处于健康状态
 	CLOUD_PROVIDER_HEALTH_INSUFFICIENT  = "insufficient"  // 不足按需资源余额
 	CLOUD_PROVIDER_HEALTH_SUSPENDED     = "suspended"     // 远端处于冻结状态

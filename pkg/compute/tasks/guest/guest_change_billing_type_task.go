@@ -19,7 +19,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 
-	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -49,12 +49,12 @@ func (self *GuestChangeBillingTypeTask) OnInit(ctx context.Context, obj db.IStan
 }
 
 func (self *GuestChangeBillingTypeTask) OnGuestChangeBillingTypeTaskComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
-	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_CHANGE_BILLING_TYPE, guest.BillingType, self.UserCred, false)
+	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_CHANGE_BILLING_TYPE, guest.BillingType, self.UserCred, false)
 	self.SetStageComplete(ctx, nil)
 }
 
 func (self *GuestChangeBillingTypeTask) OnGuestChangeBillingTypeTaskCompleteFailed(ctx context.Context, guest *models.SGuest, reason jsonutils.JSONObject) {
-	guest.SetStatus(ctx, self.GetUserCred(), api.VM_CHANGE_BILLING_TYPE_FAILED, "")
-	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_CHANGE_BILLING_TYPE, reason.String(), self.UserCred, false)
+	guest.SetStatus(ctx, self.GetUserCred(), apis.STATUS_CHANGE_BILLING_TYPE_FAILED, "")
+	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_CHANGE_BILLING_TYPE, reason.String(), self.UserCred, false)
 	self.SetStageFailed(ctx, reason)
 }

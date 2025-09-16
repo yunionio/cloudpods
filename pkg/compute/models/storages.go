@@ -1611,8 +1611,8 @@ func (self *SStorage) GetIStorage(ctx context.Context) (cloudprovider.ICloudStor
 		region, _ := self.GetRegion()
 		if region == nil {
 			msg := "cannot find region for storage???"
-			log.Errorf(msg)
-			return nil, fmt.Errorf(msg)
+			log.Errorf("%s", msg)
+			return nil, fmt.Errorf("%s", msg)
 		}
 		iRegion, err = provider.GetIRegionById(region.ExternalId)
 	}
@@ -1693,6 +1693,19 @@ func (manager *SStorageManager) InitializeData() error {
 				}
 			}
 		}
+	}
+	sq := CloudproviderManager.Query("id").Equals("provider", api.CLOUD_PROVIDER_ALIYUN).SubQuery()
+	q = manager.Query().NotEquals("medium_type", api.DISK_TYPE_SSD).In("manager_id", sq)
+	storages = make([]SStorage, 0)
+	err = db.FetchModelObjects(manager, q, &storages)
+	if err != nil {
+		return err
+	}
+	for i := range storages {
+		db.Update(&storages[i], func() error {
+			storages[i].MediumType = api.DISK_TYPE_SSD
+			return nil
+		})
 	}
 	return nil
 }
@@ -1887,12 +1900,21 @@ func (manager *SStorageManager) QueryDistinctExtraField(q *sqlchemy.SQuery, fiel
 	return q, httperrors.ErrNotFound
 }
 
+func (manager *SStorageManager) QueryDistinctExtraFields(q *sqlchemy.SQuery, resource string, fields []string) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SManagedResourceBaseManager.QueryDistinctExtraFields(q, resource, fields)
+	if err == nil {
+		return q, nil
+	}
+	return q, httperrors.ErrNotFound
+}
+
 func (self *SStorage) ClearSchedDescCache() error {
 	hosts := self.GetAllAttachingHosts()
 	if hosts == nil {
 		msg := "get attaching host error"
-		log.Errorf(msg)
-		return fmt.Errorf(msg)
+		log.Errorf("%s", msg)
+		return fmt.Errorf("%s", msg)
 	}
 	for i := 0; i < len(hosts); i += 1 {
 		err := hosts[i].ClearSchedDescCache()

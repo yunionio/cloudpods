@@ -67,6 +67,18 @@ func (self *SLBListenerRule) GetStatus() string {
 	return api.LB_STATUS_ENABLED
 }
 
+func (self *SLBListenerRule) GetBackendGroups() ([]string, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (self *SLBListenerRule) GetRedirectPool() (cloudprovider.SRedirectPool, error) {
+	return cloudprovider.SRedirectPool{}, cloudprovider.ErrNotImplemented
+}
+
+func (self *SLBListenerRule) Update(ctx context.Context, opts *cloudprovider.SLoadbalancerListenerRule) error {
+	return cloudprovider.ErrNotImplemented
+}
+
 func (self *SLBListenerRule) Refresh() error {
 	err := self.listener.Refresh()
 	if err != nil {
@@ -104,25 +116,17 @@ func (self *SLBListenerRule) GetPath() string {
 }
 
 func (self *SLBListenerRule) GetBackendGroup() *SLBBackendGroup {
-	t := self.listener.GetListenerType()
-	if t == api.LB_LISTENER_TYPE_HTTP || t == api.LB_LISTENER_TYPE_HTTPS {
-		return &SLBBackendGroup{
-			lb:       self.listener.lb,
-			listener: self.listener,
-		}
+	return &SLBBackendGroup{
+		lb:       self.listener.lb,
+		listener: self.listener,
+		domain:   self.Domain,
+		path:     self.URL,
 	}
-
-	return nil
 }
 
 // 只有http、https协议监听规则有backendgroupid
 func (self *SLBListenerRule) GetBackendGroupId() string {
-	bg := self.GetBackendGroup()
-	if bg == nil {
-		return ""
-	}
-
-	return bg.GetId()
+	return self.GetBackendGroup().GetGlobalId()
 }
 
 // https://cloud.tencent.com/document/api/214/30688

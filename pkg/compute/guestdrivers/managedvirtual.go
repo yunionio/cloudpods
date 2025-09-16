@@ -484,7 +484,7 @@ func (drv *SManagedVirtualizedGuestDriver) RequestStartOnHost(ctx context.Contex
 		if guest.BillingType == billing_api.BILLING_TYPE_POSTPAID && jsonutils.QueryBoolean(task.GetParams(), "auto_prepaid", false) {
 			err = ivm.ChangeBillingType(billing_api.BILLING_TYPE_PREPAID)
 			if err != nil && errors.Cause(err) != cloudprovider.ErrNotImplemented {
-				logclient.AddSimpleActionLog(guest, logclient.ACT_VM_CHANGE_BILLING_TYPE, errors.Wrapf(err, billing_api.BILLING_TYPE_PREPAID), userCred, false)
+				logclient.AddSimpleActionLog(guest, logclient.ACT_CHANGE_BILLING_TYPE, errors.Wrapf(err, billing_api.BILLING_TYPE_PREPAID), userCred, false)
 			}
 		}
 
@@ -947,9 +947,10 @@ func (drv *SManagedVirtualizedGuestDriver) RequestUndeployGuestOnHost(ctx contex
 			return nil, errors.Wrapf(err, "GetDisks")
 		}
 
-		for _, disk := range disks {
+		for i := range disks {
+			disk := disks[i]
 			storage, _ := disk.GetStorage()
-			if !disk.AutoDelete && !utils.IsInStringArray(storage.StorageType, api.STORAGE_LOCAL_TYPES) && disk.DiskType != api.DISK_TYPE_SYS {
+			if !utils.IsInStringArray(storage.StorageType, api.STORAGE_LOCAL_TYPES) && disk.DiskType != api.DISK_TYPE_SYS {
 				idisk, err := disk.GetIDisk(ctx)
 				if err != nil {
 					if errors.Cause(err) == cloudprovider.ErrNotFound {
@@ -985,7 +986,7 @@ func (drv *SManagedVirtualizedGuestDriver) RequestStopOnHost(ctx context.Context
 			if opts.StopCharging && guest.BillingType == billing_api.BILLING_TYPE_PREPAID {
 				err = ivm.ChangeBillingType(billing_api.BILLING_TYPE_POSTPAID)
 				if err != nil && errors.Cause(err) != cloudprovider.ErrNotImplemented {
-					logclient.AddSimpleActionLog(guest, logclient.ACT_VM_CHANGE_BILLING_TYPE, errors.Wrapf(err, billing_api.BILLING_TYPE_POSTPAID), task.GetUserCred(), false)
+					logclient.AddSimpleActionLog(guest, logclient.ACT_CHANGE_BILLING_TYPE, errors.Wrapf(err, billing_api.BILLING_TYPE_POSTPAID), task.GetUserCred(), false)
 				}
 			}
 
@@ -1039,6 +1040,7 @@ func (drv *SManagedVirtualizedGuestDriver) RequestChangeBillingType(ctx context.
 			guest.BillingType = ivm.GetBillingType()
 			guest.Status = ivm.GetStatus()
 			guest.ExpiredAt = time.Time{}
+			guest.AutoRenew = false
 			if guest.BillingType == billing_api.BILLING_TYPE_PREPAID {
 				guest.AutoRenew = ivm.IsAutoRenew()
 				guest.ExpiredAt = ivm.GetExpiredAt()
@@ -1144,7 +1146,7 @@ func (drv *SManagedVirtualizedGuestDriver) RequestChangeVmConfig(ctx context.Con
 		}
 		err := iVM.ChangeConfig(ctx, config)
 		if err != nil {
-			return nil, errors.Wrap(err, "GuestDriver.RequestChangeVmConfig.ChangeConfig")
+			return nil, errors.Wrap(err, "ChangeConfig")
 		}
 
 		err = cloudprovider.WaitCreated(time.Second*5, time.Minute*5, func() bool {
@@ -1167,7 +1169,7 @@ func (drv *SManagedVirtualizedGuestDriver) RequestChangeVmConfig(ctx context.Con
 			return false
 		})
 		if err != nil {
-			return nil, errors.Wrap(err, "GuestDriver.RequestChangeVmConfig.WaitCreated")
+			return nil, errors.Wrap(err, "wait config change")
 		}
 
 		instanceType = iVM.GetInstanceType()
@@ -1177,7 +1179,7 @@ func (drv *SManagedVirtualizedGuestDriver) RequestChangeVmConfig(ctx context.Con
 				return nil
 			})
 			if err != nil {
-				return nil, errors.Wrap(err, "GuestDriver.RequestChangeVmConfig.Update")
+				return nil, errors.Wrap(err, "Update")
 			}
 		}
 
@@ -1259,7 +1261,7 @@ func (drv *SManagedVirtualizedGuestDriver) OnGuestDeployTaskDataReceived(ctx con
 			})
 			if err != nil {
 				msg := fmt.Sprintf("save disk info failed %s", err)
-				log.Errorf(msg)
+				log.Errorf("%s", msg)
 				break
 			}
 			db.OpsLog.LogEvent(disk, db.ACT_ALLOCATE, disk.GetShortDesc(ctx), task.GetUserCred())
@@ -1271,7 +1273,7 @@ func (drv *SManagedVirtualizedGuestDriver) OnGuestDeployTaskDataReceived(ctx con
 			})
 			if err != nil {
 				msg := fmt.Sprintf("save disk info failed %s", err)
-				log.Errorf(msg)
+				log.Errorf("%s", msg)
 				break
 			}
 		}
@@ -1292,7 +1294,7 @@ func (drv *SManagedVirtualizedGuestDriver) OnGuestDeployTaskDataReceived(ctx con
 
 	exp, err := data.GetTime("expired_at")
 	if err == nil && !guest.IsPrepaidRecycle() {
-		guest.SaveRenewInfo(ctx, task.GetUserCred(), nil, &exp, "")
+		models.SaveRenewInfo(ctx, task.GetUserCred(), guest, nil, &exp, "")
 	}
 
 	driver, _ := guest.GetDriver()
@@ -1473,7 +1475,7 @@ func (self *SManagedVirtualizedGuestDriver) requestMigrate(ctx context.Context, 
 			vmStatus := iVM.GetStatus()
 			log.Debugf("vm %s migrate status: %s", guest.Name, vmStatus)
 			if vmStatus == api.VM_UNKNOWN || strings.Contains(vmStatus, "fail") {
-				return false, errors.Wrapf(cloudprovider.ErrInvalidStatus, vmStatus)
+				return false, errors.Wrapf(cloudprovider.ErrInvalidStatus, "%s", vmStatus)
 			}
 			if !utils.IsInStringArray(vmStatus, []string{api.VM_RUNNING, api.VM_READY}) {
 				return false, nil

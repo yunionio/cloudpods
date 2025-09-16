@@ -74,6 +74,8 @@ const (
 	STORAGE_CLOUD_BASIC   = compute.STORAGE_CLOUD_BASIC
 	STORAGE_CLOUD_PREMIUM = compute.STORAGE_CLOUD_PREMIUM //高性能云硬盘
 	STORAGE_CLOUD_HSSD    = compute.STORAGE_CLOUD_HSSD    //增强型SSD云硬盘
+	STORAGE_CLOUD_BSSD    = compute.STORAGE_CLOUD_BSSD    //增强型SSD云硬盘
+	STORAGE_CLOUD_TSSD    = compute.STORAGE_CLOUD_TSSD    //极速型SSD云硬盘
 
 	// huawei storage type
 	STORAGE_HUAWEI_SSD   = compute.STORAGE_HUAWEI_SSD   // 超高IO云硬盘
@@ -104,10 +106,15 @@ const (
 	STORAGE_ZSTACK_SHARED_BLOCK  = compute.STORAGE_ZSTACK_SHARED_BLOCK
 
 	// Google storage type
-	STORAGE_GOOGLE_LOCAL_SSD   = compute.STORAGE_GOOGLE_LOCAL_SSD   //本地SSD暂存盘 (最多8个)
-	STORAGE_GOOGLE_PD_STANDARD = compute.STORAGE_GOOGLE_PD_STANDARD //标准永久性磁盘
-	STORAGE_GOOGLE_PD_SSD      = compute.STORAGE_GOOGLE_PD_SSD      //SSD永久性磁盘
-	STORAGE_GOOGLE_PD_BALANCED = compute.STORAGE_GOOGLE_PD_BALANCED //平衡永久性磁盘
+	STORAGE_GOOGLE_LOCAL_SSD            = compute.STORAGE_GOOGLE_LOCAL_SSD            //本地SSD暂存盘 (最多8个)
+	STORAGE_GOOGLE_PD_STANDARD          = compute.STORAGE_GOOGLE_PD_STANDARD          //标准永久性磁盘
+	STORAGE_GOOGLE_PD_SSD               = compute.STORAGE_GOOGLE_PD_SSD               //SSD永久性磁盘
+	STORAGE_GOOGLE_PD_BALANCED          = compute.STORAGE_GOOGLE_PD_BALANCED          //平衡永久性磁盘
+	STORAGE_GOOGLE_PD_EXTREME           = compute.STORAGE_GOOGLE_PD_EXTREME           //极端永久性磁盘
+	STORAGE_GOOGLE_HYPERDISK_BALANCED   = compute.STORAGE_GOOGLE_HYPERDISK_BALANCED   //平衡 Hyperdisk
+	STORAGE_GOOGLE_HYPERDISK_EXTREME    = compute.STORAGE_GOOGLE_HYPERDISK_EXTREME    //Hyperdisk Extreme
+	STORAGE_GOOGLE_HYPERDISK_THROUGHPUT = compute.STORAGE_GOOGLE_HYPERDISK_THROUGHPUT //Hyperdisk Throughput
+	STORAGE_GOOGLE_HYPERDISK_ML         = compute.STORAGE_GOOGLE_HYPERDISK_ML         //Hyperdisk ML
 
 	// ctyun storage type
 	STORAGE_CTYUN_SSD  = compute.STORAGE_CTYUN_SSD  // 超高IO云硬盘
@@ -194,6 +201,8 @@ var (
 
 	// supported shared storage types
 	SHARED_STORAGE = []string{STORAGE_NFS, STORAGE_GPFS, STORAGE_RBD, STORAGE_CLVM, STORAGE_SLVM}
+
+	SUPPORTED_FS = []string{"swap", "ext2", "ext3", "ext4", "xfs", "f2fs"}
 )
 
 func IsDiskTypeMatch(t1, t2 string) bool {

@@ -2,15 +2,6 @@ basePath: /
 consumes:
     - application/json
 definitions:
-    ChangeOwnerCandidateDomainsOutput:
-        properties:
-            candidates:
-                items:
-                    $ref: '#/definitions/SharedDomain'
-                type: array
-                x-go-name: Candidates
-        type: object
-        x-go-package: yunion.io/x/onecloud/pkg/apis
     CloudgroupAddUserInput:
         properties:
             clouduser_id:
@@ -37,10 +28,6 @@ definitions:
                     user:rd: op
                 type: object
                 x-go-name: Metadata
-            cloudaccount_id:
-                description: 'swagger: ignore'
-                type: string
-                x-go-name: CloudaccountId
             cloudpolicy_ids:
                 description: 权限Id列表, 权限provider必须和权限组provider一致
                 items:
@@ -1163,37 +1150,6 @@ definitions:
                 x-go-name: SharedDomainIds
         type: object
         x-go-package: yunion.io/x/onecloud/pkg/apis
-    PerformStatusInput:
-        properties:
-            host_id:
-                description: call from host id
-                type: string
-                x-go-name: HostId
-            power_states:
-                description: 电源状态
-                type: string
-                x-go-name: PowerStates
-            reason:
-                description: 更改状态的原因描述
-                type: string
-                x-go-name: Reason
-            status:
-                description: 更改的目标状态值
-                type: string
-                x-go-name: Status
-        required:
-            - status
-        type: object
-        x-go-package: yunion.io/x/onecloud/pkg/apis
-    PurgeSplitTableInput:
-        properties:
-            tables:
-                items:
-                    type: string
-                type: array
-                x-go-name: Tables
-        type: object
-        x-go-package: yunion.io/x/onecloud/pkg/apis
     SAMLProviderDetails:
         properties:
             auth_url:
@@ -1686,45 +1642,6 @@ definitions:
                 x-go-name: Name
         type: object
         x-go-package: yunion.io/x/onecloud/pkg/apis
-    StatusStatistic:
-        properties:
-            TotalCpuCount:
-                description: CPU总量
-                format: int64
-                type: integer
-            TotalDiskSizeMb:
-                description: 存储总量
-                format: int64
-                type: integer
-            TotalMemSizeMb:
-                description: 内存总量
-                format: int64
-                type: integer
-            status_info:
-                items:
-                    $ref: '#/definitions/StatusStatisticStatusInfo'
-                type: array
-                x-go-name: StatusInfo
-        type: object
-        x-go-package: yunion.io/x/onecloud/pkg/apis
-    StatusStatisticStatusInfo:
-        properties:
-            Status:
-                type: string
-            pending_deleted_count:
-                description: |-
-                    回收站数量
-                    需要指定pending_delete=all
-                format: int64
-                type: integer
-                x-go-name: PendingDeletedCount
-            total_count:
-                description: 资源总数
-                format: int64
-                type: integer
-                x-go-name: TotalCount
-        type: object
-        x-go-package: yunion.io/x/onecloud/pkg/apis
     TTagSet:
         items:
             $ref: '#/definitions/STag'
@@ -1854,6 +1771,11 @@ paths:
                   name: show_fail_reason
                   type: boolean
                   x-go-name: ShowFailReason
+                - description: 是否返回状态统计信息，默认为False
+                  in: query
+                  name: summary_stats
+                  type: boolean
+                  x-go-name: SummaryStats
                 - $ref: '#/definitions/TTagSet'
                   description: 通过标签过滤（包含这些标签）
                   in: query
@@ -1975,11 +1897,6 @@ paths:
                   name: status
                   type: array
                   x-go-name: Status
-                - description: 根据云账号名称过滤资源
-                  in: query
-                  name: cloudaccount
-                  type: string
-                  x-go-name: Cloudaccount
                 - description: 根据平台过滤
                   in: query
                   items:
@@ -1987,6 +1904,10 @@ paths:
                   name: provider
                   type: array
                   x-go-name: Provider
+                - in: query
+                  name: cloudaccount_id
+                  type: string
+                  x-go-name: CloudaccountId
                 - description: 根据云订阅过滤资源
                   in: query
                   name: manager_id
@@ -2163,67 +2084,6 @@ paths:
             summary: 执行操作ChangeOwner
             tags:
                 - cloudgroup
-    /cloudgroups/{id}/change-owner-candidate-domains:
-        get:
-            description: 获取指定信息ChangeOwnerCandidateDomains
-            operationId: cloudgroup_GetDetailsChangeOwnerCandidateDomains
-            parameters:
-                - description: The Id or Name of cloudgroup
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-            responses:
-                "200":
-                    $ref: '#/responses/cloudgroup_GetDetailsChangeOwnerCandidateDomainsOutput'
-            summary: 获取指定信息ChangeOwnerCandidateDomains
-            tags:
-                - cloudgroup
-    /cloudgroups/{id}/class-metadata:
-        get:
-            description: 获取指定信息ClassMetadata
-            operationId: cloudgroup_GetDetailsClassMetadata
-            parameters:
-                - description: The Id or Name of cloudgroup
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-            responses:
-                "200":
-                    $ref: '#/responses/cloudgroup_GetDetailsClassMetadataOutput'
-            summary: 获取指定信息ClassMetadata
-            tags:
-                - cloudgroup
-        post:
-            description: 执行操作ClassMetadata
-            operationId: cloudgroup_PerformClassMetadata
-            parameters:
-                - description: The Id or Name of cloudgroup
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-                - in: body
-                  name: body
-                  schema:
-                    properties:
-                        cloudgroup:
-                            additionalProperties:
-                                type: string
-                            type: object
-                            x-go-name: Input
-                    type: object
-                  x-go-name: Body
-            responses:
-                "200":
-                    $ref: '#/responses/cloudgroup_PerformClassMetadataOutput'
-            summary: 更新资源的 class 标签
-            tags:
-                - cloudgroup
     /cloudgroups/{id}/detach-policy:
         post:
             description: '权限组状态必须为: available'
@@ -2284,23 +2144,6 @@ paths:
                 "200":
                     $ref: '#/responses/cloudgroup_GetDetailsMetadataOutput'
             summary: 获取资源标签（元数据）
-            tags:
-                - cloudgroup
-    /cloudgroups/{id}/org-metadata:
-        get:
-            description: 获取指定信息OrgMetadata
-            operationId: cloudgroup_GetDetailsOrgMetadata
-            parameters:
-                - description: The Id or Name of cloudgroup
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-            responses:
-                "200":
-                    $ref: '#/responses/cloudgroup_GetDetailsOrgMetadataOutput'
-            summary: 获取指定信息OrgMetadata
             tags:
                 - cloudgroup
     /cloudgroups/{id}/private:
@@ -2395,62 +2238,6 @@ paths:
             summary: 获取指定信息Saml
             tags:
                 - cloudgroup
-    /cloudgroups/{id}/set-class-metadata:
-        post:
-            description: 执行操作SetClassMetadata
-            operationId: cloudgroup_PerformSetClassMetadata
-            parameters:
-                - description: The Id or Name of cloudgroup
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-                - in: body
-                  name: body
-                  schema:
-                    properties:
-                        cloudgroup:
-                            additionalProperties:
-                                type: string
-                            type: object
-                            x-go-name: Input
-                    type: object
-                  x-go-name: Body
-            responses:
-                "200":
-                    $ref: '#/responses/cloudgroup_PerformSetClassMetadataOutput'
-            summary: 全量替换资源的所有 class 标签
-            tags:
-                - cloudgroup
-    /cloudgroups/{id}/set-org-metadata:
-        post:
-            description: 执行操作SetOrgMetadata
-            operationId: cloudgroup_PerformSetOrgMetadata
-            parameters:
-                - description: The Id or Name of cloudgroup
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-                - in: body
-                  name: body
-                  schema:
-                    properties:
-                        cloudgroup:
-                            additionalProperties:
-                                type: string
-                            type: object
-                            x-go-name: Input
-                    type: object
-                  x-go-name: Body
-            responses:
-                "200":
-                    $ref: '#/responses/cloudgroup_PerformSetOrgMetadataOutput'
-            summary: 全量替换资源的所有 class 标签
-            tags:
-                - cloudgroup
     /cloudgroups/{id}/set-policies:
         post:
             description: '权限组状态必须为: available'
@@ -2474,34 +2261,6 @@ paths:
                 "200":
                     $ref: '#/responses/cloudgroup_PerformSetPoliciesOutput'
             summary: 设置权限组添权限(全量覆盖)
-            tags:
-                - cloudgroup
-    /cloudgroups/{id}/set-user-metadata:
-        post:
-            description: 执行操作SetUserMetadata
-            operationId: cloudgroup_PerformSetUserMetadata
-            parameters:
-                - description: The Id or Name of cloudgroup
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-                - in: body
-                  name: body
-                  schema:
-                    properties:
-                        cloudgroup:
-                            additionalProperties:
-                                type: string
-                            type: object
-                            x-go-name: Input
-                    type: object
-                  x-go-name: Body
-            responses:
-                "200":
-                    $ref: '#/responses/cloudgroup_PerformSetUserMetadataOutput'
-            summary: 全量替换资源的所有用户标签
             tags:
                 - cloudgroup
     /cloudgroups/{id}/set-users:
@@ -2546,30 +2305,6 @@ paths:
             summary: 获取资源状态
             tags:
                 - cloudgroup
-        post:
-            description: 执行操作Status
-            operationId: cloudgroup_PerformStatus
-            parameters:
-                - description: The Id or Name of cloudgroup
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-                - in: body
-                  name: body
-                  schema:
-                    properties:
-                        cloudgroup:
-                            $ref: '#/definitions/PerformStatusInput'
-                    type: object
-                  x-go-name: Body
-            responses:
-                "200":
-                    $ref: '#/responses/cloudgroup_PerformStatusOutput'
-            summary: 更新资源状态
-            tags:
-                - cloudgroup
     /cloudgroups/{id}/syncstatus:
         post:
             description: 执行操作Syncstatus
@@ -2593,130 +2328,6 @@ paths:
                 "200":
                     $ref: '#/responses/cloudgroup_PerformSyncstatusOutput'
             summary: 恢复权限组状态
-            tags:
-                - cloudgroup
-    /cloudgroups/distinct-field:
-        get:
-            description: 获取指定资源类的信息DistinctField
-            operationId: cloudgroup_GetPropertyDistinctField
-            responses:
-                "200":
-                    $ref: '#/responses/cloudgroup_GetPropertyDistinctFieldOutput'
-            summary: 获取指定资源类的信息DistinctField
-            tags:
-                - cloudgroup
-    /cloudgroups/distinct-fields:
-        get:
-            description: 获取指定资源类的信息DistinctFields
-            operationId: cloudgroup_GetPropertyDistinctFields
-            responses:
-                "200":
-                    $ref: '#/responses/cloudgroup_GetPropertyDistinctFieldsOutput'
-            summary: 获取指定资源类的信息DistinctFields
-            tags:
-                - cloudgroup
-    /cloudgroups/domain-tag-value-pairs:
-        get:
-            description: 获取指定资源类的信息DomainTagValuePairs
-            operationId: cloudgroup_GetPropertyDomainTagValuePairs
-            responses:
-                "200":
-                    $ref: '#/responses/cloudgroup_GetPropertyDomainTagValuePairsOutput'
-            summary: 获取指定资源类的信息DomainTagValuePairs
-            tags:
-                - cloudgroup
-    /cloudgroups/domain-tag-value-tree:
-        get:
-            description: 获取指定资源类的信息DomainTagValueTree
-            operationId: cloudgroup_GetPropertyDomainTagValueTree
-            responses:
-                "200":
-                    $ref: '#/responses/cloudgroup_GetPropertyDomainTagValueTreeOutput'
-            summary: 获取指定资源类的信息DomainTagValueTree
-            tags:
-                - cloudgroup
-    /cloudgroups/purge-splitable:
-        post:
-            description: 执行操作PurgeSplitable
-            operationId: cloudgroup_PerformPurgeSplitable
-            parameters:
-                - in: body
-                  name: body
-                  schema:
-                    properties:
-                        cloudgroup:
-                            $ref: '#/definitions/PurgeSplitTableInput'
-                    type: object
-                  x-go-name: Body
-            responses:
-                "200":
-                    $ref: '#/responses/cloudgroup_PerformPurgeSplitableOutput'
-            summary: 执行操作PurgeSplitable
-            tags:
-                - cloudgroup
-    /cloudgroups/splitable:
-        get:
-            description: 获取指定资源类的信息Splitable
-            operationId: cloudgroup_GetPropertySplitable
-            responses:
-                "200":
-                    $ref: '#/responses/cloudgroup_GetPropertySplitableOutput'
-            summary: 获取指定资源类的信息Splitable
-            tags:
-                - cloudgroup
-    /cloudgroups/splitable-export:
-        get:
-            description: 获取指定资源类的信息SplitableExport
-            operationId: cloudgroup_GetPropertySplitableExport
-            parameters:
-                - in: query
-                  name: table
-                  type: string
-                  x-go-name: Table
-                - format: int64
-                  in: query
-                  name: offset
-                  type: integer
-                  x-go-name: Offset
-                - format: int64
-                  in: query
-                  name: limit
-                  type: integer
-                  x-go-name: Limit
-            responses:
-                "200":
-                    $ref: '#/responses/cloudgroup_GetPropertySplitableExportOutput'
-            summary: 获取指定资源类的信息SplitableExport
-            tags:
-                - cloudgroup
-    /cloudgroups/statistics:
-        get:
-            description: 获取指定资源类的信息Statistics
-            operationId: cloudgroup_GetPropertyStatistics
-            responses:
-                "200":
-                    $ref: '#/responses/cloudgroup_GetPropertyStatisticsOutput'
-            summary: 获取指定资源类的信息Statistics
-            tags:
-                - cloudgroup
-    /cloudgroups/tag-value-pairs:
-        get:
-            description: 获取指定资源类的信息TagValuePairs
-            operationId: cloudgroup_GetPropertyTagValuePairs
-            responses:
-                "200":
-                    $ref: '#/responses/cloudgroup_GetPropertyTagValuePairsOutput'
-            summary: 获取指定资源类的信息TagValuePairs
-            tags:
-                - cloudgroup
-    /cloudgroups/tag-value-tree:
-        get:
-            description: 获取指定资源类的信息TagValueTree
-            operationId: cloudgroup_GetPropertyTagValueTree
-            responses:
-                "200":
-                    $ref: '#/responses/cloudgroup_GetPropertyTagValueTreeOutput'
-            summary: 获取指定资源类的信息TagValueTree
             tags:
                 - cloudgroup
     /cloudpolicies:
@@ -2827,6 +2438,11 @@ paths:
                   name: show_fail_reason
                   type: boolean
                   x-go-name: ShowFailReason
+                - description: 是否返回状态统计信息，默认为False
+                  in: query
+                  name: summary_stats
+                  type: boolean
+                  x-go-name: SummaryStats
                 - $ref: '#/definitions/TTagSet'
                   description: 通过标签过滤（包含这些标签）
                   in: query
@@ -2948,11 +2564,10 @@ paths:
                   name: status
                   type: array
                   x-go-name: Status
-                - description: 根据云账号名称过滤资源
-                  in: query
-                  name: cloudaccount
+                - in: query
+                  name: cloudaccount_id
                   type: string
-                  x-go-name: Cloudaccount
+                  x-go-name: CloudaccountId
                 - description: 根据平台过滤
                   in: query
                   items:
@@ -3051,67 +2666,6 @@ paths:
             summary: 执行操作ChangeOwner
             tags:
                 - cloudpolicy
-    /cloudpolicies/{id}/change-owner-candidate-domains:
-        get:
-            description: 获取指定信息ChangeOwnerCandidateDomains
-            operationId: cloudpolicy_GetDetailsChangeOwnerCandidateDomains
-            parameters:
-                - description: The Id or Name of cloudpolicy
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-            responses:
-                "200":
-                    $ref: '#/responses/cloudpolicy_GetDetailsChangeOwnerCandidateDomainsOutput'
-            summary: 获取指定信息ChangeOwnerCandidateDomains
-            tags:
-                - cloudpolicy
-    /cloudpolicies/{id}/class-metadata:
-        get:
-            description: 获取指定信息ClassMetadata
-            operationId: cloudpolicy_GetDetailsClassMetadata
-            parameters:
-                - description: The Id or Name of cloudpolicy
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-            responses:
-                "200":
-                    $ref: '#/responses/cloudpolicy_GetDetailsClassMetadataOutput'
-            summary: 获取指定信息ClassMetadata
-            tags:
-                - cloudpolicy
-        post:
-            description: 执行操作ClassMetadata
-            operationId: cloudpolicy_PerformClassMetadata
-            parameters:
-                - description: The Id or Name of cloudpolicy
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-                - in: body
-                  name: body
-                  schema:
-                    properties:
-                        cloudpolicy:
-                            additionalProperties:
-                                type: string
-                            type: object
-                            x-go-name: Input
-                    type: object
-                  x-go-name: Body
-            responses:
-                "200":
-                    $ref: '#/responses/cloudpolicy_PerformClassMetadataOutput'
-            summary: 更新资源的 class 标签
-            tags:
-                - cloudpolicy
     /cloudpolicies/{id}/metadata:
         get:
             description: 获取指定信息Metadata
@@ -3147,23 +2701,6 @@ paths:
                 "200":
                     $ref: '#/responses/cloudpolicy_GetDetailsMetadataOutput'
             summary: 获取资源标签（元数据）
-            tags:
-                - cloudpolicy
-    /cloudpolicies/{id}/org-metadata:
-        get:
-            description: 获取指定信息OrgMetadata
-            operationId: cloudpolicy_GetDetailsOrgMetadata
-            parameters:
-                - description: The Id or Name of cloudpolicy
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-            responses:
-                "200":
-                    $ref: '#/responses/cloudpolicy_GetDetailsOrgMetadataOutput'
-            summary: 获取指定信息OrgMetadata
             tags:
                 - cloudpolicy
     /cloudpolicies/{id}/private:
@@ -3216,90 +2753,6 @@ paths:
             summary: 执行操作Public
             tags:
                 - cloudpolicy
-    /cloudpolicies/{id}/set-class-metadata:
-        post:
-            description: 执行操作SetClassMetadata
-            operationId: cloudpolicy_PerformSetClassMetadata
-            parameters:
-                - description: The Id or Name of cloudpolicy
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-                - in: body
-                  name: body
-                  schema:
-                    properties:
-                        cloudpolicy:
-                            additionalProperties:
-                                type: string
-                            type: object
-                            x-go-name: Input
-                    type: object
-                  x-go-name: Body
-            responses:
-                "200":
-                    $ref: '#/responses/cloudpolicy_PerformSetClassMetadataOutput'
-            summary: 全量替换资源的所有 class 标签
-            tags:
-                - cloudpolicy
-    /cloudpolicies/{id}/set-org-metadata:
-        post:
-            description: 执行操作SetOrgMetadata
-            operationId: cloudpolicy_PerformSetOrgMetadata
-            parameters:
-                - description: The Id or Name of cloudpolicy
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-                - in: body
-                  name: body
-                  schema:
-                    properties:
-                        cloudpolicy:
-                            additionalProperties:
-                                type: string
-                            type: object
-                            x-go-name: Input
-                    type: object
-                  x-go-name: Body
-            responses:
-                "200":
-                    $ref: '#/responses/cloudpolicy_PerformSetOrgMetadataOutput'
-            summary: 全量替换资源的所有 class 标签
-            tags:
-                - cloudpolicy
-    /cloudpolicies/{id}/set-user-metadata:
-        post:
-            description: 执行操作SetUserMetadata
-            operationId: cloudpolicy_PerformSetUserMetadata
-            parameters:
-                - description: The Id or Name of cloudpolicy
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-                - in: body
-                  name: body
-                  schema:
-                    properties:
-                        cloudpolicy:
-                            additionalProperties:
-                                type: string
-                            type: object
-                            x-go-name: Input
-                    type: object
-                  x-go-name: Body
-            responses:
-                "200":
-                    $ref: '#/responses/cloudpolicy_PerformSetUserMetadataOutput'
-            summary: 全量替换资源的所有用户标签
-            tags:
-                - cloudpolicy
     /cloudpolicies/{id}/status:
         get:
             description: 获取指定信息Status
@@ -3315,154 +2768,6 @@ paths:
                 "200":
                     $ref: '#/responses/cloudpolicy_GetDetailsStatusOutput'
             summary: 获取资源状态
-            tags:
-                - cloudpolicy
-        post:
-            description: 执行操作Status
-            operationId: cloudpolicy_PerformStatus
-            parameters:
-                - description: The Id or Name of cloudpolicy
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-                - in: body
-                  name: body
-                  schema:
-                    properties:
-                        cloudpolicy:
-                            $ref: '#/definitions/PerformStatusInput'
-                    type: object
-                  x-go-name: Body
-            responses:
-                "200":
-                    $ref: '#/responses/cloudpolicy_PerformStatusOutput'
-            summary: 更新资源状态
-            tags:
-                - cloudpolicy
-    /cloudpolicies/distinct-field:
-        get:
-            description: 获取指定资源类的信息DistinctField
-            operationId: cloudpolicy_GetPropertyDistinctField
-            responses:
-                "200":
-                    $ref: '#/responses/cloudpolicy_GetPropertyDistinctFieldOutput'
-            summary: 获取指定资源类的信息DistinctField
-            tags:
-                - cloudpolicy
-    /cloudpolicies/distinct-fields:
-        get:
-            description: 获取指定资源类的信息DistinctFields
-            operationId: cloudpolicy_GetPropertyDistinctFields
-            responses:
-                "200":
-                    $ref: '#/responses/cloudpolicy_GetPropertyDistinctFieldsOutput'
-            summary: 获取指定资源类的信息DistinctFields
-            tags:
-                - cloudpolicy
-    /cloudpolicies/domain-tag-value-pairs:
-        get:
-            description: 获取指定资源类的信息DomainTagValuePairs
-            operationId: cloudpolicy_GetPropertyDomainTagValuePairs
-            responses:
-                "200":
-                    $ref: '#/responses/cloudpolicy_GetPropertyDomainTagValuePairsOutput'
-            summary: 获取指定资源类的信息DomainTagValuePairs
-            tags:
-                - cloudpolicy
-    /cloudpolicies/domain-tag-value-tree:
-        get:
-            description: 获取指定资源类的信息DomainTagValueTree
-            operationId: cloudpolicy_GetPropertyDomainTagValueTree
-            responses:
-                "200":
-                    $ref: '#/responses/cloudpolicy_GetPropertyDomainTagValueTreeOutput'
-            summary: 获取指定资源类的信息DomainTagValueTree
-            tags:
-                - cloudpolicy
-    /cloudpolicies/purge-splitable:
-        post:
-            description: 执行操作PurgeSplitable
-            operationId: cloudpolicy_PerformPurgeSplitable
-            parameters:
-                - in: body
-                  name: body
-                  schema:
-                    properties:
-                        cloudpolicy:
-                            $ref: '#/definitions/PurgeSplitTableInput'
-                    type: object
-                  x-go-name: Body
-            responses:
-                "200":
-                    $ref: '#/responses/cloudpolicy_PerformPurgeSplitableOutput'
-            summary: 执行操作PurgeSplitable
-            tags:
-                - cloudpolicy
-    /cloudpolicies/splitable:
-        get:
-            description: 获取指定资源类的信息Splitable
-            operationId: cloudpolicy_GetPropertySplitable
-            responses:
-                "200":
-                    $ref: '#/responses/cloudpolicy_GetPropertySplitableOutput'
-            summary: 获取指定资源类的信息Splitable
-            tags:
-                - cloudpolicy
-    /cloudpolicies/splitable-export:
-        get:
-            description: 获取指定资源类的信息SplitableExport
-            operationId: cloudpolicy_GetPropertySplitableExport
-            parameters:
-                - in: query
-                  name: table
-                  type: string
-                  x-go-name: Table
-                - format: int64
-                  in: query
-                  name: offset
-                  type: integer
-                  x-go-name: Offset
-                - format: int64
-                  in: query
-                  name: limit
-                  type: integer
-                  x-go-name: Limit
-            responses:
-                "200":
-                    $ref: '#/responses/cloudpolicy_GetPropertySplitableExportOutput'
-            summary: 获取指定资源类的信息SplitableExport
-            tags:
-                - cloudpolicy
-    /cloudpolicies/statistics:
-        get:
-            description: 获取指定资源类的信息Statistics
-            operationId: cloudpolicy_GetPropertyStatistics
-            responses:
-                "200":
-                    $ref: '#/responses/cloudpolicy_GetPropertyStatisticsOutput'
-            summary: 获取指定资源类的信息Statistics
-            tags:
-                - cloudpolicy
-    /cloudpolicies/tag-value-pairs:
-        get:
-            description: 获取指定资源类的信息TagValuePairs
-            operationId: cloudpolicy_GetPropertyTagValuePairs
-            responses:
-                "200":
-                    $ref: '#/responses/cloudpolicy_GetPropertyTagValuePairsOutput'
-            summary: 获取指定资源类的信息TagValuePairs
-            tags:
-                - cloudpolicy
-    /cloudpolicies/tag-value-tree:
-        get:
-            description: 获取指定资源类的信息TagValueTree
-            operationId: cloudpolicy_GetPropertyTagValueTree
-            responses:
-                "200":
-                    $ref: '#/responses/cloudpolicy_GetPropertyTagValueTreeOutput'
-            summary: 获取指定资源类的信息TagValueTree
             tags:
                 - cloudpolicy
     /cloudroles:
@@ -3573,6 +2878,11 @@ paths:
                   name: show_fail_reason
                   type: boolean
                   x-go-name: ShowFailReason
+                - description: 是否返回状态统计信息，默认为False
+                  in: query
+                  name: summary_stats
+                  type: boolean
+                  x-go-name: SummaryStats
                 - $ref: '#/definitions/TTagSet'
                   description: 通过标签过滤（包含这些标签）
                   in: query
@@ -3694,11 +3004,6 @@ paths:
                   name: status
                   type: array
                   x-go-name: Status
-                - description: 根据云账号名称过滤资源
-                  in: query
-                  name: cloudaccount
-                  type: string
-                  x-go-name: Cloudaccount
                 - description: 根据平台过滤
                   in: query
                   items:
@@ -3706,6 +3011,10 @@ paths:
                   name: provider
                   type: array
                   x-go-name: Provider
+                - in: query
+                  name: cloudaccount_id
+                  type: string
+                  x-go-name: CloudaccountId
                 - description: 根据云订阅过滤资源
                   in: query
                   name: manager_id
@@ -3827,67 +3136,6 @@ paths:
             summary: 执行操作ChangeOwner
             tags:
                 - cloudrole
-    /cloudroles/{id}/change-owner-candidate-domains:
-        get:
-            description: 获取指定信息ChangeOwnerCandidateDomains
-            operationId: cloudrole_GetDetailsChangeOwnerCandidateDomains
-            parameters:
-                - description: The Id or Name of cloudrole
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-            responses:
-                "200":
-                    $ref: '#/responses/cloudrole_GetDetailsChangeOwnerCandidateDomainsOutput'
-            summary: 获取指定信息ChangeOwnerCandidateDomains
-            tags:
-                - cloudrole
-    /cloudroles/{id}/class-metadata:
-        get:
-            description: 获取指定信息ClassMetadata
-            operationId: cloudrole_GetDetailsClassMetadata
-            parameters:
-                - description: The Id or Name of cloudrole
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-            responses:
-                "200":
-                    $ref: '#/responses/cloudrole_GetDetailsClassMetadataOutput'
-            summary: 获取指定信息ClassMetadata
-            tags:
-                - cloudrole
-        post:
-            description: 执行操作ClassMetadata
-            operationId: cloudrole_PerformClassMetadata
-            parameters:
-                - description: The Id or Name of cloudrole
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-                - in: body
-                  name: body
-                  schema:
-                    properties:
-                        cloudrole:
-                            additionalProperties:
-                                type: string
-                            type: object
-                            x-go-name: Input
-                    type: object
-                  x-go-name: Body
-            responses:
-                "200":
-                    $ref: '#/responses/cloudrole_PerformClassMetadataOutput'
-            summary: 更新资源的 class 标签
-            tags:
-                - cloudrole
     /cloudroles/{id}/disable:
         post:
             description: 执行操作Disable
@@ -3975,23 +3223,6 @@ paths:
             summary: 获取资源标签（元数据）
             tags:
                 - cloudrole
-    /cloudroles/{id}/org-metadata:
-        get:
-            description: 获取指定信息OrgMetadata
-            operationId: cloudrole_GetDetailsOrgMetadata
-            parameters:
-                - description: The Id or Name of cloudrole
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-            responses:
-                "200":
-                    $ref: '#/responses/cloudrole_GetDetailsOrgMetadataOutput'
-            summary: 获取指定信息OrgMetadata
-            tags:
-                - cloudrole
     /cloudroles/{id}/private:
         post:
             description: 执行操作Private
@@ -4042,90 +3273,6 @@ paths:
             summary: 执行操作Public
             tags:
                 - cloudrole
-    /cloudroles/{id}/set-class-metadata:
-        post:
-            description: 执行操作SetClassMetadata
-            operationId: cloudrole_PerformSetClassMetadata
-            parameters:
-                - description: The Id or Name of cloudrole
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-                - in: body
-                  name: body
-                  schema:
-                    properties:
-                        cloudrole:
-                            additionalProperties:
-                                type: string
-                            type: object
-                            x-go-name: Input
-                    type: object
-                  x-go-name: Body
-            responses:
-                "200":
-                    $ref: '#/responses/cloudrole_PerformSetClassMetadataOutput'
-            summary: 全量替换资源的所有 class 标签
-            tags:
-                - cloudrole
-    /cloudroles/{id}/set-org-metadata:
-        post:
-            description: 执行操作SetOrgMetadata
-            operationId: cloudrole_PerformSetOrgMetadata
-            parameters:
-                - description: The Id or Name of cloudrole
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-                - in: body
-                  name: body
-                  schema:
-                    properties:
-                        cloudrole:
-                            additionalProperties:
-                                type: string
-                            type: object
-                            x-go-name: Input
-                    type: object
-                  x-go-name: Body
-            responses:
-                "200":
-                    $ref: '#/responses/cloudrole_PerformSetOrgMetadataOutput'
-            summary: 全量替换资源的所有 class 标签
-            tags:
-                - cloudrole
-    /cloudroles/{id}/set-user-metadata:
-        post:
-            description: 执行操作SetUserMetadata
-            operationId: cloudrole_PerformSetUserMetadata
-            parameters:
-                - description: The Id or Name of cloudrole
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-                - in: body
-                  name: body
-                  schema:
-                    properties:
-                        cloudrole:
-                            additionalProperties:
-                                type: string
-                            type: object
-                            x-go-name: Input
-                    type: object
-                  x-go-name: Body
-            responses:
-                "200":
-                    $ref: '#/responses/cloudrole_PerformSetUserMetadataOutput'
-            summary: 全量替换资源的所有用户标签
-            tags:
-                - cloudrole
     /cloudroles/{id}/status:
         get:
             description: 获取指定信息Status
@@ -4141,154 +3288,6 @@ paths:
                 "200":
                     $ref: '#/responses/cloudrole_GetDetailsStatusOutput'
             summary: 获取资源状态
-            tags:
-                - cloudrole
-        post:
-            description: 执行操作Status
-            operationId: cloudrole_PerformStatus
-            parameters:
-                - description: The Id or Name of cloudrole
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-                - in: body
-                  name: body
-                  schema:
-                    properties:
-                        cloudrole:
-                            $ref: '#/definitions/PerformStatusInput'
-                    type: object
-                  x-go-name: Body
-            responses:
-                "200":
-                    $ref: '#/responses/cloudrole_PerformStatusOutput'
-            summary: 更新资源状态
-            tags:
-                - cloudrole
-    /cloudroles/distinct-field:
-        get:
-            description: 获取指定资源类的信息DistinctField
-            operationId: cloudrole_GetPropertyDistinctField
-            responses:
-                "200":
-                    $ref: '#/responses/cloudrole_GetPropertyDistinctFieldOutput'
-            summary: 获取指定资源类的信息DistinctField
-            tags:
-                - cloudrole
-    /cloudroles/distinct-fields:
-        get:
-            description: 获取指定资源类的信息DistinctFields
-            operationId: cloudrole_GetPropertyDistinctFields
-            responses:
-                "200":
-                    $ref: '#/responses/cloudrole_GetPropertyDistinctFieldsOutput'
-            summary: 获取指定资源类的信息DistinctFields
-            tags:
-                - cloudrole
-    /cloudroles/domain-tag-value-pairs:
-        get:
-            description: 获取指定资源类的信息DomainTagValuePairs
-            operationId: cloudrole_GetPropertyDomainTagValuePairs
-            responses:
-                "200":
-                    $ref: '#/responses/cloudrole_GetPropertyDomainTagValuePairsOutput'
-            summary: 获取指定资源类的信息DomainTagValuePairs
-            tags:
-                - cloudrole
-    /cloudroles/domain-tag-value-tree:
-        get:
-            description: 获取指定资源类的信息DomainTagValueTree
-            operationId: cloudrole_GetPropertyDomainTagValueTree
-            responses:
-                "200":
-                    $ref: '#/responses/cloudrole_GetPropertyDomainTagValueTreeOutput'
-            summary: 获取指定资源类的信息DomainTagValueTree
-            tags:
-                - cloudrole
-    /cloudroles/purge-splitable:
-        post:
-            description: 执行操作PurgeSplitable
-            operationId: cloudrole_PerformPurgeSplitable
-            parameters:
-                - in: body
-                  name: body
-                  schema:
-                    properties:
-                        cloudrole:
-                            $ref: '#/definitions/PurgeSplitTableInput'
-                    type: object
-                  x-go-name: Body
-            responses:
-                "200":
-                    $ref: '#/responses/cloudrole_PerformPurgeSplitableOutput'
-            summary: 执行操作PurgeSplitable
-            tags:
-                - cloudrole
-    /cloudroles/splitable:
-        get:
-            description: 获取指定资源类的信息Splitable
-            operationId: cloudrole_GetPropertySplitable
-            responses:
-                "200":
-                    $ref: '#/responses/cloudrole_GetPropertySplitableOutput'
-            summary: 获取指定资源类的信息Splitable
-            tags:
-                - cloudrole
-    /cloudroles/splitable-export:
-        get:
-            description: 获取指定资源类的信息SplitableExport
-            operationId: cloudrole_GetPropertySplitableExport
-            parameters:
-                - in: query
-                  name: table
-                  type: string
-                  x-go-name: Table
-                - format: int64
-                  in: query
-                  name: offset
-                  type: integer
-                  x-go-name: Offset
-                - format: int64
-                  in: query
-                  name: limit
-                  type: integer
-                  x-go-name: Limit
-            responses:
-                "200":
-                    $ref: '#/responses/cloudrole_GetPropertySplitableExportOutput'
-            summary: 获取指定资源类的信息SplitableExport
-            tags:
-                - cloudrole
-    /cloudroles/statistics:
-        get:
-            description: 获取指定资源类的信息Statistics
-            operationId: cloudrole_GetPropertyStatistics
-            responses:
-                "200":
-                    $ref: '#/responses/cloudrole_GetPropertyStatisticsOutput'
-            summary: 获取指定资源类的信息Statistics
-            tags:
-                - cloudrole
-    /cloudroles/tag-value-pairs:
-        get:
-            description: 获取指定资源类的信息TagValuePairs
-            operationId: cloudrole_GetPropertyTagValuePairs
-            responses:
-                "200":
-                    $ref: '#/responses/cloudrole_GetPropertyTagValuePairsOutput'
-            summary: 获取指定资源类的信息TagValuePairs
-            tags:
-                - cloudrole
-    /cloudroles/tag-value-tree:
-        get:
-            description: 获取指定资源类的信息TagValueTree
-            operationId: cloudrole_GetPropertyTagValueTree
-            responses:
-                "200":
-                    $ref: '#/responses/cloudrole_GetPropertyTagValueTreeOutput'
-            summary: 获取指定资源类的信息TagValueTree
             tags:
                 - cloudrole
     /cloudusers:
@@ -4399,6 +3398,11 @@ paths:
                   name: show_fail_reason
                   type: boolean
                   x-go-name: ShowFailReason
+                - description: 是否返回状态统计信息，默认为False
+                  in: query
+                  name: summary_stats
+                  type: boolean
+                  x-go-name: SummaryStats
                 - $ref: '#/definitions/TTagSet'
                   description: 通过标签过滤（包含这些标签）
                   in: query
@@ -4515,11 +3519,6 @@ paths:
                   name: user_id
                   type: string
                   x-go-name: UserId
-                - description: 根据云账号名称过滤资源
-                  in: query
-                  name: cloudaccount
-                  type: string
-                  x-go-name: Cloudaccount
                 - description: 根据平台过滤
                   in: query
                   items:
@@ -4527,6 +3526,10 @@ paths:
                   name: provider
                   type: array
                   x-go-name: Provider
+                - in: query
+                  name: cloudaccount_id
+                  type: string
+                  x-go-name: CloudaccountId
                 - description: 根据云订阅过滤资源
                   in: query
                   name: manager_id
@@ -4669,67 +3672,6 @@ paths:
                 "200":
                     $ref: '#/responses/clouduser_PerformChangeOwnerOutput'
             summary: 变更子账号所属本地用户
-            tags:
-                - clouduser
-    /cloudusers/{id}/change-owner-candidate-domains:
-        get:
-            description: 获取指定信息ChangeOwnerCandidateDomains
-            operationId: clouduser_GetDetailsChangeOwnerCandidateDomains
-            parameters:
-                - description: The Id or Name of clouduser
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-            responses:
-                "200":
-                    $ref: '#/responses/clouduser_GetDetailsChangeOwnerCandidateDomainsOutput'
-            summary: 获取指定信息ChangeOwnerCandidateDomains
-            tags:
-                - clouduser
-    /cloudusers/{id}/class-metadata:
-        get:
-            description: 获取指定信息ClassMetadata
-            operationId: clouduser_GetDetailsClassMetadata
-            parameters:
-                - description: The Id or Name of clouduser
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-            responses:
-                "200":
-                    $ref: '#/responses/clouduser_GetDetailsClassMetadataOutput'
-            summary: 获取指定信息ClassMetadata
-            tags:
-                - clouduser
-        post:
-            description: 执行操作ClassMetadata
-            operationId: clouduser_PerformClassMetadata
-            parameters:
-                - description: The Id or Name of clouduser
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-                - in: body
-                  name: body
-                  schema:
-                    properties:
-                        clouduser:
-                            additionalProperties:
-                                type: string
-                            type: object
-                            x-go-name: Input
-                    type: object
-                  x-go-name: Body
-            responses:
-                "200":
-                    $ref: '#/responses/clouduser_PerformClassMetadataOutput'
-            summary: 更新资源的 class 标签
             tags:
                 - clouduser
     /cloudusers/{id}/create-access-key:
@@ -4894,23 +3836,6 @@ paths:
             summary: 获取资源标签（元数据）
             tags:
                 - clouduser
-    /cloudusers/{id}/org-metadata:
-        get:
-            description: 获取指定信息OrgMetadata
-            operationId: clouduser_GetDetailsOrgMetadata
-            parameters:
-                - description: The Id or Name of clouduser
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-            responses:
-                "200":
-                    $ref: '#/responses/clouduser_GetDetailsOrgMetadataOutput'
-            summary: 获取指定信息OrgMetadata
-            tags:
-                - clouduser
     /cloudusers/{id}/reset-password:
         post:
             description: '用户状态必须为: available'
@@ -4934,34 +3859,6 @@ paths:
                 "200":
                     $ref: '#/responses/clouduser_PerformResetPasswordOutput'
             summary: 重置用户密码
-            tags:
-                - clouduser
-    /cloudusers/{id}/set-class-metadata:
-        post:
-            description: 执行操作SetClassMetadata
-            operationId: clouduser_PerformSetClassMetadata
-            parameters:
-                - description: The Id or Name of clouduser
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-                - in: body
-                  name: body
-                  schema:
-                    properties:
-                        clouduser:
-                            additionalProperties:
-                                type: string
-                            type: object
-                            x-go-name: Input
-                    type: object
-                  x-go-name: Body
-            responses:
-                "200":
-                    $ref: '#/responses/clouduser_PerformSetClassMetadataOutput'
-            summary: 全量替换资源的所有 class 标签
             tags:
                 - clouduser
     /cloudusers/{id}/set-groups:
@@ -4989,34 +3886,6 @@ paths:
             summary: 设置用户权限组列表(全量覆盖)
             tags:
                 - clouduser
-    /cloudusers/{id}/set-org-metadata:
-        post:
-            description: 执行操作SetOrgMetadata
-            operationId: clouduser_PerformSetOrgMetadata
-            parameters:
-                - description: The Id or Name of clouduser
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-                - in: body
-                  name: body
-                  schema:
-                    properties:
-                        clouduser:
-                            additionalProperties:
-                                type: string
-                            type: object
-                            x-go-name: Input
-                    type: object
-                  x-go-name: Body
-            responses:
-                "200":
-                    $ref: '#/responses/clouduser_PerformSetOrgMetadataOutput'
-            summary: 全量替换资源的所有 class 标签
-            tags:
-                - clouduser
     /cloudusers/{id}/set-policies:
         post:
             description: '用户状态必须为: available'
@@ -5042,34 +3911,6 @@ paths:
             summary: 设置用户权限列表(全量覆盖)
             tags:
                 - clouduser
-    /cloudusers/{id}/set-user-metadata:
-        post:
-            description: 执行操作SetUserMetadata
-            operationId: clouduser_PerformSetUserMetadata
-            parameters:
-                - description: The Id or Name of clouduser
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-                - in: body
-                  name: body
-                  schema:
-                    properties:
-                        clouduser:
-                            additionalProperties:
-                                type: string
-                            type: object
-                            x-go-name: Input
-                    type: object
-                  x-go-name: Body
-            responses:
-                "200":
-                    $ref: '#/responses/clouduser_PerformSetUserMetadataOutput'
-            summary: 全量替换资源的所有用户标签
-            tags:
-                - clouduser
     /cloudusers/{id}/status:
         get:
             description: 获取指定信息Status
@@ -5085,30 +3926,6 @@ paths:
                 "200":
                     $ref: '#/responses/clouduser_GetDetailsStatusOutput'
             summary: 获取资源状态
-            tags:
-                - clouduser
-        post:
-            description: 执行操作Status
-            operationId: clouduser_PerformStatus
-            parameters:
-                - description: The Id or Name of clouduser
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-                - in: body
-                  name: body
-                  schema:
-                    properties:
-                        clouduser:
-                            $ref: '#/definitions/PerformStatusInput'
-                    type: object
-                  x-go-name: Body
-            responses:
-                "200":
-                    $ref: '#/responses/clouduser_PerformStatusOutput'
-            summary: 更新资源状态
             tags:
                 - clouduser
     /cloudusers/{id}/syncstatus:
@@ -5134,120 +3951,6 @@ paths:
                 "200":
                     $ref: '#/responses/clouduser_PerformSyncstatusOutput'
             summary: 同步用户状态
-            tags:
-                - clouduser
-    /cloudusers/distinct-field:
-        get:
-            description: 获取指定资源类的信息DistinctField
-            operationId: clouduser_GetPropertyDistinctField
-            responses:
-                "200":
-                    $ref: '#/responses/clouduser_GetPropertyDistinctFieldOutput'
-            summary: 获取指定资源类的信息DistinctField
-            tags:
-                - clouduser
-    /cloudusers/distinct-fields:
-        get:
-            description: 获取指定资源类的信息DistinctFields
-            operationId: clouduser_GetPropertyDistinctFields
-            responses:
-                "200":
-                    $ref: '#/responses/clouduser_GetPropertyDistinctFieldsOutput'
-            summary: 获取指定资源类的信息DistinctFields
-            tags:
-                - clouduser
-    /cloudusers/domain-tag-value-pairs:
-        get:
-            description: 获取指定资源类的信息DomainTagValuePairs
-            operationId: clouduser_GetPropertyDomainTagValuePairs
-            responses:
-                "200":
-                    $ref: '#/responses/clouduser_GetPropertyDomainTagValuePairsOutput'
-            summary: 获取指定资源类的信息DomainTagValuePairs
-            tags:
-                - clouduser
-    /cloudusers/domain-tag-value-tree:
-        get:
-            description: 获取指定资源类的信息DomainTagValueTree
-            operationId: clouduser_GetPropertyDomainTagValueTree
-            responses:
-                "200":
-                    $ref: '#/responses/clouduser_GetPropertyDomainTagValueTreeOutput'
-            summary: 获取指定资源类的信息DomainTagValueTree
-            tags:
-                - clouduser
-    /cloudusers/purge-splitable:
-        post:
-            description: 执行操作PurgeSplitable
-            operationId: clouduser_PerformPurgeSplitable
-            parameters:
-                - in: body
-                  name: body
-                  schema:
-                    properties:
-                        clouduser:
-                            $ref: '#/definitions/PurgeSplitTableInput'
-                    type: object
-                  x-go-name: Body
-            responses:
-                "200":
-                    $ref: '#/responses/clouduser_PerformPurgeSplitableOutput'
-            summary: 执行操作PurgeSplitable
-            tags:
-                - clouduser
-    /cloudusers/splitable:
-        get:
-            description: 获取指定资源类的信息Splitable
-            operationId: clouduser_GetPropertySplitable
-            responses:
-                "200":
-                    $ref: '#/responses/clouduser_GetPropertySplitableOutput'
-            summary: 获取指定资源类的信息Splitable
-            tags:
-                - clouduser
-    /cloudusers/splitable-export:
-        get:
-            description: 获取指定资源类的信息SplitableExport
-            operationId: clouduser_GetPropertySplitableExport
-            parameters:
-                - in: query
-                  name: table
-                  type: string
-                  x-go-name: Table
-                - format: int64
-                  in: query
-                  name: offset
-                  type: integer
-                  x-go-name: Offset
-                - format: int64
-                  in: query
-                  name: limit
-                  type: integer
-                  x-go-name: Limit
-            responses:
-                "200":
-                    $ref: '#/responses/clouduser_GetPropertySplitableExportOutput'
-            summary: 获取指定资源类的信息SplitableExport
-            tags:
-                - clouduser
-    /cloudusers/tag-value-pairs:
-        get:
-            description: 获取指定资源类的信息TagValuePairs
-            operationId: clouduser_GetPropertyTagValuePairs
-            responses:
-                "200":
-                    $ref: '#/responses/clouduser_GetPropertyTagValuePairsOutput'
-            summary: 获取指定资源类的信息TagValuePairs
-            tags:
-                - clouduser
-    /cloudusers/tag-value-tree:
-        get:
-            description: 获取指定资源类的信息TagValueTree
-            operationId: clouduser_GetPropertyTagValueTree
-            responses:
-                "200":
-                    $ref: '#/responses/clouduser_GetPropertyTagValueTreeOutput'
-            summary: 获取指定资源类的信息TagValueTree
             tags:
                 - clouduser
     /saml_providers:
@@ -5358,6 +4061,11 @@ paths:
                   name: show_fail_reason
                   type: boolean
                   x-go-name: ShowFailReason
+                - description: 是否返回状态统计信息，默认为False
+                  in: query
+                  name: summary_stats
+                  type: boolean
+                  x-go-name: SummaryStats
                 - $ref: '#/definitions/TTagSet'
                   description: 通过标签过滤（包含这些标签）
                   in: query
@@ -5479,11 +4187,6 @@ paths:
                   name: status
                   type: array
                   x-go-name: Status
-                - description: 根据云账号名称过滤资源
-                  in: query
-                  name: cloudaccount
-                  type: string
-                  x-go-name: Cloudaccount
                 - description: 根据平台过滤
                   in: query
                   items:
@@ -5491,6 +4194,10 @@ paths:
                   name: provider
                   type: array
                   x-go-name: Provider
+                - in: query
+                  name: cloudaccount_id
+                  type: string
+                  x-go-name: CloudaccountId
                 - description: 根据云订阅过滤资源
                   in: query
                   name: manager_id
@@ -5607,67 +4314,6 @@ paths:
             summary: 执行操作ChangeOwner
             tags:
                 - saml_provider
-    /saml_providers/{id}/change-owner-candidate-domains:
-        get:
-            description: 获取指定信息ChangeOwnerCandidateDomains
-            operationId: saml_provider_GetDetailsChangeOwnerCandidateDomains
-            parameters:
-                - description: The Id or Name of saml_provider
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-            responses:
-                "200":
-                    $ref: '#/responses/saml_provider_GetDetailsChangeOwnerCandidateDomainsOutput'
-            summary: 获取指定信息ChangeOwnerCandidateDomains
-            tags:
-                - saml_provider
-    /saml_providers/{id}/class-metadata:
-        get:
-            description: 获取指定信息ClassMetadata
-            operationId: saml_provider_GetDetailsClassMetadata
-            parameters:
-                - description: The Id or Name of saml_provider
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-            responses:
-                "200":
-                    $ref: '#/responses/saml_provider_GetDetailsClassMetadataOutput'
-            summary: 获取指定信息ClassMetadata
-            tags:
-                - saml_provider
-        post:
-            description: 执行操作ClassMetadata
-            operationId: saml_provider_PerformClassMetadata
-            parameters:
-                - description: The Id or Name of saml_provider
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-                - in: body
-                  name: body
-                  schema:
-                    properties:
-                        saml_provider:
-                            additionalProperties:
-                                type: string
-                            type: object
-                            x-go-name: Input
-                    type: object
-                  x-go-name: Body
-            responses:
-                "200":
-                    $ref: '#/responses/saml_provider_PerformClassMetadataOutput'
-            summary: 更新资源的 class 标签
-            tags:
-                - saml_provider
     /saml_providers/{id}/metadata:
         get:
             description: 获取指定信息Metadata
@@ -5703,23 +4349,6 @@ paths:
                 "200":
                     $ref: '#/responses/saml_provider_GetDetailsMetadataOutput'
             summary: 获取资源标签（元数据）
-            tags:
-                - saml_provider
-    /saml_providers/{id}/org-metadata:
-        get:
-            description: 获取指定信息OrgMetadata
-            operationId: saml_provider_GetDetailsOrgMetadata
-            parameters:
-                - description: The Id or Name of saml_provider
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-            responses:
-                "200":
-                    $ref: '#/responses/saml_provider_GetDetailsOrgMetadataOutput'
-            summary: 获取指定信息OrgMetadata
             tags:
                 - saml_provider
     /saml_providers/{id}/private:
@@ -5772,90 +4401,6 @@ paths:
             summary: 执行操作Public
             tags:
                 - saml_provider
-    /saml_providers/{id}/set-class-metadata:
-        post:
-            description: 执行操作SetClassMetadata
-            operationId: saml_provider_PerformSetClassMetadata
-            parameters:
-                - description: The Id or Name of saml_provider
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-                - in: body
-                  name: body
-                  schema:
-                    properties:
-                        saml_provider:
-                            additionalProperties:
-                                type: string
-                            type: object
-                            x-go-name: Input
-                    type: object
-                  x-go-name: Body
-            responses:
-                "200":
-                    $ref: '#/responses/saml_provider_PerformSetClassMetadataOutput'
-            summary: 全量替换资源的所有 class 标签
-            tags:
-                - saml_provider
-    /saml_providers/{id}/set-org-metadata:
-        post:
-            description: 执行操作SetOrgMetadata
-            operationId: saml_provider_PerformSetOrgMetadata
-            parameters:
-                - description: The Id or Name of saml_provider
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-                - in: body
-                  name: body
-                  schema:
-                    properties:
-                        saml_provider:
-                            additionalProperties:
-                                type: string
-                            type: object
-                            x-go-name: Input
-                    type: object
-                  x-go-name: Body
-            responses:
-                "200":
-                    $ref: '#/responses/saml_provider_PerformSetOrgMetadataOutput'
-            summary: 全量替换资源的所有 class 标签
-            tags:
-                - saml_provider
-    /saml_providers/{id}/set-user-metadata:
-        post:
-            description: 执行操作SetUserMetadata
-            operationId: saml_provider_PerformSetUserMetadata
-            parameters:
-                - description: The Id or Name of saml_provider
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-                - in: body
-                  name: body
-                  schema:
-                    properties:
-                        saml_provider:
-                            additionalProperties:
-                                type: string
-                            type: object
-                            x-go-name: Input
-                    type: object
-                  x-go-name: Body
-            responses:
-                "200":
-                    $ref: '#/responses/saml_provider_PerformSetUserMetadataOutput'
-            summary: 全量替换资源的所有用户标签
-            tags:
-                - saml_provider
     /saml_providers/{id}/status:
         get:
             description: 获取指定信息Status
@@ -5871,154 +4416,6 @@ paths:
                 "200":
                     $ref: '#/responses/saml_provider_GetDetailsStatusOutput'
             summary: 获取资源状态
-            tags:
-                - saml_provider
-        post:
-            description: 执行操作Status
-            operationId: saml_provider_PerformStatus
-            parameters:
-                - description: The Id or Name of saml_provider
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-                - in: body
-                  name: body
-                  schema:
-                    properties:
-                        saml_provider:
-                            $ref: '#/definitions/PerformStatusInput'
-                    type: object
-                  x-go-name: Body
-            responses:
-                "200":
-                    $ref: '#/responses/saml_provider_PerformStatusOutput'
-            summary: 更新资源状态
-            tags:
-                - saml_provider
-    /saml_providers/distinct-field:
-        get:
-            description: 获取指定资源类的信息DistinctField
-            operationId: saml_provider_GetPropertyDistinctField
-            responses:
-                "200":
-                    $ref: '#/responses/saml_provider_GetPropertyDistinctFieldOutput'
-            summary: 获取指定资源类的信息DistinctField
-            tags:
-                - saml_provider
-    /saml_providers/distinct-fields:
-        get:
-            description: 获取指定资源类的信息DistinctFields
-            operationId: saml_provider_GetPropertyDistinctFields
-            responses:
-                "200":
-                    $ref: '#/responses/saml_provider_GetPropertyDistinctFieldsOutput'
-            summary: 获取指定资源类的信息DistinctFields
-            tags:
-                - saml_provider
-    /saml_providers/domain-tag-value-pairs:
-        get:
-            description: 获取指定资源类的信息DomainTagValuePairs
-            operationId: saml_provider_GetPropertyDomainTagValuePairs
-            responses:
-                "200":
-                    $ref: '#/responses/saml_provider_GetPropertyDomainTagValuePairsOutput'
-            summary: 获取指定资源类的信息DomainTagValuePairs
-            tags:
-                - saml_provider
-    /saml_providers/domain-tag-value-tree:
-        get:
-            description: 获取指定资源类的信息DomainTagValueTree
-            operationId: saml_provider_GetPropertyDomainTagValueTree
-            responses:
-                "200":
-                    $ref: '#/responses/saml_provider_GetPropertyDomainTagValueTreeOutput'
-            summary: 获取指定资源类的信息DomainTagValueTree
-            tags:
-                - saml_provider
-    /saml_providers/purge-splitable:
-        post:
-            description: 执行操作PurgeSplitable
-            operationId: saml_provider_PerformPurgeSplitable
-            parameters:
-                - in: body
-                  name: body
-                  schema:
-                    properties:
-                        saml_provider:
-                            $ref: '#/definitions/PurgeSplitTableInput'
-                    type: object
-                  x-go-name: Body
-            responses:
-                "200":
-                    $ref: '#/responses/saml_provider_PerformPurgeSplitableOutput'
-            summary: 执行操作PurgeSplitable
-            tags:
-                - saml_provider
-    /saml_providers/splitable:
-        get:
-            description: 获取指定资源类的信息Splitable
-            operationId: saml_provider_GetPropertySplitable
-            responses:
-                "200":
-                    $ref: '#/responses/saml_provider_GetPropertySplitableOutput'
-            summary: 获取指定资源类的信息Splitable
-            tags:
-                - saml_provider
-    /saml_providers/splitable-export:
-        get:
-            description: 获取指定资源类的信息SplitableExport
-            operationId: saml_provider_GetPropertySplitableExport
-            parameters:
-                - in: query
-                  name: table
-                  type: string
-                  x-go-name: Table
-                - format: int64
-                  in: query
-                  name: offset
-                  type: integer
-                  x-go-name: Offset
-                - format: int64
-                  in: query
-                  name: limit
-                  type: integer
-                  x-go-name: Limit
-            responses:
-                "200":
-                    $ref: '#/responses/saml_provider_GetPropertySplitableExportOutput'
-            summary: 获取指定资源类的信息SplitableExport
-            tags:
-                - saml_provider
-    /saml_providers/statistics:
-        get:
-            description: 获取指定资源类的信息Statistics
-            operationId: saml_provider_GetPropertyStatistics
-            responses:
-                "200":
-                    $ref: '#/responses/saml_provider_GetPropertyStatisticsOutput'
-            summary: 获取指定资源类的信息Statistics
-            tags:
-                - saml_provider
-    /saml_providers/tag-value-pairs:
-        get:
-            description: 获取指定资源类的信息TagValuePairs
-            operationId: saml_provider_GetPropertyTagValuePairs
-            responses:
-                "200":
-                    $ref: '#/responses/saml_provider_GetPropertyTagValuePairsOutput'
-            summary: 获取指定资源类的信息TagValuePairs
-            tags:
-                - saml_provider
-    /saml_providers/tag-value-tree:
-        get:
-            description: 获取指定资源类的信息TagValueTree
-            operationId: saml_provider_GetPropertyTagValueTree
-            responses:
-                "200":
-                    $ref: '#/responses/saml_provider_GetPropertyTagValueTreeOutput'
-            summary: 获取指定资源类的信息TagValueTree
             tags:
                 - saml_provider
     /samlusers:
@@ -6129,6 +4526,11 @@ paths:
                   name: show_fail_reason
                   type: boolean
                   x-go-name: ShowFailReason
+                - description: 是否返回状态统计信息，默认为False
+                  in: query
+                  name: summary_stats
+                  type: boolean
+                  x-go-name: SummaryStats
                 - $ref: '#/definitions/TTagSet'
                   description: 通过标签过滤（包含这些标签）
                   in: query
@@ -6250,11 +4652,6 @@ paths:
                   name: cloudgroup_id
                   type: string
                   x-go-name: CloudgroupId
-                - description: 根据云账号名称过滤资源
-                  in: query
-                  name: cloudaccount
-                  type: string
-                  x-go-name: Cloudaccount
                 - description: 根据平台过滤
                   in: query
                   items:
@@ -6262,6 +4659,10 @@ paths:
                   name: provider
                   type: array
                   x-go-name: Provider
+                - in: query
+                  name: cloudaccount_id
+                  type: string
+                  x-go-name: CloudaccountId
             responses:
                 "200":
                     $ref: '#/responses/samluser_ListItemFilterOutput'
@@ -6370,68 +4771,7 @@ paths:
             responses:
                 "200":
                     $ref: '#/responses/samluser_PerformChangeOwnerOutput'
-            summary: 执行操作ChangeOwner
-            tags:
-                - samluser
-    /samlusers/{id}/change-owner-candidate-domains:
-        get:
-            description: 获取指定信息ChangeOwnerCandidateDomains
-            operationId: samluser_GetDetailsChangeOwnerCandidateDomains
-            parameters:
-                - description: The Id or Name of samluser
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-            responses:
-                "200":
-                    $ref: '#/responses/samluser_GetDetailsChangeOwnerCandidateDomainsOutput'
-            summary: 获取指定信息ChangeOwnerCandidateDomains
-            tags:
-                - samluser
-    /samlusers/{id}/class-metadata:
-        get:
-            description: 获取指定信息ClassMetadata
-            operationId: samluser_GetDetailsClassMetadata
-            parameters:
-                - description: The Id or Name of samluser
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-            responses:
-                "200":
-                    $ref: '#/responses/samluser_GetDetailsClassMetadataOutput'
-            summary: 获取指定信息ClassMetadata
-            tags:
-                - samluser
-        post:
-            description: 执行操作ClassMetadata
-            operationId: samluser_PerformClassMetadata
-            parameters:
-                - description: The Id or Name of samluser
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-                - in: body
-                  name: body
-                  schema:
-                    properties:
-                        samluser:
-                            additionalProperties:
-                                type: string
-                            type: object
-                            x-go-name: Input
-                    type: object
-                  x-go-name: Body
-            responses:
-                "200":
-                    $ref: '#/responses/samluser_PerformClassMetadataOutput'
-            summary: 更新资源的 class 标签
+            summary: 更改项目
             tags:
                 - samluser
     /samlusers/{id}/metadata:
@@ -6471,107 +4811,6 @@ paths:
             summary: 获取资源标签（元数据）
             tags:
                 - samluser
-    /samlusers/{id}/org-metadata:
-        get:
-            description: 获取指定信息OrgMetadata
-            operationId: samluser_GetDetailsOrgMetadata
-            parameters:
-                - description: The Id or Name of samluser
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-            responses:
-                "200":
-                    $ref: '#/responses/samluser_GetDetailsOrgMetadataOutput'
-            summary: 获取指定信息OrgMetadata
-            tags:
-                - samluser
-    /samlusers/{id}/set-class-metadata:
-        post:
-            description: 执行操作SetClassMetadata
-            operationId: samluser_PerformSetClassMetadata
-            parameters:
-                - description: The Id or Name of samluser
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-                - in: body
-                  name: body
-                  schema:
-                    properties:
-                        samluser:
-                            additionalProperties:
-                                type: string
-                            type: object
-                            x-go-name: Input
-                    type: object
-                  x-go-name: Body
-            responses:
-                "200":
-                    $ref: '#/responses/samluser_PerformSetClassMetadataOutput'
-            summary: 全量替换资源的所有 class 标签
-            tags:
-                - samluser
-    /samlusers/{id}/set-org-metadata:
-        post:
-            description: 执行操作SetOrgMetadata
-            operationId: samluser_PerformSetOrgMetadata
-            parameters:
-                - description: The Id or Name of samluser
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-                - in: body
-                  name: body
-                  schema:
-                    properties:
-                        samluser:
-                            additionalProperties:
-                                type: string
-                            type: object
-                            x-go-name: Input
-                    type: object
-                  x-go-name: Body
-            responses:
-                "200":
-                    $ref: '#/responses/samluser_PerformSetOrgMetadataOutput'
-            summary: 全量替换资源的所有 class 标签
-            tags:
-                - samluser
-    /samlusers/{id}/set-user-metadata:
-        post:
-            description: 执行操作SetUserMetadata
-            operationId: samluser_PerformSetUserMetadata
-            parameters:
-                - description: The Id or Name of samluser
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-                - in: body
-                  name: body
-                  schema:
-                    properties:
-                        samluser:
-                            additionalProperties:
-                                type: string
-                            type: object
-                            x-go-name: Input
-                    type: object
-                  x-go-name: Body
-            responses:
-                "200":
-                    $ref: '#/responses/samluser_PerformSetUserMetadataOutput'
-            summary: 全量替换资源的所有用户标签
-            tags:
-                - samluser
     /samlusers/{id}/status:
         get:
             description: 获取指定信息Status
@@ -6587,144 +4826,6 @@ paths:
                 "200":
                     $ref: '#/responses/samluser_GetDetailsStatusOutput'
             summary: 获取资源状态
-            tags:
-                - samluser
-        post:
-            description: 执行操作Status
-            operationId: samluser_PerformStatus
-            parameters:
-                - description: The Id or Name of samluser
-                  in: path
-                  name: id
-                  required: true
-                  type: string
-                  x-go-name: Id
-                - in: body
-                  name: body
-                  schema:
-                    properties:
-                        samluser:
-                            $ref: '#/definitions/PerformStatusInput'
-                    type: object
-                  x-go-name: Body
-            responses:
-                "200":
-                    $ref: '#/responses/samluser_PerformStatusOutput'
-            summary: 更新资源状态
-            tags:
-                - samluser
-    /samlusers/distinct-field:
-        get:
-            description: 获取指定资源类的信息DistinctField
-            operationId: samluser_GetPropertyDistinctField
-            responses:
-                "200":
-                    $ref: '#/responses/samluser_GetPropertyDistinctFieldOutput'
-            summary: 获取指定资源类的信息DistinctField
-            tags:
-                - samluser
-    /samlusers/distinct-fields:
-        get:
-            description: 获取指定资源类的信息DistinctFields
-            operationId: samluser_GetPropertyDistinctFields
-            responses:
-                "200":
-                    $ref: '#/responses/samluser_GetPropertyDistinctFieldsOutput'
-            summary: 获取指定资源类的信息DistinctFields
-            tags:
-                - samluser
-    /samlusers/domain-tag-value-pairs:
-        get:
-            description: 获取指定资源类的信息DomainTagValuePairs
-            operationId: samluser_GetPropertyDomainTagValuePairs
-            responses:
-                "200":
-                    $ref: '#/responses/samluser_GetPropertyDomainTagValuePairsOutput'
-            summary: 获取指定资源类的信息DomainTagValuePairs
-            tags:
-                - samluser
-    /samlusers/domain-tag-value-tree:
-        get:
-            description: 获取指定资源类的信息DomainTagValueTree
-            operationId: samluser_GetPropertyDomainTagValueTree
-            responses:
-                "200":
-                    $ref: '#/responses/samluser_GetPropertyDomainTagValueTreeOutput'
-            summary: 获取指定资源类的信息DomainTagValueTree
-            tags:
-                - samluser
-    /samlusers/purge-splitable:
-        post:
-            description: 执行操作PurgeSplitable
-            operationId: samluser_PerformPurgeSplitable
-            parameters:
-                - in: body
-                  name: body
-                  schema:
-                    properties:
-                        samluser:
-                            $ref: '#/definitions/PurgeSplitTableInput'
-                    type: object
-                  x-go-name: Body
-            responses:
-                "200":
-                    $ref: '#/responses/samluser_PerformPurgeSplitableOutput'
-            summary: 执行操作PurgeSplitable
-            tags:
-                - samluser
-    /samlusers/splitable:
-        get:
-            description: 获取指定资源类的信息Splitable
-            operationId: samluser_GetPropertySplitable
-            responses:
-                "200":
-                    $ref: '#/responses/samluser_GetPropertySplitableOutput'
-            summary: 获取指定资源类的信息Splitable
-            tags:
-                - samluser
-    /samlusers/splitable-export:
-        get:
-            description: 获取指定资源类的信息SplitableExport
-            operationId: samluser_GetPropertySplitableExport
-            parameters:
-                - in: query
-                  name: table
-                  type: string
-                  x-go-name: Table
-                - format: int64
-                  in: query
-                  name: offset
-                  type: integer
-                  x-go-name: Offset
-                - format: int64
-                  in: query
-                  name: limit
-                  type: integer
-                  x-go-name: Limit
-            responses:
-                "200":
-                    $ref: '#/responses/samluser_GetPropertySplitableExportOutput'
-            summary: 获取指定资源类的信息SplitableExport
-            tags:
-                - samluser
-    /samlusers/tag-value-pairs:
-        get:
-            description: 获取指定资源类的信息TagValuePairs
-            operationId: samluser_GetPropertyTagValuePairs
-            responses:
-                "200":
-                    $ref: '#/responses/samluser_GetPropertyTagValuePairsOutput'
-            summary: 获取指定资源类的信息TagValuePairs
-            tags:
-                - samluser
-    /samlusers/tag-value-tree:
-        get:
-            description: 获取指定资源类的信息TagValueTree
-            operationId: samluser_GetPropertyTagValueTree
-            responses:
-                "200":
-                    $ref: '#/responses/samluser_GetPropertyTagValueTreeOutput'
-            summary: 获取指定资源类的信息TagValueTree
             tags:
                 - samluser
 produces:
@@ -6744,34 +4845,7 @@ responses:
                 cloudgroup:
                     $ref: '#/definitions/CloudgroupDetails'
             type: object
-    cloudgroup_GetDetailsChangeOwnerCandidateDomainsOutput:
-        description: ""
-        schema:
-            properties:
-                cloudgroup:
-                    $ref: '#/definitions/ChangeOwnerCandidateDomainsOutput'
-            type: object
-    cloudgroup_GetDetailsClassMetadataOutput:
-        description: ""
-        schema:
-            properties:
-                cloudgroup:
-                    additionalProperties:
-                        type: string
-                    type: object
-                    x-go-name: Output
-            type: object
     cloudgroup_GetDetailsMetadataOutput:
-        description: ""
-        schema:
-            properties:
-                cloudgroup:
-                    additionalProperties:
-                        type: string
-                    type: object
-                    x-go-name: Output
-            type: object
-    cloudgroup_GetDetailsOrgMetadataOutput:
         description: ""
         schema:
             properties:
@@ -6795,29 +4869,6 @@ responses:
                 cloudgroup:
                     $ref: '#/definitions/GetDetailsStatusOutput'
             type: object
-    cloudgroup_GetPropertyDistinctFieldOutput:
-        description: ""
-    cloudgroup_GetPropertyDistinctFieldsOutput:
-        description: ""
-    cloudgroup_GetPropertyDomainTagValuePairsOutput:
-        description: ""
-    cloudgroup_GetPropertyDomainTagValueTreeOutput:
-        description: ""
-    cloudgroup_GetPropertySplitableExportOutput:
-        description: ""
-    cloudgroup_GetPropertySplitableOutput:
-        description: ""
-    cloudgroup_GetPropertyStatisticsOutput:
-        description: ""
-        schema:
-            properties:
-                cloudgroup:
-                    $ref: '#/definitions/StatusStatistic'
-            type: object
-    cloudgroup_GetPropertyTagValuePairsOutput:
-        description: ""
-    cloudgroup_GetPropertyTagValueTreeOutput:
-        description: ""
     cloudgroup_ListItemFilterOutput:
         description: ""
         schema:
@@ -6846,29 +4897,17 @@ responses:
         description: ""
     cloudgroup_PerformChangeOwnerOutput:
         description: ""
-    cloudgroup_PerformClassMetadataOutput:
-        description: ""
     cloudgroup_PerformDetachPolicyOutput:
         description: ""
     cloudgroup_PerformPrivateOutput:
         description: ""
     cloudgroup_PerformPublicOutput:
         description: ""
-    cloudgroup_PerformPurgeSplitableOutput:
-        description: ""
     cloudgroup_PerformRemoveUserOutput:
-        description: ""
-    cloudgroup_PerformSetClassMetadataOutput:
-        description: ""
-    cloudgroup_PerformSetOrgMetadataOutput:
         description: ""
     cloudgroup_PerformSetPoliciesOutput:
         description: ""
-    cloudgroup_PerformSetUserMetadataOutput:
-        description: ""
     cloudgroup_PerformSetUsersOutput:
-        description: ""
-    cloudgroup_PerformStatusOutput:
         description: ""
     cloudgroup_PerformSyncstatusOutput:
         description: ""
@@ -6900,34 +4939,7 @@ responses:
                 cloudpolicy:
                     $ref: '#/definitions/CloudpolicyDetails'
             type: object
-    cloudpolicy_GetDetailsChangeOwnerCandidateDomainsOutput:
-        description: ""
-        schema:
-            properties:
-                cloudpolicy:
-                    $ref: '#/definitions/ChangeOwnerCandidateDomainsOutput'
-            type: object
-    cloudpolicy_GetDetailsClassMetadataOutput:
-        description: ""
-        schema:
-            properties:
-                cloudpolicy:
-                    additionalProperties:
-                        type: string
-                    type: object
-                    x-go-name: Output
-            type: object
     cloudpolicy_GetDetailsMetadataOutput:
-        description: ""
-        schema:
-            properties:
-                cloudpolicy:
-                    additionalProperties:
-                        type: string
-                    type: object
-                    x-go-name: Output
-            type: object
-    cloudpolicy_GetDetailsOrgMetadataOutput:
         description: ""
         schema:
             properties:
@@ -6944,29 +4956,6 @@ responses:
                 cloudpolicy:
                     $ref: '#/definitions/GetDetailsStatusOutput'
             type: object
-    cloudpolicy_GetPropertyDistinctFieldOutput:
-        description: ""
-    cloudpolicy_GetPropertyDistinctFieldsOutput:
-        description: ""
-    cloudpolicy_GetPropertyDomainTagValuePairsOutput:
-        description: ""
-    cloudpolicy_GetPropertyDomainTagValueTreeOutput:
-        description: ""
-    cloudpolicy_GetPropertySplitableExportOutput:
-        description: ""
-    cloudpolicy_GetPropertySplitableOutput:
-        description: ""
-    cloudpolicy_GetPropertyStatisticsOutput:
-        description: ""
-        schema:
-            properties:
-                cloudpolicy:
-                    $ref: '#/definitions/StatusStatistic'
-            type: object
-    cloudpolicy_GetPropertyTagValuePairsOutput:
-        description: ""
-    cloudpolicy_GetPropertyTagValueTreeOutput:
-        description: ""
     cloudpolicy_ListItemFilterOutput:
         description: ""
         schema:
@@ -6991,21 +4980,9 @@ responses:
             type: object
     cloudpolicy_PerformChangeOwnerOutput:
         description: ""
-    cloudpolicy_PerformClassMetadataOutput:
-        description: ""
     cloudpolicy_PerformPrivateOutput:
         description: ""
     cloudpolicy_PerformPublicOutput:
-        description: ""
-    cloudpolicy_PerformPurgeSplitableOutput:
-        description: ""
-    cloudpolicy_PerformSetClassMetadataOutput:
-        description: ""
-    cloudpolicy_PerformSetOrgMetadataOutput:
-        description: ""
-    cloudpolicy_PerformSetUserMetadataOutput:
-        description: ""
-    cloudpolicy_PerformStatusOutput:
         description: ""
     cloudrole_CustomizeDeleteOutput:
         description: ""
@@ -7021,34 +4998,7 @@ responses:
                 cloudrole:
                     $ref: '#/definitions/CloudroleDetails'
             type: object
-    cloudrole_GetDetailsChangeOwnerCandidateDomainsOutput:
-        description: ""
-        schema:
-            properties:
-                cloudrole:
-                    $ref: '#/definitions/ChangeOwnerCandidateDomainsOutput'
-            type: object
-    cloudrole_GetDetailsClassMetadataOutput:
-        description: ""
-        schema:
-            properties:
-                cloudrole:
-                    additionalProperties:
-                        type: string
-                    type: object
-                    x-go-name: Output
-            type: object
     cloudrole_GetDetailsMetadataOutput:
-        description: ""
-        schema:
-            properties:
-                cloudrole:
-                    additionalProperties:
-                        type: string
-                    type: object
-                    x-go-name: Output
-            type: object
-    cloudrole_GetDetailsOrgMetadataOutput:
         description: ""
         schema:
             properties:
@@ -7065,29 +5015,6 @@ responses:
                 cloudrole:
                     $ref: '#/definitions/GetDetailsStatusOutput'
             type: object
-    cloudrole_GetPropertyDistinctFieldOutput:
-        description: ""
-    cloudrole_GetPropertyDistinctFieldsOutput:
-        description: ""
-    cloudrole_GetPropertyDomainTagValuePairsOutput:
-        description: ""
-    cloudrole_GetPropertyDomainTagValueTreeOutput:
-        description: ""
-    cloudrole_GetPropertySplitableExportOutput:
-        description: ""
-    cloudrole_GetPropertySplitableOutput:
-        description: ""
-    cloudrole_GetPropertyStatisticsOutput:
-        description: ""
-        schema:
-            properties:
-                cloudrole:
-                    $ref: '#/definitions/StatusStatistic'
-            type: object
-    cloudrole_GetPropertyTagValuePairsOutput:
-        description: ""
-    cloudrole_GetPropertyTagValueTreeOutput:
-        description: ""
     cloudrole_ListItemFilterOutput:
         description: ""
         schema:
@@ -7112,8 +5039,6 @@ responses:
             type: object
     cloudrole_PerformChangeOwnerOutput:
         description: ""
-    cloudrole_PerformClassMetadataOutput:
-        description: ""
     cloudrole_PerformDisableOutput:
         description: ""
     cloudrole_PerformEnableOutput:
@@ -7121,16 +5046,6 @@ responses:
     cloudrole_PerformPrivateOutput:
         description: ""
     cloudrole_PerformPublicOutput:
-        description: ""
-    cloudrole_PerformPurgeSplitableOutput:
-        description: ""
-    cloudrole_PerformSetClassMetadataOutput:
-        description: ""
-    cloudrole_PerformSetOrgMetadataOutput:
-        description: ""
-    cloudrole_PerformSetUserMetadataOutput:
-        description: ""
-    cloudrole_PerformStatusOutput:
         description: ""
     cloudrole_ValidateCreateDataOutput:
         description: ""
@@ -7162,34 +5077,7 @@ responses:
             type: object
     clouduser_GetDetailsAccessKeysOutput:
         description: ""
-    clouduser_GetDetailsChangeOwnerCandidateDomainsOutput:
-        description: ""
-        schema:
-            properties:
-                clouduser:
-                    $ref: '#/definitions/ChangeOwnerCandidateDomainsOutput'
-            type: object
-    clouduser_GetDetailsClassMetadataOutput:
-        description: ""
-        schema:
-            properties:
-                clouduser:
-                    additionalProperties:
-                        type: string
-                    type: object
-                    x-go-name: Output
-            type: object
     clouduser_GetDetailsMetadataOutput:
-        description: ""
-        schema:
-            properties:
-                clouduser:
-                    additionalProperties:
-                        type: string
-                    type: object
-                    x-go-name: Output
-            type: object
-    clouduser_GetDetailsOrgMetadataOutput:
         description: ""
         schema:
             properties:
@@ -7206,22 +5094,6 @@ responses:
                 clouduser:
                     $ref: '#/definitions/GetDetailsStatusOutput'
             type: object
-    clouduser_GetPropertyDistinctFieldOutput:
-        description: ""
-    clouduser_GetPropertyDistinctFieldsOutput:
-        description: ""
-    clouduser_GetPropertyDomainTagValuePairsOutput:
-        description: ""
-    clouduser_GetPropertyDomainTagValueTreeOutput:
-        description: ""
-    clouduser_GetPropertySplitableExportOutput:
-        description: ""
-    clouduser_GetPropertySplitableOutput:
-        description: ""
-    clouduser_GetPropertyTagValuePairsOutput:
-        description: ""
-    clouduser_GetPropertyTagValueTreeOutput:
-        description: ""
     clouduser_ListItemFilterOutput:
         description: ""
         schema:
@@ -7248,8 +5120,6 @@ responses:
         description: ""
     clouduser_PerformChangeOwnerOutput:
         description: ""
-    clouduser_PerformClassMetadataOutput:
-        description: ""
     clouduser_PerformCreateAccessKeyOutput:
         description: ""
     clouduser_PerformDeleteAccessKeyOutput:
@@ -7260,21 +5130,11 @@ responses:
         description: ""
     clouduser_PerformLeaveGroupOutput:
         description: ""
-    clouduser_PerformPurgeSplitableOutput:
-        description: ""
     clouduser_PerformResetPasswordOutput:
-        description: ""
-    clouduser_PerformSetClassMetadataOutput:
         description: ""
     clouduser_PerformSetGroupsOutput:
         description: ""
-    clouduser_PerformSetOrgMetadataOutput:
-        description: ""
     clouduser_PerformSetPoliciesOutput:
-        description: ""
-    clouduser_PerformSetUserMetadataOutput:
-        description: ""
-    clouduser_PerformStatusOutput:
         description: ""
     clouduser_PerformSyncstatusOutput:
         description: ""
@@ -7299,34 +5159,7 @@ responses:
                 saml_provider:
                     $ref: '#/definitions/SAMLProviderDetails'
             type: object
-    saml_provider_GetDetailsChangeOwnerCandidateDomainsOutput:
-        description: ""
-        schema:
-            properties:
-                saml_provider:
-                    $ref: '#/definitions/ChangeOwnerCandidateDomainsOutput'
-            type: object
-    saml_provider_GetDetailsClassMetadataOutput:
-        description: ""
-        schema:
-            properties:
-                saml_provider:
-                    additionalProperties:
-                        type: string
-                    type: object
-                    x-go-name: Output
-            type: object
     saml_provider_GetDetailsMetadataOutput:
-        description: ""
-        schema:
-            properties:
-                saml_provider:
-                    additionalProperties:
-                        type: string
-                    type: object
-                    x-go-name: Output
-            type: object
-    saml_provider_GetDetailsOrgMetadataOutput:
         description: ""
         schema:
             properties:
@@ -7343,29 +5176,6 @@ responses:
                 saml_provider:
                     $ref: '#/definitions/GetDetailsStatusOutput'
             type: object
-    saml_provider_GetPropertyDistinctFieldOutput:
-        description: ""
-    saml_provider_GetPropertyDistinctFieldsOutput:
-        description: ""
-    saml_provider_GetPropertyDomainTagValuePairsOutput:
-        description: ""
-    saml_provider_GetPropertyDomainTagValueTreeOutput:
-        description: ""
-    saml_provider_GetPropertySplitableExportOutput:
-        description: ""
-    saml_provider_GetPropertySplitableOutput:
-        description: ""
-    saml_provider_GetPropertyStatisticsOutput:
-        description: ""
-        schema:
-            properties:
-                saml_provider:
-                    $ref: '#/definitions/StatusStatistic'
-            type: object
-    saml_provider_GetPropertyTagValuePairsOutput:
-        description: ""
-    saml_provider_GetPropertyTagValueTreeOutput:
-        description: ""
     saml_provider_ListItemFilterOutput:
         description: ""
         schema:
@@ -7390,21 +5200,9 @@ responses:
             type: object
     saml_provider_PerformChangeOwnerOutput:
         description: ""
-    saml_provider_PerformClassMetadataOutput:
-        description: ""
     saml_provider_PerformPrivateOutput:
         description: ""
     saml_provider_PerformPublicOutput:
-        description: ""
-    saml_provider_PerformPurgeSplitableOutput:
-        description: ""
-    saml_provider_PerformSetClassMetadataOutput:
-        description: ""
-    saml_provider_PerformSetOrgMetadataOutput:
-        description: ""
-    saml_provider_PerformSetUserMetadataOutput:
-        description: ""
-    saml_provider_PerformStatusOutput:
         description: ""
     saml_provider_ValidateCreateDataOutput:
         description: ""
@@ -7434,34 +5232,7 @@ responses:
                 samluser:
                     $ref: '#/definitions/SamluserDetails'
             type: object
-    samluser_GetDetailsChangeOwnerCandidateDomainsOutput:
-        description: ""
-        schema:
-            properties:
-                samluser:
-                    $ref: '#/definitions/ChangeOwnerCandidateDomainsOutput'
-            type: object
-    samluser_GetDetailsClassMetadataOutput:
-        description: ""
-        schema:
-            properties:
-                samluser:
-                    additionalProperties:
-                        type: string
-                    type: object
-                    x-go-name: Output
-            type: object
     samluser_GetDetailsMetadataOutput:
-        description: ""
-        schema:
-            properties:
-                samluser:
-                    additionalProperties:
-                        type: string
-                    type: object
-                    x-go-name: Output
-            type: object
-    samluser_GetDetailsOrgMetadataOutput:
         description: ""
         schema:
             properties:
@@ -7478,22 +5249,6 @@ responses:
                 samluser:
                     $ref: '#/definitions/GetDetailsStatusOutput'
             type: object
-    samluser_GetPropertyDistinctFieldOutput:
-        description: ""
-    samluser_GetPropertyDistinctFieldsOutput:
-        description: ""
-    samluser_GetPropertyDomainTagValuePairsOutput:
-        description: ""
-    samluser_GetPropertyDomainTagValueTreeOutput:
-        description: ""
-    samluser_GetPropertySplitableExportOutput:
-        description: ""
-    samluser_GetPropertySplitableOutput:
-        description: ""
-    samluser_GetPropertyTagValuePairsOutput:
-        description: ""
-    samluser_GetPropertyTagValueTreeOutput:
-        description: ""
     samluser_ListItemFilterOutput:
         description: ""
         schema:
@@ -7517,18 +5272,6 @@ responses:
                     x-go-name: Total
             type: object
     samluser_PerformChangeOwnerOutput:
-        description: ""
-    samluser_PerformClassMetadataOutput:
-        description: ""
-    samluser_PerformPurgeSplitableOutput:
-        description: ""
-    samluser_PerformSetClassMetadataOutput:
-        description: ""
-    samluser_PerformSetOrgMetadataOutput:
-        description: ""
-    samluser_PerformSetUserMetadataOutput:
-        description: ""
-    samluser_PerformStatusOutput:
         description: ""
     samluser_ValidateCreateDataOutput:
         description: ""

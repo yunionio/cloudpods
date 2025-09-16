@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/sets"
 
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	hostapi "yunion.io/x/onecloud/pkg/apis/host"
@@ -130,6 +131,10 @@ func (m *SGuestManager) startContainer(obj *sPodGuestInstance, ctr *hostapi.Cont
 	return nil
 }
 
+func (m *SGuestManager) GetPleg() pleg.PodLifecycleEventGenerator {
+	return m.pleg
+}
+
 func (m *SGuestManager) syncContainerLoop(plegCh chan *pleg.PodLifecycleEvent) {
 	log.Infof("start sync container loop")
 	for {
@@ -181,7 +186,7 @@ func (m *SGuestManager) syncContainerLoopIteration(plegCh chan *pleg.PodLifecycl
 			if ctrObj != nil {
 				ccStatus, _, _ = podMan.GetContainerStatus(ctx, ctrObj.Id)
 			}
-			if !isInternalStopped || ccStatus == computeapi.CONTAINER_STATUS_EXITED {
+			if !isInternalStopped && sets.NewString(computeapi.CONTAINER_STATUS_EXITED, computeapi.CONTAINER_STATUS_CRASH_LOOP_BACK_OFF).Has(ccStatus) {
 				podStatus, err := m.podCache.Get(e.Id)
 				if err != nil {
 					log.Errorf("get pod %s status error: %v", e.Id, err)
@@ -208,7 +213,7 @@ func (m *SGuestManager) syncContainerLoopIteration(plegCh chan *pleg.PodLifecycl
 				}
 				log.Infof("sync pod %s container %s status: %s", e.Id, ctrCriId, reason)
 				// 如果是 primary container 退出，就退出其他容器
-				if ctrObj != nil && podMan.IsPrimaryContainer(ctrObj.Id) && ccStatus == computeapi.CONTAINER_STATUS_EXITED {
+				if ctrObj != nil && !isInternalStopped && podMan.IsPrimaryContainer(ctrObj.Id) && ccStatus == computeapi.CONTAINER_STATUS_EXITED {
 					reason = fmt.Sprintf("stop all containers when primary container %s exited", ctrObj.Name)
 					if err := podMan.StopAll(context.Background()); err != nil {
 						log.Errorf("stop all pod containers error: %s", err.Error())

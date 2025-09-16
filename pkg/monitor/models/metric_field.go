@@ -32,6 +32,8 @@ import (
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
+// +onecloud:swagger-gen-model-singular=metricfield
+// +onecloud:swagger-gen-model-plural=metricfields
 type SMetricFieldManager struct {
 	db.SEnabledResourceBaseManager
 	db.SStatusStandaloneResourceBaseManager

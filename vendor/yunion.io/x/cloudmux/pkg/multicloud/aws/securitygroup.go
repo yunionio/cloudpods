@@ -159,7 +159,7 @@ func (self *SRegion) CreateSecurityGroupRule(secGrpId string, opts *cloudprovide
 
 	err := self.ec2Request(action, params, &ret)
 	if err != nil {
-		return nil, errors.Wrapf(err, action)
+		return nil, errors.Wrapf(err, "%s", action)
 	}
 	for i := range ret.SecurityGroupRuleSet {
 		return &ret.SecurityGroupRuleSet[i], nil

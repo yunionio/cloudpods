@@ -16,9 +16,17 @@ package lockman
 
 import (
 	"context"
+	"fmt"
 	"math/rand"
+	"os"
+	"sync"
 	"testing"
 	"time"
+
+	"github.com/petermattis/goid"
+
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/utils"
 )
 
 func TestInMemoryLockManager(t *testing.T) {
@@ -43,7 +51,7 @@ func TestRunManu(t *testing.T) {
 			ctx := context.Background()
 			now := time.Now()
 			ms := now.UnixMilli()
-			ctx = context.WithValue(ctx, "Time", ms)
+			ctx = context.WithValue(ctx, "time", ms)
 			lockman.LockKey(ctx, "test")
 			defer lockman.UnlockKey(ctx, "test")
 			counter++
@@ -54,5 +62,76 @@ func TestRunManu(t *testing.T) {
 	for counter < MAX {
 		time.Sleep(1)
 	}
+	t.Logf("complete")
+}
+
+type app struct {
+	ctx     context.Context
+	key     string
+	lockman ILockManager
+}
+
+func (app *app) run() {
+	app.lockman.LockKey(app.ctx, app.key)
+	defer app.lockman.UnlockKey(app.ctx, app.key)
+
+	fmt.Printf("run for goid: %d key %s\n", goid.Get(), app.key)
+}
+
+type emptyKey struct{}
+
+func TestRunManu3(t *testing.T) {
+	for i := 0; i < 100; i++ {
+		TestRunManu2(t)
+	}
+}
+
+func TestRunManu2(t *testing.T) {
+	rand.Seed(100)
+	lockman := NewInMemoryLockManager()
+
+	debug_log = true
+
+	// 使用 WaitGroup 来等待所有 goroutine 完成
+	var wg sync.WaitGroup
+	MAX_GOROUTINE := 4096
+	MAX_KEY := 4
+
+	complete := make(chan struct{})
+
+	go func() {
+		for {
+			select {
+			case <-time.After(time.Second):
+				t.Logf("timeout")
+				utils.DumpAllGoroutineStack(os.Stdout)
+			case <-complete:
+				return
+			}
+		}
+	}()
+
+	bgCtx := context.Background()
+
+	// 为每个 goroutine 创建独立的 context
+	for i := 0; i < MAX_GOROUTINE; i++ {
+		wg.Add(1)
+		go func(id int) {
+			defer wg.Done()
+			// 为每个 goroutine 创建新的 context
+			ctx := context.WithValue(bgCtx, emptyKey{}, id)
+			log.Infof("ctx for id %d: %p", id, ctx)
+			app := &app{
+				ctx:     ctx,
+				key:     fmt.Sprintf("test-%d", id%MAX_KEY),
+				lockman: lockman,
+			}
+			app.run()
+		}(i)
+	}
+
+	// 等待所有 goroutine 完成
+	wg.Wait()
+	close(complete)
 	t.Logf("complete")
 }

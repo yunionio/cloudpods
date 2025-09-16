@@ -75,7 +75,7 @@ func (self *SHost) GetIVMById(id string) (cloudprovider.ICloudVM, error) {
 			return &vms[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", id)
 }
 
 func (self *SHost) GetIStorages() ([]cloudprovider.ICloudStorage, error) {

@@ -152,6 +152,15 @@ func (man *SModelartsPoolManager) QueryDistinctExtraField(q *sqlchemy.SQuery, fi
 	return q, httperrors.ErrNotFound
 }
 
+func (manager *SModelartsPoolManager) QueryDistinctExtraFields(q *sqlchemy.SQuery, resource string, fields []string) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SManagedResourceBaseManager.QueryDistinctExtraFields(q, resource, fields)
+	if err == nil {
+		return q, nil
+	}
+	return q, httperrors.ErrNotFound
+}
+
 func (man *SModelartsPoolManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.ModelartsPoolCreateInput) (api.ModelartsPoolCreateInput, error) {
 	var err error
 	if input.NodeCount <= 0 {
@@ -491,10 +500,10 @@ func (self *SCloudregion) newFromCloudModelartsPool(ctx context.Context, userCre
 	pool.CpuArch = sku.CpuArch
 
 	pool.BillingType = ext.GetBillingType()
+	pool.ExpiredAt = time.Time{}
+	pool.AutoRenew = false
 	if pool.BillingType == billing_api.BILLING_TYPE_PREPAID {
-		if expired := ext.GetExpiredAt(); !expired.IsZero() {
-			pool.ExpiredAt = expired
-		}
+		pool.ExpiredAt = ext.GetExpiredAt()
 		pool.AutoRenew = ext.IsAutoRenew()
 	}
 

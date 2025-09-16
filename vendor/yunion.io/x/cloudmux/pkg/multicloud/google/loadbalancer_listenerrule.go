@@ -125,6 +125,18 @@ func (self *SLoadbalancerListenerRule) GetBackendGroupId() string {
 	return self.backendService.GetGlobalId()
 }
 
+func (self *SLoadbalancerListenerRule) GetBackendGroups() ([]string, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (self *SLoadbalancerListenerRule) GetRedirectPool() (cloudprovider.SRedirectPool, error) {
+	return cloudprovider.SRedirectPool{}, cloudprovider.ErrNotImplemented
+}
+
+func (self *SLoadbalancerListenerRule) Update(ctx context.Context, opts *cloudprovider.SLoadbalancerListenerRule) error {
+	return cloudprovider.ErrNotSupported
+}
+
 func (self *SLoadbalancerListenerRule) Delete(ctx context.Context) error {
 	return cloudprovider.ErrNotSupported
 }

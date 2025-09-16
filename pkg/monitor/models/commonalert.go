@@ -87,6 +87,8 @@ type ISubscriptionManager interface {
 	DeleteAlert(alert *SCommonAlert)
 }
 
+// +onecloud:swagger-gen-model-singular=commonalert
+// +onecloud:swagger-gen-model-plural=commonalerts
 type SCommonAlertManager struct {
 	SAlertManager
 	subscriptionManager ISubscriptionManager

@@ -17,6 +17,7 @@ package netutils
 import (
 	"encoding/binary"
 	"fmt"
+	"math/big"
 	"math/rand"
 	"net"
 	"sort"
@@ -362,6 +363,15 @@ func (addr IPV6Addr) Ge(addr2 IPV6Addr) bool {
 	return !addr.Lt(addr2)
 }
 
+func (addr IPV6Addr) IsZero() bool {
+	for _, v := range addr {
+		if v != 0 {
+			return false
+		}
+	}
+	return true
+}
+
 type IPV6AddrRange struct {
 	start IPV6Addr
 	end   IPV6Addr
@@ -398,6 +408,23 @@ func (ar IPV6AddrRange) Contains(ip IPV6Addr) bool {
 
 func (ar IPV6AddrRange) ContainsRange(ar2 IPV6AddrRange) bool {
 	return ar.start.Le(ar2.start) && ar.end.Ge(ar2.end)
+}
+
+func Uint16ArrayToBigInt(ip [8]uint16) *big.Int {
+	result := new(big.Int)
+	for i := 0; i < 8; i++ {
+		result.Lsh(result, 16)
+		result.Add(result, big.NewInt(int64(ip[i])))
+	}
+	return result
+}
+
+func (ar IPV6AddrRange) AddressCount() *big.Int {
+	start := Uint16ArrayToBigInt(ar.start)
+	end := Uint16ArrayToBigInt(ar.end)
+	diff := new(big.Int).Sub(end, start)
+	diff.Add(diff, big.NewInt(1))
+	return diff
 }
 
 const (

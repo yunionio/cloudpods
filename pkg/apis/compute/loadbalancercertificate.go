@@ -78,20 +78,20 @@ type LoadbalancerCertificateCreateInput struct {
 
 	Certificate string `json:"certificate"`
 	PrivateKey  string `json:"private_key"`
-	// swagger: ignore
+	// swagger:ignore
 	Fingerprint string `json:"fingerprint"`
-	// swagger: ignore
+	// swagger:ignore
 	PublicKeyAlgorithm string `json:"public_key_algorithm"`
-	// swagger: ignore
+	// swagger:ignore
 	PublicKeyBitLen int `json:"public_key_bit_len"`
-	// swagger: ignore
+	// swagger:ignore
 	SignatureAlgorithm string `json:"signature_algorithm"`
-	// swagger: ignore
+	// swagger:ignore
 	NotBefore time.Time `json:"not_before"`
-	// swagger: ignore
+	// swagger:ignore
 	NotAfter time.Time `json:"not_after"`
-	// swagger: ignore
+	// swagger:ignore
 	CommonName string `json:"common_name"`
-	// swagger: ignore
+	// swagger:ignore
 	SubjectAlternativeNames string `json:"subject_alternative_names"`
 }

@@ -22,7 +22,7 @@ type SNatSCreateInput struct {
 	Name         string
 	NatgatewayId string
 	NetworkId    string
-	// swagger: ignore
+	// swagger:ignore
 	Ip string
 
 	// swagger:ignore
@@ -40,6 +40,7 @@ type SNatDCreateInput struct {
 	InternalPort int
 	ExternalIp   string
 	Eip          string `json:"eip"`
+	// swagger:ignore
 	ExternalIpId string `json:"external_ip_id"  yunion-deprecated-by:"eip"`
 	ExternalPort int
 	IpProtocol   string

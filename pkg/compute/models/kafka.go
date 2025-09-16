@@ -194,6 +194,15 @@ func (man *SKafkaManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field stri
 	return q, httperrors.ErrNotFound
 }
 
+func (manager *SKafkaManager) QueryDistinctExtraFields(q *sqlchemy.SQuery, resource string, fields []string) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SManagedResourceBaseManager.QueryDistinctExtraFields(q, resource, fields)
+	if err == nil {
+		return q, nil
+	}
+	return q, httperrors.ErrNotFound
+}
+
 func (man *SKafkaManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.KafkaCreateInput) (api.KafkaCreateInput, error) {
 	return input, httperrors.NewNotImplementedError("Not Implemented")
 }
@@ -437,10 +446,10 @@ func (self *SKafka) SyncWithCloudKafka(ctx context.Context, userCred mcclient.To
 		self.IsMultiAz = ext.IsMultiAz()
 
 		self.BillingType = ext.GetBillingType()
+		self.ExpiredAt = time.Time{}
+		self.AutoRenew = false
 		if self.BillingType == billing_api.BILLING_TYPE_PREPAID {
-			if expiredAt := ext.GetExpiredAt(); !expiredAt.IsZero() {
-				self.ExpiredAt = expiredAt
-			}
+			self.ExpiredAt = ext.GetExpiredAt()
 			self.AutoRenew = ext.IsAutoRenew()
 		}
 
@@ -538,10 +547,10 @@ func (self *SCloudregion) newFromCloudKafka(ctx context.Context, userCred mcclie
 	}
 
 	kafka.BillingType = ext.GetBillingType()
+	kafka.ExpiredAt = time.Time{}
+	kafka.AutoRenew = false
 	if kafka.BillingType == billing_api.BILLING_TYPE_PREPAID {
-		if expired := ext.GetExpiredAt(); !expired.IsZero() {
-			kafka.ExpiredAt = expired
-		}
+		kafka.ExpiredAt = ext.GetExpiredAt()
 		kafka.AutoRenew = ext.IsAutoRenew()
 	}
 

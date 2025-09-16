@@ -84,9 +84,6 @@ type SSnapshot struct {
 	// create disk from snapshot, snapshot as disk backing file
 	RefCount int `nullable:"false" default:"0" list:"user"`
 
-	// 区域Id
-	// CloudregionId string    `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`
-
 	BackingDiskId string    `width:"36" charset:"ascii" nullable:"true" default:""`
 	DiskBackupId  string    `width:"36" charset:"ascii" nullable:"true" default:""`
 	ExpiredAt     time.Time `nullable:"true" list:"user" create:"optional"`
@@ -212,6 +209,10 @@ func (manager *SSnapshotManager) ListItemFilter(
 		q = q.NotIn("disk_id", sq)
 	}
 
+	if len(query.StorageId) > 0 {
+		q = q.Equals("storage_id", query.StorageId)
+	}
+
 	return q, nil
 }
 
@@ -294,6 +295,22 @@ func (manager *SSnapshotManager) QueryDistinctExtraField(q *sqlchemy.SQuery, fie
 		return q, nil
 	}
 
+	return q, httperrors.ErrNotFound
+}
+
+func (manager *SSnapshotManager) QueryDistinctExtraFields(q *sqlchemy.SQuery, resource string, fields []string) (*sqlchemy.SQuery, error) {
+	switch resource {
+	case StorageManager.Keyword():
+		storages := StorageManager.Query().SubQuery()
+		for _, field := range fields {
+			q = q.AppendField(storages.Field(field))
+		}
+		q = q.Join(storages, sqlchemy.Equals(q.Field("storage_id"), storages.Field("id")))
+		return q, nil
+
+	case CloudproviderManager.Keyword():
+		return manager.SManagedResourceBaseManager.QueryDistinctExtraFields(q, resource, fields)
+	}
 	return q, httperrors.ErrNotFound
 }
 
@@ -430,6 +447,7 @@ func (self *SSnapshot) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
 	return res
 }
 
+// 创建快照
 func (manager *SSnapshotManager) ValidateCreateData(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
@@ -790,6 +808,7 @@ func (self *SSnapshot) CustomizeDelete(ctx context.Context, userCred mcclient.To
 	return self.StartSnapshotDeleteTask(ctx, userCred, false, "", 0, 0)
 }
 
+// +onecloud:swagger-gen-ignore
 func (self *SSnapshot) PerformDeleted(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	_, err := db.Update(self, func() error {
 		self.OutOfChain = true
@@ -830,18 +849,15 @@ func (self *SSnapshotManager) GetConvertSnapshot(deleteSnapshot *SSnapshot) (*SS
 	return dest, nil
 }
 
-func (self *SSnapshotManager) PerformDeleteDiskSnapshots(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	diskId, err := data.GetString("disk_id")
-	if err != nil {
-		return nil, err
-	}
-	disk, err := DiskManager.FetchById(diskId)
+// +onecloud:swagger-gen-ignore
+func (self *SSnapshotManager) PerformDeleteDiskSnapshots(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.SnapshotDeleteDiskSnapshotsInput) (jsonutils.JSONObject, error) {
+	disk, err := DiskManager.FetchById(input.DiskId)
 	if disk != nil {
-		return nil, httperrors.NewBadRequestError("Cannot Delete disk %s snapshots, disk exist", diskId)
+		return nil, httperrors.NewBadRequestError("Cannot Delete disk %s snapshots, disk exist", input.DiskId)
 	}
-	snapshots := self.GetDiskSnapshots(diskId)
+	snapshots := self.GetDiskSnapshots(input.DiskId)
 	if snapshots == nil || len(snapshots) == 0 {
-		return nil, httperrors.NewNotFoundError("Disk %s dose not have snapshot", diskId)
+		return nil, httperrors.NewNotFoundError("Disk %s dose not have snapshot", input.DiskId)
 	}
 	snapshotIds := []string{}
 	for i := 0; i < len(snapshots); i++ {
@@ -1143,6 +1159,7 @@ func (self *SSnapshot) GetISnapshotRegion(ctx context.Context) (cloudprovider.IC
 	return provider.GetIRegionById(region.GetExternalId())
 }
 
+// +onecloud:swagger-gen-ignore
 func (self *SSnapshot) PerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	err := self.GetRegionDriver().ValidateSnapshotDelete(ctx, self)
 	if err != nil {
@@ -1200,6 +1217,77 @@ func (manager *SSnapshotManager) CleanupSnapshots(ctx context.Context, userCred 
 		log.Errorf("Start snaphsot cleanup task failed %s", err)
 		return
 	}
+
+	sq := manager.Query().Equals("status", api.SNAPSHOT_READY).Equals("created_by", api.SNAPSHOT_AUTO).Equals("fake_deleted", false).SubQuery()
+
+	disks := []struct {
+		DiskCnt int
+		DiskId  string
+	}{}
+	q := sq.Query(
+		sqlchemy.COUNT("disk_cnt", sq.Field("disk_id")),
+		sq.Field("disk_id"),
+	).GroupBy(sq.Field("disk_id"))
+	err = q.All(&disks)
+	if err != nil {
+		log.Errorf("Cleanup snapshots job fetch disk count failed %s", err)
+		return
+	}
+
+	diskCount := map[string]int{}
+	for i := range disks {
+		diskCount[disks[i].DiskId] = disks[i].DiskCnt
+	}
+
+	{
+		sq = SnapshotPolicyManager.Query().Equals("type", api.SNAPSHOT_POLICY_TYPE_DISK).GT("retention_count", 0).SubQuery()
+		spd := SnapshotPolicyDiskManager.Query().SubQuery()
+		q = sq.Query(
+			sq.Field("retention_count"),
+			spd.Field("disk_id"),
+		)
+		q = q.Join(spd, sqlchemy.Equals(q.Field("id"), spd.Field("snapshotpolicy_id")))
+
+		diskRetentions := []struct {
+			DiskId         string
+			RetentionCount int
+		}{}
+		err = q.All(&diskRetentions)
+		if err != nil {
+			log.Errorf("Cleanup snapshots job fetch disk retentions failed %s", err)
+			return
+		}
+
+		diskRetentionMap := map[string]int{}
+		for i := range diskRetentions {
+			if _, ok := diskRetentionMap[diskRetentions[i].DiskId]; !ok {
+				diskRetentionMap[diskRetentions[i].DiskId] = diskRetentions[i].RetentionCount
+			}
+			// 取最小保留个数
+			if diskRetentionMap[diskRetentions[i].DiskId] > diskRetentions[i].RetentionCount {
+				diskRetentionMap[diskRetentions[i].DiskId] = diskRetentions[i].RetentionCount
+			}
+		}
+
+		for diskId, retentionCnt := range diskRetentionMap {
+			if cnt, ok := diskCount[diskId]; ok && cnt > retentionCnt {
+				manager.startCleanupRetentionCount(ctx, userCred, diskId, cnt-retentionCnt)
+			}
+		}
+	}
+}
+
+func (manager *SSnapshotManager) startCleanupRetentionCount(ctx context.Context, userCred mcclient.TokenCredential, diskId string, cnt int) error {
+	q := manager.Query().Equals("disk_id", diskId).Equals("created_by", api.SNAPSHOT_AUTO).Asc("created_at").Limit(cnt)
+	snapshots := []SSnapshot{}
+	err := db.FetchModelObjects(manager, q, &snapshots)
+	if err != nil {
+		return errors.Wrapf(err, "FetchModelObjects")
+	}
+	for i := range snapshots {
+		snapshots[i].StartSnapshotDeleteTask(ctx, userCred, false, "", 0, 0)
+	}
+	return nil
 }
 
 func (manager *SSnapshotManager) StartSnapshotCleanupTask(

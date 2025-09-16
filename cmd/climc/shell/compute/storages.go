@@ -74,12 +74,7 @@ func init() {
 		if info.StorageType != "rbd" {
 			return errors.Errorf("invalid storage_type %s", info.StorageType)
 		}
-		cli, err := cephutils.NewClient(
-			info.StorageConf.MonHost,
-			info.StorageConf.Key,
-			info.StorageConf.Pool,
-			info.StorageConf.EnableMessengerV2,
-		)
+		cli, err := cephutils.NewClient(info.StorageConf.MonHost, info.StorageConf.Key, info.StorageConf.Pool, info.StorageConf.EnableMessengerV2, 0, 0, 0)
 		if err != nil {
 			return errors.Wrap(err, "cephutils.NewClient")
 		}

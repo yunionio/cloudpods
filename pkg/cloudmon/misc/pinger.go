@@ -110,9 +110,11 @@ func getNetworkAddrMap(s *mcclient.ClientSession, netId string) (map[string]api.
 		return nil, errors.Wrap(err, "GetSpecific addresses")
 	}
 	addrList := make([]api.SNetworkUsedAddress, 0)
-	err = addrListJson.Unmarshal(&addrList, "addresses")
-	if err != nil {
-		return nil, errors.Wrap(err, "Unmarshal addreses")
+	if addrListJson.Contains("addresses") {
+		err = addrListJson.Unmarshal(&addrList, "addresses")
+		if err != nil {
+			return nil, errors.Wrap(err, "Unmarshal addreses")
+		}
 	}
 	addrMap := make(map[string]api.SNetworkUsedAddress)
 	for i := range addrList {

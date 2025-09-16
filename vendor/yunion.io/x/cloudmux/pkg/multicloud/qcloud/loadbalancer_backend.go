@@ -17,6 +17,7 @@ package qcloud
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 
@@ -38,6 +39,8 @@ type SLBBackend struct {
 	RegisteredTime     string   `json:"RegisteredTime"`
 	Type               string   `json:"Type"`
 	Port               int      `json:"Port"`
+	Domain             string
+	Url                string
 }
 
 // ==========================================================
@@ -56,11 +59,15 @@ type Rule struct {
 	Targets    []SLBBackend `json:"Targets"`
 }
 
-// ==========================================================
-
-// backend InstanceId + protocol  +Port + ip + rip全局唯一
+// backend InstanceId + protocol  + port + ip + rip全局唯一
 func (self *SLBBackend) GetId() string {
-	return fmt.Sprintf("%s/%s-%d", self.group.GetId(), self.InstanceId, self.Port)
+	ret := []string{self.group.GetId(), self.InstanceId, fmt.Sprintf("%d", self.Port)}
+	ret = append(ret, self.PrivateIPAddresses...)
+	if len(self.Domain) > 0 {
+		ret = append(ret, self.Domain)
+		ret = append(ret, self.Url)
+	}
+	return strings.Join(ret, "/")
 }
 
 func (self *SLBBackend) GetName() string {
@@ -138,22 +145,22 @@ func (self *SRegion) GetBackends(lbId, listenerId string) ([]SLBBackend, error) 
 		return nil, err
 	}
 	backends := []SLBBackend{}
-	for _, entry := range lbackends {
+	for k := range lbackends {
+		entry := lbackends[k]
 		backends = append(backends, entry.Targets...)
-		for _, r := range entry.Rules {
-			backends = append(backends, r.Targets...)
+		for i := range entry.Rules {
+			for j := range entry.Rules[i].Targets {
+				entry.Rules[i].Targets[j].Domain = entry.Rules[i].Domain
+				entry.Rules[i].Targets[j].Url = entry.Rules[i].URL
+				backends = append(backends, entry.Rules[i].Targets[j])
+			}
 		}
 	}
 	return backends, nil
 }
 
-func (self *SLBBackend) SyncConf(ctx context.Context, port, weight int) error {
-	//err := self.group.UpdateBackendServer(self.InstanceId, self.Weight, self.Port, weight, port)
-	//if err != nil {
-	//	return err
-	//}
-
-	self.Port = port
-	self.Weight = weight
+func (self *SLBBackend) Update(ctx context.Context, opts *cloudprovider.SLoadbalancerBackend) error {
+	self.Port = opts.Port
+	self.Weight = opts.Weight
 	return nil
 }

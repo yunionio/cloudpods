@@ -127,7 +127,7 @@ func (d *errorDecoderV4) decode(message []byte) error {
 		return errors.New("error stream protocol error: unknown error")
 	}
 
-	return fmt.Errorf(status.Message)
+	return fmt.Errorf("%s", status.Message)
 }
 
 // ExitError is an interface that presents an API similar to os.ProcessState, which is

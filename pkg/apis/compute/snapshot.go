@@ -77,6 +77,9 @@ type SnapshotListInput struct {
 	// 未关联任何磁盘
 	Unused bool `json:"unused"`
 
+	// 按存储过滤
+	StorageId string `json:"storage_id"`
+
 	// 按虚拟机名称排序
 	// pattern:asc|desc
 	OrderByGuest string `json:"order_by_guest"`
@@ -112,4 +115,9 @@ type SnapshotDetails struct {
 }
 
 type SnapshotSyncstatusInput struct {
+}
+
+type SnapshotDeleteDiskSnapshotsInput struct {
+	// 磁盘ID
+	DiskId string `json:"disk_id"`
 }

@@ -239,7 +239,7 @@ func (self *SNutanixClient) wait(taskId string) (string, error) {
 			return true, nil
 		}
 		if task.ProgressStatus == "Failed" {
-			return false, errors.Errorf(jsonutils.Marshal(task.MetaResponse).String())
+			return false, errors.Errorf("%s", jsonutils.Marshal(task.MetaResponse).String())
 		}
 		return false, nil
 	})
@@ -365,7 +365,7 @@ func (self *sNutanixError) ParseErrorFromJsonResponse(statusCode int, status str
 		body.Unmarshal(self)
 	}
 	if self.ErrorCode.Code == 1202 {
-		return errors.Wrapf(cloudprovider.ErrNotFound, self.Error())
+		return errors.Wrapf(cloudprovider.ErrNotFound, "%s", self.Error())
 	}
 	return self
 }

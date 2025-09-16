@@ -16,8 +16,9 @@ package session
 
 import (
 	"context"
-	"fmt"
+	"net"
 	"os/exec"
+	"strconv"
 	"time"
 
 	"golang.org/x/crypto/ssh"
@@ -111,7 +112,7 @@ func (s *SSshSession) IsNeedLogin() (bool, error) {
 				ssh.Password(s.Password),
 			},
 		}
-		addr := fmt.Sprintf("%s:%d", s.Host, s.Port)
+		addr := net.JoinHostPort(s.Host, strconv.Itoa(s.Port))
 		client, err := ssh.Dial("tcp", addr, config)
 		if err != nil {
 			return true, err

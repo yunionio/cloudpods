@@ -44,6 +44,7 @@ type SLoadbalancerListenerRuleManager struct {
 	db.SStatusStandaloneResourceBaseManager
 	db.SExternalizedResourceBaseManager
 	SLoadbalancerListenerResourceBaseManager
+	SLoadbalancerCertificateResourceBaseManager
 }
 
 var LoadbalancerListenerRuleManager *SLoadbalancerListenerRuleManager
@@ -64,18 +65,26 @@ type SLoadbalancerListenerRule struct {
 	db.SStatusStandaloneResourceBase
 	db.SExternalizedResourceBase
 
+	SLoadbalancerCertificateResourceBase
 	SLoadbalancerListenerResourceBase `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 
 	// 默认转发策略，目前只有aws用到其它云都是false
 	IsDefault bool `default:"false" nullable:"true" list:"user" create:"optional"`
 
+	// 默认后端服务器组
 	BackendGroupId string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
 
+	// 后端服务器组列表
+	BackendGroups *api.ListenerRuleBackendGroups `list:"user" update:"user" create:"optional"`
+
+	// 域名
 	Domain    string `width:"128" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 	Path      string `width:"128" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 	Condition string `charset:"ascii" nullable:"true" list:"user" create:"optional"`
 
-	SLoadbalancerHealthCheck // 目前只有腾讯云HTTP、HTTPS类型的健康检查是和规则绑定的。
+	RedirectPool *api.ListenerRuleRedirectPool `list:"user" update:"user" create:"optional"`
+
+	SLoadbalancerHealthChecker // 目前只有腾讯云HTTP、HTTPS类型的健康检查是和规则绑定的。
 	SLoadbalancerHTTPRateLimiter
 	SLoadbalancerHTTPRedirect
 }
@@ -537,10 +546,48 @@ func (man *SLoadbalancerListenerRuleManager) ValidateCreateData(ctx context.Cont
 	if err != nil {
 		return nil, errors.Wrap(err, "listener.GetRegion")
 	}
+	if len(input.CertificateId) > 0 {
+		_, err := validators.ValidateModel(ctx, userCred, LoadbalancerCertificateManager, &input.CertificateId)
+		if err != nil {
+			return nil, err
+		}
+	}
 	if region.GetDriver().IsSupportLoadbalancerListenerRuleRedirect() {
 		_, err := validators.ValidateModel(ctx, userCred, LoadbalancerBackendGroupManager, &input.BackendGroupId)
 		if err != nil {
 			return nil, errors.Wrap(err, "ValidateModel LoadbalancerBackendGroupManager")
+		}
+	}
+	for i := range input.BackendGroups {
+		groupObj, err := validators.ValidateModel(ctx, userCred, LoadbalancerBackendGroupManager, &input.BackendGroups[i].Id)
+		if err != nil {
+			return nil, errors.Wrap(err, "ValidateModel LoadbalancerBackendGroupManager")
+		}
+		group := groupObj.(*SLoadbalancerBackendGroup)
+		input.BackendGroups[i].ExternalId = group.ExternalId
+		input.BackendGroups[i].Name = group.Name
+	}
+
+	for poolName, pools := range input.RedirectPool.RegionPools {
+		for i, group := range pools {
+			groupObj, err := validators.ValidateModel(ctx, userCred, LoadbalancerBackendGroupManager, &group.Id)
+			if err != nil {
+				return nil, errors.Wrap(err, "ValidateModel LoadbalancerBackendGroupManager")
+			}
+			group := groupObj.(*SLoadbalancerBackendGroup)
+			input.RedirectPool.RegionPools[poolName][i].ExternalId = group.ExternalId
+			input.RedirectPool.RegionPools[poolName][i].Name = group.Name
+		}
+	}
+	for poolName, pools := range input.RedirectPool.CountryPools {
+		for i, group := range pools {
+			groupObj, err := validators.ValidateModel(ctx, userCred, LoadbalancerBackendGroupManager, &group.Id)
+			if err != nil {
+				return nil, errors.Wrap(err, "ValidateModel LoadbalancerBackendGroupManager")
+			}
+			group := groupObj.(*SLoadbalancerBackendGroup)
+			input.RedirectPool.CountryPools[poolName][i].ExternalId = group.ExternalId
+			input.RedirectPool.CountryPools[poolName][i].Name = group.Name
 		}
 	}
 	return region.GetDriver().ValidateCreateLoadbalancerListenerRuleData(ctx, userCred, ownerId, input)
@@ -560,8 +607,7 @@ func (lbr *SLoadbalancerListenerRule) StartLoadBalancerListenerRuleCreateTask(ct
 	if err != nil {
 		return err
 	}
-	task.ScheduleRun(nil)
-	return nil
+	return task.ScheduleRun(nil)
 }
 
 func (lbr *SLoadbalancerListenerRule) PerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -625,12 +671,14 @@ func (man *SLoadbalancerListenerRuleManager) FetchCustomizeColumns(
 
 	stdRows := man.SStatusStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	listenerRows := man.SLoadbalancerListenerResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	certificateRows := man.SLoadbalancerCertificateResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 
 	lbIds := make([]string, len(objs))
 	for i := range rows {
 		rows[i] = api.LoadbalancerListenerRuleDetails{
-			StatusStandaloneResourceDetails:  stdRows[i],
-			LoadbalancerListenerResourceInfo: listenerRows[i],
+			StatusStandaloneResourceDetails:     stdRows[i],
+			LoadbalancerListenerResourceInfo:    listenerRows[i],
+			LoadbalancerCertificateResourceInfo: certificateRows[i],
 		}
 		rows[i], _ = objs[i].(*SLoadbalancerListenerRule).getMoreDetails(rows[i])
 		lbIds[i] = rows[i].LoadbalancerId
@@ -760,127 +808,86 @@ func (lbr *SLoadbalancerListenerRule) constructFieldsFromCloudListenerRule(userC
 		lbr.RedirectPath = extRule.GetRedirectPath()
 	}
 
-	/*
-		if groupId := extRule.GetBackendGroupId(); len(groupId) > 0 {
-			if utils.IsInStringArray(lbr.GetProviderName(), []string{api.CLOUD_PROVIDER_HUAWEI, api.CLOUD_PROVIDER_HCSO, api.CLOUD_PROVIDER_HCS}) {
-				group, err := db.FetchByExternalId(HuaweiCachedLbbgManager, groupId)
-				if err != nil {
-					if err == sql.ErrNoRows {
-						lbr.BackendGroupId = ""
-					}
-					log.Errorf("Fetch huawei loadbalancer backendgroup by external id %s failed: %s", groupId, err)
-				} else {
-					lbr.BackendGroupId = group.(*SHuaweiCachedLbbg).BackendGroupId
-				}
-
-			} else if lbr.GetProviderName() == api.CLOUD_PROVIDER_AWS {
-				if len(groupId) > 0 {
-					group, err := db.FetchByExternalId(AwsCachedLbbgManager, groupId)
-					if err != nil {
-						log.Errorf("Fetch aws loadbalancer backendgroup by external id %s failed: %s", groupId, err)
-					} else {
-						lbr.BackendGroupId = group.(*SAwsCachedLbbg).BackendGroupId
-					}
-
-				}
-			} else if lbr.GetProviderName() == api.CLOUD_PROVIDER_QCLOUD {
-				group, err := db.FetchByExternalId(QcloudCachedLbbgManager, groupId)
-				if err != nil {
-					if err == sql.ErrNoRows {
-						lbr.BackendGroupId = ""
-					}
-					log.Errorf("Fetch qcloud loadbalancer backendgroup by external id %s failed: %s", groupId, err)
-				} else {
-					lbr.BackendGroupId = group.(*SQcloudCachedLbbg).BackendGroupId
-				}
-
-			} else if backendgroup, err := db.FetchByExternalId(LoadbalancerBackendGroupManager, groupId); err == nil {
-				lbr.BackendGroupId = backendgroup.GetId()
-			}
-		}
-	*/
-}
-
-func (lbr *SLoadbalancerListenerRule) updateCachedLoadbalancerBackendGroupAssociate(ctx context.Context, extRule cloudprovider.ICloudLoadbalancerListenerRule) error {
-	exteralLbbgId := extRule.GetBackendGroupId()
-	if len(exteralLbbgId) == 0 {
-		return nil
+	lis, err := lbr.GetLoadbalancerListener()
+	if err != nil {
+		return
 	}
 
-	/*
-		switch lbr.GetProviderName() {
-		case api.CLOUD_PROVIDER_HUAWEI, api.CLOUD_PROVIDER_HCSO, api.CLOUD_PROVIDER_HCS:
-			_group, err := db.FetchByExternalId(HuaweiCachedLbbgManager, exteralLbbgId)
-			if err != nil {
-				if err == sql.ErrNoRows {
-					lbr.BackendGroupId = ""
-				}
-				return fmt.Errorf("Fetch huawei loadbalancer backendgroup by external id %s failed: %s", exteralLbbgId, err)
-			}
-
-			if _group != nil {
-				group := _group.(*SHuaweiCachedLbbg)
-				if group.AssociatedId != lbr.Id {
-					_, err := db.UpdateWithLock(ctx, group, func() error {
-						group.AssociatedId = lbr.Id
-						group.AssociatedType = api.LB_ASSOCIATE_TYPE_RULE
-						return nil
-					})
-					if err != nil {
-						return errors.Wrap(err, "LoadbalancerListener.updateCachedLoadbalancerBackendGroupAssociate.huawei")
-					}
-				}
-			}
-		case api.CLOUD_PROVIDER_QCLOUD:
-			_group, err := db.FetchByExternalId(QcloudCachedLbbgManager, exteralLbbgId)
-			if err != nil {
-				if err == sql.ErrNoRows {
-					lbr.BackendGroupId = ""
-				}
-				return fmt.Errorf("Fetch qcloud loadbalancer backendgroup by external id %s failed: %s", exteralLbbgId, err)
-			}
-
-			if _group != nil {
-				group := _group.(*SQcloudCachedLbbg)
-				if group.AssociatedId != lbr.Id {
-					_, err := db.UpdateWithLock(ctx, group, func() error {
-						group.AssociatedId = lbr.Id
-						group.AssociatedType = api.LB_ASSOCIATE_TYPE_RULE
-						return nil
-					})
-					if err != nil {
-						return errors.Wrap(err, "LoadbalancerListener.updateCachedLoadbalancerBackendGroupAssociate.qcloud")
-					}
-				}
-			}
-		case api.CLOUD_PROVIDER_OPENSTACK:
-			_group, err := db.FetchByExternalId(OpenstackCachedLbbgManager, exteralLbbgId)
-			if err != nil {
-				if err == sql.ErrNoRows {
-					lbr.BackendGroupId = ""
-				}
-				return fmt.Errorf("Fetch openstack loadbalancer backendgroup by external id %s failed: %s", exteralLbbgId, err)
-			}
-
-			if _group != nil {
-				group := _group.(*SOpenstackCachedLbbg)
-				if group.AssociatedId != lbr.Id {
-					_, err := db.UpdateWithLock(ctx, group, func() error {
-						group.AssociatedId = lbr.Id
-						group.AssociatedType = api.LB_ASSOCIATE_TYPE_RULE
-						return nil
-					})
-					if err != nil {
-						return errors.Wrap(err, "LoadbalancerListener.updateCachedLoadbalancerBackendGroupAssociate.openstack")
-					}
-				}
-			}
-		default:
-			return nil
+	if groupId := extRule.GetBackendGroupId(); len(groupId) > 0 {
+		group, err := db.FetchByExternalIdAndManagerId(LoadbalancerBackendGroupManager, groupId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+			return q.Equals("loadbalancer_id", lis.LoadbalancerId)
+		})
+		if err != nil {
+			log.Errorf("Fetch loadbalancer backendgroup by external id %s failed: %s", groupId, err)
+		} else {
+			lbr.BackendGroupId = group.GetId()
 		}
-	*/
+	}
 
-	return nil
+	if groupIds, err := extRule.GetBackendGroups(); err == nil {
+		groups := api.ListenerRuleBackendGroups{}
+		for _, groupId := range groupIds {
+			groupObj, err := db.FetchByExternalIdAndManagerId(LoadbalancerBackendGroupManager, groupId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+				return q.Equals("loadbalancer_id", lis.LoadbalancerId)
+			})
+			if err != nil {
+				log.Errorf("Fetch loadbalancer backendgroup by external id %s failed: %s", groupId, err)
+				continue
+			}
+			group := groupObj.(*SLoadbalancerBackendGroup)
+			groups = append(groups, api.ListenerRuleBackendGroup{
+				Id:         group.Id,
+				ExternalId: group.ExternalId,
+				Name:       group.Name,
+			})
+		}
+		lbr.BackendGroups = &groups
+	}
+
+	if redirectPool, err := extRule.GetRedirectPool(); err == nil {
+		lbr.RedirectPool = &api.ListenerRuleRedirectPool{
+			RegionPools:  map[string]api.ListenerRuleBackendGroups{},
+			CountryPools: map[string]api.ListenerRuleBackendGroups{},
+		}
+		for poolName, poolIds := range redirectPool.RegionPools {
+			groups := api.ListenerRuleBackendGroups{}
+			for _, poolId := range poolIds {
+				groupObj, err := db.FetchByExternalIdAndManagerId(LoadbalancerBackendGroupManager, poolId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+					return q.Equals("loadbalancer_id", lis.LoadbalancerId)
+				})
+				if err != nil {
+					log.Errorf("Fetch loadbalancer backendgroup by external id %s failed: %s", poolId, err)
+					continue
+				}
+				group := groupObj.(*SLoadbalancerBackendGroup)
+				groups = append(groups, api.ListenerRuleBackendGroup{
+					Id:         group.Id,
+					ExternalId: group.ExternalId,
+					Name:       group.Name,
+				})
+			}
+			lbr.RedirectPool.RegionPools[poolName] = groups
+		}
+		for poolName, poolIds := range redirectPool.CountryPools {
+			groups := api.ListenerRuleBackendGroups{}
+			for _, poolId := range poolIds {
+				groupObj, err := db.FetchByExternalIdAndManagerId(LoadbalancerBackendGroupManager, poolId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+					return q.Equals("loadbalancer_id", lis.LoadbalancerId)
+				})
+				if err != nil {
+					log.Errorf("Fetch loadbalancer backendgroup by external id %s failed: %s", poolId, err)
+					continue
+				}
+				group := groupObj.(*SLoadbalancerBackendGroup)
+				groups = append(groups, api.ListenerRuleBackendGroup{
+					Id:         group.Id,
+					ExternalId: group.ExternalId,
+					Name:       group.Name,
+				})
+			}
+			lbr.RedirectPool.CountryPools[poolName] = groups
+		}
+	}
 }
 
 func (man *SLoadbalancerListenerRuleManager) newFromCloudLoadbalancerListenerRule(
@@ -896,8 +903,6 @@ func (man *SLoadbalancerListenerRuleManager) newFromCloudLoadbalancerListenerRul
 
 	lbr.ExternalId = extRule.GetGlobalId()
 	lbr.ListenerId = listener.Id
-	//lbr.ManagerId = listener.ManagerId
-	//lbr.CloudregionId = listener.CloudregionId
 
 	lbr.constructFieldsFromCloudListenerRule(userCred, extRule)
 	var err = func() error {
@@ -914,11 +919,6 @@ func (man *SLoadbalancerListenerRuleManager) newFromCloudLoadbalancerListenerRul
 	}()
 	if err != nil {
 		return nil, errors.Wrapf(err, "Insert")
-	}
-
-	err = lbr.updateCachedLoadbalancerBackendGroupAssociate(ctx, extRule)
-	if err != nil {
-		return nil, errors.Wrap(err, "LoadbalancerListenerRuleManager.newFromCloudLoadbalancerListenerRule")
 	}
 
 	db.OpsLog.LogEvent(lbr, db.ACT_CREATE, lbr.GetShortDesc(ctx), userCred)
@@ -945,20 +945,12 @@ func (lbr *SLoadbalancerListenerRule) SyncWithCloudLoadbalancerListenerRule(
 	syncOwnerId mcclient.IIdentityProvider,
 	provider *SCloudprovider,
 ) error {
-	// listener := lbr.GetLoadbalancerListener()
 	diff, err := db.UpdateWithLock(ctx, lbr, func() error {
 		lbr.constructFieldsFromCloudListenerRule(userCred, extRule)
-		// lbr.ManagerId = provider.Id
-		// lbr.CloudregionId = listener.CloudregionId
 		return nil
 	})
 	if err != nil {
 		return err
-	}
-
-	err = lbr.updateCachedLoadbalancerBackendGroupAssociate(ctx, extRule)
-	if err != nil {
-		return errors.Wrap(err, "LoadbalancerListenerRule.SyncWithCloudLoadbalancerListenerRule")
 	}
 
 	db.OpsLog.LogSyncUpdate(lbr, diff, userCred)

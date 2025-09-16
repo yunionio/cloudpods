@@ -233,6 +233,10 @@ func (self *ManagedRuleGroup) GetName() string {
 	return "RuleGroup"
 }
 
+func (self *ManagedRuleGroup) GetType() string {
+	return "RuleGroup"
+}
+
 func (self *ManagedRuleGroup) GetDesc() string {
 	return "规则组"
 }
@@ -273,6 +277,26 @@ func (self *ManagedRuleGroup) Update(opts *cloudprovider.SWafRule) error {
 
 func (self *ManagedRuleGroup) GetStatementCondition() cloudprovider.TWafStatementCondition {
 	return cloudprovider.WafStatementConditionNone
+}
+
+func (self *ManagedRuleGroup) GetExpression() string {
+	return ""
+}
+
+func (self *ManagedRuleGroup) Enable() error {
+	return cloudprovider.ErrNotImplemented
+}
+
+func (self *ManagedRuleGroup) Disable() error {
+	return cloudprovider.ErrNotImplemented
+}
+
+func (self *ManagedRuleGroup) GetEnabled() bool {
+	return true
+}
+
+func (self *ManagedRuleGroup) GetConfig() (jsonutils.JSONObject, error) {
+	return jsonutils.NewDict(), nil
 }
 
 func (self *ManagedRuleGroup) GetStatements() ([]cloudprovider.SWafStatement, error) {
@@ -316,6 +340,10 @@ func (self *SDefenseTypeRule) GetName() string {
 	return self.defenseType
 }
 
+func (self *SDefenseTypeRule) GetType() string {
+	return self.defenseType
+}
+
 func (self *SDefenseTypeRule) GetDesc() string {
 	return ""
 }
@@ -336,6 +364,26 @@ func (self *SDefenseTypeRule) GetAction() *cloudprovider.DefaultAction {
 
 func (self *SDefenseTypeRule) GetStatementCondition() cloudprovider.TWafStatementCondition {
 	return cloudprovider.WafStatementConditionNone
+}
+
+func (self *SDefenseTypeRule) GetExpression() string {
+	return ""
+}
+
+func (self *SDefenseTypeRule) GetEnabled() bool {
+	return true
+}
+
+func (self *SDefenseTypeRule) Enable() error {
+	return cloudprovider.ErrNotImplemented
+}
+
+func (self *SDefenseTypeRule) Disable() error {
+	return cloudprovider.ErrNotImplemented
+}
+
+func (self *SDefenseTypeRule) GetConfig() (jsonutils.JSONObject, error) {
+	return jsonutils.NewDict(), nil
 }
 
 func (self *SDefenseTypeRule) GetStatements() ([]cloudprovider.SWafStatement, error) {

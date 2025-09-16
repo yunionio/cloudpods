@@ -997,8 +997,8 @@ func (manager *SVpcManager) ValidateCreateData(
 		return input, err
 	}
 
-	if region.GetDriver().IsVpcCreateNeedInputCidr() && len(input.CidrBlock) == 0 {
-		return input, httperrors.NewMissingParameterError("cidr")
+	if region.GetDriver().IsVpcCreateNeedInputCidr() && len(input.CidrBlock) == 0 && len(input.CidrBlock6) == 0 {
+		return input, httperrors.NewMissingParameterError("cidr_block or cidr_block6")
 	}
 
 	keys := GetVpcQuotaKeysFromCreateInput(ownerId, input)
@@ -1376,6 +1376,15 @@ func (manager *SVpcManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field st
 		if err == nil {
 			return q, nil
 		}
+	}
+	return q, httperrors.ErrNotFound
+}
+
+func (manager *SVpcManager) QueryDistinctExtraFields(q *sqlchemy.SQuery, resource string, fields []string) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SManagedResourceBaseManager.QueryDistinctExtraFields(q, resource, fields)
+	if err == nil {
+		return q, nil
 	}
 	return q, httperrors.ErrNotFound
 }
@@ -1982,6 +1991,7 @@ func (svpc *SVpc) GetDetailsTopology(ctx context.Context, userCred mcclient.Toke
 			for j := range hns {
 				host.Networks = append(host.Networks, api.HostnetworkTopologyOutput{
 					IpAddr:  hns[j].IpAddr,
+					Ip6Addr: hns[j].Ip6Addr,
 					MacAddr: hns[j].MacAddr,
 				})
 			}

@@ -87,17 +87,6 @@ type VMFetcher interface {
 	FetchFakeTempateVMs(string) ([]*SVirtualMachine, error)
 }
 
-type byDiskType []SVirtualDisk
-
-func (d byDiskType) Len() int      { return len(d) }
-func (d byDiskType) Swap(i, j int) { d[i], d[j] = d[j], d[i] }
-func (d byDiskType) Less(i, j int) bool {
-	if d[i].GetDiskType() == api.DISK_TYPE_SYS {
-		return true
-	}
-	return false
-}
-
 func NewVirtualMachine(manager *SESXiClient, vm *mo.VirtualMachine, dc *SDatacenter) *SVirtualMachine {
 	svm := &SVirtualMachine{SManagedObject: newManagedObject(manager, vm, dc)}
 	err := svm.fetchHardwareInfo()
@@ -307,7 +296,7 @@ func (svm *SVirtualMachine) rebuildDisk(ctx context.Context, disk *SVirtualDisk,
 	if err != nil {
 		return err
 	}
-	return svm.createDiskInternal(ctx, SDiskConfig{
+	err = svm.createDiskInternal(ctx, SDiskConfig{
 		Uefi:          uefi,
 		SizeMb:        int64(sizeMb),
 		Uuid:          uuid,
@@ -317,6 +306,20 @@ func (svm *SVirtualMachine) rebuildDisk(ctx context.Context, disk *SVirtualDisk,
 		ImagePath:     imagePath,
 		IsRoot:        len(imagePath) > 0,
 	}, false)
+	if err != nil {
+		return errors.Wrapf(err, "createDiskInternal")
+	}
+	for i := 1; i < len(svm.vdisks); i++ {
+		err = svm.doDetachDisk(ctx, &svm.vdisks[i], false)
+		if err != nil {
+			return errors.Wrapf(err, "doDetachDisk %d", i)
+		}
+		err = svm.doAttachDisk(ctx, &svm.vdisks[i])
+		if err != nil {
+			return errors.Wrapf(err, "doAttachDisk: %d", i)
+		}
+	}
+	return nil
 }
 
 func (svm *SVirtualMachine) UpdateVM(ctx context.Context, input cloudprovider.SInstanceUpdateOptions) error {
@@ -679,11 +682,11 @@ func (svm *SVirtualMachine) doUnregister(ctx context.Context) error {
 }
 
 func (svm *SVirtualMachine) DeleteVM(ctx context.Context) error {
-	err := svm.CheckFileInfo(ctx)
+	err := svm.doDestroy(ctx)
 	if err != nil {
 		return svm.doUnregister(ctx)
 	}
-	return svm.doDestroy(ctx)
+	return nil
 }
 
 func (svm *SVirtualMachine) doDetachAndDeleteDisk(ctx context.Context, vdisk *SVirtualDisk) error {
@@ -714,6 +717,28 @@ func (svm *SVirtualMachine) doDetachDisk(ctx context.Context, vdisk *SVirtualDis
 		return nil
 	}
 	return vdisk.Delete(ctx)
+}
+
+func (svm *SVirtualMachine) doAttachDisk(ctx context.Context, vdisk *SVirtualDisk) error {
+	addSpec := types.VirtualDeviceConfigSpec{}
+	addSpec.Operation = types.VirtualDeviceConfigSpecOperationAdd
+	addSpec.Device = vdisk.dev
+
+	spec := types.VirtualMachineConfigSpec{}
+	spec.DeviceChange = []types.BaseVirtualDeviceConfigSpec{&addSpec}
+
+	vm := svm.getVmObj()
+
+	task, err := vm.Reconfigure(ctx, spec)
+	if err != nil {
+		return errors.Wrapf(err, "Reconfigure add disk %s", vdisk.GetName())
+	}
+
+	err = task.Wait(ctx)
+	if err != nil {
+		return errors.Wrapf(err, "wait remove add %s task", vdisk.GetName())
+	}
+	return nil
 }
 
 func (svm *SVirtualMachine) GetVNCInfo(input *cloudprovider.ServerVncInput) (*cloudprovider.ServerVncOutput, error) {
@@ -909,7 +934,12 @@ func (svm *SVirtualMachine) fetchHardwareInfo() error {
 		svm.devs[vdev.getKey()] = vdev
 	}
 	svm.rigorous()
-	sort.Sort(byDiskType(svm.vdisks))
+	for i := range svm.vdisks {
+		if svm.vdisks[i].GetDiskType() == api.DISK_TYPE_SYS {
+			svm.vdisks[i], svm.vdisks[0] = svm.vdisks[0], svm.vdisks[i]
+			break
+		}
+	}
 	return nil
 }
 
@@ -1171,28 +1201,31 @@ func (svm *SVirtualMachine) getDatastoreAndRootImagePath() (string, *SDatastore,
 	if layoutEx == nil || len(layoutEx.File) == 0 {
 		return "", nil, fmt.Errorf("invalid LayoutEx")
 	}
-	file := layoutEx.File[0].Name
-	// find stroage
-	host := svm.GetIHost()
-	storages, err := host.GetIStorages()
-	if err != nil {
-		return "", nil, errors.Wrap(err, "host.GetIStorages")
-	}
-	var datastore *SDatastore
-	for i := range storages {
-		ds := storages[i].(*SDatastore)
-		if ds.HasFile(file) {
-			datastore = ds
-			break
+	for _, f := range layoutEx.File {
+		if !strings.HasSuffix(f.Name, ".vmdk") {
+			continue
 		}
+		file := f.Name
+		// find stroage
+		host := svm.GetIHost()
+		storages, err := host.GetIStorages()
+		if err != nil {
+			return "", nil, errors.Wrap(err, "host.GetIStorages")
+		}
+		var datastore *SDatastore
+		for i := range storages {
+			ds := storages[i].(*SDatastore)
+			if ds.HasFile(file) {
+				datastore = ds
+				break
+			}
+		}
+		if datastore == nil {
+			return "", nil, fmt.Errorf("can't find storage associated with vm %q", svm.GetName())
+		}
+		return datastore.getPathString(datastore.cleanPath(file)), datastore, nil
 	}
-	if datastore == nil {
-		return "", nil, fmt.Errorf("can't find storage associated with vm %q", svm.GetName())
-	}
-	path := datastore.cleanPath(file)
-	vmDir := strings.Split(path, "/")[0]
-	// TODO find a non-conflicting path
-	return datastore.getPathString(fmt.Sprintf("%s/%s.vmdk", vmDir, vmDir)), datastore, nil
+	return "", nil, fmt.Errorf("can't find root image path")
 }
 
 func (svm *SVirtualMachine) GetRootImagePath() (string, error) {
@@ -1325,7 +1358,7 @@ func (svm *SVirtualMachine) CheckFileInfo(ctx context.Context) error {
 			if ds.HasFile(file.Name) {
 				_, err := ds.CheckFile(ctx, file.Name)
 				if err != nil {
-					return errors.Wrap(err, "ds.CheckFile")
+					return errors.Wrapf(err, "CheckFile %s", file.Name)
 				}
 				break
 			}

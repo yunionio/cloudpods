@@ -141,6 +141,15 @@ func (manager *SWafRegexSetManager) QueryDistinctExtraField(q *sqlchemy.SQuery, 
 	return q, httperrors.ErrNotFound
 }
 
+func (manager *SWafRegexSetManager) QueryDistinctExtraFields(q *sqlchemy.SQuery, resource string, fields []string) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SManagedResourceBaseManager.QueryDistinctExtraFields(q, resource, fields)
+	if err == nil {
+		return q, nil
+	}
+	return q, httperrors.ErrNotFound
+}
+
 func (manager *SWafRegexSetManager) OrderByExtraFields(
 	ctx context.Context,
 	q *sqlchemy.SQuery,
@@ -240,7 +249,7 @@ func (self *SWafRegexSet) GetICloudWafRegexSet(ctx context.Context) (cloudprovid
 			return caches[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, self.ExternalId)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%v", self.ExternalId)
 }
 
 func (self *SWafRegexSet) syncWithCloudRegexSet(ctx context.Context, userCred mcclient.TokenCredential, ext cloudprovider.ICloudWafRegexSet) error {

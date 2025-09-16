@@ -119,6 +119,8 @@ var (
 			"platform_names",
 			"enable_change_owner_auto_rename",
 			"default_handlers_whitelist_user_agents",
+			"metadata_server_ip4s",
+			"metadata_server_ip6s",
 		},
 	}
 

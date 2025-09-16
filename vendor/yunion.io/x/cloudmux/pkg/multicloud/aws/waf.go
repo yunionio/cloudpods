@@ -147,7 +147,7 @@ func (self *SRegion) GetWebAcl(id, name, scope string) (*SWebAcl, error) {
 	resp, err := client.GetWebACL(&input)
 	if err != nil {
 		if _, ok := err.(*wafv2.WAFNonexistentItemException); ok {
-			return nil, errors.Wrapf(cloudprovider.ErrNotFound, err.Error())
+			return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", err.Error())
 		}
 		return nil, errors.Wrapf(err, "GetWebAcl")
 	}

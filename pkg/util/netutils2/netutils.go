@@ -18,7 +18,6 @@ import (
 	"bytes"
 	"fmt"
 	"net"
-	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -31,6 +30,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	"yunion.io/x/onecloud/pkg/util/procutils"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 var PSEUDO_VIP = "169.254.169.231"
@@ -75,6 +75,195 @@ func MyIPTo(dstIP string) (ip string, err error) {
 	}
 	ip = addr.IP.String()
 	return
+}
+
+func MyIPSmart() (ip string, err error) {
+	return MyIPSmartTo("114.114.114.114", "2001:4860:4860::8888")
+}
+
+func MyIPSmartTo(ipv4Target, ipv6Target string) (ip string, err error) {
+	// try IPv4 connect
+	if ipv4Target != "" {
+		conn, err4 := net.Dial("udp4", ipv4Target+":53")
+		if err4 == nil {
+			defer conn.Close()
+			if addr, ok := conn.LocalAddr().(*net.UDPAddr); ok {
+				return addr.IP.String(), nil
+			}
+		}
+	}
+
+	// try IPv6 connect
+	if ipv6Target != "" {
+		conn, err6 := net.Dial("udp6", "["+ipv6Target+"]:53")
+		if err6 == nil {
+			defer conn.Close()
+			if addr, ok := conn.LocalAddr().(*net.UDPAddr); ok {
+				return addr.IP.String(), nil
+			}
+		}
+	}
+
+	// try locallink
+	return getLocalIP()
+}
+
+func getLocalIP() (string, error) {
+	// get default route
+	if ip := getIPFromDefaultRoute(); ip != "" {
+		return ip, nil
+	}
+
+	interfaces, err := net.Interfaces()
+	if err != nil {
+		return "", errors.Wrap(err, "get network interfaces")
+	}
+
+	var candidateIPs []string
+	for _, iface := range interfaces {
+		if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
+			continue
+		}
+
+		addrs, err := iface.Addrs()
+		if err != nil {
+			continue
+		}
+
+		for _, addr := range addrs {
+			if ipnet, ok := addr.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+				if ipnet.IP.To4() != nil {
+					return ipnet.IP.String(), nil
+				} else if ipnet.IP.To16() != nil && !ipnet.IP.IsLinkLocalUnicast() {
+					candidateIPs = append(candidateIPs, ipnet.IP.String())
+				}
+			}
+		}
+	}
+
+	if len(candidateIPs) > 0 {
+		return candidateIPs[0], nil
+	}
+
+	return "", fmt.Errorf("no suitable IP address found")
+}
+
+func getIPFromDefaultRoute() string {
+	if ip := getIPFromDefaultRouteV4(); ip != "" {
+		return ip
+	}
+
+	if ip := getIPFromDefaultRouteV6(); ip != "" {
+		return ip
+	}
+
+	return ""
+}
+
+func getIPFromDefaultRouteV4() string {
+	output, err := procutils.NewCommand("ip", "route", "show", "default").Output()
+	if err != nil {
+		return ""
+	}
+
+	lines := strings.Split(string(output), "\n")
+	for _, line := range lines {
+		if strings.Contains(line, "default") && strings.Contains(line, "src") {
+			fields := strings.Fields(line)
+			for i, field := range fields {
+				if field == "src" && i+1 < len(fields) {
+					return fields[i+1]
+				}
+			}
+		}
+		if strings.Contains(line, "default") && strings.Contains(line, "dev") {
+			fields := strings.Fields(line)
+			for i, field := range fields {
+				if field == "dev" && i+1 < len(fields) {
+					if ip := getIPFromInterface(fields[i+1]); ip != "" {
+						return ip
+					}
+				}
+			}
+		}
+	}
+
+	return ""
+}
+
+func getIPFromDefaultRouteV6() string {
+	output, err := procutils.NewCommand("ip", "-6", "route", "show", "default").Output()
+	if err != nil {
+		return ""
+	}
+
+	lines := strings.Split(string(output), "\n")
+	for _, line := range lines {
+		if strings.Contains(line, "default") && strings.Contains(line, "src") {
+			fields := strings.Fields(line)
+			for i, field := range fields {
+				if field == "src" && i+1 < len(fields) {
+					return fields[i+1]
+				}
+			}
+		}
+		if strings.Contains(line, "default") && strings.Contains(line, "dev") {
+			fields := strings.Fields(line)
+			for i, field := range fields {
+				if field == "dev" && i+1 < len(fields) {
+					if ip := getIPFromInterfaceV6(fields[i+1]); ip != "" {
+						return ip
+					}
+				}
+			}
+		}
+	}
+
+	return ""
+}
+
+func getIPFromInterface(ifaceName string) string {
+	iface, err := net.InterfaceByName(ifaceName)
+	if err != nil {
+		return ""
+	}
+
+	addrs, err := iface.Addrs()
+	if err != nil {
+		return ""
+	}
+
+	for _, addr := range addrs {
+		if ipnet, ok := addr.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+			if ipv4 := ipnet.IP.To4(); ipv4 != nil {
+				return ipv4.String()
+			}
+		}
+	}
+
+	return ""
+}
+
+func getIPFromInterfaceV6(ifaceName string) string {
+	iface, err := net.InterfaceByName(ifaceName)
+	if err != nil {
+		return ""
+	}
+
+	addrs, err := iface.Addrs()
+	if err != nil {
+		return ""
+	}
+
+	for _, addr := range addrs {
+		if ipnet, ok := addr.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+			if ipv6 := ipnet.IP.To16(); ipv6 != nil && ipnet.IP.To4() == nil && !ipnet.IP.IsLinkLocalUnicast() {
+				return ipv6.String()
+			}
+		}
+	}
+
+	return ""
 }
 
 func GetPrivatePrefixes(privatePrefixes []string) []string {
@@ -131,20 +320,29 @@ func Netlen2Mask(netmasklen int) string {
 	return netutils.Netlen2Mask(netmasklen)
 }
 
-func addRoute(routes [][]string, net, gw string) [][]string {
-	for _, rt := range routes {
-		if rt[0] == net {
-			return routes
+func addRoute(routes []SRouteInfo, net, gw string) []SRouteInfo {
+	route, _ := ParseRouteInfo([]string{net, gw})
+	if route != nil {
+		for _, rt := range routes {
+			if rt.Prefix.String() == route.Prefix.String() && rt.PrefixLen == route.PrefixLen {
+				return routes
+			}
 		}
-	}
-	return append(routes, []string{net, gw})
-}
-
-func extendRoutes(routes [][]string, nicRoutes []types.SRoute) [][]string {
-	for i := 0; i < len(nicRoutes); i++ {
-		routes = addRoute(routes, nicRoutes[i][0], nicRoutes[i][1])
+		// not found
+		routes = append(routes, *route)
 	}
 	return routes
+}
+
+func extendRoutes(routes4, routes6 []SRouteInfo, nicRoutes []types.SRoute) ([]SRouteInfo, []SRouteInfo) {
+	for i := 0; i < len(nicRoutes); i++ {
+		if regutils.MatchCIDR6(nicRoutes[i][0]) {
+			routes6 = addRoute(routes6, nicRoutes[i][0], nicRoutes[i][1])
+		} else {
+			routes4 = addRoute(routes4, nicRoutes[i][0], nicRoutes[i][1])
+		}
+	}
+	return routes4, routes6
 }
 
 func isExitAddress(ip string) bool {
@@ -156,28 +354,65 @@ func isExitAddress(ip string) bool {
 	return netutils.IsExitAddress(ipv4)
 }
 
-func AddNicRoutes(routes [][]string, nicDesc *types.SServerNic, mainIp string, nicCnt int) [][]string {
+var (
+	Ip4MetadataServers = []string{
+		"169.254.169.254",
+	}
+	Ip6MetadataServers = []string{
+		"fd00:ec2::254",
+	}
+)
+
+func SetIp4MetadataServers(ip4s []string) {
+	if len(ip4s) == 0 {
+		ip4s = []string{
+			"169.254.169.254",
+		}
+	}
+	Ip4MetadataServers = ip4s
+}
+
+func SetIp6MetadataServers(ip6s []string) {
+	if len(ip6s) == 0 {
+		ip6s = []string{
+			"fd00:ec2::254",
+		}
+	}
+	Ip6MetadataServers = ip6s
+}
+
+func AddNicRoutes(routes4 []SRouteInfo, routes6 []SRouteInfo, nicDesc *types.SServerNic, mainIp string, mainIp6 string, nicCnt int) ([]SRouteInfo, []SRouteInfo) {
 	// always add static routes, even if this is the default NIC
 	// if mainIp == nicDesc.Ip {
 	// 	return routes
 	// }
 	if len(nicDesc.Routes) > 0 {
-		routes = extendRoutes(routes, nicDesc.Routes)
+		routes4, routes6 = extendRoutes(routes4, routes6, nicDesc.Routes)
 	} else if len(nicDesc.Gateway) > 0 && !isExitAddress(nicDesc.Ip) &&
 		nicCnt == 2 && nicDesc.Ip != mainIp && isExitAddress(mainIp) {
 		for _, pref := range netutils.GetPrivateIPRanges() {
 			prefs := pref.ToPrefixes()
 			for _, p := range prefs {
-				routes = addRoute(routes, p.String(), nicDesc.Gateway)
+				routes4 = addRoute(routes4, p.String(), nicDesc.Gateway)
 			}
 		}
 	}
 
-	if nicDesc.Ip == mainIp {
+	if len(mainIp) > 0 && nicDesc.Ip == mainIp {
 		// always add 169.254.169.254 for default NIC
-		routes = addRoute(routes, "169.254.169.254/32", "0.0.0.0")
+		for _, ip := range Ip4MetadataServers {
+			pref := ip + "/32"
+			routes4 = addRoute(routes4, pref, "0.0.0.0")
+		}
 	}
-	return routes
+	if len(mainIp6) > 0 && nicDesc.Ip6 == mainIp6 {
+		for _, ip6 := range Ip6MetadataServers {
+			pref := ip6 + "/128"
+			routes6 = addRoute(routes6, pref, "::")
+		}
+	}
+
+	return routes4, routes6
 }
 
 func GetNicDns(nicdesc *types.SServerNic) []string {
@@ -208,6 +443,12 @@ type SNetInterface struct {
 	Mask net.IPMask
 	mac  string
 
+	Addr6 string
+	Mask6 net.IPMask
+
+	Addr4LinkLocal string
+	Addr6LinkLocal string
+
 	Mtu int
 
 	VlanId     int
@@ -231,10 +472,10 @@ func NewNetInterface(name string) *SNetInterface {
 	return n
 }
 
-func NewNetInterfaceWithExpectIp(name string, expectIp string) *SNetInterface {
+func NewNetInterfaceWithExpectIp(name string, expectIp string, expectIp6 string) *SNetInterface {
 	n := new(SNetInterface)
 	n.name = name
-	n.fetchConfig(expectIp)
+	n.FetchConfig2(expectIp, expectIp6)
 	return n
 }
 
@@ -257,10 +498,11 @@ func (n *SNetInterface) FetchInter() *net.Interface {
 }
 
 func (n *SNetInterface) FetchConfig() {
-	n.fetchConfig("")
+	n.FetchConfig2("", "")
 }
 
-func (n *SNetInterface) fetchConfig(expectIp string) {
+// FetchConfig2 is used to fetch config with expectIp and expectIp6
+func (n *SNetInterface) FetchConfig2(expectIp string, expectIp6 string) {
 	n.Addr = ""
 	n.Mask = nil
 	n.mac = ""
@@ -278,12 +520,18 @@ func (n *SNetInterface) fetchConfig(expectIp string) {
 		for _, addr := range addrs {
 			if ipnet, ok := addr.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
 				if ipnet.IP.To4() != nil {
-					n.Addr = ipnet.IP.String()
-					n.Mask = ipnet.Mask
-					if len(expectIp) > 0 && n.Addr != expectIp {
-						continue
-					} else {
-						break
+					if strings.HasPrefix(ipnet.IP.To4().String(), SECRET_PREFIX) {
+						n.Addr4LinkLocal = ipnet.IP.String()
+					} else if (len(expectIp) > 0 && ipnet.IP.String() == expectIp) || (len(expectIp) == 0 && n.Addr == "") {
+						n.Addr = ipnet.IP.String()
+						n.Mask = ipnet.Mask
+					}
+				} else if ipnet.IP.To16() != nil {
+					if ipnet.IP.IsLinkLocalUnicast() {
+						n.Addr6LinkLocal = ipnet.IP.String()
+					} else if (len(expectIp6) > 0 && ipnet.IP.String() == expectIp6) || (len(expectIp6) == 0 && n.Addr6 == "") {
+						n.Addr6 = ipnet.IP.String()
+						n.Mask6 = ipnet.Mask
 					}
 				}
 			}
@@ -312,6 +560,14 @@ func (n *SNetInterface) fetchConfig(expectIp string) {
 
 func (n *SNetInterface) GetMac() string {
 	return n.mac
+}
+
+func (n *SNetInterface) GetHardwareAddr() net.HardwareAddr {
+	mac, err := net.ParseMAC(n.mac)
+	if err != nil {
+		return nil
+	}
+	return mac
 }
 
 func (n *SNetInterface) GetAllMacs() []string {
@@ -346,17 +602,21 @@ func (n *SNetInterface) SetupGso(on bool) {
 }
 
 func (n *SNetInterface) IsSecretInterface() bool {
-	return n.IsSecretAddress(n.Addr, n.Mask)
+	return n.Addr4LinkLocal != "" && n.Addr == ""
 }
 
-func (n *SNetInterface) IsSecretAddress(addr string, mask []byte) bool {
+func (n *SNetInterface) IsSecretInterface6() bool {
+	return n.Addr6LinkLocal != "" && n.Addr6 == ""
+}
+
+/*func (n *SNetInterface) IsSecretAddress(addr string, mask []byte) bool {
 	log.Infof("MASK --- %s", mask)
 	if reflect.DeepEqual(mask, SECRET_MASK) && strings.HasPrefix(addr, SECRET_PREFIX) {
 		return true
 	} else {
 		return false
 	}
-}
+}*/
 
 func GetSecretInterfaceAddress() (string, int) {
 	addr := fmt.Sprintf("%s.%d.1", SECRET_PREFIX, secretInterfaceIndex)
@@ -364,11 +624,11 @@ func GetSecretInterfaceAddress() (string, int) {
 	return addr, SECRET_MASK_LEN
 }
 
-func (n *SNetInterface) GetSlaveAddresses() [][]string {
+func (n *SNetInterface) GetSlaveAddresses() []SNicAddress {
 	addrs := n.GetAddresses()
-	var slaves = make([][]string, 0)
+	var slaves = make([]SNicAddress, 0)
 	for _, addr := range addrs {
-		if addr[0] != n.Addr {
+		if addr.Addr != n.Addr && addr.Addr != n.Addr6 {
 			slaves = append(slaves, addr)
 		}
 	}
@@ -476,4 +736,49 @@ func TestTcpPort(ip string, port int, timeoutSecs int, tries int) error {
 		time.Sleep(10 * time.Millisecond)
 	}
 	return errors.NewAggregate(errs)
+}
+
+func IP2SolicitMcastIP(ip6 net.IP) net.IP {
+	// Solicited-Node Multicast Address, FF02::1:FF00:0/104
+	return net.IP{0xff, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0xff, ip6[13], ip6[14], ip6[15]}
+}
+
+func IP2SolicitMcastMac(ip6 net.IP) net.HardwareAddr {
+	// Solicited-Node Multicast Address, 33:33:ff:00:00:00
+	return net.HardwareAddr{0x33, 0x33, 0xff, ip6[13], ip6[14], ip6[15]}
+}
+
+func SplitV46Addr(addrsStr string) ([]string, []string) {
+	servers4 := stringutils2.NewSortedStrings(nil)
+	servers6 := stringutils2.NewSortedStrings(nil)
+	for _, ntp := range strings.Split(addrsStr, ",") {
+		if regutils.MatchIP4Addr(ntp) {
+			servers4 = servers4.Append(ntp)
+		} else if regutils.MatchIP6Addr(ntp) {
+			servers6 = servers6.Append(ntp)
+		} else if regutils.MatchDomainName(ntp) {
+			ntpAddrs, _ := net.LookupHost(ntp)
+			for _, ntpAddr := range ntpAddrs {
+				if regutils.MatchIP4Addr(ntpAddr) {
+					servers4 = servers4.Append(ntpAddr)
+				} else if regutils.MatchIP6Addr(ntpAddr) {
+					servers6 = servers6.Append(ntpAddr)
+				}
+			}
+		}
+	}
+	return servers4, servers6
+}
+
+func SplitV46Addr2IP(addrsStr string) ([]net.IP, []net.IP) {
+	addrs4, addrs6 := SplitV46Addr(addrsStr)
+	ip4s := make([]net.IP, len(addrs4))
+	ip6s := make([]net.IP, len(addrs6))
+	for i := range addrs4 {
+		ip4s[i] = net.ParseIP(addrs4[i])
+	}
+	for i := range addrs6 {
+		ip6s[i] = net.ParseIP(addrs6[i])
+	}
+	return ip4s, ip6s
 }

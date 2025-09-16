@@ -189,10 +189,37 @@ func (self *SRegion) GetIVpcs() ([]cloudprovider.ICloudVpc, error) {
 		vpcs[i].region = self
 		ret = append(ret, &vpcs[i])
 	}
+	sharedNetworks, err := self.client.GetSharedGlobalNetworks()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetSharedGlobalNetworks")
+	}
+	for i := range sharedNetworks {
+		for j := range sharedNetworks[i].Subnetworks {
+			if strings.Contains(sharedNetworks[i].Subnetworks[j].Subnetwork, fmt.Sprintf("/%s/", self.Name)) {
+				sharedNetworks[i].Subnetworks[j].region = self
+				ret = append(ret, &sharedNetworks[i].Subnetworks[j])
+			}
+		}
+	}
 	return ret, nil
 }
 
 func (self *SRegion) GetIVpcById(id string) (cloudprovider.ICloudVpc, error) {
+	if utils.IsInStringArray(self.Name, MultiRegions) || utils.IsInStringArray(self.Name, DualRegions) {
+		return nil, cloudprovider.ErrNotFound
+	}
+	if strings.Contains(id, "projects/") {
+		vpcs, err := self.GetIVpcs()
+		if err != nil {
+			return nil, err
+		}
+		for i := range vpcs {
+			if vpcs[i].GetGlobalId() == id {
+				return vpcs[i], nil
+			}
+		}
+		return nil, cloudprovider.ErrNotFound
+	}
 	vpc, err := self.GetVpc(id)
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetVpc")
@@ -541,8 +568,23 @@ func (self *SGoogleClient) GetBySelfId(id string, retval interface{}) error {
 	return nil
 }
 
+func (self *SGoogleClient) PostBySelfId(id string, retval interface{}) error {
+	resp, err := jsonRequest(self.client, "POST", GOOGLE_COMPUTE_DOMAIN, GOOGLE_API_VERSION, id, nil, nil, self.debug)
+	if err != nil {
+		return err
+	}
+	if retval != nil {
+		return resp.Unmarshal(retval)
+	}
+	return nil
+}
+
 func (self *SRegion) GetBySelfId(id string, retval interface{}) error {
 	return self.client.GetBySelfId(id, retval)
+}
+
+func (self *SRegion) PostBySelfId(id string, retval interface{}) error {
+	return self.client.PostBySelfId(id, retval)
 }
 
 func (region *SRegion) StorageListAll(resource string, params map[string]string, retval interface{}) error {
@@ -833,13 +875,26 @@ func (region *SRegion) CreateIDBInstance(desc *cloudprovider.SManagedDBInstanceC
 }
 
 func (region *SRegion) GetIVMs() ([]cloudprovider.ICloudVM, error) {
-	instances, err := region.GetInstances("", 0, "")
+	if utils.IsInStringArray(region.Name, MultiRegions) || utils.IsInStringArray(region.Name, DualRegions) {
+		return []cloudprovider.ICloudVM{}, nil
+	}
+	zones, err := region.GetIZones()
 	if err != nil {
 		return nil, err
 	}
-	iVMs := []cloudprovider.ICloudVM{}
-	for i := range instances {
-		iVMs = append(iVMs, &instances[i])
+	ret := []cloudprovider.ICloudVM{}
+	for i := range zones {
+		hosts, err := zones[i].GetIHosts()
+		if err != nil {
+			return nil, err
+		}
+		for j := range hosts {
+			instances, err := hosts[j].GetIVMs()
+			if err != nil {
+				return nil, err
+			}
+			ret = append(ret, instances...)
+		}
 	}
-	return iVMs, nil
+	return ret, nil
 }

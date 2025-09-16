@@ -191,6 +191,12 @@ func NewWorkerManager(name string, workerCount int, backlog int, dbWorker bool) 
 }
 
 func NewWorkerManagerIgnoreOverflow(name string, workerCount int, backlog int, dbWorker bool, ignoreOverflow bool) *SWorkerManager {
+	if workerCount <= 0 {
+		workerCount = 1
+	}
+	if backlog <= 0 {
+		backlog = 128
+	}
 	manager := SWorkerManager{name: name,
 		queue:          NewRing(workerCount * backlog),
 		workerCount:    workerCount,
@@ -375,7 +381,7 @@ func WorkerStatsHandler(ctx context.Context, w http.ResponseWriter, r *http.Requ
 	}
 	result := jsonutils.NewDict()
 	result.Add(jsonutils.Marshal(&stats), "workers")
-	fmt.Fprintf(w, result.String())
+	fmt.Fprintf(w, "%s", result.String())
 }
 
 func GetDBConnectionCount() int {

@@ -28,4 +28,8 @@ func init() {
 	cmd.Update(&compute.CDNDomainUpdateOptions{})
 	cmd.Delete(&options.BaseIdOptions{})
 	cmd.Create(&compute.CDNDomainCreateOptions{})
+	cmd.Perform("clear-cache", &compute.CDNClearCacheOptions{})
+	cmd.Perform("change-config", &compute.CDNChangeConfigOptions{})
+	cmd.Perform("delete-custom-hostname", &compute.CDNDeleteCustomHostnameOptions{})
+	cmd.Get("custom-hostnames", &compute.CDNCustomHostnameOptions{})
 }

@@ -28,8 +28,9 @@ const (
 	ARM_THREADS  = 1
 
 	ARM_MEM_DEFAULT_SLOTS = 4
-	ARM_MAX_MEM_MB        = 262144
 )
+
+var ARM_MAX_MEM_MB uint = 262144
 
 type ARM struct {
 	archBase

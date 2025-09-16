@@ -38,7 +38,7 @@ type SCdnSource struct {
 }
 
 type SCdnDomain struct {
-	multicloud.SResourceBase
+	multicloud.SCDNDomainBase
 	HuaweiTags
 
 	client *SHuaweiClient
@@ -205,10 +205,10 @@ func (hc *SHuaweiClient) GetCDNDomainByName(name string) (*SCdnDomain, error) {
 		return &domains[0], nil
 	}
 	if total == 0 {
-		return nil, errors.Wrapf(cloudprovider.ErrNotFound, name)
+		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", name)
 	}
 
-	return nil, errors.Wrapf(cloudprovider.ErrDuplicateId, name)
+	return nil, errors.Wrapf(cloudprovider.ErrDuplicateId, "%s", name)
 }
 
 func (hc *SHuaweiClient) GetCdnDomains() ([]SCdnDomain, error) {

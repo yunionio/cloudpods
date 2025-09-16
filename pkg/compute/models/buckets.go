@@ -92,6 +92,8 @@ type SBucket struct {
 	ObjectCntLimit int   `nullable:"false" default:"0" list:"user"`
 
 	AccessUrls jsonutils.JSONObject `nullable:"true" list:"user"`
+
+	EnablePerfMon bool `default:"false" list:"user" update:"user" create:"optional"`
 }
 
 func (manager *SBucketManager) SetHandlerProcessTimeout(info *appsrv.SHandlerInfo, r *http.Request) time.Duration {
@@ -697,6 +699,15 @@ func (manager *SBucketManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field
 		return q, nil
 	}
 	q, err = manager.SCloudregionResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	return q, httperrors.ErrNotFound
+}
+
+func (manager *SBucketManager) QueryDistinctExtraFields(q *sqlchemy.SQuery, resource string, fields []string) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SManagedResourceBaseManager.QueryDistinctExtraFields(q, resource, fields)
 	if err == nil {
 		return q, nil
 	}

@@ -28,7 +28,7 @@ import (
 )
 
 type SDomian struct {
-	multicloud.SVirtualResourceBase
+	multicloud.SDnsZoneBase
 	QcloudTags
 	client *SQcloudClient
 
@@ -89,7 +89,7 @@ func (self *SQcloudClient) GetDomain(domain string) (*SDomian, error) {
 			return &domains[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, domain)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", domain)
 }
 
 func (self *SQcloudClient) GetICloudDnsZones() ([]cloudprovider.ICloudDnsZone, error) {
@@ -139,7 +139,7 @@ func (self *SQcloudClient) CreateDomian(domianName string) (*SDomian, error) {
 		}
 		time.Sleep(time.Second * 10)
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, domianName)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", domianName)
 }
 
 func (self *SQcloudClient) CreateICloudDnsZone(opts *cloudprovider.SDnsZoneCreateOptions) (cloudprovider.ICloudDnsZone, error) {
@@ -248,13 +248,11 @@ func (self *SDomian) AddDnsRecord(opts *cloudprovider.DnsRecord) (string, error)
 func (self *SDomian) GetDnsProductType() cloudprovider.TDnsProductType {
 	switch self.GradeTitle {
 	case "企业旗舰版":
-		return cloudprovider.DnsProductEnterpriseUltimate
-	case "企业标准版":
-		return cloudprovider.DnsProductEnterpriseStandard
-	case "企业基础版":
-		return cloudprovider.DnsProductEnterpriseBasic
+		return cloudprovider.DnsProductUltimate
+	case "企业标准版", "企业基础版":
+		return cloudprovider.DnsProductEnterprise
 	case "个人专业版":
-		return cloudprovider.DnsProductPersonalProfessional
+		return cloudprovider.DnsProductProfessional
 	case "免费版":
 		return cloudprovider.DnsProductFree
 	default:

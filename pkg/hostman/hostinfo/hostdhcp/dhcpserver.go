@@ -15,13 +15,12 @@
 package hostdhcp
 
 import (
-	"context"
-	"fmt"
 	"net"
 	"strings"
 	"time"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/netutils"
 
 	"yunion.io/x/onecloud/pkg/apis"
@@ -33,44 +32,55 @@ import (
 	"yunion.io/x/onecloud/pkg/util/netutils2"
 )
 
-const DEFAULT_DHCP_CLIENT_PORT = 68
+const (
+	DEFAULT_DHCP_SERVER_PORT = 67
+	// DEFAULT_DHCP_CLIENT_PORT = 68
+	DEFAULT_DHCP_RELAY_PORT = 68
+)
 
 type SGuestDHCPServer struct {
 	server *dhcp.DHCPServer
 	relay  *SDHCPRelay
 	conn   *dhcp.Conn
 
-	iface string
+	ifaceDev *netutils2.SNetInterface
 }
 
-func NewGuestDHCPServer(iface string, port int, relay []string) (*SGuestDHCPServer, error) {
+type SDHCPRelayUpstream struct {
+	IP   string
+	Port int
+}
+
+func NewGuestDHCPServer(iface string, port int, relay *SDHCPRelayUpstream) (*SGuestDHCPServer, error) {
 	var (
 		err       error
 		guestdhcp = new(SGuestDHCPServer)
 	)
 
-	if len(relay) > 0 && len(relay) != 2 {
-		return nil, fmt.Errorf("Wrong dhcp relay address")
+	dev := netutils2.NewNetInterface(iface)
+	if dev.GetHardwareAddr() == nil {
+		return nil, errors.Wrapf(errors.ErrInvalidStatus, "iface %s no mac", iface)
 	}
 
-	guestdhcp.server, guestdhcp.conn, err = dhcp.NewDHCPServer2(iface, uint16(port), DEFAULT_DHCP_CLIENT_PORT)
+	guestdhcp.ifaceDev = dev
+
+	guestdhcp.server, guestdhcp.conn, err = dhcp.NewDHCPServer2(iface, DEFAULT_DHCP_SERVER_PORT)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "dhcp.NewDHCPServer2")
 	}
 
-	if len(relay) == 2 {
+	if relay != nil {
 		guestdhcp.relay, err = NewDHCPRelay(guestdhcp.conn, relay)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "NewDHCPRelay")
 		}
 	}
 
-	guestdhcp.iface = iface
 	return guestdhcp, nil
 }
 
 func (s *SGuestDHCPServer) Start(blocking bool) {
-	log.Infof("SGuestDHCPServer starting ...")
+	log.Infof("SGuestDHCPServer %s starting (blocking: %v) ...", s.ifaceDev.String(), blocking)
 	serve := func() {
 		err := s.server.ListenAndServe(s)
 		if err != nil {
@@ -140,11 +150,31 @@ func GetMainNic(nics []*desc.SGuestNetwork) *desc.SGuestNetwork {
 			return n
 		}
 	}
+	for _, n := range nics {
+		if n.Ip != "" && n.Gateway != "" {
+			return n
+		}
+	}
 	return nil
 }
 
-func (s *SGuestDHCPServer) getGuestConfig(
+func GetMainNic6(nics []*desc.SGuestNetwork) *desc.SGuestNetwork {
+	for _, n := range nics {
+		if n.IsDefault {
+			return n
+		}
+	}
+	for _, n := range nics {
+		if n.Ip6 != "" && n.Gateway6 != "" {
+			return n
+		}
+	}
+	return nil
+}
+
+func getGuestConfig(
 	guestDesc *desc.SGuestDesc, guestNic *desc.SGuestNetwork,
+	serverMac net.HardwareAddr,
 ) *dhcp.ResponseConfig {
 	var nicdesc = new(types.SServerNic)
 	if err := gusetnetworkJsonDescToServerNic(nicdesc, guestNic); err != nil {
@@ -153,14 +183,25 @@ func (s *SGuestDHCPServer) getGuestConfig(
 	}
 
 	var conf = new(dhcp.ResponseConfig)
-	nicIp := nicdesc.Ip
-	v4Ip, _ := netutils.NewIPV4Addr(nicIp)
-	conf.ClientIP = net.ParseIP(nicdesc.Ip)
 
-	masklen := nicdesc.Masklen
-	conf.ServerIP = net.ParseIP(v4Ip.NetAddr(int8(masklen)).String())
-	conf.SubnetMask = net.ParseIP(netutils2.Netlen2Mask(int(masklen)))
-	conf.BroadcastAddr = v4Ip.BroadcastAddr(int8(masklen)).ToBytes()
+	conf.InterfaceMac = serverMac
+	conf.VlanId = uint16(nicdesc.Vlan)
+
+	if len(nicdesc.Ip) > 0 {
+		nicIp := nicdesc.Ip
+		v4Ip, _ := netutils.NewIPV4Addr(nicIp)
+		conf.ClientIP = net.ParseIP(nicdesc.Ip)
+
+		masklen := nicdesc.Masklen
+		conf.ServerIP = net.ParseIP(v4Ip.NetAddr(int8(masklen)).String())
+		conf.SubnetMask = net.ParseIP(netutils2.Netlen2Mask(int(masklen)))
+		conf.BroadcastAddr = v4Ip.BroadcastAddr(int8(masklen)).ToBytes()
+
+		if nicdesc.Gateway != "" {
+			conf.Gateway = net.ParseIP(nicdesc.Gateway)
+		}
+	}
+
 	if len(guestDesc.Hostname) > 0 {
 		conf.Hostname = guestDesc.Hostname
 	} else {
@@ -169,42 +210,71 @@ func (s *SGuestDHCPServer) getGuestConfig(
 	conf.Hostname = strings.ToLower(conf.Hostname)
 	conf.Domain = nicdesc.Domain
 
-	// get main ip
-	guestNics := guestDesc.Nics
-	manNic := GetMainNic(guestNics)
-	var mainIp string
-	if manNic != nil {
-		mainIp = manNic.Ip
+	if len(nicdesc.Ip6) > 0 {
+		// ipv6
+		conf.ClientIP6 = net.ParseIP(nicdesc.Ip6)
+		conf.PrefixLen6 = uint8(nicdesc.Masklen6)
+		if nicdesc.Gateway6 != "" {
+			conf.Gateway6 = net.ParseIP(nicdesc.Gateway6)
+		}
 	}
 
-	var route = [][]string{}
+	// get main ip
+	guestNics := guestDesc.Nics
+	mainNic := GetMainNic(guestNics)
+	var mainIp string
+	if mainNic != nil {
+		mainIp = mainNic.Ip
+	}
+	mainNic6 := GetMainNic6(guestNics)
+	var mainIp6 string
+	if mainNic6 != nil {
+		mainIp6 = mainNic6.Ip6
+	}
+
+	route4 := make([]netutils2.SRouteInfo, 0)
+	route6 := make([]netutils2.SRouteInfo, 0)
 	if nicdesc.IsDefault {
-		conf.Gateway = net.ParseIP(nicdesc.Gateway)
+		conf.IsDefaultGW = true
 
 		osName := guestDesc.OsName
 		if len(osName) == 0 {
 			osName = "Linux"
 		}
-		if !strings.HasPrefix(strings.ToLower(osName), "win") {
-			route = append(route, []string{"0.0.0.0/0", nicdesc.Gateway})
+
+		if conf.Gateway != nil {
+			if !strings.HasPrefix(strings.ToLower(osName), "win") {
+				route4 = append(route4, netutils2.SRouteInfo{
+					SPrefixInfo: netutils2.SPrefixInfo{
+						Prefix:    net.ParseIP("0.0.0.0"),
+						PrefixLen: 0,
+					},
+					Gateway: conf.Gateway,
+				})
+			}
 		}
-		route = append(route, []string{"169.254.169.254/32", "0.0.0.0"})
+
+		//if conf.Gateway6 != nil {
+		/*route6 = append(route6, netutils2.SRouteInfo{
+			SPrefixInfo: netutils2.SPrefixInfo{
+				Prefix:    net.ParseIP("::"),
+				PrefixLen: 0,
+			},
+			Gateway: conf.Gateway6,
+		})*/
+		//}
 	}
-	route = netutils2.AddNicRoutes(route, nicdesc, mainIp, len(guestNics))
-	conf.Routes = route
+	route4, route6 = netutils2.AddNicRoutes(route4, route6, nicdesc, mainIp, mainIp6, len(guestNics))
+
+	conf.Routes = route4
+	conf.Routes6 = route6
 
 	if len(nicdesc.Dns) > 0 {
-		conf.DNSServers = make([]net.IP, 0)
-		for _, dns := range strings.Split(nicdesc.Dns, ",") {
-			conf.DNSServers = append(conf.DNSServers, net.ParseIP(dns))
-		}
+		conf.DNSServers, conf.DNSServers6 = netutils2.SplitV46Addr2IP(nicdesc.Dns)
 	}
 
 	if len(nicdesc.Ntp) > 0 {
-		conf.NTPServers = make([]net.IP, 0)
-		for _, ntp := range strings.Split(nicdesc.Ntp, ",") {
-			conf.NTPServers = append(conf.NTPServers, net.ParseIP(ntp))
-		}
+		conf.NTPServers, conf.NTPServers6 = netutils2.SplitV46Addr2IP(nicdesc.Ntp)
 	}
 
 	if nicdesc.Mtu > 0 {
@@ -227,12 +297,12 @@ func (s *SGuestDHCPServer) getConfig(pkt dhcp.Packet) *dhcp.ResponseConfig {
 		ip, port    = "", ""
 		isCandidate = false
 	)
-	guestDesc, guestNic := guestman.GuestDescGetter.GetGuestNicDesc(mac, ip, port, s.iface, isCandidate)
+	guestDesc, guestNic := guestman.GuestDescGetter.GetGuestNicDesc(mac, ip, port, s.ifaceDev.String(), isCandidate)
 	if guestNic == nil {
-		guestDesc, guestNic = guestman.GuestDescGetter.GetGuestNicDesc(mac, ip, port, s.iface, !isCandidate)
+		guestDesc, guestNic = guestman.GuestDescGetter.GetGuestNicDesc(mac, ip, port, s.ifaceDev.String(), !isCandidate)
 	}
 	if guestNic != nil && !guestNic.Virtual {
-		return s.getGuestConfig(guestDesc, guestNic)
+		return getGuestConfig(guestDesc, guestNic, s.ifaceDev.GetHardwareAddr())
 	}
 	return nil
 }
@@ -241,23 +311,23 @@ func (s *SGuestDHCPServer) IsDhcpPacket(pkt dhcp.Packet) bool {
 	return pkt != nil && (pkt.Type() == dhcp.Request || pkt.Type() == dhcp.Discover)
 }
 
-func (s *SGuestDHCPServer) ServeDHCP(ctx context.Context, pkt dhcp.Packet, addr *net.UDPAddr, intf *net.Interface) (dhcp.Packet, []string, error) {
-	pkg, err := s.serveDHCPInternal(pkt, addr, intf)
+func (s *SGuestDHCPServer) ServeDHCP(pkt dhcp.Packet, cliMac net.HardwareAddr, addr *net.UDPAddr) (dhcp.Packet, []string, error) {
+	pkg, err := s.serveDHCPInternal(pkt, addr)
 	return pkg, nil, err
 }
 
-func (s *SGuestDHCPServer) serveDHCPInternal(pkt dhcp.Packet, addr *net.UDPAddr, intf *net.Interface) (dhcp.Packet, error) {
+func (s *SGuestDHCPServer) serveDHCPInternal(pkt dhcp.Packet, addr *net.UDPAddr) (dhcp.Packet, error) {
 	if !s.IsDhcpPacket(pkt) {
 		return nil, nil
 	}
 	var conf = s.getConfig(pkt)
 	if conf != nil {
-		log.Infof("Make DHCP Reply %s TO %s", conf.ClientIP, pkt.CHAddr())
+		log.Infof("Make DHCP Reply %s TO %s %s", conf.ClientIP, pkt.CHAddr(), addr.String())
 		// Guest request ip
 		return dhcp.MakeReplyPacket(pkt, conf)
 	} else if s.relay != nil && s.relay.server != nil {
 		// Host agent as dhcp relay, relay to baremetal
-		return s.relay.Relay(pkt, addr, intf)
+		return s.relay.Relay(pkt, addr)
 	}
 	return nil, nil
 }

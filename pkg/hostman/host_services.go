@@ -15,6 +15,8 @@
 package hostman
 
 import (
+	"time"
+
 	execlient "yunion.io/x/executor/client"
 	"yunion.io/x/log"
 
@@ -38,7 +40,9 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
 	"yunion.io/x/onecloud/pkg/hostman/storageman/diskhandlers"
 	"yunion.io/x/onecloud/pkg/hostman/storageman/storagehandler"
+	losetupman "yunion.io/x/onecloud/pkg/util/losetup/manager"
 	"yunion.io/x/onecloud/pkg/util/procutils"
+	"yunion.io/x/onecloud/pkg/util/qemuimg"
 	"yunion.io/x/onecloud/pkg/util/sysutils"
 )
 
@@ -67,6 +71,7 @@ func (host *SHostService) InitService() {
 		execlient.SetTimeoutSeconds(options.HostOptions.ExecutorConnectTimeoutSeconds)
 		procutils.SetRemoteExecutor()
 	}
+	losetupman.Init()
 }
 
 func (host *SHostService) OnExitService() {}
@@ -76,9 +81,15 @@ func (host *SHostService) RunService() {
 	cronManager := cronman.InitCronJobManager(false, options.HostOptions.CronJobWorkerCount, options.HostOptions.TimeZone)
 	hostutils.Init()
 
+	if err := qemuimg.SetPreallocation(options.HostOptions.Qcow2Preallocation); err != nil {
+		log.Fatalf("failed set qemuimg preallocation to %s: %s", options.HostOptions.Qcow2Preallocation, err)
+	}
+
 	hostInstance := hostinfo.Instance()
 	if err := hostInstance.Init(app.GetContext()); err != nil {
-		log.Fatalf("Host instance init error: %v", err)
+		log.Errorf("Host instance init error: %s, wait 3 minutes to retry", err)
+		time.Sleep(time.Minute * 3)
+		log.Fatalf("Host instance init error: %s, reboot now", err)
 	}
 
 	app_common.InitAuth(&options.HostOptions.CommonOptions, func() {
