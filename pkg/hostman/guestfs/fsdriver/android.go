@@ -116,6 +116,10 @@ func (m *sBaseAndroidRootFs) DeployNetworkingScripts(rootfs IDiskPartition, nics
 	return nil
 }
 
+func (m *sBaseAndroidRootFs) ConfigSshd(loginAccount, loginPassword string, sshPort int) error {
+	return nil
+}
+
 func (m *sBaseAndroidRootFs) CommitChanges(part IDiskPartition) error {
 	spath := fmt.Sprintf("/%s/system/build.prop", m.rootDir)
 	lines, _ := m.rootFs.FileGetContents(spath, false)
