@@ -190,6 +190,10 @@ func DoDeployGuestFs(rootfs fsdriver.IRootFsDriver, guestDesc *deployapi.GuestDe
 		}
 	}
 
+	if err := rootfs.ConfigSshd(ret.Account, deployInfo.Password, 0); err != nil {
+		return nil, errors.Wrap(err, "ConfigSshd")
+	}
+
 	if err = rootfs.DeployYunionroot(partition, deployInfo.PublicKey, deployInfo.IsInit, deployInfo.EnableCloudInit); err != nil {
 		return nil, errors.Wrap(err, "DeployYunionroot")
 	}
