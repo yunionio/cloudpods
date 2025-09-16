@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cgrouputils
+package cgroupv1
 
 import (
 	"encoding/json"
@@ -38,7 +38,7 @@ var (
 	utilHistory map[string][]float64
 )
 
-func RebalanceProcesses(pids []string) {
+func (m *cgroupManager) RebalanceProcesses(pids []string) {
 	rebalanceProcessesLock.Lock()
 	if rebalanceProcessesRunning {
 		rebalanceProcessesLock.Unlock()
@@ -95,7 +95,7 @@ func CommitProcessCpuset(proc *ProcessCPUinfo, idx int) {
 	cpu, _ := GetSystemCpu()
 	sets := cpu.GetCpuset(idx)
 	if len(sets) > 0 {
-		cpuset := NewCGroupCPUSetTask(strconv.Itoa(proc.Pid), "", 0, sets)
+		cpuset := manager.NewCGroupCPUSetTask(strconv.Itoa(proc.Pid), "", sets, "")
 		cpuset.SetTask()
 	}
 }
