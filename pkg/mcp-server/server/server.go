@@ -134,7 +134,7 @@ func (s *CloudpodsMCPServer) registerAllTools() error {
 // Start 以sse模式启动 mcp 服务
 func (s *CloudpodsMCPServer) Start() error {
 
-	if err := server.NewSSEServer(s.mcpServer).Start(fmt.Sprintf("%s:%d", options.Options.Host, options.Options.Port)); err != nil {
+	if err := server.NewSSEServer(s.mcpServer).Start(fmt.Sprintf("%s:%d", options.Options.Address, options.Options.Port)); err != nil {
 		return err
 	}
 	log.Infof("Start mcp server successfully")

@@ -14,10 +14,13 @@
 
 package options
 
+import (
+	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
+)
+
 type MCPServerOptions struct {
+	common_options.CommonOptions
 	// 服务基础信息
-	Host                 string `help:"Service listening address (default: localhost)" default:"localhost"`
-	Port                 int    `help:"Service listening port" default:"8080"`
 	MCPServerName        string `help:"MCP service name"`
 	MCPServerVersion     string `help:"MCP service version"`
 	MCPServerDescription string `help:"MCP service description"`
