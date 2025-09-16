@@ -30,10 +30,6 @@ type MCPServerOptions struct {
 
 	// 连接超时配置
 	Timeout int `help:"SDK connection timeout to cloudpods service (seconds)" default:"30"`
-
-	// 日志配置
-	LogLevel  string `help:"Log level (e.g., debug/info/warn/error)" default:"info"`
-	LogFormat string `elp:"Log format (e.g., text/json)" default:"text"`
 }
 
 var (
