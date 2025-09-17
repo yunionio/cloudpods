@@ -97,11 +97,11 @@ type AlertRecordHistoryAlertData struct {
 
 func (self AlertRecordHistoryAlertData) GetMetricTags() map[string]string {
 	return map[string]string{
-		"project_id": self.ProjectId,
-		"domain_id":  self.DomainId,
-		"domain":     self.Domain,
-		"project":    self.Project,
-		"res_type":   self.ResType,
+		"tenant_id": self.ProjectId,
+		"domain_id": self.DomainId,
+		"domain":    self.Domain,
+		"tenant":    self.Project,
+		"res_type":  self.ResType,
 	}
 }
 
