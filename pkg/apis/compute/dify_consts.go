@@ -46,15 +46,15 @@ const (
 )
 
 const (
-	DIFY_IMAGE_REGISTRY = "registry.noteikoh.top"
-	DIFY_POSTGRES_IMAGE = "/dockerhub/postgres:15-alpine"
-	DIFY_REDIS_IMAGE    = "/dockerhub/redis:6-alpine"
+	DIFY_IMAGE_REGISTRY = "docker.io"
+	DIFY_POSTGRES_IMAGE = "/postgres:15-alpine"
+	DIFY_REDIS_IMAGE    = "/redis:6-alpine"
+	DIFY_NGINX_IMAGE    = "/nginx:latest"
 	DIFY_API_IMAGE      = "/langgenius/dify-api:1.7.2"
 	DIFY_PLUGIN_IMAGE   = "/langgenius/dify-plugin-daemon:0.2.0-local"
 	DIFY_WEB_IMAGE      = "/langgenius/dify-web:1.7.2"
-	DIFY_SSRF_IMAGE     = "/ubuntu/squid:latest"
 	DIFY_SANDBOX_IMAGE  = "/langgenius/dify-sandbox:0.2.12"
-	DIFY_NGINX_IMAGE    = "/dockerhub/nginx:latest"
+	DIFY_SSRF_IMAGE     = "/ubuntu/squid:latest"
 	DIFY_WEAVIATE_IAMGE = "/semitechnologies/weaviate:1.19.0"
 )
 
