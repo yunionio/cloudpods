@@ -181,7 +181,8 @@ goimports-check:
 		echo "$@: working tree modified (possibly by goimports)" >&2 ; \
 		echo "$@: " >&2 ; \
 		echo "$@: import spec should be grouped in order: std, 3rd-party, yunion.io/x, yunion.io/x/onecloud" >&2 ; \
-		echo "$@: see \"yun\" branch at https://github.com/yousong/tools" >&2 ; \
+		echo "$@: goimports should be installed by: \
+		echo "$@: git clone --depth 4 https://github.com/yunionio/tools && cd tools && go install ./cmd/goimports ; \
 		false ; \
 	fi
 .PHONY: goimports-check
