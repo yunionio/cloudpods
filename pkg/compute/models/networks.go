@@ -2814,8 +2814,6 @@ func (manager *SNetworkManager) ListItemFilter(
 		q = q.In("wire_id", subq.SubQuery())
 	}
 
-	q.DebugQuery()
-
 	return q, nil
 }
 
