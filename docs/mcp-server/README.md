@@ -41,7 +41,7 @@ MCP Server 采用模块化设计，主要包括以下几个核心模块：
 
 ## 配置说明
 
-配置文件位于 `config/config.go`，主要包含以下配置项：
+配置文件位于 `options/options.go`，主要包含以下配置项：
 
 - ServerConfig: 服务配置，如监听地址、端口等
 - MCPConfig: MCP相关配置
