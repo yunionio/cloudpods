@@ -7,7 +7,7 @@ jobs:
     requires:
       - check
     docker:
-      - image: yunion/centos-build:go-1.21.10-0
+      - image: yunion/alpine-build:3.22.0-go-1.24.6-1
         environment:
           ONECLOUD_CI_BUILD: "1"
 
