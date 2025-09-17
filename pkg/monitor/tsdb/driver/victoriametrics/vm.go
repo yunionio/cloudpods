@@ -164,6 +164,10 @@ func translateResponse(resp *Response, query *tsdb.Query) (*tsdb.QueryResult, er
 				}
 			}
 		}
+	} else if len(results) == 1 {
+		for tagKey := range results[0].Metric {
+			diffTagKeys.Insert(tagKey)
+		}
 	}
 
 	if !isUnionResult {
