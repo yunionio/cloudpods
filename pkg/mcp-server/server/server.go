@@ -16,7 +16,9 @@ package server
 
 import (
 	"fmt"
+
 	"github.com/mark3labs/mcp-go/server"
+
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/mcp-server/adapters"
 	"yunion.io/x/onecloud/pkg/mcp-server/options"

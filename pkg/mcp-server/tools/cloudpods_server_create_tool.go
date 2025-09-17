@@ -18,9 +18,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/mark3labs/mcp-go/mcp"
 	"strconv"
 	"strings"
+
+	"github.com/mark3labs/mcp-go/mcp"
+
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/mcp-server/adapters"
 	"yunion.io/x/onecloud/pkg/mcp-server/models"

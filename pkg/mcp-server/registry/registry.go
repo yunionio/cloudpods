@@ -16,9 +16,11 @@ package registry
 
 import (
 	"fmt"
+	"sync"
+
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
-	"sync"
+
 	"yunion.io/x/log"
 )
 
