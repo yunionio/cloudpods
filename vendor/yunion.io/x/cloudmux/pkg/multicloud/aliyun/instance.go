@@ -253,8 +253,6 @@ func (self *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 
 	sort.Sort(byAttachedTime(disks))
 
-	log.Debugf("%s", jsonutils.Marshal(&disks))
-
 	idisks := make([]cloudprovider.ICloudDisk, len(disks))
 	for i := 0; i < len(disks); i += 1 {
 		store, err := self.host.zone.getStorageByCategory(disks[i].Category)
@@ -557,7 +555,7 @@ func (self *SRegion) GetInstance(instanceId string) (*SInstance, error) {
 			return &instances[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, instanceId)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", instanceId)
 }
 
 func (self *SRegion) CreateInstance(name, hostname string, imageId string, instanceType string, securityGroupIds []string,

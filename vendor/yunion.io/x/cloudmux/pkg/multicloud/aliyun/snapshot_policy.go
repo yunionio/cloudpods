@@ -77,7 +77,7 @@ func (self *SSnapshotPolicy) Refresh() error {
 			return jsonutils.Update(self, policies[i])
 		}
 	}
-	return errors.Wrapf(cloudprovider.ErrNotFound, self.AutoSnapshotPolicyId)
+	return errors.Wrapf(cloudprovider.ErrNotFound, "%s", self.AutoSnapshotPolicyId)
 }
 
 func (self *SSnapshotPolicy) IsEmulated() bool {
@@ -215,7 +215,7 @@ func (self *SRegion) GetISnapshotPolicyById(id string) (cloudprovider.ICloudSnap
 			return &policies[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", id)
 }
 
 func (self *SRegion) CreateSnapshotPolicy(input *cloudprovider.SnapshotPolicyInput) (string, error) {

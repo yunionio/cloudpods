@@ -119,7 +119,7 @@ func (self *SESXiHostDriver) CheckAndSetCacheImage(ctx context.Context, userCred
 	storage := host.GetStorageByFilePath(storageCache.Path)
 	if storage == nil {
 		msg := fmt.Sprintf("fail to find storage for storageCache %s", storageCache.Path)
-		log.Errorf(msg)
+		log.Errorf("%s", msg)
 		return errors.Error(msg)
 	}
 

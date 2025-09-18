@@ -53,7 +53,6 @@ func (o *AlertRecordShowOptions) GetId() string {
 }
 
 type AlertRecordTotalOptions struct {
-	ID string `help:"total-alert" json:"-"`
 	options.BaseListOptions
 }
 
@@ -61,8 +60,20 @@ func (o *AlertRecordTotalOptions) Params() (jsonutils.JSONObject, error) {
 	return options.ListStructToParams(o)
 }
 
-func (o *AlertRecordTotalOptions) GetId() string {
-	return o.ID
+func (o *AlertRecordTotalOptions) Property() string {
+	return "total-alert"
+}
+
+type AlertRecordHistoryAlertOptions struct {
+	options.BaseListOptions
+}
+
+func (o *AlertRecordHistoryAlertOptions) Params() (jsonutils.JSONObject, error) {
+	return options.ListStructToParams(o)
+}
+
+func (o *AlertRecordHistoryAlertOptions) Property() string {
+	return "history-alert"
 }
 
 type AlertRecordShieldListOptions struct {

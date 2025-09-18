@@ -60,7 +60,9 @@ func (d *SIsolatedDevice) GetSharedProjectIds() ([]string, error) {
 }
 
 func (region *SRegion) GetIsolatedDevices(hostId string, serverId string) ([]SIsolatedDevice, error) {
-	params := map[string]interface{}{}
+	params := map[string]interface{}{
+		"show_baremetal_isolated_devices": true,
+	}
 	if len(hostId) > 0 {
 		params["host_id"] = hostId
 	}

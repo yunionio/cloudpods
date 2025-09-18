@@ -22,6 +22,7 @@ import (
 
 type KeypairList struct {
 	options.BaseListOptions
+	Scheme string `help:"Scheme of keypair, default is RSA" choices:"RSA|DSA|ECDSA|ED25519"`
 }
 
 func (self *KeypairList) Params() (jsonutils.JSONObject, error) {
@@ -30,7 +31,7 @@ func (self *KeypairList) Params() (jsonutils.JSONObject, error) {
 
 type KeypairCreate struct {
 	NAME      string `help:"Name of keypair to be created"`
-	Scheme    string `help:"Scheme of keypair, default is RSA" choices:"RSA" default:"RSA"`
+	Scheme    string `help:"Scheme of keypair, default is RSA" choices:"RSA|DSA|ECDSA|ED25519" default:"RSA"`
 	PublicKey string `help:"Publickey of keypair"`
 	Desc      string `help:"Short description of keypair"`
 }

@@ -156,5 +156,5 @@ func (self *EipAssociateTask) OnAssociateEipComplete(ctx context.Context, obj db
 func (self *EipAssociateTask) OnAssociateEipCompleteFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	eip := obj.(*models.SElasticip)
 	ins, _, _ := self.GetAssociateObj(ctx)
-	self.taskFail(ctx, eip, ins, errors.Errorf(data.String()))
+	self.taskFail(ctx, eip, ins, errors.Errorf("%s", data.String()))
 }

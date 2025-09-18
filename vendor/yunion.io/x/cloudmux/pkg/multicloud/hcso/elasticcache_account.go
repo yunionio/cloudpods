@@ -86,7 +86,7 @@ func (self *SElasticcacheAccount) ResetPassword(input cloudprovider.SCloudElasti
 	}
 
 	if result.Result != "success" {
-		return errors.Wrap(fmt.Errorf(result.Message), "elasticcacheAccount.ResetPassword")
+		return errors.Wrap(fmt.Errorf("%s", result.Message), "elasticcacheAccount.ResetPassword")
 	}
 
 	return nil

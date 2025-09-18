@@ -36,6 +36,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/util/fileutils"
@@ -943,6 +944,15 @@ func (manager *SHostManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field s
 		return q, nil
 	}
 	q, err = manager.SZoneResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	return q, httperrors.ErrNotFound
+}
+
+func (manager *SHostManager) QueryDistinctExtraFields(q *sqlchemy.SQuery, resource string, fields []string) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SManagedResourceBaseManager.QueryDistinctExtraFields(q, resource, fields)
 	if err == nil {
 		return q, nil
 	}
@@ -2309,6 +2319,15 @@ func (hh *SHost) SyncWithCloudHost(ctx context.Context, userCred mcclient.TokenC
 			hh.StorageDriver = storageDriver
 		}
 		hh.OvnVersion = extHost.GetOvnVersion()
+		if ipmiInfo := extHost.GetIpmiInfo(); !gotypes.IsNil(ipmiInfo) {
+			info := jsonutils.Marshal(ipmiInfo).(*jsonutils.JSONDict)
+			passwd, _ := info.GetString("password")
+			if len(passwd) > 0 {
+				passwd, _ = utils.EncryptAESBase64(hh.Id, passwd)
+				info.Set("password", jsonutils.NewString(passwd))
+			}
+			hh.IpmiInfo = info
+		}
 
 		if provider != nil && !utils.IsInStringArray(provider.Provider, strings.Split(options.Options.SkipSyncHostConfigInfoProviders, ",")) {
 			hh.CpuCount = extHost.GetCpuCount()
@@ -2534,7 +2553,7 @@ func (manager *SHostManager) NewFromCloudHost(ctx context.Context, userCred mccl
 		accessIp := extHost.GetAccessIp()
 		if len(accessIp) == 0 {
 			msg := fmt.Sprintf("fail to find wire for host %s: empty host access ip", extHost.GetName())
-			return nil, fmt.Errorf(msg)
+			return nil, fmt.Errorf("%s", msg)
 		}
 		wire, err := WireManager.GetOnPremiseWireOfIp(accessIp)
 		if err != nil {
@@ -2556,6 +2575,15 @@ func (manager *SHostManager) NewFromCloudHost(ctx context.Context, userCred mccl
 	host.StorageInfo = extHost.GetStorageInfo()
 
 	host.OvnVersion = extHost.GetOvnVersion()
+	if ipmiInfo := extHost.GetIpmiInfo(); !gotypes.IsNil(ipmiInfo) {
+		info := jsonutils.Marshal(ipmiInfo).(*jsonutils.JSONDict)
+		passwd, _ := info.GetString("password")
+		if len(passwd) > 0 {
+			passwd, _ = utils.EncryptAESBase64(host.Id, passwd)
+			info.Set("password", jsonutils.NewString(passwd))
+		}
+		host.IpmiInfo = info
+	}
 
 	host.Status = extHost.GetStatus()
 	host.HostStatus = extHost.GetHostStatus()
@@ -2901,9 +2929,15 @@ type SGuestSyncResult struct {
 }
 
 func IsNeedSkipSync(ext cloudprovider.ICloudResource) (bool, string) {
-	if len(options.Options.SkipServerBySysTagKeys) == 0 && len(options.Options.SkipServerByUserTagKeys) == 0 && len(options.Options.SkipServerByUserTagValues) == 0 {
+	if len(options.Options.SkipServerBySysTagKeys) == 0 &&
+		len(options.Options.SkipServerByUserTagKeys) == 0 &&
+		len(options.Options.SkipServerByUserTagValues) == 0 &&
+		len(options.Options.RetentionServerByUserTagKeys) == 0 &&
+		len(options.Options.RetentionServerByUserTagValues) == 0 &&
+		len(options.Options.RetentionServerByUserTags) == 0 {
 		return false, ""
 	}
+	tags, _ := ext.GetTags()
 	if keys := strings.Split(options.Options.SkipServerBySysTagKeys, ","); len(keys) > 0 {
 		for key := range ext.GetSysTags() {
 			key = strings.Trim(key, "")
@@ -2913,7 +2947,6 @@ func IsNeedSkipSync(ext cloudprovider.ICloudResource) (bool, string) {
 		}
 	}
 	if userKeys := strings.Split(options.Options.SkipServerByUserTagKeys, ","); len(userKeys) > 0 {
-		tags, _ := ext.GetTags()
 		for key := range tags {
 			key = strings.Trim(key, "")
 			if len(key) > 0 && utils.IsInStringArray(key, userKeys) {
@@ -2922,7 +2955,6 @@ func IsNeedSkipSync(ext cloudprovider.ICloudResource) (bool, string) {
 		}
 	}
 	if len(options.Options.SkipServerByUserTagValues) > 0 {
-		tags, _ := ext.GetTags()
 		for _, value := range tags {
 			value = strings.Trim(value, "")
 			if len(value) > 0 && utils.IsInStringArray(value, options.Options.SkipServerByUserTagValues) {
@@ -2930,6 +2962,49 @@ func IsNeedSkipSync(ext cloudprovider.ICloudResource) (bool, string) {
 			}
 		}
 	}
+	keys, values, pairs := []string{}, []string{}, []string{}
+	for key, value := range tags {
+		key = strings.Trim(key, "")
+		keys = append(keys, key)
+		values = append(values, value)
+		pairs = append(pairs, fmt.Sprintf("%s:%s", key, value))
+	}
+
+	if len(options.Options.RetentionServerByUserTagKeys) > 0 {
+		skip, tagKey := true, ""
+		for _, key := range options.Options.RetentionServerByUserTagKeys {
+			key = strings.Trim(key, "")
+			if len(key) > 0 && utils.IsInStringArray(key, keys) {
+				skip, tagKey = false, key
+				break
+			}
+		}
+		return skip, tagKey
+	}
+
+	if len(options.Options.RetentionServerByUserTagValues) > 0 {
+		skip, tagValue := true, ""
+		for _, value := range options.Options.RetentionServerByUserTagValues {
+			value = strings.Trim(value, "")
+			if len(value) > 0 && utils.IsInStringArray(value, values) {
+				skip, tagValue = false, value
+				break
+			}
+		}
+		return skip, tagValue
+	}
+	if len(options.Options.RetentionServerByUserTags) > 0 {
+		skip, tagPair := true, ""
+		for _, pair := range options.Options.RetentionServerByUserTags {
+			pair = strings.Trim(pair, "")
+			if len(pair) > 0 && utils.IsInStringArray(pair, pairs) {
+				skip, tagPair = false, pair
+				break
+			}
+		}
+		return skip, tagPair
+	}
+
 	return false, ""
 }
 
@@ -4839,8 +4914,8 @@ func fetchIpmiInfo(data api.HostIpmiAttributes, hostId string) (types.SIPMIInfo,
 		}
 	}
 	if len(data.IpmiIpAddr) > 0 && !regutils.MatchIP4Addr(data.IpmiIpAddr) {
-		msg := fmt.Sprintf("ipmi_ip_addr: %s not valid ipv4 address", data.IpmiIpAddr)
-		log.Errorf(msg)
+		msg := fmt.Sprintf("ipmi_ip_addr: %v not valid ipv4 address", data.IpmiIpAddr)
+		log.Errorf("%s", msg)
 		return info, errors.Wrap(httperrors.ErrInvalidFormat, msg)
 	}
 	info.IpAddr = data.IpmiIpAddr
@@ -7944,6 +8019,17 @@ func (h *SHost) GetDetailsAppOptions(ctx context.Context, userCred mcclient.Toke
 
 func (h *SHost) GetDetailsWorkerStats(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	return h.Request(ctx, userCred, httputils.GET, "/worker_stats", nil, nil)
+}
+
+func (hh *SHost) GetDetailsIsolatedDeviceNumaStats(ctx context.Context, userCred mcclient.TokenCredential, input *api.HostIsolatedDeviceNumaStatsInput) (jsonutils.JSONObject, error) {
+	if !utils.IsInStringArray(input.DevType, api.VALID_PASSTHROUGH_TYPES) {
+		return nil, httperrors.NewInputParameterError("dev_type %s is invalid", input.DevType)
+	}
+	stats, err := IsolatedDeviceManager.GetHostAllocatedIsolatedDeviceNumaStats(input.DevType, hh.Id)
+	if err != nil {
+		return nil, err
+	}
+	return jsonutils.Marshal(stats), nil
 }
 
 func (hh *SHost) IsAttach2Wire(wireId string) bool {

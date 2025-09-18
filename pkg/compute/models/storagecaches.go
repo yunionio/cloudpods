@@ -449,8 +449,8 @@ func (sc *SStoragecache) GetIStorageCache(ctx context.Context) (cloudprovider.IC
 	storages := sc.getValidStorages()
 	if len(storages) == 0 {
 		msg := fmt.Sprintf("no storages for this storagecache %s(%s)???", sc.Name, sc.Id)
-		log.Errorf(msg)
-		return nil, fmt.Errorf(msg)
+		log.Errorf("%v", msg)
+		return nil, fmt.Errorf("%v", msg)
 	}
 	istorage, err := storages[0].GetIStorage(ctx)
 	if err != nil {
@@ -524,6 +524,15 @@ func (manager *SStoragecacheManager) QueryDistinctExtraField(q *sqlchemy.SQuery,
 		return q, nil
 	}
 
+	return q, httperrors.ErrNotFound
+}
+
+func (manager *SStoragecacheManager) QueryDistinctExtraFields(q *sqlchemy.SQuery, resource string, fields []string) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SManagedResourceBaseManager.QueryDistinctExtraFields(q, resource, fields)
+	if err == nil {
+		return q, nil
+	}
 	return q, httperrors.ErrNotFound
 }
 

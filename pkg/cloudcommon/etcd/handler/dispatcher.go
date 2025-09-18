@@ -146,7 +146,7 @@ func (disp *SEtcdModelHandler) GetSpecific(ctx context.Context, idstr string, sp
 	funcName := fmt.Sprintf("GetDetails%s", specCamel)
 	funcValue := modelValue.MethodByName(funcName)
 	if !funcValue.IsValid() || funcValue.IsNil() {
-		return nil, httperrors.NewSpecNotFoundError(fmt.Sprintf("%s %s %s not found", disp.Keyword(), idstr, spec))
+		return nil, httperrors.NewSpecNotFoundError("%s %s %s not found", disp.Keyword(), idstr, spec)
 	}
 
 	outs := funcValue.Call(params)

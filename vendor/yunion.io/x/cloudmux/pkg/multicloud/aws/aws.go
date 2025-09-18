@@ -222,7 +222,7 @@ func (client *SAwsClient) getAwsSession(regionId string, assumeRole bool) (*sess
 						return respCheck, nil
 					}
 				}
-				return nil, errors.Wrapf(cloudprovider.ErrAccountReadOnly, action)
+				return nil, errors.Wrapf(cloudprovider.ErrAccountReadOnly, "%s", action)
 			}
 			// organization
 			if service == "organizations" {
@@ -301,7 +301,7 @@ func (client *SAwsClient) fetchBuckets() error {
 	output, err := s3cli.ListBuckets(&s3.ListBucketsInput{})
 	if err != nil {
 		if e, ok := err.(awserr.Error); ok && e.Code() == "AccessDenied" {
-			return errors.Wrapf(cloudprovider.ErrForbidden, e.Message())
+			return errors.Wrapf(cloudprovider.ErrForbidden, "%s", e.Message())
 		}
 		return errors.Wrap(err, "ListBuckets")
 	}

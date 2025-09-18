@@ -40,45 +40,45 @@ type SElbListenerRule struct {
 	listener *SElbListener
 	region   *SRegion
 
-	Priority      string      `json:"Priority"`
-	IsDefaultRule bool        `json:"IsDefault"`
-	Actions       []Action    `json:"Actions"`
-	RuleArn       string      `json:"RuleArn"`
-	Conditions    []Condition `json:"Conditions"`
+	Priority      string      `xml:"Priority"`
+	IsDefaultRule bool        `xml:"IsDefault"`
+	Actions       []Action    `xml:"Actions>member"`
+	RuleArn       string      `xml:"RuleArn"`
+	Conditions    []Condition `xml:"Conditions>member"`
 }
 
 type Action struct {
-	TargetGroupArn string `json:"TargetGroupArn"`
-	Type           string `json:"Type"`
+	TargetGroupArn string `xml:"TargetGroupArn"`
+	Type           string `xml:"Type"`
 }
 
 type Condition struct {
-	Field                   string             `json:"field"`
-	HTTPRequestMethodConfig *Config            `json:"httpRequestMethodConfig,omitempty"`
-	Values                  []string           `json:"values"`
-	SourceIPConfig          *Config            `json:"sourceIpConfig,omitempty"`
-	QueryStringConfig       *QueryStringConfig `json:"queryStringConfig,omitempty"`
-	HTTPHeaderConfig        *HTTPHeaderConfig  `json:"httpHeaderConfig,omitempty"`
-	PathPatternConfig       *Config            `json:"pathPatternConfig,omitempty"`
-	HostHeaderConfig        *Config            `json:"hostHeaderConfig,omitempty"`
+	Field                   string             `xml:"Field"`
+	HTTPRequestMethodConfig *Config            `xml:"HttpRequestMethodConfig"`
+	Values                  []string           `xml:"Values>member"`
+	SourceIPConfig          *Config            `xml:"SourceIpConfig"`
+	QueryStringConfig       *QueryStringConfig `xml:"QueryStringConfig"`
+	HTTPHeaderConfig        *HTTPHeaderConfig  `xml:"HttpHeaderConfig"`
+	PathPatternConfig       *Config            `xml:"PathPatternConfig"`
+	HostHeaderConfig        *Config            `xml:"HostHeaderConfig"`
 }
 
 type HTTPHeaderConfig struct {
-	HTTPHeaderName string   `json:"HttpHeaderName"`
-	Values         []string `json:"values"`
+	HTTPHeaderName string   `xml:"HttpHeaderName"`
+	Values         []string `xml:"Values>member"`
 }
 
 type Config struct {
-	Values []string `json:"values"`
+	Values []string `xml:"Values>member"`
 }
 
 type QueryStringConfig struct {
-	Values []Query `json:"values"`
+	Values []Query `xml:"Values>member"`
 }
 
 type Query struct {
-	Key   string `json:"key"`
-	Value string `json:"value"`
+	Key   string `xml:"key"`
+	Value string `xml:"value"`
 }
 
 func (self *SElbListenerRule) GetId() string {
@@ -99,7 +99,7 @@ func (self *SElbListenerRule) GetStatus() string {
 }
 
 func (self *SElbListenerRule) Refresh() error {
-	rule, err := self.region.GetElbListenerRule(self.RuleArn)
+	rule, err := self.region.GetElbListenerRule(self.listener.ListenerArn, self.RuleArn)
 	if err != nil {
 		return err
 	}

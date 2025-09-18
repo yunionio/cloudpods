@@ -281,7 +281,7 @@ func (self *SRegion) GetRouteTable(id string) (*SRouteTable, error) {
 			return &tables[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", id)
 }
 
 func (self *SRegion) DeleteRouteTable(rid string) error {

@@ -349,7 +349,7 @@ func (m *SContainerManager) validateSpecProbe(ctx context.Context, userCred mccl
 		"failure_threshold": probe.FailureThreshold,
 	} {
 		if val < 0 {
-			return httperrors.NewInputParameterError(key + " is negative")
+			return httperrors.NewInputParameterError("%s is negative", key)
 		}
 	}
 

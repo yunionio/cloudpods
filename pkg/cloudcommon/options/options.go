@@ -125,7 +125,8 @@ type BaseOptions struct {
 	GlobalHTTPProxy  string `help:"Global http proxy"`
 	GlobalHTTPSProxy string `help:"Global https proxy"`
 
-	IgnoreNonrunningGuests bool `default:"true" help:"Count memory for running guests only when do scheduling. Ignore memory allocation for non-running guests"`
+	IgnoreNonrunningGuests   bool `default:"true" help:"Count memory for running guests only when do scheduling. Ignore memory allocation for non-running guests"`
+	VirtualDeviceNumaBalance bool `default:"true" help:"fix virtual device numa node balance on guest start"`
 
 	PlatformName  string            `help:"identity name of this platform" default:"Cloudpods"`
 	PlatformNames map[string]string `help:"identity name of this platform by language"`

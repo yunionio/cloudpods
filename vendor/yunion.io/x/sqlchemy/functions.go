@@ -228,6 +228,8 @@ func REPLACE(name string, field IQueryField, old string, new string) IQueryField
 type SConstField struct {
 	constVar interface{}
 	alias    string
+
+	db *SDatabase
 }
 
 // Expression implementation of SConstField for IQueryField
@@ -260,7 +262,7 @@ func (s *SConstField) ConvertFromValue(val interface{}) interface{} {
 
 // database implementation of SConstField for IQueryField
 func (s *SConstField) database() *SDatabase {
-	return nil
+	return s.db
 }
 
 // Variables implementation of SConstField for IQueryField
@@ -278,10 +280,24 @@ func NewConstField(variable interface{}) *SConstField {
 	return &SConstField{constVar: variable}
 }
 
+// database implementation of SStringField for IQueryField
+func (s *SConstField) WithField(f IQueryField) *SConstField {
+	s.db = f.database()
+	return s
+}
+
+func (q *SQuery) ConstField(variable interface{}) *SConstField {
+	f := NewConstField(variable)
+	f.db = q.db
+	return f
+}
+
 // SStringField is a query field of a string constant
 type SStringField struct {
 	strConst string
 	alias    string
+
+	db *SDatabase
 }
 
 // Expression implementation of SStringField for IQueryField
@@ -314,7 +330,7 @@ func (s *SStringField) ConvertFromValue(val interface{}) interface{} {
 
 // database implementation of SStringField for IQueryField
 func (s *SStringField) database() *SDatabase {
-	return nil
+	return s.db
 }
 
 // Variables implementation of SStringField for IQueryField
@@ -327,9 +343,21 @@ func (s *SStringField) IsAggregate() bool {
 	return true
 }
 
+// database implementation of SStringField for IQueryField
+func (s *SStringField) WithField(f IQueryField) *SStringField {
+	s.db = f.database()
+	return s
+}
+
 // NewStringField returns an instance of SStringField
 func NewStringField(strConst string) *SStringField {
 	return &SStringField{strConst: strConst}
+}
+
+func (q *SQuery) StringField(strConst string) *SStringField {
+	f := NewStringField(strConst)
+	f.db = q.db
+	return f
 }
 
 // CONCAT represents a SQL function CONCAT
@@ -361,6 +389,11 @@ func AND_Val(name string, field IQueryField, v interface{}) IQueryField {
 // INET_ATON represents a SQL function INET_ATON
 func INET_ATON(field IQueryField) IQueryField {
 	return getFieldBackend(field).INET_ATON(field)
+}
+
+// INET6_ATON represents a SQL function INET_ATON
+func INET6_ATON(field IQueryField) IQueryField {
+	return getFieldBackend(field).INET6_ATON(field)
 }
 
 // TimestampAdd represents a SQL function TimestampAdd

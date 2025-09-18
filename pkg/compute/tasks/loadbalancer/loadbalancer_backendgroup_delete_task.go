@@ -70,5 +70,5 @@ func (self *LoadbalancerBackendGroupDeleteTask) OnLoadbalancerBackendGroupDelete
 }
 
 func (self *LoadbalancerBackendGroupDeleteTask) OnLoadbalancerBackendGroupDeleteCompleteFailed(ctx context.Context, lbbg *models.SLoadbalancerBackendGroup, reason jsonutils.JSONObject) {
-	self.taskFail(ctx, lbbg, errors.Errorf(reason.String()))
+	self.taskFail(ctx, lbbg, errors.Errorf("%s", reason.String()))
 }

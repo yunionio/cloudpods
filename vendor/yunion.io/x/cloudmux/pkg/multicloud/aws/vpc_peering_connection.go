@@ -73,7 +73,7 @@ func (self *SRegion) GetVpcPeeringConnectionById(id string) (*SVpcPeeringConnect
 			return &peers[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", id)
 }
 
 func (self *SRegion) CreateVpcPeeringConnection(vpcId string, opts *cloudprovider.VpcPeeringConnectionCreateOptions) (*SVpcPeeringConnection, error) {

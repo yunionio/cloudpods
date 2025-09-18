@@ -337,6 +337,8 @@ const (
 	VM_METADATA_RELEASED_DEVICES = "released_devices"
 
 	VM_METADATA_CPU_NUMA_PIN = "__cpu_numa_pin"
+
+	VM_METADATA_VIRTUAL_ISOLATED_DEVICE_CONFIG = "__virtual_isolated_device_config"
 )
 
 // windows allow a maximal length of 15

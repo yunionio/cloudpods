@@ -273,7 +273,7 @@ func (self *SLoadbalancer) GetILoadBalancerListenerById(id string) (cloudprovide
 			return lblis[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", id)
 }
 
 func (self *SLoadbalancer) GetILoadBalancerCertificates() ([]cloudprovider.ICloudLoadbalancerCertificate, error) {
@@ -323,7 +323,7 @@ func (self *SLoadbalancer) GetILoadBalancerBackendGroupById(groupId string) (clo
 			return lbbgs[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, groupId)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", groupId)
 }
 
 func (self *SRegion) GetLoadbalancers() ([]SLoadbalancer, error) {

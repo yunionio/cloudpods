@@ -63,7 +63,7 @@ func (self *BaremetalSyncStatusTask) OnSyncstatusComplete(ctx context.Context, b
 }
 
 func (self *BaremetalSyncStatusTask) OnSyncstatusCompleteFailed(ctx context.Context, baremetal *models.SHost, body jsonutils.JSONObject) {
-	self.taskFailed(ctx, baremetal, errors.Errorf(body.String()))
+	self.taskFailed(ctx, baremetal, errors.Errorf("%s", body.String()))
 }
 
 func init() {

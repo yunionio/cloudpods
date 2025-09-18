@@ -100,7 +100,7 @@ func (self *SZone) GetIStorageById(id string) (cloudprovider.ICloudStorage, erro
 			return storages[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", id)
 }
 
 func (self *SZone) GetIHostById(id string) (cloudprovider.ICloudHost, error) {
@@ -113,7 +113,7 @@ func (self *SZone) GetIHostById(id string) (cloudprovider.ICloudHost, error) {
 			return hosts[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", id)
 }
 
 func (self *SZone) GetIHosts() ([]cloudprovider.ICloudHost, error) {

@@ -89,7 +89,7 @@ func (self *SQcloudClient) GetDomain(domain string) (*SDomian, error) {
 			return &domains[i], nil
 		}
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, domain)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", domain)
 }
 
 func (self *SQcloudClient) GetICloudDnsZones() ([]cloudprovider.ICloudDnsZone, error) {
@@ -139,7 +139,7 @@ func (self *SQcloudClient) CreateDomian(domianName string) (*SDomian, error) {
 		}
 		time.Sleep(time.Second * 10)
 	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, domianName)
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", domianName)
 }
 
 func (self *SQcloudClient) CreateICloudDnsZone(opts *cloudprovider.SDnsZoneCreateOptions) (cloudprovider.ICloudDnsZone, error) {

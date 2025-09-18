@@ -53,20 +53,6 @@ type AlertRecordDetails struct {
 	TriggerTime time.Time
 }
 
-func (self AlertRecordDetails) GetMetricTags() map[string]string {
-	ret := map[string]string{
-		"id":             self.Id,
-		"alert_id":       self.AlertId,
-		"alert_name":     self.AlertName,
-		"domain_id":      self.DomainId,
-		"project_domain": self.ProjectDomain,
-		"res_type":       self.ResType,
-		"tenant":         self.Tenant,
-		"tenant_id":      self.TenantId,
-	}
-	return ret
-}
-
 type AlertRecordCreateInput struct {
 	apis.StandaloneResourceCreateInput
 
@@ -98,4 +84,27 @@ type AlertRecordRule struct {
 	// 静默期
 	SilentPeriod string `json:"silent_period"`
 	Reducer      string `json:"reducer"`
+}
+
+type AlertRecordHistoryAlertData struct {
+	ProjectId string `json:"project_id"`
+	Project   string `json:"project"`
+	DomainId  string `json:"domain_id"`
+	Domain    string `json:"domain"`
+	ResType   string `json:"res_type"`
+	ResNum    int64  `json:"res_num"`
+}
+
+func (self AlertRecordHistoryAlertData) GetMetricTags() map[string]string {
+	return map[string]string{
+		"tenant_id": self.ProjectId,
+		"domain_id": self.DomainId,
+		"domain":    self.Domain,
+		"tenant":    self.Project,
+		"res_type":  self.ResType,
+	}
+}
+
+type AlertRecordHistoryAlert struct {
+	Data []AlertRecordHistoryAlertData `json:"data"`
 }

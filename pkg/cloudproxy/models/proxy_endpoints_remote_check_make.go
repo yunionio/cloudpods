@@ -33,7 +33,8 @@ import (
 )
 
 func (proxyendpoint *SProxyEndpoint) remoteCheckMake(ctx context.Context, userCred mcclient.TokenCredential) error {
-	ctx, _ = context.WithTimeout(ctx, 7*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 7*time.Second)
+	defer cancel()
 	conf := ssh_util.ClientConfig{
 		Username:   proxyendpoint.User,
 		Host:       proxyendpoint.Host,

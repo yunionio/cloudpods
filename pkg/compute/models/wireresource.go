@@ -255,6 +255,15 @@ func (manager *SWireResourceBaseManager) QueryDistinctExtraField(q *sqlchemy.SQu
 	}
 }
 
+func (manager *SWireResourceBaseManager) QueryDistinctExtraFields(q *sqlchemy.SQuery, resource string, fields []string) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SVpcResourceBaseManager.QueryDistinctExtraFields(q, resource, fields)
+	if err == nil {
+		return q, nil
+	}
+	return q, httperrors.ErrNotFound
+}
+
 func (manager *SWireResourceBaseManager) OrderByExtraFields(
 	ctx context.Context,
 	q *sqlchemy.SQuery,

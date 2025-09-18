@@ -13,13 +13,13 @@ jobs:
     - name: Setup Go
       uses: actions/setup-go@v4
       with:
-        go-version: '1.21'
+        go-version: '1.25'
 
     - name: Install check tools
       shell: bash
       run: |
         set -o xtrace
-        git clone --branch yun --depth 4 https://github.com/yousong/tools && cd tools
+        git clone --branch master --depth 4 https://github.com/yunionio/tools && cd tools
         go build ./cmd/goimports && sudo cp goimports /usr/bin/ && cd .. && rm -rf tools
         git clone --depth 4 https://github.com/yousong/y18n && cd y18n
         go build . && sudo cp y18n /usr/bin && cd .. && rm -rf y18n

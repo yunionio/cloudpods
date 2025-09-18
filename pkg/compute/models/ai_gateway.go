@@ -66,7 +66,7 @@ type SAiGateway struct {
 	CacheTTL                int    `default:"0" list:"user" create:"optional"`
 	CollectLogs             bool   `default:"false" list:"user" create:"optional"`
 	RateLimitingInterval    int    `default:"0" list:"user" create:"optional"`
-	RateLimitingLimit       int    `default:"0" list:"user" create:"optional`
+	RateLimitingLimit       int    `default:"0" list:"user" create:"optional"`
 	RateLimitingTechnique   string `width:"32" charset:"ascii" default:"" list:"user" create:"optional"`
 }
 
@@ -121,6 +121,15 @@ func (manager *SAiGatewayManager) QueryDistinctExtraField(q *sqlchemy.SQuery, fi
 	}
 
 	q, err = manager.SManagedResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	return q, httperrors.ErrNotFound
+}
+
+func (manager *SAiGatewayManager) QueryDistinctExtraFields(q *sqlchemy.SQuery, resource string, fields []string) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SManagedResourceBaseManager.QueryDistinctExtraFields(q, resource, fields)
 	if err == nil {
 		return q, nil
 	}
