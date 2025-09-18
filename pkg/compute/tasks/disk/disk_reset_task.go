@@ -25,6 +25,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
@@ -65,6 +66,10 @@ func (self *DiskResetTask) TaskFailed(ctx context.Context, disk *models.SDisk, r
 }
 
 func (self *DiskResetTask) TaskCompleted(ctx context.Context, disk *models.SDisk, data *jsonutils.JSONDict) {
+	notifyclient.EventNotify(ctx, self.GetUserCred(), notifyclient.SEventNotifyParam{
+		Obj:    disk,
+		Action: notifyclient.ActionReset,
+	})
 	guests := disk.GetGuests()
 	if jsonutils.QueryBoolean(self.Params, "auto_start", false) {
 		if len(guests) == 1 {

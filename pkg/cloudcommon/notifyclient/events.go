@@ -45,6 +45,7 @@ var (
 	ActionCreate         = api.ActionCreate
 	ActionDelete         = api.ActionDelete
 	ActionUpdate         = api.ActionUpdate
+	ActionReset          = api.ActionReset
 	ActionRebuildRoot    = api.ActionRebuildRoot
 	ActionResetPassword  = api.ActionResetPassword
 	ActionChangeConfig   = api.ActionChangeConfig
