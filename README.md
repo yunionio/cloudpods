@@ -96,5 +96,5 @@ Apache License 2.0. See [LICENSE](./LICENSE).
 
 ## AI-generated doc
 
-[DeepWiki](https://deepwiki.com/yunionio/cloudpods) provides an amazing AI-generated doc of this project, you may refer to it for more detailed and comprehensive understanding of codes.
+[DeepWiki](https://deepwiki.com/yunionio/cloudpods) and [Zread](https://zread.ai/yunionio/cloudpods) provide AI-generated docs of this project, you may refer to them for more detailed and comprehensive understanding of codes.
 
