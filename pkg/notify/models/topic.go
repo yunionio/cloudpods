@@ -504,6 +504,7 @@ func initTopicElement(name string, t *STopic) {
 		t.addResources(
 			api.TOPIC_RESOURCE_SERVER,
 			api.TOPIC_RESOURCE_CLOUDPHONE,
+			api.TOPIC_RESOURCE_DISK,
 		)
 		t.addAction(
 			api.ActionStart,
