@@ -214,9 +214,10 @@ type SNotifyConfigContent struct {
 	Username      string
 	SenderAddress string
 	//Lark
-	AppId       string
-	AppSecret   string
-	AccessToken string
+	AppId                 string
+	AppSecret             string
+	AccessToken           string
+	AccessTokenExpireTime time.Time
 	// workwx
 	AgentId string
 	CorpId  string
