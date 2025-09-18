@@ -17,11 +17,12 @@ package sender
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/httputils"
 
@@ -46,36 +47,26 @@ func (workwxSender *SWorkwxSender) Send(ctx context.Context, args api.SendParams
 		},
 		"touser": args.Receivers.Contact,
 	}
-	respObj, err := workwxSender.sendMessageWithToken(ctx, ApiWorkwxSendMessage, fmt.Sprintf("%s-%s", api.WORKWX, args.DomainId), httputils.POST, nil, nil, jsonutils.Marshal(body))
+	err := workwxSender.GetAccessToken(ctx, args.DomainId)
 	if err != nil {
-		return errors.Wrap(err, "workwx send message")
+		return errors.Wrap(err, "GetAccessToken")
 	}
-	resp := api.SWorkwxSendMessageResp{}
-	respObj.Unmarshal(&resp)
-	// errcode大于0时返回错误
-	if resp.ErrCode > 0 {
-		// 对于token过期情况，进行重新获取token，并重新发消息
-		if len(resp.UnlicensedUser) > 0 || resp.ErrCode == 42001 {
-			err = workwxSender.GetAccessToken(ctx, args.DomainId)
-			if err != nil {
-				return errors.Wrap(err, "retenant token invalid && getToken err")
-			}
-			secRespObj, err := workwxSender.sendMessageWithToken(ctx, ApiWorkwxSendMessage, fmt.Sprintf("%s-%s", api.WORKWX, args.DomainId), httputils.POST, nil, nil, jsonutils.Marshal(body))
-			secRespObj.Unmarshal(&resp)
-			if err == nil && resp.ErrCode == 0 {
-				return nil
-			} else {
-				return errors.Errorf("%s", resp.ErrMsg)
-			}
-		}
-		return errors.Errorf("%s", resp.ErrMsg)
+
+	resp, err := workwxSender.sendMessageWithToken(ctx, ApiWorkwxSendMessage, fmt.Sprintf("%s-%s", api.WORKWX, args.DomainId), jsonutils.Marshal(body))
+	if err != nil {
+		return errors.Wrap(err, "sendMessageWithToken")
 	}
-	return nil
+	result := api.SWorkwxSendMessageResp{}
+	resp.Unmarshal(&result)
+	if result.ErrCode == 0 {
+		return nil
+	}
+	return errors.Errorf("%s", resp.String())
 }
 
 func (workwxSender *SWorkwxSender) ValidateConfig(ctx context.Context, config api.NotifyConfig) (string, error) {
 	// 校验accesstoken
-	_, err := workwxSender.getAccessToken(ctx, config.CorpId, config.Secret)
+	_, _, err := workwxSender.getAccessToken(ctx, config.CorpId, config.Secret)
 	if err != nil {
 		switch {
 		case strings.Contains(err.Error(), "40013"):
@@ -96,7 +87,7 @@ func (workwxSender *SWorkwxSender) ContactByMobile(ctx context.Context, mobile, 
 	body := jsonutils.Marshal(map[string]interface{}{
 		"mobile": mobile,
 	})
-	res, err := workwxSender.sendMessageWithToken(ctx, ApiWorkwxGetUserByMobile, fmt.Sprintf("%s-%s", api.WORKWX, domainId), httputils.POST, nil, nil, jsonutils.Marshal(body))
+	res, err := workwxSender.sendMessageWithToken(ctx, ApiWorkwxGetUserByMobile, fmt.Sprintf("%s-%s", api.WORKWX, domainId), jsonutils.Marshal(body))
 	if err != nil {
 		return "", errors.Wrap(err, "get user by mobile")
 	}
@@ -136,30 +127,47 @@ func (workwxSender *SWorkwxSender) GetAccessToken(ctx context.Context, domainId 
 	if _, ok := models.ConfigMap[key]; !ok {
 		return errors.Wrapf(errors.ErrNotSupported, "contact-type:%s,domain_id:%s is missing config", api.WORKWX, domainId)
 	}
+	if len(models.ConfigMap[key].Content.AccessToken) > 0 && models.ConfigMap[key].Content.AccessTokenExpireTime.After(time.Now()) {
+		log.Debugf("workwx access token is valid %s expire time %s", key, models.ConfigMap[key].Content.AccessTokenExpireTime.Format(time.RFC3339))
+		return nil
+	}
 	corpId, secret := models.ConfigMap[key].Content.CorpId, models.ConfigMap[key].Content.Secret
-	token, err := workwxSender.getAccessToken(ctx, corpId, secret)
+	token, expireTime, err := workwxSender.getAccessToken(ctx, corpId, secret)
 	if err != nil {
 		return errors.Wrap(err, "workwx getAccessToken")
 	}
 	models.ConfigMap[key].Content.AccessToken = token
+	models.ConfigMap[key].Content.AccessTokenExpireTime = expireTime
+	log.Debugf("workwx access token is valid %s expire time %s", key, models.ConfigMap[key].Content.AccessTokenExpireTime.Format(time.RFC3339))
 	return nil
 }
 
-func (workwxSender *SWorkwxSender) getAccessToken(ctx context.Context, corpId, secret string) (string, error) {
+func (workwxSender *SWorkwxSender) getAccessToken(ctx context.Context, corpId, secret string) (string, time.Time, error) {
 	params := url.Values{}
 	params.Set("corpid", corpId)
 	params.Set("corpsecret", secret)
 	res, err := sendRequest(ctx, ApiWorkwxGetToken, httputils.GET, nil, params, nil)
 	if err != nil {
-		return "", errors.Wrap(err, "get workwx token")
+		return "", time.Time{}, errors.Wrap(err, "get workwx token")
 	}
-	return res.GetString("access_token")
+	info := struct {
+		AccessToken string `json:"access_token"`
+		ExpiresIn   int    `json:"expires_in"`
+	}{}
+	err = res.Unmarshal(&info)
+	if err != nil {
+		return "", time.Time{}, errors.Wrap(err, "get workwx token")
+	}
+	if len(info.AccessToken) == 0 {
+		return "", time.Time{}, errors.Wrapf(errors.ErrNotFound, "get workwx token %s", res.String())
+	}
+	expireTime := time.Now().Add(time.Duration(info.ExpiresIn) * time.Second)
+
+	return info.AccessToken, expireTime, nil
 }
 
-func (workwxSender *SWorkwxSender) sendMessageWithToken(ctx context.Context, uri, key string, method httputils.THttpMethod, header http.Header, params url.Values, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if params == nil {
-		params = url.Values{}
-	}
+func (workwxSender *SWorkwxSender) sendMessageWithToken(ctx context.Context, uri, key string, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	params := url.Values{}
 	if _, ok := models.ConfigMap[key]; !ok {
 		return nil, errors.Wrapf(errors.ErrNotSupported, "contact-type:%s,domain_id:%s is missing config", strings.Split(key, "-")[0], strings.Split(key, "-")[1])
 	}
