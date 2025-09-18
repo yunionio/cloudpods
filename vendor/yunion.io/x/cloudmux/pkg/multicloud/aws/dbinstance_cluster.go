@@ -172,7 +172,7 @@ func (rds *SDBInstanceCluster) GetMaintainTime() string {
 }
 
 func (rds *SDBInstanceCluster) GetConnectionStr() string {
-	return ""
+	return rds.Endpoint
 }
 
 func (rds *SDBInstanceCluster) GetInternalConnectionStr() string {
