@@ -80,11 +80,20 @@ func (q *Queue) String() string {
 	return fmt.Sprintf("%v", itemStrings)
 }
 
+type iStringer interface {
+	String() string
+}
+
 func debugString(elem *list.Element) []string {
 	if elem == nil {
 		return nil
 	}
+	val := elem.Value
+	valStr, ok := val.(iStringer)
 	strings := []string{fmt.Sprintf("%v", elem.Value)}
+	if ok {
+		strings[0] = valStr.String()
+	}
 	rest := debugString(elem.Next())
 	if rest != nil {
 		strings = append(strings, rest...)

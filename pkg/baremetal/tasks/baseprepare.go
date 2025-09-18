@@ -354,7 +354,7 @@ func (task *sBaremetalPrepareTask) DoPrepare(ctx context.Context, cli *ssh.Clien
 
 	logclient.AddActionLogWithStartable(task, task.baremetal, logclient.ACT_PREPARE, infos.sysInfo, task.userCred, true)
 
-	log.Infof("Prepare complete")
+	log.Infof("[Baremetal %s] Prepare complete", task.baremetal.GetId())
 	return nil
 }
 
