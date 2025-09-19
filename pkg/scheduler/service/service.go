@@ -117,7 +117,7 @@ func StartService() error {
 		startSched := func() {
 			stopEverything := make(chan struct{})
 			ctx := context.Background()
-			go skuman.Start(utils.ToDuration(o.Options.SkuRefreshInterval))
+			go skuman.Start(ctx, utils.ToDuration(o.Options.SkuRefreshInterval))
 			go schedtag.Start(ctx, utils.ToDuration("30s"))
 
 			for _, f := range []func(ctx context.Context){
