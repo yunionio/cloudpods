@@ -17,6 +17,10 @@ package stringutils2
 import (
 	"crypto/sha256"
 	"fmt"
+	"strings"
+
+	"github.com/google/uuid"
+	"github.com/zeebo/xxh3"
 )
 
 func GenId(ids ...string) string {
@@ -25,4 +29,10 @@ func GenId(ids ...string) string {
 		h.Write([]byte(id))
 	}
 	return fmt.Sprintf("%x", h.Sum(nil))
+}
+
+func GenUuid(ids ...string) string {
+	h := xxh3.HashString128(strings.Join(ids, "")).Bytes()
+	guid, _ := uuid.FromBytes(h[:])
+	return guid.String()
 }
