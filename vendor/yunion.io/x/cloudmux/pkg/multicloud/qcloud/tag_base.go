@@ -34,7 +34,7 @@ type QcloudTags struct {
 	Tags []multicloud.STag
 	// Cdn
 	Tag []multicloud.STag
-	// TDSQL
+	// TDSQL, SQLServer
 	ResourceTags []multicloud.STag
 }
 
