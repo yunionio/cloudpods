@@ -91,3 +91,7 @@ func (m *SEsxiRootFs) PrepareFsForTemplate(IDiskPartition) error {
 func (m *SEsxiRootFs) DeployNetworkingScripts(rootfs IDiskPartition, nics []*types.SServerNic) error {
 	return nil
 }
+
+func (d *SEsxiRootFs) ConfigSshd(loginAccount, loginPassword string, sshPort int) error {
+	return nil
+}
