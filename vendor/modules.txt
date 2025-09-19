@@ -648,6 +648,9 @@ github.com/jtolds/gls
 # github.com/kardianos/osext v0.0.0-20190222173326-2bc1f35cddc0
 ## explicit
 github.com/kardianos/osext
+# github.com/klauspost/cpuid/v2 v2.0.9
+## explicit; go 1.13
+github.com/klauspost/cpuid/v2
 # github.com/koding/websocketproxy v0.0.0-20181220232114-7ed82d81a28c
 ## explicit
 github.com/koding/websocketproxy
@@ -1062,6 +1065,9 @@ github.com/xuri/nfp
 # github.com/yusufpapurcu/wmi v1.2.2
 ## explicit; go 1.16
 github.com/yusufpapurcu/wmi
+# github.com/zeebo/xxh3 v1.0.2
+## explicit; go 1.17
+github.com/zeebo/xxh3
 # github.com/zexi/influxql-to-metricsql v0.1.1
 ## explicit; go 1.18
 github.com/zexi/influxql-to-metricsql/converter
