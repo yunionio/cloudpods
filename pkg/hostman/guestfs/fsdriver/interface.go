@@ -99,6 +99,8 @@ type IRootFsDriver interface {
 	CleanNetworkScripts(rootFs IDiskPartition) error
 
 	AllowAdminLogin() bool
+
+	ConfigSshd(loginAccount, loginPassword string, sshPort int) error
 }
 
 type IDebianRootFsDriver interface {
