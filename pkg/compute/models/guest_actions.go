@@ -1795,9 +1795,11 @@ func (self *SGuest) PerformRebuildRoot(
 		}
 
 		// compare os arch
-		if len(self.InstanceType) > 0 {
+		if len(img.Properties["os_arch"]) > 0 && len(self.OsArch) > 0 && !apis.IsSameArch(self.OsArch, img.Properties["os_arch"]) {
+			return nil, httperrors.NewConflictError("root disk image(%s) and guest(%s) OsArch mismatch", img.Properties["os_arch"], self.OsArch)
+		} else if len(self.InstanceType) > 0 {
 			sku, _ := ServerSkuManager.FetchSkuByNameAndProvider(self.InstanceType, region.Provider, true)
-			if sku != nil && len(sku.CpuArch) > 0 && len(img.Properties["os_arch"]) > 0 && !strings.Contains(img.Properties["os_arch"], sku.CpuArch) {
+			if sku != nil && len(sku.CpuArch) > 0 && len(img.Properties["os_arch"]) > 0 && !apis.IsSameArch(img.Properties["os_arch"], sku.CpuArch) {
 				return nil, httperrors.NewConflictError("root disk image(%s) and sku(%s) architecture mismatch", img.Properties["os_arch"], sku.CpuArch)
 			}
 		}
