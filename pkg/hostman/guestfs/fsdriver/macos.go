@@ -206,3 +206,7 @@ func (m *SMacOSRootFs) CommitChanges(part IDiskPartition) error {
 	cont = strings.Join(m.scripts, "\n") + "\n"
 	return m.rootFs.FilePutContents(spath, cont, false, false)
 }
+
+func (d *SMacOSRootFs) ConfigSshd(loginAccount, loginPassword string, sshPort int) error {
+	return nil
+}

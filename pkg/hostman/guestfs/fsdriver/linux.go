@@ -846,6 +846,29 @@ func (d *sLinuxRootFs) DeployTelegraf(config string) (bool, error) {
 	return true, nil
 }
 
+func (d *sLinuxRootFs) ConfigSshd(loginAccount, loginPassword string, sshPort int) error {
+	if d.rootFs.Exists("/etc/ssh/sshd_config.d", false) {
+		content := "### sshd config for cloud config\n"
+		if loginAccount == "root" {
+			content += "PermitRootLogin yes\n"
+		}
+		if len(loginPassword) > 0 {
+			content += "PasswordAuthentication yes\n"
+		}
+		if sshPort > 0 && sshPort != 22 {
+			content += fmt.Sprintf("Port %d\n", sshPort)
+		}
+		return d.rootFs.FilePutContents("/etc/ssh/sshd_config.d/00-cloud-config.conf", content, false, false)
+	} else {
+		content, err := d.rootFs.FileGetContents("/etc/ssh/sshd_config", false)
+		if err != nil {
+			return errors.Wrap(err, "read sshd config")
+		}
+		lines := genSshdConfig(strings.Split(string(content), "\n"), loginAccount, loginPassword, sshPort)
+		return d.rootFs.FilePutContents("/etc/ssh/sshd_config", strings.Join(lines, "\n"), false, false)
+	}
+}
+
 type sDebianLikeRootFs struct {
 	*sLinuxRootFs
 }
@@ -2324,4 +2347,8 @@ func (d *SCoreOsRootFs) CommitChanges(IDiskPartition) error {
 		}
 	}
 	return d.rootFs.FilePutContents("/cloud-config.yml", conf.String(), false, false)
+}
+
+func (d *SCoreOsRootFs) ConfigSshd(loginAccount, loginPassword string, sshPort int) error {
+	return nil
 }
