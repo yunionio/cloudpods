@@ -171,12 +171,8 @@ func (d *SLocalDisk) ResizeLoopDevice(partDev string) (string, error) {
 	return loopDevice, nil
 }
 
-func (d *SLocalDisk) Resize(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
-	diskInfo, ok := params.(*jsonutils.JSONDict)
-	if !ok {
-		return nil, hostutils.ParamsError
-	}
-
+func (d *SLocalDisk) Resize(ctx context.Context, params *SDiskResizeInput) (jsonutils.JSONObject, error) {
+	diskInfo := params.DiskInfo
 	sizeMb, _ := diskInfo.Int("size")
 	disk, err := qemuimg.NewQemuImage(d.GetPath())
 	if err != nil {
@@ -184,7 +180,8 @@ func (d *SLocalDisk) Resize(ctx context.Context, params interface{}) (jsonutils.
 		return nil, err
 	}
 	resizeFsInfo := &deployapi.DiskInfo{
-		Path: d.GetPath(),
+		Path:   d.GetPath(),
+		DiskId: d.GetId(),
 	}
 
 	if diskInfo.Contains("encrypt_info") {
@@ -221,7 +218,7 @@ func (d *SLocalDisk) Resize(ctx context.Context, params interface{}) (jsonutils.
 		}
 	}
 
-	if err := d.ResizeFs(resizeFsInfo); err != nil {
+	if err := d.ResizeFs(resizeFsInfo, params.GuestDesc); err != nil {
 		log.Errorf("Resize fs %s fail %s", d.GetPath(), err)
 		// return nil, errors.Wrapf(err, "resize fs %s", d.GetPath())
 	}
@@ -279,11 +276,13 @@ func (d *SLocalDisk) createFromTemplateAndResize(
 	retSize, _ := ret.Int("disk_size")
 	log.Infof("REQSIZE: %d, RETSIZE: %d", size, retSize)
 	if size > retSize {
-		params := jsonutils.NewDict()
-		params.Set("size", jsonutils.NewInt(size))
+		params := new(SDiskResizeInput)
+		diskInfo := jsonutils.NewDict()
+		diskInfo.Set("size", jsonutils.NewInt(size))
 		if encryptInfo != nil {
-			params.Set("encrypt_info", jsonutils.Marshal(encryptInfo))
+			diskInfo.Set("encrypt_info", jsonutils.Marshal(encryptInfo))
 		}
+		params.DiskInfo = diskInfo
 		return d.Resize(ctx, params)
 	}
 	return ret, nil

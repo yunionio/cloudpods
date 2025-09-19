@@ -31,13 +31,14 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
+	"yunion.io/x/onecloud/pkg/hostman/diskutils/fsutils"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs"
 	"yunion.io/x/onecloud/pkg/hostman/monitor"
 )
 
 const (
 	QGA_DEFAULT_READ_TIMEOUT_SECOND int = 5
-	QGA_EXEC_DEFAULT_WAIT_TIMEOUT   int = 5
+	QGA_EXEC_DEFAULT_WAIT_TIMEOUT   int = 300
 )
 
 type QGACallback func([]byte)
@@ -375,6 +376,46 @@ func (qga *QemuGuestAgent) QgaGetNetwork() ([]byte, error) {
 		return nil, err
 	}
 	return *res, nil
+}
+
+type GuestDiskPciController struct {
+	Domain int `json:"domain"`
+	Bus    int `json:"bus"`
+	Slot   int `json:"slot"`
+	Func   int `json:"func"`
+}
+
+type GuestFsDisk struct {
+	PciController GuestDiskPciController `json:"pci-controller"`
+	BusType       string                 `json:"bus-type"`
+	Bus           int                    `json:"bus"`
+	Target        int                    `json:"target"`
+	Unit          int                    `json:"unit"`
+	Serial        string                 `json:"serial"`
+	Dev           string                 `json:"dev"`
+}
+
+type GuestFsInfo struct {
+	Name       string        `json:"name"`
+	Mountpoint string        `json:"mountpoint"`
+	Type       string        `json:"type"`
+	UsedBytes  int64         `json:"used-bytes"`
+	TotalBytes int64         `json:"total-bytes"`
+	Disk       []GuestFsDisk `json:"disk"`
+}
+
+func (qga *QemuGuestAgent) QgaGuestGetFsInfo() ([]GuestFsInfo, error) {
+	//run guest-get-fsinfo
+	cmdFsInfo := &monitor.Command{
+		Execute: "guest-get-fsinfo",
+	}
+	rawResFsInfo, err := qga.execCmd(cmdFsInfo, true, -1)
+	resFsInfo := make([]GuestFsInfo, 0)
+	err = json.Unmarshal(*rawResFsInfo, &resFsInfo)
+	if err != nil {
+		return nil, errors.Wrap(err, "unmarshal raw response")
+	}
+	return resFsInfo, nil
 }
 
 type GuestOsInfo struct {
@@ -731,6 +772,82 @@ func (qga *QemuGuestAgent) QgaDeployNics(guestNics []*types.SServerNic) error {
 		return errors.Wrap(err, "qgaDeployNetworkConfigure")
 	}
 	return nil
+}
+
+func (qga *QemuGuestAgent) QgaResizeDisk(diskId string) error {
+	//Getting information about the operating system
+	resOsInfo, err := qga.QgaGuestGetOsInfo()
+	if err != nil {
+		return errors.Wrap(err, "get os info")
+	}
+
+	//Judgement based on id, currently only windows and other systems are judged
+	switch resOsInfo.Id {
+	case "mswindows":
+		return qga.QgaResizeWindowsDisk(diskId)
+	default:
+		return qga.QgaResizeLinuxDisk(diskId)
+	}
+}
+
+func (qga *QemuGuestAgent) QgaResizeWindowsDisk(diskId string) error {
+	fsInfos, err := qga.QgaGuestGetFsInfo()
+	if err != nil {
+		return errors.Wrap(err, "QgaGuestGetFsInfo")
+	}
+	diskSerial := strings.ReplaceAll(diskId, "-", "")
+
+	for i := range fsInfos {
+		fsInfo := fsInfos[i]
+		for j := range fsInfo.Disk {
+			if len(fsInfo.Disk[j].Serial) > 15 && strings.HasPrefix(diskSerial, fsInfo.Disk[j].Serial) {
+				mountPoint := fsInfo.Mountpoint
+				if strings.HasSuffix(mountPoint, ":\\") {
+					driverLetter := mountPoint[0:1]
+					log.Infof("disk %s found driver letter %s", mountPoint, driverLetter)
+					retCode, stdout, stderr, err := qga.CommandWithTimeout("powershell.exe",
+						[]string{"-Command", "Resize-Partition", "-DriveLetter", driverLetter, "-Size", fmt.Sprintf("(Get-PartitionSupportedSize -DriveLetter %s).SizeMax", driverLetter)},
+						nil, "", true, -1,
+					)
+					if err != nil {
+						return errors.Wrap(err, "qga exec resize")
+					}
+					if retCode != 0 {
+						return errors.Errorf("qga exec resize failed: %s %s, retcode %d", stdout, stderr, retCode)
+					}
+					return nil
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func (qga *QemuGuestAgent) QgaResizeLinuxDisk(diskId string) error {
+	qgaDriver := NewQgaFsutilDriver(qga)
+	fsutilDriver := fsutils.NewFsutilDriver(qgaDriver)
+
+	err := qga.FilePutContents("/usr/bin/growpart", fsutils.GrowPartScript, false)
+	if err != nil {
+		return errors.Wrap(err, "file put content growpart")
+	}
+	retCode, stdout, stderr, err := qga.CommandWithTimeout("chmod", []string{"+x", "/usr/bin/growpart"}, nil, "", true, -1)
+	if err != nil {
+		return errors.Wrap(err, "chmod +x /usr/bin/growpart failed")
+	}
+	if retCode != 0 {
+		return errors.Errorf("chmod +x /usr/bin/growpart failed: %s %s", stdout, stderr)
+	}
+	retCode, stdout, stderr, err = qga.CommandWithTimeout("sh", []string{"-c", "df / | awk 'NR==2{print $1}'"}, nil, "", true, -1)
+	if err != nil {
+		return errors.Wrap(err, "df / | awk 'NR==2{print $1}' failed")
+	}
+	if retCode != 0 {
+		return errors.Errorf("df / | awk 'NR==2{print $1}' failed: %s %s", stdout, stderr)
+	}
+	rootPartDev := strings.TrimSpace(stdout)
+	log.Infof("disk %s resize root part dev %s", diskId, rootPartDev)
+	return fsutilDriver.ResizeDiskWithDiskId(diskId, rootPartDev, true)
 }
 
 /*
