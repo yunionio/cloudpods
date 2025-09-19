@@ -2870,10 +2870,13 @@ func (s *sPodGuestInstance) doOnlineResizeDisk(ctx context.Context, disk storage
 		return
 	}
 
-	params := jsonutils.NewDict()
-	params.Set("size", jsonutils.NewInt(sizeMB))
-	params.Set("loop_part_dev", jsonutils.NewString(partDev))
-	res, err := disk.Resize(ctx, params)
+	diskInfo := jsonutils.NewDict()
+	diskInfo.Set("size", jsonutils.NewInt(sizeMB))
+	diskInfo.Set("loop_part_dev", jsonutils.NewString(partDev))
+	resizeDiskInfo := &storageman.SDiskResizeInput{
+		DiskInfo: diskInfo,
+	}
+	res, err := disk.Resize(ctx, resizeDiskInfo)
 	if err != nil {
 		hostutils.TaskFailed(ctx, fmt.Sprintf("PreResize failed %s", err))
 		return

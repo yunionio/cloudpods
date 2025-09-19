@@ -58,7 +58,7 @@ type IDisk interface {
 	DiskSnapshot(ctx context.Context, params interface{}) (jsonutils.JSONObject, error)
 	DiskDeleteSnapshot(ctx context.Context, params interface{}) (jsonutils.JSONObject, error)
 	Delete(ctx context.Context, params interface{}) (jsonutils.JSONObject, error)
-	Resize(ctx context.Context, params interface{}) (jsonutils.JSONObject, error)
+	Resize(ctx context.Context, params *SDiskResizeInput) (jsonutils.JSONObject, error)
 	PreResize(ctx context.Context, sizeMb int64) error
 	PrepareSaveToGlance(ctx context.Context, params interface{}) (jsonutils.JSONObject, error)
 	ResetFromSnapshot(ctx context.Context, params interface{}) (jsonutils.JSONObject, error)
@@ -135,7 +135,7 @@ func (d *SBaseDisk) CreateFromRemoteHostImage(ctx context.Context, url string, s
 	return errors.Errorf("unsupported operation")
 }
 
-func (d *SBaseDisk) Resize(context.Context, interface{}) (jsonutils.JSONObject, error) {
+func (d *SBaseDisk) Resize(context.Context, *SDiskResizeInput) (jsonutils.JSONObject, error) {
 	return nil, errors.Errorf("unsupported operation")
 }
 
@@ -203,9 +203,12 @@ func (d *SBaseDisk) DeployGuestFs(diskInfo *deployapi.DiskInfo, guestDesc *desc.
 	return jsonutils.Marshal(ret), nil
 }
 
-func (d *SBaseDisk) ResizeFs(diskInfo *deployapi.DiskInfo) error {
+func (d *SBaseDisk) ResizeFs(resizeDiskInput *deployapi.DiskInfo, guestDesc *deployapi.GuestDesc) error {
 	_, err := deployclient.GetDeployClient().ResizeFs(
-		context.Background(), &deployapi.ResizeFsParams{DiskInfo: diskInfo})
+		context.Background(), &deployapi.ResizeFsParams{
+			DiskInfo:  resizeDiskInput,
+			GuestDesc: guestDesc,
+		})
 	return err
 }
 
