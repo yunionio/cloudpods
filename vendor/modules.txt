@@ -830,6 +830,9 @@ github.com/kardianos/osext
 # github.com/karrick/godirwalk v1.16.1
 ## explicit; go 1.13
 github.com/karrick/godirwalk
+# github.com/klauspost/cpuid/v2 v2.0.9
+## explicit; go 1.13
+github.com/klauspost/cpuid/v2
 # github.com/koding/websocketproxy v0.0.0-20181220232114-7ed82d81a28c
 ## explicit
 github.com/koding/websocketproxy
@@ -1288,6 +1291,9 @@ github.com/xuri/nfp
 # github.com/yusufpapurcu/wmi v1.2.2
 ## explicit; go 1.16
 github.com/yusufpapurcu/wmi
+# github.com/zeebo/xxh3 v1.0.2
+## explicit; go 1.17
+github.com/zeebo/xxh3
 # github.com/zexi/influxql-to-metricsql v0.1.1
 ## explicit; go 1.18
 github.com/zexi/influxql-to-metricsql/converter
@@ -2003,7 +2009,7 @@ yunion.io/x/pkg/utils
 # yunion.io/x/s3cli v0.0.0-20241221171442-1c11599d28e1
 ## explicit; go 1.12
 yunion.io/x/s3cli
-# yunion.io/x/sqlchemy v1.1.3-0.20250923143347-b98e89dbc372
+# yunion.io/x/sqlchemy v1.1.3-0.20250925091009-4ca0766fc8f0
 ## explicit; go 1.17
 yunion.io/x/sqlchemy
 yunion.io/x/sqlchemy/backends
