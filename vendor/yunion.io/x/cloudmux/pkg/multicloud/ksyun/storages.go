@@ -31,6 +31,7 @@ type SStorage struct {
 
 	zone        *SZone
 	StorageType string
+	available   bool
 }
 
 func (storage *SStorage) GetId() string {
@@ -91,7 +92,7 @@ func (storage *SStorage) GetStorageConf() jsonutils.JSONObject {
 }
 
 func (storage *SStorage) GetEnabled() bool {
-	return true
+	return storage.available
 }
 
 func (storage *SStorage) CreateIDisk(opts *cloudprovider.DiskCreateConfig) (cloudprovider.ICloudDisk, error) {
@@ -138,5 +139,8 @@ func (storage *SStorage) GetIStoragecache() cloudprovider.ICloudStoragecache {
 }
 
 func (storage *SStorage) GetStatus() string {
+	if !storage.available {
+		return api.STORAGE_OFFLINE
+	}
 	return api.STORAGE_ONLINE
 }
