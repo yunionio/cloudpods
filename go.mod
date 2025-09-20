@@ -43,6 +43,7 @@ require (
 	github.com/lestrrat-go/jwx v1.0.2
 	github.com/lestrrat/go-jwx v0.0.0-20180221005942-b7d4802280ae
 	github.com/libvirt/libvirt-go-xml v5.2.0+incompatible
+	github.com/mark3labs/mcp-go v0.39.1
 	github.com/mattn/go-sqlite3 v1.14.19
 	github.com/mdlayher/arp v0.0.0-20190313224443-98a83c8a2717
 	github.com/mdlayher/ethernet v0.0.0-20190606142754-0394541c37b7
@@ -96,7 +97,7 @@ require (
 	k8s.io/cri-api v0.22.17
 	k8s.io/klog/v2 v2.20.0
 	moul.io/http2curl/v2 v2.3.0
-	yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20250912144144-d0d8cf049d7f
+	yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20250915054625-7251d9eeceec
 	yunion.io/x/executor v0.0.0-20250518005516-5402e9e0bed0
 	yunion.io/x/jsonutils v1.0.1-0.20250507052344-1abcf4f443b1
 	yunion.io/x/log v1.0.1-0.20240305175729-7cf2d6cd5a91
@@ -146,6 +147,7 @@ require (
 	github.com/aokoli/goutils v1.0.1 // indirect
 	github.com/apache/thrift v0.13.0 // indirect
 	github.com/aws/aws-sdk-go v1.39.0 // indirect
+	github.com/bahlo/generic-list-go v0.2.0 // indirect
 	github.com/basgys/goxml2json v1.1.1-0.20181031222924-996d9fc8d313 // indirect
 	github.com/beevik/etree v1.1.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
@@ -154,6 +156,7 @@ require (
 	github.com/boltdb/bolt v1.3.1 // indirect
 	github.com/boombuler/barcode v1.0.1-0.20190219062509-6c824513bacc // indirect
 	github.com/bradfitz/iter v0.0.0-20140124041915-454541ec3da2 // indirect
+	github.com/buger/jsonparser v1.1.1 // indirect
 	github.com/cespare/xxhash v1.1.0 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/checkpoint-restore/go-criu/v4 v4.1.0 // indirect
@@ -187,7 +190,6 @@ require (
 	github.com/fatih/color v1.13.0 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/flynn/go-shlex v0.0.0-20150515145356-3f9db97f8568 // indirect
-	github.com/frankban/quicktest v1.14.3 // indirect
 	github.com/gin-contrib/sse v0.1.0 // indirect
 	github.com/glycerine/go-unsnap-stream v0.0.0-20181221182339-f9677308dec2 // indirect
 	github.com/go-asn1-ber/asn1-ber v1.5.8-0.20250403174932-29230038a667 // indirect
@@ -218,6 +220,7 @@ require (
 	github.com/huandu/xstrings v1.2.0 // indirect
 	github.com/huaweicloud/huaweicloud-sdk-go v1.0.26 // indirect
 	github.com/imdario/mergo v0.3.6 // indirect
+	github.com/invopop/jsonschema v0.13.0 // indirect
 	github.com/jdcloud-api/jdcloud-sdk-go v1.55.0 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/josharian/native v1.1.0 // indirect
@@ -232,6 +235,7 @@ require (
 	github.com/lestrrat/go-pdebug v0.0.0-20180220043741-569c97477ae8 // indirect
 	github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0 // indirect
 	github.com/ma314smith/signedxml v0.0.0-20210628192057-abc5b481ae1c // indirect
+	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mattn/go-colorable v0.1.9 // indirect
 	github.com/mattn/go-isatty v0.0.14 // indirect
 	github.com/mattn/go-runewidth v0.0.13 // indirect
@@ -281,6 +285,7 @@ require (
 	github.com/seccomp/libseccomp-golang v0.9.1 // indirect
 	github.com/smartystreets/assertions v1.2.0 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
+	github.com/spf13/cast v1.7.1 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/stretchr/objx v0.5.2 // indirect
 	github.com/syndtr/gocapability v0.0.0-20180916011248-d98352740cb2 // indirect
@@ -297,8 +302,10 @@ require (
 	github.com/volcengine/volc-sdk-golang v1.0.23 // indirect
 	github.com/willf/bitset v1.1.11-0.20200630133818-d5bec3311243 // indirect
 	github.com/willf/bloom v2.0.3+incompatible // indirect
+	github.com/wk8/go-ordered-map/v2 v2.1.8 // indirect
 	github.com/xuri/efp v0.0.0-20220603152613-6918739fd470 // indirect
 	github.com/xuri/nfp v0.0.0-20220409054826-5e722a1d9e22 // indirect
+	github.com/yosida95/uritemplate/v3 v3.0.2 // indirect
 	github.com/yusufpapurcu/wmi v1.2.2 // indirect
 	go.etcd.io/bbolt v1.3.7 // indirect
 	go.etcd.io/etcd/client/pkg/v3 v3.5.0 // indirect
