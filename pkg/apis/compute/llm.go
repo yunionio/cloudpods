@@ -1,43 +1,79 @@
 package compute
 
-const (
-	LLM_OLLAMA                  = "ollama"
-	LLM_OLLAMA_EXEC_PATH        = "/bin/ollama"
-	LLM_OLLAMA_PULL_ACTION      = "pull"
-	LLM_OLLAMA_LIST_ACTION      = "list"
-	LLM_OLLAMA_EXPORT_ENV_KEY   = "OLLAMA_HOST"
-	LLM_OLLAMA_EXPORT_ENV_VALUE = "0.0.0.0:11434"
-)
+import "fmt"
 
-const (
-	LLM_OLLAMA_CACHE_DIR           = "/.llm_ollama_cache"
-	LLM_OLLAMA_CACHE_MOUNT_PATH    = "/usr/local"
-	LLM_OLLAMA_LIBRARY_BASE_URL    = `https://registry.ollama.ai/v2/library/%s`
-	LLM_OLLAMA_BASE_PATH           = "/root/.ollama/models"
-	LLM_OLLAMA_BLOBS_DIR           = "/blobs"
-	LLM_OLLAMA_MANIFESTS_BASE_PATH = "/manifests/registry.ollama.ai/library"
-)
+type LLMModelFileSpec struct {
+	Parameter *LLMModelFileParameter `json:"parameter"`
+}
 
-const (
-	LLM_STATUS_CREATING_POD             = "creating_pod"
-	LLM_STATUS_CREAT_POD_FAILED         = "creat_pod_failed"
-	LLM_STATUS_PULLING_MODEL            = "pulling_model"
-	LLM_STATUS_GET_MANIFESTS_FAILED     = "get_manifests_failed"
-	LLM_STATUS_DOWNLOADING_BLOBS        = "downloading_blobs"
-	LLM_STATUS_DOWNLOADING_BLOBS_FAILED = "downloading_blobs_failed"
-	LLM_STATUS_PULLED_MODEL             = "pulled_model"
-)
+type LLMGgufSpec struct {
+	GgufFile  string            `json:"gguf_file"`
+	Source    string            `json:"source"`
+	ModelFile *LLMModelFileSpec `json:"modelfile,omitempty"`
+}
 
 type LLMPullModelInput struct {
-	Model string `json:"model_name"`
+	Model string       `json:"model"`
+	Gguf  *LLMGgufSpec `json:"gguf,omitempty"`
 }
 
 type LLMCreateInput struct {
 	ServerCreateInput
-	Model string `json:"model"`
+	LLMPullModelInput
 }
 
 type LLMAccessCacheInput struct {
 	ModelName string   `json:"model_name"`
 	Blobs     []string `json:"blobs"`
+}
+
+type LLMAccessGgufFileInput struct {
+	HostPath  string `json:"host_path"`
+	TargetDir string `json:"target_dir"`
+}
+
+type LLMModelFileParameter struct {
+	NumCtx        *int     `json:"num_ctx,omitempty"`
+	RepeatLastN   *int     `json:"repeat_last_n,omitempty"`
+	RepeatPenalty *float64 `json:"repeat_penalty,omitempty"`
+	Temperature   *float64 `json:"temperature,omitempty"`
+	Seed          *int     `json:"seed,omitempty"`
+	Stop          *string  `json:"stop,omitempty"`
+	NumPredict    *int     `json:"num_predict,omitempty"`
+	TopK          *int     `json:"top_k,omitempty"`
+	TopP          *float64 `json:"top_p,omitempty"`
+	MinP          *float64 `json:"min_p,omitempty"`
+}
+
+func (p *LLMModelFileParameter) GetParameters() map[string]string {
+	pairs := make(map[string]string)
+
+	addInt := func(key string, val *int) {
+		if val != nil {
+			pairs[key] = fmt.Sprintf("%d", *val)
+		}
+	}
+	addFloat := func(key string, val *float64) {
+		if val != nil {
+			pairs[key] = fmt.Sprintf("%f", *val)
+		}
+	}
+	addString := func(key string, val *string) {
+		if val != nil {
+			pairs[key] = fmt.Sprintf("\"%s\"", *val)
+		}
+	}
+
+	addInt(LLM_OLLAMA_MODELFILE_PARAMETER_NUM_CTX, p.NumCtx)
+	addInt(LLM_OLLAMA_MODELFILE_PARAMETER_REPEAT_LAST_N, p.RepeatLastN)
+	addFloat(LLM_OLLAMA_MODELFILE_PARAMETER_REPEAT_PENALTY, p.RepeatPenalty)
+	addFloat(LLM_OLLAMA_MODELFILE_PARAMETER_TEMPERATURE, p.Temperature)
+	addInt(LLM_OLLAMA_MODELFILE_PARAMETER_SEED, p.Seed)
+	addString(LLM_OLLAMA_MODELFILE_PARAMETER_STOP, p.Stop)
+	addInt(LLM_OLLAMA_MODELFILE_PARAMETER_NUM_PREDICT, p.NumPredict)
+	addInt(LLM_OLLAMA_MODELFILE_PARAMETER_TOP_K, p.TopK)
+	addFloat(LLM_OLLAMA_MODELFILE_PARAMETER_TOP_P, p.TopP)
+	addFloat(LLM_OLLAMA_MODELFILE_PARAMETER_MIN_P, p.MinP)
+
+	return pairs
 }
