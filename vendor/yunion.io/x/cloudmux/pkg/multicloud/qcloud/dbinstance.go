@@ -36,6 +36,11 @@ func (self *SRegion) GetIDBInstances() ([]cloudprovider.ICloudDBInstance, error)
 		return nil, errors.Wrapf(err, "GetITDSQLs")
 	}
 	ret = append(ret, tdsqls...)
+	mssqls, err := self.GetISQLServers()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetISQLServers")
+	}
+	ret = append(ret, mssqls...)
 	return ret, nil
 }
 
@@ -44,6 +49,8 @@ func (self *SRegion) GetIDBInstanceById(id string) (cloudprovider.ICloudDBInstan
 		return self.GetMySQLInstanceById(id)
 	} else if strings.HasPrefix(id, "tdsqlshard") {
 		return self.GetTDSQL(id)
+	} else if strings.HasPrefix(id, "mssql") {
+		return self.GetSQLServer(id)
 	}
 	return nil, cloudprovider.ErrNotFound
 }

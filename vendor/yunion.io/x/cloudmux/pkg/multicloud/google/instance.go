@@ -609,7 +609,7 @@ func (region *SRegion) _createVM(zone string, desc *cloudprovider.SManagedVMCrea
 		if err != nil {
 			return nil, errors.Wrap(err, "region.GetNetwork")
 		}
-		networkInterface["network"] = vpc.SelfLink
+		networkInterface["subnetwork"] = getGlobalId(vpc.SelfLink)
 	}
 	if len(desc.IpAddr) > 0 {
 		networkInterface["networkIp"] = desc.IpAddr
