@@ -37,7 +37,7 @@ func (t *LLMPullModelTask) OnInit(ctx context.Context, obj db.IStandaloneModel, 
 func (t *LLMPullModelTask) requestGetManifests(ctx context.Context, llm *models.SLLM) {
 	llm.SetStatus(ctx, t.GetUserCred(), api.LLM_STATUS_PULLING_MODEL, "")
 
-	manifests, err := llm.GetManifests(ctx, t.GetUserCred())
+	manifests, err := llm.DownloadManifests(ctx, t.GetUserCred())
 	if err != nil {
 		t.OnGetManifestsFailed(ctx, llm, jsonutils.NewString(err.Error()))
 		return
