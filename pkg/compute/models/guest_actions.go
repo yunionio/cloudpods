@@ -6816,10 +6816,6 @@ func (self *SGuest) PerformDisableAutoMergeSnapshots(ctx context.Context, userCr
 }
 
 func (self *SGuest) PerformSetKickstart(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.KickstartConfig) (jsonutils.JSONObject, error) {
-	if !utils.IsInStringArray(self.Status, []string{api.VM_READY, api.VM_INIT}) {
-		return nil, httperrors.NewInvalidStatusError("cannot set kickstart config in status %s", self.Status)
-	}
-
 	if err := self.SetKickstartConfig(ctx, &input, userCred); err != nil {
 		return nil, errors.Wrap(err, "set kickstart config")
 	}
@@ -6847,6 +6843,36 @@ func (self *SGuest) PerformSetKickstart(ctx context.Context, userCred mcclient.T
 	}
 
 	db.OpsLog.LogEvent(self, db.ACT_UPDATE, "set kickstart config", userCred)
+
+	// Check if VM needs to be restarted
+	needRestart := false
+	if utils.IsInStringArray(self.Status, []string{
+		api.VM_RUNNING,
+		api.VM_KICKSTART_INSTALLING,
+		api.VM_KICKSTART_COMPLETED,
+		api.VM_KICKSTART_FAILED,
+		api.VM_BLOCK_STREAM,
+		api.VM_MIGRATING,
+	}) {
+		needRestart = true
+	}
+
+	// If VM is running, restart it to apply kickstart config
+	if needRestart {
+		driver, err := self.GetDriver()
+		if err != nil {
+			return nil, errors.Wrap(err, "get driver for restart")
+		}
+
+		if err := driver.StartGuestRestartTask(self, ctx, userCred, false, "kickstart config updated"); err != nil {
+			return nil, errors.Wrap(err, "start restart task")
+		}
+
+		return jsonutils.Marshal(map[string]string{
+			"status":  "success",
+			"message": "kickstart config updated, restarting VM",
+		}), nil
+	}
 
 	return jsonutils.Marshal(map[string]string{
 		"status": "success",
