@@ -17,8 +17,12 @@ package guestdrivers
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
+	"regexp"
+	"strings"
+	"sync"
 
 	"k8s.io/apimachinery/pkg/util/proxy"
 
@@ -42,6 +46,7 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/pod/remotecommand"
 	"yunion.io/x/onecloud/pkg/util/pod/remotecommand/spdy"
 )
 
@@ -686,4 +691,92 @@ func (p *SPodDriver) attachIsolatedDeviceToContainer(ctx context.Context, userCr
 		}
 	}
 	return nil
+}
+
+func cleanFinalANSI(input string) string {
+	ansiRegexp := regexp.MustCompile(`\x1b\[[0-9;?]*[ -/]*[@-~]`)
+	input = strings.ReplaceAll(input, "\r", "")
+	return ansiRegexp.ReplaceAllString(input, "")
+}
+
+func processTerminalStream(input string) string {
+	input = strings.ReplaceAll(input, "\x1b[1G", "\r")
+	lines := strings.Split(input, "\n")
+	var resultLines []string
+
+	for _, line := range lines {
+		parts := strings.Split(line, "\r")
+		finalPart := parts[len(parts)-1]
+		cleanedLine := cleanFinalANSI(finalPart)
+		if cleanedLine != "" {
+			resultLines = append(resultLines, cleanedLine)
+		}
+	}
+
+	return strings.Join(resultLines, "\n")
+}
+
+func (p *SPodDriver) RequestExecStreamContainer(ctx context.Context, userCred mcclient.TokenCredential, container *models.SContainer, input *api.ContainerExecInput, stdin io.Reader) (string, error) {
+	// set input
+	input.Tty = false
+	input.SetIO = true
+	input.Stdin = (stdin != nil)
+	input.Stdout = true
+
+	// generate url
+	pod := container.GetPod()
+	host, _ := pod.GetHost()
+	urlLoc := fmt.Sprintf("%s/pods/%s/containers/%s/exec?%s", host.ManagerUri, pod.GetId(), container.GetId(), jsonutils.Marshal(input).QueryString())
+	url, err := url.Parse(urlLoc)
+	if err != nil {
+		return "", errors.Wrapf(err, "parse url: %s", urlLoc)
+	}
+
+	// define out stream and err stream
+	var outBuf, errBuf strings.Builder
+	outReader, outWriter := io.Pipe()
+	errReader, errWriter := io.Pipe()
+
+	// use goroutine to copy result
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	go func() {
+		defer wg.Done()
+		io.Copy(&outBuf, outReader)
+	}()
+
+	go func() {
+		defer wg.Done()
+		io.Copy(&errBuf, errReader)
+	}()
+
+	// exec stream
+	exec, err := remotecommand.NewSPDYExecutor("POST", url)
+	if err != nil {
+		return "", errors.Wrap(err, "NewSPDYExecutor")
+	}
+	headers := mcclient.GetTokenHeaders(userCred)
+	err = exec.Stream(remotecommand.StreamOptions{
+		Stdin:             stdin,
+		Stdout:            outWriter,
+		Stderr:            errWriter,
+		Tty:               false,
+		TerminalSizeQueue: nil,
+		Header:            headers,
+	})
+
+	// copy result
+	outWriter.Close()
+	errWriter.Close()
+	wg.Wait()
+
+	// remove ansi
+	outResult := processTerminalStream(outBuf.String())
+	errResult := processTerminalStream(errBuf.String())
+	if err != nil {
+		return "", errors.Wrapf(err, "exec stream error (stdout [%s], stderr [%s])", outResult, errResult)
+	}
+	// log.Infof("get exec stream result (stdout [%s], stderr [%s])", outResult, errResult)
+	return outResult, nil
 }

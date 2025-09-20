@@ -4968,6 +4968,11 @@ func (self *SGuest) GetLoadbalancerBackends() ([]SLoadbalancerBackend, error) {
 }
 
 func (self *SGuest) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	// delete related llm
+	LLMManager.DeleteByGuestId(ctx, userCred, self.GetId())
+	// delete related dify
+	DifyManager.DeleteByGuestId(ctx, userCred, self.GetId())
+
 	return self.purge(ctx, userCred)
 }
 
