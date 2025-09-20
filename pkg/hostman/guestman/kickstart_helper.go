@@ -503,7 +503,7 @@ func BuildKickstartAppendArgs(config *api.KickstartConfig, isoPath string) strin
 		} else if isoPath != "" {
 			kickstartArgs = append(kickstartArgs, fmt.Sprintf("inst.ks=hd:LABEL=%s:/anaconda-ks.cfg", REDHAT_KICKSTART_ISO_VOLUME_LABEL))
 		} else {
-			kickstartArgs = append(kickstartArgs, "inst.ks=cdrom:/ks.cfg")
+			kickstartArgs = append(kickstartArgs, "inst.ks=cdrom:/anaconda-ks.cfg")
 		}
 	case "ubuntu":
 		if config.ConfigURL != "" {
