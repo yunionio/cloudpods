@@ -1,9 +1,18 @@
 package compute
 
-import "fmt"
+import (
+	"fmt"
+
+	"yunion.io/x/pkg/errors"
+)
 
 type LLMModelFileSpec struct {
 	Parameter *LLMModelFileParameter `json:"parameter"`
+	Template  *string                `json:"template,omitempty"`
+	System    *string                `json:"system,omitempty"`
+	// Adapter   *string                `json:"adapter,omitempty"`
+	License *string                `json:"license,omitempty"`
+	Message []*LLMModelFileMessage `json:"message,omitempty"`
 }
 
 type LLMGgufSpec struct {
@@ -30,6 +39,22 @@ type LLMAccessCacheInput struct {
 type LLMAccessGgufFileInput struct {
 	HostPath  string `json:"host_path"`
 	TargetDir string `json:"target_dir"`
+}
+
+type LLMModelFileMessage struct {
+	Role    string
+	Content string
+}
+
+func (m *LLMModelFileMessage) ValidateRole() error {
+	switch m.Role {
+	case LLM_OLLAMA_GGUF_MESSAGE_ROLE_SYSTEM,
+		LLM_OLLAMA_GGUF_MESSAGE_ROLE_USER,
+		LLM_OLLAMA_GGUF_MESSAGE_ROLE_ASSISTANT:
+		return nil
+	default:
+		return errors.Errorf("invalid role: %s, must be one of: system, user, assistant", m.Role)
+	}
 }
 
 type LLMModelFileParameter struct {
