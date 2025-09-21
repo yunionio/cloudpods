@@ -303,55 +303,8 @@ func (m *SKickstartSerialMonitor) Start() error {
 // handleKickstartCompleted handles the successful kickstart completion
 // It unmounts the ISO image and restarts the VM
 func (m *SKickstartSerialMonitor) handleKickstartCompleted() error {
-	// Get the server instance to access CDROM information
-	server, exists := guestManager.GetServer(m.serverId)
-	if !exists {
-		return errors.Errorf("server %s not found", m.serverId)
-	}
-
-	kvmGuest, ok := server.(*SKVMGuestInstance)
-	if !ok {
-		return errors.Errorf("server %s is not a KVM guest", m.serverId)
-	}
-
-	// Get image ID from CDROM devices to construct mount point
-	var imageId string
-	var kickstartConfigIsoPath string
-	if len(kvmGuest.Desc.Cdroms) > 0 {
-		for _, cdrom := range kvmGuest.Desc.Cdroms {
-			if cdrom.Path != "" {
-				filename := path.Base(cdrom.Path)
-				imageId = strings.TrimSuffix(filename, ".iso")
-
-				// Check if this is a kickstart ISO
-				if strings.HasPrefix(filename, "kickstart-") {
-					kickstartConfigIsoPath = cdrom.Path
-				}
-				break
-			}
-		}
-	}
-
-	if imageId == "" {
-		log.Warningf("No ISO image ID found for server %s, skip unmounting", m.serverId)
-	} else {
-		// Unmount the ISO image with lazy=true
-		mountPoint := filepath.Join(KICKSTART_BASE_DIR, m.serverId, KICKSTART_ISO_MOUNT_DIR)
-		log.Infof("Unmounting kickstart ISO at %s for server %s", mountPoint, m.serverId)
-
-		if err := mountutils.Unmount(mountPoint, true); err != nil {
-			log.Errorf("Failed to unmount ISO at %s: %v", mountPoint, err)
-		} else {
-			log.Debugf("Successfully unmounted kickstart ISO at %s for server %s", mountPoint, m.serverId)
-		}
-	}
-
-	// Clean up kickstart ISO file if it exists
-	if kickstartConfigIsoPath != "" {
-		if err := os.Remove(kickstartConfigIsoPath); err != nil && !os.IsNotExist(err) {
-			log.Errorf("Failed to cleanup kickstart ISO %s: %v", kickstartConfigIsoPath, err)
-		}
-	}
+	// Clean up kickstart files after successful installation
+	CleanupKickstartFiles(m.serverId)
 
 	log.Debugf("Restarting VM %s after successful kickstart", m.serverId)
 
@@ -519,4 +472,53 @@ func BuildKickstartAppendArgs(config *api.KickstartConfig, isoPath string) strin
 		}
 	}
 	return strings.Join(append(baseArgs, kickstartArgs...), " ")
+}
+
+// CleanupKickstartFiles cleans up all kickstart-related temporary files and directories
+func CleanupKickstartFiles(serverId string) {
+	if serverId == "" {
+		log.Warningf("Empty serverId provided for kickstart cleanup")
+		return
+	}
+
+	kickstartDir := filepath.Join(KICKSTART_BASE_DIR, serverId)
+
+	mountPoint := filepath.Join(kickstartDir, KICKSTART_ISO_MOUNT_DIR)
+	if fileutils2.Exists(mountPoint) {
+		log.Infof("Unmounting kickstart ISO at %s for server %s", mountPoint, serverId)
+		if err := mountutils.Unmount(mountPoint, true); err != nil {
+			log.Errorf("Failed to unmount kickstart ISO at %s: %v", mountPoint, err)
+		} else {
+			log.Debugf("Successfully unmounted kickstart ISO at %s for server %s", mountPoint, serverId)
+		}
+	}
+
+	if server, exists := guestManager.GetServer(serverId); exists {
+		if kvmGuest, ok := server.(*SKVMGuestInstance); ok && len(kvmGuest.Desc.Cdroms) > 0 {
+			for _, cdrom := range kvmGuest.Desc.Cdroms {
+				if cdrom.Path != "" {
+					filename := path.Base(cdrom.Path)
+					if strings.HasPrefix(filename, "kickstart-") {
+						if err := os.Remove(cdrom.Path); err != nil && !os.IsNotExist(err) {
+							log.Errorf("Failed to cleanup kickstart ISO %s: %v", cdrom.Path, err)
+						} else {
+							log.Debugf("Successfully removed kickstart ISO %s for server %s", cdrom.Path, serverId)
+						}
+						break
+					}
+				}
+			}
+		}
+	}
+
+	if fileutils2.Exists(kickstartDir) {
+		log.Infof("Removing kickstart directory %s for server %s", kickstartDir, serverId)
+		if err := os.RemoveAll(kickstartDir); err != nil {
+			log.Errorf("Failed to remove kickstart directory %s: %v", kickstartDir, err)
+		} else {
+			log.Debugf("Successfully removed kickstart directory %s for server %s", kickstartDir, serverId)
+		}
+	}
+
+	log.Debugf("Kickstart files cleanup completed for server %s", serverId)
 }
