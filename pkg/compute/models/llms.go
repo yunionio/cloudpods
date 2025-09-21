@@ -141,7 +141,7 @@ func (llm *SLLM) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCre
 
 	// get model name and model tag
 	model := input.Model
-	llm.ModelName, llm.ModelTag = llm.parseModel(model)
+	llm.ModelName, llm.ModelTag = parseModel(model)
 
 	// init task, decide import model from cache or gguf-file
 	llm.Id = stringutils.UUID4()
@@ -209,7 +209,7 @@ func (llm *SLLM) exec(ctx context.Context, userCred mcclient.TokenCredential, st
 
 func (llm *SLLM) PerformChangeModel(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.LLMPullModelInput) (jsonutils.JSONObject, error) {
 	// check model is the same with current
-	if input.Model == llm.GetModel() {
+	if input.Model == llm.GetModel() && input.Gguf == nil && llm.GgufFile == "" {
 		return nil, errors.Errorf("LLM run with model %s already", input.Model)
 	}
 
@@ -222,7 +222,7 @@ func (llm *SLLM) PerformChangeModel(ctx context.Context, userCred mcclient.Token
 	llm.UpdateModel(input.Model)
 
 	// pull new model
-	task, err := taskman.TaskManager.NewTask(ctx, "LLMPullModelTask", llm, userCred, jsonutils.NewDict(), "", "", nil)
+	task, err := createPullModelTask(ctx, userCred, llm, input.Gguf)
 	if err != nil {
 		return nil, errors.Wrap(err, "NewTask")
 	}
@@ -452,23 +452,13 @@ func (llm *SLLM) PostCreate(ctx context.Context, userCred mcclient.TokenCredenti
 
 func (llm *SLLM) UpdateModel(model string) error {
 	if _, err := db.Update(llm, func() error {
-		llm.ModelName, llm.ModelTag = llm.parseModel(model)
+		llm.ModelName, llm.ModelTag = parseModel(model)
 		return nil
 	}); nil != err {
 		return errors.Wrapf(err, "update llm model %s", model)
 	}
 
 	return nil
-}
-
-func (llm *SLLM) parseModel(model string) (string, string) {
-	parts := strings.Split(model, ":")
-	modelName := parts[0]
-	modelTag := "latest"
-	if len(parts) > 1 {
-		modelTag = parts[1]
-	}
-	return modelName, modelTag
 }
 
 func accessModelCache(ctx context.Context, llm *SLLM, task taskman.ITask) (jsonutils.JSONObject, error) {
@@ -511,9 +501,38 @@ func createPullModelTask(ctx context.Context, userCred mcclient.TokenCredential,
 func createModelFile(llm *SLLM, spec *api.LLMModelFileSpec) string {
 	mdlFile := fmt.Sprintf(api.LLM_OLLAMA_GGUF_FROM, llm.GetGgufFile())
 
-	params := spec.Parameter.GetParameters()
-	for name, param := range params {
-		mdlFile += fmt.Sprintf(api.LLM_OLLAMA_GGUF_PARAMETER, name, param)
+	// Parameter
+	if nil != spec.Parameter {
+		params := spec.Parameter.GetParameters()
+		for name, param := range params {
+			mdlFile += fmt.Sprintf(api.LLM_OLLAMA_GGUF_PARAMETER, name, param)
+		}
+	}
+
+	// Template
+	if nil != spec.Template {
+		mdlFile += fmt.Sprintf(api.LLM_OLLAMA_GGUF_TEMPLATE, *spec.Template)
+	}
+
+	// System
+	if nil != spec.System {
+		mdlFile += fmt.Sprintf(api.LLM_OLLAMA_GGUF_SYSTEM, *spec.System)
+	}
+
+	// License
+	if nil != spec.License {
+		mdlFile += fmt.Sprintf(api.LLM_OLLAMA_GGUF_LICENSE, *spec.License)
+	}
+
+	// Message
+	if nil != spec.Message {
+		for _, msgPtr := range spec.Message {
+			if msgPtr == nil || msgPtr.ValidateRole() != nil {
+				continue
+			}
+			message := *msgPtr
+			mdlFile += fmt.Sprintf(api.LLM_OLLAMA_GGUF_MESSAGE, message.Role, message.Content)
+		}
 	}
 
 	return mdlFile
@@ -541,6 +560,16 @@ func llmGetOllamaContainer(ctrMngr *SContainerManager, llm *SLLM) (*SContainer, 
 		}
 	}
 	return nil, errors.Wrapf(errors.ErrNotFound, "ollama container for guest %s not found", llm.GuestId)
+}
+
+func parseModel(model string) (string, string) {
+	parts := strings.Split(model, ":")
+	modelName := parts[0]
+	modelTag := "latest"
+	if len(parts) > 1 {
+		modelTag = parts[1]
+	}
+	return modelName, modelTag
 }
 
 func webGet(url string) (io.ReadCloser, error) {

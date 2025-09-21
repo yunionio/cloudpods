@@ -20,17 +20,20 @@ const (
 )
 
 const (
-	LLM_OLLAMA_GGUF_DIR         = "/gguf"
-	LLM_OLLAMA_GGUF_SOURCE_HOST = "host"
-	LLM_OLLAMA_GGUF_SOURCE_WEB  = "web"
-	LLM_OLLAMA_MODELFILE_NAME   = "modelfile"
-	LLM_OLLAMA_GGUF_FROM        = "FROM %s\n"
-	LLM_OLLAMA_GGUF_PARAMETER   = "PARAMETER %s %s\n"
-	LLM_OLLAMA_GGUF_TEMPLATE    = "TEMPLATE %s\n"
-	LLM_OLLAMA_GGUF_SYSTEM      = "SYSTEM %s\n"
-	LLM_OLLAMA_GGUF_ADAPTER     = "ADAPTER %s\n"
-	LLM_OLLAMA_GGUF_LICENSE     = "LICENSE %s\n"
-	LLM_OLLAMA_GGUF_MESSAGE     = "MESSAGE %s\n"
+	LLM_OLLAMA_GGUF_DIR                    = "/gguf"
+	LLM_OLLAMA_GGUF_SOURCE_HOST            = "host"
+	LLM_OLLAMA_GGUF_SOURCE_WEB             = "web"
+	LLM_OLLAMA_MODELFILE_NAME              = "modelfile"
+	LLM_OLLAMA_GGUF_FROM                   = "FROM %s\n"
+	LLM_OLLAMA_GGUF_PARAMETER              = "PARAMETER %s %s\n"
+	LLM_OLLAMA_GGUF_TEMPLATE               = "TEMPLATE \"\"\"%s\"\"\"\n"
+	LLM_OLLAMA_GGUF_SYSTEM                 = "SYSTEM %s\n"
+	LLM_OLLAMA_GGUF_ADAPTER                = "ADAPTER %s\n"
+	LLM_OLLAMA_GGUF_LICENSE                = "LICENSE \"\"\"%s\"\"\"\n"
+	LLM_OLLAMA_GGUF_MESSAGE                = "MESSAGE %s %s\n"
+	LLM_OLLAMA_GGUF_MESSAGE_ROLE_SYSTEM    = "system"
+	LLM_OLLAMA_GGUF_MESSAGE_ROLE_USER      = "user"
+	LLM_OLLAMA_GGUF_MESSAGE_ROLE_ASSISTANT = "assistant"
 )
 
 const (
