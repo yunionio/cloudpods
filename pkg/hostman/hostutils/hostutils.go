@@ -312,7 +312,7 @@ func initImageCacheWorkerManager() {
 }
 
 func initBackupWorkerManager() {
-	backupW = workmanager.NewWorkManger("BackupDelayTaskWorkers", TaskFailed, TaskComplete, options.HostOptions.DefaultRequestWorkerCount)
+	backupW = workmanager.NewWorkManger("BackupDelayTaskWorkers", TaskFailed, TaskComplete, options.HostOptions.BackupTaskWorkerCount)
 }
 
 func InitWorkerManagerWithCount(count int) {
