@@ -2140,6 +2140,8 @@ func (s *SKVMGuestInstance) delFlatFiles(ctx context.Context) error {
 }
 
 func (s *SKVMGuestInstance) Delete(ctx context.Context, migrated, recycle bool) error {
+	CleanupKickstartFiles(s.Id)
+
 	if err := s.delTmpDisks(ctx, migrated); err != nil {
 		return errors.Wrap(err, "delTmpDisks")
 	}
