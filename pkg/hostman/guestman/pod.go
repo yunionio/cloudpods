@@ -654,21 +654,40 @@ func (s *sPodGuestInstance) ConvertRootFsToVolumeMount(rootFs *hostapi.Container
 
 func (s *sPodGuestInstance) mountRootFs(ctrId string, rootFs *hostapi.ContainerRootfs) error {
 	drv := volume_mount.GetDriver(rootFs.Type)
-	vol := &hostapi.ContainerVolumeMount{
-		Type: rootFs.Type,
-		Disk: rootFs.Disk,
-	}
+	vol := s.ConvertRootFsToVolumeMount(rootFs)
 	if err := drv.Mount(s, ctrId, vol); err != nil {
 		return errors.Wrapf(err, "mount root fs %s, ctrId %s", jsonutils.Marshal(rootFs), ctrId)
 	}
 	return nil
 }
 
-func (s *sPodGuestInstance) umountRootFs(ctrId string, rootFs *hostapi.ContainerRootfs) error {
+func (s *sPodGuestInstance) clearContainerRootFs(ctrId string, rootFs *hostapi.ContainerRootfs) error {
+	if rootFs == nil {
+		return nil
+	}
 	drv := volume_mount.GetDriver(rootFs.Type)
-	vol := &hostapi.ContainerVolumeMount{
-		Type: rootFs.Type,
-		Disk: rootFs.Disk,
+	vol := s.ConvertRootFsToVolumeMount(rootFs)
+	hostPath, err := drv.GetRuntimeMountHostPath(s, ctrId, vol)
+	if err != nil {
+		return errors.Wrapf(err, "get runtime mount path")
+	}
+	if !rootFs.Persistent {
+		if err := volume_mount.RemoveDir(hostPath); err != nil {
+			return errors.Wrapf(err, "remove %q", hostPath)
+		}
+		log.Infof("clear rootfs of container %s/%s: %q", s.GetName(), ctrId, hostPath)
+	}
+	return nil
+}
+
+func (s *sPodGuestInstance) umountRootFs(ctrId string, rootFs *hostapi.ContainerRootfs) error {
+	if rootFs == nil {
+		return nil
+	}
+	drv := volume_mount.GetDriver(rootFs.Type)
+	vol := s.ConvertRootFsToVolumeMount(rootFs)
+	if err := s.clearContainerRootFs(ctrId, rootFs); err != nil {
+		return errors.Wrapf(err, "clear rootfs of container %s", ctrId)
 	}
 	if err := drv.Unmount(s, ctrId, vol); err != nil {
 		return errors.Wrapf(err, "unmount root fs %s, ctrId %s", jsonutils.Marshal(rootFs), ctrId)
@@ -1477,6 +1496,11 @@ func (s *sPodGuestInstance) StopContainer(ctx context.Context, userCred mcclient
 		// FIXME: Sleep 2s 等待 pleg.PodLifecycleEventGenerator 刷新
 		// 后期可以添加主动通知刷新
 		time.Sleep(2 * time.Second)
+	}
+	if ctr := s.GetContainerById(ctrId); ctr != nil {
+		if err := s.clearContainerRootFs(ctrId, ctr.Spec.Rootfs); err != nil {
+			return nil, errors.Wrapf(err, "clear container rootfs %s", jsonutils.Marshal(ctr.Spec.Rootfs))
+		}
 	}
 	if err := s.startStat.RemoveContainerFile(ctrId); err != nil {
 		return nil, errors.Wrap(err, "startStat.RemoveContainerFile")
