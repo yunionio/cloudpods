@@ -149,6 +149,7 @@ func (d disk) ToHostRootFs(rootFs *apis.ContainerRootfs) (*hostapi.ContainerRoot
 			Id:           disk.Id,
 			SubDirectory: disk.SubDirectory,
 		},
+		Persistent: rootFs.Persistent,
 	}, nil
 }
 
