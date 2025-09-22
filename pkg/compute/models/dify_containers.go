@@ -11,7 +11,7 @@ import (
 
 type DifyContainerEnv map[string]string
 
-func (envsPtr *DifyContainerEnv) GetContainerEnvs() []*apis.ContainerKeyValue {
+func (envsPtr *DifyContainerEnv) GetContainerEnvs(userCustomizedEnvs *DifyContainerEnv) []*apis.ContainerKeyValue {
 	envs := *envsPtr
 	if len(envs) == 0 {
 		return nil
@@ -19,6 +19,9 @@ func (envsPtr *DifyContainerEnv) GetContainerEnvs() []*apis.ContainerKeyValue {
 
 	ctrEnvs := make([]*apis.ContainerKeyValue, 0, len(envs))
 	for key, value := range envs {
+		if userCustomizedEnvs != nil && (*userCustomizedEnvs)[key] != "" {
+			value = (*userCustomizedEnvs)[key]
+		}
 		ctrEnvs = append(ctrEnvs, &apis.ContainerKeyValue{
 			Key:   key,
 			Value: value,
@@ -61,49 +64,60 @@ func getPVCMount(name, subDir, mountPath string) *apis.ContainerVolumeMount {
 	return pvc
 }
 
-type DifyContainersManager struct{}
+type DifyContainersManager struct {
+	UserCustomizedEnvs *DifyContainerEnv
+	ImageRegistry      string
+}
+
+func (m *DifyContainersManager) GetRegistryImage(image string) string {
+	registry := api.DIFY_IMAGE_REGISTRY
+	if m.ImageRegistry != "" {
+		registry = m.ImageRegistry
+	}
+	return path.Join(registry, image)
+}
 
 func (m *DifyContainersManager) GetContainer(name, containerKey string) (*api.PodContainerCreateInput, error) {
 	switch containerKey {
 	case api.DIFY_REDIS_KEY:
-		return getRedisContainer(name, containerKey), nil
+		return m._getRedisContainer(name, containerKey), nil
 	case api.DIFY_POSTGRES_KEY:
-		return getPostgresContainer(name, containerKey), nil
+		return m._getPostgresContainer(name, containerKey), nil
 	case api.DIFY_API_KEY:
-		return getApiContainer(name, containerKey), nil
+		return m._getApiContainer(name, containerKey), nil
 	case api.DIFY_WORKER_KEY:
-		return getWorkerContainer(name, containerKey), nil
+		return m._getWorkerContainer(name, containerKey), nil
 	case api.DIFY_WORKER_BEAT_KEY:
-		return getWorkerBeatContainer(name, containerKey), nil
+		return m._getWorkerBeatContainer(name, containerKey), nil
 	case api.DIFY_PLUGIN_KEY:
-		return getPluginContainer(name, containerKey), nil
+		return m._getPluginContainer(name, containerKey), nil
 	case api.DIFY_WEB_KEY:
-		return getWebContainer(name, containerKey), nil
+		return m._getWebContainer(name, containerKey), nil
 	case api.DIFY_SSRF_KEY:
-		return getSsrfContainer(name, containerKey), nil
+		return m._getSsrfContainer(name, containerKey), nil
 	case api.DIFY_NGINX_KEY:
-		return getNginxContainer(name, containerKey), nil
+		return m._getNginxContainer(name, containerKey), nil
 	case api.DIFY_WEAVIATE_KEY:
-		return getWeaviateContainer(name, containerKey), nil
+		return m._getWeaviateContainer(name, containerKey), nil
 	case api.DIFY_SANDBOX_KEY:
-		return getSandboxContainer(name, containerKey), nil
+		return m._getSandboxContainer(name, containerKey), nil
 	default:
 		return nil, errors.New("unsupported container key")
 	}
 }
 
-func getRedisContainer(name, key string) *api.PodContainerCreateInput {
+func (m *DifyContainersManager) _getRedisContainer(name, key string) *api.PodContainerCreateInput {
 	// set name and image
 	ctr := &api.PodContainerCreateInput{
 		Name: name + "-" + key,
 	}
-	ctr.Image = api.DIFY_IMAGE_REGISTRY + api.DIFY_REDIS_IMAGE
+	ctr.Image = m.GetRegistryImage(api.DIFY_REDIS_IMAGE)
 
 	// set container environments
 	envs := &DifyContainerEnv{
 		"REDISCLI_AUTH": api.DIFY_REDISCLI_AUTH,
 	}
-	ctr.Envs = envs.GetContainerEnvs()
+	ctr.Envs = envs.GetContainerEnvs(m.UserCustomizedEnvs)
 
 	// set PVC to store data
 	ctr.VolumeMounts = []*apis.ContainerVolumeMount{
@@ -118,12 +132,12 @@ func getRedisContainer(name, key string) *api.PodContainerCreateInput {
 	return ctr
 }
 
-func getPostgresContainer(name, key string) *api.PodContainerCreateInput {
+func (m *DifyContainersManager) _getPostgresContainer(name, key string) *api.PodContainerCreateInput {
 	// set name and image
 	ctr := &api.PodContainerCreateInput{
 		Name: name + "-" + key,
 	}
-	ctr.Image = api.DIFY_IMAGE_REGISTRY + api.DIFY_POSTGRES_IMAGE
+	ctr.Image = m.GetRegistryImage(api.DIFY_POSTGRES_IMAGE)
 
 	// set container environments
 	envs := &DifyContainerEnv{
@@ -132,7 +146,7 @@ func getPostgresContainer(name, key string) *api.PodContainerCreateInput {
 		"POSTGRES_DB":       api.DIFY_POSTGRES_DB,
 		"PGDATA":            path.Join(api.DIFY_POSTGRES_PVC_MOUNT_PATH, api.DIFY_POSTGRES_PGDATA),
 	}
-	ctr.Envs = envs.GetContainerEnvs()
+	ctr.Envs = envs.GetContainerEnvs(m.UserCustomizedEnvs)
 
 	// set PVC to store data
 	ctr.VolumeMounts = []*apis.ContainerVolumeMount{
@@ -152,12 +166,12 @@ func getPostgresContainer(name, key string) *api.PodContainerCreateInput {
 	return ctr
 }
 
-func getApiContainer(name, key string) *api.PodContainerCreateInput {
+func (m *DifyContainersManager) _getApiContainer(name, key string) *api.PodContainerCreateInput {
 	// set name and image
 	ctr := &api.PodContainerCreateInput{
 		Name: name + "-" + key,
 	}
-	ctr.Image = api.DIFY_IMAGE_REGISTRY + api.DIFY_API_IMAGE
+	ctr.Image = m.GetRegistryImage(api.DIFY_API_IMAGE)
 
 	// set container environments
 	envs := &DifyContainerEnv{
@@ -170,7 +184,7 @@ func getApiContainer(name, key string) *api.PodContainerCreateInput {
 		"PLUGIN_MAX_PACKAGE_SIZE":     api.DIFY_PLUGIN_MAX_PACKAGE_SIZE,
 		"INNER_API_KEY_FOR_PLUGIN":    api.DIFY_API_INNER_KEY,
 	}
-	ctr.Envs = append(getSharedApiWorkerEnv(), envs.GetContainerEnvs()...)
+	ctr.Envs = append(getSharedApiWorkerEnv(m.UserCustomizedEnvs), envs.GetContainerEnvs(m.UserCustomizedEnvs)...)
 
 	// set PVC to store data
 	ctr.VolumeMounts = []*apis.ContainerVolumeMount{
@@ -180,12 +194,12 @@ func getApiContainer(name, key string) *api.PodContainerCreateInput {
 	return ctr
 }
 
-func getWorkerContainer(name, key string) *api.PodContainerCreateInput {
+func (m *DifyContainersManager) _getWorkerContainer(name, key string) *api.PodContainerCreateInput {
 	// set name and image
 	ctr := &api.PodContainerCreateInput{
 		Name: name + "-" + key,
 	}
-	ctr.Image = api.DIFY_IMAGE_REGISTRY + api.DIFY_API_IMAGE
+	ctr.Image = m.GetRegistryImage(api.DIFY_API_IMAGE)
 
 	// set container environments
 	envs := &DifyContainerEnv{
@@ -196,7 +210,7 @@ func getWorkerContainer(name, key string) *api.PodContainerCreateInput {
 		"PLUGIN_MAX_PACKAGE_SIZE":     api.DIFY_PLUGIN_MAX_PACKAGE_SIZE,
 		"INNER_API_KEY_FOR_PLUGIN":    api.DIFY_API_INNER_KEY,
 	}
-	ctr.Envs = append(getSharedApiWorkerEnv(), envs.GetContainerEnvs()...)
+	ctr.Envs = append(getSharedApiWorkerEnv(m.UserCustomizedEnvs), envs.GetContainerEnvs(m.UserCustomizedEnvs)...)
 
 	// set PVC to store data
 	ctr.VolumeMounts = []*apis.ContainerVolumeMount{
@@ -206,28 +220,28 @@ func getWorkerContainer(name, key string) *api.PodContainerCreateInput {
 	return ctr
 }
 
-func getWorkerBeatContainer(name, key string) *api.PodContainerCreateInput {
+func (m *DifyContainersManager) _getWorkerBeatContainer(name, key string) *api.PodContainerCreateInput {
 	// set name and image
 	ctr := &api.PodContainerCreateInput{
 		Name: name + "-" + key,
 	}
-	ctr.Image = api.DIFY_IMAGE_REGISTRY + api.DIFY_API_IMAGE
+	ctr.Image = m.GetRegistryImage(api.DIFY_API_IMAGE)
 
 	// set container environments
 	envs := &DifyContainerEnv{
 		"MODE": api.DIFY_WORKER_BEAT_MODE,
 	}
-	ctr.Envs = append(getSharedApiWorkerEnv(), envs.GetContainerEnvs()...)
+	ctr.Envs = append(getSharedApiWorkerEnv(m.UserCustomizedEnvs), envs.GetContainerEnvs(m.UserCustomizedEnvs)...)
 
 	return ctr
 }
 
-func getPluginContainer(name, key string) *api.PodContainerCreateInput {
+func (m *DifyContainersManager) _getPluginContainer(name, key string) *api.PodContainerCreateInput {
 	// set name and image
 	ctr := &api.PodContainerCreateInput{
 		Name: name + "-" + key,
 	}
-	ctr.Image = api.DIFY_IMAGE_REGISTRY + api.DIFY_PLUGIN_IMAGE
+	ctr.Image = m.GetRegistryImage(api.DIFY_PLUGIN_IMAGE)
 
 	// set container environments
 	envs := &DifyContainerEnv{
@@ -251,7 +265,7 @@ func getPluginContainer(name, key string) *api.PodContainerCreateInput {
 		"PLUGIN_PACKAGE_CACHE_PATH":     api.DIFY_PLUGIN_PACKAGE_CACHE_PATH,
 		"PLUGIN_MEDIA_CACHE_PATH":       api.DIFY_PLUGIN_MEDIA_CACHE_PATH,
 	}
-	ctr.Envs = append(getSharedApiWorkerEnv(), envs.GetContainerEnvs()...)
+	ctr.Envs = append(getSharedApiWorkerEnv(m.UserCustomizedEnvs), envs.GetContainerEnvs(m.UserCustomizedEnvs)...)
 
 	// set PVC to store data
 	ctr.VolumeMounts = []*apis.ContainerVolumeMount{
@@ -261,12 +275,12 @@ func getPluginContainer(name, key string) *api.PodContainerCreateInput {
 	return ctr
 }
 
-func getWebContainer(name, key string) *api.PodContainerCreateInput {
+func (m *DifyContainersManager) _getWebContainer(name, key string) *api.PodContainerCreateInput {
 	// set name and image
 	ctr := &api.PodContainerCreateInput{
 		Name: name + "-" + key,
 	}
-	ctr.Image = api.DIFY_IMAGE_REGISTRY + api.DIFY_WEB_IMAGE
+	ctr.Image = m.GetRegistryImage(api.DIFY_WEB_IMAGE)
 
 	// set container environments
 	envs := &DifyContainerEnv{
@@ -292,17 +306,17 @@ func getWebContainer(name, key string) *api.PodContainerCreateInput {
 		"ENABLE_WEBSITE_FIRECRAWL":                api.DIFY_WEB_ENABLE_WEBSITE_FIRECRAWL,
 		"ENABLE_WEBSITE_WATERCRAWL":               api.DIFY_WEB_ENABLE_WEBSITE_WATERCRAWL,
 	}
-	ctr.Envs = envs.GetContainerEnvs()
+	ctr.Envs = envs.GetContainerEnvs(m.UserCustomizedEnvs)
 
 	return ctr
 }
 
-func getSsrfContainer(name, key string) *api.PodContainerCreateInput {
+func (m *DifyContainersManager) _getSsrfContainer(name, key string) *api.PodContainerCreateInput {
 	// set name and image
 	ctr := &api.PodContainerCreateInput{
 		Name: name + "-" + key,
 	}
-	ctr.Image = api.DIFY_IMAGE_REGISTRY + api.DIFY_SSRF_IMAGE
+	ctr.Image = m.GetRegistryImage(api.DIFY_SSRF_IMAGE)
 
 	// set container environments
 	envs := &DifyContainerEnv{
@@ -313,7 +327,7 @@ func getSsrfContainer(name, key string) *api.PodContainerCreateInput {
 		"SANDBOX_HOST":       api.DIFY_LOCALHOST,
 		"SANDBOX_PORT":       api.DIFY_SANDBOX_PORT,
 	}
-	ctr.Envs = envs.GetContainerEnvs()
+	ctr.Envs = envs.GetContainerEnvs(m.UserCustomizedEnvs)
 
 	// set PVC to store data
 	// ctr.VolumeMounts = []*apis.ContainerVolumeMount{
@@ -329,12 +343,12 @@ func getSsrfContainer(name, key string) *api.PodContainerCreateInput {
 	return ctr
 }
 
-func getNginxContainer(name, key string) *api.PodContainerCreateInput {
+func (m *DifyContainersManager) _getNginxContainer(name, key string) *api.PodContainerCreateInput {
 	// set name and image
 	ctr := &api.PodContainerCreateInput{
 		Name: name + "-" + key,
 	}
-	ctr.Image = api.DIFY_IMAGE_REGISTRY + api.DIFY_NGINX_IMAGE
+	ctr.Image = m.GetRegistryImage(api.DIFY_NGINX_IMAGE)
 
 	// set container environments
 	envs := &DifyContainerEnv{
@@ -346,7 +360,7 @@ func getNginxContainer(name, key string) *api.PodContainerCreateInput {
 		"NGINX_PROXY_READ_TIMEOUT":   api.DIFY_NGINX_PROXY_READ_TIMEOUT,
 		"NGINX_PROXY_SEND_TIMEOUT":   api.DIFY_NGINX_PROXY_SEND_TIMEOUT,
 	}
-	ctr.Envs = envs.GetContainerEnvs()
+	ctr.Envs = envs.GetContainerEnvs(m.UserCustomizedEnvs)
 
 	// set PVC to store data
 	ctr.VolumeMounts = []*apis.ContainerVolumeMount{
@@ -362,12 +376,12 @@ func getNginxContainer(name, key string) *api.PodContainerCreateInput {
 	return ctr
 }
 
-func getWeaviateContainer(name, key string) *api.PodContainerCreateInput {
+func (m *DifyContainersManager) _getWeaviateContainer(name, key string) *api.PodContainerCreateInput {
 	// set name and image
 	ctr := &api.PodContainerCreateInput{
 		Name: name + "-" + key,
 	}
-	ctr.Image = api.DIFY_IMAGE_REGISTRY + api.DIFY_WEAVIATE_IAMGE
+	ctr.Image = m.GetRegistryImage(api.DIFY_WEAVIATE_IAMGE)
 
 	// set container environments
 	envs := &DifyContainerEnv{
@@ -382,7 +396,7 @@ func getWeaviateContainer(name, key string) *api.PodContainerCreateInput {
 		"AUTHORIZATION_ADMINLIST_ENABLED":         api.DIFY_WEAVIATE_AUTHORIZATION_ADMINLIST_ENABLED,
 		"AUTHORIZATION_ADMINLIST_USERS":           api.DIFY_WEAVIATE_AUTHORIZATION_ADMINLIST_USERS,
 	}
-	ctr.Envs = envs.GetContainerEnvs()
+	ctr.Envs = envs.GetContainerEnvs(m.UserCustomizedEnvs)
 
 	// set PVC to store data
 	ctr.VolumeMounts = []*apis.ContainerVolumeMount{
@@ -392,12 +406,12 @@ func getWeaviateContainer(name, key string) *api.PodContainerCreateInput {
 	return ctr
 }
 
-func getSandboxContainer(name, key string) *api.PodContainerCreateInput {
+func (m *DifyContainersManager) _getSandboxContainer(name, key string) *api.PodContainerCreateInput {
 	// set name and image
 	ctr := &api.PodContainerCreateInput{
 		Name: name + "-" + key,
 	}
-	ctr.Image = api.DIFY_IMAGE_REGISTRY + api.DIFY_SANDBOX_IMAGE
+	ctr.Image = m.GetRegistryImage(api.DIFY_SANDBOX_IMAGE)
 
 	// set container environments
 	envs := &DifyContainerEnv{
@@ -410,7 +424,7 @@ func getSandboxContainer(name, key string) *api.PodContainerCreateInput {
 		"SANDBOX_PORT":   api.DIFY_SANDBOX_PORT,
 		"PIP_MIRROR_URL": api.PIP_MIRROR_URL,
 	}
-	ctr.Envs = envs.GetContainerEnvs()
+	ctr.Envs = envs.GetContainerEnvs(m.UserCustomizedEnvs)
 
 	// set PVC to store data
 	ctr.VolumeMounts = []*apis.ContainerVolumeMount{

@@ -7,9 +7,14 @@ import (
 
 var sharedApiWorkerEnvKeyVal []*apis.ContainerKeyValue
 
-func getSharedApiWorkerEnv() []*apis.ContainerKeyValue {
+func getSharedApiWorkerEnv(custom *DifyContainerEnv) []*apis.ContainerKeyValue {
 	if sharedApiWorkerEnvKeyVal == nil {
 		sharedApiWorkerEnv := &DifyContainerEnv{
+			"CONSOLE_API_URL":                                  "",
+			"CONSOLE_WEB_URL":                                  "",
+			"SERVICE_API_URL":                                  "",
+			"APP_API_URL":                                      "",
+			"APP_WEB_URL":                                      "",
 			"LANG":                                             "en_US.UTF-8",
 			"LC_ALL":                                           "en_US.UTF-8",
 			"PYTHONIOENCODING":                                 "utf-8",
@@ -231,7 +236,7 @@ func getSharedApiWorkerEnv() []*apis.ContainerKeyValue {
 			"ENABLE_DATASETS_QUEUE_MONITOR":                    "false",
 			"ENABLE_CHECK_UPGRADABLE_PLUGIN_TASK":              "true",
 		}
-		sharedApiWorkerEnvKeyVal = sharedApiWorkerEnv.GetContainerEnvs()
+		sharedApiWorkerEnvKeyVal = sharedApiWorkerEnv.GetContainerEnvs(custom)
 	}
 	return sharedApiWorkerEnvKeyVal
 }
