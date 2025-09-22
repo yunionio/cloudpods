@@ -115,6 +115,8 @@ type ComputeOptions struct {
 	// sku sync
 	SyncSkusDay  int `default:"1" help:"Days auto sync skus data, default 1 day"`
 	SyncSkusHour int `default:"3" help:"What hour start sync skus, default 03:00"`
+	// 资源到期通知时间周期, 默认24小时通知一次
+	ExpiredReleaseNotifyHour int `help:"The notify of resource expired" default:"24"`
 
 	ConvertHypervisorDefaultTemplate string `help:"Kvm baremetal convert option"`
 	ConvertEsxiDefaultTemplate       string `help:"ESXI baremetal convert option"`
