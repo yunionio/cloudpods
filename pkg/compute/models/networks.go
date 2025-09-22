@@ -921,17 +921,39 @@ func (manager *SNetworkManager) fetchAllOnpremiseNetworks(serverType string, isP
 }
 
 func (manager *SNetworkManager) GetOnPremiseNetworkOfIP(ipAddr string, serverType string, isPublic tristate.TriState) (*SNetwork, error) {
-	address, err := netutils.NewIPV4Addr(ipAddr)
-	if err != nil {
-		return nil, errors.Wrap(err, "NewIPV4Addr")
+	var addr4 netutils.IPV4Addr
+	var addr6 netutils.IPV6Addr
+	var isIpv6Addr = false
+	var err error
+	if strings.Contains(ipAddr, ":") {
+		isIpv6Addr = true
 	}
+
+	if isIpv6Addr {
+		addr6, err = netutils.NewIPV6Addr(ipAddr)
+		if err != nil {
+			return nil, errors.Wrap(err, "NewIPV6Addr")
+		}
+	} else {
+		addr4, err = netutils.NewIPV4Addr(ipAddr)
+		if err != nil {
+			return nil, errors.Wrap(err, "NewIPV4Addr")
+		}
+	}
+
 	nets, err := manager.fetchAllOnpremiseNetworks(serverType, isPublic)
 	if err != nil {
 		return nil, errors.Wrap(err, "fetchAllOnpremiseNetworks")
 	}
 	for _, n := range nets {
-		if n.IsAddressInRange(address) {
-			return &n, nil
+		if isIpv6Addr {
+			if n.IsAddress6InRange(addr6) {
+				return &n, nil
+			}
+		} else {
+			if n.IsAddressInRange(addr4) {
+				return &n, nil
+			}
 		}
 	}
 	return nil, sql.ErrNoRows
