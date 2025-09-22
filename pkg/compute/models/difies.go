@@ -20,6 +20,8 @@ type SDifyManager struct {
 
 var DifyManager *SDifyManager
 
+var __difyContainersMngr__ *DifyContainersManager
+
 func init() {
 	DifyManager = &SDifyManager{
 		SVirtualResourceBaseManager: db.NewVirtualResourceBaseManager(
@@ -49,8 +51,25 @@ func (manager *SDifyManager) DeleteByGuestId(ctx context.Context, userCred mccli
 	return nil
 }
 
+func (manager *SDifyManager) InitDifyContainersManager(input *api.DifyCustomized) {
+	var userCustomizedEnvs *DifyContainerEnv
+	if input.CustomizedEnvs != nil {
+		userCustomizedEnvs = new(DifyContainerEnv)
+		for _, envs := range input.CustomizedEnvs {
+			userCustomizedEnvs.SetContainerEnv(envs.Key, envs.Value)
+		}
+	}
+	__difyContainersMngr__ = &DifyContainersManager{
+		UserCustomizedEnvs: userCustomizedEnvs,
+		ImageRegistry:      input.Registry,
+	}
+}
+
 func (manager *SDifyManager) GetDifyContainersManager() *DifyContainersManager {
-	return &DifyContainersManager{}
+	if __difyContainersMngr__ == nil {
+		__difyContainersMngr__ = &DifyContainersManager{}
+	}
+	return __difyContainersMngr__
 }
 
 func (manager *SDifyManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, _ jsonutils.JSONObject, input *api.DifyCreateInput) (*api.DifyCreateInput, error) {
@@ -58,6 +77,9 @@ func (manager *SDifyManager) ValidateCreateData(ctx context.Context, userCred mc
 	if len(input.Disks) == 0 {
 		return nil, httperrors.NewNotEmptyError("disk is required")
 	}
+
+	// init dify containers manager
+	manager.InitDifyContainersManager(&input.DifyCustomized)
 
 	// first deploy redis containers
 	redis, err := manager.GetDifyContainersManager().GetContainer(input.Name, api.DIFY_REDIS_KEY)
@@ -77,6 +99,7 @@ type SDify struct {
 	// GuestId is also the pod id
 	GuestId    string               `width:"36" charset:"ascii" list:"user" index:"true" create:"optional"`
 	Containers jsonutils.JSONObject `length:"long" list:"user" update:"user" create:"optional"`
+	Registry   string               `width:"64" charset:"ascii" list:"user"`
 }
 
 func (dify *SDify) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {

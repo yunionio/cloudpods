@@ -1,9 +1,58 @@
 package compute
 
 import (
+	"reflect"
+	"regexp"
+	"strings"
+
 	"yunion.io/x/jsonutils"
+	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
+
+type DifyCustomizedEnvOptions struct {
+	ConsoleApiUrl string `help:"The backend URL of the console API, used to concatenate the authorization callback."`
+	ConsoleWebUrl string `help:"The front-end URL of the console web,used to concatenate some front-end addresses and for CORS configuration use."`
+	ServiceApiUrl string `help:"Service API Url,used to display Service API Base Url to the front-end."`
+	AppApiUrl     string `help:"WebApp API backend Url,used to declare the back-end URL for the front-end API."`
+	AppWebUrl     string `help:"WebApp Url,used to display WebAPP API Base Url to the front-end."`
+}
+
+func (o *DifyCustomizedEnvOptions) getDifyCustomizedEnvs() []*computeapi.DifyCustomizedEnv {
+	var envs []*computeapi.DifyCustomizedEnv
+	val := reflect.ValueOf(o).Elem()
+
+	var snakeCaseConverter = regexp.MustCompile("([a-z0-9])([A-Z])")
+
+	for i := 0; i < val.NumField(); i++ {
+		valueField := val.Field(i)
+		typeField := val.Type().Field(i)
+
+		if valueField.Kind() == reflect.String {
+			fieldValue := valueField.String()
+			if fieldValue != "" {
+				envs = append(envs, &computeapi.DifyCustomizedEnv{
+					Key:   strings.ToUpper(snakeCaseConverter.ReplaceAllString(typeField.Name, "${1}_${2}")),
+					Value: fieldValue,
+				})
+			}
+		}
+	}
+
+	return envs
+}
+
+type DifyCustomized struct {
+	DifyCustomizedEnvOptions
+	REGISTRY string `help:"Registry of the image, need container such images(default in docker.io): postgres:15-alpine, redis:6-alpine, nginx:latest, langgenius/dify-api:1.7.2, langgenius/dify-plugin-daemon:0.2.0-local, langgenius/dify-web:1.7.2, langgenius/dify-sandbox:0.2.12, ubuntu/squid:latest, semitechnologies/weaviate:1.19.0"`
+}
+
+func (o *DifyCustomized) getDifyCustomized() *computeapi.DifyCustomized {
+	return &computeapi.DifyCustomized{
+		CustomizedEnvs: o.getDifyCustomizedEnvs(),
+		Registry:       o.REGISTRY,
+	}
+}
 
 type DifyCreateOptions struct {
 	// Below are PodCreateOptions without ContainerCreateCommonOptions and AutoStart
@@ -18,9 +67,12 @@ type DifyCreateOptions struct {
 	PodGid           int64  `help:"GID of pod" default:"0"`
 
 	// Below are dify custom options
+	DifyCustomized
 }
 
 func (o *DifyCreateOptions) Params() (jsonutils.JSONObject, error) {
+	input := &computeapi.DifyCreateInput{}
+
 	// use PodCreateOptions to param
 	podCreatOpt := &PodCreateOptions{
 		NAME:                     o.NAME,
@@ -34,10 +86,14 @@ func (o *DifyCreateOptions) Params() (jsonutils.JSONObject, error) {
 		PodGid:                   o.PodGid,
 		ServerCreateCommonConfig: o.ServerCreateCommonConfig,
 	}
-	input, err := podCreatOpt.Params()
+	serverInput, err := podCreatOpt.Params()
 	if err != nil {
 		return nil, err
 	}
+	input.ServerCreateInput = *serverInput
+
+	// get DifyCustomizedEnvOptions
+	input.DifyCustomized = *o.DifyCustomized.getDifyCustomized()
 
 	return jsonutils.Marshal(input), nil
 }

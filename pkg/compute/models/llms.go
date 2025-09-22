@@ -145,7 +145,7 @@ func (llm *SLLM) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCre
 
 	// init task, decide import model from cache or gguf-file
 	llm.Id = stringutils.UUID4()
-	task, err := createPullModelTask(ctx, userCred, llm, input.Gguf)
+	task, err := createPullModelTask(ctx, userCred, llm, &input.LLMPullModelInput)
 	if err != nil {
 		return errors.Wrap(err, "NewTask")
 	}
@@ -222,7 +222,7 @@ func (llm *SLLM) PerformChangeModel(ctx context.Context, userCred mcclient.Token
 	llm.UpdateModel(input.Model)
 
 	// pull new model
-	task, err := createPullModelTask(ctx, userCred, llm, input.Gguf)
+	task, err := createPullModelTask(ctx, userCred, llm, input)
 	if err != nil {
 		return nil, errors.Wrap(err, "NewTask")
 	}
@@ -487,10 +487,10 @@ func accessModelCache(ctx context.Context, llm *SLLM, task taskman.ITask) (jsonu
 // 	return ret, err
 // }
 
-func createPullModelTask(ctx context.Context, userCred mcclient.TokenCredential, llm *SLLM, spec *api.LLMGgufSpec) (task *taskman.STask, err error) {
-	if spec != nil {
-		llm.GgufFile = spec.GgufFile
-		task, err = taskman.TaskManager.NewTask(ctx, "LLMInstallGgufTask", llm, userCred, jsonutils.Marshal(spec).(*jsonutils.JSONDict), "", "", nil)
+func createPullModelTask(ctx context.Context, userCred mcclient.TokenCredential, llm *SLLM, input *api.LLMPullModelInput) (task *taskman.STask, err error) {
+	if input != nil {
+		llm.GgufFile = input.Gguf.GgufFile
+		task, err = taskman.TaskManager.NewTask(ctx, "LLMInstallGgufTask", llm, userCred, jsonutils.Marshal(input.Gguf).(*jsonutils.JSONDict), "", "", nil)
 	} else {
 		task, err = taskman.TaskManager.NewTask(ctx, "LLMPullModelTask", llm, userCred, jsonutils.NewDict(), "", "", nil)
 	}
