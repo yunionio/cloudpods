@@ -45,6 +45,8 @@ type ContainerRootfs struct {
 	Type apis.ContainerVolumeMountType `json:"type"`
 	Disk *ContainerVolumeMountDisk     `json:"disk"`
 	// CephFS *ContainerVolumeMountCephFS   `json:"ceph_fs"`
+	// 是否持久化
+	Persistent bool `default:"false" list:"user" create:"admin_optional" update:"admin"`
 }
 
 type ContainerVolumeMount struct {
