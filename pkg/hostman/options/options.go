@@ -171,6 +171,7 @@ type SHostOptions struct {
 
 	MaxReservedMemory int `default:"10240" help:"host reserved memory"`
 
+	BackupTaskWorkerCount     int `default:"2" help:"backup task worker count"`
 	DefaultRequestWorkerCount int `default:"8" help:"default request worker count"`
 	ImageCacheWorkerCount     int `default:"8" help:"default request worker count"`
 	ContainerStartWorkerCount int `default:"1" help:"container start worker count"`
