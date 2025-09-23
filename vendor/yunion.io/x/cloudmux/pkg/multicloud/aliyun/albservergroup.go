@@ -42,6 +42,7 @@ type SAlbServerGroup struct {
 	SlowStartConfig        map[string]interface{} `json:"SlowStartConfig"`
 	ConnectionDrainConfig  map[string]interface{} `json:"ConnectionDrainConfig"`
 	RelatedLoadBalancerIds []string               `json:"RelatedLoadBalancerIds"`
+	Servers                []AlbServer            `json:"Servers"`
 	CreateTime             string                 `json:"CreateTime"`
 	RegionId               string                 `json:"RegionId"`
 	ResourceGroupId        string                 `json:"ResourceGroupId"`
@@ -116,16 +117,20 @@ func (group *SAlbServerGroup) IsEmulated() bool {
 	return false
 }
 
+func (group *SAlbServerGroup) Refresh() error {
+	serverGroup, err := group.alb.region.GetAlbServerGroup(group.ServerGroupId)
+	if err != nil {
+		return err
+	}
+	return jsonutils.Update(group, serverGroup)
+}
+
 func (group *SAlbServerGroup) GetILoadbalancerBackends() ([]cloudprovider.ICloudLoadbalancerBackend, error) {
 	backends := []cloudprovider.ICloudLoadbalancerBackend{}
-	servers, err := group.alb.region.ListServerGroupServers(group.ServerGroupId)
-	if err != nil {
-		return nil, err
-	}
-	for i := 0; i < len(servers); i++ {
+	for i := 0; i < len(group.Servers); i++ {
 		server := &SAlbServerGroupServer{
 			albServerGroup: group,
-			AlbServer:      servers[i],
+			AlbServer:      group.Servers[i],
 		}
 		backends = append(backends, server)
 	}
@@ -177,70 +182,61 @@ func (group *SAlbServerGroup) GetProjectId() string {
 	return group.ResourceGroupId
 }
 
-func (region *SRegion) ListServerGroups() ([]SAlbServerGroup, error) {
+// region methods
+func (region *SRegion) GetAlbServerGroups() ([]SAlbServerGroup, error) {
 	params := map[string]string{
 		"RegionId":   region.RegionId,
 		"MaxResults": "100",
 	}
 
 	groups := []SAlbServerGroup{}
+	nextToken := ""
 
 	for {
+		if nextToken != "" {
+			params["NextToken"] = nextToken
+		}
+
 		body, err := region.albRequest("ListServerGroups", params)
 		if err != nil {
 			return nil, err
 		}
 
-		part := struct {
-			TotalCount   int               `json:"TotalCount"`
-			NextToken    string            `json:"NextToken"`
-			ServerGroups []SAlbServerGroup `json:"ServerGroups"`
-		}{}
-		err = body.Unmarshal(&part)
+		pageGroups := []SAlbServerGroup{}
+		err = body.Unmarshal(&pageGroups, "ServerGroups")
 		if err != nil {
 			return nil, err
 		}
 
-		groups = append(groups, part.ServerGroups...)
-		if len(part.ServerGroups) == 0 || len(part.NextToken) == 0 {
+		groups = append(groups, pageGroups...)
+
+		nextToken, _ = body.GetString("NextToken")
+		if nextToken == "" {
 			break
 		}
-		params["NextToken"] = part.NextToken
 	}
 
 	return groups, nil
 }
 
-func (region *SRegion) ListServerGroupServers(serverGroupId string) ([]AlbServer, error) {
+func (region *SRegion) GetAlbServerGroup(serverGroupId string) (*SAlbServerGroup, error) {
 	params := map[string]string{
 		"RegionId":      region.RegionId,
 		"ServerGroupId": serverGroupId,
 	}
 
-	ret := []AlbServer{}
-	nextToken := ""
-	for {
-		body, err := region.albRequest("ListServerGroupServers", params)
-		if err != nil {
-			return nil, err
-		}
-		part := struct {
-			TotalCount int         `json:"TotalCount"`
-			NextToken  string      `json:"NextToken"`
-			Servers    []AlbServer `json:"Servers"`
-		}{}
-		err = body.Unmarshal(&part)
-		if err != nil {
-			return nil, err
-		}
-		ret = append(ret, part.Servers...)
-		if len(part.Servers) == 0 || len(part.NextToken) == 0 {
-			break
-		}
-		params["NextToken"] = nextToken
+	body, err := region.albRequest("ListServerGroupServers", params)
+	if err != nil {
+		return nil, err
 	}
 
-	return ret, nil
+	group := &SAlbServerGroup{}
+	err = body.Unmarshal(group)
+	if err != nil {
+		return nil, err
+	}
+
+	return group, nil
 }
 
 func (region *SRegion) CreateAlbServerGroup(group *cloudprovider.SLoadbalancerBackendGroup, vpcId string) (*SAlbServerGroup, error) {
@@ -263,17 +259,7 @@ func (region *SRegion) CreateAlbServerGroup(group *cloudprovider.SLoadbalancerBa
 		return nil, err
 	}
 
-	groups, err := region.ListServerGroups()
-	if err != nil {
-		return nil, err
-	}
-	for i := 0; i < len(groups); i++ {
-		if groups[i].ServerGroupId == serverGroupId {
-			return &groups[i], nil
-		}
-	}
-
-	return nil, cloudprovider.ErrNotFound
+	return region.GetAlbServerGroup(serverGroupId)
 }
 
 func (region *SRegion) DeleteAlbServerGroup(serverGroupId string) error {

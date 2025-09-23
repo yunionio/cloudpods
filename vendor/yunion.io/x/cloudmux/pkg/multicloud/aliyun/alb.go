@@ -164,7 +164,7 @@ func (alb *SAlb) Delete(ctx context.Context) error {
 }
 
 func (alb *SAlb) GetILoadBalancerBackendGroups() ([]cloudprovider.ICloudLoadbalancerBackendGroup, error) {
-	groups, err := alb.region.ListServerGroups()
+	groups, err := alb.region.GetAlbServerGroups()
 	if err != nil {
 		return nil, err
 	}
