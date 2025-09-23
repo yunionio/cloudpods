@@ -174,13 +174,19 @@ func (d *SFsutilDriver) ResizeDiskPartition(diskPath string, sizeMb int) (string
 	if len(parts) > 0 && (label == "gpt" ||
 		(label == "msdos" && parts[len(parts)-1][5] == "primary")) {
 		var part = parts[len(parts)-1]
-		if part[5] == "lvm" || IsSupportResizeFs(part[6]) {
+		fsType := part[6]
+		if len(fsType) == 0 {
+			partDev := fmt.Sprintf("%s%s", diskPath, part[0])
+			fsType = d.GetFsFormat(partDev)
+			log.Infof("blkid get fstype %s", fsType)
+		}
+		if part[5] == "lvm" || IsSupportResizeFs(fsType) {
 			// growpart script replace parted resizepart
 			output, err := d.Exec("growpart", diskPath, part[0])
 			if err != nil {
 				return "", "", errors.Wrapf(err, "growpart failed %s", output)
 			}
-			return part[7], part[6], nil
+			return part[7], fsType, nil
 		}
 	}
 	return "", "", nil
@@ -263,7 +269,7 @@ func IsSupportResizeFs(fs string) bool {
 		return true
 	} else if strings.HasPrefix(fs, "ext") {
 		return true
-	} else if fs == "xfs" {
+	} else if fs == "xfs" || fs == "f2fs" {
 		return true
 	}
 	return false
@@ -330,7 +336,7 @@ func (d *SFsutilDriver) ResizePartitionFs(fpath, fs string, raiseError, onlineRe
 		// cmds = [][]string{{"ntfsresize", "-c", fpath}, {"ntfsresize", "-P", "-f", fpath}}
 	} else if fs == "f2fs" {
 		if !onlineResize {
-			cmds = [][]string{{"resize.f2fs"}}
+			cmds = [][]string{{"resize.f2fs", fpath}}
 		}
 	}
 
