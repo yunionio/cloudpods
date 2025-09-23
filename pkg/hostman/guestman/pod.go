@@ -1296,6 +1296,9 @@ func (s *sPodGuestInstance) StartContainer(ctx context.Context, userCred mcclien
 			}
 		}
 	}
+	if err := s.clearContainerRootFs(ctrId, input.Spec.Rootfs); err != nil {
+		return nil, errors.Wrapf(err, "clear container rootfs %s before starting", jsonutils.Marshal(input.Spec.Rootfs))
+	}
 	if !hasCtr || needRecreate {
 		log.Infof("recreate container %s before starting. hasCtr: %v, needRecreate: %v", ctrId, hasCtr, needRecreate)
 		// delete and recreate the container before starting
@@ -1496,11 +1499,6 @@ func (s *sPodGuestInstance) StopContainer(ctx context.Context, userCred mcclient
 		// FIXME: Sleep 2s 等待 pleg.PodLifecycleEventGenerator 刷新
 		// 后期可以添加主动通知刷新
 		time.Sleep(2 * time.Second)
-	}
-	if ctr := s.GetContainerById(ctrId); ctr != nil {
-		if err := s.clearContainerRootFs(ctrId, ctr.Spec.Rootfs); err != nil {
-			return nil, errors.Wrapf(err, "clear container rootfs %s", jsonutils.Marshal(ctr.Spec.Rootfs))
-		}
 	}
 	if err := s.startStat.RemoveContainerFile(ctrId); err != nil {
 		return nil, errors.Wrap(err, "startStat.RemoveContainerFile")
