@@ -953,6 +953,15 @@ func (o *ServerSendKeyOptions) Description() string {
 	return "Send keys to server"
 }
 
+type ServerKickstartCompleteOptions struct {
+	ServerIdOptions
+	Restart bool `help:"Restart the server after marking kickstart as completed" default:"true" json:"restart"`
+}
+
+func (o *ServerKickstartCompleteOptions) Params() (jsonutils.JSONObject, error) {
+	return options.StructToParams(o)
+}
+
 type ServerMonitorOptions struct {
 	ServerIdOptions
 

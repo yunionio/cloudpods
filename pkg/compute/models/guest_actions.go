@@ -7043,6 +7043,53 @@ func (self *SGuest) PerformSetKickstart(ctx context.Context, userCred mcclient.T
 	}), nil
 }
 
+func (self *SGuest) PerformKickstartComplete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	// Check if kickstart_completed_flag is already set to true
+	currentFlag := self.GetMetadata(ctx, api.VM_METADATA_KICKSTART_COMPLETED_FLAG, userCred)
+	if currentFlag == "true" {
+		return jsonutils.Marshal(map[string]string{
+			"status":  "success",
+			"message": "kickstart is already marked as completed",
+		}), nil
+	}
+
+	// Set the kickstart_completed_flag metadata to true
+	if err := self.SetMetadata(ctx, api.VM_METADATA_KICKSTART_COMPLETED_FLAG, "true", userCred); err != nil {
+		return nil, errors.Wrap(err, "set kickstart completed flag")
+	}
+
+	// Update status to VM_KICKSTART_COMPLETED if in kickstart status
+	if self.IsInKickstartStatus() && self.Status != api.VM_KICKSTART_COMPLETED {
+		if err := self.SetStatus(ctx, userCred, api.VM_KICKSTART_COMPLETED, "kickstart manually marked as completed"); err != nil {
+			return nil, errors.Wrap(err, "update kickstart status")
+		}
+	}
+
+	// Check if restart is requested (default is true)
+	restart := jsonutils.QueryBoolean(input, "restart", true)
+	if restart {
+		// Trigger VM restart to complete the kickstart process
+		if utils.IsInStringArray(self.Status, []string{api.VM_RUNNING, api.VM_KICKSTART_INSTALLING, api.VM_KICKSTART_COMPLETED, api.VM_KICKSTART_FAILED}) {
+			driver, err := self.GetDriver()
+			if err != nil {
+				return nil, errors.Wrap(err, "get driver")
+			}
+			driver.StartGuestRestartTask(self, ctx, userCred, false, "")
+			return jsonutils.Marshal(map[string]string{
+				"status":  "success",
+				"message": "kickstart marked as completed, restarting VM",
+			}), nil
+		}
+	}
+
+	db.OpsLog.LogEvent(self, db.ACT_UPDATE, "kickstart manually marked as completed", userCred)
+
+	return jsonutils.Marshal(map[string]string{
+		"status":  "success",
+		"message": "kickstart marked as completed",
+	}), nil
+}
+
 func (self *SGuest) PerformDeleteKickstart(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if self.Status == api.VM_KICKSTART_INSTALLING {
 		return nil, httperrors.NewInvalidStatusError("cannot delete kickstart config while installation is in progress")
