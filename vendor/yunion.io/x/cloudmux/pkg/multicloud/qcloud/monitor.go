@@ -16,6 +16,7 @@ package qcloud
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -84,11 +85,14 @@ func (self *SQcloudClient) metricsRequest(action string, params map[string]strin
 	return monitorRequest(cli, action, params, self.cpcfg.UpdatePermission, self.debug)
 }
 
-func (self *SQcloudClient) GetMonitorData(ns string, name string, since time.Time, until time.Time, regionId string, dimensionName string, resIds []string) ([]SDataPoint, error) {
+func (self *SQcloudClient) GetMonitorData(ns string, name string, period int, since time.Time, until time.Time, regionId string, dimensionName string, resIds []string) ([]SDataPoint, error) {
 	params := make(map[string]string)
 	params["Region"] = regionId
 	params["MetricName"] = name
 	params["Namespace"] = ns
+	if period > 0 {
+		params["Period"] = strconv.Itoa(period)
+	}
 	params["StartTime"] = since.Format(timeutils.IsoTimeFormat)
 	params["EndTime"] = until.Format(timeutils.IsoTimeFormat)
 	for idx, resId := range resIds {
@@ -164,7 +168,7 @@ func (self *SQcloudClient) GetEcsMetrics(opts *cloudprovider.MetricListOptions) 
 		},
 	} {
 		for metricName, tag := range metricNames {
-			metrics, err := self.GetMonitorData("QCE/CVM", metricName, opts.StartTime, opts.EndTime, opts.RegionExtId, "InstanceId", opts.ResourceIds)
+			metrics, err := self.GetMonitorData("QCE/CVM", metricName, 0, opts.StartTime, opts.EndTime, opts.RegionExtId, "InstanceId", opts.ResourceIds)
 			if err != nil {
 				log.Errorf("GetMonitorData error: %v", err)
 				continue
@@ -232,7 +236,7 @@ func (self *SQcloudClient) GetRedisMetrics(opts *cloudprovider.MetricListOptions
 		},
 	} {
 		for metricName, tag := range metricNames {
-			metrics, err := self.GetMonitorData("QCE/REDIS_MEM", metricName, opts.StartTime, opts.EndTime, opts.RegionExtId, "instanceid", opts.ResourceIds)
+			metrics, err := self.GetMonitorData("QCE/REDIS_MEM", metricName, 0, opts.StartTime, opts.EndTime, opts.RegionExtId, "instanceid", opts.ResourceIds)
 			if err != nil {
 				log.Errorf("GetMonitorData error: %v", err)
 				continue
@@ -265,7 +269,60 @@ func (self *SQcloudClient) GetRedisMetrics(opts *cloudprovider.MetricListOptions
 	return ret, nil
 }
 
-func (self *SQcloudClient) GetRdsMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
+func (self *SQcloudClient) GetSQLServerMetrics(opts *cloudprovider.MetricListOptions, resourceIds []string) ([]cloudprovider.MetricValues, error) {
+	ret := []cloudprovider.MetricValues{}
+	for metricType, metricNames := range map[cloudprovider.TMetricType]map[string]string{
+		cloudprovider.RDS_METRIC_TYPE_CPU_USAGE: {
+			"Cpu": "",
+		},
+		cloudprovider.RDS_METRIC_TYPE_MEM_USAGE: {
+			"UsageMemory": "",
+		},
+		cloudprovider.RDS_METRIC_TYPE_DISK_USAGE: {
+			"FreeStorage": "",
+		},
+		cloudprovider.RDS_METRIC_TYPE_CONN_COUNT: {
+			"Connections": "",
+		},
+	} {
+		for metricName, tag := range metricNames {
+			metrics, err := self.GetMonitorData("QCE/SQLSERVER", metricName, 60, opts.StartTime, opts.EndTime, opts.RegionExtId, "resourceId", resourceIds)
+			if err != nil {
+				log.Errorf("GetMonitorData error: %v", err)
+				continue
+			}
+			for i := range metrics {
+				metric := cloudprovider.MetricValues{}
+				if len(metrics[i].Dimensions) < 1 || metrics[i].Dimensions[0].Name != "resourceId" {
+					continue
+				}
+				metric.Id = metrics[i].Dimensions[0].Value
+				metric.MetricType = metricType
+				metricValue := cloudprovider.MetricValue{}
+				metricValue.Tags = map[string]string{}
+				idx := strings.Index(tag, ":")
+				if idx > 0 {
+					metricValue.Tags[tag[:idx]] = tag[idx+1:]
+				}
+				if len(metrics[i].Timestamps) == 0 {
+					continue
+				}
+				for j := range metrics[i].Timestamps {
+					metricValue.Value = metrics[i].Values[j]
+					if metricType == cloudprovider.RDS_METRIC_TYPE_DISK_USAGE {
+						metricValue.Value = 100 - metricValue.Value
+					}
+					metricValue.Timestamp = time.Unix(int64(metrics[i].Timestamps[j]), 0)
+					metric.Values = append(metric.Values, metricValue)
+				}
+				ret = append(ret, metric)
+			}
+		}
+	}
+	return ret, nil
+}
+
+func (self *SQcloudClient) GetMySQLMetrics(opts *cloudprovider.MetricListOptions, resourceIds []string) ([]cloudprovider.MetricValues, error) {
 	ret := []cloudprovider.MetricValues{}
 	for metricType, metricNames := range map[cloudprovider.TMetricType]map[string]string{
 		cloudprovider.RDS_METRIC_TYPE_CPU_USAGE: {
@@ -303,7 +360,7 @@ func (self *SQcloudClient) GetRdsMetrics(opts *cloudprovider.MetricListOptions) 
 		},
 	} {
 		for metricName, tag := range metricNames {
-			metrics, err := self.GetMonitorData("QCE/CDB", metricName, opts.StartTime, opts.EndTime, opts.RegionExtId, "InstanceId", opts.ResourceIds)
+			metrics, err := self.GetMonitorData("QCE/CDB", metricName, 60, opts.StartTime, opts.EndTime, opts.RegionExtId, "InstanceId", resourceIds)
 			if err != nil {
 				log.Errorf("GetMonitorData error: %v", err)
 				continue
@@ -332,6 +389,33 @@ func (self *SQcloudClient) GetRdsMetrics(opts *cloudprovider.MetricListOptions) 
 				ret = append(ret, metric)
 			}
 		}
+	}
+	return ret, nil
+}
+
+func (self *SQcloudClient) GetRdsMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
+	cdbs, mssqls := []string{}, []string{}
+	for _, resourceId := range opts.ResourceIds {
+		if strings.HasPrefix(resourceId, "cdb") {
+			cdbs = append(cdbs, resourceId)
+		} else if strings.HasPrefix(resourceId, "mssql") {
+			mssqls = append(mssqls, resourceId)
+		}
+	}
+	ret := []cloudprovider.MetricValues{}
+	if len(cdbs) > 0 {
+		part, err := self.GetMySQLMetrics(opts, cdbs)
+		if err != nil {
+			return nil, err
+		}
+		ret = append(ret, part...)
+	}
+	if len(mssqls) > 0 {
+		part, err := self.GetSQLServerMetrics(opts, mssqls)
+		if err != nil {
+			return nil, err
+		}
+		ret = append(ret, part...)
 	}
 	return ret, nil
 }
