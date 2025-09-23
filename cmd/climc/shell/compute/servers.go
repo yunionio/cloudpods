@@ -134,6 +134,7 @@ func init() {
 	cmd.BatchPerform("set-tpm", &options.ServerSetTpmOptions{})
 	cmd.Perform("set-kickstart", &options.ServerKickstartConfigOptions{})
 	cmd.Perform("delete-kickstart", &options.ServerIdOptions{})
+	cmd.Perform("kickstart-complete", &options.ServerKickstartCompleteOptions{})
 	cmd.Get("kickstart", new(options.ServerIdOptions))
 	cmd.Get("vnc", new(options.ServerVncOptions))
 	cmd.Get("desc", new(options.ServerIdOptions))
