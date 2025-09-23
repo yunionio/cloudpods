@@ -2667,6 +2667,10 @@ func (manager *SNetworkManager) ListItemFilter(
 				ipConst := sqlchemy.INET_ATON(q.StringField(ip4Addr.String()))
 
 				ipCondtion = sqlchemy.AND(
+					sqlchemy.IsNotNull(q.Field("guest_ip_start")),
+					sqlchemy.IsNotNull(q.Field("guest_ip_end")),
+					sqlchemy.IsNotEmpty(q.Field("guest_ip_start")),
+					sqlchemy.IsNotEmpty(q.Field("guest_ip_end")),
 					sqlchemy.GE(ipEnd, ipConst),
 					sqlchemy.LE(ipStart, ipConst),
 				)
@@ -2685,6 +2689,10 @@ func (manager *SNetworkManager) ListItemFilter(
 				ipConst := sqlchemy.INET6_ATON(q.StringField(ip6Addr.String()))
 
 				ipCondtion = sqlchemy.AND(
+					sqlchemy.IsNotNull(q.Field("guest_ip6_start")),
+					sqlchemy.IsNotNull(q.Field("guest_ip6_end")),
+					sqlchemy.IsNotEmpty(q.Field("guest_ip6_start")),
+					sqlchemy.IsNotEmpty(q.Field("guest_ip6_end")),
 					sqlchemy.GE(ipEnd, ipConst),
 					sqlchemy.LE(ipStart, ipConst),
 				)
