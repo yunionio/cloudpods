@@ -30,7 +30,6 @@ import (
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/identity"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/logger"
-	"yunion.io/x/onecloud/pkg/mcclient/modules/monitor"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/webconsole"
 )
 
@@ -563,63 +562,6 @@ func (self *SRegion) CreateInstance(hostId, hypervisor string, opts *cloudprovid
 	})
 	ins := &SInstance{}
 	return ins, self.create(&modules.Servers, input, ins)
-}
-
-type SMetricData struct {
-	Id    string    `json:"id"`
-	Time  time.Time `json:"time"`
-	Value float64   `json:"value"`
-}
-
-func (cli *SCloudpodsClient) GetMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
-	brandArr := []string{"OneCloud"}
-	metrics := []SMetricData{}
-	usefulResourceType := []cloudprovider.TResourceType{cloudprovider.METRIC_RESOURCE_TYPE_HOST, cloudprovider.METRIC_RESOURCE_TYPE_SERVER}
-	isUse, _ := utils.InArray(opts.ResourceType, usefulResourceType)
-	if !isUse {
-		return nil, nil
-	}
-	for i := 0; i < len(brandArr); i++ {
-		params := map[string]interface{}{
-			"metric_name": opts.MetricType,
-			"start_time":  opts.StartTime,
-			"end_time":    opts.EndTime,
-			"interval":    "1m",
-			"tag_pairs": map[string]interface{}{
-				"brand": brandArr[i],
-			},
-		}
-		onecloudObj, err := monitor.UnifiedMonitorManager.Get(cli.s, "simple-query", jsonutils.Marshal(params))
-		if err != nil {
-			return nil, err
-		}
-		tmp := []SMetricData{}
-		onecloudObj.Unmarshal(&tmp, "values")
-		metrics = append(metrics, tmp...)
-	}
-
-	idWithMetric := map[string][]cloudprovider.MetricValue{}
-	for _, v := range metrics {
-		if _, isExist := idWithMetric[v.Id]; !isExist {
-			idWithMetric[v.Id] = []cloudprovider.MetricValue{{
-				Timestamp: v.Time,
-				Value:     v.Value}}
-		} else {
-			idWithMetric[v.Id] = append(idWithMetric[v.Id], cloudprovider.MetricValue{
-				Timestamp: v.Time,
-				Value:     v.Value})
-		}
-	}
-
-	res := []cloudprovider.MetricValues{}
-	for _, metric := range metrics {
-		res = append(res, cloudprovider.MetricValues{
-			Id:         metric.Id,
-			MetricType: opts.MetricType,
-			Values:     idWithMetric[metric.Id],
-		})
-	}
-	return res, nil
 }
 
 func (self *SInstance) CreateDisk(ctx context.Context, opts *cloudprovider.GuestDiskCreateOptions) (string, error) {

@@ -231,7 +231,16 @@ func (rds *SDBInstanceCluster) GetIDBInstanceAccounts() ([]cloudprovider.ICloudD
 }
 
 func (rds *SDBInstanceCluster) GetIDBInstanceBackups() ([]cloudprovider.ICloudDBInstanceBackup, error) {
-	return nil, cloudprovider.ErrNotSupported
+	ret := []cloudprovider.ICloudDBInstanceBackup{}
+	backups, err := rds.region.DescribeDBClusterSnapshots(rds.DBClusterIdentifier, "")
+	if err != nil {
+		return nil, err
+	}
+	for i := range backups {
+		backups[i].region = rds.region
+		ret = append(ret, &backups[i])
+	}
+	return ret, nil
 }
 
 func (rds *SDBInstanceCluster) ChangeConfig(ctx context.Context, config *cloudprovider.SManagedDBInstanceChangeConfig) error {
