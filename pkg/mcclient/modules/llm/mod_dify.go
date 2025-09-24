@@ -1,4 +1,4 @@
-package compute
+package llm
 
 import (
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
@@ -11,11 +11,11 @@ var (
 
 func init() {
 	Difies = DifyManager{
-		modules.NewComputeManager("dify", "difies",
+		modules.NewLLMManager("dify", "difies",
 			[]string{"ID", "Name", "Guest_ID", "Containers", "Status"},
 			[]string{}),
 	}
-	modules.RegisterCompute(&Difies)
+	modules.Register(&Difies)
 }
 
 type DifyManager struct {

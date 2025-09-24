@@ -1,12 +1,13 @@
-package compute
+package llm
 
 import (
 	"strconv"
 	"strings"
 
 	"yunion.io/x/jsonutils"
-	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
+	llmapi "yunion.io/x/onecloud/pkg/apis/llm"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
+	"yunion.io/x/onecloud/pkg/mcclient/options/compute"
 	"yunion.io/x/pkg/errors"
 )
 
@@ -15,13 +16,13 @@ type LLMModelOptions struct {
 	LLMGgufOptions
 }
 
-func (o *LLMModelOptions) parseModel() (*computeapi.LLMPullModelInput, error) {
+func (o *LLMModelOptions) parseModel() (*llmapi.LLMPullModelInput, error) {
 	ggufSpec, err := o.getGgufSpec()
 	if err != nil {
 		return nil, err
 	}
 
-	return &computeapi.LLMPullModelInput{
+	return &llmapi.LLMPullModelInput{
 		Model: o.MODEL,
 		Gguf:  ggufSpec,
 	}, nil
@@ -43,7 +44,7 @@ func (o *LLMChangeModelOptions) Params() (jsonutils.JSONObject, error) {
 }
 
 type LLMCreateOptions struct {
-	PodCreateOptions
+	compute.PodCreateOptions
 	LLMModelOptions
 }
 
@@ -120,7 +121,7 @@ type LLMGgufOptions struct {
 	Gguf string `help:"Import llm from gguf file.\nFormat: file=<path_or_url>,source=<host_or_web>,parameter=[key1=value1|key2=value2...],template=<string>,system=<string>,license=<string>,message=[role1=content1|role2=content2...]\nSource is default to be host\nSupported parameters: num_ctx, repeat_last_n, repeat_penalty, temperature, seed, stop, num_predict, top_k, top_p, min_p\nTemplate: Model prompt template, used to define conversation format\nSystem: System-level prompt, used to set model behavior or role\nLicense: Model license information\nMessage: Predefined conversation messages, format: role=content, supported roles: user, assistant, system, multiple entries separated by |\nFor example:\n\t--gguf \"file=https://tmp.tmp.tmp/qwen3-0.6b.gguf,source=web,parameter=[temperature=0.6|stop=AI assistant:|num_ctx=2048|top_k=100],template={{.System}}\\n{{.Prompt}},system=You are a helpful assistant.,license=MIT,message=[system=Hello|user=Hi there]\"\n\t--gguf file=/root/Downloads/qwen3-0.6b.gguf"`
 }
 
-func (op *LLMGgufOptions) getGgufSpec() (*computeapi.LLMGgufSpec, error) {
+func (op *LLMGgufOptions) getGgufSpec() (*llmapi.LLMGgufSpec, error) {
 	if op.Gguf == "" {
 		return nil, nil
 	}
@@ -130,7 +131,7 @@ func (op *LLMGgufOptions) getGgufSpec() (*computeapi.LLMGgufSpec, error) {
 	var template *string
 	var system *string
 	var license *string
-	var messages []*computeapi.LLMModelFileMessage
+	var messages []*llmapi.LLMModelFileMessage
 	params := make(map[string]string)
 
 	parts := strings.Split(op.Gguf, ",")
@@ -176,10 +177,10 @@ func (op *LLMGgufOptions) getGgufSpec() (*computeapi.LLMGgufSpec, error) {
 		return nil, err
 	}
 
-	return &computeapi.LLMGgufSpec{
+	return &llmapi.LLMGgufSpec{
 		GgufFile: filePath,
 		Source:   source,
-		ModelFile: &computeapi.LLMModelFileSpec{
+		ModelFile: &llmapi.LLMModelFileSpec{
 			Parameter: paramStruct,
 			Template:  template,
 			System:    system,
@@ -189,43 +190,43 @@ func (op *LLMGgufOptions) getGgufSpec() (*computeapi.LLMGgufSpec, error) {
 	}, nil
 }
 
-func buildLLMParameter(params map[string]string) (*computeapi.LLMModelFileParameter, error) {
+func buildLLMParameter(params map[string]string) (*llmapi.LLMModelFileParameter, error) {
 	if len(params) == 0 {
 		return nil, nil
 	}
-	p := &computeapi.LLMModelFileParameter{}
+	p := &llmapi.LLMModelFileParameter{}
 
 	for key, valStr := range params {
 		switch key {
-		case computeapi.LLM_OLLAMA_MODELFILE_PARAMETER_NUM_CTX, computeapi.LLM_OLLAMA_MODELFILE_PARAMETER_REPEAT_LAST_N, computeapi.LLM_OLLAMA_MODELFILE_PARAMETER_SEED, computeapi.LLM_OLLAMA_MODELFILE_PARAMETER_NUM_PREDICT, computeapi.LLM_OLLAMA_MODELFILE_PARAMETER_TOP_K:
+		case llmapi.LLM_OLLAMA_MODELFILE_PARAMETER_NUM_CTX, llmapi.LLM_OLLAMA_MODELFILE_PARAMETER_REPEAT_LAST_N, llmapi.LLM_OLLAMA_MODELFILE_PARAMETER_SEED, llmapi.LLM_OLLAMA_MODELFILE_PARAMETER_NUM_PREDICT, llmapi.LLM_OLLAMA_MODELFILE_PARAMETER_TOP_K:
 			if val, err := strconv.Atoi(valStr); err == nil {
 				switch key {
-				case computeapi.LLM_OLLAMA_MODELFILE_PARAMETER_NUM_CTX:
+				case llmapi.LLM_OLLAMA_MODELFILE_PARAMETER_NUM_CTX:
 					p.NumCtx = &val
-				case computeapi.LLM_OLLAMA_MODELFILE_PARAMETER_REPEAT_LAST_N:
+				case llmapi.LLM_OLLAMA_MODELFILE_PARAMETER_REPEAT_LAST_N:
 					p.RepeatLastN = &val
-				case computeapi.LLM_OLLAMA_MODELFILE_PARAMETER_SEED:
+				case llmapi.LLM_OLLAMA_MODELFILE_PARAMETER_SEED:
 					p.Seed = &val
-				case computeapi.LLM_OLLAMA_MODELFILE_PARAMETER_NUM_PREDICT:
+				case llmapi.LLM_OLLAMA_MODELFILE_PARAMETER_NUM_PREDICT:
 					p.NumPredict = &val
-				case computeapi.LLM_OLLAMA_MODELFILE_PARAMETER_TOP_K:
+				case llmapi.LLM_OLLAMA_MODELFILE_PARAMETER_TOP_K:
 					p.TopK = &val
 				}
 			}
-		case computeapi.LLM_OLLAMA_MODELFILE_PARAMETER_REPEAT_PENALTY, computeapi.LLM_OLLAMA_MODELFILE_PARAMETER_TEMPERATURE, computeapi.LLM_OLLAMA_MODELFILE_PARAMETER_TOP_P, computeapi.LLM_OLLAMA_MODELFILE_PARAMETER_MIN_P:
+		case llmapi.LLM_OLLAMA_MODELFILE_PARAMETER_REPEAT_PENALTY, llmapi.LLM_OLLAMA_MODELFILE_PARAMETER_TEMPERATURE, llmapi.LLM_OLLAMA_MODELFILE_PARAMETER_TOP_P, llmapi.LLM_OLLAMA_MODELFILE_PARAMETER_MIN_P:
 			if val, err := strconv.ParseFloat(valStr, 64); err == nil {
 				switch key {
-				case computeapi.LLM_OLLAMA_MODELFILE_PARAMETER_REPEAT_PENALTY:
+				case llmapi.LLM_OLLAMA_MODELFILE_PARAMETER_REPEAT_PENALTY:
 					p.RepeatPenalty = &val
-				case computeapi.LLM_OLLAMA_MODELFILE_PARAMETER_TEMPERATURE:
+				case llmapi.LLM_OLLAMA_MODELFILE_PARAMETER_TEMPERATURE:
 					p.Temperature = &val
-				case computeapi.LLM_OLLAMA_MODELFILE_PARAMETER_TOP_P:
+				case llmapi.LLM_OLLAMA_MODELFILE_PARAMETER_TOP_P:
 					p.TopP = &val
-				case computeapi.LLM_OLLAMA_MODELFILE_PARAMETER_MIN_P:
+				case llmapi.LLM_OLLAMA_MODELFILE_PARAMETER_MIN_P:
 					p.MinP = &val
 				}
 			}
-		case computeapi.LLM_OLLAMA_MODELFILE_PARAMETER_STOP:
+		case llmapi.LLM_OLLAMA_MODELFILE_PARAMETER_STOP:
 			p.Stop = &valStr
 		default:
 			return nil, errors.Errorf("unsupported parameter key: %s", key)
@@ -235,12 +236,12 @@ func buildLLMParameter(params map[string]string) (*computeapi.LLMModelFileParame
 	return p, nil
 }
 
-func parseMessages(msgStr string) []*computeapi.LLMModelFileMessage {
+func parseMessages(msgStr string) []*llmapi.LLMModelFileMessage {
 	if msgStr == "" {
 		return nil
 	}
 
-	var messages []*computeapi.LLMModelFileMessage
+	var messages []*llmapi.LLMModelFileMessage
 	pairs := strings.Split(msgStr, "|")
 
 	for _, pair := range pairs {
@@ -251,10 +252,10 @@ func parseMessages(msgStr string) []*computeapi.LLMModelFileMessage {
 		key, val := kv[0], kv[1]
 
 		switch key {
-		case computeapi.LLM_OLLAMA_GGUF_MESSAGE_ROLE_USER,
-			computeapi.LLM_OLLAMA_GGUF_MESSAGE_ROLE_ASSISTANT,
-			computeapi.LLM_OLLAMA_GGUF_MESSAGE_ROLE_SYSTEM:
-			messages = append(messages, &computeapi.LLMModelFileMessage{
+		case llmapi.LLM_OLLAMA_GGUF_MESSAGE_ROLE_USER,
+			llmapi.LLM_OLLAMA_GGUF_MESSAGE_ROLE_ASSISTANT,
+			llmapi.LLM_OLLAMA_GGUF_MESSAGE_ROLE_SYSTEM:
+			messages = append(messages, &llmapi.LLMModelFileMessage{
 				Role:    key,
 				Content: val,
 			})
