@@ -1,4 +1,4 @@
-package compute
+package llm
 
 import (
 	"crypto/rand"

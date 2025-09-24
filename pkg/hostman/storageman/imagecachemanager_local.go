@@ -29,6 +29,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	imageapi "yunion.io/x/onecloud/pkg/apis/image"
+	llmapi "yunion.io/x/onecloud/pkg/apis/llm"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/options"
@@ -64,7 +65,7 @@ func NewLocalImageCacheManager(manager IStorageManager, cachePath string, storag
 	}
 	imageCacheManager.loadCache(context.Background())
 
-	imageCacheManager.modelCacheDir = api.LLM_OLLAMA_CACHE_DIR
+	imageCacheManager.modelCacheDir = llmapi.LLM_OLLAMA_CACHE_DIR
 	imageCacheManager.cachedModels = &sync.Map{}
 	imageCacheManager.loadModels(context.Background())
 	return imageCacheManager

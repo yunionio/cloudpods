@@ -235,6 +235,11 @@ type ContainerExecInput struct {
 	Stdout  bool     `json:"stdout"`
 }
 
+type ContainerDownloadFileInput struct {
+	WebUrl string `json:"web_url"`
+	Path   string `json:"path"`
+}
+
 type ContainerExecSyncInput struct {
 	Command []string `json:"command"`
 	// Timeout in seconds to stop the command, 0 mean run forever.

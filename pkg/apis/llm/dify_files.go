@@ -1,4 +1,4 @@
-package compute
+package llm
 
 const (
 	DIFY_SSRF_ENTRYPINT_SHELL = `
