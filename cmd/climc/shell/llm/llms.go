@@ -1,9 +1,9 @@
-package compute
+package llm
 
 import (
 	"yunion.io/x/onecloud/cmd/climc/shell"
-	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
-	options "yunion.io/x/onecloud/pkg/mcclient/options/compute"
+	modules "yunion.io/x/onecloud/pkg/mcclient/modules/llm"
+	options "yunion.io/x/onecloud/pkg/mcclient/options/llm"
 )
 
 func init() {
