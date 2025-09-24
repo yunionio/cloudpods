@@ -57,6 +57,7 @@ func init() {
 		),
 	}
 	PasswordManager.SetVirtualObject(PasswordManager)
+	PasswordManager.TableSpec().AddIndex(false, "local_user_id", "created_at_int")
 }
 
 /*
@@ -112,6 +113,7 @@ func (manager *SPasswordManager) getFetchByLocaluserIdQuery(localUserId int) *sq
 	passwords := manager.Query().SubQuery()
 	q := passwords.Query().Equals("local_user_id", localUserId)
 	q = q.Desc(passwords.Field("created_at_int"))
+	q = q.Limit(options.Options.PasswordHistoryCount() + 1)
 	return q
 }
 
@@ -121,7 +123,7 @@ func (manager *SPasswordManager) FetchByLocaluserIdNewestPassword(localUserId in
 		return nil, errors.Wrap(err, "new password object")
 	}
 
-	q := manager.getFetchByLocaluserIdQuery(localUserId).Limit(1)
+	q := manager.getFetchByLocaluserIdQuery(localUserId)
 	if err := q.First(obj); err != nil {
 		return nil, errors.Wrap(err, "get newest password object")
 	}
@@ -299,4 +301,92 @@ func (pwd *SPassword) EventNotify(ctx context.Context, userCred mcclient.TokenCr
 		Action:              action,
 		AdvanceDays:         advanceDays,
 	})
+}
+
+func (manager *SPasswordManager) InitializeData() error {
+	return nil
+}
+
+func (manager *SPasswordManager) cleanPasswords() error {
+	userIds, err := manager.findUserIdsNeedCleanPassword()
+	if err != nil {
+		return errors.Wrap(err, "manager.findUserIdsNeedCleanPassword")
+	}
+	for _, userId := range userIds {
+		err := manager.cleanPassword(userId)
+		if err != nil {
+			return errors.Wrap(err, "manager.cleanPassword")
+		}
+	}
+	return nil
+}
+
+func (manager *SPasswordManager) findUserIdsNeedCleanPassword() ([]int, error) {
+	q := manager.Query()
+	q = q.AppendField(q.Field("local_user_id"))
+	q = q.AppendField(sqlchemy.COUNT("count"))
+	q = q.GroupBy(q.Field("local_user_id"))
+
+	rows, err := q.Rows()
+	if err != nil {
+		return nil, errors.Wrap(err, "rows")
+	}
+	defer rows.Close()
+
+	userIds := []int{}
+	for rows.Next() {
+		var localUserId int
+		var count int
+		err := rows.Scan(&localUserId, &count)
+		if err != nil {
+			return userIds, errors.Wrap(err, "rows.Scan")
+		}
+		if count > options.Options.PasswordHistoryCount()+1 {
+			// need to clean passwords of this user
+			userIds = append(userIds, localUserId)
+		}
+	}
+	return userIds, nil
+}
+
+func (manager *SPasswordManager) findMinPasswordId(localUserId int) (int, error) {
+	subQ := manager.Query().Equals("local_user_id", localUserId).Desc("created_at_int").Limit(options.Options.PasswordHistoryCount() + 1).SubQuery()
+	q := subQ.Query().AppendField(sqlchemy.MIN("min_id", subQ.Field("id"))).GroupBy(subQ.Field("id"))
+
+	rows, err := q.Rows()
+	if err != nil {
+		return -1, errors.Wrap(err, "rows")
+	}
+	defer rows.Close()
+
+	minId := -1
+	for rows.Next() {
+		var id int
+		err := rows.Scan(&id)
+		if err != nil {
+			return -1, errors.Wrap(err, "rows.Scan")
+		}
+		minId = id
+		break
+	}
+	return minId, nil
+}
+
+func (manager *SPasswordManager) cleanPassword(localUserId int) error {
+	minId, err := manager.findMinPasswordId(localUserId)
+	if err != nil {
+		return errors.Wrap(err, "manager.findMinPasswordId")
+	}
+	_, err = manager.TableSpec().GetTableSpec().Database().Exec(fmt.Sprintf("DELETE FROM %s WHERE local_user_id = ? AND id < ?", manager.TableSpec().Name()), localUserId, minId)
+	if err != nil {
+		return errors.Wrap(err, "batch delete passwords")
+	}
+	return err
+}
+
+func (manager *SPasswordManager) CleanPasswordsJob(ctx context.Context, userCred mcclient.TokenCredential, startRun bool) {
+	err := manager.cleanPasswords()
+	if err != nil {
+		log.Errorln(errors.Wrap(err, "manager.cleanPasswords"))
+	}
 }
