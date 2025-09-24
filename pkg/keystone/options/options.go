@@ -87,6 +87,13 @@ var (
 	Options SKeystoneOptions
 )
 
+func (o SKeystoneOptions) PasswordHistoryCount() int {
+	if o.PasswordUniqueHistoryCheck > 0 {
+		return o.PasswordUniqueHistoryCheck
+	}
+	return 10
+}
+
 func OnOptionsChange(oldOptions, newOptions interface{}) bool {
 	oldOpts := oldOptions.(*SKeystoneOptions)
 	newOpts := newOptions.(*SKeystoneOptions)
