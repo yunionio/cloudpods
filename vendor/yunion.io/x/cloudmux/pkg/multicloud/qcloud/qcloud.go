@@ -458,14 +458,18 @@ func (client *SQcloudClient) getDefaultClient(params map[string]string) (*common
 	return client.getSdkClient(regionId)
 }
 
+func (client *SQcloudClient) isSubAccount() bool {
+	return len(client.accountId) > 0 &&
+		client.accountId != client.masterAccountId && len(client.masterAccountId) > 0 &&
+		client.accountId != client.masterAppId && len(client.masterAppId) > 0
+}
+
 func (client *SQcloudClient) getSdkClient(regionId string) (*common.Client, error) {
 	cli, err := common.NewClientWithSecretId(client.secretId, client.secretKey, regionId)
 	if err != nil {
 		return nil, err
 	}
-	if len(client.accountId) > 0 &&
-		client.accountId != client.masterAccountId && len(client.masterAccountId) > 0 &&
-		client.accountId != client.masterAppId && len(client.masterAppId) > 0 {
+	if client.isSubAccount() {
 		arn := fmt.Sprintf("qcs::cam::uin/%s:roleName/%s", client.accountId, "OrganizationAccessControlRole")
 		sts := common.DefaultRoleArnProvider(client.secretId, client.secretKey, arn)
 		cli, err = cli.WithProvider(sts)
@@ -804,8 +808,8 @@ func (self *SQcloudClient) invalidateIBuckets() {
 }
 
 func (self *SQcloudClient) getIBuckets() ([]cloudprovider.ICloudBucket, error) {
-	if len(self.accountId) > 0 {
-		return nil, errors.Wrapf(cloudprovider.ErrNotSupported, "organization")
+	if self.isSubAccount() {
+		return nil, fmt.Errorf("cos not support sub account sync")
 	}
 	if self.ibuckets == nil {
 		err := self.fetchBuckets()
@@ -1122,7 +1126,7 @@ func (self *SQcloudClient) GetISSLCertificates() ([]cloudprovider.ICloudSSLCerti
 	return result, nil
 }
 
-func (self *SQcloudClient) GetCapabilities() []string {
+func (client *SQcloudClient) GetCapabilities() []string {
 	caps := []string{
 		cloudprovider.CLOUD_CAPABILITY_PROJECT,
 		cloudprovider.CLOUD_CAPABILITY_COMPUTE,
@@ -1149,7 +1153,7 @@ func (self *SQcloudClient) GetCapabilities() []string {
 		cloudprovider.CLOUD_CAPABILITY_WAF + cloudprovider.READ_ONLY_SUFFIX,
 	}
 	// 官方cos sdk 未支持sts
-	if len(self.accountId) == 0 {
+	if !client.isSubAccount() {
 		caps = append(caps, cloudprovider.CLOUD_CAPABILITY_OBJECTSTORE)
 	}
 	return caps

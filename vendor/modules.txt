@@ -842,6 +842,29 @@ github.com/koding/websocketproxy
 # github.com/kr/fs v0.1.0
 ## explicit
 github.com/kr/fs
+# github.com/ks3sdklib/aws-sdk-go v1.8.1
+## explicit; go 1.16
+github.com/ks3sdklib/aws-sdk-go/aws
+github.com/ks3sdklib/aws-sdk-go/aws/awserr
+github.com/ks3sdklib/aws-sdk-go/aws/awsutil
+github.com/ks3sdklib/aws-sdk-go/aws/credentials
+github.com/ks3sdklib/aws-sdk-go/aws/retry
+github.com/ks3sdklib/aws-sdk-go/internal/apierr
+github.com/ks3sdklib/aws-sdk-go/internal/crc
+github.com/ks3sdklib/aws-sdk-go/internal/endpoints
+github.com/ks3sdklib/aws-sdk-go/internal/protocol/body
+github.com/ks3sdklib/aws-sdk-go/internal/protocol/json/jsonutil
+github.com/ks3sdklib/aws-sdk-go/internal/protocol/jsonrpc
+github.com/ks3sdklib/aws-sdk-go/internal/protocol/query
+github.com/ks3sdklib/aws-sdk-go/internal/protocol/query/queryutil
+github.com/ks3sdklib/aws-sdk-go/internal/protocol/rest
+github.com/ks3sdklib/aws-sdk-go/internal/protocol/restjson
+github.com/ks3sdklib/aws-sdk-go/internal/protocol/restxml
+github.com/ks3sdklib/aws-sdk-go/internal/protocol/xml/xmlutil
+github.com/ks3sdklib/aws-sdk-go/internal/signer/open_api
+github.com/ks3sdklib/aws-sdk-go/internal/signer/v2
+github.com/ks3sdklib/aws-sdk-go/internal/signer/v4
+github.com/ks3sdklib/aws-sdk-go/service/s3
 # github.com/leodido/go-urn v1.2.0
 ## explicit; go 1.13
 github.com/leodido/go-urn
@@ -1852,7 +1875,7 @@ sigs.k8s.io/structured-merge-diff/v4/value
 # sigs.k8s.io/yaml v1.2.0
 ## explicit; go 1.12
 sigs.k8s.io/yaml
-# yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20250912144150-b546f9c0f747
+# yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20250924031618-a9815d605fe2
 ## explicit; go 1.24
 yunion.io/x/cloudmux/pkg/apis
 yunion.io/x/cloudmux/pkg/apis/billing
@@ -2003,7 +2026,7 @@ yunion.io/x/pkg/utils
 # yunion.io/x/s3cli v0.0.0-20241221171442-1c11599d28e1
 ## explicit; go 1.12
 yunion.io/x/s3cli
-# yunion.io/x/sqlchemy v1.1.3-0.20250902120005-3b18bc6371c7
+# yunion.io/x/sqlchemy v1.1.3-0.20250923143347-b98e89dbc372
 ## explicit; go 1.17
 yunion.io/x/sqlchemy
 yunion.io/x/sqlchemy/backends

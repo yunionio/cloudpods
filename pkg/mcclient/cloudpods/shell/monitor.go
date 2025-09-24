@@ -15,6 +15,8 @@
 package shell
 
 import (
+	"time"
+
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/shellutils"
@@ -24,6 +26,12 @@ import (
 
 func init() {
 	shellutils.R(&cloudprovider.MetricListOptions{}, "metric-list", "List metrics in a namespace", func(cli *cloudpods.SRegion, args *cloudprovider.MetricListOptions) error {
+		if args.StartTime.IsZero() {
+			args.StartTime = time.Now().Add(-time.Minute * 10)
+		}
+		if args.EndTime.IsZero() {
+			args.EndTime = time.Now().Add(-time.Minute * 1)
+		}
 		metrics, err := cli.GetClient().GetMetrics(args)
 		if err != nil {
 			return err
