@@ -2244,7 +2244,7 @@ func (manager *SGuestManager) validateCreateData(
 
 	// validate KickstartConfig
 	if input.KickstartConfig != nil {
-		if err := manager.validateKickstartConfig(input.KickstartConfig); err != nil {
+		if err := validateKickstartConfig(input.KickstartConfig); err != nil {
 			return nil, httperrors.NewInputParameterError("Invalid kickstart config: %v", err)
 		}
 	}
@@ -2349,7 +2349,7 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 	return input.JSON(input), nil
 }
 
-func (manager *SGuestManager) validateKickstartConfig(config *api.KickstartConfig) error {
+func validateKickstartConfig(config *api.KickstartConfig) error {
 	if config.OSType == "" {
 		return fmt.Errorf("os_type is required")
 	}
@@ -2396,7 +2396,7 @@ func (manager *SGuestManager) validateKickstartConfig(config *api.KickstartConfi
 			return fmt.Errorf("URL must specify a host")
 		}
 
-		if err := manager.checkURLContentSize(config.ConfigURL); err != nil {
+		if err := checkKickstartURLContentSize(config.ConfigURL); err != nil {
 			return fmt.Errorf("URL content validation failed: %v", err)
 		}
 	}
@@ -2418,7 +2418,15 @@ func (manager *SGuestManager) validateKickstartConfig(config *api.KickstartConfi
 	return nil
 }
 
-func (manager *SGuestManager) checkURLContentSize(configURL string) error {
+// determineKickstartType determines kickstart type based on config content
+func determineKickstartType(config *api.KickstartConfig) string {
+	if config.Config != "" {
+		return api.KICKSTART_TYPE_CONTENT
+	}
+	return api.KICKSTART_TYPE_URL
+}
+
+func checkKickstartURLContentSize(configURL string) error {
 	const maxURLContentSize = 64 * 1024
 	const requestTimeout = 10 * time.Second
 
@@ -2729,14 +2737,7 @@ func (guest *SGuest) PostCreate(ctx context.Context, userCred mcclient.TokenCred
 				}
 
 				// Determine and set kickstart type based on config
-				var kickstartType string
-				if kickstartConfig.Config != "" {
-					kickstartType = api.KICKSTART_TYPE_CONTENT
-				} else if kickstartConfig.ConfigURL != "" {
-					kickstartType = api.KICKSTART_TYPE_URL
-				} else {
-					kickstartType = api.KICKSTART_TYPE_URL
-				}
+				kickstartType := determineKickstartType(kickstartConfig)
 
 				if err := guest.SetKickstartType(ctx, kickstartType, userCred); err != nil {
 					log.Errorf("Failed to set kickstart type for guest %s: %v", guest.Name, err)
@@ -7236,7 +7237,7 @@ func (guest *SGuest) SetKickstartConfig(ctx context.Context, config *api.Kicksta
 		return guest.RemoveMetadata(ctx, api.VM_METADATA_KICKSTART_CONFIG, userCred)
 	}
 
-	if err := guest.validateKickstartConfig(config); err != nil {
+	if err := validateKickstartConfig(config); err != nil {
 		return errors.Wrap(err, "validate kickstart config")
 	}
 
@@ -7304,35 +7305,6 @@ func (guest *SGuest) IsKickstartEnabled(ctx context.Context, userCred mcclient.T
 	return *config.Enabled
 }
 
-func (guest *SGuest) validateKickstartConfig(config *api.KickstartConfig) error {
-	if !utils.IsInStringArray(config.OSType, api.KICKSTART_VALID_OS_TYPES) {
-		return errors.Errorf("unsupported OS type: %s", config.OSType)
-	}
-
-	if config.Config == "" && config.ConfigURL == "" {
-		return errors.Errorf("either config content or config_url must be provided")
-	}
-
-	if config.Config != "" && config.ConfigURL != "" {
-		return errors.Errorf("config content and config_url cannot be provided at the same time")
-	}
-
-	if config.ConfigURL != "" {
-		if !strings.HasPrefix(config.ConfigURL, "http://") && !strings.HasPrefix(config.ConfigURL, "https://") {
-			return errors.Errorf("config_url must be a valid HTTP or HTTPS URL")
-		}
-	}
-
-	if config.MaxRetries <= 0 {
-		config.MaxRetries = 3
-	}
-
-	if config.TimeoutMinutes <= 0 {
-		config.TimeoutMinutes = 60
-	}
-
-	return nil
-}
 
 func (guest *SGuest) SetGuestBackupMirrorJobNotReady(ctx context.Context, userCred mcclient.TokenCredential) error {
 	return guest.SetMetadata(ctx, api.MIRROR_JOB, "", userCred)

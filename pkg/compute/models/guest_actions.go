@@ -6989,14 +6989,7 @@ func (self *SGuest) PerformSetKickstart(ctx context.Context, userCred mcclient.T
 	}
 
 	// Determine and set kickstart type based on input
-	var kickstartType string
-	if input.Config != "" {
-		kickstartType = api.KICKSTART_TYPE_CONTENT
-	} else if input.ConfigURL != "" {
-		kickstartType = api.KICKSTART_TYPE_URL
-	} else {
-		kickstartType = api.KICKSTART_TYPE_URL // default
-	}
+	kickstartType := determineKickstartType(&input)
 
 	if err := self.SetKickstartType(ctx, kickstartType, userCred); err != nil {
 		return nil, errors.Wrap(err, "set kickstart type")
