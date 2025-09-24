@@ -42,6 +42,7 @@ func InitDB() error {
 		CredentialManager,
 
 		FernetKeyManager,
+		PasswordManager,
 	} {
 		err := manager.InitializeData()
 		if err != nil {
