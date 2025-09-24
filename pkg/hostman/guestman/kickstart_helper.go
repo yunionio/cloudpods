@@ -39,7 +39,7 @@ import (
 )
 
 const (
-	KICKSTART_MONITOR_TIMEOUT         = 30 * time.Minute
+	KICKSTART_MONITOR_TIMEOUT         = 60 * time.Minute
 	SERIAL_FILE_CHECK_INTERVAL        = 5 * time.Second
 	KICKSTART_BASE_DIR                = "/tmp/kickstart"
 	KICKSTART_ISO_MOUNT_DIR           = "iso-mount"
