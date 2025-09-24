@@ -190,5 +190,13 @@ func (region *SRegion) GetIDBInstanceBackups() ([]cloudprovider.ICloudDBInstance
 		snapshots[i].region = region
 		isnapshots = append(isnapshots, &snapshots[i])
 	}
+	clusterSnapshots, err := region.DescribeDBClusterSnapshots("", "")
+	if err != nil {
+		return nil, errors.Wrap(err, "DescribeDBClusterSnapshots")
+	}
+	for i := 0; i < len(clusterSnapshots); i++ {
+		clusterSnapshots[i].region = region
+		isnapshots = append(isnapshots, &clusterSnapshots[i])
+	}
 	return isnapshots, nil
 }
