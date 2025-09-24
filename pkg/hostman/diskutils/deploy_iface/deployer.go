@@ -34,6 +34,7 @@ type IDeployer interface {
 	MountRootfs(readonly bool) (fsdriver.IRootFsDriver, error)
 	UmountRootfs(fd fsdriver.IRootFsDriver) error
 	DetectIsUEFISupport(rootfs fsdriver.IRootFsDriver) bool
+	DetectIsBIOSSupport(rootfs fsdriver.IRootFsDriver) bool
 
 	DeployGuestfs(req *apis.DeployParams) (res *apis.DeployGuestFsResponse, err error)
 	ResizeFs(req *apis.ResizeFsParams) (res *apis.Empty, err error)
