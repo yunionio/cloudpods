@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/apis/llm"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/hostman/guestman"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
@@ -105,7 +105,7 @@ func llmActionHandler(cf llmActionFunc) appsrv.FilterHandler {
 // }
 
 func accessModelCacheHandler(ctx context.Context, userCred mcclient.TokenCredential, pod guestman.PodInstance, containerId string, llmId string, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	input := new(compute.LLMAccessCacheInput)
+	input := new(llm.LLMAccessCacheInput)
 	if err := body.Unmarshal(input); err != nil {
 		return nil, err
 	}

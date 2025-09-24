@@ -1,8 +1,9 @@
-package compute
+package llm
 
 import (
 	"fmt"
 
+	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/pkg/errors"
 )
 
@@ -27,7 +28,7 @@ type LLMPullModelInput struct {
 }
 
 type LLMCreateInput struct {
-	ServerCreateInput
+	compute.ServerCreateInput
 	LLMPullModelInput
 }
 

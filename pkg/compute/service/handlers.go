@@ -132,8 +132,6 @@ func InitHandlers(app *appsrv.Application) {
 		models.SchedtagManager,
 		models.GuestManager,
 		models.GetContainerManager(),
-		models.LLMManager,
-		models.DifyManager,
 		models.GroupManager,
 		models.DiskManager,
 		models.NetworkManager,
