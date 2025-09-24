@@ -16,7 +16,6 @@ package models
 
 import (
 	"context"
-	"io"
 
 	"yunion.io/x/jsonutils"
 
@@ -49,6 +48,4 @@ type IPodDriver interface {
 
 	RequestAddVolumeMountPostOverlay(ctx context.Context, userCred mcclient.TokenCredential, task IContainerTask) error
 	RequestRemoveVolumeMountPostOverlay(ctx context.Context, userCred mcclient.TokenCredential, task IContainerTask) error
-
-	RequestExecStreamContainer(ctx context.Context, userCred mcclient.TokenCredential, ctr *SContainer, input *compute.ContainerExecInput, stdin io.Reader) (string, error)
 }

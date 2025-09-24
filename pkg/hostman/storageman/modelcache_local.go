@@ -13,7 +13,7 @@ import (
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/log"
-	api "yunion.io/x/onecloud/pkg/apis/compute"
+	llmapi "yunion.io/x/onecloud/pkg/apis/llm"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/pkg/errors"
 )
@@ -99,7 +99,7 @@ func (m *SLocalModelCache) Remove(ctx context.Context) error {
 
 func (m *SLocalModelCache) fetch(model string) error {
 	var (
-		url      = fmt.Sprintf(api.LLM_OLLAMA_LIBRARY_BASE_URL, fmt.Sprintf("%s/blobs/%s", model, m.blobId))
+		url      = fmt.Sprintf(llmapi.LLM_OLLAMA_LIBRARY_BASE_URL, fmt.Sprintf("%s/blobs/%s", model, m.blobId))
 		filePath = m.GetPath()
 		tmpPath  = m.GetTmpPath()
 	)
