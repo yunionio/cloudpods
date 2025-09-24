@@ -440,6 +440,13 @@ func (cli *SObjectStoreClient) CreateIBucket(name string, storageClass string, a
 	return nil
 }
 
+func (cli *SObjectStoreClient) SetBucketLifecycle(name string, lifecycle string) error {
+	if err := cli.client.SetBucketLifecycle(name, lifecycle); err != nil {
+		return errors.Wrap(err, "SetBucketLifecycle")
+	}
+	return nil
+}
+
 func minioErrCode(err error) int {
 	if srvErr, ok := err.(s3cli.ErrorResponse); ok {
 		return srvErr.StatusCode
