@@ -199,13 +199,21 @@ func ResizeDiskFs(diskPath string, sizeMb int, mounted bool) error {
 	if len(parts) > 0 && (label == "gpt" ||
 		(label == "msdos" && parts[len(parts)-1][5] == "primary")) {
 		var part = parts[len(parts)-1]
-		if IsSupportResizeFs(part[6]) {
+		fsType := part[6]
+		if len(fsType) == 0 {
+			partDev := fmt.Sprintf("%s%s", diskPath, part[0])
+			if fileutils2.Exists(partDev) {
+				fsType = fileutils2.GetFsFormat(partDev)
+			}
+			log.Infof("blkid get fstype %s", fsType)
+		}
+		if IsSupportResizeFs(fsType) {
 			// growpart script replace parted resizepart
 			output, err := procutils.NewCommand("growpart", diskPath, part[0]).Output()
 			if err != nil {
 				return errors.Wrapf(err, "growpart failed %s", output)
 			}
-			err, _ = ResizePartitionFs(part[7], part[6], false, mounted)
+			err, _ = ResizePartitionFs(part[7], fsType, false, mounted)
 			if err != nil {
 				return errors.Wrapf(err, "resize fs %s", part[6])
 			}
@@ -219,7 +227,7 @@ func IsSupportResizeFs(fs string) bool {
 		return true
 	} else if strings.HasPrefix(fs, "ext") {
 		return true
-	} else if fs == "xfs" {
+	} else if fs == "xfs" || fs == "f2fs" {
 		return true
 	}
 	return false
@@ -281,7 +289,7 @@ func ResizePartitionFs(fpath, fs string, raiseError, mounted bool) (error, bool)
 		// cmds = [][]string{{"ntfsresize", "-c", fpath}, {"ntfsresize", "-P", "-f", fpath}}
 	} else if fs == "f2fs" {
 		if !mounted {
-			cmds = [][]string{{"resize.f2fs"}}
+			cmds = [][]string{{"resize.f2fs", fpath}}
 		}
 	}
 

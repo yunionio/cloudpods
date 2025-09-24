@@ -308,7 +308,7 @@ func (m *SCpuFreqRealTimeSimulateManager) startSetCpuFreqSimulate() {
 			}
 			cpuDir := pod.getContainerSystemCpusDir(ctr.Id)
 			if !fileutils2.Exists(cpuDir) {
-				log.Errorf("%s %s has no cpuDir", pod.GetName(), criIds[i])
+				log.Debugf("%s %s has no cpuDir", pod.GetName(), criIds[i])
 				continue
 			}
 
