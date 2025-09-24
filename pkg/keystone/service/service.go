@@ -122,6 +122,8 @@ func StartService() {
 
 		cron.AddJobAtIntervalsWithStartRun("TaskCleanupJob", time.Duration(options.Options.TaskArchiveIntervalMinutes)*time.Minute, taskman.TaskManager.TaskCleanupJob, true)
 
+		cron.AddJobEveryFewHour("CleanPasswordsJob", 4, 8, 0, models.PasswordManager.CleanPasswordsJob, true)
+
 		cron.Start()
 		defer cron.Stop()
 	}
