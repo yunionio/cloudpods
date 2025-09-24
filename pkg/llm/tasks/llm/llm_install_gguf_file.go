@@ -19,6 +19,9 @@ func init() {
 }
 
 func (t *LLMInstallGgufTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
+	if err := obj.(*models.SLLM).ConfirmContainerId(ctx, t.GetUserCred()); err != nil {
+		t.OnGetGgufFileFailed(ctx, obj.(*models.SLLM), jsonutils.NewString(err.Error()))
+	}
 	t.requestGetGgufFile(ctx, obj.(*models.SLLM))
 }
 
@@ -35,13 +38,12 @@ func (t *LLMInstallGgufTask) requestGetGgufFile(ctx context.Context, llm *models
 
 	switch input.Source {
 	case api.LLM_OLLAMA_GGUF_SOURCE_WEB:
-		if err := llm.DownloadGgufFile(ctx, t.GetUserCred(), t); nil != err {
+		t.SetStage("OnGetGgufFile", nil)
+		if err := llm.DownloadGgufFile(ctx, t.GetUserCred(), t.GetId()); nil != err {
 			t.OnGetGgufFileFailed(ctx, llm, jsonutils.NewString(err.Error()))
 			return
 		}
-		// t.OnGetGgufFile(ctx, llm)
 	default:
-		// t.SetStage("OnGetGgufFile", nil)
 		if err := llm.AccessGgufFile(ctx, t.GetUserCred(), t); nil != err {
 			t.OnGetGgufFileFailed(ctx, llm, jsonutils.NewString(err.Error()))
 			return

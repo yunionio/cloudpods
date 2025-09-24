@@ -15,26 +15,23 @@
 package models
 
 import (
-	"bytes"
 	"context"
 	"fmt"
-	"io"
-	"net/http"
 	"path"
 	"regexp"
 	"strings"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/apis"
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	api "yunion.io/x/onecloud/pkg/apis/llm"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/llm/drivers"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/util/httputils"
-	"yunion.io/x/pkg/util/sets"
 	"yunion.io/x/pkg/util/stringutils"
 )
 
@@ -59,21 +56,21 @@ func init() {
 	// notifyclient.AddNotifyDBHookResources(LLMManager.KeywordPlural(), LLMManager.AliasPlural())
 }
 
-func (manager *SLLMManager) DeleteByGuestId(ctx context.Context, userCred mcclient.TokenCredential, gstId string) error {
-	q := manager.Query().Equals("guest_id", gstId)
-	llms := make([]SLLM, 0)
-	if err := db.FetchModelObjects(manager, q, &llms); err != nil {
-		return errors.Wrap(err, "db.FetchModelObjects")
-	}
+// func (manager *SLLMManager) DeleteByGuestId(ctx context.Context, userCred mcclient.TokenCredential, gstId string) error {
+// 	q := manager.Query().Equals("guest_id", gstId)
+// 	llms := make([]SLLM, 0)
+// 	if err := db.FetchModelObjects(manager, q, &llms); err != nil {
+// 		return errors.Wrap(err, "db.FetchModelObjects")
+// 	}
 
-	for _, llm := range llms {
-		// log.Infoln("get in delete by container id", llm)
-		if err := llm.RealDelete(ctx, userCred); nil != err {
-			return err
-		}
-	}
-	return nil
-}
+// 	for _, llm := range llms {
+// 		// log.Infoln("get in delete by container id", llm)
+// 		if err := llm.RealDelete(ctx, userCred); nil != err {
+// 			return err
+// 		}
+// 	}
+// 	return nil
+// }
 
 func (manager *SLLMManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, _ jsonutils.JSONObject, input *api.LLMCreateInput) (*api.LLMCreateInput, error) {
 	if input.Model == "" {
@@ -129,8 +126,16 @@ type SLLM struct {
 	GgufFile    string `width:"256" charset:"ascii" list:"user" update:"user" create:"optional"`
 }
 
+func (llm *SLLM) GetPodDriver() IPodDriver {
+	return &drivers.SPodDriver{}
+}
+
 func (llm *SLLM) GetModelName() string {
 	return llm.ModelName
+}
+
+func (llm *SLLM) GetModel() string {
+	return llm.ModelName + ":" + llm.ModelTag
 }
 
 func (llm *SLLM) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
@@ -153,8 +158,7 @@ func (llm *SLLM) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCre
 	input.ParentTaskId = task.GetId()
 
 	// use data to create a pod
-	handler := db.NewModelHandler(GuestManager)
-	server, err := handler.Create(ctx, jsonutils.NewDict(), jsonutils.Marshal(input.ServerCreateInput), nil)
+	server, err := llm.GetPodDriver().RequestCreatePod(ctx, userCred, &input.ServerCreateInput)
 	if err != nil {
 		return errors.Wrap(err, "CreateServer")
 	}
@@ -168,44 +172,35 @@ func (llm *SLLM) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCre
 	return llm.SVirtualResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }
 
-func (llm *SLLM) exec(ctx context.Context, userCred mcclient.TokenCredential, stdin io.Reader, isSync bool, command ...string) (string, error) {
-	// get container
-	ctr, err := llm.GetContainer()
-	if nil != err {
-		return "", err
+func (llm *SLLM) download(ctx context.Context, userCred mcclient.TokenCredential, taskId string, webUrl string, path string) error {
+	input := &computeapi.ContainerDownloadFileInput{
+		WebUrl: webUrl,
+		Path:   path,
 	}
 
-	// check status
-	if sets.NewString(
-		computeapi.CONTAINER_STATUS_EXITED,
-		computeapi.CONTAINER_STATUS_CREATED,
-	).Has(ctr.GetStatus()) {
-		return "", httperrors.NewInvalidStatusError("Can't exec container in status %s", ctr.Status)
-	}
+	_, err := llm.GetPodDriver().RequestDownloadFileIntoContainer(ctx, userCred, llm.ContainerId, taskId, input)
 
+	return err
+}
+
+func (llm *SLLM) exec(ctx context.Context, userCred mcclient.TokenCredential, command ...string) (string, error) {
 	// exec command
-	var ret string
-	if isSync {
-		var resp jsonutils.JSONObject
-		input := &computeapi.ContainerExecSyncInput{
-			Command: command,
-		}
-		resp, err = ctr.GetPodDriver().RequestExecSyncContainer(ctx, userCred, ctr, input)
-		if nil != resp {
-			ret = resp.String()
-		}
-	} else {
-		input := &computeapi.ContainerExecInput{
-			Command: command,
-		}
-		ret, err = ctr.GetPodDriver().RequestExecStreamContainer(ctx, userCred, ctr, input, stdin)
+
+	input := &computeapi.ContainerExecSyncInput{
+		Command: command,
 	}
+	resp, err := llm.GetPodDriver().RequestExecSyncContainer(ctx, userCred, llm.ContainerId, input)
 
 	// check error and return result
+	var rst string
 	if nil != err {
 		return "", errors.Wrapf(err, "LLM exec error")
 	}
-	return ret, nil
+	if nil != resp {
+		rst = resp.String()
+	}
+	log.Infoln("llm container exec result: ", rst)
+	return rst, nil
 }
 
 func (llm *SLLM) PerformChangeModel(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.LLMPullModelInput) (jsonutils.JSONObject, error) {
@@ -231,22 +226,6 @@ func (llm *SLLM) PerformChangeModel(ctx context.Context, userCred mcclient.Token
 	return jsonutils.NewDict(), task.ScheduleRun(nil)
 }
 
-// func (llm *SLLM) PerformStart(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-// 	if !sets.NewString(api.CONTAINER_STATUS_EXITED, api.CONTAINER_STATUS_START_FAILED).Has(llm.Status) {
-// 		return nil, httperrors.NewInvalidStatusError("Can't start llm in status %s", llm.Status)
-// 	}
-// 	return nil, llm.StartStartTask(ctx, userCred, "")
-// }
-
-// func (llm *SLLM) StartStartTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
-// 	llm.SetStatus(ctx, userCred, api.CONTAINER_STATUS_STARTING, "")
-// 	task, err := taskman.TaskManager.NewTask(ctx, "LLMStartTask", llm, userCred, nil, parentTaskId, "", nil)
-// 	if err != nil {
-// 		return errors.Wrap(err, "NewTask")
-// 	}
-// 	return task.ScheduleRun(nil)
-// }
-
 func (llm *SLLM) RunModel(ctx context.Context, userCred mcclient.TokenCredential) error {
 	return nil
 }
@@ -255,14 +234,31 @@ func (llm *SLLM) RealDelete(ctx context.Context, userCred mcclient.TokenCredenti
 	return llm.SVirtualResourceBase.Delete(ctx, userCred)
 }
 
-func (llm *SLLM) GetContainer() (*SContainer, error) {
-	ctrMngr := GetContainerManager()
-	// log.Infoln("get container", llm.ContainerId)
-	if llm.ContainerId == "" {
-		return llmGetOllamaContainer(ctrMngr, llm)
-	} else {
-		return llmFetchContainerById(ctrMngr, llm)
+func (llm *SLLM) ConfirmContainerId(ctx context.Context, userCred mcclient.TokenCredential) error {
+	ctrs, err := llm.GetPodDriver().RequestGetContainersByPodId(ctx, userCred, llm.GuestId)
+	if err != nil {
+		return err
 	}
+
+	// find ollama container id and set
+	if len(ctrs.Data) != 1 {
+		return errors.Errorf("Strange llm containers")
+	}
+	for _, ctr := range ctrs.Data {
+		specJson, _ := ctr.GetString("spec")
+		spec := new(computeapi.ContainerSpec)
+		if err := jsonutils.JSONFalse.Unmarshal(spec, specJson); nil != err {
+			continue
+		}
+		if strings.Contains(spec.Image, api.LLM_OLLAMA) {
+			// update ContainerId
+			ctrId, _ := ctr.GetString("id")
+			llm.SetContainerId(ctrId)
+			return nil
+		}
+	}
+
+	return errors.Errorf("Cannot find ollama container in pod %s, with containers: %s", llm.GuestId, ctrs)
 }
 
 func (llm *SLLM) SetContainerId(ctrId string) error {
@@ -284,7 +280,11 @@ func (llm *SLLM) AccessBlobsCache(ctx context.Context, userCred mcclient.TokenCr
 	// update status
 	llm.SetStatus(ctx, userCred, api.LLM_STATUS_DOWNLOADING_BLOBS, "")
 	// access blobs
-	if _, err := accessModelCache(ctx, llm, task); nil != err {
+	input := new(api.LLMAccessCacheInput)
+	if err := task.GetParams().Unmarshal(input); nil != err {
+		return err
+	}
+	if _, err := llm.GetPodDriver().RequestOllamaBlobsCache(ctx, userCred, llm.ContainerId, task.GetTaskId(), input); nil != err {
 		return err
 	}
 	return nil
@@ -300,86 +300,78 @@ func (llm *SLLM) AccessGgufFile(ctx context.Context, userCred mcclient.TokenCred
 	// 	return err
 	// }
 
-	// mkdir
-	if _, err := llm.exec(ctx, userCred, nil, true, "/bin/mkdir", "-p", llm.GetGgufDir()); nil != err {
-		return errors.Wrapf(err, "failed to mkdir")
-	}
-
 	// copy gguf file
-	if _, err := llm.exec(ctx, userCred, nil, true, "/bin/cp", llm.GgufFile, llm.GetGgufFile()); nil != err {
-		return errors.Wrapf(err, "failed to write gguf file into container")
+	if _, err := llm.exec(ctx, userCred, "/bin/sh", "-c", fmt.Sprintf("mkdir -p %s && cp %s %s", getGgufDir(llm), llm.GgufFile, getGgufFile(llm))); nil != err {
+		return errors.Wrapf(err, "failed to prepare gguf file in container")
 	}
 	return nil
 }
 
 func (llm *SLLM) CopyBlobs(ctx context.Context, userCred mcclient.TokenCredential, blobs []string) error {
-	// mkdir blobs
-	blobsTargetDir := llm.GetBlobsPath()
-	_, err := llm.exec(ctx, userCred, nil, true, "/bin/mkdir", "-p", blobsTargetDir)
-	if nil != err {
-		return err
-	}
 	// cp blobs
+	blobsTargetDir := getBlobsPath(llm)
 	blobsSrcDir := path.Join(api.LLM_OLLAMA_CACHE_MOUNT_PATH, api.LLM_OLLAMA_CACHE_DIR)
+
+	var commands []string
+	commands = append(commands, fmt.Sprintf("mkdir -p %s", blobsTargetDir))
 	for _, blob := range blobs {
 		src := path.Join(blobsSrcDir, blob)
 		target := path.Join(blobsTargetDir, blob)
-		_, err = llm.exec(ctx, userCred, nil, true, "/bin/cp", src, target)
-		if nil != err {
-			return err
-		}
+		commands = append(commands, fmt.Sprintf("cp %s %s", src, target))
+	}
+
+	cmd := strings.Join(commands, " && ")
+	if _, err := llm.exec(ctx, userCred, "/bin/sh", "-c", cmd); err != nil {
+		return errors.Wrapf(err, "failed to copy blobs to container")
 	}
 	return nil
 }
 
 func (llm *SLLM) DeleteModel(ctx context.Context, userCred mcclient.TokenCredential) error {
 	// stop running proccess
-	if _, err := llm.exec(ctx, userCred, nil, true, "/bin/ollama", "stop", llm.GetModel()); nil != err {
+	if _, err := llm.exec(ctx, userCred, "/bin/ollama", "stop", llm.GetModel()); nil != err {
 		return errors.Wrapf(err, "Stop ollama running model failed")
 	}
 
 	// delete manifests and blobs and gguf in container
-	if _, err := llm.exec(ctx, userCred, nil, true, "/bin/rm", "-r", "-f", path.Dir(llm.GetManifestsPath())); nil != err {
+	if _, err := llm.exec(ctx, userCred, "/bin/rm", "-r", "-f", path.Dir(getManifestsPath(llm))); nil != err {
 		return errors.Wrapf(err, "Delete manifests file failed")
 	}
 
-	if _, err := llm.exec(ctx, userCred, nil, true, "/bin/rm", "-r", "-f", llm.GetBlobsPath()); nil != err {
+	if _, err := llm.exec(ctx, userCred, "/bin/rm", "-r", "-f", getBlobsPath(llm)); nil != err {
 		return errors.Wrapf(err, "Delete blobs file failed")
 	}
 
-	if _, err := llm.exec(ctx, userCred, nil, true, "/bin/rm", "-r", "-f", llm.GetGgufDir()); nil != err {
+	if _, err := llm.exec(ctx, userCred, "/bin/rm", "-r", "-f", getGgufDir(llm)); nil != err {
 		return errors.Wrapf(err, "Delete gguf file failed")
 	}
 
 	return nil
 }
 
-func (llm *SLLM) DownloadManifests(ctx context.Context, userCred mcclient.TokenCredential) ([]string, error) {
+func (llm *SLLM) DownloadManifests(ctx context.Context, userCred mcclient.TokenCredential, taskId string) error {
 	// wget manifests
 	suffix := fmt.Sprintf("%s/manifests/%s", llm.ModelName, llm.ModelTag)
 	url := fmt.Sprintf(api.LLM_OLLAMA_LIBRARY_BASE_URL, suffix)
-	resp, err := webGet(url)
-	if nil != err {
-		return nil, err
-	}
-	defer resp.Close()
 
-	// write manifests into container
-	manifestBytes, err := io.ReadAll(resp)
+	return llm.download(ctx, userCred, taskId, url, getManifestsPath(llm))
+}
+
+func (llm *SLLM) DownloadGgufFile(ctx context.Context, userCred mcclient.TokenCredential, taskId string) error {
+	return llm.download(ctx, userCred, taskId, llm.GgufFile, getGgufFile(llm))
+}
+
+func (llm *SLLM) FetchBlobs(ctx context.Context, userCred mcclient.TokenCredential) ([]string, error) {
+	readCommand := fmt.Sprintf("cat %s", getManifestsPath(llm))
+	manifestContent, err := llm.exec(ctx, userCred, "/bin/sh", "-c", readCommand)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to read response body")
-	}
-	filePath := llm.GetManifestsPath()
-	dirPath := path.Dir(filePath)
-	writeCommand := fmt.Sprintf("mkdir -p %s && cat > %s", dirPath, filePath)
-	if _, err := llm.exec(ctx, userCred, bytes.NewReader(manifestBytes), false, "/bin/sh", "-c", writeCommand); nil != err {
-		return nil, errors.Wrapf(err, "failed to write manifests into container")
+		return nil, errors.Wrapf(err, "failed to read manifests from container")
 	}
 
 	// find all blobs
 	var results []string
 	re := regexp.MustCompile(`"digest":"(sha256:[^"]*)"`)
-	matches := re.FindAllStringSubmatch(string(manifestBytes), -1)
+	matches := re.FindAllStringSubmatch(manifestContent, -1)
 	for _, match := range matches {
 		if len(match) > 1 {
 			digest := match[1]
@@ -391,60 +383,17 @@ func (llm *SLLM) DownloadManifests(ctx context.Context, userCred mcclient.TokenC
 	return results, nil
 }
 
-func (llm *SLLM) DownloadGgufFile(ctx context.Context, userCred mcclient.TokenCredential, task taskman.ITask) error {
-	// // wget gguf file
-	// resp, err := webGet(llm.GgufFile)
-	// if nil != err {
-	// 	return err
-	// }
-	// defer resp.Close()
-
-	// // write gguf file into container
-	// writeCommand := fmt.Sprintf("mkdir -p %s && cat > %s", llm.GetGgufDir(), llm.GetGgufFile())
-	// if _, err := llm.exec(ctx, userCred, resp, false, "/bin/sh", "-c", writeCommand); nil != err {
-	// 	return errors.Wrapf(err, "failed to write gguf file into container")
-	// }
-	input := &computeapi.ContainerDownloadFileInput{
-		WebUrl: llm.GgufFile,
-		Path:   llm.GetGgufFile(),
-	}
-
-	downloadGgufFile(ctx, llm, task, input)
-
-	return nil
-}
-
-func (llm *SLLM) GetModel() string {
-	return llm.ModelName + ":" + llm.ModelTag
-}
-
-func (llm *SLLM) GetBlobsPath() string {
-	return path.Join(api.LLM_OLLAMA_BASE_PATH, api.LLM_OLLAMA_BLOBS_DIR)
-}
-
-func (llm *SLLM) GetGgufDir() string {
-	return path.Join(api.LLM_OLLAMA_BASE_PATH, api.LLM_OLLAMA_GGUF_DIR, llm.GetModel())
-}
-
-func (llm *SLLM) GetGgufFile() string {
-	return path.Join(llm.GetGgufDir(), path.Base(llm.GgufFile))
-}
-
-func (llm *SLLM) GetManifestsPath() string {
-	return path.Join(api.LLM_OLLAMA_BASE_PATH, api.LLM_OLLAMA_MANIFESTS_BASE_PATH, llm.ModelName, llm.ModelTag)
-}
-
 func (llm *SLLM) InstallGgufModel(ctx context.Context, userCred mcclient.TokenCredential, spec *api.LLMModelFileSpec) error {
 	// touch modelfile
-	modelfile := []byte(createModelFile(llm, spec))
-	modelfilePath := path.Join(llm.GetGgufDir(), api.LLM_OLLAMA_MODELFILE_NAME)
-	writeCommand := fmt.Sprintf("cat > %s", modelfilePath)
-	if _, err := llm.exec(ctx, userCred, bytes.NewReader(modelfile), false, "/bin/sh", "-c", writeCommand); nil != err {
+	modelfile := createModelFile(llm, spec)
+	modelfilePath := path.Join(getGgufDir(llm), api.LLM_OLLAMA_MODELFILE_NAME)
+	writeCommand := fmt.Sprintf("mkdir -p %s && printf '%%s' %q > %s", getGgufDir(llm), modelfile, modelfilePath)
+	if _, err := llm.exec(ctx, userCred, "/bin/sh", "-c", writeCommand); nil != err {
 		return errors.Wrapf(err, "failed to write modelfile into container")
 	}
 
 	// create model
-	if _, err := llm.exec(ctx, userCred, nil, false, api.LLM_OLLAMA_EXEC_PATH, api.LLM_OLLAMA_CREATE_ACTION, llm.GetModel(), "-f", modelfilePath); nil != err {
+	if _, err := llm.exec(ctx, userCred, api.LLM_OLLAMA_EXEC_PATH, api.LLM_OLLAMA_CREATE_ACTION, llm.GetModel(), "-f", modelfilePath); nil != err {
 		return errors.Wrapf(err, "failed to create model with model file")
 	}
 
@@ -468,34 +417,8 @@ func (llm *SLLM) UpdateModel(model string) error {
 	return nil
 }
 
-func accessModelCache(ctx context.Context, llm *SLLM, task taskman.ITask) (jsonutils.JSONObject, error) {
-	container, err := llm.GetContainer()
-	if nil != err {
-		return nil, err
-	}
-	pod := container.GetPod()
-	host, _ := pod.GetHost()
-	url := fmt.Sprintf("%s/pods/%s/containers/%s/llms/%s/access-cache", host.ManagerUri, pod.GetId(), container.GetId(), llm.GetId())
-	header := task.GetTaskRequestHeader()
-	_, ret, err := httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, header, task.GetParams(), false)
-	return ret, err
-}
-
-func downloadGgufFile(ctx context.Context, llm *SLLM, task taskman.ITask, input *computeapi.ContainerDownloadFileInput) (jsonutils.JSONObject, error) {
-	container, err := llm.GetContainer()
-	if nil != err {
-		return nil, err
-	}
-	pod := container.GetPod()
-	host, _ := pod.GetHost()
-	url := fmt.Sprintf("%s/pods/%s/containers/%s/download-file", host.ManagerUri, pod.GetId(), container.GetId())
-	header := task.GetTaskRequestHeader()
-	_, ret, err := httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, header, jsonutils.Marshal(input), false)
-	return ret, err
-}
-
 func createPullModelTask(ctx context.Context, userCred mcclient.TokenCredential, llm *SLLM, input *api.LLMPullModelInput) (task *taskman.STask, err error) {
-	if input != nil {
+	if input.Gguf != nil {
 		llm.GgufFile = input.Gguf.GgufFile
 		task, err = taskman.TaskManager.NewTask(ctx, "LLMInstallGgufTask", llm, userCred, jsonutils.Marshal(input.Gguf).(*jsonutils.JSONDict), "", "", nil)
 	} else {
@@ -506,7 +429,7 @@ func createPullModelTask(ctx context.Context, userCred mcclient.TokenCredential,
 }
 
 func createModelFile(llm *SLLM, spec *api.LLMModelFileSpec) string {
-	mdlFile := fmt.Sprintf(api.LLM_OLLAMA_GGUF_FROM, llm.GetGgufFile())
+	mdlFile := fmt.Sprintf(api.LLM_OLLAMA_GGUF_FROM, getGgufFile(llm))
 
 	// Parameter
 	if nil != spec.Parameter {
@@ -545,28 +468,20 @@ func createModelFile(llm *SLLM, spec *api.LLMModelFileSpec) string {
 	return mdlFile
 }
 
-func llmFetchContainerById(ctrMngr *SContainerManager, llm *SLLM) (*SContainer, error) {
-	ctr, err := ctrMngr.FetchById(llm.ContainerId)
-	if nil != err {
-		return nil, errors.Wrap(err, "llmFetchContainerById")
-	}
-	return ctr.(*SContainer), nil
+func getBlobsPath(llm *SLLM) string {
+	return path.Join(api.LLM_OLLAMA_BASE_PATH, api.LLM_OLLAMA_BLOBS_DIR)
 }
 
-func llmGetOllamaContainer(ctrMngr *SContainerManager, llm *SLLM) (*SContainer, error) {
-	ctrs, err := ctrMngr.GetContainersByPod(llm.GuestId)
-	if err != nil {
-		return nil, err
-	}
-	// found ollama
-	for _, ctr := range ctrs {
-		if strings.Contains(ctr.Spec.Image, api.LLM_OLLAMA) {
-			// update ContainerId
-			llm.SetContainerId(ctr.GetId())
-			return &ctr, nil
-		}
-	}
-	return nil, errors.Wrapf(errors.ErrNotFound, "ollama container for guest %s not found", llm.GuestId)
+func getGgufDir(llm *SLLM) string {
+	return path.Join(api.LLM_OLLAMA_BASE_PATH, api.LLM_OLLAMA_GGUF_DIR, llm.GetModel())
+}
+
+func getGgufFile(llm *SLLM) string {
+	return path.Join(getGgufDir(llm), path.Base(llm.GgufFile))
+}
+
+func getManifestsPath(llm *SLLM) string {
+	return path.Join(api.LLM_OLLAMA_BASE_PATH, api.LLM_OLLAMA_MANIFESTS_BASE_PATH, llm.ModelName, llm.ModelTag)
 }
 
 func parseModel(model string) (string, string) {
@@ -577,22 +492,4 @@ func parseModel(model string) (string, string) {
 		modelTag = parts[1]
 	}
 	return modelName, modelTag
-}
-
-func webGet(url string) (io.ReadCloser, error) {
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to create http request")
-	}
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return nil, errors.Wrapf(err, "http get request failed")
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, errors.Errorf("failed to get web file, status code: %d, url: %s", resp.StatusCode, url)
-	}
-
-	return resp.Body, nil
 }

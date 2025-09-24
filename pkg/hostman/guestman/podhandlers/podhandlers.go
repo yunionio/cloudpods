@@ -46,7 +46,6 @@ import (
 const (
 	POD_ID       = "<podId>"
 	CONTAINER_ID = "<containerId>"
-	LLM_ID       = "<llmId>"
 )
 
 type containerActionFunc func(ctx context.Context, userCred mcclient.TokenCredential, pod guestman.PodInstance, containerId string, body jsonutils.JSONObject) (jsonutils.JSONObject, error)
@@ -161,8 +160,7 @@ func AddPodHandlers(prefix string, app *appsrv.Application) {
 	app.AddHandler3(newContainerWorkerHandler("POST", fmt.Sprintf("%s/pods/%s/containers/%s/set-resources-limit", prefix, POD_ID, CONTAINER_ID), syncWorker, containerSyncActionHandler(containerSetResourcesLimit)))
 
 	// add ollama handler
-	app.AddHandler("POST", fmt.Sprintf("%s/pods/%s/containers/%s/llms/%s/access-cache", prefix, POD_ID, CONTAINER_ID, LLM_ID), llmActionHandler(accessModelCacheHandler))
-	// app.AddHandler("POST", fmt.Sprintf("%s/pods/%s/containers/%s/llms/%s/access-gguf-file", prefix, POD_ID, CONTAINER_ID, LLM_ID), llmActionHandler(accessGgufFileHandler))
+	app.AddHandler("POST", fmt.Sprintf("%s/pods/%s/containers/%s/access-ollama-blobs-cache", prefix, POD_ID, CONTAINER_ID), llmActionHandler(accessModelCacheHandler))
 }
 
 func pullImage(ctx context.Context, userCred mcclient.TokenCredential, pod guestman.PodInstance, ctrId string, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {

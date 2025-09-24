@@ -27,18 +27,20 @@ func init() {
 }
 
 func (t *LLMPullModelTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
+	if err := obj.(*models.SLLM).ConfirmContainerId(ctx, t.GetUserCred()); err != nil {
+		t.OnGetManifestsFailed(ctx, obj.(*models.SLLM), jsonutils.NewString(err.Error()))
+	}
 	t.requestGetManifests(ctx, obj.(*models.SLLM))
 }
 
 func (t *LLMPullModelTask) requestGetManifests(ctx context.Context, llm *models.SLLM) {
 	llm.SetStatus(ctx, t.GetUserCred(), api.LLM_STATUS_PULLING_MODEL, "")
+	t.SetStage("OnGetManifests", nil)
 
-	manifests, err := llm.DownloadManifests(ctx, t.GetUserCred())
-	if err != nil {
+	if err := llm.DownloadManifests(ctx, t.GetUserCred(), t.GetId()); err != nil {
 		t.OnGetManifestsFailed(ctx, llm, jsonutils.NewString(err.Error()))
 		return
 	}
-	t.OnGotManifests(ctx, llm, manifests)
 }
 
 func (t *LLMPullModelTask) OnGetManifestsFailed(ctx context.Context, llm *models.SLLM, reason jsonutils.JSONObject) {
@@ -46,9 +48,14 @@ func (t *LLMPullModelTask) OnGetManifestsFailed(ctx context.Context, llm *models
 	t.SetStageFailed(ctx, reason)
 }
 
-func (t *LLMPullModelTask) OnGotManifests(ctx context.Context, llm *models.SLLM, manifests []string) {
+func (t *LLMPullModelTask) OnGetManifests(ctx context.Context, llm *models.SLLM, manifests []string) {
+	blobs, err := llm.FetchBlobs(ctx, t.GetUserCred())
+	if err != nil {
+		t.OnAccessCacheFailed(ctx, llm, jsonutils.NewString(err.Error()))
+		return
+	}
 	input := &api.LLMAccessCacheInput{
-		Blobs:     manifests,
+		Blobs:     blobs,
 		ModelName: llm.GetModelName(),
 	}
 	t.SetStage("OnAccessCache", jsonutils.Marshal(input).(*jsonutils.JSONDict))
