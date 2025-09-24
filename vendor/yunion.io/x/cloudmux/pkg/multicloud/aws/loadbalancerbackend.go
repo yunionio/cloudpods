@@ -21,7 +21,6 @@ import (
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
-	"yunion.io/x/pkg/util/netutils"
 )
 
 type SElbBackends struct {
@@ -101,11 +100,7 @@ func (self *SElbBackend) Update(ctx context.Context, opts *cloudprovider.SLoadba
 }
 
 func (self *SElbBackend) GetIpAddress() string {
-	_, err := netutils.NewIPV4Addr(self.Target.Id)
-	if err != nil {
-		return ""
-	}
-	return self.Target.Id
+	return ""
 }
 
 func (self *SRegion) SyncElbBackend(backendId, serverId string, oldPort, newPort int) error {

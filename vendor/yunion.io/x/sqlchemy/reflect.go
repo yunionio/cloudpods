@@ -758,3 +758,116 @@ func ConvertValueToString(val interface{}) string {
 	}
 	return jsonutils.Marshal(val).String()
 }
+
+func getFloatValue(val interface{}) (float64, error) {
+	switch v := val.(type) {
+	case float32:
+		return float64(v), nil
+	case float64:
+		return v, nil
+	case int:
+		return float64(v), nil
+	case int8:
+		return float64(v), nil
+	case int16:
+		return float64(v), nil
+	case int32:
+		return float64(v), nil
+	case int64:
+		return float64(v), nil
+	case uint:
+		return float64(v), nil
+	case uint8:
+		return float64(v), nil
+	case uint16:
+		return float64(v), nil
+	case uint32:
+		return float64(v), nil
+	case uint64:
+		return float64(v), nil
+	case *float32:
+		return float64(*v), nil
+	case *float64:
+		return *v, nil
+	case *int:
+		return float64(*v), nil
+	case *int8:
+		return float64(*v), nil
+	case *int16:
+		return float64(*v), nil
+	case *int32:
+		return float64(*v), nil
+	case *int64:
+		return float64(*v), nil
+	case *uint:
+		return float64(*v), nil
+	case *uint8:
+		return float64(*v), nil
+	case *uint16:
+		return float64(*v), nil
+	case *uint32:
+		return float64(*v), nil
+	case *uint64:
+		return float64(*v), nil
+	case string:
+		return strconv.ParseFloat(v, 64)
+	case *string:
+		return strconv.ParseFloat(*v, 64)
+	}
+	return 0, errors.ErrInvalidFormat
+}
+
+func getTimeValue(val interface{}) (time.Time, error) {
+	switch v := val.(type) {
+	case time.Time:
+		return v, nil
+	case *time.Time:
+		return *v, nil
+	case string:
+		return timeutils.ParseTimeStr(v)
+	case *string:
+		return timeutils.ParseTimeStr(*v)
+	}
+	return time.Time{}, errors.ErrInvalidFormat
+}
+
+const MIN_FLOAT_EQUAL_DIFF = float64(0.000001)
+
+func floatEqual(of, nf float64) bool {
+	if of > nf {
+		return of < MIN_FLOAT_EQUAL_DIFF+nf
+	} else if of < nf {
+		return of+MIN_FLOAT_EQUAL_DIFF > nf
+	} else {
+		return true
+	}
+}
+
+const MIN_MICRO_SECOND_EQUAL_DIFF = 1000000
+
+func timeEqual(of, nf time.Time) bool {
+	ofUnix := of.UnixMicro()
+	nfUnix := nf.UnixMicro()
+	if ofUnix == nfUnix {
+		return true
+	}
+	if ofUnix > nfUnix {
+		return ofUnix < MIN_MICRO_SECOND_EQUAL_DIFF+nfUnix
+	} else {
+		return ofUnix+MIN_MICRO_SECOND_EQUAL_DIFF > nfUnix
+	}
+}
+
+func EqualsGrossValue(of, nf interface{}) bool {
+	ofFloat, ofErr := getFloatValue(of)
+	nfFloat, nfErr := getFloatValue(nf)
+	if ofErr == nil && nfErr == nil {
+		return floatEqual(ofFloat, nfFloat)
+	}
+	ofTime, ofErr := getTimeValue(of)
+	nfTime, nfErr := getTimeValue(nf)
+	if ofErr == nil && nfErr == nil {
+		return timeEqual(ofTime, nfTime)
+	}
+	return false
+}
