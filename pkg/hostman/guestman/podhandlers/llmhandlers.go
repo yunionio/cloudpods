@@ -30,7 +30,7 @@ func llmActionHandler(cf llmActionFunc) appsrv.FilterHandler {
 		params, _, body := appsrv.FetchEnv(ctx, w, r)
 		podId := params[POD_ID]
 		ctrId := params[CONTAINER_ID]
-		llmId := params[LLM_ID]
+		// llmId := params[LLM_ID]
 		userCred := auth.FetchUserCredential(ctx, nil)
 		if body == nil {
 			body = jsonutils.NewDict()
@@ -48,7 +48,7 @@ func llmActionHandler(cf llmActionFunc) appsrv.FilterHandler {
 		delayParams := &llmDelayActionParams{
 			pod:         pod,
 			containerId: ctrId,
-			llmId:       llmId,
+			llmId:       "",
 			body:        body,
 		}
 		delayFunc := func(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
@@ -59,50 +59,6 @@ func llmActionHandler(cf llmActionFunc) appsrv.FilterHandler {
 		hostutils.ResponseOk(ctx, w)
 	})
 }
-
-// func accessGgufFileHandler(ctx context.Context, userCred mcclient.TokenCredential, pod guestman.PodInstance, containerId string, llmId string, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-// 	input := new(compute.LLMAccessGgufFileInput)
-// 	if err := body.Unmarshal(input); err != nil {
-// 		return nil, err
-// 	}
-
-// 	fileName := filepath.Base(input.HostPath)
-// 	targetPath := filepath.Join(input.TargetDir, fileName)
-
-// 	file, err := os.Open(input.HostPath)
-// 	if nil != err {
-// 		return nil, errors.Wrapf(err, "failed to open host file: %s", input.HostPath)
-// 	}
-// 	defer file.Close()
-
-// 	execInput := &compute.ContainerExecInput{
-// 		Command: []string{"/bin/sh", "-c", fmt.Sprintf("mkdir -p %s && cat > %s", input.TargetDir, targetPath)},
-// 		Tty:     false,
-// 	}
-
-// 	criUrl, err := pod.ExecContainer(ctx, userCred, containerId, execInput)
-// 	if err != nil {
-// 		return nil, errors.Wrap(err, "failed to get exec URL")
-// 	}
-
-// 	// write gguf file into container
-// 	exec, err := remotecommand.NewSPDYExecutor("POST", criUrl)
-// 	if err != nil {
-// 		return nil, errors.Wrap(err, "NewSPDYExecutor")
-// 	}
-// 	headers := mcclient.GetTokenHeaders(userCred)
-// 	err = exec.Stream(remotecommand.StreamOptions{
-// 		Stdin:  file,
-// 		Tty:    false,
-// 		Header: headers,
-// 	})
-
-// 	if nil != err {
-// 		return nil, errors.Wrap(err, "failed to write gguf file into container")
-// 	}
-
-// 	return jsonutils.NewDict(), nil
-// }
 
 func accessModelCacheHandler(ctx context.Context, userCred mcclient.TokenCredential, pod guestman.PodInstance, containerId string, llmId string, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	input := new(llm.LLMAccessCacheInput)

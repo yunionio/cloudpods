@@ -45,6 +45,8 @@ const (
 
 	SERVICE_TYPE_APIMAP = "apimap"
 
+	SERVICE_TYPE_LLM = "llm"
+
 	STATUS_UPDATE_TAGS        = "update_tags"
 	STATUS_UPDATE_TAGS_FAILED = "update_tags_fail"
 
