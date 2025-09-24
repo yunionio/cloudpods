@@ -362,3 +362,9 @@ func (i *ContainerCacheImagesInput) Add(diskId string, imgId string, format stri
 	}
 	return nil
 }
+
+type ContainerRequestHostActionWithParentTaskInput struct {
+	HostAction string               `json:"host_action"`
+	TaskId     string               `json:"task_id"`
+	Body       jsonutils.JSONObject `json:"body"`
+}

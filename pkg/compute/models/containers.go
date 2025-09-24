@@ -1306,3 +1306,11 @@ func (c *SContainer) SetStatusFromHost(ctx context.Context, userCred mcclient.To
 	}
 	return errors.NewAggregate(errs)
 }
+
+func (c *SContainer) PerformRequestHostActionWithParentTask(ctx context.Context, userCred mcclient.TokenCredential, _ jsonutils.JSONObject, input *api.ContainerRequestHostActionWithParentTaskInput) (jsonutils.JSONObject, error) {
+	// special process for do-create-task
+	if input.HostAction == "do-create-task" {
+		return jsonutils.NewDict(), c.StartCreateTask(ctx, userCred, input.TaskId, input.Body.(*jsonutils.JSONDict))
+	}
+	return c.GetPodDriver().RequestHostActionWithParentTask(ctx, userCred, c, input)
+}
