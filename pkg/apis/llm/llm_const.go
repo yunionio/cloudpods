@@ -1,4 +1,8 @@
-package compute
+package llm
+
+const (
+	SERVICE_TYPE = "llm"
+)
 
 const (
 	LLM_OLLAMA                  = "ollama"

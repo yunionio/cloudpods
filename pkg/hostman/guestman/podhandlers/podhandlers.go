@@ -17,8 +17,10 @@ package podhandlers
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
+	"path"
 	"time"
 
 	"k8s.io/apimachinery/pkg/util/proxy"
@@ -38,6 +40,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/util/flushwriter"
+	"yunion.io/x/onecloud/pkg/util/pod/remotecommand"
 )
 
 const (
@@ -149,6 +152,7 @@ func AddPodHandlers(prefix string, app *appsrv.Application) {
 	execWorker := appsrv.NewWorkerManager("container-exec-worker", 16, appsrv.DEFAULT_BACKLOG, false)
 	app.AddHandler3(newContainerWorkerHandler("POST", fmt.Sprintf("%s/pods/%s/containers/%s/exec-sync", prefix, POD_ID, CONTAINER_ID), execWorker, containerSyncActionHandler(containerExecSync)))
 	app.AddHandler3(newContainerWorkerHandler("POST", fmt.Sprintf("%s/pods/%s/containers/%s/exec", prefix, POD_ID, CONTAINER_ID), execWorker, execContainer()))
+	app.AddHandler("POST", fmt.Sprintf("%s/pods/%s/containers/%s/download-file", prefix, POD_ID, CONTAINER_ID), containerActionHandlerWithWorker(downloadFileIntoContainer, execWorker))
 
 	logWorker := appsrv.NewWorkerManager("container-log-worker", 64, appsrv.DEFAULT_BACKLOG, false)
 	app.AddHandler3(newContainerWorkerHandler("GET", fmt.Sprintf("%s/pods/%s/containers/%s/log", prefix, POD_ID, CONTAINER_ID), logWorker, logContainer()))
@@ -292,6 +296,54 @@ func execContainer() appsrv.FilterHandler {
 		proxyStream(w, r, criUrl)
 		return
 	})
+}
+
+func downloadFileIntoContainer(ctx context.Context, userCred mcclient.TokenCredential, pod guestman.PodInstance, containerId string, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	download := new(compute.ContainerDownloadFileInput)
+	if err := body.Unmarshal(download); err != nil {
+		return nil, errors.Wrap(err, "unmarshal to ContainerDownloadFileInput")
+	}
+
+	// wget file from url
+	resp, err := http.Get(download.WebUrl)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to download file from %s", download.WebUrl)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, errors.Errorf("failed to download file, status: %d", resp.StatusCode)
+	}
+
+	// ensure target directory exists and write file into container
+	input := &compute.ContainerExecInput{
+		Command: []string{"sh", "-c", fmt.Sprintf("mkdir -p %s && cat > %s", path.Dir(download.Path), download.Path)},
+	}
+	criUrl, err := pod.ExecContainer(ctx, userCred, containerId, input)
+	if err != nil {
+		return nil, errors.Wrap(err, "get exec url")
+	}
+
+	// log.Infoln("get criUrl", criUrl.String())
+
+	// write file into container via SPDY stream
+	exec, err := remotecommand.NewSPDYExecutor("POST", criUrl)
+	if err != nil {
+		return nil, errors.Wrap(err, "NewSPDYExecutor")
+	}
+
+	headers := mcclient.GetTokenHeaders(userCred)
+	err = exec.Stream(remotecommand.StreamOptions{
+		Stdin:  resp.Body,
+		Stdout: io.Discard,
+		Stderr: io.Discard,
+		Header: headers,
+	})
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to write file into container")
+	}
+
+	return jsonutils.NewDict(), nil
 }
 
 type responder struct {

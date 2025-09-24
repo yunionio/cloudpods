@@ -40,6 +40,7 @@ import (
 	"yunion.io/x/onecloud/pkg/apis"
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	hostapi "yunion.io/x/onecloud/pkg/apis/host"
+	llmapi "yunion.io/x/onecloud/pkg/apis/llm"
 	"yunion.io/x/onecloud/pkg/hostman/container/device"
 	"yunion.io/x/onecloud/pkg/hostman/container/lifecycle"
 	"yunion.io/x/onecloud/pkg/hostman/container/prober"
@@ -1800,14 +1801,14 @@ func (s *sPodGuestInstance) createContainer(ctx context.Context, userCred mcclie
 		volumeMount := &hostapi.ContainerVolumeMount{
 			HostPath:  hostPath,
 			ReadOnly:  true,
-			MountPath: path.Join(computeapi.LLM_OLLAMA_CACHE_MOUNT_PATH, computeapi.LLM_OLLAMA_CACHE_DIR),
+			MountPath: path.Join(llmapi.LLM_OLLAMA_CACHE_MOUNT_PATH, llmapi.LLM_OLLAMA_CACHE_DIR),
 			Type:      apis.CONTAINER_VOLUME_MOUNT_TYPE_HOST_PATH,
 		}
 		spec.VolumeMounts = append(spec.VolumeMounts, volumeMount)
 		// set enviroment OLLAMA_HOST=0.0.0.0:11434 for ollama container
 		env := &apis.ContainerKeyValue{
-			Key:   computeapi.LLM_OLLAMA_EXPORT_ENV_KEY,
-			Value: computeapi.LLM_OLLAMA_EXPORT_ENV_VALUE,
+			Key:   llmapi.LLM_OLLAMA_EXPORT_ENV_KEY,
+			Value: llmapi.LLM_OLLAMA_EXPORT_ENV_VALUE,
 		}
 		spec.Envs = append(spec.Envs, env)
 	}
