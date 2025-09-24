@@ -1,4 +1,4 @@
-package compute
+package llm
 
 import (
 	"reflect"
@@ -6,8 +6,9 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
-	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
+	llmapi "yunion.io/x/onecloud/pkg/apis/llm"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
+	"yunion.io/x/onecloud/pkg/mcclient/options/compute"
 )
 
 type DifyCustomizedEnvOptions struct {
@@ -18,8 +19,8 @@ type DifyCustomizedEnvOptions struct {
 	AppWebUrl     string `help:"WebApp Url,used to display WebAPP API Base Url to the front-end."`
 }
 
-func (o *DifyCustomizedEnvOptions) getDifyCustomizedEnvs() []*computeapi.DifyCustomizedEnv {
-	var envs []*computeapi.DifyCustomizedEnv
+func (o *DifyCustomizedEnvOptions) getDifyCustomizedEnvs() []*llmapi.DifyCustomizedEnv {
+	var envs []*llmapi.DifyCustomizedEnv
 	val := reflect.ValueOf(o).Elem()
 
 	var snakeCaseConverter = regexp.MustCompile("([a-z0-9])([A-Z])")
@@ -31,7 +32,7 @@ func (o *DifyCustomizedEnvOptions) getDifyCustomizedEnvs() []*computeapi.DifyCus
 		if valueField.Kind() == reflect.String {
 			fieldValue := valueField.String()
 			if fieldValue != "" {
-				envs = append(envs, &computeapi.DifyCustomizedEnv{
+				envs = append(envs, &llmapi.DifyCustomizedEnv{
 					Key:   strings.ToUpper(snakeCaseConverter.ReplaceAllString(typeField.Name, "${1}_${2}")),
 					Value: fieldValue,
 				})
@@ -47,8 +48,8 @@ type DifyCustomized struct {
 	REGISTRY string `help:"Registry of the image, need container such images(default in docker.io): postgres:15-alpine, redis:6-alpine, nginx:latest, langgenius/dify-api:1.7.2, langgenius/dify-plugin-daemon:0.2.0-local, langgenius/dify-web:1.7.2, langgenius/dify-sandbox:0.2.12, ubuntu/squid:latest, semitechnologies/weaviate:1.19.0"`
 }
 
-func (o *DifyCustomized) getDifyCustomized() *computeapi.DifyCustomized {
-	return &computeapi.DifyCustomized{
+func (o *DifyCustomized) getDifyCustomized() *llmapi.DifyCustomized {
+	return &llmapi.DifyCustomized{
 		CustomizedEnvs: o.getDifyCustomizedEnvs(),
 		Registry:       o.REGISTRY,
 	}
@@ -57,7 +58,7 @@ func (o *DifyCustomized) getDifyCustomized() *computeapi.DifyCustomized {
 type DifyCreateOptions struct {
 	// Below are PodCreateOptions without ContainerCreateCommonOptions and AutoStart
 	NAME string `help:"Name of server pod" json:"-"`
-	ServerCreateCommonConfig
+	compute.ServerCreateCommonConfig
 	MEM              string `help:"Memory size MB" metavar:"MEM" json:"-"`
 	VcpuCount        int    `help:"#CPU cores of VM server, default 1" default:"1" metavar:"<SERVER_CPU_COUNT>" json:"vcpu_count" token:"ncpu"`
 	AllowDelete      *bool  `help:"Unlock server to allow deleting" json:"-"`
@@ -71,10 +72,10 @@ type DifyCreateOptions struct {
 }
 
 func (o *DifyCreateOptions) Params() (jsonutils.JSONObject, error) {
-	input := &computeapi.DifyCreateInput{}
+	input := &llmapi.DifyCreateInput{}
 
 	// use PodCreateOptions to param
-	podCreatOpt := &PodCreateOptions{
+	podCreatOpt := &compute.PodCreateOptions{
 		NAME:                     o.NAME,
 		MEM:                      o.MEM,
 		VcpuCount:                o.VcpuCount,

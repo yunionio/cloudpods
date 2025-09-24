@@ -1,4 +1,4 @@
-package compute
+package llm
 
 import (
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
@@ -11,11 +11,11 @@ var (
 
 func init() {
 	LLMs = LLMManager{
-		modules.NewComputeManager("llm", "llms",
+		modules.NewLLMManager("llm", "llms",
 			[]string{"ID", "Name", "Guest_ID", "Container_ID", "Model_Name", "Model_Tag", "Status"},
 			[]string{}),
 	}
-	modules.RegisterCompute(&LLMs)
+	modules.Register(&LLMs)
 }
 
 type LLMManager struct {
