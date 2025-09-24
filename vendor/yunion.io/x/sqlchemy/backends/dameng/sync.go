@@ -145,6 +145,16 @@ func (mysql *SDamengBackend) CommitTableChangeSQL(ts sqlchemy.ITableSpec, change
 				sql := fmt.Sprintf(`ALTER TABLE "%s" ALTER COLUMN "%s" DROP DEFAULT`, ts.Name(), cols.NewCol.Name())
 				alters = append(alters, sql)
 			}
+
+			if cols.NewCol.IsNullable() != cols.OldCol.IsNullable() {
+				if cols.NewCol.IsNullable() {
+					sql := fmt.Sprintf(`ALTER TABLE "%s" MODIFY "%s" NULL`, ts.Name(), cols.NewCol.Name())
+					alters = append(alters, sql)
+				} else {
+					sql := fmt.Sprintf(`ALTER TABLE "%s" ALTER COLUMN "%s" SET NOT NULL`, ts.Name(), cols.NewCol.Name())
+					alters = append(alters, sql)
+				}
+			}
 		}
 	}
 	for _, col := range changes.AddColumns {

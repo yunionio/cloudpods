@@ -157,6 +157,10 @@ func (cli *SKsyunClient) getDefaultClient() *http.Client {
 				return nil, nil
 			}
 		}
+		// ks3
+		if len(action) == 0 && strings.Contains(req.URL.String(), "ks3-") {
+			return nil, nil
+		}
 		if cli.cpcfg.ReadOnly {
 			return nil, errors.Wrapf(cloudprovider.ErrAccountReadOnly, "%s %s", req.Method, req.URL.Path)
 		}
@@ -353,6 +357,7 @@ func (cli *SKsyunClient) GetCapabilities() []string {
 		cloudprovider.CLOUD_CAPABILITY_COMPUTE + cloudprovider.READ_ONLY_SUFFIX,
 		cloudprovider.CLOUD_CAPABILITY_PROJECT + cloudprovider.READ_ONLY_SUFFIX,
 		cloudprovider.CLOUD_CAPABILITY_CLOUDID,
+		cloudprovider.CLOUD_CAPABILITY_OBJECTSTORE,
 		cloudprovider.CLOUD_CAPABILITY_RDS + cloudprovider.READ_ONLY_SUFFIX,
 	}
 	return caps
