@@ -190,10 +190,10 @@ func (dify *SDify) CheckRedis(ctx context.Context, userCred mcclient.TokenCreden
 	}
 
 	// set redis container id
-	if len(ctrs.Data) != 1 {
+	if len(ctrs) != 1 {
 		return errors.Errorf("Strange redis container")
 	}
-	ctr, err := ctrs.Data[0].GetString("id")
+	ctr, err := ctrs[0].GetString("id")
 	if nil != err {
 		return err
 	}
