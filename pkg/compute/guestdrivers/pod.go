@@ -688,14 +688,11 @@ func (p *SPodDriver) attachIsolatedDeviceToContainer(ctx context.Context, userCr
 	return nil
 }
 
-func (p *SPodDriver) RequestHostActionWithParentTask(ctx context.Context, userCred mcclient.TokenCredential, container *models.SContainer, input *api.ContainerRequestHostActionWithParentTaskInput) (jsonutils.JSONObject, error) {
-	task := taskman.TaskManager.FetchTaskById(input.TaskId)
+func (p *SPodDriver) RequestHostActionByOtherService(ctx context.Context, userCred mcclient.TokenCredential, task models.IContainerTask) error {
+	input := new(api.ContainerRequestHostActionByOtherServiceInput)
+	if err := task.GetParams().Unmarshal(input); err != nil {
+		return errors.Wrap(err, "unmarshal params")
+	}
 
-	pod := container.GetPod()
-	host, _ := pod.GetHost()
-	url := fmt.Sprintf("%s/pods/%s/containers/%s/%s", host.ManagerUri, pod.GetId(), container.GetId(), input.HostAction)
-	header := p.getTaskRequestHeader(task)
-
-	_, ret, err := httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, header, input.Body, false)
-	return ret, err
+	return p.performContainerAction(ctx, userCred, task, input.HostAction, input.Body)
 }
