@@ -32,10 +32,12 @@ import (
 	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/apis/compute"
 	hostapi "yunion.io/x/onecloud/pkg/apis/host"
+	"yunion.io/x/onecloud/pkg/apis/llm"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/hostman/guestman"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/options"
+	"yunion.io/x/onecloud/pkg/hostman/storageman"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
@@ -125,6 +127,7 @@ func AddPodHandlers(prefix string, app *appsrv.Application) {
 		"commit":                           commitContainer,
 		"add-volume-mount-post-overlay":    containerAddVolumeMountPostOverlay,
 		"remove-volume-mount-post-overlay": containerRemoveVolumeMountPostOverlay,
+		"access-ollama-blobs-cache":        accessBlobsCacheHandler,
 	}
 	for action, f := range ctrHandlers {
 		app.AddHandler("POST",
@@ -158,9 +161,6 @@ func AddPodHandlers(prefix string, app *appsrv.Application) {
 
 	syncWorker := appsrv.NewWorkerManager("container-sync-action-worker", 16, appsrv.DEFAULT_BACKLOG, false)
 	app.AddHandler3(newContainerWorkerHandler("POST", fmt.Sprintf("%s/pods/%s/containers/%s/set-resources-limit", prefix, POD_ID, CONTAINER_ID), syncWorker, containerSyncActionHandler(containerSetResourcesLimit)))
-
-	// add ollama handler
-	app.AddHandler("POST", fmt.Sprintf("%s/pods/%s/containers/%s/access-ollama-blobs-cache", prefix, POD_ID, CONTAINER_ID), llmActionHandler(accessModelCacheHandler))
 }
 
 func pullImage(ctx context.Context, userCred mcclient.TokenCredential, pod guestman.PodInstance, ctrId string, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -341,6 +341,23 @@ func downloadFileIntoContainer(ctx context.Context, userCred mcclient.TokenCrede
 		return nil, errors.Wrap(err, "failed to write file into container")
 	}
 
+	return jsonutils.NewDict(), nil
+}
+
+func accessBlobsCacheHandler(ctx context.Context, userCred mcclient.TokenCredential, pod guestman.PodInstance, containerId string, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	input := new(llm.LLMAccessCacheInput)
+	if err := body.Unmarshal(input); err != nil {
+		return nil, err
+	}
+	cacheManager := storageman.GetManager().LocalStorageImagecacheManager.(*storageman.SLocalImageCacheManager)
+	if cacheManager == nil {
+		return nil, errors.Error("Can't get LocalStorageImagecacheManager")
+	}
+	for _, blob := range input.Blobs {
+		if err := cacheManager.AccessModelCache(ctx, input.ModelName, blob); nil != err {
+			return nil, errors.Wrapf(err, "Failed to attatch model cache")
+		}
+	}
 	return jsonutils.NewDict(), nil
 }
 

@@ -10,7 +10,6 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
-	"yunion.io/x/pkg/util/printutils"
 )
 
 // var PodDriver models.IPodDriver
@@ -41,7 +40,7 @@ func (p *SPodDriver) RequestExecSyncContainer(ctx context.Context, userCred mccl
 	return output, nil
 }
 
-func (p *SPodDriver) RequestGetContainersByPodId(ctx context.Context, userCred mcclient.TokenCredential, podId string) (*printutils.ListResult, error) {
+func (p *SPodDriver) RequestGetContainersByPodId(ctx context.Context, userCred mcclient.TokenCredential, podId string) ([]jsonutils.JSONObject, error) {
 	session := auth.GetSession(ctx, userCred, "")
 	params := jsonutils.NewDict()
 	params.Set("guest_id", jsonutils.NewString(podId))
@@ -50,7 +49,7 @@ func (p *SPodDriver) RequestGetContainersByPodId(ctx context.Context, userCred m
 		return nil, errors.Wrap(err, "ListContainers")
 	}
 
-	return output, nil
+	return output.Data, nil
 }
 
 func (p *SPodDriver) RequestCreateContainerOnPod(ctx context.Context, userCred mcclient.TokenCredential, podId string, input *computeapi.PodContainerCreateInput) (jsonutils.JSONObject, error) {
@@ -65,9 +64,9 @@ func (p *SPodDriver) RequestCreateContainerOnPod(ctx context.Context, userCred m
 }
 
 func (p *SPodDriver) RequestDoCreateContainer(ctx context.Context, userCred mcclient.TokenCredential, containerId string, taskId string) error {
-	input := jsonutils.NewDict()
-	input.Set("auto_start", jsonutils.JSONTrue)
-	_, err := requesyContainerHostActionWithTask(ctx, userCred, containerId, "do-create-task", taskId, input)
+	params := jsonutils.NewDict()
+	params.Set("auto_start", jsonutils.JSONTrue)
+	_, err := requesyContainerHostActionWithTask(ctx, userCred, containerId, "do-create-task", taskId, params)
 
 	return err
 }
@@ -82,10 +81,10 @@ func (p *SPodDriver) RequestOllamaBlobsCache(ctx context.Context, userCred mccli
 
 func requesyContainerHostActionWithTask(ctx context.Context, userCred mcclient.TokenCredential, containerId string, hostAction string, taskId string, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	session := auth.GetSession(ctx, userCred, "")
-	input := &computeapi.ContainerRequestHostActionWithParentTaskInput{
+	input := &computeapi.ContainerRequestHostActionByOtherServiceInput{
 		HostAction: hostAction,
 		TaskId:     taskId,
 		Body:       body,
 	}
-	return modules.Containers.PerformAction(session, containerId, "request-host-action-with-parent-task", jsonutils.Marshal(input))
+	return modules.Containers.PerformAction(session, containerId, "request-host-action-by-other-service", jsonutils.Marshal(input))
 }
