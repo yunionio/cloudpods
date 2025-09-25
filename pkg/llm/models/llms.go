@@ -241,10 +241,10 @@ func (llm *SLLM) ConfirmContainerId(ctx context.Context, userCred mcclient.Token
 	}
 
 	// find ollama container id and set
-	if len(ctrs.Data) != 1 {
+	if len(ctrs) != 1 {
 		return errors.Errorf("Strange llm containers")
 	}
-	for _, ctr := range ctrs.Data {
+	for _, ctr := range ctrs {
 		specJson, _ := ctr.GetString("spec")
 		spec := new(computeapi.ContainerSpec)
 		if err := jsonutils.JSONFalse.Unmarshal(spec, specJson); nil != err {
@@ -309,7 +309,7 @@ func (llm *SLLM) AccessGgufFile(ctx context.Context, userCred mcclient.TokenCred
 
 func (llm *SLLM) CopyBlobs(ctx context.Context, userCred mcclient.TokenCredential, blobs []string) error {
 	// cp blobs
-	blobsTargetDir := getBlobsPath(llm)
+	blobsTargetDir := getBlobsPath()
 	blobsSrcDir := path.Join(api.LLM_OLLAMA_CACHE_MOUNT_PATH, api.LLM_OLLAMA_CACHE_DIR)
 
 	var commands []string
@@ -338,7 +338,7 @@ func (llm *SLLM) DeleteModel(ctx context.Context, userCred mcclient.TokenCredent
 		return errors.Wrapf(err, "Delete manifests file failed")
 	}
 
-	if _, err := llm.exec(ctx, userCred, "/bin/rm", "-r", "-f", getBlobsPath(llm)); nil != err {
+	if _, err := llm.exec(ctx, userCred, "/bin/rm", "-r", "-f", getBlobsPath()); nil != err {
 		return errors.Wrapf(err, "Delete blobs file failed")
 	}
 
@@ -468,7 +468,7 @@ func createModelFile(llm *SLLM, spec *api.LLMModelFileSpec) string {
 	return mdlFile
 }
 
-func getBlobsPath(llm *SLLM) string {
+func getBlobsPath() string {
 	return path.Join(api.LLM_OLLAMA_BASE_PATH, api.LLM_OLLAMA_BLOBS_DIR)
 }
 

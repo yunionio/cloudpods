@@ -21,7 +21,6 @@ import (
 
 	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/apis/compute"
-	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
@@ -50,5 +49,5 @@ type IPodDriver interface {
 	RequestAddVolumeMountPostOverlay(ctx context.Context, userCred mcclient.TokenCredential, task IContainerTask) error
 	RequestRemoveVolumeMountPostOverlay(ctx context.Context, userCred mcclient.TokenCredential, task IContainerTask) error
 
-	RequestHostActionWithParentTask(ctx context.Context, userCred mcclient.TokenCredential, ctr *SContainer, input *api.ContainerRequestHostActionWithParentTaskInput) (jsonutils.JSONObject, error)
+	RequestHostActionByOtherService(ctx context.Context, userCred mcclient.TokenCredential, task IContainerTask) error
 }
