@@ -524,12 +524,11 @@ func (h *SHostInfo) prepareEnv() error {
 	if err != nil {
 		log.Warningf("modprobe vhost_net error: %s", output)
 	}
-	if !options.HostOptions.DisableSetCgroup {
-		if err := cgrouputils.Init(h.IoScheduler); err != nil {
-			return fmt.Errorf("Cannot initialize control group subsystem: %s", err)
-		}
-		h.sysinfo.CgroupVersion = cgrouputils.GetCgroupVersion()
+
+	if err := cgrouputils.Init(h.IoScheduler); err != nil {
+		return fmt.Errorf("Cannot initialize control group subsystem: %s", err)
 	}
+	h.sysinfo.CgroupVersion = cgrouputils.GetCgroupVersion()
 
 	// err = h.resetIptables()
 	// if err != nil {
