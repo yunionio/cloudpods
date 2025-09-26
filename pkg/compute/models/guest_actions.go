@@ -6816,6 +6816,15 @@ func (self *SGuest) PerformDisableAutoMergeSnapshots(ctx context.Context, userCr
 }
 
 func (self *SGuest) PerformSetKickstart(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.KickstartConfig) (jsonutils.JSONObject, error) {
+	// Check if kickstart has already been completed
+	currentFlag := self.GetMetadata(ctx, api.VM_METADATA_KICKSTART_COMPLETED_FLAG, userCred)
+	if currentFlag == "true" {
+		return jsonutils.Marshal(map[string]string{
+			"message": "Kickstart has already been completed for this VM",
+			"status":  "failed",
+		}), nil
+	}
+
 	if err := self.SetKickstartConfig(ctx, &input, userCred); err != nil {
 		return nil, errors.Wrap(err, "set kickstart config")
 	}
