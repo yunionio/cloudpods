@@ -728,32 +728,45 @@ func (self *SAliyunClient) fetchBuckets() error {
 	if err != nil {
 		return errors.Wrap(err, "self.getOssClient")
 	}
-	result, err := osscli.ListBuckets()
-	if err != nil {
-		return errors.Wrap(err, "oss.ListBuckets")
-	}
-
-	if len(self.ownerId) == 0 {
-		self.ownerId = result.Owner.ID
-	}
-
 	ret := make([]cloudprovider.ICloudBucket, 0)
-	for _, bInfo := range result.Buckets {
-		regionId := bInfo.Location[4:]
-		region, err := self.getRegionByRegionId(regionId)
+
+	marker := ""
+	for {
+		opts := []oss.Option{oss.MaxKeys(100)}
+		if len(marker) > 0 {
+			opts = append(opts, oss.Marker(marker))
+		}
+		result, err := osscli.ListBuckets(opts...)
 		if err != nil {
-			log.Errorf("cannot find bucket's region %s", regionId)
-			continue
+			return errors.Wrap(err, "oss.ListBuckets")
 		}
-		b := SBucket{
-			region:       region.(*SRegion),
-			Name:         bInfo.Name,
-			Location:     bInfo.Location,
-			CreationDate: bInfo.CreationDate,
-			StorageClass: bInfo.StorageClass,
+
+		if len(self.ownerId) == 0 {
+			self.ownerId = result.Owner.ID
 		}
-		ret = append(ret, &b)
+
+		for _, bInfo := range result.Buckets {
+			regionId := bInfo.Location[4:]
+			region, err := self.getRegionByRegionId(regionId)
+			if err != nil {
+				log.Errorf("cannot find bucket's region %s", regionId)
+				continue
+			}
+			b := SBucket{
+				region:       region.(*SRegion),
+				Name:         bInfo.Name,
+				Location:     bInfo.Location,
+				CreationDate: bInfo.CreationDate,
+				StorageClass: bInfo.StorageClass,
+			}
+			ret = append(ret, &b)
+		}
+		if !result.IsTruncated {
+			break
+		}
+		marker = result.NextMarker
 	}
+
 	self.iBuckets = ret
 	return nil
 }
