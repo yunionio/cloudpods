@@ -62,6 +62,7 @@ func init() {
 	cmd.CreateWithKeyword("create-qingcloud", &options.SQingCloudCloudAccountCreateOptions{})
 	cmd.CreateWithKeyword("create-oracle", &options.SOracleCloudAccountCreateOptions{})
 	cmd.CreateWithKeyword("create-cephfs", &options.SCephFSCloudAccountCreateOptions{})
+	cmd.CreateWithKeyword("create-cnware", &options.SCNwareCloudAccountCreateOptions{})
 
 	cmd.UpdateWithKeyword("update-vmware", &options.SVMwareCloudAccountUpdateOptions{})
 	cmd.UpdateWithKeyword("update-aliyun", &options.SAliyunCloudAccountUpdateOptions{})
@@ -88,6 +89,7 @@ func init() {
 	cmd.UpdateWithKeyword("update-baidu", &options.SBaiduCloudAccountUpdateOptions{})
 	cmd.UpdateWithKeyword("update-cucloud", &options.SCucloudCloudAccountUpdateOptions{})
 	cmd.UpdateWithKeyword("update-qingcloud", &options.SQingCloudCloudAccountUpdateOptions{})
+	cmd.UpdateWithKeyword("update-cnware", &options.SCNwareCloudAccountUpdateOptions{})
 
 	cmd.Perform("update-credential", &options.CloudaccountUpdateCredentialOptions{})
 
@@ -117,6 +119,7 @@ func init() {
 	cmd.PerformWithKeyword("update-credential-baidu", "update-credential", &options.SBaiduCloudAccountUpdateCredentialOptions{})
 	cmd.PerformWithKeyword("update-credential-cucloud", "update-credential", &options.SCucloudCloudAccountUpdateCredentialOptions{})
 	cmd.PerformWithKeyword("update-credential-qingcloud", "update-credential", &options.SQingCloudCloudAccountUpdateCredentialOptions{})
+	cmd.PerformWithKeyword("update-credential-cnware", "update-credential", &options.SCNwareCloudAccountUpdateCredentialOptions{})
 
 	cmd.PerformWithKeyword("test-connectivity-google", "test-connectivity", &options.SGoogleCloudAccountUpdateCredentialOptions{})
 	cmd.PerformWithKeyword("test-connectivity-vmware", "test-connectivity", &options.SVMwareCloudAccountUpdateCredentialOptions{})
