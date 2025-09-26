@@ -6980,12 +6980,17 @@ func (self *SGuest) PerformDisableAutoMergeSnapshots(ctx context.Context, userCr
 }
 
 func (self *SGuest) PerformSetKickstart(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.KickstartConfig) (jsonutils.JSONObject, error) {
-	if err := self.SetKickstartConfig(ctx, &input, userCred); err != nil {
-		return nil, errors.Wrap(err, "set kickstart config")
+	// Check if kickstart has already been completed
+	currentFlag := self.GetMetadata(ctx, api.VM_METADATA_KICKSTART_COMPLETED_FLAG, userCred)
+	if currentFlag == "true" {
+		return jsonutils.Marshal(map[string]string{
+			"message": "Kickstart has already been completed for this VM",
+			"status":  "failed",
+		}), nil
 	}
 
-	if err := self.SetKickstartStatus(ctx, api.VM_KICKSTART_PENDING, userCred); err != nil {
-		return nil, errors.Wrap(err, "set kickstart status")
+	if err := self.SetKickstartConfig(ctx, &input, userCred); err != nil {
+		return nil, errors.Wrap(err, "set kickstart config")
 	}
 
 	// Determine and set kickstart type based on input
@@ -7012,6 +7017,10 @@ func (self *SGuest) PerformSetKickstart(ctx context.Context, userCred mcclient.T
 		api.VM_MIGRATING,
 	}) {
 		needRestart = true
+	}
+
+	if err := self.SetKickstartStatus(ctx, api.VM_KICKSTART_PENDING, userCred); err != nil {
+		return nil, errors.Wrap(err, "set kickstart status")
 	}
 
 	// If VM is running, restart it to apply kickstart config

@@ -7305,7 +7305,6 @@ func (guest *SGuest) IsKickstartEnabled(ctx context.Context, userCred mcclient.T
 	return *config.Enabled
 }
 
-
 func (guest *SGuest) SetGuestBackupMirrorJobNotReady(ctx context.Context, userCred mcclient.TokenCredential) error {
 	return guest.SetMetadata(ctx, api.MIRROR_JOB, "", userCred)
 }
