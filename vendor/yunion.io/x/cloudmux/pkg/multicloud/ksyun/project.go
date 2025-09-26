@@ -18,6 +18,7 @@ import (
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
+	"yunion.io/x/pkg/errors"
 )
 
 type SProject struct {
@@ -93,4 +94,26 @@ func (self *SKsyunClient) GetIProjects() ([]cloudprovider.ICloudProject, error) 
 		ret = append(ret, &projects[i])
 	}
 	return ret, nil
+}
+
+func (cli *SKsyunClient) CreateProject(name string) (*SProject, error) {
+	params := map[string]string{
+		"ProjectName": name,
+	}
+	_, err := cli.iamRequest("", "CreateProject", params)
+	if err != nil {
+		return nil, err
+	}
+
+	project, err := cli.GetProjects()
+	if err != nil {
+		return nil, err
+	}
+	for i := range project {
+		project[i].client = cli
+		if project[i].ProjectName == name {
+			return &project[i], nil
+		}
+	}
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "GetProject %s", name)
 }

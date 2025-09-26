@@ -16,6 +16,7 @@ package ksyun
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -40,22 +41,22 @@ type SEip struct {
 	SKsyunTags
 
 	PublicIP             string `json:"PublicIp"`
-	AllocationID         string `json:"AllocationId"`
+	AllocationId         string `json:"AllocationId"`
 	State                string `json:"State"`
 	IPState              string `json:"IpState"`
-	LineID               string `json:"LineId"`
+	LineId               string `json:"LineId"`
 	BandWidth            int    `json:"BandWidth"`
 	InstanceType         string `json:"InstanceType"`
-	InstanceID           string `json:"InstanceId"`
+	InstanceId           string `json:"InstanceId"`
 	ChargeType           string `json:"ChargeType"`
 	IPVersion            string `json:"IpVersion"`
-	ProjectID            string `json:"ProjectId"`
+	ProjectId            string `json:"ProjectId"`
 	CreateTime           string `json:"CreateTime"`
 	Mode                 string `json:"Mode"`
-	NetworkInterfaceID   string `json:"NetworkInterfaceId,omitempty"`
+	NetworkInterfaceId   string `json:"NetworkInterfaceId,omitempty"`
 	NetworkInterfaceType string `json:"NetworkInterfaceType,omitempty"`
 	PrivateIPAddress     string `json:"PrivateIpAddress,omitempty"`
-	InternetGatewayID    string `json:"InternetGatewayId,omitempty"`
+	InternetGatewayId    string `json:"InternetGatewayId,omitempty"`
 	HostType             string `json:"HostType,omitempty"`
 }
 
@@ -100,19 +101,19 @@ func (region *SRegion) GetEip(eipId string) (*SEip, error) {
 }
 
 func (eip *SEip) GetId() string {
-	return eip.AllocationID
+	return eip.AllocationId
 }
 
 func (eip *SEip) GetName() string {
-	return eip.AllocationID
+	return eip.AllocationId
 }
 
 func (eip *SEip) GetGlobalId() string {
-	return eip.AllocationID
+	return eip.AllocationId
 }
 
 func (eip *SEip) GetTags() (map[string]string, error) {
-	tags, err := eip.region.ListTags("eip", eip.AllocationID)
+	tags, err := eip.region.ListTags("eip", eip.AllocationId)
 	if err != nil {
 		return nil, err
 	}
@@ -131,7 +132,7 @@ func (eip *SEip) GetStatus() string {
 }
 
 func (eip *SEip) Refresh() error {
-	extEip, err := eip.region.GetEip(eip.AllocationID)
+	extEip, err := eip.region.GetEip(eip.AllocationId)
 	if err != nil {
 		return errors.Wrap(err, "region.GetEip")
 	}
@@ -158,7 +159,7 @@ func (eip *SEip) GetAssociationType() string {
 }
 
 func (eip *SEip) GetAssociationExternalId() string {
-	return eip.InstanceID
+	return eip.InstanceId
 }
 
 func (eip *SEip) GetBandwidth() int {
@@ -170,7 +171,10 @@ func (eip *SEip) GetINetworkId() string {
 }
 
 func (eip *SEip) GetInternetChargeType() string {
-	return ""
+	if eip.ChargeType == "Monthly" {
+		return api.EIP_CHARGE_TYPE_BY_BANDWIDTH
+	}
+	return api.EIP_CHARGE_TYPE_BY_TRAFFIC
 }
 
 func (eip *SEip) GetBillingType() string {
@@ -190,48 +194,103 @@ func (eip *SEip) GetExpiredAt() time.Time {
 }
 
 func (eip *SEip) Delete() error {
-	return cloudprovider.ErrNotImplemented
+	return eip.region.DeallocateEIP(eip.AllocationId)
 }
 
 func (eip *SEip) Associate(conf *cloudprovider.AssociateConfig) error {
-	return cloudprovider.ErrNotImplemented
+	return eip.region.AssociateEip(eip.AllocationId, conf.InstanceId)
 }
 
 func (eip *SEip) Dissociate() error {
-	return cloudprovider.ErrNotImplemented
+	return eip.region.DissociateEip(eip.AllocationId)
 }
 
 func (eip *SEip) ChangeBandwidth(bw int) error {
 	return cloudprovider.ErrNotImplemented
 }
 
-func (region *SRegion) GetInstancePortId(instanceId string) (string, error) {
-	return "", cloudprovider.ErrNotImplemented
-}
-func (region *SRegion) AllocateEIP(opts *cloudprovider.SEip) (*SEip, error) {
-	return nil, cloudprovider.ErrNotImplemented
-}
-
 func (region *SRegion) DeallocateEIP(eipId string) error {
-	return cloudprovider.ErrNotImplemented
+	params := map[string]string{
+		"AllocationId": eipId,
+	}
+	_, err := region.eipRequest("ReleaseAddress", params)
+	return err
 }
 
 func (region *SRegion) AssociateEip(eipId string, instanceId string) error {
-	return cloudprovider.ErrNotImplemented
-}
-
-func (region *SRegion) AssociateEipWithPortId(eipId string, portId string) error {
-	return cloudprovider.ErrNotImplemented
+	params := map[string]string{
+		"AllocationId": eipId,
+		"InstanceId":   instanceId,
+		"InstanceType": "",
+	}
+	_, err := region.eipRequest("AssociateAddress", params)
+	return err
 }
 
 func (region *SRegion) DissociateEip(eipId string) error {
-	return region.AssociateEipWithPortId(eipId, "")
-}
-
-func (region *SRegion) UpdateEipBandwidth(bandwidthId string, bw int) error {
-	return cloudprovider.ErrNotImplemented
+	params := map[string]string{
+		"AllocationId": eipId,
+	}
+	_, err := region.eipRequest("DisassociateAddress", params)
+	return err
 }
 
 func (eip *SEip) GetProjectId() string {
-	return ""
+	return eip.ProjectId
+}
+
+func (region *SRegion) CreateEip(opts *cloudprovider.SEip) (*SEip, error) {
+	lines, err := region.GetLines()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetLines")
+	}
+	lineId := ""
+	for i := range lines {
+		if strings.Contains(lines[i].LineName, "BGP") {
+			lineId = lines[i].LineId
+			break
+		}
+	}
+	if len(lineId) == 0 {
+		return nil, errors.Wrap(errors.ErrNotFound, "No bgp lines found")
+	}
+	params := map[string]string{
+		"LineId":     lineId,
+		"BandWidth":  fmt.Sprintf("%d", opts.BandwidthMbps),
+		"ChargeType": "DailyPaidByTransfer",
+	}
+	if opts.ChargeType == api.EIP_CHARGE_TYPE_BY_BANDWIDTH {
+		params["ChargeType"] = "Monthlys"
+		params["PurchaseTime"] = "1"
+	}
+
+	body, err := region.eipRequest("AllocateAddress", params)
+	if err != nil {
+		return nil, errors.Wrap(err, "AllocateAddress")
+	}
+	ret := &SEip{region: region}
+	err = body.Unmarshal(ret)
+	if err != nil {
+		return nil, errors.Wrap(err, "Unmarshal")
+	}
+	return ret, nil
+}
+
+type SLine struct {
+	LineId   string `json:"LineId"`
+	LineName string `json:"LineName"`
+}
+
+func (region *SRegion) GetLines() ([]SLine, error) {
+	params := map[string]string{}
+	body, err := region.eipRequest("GetLines", params)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetLines")
+	}
+	ret := []SLine{}
+	err = body.Unmarshal(&ret, "LineSet")
+	if err != nil {
+		return nil, errors.Wrap(err, "Unmarshal")
+	}
+	return ret, nil
 }
