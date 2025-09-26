@@ -43,6 +43,7 @@ const (
 	KSYUN_DEFAULT_REGION      = "cn-beijing-6"
 	KSYUN_DEFAULT_API_VERSION = "2016-03-04"
 	KSYUN_RDS_API_VERSION     = "2016-07-01"
+	KSYUN_SKS_API_VERSION     = "2015-11-01"
 )
 
 type KsyunClientConfig struct {
@@ -127,7 +128,7 @@ func (cli *SKsyunClient) getUrl(service, regionId string) (string, error) {
 		regionId = KSYUN_DEFAULT_REGION
 	}
 	switch service {
-	case "kingpay", "iam", "vpc", "ebs", "eip":
+	case "kingpay", "iam", "vpc", "ebs", "eip", "sks":
 		return fmt.Sprintf("http://%s.api.ksyun.com", service), nil
 	case "kec", "tag", "krds":
 		return fmt.Sprintf("https://%s.%s.api.ksyun.com", service, regionId), nil
@@ -171,8 +172,9 @@ func (cli *SKsyunClient) getDefaultClient() *http.Client {
 
 // {"RequestId":"51aee78d-8c35-4778-92fb-a622c40fa5ae","Error":{"Code":"INVALID_ACTION","Message":"Not Found"}}
 type sKsyunError struct {
-	StatusCode int    `json:"StatusCode"`
-	RequestId  string `json:"RequestId"`
+	Params     map[string]string `json:"Params"`
+	StatusCode int               `json:"StatusCode"`
+	RequestId  string            `json:"RequestId"`
 	ErrorMsg   struct {
 		Code    string `json:"Code"`
 		Message string `json:"Message"`
@@ -260,6 +262,10 @@ func (cli *SKsyunClient) ebsRequest(regionId, apiName string, params map[string]
 	return cli.request("ebs", regionId, apiName, KSYUN_DEFAULT_API_VERSION, params)
 }
 
+func (cli *SKsyunClient) sksRequest(regionId, apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+	return cli.request("sks", regionId, apiName, KSYUN_SKS_API_VERSION, params)
+}
+
 func (cli *SKsyunClient) rdsRequest(regionId, apiName string, params map[string]string) (jsonutils.JSONObject, error) {
 	return cli.request("krds", regionId, apiName, KSYUN_RDS_API_VERSION, params)
 }
@@ -297,7 +303,7 @@ func (cli *SKsyunClient) request(service, regionId, apiName, apiVersion string, 
 		method = httputils.POST
 	}
 	req := httputils.NewJsonRequest(method, uri, nil)
-	ksErr := &sKsyunError{}
+	ksErr := &sKsyunError{Params: params}
 	client := httputils.NewJsonClient(cli)
 	_, resp, err := client.Send(cli.ctx, req, ksErr, cli.debug)
 	if err != nil {
@@ -354,9 +360,12 @@ func (cli *SKsyunClient) QueryCashWalletAction() (*CashWalletDetail, error) {
 
 func (cli *SKsyunClient) GetCapabilities() []string {
 	caps := []string{
-		cloudprovider.CLOUD_CAPABILITY_COMPUTE + cloudprovider.READ_ONLY_SUFFIX,
-		cloudprovider.CLOUD_CAPABILITY_PROJECT + cloudprovider.READ_ONLY_SUFFIX,
+		cloudprovider.CLOUD_CAPABILITY_COMPUTE,
+		cloudprovider.CLOUD_CAPABILITY_PROJECT,
 		cloudprovider.CLOUD_CAPABILITY_CLOUDID,
+		cloudprovider.CLOUD_CAPABILITY_NETWORK,
+		cloudprovider.CLOUD_CAPABILITY_SECURITY_GROUP,
+		cloudprovider.CLOUD_CAPABILITY_EIP,
 		cloudprovider.CLOUD_CAPABILITY_OBJECTSTORE,
 		cloudprovider.CLOUD_CAPABILITY_RDS + cloudprovider.READ_ONLY_SUFFIX,
 	}

@@ -33,7 +33,13 @@ type SStorage struct {
 	StorageType string
 }
 
-var ksDiskTypes = []string{"ESSD_PL1", "ESSD_PL2", "ESSD_PL3", "SSD3.0", "EHDD"}
+var ksDiskTypes = []string{
+	api.STORAGE_KSYUN_ESSD_PL1,
+	api.STORAGE_KSYUN_ESSD_PL2,
+	api.STORAGE_KSYUN_ESSD_PL3,
+	api.STORAGE_KSYUN_SSD3_0,
+	api.STORAGE_KSYUN_EHDD,
+}
 
 func (storage *SStorage) GetId() string {
 	return fmt.Sprintf("%s-%s-%s", storage.zone.region.client.cpcfg.Id, storage.zone.GetId(), storage.StorageType)
@@ -96,8 +102,8 @@ func (storage *SStorage) GetEnabled() bool {
 	return true
 }
 
-func (storage *SStorage) CreateIDisk(conf *cloudprovider.DiskCreateConfig) (cloudprovider.ICloudDisk, error) {
-	return nil, cloudprovider.ErrNotSupported
+func (storage *SStorage) CreateIDisk(opts *cloudprovider.DiskCreateConfig) (cloudprovider.ICloudDisk, error) {
+	return storage.zone.region.CreateDisk(storage.StorageType, storage.zone.AvailabilityZone, opts)
 }
 
 func (storage *SStorage) GetIDiskById(id string) (cloudprovider.ICloudDisk, error) {
@@ -127,7 +133,7 @@ func (storage *SStorage) DisableSync() bool {
 }
 
 func (storage *SStorage) GetIStoragecache() cloudprovider.ICloudStoragecache {
-	return nil
+	return storage.zone.region.getStoragecache()
 }
 
 func (storage *SStorage) GetStatus() string {
