@@ -19,13 +19,13 @@ func init() {
 }
 
 func (t *LLMInstallGgufTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
-	if err := obj.(*models.SLLM).ConfirmContainerId(ctx, t.GetUserCred()); err != nil {
-		t.OnGetGgufFileFailed(ctx, obj.(*models.SLLM), jsonutils.NewString(err.Error()))
+	if err := obj.(*models.SOllama).ConfirmContainerId(ctx, t.GetUserCred()); err != nil {
+		t.OnGetGgufFileFailed(ctx, obj.(*models.SOllama), jsonutils.NewString(err.Error()))
 	}
-	t.requestGetGgufFile(ctx, obj.(*models.SLLM))
+	t.requestGetGgufFile(ctx, obj.(*models.SOllama))
 }
 
-func (t *LLMInstallGgufTask) requestGetGgufFile(ctx context.Context, llm *models.SLLM) {
+func (t *LLMInstallGgufTask) requestGetGgufFile(ctx context.Context, llm *models.SOllama) {
 	// Update status
 	llm.SetStatus(ctx, t.GetUserCred(), api.LLM_STATUS_FETCHING_GGUF_FILE, "")
 
@@ -48,16 +48,16 @@ func (t *LLMInstallGgufTask) requestGetGgufFile(ctx context.Context, llm *models
 			t.OnGetGgufFileFailed(ctx, llm, jsonutils.NewString(err.Error()))
 			return
 		}
-		t.OnGetGgufFile(ctx, llm)
+		t.OnGetGgufFile(ctx, llm, nil)
 	}
 }
 
-func (t *LLMInstallGgufTask) OnGetGgufFileFailed(ctx context.Context, llm *models.SLLM, reason jsonutils.JSONObject) {
+func (t *LLMInstallGgufTask) OnGetGgufFileFailed(ctx context.Context, llm *models.SOllama, reason jsonutils.JSONObject) {
 	llm.SetStatus(ctx, t.GetUserCred(), api.LLM_STATUS_FETCH_GGUF_FILE_FAILED, reason.String())
 	t.SetStageFailed(ctx, reason)
 }
 
-func (t *LLMInstallGgufTask) OnGetGgufFile(ctx context.Context, llm *models.SLLM) {
+func (t *LLMInstallGgufTask) OnGetGgufFile(ctx context.Context, llm *models.SOllama, data jsonutils.JSONObject) {
 	input := new(api.LLMGgufSpec)
 	if err := t.GetParams().Unmarshal(input); nil != err {
 		t.OnCreateModelFailed(ctx, llm, jsonutils.NewString(err.Error()))
@@ -73,12 +73,12 @@ func (t *LLMInstallGgufTask) OnGetGgufFile(ctx context.Context, llm *models.SLLM
 	t.OnPulledModel(ctx, llm, nil)
 }
 
-func (t *LLMInstallGgufTask) OnCreateModelFailed(ctx context.Context, llm *models.SLLM, reason jsonutils.JSONObject) {
+func (t *LLMInstallGgufTask) OnCreateModelFailed(ctx context.Context, llm *models.SOllama, reason jsonutils.JSONObject) {
 	llm.SetStatus(ctx, t.GetUserCred(), api.LLM_STATUS_CREATE_GGUF_MODEL_FAILED, reason.String())
 	t.SetStageFailed(ctx, reason)
 }
 
-func (t *LLMInstallGgufTask) OnPulledModel(ctx context.Context, llm *models.SLLM, data jsonutils.JSONObject) {
+func (t *LLMInstallGgufTask) OnPulledModel(ctx context.Context, llm *models.SOllama, data jsonutils.JSONObject) {
 	llm.SetStatus(ctx, t.GetUserCred(), api.LLM_STATUS_PULLED_MODEL, "")
 	t.SetStageComplete(ctx, nil)
 }

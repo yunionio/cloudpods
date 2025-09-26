@@ -1342,26 +1342,18 @@ func (c *SContainer) SetStatusFromHost(ctx context.Context, userCred mcclient.To
 	return errors.NewAggregate(errs)
 }
 
-func (c *SContainer) GetActionByOtherServiceTask(ctx context.Context, userCred mcclient.TokenCredential, input *api.ContainerRequestHostActionByOtherServiceInput) (*taskman.STask, error) {
+func (c *SContainer) StartActionByOtherServiceTask(ctx context.Context, userCred mcclient.TokenCredential, input *api.ContainerRequestHostActionByOtherServiceInput) error {
 	task, err := taskman.TaskManager.NewTask(ctx, "ContainerActionByOtherServiceTask", c, userCred, jsonutils.Marshal(input).(*jsonutils.JSONDict), "", "", nil)
 	if err != nil {
-		return nil, errors.Wrap(err, "New ContainerActionByOtherServiceTask")
+		return errors.Wrap(err, "New ContainerActionByOtherServiceTask")
 	}
-	return task, nil
+	return task.ScheduleRun(nil)
 }
 
 func (c *SContainer) PerformRequestHostActionByOtherService(ctx context.Context, userCred mcclient.TokenCredential, _ jsonutils.JSONObject, input *api.ContainerRequestHostActionByOtherServiceInput) (jsonutils.JSONObject, error) {
-	task, err := c.GetActionByOtherServiceTask(ctx, userCred, input)
+	err := c.StartActionByOtherServiceTask(ctx, userCred, input)
 	if nil != err {
 		return nil, err
-	}
-
-	if input.HostAction == "do-create-task" {
-		input.HostAction = ""
-		task.SaveParams(jsonutils.Marshal(input).(*jsonutils.JSONDict))
-		err = c.StartCreateTask(ctx, userCred, task.GetId(), input.Body.(*jsonutils.JSONDict))
-	} else {
-		err = task.ScheduleRun(nil)
 	}
 
 	return jsonutils.NewDict(), err
