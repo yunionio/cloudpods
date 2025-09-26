@@ -3,6 +3,7 @@ package llm
 import (
 	"fmt"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/pkg/errors"
 )
@@ -30,6 +31,11 @@ type LLMPullModelInput struct {
 type LLMCreateInput struct {
 	compute.ServerCreateInput
 	LLMPullModelInput
+}
+
+type LLMListInput struct {
+	apis.VirtualResourceListInput
+	GuestId string `json:"guest_id"`
 }
 
 type LLMAccessCacheInput struct {
