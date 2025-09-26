@@ -32,6 +32,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/sqlchemy"
 )
 
 type SOllamaManager struct {
@@ -70,6 +71,17 @@ func init() {
 // 	}
 // 	return nil
 // }
+
+func (manager *SOllamaManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query *api.LLMListInput) (*sqlchemy.SQuery, error) {
+	q, err := manager.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query.VirtualResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemFilter")
+	}
+	if query.GuestId != "" {
+		q = q.Equals("guest_id", query.GuestId)
+	}
+	return q, err
+}
 
 func (manager *SOllamaManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, _ jsonutils.JSONObject, input *api.LLMCreateInput) (*api.LLMCreateInput, error) {
 	if input.Model == "" {
@@ -225,9 +237,9 @@ func (ollama *SOllama) RunModel(ctx context.Context, userCred mcclient.TokenCred
 	return nil
 }
 
-func (ollama *SOllama) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
-	return ollama.SVirtualResourceBase.Delete(ctx, userCred)
-}
+// func (ollama *SOllama) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
+// 	return ollama.SVirtualResourceBase.Delete(ctx, userCred)
+// }
 
 func (ollama *SOllama) ConfirmContainerId(ctx context.Context, userCred mcclient.TokenCredential) error {
 	if ollama.ContainerId != "" {
