@@ -28,7 +28,10 @@ func InitHandlers(app *appsrv.Application) {
 	}
 
 	for _, manager := range []db.IModelManager{
-		models.LLMManager,
+		db.OpsLog,
+		db.Metadata,
+
+		models.OllamaManager,
 		models.DifyManager,
 	} {
 		db.RegisterModelManager(manager)

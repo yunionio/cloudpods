@@ -10,6 +10,8 @@ import (
 )
 
 type IPodDriver interface {
+	RequestCreatePodWithPolling(ctx context.Context, userCred mcclient.TokenCredential, input *computeapi.ServerCreateInput) (string, error)
+
 	RequestCreatePod(ctx context.Context, userCred mcclient.TokenCredential, input *computeapi.ServerCreateInput) (jsonutils.JSONObject, error)
 
 	RequestExecSyncContainer(ctx context.Context, userCred mcclient.TokenCredential, containerId string, input *computeapi.ContainerExecSyncInput) (jsonutils.JSONObject, error)
