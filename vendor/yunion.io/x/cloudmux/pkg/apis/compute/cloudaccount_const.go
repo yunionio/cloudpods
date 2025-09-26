@@ -50,6 +50,7 @@ const (
 	CLOUD_PROVIDER_ZETTAKIT       = "ZettaKit"
 	CLOUD_PROVIDER_UIS            = "UIS"
 	CLOUD_PROVIDER_CAS            = "CAS"
+	CLOUD_PROVIDER_CNWARE         = "CNware"
 
 	CLOUD_PROVIDER_GENERICS3 = "S3"
 	CLOUD_PROVIDER_CEPH      = "Ceph"
