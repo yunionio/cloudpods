@@ -88,14 +88,14 @@ func newDiskOverlayImage() iDiskOverlay {
 }
 
 func (di diskOverlayImage) mount(d disk, pod volume_mount.IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount) error {
-	if err := d.doTemplateOverlayAction(context.Background(), pod, ctrId, vm, newDiskOverlayDir().mount); err != nil {
+	if err := d.doTemplateOverlayAction(context.Background(), pod, ctrId, vm, newDiskOverlayDir().mount, true); err != nil {
 		return errors.Wrapf(err, "mount template overlay")
 	}
 	return nil
 }
 
 func (di diskOverlayImage) unmount(d disk, pod volume_mount.IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount) error {
-	if err := d.doTemplateOverlayAction(context.Background(), pod, ctrId, vm, newDiskOverlayDir().unmount); err != nil {
+	if err := d.doTemplateOverlayAction(context.Background(), pod, ctrId, vm, newDiskOverlayDir().unmount, false); err != nil {
 		return errors.Wrapf(err, "unmount template overlay")
 	}
 	return nil

@@ -67,6 +67,13 @@ type IImageCacheManger interface {
 	CleanImageCachefiles(ctx context.Context)
 }
 
+// IImageCacheManagerGetter is used to get image cache from image cache manager
+type IImageCacheManagerGetter interface {
+	IImageCacheManger
+	// Try to use AcquireImage first, only using GetImage for readonly operations
+	GetImage(imageId string) IImageCache
+}
+
 type SBaseImageCacheManager struct {
 	storageManager  IStorageManager
 	storagecacaheId string
