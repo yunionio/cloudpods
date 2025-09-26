@@ -364,6 +364,9 @@ type ServerVncOutput struct {
 	// sangfor
 	Cookie string `json:"cookie"`
 
+	// ksyun
+	Cookies map[string]string `json:"cookies"`
+
 	Hypervisor string `json:"hypervisor"`
 }
 

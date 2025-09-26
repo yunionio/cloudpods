@@ -132,6 +132,13 @@ const (
 	STORAGE_BAIDU_ENHANCED_SSD_PL2 = "enhanced_ssd_pl2" // 增强型SSD_PL2
 	STORAGE_BAIDU_ENHANCED_SSD_PL3 = "enhanced_ssd_pl3" // 增强型SSD_PL2
 
+	// ksyun storage type
+	STORAGE_KSYUN_ESSD_PL1 = "ESSD_PL1"
+	STORAGE_KSYUN_ESSD_PL2 = "ESSD_PL2"
+	STORAGE_KSYUN_ESSD_PL3 = "ESSD_PL3"
+	STORAGE_KSYUN_SSD3_0   = "SSD3.0"
+	STORAGE_KSYUN_EHDD     = "EHDD"
+
 	// cnware storage type
 	STORAGE_CNWARE_FC_SAN = "fc-san"
 	STORAGE_CNWARE_IP_SAN = "ip-scan"

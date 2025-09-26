@@ -29,13 +29,6 @@ import (
 	"yunion.io/x/pkg/utils"
 )
 
-type SInstanceResp struct {
-	Marker        int         `json:"Marker"`
-	InstanceCount int         `json:"InstanceCount"`
-	RequestID     string      `json:"RequestId"`
-	InstancesSet  []SInstance `json:"InstancesSet"`
-}
-
 type InstanceConfigure struct {
 	Vcpu         int    `json:"VCPU"`
 	Gpu          int    `json:"GPU"`
@@ -62,15 +55,15 @@ type GroupSet struct {
 }
 
 type InstanceSecurityGroupSet struct {
-	SecurityGroupID string `json:"SecurityGroupId"`
+	SecurityGroupId string `json:"SecurityGroupId"`
 }
 
 type NetworkInterfaceSet struct {
 	AllocationId         string                     `json:"AllocationId"`
-	NetworkInterfaceID   string                     `json:"NetworkInterfaceId"`
+	NetworkInterfaceId   string                     `json:"NetworkInterfaceId"`
 	NetworkInterfaceType string                     `json:"NetworkInterfaceType"`
-	VpcID                string                     `json:"VpcId"`
-	SubnetID             string                     `json:"SubnetId"`
+	VpcId                string                     `json:"VpcId"`
+	SubnetId             string                     `json:"SubnetId"`
 	MacAddress           string                     `json:"MacAddress"`
 	PrivateIPAddress     string                     `json:"PrivateIpAddress"`
 	GroupSet             []GroupSet                 `json:"GroupSet"`
@@ -84,7 +77,7 @@ type SystemDisk struct {
 }
 
 type DataDisks struct {
-	DiskID             string `json:"DiskId"`
+	DiskId             string `json:"DiskId"`
 	DiskType           string `json:"DiskType"`
 	DiskSize           int    `json:"DiskSize"`
 	DeleteWithInstance bool   `json:"DeleteWithInstance"`
@@ -97,15 +90,15 @@ type SInstance struct {
 	host   *SHost
 	region *SRegion
 
-	InstanceID            string                `json:"InstanceId"`
-	ProjectID             string                `json:"ProjectId"`
+	InstanceId            string                `json:"InstanceId"`
+	ProjectId             string                `json:"ProjectId"`
 	ShutdownNoCharge      bool                  `json:"ShutdownNoCharge"`
 	IsDistributeIpv6      bool                  `json:"IsDistributeIpv6"`
 	InstanceName          string                `json:"InstanceName"`
 	InstanceType          string                `json:"InstanceType"`
 	InstanceConfigure     InstanceConfigure     `json:"InstanceConfigure"`
 	ImageID               string                `json:"ImageId"`
-	SubnetID              string                `json:"SubnetId"`
+	SubnetId              string                `json:"SubnetId"`
 	PrivateIPAddress      string                `json:"PrivateIpAddress"`
 	InstanceState         InstanceState         `json:"InstanceState"`
 	Monitoring            Monitoring            `json:"Monitoring"`
@@ -115,7 +108,7 @@ type SInstance struct {
 	CreationDate          time.Time             `json:"CreationDate"`
 	AvailabilityZone      string                `json:"AvailabilityZone"`
 	AvailabilityZoneName  string                `json:"AvailabilityZoneName"`
-	DedicatedUUID         string                `json:"DedicatedUuid"`
+	DedicatedUuid         string                `json:"DedicatedUuid"`
 	ProductType           int                   `json:"ProductType"`
 	ProductWhat           int                   `json:"ProductWhat"`
 	LiveUpgradeSupport    bool                  `json:"LiveUpgradeSupport"`
@@ -167,7 +160,11 @@ func (region *SRegion) getInstances(zoneName string, instanceIds []string, proje
 		if err != nil {
 			return nil, errors.Wrap(err, "list instance")
 		}
-		part := SInstanceResp{}
+		part := struct {
+			InstancesSet  []SInstance `json:"InstancesSet"`
+			Marker        int         `json:"Marker"`
+			InstanceCount int         `json:"InstanceCount"`
+		}{}
 		err = resp.Unmarshal(&part)
 		if err != nil {
 			return nil, errors.Wrap(err, "unmarshal instances")
@@ -204,7 +201,7 @@ func (ins *SInstance) Refresh() error {
 }
 
 func (ins *SInstance) GetTags() (map[string]string, error) {
-	tags, err := ins.getRegion().ListTags("kec-instance", ins.InstanceID)
+	tags, err := ins.getRegion().ListTags("kec-instance", ins.InstanceId)
 	if err != nil {
 		return nil, err
 	}
@@ -219,23 +216,67 @@ func (ins *SInstance) getRegion() *SRegion {
 }
 
 func (ins *SInstance) AssignSecurityGroup(secgroupId string) error {
-	return cloudprovider.ErrNotImplemented
+	groupIds, err := ins.GetSecurityGroupIds()
+	if err != nil {
+		return err
+	}
+	groupIds = append(groupIds, secgroupId)
+	return ins.SetSecurityGroups(groupIds)
 }
 
 func (ins *SInstance) AttachDisk(ctx context.Context, diskId string) error {
-	return cloudprovider.ErrNotImplemented
+	return ins.getRegion().AttachDisk(ins.InstanceId, diskId)
 }
 
-func (ins *SInstance) ChangeConfig(ctx context.Context, config *cloudprovider.SManagedVMChangeConfig) error {
-	return cloudprovider.ErrNotImplemented
+func (region *SRegion) AttachDisk(instanceId, diskId string) error {
+	params := map[string]string{
+		"VolumeId":           diskId,
+		"InstanceId":         instanceId,
+		"DeleteWithInstance": "true",
+	}
+	_, err := region.ebsRequest("AttachVolume", params)
+	return err
+}
+
+func (ins *SInstance) ChangeConfig(ctx context.Context, opts *cloudprovider.SManagedVMChangeConfig) error {
+	return ins.getRegion().ChangeConfig(ins.InstanceId, opts)
+}
+
+func (region *SRegion) ChangeConfig(instanceId string, opts *cloudprovider.SManagedVMChangeConfig) error {
+	params := map[string]string{
+		"InstanceId":   instanceId,
+		"InstanceType": opts.InstanceType,
+	}
+	_, err := region.ecsRequest("ModifyInstanceType", params)
+	return err
 }
 
 func (ins *SInstance) DeleteVM(ctx context.Context) error {
-	return cloudprovider.ErrNotImplemented
+	return ins.getRegion().DeleteVM(ins.InstanceId)
+}
+
+func (region *SRegion) DeleteVM(instanceId string) error {
+	params := map[string]string{
+		"InstanceId.1": instanceId,
+		"ForceDelete":  "true",
+	}
+	_, err := region.ecsRequest("TerminateInstances", params)
+	return err
 }
 
 func (ins *SInstance) DetachDisk(ctx context.Context, diskId string) error {
-	return cloudprovider.ErrNotImplemented
+	return ins.getRegion().DetachDisk(ins.InstanceId, diskId)
+}
+
+func (region *SRegion) DetachDisk(instanceId, diskId string) error {
+	params := map[string]string{
+		"VolumeId": diskId,
+	}
+	if len(instanceId) > 0 {
+		params["InstanceId"] = instanceId
+	}
+	_, err := region.ecsRequest("DetachVolume", params)
+	return err
 }
 
 func (ins *SInstance) GetBios() cloudprovider.TBiosType {
@@ -255,11 +296,11 @@ func (ins *SInstance) GetFullOsName() string {
 }
 
 func (ins *SInstance) GetGlobalId() string {
-	return ins.InstanceID
+	return ins.InstanceId
 }
 
 func (ins *SInstance) GetId() string {
-	return ins.InstanceID
+	return ins.InstanceId
 }
 
 func (ins *SInstance) GetInstanceType() string {
@@ -300,14 +341,14 @@ func (ins *SInstance) GetOsVersion() string {
 }
 
 func (ins *SInstance) GetProjectId() string {
-	return ins.ProjectID
+	return ins.ProjectId
 }
 
 func (ins *SInstance) GetSecurityGroupIds() ([]string, error) {
 	ids := []string{}
 	for _, netSet := range ins.NetworkInterfaceSet {
 		for _, secgroupSet := range netSet.SecurityGroupSet {
-			ids = append(ids, secgroupSet.SecurityGroupID)
+			ids = append(ids, secgroupSet.SecurityGroupId)
 		}
 	}
 	return ids, nil
@@ -315,8 +356,12 @@ func (ins *SInstance) GetSecurityGroupIds() ([]string, error) {
 
 func (ins *SInstance) GetStatus() string {
 	switch ins.InstanceState.Name {
+	case "block_device_mapping", "scheduling":
+		return api.VM_DEPLOYING
 	case "active":
 		return api.VM_RUNNING
+	case "stopping":
+		return api.VM_STOPPING
 	case "stopped":
 		return api.VM_READY
 	}
@@ -333,7 +378,20 @@ func (ins *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 		return nil, errors.Wrap(err, "getDisks")
 	}
 	res := []cloudprovider.ICloudDisk{}
+	storages, err := ins.host.zone.GetStorages()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetStorages")
+	}
 	for i := 0; i < len(disks); i++ {
+		for j := range storages {
+			if disks[i].VolumeType == storages[j].StorageType {
+				disks[i].storage = &storages[j]
+				break
+			}
+		}
+		if disks[i].storage == nil {
+			return nil, fmt.Errorf("failed to found disk storage type %s", disks[i].VolumeType)
+		}
 		res = append(res, &disks[i])
 	}
 	return res, nil
@@ -368,7 +426,7 @@ func (ins *SInstance) GetINics() ([]cloudprovider.ICloudNic, error) {
 	for i := 0; i < len(ins.NetworkInterfaceSet); i++ {
 		nic := SInstanceNic{
 			Instance: ins,
-			Id:       ins.NetworkInterfaceSet[i].SubnetID,
+			Id:       ins.NetworkInterfaceSet[i].SubnetId,
 			IpAddr:   ins.NetworkInterfaceSet[i].PrivateIPAddress,
 			MacAddr:  ins.NetworkInterfaceSet[i].MacAddress,
 		}
@@ -378,27 +436,61 @@ func (ins *SInstance) GetINics() ([]cloudprovider.ICloudNic, error) {
 }
 
 func (ins *SInstance) GetVNCInfo(input *cloudprovider.ServerVncInput) (*cloudprovider.ServerVncOutput, error) {
-	// TODO
-	resp, err := ins.getRegion().ecsRequest("GetVNCAddress", map[string]string{"InstanceId": ins.InstanceID})
+	vnc, err := ins.getRegion().GetVNCInfo(ins.InstanceId)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetVNCInfo")
+	}
+	ret := &cloudprovider.ServerVncOutput{
+		Url:        fmt.Sprintf("https://%s:%s", vnc.VNCAddress.Host, vnc.VNCAddress.Port),
+		Protocol:   "ksyun",
+		InstanceId: ins.InstanceId,
+		Hypervisor: api.HYPERVISOR_KSYUN,
+		Cookies:    map[string]string{},
+	}
+	for _, cookie := range vnc.Cookies {
+		ret.Cookies[cookie.CookieKey] = cookie.CookieValue
+	}
+	switch vnc.VNCAddress.Port {
+	case "80":
+		ret.Url = fmt.Sprintf("http://%s", vnc.VNCAddress.Host)
+	case "443":
+		ret.Url = fmt.Sprintf("https://%s", vnc.VNCAddress.Host)
+	default:
+		ret.Url = fmt.Sprintf("https://%s:%s", vnc.VNCAddress.Host, vnc.VNCAddress.Port)
+	}
+	return ret, nil
+}
+
+/*{"VNCAddress":{"Port":"80","Host":"tjwqone.vnc.ksyun.com"},"Cookies":[{"CookieKey":"user_id","CookieValue":"2dc683372ad24e3eb4f13646f2a26306"},{"CookieKey":"token","CookieValue":"aa9fba7c-2ce9-4e14-9f80-90eebf20dc49"},{"CookieKey":"md5","CookieValue":"78188c9557573bb912488a2cb2c8c8f8"},{"CookieKey":"time","CookieValue":"1758795275577"}],"Domain":".ksyun.com","RequestId":"dcf64f30-8f9d-4ae2-9790-8b8466974625001"}*/
+
+type VNCAddress struct {
+	Port string `json:"Port"`
+	Host string `json:"Host"`
+}
+
+type Cookies struct {
+	CookieKey   string `json:"CookieKey"`
+	CookieValue string `json:"CookieValue"`
+}
+
+type VNCInfo struct {
+	VNCAddress VNCAddress `json:"VNCAddress"`
+	Cookies    []Cookies  `json:"Cookies"`
+	Domain     string     `json:"Domain"`
+	RequestId  string     `json:"RequestId"`
+}
+
+func (region *SRegion) GetVNCInfo(instanceId string) (*VNCInfo, error) {
+	resp, err := region.ecsRequest("GetVNCAddress", map[string]string{"InstanceId": instanceId})
 	if err != nil {
 		return nil, errors.Wrap(err, "GetVNCAddress")
 	}
-	temp := struct {
-		VNCAddress struct {
-			Port string `json:"Port"`
-			Host string `json:"Host"`
-		}
-		Cookies []struct {
-			CookieKey   string `json:"CookieKey"`
-			CookieValue string `json:"CookieValue"`
-		} `json:"Cookies"`
-		Domain string `json:"Domain"`
-	}{}
-	err = resp.Unmarshal(&temp)
+	ret := &VNCInfo{}
+	err = resp.Unmarshal(ret)
 	if err != nil {
 		return nil, errors.Wrap(err, "unmarshal vnc info")
 	}
-	return nil, errors.ErrNotImplemented
+	return ret, nil
 }
 
 func (ins *SInstance) GetVcpuCount() int {
@@ -417,28 +509,109 @@ func (ins *SInstance) GetVga() string {
 	return ""
 }
 
-func (ins *SInstance) RebuildRoot(ctx context.Context, config *cloudprovider.SManagedVMRebuildRootConfig) (string, error) {
-	return "", errors.ErrNotImplemented
+func (ins *SInstance) RebuildRoot(ctx context.Context, opts *cloudprovider.SManagedVMRebuildRootConfig) (string, error) {
+	err := ins.getRegion().RebuildRoot(ins.InstanceId, opts)
+	if err != nil {
+		return "", err
+	}
+	disks, err := ins.GetIDisks()
+	if err != nil {
+		return "", err
+	}
+	if len(disks) == 0 {
+		return "", fmt.Errorf("server %s has no volume attached.", ins.GetId())
+	}
+	return disks[0].GetGlobalId(), nil
+}
+
+func (region *SRegion) RebuildRoot(instanceId string, opts *cloudprovider.SManagedVMRebuildRootConfig) error {
+	params := map[string]string{
+		"InstanceId": instanceId,
+		"ImageId":    opts.ImageId,
+	}
+	if len(opts.Password) > 0 {
+		params["InstancePassword"] = opts.Password
+	}
+	/*
+		if len(opts.PublicKey) > 0 {
+			params["KeyPairName"] = opts.PublicKey
+		}
+	*/
+	if len(opts.UserData) > 0 {
+		params["UserData"] = opts.UserData
+	}
+	_, err := region.ecsRequest("ModifyInstanceImage", params)
+	return err
 }
 
 func (ins *SInstance) SetSecurityGroups(secgroupIds []string) error {
-	return errors.ErrNotImplemented
+	nicId := ""
+	for _, netSet := range ins.NetworkInterfaceSet {
+		if netSet.NetworkInterfaceType == "primary" {
+			nicId = netSet.NetworkInterfaceId
+			break
+		}
+	}
+	return ins.getRegion().SetSecurityGroups(secgroupIds, ins.InstanceId, nicId, ins.SubnetId)
 }
 
 func (ins *SInstance) StartVM(ctx context.Context) error {
-	return cloudprovider.ErrNotImplemented
+	return ins.getRegion().StartVM(ins.InstanceId)
 }
 
 func (ins *SInstance) StopVM(ctx context.Context, opts *cloudprovider.ServerStopOptions) error {
-	return cloudprovider.ErrNotImplemented
+	return ins.getRegion().StopVM(ins.InstanceId, opts.IsForce, opts.StopCharging)
+}
+
+func (region *SRegion) StartVM(instanceId string) error {
+	params := map[string]string{
+		"InstanceId.1": instanceId,
+	}
+	_, err := region.ecsRequest("StartInstances", params)
+	if err != nil {
+		return errors.Wrap(err, "StartInstances")
+	}
+	return nil
+}
+
+func (region *SRegion) StopVM(instanceId string, force, stopCharging bool) error {
+	params := map[string]string{
+		"InstanceId.1": instanceId,
+		"StoppedMode":  "KeepCharging",
+	}
+	if stopCharging {
+		params["StoppedMode"] = "StopCharging"
+	}
+	if force {
+		params["ForceStop"] = "true"
+	}
+	_, err := region.ecsRequest("StopInstances", params)
+	if err != nil {
+		return errors.Wrap(err, "StopInstances")
+	}
+	return nil
 }
 
 func (ins *SInstance) UpdateUserData(userData string) error {
-	return cloudprovider.ErrNotImplemented
+	return cloudprovider.ErrNotSupported
 }
 
-func (ins *SInstance) UpdateVM(ctx context.Context, input cloudprovider.SInstanceUpdateOptions) error {
-	return cloudprovider.ErrNotImplemented
+func (ins *SInstance) UpdateVM(ctx context.Context, opts cloudprovider.SInstanceUpdateOptions) error {
+	return ins.getRegion().UpdateVM(ins.InstanceId, opts)
+}
+
+func (region *SRegion) UpdateVM(instanceId string, opts cloudprovider.SInstanceUpdateOptions) error {
+	params := map[string]string{
+		"InstanceId": instanceId,
+	}
+	if len(opts.NAME) > 0 {
+		params["InstanceName"] = opts.NAME
+	}
+	if len(opts.HostName) > 0 {
+		params["HostName"] = opts.HostName
+	}
+	_, err := region.ecsRequest("ModifyInstanceAttribute", params)
+	return err
 }
 
 func (ins *SInstance) GetIHost() cloudprovider.ICloudHost {
@@ -446,7 +619,27 @@ func (ins *SInstance) GetIHost() cloudprovider.ICloudHost {
 }
 
 func (ins *SInstance) DeployVM(ctx context.Context, opts *cloudprovider.SInstanceDeployOptions) error {
-	return cloudprovider.ErrNotImplemented
+	return ins.getRegion().DeployVM(ins.InstanceId, opts)
+}
+
+func (region *SRegion) DeployVM(instanceId string, opts *cloudprovider.SInstanceDeployOptions) error {
+	params := map[string]string{
+		"InstanceId": instanceId,
+	}
+	if len(opts.Password) > 0 {
+		params["InstancePassword"] = opts.Password
+		params["RestartMode"] = "Restart"
+	}
+	/*
+			if len(opts.PublicKey) > 0 {
+				params["KeyPairName"] = opts.PublicKey
+			}
+		if len(opts.UserData) > 0 {
+			params["UserData"] = opts.UserData
+		}
+	*/
+	_, err := region.ecsRequest("ModifyInstanceAttribute", params)
+	return err
 }
 
 func (ins *SInstance) GetBillingType() string {
