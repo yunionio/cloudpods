@@ -31,6 +31,10 @@ func (c *STableField) IsSearchable() bool {
 	return c.spec.IsSearchable()
 }
 
+func (c *STableField) GetWidth() int {
+	return c.spec.GetWidth()
+}
+
 func getTableField(f IQueryField) *STableField {
 	if gotypes.IsNil(f) {
 		return nil
@@ -47,10 +51,10 @@ func getTableField(f IQueryField) *STableField {
 	}
 }
 
-func IsFieldText(f IQueryField) bool {
+func IsLongFieldText(f IQueryField) bool {
 	tf := getTableField(f)
 	if tf != nil {
-		return tf.IsText() && tf.IsSearchable()
+		return tf.IsText() && tf.IsSearchable() && tf.GetWidth() == 0
 	}
 	return false
 }
