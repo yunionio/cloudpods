@@ -5472,6 +5472,7 @@ func (manager *SGuestManager) StartHostGuestsMigrateTask(
 var supportInstanceSnapshotHypervisors = []string{
 	api.HYPERVISOR_KVM,
 	api.HYPERVISOR_ESXI,
+	api.HYPERVISOR_CNWARE,
 }
 
 func (self *SGuest) validateCreateInstanceSnapshot(

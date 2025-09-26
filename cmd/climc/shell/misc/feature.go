@@ -105,6 +105,7 @@ func init() {
 		"oraclecloud",
 		"sangfor",
 		"cephfs",
+		"cnware",
 	}
 
 	features = append(features, storageFeatures...)

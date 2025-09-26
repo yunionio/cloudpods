@@ -40,4 +40,5 @@ const (
 	VOLC_ENGINE = "volcengine"
 	BAIDU       = "baidu"
 	SANGFOR     = "sangfor"
+	CNWARE      = "cnware"
 )

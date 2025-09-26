@@ -132,6 +132,14 @@ const (
 	STORAGE_BAIDU_ENHANCED_SSD_PL2 = "enhanced_ssd_pl2" // 增强型SSD_PL2
 	STORAGE_BAIDU_ENHANCED_SSD_PL3 = "enhanced_ssd_pl3" // 增强型SSD_PL2
 
+	// cnware storage type
+	STORAGE_CNWARE_FC_SAN = "fc-san"
+	STORAGE_CNWARE_IP_SAN = "ip-scan"
+	STORAGE_CNWARE_NAS    = "nas"
+	STORAGE_CNWARE_CEPH   = "ceph"
+	STORAGE_CNWARE_LOCAL  = "local"
+	STORAGE_CNWARE_NVME   = "nvme"
+
 	// ZettaKit
 	STORAGE_ZETTAKIT_NORMAL = "normal"
 )

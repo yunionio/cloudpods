@@ -164,6 +164,7 @@ var HypervisorBrandMap = map[string]string{
 	computeapis.HYPERVISOR_ZSTACK:    computeapis.CLOUD_PROVIDER_ZSTACK,
 	computeapis.HYPERVISOR_GOOGLE:    computeapis.CLOUD_PROVIDER_GOOGLE,
 	computeapis.HYPERVISOR_CTYUN:     computeapis.CLOUD_PROVIDER_CTYUN,
+	computeapis.HYPERVISOR_CNWARE:    computeapis.CLOUD_PROVIDER_CNWARE,
 }
 
 var BrandHypervisorMap = map[string]string{
@@ -179,6 +180,7 @@ var BrandHypervisorMap = map[string]string{
 	computeapis.CLOUD_PROVIDER_ZSTACK:    computeapis.HYPERVISOR_ZSTACK,
 	computeapis.CLOUD_PROVIDER_GOOGLE:    computeapis.HYPERVISOR_GOOGLE,
 	computeapis.CLOUD_PROVIDER_CTYUN:     computeapis.HYPERVISOR_CTYUN,
+	computeapis.CLOUD_PROVIDER_CNWARE:    computeapis.HYPERVISOR_CNWARE,
 }
 
 func Hypervisor2Brand(hypervisor string) string {

@@ -52,6 +52,7 @@ const (
 	VOLCENGINE = api.VOLC_ENGINE
 	BAIDU      = api.BAIDU
 	SANGFOR    = api.SANGFOR
+	CNWARE     = api.CNWARE
 )
 
 type RemoteConsoleInfo struct {
@@ -130,7 +131,7 @@ func (info *RemoteConsoleInfo) GetConnectParams() (string, error) {
 		return info.getQcloudURL()
 	case CLOUDPODS:
 		return info.getCloudpodsURL()
-	case OPENSTACK, VMRC, ZSTACK, CTYUN, HUAWEI, HCS, JDCLOUD, PROXMOX, SANGFOR, BAIDU:
+	case OPENSTACK, VMRC, ZSTACK, CTYUN, HUAWEI, HCS, JDCLOUD, PROXMOX, SANGFOR, BAIDU, CNWARE:
 		return info.Url, nil
 	case VOLCENGINE:
 		return info.getVolcEngineURL()
