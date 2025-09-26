@@ -180,7 +180,7 @@ func (d *SFsutilDriver) ResizeDiskPartition(diskPath string, sizeMb int) (string
 			fsType = d.GetFsFormat(partDev)
 			log.Infof("blkid get fstype %s", fsType)
 		}
-		if part[5] == "lvm" || IsSupportResizeFs(fsType) {
+		if part[5] == "lvm" || IsSupportResizeFs(fsType) || part[5] == "primary" {
 			// growpart script replace parted resizepart
 			output, err := d.Exec("growpart", diskPath, part[0])
 			if err != nil {
