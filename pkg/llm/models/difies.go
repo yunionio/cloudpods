@@ -12,6 +12,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/sqlchemy"
 )
 
 type SDifyManager struct {
@@ -36,20 +37,20 @@ func init() {
 	DifyManager.NameRequireAscii = false
 }
 
-func (manager *SDifyManager) DeleteByGuestId(ctx context.Context, userCred mcclient.TokenCredential, gstId string) error {
-	q := manager.Query().Equals("guest_id", gstId)
-	difies := make([]SDify, 0)
-	if err := db.FetchModelObjects(manager, q, &difies); err != nil {
-		return errors.Wrap(err, "db.FetchModelObjects")
-	}
+// func (manager *SDifyManager) DeleteByGuestId(ctx context.Context, userCred mcclient.TokenCredential, gstId string) error {
+// 	q := manager.Query().Equals("guest_id", gstId)
+// 	difies := make([]SDify, 0)
+// 	if err := db.FetchModelObjects(manager, q, &difies); err != nil {
+// 		return errors.Wrap(err, "db.FetchModelObjects")
+// 	}
 
-	for _, dify := range difies {
-		if err := dify.RealDelete(ctx, userCred); nil != err {
-			return err
-		}
-	}
-	return nil
-}
+// 	for _, dify := range difies {
+// 		if err := dify.RealDelete(ctx, userCred); nil != err {
+// 			return err
+// 		}
+// 	}
+// 	return nil
+// }
 
 func (manager *SDifyManager) InitDifyContainersManager(input *api.DifyCustomized) {
 	var userCustomizedEnvs *DifyContainerEnv
@@ -91,6 +92,17 @@ func (manager *SDifyManager) ValidateCreateData(ctx context.Context, userCred mc
 	}
 
 	return input, nil
+}
+
+func (manager *SDifyManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query *api.LLMListInput) (*sqlchemy.SQuery, error) {
+	q, err := manager.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query.VirtualResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemFilter")
+	}
+	if query.GuestId != "" {
+		q = q.Equals("guest_id", query.GuestId)
+	}
+	return q, err
 }
 
 type SDify struct {
@@ -144,9 +156,9 @@ func (dify *SDify) PostCreate(ctx context.Context, userCred mcclient.TokenCreden
 	dify.SVirtualResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
 }
 
-func (dify *SDify) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
-	return dify.SVirtualResourceBase.Delete(ctx, userCred)
-}
+// func (dify *SDify) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
+// 	return dify.SVirtualResourceBase.Delete(ctx, userCred)
+// }
 
 func (dify *SDify) CreateContainer(ctx context.Context, userCred mcclient.TokenCredential, containerKey string, taskId string) error {
 	// get input
