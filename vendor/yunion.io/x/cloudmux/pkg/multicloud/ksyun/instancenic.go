@@ -56,13 +56,5 @@ func (nic *SInstanceNic) GetDriver() string {
 }
 
 func (nic *SInstanceNic) GetINetworkId() string {
-	return nic.Instance.SubnetID
-}
-
-func (nic *SInstanceNic) AssignAddress(ipAddrs []string) error {
-	return cloudprovider.ErrNotImplemented
-}
-
-func (nic *SInstanceNic) UnassignAddress(ipAddrs []string) error {
-	return cloudprovider.ErrNotImplemented
+	return nic.Instance.SubnetId
 }

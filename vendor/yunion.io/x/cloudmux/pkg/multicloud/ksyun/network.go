@@ -37,19 +37,19 @@ type SNetwork struct {
 	SKsyunTags
 	wire *SWire
 
-	RouteTableID          string `json:"RouteTableId"`
-	NetworkACLID          string `json:"NetworkAclId"`
-	NatID                 string `json:"NatId"`
+	RouteTableId          string `json:"RouteTableId"`
+	NetworkAclId          string `json:"NetworkAclId"`
+	NatId                 string `json:"NatId"`
 	CreateTime            string `json:"CreateTime"`
-	DhcpIPTo              string `json:"DhcpIpTo"`
+	DhcpIpTo              string `json:"DhcpIpTo"`
 	DNS1                  string `json:"Dns1"`
 	CidrBlock             string `json:"CidrBlock"`
 	DNS2                  string `json:"Dns2"`
 	ProvidedIpv6CidrBlock bool   `json:"ProvidedIpv6CidrBlock"`
-	SubnetID              string `json:"SubnetId"`
+	SubnetId              string `json:"SubnetId"`
 	SubnetType            string `json:"SubnetType"`
 	SubnetName            string `json:"SubnetName"`
-	VpcID                 string `json:"VpcId"`
+	VpcId                 string `json:"VpcId"`
 	GatewayIP             string `json:"GatewayIp"`
 	AvailabilityZoneName  string `json:"AvailabilityZoneName"`
 	DhcpIPFrom            string `json:"DhcpIpFrom"`
@@ -112,19 +112,19 @@ func (region *SRegion) GetNetwork(networkId string) (*SNetwork, error) {
 }
 
 func (net *SNetwork) GetId() string {
-	return net.SubnetID
+	return net.SubnetId
 }
 
 func (net *SNetwork) GetName() string {
 	if len(net.SubnetName) == 0 {
-		return net.SubnetID
+		return net.SubnetId
 	}
 
 	return net.SubnetName
 }
 
 func (net *SNetwork) GetGlobalId() string {
-	return net.SubnetID
+	return net.SubnetId
 }
 
 func (net *SNetwork) GetStatus() string {
@@ -140,7 +140,7 @@ func (net *SNetwork) Refresh() error {
 }
 
 func (net *SNetwork) GetTags() (map[string]string, error) {
-	tags, err := net.wire.zone.region.ListTags("subnet", net.SubnetID)
+	tags, err := net.wire.zone.region.ListTags("subnet", net.SubnetId)
 	if err != nil {
 		return nil, err
 	}
@@ -187,7 +187,7 @@ func (net *SNetwork) GetPublicScope() rbacscope.TRbacScope {
 }
 
 func (net *SNetwork) Delete() error {
-	return cloudprovider.ErrNotImplemented
+	return net.wire.zone.region.DeleteNetwork(net.SubnetId)
 }
 
 func (net *SNetwork) GetAllocTimeoutSeconds() int {
@@ -200,4 +200,39 @@ func (net *SNetwork) GetProjectId() string {
 
 func (net *SNetwork) GetDescription() string {
 	return ""
+}
+
+func (region *SRegion) DeleteNetwork(networkId string) error {
+	params := map[string]string{
+		"SubnetId": networkId,
+	}
+	_, err := region.vpcRequest("DeleteSubnet", params)
+	return err
+}
+
+func (region *SRegion) CreateNetwork(vpcId, zoneId string, opts *cloudprovider.SNetworkCreateOptions) (*SNetwork, error) {
+	pref, err := netutils.NewIPV4Prefix(opts.Cidr)
+	if err != nil {
+		return nil, err
+	}
+	startIp := pref.Address.NetAddr(pref.MaskLen) // 0
+	gateway := startIp.StepUp()                   // 1
+	params := map[string]string{
+		"VpcId":            vpcId,
+		"SubnetName":       opts.Name,
+		"CidrBlock":        opts.Cidr,
+		"SubnetType":       "Normal",
+		"AvailabilityZone": zoneId,
+		"GatewayIp":        gateway.String(),
+	}
+	resp, err := region.vpcRequest("CreateSubnet", params)
+	if err != nil {
+		return nil, err
+	}
+	ret := &SNetwork{}
+	err = resp.Unmarshal(ret, "Subnet")
+	if err != nil {
+		return nil, err
+	}
+	return ret, nil
 }

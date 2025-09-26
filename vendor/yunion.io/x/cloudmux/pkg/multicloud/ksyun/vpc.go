@@ -32,7 +32,7 @@ type SVpc struct {
 	region *SRegion
 
 	IsDefault             bool   `json:"IsDefault"`
-	VpcID                 string `json:"VpcId"`
+	VpcId                 string `json:"VpcId"`
 	CreateTime            string `json:"CreateTime"`
 	CidrBlock             string `json:"CidrBlock"`
 	VpcName               string `json:"VpcName"`
@@ -81,18 +81,18 @@ func (region *SRegion) GetVpc(id string) (*SVpc, error) {
 }
 
 func (vpc *SVpc) GetId() string {
-	return vpc.VpcID
+	return vpc.VpcId
 }
 
 func (vpc *SVpc) GetName() string {
 	if len(vpc.VpcName) > 0 {
 		return vpc.VpcName
 	}
-	return vpc.VpcID
+	return vpc.VpcId
 }
 
 func (vpc *SVpc) GetGlobalId() string {
-	return vpc.VpcID
+	return vpc.VpcId
 }
 
 func (vpc *SVpc) GetStatus() string {
@@ -139,7 +139,7 @@ func (vpc *SVpc) GetIWires() ([]cloudprovider.ICloudWire, error) {
 }
 
 func (vpc *SVpc) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, error) {
-	secgroups, err := vpc.region.GetSecurityGroups(vpc.VpcID, nil)
+	secgroups, err := vpc.region.GetSecurityGroups(vpc.VpcId, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetSecurityGroups")
 	}
@@ -160,11 +160,11 @@ func (vpc *SVpc) GetIRouteTableById(routeTableId string) (cloudprovider.ICloudRo
 }
 
 func (vpc *SVpc) Delete() error {
-	return cloudprovider.ErrNotImplemented
+	return vpc.region.DeleteVpc(vpc.VpcId)
 }
 
 func (vpc *SVpc) GetTags() (map[string]string, error) {
-	tags, err := vpc.region.ListTags("vpc", vpc.VpcID)
+	tags, err := vpc.region.ListTags("vpc", vpc.VpcId)
 	if err != nil {
 		return nil, err
 	}
@@ -184,35 +184,27 @@ func (vpc *SVpc) GetIWireById(wireId string) (cloudprovider.ICloudWire, error) {
 	return nil, errors.Wrapf(errors.ErrNotFound, "wire id:%s", wireId)
 }
 
-func (vpc *SVpc) GetINatGateways() ([]cloudprovider.ICloudNatGateway, error) {
-	return nil, cloudprovider.ErrNotImplemented
-
-}
-
-func (vpc *SVpc) GetICloudVpcPeeringConnections() ([]cloudprovider.ICloudVpcPeeringConnection, error) {
-	return nil, cloudprovider.ErrNotImplemented
-}
-
-func (vpc *SVpc) GetICloudAccepterVpcPeeringConnections() ([]cloudprovider.ICloudVpcPeeringConnection, error) {
-	return nil, cloudprovider.ErrNotImplemented
-}
-
-func (vpc *SVpc) GetICloudVpcPeeringConnectionById(id string) (cloudprovider.ICloudVpcPeeringConnection, error) {
-	return nil, cloudprovider.ErrNotImplemented
-}
-
-func (vpc *SVpc) CreateICloudVpcPeeringConnection(opts *cloudprovider.VpcPeeringConnectionCreateOptions) (cloudprovider.ICloudVpcPeeringConnection, error) {
-	return nil, cloudprovider.ErrNotImplemented
-}
-
-func (vpc *SVpc) AcceptICloudVpcPeeringConnection(id string) error {
-	return cloudprovider.ErrNotImplemented
-}
-
-func (vpc *SVpc) GetAuthorityOwnerId() string {
-	return ""
-}
-
 func (vpc *SRegion) DeleteVpc(vpcId string) error {
-	return cloudprovider.ErrNotImplemented
+	params := map[string]string{
+		"VpcId": vpcId,
+	}
+	_, err := vpc.vpcRequest("DeleteVpc", params)
+	return err
+}
+
+func (region *SRegion) CreateVpc(opts *cloudprovider.VpcCreateOptions) (*SVpc, error) {
+	params := map[string]string{
+		"VpcName":   opts.NAME,
+		"CidrBlock": opts.CIDR,
+	}
+	body, err := region.vpcRequest("CreateVpc", params)
+	if err != nil {
+		return nil, err
+	}
+	ret := &SVpc{region: region}
+	err = body.Unmarshal(ret, "Vpc")
+	if err != nil {
+		return nil, errors.Wrap(err, "Unmarshal")
+	}
+	return ret, nil
 }
