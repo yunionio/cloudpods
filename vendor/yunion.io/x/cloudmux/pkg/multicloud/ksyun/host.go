@@ -15,6 +15,9 @@
 package ksyun
 
 import (
+	"fmt"
+	"time"
+
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
@@ -50,8 +53,111 @@ func (host *SHost) GetIVMById(vmId string) (cloudprovider.ICloudVM, error) {
 	return ins, nil
 }
 
-func (host *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudprovider.ICloudVM, error) {
-	return nil, cloudprovider.ErrNotImplemented
+func (host *SHost) CreateVM(opts *cloudprovider.SManagedVMCreateConfig) (cloudprovider.ICloudVM, error) {
+	vm, err := host.zone.region.CreateVM(opts)
+	if err != nil {
+		return nil, err
+	}
+	vm.host = host
+	return vm, nil
+}
+
+func (region *SRegion) syncKeypair(keyName, publicKey string) (string, error) {
+	keypairs, err := region.client.GetKeypairs()
+	if err != nil {
+		return "", err
+	}
+	for i := range keypairs {
+		if keypairs[i].PublicKey == publicKey {
+			return keypairs[i].KeyPairId, nil
+		}
+	}
+	keypair, err := region.client.CreateKeypair(keyName, publicKey)
+	if err != nil {
+		return "", err
+	}
+	return keypair.KeyPairId, nil
+}
+
+func (region *SRegion) CreateVM(opts *cloudprovider.SManagedVMCreateConfig) (*SInstance, error) {
+	params := map[string]string{
+		"InstanceName":        opts.Name,
+		"ImageId":             opts.ExternalImageId,
+		"InstanceType":        opts.InstanceType,
+		"MaxCount":            "1",
+		"MinCount":            "1",
+		"SubnetId":            opts.ExternalNetworkId,
+		"ChargeType":          "HourlyInstantSettlement",
+		"SystemDisk.DiskType": opts.SysDisk.StorageType,
+		"SystemDisk.DiskSize": fmt.Sprintf("%d", opts.SysDisk.SizeGB),
+		"SyncTag":             "true",
+	}
+	if len(opts.Password) > 0 {
+		params["InstancePassword"] = opts.Password
+	}
+	if opts.BillingCycle != nil {
+		params["ChargeType"] = "Monthly"
+		params["PurchaseTime"] = fmt.Sprintf("%d", opts.BillingCycle.GetMonths())
+	}
+	for i, group := range opts.ExternalSecgroupIds {
+		params[fmt.Sprintf("SecurityGroupId.%d", i+1)] = group
+	}
+	if len(opts.IpAddr) > 0 {
+		params["PrivateIpAddress"] = opts.IpAddr
+	}
+	if len(opts.ProjectId) > 0 {
+		params["ProjectId"] = opts.ProjectId
+	}
+	if len(opts.UserData) > 0 {
+		params["UserData"] = opts.UserData
+	}
+	if len(opts.PublicKey) > 0 {
+		var err error
+		params["KeyId.1"], err = region.syncKeypair(opts.Name, opts.PublicKey)
+		if err != nil {
+			return nil, err
+		}
+	}
+	for i, disk := range opts.DataDisks {
+		params[fmt.Sprintf("DataDisk.%d.DeleteWithInstance", i+1)] = "true"
+		params[fmt.Sprintf("DataDisk.%d.Size", i+1)] = fmt.Sprintf("%d", disk.SizeGB)
+		params[fmt.Sprintf("DataDisk.%d.Type", i+1)] = disk.StorageType
+	}
+	tagIdx := 1
+	for k, v := range opts.Tags {
+		params[fmt.Sprintf("Tag.%d.Key", tagIdx)] = k
+		params[fmt.Sprintf("Tag.%d.Value", tagIdx)] = v
+	}
+	resp, err := region.ecsRequest("RunInstances", params)
+	if err != nil {
+		return nil, errors.Wrapf(err, "RunInstances")
+	}
+	ret := []struct {
+		InstanceId   string
+		InstanceName string
+	}{}
+	err = resp.Unmarshal(&ret, "InstancesSet")
+	if err != nil {
+		return nil, errors.Wrapf(err, "Unmarshal")
+	}
+	if len(ret) == 0 {
+		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "after created")
+	}
+	vmId := ret[0].InstanceId
+	err = cloudprovider.Wait(time.Second*3, time.Minute, func() (bool, error) {
+		_, err := region.GetInstance(vmId)
+		if err != nil {
+			if errors.Cause(err) == cloudprovider.ErrNotFound {
+				return false, nil
+			}
+			return false, err
+		}
+		return true, nil
+	})
+	if err != nil {
+		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "after vm %s created", vmId)
+	}
+	return region.GetInstance(vmId)
 }
 
 func (host *SHost) GetAccessIp() string {
@@ -111,7 +217,7 @@ func (host *SHost) GetStorageType() string {
 }
 
 func (host *SHost) GetEnabled() bool {
-	return false
+	return true
 }
 
 func (host *SHost) GetIsMaintenance() bool {
@@ -127,7 +233,7 @@ func (host *SHost) GetId() string {
 }
 
 func (host *SHost) GetHostStatus() string {
-	return api.HOST_STATUS_READY
+	return api.HOST_ONLINE
 }
 
 func (host *SHost) GetHostType() string {
@@ -135,7 +241,11 @@ func (host *SHost) GetHostType() string {
 }
 
 func (host *SHost) GetIHostNics() ([]cloudprovider.ICloudHostNetInterface, error) {
-	return nil, errors.ErrNotImplemented
+	wires, err := host.zone.GetIWires()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetIWires")
+	}
+	return cloudprovider.GetHostNetifs(host, wires), nil
 }
 
 func (host *SHost) GetIStorageById(storageId string) (cloudprovider.ICloudStorage, error) {
