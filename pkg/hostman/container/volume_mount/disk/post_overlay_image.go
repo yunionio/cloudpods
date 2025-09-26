@@ -44,8 +44,8 @@ func (i postOverlayImage) getImageInput(ov *apis.ContainerVolumeMountDiskPostOve
 	return ov.Image
 }
 
-func (i postOverlayImage) getCachedImagePaths(d diskPostOverlay, pod volume_mount.IPodInfo, img *apis.ContainerVolumeMountDiskPostImageOverlay) (map[string]string, error) {
-	cachedImgDir, err := d.disk.getCachedImageDir(context.Background(), pod, img.Id)
+func (i postOverlayImage) getCachedImagePaths(d diskPostOverlay, pod volume_mount.IPodInfo, img *apis.ContainerVolumeMountDiskPostImageOverlay, accquire bool) (map[string]string, error) {
+	cachedImgDir, err := d.disk.getCachedImageDir(context.Background(), pod, img.Id, accquire)
 	if err != nil {
 		return nil, errors.Wrap(err, "disk.getCachedImageDir")
 	}
@@ -68,9 +68,10 @@ func (i postOverlayImage) convertToDiskOV(ov *apis.ContainerVolumeMountDiskPostO
 
 func (i postOverlayImage) withAction(
 	d diskPostOverlay, pod volume_mount.IPodInfo, ov *apis.ContainerVolumeMountDiskPostOverlay,
-	af func(iDiskPostOverlayDriver, *apis.ContainerVolumeMountDiskPostOverlay) error) error {
+	af func(iDiskPostOverlayDriver, *apis.ContainerVolumeMountDiskPostOverlay) error,
+	accquire bool) error {
 	img := i.getImageInput(ov)
-	paths, err := i.getCachedImagePaths(d, pod, img)
+	paths, err := i.getCachedImagePaths(d, pod, img, accquire)
 	if err != nil {
 		return errors.Wrapf(err, "get cached image paths")
 	}
@@ -88,12 +89,12 @@ func (i postOverlayImage) Mount(d diskPostOverlay, pod volume_mount.IPodInfo, ct
 	return i.withAction(d, pod, ov,
 		func(driver iDiskPostOverlayDriver, dov *apis.ContainerVolumeMountDiskPostOverlay) error {
 			return driver.Mount(d, pod, ctrId, vm, dov)
-		})
+		}, true)
 }
 
 func (i postOverlayImage) Unmount(d diskPostOverlay, pod volume_mount.IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount, ov *apis.ContainerVolumeMountDiskPostOverlay, useLazy bool, clearLayers bool) error {
 	return i.withAction(d, pod, ov,
 		func(driver iDiskPostOverlayDriver, dov *apis.ContainerVolumeMountDiskPostOverlay) error {
 			return driver.Unmount(d, pod, ctrId, vm, dov, useLazy, clearLayers)
-		})
+		}, false)
 }

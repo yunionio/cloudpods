@@ -95,6 +95,14 @@ func (c *SLocalImageCacheManager) LoadImageCache(imageId string) {
 	}
 }
 
+func (c *SLocalImageCacheManager) GetImage(imageId string) IImageCache {
+	imgObj, ok := c.cachedImages.Load(imageId)
+	if !ok {
+		return nil
+	}
+	return imgObj.(IImageCache)
+}
+
 func (c *SLocalImageCacheManager) AcquireImage(ctx context.Context, input api.CacheImageInput, callback func(progress, progressMbps float64, totalSizeMb int64)) (IImageCache, error) {
 	c.lock.LockRawObject(ctx, "image-cache", input.ImageId)
 	defer c.lock.ReleaseRawObject(ctx, "image-cache", input.ImageId)
