@@ -16,8 +16,10 @@ package ksyun
 
 import (
 	"fmt"
+	"strings"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/secrules"
 )
@@ -25,6 +27,7 @@ import (
 type SPermission struct {
 	region *SRegion
 
+	SecurityGroupId      string `json:"SecurityGroupId"`
 	Policy               string `json:"Policy"`
 	PortRangeTo          int    `json:"PortRangeTo"`
 	Description          string `json:"Description"`
@@ -35,13 +38,13 @@ type SPermission struct {
 	CidrBlock            string `json:"CidrBlock"`
 	Direction            string `json:"Direction"`
 	PortRangeFrom        int    `json:"PortRangeFrom"`
-	SecurityGroupEntryID string `json:"SecurityGroupEntryId"`
+	SecurityGroupEntryId string `json:"SecurityGroupEntryId"`
 	RuleTag              string `json:"RuleTag"`
 	Protocol             string `json:"Protocol"`
 }
 
 func (rule *SPermission) GetGlobalId() string {
-	return rule.SecurityGroupEntryID
+	return rule.SecurityGroupEntryId
 }
 
 func (rule *SPermission) GetDirection() secrules.TSecurityRuleDirection {
@@ -60,6 +63,9 @@ func (rule *SPermission) GetAction() secrules.TSecurityRuleAction {
 }
 
 func (rule *SPermission) GetProtocol() string {
+	if rule.Protocol == "ip" {
+		return secrules.PROTO_ANY
+	}
 	return rule.Protocol
 }
 
@@ -82,9 +88,94 @@ func (rule *SPermission) GetCIDRs() []string {
 }
 
 func (rule *SPermission) Update(opts *cloudprovider.SecurityGroupRuleUpdateOptions) error {
-	return errors.ErrNotImplemented
+	return errors.ErrNotSupported
 }
 
 func (rule *SPermission) Delete() error {
-	return errors.ErrNotImplemented
+	return rule.region.DeleteSecurityGroupRule(rule.SecurityGroupId, rule.SecurityGroupEntryId)
+}
+
+func (region *SRegion) DeleteSecurityGroupRule(groupId string, ruleId string) error {
+	params := map[string]string{
+		"SecurityGroupId":      groupId,
+		"SecurityGroupEntryId": ruleId,
+	}
+	_, err := region.ecsRequest("RevokeSecurityGroupEntry", params)
+	return err
+}
+
+func (group *SSecurityGroup) CreateRule(opts *cloudprovider.SecurityGroupRuleCreateOptions) (cloudprovider.ISecurityGroupRule, error) {
+	rule, err := group.region.CreateSecurityGroupRule(group.SecurityGroupId, opts)
+	if err != nil {
+		return nil, err
+	}
+	return rule, nil
+}
+
+func (region *SRegion) CreateSecurityGroupRule(groupId string, opts *cloudprovider.SecurityGroupRuleCreateOptions) (*SPermission, error) {
+	params := map[string]string{
+		"SecurityGroupId": groupId,
+		"CidrBlock":       opts.CIDR,
+		"Direction":       string(opts.Direction),
+		"Protocol":        opts.Protocol,
+		"Priority":        fmt.Sprintf("%d", opts.Priority),
+		"Policy":          "Accept",
+	}
+	if opts.Action == secrules.SecurityRuleDeny {
+		params["Policy"] = "Drop"
+	}
+	if len(opts.Desc) > 0 {
+		params["Description"] = opts.Desc
+	}
+	switch opts.Protocol {
+	case secrules.PROTO_ANY:
+		params["Protocol"] = "ip"
+	case secrules.PROTO_TCP, secrules.PROTO_UDP:
+		if len(opts.Ports) == 0 {
+			params["PortRangeFrom"] = "1"
+			params["PortRangeTo"] = "65535"
+		} else {
+			if strings.Contains(opts.Ports, "-") {
+				info := strings.Split(opts.Ports, "-")
+				if len(info) == 2 {
+					params["PortRangeFrom"] = info[0]
+					params["PortRangeTo"] = info[1]
+				}
+			} else {
+				params["PortRangeFrom"] = opts.Ports
+				params["PortRangeTo"] = opts.Ports
+			}
+		}
+	case secrules.PROTO_ICMP:
+		params["IcmpType"] = "-1"
+		params["IcmpCode"] = "-1"
+	}
+	resp, err := region.vpcRequest("AuthorizeSecurityGroupEntry", params)
+	if err != nil {
+		return nil, err
+	}
+	ret := []string{}
+	err = resp.Unmarshal(&ret, "SecurityGroupEntryIdSet")
+	if err != nil {
+		return nil, err
+	}
+	ruleId := ""
+	for i := range ret {
+		ruleId = ret[i]
+	}
+	if len(ruleId) == 0 {
+		return nil, fmt.Errorf("invalid rule create response %s", resp.String())
+	}
+	group, err := region.GetSecurityGroup(groupId)
+	if err != nil {
+		return nil, err
+	}
+	for i := range group.SecurityGroupEntrySet {
+		if group.SecurityGroupEntrySet[i].SecurityGroupEntryId == ruleId {
+			group.SecurityGroupEntrySet[i].region = region
+			group.SecurityGroupEntrySet[i].SecurityGroupId = groupId
+			return &group.SecurityGroupEntrySet[i], nil
+		}
+	}
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "after create %s", jsonutils.Marshal(opts))
 }

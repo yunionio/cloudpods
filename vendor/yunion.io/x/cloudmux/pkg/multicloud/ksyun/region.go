@@ -83,15 +83,15 @@ func (region *SRegion) GetClient() *SKsyunClient {
 }
 
 func (region *SRegion) CreateEIP(opts *cloudprovider.SEip) (cloudprovider.ICloudEIP, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	return region.CreateEip(opts)
 }
 
 func (region *SRegion) CreateISecurityGroup(conf *cloudprovider.SecurityGroupCreateInput) (cloudprovider.ICloudSecurityGroup, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	return region.CreateSecurityGroup(conf)
 }
 
 func (region *SRegion) CreateIVpc(opts *cloudprovider.VpcCreateOptions) (cloudprovider.ICloudVpc, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	return region.CreateVpc(opts)
 }
 
 func (region *SRegion) GetIVpcs() ([]cloudprovider.ICloudVpc, error) {

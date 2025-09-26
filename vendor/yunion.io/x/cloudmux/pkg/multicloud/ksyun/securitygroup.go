@@ -40,11 +40,11 @@ type SSecurityGroup struct {
 	CreateTime            string        `json:"CreateTime"`
 	ProductTag            string        `json:"ProductTag"`
 	SecurityGroupEntrySet []SPermission `json:"SecurityGroupEntrySet"`
-	SecurityGroupID       string        `json:"SecurityGroupId"`
+	SecurityGroupId       string        `json:"SecurityGroupId"`
 	SecurityGroupName     string        `json:"SecurityGroupName"`
 	SecurityGroupType     string        `json:"SecurityGroupType"`
 	UserTag               string        `json:"UserTag"`
-	VpcID                 string        `json:"VpcId"`
+	VpcId                 string        `json:"VpcId"`
 }
 
 type SecurityGroupEntrySet struct {
@@ -58,28 +58,29 @@ type SecurityGroupEntrySet struct {
 	ProductTag           string `json:"ProductTag"`
 	Protocol             string `json:"Protocol"`
 	RuleTag              string `json:"RuleTag,omitempty"`
-	SecurityGroupEntryID string `json:"SecurityGroupEntryId"`
+	SecurityGroupEntryId string `json:"SecurityGroupEntryId"`
 	UserTag              string `json:"UserTag"`
 	PortRangeFrom        int    `json:"PortRangeFrom,omitempty"`
 	PortRangeTo          int    `json:"PortRangeTo,omitempty"`
 }
 
 func (secgroup *SSecurityGroup) GetVpcId() string {
-	return secgroup.VpcID
+	return secgroup.VpcId
 }
 
 func (secgroup *SSecurityGroup) GetId() string {
-	return secgroup.SecurityGroupID
+	return secgroup.SecurityGroupId
 }
 
 func (secgroup *SSecurityGroup) GetGlobalId() string {
-	return secgroup.SecurityGroupID
+	return secgroup.SecurityGroupId
 }
 
 func (secgroup *SSecurityGroup) GetRules() ([]cloudprovider.ISecurityGroupRule, error) {
 	ret := make([]cloudprovider.ISecurityGroupRule, 0)
 	for i := range secgroup.SecurityGroupEntrySet {
 		secgroup.SecurityGroupEntrySet[i].region = secgroup.region
+		secgroup.SecurityGroupEntrySet[i].SecurityGroupId = secgroup.SecurityGroupId
 		ret = append(ret, &secgroup.SecurityGroupEntrySet[i])
 	}
 	return ret, nil
@@ -89,7 +90,7 @@ func (secgroup *SSecurityGroup) GetName() string {
 	if len(secgroup.SecurityGroupName) > 0 {
 		return secgroup.SecurityGroupName
 	}
-	return secgroup.SecurityGroupID
+	return secgroup.SecurityGroupId
 }
 
 func (secgroup *SSecurityGroup) GetStatus() string {
@@ -97,7 +98,7 @@ func (secgroup *SSecurityGroup) GetStatus() string {
 }
 
 func (secgroup *SSecurityGroup) Refresh() error {
-	group, err := secgroup.region.GetSecurityGroup(secgroup.SecurityGroupID)
+	group, err := secgroup.region.GetSecurityGroup(secgroup.SecurityGroupId)
 	if err != nil {
 		return err
 	}
@@ -105,7 +106,7 @@ func (secgroup *SSecurityGroup) Refresh() error {
 }
 
 func (secgroup *SSecurityGroup) GetTags() (map[string]string, error) {
-	tags, err := secgroup.region.ListTags("security-group", secgroup.SecurityGroupID)
+	tags, err := secgroup.region.ListTags("security-group", secgroup.SecurityGroupId)
 	if err != nil {
 		return nil, err
 	}
@@ -113,39 +114,7 @@ func (secgroup *SSecurityGroup) GetTags() (map[string]string, error) {
 }
 
 func (secgroup *SSecurityGroup) GetReferences() ([]cloudprovider.SecurityGroupReference, error) {
-	references, err := secgroup.region.DescribeSecurityGroupReferences(secgroup.SecurityGroupID)
-	if err != nil {
-		return nil, errors.Wrapf(err, "DescribeSecurityGroupReferences")
-	}
-	ret := []cloudprovider.SecurityGroupReference{}
-	for _, reference := range references {
-		if reference.SecurityGroupId == secgroup.SecurityGroupID {
-			for _, sec := range reference.ReferencingSecurityGroups.ReferencingSecurityGroup {
-				ret = append(ret, cloudprovider.SecurityGroupReference{
-					Id: sec.SecurityGroupId,
-				})
-			}
-		}
-	}
-	return ret, nil
-}
-
-type ReferencingSecurityGroup struct {
-	AliUid          string
-	SecurityGroupId string
-}
-
-type ReferencingSecurityGroups struct {
-	ReferencingSecurityGroup []ReferencingSecurityGroup
-}
-
-type SecurityGroupReferences struct {
-	SecurityGroupId           string
-	ReferencingSecurityGroups ReferencingSecurityGroups
-}
-
-func (region *SRegion) DescribeSecurityGroupReferences(id string) ([]SecurityGroupReferences, error) {
-	return nil, errors.ErrNotImplemented
+	return nil, errors.ErrNotSupported
 }
 
 func (region *SRegion) GetSecurityGroups(vpcId string, securityGroupIds []string) ([]SSecurityGroup, error) {
@@ -162,24 +131,23 @@ func (region *SRegion) GetSecurityGroups(vpcId string, securityGroupIds []string
 	}
 
 	for {
-		secgroupResp := struct {
-			RequestID        string           `json:"RequestId"`
-			SecurityGroupSet []SSecurityGroup `json:"SecurityGroupSet"`
-			NextToken        string           `json:"NextToken"`
-		}{}
 		resp, err := region.vpcRequest("DescribeSecurityGroups", params)
 		if err != nil {
 			return nil, errors.Wrap(err, "DescribeSecurityGroups")
 		}
-		err = resp.Unmarshal(&secgroupResp)
+		part := struct {
+			SecurityGroupSet []SSecurityGroup `json:"SecurityGroupSet"`
+			NextToken        string           `json:"NextToken"`
+		}{}
+		err = resp.Unmarshal(&part)
 		if err != nil {
 			return nil, errors.Wrap(err, "unmarshal secgroups")
 		}
-		ret = append(ret, secgroupResp.SecurityGroupSet...)
-		if len(secgroupResp.NextToken) == 0 {
+		ret = append(ret, part.SecurityGroupSet...)
+		if len(part.NextToken) == 0 {
 			break
 		}
-		params["NextToken"] = secgroupResp.NextToken
+		params["NextToken"] = part.NextToken
 	}
 
 	return ret, nil
@@ -196,22 +164,54 @@ func (region *SRegion) GetSecurityGroup(id string) (*SSecurityGroup, error) {
 	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "security_group id:%s", id)
 }
 
-func (region *SRegion) CreateSecurityGroup(opts *cloudprovider.SecurityGroupCreateInput) (string, error) {
-	return "", errors.ErrNotImplemented
+func (region *SRegion) CreateSecurityGroup(opts *cloudprovider.SecurityGroupCreateInput) (*SSecurityGroup, error) {
+	params := map[string]string{
+		"VpcId":             opts.VpcId,
+		"SecurityGroupName": opts.Name,
+	}
+	if len(opts.Desc) > 0 {
+		params["Description"] = opts.Desc
+	}
+	resp, err := region.vpcRequest("CreateSecurityGroup", params)
+	if err != nil {
+		return nil, err
+	}
+	ret := &SSecurityGroup{region: region}
+	err = resp.Unmarshal(ret, "SecurityGroup")
+	if err != nil {
+		return nil, err
+	}
+	return ret, nil
 }
 
-func (region *SRegion) SetSecurityGroups(secgroupIds []string, instanceId string) error {
-	return errors.ErrNotImplemented
+func (region *SRegion) SetSecurityGroups(secgroupIds []string, instanceId, nicId, subnetId string) error {
+	params := map[string]string{
+		"InstanceId":         instanceId,
+		"NetworkInterfaceId": nicId,
+		"SubnetId":           subnetId,
+	}
+	for i, secgroupId := range secgroupIds {
+		params[fmt.Sprintf("SecurityGroupId.%d", i+1)] = secgroupId
+	}
+	_, err := region.ecsRequest("ModifyNetworkInterfaceAttribute", params)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
-func (region *SRegion) DeleteSecurityGroup(secGrpId string) error {
-	return errors.ErrNotImplemented
-}
-
-func (region *SSecurityGroup) GetProjectId() string {
+func (sg *SSecurityGroup) GetProjectId() string {
 	return ""
 }
 
 func (sg *SSecurityGroup) Delete() error {
-	return errors.ErrNotImplemented
+	return sg.region.DeleteSecurityGroup(sg.SecurityGroupId)
+}
+
+func (region *SRegion) DeleteSecurityGroup(secGrpId string) error {
+	params := map[string]string{
+		"SecurityGroupId": secGrpId,
+	}
+	_, err := region.vpcRequest("DeleteSecurityGroup", params)
+	return err
 }

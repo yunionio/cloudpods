@@ -3980,6 +3980,22 @@ func (self *SGuest) SyncVMDisks(
 	return result
 }
 
+func (self *SGuest) setSystemDisk() error {
+	sq := GuestdiskManager.Query("disk_id").Equals("guest_id", self.Id).Equals("index", 0).SubQuery()
+	disks := DiskManager.Query().In("id", sq)
+	disk := &SDisk{}
+	disk.SetModelManager(DiskManager, disk)
+	err := disks.First(disk)
+	if err != nil {
+		return err
+	}
+	_, err = db.Update(disk, func() error {
+		disk.DiskType = api.DISK_TYPE_SYS
+		return nil
+	})
+	return err
+}
+
 func (self *SGuest) fixSysDiskIndex() error {
 	disks := DiskManager.Query().SubQuery()
 	sysQ := GuestdiskManager.Query().Equals("guest_id", self.Id)
@@ -3989,7 +4005,7 @@ func (self *SGuest) fixSysDiskIndex() error {
 	err := sysQ.First(sysDisk)
 	if err != nil {
 		if errors.Cause(err) == sql.ErrNoRows {
-			return nil
+			return self.setSystemDisk()
 		}
 		return err
 	}
