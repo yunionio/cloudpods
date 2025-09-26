@@ -17,4 +17,5 @@ package tasks
 import (
 	_ "yunion.io/x/onecloud/pkg/llm/tasks/dify"
 	_ "yunion.io/x/onecloud/pkg/llm/tasks/llm"
+	_ "yunion.io/x/onecloud/pkg/llm/tasks/llm_base"
 )
