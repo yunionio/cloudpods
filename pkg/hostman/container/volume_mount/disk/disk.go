@@ -326,7 +326,7 @@ func (d disk) mountOverlay(pod volume_mount.IPodInfo, ctrId string, vm *hostapi.
 	return d.getOverlayDriver(vm.Disk.Overlay).mount(d, pod, ctrId, vm)
 }
 
-func (d disk) getCachedImageDir(ctx context.Context, pod volume_mount.IPodInfo, imgId string) (string, error) {
+func (d disk) getCachedImageDir(ctx context.Context, pod volume_mount.IPodInfo, imgId string, accquire bool) (string, error) {
 	input := computeapi.CacheImageInput{
 		ImageId:              imgId,
 		Format:               imageapi.IMAGE_DISK_FORMAT_TGZ,
@@ -334,18 +334,31 @@ func (d disk) getCachedImageDir(ctx context.Context, pod volume_mount.IPodInfo, 
 	}
 	cachedImgMan := storageman.GetManager().LocalStorageImagecacheManager
 	logPrefx := fmt.Sprintf("pod %s, image %s", pod.GetName(), imgId)
-	log.Infof("%s try to accuire image...", logPrefx)
-	cachedImg, err := cachedImgMan.AcquireImage(ctx, input, nil)
-	if err != nil {
-		return "", errors.Wrapf(err, "Get cache image %s", imgId)
+	var cachedImageDir string
+	var err error
+	if accquire {
+		log.Infof("%s try to accuire image...", logPrefx)
+		cachedImg, err := cachedImgMan.AcquireImage(ctx, input, nil)
+		if err != nil {
+			return "", errors.Wrapf(err, "Get cache image %s", imgId)
+		}
+		defer cachedImgMan.ReleaseImage(ctx, imgId)
+		log.Infof("%s try to get access directory", logPrefx)
+		cachedImageDir, err = cachedImg.GetAccessDirectory()
+		if err != nil {
+			return "", errors.Wrapf(err, "GetAccessDirectory of cached image %s", cachedImg.GetPath())
+		}
+	} else {
+		cachedImg := cachedImgMan.(storageman.IImageCacheManagerGetter).GetImage(imgId)
+		if cachedImg == nil {
+			return "", errors.Wrapf(errors.ErrNotFound, "GetCachedImage %s", imgId)
+		}
+		cachedImageDir, err = cachedImg.GetAccessDirectory()
+		if err != nil {
+			return "", errors.Wrapf(err, "GetAccessDirectory of cached image %s", cachedImg.GetPath())
+		}
 	}
-	defer cachedImgMan.ReleaseImage(ctx, imgId)
-	log.Infof("%s try to get access directory", logPrefx)
-	cachedImageDir, err := cachedImg.GetAccessDirectory()
-	if err != nil {
-		return "", errors.Wrapf(err, "GetAccessDirectory of cached image %s", cachedImg.GetPath())
-	}
-	log.Infof("%s got cached image dir %s", logPrefx, cachedImageDir)
+	log.Infof("%s got cached image dir %s, accquire: %v", logPrefx, cachedImageDir, accquire)
 	return cachedImageDir, nil
 }
 
@@ -353,9 +366,10 @@ func (d disk) doTemplateOverlayAction(
 	ctx context.Context,
 	pod volume_mount.IPodInfo, ctrId string,
 	vm *hostapi.ContainerVolumeMount,
-	ovAction func(d disk, pod volume_mount.IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount) error) error {
+	ovAction func(d disk, pod volume_mount.IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount) error,
+	accquire bool) error {
 	templateId := vm.Disk.TemplateId
-	cachedImageDir, err := d.getCachedImageDir(ctx, pod, templateId)
+	cachedImageDir, err := d.getCachedImageDir(ctx, pod, templateId, accquire)
 	if err != nil {
 		return errors.Wrap(err, "get cached image dir")
 	}
