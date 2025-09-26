@@ -123,6 +123,32 @@ const (
 
 	STORAGE_FULL        = "full"
 	STORAGE_SYSTEM_FULL = "system_full"
+
+	// baidu storage type
+	STORAGE_BAIDU_SSD              = "ssd"              // 通用型SSD
+	STORAGE_BAIDU_PREMIUM_SSD      = "premium_ssd"      // 高性能云磁盘
+	STORAGE_BAIDU_HDD              = "hdd"              // 通用型HDD
+	STORAGE_BAIDU_ENHANCED_SSD_PL1 = "enhanced_ssd_pl1" // 增强型SSD_PL1
+	STORAGE_BAIDU_ENHANCED_SSD_PL2 = "enhanced_ssd_pl2" // 增强型SSD_PL2
+	STORAGE_BAIDU_ENHANCED_SSD_PL3 = "enhanced_ssd_pl3" // 增强型SSD_PL2
+
+	// ksyun storage type
+	STORAGE_KSYUN_ESSD_PL1 = "ESSD_PL1"
+	STORAGE_KSYUN_ESSD_PL2 = "ESSD_PL2"
+	STORAGE_KSYUN_ESSD_PL3 = "ESSD_PL3"
+	STORAGE_KSYUN_SSD3_0   = "SSD3.0"
+	STORAGE_KSYUN_EHDD     = "EHDD"
+
+	// cnware storage type
+	STORAGE_CNWARE_FC_SAN = "fc-san"
+	STORAGE_CNWARE_IP_SAN = "ip-scan"
+	STORAGE_CNWARE_NAS    = "nas"
+	STORAGE_CNWARE_CEPH   = "ceph"
+	STORAGE_CNWARE_LOCAL  = "local"
+	STORAGE_CNWARE_NVME   = "nvme"
+
+	// ZettaKit
+	STORAGE_ZETTAKIT_NORMAL = "normal"
 )
 
 const (

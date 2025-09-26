@@ -354,6 +354,9 @@ type ServerVncOutput struct {
 	ConnectParams string `json:"connect_params"`
 	Session       string `json:"session"`
 
+	// ksyun
+	Cookies map[string]string `json:"cookies"`
+
 	Hypervisor string `json:"hypervisor"`
 }
 
