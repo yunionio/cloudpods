@@ -17,6 +17,7 @@ package container
 import (
 	"context"
 
+	"github.com/pkg/errors"
 	"yunion.io/x/jsonutils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -49,11 +50,22 @@ func (t *ContainerActionByOtherServiceTask) requestHostAction(ctx context.Contex
 		t.OnActionFailed(ctx, container, jsonutils.NewString(err.Error()))
 	}
 
+	var err error
 	if input.HostAction != "" {
-		if err := t.GetPodDriver().RequestHostActionByOtherService(ctx, t.GetUserCred(), t); err != nil {
-			t.OnActionFailed(ctx, container, jsonutils.NewString(err.Error()))
-			return
+		err = container.GetPodDriver().RequestHostActionByOtherService(ctx, t.GetUserCred(), t)
+	} else if input.ContainerTask != "" {
+		ctrTask, n_err := taskman.TaskManager.NewTask(ctx, input.ContainerTask, container, t.GetUserCred(), input.Body.(*jsonutils.JSONDict), t.GetId(), "", nil)
+		if n_err != nil {
+			err = n_err
+		} else {
+			err = ctrTask.ScheduleRun(nil)
 		}
+	} else {
+		err = errors.Errorf("invalid input: %s", input)
+	}
+
+	if nil != err {
+		t.OnActionFailed(ctx, container, jsonutils.NewString(err.Error()))
 	}
 }
 

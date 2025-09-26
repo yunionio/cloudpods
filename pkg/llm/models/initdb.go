@@ -8,6 +8,8 @@ import (
 
 func InitDB() error {
 	for _, manager := range []db.IModelManager{
+		db.Metadata,
+
 		// DifyManager,
 		// LLMManager,
 	} {

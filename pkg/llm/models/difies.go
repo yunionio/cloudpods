@@ -10,10 +10,8 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/httperrors"
-	"yunion.io/x/onecloud/pkg/llm/drivers"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/util/stringutils"
 )
 
 type SDifyManager struct {
@@ -96,47 +94,54 @@ func (manager *SDifyManager) ValidateCreateData(ctx context.Context, userCred mc
 }
 
 type SDify struct {
-	db.SVirtualResourceBase
+	SLLMBase
 
-	// GuestId is also the pod id
-	GuestId    string               `width:"36" charset:"ascii" list:"user" index:"true" create:"optional"`
 	Containers jsonutils.JSONObject `length:"long" list:"user" update:"user" create:"optional"`
 	Registry   string               `width:"64" charset:"ascii" list:"user"`
 }
 
-func (dify *SDify) GetPodDriver() IPodDriver {
-	return &drivers.SPodDriver{}
-}
+// func (dify *SDify) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+// 	// unmarshal input
+// 	input := &api.DifyCreateInput{}
+// 	if err := data.Unmarshal(input); err != nil {
+// 		return errors.Wrap(err, "Unmarshal ServerCreateInput")
+// 	}
 
-func (dify *SDify) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
-	// unmarshal input
-	input := &api.DifyCreateInput{}
-	if err := data.Unmarshal(input); err != nil {
-		return errors.Wrap(err, "Unmarshal ServerCreateInput")
+// 	// init task
+// 	dify.Id = stringutils.UUID4()
+// 	task, err := taskman.TaskManager.NewTask(ctx, "DifyCreateTask", dify, userCred, jsonutils.NewDict(), "", "", nil)
+// 	if err != nil {
+// 		return errors.Wrap(err, "NewTask")
+// 	}
+// 	input.ParentTaskId = task.GetId()
+
+// 	// use data to create a pod
+// 	server, err := dify.GetPodDriver().RequestCreatePod(ctx, userCred, &input.ServerCreateInput)
+// 	if err != nil {
+// 		return errors.Wrap(err, "CreateServer")
+// 	}
+
+// 	// set guest id
+// 	guestId, err := server.GetString("id")
+// 	if err != nil {
+// 		return errors.Wrap(err, "GetGuestId")
+// 	}
+// 	dify.GuestId = guestId
+
+// 	return dify.SVirtualResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
+// }
+
+func (dify *SDify) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	input := new(api.DifyCreateInput)
+	if err := data.Unmarshal(&input); nil != err {
+		return
 	}
-
-	// init task
-	dify.Id = stringutils.UUID4()
 	task, err := taskman.TaskManager.NewTask(ctx, "DifyCreateTask", dify, userCred, jsonutils.NewDict(), "", "", nil)
-	if err != nil {
-		return errors.Wrap(err, "NewTask")
+	if nil != err {
+		return
 	}
-	input.ParentTaskId = task.GetId()
-
-	// use data to create a pod
-	server, err := dify.GetPodDriver().RequestCreatePod(ctx, userCred, &input.ServerCreateInput)
-	if err != nil {
-		return errors.Wrap(err, "CreateServer")
-	}
-
-	// set guest id
-	guestId, err := server.GetString("id")
-	if err != nil {
-		return errors.Wrap(err, "GetGuestId")
-	}
-	dify.GuestId = guestId
-
-	return dify.SVirtualResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
+	dify.StartCreatePodTask(ctx, userCred, &input.ServerCreateInput, task.GetId())
+	dify.SVirtualResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
 }
 
 func (dify *SDify) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
@@ -204,6 +209,10 @@ func (dify *SDify) CheckRedis(ctx context.Context, userCred mcclient.TokenCreden
 		return err
 	}
 	return nil
+}
+
+func (dify *SDify) GetLLMBase() *SLLMBase {
+	return &dify.SLLMBase
 }
 
 func (dify *SDify) createContainerOnPod(ctx context.Context, userCred mcclient.TokenCredential, containerKey string, data *computeapi.PodContainerCreateInput) (string, error) {

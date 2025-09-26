@@ -2,6 +2,7 @@ package drivers
 
 import (
 	"context"
+	"time"
 
 	"github.com/golang-plus/errors"
 	"yunion.io/x/jsonutils"
@@ -19,6 +20,41 @@ import (
 // }
 
 type SPodDriver struct{}
+
+func (p *SPodDriver) RequestCreatePodWithPolling(ctx context.Context, userCred mcclient.TokenCredential, input *computeapi.ServerCreateInput) (string, error) {
+	session := auth.GetSession(ctx, userCred, "")
+	server, err := modules.Servers.Create(session, jsonutils.Marshal(input))
+	if err != nil {
+		return "", errors.Wrap(err, "CreateServer")
+	}
+
+	serverId, err := server.GetString("id")
+	if err != nil {
+		return "", errors.Wrap(err, "Get server id")
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			return "", ctx.Err()
+		default:
+		}
+
+		detail, err := modules.Servers.Get(session, serverId, nil)
+		if err != nil {
+			return "", errors.Wrap(err, "Get server detail")
+		}
+
+		status, _ := detail.GetString("status")
+		if status == "running" {
+			break
+		}
+
+		time.Sleep(10 * time.Second)
+	}
+
+	return serverId, nil
+}
 
 func (p *SPodDriver) RequestCreatePod(ctx context.Context, userCred mcclient.TokenCredential, input *computeapi.ServerCreateInput) (jsonutils.JSONObject, error) {
 	session := auth.GetSession(ctx, userCred, "")
@@ -66,25 +102,26 @@ func (p *SPodDriver) RequestCreateContainerOnPod(ctx context.Context, userCred m
 func (p *SPodDriver) RequestDoCreateContainer(ctx context.Context, userCred mcclient.TokenCredential, containerId string, taskId string) error {
 	params := jsonutils.NewDict()
 	params.Set("auto_start", jsonutils.JSONTrue)
-	_, err := requesyContainerHostActionWithTask(ctx, userCred, containerId, "do-create-task", taskId, params)
+	_, err := requesyContainerHostActionWithTask(ctx, userCred, containerId, "", "ContainerCreateTask", taskId, params)
 
 	return err
 }
 
 func (p *SPodDriver) RequestDownloadFileIntoContainer(ctx context.Context, userCred mcclient.TokenCredential, containerId string, taskId string, input *computeapi.ContainerDownloadFileInput) (jsonutils.JSONObject, error) {
-	return requesyContainerHostActionWithTask(ctx, userCred, containerId, "download-file", taskId, jsonutils.Marshal(input))
+	return requesyContainerHostActionWithTask(ctx, userCred, containerId, "download-file", "", taskId, jsonutils.Marshal(input))
 }
 
 func (p *SPodDriver) RequestOllamaBlobsCache(ctx context.Context, userCred mcclient.TokenCredential, containerId string, taskId string, input *api.LLMAccessCacheInput) (jsonutils.JSONObject, error) {
-	return requesyContainerHostActionWithTask(ctx, userCred, containerId, "access-ollama-blobs-cache", taskId, jsonutils.Marshal(input))
+	return requesyContainerHostActionWithTask(ctx, userCred, containerId, "access-ollama-blobs-cache", "", taskId, jsonutils.Marshal(input))
 }
 
-func requesyContainerHostActionWithTask(ctx context.Context, userCred mcclient.TokenCredential, containerId string, hostAction string, taskId string, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func requesyContainerHostActionWithTask(ctx context.Context, userCred mcclient.TokenCredential, containerId string, hostAction string, containerTask string, taskId string, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	session := auth.GetSession(ctx, userCred, "")
 	input := &computeapi.ContainerRequestHostActionByOtherServiceInput{
-		HostAction: hostAction,
-		TaskId:     taskId,
-		Body:       body,
+		HostAction:    hostAction,
+		ContainerTask: containerTask,
+		TaskId:        taskId,
+		Body:          body,
 	}
 	return modules.Containers.PerformAction(session, containerId, "request-host-action-by-other-service", jsonutils.Marshal(input))
 }
