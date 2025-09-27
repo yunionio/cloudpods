@@ -27,3 +27,26 @@ type SImagesInGuest struct {
 	RootImage  SSubImage
 	DataImages []SSubImage
 }
+
+type SGuestScreenDump struct {
+	S3AccessKey  string
+	S3SecretKey  string
+	S3Endpoint   string
+	S3BucketName string
+	S3ObjectName string
+	S3UseSSL     bool
+}
+
+type GuestScreenDumpListInput struct {
+	Server string
+}
+
+type GetDetailsGuestScreenDumpInput struct {
+	ObjectName string
+}
+
+type GetDetailsGuestScreenDumpOutput struct {
+	GuestId    string
+	Name       string
+	ScreenDump string
+}

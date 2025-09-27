@@ -53,6 +53,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/storageman/lvmutils"
 	"yunion.io/x/onecloud/pkg/hostman/storageman/remotefile"
 	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/image/drivers/s3"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/util/cgrouputils"
@@ -1705,6 +1706,52 @@ func (m *SGuestManager) GetGuestTrafficRecord(sid string) (map[string]compute.SN
 		return nil, errors.Wrapf(err, "failed unmarshal traffic record %s", recordPath)
 	}
 	return record, nil
+}
+
+func (m *SGuestManager) RequestGuestScreenDump(sid string) (jsonutils.JSONObject, error) {
+	guest, _ := m.GetServer(sid)
+	if guest == nil {
+		return nil, httperrors.NewNotFoundError("guest %s not found", sid)
+	}
+	screenDumpPath := guest.generateScreenDumpPath()
+	screenDumpName := filepath.Base(screenDumpPath)
+	c := make(chan interface{}, 0)
+	guest.Monitor.ScreenDump(screenDumpPath, func(res string) {
+		log.Infof("qmp screendump res %s", res)
+		if len(res) > 0 {
+			c <- errors.Errorf("qmp screen dump failed: %s", res)
+			return
+		}
+
+		if fileutils2.Exists(screenDumpPath) {
+			log.Infof("screendump success at %s", screenDumpPath)
+			_, err := s3.Put(context.Background(), screenDumpPath, screenDumpName)
+			if err != nil {
+				log.Errorf("faild put screenDumpPath %s to s3 %s", screenDumpPath, err)
+				c <- err
+			} else {
+				screenDumpInfo := compute.SGuestScreenDump{
+					S3AccessKey:  options.HostOptions.S3AccessKey,
+					S3SecretKey:  options.HostOptions.S3SecretKey,
+					S3Endpoint:   options.HostOptions.S3Endpoint,
+					S3BucketName: options.HostOptions.S3BucketName,
+					S3ObjectName: screenDumpName,
+					S3UseSSL:     options.HostOptions.S3UseSSL,
+				}
+				c <- jsonutils.Marshal(screenDumpInfo)
+				log.Infof("put screendump %s success", screenDumpName)
+				os.Remove(screenDumpPath)
+			}
+		}
+	})
+	ret := <-c
+	switch ret.(type) {
+	case jsonutils.JSONObject:
+		return ret.(jsonutils.JSONObject), nil
+	case error:
+		return nil, ret.(error)
+	}
+	return nil, errors.Errorf("unknown ret of screendump")
 }
 
 func SyncGuestNicsTraffics(guestNicsTraffics map[string]map[string]compute.SNicTrafficRecord) {
