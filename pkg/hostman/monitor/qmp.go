@@ -987,6 +987,10 @@ func (m *QmpMonitor) CancelBlockJob(driveName string, force bool, callback Strin
 	m.HumanMonitorCommand(cmd, callback)
 }
 
+func (m *QmpMonitor) ScreenDump(savePath string, callback StringCallback) {
+	m.HumanMonitorCommand(fmt.Sprintf("screendump %s", savePath), callback)
+}
+
 func (m *QmpMonitor) BlockJobComplete(drive string, callback StringCallback) {
 	m.HumanMonitorCommand(fmt.Sprintf("block_job_complete %s", drive), callback)
 }

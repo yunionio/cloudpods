@@ -255,6 +255,8 @@ type IGuestDriver interface {
 
 	BeforeDetachIsolatedDevice(ctx context.Context, cred mcclient.TokenCredential, guest *SGuest, dev *SIsolatedDevice) error
 	BeforeAttachIsolatedDevice(ctx context.Context, cred mcclient.TokenCredential, guest *SGuest, dev *SIsolatedDevice) error
+
+	RequestGuestScreenDump(ctx context.Context, userCred mcclient.TokenCredential, body jsonutils.JSONObject, host *SHost, guest *SGuest) (jsonutils.JSONObject, error)
 }
 
 var guestDrivers map[string]IGuestDriver

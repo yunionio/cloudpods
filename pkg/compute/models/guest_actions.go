@@ -148,15 +148,27 @@ func (self *SGuest) PerformEvent(ctx context.Context, userCred mcclient.TokenCre
 	}
 	if event == "GUEST_PANICKED" {
 		kwargs := jsonutils.NewDict()
-		kwargs.Set("reason", data)
+		kwargs.Set("reason", jsonutils.NewString(event))
+		if data.Contains("screen_dump_info") {
+			screenDumpInfo := api.SGuestScreenDump{}
+			if err := data.Unmarshal(&screenDumpInfo, "screen_dump_info"); err != nil {
+				log.Errorf("failed unmarshal screen_dump_info %s", err)
+			} else {
+				kwargs.Set("screen_dump_name", jsonutils.NewString(screenDumpInfo.S3ObjectName))
+				if _, err := self.SaveGuestScreenDump(ctx, userCred, &screenDumpInfo); err != nil {
+					log.Errorf("SaveGuestScreenDump failed %s", err)
+				}
+			}
+		}
 
-		db.OpsLog.LogEvent(self, db.ACT_GUEST_PANICKED, data.String(), userCred)
-		logclient.AddSimpleActionLog(self, logclient.ACT_GUEST_PANICKED, data.String(), userCred, true)
+		db.OpsLog.LogEvent(self, db.ACT_GUEST_PANICKED, kwargs.String(), userCred)
+		logclient.AddSimpleActionLog(self, logclient.ACT_GUEST_PANICKED, kwargs.String(), userCred, true)
 		notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
 			Obj:    self,
 			Action: notifyclient.ActionServerPanicked,
 			IsFail: true,
 		})
+
 	}
 	return nil, nil
 }

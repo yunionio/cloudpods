@@ -58,6 +58,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
 	"yunion.io/x/onecloud/pkg/hostman/storageman/lvmutils"
 	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/image/drivers/s3"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
@@ -490,6 +491,10 @@ func (s *SKVMGuestInstance) GetStateFilePath(version string) string {
 
 func (s *SKVMGuestInstance) getQemuLogPath() string {
 	return path.Join(s.HomeDir(), "qemu.log")
+}
+
+func (s *SKVMGuestInstance) generateScreenDumpPath() string {
+	return path.Join(s.HomeDir(), fmt.Sprintf("%s.%d", s.GetId(), time.Now().Unix()))
 }
 
 func (s *SKVMGuestInstance) RecycleDir() string {
@@ -1126,6 +1131,42 @@ func (s *SKVMGuestInstance) eventGuestPaniced(event *monitor.Event) {
 	if info, ok := event.Data["info"]; ok {
 		params.Set("info", jsonutils.Marshal(info))
 	}
+
+	screenDumpPath := s.generateScreenDumpPath()
+	screenDumpName := filepath.Base(screenDumpPath)
+
+	c := make(chan struct{})
+	s.Monitor.ScreenDump(screenDumpPath, func(res string) {
+		log.Infof("qmp screendump res %s", res)
+		if fileutils2.Exists(screenDumpPath) {
+			log.Infof("screendump success at %s", screenDumpPath)
+			_, err := s3.Put(context.Background(), screenDumpPath, screenDumpName, 50, 4, nil)
+			if err != nil {
+				log.Errorf("faild put screenDumpPath %s to s3 %s", screenDumpPath, err)
+			} else {
+				screenDumpInfo := api.SGuestScreenDump{
+					S3AccessKey:  options.HostOptions.S3AccessKey,
+					S3SecretKey:  options.HostOptions.S3SecretKey,
+					S3Endpoint:   options.HostOptions.S3Endpoint,
+					S3BucketName: options.HostOptions.S3BucketName,
+					S3ObjectName: screenDumpName,
+					S3UseSSL:     options.HostOptions.S3UseSSL,
+				}
+				params.Set("screen_dump_info", jsonutils.Marshal(screenDumpInfo))
+				log.Infof("put screendump %s success", screenDumpName)
+				os.Remove(screenDumpPath)
+			}
+		}
+		c <- struct{}{}
+	})
+	// wait screen dump
+	select {
+	case <-time.After(time.Second * 5):
+		log.Errorf("ScreenDump no response after 5 seconds")
+	case <-c:
+		break
+	}
+
 	params.Set("event", jsonutils.NewString(strings.Trim(event.Event, "\"")))
 	_, err := modules.Servers.PerformAction(
 		hostutils.GetComputeSession(context.Background()),

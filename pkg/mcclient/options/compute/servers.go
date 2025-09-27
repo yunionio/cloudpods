@@ -1520,6 +1520,15 @@ func (o *ServerVncOptions) Params() (jsonutils.JSONObject, error) {
 	return jsonutils.Marshal(o), nil
 }
 
+type ServerScreenDumpOptions struct {
+	ServerIdOptions
+	ObjectName string
+}
+
+func (o *ServerScreenDumpOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(o), nil
+}
+
 type ServerIsoOptions struct {
 	ServerIdOptions
 	Ordinal int `help:"server iso ordinal, default 0"`

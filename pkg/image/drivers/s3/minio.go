@@ -103,6 +103,13 @@ func ensureBucket() error {
 	return nil
 }
 
+func SetBucketLifecycle(lifecycle string) error {
+	if client == nil {
+		return ErrClientNotInit
+	}
+	return client.osc.SetBucketLifecycle(client.bucket, lifecycle)
+}
+
 func PutStream(ctx context.Context, file io.ReaderAt, fSize int64, objName string, partSizeMb int64, parallel int, progresser func(saved int64)) (string, error) {
 	if client == nil {
 		return "", ErrClientNotInit

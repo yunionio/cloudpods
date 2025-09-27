@@ -616,6 +616,7 @@ type SGuestNetworkSyncTask struct {
 	addNics []*desc.SGuestNetwork
 	errors  []error
 
+	delNicCnt   int
 	addNicMacs  []string
 	addNicConfs []*monitor.NetworkModify
 
@@ -625,30 +626,25 @@ type SGuestNetworkSyncTask struct {
 func (n *SGuestNetworkSyncTask) Start(callback func(...error)) {
 	n.callback = callback
 	if len(n.addNics) > 0 {
-		nics := make([]*desc.SGuestNetwork, 0)
-		nics = append(nics, n.guest.Desc.Nics...)
-		nics = append(nics, n.addNics...)
-		if err := n.guest.QgaAddNicsConfigure(nics); err != nil {
-			log.Errorf("QgaAddNicsConfigure failed %s", err)
-		} else {
-			addNicMacs := make([]string, 0)
-			addNicConfs := make([]*monitor.NetworkModify, 0)
-			for i := range n.addNics {
-				addNicMacs = append(addNicMacs, n.addNics[i].Mac)
-				netMod := &monitor.NetworkModify{}
-				if len(n.addNics[i].Ip) > 0 {
-					netMod.Ipmask = fmt.Sprintf("%s/%d", n.addNics[i].Ip, n.addNics[i].Masklen)
-					netMod.Gateway = n.addNics[i].Gateway
-				}
-				if len(n.addNics[i].Ip6) > 0 {
-					netMod.Ip6mask = fmt.Sprintf("%s/%d", n.addNics[i].Ip6, n.addNics[i].Masklen6)
-				}
-				addNicConfs = append(addNicConfs, netMod)
+		addNicMacs := make([]string, 0)
+		addNicConfs := make([]*monitor.NetworkModify, 0)
+		for i := range n.addNics {
+			addNicMacs = append(addNicMacs, n.addNics[i].Mac)
+			netMod := &monitor.NetworkModify{}
+			if len(n.addNics[i].Ip) > 0 {
+				netMod.Ipmask = fmt.Sprintf("%s/%d", n.addNics[i].Ip, n.addNics[i].Masklen)
+				netMod.Gateway = n.addNics[i].Gateway
 			}
-			n.addNicMacs = addNicMacs
-			n.addNicConfs = addNicConfs
+			if len(n.addNics[i].Ip6) > 0 {
+				netMod.Ip6mask = fmt.Sprintf("%s/%d", n.addNics[i].Ip6, n.addNics[i].Masklen6)
+			}
+			addNicConfs = append(addNicConfs, netMod)
 		}
+		n.addNicMacs = addNicMacs
+		n.addNicConfs = addNicConfs
 	}
+
+	n.delNicCnt = len(n.delNics)
 	n.syncNetworkConf()
 }
 
@@ -662,13 +658,22 @@ func (n *SGuestNetworkSyncTask) syncNetworkConf() {
 		n.addNics = n.addNics[:len(n.addNics)-1]
 		n.addNic(nic)
 	} else {
-		if len(n.addNicMacs) > 0 {
-			// try restart added nics, wait for added nic ready
-			time.Sleep(3 * time.Second)
-			if err := n.qgaRestartAddedNics(); err != nil {
-				log.Errorf("failed qgaRestartAddedNics")
+		func() {
+			if len(n.addNicMacs) > 0 || n.delNicCnt > 0 {
+				if err := n.guest.QgaDeployNicsConfigure(n.guest.Desc.Nics); err != nil {
+					log.Errorf("failed do QgaDeployNicsConfigure %s", err)
+					return
+				}
 			}
-		}
+			if len(n.addNicMacs) > 0 {
+				// try restart added nics, wait for added nic ready
+				time.Sleep(3 * time.Second)
+				if err := n.qgaRestartAddedNics(); err != nil {
+					log.Errorf("failed qgaRestartAddedNics %s", err)
+					return
+				}
+			}
+		}()
 
 		n.callback(n.errors...)
 	}
@@ -872,7 +877,7 @@ func (n *SGuestNetworkSyncTask) onDeviceAdd(nic *desc.SGuestNetwork) {
 func NewGuestNetworkSyncTask(
 	guest *SKVMGuestInstance, delNics, addNics []*desc.SGuestNetwork,
 ) *SGuestNetworkSyncTask {
-	return &SGuestNetworkSyncTask{guest, delNics, addNics, make([]error, 0), nil, nil, nil}
+	return &SGuestNetworkSyncTask{guest, delNics, addNics, make([]error, 0), 0, nil, nil, nil}
 }
 
 /**
