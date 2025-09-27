@@ -567,6 +567,10 @@ func (m *HmpMonitor) QueryMachines(callback QueryMachinesCallback) {
 	go callback(nil, "unsupported query machines for hmp")
 }
 
+func (m *HmpMonitor) ScreenDump(savePath string, callback StringCallback) {
+	m.HumanMonitorCommand(fmt.Sprintf("screendump %s", savePath), callback)
+}
+
 func (m *HmpMonitor) Quit(cb StringCallback) {
 	m.Query("quit", cb)
 }
