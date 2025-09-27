@@ -144,6 +144,7 @@ const (
 	ACT_HOST_IMPORT_LIBVIRT_SERVERS = "host_import_libvirt_servers"
 	ACT_GUEST_CREATE_FROM_IMPORT    = "guest_create_from_import"
 	ACT_GUEST_PANICKED              = "guest_panicked"
+	ACT_GUEST_SCREEN_DUMP           = "guest_screen_dump"
 	ACT_HOST_MAINTAINING            = "host_maintaining"
 	ACT_HOST_UNMAINTENANCE          = "host_unmaintenance"
 
