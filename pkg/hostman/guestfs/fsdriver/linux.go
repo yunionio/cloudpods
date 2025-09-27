@@ -43,6 +43,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/netutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 	"yunion.io/x/onecloud/pkg/util/sysutils"
 )
 
@@ -1312,8 +1313,24 @@ func (r *sRedhatLikeRootFs) PrepareFsForTemplate(rootFs IDiskPartition) error {
 	return r.CleanNetworkScripts(rootFs)
 }
 
+func (r *sRedhatLikeRootFs) cleanNetworkManagerConfigurations(rootFs IDiskPartition) error {
+	networkPath := "/etc/NetworkManager/system-connections"
+	if !rootFs.Exists(networkPath, false) {
+		return nil
+	}
+	files := rootFs.ListDir(networkPath, false)
+	for _, f := range files {
+		rootFs.Remove(filepath.Join(networkPath, f), false)
+	}
+	return nil
+}
+
 func (r *sRedhatLikeRootFs) CleanNetworkScripts(rootFs IDiskPartition) error {
 	networkPath := "/etc/sysconfig/network-scripts"
+	if !rootFs.Exists(networkPath, false) {
+		return r.cleanNetworkManagerConfigurations(rootFs)
+	}
+
 	files := rootFs.ListDir(networkPath, false)
 	for i := 0; i < len(files); i++ {
 		if strings.HasPrefix(files[i], "ifcfg-") && files[i] != "ifcfg-lo" {
@@ -1329,16 +1346,18 @@ func (r *sRedhatLikeRootFs) CleanNetworkScripts(rootFs IDiskPartition) error {
 
 func (r *sRedhatLikeRootFs) RootSignatures() []string {
 	sig := r.sLinuxRootFs.RootSignatures()
-	return append([]string{"/etc/sysconfig/network", "/etc/redhat-release"}, sig...)
+	return append([]string{"/etc/redhat-release"}, sig...)
 }
 
 func (r *sRedhatLikeRootFs) DeployHostname(rootFs IDiskPartition, hn, domain string) error {
 	var sPath = "/etc/sysconfig/network"
-	centosHn := ""
-	centosHn += "NETWORKING=yes\n"
-	centosHn += fmt.Sprintf("HOSTNAME=%s\n", getHostname(hn, domain))
-	if err := rootFs.FilePutContents(sPath, centosHn, false, false); err != nil {
-		return errors.Wrapf(err, "DeployHostname %s", sPath)
+	if r.rootFs.Exists(sPath, false) {
+		centosHn := ""
+		centosHn += "NETWORKING=yes\n"
+		centosHn += fmt.Sprintf("HOSTNAME=%s\n", getHostname(hn, domain))
+		if err := rootFs.FilePutContents(sPath, centosHn, false, false); err != nil {
+			return errors.Wrapf(err, "DeployHostname %s", sPath)
+		}
 	}
 	if err := rootFs.FilePutContents("/etc/hostname", hn, false, false); err != nil {
 		return errors.Wrapf(err, "DeployHostname %s", "/etc/hostname")
@@ -1393,17 +1412,141 @@ func (r *sRedhatLikeRootFs) isNetworkManagerEnabled(rootFs IDiskPartition) bool 
 	return rootFs.Exists("/etc/systemd/system/multi-user.target.wants/NetworkManager.service", false)
 }
 
-func (r *sRedhatLikeRootFs) deployNetworkingScripts(rootFs IDiskPartition, nics []*types.SServerNic, relInfo *deployapi.ReleaseInfo) error {
-	// remove all ifcfg-*
-	const scriptPath = "/etc/sysconfig/network-scripts"
+func (r *sRedhatLikeRootFs) deployNetworkManagerConfigurations(rootFs IDiskPartition, nics []*types.SServerNic, relInfo *deployapi.ReleaseInfo) error {
+	const scriptPath = "/etc/NetworkManager/system-connections"
+	if !rootFs.Exists(scriptPath, false) {
+		return errors.Wrap(errors.ErrNotSupported, "unsupported system, neither network-scripts nor NetworkManager")
+	}
+
+	// remove all connections profiles
 	files := rootFs.ListDir(scriptPath, false)
 	for _, f := range files {
-		if strings.HasPrefix(f, "ifcfg-") && f != "ifcfg-lo" {
-			log.Infof("remove %s in %s", f, scriptPath)
-			rootFs.Remove(filepath.Join(scriptPath, f), false)
+		log.Infof("remove %s in %s", f, scriptPath)
+		rootFs.Remove(filepath.Join(scriptPath, f), false)
+	}
+
+	allNics, bondNics := convertNicConfigs(nics)
+	if len(bondNics) > 0 {
+		err := r.enableBondingModule(rootFs, bondNics)
+		if err != nil {
+			return errors.Wrap(err, "enableBondingModule")
+		}
+	}
+	nicCnt := len(allNics) - len(bondNics)
+
+	mainNic := getMainNic(allNics)
+	var mainIp, mainIp6 string
+	if mainNic != nil {
+		mainIp = mainNic.Ip
+		mainIp6 = mainNic.Ip6
+	}
+	for i := range allNics {
+		nicDesc := allNics[i]
+		var profile strings.Builder
+
+		profile.WriteString("[connection]\n")
+		profile.WriteString(fmt.Sprintf("id=%s\n", nicDesc.Name))
+		profile.WriteString(fmt.Sprintf("uuid=%s\n", stringutils2.GenUuid(nicDesc.Name, nicDesc.Mac)))
+		profile.WriteString(fmt.Sprintf("interface-name=%s\n", nicDesc.Name))
+		if len(nicDesc.TeamingSlaves) > 0 {
+			// bonding master
+			profile.WriteString("type=bond\n")
+			profile.WriteString("autoconnect=true\n")
+		} else {
+			profile.WriteString("type=ethernet\n")
+			if nicDesc.TeamingMaster != nil {
+				// bonding slave
+				profile.WriteString(fmt.Sprintf("master=%s\n", nicDesc.TeamingMaster.Name))
+				profile.WriteString("slave-type=bond\n")
+			} else {
+				// normal interface
+				profile.WriteString("autoconnect=true\n")
+			}
+		}
+		profile.WriteString("\n")
+
+		if len(nicDesc.TeamingSlaves) > 0 {
+			profile.WriteString("[bond]\n")
+			profile.WriteString("mode=802.3ad\n")
+			profile.WriteString("miimon=100\n")
+			profile.WriteString("\n")
+		} else if len(nicDesc.Mac) > 0 && nicDesc.NicType != api.NIC_TYPE_INFINIBAND {
+			profile.WriteString("[ethernet]\n")
+			if len(nicDesc.TeamingSlaves) == 0 {
+				// only real physical nic can set HWADDR
+				// cmds.WriteString("HWADDR=")
+				// cmds.WriteString(nicDesc.Mac)
+				// cmds.WriteString("\n")
+			}
+			profile.WriteString(fmt.Sprintf("mac-address=%s\n", nicDesc.Mac))
+			if nicDesc.Mtu > 0 {
+				profile.WriteString(fmt.Sprintf("mtu=%d\n", nicDesc.Mtu))
+			}
+			profile.WriteString("\n")
+		}
+
+		if nicDesc.TeamingMaster != nil {
+			// slave interface
+			profile.WriteString("[ipv4]\n")
+			profile.WriteString("method=disabled\n\n")
+			profile.WriteString("[ipv6]\n")
+			profile.WriteString("method=disabled\n\n")
+		} else if nicDesc.Virtual {
+			// virtual interface
+			profile.WriteString("[ipv4]\n")
+			profile.WriteString("method=manual\n")
+			profile.WriteString(fmt.Sprintf("address1=%s/32\n", netutils2.PSEUDO_VIP))
+			profile.WriteString("\n")
+		} else if nicDesc.Manual {
+			// manual interface
+			if len(nicDesc.Ip) > 0 {
+				profile.WriteString("[ipv4]\n")
+				profile.WriteString("method=manual\n")
+				profile.WriteString(fmt.Sprintf("address1=%s/%d\n", nicDesc.Ip, nicDesc.Masklen))
+				if len(nicDesc.Gateway) > 0 && nicDesc.Ip == mainIp {
+					profile.WriteString(fmt.Sprintf("gateway=%s\n", nicDesc.Gateway))
+				}
+				dnslist := netutils2.GetNicDns(nicDesc)
+				if len(dnslist) > 0 {
+					profile.WriteString(fmt.Sprintf("dns=%s\n", strings.Join(dnslist, ",")))
+				}
+				profile.WriteString("\n")
+			}
+			if len(nicDesc.Ip6) > 0 {
+				profile.WriteString("[ipv6]\n")
+				profile.WriteString("method=manual\n")
+				profile.WriteString(fmt.Sprintf("address1=%s/%d\n", nicDesc.Ip6, nicDesc.Masklen6))
+				if len(nicDesc.Gateway6) > 0 && nicDesc.Ip6 == mainIp6 {
+					profile.WriteString(fmt.Sprintf("gateway=%s\n", nicDesc.Gateway6))
+				}
+				dnslist := netutils2.GetNicDns(nicDesc)
+				if len(dnslist) > 0 {
+					profile.WriteString(fmt.Sprintf("dns=%s\n", strings.Join(dnslist, ",")))
+				}
+				profile.WriteString("\n")
+			}
+		} else {
+			// dhcp interface
+			if len(nicDesc.Ip) > 0 {
+				profile.WriteString("[ipv4]\n")
+				profile.WriteString("method=auto\n\n")
+			}
+			if len(nicDesc.Ip6) > 0 {
+				profile.WriteString("[ipv6]\n")
+				profile.WriteString("method=auto\n\n")
+			}
+		}
+		var fn = fmt.Sprintf("%s/%s.nmconnection", scriptPath, nicDesc.Name)
+		log.Debugf("%s: %s", fn, profile.String())
+		if err := rootFs.FilePutContents(fn, profile.String(), false, false); err != nil {
+			return err
 		}
 	}
 
+	return nil
+}
+
+func (r *sRedhatLikeRootFs) deployNetworkingScripts(rootFs IDiskPartition, nics []*types.SServerNic, relInfo *deployapi.ReleaseInfo) error {
 	ver := strings.Split(relInfo.Version, ".")
 	iv, err := strconv.ParseInt(ver[0], 10, 0)
 	if err == nil && iv < 6 {
@@ -1413,6 +1556,21 @@ func (r *sRedhatLikeRootFs) deployNetworkingScripts(rootFs IDiskPartition, nics 
 	}
 	if err != nil {
 		return errors.Wrap(err, "DeployNetworkingScripts")
+	}
+
+	const scriptPath = "/etc/sysconfig/network-scripts"
+	if !rootFs.Exists(scriptPath, false) {
+		// NetworkManager is enabled, but no network-scripts directory, deploy NetworkManager configurations
+		return r.deployNetworkManagerConfigurations(rootFs, nics, relInfo)
+	}
+
+	// remove all ifcfg-*
+	files := rootFs.ListDir(scriptPath, false)
+	for _, f := range files {
+		if strings.HasPrefix(f, "ifcfg-") && f != "ifcfg-lo" {
+			log.Infof("remove %s in %s", f, scriptPath)
+			rootFs.Remove(filepath.Join(scriptPath, f), false)
+		}
 	}
 	// ToServerNics(nics)
 	allNics, bondNics := convertNicConfigs(nics)
@@ -1460,7 +1618,7 @@ func (r *sRedhatLikeRootFs) deployNetworkingScripts(rootFs IDiskPartition, nics 
 			cmds.WriteString("\n")
 		}
 		if len(nicDesc.TeamingSlaves) > 0 {
-			// bonding
+			// bonding master
 			cmds.WriteString(`BONDING_OPTS="mode=4 miimon=100"`)
 			cmds.WriteString("\n")
 		}
