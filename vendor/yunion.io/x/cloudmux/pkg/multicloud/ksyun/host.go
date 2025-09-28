@@ -69,14 +69,14 @@ func (region *SRegion) syncKeypair(keyName, publicKey string) (string, error) {
 	}
 	for i := range keypairs {
 		if keypairs[i].PublicKey == publicKey {
-			return keypairs[i].KeyPairId, nil
+			return keypairs[i].KeyId, nil
 		}
 	}
 	keypair, err := region.client.CreateKeypair(keyName, publicKey)
 	if err != nil {
 		return "", err
 	}
-	return keypair.KeyPairId, nil
+	return keypair.KeyId, nil
 }
 
 func (region *SRegion) CreateVM(opts *cloudprovider.SManagedVMCreateConfig) (*SInstance, error) {
