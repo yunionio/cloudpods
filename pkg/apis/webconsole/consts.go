@@ -41,4 +41,5 @@ const (
 	BAIDU       = "baidu"
 	SANGFOR     = "sangfor"
 	CNWARE      = "cnware"
+	KSYUN       = "ksyun"
 )
