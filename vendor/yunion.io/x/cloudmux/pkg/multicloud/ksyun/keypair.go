@@ -14,10 +14,14 @@
 
 package ksyun
 
+import "time"
+
 type SKeypair struct {
-	KeyPairName string
-	KeyPairId   string
-	PublicKey   string
+	KeyName    string
+	KeyId      string
+	IsChecked  bool
+	CreateTime time.Time
+	PublicKey  string
 }
 
 func (cli *SKsyunClient) GetKeypairs() ([]SKeypair, error) {
