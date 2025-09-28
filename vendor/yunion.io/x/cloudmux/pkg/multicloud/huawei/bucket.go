@@ -1018,12 +1018,9 @@ func getLocalPrincipalId(principals []string) []string {
 			res = append(res, principal+":"+principal)
 			continue
 		}
-		temp := strings.Split(principal, "domain:")
-		temp1 := strings.Split(temp[1], ":user/")
-		if temp1[1] == "*" {
-			temp1[1] = temp1[0]
-		}
-		res = append(res, fmt.Sprintf("%s:%s", temp1[0], temp1[1]))
+		principal = strings.Replace(principal, "domain/", "", 1)
+		principal = strings.Replace(principal, "user/", "", 1)
+		res = append(res, principal)
 	}
 	return res
 }
