@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 type PodSyncstatusTask struct {
@@ -34,7 +35,42 @@ func init() {
 	taskman.RegisterTask(PodSyncstatusTask{})
 }
 
+func (t *PodSyncstatusTask) taskFailed(ctx context.Context, pod *models.SGuest, err string) {
+	pod.SetStatus(ctx, t.GetUserCred(), api.POD_STATUS_UPLOADING_STATUS_FAILED, err)
+	db.OpsLog.LogEvent(pod, db.ACT_SYNC_STATUS, err, t.GetUserCred())
+	logclient.AddActionLogWithStartable(t, pod, logclient.ACT_SYNC_STATUS, err, t.GetUserCred(), false)
+	t.SetStageFailed(ctx, jsonutils.NewString(err))
+}
+
 func (t *PodSyncstatusTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
+	pod := obj.(*models.SGuest)
+	pod.SetStatus(ctx, t.GetUserCred(), api.POD_STATUS_UPLOADING_STATUS, "by PodSyncstatusTask")
+	t.SetStage("OnUploadGuestStatus", nil)
+	if err := t.requestUploadStatus(ctx, pod); err != nil {
+		t.taskFailed(ctx, pod, err.Error())
+	}
+}
+
+func (t *PodSyncstatusTask) requestUploadStatus(ctx context.Context, pod *models.SGuest) error {
+	drv, err := pod.GetDriver()
+	if err != nil {
+		return errors.Wrap(err, "pod.GetDriver")
+	}
+	if err := drv.RequestUploadGuestStatus(ctx, pod, t); err != nil {
+		return errors.Wrap(err, "drv.RequestUploadGuestStatus")
+	}
+	return nil
+}
+
+func (t *PodSyncstatusTask) OnUploadGuestStatus(ctx context.Context, pod *models.SGuest, data jsonutils.JSONObject) {
+	t.SetStageComplete(ctx, nil)
+}
+
+func (t *PodSyncstatusTask) OnUploadGuestStatusFailed(ctx context.Context, pod *models.SGuest, reason jsonutils.JSONObject) {
+	t.taskFailed(ctx, pod, reason.String())
+}
+
+/*func (t *PodSyncstatusTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	t.SetStage("OnWaitContainerSynced", nil)
 	pod := obj.(*models.SGuest)
 	pod.SetStatus(ctx, t.GetUserCred(), api.POD_STATUS_SYNCING_CONTAINER_STATUS, "")
@@ -87,4 +123,4 @@ func (t *PodSyncstatusTask) OnPodSynced(ctx context.Context, pod *models.SGuest,
 
 func (t *PodSyncstatusTask) OnPodSyncedFailed(ctx context.Context, pod *models.SGuest, reason jsonutils.JSONObject) {
 	t.SetStageFailed(ctx, reason)
-}
+}*/

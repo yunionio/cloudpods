@@ -708,3 +708,7 @@ func (base *SBaseGuestDriver) BeforeDetachIsolatedDevice(ctx context.Context, cr
 func (base *SBaseGuestDriver) BeforeAttachIsolatedDevice(ctx context.Context, cred mcclient.TokenCredential, guest *models.SGuest, dev *models.SIsolatedDevice) error {
 	return nil
 }
+
+func (base *SBaseGuestDriver) RequestUploadGuestStatus(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
+	return errors.Wrapf(cloudprovider.ErrNotImplemented, "RequestUploadGuestStatus")
+}

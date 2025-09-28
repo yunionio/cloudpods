@@ -1049,13 +1049,28 @@ func (m *SGuestManager) GetGuestStatus(ctx context.Context, params interface{}) 
 	return nil, nil
 }
 
+func (m *SGuestManager) UploadGuestStatus(ctx context.Context, sid string) (jsonutils.JSONObject, error) {
+	reason := fmt.Sprintf("upload guest %s status by host", sid)
+	guest, _ := m.GetServer(sid)
+	if guest == nil {
+		return nil, httperrors.NewNotFoundError("Guest %s not found", sid)
+	}
+	status := m.ProbeGuestInitStatus(sid)
+	status = guest.HandleGuestStatus(ctx, status, true)
+	ret, err := hostutils.UploadGuestStatus(ctx, sid, status)
+	// do post action like marking container dirty after uploading guests status
+	guest.PostUploadStatus(status, reason)
+	log.Infof("upload guest %s to region response: %s, error: %v", sid, jsonutils.Marshal(ret), err)
+	return jsonutils.Marshal(ret), err
+}
+
 func (m *SGuestManager) UploadGuestsStatus(ctx context.Context, i interface{}) (jsonutils.JSONObject, error) {
 	input := i.(*compute.HostUploadGuestsStatusRequest)
 	// errs := []error{}
 	resp := &compute.HostUploadGuestsStatusInput{
 		Guests: make(map[string]*compute.HostUploadGuestStatusInput, 0),
 	}
-	reason := "upload guest status by host"
+	reason := "upload guests status by host"
 	for _, sid := range input.GuestIds {
 		guest, _ := m.GetServer(sid)
 		status := m.ProbeGuestInitStatus(sid)
@@ -1080,7 +1095,7 @@ func (m *SGuestManager) UploadGuestsStatus(ctx context.Context, i interface{}) (
 		}
 		srv.PostUploadStatus(status, reason)
 	}
-	log.Infof("upload guest to region response: %s", jsonutils.Marshal(ret).String())
+	log.Infof("upload guests to region response: %s", jsonutils.Marshal(ret).String())
 	return ret, err
 }
 
