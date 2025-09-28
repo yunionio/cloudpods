@@ -299,7 +299,7 @@ func (cli *SKsyunClient) request(service, regionId, apiName, apiVersion string, 
 	}
 	uri = fmt.Sprintf("%s?%s", uri, values.Encode())
 	method := httputils.GET
-	if !strings.HasPrefix(apiName, "Describe") && !strings.HasPrefix(apiName, "Get") {
+	if !strings.HasPrefix(apiName, "Describe") && !strings.HasPrefix(apiName, "Get") && service != "sks" {
 		method = httputils.POST
 	}
 	req := httputils.NewJsonRequest(method, uri, nil)

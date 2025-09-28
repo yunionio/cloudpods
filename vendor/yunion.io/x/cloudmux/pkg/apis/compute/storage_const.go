@@ -133,11 +133,16 @@ const (
 	STORAGE_BAIDU_ENHANCED_SSD_PL3 = "enhanced_ssd_pl3" // 增强型SSD_PL2
 
 	// ksyun storage type
+	// ESSD AutoPL云硬盘
+	STORAGE_KSYUN_ESSD_AUTO_PL = "ESSD_AutoPL"
+	// 极速型ESSD云硬盘
 	STORAGE_KSYUN_ESSD_PL1 = "ESSD_PL1"
 	STORAGE_KSYUN_ESSD_PL2 = "ESSD_PL2"
 	STORAGE_KSYUN_ESSD_PL3 = "ESSD_PL3"
-	STORAGE_KSYUN_SSD3_0   = "SSD3.0"
-	STORAGE_KSYUN_EHDD     = "EHDD"
+	// SSD3.0云硬盘
+	STORAGE_KSYUN_SSD3_0 = "SSD3.0"
+	// 高效云硬盘
+	STORAGE_KSYUN_EHDD = "EHDD"
 
 	// cnware storage type
 	STORAGE_CNWARE_FC_SAN = "fc-san"
