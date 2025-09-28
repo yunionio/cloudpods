@@ -34,6 +34,7 @@ type SStorage struct {
 }
 
 var ksDiskTypes = []string{
+	api.STORAGE_KSYUN_ESSD_AUTO_PL,
 	api.STORAGE_KSYUN_ESSD_PL1,
 	api.STORAGE_KSYUN_ESSD_PL2,
 	api.STORAGE_KSYUN_ESSD_PL3,

@@ -55,6 +55,7 @@ func (self *SKsyunGuestDriver) GetMinimalSysDiskSizeGb() int {
 
 func (self *SKsyunGuestDriver) GetStorageTypes() []string {
 	return []string{
+		api.STORAGE_KSYUN_ESSD_AUTO_PL,
 		api.STORAGE_KSYUN_SSD3_0,
 		api.STORAGE_KSYUN_EHDD,
 		api.STORAGE_KSYUN_ESSD_PL1,
