@@ -441,56 +441,29 @@ func (ins *SInstance) GetVNCInfo(input *cloudprovider.ServerVncInput) (*cloudpro
 		return nil, errors.Wrap(err, "GetVNCInfo")
 	}
 	ret := &cloudprovider.ServerVncOutput{
-		Url:        fmt.Sprintf("https://%s:%s", vnc.VNCAddress.Host, vnc.VNCAddress.Port),
+		Url:        fmt.Sprintf("http://kec.console.ksyun.com/kec/connect/vnc?VncUrl=%s", vnc),
 		Protocol:   "ksyun",
 		InstanceId: ins.InstanceId,
 		Hypervisor: api.HYPERVISOR_KSYUN,
-		Cookies:    map[string]string{},
-	}
-	for _, cookie := range vnc.Cookies {
-		ret.Cookies[cookie.CookieKey] = cookie.CookieValue
-	}
-	switch vnc.VNCAddress.Port {
-	case "80":
-		ret.Url = fmt.Sprintf("http://%s", vnc.VNCAddress.Host)
-	case "443":
-		ret.Url = fmt.Sprintf("https://%s", vnc.VNCAddress.Host)
-	default:
-		ret.Url = fmt.Sprintf("https://%s:%s", vnc.VNCAddress.Host, vnc.VNCAddress.Port)
 	}
 	return ret, nil
 }
 
-/*{"VNCAddress":{"Port":"80","Host":"tjwqone.vnc.ksyun.com"},"Cookies":[{"CookieKey":"user_id","CookieValue":"2dc683372ad24e3eb4f13646f2a26306"},{"CookieKey":"token","CookieValue":"aa9fba7c-2ce9-4e14-9f80-90eebf20dc49"},{"CookieKey":"md5","CookieValue":"78188c9557573bb912488a2cb2c8c8f8"},{"CookieKey":"time","CookieValue":"1758795275577"}],"Domain":".ksyun.com","RequestId":"dcf64f30-8f9d-4ae2-9790-8b8466974625001"}*/
-
-type VNCAddress struct {
-	Port string `json:"Port"`
-	Host string `json:"Host"`
+/*
+{
+"RequestId":
+"91f6c5ea-f0b0-4d1a-9f87-6154f1823442003",
+"VncUrl":
+"ws://tjwqone.vnc.ksyun.com:80/websockify?token=u4-394839af-a920-4394-bfe3-f99b88c87fa1"
 }
+*/
 
-type Cookies struct {
-	CookieKey   string `json:"CookieKey"`
-	CookieValue string `json:"CookieValue"`
-}
-
-type VNCInfo struct {
-	VNCAddress VNCAddress `json:"VNCAddress"`
-	Cookies    []Cookies  `json:"Cookies"`
-	Domain     string     `json:"Domain"`
-	RequestId  string     `json:"RequestId"`
-}
-
-func (region *SRegion) GetVNCInfo(instanceId string) (*VNCInfo, error) {
-	resp, err := region.ecsRequest("GetVNCAddress", map[string]string{"InstanceId": instanceId})
+func (region *SRegion) GetVNCInfo(instanceId string) (string, error) {
+	resp, err := region.ecsRequest("DescribeInstanceVncUrl", map[string]string{"InstanceId": instanceId})
 	if err != nil {
-		return nil, errors.Wrap(err, "GetVNCAddress")
+		return "", errors.Wrap(err, "GetVNCAddress")
 	}
-	ret := &VNCInfo{}
-	err = resp.Unmarshal(ret)
-	if err != nil {
-		return nil, errors.Wrap(err, "unmarshal vnc info")
-	}
-	return ret, nil
+	return resp.GetString("VncUrl")
 }
 
 func (ins *SInstance) GetVcpuCount() int {
