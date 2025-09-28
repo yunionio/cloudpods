@@ -1320,3 +1320,12 @@ func (kvm *SKVMGuestDriver) ValidateGuestHotChangeConfigInput(ctx context.Contex
 func (kvm *SKVMGuestDriver) GetRandomNetworkTypes() []api.TNetworkType {
 	return []api.TNetworkType{api.NETWORK_TYPE_GUEST, api.NETWORK_TYPE_HOSTLOCAL}
 }
+
+func (kvm *SKVMGuestDriver) RequestUploadGuestStatus(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
+	host, _ := guest.GetHost()
+	url := fmt.Sprintf("%s/servers/%s/upload-status", host.ManagerUri, guest.Id)
+	body := jsonutils.NewDict()
+	header := kvm.getTaskRequestHeader(task)
+	_, _, err := httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, header, body, false)
+	return err
+}
