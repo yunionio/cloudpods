@@ -21,18 +21,18 @@ import (
 )
 
 const (
-	POD_STATUS_CREATING_CONTAINER              = "creating_container"
-	POD_STATUS_CREATE_CONTAINER_FAILED         = "create_container_failed"
-	POD_STATUS_STARTING_CONTAINER              = "starting_container"
-	POD_STATUS_START_CONTAINER_FAILED          = "start_container_failed"
-	POD_STATUS_STOPPING_CONTAINER              = "stopping_container"
-	POD_STATUS_STOP_CONTAINER_FAILED           = "stop_container_failed"
-	POD_STATUS_DELETING_CONTAINER              = "deleting_container"
-	POD_STATUS_DELETE_CONTAINER_FAILED         = "delete_container_failed"
-	POD_STATUS_SYNCING_CONTAINER_STATUS        = "syncing_container_status"
-	POD_STATUS_SYNCING_CONTAINER_STATUS_FAILED = "sync_container_status_failed"
-	POD_STATUS_CRASH_LOOP_BACK_OFF             = "crash_loop_back_off"
-	POD_STATUS_CONTAINER_EXITED                = "container_exited"
+	POD_STATUS_CREATING_CONTAINER      = "creating_container"
+	POD_STATUS_CREATE_CONTAINER_FAILED = "create_container_failed"
+	POD_STATUS_STARTING_CONTAINER      = "starting_container"
+	POD_STATUS_START_CONTAINER_FAILED  = "start_container_failed"
+	POD_STATUS_STOPPING_CONTAINER      = "stopping_container"
+	POD_STATUS_STOP_CONTAINER_FAILED   = "stop_container_failed"
+	POD_STATUS_DELETING_CONTAINER      = "deleting_container"
+	POD_STATUS_DELETE_CONTAINER_FAILED = "delete_container_failed"
+	POD_STATUS_UPLOADING_STATUS        = "uploading_status"
+	POD_STATUS_UPLOADING_STATUS_FAILED = "upload_status_failed"
+	POD_STATUS_CRASH_LOOP_BACK_OFF     = "crash_loop_back_off"
+	POD_STATUS_CONTAINER_EXITED        = "container_exited"
 )
 
 const (
