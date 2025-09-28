@@ -113,6 +113,7 @@ func AddGuestTaskHandler(prefix string, app *appsrv.Application) {
 			"qga-get-os-info":          qgaGetOsInfo,
 			"start-rescue":             guestStartRescue,
 			"guest-screen-dump":        guestScreenDump,
+			"upload-status":            guestUploadStatus,
 		} {
 			app.AddHandler("POST",
 				fmt.Sprintf("%s/%s/<sid>/%s", prefix, keyWord, action),
@@ -1039,4 +1040,12 @@ func uploadStatus(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	}
 	hostutils.DelayTask(ctx, guestman.GetGuestManager().UploadGuestsStatus, input)
 	hostutils.ResponseOk(ctx, w)
+}
+
+func guestUploadStatus(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (interface{}, error) {
+	hostutils.DelayTask(ctx, func(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+		return guestman.GetGuestManager().UploadGuestStatus(ctx, sid)
+	}, nil)
+
+	return nil, nil
 }

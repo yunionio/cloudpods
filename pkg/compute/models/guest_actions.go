@@ -3690,38 +3690,46 @@ func (m *SGuestManager) PerformUploadStatus(ctx context.Context, userCred mcclie
 			}
 			continue
 		}
-		if err := gst.SetStatusFromHost(ctx, userCred, *status, false, ""); err != nil {
-			out.Guests[id] = &api.GuestUploadStatusResponse{
-				Error: err.Error(),
-			}
-		} else {
-			out.Guests[id] = &api.GuestUploadStatusResponse{
-				OK: true,
-			}
-		}
-		for cId, cStatus := range status.Containers {
-			if len(out.Guests[id].Containers) == 0 {
-				out.Guests[id].Containers = make(map[string]*api.GuestUploadContainerStatusResponse)
-			}
-			ctr, err := GetContainerManager().FetchById(cId)
-			if err != nil {
-				out.Guests[id].Containers[cId] = &api.GuestUploadContainerStatusResponse{
-					Error: err.Error(),
-				}
-				continue
-			}
-			if _, err := ctr.(*SContainer).PerformStatus(ctx, userCred, query, *cStatus); err != nil {
-				out.Guests[id].Containers[cId] = &api.GuestUploadContainerStatusResponse{
-					Error: err.Error(),
-				}
-			} else {
-				out.Guests[id].Containers[cId] = &api.GuestUploadContainerStatusResponse{
-					OK: true,
-				}
-			}
+		resp, err := gst.PerformUploadStatus(ctx, userCred, query, *status)
+		out.Guests[id] = resp
+		if err != nil {
+			resp.Error = err.Error()
+			continue
 		}
 	}
 	return out, nil
+}
+
+func (self *SGuest) PerformUploadStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.HostUploadGuestStatusInput) (*api.GuestUploadStatusResponse, error) {
+	err := self.SetStatusFromHost(ctx, userCred, input, false, "")
+	if err != nil {
+		return nil, errors.Wrap(err, "set status from host")
+	}
+
+	resp := &api.GuestUploadStatusResponse{
+		OK:         true,
+		Containers: make(map[string]*api.GuestUploadContainerStatusResponse),
+	}
+
+	for cId, cStatus := range input.Containers {
+		ctr, err := GetContainerManager().FetchById(cId)
+		if err != nil {
+			resp.Containers[cId] = &api.GuestUploadContainerStatusResponse{
+				Error: err.Error(),
+			}
+			continue
+		}
+		if _, err := ctr.(*SContainer).PerformStatus(ctx, userCred, query, *cStatus); err != nil {
+			resp.Containers[cId] = &api.GuestUploadContainerStatusResponse{
+				Error: err.Error(),
+			}
+		} else {
+			resp.Containers[cId] = &api.GuestUploadContainerStatusResponse{
+				OK: true,
+			}
+		}
+	}
+	return resp, nil
 }
 
 // 同步状态
