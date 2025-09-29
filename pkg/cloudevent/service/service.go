@@ -44,6 +44,8 @@ func StartService() {
 		log.Infof("Auth complete")
 	})
 
+	common_options.StartOptionManager(opts, opts.ConfigSyncPeriodSeconds, api.SERVICE_TYPE, api.SERVICE_VERSION, options.OnOptionsChange)
+
 	dbOpts := &opts.DBOptions
 	baseOpts := &opts.BaseOptions
 

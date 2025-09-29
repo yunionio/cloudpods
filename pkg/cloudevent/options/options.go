@@ -32,3 +32,14 @@ type CloudeventOptions struct {
 var (
 	Options CloudeventOptions
 )
+
+func OnOptionsChange(oldO, newO interface{}) bool {
+	oldOpts := oldO.(*CloudeventOptions)
+	newOpts := newO.(*CloudeventOptions)
+
+	changed := false
+	if common_options.OnCommonOptionsChange(&oldOpts.CommonOptions, &newOpts.CommonOptions) {
+		changed = true
+	}
+	return changed
+}
