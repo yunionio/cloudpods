@@ -84,12 +84,20 @@ func (s *sBaremetalRegisterTask) getSession() *mcclient.ClientSession {
 }
 
 func (s *sBaremetalRegisterTask) getAccessDevMacAddr(ip string) (string, error) {
-	nicsRet, err := s.SshCli.Run("/sbin/ip -o -4 addr show")
-	if err != nil {
-		return "", fmt.Errorf("Failed get access nic %s", err)
-	}
-
 	var dev string
+	var nicsRet []string
+	var err error
+	if strings.Contains(ip, ":") { // ipv6
+		nicsRet, err = s.SshCli.Run("/sbin/ip -o -6 addr show")
+		if err != nil {
+			return "", fmt.Errorf("Failed get access nic %s", err)
+		}
+	} else { // ipv4
+		nicsRet, err = s.SshCli.Run("/sbin/ip -o -4 addr show")
+		if err != nil {
+			return "", fmt.Errorf("Failed get access nic %s", err)
+		}
+	}
 	for i := 0; i < len(nicsRet); i++ {
 		if strings.Contains(nicsRet[i], ip+"/") {
 			segs := strings.Split(nicsRet[i], " ")
@@ -102,6 +110,7 @@ func (s *sBaremetalRegisterTask) getAccessDevMacAddr(ip string) (string, error) 
 	if len(dev) == 0 {
 		return "", fmt.Errorf("Can't get access dev")
 	}
+
 	log.Infof("Access dev is %s", dev)
 	macRet, err := s.SshCli.Run("/sbin/ip a show " + dev)
 	if err != nil || len(macRet) < 2 {
@@ -205,7 +214,11 @@ func (s *sBaremetalRegisterTask) UpdateBaremetal(ctx context.Context) (string, e
 }
 
 func (s *sBaremetalRegisterTask) doRedfishProbe(ctx context.Context) (redfishSupport bool, cdromBoot bool) {
-	redfishCli := redfish.NewRedfishDriver(ctx, "https://"+s.IpmiIpAddr, s.IpmiUsername, s.IpmiPassword, false)
+	var endpoint = "https://" + s.IpmiIpAddr
+	if strings.Contains(s.IpmiIpAddr, ":") {
+		endpoint = fmt.Sprintf("https://[%s]", s.IpmiIpAddr)
+	}
+	redfishCli := redfish.NewRedfishDriver(ctx, endpoint, s.IpmiUsername, s.IpmiPassword, false)
 	if redfishCli != nil {
 		_, cdInfo, _ := redfishCli.GetVirtualCdromInfo(ctx)
 		redfishSupport = true

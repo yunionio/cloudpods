@@ -16,7 +16,9 @@ package handler
 
 import (
 	"context"
+	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -193,7 +195,12 @@ func handleBaremetalValidateIPMI() appsrv.FilterHandler {
 			if err := body.Unmarshal(input); err != nil {
 				return nil, errors.Wrapf(err, "unmarshal validate ipmi request: %s", body)
 			}
-			redfishCli := redfish.NewRedfishDriver(ctx, "https://"+input.Ip, input.Username, input.Password, false)
+
+			var endpoint = "https://" + input.Ip
+			if strings.Contains(input.Ip, ":") {
+				endpoint = fmt.Sprintf("https://[%s]", input.Ip)
+			}
+			redfishCli := redfish.NewRedfishDriver(ctx, endpoint, input.Username, input.Password, false)
 			resp := &baremetalapi.ValidateIPMIResponse{}
 			if redfishCli == nil {
 				resp.IsRedfishSupported = false
