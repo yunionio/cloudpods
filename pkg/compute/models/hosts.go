@@ -4838,9 +4838,9 @@ func fetchIpmiInfo(data api.HostIpmiAttributes, hostId string) (types.SIPMIInfo,
 			info.Password = data.IpmiPassword
 		}
 	}
-	if len(data.IpmiIpAddr) > 0 && !regutils.MatchIP4Addr(data.IpmiIpAddr) {
-		msg := fmt.Sprintf("ipmi_ip_addr: %s not valid ipv4 address", data.IpmiIpAddr)
-		log.Errorf(msg)
+	if len(data.IpmiIpAddr) > 0 && !regutils.MatchIP4Addr(data.IpmiIpAddr) && !regutils.MatchIP6Addr(data.IpmiIpAddr) {
+		msg := fmt.Sprintf("ipmi_ip_addr: %v not valid address", data.IpmiIpAddr)
+		log.Errorf("%s", msg)
 		return info, errors.Wrap(httperrors.ErrInvalidFormat, msg)
 	}
 	info.IpAddr = data.IpmiIpAddr
@@ -5535,6 +5535,7 @@ func (hh *SHost) PerformInitialize(
 	guest.ProjectId = userCred.GetProjectId()
 	guest.DomainId = userCred.GetProjectDomainId()
 	guest.Status = api.VM_RUNNING
+	guest.PowerStates = api.VM_POWER_STATES_ON
 	guest.OsType = "Linux"
 	guest.SetModelManager(GuestManager, guest)
 	err = GuestManager.TableSpec().Insert(ctx, guest)

@@ -321,7 +321,12 @@ func (m *SBaremetalManager) RegisterBaremetal(ctx context.Context, userCred mccl
 		return
 	}
 
-	input.IpAddr, err = m.fetchIpmiIp(sshCli)
+	isIpv6Addr := false
+	if strings.Contains(input.RemoteIp, ":") {
+		isIpv6Addr = true
+	}
+	input.IpAddr, err = m.fetchIpmiIp(sshCli, isIpv6Addr)
+	log.Infof("find ipmi addr %s", input.IpAddr)
 
 	if input.isTimeout() {
 		return
@@ -375,17 +380,48 @@ func (m *SBaremetalManager) RegisterBaremetal(ctx context.Context, userCred mccl
 	registerTask.DoPrepare(ctx, sshCli, registered)
 }
 
-func (m *SBaremetalManager) fetchIpmiIp(sshCli *ssh.Client) (string, error) {
-	res, err := sshCli.RawRun(`/usr/bin/ipmitool lan print | grep "IP Address  "`)
-	if err != nil {
-		return "", err
-	}
-	if len(res) == 1 {
-		segs := strings.Fields(res[0])
-		if len(segs) == 4 {
-			return strings.TrimSpace(segs[3]), nil
+func (m *SBaremetalManager) fetchIpmiIp(sshCli *ssh.Client, isIpv6Addr bool) (string, error) {
+	if !isIpv6Addr {
+		res, err := sshCli.RawRun(`/usr/bin/ipmitool lan print | grep "IP Address  "`)
+		if err != nil {
+			return "", err
+		}
+		if len(res) == 1 {
+			segs := strings.Fields(res[0])
+			if len(segs) == 4 {
+				return strings.TrimSpace(segs[3]), nil
+			}
+		}
+	} else {
+		res, err := sshCli.Run(`/usr/bin/ipmitool lan6 print`)
+		if err != nil {
+			return "", err
+		}
+		for i, line := range res {
+			if strings.HasPrefix(line, "IPv6 Static Address") || strings.HasPrefix(line, "IPv6 Dynamic Address") {
+				if len(res)-i > 3 {
+					enabledSegs := strings.Fields(res[i+1])
+					log.Infof("enabled segs %#v", enabledSegs)
+					if len(enabledSegs) != 2 || enabledSegs[0] != "Enabled:" || enabledSegs[1] != "yes" {
+						continue
+					}
+					statusSegs := strings.Fields(res[i+3])
+					log.Infof("status segs %#v", statusSegs)
+					if len(enabledSegs) != 2 || statusSegs[0] != "Status:" || statusSegs[1] != "active" {
+						continue
+					}
+					addrSegs := strings.Fields(res[i+2])
+					if len(addrSegs) != 2 || addrSegs[0] != "Address:" {
+						continue
+					}
+					ipv6Addr := strings.Split(addrSegs[1], "/")
+
+					return ipv6Addr[0], nil
+				}
+			}
 		}
 	}
+
 	return "", fmt.Errorf("Failed to find ipmi ip address")
 }
 
@@ -394,6 +430,11 @@ func (m *SBaremetalManager) checkNetworkFromIp(ip string) (string, error) {
 	params.Set("ip", jsonutils.NewString(ip))
 	params.Set("scope", jsonutils.NewString("system"))
 	params.Set("is_classic", jsonutils.JSONTrue)
+	params.Set("provider", jsonutils.NewString(api.CLOUD_PROVIDER_ONECLOUD))
+	params.Set("limit", jsonutils.NewInt(0))
+	// use default vpc
+	params.Set("vpc", jsonutils.NewString(api.DEFAULT_VPC_ID))
+
 	res, err := modules.Networks.List(m.GetClientSession(), params)
 	if err != nil {
 		return "", fmt.Errorf("Fetch network by ip %s failed: %s", ip, err)
@@ -1793,8 +1834,11 @@ func (b *SBaremetalInstance) GetRedfishCli(ctx context.Context) redfish.IRedfish
 		return nil
 	}
 	conf := b.GetIPMIConfig()
-	return redfish.NewRedfishDriver(ctx, "https://"+conf.IpAddr,
-		conf.Username, conf.Password, false)
+	var endpoint = "https://" + conf.IpAddr
+	if strings.Contains(conf.IpAddr, ":") {
+		endpoint = fmt.Sprintf("https://[%s]", conf.IpAddr)
+	}
+	return redfish.NewRedfishDriver(ctx, endpoint, conf.Username, conf.Password, false)
 }
 
 func (b *SBaremetalInstance) GetIPMILanChannel() uint8 {
