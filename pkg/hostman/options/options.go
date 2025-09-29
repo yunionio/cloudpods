@@ -60,6 +60,8 @@ type SHostBaseOptions struct {
 	TelegrafKafkaOutputSaslUsername  string `json:"telegraf_kafka_output_sasl_username" help:"telegraf kafka output sasl_username"`
 	TelegrafKafkaOutputSaslPassword  string `json:"telegraf_kafka_output_sasl_password" help:"telegraf kafka output sasl_password"`
 	TelegrafKafkaOutputSaslMechanism string `json:"telegraf_kafka_output_sasl_mechanism" help:"telegraf kafka output sasl_mechanism"`
+
+	BackupTaskWorkerCount int `default:"3" help:"backup task worker count"`
 }
 
 type SHostOptions struct {
@@ -165,7 +167,6 @@ type SHostOptions struct {
 
 	MaxReservedMemory int `default:"10240" help:"host reserved memory"`
 
-	BackupTaskWorkerCount     int `default:"2" help:"backup task worker count"`
 	DefaultRequestWorkerCount int `default:"8" help:"default request worker count"`
 	ImageCacheWorkerCount     int `default:"8" help:"default request worker count"`
 	ContainerStartWorkerCount int `default:"1" help:"container start worker count"`
