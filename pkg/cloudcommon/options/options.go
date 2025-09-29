@@ -150,7 +150,7 @@ type CommonOptions struct {
 
 type HostCommonOptions struct {
 	CommonOptions
-	S3ScreenDumpOptions
+	S3CommonOptions
 
 	ExecutorSocketPath     string `help:"Executor socket path" default:"/var/run/onecloud/exec.sock"`
 	DeployServerSocketPath string `help:"Deploy server listen socket path" default:"/var/run/onecloud/deploy.sock"`
@@ -164,7 +164,7 @@ type HostCommonOptions struct {
 	Qcow2Preallocation            string `help:"Qcow2 image create preallocation" default:"metadata" choices:"disable|metadata|falloc|full"`
 }
 
-type S3ScreenDumpOptions struct {
+type S3CommonOptions struct {
 	S3AccessKey              string `help:"s3 access key"`
 	S3SecretKey              string `help:"s3 secret key"`
 	S3Endpoint               string `help:"s3 endpoint"`
