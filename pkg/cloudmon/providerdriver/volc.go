@@ -104,8 +104,8 @@ func (self *VolcEngineCollect) CollectServerMetrics(ctx context.Context, manager
 					if last > len(servers) {
 						last = len(servers)
 					}
-					for i := range servers[i*10 : last] {
-						opts.ResourceIds = append(opts.ResourceIds, servers[i].ExternalId)
+					for j := range servers[i*10 : last] {
+						opts.ResourceIds = append(opts.ResourceIds, servers[i*10+j].ExternalId)
 					}
 					part, err := provider.GetMetrics(opts)
 					if err != nil {

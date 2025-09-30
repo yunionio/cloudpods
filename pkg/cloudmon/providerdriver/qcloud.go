@@ -102,8 +102,8 @@ func (self *QcloudCollect) CollectServerMetrics(ctx context.Context, manager api
 				if last > len(servers) {
 					last = len(servers)
 				}
-				for i := range servers[i*10 : last] {
-					opts.ResourceIds = append(opts.ResourceIds, servers[i].ExternalId)
+				for j := range servers[i*10 : last] {
+					opts.ResourceIds = append(opts.ResourceIds, servers[i*10+j].ExternalId)
 				}
 				part, err := provider.GetMetrics(opts)
 				if err != nil {
@@ -197,8 +197,8 @@ func (self *QcloudCollect) CollectDBInstanceMetrics(ctx context.Context, manager
 				if last > len(servers) {
 					last = len(servers)
 				}
-				for i := range servers[i*10 : last] {
-					opts.ResourceIds = append(opts.ResourceIds, servers[i].ExternalId)
+				for j := range servers[i*10 : last] {
+					opts.ResourceIds = append(opts.ResourceIds, servers[i*10+j].ExternalId)
 				}
 
 				part, err := provider.GetMetrics(opts)
@@ -293,8 +293,8 @@ func (self *QcloudCollect) CollectRedisMetrics(ctx context.Context, manager api.
 				if last > len(servers) {
 					last = len(servers)
 				}
-				for i := range servers[i*10 : last] {
-					opts.ResourceIds = append(opts.ResourceIds, servers[i].ExternalId)
+				for j := range servers[i*10 : last] {
+					opts.ResourceIds = append(opts.ResourceIds, servers[i*10+j].ExternalId)
 				}
 
 				part, err := provider.GetMetrics(opts)
