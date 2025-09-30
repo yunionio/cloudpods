@@ -47,7 +47,7 @@ const (
 	KSYUN_DEFAULT_API_VERSION = "2016-03-04"
 	KSYUN_RDS_API_VERSION     = "2016-07-01"
 	KSYUN_SKS_API_VERSION     = "2015-11-01"
-	KSYUN_MONITOR_API_VERSION = "2023-07-12"
+	KSYUN_MONITOR_API_VERSION = "2018-11-14"
 )
 
 type KsyunClientConfig struct {
@@ -137,7 +137,7 @@ func (cli *SKsyunClient) getUrl(service, regionId string) (string, error) {
 	case "kec", "tag", "krds":
 		return fmt.Sprintf("https://%s.%s.api.ksyun.com", service, regionId), nil
 	case "monitor":
-		return fmt.Sprintf("https://%s.api.ksyun.com/v4/", service), nil
+		return fmt.Sprintf("https://%s.api.ksyun.com", service), nil
 	}
 	return "", errors.Wrapf(cloudprovider.ErrNotSupported, "service %s", service)
 }
@@ -233,21 +233,27 @@ func (cli *SKsyunClient) Do(req *http.Request) (*http.Response, error) {
 	client := cli.getDefaultClient()
 	req.Header.Set("Accept", "application/json")
 
-	if req.Method == "POST" {
+	if req.Method == "POST" || req.Method == "PUT" || req.Method == "DELETE" && req.Body != nil {
 		cred := credentials.NewStaticCredentials(cli.accessKeyId, cli.accessKeySecret, "")
 		sig := v4.NewSigner(cred)
-		sig.DisableRequestBodyOverwrite = false
 		var body io.ReadSeeker = nil
-		if req.Body != nil {
-			bodyBytes, err := io.ReadAll(req.Body)
-			if err != nil {
-				return nil, errors.Wrapf(err, "ReadAll")
-			}
-			req.Header.Set("Content-Length", fmt.Sprintf("%d", len(bodyBytes)))
-			req.ContentLength = int64(len(bodyBytes))
-			req.Body = io.NopCloser(bytes.NewReader(bodyBytes))
-			body = bytes.NewReader(bodyBytes)
+		bodyBytes, err := io.ReadAll(req.Body)
+		if err != nil {
+			return nil, errors.Wrapf(err, "ReadAll")
 		}
+		body = bytes.NewReader(bodyBytes)
+
+		v4Req, err := http.NewRequestWithContext(cli.ctx, req.Method, req.URL.String(), body)
+		if err != nil {
+			return nil, errors.Wrapf(err, "NewRequestWithContext")
+		}
+		v4Req.Header.Set("Accept", "application/json")
+		v4Req.Header.Set("X-Amz-Date", time.Now().UTC().Format("20060102T150405Z"))
+		v4Req.Header.Set("Content-Type", req.Header.Get("Content-Type"))
+		v4Req.Header.Set("Host", req.URL.Host)
+		v4Req.Header.Set("User-Agent", req.Header.Get("User-Agent"))
+		v4Req.ContentLength = int64(len(bodyBytes))
+
 		service, regionId := "", KSYUN_DEFAULT_REGION
 		urlInfo := strings.Split(req.URL.Host, ".")
 		if len(urlInfo) < 2 {
@@ -257,11 +263,11 @@ func (cli *SKsyunClient) Do(req *http.Request) (*http.Response, error) {
 		if urlInfo[1] != "api" {
 			regionId = urlInfo[1]
 		}
-		_, err := sig.Sign(req, body, service, regionId, time.Now())
+		_, err = sig.Sign(v4Req, body, service, regionId, time.Now())
 		if err != nil {
 			return nil, errors.Wrapf(err, "sign")
 		}
-		return client.Do(req)
+		return client.Do(v4Req)
 	}
 
 	signature, err := cli.sign(req)
@@ -324,14 +330,16 @@ func (cli *SKsyunClient) request(service, regionId, apiName, apiVersion string, 
 	values := url.Values{}
 	values.Set("Action", apiName)
 	values.Set("Version", apiVersion)
+	values.Set("Service", service)
 
 	method := httputils.GET
-	if service == "monitor" {
+	if apiName == "GetMetricStatisticsBatch" {
 		method = httputils.POST
-	} else {
+	}
+
+	if method == httputils.GET {
 		values.Set("Accesskey", cli.accessKeyId)
 		values.Set("SignatureMethod", "HMAC-SHA256")
-		values.Set("Service", service)
 		values.Set("Format", "json")
 		values.Set("SignatureVersion", "1.0")
 		values.Set("Timestamp", time.Now().UTC().Format("2006-01-02T15:04:05Z"))

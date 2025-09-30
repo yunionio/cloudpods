@@ -15,6 +15,8 @@
 package ksyun
 
 import (
+	"time"
+
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -34,23 +36,36 @@ func (cli *SKsyunClient) GetMetrics(opts *cloudprovider.MetricListOptions) ([]cl
 	}
 }
 
+type SMetric struct {
+	Instance   string
+	Datapoints struct {
+		Member []struct {
+			Average       float64
+			Timestamp     time.Time
+			UnixTimestamp int64
+		}
+	}
+	Label string
+}
+
 func (cli *SKsyunClient) GetEcsMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
 	params := map[string]interface{}{
 		"Namespace": "KEC",
 		"StartTime": opts.StartTime.Format("2006-01-02T15:04:05Z"),
 		"EndTime":   opts.EndTime.Format("2006-01-02T15:04:05Z"),
-		"Period":    "60",
 		"Aggregate": []string{"Average"},
 		"Metrics": []map[string]interface{}{
 			{
-				"Dimensions": []map[string]interface{}{
-					{
-						"Name":  "instance_id",
-						"Value": opts.ResourceId,
-					},
-				},
 				"InstanceID": opts.ResourceId,
-				"MetricName": "vm.memory.size[pavailable]",
+				"MetricName": "cpu.utilizition.total",
+			},
+			{
+				"InstanceID": opts.ResourceId,
+				"MetricName": "memory.utilizition.total",
+			},
+			{
+				"InstanceID": opts.ResourceId,
+				"MetricName": "vfs.fs.size",
 			},
 		},
 	}
@@ -59,6 +74,41 @@ func (cli *SKsyunClient) GetEcsMetrics(opts *cloudprovider.MetricListOptions) ([
 	if err != nil {
 		return nil, err
 	}
-	log.Errorf("DescribeMetricData %s", resp.PrettyString())
-	return []cloudprovider.MetricValues{}, nil
+
+	metrics := struct {
+		GetMetricStatisticsBatchResults []SMetric
+	}{}
+
+	err = resp.Unmarshal(&metrics)
+	if err != nil {
+		return nil, err
+	}
+	ret := []cloudprovider.MetricValues{}
+	for _, metric := range metrics.GetMetricStatisticsBatchResults {
+		values := []cloudprovider.MetricValue{}
+		for _, value := range metric.Datapoints.Member {
+			values = append(values, cloudprovider.MetricValue{
+				Timestamp: value.Timestamp,
+				Value:     value.Average,
+			})
+		}
+		metricValue := cloudprovider.MetricValues{
+			Id:     metric.Instance,
+			Values: values,
+		}
+		switch metric.Label {
+		case "cpu.utilizition.total":
+			metricValue.MetricType = cloudprovider.VM_METRIC_TYPE_CPU_USAGE
+		case "memory.utilizition.total":
+			metricValue.MetricType = cloudprovider.VM_METRIC_TYPE_MEM_USAGE
+		case "vfs.fs.size":
+			metricValue.MetricType = cloudprovider.VM_METRIC_TYPE_DISK_USAGE
+		default:
+			log.Errorf("invalid metric label %s", metric.Label)
+			continue
+		}
+		ret = append(ret, metricValue)
+	}
+
+	return ret, nil
 }

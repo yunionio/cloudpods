@@ -84,7 +84,11 @@ func (drv *SManagedVirtualizedGuestDriver) GetJsonDescAtHost(ctx context.Context
 	config.InstanceType = guest.InstanceType
 
 	if len(guest.KeypairId) > 0 {
-		config.PublicKey = guest.GetKeypairPublicKey()
+		keypair := guest.GetKeypair()
+		if keypair != nil {
+			config.PublicKey = keypair.PublicKey
+			config.KeypairName = keypair.Name
+		}
 	}
 
 	nics, _ := guest.GetNetworks("")
@@ -755,9 +759,11 @@ func (drv *SManagedVirtualizedGuestDriver) RemoteDeployGuestForDeploy(ctx contex
 	log.Debugf("Deploy VM params %s", params.String())
 
 	opts := &cloudprovider.SInstanceDeployOptions{
-		Username:  desc.Account,
-		PublicKey: desc.PublicKey,
-		Password:  desc.Password,
+		Username:    desc.Account,
+		PublicKey:   desc.PublicKey,
+		KeypairName: desc.KeypairName,
+		Password:    desc.Password,
+		UserData:    desc.UserData,
 	}
 	opts.DeleteKeypair = jsonutils.QueryBoolean(params, "__delete_keypair__", false)
 
@@ -820,12 +826,14 @@ func (drv *SManagedVirtualizedGuestDriver) RemoteDeployGuestForRebuildRoot(ctx c
 		defer lockman.ReleaseObject(ctx, guest)
 
 		conf := cloudprovider.SManagedVMRebuildRootConfig{
-			Account:   desc.Account,
-			ImageId:   desc.ExternalImageId,
-			Password:  desc.Password,
-			PublicKey: desc.PublicKey,
-			SysSizeGB: desc.SysDisk.SizeGB,
-			OsType:    desc.OsType,
+			Account:     desc.Account,
+			ImageId:     desc.ExternalImageId,
+			Password:    desc.Password,
+			PublicKey:   desc.PublicKey,
+			KeypairName: desc.KeypairName,
+			SysSizeGB:   desc.SysDisk.SizeGB,
+			OsType:      desc.OsType,
+			UserData:    desc.UserData,
 		}
 		return iVM.RebuildRoot(ctx, &conf)
 	}()
