@@ -142,13 +142,13 @@ func (region *SRegion) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
 	ret := []cloudprovider.ICloudSnapshot{}
 	for i := 0; i < len(snapshots); i += 1 {
 		snapshots[i].region = region
-		ret[i] = &snapshots[i]
+		ret = append(ret, &snapshots[i])
 	}
 	return ret, nil
 }
 
-func (self *SSnapshot) Delete() error {
-	return self.region.DeleteSnapshot(self.SnapshotId)
+func (snap *SSnapshot) Delete() error {
+	return snap.region.DeleteSnapshot(snap.SnapshotId)
 }
 
 func (region *SRegion) CreateSnapshot(diskId, name, desc string) (*SSnapshot, error) {
