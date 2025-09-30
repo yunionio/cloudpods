@@ -103,7 +103,7 @@ func (user *SUser) ResetPassword(password string) error {
 }
 
 func (client *SKsyunClient) UpdateLoginProfile(name, password string) error {
-	params := map[string]string{
+	params := map[string]interface{}{
 		"UserName":       name,
 		"Password":       password,
 		"ViewAllProject": "true",
@@ -119,7 +119,7 @@ type LoginProfile struct {
 }
 
 func (client *SKsyunClient) GetLoginProfile(name string) (*LoginProfile, error) {
-	params := map[string]string{
+	params := map[string]interface{}{
 		"UserName": name,
 	}
 	resp, err := client.iamRequest("", "GetLoginProfile", params)
@@ -143,7 +143,7 @@ func (user *SUser) DetachPolicy(policyName string, policyType api.TPolicyType) e
 }
 
 func (client *SKsyunClient) GetUsers() ([]SUser, error) {
-	params := map[string]string{
+	params := map[string]interface{}{
 		"MaxItems": "100",
 	}
 	ret := []SUser{}
@@ -172,7 +172,7 @@ func (client *SKsyunClient) GetUsers() ([]SUser, error) {
 }
 
 func (client *SKsyunClient) DeleteUser(name string) error {
-	params := map[string]string{
+	params := map[string]interface{}{
 		"UserName": name,
 	}
 	_, err := client.iamRequest("", "DeleteUser", params)
@@ -201,7 +201,7 @@ func (client *SKsyunClient) CreateIClouduser(opts *cloudprovider.SClouduserCreat
 }
 
 func (client *SKsyunClient) CreateUser(opts *cloudprovider.SClouduserCreateConfig) (*SUser, error) {
-	params := map[string]string{
+	params := map[string]interface{}{
 		"UserName": opts.Name,
 		"Remark":   opts.Desc,
 		"Email":    opts.Email,
@@ -221,7 +221,7 @@ func (client *SKsyunClient) CreateUser(opts *cloudprovider.SClouduserCreateConfi
 }
 
 func (client *SKsyunClient) ListGroupsForUser(name string) ([]SGroup, error) {
-	params := map[string]string{
+	params := map[string]interface{}{
 		"UserName": name,
 		"MaxItems": "100",
 	}
@@ -251,7 +251,7 @@ func (client *SKsyunClient) ListGroupsForUser(name string) ([]SGroup, error) {
 }
 
 func (client *SKsyunClient) ListAttachedUserPolicies(name string) ([]SPolicy, error) {
-	params := map[string]string{
+	params := map[string]interface{}{
 		"UserName": name,
 		"MaxItems": "100",
 	}
@@ -281,7 +281,7 @@ func (client *SKsyunClient) ListAttachedUserPolicies(name string) ([]SPolicy, er
 }
 
 func (client *SKsyunClient) AttachUserPolicy(name, policy string) error {
-	params := map[string]string{
+	params := map[string]interface{}{
 		"UserName":  name,
 		"PolicyKrn": policy,
 	}
@@ -290,7 +290,7 @@ func (client *SKsyunClient) AttachUserPolicy(name, policy string) error {
 }
 
 func (client *SKsyunClient) DetachUserPolicy(name, policy string) error {
-	params := map[string]string{
+	params := map[string]interface{}{
 		"UserName":  name,
 		"PolicyKrn": policy,
 	}
@@ -307,7 +307,7 @@ func (client *SKsyunClient) GetIClouduserByName(name string) (cloudprovider.IClo
 }
 
 func (client *SKsyunClient) GetUser(name string) (*SUser, error) {
-	params := map[string]string{
+	params := map[string]interface{}{
 		"UserName": name,
 	}
 	resp, err := client.iamRequest("", "GetUser", params)

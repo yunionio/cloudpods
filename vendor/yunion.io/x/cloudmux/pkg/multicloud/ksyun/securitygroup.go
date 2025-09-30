@@ -119,7 +119,7 @@ func (secgroup *SSecurityGroup) GetReferences() ([]cloudprovider.SecurityGroupRe
 
 func (region *SRegion) GetSecurityGroups(vpcId string, securityGroupIds []string) ([]SSecurityGroup, error) {
 	ret := []SSecurityGroup{}
-	params := map[string]string{
+	params := map[string]interface{}{
 		"MaxResults": "1000",
 	}
 	if len(vpcId) > 0 {
@@ -165,7 +165,7 @@ func (region *SRegion) GetSecurityGroup(id string) (*SSecurityGroup, error) {
 }
 
 func (region *SRegion) CreateSecurityGroup(opts *cloudprovider.SecurityGroupCreateInput) (*SSecurityGroup, error) {
-	params := map[string]string{
+	params := map[string]interface{}{
 		"VpcId":             opts.VpcId,
 		"SecurityGroupName": opts.Name,
 	}
@@ -185,7 +185,7 @@ func (region *SRegion) CreateSecurityGroup(opts *cloudprovider.SecurityGroupCrea
 }
 
 func (region *SRegion) SetSecurityGroups(secgroupIds []string, instanceId, nicId, subnetId string) error {
-	params := map[string]string{
+	params := map[string]interface{}{
 		"InstanceId":         instanceId,
 		"NetworkInterfaceId": nicId,
 		"SubnetId":           subnetId,
@@ -209,7 +209,7 @@ func (sg *SSecurityGroup) Delete() error {
 }
 
 func (region *SRegion) DeleteSecurityGroup(secGrpId string) error {
-	params := map[string]string{
+	params := map[string]interface{}{
 		"SecurityGroupId": secGrpId,
 	}
 	_, err := region.vpcRequest("DeleteSecurityGroup", params)

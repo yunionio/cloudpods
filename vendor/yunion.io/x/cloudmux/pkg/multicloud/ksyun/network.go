@@ -59,7 +59,7 @@ type SNetwork struct {
 
 func (region *SRegion) GetNetworks(vpcIds, networkIds []string, zoneName string) ([]SNetwork, error) {
 	networks := []SNetwork{}
-	param := map[string]string{}
+	param := map[string]interface{}{}
 	searchIndex := 1
 	if len(vpcIds) > 0 {
 		param[fmt.Sprintf("Filter.%d.Name", searchIndex)] = "vpc-id"
@@ -203,7 +203,7 @@ func (net *SNetwork) GetDescription() string {
 }
 
 func (region *SRegion) DeleteNetwork(networkId string) error {
-	params := map[string]string{
+	params := map[string]interface{}{
 		"SubnetId": networkId,
 	}
 	_, err := region.vpcRequest("DeleteSubnet", params)
@@ -217,7 +217,7 @@ func (region *SRegion) CreateNetwork(vpcId, zoneId string, opts *cloudprovider.S
 	}
 	startIp := pref.Address.NetAddr(pref.MaskLen) // 0
 	gateway := startIp.StepUp()                   // 1
-	params := map[string]string{
+	params := map[string]interface{}{
 		"VpcId":            vpcId,
 		"SubnetName":       opts.Name,
 		"CidrBlock":        opts.Cidr,

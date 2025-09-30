@@ -97,7 +97,7 @@ func (self *SKsyunClient) GetIProjects() ([]cloudprovider.ICloudProject, error) 
 }
 
 func (cli *SKsyunClient) CreateProject(name string) (*SProject, error) {
-	params := map[string]string{
+	params := map[string]interface{}{
 		"ProjectName": name,
 	}
 	_, err := cli.iamRequest("", "CreateProject", params)
