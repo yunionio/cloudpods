@@ -36,6 +36,9 @@ get_current_arch() {
     aarch64)
         current_arch=arm64
         ;;
+    riscv64)
+        current_arch=riscv64
+        ;;
     esac
     echo $current_arch
 }
@@ -102,6 +105,9 @@ build_image() {
         aarch64)
             docker buildx build -t "$tag" -f "$2" "$3" --output type=docker --platform linux/arm64
             ;;
+        riscv64)
+            docker buildx build -t "$tag" -f "$2" "$3" --output type=docker --platform linux/riscv64
+            ;;
         *)
             echo wrong arch
             exit 1
@@ -112,6 +118,8 @@ build_image() {
             docker buildx build -t "$tag" -f "$file" "$path" --push --platform linux/amd64
         elif [[ "$tag" == *"arm64" || "$ARCH" == "arm64" ]]; then
             docker buildx build -t "$tag" -f "$file" "$path" --push --platform linux/arm64
+        elif [[ "$tag" == *"riscv64" || "$ARCH" == "riscv64" ]]; then
+            docker buildx build -t "$tag" -f "$file" "$path" --push --platform linux/riscv64
         else
             docker buildx build -t "$tag" -f "$file" "$path" --push
         fi
@@ -137,7 +145,7 @@ get_image_name() {
     local arch=$2
     local is_all_arch=$3
     local img_name="$REGISTRY/$component:$TAG"
-    if [[ "$is_all_arch" == "true" || "$arch" == arm64 || "$component" == host-image ]]; then
+    if [[ "$is_all_arch" == "true" || "$arch" == arm64 || "$arch" == riscv64 || "$component" == host-image ]]; then
         img_name="${img_name}-$arch"
     fi
     echo $img_name
@@ -252,7 +260,7 @@ show_update_cmd() {
     local spec=$1
     local name=$1
     local tag=${TAG}
-    if [[ "$arch" == arm64 ]]; then
+    if [[ "$arch" == arm64 || "$arch" == riscv64 ]]; then
         tag="${tag}-$arch"
     fi
 
