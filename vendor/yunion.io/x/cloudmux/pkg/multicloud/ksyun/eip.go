@@ -61,7 +61,7 @@ type SEip struct {
 }
 
 func (region *SRegion) GetEips(eipIds []string) ([]SEip, error) {
-	params := map[string]string{
+	params := map[string]interface{}{
 		"MaxResults": "1000",
 	}
 	for i, eipId := range eipIds {
@@ -210,7 +210,7 @@ func (eip *SEip) ChangeBandwidth(bw int) error {
 }
 
 func (region *SRegion) DeallocateEIP(eipId string) error {
-	params := map[string]string{
+	params := map[string]interface{}{
 		"AllocationId": eipId,
 	}
 	_, err := region.eipRequest("ReleaseAddress", params)
@@ -218,17 +218,27 @@ func (region *SRegion) DeallocateEIP(eipId string) error {
 }
 
 func (region *SRegion) AssociateEip(eipId string, instanceId string) error {
-	params := map[string]string{
+	params := map[string]interface{}{
 		"AllocationId": eipId,
 		"InstanceId":   instanceId,
-		"InstanceType": "",
+		"InstanceType": "Ipfwd",
 	}
-	_, err := region.eipRequest("AssociateAddress", params)
+	vm, err := region.GetInstance(instanceId)
+	if err != nil {
+		return errors.Wrap(err, "GetInstance")
+	}
+	for _, nic := range vm.NetworkInterfaceSet {
+		if len(nic.AllocationId) == 0 {
+			params["NetworkInterfaceId"] = nic.NetworkInterfaceId
+			break
+		}
+	}
+	_, err = region.eipRequest("AssociateAddress", params)
 	return err
 }
 
 func (region *SRegion) DissociateEip(eipId string) error {
-	params := map[string]string{
+	params := map[string]interface{}{
 		"AllocationId": eipId,
 	}
 	_, err := region.eipRequest("DisassociateAddress", params)
@@ -254,7 +264,7 @@ func (region *SRegion) CreateEip(opts *cloudprovider.SEip) (*SEip, error) {
 	if len(lineId) == 0 {
 		return nil, errors.Wrap(errors.ErrNotFound, "No bgp lines found")
 	}
-	params := map[string]string{
+	params := map[string]interface{}{
 		"LineId":     lineId,
 		"BandWidth":  fmt.Sprintf("%d", opts.BandwidthMbps),
 		"ChargeType": "DailyPaidByTransfer",
@@ -282,7 +292,7 @@ type SLine struct {
 }
 
 func (region *SRegion) GetLines() ([]SLine, error) {
-	params := map[string]string{}
+	params := map[string]interface{}{}
 	body, err := region.eipRequest("GetLines", params)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetLines")

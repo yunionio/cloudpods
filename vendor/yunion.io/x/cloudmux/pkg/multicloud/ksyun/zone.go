@@ -35,9 +35,9 @@ type SZone struct {
 }
 
 func (region *SRegion) GetZones() ([]SZone, error) {
-	params := map[string]string{}
+	params := map[string]interface{}{}
 	if len(region.Region) > 0 {
-		params = map[string]string{"Region": region.Region}
+		params = map[string]interface{}{"Region": region.Region}
 	}
 	resp, err := region.ecsRequest("DescribeAvailabilityZones", params)
 	if err != nil {
@@ -148,13 +148,17 @@ func (zone *SZone) GetDescription() string {
 
 func (zone *SZone) GetStorages() ([]SStorage, error) {
 	zoneDiskType := []string{}
-	for i := range ksDiskTypes {
-		params := map[string]string{
-			"VolumeType": ksDiskTypes[i],
+	for i := range api.KSYUN_STORAGES {
+		if api.KSYUN_STORAGES[i] == api.STORAGE_KSYUN_LOCAL_SSD {
+			zoneDiskType = append(zoneDiskType, api.KSYUN_STORAGES[i])
+			continue
+		}
+		params := map[string]interface{}{
+			"VolumeType": api.KSYUN_STORAGES[i],
 		}
 		resp, err := zone.region.ebsRequest("DescribeAvailabilityZones", params)
 		if err != nil {
-			return nil, errors.Wrapf(err, "%s:ValidateAttachInstance", ksDiskTypes[i])
+			return nil, errors.Wrapf(err, "%s:ValidateAttachInstance", api.KSYUN_STORAGES[i])
 		}
 		zoneList := []string{}
 		err = resp.Unmarshal(&zoneList, "AvailabilityZones")
@@ -162,7 +166,7 @@ func (zone *SZone) GetStorages() ([]SStorage, error) {
 			return nil, errors.Wrap(err, "unmarshal zoneList")
 		}
 		if utils.IsInStringArray(zone.GetName(), zoneList) {
-			zoneDiskType = append(zoneDiskType, ksDiskTypes[i])
+			zoneDiskType = append(zoneDiskType, api.KSYUN_STORAGES[i])
 		}
 	}
 	storages := []SStorage{}

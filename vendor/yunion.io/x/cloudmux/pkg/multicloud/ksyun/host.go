@@ -80,7 +80,7 @@ func (region *SRegion) syncKeypair(keyName, publicKey string) (string, error) {
 }
 
 func (region *SRegion) CreateVM(opts *cloudprovider.SManagedVMCreateConfig) (*SInstance, error) {
-	params := map[string]string{
+	params := map[string]interface{}{
 		"InstanceName":        opts.Name,
 		"ImageId":             opts.ExternalImageId,
 		"InstanceType":        opts.InstanceType,

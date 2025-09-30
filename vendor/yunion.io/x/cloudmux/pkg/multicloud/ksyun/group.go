@@ -104,7 +104,7 @@ func (client *SKsyunClient) GetICloudgroups() ([]cloudprovider.ICloudgroup, erro
 }
 
 func (client *SKsyunClient) ListGroups() ([]SGroup, error) {
-	params := map[string]string{
+	params := map[string]interface{}{
 		"MaxItems": "100",
 	}
 	ret := []SGroup{}
@@ -133,7 +133,7 @@ func (client *SKsyunClient) ListGroups() ([]SGroup, error) {
 }
 
 func (client *SKsyunClient) ListGroupPolicies(name string) ([]SPolicy, error) {
-	params := map[string]string{
+	params := map[string]interface{}{
 		"GroupName": name,
 		"MaxItems":  "100",
 	}
@@ -164,7 +164,7 @@ func (client *SKsyunClient) ListGroupPolicies(name string) ([]SPolicy, error) {
 }
 
 func (client *SKsyunClient) AttachGroupPolicy(name, policy string) error {
-	params := map[string]string{
+	params := map[string]interface{}{
 		"GroupName": name,
 		"PolicyKrn": policy,
 	}
@@ -173,7 +173,7 @@ func (client *SKsyunClient) AttachGroupPolicy(name, policy string) error {
 }
 
 func (client *SKsyunClient) DetachGroupPolicy(name, policy string) error {
-	params := map[string]string{
+	params := map[string]interface{}{
 		"GroupName": name,
 		"PolicyKrn": policy,
 	}
@@ -182,7 +182,7 @@ func (client *SKsyunClient) DetachGroupPolicy(name, policy string) error {
 }
 
 func (client *SKsyunClient) DeleteGroup(name string) error {
-	params := map[string]string{
+	params := map[string]interface{}{
 		"GroupName": name,
 	}
 	_, err := client.iamRequest("", "DeleteGroup", params)
@@ -190,7 +190,7 @@ func (client *SKsyunClient) DeleteGroup(name string) error {
 }
 
 func (client *SKsyunClient) AddUserToGroup(user, group string) error {
-	params := map[string]string{
+	params := map[string]interface{}{
 		"GroupName": group,
 		"UserName":  user,
 	}
@@ -199,7 +199,7 @@ func (client *SKsyunClient) AddUserToGroup(user, group string) error {
 }
 
 func (client *SKsyunClient) RemoveUserFromGroup(user, group string) error {
-	params := map[string]string{
+	params := map[string]interface{}{
 		"GroupName": group,
 		"UserName":  user,
 	}
@@ -208,7 +208,7 @@ func (client *SKsyunClient) RemoveUserFromGroup(user, group string) error {
 }
 
 func (client *SKsyunClient) CreateGroup(name, desc string) (*SGroup, error) {
-	params := map[string]string{
+	params := map[string]interface{}{
 		"GroupName":   name,
 		"Description": desc,
 	}
@@ -233,7 +233,7 @@ func (client *SKsyunClient) GetICloudgroupByName(name string) (cloudprovider.ICl
 }
 
 func (client *SKsyunClient) GetGroup(name string) (*SGroup, error) {
-	params := map[string]string{
+	params := map[string]interface{}{
 		"GroupName": name,
 	}
 	resp, err := client.iamRequest("", "GetGroup", params)

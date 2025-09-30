@@ -76,6 +76,10 @@ func (self *SKsyunGuestDriver) GetAttachDiskStatus() ([]string, error) {
 	return []string{api.VM_READY, api.VM_RUNNING}, nil
 }
 
+func (self *SKsyunGuestDriver) GetRebuildRootStatus() ([]string, error) {
+	return []string{api.VM_READY}, nil
+}
+
 func (self *SKsyunGuestDriver) IsAllowSaveImageOnRunning() bool {
 	return true
 }
@@ -167,4 +171,8 @@ func (self *SKsyunGuestDriver) IsSupportSetAutoRenew() bool {
 
 func (self *SKsyunGuestDriver) IsSupportShutdownMode() bool {
 	return true
+}
+
+func (self *SKsyunGuestDriver) IsNeedRestartForResetLoginInfo() bool {
+	return false
 }
