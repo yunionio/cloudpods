@@ -819,7 +819,7 @@ func (manager *SHostManager) OrderByExtraFields(
 				sqlchemy.NewCase().When(
 					sqlchemy.GT(host.Field("mem_cmtbound"), 0),
 					host.Field("mem_cmtbound"),
-				).Else(sqlchemy.NewConstField(1)),
+				).Else(sqlchemy.NewConstField(options.Options.DefaultMemoryOvercommitBound)),
 				"mem_cmtbound",
 				true,
 			),
@@ -828,7 +828,7 @@ func (manager *SHostManager) OrderByExtraFields(
 
 		vsq := vq.Query(
 			vq.Field("host_id"),
-			sqlchemy.MUL("virtual_mem_usage", vq.Field("mem_commit"), sqlchemy.DIV("cmt_mem_size", vq.Field("mem_cmtbound"), vq.Field("host_mem_size"))),
+			sqlchemy.DIV("virtual_mem_usage", vq.Field("mem_commit"), sqlchemy.DIV("cmt_mem_size", vq.Field("mem_cmtbound"), vq.Field("host_mem_size"))),
 		)
 
 		vqq := vsq.GroupBy(vsq.Field("host_id")).SubQuery()
@@ -859,7 +859,7 @@ func (manager *SHostManager) OrderByExtraFields(
 				sqlchemy.NewCase().When(
 					sqlchemy.GT(host.Field("cpu_cmtbound"), 0),
 					host.Field("cpu_cmtbound"),
-				).Else(sqlchemy.NewConstField(1)),
+				).Else(sqlchemy.NewConstField(options.Options.DefaultCPUOvercommitBound)),
 				"cpu_cmtbound",
 				true,
 			),
@@ -868,7 +868,7 @@ func (manager *SHostManager) OrderByExtraFields(
 
 		vsq := vq.Query(
 			vq.Field("host_id"),
-			sqlchemy.MUL("virtual_cpu_usage", vq.Field("cpu_commit"), sqlchemy.DIV("cmt_cpu_size", vq.Field("cpu_cmtbound"), vq.Field("host_cpu_size"))),
+			sqlchemy.DIV("virtual_cpu_usage", vq.Field("cpu_commit"), sqlchemy.DIV("cmt_cpu_size", vq.Field("cpu_cmtbound"), vq.Field("host_cpu_size"))),
 		)
 
 		vqq := vsq.GroupBy(vsq.Field("host_id")).SubQuery()
