@@ -32,7 +32,7 @@ func (vv TagSet) GetTags() map[string]string {
 }
 
 func (self *SRegion) ListTags(resType string, resId string) (*TagSet, error) {
-	params := map[string]string{
+	params := map[string]interface{}{
 		"MaxResults":       "1000",
 		"Filter.1.Name":    "resource-type",
 		"Filter.1.Value.1": resType,

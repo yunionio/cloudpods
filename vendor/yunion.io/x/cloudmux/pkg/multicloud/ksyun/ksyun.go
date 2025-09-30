@@ -22,6 +22,7 @@ import (
 	"crypto/tls"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"sort"
@@ -29,6 +30,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/aws/aws-sdk-go/aws/credentials"
+	v4 "github.com/aws/aws-sdk-go/aws/signer/v4"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/gotypes"
@@ -44,6 +47,7 @@ const (
 	KSYUN_DEFAULT_API_VERSION = "2016-03-04"
 	KSYUN_RDS_API_VERSION     = "2016-07-01"
 	KSYUN_SKS_API_VERSION     = "2015-11-01"
+	KSYUN_MONITOR_API_VERSION = "2023-07-12"
 )
 
 type KsyunClientConfig struct {
@@ -132,6 +136,8 @@ func (cli *SKsyunClient) getUrl(service, regionId string) (string, error) {
 		return fmt.Sprintf("http://%s.api.ksyun.com", service), nil
 	case "kec", "tag", "krds":
 		return fmt.Sprintf("https://%s.%s.api.ksyun.com", service, regionId), nil
+	case "monitor":
+		return fmt.Sprintf("https://%s.api.ksyun.com/v4/", service), nil
 	}
 	return "", errors.Wrapf(cloudprovider.ErrNotSupported, "service %s", service)
 }
@@ -172,9 +178,9 @@ func (cli *SKsyunClient) getDefaultClient() *http.Client {
 
 // {"RequestId":"51aee78d-8c35-4778-92fb-a622c40fa5ae","Error":{"Code":"INVALID_ACTION","Message":"Not Found"}}
 type sKsyunError struct {
-	Params     map[string]string `json:"Params"`
-	StatusCode int               `json:"StatusCode"`
-	RequestId  string            `json:"RequestId"`
+	Params     map[string]interface{} `json:"Params"`
+	StatusCode int                    `json:"StatusCode"`
+	RequestId  string                 `json:"RequestId"`
 	ErrorMsg   struct {
 		Code    string `json:"Code"`
 		Message string `json:"Message"`
@@ -225,6 +231,38 @@ func (cli *SKsyunClient) sign(req *http.Request) (string, error) {
 
 func (cli *SKsyunClient) Do(req *http.Request) (*http.Response, error) {
 	client := cli.getDefaultClient()
+	req.Header.Set("Accept", "application/json")
+
+	if req.Method == "POST" {
+		cred := credentials.NewStaticCredentials(cli.accessKeyId, cli.accessKeySecret, "")
+		sig := v4.NewSigner(cred)
+		sig.DisableRequestBodyOverwrite = false
+		var body io.ReadSeeker = nil
+		if req.Body != nil {
+			bodyBytes, err := io.ReadAll(req.Body)
+			if err != nil {
+				return nil, errors.Wrapf(err, "ReadAll")
+			}
+			req.Header.Set("Content-Length", fmt.Sprintf("%d", len(bodyBytes)))
+			req.ContentLength = int64(len(bodyBytes))
+			req.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+			body = bytes.NewReader(bodyBytes)
+		}
+		service, regionId := "", KSYUN_DEFAULT_REGION
+		urlInfo := strings.Split(req.URL.Host, ".")
+		if len(urlInfo) < 2 {
+			return nil, errors.Wrapf(errors.ErrInvalidStatus, "urlInfo")
+		}
+		service = urlInfo[0]
+		if urlInfo[1] != "api" {
+			regionId = urlInfo[1]
+		}
+		_, err := sig.Sign(req, body, service, regionId, time.Now())
+		if err != nil {
+			return nil, errors.Wrapf(err, "sign")
+		}
+		return client.Do(req)
+	}
 
 	signature, err := cli.sign(req)
 	if err != nil {
@@ -238,72 +276,79 @@ func (cli *SKsyunClient) Do(req *http.Request) (*http.Response, error) {
 
 	query.Set("Signature", signature)
 	req.URL.RawQuery = query.Encode()
-	req.Header.Set("Accept", "application/json")
+
 	return client.Do(req)
 }
 
-func (cli *SKsyunClient) ec2Request(regionId, apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+func (cli *SKsyunClient) ec2Request(regionId, apiName string, params map[string]interface{}) (jsonutils.JSONObject, error) {
 	return cli.request("kec", regionId, apiName, KSYUN_DEFAULT_API_VERSION, params)
 }
 
-func (cli *SKsyunClient) iamRequest(regionId, apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+func (cli *SKsyunClient) iamRequest(regionId, apiName string, params map[string]interface{}) (jsonutils.JSONObject, error) {
 	return cli.request("iam", regionId, apiName, "2015-11-01", params)
 }
 
-func (cli *SKsyunClient) tagRequest(regionId, apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+func (cli *SKsyunClient) tagRequest(regionId, apiName string, params map[string]interface{}) (jsonutils.JSONObject, error) {
 	return cli.request("tag", regionId, apiName, KSYUN_DEFAULT_API_VERSION, params)
 }
 
-func (cli *SKsyunClient) eipRequest(regionId, apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+func (cli *SKsyunClient) eipRequest(regionId, apiName string, params map[string]interface{}) (jsonutils.JSONObject, error) {
 	return cli.request("eip", regionId, apiName, KSYUN_DEFAULT_API_VERSION, params)
 }
 
-func (cli *SKsyunClient) ebsRequest(regionId, apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+func (cli *SKsyunClient) ebsRequest(regionId, apiName string, params map[string]interface{}) (jsonutils.JSONObject, error) {
 	return cli.request("ebs", regionId, apiName, KSYUN_DEFAULT_API_VERSION, params)
 }
 
-func (cli *SKsyunClient) sksRequest(regionId, apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+func (cli *SKsyunClient) sksRequest(regionId, apiName string, params map[string]interface{}) (jsonutils.JSONObject, error) {
 	return cli.request("sks", regionId, apiName, KSYUN_SKS_API_VERSION, params)
 }
 
-func (cli *SKsyunClient) rdsRequest(regionId, apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+func (cli *SKsyunClient) rdsRequest(regionId, apiName string, params map[string]interface{}) (jsonutils.JSONObject, error) {
 	return cli.request("krds", regionId, apiName, KSYUN_RDS_API_VERSION, params)
 }
 
-func (cli *SKsyunClient) vpcRequest(regionId, apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+func (cli *SKsyunClient) vpcRequest(regionId, apiName string, params map[string]interface{}) (jsonutils.JSONObject, error) {
 	return cli.request("vpc", regionId, apiName, KSYUN_DEFAULT_API_VERSION, params)
 }
 
-func (cli *SKsyunClient) request(service, regionId, apiName, apiVersion string, params map[string]string) (jsonutils.JSONObject, error) {
+func (cli *SKsyunClient) request(service, regionId, apiName, apiVersion string, params map[string]interface{}) (jsonutils.JSONObject, error) {
 	uri, err := cli.getUrl(service, regionId)
 	if err != nil {
 		return nil, errors.Wrapf(err, "getUrl")
 	}
 	if params == nil {
-		params = map[string]string{}
+		params = map[string]interface{}{}
 	}
-	if len(regionId) > 0 {
-		params["Region"] = regionId
-	}
-	params["Action"] = apiName
-	params["Version"] = apiVersion
-	params["Accesskey"] = cli.accessKeyId
-	params["SignatureMethod"] = "HMAC-SHA256"
-	params["Service"] = service
-	params["Format"] = "json"
-	params["SignatureVersion"] = "1.0"
-	params["Timestamp"] = time.Now().UTC().Format("2006-01-02T15:04:05Z")
+
 	values := url.Values{}
-	for k, v := range params {
-		values.Set(k, v)
+	values.Set("Action", apiName)
+	values.Set("Version", apiVersion)
+
+	method := httputils.GET
+	if service == "monitor" {
+		method = httputils.POST
+	} else {
+		values.Set("Accesskey", cli.accessKeyId)
+		values.Set("SignatureMethod", "HMAC-SHA256")
+		values.Set("Service", service)
+		values.Set("Format", "json")
+		values.Set("SignatureVersion", "1.0")
+		values.Set("Timestamp", time.Now().UTC().Format("2006-01-02T15:04:05Z"))
+		if len(regionId) > 0 {
+			values.Set("Region", regionId)
+		}
+	}
+
+	ksErr := &sKsyunError{Params: params}
+	if method == httputils.GET {
+		for k, v := range params {
+			values.Set(k, fmt.Sprintf("%v", v))
+		}
+		params = nil
 	}
 	uri = fmt.Sprintf("%s?%s", uri, values.Encode())
-	method := httputils.GET
-	if !strings.HasPrefix(apiName, "Describe") && !strings.HasPrefix(apiName, "Get") && service != "sks" {
-		method = httputils.POST
-	}
-	req := httputils.NewJsonRequest(method, uri, nil)
-	ksErr := &sKsyunError{Params: params}
+	req := httputils.NewJsonRequest(method, uri, params)
 	client := httputils.NewJsonClient(cli)
 	_, resp, err := client.Send(cli.ctx, req, ksErr, cli.debug)
 	if err != nil {

@@ -50,7 +50,7 @@ type SInstanceType struct {
 }
 
 func (region *SRegion) GetInstanceTypes() ([]SInstanceType, error) {
-	params := make(map[string]string)
+	params := make(map[string]interface{})
 	params["Region"] = region.Region
 	zones, err := region.GetZones()
 	if err != nil {

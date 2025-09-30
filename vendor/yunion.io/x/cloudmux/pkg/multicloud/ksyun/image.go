@@ -212,6 +212,8 @@ func (region *SRegion) GetImage(imageId string) (*SImage, error) {
 		return nil, err
 	}
 	for i := range images {
+		storageCache := region.getStoragecache()
+		images[i].storageCache = storageCache
 		if images[i].ImageId == imageId {
 			return &images[i], nil
 		}
@@ -220,7 +222,7 @@ func (region *SRegion) GetImage(imageId string) (*SImage, error) {
 }
 
 func (region *SRegion) GetImages(id string, imageType string) ([]SImage, error) {
-	params := map[string]string{}
+	params := map[string]interface{}{}
 	if len(id) > 0 {
 		params["ImageId"] = id
 	}
@@ -243,7 +245,7 @@ func (region *SRegion) GetImages(id string, imageType string) ([]SImage, error) 
 }
 
 func (region *SRegion) DeleteImage(imageId string) error {
-	params := map[string]string{
+	params := map[string]interface{}{
 		"ImageId": imageId,
 	}
 	_, err := region.ecsRequest("DeleteImage", params)
