@@ -152,7 +152,7 @@ func (self *SSnapshot) Delete() error {
 }
 
 func (region *SRegion) CreateSnapshot(diskId, name, desc string) (*SSnapshot, error) {
-	params := map[string]string{
+	params := map[string]interface{}{
 		"VolumeId":     diskId,
 		"SnapshotName": name,
 		"SnapshotDesc": desc,
@@ -170,7 +170,7 @@ func (region *SRegion) CreateSnapshot(diskId, name, desc string) (*SSnapshot, er
 }
 
 func (region *SRegion) GetSnapshots(snapshotId, volumeId string) ([]SSnapshot, error) {
-	params := map[string]string{
+	params := map[string]interface{}{
 		"PageSize": "1000",
 	}
 	if len(snapshotId) > 0 {
@@ -221,7 +221,7 @@ func (region *SRegion) GetSnapshot(id string) (*SSnapshot, error) {
 }
 
 func (region *SRegion) DeleteSnapshot(snapshotId string) error {
-	params := map[string]string{
+	params := map[string]interface{}{
 		"SnapshotId": snapshotId,
 	}
 	_, err := region.ebsRequest("DeleteSnapshot", params)

@@ -96,7 +96,7 @@ func (rule *SPermission) Delete() error {
 }
 
 func (region *SRegion) DeleteSecurityGroupRule(groupId string, ruleId string) error {
-	params := map[string]string{
+	params := map[string]interface{}{
 		"SecurityGroupId":      groupId,
 		"SecurityGroupEntryId": ruleId,
 	}
@@ -113,7 +113,7 @@ func (group *SSecurityGroup) CreateRule(opts *cloudprovider.SecurityGroupRuleCre
 }
 
 func (region *SRegion) CreateSecurityGroupRule(groupId string, opts *cloudprovider.SecurityGroupRuleCreateOptions) (*SPermission, error) {
-	params := map[string]string{
+	params := map[string]interface{}{
 		"SecurityGroupId": groupId,
 		"CidrBlock":       opts.CIDR,
 		"Direction":       string(opts.Direction),

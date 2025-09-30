@@ -168,7 +168,7 @@ func (self *SQcloudClient) GetEcsMetrics(opts *cloudprovider.MetricListOptions) 
 		},
 	} {
 		for metricName, tag := range metricNames {
-			metrics, err := self.GetMonitorData("QCE/CVM", metricName, 0, opts.StartTime, opts.EndTime, opts.RegionExtId, "InstanceId", opts.ResourceIds)
+			metrics, err := self.GetMonitorData("QCE/CVM", metricName, 60, opts.StartTime, opts.EndTime, opts.RegionExtId, "InstanceId", opts.ResourceIds)
 			if err != nil {
 				log.Errorf("GetMonitorData error: %v", err)
 				continue
@@ -236,7 +236,7 @@ func (self *SQcloudClient) GetRedisMetrics(opts *cloudprovider.MetricListOptions
 		},
 	} {
 		for metricName, tag := range metricNames {
-			metrics, err := self.GetMonitorData("QCE/REDIS_MEM", metricName, 0, opts.StartTime, opts.EndTime, opts.RegionExtId, "instanceid", opts.ResourceIds)
+			metrics, err := self.GetMonitorData("QCE/REDIS_MEM", metricName, 60, opts.StartTime, opts.EndTime, opts.RegionExtId, "instanceid", opts.ResourceIds)
 			if err != nil {
 				log.Errorf("GetMonitorData error: %v", err)
 				continue

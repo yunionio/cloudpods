@@ -102,7 +102,7 @@ func (client *SKsyunClient) GetICloudpolicies() ([]cloudprovider.ICloudpolicy, e
 }
 
 func (client *SKsyunClient) ListPolicies(scope string) ([]SPolicy, error) {
-	params := map[string]string{
+	params := map[string]interface{}{
 		"MaxItems": "100",
 	}
 	if len(scope) > 0 {
@@ -134,7 +134,7 @@ func (client *SKsyunClient) ListPolicies(scope string) ([]SPolicy, error) {
 }
 
 func (client *SKsyunClient) DeletePolicy(krn string) error {
-	params := map[string]string{
+	params := map[string]interface{}{
 		"PolicyKrn": krn,
 	}
 	_, err := client.iamRequest("", "DeletePolicy", params)
@@ -146,7 +146,7 @@ type SPolicyVersion struct {
 }
 
 func (client *SKsyunClient) GetPolicyVersion(krn, version string) (*SPolicyVersion, error) {
-	params := map[string]string{
+	params := map[string]interface{}{
 		"PolicyKrn": krn,
 		"VersionId": version,
 	}
