@@ -1162,6 +1162,9 @@ func (h *SHostInfo) GetMasterNicIpAndMask() (string, int) {
 }
 
 func (h *SHostInfo) GetMasterIp() string {
+	if h.MasterNic == nil {
+		return ""
+	}
 	if h.MasterNic.Addr != "" {
 		return h.MasterNic.Addr
 	}
@@ -1567,7 +1570,11 @@ func (h *SHostInfo) fetchHostname() string {
 			hn = "host"
 		}
 		masterIp := h.GetMasterIp()
-		return hn + "-" + strings.Replace(masterIp, ".", "-", -1)
+		if len(masterIp) > 0 {
+			return hn + "-" + strings.Replace(masterIp, ".", "-", -1)
+		} else {
+			return hn
+		}
 	}
 }
 
