@@ -40,7 +40,7 @@ type SVpc struct {
 }
 
 func (region *SRegion) GetVpcs(ids []string) ([]SVpc, error) {
-	param := map[string]string{
+	param := map[string]interface{}{
 		"MaxResults": "1000",
 	}
 	for i, vpcId := range ids {
@@ -185,7 +185,7 @@ func (vpc *SVpc) GetIWireById(wireId string) (cloudprovider.ICloudWire, error) {
 }
 
 func (vpc *SRegion) DeleteVpc(vpcId string) error {
-	params := map[string]string{
+	params := map[string]interface{}{
 		"VpcId": vpcId,
 	}
 	_, err := vpc.vpcRequest("DeleteVpc", params)
@@ -193,7 +193,7 @@ func (vpc *SRegion) DeleteVpc(vpcId string) error {
 }
 
 func (region *SRegion) CreateVpc(opts *cloudprovider.VpcCreateOptions) (*SVpc, error) {
-	params := map[string]string{
+	params := map[string]interface{}{
 		"VpcName":   opts.NAME,
 		"CidrBlock": opts.CIDR,
 	}

@@ -77,7 +77,7 @@ func (region *SRegion) GetDisk(diskId string) (*SDisk, error) {
 
 func (region *SRegion) GetDisks(diskIds []string, storageType, zoneId string) ([]SDisk, error) {
 	disks := []SDisk{}
-	params := map[string]string{
+	params := map[string]interface{}{
 		"MaxResults": "1000",
 	}
 	for i, v := range diskIds {
@@ -120,8 +120,7 @@ func (region *SRegion) GetDisks(diskIds []string, storageType, zoneId string) ([
 }
 
 func (region *SRegion) GetDiskByInstanceId(instanceId string) ([]SDisk, error) {
-	disks := []SDisk{}
-	params := map[string]string{
+	params := map[string]interface{}{
 		"MaxResults": "1000",
 	}
 	params["InstanceId"] = instanceId
@@ -129,7 +128,14 @@ func (region *SRegion) GetDiskByInstanceId(instanceId string) ([]SDisk, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "DescribeInstanceVolumes")
 	}
-	return disks, resp.Unmarshal(&disks, "Attachments")
+	ret := struct {
+		Attachments []SDisk `json:"Attachments"`
+	}{}
+	err = resp.Unmarshal(&ret)
+	if err != nil {
+		return nil, errors.Wrap(err, "unmarshal Attachments")
+	}
+	return ret.Attachments, nil
 }
 
 func (disk *SDisk) GetIStorage() (cloudprovider.ICloudStorage, error) {
@@ -175,6 +181,9 @@ func (disk *SDisk) GetProjectId() string {
 }
 
 func (disk *SDisk) Refresh() error {
+	if disk.VolumeType == api.STORAGE_KSYUN_LOCAL_SSD {
+		return nil
+	}
 	disk, err := disk.storage.zone.region.GetDisk(disk.VolumeId)
 	if err != nil {
 		return err
@@ -183,6 +192,9 @@ func (disk *SDisk) Refresh() error {
 }
 
 func (disk *SDisk) GetStatus() string {
+	if disk.VolumeType == api.STORAGE_KSYUN_LOCAL_SSD {
+		return api.DISK_READY
+	}
 	// creating、available、attaching、inuse、detaching、extending、deleting、error
 	switch disk.VolumeStatus {
 	case "available", "inuse", "in-use":
@@ -287,7 +299,7 @@ func (disk *SDisk) Rebuild(ctx context.Context) error {
 }
 
 func (region *SRegion) DeleteDisk(id string) error {
-	_, err := region.ebsRequest("DeleteVolume", map[string]string{
+	_, err := region.ebsRequest("DeleteVolume", map[string]interface{}{
 		"VolumeId":    id,
 		"ForceDelete": "true",
 	})
@@ -295,7 +307,7 @@ func (region *SRegion) DeleteDisk(id string) error {
 }
 
 func (region *SRegion) ResizeDisk(id string, newSizeMB int64) error {
-	_, err := region.ebsRequest("ResizeVolume", map[string]string{
+	_, err := region.ebsRequest("ResizeVolume", map[string]interface{}{
 		"VolumeId": id,
 		"Size":     fmt.Sprintf("%d", newSizeMB/1024),
 	})
@@ -303,7 +315,7 @@ func (region *SRegion) ResizeDisk(id string, newSizeMB int64) error {
 }
 
 func (region *SRegion) ResetDisk(id string, snapshotId string) error {
-	_, err := region.ebsRequest("ResetVolume", map[string]string{
+	_, err := region.ebsRequest("ResetVolume", map[string]interface{}{
 		"VolumeId":   id,
 		"SnapshotId": snapshotId,
 	})
@@ -311,7 +323,7 @@ func (region *SRegion) ResetDisk(id string, snapshotId string) error {
 }
 
 func (region *SRegion) CreateDisk(storageType, zoneId string, opts *cloudprovider.DiskCreateConfig) (*SDisk, error) {
-	params := map[string]string{
+	params := map[string]interface{}{
 		"VolumeName":       opts.Name,
 		"VolumeDesc":       opts.Desc,
 		"Size":             fmt.Sprintf("%d", opts.SizeGb),

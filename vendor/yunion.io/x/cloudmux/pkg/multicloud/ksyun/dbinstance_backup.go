@@ -109,7 +109,7 @@ func (backup *SDBInstanceBackup) GetDBInstanceId() string {
 }
 
 func (region *SRegion) GetDBInstanceBackups(id string) ([]SDBInstanceBackup, error) {
-	params := map[string]string{
+	params := map[string]interface{}{
 		"DBInstanceIdentifier": id,
 	}
 	ret := []SDBInstanceBackup{}

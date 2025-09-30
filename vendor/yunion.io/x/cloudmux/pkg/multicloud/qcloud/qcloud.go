@@ -477,7 +477,7 @@ func (client *SQcloudClient) getSdkClient(regionId string) (*common.Client, erro
 			return nil
 		}
 		if client.cpcfg.ReadOnly {
-			for _, prefix := range []string{"Get", "List", "Describe"} {
+			for _, prefix := range []string{"Get", "List", "Describe", "LookUpEvents"} {
 				if strings.HasPrefix(action, prefix) {
 					return respCheck, nil
 				}

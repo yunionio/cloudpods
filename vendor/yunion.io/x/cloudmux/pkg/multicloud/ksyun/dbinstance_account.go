@@ -82,7 +82,7 @@ func (rds *SDBInstance) GetIDBInstanceAccounts() ([]cloudprovider.ICloudDBInstan
 }
 
 func (region *SRegion) GetDBInstanceAccounts(id string) ([]SDBInstanceAccount, error) {
-	params := map[string]string{
+	params := map[string]interface{}{
 		"DBInstanceIdentifier": id,
 	}
 	body, err := region.rdsRequest("DescribeInstanceAccounts", params)
