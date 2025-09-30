@@ -110,7 +110,7 @@ func (region *SRegion) GetDBInstance(id string) (*SDBInstance, error) {
 }
 
 func (region *SRegion) GetDBInstances(id string) ([]SDBInstance, error) {
-	params := map[string]string{}
+	params := map[string]interface{}{}
 	if len(id) > 0 {
 		params["DBInstanceIdentifier"] = id
 	}
@@ -303,7 +303,7 @@ func (rds *SDBInstance) Delete() error {
 }
 
 func (region *SRegion) DeleteDBInstance(instanceId string) error {
-	params := map[string]string{}
+	params := map[string]interface{}{}
 	params["DBInstanceIdentifier"] = instanceId
 	_, err := region.rdsRequest("DeleteDBInstance", params)
 	return err

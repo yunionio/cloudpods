@@ -62,7 +62,7 @@ func (database *SDBInstanceDatabase) GetCharacterSet() string {
 }
 
 func (region *SRegion) GetDBInstanceDatabases(id string) ([]SDBInstanceDatabase, error) {
-	params := map[string]string{
+	params := map[string]interface{}{
 		"DBInstanceIdentifier": id,
 	}
 	resp, err := region.rdsRequest("DescribeInstanceDatabases", params)

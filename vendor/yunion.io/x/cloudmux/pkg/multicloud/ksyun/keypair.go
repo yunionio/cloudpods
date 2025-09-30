@@ -25,7 +25,7 @@ type SKeypair struct {
 }
 
 func (cli *SKsyunClient) GetKeypairs() ([]SKeypair, error) {
-	params := map[string]string{
+	params := map[string]interface{}{
 		"MaxResults": "1000",
 	}
 	ret := []SKeypair{}
@@ -52,7 +52,7 @@ func (cli *SKsyunClient) GetKeypairs() ([]SKeypair, error) {
 }
 
 func (cli *SKsyunClient) CreateKeypair(name, publicKey string) (*SKeypair, error) {
-	params := map[string]string{
+	params := map[string]interface{}{
 		"KeyName":   name,
 		"PublicKey": publicKey,
 		"IsCheck":   "true",
