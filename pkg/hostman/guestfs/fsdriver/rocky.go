@@ -41,7 +41,7 @@ func (d *SRockyRootFs) String() string {
 
 func (d *SRockyRootFs) RootSignatures() []string {
 	sig := d.sLinuxRootFs.RootSignatures()
-	return append([]string{"/etc/sysconfig/network", "/etc/rocky-release"}, sig...)
+	return append([]string{"/etc/rocky-release"}, sig...)
 }
 
 func (d *SRockyRootFs) GetReleaseInfo(rootFs IDiskPartition) *deployapi.ReleaseInfo {

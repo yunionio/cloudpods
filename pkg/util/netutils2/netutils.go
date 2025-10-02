@@ -179,14 +179,19 @@ func AddNicRoutes(routes [][]string, nicDesc *types.SServerNic, mainIp string, n
 	return routes
 }
 
-func GetNicDns(nicdesc *types.SServerNic) []string {
-	dnslist := []string{}
+func GetNicDns(nicdesc *types.SServerNic) ([]string, []string) {
+	dns4list := []string{}
+	dns6list := []string{}
 	if len(nicdesc.Dns) > 0 {
 		for _, dns := range strings.Split(nicdesc.Dns, ",") {
-			dnslist = append(dnslist, dns)
+			if regutils.MatchIP6Addr(dns) {
+				dns6list = append(dns6list, dns)
+			} else {
+				dns4list = append(dns4list, dns)
+			}
 		}
 	}
-	return dnslist
+	return dns4list, dns6list
 }
 
 func NetBytes2Mask(mask []byte) string {

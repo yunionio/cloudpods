@@ -137,10 +137,13 @@ func getNetplanEthernetConfig(nic *types.SServerNic, isBond bool, mainIp string,
 			})
 		}
 
+		dns4list, dns6list := netutils2.GetNicDns(nic)
+		dnslist := append(dns4list, dns6list...)
+
 		nicConf = netplan.NewStaticEthernetConfig(
 			addr, addr6, gateway, gateway6,
 			[]string{nic.Domain},
-			netutils2.GetNicDns(nic),
+			dnslist,
 			routes,
 		)
 		nicConf.MacAddress = nic.Mac
