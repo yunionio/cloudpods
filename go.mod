@@ -72,6 +72,7 @@ require (
 	github.com/vishvananda/netns v0.0.5-0.20240412164733-9469873f4601
 	github.com/vmihailenco/msgpack v4.0.4+incompatible
 	github.com/xuri/excelize/v2 v2.7.1
+	github.com/zeebo/xxh3 v1.0.2
 	github.com/zexi/influxql-to-metricsql v0.1.1
 	go.etcd.io/etcd/api/v3 v3.5.0
 	go.etcd.io/etcd/client/v3 v3.5.0
@@ -103,7 +104,7 @@ require (
 	yunion.io/x/ovsdb v0.0.0-20230306173834-f164f413a900
 	yunion.io/x/pkg v1.10.4-0.20250820035218-6008459eb4f0
 	yunion.io/x/s3cli v0.0.0-20241221171442-1c11599d28e1
-	yunion.io/x/sqlchemy v1.1.3-0.20250923143347-b98e89dbc372
+	yunion.io/x/sqlchemy v1.1.3-0.20250925091009-4ca0766fc8f0
 	yunion.io/x/structarg v0.0.0-20231017124457-df4d5009457c
 )
 
@@ -224,6 +225,7 @@ require (
 	github.com/jtolds/gls v4.20.0+incompatible // indirect
 	github.com/kardianos/osext v0.0.0-20190222173326-2bc1f35cddc0 // indirect
 	github.com/karrick/godirwalk v1.16.1 // indirect
+	github.com/klauspost/cpuid/v2 v2.0.9 // indirect
 	github.com/kr/fs v0.1.0 // indirect
 	github.com/leodido/go-urn v1.2.0 // indirect
 	github.com/lestrrat-go/iter v0.0.0-20200422075355-fc1769541911 // indirect
