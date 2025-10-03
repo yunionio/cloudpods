@@ -710,6 +710,7 @@ func (manager *SCloudregionManager) InitializeData() error {
 			defRegion.Description = "Default Region"
 			defRegion.Status = api.CLOUD_REGION_STATUS_INSERVER
 			defRegion.Provider = api.CLOUD_PROVIDER_ONECLOUD
+			defRegion.SetModelManager(manager, &defRegion)
 			err := manager.TableSpec().Insert(context.TODO(), &defRegion)
 			if err != nil {
 				return errors.Wrap(err, "insert default region")
