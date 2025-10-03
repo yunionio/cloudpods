@@ -836,6 +836,9 @@ github.com/kardianos/osext
 # github.com/karrick/godirwalk v1.16.1
 ## explicit; go 1.13
 github.com/karrick/godirwalk
+# github.com/klauspost/cpuid/v2 v2.0.9
+## explicit; go 1.13
+github.com/klauspost/cpuid/v2
 # github.com/koding/websocketproxy v0.0.0-20181220232114-7ed82d81a28c
 ## explicit
 github.com/koding/websocketproxy
@@ -1317,6 +1320,9 @@ github.com/xuri/nfp
 # github.com/yusufpapurcu/wmi v1.2.2
 ## explicit; go 1.16
 github.com/yusufpapurcu/wmi
+# github.com/zeebo/xxh3 v1.0.2
+## explicit; go 1.17
+github.com/zeebo/xxh3
 # github.com/zexi/influxql-to-metricsql v0.1.1
 ## explicit; go 1.18
 github.com/zexi/influxql-to-metricsql/converter
@@ -1875,7 +1881,7 @@ sigs.k8s.io/structured-merge-diff/v4/value
 # sigs.k8s.io/yaml v1.2.0
 ## explicit; go 1.12
 sigs.k8s.io/yaml
-# yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20250930065037-9f9dbdc79d00
+# yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20250930105825-11a35583f397
 ## explicit; go 1.24
 yunion.io/x/cloudmux/pkg/apis
 yunion.io/x/cloudmux/pkg/apis/billing
