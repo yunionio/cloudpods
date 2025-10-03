@@ -152,10 +152,15 @@ func (r *sSuseLikeRootFs) deployVlanNetworkingScripts(rootFs IDiskPartition, scr
 		}
 	}
 
-	dnslist := netutils2.GetNicDns(nicDesc)
-	for i := 0; i < len(dnslist); i++ {
-		if !utils.IsInArray(dnslist[i], dnsSrv) {
-			dnsSrv = append(dnsSrv, dnslist[i])
+	dns4list, dns6list := netutils2.GetNicDns(nicDesc)
+	for i := 0; i < len(dns4list); i++ {
+		if !utils.IsInArray(dns4list[i], dnsSrv) {
+			dnsSrv = append(dnsSrv, dns4list[i])
+		}
+	}
+	for i := 0; i < len(dns6list); i++ {
+		if !utils.IsInArray(dns6list[i], dnsSrv) {
+			dnsSrv = append(dnsSrv, dns6list[i])
 		}
 	}
 
@@ -163,6 +168,25 @@ func (r *sSuseLikeRootFs) deployVlanNetworkingScripts(rootFs IDiskPartition, scr
 	log.Debugf("%s: %s", fn, cmds.String())
 	if err := rootFs.FilePutContents(fn, cmds.String(), false, false); err != nil {
 		return err
+	}
+
+	if len(dnsSrv) > 0 {
+		cont, err := rootFs.FileGetContents("/etc/sysconfig/network/config", false)
+		if err != nil {
+			return errors.Wrap(err, "FileGetContents config")
+		}
+
+		lines := strings.Split(string(cont), "\n")
+		for i := range lines {
+			line := strings.TrimSpace(lines[i])
+			if strings.HasPrefix(line, "NETCONFIG_DNS_STATIC_SERVERS=") {
+				lines[i] = fmt.Sprintf("NETCONFIG_DNS_STATIC_SERVERS=\"%s\"", strings.Join(dnsSrv, " "))
+			}
+		}
+		err = rootFs.FilePutContents("/etc/sysconfig/network/config", strings.Join(lines, "\n"), false, false)
+		if err != nil {
+			return errors.Wrap(err, "FilePutContents config")
+		}
 	}
 
 	return nil
@@ -286,12 +310,17 @@ func (r *sSuseLikeRootFs) deployNetworkingScripts(rootFs IDiskPartition, nics []
 				if err := rootFs.FilePutContents(fn, rtblStr, false, false); err != nil {
 					return err
 				}
+			}
 
-				dnslist := netutils2.GetNicDns(nicDesc)
-				for i := 0; i < len(dnslist); i++ {
-					if !utils.IsInArray(dnslist[i], dnsSrv) {
-						dnsSrv = append(dnsSrv, dnslist[i])
-					}
+			dns4list, dns6list := netutils2.GetNicDns(nicDesc)
+			for i := 0; i < len(dns4list); i++ {
+				if !utils.IsInArray(dns4list[i], dnsSrv) {
+					dnsSrv = append(dnsSrv, dns4list[i])
+				}
+			}
+			for i := 0; i < len(dns6list); i++ {
+				if !utils.IsInArray(dns6list[i], dnsSrv) {
+					dnsSrv = append(dnsSrv, dns6list[i])
 				}
 			}
 
