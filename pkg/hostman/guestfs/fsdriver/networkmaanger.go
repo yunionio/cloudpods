@@ -24,7 +24,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
-func nicDescToNetworkManager(nicDesc *types.SServerNic, mainIp string, mainIp6 string) string {
+func nicDescToNetworkManager(nicDesc *types.SServerNic, mainIp string, mainIp6 string, nicCnt int) string {
 	var profile strings.Builder
 
 	profile.WriteString("[connection]\n")
@@ -57,12 +57,6 @@ func nicDescToNetworkManager(nicDesc *types.SServerNic, mainIp string, mainIp6 s
 
 	if len(nicDesc.Mac) > 0 && nicDesc.NicType != api.NIC_TYPE_INFINIBAND {
 		profile.WriteString("[ethernet]\n")
-		if len(nicDesc.TeamingSlaves) == 0 {
-			// only real physical nic can set HWADDR
-			// cmds.WriteString("HWADDR=")
-			// cmds.WriteString(nicDesc.Mac)
-			// cmds.WriteString("\n")
-		}
 		profile.WriteString(fmt.Sprintf("mac-address=%s\n", nicDesc.Mac))
 		if nicDesc.Mtu > 0 {
 			profile.WriteString(fmt.Sprintf("mtu=%d\n", nicDesc.Mtu))
@@ -83,6 +77,10 @@ func nicDescToNetworkManager(nicDesc *types.SServerNic, mainIp string, mainIp6 s
 		profile.WriteString(fmt.Sprintf("address1=%s/32\n", netutils2.PSEUDO_VIP))
 		profile.WriteString("\n")
 	} else if nicDesc.Manual {
+		routes4 := make([]netutils2.SRouteInfo, 0)
+		routes6 := make([]netutils2.SRouteInfo, 0)
+		routes4, routes6 = netutils2.AddNicRoutes(routes4, routes6, nicDesc, mainIp, mainIp6, nicCnt)
+
 		// manual interface
 		if len(nicDesc.Ip) > 0 {
 			profile.WriteString("[ipv4]\n")
@@ -91,9 +89,19 @@ func nicDescToNetworkManager(nicDesc *types.SServerNic, mainIp string, mainIp6 s
 			if len(nicDesc.Gateway) > 0 && nicDesc.Ip == mainIp {
 				profile.WriteString(fmt.Sprintf("gateway=%s\n", nicDesc.Gateway))
 			}
+			// dns
 			dnslist, _ := netutils2.GetNicDns(nicDesc)
 			if len(dnslist) > 0 {
 				profile.WriteString(fmt.Sprintf("dns=%s\n", strings.Join(dnslist, ",")))
+			}
+			// static routes
+			for i := range routes4 {
+				gwstr := routes4[i].Gateway.String()
+				if gwstr == "0.0.0.0" {
+					profile.WriteString(fmt.Sprintf("route%d=%s\n", i+1, routes4[i].SPrefixInfo.String()))
+				} else {
+					profile.WriteString(fmt.Sprintf("route%d=%s,%s\n", i+1, routes4[i].SPrefixInfo.String(), gwstr))
+				}
 			}
 			profile.WriteString("\n")
 		}
@@ -104,9 +112,19 @@ func nicDescToNetworkManager(nicDesc *types.SServerNic, mainIp string, mainIp6 s
 			if len(nicDesc.Gateway6) > 0 && nicDesc.Ip6 == mainIp6 {
 				profile.WriteString(fmt.Sprintf("gateway=%s\n", nicDesc.Gateway6))
 			}
+			// dns
 			_, dns6list := netutils2.GetNicDns(nicDesc)
 			if len(dns6list) > 0 {
 				profile.WriteString(fmt.Sprintf("dns=%s\n", strings.Join(dns6list, ",")))
+			}
+			// static routes
+			for i := range routes6 {
+				gwstr := routes6[i].Gateway.String()
+				if gwstr == "::" {
+					profile.WriteString(fmt.Sprintf("route%d=%s\n", i+1, routes6[i].SPrefixInfo.String()))
+				} else {
+					profile.WriteString(fmt.Sprintf("route%d=%s,%s\n", i+1, routes6[i].SPrefixInfo.String(), gwstr))
+				}
 			}
 			profile.WriteString("\n")
 		}
