@@ -1460,17 +1460,21 @@ func (r *sRedhatLikeRootFs) deployNetworkManagerConfigurations(rootFs IDiskParti
 			return errors.Wrap(err, "enableBondingModule")
 		}
 	}
-	// nicCnt := len(allNics) - len(bondNics)
+	nicCnt := len(allNics) - len(bondNics)
 
 	mainNic := getMainNic(allNics)
-	var mainIp, mainIp6 string
+	var mainIp string
 	if mainNic != nil {
 		mainIp = mainNic.Ip
-		mainIp6 = mainNic.Ip6
+	}
+	mainNic6 := getMainNic6(allNics)
+	var mainIp6 string
+	if mainNic6 != nil {
+		mainIp6 = mainNic6.Ip6
 	}
 	for i := range allNics {
 		nicDesc := allNics[i]
-		profile := nicDescToNetworkManager(nicDesc, mainIp, mainIp6)
+		profile := nicDescToNetworkManager(nicDesc, mainIp, mainIp6, nicCnt)
 		var fn = fmt.Sprintf("%s/%s.nmconnection", scriptPath, nicDesc.Name)
 		if err := rootFs.FilePutContents(fn, profile, false, false); err != nil {
 			return err
