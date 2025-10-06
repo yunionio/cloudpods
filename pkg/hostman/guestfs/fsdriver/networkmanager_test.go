@@ -220,7 +220,7 @@ method=disabled
 	}
 
 	for _, c := range cases {
-		got := nicDescToNetworkManager(c.nicDesc, c.mainIp, c.mainIp6)
+		got := nicDescToNetworkManager(c.nicDesc, c.mainIp, c.mainIp6, 1)
 		if got != c.want {
 			t.Errorf("[[got]]\n%s\n[[want]]\n%s\n[[end]]", got, c.want)
 		}
