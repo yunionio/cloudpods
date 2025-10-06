@@ -277,6 +277,25 @@ func (o baseOptions) BIOS(ovmfPath, ovmfVarsPath, homedir string) (string, error
 		ovmfVarsPath = ovmfPath
 	}
 
+	destOvmfPath := path.Join(homedir, "OVMF.fd")
+	if !fileutils2.Exists(destOvmfPath) {
+		err := procutils.NewRemoteCommandAsFarAsPossible("cp", "-f", ovmfPath, destOvmfPath).Run()
+		if err != nil {
+			return "", errors.Wrap(err, "failed copy ovmf")
+		}
+	}
+	stat, err := procutils.RemoteStat(destOvmfPath)
+	if err != nil {
+		return "", errors.Wrap(err, "failed stat ovmf")
+	}
+	if stat.Size() < 64*1024*1024 {
+		// if ovmf is less than 64M, trumcate it to 64M
+		err := procutils.NewRemoteCommandAsFarAsPossible("truncate", "-s", "64M", destOvmfPath).Run()
+		if err != nil {
+			return "", errors.Wrap(err, "failed truncate ovmf to 64M")
+		}
+	}
+
 	destOvmfVarsPath := path.Join(homedir, "OVMF_VARS.fd")
 	if !fileutils2.Exists(destOvmfVarsPath) {
 		err := procutils.NewRemoteCommandAsFarAsPossible("cp", "-f", ovmfVarsPath, destOvmfVarsPath).Run()
@@ -286,7 +305,7 @@ func (o baseOptions) BIOS(ovmfPath, ovmfVarsPath, homedir string) (string, error
 	}
 	return fmt.Sprintf(
 		"-drive if=pflash,format=raw,unit=0,file=%s,readonly=on -drive if=pflash,format=raw,unit=1,file=%s",
-		ovmfPath, destOvmfVarsPath,
+		destOvmfPath, destOvmfVarsPath,
 	), nil
 }
 
