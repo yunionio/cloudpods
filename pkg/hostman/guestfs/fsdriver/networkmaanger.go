@@ -24,7 +24,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
-func nicDescToNetworkManager(nicDesc *types.SServerNic, mainIp string, mainIp6 string) string {
+func nicDescToNetworkManager(nicDesc *types.SServerNic, mainIp string, mainIp6 string, nicCnt int) string {
 	var profile strings.Builder
 
 	profile.WriteString("[connection]\n")
@@ -94,6 +94,15 @@ func nicDescToNetworkManager(nicDesc *types.SServerNic, mainIp string, mainIp6 s
 			dnslist, _ := netutils2.GetNicDns(nicDesc)
 			if len(dnslist) > 0 {
 				profile.WriteString(fmt.Sprintf("dns=%s\n", strings.Join(dnslist, ",")))
+			}
+			var routes = make([][]string, 0)
+			routes = netutils2.AddNicRoutes(routes, nicDesc, mainIp, nicCnt)
+			for i := range routes {
+				if len(routes[i]) >= 2 && routes[i][1] == "0.0.0.0" {
+					profile.WriteString(fmt.Sprintf("route%d=%s\n", i+1, routes[i][0]))
+				} else {
+					profile.WriteString(fmt.Sprintf("route%d=%s\n", i+1, strings.Join(routes[i], ",")))
+				}
 			}
 			profile.WriteString("\n")
 		}
