@@ -89,11 +89,13 @@ mac-address=00:22:0a:0b:0c:0d
 method=manual
 address1=192.168.1.100/24
 gateway=192.168.1.1
+route1=169.254.169.254/32
 
 [ipv6]
 method=manual
 address1=2001:db8::200/64
 gateway=2001:db8::1
+route1=fd00:ec2::254/128
 
 `,
 		},
@@ -220,7 +222,7 @@ method=disabled
 	}
 
 	for _, c := range cases {
-		got := nicDescToNetworkManager(c.nicDesc, c.mainIp, c.mainIp6)
+		got := nicDescToNetworkManager(c.nicDesc, c.mainIp, c.mainIp6, 1)
 		if got != c.want {
 			t.Errorf("[[got]]\n%s\n[[want]]\n%s\n[[end]]", got, c.want)
 		}
