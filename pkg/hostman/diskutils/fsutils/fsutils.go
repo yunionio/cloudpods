@@ -349,8 +349,10 @@ func (d *SFsutilDriver) FsckExtFs(fpath string) bool {
 	log.Debugf("Exec command: %v", []string{"e2fsck", "-f", "-p", fpath})
 	retCode, stdout, stderr, err := d.ExecInputWait("e2fsck", []string{"-f", "-p", fpath}, nil)
 	if err != nil {
-		log.Errorf("exec e2fsck failed %s", err)
-		return false
+		log.Errorf("exec e2fsck error %s retcode %d stdout %s stderr %s", err, retCode, stdout, stderr)
+		if retCode >= 4 {
+			return false
+		}
 	}
 	if retCode < 4 {
 		return true
