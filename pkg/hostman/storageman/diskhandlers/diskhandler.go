@@ -339,7 +339,7 @@ func diskResize(ctx context.Context, userCred mcclient.TokenCredential, storage 
 			}
 			return disk.Resize(ctx, input)
 		}
-		hostutils.DelayTask(ctx, resizeFunc, diskInfo)
+		hostutils.DelayTask(ctx, resizeFunc, resizeDiskInfo)
 		return nil, nil
 	}
 }
