@@ -19,10 +19,13 @@ RUN apk add --no-cache openssh openssl curl rsync pv mariadb-client
 RUN apk add --no-cache --virtual .build-dependencies \
   libffi-dev openssl-dev python3-dev build-base py-setuptools rust cargo mariadb-dev
 
-# ansible should be installed
-# after setuptools and wheel
-RUN pip3 install -U pip setuptools wheel \
-  && pip3 install paramiko mysqlclient pywinrm \
-  && pip3 install 'ansible<=9.0.0' \
+# Use python venv here to avoid "externally-managed-environment" error
+RUN python3 -m venv /opt/venv \
+  && /opt/venv/bin/pip install -U pip setuptools wheel \
+  && /opt/venv/bin/pip install paramiko mysqlclient pywinrm \
+  && /opt/venv/bin/pip install 'ansible<=9.0.0' \
   && apk del --no-network .build-dependencies \
   && rm -rf /root/.cache /root/.cargo /var/cache/apk/*
+
+# Add venv just created to PATH
+ENV PATH="/opt/venv/bin:$PATH"

@@ -4,8 +4,6 @@ MAINTAINER "Jian QIU <qiujian@yunion.cn>"
 
 ENV TZ UTC
 
-ENV GOPATH=/root/go
-
 RUN sed -i 's!https://dl-cdn.alpinelinux.org/!https://mirrors.ustc.edu.cn/!g' /etc/apk/repositories
 
 RUN set -x \
@@ -21,6 +19,18 @@ RUN set -x \
         libc-dev \
         libgcc \
         linux-headers
+
+RUN set -x \
+    && apk add --no-cache curl \
+    && curl -L -O https://go.dev/dl/go1.25.1.linux-riscv64.tar.gz \
+    && tar -xzf go1.25.1.linux-riscv64.tar.gz -C /usr/local \
+    && rm go1.25.1.linux-riscv64.tar.gz
+
+ENV GOROOT=/usr/local/go
+ENV GOPATH=/root/go
+ENV PATH=$GOROOT/bin:$GOPATH/bin:$PATH
+
+RUN go version
 
 RUN set -x \
     && mkdir -p $GOPATH/src/github.com/yyyar $GOPATH/bin \
