@@ -26,6 +26,10 @@ import (
 
 var _ IServerBaseDeployTask = new(SBaremetalServerDestroyTask)
 
+const (
+	BAREMETAL_SERVER_DESTROY_TASK = "BaremetalServerDestroyTask"
+)
+
 type SBaremetalServerDestroyTask struct {
 	SBaremetalServerBaseDeployTask
 }
@@ -45,7 +49,7 @@ func NewBaremetalServerDestroyTask(
 }
 
 func (self *SBaremetalServerDestroyTask) GetName() string {
-	return "BaremetalServerDestroyTask"
+	return BAREMETAL_SERVER_DESTROY_TASK
 }
 
 func (self *SBaremetalServerDestroyTask) RemoveEFIOSEntry() bool {
