@@ -1358,10 +1358,17 @@ func (b *SBaremetalInstance) GetTask() tasks.ITask {
 }
 
 func (b *SBaremetalInstance) SetTask(task tasks.ITask) {
+	// hack: clear exist tasks if task is server destroy task
+	if task.GetName() == tasks.BAREMETAL_SERVER_DESTROY_TASK {
+		log.Infof("clear tasks of baremetal %s before executing %s", b.GetName(), task.GetName())
+		b.taskQueue.ClearTasks()
+	}
 	b.taskQueue.AppendTask(task)
 	if reflect.DeepEqual(task, b.taskQueue.GetTask()) {
-		log.Infof("Set task equal, ExecuteTask %s", task.GetName())
+		log.Infof("Execute task %s of baremetal %s", task.GetName(), b.GetName())
 		tasks.ExecuteTask(task, nil)
+	} else {
+		log.Warningf("Append task %s of baremetal %s before executing %s", task.GetName(), b.GetName(), b.taskQueue.DebugString())
 	}
 }
 

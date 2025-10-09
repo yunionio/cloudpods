@@ -180,6 +180,25 @@ func (q *TaskQueue) AppendTask(task ITask) *TaskQueue {
 	return q
 }
 
+func (q *TaskQueue) ClearTasks() {
+	for {
+		existTask := q.PopTask()
+		if existTask != nil {
+			log.Warningf("Clear task %s", existTask.GetName())
+		} else {
+			break
+		}
+	}
+}
+
+func (q *TaskQueue) DebugString() string {
+	str := ""
+	for e := q.objList.Front(); e != nil; e = e.Next() {
+		str += fmt.Sprintf("%s, ", e.Value.(ITask).GetName())
+	}
+	return str
+}
+
 type TaskFactory func(userCred mcclient.TokenCredential, bm IBaremetal, taskId string, data jsonutils.JSONObject) ITask
 
 type SBaremetalTaskBase struct {
