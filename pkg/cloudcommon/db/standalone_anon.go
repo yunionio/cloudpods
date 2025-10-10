@@ -16,6 +16,8 @@ package db
 
 import (
 	"context"
+	"crypto/md5"
+	"fmt"
 	"strings"
 
 	"yunion.io/x/jsonutils"
@@ -52,6 +54,9 @@ type SStandaloneAnonResourceBase struct {
 	// 是否是模拟资源, 部分从公有云上同步的资源并不真实存在, 例如宿主机
 	// list 接口默认不会返回这类资源，除非显示指定 is_emulate=true 过滤参数
 	IsEmulated bool `nullable:"false" default:"false" list:"admin" create:"admin_optional" json:"is_emulated"`
+
+	// 用以组织架构变更通知其他服务权限变更
+	OrgNodeMd5 string `width:"32" charset:"ascii" nullable:"true"`
 }
 
 func (model *SStandaloneAnonResourceBase) BeforeInsert() {
@@ -365,6 +370,11 @@ func (model *SStandaloneAnonResourceBase) SetOrganizationMetadataAll(ctx context
 			return errors.Wrap(err, "SetAllOrganization")
 		}
 	}
+	Update(model, func() error {
+		model.OrgNodeMd5 = fmt.Sprintf("%x", md5.Sum([]byte(jsonutils.Marshal(meta).String())))
+		return nil
+	})
+
 	// 避免加入组织架构后，项目所在的层级会移除此项目
 	//{
 	//	userTags := make(map[string]interface{})
