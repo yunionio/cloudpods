@@ -54,6 +54,10 @@ const (
 )
 
 const (
+	LLM_STATUS_READY = "ready"
+)
+
+const (
 	LLM_STATUS_CREATING_POD             = "creating_pod"
 	LLM_STATUS_CREAT_POD_FAILED         = "creat_pod_failed"
 	LLM_STATUS_PULLING_MODEL            = "pulling_model"
