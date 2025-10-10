@@ -34,6 +34,7 @@ func InitHandlers(app *appsrv.Application) {
 		models.OllamaManager,
 		models.DifyManager,
 		models.GetLLMImageManager(),
+		models.GetLLMModelManager(),
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewModelHandler(manager)
