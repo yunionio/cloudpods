@@ -2,6 +2,13 @@ package llm
 
 import "yunion.io/x/onecloud/pkg/apis"
 
+type LLMImageListInput struct {
+	apis.SharableVirtualResourceListInput
+
+	ImageLabel string `json:"image_label"`
+	ImageName  string `json:"image_name"`
+}
+
 type LLMImageCreateInput struct {
 	apis.SharableVirtualResourceCreateInput
 

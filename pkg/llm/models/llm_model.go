@@ -179,6 +179,10 @@ func (man *SLLMModelManager) ValidateCreateData(ctx context.Context, userCred mc
 		return input, errors.Wrapf(err, "validate image_id %s", input.LLMImageId)
 	}
 
-	input.Status = api.LLM_STATUS_READY
+	input.Status = api.STATUS_READY
 	return input, nil
+}
+
+func (model *SLLMModel) GetLLMContainerDriver() ILLMContainerDriver {
+	return GetLLMContainerDriver(api.LLMContainerType(model.LLMType))
 }
