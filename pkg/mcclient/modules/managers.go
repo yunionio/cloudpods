@@ -180,3 +180,9 @@ func NewAPIMapManager(keyword, keywordPlural string, columns, adminColumns []str
 		BaseManager: *modulebase.NewBaseManager(apis.SERVICE_TYPE_APIMAP, "", "", columns, adminColumns),
 		Keyword:     keyword, KeywordPlural: keywordPlural}
 }
+
+func NewLLMManager(keyword, keywordPlural string, columns, adminColumns []string) modulebase.ResourceManager {
+	return modulebase.ResourceManager{
+		BaseManager: *modulebase.NewBaseManager(apis.SERVICE_TYPE_LLM, "", "", columns, adminColumns),
+		Keyword:     keyword, KeywordPlural: keywordPlural}
+}
