@@ -345,7 +345,7 @@ func downloadFileIntoContainer(ctx context.Context, userCred mcclient.TokenCrede
 }
 
 func accessBlobsCacheHandler(ctx context.Context, userCred mcclient.TokenCredential, pod guestman.PodInstance, containerId string, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	input := new(llm.LLMAccessCacheInput)
+	input := new(llm.OllamaAccessCacheInput)
 	if err := body.Unmarshal(input); err != nil {
 		return nil, err
 	}

@@ -30,7 +30,7 @@ func (t *LLMInstallGgufTask) requestGetGgufFile(ctx context.Context, llm *models
 	llm.SetStatus(ctx, t.GetUserCred(), api.LLM_STATUS_FETCHING_GGUF_FILE, "")
 
 	// Distingush whether access gguf file from host or download from web
-	input := new(api.LLMGgufSpec)
+	input := new(api.OllamaGgufSpec)
 	if err := t.GetParams().Unmarshal(input); nil != err {
 		t.OnGetGgufFileFailed(ctx, llm, jsonutils.NewString(err.Error()))
 		return
@@ -58,7 +58,7 @@ func (t *LLMInstallGgufTask) OnGetGgufFileFailed(ctx context.Context, llm *model
 }
 
 func (t *LLMInstallGgufTask) OnGetGgufFile(ctx context.Context, llm *models.SOllama, data jsonutils.JSONObject) {
-	input := new(api.LLMGgufSpec)
+	input := new(api.OllamaGgufSpec)
 	if err := t.GetParams().Unmarshal(input); nil != err {
 		t.OnCreateModelFailed(ctx, llm, jsonutils.NewString(err.Error()))
 		return

@@ -972,7 +972,7 @@ func (caccount *SCloudaccount) purge(ctx context.Context, userCred mcclient.Toke
 
 func deleteLLMService(ctx context.Context, userCred mcclient.TokenCredential, guestId string) error {
 	session := auth.GetSession(ctx, userCred, "")
-	input := llmapi.LLMListInput{
+	input := llmapi.OllamaListInput{
 		GuestId: guestId,
 	}
 	params := jsonutils.Marshal(input)

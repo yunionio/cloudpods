@@ -54,7 +54,7 @@ func (t *LLMPullModelTask) OnGetManifests(ctx context.Context, llm *models.SOlla
 		t.OnAccessCacheFailed(ctx, llm, jsonutils.NewString(err.Error()))
 		return
 	}
-	input := &api.LLMAccessCacheInput{
+	input := &api.OllamaAccessCacheInput{
 		Blobs:     blobs,
 		ModelName: llm.GetModelName(),
 	}
@@ -72,7 +72,7 @@ func (t *LLMPullModelTask) OnAccessCacheFailed(ctx context.Context, llm *models.
 
 func (t *LLMPullModelTask) OnAccessCache(ctx context.Context, llm *models.SOllama, data jsonutils.JSONObject) {
 	// log.Infoln("try to find out blobs: ", t.GetParams().String(), data.String())
-	input := new(api.LLMAccessCacheInput)
+	input := new(api.OllamaAccessCacheInput)
 	if err := t.GetParams().Unmarshal(input); nil != err {
 		t.OnAccessCacheFailed(ctx, llm, jsonutils.NewString(err.Error()))
 		return

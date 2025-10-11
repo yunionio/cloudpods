@@ -21,5 +21,5 @@ type IPodDriver interface {
 	RequestDoCreateContainer(ctx context.Context, userCred mcclient.TokenCredential, containerId string, taskId string) error
 
 	RequestDownloadFileIntoContainer(ctx context.Context, userCred mcclient.TokenCredential, containerId string, taskId string, input *computeapi.ContainerDownloadFileInput) (jsonutils.JSONObject, error)
-	RequestOllamaBlobsCache(ctx context.Context, userCred mcclient.TokenCredential, containerId string, taskId string, input *api.LLMAccessCacheInput) (jsonutils.JSONObject, error)
+	RequestOllamaBlobsCache(ctx context.Context, userCred mcclient.TokenCredential, containerId string, taskId string, input *api.OllamaAccessCacheInput) (jsonutils.JSONObject, error)
 }
