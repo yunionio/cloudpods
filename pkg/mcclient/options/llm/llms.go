@@ -16,13 +16,13 @@ type LLMModelOptions struct {
 	LLMGgufOptions
 }
 
-func (o *LLMModelOptions) parseModel() (*llmapi.LLMPullModelInput, error) {
+func (o *LLMModelOptions) parseModel() (*llmapi.OllamaPullModelInput, error) {
 	ggufSpec, err := o.getGgufSpec()
 	if err != nil {
 		return nil, err
 	}
 
-	return &llmapi.LLMPullModelInput{
+	return &llmapi.OllamaPullModelInput{
 		Model: o.MODEL,
 		Gguf:  ggufSpec,
 	}, nil
@@ -121,7 +121,7 @@ type LLMGgufOptions struct {
 	Gguf string `help:"Import llm from gguf file.\nFormat: file=<path_or_url>,source=<host_or_web>,parameter=[key1=value1|key2=value2...],template=<string>,system=<string>,license=<string>,message=[role1=content1|role2=content2...]\nSource is default to be host\nSupported parameters: num_ctx, repeat_last_n, repeat_penalty, temperature, seed, stop, num_predict, top_k, top_p, min_p\nTemplate: Model prompt template, used to define conversation format\nSystem: System-level prompt, used to set model behavior or role\nLicense: Model license information\nMessage: Predefined conversation messages, format: role=content, supported roles: user, assistant, system, multiple entries separated by |\nFor example:\n\t--gguf \"file=https://tmp.tmp.tmp/qwen3-0.6b.gguf,source=web,parameter=[temperature=0.6|stop=AI assistant:|num_ctx=2048|top_k=100],template={{.System}}\\n{{.Prompt}},system=You are a helpful assistant.,license=MIT,message=[system=Hello|user=Hi there]\"\n\t--gguf file=/root/Downloads/qwen3-0.6b.gguf"`
 }
 
-func (op *LLMGgufOptions) getGgufSpec() (*llmapi.LLMGgufSpec, error) {
+func (op *LLMGgufOptions) getGgufSpec() (*llmapi.OllamaGgufSpec, error) {
 	if op.Gguf == "" {
 		return nil, nil
 	}
@@ -131,7 +131,7 @@ func (op *LLMGgufOptions) getGgufSpec() (*llmapi.LLMGgufSpec, error) {
 	var template *string
 	var system *string
 	var license *string
-	var messages []*llmapi.LLMModelFileMessage
+	var messages []*llmapi.OllamaModelFileMessage
 	params := make(map[string]string)
 
 	parts := strings.Split(op.Gguf, ",")
@@ -177,10 +177,10 @@ func (op *LLMGgufOptions) getGgufSpec() (*llmapi.LLMGgufSpec, error) {
 		return nil, err
 	}
 
-	return &llmapi.LLMGgufSpec{
+	return &llmapi.OllamaGgufSpec{
 		GgufFile: filePath,
 		Source:   source,
-		ModelFile: &llmapi.LLMModelFileSpec{
+		ModelFile: &llmapi.OllamaModelFileSpec{
 			Parameter: paramStruct,
 			Template:  template,
 			System:    system,
@@ -190,11 +190,11 @@ func (op *LLMGgufOptions) getGgufSpec() (*llmapi.LLMGgufSpec, error) {
 	}, nil
 }
 
-func buildLLMParameter(params map[string]string) (*llmapi.LLMModelFileParameter, error) {
+func buildLLMParameter(params map[string]string) (*llmapi.OllamaModelFileParameter, error) {
 	if len(params) == 0 {
 		return nil, nil
 	}
-	p := &llmapi.LLMModelFileParameter{}
+	p := &llmapi.OllamaModelFileParameter{}
 
 	for key, valStr := range params {
 		switch key {
@@ -236,12 +236,12 @@ func buildLLMParameter(params map[string]string) (*llmapi.LLMModelFileParameter,
 	return p, nil
 }
 
-func parseMessages(msgStr string) []*llmapi.LLMModelFileMessage {
+func parseMessages(msgStr string) []*llmapi.OllamaModelFileMessage {
 	if msgStr == "" {
 		return nil
 	}
 
-	var messages []*llmapi.LLMModelFileMessage
+	var messages []*llmapi.OllamaModelFileMessage
 	pairs := strings.Split(msgStr, "|")
 
 	for _, pair := range pairs {
@@ -255,7 +255,7 @@ func parseMessages(msgStr string) []*llmapi.LLMModelFileMessage {
 		case llmapi.LLM_OLLAMA_GGUF_MESSAGE_ROLE_USER,
 			llmapi.LLM_OLLAMA_GGUF_MESSAGE_ROLE_ASSISTANT,
 			llmapi.LLM_OLLAMA_GGUF_MESSAGE_ROLE_SYSTEM:
-			messages = append(messages, &llmapi.LLMModelFileMessage{
+			messages = append(messages, &llmapi.OllamaModelFileMessage{
 				Role:    key,
 				Content: val,
 			})

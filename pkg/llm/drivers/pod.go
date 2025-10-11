@@ -111,7 +111,7 @@ func (p *SPodDriver) RequestDownloadFileIntoContainer(ctx context.Context, userC
 	return requesyContainerHostActionWithTask(ctx, userCred, containerId, "download-file", "", taskId, jsonutils.Marshal(input))
 }
 
-func (p *SPodDriver) RequestOllamaBlobsCache(ctx context.Context, userCred mcclient.TokenCredential, containerId string, taskId string, input *api.LLMAccessCacheInput) (jsonutils.JSONObject, error) {
+func (p *SPodDriver) RequestOllamaBlobsCache(ctx context.Context, userCred mcclient.TokenCredential, containerId string, taskId string, input *api.OllamaAccessCacheInput) (jsonutils.JSONObject, error) {
 	return requesyContainerHostActionWithTask(ctx, userCred, containerId, "access-ollama-blobs-cache", "", taskId, jsonutils.Marshal(input))
 }
 

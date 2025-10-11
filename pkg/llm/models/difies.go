@@ -94,7 +94,7 @@ func (manager *SDifyManager) ValidateCreateData(ctx context.Context, userCred mc
 	return input, nil
 }
 
-func (manager *SDifyManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query *api.LLMListInput) (*sqlchemy.SQuery, error) {
+func (manager *SDifyManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query *api.OllamaListInput) (*sqlchemy.SQuery, error) {
 	q, err := manager.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query.VirtualResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemFilter")
