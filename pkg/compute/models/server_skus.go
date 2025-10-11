@@ -354,6 +354,7 @@ func (self *SServerSkuManager) ValidateCreateData(ctx context.Context, userCred 
 		input.Provider = region.Provider
 	}
 	if input.Provider == api.CLOUD_PROVIDER_ONECLOUD {
+		input.CloudregionId = api.DEFAULT_REGION_ID
 	} else if utils.IsInStringArray(input.Provider, api.PRIVATE_CLOUD_PROVIDERS) {
 		input.Status = api.SkuStatusCreating
 	}
