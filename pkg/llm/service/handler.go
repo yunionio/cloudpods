@@ -31,10 +31,13 @@ func InitHandlers(app *appsrv.Application) {
 		db.OpsLog,
 		db.Metadata,
 
-		models.OllamaManager,
+		// models.OllamaManager,
 		models.DifyManager,
 		models.GetLLMImageManager(),
 		models.GetLLMModelManager(),
+		models.GetVolumeManager(),
+		models.GetAccessInfoManager(),
+		models.GetLLMManager(),
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewModelHandler(manager)
