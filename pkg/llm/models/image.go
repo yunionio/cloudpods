@@ -13,6 +13,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/identity"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/sqlchemy"
 )
 
 func init() {
@@ -79,7 +80,7 @@ func (man *SLLMImageManager) ValidateCreateData(ctx context.Context, userCred mc
 		input.CredentialId = cred.Id
 	}
 
-	input.Status = api.LLM_STATUS_READY
+	input.Status = api.STATUS_READY
 	return input, nil
 }
 
@@ -99,6 +100,45 @@ func (man *SLLMImageManager) ValidateUpdateData(ctx context.Context, userCred mc
 	}
 	return input, nil
 }
+
+func (man *SLLMImageManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	input api.LLMImageListInput,
+) (*sqlchemy.SQuery, error) {
+	q, err := man.SSharableVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, input.SharableVirtualResourceListInput)
+	if err != nil {
+		return nil, errors.Wrapf(err, "SSharableBaseResourceManager.ListItemFilter")
+	}
+	if input.IsPublic != nil {
+		if *input.IsPublic {
+			q = q.IsTrue("is_public")
+		} else {
+			q = q.IsFalse("is_public")
+		}
+	}
+	if len(input.ImageLabel) > 0 {
+		q = q.Equals("image_label", input.ImageLabel)
+	}
+	if len(input.ImageName) > 0 {
+		q = q.Equals("image_name", input.ImageName)
+	}
+	return q, nil
+}
+
+// func (image *SDesktopImage) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
+// 	for _, field := range []string{"audio_image_id", "stream_image_id", "app_image_id"} {
+// 		count, err := GetDesktopManager().Query().Equals(field, image.Id).CountWithError()
+// 		if err != nil {
+// 			return errors.Wrap(err, "fetch desktops")
+// 		}
+// 		if count > 0 {
+// 			return errors.Wrapf(errors.ErrNotSupported, "This image is currently in use by %s", field)
+// 		}
+// 	}
+// 	return nil
+// }
 
 func (image *SLLMImage) ToContainerImage() string {
 	return fmt.Sprintf("%s:%s", image.ImageName, image.ImageLabel)

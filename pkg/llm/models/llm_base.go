@@ -8,7 +8,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/llm"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
-	"yunion.io/x/onecloud/pkg/llm/drivers"
+	"yunion.io/x/onecloud/pkg/llm/drivers/pod"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/pkg/errors"
 )
@@ -25,7 +25,7 @@ type SLLMBase struct {
 }
 
 func (base *SLLMBase) GetPodDriver() IPodDriver {
-	return &drivers.SPodDriver{}
+	return &pod.SPodDriver{}
 }
 
 func (base *SLLMBase) SetGuestId(gstId string) error {

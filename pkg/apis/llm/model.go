@@ -157,10 +157,10 @@ type LLMModelUpdateInput struct {
 	Properties   map[string]string `json:"properties"`
 }
 
-type LLMModelCloneInput struct {
-	Name string `json:"name"`
-}
+// type LLMModelCloneInput struct {
+// 	Name string `json:"name"`
+// }
 
-type LLMModelSyncImageRequestTaskInput struct {
-	Request bool `json:"request"`
-}
+// type LLMModelSyncImageRequestTaskInput struct {
+// 	Request bool `json:"request"`
+// }
