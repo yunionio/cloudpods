@@ -72,7 +72,7 @@ func init() {
 // 	return nil
 // }
 
-func (manager *SOllamaManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query *api.LLMListInput) (*sqlchemy.SQuery, error) {
+func (manager *SOllamaManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query *api.OllamaListInput) (*sqlchemy.SQuery, error) {
 	q, err := manager.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query.VirtualResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemFilter")
@@ -83,7 +83,7 @@ func (manager *SOllamaManager) ListItemFilter(ctx context.Context, q *sqlchemy.S
 	return q, err
 }
 
-func (manager *SOllamaManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, _ jsonutils.JSONObject, input *api.LLMCreateInput) (*api.LLMCreateInput, error) {
+func (manager *SOllamaManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, _ jsonutils.JSONObject, input *api.OllamaCreateInput) (*api.OllamaCreateInput, error) {
 	if input.Model == "" {
 		return nil, httperrors.NewNotEmptyError("model is required")
 	}
@@ -149,7 +149,7 @@ func (ollama *SOllama) GetModel() string {
 
 func (ollama *SOllama) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
 	// unmarshal input
-	input := &api.LLMCreateInput{}
+	input := &api.OllamaCreateInput{}
 	if err := data.Unmarshal(input); err != nil {
 		return errors.Wrap(err, "Unmarshal ServerCreateInput")
 	}
@@ -210,7 +210,7 @@ func (ollama *SOllama) exec(ctx context.Context, userCred mcclient.TokenCredenti
 	return rst, nil
 }
 
-func (ollama *SOllama) PerformChangeModel(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.LLMPullModelInput) (jsonutils.JSONObject, error) {
+func (ollama *SOllama) PerformChangeModel(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.OllamaPullModelInput) (jsonutils.JSONObject, error) {
 	// check model is the same with current
 	if input.Model == ollama.GetModel() && input.Gguf == nil && ollama.GgufFile == "" {
 		return nil, errors.Errorf("LLM run with model %s already", input.Model)
@@ -301,7 +301,7 @@ func (ollama *SOllama) AccessBlobsCache(ctx context.Context, userCred mcclient.T
 	// update status
 	ollama.SetStatus(ctx, userCred, api.LLM_STATUS_DOWNLOADING_BLOBS, "")
 	// access blobs
-	input := new(api.LLMAccessCacheInput)
+	input := new(api.OllamaAccessCacheInput)
 	if err := task.GetParams().Unmarshal(input); nil != err {
 		return err
 	}
@@ -404,7 +404,7 @@ func (ollama *SOllama) FetchBlobs(ctx context.Context, userCred mcclient.TokenCr
 	return results, nil
 }
 
-func (ollama *SOllama) InstallGgufModel(ctx context.Context, userCred mcclient.TokenCredential, spec *api.LLMModelFileSpec) error {
+func (ollama *SOllama) InstallGgufModel(ctx context.Context, userCred mcclient.TokenCredential, spec *api.OllamaModelFileSpec) error {
 	// touch modelfile
 	modelfile := createModelFile(ollama, spec)
 	modelfilePath := path.Join(getGgufDir(ollama), api.LLM_OLLAMA_MODELFILE_NAME)
@@ -426,11 +426,11 @@ func (ollama *SOllama) InstallGgufModel(ctx context.Context, userCred mcclient.T
 }
 
 func (ollama *SOllama) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	input := new(api.LLMCreateInput)
+	input := new(api.OllamaCreateInput)
 	if err := data.Unmarshal(&input); nil != err {
 		return
 	}
-	task, err := createPullModelTask(ctx, userCred, ollama, &input.LLMPullModelInput)
+	task, err := createPullModelTask(ctx, userCred, ollama, &input.OllamaPullModelInput)
 	if nil != err {
 		return
 	}
@@ -449,7 +449,7 @@ func (ollama *SOllama) UpdateModel(model string) error {
 	return nil
 }
 
-func createPullModelTask(ctx context.Context, userCred mcclient.TokenCredential, ollama *SOllama, input *api.LLMPullModelInput) (task *taskman.STask, err error) {
+func createPullModelTask(ctx context.Context, userCred mcclient.TokenCredential, ollama *SOllama, input *api.OllamaPullModelInput) (task *taskman.STask, err error) {
 	if input.Gguf != nil {
 		ollama.SetGgufFile(input.Gguf.GgufFile)
 		task, err = taskman.TaskManager.NewTask(ctx, "LLMInstallGgufTask", ollama, userCred, jsonutils.Marshal(input.Gguf).(*jsonutils.JSONDict), "", "", nil)
@@ -460,7 +460,7 @@ func createPullModelTask(ctx context.Context, userCred mcclient.TokenCredential,
 	return
 }
 
-func createModelFile(ollama *SOllama, spec *api.LLMModelFileSpec) string {
+func createModelFile(ollama *SOllama, spec *api.OllamaModelFileSpec) string {
 	mdlFile := fmt.Sprintf(api.LLM_OLLAMA_GGUF_FROM, getGgufFile(ollama))
 
 	// Parameter
