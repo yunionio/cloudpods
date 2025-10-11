@@ -15,7 +15,10 @@
 package fsutils
 
 import (
+	"bufio"
+	"bytes"
 	"fmt"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -507,6 +510,63 @@ func DetectIsUEFISupport(rootfs fsdriver.IRootFsDriver, partitions []fsdriver.ID
 	return false
 }
 
+func DetectIsBIOSSupport(partDev string, rootfs fsdriver.IRootFsDriver) bool {
+	fi, err := os.OpenFile(partDev, os.O_RDONLY, 0444)
+	if err != nil {
+		log.Errorf("failed open partdev %s: %s", partDev, err)
+		return false
+	}
+	defer fi.Close()
+
+	// read first sector
+	sector := make([]byte, 512)
+	n, err := fi.Read(sector)
+	if err != nil || n != 512 {
+		log.Errorf("failed read first sector %d %s: %s", n, partDev, err)
+		return false
+	}
+
+	bootSignature := sector[510:512]
+	expectedSignature := []byte{0x55, 0xAA}
+	log.Infof("Detect is bios support bootSignature: %x", bootSignature)
+	if bootSignature[0] != expectedSignature[0] || bootSignature[1] != expectedSignature[1] {
+		return false
+	}
+	partitionType := rootfs.GetPartition().GetPhysicalPartitionType()
+	if partitionType == "mbr" {
+		return true
+	} else if partitionType == "gpt" {
+		/*
+			   Number  Start (sector)    End (sector)  Size       Code  Name
+			      1          227328        83886046   39.9 GiB    8300
+			     14            2048           10239   4.0 MiB     EF02
+			     15           10240          227327   106.0 MiB   EF00
+
+				# EF02 is BIOS Boot partition
+		*/
+		out, err := procutils.NewCommand("sgdisk", "-p", partDev).Output()
+		if err != nil {
+			log.Errorf("sgdisk -p %s failed: %s, %s", partDev, err, out)
+			return false
+		}
+		re := regexp.MustCompile(`^\s*(\d+)\s+(\d+)\s+(\d+)\s+([\d\.]+\s+\w+)\s+(\w+)\s*(.*)$`)
+		scanner := bufio.NewScanner(bytes.NewReader(out))
+		for scanner.Scan() {
+			line := scanner.Text()
+			m := re.FindStringSubmatch(line)
+			if m == nil {
+				continue
+			}
+			code := m[5]
+			if code == "EF02" {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
 func MountRootfs(readonly bool, partitions []fsdriver.IDiskPartition) (fsdriver.IRootFsDriver, error) {
 	errs := []error{}
 	for i := 0; i < len(partitions); i++ {
@@ -666,6 +726,7 @@ func ProbeImageInfo(d deploy_iface.IDeployer) (*apis.ImageInfo, error) {
 	// multi partition concurrent, so we need umount rootfs first
 	imageInfo.IsUefiSupport = d.DetectIsUEFISupport(rootfs)
 	imageInfo.PhysicalPartitionType = partition.GetPhysicalPartitionType()
+	imageInfo.IsBiosSupport = d.DetectIsBIOSSupport(rootfs)
 	log.Infof("ProbeImageInfo response %s", imageInfo)
 	return imageInfo, nil
 }
