@@ -199,6 +199,7 @@ message ImageInfo {
   bool is_readonly = 5;
   string physical_partition_type = 6;
   bool is_installed_cloud_init = 7;
+  bool is_bios_support = 8;
 }
 
 message EsxiDiskInfo {
