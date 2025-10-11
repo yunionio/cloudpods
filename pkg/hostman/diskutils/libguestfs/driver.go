@@ -256,6 +256,10 @@ func (d *SLibguestfsDriver) DetectIsUEFISupport(rootfs fsdriver.IRootFsDriver) b
 	return fsutils.DetectIsUEFISupport(rootfs, d.GetPartitions())
 }
 
+func (d *SLibguestfsDriver) DetectIsBIOSSupport(rootfs fsdriver.IRootFsDriver) bool {
+	return fsutils.DetectIsBIOSSupport(d.nbddev, rootfs)
+}
+
 func (d *SLibguestfsDriver) MountRootfs(readonly bool) (fsdriver.IRootFsDriver, error) {
 	return fsutils.MountRootfs(readonly, d.GetPartitions())
 }
