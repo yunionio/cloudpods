@@ -1829,7 +1829,7 @@ func (h *SHostInfo) ensureNicsHostwires(hostInfo *api.HostDetails) error {
 				return errors.Wrap(err, "SetWireId")
 			}
 		} else {
-			log.Warningf("NIC not present %s", jsonutils.Marshal(nic).String())
+			log.Warningf("NIC not present %s, %d", nicInfo.Mac, nicInfo.VlanId)
 		}
 	}
 	return nil
