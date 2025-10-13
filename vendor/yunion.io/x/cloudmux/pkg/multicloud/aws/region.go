@@ -15,15 +15,17 @@
 package aws
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"sync"
 
-	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/organizations"
 	"github.com/aws/aws-sdk-go/service/resourcegroupstaggingapi"
-	"github.com/aws/aws-sdk-go/service/s3"
+
 	"github.com/aws/aws-sdk-go/service/wafv2"
 
 	"yunion.io/x/log"
@@ -179,7 +181,7 @@ type SRegion struct {
 	multicloud.SRegion
 
 	client                 *SAwsClient
-	s3Client               *s3.S3
+	s3Client               *s3.Client
 	wafClient              *wafv2.WAFV2
 	organizationClient     *organizations.Organizations
 	resourceGroupTagClient *resourcegroupstaggingapi.ResourceGroupsTaggingAPI
@@ -208,31 +210,6 @@ func (self *SRegion) getWafClient() (*wafv2.WAFV2, error) {
 		self.wafClient = wafv2.New(s)
 	}
 	return self.wafClient, nil
-}
-
-func (self *SRegion) GetS3Client() (*s3.S3, error) {
-	if self.s3Client == nil {
-		s, err := self.getAwsSession()
-		if err != nil {
-			return nil, errors.Wrap(err, "getAwsSession")
-		}
-		self.s3Client = s3.New(s,
-			&aws.Config{
-				DisableRestProtocolURICleaning: aws.Bool(true),
-			})
-	}
-	return self.s3Client, nil
-}
-
-func (r *SRegion) getOrganizationClient() (*organizations.Organizations, error) {
-	if r.organizationClient == nil {
-		s, err := r.getAwsSession()
-		if err != nil {
-			return nil, errors.Wrap(err, "getAwsSession")
-		}
-		r.organizationClient = organizations.New(s)
-	}
-	return r.organizationClient, nil
 }
 
 func (self *SRegion) getResourceGroupTagClient() (*resourcegroupstaggingapi.ResourceGroupsTaggingAPI, error) {
@@ -708,13 +685,14 @@ func (region *SRegion) CreateIBucket(name string, storageClassStr string, acl st
 		return errors.Wrap(err, "GetS3Client")
 	}
 	input := &s3.CreateBucketInput{}
-	input.SetBucket(name)
+	input.Bucket = &name
 	if region.GetId() != DEFAULT_S3_REGION_ID {
 		location := region.GetId()
-		input.CreateBucketConfiguration = &s3.CreateBucketConfiguration{}
-		input.CreateBucketConfiguration.SetLocationConstraint(location)
+		input.CreateBucketConfiguration = &types.CreateBucketConfiguration{
+			LocationConstraint: types.BucketLocationConstraint(location),
+		}
 	}
-	_, err = s3cli.CreateBucket(input)
+	_, err = s3cli.CreateBucket(context.Background(), input)
 	if err != nil {
 		return errors.Wrap(err, "CreateBucket")
 	}
@@ -732,7 +710,7 @@ func (region *SRegion) DeleteIBucket(name string) error {
 	}
 	input := &s3.DeleteBucketInput{}
 	input.Bucket = &name
-	_, err = s3cli.DeleteBucket(input)
+	_, err = s3cli.DeleteBucket(context.Background(), input)
 	if err != nil {
 		if region.client.debug {
 			log.Debugf("%#v %s", err, err)
@@ -753,7 +731,7 @@ func (region *SRegion) IBucketExist(name string) (bool, error) {
 	}
 	input := &s3.HeadBucketInput{}
 	input.Bucket = &name
-	_, err = s3cli.HeadBucket(input)
+	_, err = s3cli.HeadBucket(context.Background(), input)
 	if err != nil {
 		if region.client.debug {
 			log.Debugf("%#v %s", err, err)

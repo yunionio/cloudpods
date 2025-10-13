@@ -190,6 +190,8 @@ type SGuest struct {
 	QgaStatus string `width:"36" charset:"ascii" nullable:"false" default:"unknown" list:"user" create:"optional"`
 	// power_states limit in [on, off, unknown]
 	PowerStates string `width:"36" charset:"ascii" nullable:"false" default:"unknown" list:"user" create:"optional"`
+	// 健康状态, 仅开机中火运行中有效， 目前只支持阿里云
+	HealthStatus string `width:"36" charset:"ascii" nullable:"true" default:"ok" list:"user"`
 	// Used for guest rescue
 	RescueMode bool `nullable:"false" default:"false" list:"user" create:"optional"`
 
@@ -3306,6 +3308,9 @@ func (g *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.TokenCre
 
 		if !g.IsFailureStatus() && syncStatus {
 			g.Status = extVM.GetStatus()
+			if g.Status == api.VM_RUNNING || g.Status == api.VM_STARTING {
+				g.HealthStatus = extVM.GetHealthStatus()
+			}
 			g.PowerStates = extVM.GetPowerStates()
 			g.InferPowerStates()
 		}

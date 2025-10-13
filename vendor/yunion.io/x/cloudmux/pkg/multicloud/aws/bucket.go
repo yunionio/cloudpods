@@ -24,8 +24,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws/request"
-	"github.com/aws/aws-sdk-go/service/s3"
+	v4 "github.com/aws/aws-sdk-go-v2/aws/signer/v4"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -79,24 +80,24 @@ func (b *SBucket) GetStorageClass() string {
 	return ""
 }
 
-func s3ToCannedAcl(acls []*s3.Grant) cloudprovider.TBucketACLType {
+func s3ToCannedAcl(acls []types.Grant) cloudprovider.TBucketACLType {
 	switch {
 	case len(acls) == 1:
-		if acls[0].Grantee.URI == nil && *acls[0].Permission == s3cli.PERMISSION_FULL_CONTROL {
+		if acls[0].Grantee.URI == nil && acls[0].Permission == types.Permission(s3cli.PERMISSION_FULL_CONTROL) {
 			return cloudprovider.ACLPrivate
 		}
 	case len(acls) == 2:
 		for _, g := range acls {
-			if *g.Grantee.Type == s3cli.GRANTEE_TYPE_GROUP && *g.Grantee.URI == s3cli.GRANTEE_GROUP_URI_AUTH_USERS && *g.Permission == s3cli.PERMISSION_READ {
+			if g.Grantee.Type == types.Type(s3cli.GRANTEE_TYPE_GROUP) && g.Grantee.URI != nil && *g.Grantee.URI == s3cli.GRANTEE_GROUP_URI_AUTH_USERS && g.Permission == types.Permission(s3cli.PERMISSION_READ) {
 				return cloudprovider.ACLAuthRead
 			}
-			if *g.Grantee.Type == s3cli.GRANTEE_TYPE_GROUP && *g.Grantee.URI == s3cli.GRANTEE_GROUP_URI_ALL_USERS && *g.Permission == s3cli.PERMISSION_READ {
+			if g.Grantee.Type == types.Type(s3cli.GRANTEE_TYPE_GROUP) && g.Grantee.URI != nil && *g.Grantee.URI == s3cli.GRANTEE_GROUP_URI_ALL_USERS && g.Permission == types.Permission(s3cli.PERMISSION_READ) {
 				return cloudprovider.ACLPublicRead
 			}
 		}
 	case len(acls) == 3:
 		for _, g := range acls {
-			if *g.Grantee.Type == s3cli.GRANTEE_TYPE_GROUP && *g.Grantee.URI == s3cli.GRANTEE_GROUP_URI_ALL_USERS && *g.Permission == s3cli.PERMISSION_WRITE {
+			if g.Grantee.Type == types.Type(s3cli.GRANTEE_TYPE_GROUP) && g.Grantee.URI != nil && *g.Grantee.URI == s3cli.GRANTEE_GROUP_URI_ALL_USERS && g.Permission == types.Permission(s3cli.PERMISSION_WRITE) {
 				return cloudprovider.ACLPublicReadWrite
 			}
 		}
@@ -108,12 +109,12 @@ func (b *SBucket) GetAcl() cloudprovider.TBucketACLType {
 	acl := cloudprovider.ACLPrivate
 	s3cli, err := b.region.GetS3Client()
 	if err != nil {
-		log.Errorf("b.region.GetS3Client fail %s", err)
+		log.Errorf("GetS3Client fail %v", err)
 		return acl
 	}
 	input := &s3.GetBucketAclInput{}
-	input.SetBucket(b.Name)
-	output, err := s3cli.GetBucketAcl(input)
+	input.Bucket = &b.Name
+	output, err := s3cli.GetBucketAcl(context.Background(), input)
 	if err != nil {
 		log.Errorf("s3cli.GetBucketAcl fail %s", err)
 		return acl
@@ -124,12 +125,12 @@ func (b *SBucket) GetAcl() cloudprovider.TBucketACLType {
 func (b *SBucket) SetAcl(aclStr cloudprovider.TBucketACLType) error {
 	s3cli, err := b.region.GetS3Client()
 	if err != nil {
-		return errors.Wrap(err, "b.region.GetS3Client")
+		return errors.Wrap(err, "GetS3Client")
 	}
 	input := &s3.PutBucketAclInput{}
-	input.SetBucket(b.Name)
-	input.SetACL(string(aclStr))
-	_, err = s3cli.PutBucketAcl(input)
+	input.Bucket = &b.Name
+	input.ACL = types.BucketCannedACL(string(aclStr))
+	_, err = s3cli.PutBucketAcl(context.Background(), input)
 	if err != nil {
 		return errors.Wrap(err, "PutBucketAcl")
 	}
@@ -166,20 +167,24 @@ func (b *SBucket) ListObjects(prefix string, marker string, delimiter string, ma
 		return result, errors.Wrap(err, "GetS3Client")
 	}
 	input := &s3.ListObjectsInput{}
-	input.SetBucket(b.Name)
+	input.Bucket = &b.Name
 	if len(prefix) > 0 {
-		input.SetPrefix(prefix)
+		input.Prefix = &prefix
 	}
 	if len(marker) > 0 {
-		input.SetMarker(marker)
+		input.Marker = &marker
 	}
 	if len(delimiter) > 0 {
-		input.SetDelimiter(delimiter)
+		input.Delimiter = &delimiter
 	}
 	if maxCount > 0 {
-		input.SetMaxKeys(int64(maxCount))
+		mc := int32(maxCount)
+		input.MaxKeys = &mc
 	}
-	oResult, err := s3cli.ListObjects(input)
+	if len(prefix) > 0 {
+		input.Prefix = &prefix
+	}
+	oResult, err := s3cli.ListObjects(context.Background(), input)
 	if err != nil {
 		return result, errors.Wrap(err, "ListObjects")
 	}
@@ -188,7 +193,7 @@ func (b *SBucket) ListObjects(prefix string, marker string, delimiter string, ma
 		obj := &SObject{
 			bucket: b,
 			SBaseCloudObject: cloudprovider.SBaseCloudObject{
-				StorageClass: *object.StorageClass,
+				StorageClass: string(object.StorageClass),
 				Key:          *object.Key,
 				SizeBytes:    *object.Size,
 				ETag:         *object.ETag,
@@ -224,50 +229,51 @@ func (b *SBucket) PutObject(ctx context.Context, key string, body io.Reader, siz
 		return errors.Wrap(err, "GetS3Client")
 	}
 	input := &s3.PutObjectInput{}
-	input.SetBucket(b.Name)
-	input.SetKey(key)
+	input.Bucket = &b.Name
+	input.Key = &key
 	seeker, err := fileutils.NewReadSeeker(body, sizeBytes)
 	if err != nil {
 		return errors.Wrap(err, "newFakeSeeker")
 	}
 	defer seeker.Close()
-	input.SetBody(seeker)
-	input.SetContentLength(sizeBytes)
+	input.Body = seeker
+	input.ContentLength = &sizeBytes
 	if meta != nil {
-		metaHdr := make(map[string]*string)
+		metaHdr := make(map[string]string)
 		for k, v := range meta {
 			if len(v) == 0 || len(v[0]) == 0 {
 				continue
 			}
+			value := strings.TrimSpace(v[0])
 			switch http.CanonicalHeaderKey(k) {
 			case cloudprovider.META_HEADER_CACHE_CONTROL:
-				input.SetCacheControl(v[0])
+				input.CacheControl = &value
 			case cloudprovider.META_HEADER_CONTENT_TYPE:
-				input.SetContentType(v[0])
+				input.ContentType = &value
 			case cloudprovider.META_HEADER_CONTENT_MD5:
-				input.SetContentMD5(v[0])
+				input.ContentMD5 = &value
 			case cloudprovider.META_HEADER_CONTENT_LANGUAGE:
-				input.SetContentLanguage(v[0])
+				input.ContentLanguage = &value
 			case cloudprovider.META_HEADER_CONTENT_ENCODING:
-				input.SetContentEncoding(v[0])
+				input.ContentEncoding = &value
 			case cloudprovider.META_HEADER_CONTENT_DISPOSITION:
-				input.SetContentDisposition(v[0])
+				input.ContentDisposition = &value
 			default:
-				metaHdr[k] = &v[0]
+				metaHdr[k] = value
 			}
 		}
 		if len(metaHdr) > 0 {
-			input.SetMetadata(metaHdr)
+			input.Metadata = metaHdr
 		}
 	}
 	if len(cannedAcl) == 0 {
 		cannedAcl = b.GetAcl()
 	}
-	input.SetACL(string(cannedAcl))
+	input.ACL = types.ObjectCannedACL(string(cannedAcl))
 	if len(storageClassStr) > 0 {
-		input.SetStorageClass(storageClassStr)
+		input.StorageClass = types.StorageClass(storageClassStr)
 	}
-	_, err = s3cli.PutObjectWithContext(ctx, input)
+	_, err = s3cli.PutObject(ctx, input)
 	if err != nil {
 		return errors.Wrap(err, "PutObjectWithContext")
 	}
@@ -280,41 +286,42 @@ func (b *SBucket) NewMultipartUpload(ctx context.Context, key string, cannedAcl 
 		return "", errors.Wrap(err, "GetS3Client")
 	}
 	input := &s3.CreateMultipartUploadInput{}
-	input.SetBucket(b.Name)
-	input.SetKey(key)
+	input.Bucket = &b.Name
+	input.Key = &key
 	if meta != nil {
-		metaHdr := make(map[string]*string)
+		metaHdr := make(map[string]string)
 		for k, v := range meta {
 			if len(v) == 0 || len(v[0]) == 0 {
 				continue
 			}
+			value := strings.TrimSpace(v[0])
 			switch http.CanonicalHeaderKey(k) {
 			case cloudprovider.META_HEADER_CACHE_CONTROL:
-				input.SetCacheControl(v[0])
+				input.CacheControl = &value
 			case cloudprovider.META_HEADER_CONTENT_TYPE:
-				input.SetContentType(v[0])
+				input.ContentType = &value
 			case cloudprovider.META_HEADER_CONTENT_LANGUAGE:
-				input.SetContentLanguage(v[0])
+				input.ContentLanguage = &value
 			case cloudprovider.META_HEADER_CONTENT_ENCODING:
-				input.SetContentEncoding(v[0])
+				input.ContentEncoding = &value
 			case cloudprovider.META_HEADER_CONTENT_DISPOSITION:
-				input.SetContentDisposition(v[0])
+				input.ContentDisposition = &value
 			default:
-				metaHdr[k] = &v[0]
+				metaHdr[k] = value
 			}
 		}
 		if len(metaHdr) > 0 {
-			input.SetMetadata(metaHdr)
+			input.Metadata = metaHdr
 		}
 	}
 	if len(cannedAcl) == 0 {
 		cannedAcl = b.GetAcl()
 	}
-	input.SetACL(string(cannedAcl))
+	input.ACL = types.ObjectCannedACL(string(cannedAcl))
 	if len(storageClassStr) > 0 {
-		input.SetStorageClass(storageClassStr)
+		input.StorageClass = types.StorageClass(storageClassStr)
 	}
-	output, err := s3cli.CreateMultipartUploadWithContext(ctx, input)
+	output, err := s3cli.CreateMultipartUpload(ctx, input)
 	if err != nil {
 		return "", errors.Wrap(err, "CreateMultipartUpload")
 	}
@@ -327,18 +334,19 @@ func (b *SBucket) UploadPart(ctx context.Context, key string, uploadId string, p
 		return "", errors.Wrap(err, "GetS3Client")
 	}
 	input := &s3.UploadPartInput{}
-	input.SetBucket(b.Name)
-	input.SetKey(key)
-	input.SetUploadId(uploadId)
-	input.SetPartNumber(int64(partIndex))
+	input.Bucket = &b.Name
+	input.Key = &key
+	input.UploadId = &uploadId
+	pn := int32(partIndex)
+	input.PartNumber = &pn
 	seeker, err := fileutils.NewReadSeeker(part, partSize)
 	if err != nil {
 		return "", errors.Wrap(err, "newFakeSeeker")
 	}
 	defer seeker.Close()
-	input.SetBody(seeker)
-	input.SetContentLength(partSize)
-	output, err := s3cli.UploadPartWithContext(ctx, input)
+	input.Body = seeker
+	input.ContentLength = &partSize
+	output, err := s3cli.UploadPart(ctx, input)
 	if err != nil {
 		return "", errors.Wrap(err, "UploadPartWithContext")
 	}
@@ -351,19 +359,20 @@ func (b *SBucket) CompleteMultipartUpload(ctx context.Context, key string, uploa
 		return errors.Wrap(err, "GetS3Client")
 	}
 	input := &s3.CompleteMultipartUploadInput{}
-	input.SetBucket(b.Name)
-	input.SetKey(key)
-	input.SetUploadId(uploadId)
-	uploads := &s3.CompletedMultipartUpload{}
-	parts := make([]*s3.CompletedPart, len(partEtags))
+	input.Bucket = &b.Name
+	input.Key = &key
+	input.UploadId = &uploadId
+	uploads := &types.CompletedMultipartUpload{}
+	parts := make([]types.CompletedPart, len(partEtags))
 	for i := range partEtags {
-		parts[i] = &s3.CompletedPart{}
-		parts[i].SetPartNumber(int64(i + 1))
-		parts[i].SetETag(partEtags[i])
+		parts[i] = types.CompletedPart{}
+		number := int32(i + 1)
+		parts[i].PartNumber = &number
+		parts[i].ETag = &partEtags[i]
 	}
-	uploads.SetParts(parts)
-	input.SetMultipartUpload(uploads)
-	_, err = s3cli.CompleteMultipartUploadWithContext(ctx, input)
+	uploads.Parts = parts
+	input.MultipartUpload = uploads
+	_, err = s3cli.CompleteMultipartUpload(ctx, input)
 	if err != nil {
 		return errors.Wrap(err, "CompleteMultipartUploadWithContext")
 	}
@@ -376,10 +385,10 @@ func (b *SBucket) AbortMultipartUpload(ctx context.Context, key string, uploadId
 		return errors.Wrap(err, "GetS3Client")
 	}
 	input := &s3.AbortMultipartUploadInput{}
-	input.SetBucket(b.Name)
-	input.SetKey(key)
-	input.SetUploadId(uploadId)
-	_, err = s3cli.AbortMultipartUploadWithContext(ctx, input)
+	input.Bucket = &b.Name
+	input.Key = &key
+	input.UploadId = &uploadId
+	_, err = s3cli.AbortMultipartUpload(ctx, input)
 	if err != nil {
 		return errors.Wrap(err, "AbortMultipartUploadWithContext")
 	}
@@ -392,9 +401,9 @@ func (b *SBucket) DeleteObject(ctx context.Context, key string) error {
 		return errors.Wrap(err, "GetS3Client")
 	}
 	input := &s3.DeleteObjectInput{}
-	input.SetBucket(b.Name)
-	input.SetKey(key)
-	_, err = s3cli.DeleteObjectWithContext(ctx, input)
+	input.Bucket = &b.Name
+	input.Key = &key
+	_, err = s3cli.DeleteObject(ctx, input)
 	if err != nil {
 		return errors.Wrap(err, "DeleteObject")
 	}
@@ -406,31 +415,29 @@ func (b *SBucket) GetTempUrl(method string, key string, expire time.Duration) (s
 	if err != nil {
 		return "", errors.Wrap(err, "GetS3Client")
 	}
-	var request *request.Request
+	scli := s3.NewPresignClient(s3cli)
+	ctx := context.Background()
+	var request *v4.PresignedHTTPRequest
 	switch method {
 	case "GET":
 		input := &s3.GetObjectInput{}
-		input.SetBucket(b.Name)
-		input.SetKey(key)
-		request, _ = s3cli.GetObjectRequest(input)
+		input.Bucket = &b.Name
+		input.Key = &key
+		request, _ = scli.PresignGetObject(ctx, input)
 	case "PUT":
 		input := &s3.PutObjectInput{}
-		input.SetBucket(b.Name)
-		input.SetKey(key)
-		request, _ = s3cli.PutObjectRequest(input)
+		input.Bucket = &b.Name
+		input.Key = &key
+		request, _ = scli.PresignPutObject(ctx, input)
 	case "DELETE":
 		input := &s3.DeleteObjectInput{}
-		input.SetBucket(b.Name)
-		input.SetKey(key)
-		request, _ = s3cli.DeleteObjectRequest(input)
+		input.Bucket = &b.Name
+		input.Key = &key
+		request, _ = scli.PresignDeleteObject(ctx, input)
 	default:
 		return "", errors.Error("unsupported method")
 	}
-	url, _, err := request.PresignRequest(expire)
-	if err != nil {
-		return "", errors.Wrap(err, "request.PresignRequest")
-	}
-	return url, nil
+	return request.URL, nil
 }
 
 func (b *SBucket) CopyObject(ctx context.Context, destKey string, srcBucket, srcKey string, cannedAcl cloudprovider.TBucketACLType, storageClassStr string, meta http.Header) error {
@@ -440,45 +447,47 @@ func (b *SBucket) CopyObject(ctx context.Context, destKey string, srcBucket, src
 	}
 	log.Debugf("copy from %s/%s to %s/%s", srcBucket, srcKey, b.Name, destKey)
 	input := &s3.CopyObjectInput{}
-	input.SetBucket(b.Name)
-	input.SetKey(destKey)
-	input.SetCopySource(fmt.Sprintf("%s/%s", srcBucket, url.PathEscape(srcKey)))
-	input.SetStorageClass(storageClassStr)
+	input.Bucket = &b.Name
+	input.Key = &destKey
+	copySource := fmt.Sprintf("%s/%s", srcBucket, url.PathEscape(srcKey))
+	input.CopySource = &copySource
+	input.StorageClass = types.StorageClass(storageClassStr)
 	if len(cannedAcl) == 0 {
 		cannedAcl = b.GetAcl()
 	}
-	input.SetACL(string(cannedAcl))
+	input.ACL = types.ObjectCannedACL(string(cannedAcl))
 	var metaDir string
 	if meta != nil {
-		metaHdr := make(map[string]*string)
+		metaHdr := make(map[string]string)
 		for k, v := range meta {
 			if len(v) == 0 || len(v[0]) == 0 {
 				continue
 			}
+			value := strings.TrimSpace(v[0])
 			switch http.CanonicalHeaderKey(k) {
 			case cloudprovider.META_HEADER_CACHE_CONTROL:
-				input.SetCacheControl(v[0])
+				input.CacheControl = &value
 			case cloudprovider.META_HEADER_CONTENT_TYPE:
-				input.SetContentType(v[0])
+				input.ContentType = &value
 			case cloudprovider.META_HEADER_CONTENT_LANGUAGE:
-				input.SetContentLanguage(v[0])
+				input.ContentLanguage = &value
 			case cloudprovider.META_HEADER_CONTENT_ENCODING:
-				input.SetContentEncoding(v[0])
+				input.ContentEncoding = &value
 			case cloudprovider.META_HEADER_CONTENT_DISPOSITION:
-				input.SetContentDisposition(v[0])
+				input.ContentDisposition = &value
 			default:
-				metaHdr[k] = &v[0]
+				metaHdr[k] = value
 			}
 		}
 		if len(metaHdr) > 0 {
-			input.SetMetadata(metaHdr)
+			input.Metadata = metaHdr
 		}
 		metaDir = "REPLACE"
 	} else {
 		metaDir = "COPY"
 	}
-	input.SetMetadataDirective(metaDir)
-	_, err = s3cli.CopyObject(input)
+	input.MetadataDirective = types.MetadataDirective(metaDir)
+	_, err = s3cli.CopyObject(ctx, input)
 	if err != nil {
 		return errors.Wrap(err, "CopyObject")
 	}
@@ -491,12 +500,13 @@ func (b *SBucket) GetObject(ctx context.Context, key string, rangeOpt *cloudprov
 		return nil, errors.Wrap(err, "GetS3Client")
 	}
 	input := &s3.GetObjectInput{}
-	input.SetBucket(b.Name)
-	input.SetKey(key)
+	input.Bucket = &b.Name
+	input.Key = &key
 	if rangeOpt != nil {
-		input.SetRange(rangeOpt.String())
+		rangeStr := rangeOpt.String()
+		input.Range = &rangeStr
 	}
-	output, err := s3cli.GetObject(input)
+	output, err := s3cli.GetObject(ctx, input)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetObject")
 	}
@@ -509,15 +519,18 @@ func (b *SBucket) CopyPart(ctx context.Context, key string, uploadId string, par
 		return "", errors.Wrap(err, "GetS3Client")
 	}
 	input := &s3.UploadPartCopyInput{}
-	input.SetBucket(b.Name)
-	input.SetKey(key)
-	input.SetUploadId(uploadId)
-	input.SetPartNumber(int64(partNumber))
-	input.SetCopySource(fmt.Sprintf("/%s/%s", srcBucket, url.PathEscape(srcKey)))
+	input.Bucket = &b.Name
+	input.Key = &key
+	input.UploadId = &uploadId
+	pn := int32(partNumber)
+	input.PartNumber = &pn
+	copySource := fmt.Sprintf("/%s/%s", srcBucket, url.PathEscape(srcKey))
+	input.CopySource = &copySource
 	if srcLength > 0 {
-		input.SetCopySourceRange(fmt.Sprintf("bytes=%d-%d", srcOffset, srcOffset+srcLength-1))
+		copySourceRange := fmt.Sprintf("bytes=%d-%d", srcOffset, srcOffset+srcLength-1)
+		input.CopySourceRange = &copySourceRange
 	}
-	output, err := s3cli.UploadPartCopy(input)
+	output, err := s3cli.UploadPartCopy(ctx, input)
 	if err != nil {
 		return "", errors.Wrap(err, "s3cli.UploadPartCopy")
 	}
@@ -529,13 +542,13 @@ func (b *SBucket) SetWebsite(websitConf cloudprovider.SBucketWebsiteConf) error 
 	if err != nil {
 		return errors.Wrap(err, "GetS3Client")
 	}
-	s3WebConf := s3.WebsiteConfiguration{}
-	s3WebConf.SetIndexDocument(&s3.IndexDocument{Suffix: &websitConf.Index})
-	s3WebConf.SetErrorDocument(&s3.ErrorDocument{Key: &websitConf.ErrorDocument})
-	input := s3.PutBucketWebsiteInput{}
-	input.SetBucket(b.Name)
-	input.SetWebsiteConfiguration(&s3WebConf)
-	_, err = s3cli.PutBucketWebsite(&input)
+	input := &s3.PutBucketWebsiteInput{}
+	input.WebsiteConfiguration = &types.WebsiteConfiguration{
+		IndexDocument: &types.IndexDocument{Suffix: &websitConf.Index},
+		ErrorDocument: &types.ErrorDocument{Key: &websitConf.ErrorDocument},
+	}
+	input.Bucket = &b.Name
+	_, err = s3cli.PutBucketWebsite(context.Background(), input)
 	if err != nil {
 		return errors.Wrapf(err, "s3cli.PutBucketWebsite(%s)", jsonutils.Marshal(input).String())
 	}
@@ -548,9 +561,9 @@ func (b *SBucket) GetWebsiteConf() (cloudprovider.SBucketWebsiteConf, error) {
 	if err != nil {
 		return result, errors.Wrap(err, "GetS3Client")
 	}
-	input := s3.GetBucketWebsiteInput{}
-	input.SetBucket(b.Name)
-	webconfResult, err := s3cli.GetBucketWebsite(&input)
+	input := &s3.GetBucketWebsiteInput{}
+	input.Bucket = &b.Name
+	webconfResult, err := s3cli.GetBucketWebsite(context.Background(), input)
 	if err != nil {
 		return result, errors.Wrapf(err, "s3cli.GetBucketWebsite(%s)", b.Name)
 	}
@@ -571,24 +584,24 @@ func (b *SBucket) DeleteWebSiteConf() error {
 		return errors.Wrap(err, "GetS3Client")
 	}
 	input := s3.DeleteBucketWebsiteInput{}
-	input.SetBucket(b.Name)
-	_, err = s3cli.DeleteBucketWebsite(&input)
+	input.Bucket = &b.Name
+	_, err = s3cli.DeleteBucketWebsite(context.Background(), &input)
 	if err != nil {
 		return errors.Wrapf(err, "s3cli.DeleteBucketWebsite(%s)", b.Name)
 	}
 	return nil
 }
 
-func InputToAwsApiSliceString(input []string) []*string {
-	result := []*string{}
+func InputToAwsApiSliceString(input []string) []string {
+	result := []string{}
 	for i := range input {
-		result = append(result, &input[i])
+		result = append(result, input[i])
 	}
 	return result
 }
 
-func InputToAwsApiInt64(input int64) *int64 {
-	return &input
+func InputToAwsApiInt64(input int64) int64 {
+	return input
 }
 
 func AwsApiSliceStringToOutput(input []*string) []string {
@@ -615,23 +628,24 @@ func (b *SBucket) SetCORS(rules []cloudprovider.SBucketCORSRule) error {
 	if err != nil {
 		return errors.Wrap(err, "GetS3Client")
 	}
-	opts := []*s3.CORSRule{}
+	opts := []types.CORSRule{}
 	for i := range rules {
-		opts = append(opts, &s3.CORSRule{
+		maxAgeSeconds := int32(rules[i].MaxAgeSeconds)
+		opts = append(opts, types.CORSRule{
 			AllowedOrigins: InputToAwsApiSliceString(rules[i].AllowedOrigins),
 			AllowedMethods: InputToAwsApiSliceString(rules[i].AllowedMethods),
 			AllowedHeaders: InputToAwsApiSliceString(rules[i].AllowedHeaders),
-			MaxAgeSeconds:  InputToAwsApiInt64(int64(rules[i].MaxAgeSeconds)),
+			MaxAgeSeconds:  &maxAgeSeconds,
 			ExposeHeaders:  InputToAwsApiSliceString(rules[i].ExposeHeaders),
 		})
 	}
 
-	input := s3.PutBucketCorsInput{}
-	input.SetBucket(b.Name)
-	input.SetCORSConfiguration(&s3.CORSConfiguration{CORSRules: opts})
-	_, err = s3cli.PutBucketCors(&input)
+	input := &s3.PutBucketCorsInput{}
+	input.Bucket = &b.Name
+	input.CORSConfiguration = &types.CORSConfiguration{CORSRules: opts}
+	_, err = s3cli.PutBucketCors(context.Background(), input)
 	if err != nil {
-		return errors.Wrapf(err, "s3cli.PutBucketCors(%s)", input)
+		return errors.Wrapf(err, "PutBucketCors %v", err)
 	}
 	return nil
 }
@@ -641,9 +655,9 @@ func (b *SBucket) GetCORSRules() ([]cloudprovider.SBucketCORSRule, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "GetS3Client")
 	}
-	input := s3.GetBucketCorsInput{}
-	input.SetBucket(b.Name)
-	conf, err := s3cli.GetBucketCors(&input)
+	input := &s3.GetBucketCorsInput{}
+	input.Bucket = &b.Name
+	conf, err := s3cli.GetBucketCors(context.Background(), input)
 	if err != nil {
 		if !strings.Contains(err.Error(), "NoSuchCORSConfiguration") {
 			return nil, errors.Wrapf(err, "s3cli.GetBucketCors(%s)", b.Name)
@@ -655,11 +669,11 @@ func (b *SBucket) GetCORSRules() ([]cloudprovider.SBucketCORSRule, error) {
 	result := []cloudprovider.SBucketCORSRule{}
 	for i := range conf.CORSRules {
 		result = append(result, cloudprovider.SBucketCORSRule{
-			AllowedOrigins: AwsApiSliceStringToOutput(conf.CORSRules[i].AllowedOrigins),
-			AllowedMethods: AwsApiSliceStringToOutput(conf.CORSRules[i].AllowedMethods),
-			AllowedHeaders: AwsApiSliceStringToOutput(conf.CORSRules[i].AllowedHeaders),
-			MaxAgeSeconds:  int(AwsApiInt64ToOutput(conf.CORSRules[i].MaxAgeSeconds)),
-			ExposeHeaders:  AwsApiSliceStringToOutput(conf.CORSRules[i].ExposeHeaders),
+			AllowedOrigins: conf.CORSRules[i].AllowedOrigins,
+			AllowedMethods: conf.CORSRules[i].AllowedMethods,
+			AllowedHeaders: conf.CORSRules[i].AllowedHeaders,
+			MaxAgeSeconds:  int(*conf.CORSRules[i].MaxAgeSeconds),
+			ExposeHeaders:  conf.CORSRules[i].ExposeHeaders,
 			Id:             strconv.Itoa(i),
 		})
 	}
@@ -673,8 +687,8 @@ func (b *SBucket) DeleteCORS() error {
 	}
 
 	input := s3.DeleteBucketCorsInput{}
-	input.SetBucket(b.Name)
-	_, err = s3cli.DeleteBucketCors(&input)
+	input.Bucket = &b.Name
+	_, err = s3cli.DeleteBucketCors(context.Background(), &input)
 	if err != nil {
 		return errors.Wrapf(err, "s3cli.DeleteBucketCors(%s)", b.Name)
 	}
@@ -686,7 +700,7 @@ func (b *SBucket) GetTags() (map[string]string, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "GetS3Client")
 	}
-	tagresult, err := s3cli.GetBucketTagging(&s3.GetBucketTaggingInput{Bucket: &b.Name})
+	tagresult, err := s3cli.GetBucketTagging(context.Background(), &s3.GetBucketTaggingInput{Bucket: &b.Name})
 	if err != nil {
 		if strings.Contains(err.Error(), "NoSuchTagSet") {
 			return nil, nil
@@ -715,7 +729,7 @@ func (b *SBucket) SetTags(tags map[string]string, replace bool) error {
 		return errors.Wrap(err, "GetS3Client")
 	}
 
-	_, err = s3cli.DeleteBucketTagging(&s3.DeleteBucketTaggingInput{Bucket: &b.Name})
+	_, err = s3cli.DeleteBucketTagging(context.Background(), &s3.DeleteBucketTaggingInput{Bucket: &b.Name})
 	if err != nil {
 		return errors.Wrapf(err, "DeleteBucketTagging")
 	}
@@ -724,7 +738,7 @@ func (b *SBucket) SetTags(tags map[string]string, replace bool) error {
 		return nil
 	}
 
-	input := s3.PutBucketTaggingInput{Tagging: &s3.Tagging{}}
+	input := &s3.PutBucketTaggingInput{Tagging: &types.Tagging{}}
 	input.Bucket = &b.Name
 	apiTagKeys := []string{}
 	apiTagValues := []string{}
@@ -734,10 +748,10 @@ func (b *SBucket) SetTags(tags map[string]string, replace bool) error {
 
 	}
 	for i := range apiTagKeys {
-		input.Tagging.TagSet = append(input.Tagging.TagSet, &s3.Tag{Key: &apiTagKeys[i], Value: &apiTagValues[i]})
+		input.Tagging.TagSet = append(input.Tagging.TagSet, types.Tag{Key: &apiTagKeys[i], Value: &apiTagValues[i]})
 	}
 
-	_, err = s3cli.PutBucketTagging(&input)
+	_, err = s3cli.PutBucketTagging(context.Background(), input)
 	if err != nil {
 		return errors.Wrapf(err, "obscli.SetBucketTagging(%s)", jsonutils.Marshal(input))
 	}
@@ -751,18 +765,18 @@ func (b *SBucket) ListMultipartUploads() ([]cloudprovider.SBucketMultipartUpload
 	}
 	result := []cloudprovider.SBucketMultipartUploads{}
 
-	input := s3.ListMultipartUploadsInput{}
-	input.SetBucket(b.Name)
+	input := &s3.ListMultipartUploadsInput{}
+	input.Bucket = &b.Name
 	keyMarker := ""
 	uploadIDMarker := ""
 	for {
 		if len(keyMarker) > 0 {
-			input.SetKeyMarker(keyMarker)
+			input.KeyMarker = &keyMarker
 		}
 		if len(uploadIDMarker) > 0 {
-			input.SetUploadIdMarker(uploadIDMarker)
+			input.UploadIdMarker = &uploadIDMarker
 		}
-		output, err := s3cli.ListMultipartUploads(&input)
+		output, err := s3cli.ListMultipartUploads(context.Background(), input)
 		if err != nil {
 			return nil, errors.Wrap(err, " coscli.Bucket.ListMultipartUploads(context.Background(), &input)")
 		}
@@ -846,9 +860,9 @@ func (b *SBucket) getPolicy() ([]SBucketPolicyStatementDetails, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "GetS3Client")
 	}
-	input := s3.GetBucketPolicyInput{}
-	input.SetBucket(b.Name)
-	conf, err := s3cli.GetBucketPolicy(&input)
+	input := &s3.GetBucketPolicyInput{}
+	input.Bucket = &b.Name
+	conf, err := s3cli.GetBucketPolicy(context.Background(), input)
 	if err != nil {
 		if !strings.Contains(err.Error(), "NoSuch") {
 			return nil, errors.Wrapf(err, "s3cli.GetBucketCors(%s)", b.Name)
@@ -925,7 +939,7 @@ func (b *SBucket) setPolicy(policies []SBucketPolicyStatementDetails) error {
 	if err != nil {
 		return errors.Wrap(err, "GetS3Client")
 	}
-	input := s3.PutBucketPolicyInput{}
+	input := &s3.PutBucketPolicyInput{}
 	input.Bucket = &b.Name
 	// example
 	// test := `{"Statement":[{"Action":["s3:GetBucketAcl"],"Effect":"Allow","Principal":{"Service":["config.amazonaws.com"]},"Resource":["arn:aws-cn:s3:::config-bucket-2xxxxx6"],"Sid":"AWSConfigBucketPermissionsCheck"},{"Action":["s3:PutObject"],"Effect":"Allow","Principal":{"Service":["config.amazonaws.com"]},"Resource":["arn:aws-cn:s3:::config-bucket-2xxxxx6/AWSLogs/2xxxxx6/Config/*"],"Sid":"AWSConfigBucketDelivery"},{"Action":["s3:PutObject"],"Effect":"Allow","Principal":{"Service":["config.amazonaws.com"]},"Resource":["arn:aws-cn:s3:::config-bucket-2xxxxx6/AWSLogs/2xxxxx6/Config/*"],"Sid":"test"}]}`
@@ -934,7 +948,7 @@ func (b *SBucket) setPolicy(policies []SBucketPolicyStatementDetails) error {
 
 	policyStr := jsonutils.Marshal(param).String()
 	input.Policy = &policyStr
-	_, err = s3cli.PutBucketPolicy(&input)
+	_, err = s3cli.PutBucketPolicy(context.Background(), input)
 	if err != nil {
 		return errors.Wrap(err, "PutBucketPolicy")
 	}
@@ -958,7 +972,7 @@ func (b *SBucket) DeletePolicy(id []string) ([]cloudprovider.SBucketPolicyStatem
 		}
 		needKeep = append(needKeep, policy)
 	}
-	_, err = s3cli.DeleteBucketPolicy(&s3.DeleteBucketPolicyInput{Bucket: &b.Name})
+	_, err = s3cli.DeleteBucketPolicy(context.Background(), &s3.DeleteBucketPolicyInput{Bucket: &b.Name})
 	if err != nil {
 		return nil, errors.Wrap(err, "DeleteBucketPolicy")
 	}
