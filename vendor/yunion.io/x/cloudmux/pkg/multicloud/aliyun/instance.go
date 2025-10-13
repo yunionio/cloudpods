@@ -375,6 +375,46 @@ func (self *SInstance) GetStatus() string {
 	}
 }
 
+type SInstanceStatus struct {
+	InstanceId   string
+	HealthStatus struct {
+		Name string
+	}
+}
+
+func (region *SRegion) DescribeInstancesFullStatus(vmId string) (*SInstanceStatus, error) {
+	params := map[string]string{
+		"InstanceId": vmId,
+	}
+	resp, err := region.ecsRequest("DescribeInstancesFullStatus", params)
+	if err != nil {
+		return nil, err
+	}
+	ret := struct {
+		InstanceFullStatusSet struct {
+			InstanceFullStatusType []SInstanceStatus
+		}
+	}{}
+	err = resp.Unmarshal(&ret)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Unmarshal")
+	}
+	for i := range ret.InstanceFullStatusSet.InstanceFullStatusType {
+		if ret.InstanceFullStatusSet.InstanceFullStatusType[i].InstanceId == vmId {
+			return &ret.InstanceFullStatusSet.InstanceFullStatusType[i], nil
+		}
+	}
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", vmId)
+}
+
+func (self *SInstance) GetHealthStatus() string {
+	status, err := self.host.zone.region.DescribeInstancesFullStatus(self.InstanceId)
+	if err != nil {
+		return ""
+	}
+	return strings.ToLower(status.HealthStatus.Name)
+}
+
 func (self *SInstance) Refresh() error {
 	ins, err := self.host.zone.region.GetInstance(self.InstanceId)
 	if err != nil {
