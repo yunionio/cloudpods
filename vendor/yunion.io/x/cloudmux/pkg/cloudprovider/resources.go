@@ -403,6 +403,7 @@ type ICloudVM interface {
 
 	AllocatePublicIpAddress() (string, error)
 	GetPowerStates() string
+	GetHealthStatus() string
 }
 
 type ICloudNic interface {
