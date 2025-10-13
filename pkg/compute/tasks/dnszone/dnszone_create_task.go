@@ -47,6 +47,10 @@ func (self *DnsZoneCreateTask) taskFailed(ctx context.Context, zone *models.SDns
 func (self *DnsZoneCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	zone := obj.(*models.SDnsZone)
 	if len(zone.ManagerId) == 0 {
+		db.Update(zone, func() error {
+			zone.Status = api.DNS_ZONE_STATUS_AVAILABLE
+			return nil
+		})
 		self.taskComplete(ctx, zone)
 		return
 	}
