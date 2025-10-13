@@ -20,7 +20,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -275,7 +275,7 @@ func (self *SRegion) IsBucketExist(bucketName string) (bool, error) {
 	}
 
 	params := &s3.ListBucketsInput{}
-	ret, err := s3Client.ListBuckets(params)
+	ret, err := s3Client.ListBuckets(context.Background(), params)
 	if err != nil {
 		return false, errors.Wrap(err, "ListBuckets")
 	}
@@ -296,12 +296,12 @@ func (self *SRegion) GetBucketRegionId(bucketName string) (string, error) {
 	}
 
 	params := &s3.GetBucketLocationInput{Bucket: &bucketName}
-	ret, err := s3Client.GetBucketLocation(params)
+	ret, err := s3Client.GetBucketLocation(context.Background(), params)
 	if err != nil {
 		return "", err
 	}
 
-	return StrVal(ret.LocationConstraint), nil
+	return string(ret.LocationConstraint), nil
 }
 
 func (self *SRegion) GetARNPartition() string {
