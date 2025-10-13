@@ -15,11 +15,13 @@
 package aws
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
 
-	"github.com/aws/aws-sdk-go/service/organizations"
+	"github.com/aws/aws-sdk-go-v2/service/organizations"
+	"github.com/aws/aws-sdk-go-v2/service/organizations/types"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -72,31 +74,32 @@ const (
 )
 
 func (r *SRegion) ListPolicies(filter string) ([]SOrgPolicy, error) {
-	orgCli, err := r.getOrganizationClient()
+	cfg, err := r.getConfig()
 	if err != nil {
-		return nil, errors.Wrap(err, "GetOrganizationClient")
+		return nil, errors.Wrap(err, "getConfig")
 	}
+	orgCli := organizations.NewFromConfig(cfg)
 	var nextToken *string
 	policies := make([]SOrgPolicy, 0)
 
 	for {
 		input := organizations.ListPoliciesInput{}
-		input.SetFilter(filter)
+		input.Filter = types.PolicyType(filter)
 		if nextToken != nil {
-			input.SetNextToken(*nextToken)
+			input.NextToken = nextToken
 		}
-		parts, err := orgCli.ListPolicies(&input)
+		parts, err := orgCli.ListPolicies(context.Background(), &input)
 		if err != nil {
 			return nil, errors.Wrap(err, "ListPolicies")
 		}
 		for _, pPtr := range parts.Policies {
 			p := SOrgPolicy{
 				Arn:         *pPtr.Arn,
-				AwsManaged:  *pPtr.AwsManaged,
+				AwsManaged:  pPtr.AwsManaged,
 				Description: *pPtr.Description,
 				Id:          *pPtr.Id,
 				Name:        *pPtr.Name,
-				Type:        *pPtr.Type,
+				Type:        string(pPtr.Type),
 			}
 			policies = append(policies, p)
 		}
@@ -110,32 +113,33 @@ func (r *SRegion) ListPolicies(filter string) ([]SOrgPolicy, error) {
 }
 
 func (r *SRegion) ListPoliciesForTarget(filter string, targetId string) ([]SOrgPolicy, error) {
-	orgCli, err := r.getOrganizationClient()
+	cfg, err := r.getConfig()
 	if err != nil {
-		return nil, errors.Wrap(err, "GetOrganizationClient")
+		return nil, errors.Wrap(err, "getConfig")
 	}
+	orgCli := organizations.NewFromConfig(cfg)
 	var nextToken *string
 	policies := make([]SOrgPolicy, 0)
 
 	for {
 		input := organizations.ListPoliciesForTargetInput{}
-		input.SetFilter(filter)
-		input.SetTargetId(targetId)
+		input.Filter = types.PolicyType(filter)
+		input.TargetId = &targetId
 		if nextToken != nil {
-			input.SetNextToken(*nextToken)
+			input.NextToken = nextToken
 		}
-		parts, err := orgCli.ListPoliciesForTarget(&input)
+		parts, err := orgCli.ListPoliciesForTarget(context.Background(), &input)
 		if err != nil {
 			return nil, errors.Wrap(err, "ListPoliciesForTarget")
 		}
 		for _, pPtr := range parts.Policies {
 			p := SOrgPolicy{
 				Arn:         *pPtr.Arn,
-				AwsManaged:  *pPtr.AwsManaged,
+				AwsManaged:  pPtr.AwsManaged,
 				Description: *pPtr.Description,
 				Id:          *pPtr.Id,
 				Name:        *pPtr.Name,
-				Type:        *pPtr.Type,
+				Type:        string(pPtr.Type),
 			}
 			policies = append(policies, p)
 		}
@@ -149,13 +153,14 @@ func (r *SRegion) ListPoliciesForTarget(filter string, targetId string) ([]SOrgP
 }
 
 func (r *SRegion) DescribeOrgPolicy(pId string) (jsonutils.JSONObject, error) {
-	orgCli, err := r.getOrganizationClient()
+	cfg, err := r.getConfig()
 	if err != nil {
-		return nil, errors.Wrap(err, "GetOrganizationClient")
+		return nil, errors.Wrap(err, "getConfig")
 	}
+	orgCli := organizations.NewFromConfig(cfg)
 	input := organizations.DescribePolicyInput{}
-	input.SetPolicyId(pId)
-	output, err := orgCli.DescribePolicy(&input)
+	input.PolicyId = &pId
+	output, err := orgCli.DescribePolicy(context.Background(), &input)
 	if err != nil {
 		return nil, errors.Wrap(err, "DescribePolicy")
 	}
@@ -167,12 +172,13 @@ func (r *SRegion) DescribeOrgPolicy(pId string) (jsonutils.JSONObject, error) {
 }
 
 func (r *SRegion) ListAccounts() ([]SAccount, error) {
-	orgCli, err := r.getOrganizationClient()
+	cfg, err := r.getConfig()
 	if err != nil {
-		return nil, errors.Wrap(err, "GetOrganizationClient")
+		return nil, errors.Wrap(err, "getConfig")
 	}
+	orgCli := organizations.NewFromConfig(cfg)
 	input := organizations.DescribeOrganizationInput{}
-	orgOutput, err := orgCli.DescribeOrganization(&input)
+	orgOutput, err := orgCli.DescribeOrganization(context.Background(), &input)
 	if err != nil {
 		log.Errorf("%#v", err)
 		return nil, errors.Wrap(err, "DescribeOrganization")
@@ -185,7 +191,7 @@ func (r *SRegion) ListAccounts() ([]SAccount, error) {
 		if nextToken != nil {
 			input.NextToken = nextToken
 		}
-		parts, err := orgCli.ListAccounts(&input)
+		parts, err := orgCli.ListAccounts(context.Background(), &input)
 		if err != nil {
 			return nil, errors.Wrap(err, "ListAccounts")
 		}
@@ -195,8 +201,8 @@ func (r *SRegion) ListAccounts() ([]SAccount, error) {
 				Name:            *actPtr.Name,
 				Arn:             *actPtr.Arn,
 				Email:           *actPtr.Email,
-				Status:          *actPtr.Status,
-				JoinedMethod:    *actPtr.JoinedMethod,
+				Status:          string(actPtr.Status),
+				JoinedMethod:    string(actPtr.JoinedMethod),
 				JoinedTimestamp: *actPtr.JoinedTimestamp,
 			}
 			if *orgOutput.Organization.MasterAccountId == *actPtr.Id {
@@ -247,9 +253,12 @@ func (awscli *SAwsClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error) 
 		subAccounts := []cloudprovider.SSubAccount{}
 		for _, account := range accounts {
 			subAccount := cloudprovider.SSubAccount{}
-			if account.Status == "ACTIVE" {
+			switch account.Status {
+			case "ACTIVE":
 				subAccount.HealthStatus = api.CLOUD_PROVIDER_HEALTH_NORMAL
-			} else {
+			case "PENDING_ACTIVATION":
+				subAccount.HealthStatus = api.CLOUD_PROVIDER_HEALTH_PENDING
+			default:
 				subAccount.HealthStatus = api.CLOUD_PROVIDER_HEALTH_SUSPENDED
 			}
 			if account.IsMaster {
@@ -275,13 +284,14 @@ func (awscli *SAwsClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error) 
 }
 
 func (r *SRegion) ListParents(childId string) error {
-	orgCli, err := r.getOrganizationClient()
+	cfg, err := r.getConfig()
 	if err != nil {
-		return errors.Wrap(err, "GetOrganizationClient")
+		return errors.Wrap(err, "getConfig")
 	}
+	orgCli := organizations.NewFromConfig(cfg)
 	input := organizations.ListParentsInput{}
-	input.SetChildId(childId)
-	parents, err := orgCli.ListParents(&input)
+	input.ChildId = &childId
+	parents, err := orgCli.ListParents(context.Background(), &input)
 	if err != nil {
 		return errors.Wrap(err, "ListParents")
 	}
@@ -290,13 +300,14 @@ func (r *SRegion) ListParents(childId string) error {
 }
 
 func (r *SRegion) DescribeOrganizationalUnit(ouId string) error {
-	orgCli, err := r.getOrganizationClient()
+	cfg, err := r.getConfig()
 	if err != nil {
-		return errors.Wrap(err, "GetOrganizationClient")
+		return errors.Wrap(err, "getConfig")
 	}
+	orgCli := organizations.NewFromConfig(cfg)
 	input := organizations.DescribeOrganizationalUnitInput{}
-	input.SetOrganizationalUnitId(ouId)
-	output, err := orgCli.DescribeOrganizationalUnit(&input)
+	input.OrganizationalUnitId = &ouId
+	output, err := orgCli.DescribeOrganizationalUnit(context.Background(), &input)
 	if err != nil {
 		return errors.Wrap(err, "DescribeOrganizationUnit")
 	}

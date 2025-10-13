@@ -182,7 +182,7 @@ func (self *SAwsClient) cfRequest(apiName string, params map[string]string, retv
 	return self.request("", CDN_SERVICE_NAME, CDN_SERVICE_ID, "2020-05-31", apiName, params, retval, assumeRole)
 }
 
-func (client *SAwsClient) getAwsSession(regionId string, assumeRole bool) (*session.Session, error) {
+func (client *SAwsClient) getHttpClient() (*http.Client, error) {
 	httpClient := client.cpcfg.AdaptiveTimeoutHttpClient()
 	transport, _ := httpClient.Transport.(*http.Transport)
 	httpClient.Transport = cloudprovider.GetCheckTransport(transport, func(req *http.Request) (func(resp *http.Response) error, error) {
@@ -236,6 +236,14 @@ func (client *SAwsClient) getAwsSession(regionId string, assumeRole bool) (*sess
 		}
 		return respCheck, nil
 	})
+	return httpClient, nil
+}
+
+func (client *SAwsClient) getAwsSession(regionId string, assumeRole bool) (*session.Session, error) {
+	httpClient, err := client.getHttpClient()
+	if err != nil {
+		return nil, errors.Wrap(err, "getHttpClient")
+	}
 	s, err := session.NewSession(&sdk.Config{
 		Region: sdk.String(regionId),
 		Credentials: credentials.NewStaticCredentials(

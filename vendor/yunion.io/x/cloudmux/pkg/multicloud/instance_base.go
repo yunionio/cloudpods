@@ -91,6 +91,10 @@ func (ins *SInstanceBase) GetPowerStates() string {
 	return ""
 }
 
+func (ins *SInstanceBase) GetHealthStatus() string {
+	return ""
+}
+
 func (instance *SInstanceBase) GetError() error {
 	return nil
 }

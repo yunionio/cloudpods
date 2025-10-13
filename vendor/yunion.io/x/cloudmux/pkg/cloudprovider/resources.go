@@ -418,6 +418,7 @@ type ICloudVM interface {
 
 	AllocatePublicIpAddress() (string, error)
 	GetPowerStates() string
+	GetHealthStatus() string
 	GetIsolateDeviceIds() ([]string, error)
 }
 
