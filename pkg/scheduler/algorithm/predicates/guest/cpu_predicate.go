@@ -75,8 +75,13 @@ func (f *CPUPredicate) Execute(ctx context.Context, u *core.Unit, c core.Candida
 		return h.GetResult()
 	}
 
-	freeCPUCount := getter.FreeCPUCount(useRsvd)
 	reqCPUCount := int64(d.Ncpu)
+	if getter.KvmCapMaxVcpuCount() > 0 && reqCPUCount > getter.KvmCapMaxVcpuCount() {
+		h.Exclude2(predicates.ErrHostKvmVcpuMaxNotEnough, getter.KvmCapMaxVcpuCount(), reqCPUCount)
+		return h.GetResult()
+	}
+
+	freeCPUCount := getter.FreeCPUCount(useRsvd)
 	if freeCPUCount < reqCPUCount {
 		totalCPUCount := getter.TotalCPUCount(useRsvd)
 		h.AppendInsufficientResourceError(reqCPUCount, totalCPUCount, freeCPUCount)

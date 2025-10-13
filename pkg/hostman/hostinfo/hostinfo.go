@@ -1492,6 +1492,8 @@ func (h *SHostInfo) updateOrCreateHost(hostId string) (*api.HostDetails, error) 
 	input.CpuDesc = h.Cpu.cpuInfoProc.Model
 	input.CpuMicrocode = h.Cpu.cpuInfoProc.Microcode
 	input.CpuArchitecture = h.Cpu.CpuArchitecture
+	maxVcpu := int(h.GetKVMMaxCpus())
+	input.KvmCapMaxVcpu = &maxVcpu
 
 	if h.Cpu.cpuInfoProc.Freq > 0 {
 		input.CpuMhz = &h.Cpu.cpuInfoProc.Freq

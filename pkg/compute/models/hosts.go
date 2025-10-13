@@ -142,6 +142,8 @@ type SHost struct {
 	CpuMicrocode string `width:"64" charset:"ascii" nullable:"true" get:"domain" update:"domain" create:"domain_optional"`
 	// CPU架构
 	CpuArchitecture string `width:"16" charset:"ascii" nullable:"true" get:"domain" list:"domain" update:"domain" create:"domain_optional"`
+	// KVM CAP VCPU MAX
+	KvmCapMaxVcpu int `nullable:"true" get:"domain" list:"domain" update:"domain" create:"domain_optional"`
 
 	// 内存大小,单位Mb
 	MemSize int `nullable:"true" list:"domain" update:"domain" create:"domain_optional"`
