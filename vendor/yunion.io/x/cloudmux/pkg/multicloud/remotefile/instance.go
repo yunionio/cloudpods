@@ -285,6 +285,10 @@ func (self *SInstance) GetPowerStates() string {
 	return api.VM_POWER_STATES_OFF
 }
 
+func (self *SInstance) GetHealthStatus() string {
+	return ""
+}
+
 func (self *SInstance) GetIsolateDeviceIds() ([]string, error) {
 	return nil, cloudprovider.ErrNotSupported
 }
