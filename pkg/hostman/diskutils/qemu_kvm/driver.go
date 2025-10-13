@@ -22,6 +22,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -318,18 +319,23 @@ func (d *QemuKvmDriver) connect(guestDesc *apis.GuestDesc, diskId string) error 
 
 	err := d.qemuArchDriver.StartGuest(sshport, ncpu, memSizeMB, manager.hugepage, manager.hugepageSizeKB, d.imageInfo, disks, diskIds)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "start qemu guest")
 	}
 	log.Infof("guest started ....")
 
-	for i := 0; i < 3; i++ {
+	// wait for guest to start as long as 5 minutes
+	startTime := time.Now()
+	tried := 0
+	for time.Since(startTime) < 5*time.Minute {
+		tried++
 		cli, e := ssh.NewClient("localhost", sshport, "root", YUNIONOS_PASSWD, "")
 		if e == nil {
 			d.sshClient = cli
 			break
 		}
 		err = e
-		log.Errorf("new ssh client failed: %s", err)
+		log.Errorf("new ssh client failed after %d tries: %s", tried, err)
+		time.Sleep(time.Duration(tried) * time.Second)
 	}
 	if d.sshClient == nil {
 		return errors.Wrap(err, "new ssh client")
