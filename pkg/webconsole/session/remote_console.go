@@ -98,6 +98,10 @@ func (info *RemoteConsoleInfo) GetCommand() *exec.Cmd {
 	return nil
 }
 
+func (info *RemoteConsoleInfo) GetSafeCommandString() string {
+	return ""
+}
+
 // Cleanup implements ISessionData interface
 func (info *RemoteConsoleInfo) Cleanup() error {
 	return nil

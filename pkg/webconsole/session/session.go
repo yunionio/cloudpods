@@ -142,7 +142,7 @@ func (s *RandomSessionData) GetDisplayInfo(ctx context.Context) (*SDisplayInfo, 
 	}
 	dispInfo := SDisplayInfo{}
 	dispInfo.WaterMark = fetchWaterMark(userInfo)
-	dispInfo.InstanceName = s.GetCommand().String()
+	dispInfo.InstanceName = s.GetSafeCommandString()
 	si, ok := s.ICommand.(ISessionCommand)
 	if ok {
 		iName := si.GetInstanceName()
