@@ -1,14 +1,14 @@
 package llm
 
 import (
-	"k8s.io/apimachinery/pkg/util/sets"
 	"yunion.io/x/onecloud/pkg/apis"
+	"yunion.io/x/pkg/util/sets"
 )
 
 type LLMContainerType string
 
 const (
-	LLM_CONTAINER_OLLAMA = "ollama"
+	LLM_CONTAINER_OLLAMA LLMContainerType = "ollama"
 )
 
 var (
@@ -25,5 +25,5 @@ type LLMContainerCreateInput struct {
 	apis.VirtualResourceCreateInput
 	LLMId string `json:"llm_id"`
 	Type  string `json:"type"`
-	SvrId string `json:"cmp_id"`
+	CmpId string `json:"cmp_id"`
 }
