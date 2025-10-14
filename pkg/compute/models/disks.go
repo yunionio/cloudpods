@@ -1077,6 +1077,40 @@ func (self *SDisk) PerformMigrate(ctx context.Context, userCred mcclient.TokenCr
 	return nil, task.ScheduleRun(nil)
 }
 
+func (self *SDisk) PerformChangeStorageType(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.DiskChagneStorageTypeInput) (jsonutils.JSONObject, error) {
+	if len(input.StorageType) == 0 {
+		return nil, httperrors.NewMissingParameterError("storage_type")
+	}
+	storage, err := self.GetStorage()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetStorage")
+	}
+	if storage.StorageType == input.StorageType {
+		return nil, httperrors.NewInputParameterError("Storage type is already %s", input.StorageType)
+	}
+	storages := []SStorage{}
+	q := StorageManager.Query().Equals("zone_id", storage.ZoneId).Equals("storage_type", input.StorageType).IsTrue("enabled").Equals("status", api.STORAGE_ONLINE).Equals("manager_id", storage.ManagerId)
+	err = q.All(&storages)
+	if err != nil {
+		return nil, errors.Wrapf(err, "CountWithError")
+	}
+	if len(storages) == 0 {
+		return nil, httperrors.NewInputParameterError("no available storage type %s to change", input.StorageType)
+	}
+	if len(storages) > 1 {
+		return nil, httperrors.NewInputParameterError("duplicate storage type %s found", input.StorageType)
+	}
+
+	self.SetStatus(ctx, userCred, api.DISK_MIGRATING, "")
+	params := jsonutils.NewDict()
+	params.Set("storage_id", jsonutils.NewString(storages[0].Id))
+	task, err := taskman.TaskManager.NewTask(ctx, "DiskChangeStorageTypeTask", self, userCred, params, "", "", nil)
+	if err != nil {
+		return nil, errors.Wrapf(err, "NewTask")
+	}
+	return nil, task.ScheduleRun(nil)
+}
+
 func (self *SDisk) GetSchedMigrateParams(targetStorageId string) (*schedapi.ScheduleInput, error) {
 	diskConfig := self.ToDiskConfig()
 	diskConfig.Medium = ""

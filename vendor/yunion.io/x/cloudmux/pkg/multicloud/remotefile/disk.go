@@ -20,6 +20,7 @@ import (
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
+	"yunion.io/x/pkg/errors"
 )
 
 type SDisk struct {
@@ -133,4 +134,8 @@ func (self *SDisk) Rebuild(ctx context.Context) error {
 
 func (disk *SDisk) SetStorage(storage SStorage) {
 	disk.storage = &storage
+}
+
+func (disk *SDisk) ChangeStorage(ctx context.Context, opts *cloudprovider.ChangeStorageOptions) error {
+	return errors.Wrapf(cloudprovider.ErrNotImplemented, "ChangeStorage")
 }
