@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/apis/compute"
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	api "yunion.io/x/onecloud/pkg/apis/llm"
@@ -29,7 +30,7 @@ func GetPodCreateInput(
 	eip string,
 ) (*computeapi.ServerCreateInput, error) {
 	data := computeapi.ServerCreateInput{}
-	data.AutoStart = true // Set auto-start with true to init ollama model
+	data.AutoStart = input.AutoStart
 	data.ServerConfigs = compute.NewServerConfigs()
 	data.Hypervisor = computeapi.HYPERVISOR_POD
 
@@ -142,6 +143,24 @@ func GetPodCreateInput(
 	}
 
 	return &data, nil
+}
+
+func NewHostDev(path string) *computeapi.ContainerDevice {
+	return &computeapi.ContainerDevice{
+		Type: apis.CONTAINER_DEVICE_TYPE_HOST,
+		Host: &computeapi.ContainerHostDevice{
+			HostPath:      path,
+			ContainerPath: path,
+			Permissions:   "rwm",
+		},
+	}
+}
+
+func NewEnv(key, val string) *apis.ContainerKeyValue {
+	return &apis.ContainerKeyValue{
+		Key:   key,
+		Value: val,
+	}
 }
 
 func GetTmpHostPath(name string) string {

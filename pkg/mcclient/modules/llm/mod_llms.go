@@ -12,7 +12,7 @@ var (
 func init() {
 	LLMs = LLMManager{
 		modules.NewLLMManager("llm", "llms",
-			[]string{"ID", "Name", "Guest_ID", "Container_ID", "Model_Name", "Model_Tag", "Status"},
+			[]string{},
 			[]string{}),
 	}
 	modules.Register(&LLMs)
