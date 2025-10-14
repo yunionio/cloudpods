@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	commonapi "yunion.io/x/onecloud/pkg/apis"
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	api "yunion.io/x/onecloud/pkg/apis/llm"
@@ -180,10 +181,13 @@ func (llm *SLLM) ServerCreate(ctx context.Context, userCred mcclient.TokenCreden
 	if nil != err {
 		return "", errors.Wrap(err, "GetLLMImage")
 	}
+	// set AutoStart to true
+	input.AutoStart = true
 	data, err := GetPodCreateInput(ctx, userCred, input, llm, model, llmImage, "")
 	if nil != err {
 		return "", errors.Wrap(err, "GetPodCreateInput")
 	}
+	log.Infoln("PodCreateInput Data: ", jsonutils.Marshal(data).String())
 
 	s := auth.GetSession(ctx, userCred, "")
 	resp, err := compute.Servers.Create(s, jsonutils.Marshal(data))

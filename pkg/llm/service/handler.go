@@ -37,6 +37,7 @@ func InitHandlers(app *appsrv.Application) {
 		models.GetLLMModelManager(),
 		models.GetVolumeManager(),
 		models.GetAccessInfoManager(),
+		models.GetLLMContainerManager(),
 		models.GetLLMManager(),
 	} {
 		db.RegisterModelManager(manager)
