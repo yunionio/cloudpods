@@ -28,8 +28,7 @@ import (
 )
 
 type SDisk struct {
-	multicloud.SVirtualResourceBase
-	multicloud.SBillingBase
+	multicloud.SDisk
 	CloudpodsTags
 	region *SRegion
 
