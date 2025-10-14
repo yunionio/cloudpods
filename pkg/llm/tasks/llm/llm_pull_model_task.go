@@ -10,16 +10,16 @@ import (
 	"yunion.io/x/onecloud/pkg/llm/models"
 )
 
-type LLMBaseTask struct {
+type LLMPullModelTask struct {
 	taskman.STask
 }
 
-func (t *LLMBaseTask) GetLLM() *models.SOllama {
-	return t.GetObject().(*models.SOllama)
+func (t *LLMPullModelTask) GetLLM() *models.SLLM {
+	return t.GetObject().(*models.SLLM)
 }
 
-type LLMPullModelTask struct {
-	LLMBaseTask
+func (t *LLMPullModelTask) GetLLMContainerDriver() models.ILLMContainerDriver {
+	return t.GetLLM().GetLLMContainerDriver()
 }
 
 func init() {
@@ -27,64 +27,47 @@ func init() {
 }
 
 func (t *LLMPullModelTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
-	if err := obj.(*models.SOllama).ConfirmContainerId(ctx, t.GetUserCred()); err != nil {
-		t.OnGetManifestsFailed(ctx, obj.(*models.SOllama), jsonutils.NewString(err.Error()))
-	}
-	t.requestGetManifests(ctx, obj.(*models.SOllama))
+	t.requestGetManifests(ctx, obj.(*models.SLLM))
 }
 
-func (t *LLMPullModelTask) requestGetManifests(ctx context.Context, llm *models.SOllama) {
-	llm.SetStatus(ctx, t.GetUserCred(), api.LLM_STATUS_PULLING_MODEL, "")
+func (t *LLMPullModelTask) requestGetManifests(ctx context.Context, llm *models.SLLM) {
+	// llm.SetStatus(ctx, t.GetUserCred(), api.LLM_STATUS_PULLING_MODEL, "")
 	t.SetStage("OnGetManifests", nil)
 
-	if err := llm.DownloadManifests(ctx, t.GetUserCred(), t.GetId()); err != nil {
+	if err := t.GetLLMContainerDriver().GetManifests(ctx, t.GetUserCred(), llm, t.GetId()); err != nil {
 		t.OnGetManifestsFailed(ctx, llm, jsonutils.NewString(err.Error()))
 		return
 	}
 }
 
-func (t *LLMPullModelTask) OnGetManifestsFailed(ctx context.Context, llm *models.SOllama, reason jsonutils.JSONObject) {
+func (t *LLMPullModelTask) OnGetManifestsFailed(ctx context.Context, llm *models.SLLM, reason jsonutils.JSONObject) {
 	llm.SetStatus(ctx, t.GetUserCred(), api.LLM_STATUS_GET_MANIFESTS_FAILED, reason.String())
 	t.SetStageFailed(ctx, reason)
 }
 
-func (t *LLMPullModelTask) OnGetManifests(ctx context.Context, llm *models.SOllama, data jsonutils.JSONObject) {
-	blobs, err := llm.FetchBlobs(ctx, t.GetUserCred())
-	if err != nil {
-		t.OnAccessCacheFailed(ctx, llm, jsonutils.NewString(err.Error()))
-		return
-	}
-	input := &api.OllamaAccessCacheInput{
-		Blobs:     blobs,
-		ModelName: llm.GetModelName(),
-	}
-	t.SetStage("OnAccessCache", jsonutils.Marshal(input).(*jsonutils.JSONDict))
-	if err := llm.AccessBlobsCache(ctx, t.GetUserCred(), t); nil != err {
+func (t *LLMPullModelTask) OnGetManifests(ctx context.Context, llm *models.SLLM, data jsonutils.JSONObject) {
+	t.SetStage("OnAccessCache", nil)
+	if err := t.GetLLMContainerDriver().AccessBlobsCache(ctx, t.GetUserCred(), llm, t.GetId()); nil != err {
 		t.OnAccessCacheFailed(ctx, llm, jsonutils.NewString(err.Error()))
 		return
 	}
 }
 
-func (t *LLMPullModelTask) OnAccessCacheFailed(ctx context.Context, llm *models.SOllama, reason jsonutils.JSONObject) {
+func (t *LLMPullModelTask) OnAccessCacheFailed(ctx context.Context, llm *models.SLLM, reason jsonutils.JSONObject) {
 	llm.SetStatus(ctx, t.GetUserCred(), api.LLM_STATUS_DOWNLOADING_BLOBS_FAILED, reason.String())
 	t.SetStageFailed(ctx, reason)
 }
 
-func (t *LLMPullModelTask) OnAccessCache(ctx context.Context, llm *models.SOllama, data jsonutils.JSONObject) {
+func (t *LLMPullModelTask) OnAccessCache(ctx context.Context, llm *models.SLLM, data jsonutils.JSONObject) {
 	// log.Infoln("try to find out blobs: ", t.GetParams().String(), data.String())
-	input := new(api.OllamaAccessCacheInput)
-	if err := t.GetParams().Unmarshal(input); nil != err {
-		t.OnAccessCacheFailed(ctx, llm, jsonutils.NewString(err.Error()))
-		return
-	}
-	if err := llm.CopyBlobs(ctx, t.GetUserCred(), input.Blobs); nil != err {
+	if err := t.GetLLMContainerDriver().CopyBlobs(ctx, t.GetUserCred(), llm); nil != err {
 		t.OnAccessCacheFailed(ctx, llm, jsonutils.NewString(err.Error()))
 		return
 	}
 	t.OnPulledModel(ctx, llm, nil)
 }
 
-func (t *LLMPullModelTask) OnPulledModel(ctx context.Context, llm *models.SOllama, data jsonutils.JSONObject) {
-	llm.SetStatus(ctx, t.GetUserCred(), api.LLM_STATUS_PULLED_MODEL, "")
+func (t *LLMPullModelTask) OnPulledModel(ctx context.Context, llm *models.SLLM, data jsonutils.JSONObject) {
+	// llm.SetStatus(ctx, t.GetUserCred(), api.LLM_STATUS_PULLED_MODEL, "")
 	t.SetStageComplete(ctx, nil)
 }
