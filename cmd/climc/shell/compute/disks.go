@@ -47,6 +47,7 @@ func init() {
 	cmd.Perform("migrate", &compute_options.DiskMigrateOptions{})
 	cmd.Perform("reset-template", &compute_options.DiskResetTemplateOptions{})
 	cmd.Perform("change-billing-type", new(compute_options.DiskChangeBillingTypeOptions))
+	cmd.Perform("change-storage-type", &compute_options.DiskChangeStorageTypeOptions{})
 
 	type DiskDetailOptions struct {
 		ID string `help:"ID or Name of disk"`
