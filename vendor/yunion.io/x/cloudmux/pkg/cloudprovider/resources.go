@@ -573,6 +573,7 @@ type ICloudDisk interface {
 	Rebuild(ctx context.Context) error
 
 	GetPreallocation() string
+	ChangeStorage(ctx context.Context, opts *ChangeStorageOptions) error
 }
 
 type ICloudSnapshot interface {

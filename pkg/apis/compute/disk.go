@@ -354,6 +354,11 @@ type DiskMigrateInput struct {
 	TargetStorageId string `json:"target_storage_id"`
 }
 
+type DiskChagneStorageTypeInput struct {
+	// 目标存储类型
+	StorageType string `json:"storage_type"`
+}
+
 type DiskSnapshotpolicyInput struct {
 	SnapshotpolicyId string `json:"snapshotpolicy_id"`
 }
