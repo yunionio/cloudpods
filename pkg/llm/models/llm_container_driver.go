@@ -58,10 +58,13 @@ func getDriverWithError[K ~string, D any](drvs *drivers, typ K) (D, error) {
 }
 
 type ILLMContainerPullModel interface {
-	PullModelByInstall(ctx context.Context, userCred mcclient.TokenCredential, llm *SLLM, modelName string, modelTag string) error
-	PullModelByGgufFile(ctx context.Context, userCred mcclient.TokenCredential, llm *SLLM, ggufFileUrl string, model string) error
+	// PullModelByInstall(ctx context.Context, userCred mcclient.TokenCredential, llm *SLLM, modelName string, modelTag string) error
+	// PullModelByGgufFile(ctx context.Context, userCred mcclient.TokenCredential, llm *SLLM, ggufFileUrl string, model string) error
 	// DownloadGgufFile(ctx context.Context, userCred mcclient.TokenCredential, llm *SLLM, ggufFileUrl string, ggufFilePath string) error
 	// InstallGgufModel(ctx context.Context, userCred mcclient.TokenCredential, llm *SLLM, ggufFilePath string) error
+	GetManifests(ctx context.Context, userCred mcclient.TokenCredential, llm *SLLM, taskId string) error
+	AccessBlobsCache(ctx context.Context, userCred mcclient.TokenCredential, llm *SLLM, taskId string) error
+	CopyBlobs(ctx context.Context, userCred mcclient.TokenCredential, llm *SLLM) error
 }
 
 type ILLMContainerDriver interface {

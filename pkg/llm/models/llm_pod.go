@@ -6,7 +6,6 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/apis"
-	"yunion.io/x/onecloud/pkg/apis/compute"
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	api "yunion.io/x/onecloud/pkg/apis/llm"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -31,7 +30,7 @@ func GetPodCreateInput(
 ) (*computeapi.ServerCreateInput, error) {
 	data := computeapi.ServerCreateInput{}
 	data.AutoStart = input.AutoStart
-	data.ServerConfigs = compute.NewServerConfigs()
+	data.ServerConfigs = computeapi.NewServerConfigs()
 	data.Hypervisor = computeapi.HYPERVISOR_POD
 
 	postStopCleanupConfgi := PodPostStopCleanupConfig{

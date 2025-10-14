@@ -61,3 +61,14 @@ func (m *SLLMContainerManager) CreateOnLLM(
 	}
 	return obj.(*SLLMContainer), nil
 }
+
+func (m *SLLMContainerManager) FetchByLLMId(
+	llmId string,
+) (*SLLMContainer, error) {
+	ac := &SLLMContainer{}
+	if err := m.Query().Equals("llm_id", llmId).First(ac); err != nil {
+		return nil, errors.Wrapf(err, "query llm container by llm id %s", llmId)
+	}
+	ac.SetModelManager(m, ac)
+	return ac, nil
+}

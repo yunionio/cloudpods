@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"yunion.io/x/onecloud/pkg/apis"
-	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/pkg/errors"
 )
 
@@ -23,15 +22,15 @@ type OllamaGgufSpec struct {
 	ModelFile *OllamaModelFileSpec `json:"modelfile,omitempty"`
 }
 
-type OllamaPullModelInput struct {
-	Model string          `json:"model"`
-	Gguf  *OllamaGgufSpec `json:"gguf,omitempty"`
-}
+// type OllamaPullModelInput struct {
+// 	Model string          `json:"model"`
+// 	Gguf  *OllamaGgufSpec `json:"gguf,omitempty"`
+// }
 
-type OllamaCreateInput struct {
-	compute.ServerCreateInput
-	OllamaPullModelInput
-}
+// type OllamaCreateInput struct {
+// 	compute.ServerCreateInput
+// 	OllamaPullModelInput
+// }
 
 type OllamaListInput struct {
 	apis.VirtualResourceListInput

@@ -2,6 +2,7 @@ package models
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -172,6 +173,21 @@ func (llm *SLLM) StartCreateTask(ctx context.Context, userCred mcclient.TokenCre
 	return nil
 }
 
+func (llm *SLLM) StartPullModelTask(ctx context.Context, userCred mcclient.TokenCredential, input *jsonutils.JSONDict, parentTaskId string) error {
+	var err = func() error {
+		task, err := taskman.TaskManager.NewTask(ctx, "LLMPullModelTask", llm, userCred, input, parentTaskId, "", nil)
+		if err != nil {
+			return errors.Wrapf(err, "NewTask")
+		}
+		return task.ScheduleRun(nil)
+	}()
+	if err != nil {
+		llm.SetStatus(ctx, userCred, api.LLM_STATUS_PULL_MODEL_FAILED, err.Error())
+		return err
+	}
+	return nil
+}
+
 func (llm *SLLM) ServerCreate(ctx context.Context, userCred mcclient.TokenCredential, input *api.LLMCreateInput) (string, error) {
 	model, err := llm.GetLLMModel(llm.LLMModelId)
 	if nil != err {
@@ -213,6 +229,21 @@ func (llm *SLLM) GetLLMModel(modelId string) (*SLLMModel, error) {
 	return model.(*SLLMModel), nil
 }
 
+func (llm *SLLM) GetLargeLanguageModelName() (modelName string, modelTag string, err error) {
+	model, err := llm.GetLLMModel("")
+	if err != nil {
+		return "", "", err
+	}
+	name := model.LLMModelName
+	parts := strings.Split(name, ":")
+	modelName = parts[0]
+	modelTag = "latest"
+	if len(parts) > 1 {
+		modelTag = parts[1]
+	}
+	return
+}
+
 func (llm *SLLM) getImage(imageId string) (*SLLMImage, error) {
 	image, err := GetLLMImageManager().FetchById(imageId)
 	if err != nil {
@@ -227,6 +258,10 @@ func (llm *SLLM) GetLLMImage() (*SLLMImage, error) {
 
 func (llm *SLLM) GetServer(ctx context.Context) (*computeapi.ServerDetails, error) {
 	return cloudutil.GetServer(ctx, llm.SvrId)
+}
+
+func (llm *SLLM) GetLLMContainer() (*SLLMContainer, error) {
+	return GetLLMContainerManager().FetchByLLMId(llm.Id)
 }
 
 func (llm *SLLM) GetLLMContainerDriver() ILLMContainerDriver {
