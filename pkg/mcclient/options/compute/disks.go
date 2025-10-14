@@ -92,6 +92,20 @@ func (o *DiskMigrateOptions) Params() (jsonutils.JSONObject, error) {
 	return options.StructToParams(o)
 }
 
+type DiskChangeStorageTypeOptions struct {
+	ID string `help:"ID of the server" json:"-"`
+
+	StorageType string `help:"Disk migrate target storage type" json:"storage_type"`
+}
+
+func (o *DiskChangeStorageTypeOptions) GetId() string {
+	return o.ID
+}
+
+func (o *DiskChangeStorageTypeOptions) Params() (jsonutils.JSONObject, error) {
+	return options.StructToParams(o)
+}
+
 type DiskListOptions struct {
 	options.BaseListOptions
 	Unused        *bool  `help:"Show unused disks"`
