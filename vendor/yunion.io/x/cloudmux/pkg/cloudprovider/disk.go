@@ -26,3 +26,8 @@ type DiskCreateConfig struct {
 
 	Tags map[string]string
 }
+
+type ChangeStorageOptions struct {
+	StorageType string
+	DiskId      string
+}
