@@ -58,7 +58,8 @@ func getDriverWithError[K ~string, D any](drvs *drivers, typ K) (D, error) {
 }
 
 type ILLMContainerPullModel interface {
-	PullModel(ctx context.Context, userCred mcclient.TokenCredential, llm *SLLM, modelName string, modelTag string) error
+	PullModelByInstall(ctx context.Context, userCred mcclient.TokenCredential, llm *SLLM, modelName string, modelTag string) error
+	PullModelByGgufFile(ctx context.Context, userCred mcclient.TokenCredential, llm *SLLM, ggufFileUrl string, model string) error
 	// DownloadGgufFile(ctx context.Context, userCred mcclient.TokenCredential, llm *SLLM, ggufFileUrl string, ggufFilePath string) error
 	// InstallGgufModel(ctx context.Context, userCred mcclient.TokenCredential, llm *SLLM, ggufFilePath string) error
 }
@@ -66,6 +67,8 @@ type ILLMContainerPullModel interface {
 type ILLMContainerDriver interface {
 	GetType() llm.LLMContainerType
 	GetContainerSpec(ctx context.Context, llm *SLLM, image *SLLMImage, sku *SLLMModel, props []string, devices []computeapi.SIsolatedDevice, diskId string) *computeapi.PodContainerCreateInput
+
+	ILLMContainerPullModel
 }
 
 var (
@@ -73,7 +76,7 @@ var (
 )
 
 func RegisterLLMContainerDriver(drv ILLMContainerDriver) {
-	llmContainerDrivers.Register(string(drv.GetType()), drv)
+	registerDriver(llmContainerDrivers, drv.GetType(), drv)
 }
 
 func GetLLMContainerDriver(typ llm.LLMContainerType) ILLMContainerDriver {

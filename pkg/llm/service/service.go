@@ -4,6 +4,7 @@ import (
 	"os"
 
 	"yunion.io/x/log"
+	_ "yunion.io/x/onecloud/pkg/llm/drivers/llm"
 	_ "yunion.io/x/sqlchemy/backends"
 
 	api "yunion.io/x/onecloud/pkg/apis/llm"

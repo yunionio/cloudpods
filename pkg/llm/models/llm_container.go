@@ -38,7 +38,7 @@ type SLLMContainer struct {
 	db.SVirtualResourceBase
 
 	LLMId        string `width:"128" charset:"ascii" nullable:"false" list:"user" primary:"true" create:"required"`
-	CmgId        string `width:"128" charset:"ascii" nullable:"true" list:"user" create:"required"`
+	CmpId        string `width:"128" charset:"ascii" nullable:"true" list:"user" create:"required"`
 	Type         string `width:"16" charset:"ascii" list:"user" primary:"true" create:"required"`
 	RunningAppId string `width:"128" charset:"ascii" nullable:"true" list:"user"`
 }
@@ -47,12 +47,12 @@ func (m *SLLMContainerManager) CreateOnLLM(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
 	ownerId mcclient.IIdentityProvider,
-	llm *SLLM, cmgId string, svrName string,
+	llm *SLLM, cmpId string, svrName string,
 ) (*SLLMContainer, error) {
 	input := &api.LLMContainerCreateInput{
 		LLMId: llm.Id,
 		Type:  string(llm.GetLLMContainerDriver().GetType()),
-		SvrId: cmgId,
+		CmpId: cmpId,
 	}
 	input.Name = svrName
 	obj, err := db.DoCreate(m, ctx, userCred, nil, jsonutils.Marshal(input), ownerId)
