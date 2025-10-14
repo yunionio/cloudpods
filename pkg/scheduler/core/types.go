@@ -93,6 +93,7 @@ type CandidatePropertyGetter interface {
 	RunningCPUCount() int64
 	TotalCPUCount(useRsvd bool) int64
 	FreeCPUCount(useRsvd bool) int64
+	KvmCapMaxVcpuCount() int64
 
 	RunningMemorySize() int64
 	TotalMemorySize(useRsvd bool) int64
