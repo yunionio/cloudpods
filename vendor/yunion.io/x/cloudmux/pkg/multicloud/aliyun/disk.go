@@ -471,3 +471,28 @@ func (self *SRegion) rebuildDisk(diskId string) error {
 func (self *SDisk) GetProjectId() string {
 	return self.ResourceGroupId
 }
+
+func (region *SRegion) ChagneDiskStorage(ctx context.Context, opts *cloudprovider.ChangeStorageOptions) error {
+	params := map[string]string{
+		"DiskId":       opts.DiskId,
+		"DiskCategory": opts.StorageType,
+	}
+	switch opts.StorageType {
+	case api.STORAGE_CLOUD_ESSD_PL0:
+		params["DiskCategory"] = api.STORAGE_CLOUD_ESSD
+		params["PerformanceLevel"] = "PL0"
+	case api.STORAGE_CLOUD_ESSD_PL2:
+		params["DiskCategory"] = api.STORAGE_CLOUD_ESSD
+		params["PerformanceLevel"] = "PL2"
+	case api.STORAGE_CLOUD_ESSD_PL3:
+		params["DiskCategory"] = api.STORAGE_CLOUD_ESSD
+		params["PerformanceLevel"] = "PL3"
+	}
+	_, err := region.ecsRequest("ModifyDiskSpec", params)
+	return err
+}
+
+func (disk *SDisk) ChangeStorage(ctx context.Context, opts *cloudprovider.ChangeStorageOptions) error {
+	opts.DiskId = disk.DiskId
+	return disk.storage.zone.region.ChagneDiskStorage(ctx, opts)
+}
