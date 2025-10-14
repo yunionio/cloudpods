@@ -34,6 +34,6 @@ func (task *LLMBatchCreateTask) OnInit(ctx context.Context, objs []db.IStandalon
 	}
 }
 
-func (task *LLMBatchCreateTask) OnDesktopCreateCompleteAll(ctx context.Context, objs []db.IStandaloneModel, body jsonutils.JSONObject) {
+func (task *LLMBatchCreateTask) OnLLMCreateCompleteAll(ctx context.Context, objs []db.IStandaloneModel, body jsonutils.JSONObject) {
 	task.SetStageComplete(ctx, nil)
 }
