@@ -149,22 +149,23 @@ func (task *LLMCreateTask) OnLLMRefreshStatusComplete(ctx context.Context, llm *
 		return
 	}
 
-	// 调用子任务在容器中拉取模型
-	params := jsonutils.NewDict()
-	params.Set("status", jsonutils.NewString(server.Status))
-	task.SetStage("OnLLMPullModel", params)
+	task.taskComplete(ctx, llm, server.Status)
+	// // 调用子任务在容器中拉取模型
+	// params := jsonutils.NewDict()
+	// params.Set("status", jsonutils.NewString(server.Status))
+	// task.SetStage("OnLLMPullModel", params)
 
-	if err := llm.StartPullModelTask(ctx, task.GetUserCred(), nil, task.GetId()); err != nil {
-		task.taskFailed(ctx, llm, errors.Wrap(err, "StartPullModelTask"))
-		return
-	}
+	// if err := llm.StartPullModelTask(ctx, task.GetUserCred(), nil, task.GetId()); err != nil {
+	// 	task.taskFailed(ctx, llm, errors.Wrap(err, "StartPullModelTask"))
+	// 	return
+	// }
 }
 
-func (task *LLMCreateTask) OnLLMPullModelFailed(ctx context.Context, llm *models.SLLM, err jsonutils.JSONObject) {
-	task.taskFailed(ctx, llm, errors.Error(err.String()))
-}
+// func (task *LLMCreateTask) OnLLMPullModelFailed(ctx context.Context, llm *models.SLLM, err jsonutils.JSONObject) {
+// 	task.taskFailed(ctx, llm, errors.Error(err.String()))
+// }
 
-func (task *LLMCreateTask) OnLLMPullModel(ctx context.Context, llm *models.SLLM, body jsonutils.JSONObject) {
-	status, _ := task.GetParams().GetString("status")
-	task.taskComplete(ctx, llm, status)
-}
+// func (task *LLMCreateTask) OnLLMPullModel(ctx context.Context, llm *models.SLLM, body jsonutils.JSONObject) {
+// 	status, _ := task.GetParams().GetString("status")
+// 	task.taskComplete(ctx, llm, status)
+// }
