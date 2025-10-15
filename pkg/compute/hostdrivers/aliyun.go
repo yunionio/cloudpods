@@ -50,12 +50,15 @@ func (self *SAliyunHostDriver) ValidateDiskSize(storage *models.SStorage, sizeGb
 	case api.STORAGE_CLOUD_EFFICIENCY, api.STORAGE_CLOUD_SSD, api.STORAGE_CLOUD_ESSD:
 		minGB = 20
 		maxGB = 32768
+	case api.STORAGE_CLOUD_ESSD_PL0:
+		minGB = 1
+		maxGB = 65536
 	case api.STORAGE_CLOUD_ESSD_PL2:
 		minGB = 461
-		maxGB = 32768
+		maxGB = 65536
 	case api.STORAGE_CLOUD_ESSD_PL3:
 		minGB = 1261
-		maxGB = 32768
+		maxGB = 65536
 	case api.STORAGE_PUBLIC_CLOUD:
 		minGB = 5
 		maxGB = 2000
@@ -66,7 +69,8 @@ func (self *SAliyunHostDriver) ValidateDiskSize(storage *models.SStorage, sizeGb
 		minGB = 10
 		maxGB = 32768
 	default:
-		return fmt.Errorf("Not support resize %s disk", storage.StorageType)
+		minGB = 1
+		maxGB = 65536
 	}
 	if sizeGb < minGB || sizeGb > maxGB {
 		return fmt.Errorf("The %s disk size must be in the range of %dG ~ %dGB", storage.StorageType, minGB, maxGB)
