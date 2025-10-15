@@ -83,6 +83,10 @@ func (info *RemoteRDPConsoleInfo) GetCommand() *exec.Cmd {
 	return nil
 }
 
+func (info *RemoteRDPConsoleInfo) GetSafeCommandString() string {
+	return ""
+}
+
 func (info *RemoteRDPConsoleInfo) Cleanup() error {
 	return nil
 }
