@@ -101,6 +101,10 @@ func (s *SSshSession) GetCommand() *exec.Cmd {
 	return nil
 }
 
+func (s *SSshSession) GetSafeCommandString() string {
+	return ""
+}
+
 func (s *SSshSession) IsNeedLogin() (bool, error) {
 	if len(s.Username) > 0 && len(s.Password) > 0 {
 		config := &ssh.ClientConfig{
