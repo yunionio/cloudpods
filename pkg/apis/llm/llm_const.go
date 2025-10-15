@@ -28,4 +28,7 @@ const (
 	LLM_STATUS_CREATE_GGUF_MODEL_FAILED = "create_gguf_model_failed"
 	LLM_STATUS_PULLED_MODEL             = "pulled_model"
 	LLM_STATUS_PULL_MODEL_FAILED        = "pull_model_failed"
+	LLM_STATUS_START_DELETE             = "start_delete"
+	LLM_STATUS_DELETING                 = "deleting"
+	LLM_STATUS_DELETE_FAILED            = "delete_fail"
 )

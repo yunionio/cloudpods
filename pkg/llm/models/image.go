@@ -127,18 +127,25 @@ func (man *SLLMImageManager) ListItemFilter(
 	return q, nil
 }
 
-// func (image *SDesktopImage) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
-// 	for _, field := range []string{"audio_image_id", "stream_image_id", "app_image_id"} {
-// 		count, err := GetDesktopManager().Query().Equals(field, image.Id).CountWithError()
-// 		if err != nil {
-// 			return errors.Wrap(err, "fetch desktops")
-// 		}
-// 		if count > 0 {
-// 			return errors.Wrapf(errors.ErrNotSupported, "This image is currently in use by %s", field)
-// 		}
-// 	}
-// 	return nil
-// }
+func (image *SLLMImage) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
+	for _, field := range []string{"llm_image_id"} {
+		count, err := GetLLMManager().Query().Equals(field, image.Id).CountWithError()
+		if err != nil {
+			return errors.Wrap(err, "fetch llms")
+		}
+		if count > 0 {
+			return errors.Wrapf(errors.ErrNotSupported, "This image is currently in use by %s in llms", field)
+		}
+		count, err = GetLLMModelManager().Query().Equals("llm_image_id", image.Id).CountWithError()
+		if err != nil {
+			return errors.Wrap(err, "fetch llm models")
+		}
+		if count > 0 {
+			return errors.Wrapf(errors.ErrNotSupported, "This image is currently in use by %s in llm models", field)
+		}
+	}
+	return nil
+}
 
 func (image *SLLMImage) ToContainerImage() string {
 	return fmt.Sprintf("%s:%s", image.ImageName, image.ImageLabel)
