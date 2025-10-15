@@ -309,6 +309,10 @@ func (client *SVolcEngineClient) jsonRequest(cred sdk.Credentials, domain string
 	if cred.Service == VOLCENGINE_SERVICE_OBSERVICE {
 		method = httputils.POST
 	}
+	// 私网接口仅支持GET请求
+	if cred.Service == VOLCENGINE_SERVICE_VPC {
+		method = httputils.GET
+	}
 
 	form := url.Values{}
 	_params, _ := params.(map[string]string)
