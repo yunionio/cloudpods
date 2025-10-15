@@ -4,8 +4,10 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
+	commonapi "yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/llm"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/pkg/errors"
 )
@@ -65,10 +67,24 @@ func (m *SLLMContainerManager) CreateOnLLM(
 func (m *SLLMContainerManager) FetchByLLMId(
 	llmId string,
 ) (*SLLMContainer, error) {
-	ac := &SLLMContainer{}
-	if err := m.Query().Equals("llm_id", llmId).First(ac); err != nil {
+	lc := &SLLMContainer{}
+	if err := m.Query().Equals("llm_id", llmId).First(lc); err != nil {
 		return nil, errors.Wrapf(err, "query llm container by llm id %s", llmId)
 	}
-	ac.SetModelManager(m, ac)
-	return ac, nil
+	lc.SetModelManager(m, lc)
+	return lc, nil
+}
+
+func (lc *SLLMContainer) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	return lc.SVirtualResourceBase.Delete(ctx, userCred)
+}
+
+func (lc *SLLMContainer) StartDeleteTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "LLMContainerDeleteTask", lc, userCred, nil, parentTaskId, "", nil)
+	if err != nil {
+		return err
+	}
+	lc.SetStatus(ctx, userCred, commonapi.STATUS_DELETING, "")
+	task.ScheduleRun(nil)
+	return nil
 }

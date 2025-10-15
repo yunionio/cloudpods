@@ -60,3 +60,15 @@ func (o *LLMCreateOptions) Params() (jsonutils.JSONObject, error) {
 func (o *LLMCreateOptions) GetCountParam() int {
 	return o.Count
 }
+
+type LLMDeleteOptions struct {
+	options.BaseIdOptions
+}
+
+func (o *LLMDeleteOptions) GetId() string {
+	return o.ID
+}
+
+func (o *LLMDeleteOptions) Params() (jsonutils.JSONObject, error) {
+	return options.StructToParams(o)
+}
