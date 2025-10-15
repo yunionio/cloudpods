@@ -71,7 +71,7 @@ type ILLMContainerDriver interface {
 	GetType() llm.LLMContainerType
 	GetContainerSpec(ctx context.Context, llm *SLLM, image *SLLMImage, sku *SLLMModel, props []string, devices []computeapi.SIsolatedDevice, diskId string) *computeapi.PodContainerCreateInput
 
-	ILLMContainerPullModel
+	// ILLMContainerPullModel
 }
 
 var (

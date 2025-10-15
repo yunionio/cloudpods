@@ -10,9 +10,8 @@ import (
 	"github.com/golang-plus/errors"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/apis"
-	"yunion.io/x/onecloud/pkg/apis/llm"
-	"yunion.io/x/onecloud/pkg/llm/drivers/pod"
 	"yunion.io/x/onecloud/pkg/llm/models"
+	"yunion.io/x/onecloud/pkg/llm/utils"
 	"yunion.io/x/onecloud/pkg/mcclient"
 
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
@@ -30,8 +29,8 @@ func newOllama() models.ILLMContainerDriver {
 	return new(ollama)
 }
 
-func (o *ollama) GetType() llm.LLMContainerType {
-	return llm.LLM_CONTAINER_OLLAMA
+func (o *ollama) GetType() api.LLMContainerType {
+	return api.LLM_CONTAINER_OLLAMA
 }
 
 func (o *ollama) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *models.SLLMImage, sku *models.SLLMModel, props []string, devices []computeapi.SIsolatedDevice, diskId string) *computeapi.PodContainerCreateInput {
@@ -85,8 +84,8 @@ func (o *ollama) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *
 	// 	}
 	// }
 
-	// // process volume mounts
-	// vols := make([]*apis.ContainerVolumeMount, 0)
+	// process volume mounts
+	vols := make([]*apis.ContainerVolumeMount, 0)
 	// appVolIndex := 2
 	// postOverlays, err := d.GetMountedAppsPostOverlay()
 	// if err != nil {
@@ -95,47 +94,32 @@ func (o *ollama) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *
 	// vols = append(spec.VolumeMounts, GetDiskVolumeMounts(sku.Volumes, appVolIndex, postOverlays)...)
 
 	// udevPath := filepath.Join(GetTmpSocketsHostPath(d.GetName()), "udev")
-	// ctrVols := []*apis.ContainerVolumeMount{
-	// 	{
-	// 		UniqueName: "fake-udev",
-	// 		Type:       apis.CONTAINER_VOLUME_MOUNT_TYPE_HOST_PATH,
-	// 		MountPath:  "/usr/bin/fake-udev",
-	// 		HostPath: &apis.ContainerVolumeMountHostPath{
-	// 			Type: apis.CONTAINER_VOLUME_MOUNT_HOST_PATH_TYPE_FILE,
-	// 			Path: filepath.Join(cdk.HOST_DIR_OPT_CDK, "etc/wolf/fake-udev"),
-	// 		},
-	// 		ReadOnly: true,
-	// 	},
-	// 	{
-	// 		UniqueName: "steam-tmp-sockets",
-	// 		Type:       apis.CONTAINER_VOLUME_MOUNT_TYPE_HOST_PATH,
-	// 		MountPath:  "/tmp/sockets",
-	// 		HostPath: &apis.ContainerVolumeMountHostPath{
-	// 			Type:       apis.CONTAINER_VOLUME_MOUNT_HOST_PATH_TYPE_DIRECTORY,
-	// 			Path:       GetTmpSocketsHostPath(d.GetName()),
-	// 			AutoCreate: true,
-	// 		},
-	// 	},
-	// 	{
-	// 		UniqueName: "steam-run-udev",
-	// 		Type:       apis.CONTAINER_VOLUME_MOUNT_TYPE_HOST_PATH,
-	// 		MountPath:  VOL_RUN_UDEV,
-	// 		HostPath: &apis.ContainerVolumeMountHostPath{
-	// 			AutoCreate: true,
-	// 			Type:       apis.CONTAINER_VOLUME_MOUNT_HOST_PATH_TYPE_DIRECTORY,
-	// 			Path:       udevPath,
-	// 		},
-	// 	},
-	// 	{
-	// 		UniqueName: "steam-launcher-script",
-	// 		Type:       apis.CONTAINER_VOLUME_MOUNT_TYPE_HOST_PATH,
-	// 		MountPath:  STEAM_LAUNCHER_SCRIPT_PATH,
-	// 		HostPath: &apis.ContainerVolumeMountHostPath{
-	// 			Type: apis.CONTAINER_VOLUME_MOUNT_HOST_PATH_TYPE_FILE,
-	// 			Path: filepath.Join(cdk.HOST_DIR_OPT_CDK, STEAM_LAUNCHER_SCRIPT_PATH),
-	// 		},
-	// 	},
-	// }
+	modelName, modelTag, _ := llm.GetLargeLanguageModelName()
+	ctrVols := []*apis.ContainerVolumeMount{
+		{
+			UniqueName: "manifests",
+			Type:       apis.CONTAINER_VOLUME_MOUNT_TYPE_HOST_PATH,
+			MountPath:  getManifestsPath(modelName, modelTag),
+			HostPath: &apis.ContainerVolumeMountHostPath{
+				Type: apis.CONTAINER_VOLUME_MOUNT_HOST_PATH_TYPE_FILE,
+				Path: path.Join(api.LLM_OLLAMA_HOST_PATH, api.LLM_OLLAMA_HOST_MANIFESTS_DIR, modelName+"-"+modelTag),
+			},
+			ReadOnly: true,
+		},
+		{
+			UniqueName: "blobs",
+			Type:       apis.CONTAINER_VOLUME_MOUNT_TYPE_HOST_PATH,
+			MountPath:  path.Join(api.LLM_OLLAMA_BASE_PATH, api.LLM_OLLAMA_BLOBS_DIR),
+			HostPath: &apis.ContainerVolumeMountHostPath{
+				Type: apis.CONTAINER_VOLUME_MOUNT_HOST_PATH_TYPE_DIRECTORY,
+				Path: path.Join(api.LLM_OLLAMA_HOST_PATH, api.LLM_OLLAMA_BLOBS_DIR),
+			},
+			ReadOnly: true,
+		},
+	}
+	vols = append(vols, ctrVols...)
+
+	spec.VolumeMounts = vols
 
 	// set ollama
 	var ollama bool = true
@@ -154,38 +138,36 @@ func (o *ollama) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *
 // 	return nil
 // }
 
-var ollama_pod pod.SPodDriver
+// func (o *ollama) GetManifests(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM, taskId string) error {
+// 	modelName, modelTag, _ := llm.GetLargeLanguageModelName()
+// 	suffix := fmt.Sprintf("%s/manifests/%s", modelName, modelTag)
+// 	url := fmt.Sprintf(api.LLM_OLLAMA_LIBRARY_BASE_URL, suffix)
+// 	ctr, _ := llm.GetLLMContainer()
 
-func (o *ollama) GetManifests(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM, taskId string) error {
-	modelName, modelTag, _ := llm.GetLargeLanguageModelName()
-	suffix := fmt.Sprintf("%s/manifests/%s", modelName, modelTag)
-	url := fmt.Sprintf(api.LLM_OLLAMA_LIBRARY_BASE_URL, suffix)
-	ctr, _ := llm.GetLLMContainer()
+// 	return download(ctx, userCred, ctr.CmpId, taskId, url, getManifestsPath(modelName, modelTag))
+// }
 
-	return download(ctx, userCred, ctr.CmpId, taskId, url, getManifestsPath(modelName, modelTag))
-}
+// func (o *ollama) AccessBlobsCache(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM, taskId string) error {
+// 	ctr, _ := llm.GetLLMContainer()
+// 	modelName, modelTag, _ := llm.GetLargeLanguageModelName()
+// 	blobs, err := fetchBlobs(ctx, userCred, ctr.CmpId, modelName, modelTag)
+// 	if err != nil {
+// 		return errors.Wrapf(err, "failed to fetch blobs for model %s:%s", modelName, modelTag)
+// 	}
 
-func (o *ollama) AccessBlobsCache(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM, taskId string) error {
-	ctr, _ := llm.GetLLMContainer()
-	modelName, modelTag, _ := llm.GetLargeLanguageModelName()
-	blobs, err := fetchBlobs(ctx, userCred, ctr.CmpId, modelName, modelTag)
-	if err != nil {
-		return errors.Wrapf(err, "failed to fetch blobs for model %s:%s", modelName, modelTag)
-	}
+// 	input := &api.OllamaAccessCacheInput{
+// 		Blobs:     blobs,
+// 		ModelName: modelName,
+// 	}
+// 	_, err = ollama_pod.RequestOllamaBlobsCache(ctx, userCred, ctr.CmpId, taskId, input)
 
-	input := &api.OllamaAccessCacheInput{
-		Blobs:     blobs,
-		ModelName: modelName,
-	}
-	_, err = ollama_pod.RequestOllamaBlobsCache(ctx, userCred, ctr.CmpId, taskId, input)
-
-	return err
-}
+// 	return err
+// }
 
 func (o *ollama) CopyBlobs(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM) error {
 	ctr, _ := llm.GetLLMContainer()
 	modelName, modelTag, _ := llm.GetLargeLanguageModelName()
-	blobs, _ := fetchBlobs(ctx, userCred, ctr.CmpId, modelName, modelTag)
+	blobs, _ := fetchBlobs(ctx, ctr.CmpId, modelName, modelTag)
 
 	blobsTargetDir := path.Join(api.LLM_OLLAMA_BASE_PATH, api.LLM_OLLAMA_BLOBS_DIR)
 	blobsSrcDir := path.Join(api.LLM_OLLAMA_CACHE_MOUNT_PATH, api.LLM_OLLAMA_CACHE_DIR)
@@ -199,29 +181,29 @@ func (o *ollama) CopyBlobs(ctx context.Context, userCred mcclient.TokenCredentia
 	}
 
 	cmd := strings.Join(commands, " && ")
-	if _, err := exec(ctx, userCred, ctr.CmpId, "/bin/sh", "-c", cmd); err != nil {
+	if _, err := exec(ctx, ctr.CmpId, "/bin/sh", "-c", cmd); err != nil {
 		return errors.Wrapf(err, "failed to copy blobs to container")
 	}
 	return nil
 }
 
-func download(ctx context.Context, userCred mcclient.TokenCredential, containerId string, taskId string, webUrl string, path string) error {
-	input := &computeapi.ContainerDownloadFileInput{
-		WebUrl: webUrl,
-		Path:   path,
-	}
+// func download(ctx context.Context, userCred mcclient.TokenCredential, containerId string, taskId string, webUrl string, path string) error {
+// 	input := &computeapi.ContainerDownloadFileInput{
+// 		WebUrl: webUrl,
+// 		Path:   path,
+// 	}
 
-	_, err := ollama_pod.RequestDownloadFileIntoContainer(ctx, userCred, containerId, taskId, input)
-	return err
-}
+// 	_, err := ollama_pod.RequestDownloadFileIntoContainer(ctx, userCred, containerId, taskId, input)
+// 	return err
+// }
 
-func exec(ctx context.Context, userCred mcclient.TokenCredential, containerId string, command ...string) (string, error) {
+func exec(ctx context.Context, containerId string, command ...string) (string, error) {
 	// exec command
 
 	input := &computeapi.ContainerExecSyncInput{
 		Command: command,
 	}
-	resp, err := ollama_pod.RequestExecSyncContainer(ctx, userCred, containerId, input)
+	resp, err := utils.ExecSyncContainer(ctx, containerId, input)
 
 	// check error and return result
 	var rst string
@@ -237,8 +219,8 @@ func getManifestsPath(modelName, modelTag string) string {
 	return path.Join(api.LLM_OLLAMA_BASE_PATH, api.LLM_OLLAMA_MANIFESTS_BASE_PATH, modelName, modelTag)
 }
 
-func fetchBlobs(ctx context.Context, userCred mcclient.TokenCredential, containerId string, modelName string, modelTag string) ([]string, error) {
-	manifestContent, err := exec(ctx, userCred, containerId, "cat", getManifestsPath(modelName, modelTag))
+func fetchBlobs(ctx context.Context, containerId string, modelName string, modelTag string) ([]string, error) {
+	manifestContent, err := exec(ctx, containerId, "cat", getManifestsPath(modelName, modelTag))
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to read manifests from container")
 	}

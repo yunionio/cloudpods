@@ -161,3 +161,13 @@ func UpdateContainer(ctx context.Context, id string, getSpec func(*computeapi.SC
 	}
 	return ctr, nil
 }
+
+func ExecSyncContainer(ctx context.Context, containerId string, input *computeapi.ContainerExecSyncInput) (jsonutils.JSONObject, error) {
+	session := auth.GetAdminSession(ctx, "")
+	output, err := compute.Containers.PerformAction(session, containerId, "exec-sync", jsonutils.Marshal(input))
+	if err != nil {
+		return nil, errors.Wrap(err, "ExecSync")
+	}
+
+	return output, nil
+}

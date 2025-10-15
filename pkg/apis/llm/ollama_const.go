@@ -11,6 +11,8 @@ const (
 )
 
 const (
+	LLM_OLLAMA_HOST_PATH           = "/opt/ollama-models"
+	LLM_OLLAMA_HOST_MANIFESTS_DIR  = "/manifests"
 	LLM_OLLAMA_CACHE_DIR           = "/.llm_ollama_cache"
 	LLM_OLLAMA_CACHE_MOUNT_PATH    = "/usr/local"
 	LLM_OLLAMA_LIBRARY_BASE_URL    = `https://registry.ollama.ai/v2/library/%s`
