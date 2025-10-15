@@ -186,3 +186,14 @@ func (man *SLLMModelManager) ValidateCreateData(ctx context.Context, userCred mc
 func (model *SLLMModel) GetLLMContainerDriver() ILLMContainerDriver {
 	return GetLLMContainerDriver(api.LLMContainerType(model.LLMType))
 }
+
+func (model *SLLMModel) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
+	count, err := GetLLMManager().Query().Equals("llm_model_id", model.Id).CountWithError()
+	if nil != err {
+		return errors.Wrap(err, "fetch llm")
+	}
+	if count > 0 {
+		return errors.Wrap(errors.ErrNotSupported, "This model is currently in use")
+	}
+	return nil
+}
