@@ -21,18 +21,13 @@ import (
 	"strings"
 	"time"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
-	llmapi "yunion.io/x/onecloud/pkg/apis/llm"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
-	llmmodule "yunion.io/x/onecloud/pkg/mcclient/modules/llm"
 )
 
 func (self *SCloudregion) purgeAll(ctx context.Context, managerId string) error {
@@ -864,8 +859,6 @@ func (self *SGuest) purge(ctx context.Context, userCred mcclient.TokenCredential
 	if eip != nil {
 		eip.Dissociate(ctx, userCred)
 	}
-	// delete related llm and dify
-	deleteLLMService(ctx, userCred, self.Id)
 	return self.SVirtualResourceBase.Delete(ctx, userCred)
 }
 
@@ -968,34 +961,4 @@ func (caccount *SCloudaccount) purge(ctx context.Context, userCred mcclient.Toke
 		}
 	}
 	return caccount.SEnabledStatusInfrasResourceBase.Delete(ctx, userCred)
-}
-
-func deleteLLMService(ctx context.Context, userCred mcclient.TokenCredential, guestId string) error {
-	session := auth.GetSession(ctx, userCred, "")
-	input := llmapi.OllamaListInput{
-		GuestId: guestId,
-	}
-	params := jsonutils.Marshal(input)
-
-	_deleteOtherService(session, &llmmodule.LLMs.ResourceManager, params)
-	_deleteOtherService(session, &llmmodule.Difies.ResourceManager, params)
-
-	return nil
-}
-
-func _deleteOtherService(session *mcclient.ClientSession, manager *modulebase.ResourceManager, input jsonutils.JSONObject) error {
-	list, err := manager.List(session, input)
-	if nil != err {
-		return err
-	}
-
-	// batch delete
-	for _, item := range list.Data {
-		id, _ := item.GetString("id")
-		_, err = manager.Delete(session, id, jsonutils.NewDict())
-		if nil != err {
-			return err
-		}
-	}
-	return nil
 }
