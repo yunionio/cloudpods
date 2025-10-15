@@ -103,6 +103,5 @@ func hostRestart(ctx context.Context, hostId string, body jsonutils.JSONObject) 
 }
 
 func hostProbeIsolatedDevices(ctx context.Context, hostId string, body jsonutils.JSONObject) (interface{}, error) {
-	_, err := hostinfo.Instance().ProbeSyncIsolatedDevices(hostId, body)
-	return nil, err
+	return hostinfo.Instance().ProbeSyncIsolatedDevices(hostId, body)
 }
