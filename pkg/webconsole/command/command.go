@@ -31,6 +31,7 @@ const (
 type ICommand interface {
 	GetProtocol() string
 	GetCommand() *exec.Cmd
+	GetSafeCommandString() string
 	Cleanup() error
 	Scan(d byte, send func(msg string))
 	GetClientSession() *mcclient.ClientSession
@@ -64,6 +65,10 @@ func (c *BaseCommand) AppendArgs(args ...string) *BaseCommand {
 
 func (c BaseCommand) GetCommand() *exec.Cmd {
 	return exec.Command(c.name, c.args...)
+}
+
+func (c BaseCommand) GetSafeCommandString() string {
+	return c.GetCommand().String()
 }
 
 func (c BaseCommand) Scan(byte, func(msg string)) {

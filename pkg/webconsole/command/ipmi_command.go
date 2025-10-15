@@ -17,6 +17,7 @@ package command
 import (
 	"fmt"
 	"os/exec"
+	"strings"
 
 	"yunion.io/x/log"
 
@@ -71,6 +72,20 @@ func NewIpmitoolSolCommand(info *IpmiInfo, s *mcclient.ClientSession) (*Ipmitool
 
 func (c *IpmitoolSol) GetCommand() *exec.Cmd {
 	return c.BaseCommand.GetCommand()
+}
+
+func (c *IpmitoolSol) GetSafeCommandString() string {
+	cmd := []string{c.BaseCommand.name}
+	i := 0
+	for i < len(c.BaseCommand.args) {
+		cmd = append(cmd, c.BaseCommand.args[i])
+		if c.BaseCommand.args[i] == "-P" {
+			cmd = append(cmd, "******")
+			i += 1
+		}
+		i += 1
+	}
+	return strings.Join(cmd, " ")
 }
 
 func (c IpmitoolSol) GetProtocol() string {
