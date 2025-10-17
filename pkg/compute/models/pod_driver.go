@@ -48,6 +48,4 @@ type IPodDriver interface {
 
 	RequestAddVolumeMountPostOverlay(ctx context.Context, userCred mcclient.TokenCredential, task IContainerTask) error
 	RequestRemoveVolumeMountPostOverlay(ctx context.Context, userCred mcclient.TokenCredential, task IContainerTask) error
-
-	RequestHostActionByOtherService(ctx context.Context, userCred mcclient.TokenCredential, task IContainerTask) error
 }

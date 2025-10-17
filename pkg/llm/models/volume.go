@@ -11,7 +11,7 @@ import (
 )
 
 func init() {
-
+	GetVolumeManager()
 }
 
 var volumeManager *SVolumeManager
