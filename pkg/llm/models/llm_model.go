@@ -17,7 +17,7 @@ import (
 )
 
 func init() {
-
+	GetLLMModelManager()
 }
 
 var llmModelManager *SLLMModelManager
