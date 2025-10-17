@@ -32,9 +32,10 @@ func InitHandlers(app *appsrv.Application) {
 		db.Metadata,
 
 		// models.OllamaManager,
-		models.DifyManager,
+		// models.DifyManager,
 		models.GetLLMImageManager(),
 		models.GetLLMModelManager(),
+		models.GetDifyModelManager(),
 		models.GetVolumeManager(),
 		models.GetAccessInfoManager(),
 		models.GetLLMContainerManager(),
