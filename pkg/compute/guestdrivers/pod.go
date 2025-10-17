@@ -687,12 +687,3 @@ func (p *SPodDriver) attachIsolatedDeviceToContainer(ctx context.Context, userCr
 	}
 	return nil
 }
-
-func (p *SPodDriver) RequestHostActionByOtherService(ctx context.Context, userCred mcclient.TokenCredential, task models.IContainerTask) error {
-	input := new(api.ContainerRequestHostActionByOtherServiceInput)
-	if err := task.GetParams().Unmarshal(input); err != nil {
-		return errors.Wrap(err, "unmarshal params")
-	}
-
-	return p.performContainerAction(ctx, userCred, task, input.HostAction, input.Body)
-}
