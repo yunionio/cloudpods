@@ -17,9 +17,6 @@ package storageman
 import (
 	"context"
 	"os"
-	"path"
-	"regexp"
-	"sort"
 	"sync"
 
 	"yunion.io/x/jsonutils"
@@ -29,7 +26,6 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	imageapi "yunion.io/x/onecloud/pkg/apis/image"
-	llmapi "yunion.io/x/onecloud/pkg/apis/llm"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/options"
@@ -45,9 +41,6 @@ type SLocalImageCacheManager struct {
 	lock lockman.ILockManager
 
 	storage IStorage
-
-	modelCacheDir string // a subdir of the cachepath
-	cachedModels  *sync.Map
 }
 
 func NewLocalImageCacheManager(manager IStorageManager, cachePath string, storagecacheId string, storage IStorage) *SLocalImageCacheManager {
@@ -64,10 +57,6 @@ func NewLocalImageCacheManager(manager IStorageManager, cachePath string, storag
 		procutils.NewCommand("mkdir", "-p", cachePath).Run()
 	}
 	imageCacheManager.loadCache(context.Background())
-
-	imageCacheManager.modelCacheDir = llmapi.LLM_OLLAMA_CACHE_DIR
-	imageCacheManager.cachedModels = &sync.Map{}
-	imageCacheManager.loadModels(context.Background())
 	return imageCacheManager
 }
 
@@ -239,10 +228,6 @@ func (c *SLocalImageCacheManager) getTotalSize(ctx context.Context) (int64, map[
 
 func (c *SLocalImageCacheManager) CleanImageCachefiles(ctx context.Context) {
 	totalSize, images := c.getTotalSize(ctx)
-	// add size of model cacahe
-	modelCacheSize, models := c.GetModelCacheSize(ctx)
-	totalSize += modelCacheSize
-
 	storageSize := 0
 	if c.storage != nil {
 		// shared file storage
@@ -251,7 +236,7 @@ func (c *SLocalImageCacheManager) CleanImageCachefiles(ctx context.Context) {
 		storageSize = c.storageManager.(*SStorageManager).GetTotalLocalCapacity()
 	}
 	ratio := float64(totalSize) / float64(storageSize)
-	log.Infof("SLocalImageCacheManager %s total size %dMB storage %dMB ratio %f expect ratio %d", c.cachePath, totalSize, storageSize, ratio*100, options.HostOptions.ImageCacheCleanupPercentage)
+	log.Infof("SLocalImageCacheManager %s total size %dMB storage %dMB ratio %f expect ratio %d", c.cachePath, totalSize, storageSize, ratio, options.HostOptions.ImageCacheCleanupPercentage)
 	if int(ratio*100) < options.HostOptions.ImageCacheCleanupPercentage {
 		return
 	}
@@ -262,110 +247,4 @@ func (c *SLocalImageCacheManager) CleanImageCachefiles(ctx context.Context) {
 	} else {
 		log.Infof("SLocalImageCacheManager %s cleanup %dMB", c.cachePath, deletedMb)
 	}
-
-	// delete model cache
-	cleanupThreshold := float64(storageSize) * float64(options.HostOptions.ImageCacheCleanupPercentage) / 100
-	toDeleteMb := totalSize - int64(cleanupThreshold) - deletedMb
-	if toDeleteMb < 0 {
-		return
-	}
-	deletedModel, err := c.cleanModelCaches(ctx, toDeleteMb, models)
-	if nil != err {
-		log.Errorf("SLocalImageCacheManager clean models %s fail %s", c.cachePath, err)
-	} else {
-		log.Infof("SLocalImageCacheManager %s cleanup %dMB of model cache", c.cachePath, deletedModel)
-	}
-}
-
-func (c *SLocalImageCacheManager) cleanModelCaches(ctx context.Context, toDelete int64, models []*SLocalModelCache) (int64, error) {
-	// sort models by AccessAt with ascending order
-	sort.Slice(models, func(i, j int) bool {
-		return models[i].AccessAt.Before(models[j].AccessAt)
-	})
-
-	deletedMb := int64(0)
-	for _, model := range models {
-		size := model.GetSizeMb()
-		if err := c.RemoveModelCache(ctx, model.blobId); nil != err {
-			return deletedMb, err
-		}
-		deletedMb += size
-		if deletedMb >= toDelete {
-			break
-		}
-	}
-
-	return deletedMb, nil
-}
-
-func (c *SLocalImageCacheManager) GetModelPath() string {
-	return path.Join(c.cachePath, c.modelCacheDir)
-}
-
-func (c *SLocalImageCacheManager) loadModels(ctx context.Context) {
-	if len(c.cachePath) == 0 || len(c.modelCacheDir) == 0 {
-		return
-	}
-	c.lock.LockRawObject(ctx, "LOCAL", "model-cache")
-	defer c.lock.ReleaseRawObject(ctx, "LOCAL", "model-cache")
-	modelPath := c.GetModelPath()
-	if !fileutils2.Exists(modelPath) {
-		procutils.NewCommand("mkdir", "-p", modelPath).Run()
-	}
-	files, _ := os.ReadDir(modelPath)
-	SHA256_PREFIX_REG := regexp.MustCompile(`^sha256-[a-f0-9]{64}(\.\w+)?$`)
-	for _, f := range files {
-		if SHA256_PREFIX_REG.MatchString(f.Name()) && !f.IsDir() {
-			blobFileName := f.Name()
-			c.loadModelCache(blobFileName)
-			// 清理 tmp 文件
-			dotIndex := len("sha256-") + 64
-			if dotIndex < len(blobFileName) {
-				c.RemoveModelCache(ctx, blobFileName)
-			}
-		}
-	}
-}
-
-func (c *SLocalImageCacheManager) AccessModelCache(ctx context.Context, modelName string, blobName string) error {
-	c.lock.LockRawObject(ctx, "model-cache", blobName)
-	defer c.lock.ReleaseRawObject(ctx, "model-cache", blobName)
-
-	blobObj, ok := c.cachedModels.Load(blobName)
-	if !ok {
-		blobObj = NewLocalModelCache(blobName, c)
-		c.cachedModels.Store(blobName, blobObj)
-	}
-	return blobObj.(*SLocalModelCache).Access(ctx, modelName)
-}
-
-func (c *SLocalImageCacheManager) loadModelCache(blobId string) {
-	modelCache := NewLocalModelCache(blobId, c)
-	if modelCache.Load() == nil {
-		c.cachedModels.Store(blobId, modelCache)
-	}
-}
-
-func (c *SLocalImageCacheManager) GetModelCacheSize(ctx context.Context) (int64, []*SLocalModelCache) {
-	total := int64(0)
-	models := make([]*SLocalModelCache, 0)
-	c.cachedModels.Range(func(mdlId, mdlObj any) bool {
-		model := mdlObj.(*SLocalModelCache)
-		total += model.GetSizeMb()
-		models = append(models, model)
-		return true
-	})
-
-	return total, models
-}
-
-func (c *SLocalImageCacheManager) RemoveModelCache(ctx context.Context, blobId string) error {
-	c.lock.LockRawObject(ctx, "model-cache", blobId)
-	defer c.lock.ReleaseRawObject(ctx, "model-cache", blobId)
-
-	if mdl, ok := c.cachedModels.Load(blobId); ok {
-		c.cachedModels.Delete(blobId)
-		return mdl.(*SLocalModelCache).Remove(ctx)
-	}
-	return nil
 }
