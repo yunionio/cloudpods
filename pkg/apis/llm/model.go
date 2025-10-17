@@ -164,3 +164,32 @@ type LLMModelUpdateInput struct {
 // type LLMModelSyncImageRequestTaskInput struct {
 // 	Request bool `json:"request"`
 // }
+
+type DifyModelListInput struct {
+	apis.SharableVirtualResourceListInput
+	// MountedAppResourceListInput
+}
+
+type DifyModelCreateInput struct {
+	apis.SharableVirtualResourceCreateInput
+
+	PostgresImageId     string `json:"postgres_image_id"`
+	RedisImageId        string `json:"redis_image_id"`
+	NginxImageId        string `json:"nginx_image_id"`
+	DifyApiImageId      string `json:"dify_api_image_id"`
+	DifyPluginImageId   string `json:"dify_plugin_image_id"`
+	DifyWebImageId      string `json:"dify_web_image_id"`
+	DifySandboxImageId  string `json:"dify_sandbox_image_id"`
+	DifySSRFImageId     string `json:"dify_ssrf_image_id"`
+	DifyWeaviateImageId string `json:"dify_weaviate_image_id"`
+	Cpu                 int    `json:"cpu"`
+	Memory              int    `json:"memory"`
+
+	Bandwidth int `json:"bandwidth"`
+
+	Volumes      *Volumes          `json:"volumes"`
+	PortMappings *PortMappings     `json:"port_mappings"`
+	Devices      *Devices          `json:"devices"`
+	Envs         *Envs             `json:"envs"`
+	Properties   map[string]string `json:"properties"`
+}
