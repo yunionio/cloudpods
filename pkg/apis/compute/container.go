@@ -235,11 +235,6 @@ type ContainerExecInput struct {
 	Stdout  bool     `json:"stdout"`
 }
 
-type ContainerDownloadFileInput struct {
-	WebUrl string `json:"web_url"`
-	Path   string `json:"path"`
-}
-
 type ContainerExecSyncInput struct {
 	Command []string `json:"command"`
 	// Timeout in seconds to stop the command, 0 mean run forever.
@@ -367,11 +362,4 @@ func (i *ContainerCacheImagesInput) Add(diskId string, imgId string, format stri
 		})
 	}
 	return nil
-}
-
-type ContainerRequestHostActionByOtherServiceInput struct {
-	ContainerTask string               `json:"container_task,omitempty"`
-	HostAction    string               `json:"host_action,omitempty"`
-	TaskId        string               `json:"task_id"`
-	Body          jsonutils.JSONObject `json:"body"`
 }

@@ -40,7 +40,6 @@ import (
 	"yunion.io/x/onecloud/pkg/apis"
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	hostapi "yunion.io/x/onecloud/pkg/apis/host"
-	llmapi "yunion.io/x/onecloud/pkg/apis/llm"
 	"yunion.io/x/onecloud/pkg/hostman/container/device"
 	"yunion.io/x/onecloud/pkg/hostman/container/lifecycle"
 	"yunion.io/x/onecloud/pkg/hostman/container/prober"
@@ -1657,19 +1656,6 @@ func (s *sPodGuestInstance) CreateContainer(ctx context.Context, userCred mcclie
 	if err := s.setContainerCRIInfo(ctx, userCred, id, ctrCriId); err != nil {
 		return nil, errors.Wrap(err, "setContainerCRIInfo")
 	}
-	// Add Container Desc
-	ctrDesc := s.GetContainerById(id)
-	if ctrDesc == nil {
-		gstDesc := s.GetDesc()
-		gstDesc.Containers = append(gstDesc.Containers, &hostapi.ContainerDesc{
-			Id:   id,
-			Name: input.Name,
-			Spec: input.Spec,
-		})
-		if err := SaveDesc(s, gstDesc); nil != err {
-			return nil, errors.Wrap(err, "Add Container Desc")
-		}
-	}
 	return nil, nil
 }
 
@@ -1791,28 +1777,6 @@ func (s *sPodGuestInstance) createContainer(ctx context.Context, userCred mcclie
 		return "", errors.Wrap(err, "getPodSandboxConfig")
 	}
 	spec := input.Spec
-	if spec.OllamaContainer != nil && *spec.OllamaContainer {
-		// mount cache dir for ollama container
-		localCacheMan := storageman.GetManager().LocalStorageImagecacheManager.(*storageman.SLocalImageCacheManager)
-		hostPath := &apis.ContainerVolumeMountHostPath{
-			Path:       localCacheMan.GetModelPath(),
-			AutoCreate: false,
-			Type:       apis.CONTAINER_VOLUME_MOUNT_HOST_PATH_TYPE_DIRECTORY,
-		}
-		volumeMount := &hostapi.ContainerVolumeMount{
-			HostPath:  hostPath,
-			ReadOnly:  true,
-			MountPath: path.Join(llmapi.LLM_OLLAMA_CACHE_MOUNT_PATH, llmapi.LLM_OLLAMA_CACHE_DIR),
-			Type:      apis.CONTAINER_VOLUME_MOUNT_TYPE_HOST_PATH,
-		}
-		spec.VolumeMounts = append(spec.VolumeMounts, volumeMount)
-		// set enviroment OLLAMA_HOST=0.0.0.0:11434 for ollama container
-		env := &apis.ContainerKeyValue{
-			Key:   llmapi.LLM_OLLAMA_EXPORT_ENV_KEY,
-			Value: llmapi.LLM_OLLAMA_EXPORT_ENV_VALUE,
-		}
-		spec.Envs = append(spec.Envs, env)
-	}
 	mounts, err := s.getContainerMounts(ctrId, input)
 	if err != nil {
 		return "", errors.Wrap(err, "get container mounts")

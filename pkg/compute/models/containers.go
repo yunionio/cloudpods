@@ -1341,20 +1341,3 @@ func (c *SContainer) SetStatusFromHost(ctx context.Context, userCred mcclient.To
 	}
 	return errors.NewAggregate(errs)
 }
-
-func (c *SContainer) StartActionByOtherServiceTask(ctx context.Context, userCred mcclient.TokenCredential, input *api.ContainerRequestHostActionByOtherServiceInput) error {
-	task, err := taskman.TaskManager.NewTask(ctx, "ContainerActionByOtherServiceTask", c, userCred, jsonutils.Marshal(input).(*jsonutils.JSONDict), "", "", nil)
-	if err != nil {
-		return errors.Wrap(err, "New ContainerActionByOtherServiceTask")
-	}
-	return task.ScheduleRun(nil)
-}
-
-func (c *SContainer) PerformRequestHostActionByOtherService(ctx context.Context, userCred mcclient.TokenCredential, _ jsonutils.JSONObject, input *api.ContainerRequestHostActionByOtherServiceInput) (jsonutils.JSONObject, error) {
-	err := c.StartActionByOtherServiceTask(ctx, userCred, input)
-	if nil != err {
-		return nil, err
-	}
-
-	return jsonutils.NewDict(), err
-}
