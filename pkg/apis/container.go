@@ -141,10 +141,9 @@ type ContainerSpec struct {
 	//LivenessProbe *ContainerProbe `json:"liveness_probe,omitempty"`
 	// StartupProbe indicates that the Pod has successfully initialized.
 	// If specified, no other probes are executed until this completes successfully.
-	StartupProbe    *ContainerProbe `json:"startup_probe,omitempty"`
-	AlwaysRestart   bool            `json:"always_restart"`
-	Primary         bool            `json:"primary"`
-	OllamaContainer bool            `json:"__ollama_container,omitempty"`
+	StartupProbe  *ContainerProbe `json:"startup_probe,omitempty"`
+	AlwaysRestart bool            `json:"always_restart"`
+	Primary       bool            `json:"primary"`
 }
 
 func (c *ContainerSpec) NeedProbe() bool {
