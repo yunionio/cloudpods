@@ -81,6 +81,8 @@ type ContainerResources struct {
 	// flag is enabled in a cgroup, a new cpuset cgroup will copy its
 	// configuration fromthe parent during initialization.
 	CpusetCloneChildren bool `json:"cpuset_clone_children"`
+	// cgroup memory.high
+	MemoryHighRatio *float64 `json:"memory_high_ratio"`
 }
 
 type ContainerEnvRefValueType string
