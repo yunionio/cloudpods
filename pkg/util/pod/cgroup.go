@@ -23,8 +23,12 @@ import (
 	"yunion.io/x/onecloud/pkg/util/procutils"
 )
 
+type TCgroupController string
+
 const (
 	CGROUP_PATH_SYSFS = "/sys/fs/cgroup"
+
+	CgroupControllerMemory TCgroupController = "memory"
 )
 
 type CgroupUtil interface {
@@ -33,6 +37,7 @@ type CgroupUtil interface {
 	SetDevicesAllow(ctrId string, allows []string) error
 	SetPidsMax(ctrId string, max int) error
 	SetCpusetCloneChildren(ctrId string) error
+	SetCgroupKeyValue(ctrId string, ctrler TCgroupController, key, value string) error
 }
 
 type podCgroupV1Util struct {
@@ -65,6 +70,11 @@ func (p podCgroupV1Util) write(fp string, content string) error {
 func (p podCgroupV1Util) SetMemoryLimitBytes(ctrId string, bytes int64) error {
 	memFp := p.getContainerCGFilePath("memory", ctrId, "memory.limit_in_bytes")
 	return p.write(memFp, fmt.Sprintf("%d", bytes))
+}
+
+func (p podCgroupV1Util) SetCgroupKeyValue(ctrId string, ctrler TCgroupController, key, value string) error {
+	memFp := p.getContainerCGFilePath(string(ctrler), ctrId, key)
+	return p.write(memFp, value)
 }
 
 func (p podCgroupV1Util) SetCPUCfs(ctrId string, quota int64, period int64) error {
