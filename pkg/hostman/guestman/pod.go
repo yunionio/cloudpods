@@ -1757,6 +1757,12 @@ func (s *sPodGuestInstance) setContainerResourcesLimit(ctrId string, limit *apis
 			return errors.Wrapf(err, "set cpuset clone_children")
 		}
 	}
+	if limit.MemoryHighRatio != nil {
+		memHigh := int64(*limit.MemoryHighRatio * float64(s.GetDesc().Mem*1024*1024))
+		if err := cgUtil.SetCgroupKeyValue(ctrId, pod.CgroupControllerMemory, "memory.high", fmt.Sprintf("%d", memHigh)); err != nil {
+			return errors.Wrapf(err, "set memory.high to %d", memHigh)
+		}
+	}
 	return nil
 }
 
