@@ -19,14 +19,19 @@ import (
 
 	runtimeapi "k8s.io/cri-api/pkg/apis/runtime/v1"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	hostapi "yunion.io/x/onecloud/pkg/apis/host"
 )
 
+type containerCDIFactory func() (IContainerCDIManager, error)
+
 var (
 	containerDeviceManagers = make(map[ContainerDeviceType]IContainerDeviceManager)
+	containerCDIManagers    = make(map[apis.ContainerCDIKind]containerCDIFactory)
 )
 
 type ContainerDeviceType string
@@ -58,6 +63,21 @@ func RegisterContainerDeviceManager(man IContainerDeviceManager) {
 	containerDeviceManagers[man.GetType()] = man
 }
 
+func GetContainerCDIManager(t apis.ContainerCDIKind) (IContainerCDIManager, error) {
+	manF, ok := containerCDIManagers[t]
+	if !ok {
+		return nil, errors.Wrapf(errors.ErrNotFound, "not found container cdi manager by %q", t)
+	}
+	return manF()
+}
+
+func RegisterContainerCDIManaer(t apis.ContainerCDIKind, factoryFunc func() (IContainerCDIManager, error)) {
+	if _, ok := containerCDIManagers[t]; ok {
+		panic(fmt.Sprintf("CDI manager %s is already registered", t))
+	}
+	containerCDIManagers[t] = factoryFunc
+}
+
 type ContainerDevice struct {
 	Path          string              `json:"path"`
 	Type          ContainerDeviceType `json:"type"`
@@ -74,4 +94,47 @@ type IContainerDeviceManager interface {
 	NewContainerDevices(input *hostapi.ContainerCreateInput, dev *hostapi.ContainerDevice) ([]*runtimeapi.Device, []*runtimeapi.Device, error)
 	ProbeDevices() ([]IDevice, error)
 	GetContainerExtraConfigures(devs []*hostapi.ContainerDevice) ([]*runtimeapi.KeyValue, []*runtimeapi.Mount)
+}
+
+type IContainerCDIManager interface {
+	GetKind() apis.ContainerCDIKind
+	GetSpecFilePath() string
+	GetDeviceName(dev *hostapi.ContainerDevice) (string, error)
+}
+
+func GetContainerCDIDevices(devs []*hostapi.ContainerDevice) ([]*runtimeapi.CDIDevice, error) {
+	errs := []error{}
+	retDevs := make([]*runtimeapi.CDIDevice, 0)
+	for i := range devs {
+		dev := devs[i]
+		cdiDev, err := getContainerCDIDevice(dev)
+		if err != nil {
+			errs = append(errs, errors.Wrapf(err, "get CDI by %s", jsonutils.Marshal(dev)))
+			continue
+		}
+		retDevs = append(retDevs, cdiDev)
+	}
+	return retDevs, nil
+}
+
+func getContainerCDIDevice(dev *hostapi.ContainerDevice) (*runtimeapi.CDIDevice, error) {
+	isoDev := dev.IsolatedDevice
+	if isoDev == nil {
+		return nil, errors.Wrap(errors.ErrNotEmpty, "isolated_device is nil")
+	}
+	cdi := isoDev.CDI
+	if cdi == nil {
+		return nil, errors.Wrap(errors.ErrNotEmpty, "CDI is nil")
+	}
+	man, err := GetContainerCDIManager(isoDev.CDI.Kind)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetContainerCDIManager by %s", cdi.Kind)
+	}
+	name, err := man.GetDeviceName(dev)
+	if err != nil {
+		return nil, errors.Wrapf(err, "get CDI device name")
+	}
+	return &runtimeapi.CDIDevice{
+		Name: fmt.Sprintf("%s=%s", man.GetKind(), name),
+	}, nil
 }
