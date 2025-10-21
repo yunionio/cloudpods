@@ -34,7 +34,7 @@ type ContainerBatchStartTask struct {
 }
 
 func (t *ContainerBatchStartTask) OnInit(ctx context.Context, objs []db.IStandaloneModel, data jsonutils.JSONObject) {
-	t.SetStage("OnContainersRestartComplete", nil)
+	t.SetStage("OnContainersStartComplete", nil)
 	for i := range objs {
 		ctr := objs[i].(*models.SContainer)
 		if err := ctr.StartStartTask(ctx, t.GetUserCred(), t.GetId()); err != nil {
@@ -44,6 +44,6 @@ func (t *ContainerBatchStartTask) OnInit(ctx context.Context, objs []db.IStandal
 	}
 }
 
-func (t *ContainerBatchStartTask) OnContainersRestartComplete(ctx context.Context, objs []db.IStandaloneModel, data jsonutils.JSONObject) {
+func (t *ContainerBatchStartTask) OnContainersStartComplete(ctx context.Context, objs []db.IStandaloneModel, data jsonutils.JSONObject) {
 	t.SetStageComplete(ctx, nil)
 }
