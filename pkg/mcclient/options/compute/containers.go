@@ -154,8 +154,9 @@ func (o ContainerCreateCommonOptions) getCreateSpec() (*computeapi.ContainerSpec
 
 type ContainerCreateOptions struct {
 	ContainerCreateCommonOptions
-	PODID string `help:"Name or id of server pod" json:"-"`
-	NAME  string `help:"Name of container" json:"-"`
+	AutoStart bool   `help:"Auto start container" json:"auto_start"`
+	PODID     string `help:"Name or id of server pod" json:"-"`
+	NAME      string `help:"Name of container" json:"-"`
 }
 
 func (o *ContainerCreateOptions) Params() (jsonutils.JSONObject, error) {
@@ -164,8 +165,9 @@ func (o *ContainerCreateOptions) Params() (jsonutils.JSONObject, error) {
 		return nil, errors.Wrap(err, "get container create spec")
 	}
 	req := computeapi.ContainerCreateInput{
-		GuestId: o.PODID,
-		Spec:    *spec,
+		GuestId:   o.PODID,
+		Spec:      *spec,
+		AutoStart: o.AutoStart,
 	}
 	req.Name = o.NAME
 	return jsonutils.Marshal(req), nil
