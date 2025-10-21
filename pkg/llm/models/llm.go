@@ -88,7 +88,7 @@ func (man *SLLMManager) ValidateCreateData(ctx context.Context, userCred mcclien
 	}
 	model, err := GetLLMModelManager().FetchByIdOrName(ctx, userCred, input.LLMModelId)
 	if err != nil {
-		return input, errors.Wrap(err, "fetch DesktopModel")
+		return input, errors.Wrap(err, "fetch LLMModel")
 	}
 	lModel := model.(*SLLMModel)
 	input.LLMModelId = lModel.Id
@@ -437,7 +437,7 @@ func (llm *SLLM) ServerCreate(ctx context.Context, userCred mcclient.TokenCreden
 	}
 	// set AutoStart to true
 	input.AutoStart = true
-	data, err := GetPodCreateInput(ctx, userCred, input, llm, model, llmImage, "")
+	data, err := GetLLMPodCreateInput(ctx, userCred, input, llm, model, llmImage, "")
 	if nil != err {
 		return "", errors.Wrap(err, "GetPodCreateInput")
 	}
