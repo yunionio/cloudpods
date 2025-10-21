@@ -102,7 +102,7 @@ type SMongoDB struct {
 	Iops           int `nullable:"true" list:"user" create:"optional"`
 
 	// 实例IP地址
-	IpAddr string `width:"32" charset:"ascii" nullable:"true" list:"user"`
+	IpAddr string `width:"64" charset:"ascii" nullable:"true" list:"user"`
 
 	// 引擎
 	// example: MySQL
