@@ -36,6 +36,12 @@ fi
 . $ROOT/vars
 
 BUILDROOT=$(mktemp -d 2>/dev/null || mktemp -d -t 'yunion')
+function cleanup {
+  rm -rf "$BUILDROOT"
+  echo "Deleted temp working directory $BUILDROOT"
+}
+# register the cleanup function to be called on the EXIT signal
+trap cleanup EXIT
 
 echo "Build root ${BUILDROOT}"
 
@@ -138,7 +144,17 @@ if [ -d $ROOT/root/ ]; then
     find $ROOT/root/ -type f | sed -e "s:$ROOT/root::g" >> $SPEC_FILE
 fi
 
-rpmbuild --define "_topdir $BUILDROOT" -bb $SPEC_FILE
+TARGET=
+case "$GOARCH" in
+    "arm64" | "aarch64" | "arm")
+        TARGET="--target aarch64-redhat-linux"
+        ;;
+    "amd64" | "x86" | "i686" | "i386" | "x86_64")
+        TARGET="--target x86_64-redhat-linux"
+        ;;
+esac
+
+rpmbuild --define "_topdir $BUILDROOT" -bb $SPEC_FILE $TARGET
 
 find $RPM_DIR -type f | while read f; do
 	d="$(dirname "$f")"
@@ -146,5 +162,3 @@ find $RPM_DIR -type f | while read f; do
 	mkdir -p "$d"
 	cp $f $d
 done
-
-rm -fr $BUILDROOT
