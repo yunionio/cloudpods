@@ -16,7 +16,6 @@ package guest
 
 import (
 	"context"
-	"fmt"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
@@ -44,7 +43,7 @@ func (t *PodCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, bod
 func (t *PodCreateTask) OnWaitPodCreated(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	task, err := taskman.TaskManager.NewTask(ctx, "GuestCreateTask", obj, t.GetUserCred(), t.GetParams(), t.GetTaskId(), "", nil)
 	if err != nil {
-		t.SetStageFailed(ctx, jsonutils.NewString(fmt.Sprintf("New GuestCreateTask")))
+		t.SetStageFailed(ctx, jsonutils.NewString(errors.Wrap(err, "New GuestCreateTask").Error()))
 		return
 	}
 	if err := task.ScheduleRun(nil); err != nil {

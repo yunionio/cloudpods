@@ -432,7 +432,7 @@ func (m *SContainerManager) StartBatchStopTask(ctx context.Context, userCred mcc
 func (c *SContainer) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	c.SVirtualResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
 	if !jsonutils.QueryBoolean(data, "skip_task", false) {
-		if err := c.StartCreateTask(ctx, userCred, "", nil); err != nil {
+		if err := c.StartCreateTask(ctx, userCred, "", data.(*jsonutils.JSONDict)); err != nil {
 			log.Errorf("StartCreateTask error: %v", err)
 		}
 	}
