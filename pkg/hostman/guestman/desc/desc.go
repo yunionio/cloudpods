@@ -101,6 +101,7 @@ type SGuestHardwareDesc struct {
 	VcpuPin []SCpuPin  `json:",omitempty"`
 	// Clock   *SGuestClock `json:",omitempty"`
 
+	// memory size in MB
 	Mem        int64
 	MemDesc    *SGuestMem     `json:",omitempty"`
 	CpuNumaPin []*SCpuNumaPin `json:",omitempty"`
