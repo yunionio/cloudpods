@@ -117,14 +117,11 @@ type LLMModelListInput struct {
 	LLMType string `json:"llm_type"`
 }
 
-type LLMModelCreateInput struct {
+type LLMModelBaseCreateInput struct {
 	apis.SharableVirtualResourceCreateInput
 
-	LLMImageId   string `json:"llm_image_id"`
-	LLMType      string `json:"llm_type"`
-	LLMModelName string `json:"llm_model_name"`
-	Cpu          int    `json:"cpu"`
-	Memory       int    `json:"memory"`
+	Cpu    int `json:"cpu"`
+	Memory int `json:"memory"`
 
 	Bandwidth int `json:"bandwidth"`
 
@@ -133,6 +130,14 @@ type LLMModelCreateInput struct {
 	Devices      *Devices          `json:"devices"`
 	Envs         *Envs             `json:"envs"`
 	Properties   map[string]string `json:"properties"`
+}
+
+type LLMModelCreateInput struct {
+	LLMModelBaseCreateInput
+
+	LLMImageId   string `json:"llm_image_id"`
+	LLMType      string `json:"llm_type"`
+	LLMModelName string `json:"llm_model_name"`
 }
 
 type LLMModelUpdateInput struct {
@@ -171,7 +176,7 @@ type DifyModelListInput struct {
 }
 
 type DifyModelCreateInput struct {
-	apis.SharableVirtualResourceCreateInput
+	LLMModelBaseCreateInput
 
 	PostgresImageId     string `json:"postgres_image_id"`
 	RedisImageId        string `json:"redis_image_id"`
@@ -182,14 +187,4 @@ type DifyModelCreateInput struct {
 	DifySandboxImageId  string `json:"dify_sandbox_image_id"`
 	DifySSRFImageId     string `json:"dify_ssrf_image_id"`
 	DifyWeaviateImageId string `json:"dify_weaviate_image_id"`
-	Cpu                 int    `json:"cpu"`
-	Memory              int    `json:"memory"`
-
-	Bandwidth int `json:"bandwidth"`
-
-	Volumes      *Volumes          `json:"volumes"`
-	PortMappings *PortMappings     `json:"port_mappings"`
-	Devices      *Devices          `json:"devices"`
-	Envs         *Envs             `json:"envs"`
-	Properties   map[string]string `json:"properties"`
 }

@@ -19,7 +19,7 @@ type PodPostStopCleanupConfig struct {
 	Dirs []string `json:"dirs"`
 }
 
-func GetPodCreateInput(
+func GetLLMPodCreateInput(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
 	input *api.LLMCreateInput,

@@ -27,7 +27,7 @@ func GetLLMModelManager() *SLLMModelManager {
 		return llmModelManager
 	}
 	llmModelManager = &SLLMModelManager{
-		SSharableVirtualResourceBaseManager: db.NewSharableVirtualResourceBaseManager(
+		SLLMModelBaseManager: NewSLLMModelBaseManager(
 			SLLMModel{},
 			"llm_models_tbl",
 			"llm_model",
@@ -39,26 +39,16 @@ func GetLLMModelManager() *SLLMModelManager {
 }
 
 type SLLMModelManager struct {
-	db.SSharableVirtualResourceBaseManager
-	// SMountedAppsResourceManager
+	SLLMModelBaseManager
 }
 
 type SLLMModel struct {
-	db.SSharableVirtualResourceBase
+	SLLMModelBase
 	// SMountedAppsResource
 
-	LLMImageId   string            `width:"128" charset:"ascii" nullable:"false" list:"user" create:"required"`
-	LLMType      string            `width:"128" charset:"ascii" nullable:"false" list:"user" create:"required"`
-	LLMModelName string            `width:"128" charset:"ascii" nullable:"false" list:"user" create:"required"`
-	BandwidthMb  int               `nullable:"false" default:"0" create:"optional" list:"user" update:"user"`
-	Cpu          int               `nullable:"false" default:"1" create:"optional" list:"user" update:"user"`
-	Memory       int               `nullable:"false" default:"512" create:"optional" list:"user" update:"user"`
-	Volumes      *api.Volumes      `charset:"utf8" length:"medium" nullable:"true" list:"user" update:"user" create:"optional"`
-	PortMappings *api.PortMappings `charset:"utf8" length:"medium" nullable:"true" list:"user" update:"user" create:"optional"`
-	Devices      *api.Devices      `charset:"utf8" length:"medium" nullable:"true" list:"user" update:"user" create:"optional"`
-	Envs         *api.Envs         `charset:"utf8" nullable:"true" list:"user" update:"user" create:"optional"`
-	// Properties
-	Properties map[string]string `charset:"utf8" nullable:"true" list:"user" update:"user" create:"optional"`
+	LLMImageId   string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"required"`
+	LLMType      string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"required"`
+	LLMModelName string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"required"`
 }
 
 func (man *SLLMModelManager) ListItemFilter(
@@ -68,9 +58,9 @@ func (man *SLLMModelManager) ListItemFilter(
 	input api.LLMModelListInput,
 ) (*sqlchemy.SQuery, error) {
 	var err error
-	q, err = man.SSharableVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, input.SharableVirtualResourceListInput)
+	q, err = man.SLLMModelBaseManager.ListItemFilter(ctx, q, userCred, input.SharableVirtualResourceListInput)
 	if err != nil {
-		return nil, errors.Wrapf(err, "SSharableBaseResourceManager.ListItemFilter")
+		return nil, errors.Wrapf(err, "SLLMModelBaseManager.ListItemFilter")
 	}
 	if len(input.LLMType) > 0 {
 		q = q.Equals("llm_type", input.LLMType)
@@ -157,18 +147,9 @@ func (manager *SLLMModelManager) FetchCustomizeColumns(
 
 func (man *SLLMModelManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input *api.LLMModelCreateInput) (*api.LLMModelCreateInput, error) {
 	var err error
-	input.SharableVirtualResourceCreateInput, err = man.SSharableVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.SharableVirtualResourceCreateInput)
+	input.LLMModelBaseCreateInput, err = man.SLLMModelBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.LLMModelBaseCreateInput)
 	if err != nil {
-		return nil, errors.Wrap(err, "SSharableVirtualResourceBaseManager.ValidateCreateData")
-	}
-	if input.Cpu <= 0 {
-		return input, errors.Wrap(httperrors.ErrInputParameter, "cpu must > 0")
-	}
-	if input.Memory <= 0 {
-		return input, errors.Wrap(httperrors.ErrInputParameter, "mem must > 0")
-	}
-	if input.Volumes == nil {
-		return input, errors.Wrap(httperrors.ErrInputParameter, "volumes cannot be empty")
+		return nil, errors.Wrap(err, "SLLMModelBaseManager.ValidateCreateData")
 	}
 	if !api.IsLLMContainerType(input.LLMType) {
 		return input, errors.Wrap(httperrors.ErrInputParameter, "llm_type must be one of "+strings.Join(api.LLM_CONTAINER_TYPES.List(), ","))
