@@ -8,7 +8,8 @@ import (
 
 func init() {
 	cmd := shell.NewResourceCmd(&modules.Difies)
-	cmd.Create(new(options.DifyCreateOptions))
+	cmd.BatchCreate(new(options.DifyCreateOptions))
 	cmd.List(new(options.DifyListOptions))
 	cmd.Show(new(options.DifyShowOptions))
+	cmd.Delete(new(options.DifyDeleteOptions))
 }
