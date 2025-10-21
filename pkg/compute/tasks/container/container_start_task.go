@@ -55,11 +55,29 @@ func (t *ContainerStartTask) startCacheImages(ctx context.Context, ctr *models.S
 }
 
 func (t *ContainerStartTask) OnCacheImagesComplete(ctx context.Context, ctr *models.SContainer, data jsonutils.JSONObject) {
-	t.requestStart(ctx, ctr)
+	t.requestSyncConf(ctx, ctr)
 }
 
 func (t *ContainerStartTask) OnCacheImagesCompleteFailed(ctx context.Context, ctr *models.SContainer, data jsonutils.JSONObject) {
 	t.OnStartedFailed(ctx, ctr, jsonutils.NewString(data.String()))
+}
+
+func (t *ContainerStartTask) requestSyncConf(ctx context.Context, container *models.SContainer) {
+	// sync configuration to make server of host to refresh desc file
+	t.SetStage("OnSyncConf", nil)
+	if err := container.GetPod().StartSyncTaskWithoutSyncstatus(ctx, t.GetUserCred(), false, t.GetTaskId()); err != nil {
+		t.OnSyncConfFailed(ctx, container, jsonutils.NewString(err.Error()))
+		return
+	}
+}
+
+func (t *ContainerStartTask) OnSyncConf(ctx context.Context, container *models.SContainer, data jsonutils.JSONObject) {
+	t.requestStart(ctx, container)
+}
+
+func (t *ContainerStartTask) OnSyncConfFailed(ctx context.Context, container *models.SContainer, reason jsonutils.JSONObject) {
+	container.SetStatus(ctx, t.GetUserCred(), api.CONTAINER_STATUS_SYNC_CONF_FAILED, reason.String())
+	t.SetStageFailed(ctx, reason)
 }
 
 func (t *ContainerStartTask) requestStart(ctx context.Context, container *models.SContainer) {
