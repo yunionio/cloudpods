@@ -6,11 +6,9 @@ const (
 	SERVICE_TYPE = "llm"
 )
 
-type LLMCreateInput struct {
+type LLMBaseCreateInput struct {
 	apis.VirtualResourceCreateInput
 
-	LLMModelId    string
-	LLMImageId    string
 	PreferHost    string
 	AutoStart     bool
 	BandwidthMB   int  `json:"bandwidth_mb"`
@@ -18,18 +16,30 @@ type LLMCreateInput struct {
 	RootfsUnlimit bool `json:"rootfs_unlimit"`
 }
 
-type LLMListInput struct {
+type LLMCreateInput struct {
+	LLMBaseCreateInput
+
+	LLMModelId string
+	LLMImageId string
+}
+
+type LLMBaseListInput struct {
 	apis.VirtualResourceListInput
 	apis.EnabledResourceBaseListInput
 
-	Host      string   `json:"host"`
-	LLMModel  string   `json:"llm_model"`
-	LLMImage  string   `json:"llm_image"`
-	LLMStatus []string `json:"llm_status"`
+	Host   string   `json:"host"`
+	Status []string `json:"status"`
 
 	NoVolume   *bool  `json:"no_volume"`
 	ListenPort int    `json:"listen_port"`
 	PublicIp   string `json:"public_ip"`
 	VolumeId   string `json:"volume_id"`
 	Unused     *bool  `json:"unused"`
+}
+
+type LLMListInput struct {
+	LLMBaseListInput
+
+	LLMModel string `json:"llm_model"`
+	LLMImage string `json:"llm_image"`
 }
