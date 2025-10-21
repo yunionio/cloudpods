@@ -1,7 +1,5 @@
 package llm
 
-import "yunion.io/x/onecloud/pkg/apis/compute"
-
 type DifyCustomizedEnv struct {
 	Key   string `json:"key"`
 	Value string `json:"value"`
@@ -13,7 +11,14 @@ type DifyCustomized struct {
 	Registry       string               `json:"registry"`
 }
 
+type DifyListInput struct {
+	LLMBaseListInput
+
+	DifyModel string `json:"dify_model"`
+}
+
 type DifyCreateInput struct {
-	compute.ServerCreateInput
-	DifyCustomized
+	LLMBaseCreateInput
+
+	DifyModelId string
 }
