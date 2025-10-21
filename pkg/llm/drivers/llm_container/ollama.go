@@ -121,10 +121,6 @@ func (o *ollama) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *
 
 	spec.VolumeMounts = vols
 
-	// set ollama
-	var ollama bool = true
-	spec.OllamaContainer = &ollama
-
 	return &computeapi.PodContainerCreateInput{
 		ContainerSpec: spec,
 	}
