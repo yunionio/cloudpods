@@ -46,7 +46,6 @@ const (
 )
 
 const (
-	DIFY_IMAGE_REGISTRY = "docker.io"
 	DIFY_POSTGRES_IMAGE = "/postgres:15-alpine"
 	DIFY_REDIS_IMAGE    = "/redis:6-alpine"
 	DIFY_NGINX_IMAGE    = "/nginx:latest"

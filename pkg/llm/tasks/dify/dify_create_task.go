@@ -4,228 +4,150 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
+	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	api "yunion.io/x/onecloud/pkg/apis/llm"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/llm/models"
+	"yunion.io/x/onecloud/pkg/util/logclient"
+	"yunion.io/x/pkg/errors"
 )
 
-type DifyBaseTask struct {
-	taskman.STask
-}
-
 type DifyCreateTask struct {
-	DifyBaseTask
+	taskman.STask
 }
 
 func init() {
 	taskman.RegisterTask(DifyCreateTask{})
 }
 
-func (t *DifyCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
-	t.checkRedisStatus(ctx, obj.(*models.SDify))
+func (task *DifyCreateTask) taskFailed(ctx context.Context, dify *models.SDify, err error) {
+	dify.SetStatus(ctx, task.UserCred, api.LLM_STATUS_CREATE_FAIL, err.Error())
+	db.OpsLog.LogEvent(dify, db.ACT_CREATE, err, task.UserCred)
+	logclient.AddActionLogWithStartable(task, dify, logclient.ACT_CREATE, err, task.UserCred, false)
+	task.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 
-// check redis
+func (task *DifyCreateTask) taskComplete(ctx context.Context, dify *models.SDify, status string) {
+	dify.SetStatus(ctx, task.GetUserCred(), status, "create success")
+	task.SetStageComplete(ctx, nil)
+}
 
-func (t *DifyCreateTask) checkRedisStatus(ctx context.Context, dify *models.SDify) {
-	if err := dify.CheckRedis(ctx, t.GetUserCred()); nil != err {
-		t.OnDeployRedisFailed(ctx, dify, jsonutils.NewString(err.Error()))
+func (task *DifyCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
+	dify := obj.(*models.SDify)
+	serverCreateInput := api.DifyCreateInput{}
+	err := body.Unmarshal(&serverCreateInput)
+	if err != nil {
+		task.taskFailed(ctx, dify, err)
 		return
 	}
-	t.requestCreatePostgres(ctx, dify)
-}
 
-func (t *DifyCreateTask) OnDeployRedisFailed(ctx context.Context, dify *models.SDify, reason jsonutils.JSONObject) {
-	dify.SetStatus(ctx, t.GetUserCred(), api.DIFY_DEPLOY_REDIS_FAILED, reason.String())
-	t.SetStageFailed(ctx, reason)
-}
-
-// postgres
-
-func (t *DifyCreateTask) requestCreatePostgres(ctx context.Context, dify *models.SDify) {
-	t.SetStage("OnPostgresCreate", nil)
-
-	if err := dify.CreateContainer(ctx, t.GetUserCred(), api.DIFY_POSTGRES_KEY, t.GetId()); nil != err {
-		t.OnPostgresCreateFailed(ctx, dify, jsonutils.NewString(err.Error()))
+	serverCreateInput.Name = dify.Name
+	serverId, err := dify.ServerCreate(ctx, task.UserCred, &serverCreateInput)
+	if err != nil {
+		task.taskFailed(ctx, dify, err)
 		return
 	}
+
+	db.Update(dify, func() error {
+		dify.SvrId = serverId
+		return nil
+	})
+	dify.SvrId = serverId
+	task.SetStage("OnDifyRefreshStatusComplete", nil)
+	var expectStatus []string
+	if serverCreateInput.AutoStart {
+		expectStatus = []string{computeapi.VM_RUNNING}
+	} else {
+		expectStatus = []string{computeapi.VM_READY}
+	}
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		server, err := dify.WaitServerStatus(ctx, task.UserCred, expectStatus, 7200)
+		if err != nil {
+			return nil, errors.Wrap(err, "WaitServerStatus")
+		}
+		return jsonutils.Marshal(server), nil
+	})
 }
 
-func (t *DifyCreateTask) OnPostgresCreateFailed(ctx context.Context, dify *models.SDify, data jsonutils.JSONObject) {
-	dify.SetStatus(ctx, t.GetUserCred(), api.DIFY_DEPLOY_POSTGRES_FAILED, data.String())
-	t.SetStageFailed(ctx, data)
+func (task *DifyCreateTask) OnDifyRefreshStatusCompleteFailed(ctx context.Context, dify *models.SDify, err jsonutils.JSONObject) {
+	task.taskFailed(ctx, dify, errors.Error(err.String()))
 }
 
-func (t *DifyCreateTask) OnPostgresCreate(ctx context.Context, dify *models.SDify, data jsonutils.JSONObject) {
-	// check status
-	if err := dify.CheckContainerHealth(ctx, t.GetUserCred(), api.DIFY_POSTGRES_KEY,
-		"pg_isready", "-h", "localhost", "-U", "$POSTGRES_USER", "-d", "$POSTGRES_DB"); nil != err {
-		t.OnPostgresCreateFailed(ctx, dify, jsonutils.NewString(err.Error()))
+func (task *DifyCreateTask) OnDifyRefreshStatusComplete(ctx context.Context, dify *models.SDify, body jsonutils.JSONObject) {
+	server := computeapi.ServerDetails{}
+	err := body.Unmarshal(&server)
+	if err != nil {
+		task.taskFailed(ctx, dify, errors.Wrap(err, "Unmarshal"))
 		return
 	}
-	t.requestCreateApi(ctx, dify)
-}
 
-// api
+	// 创建磁盘
+	for _, disk := range server.DisksInfo {
+		volume := models.SVolume{}
+		volume.SvrId = disk.Id
+		volume.LLMId = dify.Id
+		volume.SizeMB = disk.SizeMb
+		volume.Name = disk.Name
+		volume.StorageType = disk.StorageType
+		volume.Status = computeapi.DISK_READY
+		volume.DomainId = dify.DomainId
+		volume.ProjectId = dify.ProjectId
+		volume.ProjectSrc = dify.ProjectSrc
+		// if len(input.TemplateId) > 0 {
+		volume.TemplateId = disk.ImageId
+		// }
+		// volume.MountedApps = mountedApps
 
-func (t *DifyCreateTask) requestCreateApi(ctx context.Context, dify *models.SDify) {
-	t.SetStage("OnApiCreate", nil)
-
-	if err := dify.CreateContainer(ctx, t.GetUserCred(), api.DIFY_API_KEY, t.GetId()); nil != err {
-		t.OnApiCreateFailed(ctx, dify, jsonutils.NewString(err.Error()))
-		return
+		err := models.GetVolumeManager().TableSpec().Insert(ctx, &volume)
+		if err != nil {
+			task.taskFailed(ctx, dify, errors.Wrap(err, "VolumeManager.TableSpec().Insert"))
+			return
+		}
 	}
-}
 
-func (t *DifyCreateTask) OnApiCreateFailed(ctx context.Context, dify *models.SDify, data jsonutils.JSONObject) {
-	dify.SetStatus(ctx, t.GetUserCred(), api.DIFY_DEPLOY_API_FAILED, data.String())
-	t.SetStageFailed(ctx, data)
-}
+	// 创建访问信息、portmappings
+	if len(server.Nics) > 0 {
+		db.Update(dify, func() error {
+			dify.LLMIp = server.Nics[0].IpAddr
+			return nil
+		})
 
-// worker
+		for _, portMapping := range server.Nics[0].PortMappings {
+			access := models.SAccessInfo{}
+			access.LLMId = dify.Id
 
-func (t *DifyCreateTask) OnApiCreate(ctx context.Context, dify *models.SDify, data jsonutils.JSONObject) {
-	t.SetStage("OnWorkerCreate", nil)
+			access.ListenPort = int(portMapping.Port)
+			access.AccessPort = int(*portMapping.HostPort)
+			access.Protocol = string(portMapping.Protocol)
+			access.RemoteIps = portMapping.RemoteIps
+			envs := make([]api.PortMappingEnv, 0)
+			for _, env := range portMapping.Envs {
+				envs = append(envs, api.PortMappingEnv{
+					Key:       env.Key,
+					ValueFrom: string(env.ValueFrom),
+				})
+			}
+			access.PortMappingEnvs = envs
 
-	if err := dify.CreateContainer(ctx, t.GetUserCred(), api.DIFY_WORKER_KEY, t.GetId()); nil != err {
-		t.OnWorkerCreateFailed(ctx, dify, jsonutils.NewString(err.Error()))
-		return
+			models.GetAccessInfoManager().TableSpec().Insert(ctx, &access)
+		}
 	}
-}
 
-func (t *DifyCreateTask) OnWorkerCreateFailed(ctx context.Context, dify *models.SDify, data jsonutils.JSONObject) {
-	dify.SetStatus(ctx, t.GetUserCred(), api.DIFY_DEPLOY_WORKER_FAILED, data.String())
-	t.SetStageFailed(ctx, data)
-}
+	// // 创建应用容器记录
+	// if len(server.Containers) != 1 {
+	// 	task.taskFailed(ctx, dify, errors.Errorf("expected 1 containers, but got %d", len(server.Containers)))
+	// 	return
+	// }
+	// llmCtr := models.GetSvrLLMContainer(server.Containers)
+	// if llmCtr == nil {
+	// 	task.taskFailed(ctx, dify, errors.Errorf("cannot find app container"))
+	// 	return
+	// }
+	// if _, err := models.GetLLMContainerManager().CreateOnLLM(ctx, task.GetUserCred(), dify.GetOwnerId(), dify, llmCtr.Id, llmCtr.Name); nil != err {
+	// 	task.taskFailed(ctx, dify, errors.Wrap(err, "create llm container on llm"))
+	// 	return
+	// }
 
-// worker_beat
-
-func (t *DifyCreateTask) OnWorkerCreate(ctx context.Context, dify *models.SDify, data jsonutils.JSONObject) {
-	t.SetStage("OnWorkerBeatCreate", nil)
-
-	if err := dify.CreateContainer(ctx, t.GetUserCred(), api.DIFY_WORKER_BEAT_KEY, t.GetId()); nil != err {
-		t.OnWorkerBeatCreate(ctx, dify, jsonutils.NewString(err.Error()))
-		return
-	}
-}
-
-func (t *DifyCreateTask) OnWorkerBeatCreateFailed(ctx context.Context, dify *models.SDify, data jsonutils.JSONObject) {
-	dify.SetStatus(ctx, t.GetUserCred(), api.DIFY_DEPLOY_WORKER_BEAT_FAILED, data.String())
-	t.SetStageFailed(ctx, data)
-}
-
-// web
-
-func (t *DifyCreateTask) OnWorkerBeatCreate(ctx context.Context, dify *models.SDify, data jsonutils.JSONObject) {
-	t.SetStage("OnWebCreate", nil)
-
-	if err := dify.CreateContainer(ctx, t.GetUserCred(), api.DIFY_WEB_KEY, t.GetId()); nil != err {
-		t.OnWebCreateFailed(ctx, dify, jsonutils.NewString(err.Error()))
-		return
-	}
-}
-
-func (t *DifyCreateTask) OnWebCreateFailed(ctx context.Context, dify *models.SDify, data jsonutils.JSONObject) {
-	dify.SetStatus(ctx, t.GetUserCred(), api.DIFY_DEPLOY_WEB_FAILED, data.String())
-	t.SetStageFailed(ctx, data)
-}
-
-// plugin
-
-func (t *DifyCreateTask) OnWebCreate(ctx context.Context, dify *models.SDify, data jsonutils.JSONObject) {
-	t.SetStage("OnPluginCreate", nil)
-
-	if err := dify.CreateContainer(ctx, t.GetUserCred(), api.DIFY_PLUGIN_KEY, t.GetId()); nil != err {
-		t.OnPluginCreateFailed(ctx, dify, jsonutils.NewString(err.Error()))
-		return
-	}
-}
-
-func (t *DifyCreateTask) OnPluginCreateFailed(ctx context.Context, dify *models.SDify, data jsonutils.JSONObject) {
-	dify.SetStatus(ctx, t.GetUserCred(), api.DIFY_DEPLOY_PLUGIN_FAILED, data.String())
-	t.SetStageFailed(ctx, data)
-}
-
-// sandbox
-
-func (t *DifyCreateTask) OnPluginCreate(ctx context.Context, dify *models.SDify, data jsonutils.JSONObject) {
-	t.SetStage("OnSandboxCreate", nil)
-
-	if err := dify.CreateContainer(ctx, t.GetUserCred(), api.DIFY_SANDBOX_KEY, t.GetId()); nil != err {
-		t.OnSandboxCreateFailed(ctx, dify, jsonutils.NewString(err.Error()))
-		return
-	}
-}
-
-func (t *DifyCreateTask) OnSandboxCreateFailed(ctx context.Context, dify *models.SDify, data jsonutils.JSONObject) {
-	dify.SetStatus(ctx, t.GetUserCred(), api.DIFY_DEPLOY_SANDBOX_FAILED, data.String())
-	t.SetStageFailed(ctx, data)
-}
-
-func (t *DifyCreateTask) OnSandboxCreate(ctx context.Context, dify *models.SDify, data jsonutils.JSONObject) {
-	// check status
-	if err := dify.CheckContainerHealth(ctx, t.GetUserCred(), api.DIFY_SANDBOX_KEY,
-		"curl", "-f", "http://localhost:8194/health"); nil != err {
-		t.OnSandboxCreateFailed(ctx, dify, jsonutils.NewString(err.Error()))
-		return
-	}
-	t.requestCreateSsrf(ctx, dify)
-}
-
-// ssrf
-
-func (t *DifyCreateTask) requestCreateSsrf(ctx context.Context, dify *models.SDify) {
-	t.SetStage("OnSsrfCreate", nil)
-
-	if err := dify.CreateContainer(ctx, t.GetUserCred(), api.DIFY_SSRF_KEY, t.GetId()); nil != err {
-		t.OnSsrfCreateFailed(ctx, dify, jsonutils.NewString(err.Error()))
-		return
-	}
-}
-
-func (t *DifyCreateTask) OnSsrfCreateFailed(ctx context.Context, dify *models.SDify, data jsonutils.JSONObject) {
-	dify.SetStatus(ctx, t.GetUserCred(), api.DIFY_DEPLOY_SSRF_FAILED, data.String())
-	t.SetStageFailed(ctx, data)
-}
-
-// nginx
-
-func (t *DifyCreateTask) OnSsrfCreate(ctx context.Context, dify *models.SDify, data jsonutils.JSONObject) {
-	t.SetStage("OnNginxCreate", nil)
-
-	if err := dify.CreateContainer(ctx, t.GetUserCred(), api.DIFY_NGINX_KEY, t.GetId()); nil != err {
-		t.OnNginxCreateFailed(ctx, dify, jsonutils.NewString(err.Error()))
-		return
-	}
-}
-
-func (t *DifyCreateTask) OnNginxCreateFailed(ctx context.Context, dify *models.SDify, data jsonutils.JSONObject) {
-	dify.SetStatus(ctx, t.GetUserCred(), api.DIFY_DEPLOY_NGINX_FAILED, data.String())
-	t.SetStageFailed(ctx, data)
-}
-
-// weaviate
-
-func (t *DifyCreateTask) OnNginxCreate(ctx context.Context, dify *models.SDify, data jsonutils.JSONObject) {
-	t.SetStage("OnWeaviateCreate", nil)
-
-	if err := dify.CreateContainer(ctx, t.GetUserCred(), api.DIFY_WEAVIATE_KEY, t.GetId()); nil != err {
-		t.OnWeaviateCreateFailed(ctx, dify, jsonutils.NewString(err.Error()))
-		return
-	}
-}
-
-func (t *DifyCreateTask) OnWeaviateCreateFailed(ctx context.Context, dify *models.SDify, data jsonutils.JSONObject) {
-	dify.SetStatus(ctx, t.GetUserCred(), api.DIFY_DEPLOY_WEAVIATE_FAILED, data.String())
-	t.SetStageFailed(ctx, data)
-}
-
-func (t *DifyCreateTask) OnWeaviateCreate(ctx context.Context, dify *models.SDify, data jsonutils.JSONObject) {
-	t.OnCreateDify(ctx, dify, nil)
-}
-
-func (t *DifyCreateTask) OnCreateDify(ctx context.Context, dify *models.SDify, data jsonutils.JSONObject) {
-	dify.SetStatus(ctx, t.GetUserCred(), api.DIFY_CREATED, "")
-	t.SetStageComplete(ctx, nil)
+	task.taskComplete(ctx, dify, server.Status)
 }
