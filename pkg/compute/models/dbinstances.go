@@ -1623,13 +1623,13 @@ func (self *SDBInstance) SetZoneIds(extInstance cloudprovider.ICloudDBInstance) 
 		return errors.Wrapf(err, "GetZones")
 	}
 	var setZoneId = func(input string, output *string) {
+		*output = input
 		for _, zone := range zones {
 			if strings.HasSuffix(zone.ExternalId, input) {
 				*output = zone.Id
 				break
 			}
 		}
-		return
 	}
 	zone1 := extInstance.GetZone1Id()
 	if len(zone1) > 0 {
@@ -1705,26 +1705,13 @@ func (self *SDBInstance) SyncWithCloudDBInstance(ctx context.Context, userCred m
 			self.CreatedAt = createdAt
 		}
 
-		if len(self.VpcId) == 0 {
-			if vpcId := ext.GetIVpcId(); len(vpcId) > 0 {
-				vpc, err := db.FetchByExternalIdAndManagerId(VpcManager, vpcId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
-					return q.Equals("manager_id", provider.Id)
-				})
-				if err != nil {
-					log.Errorf("FetchVpcId(%s) error: %v", vpcId, err)
-				} else {
-					self.VpcId = vpc.GetId()
-				}
-			}
-		}
-		if len(self.VpcId) == 0 {
-			region, err := self.GetRegion()
+		if vpcId := ext.GetIVpcId(); len(vpcId) > 0 {
+			self.VpcId = vpcId
+			vpc, err := db.FetchByExternalIdAndManagerId(VpcManager, vpcId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+				return q.Equals("manager_id", provider.Id)
+			})
 			if err != nil {
-				return err
-			}
-			vpc, err := VpcManager.GetOrCreateVpcForClassicNetwork(ctx, provider, region)
-			if err != nil {
-				log.Errorf("failed to create classic vpc for region %s error: %v", region.Name, err)
+				log.Errorf("FetchVpcId(%s) error: %v", vpcId, err)
 			} else {
 				self.VpcId = vpc.GetId()
 			}
@@ -1792,19 +1779,12 @@ func (manager *SDBInstanceManager) newFromCloudDBInstance(ctx context.Context, u
 	instance.SetZoneIds(extInstance)
 
 	if vpcId := extInstance.GetIVpcId(); len(vpcId) > 0 {
+		instance.VpcId = vpcId
 		vpc, err := db.FetchByExternalIdAndManagerId(VpcManager, vpcId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
 			return q.Equals("manager_id", provider.Id)
 		})
 		if err != nil {
 			log.Errorf("FetchVpcId(%s) error: %v", vpcId, err)
-		} else {
-			instance.VpcId = vpc.GetId()
-		}
-	}
-	if len(instance.VpcId) == 0 {
-		vpc, err := VpcManager.GetOrCreateVpcForClassicNetwork(ctx, provider, region)
-		if err != nil {
-			log.Errorf("failed to create classic vpc for region %s error: %v", region.Name, err)
 		} else {
 			instance.VpcId = vpc.GetId()
 		}
