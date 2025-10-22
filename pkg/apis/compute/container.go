@@ -174,6 +174,11 @@ type ContainerStopInput struct {
 	Force   bool `json:"force"`
 }
 
+type ContainerRestartInput struct {
+	Timeout int  `json:"timeout"`
+	Force   bool `json:"force"`
+}
+
 type ContainerSyncStatusResponse struct {
 	Status       string    `json:"status"`
 	StartedAt    time.Time `json:"started_at"`
