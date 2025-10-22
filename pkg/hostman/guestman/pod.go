@@ -56,6 +56,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/isolated_device"
+	_ "yunion.io/x/onecloud/pkg/hostman/isolated_device/container_device/cdi"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -2100,17 +2101,37 @@ func (s *sPodGuestInstance) getEtcFilesMount(ctrId string) ([]*runtimeapi.Mount,
 	return []*runtimeapi.Mount{etcHostsMount, etcHostnameMount, etcResolvConfMount}, nil
 }
 
-func filterContainerDevices(devs []*hostapi.ContainerDevice) ([]*hostapi.ContainerDevice, []*hostapi.ContainerDevice) {
+type FilteredContainerDevices struct {
+	EnvDevs  []*hostapi.ContainerDevice
+	CDIDevs  []*hostapi.ContainerDevice
+	RestDevs []*hostapi.ContainerDevice
+}
+
+func filterContainerIsolatedDevices(devs []*hostapi.ContainerDevice, devTypes sets.String) FilteredContainerDevices {
 	envDevs := []*hostapi.ContainerDevice{}
 	restDevs := []*hostapi.ContainerDevice{}
-	for _, dev := range devs {
-		if dev.IsolatedDevice != nil && len(dev.IsolatedDevice.OnlyEnv) > 0 {
-			envDevs = append(envDevs, dev)
-		} else {
-			restDevs = append(restDevs, dev)
+	cdiDevs := []*hostapi.ContainerDevice{}
+	for i := range devs {
+		dev := devs[i]
+		if dev.IsolatedDevice != nil {
+			devType := dev.IsolatedDevice.DeviceType
+			if !devTypes.Has(devType) {
+				continue
+			}
+			if dev.IsolatedDevice.IsCDIUsed() {
+				cdiDevs = append(cdiDevs, dev)
+			} else if len(dev.IsolatedDevice.OnlyEnv) > 0 {
+				envDevs = append(envDevs, dev)
+			} else {
+				restDevs = append(restDevs, dev)
+			}
 		}
 	}
-	return envDevs, restDevs
+	return FilteredContainerDevices{
+		EnvDevs:  envDevs,
+		CDIDevs:  cdiDevs,
+		RestDevs: restDevs,
+	}
 }
 
 func getEnvsFromDevices(devs []*hostapi.ContainerDevice) []*runtimeapi.KeyValue {
@@ -2151,20 +2172,23 @@ func getEnvsFromDevices(devs []*hostapi.ContainerDevice) []*runtimeapi.KeyValue 
 }
 
 func (s *sPodGuestInstance) getIsolatedDeviceExtraConfig(spec *hostapi.ContainerSpec, ctrCfg *runtimeapi.ContainerConfig) error {
-	devTypes := []isolated_device.ContainerDeviceType{
-		isolated_device.ContainerDeviceTypeNvidiaGpu,
-		isolated_device.ContainerDeviceTypeNvidiaMps,
-		isolated_device.ContainerDeviceTypeNvidiaGpuShare,
-		isolated_device.ContainerDeviceTypeAscendNpu,
+	devTypes := sets.NewString(
+		string(isolated_device.ContainerDeviceTypeNvidiaGpu),
+		string(isolated_device.ContainerDeviceTypeNvidiaMps),
+		string(isolated_device.ContainerDeviceTypeNvidiaGpuShare),
+		string(isolated_device.ContainerDeviceTypeAscendNpu),
+	)
+	fDevs := filterContainerIsolatedDevices(spec.Devices, devTypes)
+	if len(fDevs.EnvDevs) != 0 {
+		ctrCfg.Envs = append(ctrCfg.Envs, getEnvsFromDevices(fDevs.EnvDevs)...)
 	}
-	for _, devType := range devTypes {
-		devMan, err := isolated_device.GetContainerDeviceManager(devType)
+	for i := range fDevs.RestDevs {
+		dev := fDevs.RestDevs[i]
+		devMan, err := isolated_device.GetContainerDeviceManager(isolated_device.ContainerDeviceType(dev.IsolatedDevice.DeviceType))
 		if err != nil {
-			return errors.Wrapf(err, "GetContainerDeviceManager by type %q", devType)
+			return errors.Wrapf(err, "GetContainerDeviceManager by type %q", dev.IsolatedDevice.DeviceType)
 		}
-		envDevs, restDevs := filterContainerDevices(spec.Devices)
-		ctrCfg.Envs = append(ctrCfg.Envs, getEnvsFromDevices(envDevs)...)
-		envs, mounts := devMan.GetContainerExtraConfigures(restDevs)
+		envs, mounts := devMan.GetContainerExtraConfigures([]*hostapi.ContainerDevice{dev})
 		if len(envs) > 0 {
 			ctrCfg.Envs = append(ctrCfg.Envs, envs...)
 		}
@@ -2172,6 +2196,15 @@ func (s *sPodGuestInstance) getIsolatedDeviceExtraConfig(spec *hostapi.Container
 			ctrCfg.Mounts = append(ctrCfg.Mounts, mounts...)
 		}
 	}
+
+	if len(fDevs.CDIDevs) > 0 {
+		cdiDevs, err := isolated_device.GetContainerCDIDevices(fDevs.CDIDevs)
+		if err != nil {
+			return errors.Wrap(err, "GetContainerCDIDevices")
+		}
+		ctrCfg.CDIDevices = append(ctrCfg.CDIDevices, cdiDevs...)
+	}
+
 	return nil
 }
 
