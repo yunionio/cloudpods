@@ -63,6 +63,7 @@ func init() {
 	cmd.CreateWithKeyword("create-oracle", &options.SOracleCloudAccountCreateOptions{})
 	cmd.CreateWithKeyword("create-cephfs", &options.SCephFSCloudAccountCreateOptions{})
 	cmd.CreateWithKeyword("create-cnware", &options.SCNwareCloudAccountCreateOptions{})
+	cmd.CreateWithKeyword("create-oceanbase", &options.SOceanbaseCloudAccountCreateOptions{})
 
 	cmd.UpdateWithKeyword("update-vmware", &options.SVMwareCloudAccountUpdateOptions{})
 	cmd.UpdateWithKeyword("update-aliyun", &options.SAliyunCloudAccountUpdateOptions{})
@@ -90,6 +91,7 @@ func init() {
 	cmd.UpdateWithKeyword("update-cucloud", &options.SCucloudCloudAccountUpdateOptions{})
 	cmd.UpdateWithKeyword("update-qingcloud", &options.SQingCloudCloudAccountUpdateOptions{})
 	cmd.UpdateWithKeyword("update-cnware", &options.SCNwareCloudAccountUpdateOptions{})
+	cmd.UpdateWithKeyword("update-oceanbase", &options.SOceanbaseCloudAccountUpdateOptions{})
 
 	cmd.Perform("update-credential", &options.CloudaccountUpdateCredentialOptions{})
 
@@ -136,6 +138,7 @@ func init() {
 	cmd.PerformWithKeyword("test-connectivity-ctyun", "test-connectivity", &options.SCtyunCloudAccountUpdateCredentialOptions{})
 	cmd.PerformWithKeyword("test-connectivity-jdcloud", "test-connectivity", &options.SJDcloudCloudAccountUpdateCredentialOptions{})
 	cmd.PerformWithKeyword("test-connectivity-cloudpods", "test-connectivity", &options.SCloudpodsCloudAccountUpdateCredentialOptions{})
+	cmd.PerformWithKeyword("test-connectivity-oceanbase", "test-connectivity", &options.SOceanbaseCloudAccountUpdateCredentialOptions{})
 
 	cmd.Perform("enable", &options.SCloudAccountIdOptions{})
 	cmd.Perform("disable", &options.SCloudAccountIdOptions{})

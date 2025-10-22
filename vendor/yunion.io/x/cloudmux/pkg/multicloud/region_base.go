@@ -404,3 +404,41 @@ func (self *SRegion) GetILoadBalancerHealthChecks() ([]cloudprovider.ICloudLoadb
 func (self *SRegion) CreateILoadBalancerHealthCheck(healthCheck *cloudprovider.SLoadbalancerHealthCheck) (cloudprovider.ICloudLoadbalancerHealthCheck, error) {
 	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "CreateILoadBalancerHealthCheck")
 }
+
+type SNoEipRegion struct{}
+
+func (region *SNoEipRegion) GetIEips() ([]cloudprovider.ICloudEIP, error) {
+	return nil, cloudprovider.ErrNotSupported
+}
+
+func (region *SNoEipRegion) GetIEipById(id string) (cloudprovider.ICloudEIP, error) {
+	return nil, cloudprovider.ErrNotSupported
+}
+
+func (region *SNoEipRegion) CreateEIP(opts *cloudprovider.SEip) (cloudprovider.ICloudEIP, error) {
+	return nil, cloudprovider.ErrNotSupported
+}
+
+type SNoSecurityGroupRegion struct{}
+
+func (region *SNoSecurityGroupRegion) CreateISecurityGroup(opts *cloudprovider.SecurityGroupCreateInput) (cloudprovider.ICloudSecurityGroup, error) {
+	return nil, cloudprovider.ErrNotSupported
+}
+
+func (region *SNoSecurityGroupRegion) GetISecurityGroupById(id string) (cloudprovider.ICloudSecurityGroup, error) {
+	return nil, cloudprovider.ErrNotSupported
+}
+
+type SNoVpcRegion struct{}
+
+func (region *SNoVpcRegion) CreateIVpc(opts *cloudprovider.VpcCreateOptions) (cloudprovider.ICloudVpc, error) {
+	return nil, cloudprovider.ErrNotSupported
+}
+
+func (region *SNoVpcRegion) GetIVpcs() ([]cloudprovider.ICloudVpc, error) {
+	return nil, cloudprovider.ErrNotSupported
+}
+
+func (region *SNoVpcRegion) GetIVpcById(id string) (cloudprovider.ICloudVpc, error) {
+	return nil, cloudprovider.ErrNotSupported
+}
