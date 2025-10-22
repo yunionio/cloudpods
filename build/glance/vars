@@ -1,5 +1,5 @@
 DESCRIPTION="Yunion Cloud Image Service"
 
 REQUIRES=(
-    yunion-qemu-2.12.1
+    yunion-qemu-4.2.0
 )
