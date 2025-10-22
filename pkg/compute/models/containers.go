@@ -429,6 +429,20 @@ func (m *SContainerManager) StartBatchStopTask(ctx context.Context, userCred mcc
 	return m.startBatchTask(ctx, userCred, "ContainerBatchStopTask", ctrs, taskParams, parentTaskId)
 }
 
+func (m *SContainerManager) StartBatchRestartTask(ctx context.Context, userCred mcclient.TokenCredential, ctrs []SContainer, timeout int, force bool, parentTaskId string) error {
+	params := make([]api.ContainerRestartInput, len(ctrs))
+	for i := range ctrs {
+		params[i] = api.ContainerRestartInput{
+			Timeout: timeout,
+			Force:   force,
+		}
+	}
+	taskParams := jsonutils.NewDict()
+	taskParams.Add(jsonutils.Marshal(params), "params")
+
+	return m.startBatchTask(ctx, userCred, "ContainerBatchRestartTask", ctrs, taskParams, parentTaskId)
+}
+
 func (c *SContainer) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	c.SVirtualResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
 	if !jsonutils.QueryBoolean(data, "skip_task", false) {
@@ -641,6 +655,27 @@ func (c *SContainer) PerformStop(ctx context.Context, userCred mcclient.TokenCre
 func (c *SContainer) StartStopTask(ctx context.Context, userCred mcclient.TokenCredential, data *api.ContainerStopInput, parentTaskId string) error {
 	c.SetStatus(ctx, userCred, api.CONTAINER_STATUS_STOPPING, "")
 	task, err := taskman.TaskManager.NewTask(ctx, "ContainerStopTask", c, userCred, jsonutils.Marshal(data).(*jsonutils.JSONDict), parentTaskId, "", nil)
+	if err != nil {
+		return errors.Wrap(err, "NewTask")
+	}
+	return task.ScheduleRun(nil)
+}
+
+func (c *SContainer) PerformRestart(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *api.ContainerRestartInput) (jsonutils.JSONObject, error) {
+	if !data.Force {
+		if !sets.NewString(
+			api.CONTAINER_STATUS_RUNNING,
+			api.CONTAINER_STATUS_PROBING,
+			api.CONTAINER_STATUS_PROBE_FAILED,
+			api.CONTAINER_STATUS_STOP_FAILED).Has(c.Status) {
+			return nil, httperrors.NewInvalidStatusError("Can't restart container in status %s", c.Status)
+		}
+	}
+	return nil, c.StartRestartTask(ctx, userCred, data, "")
+}
+
+func (c *SContainer) StartRestartTask(ctx context.Context, userCred mcclient.TokenCredential, data *api.ContainerRestartInput, parentTaskId string) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "ContainerRestartTask", c, userCred, jsonutils.Marshal(data).(*jsonutils.JSONDict), parentTaskId, "", nil)
 	if err != nil {
 		return errors.Wrap(err, "NewTask")
 	}
