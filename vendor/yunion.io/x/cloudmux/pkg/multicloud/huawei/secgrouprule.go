@@ -15,7 +15,6 @@
 package huawei
 
 import (
-	"fmt"
 	"net/url"
 	"strings"
 
@@ -32,14 +31,14 @@ type SecurityGroupRule struct {
 	Ethertype       string
 	Id              string
 	Description     string
-	PortRangeMax    int64
-	PortRangeMin    int64
+	Multiport       string
 	Protocol        string
 	RemoteGroupId   string
 	RemoteIPPrefix  string
 	SecurityGroupId string
 	TenantId        string
 	Priority        int
+	Action          string
 }
 
 func (self *SecurityGroupRule) GetGlobalId() string {
@@ -62,7 +61,10 @@ func (self *SecurityGroupRule) GetPriority() int {
 }
 
 func (self *SecurityGroupRule) GetAction() secrules.TSecurityRuleAction {
-	return secrules.SecurityRuleAllow
+	if self.Action == "allow" {
+		return secrules.SecurityRuleAllow
+	}
+	return secrules.SecurityRuleDeny
 }
 
 func (self *SecurityGroupRule) GetProtocol() string {
@@ -73,17 +75,7 @@ func (self *SecurityGroupRule) GetProtocol() string {
 }
 
 func (self *SecurityGroupRule) GetPorts() string {
-	if self.PortRangeMax > 0 && self.PortRangeMin > 0 {
-		if self.PortRangeMax == self.PortRangeMin {
-			return fmt.Sprintf("%d", self.PortRangeMax)
-		}
-		return fmt.Sprintf("%d-%d", self.PortRangeMin, self.PortRangeMax)
-	}
-	return ""
-}
-
-type SPageInfo struct {
-	NextMarker string
+	return self.Multiport
 }
 
 func (self *SecurityGroupRule) GetCIDRs() []string {
@@ -121,7 +113,9 @@ func (self *SRegion) GetSecurityGroupRules(groupId string) ([]SecurityGroupRule,
 		}
 		part := struct {
 			SecurityGroupRules []SecurityGroupRule
-			PageInfo           SPageInfo
+			PageInfo           struct {
+				NextMarker string
+			}
 		}{}
 		err = resp.Unmarshal(&part)
 		if err != nil {
