@@ -342,6 +342,16 @@ type ContainerStartOptions struct {
 	ContainerIdsOptions
 }
 
+type ContainerRestartOptions struct {
+	ContainerIdsOptions
+	Timeout int  `help:"Stopping timeout" json:"timeout"`
+	Force   bool `help:"Force stop container" json:"force"`
+}
+
+func (o *ContainerRestartOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(o), nil
+}
+
 type ContainerSaveVolumeMountImage struct {
 	options.ResourceIdOptions
 	IMAGENAME         string   `help:"Image name"`
