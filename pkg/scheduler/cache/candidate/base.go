@@ -96,6 +96,10 @@ func (b baseHostGetter) CPUArch() string {
 	return b.h.CpuArchitecture
 }
 
+func (b baseHostGetter) KvmCapMaxVcpuCount() int64 {
+	return int64(b.h.KvmCapMaxVcpu)
+}
+
 func (b baseHostGetter) Cloudprovider() *computemodels.SCloudprovider {
 	return b.h.Cloudprovider
 }
