@@ -35,34 +35,6 @@ fi
 
 . $ROOT/vars
 
-if [ -z "$VERSION" ]; then
-    TAG=$(git describe --abbrev=0 --tags || echo 000000)
-    VERSION=${TAG/\//-}
-    VERSION=${VERSION/v/}
-    VERSION=${VERSION/master-/}
-fi
-RELEASE=`date +"%y%m%d%H"`
-FULL_VERSION=$VERSION-$RELEASE
-BUILDROOT=$OUTPUT_DIR/yunion-$PKG-$FULL_VERSION
-function cleanup {
-  rm -rf "$BUILDROOT"
-  echo "Deleted temp working directory $BUILDROOT"
-}
-# register the cleanup function to be called on the EXIT signal
-trap cleanup EXIT
-
-rm -rf $BUILDROOT
-mkdir -p $BUILDROOT/DEBIAN
-mkdir -p $BUILDROOT/$BIN_PATH
-
-cp -rf $BIN $BUILDROOT/$BIN_PATH
-if [ -d $ROOT/root ]; then
-    cp -rf $ROOT/root/* $BUILDROOT/
-fi
-
-
-echo "Build root ${BUILDROOT}"
-
 case $(uname -m) in
     x86_64)
         CURRENT_ARCH=amd64
@@ -83,6 +55,33 @@ if [[ -n "$GOARCH" ]]; then
 	esac
 fi
 
+if [ -z "$VERSION" ]; then
+    TAG=$(git describe --abbrev=0 --tags || echo 000000)
+    VERSION=${TAG/\//-}
+    VERSION=${VERSION/v/}
+    VERSION=${VERSION/master-/}
+fi
+RELEASE=`date +"%y%m%d%H"`
+FULL_VERSION=$VERSION-$RELEASE
+BUILDROOT=$OUTPUT_DIR/yunion-${PKG}-${FULL_VERSION}_${CURRENT_ARCH}
+function cleanup {
+  rm -rf "$BUILDROOT"
+  echo "Deleted temp working directory $BUILDROOT"
+}
+# register the cleanup function to be called on the EXIT signal
+trap cleanup EXIT
+
+rm -rf $BUILDROOT
+mkdir -p $BUILDROOT/DEBIAN
+mkdir -p $BUILDROOT/$BIN_PATH
+
+cp -rf $BIN $BUILDROOT/$BIN_PATH
+if [ -d $ROOT/root ]; then
+    cp -rf $ROOT/root/* $BUILDROOT/
+fi
+
+echo "Build root ${BUILDROOT}"
+
 echo "Package: yunion-$PKG
 Version: $FULL_VERSION
 Section: base
@@ -98,19 +97,70 @@ chmod 0755 $BUILDROOT/DEBIAN/control
 
 cat $BUILDROOT/DEBIAN/control
 
-if [ -n "$SERVICE" ]; then
 echo "#!/bin/bash
+" > $BUILDROOT/DEBIAN/preinst
+if [ -f $ROOT/preinst ]; then
+    cat $ROOT/preinst >> $BUILDROOT/DEBIAN/preinst
+else
+    if [ "$SERVICE" == "yes" ] && [ -n "$OWNER" ]; then
+        echo "
+getent group ${OWNER} >/dev/null || /usr/sbin/groupadd -r ${OWNER}
+getent passwd ${OWNER} >/dev/null || /usr/sbin/useradd -r -s /sbin/nologin -d /home/${OWNER} -M -g ${OWNER} ${OWNER}
+" >> $BUILDROOT/DEBIAN/preinst
+    fi
+fi
+chmod 0755 $BUILDROOT/DEBIAN/preinst
 
+echo "#!/bin/bash
+" > $BUILDROOT/DEBIAN/postinst
+if [ -f $ROOT/postinst ]; then
+    cat $ROOT/postinst >> $BUILDROOT/DEBIAN/postinst
+else
+    if [ "$SERVICE" == "yes" ]; then
+        echo "
+/usr/bin/systemctl preset yunion-${PKG}.service >/dev/null 2>&1 ||:
+" >> $BUILDROOT/DEBIAN/postinst
+    fi
+fi
+chmod 0755 $BUILDROOT/DEBIAN/postinst
+
+echo "#!/bin/bash
+" > $BUILDROOT/DEBIAN/prerm
+if [ -f $ROOT/prerm ]; then
+    cat $ROOT/prerm >> $BUILDROOT/DEBIAN/prerm
+else
+    if [ "$SERVICE" == "yes" ]; then
+        echo "
 /usr/bin/systemctl --no-reload disable yunion-${PKG}.service >/dev/null 2>&1 || :
 /usr/bin/systemctl stop yunion-${PKG}.service >/dev/null 2>&1 ||:
-" > $BUILDROOT/DEBIAN/preinst
-chmod 0755 $BUILDROOT/DEBIAN/preinst
-echo "#!/bin/bash
-
-/usr/bin/systemctl preset yunion-${PKG}.service >/dev/null 2>&1 ||:
-/usr/bin/systemctl daemon-reload >/dev/null 2>&1 ||:
-" > $BUILDROOT/DEBIAN/postinst
-chmod 0755 $BUILDROOT/DEBIAN/postinst
+" >> $BUILDROOT/DEBIAN/prerm
+    fi
 fi
+chmod 0755 $BUILDROOT/DEBIAN/prerm
+
+echo "#!/bin/bash
+" > $BUILDROOT/DEBIAN/postrm
+if [ -f $ROOT/postrm ]; then
+    cat $ROOT/postrm >> $BUILDROOT/DEBIAN/postrm
+else
+    if [ "$SERVICE" == "yes" ]; then
+        echo "
+/usr/bin/systemctl daemon-reload >/dev/null 2>&1 ||:
+" >> $BUILDROOT/DEBIAN/postrm
+    fi
+fi
+chmod 0755 $BUILDROOT/DEBIAN/postrm
 
 dpkg-deb --build $BUILDROOT
+
+case "$CURRENT_ARCH" in
+    "amd64")
+        DSTARCH="x86_64"
+        ;;
+    "arm64")
+        DSTARCH="aarch64"
+        ;;
+esac
+
+mkdir -p ${OUTPUT_DIR}/${DSTARCH}
+mv ${BUILDROOT}.deb ${OUTPUT_DIR}/${DSTARCH}/
