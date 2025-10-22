@@ -318,6 +318,10 @@ func (m *MockCandidatePropertyGetter) CPUArch() string {
 	return ""
 }
 
+func (m *MockCandidatePropertyGetter) KvmCapMaxVcpuCount() int64 {
+	return -1
+}
+
 // Host indicates an expected call of Host
 func (mr *MockCandidatePropertyGetterMockRecorder) Host() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
