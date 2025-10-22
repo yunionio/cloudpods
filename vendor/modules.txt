@@ -904,6 +904,10 @@ github.com/huandu/xstrings
 # github.com/huaweicloud/huaweicloud-sdk-go v1.0.26
 ## explicit
 github.com/huaweicloud/huaweicloud-sdk-go/auth/aksk
+# github.com/icholy/digest v1.1.0
+## explicit; go 1.20
+github.com/icholy/digest
+github.com/icholy/digest/internal/param
 # github.com/imdario/mergo v0.3.6
 ## explicit
 github.com/imdario/mergo
@@ -1857,8 +1861,6 @@ gopkg.in/yaml.v2
 # gopkg.in/yaml.v3 v3.0.1
 ## explicit
 gopkg.in/yaml.v3
-# gotest.tools/v3 v3.5.1
-## explicit; go 1.17
 # k8s.io/api v0.19.3
 ## explicit; go 1.15
 k8s.io/api/admissionregistration/v1
@@ -2037,7 +2039,7 @@ sigs.k8s.io/structured-merge-diff/v4/value
 # sigs.k8s.io/yaml v1.2.0
 ## explicit; go 1.12
 sigs.k8s.io/yaml
-# yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20251022024155-0af17b1ec9e6
+# yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20251022062406-17f2571b6fd2
 ## explicit; go 1.24
 yunion.io/x/cloudmux/pkg/apis
 yunion.io/x/cloudmux/pkg/apis/billing
@@ -2098,6 +2100,8 @@ yunion.io/x/cloudmux/pkg/multicloud/objectstore/ceph/provider
 yunion.io/x/cloudmux/pkg/multicloud/objectstore/provider
 yunion.io/x/cloudmux/pkg/multicloud/objectstore/xsky
 yunion.io/x/cloudmux/pkg/multicloud/objectstore/xsky/provider
+yunion.io/x/cloudmux/pkg/multicloud/oceanbase
+yunion.io/x/cloudmux/pkg/multicloud/oceanbase/provider
 yunion.io/x/cloudmux/pkg/multicloud/openstack
 yunion.io/x/cloudmux/pkg/multicloud/openstack/oscli
 yunion.io/x/cloudmux/pkg/multicloud/openstack/provider
