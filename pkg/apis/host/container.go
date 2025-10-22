@@ -97,6 +97,11 @@ type ContainerIsolatedDevice struct {
 	Index       int                                    `json:"index"`
 	DeviceMinor int                                    `json:"device_minor"`
 	OnlyEnv     []*apis.ContainerIsolatedDeviceOnlyEnv `json:"only_env"`
+	CDI         *apis.ContainerIsolatedDeviceCDI       `json:"cdi"`
+}
+
+func (d *ContainerIsolatedDevice) IsCDIUsed() bool {
+	return d.CDI != nil
 }
 
 type ContainerHostDevice struct {

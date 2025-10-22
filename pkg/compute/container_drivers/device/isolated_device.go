@@ -56,6 +56,11 @@ func (i isolatedDevice) validateCreateData(dev *api.ContainerDevice) error {
 			return httperrors.NewInputParameterError("index is less than 0")
 		}
 	}
+	if isoDev.CDI != nil {
+		if isoDev.CDI.Kind == "" {
+			return httperrors.NewNotEmptyError("cdk.kind is empty")
+		}
+	}
 	return nil
 }
 
@@ -137,6 +142,7 @@ func (i isolatedDevice) ToHostDevice(dev *api.ContainerDevice) (*hostapi.Contain
 			Index:       isoDev.Index,
 			DeviceMinor: isoDev.DeviceMinor,
 			OnlyEnv:     input.OnlyEnv,
+			CDI:         input.CDI,
 		},
 	}, nil
 }

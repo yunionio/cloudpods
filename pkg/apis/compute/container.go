@@ -201,6 +201,7 @@ type ContainerIsolatedDevice struct {
 	Index   *int                                   `json:"index"`
 	Id      string                                 `json:"id"`
 	OnlyEnv []*apis.ContainerIsolatedDeviceOnlyEnv `json:"only_env"`
+	CDI     *apis.ContainerIsolatedDeviceCDI       `json:"cdi"`
 }
 
 type ContainerDevice struct {
