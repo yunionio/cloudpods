@@ -1109,11 +1109,9 @@ func (acnt *SCloudaccount) removeSubAccounts(ctx context.Context, userCred mccli
 		return errors.Wrapf(err, "db.FetchModelObjects")
 	}
 	for i := range providers {
-		log.Debugf("remove cloudprovider %s(%s)", providers[i].Name, providers[i].Id)
-		err = providers[i].RealDelete(ctx, userCred)
-		if err != nil {
-			return errors.Wrapf(err, "RealDelete")
-		}
+		// 禁用云订阅，并设置为未连接状态，避免权限异常删除云订阅
+		providers[i].PerformDisable(ctx, userCred, jsonutils.NewDict(), apis.PerformDisableInput{})
+		providers[i].SetStatus(ctx, userCred, api.CLOUD_PROVIDER_DISCONNECTED, "sync lost")
 	}
 	return nil
 }
