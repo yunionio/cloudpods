@@ -26,7 +26,7 @@ require (
 	github.com/go-yaml/yaml v2.1.0+incompatible
 	github.com/golang-plus/uuid v1.0.0
 	github.com/golang/mock v1.4.4
-	github.com/golang/protobuf v1.5.3
+	github.com/golang/protobuf v1.5.4
 	github.com/google/cadvisor v0.38.5
 	github.com/google/gopacket v1.1.17
 	github.com/google/uuid v1.6.0
@@ -75,8 +75,8 @@ require (
 	github.com/zexi/influxql-to-metricsql v0.1.1
 	go.etcd.io/etcd/api/v3 v3.5.0
 	go.etcd.io/etcd/client/v3 v3.5.0
-	golang.org/x/crypto v0.19.0
-	golang.org/x/net v0.21.0
+	golang.org/x/crypto v0.21.0
+	golang.org/x/net v0.23.0
 	golang.org/x/sync v0.8.0
 	golang.org/x/sys v0.26.0
 	golang.org/x/text v0.14.0
@@ -93,7 +93,7 @@ require (
 	k8s.io/apimachinery v0.19.3
 	k8s.io/client-go v0.19.3
 	k8s.io/cluster-bootstrap v0.19.3
-	k8s.io/cri-api v0.22.17
+	k8s.io/cri-api v0.28.15
 	k8s.io/klog/v2 v2.20.0
 	moul.io/http2curl/v2 v2.3.0
 	yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20250721091651-7572a3d284ce
@@ -311,7 +311,7 @@ require (
 	go.uber.org/multierr v1.6.0 // indirect
 	go.uber.org/zap v1.17.0 // indirect
 	golang.org/x/oauth2 v0.17.0 // indirect
-	golang.org/x/term v0.17.0 // indirect
+	golang.org/x/term v0.18.0 // indirect
 	google.golang.org/api v0.167.0 // indirect
 	google.golang.org/appengine v1.6.8 // indirect
 	google.golang.org/genproto v0.0.0-20240213162025-012b6fc9bca9 // indirect

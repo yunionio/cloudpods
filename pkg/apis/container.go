@@ -98,6 +98,16 @@ type ContainerIsolatedDeviceOnlyEnv struct {
 	FromDeviceMinor bool   `json:"from_device_minor"`
 }
 
+type ContainerCDIKind string
+
+var (
+	CONTAINER_CDI_KIND_NVIDIA_GPU ContainerCDIKind = "nvidia.com/gpu"
+)
+
+type ContainerIsolatedDeviceCDI struct {
+	Kind ContainerCDIKind
+}
+
 type ContainerSpec struct {
 	// Image to use.
 	Image string `json:"image"`
