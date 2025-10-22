@@ -327,5 +327,5 @@ for component in $COMPONENTS; do
     if [[ $component == host-image ]]; then
         continue
     fi
-    show_update_cmd $component
+    show_update_cmd $component $ARCH
 done
