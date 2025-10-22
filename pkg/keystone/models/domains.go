@@ -27,6 +27,7 @@ import (
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/util/timeutils"
+	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/identity"
@@ -394,6 +395,13 @@ type SDomainUsageCount struct {
 
 func (m *SDomainManager) query(manager db.IModelManager, field string, domainIds []string, filter func(*sqlchemy.SQuery) *sqlchemy.SQuery) *sqlchemy.SSubQuery {
 	q := manager.Query()
+	if utils.IsInStringArray(manager.Keyword(), []string{
+		GroupManager.Keyword(),
+		UserManager.Keyword(),
+		ProjectManager.Keyword(),
+	}) {
+		q = q.IsFalse("pending_deleted")
+	}
 
 	if filter != nil {
 		q = filter(q)
