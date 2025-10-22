@@ -37,6 +37,7 @@ import (
 	_ "yunion.io/x/cloudmux/pkg/multicloud/objectstore/ceph/provider"
 	_ "yunion.io/x/cloudmux/pkg/multicloud/objectstore/provider"
 	_ "yunion.io/x/cloudmux/pkg/multicloud/objectstore/xsky/provider"
+	_ "yunion.io/x/cloudmux/pkg/multicloud/oceanbase/provider"
 	_ "yunion.io/x/cloudmux/pkg/multicloud/openstack/provider"
 	_ "yunion.io/x/cloudmux/pkg/multicloud/oracle/provider"
 	_ "yunion.io/x/cloudmux/pkg/multicloud/proxmox/provider" // private clouds
