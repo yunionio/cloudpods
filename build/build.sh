@@ -110,35 +110,68 @@ if [ -d $ROOT/root ]; then
   rsync -a $ROOT/root/ \$RPM_BUILD_ROOT
 fi
 
-%pre
+%pre" > $SPEC_FILE
+
+if [ -f $ROOT/preinst ]; then
+    cat $ROOT/preinst >> $SPEC_FILE
+else
+    echo "
 %if %{use_systemd}
 getent group %{owner} >/dev/null || /usr/sbin/groupadd -r %{owner}
 getent passwd %{owner} >/dev/null || /usr/sbin/useradd -r -s /sbin/nologin -d %{homedir} -M -g %{owner} %{owner}
 %endif
+" >> $SPEC_FILE
+fi
 
-%post
+echo "
+%post" >> $SPEC_FILE
+
+if [ -f $ROOT/postinst ]; then
+    cat $ROOT/postinst >> $SPEC_FILE
+else
+    echo "
 %if %{use_systemd}
-    mkdir -p /var/run/%{owner}
-    chown -R %{owner}:%{owner} /var/run/%{owner}
     /usr/bin/systemctl preset %{pkgname}.service >/dev/null 2>&1 ||:
 %endif
+" >> $SPEC_FILE
+fi
 
-%preun
+echo "
+%preun" >> $SPEC_FILE
+
+if [ -f $ROOT/prerm ]; then
+    cat $ROOT/prerm >> $SPEC_FILE
+else
+    echo "
 %if %{use_systemd}
     /usr/bin/systemctl --no-reload disable %{pkgname}.service >/dev/null 2>&1 || :
     /usr/bin/systemctl stop %{pkgname}.service >/dev/null 2>&1 ||:
 %endif
+" >> $SPEC_FILE
+fi
 
-%postun
+echo "
+%postun" >> $SPEC_FILE
+
+if [ -f $ROOT/postrm ]; then
+    cat $ROOT/postrm >> $SPEC_FILE
+else
+    echo "
 %if %{use_systemd}
     /usr/bin/systemctl daemon-reload >/dev/null 2>&1 ||:
 %endif
+" >> $SPEC_FILE
+fi
 
+echo -n "
 %files
 %doc
 $BIN_PATH/$PKG
-$(for b in $EXTRA_BINS; do echo $BIN_PATH/$b; done)
-" > $SPEC_FILE
+" >> $SPEC_FILE
+
+for b in $EXTRA_BINS; do
+    echo $BIN_PATH/$b >> $SPEC_FILE
+done
 
 if [ -d $ROOT/root/ ]; then
     find $ROOT/root/ -type f | sed -e "s:$ROOT/root::g" >> $SPEC_FILE
