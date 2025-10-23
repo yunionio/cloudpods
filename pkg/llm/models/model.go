@@ -76,3 +76,40 @@ func (man *SLLMModelBaseManager) ValidateCreateData(ctx context.Context, userCre
 	input.Status = api.STATUS_READY
 	return input, nil
 }
+
+func (modelBase *SLLMModelBase) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.LLMModelBaseUpdateInput) (api.LLMModelBaseUpdateInput, error) {
+	var err error
+	input.SharableVirtualResourceBaseUpdateInput, err = modelBase.SSharableVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, input.SharableVirtualResourceBaseUpdateInput)
+	if err != nil {
+		return input, errors.Wrap(err, "validate SharableVirtualResourceBaseUpdateInput")
+	}
+
+	volumes := []api.Volume{}
+	if err := jsonutils.Marshal(modelBase.Volumes).Unmarshal(&volumes); err != nil {
+		return input, errors.Wrapf(err, "Unmarshal Volumes")
+	}
+	for i, volume := range volumes {
+		if input.DiskSizeMB != nil && *input.DiskSizeMB > 0 {
+			volume.SizeMB = *input.DiskSizeMB
+		}
+		// if input.TemplateId != nil {
+		// 	if len(*input.TemplateId) > 0 {
+		// 		s := auth.GetSession(ctx, userCred, "")
+		// 		imgObj, err := imagemodules.Images.Get(s, *input.TemplateId, nil)
+		// 		if err != nil {
+		// 			return input, errors.Wrapf(err, "validate template_id %s", *input.TemplateId)
+		// 		}
+		// 		volume.TemplateId, _ = imgObj.GetString("id")
+		// 	} else {
+		// 		volume.TemplateId = ""
+		// 	}
+		// }
+		if input.StorageType != nil && len(*input.StorageType) > 0 {
+			volume.StorageType = *input.StorageType
+		}
+		volumes[i] = volume
+	}
+	input.Volumes = (*api.Volumes)(&volumes)
+
+	return input, nil
+}

@@ -11,7 +11,7 @@ func init() {
 	cmd := shell.NewResourceCmd(&modules.LLMModel)
 	cmd.List(new(options.LLMModelListOptions))
 	cmd.Show(new(options.LLMModelShowOptions))
-	// cmd.Update(new(options.DesktopModelUpdateOptions))
+	cmd.Update(new(options.LLMModelUpdateOptions))
 	cmd.Create(new(options.LLMModelCreateOptions))
 	cmd.Delete(new(options.LLMModelDeleteOptions))
 	cmd.Perform("public", &base_options.BasePublicOptions{})

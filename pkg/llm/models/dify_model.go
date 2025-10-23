@@ -13,7 +13,7 @@ import (
 )
 
 func init() {
-
+	GetDifyModelManager()
 }
 
 var difyModelManager *SDifyModelManager
@@ -92,4 +92,34 @@ func (man *SDifyModelManager) ValidateCreateData(ctx context.Context, userCred m
 	}
 
 	return input, nil
+}
+
+func (model *SDifyModel) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.DifyModelUpdateInput) (api.DifyModelUpdateInput, error) {
+	var err error
+	input.LLMModelBaseUpdateInput, err = model.SLLMModelBase.ValidateUpdateData(ctx, userCred, query, input.LLMModelBaseUpdateInput)
+	if err != nil {
+		return input, errors.Wrap(err, "validate LLMModelBaseUpdateInput")
+	}
+
+	for _, imgId := range []*string{&input.PostgresImageId, &input.RedisImageId, &input.NginxImageId, &input.DifyApiImageId, &input.DifyPluginImageId, &input.DifyWebImageId, &input.DifySandboxImageId, &input.DifySSRFImageId, &input.DifyWeaviateImageId} {
+		if *imgId != "" {
+			_, err := validators.ValidateModel(ctx, userCred, GetLLMImageManager(), imgId)
+			if err != nil {
+				return input, errors.Wrapf(err, "validate image_id %s", *imgId)
+			}
+		}
+	}
+
+	return input, nil
+}
+
+func (model *SDifyModel) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
+	count, err := GetDifyManager().Query().Equals("dify_model_id", model.Id).CountWithError()
+	if nil != err {
+		return errors.Wrap(err, "fetch dify")
+	}
+	if count > 0 {
+		return errors.Wrap(errors.ErrNotSupported, "This model is currently in use")
+	}
+	return nil
 }
