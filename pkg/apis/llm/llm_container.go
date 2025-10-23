@@ -1,8 +1,9 @@
 package llm
 
 import (
-	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/pkg/util/sets"
+
+	"yunion.io/x/onecloud/pkg/apis"
 )
 
 type LLMContainerType string

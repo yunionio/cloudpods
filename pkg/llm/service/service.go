@@ -4,7 +4,6 @@ import (
 	"os"
 
 	"yunion.io/x/log"
-	_ "yunion.io/x/onecloud/pkg/llm/drivers/llm_container"
 	_ "yunion.io/x/sqlchemy/backends"
 
 	api "yunion.io/x/onecloud/pkg/apis/llm"
@@ -12,6 +11,7 @@ import (
 	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
+	_ "yunion.io/x/onecloud/pkg/llm/drivers/llm_container"
 	"yunion.io/x/onecloud/pkg/llm/models"
 	"yunion.io/x/onecloud/pkg/llm/options"
 	_ "yunion.io/x/onecloud/pkg/llm/tasks"

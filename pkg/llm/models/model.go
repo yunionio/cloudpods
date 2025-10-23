@@ -4,13 +4,14 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
+	"yunion.io/x/sqlchemy"
+
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/llm"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/pkg/errors"
-	"yunion.io/x/sqlchemy"
 )
 
 func NewSLLMModelBaseManager(dt interface{}, tableName string, keyword string, keywordPlural string) SLLMModelBaseManager {
