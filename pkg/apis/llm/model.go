@@ -4,9 +4,10 @@ import (
 	"reflect"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/gotypes"
+
 	"yunion.io/x/onecloud/pkg/apis"
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
-	"yunion.io/x/pkg/gotypes"
 )
 
 type HostInfo struct {

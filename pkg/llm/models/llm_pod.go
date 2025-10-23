@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+
 	"yunion.io/x/onecloud/pkg/apis"
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	api "yunion.io/x/onecloud/pkg/apis/llm"
@@ -48,7 +49,7 @@ func GetLLMPodCreateInput(
 
 	// disks
 	data.Disks = make([]*computeapi.DiskConfig, 0)
-	if !sku.Volumes.IsZero() {
+	if sku.Volumes != nil && !sku.Volumes.IsZero() {
 		for idx, volume := range *sku.Volumes {
 			data.Disks = append(data.Disks, &computeapi.DiskConfig{
 				DiskType: "data",
@@ -61,7 +62,7 @@ func GetLLMPodCreateInput(
 	}
 
 	// isolated devices
-	if !sku.Devices.IsZero() {
+	if sku.Devices != nil && !sku.Devices.IsZero() {
 		data.IsolatedDevices = make([]*computeapi.IsolatedDeviceConfig, 0)
 		devices := *sku.Devices
 		for i := 0; i < len(devices); i++ {
