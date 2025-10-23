@@ -19,7 +19,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"os/exec"
 	"path"
 	"path/filepath"
 	"regexp"
@@ -36,12 +35,12 @@ import (
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/mountutils"
+	"yunion.io/x/onecloud/pkg/util/procutils"
 )
 
 const (
 	KICKSTART_MONITOR_TIMEOUT         = 60 * time.Minute
 	SERIAL_FILE_CHECK_INTERVAL        = 5 * time.Second
-	KICKSTART_BASE_DIR                = "/tmp/kickstart"
 	KICKSTART_ISO_MOUNT_DIR           = "iso-mount"
 	KICKSTART_ISO_BUILD_DIR           = "iso-build"
 	KICKSTART_ISO_FILENAME            = "config.iso"
@@ -56,32 +55,28 @@ var (
 )
 
 type SKickstartSerialMonitor struct {
-	serverId       string
-	serialFilePath string
+	serverId        string
+	serialFilePath  string
+	kickstartTmpDir string
 
 	ctx    context.Context
 	cancel context.CancelFunc
 }
 
 // NewKickstartSerialMonitor creates a new kickstart serial monitor
-func NewKickstartSerialMonitor(serverId string) *SKickstartSerialMonitor {
+func NewKickstartSerialMonitor(s *SKVMGuestInstance) *SKickstartSerialMonitor {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	// Get the server instance to access its homeDir
-	var serialFilePath string
-	server, exists := guestManager.GetServer(serverId)
-	if exists {
-		serialFilePath = path.Join(server.HomeDir(), "kickstart-serial.log")
-	} else {
-		// Fallback to use /tmp if server not found
-		serialFilePath = fmt.Sprintf("/tmp/kickstart-serial-%s.log", serverId)
-	}
+	serialFilePath := path.Join(s.HomeDir(), "kickstart-serial.log")
+	kickstartTmpDir := s.getKickstartTmpDir()
 
 	return &SKickstartSerialMonitor{
-		serverId:       serverId,
-		serialFilePath: serialFilePath,
-		ctx:            ctx,
-		cancel:         cancel,
+		serverId:        s.GetId(),
+		serialFilePath:  serialFilePath,
+		kickstartTmpDir: kickstartTmpDir,
+		ctx:             ctx,
+		cancel:          cancel,
 	}
 }
 
@@ -304,7 +299,7 @@ func (m *SKickstartSerialMonitor) Start() error {
 // It unmounts the ISO image and restarts the VM
 func (m *SKickstartSerialMonitor) handleKickstartCompleted() error {
 	// Clean up kickstart files after successful installation
-	CleanupKickstartFiles(m.serverId)
+	CleanupKickstartFiles(m.serverId, m.kickstartTmpDir)
 
 	log.Debugf("Restarting VM %s after successful kickstart", m.serverId)
 
@@ -339,8 +334,8 @@ func (m *SKickstartSerialMonitor) restartServer() error {
 // For Ubuntu systems: creates user-data and meta-data files in a ISO with label 'CIDATA'
 // reference: https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/10/html/automatically_installing_rhel/starting-kickstart-installations#starting-a-kickstart-installation-automatically-using-a-local-volume
 // https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/10/html/automatically_installing_rhel/starting-kickstart-installations#starting-a-kickstart-installation-automatically-using-a-local-volume
-func CreateKickstartConfigISO(config *api.KickstartConfig, serverId string) (string, error) {
-	log.Debugf("Creating kickstart ISO for server %s with OS type %s", serverId, config.OSType)
+func CreateKickstartConfigISO(config *api.KickstartConfig, kickStartBaseDir string) (string, error) {
+	log.Debugf("Creating kickstart ISO to %s with OS type %s", kickStartBaseDir, config.OSType)
 
 	if config == nil {
 		return "", errors.Errorf("kickstart config is nil")
@@ -351,7 +346,7 @@ func CreateKickstartConfigISO(config *api.KickstartConfig, serverId string) (str
 	}
 
 	// Create temporary directory for ISO contents
-	tmpDir := filepath.Join(KICKSTART_BASE_DIR, serverId, KICKSTART_ISO_BUILD_DIR)
+	tmpDir := filepath.Join(kickStartBaseDir, KICKSTART_ISO_BUILD_DIR)
 	if err := os.MkdirAll(tmpDir, 0755); err != nil {
 		return "", errors.Wrapf(err, "failed to create temp directory %s", tmpDir)
 	}
@@ -394,7 +389,7 @@ func CreateKickstartConfigISO(config *api.KickstartConfig, serverId string) (str
 	}
 
 	// Create ISO using mkisofs
-	isoPath := filepath.Join(KICKSTART_BASE_DIR, serverId, KICKSTART_ISO_FILENAME)
+	isoPath := filepath.Join(kickStartBaseDir, KICKSTART_ISO_FILENAME)
 	args := []string{
 		"-o", isoPath,
 		"-V", volumeLabel,
@@ -403,8 +398,8 @@ func CreateKickstartConfigISO(config *api.KickstartConfig, serverId string) (str
 	}
 	args = append(args, filePaths...)
 
-	cmd := exec.Command("mkisofs", args...)
-	if output, err := cmd.CombinedOutput(); err != nil {
+	cmd := procutils.NewCommand("mkisofs", args...)
+	if output, err := cmd.Output(); err != nil {
 		return "", errors.Wrapf(err, "mkisofs failed: %s", string(output))
 	}
 
@@ -475,13 +470,11 @@ func BuildKickstartAppendArgs(config *api.KickstartConfig, isoPath string) strin
 }
 
 // CleanupKickstartFiles cleans up all kickstart-related temporary files and directories
-func CleanupKickstartFiles(serverId string) {
+func CleanupKickstartFiles(serverId, kickstartDir string) {
 	if serverId == "" {
 		log.Warningf("Empty serverId provided for kickstart cleanup")
 		return
 	}
-
-	kickstartDir := filepath.Join(KICKSTART_BASE_DIR, serverId)
 
 	mountPoint := filepath.Join(kickstartDir, KICKSTART_ISO_MOUNT_DIR)
 	if fileutils2.Exists(mountPoint) {

@@ -2351,53 +2351,53 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 
 func validateKickstartConfig(config *api.KickstartConfig) error {
 	if config.OSType == "" {
-		return fmt.Errorf("os_type is required")
+		return httperrors.NewMissingParameterError("os_type")
 	}
 
 	if !utils.IsInStringArray(config.OSType, api.KICKSTART_VALID_OS_TYPES) {
-		return fmt.Errorf("unsupported os_type: %s, supported types: %v", config.OSType, api.KICKSTART_VALID_OS_TYPES)
+		return httperrors.NewInputParameterError("unsupported os_type: %s, supported types: %v", config.OSType, api.KICKSTART_VALID_OS_TYPES)
 	}
 
 	// 验证配置内容和URL二选一
 	if config.Config == "" && config.ConfigURL == "" {
-		return fmt.Errorf("either config or config_url must be provided")
+		return httperrors.NewInputParameterError("either config or config_url must be provided")
 	}
 
 	if config.Config != "" && config.ConfigURL != "" {
-		return fmt.Errorf("config and config_url cannot be both provided, choose one")
+		return httperrors.NewInputParameterError("config and config_url cannot be both provided, choose one")
 	}
 
 	if config.Config != "" {
 		const maxConfigSize = 64 * 1024
 		if len(config.Config) > maxConfigSize {
-			return fmt.Errorf("config content too large: %d bytes, maximum allowed: %d bytes", len(config.Config), maxConfigSize)
+			return httperrors.NewInputParameterError("config content too large: %d bytes, maximum allowed: %d bytes", len(config.Config), maxConfigSize)
 		}
 		if len(strings.TrimSpace(config.Config)) == 0 {
-			return fmt.Errorf("config content cannot be empty")
+			return httperrors.NewInputParameterError("config content cannot be empty")
 		}
 	}
 
 	if config.ConfigURL != "" {
 		if len(config.ConfigURL) > 2048 {
-			return fmt.Errorf("config URL too long: %d characters, maximum allowed: 2048", len(config.ConfigURL))
+			return httperrors.NewInputParameterError("config URL too long: %d characters, maximum allowed: 2048", len(config.ConfigURL))
 		}
 		if strings.TrimSpace(config.ConfigURL) == "" {
-			return fmt.Errorf("config URL cannot be empty")
+			return httperrors.NewInputParameterError("config URL cannot be empty")
 		}
 
 		parsedURL, err := url.Parse(config.ConfigURL)
 		if err != nil {
-			return fmt.Errorf("invalid URL format: %v", err)
+			return httperrors.NewInputParameterError("invalid URL format: %v", err)
 		}
 		if parsedURL.Scheme != "http" && parsedURL.Scheme != "https" {
-			return fmt.Errorf("invalid URL scheme: %s, only http and https are allowed", parsedURL.Scheme)
+			return httperrors.NewInputParameterError("invalid URL scheme: %s, only http and https are allowed", parsedURL.Scheme)
 		}
 		if parsedURL.Host == "" {
-			return fmt.Errorf("URL must specify a host")
+			return httperrors.NewInputParameterError("URL must specify a host")
 		}
 
 		if err := checkKickstartURLContentSize(config.ConfigURL); err != nil {
-			return fmt.Errorf("URL content validation failed: %v", err)
+			return httperrors.NewInputParameterError("URL content validation failed: %v", err)
 		}
 	}
 
@@ -2729,9 +2729,9 @@ func (guest *SGuest) PostCreate(ctx context.Context, userCred mcclient.TokenCred
 			if err := guest.SetKickstartConfig(ctx, kickstartConfig, userCred); err != nil {
 				log.Errorf("Failed to set kickstart config for guest %s: %v", guest.Name, err)
 			} else {
-				if err := guest.SetKickstartStatus(ctx, api.VM_KICKSTART_PENDING, userCred); err != nil {
-					log.Errorf("Failed to set kickstart status for guest %s: %v", guest.Name, err)
-				}
+				//if err := guest.SetKickstartStatus(ctx, api.VM_KICKSTART_PENDING, userCred); err != nil {
+				//	log.Errorf("Failed to set kickstart status for guest %s: %v", guest.Name, err)
+				//}
 				if err := guest.SetMetadata(ctx, api.VM_METADATA_KICKSTART_COMPLETED_FLAG, "false", userCred); err != nil {
 					log.Errorf("Failed to set kickstart completed flag for guest %s: %v", guest.Name, err)
 				}

@@ -31,6 +31,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/cmdline"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
 	"yunion.io/x/onecloud/pkg/util/cgrouputils/cpuset"
+	"yunion.io/x/onecloud/pkg/util/fileutils2"
 )
 
 var ErrEmtptyUpdate = errors.Error("No valid update data")
@@ -490,7 +491,7 @@ type ServerCreateOptionalOptions struct {
 
 	// Kickstart related options
 	KickstartOSType         string `help:"Kickstart OS type" choices:"centos|rhel|fedora|openeuler|ubuntu" json:"-"`
-	KickstartConfig         string `help:"Kickstart configuration content" json:"-"`
+	KickstartConfigFile     string `help:"Kickstart configuration content file" json:"-"`
 	KickstartConfigURL      string `help:"Kickstart configuration URL" json:"-"`
 	KickstartEnabled        *bool  `help:"Enable kickstart" json:"-"`
 	KickstartMaxRetries     int    `help:"Kickstart max retries" default:"3" json:"-"`
@@ -667,10 +668,10 @@ func (opts *ServerCreateOptionalOptions) OptionalParams() (*computeapi.ServerCre
 
 	// if kickstart os type is specified, then kickstart is enabled
 	if len(opts.KickstartOSType) > 0 {
-		if opts.KickstartConfig == "" && opts.KickstartConfigURL == "" {
+		if opts.KickstartConfigFile == "" && opts.KickstartConfigURL == "" {
 			return nil, fmt.Errorf("either --kickstart-config or --kickstart-config-url must be provided when --kickstart-os-type is specified")
 		}
-		if opts.KickstartConfig != "" && opts.KickstartConfigURL != "" {
+		if opts.KickstartConfigFile != "" && opts.KickstartConfigURL != "" {
 			return nil, fmt.Errorf("--kickstart-config and --kickstart-config-url cannot be both provided, choose one")
 		}
 
@@ -678,8 +679,12 @@ func (opts *ServerCreateOptionalOptions) OptionalParams() (*computeapi.ServerCre
 			OSType: opts.KickstartOSType,
 		}
 
-		if opts.KickstartConfig != "" {
-			kickstartConfig.Config = opts.KickstartConfig
+		if opts.KickstartConfigFile != "" {
+			ksconf, err := fileutils2.FileGetContents(opts.KickstartConfigFile)
+			if err != nil {
+				return nil, errors.Wrapf(err, "FileGetContents %s", opts.KickstartConfigFile)
+			}
+			kickstartConfig.Config = ksconf
 		}
 		if opts.KickstartConfigURL != "" {
 			kickstartConfig.ConfigURL = opts.KickstartConfigURL

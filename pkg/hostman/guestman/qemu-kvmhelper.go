@@ -604,6 +604,12 @@ func (s *SKVMGuestInstance) shouldUseKickstart() bool {
 		return false
 	}
 
+	kickstartCompleted, completedExists := s.Desc.Metadata[api.VM_METADATA_KICKSTART_COMPLETED_FLAG]
+	if completedExists && kickstartCompleted == "true" {
+		log.Debugf("Kickstart already completed for VM %s, skipping kickstart boot", s.Id)
+		return false
+	}
+
 	// 检查是否存在kickstart配置
 	kickstartConfigStr, configExists := s.Desc.Metadata[api.VM_METADATA_KICKSTART_CONFIG]
 	if !configExists || kickstartConfigStr == "" {
@@ -623,12 +629,6 @@ func (s *SKVMGuestInstance) shouldUseKickstart() bool {
 			log.Debugf("Kickstart is disabled in config for VM %s, skipping kickstart boot", s.Id)
 			return false
 		}
-	}
-
-	kickstartCompleted, completedExists := s.Desc.Metadata[api.VM_METADATA_KICKSTART_COMPLETED_FLAG]
-	if completedExists && kickstartCompleted == "true" {
-		log.Debugf("Kickstart already completed for VM %s, skipping kickstart boot", s.Id)
-		return false
 	}
 
 	log.Debugf("VM %s needs kickstart: config exists and not completed yet", s.Id)
@@ -675,7 +675,7 @@ func (s *SKVMGuestInstance) configureKickstartBoot(input *qemu.GenerateStartOpti
 		return nil
 	}
 
-	kickstartDir := filepath.Join(KICKSTART_BASE_DIR, s.GetId())
+	kickstartDir := s.getKickstartTmpDir()
 	mountPoint := filepath.Join(kickstartDir, KICKSTART_ISO_MOUNT_DIR)
 
 	// Check if mount point already exists and is mounted
@@ -729,7 +729,7 @@ func (s *SKVMGuestInstance) configureKickstartBoot(input *qemu.GenerateStartOpti
 		s.GetName(), len(kickstartConfig.Config), kickstartConfig.ConfigURL)
 
 	if kickstartConfig.Config != "" {
-		isoPath, err := CreateKickstartConfigISO(kickstartConfig, s.Id)
+		isoPath, err := CreateKickstartConfigISO(kickstartConfig, s.getKickstartTmpDir())
 		if err != nil {
 			log.Errorf("Failed to create kickstart config ISO for guest %s: %v, falling back to URL/cdrom method", s.GetName(), err)
 		} else {
@@ -742,7 +742,7 @@ func (s *SKVMGuestInstance) configureKickstartBoot(input *qemu.GenerateStartOpti
 	log.Debugf("Generated kickstart kernel args for guest %s: %s", s.GetName(), kernelArgs)
 
 	// Create kickstart serial monitor for status monitoring
-	kickstartMonitor := NewKickstartSerialMonitor(s.Id)
+	kickstartMonitor := NewKickstartSerialMonitor(s)
 	serialFilePath := kickstartMonitor.GetSerialFilePath()
 
 	input.KickstartBoot = &qemu.KickstartBootInfo{
