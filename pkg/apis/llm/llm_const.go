@@ -11,6 +11,11 @@ const (
 	/* 创建失败 */
 	LLM_STATUS_CREATE_FAIL = "create_fail"
 
+	/* 启动失败 */
+	LLM_STATUS_START_FAIL = "start_fail"
+	/* 停机失败 */
+	LLM_STATUS_STOP_FAILED = "stop_fail"
+
 	/* 停机 */
 	LLM_STATUS_READY = "ready"
 	/* 运行 */

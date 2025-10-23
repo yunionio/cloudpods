@@ -12,4 +12,6 @@ func init() {
 	cmd.List(new(options.DifyListOptions))
 	cmd.Show(new(options.DifyShowOptions))
 	cmd.Delete(new(options.DifyDeleteOptions))
+	cmd.BatchPerform("stop", new(options.DifyStopOptions))
+	cmd.BatchPerform("start", new(options.DifyStartOptions))
 }

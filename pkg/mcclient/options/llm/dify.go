@@ -56,3 +56,19 @@ func (o *DifyDeleteOptions) GetId() string {
 func (o *DifyDeleteOptions) Params() (jsonutils.JSONObject, error) {
 	return options.StructToParams(o)
 }
+
+type DifyStartOptions struct {
+	options.BaseIdsOptions
+}
+
+func (o *DifyStartOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(o), nil
+}
+
+type DifyStopOptions struct {
+	options.BaseIdsOptions
+}
+
+func (o *DifyStopOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(o), nil
+}
