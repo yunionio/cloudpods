@@ -8,9 +8,11 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
 	commonapi "yunion.io/x/onecloud/pkg/apis"
+	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	api "yunion.io/x/onecloud/pkg/apis/llm"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
@@ -239,8 +241,7 @@ func (llm *SLLM) ServerCreate(ctx context.Context, userCred mcclient.TokenCreden
 	if nil != err {
 		return "", errors.Wrap(err, "GetLLMImage")
 	}
-	// set AutoStart to true
-	input.AutoStart = true
+
 	data, err := GetLLMPodCreateInput(ctx, userCred, input, llm, model, llmImage, "")
 	if nil != err {
 		return "", errors.Wrap(err, "GetPodCreateInput")
@@ -258,6 +259,50 @@ func (llm *SLLM) ServerCreate(ctx context.Context, userCred mcclient.TokenCreden
 	}
 
 	return id, nil
+}
+
+func (llm *SLLM) PerformStart(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	// can't start while it's already running
+	if utils.IsInStringArray(llm.Status, computeapi.VM_RUNNING_STATUS) {
+		return nil, errors.Wrapf(errors.ErrInvalidStatus, "llm id: %s status: %s", llm.Id, llm.Status)
+	}
+
+	if err := llm.StartStartTask(ctx, userCred, ""); err != nil {
+		return nil, errors.Wrap(err, "StartStartTask")
+	}
+	return jsonutils.Marshal(nil), nil
+}
+
+func (llm *SLLM) StartStartTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "LLMStartTask", llm, userCred, nil, parentTaskId, "", nil)
+	if err != nil {
+		return errors.Wrap(err, "NewTask")
+	}
+	return task.ScheduleRun(nil)
+}
+
+func (llm *SLLM) PerformStop(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if llm.Status == computeapi.VM_READY {
+		return nil, errors.Wrapf(errors.ErrInvalidStatus, "llm id: %s status: %s", llm.Id, llm.Status)
+	}
+	llm.SetStatus(ctx, userCred, computeapi.VM_START_STOP, "perform stop")
+	err := llm.StartLLMStopTask(ctx, userCred, "")
+	if err != nil {
+		return nil, errors.Wrap(err, "StartStopTask")
+	}
+	return nil, nil
+}
+
+func (llm *SLLM) StartLLMStopTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "LLMStopTask", llm, userCred, nil, parentTaskId, "", nil)
+	if err != nil {
+		return errors.Wrap(err, "NewTask")
+	}
+	err = task.ScheduleRun(nil)
+	if err != nil {
+		return errors.Wrap(err, "ScheduleRun")
+	}
+	return nil
 }
 
 // func (llm *SLLM) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
