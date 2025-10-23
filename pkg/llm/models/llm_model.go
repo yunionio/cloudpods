@@ -169,6 +169,24 @@ func (model *SLLMModel) GetLLMContainerDriver() ILLMContainerDriver {
 	return GetLLMContainerDriver(api.LLMContainerType(model.LLMType))
 }
 
+func (model *SLLMModel) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.LLMModelUpdateInput) (api.LLMModelUpdateInput, error) {
+	var err error
+	input.LLMModelBaseUpdateInput, err = model.SLLMModelBase.ValidateUpdateData(ctx, userCred, query, input.LLMModelBaseUpdateInput)
+	if err != nil {
+		return input, errors.Wrap(err, "validate LLMModelBaseUpdateInput")
+	}
+
+	if input.LLMImageId != "" {
+		imgObj, err := validators.ValidateModel(ctx, userCred, GetLLMImageManager(), &input.LLMImageId)
+		if err != nil {
+			return input, errors.Wrapf(err, "validate image_id %s", input.LLMImageId)
+		}
+		input.LLMImageId = imgObj.GetId()
+	}
+
+	return input, nil
+}
+
 func (model *SLLMModel) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	count, err := GetLLMManager().Query().Equals("llm_model_id", model.Id).CountWithError()
 	if nil != err {

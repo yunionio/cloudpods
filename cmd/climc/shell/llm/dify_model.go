@@ -11,7 +11,7 @@ func init() {
 	cmd := shell.NewResourceCmd(&modules.DifyModel)
 	cmd.List(new(options.DifyModelListOptions))
 	cmd.Show(new(options.DifyModelShowOptions))
-	// cmd.Update(new(options.DesktopModelUpdateOptions))
+	cmd.Update(new(options.DifyModelUpdateOptions))
 	cmd.Create(new(options.DifyModelCreateOptions))
 	cmd.Delete(new(options.DifyModelDeleteOptions))
 	cmd.Perform("public", &base_options.BasePublicOptions{})

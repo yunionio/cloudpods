@@ -111,13 +111,6 @@ type LLMModelDetails struct {
 // 	MountedApps []string `json:"mounted_apps"`
 // }
 
-type LLMModelListInput struct {
-	apis.SharableVirtualResourceListInput
-	// MountedAppResourceListInput
-
-	LLMType string `json:"llm_type"`
-}
-
 type LLMModelBaseCreateInput struct {
 	apis.SharableVirtualResourceCreateInput
 
@@ -133,6 +126,34 @@ type LLMModelBaseCreateInput struct {
 	Properties   map[string]string `json:"properties"`
 }
 
+type LLMModelBaseUpdateInput struct {
+	apis.SharableVirtualResourceBaseUpdateInput
+	// MountedAppResourceUpdateInput
+
+	Cpu    *int `json:"cpu"`
+	Memory *int `json:"memory"`
+
+	// RequstSyncImage *bool `json:"request_sync_image"`
+
+	DiskSizeMB  *int     `json:"disk_size_mb"`
+	TemplateId  *string  `json:"template_id"`
+	StorageType *string  `json:"storage_type"`
+	Volumes     *Volumes `json:"volumes"`
+
+	Bandwidth    *int              `json:"bandwidth"`
+	PortMappings *PortMappings     `json:"port_mappings"`
+	Devices      *Devices          `json:"devices"`
+	Envs         *Envs             `json:"envs"`
+	Properties   map[string]string `json:"properties"`
+}
+
+type LLMModelListInput struct {
+	apis.SharableVirtualResourceListInput
+	// MountedAppResourceListInput
+
+	LLMType string `json:"llm_type"`
+}
+
 type LLMModelCreateInput struct {
 	LLMModelBaseCreateInput
 
@@ -142,25 +163,10 @@ type LLMModelCreateInput struct {
 }
 
 type LLMModelUpdateInput struct {
-	apis.SharableVirtualResourceBaseUpdateInput
-	// MountedAppResourceUpdateInput
+	LLMModelBaseUpdateInput
 
 	LLMImageId   string `json:"llm_image_id"`
 	LLMModelName string `json:"llm_model_name"`
-	Cpu          *int   `json:"cpu"`
-	Memory       *int   `json:"memory"`
-
-	RequestSyncImage *bool    `json:"request_sync_image"`
-	DiskSizeMB       *int     `json:"disk_size_mb"`
-	TemplateId       *string  `json:"template_id"`
-	StorageType      *string  `json:"storage_type"`
-	Volumes          *Volumes `json:"volumes"`
-
-	Bandwidth    *int              `json:"bandwidth"`
-	PortMappings *PortMappings     `json:"port_mappings"`
-	Devices      *Devices          `json:"devices"`
-	Envs         *Envs             `json:"envs"`
-	Properties   map[string]string `json:"properties"`
 }
 
 // type LLMModelCloneInput struct {
@@ -178,6 +184,20 @@ type DifyModelListInput struct {
 
 type DifyModelCreateInput struct {
 	LLMModelBaseCreateInput
+
+	PostgresImageId     string `json:"postgres_image_id"`
+	RedisImageId        string `json:"redis_image_id"`
+	NginxImageId        string `json:"nginx_image_id"`
+	DifyApiImageId      string `json:"dify_api_image_id"`
+	DifyPluginImageId   string `json:"dify_plugin_image_id"`
+	DifyWebImageId      string `json:"dify_web_image_id"`
+	DifySandboxImageId  string `json:"dify_sandbox_image_id"`
+	DifySSRFImageId     string `json:"dify_ssrf_image_id"`
+	DifyWeaviateImageId string `json:"dify_weaviate_image_id"`
+}
+
+type DifyModelUpdateInput struct {
+	LLMModelBaseUpdateInput
 
 	PostgresImageId     string `json:"postgres_image_id"`
 	RedisImageId        string `json:"redis_image_id"`
