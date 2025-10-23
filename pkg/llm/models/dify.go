@@ -7,6 +7,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
 	commonapi "yunion.io/x/onecloud/pkg/apis"
@@ -220,6 +221,50 @@ func (dify *SDify) getDifyContainerByContainerKey(containerKey string) (*compute
 	}
 	container.AlwaysRestart = true // always restart to solve dependency issue
 	return container, nil
+}
+
+func (dify *SDify) PerformStart(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	// can't start while it's already running
+	if utils.IsInStringArray(dify.Status, computeapi.VM_RUNNING_STATUS) {
+		return nil, errors.Wrapf(errors.ErrInvalidStatus, "dify id: %s status: %s", dify.Id, dify.Status)
+	}
+
+	if err := dify.StartStartTask(ctx, userCred, ""); err != nil {
+		return nil, errors.Wrap(err, "StartStartTask")
+	}
+	return jsonutils.Marshal(nil), nil
+}
+
+func (dify *SDify) StartStartTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "DifyStartTask", dify, userCred, nil, parentTaskId, "", nil)
+	if err != nil {
+		return errors.Wrap(err, "NewTask")
+	}
+	return task.ScheduleRun(nil)
+}
+
+func (dify *SDify) PerformStop(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if dify.Status == computeapi.VM_READY {
+		return nil, errors.Wrapf(errors.ErrInvalidStatus, "dify id: %s status: %s", dify.Id, dify.Status)
+	}
+	dify.SetStatus(ctx, userCred, computeapi.VM_START_STOP, "perform stop")
+	err := dify.StartDifyStopTask(ctx, userCred, "")
+	if err != nil {
+		return nil, errors.Wrap(err, "StartStopTask")
+	}
+	return nil, nil
+}
+
+func (dify *SDify) StartDifyStopTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "DifyStopTask", dify, userCred, nil, parentTaskId, "", nil)
+	if err != nil {
+		return errors.Wrap(err, "NewTask")
+	}
+	err = task.ScheduleRun(nil)
+	if err != nil {
+		return errors.Wrap(err, "ScheduleRun")
+	}
+	return nil
 }
 
 // func (dify *SDify) ContainerCreate(ctx context.Context, userCred mcclient.TokenCredential, containerKey string) (string, error) {

@@ -2,6 +2,7 @@ package llm
 
 import (
 	"yunion.io/x/jsonutils"
+
 	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
@@ -79,4 +80,20 @@ func (o *LLMDeleteOptions) GetId() string {
 
 func (o *LLMDeleteOptions) Params() (jsonutils.JSONObject, error) {
 	return options.StructToParams(o)
+}
+
+type LLMStartOptions struct {
+	options.BaseIdsOptions
+}
+
+func (o *LLMStartOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(o), nil
+}
+
+type LLMStopOptions struct {
+	options.BaseIdsOptions
+}
+
+func (o *LLMStopOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(o), nil
 }

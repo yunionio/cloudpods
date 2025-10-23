@@ -19,6 +19,8 @@ import common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 type LLMOptions struct {
 	common_options.CommonOptions
 	common_options.DBOptions
+
+	StartTaskWorkerCount int `help:"start task worker count" default:"128"`
 }
 
 var (

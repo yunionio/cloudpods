@@ -1,4 +1,4 @@
-package llm
+package dify
 
 import (
 	"context"
@@ -18,43 +18,43 @@ import (
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
-type LLMStartTask struct {
+type DifyStartTask struct {
 	taskman.STask
 }
 
 func init() {
-	taskman.RegisterTask(LLMStartTask{})
+	taskman.RegisterTask(DifyStartTask{})
 }
 
-func (task *LLMStartTask) taskFailed(ctx context.Context, llm *models.SLLM, err string) {
-	llm.SetStatus(ctx, task.UserCred, api.LLM_STATUS_START_FAIL, err)
-	db.OpsLog.LogEvent(llm, db.ACT_START, err, task.UserCred)
-	logclient.AddActionLogWithStartable(task, llm, logclient.ACT_START, err, task.UserCred, false)
+func (task *DifyStartTask) taskFailed(ctx context.Context, dify *models.SDify, err string) {
+	dify.SetStatus(ctx, task.UserCred, api.LLM_STATUS_START_FAIL, err)
+	db.OpsLog.LogEvent(dify, db.ACT_START, err, task.UserCred)
+	logclient.AddActionLogWithStartable(task, dify, logclient.ACT_START, err, task.UserCred, false)
 	// llm.NotifyRequest(ctx, task.GetUserCred(), notify.ActionStart, nil, false)
 	task.SetStageFailed(ctx, jsonutils.NewString(err))
 }
 
-func (task *LLMStartTask) taskComplete(ctx context.Context, llm *models.SLLM) {
-	llm.SetStatus(ctx, task.GetUserCred(), api.LLM_STATUS_RUNNING, "start complete")
+func (task *DifyStartTask) taskComplete(ctx context.Context, dify *models.SDify) {
+	dify.SetStatus(ctx, task.GetUserCred(), api.LLM_STATUS_RUNNING, "start complete")
 	// llm.NotifyRequest(ctx, task.GetUserCred(), notify.ActionStart, nil, true)
 	task.SetStageComplete(ctx, nil)
 }
 
-func (t *LLMStartTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
-	t.requestStart(ctx, obj.(*models.SLLM))
+func (t *DifyStartTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
+	t.requestStart(ctx, obj.(*models.SDify))
 }
 
-func (t *LLMStartTask) requestStart(ctx context.Context, llm *models.SLLM) {
+func (t *DifyStartTask) requestStart(ctx context.Context, dify *models.SDify) {
 	s := auth.GetSession(ctx, t.GetUserCred(), options.Options.Region)
-	_, err := compute.Servers.PerformAction(s, llm.SvrId, "start", nil)
+	_, err := compute.Servers.PerformAction(s, dify.SvrId, "start", nil)
 	if err != nil {
-		t.taskFailed(ctx, llm, err.Error())
+		t.taskFailed(ctx, dify, err.Error())
 		return
 	}
 
 	t.SetStage("OnStarted", nil)
 	worker.StartTaskRun(t, func() (jsonutils.JSONObject, error) {
-		_, err := llm.WaitServerStatus(ctx, t.GetUserCred(), []string{computeapi.VM_RUNNING}, 900)
+		_, err := dify.WaitServerStatus(ctx, t.GetUserCred(), []string{computeapi.VM_RUNNING}, 900)
 		if err != nil {
 			return nil, errors.Wrap(err, "WaitServerStatus")
 		}
@@ -71,10 +71,10 @@ func (t *LLMStartTask) requestStart(ctx context.Context, llm *models.SLLM) {
 	// }
 }
 
-func (t *LLMStartTask) OnStartedFailed(ctx context.Context, llm *models.SLLM, err jsonutils.JSONObject) {
-	t.taskFailed(ctx, llm, err.String())
+func (t *DifyStartTask) OnStartedFailed(ctx context.Context, dify *models.SDify, err jsonutils.JSONObject) {
+	t.taskFailed(ctx, dify, err.String())
 }
 
-func (t *LLMStartTask) OnStarted(ctx context.Context, llm *models.SLLM, reason jsonutils.JSONObject) {
-	t.taskComplete(ctx, llm)
+func (t *DifyStartTask) OnStarted(ctx context.Context, dify *models.SDify, reason jsonutils.JSONObject) {
+	t.taskComplete(ctx, dify)
 }
