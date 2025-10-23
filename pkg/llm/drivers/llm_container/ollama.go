@@ -7,15 +7,15 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/golang-plus/errors"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
+
 	"yunion.io/x/onecloud/pkg/apis"
+	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
+	api "yunion.io/x/onecloud/pkg/apis/llm"
 	"yunion.io/x/onecloud/pkg/llm/models"
 	"yunion.io/x/onecloud/pkg/llm/utils"
 	"yunion.io/x/onecloud/pkg/mcclient"
-
-	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
-	api "yunion.io/x/onecloud/pkg/apis/llm"
 )
 
 func init() {

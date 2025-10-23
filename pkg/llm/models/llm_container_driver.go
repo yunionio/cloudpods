@@ -4,11 +4,10 @@ import (
 	"context"
 	"sync"
 
+	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/apis/llm"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-
-	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 )
 
 type drivers struct {

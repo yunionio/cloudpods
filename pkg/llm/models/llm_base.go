@@ -6,6 +6,9 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
+	"yunion.io/x/sqlchemy"
+
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	api "yunion.io/x/onecloud/pkg/apis/llm"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -17,8 +20,6 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	computeoptions "yunion.io/x/onecloud/pkg/mcclient/options/compute"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
-	"yunion.io/x/pkg/errors"
-	"yunion.io/x/sqlchemy"
 )
 
 func NewSLLMBaseManager(dt interface{}, tableName string, keyword string, keywordPlural string) SLLMBaseManager {
