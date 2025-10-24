@@ -127,6 +127,7 @@ func (region *SRegion) CreateVM(opts *cloudprovider.SManagedVMCreateConfig) (*SI
 	for k, v := range opts.Tags {
 		params[fmt.Sprintf("Tag.%d.Key", tagIdx)] = k
 		params[fmt.Sprintf("Tag.%d.Value", tagIdx)] = v
+		tagIdx++
 	}
 	resp, err := region.ecsRequest("RunInstances", params)
 	if err != nil {
