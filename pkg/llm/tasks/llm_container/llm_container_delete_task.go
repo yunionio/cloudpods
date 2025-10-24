@@ -1,4 +1,4 @@
-package llmcontainer
+package llm_container
 
 import (
 	"context"
