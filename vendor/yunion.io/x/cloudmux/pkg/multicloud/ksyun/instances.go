@@ -212,6 +212,10 @@ func (ins *SInstance) GetTags() (map[string]string, error) {
 	return tags.GetTags(), nil
 }
 
+func (ins *SInstance) SetTags(tags map[string]string, replace bool) error {
+	return ins.getRegion().SetResourceTags("kec-instance", ins.InstanceId, tags, replace)
+}
+
 func (ins *SInstance) getRegion() *SRegion {
 	if ins.region != nil {
 		return ins.region
@@ -363,7 +367,7 @@ func (ins *SInstance) GetSecurityGroupIds() ([]string, error) {
 
 func (ins *SInstance) GetStatus() string {
 	switch ins.InstanceState.Name {
-	case "block_device_mapping", "scheduling", "updating_password", "rebuilding":
+	case "block_device_mapping", "scheduling", "updating_password", "rebuilding", "updating_hostname":
 		return api.VM_DEPLOYING
 	case "active":
 		return api.VM_RUNNING
