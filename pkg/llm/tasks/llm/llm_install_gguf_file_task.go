@@ -1,0 +1,85 @@
+package llm
+
+// import (
+// 	"context"
+
+// 	"yunion.io/x/jsonutils"
+
+// 	api "yunion.io/x/onecloud/pkg/apis/llm"
+// 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+// 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+// 	"yunion.io/x/onecloud/pkg/llm/models"
+// )
+
+// type LLMInstallGgufTask struct {
+// 	LLMBaseTask
+// }
+
+// func init() {
+// 	taskman.RegisterTask(LLMInstallGgufTask{})
+// }
+
+// func (t *LLMInstallGgufTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
+// 	if err := obj.(*models.SOllama).ConfirmContainerId(ctx, t.GetUserCred()); err != nil {
+// 		t.OnGetGgufFileFailed(ctx, obj.(*models.SOllama), jsonutils.NewString(err.Error()))
+// 	}
+// 	t.requestGetGgufFile(ctx, obj.(*models.SOllama))
+// }
+
+// func (t *LLMInstallGgufTask) requestGetGgufFile(ctx context.Context, llm *models.SOllama) {
+// 	// Update status
+// 	llm.SetStatus(ctx, t.GetUserCred(), api.LLM_STATUS_FETCHING_GGUF_FILE, "")
+
+// 	// Distingush whether access gguf file from host or download from web
+// 	input := new(api.OllamaGgufSpec)
+// 	if err := t.GetParams().Unmarshal(input); nil != err {
+// 		t.OnGetGgufFileFailed(ctx, llm, jsonutils.NewString(err.Error()))
+// 		return
+// 	}
+
+// 	switch input.Source {
+// 	case api.LLM_OLLAMA_GGUF_SOURCE_WEB:
+// 		t.SetStage("OnGetGgufFile", nil)
+// 		if err := llm.DownloadGgufFile(ctx, t.GetUserCred(), t.GetId()); nil != err {
+// 			t.OnGetGgufFileFailed(ctx, llm, jsonutils.NewString(err.Error()))
+// 			return
+// 		}
+// 	default:
+// 		if err := llm.AccessGgufFile(ctx, t.GetUserCred(), t); nil != err {
+// 			t.OnGetGgufFileFailed(ctx, llm, jsonutils.NewString(err.Error()))
+// 			return
+// 		}
+// 		t.OnGetGgufFile(ctx, llm, nil)
+// 	}
+// }
+
+// func (t *LLMInstallGgufTask) OnGetGgufFileFailed(ctx context.Context, llm *models.SOllama, reason jsonutils.JSONObject) {
+// 	llm.SetStatus(ctx, t.GetUserCred(), api.LLM_STATUS_FETCH_GGUF_FILE_FAILED, reason.String())
+// 	t.SetStageFailed(ctx, reason)
+// }
+
+// func (t *LLMInstallGgufTask) OnGetGgufFile(ctx context.Context, llm *models.SOllama, data jsonutils.JSONObject) {
+// 	input := new(api.OllamaGgufSpec)
+// 	if err := t.GetParams().Unmarshal(input); nil != err {
+// 		t.OnCreateModelFailed(ctx, llm, jsonutils.NewString(err.Error()))
+// 		return
+// 	}
+
+// 	llm.SetStatus(ctx, t.GetUserCred(), api.LLM_STATUS_CREATING_GGUF_MODEL, "")
+
+// 	if err := llm.InstallGgufModel(ctx, t.GetUserCred(), input.ModelFile); nil != err {
+// 		t.OnCreateModelFailed(ctx, llm, jsonutils.NewString(err.Error()))
+// 		return
+// 	}
+// 	t.OnPulledModel(ctx, llm, nil)
+// }
+
+// func (t *LLMInstallGgufTask) OnCreateModelFailed(ctx context.Context, llm *models.SOllama, reason jsonutils.JSONObject) {
+// 	llm.SetStatus(ctx, t.GetUserCred(), api.LLM_STATUS_CREATE_GGUF_MODEL_FAILED, reason.String())
+// 	t.SetStageFailed(ctx, reason)
+// }
+
+// func (t *LLMInstallGgufTask) OnPulledModel(ctx context.Context, llm *models.SOllama, data jsonutils.JSONObject) {
+// 	llm.SetStatus(ctx, t.GetUserCred(), api.LLM_STATUS_PULLED_MODEL, "")
+// 	t.SetStageComplete(ctx, nil)
+// }
