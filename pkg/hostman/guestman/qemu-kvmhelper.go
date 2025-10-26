@@ -728,14 +728,12 @@ func (s *SKVMGuestInstance) configureKickstartBoot(input *qemu.GenerateStartOpti
 	log.Debugf("Kickstart config for guest %s: Config length=%d, ConfigURL=%s",
 		s.GetName(), len(kickstartConfig.Config), kickstartConfig.ConfigURL)
 
-	if kickstartConfig.Config != "" {
-		isoPath, err := CreateKickstartConfigISO(kickstartConfig, s.getKickstartTmpDir())
-		if err != nil {
-			log.Errorf("Failed to create kickstart config ISO for guest %s: %v, falling back to URL/cdrom method", s.GetName(), err)
-		} else {
-			kickstartConfigIsoPath = isoPath
-			log.Debugf("Successfully created kickstart ISO for guest %s: %s", s.GetName(), isoPath)
-		}
+	isoPath, err = CreateKickstartConfigISO(kickstartConfig, s.getKickstartTmpDir())
+	if err != nil {
+		log.Errorf("Failed to create kickstart config ISO for guest %s: %v, falling back to URL/cdrom method", s.GetName(), err)
+	} else {
+		kickstartConfigIsoPath = isoPath
+		log.Debugf("Successfully created kickstart ISO for guest %s: %s", s.GetName(), isoPath)
 	}
 
 	kernelArgs := BuildKickstartAppendArgs(kickstartConfig, kickstartConfigIsoPath)

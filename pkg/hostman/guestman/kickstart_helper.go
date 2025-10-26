@@ -18,6 +18,8 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"path"
 	"path/filepath"
@@ -329,6 +331,52 @@ func (m *SKickstartSerialMonitor) restartServer() error {
 	return nil
 }
 
+// downloadKickstartConfigFromURL downloads kickstart configuration content from the given URL
+func downloadKickstartConfigFromURL(configURL string, osType string) (string, error) {
+	const downloadTimeout = 10 * time.Second
+	const maxConfigSize = 64 * 1024
+
+	// For Ubuntu systems, append "/user-data" to the URL
+	if osType == "ubuntu" && !strings.HasSuffix(configURL, "/user-data") {
+		configURL = configURL + "/user-data"
+	}
+
+	client := &http.Client{Timeout: downloadTimeout}
+
+	req, err := http.NewRequest("GET", configURL, nil)
+	if err != nil {
+		return "", errors.Wrapf(err, "failed to create download request for %s", configURL)
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", errors.Wrapf(err, "failed to download config from %s", configURL)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", errors.Errorf("download failed: URL returned status code: %d", resp.StatusCode)
+	}
+
+	limitedReader := io.LimitReader(resp.Body, int64(maxConfigSize)+1)
+	content, err := io.ReadAll(limitedReader)
+	if err != nil {
+		return "", errors.Wrapf(err, "failed to read config content from %s", configURL)
+	}
+
+	if len(content) > maxConfigSize {
+		return "", errors.Errorf("downloaded content too large: %d bytes, maximum allowed: %d bytes", len(content), maxConfigSize)
+	}
+
+	if len(strings.TrimSpace(string(content))) == 0 {
+		return "", errors.Error("downloaded config content is empty")
+	}
+
+	log.Debugf("Successfully downloaded kickstart config from %s: %d bytes", configURL, len(content))
+	return string(content), nil
+}
+
+
 // CreateKickstartConfigISO creates an ISO image containing kickstart configuration files
 // For Red Hat systems: creates ks.cfg in a ISO with label 'OEMDRV'
 // For Ubuntu systems: creates user-data and meta-data files in a ISO with label 'CIDATA'
@@ -339,6 +387,17 @@ func CreateKickstartConfigISO(config *api.KickstartConfig, kickStartBaseDir stri
 
 	if config == nil {
 		return "", errors.Errorf("kickstart config is nil")
+	}
+
+	// Download config content from URL if necessary
+	if config.Config == "" && config.ConfigURL != "" {
+		log.Debugf("Downloading kickstart config from URL: %s", config.ConfigURL)
+		downloadedContent, err := downloadKickstartConfigFromURL(config.ConfigURL, config.OSType)
+		if err != nil {
+			return "", errors.Wrapf(err, "failed to download kickstart config from URL")
+		}
+		config.Config = downloadedContent
+		log.Debugf("Kickstart config downloaded and set, length: %d", len(config.Config))
 	}
 
 	if config.Config == "" {
@@ -446,22 +505,24 @@ func BuildKickstartAppendArgs(config *api.KickstartConfig, isoPath string) strin
 	var kickstartArgs []string
 	switch config.OSType {
 	case "centos", "rhel", "fedora", "openeuler":
-		if config.ConfigURL != "" {
-			kickstartArgs = append(kickstartArgs, fmt.Sprintf("inst.ks=%s", config.ConfigURL))
-		} else if isoPath != "" {
+		if isoPath != "" {
 			kickstartArgs = append(kickstartArgs, fmt.Sprintf("inst.ks=hd:LABEL=%s:/anaconda-ks.cfg", REDHAT_KICKSTART_ISO_VOLUME_LABEL))
+		} else if config.ConfigURL != "" {
+			// Fallback to URL directly if no local ISO available
+			kickstartArgs = append(kickstartArgs, fmt.Sprintf("inst.ks=%s", config.ConfigURL))
 		} else {
 			kickstartArgs = append(kickstartArgs, "inst.ks=cdrom:/anaconda-ks.cfg")
 		}
 	case "ubuntu":
-		if config.ConfigURL != "" {
+		if isoPath != "" {
+			kickstartArgs = append(kickstartArgs, "autoinstall")
+		} else if config.ConfigURL != "" {
+			// Fallback to URL directly if no local ISO available
 			kickstartArgs = append(kickstartArgs,
 				"autoinstall",
 				"ip=dhcp",
 				fmt.Sprintf("ds=nocloud-net;s=%s", config.ConfigURL),
 			)
-		} else if isoPath != "" {
-			kickstartArgs = append(kickstartArgs, "autoinstall")
 		} else {
 			kickstartArgs = append(kickstartArgs, "autoinstall", "ip=dhcp", "ds=nocloud;s=/cdrom/")
 		}
