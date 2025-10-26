@@ -724,6 +724,44 @@ func (s *SKVMGuestInstance) configureKickstartBoot(input *qemu.GenerateStartOpti
 		return errors.Wrap(err, "get kickstart kernel paths")
 	}
 
+	// Copy kernel and initrd files to local directory and unmount ISO
+	kernelCopyDir := filepath.Join(kickstartDir, "bootfiles")
+	if err := os.MkdirAll(kernelCopyDir, 0755); err != nil {
+		return errors.Wrap(err, "create kernel copy directory")
+	}
+
+	kernelFileName := filepath.Base(kernelPath)
+	initrdFileName := filepath.Base(initrdPath)
+
+	copiedKernelPath := filepath.Join(kernelCopyDir, kernelFileName)
+	copiedInitrdPath := filepath.Join(kernelCopyDir, initrdFileName)
+
+	if err := procutils.NewCommand("cp", kernelPath, copiedKernelPath).Run(); err != nil {
+		return errors.Wrapf(err, "copy kernel from %s to %s", kernelPath, copiedKernelPath)
+	}
+	log.Debugf("Successfully copied kernel from %s to %s for guest %s", kernelPath, copiedKernelPath, s.GetName())
+
+	if err := procutils.NewCommand("cp", initrdPath, copiedInitrdPath).Run(); err != nil {
+		return errors.Wrapf(err, "copy initrd from %s to %s", initrdPath, copiedInitrdPath)
+	}
+	log.Debugf("Successfully copied initrd from %s to %s for guest %s", initrdPath, copiedInitrdPath, s.GetName())
+
+	// Unmount ISO after copying files
+	log.Infof("Unmounting kickstart ISO at %s after copying kernel and initrd for guest %s", mountPoint, s.GetName())
+	if err := mountutils.Unmount(mountPoint, true); err != nil {
+		log.Warningf("Failed to unmount kickstart ISO at %s: %v", mountPoint, err)
+	} else {
+		log.Debugf("Successfully unmounted kickstart ISO at %s for guest %s", mountPoint, s.GetName())
+		// Remove mount point directory after unmounting
+		if err := os.RemoveAll(mountPoint); err != nil {
+			log.Warningf("Failed to remove mount point directory %s: %v", mountPoint, err)
+		}
+	}
+
+	// Use copied file paths instead of mounted paths
+	kernelPath = copiedKernelPath
+	initrdPath = copiedInitrdPath
+
 	var kickstartConfigIsoPath string
 	log.Debugf("Kickstart config for guest %s: Config length=%d, ConfigURL=%s",
 		s.GetName(), len(kickstartConfig.Config), kickstartConfig.ConfigURL)
