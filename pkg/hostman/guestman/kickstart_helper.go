@@ -28,6 +28,7 @@ import (
 	"strings"
 	"time"
 
+	"gopkg.in/yaml.v3"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -55,6 +56,131 @@ var (
 	kickstartCompletedRegex  = regexp.MustCompile(`(?i).*KICKSTART_COMPLETED.*`)
 	kickstartFailedRegex     = regexp.MustCompile(`(?i).*KICKSTART_FAILED.*`)
 )
+
+// ensureKickstartCompletionSignal ensures that the kickstart config contains the completion signal
+// 1. If already contains completion signal, return as is
+// 1. If no %post section, append one with completion signal
+// 2. If %post exists but no %end, append completion signal before end of file
+// 3. If both %post and %end exist, insert completion signal before %end
+func ensureKickstartCompletionSignal(config string) string {
+	completionSignals := []string{
+		"echo \"KICKSTART_COMPLETED\" > /dev/ttyS1",
+		"echo 'KICKSTART_COMPLETED' > /dev/ttyS1",
+		"echo KICKSTART_COMPLETED > /dev/ttyS1",
+	}
+
+	for _, signal := range completionSignals {
+		if strings.Contains(config, signal) {
+			return config
+		}
+	}
+
+	const standardCompletionSignal = "echo \"KICKSTART_COMPLETED\" > /dev/ttyS1"
+
+	postIdx := strings.Index(config, "%post")
+	if postIdx == -1 {
+		return config + fmt.Sprintf("\n\n%%post\n%s\n%%end", standardCompletionSignal)
+	}
+
+	endIdx := strings.Index(config[postIdx:], "%end")
+	if endIdx == -1 {
+		return config + fmt.Sprintf("\n%s\n%%end", standardCompletionSignal)
+	}
+
+	// Find line index of %end within %post section
+	lines := strings.Split(config, "\n")
+	absoluteEndIdx := postIdx + endIdx
+	endLineIdx := -1
+	currentPos := 0
+
+	for i, line := range lines {
+		lineEndPos := currentPos + len(line) + 1
+		if currentPos <= absoluteEndIdx && absoluteEndIdx < lineEndPos {
+			if strings.TrimSpace(line) == "%end" {
+				endLineIdx = i
+				break
+			}
+		}
+		currentPos = lineEndPos
+	}
+
+	if endLineIdx != -1 {
+		newLines := make([]string, len(lines)+1)
+		copy(newLines, lines[:endLineIdx])
+		newLines[endLineIdx] = standardCompletionSignal
+		copy(newLines[endLineIdx+1:], lines[endLineIdx:])
+		return strings.Join(newLines, "\n")
+	}
+
+	return config
+}
+
+// ensureAutoinstallCompletionSignal ensures that the autoinstall config contains the completion signal
+// 1. If already contains completion signal, return as is
+// 2. If no late-commands section, create one with completion signal
+// 3. If late-commands exists but no completion signal, append completion signal
+func ensureAutoinstallCompletionSignal(config string) string {
+	const standardCompletionSignal = "echo \"KICKSTART_COMPLETED\" > /dev/ttyS1"
+
+	completionSignals := []string{
+		"echo \"KICKSTART_COMPLETED\" > /dev/ttyS1",
+		"echo 'KICKSTART_COMPLETED' > /dev/ttyS1",
+		"echo KICKSTART_COMPLETED > /dev/ttyS1",
+	}
+
+	// Check if completion signal already exists
+	for _, signal := range completionSignals {
+		if strings.Contains(config, signal) {
+			return config
+		}
+	}
+
+	// Parse YAML using string keys, use yaml.v3 for better compatibility
+	var yamlData map[string]interface{}
+	err := yaml.Unmarshal([]byte(config), &yamlData)
+	if err != nil {
+		log.Warningf("Failed to parse autoinstall config as YAML: %v\n", err)
+		return config
+	}
+
+	autoinstall, ok := yamlData["autoinstall"].(map[string]interface{})
+	if !ok {
+		log.Warningf("No autoinstall section found in config\n")
+		return config
+	}
+
+	lateCommands, exists := autoinstall["late-commands"]
+	if !exists {
+		autoinstall["late-commands"] = []interface{}{standardCompletionSignal}
+	} else {
+		if commands, ok := lateCommands.([]interface{}); ok {
+			autoinstall["late-commands"] = append(commands, standardCompletionSignal)
+		} else {
+			autoinstall["late-commands"] = []interface{}{standardCompletionSignal}
+		}
+	}
+
+	result, err := yaml.Marshal(yamlData)
+	if err != nil {
+		log.Warningf("Failed to marshal autoinstall config as YAML: %v\n", err)
+		return config
+	}
+
+	// #cloud-config is required at the top if originally present
+	return "#cloud-config\n" + string(result)
+}
+
+// ensureCompletionSignal ensures that the configuration contains the completion signal based on OS type
+func ensureCompletionSignal(osType, config string) string {
+	switch osType {
+	case "centos", "rhel", "fedora", "openeuler":
+		return ensureKickstartCompletionSignal(config)
+	case "ubuntu":
+		return ensureAutoinstallCompletionSignal(config)
+	default:
+		return config // No validation for unsupported OS types
+	}
+}
 
 type SKickstartSerialMonitor struct {
 	serverId        string
@@ -376,7 +502,6 @@ func downloadKickstartConfigFromURL(configURL string, osType string) (string, er
 	return string(content), nil
 }
 
-
 // CreateKickstartConfigISO creates an ISO image containing kickstart configuration files
 // For Red Hat systems: creates ks.cfg in a ISO with label 'OEMDRV'
 // For Ubuntu systems: creates user-data and meta-data files in a ISO with label 'CIDATA'
@@ -404,6 +529,9 @@ func CreateKickstartConfigISO(config *api.KickstartConfig, kickStartBaseDir stri
 		return "", errors.Errorf("kickstart config content is empty")
 	}
 
+	// Ensure completion signal is present
+	validatedConfig := ensureCompletionSignal(config.OSType, config.Config)
+
 	// Create temporary directory for ISO contents
 	tmpDir := filepath.Join(kickStartBaseDir, KICKSTART_ISO_BUILD_DIR)
 	if err := os.MkdirAll(tmpDir, 0755); err != nil {
@@ -422,7 +550,7 @@ func CreateKickstartConfigISO(config *api.KickstartConfig, kickStartBaseDir stri
 	case "centos", "rhel", "fedora", "openeuler":
 		// Create anaconda-ks.cfg for Red Hat systems
 		ksFilePath := filepath.Join(tmpDir, "anaconda-ks.cfg")
-		if err := os.WriteFile(ksFilePath, []byte(config.Config), 0644); err != nil {
+		if err := os.WriteFile(ksFilePath, []byte(validatedConfig), 0644); err != nil {
 			return "", errors.Wrapf(err, "failed to write kickstart file %s", ksFilePath)
 		}
 		filePaths = []string{ksFilePath}
@@ -431,7 +559,7 @@ func CreateKickstartConfigISO(config *api.KickstartConfig, kickStartBaseDir stri
 	case "ubuntu":
 		// Create user-data file for Ubuntu systems
 		userDataPath := filepath.Join(tmpDir, "user-data")
-		if err := os.WriteFile(userDataPath, []byte(config.Config), 0644); err != nil {
+		if err := os.WriteFile(userDataPath, []byte(validatedConfig), 0644); err != nil {
 			return "", errors.Wrapf(err, "failed to write user-data file %s", userDataPath)
 		}
 
