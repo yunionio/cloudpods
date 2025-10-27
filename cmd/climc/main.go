@@ -30,7 +30,6 @@ import (
 	_ "yunion.io/x/onecloud/cmd/climc/shell/identity"
 	_ "yunion.io/x/onecloud/cmd/climc/shell/image"
 	_ "yunion.io/x/onecloud/cmd/climc/shell/k8s"
-	_ "yunion.io/x/onecloud/cmd/climc/shell/llm"
 	_ "yunion.io/x/onecloud/cmd/climc/shell/logger"
 	_ "yunion.io/x/onecloud/cmd/climc/shell/misc"
 	_ "yunion.io/x/onecloud/cmd/climc/shell/monitor"
