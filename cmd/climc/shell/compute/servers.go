@@ -184,59 +184,6 @@ func init() {
 		return nil
 	})
 
-	/*R(&options.ServerBatchMetadataOptions{}, "server-batch-update-user-tag", "add tags for some server", func(s *mcclient.ClientSession, opts *options.ServerBatchMetadataOptions) error {
-		params, err := opts.Params()
-		if err != nil {
-			return err
-		}
-		result, err := modules.Servers.PerformClassAction(s, "batch-user-metadata", params)
-		if err != nil {
-			return err
-		}
-		printObject(result)
-		return nil
-	})
-
-	R(&options.ServerBatchMetadataOptions{}, "server-batch-replace-user-tag", "Set tags for some server", func(s *mcclient.ClientSession, opts *options.ServerBatchMetadataOptions) error {
-		params, err := opts.Params()
-		if err != nil {
-			return err
-		}
-		result, err := modules.Servers.PerformClassAction(s, "batch-set-user-metadata", params)
-		if err != nil {
-			return err
-		}
-		printObject(result)
-		return nil
-	})
-
-	R(&options.ResourceMetadataOptions{}, "server-update-user-tag", "Set tag of a server", func(s *mcclient.ClientSession, opts *options.ResourceMetadataOptions) error {
-		params, err := opts.Params()
-		if err != nil {
-			return err
-		}
-		result, err := modules.Servers.PerformAction(s, opts.ID, "user-metadata", params)
-		if err != nil {
-			return err
-		}
-		printObject(result)
-		return nil
-	})
-
-	R(&options.ResourceMetadataOptions{}, "server-update-user-tag", "Set tag of a server", func(s *mcclient.ClientSession, opts *options.ResourceMetadataOptions) error {
-		params, err := opts.Params()
-		if err != nil {
-			return err
-		}
-		result, err := modules.Servers.PerformAction(s, opts.ID, "set-user-metadata", params)
-		if err != nil {
-			return err
-		}
-		printObject(result)
-		return nil
-	})
-	*/
-
 	R(&baseoptions.ResourceMetadataOptions{}, "server-set-metadata", "Set raw metadata of a server", func(s *mcclient.ClientSession, opts *baseoptions.ResourceMetadataOptions) error {
 		params, err := opts.Params()
 		if err != nil {
