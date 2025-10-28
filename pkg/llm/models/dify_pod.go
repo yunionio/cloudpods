@@ -102,12 +102,19 @@ func GetDifyPodCreateInput(
 	if bandwidth == 0 {
 		bandwidth = sku.BandwidthMb
 	}
+	network := &computeapi.NetworkConfig{
+		// NetType:      computeapi.NETWORK_TYPE_HOSTLOCAL,
+		BwLimit:      bandwidth,
+		PortMappings: portMappings,
+	}
+	if len(sku.NetworkId) > 0 {
+		network.Network = sku.NetworkId
+	} else {
+		network.NetType = computeapi.TNetworkType(sku.NetworkType)
+	}
+
 	data.Networks = []*computeapi.NetworkConfig{
-		{
-			NetType:      computeapi.NETWORK_TYPE_HOSTLOCAL,
-			BwLimit:      bandwidth,
-			PortMappings: portMappings,
-		},
+		network,
 	}
 
 	data.Count = 1
