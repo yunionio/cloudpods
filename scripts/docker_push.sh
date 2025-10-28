@@ -288,6 +288,9 @@ show_update_cmd() {
     'esxi-agent')
         spec='esxiagent'
         ;;
+    'mcp-server')
+        spec='mcpServer'
+        ;;
     esac
 
     echo "kubectl patch oc -n onecloud default --type='json' -p='[{op: replace, path: /spec/${spec}/imageName, value: ${name}},{"op": "replace", "path": "/spec/${spec}/repository", "value": "${REGISTRY}"},{"op": "add", "path": "/spec/${spec}/tag", "value": "${tag}"}]'"
