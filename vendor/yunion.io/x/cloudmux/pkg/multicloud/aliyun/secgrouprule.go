@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
+	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/util/secrules"
 	"yunion.io/x/pkg/utils"
 )
@@ -127,7 +128,7 @@ func (self *SPermission) Delete() error {
 }
 
 func (self *SPermission) Update(opts *cloudprovider.SecurityGroupRuleUpdateOptions) error {
-	return self.region.UpdateSecurityGroupRule(self.SecurityGroupId, self.SecurityGroupRuleId, self.GetDirection(), opts.Desc)
+	return self.region.UpdateSecurityGroupRule(self.SecurityGroupId, self.SecurityGroupRuleId, self.GetDirection(), opts)
 }
 
 func (self *SRegion) GetSecurityGroupRules(id string) ([]SPermission, error) {
@@ -170,15 +171,59 @@ func (self *SRegion) DeleteSecurityGroupRule(groupId string, direction secrules.
 	return err
 }
 
-func (self *SRegion) UpdateSecurityGroupRule(groupId, ruleId string, direction secrules.TSecurityRuleDirection, desc string) error {
+func (self *SRegion) UpdateSecurityGroupRule(groupId, ruleId string, direction secrules.TSecurityRuleDirection, opts *cloudprovider.SecurityGroupRuleUpdateOptions) error {
 	params := map[string]string{
 		"ClientToken":         utils.GenRequestId(20),
 		"SecurityGroupId":     groupId,
 		"SecurityGroupRuleId": ruleId,
 	}
+	if len(opts.Desc) > 0 {
+		params["Description"] = opts.Desc
+	}
+	switch opts.Protocol {
+	case secrules.PROTO_TCP, secrules.PROTO_UDP:
+		params["IpProtocol"] = opts.Protocol
+		if len(opts.Ports) > 0 {
+			params["PortRange"] = fmt.Sprintf("%s/%s", opts.Ports, opts.Ports)
+			if strings.Contains(opts.Ports, "-") {
+				params["PortRange"] = strings.ReplaceAll(opts.Ports, "-", "/")
+			}
+		}
+	case secrules.PROTO_ICMP:
+		params["IpProtocol"] = "icmp"
+	case secrules.PROTO_ANY:
+		params["IpProtocol"] = "all"
+	}
+
+	if opts.Priority > 0 {
+		params["Priority"] = fmt.Sprintf("%d", opts.Priority)
+	}
+
+	switch opts.Action {
+	case secrules.SecurityRuleAllow:
+		params["Policy"] = "accept"
+	case secrules.SecurityRuleDeny:
+		params["Policy"] = "drop"
+	}
 	action := "ModifySecurityGroupRule"
-	if direction == secrules.DIR_OUT {
+	switch direction {
+	case secrules.DIR_IN:
+		if len(opts.CIDR) > 0 {
+			if _, err := netutils.NewIPV6Prefix(opts.CIDR); err == nil {
+				params["Ipv6SourceCidrIp"] = opts.CIDR
+			} else {
+				params["SourceCidrIp"] = opts.CIDR
+			}
+		}
+	case secrules.DIR_OUT:
 		action = "ModifySecurityGroupEgressRule"
+		if len(opts.CIDR) > 0 {
+			if _, err := netutils.NewIPV6Prefix(opts.CIDR); err == nil {
+				params["Ipv6DestCidrIp"] = opts.CIDR
+			} else {
+				params["DestCidrIp"] = opts.CIDR
+			}
+		}
 	}
 	_, err := self.ecsRequest(action, params)
 	return err
