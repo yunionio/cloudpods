@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math/rand"
 	"net/http"
 	"regexp"
@@ -34,6 +33,7 @@ import (
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/identity"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 )
 
 const (
@@ -101,16 +101,16 @@ func SplitVersionedURL(url string) (string, string) {
 	return base
 }*/
 
-func (this *ClientSession) GetEndpointType() string {
-	return this.endpointType
+func (cliss *ClientSession) GetEndpointType() string {
+	return cliss.endpointType
 }
 
-func (this *ClientSession) GetClient() *Client {
-	return this.client
+func (cliss *ClientSession) GetClient() *Client {
+	return cliss.client
 }
 
-func (this *ClientSession) SetZone(zone string) {
-	this.zone = zone
+func (cliss *ClientSession) SetZone(zone string) {
+	cliss.zone = zone
 }
 
 func getApiVersionByServiceType(serviceType string) string {
@@ -121,7 +121,7 @@ func getApiVersionByServiceType(serviceType string) string {
 	return ""
 }
 
-func (this *ClientSession) GetServiceName(service string) string {
+func (cliss *ClientSession) GetServiceName(service string) string {
 	apiVersion := getApiVersionByServiceType(service)
 	if len(apiVersion) > 0 && apiVersion != DEFAULT_API_VERSION {
 		service = fmt.Sprintf("%s_%s", service, apiVersion)
@@ -129,54 +129,54 @@ func (this *ClientSession) GetServiceName(service string) string {
 	return service
 }
 
-func (this *ClientSession) GetServiceURL(service, endpointType string) (string, error) {
-	return this.GetServiceVersionURL(service, endpointType)
+func (cliss *ClientSession) GetServiceURL(service, endpointType string) (string, error) {
+	return cliss.GetServiceVersionURL(service, endpointType)
 }
 
-func (this *ClientSession) SetServiceCatalog(catalog IServiceCatalog) {
-	this.catalog = catalog
+func (cliss *ClientSession) SetServiceCatalog(catalog IServiceCatalog) {
+	cliss.catalog = catalog
 }
 
-func (this *ClientSession) GetServiceCatalog() IServiceCatalog {
-	if this.catalog != nil {
-		return this.catalog
+func (cliss *ClientSession) GetServiceCatalog() IServiceCatalog {
+	if cliss.catalog != nil {
+		return cliss.catalog
 	}
-	return this.client.GetServiceCatalog()
+	return cliss.client.GetServiceCatalog()
 }
 
-func (this *ClientSession) GetServiceVersionURL(service, endpointType string) (string, error) {
-	urls, err := this.GetServiceVersionURLs(service, endpointType)
+func (cliss *ClientSession) GetServiceVersionURL(service, endpointType string) (string, error) {
+	urls, err := cliss.GetServiceVersionURLs(service, endpointType)
 	if err != nil {
 		return "", errors.Wrap(err, "GetServiceVersionURLs")
 	}
 	return urls[rand.Intn(len(urls))], nil
 }
 
-func (this *ClientSession) GetServiceURLs(service, endpointType string) ([]string, error) {
-	return this.GetServiceVersionURLs(service, endpointType)
+func (cliss *ClientSession) GetServiceURLs(service, endpointType string) ([]string, error) {
+	return cliss.GetServiceVersionURLs(service, endpointType)
 }
 
-func (this *ClientSession) GetServiceVersionURLs(service, endpointType string) ([]string, error) {
-	if len(this.endpointType) > 0 {
+func (cliss *ClientSession) GetServiceVersionURLs(service, endpointType string) ([]string, error) {
+	if len(cliss.endpointType) > 0 {
 		// session specific endpoint type should override the input endpointType, which is supplied by manager
-		endpointType = this.endpointType
+		endpointType = cliss.endpointType
 	}
-	service = this.GetServiceName(service)
+	service = cliss.GetServiceName(service)
 	if endpointType == api.EndpointInterfaceApigateway {
-		return this.getApigatewayServiceURLs(service, this.region, this.zone, endpointType)
+		return cliss.getApigatewayServiceURLs(service, cliss.region, cliss.zone, endpointType)
 	} else {
-		return this.getServiceVersionURLs(service, this.region, this.zone, endpointType)
+		return cliss.getServiceVersionURLs(service, cliss.region, cliss.zone, endpointType)
 	}
 }
 
-func (this *ClientSession) getApigatewayServiceURLs(service, region, zone, endpointType string) ([]string, error) {
-	urls, err := this.getServiceVersionURLs(service, region, zone, "")
+func (cliss *ClientSession) getApigatewayServiceURLs(service, region, zone, endpointType string) ([]string, error) {
+	urls, err := cliss.getServiceVersionURLs(service, region, zone, "")
 	if err != nil {
 		return nil, errors.Wrap(err, "getServiceVersionURLs")
 	}
 	// replace URLs with authUrl prefix
 	// find the common prefix
-	prefix := this.client.authUrl
+	prefix := cliss.client.authUrl
 	lastSlashPos := strings.LastIndex(prefix, "/api/s/identity")
 	if lastSlashPos <= 0 {
 		return nil, errors.Wrapf(errors.ErrInvalidFormat, "invalue auth_url %s, should be url of apigateway endpoint, e.g. https://<apigateway-host>/api/s/identity/v3", prefix)
@@ -206,24 +206,24 @@ func (this *ClientSession) getApigatewayServiceURLs(service, region, zone, endpo
 	return rets, nil
 }
 
-func (this *ClientSession) getServiceVersionURLs(service, region, zone, endpointType string) ([]string, error) {
-	catalog := this.GetServiceCatalog()
+func (cliss *ClientSession) getServiceVersionURLs(service, region, zone, endpointType string) ([]string, error) {
+	catalog := cliss.GetServiceCatalog()
 	if gotypes.IsNil(catalog) {
-		return []string{this.client.authUrl}, nil
+		return []string{cliss.client.authUrl}, nil
 	}
 	urls, err := catalog.getServiceURLs(service, region, zone, endpointType)
 	// HACK! in case of fail to get keystone url or schema of keystone changed, always trust authUrl
-	if service == api.SERVICE_TYPE && (err != nil || len(urls) == 0 || (len(this.client.authUrl) != 0 && this.client.authUrl[:5] != urls[0][:5])) {
+	if service == api.SERVICE_TYPE && (err != nil || len(urls) == 0 || (len(cliss.client.authUrl) != 0 && cliss.client.authUrl[:5] != urls[0][:5])) {
 		var msg string
 		if err != nil {
 			msg = fmt.Sprintf("fail to retrieve keystone urls: %s", err)
 		} else if len(urls) == 0 {
 			msg = "empty keystone url"
 		} else {
-			msg = fmt.Sprintf("Schema of keystone authUrl and endpoint mismatch: %s!=%s", this.client.authUrl, urls)
+			msg = fmt.Sprintf("Schema of keystone authUrl and endpoint mismatch: %s!=%s", cliss.client.authUrl, urls)
 		}
 		log.Warningln(msg)
-		return []string{this.client.authUrl}, nil
+		return []string{cliss.client.authUrl}, nil
 	}
 	if err != nil {
 		return nil, errors.Wrap(err, "catalog.GetServiceURLs")
@@ -231,27 +231,27 @@ func (this *ClientSession) getServiceVersionURLs(service, region, zone, endpoint
 	return urls, err
 }
 
-func (this *ClientSession) GetBaseUrl(service, endpointType string) (string, error) {
+func (cliss *ClientSession) GetBaseUrl(service, endpointType string) (string, error) {
 	if len(service) > 0 {
 		if strings.HasPrefix(service, "http://") || strings.HasPrefix(service, "https://") {
 			return service, nil
-		} else if url, ok := this.customizeServiceUrl[service]; ok {
+		} else if url, ok := cliss.customizeServiceUrl[service]; ok {
 			return url, nil
 		} else {
-			return this.GetServiceVersionURL(service, endpointType)
+			return cliss.GetServiceVersionURL(service, endpointType)
 		}
 	} else {
 		return "", fmt.Errorf("Empty service type or baseURL")
 	}
 }
 
-func (this *ClientSession) RawBaseUrlRequest(
+func (cliss *ClientSession) RawBaseUrlRequest(
 	service, endpointType string,
 	method httputils.THttpMethod, url string,
 	headers http.Header, body io.Reader,
 	baseurlFactory func(string) string,
 ) (*http.Response, error) {
-	baseurl, err := this.GetBaseUrl(service, endpointType)
+	baseurl, err := cliss.GetBaseUrl(service, endpointType)
 	if err != nil {
 		return nil, err
 	}
@@ -262,33 +262,33 @@ func (this *ClientSession) RawBaseUrlRequest(
 	if headers != nil {
 		populateHeader(&tmpHeader, headers)
 	}
-	populateHeader(&tmpHeader, this.Header)
-	appctx.SetHTTPLangHeader(this.ctx, tmpHeader)
-	ctx := this.ctx
-	if this.ctx == nil {
+	populateHeader(&tmpHeader, cliss.Header)
+	appctx.SetHTTPLangHeader(cliss.ctx, tmpHeader)
+	ctx := cliss.ctx
+	if cliss.ctx == nil {
 		ctx = context.Background()
 	}
-	return this.client.rawRequest(ctx, baseurl,
-		this.token.GetTokenString(),
+	return cliss.client.rawRequest(ctx, baseurl,
+		cliss.token.GetTokenString(),
 		method, url, tmpHeader, body)
 }
 
-func (this *ClientSession) RawVersionRequest(
+func (cliss *ClientSession) RawVersionRequest(
 	service, endpointType string, method httputils.THttpMethod, url string,
 	headers http.Header, body io.Reader,
 ) (*http.Response, error) {
-	return this.RawBaseUrlRequest(service, endpointType, method, url, headers, body, nil)
+	return cliss.RawBaseUrlRequest(service, endpointType, method, url, headers, body, nil)
 }
 
-func (this *ClientSession) RawRequest(service, endpointType string, method httputils.THttpMethod, url string, headers http.Header, body io.Reader) (*http.Response, error) {
-	return this.RawVersionRequest(service, endpointType, method, url, headers, body)
+func (cliss *ClientSession) RawRequest(service, endpointType string, method httputils.THttpMethod, url string, headers http.Header, body io.Reader) (*http.Response, error) {
+	return cliss.RawVersionRequest(service, endpointType, method, url, headers, body)
 }
 
-func (this *ClientSession) JSONVersionRequest(
+func (cliss *ClientSession) JSONVersionRequest(
 	service, endpointType string, method httputils.THttpMethod, url string,
 	headers http.Header, body jsonutils.JSONObject,
 ) (http.Header, jsonutils.JSONObject, error) {
-	baseUrl, err := this.GetBaseUrl(service, endpointType)
+	baseUrl, err := cliss.GetBaseUrl(service, endpointType)
 	if err != nil {
 		return headers, nil, err
 	}
@@ -296,84 +296,108 @@ func (this *ClientSession) JSONVersionRequest(
 	if headers != nil {
 		populateHeader(&tmpHeader, headers)
 	}
-	populateHeader(&tmpHeader, this.Header)
-	appctx.SetHTTPLangHeader(this.ctx, tmpHeader)
-	ctx := this.ctx
-	if this.ctx == nil {
+	populateHeader(&tmpHeader, cliss.Header)
+	appctx.SetHTTPLangHeader(cliss.ctx, tmpHeader)
+	ctx := cliss.ctx
+	if cliss.ctx == nil {
 		ctx = context.Background()
 	}
-	return this.client.jsonRequest(ctx, baseUrl,
-		this.token.GetTokenString(),
+	return cliss.client.jsonRequest(ctx, baseUrl,
+		cliss.token.GetTokenString(),
 		method, url, tmpHeader, body)
 }
 
-func (this *ClientSession) JSONRequest(service, endpointType string, method httputils.THttpMethod, url string, headers http.Header, body jsonutils.JSONObject) (http.Header, jsonutils.JSONObject, error) {
-	return this.JSONVersionRequest(service, endpointType, method, url, headers, body)
+func (cliss *ClientSession) JSONRequest(service, endpointType string, method httputils.THttpMethod, url string, headers http.Header, body jsonutils.JSONObject) (http.Header, jsonutils.JSONObject, error) {
+	return cliss.JSONVersionRequest(service, endpointType, method, url, headers, body)
 }
 
-func (this *ClientSession) ParseJSONResponse(reqBody string, resp *http.Response, err error) (http.Header, jsonutils.JSONObject, error) {
-	return httputils.ParseJSONResponse(reqBody, resp, err, this.client.debug)
+func (cliss *ClientSession) ParseJSONResponse(reqBody string, resp *http.Response, err error) (http.Header, jsonutils.JSONObject, error) {
+	return httputils.ParseJSONResponse(reqBody, resp, err, cliss.client.debug)
 }
 
-func (this *ClientSession) HasSystemAdminPrivilege() bool {
-	return this.token.HasSystemAdminPrivilege()
+func (cliss *ClientSession) HasSystemAdminPrivilege() bool {
+	return cliss.token.HasSystemAdminPrivilege()
 }
 
-func (this *ClientSession) GetRegion() string {
-	return this.region
+func (cliss *ClientSession) GetRegion() string {
+	return cliss.region
 }
 
-func (this *ClientSession) GetUserId() string {
-	return this.token.GetUserId()
+func (cliss *ClientSession) GetUserId() string {
+	return cliss.token.GetUserId()
 }
 
-func (this *ClientSession) GetTenantId() string {
-	return this.token.GetTenantId()
+func (cliss *ClientSession) GetTenantId() string {
+	return cliss.token.GetTenantId()
 }
 
-func (this *ClientSession) GetTenantName() string {
-	return this.token.GetTenantName()
+func (cliss *ClientSession) GetTenantName() string {
+	return cliss.token.GetTenantName()
 }
 
-func (this *ClientSession) GetProjectId() string {
-	return this.GetTenantId()
+func (cliss *ClientSession) GetProjectId() string {
+	return cliss.GetTenantId()
 }
 
-func (this *ClientSession) GetProjectName() string {
-	return this.GetTenantName()
+func (cliss *ClientSession) GetProjectName() string {
+	return cliss.GetTenantName()
 }
 
-func (this *ClientSession) GetProjectDomain() string {
-	return this.token.GetProjectDomain()
+func (cliss *ClientSession) GetProjectDomain() string {
+	return cliss.token.GetProjectDomain()
 }
 
-func (this *ClientSession) GetProjectDomainId() string {
-	return this.token.GetProjectDomainId()
+func (cliss *ClientSession) GetProjectDomainId() string {
+	return cliss.token.GetProjectDomainId()
 }
 
-func (this *ClientSession) GetDomainId() string {
-	return this.token.GetDomainId()
+func (cliss *ClientSession) GetDomainId() string {
+	return cliss.token.GetDomainId()
 }
 
-func (this *ClientSession) GetDomainName() string {
-	return this.token.GetDomainName()
+func (cliss *ClientSession) GetDomainName() string {
+	return cliss.token.GetDomainName()
 }
 
-func (this *ClientSession) SetTaskNotifyUrl(url string) {
-	this.Header.Add(TASK_NOTIFY_URL, url)
+func (cliss *ClientSession) SetTaskNotifyUrl(url string) {
+	cliss.Header.Add(TASK_NOTIFY_URL, url)
 }
 
-func (this *ClientSession) RemoveTaskNotifyUrl() {
-	this.Header.Del(TASK_NOTIFY_URL)
+func (cliss *ClientSession) RemoveTaskNotifyUrl() {
+	cliss.Header.Del(TASK_NOTIFY_URL)
 }
 
-func (this *ClientSession) SetServiceUrl(service, url string) {
-	this.customizeServiceUrl[service] = url
+func (cliss *ClientSession) SetServiceUrl(service, url string) {
+	cliss.customizeServiceUrl[service] = url
 }
 
-func (this *ClientSession) PrepareTask() {
+func (cliss *ClientSession) WithTaskCallback(taskId string, req func() error) error {
+	baseUrl, err := cliss.GetBaseUrl(consts.GetServiceType(), api.EndpointInterfacePublic)
+	if err != nil {
+		log.Errorf("GetServiceURLs error: %s", err)
+		return errors.Wrap(err, "GetServiceURLs")
+	}
+	if len(baseUrl) == 0 {
+		return errors.Wrap(errors.ErrInvalidFormat, "empty service url")
+	}
+	taskUrl := joinUrl(baseUrl, fmt.Sprintf("/tasks/%s", taskId))
+	log.Infof("SetTaskNotifyUrl: %s service: %s", taskUrl, consts.GetServiceType())
+	cliss.SetTaskNotifyUrl(taskUrl)
+	defer cliss.RemoveTaskNotifyUrl()
+
+	{
+		err := req()
+		if err != nil {
+			return errors.Wrap(err, "Request")
+		}
+	}
+
+	return nil
+}
+
+func (cliss *ClientSession) PrepareTask() {
 	// start a random htttp server
-	this.notifyChannel = make(chan string)
+	cliss.notifyChannel = make(chan string)
 
 	s1 := rand.NewSource(time.Now().UnixNano())
 	r1 := rand.New(s1)
@@ -381,18 +405,18 @@ func (this *ClientSession) PrepareTask() {
 	ip := utils.GetOutboundIP()
 	addr := fmt.Sprintf("%s:%d", ip.String(), port)
 	url := fmt.Sprintf("http://%s", addr)
-	this.SetTaskNotifyUrl(url)
+	cliss.SetTaskNotifyUrl(url)
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		io.WriteString(w, "ok")
-		body, err := ioutil.ReadAll(r.Body)
+		body, err := io.ReadAll(r.Body)
 		var msg string
 		if err != nil {
 			msg = fmt.Sprintf("Read request data error: %s", err)
 		} else {
 			msg = string(body)
 		}
-		this.notifyChannel <- msg
+		cliss.notifyChannel <- msg
 	})
 
 	go func() {
@@ -403,42 +427,42 @@ func (this *ClientSession) PrepareTask() {
 	}()
 }
 
-func (this *ClientSession) WaitTaskNotify() {
-	if this.notifyChannel != nil {
-		msg := <-this.notifyChannel
+func (cliss *ClientSession) WaitTaskNotify() {
+	if cliss.notifyChannel != nil {
+		msg := <-cliss.notifyChannel
 		fmt.Println("---------------Task complete -------------")
 		fmt.Println(msg)
 	}
 }
 
-/*func (this *ClientSession) SetApiVersion(version string) {
-	this.defaultApiVersion = version
+/*func (cliss *ClientSession) SetApiVersion(version string) {
+	cliss.defaultApiVersion = version
 }
 
-func (this *ClientSession) GetApiVersion() string {
-	apiVersion := this.getApiVersion("")
+func (cliss *ClientSession) GetApiVersion() string {
+	apiVersion := cliss.getApiVersion("")
 	if len(apiVersion) == 0 {
 		return DEFAULT_API_VERSION
 	}
 	return apiVersion
 }*/
 
-func (this *ClientSession) ToJson() jsonutils.JSONObject {
+func (cliss *ClientSession) ToJson() jsonutils.JSONObject {
 	params := jsonutils.NewDict()
-	simpleToken := SimplifyToken(this.token)
+	simpleToken := SimplifyToken(cliss.token)
 	tokenJson := jsonutils.Marshal(simpleToken)
 	params.Update(tokenJson)
-	// params.Add(jsonutils.NewString(this.GetApiVersion()), "api_version")
-	if len(this.endpointType) > 0 {
-		params.Add(jsonutils.NewString(this.endpointType), "endpoint_type")
+	// params.Add(jsonutils.NewString(cliss.GetApiVersion()), "api_version")
+	if len(cliss.endpointType) > 0 {
+		params.Add(jsonutils.NewString(cliss.endpointType), "endpoint_type")
 	}
-	if len(this.region) > 0 {
-		params.Add(jsonutils.NewString(this.region), "region")
+	if len(cliss.region) > 0 {
+		params.Add(jsonutils.NewString(cliss.region), "region")
 	}
-	if len(this.zone) > 0 {
-		params.Add(jsonutils.NewString(this.zone), "zone")
+	if len(cliss.zone) > 0 {
+		params.Add(jsonutils.NewString(cliss.zone), "zone")
 	}
-	if tokenV3, ok := this.token.(*TokenCredentialV3); ok {
+	if tokenV3, ok := cliss.token.(*TokenCredentialV3); ok {
 		params.Add(jsonutils.NewStringArray(tokenV3.Token.Policies.Project), "project_policies")
 		params.Add(jsonutils.NewStringArray(tokenV3.Token.Policies.Domain), "domain_policies")
 		params.Add(jsonutils.NewStringArray(tokenV3.Token.Policies.System), "system_policies")
@@ -446,17 +470,17 @@ func (this *ClientSession) ToJson() jsonutils.JSONObject {
 	return params
 }
 
-func (cs *ClientSession) GetToken() TokenCredential {
-	return cs.token
+func (cliss *ClientSession) GetToken() TokenCredential {
+	return cliss.token
 }
 
-func (cs *ClientSession) GetContext() context.Context {
-	if cs.ctx == nil {
+func (cliss *ClientSession) GetContext() context.Context {
+	if cliss.ctx == nil {
 		return context.Background()
 	}
-	return cs.ctx
+	return cliss.ctx
 }
 
-func (cs *ClientSession) GetCommonEtcdEndpoint() (*api.EndpointDetails, error) {
-	return cs.GetClient().GetCommonEtcdEndpoint(cs.GetToken(), cs.region, cs.endpointType)
+func (cliss *ClientSession) GetCommonEtcdEndpoint() (*api.EndpointDetails, error) {
+	return cliss.GetClient().GetCommonEtcdEndpoint(cliss.GetToken(), cliss.region, cliss.endpointType)
 }
