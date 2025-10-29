@@ -88,17 +88,17 @@ func (host *SHostService) RunService() {
 		log.Fatalf("failed set qemuimg preallocation to %s: %s", options.HostOptions.Qcow2Preallocation, err)
 	}
 
+	app_common.InitAuth(&options.HostOptions.CommonOptions, func() {
+		log.Infof("Auth complete!!")
+	})
+	common_options.StartOptionManager(&options.HostOptions.CommonOptions, options.HostOptions.ConfigSyncPeriodSeconds, "", "", common_options.OnCommonOptionsChange)
+
 	hostInstance := hostinfo.Instance()
 	if err := hostInstance.Init(app.GetContext()); err != nil {
 		log.Errorf("Host instance init error: %s, wait 3 minutes to retry", err)
 		time.Sleep(time.Minute * 3)
 		log.Fatalf("Host instance init error: %s, reboot now", err)
 	}
-
-	app_common.InitAuth(&options.HostOptions.CommonOptions, func() {
-		log.Infof("Auth complete!!")
-	})
-	common_options.StartOptionManager(&options.HostOptions.CommonOptions, options.HostOptions.ConfigSyncPeriodSeconds, "", "", common_options.OnCommonOptionsChange)
 
 	deployclient.Init(options.HostOptions.DeployServerSocketPath)
 	if err := storageman.Init(hostInstance); err != nil {
