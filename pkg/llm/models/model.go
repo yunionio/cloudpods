@@ -89,6 +89,7 @@ func (man *SLLMModelBaseManager) ValidateCreateData(ctx context.Context, userCre
 			return input, errors.Wrapf(httperrors.ErrInputParameter, "invalid network_id %s", input.NetworkId)
 		}
 		input.NetworkId, _ = netObj.GetString("id")
+		input.NetworkType, _ = netObj.GetString("server_type")
 	}
 
 	input.Status = api.STATUS_READY
@@ -140,7 +141,9 @@ func (modelBase *SLLMModelBase) ValidateUpdateData(ctx context.Context, userCred
 			return input, errors.Wrapf(httperrors.ErrInputParameter, "invalid network_id %s", *input.NetworkId)
 		}
 		netId, _ := netObj.GetString("id")
+		netType, _ := netObj.GetString("server_type")
 		input.NetworkId = &netId
+		input.NetworkType = &netType
 	}
 
 	return input, nil
