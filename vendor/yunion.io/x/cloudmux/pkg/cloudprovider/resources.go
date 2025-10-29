@@ -357,8 +357,6 @@ type ICloudVM interface {
 
 	GetInternetMaxBandwidthOut() int
 	GetThroughput() int
-	// GetStatus() string
-	// GetRemoteStatus() string
 
 	GetSerialOutput(port int) (string, error) // 目前仅谷歌云windows机器会使用到此接口
 

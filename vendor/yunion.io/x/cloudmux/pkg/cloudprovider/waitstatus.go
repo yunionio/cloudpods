@@ -22,22 +22,23 @@ import (
 )
 
 func WaitStatusWithSync(res ICloudResource, expect string, sync func(status string), interval time.Duration, timeout time.Duration) error {
-	startTime := time.Now()
+	startTime, status := time.Now(), res.GetStatus()
 	for time.Since(startTime) < timeout {
 		err := res.Refresh()
 		if err != nil {
-			return err
+			return errors.Wrapf(err, "Refresh")
 		}
-		log.Infof("%s status %s expect %s", res.GetName(), res.GetStatus(), expect)
+		status = res.GetStatus()
+		log.Infof("%s status %s expect %s", res.GetName(), status, expect)
 		if sync != nil {
-			sync(res.GetStatus())
+			sync(status)
 		}
 		if res.GetStatus() == expect {
 			return nil
 		}
 		time.Sleep(interval)
 	}
-	return ErrTimeout
+	return errors.Wrapf(errors.ErrTimeout, "status %s expect %s", status, expect)
 }
 
 func WaitStatus(res ICloudResource, expect string, interval time.Duration, timeout time.Duration) error {
@@ -45,14 +46,14 @@ func WaitStatus(res ICloudResource, expect string, interval time.Duration, timeo
 }
 
 func WaitMultiStatusWithSync(res ICloudResource, expects []string, sync func(string), interval time.Duration, timeout time.Duration) error {
-	startTime := time.Now()
+	startTime, status := time.Now(), res.GetStatus()
 	for time.Since(startTime) < timeout {
 		err := res.Refresh()
 		if err != nil {
-			return errors.Wrap(err, "resource.Refresh()")
+			return errors.Wrapf(err, "Refresh")
 		}
-		status := res.GetStatus()
-		log.Infof("%s status %s expect %s", res.GetName(), status, expects)
+		status = res.GetStatus()
+		log.Infof("%s status %s expect %v", res.GetName(), status, expects)
 		if sync != nil {
 			sync(status)
 		}
@@ -63,7 +64,7 @@ func WaitMultiStatusWithSync(res ICloudResource, expects []string, sync func(str
 		}
 		time.Sleep(interval)
 	}
-	return errors.Wrap(errors.ErrTimeout, "WaitMultistatus")
+	return errors.Wrapf(errors.ErrTimeout, "status %s expect %v", status, expects)
 }
 
 func WaitMultiStatus(res ICloudResource, expects []string, interval time.Duration, timeout time.Duration) error {
@@ -76,14 +77,15 @@ func WaitStatusWithDelay(res ICloudResource, expect string, delay time.Duration,
 }
 
 func WaitStatusWithInstanceErrorCheck(res ICloudResource, expect string, interval time.Duration, timeout time.Duration, errCheck func() error) error {
-	startTime := time.Now()
+	startTime, status := time.Now(), res.GetStatus()
 	for time.Since(startTime) < timeout {
 		err := res.Refresh()
 		if err != nil {
-			return err
+			return errors.Wrapf(err, "Refresh")
 		}
-		log.Infof("%s status %s expect %s", res.GetName(), res.GetStatus(), expect)
-		if res.GetStatus() == expect {
+		status = res.GetStatus()
+		log.Infof("%s status %s expect %s", res.GetName(), status, expect)
+		if status == expect {
 			return nil
 		}
 		err = errCheck()
@@ -92,7 +94,7 @@ func WaitStatusWithInstanceErrorCheck(res ICloudResource, expect string, interva
 		}
 		time.Sleep(interval)
 	}
-	return ErrTimeout
+	return errors.Wrapf(errors.ErrTimeout, "status %s expect %s", status, expect)
 }
 
 func WaitDeletedWithDelay(res ICloudResource, delay time.Duration, interval time.Duration, timeout time.Duration) error {
@@ -108,7 +110,7 @@ func WaitDeleted(res ICloudResource, interval time.Duration, timeout time.Durati
 			if errors.Cause(err) == ErrNotFound {
 				return nil
 			} else {
-				return err
+				return errors.Wrapf(err, "Refresh")
 			}
 		}
 		time.Sleep(interval)

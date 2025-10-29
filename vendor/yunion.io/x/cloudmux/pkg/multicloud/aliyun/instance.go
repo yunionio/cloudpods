@@ -418,66 +418,25 @@ func (self *SInstance) GetHealthStatus() string {
 func (self *SInstance) Refresh() error {
 	ins, err := self.host.zone.region.GetInstance(self.InstanceId)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "GetInstance %s", self.InstanceId)
 	}
 	return jsonutils.Update(self, ins)
 }
-
-/*
-func (self *SInstance) GetRemoteStatus() string {
-	// Running：运行中
-	//Starting：启动中
-	//Stopping：停止中
-	//Stopped：已停止
-	switch self.Status {
-	case InstanceStatusRunning:
-		return cloudprovider.CloudVMStatusRunning
-	case InstanceStatusStarting:
-		return cloudprovider.CloudVMStatusStopped
-	case InstanceStatusStopping:
-		return cloudprovider.CloudVMStatusRunning
-	case InstanceStatusStopped:
-		return cloudprovider.CloudVMStatusStopped
-	default:
-		return cloudprovider.CloudVMStatusOther
-	}
-}
-*/
 
 func (self *SInstance) GetHypervisor() string {
 	return api.HYPERVISOR_ALIYUN
 }
 
 func (self *SInstance) StartVM(ctx context.Context) error {
-	timeout := 300 * time.Second
-	interval := 15 * time.Second
-
-	startTime := time.Now()
-	for time.Now().Sub(startTime) < timeout {
-		err := self.Refresh()
-		if err != nil {
-			return err
-		}
-		log.Debugf("status %s expect %s", self.GetStatus(), api.VM_RUNNING)
-		if self.GetStatus() == api.VM_RUNNING {
-			return nil
-		} else if self.GetStatus() == api.VM_READY {
-			err := self.host.zone.region.StartVM(self.InstanceId)
-			if err != nil {
-				return err
-			}
-		}
-		time.Sleep(interval)
-	}
-	return cloudprovider.ErrTimeout
+	return self.host.zone.region.StartVM(self.InstanceId)
 }
 
 func (self *SInstance) StopVM(ctx context.Context, opts *cloudprovider.ServerStopOptions) error {
 	err := self.host.zone.region.StopVM(self.InstanceId, opts.IsForce, opts.StopCharging)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "StopVM %s", self.InstanceId)
 	}
-	return cloudprovider.WaitStatus(self, api.VM_READY, 10*time.Second, 300*time.Second) // 5mintues
+	return cloudprovider.WaitStatus(self, api.VM_READY, 10*time.Second, 5*time.Minute)
 }
 
 func (self *SInstance) GetVNCInfo(input *cloudprovider.ServerVncInput) (*cloudprovider.ServerVncOutput, error) {
@@ -789,12 +748,10 @@ func (self *SRegion) doDeleteVM(instanceId string) error {
 func (self *SRegion) StartVM(instanceId string) error {
 	status, err := self.GetInstanceStatus(instanceId)
 	if err != nil {
-		log.Errorf("Fail to get instance status on StartVM: %s", err)
-		return err
+		return errors.Wrapf(err, "GetInstanceStatus")
 	}
 	if status != InstanceStatusStopped {
-		log.Errorf("StartVM: vm status is %s expect %s", status, InstanceStatusStopped)
-		return cloudprovider.ErrInvalidStatus
+		return errors.Wrapf(cloudprovider.ErrInvalidStatus, "vm status is %s expect %s", status, InstanceStatusStopped)
 	}
 	return self.doStartVM(instanceId)
 }
@@ -802,15 +759,13 @@ func (self *SRegion) StartVM(instanceId string) error {
 func (self *SRegion) StopVM(instanceId string, isForce, stopCharging bool) error {
 	status, err := self.GetInstanceStatus(instanceId)
 	if err != nil {
-		log.Errorf("Fail to get instance status on StopVM: %s", err)
-		return err
+		return errors.Wrapf(err, "GetInstanceStatus")
 	}
 	if status == InstanceStatusStopped {
 		return nil
 	}
 	if status != InstanceStatusRunning {
-		log.Errorf("StopVM: vm status is %s expect %s", status, InstanceStatusRunning)
-		return cloudprovider.ErrInvalidStatus
+		return errors.Wrapf(cloudprovider.ErrInvalidStatus, "vm status is %s expect %s", status, InstanceStatusRunning)
 	}
 	return self.doStopVM(instanceId, isForce, stopCharging)
 }
@@ -818,10 +773,8 @@ func (self *SRegion) StopVM(instanceId string, isForce, stopCharging bool) error
 func (self *SRegion) DeleteVM(instanceId string) error {
 	status, err := self.GetInstanceStatus(instanceId)
 	if err != nil {
-		log.Errorf("Fail to get instance status on DeleteVM: %s", err)
-		return err
+		return errors.Wrapf(err, "GetInstanceStatus")
 	}
-	log.Debugf("Instance status on delete is %s", status)
 	if status != InstanceStatusStopped {
 		log.Warningf("DeleteVM: vm status is %s expect %s", status, InstanceStatusStopped)
 	}
@@ -831,14 +784,14 @@ func (self *SRegion) DeleteVM(instanceId string) error {
 func (self *SRegion) DeployVM(instanceId string, opts *cloudprovider.SInstanceDeployOptions) error {
 	instance, err := self.GetInstance(instanceId)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "GetInstance")
 	}
 
 	// 修改密钥时直接返回
 	if opts.DeleteKeypair {
 		err = self.DetachKeyPair(instanceId, instance.KeyPairName)
 		if err != nil {
-			return err
+			return errors.Wrapf(err, "DetachKeyPair")
 		}
 	}
 
@@ -847,11 +800,11 @@ func (self *SRegion) DeployVM(instanceId string, opts *cloudprovider.SInstanceDe
 		var err error
 		keypairName, err = self.syncKeypair(opts.PublicKey)
 		if err != nil {
-			return err
+			return errors.Wrapf(err, "syncKeypair")
 		}
 		err = self.AttachKeypair(instanceId, keypairName)
 		if err != nil {
-			return err
+			return errors.Wrapf(err, "AttachKeypair")
 		}
 	}
 
@@ -880,7 +833,7 @@ func (self *SInstance) DeleteVM(ctx context.Context) error {
 		}
 		e, ok := errors.Cause(err).(*alierr.ServerError)
 		if !ok {
-			return err
+			return errors.Wrapf(err, "DeleteVM")
 		}
 		switch e.ErrorCode() {
 		case "IncorrectInstanceStatus.Initializing":
@@ -888,7 +841,7 @@ func (self *SInstance) DeleteVM(ctx context.Context) error {
 		case "LastTokenProcessing": // 等待转换按量付费完成
 			time.Sleep(10 * time.Second)
 		default:
-			return err
+			return errors.Wrapf(err, "DeleteVM")
 		}
 	}
 	return cloudprovider.WaitDeleted(self, 10*time.Second, 300*time.Second) // 5minutes
@@ -943,9 +896,8 @@ func (self *SRegion) ReplaceSystemDisk(instanceId string, imageId string, passwd
 	}
 	body, err := self.ecsRequest("ReplaceSystemDisk", params)
 	if err != nil {
-		return "", err
+		return "", errors.Wrapf(err, "ReplaceSystemDisk")
 	}
-	// log.Debugf("%s", body.String())
 	return body.GetString("DiskId")
 }
 
@@ -1057,7 +1009,7 @@ func (region *SRegion) ModifyInstanceChargeType(vmId string, billingType string)
 	}
 	_, err := region.ecsRequest("ModifyInstanceChargeType", params)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "ModifyInstanceChargeType %v", params)
 	}
 	if billingType == billing_api.BILLING_TYPE_PREPAID {
 		cycle := billing.SBillingCycle{
@@ -1122,13 +1074,12 @@ func (region *SRegion) RenewInstance(instanceId string, bc billing.SBillingCycle
 	params["InstanceId"] = instanceId
 	err := billingCycle2Params(&bc, params)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "billingCycle2Params %v", params)
 	}
 	params["ClientToken"] = utils.GenRequestId(20)
 	_, err = region.ecsRequest("RenewInstance", params)
 	if err != nil {
-		log.Errorf("RenewInstance fail %s", err)
-		return err
+		return errors.Wrapf(err, "RenewInstance %v", params)
 	}
 	return nil
 }

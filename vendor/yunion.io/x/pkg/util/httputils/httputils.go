@@ -175,7 +175,7 @@ func (req *JsonBaseRequest) GetHttpMethod() THttpMethod {
 }
 
 func (req *JsonBaseRequest) GetRequestBody() jsonutils.JSONObject {
-	if req.params != nil {
+	if !gotypes.IsNil(req.params) {
 		return jsonutils.Marshal(req.params)
 	}
 	return nil
