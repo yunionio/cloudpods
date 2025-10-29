@@ -1,0 +1,706 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package guestman
+
+import (
+	"bufio"
+	"context"
+	"fmt"
+	"io"
+	"net/http"
+	"os"
+	"path"
+	"path/filepath"
+	"regexp"
+	"runtime/debug"
+	"strings"
+	"time"
+
+	"gopkg.in/yaml.v3"
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
+
+	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/hostman/hostutils"
+	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
+	"yunion.io/x/onecloud/pkg/util/fileutils2"
+	"yunion.io/x/onecloud/pkg/util/mountutils"
+	"yunion.io/x/onecloud/pkg/util/procutils"
+)
+
+const (
+	KICKSTART_MONITOR_TIMEOUT         = 60 * time.Minute
+	SERIAL_FILE_CHECK_INTERVAL        = 5 * time.Second
+	KICKSTART_ISO_MOUNT_DIR           = "iso-mount"
+	KICKSTART_ISO_BUILD_DIR           = "iso-build"
+	KICKSTART_ISO_FILENAME            = "config.iso"
+	REDHAT_KICKSTART_ISO_VOLUME_LABEL = "OEMDRV"
+	UBUNTU_KICKSTART_ISO_VOLUME_LABEL = "CIDATA"
+)
+
+var (
+	kickstartInstallingRegex = regexp.MustCompile(`(?i).*KICKSTART_INSTALLING.*`)
+	kickstartCompletedRegex  = regexp.MustCompile(`(?i).*KICKSTART_COMPLETED.*`)
+	kickstartFailedRegex     = regexp.MustCompile(`(?i).*KICKSTART_FAILED.*`)
+)
+
+// ensureKickstartCompletionSignal ensures that the kickstart config contains the completion signal
+// 1. If already contains completion signal, return as is
+// 1. If no %post section, append one with completion signal
+// 2. If %post exists but no %end, append completion signal before end of file
+// 3. If both %post and %end exist, insert completion signal before %end
+func ensureKickstartCompletionSignal(config string) string {
+	completionSignals := []string{
+		"echo \"KICKSTART_COMPLETED\" > /dev/ttyS1",
+		"echo 'KICKSTART_COMPLETED' > /dev/ttyS1",
+		"echo KICKSTART_COMPLETED > /dev/ttyS1",
+	}
+
+	for _, signal := range completionSignals {
+		if strings.Contains(config, signal) {
+			return config
+		}
+	}
+
+	const standardCompletionSignal = "echo \"KICKSTART_COMPLETED\" > /dev/ttyS1"
+
+	postIdx := strings.Index(config, "%post")
+	if postIdx == -1 {
+		return config + fmt.Sprintf("\n\n%%post\n%s\n%%end", standardCompletionSignal)
+	}
+
+	endIdx := strings.Index(config[postIdx:], "%end")
+	if endIdx == -1 {
+		return config + fmt.Sprintf("\n%s\n%%end", standardCompletionSignal)
+	}
+
+	// Find line index of %end within %post section
+	lines := strings.Split(config, "\n")
+	absoluteEndIdx := postIdx + endIdx
+	endLineIdx := -1
+	currentPos := 0
+
+	for i, line := range lines {
+		lineEndPos := currentPos + len(line) + 1
+		if currentPos <= absoluteEndIdx && absoluteEndIdx < lineEndPos {
+			if strings.TrimSpace(line) == "%end" {
+				endLineIdx = i
+				break
+			}
+		}
+		currentPos = lineEndPos
+	}
+
+	if endLineIdx != -1 {
+		newLines := make([]string, len(lines)+1)
+		copy(newLines, lines[:endLineIdx])
+		newLines[endLineIdx] = standardCompletionSignal
+		copy(newLines[endLineIdx+1:], lines[endLineIdx:])
+		return strings.Join(newLines, "\n")
+	}
+
+	return config
+}
+
+// ensureAutoinstallCompletionSignal ensures that the autoinstall config contains the completion signal
+// 1. If already contains completion signal, return as is
+// 2. If no late-commands section, create one with completion signal
+// 3. If late-commands exists but no completion signal, append completion signal
+func ensureAutoinstallCompletionSignal(config string) string {
+	const standardCompletionSignal = "echo \"KICKSTART_COMPLETED\" > /dev/ttyS1"
+
+	completionSignals := []string{
+		"echo \"KICKSTART_COMPLETED\" > /dev/ttyS1",
+		"echo 'KICKSTART_COMPLETED' > /dev/ttyS1",
+		"echo KICKSTART_COMPLETED > /dev/ttyS1",
+	}
+
+	// Check if completion signal already exists
+	for _, signal := range completionSignals {
+		if strings.Contains(config, signal) {
+			return config
+		}
+	}
+
+	// Parse YAML using string keys, use yaml.v3 for better compatibility
+	var yamlData map[string]interface{}
+	err := yaml.Unmarshal([]byte(config), &yamlData)
+	if err != nil {
+		log.Warningf("Failed to parse autoinstall config as YAML: %v\n", err)
+		return config
+	}
+
+	autoinstall, ok := yamlData["autoinstall"].(map[string]interface{})
+	if !ok {
+		log.Warningf("No autoinstall section found in config\n")
+		return config
+	}
+
+	lateCommands, exists := autoinstall["late-commands"]
+	if !exists {
+		autoinstall["late-commands"] = []interface{}{standardCompletionSignal}
+	} else {
+		if commands, ok := lateCommands.([]interface{}); ok {
+			autoinstall["late-commands"] = append(commands, standardCompletionSignal)
+		} else {
+			autoinstall["late-commands"] = []interface{}{standardCompletionSignal}
+		}
+	}
+
+	result, err := yaml.Marshal(yamlData)
+	if err != nil {
+		log.Warningf("Failed to marshal autoinstall config as YAML: %v\n", err)
+		return config
+	}
+
+	// #cloud-config is required at the top if originally present
+	return "#cloud-config\n" + string(result)
+}
+
+// ensureCompletionSignal ensures that the configuration contains the completion signal based on OS type
+func ensureCompletionSignal(osType, config string) string {
+	switch osType {
+	case "centos", "rhel", "fedora", "openeuler":
+		return ensureKickstartCompletionSignal(config)
+	case "ubuntu":
+		return ensureAutoinstallCompletionSignal(config)
+	default:
+		return config // No validation for unsupported OS types
+	}
+}
+
+type SKickstartSerialMonitor struct {
+	serverId        string
+	serialFilePath  string
+	kickstartTmpDir string
+
+	ctx    context.Context
+	cancel context.CancelFunc
+}
+
+// NewKickstartSerialMonitor creates a new kickstart serial monitor
+func NewKickstartSerialMonitor(s *SKVMGuestInstance) *SKickstartSerialMonitor {
+	ctx, cancel := context.WithCancel(context.Background())
+
+	// Get the server instance to access its homeDir
+	serialFilePath := path.Join(s.HomeDir(), "kickstart-serial.log")
+	kickstartTmpDir := s.getKickstartTmpDir()
+
+	return &SKickstartSerialMonitor{
+		serverId:        s.GetId(),
+		serialFilePath:  serialFilePath,
+		kickstartTmpDir: kickstartTmpDir,
+		ctx:             ctx,
+		cancel:          cancel,
+	}
+}
+
+func (m *SKickstartSerialMonitor) GetSerialFilePath() string {
+	return m.serialFilePath
+}
+
+// getKickstartTimeout gets kickstart timeout from kickstart config, defaults to KICKSTART_MONITOR_TIMEOUT
+func (m *SKickstartSerialMonitor) getKickstartTimeout() time.Duration {
+	server, exists := guestManager.GetServer(m.serverId)
+	if !exists {
+		return KICKSTART_MONITOR_TIMEOUT
+	}
+
+	kvmGuest, ok := server.(*SKVMGuestInstance)
+	if !ok {
+		return KICKSTART_MONITOR_TIMEOUT
+	}
+
+	kickstartConfigStr, exists := kvmGuest.Desc.Metadata[api.VM_METADATA_KICKSTART_CONFIG]
+	if !exists || kickstartConfigStr == "" {
+		return KICKSTART_MONITOR_TIMEOUT
+	}
+
+	configObj, err := jsonutils.ParseString(kickstartConfigStr)
+	if err != nil {
+		return KICKSTART_MONITOR_TIMEOUT
+	}
+
+	var config api.KickstartConfig
+	if err := configObj.Unmarshal(&config); err != nil {
+		return KICKSTART_MONITOR_TIMEOUT
+	}
+
+	if config.TimeoutMinutes <= 0 {
+		return KICKSTART_MONITOR_TIMEOUT
+	}
+
+	timeout := time.Duration(config.TimeoutMinutes) * time.Minute
+	log.Debugf("Using kickstart timeout %v for server %s", timeout, m.serverId)
+	return timeout
+}
+
+func (m *SKickstartSerialMonitor) ensureSerialFile() error {
+	if _, err := os.Stat(m.serialFilePath); os.IsNotExist(err) {
+		file, err := os.Create(m.serialFilePath)
+		if err != nil {
+			return errors.Wrapf(err, "create serial file %s", m.serialFilePath)
+		}
+		file.Close()
+		log.Debugf("Created kickstart serial file %s for server %s", m.serialFilePath, m.serverId)
+	}
+	return nil
+}
+
+func (m *SKickstartSerialMonitor) monitorSerialFile() {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Errorf("KickstartSerialMonitor monitor %v %s", r, debug.Stack())
+		}
+	}()
+
+	var lastSize int64 = 0
+
+	ticker := time.NewTicker(SERIAL_FILE_CHECK_INTERVAL)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-m.ctx.Done():
+			return
+		case <-ticker.C:
+			if err := m.scanSerialForStatus(&lastSize); err != nil {
+				log.Errorf("Failed to scan serial file for status for server %s: %v", m.serverId, err)
+			}
+		}
+	}
+}
+
+// scanSerialForStatus scans the serial file for a kickstart status update.
+// It reads new content since the last check, parses it for status keywords,
+// and triggers status updates and cleanup when a final status is detected.
+func (m *SKickstartSerialMonitor) scanSerialForStatus(lastSize *int64) error {
+	fileInfo, err := os.Stat(m.serialFilePath)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+
+	currentSize := fileInfo.Size()
+	if currentSize <= *lastSize {
+		return nil
+	}
+
+	// Read new content
+	file, err := os.Open(m.serialFilePath)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	_, err = file.Seek(*lastSize, 0)
+	if err != nil {
+		return err
+	}
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if len(line) == 0 {
+			continue
+		}
+
+		var status string
+		var shouldClose bool = false
+		var matched bool = false
+
+		if kickstartInstallingRegex.MatchString(line) {
+			status = api.VM_KICKSTART_INSTALLING
+			shouldClose = false
+			matched = true
+		} else if kickstartCompletedRegex.MatchString(line) {
+			status = api.VM_KICKSTART_COMPLETED
+			shouldClose = true
+			matched = true
+			// Unmount ISO and restart VM if kickstart install successfully
+			if err := m.handleKickstartCompleted(); err != nil {
+				log.Errorf("Failed to handle kickstart success for server %s: %v", m.serverId, err)
+			}
+		} else if kickstartFailedRegex.MatchString(line) {
+			// TODO: auto retry or alert and stop
+			status = api.VM_KICKSTART_FAILED
+			shouldClose = true
+			matched = true
+		}
+
+		if matched {
+			log.Infof("Kickstart status update for server %s: %s", m.serverId, status)
+
+			if err := m.updateKickstartStatus(status); err != nil {
+				log.Errorf("Failed to update kickstart status for server %s: %v", m.serverId, err)
+			} else {
+				if shouldClose {
+					m.Close()
+					return nil
+				}
+			}
+		}
+	}
+
+	*lastSize = currentSize
+	return scanner.Err()
+}
+
+func (m *SKickstartSerialMonitor) Close() error {
+	if m.cancel != nil {
+		m.cancel()
+	}
+
+	if m.serialFilePath != "" {
+		if err := os.Remove(m.serialFilePath); err != nil && !os.IsNotExist(err) {
+			log.Warningf("Failed to remove serial file %s: %v", m.serialFilePath, err)
+		}
+	}
+
+	log.Debugf("Kickstart monitor closed for server %s", m.serverId)
+	return nil
+}
+
+// updateKickstartStatus updates the kickstart status via Region API
+func (m *SKickstartSerialMonitor) updateKickstartStatus(status string) error {
+	ctx := context.Background()
+	session := hostutils.GetComputeSession(ctx)
+
+	input := api.ServerUpdateKickstartStatusInput{
+		Status: status,
+	}
+
+	_, err := modules.Servers.PerformAction(session, m.serverId, "update-kickstart-status", jsonutils.Marshal(input))
+	if err != nil {
+		return errors.Wrapf(err, "failed to update kickstart status for server %s", m.serverId)
+	}
+	return nil
+}
+
+// Start starts the kickstart serial monitor
+func (m *SKickstartSerialMonitor) Start() error {
+	log.Debugf("Starting kickstart monitor for server %s, serial file: %s", m.serverId, m.serialFilePath)
+
+	if err := m.ensureSerialFile(); err != nil {
+		return errors.Wrap(err, "ensure serial file")
+	}
+
+	go m.monitorSerialFile()
+
+	// Setup timeout handler
+	go func() {
+		timeout := m.getKickstartTimeout()
+		timer := time.NewTimer(timeout)
+		defer timer.Stop()
+
+		select {
+		case <-m.ctx.Done():
+			return
+		case <-timer.C:
+			log.Warningf("Kickstart monitor timeout (%v) for server %s, setting status to failed", timeout, m.serverId)
+			if err := m.updateKickstartStatus(api.VM_KICKSTART_FAILED); err != nil {
+				log.Errorf("Failed to update kickstart status to failed on timeout for server %s: %v", m.serverId, err)
+			}
+			m.Close()
+		}
+	}()
+
+	return nil
+}
+
+// handleKickstartCompleted handles the successful kickstart completion
+// It unmounts the ISO image and restarts the VM
+func (m *SKickstartSerialMonitor) handleKickstartCompleted() error {
+	// Clean up kickstart files after successful installation
+	CleanupKickstartFiles(m.serverId, m.kickstartTmpDir)
+
+	log.Debugf("Restarting VM %s after successful kickstart", m.serverId)
+
+	if err := m.restartServer(); err != nil {
+		return errors.Wrapf(err, "failed to restart server %s", m.serverId)
+	}
+
+	return nil
+}
+
+// restartServer restarts the server using Region API,
+// because the kickstart process requires a fully reboot
+// to regenerate qemu parameters
+func (m *SKickstartSerialMonitor) restartServer() error {
+	ctx := context.Background()
+	session := hostutils.GetComputeSession(ctx)
+
+	input := jsonutils.NewDict()
+	input.Set("is_force", jsonutils.JSONFalse)
+
+	_, err := modules.Servers.PerformAction(session, m.serverId, "restart", input)
+	if err != nil {
+		return errors.Wrapf(err, "failed to restart server %s via API", m.serverId)
+	}
+
+	log.Infof("Server %s restarted after kickstart completion", m.serverId)
+	return nil
+}
+
+// downloadKickstartConfigFromURL downloads kickstart configuration content from the given URL
+func downloadKickstartConfigFromURL(configURL string, osType string) (string, error) {
+	const downloadTimeout = 10 * time.Second
+	const maxConfigSize = 64 * 1024
+
+	// For Ubuntu systems, append "/user-data" to the URL
+	if osType == "ubuntu" && !strings.HasSuffix(configURL, "/user-data") {
+		configURL = configURL + "/user-data"
+	}
+
+	client := &http.Client{Timeout: downloadTimeout}
+
+	req, err := http.NewRequest("GET", configURL, nil)
+	if err != nil {
+		return "", errors.Wrapf(err, "failed to create download request for %s", configURL)
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", errors.Wrapf(err, "failed to download config from %s", configURL)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", errors.Errorf("download failed: URL returned status code: %d", resp.StatusCode)
+	}
+
+	limitedReader := io.LimitReader(resp.Body, int64(maxConfigSize)+1)
+	content, err := io.ReadAll(limitedReader)
+	if err != nil {
+		return "", errors.Wrapf(err, "failed to read config content from %s", configURL)
+	}
+
+	if len(content) > maxConfigSize {
+		return "", errors.Errorf("downloaded content too large: %d bytes, maximum allowed: %d bytes", len(content), maxConfigSize)
+	}
+
+	if len(strings.TrimSpace(string(content))) == 0 {
+		return "", errors.Error("downloaded config content is empty")
+	}
+
+	log.Debugf("Successfully downloaded kickstart config from %s: %d bytes", configURL, len(content))
+	return string(content), nil
+}
+
+// CreateKickstartConfigISO creates an ISO image containing kickstart configuration files
+// For Red Hat systems: creates ks.cfg in a ISO with label 'OEMDRV'
+// For Ubuntu systems: creates user-data and meta-data files in a ISO with label 'CIDATA'
+// reference: https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/10/html/automatically_installing_rhel/starting-kickstart-installations#starting-a-kickstart-installation-automatically-using-a-local-volume
+// https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/10/html/automatically_installing_rhel/starting-kickstart-installations#starting-a-kickstart-installation-automatically-using-a-local-volume
+func CreateKickstartConfigISO(config *api.KickstartConfig, kickStartBaseDir string) (string, error) {
+	log.Debugf("Creating kickstart ISO to %s with OS type %s", kickStartBaseDir, config.OSType)
+
+	if config == nil {
+		return "", errors.Errorf("kickstart config is nil")
+	}
+
+	// Download config content from URL if necessary
+	if config.Config == "" && config.ConfigURL != "" {
+		log.Debugf("Downloading kickstart config from URL: %s", config.ConfigURL)
+		downloadedContent, err := downloadKickstartConfigFromURL(config.ConfigURL, config.OSType)
+		if err != nil {
+			return "", errors.Wrapf(err, "failed to download kickstart config from URL")
+		}
+		config.Config = downloadedContent
+		log.Debugf("Kickstart config downloaded and set, length: %d", len(config.Config))
+	}
+
+	if config.Config == "" {
+		return "", errors.Errorf("kickstart config content is empty")
+	}
+
+	// Ensure completion signal is present
+	validatedConfig := ensureCompletionSignal(config.OSType, config.Config)
+
+	// Create temporary directory for ISO contents
+	tmpDir := filepath.Join(kickStartBaseDir, KICKSTART_ISO_BUILD_DIR)
+	if err := os.MkdirAll(tmpDir, 0755); err != nil {
+		return "", errors.Wrapf(err, "failed to create temp directory %s", tmpDir)
+	}
+	defer func() {
+		if err := os.RemoveAll(tmpDir); err != nil {
+			log.Warningf("Failed to cleanup temp directory %s: %v", tmpDir, err)
+		}
+	}()
+
+	var filePaths []string
+	var volumeLabel string
+
+	switch config.OSType {
+	case "centos", "rhel", "fedora", "openeuler":
+		// Create anaconda-ks.cfg for Red Hat systems
+		ksFilePath := filepath.Join(tmpDir, "anaconda-ks.cfg")
+		if err := os.WriteFile(ksFilePath, []byte(validatedConfig), 0644); err != nil {
+			return "", errors.Wrapf(err, "failed to write kickstart file %s", ksFilePath)
+		}
+		filePaths = []string{ksFilePath}
+		volumeLabel = REDHAT_KICKSTART_ISO_VOLUME_LABEL
+
+	case "ubuntu":
+		// Create user-data file for Ubuntu systems
+		userDataPath := filepath.Join(tmpDir, "user-data")
+		if err := os.WriteFile(userDataPath, []byte(validatedConfig), 0644); err != nil {
+			return "", errors.Wrapf(err, "failed to write user-data file %s", userDataPath)
+		}
+
+		// Create empty meta-data file
+		metaDataPath := filepath.Join(tmpDir, "meta-data")
+		if err := os.WriteFile(metaDataPath, []byte(""), 0644); err != nil {
+			return "", errors.Wrapf(err, "failed to write meta-data file %s", metaDataPath)
+		}
+		filePaths = []string{userDataPath, metaDataPath}
+		volumeLabel = UBUNTU_KICKSTART_ISO_VOLUME_LABEL
+
+	default:
+		return "", errors.Errorf("unsupported OS type: %s", config.OSType)
+	}
+
+	// Create ISO using mkisofs
+	isoPath := filepath.Join(kickStartBaseDir, KICKSTART_ISO_FILENAME)
+	args := []string{
+		"-o", isoPath,
+		"-V", volumeLabel,
+		"-r",
+		"-J",
+	}
+	args = append(args, filePaths...)
+
+	cmd := procutils.NewCommand("mkisofs", args...)
+	if output, err := cmd.Output(); err != nil {
+		return "", errors.Wrapf(err, "mkisofs failed: %s", string(output))
+	}
+
+	log.Debugf("Successfully created kickstart ISO: %s", isoPath)
+	return isoPath, nil
+}
+
+// ComputeKickstartKernelInitrdPaths returns absolute kernel and initrd paths by combining
+// mountPath with OS-specific relative paths and validating that files exist.
+// GetKernelInitrdPaths resolves absolute kernel and initrd paths under a mounted ISO.
+func GetKernelInitrdPaths(mountPath, osType string) (string, string, error) {
+	var kernelRelPath, initrdRelPath string
+	switch osType {
+	case "centos", "rhel", "fedora", "openeuler":
+		kernelRelPath = "images/pxeboot/vmlinuz"
+		initrdRelPath = "images/pxeboot/initrd.img"
+	case "ubuntu":
+		kernelRelPath = "casper/vmlinuz"
+		initrdRelPath = "casper/initrd"
+	default:
+		return "", "", errors.Errorf("unsupported OS type: %s", osType)
+	}
+
+	kernelPath := path.Join(mountPath, kernelRelPath)
+	initrdPath := path.Join(mountPath, initrdRelPath)
+
+	if !fileutils2.Exists(kernelPath) {
+		return "", "", errors.Errorf("kernel file not found: %s", kernelPath)
+	}
+	if !fileutils2.Exists(initrdPath) {
+		return "", "", errors.Errorf("initrd file not found: %s", initrdPath)
+	}
+	return kernelPath, initrdPath, nil
+}
+
+// BuildKickstartAppendArgs builds kernel append args for kickstart/autoinstall
+// based on OS type and whether a local config ISO is present.
+// isoPath non-empty indicates a locally attached config ISO.
+func BuildKickstartAppendArgs(config *api.KickstartConfig, isoPath string) string {
+	if config == nil {
+		return ""
+	}
+	baseArgs := []string{}
+	var kickstartArgs []string
+	switch config.OSType {
+	case "centos", "rhel", "fedora", "openeuler":
+		if isoPath != "" {
+			kickstartArgs = append(kickstartArgs, fmt.Sprintf("inst.ks=hd:LABEL=%s:/anaconda-ks.cfg", REDHAT_KICKSTART_ISO_VOLUME_LABEL))
+		} else if config.ConfigURL != "" {
+			// Fallback to URL directly if no local ISO available
+			kickstartArgs = append(kickstartArgs, fmt.Sprintf("inst.ks=%s", config.ConfigURL))
+		} else {
+			kickstartArgs = append(kickstartArgs, "inst.ks=cdrom:/anaconda-ks.cfg")
+		}
+	case "ubuntu":
+		if isoPath != "" {
+			kickstartArgs = append(kickstartArgs, "autoinstall")
+		} else if config.ConfigURL != "" {
+			// Fallback to URL directly if no local ISO available
+			kickstartArgs = append(kickstartArgs,
+				"autoinstall",
+				"ip=dhcp",
+				fmt.Sprintf("ds=nocloud-net;s=%s", config.ConfigURL),
+			)
+		} else {
+			kickstartArgs = append(kickstartArgs, "autoinstall", "ip=dhcp", "ds=nocloud;s=/cdrom/")
+		}
+	}
+	return strings.Join(append(baseArgs, kickstartArgs...), " ")
+}
+
+// CleanupKickstartFiles cleans up all kickstart-related temporary files and directories
+func CleanupKickstartFiles(serverId, kickstartDir string) {
+	if serverId == "" {
+		log.Warningf("Empty serverId provided for kickstart cleanup")
+		return
+	}
+
+	mountPoint := filepath.Join(kickstartDir, KICKSTART_ISO_MOUNT_DIR)
+	if fileutils2.Exists(mountPoint) {
+		log.Infof("Unmounting kickstart ISO at %s for server %s", mountPoint, serverId)
+		if err := mountutils.Unmount(mountPoint, true); err != nil {
+			log.Errorf("Failed to unmount kickstart ISO at %s: %v", mountPoint, err)
+		} else {
+			log.Debugf("Successfully unmounted kickstart ISO at %s for server %s", mountPoint, serverId)
+		}
+	}
+
+	if server, exists := guestManager.GetServer(serverId); exists {
+		if kvmGuest, ok := server.(*SKVMGuestInstance); ok && len(kvmGuest.Desc.Cdroms) > 0 {
+			for _, cdrom := range kvmGuest.Desc.Cdroms {
+				if cdrom.Path != "" {
+					filename := path.Base(cdrom.Path)
+					if strings.HasPrefix(filename, "kickstart-") {
+						if err := os.Remove(cdrom.Path); err != nil && !os.IsNotExist(err) {
+							log.Errorf("Failed to cleanup kickstart ISO %s: %v", cdrom.Path, err)
+						} else {
+							log.Debugf("Successfully removed kickstart ISO %s for server %s", cdrom.Path, serverId)
+						}
+						break
+					}
+				}
+			}
+		}
+	}
+
+	if fileutils2.Exists(kickstartDir) {
+		log.Infof("Removing kickstart directory %s for server %s", kickstartDir, serverId)
+		if err := os.RemoveAll(kickstartDir); err != nil {
+			log.Errorf("Failed to remove kickstart directory %s: %v", kickstartDir, err)
+		} else {
+			log.Debugf("Successfully removed kickstart directory %s for server %s", kickstartDir, serverId)
+		}
+	}
+
+	log.Debugf("Kickstart files cleanup completed for server %s", serverId)
+}

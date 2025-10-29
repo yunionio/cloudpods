@@ -111,8 +111,9 @@ type SKVMGuestInstance struct {
 	SKVMInstanceRuntime
 	*sBaseGuestInstance
 
-	Monitor    monitor.Monitor
-	guestAgent *qga.QemuGuestAgent
+	Monitor          monitor.Monitor
+	guestAgent       *qga.QemuGuestAgent
+	kickstartMonitor *SKickstartSerialMonitor
 
 	archMan arch.Arch
 }
@@ -487,6 +488,10 @@ func (s *SKVMGuestInstance) GetStateFilePath(version string) string {
 		p = fmt.Sprintf("%s_%s", p, version)
 	}
 	return p
+}
+
+func (s *SKVMGuestInstance) getKickstartTmpDir() string {
+	return path.Join(s.HomeDir(), "kickstart")
 }
 
 func (s *SKVMGuestInstance) getQemuLogPath() string {
@@ -1274,6 +1279,8 @@ func (s *SKVMGuestInstance) onMonitorConnected(ctx context.Context) {
 	s.Monitor.GetVersion(func(v string) {
 		s.onGetQemuVersion(ctx, v)
 	})
+
+	s.startKickstartMonitorIfNeeded()
 }
 
 func (s *SKVMGuestInstance) setDestMigrateTLS(ctx context.Context, data *jsonutils.JSONDict) {
@@ -2085,6 +2092,7 @@ func (s *SKVMGuestInstance) ForceStop() bool {
 }
 
 func (s *SKVMGuestInstance) ExitCleanup(clear bool) {
+	s.cleanupKickstartMonitor()
 	if clear {
 		pid := s.GetPid()
 		if pid > 0 {
@@ -2185,6 +2193,8 @@ func (s *SKVMGuestInstance) delFlatFiles(ctx context.Context) error {
 }
 
 func (s *SKVMGuestInstance) Delete(ctx context.Context, migrated, recycle bool) error {
+	CleanupKickstartFiles(s.Id, s.getKickstartTmpDir())
+
 	if err := s.delTmpDisks(ctx, migrated); err != nil {
 		return errors.Wrap(err, "delTmpDisks")
 	}
@@ -3741,4 +3751,35 @@ func (s *SKVMGuestInstance) HandleGuestStatus(ctx context.Context, resp *api.Hos
 		}
 	}
 	return resp
+}
+
+func (s *SKVMGuestInstance) startKickstartMonitorIfNeeded() {
+	if s.kickstartMonitor == nil {
+		return
+	}
+
+	if !s.shouldUseKickstart() {
+		log.Infof("Kickstart not needed for server %s, skip starting monitor", s.Id)
+		return
+	}
+
+	log.Infof("Starting kickstart monitor for server %s", s.Id)
+
+	if err := s.kickstartMonitor.updateKickstartStatus(api.VM_KICKSTART_INSTALLING); err != nil {
+		log.Errorf("Failed to update kickstart status to installing for server %s: %v", s.Id, err)
+	} else {
+		log.Debugf("Kickstart status updated to installing for server %s", s.Id)
+	}
+
+	if err := s.kickstartMonitor.Start(); err != nil {
+		log.Errorf("Failed to start kickstart monitor for server %s: %s", s.Id, err)
+	}
+}
+
+func (s *SKVMGuestInstance) cleanupKickstartMonitor() {
+	if s.kickstartMonitor != nil {
+		s.kickstartMonitor.Close()
+		s.kickstartMonitor = nil
+		log.Infof("Kickstart monitor cleaned up for server %s", s.Id)
+	}
 }
