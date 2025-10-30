@@ -221,15 +221,17 @@ func (manager *SDiskManager) ListItemFilter(
 
 	guestId := query.ServerId
 	if len(guestId) > 0 {
-		server, err := validators.ValidateModel(ctx, userCred, GuestManager, &guestId)
-		if err != nil {
-			return nil, err
-		}
-		guest := server.(*SGuest)
+		guests := GuestManager.Query("id")
+		sq := guests.Filter(
+			sqlchemy.OR(
+				sqlchemy.In(guests.Field("id"), guestId),
+				sqlchemy.In(guests.Field("name"), guestId),
+			),
+		).SubQuery()
 		guestDisks := GuestdiskManager.Query().SubQuery()
 		q = q.Join(guestDisks, sqlchemy.AND(
 			sqlchemy.Equals(guestDisks.Field("disk_id"), q.Field("id")),
-			sqlchemy.Equals(guestDisks.Field("guest_id"), guest.Id),
+			sqlchemy.In(guestDisks.Field("guest_id"), sq),
 		)).Asc(guestDisks.Field("index"))
 	}
 
@@ -348,11 +350,36 @@ func (manager *SDiskManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field s
 		q.Join(guestQuery, sqlchemy.Equals(guestQuery.Field("id"), guestDiskQuery.Field("guest_id")))
 		return q, nil
 	}
+	if field == "server" {
+		guestDiskQuery := GuestdiskManager.Query("disk_id", "guest_id").SubQuery()
+		q = q.LeftJoin(guestDiskQuery, sqlchemy.Equals(q.Field("id"), guestDiskQuery.Field("disk_id")))
+		guestQuery := GuestManager.Query().SubQuery()
+		q.AppendField(guestQuery.Field("name", field)).Distinct()
+		q.Join(guestQuery, sqlchemy.Equals(guestQuery.Field("id"), guestDiskQuery.Field("guest_id")))
+		return q, nil
+	}
 	q, err = manager.SStorageResourceBaseManager.QueryDistinctExtraField(q, field)
 	if err == nil {
 		return q, nil
 	}
 
+	return q, httperrors.ErrNotFound
+}
+
+func (manager *SDiskManager) QueryDistinctExtraFields(q *sqlchemy.SQuery, resource string, fields []string) (*sqlchemy.SQuery, error) {
+	switch resource {
+	case GuestManager.Keyword():
+
+		guestdisks := GuestdiskManager.Query("disk_id", "guest_id").SubQuery()
+		q = q.LeftJoin(guestdisks, sqlchemy.Equals(q.Field("id"), guestdisks.Field("disk_id")))
+
+		guestQuery := GuestManager.Query().SubQuery()
+		for _, field := range fields {
+			q = q.AppendField(guestQuery.Field(field))
+		}
+		q = q.Join(guestQuery, sqlchemy.Equals(q.Field("guest_id"), guestQuery.Field("id")))
+		return q, nil
+	}
 	return q, httperrors.ErrNotFound
 }
 
