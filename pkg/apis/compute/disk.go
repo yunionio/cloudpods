@@ -117,7 +117,8 @@ type DiskListInput struct {
 	StorageFilterListInput
 
 	SnapshotPolicyFilterListInput
-	ServerFilterListInput
+	// 虚拟机（ID或Name）列表
+	ServerId []string `json:"server_id"`
 
 	// filter disk by whether it is being used
 	Unused *bool `json:"unused"`
