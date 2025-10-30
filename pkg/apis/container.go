@@ -144,6 +144,10 @@ type ContainerSpec struct {
 	StartupProbe  *ContainerProbe `json:"startup_probe,omitempty"`
 	AlwaysRestart bool            `json:"always_restart"`
 	Primary       bool            `json:"primary"`
+
+	// DependsOn is a list of container name which this container depends on when pod start
+	// Only works for containers created & started by pod-create & server-start
+	DependsOn []string `json:"depends_on,omitempty"`
 }
 
 func (c *ContainerSpec) NeedProbe() bool {

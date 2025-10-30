@@ -40,6 +40,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/compute/options"
+	"yunion.io/x/onecloud/pkg/compute/utils"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/pod/remotecommand/spdy"
@@ -89,6 +90,7 @@ func (p *SPodDriver) ValidateCreateData(ctx context.Context, userCred mcclient.T
 
 	ctrNames := sets.NewString()
 	volUniqNames := sets.NewString()
+
 	for idx, ctr := range input.Pod.Containers {
 		if err := p.validateContainerData(ctx, userCred, idx, input.Name, ctr, input); err != nil {
 			return nil, errors.Wrapf(err, "data of %d container", idx)
@@ -107,6 +109,15 @@ func (p *SPodDriver) ValidateCreateData(ctx context.Context, userCred mcclient.T
 				}
 			}
 		}
+	}
+
+	err := utils.TopologicalSortContainers(
+		input.Pod.Containers,
+		func(ctr *api.PodContainerCreateInput) string { return ctr.Name },
+		func(ctr *api.PodContainerCreateInput) []string { return ctr.DependsOn },
+	)
+	if err != nil {
+		return nil, errors.Wrap(err, "invalid container dependency")
 	}
 
 	return input, nil

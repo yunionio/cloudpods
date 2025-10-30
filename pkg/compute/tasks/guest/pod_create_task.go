@@ -62,7 +62,7 @@ func (t *PodCreateTask) OnPodCreated(ctx context.Context, guest *models.SGuest, 
 	}
 
 	for idx, ctr := range ctrs {
-		if err := ctr.StartCreateTask(ctx, t.GetUserCred(), t.GetTaskId(), t.GetParams()); err != nil {
+		if err := ctr.StartCreateTask(ctx, t.GetUserCred(), t.GetTaskId(), nil); err != nil {
 			t.onCreateContainerError(ctx, guest, errors.Wrapf(err, "start container %d creation task", idx))
 			return
 		}
@@ -96,14 +96,34 @@ func (t *PodCreateTask) OnContainerCreated(ctx context.Context, guest *models.SG
 		}
 	}
 	if isAllCreated {
-		t.SetStage("OnStatusSynced", nil)
-		guest.StartSyncstatus(ctx, t.GetUserCred(), t.GetTaskId())
+		if jsonutils.QueryBoolean(t.GetParams(), "auto_start", false) {
+			t.SetStage("OnContainerStarted", nil)
+			task, err := taskman.TaskManager.NewTask(ctx, "PodStartContainerInDependencyOrderTask", guest, t.GetUserCred(), nil, t.GetTaskId(), "", nil)
+			if err != nil {
+				t.SetStageFailed(ctx, jsonutils.NewString(errors.Wrap(err, "New PodStartContainerInDependencyOrderTask").Error()))
+				return
+			}
+			task.ScheduleRun(nil)
+		} else {
+			t.SetStage("OnStatusSynced", nil)
+			guest.StartSyncstatus(ctx, t.GetUserCred(), t.GetTaskId())
+		}
 	}
 }
 
 func (t *PodCreateTask) OnContainerCreatedFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	guest.SetStatus(ctx, t.GetUserCred(), api.POD_STATUS_CREATE_CONTAINER_FAILED, data.String())
 	t.SetStageFailed(ctx, data)
+}
+
+func (t *PodCreateTask) OnContainerStartedFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	guest.SetStatus(ctx, t.GetUserCred(), api.POD_STATUS_CREATE_CONTAINER_FAILED, data.String())
+	t.SetStageFailed(ctx, data)
+}
+
+func (t *PodCreateTask) OnContainerStarted(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	t.SetStage("OnStatusSynced", nil)
+	guest.StartSyncstatus(ctx, t.GetUserCred(), t.GetTaskId())
 }
 
 func (t *PodCreateTask) OnStatusSynced(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
