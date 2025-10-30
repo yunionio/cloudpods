@@ -1470,8 +1470,8 @@ sigs.k8s.io/structured-merge-diff/v4 v4.0.1/go.mod h1:bJZC9H9iH24zzfZ/41RGcq60oK
 sigs.k8s.io/yaml v1.1.0/go.mod h1:UJmg0vDUVViEyp3mgSv9WPwZCDxu4rQW1olrI1uml+o=
 sigs.k8s.io/yaml v1.2.0 h1:kr/MCeFWJWTwyaHoR9c8EjH9OumOmoF9YGiZd7lFm/Q=
 sigs.k8s.io/yaml v1.2.0/go.mod h1:yfXDCHCao9+ENCvLSE62v9VSji2MKu5jeNfTrofGhJc=
-yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20251024141952-4f8988d93f8e h1:w4f/QxN1Y7w2KrCR9jPWj5B4ZuMhiLcI1jjJHej6wz4=
-yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20251024141952-4f8988d93f8e/go.mod h1:nya/IL1IXSMmFgB48P27CppyGpkT5coG150PD+xVJrc=
+yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20251029113936-04a08ceb0273 h1:0AsTwn72zovuZ7sGQJ+yqCCe71AnzlX/BQT9AtKX+Xo=
+yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20251029113936-04a08ceb0273/go.mod h1:nya/IL1IXSMmFgB48P27CppyGpkT5coG150PD+xVJrc=
 yunion.io/x/executor v0.0.0-20250518005516-5402e9e0bed0 h1:msG4SiDSVU7CrXH06WuHlNEZXIooTcmNbfrIGHuIHBU=
 yunion.io/x/executor v0.0.0-20250518005516-5402e9e0bed0/go.mod h1:Uxuou9WQIeJXNpy7t2fPLL0BYLvLiMvGQwY7Qc6aSws=
 yunion.io/x/jsonutils v0.0.0-20190625054549-a964e1e8a051/go.mod h1:4N0/RVzsYL3kH3WE/H1BjUQdFiWu50JGCFQuuy+Z634=
@@ -1485,8 +1485,8 @@ yunion.io/x/ovsdb v0.0.0-20230306173834-f164f413a900 h1:Hu/4ERvoWaN6aiFs4h4/yvVB
 yunion.io/x/ovsdb v0.0.0-20230306173834-f164f413a900/go.mod h1:0vLkNEhlmA64HViPBAnSTUMrx5QP1CLsxXmxDKQ80tc=
 yunion.io/x/pkg v0.0.0-20190620104149-945c25821dbf/go.mod h1:t6rEGG2sQ4J7DhFxSZVOTjNd0YO/KlfWQyK1W4tog+E=
 yunion.io/x/pkg v0.0.0-20190628082551-f4033ba2ea30/go.mod h1:t6rEGG2sQ4J7DhFxSZVOTjNd0YO/KlfWQyK1W4tog+E=
-yunion.io/x/pkg v1.10.4-0.20250820035218-6008459eb4f0 h1:/vHcYqzQInxqR1jjS+e7A0owRXj+/rvrIgES6uadUqs=
-yunion.io/x/pkg v1.10.4-0.20250820035218-6008459eb4f0/go.mod h1:0Bwxqd9MA3ACi119/l02FprY/o9gHahmYC2bsSbnVpM=
+yunion.io/x/pkg v1.10.4-0.20251029085629-5e6cd5e0d3ad h1:rvh05lRDppYWzVyIjU/y/vzXUvfQ8Oi47vioL+zGayA=
+yunion.io/x/pkg v1.10.4-0.20251029085629-5e6cd5e0d3ad/go.mod h1:0Bwxqd9MA3ACi119/l02FprY/o9gHahmYC2bsSbnVpM=
 yunion.io/x/s3cli v0.0.0-20241221171442-1c11599d28e1 h1:1KJ3YYinydPHpDEQRXdr/T8SYcKZ5Er+m489H+PnaQ4=
 yunion.io/x/s3cli v0.0.0-20241221171442-1c11599d28e1/go.mod h1:0iFKpOs1y4lbCxeOmq3Xx/0AcQoewVPwj62eRluioEo=
 yunion.io/x/sqlchemy v1.1.3-0.20250925091009-4ca0766fc8f0 h1:L4zE6kTD1PEki1jQnLLBiYnEYFKWa/weoful0Sl4tKw=

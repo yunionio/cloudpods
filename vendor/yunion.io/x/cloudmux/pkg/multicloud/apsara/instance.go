@@ -361,27 +361,6 @@ func (self *SInstance) Refresh() error {
 	return jsonutils.Update(self, new)
 }
 
-/*
-func (self *SInstance) GetRemoteStatus() string {
-	// Running：运行中
-	//Starting：启动中
-	//Stopping：停止中
-	//Stopped：已停止
-	switch self.Status {
-	case InstanceStatusRunning:
-		return cloudprovider.CloudVMStatusRunning
-	case InstanceStatusStarting:
-		return cloudprovider.CloudVMStatusStopped
-	case InstanceStatusStopping:
-		return cloudprovider.CloudVMStatusRunning
-	case InstanceStatusStopped:
-		return cloudprovider.CloudVMStatusStopped
-	default:
-		return cloudprovider.CloudVMStatusOther
-	}
-}
-*/
-
 func (self *SInstance) GetHypervisor() string {
 	return api.HYPERVISOR_APSARA
 }
