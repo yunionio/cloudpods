@@ -1258,6 +1258,8 @@ func (self *SServerSku) syncWithCloudSku(ctx context.Context, userCred mcclient.
 		self.GpuAttachable = sku.GpuAttachable
 		self.GpuSpec = sku.GpuSpec
 		self.GpuCount = sku.GpuCount
+		self.CpuCoreCount = sku.CpuCoreCount
+		self.MemorySizeMB = sku.MemorySizeMB
 		self.Md5 = sku.Md5
 		return nil
 	})
