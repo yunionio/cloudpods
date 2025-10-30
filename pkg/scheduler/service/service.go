@@ -151,7 +151,7 @@ func startHTTP(app *appsrv.Application, opt *o.SchedulerOptions) error {
 	router.Use(middleware.KeystoneTokenVerifyMiddleware())
 
 	// prometheus.InstallHandler(router)
-	schedhandler.InstallHandler(router)
+	schedhandler.InstallHandler(router, opt.EnableAppProfiling)
 
 	server := appsrv.InitHTTPServer(app, net.JoinHostPort(opt.Address, strconv.Itoa(int(opt.Port))))
 	server.Handler = router
