@@ -77,7 +77,7 @@ func (p *InstanceTypePredicate) Execute(ctx context.Context, u *core.Unit, c cor
 			}
 		}
 	} else {
-		sku := skuman.GetByZone(instanceType, zoneId)
+		sku := skuman.GetByZone(instanceType, regionId, zoneId)
 		if sku == nil {
 			h.Exclude(fmt.Sprintf("Not found server sku %s at zone %s", instanceType, zoneName))
 		}

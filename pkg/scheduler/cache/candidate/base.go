@@ -144,7 +144,7 @@ func (b baseHostGetter) HostType() string {
 
 func (b baseHostGetter) Sku(instanceType string) *sku.ServerSku {
 	zone := b.Zone()
-	return sku.GetByZone(instanceType, zone.GetId())
+	return sku.GetByZone(instanceType, zone.CloudregionId, zone.GetId())
 }
 
 func (b baseHostGetter) Storages() []*api.CandidateStorage {
