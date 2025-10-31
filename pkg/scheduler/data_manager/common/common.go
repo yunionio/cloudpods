@@ -224,7 +224,13 @@ func (s *ResourceStore[O]) GetByPrefix(prefixId string) []O {
 }
 
 func (s *ResourceStore[O]) GetAll() []O {
-	ret := make([]O, 0)
+	// To avoid repeated slice growth during append, count first and preallocate capacity
+	count := 0
+	s.dataMap.Range(func(key, value any) bool {
+		count++
+		return true
+	})
+	ret := make([]O, 0, count)
 	s.dataMap.Range(func(key, value any) bool {
 		ret = append(ret, value.(O))
 		return true
