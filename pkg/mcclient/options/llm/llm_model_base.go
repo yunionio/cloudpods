@@ -19,8 +19,10 @@ type LLMModelBaseCreateOptions struct {
 	MEMORY    int `help:"memory size MB"`
 	DISK_SIZE int `help:"disk size MB"`
 
-	Bandwidth   int
-	StorageType string
+	NETWORK_TYPE string `json:"network_type" choices:"guest|hostlocal"`
+	NetworkId    string `help:"id of network" json:"network_id"`
+	Bandwidth    int
+	StorageType  string
 	// DiskOverlay    string `help:"disk overlay, e.g. /opt/steam-data/base:/opt/steam-data/games"`
 	TemplateId   string
 	PortMappings []string `help:"port mapping in the format of protocol:port[:prefix][:first_port_offset][:env_key=env_value], e.g. tcp:5555:192.168.0.0/16:5:WOLF_BASE_PORT=20000"`
@@ -60,7 +62,9 @@ type LLMModelBaseUpdateOptions struct {
 	DiskSize    *int `help:"disk size MB"`
 	StorageType string
 	TemplateId  string
-	NoTemplate  bool `json:"-" help:"remove template"`
+	NoTemplate  bool   `json:"-" help:"remove template"`
+	NetworkType string `json:"network_type" choices:"guest|hostlocal"`
+	NetworkId   string `help:"id of network" json:"network_id"`
 	Bandwidth   *int
 	// Dpi          *int
 	// Fps          *int

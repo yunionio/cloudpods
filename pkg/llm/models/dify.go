@@ -178,8 +178,6 @@ func (dify *SDify) ServerCreate(ctx context.Context, userCred mcclient.TokenCred
 		return "", errors.Wrap(err, "GetDifyModel")
 	}
 
-	// set AutoStart to true
-	input.AutoStart = true
 	data, err := GetDifyPodCreateInput(ctx, userCred, input, dify, model, "")
 	if nil != err {
 		return "", errors.Wrap(err, "GetDifyPodCreateInput")
