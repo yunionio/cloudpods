@@ -1,6 +1,6 @@
 REGISTRY ?= "registry.cn-beijing.aliyuncs.com/yunionio"
 DOCKER_BUILD = docker build -t $(REGISTRY)
-DOCKER_BUILDX = docker buildx build --platform linux/arm64,linux/amd64 --push -t $(REGISTRY)
+DOCKER_BUILDX = docker buildx build --platform linux/arm64,linux/amd64,linux/riscv64 --push -t $(REGISTRY)
 
 
 debian10-base:
@@ -37,6 +37,17 @@ webconsole-base:
 
 BAREMETAL_BASE_VERSION = v0.3.9-20231219.1
 
+FEDORA_RISCV64_VERSION = 42
+fedora-riscv64-base:
+	wget -q https://dl.fedoraproject.org/pub/alt/risc-v/release/$(FEDORA_RISCV64_VERSION)/Container/riscv64/images/Fedora-Container-Base-Generic-$(FEDORA_RISCV64_VERSION).20250414-8635a3a5bfcd.riscv64.oci.tar.xz && \
+	xz -d Fedora-Container-Base-Generic-$(FEDORA_RISCV64_VERSION).20250414-8635a3a5bfcd.riscv64.oci.tar.xz && \
+	skopeo copy oci-archive:Fedora-Container-Base-Generic-$(FEDORA_RISCV64_VERSION).20250414-8635a3a5bfcd.riscv64.oci.tar docker-daemon:fedora-riscv64:$(FEDORA_RISCV64_VERSION) && \
+	rm -f Fedora-Container-Base-Generic-$(FEDORA_RISCV64_VERSION).20250414-8635a3a5bfcd.riscv64.oci.tar
+
+baremetal-base-riscv: fedora-riscv64-base
+         $(DOCKER_BUILDX)/baremetal-base:$(BAREMETAL_BASE_VERSION) -f ./Dockerfile.baremetal-base-riscv .
+         #docker push $(REGISTRY)/baremetal-base:$(BAREMETAL_BASE_VERSION)
+
 baremetal-base:
 	$(DOCKER_BUILDX)/baremetal-base:$(BAREMETAL_BASE_VERSION) -f ./Dockerfile.baremetal-base .
 	#docker push $(REGISTRY)/baremetal-base:$(BAREMETAL_BASE_VERSION)
@@ -69,6 +80,9 @@ host-image:
 LBAGENT_BASE_VERSION = v0.0.3
 lbagent-base:
 	$(DOCKER_BUILDX)/lbagent-base:$(LBAGENT_BASE_VERSION) -f ./Dockerfile.lbagent-base .
+
+lbagent-base-riscv:
+	$(DOCKER_BUILDX)/lbagent-base:$(LBAGENT_BASE_VERSION) -f ./Dockerfile.lbagent-base-riscv
 
 GUACD_VERSION=1.5.3
 guacd:
