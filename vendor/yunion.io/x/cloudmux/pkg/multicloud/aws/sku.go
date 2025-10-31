@@ -137,7 +137,7 @@ func (self *SRegion) GetInstanceType(name string) (*InstanceType, error) {
 	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", name)
 }
 
-func (self *SRegion) GetInstanceTypes() ([]SInstanceType, error) {
+func (self *SRegion) GetInstanceTypes(instanceType string) ([]SInstanceType, error) {
 	filters := map[string]string{
 		"regionCode":      self.RegionId,
 		"operatingSystem": "Linux",
@@ -147,6 +147,10 @@ func (self *SRegion) GetInstanceTypes() ([]SInstanceType, error) {
 		"preInstalledSw":  "NA",
 		"tenancy":         "Shared",
 		"capacitystatus":  "Used",
+	}
+
+	if len(instanceType) > 0 {
+		filters["instanceType"] = instanceType
 	}
 
 	params := []ProductFilter{}

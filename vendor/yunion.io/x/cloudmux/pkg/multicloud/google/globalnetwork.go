@@ -111,13 +111,14 @@ func (cli *SGoogleClient) GetGlobalNetworks(maxResults int, pageToken string) ([
 	if err != nil {
 		return nil, errors.Wrap(err, "ecsList")
 	}
-	if resp.Contains("items") {
-		err = resp.Unmarshal(&networks, "items")
-		if err != nil {
-			return nil, errors.Wrap(err, "resp.Unmarshal")
-		}
+	ret := struct {
+		Items []SGlobalNetwork
+	}{}
+	err = resp.Unmarshal(&ret)
+	if err != nil {
+		return nil, errors.Wrap(err, "resp.Unmarshal")
 	}
-	return networks, nil
+	return ret.Items, nil
 }
 
 func (self *SGoogleClient) CreateGlobalNetwork(name string, desc string) (*SGlobalNetwork, error) {

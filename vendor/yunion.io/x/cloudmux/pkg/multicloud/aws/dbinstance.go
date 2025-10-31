@@ -672,3 +672,29 @@ func (self *SRegion) RemoveRdsTagsFromResource(arn string, tags map[string]strin
 	}
 	return self.rdsRequest("RemoveTagsFromResource", params, nil)
 }
+
+type SEngineVersion struct {
+	EngineVersion string
+	Status        string
+}
+
+func (region *SRegion) DescribeDBEngineVersions(engine string) ([]SEngineVersion, error) {
+	params := map[string]string{}
+	ret := []SEngineVersion{}
+	for {
+		part := struct {
+			DBEngineVersions []SEngineVersion `xml:"DBEngineVersions>DBEngineVersion"`
+			Marker           string           `xml:"Marker"`
+		}{}
+		err := region.rdsRequest("DescribeDBEngineVersions", params, &part)
+		if err != nil {
+			return nil, errors.Wrapf(err, "DescribeDBEngineVersions")
+		}
+		ret = append(ret, part.DBEngineVersions...)
+		if len(part.DBEngineVersions) == 0 || len(part.Marker) == 0 {
+			break
+		}
+		params["Marker"] = part.Marker
+	}
+	return ret, nil
+}

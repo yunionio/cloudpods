@@ -167,7 +167,9 @@ func (self *SBaiduProvider) CreateIProject(name string) (cloudprovider.ICloudPro
 }
 
 func (self *SBaiduProvider) GetStorageClasses(regionId string) []string {
-	return []string{}
+	return []string{
+		"STANDARD", "STANDARD_IA", "COLD", "ARCHIVE",
+	}
 }
 
 func (self *SBaiduProvider) GetBucketCannedAcls(regionId string) []string {
