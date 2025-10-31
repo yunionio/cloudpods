@@ -31,7 +31,18 @@ const (
 func KeystoneTokenVerifyMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// hack
-		escapeAuth := []string{"ping", "version", "metrics", "k8s/predicates", "k8s/priorities"}
+		escapeAuth := []string{
+			"ping",
+			"version",
+			"metrics",
+			"k8s/predicates",
+			"k8s/priorities",
+			"debug/pprof",
+			"debug/pprof/cmdline",
+			"debug/pprof/profile",
+			"debug/pprof/symbol",
+			"debug/pprof/trace",
+		}
 		for _, s := range escapeAuth {
 			if strings.HasSuffix(c.Request.URL.Path, s) {
 				c.Next()

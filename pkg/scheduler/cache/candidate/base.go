@@ -34,6 +34,7 @@ import (
 	"yunion.io/x/onecloud/pkg/scheduler/data_manager/cloudregion"
 	"yunion.io/x/onecloud/pkg/scheduler/data_manager/netinterface"
 	"yunion.io/x/onecloud/pkg/scheduler/data_manager/network"
+	"yunion.io/x/onecloud/pkg/scheduler/data_manager/network_additional_wire"
 	"yunion.io/x/onecloud/pkg/scheduler/data_manager/sku"
 	"yunion.io/x/onecloud/pkg/scheduler/data_manager/zone"
 	schedmodels "yunion.io/x/onecloud/pkg/scheduler/models"
@@ -634,11 +635,7 @@ func (b *BaseHostDesc) fillNetworks(host *computemodels.SHost, netGetter *networ
 	nets := make([]computemodels.SNetwork, 0)
 	allNets := network.Manager.GetStore().GetAll()
 	for _, net := range allNets {
-		netAdditionalWireIds, err := computemodels.NetworkAdditionalWireManager.FetchNetworkAdditionalWireIds(net.Id)
-		if err != nil {
-			log.Errorf("NetworkAdditionalWireManager.FetchNetworkAdditionalWireIds %s error %s", net.Id, err)
-			netAdditionalWireIds = []string{}
-		}
+		netAdditionalWireIds := network_additional_wire.FetchNetworkAdditionalWireIds(net.Id)
 		if wireIds.Has(net.WireId) || wireIds.HasAny(netAdditionalWireIds...) {
 			nets = append(nets, net)
 		}

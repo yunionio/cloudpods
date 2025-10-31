@@ -42,6 +42,7 @@ import (
 	"yunion.io/x/onecloud/pkg/scheduler/data_manager/cloudregion"
 	"yunion.io/x/onecloud/pkg/scheduler/data_manager/netinterface"
 	"yunion.io/x/onecloud/pkg/scheduler/data_manager/network"
+	"yunion.io/x/onecloud/pkg/scheduler/data_manager/network_additional_wire"
 	"yunion.io/x/onecloud/pkg/scheduler/data_manager/schedtag"
 	skuman "yunion.io/x/onecloud/pkg/scheduler/data_manager/sku"
 	"yunion.io/x/onecloud/pkg/scheduler/data_manager/wire"
@@ -119,6 +120,7 @@ func StartService() error {
 			ctx := context.Background()
 			go skuman.Start(ctx, utils.ToDuration(o.Options.SkuRefreshInterval))
 			go schedtag.Start(ctx, utils.ToDuration("30s"))
+			go network_additional_wire.Start(ctx, utils.ToDuration("30m"))
 
 			for _, f := range []func(ctx context.Context){
 				cloudregion.Manager.Start,
@@ -151,7 +153,7 @@ func startHTTP(app *appsrv.Application, opt *o.SchedulerOptions) error {
 	router.Use(middleware.KeystoneTokenVerifyMiddleware())
 
 	// prometheus.InstallHandler(router)
-	schedhandler.InstallHandler(router)
+	schedhandler.InstallHandler(router, opt.EnableAppProfiling)
 
 	server := appsrv.InitHTTPServer(app, net.JoinHostPort(opt.Address, strconv.Itoa(int(opt.Port))))
 	server.Handler = router
