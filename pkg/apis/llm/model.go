@@ -5,10 +5,22 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/gotypes"
+	"yunion.io/x/pkg/util/sets"
 
 	"yunion.io/x/onecloud/pkg/apis"
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 )
+
+var (
+	LLM_MODEL_BASE_NETWORK_TYPES = sets.NewString(
+		string(computeapi.NETWORK_TYPE_HOSTLOCAL),
+		string(computeapi.NETWORK_TYPE_GUEST),
+	)
+)
+
+func IsLLMModelBaseNetworkType(t string) bool {
+	return LLM_MODEL_BASE_NETWORK_TYPES.Has(t)
+}
 
 type HostInfo struct {
 	HostId       string
@@ -117,7 +129,9 @@ type LLMModelBaseCreateInput struct {
 	Cpu    int `json:"cpu"`
 	Memory int `json:"memory"`
 
-	Bandwidth int `json:"bandwidth"`
+	NetworkType string `json:"network_type"`
+	NetworkId   string `json:"network_id"`
+	Bandwidth   int    `json:"bandwidth"`
 
 	Volumes      *Volumes          `json:"volumes"`
 	PortMappings *PortMappings     `json:"port_mappings"`
@@ -140,6 +154,8 @@ type LLMModelBaseUpdateInput struct {
 	StorageType *string  `json:"storage_type"`
 	Volumes     *Volumes `json:"volumes"`
 
+	NetworkType  *string           `json:"network_type"`
+	NetworkId    *string           `json:"network_id"`
 	Bandwidth    *int              `json:"bandwidth"`
 	PortMappings *PortMappings     `json:"port_mappings"`
 	Devices      *Devices          `json:"devices"`

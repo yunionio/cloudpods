@@ -12,6 +12,8 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	compute "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 )
 
 func NewSLLMModelBaseManager(dt interface{}, tableName string, keyword string, keywordPlural string) SLLMModelBaseManager {
@@ -41,6 +43,9 @@ type SLLMModelBase struct {
 	Envs         *api.Envs         `charset:"utf8" nullable:"true" list:"user" update:"user" create:"optional"`
 	// Properties
 	Properties map[string]string `charset:"utf8" nullable:"true" list:"user" update:"user" create:"optional"`
+
+	NetworkType string `charset:"utf8" list:"user" update:"user" create:"optional"`
+	NetworkId   string `charset:"utf8" nullable:"true" list:"user" update:"user" create:"optional"`
 }
 
 func (man *SLLMModelBaseManager) ListItemFilter(
@@ -71,6 +76,20 @@ func (man *SLLMModelBaseManager) ValidateCreateData(ctx context.Context, userCre
 	}
 	if input.Volumes == nil {
 		return input, errors.Wrap(httperrors.ErrInputParameter, "volumes cannot be empty")
+	}
+
+	if !api.IsLLMModelBaseNetworkType(input.NetworkType) {
+		return input, errors.Wrapf(httperrors.ErrInputParameter, "invalid network type %s", input.NetworkType)
+	}
+
+	if len(input.NetworkId) > 0 {
+		s := auth.GetSession(ctx, userCred, "")
+		netObj, err := compute.Networks.Get(s, input.NetworkId, nil)
+		if err != nil {
+			return input, errors.Wrapf(httperrors.ErrInputParameter, "invalid network_id %s", input.NetworkId)
+		}
+		input.NetworkId, _ = netObj.GetString("id")
+		input.NetworkType, _ = netObj.GetString("server_type")
 	}
 
 	input.Status = api.STATUS_READY
@@ -110,6 +129,22 @@ func (modelBase *SLLMModelBase) ValidateUpdateData(ctx context.Context, userCred
 		volumes[i] = volume
 	}
 	input.Volumes = (*api.Volumes)(&volumes)
+
+	if input.NetworkType != nil && !api.IsLLMModelBaseNetworkType(*input.NetworkType) {
+		return input, errors.Wrapf(httperrors.ErrInputParameter, "invalid network type %s", *input.NetworkType)
+	}
+
+	if input.NetworkId != nil && len(*input.NetworkId) > 0 {
+		s := auth.GetSession(ctx, userCred, "")
+		netObj, err := compute.Networks.Get(s, *input.NetworkId, nil)
+		if err != nil {
+			return input, errors.Wrapf(httperrors.ErrInputParameter, "invalid network_id %s", *input.NetworkId)
+		}
+		netId, _ := netObj.GetString("id")
+		netType, _ := netObj.GetString("server_type")
+		input.NetworkId = &netId
+		input.NetworkType = &netType
+	}
 
 	return input, nil
 }
