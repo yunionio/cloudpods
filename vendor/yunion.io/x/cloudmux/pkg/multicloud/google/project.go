@@ -58,16 +58,16 @@ func (cli *SGoogleClient) GetProjects() ([]SProject, error) {
 		if err != nil {
 			return nil, errors.Wrap(err, "managerList")
 		}
-		_result := []SProject{}
-		if resp.Contains("projects") {
-			err = resp.Unmarshal(&_result, "projects")
-			if err != nil {
-				return nil, errors.Wrap(err, "data.Unmarshal")
-			}
+		part := struct {
+			Projects []SProject
+		}{}
+		err = resp.Unmarshal(&part)
+		if err != nil {
+			return nil, errors.Wrapf(err, "resp.Unmarshal")
 		}
-		result = append(result, _result...)
+		result = append(result, part.Projects...)
 		nextPageToken, _ = resp.GetString("nextPageToken")
-		if len(nextPageToken) == 0 || len(_result) == 0 {
+		if len(nextPageToken) == 0 || len(part.Projects) == 0 {
 			break
 		}
 	}
