@@ -40,7 +40,7 @@ WEBCONSOLE_BASE_VERSION_3-22-2 = 3.22.2-1
 webconsole-base:
 	$(DOCKER_BUILDX)/webconsole-base:$(WEBCONSOLE_BASE_VERSION_3-22-2) -f ./Dockerfile.webconsole-base .
 
-BAREMETAL_BASE_VERSION = v0.3.9-20231219.1
+BAREMETAL_BASE_VERSION = v0.3.9-20251112.1
 
 FEDORA_RISCV64_VERSION = 42
 fedora-riscv64-base:
