@@ -76,12 +76,14 @@ func (self *SGoogleClient) TestIam(permissions []string) ([]string, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "testIamPermissions")
 	}
-	ret := []string{}
-	err = resp.Unmarshal(&ret, "permissions")
+	ret := struct {
+		Permissions []string
+	}{}
+	err = resp.Unmarshal(&ret)
 	if err != nil {
 		return nil, errors.Wrap(err, "resp.Unmarshal")
 	}
-	return ret, nil
+	return ret.Permissions, nil
 }
 
 func (self *SGoogleClient) IsSupportCloudId() bool {

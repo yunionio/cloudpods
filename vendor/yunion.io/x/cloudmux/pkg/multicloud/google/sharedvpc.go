@@ -7,6 +7,7 @@ import (
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
+	"yunion.io/x/pkg/errors"
 )
 
 type SSharedGlobalNetwork struct {
@@ -72,20 +73,20 @@ func (client *SGoogleClient) GetSharedGlobalNetworks() ([]SSharedGlobalNetwork, 
 		if e, ok := err.(*gError); ok && e.ErrorInfo.Code == 400 {
 			return []SSharedGlobalNetwork{}, nil
 		}
-		return nil, err
+		return nil, errors.Wrapf(err, "GetXpnHosts")
 	}
 	ret := []SSharedGlobalNetwork{}
 	networkMap := map[string][]SXpnNetwork{}
 	for _, xhost := range xhosts {
 		resources, err := client.GetXpnResources(xhost.Name)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrapf(err, "GetXpnResources(%s)", xhost.Name)
 		}
 		for _, resource := range resources {
 			if strings.EqualFold(resource.Type, "project") && resource.Id == client.projectId {
 				networks, err := client.GetXpnNetworks(xhost.Name)
 				if err != nil {
-					return nil, err
+					return nil, errors.Wrapf(err, "GetXpnNetworks(%s)", xhost.Name)
 				}
 				for i := range networks {
 					_, ok := networkMap[networks[i].Network]

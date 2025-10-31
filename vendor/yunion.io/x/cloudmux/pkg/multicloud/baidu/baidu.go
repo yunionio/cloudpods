@@ -18,6 +18,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -25,7 +26,6 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/util/httputils"
@@ -123,7 +123,7 @@ func (cli *SBaiduClient) GetRegion(id string) (*SRegion, error) {
 	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", id)
 }
 
-func (cli *SBaiduClient) getUrl(service, regionId, resource string) (string, error) {
+func (cli *SBaiduClient) getUrl(service, regionId, bucketName, resource string) (string, error) {
 	if len(regionId) == 0 {
 		regionId = BAIDU_DEFAULT_REGION
 	}
@@ -133,7 +133,10 @@ func (cli *SBaiduClient) getUrl(service, regionId, resource string) (string, err
 	case SERVICE_BCC:
 		return fmt.Sprintf("https://bcc.%s.baidubce.com/%s", regionId, strings.TrimPrefix(resource, "/")), nil
 	case SERVICE_BOS:
-		return fmt.Sprintf("https://%s.bcebos.com", regionId), nil
+		if len(bucketName) > 0 {
+			return fmt.Sprintf("https://%s.%s.bcebos.com/%s", bucketName, regionId, strings.TrimPrefix(resource, "/")), nil
+		}
+		return fmt.Sprintf("https://%s.bcebos.com/%s", regionId, strings.TrimPrefix(resource, "/")), nil
 	case SERVICE_BILLING:
 		return fmt.Sprintf("https://billing.baidubce.com/%s", strings.TrimPrefix(resource, "/")), nil
 	case SERVICE_STS:
@@ -169,46 +172,39 @@ func (cli *SBaiduClient) getDefaultClient() *http.Client {
 	return cli.client
 }
 
-type sBaiduError struct {
-	StatusCode int    `json:"statusCode"`
-	RequestId  string `json:"requestId"`
-	Code       string
-	Message    string
-	method     httputils.THttpMethod
-	url        string
-	body       jsonutils.JSONObject
-}
-
-func (e *sBaiduError) Error() string {
-	return jsonutils.Marshal(e).String()
-}
-
-func (e *sBaiduError) ParseErrorFromJsonResponse(statusCode int, status string, body jsonutils.JSONObject) error {
-	if body != nil {
-		body.Unmarshal(e)
-	}
-	e.StatusCode = statusCode
-	log.Infof("%s %s body: %s error: %v", e.method, e.url, e.body, e.Error())
-	if e.StatusCode == 404 {
-		return errors.Wrapf(cloudprovider.ErrNotFound, "%s", e.Error())
-	}
-	return e
-}
-
-func (cli *SBaiduClient) Do(req *http.Request) (*http.Response, error) {
-	client := cli.getDefaultClient()
-
-	req.Header.Set("Content-Type", "application/json; charset=utf-8")
-	req.Header.Set("x-bce-date", time.Now().UTC().Format(ISO8601))
-	req.Header.Set("host", req.Host)
-
-	signature, err := cli.sign(req)
+func (cli *SBaiduClient) bosList(regionId, bucketName, resource string, params url.Values) (jsonutils.JSONObject, error) {
+	resp, err := cli.raw_request(httputils.GET, SERVICE_BOS, regionId, bucketName, resource, params, nil, nil)
 	if err != nil {
-		return nil, errors.Wrapf(err, "sign")
+		return nil, err
 	}
+	_, ret, err := httputils.ParseJSONResponse("", resp, err, cli.debug)
+	return ret, err
+}
 
-	req.Header.Set("Authorization", signature)
-	return client.Do(req)
+func (cli *SBaiduClient) bosDelete(regionId, bucketName, resource string, params url.Values) (jsonutils.JSONObject, error) {
+	resp, err := cli.raw_request(httputils.DELETE, SERVICE_BOS, regionId, bucketName, resource, params, nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	_, ret, err := httputils.ParseJSONResponse("", resp, err, cli.debug)
+	return ret, err
+}
+
+func (cli *SBaiduClient) bosUpdate(regionId, bucketName, resource string, params url.Values, body map[string]interface{}) (jsonutils.JSONObject, error) {
+	var bodyReader io.Reader = nil
+	if !gotypes.IsNil(body) {
+		bodyReader = strings.NewReader(jsonutils.Marshal(body).String())
+	}
+	resp, err := cli.raw_request(httputils.PUT, SERVICE_BOS, regionId, bucketName, resource, params, nil, bodyReader)
+	if err != nil {
+		return nil, err
+	}
+	_, ret, err := httputils.ParseJSONResponse("", resp, err, cli.debug)
+	return ret, err
+}
+
+func (cli *SBaiduClient) bosRequest(method httputils.THttpMethod, regionId, bucketName, resource string, params url.Values, header http.Header, body io.Reader) (*http.Response, error) {
+	return cli.raw_request(method, SERVICE_BOS, regionId, bucketName, resource, params, header, body)
 }
 
 func (cli *SBaiduClient) eipList(regionId, resource string, params url.Values) (jsonutils.JSONObject, error) {
@@ -264,21 +260,49 @@ func (cli *SBaiduClient) post(service, regionId, resource string, params url.Val
 }
 
 func (cli *SBaiduClient) request(method httputils.THttpMethod, service, regionId, resource string, params url.Values, body map[string]interface{}) (jsonutils.JSONObject, error) {
-	uri, err := cli.getUrl(service, regionId, resource)
+	var bodyReader io.Reader = nil
+	if !gotypes.IsNil(body) {
+		bodyReader = strings.NewReader(jsonutils.Marshal(body).String())
+	}
+	header := http.Header{}
+	header.Set("Content-Type", "application/json; charset=utf-8")
+	resp, err := cli.raw_request(method, service, regionId, "", resource, params, header, bodyReader)
 	if err != nil {
 		return nil, err
 	}
-	if body == nil {
-		body = map[string]interface{}{}
+	_, ret, err := httputils.ParseJSONResponse("", resp, err, cli.debug)
+	return ret, err
+}
+
+func (cli *SBaiduClient) raw_request(method httputils.THttpMethod, service, regionId, bucketName, resource string, params url.Values, header http.Header, body io.Reader) (*http.Response, error) {
+	uri, err := cli.getUrl(service, regionId, bucketName, resource)
+	if err != nil {
+		return nil, err
 	}
+
 	if len(params) > 0 {
 		uri = fmt.Sprintf("%s?%s", uri, params.Encode())
 	}
-	req := httputils.NewJsonRequest(method, uri, body)
-	bErr := &sBaiduError{method: method, url: uri, body: jsonutils.Marshal(body)}
-	client := httputils.NewJsonClient(cli)
-	_, resp, err := client.Send(cli.ctx, req, bErr, cli.debug)
-	return resp, err
+
+	if gotypes.IsNil(header) {
+		header = http.Header{}
+	}
+
+	burl, err := url.Parse(uri)
+	if err != nil {
+		return nil, err
+	}
+
+	header.Set("x-bce-date", time.Now().UTC().Format(ISO8601))
+	header.Set("host", burl.Host)
+
+	signature, err := cli.sign(burl, string(method), header)
+	if err != nil {
+		return nil, errors.Wrapf(err, "sign raw request")
+	}
+	header.Set("Authorization", signature)
+
+	return httputils.Request(cli.getDefaultClient(), cli.ctx, method, uri, header, body, cli.debug)
 }
 
 func (cli *SBaiduClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
@@ -331,6 +355,7 @@ func (cli *SBaiduClient) GetCapabilities() []string {
 		cloudprovider.CLOUD_CAPABILITY_SECURITY_GROUP,
 		cloudprovider.CLOUD_CAPABILITY_EIP,
 		cloudprovider.CLOUD_CAPABILITY_SNAPSHOT_POLICY,
+		cloudprovider.CLOUD_CAPABILITY_OBJECTSTORE,
 	}
 	return caps
 }

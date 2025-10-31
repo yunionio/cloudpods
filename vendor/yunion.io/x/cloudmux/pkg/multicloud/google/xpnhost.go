@@ -13,12 +13,14 @@ func (cli *SGoogleClient) GetXpnHosts() ([]SXpnHost, error) {
 	if err != nil {
 		return nil, err
 	}
-	ret := []SXpnHost{}
-	err = resp.Unmarshal(&ret, "items")
+	ret := struct {
+		Items []SXpnHost
+	}{}
+	err = resp.Unmarshal(&ret)
 	if err != nil {
 		return nil, err
 	}
-	return ret, nil
+	return ret.Items, nil
 }
 
 type SXpnResource struct {
@@ -32,10 +34,12 @@ func (cli *SGoogleClient) GetXpnResources(projectId string) ([]SXpnResource, err
 	if err != nil {
 		return nil, err
 	}
-	ret := []SXpnResource{}
-	err = resp.Unmarshal(&ret, "resources")
+	ret := struct {
+		Resources []SXpnResource
+	}{}
+	err = resp.Unmarshal(&ret)
 	if err != nil {
 		return nil, err
 	}
-	return ret, nil
+	return ret.Resources, nil
 }
