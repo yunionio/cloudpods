@@ -83,6 +83,10 @@ func doK8sEventList(s *mcclient.ClientSession, args *EventListOptions) error {
 	return DoEventList(*k8s.Logs.ResourceManager, s, args)
 }
 
+func doHostDmesgList(s *mcclient.ClientSession, args *EventListOptions) error {
+	return DoEventList(modules.DmesgLogs, s, args)
+}
+
 func DoEventList(man modulebase.ResourceManager, s *mcclient.ClientSession, args *EventListOptions) error {
 	params := jsonutils.NewDict()
 	if len(args.Type) > 0 {
@@ -157,6 +161,7 @@ func init() {
 	R(&EventListOptions{}, "monitor-event-show", "Show operation event logs", doMonitorEventList)
 	R(&EventListOptions{}, "notify-event-show", "Show operation event logs", doNotifyEventList)
 	R(&EventListOptions{}, "kube-event-show", "Show operation event logs", doK8sEventList)
+	R(&EventListOptions{}, "host-dmesg-show", "Show host dmesgs", doHostDmesgList)
 
 	R(&TypeEventListOptions{}, "server-event", "Show operation event logs of server", func(s *mcclient.ClientSession, args *TypeEventListOptions) error {
 		nargs := EventListOptions{BaseEventListOptions: args.BaseEventListOptions, Id: args.ID, Type: []string{"server"}}

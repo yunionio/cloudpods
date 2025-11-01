@@ -332,6 +332,7 @@ func (manager *SOpsLogManager) ListItemFilter(
 			q = q.Filter(sqlchemy.In(q.Field("action"), input.Actions))
 		}
 	}
+
 	//if !IsAdminAllowList(userCred, manager) {
 	// 	q = q.Filter(sqlchemy.OR(
 	//		sqlchemy.Equals(q.Field("owner_tenant_id"), manager.GetOwnerId(userCred)),
