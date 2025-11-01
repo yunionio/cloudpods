@@ -119,6 +119,8 @@ type DiskListInput struct {
 	SnapshotPolicyFilterListInput
 	// 虚拟机（ID或Name）列表
 	ServerId []string `json:"server_id"`
+	// swagger:ignore
+	Server []string `json:"server" yunion-deprecated-by:"server_id"`
 
 	// filter disk by whether it is being used
 	Unused *bool `json:"unused"`
