@@ -344,3 +344,57 @@ func (region *SRegion) eipDelete(resource string, params url.Values) (jsonutils.
 func (region *SRegion) eipUpdate(resource string, params url.Values, body map[string]interface{}) (jsonutils.JSONObject, error) {
 	return region.client.eipUpdate(region.RegionId, resource, params, body)
 }
+
+func (region *SRegion) GetIBuckets() ([]cloudprovider.ICloudBucket, error) {
+	buckets, err := region.ListBuckets()
+	if err != nil {
+		return nil, err
+	}
+	ret := []cloudprovider.ICloudBucket{}
+	for i := range buckets {
+		if buckets[i].Location != region.GetId() {
+			continue
+		}
+		buckets[i].region = region
+		ret = append(ret, &buckets[i])
+	}
+	return ret, nil
+}
+
+func (region *SRegion) CreateIBucket(name string, storageClassStr string, aclStr string) error {
+	return region.CreateBucket(name, storageClassStr, aclStr)
+}
+
+func (region *SRegion) DeleteIBucket(name string) error {
+	return region.DeleteBucket(name)
+}
+
+func (region *SRegion) IBucketExist(name string) (bool, error) {
+	buckets, err := region.GetIBuckets()
+	if err != nil {
+		return false, errors.Wrapf(err, "GetIBuckets")
+	}
+	for i := range buckets {
+		if buckets[i].GetName() == name {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func (region *SRegion) GetIBucketById(name string) (cloudprovider.ICloudBucket, error) {
+	buckets, err := region.GetIBuckets()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetIBuckets")
+	}
+	for i := range buckets {
+		if buckets[i].GetName() == name {
+			return buckets[i], nil
+		}
+	}
+	return nil, cloudprovider.ErrNotFound
+}
+
+func (region *SRegion) GetIBucketByName(name string) (cloudprovider.ICloudBucket, error) {
+	return region.GetIBucketById(name)
+}
