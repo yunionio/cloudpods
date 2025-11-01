@@ -142,6 +142,7 @@ type SHostOptions struct {
 	EnableCpuBinding            bool   `default:"true" help:"Enable cpu binding and rebalance"`
 	EnableOpenflowController    bool   `default:"false"`
 	BootVgaPciAddr              string `help:"Specific boot vga pci addr incase detect wrong device"`
+	EnableDmesgCollect          bool   `default:"true" help:"Enable dmesg collect or not, default true"`
 
 	PingRegionInterval int      `default:"60" help:"interval to ping region, deefault is 1 minute"`
 	LogSystemdUnits    []string `help:"Systemd units log collected by fluent-bit"`

@@ -381,6 +381,10 @@ type OpsLogListInput struct {
 	Since time.Time `json:"since"`
 
 	Until time.Time `json:"until"`
+
+	LogLevels []string `json:"log_levels"`
+
+	ShowDmesgLog bool `json:"show_dmesg_log"`
 }
 
 type IdNameDetails struct {

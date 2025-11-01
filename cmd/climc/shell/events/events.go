@@ -25,15 +25,16 @@ import (
 )
 
 type BaseEventListOptions struct {
-	Scope      string   `help:"scope" choices:"project|domain|system"`
-	Since      string   `help:"Show logs since specific date" metavar:"DATETIME"`
-	Until      string   `help:"Show logs until specific date" metavar:"DATETIME"`
-	Limit      int64    `help:"Limit number of logs" default:"20"`
-	Offset     int64    `help:"Offset"`
-	Ascending  bool     `help:"Ascending order"`
-	Descending bool     `help:"Descending order"`
-	OrderBy    string   `help:"order by specific field"`
-	Action     []string `help:"Log action"`
+	Scope        string   `help:"scope" choices:"project|domain|system"`
+	Since        string   `help:"Show logs since specific date" metavar:"DATETIME"`
+	Until        string   `help:"Show logs until specific date" metavar:"DATETIME"`
+	Limit        int64    `help:"Limit number of logs" default:"20"`
+	Offset       int64    `help:"Offset"`
+	Ascending    bool     `help:"Ascending order"`
+	Descending   bool     `help:"Descending order"`
+	OrderBy      string   `help:"order by specific field"`
+	Action       []string `help:"Log action"`
+	ShowDmesgLog bool     `help:"Show dmesg log only"`
 
 	User    string `help:"filter by operator user"`
 	Project string `help:"filter by operator user's project"`
@@ -140,6 +141,9 @@ func DoEventList(man modulebase.ResourceManager, s *mcclient.ClientSession, args
 	}
 	if len(args.Filter) > 0 {
 		params.Add(jsonutils.NewStringArray(args.Filter), "filter")
+	}
+	if args.ShowDmesgLog {
+		params.Add(jsonutils.JSONTrue, "show_dmesg_log")
 	}
 	logs, err := man.List(s, params)
 	if err != nil {
