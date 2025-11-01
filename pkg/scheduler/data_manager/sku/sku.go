@@ -200,8 +200,8 @@ func SyncOnce(wait bool) error {
 	return nil
 }
 
-func GetByZone(instanceType, zoneId string) *ServerSku {
-	return skuManager.GetByZone(instanceType, zoneId)
+func GetByZone(instanceType, regionId, zoneId string) *ServerSku {
+	return skuManager.GetByZone(instanceType, regionId, zoneId)
 }
 
 func GetByRegion(instanceType, regionId string) []*ServerSku {
@@ -232,7 +232,7 @@ func (l skuList) Has(newSku *ServerSku) (int, bool) {
 }
 
 func (l skuList) DebugString() string {
-	return fmt.Sprintf("%s", jsonutils.Marshal(l).String())
+	return jsonutils.Marshal(l).String()
 }
 
 func (l skuList) GetByRegion(regionId string) []*ServerSku {
@@ -246,9 +246,9 @@ func (l skuList) GetByRegion(regionId string) []*ServerSku {
 	return ret
 }
 
-func (l skuList) GetByZone(zoneId string) *ServerSku {
+func (l skuList) GetByZone(regionId, zoneId string) *ServerSku {
 	for _, s := range l {
-		if s.ZoneId == zoneId {
+		if s.ZoneId == zoneId || (len(s.ZoneId) == 0 && s.RegionId == regionId) {
 			return s
 		}
 	}
@@ -327,12 +327,12 @@ func (m *SSkuManager) sync() {
 	wait.Forever(m.syncOnce, m.refreshInterval)
 }
 
-func (m *SSkuManager) GetByZone(instanceType, zoneId string) *ServerSku {
+func (m *SSkuManager) GetByZone(instanceType, regionId, zoneId string) *ServerSku {
 	l := m.skuMap.Get(instanceType)
 	if l == nil {
 		return nil
 	}
-	return l.GetByZone(zoneId)
+	return l.GetByZone(regionId, zoneId)
 }
 
 func (m *SSkuManager) GetByRegion(instanceType, regionId string) []*ServerSku {
