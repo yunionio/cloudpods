@@ -383,6 +383,14 @@ type OpsLogListInput struct {
 	Until time.Time `json:"until"`
 }
 
+type HostDmesgLogListInput struct {
+	OpsLogListInput
+
+	LogLevels []string `json:"log_levels"`
+
+	ShowDmesgLog bool `json:"show_dmesg_log"`
+}
+
 type IdNameDetails struct {
 	Id   string `json:"id"`
 	Name string `json:"name"`

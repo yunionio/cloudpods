@@ -52,6 +52,7 @@ func InitDB() error {
 		GuestManager,
 		GuestnetworkManager,
 		HostManager,
+		HostDmesgLogManager,
 		LoadbalancerCertificateManager,
 		LoadbalancerAclManager,
 		LoadbalancerManager,
