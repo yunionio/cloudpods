@@ -46,10 +46,12 @@ func (self *SGoogleClient) ListOrganizations() ([]SOrganization, error) {
 		return nil, errors.Wrap(err, "ListOrganizations")
 	}
 	log.Debugf("ListOrganization: %s", resp)
-	ret := make([]SOrganization, 0)
-	err = resp.Unmarshal(&ret, "organizations")
+	ret := struct {
+		Organizations []SOrganization
+	}{}
+	err = resp.Unmarshal(&ret)
 	if err != nil {
-		return nil, errors.Wrap(err, "resp.Unmarshal")
+		return nil, errors.Wrapf(err, "resp.Unmarshal")
 	}
-	return ret, nil
+	return ret.Organizations, nil
 }
