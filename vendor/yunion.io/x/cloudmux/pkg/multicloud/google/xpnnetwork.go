@@ -108,10 +108,12 @@ func (client *SGoogleClient) GetXpnNetworks(projectId string) ([]SXpnNetwork, er
 	if err != nil {
 		return nil, err
 	}
-	ret := []SXpnNetwork{}
-	err = resp.Unmarshal(&ret, "items")
+	ret := struct {
+		Items []SXpnNetwork
+	}{}
+	err = resp.Unmarshal(&ret)
 	if err != nil {
 		return nil, err
 	}
-	return ret, nil
+	return ret.Items, nil
 }

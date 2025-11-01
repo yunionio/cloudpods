@@ -101,22 +101,26 @@ func getCanonicalHeaders(headers http.Header,
 	return strings.Join(canonicalHeaders, "\n"), signHeaders
 }
 
-func (cli *SBaiduClient) sign(req *http.Request) (string, error) {
+func (cli *SBaiduClient) sign(uri *url.URL, method string, headers http.Header) (string, error) {
+	return cli._sign(uri, method, headers, 1800)
+}
+
+func (cli *SBaiduClient) _sign(uri *url.URL, method string, headers http.Header, expired int) (string, error) {
 	signKeyInfo := fmt.Sprintf("%s/%s/%s/%d",
 		"bce-auth-v1",
 		cli.accessKeyId,
 		time.Now().UTC().Format(ISO8601),
-		1800)
+		expired)
 	hasher := hmac.New(sha256.New, []byte(cli.accessKeySecret))
 	hasher.Write([]byte(signKeyInfo))
 	signKey := hex.EncodeToString(hasher.Sum(nil))
-	canonicalUri := getCanonicalURIPath(req.URL.Path)
-	params, err := url.ParseQuery(req.URL.RawQuery)
+	canonicalUri := getCanonicalURIPath(uri.Path)
+	params, err := url.ParseQuery(uri.RawQuery)
 	if err != nil {
 		return "", errors.Wrapf(err, "ParseQuery")
 	}
 	canonicalQueryString := getCanonicalQueryString(params)
-	canonicalHeaders, signedHeadersArr := getCanonicalHeaders(req.Header, map[string]bool{
+	canonicalHeaders, signedHeadersArr := getCanonicalHeaders(headers, map[string]bool{
 		"host":           true,
 		"Content-Length": true,
 		"Content-Type":   true,
@@ -129,7 +133,7 @@ func (cli *SBaiduClient) sign(req *http.Request) (string, error) {
 		signedHeaders = strings.Join(signedHeadersArr, ";")
 	}
 
-	canonicalParts := []string{req.Method, canonicalUri, canonicalQueryString, canonicalHeaders}
+	canonicalParts := []string{method, canonicalUri, canonicalQueryString, canonicalHeaders}
 	canonicalReq := strings.Join(canonicalParts, "\n")
 	hasher = hmac.New(sha256.New, []byte(signKey))
 	hasher.Write([]byte(canonicalReq))
