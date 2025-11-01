@@ -816,24 +816,24 @@ func (manager *SServerSkuManager) ListItemFilter(
 
 	zoneStr := query.ZoneId
 	if len(zoneStr) > 0 {
-		_zone, err := ZoneManager.FetchByIdOrName(ctx, userCred, zoneStr)
+		zoneObj, err := validators.ValidateModel(ctx, userCred, ZoneManager, &zoneStr)
 		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2("zone", zoneStr)
-			}
-			return nil, httperrors.NewGeneralError(err)
+			return nil, err
 		}
-		zone := _zone.(*SZone)
-		region, _ := zone.GetRegion()
-		if region == nil {
-			return nil, httperrors.NewResourceNotFoundError("failed to find cloudregion for zone %s(%s)", zone.Name, zone.Id)
+		zone := zoneObj.(*SZone)
+		region, err := zone.GetRegion()
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetRegion %s", zone.Name)
 		}
-		//OneCloud忽略zone参数
-		if region.Provider == api.CLOUD_PROVIDER_ONECLOUD {
-			q = q.Equals("cloudregion_id", region.Id)
-		} else {
-			q = q.Equals("zone_id", zone.Id)
-		}
+		q = q.Filter(
+			sqlchemy.OR(
+				sqlchemy.AND(
+					sqlchemy.Equals(q.Field("cloudregion_id"), region.Id),
+					sqlchemy.IsNullOrEmpty(q.Field("zone_id")),
+				),
+				sqlchemy.Equals(q.Field("zone_id"), zone.Id),
+			),
+		)
 	}
 
 	q, err = managedResourceFilterByRegion(ctx, q, query.RegionalFilterListInput, "", nil)
