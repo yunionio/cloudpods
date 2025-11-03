@@ -178,10 +178,6 @@ func (self *SSkuResourcesMeta) Index(resType string) (map[string]string, error) 
 }
 
 func (self *SSkuResourcesMeta) List(resType string, regionId string, retVal interface{}) error {
-	return self.ListNew(resType, regionId, false, retVal)
-}
-
-func (self *SSkuResourcesMeta) ListNew(resType string, regionId string, isNew bool, retVal interface{}) error {
 	if strings.HasPrefix(regionId, api.CLOUD_PROVIDER_HUAWEI) && strings.Contains(regionId, "_") {
 		idx := strings.Index(regionId, "_")
 		regionId = regionId[:idx]
@@ -191,11 +187,7 @@ func (self *SSkuResourcesMeta) ListNew(resType string, regionId string, isNew bo
 	case "dbinstance_sku":
 		url = fmt.Sprintf("%s/%s.status.json", self.DBInstanceBase, regionId)
 	case "serversku":
-		if isNew {
-			url = fmt.Sprintf("%s/%s.status.new.json", self.ServerBase, regionId)
-		} else {
-			url = fmt.Sprintf("%s/%s.status.json", self.ServerBase, regionId)
-		}
+		url = fmt.Sprintf("%s/%s.status.new.json", self.ServerBase, regionId)
 	case "elasticcachesku":
 		url = fmt.Sprintf("%s/%s.status.json", self.ElasticCacheBase, regionId)
 	case "cloudimage":
