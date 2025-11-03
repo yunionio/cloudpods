@@ -341,7 +341,7 @@ func (s *sPodGuestInstance) getStatus(ctx context.Context, defaultStatus string)
 	if s.IsRunning() {
 		status = computeapi.VM_RUNNING
 	}
-	for _, c := range s.containers {
+	for _, c := range s.GetContainers() {
 		cStatus, cs, err := s.getContainerStatus(ctx, c.Id)
 		if err != nil {
 			log.Errorf("get container %s status of pod %s", c.Id, s.Id)
@@ -372,7 +372,7 @@ func (s *sPodGuestInstance) GetUploadStatus(ctx context.Context, reason string) 
 	}*/
 	// sync container's status
 	cStatuss := make(map[string]*computeapi.ContainerPerformStatusInput)
-	for _, c := range s.containers {
+	for _, c := range s.GetContainers() {
 		cStatus, cs, err := s.getContainerStatus(ctx, c.Id)
 		if err != nil {
 			log.Errorf("get container %s status of pod %s", c.Id, s.Id)
