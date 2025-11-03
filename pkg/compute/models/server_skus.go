@@ -1278,22 +1278,41 @@ func (self *SServerSku) MarkAsSoldout(ctx context.Context) error {
 	return errors.Wrap(err, "SServerSku.MarkAsSoldout")
 }
 
-func (manager *SServerSkuManager) FetchSkusByRegion(regionID string) ([]SServerSku, error) {
-	q := manager.Query()
-	q = q.Equals("cloudregion_id", regionID)
+func (region *SCloudregion) FetchSkusByRegion() ([]SServerSku, error) {
+	q := ServerSkuManager.Query().Equals("cloudregion_id", region.Id)
 
 	skus := make([]SServerSku, 0)
-	err := db.FetchModelObjects(manager, q, &skus)
+	err := db.FetchModelObjects(ServerSkuManager, q, &skus)
 	if err != nil {
-		return nil, errors.Wrap(err, "SServerSkuManager.FetchSkusByRegion")
+		return nil, errors.Wrapf(err, "FetchSkusByRegion %s", region.ExternalId)
 	}
 
 	return skus, nil
 }
 
-func (manager *SServerSkuManager) SyncServerSkus(ctx context.Context, userCred mcclient.TokenCredential, region *SCloudregion, xor bool) compare.SyncResult {
-	lockman.LockRawObject(ctx, manager.Keyword(), region.Id)
-	defer lockman.ReleaseRawObject(ctx, manager.Keyword(), region.Id)
+func (region *SCloudregion) GetUsedSkus() (map[string]bool, error) {
+	hosts := HostManager.Query().SubQuery()
+	zones := ZoneManager.Query().Equals("cloudregion_id", region.Id).SubQuery()
+	q := GuestManager.Query("instance_type").Distinct()
+	q = q.Join(hosts, sqlchemy.Equals(q.Field("host_id"), hosts.Field("id")))
+	q = q.Join(zones, sqlchemy.Equals(hosts.Field("zone_id"), zones.Field("id")))
+	ret := []struct {
+		InstanceType string `json:"instance_type"`
+	}{}
+	err := q.All(&ret)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetUsedSkus %s", region.ExternalId)
+	}
+	usedSkus := make(map[string]bool, 0)
+	for _, item := range ret {
+		usedSkus[item.InstanceType] = true
+	}
+	return usedSkus, nil
+}
+
+func (region *SCloudregion) SyncServerSkus(ctx context.Context, userCred mcclient.TokenCredential, xor bool) compare.SyncResult {
+	lockman.LockRawObject(ctx, ServerSkuManager.Keyword(), region.Id)
+	defer lockman.ReleaseRawObject(ctx, ServerSkuManager.Keyword(), region.Id)
 
 	result := compare.SyncResult{}
 
@@ -1304,15 +1323,15 @@ func (manager *SServerSkuManager) SyncServerSkus(ctx context.Context, userCred m
 	}
 
 	extSkus := []SServerSku{}
-	err = meta.List(manager.Keyword(), region.ExternalId, &extSkus)
+	err = meta.List(ServerSkuManager.Keyword(), region.ExternalId, &extSkus)
 	if err != nil {
 		result.Error(errors.Wrapf(err, "List"))
 		return result
 	}
 
-	dbSkus, err := manager.FetchSkusByRegion(region.GetId())
+	dbSkus, err := region.FetchSkusByRegion()
 	if err != nil {
-		result.Error(err)
+		result.Error(errors.Wrapf(err, "FetchSkusByRegion %s", region.ExternalId))
 		return result
 	}
 
@@ -1323,23 +1342,38 @@ func (manager *SServerSkuManager) SyncServerSkus(ctx context.Context, userCred m
 
 	err = compare.CompareSets(dbSkus, extSkus, &removed, &commondb, &commonext, &added)
 	if err != nil {
-		result.Error(err)
+		result.Error(errors.Wrapf(err, "CompareSets %s", region.ExternalId))
 		return result
 	}
 
+	usedSkus, err := region.GetUsedSkus()
+	if err != nil {
+		result.Error(errors.Wrapf(err, "GetUsedSkus %s", region.ExternalId))
+		return result
+	}
+
+	purgeIds := []string{}
 	for i := 0; i < len(removed); i += 1 {
-		cnt, err := removed[i].GetGuestCount()
-		if err != nil || cnt > 0 {
+		var err error
+		if usedSkus[removed[i].Name] {
 			err = removed[i].MarkAsSoldout(ctx)
-		} else {
-			err = removed[i].RealDelete(ctx, userCred)
+			if err != nil {
+				result.DeleteError(err)
+			}
+			continue
 		}
+		purgeIds = append(purgeIds, removed[i].Id)
+	}
+
+	if len(purgeIds) > 0 {
+		err = db.Purge(ServerSkuManager, "id", purgeIds, true)
 		if err != nil {
-			result.DeleteError(err)
+			result.Error(errors.Wrapf(err, "Purge %s", region.ExternalId))
 		} else {
-			result.Delete()
+			result.DelCnt += len(purgeIds)
 		}
 	}
+
 	if !xor {
 		for i := 0; i < len(commondb); i += 1 {
 			err = commondb[i].syncWithCloudSku(ctx, userCred, region, commonext[i])
@@ -1512,19 +1546,8 @@ func fetchSkuSyncCloudregions() []SCloudregion {
 func SyncServerSkus(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
 	// 清理无效的sku
 	log.Debugf("DeleteInvalidSkus in processing...")
-	err := ServerSkuManager.DeleteInvalidSkus()
+	ServerSkuManager.DeleteInvalidSkus()
 
-	if isStart {
-		cnt, err := ServerSkuManager.GetPublicCloudSkuCount()
-		if err != nil {
-			log.Errorf("GetPublicCloudSkuCount fail %s", err)
-			return
-		}
-		if cnt > 0 {
-			log.Debugf("GetPublicCloudSkuCount synced skus, skip...")
-			return
-		}
-	}
 	cloudregions := fetchSkuSyncCloudregions()
 	if len(cloudregions) == 0 {
 		return
@@ -1557,7 +1580,7 @@ func SyncServerSkus(ctx context.Context, userCred mcclient.TokenCredential, isSt
 
 		db.Metadata.SetValue(ctx, skuMeta, db.SKU_METADAT_KEY, newMd5, userCred)
 
-		result := ServerSkuManager.SyncServerSkus(ctx, userCred, region, false)
+		result := region.SyncServerSkus(ctx, userCred, false)
 		notes := fmt.Sprintf("SyncServerSkusByRegion %s result: %v", region.Name, result.Result())
 		log.Debugf("%s", notes)
 	}
@@ -1567,7 +1590,7 @@ func SyncServerSkus(ctx context.Context, userCred mcclient.TokenCredential, isSt
 // 同步指定region sku列表
 func SyncServerSkusByRegion(ctx context.Context, userCred mcclient.TokenCredential, region *SCloudregion, xor bool) compare.SyncResult {
 	result := compare.SyncResult{}
-	result = ServerSkuManager.SyncServerSkus(ctx, userCred, region, xor)
+	result = region.SyncServerSkus(ctx, userCred, xor)
 	notes := fmt.Sprintf("SyncServerSkusByRegion %s result: %v", region.Name, result.Result())
 	log.Infof("%s", notes)
 	return result
