@@ -56,6 +56,8 @@ type MetadataBaseFilterInput struct {
 
 	// 按key模糊匹配
 	KeyLike string `json:"key_like"`
+	// 按value模糊匹配
+	ValueLike string `json:"value_like"`
 
 	// 按Key过滤
 	Key []string `json:"key"`
