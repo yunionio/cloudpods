@@ -98,7 +98,8 @@ func (self *CloudAccountSyncSkusTask) OnInit(ctx context.Context, obj db.IStanda
 	for _, region := range regions {
 		switch res {
 		case models.ServerSkuManager.Keyword():
-			syncFunc = models.ServerSkuManager.SyncServerSkus
+			result := region.SyncServerSkus(ctx, self.GetUserCred(), false)
+			log.Infof("Sync %s %s skus for region %s result: %s", region.Provider, res, region.Name, result.Result())
 		case models.ElasticcacheSkuManager.Keyword():
 			syncFunc = models.ElasticcacheSkuManager.SyncElasticcacheSkus
 		case models.DBInstanceSkuManager.Keyword():
