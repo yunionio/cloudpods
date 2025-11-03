@@ -344,6 +344,9 @@ func (manager *SMetadataManager) metadataBaseFilter(q *sqlchemy.SQuery, input ap
 	if len(input.KeyLike) > 0 {
 		q = q.Contains("key", input.KeyLike)
 	}
+	if len(input.ValueLike) > 0 {
+		q = q.Contains("value", input.ValueLike)
+	}
 	if len(input.Key) > 0 {
 		q = q.In("key", input.Key)
 	}
