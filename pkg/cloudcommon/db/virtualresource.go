@@ -453,10 +453,13 @@ func (model *SVirtualResourceBase) PerformChangeOwner(ctx context.Context, userC
 	model.cleanModelUsages(ctx, userCred)
 
 	oldName := model.Name
+	newName, err := GenerateName2(ctx, manager, ownerId, oldName, model, 1)
+	if err != nil {
+		return nil, errors.Wrap(err, "GenerateName2")
+	}
 	_, err = Update(model, func() error {
-		model.Name, err = GenerateName(ctx, manager, ownerId, oldName)
-		if err != nil {
-			return err
+		if newName != oldName {
+			model.Name = newName
 		}
 		model.DomainId = ownerId.GetProjectDomainId()
 		model.ProjectId = ownerId.GetProjectId()
