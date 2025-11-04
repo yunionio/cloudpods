@@ -486,10 +486,14 @@ func (self *SBaremetalGuestDriver) OnGuestDeployTaskDataReceived(ctx context.Con
 			}
 			disk := iDisk.(*models.SDisk)
 			diskSize, _ := disks[i].Int("size")
+			pciPath, _ := disks[i].GetString("pci_path")
 			notes := fmt.Sprintf("%s=>%s", disk.Status, api.DISK_READY)
 			_, err := db.Update(disk, func() error {
 				if disk.DiskSize < int(diskSize) {
 					disk.DiskSize = int(diskSize)
+				}
+				if len(pciPath) > 0 {
+					disk.PCIPath = pciPath
 				}
 				disk.DiskFormat = "raw"
 				disk.Status = api.DISK_READY

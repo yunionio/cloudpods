@@ -586,6 +586,7 @@ type SDisk struct {
 	DiskSize int `json:"disk_size"`
 	// 磁盘路径
 	AccessPath string `json:"access_path"`
+	PCIPath    string `json:"pci_path"`
 	// 备份磁盘实例的存储ID
 	BackupStorageId string `json:"backup_storage_id"`
 	// 镜像Id
