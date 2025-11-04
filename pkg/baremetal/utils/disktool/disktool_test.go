@@ -14,6 +14,8 @@
 
 package disktool
 
+import "testing"
+
 // TODO: use mock ssh server backend test disktool
 /*
 import (
@@ -64,3 +66,26 @@ func TestSSHCreate(t *testing.T) {
 		t.Errorf("Failed to resize fs: %v", err)
 	}
 }*/
+
+func Test_getPCIPathPrefix(t *testing.T) {
+	tests := []struct {
+		input string
+		want  string
+	}{
+		{
+			input: "/sys/devices/pci0000:00/0000:00:02.2/0000:02:00.0/host0/target0:1:0/0:1:0:0/block/sda",
+			want:  "/sys/devices/pci0000:00/0000:00:02.2/0000:02:00.0/host0/target0:1:0/0:1:0:0",
+		},
+		{
+			input: "/sys/devices/pci0000:00/0000:00:06.0/0000:02:00.0/nvme/nvme0/nvme0n1",
+			want:  "/sys/devices/pci0000:00/0000:00:06.0/0000:02:00.0/nvme",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			if got := getPCIPathPrefix(tt.input); got != tt.want {
+				t.Errorf("getPCIPathPrefix() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
