@@ -327,6 +327,7 @@ type BaremetalRootDiskMatcher struct {
 	Device      string                      `json:"device"`
 	SizeMB      int64                       `json:"size_mb"`
 	SizeMBRange *RootDiskMatcherSizeMBRange `json:"size_mb_range"`
+	PCIPath     string                      `json:"pci_path"`
 }
 
 type ServerConfigs struct {

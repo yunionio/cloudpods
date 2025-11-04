@@ -82,7 +82,7 @@ func (self *GuestDeployTask) OnDeployGuestFail(ctx context.Context, guest *model
 }
 
 func (self *GuestDeployTask) OnDeployGuestComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
-	log.Infof("on_guest_deploy_task_data_received %s", data)
+	log.Infof("guest %s(%s) on_guest_deploy_task_data_received %s", obj.GetName(), obj.GetId(), data)
 	guest := obj.(*models.SGuest)
 	guest.GetDriver().OnGuestDeployTaskDataReceived(ctx, guest, self, data)
 	action, _ := self.Params.GetString("deploy_action")

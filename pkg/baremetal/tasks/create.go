@@ -64,12 +64,13 @@ func (self *SBaremetalServerCreateTask) DoDeploys(ctx context.Context, term *ssh
 		return nil, self.onError(ctx, term, err)
 	}
 	time.Sleep(2 * time.Second)
-	parts, err := self.Baremetal.GetServer().DoPartitionDisk(tool, term, self.IsDisableImageCache())
+	rootDisk, parts, err := self.Baremetal.GetServer().DoPartitionDisk(tool, term, self.IsDisableImageCache())
 	if err != nil {
 		return nil, self.onError(ctx, term, err)
 	}
 	data := jsonutils.NewDict()
-	disks, err := self.Baremetal.GetServer().SyncPartitionSize(term, parts)
+
+	disks, err := self.Baremetal.GetServer().SyncPartitionSize(term, rootDisk, parts)
 	if err != nil {
 		return nil, self.onError(ctx, term, err)
 	}
