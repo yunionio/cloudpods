@@ -68,7 +68,7 @@ func (p *InstanceTypePredicate) Execute(ctx context.Context, u *core.Unit, c cor
 			zoneMatch := false
 			for idx := range skus {
 				sku := skus[idx]
-				if sku.ZoneId == zoneId {
+				if len(sku.ZoneId) == 0 || sku.ZoneId == zoneId {
 					zoneMatch = true
 					break
 				}
