@@ -99,6 +99,7 @@ type SDisk struct {
 	DiskSize int `nullable:"false" list:"user" json:"disk_size"`
 	// 磁盘路径
 	AccessPath string `width:"256" charset:"utf8" nullable:"true" get:"user" json:"access_path"`
+	PCIPath    string `width:"256" charset:"utf8" nullable:"true" get:"user" json:"pci_path"`
 
 	// 存储Id
 	// StorageId       string `width:"128" charset:"ascii" nullable:"true" list:"admin" create:"optional"`
