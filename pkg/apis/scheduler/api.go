@@ -52,6 +52,7 @@ type ServerConfig struct {
 	Name        string `json:"name"`
 	GuestStatus string `json:"guest_status"`
 	Cdrom       string `json:"cdrom"`
+	Bios        string `json:"bios"`
 
 	// owner project id
 	Project string `json:"project_id"`
