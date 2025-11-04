@@ -38,6 +38,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/options"
+	"yunion.io/x/onecloud/pkg/compute/utils"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
@@ -203,6 +204,27 @@ func (m *SContainerManager) ValidateSpec(ctx context.Context, userCred mcclient.
 
 	if err := m.ValidateSpecProbe(ctx, userCred, spec); err != nil {
 		return errors.Wrap(err, "validate probe configuration")
+	}
+
+	if ctr != nil {
+		// only detect loop when update container
+		ctrs, err := m.GetContainersByPod(pod.GetId())
+		if err != nil {
+			return errors.Wrap(err, "get containers by pod")
+		}
+		for idx, container := range ctrs {
+			if container.GetId() == ctr.GetId() {
+				ctrs[idx].Spec = spec
+			}
+		}
+		err = utils.TopologicalSortContainers(
+			ctrs,
+			func(ctr SContainer) string { return ctr.Name },
+			func(ctr SContainer) []string { return ctr.Spec.DependsOn },
+		)
+		if err != nil {
+			return errors.Wrap(err, "validate topological sort")
+		}
 	}
 
 	return nil
