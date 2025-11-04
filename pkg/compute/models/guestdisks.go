@@ -207,6 +207,7 @@ func (self *SGuestdisk) GetDiskJsonDescAtHost(ctx context.Context, host *SHost, 
 		Throughput: disk.Throughput,
 		Bps:        self.Bps,
 		Size:       disk.DiskSize,
+		PCIPath:    disk.PCIPath,
 	}
 	desc.TemplateId = disk.GetTemplateId()
 	storage, _ := disk.GetStorage()

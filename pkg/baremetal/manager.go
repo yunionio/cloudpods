@@ -2655,6 +2655,25 @@ func (s *SBaremetalServer) GetMetadata() (*jsonutils.JSONDict, error) {
 }
 
 func (s *SBaremetalServer) GetRootDiskMatcher() (*api.BaremetalRootDiskMatcher, error) {
+	matcher, err := s.getRootDiskMatcher()
+	if err != nil && errors.Cause(err) != errors.ErrNotFound {
+		return nil, errors.Wrap(err, "getRootDiskMatcher")
+	}
+	if matcher == nil {
+		matcher = &api.BaremetalRootDiskMatcher{}
+	}
+	rootDiskObj, err := s.GetRootDiskObj()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetRootDiskObj")
+	}
+	pciPath, _ := rootDiskObj.GetString("pci_path")
+	if pciPath != "" {
+		matcher.PCIPath = pciPath
+	}
+	return matcher, nil
+}
+
+func (s *SBaremetalServer) getRootDiskMatcher() (*api.BaremetalRootDiskMatcher, error) {
 	metadata, err := s.GetMetadata()
 	if err != nil {
 		return nil, errors.Wrap(err, "get metadata")
@@ -2690,6 +2709,14 @@ func (s *SBaremetalServer) GetDiskConfig() ([]*api.BaremetalDiskConfig, error) {
 		}
 	}
 	return baremetal.GetLayoutRaidConfig(layouts), nil
+}
+
+func (s *SBaremetalServer) GetRootDiskObj() (*jsonutils.JSONDict, error) {
+	disks, _ := s.desc.GetArray("disks")
+	if len(disks) == 0 {
+		return nil, errors.Error("Empty disks in desc")
+	}
+	return disks[0].(*jsonutils.JSONDict), nil
 }
 
 func (s *SBaremetalServer) NewConfigedSSHPartitionTool(term *ssh.Client) (*disktool.SSHPartitionTool, error) {
@@ -2754,9 +2781,8 @@ func (s *SBaremetalServer) DoDiskConfig(term *ssh.Client) (*disktool.SSHPartitio
 	if err != nil {
 		return nil, fmt.Errorf("CalculateLayout: %v", err)
 	}
-	log.Errorf("===layouts: %s", jsonutils.Marshal(layouts).PrettyString())
 	diskConfs := baremetal.GroupLayoutResultsByDriverAdapter(layouts)
-	log.Errorf("===diskConfs: %s", jsonutils.Marshal(diskConfs).PrettyString())
+	log.Errorf("%s layouts: %s, diskConfs: %s", s.GetName(), jsonutils.Marshal(layouts).PrettyString(), jsonutils.Marshal(diskConfs).PrettyString())
 	for _, dConf := range diskConfs {
 		driver := dConf.Driver
 		raidDrv := raiddrivers.GetDriver(driver, term)
@@ -2794,7 +2820,7 @@ func (s *SBaremetalServer) DoDiskConfig(term *ssh.Client) (*disktool.SSHPartitio
 	maxTries := 60
 	for tried := 0; !tool.IsAllDisksReady() && tried < maxTries; tried++ {
 		time.Sleep(5 * time.Second)
-		tool.RetrieveDiskInfo()
+		tool.RetrieveDiskInfo(matcher)
 		log.Warningf("disktool not ready string: %s", tool.DebugString())
 	}
 
@@ -2848,10 +2874,10 @@ func (s *SBaremetalServer) doCreateRoot(term *ssh.Client, devName string, disabl
 	return nil
 }
 
-func (s *SBaremetalServer) DoPartitionDisk(tool *disktool.SSHPartitionTool, term *ssh.Client, disableImageCache bool) ([]*disktool.Partition, error) {
+func (s *SBaremetalServer) DoPartitionDisk(tool *disktool.SSHPartitionTool, term *ssh.Client, disableImageCache bool) (*disktool.DiskPartitions, []*disktool.Partition, error) {
 	raid, nonRaid, pcie, err := detect_storages.DetectStorageInfo(term, false)
 	if err != nil {
-		return nil, err
+		return nil, nil, errors.Wrap(err, "DetectStorageInfo")
 	}
 	storages := make([]*baremetal.BaremetalStorage, 0)
 	storages = append(storages, raid...)
@@ -2873,33 +2899,34 @@ func (s *SBaremetalServer) DoPartitionDisk(tool *disktool.SSHPartitionTool, term
 
 	disks, _ := s.desc.GetArray("disks")
 	if len(disks) == 0 {
-		return nil, errors.Error("Empty disks in desc")
+		return nil, nil, errors.Error("Empty disks in desc")
 	}
 
 	rootImageId := s.GetRootTemplateId()
 	diskOffset := 0
+	rootDisk := tool.GetRootDisk()
 	if len(rootImageId) > 0 {
-		rootDisk := disks[0]
-		rootSize, _ := rootDisk.Int("size")
-		err = s.doCreateRoot(term, tool.GetRootDisk().GetDevName(), disableImageCache)
+		rootDiskObj := disks[0]
+		rootSize, _ := rootDiskObj.Int("size")
+		err = s.doCreateRoot(term, rootDisk.GetDevName(), disableImageCache)
 		if err != nil {
-			return nil, errors.Wrap(err, "Failed to create root")
+			return rootDisk, nil, errors.Wrap(err, "Failed to create root")
 		}
 		tool.RetrievePartitionInfo()
 		parts := tool.GetPartitions()
 		if len(parts) == 0 {
-			return nil, errors.Error("Root disk create failed, no partitions")
+			return rootDisk, nil, errors.Error("Root disk create failed, no partitions")
 		}
 		log.Infof("Resize root to %d MB", rootSize)
 		if err := tool.ResizePartition(0, rootSize); err != nil {
-			return nil, errors.Wrapf(err, "Fail to resize root to %d", rootSize)
+			return rootDisk, nil, errors.Wrapf(err, "Fail to resize root to %d", rootSize)
 		}
 		diskOffset = 1
 	} else {
 		tool.RetrievePartitionInfo()
 		parts := tool.GetPartitions()
 		if len(parts) > 0 {
-			return nil, errors.Error("should no partition!!!")
+			return rootDisk, nil, errors.Error("should no partition!!!")
 		}
 	}
 
@@ -2914,16 +2941,16 @@ func (s *SBaremetalServer) DoPartitionDisk(tool *disktool.SSHPartitionTool, term
 			driver, _ := disk.GetString("driver")
 			log.Infof("Create partition %d %s", sz, fs)
 			if err := tool.CreatePartition(-1, sz, fs, true, driver, uuid); err != nil {
-				return nil, errors.Wrapf(err, "Fail to create disk %s", disk.String())
+				return rootDisk, nil, errors.Wrapf(err, "Fail to create disk %s", disk.String())
 			}
 		}
 	}
 	log.Infof("Finish create partitions")
 
-	return tool.GetPartitions(), nil
+	return rootDisk, tool.GetPartitions(), nil
 }
 
-func (s *SBaremetalServer) DoRebuildRootDisk(tool *disktool.SSHPartitionTool, term *ssh.Client, disableImageCache bool) ([]*disktool.Partition, error) {
+func (s *SBaremetalServer) DoRebuildRootDisk(tool *disktool.SSHPartitionTool, term *ssh.Client, disableImageCache bool) (*disktool.DiskPartitions, []*disktool.Partition, error) {
 	// raid, nonRaid, pcie, err := detect_storages.DetectStorageInfo(term, false)
 	// if err != nil {
 	// 	return nil, err
@@ -2948,7 +2975,7 @@ func (s *SBaremetalServer) DoRebuildRootDisk(tool *disktool.SSHPartitionTool, te
 
 	disks, _ := s.desc.GetArray("disks")
 	if len(disks) == 0 {
-		return nil, fmt.Errorf("Empty disks in desc")
+		return nil, nil, fmt.Errorf("Empty disks in desc")
 	}
 
 	rootDisk := disks[0]
@@ -2956,16 +2983,16 @@ func (s *SBaremetalServer) DoRebuildRootDisk(tool *disktool.SSHPartitionTool, te
 	rd := tool.GetRootDisk()
 	err := s.doCreateRoot(term, rd.GetDevName(), disableImageCache)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to create root: %v", err)
+		return rd, nil, fmt.Errorf("Failed to create root: %v", err)
 	}
 	tool.RetrievePartitionInfo()
 	if err := rd.ReInitInfo(); err != nil {
-		return nil, errors.Wrap(err, "Reinit root disk after create root")
+		return rd, nil, errors.Wrap(err, "Reinit root disk after create root")
 	}
 
 	log.Infof("Resize root to %d MB", rootSize)
 	if err := rd.ResizePartition(rootSize); err != nil {
-		return nil, fmt.Errorf("Fail to resize root to %d, err: %v", rootSize, err)
+		return rd, nil, fmt.Errorf("Fail to resize root to %d, err: %v", rootSize, err)
 	}
 	if len(disks) > 1 {
 		for _, disk := range disks[1:] {
@@ -2992,10 +3019,10 @@ func (s *SBaremetalServer) DoRebuildRootDisk(tool *disktool.SSHPartitionTool, te
 	for _, d := range restDisks {
 		parts = append(parts, d.GetPartitions()...)
 	}
-	return parts, nil
+	return rd, parts, nil
 }
 
-func (s *SBaremetalServer) SyncPartitionSize(term *ssh.Client, parts []*disktool.Partition) ([]jsonutils.JSONObject, error) {
+func (s *SBaremetalServer) SyncPartitionSize(term *ssh.Client, rootDisk *disktool.DiskPartitions, parts []*disktool.Partition) ([]jsonutils.JSONObject, error) {
 	disks, _ := s.desc.GetArray("disks")
 
 	// calculate root partitions count
@@ -3007,18 +3034,24 @@ func (s *SBaremetalServer) SyncPartitionSize(term *ssh.Client, parts []*disktool
 	rootParts := parts[0:rootPartsCnt]
 	dataParts := parts[rootPartsCnt:]
 	idx := 0
+
+	// set root disk attributes that returns to region service
 	size := (rootParts[len(rootParts)-1].GetEnd() + 1) * 512 / 1024 / 1024
-	disks[idx].(*jsonutils.JSONDict).Set("size", jsonutils.NewInt(int64(size)))
+	rootDiskObj := disks[idx].(*jsonutils.JSONDict)
+	rootDiskObj.Set("size", jsonutils.NewInt(int64(size)))
+	rootDiskObj.Set("pci_path", jsonutils.NewString(rootDisk.GetPCIPath()))
+
 	idx += 1
 	for _, p := range dataParts {
 		sizeMB, err := p.GetSizeMB()
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "GetSizeMB")
 		}
 		disks[idx].(*jsonutils.JSONDict).Set("size", jsonutils.NewInt(int64(sizeMB)))
 		disks[idx].(*jsonutils.JSONDict).Set("dev", jsonutils.NewString(p.GetDev()))
 		idx++
 	}
+	s.desc.Set("disks", jsonutils.NewArray(disks...))
 	return disks, nil
 }
 
