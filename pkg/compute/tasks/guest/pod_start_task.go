@@ -45,16 +45,19 @@ func (t *PodStartTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body
 
 func (t *PodStartTask) OnPodStarted(ctx context.Context, pod *models.SGuest, _ jsonutils.JSONObject) {
 	pod.SetStatus(ctx, t.GetUserCred(), api.POD_STATUS_STARTING_CONTAINER, "")
-	ctrs, err := models.GetContainerManager().GetContainersByPod(pod.GetId())
-	if err != nil {
-		t.OnContainerStartedFailed(ctx, pod, jsonutils.NewString(errors.Wrap(err, "GetContainersByPod").Error()))
-		return
-	}
+	// ctrs, err := models.GetContainerManager().GetContainersByPod(pod.GetId())
+	// if err != nil {
+	// 	t.OnContainerStartedFailed(ctx, pod, jsonutils.NewString(errors.Wrap(err, "GetContainersByPod").Error()))
+	// 	return
+	// }
 	t.SetStage("OnContainerStarted", nil)
-	if err := models.GetContainerManager().StartBatchStartTask(ctx, t.GetUserCred(), ctrs, t.GetId()); err != nil {
-		t.OnContainerStartedFailed(ctx, pod, jsonutils.NewString(err.Error()))
+
+	task, err := taskman.TaskManager.NewTask(ctx, "PodStartContainerInDependencyOrderTask", pod, t.GetUserCred(), nil, t.GetTaskId(), "", nil)
+	if err != nil {
+		t.SetStageFailed(ctx, jsonutils.NewString(errors.Wrap(err, "New PodStartContainerInDependencyOrderTask").Error()))
 		return
 	}
+	task.ScheduleRun(nil)
 }
 
 func (t *PodStartTask) OnPodStartedFailed(ctx context.Context, pod *models.SGuest, reason jsonutils.JSONObject) {
