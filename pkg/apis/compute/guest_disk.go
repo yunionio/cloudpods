@@ -94,6 +94,7 @@ type GuestdiskJsonDesc struct {
 	IsSSD         bool   `json:"is_ssd"`
 	NumQueues     uint8  `json:"num_queues"`
 	AutoReset     bool   `json:"auto_reset"`
+	PCIPath       string `json:"pci_path"`
 
 	// esxi
 	ImageInfo struct {

@@ -19,6 +19,7 @@ import (
 	"math"
 	"strings"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
@@ -224,6 +225,7 @@ type DiskPartitions struct {
 	rotate     bool
 	desc       string
 	label      string
+	pciPath    string
 	partitions []*Partition
 }
 
@@ -253,7 +255,13 @@ func (p *DiskPartitions) GetDev() string {
 	return p.dev
 }
 
-func (p *DiskPartitions) SetInfo(info *types.SDiskInfo) *DiskPartitions {
+func getPCIPathPrefix(input string) string {
+	input = strings.TrimSpace(input)
+	parts := strings.Split(input, "/")
+	return strings.Join(parts[0:len(parts)-2], "/")
+}
+
+func (p *DiskPartitions) SetInfo(info *types.SDiskInfo) (*DiskPartitions, error) {
 	p.dev = fmt.Sprintf("/dev/%s", info.Dev)
 	p.devName = info.Dev
 	p.sectors = info.Sector
@@ -262,7 +270,17 @@ func (p *DiskPartitions) SetInfo(info *types.SDiskInfo) *DiskPartitions {
 	if p.blockSize == 4096 {
 		p.sectors = (p.sectors >> 3)
 	}
-	return p
+
+	// /sys/block/sda => /sys/devices/pci0000:00/0000:00:04.0/virtio1/host0/target0:0:0/0:0:0:0/block/sda
+	// /sys/block/nvme1n1 => /sys/devices/pci0000:00/0000:00:1a.0/0000:03:00.0/nvme/nvme1/nvme1n1
+	outputs, err := p.Run(fmt.Sprintf("readlink -f /sys/block/%s", info.Dev))
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to read device %s pci path", p.dev)
+	}
+	if len(outputs) > 0 {
+		p.pciPath = getPCIPathPrefix(outputs[0])
+	}
+	return p, nil
 }
 
 func (p *DiskPartitions) ReInitInfo() error {
@@ -273,7 +291,9 @@ func (p *DiskPartitions) ReInitInfo() error {
 	}
 	for _, disk := range sysutils.ParseDiskInfo(lines, p.driver) {
 		if disk.Dev == p.GetDevName() {
-			p.SetInfo(disk)
+			if _, err := p.SetInfo(disk); err != nil {
+				return errors.Wrapf(err, "set info of disk %v", disk)
+			}
 		}
 	}
 	return p.RetrievePartitionInfo()
@@ -324,6 +344,10 @@ func (ps *DiskPartitions) GetDevName() string {
 	}
 	devName = strings.TrimLeft(lv.BlockDev, "/dev/")
 	return devName
+}
+
+func (ps *DiskPartitions) GetPCIPath() string {
+	return ps.pciPath
 }
 
 func (ps *DiskPartitions) RetrievePartitionInfo() error {
@@ -664,7 +688,7 @@ func (tool *PartitionTool) parseLsDisk(lines []string, driver string) {
 	}
 }
 
-func (tool *PartitionTool) FetchDiskConfs(diskConfs []baremetal.DiskConfiguration, rootMatcher *api.BaremetalRootDiskMatcher) *PartitionTool {
+func (tool *PartitionTool) FetchDiskConfs(diskConfs []baremetal.DiskConfiguration) *PartitionTool {
 	for _, d := range diskConfs {
 		disk := newDiskPartitions(d.Driver, d.Adapter, d.RaidConfig, d.Size, d.Block, d.DiskType, tool)
 		tool.disks = append(tool.disks, disk)
@@ -681,16 +705,10 @@ func (tool *PartitionTool) FetchDiskConfs(diskConfs []baremetal.DiskConfiguratio
 		}
 		tool.diskTable[key] = append(tool.diskTable[key], disk)
 	}
-	// reorder tool.disks
-	if rootMatcher != nil {
-		tool.reorderRootDisk(rootMatcher)
-	}
 	return tool
 }
 
 func (tool *PartitionTool) reorderRootDisk(matcher *api.BaremetalRootDiskMatcher) {
-	var rootDiskIdx = 0
-
 	isDiskMatch := func(disk *DiskPartitions, matcher *api.BaremetalRootDiskMatcher) bool {
 		if matcher.Device != "" {
 			if disk.dev == matcher.Device {
@@ -710,16 +728,25 @@ func (tool *PartitionTool) reorderRootDisk(matcher *api.BaremetalRootDiskMatcher
 				return true
 			}
 		}
+		if matcher.PCIPath != "" {
+			if disk.pciPath == matcher.PCIPath {
+				return true
+			}
+		}
 		return false
 	}
+
+	var rootDiskStr string
+	var rootDiskIdx = 0
 
 	for idx, disk := range tool.disks {
 		if isDiskMatch(disk, matcher) {
 			rootDiskIdx = idx
+			rootDiskStr = disk.String()
 			break
 		}
 	}
-	log.Infof("Select %d as root disk", rootDiskIdx)
+	log.Infof("Select %d %q as root disk by matcher: %s", rootDiskIdx, rootDiskStr, jsonutils.Marshal(matcher))
 	newDisks := make([]*DiskPartitions, 0)
 	newDisks = append(newDisks, tool.disks[rootDiskIdx])
 	for idx := range tool.disks {
@@ -741,7 +768,7 @@ func (tool *PartitionTool) IsAllDisksReady() bool {
 	return true
 }
 
-func (tool *PartitionTool) RetrieveDiskInfo() error {
+func (tool *PartitionTool) RetrieveDiskInfo(rootMatcher *api.BaremetalRootDiskMatcher) error {
 	for _, driver := range []string{RAID_DRVIER, NONRAID_DRIVER, PCIE_DRIVER} {
 		cmd := fmt.Sprintf("/lib/mos/lsdisk --%s", driver)
 		ret, err := tool.Run(cmd)
@@ -749,6 +776,10 @@ func (tool *PartitionTool) RetrieveDiskInfo() error {
 			return err
 		}
 		tool.parseLsDisk(ret, driver)
+	}
+	// reorder tool.disks
+	if rootMatcher != nil {
+		tool.reorderRootDisk(rootMatcher)
 	}
 	return nil
 }
@@ -837,8 +868,8 @@ func newSSHPartitionTool(term *ssh.Client) *SSHPartitionTool {
 
 func NewSSHPartitionTool(term *ssh.Client, layouts []baremetal.Layout, rootMatcher *api.BaremetalRootDiskMatcher) (*SSHPartitionTool, error) {
 	tool := newSSHPartitionTool(term)
-	tool.FetchDiskConfs(baremetal.GetDiskConfigurations(layouts), rootMatcher)
-	if err := tool.RetrieveDiskInfo(); err != nil {
+	tool.FetchDiskConfs(baremetal.GetDiskConfigurations(layouts))
+	if err := tool.RetrieveDiskInfo(rootMatcher); err != nil {
 		return nil, errors.Wrapf(err, "RetrieveDiskInfo")
 	}
 	return tool, nil

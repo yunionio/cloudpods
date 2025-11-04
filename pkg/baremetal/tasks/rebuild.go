@@ -58,11 +58,11 @@ func (self *SBaremetalServerRebuildTask) DoDeploys(ctx context.Context, term *ss
 	if err != nil {
 		return nil, errors.Wrap(err, "NewConfigedSSHPartitionTool")
 	}
-	parts, err := self.Baremetal.GetServer().DoRebuildRootDisk(tool, term, self.IsDisableImageCache())
+	rootDisk, parts, err := self.Baremetal.GetServer().DoRebuildRootDisk(tool, term, self.IsDisableImageCache())
 	if err != nil {
 		return nil, fmt.Errorf("Rebuild root disk: %v", err)
 	}
-	disks, err := self.Baremetal.GetServer().SyncPartitionSize(term, parts)
+	disks, err := self.Baremetal.GetServer().SyncPartitionSize(term, rootDisk, parts)
 	if err != nil {
 		return nil, fmt.Errorf("SyncPartitionSize: %v", err)
 	}
