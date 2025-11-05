@@ -157,6 +157,10 @@ func (self *SDisk) GetTemplateId() string {
 	return ""
 }
 
+func (self *SDisk) GetDeviceName() string {
+	return self.getDevice()
+}
+
 func (self *SDisk) getDevice() string {
 	for _, dev := range self.Attachments {
 		if len(dev.Device) > 0 {

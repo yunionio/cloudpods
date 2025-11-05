@@ -112,6 +112,9 @@ type SDisk struct {
 	// 备份Id
 	BackupId string `width:"256" charset:"ascii" nullable:"true" list:"user" json:"backup_id"`
 
+	// 设备名称
+	Device string `width:"32" charset:"ascii" nullable:"true" get:"user" list:"user"`
+
 	// 文件系统
 	FsFormat string `width:"32" charset:"ascii" nullable:"true" list:"user" json:"fs_format"`
 
@@ -1824,6 +1827,9 @@ func (self *SDisk) syncWithCloudDisk(ctx context.Context, userCred mcclient.Toke
 		if extDisk.GetIsAutoDelete() {
 			self.AutoDelete = true
 		}
+		if device := extDisk.GetDeviceName(); len(device) > 0 {
+			self.Device = device
+		}
 		// self.TemplateId = extDisk.GetTemplateId() no sync template ID
 		if templateId := extDisk.GetTemplateId(); len(templateId) > 0 {
 			cachedImage, err := db.FetchByExternalId(CachedimageManager, templateId)
@@ -1908,6 +1914,7 @@ func (manager *SDiskManager) newFromCloudDisk(ctx context.Context, userCred mccl
 		disk.DiskType = api.DISK_TYPE_SYS
 	}
 	disk.Nonpersistent = extDisk.GetIsNonPersistent()
+	disk.Device = extDisk.GetDeviceName()
 
 	disk.IsEmulated = extDisk.IsEmulated()
 

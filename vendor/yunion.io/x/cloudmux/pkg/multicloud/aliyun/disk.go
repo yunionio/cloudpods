@@ -168,6 +168,10 @@ func (self *SDisk) SetTags(tags map[string]string, replace bool) error {
 	return self.storage.zone.region.SetResourceTags(ALIYUN_SERVICE_ECS, "disk", self.DiskId, tags, replace)
 }
 
+func (self *SDisk) GetDeviceName() string {
+	return self.Device
+}
+
 func (self *SRegion) ChangeDiskChargeType(vmId, diskId string, billingType string) error {
 	params := make(map[string]string)
 	params["RegionId"] = self.RegionId
