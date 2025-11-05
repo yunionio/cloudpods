@@ -42,3 +42,7 @@ func (disk *SDisk) GetPreallocation() string {
 func (disk *SDisk) ChangeStorage(ctx context.Context, opts *cloudprovider.ChangeStorageOptions) error {
 	return errors.Wrapf(cloudprovider.ErrNotImplemented, "ChangeStorage")
 }
+
+func (disk *SDisk) GetDeviceName() string {
+	return ""
+}
