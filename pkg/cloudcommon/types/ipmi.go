@@ -16,9 +16,11 @@ package types
 
 import "yunion.io/x/jsonutils"
 
+type PowerStatus string
+
 const (
-	POWER_STATUS_ON  = "on"
-	POWER_STATUS_OFF = "off"
+	POWER_STATUS_ON  PowerStatus = "on"
+	POWER_STATUS_OFF PowerStatus = "off"
 )
 
 type SIPMIInfo struct {

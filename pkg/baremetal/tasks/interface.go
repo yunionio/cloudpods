@@ -50,10 +50,10 @@ type IBaremetal interface {
 
 	SyncStatus(ctx context.Context, status, reason string)
 	AutoSyncStatus(ctx context.Context)
-	SyncAllStatus(ctx context.Context, status string)
+	SyncAllStatus(ctx context.Context, status types.PowerStatus)
 	AutoSyncAllStatus(ctx context.Context)
 
-	GetPowerStatus() (string, error)
+	GetPowerStatus() (types.PowerStatus, error)
 	DoPowerShutdown(soft bool) error
 	DoPXEBoot() error
 	// DoDiskBoot() error
