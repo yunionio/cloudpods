@@ -432,7 +432,7 @@ func (self *SRegion) GetImages(status ImageStatusType, owners []TImageOwnerType,
 	noVersionImages := make([]SImage, 0)
 	versionedImages := make(map[string][]SImage)
 	for i := range images {
-		key := fmt.Sprintf("%s%s", getImageOSDist(images[i]), getImageOSVersion(images[i]))
+		key := fmt.Sprintf("%s%s%s", getImageOSDist(images[i]), getImageOSVersion(images[i]), images[i].Architecture)
 		if len(key) == 0 {
 			noVersionImages = append(noVersionImages, images[i])
 			continue
