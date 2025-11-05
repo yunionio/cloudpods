@@ -193,11 +193,6 @@ func sliceToJsonObject(items []int) jsonutils.JSONObject {
 	return ret
 }
 
-func inWhiteList(provider string) bool {
-	// 私有云套餐也允许更新删除
-	return provider == api.CLOUD_PROVIDER_ONECLOUD || utils.IsInStringArray(provider, api.PRIVATE_CLOUD_PROVIDERS)
-}
-
 func genInstanceType(family string, cpu, memMb int64) (string, error) {
 	if cpu <= 0 {
 		return "", fmt.Errorf("cpu_core_count should great than zero")
@@ -679,9 +674,10 @@ func (self *SServerSku) ValidateDeleteCondition(ctx context.Context, info *api.S
 		return httperrors.NewNotEmptyError("now allow to delete inuse instance_type.please remove related servers first: %s", self.Name)
 	}
 
-	if !inWhiteList(self.Provider) {
+	if !options.Options.EnableDeletePublicCloudSku && utils.IsInStringArray(self.Provider, api.PUBLIC_CLOUD_PROVIDERS) {
 		return httperrors.NewForbiddenError("not allow to delete public cloud instance_type: %s", self.Name)
 	}
+
 	return nil
 }
 
