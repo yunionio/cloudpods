@@ -69,6 +69,10 @@ var rhel = SAWSImagePublisherInfo{
 		parts := strings.Split(image.ImageName, "-")
 		if len(parts) >= 2 {
 			parts = strings.Split(parts[1], "_")
+			version := strings.Split(parts[0], ".")
+			if len(version) >= 2 {
+				return fmt.Sprintf("%s.%s", version[0], version[1])
+			}
 			return parts[0]
 		}
 		return ""
@@ -76,7 +80,7 @@ var rhel = SAWSImagePublisherInfo{
 	GetOSBuildID: func(image SImage) string {
 		parts := strings.Split(image.ImageName, "-")
 		if len(parts) >= 2 {
-			return parts[2]
+			return parts[2] + image.CreationTime.Format("20060102150405")
 		}
 		return ""
 	},
@@ -229,7 +233,7 @@ var ubuntu = SAWSImagePublisherInfo{
 	},
 	GetOSBuildID: func(image SImage) string {
 		parts := strings.Split(image.ImageName, "-")
-		return parts[len(parts)-1]
+		return parts[len(parts)-1] + image.CreationTime.Format("20060102150405")
 	},
 }
 
@@ -463,13 +467,20 @@ var windowsServer = SAWSImagePublisherInfo{
 			return amazon.GetOSBuildID(image)
 		}
 		parts := strings.Split(image.ImageName, "-")
-		return parts[len(parts)-1]
+		return parts[len(parts)-1] + image.CreationTime.Format("20060102150405")
 	},
 }
 
 var (
-	amazonVersionPattern  = regexp.MustCompile(`-(\d{4})\.(\d{2})\.(rc-\d+|\d+)(\.(\d+))?`)
+	amazonVersionPattern = regexp.MustCompile(`-(\d{4})\.(\d{2})\.(rc-\d+|\d+)(\.(\d+))?`)
+	// amzn2-ami-hvm-2.0.20250915.0-x86_64-gp2
 	amazonVersionPattern2 = regexp.MustCompile(`-(\d{1,2})\.(\d{1,2})\.(\d{8})(\.(\d+))?`)
+	// al2023-ami-minimal-2023.8.20250808.1-kernel-6.1-x86_64
+	amazonVersionPattern3 = regexp.MustCompile(`-(\d{4})\.(\d{1,2})\.(\d{8})(\.(\d+))?`)
+
+	// amzn2-ami-kernel-5.10-hvm-2.0.20250808.1-x86_64-ebs
+	// al2023-ami-2023.8.20250915.0-kernel-6.1-arm64
+	kernelPattern = regexp.MustCompile(`-kernel-(\d{1}\.\d{1,2})-`)
 )
 
 var amazon = SAWSImagePublisherInfo{
@@ -477,11 +488,19 @@ var amazon = SAWSImagePublisherInfo{
 		return "Linux"
 	},
 	GetOSDist: func(image SImage) string {
-		if strings.HasPrefix(image.ImageName, "amzn-ami-minimal-") || strings.HasPrefix(image.ImageName, "amzn2-ami-minimal-") {
-			return "Amazon Linux Minimal"
-		} else {
+		dist := func() string {
+			if strings.HasPrefix(image.ImageName, "amzn-ami-minimal-") || strings.HasPrefix(image.ImageName, "amzn2-ami-minimal-") {
+				return "Amazon Linux Minimal"
+			} else if strings.HasPrefix(image.ImageName, "al2023-ami-") {
+				return "Amazon Linux 2023"
+			}
 			return "Amazon Linux"
+		}()
+		info := kernelPattern.FindStringSubmatch(image.ImageName)
+		if len(info) > 0 {
+			dist = fmt.Sprintf("%s Kernel-%s", dist, info[1])
 		}
+		return dist
 	},
 	GetOSVersion: func(image SImage) string {
 		verStrs := amazonVersionPattern2.FindStringSubmatch(image.ImageName)
@@ -492,20 +511,34 @@ var amazon = SAWSImagePublisherInfo{
 		if len(verStrs) > 3 {
 			return fmt.Sprintf("%s.%s.%s", verStrs[1], verStrs[2], verStrs[3])
 		}
+		verStrs = amazonVersionPattern3.FindStringSubmatch(image.ImageName)
+		if len(verStrs) > 3 {
+			return fmt.Sprintf("%s.%s.%s", verStrs[1], verStrs[2], verStrs[3][:6])
+		}
 		return ""
 	},
 	GetOSBuildID: func(image SImage) string {
-		verStrs := amazonVersionPattern2.FindStringSubmatch(image.ImageName)
-		if len(verStrs) > 5 && len(verStrs[5]) > 0 {
-			return fmt.Sprintf("%s.%s", verStrs[3], verStrs[5])
-		} else if len(verStrs) > 3 {
-			return verStrs[3]
-		}
-		verStrs = amazonVersionPattern.FindStringSubmatch(image.ImageName)
-		if len(verStrs) > 5 {
-			return verStrs[5]
-		}
-		return ""
+		buildId := func() string {
+			verStrs := amazonVersionPattern2.FindStringSubmatch(image.ImageName)
+			if len(verStrs) > 5 && len(verStrs[5]) > 0 {
+				return fmt.Sprintf("%s.%s", verStrs[3], verStrs[5])
+			} else if len(verStrs) > 3 {
+				return verStrs[3]
+			}
+			verStrs = amazonVersionPattern.FindStringSubmatch(image.ImageName)
+			if len(verStrs) > 5 {
+				return verStrs[5]
+			}
+			verStrs = amazonVersionPattern3.FindStringSubmatch(image.ImageName)
+			if len(verStrs) > 5 && len(verStrs[5]) > 0 {
+				return fmt.Sprintf("%s.%s", verStrs[3], verStrs[5])
+			} else if len(verStrs) > 3 {
+				return verStrs[3]
+			}
+			return ""
+		}()
+		buildId += image.CreationTime.Format("20060102150405")
+		return buildId
 	},
 }
 

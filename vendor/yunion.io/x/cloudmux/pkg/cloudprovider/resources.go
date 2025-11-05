@@ -547,6 +547,7 @@ type ICloudDisk interface {
 	// GetStatus() string
 	GetDiskFormat() string
 	GetDiskSizeMB() int // MB
+	GetDeviceName() string
 	GetIsAutoDelete() bool
 	GetTemplateId() string
 	GetDiskType() string
