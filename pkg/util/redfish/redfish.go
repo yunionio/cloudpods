@@ -390,10 +390,10 @@ func (r *SBaseRedfishClient) GetSystemInfo(ctx context.Context) (string, SSystem
 	sysInfo.Model = strings.TrimSpace(sysInfo.Model)
 	sysInfo.Manufacturer = strings.TrimSpace(sysInfo.Manufacturer)
 
-	if strings.EqualFold(sysInfo.PowerState, types.POWER_STATUS_ON) {
-		sysInfo.PowerState = types.POWER_STATUS_ON
+	if strings.EqualFold(sysInfo.PowerState, string(types.POWER_STATUS_ON)) {
+		sysInfo.PowerState = string(types.POWER_STATUS_ON)
 	} else {
-		sysInfo.PowerState = types.POWER_STATUS_OFF
+		sysInfo.PowerState = string(types.POWER_STATUS_OFF)
 	}
 
 	memGBStr, _ := resp.GetString("MemorySummary", "TotalSystemMemoryGiB")

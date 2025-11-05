@@ -58,7 +58,7 @@ func (self *BaremetalServerStartTask) OnInit(ctx context.Context, obj db.IStanda
 }
 
 func (self *BaremetalServerStartTask) OnStartComplete(ctx context.Context, guest *models.SGuest, body jsonutils.JSONObject) {
-	guest.SetStatus(ctx, self.UserCred, api.VM_RUNNING, "")
+	guest.SetStatus(ctx, self.UserCred, api.VM_RUNNING, "BaremetalServerStartTask.OnStartComplete")
 	baremetal, _ := guest.GetHost()
 	baremetal.SetStatus(ctx, self.UserCred, api.BAREMETAL_RUNNING, "")
 	db.OpsLog.LogEvent(guest, db.ACT_START, guest.GetShortDesc(ctx), self.UserCred)

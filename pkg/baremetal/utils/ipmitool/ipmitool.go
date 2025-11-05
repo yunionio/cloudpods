@@ -520,7 +520,7 @@ func DoReboot(exector IPMIExecutor) error {
 	}
 
 	isValidStatus := func(s string) bool {
-		return utils.IsInStringArray(s, []string{types.POWER_STATUS_ON, types.POWER_STATUS_OFF})
+		return utils.IsInStringArray(s, []string{string(types.POWER_STATUS_ON), string(types.POWER_STATUS_OFF)})
 	}
 
 	for tried := 0; !isValidStatus(status) && tried <= maxTries; tried++ {
@@ -536,7 +536,7 @@ func DoReboot(exector IPMIExecutor) error {
 	}
 
 	// do shutdown
-	if status == types.POWER_STATUS_ON {
+	if status == string(types.POWER_STATUS_ON) {
 		if err := DoHardShutdown(exector); err != nil {
 			log.Errorf("DoHardShutdown: %v", err)
 		}
@@ -546,7 +546,7 @@ func DoReboot(exector IPMIExecutor) error {
 			if err != nil {
 				log.Errorf("DoReboot %d tries to get power status: %v", tried, err)
 			}
-			if status == types.POWER_STATUS_OFF {
+			if status == string(types.POWER_STATUS_OFF) {
 				break
 			}
 			time.Sleep(10 * time.Second)
@@ -555,7 +555,7 @@ func DoReboot(exector IPMIExecutor) error {
 
 	// do power on
 	status, _ = GetChassisPowerStatus(exector)
-	for tried := 0; status != types.POWER_STATUS_ON && tried < maxTries; tried++ {
+	for tried := 0; status != string(types.POWER_STATUS_ON) && tried < maxTries; tried++ {
 		if err := DoPowerOn(exector); err != nil {
 			log.Errorf("DoReboot %d tries to power on: %v", tried, err)
 		}
@@ -570,7 +570,7 @@ func DoReboot(exector IPMIExecutor) error {
 	if err != nil {
 		return errors.Wrap(err, "Get power status after power on")
 	}
-	if status != types.POWER_STATUS_ON {
+	if status != string(types.POWER_STATUS_ON) {
 		return errors.Errorf("do reboot fail to poweron, current status: %s", status)
 	}
 	return nil
