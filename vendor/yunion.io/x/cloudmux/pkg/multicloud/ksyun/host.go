@@ -92,6 +92,9 @@ func (region *SRegion) CreateVM(opts *cloudprovider.SManagedVMCreateConfig) (*SI
 		"SystemDisk.DiskSize": fmt.Sprintf("%d", opts.SysDisk.SizeGB),
 		"SyncTag":             "true",
 	}
+	if len(opts.Hostname) > 0 {
+		params["HostName"] = opts.Hostname
+	}
 	if len(opts.Password) > 0 {
 		params["InstancePassword"] = opts.Password
 	}

@@ -205,6 +205,10 @@ func (self *SDisk) GetExpiredAt() time.Time {
 	return time.Time{}
 }
 
+func (self *SDisk) GetDeviceName() string {
+	return self.GetMountpoint()
+}
+
 func (self *SDisk) GetIStorage() (cloudprovider.ICloudStorage, error) {
 	return self.storage, nil
 }
@@ -275,10 +279,11 @@ func (self *SDisk) GetCacheMode() string {
 }
 
 func (self *SDisk) GetMountpoint() string {
-	if len(self.Attachments) > 0 {
-		return self.Attachments[0].Device
+	for _, attachment := range self.Attachments {
+		if len(attachment.Device) > 0 {
+			return attachment.Device
+		}
 	}
-
 	return ""
 }
 

@@ -459,6 +459,12 @@ func (drv *SManagedVirtualizedGuestDriver) RequestAttachDisk(ctx context.Context
 					if err != nil {
 						return false, errors.Wrapf(err, "RequestAttachDisk.iVM.WaitStatus")
 					}
+					if device := iDisks[i].GetDeviceName(); len(device) > 0 {
+						db.Update(disk, func() error {
+							disk.Device = device
+							return nil
+						})
+					}
 
 					return true, nil
 				}
@@ -1226,6 +1232,7 @@ func (drv *SManagedVirtualizedGuestDriver) OnGuestDeployTaskDataReceived(ctx con
 				disk.ExternalId = diskInfo[i].Uuid
 				disk.DiskType = diskInfo[i].DiskType
 				disk.Status = api.DISK_READY
+				disk.Device = diskInfo[i].Device
 
 				disk.FsFormat = diskInfo[i].FsFromat
 				if diskInfo[i].AutoDelete {

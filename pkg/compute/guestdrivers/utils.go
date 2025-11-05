@@ -41,6 +41,7 @@ type SDiskInfo struct {
 	CacheMode         string
 	ExpiredAt         time.Time
 	StorageExternalId string
+	Device            string
 
 	Metadata map[string]string
 }
@@ -97,6 +98,7 @@ func fetchIVMinfo(desc cloudprovider.SManagedVMCreateConfig, iVM cloudprovider.I
 			dinfo.TemplateId = idisks[i].GetTemplateId()
 			dinfo.FsFromat = idisks[i].GetFsFormat()
 			dinfo.ExpiredAt = idisks[i].GetExpiredAt()
+			dinfo.Device = idisks[i].GetDeviceName()
 			dinfo.StorageExternalId = idisks[i].GetIStorageId()
 			diskSysTags := idisks[i].GetSysTags()
 			diskTags, _ := idisks[i].GetTags()

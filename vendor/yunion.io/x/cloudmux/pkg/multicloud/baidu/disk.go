@@ -147,6 +147,15 @@ func (disk *SDisk) GetName() string {
 	return disk.Name
 }
 
+func (disk *SDisk) GetDeviceName() string {
+	for _, attachment := range disk.Attachments {
+		if len(attachment.Device) > 0 {
+			return attachment.Device
+		}
+	}
+	return ""
+}
+
 func (disk *SDisk) GetStatus() string {
 	switch disk.Status {
 	case "Available", "InUse", "Recharging":
