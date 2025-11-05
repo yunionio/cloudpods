@@ -319,6 +319,37 @@ func (cli *SKsyunClient) vpcRequest(regionId, apiName string, params map[string]
 }
 
 func (cli *SKsyunClient) request(service, regionId, apiName, apiVersion string, params map[string]interface{}) (jsonutils.JSONObject, error) {
+	isQueryApi := strings.HasPrefix(apiName, "Get") || strings.HasPrefix(apiName, "Describe") || strings.HasPrefix(apiName, "List")
+	if !isQueryApi {
+		return cli._request(service, regionId, apiName, apiVersion, params)
+	}
+	for i := 0; i < 2; i++ {
+		resp, err := cli._request(service, regionId, apiName, apiVersion, params)
+		if err != nil {
+			retry := false
+			for _, key := range []string{
+				"EOF",
+				"i/o timeout",
+				"TLS handshake timeout",
+				"connection reset by peer",
+			} {
+				if strings.Contains(err.Error(), key) {
+					retry = true
+					break
+				}
+			}
+			if !retry {
+				return nil, errors.Wrapf(err, "request")
+			}
+			time.Sleep(time.Second * 10)
+			continue
+		}
+		return resp, nil
+	}
+	return cli._request(service, regionId, apiName, apiVersion, params)
+}
+
+func (cli *SKsyunClient) _request(service, regionId, apiName, apiVersion string, params map[string]interface{}) (jsonutils.JSONObject, error) {
 	uri, err := cli.getUrl(service, regionId)
 	if err != nil {
 		return nil, errors.Wrapf(err, "getUrl")
