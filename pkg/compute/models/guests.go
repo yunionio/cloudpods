@@ -3620,6 +3620,8 @@ type Attach2NetworkArgs struct {
 	IsDefault    bool
 	PortMappings api.GuestPortMappings
 
+	ChargeType string
+
 	PendingUsage quotas.IQuota
 }
 
@@ -3652,6 +3654,8 @@ func (args *Attach2NetworkArgs) onceArgs(i int) attach2NetworkOnceArgs {
 
 		pendingUsage: args.PendingUsage,
 		portMappings: args.PortMappings,
+
+		chargeType: args.ChargeType,
 	}
 	if i > 0 {
 		r.ipAddr = ""
@@ -3696,6 +3700,8 @@ type attach2NetworkOnceArgs struct {
 
 	pendingUsage quotas.IQuota
 	portMappings api.GuestPortMappings
+
+	chargeType string
 }
 
 func (self *SGuest) Attach2Network(
@@ -3774,6 +3780,8 @@ func (self *SGuest) attach2NetworkOnce(
 
 		isDefault:    args.isDefault,
 		portMappings: args.portMappings,
+
+		chargeType: args.chargeType,
 	}
 	lockman.LockClass(ctx, QuotaManager, self.ProjectId)
 	defer lockman.ReleaseClass(ctx, QuotaManager, self.ProjectId)
@@ -3806,18 +3814,6 @@ func (self *SGuest) attach2NetworkOnce(
 	}
 	db.OpsLog.LogAttachEvent(ctx, self, network, userCred, guestnic.GetShortDesc(ctx))
 	return guestnic, nil
-}
-
-type sRemoveGuestnic struct {
-	nic     *SGuestnetwork
-	reserve bool
-}
-
-type sAddGuestnic struct {
-	index   int
-	nic     cloudprovider.ICloudNic
-	net     *SNetwork
-	reserve bool
 }
 
 func getCloudNicNetwork(ctx context.Context, vnic cloudprovider.ICloudNic, host *SHost, ipList []string, index int) (*SNetwork, error) {
@@ -4563,6 +4559,8 @@ func (self *SGuest) attach2NamedNetworkDesc(ctx context.Context, userCred mcclie
 
 			IsDefault:    netConfig.IsDefault,
 			PortMappings: netConfig.PortMappings,
+
+			ChargeType: netConfig.ChargeType,
 		})
 		if err != nil {
 			return nil, errors.Wrap(err, "Attach2Network fail")
