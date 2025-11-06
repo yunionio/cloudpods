@@ -697,6 +697,23 @@ func (m *SGuestMonitor) getCadvisorDiskIoMetrics(cur stats.DiskIoStats, prev map
 	return ret
 }
 
+func isPodContainerStopped(prevUsage *GuestMetrics, stat *stats.PodStats) bool {
+	hasPrevUsage := prevUsage != nil && prevUsage.PodMetrics != nil
+	if !hasPrevUsage {
+		return false
+	}
+	curTime := stat.CPU.Time.Time
+	podCpu := &PodCpuMetric{
+		PodMetricMeta:        NewPodMetricMeta(curTime),
+		CpuUsageSecondsTotal: float64(*stat.CPU.UsageCoreNanoSeconds) / float64(time.Second),
+	}
+	pmPodCpu := prevUsage.PodMetrics.PodCpu
+	if podCpu.CpuUsageSecondsTotal < pmPodCpu.CpuUsageSecondsTotal {
+		return true
+	}
+	return false
+}
+
 func (m *SGuestMonitor) PodMetrics(prevUsage *GuestMetrics) *PodMetrics {
 	stat := m.podStat
 	curTime := stat.CPU.Time.Time
