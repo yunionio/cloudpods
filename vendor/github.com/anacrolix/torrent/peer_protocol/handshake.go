@@ -1,20 +1,39 @@
 package peer_protocol
 
 import (
+	"context"
 	"encoding/hex"
+	"errors"
 	"fmt"
+	"github.com/anacrolix/torrent/internal/ctxrw"
 	"io"
+	"math/bits"
+	"strconv"
+	"strings"
+	"unsafe"
 
-	"github.com/anacrolix/missinggo"
 	"github.com/anacrolix/torrent/metainfo"
 )
 
 type ExtensionBit uint
 
+// https://www.bittorrent.org/beps/bep_0004.html
+// https://wiki.theory.org/BitTorrentSpecification.html#Reserved_Bytes
 const (
-	ExtensionBitDHT      = 0  // http://www.bittorrent.org/beps/bep_0005.html
-	ExtensionBitExtended = 20 // http://www.bittorrent.org/beps/bep_0010.html
-	ExtensionBitFast     = 2  // http://www.bittorrent.org/beps/bep_0006.html
+	ExtensionBitDht  = 0 // http://www.bittorrent.org/beps/bep_0005.html
+	ExtensionBitFast = 2 // http://www.bittorrent.org/beps/bep_0006.html
+	// A peer connection initiator can set this when sending a v1 infohash during handshake if they
+	// allow the receiving end to upgrade to v2 by responding with the corresponding v2 infohash.
+	// BEP 52, and BEP 4. TODO: Set by default and then clear it when it's not appropriate to send.
+	ExtensionBitV2Upgrade                    = 4
+	ExtensionBitAzureusExtensionNegotiation1 = 16
+	ExtensionBitAzureusExtensionNegotiation2 = 17
+	// LibTorrent Extension Protocol, http://www.bittorrent.org/beps/bep_0010.html
+	ExtensionBitLtep = 20
+	// https://wiki.theory.org/BitTorrent_Location-aware_Protocol_1
+	ExtensionBitLocationAwareProtocol    = 43
+	ExtensionBitAzureusMessagingProtocol = 63 // https://www.bittorrent.org/beps/bep_0004.html
+
 )
 
 func handshakeWriter(w io.Writer, bb <-chan []byte, done chan<- error) {
@@ -32,31 +51,63 @@ type (
 	PeerExtensionBits [8]byte
 )
 
-func (me PeerExtensionBits) String() string {
-	return hex.EncodeToString(me[:])
+var bitTags = []struct {
+	bit ExtensionBit
+	tag string
+}{
+	// Ordered by their bit position left to right.
+	{ExtensionBitAzureusMessagingProtocol, "amp"},
+	{ExtensionBitLocationAwareProtocol, "loc"},
+	{ExtensionBitLtep, "ltep"},
+	{ExtensionBitAzureusExtensionNegotiation2, "azen2"},
+	{ExtensionBitAzureusExtensionNegotiation1, "azen1"},
+	{ExtensionBitV2Upgrade, "v2"},
+	{ExtensionBitFast, "fast"},
+	{ExtensionBitDht, "dht"},
+}
+
+func (pex PeerExtensionBits) String() string {
+	pexHex := hex.EncodeToString(pex[:])
+	tags := make([]string, 0, len(bitTags)+1)
+	for _, bitTag := range bitTags {
+		if pex.GetBit(bitTag.bit) {
+			tags = append(tags, bitTag.tag)
+			pex.SetBit(bitTag.bit, false)
+		}
+	}
+	unknownCount := bits.OnesCount64(*(*uint64)((unsafe.Pointer(&pex[0]))))
+	if unknownCount != 0 {
+		tags = append(tags, fmt.Sprintf("%v unknown", unknownCount))
+	}
+	return fmt.Sprintf("%v (%s)", pexHex, strings.Join(tags, ", "))
+
 }
 
 func NewPeerExtensionBytes(bits ...ExtensionBit) (ret PeerExtensionBits) {
 	for _, b := range bits {
-		ret.SetBit(b)
+		ret.SetBit(b, true)
 	}
 	return
 }
 
 func (pex PeerExtensionBits) SupportsExtended() bool {
-	return pex.GetBit(ExtensionBitExtended)
+	return pex.GetBit(ExtensionBitLtep)
 }
 
 func (pex PeerExtensionBits) SupportsDHT() bool {
-	return pex.GetBit(ExtensionBitDHT)
+	return pex.GetBit(ExtensionBitDht)
 }
 
 func (pex PeerExtensionBits) SupportsFast() bool {
 	return pex.GetBit(ExtensionBitFast)
 }
 
-func (pex *PeerExtensionBits) SetBit(bit ExtensionBit) {
-	pex[7-bit/8] |= 1 << (bit % 8)
+func (pex *PeerExtensionBits) SetBit(bit ExtensionBit, on bool) {
+	if on {
+		pex[7-bit/8] |= 1 << (bit % 8)
+	} else {
+		pex[7-bit/8] &^= 1 << (bit % 8)
+	}
 }
 
 func (pex PeerExtensionBits) GetBit(bit ExtensionBit) bool {
@@ -69,11 +120,19 @@ type HandshakeResult struct {
 	metainfo.Hash
 }
 
-// ih is nil if we expect the peer to declare the InfoHash, such as when the
-// peer initiated the connection. Returns ok if the Handshake was successful,
-// and err if there was an unexpected condition other than the peer simply
-// abandoning the Handshake.
-func Handshake(sock io.ReadWriter, ih *metainfo.Hash, peerID [20]byte, extensions PeerExtensionBits) (res HandshakeResult, ok bool, err error) {
+// ih is nil if we expect the peer to declare the InfoHash, such as when the peer initiated the
+// connection. Returns ok if the Handshake was successful, and err if there was an unexpected
+// condition other than the peer simply abandoning the Handshake.
+func Handshake(
+	ctx context.Context,
+	sock io.ReadWriter,
+	ih *metainfo.Hash,
+	peerID [20]byte,
+	extensions PeerExtensionBits,
+) (
+	res HandshakeResult, err error,
+) {
+	sock = ctxrw.WrapReadWriter(ctx, sock)
 	// Bytes to be sent to the peer. Should never block the sender.
 	postCh := make(chan []byte, 4)
 	// A single error value sent when the writer completes.
@@ -83,16 +142,13 @@ func Handshake(sock io.ReadWriter, ih *metainfo.Hash, peerID [20]byte, extension
 
 	defer func() {
 		close(postCh) // Done writing.
-		if !ok {
-			return
-		}
 		if err != nil {
-			panic(err)
+			return
 		}
 		// Wait until writes complete before returning from handshake.
 		err = <-writeDone
 		if err != nil {
-			err = fmt.Errorf("error writing: %s", err)
+			err = fmt.Errorf("error writing: %w", err)
 		}
 	}()
 
@@ -113,15 +169,21 @@ func Handshake(sock io.ReadWriter, ih *metainfo.Hash, peerID [20]byte, extension
 	var b [68]byte
 	_, err = io.ReadFull(sock, b[:68])
 	if err != nil {
-		err = nil
-		return
+		return res, fmt.Errorf("while reading: %w", err)
 	}
 	if string(b[:20]) != Protocol {
-		return
+		return res, errors.New("unexpected protocol string")
 	}
-	missinggo.CopyExact(&res.PeerExtensionBits, b[20:28])
-	missinggo.CopyExact(&res.Hash, b[28:48])
-	missinggo.CopyExact(&res.PeerID, b[48:68])
+
+	copyExact := func(dst, src []byte) {
+		if dstLen, srcLen := uint64(len(dst)), uint64(len(src)); dstLen != srcLen {
+			panic("dst len " + strconv.FormatUint(dstLen, 10) + " != src len " + strconv.FormatUint(srcLen, 10))
+		}
+		copy(dst, src)
+	}
+	copyExact(res.PeerExtensionBits[:], b[20:28])
+	copyExact(res.Hash[:], b[28:48])
+	copyExact(res.PeerID[:], b[48:68])
 	// peerExtensions.Add(res.PeerExtensionBits.String(), 1)
 
 	// TODO: Maybe we can just drop peers here if we're not interested. This
@@ -132,6 +194,5 @@ func Handshake(sock io.ReadWriter, ih *metainfo.Hash, peerID [20]byte, extension
 		post(peerID[:])
 	}
 
-	ok = true
 	return
 }

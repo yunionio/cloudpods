@@ -20,3 +20,14 @@ func All(cb Callback, fs ...Func) bool {
 	}
 	return true
 }
+
+// Calls `cb` with the first value yielded by `f` and then stops iteration. `ok` if `cb` was called
+// with a value.
+func First(cb func(value interface{}),f Func) (ok bool) {
+	f(func(value interface{}) bool {
+		ok = true
+		cb(value)
+		return false
+	})
+	return
+}

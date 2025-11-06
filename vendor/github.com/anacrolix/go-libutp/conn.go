@@ -4,14 +4,13 @@ package utp
 #include "utp.h"
 */
 import "C"
+
 import (
 	"bytes"
 	"context"
 	"errors"
-	"fmt"
 	"io"
 	"net"
-	"runtime/pprof"
 	"sync"
 	"syscall"
 	"time"
@@ -19,8 +18,9 @@ import (
 )
 
 var (
-	ErrConnClosed    = errors.New("closed")
-	errConnDestroyed = errors.New("destroyed")
+	ErrConnClosed            = errors.New("closed")
+	errConnDestroyed         = errors.New("destroyed")
+	errDeadlineExceededValue = errDeadlineExceeded{}
 )
 
 type Conn struct {
@@ -35,10 +35,6 @@ type Conn struct {
 	destroyed bool
 	// Conn.Close was called.
 	closed bool
-	// Corresponds to utp_socket.state != CS_UNITIALIZED. This requires the
-	// utp_socket was obtained from the accept callback, or has had
-	// utp_connect called on it. We can't call utp_close until it's true.
-	inited bool
 
 	err error
 
@@ -99,12 +95,8 @@ func (c *Conn) Close() error {
 }
 
 func (c *Conn) close() {
-	if c.inited && !c.destroyed && !c.closed {
+	if !c.destroyed && !c.closed {
 		C.utp_close(c.us)
-	}
-	if !c.inited {
-		// We'll never receive a destroy message, so we should remove it now.
-		delete(c.s.conns, c.us)
 	}
 	c.closed = true
 	c.cond.Broadcast()
@@ -135,9 +127,9 @@ func (c *Conn) readNoWait(b []byte) (n int, err error) {
 		case c.destroyed:
 			return errConnDestroyed
 		case c.closed:
-			return errors.New("closed")
+			return ErrConnClosed
 		case !c.readDeadline.IsZero() && !time.Now().Before(c.readDeadline):
-			return errDeadlineExceeded{}
+			return errDeadlineExceededValue
 		default:
 			return nil
 		}
@@ -170,7 +162,7 @@ func (c *Conn) writeNoWait(b []byte) (n int, err error) {
 		case c.destroyed:
 			return errConnDestroyed
 		case !c.writeDeadline.IsZero() && !time.Now().Before(c.writeDeadline):
-			return errDeadlineExceeded{}
+			return errDeadlineExceededValue
 		default:
 			return nil
 		}
@@ -178,9 +170,7 @@ func (c *Conn) writeNoWait(b []byte) (n int, err error) {
 	if err != nil {
 		return
 	}
-	pprof.Do(context.Background(), pprof.Labels("cgo", "utp_write"), func(context.Context) {
-		n = int(C.utp_write(c.us, unsafe.Pointer(&b[0]), C.size_t(len(b))))
-	})
+	n = int(C.utp_write(c.us, unsafe.Pointer(&b[0]), C.size_t(len(b))))
 	if n < 0 {
 		panic(n)
 	}
@@ -212,11 +202,11 @@ func (c *Conn) setRemoteAddr() {
 	var rsa syscall.RawSockaddrAny
 	var addrlen C.socklen_t = C.socklen_t(unsafe.Sizeof(rsa))
 	C.utp_getpeername(c.us, (*C.struct_sockaddr)(unsafe.Pointer(&rsa)), &addrlen)
-	sa, err := anyToSockaddr(&rsa)
-	if err != nil {
+	var udp net.UDPAddr
+	if err := anySockaddrToUdp(&rsa, &udp); err != nil {
 		panic(err)
 	}
-	c.remoteAddr = sockaddrToUDP(sa)
+	c.remoteAddr = &udp
 }
 
 func (c *Conn) RemoteAddr() net.Addr {
@@ -239,6 +229,7 @@ func (c *Conn) SetDeadline(t time.Time) error {
 	c.cond.Broadcast()
 	return nil
 }
+
 func (c *Conn) SetReadDeadline(t time.Time) error {
 	mu.Lock()
 	defer mu.Unlock()
@@ -252,6 +243,7 @@ func (c *Conn) SetReadDeadline(t time.Time) error {
 	c.cond.Broadcast()
 	return nil
 }
+
 func (c *Conn) SetWriteDeadline(t time.Time) error {
 	mu.Lock()
 	defer mu.Unlock()
@@ -292,32 +284,20 @@ func (c *Conn) SetWriteBufferLen(len int) {
 	}
 }
 
-// Connect an unconnected Conn (obtained through Socket.NewConn).
-func (c *Conn) Connect(ctx context.Context, network, addr string) error {
-	if network == "" {
-		network = c.localAddr.Network()
-	}
-	ua, err := resolveAddr(network, addr)
-	if err != nil {
-		return fmt.Errorf("error resolving address: %v", err)
-	}
-	sa, sl := netAddrToLibSockaddr(ua)
-	mu.Lock()
-	defer mu.Unlock()
-	if c.s.closed {
-		return errSocketClosed
-	}
-	if n := C.utp_connect(c.us, sa, sl); n != 0 {
+// utp_connect *must* be called on a created socket or it's impossible to correctly deallocate it
+// (at least through utp API?). See https://github.com/bittorrent/libutp/issues/113. This function
+// does both in a single step to prevent incorrect use. Note that accept automatically creates a
+// socket (after the firewall check) and it arrives initialized correctly.
+func utpCreateSocketAndConnect(
+	ctx *C.utp_context,
+	addr syscall.RawSockaddrAny,
+	addrlen C.socklen_t,
+) *C.utp_socket {
+	utpSock := C.utp_create_socket(ctx)
+	if n := C.utp_connect(utpSock, (*C.struct_sockaddr)(unsafe.Pointer(&addr)), addrlen); n != 0 {
 		panic(n)
 	}
-	c.inited = true
-	c.setRemoteAddr()
-	err = c.waitForConnect(ctx)
-	if err != nil {
-		c.close()
-		return err
-	}
-	return nil
+	return utpSock
 }
 
 func (c *Conn) OnError(f func(error)) {

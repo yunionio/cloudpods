@@ -26,25 +26,31 @@ import "unsafe"
 
 type socklen C.socklen_t
 
-func (ctx *C.utp_context) setCallbacks() {
-	C.utp_set_callback(ctx, C.UTP_ON_FIREWALL, (*C.utp_callback_t)(C.firewallCallback))
-	C.utp_set_callback(ctx, C.UTP_LOG, (*C.utp_callback_t)(C.logCallback))
-	C.utp_set_callback(ctx, C.UTP_ON_ACCEPT, (*C.utp_callback_t)(C.acceptCallback))
-	C.utp_set_callback(ctx, C.UTP_SENDTO, (*C.utp_callback_t)(C.sendtoCallback))
-	C.utp_set_callback(ctx, C.UTP_ON_STATE_CHANGE, (*C.utp_callback_t)(C.stateChangeCallback))
-	C.utp_set_callback(ctx, C.UTP_ON_READ, (*C.utp_callback_t)(C.readCallback))
-	C.utp_set_callback(ctx, C.UTP_ON_ERROR, (*C.utp_callback_t)(C.errorCallback))
-	C.utp_set_callback(ctx, C.UTP_GET_READ_BUFFER_SIZE, (*C.utp_callback_t)(C.getReadBufferSizeCallback))
+type utpContext C.utp_context
+
+func (ctx *utpContext) asCPtr() *C.utp_context {
+	return (*C.utp_context)(ctx)
 }
 
-func (ctx *C.utp_context) setOption(opt Option, val int) int {
-	return int(C.utp_context_set_option(ctx, opt, C.int(val)))
+func (ctx *utpContext) setCallbacks() {
+	C.utp_set_callback(ctx.asCPtr(), C.UTP_ON_FIREWALL, (*C.utp_callback_t)(C.firewallCallback))
+	C.utp_set_callback(ctx.asCPtr(), C.UTP_LOG, (*C.utp_callback_t)(C.logCallback))
+	C.utp_set_callback(ctx.asCPtr(), C.UTP_ON_ACCEPT, (*C.utp_callback_t)(C.acceptCallback))
+	C.utp_set_callback(ctx.asCPtr(), C.UTP_SENDTO, (*C.utp_callback_t)(C.sendtoCallback))
+	C.utp_set_callback(ctx.asCPtr(), C.UTP_ON_STATE_CHANGE, (*C.utp_callback_t)(C.stateChangeCallback))
+	C.utp_set_callback(ctx.asCPtr(), C.UTP_ON_READ, (*C.utp_callback_t)(C.readCallback))
+	C.utp_set_callback(ctx.asCPtr(), C.UTP_ON_ERROR, (*C.utp_callback_t)(C.errorCallback))
+	C.utp_set_callback(ctx.asCPtr(), C.UTP_GET_READ_BUFFER_SIZE, (*C.utp_callback_t)(C.getReadBufferSizeCallback))
+}
+
+func (ctx *utpContext) setOption(opt Option, val int) int {
+	return int(C.utp_context_set_option(ctx.asCPtr(), opt, C.int(val)))
 }
 
 func libStateName(state C.int) string {
 	return C.GoString((*[5]*C.char)(unsafe.Pointer(&C.utp_state_names))[state])
 }
 
-func libErrorCodeNames(error_code C.int) string {
-	return C.GoString((*[3]*C.char)(unsafe.Pointer(&C.utp_error_code_names))[error_code])
+func libErrorCodeNames(errorCode C.int) string {
+	return C.GoString((*[3]*C.char)(unsafe.Pointer(&C.utp_error_code_names))[errorCode])
 }

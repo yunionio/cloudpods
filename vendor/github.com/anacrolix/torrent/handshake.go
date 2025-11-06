@@ -2,6 +2,7 @@ package torrent
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"net"
@@ -27,22 +28,26 @@ func (r deadlineReader) Read(b []byte) (int, error) {
 	return r.r.Read(b)
 }
 
+// Handles stream encryption for inbound connections.
 func handleEncryption(
 	rw io.ReadWriter,
 	skeys mse.SecretKeyIter,
-	policy EncryptionPolicy,
+	policy HeaderObfuscationPolicy,
+	selector mse.CryptoSelector,
 ) (
 	ret io.ReadWriter,
 	headerEncrypted bool,
 	cryptoMethod mse.CryptoMethod,
 	err error,
 ) {
-	if !policy.ForceEncryption {
+	// Tries to start an unencrypted stream.
+	if !policy.RequirePreferred || !policy.Preferred {
 		var protocol [len(pp.Protocol)]byte
 		_, err = io.ReadFull(rw, protocol[:])
 		if err != nil {
 			return
 		}
+		// Put the protocol back into the stream.
 		rw = struct {
 			io.Reader
 			io.Writer
@@ -54,20 +59,14 @@ func handleEncryption(
 			ret = rw
 			return
 		}
+		if policy.RequirePreferred {
+			// We are here because we require unencrypted connections.
+			err = fmt.Errorf("unexpected protocol string %q and header obfuscation disabled", protocol)
+			return
+		}
 	}
 	headerEncrypted = true
-	ret, cryptoMethod, err = mse.ReceiveHandshake(rw, skeys, func(provides mse.CryptoMethod) mse.CryptoMethod {
-		switch {
-		case policy.ForceEncryption:
-			return mse.CryptoMethodRC4
-		case policy.DisableEncryption:
-			return mse.CryptoMethodPlaintext
-		case policy.PreferNoEncryption && provides&mse.CryptoMethodPlaintext != 0:
-			return mse.CryptoMethodPlaintext
-		default:
-			return mse.DefaultCryptoSelector(provides)
-		}
-	})
+	ret, cryptoMethod, err = mse.ReceiveHandshake(context.TODO(), rw, skeys, selector)
 	return
 }
 

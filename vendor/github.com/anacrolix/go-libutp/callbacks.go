@@ -4,15 +4,24 @@ package utp
 #include "utp.h"
 */
 import "C"
+
 import (
-	"log"
+	"net"
 	"reflect"
 	"strings"
 	"sync/atomic"
 	"unsafe"
+
+	"github.com/anacrolix/log"
 )
 
-func (a *C.utp_callback_arguments) bufBytes() []byte {
+type utpCallbackArguments C.utp_callback_arguments
+
+func (a *utpCallbackArguments) goContext() *utpContext {
+	return (*utpContext)(a.context)
+}
+
+func (a *utpCallbackArguments) bufBytes() []byte {
 	return *(*[]byte)(unsafe.Pointer(&reflect.SliceHeader{
 		uintptr(unsafe.Pointer(a.buf)),
 		int(a.len),
@@ -20,35 +29,38 @@ func (a *C.utp_callback_arguments) bufBytes() []byte {
 	}))
 }
 
-func (a *C.utp_callback_arguments) state() C.int {
+func (a *utpCallbackArguments) state() C.int {
 	return *(*C.int)(unsafe.Pointer(&a.anon0))
 }
 
-func (a *C.utp_callback_arguments) error_code() C.int {
+func (a *utpCallbackArguments) error_code() C.int {
 	return *(*C.int)(unsafe.Pointer(&a.anon0))
 }
 
-func (a *C.utp_callback_arguments) address() *C.struct_sockaddr {
+func (a *utpCallbackArguments) address() *C.struct_sockaddr {
 	return *(**C.struct_sockaddr)(unsafe.Pointer(&a.anon0[0]))
 }
 
-func (a *C.utp_callback_arguments) addressLen() C.socklen_t {
+func (a *utpCallbackArguments) addressLen() C.socklen_t {
 	return *(*C.socklen_t)(unsafe.Pointer(&a.anon1[0]))
 }
 
 var sends int64
 
 //export sendtoCallback
-func sendtoCallback(a *C.utp_callback_arguments) (ret C.uint64) {
-	s := getSocketForLibContext(a.context)
+func sendtoCallback(a *utpCallbackArguments) (ret C.uint64) {
+	s := getSocketForLibContext(a.goContext())
 	b := a.bufBytes()
-	addr := structSockaddrToUDPAddr(a.address())
+	var sendToUdpAddr net.UDPAddr
+	if err := structSockaddrToUDPAddr(a.address(), &sendToUdpAddr); err != nil {
+		panic(err)
+	}
 	newSends := atomic.AddInt64(&sends, 1)
 	if logCallbacks {
-		Logger.Printf("sending %d bytes, %d packets", len(b), newSends)
+		s.logger.Printf("sending %d bytes, %d packets", len(b), newSends)
 	}
 	expMap.Add("socket PacketConn writes", 1)
-	n, err := s.pc.WriteTo(b, addr)
+	n, err := s.pc.WriteTo(b, &sendToUdpAddr)
 	c := s.conns[a.socket]
 	if err != nil {
 		expMap.Add("socket PacketConn write errors", 1)
@@ -64,39 +76,41 @@ func sendtoCallback(a *C.utp_callback_arguments) (ret C.uint64) {
 			// Rate-limited. Probably Linux. The implementation might try
 			// again later.
 		} else {
-			Logger.Printf("error sending packet: %s", err)
+			s.logger.Levelf(log.Debug, "error sending packet: %v", err)
 		}
 		return
 	}
 	if n != len(b) {
 		expMap.Add("socket PacketConn short writes", 1)
-		Logger.Printf("expected to send %d bytes but only sent %d", len(b), n)
+		s.logger.Printf("expected to send %d bytes but only sent %d", len(b), n)
 	}
 	return
 }
 
 //export errorCallback
-func errorCallback(a *C.utp_callback_arguments) C.uint64 {
+func errorCallback(a *utpCallbackArguments) C.uint64 {
+	s := getSocketForLibContext(a.goContext())
 	err := errorForCode(a.error_code())
 	if logCallbacks {
-		log.Printf("error callback: socket %p: %s", a.socket, err)
+		s.logger.Printf("error callback: socket %p: %s", a.socket, err)
 	}
-	libContextToSocket[a.context].conns[a.socket].onError(err)
+	libContextToSocket[a.goContext()].conns[a.socket].onError(err)
 	return 0
 }
 
 //export logCallback
-func logCallback(a *C.utp_callback_arguments) C.uint64 {
-	Logger.Printf("libutp: %s", C.GoString((*C.char)(unsafe.Pointer(a.buf))))
+func logCallback(a *utpCallbackArguments) C.uint64 {
+	s := getSocketForLibContext(a.goContext())
+	s.logger.Printf("libutp: %s", C.GoString((*C.char)(unsafe.Pointer(a.buf))))
 	return 0
 }
 
 //export stateChangeCallback
-func stateChangeCallback(a *C.utp_callback_arguments) C.uint64 {
-	s := libContextToSocket[a.context]
+func stateChangeCallback(a *utpCallbackArguments) C.uint64 {
+	s := libContextToSocket[a.goContext()]
 	c := s.conns[a.socket]
 	if logCallbacks {
-		Logger.Printf("state changed: conn %p: %s", c, libStateName(a.state()))
+		s.logger.Printf("state changed: conn %p: %s", c, libStateName(a.state()))
 	}
 	switch a.state() {
 	case C.UTP_STATE_CONNECT:
@@ -120,12 +134,12 @@ func stateChangeCallback(a *C.utp_callback_arguments) C.uint64 {
 }
 
 //export readCallback
-func readCallback(a *C.utp_callback_arguments) C.uint64 {
-	s := libContextToSocket[a.context]
+func readCallback(a *utpCallbackArguments) C.uint64 {
+	s := libContextToSocket[a.goContext()]
 	c := s.conns[a.socket]
 	b := a.bufBytes()
 	if logCallbacks {
-		log.Printf("read callback: conn %p: %d bytes", c, len(b))
+		s.logger.Printf("read callback: conn %p: %d bytes", c, len(b))
 	}
 	if len(b) == 0 {
 		panic("that will break the read drain invariant")
@@ -136,21 +150,20 @@ func readCallback(a *C.utp_callback_arguments) C.uint64 {
 }
 
 //export acceptCallback
-func acceptCallback(a *C.utp_callback_arguments) C.uint64 {
+func acceptCallback(a *utpCallbackArguments) C.uint64 {
+	s := getSocketForLibContext(a.goContext())
 	if logCallbacks {
-		log.Printf("accept callback: %#v", *a)
+		s.logger.Printf("accept callback: %#v", *a)
 	}
-	s := getSocketForLibContext(a.context)
 	c := s.newConn(a.socket)
 	c.setRemoteAddr()
-	c.inited = true
 	s.pushBacklog(c)
 	return 0
 }
 
 //export getReadBufferSizeCallback
-func getReadBufferSizeCallback(a *C.utp_callback_arguments) (ret C.uint64) {
-	s := libContextToSocket[a.context]
+func getReadBufferSizeCallback(a *utpCallbackArguments) (ret C.uint64) {
+	s := libContextToSocket[a.goContext()]
 	c := s.conns[a.socket]
 	if c == nil {
 		// socket hasn't been added to the Socket.conns yet. The read buffer
@@ -163,11 +176,16 @@ func getReadBufferSizeCallback(a *C.utp_callback_arguments) (ret C.uint64) {
 }
 
 //export firewallCallback
-func firewallCallback(a *C.utp_callback_arguments) C.uint64 {
-	s := getSocketForLibContext(a.context)
-	if s.block {
+func firewallCallback(a *utpCallbackArguments) C.uint64 {
+	s := getSocketForLibContext(a.goContext())
+	if s.syncFirewallCallback != nil {
+		var addr net.UDPAddr
+		structSockaddrToUDPAddr(a.address(), &addr)
+		if s.syncFirewallCallback(&addr) {
+			return 1
+		}
+	} else if s.asyncBlock {
 		return 1
-	} else {
-		return 0
 	}
+	return 0
 }

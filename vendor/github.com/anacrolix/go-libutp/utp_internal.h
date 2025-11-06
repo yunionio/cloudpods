@@ -76,7 +76,7 @@ struct UTPSocketKey {
 	uint32 recv_id;		 // "conn_seed", "conn_id"
 
 	UTPSocketKey(const PackedSockAddr& _addr, uint32 _recv_id) {
-		memset(this, 0, sizeof(*this));
+		memset((void*)this, 0, sizeof(*this));
 		addr = _addr;
 		recv_id = _recv_id;
 	}

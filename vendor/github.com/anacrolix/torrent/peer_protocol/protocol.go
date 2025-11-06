@@ -6,10 +6,16 @@ const (
 
 type MessageType byte
 
+// golang.org/x/tools/cmd/stringer
 //go:generate stringer -type=MessageType
 
 func (mt MessageType) FastExtension() bool {
 	return mt >= Suggest && mt <= AllowedFast
+}
+
+func (mt *MessageType) UnmarshalBinary(b []byte) error {
+	*mt = MessageType(b[0])
+	return nil
 }
 
 const (
@@ -23,7 +29,9 @@ const (
 	Request       MessageType = 6
 	Piece         MessageType = 7
 	Cancel        MessageType = 8
-	Port          MessageType = 9
+
+	// BEP 5
+	Port MessageType = 9
 
 	// BEP 6 - Fast extension
 	Suggest     MessageType = 0x0d // 13
@@ -34,12 +42,17 @@ const (
 
 	// BEP 10
 	Extended MessageType = 20
+
+	// BEP 52
+	HashRequest MessageType = 21
+	Hashes      MessageType = 22
+	HashReject  MessageType = 23
 )
 
 const (
 	HandshakeExtendedID = 0
 
-	RequestMetadataExtensionMsgType = 0
-	DataMetadataExtensionMsgType    = 1
-	RejectMetadataExtensionMsgType  = 2
+	RequestMetadataExtensionMsgType ExtendedMetadataRequestMsgType = 0
+	DataMetadataExtensionMsgType    ExtendedMetadataRequestMsgType = 1
+	RejectMetadataExtensionMsgType  ExtendedMetadataRequestMsgType = 2
 )
