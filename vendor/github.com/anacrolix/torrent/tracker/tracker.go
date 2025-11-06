@@ -3,80 +3,87 @@ package tracker
 import (
 	"context"
 	"errors"
+	"fmt"
+	"net"
 	"net/http"
 	"net/url"
+	"time"
 
-	"github.com/anacrolix/dht/krpc"
+	"github.com/anacrolix/dht/v2/krpc"
+	"github.com/anacrolix/log"
+
+	trHttp "github.com/anacrolix/torrent/tracker/http"
+	"github.com/anacrolix/torrent/tracker/shared"
+	"github.com/anacrolix/torrent/tracker/udp"
 )
-
-// Marshalled as binary by the UDP client, so be careful making changes.
-type AnnounceRequest struct {
-	InfoHash   [20]byte
-	PeerId     [20]byte
-	Downloaded int64
-	Left       uint64
-	Uploaded   int64
-	// Apparently this is optional. None can be used for announces done at
-	// regular intervals.
-	Event     AnnounceEvent
-	IPAddress uint32
-	Key       int32
-	NumWant   int32 // How many peer addresses are desired. -1 for default.
-	Port      uint16
-} // 82 bytes
-
-type AnnounceResponse struct {
-	Interval int32 // Minimum seconds the local peer should wait before next announce.
-	Leechers int32
-	Seeders  int32
-	Peers    []Peer
-}
-
-type AnnounceEvent int32
-
-func (e AnnounceEvent) String() string {
-	// See BEP 3, "event".
-	return []string{"empty", "completed", "started", "stopped"}[e]
-}
 
 const (
-	None      AnnounceEvent = iota
-	Completed               // The local peer just completed the torrent.
-	Started                 // The local peer has just resumed this torrent.
-	Stopped                 // The local peer is leaving the swarm.
+	None      = shared.None
+	Started   = shared.Started
+	Stopped   = shared.Stopped
+	Completed = shared.Completed
 )
 
-var (
-	ErrBadScheme = errors.New("unknown scheme")
-)
+type AnnounceRequest = udp.AnnounceRequest
+
+type AnnounceResponse = trHttp.AnnounceResponse
+
+type Peer = trHttp.Peer
+
+type AnnounceEvent = udp.AnnounceEvent
+
+var ErrBadScheme = errors.New("unknown scheme")
 
 type Announce struct {
-	TrackerUrl string
-	Request    AnnounceRequest
-	HostHeader string
-	HTTPProxy  func(*http.Request) (*url.URL, error)
-	ServerName string
-	UserAgent  string
-	UdpNetwork string
+	TrackerUrl          string
+	Request             AnnounceRequest
+	HostHeader          string
+	HttpProxy           func(*http.Request) (*url.URL, error)
+	HttpRequestDirector func(*http.Request) error
+	DialContext         func(ctx context.Context, network, addr string) (net.Conn, error)
+	ListenPacket        func(network, addr string) (net.PacketConn, error)
+	ServerName          string
+	UserAgent           string
+	UdpNetwork          string
 	// If the port is zero, it's assumed to be the same as the Request.Port.
 	ClientIp4 krpc.NodeAddr
 	// If the port is zero, it's assumed to be the same as the Request.Port.
 	ClientIp6 krpc.NodeAddr
 	Context   context.Context
+	Logger    log.Logger
 }
 
+// The code *is* the documentation.
+const DefaultTrackerAnnounceTimeout = 15 * time.Second
+
 func (me Announce) Do() (res AnnounceResponse, err error) {
-	_url, err := url.Parse(me.TrackerUrl)
+	cl, err := NewClient(me.TrackerUrl, NewClientOpts{
+		Http: trHttp.NewClientOpts{
+			Proxy:       me.HttpProxy,
+			DialContext: me.DialContext,
+			ServerName:  me.ServerName,
+		},
+		UdpNetwork:   me.UdpNetwork,
+		Logger:       me.Logger.WithContextValue(fmt.Sprintf("tracker client for %q", me.TrackerUrl)),
+		ListenPacket: me.ListenPacket,
+	})
 	if err != nil {
 		return
 	}
-	switch _url.Scheme {
-	case "http", "https":
-		return announceHTTP(me, _url)
-	case "udp", "udp4", "udp6":
-		return announceUDP(me, _url)
-	default:
-		err = ErrBadScheme
-		return
+	defer cl.Close()
+	if me.Context == nil {
+		// This is just to maintain the old behaviour that should be a timeout of 15s. Users can
+		// override it by providing their own Context. See comments elsewhere about longer timeouts
+		// acting as rate limiting overloaded trackers.
+		ctx, cancel := context.WithTimeout(context.Background(), DefaultTrackerAnnounceTimeout)
+		defer cancel()
+		me.Context = ctx
 	}
+	return cl.Announce(me.Context, me.Request, trHttp.AnnounceOpt{
+		UserAgent:           me.UserAgent,
+		HostHeader:          me.HostHeader,
+		ClientIp4:           me.ClientIp4.IP,
+		ClientIp6:           me.ClientIp6.IP,
+		HttpRequestDirector: me.HttpRequestDirector,
+	})
 }

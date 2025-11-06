@@ -1,0 +1,5 @@
+.idea
+*-run.gob
+.envrc*
+.DS_Store
+go.work*

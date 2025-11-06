@@ -1,10 +1,12 @@
 package torrent
 
 import (
+	"context"
 	"errors"
 	"math/rand"
 	"strings"
 
+	"github.com/anacrolix/torrent/internal/testutil"
 	"github.com/anacrolix/torrent/metainfo"
 	"github.com/anacrolix/torrent/storage"
 )
@@ -13,12 +15,14 @@ type badStorage struct{}
 
 var _ storage.ClientImpl = badStorage{}
 
-func (bs badStorage) OpenTorrent(*metainfo.Info, metainfo.Hash) (storage.TorrentImpl, error) {
-	return bs, nil
-}
-
-func (bs badStorage) Close() error {
-	return nil
+func (bs badStorage) OpenTorrent(
+	context.Context,
+	*metainfo.Info,
+	metainfo.Hash,
+) (storage.TorrentImpl, error) {
+	return storage.TorrentImpl{
+		Piece: bs.Piece,
+	}, nil
 }
 
 func (bs badStorage) Piece(p metainfo.Piece) storage.PieceImpl {
@@ -48,7 +52,7 @@ func (p badStoragePiece) MarkNotComplete() error {
 }
 
 func (p badStoragePiece) randomlyTruncatedDataString() string {
-	return "hello, world\n"[:rand.Intn(14)]
+	return testutil.GreetingFileContents[:rand.Intn(14)]
 }
 
 func (p badStoragePiece) ReadAt(b []byte, off int64) (n int, err error) {

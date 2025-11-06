@@ -1,11 +1,7 @@
 package missinggo
 
 import (
-	"os"
-	"time"
+	"github.com/anacrolix/missinggo/v2"
 )
 
-// Extracts the access time from the FileInfo internals.
-func FileInfoAccessTime(fi os.FileInfo) time.Time {
-	return fileInfoAccessTime(fi)
-}
+var FileInfoAccessTime = missinggo.FileInfoAccessTime
