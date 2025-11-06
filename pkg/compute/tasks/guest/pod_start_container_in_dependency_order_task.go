@@ -61,6 +61,11 @@ func (t *PodStartContainerInDependencyOrderTask) requestContainersStart(ctx cont
 		return
 	}
 
+	if dep.Finish != nil && *dep.Finish {
+		t.taskComplete(ctx, pod)
+		return
+	}
+
 	fetchById := func(uuid string) models.SContainer {
 		pctr, err := models.GetContainerManager().FetchById(uuid)
 		if err != nil {
@@ -70,10 +75,8 @@ func (t *PodStartContainerInDependencyOrderTask) requestContainersStart(ctx cont
 		return *pctr.(*models.SContainer)
 	}
 	currentBatch := dep.GetNextBatch(fetchById)
-	if currentBatch == nil {
-		t.taskComplete(ctx, pod)
-		return
-	}
+
+	// log.Infof("After GetNextBatch, dep.Leafs: %s\n dep: %s", dep.Leafs, jsonutils.Marshal(dep).String())
 
 	// start current Batch
 	t.SetStage("OnContainerStarted", jsonutils.Marshal(dep).(*jsonutils.JSONDict))

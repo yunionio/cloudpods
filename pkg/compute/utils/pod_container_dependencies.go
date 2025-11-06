@@ -63,9 +63,10 @@ func TopologicalSortContainers[T any](objs []T, getName GetObjIdName[T], getDepe
 }
 
 type DependencyTopoGraph[T any] struct {
-	Graph  map[string][]string
-	Degree map[string]int
-	Leafs  []string // containers whose in-degree is zero
+	Graph  map[string][]string `json:"graph,omitempty"`
+	Degree map[string]int      `json:"degree,omitempty"`
+	Leafs  []string            `json:"leafs"` // containers whose in-degree is zero
+	Finish *bool               `json:"finish,omitempty"`
 }
 
 func NewDependencyTopoGraph[T any](
@@ -129,9 +130,14 @@ func (dep *DependencyTopoGraph[T]) GetNextBatch(fetchById FetchObjById[T]) []T {
 		}
 	}
 
-	// log.Infof("Get next batch: %s", dep.Leafs)
+	// log.Infof("Get next batch:\n Leafs: %s\n nextLeafs: %s", dep.Leafs, nextLeafs)
 
 	dep.Leafs = nextLeafs
+
+	if len(nextLeafs) == 0 {
+		finish := true
+		dep.Finish = &finish
+	}
 
 	return objs
 }
