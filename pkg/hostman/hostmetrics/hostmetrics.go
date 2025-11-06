@@ -498,6 +498,10 @@ func (s *SGuestMonitorCollector) collectGmReport(
 	if !gm.HasPodMetrics() {
 		return s.collectGuestMetrics(gm, prevUsage)
 	} else {
+		if isPodContainerStopped(prevUsage, gm.podStat) {
+			log.Infof("pod %s(%s) has container(s) stopped, clear previous usage", gm.Name, gm.Id)
+			prevUsage = new(GuestMetrics)
+		}
 		return s.collectPodMetrics(gm, prevUsage)
 	}
 }
