@@ -11,6 +11,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/llm/models"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
@@ -38,20 +39,14 @@ func (task *LLMDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, 
 		return
 	}
 
-	err := llm.ServerDelete(ctx, task.UserCred)
+	task.SetStage("OnLLMRefreshStatusComplete", nil)
+	s := auth.GetSession(ctx, task.GetUserCred(), "")
+	err := s.WithTaskCallback(task.GetId(), func() error {
+		return llm.ServerDelete(ctx, task.UserCred, s)
+	})
 	if err != nil {
 		task.taskFailed(ctx, llm, err)
-		return
 	}
-	task.SetStage("OnLLMRefreshStatusComplete", nil)
-	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		err = llm.WaitDelete(ctx, task.UserCred, 1800)
-		if err != nil {
-			return nil, errors.Wrap(err, "llm.WaitDelete")
-		}
-
-		return nil, nil
-	})
 }
 
 func (task *LLMDeleteTask) OnLLMRefreshStatusCompleteFailed(ctx context.Context, llm *models.SLLM, err jsonutils.JSONObject) {

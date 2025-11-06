@@ -173,6 +173,12 @@ func (m *DifyContainersManager) _getApiContainer(name, key, image string) *compu
 	}
 	ctr.Image = image
 
+	// set depends on
+	ctr.DependsOn = []string{
+		name + "-" + api.DIFY_REDIS_KEY,
+		name + "-" + api.DIFY_POSTGRES_KEY,
+	}
+
 	// set container environments
 	envs := &DifyContainerEnv{
 		"MODE":                        api.DIFY_API_MODE,
@@ -201,6 +207,12 @@ func (m *DifyContainersManager) _getWorkerContainer(name, key, image string) *co
 	}
 	ctr.Image = image
 
+	// set depends on
+	ctr.DependsOn = []string{
+		name + "-" + api.DIFY_REDIS_KEY,
+		name + "-" + api.DIFY_POSTGRES_KEY,
+	}
+
 	// set container environments
 	envs := &DifyContainerEnv{
 		"MODE":                        api.DIFY_WORKER_MODE,
@@ -227,6 +239,12 @@ func (m *DifyContainersManager) _getWorkerBeatContainer(name, key, image string)
 	}
 	ctr.Image = image
 
+	// set depends on
+	ctr.DependsOn = []string{
+		name + "-" + api.DIFY_REDIS_KEY,
+		name + "-" + api.DIFY_POSTGRES_KEY,
+	}
+
 	// set container environments
 	envs := &DifyContainerEnv{
 		"MODE": api.DIFY_WORKER_BEAT_MODE,
@@ -242,6 +260,11 @@ func (m *DifyContainersManager) _getPluginContainer(name, key, image string) *co
 		Name: name + "-" + key,
 	}
 	ctr.Image = image
+
+	// set depends on
+	ctr.DependsOn = []string{
+		name + "-" + api.DIFY_POSTGRES_KEY,
+	}
 
 	// set container environments
 	envs := &DifyContainerEnv{
@@ -349,6 +372,12 @@ func (m *DifyContainersManager) _getNginxContainer(name, key, image string) *com
 		Name: name + "-" + key,
 	}
 	ctr.Image = image
+
+	// set depends on
+	ctr.DependsOn = []string{
+		name + "-" + api.DIFY_API_KEY,
+		name + "-" + api.DIFY_WEB_KEY,
+	}
 
 	// set container environments
 	envs := &DifyContainerEnv{

@@ -55,34 +55,15 @@ func (task *LLMStopTask) OnInit(ctx context.Context, obj db.IStandaloneModel, bo
 	}
 
 	task.SetStage("OnStopComplete", nil)
-	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		s := auth.GetSession(ctx, task.UserCred, "")
+	s := auth.GetSession(ctx, task.UserCred, "")
+	err = s.WithTaskCallback(task.GetId(), func() error {
 		_, err = compute.Servers.PerformAction(s, llm.SvrId, "stop", nil)
-		if err != nil {
-			task.taskFailed(ctx, llm, err.Error())
-			return nil, errors.Wrap(err, "server perform stop")
-		}
-		_, err := llm.WaitServerStatus(ctx, task.UserCred, []string{computeapi.VM_READY}, 600)
-		if err != nil {
-			if errors.Cause(err) == errors.ErrTimeout {
-				params := computeapi.ServerStopInput{
-					IsForce:     true,
-					TimeoutSecs: 10,
-				}
-				_, err = compute.Servers.PerformAction(s, llm.SvrId, "stop", jsonutils.Marshal(params))
-				if err != nil {
-					return nil, errors.Wrap(err, "server perform stop by force")
-				}
-				_, err := llm.WaitServerStatus(ctx, task.UserCred, []string{computeapi.VM_READY}, 600)
-				if err != nil {
-					return nil, errors.Wrap(err, "WaitServerStatus 2")
-				}
-			} else {
-				return nil, errors.Wrap(err, "WaitServerStatus")
-			}
-		}
-		return nil, nil
+		return err
 	})
+	if err != nil {
+		task.taskFailed(ctx, llm, err.Error())
+		return
+	}
 }
 
 func (task *LLMStopTask) OnStopComplete(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
