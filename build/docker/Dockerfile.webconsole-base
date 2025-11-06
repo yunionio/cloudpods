@@ -1,8 +1,8 @@
-FROM registry.cn-beijing.aliyuncs.com/yunionio/kubectl:1.22.9
+FROM registry.cn-beijing.aliyuncs.com/yunionio/kubectl:3.22.2-1
 
-MAINTAINER "Zexi Li <lizexi@yunionyun.com>"
+LABEL maintainer="Zexi Li <lizexi@yunionyun.com>"
 
-ENV TZ UTC
+ENV TZ="UTC"
 
 RUN mkdir -p /opt/yunion/bin
 

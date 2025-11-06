@@ -461,7 +461,7 @@ func (s *SDeployService) PrepareEnv() error {
 			"/usr/bin/.chntpw.static.bin":    "/opt/yunion/bin/.chntpw.static.bin",
 			"/usr/bin/bundles/chntpw.static": "/opt/yunion/bin/bundles/chntpw.static",
 			"/usr/bin/growpart":              "/opt/yunion/bin/growpart",
-			"/usr/sbin/zerofree":             "/opt/yunion/bin/zerofree",
+			"/usr/bin/zerofree":              "/opt/yunion/bin/zerofree",
 		}
 		// x86_64 or aarch64
 		if cpuArchStr == qemu_kvm.OS_ARCH_AARCH64 {
@@ -495,8 +495,8 @@ func (s *SDeployService) PrepareEnv() error {
 			return errors.Wrap(err, "Failed to mkdir RUN_ON_HOST_ROOT_PATH: %s")
 		}
 
-		cmd := fmt.Sprintf("mkisofs -l -J -L -R -r -v -hide-rr-moved -o %s -graft-points vmware-vddk=/opt/vmware-vddk yunion=/opt/yunion", qemu_kvm.DEPLOY_ISO)
-		out, err = procutils.NewCommand("bash", "-c", cmd).Output()
+		mkisofsArgs := []string{"-l", "-J", "-L", "-R", "-r", "-v", "-hide-rr-moved", "-o", qemu_kvm.DEPLOY_ISO, "-graft-points", "vmware-vddk=/opt/vmware-vddk", "yunion=/opt/yunion"}
+		out, err = procutils.NewCommand("mkisofs", mkisofsArgs...).Output()
 		if err != nil {
 			return errors.Wrapf(err, "mkisofs failed %s", out)
 		}

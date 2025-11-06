@@ -1,7 +1,6 @@
-#FROM --platform=linux/amd64 registry.cn-beijing.aliyuncs.com/yunionio/centos-build:1.1-4 as build
 #RUN yum install -y https://iso.yunion.cn/vm-images/baremetal-pxerom-1.1.0-21092209.x86_64.rpm
 #RUN yum install -y http://192.168.23.50:8083/baremetal-pxerom-1.1.0-21092209.x86_64.rpm
-FROM registry.cn-beijing.aliyuncs.com/yunionio/yunionos:v3.10.8-20231215.0 as yunionos
+FROM registry.cn-beijing.aliyuncs.com/yunionio/yunionos:v4.0.0-20251110.1 as yunionos
 
 FROM centos:8 as grub-stage
 
@@ -28,9 +27,9 @@ RUN cp /root/grub_arm64.efi /tftp
 RUN cp -rf /usr/lib/grub/arm64-efi /tftp/grub
 
 
-FROM registry.cn-beijing.aliyuncs.com/yunionio/onecloud-base:v0.3-3.13.5
+FROM registry.cn-beijing.aliyuncs.com/yunionio/onecloud-base:v3.22.2-0
 
-MAINTAINER "Zexi Li <zexi.li@icloud.com>"
+LABEL maintainer="Zexi Li <zexi.li@icloud.com>"
 
 RUN mkdir -p /opt/yunion/bin
 
@@ -70,6 +69,8 @@ COPY --from=yunionos /yunionos/x86_64/kernel /opt/cloud/yunion/baremetal
 COPY --from=yunionos /yunionos/x86_64/initramfs /opt/cloud/yunion/baremetal
 COPY --from=yunionos /yunionos/aarch64/kernel /opt/cloud/yunion/baremetal/kernel_aarch64
 COPY --from=yunionos /yunionos/aarch64/initramfs /opt/cloud/yunion/baremetal/initramfs_aarch64
+COPY --from=yunionos /yunionos/riscv64/kernel /opt/cloud/yunion/baremetal/kernel_riscv64
+COPY --from=yunionos /yunionos/riscv64/initramfs /opt/cloud/yunion/baremetal/initramfs_riscv64
 
 # TODO: syslinux firmwares should removed in future
 COPY --from=yunionos /yunionos/x86_64/isolinux.bin /opt/cloud/yunion/baremetal

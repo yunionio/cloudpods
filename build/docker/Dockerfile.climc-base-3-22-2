@@ -1,4 +1,4 @@
-FROM registry.cn-beijing.aliyuncs.com/yunionio/onecloud-base:v0.3.5
+FROM registry.cn-beijing.aliyuncs.com/yunionio/onecloud-base:v3.22.2-0
 
 ARG TARGETPLATFORM
 ARG BUILDPLATFORM
@@ -17,7 +17,7 @@ RUN apk add --no-cache bash bash-completion tzdata ca-certificates vim ipmitool 
 
 RUN usermod --shell /bin/bash root
 
-RUN curl https://iso.yunion.cn/binaries/kubernetes-release/release/v1.22.9/bin/linux/${TARGETARCH}/kubectl -o /usr/bin/kubectl && chmod a+x /usr/bin/kubectl
+RUN curl -L https://iso.yunion.cn/binaries/kubernetes-release/release/v1.22.9/bin/linux/${TARGETARCH}/kubectl -o /usr/bin/kubectl && chmod a+x /usr/bin/kubectl
 
 RUN cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
 
