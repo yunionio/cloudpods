@@ -4,15 +4,12 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/pkg/errors"
 
-	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	api "yunion.io/x/onecloud/pkg/apis/llm"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/llm/models"
 	"yunion.io/x/onecloud/pkg/llm/options"
-	"yunion.io/x/onecloud/pkg/llm/tasks/worker"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/util/logclient"
@@ -45,26 +42,28 @@ func (t *LLMStartTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body
 }
 
 func (t *LLMStartTask) requestStart(ctx context.Context, llm *models.SLLM) {
+	t.SetStage("OnStarted", nil)
 	s := auth.GetSession(ctx, t.GetUserCred(), options.Options.Region)
-	_, err := compute.Servers.PerformAction(s, llm.SvrId, "start", nil)
+	err := s.WithTaskCallback(t.GetId(), func() error {
+		_, err := compute.Servers.PerformAction(s, llm.SvrId, "start", nil)
+		return err
+	})
 	if err != nil {
 		t.taskFailed(ctx, llm, err.Error())
 		return
 	}
-
-	t.SetStage("OnStarted", nil)
-	worker.StartTaskRun(t, func() (jsonutils.JSONObject, error) {
-		_, err := llm.WaitServerStatus(ctx, t.GetUserCred(), []string{computeapi.VM_RUNNING}, 900)
-		if err != nil {
-			return nil, errors.Wrap(err, "WaitServerStatus")
-		}
-		// time.Sleep(time.Second)
-		// _, err = d.WaitServerStatus(ctx, task.UserCred, []string{computeapi.VM_RUNNING}, 900)
-		// if err != nil {
-		// 	return nil, errors.Wrap(err, "WaitServerStatus")
-		// }
-		return nil, nil
-	})
+	// worker.StartTaskRun(t, func() (jsonutils.JSONObject, error) {
+	// 	_, err := llm.WaitServerStatus(ctx, t.GetUserCred(), []string{computeapi.VM_RUNNING}, 900)
+	// 	if err != nil {
+	// 		return nil, errors.Wrap(err, "WaitServerStatus")
+	// 	}
+	// 	time.Sleep(time.Second)
+	// 	_, err = d.WaitServerStatus(ctx, task.UserCred, []string{computeapi.VM_RUNNING}, 900)
+	// 	if err != nil {
+	// 		return nil, errors.Wrap(err, "WaitServerStatus")
+	// 	}
+	// 	return nil, nil
+	// })
 	// if err := llm.RunModel(ctx, t.GetUserCred()); nil != err {
 	// 	t.OnStartedFailed(ctx, llm, jsonutils.NewString(err.Error()))
 	// 	return

@@ -18,7 +18,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 )
 
@@ -232,7 +231,7 @@ func (llm *SLLM) StartDeleteTask(ctx context.Context, userCred mcclient.TokenCre
 	return task.ScheduleRun(nil)
 }
 
-func (llm *SLLM) ServerCreate(ctx context.Context, userCred mcclient.TokenCredential, input *api.LLMCreateInput) (string, error) {
+func (llm *SLLM) ServerCreate(ctx context.Context, userCred mcclient.TokenCredential, s *mcclient.ClientSession, input *api.LLMCreateInput) (string, error) {
 	model, err := llm.GetLLMModel(llm.LLMModelId)
 	if nil != err {
 		return "", errors.Wrap(err, "GetLLMModel")
@@ -248,7 +247,6 @@ func (llm *SLLM) ServerCreate(ctx context.Context, userCred mcclient.TokenCreden
 	}
 	log.Infoln("PodCreateInput Data: ", jsonutils.Marshal(data).String())
 
-	s := auth.GetSession(ctx, userCred, "")
 	resp, err := compute.Servers.Create(s, jsonutils.Marshal(data))
 	if nil != err {
 		return "", errors.Wrap(err, "Servers.Create")

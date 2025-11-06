@@ -11,6 +11,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/llm/models"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
@@ -44,31 +45,39 @@ func (task *LLMCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, 
 	}
 
 	serverCreateInput.Name = llm.Name
-	serverId, err := llm.ServerCreate(ctx, task.UserCred, &serverCreateInput)
-	if err != nil {
-		task.taskFailed(ctx, llm, err)
-		return
-	}
 
-	db.Update(llm, func() error {
+	task.SetStage("OnLLMRefreshStatusComplete", nil)
+	s := auth.GetSession(ctx, task.GetUserCred(), "")
+	err = s.WithTaskCallback(task.GetId(), func() error {
+		serverId, err := llm.ServerCreate(ctx, task.UserCred, s, &serverCreateInput)
+		if err != nil {
+			task.taskFailed(ctx, llm, err)
+			return err
+		}
+
+		db.Update(llm, func() error {
+			llm.SvrId = serverId
+			return nil
+		})
 		llm.SvrId = serverId
 		return nil
 	})
-	llm.SvrId = serverId
-	task.SetStage("OnLLMRefreshStatusComplete", nil)
-	var expectStatus []string
-	if serverCreateInput.AutoStart {
-		expectStatus = []string{computeapi.VM_RUNNING}
-	} else {
-		expectStatus = []string{computeapi.VM_READY}
+	if err != nil {
+		task.OnLLMRefreshStatusCompleteFailed(ctx, llm, jsonutils.Marshal(err))
 	}
-	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		server, err := llm.WaitServerStatus(ctx, task.UserCred, expectStatus, 7200)
-		if err != nil {
-			return nil, errors.Wrap(err, "WaitServerStatus")
-		}
-		return jsonutils.Marshal(server), nil
-	})
+	// var expectStatus []string
+	// if serverCreateInput.AutoStart {
+	// 	expectStatus = []string{computeapi.VM_RUNNING}
+	// } else {
+	// 	expectStatus = []string{computeapi.VM_READY}
+	// }
+	// taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+	// 	server, err := llm.WaitServerStatus(ctx, task.UserCred, expectStatus, 7200)
+	// 	if err != nil {
+	// 		return nil, errors.Wrap(err, "WaitServerStatus")
+	// 	}
+	// 	return jsonutils.Marshal(server), nil
+	// })
 }
 
 func (task *LLMCreateTask) OnLLMRefreshStatusCompleteFailed(ctx context.Context, llm *models.SLLM, err jsonutils.JSONObject) {
@@ -76,10 +85,9 @@ func (task *LLMCreateTask) OnLLMRefreshStatusCompleteFailed(ctx context.Context,
 }
 
 func (task *LLMCreateTask) OnLLMRefreshStatusComplete(ctx context.Context, llm *models.SLLM, body jsonutils.JSONObject) {
-	server := computeapi.ServerDetails{}
-	err := body.Unmarshal(&server)
+	server, err := llm.GetServer(ctx)
 	if err != nil {
-		task.taskFailed(ctx, llm, errors.Wrap(err, "Unmarshal"))
+		task.taskFailed(ctx, llm, errors.Wrap(err, "Get Server"))
 		return
 	}
 

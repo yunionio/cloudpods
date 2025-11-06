@@ -261,11 +261,10 @@ func (llm *SLLMBase) RealDelete(ctx context.Context, userCred mcclient.TokenCred
 	return llm.SVirtualResourceBase.Delete(ctx, userCred)
 }
 
-func (llm *SLLMBase) ServerDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
+func (llm *SLLMBase) ServerDelete(ctx context.Context, userCred mcclient.TokenCredential, s *mcclient.ClientSession) error {
 	if len(llm.SvrId) == 0 {
 		return nil
 	}
-	s := auth.GetSession(ctx, userCred, "")
 	server, err := llm.GetServer(ctx)
 	if err != nil {
 		if errors.Cause(err) == errors.ErrNotFound {
@@ -276,7 +275,8 @@ func (llm *SLLMBase) ServerDelete(ctx context.Context, userCred mcclient.TokenCr
 	}
 	if server.DisableDelete != nil && *server.DisableDelete {
 		// update to allow delete
-		_, err = compute.Servers.Update(s, llm.SvrId, jsonutils.Marshal(map[string]interface{}{"disable_delete": false}))
+		s2 := auth.GetSession(ctx, userCred, "")
+		_, err = compute.Servers.Update(s2, llm.SvrId, jsonutils.Marshal(map[string]interface{}{"disable_delete": false}))
 		if err != nil {
 			return errors.Wrap(err, "update server to delete")
 		}

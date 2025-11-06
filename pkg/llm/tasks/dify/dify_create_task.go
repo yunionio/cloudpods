@@ -11,6 +11,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/llm/models"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
@@ -44,31 +45,36 @@ func (task *DifyCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel,
 	}
 
 	serverCreateInput.Name = dify.Name
-	serverId, err := dify.ServerCreate(ctx, task.UserCred, &serverCreateInput)
-	if err != nil {
-		task.taskFailed(ctx, dify, err)
-		return
-	}
 
-	db.Update(dify, func() error {
+	task.SetStage("OnDifyRefreshStatusComplete", nil)
+	s := auth.GetSession(ctx, task.GetUserCred(), "")
+	s.WithTaskCallback(task.GetId(), func() error {
+		serverId, err := dify.ServerCreate(ctx, task.UserCred, s, &serverCreateInput)
+		if err != nil {
+			task.taskFailed(ctx, dify, err)
+			return err
+		}
+
+		db.Update(dify, func() error {
+			dify.SvrId = serverId
+			return nil
+		})
 		dify.SvrId = serverId
 		return nil
 	})
-	dify.SvrId = serverId
-	task.SetStage("OnDifyRefreshStatusComplete", nil)
-	var expectStatus []string
-	if serverCreateInput.AutoStart {
-		expectStatus = []string{computeapi.VM_RUNNING}
-	} else {
-		expectStatus = []string{computeapi.VM_READY}
-	}
-	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		server, err := dify.WaitServerStatus(ctx, task.UserCred, expectStatus, 7200)
-		if err != nil {
-			return nil, errors.Wrap(err, "WaitServerStatus")
-		}
-		return jsonutils.Marshal(server), nil
-	})
+	// var expectStatus []string
+	// if serverCreateInput.AutoStart {
+	// 	expectStatus = []string{computeapi.VM_RUNNING}
+	// } else {
+	// 	expectStatus = []string{computeapi.VM_READY}
+	// }
+	// taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+	// 	server, err := dify.WaitServerStatus(ctx, task.UserCred, expectStatus, 7200)
+	// 	if err != nil {
+	// 		return nil, errors.Wrap(err, "WaitServerStatus")
+	// 	}
+	// 	return jsonutils.Marshal(server), nil
+	// })
 }
 
 func (task *DifyCreateTask) OnDifyRefreshStatusCompleteFailed(ctx context.Context, dify *models.SDify, err jsonutils.JSONObject) {
@@ -76,10 +82,9 @@ func (task *DifyCreateTask) OnDifyRefreshStatusCompleteFailed(ctx context.Contex
 }
 
 func (task *DifyCreateTask) OnDifyRefreshStatusComplete(ctx context.Context, dify *models.SDify, body jsonutils.JSONObject) {
-	server := computeapi.ServerDetails{}
-	err := body.Unmarshal(&server)
+	server, err := dify.GetServer(ctx)
 	if err != nil {
-		task.taskFailed(ctx, dify, errors.Wrap(err, "Unmarshal"))
+		task.taskFailed(ctx, dify, errors.Wrap(err, "GetServer"))
 		return
 	}
 
