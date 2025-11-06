@@ -1,4 +1,4 @@
-FROM registry.cn-beijing.aliyuncs.com/yunionio/alpine-build:1.0-5 as build
+FROM registry.cn-beijing.aliyuncs.com/yunionio/alpine-build:3.22.2-go-1.24.9-0 AS build
 ARG TARGETPLATFORM
 ARG BUILDPLATFORM
 
@@ -6,13 +6,11 @@ RUN mkdir -p /root/go/src/yunion.io/x/onecloud
 COPY . /root/go/src/yunion.io/x/onecloud
 RUN cd /root/go/src/yunion.io/x/onecloud && make cmd/torrent
 
-FROM registry.cn-beijing.aliyuncs.com/yunionio/onecloud-base:v0.3.5
+FROM registry.cn-beijing.aliyuncs.com/yunionio/onecloud-base:v3.22.2-0
 
-MAINTAINER "Zexi Li <zexi.li@icloud.com>"
+LABEL maintainer="Zexi Li <zexi.li@icloud.com>"
 
-# HACK: use v3.14 alpine mirror to upgrade qemu-img
-RUN echo http://dl-cdn.alpinelinux.org/alpine/v3.14/main > /etc/apk/repositories
-RUN echo http://dl-cdn.alpinelinux.org/alpine/v3.14/community >> /etc/apk/repositories
+RUN sed -i 's!https://dl-cdn.alpinelinux.org/!https://mirrors.ustc.edu.cn/!g' /etc/apk/repositories
 
 RUN apk update && \
     apk add --no-cache qemu-img && \

@@ -1,9 +1,9 @@
-FROM registry.cn-beijing.aliyuncs.com/yunionio/host-deployer-base:1.4.11
+FROM registry.cn-beijing.aliyuncs.com/yunionio/host-deployer-base:1.5.2
 
-MAINTAINER "Yaoqi Wan wanyaoqi@yunionyun.com"
+LABEL maintainer="Yaoqi Wan wanyaoqi@yunionyun.com"
 
-ENV TZ UTC
+ENV TZ="UTC"
 
 RUN mkdir -p /opt/yunion/bin
 
-ADD ./_output/centos-build/bin/host-deployer /opt/yunion/bin/host-deployer
+ADD ./_output/alpine-build/bin/host-deployer /opt/yunion/bin/host-deployer

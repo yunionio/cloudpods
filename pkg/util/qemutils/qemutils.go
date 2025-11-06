@@ -39,6 +39,10 @@ func UseAarch64() {
 	qemuSystemCmd = "qemu-system-aarch64"
 }
 
+func UseRiscV() {
+	qemuSystemCmd = "qemu-system-riscv64"
+}
+
 func GetQemu(version string) string {
 	return getQemuCmd(qemuSystemCmd, version)
 }

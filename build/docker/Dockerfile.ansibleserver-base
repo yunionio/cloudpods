@@ -1,8 +1,8 @@
-FROM registry.cn-beijing.aliyuncs.com/yunionio/onecloud-base:v3.15.4-0
+FROM registry.cn-beijing.aliyuncs.com/yunionio/onecloud-base:v3.22.2-0
 
-MAINTAINER "Yousong Zhou <zhouyousong@yunionyun.com>"
+LABEL maintainer="Yousong Zhou <zhouyousong@yunionyun.com>"
 
-ENV TZ UTC
+ENV TZ="UTC"
 
 RUN sed -i 's!https://dl-cdn.alpinelinux.org/!https://mirrors.ustc.edu.cn/!g' /etc/apk/repositories
 
@@ -13,6 +13,7 @@ RUN set -x \
   && apk add openssh-client \
   && apk add sshpass \
   && apk add py3-pip \
+  && apk add py3-paramiko \
   && apk add tzdata git ca-certificates
 
 RUN apk add --no-cache openssh openssl curl rsync pv mariadb-client
@@ -23,7 +24,7 @@ RUN apk add --no-cache --virtual .build-dependencies \
 # after setuptools and wheel
 RUN rm /usr/lib/python3.*/EXTERNALLY-MANAGED
 RUN pip3 install -U pip setuptools wheel \
-  && pip3 install paramiko mysqlclient pywinrm \
+  && pip3 install mysqlclient pywinrm \
   && pip3 install 'ansible<=9.0.0' \
   && apk del --no-network .build-dependencies \
   && rm -rf /root/.cache /root/.cargo /var/cache/apk/*

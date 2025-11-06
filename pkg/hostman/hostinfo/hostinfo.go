@@ -2715,6 +2715,10 @@ func (h *SHostInfo) IsAarch64() bool {
 	return h.GetCpuArchitecture() == apis.OS_ARCH_AARCH64
 }
 
+func (h *SHostInfo) IsRiscV() bool {
+	return h.GetCpuArchitecture() == apis.OS_ARCH_RISCV64
+}
+
 func (h *SHostInfo) IsX8664() bool {
 	return h.GetCpuArchitecture() == apis.OS_ARCH_X86_64
 }
@@ -2837,6 +2841,8 @@ func NewHostInfo() (*SHostInfo, error) {
 
 	if res.IsAarch64() {
 		qemutils.UseAarch64()
+	} else if res.IsRiscV() {
+		qemutils.UseRiscV()
 	} else if !res.IsX8664() {
 		return nil, fmt.Errorf("unsupport cpu architecture %s", cpu.CpuArchitecture)
 	}

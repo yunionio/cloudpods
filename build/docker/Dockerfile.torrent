@@ -1,10 +1,6 @@
-FROM registry.cn-beijing.aliyuncs.com/yunionio/onecloud-base:v0.3.5-1
+FROM registry.cn-beijing.aliyuncs.com/yunionio/onecloud-base:v3.22.2-0
 
-MAINTAINER "Zexi Li <zexi.li@icloud.com>"
-
-# HACK: use v3.14 alpine mirror to upgrade qemu-img
-RUN echo http://dl-cdn.alpinelinux.org/alpine/v3.14/main > /etc/apk/repositories
-RUN echo http://dl-cdn.alpinelinux.org/alpine/v3.14/community >> /etc/apk/repositories
+LABEL maintainer="Zexi Li <zexi.li@icloud.com>"
 
 RUN apk update && \
     apk add --no-cache qemu-img && \
