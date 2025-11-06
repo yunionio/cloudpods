@@ -123,6 +123,10 @@ type SGuestnetwork struct {
 
 	// 端口映射
 	PortMappings api.GuestPortMappings `length:"long" list:"user" update:"user"`
+
+	// 计费类型: 流量、带宽
+	// example: bandwidth
+	ChargeType string `width:"64" name:"charge_type" default:"bandwidth" list:"user" create:"optional"`
 }
 
 func (gn SGuestnetwork) GetIP() string {
@@ -275,6 +279,8 @@ type newGuestNetworkArgs struct {
 
 	virtual      bool
 	portMappings api.GuestPortMappings
+
+	chargeType string
 }
 
 func (manager *SGuestnetworkManager) newGuestNetwork(
@@ -323,6 +329,7 @@ func (manager *SGuestnetworkManager) newGuestNetwork(
 		gn.BwLimit = bwLimit
 	}
 	gn.PortMappings = args.portMappings
+	gn.ChargeType = args.chargeType
 
 	lockman.LockObject(ctx, network)
 	defer lockman.ReleaseObject(ctx, network)
@@ -978,7 +985,7 @@ func (gn *SGuestnetwork) LogDetachEvent(ctx context.Context, userCred mcclient.T
 		}
 		network = netTmp.(*SNetwork)
 	}
-	db.OpsLog.LogDetachEvent(ctx, guest, network, userCred, nil)
+	db.OpsLog.LogDetachEvent(ctx, guest, network, userCred, gn.GetShortDesc(ctx))
 }
 
 func (gn *SGuestnetwork) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
@@ -1276,6 +1283,10 @@ func (gn *SGuestnetwork) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
 	if len(gn.TeamWith) > 0 {
 		desc.TeamWith = gn.TeamWith
 	}
+	desc.BwLimitMbps = gn.getBandwidth()
+	desc.Ifname = gn.Ifname
+	desc.IsDefault = gn.IsDefault
+	desc.ChargeType = gn.ChargeType
 	return jsonutils.Marshal(desc).(*jsonutils.JSONDict)
 }
 
