@@ -1,12 +1,12 @@
-FROM registry.cn-beijing.aliyuncs.com/yunionio/openvswitch:2.12.4-2
+FROM registry.cn-beijing.aliyuncs.com/yunionio/openvswitch:2.12.4-5
 
-MAINTAINER "Jian QIU <qiujian@yunion.cn>"
+LABEL maintainer="Jian QIU <qiujian@yunion.cn>"
 
-ENV TZ UTC
+ENV TZ="UTC"
 
 ENV GOPATH=/root/go
 
-RUN sed -i 's!https://dl-cdn.alpinelinux.org/!https://mirrors.ustc.edu.cn/!g' /etc/apk/repositories
+RUN sed -i 's!v3.20/!v3.22/!g' /etc/apk/repositories
 
 RUN set -x \
     && apk update \
