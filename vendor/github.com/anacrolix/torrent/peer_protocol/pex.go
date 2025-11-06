@@ -1,6 +1,10 @@
 package peer_protocol
 
-import "github.com/anacrolix/dht/krpc"
+import (
+	"github.com/anacrolix/dht/v2/krpc"
+
+	"github.com/anacrolix/torrent/bencode"
+)
 
 type PexMsg struct {
 	Added       krpc.CompactIPv4NodeAddrs `bencode:"added"`
@@ -11,6 +15,25 @@ type PexMsg struct {
 	Dropped6    krpc.CompactIPv6NodeAddrs `bencode:"dropped6"`
 }
 
+func (m *PexMsg) Len() int {
+	return len(m.Added) + len(m.Added6) + len(m.Dropped) + len(m.Dropped6)
+}
+
+func (m *PexMsg) Message(pexExtendedId ExtensionNumber) Message {
+	payload := bencode.MustMarshal(m)
+	return Message{
+		Type:            Extended,
+		ExtendedID:      pexExtendedId,
+		ExtendedPayload: payload,
+	}
+}
+
+// Unmarshals and returns a PEX message.
+func LoadPexMsg(b []byte) (ret PexMsg, err error) {
+	err = bencode.Unmarshal(b, &ret)
+	return
+}
+
 type PexPeerFlags byte
 
 func (me PexPeerFlags) Get(f PexPeerFlags) bool {
@@ -18,9 +41,9 @@ func (me PexPeerFlags) Get(f PexPeerFlags) bool {
 }
 
 const (
-	PexPrefersEncryption = 0x01
-	PexSeedUploadOnly    = 0x02
-	PexSupportsUtp       = 0x04
-	PexHolepunchSupport  = 0x08
-	PexOutgoingConn      = 0x10
+	PexPrefersEncryption PexPeerFlags = 1 << iota
+	PexSeedUploadOnly
+	PexSupportsUtp
+	PexHolepunchSupport
+	PexOutgoingConn
 )

@@ -1,6 +1,7 @@
 package torrent
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"reflect"
@@ -9,19 +10,20 @@ import (
 	pp "github.com/anacrolix/torrent/peer_protocol"
 )
 
-// Various connection-level metrics. At the Torrent level these are
-// aggregates. Chunks are messages with data payloads. Data is actual torrent
-// content without any overhead. Useful is something we needed locally.
-// Unwanted is something we didn't ask for (but may still be useful). Written
-// is things sent to the peer, and Read is stuff received from them.
+// Various connection-level metrics. At the Torrent level these are aggregates. Chunks are messages
+// with data payloads. Data is actual torrent content without any overhead. Useful is something we
+// needed locally. Unwanted is something we didn't ask for (but may still be useful). Written is
+// things sent to the peer, and Read is stuff received from them. Due to the implementation of
+// Count, must be aligned on some platforms: See https://github.com/anacrolix/torrent/issues/262.
 type ConnStats struct {
 	// Total bytes on the wire. Includes handshakes and encryption.
 	BytesWritten     Count
 	BytesWrittenData Count
 
-	BytesRead           Count
-	BytesReadData       Count
-	BytesReadUsefulData Count
+	BytesRead                   Count
+	BytesReadData               Count
+	BytesReadUsefulData         Count
+	BytesReadUsefulIntendedData Count
 
 	ChunksWritten Count
 
@@ -33,9 +35,8 @@ type ConnStats struct {
 
 	// Number of pieces data was written to, that subsequently passed verification.
 	PiecesDirtiedGood Count
-	// Number of pieces data was written to, that subsequently failed
-	// verification. Note that a connection may not have been the sole dirtier
-	// of a piece.
+	// Number of pieces data was written to, that subsequently failed verification. Note that a
+	// connection may not have been the sole dirtier of a piece.
 	PiecesDirtiedBad Count
 }
 
@@ -65,6 +66,10 @@ func (me *Count) String() string {
 	return fmt.Sprintf("%v", me.Int64())
 }
 
+func (me *Count) MarshalJSON() ([]byte, error) {
+	return json.Marshal(me.n)
+}
+
 func (cs *ConnStats) wroteMsg(msg *pp.Message) {
 	// TODO: Track messages and not just chunks.
 	switch msg.Type {
@@ -74,14 +79,9 @@ func (cs *ConnStats) wroteMsg(msg *pp.Message) {
 	}
 }
 
-func (cs *ConnStats) readMsg(msg *pp.Message) {
-	// We want to also handle extended metadata pieces here, but we wouldn't
-	// have decoded the extended payload yet.
-	switch msg.Type {
-	case pp.Piece:
-		cs.ChunksRead.Add(1)
-		cs.BytesReadData.Add(int64(len(msg.Piece)))
-	}
+func (cs *ConnStats) receivedChunk(size int64) {
+	cs.ChunksRead.Add(1)
+	cs.BytesReadData.Add(size)
 }
 
 func (cs *ConnStats) incrementPiecesDirtiedGood() {
@@ -101,7 +101,7 @@ func add(n int64, f func(*ConnStats) *Count) func(*ConnStats) {
 
 type connStatsReadWriter struct {
 	rw io.ReadWriter
-	c  *connection
+	c  *PeerConn
 }
 
 func (me connStatsReadWriter) Write(b []byte) (n int, err error) {

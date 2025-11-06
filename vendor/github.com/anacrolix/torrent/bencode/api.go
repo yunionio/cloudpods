@@ -41,13 +41,18 @@ func (e *UnmarshalInvalidArgError) Error() string {
 
 // Unmarshaler spotted a value that was not appropriate for a given Go value.
 type UnmarshalTypeError struct {
-	Value string
-	Type  reflect.Type
+	BencodeTypeName     string
+	UnmarshalTargetType reflect.Type
 }
 
+// This could probably be a value type, but we may already have users assuming
+// that it's passed by pointer.
 func (e *UnmarshalTypeError) Error() string {
-	return "bencode: value (" + e.Value + ") is not appropriate for type: " +
-		e.Type.String()
+	return fmt.Sprintf(
+		"can't unmarshal a bencode %v into a %v",
+		e.BencodeTypeName,
+		e.UnmarshalTargetType,
+	)
 }
 
 // Unmarshaler tried to write to an unexported (therefore unwritable) field.
@@ -128,16 +133,21 @@ func MustMarshal(v interface{}) []byte {
 	return b
 }
 
-// Unmarshal the bencode value in the 'data' to a value pointed by the 'v'
-// pointer, return a non-nil error if any.
+// Unmarshal the bencode value in the 'data' to a value pointed by the 'v' pointer, return a non-nil
+// error if any. If there are trailing bytes, this results in ErrUnusedTrailingBytes, but the value
+// will be valid. It's probably more consistent to use Decoder.Decode if you want to rely on this
+// behaviour (inspired by Rust's serde here).
 func Unmarshal(data []byte, v interface{}) (err error) {
-	buf := bytes.NewBuffer(data)
-	e := Decoder{r: buf}
-	err = e.Decode(v)
-	if err == nil && buf.Len() != 0 {
-		err = ErrUnusedTrailingBytes{buf.Len()}
+	buf := bytes.NewReader(data)
+	dec := Decoder{r: buf}
+	err = dec.Decode(v)
+	if err != nil {
+		return
 	}
-	return
+	if buf.Len() != 0 {
+		return ErrUnusedTrailingBytes{buf.Len()}
+	}
+	return dec.ReadEOF()
 }
 
 type ErrUnusedTrailingBytes struct {
