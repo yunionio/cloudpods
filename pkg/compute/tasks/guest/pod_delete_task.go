@@ -24,7 +24,9 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 type PodDeleteTask struct {
@@ -119,6 +121,13 @@ func (t *PodDeleteTask) OnPodStoppedFailed(ctx context.Context, pod *models.SGue
 }*/
 
 func (t *PodDeleteTask) OnPodDeleted(ctx context.Context, pod *models.SGuest, data jsonutils.JSONObject) {
+	pod.RealDelete(ctx, t.GetUserCred())
+	db.OpsLog.LogEvent(pod, db.ACT_DELOCATE, pod.GetShortDesc(ctx), t.UserCred)
+	logclient.AddActionLogWithStartable(t, pod, logclient.ACT_DELOCATE, nil, t.UserCred, true)
+	if !pod.IsSystem {
+		pod.EventNotify(ctx, t.UserCred, notifyclient.ActionDelete)
+	}
+	models.HostManager.ClearSchedDescCache(pod.HostId)
 	t.SetStageComplete(ctx, nil)
 }
 
