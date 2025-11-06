@@ -1,14 +1,18 @@
 package peer_protocol
 
-import "net"
+import (
+	"net"
+)
 
 // http://www.bittorrent.org/beps/bep_0010.html
 type (
 	ExtendedHandshakeMessage struct {
-		M          map[ExtensionName]ExtensionNumber `bencode:"m"`
-		V          string                            `bencode:"v,omitempty"`
-		Reqq       int                               `bencode:"reqq,omitempty"`
-		Encryption bool                              `bencode:"e,omitempty"`
+		M    map[ExtensionName]ExtensionNumber `bencode:"m"`
+		V    string                            `bencode:"v,omitempty"`
+		Reqq int                               `bencode:"reqq,omitempty"`
+		// The only mention of this I can find is in https://www.bittorrent.org/beps/bep_0011.html
+		// for bit 0x01.
+		Encryption bool `bencode:"e"`
 		// BEP 9
 		MetadataSize int `bencode:"metadata_size,omitempty"`
 		// The local client port. It would be redundant for the receiving side of
@@ -20,13 +24,17 @@ type (
 	}
 
 	ExtensionName   string
-	ExtensionNumber int
+	ExtensionNumber uint8
 )
 
 const (
 	// http://www.bittorrent.org/beps/bep_0011.html
 	ExtensionNamePex ExtensionName = "ut_pex"
-	// http://bittorrent.org/beps/bep_0009.html. Note that there's an
-	// LT_metadata, but I've never implemented it.
-	ExtensionNameMetadata = "ut_metadata"
+
+	ExtensionDeleteNumber ExtensionNumber = 0
 )
+
+func (me *ExtensionNumber) UnmarshalBinary(b []byte) error {
+	*me = ExtensionNumber(b[0])
+	return nil
+}

@@ -1,84 +1,119 @@
 package storage
 
 import (
+	"context"
+	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 
-	"github.com/anacrolix/missinggo"
+	"github.com/anacrolix/log"
+	"github.com/anacrolix/missinggo/v2"
+
+	"github.com/anacrolix/torrent/common"
 	"github.com/anacrolix/torrent/metainfo"
+	"github.com/anacrolix/torrent/segments"
 )
 
-// File-based storage for torrents, that isn't yet bound to a particular
-// torrent.
+// File-based storage for torrents, that isn't yet bound to a particular torrent.
 type fileClientImpl struct {
-	baseDir   string
-	pathMaker func(baseDir string, info *metainfo.Info, infoHash metainfo.Hash) string
-	pc        PieceCompletion
+	opts NewFileClientOpts
 }
 
-// The Default path maker just returns the current path
-func defaultPathMaker(baseDir string, info *metainfo.Info, infoHash metainfo.Hash) string {
-	return baseDir
-}
-
-func infoHashPathMaker(baseDir string, info *metainfo.Info, infoHash metainfo.Hash) string {
-	return filepath.Join(baseDir, infoHash.HexString())
-}
-
-// All Torrent data stored in this baseDir
-func NewFile(baseDir string) ClientImpl {
+// All Torrent data stored in this baseDir. The info names of each torrent are used as directories.
+func NewFile(baseDir string) ClientImplCloser {
 	return NewFileWithCompletion(baseDir, pieceCompletionForDir(baseDir))
 }
 
-func NewFileWithCompletion(baseDir string, completion PieceCompletion) ClientImpl {
-	return newFileWithCustomPathMakerAndCompletion(baseDir, nil, completion)
+type NewFileClientOpts struct {
+	// The base directory for all downloads.
+	ClientBaseDir   string
+	FilePathMaker   FilePathMaker
+	TorrentDirMaker TorrentDirFilePathMaker
+	PieceCompletion PieceCompletion
 }
 
-// File storage with data partitioned by infohash.
-func NewFileByInfoHash(baseDir string) ClientImpl {
-	return NewFileWithCustomPathMaker(baseDir, infoHashPathMaker)
-}
-
-// Allows passing a function to determine the path for storing torrent data
-func NewFileWithCustomPathMaker(baseDir string, pathMaker func(baseDir string, info *metainfo.Info, infoHash metainfo.Hash) string) ClientImpl {
-	return newFileWithCustomPathMakerAndCompletion(baseDir, pathMaker, pieceCompletionForDir(baseDir))
-}
-
-func newFileWithCustomPathMakerAndCompletion(baseDir string, pathMaker func(baseDir string, info *metainfo.Info, infoHash metainfo.Hash) string, completion PieceCompletion) ClientImpl {
-	if pathMaker == nil {
-		pathMaker = defaultPathMaker
+// NewFileOpts creates a new ClientImplCloser that stores files using the OS native filesystem.
+func NewFileOpts(opts NewFileClientOpts) ClientImplCloser {
+	if opts.TorrentDirMaker == nil {
+		opts.TorrentDirMaker = defaultPathMaker
 	}
-	return &fileClientImpl{
-		baseDir:   baseDir,
-		pathMaker: pathMaker,
-		pc:        completion,
+	if opts.FilePathMaker == nil {
+		opts.FilePathMaker = func(opts FilePathMakerOpts) string {
+			var parts []string
+			if opts.Info.BestName() != metainfo.NoName {
+				parts = append(parts, opts.Info.BestName())
+			}
+			return filepath.Join(append(parts, opts.File.BestPath()...)...)
+		}
 	}
+	if opts.PieceCompletion == nil {
+		opts.PieceCompletion = pieceCompletionForDir(opts.ClientBaseDir)
+	}
+	return fileClientImpl{opts}
 }
 
-func (me *fileClientImpl) Close() error {
-	return me.pc.Close()
+func (me fileClientImpl) Close() error {
+	return me.opts.PieceCompletion.Close()
 }
 
-func (fs *fileClientImpl) OpenTorrent(info *metainfo.Info, infoHash metainfo.Hash) (TorrentImpl, error) {
-	dir := fs.pathMaker(fs.baseDir, info, infoHash)
-	err := CreateNativeZeroLengthFiles(info, dir)
-	if err != nil {
-		return nil, err
+func (fs fileClientImpl) OpenTorrent(
+	ctx context.Context,
+	info *metainfo.Info,
+	infoHash metainfo.Hash,
+) (_ TorrentImpl, err error) {
+	dir := fs.opts.TorrentDirMaker(fs.opts.ClientBaseDir, info, infoHash)
+	logger := log.ContextLogger(ctx).Slogger()
+	logger.DebugContext(ctx, "opened file torrent storage", slog.String("dir", dir))
+	upvertedFiles := info.UpvertedFiles()
+	files := make([]file, 0, len(upvertedFiles))
+	for i, fileInfo := range upvertedFiles {
+		filePath := filepath.Join(dir, fs.opts.FilePathMaker(FilePathMakerOpts{
+			Info: info,
+			File: &fileInfo,
+		}))
+		if !isSubFilepath(dir, filePath) {
+			err = fmt.Errorf("file %v: path %q is not sub path of %q", i, filePath, dir)
+			return
+		}
+		f := file{
+			path:   filePath,
+			length: fileInfo.Length,
+		}
+		if f.length == 0 {
+			err = CreateNativeZeroLengthFile(f.path)
+			if err != nil {
+				err = fmt.Errorf("creating zero length file: %w", err)
+				return
+			}
+		}
+		files = append(files, f)
 	}
-	return &fileTorrentImpl{
-		dir,
-		info,
+	t := &fileTorrentImpl{
+		files,
+		segments.NewIndexFromSegments(common.TorrentOffsetFileSegments(info)),
 		infoHash,
-		fs.pc,
+		fs.opts.PieceCompletion,
+	}
+	return TorrentImpl{
+		Piece: t.Piece,
+		Close: t.Close,
+		Flush: t.Flush,
 	}, nil
 }
 
+type file struct {
+	// The safe, OS-local file path.
+	path   string
+	length int64
+}
+
 type fileTorrentImpl struct {
-	dir        string
-	info       *metainfo.Info
-	infoHash   metainfo.Hash
-	completion PieceCompletion
+	files          []file
+	segmentLocater segments.Index
+	infoHash       metainfo.Hash
+	completion     PieceCompletion
 }
 
 func (fts *fileTorrentImpl) Piece(p metainfo.Piece) PieceImpl {
@@ -97,24 +132,40 @@ func (fs *fileTorrentImpl) Close() error {
 	return nil
 }
 
-// Creates natives files for any zero-length file entries in the info. This is
-// a helper for file-based storages, which don't address or write to zero-
-// length files because they have no corresponding pieces.
-func CreateNativeZeroLengthFiles(info *metainfo.Info, dir string) (err error) {
-	for _, fi := range info.UpvertedFiles() {
-		if fi.Length != 0 {
-			continue
-		}
-		name := filepath.Join(append([]string{dir, info.Name}, fi.Path...)...)
-		os.MkdirAll(filepath.Dir(name), 0777)
-		var f io.Closer
-		f, err = os.Create(name)
-		if err != nil {
-			break
-		}
-		f.Close()
+func fsync(filePath string) (err error) {
+	_ = os.MkdirAll(filepath.Dir(filePath), 0o777)
+	var f *os.File
+	f, err = os.OpenFile(filePath, os.O_WRONLY|os.O_CREATE, 0o666)
+	if err != nil {
+		return err
 	}
-	return
+	defer f.Close()
+	if err = f.Sync(); err != nil {
+		return err
+	}
+	return f.Close()
+}
+
+func (fts *fileTorrentImpl) Flush() error {
+	for _, f := range fts.files {
+		if err := fsync(f.path); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// A helper to create zero-length files which won't appear for file-orientated storage since no
+// writes will ever occur to them (no torrent data is associated with a zero-length file). The
+// caller should make sure the file name provided is safe/sanitized.
+func CreateNativeZeroLengthFile(name string) error {
+	os.MkdirAll(filepath.Dir(name), 0o777)
+	var f io.Closer
+	f, err := os.Create(name)
+	if err != nil {
+		return err
+	}
+	return f.Close()
 }
 
 // Exposes file-based storage of a torrent, as one big ReadWriterAt.
@@ -123,8 +174,8 @@ type fileTorrentImplIO struct {
 }
 
 // Returns EOF on short or missing file.
-func (fst *fileTorrentImplIO) readFileAt(fi metainfo.FileInfo, b []byte, off int64) (n int, err error) {
-	f, err := os.Open(fst.fts.fileInfoName(fi))
+func (fst *fileTorrentImplIO) readFileAt(file file, b []byte, off int64) (n int, err error) {
+	f, err := os.Open(file.path)
 	if os.IsNotExist(err) {
 		// File missing is treated the same as a short file.
 		err = io.EOF
@@ -135,10 +186,10 @@ func (fst *fileTorrentImplIO) readFileAt(fi metainfo.FileInfo, b []byte, off int
 	}
 	defer f.Close()
 	// Limit the read to within the expected bounds of this file.
-	if int64(len(b)) > fi.Length-off {
-		b = b[:fi.Length-off]
+	if int64(len(b)) > file.length-off {
+		b = b[:file.length-off]
 	}
-	for off < fi.Length && len(b) != 0 {
+	for off < file.length && len(b) != 0 {
 		n1, err1 := f.ReadAt(b, off)
 		b = b[n1:]
 		n += n1
@@ -153,66 +204,42 @@ func (fst *fileTorrentImplIO) readFileAt(fi metainfo.FileInfo, b []byte, off int
 
 // Only returns EOF at the end of the torrent. Premature EOF is ErrUnexpectedEOF.
 func (fst fileTorrentImplIO) ReadAt(b []byte, off int64) (n int, err error) {
-	for _, fi := range fst.fts.info.UpvertedFiles() {
-		for off < fi.Length {
-			n1, err1 := fst.readFileAt(fi, b, off)
-			n += n1
-			off += int64(n1)
-			b = b[n1:]
-			if len(b) == 0 {
-				// Got what we need.
-				return
-			}
-			if n1 != 0 {
-				// Made progress.
-				continue
-			}
-			err = err1
-			if err == io.EOF {
-				// Lies.
-				err = io.ErrUnexpectedEOF
-			}
-			return
-		}
-		off -= fi.Length
+	fst.fts.segmentLocater.Locate(segments.Extent{off, int64(len(b))}, func(i int, e segments.Extent) bool {
+		n1, err1 := fst.readFileAt(fst.fts.files[i], b[:e.Length], e.Start)
+		n += n1
+		b = b[n1:]
+		err = err1
+		return err == nil // && int64(n1) == e.Length
+	})
+	if len(b) != 0 && err == nil {
+		err = io.EOF
 	}
-	err = io.EOF
 	return
 }
 
 func (fst fileTorrentImplIO) WriteAt(p []byte, off int64) (n int, err error) {
-	for _, fi := range fst.fts.info.UpvertedFiles() {
-		if off >= fi.Length {
-			off -= fi.Length
-			continue
-		}
-		n1 := len(p)
-		if int64(n1) > fi.Length-off {
-			n1 = int(fi.Length - off)
-		}
-		name := fst.fts.fileInfoName(fi)
-		os.MkdirAll(filepath.Dir(name), 0777)
+	// log.Printf("write at %v: %v bytes", off, len(p))
+	fst.fts.segmentLocater.Locate(segments.Extent{off, int64(len(p))}, func(i int, e segments.Extent) bool {
+		name := fst.fts.files[i].path
+		os.MkdirAll(filepath.Dir(name), 0o777)
 		var f *os.File
-		f, err = os.OpenFile(name, os.O_WRONLY|os.O_CREATE, 0666)
+		f, err = os.OpenFile(name, os.O_WRONLY|os.O_CREATE, 0o666)
 		if err != nil {
-			return
+			return false
 		}
-		n1, err = f.WriteAt(p[:n1], off)
-		// TODO: On some systems, write errors can be delayed until the Close.
-		f.Close()
-		if err != nil {
-			return
-		}
+		var n1 int
+		n1, err = f.WriteAt(p[:e.Length], e.Start)
+		// log.Printf("%v %v wrote %v: %v", i, e, n1, err)
+		closeErr := f.Close()
 		n += n1
-		off = 0
 		p = p[n1:]
-		if len(p) == 0 {
-			break
+		if err == nil {
+			err = closeErr
 		}
-	}
+		if err == nil && int64(n1) != e.Length {
+			err = io.ErrShortWrite
+		}
+		return err == nil
+	})
 	return
-}
-
-func (fts *fileTorrentImpl) fileInfoName(fi metainfo.FileInfo) string {
-	return filepath.Join(append([]string{fts.dir, fts.info.Name}, fi.Path...)...)
 }
