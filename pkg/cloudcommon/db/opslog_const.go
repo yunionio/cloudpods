@@ -252,6 +252,7 @@ const (
 	ACT_GUEST_CPUSET_REMOVE      = "guest_cpuset_remove"
 	ACT_GUEST_CPUSET_REMOVE_FAIL = "guest_cpuset_remove_fail"
 
+	ACT_CHANGE_IPADDR    = "change_ipaddr"
 	ACT_CHANGE_BANDWIDTH = "eip_change_bandwidth"
 	ACT_EIP_CONVERT_FAIL = "eip_convert_fail"
 
