@@ -357,6 +357,8 @@ func ParseNetworkConfig(desc string, idx int) (*compute.NetworkConfig, error) {
 			netConfig.Driver = p
 		} else if strings.HasPrefix(p, "num-queues=") {
 			netConfig.NumQueues, _ = strconv.Atoi(p[len("num-queues="):])
+		} else if strings.HasPrefix(p, "charge-type=") {
+			netConfig.ChargeType = p[len("charge-type="):]
 		} else if regutils.MatchSize(p) {
 			bw, err := fileutils.GetSizeMb(p, 'M', 1000)
 			if err != nil {
