@@ -64,9 +64,9 @@ func init() {
 type SNetworkAddress struct {
 	db.SStandaloneAnonResourceBase
 
-	Type       string `width:"16" charset:"ascii" list:"user" create:"required"`
-	ParentType string `width:"16" charset:"ascii" list:"user" create:"required"`
-	ParentId   string `width:"16" charset:"ascii" list:"user" create:"optional"`
+	Type       string                        `width:"16" charset:"ascii" list:"user" create:"required"`
+	ParentType api.TNetworkAddressParentType `width:"16" charset:"ascii" list:"user" create:"required"`
+	ParentId   string                        `width:"16" charset:"ascii" list:"user" create:"optional"`
 	SNetworkResourceBase
 	IpAddr string `width:"16" charset:"ascii" list:"user" create:"optional"`
 
@@ -78,9 +78,9 @@ func (man *SNetworkAddressManager) InitializeData() error {
 	return nil
 }
 
-func (man *SNetworkAddressManager) queryByParentTypeId(typ string, id string) *sqlchemy.SQuery {
+func (man *SNetworkAddressManager) queryByParentTypeId(typ api.TNetworkAddressParentType, id string) *sqlchemy.SQuery {
 	q := NetworkAddressManager.Query().
-		Equals("parent_type", typ).
+		Equals("parent_type", string(typ)).
 		Equals("parent_id", id)
 	return q
 }
@@ -90,7 +90,7 @@ func (man *SNetworkAddressManager) queryByGuestnetworkId(rowid int64) *sqlchemy.
 	return man.queryByParentTypeId(api.NetworkAddressParentTypeGuestnetwork, id)
 }
 
-func (man *SNetworkAddressManager) fetchByParentTypeId(typ string, id string) ([]SNetworkAddress, error) {
+func (man *SNetworkAddressManager) fetchByParentTypeId(typ api.TNetworkAddressParentType, id string) ([]SNetworkAddress, error) {
 	var (
 		q   = man.queryByParentTypeId(typ, id)
 		nas []SNetworkAddress
@@ -690,4 +690,11 @@ func (g *SGuest) getICloudNic(ctx context.Context, gn *SGuestnetwork) (cloudprov
 		}
 	}
 	return nil, errors.Wrapf(errors.ErrNotFound, "no nic of ip %s mac %s", gn.IpAddr, gn.MacAddr)
+}
+
+func (manager *SNetworkAddressManager) fetchSubIpsQuery(parentType api.TNetworkAddressParentType) *sqlchemy.SQuery {
+	subIPQ := manager.Query("parent_id").Equals("parent_type", string(parentType))
+	subIPQ = subIPQ.AppendField(sqlchemy.GROUP_CONCAT("sub_ips", subIPQ.Field("ip_addr")))
+	subIPQ = subIPQ.GroupBy(subIPQ.Field("parent_id"))
+	return subIPQ
 }
