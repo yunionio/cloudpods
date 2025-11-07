@@ -17,7 +17,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 )
 
@@ -172,7 +171,7 @@ func (dify *SDify) StartDeleteTask(ctx context.Context, userCred mcclient.TokenC
 	return task.ScheduleRun(nil)
 }
 
-func (dify *SDify) ServerCreate(ctx context.Context, userCred mcclient.TokenCredential, input *api.DifyCreateInput) (string, error) {
+func (dify *SDify) ServerCreate(ctx context.Context, userCred mcclient.TokenCredential, s *mcclient.ClientSession, input *api.DifyCreateInput) (string, error) {
 	model, err := dify.GetDifyModel(dify.DifyModelId)
 	if nil != err {
 		return "", errors.Wrap(err, "GetDifyModel")
@@ -184,7 +183,6 @@ func (dify *SDify) ServerCreate(ctx context.Context, userCred mcclient.TokenCred
 	}
 	log.Infoln("PodCreateInput Data: ", jsonutils.Marshal(data).String())
 
-	s := auth.GetSession(ctx, userCred, "")
 	resp, err := compute.Servers.Create(s, jsonutils.Marshal(data))
 	if nil != err {
 		return "", errors.Wrap(err, "Servers.Create")

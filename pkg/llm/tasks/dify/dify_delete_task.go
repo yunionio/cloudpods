@@ -10,6 +10,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/llm/models"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
@@ -37,20 +38,23 @@ func (task *DifyDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel,
 		return
 	}
 
-	err := dify.ServerDelete(ctx, task.UserCred)
+	task.SetStage("OnDifyRefreshStatusComplete", nil)
+	s := auth.GetSession(ctx, task.GetUserCred(), "")
+	err := s.WithTaskCallback(task.GetId(), func() error {
+		return dify.ServerDelete(ctx, task.UserCred, s)
+	})
 	if err != nil {
 		task.taskFailed(ctx, dify, err)
 		return
 	}
-	task.SetStage("OnDifyRefreshStatusComplete", nil)
-	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		err = dify.WaitDelete(ctx, task.UserCred, 1800)
-		if err != nil {
-			return nil, errors.Wrap(err, "llm.WaitDelete")
-		}
+	// taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+	// 	err = dify.WaitDelete(ctx, task.UserCred, 1800)
+	// 	if err != nil {
+	// 		return nil, errors.Wrap(err, "llm.WaitDelete")
+	// 	}
 
-		return nil, nil
-	})
+	// 	return nil, nil
+	// })
 }
 
 func (task *DifyDeleteTask) OnDifyRefreshStatusCompleteFailed(ctx context.Context, dify *models.SDify, err jsonutils.JSONObject) {
