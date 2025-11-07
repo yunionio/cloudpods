@@ -273,6 +273,8 @@ func (self *SCloudpodsBaremetalGuestDriver) Attach2RandomNetwork(guest *models.S
 			NicConfs:            nicConfs,
 
 			IsDefault: netConfig.IsDefault,
+
+			ChargeType: netConfig.ChargeType,
 		})
 	}
 	return nil, fmt.Errorf("No appropriate host virtual network...")

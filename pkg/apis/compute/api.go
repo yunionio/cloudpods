@@ -121,6 +121,8 @@ type NetworkConfig struct {
 
 	PortMappings GuestPortMappings `json:"port_mappings"`
 
+	ChargeType string `json:"charge_type"`
+
 	// swagger:ignore
 	Project string `json:"project_id"`
 
