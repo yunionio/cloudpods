@@ -27,18 +27,20 @@ var NetworkAddressTypes = choices.NewChoices(
 	NetworkAddressTypeSubIP,
 )
 
+type TNetworkAddressParentType string
+
 const (
-	NetworkAddressParentTypeGuestnetwork = "guestnetwork"
+	NetworkAddressParentTypeGuestnetwork = TNetworkAddressParentType("guestnetwork")
 )
 
 var NetworkAddressParentTypes = choices.NewChoices(
-	NetworkAddressParentTypeGuestnetwork,
+	string(NetworkAddressParentTypeGuestnetwork),
 )
 
 type NetworkAddressCreateInput struct {
 	apis.StandaloneAnonResourceCreateInput
 
-	ParentType        string
+	ParentType        TNetworkAddressParentType
 	ParentId          int64
 	GuestId           string
 	GuestnetworkIndex int8
