@@ -71,7 +71,7 @@ func (self *SBaremetalResetBMCTask) WaitForBMCReady(ctx context.Context, args in
 	if err != nil {
 		return err
 	}
-	if status != "" && status == types.POWER_STATUS_ON {
+	if status != "" && status == string(types.POWER_STATUS_ON) {
 		ExecuteTask(self, nil)
 	}
 	return nil
