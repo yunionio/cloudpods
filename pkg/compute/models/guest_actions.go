@@ -3634,11 +3634,11 @@ func (self *SGuest) isNotRunningStatus(status string) bool {
 func (self *SGuest) SetStatus(ctx context.Context, userCred mcclient.TokenCredential, status, reason string) error {
 	if status == api.VM_RUNNING {
 		if err := self.SetPowerStates(api.VM_POWER_STATES_ON); err != nil {
-			return err
+			return errors.Wrap(err, "input status is running")
 		}
 	} else if status == api.VM_READY {
 		if err := self.SetPowerStates(api.VM_POWER_STATES_OFF); err != nil {
-			return err
+			return errors.Wrap(err, "input status is ready")
 		}
 	}
 
@@ -3657,7 +3657,7 @@ func (self *SGuest) SetPowerStates(powerStates string) error {
 		self.PowerStates = powerStates
 		return nil
 	})
-	return errors.Wrap(err, "Update power states")
+	return errors.Wrapf(err, "Update power states to %s", powerStates)
 }
 
 func (self *SGuest) SetBackupGuestStatus(userCred mcclient.TokenCredential, status string, reason string) error {
