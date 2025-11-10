@@ -2942,11 +2942,14 @@ func (self *SGuest) PerformChangeIpaddr(
 
 	notes := gn.GetShortDesc(ctx)
 	if gn != nil {
-		notes.Add(jsonutils.NewString(gn.IpAddr), "prev_ip")
+		if gn.IpAddr != ngn.IpAddr {
+			notes.Add(jsonutils.NewString(gn.IpAddr), "prev_ip")
+		}
+		if gn.Ip6Addr != ngn.Ip6Addr {
+			notes.Add(jsonutils.NewString(gn.Ip6Addr), "prev_ip6")
+		}
 	}
-	if ngn != nil {
-		notes.Add(jsonutils.NewString(ngn.IpAddr), "ip")
-	}
+	db.OpsLog.LogEvent(self, db.ACT_CHANGE_IPADDR, notes, userCred)
 	logclient.AddActionLogWithContext(ctx, self, logclient.ACT_VM_CHANGE_NIC, notes, userCred, true)
 
 	restartNetwork := (input.RestartNetwork != nil && *input.RestartNetwork)
@@ -3328,15 +3331,18 @@ func (guest *SGuest) PerformChangeBandwidth(
 	}
 
 	if guestnic.BwLimit != int(bandwidth) {
-		diff, err := db.Update(guestnic, func() error {
+		oldBw := guestnic.BwLimit
+		_, err := db.Update(guestnic, func() error {
 			guestnic.BwLimit = int(bandwidth)
 			return nil
 		})
 		if err != nil {
 			return nil, err
 		}
-		db.OpsLog.LogEvent(guest, db.ACT_CHANGE_BANDWIDTH, diff, userCred)
-		logclient.AddActionLogWithContext(ctx, guest, logclient.ACT_VM_CHANGE_BANDWIDTH, diff, userCred, true)
+		eventDesc := guestnic.GetShortDesc(ctx)
+		eventDesc.Add(jsonutils.NewInt(int64(oldBw)), "old_bw_limit_mbps")
+		db.OpsLog.LogEvent(guest, db.ACT_CHANGE_BANDWIDTH, eventDesc, userCred)
+		logclient.AddActionLogWithContext(ctx, guest, logclient.ACT_VM_CHANGE_BANDWIDTH, eventDesc, userCred, true)
 		if guest.Status == api.VM_READY || (input.NoSync != nil && *input.NoSync) {
 			// if no sync, just update db
 			return nil, nil
