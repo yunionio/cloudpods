@@ -867,7 +867,7 @@ func (b *SBaremetalInstance) ServerLoadDesc(ctx context.Context) error {
 	}
 }
 
-func PowerStatusToBaremetalStatus(status string) string {
+func PowerStatusToBaremetalStatus(status types.PowerStatus) string {
 	switch status {
 	case types.POWER_STATUS_ON:
 		return baremetalstatus.RUNNING
@@ -877,7 +877,7 @@ func PowerStatusToBaremetalStatus(status string) string {
 	return baremetalstatus.UNKNOWN
 }
 
-func PowerStatusToServerStatus(bm *SBaremetalInstance, status string) string {
+func PowerStatusToServerStatus(bm *SBaremetalInstance, status types.PowerStatus) string {
 	switch status {
 	case types.POWER_STATUS_ON:
 		if conf, _ := bm.GetSSHConfig(); conf == nil {
@@ -931,7 +931,7 @@ func (b *SBaremetalInstance) DelayedSyncStatus(ctx context.Context, data jsonuti
 	return nil, nil
 }
 
-func (b *SBaremetalInstance) SyncAllStatus(ctx context.Context, status string) {
+func (b *SBaremetalInstance) SyncAllStatus(ctx context.Context, status types.PowerStatus) {
 	var err error
 	if status == "" {
 		status, err = b.GetPowerStatus()
@@ -939,24 +939,26 @@ func (b *SBaremetalInstance) SyncAllStatus(ctx context.Context, status string) {
 			log.Errorf("Get power status error: %v", err)
 		}
 	}
-	b.SyncStatus(ctx, PowerStatusToBaremetalStatus(status), "")
-	b.SyncServerStatus(PowerStatusToServerStatus(b, status))
+	b.SyncStatus(ctx, PowerStatusToBaremetalStatus(status), "SyncAllStatus by baremetal-agent")
+	b.SyncServerStatus(status)
 }
 
-func (b *SBaremetalInstance) SyncServerStatus(status string) {
+func (b *SBaremetalInstance) SyncServerStatus(powerStatus types.PowerStatus) {
 	if b.GetServerId() == "" {
 		return
 	}
-	if status == "" {
+	status := PowerStatusToServerStatus(b, powerStatus)
+	if powerStatus == "" {
 		powerStatus, err := b.GetPowerStatus()
 		if err != nil {
 			log.Errorf("Get power status error: %v", err)
 		}
 		status = PowerStatusToServerStatus(b, powerStatus)
 	}
-	params := jsonutils.NewDict()
-	params.Add(jsonutils.NewString(status), "status")
-	_, err := modules.Servers.PerformAction(b.GetClientSession(), b.GetServerId(), "status", params)
+	params := &api.ServerPerformStatusInput{}
+	params.Status = status
+	params.PowerStates = string(powerStatus)
+	_, err := modules.Servers.PerformAction(b.GetClientSession(), b.GetServerId(), "status", jsonutils.Marshal(params))
 	if err != nil {
 		log.Errorf("Update server %s status %s error: %v", b.GetServerName(), status, err)
 		return
@@ -1913,7 +1915,7 @@ func (b *SBaremetalInstance) DoDiskBoot() error {
 }
 */
 
-func (b *SBaremetalInstance) GetPowerStatus() (string, error) {
+func (b *SBaremetalInstance) GetPowerStatus() (types.PowerStatus, error) {
 	status, err := b.getPowerStatus()
 	if err != nil {
 		if errors.Cause(err) != types.ErrIPMIToolNull {
@@ -1925,7 +1927,7 @@ func (b *SBaremetalInstance) GetPowerStatus() (string, error) {
 	return status, nil
 }
 
-func (b *SBaremetalInstance) getPowerStatus() (string, error) {
+func (b *SBaremetalInstance) getPowerStatus() (types.PowerStatus, error) {
 	ipmiCli := b.GetIPMITool()
 	if ipmiCli == nil {
 		if cli, err := b.GetHostSSHClient(); err == nil {
@@ -1943,7 +1945,11 @@ func (b *SBaremetalInstance) getPowerStatus() (string, error) {
 		}
 		return "", errors.Wrapf(types.ErrIPMIToolNull, "Baremetal %s", b.GetId())
 	}
-	return ipmitool.GetChassisPowerStatus(ipmiCli)
+	cps, err := ipmitool.GetChassisPowerStatus(ipmiCli)
+	if err != nil {
+		return "", errors.Wrap(err, "ipmitool.GetChassisPowerStatus")
+	}
+	return types.PowerStatus(cps), nil
 }
 
 func (b *SBaremetalInstance) DoPowerShutdown(soft bool) error {
