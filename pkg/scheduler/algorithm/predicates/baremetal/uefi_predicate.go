@@ -21,6 +21,7 @@ import (
 
 	"yunion.io/x/pkg/errors"
 
+	api "yunion.io/x/onecloud/pkg/apis/image"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/scheduler/algorithm/predicates"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
@@ -65,7 +66,15 @@ func (f *UEFIImagePredicate) isImageUEFI() bool {
 	if f.cacheImage.UEFI.Bool() {
 		return true
 	}
-	support, err := f.cacheImage.Info.Bool("properties", "uefi_support")
+	support, err := f.cacheImage.Info.Bool("properties", api.IMAGE_UEFI_SUPPORT)
+	if err != nil {
+		return false
+	}
+	return support
+}
+
+func (f *UEFIImagePredicate) isImageBIOS() bool {
+	support, err := f.cacheImage.Info.Bool("properties", api.IMAGE_BIOS_SUPPORT)
 	if err != nil {
 		return false
 	}
@@ -74,20 +83,39 @@ func (f *UEFIImagePredicate) isImageUEFI() bool {
 
 func (f *UEFIImagePredicate) Execute(ctx context.Context, u *core.Unit, c core.Candidater) (bool, []core.PredicateFailureReason, error) {
 	h := predicates.NewPredicateHelper(f, u, c)
+	bios := u.SchedData().Bios
 	imgName := f.cacheImage.GetName()
 	hostName := c.Getter().Name()
-	imageMsg := fmt.Sprintf("image %s is not UEFI", imgName)
-	hostMsg := fmt.Sprintf("host %s is not UEFI boot", hostName)
+	isBIOSImage := f.isImageBIOS()
 	isUEFIImage := f.isImageUEFI()
-	if isUEFIImage {
-		imageMsg = fmt.Sprintf("image %s is UEFI", imgName)
+	if !isUEFIImage { // if not uefi image, set default bios image
+		isBIOSImage = true
 	}
 	isUEFIHost := c.Getter().Host().IsUEFIBoot()
-	if isUEFIHost {
-		hostMsg = fmt.Sprintf("host %s is UEFI boot", hostName)
+
+	if bios == "UEFI" {
+		if !isUEFIImage || !isUEFIHost {
+			h.Exclude(fmt.Sprintf("request boot UEFI, but host %s UEFI is %v, image %s UEFI is %v",
+				hostName, isUEFIHost, imgName, isUEFIImage))
+		}
+	} else if bios == "BIOS" {
+		if !isBIOSImage || isUEFIHost {
+			h.Exclude(fmt.Sprintf("request boot BIOS, but host %s UEFI is %v, image %s BIOS is %v",
+				hostName, isUEFIHost, imgName, isBIOSImage))
+		}
+	} else {
+		if isUEFIHost {
+			if !isUEFIImage {
+				h.Exclude(fmt.Sprintf("host %s UEFI is %v, image %s UEFI is %v",
+					hostName, isUEFIHost, imgName, isUEFIImage))
+			}
+		} else {
+			if !isBIOSImage {
+				h.Exclude(fmt.Sprintf("host %s UEFI is %v, image %s BIOS is %v",
+					hostName, isUEFIHost, imgName, isBIOSImage))
+			}
+		}
 	}
-	if isUEFIImage != isUEFIHost {
-		h.Exclude(imageMsg + " but " + hostMsg)
-	}
+
 	return h.GetResult()
 }
