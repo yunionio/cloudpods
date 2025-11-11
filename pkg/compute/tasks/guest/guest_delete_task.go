@@ -359,14 +359,14 @@ func (self *GuestDeleteTask) OnGuestDeleteComplete(ctx context.Context, obj db.I
 }
 
 func (self *GuestDeleteTask) DeleteGuest(ctx context.Context, guest *models.SGuest) {
-	guest.RealDelete(ctx, self.UserCred)
+	// guest.RealDelete(ctx, self.UserCred)
 	// guest.RemoveAllMetadata(ctx, self.UserCred)
-	db.OpsLog.LogEvent(guest, db.ACT_DELOCATE, guest.GetShortDesc(ctx), self.UserCred)
-	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_DELOCATE, nil, self.UserCred, true)
-	if !guest.IsSystem {
-		guest.EventNotify(ctx, self.UserCred, notifyclient.ActionDelete)
-	}
-	models.HostManager.ClearSchedDescCache(guest.HostId)
+	// db.OpsLog.LogEvent(guest, db.ACT_DELOCATE, guest.GetShortDesc(ctx), self.UserCred)
+	// logclient.AddActionLogWithStartable(self, guest, logclient.ACT_DELOCATE, nil, self.UserCred, true)
+	// if !guest.IsSystem {
+	// 	guest.EventNotify(ctx, self.UserCred, notifyclient.ActionDelete)
+	// }
+	// models.HostManager.ClearSchedDescCache(guest.HostId)
 	self.SetStageComplete(ctx, nil)
 }
 
