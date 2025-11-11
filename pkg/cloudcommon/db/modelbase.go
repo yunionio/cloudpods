@@ -880,3 +880,7 @@ func (e SEmptyExtraHook) AfterPostCreate(ctx context.Context, userCred mcclient.
 func (e SEmptyExtraHook) AfterPostDelete(ctx context.Context, userCred mcclient.TokenCredential, model IModel, query jsonutils.JSONObject) error {
 	return nil
 }
+
+func (e SEmptyExtraHook) AfterPostUpdate(ctx context.Context, userCred mcclient.TokenCredential, model IModel, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	return nil
+}
