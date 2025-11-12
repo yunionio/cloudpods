@@ -191,6 +191,8 @@ func init() {
 		IdpEntityId string `help:"Entity id of identity provider to link with"`
 
 		Lang string `help:"user default language"`
+
+		Expire string `help:"user expired at"`
 	}
 	R(&UserCreateOptions{}, "user-create", "Create a user", func(s *mcclient.ClientSession, args *UserCreateOptions) error {
 		params := jsonutils.NewDict()
@@ -245,6 +247,10 @@ func init() {
 			params.Add(jsonutils.NewString(args.Lang), "lang")
 		}
 
+		if len(args.Expire) > 0 {
+			params.Add(jsonutils.NewString(args.Expire), "expired_at")
+		}
+
 		/*if len(args.DefaultProject) > 0 {
 			projId, err := modules.Projects.GetId(s, args.DefaultProject, nil)
 			if err != nil {
@@ -288,6 +294,10 @@ func init() {
 		SkipPasswordComplexityCheck bool `help:"skip_password_complexity_check"`
 
 		Lang string `help:"update user language"`
+
+		Expire string `help:"user expired at"`
+
+		ClearExpire bool `help:"clear user expired at"`
 	}
 	R(&UserUpdateOptions{}, "user-update", "Update a user", func(s *mcclient.ClientSession, args *UserUpdateOptions) error {
 		query := jsonutils.NewDict()
@@ -346,6 +356,11 @@ func init() {
 		}
 		if len(args.Lang) > 0 {
 			params.Add(jsonutils.NewString(args.Lang), "lang")
+		}
+		if args.ClearExpire {
+			params.Add(jsonutils.JSONTrue, "clear_expire")
+		} else if len(args.Expire) > 0 {
+			params.Add(jsonutils.NewString(args.Expire), "expired_at")
 		}
 		// if len(args.DefaultProject) > 0 {
 		// 	projId, err := modules.Projects.GetId(s, args.DefaultProject, nil)
