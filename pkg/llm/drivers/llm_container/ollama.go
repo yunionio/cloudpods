@@ -2,9 +2,9 @@ package llm_container
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"path"
-	"regexp"
 	"strings"
 
 	"yunion.io/x/log"
@@ -94,7 +94,7 @@ func (o *ollama) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *
 	// vols = append(spec.VolumeMounts, GetDiskVolumeMounts(sku.Volumes, appVolIndex, postOverlays)...)
 
 	// udevPath := filepath.Join(GetTmpSocketsHostPath(d.GetName()), "udev")
-	modelName, modelTag, _ := llm.GetLargeLanguageModelName()
+	modelName, modelTag, _ := llm.GetLargeLanguageModelName("")
 	ctrVols := []*apis.ContainerVolumeMount{
 		{
 			UniqueName: "manifests",
@@ -162,25 +162,74 @@ func (o *ollama) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *
 
 func (o *ollama) CopyBlobs(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM) error {
 	ctr, _ := llm.GetLLMContainer()
-	modelName, modelTag, _ := llm.GetLargeLanguageModelName()
-	blobs, _ := fetchBlobs(ctx, ctr.CmpId, modelName, modelTag)
+	modelName, modelTag, _ := llm.GetLargeLanguageModelName("")
+	manifests, _ := getManifests(ctx, ctr.CmpId, modelName, modelTag)
 
 	blobsTargetDir := path.Join(api.LLM_OLLAMA_BASE_PATH, api.LLM_OLLAMA_BLOBS_DIR)
 	blobsSrcDir := path.Join(api.LLM_OLLAMA_CACHE_MOUNT_PATH, api.LLM_OLLAMA_CACHE_DIR)
 
 	var commands []string
 	commands = append(commands, fmt.Sprintf("mkdir -p %s", blobsTargetDir))
-	for _, blob := range blobs {
+	blob := manifests.Config.Digest
+	commands = append(commands, fmt.Sprintf("cp %s %s", path.Join(blobsSrcDir, blob), path.Join(blobsTargetDir, blob)))
+	for _, layer := range manifests.Layers {
+		blob = layer.Digest
 		src := path.Join(blobsSrcDir, blob)
 		target := path.Join(blobsTargetDir, blob)
 		commands = append(commands, fmt.Sprintf("cp %s %s", src, target))
 	}
 
 	cmd := strings.Join(commands, " && ")
-	if _, err := exec(ctx, ctr.CmpId, "/bin/sh", "-c", cmd); err != nil {
+	if _, err := exec(ctx, ctr.CmpId, cmd, 120); err != nil {
 		return errors.Wrapf(err, "failed to copy blobs to container")
 	}
 	return nil
+}
+
+func (o *ollama) GetProbedPackagesExt(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM, pkgAppIds ...string) (map[string]api.LLMInternalPkgInfo, error) {
+	ctr, err := llm.GetLLMContainer()
+	if err != nil {
+		return nil, errors.Wrap(err, "get llm container")
+	}
+
+	// get all effective models
+	getModels := "ollama list" // NAME ID SIZE MODIFIED
+	modelsOutput, err := exec(ctx, ctr.CmpId, getModels, 10)
+	if err != nil {
+		return nil, errors.Wrap(err, "get models")
+	}
+	lines := strings.Split(strings.TrimSpace(modelsOutput), "\n")
+
+	models := make(map[string]api.LLMInternalPkgInfo, len(lines)-1)
+	for i := 1; i < len(lines); i++ {
+		fields := strings.Fields(lines[i])
+		if len(fields) > 2 {
+			modelName, modelTag, _ := llm.GetLargeLanguageModelName(fields[0])
+			models[fields[1]] = api.LLMInternalPkgInfo{
+				Name:    modelName,
+				Tag:     modelTag,
+				ModelId: fields[1],
+				// Modified: fields[3],
+			}
+		}
+	}
+
+	// for each model, get manifests file, find blobs, calculate size
+	for modelId, model := range models {
+		manifests, err := getManifests(ctx, ctr.CmpId, model.Name, model.Tag)
+		if err != nil {
+			return nil, errors.Wrap(err, "get manifests")
+		}
+		model.Size = manifests.Config.Size
+		model.Blobs = append(model.Blobs, manifests.Config.Digest)
+		for _, layer := range manifests.Layers {
+			model.Size += layer.Size
+			model.Blobs = append(model.Blobs, layer.Digest)
+		}
+		models[modelId] = model
+	}
+
+	return models, nil
 }
 
 // func download(ctx context.Context, userCred mcclient.TokenCredential, containerId string, taskId string, webUrl string, path string) error {
@@ -193,11 +242,11 @@ func (o *ollama) CopyBlobs(ctx context.Context, userCred mcclient.TokenCredentia
 // 	return err
 // }
 
-func exec(ctx context.Context, containerId string, command ...string) (string, error) {
+func exec(ctx context.Context, containerId string, cmd string, timeoutSec int64) (string, error) {
 	// exec command
-
 	input := &computeapi.ContainerExecSyncInput{
-		Command: command,
+		Command: []string{"sh", "-c", cmd},
+		Timeout: timeoutSec,
 	}
 	resp, err := utils.ExecSyncContainer(ctx, containerId, input)
 
@@ -215,23 +264,36 @@ func getManifestsPath(modelName, modelTag string) string {
 	return path.Join(api.LLM_OLLAMA_BASE_PATH, api.LLM_OLLAMA_MANIFESTS_BASE_PATH, modelName, modelTag)
 }
 
-func fetchBlobs(ctx context.Context, containerId string, modelName string, modelTag string) ([]string, error) {
-	manifestContent, err := exec(ctx, containerId, "cat", getManifestsPath(modelName, modelTag))
+type Layer struct {
+	MediaType string `json:"mediaType"`
+	Digest    string `json:"digest"`
+	Size      int64  `json:"size"`
+}
+
+type Manifest struct {
+	SchemaVersion int     `json:"schemaVersion"`
+	MediaType     string  `json:"mediaType"`
+	Config        Layer   `json:"config"`
+	Layers        []Layer `json:"layers"`
+}
+
+func getManifests(ctx context.Context, containerId string, modelName string, modelTag string) (*Manifest, error) {
+	manifestContent, err := exec(ctx, containerId, "cat "+getManifestsPath(modelName, modelTag), 10)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to read manifests from container")
 	}
 
 	// find all blobs
-	var results []string
-	re := regexp.MustCompile(`"digest":"(sha256:[^"]*)"`)
-	matches := re.FindAllStringSubmatch(manifestContent, -1)
-	for _, match := range matches {
-		if len(match) > 1 {
-			digest := match[1]
-			processedDigest := strings.Replace(digest, "sha256:", "sha256-", 1)
-			results = append(results, processedDigest)
-		}
+	manifests := &Manifest{}
+	if err = json.Unmarshal([]byte(manifestContent), manifests); err != nil {
+		return nil, errors.Wrapf(err, "failed to parse manifests")
+	}
+	// log.Infof("manifests: %v", manifests)
+
+	manifests.Config.Digest = strings.Replace(manifests.Config.Digest, ":", "-", 1)
+	for idx, layer := range manifests.Layers {
+		manifests.Layers[idx].Digest = strings.Replace(layer.Digest, ":", "-", 1)
 	}
 
-	return results, nil
+	return manifests, nil
 }

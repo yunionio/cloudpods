@@ -66,11 +66,31 @@ type ILLMContainerPullModel interface {
 	CopyBlobs(ctx context.Context, userCred mcclient.TokenCredential, llm *SLLM) error
 }
 
+type ILLMContainerInstantApp interface {
+	GetProbedPackagesExt(ctx context.Context, userCred mcclient.TokenCredential, llm *SLLM, pkgNames ...string) (map[string]llm.LLMInternalPkgInfo, error)
+	// DetectAppPaths(ctx context.Context, userCred mcclient.TokenCredential, llm *SLLM, pkgInfo llm.LLMInternalPkgInfo) ([]string, error)
+
+	// GetImageInternalPathMounts(iApp *SInstantApp) map[string]string
+	// ConvertMountToSavePath(mount string) (string, error)
+	// GetSaveVolumeMountToImageInputDirPrefix(iApp *SInstantApp) string
+
+	// ValidateMounts(mounts []string, pkg string) ([]string, error)
+	// GetPackageAppIdByPostOverlay(postOverlay *commonapi.ContainerVolumeMountDiskPostOverlay) string
+	// GetDirPostOverlay(dir cdk.DesktopMountDirInfo) *commonapi.ContainerVolumeMountDiskPostOverlay
+
+	// PreInstallApp(ctx context.Context, userCred mcclient.TokenCredential, d *SDesktop, app *SDesktopApp, iconBase64 string) error
+	// InstallApp(ctx context.Context, userCred mcclient.TokenCredential, d *SDesktop, dirs []string, appIds []string) error
+	// UninstallApp(ctx context.Context, userCred mcclient.TokenCredential, d *SDesktop, app *SDesktopApp) error
+	// CleanAppTempIcon(ctx context.Context, userCred mcclient.TokenCredential, d *SDesktop, pkgName string) error
+}
+
 type ILLMContainerDriver interface {
 	GetType() llm.LLMContainerType
 	GetContainerSpec(ctx context.Context, llm *SLLM, image *SLLMImage, sku *SLLMModel, props []string, devices []computeapi.SIsolatedDevice, diskId string) *computeapi.PodContainerCreateInput
 
 	// ILLMContainerPullModel
+
+	ILLMContainerInstantApp
 }
 
 var (
