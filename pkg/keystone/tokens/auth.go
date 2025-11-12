@@ -151,7 +151,11 @@ func authUserByIdentityInternal(ctx context.Context, ident *mcclient.SAuthentica
 				return nil, httperrors.ErrUserLocked
 			}
 			// user disabled
-			return nil, httperrors.ErrUserLocked
+			return nil, httperrors.ErrUserDisabled
+		}
+		// user is enabled, check expired time
+		if !usrExt.ExpiredAt.IsZero() && usrExt.ExpiredAt.Before(time.Now()) {
+			return nil, httperrors.ErrUserExpired
 		}
 		// user exists, query user's idp
 		idps, err := models.IdentityProviderManager.FetchIdentityProvidersByUserId(usrExt.Id, api.PASSWORD_PROTECTED_IDPS)
@@ -497,6 +501,10 @@ func AuthenticateV3(ctx context.Context, input mcclient.SAuthenticationInputV3) 
 	if !user.Enabled {
 		return nil, ErrUserDisabled
 	}
+	// user is expired
+	if !user.ExpiredAt.IsZero() && user.ExpiredAt.Before(time.Now()) {
+		return nil, httperrors.ErrUserExpired
+	}
 
 	if !user.DomainEnabled {
 		return nil, ErrDomainDisabled
@@ -508,6 +516,9 @@ func AuthenticateV3(ctx context.Context, input mcclient.SAuthenticationInputV3) 
 	token.AuditIds = user.AuditIds
 	now := time.Now().UTC()
 	token.ExpiresAt = now.Add(time.Duration(options.Options.TokenExpirationSeconds) * time.Second)
+	if !user.ExpiredAt.IsZero() && user.ExpiredAt.Before(token.ExpiresAt) {
+		token.ExpiresAt = user.ExpiredAt
+	}
 	token.Context = input.Auth.Context
 
 	if len(input.Auth.Scope.Project.Id) == 0 && len(input.Auth.Scope.Project.Name) == 0 && len(input.Auth.Scope.Domain.Id) == 0 && len(input.Auth.Scope.Domain.Name) == 0 {

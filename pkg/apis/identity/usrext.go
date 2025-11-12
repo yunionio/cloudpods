@@ -20,6 +20,7 @@ type SUserExtended struct {
 	Id               string
 	Name             string
 	Enabled          bool
+	ExpiredAt        time.Time
 	DefaultProjectId string
 	CreatedAt        time.Time
 	LastActiveAt     time.Time
