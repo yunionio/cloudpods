@@ -149,7 +149,9 @@ func (d *SLVMDisk) CreateRaw(ctx context.Context, sizeMB int, diskFormat string,
 		diskInfo.EncryptAlg = string(encryptInfo.Alg)
 	}
 	if utils.IsInStringArray(fsFormat, api.SUPPORTED_FS) {
-		d.FormatFs(fsFormat, nil, diskId, diskInfo)
+		if err := d.FormatFs(fsFormat, nil, diskId, diskInfo); err != nil {
+			return nil, errors.Wrap(err, "FormatFs")
+		}
 	}
 	return d.GetDiskDesc(), nil
 }
@@ -294,6 +296,7 @@ func (d *SLVMDisk) Resize(ctx context.Context, params interface{}) (jsonutils.JS
 
 	if err := d.ResizeFs(resizeFsInfo); err != nil {
 		log.Errorf("Resize fs %s fail %s", d.GetPath(), err)
+		return nil, errors.Wrapf(err, "resize fs %s", d.GetPath())
 	}
 	return d.GetDiskDesc(), nil
 }

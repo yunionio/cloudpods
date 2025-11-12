@@ -134,7 +134,7 @@ func (d *SRBDDisk) Resize(ctx context.Context, params interface{}) (jsonutils.JS
 	}
 	if err := d.ResizeFs(resizeFsInfo); err != nil {
 		log.Errorf("Resize fs %s fail %s", d.GetPath(), err)
-		// return nil, errors.Wrapf(err, "resize fs %s", d.GetPath())
+		return nil, errors.Wrapf(err, "resize fs %s", d.GetPath())
 	}
 
 	return d.GetDiskDesc(), nil
@@ -228,7 +228,9 @@ func (d *SRBDDisk) CreateRaw(ctx context.Context, sizeMb int, diskFormat string,
 		Path: d.GetPath(),
 	}
 	if utils.IsInStringArray(fsFormat, api.SUPPORTED_FS) {
-		d.FormatFs(fsFormat, nil, diskId, diskInfo)
+		if err := d.FormatFs(fsFormat, nil, diskId, diskInfo); err != nil {
+			return nil, errors.Wrap(err, "FormatFs")
+		}
 	}
 
 	return d.GetDiskDesc(), nil
