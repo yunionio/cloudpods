@@ -97,3 +97,15 @@ type LLMStopOptions struct {
 func (o *LLMStopOptions) Params() (jsonutils.JSONObject, error) {
 	return jsonutils.Marshal(o), nil
 }
+
+type LLMIdOptions struct {
+	ID string `help:"llm id" json:"-"`
+}
+
+func (opts *LLMIdOptions) GetId() string {
+	return opts.ID
+}
+
+func (opts *LLMIdOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(opts), nil
+}

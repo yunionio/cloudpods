@@ -15,4 +15,5 @@ func init() {
 	// cmd.Perform("change-model", new(options.LLMChangeModelOptions))
 	cmd.BatchPerform("stop", new(options.LLMStopOptions))
 	cmd.BatchPerform("start", new(options.LLMStartOptions))
+	cmd.Get("probed-packages", new(options.LLMIdOptions))
 }

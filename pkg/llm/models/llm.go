@@ -169,16 +169,18 @@ func (llm *SLLM) GetLLMModel(modelId string) (*SLLMModel, error) {
 	return model.(*SLLMModel), nil
 }
 
-func (llm *SLLM) GetLargeLanguageModelName() (modelName string, modelTag string, err error) {
-	model, err := llm.GetLLMModel("")
-	if err != nil {
-		return "", "", err
+func (llm *SLLM) GetLargeLanguageModelName(name string) (modelName string, modelTag string, err error) {
+	if name == "" {
+		model, err := llm.GetLLMModel("")
+		if err != nil {
+			return "", "", err
+		}
+		name = model.LLMModelName
 	}
-	name := model.LLMModelName
 	parts := strings.Split(name, ":")
 	modelName = parts[0]
 	modelTag = "latest"
-	if len(parts) > 1 {
+	if len(parts) == 2 {
 		modelTag = parts[1]
 	}
 	return
