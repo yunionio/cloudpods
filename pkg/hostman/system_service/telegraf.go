@@ -390,12 +390,9 @@ func (s *STelegraf) BgReloadConf(kwargs map[string]interface{}) {
 func (s *STelegraf) ReloadTelegraf() error {
 	log.Infof("Start reloading telegraf...")
 	errs := []error{}
-	if err := s.reloadTelegrafByDocker(); err != nil {
-		errs = append(errs, errors.Wrap(err, "reloadTelegrafByDocker"))
-		if err := s.reloadTelegrafByHTTP(); err != nil {
-			errs = append(errs, errors.Wrap(err, "reloadTelegrafByHTTP"))
-			return errors.NewAggregate(errs)
-		}
+	if err := s.reloadTelegrafByHTTP(); err != nil {
+		errs = append(errs, errors.Wrap(err, "reloadTelegrafByHTTP"))
+		return errors.NewAggregate(errs)
 	}
 	log.Infof("Finish reloading telegraf")
 	return nil
