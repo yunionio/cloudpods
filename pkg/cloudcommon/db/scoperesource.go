@@ -36,7 +36,7 @@ type SScopedResourceBaseManager struct {
 
 // +onecloud:model-api-gen
 type SScopedResourceBase struct {
-	SProjectizedResourceBase `"domain_id->default":""`
+	SProjectizedResourceBase `domain_id->default:"" nullable:"true" tenant_id->default:"" nullable:"true"`
 }
 
 type sUniqValues struct {
