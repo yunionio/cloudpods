@@ -150,7 +150,7 @@ type SHostOptions struct {
 	EnableOpenflowController    bool   `default:"false"`
 	BootVgaPciAddr              string `help:"Specific boot vga pci addr incase detect wrong device"`
 
-	PingRegionInterval int      `default:"60" help:"interval to ping region, deefault is 1 minute"`
+	PingRegionInterval int      `default:"60" help:"interval to ping region, default is 1 minute"`
 	LogSystemdUnits    []string `help:"Systemd units log collected by fluent-bit"`
 	// 更改默认带宽限速为400GBps, qiujian
 	BandwidthLimit int `default:"400000" help:"Bandwidth upper bound when migrating disk image in MB/sec, default 400GBps"`
