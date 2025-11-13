@@ -29,6 +29,7 @@ including text test
 including text test
 including text test
 including text test`
+	SetRemoteTempDir("/tmp/files")
 	err := FilePutContents("/tmp/test", content)
 	if err != nil {
 		t.Errorf("FilePutContents failed: %v", err)
