@@ -1852,6 +1852,10 @@ func updateItem(manager IModelManager, item IModel, ctx context.Context, userCre
 
 	item.PostUpdate(ctx, userCred, query, data)
 
+	if err := manager.GetExtraHook().AfterPostUpdate(ctx, userCred, item, query, data); err != nil {
+		logclient.AddActionLogWithContext(ctx, item, logclient.ACT_POST_UPDATE_HOOK, err, userCred, false)
+	}
+
 	return getItemDetails(manager, item, ctx, userCred, query)
 }
 

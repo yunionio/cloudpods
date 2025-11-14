@@ -141,7 +141,7 @@ func (manager *SMonitorResourceAlertManager) GetJoinsByListInput(input monitor.M
 	return joints, nil
 }
 
-func (obj *SMonitorResourceAlert) UpdateAlertRecordData(input *UpdateMonitorResourceAlertInput, match *monitor.EvalMatch) error {
+func (obj *SMonitorResourceAlert) UpdateAlertRecordData(ctx context.Context, userCred mcclient.TokenCredential, input *UpdateMonitorResourceAlertInput, match *monitor.EvalMatch) error {
 	sendState := input.SendState
 	if _, ok := match.Tags[monitor.ALERT_RESOURCE_RECORD_SHIELD_KEY]; ok {
 		sendState = monitor.SEND_STATE_SHIELD
@@ -159,6 +159,9 @@ func (obj *SMonitorResourceAlert) UpdateAlertRecordData(input *UpdateMonitorReso
 		return nil
 	}); err != nil {
 		return errors.Wrap(err, "db.Update")
+	}
+	if err := obj.GetModelManager().GetExtraHook().AfterPostUpdate(ctx, userCred, obj, jsonutils.NewDict(), jsonutils.NewDict()); err != nil {
+		log.Warningf("UpdateAlertRecordData after post update hook error: %v", err)
 	}
 	return nil
 }
