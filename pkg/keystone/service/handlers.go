@@ -62,6 +62,7 @@ func InitHandlers(app *appsrv.Application) {
 		models.NonlocalUserManager,
 		models.PasswordManager,
 		models.UsergroupManager,
+		models.UserLoginManager,
 
 		models.FederatedUserManager,
 		models.FederationProtocolManager,

@@ -91,6 +91,7 @@ const (
 	ErrUserNotFound                = errors.Error("UserNotFound")
 	ErrUserLocked                  = errors.Error("UserLocked")
 	ErrUserDisabled                = errors.Error("UserDisabled")
+	ErrUserExpired                 = errors.Error("UserExpired")
 	ErrWrongPassword               = errors.Error("WrongPassword")
 	ErrIncorrectUsernameOrPassword = errors.Error("IncorrectUsernameOrPassword")
 
