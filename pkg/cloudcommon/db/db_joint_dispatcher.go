@@ -28,6 +28,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 type DBJointModelDispatcher struct {
@@ -210,6 +211,9 @@ func attachItems(
 		return nil, httperrors.NewGeneralError(err)
 	}
 	item.PostCreate(ctx, userCred, nil, query, data)
+	if err := dispatcher.JointModelManager().GetExtraHook().AfterPostCreate(ctx, userCred, item.GetOwnerId(), item, query, data); err != nil {
+		logclient.AddActionLogWithContext(ctx, item, logclient.ACT_POST_CREATE_HOOK, err, userCred, false)
+	}
 	OpsLog.LogAttachEvent(ctx, master, slave, userCred, jsonutils.Marshal(item))
 	dispatcher.manager.OnCreateComplete(ctx, []IModel{item}, userCred, nil, query, []jsonutils.JSONObject{data})
 
@@ -321,6 +325,9 @@ func DetachJoint(ctx context.Context, userCred mcclient.TokenCredential, item IJ
 	err = item.Delete(ctx, userCred)
 	if err == nil {
 		OpsLog.LogDetachEvent(ctx, JointMaster(item), JointSlave(item), userCred, item.GetShortDesc(ctx))
+	}
+	if err := item.GetModelManager().GetExtraHook().AfterPostDelete(ctx, userCred, item, nil); err != nil {
+		logclient.AddActionLogWithContext(ctx, item, logclient.ACT_POST_DELETE_HOOK, err, userCred, false)
 	}
 	return err
 }
