@@ -244,7 +244,7 @@ func ConvertDiskFsFeaturesToDeploy(fsFeatures *api.DiskFsFeatures) *deployapi.Fs
 	return ret
 }
 
-func (d *SBaseDisk) FormatFs(fsFormat string, fsFeatures *api.DiskFsFeatures, uuid string, diskInfo *deployapi.DiskInfo) {
+func (d *SBaseDisk) FormatFs(fsFormat string, fsFeatures *api.DiskFsFeatures, uuid string, diskInfo *deployapi.DiskInfo) error {
 	log.Infof("Make disk %s fs %s, features: %s", uuid, fsFormat, jsonutils.Marshal(fsFeatures))
 	_, err := deployclient.GetDeployClient().FormatFs(
 		context.Background(),
@@ -257,7 +257,9 @@ func (d *SBaseDisk) FormatFs(fsFormat string, fsFeatures *api.DiskFsFeatures, uu
 	)
 	if err != nil {
 		log.Errorf("Format fs error : %s", err)
+		return err
 	}
+	return nil
 }
 
 func (d *SBaseDisk) DiskSnapshot(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
