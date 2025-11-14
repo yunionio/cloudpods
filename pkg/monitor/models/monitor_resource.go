@@ -494,14 +494,14 @@ func (self *SMonitorResource) UpdateAttachJoint(ctx context.Context, userCred mc
 			log.Errorf("attach alert error: %s", err)
 		}
 		log.Infof("Attach Alert joint: %#v, match: %s", newJoint, jsonutils.Marshal(match))
-		if err := newJoint.UpdateAlertRecordData(input, &match); err != nil {
+		if err := newJoint.UpdateAlertRecordData(ctx, userCred, input, &match); err != nil {
 			errs = append(errs, errors.Wrapf(err, "new joint %s:%s %s:%s UpdateAlertRecordData err",
 				MonitorResourceAlertManager.GetMasterFieldName(), self.ResId,
 				MonitorResourceAlertManager.GetSlaveFieldName(), input.AlertId))
 		}
 	} else {
 		for _, joint := range updateJoints {
-			err := joint.UpdateAlertRecordData(input, &match)
+			err := joint.UpdateAlertRecordData(ctx, userCred, input, &match)
 			if err != nil {
 				errs = append(errs, errors.Wrapf(err, "joint %s:%s %s:%s UpdateAlertRecordData err",
 					MonitorResourceAlertManager.GetMasterFieldName(), self.ResId,
