@@ -220,7 +220,7 @@ func (d *SLocalDisk) Resize(ctx context.Context, params *SDiskResizeInput) (json
 
 	if err := d.ResizeFs(resizeFsInfo, params.GuestDesc); err != nil {
 		log.Errorf("Resize fs %s fail %s", d.GetPath(), err)
-		// return nil, errors.Wrapf(err, "resize fs %s", d.GetPath())
+		return nil, errors.Wrapf(err, "resize fs %s", d.GetPath())
 	}
 
 	return d.GetDiskDesc(), nil
@@ -426,7 +426,9 @@ func (d *SLocalDisk) CreateRaw(ctx context.Context, sizeMB int, diskFormat strin
 		diskInfo.EncryptAlg = string(encryptInfo.Alg)
 	}
 	if utils.IsInStringArray(fsFormat, api.SUPPORTED_FS) {
-		d.FormatFs(fsFormat, fsFeatures, diskId, diskInfo)
+		if err := d.FormatFs(fsFormat, fsFeatures, diskId, diskInfo); err != nil {
+			return nil, errors.Wrap(err, "FormatFs")
+		}
 	}
 
 	return d.GetDiskDesc(), nil
