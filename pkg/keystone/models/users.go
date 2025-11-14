@@ -17,6 +17,7 @@ package models
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -24,7 +25,6 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/rbacscope"
-	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
@@ -94,10 +94,16 @@ type SUser struct {
 	Displayname string `with:"128" charset:"utf8" nullable:"true" list:"domain" update:"domain" create:"domain_optional"`
 
 	// 上次登录时间
+	// deprecated
+	// swagger:ignore
 	LastActiveAt time.Time `nullable:"true" list:"domain"`
 	// 上次用户登录IP
+	// deprecated
+	// swagger:ignore
 	LastLoginIp string `nullable:"true" list:"domain"`
 	// 上次用户登录方式，可能值有：web（web控制台），cli（命令行climc），API（api）
+	// deprecated
+	// swagger:ignore
 	LastLoginSource string `nullable:"true" list:"domain"`
 
 	// 是否为系统账号，系统账号不会检查密码复杂度，默认不在列表显示
@@ -113,6 +119,9 @@ type SUser struct {
 
 	// 用户的默认语言设置，默认是zh_CN
 	Lang string `width:"8" charset:"ascii" nullable:"false" list:"domain" update:"domain" create:"domain_optional"`
+
+	// 过期时间
+	ExpiredAt time.Time `nullable:"true" list:"domain" update:"domain" create:"domain_optional"`
 }
 
 func (manager *SUserManager) GetContextManagers() [][]db.IModelManager {
@@ -178,6 +187,49 @@ func (manager *SUserManager) InitializeData() error {
 		}
 	}
 
+	{
+		err := manager.migrateUserLogin()
+		if err != nil {
+			return errors.Wrap(err, "migrateUserLogin")
+		}
+	}
+
+	return nil
+}
+
+func (manager *SUserManager) migrateUserLogin() error {
+	userLoginQ := UserLoginManager.Query("user_id").SubQuery()
+	q := manager.Query().NotIn("id", userLoginQ)
+
+	rows, err := q.Rows()
+	if err != nil {
+		return errors.Wrap(err, "query.Rows")
+	}
+	defer rows.Close()
+
+	type SUserLoginExt struct {
+		SUserLogin
+		Id string
+	}
+	for rows.Next() {
+		userLogin := SUserLoginExt{}
+		err := q.Row2Struct(rows, &userLogin)
+		if err != nil {
+			return errors.Wrap(err, "row2struct")
+		}
+		userLogin.UserId = userLogin.Id
+		userLogin.SUserLogin.SetModelManager(UserLoginManager, &userLogin.SUserLogin)
+		err = UserLoginManager.TableSpec().Insert(context.Background(), &userLogin.SUserLogin)
+		if err != nil {
+			return errors.Wrap(err, "insert")
+		}
+	}
+
+	sql := fmt.Sprintf("UPDATE `%s` SET last_active_at = NULL, last_login_ip = NULL, last_login_source = NULL WHERE last_active_at IS NOT NULL", manager.TableSpec().Name())
+	_, err = manager.TableSpec().GetTableSpec().Database().Exec(sql)
+	if err != nil {
+		return errors.Wrap(err, "exec batch update")
+	}
 	return nil
 }
 
@@ -300,6 +352,7 @@ func (manager *SUserManager) FetchUserExtended(userId, userName, domainId, domai
 		users.Field("last_active_at"),
 		users.Field("domain_id"),
 		users.Field("is_system_account"),
+		users.Field("expired_at"),
 		localUsers.Field("id", "local_id"),
 		localUsers.Field("name", "local_name"),
 		localUsers.Field("failed_auth_count", "local_failed_auth_count"),
@@ -632,6 +685,10 @@ func (user *SUser) ValidateUpdateData(ctx context.Context, userCred mcclient.Tok
 		boolTrue := true
 		input.EnableMfa = &boolTrue
 	}
+	if input.ClearExpire != nil && *input.ClearExpire {
+		tmZero := time.Time{}
+		input.ExpiredAt = &tmZero
+	}
 	var err error
 	input.EnabledIdentityBaseUpdateInput, err = user.SEnabledIdentityBaseResource.ValidateUpdateData(ctx, userCred, query, input.EnabledIdentityBaseUpdateInput)
 	if err != nil {
@@ -799,7 +856,7 @@ func (manager *SUserManager) FetchCustomizeColumns(
 		if !ok {
 			projectMap[p.UserId] = []api.SFetchDomainObjectWithMetadata{}
 		}
-		p.SFetchDomainObjectWithMetadata.Metadata, _ = metaMap[p.Id]
+		p.SFetchDomainObjectWithMetadata.Metadata = metaMap[p.Id]
 		projectMap[p.UserId] = append(projectMap[p.UserId], p.SFetchDomainObjectWithMetadata)
 	}
 
@@ -836,11 +893,27 @@ func (manager *SUserManager) FetchCustomizeColumns(
 		groupMap[ug.UserId] = append(groupMap[ug.UserId], ug.SUserGroup)
 	}
 
+	userLogins := make(map[string]*SUserLogin)
+	userLoginRows := []SUserLogin{}
+	err = UserLoginManager.Query().In("user_id", userIds).All(&userLoginRows)
+	if err != nil {
+		log.Errorf("query user logins error: %v", err)
+		return rows
+	}
+	for _, userLogin := range userLoginRows {
+		userLogins[userLogin.UserId] = &userLogin
+	}
+
 	for i := range rows {
-		rows[i].ExternalResourceInfo, _ = scopeResources[userIds[i]]
-		rows[i].UserUsage, _ = usage[userIds[i]]
-		rows[i].Projects, _ = projectMap[userIds[i]]
-		rows[i].Groups, _ = groupMap[userIds[i]]
+		rows[i].ExternalResourceInfo = scopeResources[userIds[i]]
+		rows[i].UserUsage = usage[userIds[i]]
+		rows[i].Projects = projectMap[userIds[i]]
+		rows[i].Groups = groupMap[userIds[i]]
+		if userLogin, ok := userLogins[userIds[i]]; ok {
+			rows[i].LastActiveAt = userLogin.LastActiveAt
+			rows[i].LastLoginIp = userLogin.LastLoginIp
+			rows[i].LastLoginSource = userLogin.LastLoginSource
+		}
 	}
 
 	return rows
@@ -1202,14 +1275,11 @@ func (manager *SUserManager) traceLoginEvent(ctx context.Context, token mcclient
 		return
 	}
 
-	// only save web console login record
-	if usr.LastActiveAt.IsZero() || utils.IsInArray(authCtx.Source, []string{mcclient.AuthSourceWeb}) {
-		db.Update(usr, func() error {
-			usr.LastActiveAt = time.Now().UTC()
-			usr.LastLoginIp = authCtx.Ip
-			usr.LastLoginSource = authCtx.Source
-			return nil
-		})
+	{
+		err = UserLoginManager.traceLoginEvent(ctx, usr.Id, authCtx)
+		if err != nil {
+			log.Errorf("UserLoginManager.traceLoginEvent fail %s", err)
+		}
 	}
 
 	db.OpsLog.LogEvent(usr, "auth", &s, token)
