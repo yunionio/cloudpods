@@ -220,6 +220,40 @@ func (manager *SSchedtagManager) ListItemFilter(
 		q = q.Join(hostSchedtagSubq, sqlchemy.Equals(q.Field("id"), hostSchedtagSubq.Field("schedtag_id")))
 	}
 
+	if len(query.ZoneId) > 0 {
+		var err error
+
+		storagesQ := StorageManager.Query("id")
+		storagesQ, err = StorageManager.SZoneResourceBaseManager.ListItemFilter(ctx, storagesQ, userCred, api.ZonalFilterListInput{ZonalFilterListBase: api.ZonalFilterListBase{ZoneIds: query.ZoneId}})
+		if err != nil {
+			return nil, errors.Wrap(err, "StorageManager.SZoneResourceBaseManager.ListItemFilter")
+		}
+		storagesSubQ := storagesQ.SubQuery()
+		storageSchedtagQ := StorageschedtagManager.Query("schedtag_id")
+		storageSchedtagQ = storageSchedtagQ.Join(storagesSubQ, sqlchemy.Equals(storageSchedtagQ.Field("storage_id"), storagesSubQ.Field("id")))
+
+		networksQ := NetworkManager.Query("id")
+		networksQ, err = NetworkManager.SWireResourceBaseManager.ListItemFilter(ctx, networksQ, userCred, api.WireFilterListInput{ZonalFilterListBase: api.ZonalFilterListBase{ZoneIds: query.ZoneId}})
+		if err != nil {
+			return nil, errors.Wrap(err, "NetworkManager.SWireResourceBaseManager.ListItemFilter")
+		}
+		networksSubQ := networksQ.SubQuery()
+		networkSchedtagQ := NetworkschedtagManager.Query("schedtag_id")
+		networkSchedtagQ = networkSchedtagQ.Join(networksSubQ, sqlchemy.Equals(networkSchedtagQ.Field("network_id"), networksSubQ.Field("id")))
+
+		hostQ := HostManager.Query("id")
+		hostQ, err = HostManager.SZoneResourceBaseManager.ListItemFilter(ctx, hostQ, userCred, api.ZonalFilterListInput{ZonalFilterListBase: api.ZonalFilterListBase{ZoneIds: query.ZoneId}})
+		if err != nil {
+			return nil, errors.Wrap(err, "HostManager.SZoneResourceBaseManager.ListItemFilter")
+		}
+		hostSubQ := hostQ.SubQuery()
+		hostSchedtagQ := HostschedtagManager.Query("schedtag_id")
+		hostSchedtagQ = hostSchedtagQ.Join(hostSubQ, sqlchemy.Equals(hostSchedtagQ.Field("host_id"), hostSubQ.Field("id")))
+
+		unionSchedtagQ := sqlchemy.Union(storageSchedtagQ, networkSchedtagQ, hostSchedtagQ).Query().SubQuery()
+		q = q.In("id", unionSchedtagQ)
+	}
+
 	return q, nil
 }
 
