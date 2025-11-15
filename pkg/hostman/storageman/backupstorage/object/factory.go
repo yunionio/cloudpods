@@ -41,7 +41,14 @@ func (factory *sObjectBackupStorageFactory) NewBackupStore(backupStroageId strin
 	if len(accessInfo.ObjectSecret) == 0 {
 		return nil, errors.Wrap(httperrors.ErrInputParameter, "need object_secret in backup_storage_access_info")
 	}
-	return newObjectBackupStorage(backupStroageId, accessInfo.ObjectBucketUrl, accessInfo.ObjectAccessKey, accessInfo.ObjectSecret, objectstore.S3SignVersion(accessInfo.ObjectSignVer))
+	return newObjectBackupStorage(
+		backupStroageId,
+		accessInfo.ObjectBucketUrl,
+		accessInfo.ObjectAccessKey,
+		accessInfo.ObjectSecret,
+		objectstore.S3SignVersion(accessInfo.ObjectSignVer),
+		accessInfo.ObjectBucketUrlExt,
+	)
 }
 
 func init() {
