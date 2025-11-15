@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path"
 	"strings"
 
@@ -115,7 +116,7 @@ func doBackupDisk(ctx context.Context, snapshotPath string, diskBackup *SDiskBac
 		return 0, errors.Wrap(err, "GetBackupStorage")
 	}
 
-	err = backupStorage.SaveBackupFrom(ctx, backupPath, diskBackup.BackupId)
+	err = backupstorage.SaveBackupFromFile(ctx, backupPath, diskBackup.BackupId, backupStorage)
 	if err != nil {
 		return 0, errors.Wrap(err, "SaveBackupFrom")
 	}
@@ -269,7 +270,7 @@ func DoInstancePackBackup(ctx context.Context, backupInfo SStoragePackInstanceBa
 	{
 		// save snapshot metadata
 		packageMetadataPath := path.Join(packagePath, PackageMetadataFilename)
-		err = ioutil.WriteFile(packageMetadataPath, []byte(jsonutils.Marshal(backupInfo.Metadata).PrettyString()), 0644)
+		err = os.WriteFile(packageMetadataPath, []byte(jsonutils.Marshal(backupInfo.Metadata).PrettyString()), 0644)
 		if err != nil {
 			return "", errors.Wrapf(err, "unable to write to %s", packageMetadataPath)
 		}
@@ -299,7 +300,7 @@ func DoInstancePackBackup(ctx context.Context, backupInfo SStoragePackInstanceBa
 		if exists {
 			tried++
 		} else {
-			err := backupStorage.SaveBackupInstanceFrom(ctx, tmpPkgFilename, finalPackageFileName)
+			err := backupstorage.SaveBackupInstanceFromFile(ctx, tmpPkgFilename, finalPackageFileName, backupStorage)
 			if err != nil {
 				return "", errors.Wrap(err, "SaveBackupInstanceFrom")
 			}
@@ -353,7 +354,7 @@ func DoInstanceUnpackBackup(ctx context.Context, backupInfo SStorageUnpackInstan
 
 	// unpack metadata
 	packageMetadataPath := path.Join(packagePath, PackageMetadataFilename)
-	metadataBytes, err := ioutil.ReadFile(packageMetadataPath)
+	metadataBytes, err := os.ReadFile(packageMetadataPath)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "unable to read metadata file")
 	}
@@ -374,7 +375,7 @@ func DoInstanceUnpackBackup(ctx context.Context, backupInfo SStorageUnpackInstan
 			backupId := db.DefaultUUIDGenerator()
 			backupIds[i] = backupId
 			packageDiskPath := path.Join(packagePath, fmt.Sprintf("%s_%d", PackageDiskFilename, i))
-			err := backupStorage.SaveBackupFrom(ctx, packageDiskPath, backupId)
+			err := backupstorage.SaveBackupFromFile(ctx, packageDiskPath, backupId, backupStorage)
 			if err != nil {
 				return nil, nil, errors.Wrapf(err, "SaveBackupFrom %s %s", packageDiskPath, backupId)
 			}

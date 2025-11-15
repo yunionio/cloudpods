@@ -15,7 +15,10 @@
 package compute
 
 import (
+	"os"
+
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
@@ -147,6 +150,8 @@ type BackupStorageCreateOptions struct {
 	ObjectSecret    string `help:"object storage secret, required when storage_type is object"`
 	ObjectSignVer   string `help:"object storage signing alogirithm version, optional" choices:"v2|v4"`
 
+	ObjectBucketUrlExt string `help:"object storage external access url, optional"`
+
 	CapacityMb int `help:"capacity, unit mb"`
 }
 
@@ -164,6 +169,8 @@ type BackupStorageUpdateOptions struct {
 	ObjectAccessKey string `help:"object storage access key, required when storage_type is object"`
 	ObjectSecret    string `help:"object storage secret, required when storage_type is object"`
 	ObjectSignVer   string `help:"object storage signing alogirithm version, optional" choices:"v2|v4"`
+
+	ObjectBucketUrlExt string `help:"object storage external access url, optional"`
 }
 
 func (opts *BackupStorageUpdateOptions) Params() (jsonutils.JSONObject, error) {
@@ -267,4 +274,40 @@ func (opts HostBackupStorageJoinOptions) GetSlaveId() string {
 
 func (opts HostBackupStorageJoinOptions) Params() (jsonutils.JSONObject, error) {
 	return jsonutils.NewDict(), nil
+}
+
+type DiskBackupExportOptions struct {
+	DiskBackupIdOptions
+
+	Output string `help:"output file path" json:"output"`
+}
+
+type DiskBackupImportOptions struct {
+	NAME            string `help:"backup name" json:"name"`
+	BACKUPSTORAGEID string `help:"backup storage id" json:"backup_storage_id"`
+	IMPORT          string `help:"backup info" json:"-"`
+
+	TenantId string `help:"tenant id" json:"tenant_id"`
+}
+
+func (opts *DiskBackupImportOptions) Params() (jsonutils.JSONObject, error) {
+	content, err := os.ReadFile(opts.IMPORT)
+	if err != nil {
+		return nil, errors.Wrap(err, "os.ReadFile")
+	}
+	inputJson, err := jsonutils.Parse(content)
+	if err != nil {
+		return nil, errors.Wrap(err, "jsonutils.Parse")
+	}
+	info := &computeapi.DiskBackupImportInput{}
+	err = inputJson.Unmarshal(info)
+	if err != nil {
+		return nil, errors.Wrap(err, "jsonutils.Unmarshal")
+	}
+	info.Name = opts.NAME
+	info.BackupStorageId = opts.BACKUPSTORAGEID
+	if len(opts.TenantId) > 0 {
+		info.ProjectId = opts.TenantId
+	}
+	return jsonutils.Marshal(info), nil
 }

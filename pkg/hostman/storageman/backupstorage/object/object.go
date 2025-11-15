@@ -17,10 +17,14 @@ package object
 import (
 	"context"
 	"fmt"
+	"io"
+	"net/http"
 	"net/url"
 	"os"
 	"strings"
+	"time"
 
+	"github.com/coredns/coredns/plugin/pkg/log"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud/objectstore"
 	"yunion.io/x/pkg/errors"
@@ -32,10 +36,14 @@ type SObjectBackupStorage struct {
 
 	bucket string
 
+	extBucket string
+
 	store *objectstore.SObjectStoreClient
+
+	extStore *objectstore.SObjectStoreClient
 }
 
-func newObjectBackupStorage(backupStorageId, bucketUrl, accessKey, secret string, signVer objectstore.S3SignVersion) (*SObjectBackupStorage, error) {
+func newObjectBackupStorage(backupStorageId, bucketUrl, accessKey, secret string, signVer objectstore.S3SignVersion, bucketUrlExt string) (*SObjectBackupStorage, error) {
 	bucket, endpoint, err := parseBucketUrl(bucketUrl)
 	if err != nil {
 		return nil, errors.Wrapf(err, "parseBucketUrl %s", bucketUrl)
@@ -49,12 +57,31 @@ func newObjectBackupStorage(backupStorageId, bucketUrl, accessKey, secret string
 		return nil, errors.Wrap(err, "NewObjectStoreClient")
 	}
 
+	var extStore *objectstore.SObjectStoreClient
+	var extBucket string
+	if len(bucketUrlExt) > 0 {
+		b, extEndpoint, err := parseBucketUrl(bucketUrlExt)
+		if err != nil {
+			log.Errorf("parseBucketUrl %s: %v", bucketUrlExt, err)
+		} else {
+			extCfg := objectstore.NewObjectStoreClientConfig(extEndpoint, accessKey, secret)
+			extStore, _ = objectstore.NewObjectStoreClient(extCfg)
+			if extStore != nil {
+				extBucket = b
+			}
+		}
+	}
+
 	return &SObjectBackupStorage{
 		BackupStorageId: backupStorageId,
 
 		bucket: bucket,
 
 		store: store,
+
+		extBucket: extBucket,
+
+		extStore: extStore,
 	}, nil
 }
 
@@ -98,32 +125,34 @@ func (s *SObjectBackupStorage) getBucket() (cloudprovider.ICloudBucket, error) {
 	return bucket, nil
 }
 
-func (s *SObjectBackupStorage) SaveBackupFrom(ctx context.Context, srcFilename string, backupId string) error {
-	return s.saveObject(ctx, srcFilename, backupId, s.getBackupKey)
+func (s *SObjectBackupStorage) getExtBucket() (cloudprovider.ICloudBucket, error) {
+	if s.extStore == nil || len(s.extBucket) == 0 {
+		return nil, errors.Wrap(errors.ErrInvalidStatus, "extStore is nil or extBucket is empty")
+	}
+	bucket, err := s.extStore.GetIRegion().GetIBucketByName(s.extBucket)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetIBucketByName")
+	}
+	return bucket, nil
 }
 
-func (s *SObjectBackupStorage) SaveBackupInstanceFrom(ctx context.Context, srcFilename string, backupId string) error {
-	return s.saveObject(ctx, srcFilename, backupId, s.getBackupInstanceKey)
+func (s *SObjectBackupStorage) SaveBackupFrom(ctx context.Context, srcFile io.Reader, fileSize int64, backupId string) error {
+	return s.saveObject(ctx, srcFile, fileSize, backupId, s.getBackupKey)
 }
 
-func (s *SObjectBackupStorage) saveObject(ctx context.Context, srcFilename string, id string, getKeyFunc func(string) string) error {
+func (s *SObjectBackupStorage) SaveBackupInstanceFrom(ctx context.Context, srcFile io.Reader, fileSize int64, backupId string) error {
+	return s.saveObject(ctx, srcFile, fileSize, backupId, s.getBackupInstanceKey)
+}
+
+func (s *SObjectBackupStorage) saveObject(ctx context.Context, srcFile io.Reader, fileSize int64, id string, getKeyFunc func(string) string) error {
 	bucket, err := s.getBucket()
 	if err != nil {
 		return errors.Wrap(err, "getBucket")
 	}
-	fileInfo, err := os.Stat(srcFilename)
-	if err != nil {
-		return errors.Wrapf(err, "stat %s", srcFilename)
-	}
-	file, err := os.Open(srcFilename)
-	if err != nil {
-		return errors.Wrapf(err, "Open %s", srcFilename)
-	}
-	defer file.Close()
 
-	err = cloudprovider.UploadObject(ctx, bucket, getKeyFunc(id), 200*1024*1024, file, fileInfo.Size(), cloudprovider.ACLPrivate, "", nil, false)
+	err = cloudprovider.UploadObject(ctx, bucket, getKeyFunc(id), 200*1024*1024, srcFile, fileSize, cloudprovider.ACLPrivate, "", nil, false)
 	if err != nil {
-		return errors.Wrapf(err, "UploadObject %s %s", srcFilename, getKeyFunc(id))
+		return errors.Wrapf(err, "UploadObject %d %s", fileSize, getKeyFunc(id))
 	}
 
 	return nil
@@ -207,4 +236,22 @@ func (s *SObjectBackupStorage) IsOnline() (bool, string, error) {
 		return false, "", errors.Wrap(err, "IBucketExist")
 	}
 	return exist, "", nil
+}
+
+func (s *SObjectBackupStorage) GetExternalAccessUrl(backupId string) (string, error) {
+	var bucket cloudprovider.ICloudBucket
+	var err error
+	bucket, err = s.getExtBucket()
+	if err != nil {
+		log.Errorf("SObjectBackupStorage.GetExternalAccessUrl.getExtBucket: %v", err)
+		bucket, err = s.getBucket()
+		if err != nil {
+			return "", errors.Wrap(err, "getBucket")
+		}
+	}
+	url, err := bucket.GetTempUrl(http.MethodGet, s.getBackupKey(backupId), 6*time.Hour)
+	if err != nil {
+		return "", errors.Wrap(err, "GetTempUrl")
+	}
+	return url, nil
 }

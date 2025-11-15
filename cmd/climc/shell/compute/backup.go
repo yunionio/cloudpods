@@ -15,6 +15,11 @@
 package compute
 
 import (
+	"fmt"
+	"os"
+
+	"yunion.io/x/jsonutils"
+
 	"yunion.io/x/onecloud/cmd/climc/shell"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
@@ -39,6 +44,16 @@ func init() {
 	dbCmd.Create(&compute.DiskBackupCreateOptions{})
 	dbCmd.Perform("recovery", &compute.DiskBackupRecoveryOptions{})
 	dbCmd.Perform("syncstatus", &compute.DiskBackupSyncstatusOptions{})
+	dbCmd.GetWithCustomOptionShow("export-info", func(info jsonutils.JSONObject, opts shell.IGetOpt) {
+		args := opts.(*compute.DiskBackupExportOptions)
+		if args.Output != "" {
+			os.WriteFile(args.Output, []byte(info.String()), 0644)
+			fmt.Printf("Exported to %s\n", args.Output)
+		} else {
+			printObject(info)
+		}
+	}, &compute.DiskBackupExportOptions{})
+	dbCmd.PerformClass("import", &compute.DiskBackupImportOptions{})
 
 	ibCmd := shell.NewResourceCmd(&modules.InstanceBackups)
 	ibCmd.List(&compute.InstanceBackupListOptions{})
