@@ -17,6 +17,8 @@ package nfs
 import (
 	"context"
 	"fmt"
+	"io"
+	"os"
 	"path"
 	"sync"
 	"time"
@@ -122,15 +124,15 @@ func (s *SNFSBackupStorage) unMount() error {
 	return nil
 }
 
-func (s *SNFSBackupStorage) SaveBackupFrom(ctx context.Context, srcFilename string, backupId string) error {
-	return s.saveFile(ctx, srcFilename, backupId, s.getBackupDiskPath)
+func (s *SNFSBackupStorage) SaveBackupFrom(ctx context.Context, srcFile io.Reader, fileSize int64, backupId string) error {
+	return s.saveFile(ctx, srcFile, fileSize, backupId, s.getBackupDiskPath)
 }
 
-func (s *SNFSBackupStorage) SaveBackupInstanceFrom(ctx context.Context, srcFilename string, backupId string) error {
-	return s.saveFile(ctx, srcFilename, backupId, s.getBackupDiskPath)
+func (s *SNFSBackupStorage) SaveBackupInstanceFrom(ctx context.Context, srcFile io.Reader, fileSize int64, backupId string) error {
+	return s.saveFile(ctx, srcFile, fileSize, backupId, s.getBackupDiskPath)
 }
 
-func (s *SNFSBackupStorage) saveFile(ctx context.Context, srcFilename string, id string, getPathFunc func(string) string) error {
+func (s *SNFSBackupStorage) saveFile(ctx context.Context, srcFile io.Reader, fileSize int64, id string, getPathFunc func(string) string) error {
 	err := s.checkAndMount()
 	if err != nil {
 		return errors.Wrap(err, "unable to checkAndMount")
@@ -138,9 +140,16 @@ func (s *SNFSBackupStorage) saveFile(ctx context.Context, srcFilename string, id
 	defer s.unMount()
 
 	targetFilename := getPathFunc(id)
-	if output, err := procutils.NewCommand("cp", srcFilename, targetFilename).Output(); err != nil {
-		log.Errorf("unable to cp %s to %s: %s", srcFilename, targetFilename, output)
-		return errors.Wrapf(err, "cp %s to %s failed and output is %q", srcFilename, targetFilename, output)
+
+	targetFile, err := os.Create(targetFilename)
+	if err != nil {
+		return errors.Wrap(err, "os.Create")
+	}
+	defer targetFile.Close()
+	_, err = io.CopyN(targetFile, srcFile, fileSize)
+	if err != nil {
+		log.Errorf("unable to io.Copy to %s: %s", targetFilename, err)
+		return errors.Wrap(err, "io.Copy")
 	}
 	return nil
 }
@@ -223,4 +232,8 @@ func (s *SNFSBackupStorage) IsOnline() (bool, string, error) {
 	}
 	s.unMount()
 	return true, "", nil
+}
+
+func (s *SNFSBackupStorage) GetExternalAccessUrl(backupId string) (string, error) {
+	return "", errors.ErrNotSupported
 }

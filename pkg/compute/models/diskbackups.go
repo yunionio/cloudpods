@@ -17,6 +17,7 @@ package models
 import (
 	"context"
 	"database/sql"
+	"net/http"
 	"reflect"
 	"strings"
 	"time"
@@ -27,12 +28,15 @@ import (
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -136,11 +140,11 @@ func (dm *SDiskBackupManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 	return q, nil
 }
 
-func (self *SDiskBackup) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
-	if self.Status == api.BACKUP_STATUS_DELETING {
-		return httperrors.NewBadRequestError("Cannot delete disk backup in status %s", self.Status)
+func (diskBackup *SDiskBackup) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
+	if diskBackup.Status == api.BACKUP_STATUS_DELETING {
+		return httperrors.NewBadRequestError("Cannot delete disk backup in status %s", diskBackup.Status)
 	}
-	is, err := InstanceBackupJointManager.IsSubBackup(self.Id)
+	is, err := InstanceBackupJointManager.IsSubBackup(diskBackup.Id)
 	if err != nil {
 		return err
 	}
@@ -199,6 +203,9 @@ func (db *SDiskBackup) GetDisk() (*SDisk, error) {
 }
 
 func (db *SDiskBackup) GetStorage() (*SStorage, error) {
+	if len(db.StorageId) == 0 {
+		return nil, errors.Wrap(errors.ErrEmpty, "empty storage_id")
+	}
 	iStorage, err := StorageManager.FetchById(db.StorageId)
 	if err != nil {
 		return nil, err
@@ -437,27 +444,27 @@ func (manager *SDiskBackupManager) OrderByExtraFields(ctx context.Context, q *sq
 	return q, nil
 }
 
-func (self *SDiskBackup) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
+func (diskBackup *SDiskBackup) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	return nil
 }
 
-func (self *SDiskBackup) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
-	return db.DeleteModel(ctx, userCred, self)
+func (diskBackup *SDiskBackup) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	return db.DeleteModel(ctx, userCred, diskBackup)
 }
 
-func (self *SDiskBackup) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+func (diskBackup *SDiskBackup) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
 	forceDelete := jsonutils.QueryBoolean(query, "force", false)
-	return self.StartBackupDeleteTask(ctx, userCred, "", forceDelete)
+	return diskBackup.StartBackupDeleteTask(ctx, userCred, "", forceDelete)
 }
 
-func (self *SDiskBackup) StartBackupDeleteTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string, forceDelete bool) error {
-	self.SetStatus(ctx, userCred, api.BACKUP_STATUS_DELETING, "")
-	log.Infof("start to delete diskbackup %s and set deleting", self.GetId())
+func (diskBackup *SDiskBackup) StartBackupDeleteTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string, forceDelete bool) error {
+	diskBackup.SetStatus(ctx, userCred, api.BACKUP_STATUS_DELETING, "")
+	log.Infof("start to delete diskbackup %s and set deleting", diskBackup.GetId())
 	params := jsonutils.NewDict()
 	if forceDelete {
 		params.Set("force_delete", jsonutils.JSONTrue)
 	}
-	task, err := taskman.TaskManager.NewTask(ctx, "DiskBackupDeleteTask", self, userCred, params, parentTaskId, "", nil)
+	task, err := taskman.TaskManager.NewTask(ctx, "DiskBackupDeleteTask", diskBackup, userCred, params, parentTaskId, "", nil)
 	if err != nil {
 		return err
 	} else {
@@ -466,21 +473,21 @@ func (self *SDiskBackup) StartBackupDeleteTask(ctx context.Context, userCred mcc
 	return nil
 }
 
-func (self *SDiskBackup) PerformRecovery(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.DiskBackupRecoveryInput) (jsonutils.JSONObject, error) {
-	if self.Status != api.BACKUP_STATUS_READY {
-		return nil, errors.Wrapf(httperrors.ErrInvalidStatus, "cannot recover backup in status %s", self.Status)
+func (diskBackup *SDiskBackup) PerformRecovery(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.DiskBackupRecoveryInput) (jsonutils.JSONObject, error) {
+	if diskBackup.Status != api.BACKUP_STATUS_READY {
+		return nil, errors.Wrapf(httperrors.ErrInvalidStatus, "cannot recover backup in status %s", diskBackup.Status)
 	}
-	return nil, self.StartRecoveryTask(ctx, userCred, "", input.Name)
+	return nil, diskBackup.StartRecoveryTask(ctx, userCred, "", input.Name)
 }
 
-func (self *SDiskBackup) StartRecoveryTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string, diskName string) error {
-	self.SetStatus(ctx, userCred, api.BACKUP_STATUS_RECOVERY, "")
+func (diskBackup *SDiskBackup) StartRecoveryTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string, diskName string) error {
+	diskBackup.SetStatus(ctx, userCred, api.BACKUP_STATUS_RECOVERY, "")
 	var params *jsonutils.JSONDict
 	if diskName != "" {
 		params = jsonutils.NewDict()
 		params.Set("disk_name", jsonutils.NewString(diskName))
 	}
-	task, err := taskman.TaskManager.NewTask(ctx, "DiskBackupRecoveryTask", self, userCred, params, parentTaskId, "", nil)
+	task, err := taskman.TaskManager.NewTask(ctx, "DiskBackupRecoveryTask", diskBackup, userCred, params, parentTaskId, "", nil)
 	if err != nil {
 		return err
 	} else {
@@ -527,9 +534,9 @@ func (manager *SDiskBackupManager) CreateBackup(ctx context.Context, owner mccli
 	return backup, nil
 }
 
-func (self *SDiskBackup) PerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.DiskBackupSyncstatusInput) (jsonutils.JSONObject, error) {
+func (diskBackup *SDiskBackup) PerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.DiskBackupSyncstatusInput) (jsonutils.JSONObject, error) {
 	var openTask = true
-	count, err := taskman.TaskManager.QueryTasksOfObject(self, time.Now().Add(-3*time.Minute), &openTask).CountWithError()
+	count, err := taskman.TaskManager.QueryTasksOfObject(diskBackup, time.Now().Add(-3*time.Minute), &openTask).CountWithError()
 	if err != nil {
 		return nil, err
 	}
@@ -537,25 +544,25 @@ func (self *SDiskBackup) PerformSyncstatus(ctx context.Context, userCred mcclien
 		return nil, httperrors.NewBadRequestError("Backup has %d task active, can't sync status", count)
 	}
 
-	return nil, StartResourceSyncStatusTask(ctx, userCred, self, "DiskBackupSyncstatusTask", "")
+	return nil, StartResourceSyncStatusTask(ctx, userCred, diskBackup, "DiskBackupSyncstatusTask", "")
 }
 
-func (self *SDiskBackup) PackMetadata() *api.DiskBackupPackMetadata {
+func (diskBackup *SDiskBackup) PackMetadata() *api.DiskBackupPackMetadata {
 	return &api.DiskBackupPackMetadata{
-		OsArch:     self.OsArch,
-		SizeMb:     self.SizeMb,
-		DiskSizeMb: self.DiskSizeMb,
-		DiskType:   self.DiskType,
+		OsArch:     diskBackup.OsArch,
+		SizeMb:     diskBackup.SizeMb,
+		DiskSizeMb: diskBackup.DiskSizeMb,
+		DiskType:   diskBackup.DiskType,
 		// 操作系统类型
-		OsType: self.OsType,
+		OsType: diskBackup.OsType,
 		DiskConfig: &api.SBackupDiskConfig{
-			DiskConfig: self.DiskConfig.DiskConfig,
-			Name:       self.DiskConfig.Name,
+			DiskConfig: diskBackup.DiskConfig.DiskConfig,
+			Name:       diskBackup.DiskConfig.Name,
 		},
 	}
 }
 
-func (manager *SDiskBackupManager) CreateFromPackMetadata(ctx context.Context, owner mcclient.TokenCredential, backupStorageId, id, name string, metadata *api.DiskBackupPackMetadata) (*SDiskBackup, error) {
+func (manager *SDiskBackupManager) CreateFromPackMetadata(ctx context.Context, owner mcclient.IIdentityProvider, backupStorageId, id, name string, metadata *api.DiskBackupPackMetadata) (*SDiskBackup, error) {
 	backup := &SDiskBackup{}
 	backup.SetModelManager(manager, backup)
 	backup.ProjectId = owner.GetProjectId()
@@ -570,7 +577,7 @@ func (manager *SDiskBackupManager) CreateFromPackMetadata(ctx context.Context, o
 	backup.OsArch = metadata.OsArch
 	backup.DiskType = metadata.DiskType
 	backup.OsType = metadata.OsType
-	backup.CloudregionId = "default"
+	backup.CloudregionId = api.DEFAULT_REGION_ID
 	backup.BackupStorageId = backupStorageId
 	backup.Name = name
 	backup.Id = id
@@ -580,4 +587,158 @@ func (manager *SDiskBackupManager) CreateFromPackMetadata(ctx context.Context, o
 		return nil, err
 	}
 	return backup, nil
+}
+
+type SDiskBackupTotalCount struct {
+	apis.TotalCountBase
+	SizeMb int64
+}
+
+func (manager *SDiskBackupManager) CustomizedTotalCount(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, totalQ *sqlchemy.SQuery) (int, jsonutils.JSONObject, error) {
+	results := SDiskBackupTotalCount{}
+
+	totalQ = totalQ.AppendField(sqlchemy.SUM("size_mb", totalQ.Field("size_mb")))
+
+	err := totalQ.First(&results)
+	if err != nil {
+		return -1, nil, errors.Wrap(err, "SGuestManager query total")
+	}
+
+	return results.Count, jsonutils.Marshal(results).(*jsonutils.JSONDict), nil
+}
+
+func (diskBackup *SDiskBackup) GetDetailsExportInfo(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*api.DiskBackupExportInfo, error) {
+	exportInfo := &api.DiskBackupExportInfo{}
+	metadata := *diskBackup.PackMetadata()
+
+	exportInfo.DiskBackupPackMetadata = metadata
+
+	backupStorage, err := diskBackup.GetBackupStorage()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetBackupStorage")
+	}
+	ibs, err := backupStorage.GetIBackupStorage()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetIBackupStorage")
+	}
+
+	exportInfo.AccessUrl, err = ibs.GetExternalAccessUrl(diskBackup.Id)
+	if err != nil {
+		log.Errorf("SDiskBackup %s(%s) GetExternalAccessUrl fail: %v", diskBackup.GetName(), diskBackup.GetId(), err)
+	}
+
+	return exportInfo, nil
+}
+
+func (manager *SDiskBackupManager) PerformImport(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input api.DiskBackupImportInput,
+) (jsonutils.JSONObject, error) {
+	if len(input.AccessUrl) == 0 {
+		return nil, httperrors.NewInputParameterError("access_url is required")
+	}
+	if len(input.BackupStorageId) == 0 {
+		return nil, httperrors.NewInputParameterError("backup_storage_id is required")
+	}
+
+	backupStorageObj, err := BackupStorageManager.FetchById(input.BackupStorageId)
+	if err != nil {
+		if errors.Cause(err) == sql.ErrNoRows {
+			return nil, httperrors.NewResourceNotFoundError2(BackupStorageManager.Keyword(), input.BackupStorageId)
+		}
+		return nil, errors.Wrap(err, "BackupStorageManager.FetchById")
+	}
+	backupStorage := backupStorageObj.(*SBackupStorage)
+	if backupStorage.Status != api.BACKUPSTORAGE_STATUS_ONLINE {
+		return nil, httperrors.NewForbiddenError("can't import disk backup from backup storage with status %s", backupStorage.Status)
+	}
+
+	ownerId, err := manager.FetchOwnerId(ctx, jsonutils.Marshal(input))
+	if err != nil {
+		return nil, errors.Wrap(err, "FetchOwnerId")
+	}
+	if ownerId == nil {
+		ownerId = userCred
+	}
+
+	if len(input.GenerateName) > 0 && manager.EnableGenerateName() {
+		lockman.LockRawObject(ctx, manager.Keyword(), "name")
+		defer lockman.ReleaseRawObject(ctx, manager.Keyword(), "name")
+
+		// if enable generateName, alway generate name
+		newName, err := db.GenerateName2(ctx, manager, ownerId, input.GenerateName, nil, 1)
+		if err != nil {
+			return nil, errors.Wrap(err, "GenerateName2")
+		}
+		input.Name = newName
+	} else if len(input.Name) == 0 {
+		return nil, httperrors.NewInputParameterError("name or generate_name is required")
+	}
+
+	uniqValues := manager.FetchUniqValues(ctx, jsonutils.Marshal(input))
+	if err := db.NewNameValidator(ctx, manager, ownerId, input.Name, uniqValues); err != nil {
+		return nil, errors.Wrap(err, "NewNameValidator")
+	}
+
+	diskBackup, err := manager.CreateFromPackMetadata(ctx, ownerId, input.BackupStorageId, "", input.Name, &input.DiskBackupPackMetadata)
+	if err != nil {
+		return nil, errors.Wrap(err, "CreateFromPackMetadata")
+	}
+
+	{
+		notes := diskBackup.GetShortDesc(ctx)
+		db.OpsLog.LogEvent(diskBackup, db.ACT_CREATE, notes, userCred)
+		logclient.AddActionLogWithContext(ctx, diskBackup, logclient.ACT_CREATE, notes, userCred, true)
+	}
+
+	{
+		err := diskBackup.StartImportTask(ctx, userCred, input.DiskBackupImportTaskInput, "")
+		if err != nil {
+			return nil, errors.Wrap(err, "StartImportTask")
+		}
+	}
+
+	details, err := db.GetItemDetails(manager, diskBackup, ctx, userCred)
+	if err != nil {
+		return nil, errors.Wrap(err, "db.GetItemDetails")
+	}
+
+	return details, nil
+}
+
+func (diskBackup *SDiskBackup) StartImportTask(ctx context.Context, userCred mcclient.TokenCredential, input api.DiskBackupImportTaskInput, parentTaskId string) error {
+	diskBackup.SetStatus(ctx, userCred, api.BACKUP_STATUS_START_IMPORT, "")
+	task, err := taskman.TaskManager.NewTask(ctx, "DiskBackupImportTask", diskBackup, userCred, jsonutils.Marshal(input).(*jsonutils.JSONDict), parentTaskId, "", nil)
+	if err != nil {
+		return errors.Wrap(err, "taskman.TaskManager.NewTask")
+	} else {
+		task.ScheduleRun(nil)
+	}
+	return nil
+}
+
+func (diskBackup *SDiskBackup) DoImport(ctx context.Context, userCred mcclient.TokenCredential, input api.DiskBackupImportTaskInput) error {
+	backupStorage, err := diskBackup.GetBackupStorage()
+	if err != nil {
+		return errors.Wrap(err, "GetBackupStorage")
+	}
+	ibs, err := backupStorage.GetIBackupStorage()
+	if err != nil {
+		return errors.Wrap(err, "GetIBackupStorage")
+	}
+
+	resp, err := http.Get(input.AccessUrl)
+	if err != nil {
+		return errors.Wrap(err, "http.Get")
+	}
+	defer resp.Body.Close()
+
+	err = ibs.SaveBackupFrom(ctx, resp.Body, resp.ContentLength, diskBackup.Id)
+	if err != nil {
+		return errors.Wrap(err, "SaveBackupFrom")
+	}
+
+	return nil
 }
