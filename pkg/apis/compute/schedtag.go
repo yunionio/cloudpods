@@ -69,6 +69,9 @@ type SchedtagListInput struct {
 	Type string `json:"type" yunion-deprecated-by:"resource_type"`
 
 	DefaultStrategy []string `json:"default_strategy"`
+
+	// filter by zone_id
+	ZoneId []string `json:"zone_id"`
 }
 
 type SchedtagDetails struct {
