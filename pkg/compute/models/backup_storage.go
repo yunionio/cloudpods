@@ -28,6 +28,9 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/hostman/storageman/backupstorage"
+	_ "yunion.io/x/onecloud/pkg/hostman/storageman/backupstorage/nfs"
+	_ "yunion.io/x/onecloud/pkg/hostman/storageman/backupstorage/object"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
@@ -371,4 +374,17 @@ func (bs *SBackupStorage) Delete(ctx context.Context, userCred mcclient.TokenCre
 		return errors.NewAggregate(errs)
 	}
 	return bs.SEnabledStatusInfrasResourceBase.Delete(ctx, userCred)
+}
+
+func (bs *SBackupStorage) GetIBackupStorage() (backupstorage.IBackupStorage, error) {
+	accessInfo, err := bs.GetAccessInfo()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetAccessInfo")
+	}
+	log.Infof("GetIBackupStorage %s %s", bs.Id, accessInfo.String())
+	ibs, err := backupstorage.GetBackupStorage(bs.Id, jsonutils.Marshal(accessInfo).(*jsonutils.JSONDict))
+	if err != nil {
+		return nil, errors.Wrap(err, "GetBackupStorage")
+	}
+	return ibs, nil
 }
