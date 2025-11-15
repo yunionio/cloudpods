@@ -73,9 +73,6 @@ build_bin() {
         rm -vf _output/bin/*cli
         env $BUILD_ARCH $BUILD_CGO make -C "$SRC_DIR" docker-alpine-build F="cmd/$1 cmd/*cli"
         ;;
-    host-deployer | telegraf-raid-plugin)
-        env $BUILD_ARCH $BUILD_CGO make -C "$SRC_DIR" docker-centos-build F="cmd/$1"
-        ;;
     *)
         env $BUILD_ARCH $BUILD_CGO make -C "$SRC_DIR" docker-alpine-build F="cmd/$1"
         ;;
@@ -228,13 +225,16 @@ make_manifest_image() {
     if [[ "$img_name" == *:5000/* ]]; then
         docker push $img_name-amd64
         docker push $img_name-arm64
+        docker push $img_name-riscv64
     fi
 
     docker buildx imagetools create -t $img_name \
         $img_name-amd64 \
-        $img_name-arm64
+        $img_name-arm64 \
+        $img_name-riscv64
     docker manifest inspect ${img_name} | grep -wq amd64
     docker manifest inspect ${img_name} | grep -wq arm64
+    docker manifest inspect ${img_name} | grep -wq riscv64
 }
 
 ALL_COMPONENTS=$(ls cmd | grep -v '.*cli$' | xargs)
@@ -314,7 +314,7 @@ for component in $COMPONENTS; do
 
     case "$ARCH" in
     all)
-        for arch in "arm64" "amd64"; do
+        for arch in "arm64" "amd64" "riscv64"; do
             general_build $component $arch "true"
         done
         make_manifest_image $component

@@ -1,5 +1,5 @@
-FROM registry.cn-beijing.aliyuncs.com/yunionio/glance-base:v0.0.1
+FROM registry.cn-beijing.aliyuncs.com/yunionio/glance-base:3.22.2-0
 
-ENV TZ UTC
+ENV TZ="UTC"
 RUN mkdir -p /opt/yunion/bin
 ADD ./_output/alpine-build/bin/glance /opt/yunion/bin/glance
