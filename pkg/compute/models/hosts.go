@@ -4975,6 +4975,14 @@ func (hh *SHost) GetStoragesByMasterHost() ([]string, error) {
 	return storages, nil
 }
 
+func (hh *SHost) PerformReportDmesg(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.SHostReportDmesgInput) (jsonutils.JSONObject, error) {
+	for i := range input.Entries {
+		logLevel := db.LogLevelToString(input.Entries[i].Level)
+		HostDmesgLogManager.LogDmesg(ctx, hh, logLevel, input.Entries[i].Time, input.Entries[i].Message, userCred)
+	}
+	return nil, nil
+}
+
 func (hh *SHost) PerformPing(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.SHostPingInput) (jsonutils.JSONObject, error) {
 	if hh.HostType == api.HOST_TYPE_BAREMETAL {
 		return nil, httperrors.NewNotSupportedError("ping host type %s not support", hh.HostType)
