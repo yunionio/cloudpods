@@ -43,6 +43,8 @@ type SHostBaseOptions struct {
 
 	DisableLocalVpc bool `help:"disable local VPC support" default:"false"`
 
+	EnableDmesgCollect bool `default:"true" help:"Enable dmesg collect or not, default true"`
+
 	DhcpLeaseTime   int `default:"100663296" help:"DHCP lease time in seconds"`
 	DhcpRenewalTime int `default:"67108864" help:"DHCP renewal time in seconds"`
 
@@ -142,7 +144,6 @@ type SHostOptions struct {
 	EnableCpuBinding            bool   `default:"true" help:"Enable cpu binding and rebalance"`
 	EnableOpenflowController    bool   `default:"false"`
 	BootVgaPciAddr              string `help:"Specific boot vga pci addr incase detect wrong device"`
-	EnableDmesgCollect          bool   `default:"true" help:"Enable dmesg collect or not, default true"`
 
 	PingRegionInterval int      `default:"60" help:"interval to ping region, deefault is 1 minute"`
 	LogSystemdUnits    []string `help:"Systemd units log collected by fluent-bit"`

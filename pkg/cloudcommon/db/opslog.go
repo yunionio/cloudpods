@@ -120,14 +120,6 @@ func (opslog *SOpsLog) GetModelManager() IModelManager {
 }
 
 func (manager *SOpsLogManager) LogEvent(model IModel, action string, notes interface{}, userCred mcclient.TokenCredential) {
-	manager.logEvent(model, action, notes, nil, nil, userCred)
-}
-
-func (manager *SOpsLogManager) LogEventDetails(model IModel, action string, notes interface{}, logLevel string, eventTime time.Time, userCred mcclient.TokenCredential) {
-	manager.logEvent(model, action, notes, &logLevel, &eventTime, userCred)
-}
-
-func (manager *SOpsLogManager) logEvent(model IModel, action string, notes interface{}, logLevel *string, eventTime *time.Time, userCred mcclient.TokenCredential) {
 	if !consts.OpsLogEnabled() {
 		return
 	}
@@ -193,12 +185,6 @@ func (manager *SOpsLogManager) logEvent(model IModel, action string, notes inter
 		opslog.DomainId = userCred.GetDomainId()
 		opslog.Domain = userCred.GetDomainName()
 		opslog.Roles = strings.Join(userCred.GetRoles(), ",")
-	}
-	if logLevel != nil {
-		opslog.LogLevel = *logLevel
-	}
-	if eventTime != nil {
-		opslog.OpsTime = eventTime.UTC()
 	}
 	opslog.SetModelManager(OpsLog, opslog)
 
@@ -345,18 +331,6 @@ func (manager *SOpsLogManager) ListItemFilter(
 			q = q.Filter(sqlchemy.Equals(q.Field("action"), input.Actions[0]))
 		} else {
 			q = q.Filter(sqlchemy.In(q.Field("action"), input.Actions))
-		}
-	} else if input.ShowDmesgLog {
-		q = q.Filter(sqlchemy.Equals(q.Field("action"), ACT_HOST_DMESG))
-	} else {
-		q = q.Filter(sqlchemy.NotEquals(q.Field("action"), ACT_HOST_DMESG))
-	}
-
-	if len(input.LogLevels) > 0 {
-		if len(input.LogLevels) == 1 {
-			q = q.Filter(sqlchemy.Equals(q.Field("log_level"), input.LogLevels[0]))
-		} else {
-			q = q.Filter(sqlchemy.In(q.Field("log_level"), input.LogLevels))
 		}
 	}
 

@@ -4978,7 +4978,7 @@ func (hh *SHost) GetStoragesByMasterHost() ([]string, error) {
 func (hh *SHost) PerformReportDmesg(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.SHostReportDmesgInput) (jsonutils.JSONObject, error) {
 	for i := range input.Entries {
 		logLevel := db.LogLevelToString(input.Entries[i].Level)
-		db.OpsLog.LogEventDetails(hh, db.ACT_HOST_DMESG, input.Entries[i].Message, logLevel, input.Entries[i].Time, userCred)
+		HostDmesgLogManager.LogDmesg(ctx, hh, logLevel, input.Entries[i].Time, input.Entries[i].Message, userCred)
 	}
 	return nil, nil
 }

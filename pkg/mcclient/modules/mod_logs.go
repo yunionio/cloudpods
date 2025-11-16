@@ -33,6 +33,7 @@ var (
 	ActionLogs     modulebase.ResourceManager
 	CloudeventLogs modulebase.ResourceManager
 	ComputeLogs    modulebase.ResourceManager
+	DmesgLogs      modulebase.ResourceManager
 	MonitorLogs    modulebase.ResourceManager
 	NotifyLogs     modulebase.ResourceManager
 )
@@ -92,6 +93,9 @@ func init() {
 		[]string{})
 	ComputeLogs = NewComputeManager("event", "events",
 		[]string{"id", "ops_time", "obj_id", "obj_type", "obj_name", "user", "user_id", "tenant", "tenant_id", "owner_tenant_id", "action", "notes"},
+		[]string{})
+	DmesgLogs = NewComputeManager("hostdmesg", "hostdmesgs",
+		[]string{"id", "ops_time", "log_level", "obj_id", "obj_name", "user", "user_id", "tenant", "tenant_id", "owner_tenant_id", "notes"},
 		[]string{})
 	// ComputeLogs.SetApiVersion(mcclient.V2_API_VERSION)
 	MonitorLogs = NewMonitorV2Manager("event", "events",
