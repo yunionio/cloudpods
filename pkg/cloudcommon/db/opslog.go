@@ -46,12 +46,11 @@ type SOpsLogManager struct {
 type SOpsLog struct {
 	SLogBase
 
-	ObjType  string `width:"40" charset:"ascii" nullable:"false" list:"user" create:"required" index:"true"`
-	ObjId    string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"required" index:"true"`
-	ObjName  string `width:"128" charset:"utf8" nullable:"false" list:"user" create:"required"`
-	Action   string `width:"32" charset:"utf8" nullable:"false" list:"user" create:"required"`
-	Notes    string `charset:"utf8" list:"user" create:"optional"`
-	LogLevel string `width:"8" charset:"ascii" nullable:"true" list:"user" create:"optional"`
+	ObjType string `width:"40" charset:"ascii" nullable:"false" list:"user" create:"required" index:"true"`
+	ObjId   string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"required" index:"true"`
+	ObjName string `width:"128" charset:"utf8" nullable:"false" list:"user" create:"required"`
+	Action  string `width:"32" charset:"utf8" nullable:"false" list:"user" create:"required"`
+	Notes   string `charset:"utf8" list:"user" create:"optional"`
 
 	ProjectId string `name:"tenant_id" width:"128" charset:"ascii" list:"user" create:"optional" index:"true"`
 	Project   string `name:"tenant" width:"128" charset:"utf8" list:"user" create:"optional"`
