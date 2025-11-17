@@ -19,20 +19,20 @@ type SInstance struct {
 
 	host *SHost
 
-	ExtraSpecs           string
-	FlavorGroupTypeCn    string
-	NetworkName          string
-	BigRegionName        string
-	CPUUnit              string
-	ImageStatus          string
-	CloudBrandCN         string
-	ServerId             string
-	FloatingIps          []interface{}
-	FlavorType           string
-	RegionUUID           string
-	FlavorUUID           string
-	HostUUID             string
-	SuspendHistory       []interface{}
+	ExtraSpecs        string
+	FlavorGroupTypeCn string
+	NetworkName       string
+	BigRegionName     string
+	CPUUnit           string
+	ImageStatus       string
+	CloudBrandCN      string
+	ServerId          string
+	//FloatingIps          []interface{}
+	FlavorType string
+	RegionUUID string
+	FlavorUUID string
+	HostUUID   string
+	//SuspendHistory       []interface{}
 	VirtualMachineIp     string
 	CloudId              string
 	AzId                 string
@@ -84,41 +84,44 @@ type SInstance struct {
 	CloudRegionId      string
 	V4SubNetworkName   string
 	AccountName        string
-	TagId              []interface{}
-	RegionName         string
-	FlavorId           string
-	FlavorCode         string
-	SiteName           string
-	NewNetCards        []SInstanceNic
-	NcSecurityStatus   string
-	VaultStatus        string
-	PaymentType        string
-	CloudBrand         string
-	InstanceId         string
-	ResourceGroupId    string
-	ZoneName           string
-	SubNetworkId       string
-	ProductNo          string
-	V4SubNetworkId     string
-	CloudRegionName    string
-	Architecture       string
-	ImageVersion       string
-	InNetIP            string
-	VirtualMachineId   string
-	ResourceGroupName  string
-	RegionOssName      string
-	NatForwardRule     string
-	VaultBindStatus    string
-	ProvinceCode       string
-	ImageOs            string
-	UserID             string
-	CloudRegionCode    string
-	CreateTime         string
-	RegionId           string
-	CloudName          string
-	RAMUnit            string
-	VaultBindId        string
-	VaultBindType      string
+	TagId              []struct {
+		Key   string
+		Value string
+	}
+	RegionName        string
+	FlavorId          string
+	FlavorCode        string
+	SiteName          string
+	NewNetCards       []SInstanceNic
+	NcSecurityStatus  string
+	VaultStatus       string
+	PaymentType       string
+	CloudBrand        string
+	InstanceId        string
+	ResourceGroupId   string
+	ZoneName          string
+	SubNetworkId      string
+	ProductNo         string
+	V4SubNetworkId    string
+	CloudRegionName   string
+	Architecture      string
+	ImageVersion      string
+	InNetIP           string
+	VirtualMachineId  string
+	ResourceGroupName string
+	RegionOssName     string
+	NatForwardRule    string
+	VaultBindStatus   string
+	ProvinceCode      string
+	ImageOs           string
+	UserID            string
+	CloudRegionCode   string
+	CreateTime        string
+	RegionId          string
+	CloudName         string
+	RAMUnit           string
+	VaultBindId       string
+	VaultBindType     string
 }
 
 /*
