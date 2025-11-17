@@ -447,21 +447,9 @@ func (self *SESXiGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gues
 
 	action, _ := config.GetString("action")
 	if action == "create" {
-		project, err := db.TenantCacheManager.FetchTenantById(ctx, guest.ProjectId)
-		if err != nil {
-			return errors.Wrapf(err, "FetchTenantById(%s)", guest.ProjectId)
-		}
-
-		projects, err := account.GetExternalProjectsByProjectIdOrName(project.Id, project.Name)
-		if err != nil {
-			return errors.Wrapf(err, "GetExternalProjectsByProjectIdOrName(%s,%s)", project.Id, project.Name)
-		}
-
-		extProj := models.GetAvailableExternalProject(project, projects)
-		if extProj != nil {
-			config.Add(jsonutils.NewString(extProj.Name), "desc", "resource_pool")
-		} else {
-			config.Add(jsonutils.NewString(project.Name), "desc", "resource_pool")
+		projectId, _ := account.SyncProject(ctx, task.GetUserCred(), guest.ProjectId)
+		if len(projectId) > 0 {
+			config.Add(jsonutils.NewString(projectId), "desc", "project_id")
 		}
 	}
 
