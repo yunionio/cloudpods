@@ -783,7 +783,7 @@ type SCreateVMParam struct {
 	Cdrom                SCdromInfo
 	Disks                []SDiskInfo
 	Nics                 []jsonutils.JSONObject
-	ResourcePool         string
+	ProjectId            string
 	InstanceSnapshotInfo SEsxiInstanceSnapshotInfo
 	EnableEsxiSwap       bool
 }
@@ -1158,19 +1158,19 @@ func (host *SHost) DoCreateVM(ctx context.Context, ds *SDatastore, params SCreat
 		err = errors.Wrapf(err, "SHost.GetDatacenter for host '%s'", host.GetId())
 		return
 	}
-	// get vmFloder
-	folders, err := dc.getObjectDatacenter().Folders(ctx)
+
+	vmFolder, err := dc.GetFolder(params.ProjectId)
 	if err != nil {
-		err = errors.Wrap(err, "object.DataCenter.Folders")
+		err = errors.Wrap(err, "GetFolder")
 		return
 	}
-	vmFolder := folders.VmFolder
-	resourcePool, err := host.SyncResourcePool(params.ResourcePool)
+
+	pool, err := host.GetResourcePool()
 	if err != nil {
-		err = errors.Wrap(err, "SyncResourcePool")
+		err = errors.Wrap(err, "GetResourcePool")
 		return
 	}
-	task, err := vmFolder.CreateVM(ctx, spec, resourcePool, host.GetHostSystem())
+	task, err := vmFolder.CreateVM(ctx, spec, pool, host.GetHostSystem())
 	if err != nil {
 		err = errors.Wrap(err, "VmFolder.Create")
 		return
@@ -1283,17 +1283,16 @@ func (host *SHost) CloneVM(ctx context.Context, from *SVirtualMachine, snapshot 
 	if err != nil {
 		return nil, errors.Wrapf(err, "SHost.GetDatacenter for host '%s'", host.GetId())
 	}
-	// get vmFloder
-	folders, err := dc.getObjectDatacenter().Folders(ctx)
+	vmFolder, err := dc.GetFolder(params.ProjectId)
 	if err != nil {
-		return nil, errors.Wrap(err, "object.DataCenter.Folders")
-	}
-	resourcePool, err := host.SyncResourcePool(params.ResourcePool)
-	if err != nil {
-		return nil, errors.Wrap(err, "SyncResourcePool")
+		return nil, errors.Wrap(err, "GetFolder")
 	}
 
-	folderref := folders.VmFolder.Reference()
+	resourcePool, err := host.GetResourcePool()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetResourcePool")
+	}
+
 	poolref := resourcePool.Reference()
 	hostref := host.GetHostSystem().Reference()
 	tds, err := ds.getDatastoreObj(ctx)
@@ -1301,8 +1300,9 @@ func (host *SHost) CloneVM(ctx context.Context, from *SVirtualMachine, snapshot 
 		return nil, errors.Wrapf(err, "getDatastoreObj")
 	}
 	dsref := tds.Reference()
+	vmFolderRef := vmFolder.Reference()
 	relocateSpec := types.VirtualMachineRelocateSpec{
-		Folder:    &folderref,
+		Folder:    &vmFolderRef,
 		Pool:      &poolref,
 		Host:      &hostref,
 		Datastore: &dsref,
@@ -1352,7 +1352,7 @@ func (host *SHost) CloneVM(ctx context.Context, from *SVirtualMachine, snapshot 
 		})
 	}
 	cloneSpec.Config = &spec
-	task, err := ovm.Clone(ctx, folders.VmFolder, name, *cloneSpec)
+	task, err := ovm.Clone(ctx, vmFolder, name, *cloneSpec)
 	if err != nil {
 		return nil, errors.Wrap(err, "object.VirtualMachine.Clone")
 	}
