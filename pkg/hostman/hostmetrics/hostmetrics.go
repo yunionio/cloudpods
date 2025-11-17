@@ -37,6 +37,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostconsts"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
+	"yunion.io/x/onecloud/pkg/util/timeutils2"
 )
 
 const (
@@ -53,15 +54,27 @@ type SHostMetricsCollector struct {
 
 var hostMetricsCollector *SHostMetricsCollector
 
-func Init() {
+type IHostInfo interface {
+	ReportHostDmesg(data []compute.SKmsgEntry) error
+}
+
+var hostDmesgCollector *SHostDmesgCollector
+
+func Init(hostInfo IHostInfo) {
 	if hostMetricsCollector == nil {
 		hostMetricsCollector = NewHostMetricsCollector()
+	}
+	if hostDmesgCollector == nil {
+		hostDmesgCollector = NewHostDmesgCollector(hostInfo)
 	}
 }
 
 func Start() {
 	if hostMetricsCollector != nil {
 		go hostMetricsCollector.Start()
+	}
+	if options.HostOptions.EnableDmesgCollect {
+		timeutils2.AddTimeout(30*time.Second, hostDmesgCollector.Start)
 	}
 }
 

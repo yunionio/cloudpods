@@ -2465,6 +2465,14 @@ func (h *SHostInfo) getNicsTelegrafConf() []map[string]interface{} {
 	return ret
 }
 
+func (h *SHostInfo) ReportHostDmesg(entries []api.SKmsgEntry) error {
+	data := api.SHostReportDmesgInput{
+		Entries: entries,
+	}
+	_, err := modules.Hosts.PerformAction(h.GetSession(), h.HostId, "report-dmesg", jsonutils.Marshal(data))
+	return err
+}
+
 func (h *SHostInfo) getHostname() string {
 	if h.FullName == "" {
 		h.FullName = h.fetchHostname()
