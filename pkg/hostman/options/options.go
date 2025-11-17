@@ -45,6 +45,8 @@ type SHostBaseOptions struct {
 
 	DisableLocalVpc bool `help:"disable local VPC support" default:"false"`
 
+	EnableDmesgCollect bool `default:"true" help:"Enable dmesg collect or not, default true"`
+
 	DhcpLeaseTime   int `default:"100663296" help:"DHCP lease time in seconds"`
 	DhcpRenewalTime int `default:"67108864" help:"DHCP renewal time in seconds"`
 
