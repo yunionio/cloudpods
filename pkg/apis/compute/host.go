@@ -629,6 +629,17 @@ type SHostPingInput struct {
 	QgaRunningGuestIds []string `json:"qga_running_guests"`
 }
 
+type SKmsgEntry struct {
+	Level   int       `json:"level"`
+	Seq     int       `json:"sql"`
+	Message string    `json:"message"`
+	Time    time.Time `json:"time"`
+}
+
+type SHostReportDmesgInput struct {
+	Entries []SKmsgEntry `json:"entries"`
+}
+
 type HostReserveCpusInput struct {
 	Cpus                    string
 	Mems                    string
