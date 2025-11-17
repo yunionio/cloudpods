@@ -384,7 +384,7 @@ func (self *SServerSkuManager) ValidateCreateData(ctx context.Context, userCred 
 
 func (self *SServerSku) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	self.SEnabledStatusStandaloneResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
-	if self.Provider != api.CLOUD_PROVIDER_ONECLOUD {
+	if utils.IsInStringArray(self.Provider, api.PRIVATE_CLOUD_PROVIDERS) {
 		self.StartSkuCreateTask(ctx, userCred)
 	}
 }
@@ -394,8 +394,7 @@ func (self *SServerSku) StartSkuCreateTask(ctx context.Context, userCred mcclien
 	if err != nil {
 		return errors.Wrapf(err, "NewTask")
 	}
-	task.ScheduleRun(nil)
-	return nil
+	return task.ScheduleRun(nil)
 }
 
 func (self *SServerSku) GetPrivateCloudproviders() ([]SCloudprovider, error) {
