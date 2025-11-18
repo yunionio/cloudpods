@@ -20,6 +20,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -77,6 +78,24 @@ func (r *MdadmRaid) ParsePhyDevs() error {
 
 func (r *MdadmRaid) SetDevicesForAdapter(adapterIdx int, devs []*baremetal.BaremetalStorage) {
 	r.adapter.setDevices(devs)
+	for i := range devs {
+		devPath := path.Join("/dev", devs[i].Dev)
+		cmd := fmt.Sprintf("%s --examine %s | grep UUID", MDADM_BIN, devPath)
+		output, err := r.term.Run(cmd)
+		if err == nil && len(output) > 0 {
+			for _, line := range output {
+				segs := strings.SplitN(strings.TrimSpace(line), ":", 2)
+				if len(segs) == 2 {
+					uuid := strings.TrimSpace(segs[1])
+					cmd = fmt.Sprintf("%s --assemble --scan --uuid=%s", MDADM_BIN, uuid)
+					output, err := r.term.Run(cmd)
+					if err != nil {
+						log.Errorf("faield assemble mdadm %s: %s", uuid, output)
+					}
+				}
+			}
+		}
+	}
 }
 
 func (r *MdadmRaid) GetAdapters() []raid.IRaidAdapter {
@@ -108,7 +127,7 @@ func (r *MdadmRaid) CleanRaid() error {
 }
 
 func CleanMdadmPartitions(term *ssh.Client) {
-	out, err := term.Run("ls /sys/block/ | grep md")
+	out, err := term.Run("ls -1 /dev/md/")
 	if err != nil {
 		log.Errorf("failed get md devices %s, %s", out, err)
 		return
@@ -116,20 +135,20 @@ func CleanMdadmPartitions(term *ssh.Client) {
 	// destory mdadm soft raid
 	for _, line := range out {
 		dev := strings.TrimSpace(line)
-		if len(dev) == 0 {
+		if !strings.HasPrefix(dev, "md") {
 			continue
 		}
-		out, err = term.Run(fmt.Sprintf("dd if=/dev/zero of=/dev/%s bs=512 count=34", dev))
+		out, err = term.Run(fmt.Sprintf("dd if=/dev/zero of=/dev/md/%s bs=512 count=34", dev))
 		if err != nil {
-			log.Errorf("faield clean mdadm partitions %s %s", out, err)
+			log.Errorf("failed clean mdadm partitions %s %s", out, err)
 		}
-		out, err = term.Run(fmt.Sprintf("dd if=/dev/zero of=/dev/%s bs=512 count=34 seek=$(( $(cat /sys/class/block/%s/size) - 34 ))", dev, dev))
+		out, err = term.Run(fmt.Sprintf("dd if=/dev/zero of=/dev/md/%s bs=512 count=34 seek=$(( $(blockdev --getsz /dev/md/%s) - 34 ))", dev, dev))
 		if err != nil {
-			log.Errorf("faield clean mdadm partitions %s %s", out, err)
+			log.Errorf("failed clean mdadm partitions %s %s", out, err)
 		}
-		out, err = term.Run(fmt.Sprintf("hdparm -z /dev/%s", dev))
+		out, err = term.Run(fmt.Sprintf("hdparm -z /dev/md/%s", dev))
 		if err != nil {
-			log.Errorf("faield clean mdadm partitions %s %s", out, err)
+			log.Errorf("failed clean mdadm partitions %s %s", out, err)
 		}
 	}
 }
@@ -178,6 +197,11 @@ func CleanRaid(term *ssh.Client) error {
 		}
 	}
 
+	out, err := term.Run("rm /dev/md/*")
+	if err != nil {
+		log.Warningf("failed soft link at /dev/md %s", out)
+	}
+
 	return nil
 }
 
@@ -198,7 +222,7 @@ func (a *MdadmRaidAdapter) PreBuildRaid(confs []*api.BaremetalDiskConfig) error 
 
 func (a *MdadmRaidAdapter) GetLogicVolumes() ([]*raid.RaidLogicalVolume, error) {
 	lvs := make([]*raid.RaidLogicalVolume, 0)
-	cmd := "ls -1 /dev/md* 2>/dev/null || true"
+	cmd := "ls -1 /dev/md/* 2>/dev/null || true"
 	output, err := a.term.Run(cmd)
 	if err != nil {
 		return lvs, nil
@@ -206,16 +230,23 @@ func (a *MdadmRaidAdapter) GetLogicVolumes() ([]*raid.RaidLogicalVolume, error) 
 
 	for _, line := range output {
 		line = strings.TrimSpace(line)
-		if strings.HasPrefix(line, "/dev/md") {
+		if strings.HasPrefix(line, "/dev/md/md") {
 			mdPath := line
-			numStr := strings.TrimPrefix(line, "/dev/md")
+			numStr := strings.TrimPrefix(line, "/dev/md/md")
+			if strings.HasSuffix(numStr, "_0") {
+				numStr = strings.TrimSuffix(numStr, "_0")
+			}
 			if num, err := strconv.Atoi(numStr); err == nil {
-				lv := &raid.RaidLogicalVolume{
-					Index:    num,
-					Adapter:  a.index,
-					BlockDev: mdPath,
+				res, err := a.term.Run(fmt.Sprintf("readlink -f %s", line))
+				if err == nil && len(res) > 0 {
+					mdPath = strings.TrimSpace(res[0])
+					lv := &raid.RaidLogicalVolume{
+						Index:    num,
+						Adapter:  a.index,
+						BlockDev: mdPath,
+					}
+					lvs = append(lvs, lv)
 				}
-				lvs = append(lvs, lv)
 			}
 		}
 	}
@@ -285,19 +316,29 @@ func (a *MdadmRaidAdapter) buildRaid(level string, devs []*baremetal.BaremetalSt
 		if dev.Dev == "" {
 			return fmt.Errorf("device path is empty for storage")
 		}
-		devPaths = append(devPaths, dev.Dev)
+		devPaths = append(devPaths, path.Join("/dev", dev.Dev))
 	}
 
 	for _, dev := range devPaths {
-		if err := a.ensureDeviceClean(path.Join("/dev", dev)); err != nil {
+		if err := a.ensureDeviceClean(dev); err != nil {
 			return errors.Wrapf(err, "clean device %s", dev)
 		}
 	}
 
-	mdDev := fmt.Sprintf("/dev/md%d", mdNum)
+	mdDev := fmt.Sprintf("/dev/md/md%d", mdNum)
+
+	imsmDev := fmt.Sprintf("/dev/md/imsm%d", mdNum)
+	cmdImsm := fmt.Sprintf("%s --create %s --metadata=imsm --raid-devices=%d --run --force %s", MDADM_BIN, imsmDev, len(devs), strings.Join(devPaths, " "))
+	output, err := a.term.Run(cmdImsm)
+	if err != nil {
+		log.Errorf("mdadm create imsm raid %s failed, output: %v %s", level, output, err)
+	} else {
+		a.term.Run(fmt.Sprintf("%s --wait %s", MDADM_BIN, imsmDev))
+		time.Sleep(time.Second * 3)
+	}
+
 	args := []string{
 		"--create",
-		"--metadata=1.2",
 		mdDev,
 		fmt.Sprintf("--level=%s", level),
 		fmt.Sprintf("--raid-devices=%d", len(devs)),
@@ -306,12 +347,7 @@ func (a *MdadmRaidAdapter) buildRaid(level string, devs []*baremetal.BaremetalSt
 	}
 
 	for _, dev := range devPaths {
-		args = append(args, path.Join("/dev", dev))
-	}
-
-	// 对于RAID1和RAID5，可以设置bitmap
-	if level == "1" || level == "5" {
-		args = append(args, "--bitmap=internal")
+		args = append(args, dev)
 	}
 
 	args = append(args, "--assume-clean")
@@ -319,7 +355,7 @@ func (a *MdadmRaidAdapter) buildRaid(level string, devs []*baremetal.BaremetalSt
 	cmd := fmt.Sprintf("%s %s", MDADM_BIN, strings.Join(args, " "))
 	log.Infof("Building software RAID %s: %s", level, cmd)
 
-	output, err := a.term.Run(cmd)
+	output, err = a.term.Run(cmd)
 	if err != nil {
 		return errors.Wrapf(err, "mdadm create raid %s failed, output: %v", level, output)
 	}
@@ -331,10 +367,10 @@ func (a *MdadmRaidAdapter) buildRaid(level string, devs []*baremetal.BaremetalSt
 		//return errors.Wrapf(err, "mdadm wait raid %s failed, output: %v", mdDev, output)
 	}
 
-	log.Infof("Successfully created software RAID %s: /dev/md%d, start sync block devs", level, mdNum)
+	log.Infof("Successfully created software RAID %s: /dev/md/md%d, start sync block devs", level, mdNum)
 
 	for i := range devPaths {
-		flushCmd := fmt.Sprintf("blockdev --flushbufs /dev/%s", devPaths[i])
+		flushCmd := fmt.Sprintf("blockdev --flushbufs %s", devPaths[i])
 		output, err = a.term.Run(flushCmd)
 		if err != nil {
 			return errors.Wrapf(err, "mdadm blockdev flushbufs %s failed, output: %v", devPaths[i], output)
@@ -350,14 +386,14 @@ func (a *MdadmRaidAdapter) buildRaid(level string, devs []*baremetal.BaremetalSt
 }
 
 func (a *MdadmRaidAdapter) getNextMdNum() (int, error) {
-	cmd := "ls -1 /dev/md* 2>/dev/null | grep -E '/dev/md[0-9]+$' || true"
+	cmd := "ls -1 /dev/md/ 2>/dev/null | grep -E '/dev/md/md[0-9]+$' || true"
 	output, err := a.term.Run(cmd)
 	if err != nil {
 		return 0, errors.Wrap(err, "list md devices")
 	}
 
 	usedNums := make(map[int]bool)
-	mdNumRe := regexp.MustCompile(`/dev/md(\d+)`)
+	mdNumRe := regexp.MustCompile(`/dev/md/md(\d+)`)
 	for _, line := range output {
 		matches := mdNumRe.FindStringSubmatch(line)
 		if len(matches) > 1 {
