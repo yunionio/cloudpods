@@ -34,7 +34,7 @@ type IBackupStorage interface {
 	// 删除备份
 	RemoveBackup(ctx context.Context, backupId string) error
 	// 备份是否存在
-	IsBackupExists(backupId string) (bool, error)
+	IsBackupExists(backupId string) (bool, string, error)
 
 	// 从指定路径拷贝主机备份文件到备份存储
 	SaveBackupInstanceFrom(ctx context.Context, srcFilename string, bakcupInstanceId string) error
@@ -43,7 +43,7 @@ type IBackupStorage interface {
 	// 删除备份
 	RemoveBackupInstance(ctx context.Context, backupInstanceId string) error
 	// 备份是否存在
-	IsBackupInstanceExists(backupInstanceId string) (bool, error)
+	IsBackupInstanceExists(backupInstanceId string) (bool, string, error)
 
 	// ConvertTo(destPath string, format qemuimgfmt.TImageFormat, backupId string) error
 	// ConvertFrom(srcPath string, format qemuimgfmt.TImageFormat, backupId string) (int, error)
