@@ -1289,9 +1289,9 @@ func _doCreateItem(
 	// 若manager用于name字段，确保name唯一
 	if manager.HasName() {
 		// run name validation after validate create data
-		uniqValues := manager.FetchUniqValues(ctx, dataDict)
 		name, _ := dataDict.GetString("name")
 		if len(name) > 0 {
+			uniqValues := manager.FetchUniqValues(ctx, dataDict)
 			err = NewNameValidator(ctx, manager, ownerId, name, uniqValues)
 			if err != nil {
 				return nil, err
