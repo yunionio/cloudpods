@@ -379,6 +379,7 @@ func (alert *SCommonAlert) customizeCreateNotis(ctx context.Context, userCred mc
 		return alert.createAlertNoti(ctx, userCred, input.Name, s, input.SilentPeriod, true)
 	}
 
+	alert.SetChannel(ctx, input.Channel)
 	for _, channel := range input.Channel {
 		s := &monitor.NotificationSettingOneCloud{
 			Channel: channel,
@@ -1096,6 +1097,7 @@ func (alert *SCommonAlert) PostUpdate(
 		if err := alert.UpdateNotification(ctx, userCred, query, data); err != nil {
 			log.Errorf("update notification error: %v", err)
 		}
+		alert.SetChannel(ctx, updateInput.Channel)
 	}
 	if _, err := data.GetString("scope"); err == nil {
 		_, err = alert.PerformSetScope(ctx, userCred, query, data)
