@@ -249,7 +249,16 @@ func newDiskPartitions(driver string, adapter int, raidConfig string, sizeMB int
 }
 
 func (ps *DiskPartitions) GetMdadmInfo(softRaidIdx *int) {
-	ps.dev = fmt.Sprintf("/dev/md%d", *softRaidIdx)
+	devLinkName := fmt.Sprintf("/dev/md/md%d", *softRaidIdx)
+	devLinkNickname := fmt.Sprintf("/dev/md/md%d_0", *softRaidIdx)
+	cmd := fmt.Sprintf("readlink -f $(test -e %s && echo %s || echo %s)", devLinkName, devLinkName, devLinkNickname)
+	out, err := ps.tool.Run(cmd)
+	if err != nil || len(out) == 0 {
+		log.Errorf("failed readlink of %s: %s", devLinkName, err)
+		return
+	}
+
+	ps.dev = strings.TrimSpace(out[0])
 	ps.devName = ps.dev
 	uuid, sectors := ps.tool.GetMdadmUuidAndSector(ps.dev)
 	ps.pciPath = uuid
@@ -791,7 +800,8 @@ func (tool *PartitionTool) GetMdadmUuidAndSector(devPath string) (string, int64)
 	cmd := fmt.Sprintf("/sbin/mdadm --detail %s | grep UUID", devPath)
 	output, err := tool.Run(cmd)
 	if err == nil && len(output) > 0 {
-		segs := strings.SplitN(strings.TrimSpace(output[0]), ":", 2)
+		uuidSeg := output[0]
+		segs := strings.SplitN(strings.TrimSpace(uuidSeg), ":", 2)
 		if len(segs) == 2 {
 			uuid = strings.TrimSpace(segs[1])
 		}

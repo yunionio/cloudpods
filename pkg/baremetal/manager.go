@@ -2673,15 +2673,32 @@ func (s *SBaremetalServer) NewConfigedSSHPartitionTool(term *ssh.Client) (*diskt
 		return nil, fmt.Errorf("CalculateLayout: %v", err)
 	}
 
+	log.Errorf("NewConfigedSSHPartitionTool layouts: %s", jsonutils.Marshal(layouts))
 	diskConfs := baremetal.GroupLayoutResultsByDriverAdapter(layouts)
 	for _, dConf := range diskConfs {
 		driver := dConf.Driver
 		adapter := dConf.Adapter
+		isSoftRaid := baremetal.DISK_DRIVERS_SOFT_RAID.Has(driver)
+
 		raidDrv := raiddrivers.GetDriver(driver, term)
 		if raidDrv != nil {
 			if err := raidDrv.ParsePhyDevs(); err != nil {
 				return nil, fmt.Errorf("RaidDriver %s parse physical devices: %v", raidDrv.GetName(), err)
 			}
+			if isSoftRaid {
+				devs := make([]*baremetal.BaremetalStorage, 0)
+				for _, layout := range layouts {
+					if len(layout.Disks) > 0 && layout.Disks[0].Driver == driver && layout.Disks[0].Adapter == dConf.Adapter {
+						devs = append(devs, layout.Disks...)
+					}
+				}
+
+				log.Infof("SetDevicesForAdapter %v", jsonutils.Marshal(devs))
+				if mdadmDrver, ok := raidDrv.(raid2.IRaidDeviceSetter); ok {
+					mdadmDrver.SetDevicesForAdapter(dConf.Adapter, devs)
+				}
+			}
+
 			if err := raiddrivers.PostBuildRaid(raidDrv, adapter); err != nil {
 				return nil, fmt.Errorf("Build %s raid failed: %v", raidDrv.GetName(), err)
 			}
@@ -2749,8 +2766,8 @@ func (s *SBaremetalServer) DoDiskConfig(term *ssh.Client) (*disktool.SSHPartitio
 				}
 
 				log.Infof("SetDevicesForAdapter %v", jsonutils.Marshal(devs))
-				if mdadmDrver, ok := raidDrv.(raid2.IRaidDeviceSetter); ok {
-					mdadmDrver.SetDevicesForAdapter(dConf.Adapter, devs)
+				if mdadmDriver, ok := raidDrv.(raid2.IRaidDeviceSetter); ok {
+					mdadmDriver.SetDevicesForAdapter(dConf.Adapter, devs)
 				}
 			}
 
