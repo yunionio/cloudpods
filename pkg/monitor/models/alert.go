@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/sqlchemy"
@@ -36,7 +37,8 @@ import (
 )
 
 const (
-	AlertMetadataTitle = "alert_title"
+	AlertMetadataTitle   = "alert_title"
+	AlertMetadataChannel = "alert_channel"
 )
 
 var (
@@ -177,6 +179,22 @@ func (alert *SAlert) SetTitle(ctx context.Context, t string) error {
 
 func (alert *SAlert) GetTitle() string {
 	return alert.GetMetadata(context.Background(), AlertMetadataTitle, nil)
+}
+
+func (alert *SAlert) SetChannel(ctx context.Context, channel []string) error {
+	return alert.SetMetadata(ctx, AlertMetadataChannel, jsonutils.Marshal(channel), nil)
+}
+
+func (alert *SAlert) GetChannel() []string {
+	channelJson := alert.GetMetadataJson(context.Background(), AlertMetadataChannel, nil)
+	if channelJson == nil {
+		return []string{}
+	}
+	channel := []string{}
+	if err := channelJson.Unmarshal(&channel); err != nil {
+		log.Warningf("get channel failed when unmarshal: %v", err)
+	}
+	return channel
 }
 
 func (alert *SAlert) ShouldUpdateState(newState monitor.AlertStateType) bool {
