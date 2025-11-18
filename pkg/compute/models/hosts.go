@@ -1871,36 +1871,43 @@ func (hh *SHostManager) GetEnabledKvmHostForBackupStorage(bs *SBackupStorage) (*
 }
 
 func (hh *SHostManager) GetEnabledKvmHostForDiskBackup(backup *SDiskBackup) (*SHost, error) {
-	bs, err := backup.GetBackupStorage()
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to get backupStorage")
-	}
-	storage, err := backup.GetStorage()
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to get storage of diskbackup")
-	}
-
-	hbs, err := HostBackupstorageManager.GetBackupStoragesByBackup(bs.Id)
-	if err != nil {
-		return nil, errors.Wrap(err, "HostBackupstorageManager.GetBackupStoragesByBackup")
-	}
 	hbsCandidates := stringutils2.NewSortedStrings(nil)
-	for i := range hbs {
-		hbsCandidates = hbsCandidates.Append(hbs[i].HostId)
-	}
-	hss, err := HoststorageManager.GetHostStoragesByStorageId(storage.Id)
-	if err != nil {
-		return nil, errors.Wrap(err, "HoststorageManager.GetStorages")
-	}
 	hssCandidates := stringutils2.NewSortedStrings(nil)
-	for i := range hss {
-		hssCandidates = hssCandidates.Append(hss[i].HostId)
-	}
 	var candidates []string
-	if len(hbsCandidates) == 0 {
-		candidates = []string(hssCandidates)
+
+	{
+		bs, err := backup.GetBackupStorage()
+		if err != nil {
+			return nil, errors.Wrap(err, "unable to get backupStorage")
+		}
+		hbs, err := HostBackupstorageManager.GetBackupStoragesByBackup(bs.Id)
+		if err != nil {
+			return nil, errors.Wrap(err, "HostBackupstorageManager.GetBackupStoragesByBackup")
+		}
+
+		for i := range hbs {
+			hbsCandidates = hbsCandidates.Append(hbs[i].HostId)
+		}
+	}
+	if len(backup.StorageId) > 0 {
+		storage, err := backup.GetStorage()
+		if err != nil {
+			return nil, errors.Wrap(err, "unable to get storage of diskbackup")
+		}
+		hss, err := HoststorageManager.GetHostStoragesByStorageId(storage.Id)
+		if err != nil {
+			return nil, errors.Wrap(err, "HoststorageManager.GetStorages")
+		}
+		for i := range hss {
+			hssCandidates = hssCandidates.Append(hss[i].HostId)
+		}
+		if len(hbsCandidates) == 0 {
+			candidates = []string(hssCandidates)
+		} else {
+			candidates = []string(stringutils2.Intersect(hbsCandidates, hssCandidates))
+		}
 	} else {
-		candidates = []string(stringutils2.Intersect(hbsCandidates, hssCandidates))
+		candidates = []string(hbsCandidates)
 	}
 
 	host, err := HostManager.GetEnabledKvmHost(candidates)
@@ -1914,6 +1921,7 @@ func (hh *SHostManager) GetEnabledKvmHost(candidates []string) (*SHost, error) {
 	hostq := HostManager.Query().IsTrue("enabled")
 	hostq = hostq.Equals("host_status", api.HOST_ONLINE)
 	hostq = hostq.In("host_type", []string{api.HOST_TYPE_HYPERVISOR, api.HOST_TYPE_KVM, api.HOST_TYPE_CONTAINER})
+	hostq = hostq.IsNullOrEmpty("manager_id")
 	if len(candidates) > 0 {
 		hostq = hostq.In("id", candidates)
 	}
