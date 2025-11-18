@@ -293,7 +293,7 @@ func DoInstancePackBackup(ctx context.Context, backupInfo SStoragePackInstanceBa
 		} else {
 			finalPackageFileName = fmt.Sprintf("%s-%d.tar", backupInfo.PackageName, tried)
 		}
-		exists, err := backupStorage.IsBackupInstanceExists(finalPackageFileName)
+		exists, _, err := backupStorage.IsBackupInstanceExists(finalPackageFileName)
 		if err != nil {
 			return "", errors.Wrap(err, "IsBackupInstanceExists")
 		}
