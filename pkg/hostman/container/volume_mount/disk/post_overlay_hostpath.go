@@ -79,17 +79,34 @@ func (p postOverlayHostPath) getSingleFileMergedFilePath(mergedDir string, singl
 	return filepath.Join(mergedDir, filepath.Base(singleFilePath))
 }
 
-func (p postOverlayHostPath) mountSingleFile(singleFilePath string, d diskPostOverlay, pod volume_mount.IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount, ov *apis.ContainerVolumeMountDiskPostOverlay) error {
-	// 如果是单文件，创建一个目录，再把该文件拷贝过去
-	lowerDir, err := d.getPostOverlayLowerDir(pod, ctrId, vm, ov, true)
-	if err != nil {
-		return errors.Wrapf(err, "get single file lower dir for container %s", ctrId)
-	}
-	if err := volume_mount.CopyFile(singleFilePath, lowerDir); err != nil {
-		return errors.Wrapf(err, "copy file %s to %s", singleFilePath, lowerDir)
-	}
+func (p postOverlayHostPath) getSingleFileLowerDirFilePath(lowerDir string, singleFilePath string) string {
+	return filepath.Join(lowerDir, filepath.Base(singleFilePath))
+}
 
-	// 把但文件的 lowerDir 挂载到 targetMergedDir，然后在把 singleFileMergedFilePath bind mount 到 mergedDir(mergedDir 其实是个文件路径)
+func (p postOverlayHostPath) mountSingleFile(singleFilePath string, d diskPostOverlay, pod volume_mount.IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount, ov *apis.ContainerVolumeMountDiskPostOverlay) error {
+	/*
+		// 测试发现，如果 lowerDir 存在 bind mount 的文件，merge 后的目录中该文件为空，不是 bind mount 的 source 文件
+			// 如果是单文件，创建一个目录，再把该文件 mount bind 过去到 lowerDir 里面
+			lowerDir, err := d.getPostOverlayLowerDir(pod, ctrId, vm, ov, true)
+			if err != nil {
+				return errors.Wrapf(err, "get single file lower dir for container %s", ctrId)
+			}
+			lowerDirFilePath := p.getSingleFileLowerDirFilePath(lowerDir, singleFilePath)
+
+			if !fileutils.Exists(lowerDirFilePath) {
+				if err := volume_mount.TouchFile(lowerDirFilePath); err != nil {
+					return errors.Wrapf(err, "touch file %s", lowerDirFilePath)
+				}
+			}
+			if err := mountutils.MountBind(singleFilePath, lowerDirFilePath); err != nil {
+				return errors.Wrapf(err, "mount bind %s to %s", singleFilePath, lowerDirFilePath)
+			}
+	*/
+
+	// 单文件，直接把该文件的目录作为 lowerDir
+	lowerDir := filepath.Dir(singleFilePath)
+
+	// 把单文件的 lowerDir 挂载到 targetMergedDir，然后在把 singleFileMergedFilePath bind mount 到 mergedDir(mergedDir 其实是个文件路径)
 	upperDir, err := d.getPostOverlayUpperDir(pod, ctrId, vm, ov, true)
 	if err != nil {
 		return errors.Wrapf(err, "get post overlay upper dir for container %s", ctrId)
@@ -186,6 +203,17 @@ func (p postOverlayHostPath) unmountSingleFile(singleFilePath string, d diskPost
 	if err := mountutils.Unmount(targetMergedDir, useLazy); err != nil {
 		return errors.Wrapf(err, "unmount %s", targetMergedDir)
 	}
+	/*
+		// 再 unbind lowerDir 里面的 singleFilePath
+		lowerDir, err := d.getPostOverlayLowerDir(pod, ctrId, vm, ov, false)
+		if err != nil {
+			return errors.Wrapf(err, "get post overlay lower dir for container %s", ctrId)
+		}
+		lowerDirFilePath := p.getSingleFileLowerDirFilePath(lowerDir, singleFilePath)
+		if err := mountutils.Unmount(lowerDirFilePath, false); err != nil {
+			return errors.Wrapf(err, "unmount %s of single file %s", lowerDirFilePath, singleFileMergedFilePath)
+		}
+	*/
 	if cleanLayers {
 		upperDir, err := d.getPostOverlayUpperDir(pod, ctrId, vm, ov, false)
 		if err != nil {
@@ -195,12 +223,8 @@ func (p postOverlayHostPath) unmountSingleFile(singleFilePath string, d diskPost
 		if err != nil {
 			return errors.Wrapf(err, "get post overlay work dir for container %s", ctrId)
 		}
-		lowerDir, err := d.getPostOverlayLowerDir(pod, ctrId, vm, ov, false)
-		if err != nil {
-			return errors.Wrapf(err, "get post overlay lower dir for container %s", ctrId)
-		}
 
-		for _, dir := range []string{upperDir, workDir, lowerDir, targetMergedDir} {
+		for _, dir := range []string{upperDir, workDir, targetMergedDir} {
 			if err := volume_mount.RemoveDir(dir); err != nil {
 				return errors.Wrapf(err, "remove dir %s", dir)
 			}
