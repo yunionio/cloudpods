@@ -276,7 +276,7 @@ func storageSyncBackup(ctx context.Context, w http.ResponseWriter, r *http.Reque
 		hostutils.Response(ctx, w, err)
 		return
 	}
-	exist, err := backupStorage.IsBackupExists(backupId)
+	exist, reason, err := backupStorage.IsBackupExists(backupId)
 	if err != nil {
 		hostutils.Response(ctx, w, err)
 		return
@@ -287,11 +287,13 @@ func storageSyncBackup(ctx context.Context, w http.ResponseWriter, r *http.Reque
 	)
 	if exist {
 		status = compute.BACKUP_EXIST
-	} else if !exist && err == nil {
-		status = compute.BACKUP_NOT_EXIST
 	} else {
-		log.Errorf("fetch snapshot exist failed %s", err)
-		status = compute.BACKUP_STATUS_UNKNOWN
+		if len(reason) == 0 {
+			status = compute.BACKUP_NOT_EXIST
+		} else {
+			log.Errorf("fetch snapshot exist failed reason:%s", reason)
+			status = compute.BACKUP_STATUS_UNKNOWN
+		}
 	}
 	ret.Set("status", jsonutils.NewString(status))
 	hostutils.Response(ctx, w, ret)
