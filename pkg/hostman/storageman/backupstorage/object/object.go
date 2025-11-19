@@ -178,27 +178,27 @@ func (s *SObjectBackupStorage) removeObject(ctx context.Context, id string, getK
 	return nil
 }
 
-func (s *SObjectBackupStorage) IsBackupExists(backupId string) (bool, error) {
+func (s *SObjectBackupStorage) IsBackupExists(backupId string) (bool, string, error) {
 	return s.isObjectExists(backupId, s.getBackupKey)
 }
 
-func (s *SObjectBackupStorage) IsBackupInstanceExists(backupId string) (bool, error) {
+func (s *SObjectBackupStorage) IsBackupInstanceExists(backupId string) (bool, string, error) {
 	return s.isObjectExists(backupId, s.getBackupInstanceKey)
 }
 
-func (s *SObjectBackupStorage) isObjectExists(id string, getKeyFunc func(string) string) (bool, error) {
+func (s *SObjectBackupStorage) isObjectExists(id string, getKeyFunc func(string) string) (bool, string, error) {
 	bucket, err := s.getBucket()
 	if err != nil {
-		return false, errors.Wrap(err, "getBucket")
+		return false, "", errors.Wrap(err, "getBucket")
 	}
 	_, err = cloudprovider.GetIObject(bucket, getKeyFunc(id))
 	if err != nil {
 		if errors.Cause(err) == errors.ErrNotFound {
-			return false, nil
+			return false, "", nil
 		}
-		return false, errors.Wrap(err, "GetIObject")
+		return false, "", errors.Wrap(err, "GetIObject")
 	}
-	return true, nil
+	return true, "", nil
 }
 
 func (s *SObjectBackupStorage) IsOnline() (bool, string, error) {
