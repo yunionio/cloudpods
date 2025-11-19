@@ -203,31 +203,34 @@ func (s *SNFSBackupStorage) removeFile(ctx context.Context, id string, getPathFu
 	return nil
 }
 
-func (s *SNFSBackupStorage) IsBackupExists(backupId string) (bool, error) {
+func (s *SNFSBackupStorage) IsBackupExists(backupId string) (bool, string, error) {
 	return s.isFileExists(backupId, s.getBackupDiskPath)
 }
 
-func (s *SNFSBackupStorage) IsBackupInstanceExists(backupId string) (bool, error) {
+func (s *SNFSBackupStorage) IsBackupInstanceExists(backupId string) (bool, string, error) {
 	return s.isFileExists(backupId, s.getBackupInstancePath)
 }
 
-func (s *SNFSBackupStorage) isFileExists(id string, getPathFunc func(id string) string) (bool, error) {
+func (s *SNFSBackupStorage) isFileExists(id string, getPathFunc func(id string) string) (bool, string, error) {
 	err := s.checkAndMount()
 	if err != nil {
-		return false, errors.Wrap(err, "unable to checkAndMount")
+		if errors.Cause(err) == ErrorBackupStorageOffline {
+			return false, err.Error(), nil
+		}
+		return false, "", errors.Wrap(err, "unable to checkAndMount")
 	}
 	defer s.unMount()
 
 	filename := getPathFunc(id)
-	return fileutils2.Exists(filename), nil
+	return fileutils2.Exists(filename), "", nil
 }
 
 func (s *SNFSBackupStorage) IsOnline() (bool, string, error) {
 	err := s.checkAndMount()
-	if errors.Cause(err) == ErrorBackupStorageOffline {
-		return false, err.Error(), nil
-	}
 	if err != nil {
+		if errors.Cause(err) == ErrorBackupStorageOffline {
+			return false, err.Error(), nil
+		}
 		return false, "", err
 	}
 	s.unMount()
