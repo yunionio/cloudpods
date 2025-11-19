@@ -11,6 +11,7 @@ const (
 )
 
 const (
+	LLM_OLLAMA_SAVE_DIR            = "/opt/.ollama-models/%s"
 	LLM_OLLAMA_HOST_PATH           = "/opt/ollama-models"
 	LLM_OLLAMA_HOST_MANIFESTS_DIR  = "/manifests"
 	LLM_OLLAMA_CACHE_DIR           = "/.llm_ollama_cache"

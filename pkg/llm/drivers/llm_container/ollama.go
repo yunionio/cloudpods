@@ -9,12 +9,13 @@ import (
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/apis"
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	api "yunion.io/x/onecloud/pkg/apis/llm"
 	"yunion.io/x/onecloud/pkg/llm/models"
-	"yunion.io/x/onecloud/pkg/llm/utils"
+	llmutil "yunion.io/x/onecloud/pkg/llm/utils"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
@@ -94,27 +95,19 @@ func (o *ollama) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *
 	// vols = append(spec.VolumeMounts, GetDiskVolumeMounts(sku.Volumes, appVolIndex, postOverlays)...)
 
 	// udevPath := filepath.Join(GetTmpSocketsHostPath(d.GetName()), "udev")
-	modelName, modelTag, _ := llm.GetLargeLanguageModelName("")
+	diskIndex := 0
 	ctrVols := []*apis.ContainerVolumeMount{
 		{
-			UniqueName: "manifests",
-			Type:       apis.CONTAINER_VOLUME_MOUNT_TYPE_HOST_PATH,
-			MountPath:  getManifestsPath(modelName, modelTag),
-			HostPath: &apis.ContainerVolumeMountHostPath{
-				Type: apis.CONTAINER_VOLUME_MOUNT_HOST_PATH_TYPE_FILE,
-				Path: path.Join(api.LLM_OLLAMA_HOST_PATH, api.LLM_OLLAMA_HOST_MANIFESTS_DIR, modelName+"-"+modelTag),
+			Disk: &apis.ContainerVolumeMountDisk{
+				SubDirectory: api.LLM_OLLAMA,
+				Overlay: &apis.ContainerVolumeMountDiskOverlay{
+					LowerDir: []string{api.LLM_OLLAMA_HOST_PATH},
+				},
+				Index: &diskIndex,
 			},
-			ReadOnly: true,
-		},
-		{
-			UniqueName: "blobs",
-			Type:       apis.CONTAINER_VOLUME_MOUNT_TYPE_HOST_PATH,
-			MountPath:  path.Join(api.LLM_OLLAMA_BASE_PATH, api.LLM_OLLAMA_BLOBS_DIR),
-			HostPath: &apis.ContainerVolumeMountHostPath{
-				Type: apis.CONTAINER_VOLUME_MOUNT_HOST_PATH_TYPE_DIRECTORY,
-				Path: path.Join(api.LLM_OLLAMA_HOST_PATH, api.LLM_OLLAMA_BLOBS_DIR),
-			},
-			ReadOnly: true,
+			Type:      apis.CONTAINER_VOLUME_MOUNT_TYPE_DISK,
+			MountPath: api.LLM_OLLAMA_BASE_PATH,
+			ReadOnly:  true,
 		},
 	}
 	vols = append(vols, ctrVols...)
@@ -160,30 +153,82 @@ func (o *ollama) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *
 // 	return err
 // }
 
-func (o *ollama) CopyBlobs(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM) error {
-	ctr, _ := llm.GetLLMContainer()
-	modelName, modelTag, _ := llm.GetLargeLanguageModelName("")
-	manifests, _ := getManifests(ctx, ctr.CmpId, modelName, modelTag)
+func (o *ollama) DetectModelPaths(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM, pkgInfo api.LLMInternalPkgInfo) ([]string, error) {
+	ctr, err := llm.GetLLMContainer()
+	if err != nil {
+		return nil, errors.Wrap(err, "get llm container")
+	}
+	// check file exists
+	originBlobs := make([]string, len(pkgInfo.Blobs))
+	for idx, blob := range pkgInfo.Blobs {
+		originBlobs[idx] = path.Join(api.LLM_OLLAMA_BASE_PATH, api.LLM_OLLAMA_BLOBS_DIR, blob)
+	}
+	originManifests := path.Join(api.LLM_OLLAMA_BASE_PATH, api.LLM_OLLAMA_MANIFESTS_BASE_PATH, pkgInfo.Name, pkgInfo.Tag)
 
-	blobsTargetDir := path.Join(api.LLM_OLLAMA_BASE_PATH, api.LLM_OLLAMA_BLOBS_DIR)
-	blobsSrcDir := path.Join(api.LLM_OLLAMA_CACHE_MOUNT_PATH, api.LLM_OLLAMA_CACHE_DIR)
+	var checks []string
+	for _, blob := range originBlobs {
+		checks = append(checks, fmt.Sprintf("[ -f '%s' ]", blob))
+	}
+	checks = append(checks, fmt.Sprintf("[ -f '%s' ]", originManifests))
 
-	var commands []string
-	commands = append(commands, fmt.Sprintf("mkdir -p %s", blobsTargetDir))
-	blob := manifests.Config.Digest
-	commands = append(commands, fmt.Sprintf("cp %s %s", path.Join(blobsSrcDir, blob), path.Join(blobsTargetDir, blob)))
-	for _, layer := range manifests.Layers {
-		blob = layer.Digest
-		src := path.Join(blobsSrcDir, blob)
-		target := path.Join(blobsTargetDir, blob)
-		commands = append(commands, fmt.Sprintf("cp %s %s", src, target))
+	checkCmd := strings.Join(checks, " && ") + " && echo 'ALL_EXIST' || echo 'SOME_MISSING'"
+	output, err := exec(ctx, ctr.CmpId, checkCmd, 10)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to check file existence")
 	}
 
-	cmd := strings.Join(commands, " && ")
-	if _, err := exec(ctx, ctr.CmpId, cmd, 120); err != nil {
-		return errors.Wrapf(err, "failed to copy blobs to container")
+	if !strings.Contains(output, "ALL_EXIST") {
+		log.Infof("Some files are missing for model %s:%s, blobs: %v, manifest: %s, checkCmd: %s",
+			pkgInfo.Name, pkgInfo.Tag, originBlobs, originManifests, checkCmd)
+		return nil, errors.Errorf("required model files are missing")
 	}
+
+	// // mkdir
+	// savePath := fmt.Sprintf(api.LLM_OLLAMA_SAVE_DIR, pkgInfo.Name+"-"+pkgInfo.Tag+"-"+pkgInfo.ModelId)
+	// mkSaveDir := fmt.Sprintf("mkdir -p %s %s %s", savePath, path.Join(savePath, api.LLM_OLLAMA_BLOBS_DIR), path.Join(savePath, api.LLM_OLLAMA_HOST_MANIFESTS_DIR))
+	// _, err = exec(ctx, ctr.CmpId, mkSaveDir, 10)
+	// if err != nil {
+	// 	return a, filtenil, errors.Wrap(err, "mkdir savedir")
+	// }
+
+	// // cp file
+	// for _, blob := range originBlobs {
+	// 	cpBlob := fmt.Sprintf("cp %s %s", blob, path.Join(savePath, api.LLM_OLLAMA_BLOBS_DIR))
+	// 	_, err = exec(ctx, ctr.CmpId, cpBlob, 60)
+	// 	if err != nil {
+	// 		return nil, errors.Wrap(err, "copy files")
+	// 	}
+	// }
+	// cpManifest := "cp " + originManifests + " " + path.Join(savePath, api.LLM_OLLAMA_HOST_MANIFESTS_DIR)
+	// _, err = exec(ctx, ctr.CmpId, cpManifest, 20)
+	// if err != nil {
+	// 	return nil, errors.Wrap(err, "copy files")
+	// }
+
+	return append(originBlobs, originManifests), nil
+}
+
+func (o *ollama) GetImageInternalPathMounts(iApp *models.SInstantApp) map[string]string {
+	///*TODO
 	return nil
+}
+
+func (o *ollama) GetSaveDirectories(sApp *models.SInstantApp) (string, []string, error) {
+	var filteredMounts []string
+
+	for _, mount := range sApp.Mounts {
+		if strings.HasPrefix(mount, api.LLM_OLLAMA_BASE_PATH) {
+			relPath := strings.TrimPrefix(mount, api.LLM_OLLAMA_BASE_PATH)
+			if relPath == "" {
+				relPath = "/"
+			} else if !strings.HasPrefix(relPath, "/") {
+				relPath = "/" + relPath
+			}
+			filteredMounts = append(filteredMounts, relPath)
+		}
+	}
+
+	return api.LLM_OLLAMA, filteredMounts, nil
 }
 
 func (o *ollama) GetProbedPackagesExt(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM, pkgAppIds ...string) (map[string]api.LLMInternalPkgInfo, error) {
@@ -204,6 +249,9 @@ func (o *ollama) GetProbedPackagesExt(ctx context.Context, userCred mcclient.Tok
 	for i := 1; i < len(lines); i++ {
 		fields := strings.Fields(lines[i])
 		if len(fields) > 2 {
+			if len(pkgAppIds) > 0 && !utils.IsInStringArray(fields[1], pkgAppIds) {
+				continue
+			}
 			modelName, modelTag, _ := llm.GetLargeLanguageModelName(fields[0])
 			models[fields[1]] = api.LLMInternalPkgInfo{
 				Name:    modelName,
@@ -232,6 +280,10 @@ func (o *ollama) GetProbedPackagesExt(ctx context.Context, userCred mcclient.Tok
 	return models, nil
 }
 
+func (o *ollama) ValidateMounts(mounts []string, mdlName string, mdlTag string) ([]string, error) {
+	return mounts, nil
+}
+
 // func download(ctx context.Context, userCred mcclient.TokenCredential, containerId string, taskId string, webUrl string, path string) error {
 // 	input := &computeapi.ContainerDownloadFileInput{
 // 		WebUrl: webUrl,
@@ -242,13 +294,39 @@ func (o *ollama) GetProbedPackagesExt(ctx context.Context, userCred mcclient.Tok
 // 	return err
 // }
 
+// func (o *ollama) CopyBlobs(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM) error {
+// 	ctr, _ := llm.GetLLMContainer()
+// 	modelName, modelTag, _ := llm.GetLargeLanguageModelName("")
+// 	manifests, _ := getManifests(ctx, ctr.CmpId, modelName, modelTag)
+
+// 	blobsTargetDir := path.Join(api.LLM_OLLAMA_BASE_PATH, api.LLM_OLLAMA_BLOBS_DIR)
+// 	blobsSrcDir := path.Join(api.LLM_OLLAMA_CACHE_MOUNT_PATH, api.LLM_OLLAMA_CACHE_DIR)
+
+// 	var commands []string
+// 	commands = append(commands, fmt.Sprintf("mkdir -p %s", blobsTargetDir))
+// 	blob := manifests.Config.Digest
+// 	commands = append(commands, fmt.Sprintf("cp %s %s", path.Join(blobsSrcDir, blob), path.Join(blobsTargetDir, blob)))
+// 	for _, layer := range manifests.Layers {
+// 		blob = layer.Digest
+// 		src := path.Join(blobsSrcDir, blob)
+// 		target := path.Join(blobsTargetDir, blob)
+// 		commands = append(commands, fmt.Sprintf("cp %s %s", src, target))
+// 	}
+
+// 	cmd := strings.Join(commands, " && ")
+// 	if _, err := exec(ctx, ctr.CmpId, cmd, 120); err != nil {
+// 		return errors.Wrapf(err, "failed to copy blobs to container")
+// 	}
+// 	return nil
+// }
+
 func exec(ctx context.Context, containerId string, cmd string, timeoutSec int64) (string, error) {
 	// exec command
 	input := &computeapi.ContainerExecSyncInput{
 		Command: []string{"sh", "-c", cmd},
 		Timeout: timeoutSec,
 	}
-	resp, err := utils.ExecSyncContainer(ctx, containerId, input)
+	resp, err := llmutil.ExecSyncContainer(ctx, containerId, input)
 
 	// check error and return result
 	var rst string

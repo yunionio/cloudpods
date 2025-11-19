@@ -16,4 +16,5 @@ func init() {
 	cmd.BatchPerform("stop", new(options.LLMStopOptions))
 	cmd.BatchPerform("start", new(options.LLMStartOptions))
 	cmd.Get("probed-packages", new(options.LLMIdOptions))
+	cmd.Perform("save-instant-app", new(options.LLMSaveInstantAppOptions))
 }

@@ -3,6 +3,7 @@ package llm
 import (
 	"yunion.io/x/jsonutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/llm"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
@@ -108,4 +109,22 @@ func (opts *LLMIdOptions) GetId() string {
 
 func (opts *LLMIdOptions) Params() (jsonutils.JSONObject, error) {
 	return jsonutils.Marshal(opts), nil
+}
+
+type LLMSaveInstantAppOptions struct {
+	LLMIdOptions
+
+	PACKAGE string `help:"llm model id, e.g. 500a1f067a9f"`
+	Name    string `help:"instant app name, e.g. qwen3:8b"`
+
+	// AutoRestart bool
+}
+
+func (opts *LLMSaveInstantAppOptions) Params() (jsonutils.JSONObject, error) {
+	input := api.LLMSaveInstantAppInput{
+		PackageName: opts.PACKAGE,
+		ImageName:   opts.Name,
+		// AutoRestart: opts.AutoRestart,
+	}
+	return jsonutils.Marshal(input), nil
 }
