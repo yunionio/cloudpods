@@ -1,7 +1,7 @@
-FROM registry.cn-beijing.aliyuncs.com/yunionio/openvswitch:2.10.5-1
+FROM registry.cn-beijing.aliyuncs.com/yunionio/openvswitch:2.12.4-5
 
-MAINTAINER "Yousong Zhou <zhouyousong@yunion.cn>"
+LABEL maintainer="Yousong Zhou <zhouyousong@yunion.cn>"
 
-ENV TZ UTC
+ENV TZ="UTC"
 RUN mkdir -p /opt/yunion/bin
 ADD ./_output/alpine-build/bin/vpcagent /opt/yunion/bin/vpcagent

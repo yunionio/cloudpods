@@ -1,6 +1,6 @@
-FROM registry.cn-beijing.aliyuncs.com/yunionio/onecloud-base:v0.3.5-1
+FROM registry.cn-beijing.aliyuncs.com/yunionio/onecloud-base:v3.22.2-0
 
-MAINTAINER "Zexi Li <lizexi@yunionyun.com>"
+LABEL maintainer="Zexi Li <lizexi@yunionyun.com>"
 
 RUN mkdir -p /etc/yunion/data/
 

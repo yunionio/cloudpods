@@ -45,6 +45,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/diskutils/nbd"
 	"yunion.io/x/onecloud/pkg/hostman/diskutils/qemu_kvm"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs/fsdriver"
+	"yunion.io/x/onecloud/pkg/hostman/guestman/arch"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/consts"
 	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/uefi"
@@ -461,14 +462,17 @@ func (s *SDeployService) PrepareEnv() error {
 			"/usr/bin/.chntpw.static.bin":    "/opt/yunion/bin/.chntpw.static.bin",
 			"/usr/bin/bundles/chntpw.static": "/opt/yunion/bin/bundles/chntpw.static",
 			"/usr/bin/growpart":              "/opt/yunion/bin/growpart",
-			"/usr/sbin/zerofree":             "/opt/yunion/bin/zerofree",
+			"/usr/bin/zerofree":              "/opt/yunion/bin/zerofree",
 		}
 		// x86_64 or aarch64
-		if cpuArchStr == qemu_kvm.OS_ARCH_AARCH64 {
+		switch cpuArchStr {
+		case qemu_kvm.OS_ARCH_AARCH64:
 			copyFiles["/yunionos/aarch64/qemu-ga"] = fsdriver.QGA_BINARY_PATH
-		} else {
+		case arch.Arch_x86_64:
 			copyFiles["/yunionos/x86_64/qemu-ga"] = fsdriver.QGA_BINARY_PATH
 			copyFiles["/yunionos/x86_64/qemu-ga-x86_64.msi"] = fsdriver.QGA_WIN_MSI_INSTALLER_PATH
+		case "riscv64":
+			copyFiles["/yunionos/riscv64/qemu-ga"] = fsdriver.QGA_BINARY_PATH
 		}
 
 		for k, v := range copyFiles {
@@ -495,8 +499,8 @@ func (s *SDeployService) PrepareEnv() error {
 			return errors.Wrap(err, "Failed to mkdir RUN_ON_HOST_ROOT_PATH: %s")
 		}
 
-		cmd := fmt.Sprintf("mkisofs -l -J -L -R -r -v -hide-rr-moved -o %s -graft-points vmware-vddk=/opt/vmware-vddk yunion=/opt/yunion", qemu_kvm.DEPLOY_ISO)
-		out, err = procutils.NewCommand("bash", "-c", cmd).Output()
+		mkisofsArgs := []string{"-l", "-J", "-L", "-R", "-r", "-v", "-hide-rr-moved", "-o", qemu_kvm.DEPLOY_ISO, "-graft-points", "vmware-vddk=/opt/vmware-vddk", "yunion=/opt/yunion"}
+		out, err = procutils.NewCommand("mkisofs", mkisofsArgs...).Output()
 		if err != nil {
 			return errors.Wrapf(err, "mkisofs failed %s", out)
 		}
