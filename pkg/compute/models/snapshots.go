@@ -1239,10 +1239,10 @@ func (manager *SSnapshotManager) CleanupSnapshots(ctx context.Context, userCred 
 
 	{
 		sq = SnapshotPolicyManager.Query().Equals("type", api.SNAPSHOT_POLICY_TYPE_DISK).GT("retention_count", 0).SubQuery()
-		spd := SnapshotPolicyDiskManager.Query().SubQuery()
+		spd := SnapshotPolicyResourceManager.Query().Equals("resource_type", api.SNAPSHOT_POLICY_TYPE_DISK).SubQuery()
 		q = sq.Query(
 			sq.Field("retention_count"),
-			spd.Field("disk_id"),
+			spd.Field("resource_id").Label("disk_id"),
 		)
 		q = q.Join(spd, sqlchemy.Equals(q.Field("id"), spd.Field("snapshotpolicy_id")))
 

@@ -15,11 +15,12 @@
 package models
 
 import (
+	"context"
 	"fmt"
 
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/sqlchemy"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 )
 
@@ -62,38 +63,41 @@ type SSnapshotPolicyDisk struct {
 	SDiskResourceBase `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required" index:"true"`
 }
 
-func (self *SSnapshotPolicyDisk) GetDisk() (*SDisk, error) {
-	disk, err := DiskManager.FetchById(self.DiskId)
+func (manager *SSnapshotPolicyDiskManager) InitializeData() error {
+	disks := DiskManager.Query("id").SubQuery()
+	policies := SnapshotPolicyManager.Query("id").SubQuery()
+	q := manager.Query().In("disk_id", disks).In("snapshotpolicy_id", policies)
+
+	pds := []SSnapshotPolicyDisk{}
+	err := db.FetchModelObjects(manager, q, &pds)
 	if err != nil {
-		return nil, errors.Wrapf(err, "FetchById(%s)", self.DiskId)
+		return err
 	}
-	return disk.(*SDisk), nil
-}
-
-func (self *SSnapshotPolicyDisk) GetSnapshotPolicy() (*SSnapshotPolicy, error) {
-	policy, err := SnapshotPolicyManager.FetchById(self.SnapshotpolicyId)
-	if err != nil {
-		return nil, errors.Wrapf(err, "FetchById(%s)", self.SnapshotpolicyId)
+	for i := range pds {
+		pd := &pds[i]
+		migrateData := &SSnapshotPolicyResource{
+			SnapshotpolicyId: pd.SnapshotpolicyId,
+			ResourceId:       pd.DiskId,
+			ResourceType:     api.SNAPSHOT_POLICY_TYPE_DISK,
+		}
+		migrateData.SetModelManager(SnapshotPolicyResourceManager, migrateData)
+		cnt, err := SnapshotPolicyResourceManager.Query().
+			Equals("resource_type", api.SNAPSHOT_POLICY_TYPE_DISK).
+			Equals("resource_id", pd.DiskId).
+			Equals("snapshotpolicy_id", pd.SnapshotpolicyId).CountWithError()
+		if err != nil {
+			return errors.Wrapf(err, "Count")
+		}
+		if cnt == 0 {
+			err = SnapshotPolicyResourceManager.TableSpec().Insert(context.Background(), migrateData)
+			if err != nil {
+				return errors.Wrapf(err, "Insert %s", migrateData.Keyword())
+			}
+		}
+		err = db.Purge(manager, "row_id", []string{fmt.Sprintf("%d", pd.RowId)}, true)
+		if err != nil {
+			return errors.Wrapf(err, "Purge %d", pd.RowId)
+		}
 	}
-	return policy.(*SSnapshotPolicy), nil
-}
-
-func (man *SSnapshotPolicyDiskManager) RemoveByDisk(id string) error {
-	_, err := sqlchemy.GetDB().Exec(
-		fmt.Sprintf(
-			"delete from %s where disk_id = ?",
-			man.TableSpec().Name(),
-		), id,
-	)
-	return err
-}
-
-func (man *SSnapshotPolicyDiskManager) RemoveBySnapshotpolicy(id string) error {
-	_, err := sqlchemy.GetDB().Exec(
-		fmt.Sprintf(
-			"delete from %s where snapshotpolicy_id = ?",
-			man.TableSpec().Name(),
-		), id,
-	)
-	return err
+	return nil
 }
