@@ -157,6 +157,7 @@ const (
 	OS_ARCH_X86_64  = "x86_64"
 	OS_ARCH_AARCH32 = "aarch32"
 	OS_ARCH_AARCH64 = "aarch64"
+	OS_ARCH_RISCV64 = "riscv64"
 )
 
 var (
