@@ -42,15 +42,21 @@ case $(uname -m) in
     aarch64)
         CURRENT_ARCH=arm64
         ;;
+    riscv64)
+        CURRENT_ARCH=riscv64
+        ;;
 esac
 
 if [[ -n "$GOARCH" ]]; then
     case "$GOARCH" in
-		"arm64" | "arm" | "aarch64")
-	        CURRENT_ARCH="arm64"
+        "arm64" | "arm" | "aarch64")
+            CURRENT_ARCH="arm64"
             ;;
-		"x86" | "x86_64" | "i686" | "i386" | "amd64")
-			CURRENT_ARCH="amd64"
+        "x86" | "x86_64" | "i686" | "i386" | "amd64")
+            CURRENT_ARCH="amd64"
+            ;;
+        "riscv64")
+            CURRENT_ARCH="riscv64"
             ;;
 	esac
 fi
@@ -159,6 +165,9 @@ case "$CURRENT_ARCH" in
         ;;
     "arm64")
         DSTARCH="aarch64"
+        ;;
+    "riscv64")
+        DSTARCH="riscv64"
         ;;
 esac
 
