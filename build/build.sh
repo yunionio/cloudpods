@@ -185,6 +185,9 @@ case "$GOARCH" in
     "amd64" | "x86" | "i686" | "i386" | "x86_64")
         TARGET="--target x86_64-redhat-linux"
         ;;
+    "riscv64")
+        TARGET="--target riscv64-linux"
+        ;;
 esac
 
 rpmbuild --define "_topdir $BUILDROOT" -bb $SPEC_FILE $TARGET
