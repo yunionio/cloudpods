@@ -400,7 +400,7 @@ type sLsusbTree struct {
 	If      int           `json:"if"`
 	Class   string        `json:"class"`
 	Driver  string        `json:"driver"`
-	Content string        `json:"content`
+	Content string        `json:"content"`
 	Nodes   []*sLsusbTree `json:"nodes"`
 }
 
