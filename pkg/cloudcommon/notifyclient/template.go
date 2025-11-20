@@ -26,6 +26,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/i18n"
@@ -145,18 +146,34 @@ func getTemplateString(suffix string, topic string, contType string, channel npk
 	return ioutil.ReadFile(path)
 }
 
-func getTemplate(suffix string, topic string, contType string, channel npk.TNotifyChannel) (*template.Template, error) {
-	key := fmt.Sprintf("%s.%s.%s@%s", topic, contType, channel, suffix)
+func getTemplate(langSuffix string, topic string, contType string, channel npk.TNotifyChannel, templateFuncs template.FuncMap) (*template.Template, error) {
+	key := fmt.Sprintf("%s.%s.%s@%s", topic, contType, channel, langSuffix)
 	templatesTableLock.Lock()
 	defer templatesTableLock.Unlock()
 
 	if _, ok := templatesTable[key]; !ok {
-		cont, err := getTemplateString(suffix, topic, contType, channel)
+		cont, err := getTemplateString(langSuffix, topic, contType, channel)
 		if err != nil {
 			return nil, err
 		}
 		tmp := template.New(key)
-		tmp.Funcs(template.FuncMap{"unescaped": unescaped})
+		funcMap := template.FuncMap{
+			"unescaped": unescaped,
+		}
+		// 合并自定义模板函数，并将 langSuffix 绑定到函数中
+		for k, v := range templateFuncs {
+			// 检查是否是 LangSuffixFunc 类型（需要 langSuffix 的函数）
+			if langFunc, ok := v.(LangSuffixFunc); ok {
+				// 创建一个闭包，将 langSuffix 绑定到函数中
+				funcMap[k] = func(data interface{}) string {
+					return langFunc.Call(langSuffix, data)
+				}
+			} else {
+				// 否则直接使用原函数（标准模板函数）
+				funcMap[k] = v
+			}
+		}
+		tmp.Funcs(funcMap)
 		tmp, err = tmp.Parse(string(cont))
 		if err != nil {
 			return nil, err
@@ -166,18 +183,18 @@ func getTemplate(suffix string, topic string, contType string, channel npk.TNoti
 	return templatesTable[key], nil
 }
 
-func getContent(suffix string, topic string, contType string, channel npk.TNotifyChannel, data jsonutils.JSONObject) (string, error) {
-	if channel == npk.NotifyByWebhook {
+func getContent(langSuffix string, topic string, contType string, channel npk.TNotifyChannel, data jsonutils.JSONObject, templateFuncs template.FuncMap) (string, error) {
+	if channel == npk.NotifyByWebhook && !hasTemplateOfTopic(topic) {
 		return "", nil
 	}
-	tmpl, err := getTemplate(suffix, topic, contType, channel)
+	tmpl, err := getTemplate(langSuffix, topic, contType, channel, templateFuncs)
 	if err != nil {
-		return "", err
+		return "", errors.Wrapf(err, "getTemplate %s %s %s %s %s", langSuffix, topic, contType, channel, data)
 	}
 	buf := strings.Builder{}
 	err = tmpl.Execute(&buf, data.Interface())
 	if err != nil {
-		return "", err
+		return "", errors.Wrapf(err, "tmpl.Execute %s %s %s %s %s", langSuffix, topic, contType, channel, data)
 	}
 	// log.Debugf("notify.getContent %s %s %s %s", topic, contType, data, buf.String())
 	return buf.String(), nil
@@ -185,6 +202,12 @@ func getContent(suffix string, topic string, contType string, channel npk.TNotif
 
 func unescaped(str string) template.HTML {
 	return template.HTML(str)
+}
+
+// LangSuffixFunc 是需要 langSuffix 参数的模板函数接口
+// 实现此接口的函数可以在 getTemplate 中接收 langSuffix 参数
+type LangSuffixFunc interface {
+	Call(langSuffix string, data interface{}) string
 }
 
 const (
