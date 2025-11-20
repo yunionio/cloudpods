@@ -640,10 +640,10 @@ func (self *SZone) purgeStorages(ctx context.Context, managerId string) error {
 	disks := DiskManager.Query("id").In("storage_id", storages.SubQuery())
 	diskbackups := DiskBackupManager.Query("id").In("disk_id", disks.SubQuery())
 	guestdisks := GuestdiskManager.Query("row_id").In("disk_id", disks.SubQuery())
-	diskpolicies := SnapshotPolicyDiskManager.Query("row_id").In("disk_id", disks.SubQuery())
+	diskpolicies := SnapshotPolicyResourceManager.Query("row_id").In("resource_id", disks.SubQuery())
 
 	pairs := []purgePair{
-		{manager: SnapshotPolicyDiskManager, key: "row_id", q: diskpolicies},
+		{manager: SnapshotPolicyResourceManager, key: "row_id", q: diskpolicies},
 		{manager: GuestdiskManager, key: "row_id", q: guestdisks},
 		{manager: SnapshotManager, key: "id", q: snapshots},
 		{manager: DiskBackupManager, key: "id", q: diskbackups},
@@ -668,11 +668,9 @@ func (self *SStorage) purge(ctx context.Context, userCred mcclient.TokenCredenti
 	disks := DiskManager.Query("id").Equals("storage_id", self.Id)
 	diskbackups := DiskBackupManager.Query("id").In("disk_id", disks.SubQuery())
 	guestdisks := GuestdiskManager.Query("row_id").In("disk_id", disks.SubQuery())
-	diskpolicies := SnapshotPolicyDiskManager.Query("row_id").In("disk_id", disks.SubQuery())
 
 	pairs := []purgePair{
 		{manager: GuestdiskManager, key: "row_id", q: guestdisks},
-		{manager: SnapshotPolicyDiskManager, key: "row_id", q: diskpolicies},
 		{manager: SnapshotManager, key: "id", q: snapshots},
 		{manager: DiskBackupManager, key: "id", q: diskbackups},
 		{manager: DiskManager, key: "id", q: disks},

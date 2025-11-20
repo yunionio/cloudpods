@@ -104,7 +104,6 @@ func InitHandlers(app *appsrv.Application) {
 		models.WafRuleStatementManager,
 		models.BillingResourceCheckManager,
 
-		models.SnapshotPolicyDiskManager,
 		models.LoadbalancerSecurityGroupManager,
 
 		models.HostFileJointsManager,
