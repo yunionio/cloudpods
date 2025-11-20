@@ -111,19 +111,19 @@ func (opts *LLMIdOptions) Params() (jsonutils.JSONObject, error) {
 	return jsonutils.Marshal(opts), nil
 }
 
-type LLMSaveInstantAppOptions struct {
+type LLMSaveInstantModelOptions struct {
 	LLMIdOptions
 
-	PACKAGE string `help:"llm model id, e.g. 500a1f067a9f"`
-	Name    string `help:"instant app name, e.g. qwen3:8b"`
+	MODEL_ID string `help:"llm model id, e.g. 500a1f067a9f"`
+	Name     string `help:"instant app name, e.g. qwen3:8b"`
 
 	// AutoRestart bool
 }
 
-func (opts *LLMSaveInstantAppOptions) Params() (jsonutils.JSONObject, error) {
-	input := api.LLMSaveInstantAppInput{
-		PackageName: opts.PACKAGE,
-		ImageName:   opts.Name,
+func (opts *LLMSaveInstantModelOptions) Params() (jsonutils.JSONObject, error) {
+	input := api.LLMSaveInstantModelInput{
+		ModelId:   opts.MODEL_ID,
+		ImageName: opts.Name,
 		// AutoRestart: opts.AutoRestart,
 	}
 	return jsonutils.Marshal(input), nil

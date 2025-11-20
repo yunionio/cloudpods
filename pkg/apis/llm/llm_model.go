@@ -2,7 +2,7 @@ package llm
 
 import "yunion.io/x/onecloud/pkg/apis"
 
-type LLMInternalPkgInfo struct {
+type LLMInternalMdlInfo struct {
 	ModelId string `json:"model_id"`
 	Name    string `json:"name"`
 	Tag     string `json:"tag"`
@@ -11,13 +11,13 @@ type LLMInternalPkgInfo struct {
 	Blobs []string `json:"blobs"`
 }
 
-type LLMSaveInstantAppInput struct {
+type LLMSaveInstantModelInput struct {
 	apis.ProjectizedResourceCreateInput
 
-	PackageName string `json:"package_name"`
-	ImageName   string `json:"image_name"`
+	ModelId   string `json:"model_id"`
+	ImageName string `json:"image_name"`
 
-	InstantAppId string `json:"instant_app_id"`
+	InstantModelId string `json:"instant_model_id"`
 
 	// AutoRestart bool `json:"auto_restart"`
 }
