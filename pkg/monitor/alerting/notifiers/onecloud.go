@@ -17,6 +17,7 @@ package notifiers
 import (
 	"context"
 	"fmt"
+	"html/template"
 	"strings"
 
 	"golang.org/x/sync/errgroup"
@@ -44,6 +45,74 @@ import (
 	"yunion.io/x/onecloud/pkg/monitor/models"
 	"yunion.io/x/onecloud/pkg/monitor/options"
 )
+
+// generateMonitorTitle 生成监控告警的标题
+func generateMonitorTitle(suffix string, data interface{}) string {
+	// 将 interface{} 转换为 map 以便访问字段
+	dataMap, ok := data.(map[string]interface{})
+	if !ok {
+		return ""
+	}
+
+	// 获取字段值
+	priority, _ := dataMap["priority"].(string)
+	name, _ := dataMap["name"].(string)
+	isRecovery, _ := dataMap["is_recovery"].(bool)
+	noData, _ := dataMap["no_data"].(bool)
+
+	// 根据语言设置级别文本
+	var level string
+	if suffix == "cn" {
+		level = "普通"
+		if priority == "important" {
+			level = "重要"
+		} else if priority == "critical" {
+			level = "致命"
+		}
+	} else {
+		level = "Normal"
+		if priority == "important" {
+			level = "Important"
+		} else if priority == "critical" {
+			level = "Critical"
+		}
+	}
+
+	// 根据语言和状态设置提示消息
+	var hintMsg string
+	if suffix == "cn" {
+		hintMsg = "发生告警"
+		if isRecovery {
+			hintMsg = "告警已恢复"
+		} else if noData {
+			hintMsg = "暂无数据"
+		}
+	} else {
+		hintMsg = "Alerting"
+		if isRecovery {
+			hintMsg = "Alarm recovered"
+		} else if noData {
+			hintMsg = "No data available"
+		}
+	}
+
+	return fmt.Sprintf("[%s] [%s] %s", level, hintMsg, name)
+}
+
+// monitorTitleLangFunc 实现 LangSuffixFunc 接口，用于生成监控标题
+type monitorTitleLangFunc struct{}
+
+func (f *monitorTitleLangFunc) Call(langSuffix string, data interface{}) string {
+	return generateMonitorTitle(langSuffix, data)
+}
+
+// getMonitorTemplateFuncs 根据语言后缀创建监控模板函数映射
+// 注意：这里返回的函数实现了 LangSuffixFunc 接口，langSuffix 会在 getTemplate 中动态传入
+func getMonitorTemplateFuncs() template.FuncMap {
+	return template.FuncMap{
+		"monitorTitle": &monitorTitleLangFunc{},
+	}
+}
 
 const (
 	SUFFIX = "onecloudNotifier"
@@ -167,7 +236,7 @@ func getNotifyTemplateConfigOfLang(ctx *alerting.EvalContext,
 	} else {
 		hintMsg = msgAlerting
 	}
-	topic = fmt.Sprintf("%s %s %s", topic, ctx.GetRuleTitle(), trans(hintMsg))
+	topic = fmt.Sprintf("%s [%s] %s", topic, trans(hintMsg), ctx.GetRuleTitle())
 	config := ctx.GetNotificationTemplateConfig(matches)
 	config.Title = topic
 	config.Level = level
@@ -206,7 +275,7 @@ func (oc *OneCloudNotifier) Notify(ctx *alerting.EvalContext, _ jsonutils.JSONOb
 	}
 
 	if len(oc.Setting.RobotIds) != 0 {
-		withLangTag := appctx.WithLangTag(context.Background(), language.English)
+		withLangTag := appctx.WithLangTag(ctx.Ctx, language.English)
 		langNotifyGroup.Go(func() error {
 			return oc.notifyByContextLang(withLangTag, ctx, []string{})
 		})
@@ -223,7 +292,7 @@ func (oc *OneCloudNotifier) notifyByUserIds(ctx *alerting.EvalContext, userIds [
 		ids := langIdsMap[lang]
 		langTag, _ := language.Parse(lang)
 		langStr := i18nTable.LookupByLang(langTag, SUFFIX)
-		langContext := appctx.WithLangTag(context.Background(), getLangBystr(langStr))
+		langContext := appctx.WithLangTag(ctx.Ctx, getLangBystr(langStr))
 		errGrp.Go(func() error {
 			return oc.notifyByContextLang(langContext, ctx, ids)
 		})
@@ -274,20 +343,13 @@ func (oc *OneCloudNotifier) notifyMatchesByContextLang(
 	config := getNotifyTemplateConfigOfLang(evalCtx, matches, isRecoverd, lang)
 	oc.filterMatchTagsForConfig(&config, ctx)
 
-	contentConfig := oc.buildContent(config)
+	templateFuncs := getMonitorTemplateFuncs()
 
+	// 对于 Mobile 渠道，需要构建 content，因为 sendMobileImpl 会直接使用 msg.Msg
+	// 对于其他渠道，content 会通过 DEFAULT 模板文件根据语言环境构建，这里不需要构建
 	var content string
-	var err error
-	switch oc.Setting.Channel {
-	case string(notify.NotifyByEmail):
-		content, err = contentConfig.GenerateEmailMarkdown()
-	case string(notify.NotifyByMobile):
+	if oc.Setting.Channel == string(notify.NotifyByMobile) {
 		content = oc.newRemoteMobileContent(&config, evalCtx, lang)
-	default:
-		content, err = contentConfig.GenerateMarkdown()
-	}
-	if err != nil {
-		return errors.Wrap(err, "build content")
 	}
 
 	msg := notify.SNotifyMessage{
@@ -300,7 +362,7 @@ func (oc *OneCloudNotifier) notifyMatchesByContextLang(
 	}
 
 	factory := new(sendBodyFactory)
-	sendImp := factory.newSendnotify(evalCtx, oc, msg, config)
+	sendImp := factory.newSendnotify(evalCtx, oc, msg, config, templateFuncs)
 
 	return sendImp.send()
 }
@@ -411,12 +473,13 @@ type sendBodyFactory struct {
 
 func (f *sendBodyFactory) newSendnotify(evalCtx *alerting.EvalContext, notifier *OneCloudNotifier,
 	message notify.SNotifyMessage,
-	config monitor.NotificationTemplateConfig) Isendnotify {
+	config monitor.NotificationTemplateConfig, templateFuncs template.FuncMap) iSendnotify {
 	def := new(sendnotifyBase)
 	def.OneCloudNotifier = notifier
 	def.evalCtx = *evalCtx
 	def.msg = message
 	def.config = config
+	def.templateFuncs = templateFuncs
 	// 系统内置报警处理
 	if len(notifier.Setting.UserIds) == 0 && len(notifier.Setting.RobotIds) == 0 {
 		sys := new(sendSysImpl)
@@ -441,16 +504,17 @@ func (f *sendBodyFactory) newSendnotify(evalCtx *alerting.EvalContext, notifier 
 	}
 }
 
-type Isendnotify interface {
+type iSendnotify interface {
 	send() error
 	execNotifyFunc() error
 }
 
 type sendnotifyBase struct {
 	*OneCloudNotifier
-	evalCtx alerting.EvalContext
-	msg     notify.SNotifyMessage
-	config  monitor.NotificationTemplateConfig
+	evalCtx       alerting.EvalContext
+	msg           notify.SNotifyMessage
+	config        monitor.NotificationTemplateConfig
+	templateFuncs template.FuncMap
 }
 
 func (s *sendnotifyBase) send() error {
@@ -459,10 +523,10 @@ func (s *sendnotifyBase) send() error {
 }
 
 func (s *sendnotifyBase) execNotifyFunc() error {
-	notifyclient.RawNotifyWithCtx(s.Ctx, s.msg.Uid, false, notify.TNotifyChannel(s.Setting.Channel),
+	notifyclient.RawNotifyWithCtxAndTemplateFuncs(s.Ctx, s.msg.Uid, false, notify.TNotifyChannel(s.Setting.Channel),
 		notify.TNotifyPriority(s.msg.Priority),
 		"DEFAULT",
-		jsonutils.Marshal(&s.config))
+		jsonutils.Marshal(&s.config), s.templateFuncs)
 	return nil
 }
 
@@ -475,9 +539,9 @@ func (s *sendUserImpl) send() error {
 }
 
 func (s *sendUserImpl) execNotifyFunc() error {
-	return notifyclient.NotifyAllWithoutRobotWithCtx(
+	return notifyclient.NotifyAllWithoutRobotWithCtxAndTemplateFuncs(
 		s.Ctx, s.msg.Uid, false, s.msg.Priority,
-		"DEFAULT", jsonutils.Marshal(&s.config))
+		"DEFAULT", jsonutils.Marshal(&s.config), s.templateFuncs)
 }
 
 type sendSysImpl struct {
@@ -489,8 +553,8 @@ func (s *sendSysImpl) send() error {
 }
 
 func (s *sendSysImpl) execNotifyFunc() error {
-	notifyclient.SystemNotifyWithCtx(s.Ctx, s.msg.Priority, "DEFAULT",
-		jsonutils.Marshal(&s.config))
+	notifyclient.SystemNotifyWithCtxAndTemplateFuncs(s.Ctx, s.msg.Priority, "DEFAULT",
+		jsonutils.Marshal(&s.config), s.templateFuncs)
 	return nil
 }
 
@@ -503,10 +567,11 @@ func (s *sendMobileImpl) send() error {
 	if err != nil {
 		return err
 	}
-	notifyclient.RawNotifyWithCtx(s.Ctx, s.msg.Uid, false, notify.TNotifyChannel(s.Setting.Channel),
+	notifyclient.RawNotifyWithCtxAndTemplateFuncs(s.Ctx, s.msg.Uid, false, notify.TNotifyChannel(s.Setting.Channel),
 		s.msg.Priority,
 		s.msg.Topic,
-		msgObj)
+		msgObj,
+		s.templateFuncs)
 	return nil
 }
 
@@ -519,11 +584,11 @@ func (s *sendRobotImpl) send() error {
 }
 
 func (s *sendRobotImpl) execNotifyFunc() error {
-	return notifyclient.NotifyRobotWithCtx(s.Ctx, s.msg.Robots, s.msg.Priority,
-		"DEFAULT", jsonutils.Marshal(&s.config))
+	return notifyclient.NotifyRobotWithCtxAndTemplateFuncs(s.Ctx, s.msg.Robots, s.msg.Priority,
+		"DEFAULT", jsonutils.Marshal(&s.config), s.templateFuncs)
 }
 
-func SendNotifyInfo(base *sendnotifyBase, imp Isendnotify) error {
+func SendNotifyInfo(base *sendnotifyBase, imp iSendnotify) error {
 	/*tmpMatches := base.config.Matches
 	batch := 100
 	for i := 0; i < len(tmpMatches); i += batch {
