@@ -241,7 +241,11 @@ func (n *SNotification) ShouldSendNotification() bool {
 	if n.Frequency == 0 {
 		return true
 	}
-	if int64(time.Now().Sub(n.LastSendNotification)/time.Second)+int64(60) >= n.Frequency {
+	// 如果从未发送过通知（LastSendNotification 为零值），允许第一次发送
+	if n.LastSendNotification.IsZero() {
+		return true
+	}
+	if int64(time.Since(n.LastSendNotification)/time.Second)+int64(60) >= n.Frequency {
 		return true
 	}
 	return false
