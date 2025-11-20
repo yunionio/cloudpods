@@ -12,6 +12,7 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	commonapis "yunion.io/x/onecloud/pkg/apis"
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	imageapi "yunion.io/x/onecloud/pkg/apis/image"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -467,8 +468,8 @@ func (man *SInstantAppManager) GetInstantAppById(id string) (*SInstantApp, error
 	return obj.(*SInstantApp), nil
 }
 
-func (man *SInstantAppManager) findInstantApp(mdlName, tag string, isEnabled bool) (*SInstantApp, error) {
-	q := man.Query().Equals("model_name", mdlName).Equals("status", imageapi.IMAGE_STATUS_ACTIVE)
+func (man *SInstantAppManager) findInstantApp(mdlId, tag string, isEnabled bool) (*SInstantApp, error) {
+	q := man.Query().Equals("model_id", mdlId).Equals("status", imageapi.IMAGE_STATUS_ACTIVE)
 	if isEnabled {
 		q = q.IsTrue("enabled")
 	}
@@ -492,114 +493,114 @@ func (man *SInstantAppManager) findInstantApp(mdlName, tag string, isEnabled boo
 	return &apps[0], nil
 }
 
-// func (app *SInstantApp) PerformEnable(
-// 	ctx context.Context,
-// 	userCred mcclient.TokenCredential,
-// 	query jsonutils.JSONObject,
-// 	input commonapis.PerformEnableInput,
-// ) (jsonutils.JSONObject, error) {
-// 	if len(app.ImageId) == 0 {
-// 		return nil, errors.Wrap(errors.ErrInvalidStatus, "empty image_id")
-// 	}
-// 	if len(app.Mounts) == 0 {
-// 		return nil, errors.Wrap(errors.ErrInvalidStatus, "empty mounts")
-// 	}
-// 	{
-// 		err := app.syncImageStatus(ctx, userCred)
-// 		if err != nil {
-// 			return nil, errors.Wrap(err, "syncImageStatus")
-// 		}
-// 	}
-// 	if app.Status != imageapi.IMAGE_STATUS_ACTIVE {
-// 		return nil, errors.Wrapf(errors.ErrInvalidStatus, "cannot enable app of status %s", app.Status)
-// 	}
-// 	// check duplicate
-// 	{
-// 		existing, err := GetInstantAppManager().findInstantApp(app.AppId, app.Version, true)
-// 		if err != nil {
-// 			return nil, errors.Wrap(err, "findInstantApp")
-// 		}
-// 		if existing != nil && existing.Id != app.Id {
-// 			return nil, errors.Wrapf(errors.ErrDuplicateId, "app of package %s version %s has been enabled", app.Package, app.Version)
-// 		}
-// 	}
-// 	_, err := db.Update(app, func() error {
-// 		app.SEnabledResourceBase.SetEnabled(true)
-// 		return nil
-// 	})
-// 	if err != nil {
-// 		return nil, errors.Wrap(err, "update")
-// 	}
-// 	return nil, nil
-// }
+func (app *SInstantApp) PerformEnable(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input commonapis.PerformEnableInput,
+) (jsonutils.JSONObject, error) {
+	if len(app.ImageId) == 0 {
+		return nil, errors.Wrap(errors.ErrInvalidStatus, "empty image_id")
+	}
+	if len(app.Mounts) == 0 {
+		return nil, errors.Wrap(errors.ErrInvalidStatus, "empty mounts")
+	}
+	{
+		err := app.syncImageStatus(ctx, userCred)
+		if err != nil {
+			return nil, errors.Wrap(err, "syncImageStatus")
+		}
+	}
+	if app.Status != imageapi.IMAGE_STATUS_ACTIVE {
+		return nil, errors.Wrapf(errors.ErrInvalidStatus, "cannot enable app of status %s", app.Status)
+	}
+	// check duplicate
+	{
+		existing, err := GetInstantAppManager().findInstantApp(app.ModelId, app.Tag, true)
+		if err != nil {
+			return nil, errors.Wrap(err, "findInstantApp")
+		}
+		if existing != nil && existing.Id != app.Id {
+			return nil, errors.Wrapf(errors.ErrDuplicateId, "app of modelId %s tag %s has been enabled", app.ModelId, app.Tag)
+		}
+	}
+	_, err := db.Update(app, func() error {
+		app.SEnabledResourceBase.SetEnabled(true)
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Wrap(err, "update")
+	}
+	return nil, nil
+}
 
-// func (app *SInstantApp) PerformDisable(
-// 	ctx context.Context,
-// 	userCred mcclient.TokenCredential,
-// 	query jsonutils.JSONObject,
-// 	input commonapis.PerformDisableInput,
-// ) (jsonutils.JSONObject, error) {
-// 	_, err := db.Update(app, func() error {
-// 		app.SEnabledResourceBase.SetEnabled(false)
-// 		if app.AutoCache {
-// 			app.AutoCache = false
-// 		}
-// 		return nil
-// 	})
-// 	if err != nil {
-// 		return nil, errors.Wrap(err, "update")
-// 	}
-// 	return nil, nil
-// }
+func (app *SInstantApp) PerformDisable(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input commonapis.PerformDisableInput,
+) (jsonutils.JSONObject, error) {
+	_, err := db.Update(app, func() error {
+		app.SEnabledResourceBase.SetEnabled(false)
+		if app.AutoCache {
+			app.AutoCache = false
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Wrap(err, "update")
+	}
+	return nil, nil
+}
 
-// func (app *SInstantApp) PerformChangeOwner(
-// 	ctx context.Context,
-// 	userCred mcclient.TokenCredential,
-// 	query jsonutils.JSONObject,
-// 	input commonapis.PerformChangeProjectOwnerInput,
-// ) (jsonutils.JSONObject, error) {
-// 	// perform disk change owner
-// 	if len(app.ImageId) > 0 {
-// 		s := auth.GetSession(ctx, userCred, options.Options.Region)
-// 		_, err := imagemodules.Images.PerformAction(s, app.ImageId, "change-owner", jsonutils.Marshal(input))
-// 		if err != nil {
-// 			return nil, errors.Wrap(err, "image change-owner")
-// 		}
-// 	}
-// 	return app.SSharableVirtualResourceBase.PerformChangeOwner(ctx, userCred, query, input)
-// }
+func (app *SInstantApp) PerformChangeOwner(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input commonapis.PerformChangeProjectOwnerInput,
+) (jsonutils.JSONObject, error) {
+	// perform disk change owner
+	if len(app.ImageId) > 0 {
+		s := auth.GetSession(ctx, userCred, options.Options.Region)
+		_, err := imagemodules.Images.PerformAction(s, app.ImageId, "change-owner", jsonutils.Marshal(input))
+		if err != nil {
+			return nil, errors.Wrap(err, "image change-owner")
+		}
+	}
+	return app.SSharableVirtualResourceBase.PerformChangeOwner(ctx, userCred, query, input)
+}
 
-// func (app *SInstantApp) PerformPublic(
-// 	ctx context.Context,
-// 	userCred mcclient.TokenCredential,
-// 	query jsonutils.JSONObject,
-// 	input commonapis.PerformPublicProjectInput,
-// ) (jsonutils.JSONObject, error) {
-// 	if len(app.ImageId) > 0 {
-// 		s := auth.GetSession(ctx, userCred, options.Options.Region)
-// 		_, err := imagemodules.Images.PerformAction(s, app.ImageId, "public", jsonutils.Marshal(input))
-// 		if err != nil {
-// 			return nil, errors.Wrap(err, "image public")
-// 		}
-// 	}
-// 	return app.SSharableVirtualResourceBase.PerformPublic(ctx, userCred, query, input)
-// }
+func (app *SInstantApp) PerformPublic(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input commonapis.PerformPublicProjectInput,
+) (jsonutils.JSONObject, error) {
+	if len(app.ImageId) > 0 {
+		s := auth.GetSession(ctx, userCred, options.Options.Region)
+		_, err := imagemodules.Images.PerformAction(s, app.ImageId, "public", jsonutils.Marshal(input))
+		if err != nil {
+			return nil, errors.Wrap(err, "image public")
+		}
+	}
+	return app.SSharableVirtualResourceBase.PerformPublic(ctx, userCred, query, input)
+}
 
-// func (app *SInstantApp) PerformPrivate(
-// 	ctx context.Context,
-// 	userCred mcclient.TokenCredential,
-// 	query jsonutils.JSONObject,
-// 	input commonapis.PerformPrivateInput,
-// ) (jsonutils.JSONObject, error) {
-// 	if len(app.ImageId) > 0 {
-// 		s := auth.GetSession(ctx, userCred, options.Options.Region)
-// 		_, err := imagemodules.Images.PerformAction(s, app.ImageId, "private", jsonutils.Marshal(input))
-// 		if err != nil {
-// 			return nil, errors.Wrap(err, "image private")
-// 		}
-// 	}
-// 	return app.SSharableVirtualResourceBase.PerformPrivate(ctx, userCred, query, input)
-// }
+func (app *SInstantApp) PerformPrivate(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input commonapis.PerformPrivateInput,
+) (jsonutils.JSONObject, error) {
+	if len(app.ImageId) > 0 {
+		s := auth.GetSession(ctx, userCred, options.Options.Region)
+		_, err := imagemodules.Images.PerformAction(s, app.ImageId, "private", jsonutils.Marshal(input))
+		if err != nil {
+			return nil, errors.Wrap(err, "image private")
+		}
+	}
+	return app.SSharableVirtualResourceBase.PerformPrivate(ctx, userCred, query, input)
+}
 
 // func (app *SInstantApp) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 // 	if app.Enabled.IsTrue() {
