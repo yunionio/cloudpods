@@ -640,10 +640,10 @@ func (self *SZone) purgeStorages(ctx context.Context, managerId string) error {
 	disks := DiskManager.Query("id").In("storage_id", storages.SubQuery())
 	diskbackups := DiskBackupManager.Query("id").In("disk_id", disks.SubQuery())
 	guestdisks := GuestdiskManager.Query("row_id").In("disk_id", disks.SubQuery())
-	diskpolicies := SnapshotPolicyResourceManager.Query("row_id").In("resource_id", disks.SubQuery())
+	diskpolicies := SnapshotPolicyResourceManager.Query("resource_id").In("resource_id", disks.SubQuery())
 
 	pairs := []purgePair{
-		{manager: SnapshotPolicyResourceManager, key: "row_id", q: diskpolicies},
+		{manager: SnapshotPolicyResourceManager, key: "resource_id", q: diskpolicies},
 		{manager: GuestdiskManager, key: "row_id", q: guestdisks},
 		{manager: SnapshotManager, key: "id", q: snapshots},
 		{manager: DiskBackupManager, key: "id", q: diskbackups},
