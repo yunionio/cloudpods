@@ -66,6 +66,22 @@ func (self *SSnapshotPolicyResource) GetServer() (*SGuest, error) {
 	return guest.(*SGuest), nil
 }
 
+func (self *SSnapshotPolicyResource) GetDisk() (*SDisk, error) {
+	disk, err := DiskManager.FetchById(self.ResourceId)
+	if err != nil {
+		return nil, err
+	}
+	return disk.(*SDisk), nil
+}
+
+func (self *SSnapshotPolicyResource) GetSnapshotPolicy() (*SSnapshotPolicy, error) {
+	policy, err := SnapshotPolicyManager.FetchById(self.SnapshotpolicyId)
+	if err != nil {
+		return nil, err
+	}
+	return policy.(*SSnapshotPolicy), nil
+}
+
 func (man *SSnapshotPolicyResourceManager) RemoveBySnapshotpolicy(id string) error {
 	_, err := sqlchemy.GetDB().Exec(
 		fmt.Sprintf(

@@ -85,7 +85,7 @@ func (self *GuestDisksSnapshotPolicyExecuteTask) OnInit(ctx context.Context, obj
 }
 
 func (self *GuestDisksSnapshotPolicyExecuteTask) OnDiskSnapshot(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
-	snapshotPolicyDisks := make([]models.SSnapshotPolicyDisk, 0)
+	snapshotPolicyDisks := make([]models.SSnapshotPolicyResource, 0)
 	self.Params.Unmarshal(&snapshotPolicyDisks, "snapshot_policy_disks")
 	if len(snapshotPolicyDisks) == 0 {
 		self.SetStageComplete(ctx, nil)
