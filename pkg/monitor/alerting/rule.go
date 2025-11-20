@@ -144,7 +144,7 @@ func NewRuleFromDBAlert(ruleDef *models.SAlert) (*Rule, error) {
 	}
 	for _, n := range notis {
 		noti, _ := n.GetNotification()
-		if noti.Frequency != 0 {
+		if noti != nil && noti.Frequency != 0 {
 			model.SilentPeriod = noti.Frequency
 		}
 		nIds = append(nIds, n.NotificationId)
