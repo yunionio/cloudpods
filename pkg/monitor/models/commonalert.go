@@ -1474,7 +1474,7 @@ func (alert *SCommonAlert) GetSilentPeriod() (int64, error) {
 	}
 	for _, n := range notis {
 		noti, _ := n.GetNotification()
-		if noti.Frequency != 0 {
+		if noti != nil && noti.Frequency != 0 {
 			return noti.Frequency, nil
 		}
 	}
