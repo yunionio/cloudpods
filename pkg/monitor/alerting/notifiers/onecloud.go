@@ -64,16 +64,16 @@ func generateMonitorTitle(suffix string, data interface{}) string {
 	var level string
 	if suffix == "cn" {
 		level = "普通"
-		if priority == "important" {
+		if priority == string(notify.NotifyPriorityImportant) {
 			level = "重要"
-		} else if priority == "critical" {
+		} else if priority == string(notify.NotifyPriorityCritical) {
 			level = "致命"
 		}
 	} else {
 		level = "Normal"
-		if priority == "important" {
+		if priority == string(notify.NotifyPriorityImportant) {
 			level = "Important"
-		} else if priority == "critical" {
+		} else if priority == string(notify.NotifyPriorityCritical) {
 			level = "Critical"
 		}
 	}
@@ -219,10 +219,10 @@ func getNotifyTemplateConfigOfLang(ctx *alerting.EvalContext,
 		priority = notify.NotifyPriorityNormal
 	case "important":
 		priority = notify.NotifyPriorityImportant
-		level = levelNormal
+		level = levelImportant
 	case "fatal", "critical":
 		priority = notify.NotifyPriorityCritical
-		level = levelNormal
+		level = levelCritial
 	}
 	topic := fmt.Sprintf("[%s]", trans(level))
 
