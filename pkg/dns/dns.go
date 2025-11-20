@@ -16,8 +16,6 @@ package dns
 
 import (
 	"context"
-	"database/sql"
-	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -33,13 +31,15 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	"yunion.io/x/pkg/utils"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
 	_ "yunion.io/x/sqlchemy/backends"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	identity_api "yunion.io/x/onecloud/pkg/apis/identity"
+	"yunion.io/x/onecloud/pkg/cloudcommon"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
@@ -99,17 +99,12 @@ func New() *SRegionDNS {
 }
 
 func (r *SRegionDNS) initDB(c *caddy.Controller) error {
-	dialect, sqlStr, err := utils.TransSQLAchemyURL(r.SqlConnection)
-	if err != nil {
-		return err
+	options := &common_options.DBOptions{
+		SqlConnection: r.SqlConnection,
 	}
-	sqlDb, err := sql.Open(dialect, sqlStr)
-	if err != nil {
-		return err
-	}
-	sqlDb.SetMaxOpenConns(defaultDbMaxOpenConn)
-	sqlDb.SetMaxIdleConns(defaultDbMaxIdleConn)
-	sqlchemy.SetDB(sqlDb)
+
+	cloudcommon.InitDBConn(options)
+
 	db.InitAllManagers()
 
 	c.OnShutdown(func() error {
@@ -206,9 +201,9 @@ func (r *SRegionDNS) ServeDNS(ctx context.Context, w dns.ResponseWriter, rmsg *d
 }
 
 var (
-	errRefused  = errors.New("refused the query")
-	errNotFound = errors.New("not found")
-	errCallNext = errors.New("continue to next")
+	errRefused  = errors.Error("refused the query")
+	errNotFound = errors.Error("not found")
+	errCallNext = errors.Error("continue to next")
 )
 
 // Services implements the ServiceBackend interface
