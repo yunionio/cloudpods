@@ -17,6 +17,7 @@ package notifyclient
 import (
 	"context"
 	"fmt"
+	"html/template"
 	"regexp"
 	"strings"
 	"time"
@@ -64,14 +65,22 @@ func notifySystemError(ctx context.Context, idstr string, name string, event str
 }
 
 func systemNotify(ctx context.Context, priority npk.TNotifyPriority, event string, data jsonutils.JSONObject) {
+	systemNotifyWithTemplateFuncs(ctx, priority, event, data, nil)
+}
+
+func systemNotifyWithTemplateFuncs(ctx context.Context, priority npk.TNotifyPriority, event string, data jsonutils.JSONObject, templateFuncs template.FuncMap) {
 	// userId
-	notify(ctx, notifyAdminUsers, false, priority, event, data)
+	notifyWithTemplateFuncs(ctx, notifyAdminUsers, false, priority, event, data, templateFuncs)
 
 	// groupId
-	notify(ctx, notifyAdminGroups, true, priority, event, data)
+	notifyWithTemplateFuncs(ctx, notifyAdminGroups, true, priority, event, data, templateFuncs)
 }
 
 func notifyAll(ctx context.Context, recipientId []string, isGroup bool, priority npk.TNotifyPriority, event string, data jsonutils.JSONObject) error {
+	return notifyAllWithTemplateFuncs(ctx, recipientId, isGroup, priority, event, data, nil)
+}
+
+func notifyAllWithTemplateFuncs(ctx context.Context, recipientId []string, isGroup bool, priority npk.TNotifyPriority, event string, data jsonutils.JSONObject, templateFuncs template.FuncMap) error {
 	s, err := AdminSessionGenerator(ctx, consts.GetRegion())
 	if err != nil {
 		return err
@@ -90,7 +99,7 @@ func notifyAll(ctx context.Context, recipientId []string, isGroup bool, priority
 	}
 	cTypes := jarray.(*jsonutils.JSONArray).GetStringArray()
 	for _, ct := range cTypes {
-		RawNotifyWithCtx(ctx, recipientId, isGroup, npk.TNotifyChannel(ct), priority, event, data)
+		RawNotifyWithCtxAndTemplateFuncs(ctx, recipientId, isGroup, npk.TNotifyChannel(ct), priority, event, data, templateFuncs)
 	}
 	return nil
 }
@@ -265,12 +274,15 @@ func genMsgViaLang(ctx context.Context, p sNotifyParams) ([]npk.SNotifyMessage, 
 		msg.Robots = p.robots
 		msg.Contacts = t.contacts
 		msg.ContactType = p.channel
-		topic, _ := getContent(langSuffix, p.event, "title", p.channel, p.data)
+		topic, err := getContent(langSuffix, p.event, "title", p.channel, p.data, p.templateFuncs)
+		if err != nil {
+			log.Warningf("get title error: %s", err)
+		}
 		if len(topic) == 0 {
 			topic = p.event
 		}
 		msg.Topic = topic
-		body, err := getContent(langSuffix, p.event, "content", p.channel, p.data)
+		body, err := getContent(langSuffix, p.event, "content", p.channel, p.data, p.templateFuncs)
 		if err != nil {
 			log.Errorf("get content error: %s", err)
 		}
@@ -299,6 +311,117 @@ type sNotifyParams struct {
 	tag                       string
 	metadata                  map[string]interface{}
 	ignoreNonexistentReceiver bool
+	templateFuncs             template.FuncMap
+}
+
+// newSNotifyParams 创建 sNotifyParams 结构体，event 和 data 是必需参数
+func newSNotifyParams(event string, data jsonutils.JSONObject) sNotifyParams {
+	return sNotifyParams{
+		event: event,
+		data:  data,
+	}
+}
+
+// withRecipientAndPriority 设置 recipientId、isGroup、priority 和 templateFuncs（用于 notifyCritical/Important/Normal）
+func (p sNotifyParams) withRecipientAndPriority(recipientId []string, isGroup bool, priority npk.TNotifyPriority, templateFuncs template.FuncMap) sNotifyParams {
+	p.recipientId = recipientId
+	p.isGroup = isGroup
+	p.priority = priority
+	p.templateFuncs = templateFuncs
+	return p
+}
+
+// withRecipientChannelAndPriority 设置 recipientId、isGroup、channel、priority 和 templateFuncs（用于 RawNotify）
+func (p sNotifyParams) withRecipientChannelAndPriority(recipientId []string, isGroup bool, channel npk.TNotifyChannel, priority npk.TNotifyPriority, templateFuncs template.FuncMap) sNotifyParams {
+	p.recipientId = recipientId
+	p.isGroup = isGroup
+	p.channel = channel
+	p.priority = priority
+	p.templateFuncs = templateFuncs
+	return p
+}
+
+// withRobotChannelAndPriority 设置 robots、channel、priority 和 templateFuncs（用于 NotifyRobot）
+func (p sNotifyParams) withRobotChannelAndPriority(robots []string, channel npk.TNotifyChannel, priority npk.TNotifyPriority, templateFuncs template.FuncMap) sNotifyParams {
+	p.robots = robots
+	p.channel = channel
+	p.priority = priority
+	p.templateFuncs = templateFuncs
+	return p
+}
+
+// withContactChannelAndPriority 设置 contacts、channel 和 priority（用于 NotifyWithContact）
+func (p sNotifyParams) withContactChannelAndPriority(contacts []string, channel npk.TNotifyChannel, priority npk.TNotifyPriority) sNotifyParams {
+	p.contacts = contacts
+	p.channel = channel
+	p.priority = priority
+	return p
+}
+
+// withRecipientId 设置 recipientId
+func (p sNotifyParams) withRecipientId(recipientId []string) sNotifyParams {
+	p.recipientId = recipientId
+	return p
+}
+
+// withRobots 设置 robots
+func (p sNotifyParams) withRobots(robots []string) sNotifyParams {
+	p.robots = robots
+	return p
+}
+
+// withIsGroup 设置 isGroup
+func (p sNotifyParams) withIsGroup(isGroup bool) sNotifyParams {
+	p.isGroup = isGroup
+	return p
+}
+
+// withContacts 设置 contacts
+func (p sNotifyParams) withContacts(contacts []string) sNotifyParams {
+	p.contacts = contacts
+	return p
+}
+
+// withChannel 设置 channel
+func (p sNotifyParams) withChannel(channel npk.TNotifyChannel) sNotifyParams {
+	p.channel = channel
+	return p
+}
+
+// withPriority 设置 priority
+func (p sNotifyParams) withPriority(priority npk.TNotifyPriority) sNotifyParams {
+	p.priority = priority
+	return p
+}
+
+// withCreateReceiver 设置 createReceiver
+func (p sNotifyParams) withCreateReceiver(createReceiver bool) sNotifyParams {
+	p.createReceiver = createReceiver
+	return p
+}
+
+// withTag 设置 tag
+func (p sNotifyParams) withTag(tag string) sNotifyParams {
+	p.tag = tag
+	return p
+}
+
+// withMetadata 设置 metadata
+func (p sNotifyParams) withMetadata(metadata map[string]interface{}) sNotifyParams {
+	p.metadata = metadata
+	return p
+}
+
+// withIgnoreNonexistentReceiver 设置 ignoreNonexistentReceiver
+func (p sNotifyParams) withIgnoreNonexistentReceiver(ignoreNonexistentReceiver bool) sNotifyParams {
+	p.ignoreNonexistentReceiver = ignoreNonexistentReceiver
+	return p
+}
+
+// withTemplateFuncs 设置 templateFuncs
+func (p sNotifyParams) withTemplateFuncs(templateFuncs template.FuncMap) sNotifyParams {
+	p.templateFuncs = templateFuncs
+	return p
 }
 
 func rawNotify(ctx context.Context, p sNotifyParams) {
@@ -306,13 +429,12 @@ func rawNotify(ctx context.Context, p sNotifyParams) {
 }
 
 func notifyCritical(ctx context.Context, recipientId []string, isGroup bool, event string, data jsonutils.JSONObject) {
-	p := sNotifyParams{
-		recipientId: recipientId,
-		isGroup:     isGroup,
-		event:       event,
-		data:        data,
-		priority:    npk.NotifyPriorityNormal,
-	}
+	notifyCriticalWithTemplateFuncs(ctx, recipientId, isGroup, event, data, nil)
+}
+
+func notifyCriticalWithTemplateFuncs(ctx context.Context, recipientId []string, isGroup bool, event string, data jsonutils.JSONObject, templateFuncs template.FuncMap) {
+	p := newSNotifyParams(event, data).
+		withRecipientAndPriority(recipientId, isGroup, npk.NotifyPriorityNormal, templateFuncs)
 	notifyWithChannel(ctx, p,
 		npk.NotifyByEmail,
 		npk.NotifyByDingTalk,
@@ -324,13 +446,12 @@ func notifyCritical(ctx context.Context, recipientId []string, isGroup bool, eve
 }
 
 func notifyImportant(ctx context.Context, recipientId []string, isGroup bool, event string, data jsonutils.JSONObject) {
-	p := sNotifyParams{
-		recipientId: recipientId,
-		isGroup:     isGroup,
-		event:       event,
-		data:        data,
-		priority:    npk.NotifyPriorityNormal,
-	}
+	notifyImportantWithTemplateFuncs(ctx, recipientId, isGroup, event, data, nil)
+}
+
+func notifyImportantWithTemplateFuncs(ctx context.Context, recipientId []string, isGroup bool, event string, data jsonutils.JSONObject, templateFuncs template.FuncMap) {
+	p := newSNotifyParams(event, data).
+		withRecipientAndPriority(recipientId, isGroup, npk.NotifyPriorityNormal, templateFuncs)
 	notifyWithChannel(ctx, p,
 		npk.NotifyByEmail,
 		npk.NotifyByDingTalk,
@@ -342,13 +463,12 @@ func notifyImportant(ctx context.Context, recipientId []string, isGroup bool, ev
 }
 
 func notifyNormal(ctx context.Context, recipientId []string, isGroup bool, event string, data jsonutils.JSONObject) {
-	p := sNotifyParams{
-		recipientId: recipientId,
-		isGroup:     isGroup,
-		event:       event,
-		data:        data,
-		priority:    npk.NotifyPriorityNormal,
-	}
+	notifyNormalWithTemplateFuncs(ctx, recipientId, isGroup, event, data, nil)
+}
+
+func notifyNormalWithTemplateFuncs(ctx context.Context, recipientId []string, isGroup bool, event string, data jsonutils.JSONObject, templateFuncs template.FuncMap) {
+	p := newSNotifyParams(event, data).
+		withRecipientAndPriority(recipientId, isGroup, npk.NotifyPriorityNormal, templateFuncs)
 	notifyWithChannel(ctx, p,
 		npk.NotifyByEmail,
 		npk.NotifyByDingTalk,
@@ -441,13 +561,17 @@ func intelliNotify(ctx context.Context, p sNotifyParams) {
 }
 
 func notify(ctx context.Context, recipientId []string, isGroup bool, priority npk.TNotifyPriority, event string, data jsonutils.JSONObject) {
+	notifyWithTemplateFuncs(ctx, recipientId, isGroup, priority, event, data, nil)
+}
+
+func notifyWithTemplateFuncs(ctx context.Context, recipientId []string, isGroup bool, priority npk.TNotifyPriority, event string, data jsonutils.JSONObject, templateFuncs template.FuncMap) {
 	switch priority {
 	case npk.NotifyPriorityCritical:
-		notifyCritical(ctx, recipientId, isGroup, event, data)
+		notifyCriticalWithTemplateFuncs(ctx, recipientId, isGroup, event, data, templateFuncs)
 	case npk.NotifyPriorityImportant:
-		notifyImportant(ctx, recipientId, isGroup, event, data)
+		notifyImportantWithTemplateFuncs(ctx, recipientId, isGroup, event, data, templateFuncs)
 	default:
-		notifyNormal(ctx, recipientId, isGroup, event, data)
+		notifyNormalWithTemplateFuncs(ctx, recipientId, isGroup, event, data, templateFuncs)
 	}
 }
 

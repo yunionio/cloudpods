@@ -1,4 +1,3 @@
-{{.title}}
 AlertName: {{.name}}
 Time: {{.start_time}}
 Level: {{.level}}

@@ -1,4 +1,3 @@
-{{.title}}
 策略名称: {{.name}}
 触发时间: {{.start_time}}
 报警级别: {{.level}}
