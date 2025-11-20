@@ -139,6 +139,7 @@ func (self *SBaseResources) init(ctx context.Context) error {
 	}
 	self.deletedAt = time.Now()
 	self.updatedAt = time.Now()
+	self.importedAt = time.Now()
 	log.Infof("init %d %s importedAt: %s createdAt: %s", len(self.Resources), self.manager.GetKeyword(), self.importedAt, self.createdAt)
 	return nil
 }
@@ -146,9 +147,6 @@ func (self *SBaseResources) init(ctx context.Context) error {
 func (self *SBaseResources) increment(ctx context.Context) error {
 	s := auth.GetAdminSession(ctx, options.Options.Region)
 	timeFilter := fmt.Sprintf("imported_at.gt('%s')", self.importedAt.Format(time.RFC3339))
-	if self.importedAt.IsZero() {
-		timeFilter = fmt.Sprintf("created_at.gt('%s')", self.createdAt.Format(time.RFC3339))
-	}
 	query := map[string]interface{}{
 		"limit":      20,
 		"scope":      "system",
