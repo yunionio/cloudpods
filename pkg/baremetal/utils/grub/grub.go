@@ -42,8 +42,8 @@ menuentry 'YunionOS for PXE' --class os {
 
 var (
 	BOOT_EFI_MATCHER = "(hd*,gpt*)/EFI/BOOT/BOOTX64.EFI (hd*,msdos*)/EFI/BOOT/BOOTX64.EFI (hd*,gpt*)/EFI/BOOT/BOOTAA64.EFI (hd*,msdos*)/EFI/BOOT/BOOTAA64.EFI"
-	GRUB_EFI_MATCHER = "(md*)/EFI/*/shimx64.efi (md*)/EFI/*/grubx64.efi (hd*,gpt*)/EFI/*/shimx64.efi (hd*,msdos*)/EFI/*/shimx64.efi (hd*,gpt*)/EFI/*/grubx64.efi (hd*,mosdos*)/EFI/*/grubx64.efi (hd*,gpt*)/EFI/*/shimaa64.efi (hd*,msdos*)/EFI/*/shimaa64.efi (hd*,gpt*)/EFI/*/grubaa64.efi (hd*,mosdos*)/EFI/*/grubaa64.efi"
-	GRUB_CFG_MATCHER = "(md*)/boot/*/grub.cfg (md*)/*/grub.cfg (md*)/grub.cfg (md*)/EFI/*/grub.cfg (md*)/EFI/*/*/grub.cfg (hd*,gpt*)/boot/*/grub.cfg (hd*,gpt*)/*/grub.cfg (hd*,gpt*)/grub.cfg (hd*,gpt*)/EFI/*/grub.cfg (hd*,gpt*)/EFI/*/*/grub.cfg (hd*,mosdos*)/boot/*/grub.cfg (hd*,mosdos*)/*/grub.cfg (hd*,mosdos*)/grub.cfg (hd*,mosdos*)/EFI/*/grub.cfg (hd*,mosdos*)/EFI/*/*/grub.cfg"
+	GRUB_EFI_MATCHER = "(md*)/EFI/*/shimx64.efi (md*)/EFI/*/grubx64.efi (hd*,gpt*)/EFI/*/shimx64.efi (hd*,msdos*)/EFI/*/shimx64.efi (hd*,gpt*)/EFI/*/grubx64.efi (hd*,msdos*)/EFI/*/grubx64.efi (hd*,gpt*)/EFI/*/shimaa64.efi (hd*,msdos*)/EFI/*/shimaa64.efi (hd*,gpt*)/EFI/*/grubaa64.efi (hd*,msdos*)/EFI/*/grubaa64.efi"
+	GRUB_CFG_MATCHER = "(md*)/boot/*/grub.cfg (md*)/*/grub.cfg (md*)/grub.cfg (md*)/EFI/*/grub.cfg (md*)/EFI/*/*/grub.cfg (hd*,gpt*)/boot/*/grub.cfg (hd*,gpt*)/*/grub.cfg (hd*,gpt*)/grub.cfg (hd*,gpt*)/EFI/*/grub.cfg (hd*,gpt*)/EFI/*/*/grub.cfg (hd*,msdos*)/boot/*/grub.cfg (hd*,msdos*)/*/grub.cfg (hd*,msdos*)/grub.cfg (hd*,msdos*)/EFI/*/grub.cfg (hd*,msdos*)/EFI/*/*/grub.cfg"
 )
 
 // REF: https://github.com/bluebanquise/infrastructure/blob/master/packages/bluebanquise-ipxe/grub2-efi-autofind.cfg
