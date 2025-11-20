@@ -4,7 +4,7 @@ import (
 	"yunion.io/x/onecloud/pkg/apis"
 )
 
-type InstantAppListInput struct {
+type InstantModelListInput struct {
 	apis.SharableVirtualResourceListInput
 	apis.EnabledResourceBaseListInput
 
@@ -18,7 +18,7 @@ type InstantAppListInput struct {
 	AutoCache *bool `json:"auto_cache"`
 }
 
-type InstantAppCreateInput struct {
+type InstantModelCreateInput struct {
 	apis.SharableVirtualResourceCreateInput
 	apis.EnabledBaseResourceCreateInput
 
@@ -34,7 +34,7 @@ type InstantAppCreateInput struct {
 	Mounts []string `json:"mounts"`
 }
 
-type InstantAppUpdateInput struct {
+type InstantModelUpdateInput struct {
 	apis.SharableVirtualResourceBaseUpdateInput
 
 	ImageId string `json:"image_id"`
@@ -45,7 +45,7 @@ type InstantAppUpdateInput struct {
 	Mounts []string `json:"mounts"`
 }
 
-type InstantAppDetails struct {
+type InstantModelDetails struct {
 	apis.SharableVirtualResourceDetails
 
 	Image string
@@ -56,7 +56,7 @@ type InstantAppDetails struct {
 	IconBase64 string `json:"icon_base64"`
 }
 
-type InstantAppImportInput struct {
+type InstantModelImportInput struct {
 	Endpoint  string `json:"endpoint"`
 	AccessKey string `json:"access_key"`
 	SecretKey string `json:"secret_key"`
@@ -65,31 +65,31 @@ type InstantAppImportInput struct {
 	SignVer   string `json:"sign_ver"`
 }
 
-func (input InstantAppImportInput) Invalid() bool {
+func (input InstantModelImportInput) Invalid() bool {
 	if len(input.Endpoint) == 0 || len(input.AccessKey) == 0 || len(input.SecretKey) == 0 || len(input.Bucket) == 0 || len(input.Key) == 0 {
 		return true
 	}
 	return false
 }
 
-type InstantAppSyncstatusInput struct {
+type InstantModelSyncstatusInput struct {
 }
 
 type InstantAppCacheInput struct {
 }
 
-type InstantAppEnableAutoCacheInput struct {
+type InstantModelEnableAutoCacheInput struct {
 	AutoCache bool `json:"auto_cache"`
 }
 
-type MountedAppResourceListInput struct {
-	MountedApps []string `json:"mounted_apps"`
+type MountedModelResourceListInput struct {
+	MountedModels []string `json:"mounted_models"`
 }
 
-type MountedAppResourceCreateInput struct {
-	MountedApps []string `json:"mounted_apps"`
+type MountedModelResourceCreateInput struct {
+	MountedModels []string `json:"mounted_models"`
 }
 
-type MountedAppResourceUpdateInput struct {
-	MountedApps []string `json:"mounted_apps"`
+type MountedModelResourceUpdateInput struct {
+	MountedModels []string `json:"mounted_models"`
 }

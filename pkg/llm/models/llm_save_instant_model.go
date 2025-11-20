@@ -19,41 +19,41 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 )
 
-func (llm *SLLM) GetDetailsProbedPackages(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	pkgInfos, err := llm.getProbedPackagesExt(ctx, userCred)
+func (llm *SLLM) GetDetailsProbedModels(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	mdlInfos, err := llm.getProbedModelsExt(ctx, userCred)
 	if err != nil {
 		return nil, errors.Wrap(err, "getProbedPackagesExt")
 	}
-	return jsonutils.Marshal(pkgInfos), nil
+	return jsonutils.Marshal(mdlInfos), nil
 }
 
-func (llm *SLLM) PerformSaveInstantApp(
+func (llm *SLLM) PerformSaveInstantModel(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
-	input api.LLMSaveInstantAppInput,
+	input api.LLMSaveInstantModelInput,
 ) (jsonutils.JSONObject, error) {
 	if llm.Status != api.LLM_STATUS_RUNNING {
 		return nil, httperrors.NewInvalidStatusError("LLM is not running")
 	}
 
-	pkgInfos, err := llm.getProbedPackagesExt(ctx, userCred, input.PackageName)
+	mdlInfos, err := llm.getProbedModelsExt(ctx, userCred, input.ModelId)
 	if err != nil {
 		return nil, errors.Wrap(err, "getProbedPackagesExt")
 	}
 
-	pkgInfo, ok := pkgInfos[input.PackageName]
+	mdlInfo, ok := mdlInfos[input.ModelId]
 	if !ok {
-		return nil, httperrors.NewBadRequestError("App %s not found", input.PackageName)
+		return nil, httperrors.NewBadRequestError("ModelId %s not found", input.ModelId)
 	}
 
-	mountDirs, err := llm.detectAppPaths(ctx, userCred, pkgInfo)
+	mountDirs, err := llm.detectModelPaths(ctx, userCred, mdlInfo)
 	if err != nil {
-		return nil, errors.Wrap(err, "detectAppPaths")
+		return nil, errors.Wrap(err, "detectModelPaths")
 	}
 
 	if len(input.ImageName) == 0 {
-		input.ImageName = fmt.Sprintf("%s-%s", pkgInfo.Name+":"+pkgInfo.Tag, time.Now().Format("060102"))
+		input.ImageName = fmt.Sprintf("%s-%s", mdlInfo.Name+":"+mdlInfo.Tag, time.Now().Format("060102"))
 	}
 
 	var ownerId mcclient.IIdentityProvider
@@ -86,51 +86,51 @@ func (llm *SLLM) PerformSaveInstantApp(
 	input.ProjectDomainId = ownerId.GetProjectDomainId()
 
 	drv := llm.GetLLMContainerDriver()
-	instantAppCreateInput := api.InstantAppCreateInput{
+	instantModelCreateInput := api.InstantModelCreateInput{
 		LLMType:   drv.GetType(),
-		ModelId:   pkgInfo.ModelId,
-		ModelName: pkgInfo.Name,
-		Tag:       pkgInfo.Tag,
+		ModelId:   mdlInfo.ModelId,
+		ModelName: mdlInfo.Name,
+		Tag:       mdlInfo.Tag,
 		Mounts:    mountDirs,
 	}
-	instantAppCreateInput.Name = input.ImageName
-	log.Debugf("instantAppCreateInput: %s", jsonutils.Marshal(instantAppCreateInput))
+	instantModelCreateInput.Name = input.ImageName
+	log.Debugf("instantModelCreateInput: %s", jsonutils.Marshal(instantModelCreateInput))
 
-	instantAppObj, err := db.DoCreate(GetInstantAppManager(), ctx, userCred, nil, jsonutils.Marshal(instantAppCreateInput), ownerId)
+	instantMdlObj, err := db.DoCreate(GetInstantModelManager(), ctx, userCred, nil, jsonutils.Marshal(instantModelCreateInput), ownerId)
 	if err != nil {
-		return nil, errors.Wrap(err, "InstantAppManager.DoCreate")
+		return nil, errors.Wrap(err, "GetInstantModelManager.DoCreate")
 	}
 
-	instantApp := instantAppObj.(*SInstantApp)
+	instantMdl := instantMdlObj.(*SInstantModel)
 
-	input.InstantAppId = instantApp.Id
+	input.InstantModelId = instantMdl.Id
 
-	_, err = llm.StartSaveAppImageTask(ctx, userCred, input)
+	_, err = llm.StartSaveModelImageTask(ctx, userCred, input)
 	if err != nil {
 		return nil, errors.Wrap(err, "StartSaveAppImageTask")
 	}
 
-	return jsonutils.Marshal(instantApp), nil
+	return jsonutils.Marshal(instantMdl), nil
 }
 
-func (llm *SLLM) DoSaveAppImage(ctx context.Context, userCred mcclient.TokenCredential, session *mcclient.ClientSession, input api.LLMSaveInstantAppInput) error {
-	llm.SetStatus(ctx, userCred, api.LLM_STATUS_SAVING_APP, "DoSaveAppImage")
+func (llm *SLLM) DoSaveModelImage(ctx context.Context, userCred mcclient.TokenCredential, session *mcclient.ClientSession, input api.LLMSaveInstantModelInput) error {
+	llm.SetStatus(ctx, userCred, api.LLM_STATUS_SAVING_MODEL, "DoSaveModelImage")
 
-	instantAppObj, err := GetInstantAppManager().FetchById(input.InstantAppId)
+	instantModelObj, err := GetInstantModelManager().FetchById(input.InstantModelId)
 	if err != nil {
-		return errors.Wrap(err, "InstantAppManager.FetchById")
+		return errors.Wrap(err, "GetInstantModelManager.FetchById")
 	}
-	instantApp := instantAppObj.(*SInstantApp)
+	instantModel := instantModelObj.(*SInstantModel)
 
 	drv := llm.GetLLMContainerDriver()
-	prefix, saveDirs, err := drv.GetSaveDirectories(instantApp)
+	prefix, saveDirs, err := drv.GetSaveDirectories(instantModel)
 	if err != nil {
 		return errors.Wrap(err, "GetSaveDirectories")
 	}
 
 	saveImageInput := computeapi.ContainerSaveVolumeMountToImageInput{
 		GenerateName:      input.ImageName,
-		Notes:             fmt.Sprintf("instance app image for %s(%s)", input.PackageName, instantApp.ModelName+":"+instantApp.Tag),
+		Notes:             fmt.Sprintf("instance model image for %s(%s)", input.ModelId, instantModel.ModelName+":"+instantModel.Tag),
 		Index:             0,
 		Dirs:              saveDirs,
 		UsedByPostOverlay: true,
@@ -157,7 +157,7 @@ func (llm *SLLM) DoSaveAppImage(ctx context.Context, userCred mcclient.TokenCred
 		return errors.Wrap(err, "save-volume-mount-image.result.Unmarshal")
 	}
 
-	err = instantApp.saveImageId(ctx, userCred, saveImageOutput.ImageId)
+	err = instantModel.saveImageId(ctx, userCred, saveImageOutput.ImageId)
 	if err != nil {
 		return errors.Wrap(err, "saveImageId")
 	}
@@ -165,11 +165,11 @@ func (llm *SLLM) DoSaveAppImage(ctx context.Context, userCred mcclient.TokenCred
 	return nil
 }
 
-func (llm *SLLM) StartSaveAppImageTask(ctx context.Context, userCred mcclient.TokenCredential, input api.LLMSaveInstantAppInput) (*taskman.STask, error) {
-	llm.SetStatus(ctx, userCred, api.LLM_STATUS_START_SAVE_APP, "StartSaveAppImageTask")
+func (llm *SLLM) StartSaveModelImageTask(ctx context.Context, userCred mcclient.TokenCredential, input api.LLMSaveInstantModelInput) (*taskman.STask, error) {
+	llm.SetStatus(ctx, userCred, api.LLM_STATUS_START_SAVE_MODEL, "StartSaveModelImageTask")
 
 	params := jsonutils.Marshal(input)
-	task, err := taskman.TaskManager.NewTask(ctx, "LLMStartSaveAppImageTask", llm, userCred, params.(*jsonutils.JSONDict), "", "")
+	task, err := taskman.TaskManager.NewTask(ctx, "LLMStartSaveModelImageTask", llm, userCred, params.(*jsonutils.JSONDict), "", "")
 	if err != nil {
 		return nil, errors.Wrap(err, "taskman.TaskManager.NewTask")
 	}
@@ -180,11 +180,11 @@ func (llm *SLLM) StartSaveAppImageTask(ctx context.Context, userCred mcclient.To
 	return task, nil
 }
 
-func (llm *SLLM) getProbedPackagesExt(ctx context.Context, userCred mcclient.TokenCredential, pkgAppIds ...string) (map[string]api.LLMInternalPkgInfo, error) {
+func (llm *SLLM) getProbedModelsExt(ctx context.Context, userCred mcclient.TokenCredential, mdlIds ...string) (map[string]api.LLMInternalMdlInfo, error) {
 	drv := llm.GetLLMContainerDriver()
-	return drv.GetProbedPackagesExt(ctx, userCred, llm, pkgAppIds...)
+	return drv.GetProbedModelsExt(ctx, userCred, llm, mdlIds...)
 }
 
-func (llm *SLLM) detectAppPaths(ctx context.Context, userCred mcclient.TokenCredential, pkgInfo api.LLMInternalPkgInfo) ([]string, error) {
+func (llm *SLLM) detectModelPaths(ctx context.Context, userCred mcclient.TokenCredential, pkgInfo api.LLMInternalMdlInfo) ([]string, error) {
 	return llm.GetLLMContainerDriver().DetectModelPaths(ctx, userCred, llm, pkgInfo)
 }

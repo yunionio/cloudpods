@@ -28,34 +28,34 @@ import (
 	"yunion.io/x/onecloud/pkg/llm/options"
 )
 
-var instantAppManager *SInstantAppManager
+var instantModelManager *SInstantModelManager
 
 func init() {
-	GetInstantAppManager()
+	GetInstantModelManager()
 }
 
-type SInstantAppManager struct {
+type SInstantModelManager struct {
 	db.SSharableVirtualResourceBaseManager
 	db.SEnabledResourceBaseManager
 }
 
-func GetInstantAppManager() *SInstantAppManager {
-	if instantAppManager != nil {
-		return instantAppManager
+func GetInstantModelManager() *SInstantModelManager {
+	if instantModelManager != nil {
+		return instantModelManager
 	}
-	instantAppManager = &SInstantAppManager{
+	instantModelManager = &SInstantModelManager{
 		SSharableVirtualResourceBaseManager: db.NewSharableVirtualResourceBaseManager(
-			SInstantApp{},
-			"llm_instant_apps_tbl",
-			"llm_instant_app",
-			"llm_instant_apps",
+			SInstantModel{},
+			"llm_instant_models_tbl",
+			"llm_instant_model",
+			"llm_instant_models",
 		),
 	}
-	instantAppManager.SetVirtualObject(instantAppManager)
-	return instantAppManager
+	instantModelManager.SetVirtualObject(instantModelManager)
+	return instantModelManager
 }
 
-type SInstantApp struct {
+type SInstantModel struct {
 	db.SSharableVirtualResourceBase
 	db.SEnabledResourceBase
 
@@ -76,11 +76,11 @@ type SInstantApp struct {
 }
 
 // climc instant-app-list
-func (man *SInstantAppManager) ListItemFilter(
+func (man *SInstantModelManager) ListItemFilter(
 	ctx context.Context,
 	q *sqlchemy.SQuery,
 	userCred mcclient.TokenCredential,
-	input apis.InstantAppListInput,
+	input apis.InstantModelListInput,
 ) (*sqlchemy.SQuery, error) {
 	var err error
 	q, err = man.SSharableVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, input.SharableVirtualResourceListInput)
@@ -245,17 +245,17 @@ func (man *SInstantAppManager) ListItemFilter(
 // 	return res
 // }
 
-func (man *SInstantAppManager) GetLLMContainerDriver(llmType apis.LLMContainerType) ILLMContainerDriver {
+func (man *SInstantModelManager) GetLLMContainerDriver(llmType apis.LLMContainerType) ILLMContainerDriver {
 	return GetLLMContainerDriver(llmType)
 }
 
-func (man *SInstantAppManager) ValidateCreateData(
+func (man *SInstantModelManager) ValidateCreateData(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
 	ownerId mcclient.IIdentityProvider,
 	query jsonutils.JSONObject,
-	input apis.InstantAppCreateInput,
-) (apis.InstantAppCreateInput, error) {
+	input apis.InstantModelCreateInput,
+) (apis.InstantModelCreateInput, error) {
 	var err error
 	input.SharableVirtualResourceCreateInput, err = man.SSharableVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.SharableVirtualResourceCreateInput)
 	if err != nil {
@@ -350,14 +350,14 @@ func (man *SInstantAppManager) ValidateCreateData(
 // 	return input, nil
 // }
 
-func (app *SInstantApp) PostCreate(
+func (model *SInstantModel) PostCreate(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
 	ownerId mcclient.IIdentityProvider,
 	query jsonutils.JSONObject,
 	data jsonutils.JSONObject,
 ) {
-	app.syncImagePathMap(ctx, userCred)
+	model.syncImagePathMap(ctx, userCred)
 }
 
 // func (app *SInstantApp) PostUpdate(
@@ -369,16 +369,16 @@ func (app *SInstantApp) PostCreate(
 // 	app.syncImagePathMap(ctx, userCred)
 // }
 
-func (app *SInstantApp) getImagePaths() map[string]string {
-	drv := GetInstantAppManager().GetLLMContainerDriver(apis.LLMContainerType(app.LlmType))
-	return drv.GetImageInternalPathMounts(app)
+func (model *SInstantModel) getImagePaths() map[string]string {
+	drv := GetInstantModelManager().GetLLMContainerDriver(apis.LLMContainerType(model.LlmType))
+	return drv.GetImageInternalPathMounts(model)
 }
 
-func (app *SInstantApp) syncImagePathMap(ctx context.Context, userCred mcclient.TokenCredential) error {
-	if len(app.ImageId) == 0 {
+func (model *SInstantModel) syncImagePathMap(ctx context.Context, userCred mcclient.TokenCredential) error {
+	if len(model.ImageId) == 0 {
 		return nil
 	}
-	imgPaths := app.getImagePaths()
+	imgPaths := model.getImagePaths()
 	if len(imgPaths) == 0 {
 		return nil
 	}
@@ -389,48 +389,48 @@ func (app *SInstantApp) syncImagePathMap(ctx context.Context, userCred mcclient.
 			"used_by_post_overlay": "true",
 		},
 	}
-	_, err := imagemodules.Images.Update(s, app.ImageId, jsonutils.Marshal(params))
+	_, err := imagemodules.Images.Update(s, model.ImageId, jsonutils.Marshal(params))
 	if err != nil {
 		return errors.Wrap(err, "Update")
 	}
 	return nil
 }
 
-func (app *SInstantApp) PerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.InstantAppSyncstatusInput) (jsonutils.JSONObject, error) {
-	err := app.syncImageStatus(ctx, userCred)
+func (model *SInstantModel) PerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.InstantModelSyncstatusInput) (jsonutils.JSONObject, error) {
+	err := model.syncImageStatus(ctx, userCred)
 	if err != nil {
 		return nil, errors.Wrap(err, "syncImageStatus")
 	}
 	return nil, nil
 }
 
-func (app *SInstantApp) saveImageId(ctx context.Context, userCred mcclient.TokenCredential, imageId string) error {
-	_, err := db.Update(app, func() error {
-		app.ImageId = imageId
+func (model *SInstantModel) saveImageId(ctx context.Context, userCred mcclient.TokenCredential, imageId string) error {
+	_, err := db.Update(model, func() error {
+		model.ImageId = imageId
 		return nil
 	})
 	if err != nil {
-		logclient.AddActionLogWithContext(ctx, app, logclient.ACT_SAVE_IMAGE, err, userCred, false)
+		logclient.AddActionLogWithContext(ctx, model, logclient.ACT_SAVE_IMAGE, err, userCred, false)
 		return errors.Wrap(err, "update image_id")
 	}
-	logclient.AddActionLogWithContext(ctx, app, logclient.ACT_SAVE_IMAGE, imageId, userCred, true)
+	logclient.AddActionLogWithContext(ctx, model, logclient.ACT_SAVE_IMAGE, imageId, userCred, true)
 	return nil
 }
 
-func (app *SInstantApp) syncImageStatus(ctx context.Context, userCred mcclient.TokenCredential) error {
-	img, err := fetchImage(ctx, userCred, app.ImageId)
+func (model *SInstantModel) syncImageStatus(ctx context.Context, userCred mcclient.TokenCredential) error {
+	img, err := fetchImage(ctx, userCred, model.ImageId)
 	if err != nil {
 		if httputils.ErrorCode(err) == 404 {
-			app.SetStatus(ctx, userCred, imageapi.IMAGE_STATUS_DELETED, "not found")
+			model.SetStatus(ctx, userCred, imageapi.IMAGE_STATUS_DELETED, "not found")
 			return nil
 		}
-		return errors.Wrapf(err, "fetchImage %s", app.ImageId)
+		return errors.Wrapf(err, "fetchImage %s", model.ImageId)
 	}
-	app.SetStatus(ctx, userCred, img.Status, "syncStatus")
-	if img.Status == imageapi.IMAGE_STATUS_ACTIVE && (app.Size != img.Size || app.ActualSizeMb != img.MinDiskMB) {
-		_, err := db.Update(app, func() error {
-			app.Size = img.Size
-			app.ActualSizeMb = img.MinDiskMB
+	model.SetStatus(ctx, userCred, img.Status, "syncStatus")
+	if img.Status == imageapi.IMAGE_STATUS_ACTIVE && (model.Size != img.Size || model.ActualSizeMb != img.MinDiskMB) {
+		_, err := db.Update(model, func() error {
+			model.Size = img.Size
+			model.ActualSizeMb = img.MinDiskMB
 			return nil
 		})
 		if err != nil {
@@ -438,7 +438,7 @@ func (app *SInstantApp) syncImageStatus(ctx context.Context, userCred mcclient.T
 		}
 	}
 	{
-		err := app.syncImagePathMap(ctx, userCred)
+		err := model.syncImagePathMap(ctx, userCred)
 		if err != nil {
 			return errors.Wrap(err, "syncImagePathMap")
 		}
@@ -446,10 +446,10 @@ func (app *SInstantApp) syncImageStatus(ctx context.Context, userCred mcclient.T
 	return nil
 }
 
-func (man *SInstantAppManager) findInstantAppByImageId(imageId string) (*SInstantApp, error) {
+func (man *SInstantModelManager) findInstantAppByImageId(imageId string) (*SInstantModel, error) {
 	q := man.Query().Equals("image_id", imageId)
 
-	apps := make([]SInstantApp, 0)
+	apps := make([]SInstantModel, 0)
 	err := db.FetchModelObjects(man, q, &apps)
 	if err != nil {
 		return nil, errors.Wrap(err, "FetchModelObjects")
@@ -460,22 +460,22 @@ func (man *SInstantAppManager) findInstantAppByImageId(imageId string) (*SInstan
 	return &apps[0], nil
 }
 
-func (man *SInstantAppManager) GetInstantAppById(id string) (*SInstantApp, error) {
+func (man *SInstantModelManager) GetInstantAppById(id string) (*SInstantModel, error) {
 	obj, err := man.FetchById(id)
 	if err != nil {
 		return nil, errors.Wrap(err, "FetchById")
 	}
-	return obj.(*SInstantApp), nil
+	return obj.(*SInstantModel), nil
 }
 
-func (man *SInstantAppManager) findInstantApp(mdlId, tag string, isEnabled bool) (*SInstantApp, error) {
+func (man *SInstantModelManager) findInstantApp(mdlId, tag string, isEnabled bool) (*SInstantModel, error) {
 	q := man.Query().Equals("model_id", mdlId).Equals("status", imageapi.IMAGE_STATUS_ACTIVE)
 	if isEnabled {
 		q = q.IsTrue("enabled")
 	}
 	q = q.Desc("created_at")
 
-	apps := make([]SInstantApp, 0)
+	apps := make([]SInstantModel, 0)
 	err := db.FetchModelObjects(man, q, &apps)
 	if err != nil {
 		return nil, errors.Wrap(err, "FetchModelObjects")
@@ -493,39 +493,39 @@ func (man *SInstantAppManager) findInstantApp(mdlId, tag string, isEnabled bool)
 	return &apps[0], nil
 }
 
-func (app *SInstantApp) PerformEnable(
+func (model *SInstantModel) PerformEnable(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
 	input commonapis.PerformEnableInput,
 ) (jsonutils.JSONObject, error) {
-	if len(app.ImageId) == 0 {
+	if len(model.ImageId) == 0 {
 		return nil, errors.Wrap(errors.ErrInvalidStatus, "empty image_id")
 	}
-	if len(app.Mounts) == 0 {
+	if len(model.Mounts) == 0 {
 		return nil, errors.Wrap(errors.ErrInvalidStatus, "empty mounts")
 	}
 	{
-		err := app.syncImageStatus(ctx, userCred)
+		err := model.syncImageStatus(ctx, userCred)
 		if err != nil {
 			return nil, errors.Wrap(err, "syncImageStatus")
 		}
 	}
-	if app.Status != imageapi.IMAGE_STATUS_ACTIVE {
-		return nil, errors.Wrapf(errors.ErrInvalidStatus, "cannot enable app of status %s", app.Status)
+	if model.Status != imageapi.IMAGE_STATUS_ACTIVE {
+		return nil, errors.Wrapf(errors.ErrInvalidStatus, "cannot enable app of status %s", model.Status)
 	}
 	// check duplicate
 	{
-		existing, err := GetInstantAppManager().findInstantApp(app.ModelId, app.Tag, true)
+		existing, err := GetInstantModelManager().findInstantApp(model.ModelId, model.Tag, true)
 		if err != nil {
 			return nil, errors.Wrap(err, "findInstantApp")
 		}
-		if existing != nil && existing.Id != app.Id {
-			return nil, errors.Wrapf(errors.ErrDuplicateId, "app of modelId %s tag %s has been enabled", app.ModelId, app.Tag)
+		if existing != nil && existing.Id != model.Id {
+			return nil, errors.Wrapf(errors.ErrDuplicateId, "app of modelId %s tag %s has been enabled", model.ModelId, model.Tag)
 		}
 	}
-	_, err := db.Update(app, func() error {
-		app.SEnabledResourceBase.SetEnabled(true)
+	_, err := db.Update(model, func() error {
+		model.SEnabledResourceBase.SetEnabled(true)
 		return nil
 	})
 	if err != nil {
@@ -534,16 +534,16 @@ func (app *SInstantApp) PerformEnable(
 	return nil, nil
 }
 
-func (app *SInstantApp) PerformDisable(
+func (model *SInstantModel) PerformDisable(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
 	input commonapis.PerformDisableInput,
 ) (jsonutils.JSONObject, error) {
-	_, err := db.Update(app, func() error {
-		app.SEnabledResourceBase.SetEnabled(false)
-		if app.AutoCache {
-			app.AutoCache = false
+	_, err := db.Update(model, func() error {
+		model.SEnabledResourceBase.SetEnabled(false)
+		if model.AutoCache {
+			model.AutoCache = false
 		}
 		return nil
 	})
@@ -553,53 +553,53 @@ func (app *SInstantApp) PerformDisable(
 	return nil, nil
 }
 
-func (app *SInstantApp) PerformChangeOwner(
+func (model *SInstantModel) PerformChangeOwner(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
 	input commonapis.PerformChangeProjectOwnerInput,
 ) (jsonutils.JSONObject, error) {
 	// perform disk change owner
-	if len(app.ImageId) > 0 {
+	if len(model.ImageId) > 0 {
 		s := auth.GetSession(ctx, userCred, options.Options.Region)
-		_, err := imagemodules.Images.PerformAction(s, app.ImageId, "change-owner", jsonutils.Marshal(input))
+		_, err := imagemodules.Images.PerformAction(s, model.ImageId, "change-owner", jsonutils.Marshal(input))
 		if err != nil {
 			return nil, errors.Wrap(err, "image change-owner")
 		}
 	}
-	return app.SSharableVirtualResourceBase.PerformChangeOwner(ctx, userCred, query, input)
+	return model.SSharableVirtualResourceBase.PerformChangeOwner(ctx, userCred, query, input)
 }
 
-func (app *SInstantApp) PerformPublic(
+func (model *SInstantModel) PerformPublic(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
 	input commonapis.PerformPublicProjectInput,
 ) (jsonutils.JSONObject, error) {
-	if len(app.ImageId) > 0 {
+	if len(model.ImageId) > 0 {
 		s := auth.GetSession(ctx, userCred, options.Options.Region)
-		_, err := imagemodules.Images.PerformAction(s, app.ImageId, "public", jsonutils.Marshal(input))
+		_, err := imagemodules.Images.PerformAction(s, model.ImageId, "public", jsonutils.Marshal(input))
 		if err != nil {
 			return nil, errors.Wrap(err, "image public")
 		}
 	}
-	return app.SSharableVirtualResourceBase.PerformPublic(ctx, userCred, query, input)
+	return model.SSharableVirtualResourceBase.PerformPublic(ctx, userCred, query, input)
 }
 
-func (app *SInstantApp) PerformPrivate(
+func (model *SInstantModel) PerformPrivate(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
 	input commonapis.PerformPrivateInput,
 ) (jsonutils.JSONObject, error) {
-	if len(app.ImageId) > 0 {
+	if len(model.ImageId) > 0 {
 		s := auth.GetSession(ctx, userCred, options.Options.Region)
-		_, err := imagemodules.Images.PerformAction(s, app.ImageId, "private", jsonutils.Marshal(input))
+		_, err := imagemodules.Images.PerformAction(s, model.ImageId, "private", jsonutils.Marshal(input))
 		if err != nil {
 			return nil, errors.Wrap(err, "image private")
 		}
 	}
-	return app.SSharableVirtualResourceBase.PerformPrivate(ctx, userCred, query, input)
+	return model.SSharableVirtualResourceBase.PerformPrivate(ctx, userCred, query, input)
 }
 
 // func (app *SInstantApp) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
@@ -627,24 +627,24 @@ func (app *SInstantApp) PerformPrivate(
 // 	return nil
 // }
 
-func (app *SInstantApp) PerformEnableAutoCache(
+func (model *SInstantModel) PerformEnableAutoCache(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
-	input apis.InstantAppEnableAutoCacheInput,
+	input apis.InstantModelEnableAutoCacheInput,
 ) (jsonutils.JSONObject, error) {
-	if input.AutoCache && app.Enabled.IsFalse() {
+	if input.AutoCache && model.Enabled.IsFalse() {
 		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "cannot enable auto_cache for disabled app")
 	}
-	_, err := db.Update(app, func() error {
-		app.AutoCache = input.AutoCache
+	_, err := db.Update(model, func() error {
+		model.AutoCache = input.AutoCache
 		return nil
 	})
 	if err != nil {
 		return nil, errors.Wrap(err, "update auto_cache")
 	}
-	if app.AutoCache {
-		err := app.doCache(ctx, userCred)
+	if model.AutoCache {
+		err := model.doCache(ctx, userCred)
 		if err != nil {
 			return nil, errors.Wrap(err, "doCache")
 		}
@@ -652,9 +652,9 @@ func (app *SInstantApp) PerformEnableAutoCache(
 	return nil, nil
 }
 
-func (app *SInstantApp) doCache(ctx context.Context, userCred mcclient.TokenCredential) error {
+func (model *SInstantModel) doCache(ctx context.Context, userCred mcclient.TokenCredential) error {
 	input := computeapi.CachedImageManagerCacheImageInput{}
-	input.ImageId = app.ImageId
+	input.ImageId = model.ImageId
 	input.AutoCache = true
 	input.HostType = []string{computeapi.HOST_TYPE_CONTAINER}
 	s := auth.GetSession(ctx, userCred, options.Options.Region)
@@ -896,9 +896,9 @@ func (app *SInstantApp) doCache(ctx context.Context, userCred mcclient.TokenCred
 // 	return &params, nil
 // }
 
-func (app *SInstantApp) GetImage(ctx context.Context, userCred mcclient.TokenCredential) (*imageapi.ImageDetails, error) {
+func (model *SInstantModel) GetImage(ctx context.Context, userCred mcclient.TokenCredential) (*imageapi.ImageDetails, error) {
 	s := auth.GetSession(ctx, userCred, options.Options.Region)
-	imageObj, err := imagemodules.Images.Get(s, app.ImageId, nil)
+	imageObj, err := imagemodules.Images.Get(s, model.ImageId, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "Get")
 	}
@@ -910,10 +910,10 @@ func (app *SInstantApp) GetImage(ctx context.Context, userCred mcclient.TokenCre
 	return &imgDetail, nil
 }
 
-func (app *SInstantApp) WaitImageStatus(ctx context.Context, userCred mcclient.TokenCredential, targetStatus []string, timeoutSecs int) (*imageapi.ImageDetails, error) {
+func (model *SInstantModel) WaitImageStatus(ctx context.Context, userCred mcclient.TokenCredential, targetStatus []string, timeoutSecs int) (*imageapi.ImageDetails, error) {
 	expire := time.Now().Add(time.Second * time.Duration(timeoutSecs))
 	for time.Now().Before(expire) {
-		img, err := app.GetImage(ctx, userCred)
+		img, err := model.GetImage(ctx, userCred)
 		if err != nil {
 			return nil, errors.Wrap(err, "GetImage")
 		}
@@ -928,9 +928,9 @@ func (app *SInstantApp) WaitImageStatus(ctx context.Context, userCred mcclient.T
 	return nil, errors.Wrapf(httperrors.ErrTimeout, "wait image status %s timeout", targetStatus)
 }
 
-func (app *SInstantApp) GetActualSizeMb() int32 {
-	if app.ActualSizeMb > 0 {
-		return app.ActualSizeMb
+func (model *SInstantModel) GetActualSizeMb() int32 {
+	if model.ActualSizeMb > 0 {
+		return model.ActualSizeMb
 	}
-	return int32(app.Size / 1024 / 1024)
+	return int32(model.Size / 1024 / 1024)
 }

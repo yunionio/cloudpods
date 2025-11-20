@@ -153,7 +153,7 @@ func (o *ollama) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *
 // 	return err
 // }
 
-func (o *ollama) DetectModelPaths(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM, pkgInfo api.LLMInternalPkgInfo) ([]string, error) {
+func (o *ollama) DetectModelPaths(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM, pkgInfo api.LLMInternalMdlInfo) ([]string, error) {
 	ctr, err := llm.GetLLMContainer()
 	if err != nil {
 		return nil, errors.Wrap(err, "get llm container")
@@ -208,12 +208,12 @@ func (o *ollama) DetectModelPaths(ctx context.Context, userCred mcclient.TokenCr
 	return append(originBlobs, originManifests), nil
 }
 
-func (o *ollama) GetImageInternalPathMounts(iApp *models.SInstantApp) map[string]string {
+func (o *ollama) GetImageInternalPathMounts(iApp *models.SInstantModel) map[string]string {
 	///*TODO
 	return nil
 }
 
-func (o *ollama) GetSaveDirectories(sApp *models.SInstantApp) (string, []string, error) {
+func (o *ollama) GetSaveDirectories(sApp *models.SInstantModel) (string, []string, error) {
 	var filteredMounts []string
 
 	for _, mount := range sApp.Mounts {
@@ -231,7 +231,7 @@ func (o *ollama) GetSaveDirectories(sApp *models.SInstantApp) (string, []string,
 	return api.LLM_OLLAMA, filteredMounts, nil
 }
 
-func (o *ollama) GetProbedPackagesExt(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM, pkgAppIds ...string) (map[string]api.LLMInternalPkgInfo, error) {
+func (o *ollama) GetProbedModelsExt(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM, mdlIds ...string) (map[string]api.LLMInternalMdlInfo, error) {
 	ctr, err := llm.GetLLMContainer()
 	if err != nil {
 		return nil, errors.Wrap(err, "get llm container")
@@ -245,15 +245,15 @@ func (o *ollama) GetProbedPackagesExt(ctx context.Context, userCred mcclient.Tok
 	}
 	lines := strings.Split(strings.TrimSpace(modelsOutput), "\n")
 
-	models := make(map[string]api.LLMInternalPkgInfo, len(lines)-1)
+	models := make(map[string]api.LLMInternalMdlInfo, len(lines)-1)
 	for i := 1; i < len(lines); i++ {
 		fields := strings.Fields(lines[i])
 		if len(fields) > 2 {
-			if len(pkgAppIds) > 0 && !utils.IsInStringArray(fields[1], pkgAppIds) {
+			if len(mdlIds) > 0 && !utils.IsInStringArray(fields[1], mdlIds) {
 				continue
 			}
 			modelName, modelTag, _ := llm.GetLargeLanguageModelName(fields[0])
-			models[fields[1]] = api.LLMInternalPkgInfo{
+			models[fields[1]] = api.LLMInternalMdlInfo{
 				Name:    modelName,
 				Tag:     modelTag,
 				ModelId: fields[1],

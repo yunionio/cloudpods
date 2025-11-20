@@ -67,11 +67,11 @@ type ILLMContainerPullModel interface {
 }
 
 type ILLMContainerInstantApp interface {
-	GetProbedPackagesExt(ctx context.Context, userCred mcclient.TokenCredential, llm *SLLM, pkgNames ...string) (map[string]llm.LLMInternalPkgInfo, error)
-	DetectModelPaths(ctx context.Context, userCred mcclient.TokenCredential, llm *SLLM, pkgInfo llm.LLMInternalPkgInfo) ([]string, error)
+	GetProbedModelsExt(ctx context.Context, userCred mcclient.TokenCredential, llm *SLLM, mdlIds ...string) (map[string]llm.LLMInternalMdlInfo, error)
+	DetectModelPaths(ctx context.Context, userCred mcclient.TokenCredential, llm *SLLM, pkgInfo llm.LLMInternalMdlInfo) ([]string, error)
 
-	GetImageInternalPathMounts(sApp *SInstantApp) map[string]string
-	GetSaveDirectories(sApp *SInstantApp) (string, []string, error)
+	GetImageInternalPathMounts(sApp *SInstantModel) map[string]string
+	GetSaveDirectories(sApp *SInstantModel) (string, []string, error)
 
 	ValidateMounts(mounts []string, mdlName string, mdlTag string) ([]string, error)
 	// GetPackageAppIdByPostOverlay(postOverlay *commonapi.ContainerVolumeMountDiskPostOverlay) string

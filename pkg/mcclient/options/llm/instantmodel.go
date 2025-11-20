@@ -5,26 +5,26 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
-type LLMInstantAppListOptions struct {
+type LLMInstantModelListOptions struct {
 	options.BaseListOptions
 
 	ModelName []string `help:"filter by model name"`
 	Tag       []string `help:"filter by model tag"`
 }
 
-func (o *LLMInstantAppListOptions) Params() (jsonutils.JSONObject, error) {
+func (o *LLMInstantModelListOptions) Params() (jsonutils.JSONObject, error) {
 	return options.ListStructToParams(o)
 }
 
-type LLMInstantAppShowOptions struct {
+type LLMInstantModelShowOptions struct {
 	options.BaseShowOptions
 }
 
-func (o *LLMInstantAppShowOptions) Params() (jsonutils.JSONObject, error) {
+func (o *LLMInstantModelShowOptions) Params() (jsonutils.JSONObject, error) {
 	return options.StructToParams(o)
 }
 
-type LLMInstantAppCreateOptions struct {
+type LLMInstantModelCreateOptions struct {
 	options.BaseCreateOptions
 
 	MODEL_NAME string `json:"model_name"`
@@ -35,6 +35,6 @@ type LLMInstantAppCreateOptions struct {
 	Mounts []string `json:"mounts"`
 }
 
-func (o *LLMInstantAppCreateOptions) Params() (jsonutils.JSONObject, error) {
+func (o *LLMInstantModelCreateOptions) Params() (jsonutils.JSONObject, error) {
 	return jsonutils.Marshal(o), nil
 }

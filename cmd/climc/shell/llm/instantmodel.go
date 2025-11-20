@@ -9,11 +9,11 @@ import (
 )
 
 func init() {
-	cmd := shell.NewResourceCmd(&modules.LLMInstantApp)
-	cmd.List(new(options.LLMInstantAppListOptions))
-	cmd.Show(new(options.LLMInstantAppShowOptions))
+	cmd := shell.NewResourceCmd(&modules.LLMInstantModel)
+	cmd.List(new(options.LLMInstantModelListOptions))
+	cmd.Show(new(options.LLMInstantModelShowOptions))
 	// cmd.Update(new(options.InstantAppUpdateOptions))
-	cmd.Create(new(options.LLMInstantAppCreateOptions))
+	cmd.Create(new(options.LLMInstantModelCreateOptions))
 	// cmd.Delete(new(options.InstantAppDeleteOptions))
 	cmd.Perform("syncstatus", new(commonoptions.BaseIdOptions))
 	cmd.Perform("change-owner", new(commonoptions.ChangeOwnerOptions))
