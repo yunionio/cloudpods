@@ -211,6 +211,13 @@ func (role *SRole) ValidateDeleteCondition(ctx context.Context, info jsonutils.J
 	if grpCnt > 0 {
 		return httperrors.NewNotEmptyError("role is being assigned to group")
 	}
+	rps, err := RolePolicyManager.fetchByRoleId(role.Id)
+	if err != nil {
+		return errors.Wrap(err, "FetchByRoleId")
+	}
+	if len(rps) > 0 {
+		return httperrors.NewNotEmptyError("role is in associated with %d policies", len(rps))
+	}
 	return role.SIdentityBaseResource.ValidateDeleteCondition(ctx, nil)
 }
 
