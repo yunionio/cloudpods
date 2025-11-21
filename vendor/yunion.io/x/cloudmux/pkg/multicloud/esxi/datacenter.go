@@ -118,18 +118,12 @@ func (dc *SDatacenter) GetResourcePools() ([]cloudprovider.ICloudProject, error)
 }
 
 func (dc *SDatacenter) listResourcePools() ([]mo.ResourcePool, error) {
-	var pools, result []mo.ResourcePool
+	var pools []mo.ResourcePool
 	err := dc.manager.scanMObjects(dc.object.Entity().Self, RESOURCEPOOL_PROPS, &pools)
 	if err != nil {
 		return nil, errors.Wrap(err, "scanMObjects")
 	}
-	for i := range pools {
-		if pools[i].Parent.Type == "ClusterComputeResource" {
-			continue
-		}
-		result = append(result, pools[i])
-	}
-	return result, nil
+	return pools, nil
 }
 
 func (dc *SDatacenter) ListClusters() ([]*SCluster, error) {
