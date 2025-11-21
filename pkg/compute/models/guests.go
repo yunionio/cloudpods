@@ -192,6 +192,9 @@ type SGuest struct {
 	HealthStatus string `width:"36" charset:"ascii" nullable:"true" default:"ok" list:"user"`
 	// Used for guest rescue
 	RescueMode bool `nullable:"false" default:"false" list:"user" create:"optional"`
+
+	// 资源池,仅vmware指定调度标签时内部使用
+	ResourcePool string `width:"64" charset:"utf8" nullable:"true" create:"optional"`
 }
 
 func (manager *SGuestManager) GetPropertyStatistics(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*apis.StatusStatistic, error) {
@@ -2477,6 +2480,31 @@ func (guest *SGuest) PostCreate(ctx context.Context, userCred mcclient.TokenCred
 	userData, _ := data.GetString("user_data")
 	if len(userData) > 0 {
 		guest.setUserData(ctx, userCred, userData)
+	}
+
+	schedtags := []api.SchedtagConfig{}
+	data.Unmarshal(&schedtags, "schedtags")
+
+	for _, tag := range schedtags {
+		log.Infof("tag: %s", jsonutils.Marshal(tag).PrettyString())
+		if tag.ResourceType != HostManager.KeywordPlural() {
+			continue
+		}
+		metas := []db.SMetadata{}
+		db.Metadata.Query().
+			Equals("obj_type", SchedtagManager.Keyword()).
+			Equals("obj_id", tag.Id).
+			Startswith("key", db.USER_TAG_PREFIX).All(&metas)
+		for _, meta := range metas {
+			log.Infof("meta: %s", jsonutils.Marshal(meta).PrettyString())
+			key := strings.TrimPrefix(meta.Key, db.USER_TAG_PREFIX)
+			if strings.EqualFold(key, "resource_pool") || strings.EqualFold(key, "resourcePool") || strings.EqualFold(key, "资源池") {
+				db.Update(guest, func() error {
+					guest.ResourcePool = meta.Value
+					return nil
+				})
+			}
+		}
 	}
 
 	if guest.GetDriver().GetMaxSecurityGroupCount() > 0 {
