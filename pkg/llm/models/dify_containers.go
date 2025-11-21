@@ -77,7 +77,7 @@ func _getRegistryImage(imageId string) string {
 	return image.(*SLLMImage).ToContainerImage()
 }
 
-func (m *DifyContainersManager) GetContainer(name, containerKey string, sku *SDifyModel) (*computeapi.PodContainerCreateInput, error) {
+func (m *DifyContainersManager) GetContainer(name, containerKey string, sku *SDifySku) (*computeapi.PodContainerCreateInput, error) {
 	switch containerKey {
 	case api.DIFY_REDIS_KEY:
 		return m._getRedisContainer(name, containerKey, _getRegistryImage(sku.RedisImageId)), nil

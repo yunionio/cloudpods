@@ -5,20 +5,20 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
 
-type LLMModelManager struct {
+type DifySkuManager struct {
 	modulebase.ResourceManager
 }
 
 var (
-	LLMModel LLMModelManager
+	DifySku DifySkuManager
 )
 
 func init() {
-	LLMModel = LLMModelManager{
-		ResourceManager: modules.NewLLMManager("llm_model", "llm_models",
+	DifySku = DifySkuManager{
+		ResourceManager: modules.NewLLMManager("dify_sku", "dify_skus",
 			[]string{},
 			[]string{},
 		),
 	}
-	modules.Register(&LLMModel)
+	modules.Register(&DifySku)
 }
