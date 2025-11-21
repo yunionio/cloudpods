@@ -540,6 +540,10 @@ func (manager *SRolePolicyManager) GetPolicyGroupByIds(policyIds []string, nameO
 			return nil, nil, errors.Wrapf(err, "FetchPolicy %s", id)
 		}
 		policy := policyObj.(*SPolicy)
+		if policy.Enabled.IsFalse() {
+			// skip disabled policy
+			continue
+		}
 		if scopeName, ok := names[policy.Scope]; !ok {
 			names[policy.Scope] = []string{policy.Name}
 		} else {
