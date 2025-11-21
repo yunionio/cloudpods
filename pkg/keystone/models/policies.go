@@ -471,6 +471,13 @@ func (policy *SPolicy) ValidateDeleteCondition(ctx context.Context, info jsonuti
 	// if policy.IsShared() {
 	// 	return httperrors.NewInvalidStatusError("cannot delete shared policy")
 	// }
+	rps, err := RolePolicyManager.fetchByPolicyId(policy.Id)
+	if err != nil {
+		return errors.Wrap(err, "FetchByPolicyId")
+	}
+	if len(rps) > 0 {
+		return httperrors.NewNotEmptyError("policy is in associated with %d roles", len(rps))
+	}
 	if policy.IsSystem.IsTrue() {
 		return httperrors.NewForbiddenError("cannot delete system policy")
 	}
