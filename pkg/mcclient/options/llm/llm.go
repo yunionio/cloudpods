@@ -22,7 +22,7 @@ type LLMBaseListOptions struct {
 type LLMListOptions struct {
 	LLMBaseListOptions
 
-	LlmModel string `help:"filter by llm model"`
+	LlmSku   string `help:"filter by llm sku"`
 	LlmImage string `help:"filter by llm image"`
 }
 
@@ -60,7 +60,7 @@ type LLMBaseCreateOptions struct {
 type LLMCreateOptions struct {
 	LLMBaseCreateOptions
 
-	LLM_MODEL_ID string `help:"llm model id or name" json:"llm_model_id"`
+	LLM_SKU_ID string `help:"llm sku id or name" json:"llm_sku_id"`
 }
 
 func (o *LLMCreateOptions) Params() (jsonutils.JSONObject, error) {

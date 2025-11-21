@@ -15,10 +15,10 @@ func GetDifyPodCreateInput(
 	userCred mcclient.TokenCredential,
 	input *api.DifyCreateInput,
 	dify *SDify,
-	sku *SDifyModel,
+	sku *SDifySku,
 	eip string,
 ) (*computeapi.ServerCreateInput, error) {
-	data, err := GetLLMBasePodCreateInput(ctx, userCred, &input.LLMBaseCreateInput, &dify.SLLMBase, &sku.SLLMModelBase, eip)
+	data, err := GetLLMBasePodCreateInput(ctx, userCred, &input.LLMBaseCreateInput, &dify.SLLMBase, &sku.SLLMSkuBase, eip)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetLLMBasePodCreateInput: ")
 	}
