@@ -39,29 +39,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/dbutils"
 )
 
-func InitDB(options *common_options.DBOptions) {
-	if options.DebugSqlchemy {
-		log.Warningf("debug Sqlchemy is turned on")
-		sqlchemy.DEBUG_SQLCHEMY = true
-	}
-
-	log.Infof("Registered SQL drivers: %s", strings.Join(sql.Drivers(), ", "))
-
-	consts.QueryOffsetOptimization = options.QueryOffsetOptimization
-
-	if options.HistoricalUniqueName {
-		consts.EnableHistoricalUniqueName()
-	} else {
-		consts.DisableHistoricalUniqueName()
-	}
-
-	if options.OpsLogMaxKeepMonths > 0 {
-		consts.SetSplitableMaxKeepMonths(options.OpsLogMaxKeepMonths)
-	}
-	if options.SplitableMaxDurationHours > 0 {
-		consts.SetSplitableMaxDurationHours(options.SplitableMaxDurationHours)
-	}
-
+func InitDBConn(options *common_options.DBOptions) {
 	dialect, sqlStr, err := options.GetDBConnection()
 	if err != nil {
 		log.Fatalf("Invalid SqlConnection string: %s error: %v", options.SqlConnection, err)
@@ -103,8 +81,10 @@ func InitDB(options *common_options.DBOptions) {
 	dbConn.SetConnMaxLifetime(time.Duration(options.DbMaxWaitTimeoutSeconds) * time.Second)
 	// ConnMaxIdleTime should be half of ConnMaxLifetime
 	dbConn.SetConnMaxIdleTime(time.Duration(options.DbMaxWaitTimeoutSeconds/2) * time.Second)
+}
 
-	dialect, sqlStr, err = options.GetClickhouseConnStr()
+func InitClickhouseConn(options *common_options.DBOptions) {
+	dialect, sqlStr, err := options.GetClickhouseConnStr()
 	if err == nil {
 		// connect to clickcloud
 		// force convert sqlstr from clickhouse v2 to v1
@@ -126,6 +106,33 @@ func InitDB(options *common_options.DBOptions) {
 			consts.OpsLogWithClickhouse = true
 		}
 	}
+}
+
+func InitDB(options *common_options.DBOptions) {
+	if options.DebugSqlchemy {
+		log.Warningf("debug Sqlchemy is turned on")
+		sqlchemy.DEBUG_SQLCHEMY = true
+	}
+
+	log.Infof("Registered SQL drivers: %s", strings.Join(sql.Drivers(), ", "))
+
+	consts.QueryOffsetOptimization = options.QueryOffsetOptimization
+
+	if options.HistoricalUniqueName {
+		consts.EnableHistoricalUniqueName()
+	} else {
+		consts.DisableHistoricalUniqueName()
+	}
+
+	if options.OpsLogMaxKeepMonths > 0 {
+		consts.SetSplitableMaxKeepMonths(options.OpsLogMaxKeepMonths)
+	}
+	if options.SplitableMaxDurationHours > 0 {
+		consts.SetSplitableMaxDurationHours(options.SplitableMaxDurationHours)
+	}
+
+	InitDBConn(options)
+	InitClickhouseConn(options)
 
 	switch options.LockmanMethod {
 	case common_options.LockMethodInMemory, "":
