@@ -14,11 +14,11 @@ type DifyCustomized struct {
 type DifyListInput struct {
 	LLMBaseListInput
 
-	DifyModel string `json:"dify_model"`
+	DifySku string `json:"dify_sku"`
 }
 
 type DifyCreateInput struct {
 	LLMBaseCreateInput
 
-	DifyModelId string
+	DifySkuId string
 }

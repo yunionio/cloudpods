@@ -49,7 +49,7 @@ type SDifyManager struct {
 type SDify struct {
 	SLLMBase
 
-	DifyModelId string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"required"`
+	DifySkuId string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"required"`
 }
 
 func (dm *SDifyManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input *api.DifyCreateInput) (*api.DifyCreateInput, error) {
@@ -58,12 +58,12 @@ func (dm *SDifyManager) ValidateCreateData(ctx context.Context, userCred mcclien
 	if err != nil {
 		return input, errors.Wrap(err, "validate VirtualResourceCreateInput")
 	}
-	model, err := GetDifyModelManager().FetchByIdOrName(ctx, userCred, input.DifyModelId)
+	sku, err := GetDifySkuManager().FetchByIdOrName(ctx, userCred, input.DifySkuId)
 	if err != nil {
-		return input, errors.Wrap(err, "fetch DifyModel")
+		return input, errors.Wrap(err, "fetch DifySku")
 	}
-	dModel := model.(*SDifyModel)
-	input.DifyModelId = dModel.Id
+	dSku := sku.(*SDifySku)
+	input.DifySkuId = dSku.Id
 
 	return input, nil
 }
@@ -92,16 +92,16 @@ func (dm *SDifyManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, 
 	if err != nil {
 		return q, errors.Wrap(err, "VirtualResourceBaseManager.ListItemFilter")
 	}
-	if len(input.DifyModel) > 0 {
-		modelObj, err := GetDifyModelManager().FetchByIdOrName(ctx, userCred, input.DifyModel)
+	if len(input.DifySku) > 0 {
+		skuObj, err := GetDifySkuManager().FetchByIdOrName(ctx, userCred, input.DifySku)
 		if err != nil {
 			if errors.Cause(err) == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(GetDifyModelManager().KeywordPlural(), input.DifyModel)
+				return nil, httperrors.NewResourceNotFoundError2(GetDifySkuManager().KeywordPlural(), input.DifySku)
 			} else {
-				return nil, errors.Wrap(err, "DifyModelManager.FetchByIdOrName")
+				return nil, errors.Wrap(err, "GetDifySkuManager.FetchByIdOrName")
 			}
 		}
-		q = q.Equals("dify_model_id", modelObj.GetId())
+		q = q.Equals("dify_sku_id", skuObj.GetId())
 	}
 	return q, nil
 }
@@ -110,15 +110,15 @@ func (dify *SDify) CustomizeDelete(ctx context.Context, userCred mcclient.TokenC
 	return dify.StartDeleteTask(ctx, userCred, "")
 }
 
-func (dify *SDify) GetDifyModel(modelId string) (*SDifyModel, error) {
-	if len(modelId) == 0 {
-		modelId = dify.DifyModelId
+func (dify *SDify) GetDifySku(skuId string) (*SDifySku, error) {
+	if len(skuId) == 0 {
+		skuId = dify.DifySkuId
 	}
-	model, err := GetDifyModelManager().FetchById(modelId)
+	sku, err := GetDifySkuManager().FetchById(skuId)
 	if err != nil {
-		return nil, errors.Wrap(err, "fetch DifyModel")
+		return nil, errors.Wrap(err, "fetch DifySku")
 	}
-	return model.(*SDifyModel), nil
+	return sku.(*SDifySku), nil
 }
 
 func (dify *SDify) GetDifyContainers() []*computeapi.PodContainerCreateInput {
@@ -172,12 +172,12 @@ func (dify *SDify) StartDeleteTask(ctx context.Context, userCred mcclient.TokenC
 }
 
 func (dify *SDify) ServerCreate(ctx context.Context, userCred mcclient.TokenCredential, s *mcclient.ClientSession, input *api.DifyCreateInput) (string, error) {
-	model, err := dify.GetDifyModel(dify.DifyModelId)
+	sku, err := dify.GetDifySku(dify.DifySkuId)
 	if nil != err {
-		return "", errors.Wrap(err, "GetDifyModel")
+		return "", errors.Wrap(err, "GetDifySku")
 	}
 
-	data, err := GetDifyPodCreateInput(ctx, userCred, input, dify, model, "")
+	data, err := GetDifyPodCreateInput(ctx, userCred, input, dify, sku, "")
 	if nil != err {
 		return "", errors.Wrap(err, "GetDifyPodCreateInput")
 	}
@@ -207,11 +207,11 @@ func (dify *SDify) ServerCreate(ctx context.Context, userCred mcclient.TokenCred
 // }
 
 func (dify *SDify) getDifyContainerByContainerKey(containerKey string) (*computeapi.PodContainerCreateInput, error) {
-	model, err := dify.GetDifyModel("")
+	sku, err := dify.GetDifySku("")
 	if nil != err {
 		return nil, err
 	}
-	container, err := getDifyContainersManager().GetContainer(dify.GetName(), containerKey, model)
+	container, err := getDifyContainersManager().GetContainer(dify.GetName(), containerKey, sku)
 	if nil != err {
 		return nil, err
 	}

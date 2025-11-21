@@ -3,11 +3,17 @@ package models
 import (
 	"context"
 
+	"yunion.io/x/pkg/errors"
+
 	commonapi "yunion.io/x/onecloud/pkg/apis"
+	imageapi "yunion.io/x/onecloud/pkg/apis/image"
 	api "yunion.io/x/onecloud/pkg/apis/llm"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/llm/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/image"
 )
 
 func init() {
@@ -64,4 +70,18 @@ func (volume *SVolume) StartDeleteTask(ctx context.Context, userCred mcclient.To
 
 func (volume *SVolume) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	return volume.SVirtualResourceBase.Delete(ctx, userCred)
+}
+
+func fetchImage(ctx context.Context, userCred mcclient.TokenCredential, imageId string) (*imageapi.ImageDetails, error) {
+	s := auth.GetSession(ctx, userCred, options.Options.Region)
+	imgObj, err := image.Images.Get(s, imageId, nil)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Image.Get %s", imageId)
+	}
+	img := imageapi.ImageDetails{}
+	err = imgObj.Unmarshal(&img)
+	if err != nil {
+		return nil, errors.Wrap(err, "Unmarshal")
+	}
+	return &img, nil
 }

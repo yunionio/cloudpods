@@ -13,33 +13,33 @@ import (
 )
 
 func init() {
-	GetDifyModelManager()
+	GetDifySkuManager()
 }
 
-var difyModelManager *SDifyModelManager
+var difySkuManager *SDifySkuManager
 
-func GetDifyModelManager() *SDifyModelManager {
-	if difyModelManager != nil {
-		return difyModelManager
+func GetDifySkuManager() *SDifySkuManager {
+	if difySkuManager != nil {
+		return difySkuManager
 	}
-	difyModelManager = &SDifyModelManager{
-		SLLMModelBaseManager: NewSLLMModelBaseManager(
-			SDifyModel{},
-			"dify_models_tbl",
-			"dify_model",
-			"dify_models",
+	difySkuManager = &SDifySkuManager{
+		SLLMSkuBaseManager: NewSLLMSkuBaseManager(
+			SDifySku{},
+			"dify_skus_tbl",
+			"dify_sku",
+			"dify_skus",
 		),
 	}
-	difyModelManager.SetVirtualObject(difyModelManager)
-	return difyModelManager
+	difySkuManager.SetVirtualObject(difySkuManager)
+	return difySkuManager
 }
 
-type SDifyModelManager struct {
-	SLLMModelBaseManager
+type SDifySkuManager struct {
+	SLLMSkuBaseManager
 }
 
-type SDifyModel struct {
-	SLLMModelBase
+type SDifySku struct {
+	SLLMSkuBase
 
 	PostgresImageId     string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"required"`
 	RedisImageId        string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"required"`
@@ -52,16 +52,16 @@ type SDifyModel struct {
 	DifyWeaviateImageId string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"required"`
 }
 
-func (man *SDifyModelManager) ListItemFilter(
+func (man *SDifySkuManager) ListItemFilter(
 	ctx context.Context,
 	q *sqlchemy.SQuery,
 	userCred mcclient.TokenCredential,
-	input api.DifyModelListInput,
+	input api.DifySkulListInput,
 ) (*sqlchemy.SQuery, error) {
 	var err error
-	q, err = man.SLLMModelBaseManager.ListItemFilter(ctx, q, userCred, input.SharableVirtualResourceListInput)
+	q, err = man.SLLMSkuBaseManager.ListItemFilter(ctx, q, userCred, input.SharableVirtualResourceListInput)
 	if err != nil {
-		return nil, errors.Wrapf(err, "SLLMModelBaseManager.ListItemFilter")
+		return nil, errors.Wrapf(err, "SLLMSkuBaseManager.ListItemFilter")
 	}
 	return q, nil
 }
@@ -77,11 +77,11 @@ func (man *SDifyModelManager) ListItemFilter(
 
 // }
 
-func (man *SDifyModelManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input *api.DifyModelCreateInput) (*api.DifyModelCreateInput, error) {
+func (man *SDifySkuManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input *api.DifySkuCreateInput) (*api.DifySkuCreateInput, error) {
 	var err error
-	input.LLMModelBaseCreateInput, err = man.SLLMModelBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.LLMModelBaseCreateInput)
+	input.LLMSKuBaseCreateInput, err = man.SLLMSkuBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.LLMSKuBaseCreateInput)
 	if err != nil {
-		return nil, errors.Wrap(err, "SLLMModelBaseManager.ValidateCreateData")
+		return nil, errors.Wrap(err, "SLLMSkuBaseManager.ValidateCreateData")
 	}
 
 	for _, imgId := range []*string{&input.PostgresImageId, &input.RedisImageId, &input.NginxImageId, &input.DifyApiImageId, &input.DifyPluginImageId, &input.DifyWebImageId, &input.DifySandboxImageId, &input.DifySSRFImageId, &input.DifyWeaviateImageId} {
@@ -94,11 +94,11 @@ func (man *SDifyModelManager) ValidateCreateData(ctx context.Context, userCred m
 	return input, nil
 }
 
-func (model *SDifyModel) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.DifyModelUpdateInput) (api.DifyModelUpdateInput, error) {
+func (sku *SDifySku) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.DifySkuUpdateInput) (api.DifySkuUpdateInput, error) {
 	var err error
-	input.LLMModelBaseUpdateInput, err = model.SLLMModelBase.ValidateUpdateData(ctx, userCred, query, input.LLMModelBaseUpdateInput)
+	input.LLMSkuBaseUpdateInput, err = sku.SLLMSkuBase.ValidateUpdateData(ctx, userCred, query, input.LLMSkuBaseUpdateInput)
 	if err != nil {
-		return input, errors.Wrap(err, "validate LLMModelBaseUpdateInput")
+		return input, errors.Wrap(err, "validate LLMSkuBaseUpdateInput")
 	}
 
 	for _, imgId := range []*string{&input.PostgresImageId, &input.RedisImageId, &input.NginxImageId, &input.DifyApiImageId, &input.DifyPluginImageId, &input.DifyWebImageId, &input.DifySandboxImageId, &input.DifySSRFImageId, &input.DifyWeaviateImageId} {
@@ -113,13 +113,13 @@ func (model *SDifyModel) ValidateUpdateData(ctx context.Context, userCred mcclie
 	return input, nil
 }
 
-func (model *SDifyModel) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
-	count, err := GetDifyManager().Query().Equals("dify_model_id", model.Id).CountWithError()
+func (sku *SDifySku) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
+	count, err := GetDifyManager().Query().Equals("dify_sku_id", sku.Id).CountWithError()
 	if nil != err {
 		return errors.Wrap(err, "fetch dify")
 	}
 	if count > 0 {
-		return errors.Wrap(errors.ErrNotSupported, "This model is currently in use")
+		return errors.Wrap(errors.ErrNotSupported, "This sku is currently in use")
 	}
 	return nil
 }

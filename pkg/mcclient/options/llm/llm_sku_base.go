@@ -12,7 +12,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/llm"
 )
 
-type LLMModelBaseCreateOptions struct {
+type LLMSkuBaseCreateOptions struct {
 	apis.SharableVirtualResourceCreateInput
 
 	CPU       int
@@ -36,7 +36,7 @@ type LLMModelBaseCreateOptions struct {
 	Entrypoint string `help:"entrypoint"`
 }
 
-func (o *LLMModelBaseCreateOptions) Params(dict *jsonutils.JSONDict) error {
+func (o *LLMSkuBaseCreateOptions) Params(dict *jsonutils.JSONDict) error {
 	vol := api.Volume{
 		SizeMB:      o.DISK_SIZE,
 		TemplateId:  o.TemplateId,
@@ -52,7 +52,7 @@ func (o *LLMModelBaseCreateOptions) Params(dict *jsonutils.JSONDict) error {
 	return nil
 }
 
-type LLMModelBaseUpdateOptions struct {
+type LLMSkuBaseUpdateOptions struct {
 	apis.SharableVirtualResourceBaseUpdateInput
 
 	ID string
@@ -81,7 +81,7 @@ type LLMModelBaseUpdateOptions struct {
 	Entrypoint string `help:"entrypoint"`
 }
 
-func (o *LLMModelBaseUpdateOptions) Params(dict *jsonutils.JSONDict) error {
+func (o *LLMSkuBaseUpdateOptions) Params(dict *jsonutils.JSONDict) error {
 	if o.NoTemplate {
 		dict.Set("template_id", jsonutils.NewString(""))
 	}

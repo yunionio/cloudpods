@@ -16,6 +16,13 @@ const (
 	/* 停机失败 */
 	LLM_STATUS_STOP_FAILED = "stop_fail"
 
+	/* 开始保存应用 */
+	LLM_STATUS_START_SAVE_MODEL = "start_save_model"
+	/* 正在保存应用 */
+	LLM_STATUS_SAVING_MODEL = "saving_model"
+	/* 保存应用失败 */
+	LLM_STATUS_SAVE_MODEL_FAILED = "save_model_failed"
+
 	/* 停机 */
 	LLM_STATUS_READY = "ready"
 	/* 运行 */

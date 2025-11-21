@@ -18,33 +18,33 @@ import (
 )
 
 func init() {
-	GetLLMModelManager()
+	GetLLMSkuManager()
 }
 
-var llmModelManager *SLLMModelManager
+var llmSkuManager *SLLMSkuManager
 
-func GetLLMModelManager() *SLLMModelManager {
-	if llmModelManager != nil {
-		return llmModelManager
+func GetLLMSkuManager() *SLLMSkuManager {
+	if llmSkuManager != nil {
+		return llmSkuManager
 	}
-	llmModelManager = &SLLMModelManager{
-		SLLMModelBaseManager: NewSLLMModelBaseManager(
-			SLLMModel{},
-			"llm_models_tbl",
-			"llm_model",
-			"llm_models",
+	llmSkuManager = &SLLMSkuManager{
+		SLLMSkuBaseManager: NewSLLMSkuBaseManager(
+			SLLMSku{},
+			"llm_skus_tbl",
+			"llm_sku",
+			"llm_skus",
 		),
 	}
-	llmModelManager.SetVirtualObject(llmModelManager)
-	return llmModelManager
+	llmSkuManager.SetVirtualObject(llmSkuManager)
+	return llmSkuManager
 }
 
-type SLLMModelManager struct {
-	SLLMModelBaseManager
+type SLLMSkuManager struct {
+	SLLMSkuBaseManager
 }
 
-type SLLMModel struct {
-	SLLMModelBase
+type SLLMSku struct {
+	SLLMSkuBase
 	// SMountedAppsResource
 
 	LLMImageId   string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"required"`
@@ -52,16 +52,16 @@ type SLLMModel struct {
 	LLMModelName string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"required"`
 }
 
-func (man *SLLMModelManager) ListItemFilter(
+func (man *SLLMSkuManager) ListItemFilter(
 	ctx context.Context,
 	q *sqlchemy.SQuery,
 	userCred mcclient.TokenCredential,
-	input api.LLMModelListInput,
+	input api.LLMSkuListInput,
 ) (*sqlchemy.SQuery, error) {
 	var err error
-	q, err = man.SLLMModelBaseManager.ListItemFilter(ctx, q, userCred, input.SharableVirtualResourceListInput)
+	q, err = man.SLLMSkuBaseManager.ListItemFilter(ctx, q, userCred, input.SharableVirtualResourceListInput)
 	if err != nil {
-		return nil, errors.Wrapf(err, "SLLMModelBaseManager.ListItemFilter")
+		return nil, errors.Wrapf(err, "SLLMSkuBaseManager.ListItemFilter")
 	}
 	if len(input.LLMType) > 0 {
 		q = q.Equals("llm_type", input.LLMType)
@@ -73,19 +73,19 @@ func (man *SLLMModelManager) ListItemFilter(
 	return q, nil
 }
 
-func (manager *SLLMModelManager) FetchCustomizeColumns(
+func (manager *SLLMSkuManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
 	objs []interface{},
 	fields stringutils2.SSortedStrings,
 	isList bool,
-) []api.LLMModelDetails {
+) []api.LLMSkuDetails {
 	// skuIds := []string{}
 	imageIds := []string{}
 	// templateIds := []string{}
 
-	skus := []SLLMModel{}
+	skus := []SLLMSku{}
 	jsonutils.Update(&skus, objs)
 	virows := manager.SSharableVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	for _, sku := range skus {
@@ -104,7 +104,7 @@ func (manager *SLLMModelManager) FetchCustomizeColumns(
 	// 	LLMCapacity int
 	// }{}
 	// q.All(&details)
-	res := make([]api.LLMModelDetails, len(objs))
+	res := make([]api.LLMSkuDetails, len(objs))
 	for i := range skus {
 		res[i].SharableVirtualResourceDetails = virows[i]
 		// for _, v := range details {
@@ -146,11 +146,11 @@ func (manager *SLLMModelManager) FetchCustomizeColumns(
 	return res
 }
 
-func (man *SLLMModelManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input *api.LLMModelCreateInput) (*api.LLMModelCreateInput, error) {
+func (man *SLLMSkuManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input *api.LLMSkuCreateInput) (*api.LLMSkuCreateInput, error) {
 	var err error
-	input.LLMModelBaseCreateInput, err = man.SLLMModelBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.LLMModelBaseCreateInput)
+	input.LLMSKuBaseCreateInput, err = man.SLLMSkuBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.LLMSKuBaseCreateInput)
 	if err != nil {
-		return nil, errors.Wrap(err, "SLLMModelBaseManager.ValidateCreateData")
+		return nil, errors.Wrap(err, "SLLMSkuBaseManager.ValidateCreateData")
 	}
 	if !api.IsLLMContainerType(input.LLMType) {
 		return input, errors.Wrap(httperrors.ErrInputParameter, "llm_type must be one of "+strings.Join(api.LLM_CONTAINER_TYPES.List(), ","))
@@ -165,15 +165,15 @@ func (man *SLLMModelManager) ValidateCreateData(ctx context.Context, userCred mc
 	return input, nil
 }
 
-func (model *SLLMModel) GetLLMContainerDriver() ILLMContainerDriver {
-	return GetLLMContainerDriver(api.LLMContainerType(model.LLMType))
+func (sku *SLLMSku) GetLLMContainerDriver() ILLMContainerDriver {
+	return GetLLMContainerDriver(api.LLMContainerType(sku.LLMType))
 }
 
-func (model *SLLMModel) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.LLMModelUpdateInput) (api.LLMModelUpdateInput, error) {
+func (sku *SLLMSku) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.LLMSkuUpdateInput) (api.LLMSkuUpdateInput, error) {
 	var err error
-	input.LLMModelBaseUpdateInput, err = model.SLLMModelBase.ValidateUpdateData(ctx, userCred, query, input.LLMModelBaseUpdateInput)
+	input.LLMSkuBaseUpdateInput, err = sku.SLLMSkuBase.ValidateUpdateData(ctx, userCred, query, input.LLMSkuBaseUpdateInput)
 	if err != nil {
-		return input, errors.Wrap(err, "validate LLMModelBaseUpdateInput")
+		return input, errors.Wrap(err, "validate LLMSkuBaseUpdateInput")
 	}
 
 	if input.LLMImageId != "" {
@@ -187,13 +187,13 @@ func (model *SLLMModel) ValidateUpdateData(ctx context.Context, userCred mcclien
 	return input, nil
 }
 
-func (model *SLLMModel) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
-	count, err := GetLLMManager().Query().Equals("llm_model_id", model.Id).CountWithError()
+func (sku *SLLMSku) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
+	count, err := GetLLMManager().Query().Equals("llm_sku_id", sku.Id).CountWithError()
 	if nil != err {
 		return errors.Wrap(err, "fetch llm")
 	}
 	if count > 0 {
-		return errors.Wrap(errors.ErrNotSupported, "This model is currently in use")
+		return errors.Wrap(errors.ErrNotSupported, "This sku is currently in use")
 	}
 	return nil
 }
