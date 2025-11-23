@@ -42,6 +42,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/fstabutils"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
+	"yunion.io/x/onecloud/pkg/util/pwquality"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
 	"yunion.io/x/onecloud/pkg/util/sysutils"
 )
@@ -226,7 +227,24 @@ func (l *sLinuxRootFs) GetLoginAccount(rootFs IDiskPartition, sUser string, defa
 	return selUsr, nil
 }
 
-func (l *sLinuxRootFs) ChangeUserPasswd(rootFs IDiskPartition, account, gid, publicKey, password string) (string, error) {
+func (l *sLinuxRootFs) checkInputPasswd(rootFs IDiskPartition, config *pwquality.Config, account, gid, publicKey, password string) string {
+	if config == nil {
+		return password
+	}
+
+	err := config.Validate(password, account)
+	if err != nil && errors.Cause(err) == pwquality.ErrPasswordTooWeak {
+		log.Infof("password %s too weak, try regenerate password", password)
+		npassword := config.GeneratePassword(seclib2.RandomPassword2)
+		if len(npassword) > 0 {
+			log.Infof("regenerate password %s", npassword)
+			password = npassword
+		}
+	}
+	return password
+}
+
+func (l *sLinuxRootFs) ChangeUserPasswd(rootFs IDiskPartition, account, gid, publicKey, password string, isRandomPassword bool) (string, error) {
 	var secret string
 	var err error
 	err = rootFs.Passwd(account, password, false)
@@ -1099,6 +1117,27 @@ func (d *sDebianLikeRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics 
 	return rootFs.FilePutContents(fn, cmds.String(), false, false)
 }
 
+func (r *sDebianLikeRootFs) ChangeUserPasswd(rootFs IDiskPartition, account, gid, publicKey, password string, isRandomPassword bool) (string, error) {
+	if isRandomPassword {
+		var pwqualityConf *pwquality.Config
+		if rootFs.Exists("/etc/security/pwquality.conf", false) {
+			pwConfig, err := rootFs.FileGetContents("/etc/security/pwquality.conf", false)
+			if err == nil {
+				pwqualityConf = pwquality.ParseConfig(pwConfig)
+			}
+		}
+		if rootFs.Exists("/etc/pam.d/common-password", false) {
+			pamConfig, err := rootFs.FileGetContents("/etc/pam.d/common-password", false)
+			if err == nil {
+				pwqualityConf = pwquality.ParsePAMConfig(pamConfig, pwqualityConf)
+			}
+		}
+		password = r.checkInputPasswd(rootFs, pwqualityConf, account, gid, publicKey, password)
+	}
+
+	return r.sLinuxRootFs.ChangeUserPasswd(rootFs, account, gid, publicKey, password, isRandomPassword)
+}
+
 type SDebianRootFs struct {
 	*sDebianLikeRootFs
 }
@@ -1392,6 +1431,26 @@ func (r *sRedhatLikeRootFs) Centos5DeployNetworkingScripts(rootFs IDiskPartition
 			nicRules, false, false)
 	}
 	return nil
+}
+
+func (r *sRedhatLikeRootFs) ChangeUserPasswd(rootFs IDiskPartition, account, gid, publicKey, password string, isRandomPassword bool) (string, error) {
+	if isRandomPassword {
+		var pwqualityConf *pwquality.Config
+		if rootFs.Exists("/etc/security/pwquality.conf", false) {
+			pwConfig, err := rootFs.FileGetContents("/etc/security/pwquality.conf", false)
+			if err == nil {
+				pwqualityConf = pwquality.ParseConfig(pwConfig)
+			}
+		}
+		if rootFs.Exists("/etc/pam.d/system-auth", false) {
+			pamConfig, err := rootFs.FileGetContents("/etc/pam.d/system-auth", false)
+			if err == nil {
+				pwqualityConf = pwquality.ParsePAMConfig(pamConfig, pwqualityConf)
+			}
+		}
+		password = r.checkInputPasswd(rootFs, pwqualityConf, account, gid, publicKey, password)
+	}
+	return r.sLinuxRootFs.ChangeUserPasswd(rootFs, account, gid, publicKey, password, isRandomPassword)
 }
 
 func getMainNic(nics []*types.SServerNic) *types.SServerNic {
@@ -2375,7 +2434,7 @@ func (d *SCoreOsRootFs) DeployFstabScripts(rootFs IDiskPartition, disks []*deplo
 	return nil
 }
 
-func (d *SCoreOsRootFs) ChangeUserPasswd(rootFs IDiskPartition, account, gid, publicKey, password string) (string, error) {
+func (d *SCoreOsRootFs) ChangeUserPasswd(part IDiskPartition, account, gid, publicKey, password string, isRandomPassword bool) (string, error) {
 	keys := []string{}
 	if len(publicKey) > 0 {
 		keys = append(keys, publicKey)

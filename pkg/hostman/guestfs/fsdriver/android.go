@@ -78,7 +78,7 @@ func (m *sBaseAndroidRootFs) DeployPublicKey(rootfs IDiskPartition, uname string
 	return nil
 }
 
-func (m *sBaseAndroidRootFs) ChangeUserPasswd(part IDiskPartition, account, gid, publicKey, password string) (string, error) {
+func (m *sBaseAndroidRootFs) ChangeUserPasswd(part IDiskPartition, account, gid, publicKey, password string, isRandomPassword bool) (string, error) {
 	return "", nil
 }
 
