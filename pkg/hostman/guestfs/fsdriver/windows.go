@@ -444,7 +444,7 @@ func (w *SWindowsRootFs) CommitChanges(part IDiskPartition) error {
 	return nil
 }
 
-func (w *SWindowsRootFs) ChangeUserPasswd(part IDiskPartition, account, gid, publicKey, password string) (string, error) {
+func (w *SWindowsRootFs) ChangeUserPasswd(part IDiskPartition, account, gid, publicKey, password string, isRandomPassword bool) (string, error) {
 	rinfo := w.GetReleaseInfo(part)
 	confPath := part.GetLocalPath("/windows/system32/config", true)
 	tool := winutils.NewWinRegTool(confPath)
