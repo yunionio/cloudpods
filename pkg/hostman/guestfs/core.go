@@ -170,8 +170,7 @@ func DoDeployGuestFs(rootfs fsdriver.IRootFsDriver, guestDesc *deployapi.GuestDe
 				return nil, errors.Wrap(err, "DeployPublicKey")
 			}
 			var secret string
-			if secret, err = rootfs.ChangeUserPasswd(partition, account, gid,
-				deployInfo.PublicKey.PublicKey, deployInfo.Password); err != nil {
+			if secret, err = rootfs.ChangeUserPasswd(partition, account, gid, deployInfo.PublicKey.PublicKey, deployInfo.Password, deployInfo.IsRandomPassword); err != nil {
 				return nil, errors.Wrap(err, "ChangeUserPasswd")
 			}
 			if len(secret) > 0 {

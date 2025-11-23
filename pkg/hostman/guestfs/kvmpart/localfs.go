@@ -16,9 +16,9 @@ package kvmpart
 
 import (
 	"fmt"
-	"io"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"path"
 	"strings"
 
@@ -139,40 +139,17 @@ func (f *SLocalGuestFS) Zerofiles(dir string, caseInsensitive bool) error {
 }
 
 func (f *SLocalGuestFS) Passwd(account, password string, caseInsensitive bool) error {
-	var proc = procutils.NewCommand("chroot", f.mountPath, "passwd", account)
-	stdin, err := proc.StdinPipe()
-	if err != nil {
-		return err
-	}
-	defer stdin.Close()
+	var proc = exec.Command("chroot", f.mountPath, "passwd", account)
 
-	outb, err := proc.StdoutPipe()
-	if err != nil {
-		return err
-	}
-	defer outb.Close()
+	passwordInput := fmt.Sprintf("%s\n%s\n", password, password)
+	proc.Stdin = strings.NewReader(passwordInput)
 
-	errb, err := proc.StderrPipe()
+	out, err := proc.CombinedOutput()
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "failed change passwd %s", out)
 	}
-	defer errb.Close()
-
-	if err := proc.Start(); err != nil {
-		return err
-	}
-	io.WriteString(stdin, fmt.Sprintf("%s\n", password))
-	io.WriteString(stdin, fmt.Sprintf("%s\n", password))
-	stdoutPut, err := ioutil.ReadAll(outb)
-	if err != nil {
-		return err
-	}
-	stderrOutPut, err := ioutil.ReadAll(errb)
-	if err != nil {
-		return err
-	}
-	log.Infof("Passwd %s %s", stdoutPut, stderrOutPut)
-	return proc.Wait()
+	log.Infof("Passwd %s", out)
+	return nil
 }
 
 func (f *SLocalGuestFS) Stat(usrDir string, caseInsensitive bool) os.FileInfo {
