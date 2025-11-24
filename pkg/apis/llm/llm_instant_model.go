@@ -2,7 +2,7 @@ package llm
 
 import "yunion.io/x/onecloud/pkg/apis"
 
-type LLMInternalMdlInfo struct {
+type LLMInternalInstantMdlInfo struct {
 	ModelId string `json:"model_id"`
 	Name    string `json:"name"`
 	Tag     string `json:"tag"`

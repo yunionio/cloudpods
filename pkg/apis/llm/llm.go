@@ -84,3 +84,29 @@ type LLMSyncModelTaskInput struct {
 	InstallDirs       []string `json:"install_dirs"`
 	UninstallModelIds []string `json:"uninstall_model_ids"`
 }
+
+type LLMMountDirInfo struct {
+	ImageId   string
+	Host      string
+	Container string
+}
+
+func (info LLMMountDirInfo) ToOverlay() apis.ContainerVolumeMountDiskPostOverlay {
+	// uid := int64(1000)
+	// gid := int64(1000)
+	if len(info.ImageId) > 0 {
+		return apis.ContainerVolumeMountDiskPostOverlay{
+			Image: &apis.ContainerVolumeMountDiskPostImageOverlay{
+				Id: info.ImageId,
+			},
+			// FsUser:  &uid,
+			// FsGroup: &gid,
+		}
+	}
+	return apis.ContainerVolumeMountDiskPostOverlay{
+		ContainerTargetDir: info.Container,
+		HostLowerDir:       []string{info.Host},
+		// FsUser:             &uid,
+		// FsGroup:            &gid,
+	}
+}

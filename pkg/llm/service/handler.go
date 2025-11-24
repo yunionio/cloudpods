@@ -40,6 +40,7 @@ func InitHandlers(app *appsrv.Application) {
 		models.GetLLMManager(),
 		models.GetDifyManager(),
 		models.GetInstantModelManager(),
+		models.GetLLMInstantModelManager(),
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewModelHandler(manager)
