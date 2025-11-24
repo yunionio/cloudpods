@@ -18,10 +18,8 @@ import (
 	"context"
 	"fmt"
 
-	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/util/rbacscope"
-	"yunion.io/x/pkg/util/sets"
 	"yunion.io/x/pkg/utils"
 
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
@@ -30,7 +28,6 @@ import (
 	"yunion.io/x/onecloud/pkg/scheduler/algorithm/plugin"
 	"yunion.io/x/onecloud/pkg/scheduler/api"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
-	schedmodels "yunion.io/x/onecloud/pkg/scheduler/models"
 )
 
 // NetworkPredicate will filter the current network information with
@@ -39,14 +36,12 @@ import (
 type NetworkPredicate struct {
 	BasePredicate
 	plugin.BasePlugin
-	NetworkNicCountGetter INetworkNicCountGetter
-	networkFreePortCount  map[string]int
+	*NetworkBasePredicate
 }
 
 func NewNetworkPredicate() *NetworkPredicate {
 	return &NetworkPredicate{
-		NetworkNicCountGetter: nil,
-		networkFreePortCount:  make(map[string]int),
+		NetworkBasePredicate: NewNetworkBasePredicate(),
 	}
 }
 
@@ -65,8 +60,7 @@ func (p *NetworkPredicate) Name() string {
 
 func (p *NetworkPredicate) Clone() core.FitPredicate {
 	return &NetworkPredicate{
-		NetworkNicCountGetter: p.NetworkNicCountGetter,
-		networkFreePortCount:  p.networkFreePortCount,
+		NetworkBasePredicate: p.NetworkBasePredicate.Clone(),
 	}
 }
 
@@ -80,30 +74,10 @@ func (p *NetworkPredicate) PreExecute(ctx context.Context, u *core.Unit, cs []co
 	if data.ResetCpuNumaPin {
 		return false, nil
 	}
-
 	if len(data.Networks) == 0 {
 		return false, nil
 	}
-	networkIds := sets.NewString()
-	for i := range cs {
-		for _, net := range cs[i].Getter().Networks() {
-			networkIds.Insert(net.GetId())
-		}
-	}
-
-	if p.NetworkNicCountGetter != nil {
-		netCounts, err := p.NetworkNicCountGetter.GetTotalNicCount(networkIds.UnsortedList())
-		if err != nil {
-			return false, errors.Wrap(err, "unable to GetTotalNicCount")
-		}
-		for i := range cs {
-			for _, net := range cs[i].Getter().Networks() {
-				p.networkFreePortCount[net.Id] = net.GetTotalAddressCount() - netCounts[net.Id]
-			}
-		}
-	}
-
-	return true, nil
+	return p.NetworkBasePredicate.PreExecute(ctx, u, cs)
 }
 
 func IsNetworksAvailable(ctx context.Context, c core.Candidater, data *api.SchedInfo, req *computeapi.NetworkConfig, networks []*api.CandidateNetwork, netTypes []string, getFreePort func(string) int) (int, []core.PredicateFailureReason) {
@@ -314,16 +288,11 @@ func (p *NetworkPredicate) Execute(ctx context.Context, u *core.Unit, c core.Can
 	networks := getter.Networks()
 	d := u.SchedData()
 
-	getFreePort := func(id string) int {
-		if _, ok := p.networkFreePortCount[id]; ok {
-			return p.networkFreePortCount[id] - schedmodels.HostPendingUsageManager.GetNetPendingUsage(id)
-		}
-		return c.Getter().GetFreePort(id)
-	}
-
 	for _, reqNet := range d.Networks {
 		netTypes := p.GetNetworkTypes(u, reqNet.NetType)
-		freePortCnt, errs := IsNetworksAvailable(ctx, c, d, reqNet, networks, netTypes, getFreePort)
+		freePortCnt, errs := IsNetworksAvailable(ctx, c, d, reqNet, networks, netTypes, func(id string) int {
+			return p.GetFreePort(id, c)
+		})
 		if len(errs) > 0 {
 			h.ExcludeByErrors(errs)
 			return h.GetResult()
