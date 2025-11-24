@@ -20,16 +20,20 @@ import (
 )
 
 type SOracleTag struct {
+	Tags    map[string]string `json:"freeformTags"`
+	SysTags struct {
+		OracleTags map[string]string `json:"Oracle-Tags"`
+	} `json:"definedTags"`
 }
 
-func (self SOracleTag) GetSysTags() map[string]string {
-	return nil
+func (ot SOracleTag) GetSysTags() map[string]string {
+	return ot.SysTags.OracleTags
 }
 
-func (self SOracleTag) GetTags() (map[string]string, error) {
-	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetTags")
+func (ot SOracleTag) GetTags() (map[string]string, error) {
+	return ot.Tags, nil
 }
 
-func (self SOracleTag) SetTags(tags map[string]string, replace bool) error {
+func (ot SOracleTag) SetTags(tags map[string]string, replace bool) error {
 	return errors.Wrap(cloudprovider.ErrNotImplemented, "SetTags")
 }
