@@ -4874,6 +4874,18 @@ func (self *SGuest) validateCreateInstanceSnapshot(
 		return nil, input, httperrors.NewBadRequestError("guest hypervisor %s can't create instance snapshot", self.Hypervisor)
 	}
 
+	disks, err := self.GetDisks()
+	if err != nil {
+		return nil, input, err
+	}
+	for i := range disks {
+		if len(disks[i].SnapshotId) > 0 {
+			if disks[i].GetMetadata(ctx, "merge_snapshot", userCred) == "true" {
+				return nil, input, httperrors.NewBadRequestError("disk %s backing snapshot not merged", disks[i].Id)
+			}
+		}
+	}
+
 	if len(self.BackupHostId) > 0 {
 		return nil, input, httperrors.NewBadRequestError("Can't do instance snapshot with backup guest")
 	}
@@ -4895,7 +4907,7 @@ func (self *SGuest) validateCreateInstanceSnapshot(
 		return nil, input, httperrors.NewMissingParameterError("name")
 	}
 
-	err := db.NewNameValidator(InstanceSnapshotManager, ownerId, input.Name, nil)
+	err = db.NewNameValidator(InstanceSnapshotManager, ownerId, input.Name, nil)
 	if err != nil {
 		return nil, input, errors.Wrap(err, "NewNameValidator")
 	}
