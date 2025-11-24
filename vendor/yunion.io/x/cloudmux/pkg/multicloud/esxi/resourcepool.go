@@ -15,20 +15,19 @@
 package esxi
 
 import (
-	"net/url"
-	"strings"
-
 	"github.com/vmware/govmomi/vim25/mo"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/multicloud"
+	"yunion.io/x/log"
 )
 
-var RESOURCEPOOL_PROPS = []string{"name", "parent", "host"}
+var RESOURCEPOOL_PROPS = []string{"resourcePool"}
 
 type SResourcePool struct {
 	multicloud.SProjectBase
 	multicloud.STagBase
+
 	SManagedObject
 }
 
@@ -40,17 +39,39 @@ func (pool *SResourcePool) GetStatus() string {
 	return api.EXTERNAL_PROJECT_STATUS_AVAILABLE
 }
 
-func (pool *SResourcePool) GetName() string {
-	path := pool.GetPath()
-	if len(path) > 5 {
-		path = path[5:]
+func (pool *SResourcePool) getParentEntity(obj *mo.ManagedEntity) *mo.ManagedEntity {
+	parent := obj.Parent
+	if parent != nil {
+		var entity mo.ManagedEntity
+		err := pool.manager.reference2Object(*parent, []string{"name", "parent"}, &entity)
+		if err != nil {
+			log.Errorf("%s", err)
+			return nil
+		}
+		return &entity
 	}
-	name := []string{}
-	for _, _name := range path {
-		p, _ := url.PathUnescape(_name)
-		name = append([]string{p}, name...)
+	return nil
+}
+
+func (pool *SResourcePool) fetchPath() []string {
+	path := []string{pool.GetName()}
+	obj := pool.object.Entity()
+	for obj != nil {
+		obj = pool.getParentEntity(obj)
+		if obj == nil || (obj.Self.Type == "ResourcePool" && obj.Name == "Resources") {
+			break
+		}
+		path = append(path, obj.Name)
 	}
-	return strings.Join(name, "/")
+	reverseArray(path)
+	return path
+}
+
+func (pool *SResourcePool) GetPath() []string {
+	if pool.path == nil {
+		pool.path = pool.fetchPath()
+	}
+	return pool.path
 }
 
 func NewResourcePool(manager *SESXiClient, rp *mo.ResourcePool, dc *SDatacenter) *SResourcePool {
