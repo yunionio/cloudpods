@@ -35,11 +35,11 @@ import (
  * {"arn":"arn:aws:organizations::285906155448:account/o-vgh74bqhdw/285906155448","email":"swordqiu@gmail.com","id":"285906155448","joined_method":"INVITED","joined_timestamp":"2021-02-09T03:55:27.724000Z","name":"qiu jian","status":"ACTIVE"}
  */
 type SAccount struct {
-	ID     string `json:"id"`
-	Name   string `json:"name"`
-	Arn    string `json:"arn"`
-	Email  string `json:"email"`
-	Status string `json:"status"`
+	ID    string `json:"id"`
+	Name  string `json:"name"`
+	Arn   string `json:"arn"`
+	Email string `json:"email"`
+	State string `json:"state"`
 
 	JoinedMethod    string    `json:"joined_method"`
 	JoinedTimestamp time.Time `json:"joined_timestamp"`
@@ -201,7 +201,7 @@ func (r *SRegion) ListAccounts() ([]SAccount, error) {
 				Name:            *actPtr.Name,
 				Arn:             *actPtr.Arn,
 				Email:           *actPtr.Email,
-				Status:          string(actPtr.Status),
+				State:           string(actPtr.State),
 				JoinedMethod:    string(actPtr.JoinedMethod),
 				JoinedTimestamp: *actPtr.JoinedTimestamp,
 			}
@@ -253,7 +253,7 @@ func (awscli *SAwsClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error) 
 		subAccounts := []cloudprovider.SSubAccount{}
 		for _, account := range accounts {
 			subAccount := cloudprovider.SSubAccount{}
-			switch account.Status {
+			switch account.State {
 			case "ACTIVE":
 				subAccount.HealthStatus = api.CLOUD_PROVIDER_HEALTH_NORMAL
 			case "PENDING_ACTIVATION":
