@@ -17,4 +17,5 @@ func init() {
 	cmd.BatchPerform("start", new(options.LLMStartOptions))
 	cmd.Get("probed-models", new(options.LLMIdOptions))
 	cmd.Perform("save-instant-model", new(options.LLMSaveInstantModelOptions))
+	cmd.Perform("quick-models", new(options.LLMQuickModelsOptions))
 }

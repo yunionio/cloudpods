@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync"
 
+	commonapi "yunion.io/x/onecloud/pkg/apis"
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/apis/llm"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -67,25 +68,24 @@ type ILLMContainerPullModel interface {
 }
 
 type ILLMContainerInstantApp interface {
-	GetProbedModelsExt(ctx context.Context, userCred mcclient.TokenCredential, llm *SLLM, mdlIds ...string) (map[string]llm.LLMInternalMdlInfo, error)
-	DetectModelPaths(ctx context.Context, userCred mcclient.TokenCredential, llm *SLLM, pkgInfo llm.LLMInternalMdlInfo) ([]string, error)
+	GetProbedInstantModelsExt(ctx context.Context, userCred mcclient.TokenCredential, llm *SLLM, mdlIds ...string) (map[string]llm.LLMInternalInstantMdlInfo, error)
+	DetectModelPaths(ctx context.Context, userCred mcclient.TokenCredential, llm *SLLM, pkgInfo llm.LLMInternalInstantMdlInfo) ([]string, error)
 
 	GetImageInternalPathMounts(sApp *SInstantModel) map[string]string
 	GetSaveDirectories(sApp *SInstantModel) (string, []string, error)
 
 	ValidateMounts(mounts []string, mdlName string, mdlTag string) ([]string, error)
-	// GetPackageAppIdByPostOverlay(postOverlay *commonapi.ContainerVolumeMountDiskPostOverlay) string
-	// GetDirPostOverlay(dir cdk.DesktopMountDirInfo) *commonapi.ContainerVolumeMountDiskPostOverlay
+	GetInstantModelIdByPostOverlay(postOverlay *commonapi.ContainerVolumeMountDiskPostOverlay, mdlNameToId map[string]string) string
+	GetDirPostOverlay(dir llm.LLMMountDirInfo) *commonapi.ContainerVolumeMountDiskPostOverlay
 
-	// PreInstallApp(ctx context.Context, userCred mcclient.TokenCredential, d *SDesktop, app *SDesktopApp, iconBase64 string) error
-	// InstallApp(ctx context.Context, userCred mcclient.TokenCredential, d *SDesktop, dirs []string, appIds []string) error
-	// UninstallApp(ctx context.Context, userCred mcclient.TokenCredential, d *SDesktop, app *SDesktopApp) error
-	// CleanAppTempIcon(ctx context.Context, userCred mcclient.TokenCredential, d *SDesktop, pkgName string) error
+	PreInstallModel(ctx context.Context, userCred mcclient.TokenCredential, llm *SLLM, instMdl *SLLMInstantModel) error
+	InstallModel(ctx context.Context, userCred mcclient.TokenCredential, llm *SLLM, dirs []string, mdlIds []string) error
+	UninstallModel(ctx context.Context, userCred mcclient.TokenCredential, llm *SLLM, instMdl *SLLMInstantModel) error
 }
 
 type ILLMContainerDriver interface {
 	GetType() llm.LLMContainerType
-	GetContainerSpec(ctx context.Context, llm *SLLM, image *SLLMImage, sku *SLLMModel, props []string, devices []computeapi.SIsolatedDevice, diskId string) *computeapi.PodContainerCreateInput
+	GetContainerSpec(ctx context.Context, llm *SLLM, image *SLLMImage, sku *SLLMSku, props []string, devices []computeapi.SIsolatedDevice, diskId string) *computeapi.PodContainerCreateInput
 
 	// ILLMContainerPullModel
 

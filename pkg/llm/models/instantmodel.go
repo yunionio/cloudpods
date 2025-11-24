@@ -46,7 +46,7 @@ func GetInstantModelManager() *SInstantModelManager {
 	instantModelManager = &SInstantModelManager{
 		SSharableVirtualResourceBaseManager: db.NewSharableVirtualResourceBaseManager(
 			SInstantModel{},
-			"llm_instant_models_tbl",
+			"instant_models_tbl",
 			"llm_instant_model",
 			"llm_instant_models",
 		),
@@ -60,8 +60,8 @@ type SInstantModel struct {
 	db.SEnabledResourceBase
 
 	LlmType   string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"required"`
-	ModelName string `width:"128" charset:"ascii" list:"user" create:"required"`
 	ModelId   string `width:"128" charset:"ascii" list:"user" create:"optional"`
+	ModelName string `width:"128" charset:"ascii" list:"user" create:"required"`
 	Tag       string `width:"64" charset:"ascii" list:"user" create:"required"`
 
 	ImageId string `width:"128" charset:"ascii" list:"user" create:"optional" update:"user"`
@@ -276,12 +276,12 @@ func (man *SInstantModelManager) ValidateCreateData(
 		}
 
 		{
-			app, err := man.findInstantAppByImageId(img.Id)
+			mdl, err := man.findInstantModelByImageId(img.Id)
 			if err != nil {
-				return input, errors.Wrap(err, "findInstantAppByImageId")
+				return input, errors.Wrap(err, "findInstantModelByImageId")
 			}
-			if app != nil {
-				return input, errors.Wrapf(httperrors.ErrConflict, "image %s has been used by other app", input.ImageId)
+			if mdl != nil {
+				return input, errors.Wrapf(httperrors.ErrConflict, "image %s has been used by other model", input.ImageId)
 			}
 		}
 
@@ -446,21 +446,21 @@ func (model *SInstantModel) syncImageStatus(ctx context.Context, userCred mcclie
 	return nil
 }
 
-func (man *SInstantModelManager) findInstantAppByImageId(imageId string) (*SInstantModel, error) {
+func (man *SInstantModelManager) findInstantModelByImageId(imageId string) (*SInstantModel, error) {
 	q := man.Query().Equals("image_id", imageId)
 
-	apps := make([]SInstantModel, 0)
-	err := db.FetchModelObjects(man, q, &apps)
+	mdls := make([]SInstantModel, 0)
+	err := db.FetchModelObjects(man, q, &mdls)
 	if err != nil {
 		return nil, errors.Wrap(err, "FetchModelObjects")
 	}
-	if len(apps) == 0 {
+	if len(mdls) == 0 {
 		return nil, nil
 	}
-	return &apps[0], nil
+	return &mdls[0], nil
 }
 
-func (man *SInstantModelManager) GetInstantAppById(id string) (*SInstantModel, error) {
+func (man *SInstantModelManager) GetInstantModelById(id string) (*SInstantModel, error) {
 	obj, err := man.FetchById(id)
 	if err != nil {
 		return nil, errors.Wrap(err, "FetchById")
@@ -468,29 +468,29 @@ func (man *SInstantModelManager) GetInstantAppById(id string) (*SInstantModel, e
 	return obj.(*SInstantModel), nil
 }
 
-func (man *SInstantModelManager) findInstantApp(mdlId, tag string, isEnabled bool) (*SInstantModel, error) {
+func (man *SInstantModelManager) findInstantModel(mdlId, tag string, isEnabled bool) (*SInstantModel, error) {
 	q := man.Query().Equals("model_id", mdlId).Equals("status", imageapi.IMAGE_STATUS_ACTIVE)
 	if isEnabled {
 		q = q.IsTrue("enabled")
 	}
 	q = q.Desc("created_at")
 
-	apps := make([]SInstantModel, 0)
-	err := db.FetchModelObjects(man, q, &apps)
+	mdls := make([]SInstantModel, 0)
+	err := db.FetchModelObjects(man, q, &mdls)
 	if err != nil {
 		return nil, errors.Wrap(err, "FetchModelObjects")
 	}
-	if len(apps) == 0 {
+	if len(mdls) == 0 {
 		return nil, nil
 	}
 	if len(tag) > 0 {
-		for i := range apps {
-			if apps[i].Tag == tag {
-				return &apps[i], nil
+		for i := range mdls {
+			if mdls[i].Tag == tag {
+				return &mdls[i], nil
 			}
 		}
 	}
-	return &apps[0], nil
+	return &mdls[0], nil
 }
 
 func (model *SInstantModel) PerformEnable(
@@ -512,16 +512,16 @@ func (model *SInstantModel) PerformEnable(
 		}
 	}
 	if model.Status != imageapi.IMAGE_STATUS_ACTIVE {
-		return nil, errors.Wrapf(errors.ErrInvalidStatus, "cannot enable app of status %s", model.Status)
+		return nil, errors.Wrapf(errors.ErrInvalidStatus, "cannot enable model of status %s", model.Status)
 	}
 	// check duplicate
 	{
-		existing, err := GetInstantModelManager().findInstantApp(model.ModelId, model.Tag, true)
+		existing, err := GetInstantModelManager().findInstantModel(model.ModelId, model.Tag, true)
 		if err != nil {
-			return nil, errors.Wrap(err, "findInstantApp")
+			return nil, errors.Wrap(err, "findInstantModel")
 		}
 		if existing != nil && existing.Id != model.Id {
-			return nil, errors.Wrapf(errors.ErrDuplicateId, "app of modelId %s tag %s has been enabled", model.ModelId, model.Tag)
+			return nil, errors.Wrapf(errors.ErrDuplicateId, "model of modelId %s tag %s has been enabled", model.ModelId, model.Tag)
 		}
 	}
 	_, err := db.Update(model, func() error {

@@ -7,11 +7,13 @@ import (
 	"path"
 	"strings"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/apis"
+	commonapi "yunion.io/x/onecloud/pkg/apis"
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	api "yunion.io/x/onecloud/pkg/apis/llm"
 	"yunion.io/x/onecloud/pkg/llm/models"
@@ -34,7 +36,7 @@ func (o *ollama) GetType() api.LLMContainerType {
 	return api.LLM_CONTAINER_OLLAMA
 }
 
-func (o *ollama) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *models.SLLMImage, sku *models.SLLMModel, props []string, devices []computeapi.SIsolatedDevice, diskId string) *computeapi.PodContainerCreateInput {
+func (o *ollama) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *models.SLLMImage, sku *models.SLLMSku, props []string, devices []computeapi.SIsolatedDevice, diskId string) *computeapi.PodContainerCreateInput {
 	spec := computeapi.ContainerSpec{
 		ContainerSpec: apis.ContainerSpec{
 			Image:             image.ToContainerImage(),
@@ -107,7 +109,7 @@ func (o *ollama) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *
 			},
 			Type:      apis.CONTAINER_VOLUME_MOUNT_TYPE_DISK,
 			MountPath: api.LLM_OLLAMA_BASE_PATH,
-			ReadOnly:  true,
+			ReadOnly:  false,
 		},
 	}
 	vols = append(vols, ctrVols...)
@@ -153,8 +155,66 @@ func (o *ollama) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *
 // 	return err
 // }
 
-func (o *ollama) DetectModelPaths(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM, pkgInfo api.LLMInternalMdlInfo) ([]string, error) {
-	ctr, err := llm.GetLLMContainer()
+func (o *ollama) PreInstallModel(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM, instMdl *models.SLLMInstantModel) error {
+	///* TODO
+	return nil
+}
+func (o *ollama) InstallModel(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM, dirs []string, mdlIds []string) error {
+	///* TODO
+	return nil
+}
+
+func (o *ollama) GetModelMountPaths(ctx context.Context, userCred mcclient.TokenCredential, llmInstMdl *models.SLLMInstantModel) ([]string, error) {
+	instMdl, _ := llmInstMdl.FindInstantModel(false)
+	return instMdl.Mounts, nil
+}
+
+func (o *ollama) GetDirPostOverlay(dir api.LLMMountDirInfo) *commonapi.ContainerVolumeMountDiskPostOverlay {
+	uid := int64(1000)
+	gid := int64(1000)
+	ov := dir.ToOverlay()
+	ov.FsUser = &uid
+	ov.FsGroup = &gid
+	return &ov
+}
+
+func (o *ollama) UninstallModel(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM, llmInstMdl *models.SLLMInstantModel) error {
+	mounts, err := o.GetModelMountPaths(ctx, userCred, llmInstMdl)
+	if err != nil {
+		return errors.Wrap(err, "GetModelMountPaths")
+	}
+	ctr, err := llm.GetLLMSContainer(ctx)
+	if err != nil {
+		return errors.Wrap(err, "GetSContainer")
+	}
+	_, err = exec(ctx, ctr.Id, fmt.Sprintf("rm -rf %s", strings.Join(mounts, " ")), 10)
+	if err != nil {
+		return errors.Wrapf(err, "run cmd to remove model mounts of model %s", jsonutils.Marshal(llmInstMdl))
+	}
+	return nil
+}
+
+func (o *ollama) GetInstantModelIdByPostOverlay(postOverlay *commonapi.ContainerVolumeMountDiskPostOverlay, mdlNameToId map[string]string) string {
+	if postOverlay.Image != nil {
+		for k := range postOverlay.Image.PathMap {
+			idx := strings.Index(k, api.LLM_OLLAMA_MANIFESTS_BASE_PATH)
+			if idx != -1 {
+				suffix := k[idx+len(api.LLM_OLLAMA_MANIFESTS_BASE_PATH):]
+				parts := strings.Split(strings.Trim(suffix, "/"), "/")
+				if len(parts) >= 2 {
+					modelName := parts[len(parts)-2]
+					modelTag := parts[len(parts)-1]
+					log.Infof("In GetInstantModelIdByPostOverlay, Extracted modelName: %s, modelTag: %s, Got modelId: %s", modelName, modelTag, mdlNameToId[modelName+":"+modelTag])
+					return mdlNameToId[modelName+":"+modelTag]
+				}
+			}
+		}
+	}
+	return ""
+}
+
+func (o *ollama) DetectModelPaths(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM, pkgInfo api.LLMInternalInstantMdlInfo) ([]string, error) {
+	lc, err := llm.GetLLMContainer()
 	if err != nil {
 		return nil, errors.Wrap(err, "get llm container")
 	}
@@ -172,7 +232,7 @@ func (o *ollama) DetectModelPaths(ctx context.Context, userCred mcclient.TokenCr
 	checks = append(checks, fmt.Sprintf("[ -f '%s' ]", originManifests))
 
 	checkCmd := strings.Join(checks, " && ") + " && echo 'ALL_EXIST' || echo 'SOME_MISSING'"
-	output, err := exec(ctx, ctr.CmpId, checkCmd, 10)
+	output, err := exec(ctx, lc.CmpId, checkCmd, 10)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to check file existence")
 	}
@@ -219,33 +279,29 @@ func (o *ollama) GetSaveDirectories(sApp *models.SInstantModel) (string, []strin
 	for _, mount := range sApp.Mounts {
 		if strings.HasPrefix(mount, api.LLM_OLLAMA_BASE_PATH) {
 			relPath := strings.TrimPrefix(mount, api.LLM_OLLAMA_BASE_PATH)
-			if relPath == "" {
-				relPath = "/"
-			} else if !strings.HasPrefix(relPath, "/") {
-				relPath = "/" + relPath
-			}
+			relPath = path.Join(api.LLM_OLLAMA, relPath)
 			filteredMounts = append(filteredMounts, relPath)
 		}
 	}
 
-	return api.LLM_OLLAMA, filteredMounts, nil
+	return "", filteredMounts, nil
 }
 
-func (o *ollama) GetProbedModelsExt(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM, mdlIds ...string) (map[string]api.LLMInternalMdlInfo, error) {
-	ctr, err := llm.GetLLMContainer()
+func (o *ollama) GetProbedInstantModelsExt(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM, mdlIds ...string) (map[string]api.LLMInternalInstantMdlInfo, error) {
+	lc, err := llm.GetLLMContainer()
 	if err != nil {
 		return nil, errors.Wrap(err, "get llm container")
 	}
 
 	// get all effective models
 	getModels := "ollama list" // NAME ID SIZE MODIFIED
-	modelsOutput, err := exec(ctx, ctr.CmpId, getModels, 10)
+	modelsOutput, err := exec(ctx, lc.CmpId, getModels, 10)
 	if err != nil {
 		return nil, errors.Wrap(err, "get models")
 	}
 	lines := strings.Split(strings.TrimSpace(modelsOutput), "\n")
 
-	models := make(map[string]api.LLMInternalMdlInfo, len(lines)-1)
+	models := make(map[string]api.LLMInternalInstantMdlInfo, len(lines)-1)
 	for i := 1; i < len(lines); i++ {
 		fields := strings.Fields(lines[i])
 		if len(fields) > 2 {
@@ -253,7 +309,7 @@ func (o *ollama) GetProbedModelsExt(ctx context.Context, userCred mcclient.Token
 				continue
 			}
 			modelName, modelTag, _ := llm.GetLargeLanguageModelName(fields[0])
-			models[fields[1]] = api.LLMInternalMdlInfo{
+			models[fields[1]] = api.LLMInternalInstantMdlInfo{
 				Name:    modelName,
 				Tag:     modelTag,
 				ModelId: fields[1],
@@ -264,7 +320,7 @@ func (o *ollama) GetProbedModelsExt(ctx context.Context, userCred mcclient.Token
 
 	// for each model, get manifests file, find blobs, calculate size
 	for modelId, model := range models {
-		manifests, err := getManifests(ctx, ctr.CmpId, model.Name, model.Tag)
+		manifests, err := getManifests(ctx, lc.CmpId, model.Name, model.Tag)
 		if err != nil {
 			return nil, errors.Wrap(err, "get manifests")
 		}

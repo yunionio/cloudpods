@@ -17,6 +17,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/httperrors"
+	llmutils "yunion.io/x/onecloud/pkg/llm/utils"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 )
@@ -193,6 +194,14 @@ func (llm *SLLM) GetLLMImage() (*SLLMImage, error) {
 	return llm.getImage(llm.LLMImageId)
 }
 
+func (llm *SLLM) GetLLMSContainer(ctx context.Context) (*computeapi.SContainer, error) {
+	llmCtr, err := llm.GetLLMContainer()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetLLMContainer")
+	}
+	return llmCtr.GetSContainer(ctx)
+}
+
 func (llm *SLLM) GetLLMContainer() (*SLLMContainer, error) {
 	return GetLLMContainerManager().FetchByLLMId(llm.Id)
 }
@@ -319,6 +328,22 @@ func (llm *SLLM) StartLLMStopTask(ctx context.Context, userCred mcclient.TokenCr
 // 	return nil
 // }
 
-// func (llm *SLLM) WaitContainerStatus(ctx context.Context, userCred mcclient.TokenCredential, targetStatus []string, timeoutSecs int) (*computeapi.SContainer, error) {
-// 	return nil, nil
-// }
+func (llm *SLLM) WaitContainerStatus(ctx context.Context, userCred mcclient.TokenCredential, targetStatus []string, timeoutSecs int) (*computeapi.SContainer, error) {
+	llmCtr, err := llm.GetLLMContainer()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetLLMContainer")
+	}
+	return llmutils.WaitContainerStatus(ctx, llmCtr.CmpId, targetStatus, timeoutSecs)
+}
+
+func (llm *SLLM) StartSyncStatusTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "LLMSyncStatusTask", llm, userCred, nil, parentTaskId, "")
+	if err != nil {
+		return errors.Wrap(err, "NewTask")
+	}
+	err = task.ScheduleRun(nil)
+	if err != nil {
+		return errors.Wrap(err, "ScheduleRun")
+	}
+	return nil
+}

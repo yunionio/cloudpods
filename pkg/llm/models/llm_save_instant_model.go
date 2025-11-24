@@ -20,7 +20,7 @@ import (
 )
 
 func (llm *SLLM) GetDetailsProbedModels(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	mdlInfos, err := llm.getProbedModelsExt(ctx, userCred)
+	mdlInfos, err := llm.getProbedInstantModelsExt(ctx, userCred)
 	if err != nil {
 		return nil, errors.Wrap(err, "getProbedPackagesExt")
 	}
@@ -37,7 +37,7 @@ func (llm *SLLM) PerformSaveInstantModel(
 		return nil, httperrors.NewInvalidStatusError("LLM is not running")
 	}
 
-	mdlInfos, err := llm.getProbedModelsExt(ctx, userCred, input.ModelId)
+	mdlInfos, err := llm.getProbedInstantModelsExt(ctx, userCred, input.ModelId)
 	if err != nil {
 		return nil, errors.Wrap(err, "getProbedPackagesExt")
 	}
@@ -141,12 +141,8 @@ func (llm *SLLM) DoSaveModelImage(ctx context.Context, userCred mcclient.TokenCr
 	if err != nil {
 		return errors.Wrap(err, "GetLLMContainer")
 	}
-	ctr, err := lc.GetSContainer(ctx)
-	if err != nil {
-		return errors.Wrap(err, "GetSContainer")
-	}
 
-	result, err := compute.Containers.PerformAction(session, ctr.Id, "save-volume-mount-image", jsonutils.Marshal(saveImageInput))
+	result, err := compute.Containers.PerformAction(session, lc.CmpId, "save-volume-mount-image", jsonutils.Marshal(saveImageInput))
 	if err != nil {
 		return errors.Wrap(err, "compute.Containers.PerformAction")
 	}
@@ -180,11 +176,6 @@ func (llm *SLLM) StartSaveModelImageTask(ctx context.Context, userCred mcclient.
 	return task, nil
 }
 
-func (llm *SLLM) getProbedModelsExt(ctx context.Context, userCred mcclient.TokenCredential, mdlIds ...string) (map[string]api.LLMInternalMdlInfo, error) {
-	drv := llm.GetLLMContainerDriver()
-	return drv.GetProbedModelsExt(ctx, userCred, llm, mdlIds...)
-}
-
-func (llm *SLLM) detectModelPaths(ctx context.Context, userCred mcclient.TokenCredential, pkgInfo api.LLMInternalMdlInfo) ([]string, error) {
+func (llm *SLLM) detectModelPaths(ctx context.Context, userCred mcclient.TokenCredential, pkgInfo api.LLMInternalInstantMdlInfo) ([]string, error) {
 	return llm.GetLLMContainerDriver().DetectModelPaths(ctx, userCred, llm, pkgInfo)
 }
