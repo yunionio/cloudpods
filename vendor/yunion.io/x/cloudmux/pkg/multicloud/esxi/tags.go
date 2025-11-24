@@ -44,14 +44,6 @@ func (host *SHost) GetSysTags() map[string]string {
 	if dc != nil {
 		tags["datacenter"] = dc.GetName()
 	}
-	cluster, _ := host.GetCluster()
-	if cluster != nil {
-		tags["cluster"] = cluster.GetName()
-	}
-	resourcePool, _ := host.GetResourcePool()
-	if resourcePool != nil {
-		tags["resource_pool"] = resourcePool.Name()
-	}
 	paths := host.GetPath()
 	for i := 3; i < len(paths); i++ {
 		tags[fmt.Sprintf("folder_%d", i-3)] = paths[i]
