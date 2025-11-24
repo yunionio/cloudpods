@@ -131,6 +131,17 @@ func (manager *SMonitorResourceManager) GetMonitorResources(input monitor.Monito
 	return monitorResources, nil
 }
 
+func (man *SMonitorResourceManager) GetMonitorResourceByResId(id string) (*SMonitorResource, error) {
+	resources, err := MonitorResourceManager.GetMonitorResources(monitor.MonitorResourceListInput{ResId: []string{id}})
+	if err != nil {
+		return nil, errors.Wrapf(err, "SMonitorResourceManager GetMonitorResources by resId: %s", id)
+	}
+	if len(resources) == 0 {
+		return nil, errors.Errorf("SMonitorResourceManager GetMonitorResources by resId: %s not found", id)
+	}
+	return &resources[0], nil
+}
+
 type SdeleteRes struct {
 	resType string
 	notIn   []string
@@ -326,8 +337,7 @@ func (self *SMonitorResource) DetachJoint(ctx context.Context, userCred mcclient
 }
 
 func (self *SMonitorResource) getMoreDetails(out monitor.MonitorResourceDetails) monitor.MonitorResourceDetails {
-	joints, err := MonitorResourceAlertManager.GetJoinsByListInput(monitor.
-		MonitorResourceJointListInput{MonitorResourceId: self.ResId})
+	joints, err := MonitorResourceAlertManager.GetJoinsByListInput(monitor.MonitorResourceJointListInput{MonitorResourceId: self.ResId})
 	if err != nil {
 		log.Errorf("getMoreDetails err:%v", err)
 	}

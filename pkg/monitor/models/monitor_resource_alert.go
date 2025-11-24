@@ -374,3 +374,19 @@ func (m *SMonitorResourceAlertManager) GetResourceAlert(alertId string, resource
 	}
 	return obj, nil
 }
+
+// GetAlertRecords 通过 MonitorResourceAlert 查询历史的 AlertRecord
+// 查询条件：相同的 AlertId 且 ResIds 包含该 MonitorResourceId 的所有记录
+func (obj *SMonitorResourceAlert) GetAlertRecords() ([]SAlertRecord, error) {
+	records := make([]SAlertRecord, 0)
+	q := AlertRecordManager.Query()
+	q = q.Equals("alert_id", obj.AlertId)
+	// ResIds 字段存储的是逗号分隔的资源ID列表，使用 ContainsAny 查询
+	q = q.Filter(sqlchemy.ContainsAny(q.Field("res_ids"), []string{obj.MonitorResourceId}))
+	q = q.Desc("created_at") // 按创建时间倒序，最新的在前
+	err := db.FetchModelObjects(AlertRecordManager, q, &records)
+	if err != nil {
+		return nil, errors.Wrapf(err, "get historical alert records by alert_id: %q, monitor_resource_id: %q", obj.AlertId, obj.MonitorResourceId)
+	}
+	return records, nil
+}
