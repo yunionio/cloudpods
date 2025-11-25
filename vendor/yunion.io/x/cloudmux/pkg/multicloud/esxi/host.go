@@ -145,6 +145,61 @@ func (host *SHost) GetName() string {
 	return formatName(host.SManagedObject.GetName())
 }
 
+func (host *SHost) getCluster() (*mo.ClusterComputeResource, error) {
+	moHost := host.getHostSystem()
+	if moHost.Parent.Type != "ClusterComputeResource" {
+		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "host %s parent is not the cluster resource", host.GetName())
+	}
+	cluster := &mo.ClusterComputeResource{}
+	err := host.manager.reference2Object(*moHost.Parent, []string{"name", "resourcePool"}, cluster)
+	if err != nil {
+		return nil, errors.Wrap(err, "SESXiClient.reference2Object")
+	}
+	return cluster, nil
+}
+
+func (host *SHost) GetCluster() (*SCluster, error) {
+	cluster, err := host.getCluster()
+	if err != nil {
+		return nil, errors.Wrap(err, "getCluster")
+	}
+	return NewCluster(host.manager, cluster, host.datacenter), nil
+}
+
+func (host *SHost) GetSchedtags() ([]cloudprovider.Schedtag, error) {
+	dc, err := host.GetDatacenter()
+	if err != nil {
+		return nil, err
+	}
+	cluster, err := host.GetCluster()
+	if err != nil {
+		return nil, err
+	}
+	ret := []cloudprovider.Schedtag{}
+	ret = append(ret, cloudprovider.Schedtag{
+		Name: fmt.Sprintf("cluster:|%s|%s|%s", host.datacenter.manager.cpcfg.Name, dc.GetName(), cluster.GetName()),
+		Id:   fmt.Sprintf("%s|%s|%s", host.datacenter.manager.cpcfg.Id, dc.GetId(), cluster.GetId()),
+	})
+	pools, err := cluster.listResourcePools()
+	if err != nil {
+		return nil, err
+	}
+	for i := range pools {
+		pool := NewResourcePool(host.manager, &pools[i], host.datacenter)
+		if pool.IsDefault() {
+			continue
+		}
+		ret = append(ret, cloudprovider.Schedtag{
+			Name: fmt.Sprintf("pool:|%s|%s|%s|%s", host.datacenter.manager.cpcfg.Name, dc.GetName(), cluster.GetName(), strings.Join(pool.GetPath(), "|")),
+			Id:   fmt.Sprintf("%s|%s|%s|%s", host.datacenter.manager.cpcfg.Id, dc.GetId(), cluster.GetId(), pool.GetId()),
+			Meta: map[string]string{
+				cloudprovider.METADATA_POOL_ID: pool.GetId(),
+			},
+		})
+	}
+	return ret, nil
+}
+
 func (host *SHost) getHostSystem() *mo.HostSystem {
 	return host.object.(*mo.HostSystem)
 }
@@ -1766,25 +1821,11 @@ func (host *SHost) SyncResourcePool(name string) (*object.ResourcePool, error) {
 	if len(name) == 0 {
 		return host.GetResourcePool()
 	}
-	dc, err := host.GetDatacenter()
+	cluster, err := host.GetCluster()
 	if err != nil {
-		return nil, errors.Wrap(err, "GetDatacenter")
+		return host.GetResourcePool()
 	}
-	pools, err := dc.listResourcePools()
-	if err != nil {
-		return nil, errors.Wrap(err, "ListResourcePools")
-	}
-	for i := range pools {
-		pool := NewResourcePool(host.manager, &pools[i], host.datacenter)
-		if strings.EqualFold(strings.Join(pool.GetPath(), "/"), name) ||
-			strings.EqualFold(strings.Join(pool.GetPath(), "|"), name) ||
-			strings.EqualFold(pool.GetName(), name) {
-			log.Debugf("SyncResourcePool: %s found", strings.Join(pool.GetPath(), "|"))
-			return object.NewResourcePool(host.manager.client.Client, pools[i].Reference()), nil
-		}
-	}
-	log.Errorf("SyncResourcePool: %s not found", name)
-	return host.GetResourcePool()
+	return cluster.SyncResourcePool(name)
 }
 
 func (host *SHost) GetSiblingHosts() ([]*SHost, error) {

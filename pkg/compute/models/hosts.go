@@ -2390,9 +2390,9 @@ func (hh *SHost) SyncWithCloudHost(ctx context.Context, userCred mcclient.TokenC
 		syncMetadata(ctx, userCred, hh, extHost, account.ReadOnly)
 	}
 
-	if err := hh.syncSchedtags(ctx, userCred, extHost); err != nil {
-		log.Errorf("syncSchedtags fail:  %v", err)
-		return err
+	err = hh.syncSchedtags(ctx, userCred, extHost)
+	if err != nil && errors.Cause(err) != cloudprovider.ErrNotFound && errors.Cause(err) != errors.ErrNotImplemented {
+		log.Errorf("syncSchedtags for %s fail:  %v", hh.Name, err)
 	}
 
 	if len(diff) > 0 {
@@ -2432,8 +2432,11 @@ var (
 	METADATA_EXT_SCHEDTAG_KEY = "ext:schedtag"
 )
 
-func (s *SHost) getAllSchedtagsWithExtSchedtagKey(ctx context.Context, userCred mcclient.TokenCredential) (map[string]*SSchedtag, error) {
-	q := SchedtagManager.Query().Equals("resource_type", HostManager.KeywordPlural())
+func (h *SHost) getAllSchedtagsWithExtSchedtagKey() (map[string]*SSchedtag, error) {
+	metaSQ := db.Metadata.Query("obj_id").Equals("obj_type", SchedtagManager.KeywordPlural()).Equals("key", METADATA_EXT_SCHEDTAG_KEY).SubQuery()
+	hostSQ := HostManager.Query("id").Equals("manager_id", h.ManagerId).SubQuery()
+	hSQ := HostschedtagManager.Query("schedtag_id").In("host_id", hostSQ).SubQuery()
+	q := SchedtagManager.Query().Equals("resource_type", HostManager.KeywordPlural()).In("id", metaSQ).In("id", hSQ)
 	sts := make([]SSchedtag, 0, 5)
 	err := db.FetchModelObjects(SchedtagManager, q, &sts)
 	if err != nil {
@@ -2441,79 +2444,93 @@ func (s *SHost) getAllSchedtagsWithExtSchedtagKey(ctx context.Context, userCred 
 	}
 	stMap := make(map[string]*SSchedtag)
 	for i := range sts {
-		extTagName := sts[i].GetMetadata(ctx, METADATA_EXT_SCHEDTAG_KEY, userCred)
-		if len(extTagName) == 0 {
-			continue
-		}
-		stMap[extTagName] = &sts[i]
+		stMap[sts[i].Id] = &sts[i]
 	}
 	return stMap, nil
 }
 
-func (s *SHost) syncSchedtags(ctx context.Context, userCred mcclient.TokenCredential, extHost cloudprovider.ICloudHost) error {
-	stq := SchedtagManager.Query()
-	subq := HostschedtagManager.Query("schedtag_id").Equals("host_id", s.Id).SubQuery()
-	stq = stq.Join(subq, sqlchemy.Equals(stq.Field("id"), subq.Field("schedtag_id")))
+func (h *SHost) GetSchedtags() ([]SSchedtag, error) {
+	sq := HostschedtagManager.Query("schedtag_id").Equals("host_id", h.Id).SubQuery()
+	q := SchedtagManager.Query().In("id", sq)
 	schedtags := make([]SSchedtag, 0)
-	err := db.FetchModelObjects(SchedtagManager, stq, &schedtags)
+	err := db.FetchModelObjects(SchedtagManager, q, &schedtags)
 	if err != nil {
-		return errors.Wrap(err, "db.FetchModelObjects")
+		return nil, errors.Wrap(err, "db.FetchModelObjects")
 	}
-	extSchedtagStrs, err := extHost.GetSchedtags()
+	return schedtags, nil
+}
+
+func (h *SHost) syncSchedtags(ctx context.Context, userCred mcclient.TokenCredential, extHost cloudprovider.ICloudHost) error {
+	schedtags, err := h.GetSchedtags()
+	if err != nil {
+		return errors.Wrap(err, "GetSchedtags")
+	}
+	extSchedTags, err := extHost.GetSchedtags()
 	if err != nil {
 		return errors.Wrap(err, "extHost.GetSchedtags")
 	}
-	extStStrSet := sets.NewString(extSchedtagStrs...)
+	extTagMap := map[string]*cloudprovider.Schedtag{}
+	extTagIdSet := sets.NewString()
+	for i := range extSchedTags {
+		extSchedtag := &extSchedTags[i]
+		extTagIdSet.Insert(extSchedtag.Id)
+		extTagMap[extSchedtag.Id] = &extSchedTags[i]
+	}
 	removed := make([]*SSchedtag, 0)
 	removedIds := make([]string, 0)
 	for i := range schedtags {
 		stag := &schedtags[i]
-		extTagName := stag.GetMetadata(ctx, METADATA_EXT_SCHEDTAG_KEY, userCred)
-		if len(extTagName) == 0 {
+		extTagId := stag.GetMetadata(ctx, METADATA_EXT_SCHEDTAG_KEY, userCred)
+		if len(extTagId) == 0 {
 			continue
 		}
-		if !extStStrSet.Has(extTagName) {
+		if !extTagIdSet.Has(extTagId) {
 			removed = append(removed, stag)
 			removedIds = append(removedIds, stag.GetId())
 		} else {
-			extStStrSet.Delete(extTagName)
+			extTagIdSet.Delete(extTagId)
 		}
 	}
-	added := extStStrSet.UnsortedList()
+	added := extTagIdSet.UnsortedList()
 
 	var stagMap map[string]*SSchedtag
 	if len(added) > 0 {
-		stagMap, err = s.getAllSchedtagsWithExtSchedtagKey(ctx, userCred)
+		stagMap, err = h.getAllSchedtagsWithExtSchedtagKey()
 		if err != nil {
 			return errors.Wrap(err, "getAllSchedtagsWithExtSchedtagKey")
 		}
 	}
 
-	for _, stStr := range added {
-		st, ok := stagMap[stStr]
+	for _, extSchedId := range added {
+		st, ok := stagMap[extSchedId]
 		if !ok {
 			st = &SSchedtag{
 				ResourceType: HostManager.KeywordPlural(),
 			}
-			st.DomainId = s.DomainId
-			st.Name = stStr
+			st.DomainId = h.DomainId
+			st.Name = extTagMap[extSchedId].Name
 			st.Description = "Sync from cloud"
 			st.SetModelManager(SchedtagManager, st)
 			err := SchedtagManager.TableSpec().Insert(ctx, st)
 			if err != nil {
-				return errors.Wrapf(err, "unable to create schedtag %q", stStr)
+				return errors.Wrapf(err, "unable to create schedtag %s", st.Name)
 			}
-			st.SetMetadata(ctx, METADATA_EXT_SCHEDTAG_KEY, stStr, userCred)
+			meta := make(map[string]interface{})
+			meta[METADATA_EXT_SCHEDTAG_KEY] = extSchedId
+			for k, v := range extTagMap[extSchedId].Meta {
+				meta[k] = v
+			}
+			st.SetAllMetadata(ctx, meta, userCred)
 		}
 		// attach
 		hostschedtag := &SHostschedtag{
-			HostId: s.GetId(),
+			HostId: h.GetId(),
 		}
 		hostschedtag.SetModelManager(HostschedtagManager, hostschedtag)
 		hostschedtag.SchedtagId = st.GetId()
 		err = HostschedtagManager.TableSpec().Insert(ctx, hostschedtag)
 		if err != nil {
-			return errors.Wrapf(err, "unable to create hostschedtag for tag %q host %q", stStr, s.GetId())
+			return errors.Wrapf(err, "unable to create hostschedtag for tag %s host %s", st.Name, h.GetId())
 		}
 	}
 
@@ -2521,7 +2538,7 @@ func (s *SHost) syncSchedtags(ctx context.Context, userCred mcclient.TokenCreden
 		return nil
 	}
 
-	q := HostschedtagManager.Query().Equals("host_id", s.GetId()).In("schedtag_id", removedIds)
+	q := HostschedtagManager.Query().Equals("host_id", h.GetId()).In("schedtag_id", removedIds)
 	hostschedtags := make([]SHostschedtag, 0, len(removedIds))
 	err = db.FetchModelObjects(HostschedtagManager, q, &hostschedtags)
 	if err != nil {
@@ -2660,9 +2677,9 @@ func (manager *SHostManager) NewFromCloudHost(ctx context.Context, userCred mccl
 
 	SyncCloudDomain(userCred, &host, provider.GetOwnerId())
 
-	if err := host.syncSchedtags(ctx, userCred, extHost); err != nil {
-		log.Errorf("newFromCloudHost fail in syncSchedtags %v", err)
-		return nil, err
+	err = host.syncSchedtags(ctx, userCred, extHost)
+	if err != nil && errors.Cause(err) != cloudprovider.ErrNotFound && errors.Cause(err) != errors.ErrNotImplemented {
+		log.Errorf("syncSchedtags %s fail %v", host.Name, err)
 	}
 
 	if provider != nil {
@@ -3694,10 +3711,6 @@ func (hh *SHost) GetBaremetalServer() *SGuest {
 		return nil
 	}
 	return &guest
-}
-
-func (hh *SHost) GetSchedtags() []SSchedtag {
-	return GetSchedtags(HostschedtagManager, hh.Id)
 }
 
 type SHostGuestResourceUsage struct {
