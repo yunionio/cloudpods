@@ -15,6 +15,8 @@
 package esxi
 
 import (
+	"strings"
+
 	"github.com/vmware/govmomi/vim25/mo"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
@@ -51,6 +53,10 @@ func (pool *SResourcePool) getParentEntity(obj *mo.ManagedEntity) *mo.ManagedEnt
 		return &entity
 	}
 	return nil
+}
+
+func (pool *SResourcePool) IsDefault() bool {
+	return strings.EqualFold(pool.GetName(), "Resources")
 }
 
 func (pool *SResourcePool) fetchPath() []string {

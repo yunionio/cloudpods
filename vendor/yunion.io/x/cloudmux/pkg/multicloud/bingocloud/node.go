@@ -230,10 +230,6 @@ func (self *SNode) getIWires() ([]cloudprovider.ICloudWire, error) {
 	return ret, nil
 }
 
-func (self *SNode) GetSchedtags() ([]string, error) {
-	return []string{}, nil
-}
-
 func (self *SNode) GetIsMaintenance() bool {
 	return self.Status == "maintain"
 }

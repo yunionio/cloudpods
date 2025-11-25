@@ -318,7 +318,7 @@ type ICloudHost interface {
 	CreateVM(desc *SManagedVMCreateConfig) (ICloudVM, error)
 	GetIHostNics() ([]ICloudHostNetInterface, error)
 
-	GetSchedtags() ([]string, error)
+	GetSchedtags() ([]Schedtag, error)
 
 	GetOvnVersion() string // just for cloudpods host
 }
