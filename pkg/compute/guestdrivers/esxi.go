@@ -464,6 +464,9 @@ func (self *SESXiGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gues
 		if len(projectId) > 0 {
 			config.Add(jsonutils.NewString(projectId), "desc", "project_id")
 		}
+		if len(guest.ResourcePool) > 0 {
+			config.Add(jsonutils.NewString(guest.ResourcePool), "desc", "resource_pool")
+		}
 	}
 
 	config.Add(jsonutils.Marshal(accessInfo), "datastore")
