@@ -200,6 +200,9 @@ type SGuest struct {
 
 	// 上次开机时间
 	LastStartAt time.Time `json:"last_start_at" list:"user"`
+
+	// 资源池,仅vmware指定调度标签时内部使用
+	ResourcePool string `width:"64" charset:"utf8" nullable:"true" create:"optional"`
 }
 
 func (manager *SGuestManager) GetPropertyStatistics(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*apis.StatusStatistic, error) {
@@ -2717,6 +2720,28 @@ func (guest *SGuest) PostCreate(ctx context.Context, userCred mcclient.TokenCred
 	userData, _ := data.GetString("user_data")
 	if len(userData) > 0 {
 		guest.setUserData(ctx, userCred, userData)
+	}
+
+	if guest.Hypervisor == api.HYPERVISOR_ESXI {
+		schedtags := []api.SchedtagConfig{}
+		data.Unmarshal(&schedtags, "schedtags")
+
+		for _, tag := range schedtags {
+			if tag.ResourceType != HostManager.KeywordPlural() {
+				continue
+			}
+			meta := db.SMetadata{}
+			db.Metadata.Query().
+				Equals("obj_type", SchedtagManager.Keyword()).
+				Equals("obj_id", tag.Id).
+				Equals("key", cloudprovider.METADATA_POOL_ID).First(&meta)
+			if len(meta.Value) > 0 {
+				db.Update(guest, func() error {
+					guest.ResourcePool = meta.Value
+					return nil
+				})
+			}
+		}
 	}
 
 	// set kickstart metadata
