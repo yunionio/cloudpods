@@ -173,14 +173,6 @@ func (host *SHost) GetVersion() string {
 	return host.Version
 }
 
-func (host *SHost) GetSchedtags() ([]string, error) {
-	ret := []string{}
-	for _, tag := range host.Schedtags {
-		ret = append(ret, tag.Name)
-	}
-	return ret, nil
-}
-
 type SHostNic struct {
 	host *SHost
 

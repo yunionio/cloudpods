@@ -12,38 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package multicloud
+package cloudprovider
 
-import (
-	"yunion.io/x/cloudmux/pkg/apis"
-	"yunion.io/x/cloudmux/pkg/cloudprovider"
+const (
+	METADATA_POOL_ID = "__pool_id"
 )
 
-type SHostBase struct {
-	SResourceBase
-	STagBase
-}
-
-func (host *SHostBase) GetCpuCmtbound() float32 {
-	return 0.0
-}
-
-func (host *SHostBase) GetMemCmtbound() float32 {
-	return 0.0
-}
-
-func (host *SHostBase) GetReservedMemoryMb() int {
-	return 0
-}
-
-func (host *SHostBase) GetSchedtags() ([]cloudprovider.Schedtag, error) {
-	return nil, nil
-}
-
-func (host *SHostBase) GetOvnVersion() string {
-	return ""
-}
-
-func (host *SHostBase) GetCpuArchitecture() string {
-	return apis.OS_ARCH_X86_64
+type Schedtag struct {
+	Name string
+	Id   string
+	Meta map[string]string
 }
