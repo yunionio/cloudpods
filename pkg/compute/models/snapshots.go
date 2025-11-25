@@ -474,6 +474,12 @@ func (manager *SSnapshotManager) ValidateCreateData(
 		return input, httperrors.NewInvalidStatusError("disk %s status is not %s", disk.Name, api.DISK_READY)
 	}
 
+	if len(disk.SnapshotId) > 0 {
+		if disk.GetMetadata(ctx, "merge_snapshot", userCred) == "true" {
+			return input, httperrors.NewBadRequestError("disk %s backing snapshot not merged", disk.Id)
+		}
+	}
+
 	if len(disk.EncryptKeyId) > 0 {
 		input.EncryptKeyId = &disk.EncryptKeyId
 		input.EncryptedResourceCreateInput, err = manager.SEncryptedResourceManager.ValidateCreateData(ctx, userCred, ownerId, query, input.EncryptedResourceCreateInput)
