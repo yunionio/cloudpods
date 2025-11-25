@@ -7447,3 +7447,42 @@ func (guest *SGuest) SaveLastStartAt() error {
 	})
 	return errors.Wrap(err, "SaveLastStartAt")
 }
+
+func (guest *SGuest) finalizeFakeDeleteTask(ctx context.Context, userCred mcclient.TokenCredential, task taskman.ITask) {
+	db.OpsLog.LogEvent(guest, db.ACT_PENDING_DELETE, guest.GetShortDesc(ctx), userCred)
+	logclient.AddActionLogWithStartable(task, guest, logclient.ACT_PENDING_DELETE, guest.GetShortDesc(ctx), userCred, true)
+	if !guest.IsSystem {
+		guest.EventNotify(ctx, userCred, notifyclient.ActionPendingDelete)
+	}
+}
+
+func (guest *SGuest) finalizeRealDeleteTask(ctx context.Context, userCred mcclient.TokenCredential, task taskman.ITask) {
+	guest.RealDelete(ctx, userCred)
+	guest.RemoveAllMetadata(ctx, userCred)
+	db.OpsLog.LogEvent(guest, db.ACT_DELOCATE, guest.GetShortDesc(ctx), userCred)
+	logclient.AddActionLogWithStartable(task, guest, logclient.ACT_DELOCATE, nil, userCred, true)
+	if !guest.IsSystem {
+		guest.EventNotify(ctx, userCred, notifyclient.ActionDelete)
+	}
+	HostManager.ClearSchedDescCache(guest.HostId)
+}
+
+func (guest *SGuest) FinalizeDeleteTask(ctx context.Context, userCred mcclient.TokenCredential, task taskman.ITask, data jsonutils.JSONObject) {
+	if jsonutils.QueryBoolean(data, "real_delete", false) {
+		guest.finalizeRealDeleteTask(ctx, userCred, task)
+	} else {
+		guest.finalizeFakeDeleteTask(ctx, userCred, task)
+	}
+}
+
+func (guest *SGuest) StartBaseDeleteTask(ctx context.Context, t taskman.ITask) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "BaseGuestDeleteTask", guest, t.GetUserCred(), t.GetParams(), t.GetTaskId(), "", nil)
+	if err != nil {
+		return errors.Wrap(err, "StartBaseDeleteTask")
+	}
+	err = task.ScheduleRun(nil)
+	if err != nil {
+		return errors.Wrap(err, "ScheduleRun")
+	}
+	return nil
+}
