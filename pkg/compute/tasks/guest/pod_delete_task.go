@@ -24,9 +24,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
-	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/compute/models"
-	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 type PodDeleteTask struct {
@@ -68,69 +66,24 @@ func (t *PodDeleteTask) OnWaitContainerDeletedFailed(ctx context.Context, pod *m
 }
 
 func (t *PodDeleteTask) OnContainerDeleted(ctx context.Context, pod *models.SGuest) {
-	/*t.SetStage("OnPodStopped", nil)
-	if pod.HostId == "" {
-		t.OnPodStopped(ctx, pod, nil)
-		return
-	}
-	// call stop task to umount volumes
-	drv, err := pod.GetDriver()
-	if err != nil {
-		t.OnPodStoppedFailed(ctx, pod, jsonutils.NewString(err.Error()))
-		return
-	}
-	if err := drv.StartGuestStopTask(pod, ctx, t.GetUserCred(), nil, t.GetTaskId()); err != nil {
-		if strings.Contains(err.Error(), "NotFoundError") {
-			t.OnPodStopped(ctx, pod, nil)
-			return
-		}
-		t.OnPodStoppedFailed(ctx, pod, jsonutils.NewString(err.Error()))
-		return
-	}*/
 	t.startDeletePod(ctx, pod)
 }
 
 func (t *PodDeleteTask) startDeletePod(ctx context.Context, pod *models.SGuest) {
 	t.SetStage("OnPodDeleted", nil)
-	task, err := taskman.TaskManager.NewTask(ctx, "GuestDeleteTask", pod, t.GetUserCred(), t.GetParams(), t.GetTaskId(), "", nil)
+	err := pod.StartBaseDeleteTask(ctx, t)
 	if err != nil {
 		t.OnPodDeletedFailed(ctx, pod, jsonutils.NewString(err.Error()))
 		return
 	}
-	task.ScheduleRun(nil)
 }
 
-/*func (t *PodDeleteTask) OnPodStopped(ctx context.Context, pod *models.SGuest, data jsonutils.JSONObject) {
-	t.SetStage("OnPodDeleted", nil)
-	task, err := taskman.TaskManager.NewTask(ctx, "GuestDeleteTask", pod, t.GetUserCred(), t.GetParams(), t.GetTaskId(), "", nil)
-	if err != nil {
-		t.OnPodDeletedFailed(ctx, pod, jsonutils.NewString(err.Error()))
-		return
-	}
-	task.ScheduleRun(nil)
-}
-
-func (t *PodDeleteTask) OnPodStoppedFailed(ctx context.Context, pod *models.SGuest, reason jsonutils.JSONObject) {
-	if strings.Contains(reason.String(), "NotFoundError") {
-		t.OnPodStopped(ctx, pod, jsonutils.NewDict())
-		return
-	} else {
-		pod.SetStatus(ctx, t.GetUserCred(), api.VM_STOP_FAILED, reason.String())
-		t.SetStageFailed(ctx, reason)
-	}
-}*/
-
-func (t *PodDeleteTask) OnPodDeleted(ctx context.Context, pod *models.SGuest, data jsonutils.JSONObject) {
-	pod.RealDelete(ctx, t.GetUserCred())
-	db.OpsLog.LogEvent(pod, db.ACT_DELOCATE, pod.GetShortDesc(ctx), t.UserCred)
-	logclient.AddActionLogWithStartable(t, pod, logclient.ACT_DELOCATE, nil, t.UserCred, true)
-	if !pod.IsSystem {
-		pod.EventNotify(ctx, t.UserCred, notifyclient.ActionDelete)
-	}
-	models.HostManager.ClearSchedDescCache(pod.HostId)
+func (t *PodDeleteTask) OnPodDeleted(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	pod := obj.(*models.SGuest)
+	pod.FinalizeDeleteTask(ctx, t.GetUserCred(), t, data)
 	t.SetStageComplete(ctx, nil)
 }
 
-func (t *PodDeleteTask) OnPodDeletedFailed(ctx context.Context, pod *models.SGuest, reason jsonutils.JSONObject) {
+func (t *PodDeleteTask) OnPodDeletedFailed(ctx context.Context, obj db.IStandaloneModel, reason jsonutils.JSONObject) {
 	t.SetStageFailed(ctx, reason)
 }
