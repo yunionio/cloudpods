@@ -99,7 +99,7 @@ func (drv *SBaseGuestDriver) OnGuestCreateTaskComplete(ctx context.Context, gues
 }
 
 func (drv *SBaseGuestDriver) StartDeleteGuestTask(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, params *jsonutils.JSONDict, parentTaskId string) error {
-	task, err := taskman.TaskManager.NewTask(ctx, "KvmDeleteTask", guest, userCred, params, parentTaskId, "", nil)
+	task, err := taskman.TaskManager.NewTask(ctx, "GenericGuestDeleteTask", guest, userCred, params, parentTaskId, "", nil)
 	if err != nil {
 		return err
 	}
