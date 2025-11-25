@@ -33,7 +33,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
-type GuestDeleteTask struct {
+type BaseGuestDeleteTask struct {
 	SGuestBaseTask
 }
 
@@ -42,122 +42,122 @@ var (
 )
 
 func init() {
-	taskman.RegisterTask(GuestDeleteTask{})
+	taskman.RegisterTask(BaseGuestDeleteTask{})
 }
 
-func (self *GuestDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+func (deleteTask *BaseGuestDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
 	host, _ := guest.GetHost()
 	if guest.Hypervisor == api.HYPERVISOR_BAREMETAL && host != nil && host.HostType != api.HOST_TYPE_BAREMETAL {
 		// if a fake server for converted hypervisor, then just skip stop
-		self.OnGuestStopComplete(ctx, guest, data)
+		deleteTask.OnGuestStopComplete(ctx, guest, data)
 		return
 	}
 	drv, err := guest.GetDriver()
 	if err != nil {
-		self.OnGuestStopComplete(ctx, guest, data)
+		deleteTask.OnGuestStopComplete(ctx, guest, data)
 		return
 	}
 	if len(guest.BackupHostId) > 0 {
-		self.SetStage("OnMasterHostStopGuestComplete", nil)
-		if err := drv.RequestStopGuestForDelete(ctx, guest, nil, self); err != nil {
+		deleteTask.SetStage("OnMasterHostStopGuestComplete", nil)
+		if err := drv.RequestStopGuestForDelete(ctx, guest, nil, deleteTask); err != nil {
 			log.Errorf("RequestStopGuestForDelete fail %s", err)
-			self.OnMasterHostStopGuestComplete(ctx, guest, nil)
+			deleteTask.OnMasterHostStopGuestComplete(ctx, guest, nil)
 		}
 	} else {
-		self.SetStage("OnGuestStopComplete", nil)
-		if err := drv.RequestStopGuestForDelete(ctx, guest, nil, self); err != nil {
+		deleteTask.SetStage("OnGuestStopComplete", nil)
+		if err := drv.RequestStopGuestForDelete(ctx, guest, nil, deleteTask); err != nil {
 			log.Errorf("RequestStopGuestForDelete fail %s", err)
-			self.OnGuestStopComplete(ctx, guest, nil)
+			deleteTask.OnGuestStopComplete(ctx, guest, nil)
 		}
 	}
 }
 
-func (self *GuestDeleteTask) OnMasterHostStopGuestComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
-	self.SetStage("OnGuestStopComplete", nil)
+func (deleteTask *BaseGuestDeleteTask) OnMasterHostStopGuestComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	deleteTask.SetStage("OnGuestStopComplete", nil)
 	host := models.HostManager.FetchHostById(guest.BackupHostId)
 	drv, err := guest.GetDriver()
 	if err != nil {
-		self.OnGuestStopComplete(ctx, guest, nil)
+		deleteTask.OnGuestStopComplete(ctx, guest, nil)
 		return
 	}
-	err = drv.RequestStopGuestForDelete(ctx, guest, host, self)
+	err = drv.RequestStopGuestForDelete(ctx, guest, host, deleteTask)
 	if err != nil {
 		log.Errorf("RequestStopGuestForDelete fail %s", err)
-		self.OnGuestStopComplete(ctx, guest, nil)
+		deleteTask.OnGuestStopComplete(ctx, guest, nil)
 	}
 }
 
-func (self *GuestDeleteTask) OnMasterHostStopGuestCompleteFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
-	self.OnGuestStopComplete(ctx, guest, nil) // ignore stop error
+func (deleteTask *BaseGuestDeleteTask) OnMasterHostStopGuestCompleteFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	deleteTask.OnGuestStopComplete(ctx, guest, nil) // ignore stop error
 }
 
-func (self *GuestDeleteTask) StartDeleteGuestSnapshots(ctx context.Context, guest *models.SGuest) {
-	guest.StartDeleteGuestSnapshots(ctx, self.UserCred, self.GetTaskId())
+func (deleteTask *BaseGuestDeleteTask) StartDeleteGuestSnapshots(ctx context.Context, guest *models.SGuest) {
+	guest.StartDeleteGuestSnapshots(ctx, deleteTask.UserCred, deleteTask.GetTaskId())
 }
 
-func (self *GuestDeleteTask) OnGuestStopComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
-	if jsonutils.QueryBoolean(self.Params, "delete_snapshots", false) {
-		self.SetStage("OnStartEipDissociate", nil)
-		guest.StartDeleteGuestSnapshots(ctx, self.UserCred, self.Id)
+func (deleteTask *BaseGuestDeleteTask) OnGuestStopComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	if jsonutils.QueryBoolean(deleteTask.Params, "delete_snapshots", false) {
+		deleteTask.SetStage("OnStartEipDissociate", nil)
+		guest.StartDeleteGuestSnapshots(ctx, deleteTask.UserCred, deleteTask.Id)
 		return
 	}
-	self.OnStartEipDissociate(ctx, guest, data)
+	deleteTask.OnStartEipDissociate(ctx, guest, data)
 }
 
-func (self *GuestDeleteTask) OnGuestStopCompleteFailed(ctx context.Context, guest *models.SGuest, err jsonutils.JSONObject) {
+func (deleteTask *BaseGuestDeleteTask) OnGuestStopCompleteFailed(ctx context.Context, guest *models.SGuest, err jsonutils.JSONObject) {
 	if len(guest.ExternalId) > 0 {
 		_, e := guest.GetIVM(ctx)
 		if errors.Cause(e) == cloudprovider.ErrNotFound {
-			self.Params.Set("override_pending_delete", jsonutils.JSONTrue)
+			deleteTask.Params.Set("override_pending_delete", jsonutils.JSONTrue)
 		}
 	}
-	self.OnGuestStopComplete(ctx, guest, err) // ignore stop error
+	deleteTask.OnGuestStopComplete(ctx, guest, err) // ignore stop error
 }
 
-func (self *GuestDeleteTask) OnStartEipDissociateFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+func (deleteTask *BaseGuestDeleteTask) OnStartEipDissociateFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	log.Errorf("Delete guest snapshots faield: %s", data)
-	self.OnStartEipDissociate(ctx, guest, nil)
+	deleteTask.OnStartEipDissociate(ctx, guest, nil)
 }
 
-func (self *GuestDeleteTask) OnStartEipDissociate(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
-	if sourceGuestId := guest.GetMetadata(ctx, api.SERVER_META_CONVERT_FROM_ESXI, self.UserCred); len(sourceGuestId) > 0 {
+func (deleteTask *BaseGuestDeleteTask) OnStartEipDissociate(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	if sourceGuestId := guest.GetMetadata(ctx, api.SERVER_META_CONVERT_FROM_ESXI, deleteTask.UserCred); len(sourceGuestId) > 0 {
 		sourceGuest := models.GuestManager.FetchGuestById(sourceGuestId)
 		if sourceGuest != nil &&
-			sourceGuest.GetMetadata(ctx, api.SERVER_META_CONVERTED_SERVER, self.UserCred) == guest.Id {
-			sourceGuest.RemoveMetadata(ctx, api.SERVER_META_CONVERTED_SERVER, self.UserCred)
-			sourceGuest.StartSyncstatus(ctx, self.UserCred, "")
+			sourceGuest.GetMetadata(ctx, api.SERVER_META_CONVERTED_SERVER, deleteTask.UserCred) == guest.Id {
+			sourceGuest.RemoveMetadata(ctx, api.SERVER_META_CONVERTED_SERVER, deleteTask.UserCred)
+			sourceGuest.StartSyncstatus(ctx, deleteTask.UserCred, "")
 		}
 	}
 	eip, _ := guest.GetEipOrPublicIp()
 	if eip != nil && eip.Mode != api.EIP_MODE_INSTANCE_PUBLICIP {
 		// detach floating EIP only
-		if jsonutils.QueryBoolean(self.Params, "purge", false) {
+		if jsonutils.QueryBoolean(deleteTask.Params, "purge", false) {
 			// purge locally
-			eip.Dissociate(ctx, self.UserCred)
-			self.OnEipDissociateComplete(ctx, guest, nil)
+			eip.Dissociate(ctx, deleteTask.UserCred)
+			deleteTask.OnEipDissociateComplete(ctx, guest, nil)
 		} else {
-			self.SetStage("OnEipDissociateComplete", nil)
-			autoDelete := jsonutils.QueryBoolean(self.GetParams(), "delete_eip", false)
-			eip.StartEipDissociateTask(ctx, self.UserCred, autoDelete, self.GetTaskId())
+			deleteTask.SetStage("OnEipDissociateComplete", nil)
+			autoDelete := jsonutils.QueryBoolean(deleteTask.GetParams(), "delete_eip", false)
+			eip.StartEipDissociateTask(ctx, deleteTask.UserCred, autoDelete, deleteTask.GetTaskId())
 		}
 	} else {
-		self.OnEipDissociateComplete(ctx, guest, nil)
+		deleteTask.OnEipDissociateComplete(ctx, guest, nil)
 	}
 }
 
-func (self *GuestDeleteTask) OnEipDissociateCompleteFailed(ctx context.Context, obj db.IStandaloneModel, err jsonutils.JSONObject) {
+func (deleteTask *BaseGuestDeleteTask) OnEipDissociateCompleteFailed(ctx context.Context, obj db.IStandaloneModel, err jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
-	self.OnFailed(ctx, guest, err)
+	deleteTask.OnFailed(ctx, guest, err)
 }
 
-func (self *GuestDeleteTask) OnEipDissociateComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
-	self.SetStage("OnDiskDetachComplete", nil)
-	self.OnDiskDetachComplete(ctx, obj, data)
+func (deleteTask *BaseGuestDeleteTask) OnEipDissociateComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	deleteTask.SetStage("OnDiskDetachComplete", nil)
+	deleteTask.OnDiskDetachComplete(ctx, obj, data)
 }
 
 // remove detachable disks
-func (self *GuestDeleteTask) OnDiskDetachComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+func (deleteTask *BaseGuestDeleteTask) OnDiskDetachComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	log.Debugf("OnDiskDetachComplete")
 	guest := obj.(*models.SGuest)
 
@@ -166,120 +166,113 @@ func (self *GuestDeleteTask) OnDiskDetachComplete(ctx context.Context, obj db.IS
 	// clean dirty data
 	for i := range guestdisksOrigin {
 		if guestdisksOrigin[i].GetDisk() == nil {
-			guestdisksOrigin[i].Detach(ctx, self.UserCred)
+			guestdisksOrigin[i].Detach(ctx, deleteTask.UserCred)
 		} else {
 			guestdisks = append(guestdisks, guestdisksOrigin[i])
 		}
 	}
 	if len(guestdisks) == 0 {
 		// on guest disks detached
-		self.doClearGPUDevicesComplete(ctx, guest)
+		deleteTask.doClearGPUDevicesComplete(ctx, guest)
 		return
 	}
 	// detach last detachable disk
 	lastDisk := guestdisks[len(guestdisks)-1].GetDisk()
-	deleteDisks := jsonutils.QueryBoolean(self.Params, "delete_disks", false)
+	deleteDisks := jsonutils.QueryBoolean(deleteTask.Params, "delete_disks", false)
 	if deleteDisks {
-		lastDisk.SetAutoDelete(lastDisk, self.GetUserCred(), true)
+		lastDisk.SetAutoDelete(lastDisk, deleteTask.GetUserCred(), true)
 	}
 	log.Debugf("lastDisk IsDetachable?? %v", lastDisk.IsDetachable())
 	if !lastDisk.IsDetachable() {
 		// no more disk need detach
-		self.doClearGPUDevicesComplete(ctx, guest)
+		deleteTask.doClearGPUDevicesComplete(ctx, guest)
 		return
 	}
-	purge := jsonutils.QueryBoolean(self.Params, "purge", false)
-	guest.StartGuestDetachdiskTask(ctx, self.UserCred, lastDisk, true, self.GetTaskId(), purge, false)
+	purge := jsonutils.QueryBoolean(deleteTask.Params, "purge", false)
+	guest.StartGuestDetachdiskTask(ctx, deleteTask.UserCred, lastDisk, true, deleteTask.GetTaskId(), purge, false)
 }
 
-func (self *GuestDeleteTask) OnDiskDetachCompleteFailed(ctx context.Context, obj db.IStandaloneModel, err jsonutils.JSONObject) {
+func (deleteTask *BaseGuestDeleteTask) OnDiskDetachCompleteFailed(ctx context.Context, obj db.IStandaloneModel, err jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
-	self.OnFailed(ctx, guest, err)
+	deleteTask.OnFailed(ctx, guest, err)
 }
 
 // clean gpu devices
-func (self *GuestDeleteTask) doClearGPUDevicesComplete(ctx context.Context, guest *models.SGuest) {
+func (deleteTask *BaseGuestDeleteTask) doClearGPUDevicesComplete(ctx context.Context, guest *models.SGuest) {
 	log.Debugf("doClearGPUDevicesComplete")
-	models.IsolatedDeviceManager.ReleaseGPUDevicesOfGuest(ctx, guest, self.UserCred)
-	if jsonutils.QueryBoolean(self.Params, "purge", false) {
-		self.OnSyncConfigComplete(ctx, guest, nil)
+	models.IsolatedDeviceManager.ReleaseGPUDevicesOfGuest(ctx, guest, deleteTask.UserCred)
+	if jsonutils.QueryBoolean(deleteTask.Params, "purge", false) {
+		deleteTask.OnSyncConfigComplete(ctx, guest, nil)
 	} else {
-		self.SetStage("OnSyncConfigComplete", nil)
-		guest.StartSyncTaskWithoutSyncstatus(ctx, self.UserCred, false, self.GetTaskId())
+		deleteTask.SetStage("OnSyncConfigComplete", nil)
+		guest.StartSyncTaskWithoutSyncstatus(ctx, deleteTask.UserCred, false, deleteTask.GetTaskId())
 	}
 }
 
-func (self *GuestDeleteTask) OnSyncConfigComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+func (deleteTask *BaseGuestDeleteTask) OnSyncConfigComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
 
 	// try to leave all groups
-	guest.LeaveAllGroups(ctx, self.UserCred)
+	guest.LeaveAllGroups(ctx, deleteTask.UserCred)
 	// cleanup tap services and flows
-	guest.CleanTapRecords(ctx, self.UserCred)
+	guest.CleanTapRecords(ctx, deleteTask.UserCred)
 
-	isPurge := jsonutils.QueryBoolean(self.Params, "purge", false)
-	overridePendingDelete := jsonutils.QueryBoolean(self.Params, "override_pending_delete", false)
+	isPurge := jsonutils.QueryBoolean(deleteTask.Params, "purge", false)
+	overridePendingDelete := jsonutils.QueryBoolean(deleteTask.Params, "override_pending_delete", false)
 
 	if options.Options.EnablePendingDelete && !isPurge && !overridePendingDelete {
 		if guest.PendingDeleted {
-			self.SetStageComplete(ctx, nil)
+			deleteTask.SetStageComplete(ctx, nil)
 			return
 		}
 		log.Debugf("XXXXXXX Do guest pending delete... XXXXXXX")
 		// pending detach
 		guest.PendingDetachScalingGroup()
-		guestStatus, _ := self.Params.GetString("guest_status")
+		guestStatus, _ := deleteTask.Params.GetString("guest_status")
 		if !utils.IsInStringArray(guestStatus, []string{
 			api.VM_SCHEDULE_FAILED, api.VM_NETWORK_FAILED,
 			api.VM_CREATE_FAILED, api.VM_DEVICE_FAILED}) {
-			self.StartPendingDeleteGuest(ctx, guest)
+			deleteTask.StartPendingDeleteGuest(ctx, guest)
 			return
 		}
 	}
 	log.Debugf("XXXXXXX Do real delete on guest ... XXXXXXX")
-	self.doStartDeleteGuest(ctx, guest)
+	deleteTask.doStartDeleteGuest(ctx, guest)
 }
 
-func (self *GuestDeleteTask) OnSyncConfigCompleteFailed(ctx context.Context, obj db.IStandaloneModel, err jsonutils.JSONObject) {
+func (deleteTask *BaseGuestDeleteTask) OnSyncConfigCompleteFailed(ctx context.Context, obj db.IStandaloneModel, err jsonutils.JSONObject) {
 	// guest := obj.(*models.SGuest)
-	// self.OnFailed(ctx, guest, err)
-	self.OnSyncConfigComplete(ctx, obj, err) // ignore sync config failed error
+	// deleteTask.OnFailed(ctx, guest, err)
+	deleteTask.OnSyncConfigComplete(ctx, obj, err) // ignore sync config failed error
 }
 
-func (self *GuestDeleteTask) OnGuestDeleteFailed(ctx context.Context, obj db.IStandaloneModel, err jsonutils.JSONObject) {
+func (deleteTask *BaseGuestDeleteTask) OnGuestDeleteFailed(ctx context.Context, obj db.IStandaloneModel, err jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
-	self.OnFailed(ctx, guest, err)
+	deleteTask.OnFailed(ctx, guest, err)
 }
 
-func (self *GuestDeleteTask) doStartDeleteGuest(ctx context.Context, obj db.IStandaloneModel) {
+func (deleteTask *BaseGuestDeleteTask) doStartDeleteGuest(ctx context.Context, obj db.IStandaloneModel) {
 	guest := obj.(*models.SGuest)
-	guest.SetStatus(ctx, self.UserCred, api.VM_DELETING, "delete server after stop")
-	db.OpsLog.LogEvent(guest, db.ACT_DELOCATING, guest.GetShortDesc(ctx), self.UserCred)
-	self.StartDeleteGuest(ctx, guest)
+	guest.SetStatus(ctx, deleteTask.UserCred, api.VM_DELETING, "delete server after stop")
+	db.OpsLog.LogEvent(guest, db.ACT_DELOCATING, guest.GetShortDesc(ctx), deleteTask.UserCred)
+	deleteTask.StartDeleteGuest(ctx, guest)
 }
 
-func (self *GuestDeleteTask) StartPendingDeleteGuest(ctx context.Context, guest *models.SGuest) {
-	guest.DoPendingDelete(ctx, self.UserCred)
-	self.SetStage("OnPendingDeleteComplete", nil)
-	guest.StartSyncstatus(ctx, self.UserCred, self.GetTaskId())
+func (deleteTask *BaseGuestDeleteTask) StartPendingDeleteGuest(ctx context.Context, guest *models.SGuest) {
+	guest.DoPendingDelete(ctx, deleteTask.UserCred)
+	deleteTask.SetStage("OnPendingDeleteComplete", nil)
+	guest.StartSyncstatus(ctx, deleteTask.UserCred, deleteTask.GetTaskId())
 }
 
-func (self *GuestDeleteTask) OnPendingDeleteComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
-	guest := obj.(*models.SGuest)
-	if !guest.IsSystem {
-		self.NotifyServerDeleted(ctx, guest)
-	}
-	// self.SetStage("on_sync_guest_conf_complete", nil)
-	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_PENDING_DELETE, guest.GetShortDesc(ctx), self.UserCred, true)
-	// guest.StartSyncTask(ctx, self.UserCred, false, self.GetTaskId())
-	self.SetStageComplete(ctx, nil)
+func (deleteTask *BaseGuestDeleteTask) OnPendingDeleteComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	deleteTask.SetStageComplete(ctx, jsonutils.NewDict())
 }
 
-func (self *GuestDeleteTask) OnPendingDeleteCompleteFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
-	self.OnPendingDeleteComplete(ctx, obj, nil)
+func (deleteTask *BaseGuestDeleteTask) OnPendingDeleteCompleteFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	deleteTask.OnPendingDeleteComplete(ctx, obj, nil)
 }
 
-func (self *GuestDeleteTask) StartDeleteGuest(ctx context.Context, guest *models.SGuest) {
+func (deleteTask *BaseGuestDeleteTask) StartDeleteGuest(ctx context.Context, guest *models.SGuest) {
 	// Temporary storageids to sync capacityUsed after delete
 	{
 		storages, _ := guest.GetStorages()
@@ -287,89 +280,83 @@ func (self *GuestDeleteTask) StartDeleteGuest(ctx context.Context, guest *models
 		for i := range storages {
 			storageIds[i] = storages[i].GetId()
 		}
-		self.Params.Set(STORAGEIDS, jsonutils.NewStringArray(storageIds))
+		deleteTask.Params.Set(STORAGEIDS, jsonutils.NewStringArray(storageIds))
 	}
 	// No snapshot
-	self.SetStage("OnGuestDetachDisksComplete", nil)
+	deleteTask.SetStage("OnGuestDetachDisksComplete", nil)
 	drv, err := guest.GetDriver()
 	if err != nil {
-		self.OnGuestDeleteFailed(ctx, guest, jsonutils.NewString(err.Error()))
+		deleteTask.OnGuestDeleteFailed(ctx, guest, jsonutils.NewString(err.Error()))
 		return
 	}
-	drv.RequestDetachDisksFromGuestForDelete(ctx, guest, self)
+	drv.RequestDetachDisksFromGuestForDelete(ctx, guest, deleteTask)
 }
 
-func (self *GuestDeleteTask) OnGuestDetachDisksComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+func (deleteTask *BaseGuestDeleteTask) OnGuestDetachDisksComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
-	self.DoDeleteGuest(ctx, guest)
+	deleteTask.DoDeleteGuest(ctx, guest)
 }
 
-func (self *GuestDeleteTask) OnGuestDetachDisksCompleteFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
-	self.OnGuestDeleteFailed(ctx, obj, data)
+func (deleteTask *BaseGuestDeleteTask) OnGuestDetachDisksCompleteFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	deleteTask.OnGuestDeleteFailed(ctx, obj, data)
 }
 
-func (self *GuestDeleteTask) DoDeleteGuest(ctx context.Context, guest *models.SGuest) {
-	models.IsolatedDeviceManager.ReleaseDevicesOfGuest(ctx, guest, self.UserCred)
+func (deleteTask *BaseGuestDeleteTask) DoDeleteGuest(ctx context.Context, guest *models.SGuest) {
+	models.IsolatedDeviceManager.ReleaseDevicesOfGuest(ctx, guest, deleteTask.UserCred)
 	host, _ := guest.GetHost()
 	if guest.IsPrepaidRecycle() {
-		err := host.BorrowIpAddrsFromGuest(ctx, self.UserCred, guest)
+		err := host.BorrowIpAddrsFromGuest(ctx, deleteTask.UserCred, guest)
 		if err != nil {
 			msg := fmt.Sprintf("host.BorrowIpAddrsFromGuest fail %s", err)
 			log.Errorf("%v", msg)
-			self.OnGuestDeleteFailed(ctx, guest, jsonutils.NewString(msg))
+			deleteTask.OnGuestDeleteFailed(ctx, guest, jsonutils.NewString(msg))
 			return
 		}
-		self.OnGuestDeleteComplete(ctx, guest, nil)
-	} else if (host == nil || !host.GetEnabled()) && jsonutils.QueryBoolean(self.Params, "purge", false) {
-		self.OnGuestDeleteComplete(ctx, guest, nil)
+		deleteTask.OnGuestDeleteComplete(ctx, guest, nil)
+	} else if (host == nil || !host.GetEnabled()) && jsonutils.QueryBoolean(deleteTask.Params, "purge", false) {
+		deleteTask.OnGuestDeleteComplete(ctx, guest, nil)
 	} else {
-		self.SetStage("OnGuestDeleteComplete", nil)
-		guest.StartUndeployGuestTask(ctx, self.UserCred, self.GetTaskId(), "")
+		deleteTask.SetStage("OnGuestDeleteComplete", nil)
+		guest.StartUndeployGuestTask(ctx, deleteTask.UserCred, deleteTask.GetTaskId(), "")
 	}
 }
 
-func (self *GuestDeleteTask) OnFailed(ctx context.Context, guest *models.SGuest, err jsonutils.JSONObject) {
-	guest.SetStatus(ctx, self.UserCred, api.VM_DELETE_FAIL, err.String())
-	db.OpsLog.LogEvent(guest, db.ACT_DELOCATE_FAIL, err, self.UserCred)
-	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_DELOCATE, err, self.UserCred, false)
-	notifyclient.EventNotify(ctx, self.GetUserCred(), notifyclient.SEventNotifyParam{
+func (deleteTask *BaseGuestDeleteTask) OnFailed(ctx context.Context, guest *models.SGuest, err jsonutils.JSONObject) {
+	guest.SetStatus(ctx, deleteTask.UserCred, api.VM_DELETE_FAIL, err.String())
+	db.OpsLog.LogEvent(guest, db.ACT_DELOCATE_FAIL, err, deleteTask.UserCred)
+	logclient.AddActionLogWithStartable(deleteTask, guest, logclient.ACT_DELOCATE, err, deleteTask.UserCred, false)
+	notifyclient.EventNotify(ctx, deleteTask.GetUserCred(), notifyclient.SEventNotifyParam{
 		Obj:    guest,
 		Action: notifyclient.ActionDelete,
 		IsFail: true,
 	})
-	self.SetStageFailed(ctx, err)
+	deleteTask.SetStageFailed(ctx, err)
 }
 
-func (self *GuestDeleteTask) OnGuestDeleteCompleteFailed(ctx context.Context, obj db.IStandaloneModel, err jsonutils.JSONObject) {
+func (deleteTask *BaseGuestDeleteTask) OnGuestDeleteCompleteFailed(ctx context.Context, obj db.IStandaloneModel, err jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
-	self.OnFailed(ctx, guest, err)
+	deleteTask.OnFailed(ctx, guest, err)
 }
 
-func (self *GuestDeleteTask) OnGuestDeleteComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+func (deleteTask *BaseGuestDeleteTask) OnGuestDeleteComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
-	guest.DetachAllNetworks(ctx, self.UserCred)
-	guest.EjectAllIso(self.UserCred)
-	guest.EjectAllVfd(self.UserCred)
-	guest.DeleteEip(ctx, self.UserCred)
+	guest.DetachAllNetworks(ctx, deleteTask.UserCred)
+	guest.EjectAllIso(deleteTask.UserCred)
+	guest.EjectAllVfd(deleteTask.UserCred)
+	guest.DeleteEip(ctx, deleteTask.UserCred)
 	drv, _ := guest.GetDriver()
 	if drv != nil {
-		drv.OnDeleteGuestFinalCleanup(ctx, guest, self.UserCred)
+		drv.OnDeleteGuestFinalCleanup(ctx, guest, deleteTask.UserCred)
 	}
-	self.DeleteGuest(ctx, guest)
+	deleteTask.DeleteGuest(ctx, guest)
 }
 
-func (self *GuestDeleteTask) DeleteGuest(ctx context.Context, guest *models.SGuest) {
-	// guest.RealDelete(ctx, self.UserCred)
-	// guest.RemoveAllMetadata(ctx, self.UserCred)
-	// db.OpsLog.LogEvent(guest, db.ACT_DELOCATE, guest.GetShortDesc(ctx), self.UserCred)
-	// logclient.AddActionLogWithStartable(self, guest, logclient.ACT_DELOCATE, nil, self.UserCred, true)
-	// if !guest.IsSystem {
-	// 	guest.EventNotify(ctx, self.UserCred, notifyclient.ActionDelete)
-	// }
-	// models.HostManager.ClearSchedDescCache(guest.HostId)
-	self.SetStageComplete(ctx, nil)
+func (deleteTask *BaseGuestDeleteTask) DeleteGuest(ctx context.Context, guest *models.SGuest) {
+	data := jsonutils.NewDict()
+	data.Set("real_delete", jsonutils.JSONTrue)
+	deleteTask.SetStageComplete(ctx, data)
 }
 
-func (self *GuestDeleteTask) NotifyServerDeleted(ctx context.Context, guest *models.SGuest) {
-	guest.EventNotify(ctx, self.UserCred, notifyclient.ActionPendingDelete)
+func (deleteTask *BaseGuestDeleteTask) NotifyServerDeleted(ctx context.Context, guest *models.SGuest) {
+	guest.EventNotify(ctx, deleteTask.UserCred, notifyclient.ActionPendingDelete)
 }
