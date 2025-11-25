@@ -159,23 +159,5 @@ func (self *SGuest) PerformScreenDump(ctx context.Context, userCred mcclient.Tok
 	}
 
 	host, _ := self.GetHost()
-	res, err := self.GetDriver().RequestGuestScreenDump(ctx, userCred, nil, host, self)
-	if err != nil {
-		return nil, err
-	}
-	screenDumpInfo := api.SGuestScreenDump{}
-	if err := res.Unmarshal(&screenDumpInfo); err != nil {
-		return nil, errors.Wrap(err, "unmarshal screen dump info")
-	}
-	if _, err := self.SaveGuestScreenDump(ctx, userCred, &screenDumpInfo); err != nil {
-		return nil, errors.Wrap(err, "failed save ")
-	}
-	input := &api.GetDetailsGuestScreenDumpInput{
-		ObjectName: screenDumpInfo.S3ObjectName,
-	}
-	ret, err := self.GetDetailsScreenDumpShow(ctx, userCred, input)
-	if err != nil {
-		return nil, err
-	}
-	return jsonutils.Marshal(ret), err
+	return self.GetDriver().RequestGuestScreenDump(ctx, userCred, nil, host, self)
 }

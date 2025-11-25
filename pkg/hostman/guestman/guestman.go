@@ -17,9 +17,11 @@ package guestman
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"path"
 	"path/filepath"
@@ -53,7 +55,6 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/storageman/lvmutils"
 	"yunion.io/x/onecloud/pkg/hostman/storageman/remotefile"
 	"yunion.io/x/onecloud/pkg/httperrors"
-	"yunion.io/x/onecloud/pkg/image/drivers/s3"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/util/cgrouputils"
@@ -1725,23 +1726,21 @@ func (m *SGuestManager) RequestGuestScreenDump(sid string) (jsonutils.JSONObject
 
 		if fileutils2.Exists(screenDumpPath) {
 			log.Infof("screendump success at %s", screenDumpPath)
-			_, err := s3.Put(context.Background(), screenDumpPath, screenDumpName)
+			defer os.Remove(screenDumpPath)
+			content, err := fileutils2.FileGetContents(screenDumpPath)
 			if err != nil {
-				log.Errorf("faild put screenDumpPath %s to s3 %s", screenDumpPath, err)
+				log.Errorf("failed FileGetContents %s %s", screenDumpPath, err)
 				c <- err
-			} else {
-				screenDumpInfo := compute.SGuestScreenDump{
-					S3AccessKey:  options.HostOptions.S3AccessKey,
-					S3SecretKey:  options.HostOptions.S3SecretKey,
-					S3Endpoint:   options.HostOptions.S3Endpoint,
-					S3BucketName: options.HostOptions.S3BucketName,
-					S3ObjectName: screenDumpName,
-					S3UseSSL:     options.HostOptions.S3UseSSL,
-				}
-				c <- jsonutils.Marshal(screenDumpInfo)
-				log.Infof("put screendump %s success", screenDumpName)
-				os.Remove(screenDumpPath)
+				return
 			}
+			ret := new(compute.GetDetailsGuestScreenDumpOutput)
+			contentType := http.DetectContentType([]byte(content))
+			base64Encoded := base64.StdEncoding.EncodeToString([]byte(content))
+			ret.ScreenDump = fmt.Sprintf("data:%s;base64,%s", contentType, base64Encoded)
+			ret.GuestId = sid
+			ret.Name = screenDumpName
+
+			c <- jsonutils.Marshal(ret)
 		}
 	})
 	ret := <-c
