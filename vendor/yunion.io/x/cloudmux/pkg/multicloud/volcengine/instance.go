@@ -249,6 +249,85 @@ func (instance *SInstance) GetInstanceType() string {
 	return instance.InstanceTypeId
 }
 
+func (instance *SInstance) SetTags(tags map[string]string, replace bool) error {
+	_tags, err := instance.GetTags()
+	if err != nil {
+		return errors.Wrapf(err, "GetTags")
+	}
+	keys, upperKeys := []string{}, []string{}
+	for k := range tags {
+		keys = append(keys, k)
+		upperKeys = append(upperKeys, strings.ToUpper(k))
+	}
+	if replace {
+		if len(tags) > 0 {
+			removeKeys := []string{}
+			for k := range _tags {
+				if !utils.IsInStringArray(k, keys) {
+					removeKeys = append(removeKeys, k)
+				}
+			}
+			if len(removeKeys) > 0 {
+				err := instance.host.zone.region.UntagResources(instance.InstanceId, "instance", removeKeys)
+				if err != nil {
+					return errors.Wrapf(err, "UntagResource")
+				}
+			}
+		}
+	} else {
+		removeKeys := []string{}
+		for k := range _tags {
+			if !utils.IsInStringArray(k, keys) && utils.IsInStringArray(strings.ToUpper(k), upperKeys) {
+				removeKeys = append(removeKeys, k)
+			}
+		}
+		if len(removeKeys) > 0 {
+			err := instance.host.zone.region.UntagResources(instance.InstanceId, "instance", removeKeys)
+			if err != nil {
+				return errors.Wrapf(err, "UntagResource")
+			}
+		}
+	}
+	return instance.host.zone.region.TagResources(instance.InstanceId, "instance", tags)
+}
+
+func (region *SRegion) TagResources(resId, resType string, tags map[string]string) error {
+	params := map[string]string{
+		"ResourceIds.1": resId,
+		"ResourceType":  resType,
+	}
+	idx := 1
+	for k, v := range tags {
+		params[fmt.Sprintf("Tags.%d.Key", idx)] = k
+		params[fmt.Sprintf("Tags.%d.Value", idx)] = v
+		idx++
+	}
+
+	_, err := region.ecsRequest("TagResources", params)
+	if err != nil {
+		return errors.Wrapf(err, "TagResources")
+	}
+	return nil
+}
+
+func (region *SRegion) UntagResources(resId, resType string, tags []string) error {
+	params := map[string]string{
+		"ResourceIds.1": resId,
+		"ResourceType":  resType,
+	}
+	idx := 1
+	for _, tag := range tags {
+		params[fmt.Sprintf("TagKeys.%d", idx)] = tag
+		idx++
+	}
+
+	_, err := region.ecsRequest("UntagResources", params)
+	if err != nil {
+		return errors.Wrapf(err, "UntagResources")
+	}
+	return nil
+}
+
 func (instance *SInstance) GetSecurityGroupIds() ([]string, error) {
 	nics, err := instance.host.zone.region.GetNetworkInterfaces("", instance.InstanceId)
 	if err != nil {
