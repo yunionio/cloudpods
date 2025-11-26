@@ -38,6 +38,23 @@ func init() {
 		Service string `help:"Service type"`
 		Address string `help:"Service listen address"`
 		Gc      bool   `help:"run GC before taking the heap sample"`
+		Output  string `help:"Save pprof file to specified path instead of opening with go tool" short-token:"o"`
+	}
+
+	writeReaderToFile := func(input io.Reader, file *os.File) error {
+		if _, err := io.Copy(file, input); err != nil {
+			return err
+		}
+		return nil
+	}
+
+	downloadToFile := func(input io.Reader, filepath string) error {
+		file, err := os.Create(filepath)
+		if err != nil {
+			return err
+		}
+		defer file.Close()
+		return writeReaderToFile(input, file)
 	}
 
 	downloadToTemp := func(input io.Reader, pattern string) (string, error) {
@@ -46,7 +63,7 @@ func init() {
 			return "", err
 		}
 		defer tmpfile.Close()
-		if _, err := io.Copy(tmpfile, input); err != nil {
+		if err := writeReaderToFile(input, tmpfile); err != nil {
 			return "", err
 		}
 		return tmpfile.Name(), nil
@@ -81,6 +98,15 @@ func init() {
 		src, err = modules.GetNamedAddressPProfByType(s, svcUrl, pType, params)
 		if err != nil {
 			return err
+		}
+
+		// If output path is specified, save file and return
+		if len(opts.Output) > 0 {
+			if err := downloadToFile(src, opts.Output); err != nil {
+				return errors.Wrapf(err, "save pprof file to %s", opts.Output)
+			}
+			fmt.Printf("pprof file saved to: %s\n", opts.Output)
+			return nil
 		}
 
 		tempfile, err := downloadToTemp(src, pType)
