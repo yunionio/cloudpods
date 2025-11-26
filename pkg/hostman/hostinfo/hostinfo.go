@@ -1225,25 +1225,25 @@ func (h *SHostInfo) register() {
 	eg := errgroup.Group{}
 	eg.Go(func() error {
 		if e := h.initCgroup(); e != nil {
-			return errors.Wrap(err, "initCgroup")
+			return errors.Wrap(e, "initCgroup")
 		}
 		return nil
 	})
 	eg.Go(func() error {
 		if e := h.initHostNetworks(hostInfo); e != nil {
-			return errors.Wrap(err, "initHostNetworks")
+			return errors.Wrap(e, "initHostNetworks")
 		}
 		return nil
 	})
 	eg.Go(func() error {
 		if e := h.initIsolatedDevices(); e != nil {
-			return errors.Wrap(err, "initIsolatedDevices")
+			return errors.Wrap(e, "initIsolatedDevices")
 		}
 		return nil
 	})
 	eg.Go(func() error {
 		if e := h.initStorages(); e != nil {
-			return errors.Wrap(err, "initStorages")
+			return errors.Wrap(e, "initStorages")
 		}
 		return nil
 	})
