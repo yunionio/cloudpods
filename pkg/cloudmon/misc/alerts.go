@@ -50,6 +50,12 @@ func AlertHistoryReport(ctx context.Context, userCred mcclient.TokenCredential, 
 		}
 		metrics := []influxdb.SMetricData{}
 		for _, alert := range alerts.Data {
+			if alert.ResType == "host" && len(alert.DomainId) == 0 {
+				continue
+			}
+			if alert.ResType == "guest" && len(alert.ProjectId) == 0 {
+				continue
+			}
 			metric := influxdb.SMetricData{}
 			metric.Name = ALERT_RECORD_HISTORY_MEASUREMENT
 			metric.Timestamp = time.Now()
