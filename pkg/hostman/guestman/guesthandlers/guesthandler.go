@@ -22,6 +22,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/gotypes"
 
 	"yunion.io/x/onecloud/pkg/apis"
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
@@ -133,7 +134,7 @@ func guestActions(f actionFunc) appsrv.FilterHandler {
 		res, err := f(ctx, userCred, sid, body)
 		if err != nil {
 			hostutils.Response(ctx, w, err)
-		} else if res != nil {
+		} else if !gotypes.IsNil(res) {
 			hostutils.Response(ctx, w, res)
 		} else {
 			hostutils.ResponseOk(ctx, w)
