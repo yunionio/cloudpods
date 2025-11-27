@@ -168,15 +168,15 @@ const (
 )
 
 func GetNodeAlertEvaluator(comparator string, threshold float64) Condition {
-	typ := ConditionGreaterThan
+	typ := EvaluatorType(ConditionGreaterThan)
 	switch comparator {
 	case ">=", ">":
-		typ = ConditionGreaterThan
+		typ = EvaluatorType(ConditionGreaterThan)
 	case "<=", "<":
-		typ = ConditionLessThan
+		typ = EvaluatorType(ConditionLessThan)
 	}
 	return Condition{
-		Type:   typ,
+		Type:   string(typ),
 		Params: []float64{threshold},
 	}
 }
