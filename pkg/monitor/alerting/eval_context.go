@@ -214,13 +214,12 @@ func (c *EvalContext) GetNotificationTemplateConfig(matches []*monitor.EvalMatch
 		Matches:      matches,
 		MatchTags:    make([]map[string]string, len(matches)),
 		MatchTagsStr: make([]string, len(matches)),
-		//Matches:      c.GetEvalMatches(),
-		StartTime:   c.StartTime.In(tz).Format("2006-01-02 15:04:05"),
-		EndTime:     c.EndTime.In(tz).Format("2006-01-02 15:04:05"),
-		Description: desc,
-		Level:       c.Rule.Level,
-		NoDataFound: c.NoDataFound,
-		WebUrl:      c.GetCallbackURLPrefix(),
+		StartTime:    c.StartTime.In(tz).Format("2006-01-02 15:04:05"),
+		EndTime:      c.EndTime.In(tz).Format("2006-01-02 15:04:05"),
+		Description:  desc,
+		Level:        c.Rule.Level,
+		NoDataFound:  c.NoDataFound,
+		WebUrl:       c.GetCallbackURLPrefix(),
 	}
 	// calculate match tags
 	diffKeySets := make(map[string]sets.String)
@@ -249,23 +248,14 @@ func (c *EvalContext) GetNotificationTemplateConfig(matches []*monitor.EvalMatch
 	return cfg
 }
 
-func (c *EvalContext) GetEvalMatches() []monitor.EvalMatch {
-	ret := make([]monitor.EvalMatch, 0)
+func (c *EvalContext) GetEvalMatches() []*monitor.EvalMatch {
+	ret := make([]*monitor.EvalMatch, 0)
 	matches := c.EvalMatches
-	if !c.Firing {
-		matches = c.AlertOkEvalMatches
-	}
-	for _, c := range matches {
+	for i, c := range matches {
 		if _, ok := c.Tags[monitor.ALERT_RESOURCE_RECORD_SHIELD_KEY]; ok {
 			continue
 		}
-		ret = append(ret, monitor.EvalMatch{
-			Condition: c.Condition,
-			Value:     c.Value,
-			ValueStr:  c.ValueStr,
-			Metric:    c.Metric,
-			Tags:      c.Tags,
-		})
+		ret = append(ret, matches[i])
 	}
 	return ret
 }
