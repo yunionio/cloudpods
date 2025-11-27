@@ -320,8 +320,8 @@ func (oc *OneCloudNotifier) notifyByContextLang(ctx context.Context, evalCtx *al
 		log.Warningf("skip notify rule because state is pending: %s", jsonutils.Marshal(evalCtx.Rule))
 		return nil
 	}
-	if len(evalCtx.EvalMatches) > 0 {
-		if err := oc.notifyMatchesByContextLang(ctx, evalCtx, evalCtx.EvalMatches, uids, false); err != nil {
+	if len(evalCtx.GetEvalMatches()) > 0 {
+		if err := oc.notifyMatchesByContextLang(ctx, evalCtx, evalCtx.GetEvalMatches(), uids, false); err != nil {
 			errs = append(errs, errors.Wrapf(err, "notify alerting matches"))
 		}
 	}
