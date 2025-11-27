@@ -37,84 +37,84 @@ type SRegion struct {
 	Status       string `json:"status"`
 }
 
-func (self *SRegion) GetId() string {
-	return self.RegionName
+func (region *SRegion) GetId() string {
+	return region.RegionName
 }
 
-func (self *SRegion) GetGlobalId() string {
-	return fmt.Sprintf("%s/%s", api.CLOUD_PROVIDER_ORACLE, self.RegionName)
+func (region *SRegion) GetGlobalId() string {
+	return fmt.Sprintf("%s/%s", api.CLOUD_PROVIDER_ORACLE, region.RegionName)
 }
 
-func (self *SRegion) GetProvider() string {
+func (region *SRegion) GetProvider() string {
 	return api.CLOUD_PROVIDER_ORACLE
 }
 
-func (self *SRegion) GetCloudEnv() string {
+func (region *SRegion) GetCloudEnv() string {
 	return api.CLOUD_PROVIDER_ORACLE
 }
 
-func (self *SRegion) GetGeographicInfo() cloudprovider.SGeographicInfo {
+func (region *SRegion) GetGeographicInfo() cloudprovider.SGeographicInfo {
 	geo, ok := map[string]cloudprovider.SGeographicInfo{
 		"ap-singapore-1": api.RegionSingapore,
-	}[self.RegionName]
+	}[region.RegionName]
 	if ok {
 		return geo
 	}
 	return cloudprovider.SGeographicInfo{}
 }
 
-func (self *SRegion) GetName() string {
-	return self.RegionName
+func (region *SRegion) GetName() string {
+	return region.RegionName
 }
 
-func (self *SRegion) GetI18n() cloudprovider.SModelI18nTable {
+func (region *SRegion) GetI18n() cloudprovider.SModelI18nTable {
 	table := cloudprovider.SModelI18nTable{}
-	table["name"] = cloudprovider.NewSModelI18nEntry(self.GetName()).CN(self.GetName()).EN(self.RegionName)
+	table["name"] = cloudprovider.NewSModelI18nEntry(region.GetName()).CN(region.GetName()).EN(region.RegionName)
 	return table
 }
 
-func (self *SRegion) GetStatus() string {
-	if self.Status != "READY" {
+func (region *SRegion) GetStatus() string {
+	if region.Status != "READY" {
 		return api.CLOUD_REGION_STATUS_OUTOFSERVICE
 	}
 	return api.CLOUD_REGION_STATUS_INSERVER
 }
 
-func (self *SRegion) GetClient() *SOracleClient {
-	return self.client
+func (region *SRegion) GetClient() *SOracleClient {
+	return region.client
 }
 
-func (self *SRegion) CreateEIP(opts *cloudprovider.SEip) (cloudprovider.ICloudEIP, error) {
+func (region *SRegion) CreateEIP(opts *cloudprovider.SEip) (cloudprovider.ICloudEIP, error) {
 	return nil, cloudprovider.ErrNotImplemented
 }
 
-func (region *SRegion) CreateISecurityGroup(conf *cloudprovider.SecurityGroupCreateInput) (cloudprovider.ICloudSecurityGroup, error) {
+func (region *SRegion) CreateISecurityGroup(opts *cloudprovider.SecurityGroupCreateInput) (cloudprovider.ICloudSecurityGroup, error) {
 	return nil, cloudprovider.ErrNotImplemented
 }
 
-func (region *SRegion) GetISecurityGroupById(secgroupId string) (cloudprovider.ICloudSecurityGroup, error) {
+func (region *SRegion) GetISecurityGroupById(id string) (cloudprovider.ICloudSecurityGroup, error) {
 	return nil, cloudprovider.ErrNotImplemented
 }
 
-func (self *SRegion) CreateIVpc(opts *cloudprovider.VpcCreateOptions) (cloudprovider.ICloudVpc, error) {
+func (region *SRegion) CreateIVpc(opts *cloudprovider.VpcCreateOptions) (cloudprovider.ICloudVpc, error) {
 	return nil, cloudprovider.ErrNotImplemented
 }
 
-func (self *SRegion) GetIVpcs() ([]cloudprovider.ICloudVpc, error) {
-	vpcs, err := self.GetVpcs()
+func (region *SRegion) GetIVpcs() ([]cloudprovider.ICloudVpc, error) {
+	vpcs, err := region.GetVpcs()
 	if err != nil {
 		return nil, err
 	}
 	ret := []cloudprovider.ICloudVpc{}
 	for i := range vpcs {
-		vpcs[i].region = self
+		vpcs[i].region = region
 		ret = append(ret, &vpcs[i])
 	}
 	return ret, nil
 }
 
-func (self *SRegion) GetIVpcById(id string) (cloudprovider.ICloudVpc, error) {
-	vpc, err := self.GetVpc(id)
+func (region *SRegion) GetIVpcById(id string) (cloudprovider.ICloudVpc, error) {
+	vpc, err := region.GetVpc(id)
 	if err != nil {
 		return nil, err
 	}
@@ -125,42 +125,42 @@ func (region *SRegion) GetCapabilities() []string {
 	return region.client.GetCapabilities()
 }
 
-func (self *SRegion) GetIEipById(id string) (cloudprovider.ICloudEIP, error) {
-	eip, err := self.GetEip(id)
+func (region *SRegion) GetIEipById(id string) (cloudprovider.ICloudEIP, error) {
+	eip, err := region.GetEip(id)
 	if err != nil {
 		return nil, err
 	}
 	return eip, nil
 }
 
-func (self *SRegion) GetIEips() ([]cloudprovider.ICloudEIP, error) {
-	eips, err := self.GetEips("RESERVED")
+func (region *SRegion) GetIEips() ([]cloudprovider.ICloudEIP, error) {
+	eips, err := region.GetEips("RESERVED")
 	if err != nil {
 		return nil, err
 	}
 	ret := []cloudprovider.ICloudEIP{}
 	for i := range eips {
-		eips[i].region = self
+		eips[i].region = region
 		ret = append(ret, &eips[i])
 	}
 	return ret, nil
 }
 
-func (self *SRegion) GetIZones() ([]cloudprovider.ICloudZone, error) {
-	zones, err := self.GetZones()
+func (region *SRegion) GetIZones() ([]cloudprovider.ICloudZone, error) {
+	zones, err := region.GetZones()
 	if err != nil {
 		return nil, err
 	}
 	ret := []cloudprovider.ICloudZone{}
 	for i := range zones {
-		zones[i].region = self
+		zones[i].region = region
 		ret = append(ret, &zones[i])
 	}
 	return ret, nil
 }
 
-func (self *SRegion) GetIZoneById(id string) (cloudprovider.ICloudZone, error) {
-	zones, err := self.GetIZones()
+func (region *SRegion) GetIZoneById(id string) (cloudprovider.ICloudZone, error) {
+	zones, err := region.GetIZones()
 	if err != nil {
 		return nil, err
 	}
@@ -172,16 +172,16 @@ func (self *SRegion) GetIZoneById(id string) (cloudprovider.ICloudZone, error) {
 	return nil, cloudprovider.ErrNotFound
 }
 
-func (self *SRegion) list(service, resource string, query url.Values) (jsonutils.JSONObject, error) {
-	return self.client.list(service, self.RegionName, resource, query)
+func (region *SRegion) list(service, resource string, query url.Values) (jsonutils.JSONObject, error) {
+	return region.client.list(service, region.RegionName, resource, query)
 }
 
-func (self *SRegion) get(service, resource, id string, query url.Values) (jsonutils.JSONObject, error) {
-	return self.client.get(service, self.RegionName, resource, id, query)
+func (region *SRegion) get(service, resource, id string, query url.Values) (jsonutils.JSONObject, error) {
+	return region.client.get(service, region.RegionName, resource, id, query)
 }
 
-func (self *SRegion) GetIStoragecacheById(id string) (cloudprovider.ICloudStoragecache, error) {
-	caches, err := self.GetIStoragecaches()
+func (region *SRegion) GetIStoragecacheById(id string) (cloudprovider.ICloudStoragecache, error) {
+	caches, err := region.GetIStoragecaches()
 	if err != nil {
 		return nil, err
 	}
@@ -193,12 +193,12 @@ func (self *SRegion) GetIStoragecacheById(id string) (cloudprovider.ICloudStorag
 	return nil, errors.Wrapf(cloudprovider.ErrNotFound, id)
 }
 
-func (self *SRegion) GetIStoragecaches() ([]cloudprovider.ICloudStoragecache, error) {
-	return []cloudprovider.ICloudStoragecache{self.GetStoragecache()}, nil
+func (region *SRegion) GetIStoragecaches() ([]cloudprovider.ICloudStoragecache, error) {
+	return []cloudprovider.ICloudStoragecache{region.GetStoragecache()}, nil
 }
 
-func (self *SRegion) GetIHostById(id string) (cloudprovider.ICloudHost, error) {
-	izones, err := self.GetIZones()
+func (region *SRegion) GetIHostById(id string) (cloudprovider.ICloudHost, error) {
+	izones, err := region.GetIZones()
 	if err != nil {
 		return nil, err
 	}
@@ -213,10 +213,10 @@ func (self *SRegion) GetIHostById(id string) (cloudprovider.ICloudHost, error) {
 	return nil, cloudprovider.ErrNotFound
 }
 
-func (self *SRegion) GetIHosts() ([]cloudprovider.ICloudHost, error) {
+func (region *SRegion) GetIHosts() ([]cloudprovider.ICloudHost, error) {
 	iHosts := make([]cloudprovider.ICloudHost, 0)
 
-	izones, err := self.GetIZones()
+	izones, err := region.GetIZones()
 	if err != nil {
 		return nil, err
 	}
@@ -230,10 +230,10 @@ func (self *SRegion) GetIHosts() ([]cloudprovider.ICloudHost, error) {
 	return iHosts, nil
 }
 
-func (self *SRegion) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
+func (region *SRegion) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
 	iStores := make([]cloudprovider.ICloudStorage, 0)
 
-	izones, err := self.GetIZones()
+	izones, err := region.GetIZones()
 	if err != nil {
 		return nil, err
 	}
@@ -247,8 +247,8 @@ func (self *SRegion) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
 	return iStores, nil
 }
 
-func (self *SRegion) GetIStorageById(id string) (cloudprovider.ICloudStorage, error) {
-	izones, err := self.GetIZones()
+func (region *SRegion) GetIStorageById(id string) (cloudprovider.ICloudStorage, error) {
+	izones, err := region.GetIZones()
 	if err != nil {
 		return nil, err
 	}
@@ -261,4 +261,24 @@ func (self *SRegion) GetIStorageById(id string) (cloudprovider.ICloudStorage, er
 		}
 	}
 	return nil, cloudprovider.ErrNotFound
+}
+
+func (region *SRegion) GetIVMById(id string) (cloudprovider.ICloudVM, error) {
+	return region.GetInstance(id)
+}
+
+func (region *SRegion) GetIVMs() ([]cloudprovider.ICloudVM, error) {
+	hosts, err := region.GetIHosts()
+	if err != nil {
+		return nil, err
+	}
+	ret := []cloudprovider.ICloudVM{}
+	for i := range hosts {
+		vms, err := hosts[i].GetIVMs()
+		if err != nil {
+			return nil, err
+		}
+		ret = append(ret, vms...)
+	}
+	return ret, nil
 }

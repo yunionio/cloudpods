@@ -117,7 +117,15 @@ func (self *SRegion) GetInstances(zoneId string) ([]SInstance, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "Unmarshal")
 	}
-	return ret, nil
+	result := []SInstance{}
+	for i := range ret {
+		// 过滤掉已删除的实例
+		if ret[i].LifecycleState == "TERMINATED" {
+			continue
+		}
+		result = append(result, ret[i])
+	}
+	return result, nil
 }
 
 func (self *SRegion) GetInstance(id string) (*SInstance, error) {
@@ -129,6 +137,9 @@ func (self *SRegion) GetInstance(id string) (*SInstance, error) {
 	err = resp.Unmarshal(ret)
 	if err != nil {
 		return nil, err
+	}
+	if ret.LifecycleState == "TERMINATED" {
+		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "instance %s is terminated", id)
 	}
 	return ret, nil
 }
