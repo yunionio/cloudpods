@@ -34,7 +34,7 @@ type CommonAlertTerm struct {
 	Comparator    string
 	Threshold     float64
 	Filters       []monitorapi.MetricQueryTag
-	FieldOpt      string
+	FieldOpt      monitorapi.CommonAlertFieldOpt
 	Name          string
 	ConditionType string
 	From          string
@@ -92,7 +92,7 @@ func newCommonAlertQuery(tem *CommonAlertTerm) *monitorapi.CommonAlertQuery {
 		Operator:   tem.Operator,
 	}
 	if tem.FieldOpt != "" {
-		commonAlert.FieldOpt = monitorapi.CommonAlertFieldOpt_Division
+		commonAlert.FieldOpt = monitorapi.CommonAlertFieldOptDivision
 	}
 	if len(tem.ConditionType) != 0 {
 		commonAlert.ConditionType = tem.ConditionType

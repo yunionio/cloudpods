@@ -220,11 +220,8 @@ func (man *SCommonAlertManager) ValidateCreateData(
 		return data, merrors.NewArgIsEmptyErr("metric_query")
 	} else {
 		for _, query := range data.CommonMetricInputQuery.MetricQuery {
-			if query.ConditionType == monitor.METRIC_QUERY_TYPE_NO_DATA {
-				query.Comparator = "=="
-			}
-			if !utils.IsInStringArray(getQueryEvalType(query.Comparator), validators.EvaluatorDefaultTypes) {
-				return data, httperrors.NewInputParameterError("the Comparator is illegal: %s", query.Comparator)
+			if err := validateCommonAlertQuery(query); err != nil {
+				return data, err
 			}
 			if _, ok := monitor.AlertReduceFunc[query.Reduce]; !ok {
 				return data, httperrors.NewInputParameterError("the reduce is illegal: %s", query.Reduce)
@@ -456,7 +453,7 @@ func (alert *SCommonAlert) PostCreate(ctx context.Context,
 	for i, metricQ := range input.CommonMetricInputQuery.MetricQuery {
 		if metricQ.FieldOpt != "" {
 			if i == 0 {
-				fieldOpt = metricQ.FieldOpt
+				fieldOpt = string(metricQ.FieldOpt)
 				continue
 			}
 			fieldOpt = fmt.Sprintf("%s+%s", fieldOpt, metricQ.FieldOpt)
@@ -801,11 +798,23 @@ func getCommonAlertMetricDetailsFromCondition(
 		cmp = "=="
 	case "lt":
 		cmp = "<="
+	case "within_range":
+		cmp = "within_range"
+	case "outside_range":
+		cmp = "outside_range"
 	}
 	metricDetails.Comparator = cmp
 
-	if len(cond.Evaluator.Params) != 0 {
-		metricDetails.Threshold = cond.Evaluator.Params[0]
+	// 处理 ranged types
+	if utils.IsInStringArray(cond.Evaluator.Type, validators.EvaluatorRangedTypes) {
+		if len(cond.Evaluator.Params) >= 2 {
+			metricDetails.ThresholdRange = []float64{cond.Evaluator.Params[0], cond.Evaluator.Params[1]}
+		}
+	} else {
+		// 处理默认 types
+		if len(cond.Evaluator.Params) != 0 {
+			metricDetails.Threshold = cond.Evaluator.Params[0]
+		}
 	}
 	metricDetails.Reduce = cond.Reducer.Type
 
@@ -907,23 +916,92 @@ func getMetricDescriptionDetails(metricDetails *monitor.CommonAlertMetricDetails
 }
 
 func getExtraFieldDetails(metricDetails *monitor.CommonAlertMetricDetails) {
-	if metricDetails.FieldOpt == monitor.CommonAlertFieldOpt_Division && metricDetails.Threshold < float64(1) {
+	if metricDetails.FieldOpt == string(monitor.CommonAlertFieldOptDivision) && metricDetails.Threshold < float64(1) {
 		metricDetails.Threshold = metricDetails.Threshold * float64(100)
 		metricDetails.FieldDescription.Unit = "%"
 	}
 }
 
-func getQueryEvalType(evalType string) string {
-	typ := ""
+func getQueryEvalType(evalType string) monitor.EvaluatorType {
+	var typ monitor.EvaluatorType
 	switch evalType {
 	case ">=", ">":
-		typ = "gt"
+		typ = monitor.EvaluatorTypeGT
 	case "<=", "<":
-		typ = "lt"
+		typ = monitor.EvaluatorTypeLT
 	case "==":
-		typ = "eq"
+		typ = monitor.EvaluatorTypeEQ
+	case "within_range":
+		typ = monitor.EvaluatorTypeWithinRange
+	case "outside_range":
+		typ = monitor.EvaluatorTypeOutsideRange
 	}
 	return typ
+}
+
+// validateCommonAlertQuery 校验 CommonAlertQuery 的 comparator 和 threshold_range
+func validateCommonAlertQuery(query *monitor.CommonAlertQuery) error {
+	if query.ConditionType == monitor.METRIC_QUERY_TYPE_NO_DATA {
+		query.Comparator = "=="
+	}
+	evalType := getQueryEvalType(query.Comparator)
+	if !sets.NewString(append(
+		validators.EvaluatorDefaultTypes,
+		validators.EvaluatorRangedTypes...)...).Has(string(evalType)) {
+		return httperrors.NewInputParameterError("the Comparator is illegal: %s", query.Comparator)
+	}
+	// 验证 ranged types 的参数
+	if utils.IsInStringArray(string(evalType), validators.EvaluatorRangedTypes) {
+		if len(query.ThresholdRange) < 2 {
+			return httperrors.NewInputParameterError("threshold_range or outside_range requires 2 parameters, got %d", len(query.ThresholdRange))
+		}
+		// 确保第一项小于等于第二项
+		if query.ThresholdRange[0] > query.ThresholdRange[1] {
+			return httperrors.NewInputParameterError("threshold_range first value (%v) must be less than or equal to second value (%v)", query.ThresholdRange[0], query.ThresholdRange[1])
+		}
+	}
+	return nil
+}
+
+// validateComparatorAndThreshold 校验字符串形式的 comparator, threshold 和 threshold_range
+func validateComparatorAndThreshold(comparator string, threshold string, thresholdRange []jsonutils.JSONObject) error {
+	var evalType monitor.EvaluatorType
+	if len(comparator) != 0 {
+		evalType = getQueryEvalType(comparator)
+		if !utils.IsInStringArray(string(evalType), append(validators.EvaluatorDefaultTypes, validators.EvaluatorRangedTypes...)) {
+			return httperrors.NewInputParameterError("the Comparator is illegal: %s", comparator)
+		}
+		// 验证 ranged types 的参数
+		if utils.IsInStringArray(string(evalType), validators.EvaluatorRangedTypes) {
+			if len(thresholdRange) < 2 {
+				return httperrors.NewInputParameterError("threshold_range or outside_range requires 2 parameters, got %d", len(thresholdRange))
+			}
+		}
+	}
+	if len(threshold) != 0 {
+		_, err := strconv.ParseFloat(threshold, 64)
+		if err != nil {
+			return httperrors.NewInputParameterError("threshold:%s should be number type", threshold)
+		}
+	}
+	if len(thresholdRange) > 0 {
+		if len(thresholdRange) < 2 {
+			return httperrors.NewInputParameterError("threshold_range requires 2 parameters, got %d", len(thresholdRange))
+		}
+		vals := make([]float64, len(thresholdRange))
+		for i, val := range thresholdRange {
+			parsedVal, err := strconv.ParseFloat(val.String(), 64)
+			if err != nil {
+				return httperrors.NewInputParameterError("threshold_range[%d]: %s should be number type", i, val.String())
+			}
+			vals[i] = parsedVal
+		}
+		// 确保第一项小于等于第二项
+		if vals[0] > vals[1] {
+			return httperrors.NewInputParameterError("threshold_range first value (%v) must be less than or equal to second value (%v)", vals[0], vals[1])
+		}
+	}
+	return nil
 }
 
 func (man *SCommonAlertManager) toAlertCreatInput(input monitor.CommonAlertCreateInput) (monitor.AlertCreateInput, error) {
@@ -941,13 +1019,29 @@ func (man *SCommonAlertManager) toAlertCreatInput(input monitor.CommonAlertCreat
 		if len(metricquery.ConditionType) != 0 {
 			conditionType = metricquery.ConditionType
 		}
+		evalType := getQueryEvalType(metricquery.Comparator)
+		var evaluatorParams []float64
+		// 处理 ranged types (within_range, outside_range)
+		if utils.IsInStringArray(string(evalType), validators.EvaluatorRangedTypes) {
+			if len(metricquery.ThresholdRange) < 2 {
+				return *ret, httperrors.NewInputParameterError("threshold_range or outside_range requires 2 parameters, got %d", len(metricquery.ThresholdRange))
+			}
+			fieldOpt := monitor.CommonAlertFieldOpt(metricquery.FieldOpt)
+			evaluatorParams = []float64{
+				fieldOperatorThreshold(fieldOpt, metricquery.ThresholdRange[0]),
+				fieldOperatorThreshold(fieldOpt, metricquery.ThresholdRange[1]),
+			}
+		} else {
+			// 处理默认 types (gt, lt, eq)
+			fieldOpt := monitor.CommonAlertFieldOpt(metricquery.FieldOpt)
+			evaluatorParams = []float64{fieldOperatorThreshold(fieldOpt, metricquery.Threshold)}
+		}
 		condition := monitor.AlertCondition{
-			Type:    conditionType,
-			Query:   *metricquery.AlertQuery,
-			Reducer: monitor.Condition{Type: metricquery.Reduce},
-			Evaluator: monitor.Condition{Type: getQueryEvalType(metricquery.Comparator),
-				Params: []float64{fieldOperatorThreshold(metricquery.FieldOpt, metricquery.Threshold)}},
-			Operator: "and",
+			Type:      conditionType,
+			Query:     *metricquery.AlertQuery,
+			Reducer:   monitor.Condition{Type: metricquery.Reduce},
+			Evaluator: monitor.Condition{Type: string(evalType), Params: evaluatorParams},
+			Operator:  "and",
 		}
 		if metricquery.Operator != "" {
 			if !sets.NewString("and", "or").Has(metricquery.Operator) {
@@ -956,15 +1050,15 @@ func (man *SCommonAlertManager) toAlertCreatInput(input monitor.CommonAlertCreat
 			condition.Operator = metricquery.Operator
 		}
 		if metricquery.FieldOpt != "" {
-			condition.Reducer.Operators = []string{metricquery.FieldOpt}
+			condition.Reducer.Operators = []string{string(metricquery.FieldOpt)}
 		}
 		ret.Settings.Conditions = append(ret.Settings.Conditions, condition)
 	}
 	return *ret, nil
 }
 
-func fieldOperatorThreshold(opt string, threshold float64) float64 {
-	if opt == monitor.CommonAlertFieldOpt_Division && threshold > 1 {
+func fieldOperatorThreshold(opt monitor.CommonAlertFieldOpt, threshold float64) float64 {
+	if opt == monitor.CommonAlertFieldOptDivision && threshold > 1 {
 		return threshold / float64(100)
 	}
 	return threshold
@@ -1020,11 +1114,8 @@ func (alert *SCommonAlert) ValidateUpdateData(
 			if err != nil {
 				return data, errors.Wrap(err, "metric_query Unmarshal error")
 			}
-			if query.ConditionType == monitor.METRIC_QUERY_TYPE_NO_DATA {
-				query.Comparator = "=="
-			}
-			if !utils.IsInStringArray(getQueryEvalType(query.Comparator), validators.EvaluatorDefaultTypes) {
-				return data, httperrors.NewInputParameterError("the Comparator is illegal: %s", query.Comparator)
+			if err := validateCommonAlertQuery(query); err != nil {
+				return data, err
 			}
 			if _, ok := monitor.AlertReduceFunc[query.Reduce]; !ok {
 				return data, httperrors.NewInputParameterError("the reduce is illegal: %s", query.Reduce)
@@ -1274,21 +1365,14 @@ func (alert *SCommonAlert) PerformConfig(ctx context.Context, userCred mcclient.
 	period, _ := data.GetString("period")
 	comparator, _ := data.GetString("comparator")
 	threshold, _ := data.GetString("threshold")
+	thresholdRange, _ := data.GetArray("threshold_range")
 	if len(period) != 0 {
 		if _, err := time.ParseDuration(period); err != nil {
 			return data, httperrors.NewInputParameterError("Invalid period format: %s", period)
 		}
 	}
-	if len(comparator) != 0 {
-		if !utils.IsInStringArray(getQueryEvalType(comparator), validators.EvaluatorDefaultTypes) {
-			return data, httperrors.NewInputParameterError("the Comparator is illegal: %s", comparator)
-		}
-	}
-	if len(threshold) != 0 {
-		_, err := strconv.ParseFloat(threshold, 64)
-		if err != nil {
-			return data, httperrors.NewInputParameterError("threshold:%s should be number type", threshold)
-		}
+	if err := validateComparatorAndThreshold(comparator, threshold, thresholdRange); err != nil {
+		return data, err
 	}
 	_, err := db.Update(alert, func() error {
 		if len(period) != 0 {
@@ -1297,12 +1381,19 @@ func (alert *SCommonAlert) PerformConfig(ctx context.Context, userCred mcclient.
 		}
 		setting, _ := alert.GetSettings()
 		if len(comparator) != 0 {
-			setting.Conditions[0].Evaluator.Type = getQueryEvalType(comparator)
-
+			evalType := getQueryEvalType(comparator)
+			setting.Conditions[0].Evaluator.Type = string(evalType)
 		}
-		if len(threshold) != 0 {
+		// 处理 ranged types
+		if len(thresholdRange) >= 2 {
+			vals := make([]float64, 2)
+			for i := 0; i < 2 && i < len(thresholdRange); i++ {
+				val, _ := strconv.ParseFloat(thresholdRange[i].String(), 64)
+				vals[i] = fieldOperatorThreshold("", val)
+			}
+			setting.Conditions[0].Evaluator.Params = vals
+		} else if len(threshold) != 0 {
 			val, _ := strconv.ParseFloat(threshold, 64)
-			fmt.Println(threshold)
 			setting.Conditions[0].Evaluator.Params = []float64{fieldOperatorThreshold("", val)}
 		}
 		alert.Settings = setting
@@ -1507,7 +1598,9 @@ func (alert *SCommonAlert) GetAlertRule(settings *monitor.AlertSetting, index in
 		Field:           alertDetails.Field,
 		FieldDesc:       alertDetails.FieldDescription.DisplayName,
 		Comparator:      alertDetails.Comparator,
+		Unit:            alertDetails.FieldDescription.Unit,
 		Threshold:       RationalizeValueFromUnit(alertDetails.Threshold, alertDetails.FieldDescription.Unit, ""),
+		ThresholdRange:  alertDetails.ThresholdRange,
 		ConditionType:   alertDetails.ConditionType,
 		Reducer:         alertDetails.Reduce,
 	}
@@ -1555,7 +1648,7 @@ func RationalizeValueFromUnit(value float64, unit string, opt string) string {
 		}
 		return FormatFileSize(value, unit, float64(1000))
 	}
-	if unit == "%" && monitor.CommonAlertFieldOpt_Division == opt {
+	if unit == "%" && monitor.CommonAlertFieldOptDivision == monitor.CommonAlertFieldOpt(opt) {
 		return fmt.Sprintf("%0.2f%s", value*100, unit)
 	}
 	return fmt.Sprintf("%0.2f%s", value, unit)

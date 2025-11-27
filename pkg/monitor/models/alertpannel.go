@@ -117,7 +117,7 @@ func (man *SAlertPanelManager) ValidateCreateData(
 	} else {
 		for _, query := range data.CommonMetricInputQuery.MetricQuery {
 			if len(query.Comparator) != 0 {
-				if !utils.IsInStringArray(getQueryEvalType(query.Comparator), validators.EvaluatorDefaultTypes) {
+				if !utils.IsInStringArray(string(getQueryEvalType(query.Comparator)), validators.EvaluatorDefaultTypes) {
 					return data, httperrors.NewInputParameterError("the Comparator is illegal: %s", query.Comparator)
 				}
 			}
@@ -276,7 +276,7 @@ func (dash *SAlertPanel) ValidateUpdateData(
 				return data, errors.Wrap(err, "metric_query Unmarshal error")
 			}
 			if len(query.Comparator) != 0 {
-				if !utils.IsInStringArray(getQueryEvalType(query.Comparator), validators.EvaluatorDefaultTypes) {
+				if !utils.IsInStringArray(string(getQueryEvalType(query.Comparator)), validators.EvaluatorDefaultTypes) {
 					return data, httperrors.NewInputParameterError("the Comparator is illegal: %s", query.Comparator)
 				}
 			}
