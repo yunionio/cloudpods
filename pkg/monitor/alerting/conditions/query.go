@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/sets"
+	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/apis/monitor"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostconsts"
@@ -327,8 +328,22 @@ func (c *QueryCondition) NewEvalMatch(
 	c.FetchCustomizeEvalMatch(context, evalMatch, alertDetails)
 	//c.newRuleDescription(context, alertDetails)
 	//evalMatch.Condition = c.GenerateFormatCond(meta, queryKeyInfo).String()
+	var thresholdStr string
+	// 处理 ranged types (within_range, outside_range)
+	if utils.IsInStringArray(alertDetails.Comparator, validators.EvaluatorRangedTypes) {
+		if len(alertDetails.ThresholdRange) >= 2 {
+			lowerStr := models.RationalizeValueFromUnit(alertDetails.ThresholdRange[0], evalMatch.Unit, "")
+			upperStr := models.RationalizeValueFromUnit(alertDetails.ThresholdRange[1], evalMatch.Unit, "")
+			thresholdStr = fmt.Sprintf("[%s, %s]", lowerStr, upperStr)
+		} else {
+			thresholdStr = models.RationalizeValueFromUnit(alertDetails.Threshold, evalMatch.Unit, "")
+		}
+	} else {
+		// 处理默认 types (gt, lt, eq)
+		thresholdStr = models.RationalizeValueFromUnit(alertDetails.Threshold, evalMatch.Unit, "")
+	}
 	msg := fmt.Sprintf("%s.%s %s %s", alertDetails.Measurement, alertDetails.Field,
-		alertDetails.Comparator, models.RationalizeValueFromUnit(alertDetails.Threshold, evalMatch.Unit, ""))
+		alertDetails.Comparator, thresholdStr)
 	if len(context.Rule.Message) == 0 {
 		context.Rule.Message = msg
 	}
