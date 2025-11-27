@@ -230,16 +230,19 @@ type sOracleError struct {
 	Message    string
 }
 
-func (self *sOracleError) Error() string {
-	return jsonutils.Marshal(self).String()
+func (e *sOracleError) Error() string {
+	return jsonutils.Marshal(e).String()
 }
 
-func (self *sOracleError) ParseErrorFromJsonResponse(statusCode int, status string, body jsonutils.JSONObject) error {
+func (e *sOracleError) ParseErrorFromJsonResponse(statusCode int, status string, body jsonutils.JSONObject) error {
 	if body != nil {
-		body.Unmarshal(self)
+		body.Unmarshal(e)
 	}
-	self.StatusCode = statusCode
-	return self
+	e.StatusCode = statusCode
+	if statusCode == 404 {
+		return errors.Wrapf(cloudprovider.ErrNotFound, "%s", e.Error())
+	}
+	return e
 }
 
 func (self *SOracleClient) TenancyOCID() (string, error) {
