@@ -23,6 +23,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/appsrv"
@@ -79,7 +80,7 @@ func hostActions(f actionFunc) appsrv.FilterHandler {
 		res, err := f(ctx, sid, body)
 		if err != nil {
 			hostutils.Response(ctx, w, err)
-		} else if res != nil {
+		} else if !gotypes.IsNil(res) {
 			hostutils.Response(ctx, w, res)
 		} else {
 			hostutils.ResponseOk(ctx, w)
