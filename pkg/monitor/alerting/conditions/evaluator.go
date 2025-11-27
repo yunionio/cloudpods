@@ -134,10 +134,10 @@ func NewAlertEvaluator(cond *monitor.Condition) (AlertEvaluator, error) {
 		return nil, validators.ErrMissingParameterType
 	}
 
-	if utils.IsInStringArray(typ, validators.EvaluatorDefaultTypes) {
+	if utils.IsInStringArray(string(typ), validators.EvaluatorDefaultTypes) {
 		return newThresholdEvaluator(cond)
 	}
-	if utils.IsInStringArray(typ, validators.EvaluatorRangedTypes) {
+	if utils.IsInStringArray(string(typ), validators.EvaluatorRangedTypes) {
 		return newRangedEvaluator(cond)
 	}
 

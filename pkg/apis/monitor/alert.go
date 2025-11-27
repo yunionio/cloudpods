@@ -238,3 +238,13 @@ func init() {
 		return &AlertSetting{}
 	})
 }
+
+type EvaluatorType string
+
+const (
+	EvaluatorTypeGT           EvaluatorType = "gt"
+	EvaluatorTypeLT           EvaluatorType = "lt"
+	EvaluatorTypeEQ           EvaluatorType = "eq"
+	EvaluatorTypeWithinRange  EvaluatorType = "within_range"
+	EvaluatorTypeOutsideRange EvaluatorType = "outside_range"
+)
