@@ -36,8 +36,8 @@ const (
 )
 
 var (
-	EvaluatorDefaultTypes = []string{"gt", "lt", "eq"}
-	EvaluatorRangedTypes  = []string{"within_range", "outside_range"}
+	EvaluatorDefaultTypes = []string{string(monitor.EvaluatorTypeGT), string(monitor.EvaluatorTypeLT), string(monitor.EvaluatorTypeEQ)}
+	EvaluatorRangedTypes  = []string{string(monitor.EvaluatorTypeWithinRange), string(monitor.EvaluatorTypeOutsideRange)}
 
 	CommonAlertType = []string{
 		monitor.CommonAlertNomalAlertType,
@@ -152,10 +152,10 @@ func ValidateAlertConditionEvaluator(input monitor.Condition) error {
 	if typ == "" {
 		return ErrMissingParameterType
 	}
-	if utils.IsInStringArray(typ, EvaluatorDefaultTypes) {
+	if utils.IsInStringArray(string(typ), EvaluatorDefaultTypes) {
 		return ValidateAlertConditionThresholdEvaluator(input)
 	}
-	if utils.IsInStringArray(typ, EvaluatorRangedTypes) {
+	if utils.IsInStringArray(string(typ), EvaluatorRangedTypes) {
 		return ValidateAlertConditionRangedEvaluator(input)
 	}
 	if typ != "no_value" {
@@ -176,14 +176,14 @@ func ValidateAlertConditionType(typ string) error {
 
 func ValidateAlertConditionThresholdEvaluator(input monitor.Condition) error {
 	if len(input.Params) == 0 {
-		return errors.Wrapf(ErrMissingParameterThreshold, "Evaluator %s", HumanThresholdType(input.Type))
+		return errors.Wrapf(ErrMissingParameterThreshold, "Evaluator %s", HumanThresholdType(monitor.EvaluatorType(input.Type)))
 	}
 	return nil
 }
 
 func ValidateAlertConditionRangedEvaluator(input monitor.Condition) error {
 	if len(input.Params) == 0 {
-		return errors.Wrapf(ErrMissingParameterThreshold, "Evaluator %s", HumanThresholdType(input.Type))
+		return errors.Wrapf(ErrMissingParameterThreshold, "Evaluator %s", HumanThresholdType(monitor.EvaluatorType(input.Type)))
 	}
 	if len(input.Params) == 1 {
 		return errors.Wrap(ErrMissingParameterThreshold, "RangedEvaluator parameter second parameter is missing")
@@ -193,16 +193,18 @@ func ValidateAlertConditionRangedEvaluator(input monitor.Condition) error {
 
 // HumanThresholdType converts a threshold "type" string to a string that matches the UI
 // so errors are less confusing.
-func HumanThresholdType(typ string) string {
+func HumanThresholdType(typ monitor.EvaluatorType) string {
 	switch typ {
-	case "gt":
+	case monitor.EvaluatorTypeGT:
 		return "IS ABOVE"
-	case "lt":
+	case monitor.EvaluatorTypeLT:
 		return "IS BELOW"
-	case "within_range":
+	case monitor.EvaluatorTypeWithinRange:
 		return "IS WITHIN RANGE"
-	case "outside_range":
+	case monitor.EvaluatorTypeOutsideRange:
 		return "IS OUTSIDE RANGE"
+	case monitor.EvaluatorTypeEQ:
+		return "IS EQUAL TO"
 	}
 	return ""
 }

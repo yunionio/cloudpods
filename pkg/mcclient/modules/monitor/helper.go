@@ -184,7 +184,7 @@ func (c *AlertCondition) ToCondition() monitor.AlertCondition {
 
 func (c *AlertCondition) ToCommonAlertQuery() monitor.CommonAlertQuery {
 	aq := c.query.ToAlertQuery()
-	eval := c.evaluator.Type
+	eval := string(c.evaluator.Type)
 	if !utils.IsInStringArray(eval, []string{"lt", "gt", "eq"}) {
 		panic(fmt.Sprintf("Invalid evaluator %q", eval))
 	}
