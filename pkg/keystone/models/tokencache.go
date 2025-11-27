@@ -56,7 +56,7 @@ type STokenCache struct {
 	Valid     bool
 
 	Method   string `width:"32" charset:"ascii"`
-	AuditIds string `width:"256" charset:"utf8" index:"true"`
+	AuditIds string `width:"512" charset:"utf8" index:"true"`
 
 	UserId    string `width:"128" charset:"ascii" nullable:"false"`
 	ProjectId string `width:"128" charset:"ascii" nullable:"true"`
