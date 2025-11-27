@@ -149,6 +149,8 @@ func (n *notificationService) getNeededNotifiers(nIds []string, evalCtx *EvalCon
 }
 
 func (n *notificationService) syncResources(evalCtx *EvalContext, shouldNotify bool) {
+	n.processNeedShieldEvalMatches(evalCtx, evalCtx.EvalMatches)
+	n.processNeedShieldEvalMatches(evalCtx, evalCtx.AlertOkEvalMatches)
 	if shouldNotify || evalCtx.Rule.State == monitor.AlertStateAlerting {
 		go func() {
 			if err := n.createAlertRecordWhenNotify(evalCtx, shouldNotify); err != nil {
@@ -178,7 +180,6 @@ func (n *notificationService) createAlertRecordWhenNotify(evalCtx *EvalContext, 
 	} else {
 		matches = evalCtx.AlertOkEvalMatches
 	}
-	n.dealNeedShieldEvalMatches(evalCtx, matches)
 	recordCreateInput := monitor.AlertRecordCreateInput{
 		StandaloneResourceCreateInput: apis.StandaloneResourceCreateInput{
 			GenerateName: evalCtx.Rule.Name,
@@ -217,35 +218,32 @@ func (n *notificationService) createAlertRecordWhenNotify(evalCtx *EvalContext, 
 	return nil
 }
 
-func (n *notificationService) dealNeedShieldEvalMatches(evalCtx *EvalContext, match []*monitor.EvalMatch) {
+func (n *notificationService) processNeedShieldEvalMatches(evalCtx *EvalContext, match []*monitor.EvalMatch) {
 	input := monitor.AlertRecordShieldListInput{
-		ResType: evalCtx.Rule.RuleDescription[0].ResType,
 		AlertId: evalCtx.Rule.Id,
 	}
-filterMatch:
 	for i := range match {
 		input.ResId = monitor.GetMeasurementResourceId(match[i].Tags, input.ResType)
 		alertRecordShields, err := models.AlertRecordShieldManager.GetRecordShields(input)
 		if err != nil {
-			log.Errorf("GetRecordShields byAlertId:%s,err:%v", input.AlertId, err)
-			return
+			log.Errorf("GetRecordShields by input: %s, err: %v", jsonutils.Marshal(input), err)
+			continue
 		}
 		if len(alertRecordShields) != 0 {
 			for _, shield := range alertRecordShields {
 				if shield.EndTime.After(time.Now().UTC()) && shield.StartTime.Before(time.Now().UTC()) {
 					match[i].Tags[monitor.ALERT_RESOURCE_RECORD_SHIELD_KEY] = monitor.ALERT_RESOURCE_RECORD_SHIELD_VALUE
-					continue filterMatch
+					break
 				}
 			}
 		}
 	}
-
 }
 
 func (n *notificationService) detachAlertResourceWhenNodata(evalCtx *EvalContext) {
 	errs := models.CommonAlertManager.DetachAlertResourceByAlertId(evalCtx.Ctx, evalCtx.UserCred, evalCtx.Rule.Id)
 	if len(errs) != 0 {
-		log.Errorf("detachAlertResourceWhenNodata err:%#v", errors.NewAggregate(errs))
+		log.Errorf("detachAlertResourceWhenNodata err: %v", errors.NewAggregate(errs).Error())
 	}
 }
 
