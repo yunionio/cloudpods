@@ -135,6 +135,10 @@ func (manager *SAlertRecordManager) ListItemFilter(
 	} else {
 		q = q.IsNotEmpty("res_type").IsNotNull("res_type")
 	}
+	if len(query.AlertName) != 0 {
+		alertQ := GetCommonAlertManager().Query("id").Contains("name", query.AlertName).SubQuery()
+		q = q.In("alert_id", alertQ)
+	}
 	if len(query.ResType) != 0 {
 		q.Filter(sqlchemy.Equals(q.Field("res_type"), query.ResType))
 	}
@@ -170,14 +174,14 @@ func (man *SAlertRecordManager) getAlertingRecordQuery() *sqlchemy.SQuery {
 
 }
 
-/*func (man *SAlertRecordManager) CustomizeFilterList(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*db.CustomizeListFilters, error) {
+func (man *SAlertRecordManager) CustomizeFilterList(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*db.CustomizeListFilters, error) {
 	filters := db.NewCustomizeListFilters()
 
 	input := new(monitor.AlertRecordListInput)
 	if err := query.Unmarshal(input); err != nil {
 		return nil, errors.Wrap(err, "AlertRecordManager.CustomizeFilterList.Unmarshal")
 	}
-	if input.ResId != "" {
+	if input.ResName != "" {
 		filters.Append(func(item jsonutils.JSONObject) (bool, error) {
 			evalMatchs := make([]monitor.EvalMatch, 0)
 			if item.Contains("eval_data") {
@@ -187,7 +191,7 @@ func (man *SAlertRecordManager) getAlertingRecordQuery() *sqlchemy.SQuery {
 				}
 				for _, match := range evalMatchs {
 					for k, v := range match.Tags {
-						if strings.HasSuffix(k, "_id") && v == input.ResId {
+						if strings.Contains(k, "name") && strings.Contains(v, input.ResName) {
 							return true, nil
 						}
 					}
@@ -197,7 +201,7 @@ func (man *SAlertRecordManager) getAlertingRecordQuery() *sqlchemy.SQuery {
 		})
 	}
 	return filters, nil
-}*/
+}
 
 func (man *SAlertRecordManager) GetAlertRecord(id string) (*SAlertRecord, error) {
 	obj, err := man.FetchById(id)
