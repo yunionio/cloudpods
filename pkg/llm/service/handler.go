@@ -32,13 +32,15 @@ func InitHandlers(app *appsrv.Application) {
 		db.Metadata,
 
 		models.GetLLMImageManager(),
-		models.GetLLMModelManager(),
-		models.GetDifyModelManager(),
+		models.GetLLMSkuManager(),
+		models.GetDifySkuManager(),
 		models.GetVolumeManager(),
 		models.GetAccessInfoManager(),
 		models.GetLLMContainerManager(),
 		models.GetLLMManager(),
 		models.GetDifyManager(),
+		models.GetInstantModelManager(),
+		models.GetLLMInstantModelManager(),
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewModelHandler(manager)

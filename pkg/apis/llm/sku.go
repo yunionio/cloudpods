@@ -12,14 +12,14 @@ import (
 )
 
 var (
-	LLM_MODEL_BASE_NETWORK_TYPES = sets.NewString(
+	LLM_SKU_BASE_NETWORK_TYPES = sets.NewString(
 		string(computeapi.NETWORK_TYPE_HOSTLOCAL),
 		string(computeapi.NETWORK_TYPE_GUEST),
 	)
 )
 
-func IsLLMModelBaseNetworkType(t string) bool {
-	return LLM_MODEL_BASE_NETWORK_TYPES.Has(t)
+func IsLLMSkuBaseNetworkType(t string) bool {
+	return LLM_SKU_BASE_NETWORK_TYPES.Has(t)
 }
 
 type HostInfo struct {
@@ -108,7 +108,7 @@ func (s Envs) IsZero() bool {
 	return len(s) == 0
 }
 
-type LLMModelDetails struct {
+type LLMSkuDetails struct {
 	apis.SharableVirtualResourceDetails
 	// 当前大模型套餐包含的实例个数。
 	LLMCapacity int
@@ -123,7 +123,7 @@ type LLMModelDetails struct {
 // 	MountedApps []string `json:"mounted_apps"`
 // }
 
-type LLMModelBaseCreateInput struct {
+type LLMSKuBaseCreateInput struct {
 	apis.SharableVirtualResourceCreateInput
 
 	Cpu    int `json:"cpu"`
@@ -140,7 +140,7 @@ type LLMModelBaseCreateInput struct {
 	Properties   map[string]string `json:"properties"`
 }
 
-type LLMModelBaseUpdateInput struct {
+type LLMSkuBaseUpdateInput struct {
 	apis.SharableVirtualResourceBaseUpdateInput
 	// MountedAppResourceUpdateInput
 
@@ -163,23 +163,23 @@ type LLMModelBaseUpdateInput struct {
 	Properties   map[string]string `json:"properties"`
 }
 
-type LLMModelListInput struct {
+type LLMSkuListInput struct {
 	apis.SharableVirtualResourceListInput
 	// MountedAppResourceListInput
 
 	LLMType string `json:"llm_type"`
 }
 
-type LLMModelCreateInput struct {
-	LLMModelBaseCreateInput
+type LLMSkuCreateInput struct {
+	LLMSKuBaseCreateInput
 
 	LLMImageId   string `json:"llm_image_id"`
 	LLMType      string `json:"llm_type"`
 	LLMModelName string `json:"llm_model_name"`
 }
 
-type LLMModelUpdateInput struct {
-	LLMModelBaseUpdateInput
+type LLMSkuUpdateInput struct {
+	LLMSkuBaseUpdateInput
 
 	LLMImageId   string `json:"llm_image_id"`
 	LLMModelName string `json:"llm_model_name"`
@@ -193,13 +193,13 @@ type LLMModelUpdateInput struct {
 // 	Request bool `json:"request"`
 // }
 
-type DifyModelListInput struct {
+type DifySkulListInput struct {
 	apis.SharableVirtualResourceListInput
 	// MountedAppResourceListInput
 }
 
-type DifyModelCreateInput struct {
-	LLMModelBaseCreateInput
+type DifySkuCreateInput struct {
+	LLMSKuBaseCreateInput
 
 	PostgresImageId     string `json:"postgres_image_id"`
 	RedisImageId        string `json:"redis_image_id"`
@@ -212,8 +212,8 @@ type DifyModelCreateInput struct {
 	DifyWeaviateImageId string `json:"dify_weaviate_image_id"`
 }
 
-type DifyModelUpdateInput struct {
-	LLMModelBaseUpdateInput
+type DifySkuUpdateInput struct {
+	LLMSkuBaseUpdateInput
 
 	PostgresImageId     string `json:"postgres_image_id"`
 	RedisImageId        string `json:"redis_image_id"`

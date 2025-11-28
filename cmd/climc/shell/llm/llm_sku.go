@@ -8,13 +8,13 @@ import (
 )
 
 func init() {
-	cmd := shell.NewResourceCmd(&modules.LLMModel)
-	cmd.List(new(options.LLMModelListOptions))
-	cmd.Show(new(options.LLMModelShowOptions))
-	cmd.Update(new(options.LLMModelUpdateOptions))
-	cmd.Create(new(options.LLMModelCreateOptions))
-	cmd.Delete(new(options.LLMModelDeleteOptions))
+	cmd := shell.NewResourceCmd(&modules.LLMSku)
+	cmd.List(new(options.LLMSkuListOptions))
+	cmd.Show(new(options.LLMSkuShowOptions))
+	cmd.Update(new(options.LLMSkuUpdateOptions))
+	cmd.Create(new(options.LLMSkuCreateOptions))
+	cmd.Delete(new(options.LLMSkuDeleteOptions))
 	cmd.Perform("public", &base_options.BasePublicOptions{})
 	cmd.Perform("private", &base_options.BaseIdOptions{})
-	// cmd.Perform("clone", new(options.DesktopModelCloneOptions))
+	// cmd.Perform("clone", new(options.DesktopSkuCloneOptions))
 }

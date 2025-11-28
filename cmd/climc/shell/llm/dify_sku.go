@@ -8,13 +8,13 @@ import (
 )
 
 func init() {
-	cmd := shell.NewResourceCmd(&modules.DifyModel)
-	cmd.List(new(options.DifyModelListOptions))
-	cmd.Show(new(options.DifyModelShowOptions))
-	cmd.Update(new(options.DifyModelUpdateOptions))
-	cmd.Create(new(options.DifyModelCreateOptions))
-	cmd.Delete(new(options.DifyModelDeleteOptions))
+	cmd := shell.NewResourceCmd(&modules.DifySku)
+	cmd.List(new(options.DifySkuListOptions))
+	cmd.Show(new(options.DifySkuShowOptions))
+	cmd.Update(new(options.DifySkuUpdateOptions))
+	cmd.Create(new(options.DifySkuCreateOptions))
+	cmd.Delete(new(options.DifySkuDeleteOptions))
 	cmd.Perform("public", &base_options.BasePublicOptions{})
 	cmd.Perform("private", &base_options.BaseIdOptions{})
-	// cmd.Perform("clone", new(options.DesktopModelCloneOptions))
+	// cmd.Perform("clone", new(options.DesktopSkuCloneOptions))
 }

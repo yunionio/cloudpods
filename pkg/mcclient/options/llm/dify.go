@@ -9,7 +9,7 @@ import (
 type DifyListOptions struct {
 	LLMBaseListOptions
 
-	DifyModel string `help:"filter by dify model"`
+	DifySku string `help:"filter by dify sku"`
 }
 
 func (o *DifyListOptions) Params() (jsonutils.JSONObject, error) {
@@ -34,7 +34,7 @@ func (o *DifyShowOptions) Params() (jsonutils.JSONObject, error) {
 type DifyCreateOptions struct {
 	LLMBaseCreateOptions
 
-	DIFY_MODEL_ID string `help:"dify model id or name" json:"dify_model_id"`
+	DIFY_SKU_ID string `help:"dify sku id or name" json:"dify_sku_id"`
 }
 
 func (o *DifyCreateOptions) Params() (jsonutils.JSONObject, error) {

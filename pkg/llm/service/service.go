@@ -15,6 +15,7 @@ import (
 	"yunion.io/x/onecloud/pkg/llm/models"
 	"yunion.io/x/onecloud/pkg/llm/options"
 	_ "yunion.io/x/onecloud/pkg/llm/tasks"
+	llmTask "yunion.io/x/onecloud/pkg/llm/tasks/llm"
 )
 
 // StartService the main service starts
@@ -25,6 +26,7 @@ func StartService() {
 	baseOpts := &opts.BaseOptions
 	common_options.ParseOptions(opts, os.Args, "llm.conf", api.SERVICE_TYPE)
 
+	llmTask.InitInstantModelSyncTaskManager()
 	app_common.InitAuth(commonOpts, func() {
 		log.Infof("Auth complete!!")
 	})

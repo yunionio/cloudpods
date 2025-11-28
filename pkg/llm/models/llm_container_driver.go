@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync"
 
+	commonapi "yunion.io/x/onecloud/pkg/apis"
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/apis/llm"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -66,11 +67,29 @@ type ILLMContainerPullModel interface {
 	CopyBlobs(ctx context.Context, userCred mcclient.TokenCredential, llm *SLLM) error
 }
 
+type ILLMContainerInstantApp interface {
+	GetProbedInstantModelsExt(ctx context.Context, userCred mcclient.TokenCredential, llm *SLLM, mdlIds ...string) (map[string]llm.LLMInternalInstantMdlInfo, error)
+	DetectModelPaths(ctx context.Context, userCred mcclient.TokenCredential, llm *SLLM, pkgInfo llm.LLMInternalInstantMdlInfo) ([]string, error)
+
+	GetImageInternalPathMounts(sApp *SInstantModel) map[string]string
+	GetSaveDirectories(sApp *SInstantModel) (string, []string, error)
+
+	ValidateMounts(mounts []string, mdlName string, mdlTag string) ([]string, error)
+	GetInstantModelIdByPostOverlay(postOverlay *commonapi.ContainerVolumeMountDiskPostOverlay, mdlNameToId map[string]string) string
+	GetDirPostOverlay(dir llm.LLMMountDirInfo) *commonapi.ContainerVolumeMountDiskPostOverlay
+
+	PreInstallModel(ctx context.Context, userCred mcclient.TokenCredential, llm *SLLM, instMdl *SLLMInstantModel) error
+	InstallModel(ctx context.Context, userCred mcclient.TokenCredential, llm *SLLM, dirs []string, mdlIds []string) error
+	UninstallModel(ctx context.Context, userCred mcclient.TokenCredential, llm *SLLM, instMdl *SLLMInstantModel) error
+}
+
 type ILLMContainerDriver interface {
 	GetType() llm.LLMContainerType
-	GetContainerSpec(ctx context.Context, llm *SLLM, image *SLLMImage, sku *SLLMModel, props []string, devices []computeapi.SIsolatedDevice, diskId string) *computeapi.PodContainerCreateInput
+	GetContainerSpec(ctx context.Context, llm *SLLM, image *SLLMImage, sku *SLLMSku, props []string, devices []computeapi.SIsolatedDevice, diskId string) *computeapi.PodContainerCreateInput
 
 	// ILLMContainerPullModel
+
+	ILLMContainerInstantApp
 }
 
 var (
