@@ -54,13 +54,13 @@ func (self *SBaremetalServerCreateTask) RemoveEFIOSEntry() bool {
 }
 
 func (self *SBaremetalServerCreateTask) DoDeploys(ctx context.Context, term *ssh.Client) (jsonutils.JSONObject, error) {
-	// Build raid
-	tool, err := self.Baremetal.GetServer().DoDiskConfig(term)
-	if err != nil {
+	if err := self.Baremetal.GetServer().DoEraseDisk(term); err != nil {
 		return nil, self.onError(ctx, term, err)
 	}
 	time.Sleep(2 * time.Second)
-	if err := self.Baremetal.GetServer().DoEraseDisk(term); err != nil {
+	// Build raid
+	tool, err := self.Baremetal.GetServer().DoDiskConfig(term)
+	if err != nil {
 		return nil, self.onError(ctx, term, err)
 	}
 	time.Sleep(2 * time.Second)

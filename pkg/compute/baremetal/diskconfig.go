@@ -199,9 +199,9 @@ func MeetConfig(
 		return fmt.Errorf("%v more than 1 storages drivers", storageDrvs)
 	}
 	driver := storageDrvs.List()[0]
-	if conf.Conf != DISK_CONF_NONE && !DISK_DRIVERS_RAID.Has(driver) {
-		return fmt.Errorf("BaremetalStorage driver %s not support RAID", driver)
-	}
+	//if conf.Conf != DISK_CONF_NONE && !DISK_DRIVERS_RAID.Has(driver) {
+	//	return fmt.Errorf("BaremetalStorage driver %s not support RAID", driver)
+	//}
 
 	minDisk := GetMinDiskRequirement(conf.Conf)
 	if len(storages) < minDisk {
@@ -365,6 +365,7 @@ func getLayoutConfig(layouts []Layout, onlyRaidDisk bool) []*api.BaremetalDiskCo
 
 func CalculateLayout(confs []*api.BaremetalDiskConfig, storages []*BaremetalStorage) (layouts []Layout, err error) {
 	var confIdx = 0
+	var softRaidIdx = 0
 	for len(storages) > 0 {
 		var conf *api.BaremetalDiskConfig
 		if confIdx < len(confs) {
@@ -374,8 +375,16 @@ func CalculateLayout(confs []*api.BaremetalDiskConfig, storages []*BaremetalStor
 			noneConf, _ := ParseDiskConfig(DISK_CONF_NONE)
 			conf = &noneConf
 		}
-		selected, restStorges, rErr := RetrieveStorages(conf, storages)
-		storages = restStorges
+
+		// is soft raid
+		if DISK_DRIVERS_SOFT_RAID.Has(conf.Driver) && conf.Conf != DISK_CONF_NONE {
+			idx := softRaidIdx
+			conf.SoftRaidIdx = &idx
+			softRaidIdx += 1
+		}
+
+		selected, restStorages, rErr := RetrieveStorages(conf, storages)
+		storages = restStorages
 		if len(selected) == 0 {
 			err = errors.Wrapf(rErr, "not found matched storages by config: %#v", conf)
 			return
@@ -596,12 +605,13 @@ func GetDiskSpecV2(storages []*BaremetalStorage) api.DiskDriverSpec {
 }
 
 type DiskConfiguration struct {
-	Driver     string
-	Adapter    int
-	RaidConfig string
-	Block      int64
-	Size       int64
-	DiskType   string
+	Driver      string
+	Adapter     int
+	RaidConfig  string
+	Block       int64
+	Size        int64
+	DiskType    string
+	SoftRaidIdx *int
 }
 
 func GetDiskConfigurations(layouts []Layout) []DiskConfiguration {
@@ -614,34 +624,37 @@ func GetDiskConfigurations(layouts []Layout) []DiskConfiguration {
 		if raidConf == DISK_CONF_NONE {
 			for _, d := range rr.Disks {
 				disks = append(disks, DiskConfiguration{
-					Driver:     driver,
-					Adapter:    adapter,
-					RaidConfig: raidConf,
-					Block:      block,
-					Size:       d.Size,
-					DiskType:   rr.Conf.Type,
+					Driver:      driver,
+					Adapter:     adapter,
+					RaidConfig:  raidConf,
+					Block:       block,
+					Size:        d.Size,
+					DiskType:    rr.Conf.Type,
+					SoftRaidIdx: rr.Conf.SoftRaidIdx,
 				})
 			}
 		} else {
 			if len(rr.Conf.Size) != 0 {
 				for _, sz := range rr.Conf.Size {
 					disks = append(disks, DiskConfiguration{
-						Driver:     driver,
-						Adapter:    adapter,
-						RaidConfig: raidConf,
-						Block:      block,
-						Size:       sz,
-						DiskType:   rr.Conf.Type,
+						Driver:      driver,
+						Adapter:     adapter,
+						RaidConfig:  raidConf,
+						Block:       block,
+						Size:        sz,
+						DiskType:    rr.Conf.Type,
+						SoftRaidIdx: rr.Conf.SoftRaidIdx,
 					})
 				}
 			} else {
 				disks = append(disks, DiskConfiguration{
-					Driver:     driver,
-					Adapter:    adapter,
-					RaidConfig: raidConf,
-					Block:      block,
-					Size:       rr.Size,
-					DiskType:   rr.Conf.Type,
+					Driver:      driver,
+					Adapter:     adapter,
+					RaidConfig:  raidConf,
+					Block:       block,
+					Size:        rr.Size,
+					DiskType:    rr.Conf.Type,
+					SoftRaidIdx: rr.Conf.SoftRaidIdx,
 				})
 			}
 		}
