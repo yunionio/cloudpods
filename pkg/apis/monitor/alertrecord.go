@@ -33,13 +33,14 @@ type AlertRecordListInput struct {
 	apis.EnabledResourceBaseListInput
 	apis.StatusStandaloneResourceListInput
 
-	AlertId  string `json:"alert_id"`
-	Level    string `json:"level"`
-	State    string `json:"state"`
-	ResType  string `json:"res_type"`
-	Alerting bool   `json:"alerting"`
-	ResName  string `json:"res_name"`
-	ResId    string `json:"res_id"`
+	AlertId   string `json:"alert_id"`
+	AlertName string `json:"alert_name"`
+	Level     string `json:"level"`
+	State     string `json:"state"`
+	ResType   string `json:"res_type"`
+	Alerting  bool   `json:"alerting"`
+	ResName   string `json:"res_name"`
+	ResId     string `json:"res_id"`
 }
 
 type AlertRecordDetails struct {
