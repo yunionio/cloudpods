@@ -110,3 +110,6 @@ func (info LLMMountDirInfo) ToOverlay() apis.ContainerVolumeMountDiskPostOverlay
 		// FsGroup:            &gid,
 	}
 }
+
+type LLMSyncStatusInput struct {
+}
