@@ -336,6 +336,15 @@ func (llm *SLLM) WaitContainerStatus(ctx context.Context, userCred mcclient.Toke
 	return llmutils.WaitContainerStatus(ctx, llmCtr.CmpId, targetStatus, timeoutSecs)
 }
 
+func (llm *SLLM) PerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data api.LLMSyncStatusInput) (jsonutils.JSONObject, error) {
+	llm.SetStatus(ctx, userCred, api.LLM_STATUS_START_SYNCSTATUS, "perform syncstatus")
+	err := llm.StartSyncStatusTask(ctx, userCred, "")
+	if err != nil {
+		return nil, errors.Wrap(err, "StartSyncStatusTask")
+	}
+	return nil, nil
+}
+
 func (llm *SLLM) StartSyncStatusTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
 	task, err := taskman.TaskManager.NewTask(ctx, "LLMSyncStatusTask", llm, userCred, nil, parentTaskId, "")
 	if err != nil {
