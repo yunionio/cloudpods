@@ -1,10 +1,16 @@
 package azure
 
 import (
+	"bytes"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/xml"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
+	"sort"
 	"strings"
 	"time"
 
@@ -22,6 +28,7 @@ const (
 	SERVICE_MANAGEMENT = "management"
 	SERVICE_GRAPH      = "graph"
 	SERVICE_AAD        = "aad"
+	SERVICE_STORAGE    = "storage"
 )
 
 var azServices = map[string]map[string]string{
@@ -36,6 +43,10 @@ var azServices = map[string]map[string]string{
 	SERVICE_AAD: {
 		ENV_NAME_GLOBAL: "https://login.microsoftonline.com",
 		ENV_NAME_CHINA:  "https://login.chinacloudapi.cn",
+	},
+	SERVICE_STORAGE: {
+		ENV_NAME_GLOBAL: "https://%s.blob.core.windows.net",
+		ENV_NAME_CHINA:  "https://%s.blob.core.chinacloudapi.cn",
 	},
 }
 
@@ -143,6 +154,249 @@ func (self *SAzureClient) _list_v2(service string, resource, apiVersion string, 
 
 func (self *SAzureClient) _post_v2(service string, resource, apiVersion string, body map[string]interface{}) (jsonutils.JSONObject, error) {
 	return self._request_v2(service, httputils.POST, resource, apiVersion, nil, body)
+}
+
+func (region *SRegion) list_storage_v2(accessKey, bucket string, container string, params url.Values, retVal interface{}) error {
+	return region.client.list_storage_v2(accessKey, bucket, container, params, retVal)
+}
+
+func (region *SRegion) put_storage_v2(accessKey, bucket string, container string, header http.Header, params url.Values, body io.Reader, retVal interface{}) error {
+	return region.client.put_storage_v2(accessKey, bucket, container, header, params, body, retVal)
+}
+
+func (self *SAzureClient) list_storage_v2(accessKey, bucket string, container string, params url.Values, retVal interface{}) error {
+	_, _, err := self.__storage_request(accessKey, bucket, container, httputils.GET, nil, params, nil, retVal)
+	if err != nil {
+		return errors.Wrapf(err, "list_storage_v2")
+	}
+	return nil
+}
+
+func (cli *SAzureClient) delete_storage_v2(accessKey, bucket string, container string, header http.Header, params url.Values) error {
+	_, _, err := cli.__storage_request(accessKey, bucket, container, httputils.DELETE, header, params, nil, nil)
+	if err != nil {
+		return errors.Wrapf(err, "delete_storage_v2")
+	}
+	return nil
+}
+
+func (cli *SAzureClient) put_storage_v2(accessKey, bucket string, container string, header http.Header, params url.Values, body io.Reader, retVal interface{}) error {
+	_, _, err := cli.__storage_request(accessKey, bucket, container, httputils.PUT, header, params, body, retVal)
+	if err != nil {
+		return errors.Wrapf(err, "put_storage_v2")
+	}
+	return nil
+}
+
+func (cli *SAzureClient) put_header_storage_v2(accessKey, bucket string, container string, header http.Header, params url.Values) (http.Header, error) {
+	header, _, err := cli.__storage_request(accessKey, bucket, container, httputils.PUT, header, params, nil, nil)
+	if err != nil {
+		return nil, errors.Wrapf(err, "put_header_storage_v2")
+	}
+	return header, nil
+}
+
+func (region *SRegion) get_header_storage_v2(accessKey, bucket string, container string, params url.Values) (http.Header, error) {
+	header, _, err := region.client.__storage_request(accessKey, bucket, container, httputils.GET, nil, params, nil, nil)
+	if err != nil {
+		return nil, errors.Wrapf(err, "get_header_storage_v2")
+	}
+	return header, nil
+}
+
+func (region *SRegion) get_body_storage_v2(accessKey, bucket string, container string, header http.Header, params url.Values) (io.Reader, error) {
+	_, body, err := region.client.__storage_request(accessKey, bucket, container, httputils.GET, header, params, nil, nil)
+	if err != nil {
+		return nil, errors.Wrapf(err, "get_body_storage_v2")
+	}
+	return body, nil
+}
+
+func (region *SRegion) header_storage_v2(accessKey, bucket string, container string, params url.Values) (http.Header, error) {
+	header, _, err := region.client.__storage_request(accessKey, bucket, container, httputils.HEAD, nil, params, nil, nil)
+	if err != nil {
+		return nil, errors.Wrapf(err, "header_storage_v2")
+	}
+	return header, nil
+}
+
+func computeHmac256(message string, accountKey string) (string, error) {
+	key, err := base64.StdEncoding.DecodeString(accountKey)
+	if err != nil {
+		return "", errors.Wrapf(err, "base64.StdEncoding.DecodeString(%s)", accountKey)
+	}
+	h := hmac.New(sha256.New, key)
+	h.Write([]byte(message))
+	return base64.StdEncoding.EncodeToString(h.Sum(nil)), nil
+}
+
+func buildCanonicalizedHeader(headers http.Header) string {
+	cm := make(map[string]string)
+
+	for k := range headers {
+		headerName := strings.TrimSpace(strings.ToLower(k))
+		if strings.HasPrefix(headerName, "x-ms-") {
+			cm[headerName] = headers.Get(k)
+		}
+	}
+
+	if len(cm) == 0 {
+		return ""
+	}
+
+	keys := []string{}
+	for key := range cm {
+		keys = append(keys, key)
+	}
+
+	sort.Strings(keys)
+
+	ch := bytes.NewBufferString("")
+
+	for _, key := range keys {
+		ch.WriteString(key)
+		ch.WriteRune(':')
+		ch.WriteString(cm[key])
+		ch.WriteRune('\n')
+	}
+
+	return strings.TrimSuffix(ch.String(), "\n")
+}
+
+func buildCanonicalizedString(verb httputils.THttpMethod, headers http.Header, canonicalizedResource string) string {
+	contentLength := headers.Get("Content-Length")
+	if contentLength == "0" {
+		contentLength = ""
+	}
+	date := ""
+
+	return strings.Join([]string{
+		strings.ToUpper(string(verb)),
+		headers.Get("Content-Encoding"),
+		headers.Get("Content-Language"),
+		contentLength,
+		headers.Get("Content-MD5"),
+		headers.Get("Content-Type"),
+		date,
+		headers.Get("If-Modified-Since"),
+		headers.Get("If-Match"),
+		headers.Get("If-None-Match"),
+		headers.Get("If-Unmodified-Since"),
+		headers.Get("Range"),
+		buildCanonicalizedHeader(headers),
+		canonicalizedResource,
+	}, "\n")
+}
+
+func buildCanonicalizedResource(bucket, uri string) (string, error) {
+	u, err := url.Parse(uri)
+	if err != nil {
+		return "", fmt.Errorf("url.Parse: %v", err)
+	}
+
+	cr := bytes.NewBufferString("")
+	cr.WriteString("/")
+	cr.WriteString(bucket)
+
+	if len(u.Path) > 0 {
+		// Any portion of the CanonicalizedResource string that is derived from
+		// the resource's URI should be encoded exactly as it is in the URI.
+		// -- https://msdn.microsoft.com/en-gb/library/azure/dd179428.aspx
+		cr.WriteString(u.EscapedPath())
+	}
+
+	params, err := url.ParseQuery(u.RawQuery)
+	if err != nil {
+		return "", fmt.Errorf("url.ParseQuery: %v", err)
+	}
+
+	// See https://github.com/Azure/azure-storage-net/blob/master/Lib/Common/Core/Util/AuthenticationUtility.cs#L277
+
+	if len(params) > 0 {
+		cr.WriteString("\n")
+
+		keys := []string{}
+		for key := range params {
+			keys = append(keys, key)
+		}
+		sort.Strings(keys)
+
+		completeParams := []string{}
+		for _, key := range keys {
+			if len(params[key]) > 1 {
+				sort.Strings(params[key])
+			}
+
+			completeParams = append(completeParams, fmt.Sprintf("%s:%s", key, strings.Join(params[key], ",")))
+		}
+		cr.WriteString(strings.Join(completeParams, "\n"))
+	}
+
+	return cr.String(), nil
+}
+
+func (self *SAzureClient) __storage_request(accessKey, bucket string, container string, method httputils.THttpMethod, header http.Header, params url.Values, body io.Reader, retVal interface{}) (http.Header, io.Reader, error) {
+	if params == nil {
+		params = url.Values{}
+	}
+
+	domain := fmt.Sprintf(azServices[SERVICE_STORAGE][self.envName], bucket)
+	url := fmt.Sprintf("%s/%s", strings.TrimSuffix(domain, "/"), container)
+	if len(params) > 0 {
+		url += fmt.Sprintf("?%s", params.Encode())
+	}
+
+	utcTime := time.Now().UTC().Format(http.TimeFormat)
+
+	if gotypes.IsNil(header) {
+		header = http.Header{}
+	}
+
+	header.Set("x-ms-date", utcTime)
+	header.Set("x-ms-version", "2018-03-28")
+
+	canRes, err := buildCanonicalizedResource(bucket, url)
+	if err != nil {
+		return nil, nil, errors.Wrapf(err, "buildCanonicalizedResource")
+	}
+
+	canString := buildCanonicalizedString(method, header, canRes)
+
+	// 4. 计算 Shared Key 签名
+	signature, err := computeHmac256(canString, accessKey)
+	if err != nil {
+		return nil, nil, errors.Wrapf(err, "computeHmac256")
+	}
+
+	header.Set("Authorization", fmt.Sprintf("SharedKey %s:%s", bucket, signature))
+
+	resp, err := httputils.Request(self.client(), self.ctx, method, url, header, body, self.debug)
+	if err != nil {
+		return nil, nil, errors.Wrapf(err, "Request")
+	}
+
+	if resp.StatusCode >= 400 {
+		defer httputils.CloseResponse(resp)
+		data, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return nil, nil, errors.Wrapf(err, "ReadAll")
+		}
+		return nil, nil, errors.Errorf("resp: %d url: %s header: %v, data: %s", resp.StatusCode, url, header, string(data))
+	}
+	if gotypes.IsNil(retVal) {
+		return resp.Header, resp.Body, nil
+	}
+	defer httputils.CloseResponse(resp)
+
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, nil, errors.Wrapf(err, "ReadAll")
+	}
+	err = xml.Unmarshal(data, retVal)
+	if err != nil {
+		return nil, nil, errors.Wrapf(err, "xml.Unmarshal")
+	}
+	return resp.Header, resp.Body, nil
 }
 
 func (self *SAzureClient) _request_v2(service string, method httputils.THttpMethod, resource, apiVersion string, params url.Values, body map[string]interface{}) (jsonutils.JSONObject, error) {
