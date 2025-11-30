@@ -14,11 +14,16 @@
 
 package arch
 
-import "yunion.io/x/onecloud/pkg/hostman/guestman/desc"
+import (
+	"fmt"
+
+	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
+)
 
 const (
 	Arch_x86_64  string = "x86_64"
 	Arch_aarch64 string = "aarch64"
+	Arch_riscv64 string = "riscv64"
 )
 
 type Arch interface {
@@ -50,6 +55,8 @@ func NewArch(arch string) Arch {
 		return &X86{}
 	case Arch_aarch64:
 		return &ARM{}
+	case Arch_riscv64:
+		return &RISCV{}
 	}
 	return nil
 }
@@ -86,4 +93,25 @@ func (*archBase) GeneratePvpanicDesc() *desc.SGuestPvpanic {
 
 func (*archBase) GenerateIsaSerialDesc() *desc.SGuestIsaSerial {
 	return nil
+}
+
+type otherArchBase struct {
+}
+
+// -device scsi-cd,drive=cd0,share-rw=true
+// if=none,file=%s,id=cd0,media=cdrom
+func (*otherArchBase) GenerateCdromDesc(osName string, cdrom *desc.SGuestCdrom) {
+	id := fmt.Sprintf("scsi%d-cd0", cdrom.Ordinal)
+	scsiDev := desc.NewScsiDevice("", "scsi-cd", id)
+	scsiDev.Options = map[string]string{"share-rw": "true"}
+	driveOptions := map[string]string{
+		"if":    "none",
+		"media": "cdrom",
+	}
+	cdrom.Scsi = scsiDev
+	cdrom.DriveOptions = driveOptions
+	cdrom.Id = id
+}
+
+func (*otherArchBase) GenerateFloppyDesc(osName string, floppy *desc.SGuestFloppy) {
 }

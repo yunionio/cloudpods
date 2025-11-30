@@ -35,6 +35,7 @@ const (
 	Version_4_0_1  Version = "4.0.1"
 	Version_2_12_1 Version = "2.12.1"
 	Version_9_0_1  Version = "9.0.1"
+	Version_10_0_3 Version = "10.0.3"
 )
 
 type Arch string
@@ -42,7 +43,12 @@ type Arch string
 const (
 	Arch_x86_64  Arch = "x86_64"
 	Arch_aarch64 Arch = "aarch64"
+	Arch_riscv64 Arch = "riscv64"
 )
+
+func (a Arch) IsX86() bool {
+	return a == Arch_x86_64
+}
 
 const (
 	OS_NAME_LINUX   = "Linux"
@@ -110,6 +116,7 @@ type QemuOptions interface {
 	VNC(port uint, usePasswd bool) string
 	Initrd(initrdPath string) string
 	Kernel(kernelPath string) string
+	ScsiDeviceId(serial string) string
 }
 
 var (
@@ -216,6 +223,10 @@ func (o baseOptions) NoHpet() (bool, string) {
 
 func (o baseOptions) Nodefconfig() string {
 	return "-nodefconfig"
+}
+
+func (o baseOptions) ScsiDeviceId(serial string) string {
+	return fmt.Sprintf(",device_id=%s", serial[:20])
 }
 
 /*
@@ -405,5 +416,23 @@ func (o baseOptions_aarch64) Global() string {
 }
 
 func (o baseOptions_aarch64) NoHpet() (bool, string) {
+	return false, ""
+}
+
+type baseOptions_riscv64 struct {
+	*baseOptions
+}
+
+func newBaseOptions_riscv64() *baseOptions_riscv64 {
+	return &baseOptions_riscv64{
+		baseOptions: newBaseOptions(Arch_riscv64),
+	}
+}
+
+func (o baseOptions_riscv64) Global() string {
+	return ""
+}
+
+func (o baseOptions_riscv64) NoHpet() (bool, string) {
 	return false, ""
 }
