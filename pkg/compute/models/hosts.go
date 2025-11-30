@@ -985,6 +985,10 @@ func (hh *SHost) IsArmHost() bool {
 	return hh.CpuArchitecture == apis.OS_ARCH_AARCH64
 }
 
+func (hh *SHost) IsRISCVHost() bool {
+	return hh.CpuArchitecture == apis.OS_ARCH_RISCV64
+}
+
 func (hh *SHost) GetZone() (*SZone, error) {
 	zone, err := ZoneManager.FetchById(hh.ZoneId)
 	if err != nil {

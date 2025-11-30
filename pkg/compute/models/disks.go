@@ -1627,6 +1627,8 @@ func (self *SDisk) GetMasterHost(storage *SStorage) (*SHost, error) {
 			q = q.In("cpu_architecture", apis.ARCH_X86)
 		case apis.OS_ARCH_ARM:
 			q = q.In("cpu_architecture", apis.ARCH_ARM)
+		case apis.OS_ARCH_RISCV:
+			q = q.In("cpu_architecture", apis.ARCH_RISCV)
 		}
 	}
 	host := SHost{}

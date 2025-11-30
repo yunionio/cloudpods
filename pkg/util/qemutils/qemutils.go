@@ -39,7 +39,7 @@ func UseAarch64() {
 	qemuSystemCmd = "qemu-system-aarch64"
 }
 
-func UseRiscV() {
+func UseRiscv64() {
 	qemuSystemCmd = "qemu-system-riscv64"
 }
 
