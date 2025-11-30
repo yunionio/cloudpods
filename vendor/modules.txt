@@ -35,16 +35,10 @@ gitee.com/chunanyong/dm/util
 # github.com/360EntSecGroup-Skylar/excelize v1.4.0
 ## explicit
 github.com/360EntSecGroup-Skylar/excelize
-# github.com/Azure/azure-sdk-for-go v36.1.0+incompatible => github.com/Azure/azure-sdk-for-go v36.1.0+incompatible
-## explicit
-github.com/Azure/azure-sdk-for-go/storage
-github.com/Azure/azure-sdk-for-go/version
 # github.com/Azure/go-ansiterm v0.0.0-20230124172434-306776ec8161
 ## explicit; go 1.16
 github.com/Azure/go-ansiterm
 github.com/Azure/go-ansiterm/winterm
-# github.com/Azure/go-autorest v14.2.0+incompatible
-## explicit
 # github.com/Azure/go-autorest/autorest v0.9.6
 ## explicit; go 1.12
 github.com/Azure/go-autorest/autorest
@@ -88,21 +82,6 @@ github.com/DataDog/zstd
 # github.com/LeeEirc/terminalparser v0.0.0-20240205084113-fbf78c8480f2
 ## explicit; go 1.15
 github.com/LeeEirc/terminalparser
-# github.com/Microsoft/azure-vhd-utils v0.0.0-20181115010904-44cbada2ece3
-## explicit
-github.com/Microsoft/azure-vhd-utils/vhdcore
-github.com/Microsoft/azure-vhd-utils/vhdcore/bat
-github.com/Microsoft/azure-vhd-utils/vhdcore/block
-github.com/Microsoft/azure-vhd-utils/vhdcore/block/bitmap
-github.com/Microsoft/azure-vhd-utils/vhdcore/common
-github.com/Microsoft/azure-vhd-utils/vhdcore/diskstream
-github.com/Microsoft/azure-vhd-utils/vhdcore/footer
-github.com/Microsoft/azure-vhd-utils/vhdcore/header
-github.com/Microsoft/azure-vhd-utils/vhdcore/header/parentlocator
-github.com/Microsoft/azure-vhd-utils/vhdcore/reader
-github.com/Microsoft/azure-vhd-utils/vhdcore/validator
-github.com/Microsoft/azure-vhd-utils/vhdcore/vhdfile
-github.com/Microsoft/azure-vhd-utils/vhdcore/writer
 # github.com/Microsoft/go-winio v0.6.2
 ## explicit; go 1.21
 github.com/Microsoft/go-winio
@@ -2264,7 +2243,7 @@ sigs.k8s.io/structured-merge-diff/v4/value
 # sigs.k8s.io/yaml v1.2.0
 ## explicit; go 1.12
 sigs.k8s.io/yaml
-# yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20251127081629-9d8a6d1fe822
+# yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20251130090640-988b91734be4
 ## explicit; go 1.24
 yunion.io/x/cloudmux/pkg/apis
 yunion.io/x/cloudmux/pkg/apis/billing
@@ -2282,6 +2261,19 @@ yunion.io/x/cloudmux/pkg/multicloud/azure
 yunion.io/x/cloudmux/pkg/multicloud/azure/concurrent
 yunion.io/x/cloudmux/pkg/multicloud/azure/progress
 yunion.io/x/cloudmux/pkg/multicloud/azure/provider
+yunion.io/x/cloudmux/pkg/multicloud/azure/vhdcore
+yunion.io/x/cloudmux/pkg/multicloud/azure/vhdcore/bat
+yunion.io/x/cloudmux/pkg/multicloud/azure/vhdcore/block
+yunion.io/x/cloudmux/pkg/multicloud/azure/vhdcore/block/bitmap
+yunion.io/x/cloudmux/pkg/multicloud/azure/vhdcore/common
+yunion.io/x/cloudmux/pkg/multicloud/azure/vhdcore/diskstream
+yunion.io/x/cloudmux/pkg/multicloud/azure/vhdcore/footer
+yunion.io/x/cloudmux/pkg/multicloud/azure/vhdcore/header
+yunion.io/x/cloudmux/pkg/multicloud/azure/vhdcore/header/parentlocator
+yunion.io/x/cloudmux/pkg/multicloud/azure/vhdcore/reader
+yunion.io/x/cloudmux/pkg/multicloud/azure/vhdcore/validator
+yunion.io/x/cloudmux/pkg/multicloud/azure/vhdcore/vhdfile
+yunion.io/x/cloudmux/pkg/multicloud/azure/vhdcore/writer
 yunion.io/x/cloudmux/pkg/multicloud/baidu
 yunion.io/x/cloudmux/pkg/multicloud/baidu/provider
 yunion.io/x/cloudmux/pkg/multicloud/bingocloud
@@ -2434,5 +2426,4 @@ zombiezen.com/go/sqlite
 zombiezen.com/go/sqlite/fs
 zombiezen.com/go/sqlite/sqlitex
 # github.com/influxdata/promql/v2 => github.com/zexi/promql/v2 v2.12.1
-# github.com/Azure/azure-sdk-for-go => github.com/Azure/azure-sdk-for-go v36.1.0+incompatible
 # github.com/docker/docker => github.com/docker/docker v20.10.27+incompatible
