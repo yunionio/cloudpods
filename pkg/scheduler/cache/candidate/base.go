@@ -93,6 +93,10 @@ func (b baseHostGetter) IsArmHost() bool {
 	return b.h.IsArmHost()
 }
 
+func (b baseHostGetter) IsRISCVHost() bool {
+	return b.h.IsRISCVHost()
+}
+
 func (b baseHostGetter) CPUArch() string {
 	return b.h.CpuArchitecture
 }
