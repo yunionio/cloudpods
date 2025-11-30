@@ -121,6 +121,8 @@ func NewKVMGuestInstance(id string, manager *SGuestManager) *SKVMGuestInstance {
 	qemuArch := arch.Arch_x86_64
 	if manager.host.IsAarch64() {
 		qemuArch = arch.Arch_aarch64
+	} else if manager.host.IsRiscv64() {
+		qemuArch = arch.Arch_riscv64
 	}
 	return &SKVMGuestInstance{
 		SKVMInstanceRuntime: SKVMInstanceRuntime{
@@ -626,6 +628,8 @@ func (s *SKVMGuestInstance) isSelfCmdline(cmdline, uuid string) bool {
 func (s *SKVMGuestInstance) GetRescueDirPath() string {
 	if s.manager.host.IsAarch64() {
 		return path.Join("/opt/cloud/host-deployer/yunionos/aarch64")
+	} else if s.manager.host.IsAarch64() {
+		return path.Join("/opt/cloud/host-deployer/yunionos/riscv64")
 	} else {
 		return path.Join("/opt/cloud/host-deployer/yunionos/x86_64")
 	}
@@ -1366,7 +1370,7 @@ func (s *SKVMGuestInstance) syncStatusUnsync(reason string) {
 func (s *SKVMGuestInstance) collectGuestDescription() error {
 	var cpuList []monitor.HotpluggableCPU
 	var err error
-	if !s.manager.host.IsAarch64() {
+	if s.manager.host.IsX8664() {
 		cpuList, err = s.getHotpluggableCPUList()
 		if err != nil {
 			return errors.Wrap(err, "get hotpluggable cpus")

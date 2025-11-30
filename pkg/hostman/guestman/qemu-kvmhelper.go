@@ -262,12 +262,12 @@ func (s *SKVMGuestInstance) isQ35() bool {
 }
 
 func (s *SKVMGuestInstance) isVirt() bool {
-	return s.getMachine() == api.VM_MACHINE_TYPE_ARM_VIRT
+	return s.getMachine() == api.VM_MACHINE_TYPE_VIRT
 }
 
 func (s *SKVMGuestInstance) isPcie() bool {
 	return utils.IsInStringArray(s.getMachine(),
-		[]string{api.VM_MACHINE_TYPE_Q35, api.VM_MACHINE_TYPE_ARM_VIRT})
+		[]string{api.VM_MACHINE_TYPE_Q35, api.VM_MACHINE_TYPE_VIRT})
 }
 
 func (s *SKVMGuestInstance) GetVdiProtocol() string {
@@ -393,6 +393,8 @@ func (s *SKVMGuestInstance) generateStartScript(data *jsonutils.JSONDict) (strin
 	// inject qemu arch
 	if s.manager.host.IsAarch64() {
 		input.QemuArch = qemu.Arch_aarch64
+	} else if s.manager.host.IsRiscv64() {
+		input.QemuArch = qemu.Arch_riscv64
 	} else {
 		input.QemuArch = qemu.Arch_x86_64
 	}
@@ -541,7 +543,7 @@ function start_swtpm() {
 	}
 
 	// inject usb devices
-	if input.QemuArch == qemu.Arch_aarch64 {
+	if input.QemuArch.IsX86() {
 		input.Devices = append(input.Devices,
 			fmt.Sprintf("usb-tablet,id=input0,bus=%s.0,port=1", s.Desc.Usb.Id),
 			fmt.Sprintf("usb-kbd,id=input1,bus=%s.0,port=2", s.Desc.Usb.Id),
@@ -1112,12 +1114,14 @@ func (s *SKVMGuestInstance) fixGuestMachineType() {
 		s.Desc.Machine = api.VM_MACHINE_TYPE_Q35
 		s.Desc.Bios = qemu.BIOS_UEFI
 	}
-	if s.manager.host.IsAarch64() {
+	if !s.manager.host.IsX8664() {
 		if utils.IsInStringArray(s.Desc.Machine, []string{
 			"", api.VM_MACHINE_TYPE_PC, api.VM_MACHINE_TYPE_Q35,
 		}) {
-			s.Desc.Machine = api.VM_MACHINE_TYPE_ARM_VIRT
+			s.Desc.Machine = api.VM_MACHINE_TYPE_VIRT
 		}
+	}
+	if s.manager.host.IsAarch64() {
 		s.Desc.Bios = qemu.BIOS_UEFI
 	}
 }
@@ -1164,7 +1168,7 @@ func (s *SKVMGuestInstance) initTpmDesc() {
 }
 
 func (s *SKVMGuestInstance) getVfioDeviceHotPlugPciControllerType() *desc.PCI_CONTROLLER_TYPE {
-	if s.Desc.Machine == api.VM_MACHINE_TYPE_Q35 || s.Desc.Machine == api.VM_MACHINE_TYPE_ARM_VIRT {
+	if s.Desc.Machine == api.VM_MACHINE_TYPE_Q35 || s.Desc.Machine == api.VM_MACHINE_TYPE_VIRT {
 		_, _, found := s.findUnusedSlotForController(desc.CONTROLLER_TYPE_PCIE_ROOT_PORT, 0)
 		if found {
 			var contType desc.PCI_CONTROLLER_TYPE = desc.CONTROLLER_TYPE_PCIE_ROOT_PORT
@@ -1208,12 +1212,12 @@ func (s *SKVMGuestInstance) getDiskBootOrderType(driver string) uefi.OvmfDeviceP
 	case qemu.DISK_DRIVER_SCSI, qemu.DISK_DRIVER_PVSCSI:
 		return uefi.DEVICE_TYPE_SCSI
 	case qemu.DISK_DRIVER_IDE:
-		if s.manager.host.IsAarch64() {
+		if !s.manager.host.IsX8664() {
 			return uefi.DEVICE_TYPE_SCSI
 		}
 		return uefi.DEVICE_TYPE_IDE
 	case qemu.DISK_DRIVER_SATA:
-		if s.manager.host.IsAarch64() {
+		if !s.manager.host.IsX8664() {
 			return uefi.DEVICE_TYPE_SCSI
 		}
 		return uefi.DEVICE_TYPE_SATA
@@ -1222,7 +1226,7 @@ func (s *SKVMGuestInstance) getDiskBootOrderType(driver string) uefi.OvmfDeviceP
 }
 
 func (s *SKVMGuestInstance) getCdromBootOrder() uefi.OvmfDevicePathType {
-	if s.manager.host.IsAarch64() {
+	if !s.manager.host.IsX8664() {
 		return uefi.DEVICE_TYPE_SCSI_CDROM
 	}
 	return uefi.DEVICE_TYPE_CDROM
