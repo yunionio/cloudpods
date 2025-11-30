@@ -90,6 +90,7 @@ type CandidatePropertyGetter interface {
 
 	CPUArch() string
 	IsArmHost() bool
+	IsRISCVHost() bool
 	RunningCPUCount() int64
 	TotalCPUCount(useRsvd bool) int64
 	FreeCPUCount(useRsvd bool) int64

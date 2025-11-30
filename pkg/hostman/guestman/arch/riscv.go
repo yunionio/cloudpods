@@ -20,37 +20,34 @@ import (
 )
 
 const (
-	ARM_MAX_CPUS = 64
-	ARM_SOCKETS  = 2
-	ARM_CORES    = 32
-	ARM_THREADS  = 1
+	RISCV_MAX_CPUS = 128
+	RISCV_SOCKETS  = 1
+	RISCV_THREADS  = 1
 
-	ARM_MEM_DEFAULT_SLOTS = 4
+	RISCV_MEM_DEFAULT_SLOTS = 4
 )
 
-var ARM_MAX_MEM_MB uint = 262144
+var RISCV_MAX_MEM_MB uint = 262144
 
-type ARM struct {
+type RISCV struct {
 	archBase
 	otherArchBase
 }
 
-func (*ARM) GenerateMachineDesc(accel string) *desc.SGuestMachine {
-	gicVersion := "max"
+func (*RISCV) GenerateMachineDesc(accel string) *desc.SGuestMachine {
 	return &desc.SGuestMachine{
-		Accel:      accel,
-		GicVersion: &gicVersion,
+		Accel: accel,
 	}
 }
 
-func (*ARM) GenerateMemDesc() *desc.SGuestMem {
+func (*RISCV) GenerateMemDesc() *desc.SGuestMem {
 	return &desc.SGuestMem{
-		Slots:  ARM_MEM_DEFAULT_SLOTS,
-		MaxMem: ARM_MAX_MEM_MB,
+		Slots:  RISCV_MEM_DEFAULT_SLOTS,
+		MaxMem: RISCV_MAX_MEM_MB,
 	}
 }
 
-func (*ARM) GenerateCpuDesc(cpus uint, cpuMax uint, s KVMGuestInstance) (*desc.SGuestCpu, error) {
+func (*RISCV) GenerateCpuDesc(cpus uint, cpuMax uint, s KVMGuestInstance) (*desc.SGuestCpu, error) {
 	var hostCPUPassthrough = options.HostOptions.HostCpuPassthrough
 	var accel, cpuType string
 	if s.IsKvmSupport() {
@@ -68,9 +65,9 @@ func (*ARM) GenerateCpuDesc(cpus uint, cpuMax uint, s KVMGuestInstance) (*desc.S
 	}
 	return &desc.SGuestCpu{
 		Cpus:    cpus,
-		Sockets: ARM_SOCKETS,
-		Cores:   cpuMax / ARM_SOCKETS / ARM_THREADS,
-		Threads: ARM_THREADS,
+		Sockets: RISCV_SOCKETS,
+		Cores:   cpuMax / RISCV_SOCKETS / RISCV_THREADS,
+		Threads: RISCV_THREADS,
 		MaxCpus: cpuMax,
 		Model:   cpuType,
 		Accel:   accel,

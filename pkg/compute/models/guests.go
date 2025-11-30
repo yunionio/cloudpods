@@ -1805,8 +1805,11 @@ func (manager *SGuestManager) validateCreateData(
 			}
 		}
 
-		if arch := imgProperties["os_arch"]; strings.Contains(arch, "aarch") || strings.Contains(arch, "arm") {
+		arch := imgProperties["os_arch"]
+		if strings.Contains(arch, "aarch") || strings.Contains(arch, "arm") {
 			input.OsArch = apis.OS_ARCH_AARCH64
+		} else if strings.Contains(arch, "riscv") {
+			input.OsArch = apis.OS_ARCH_RISCV64
 		}
 
 		// enable tpm on windows 11 image

@@ -314,6 +314,10 @@ func (m *MockCandidatePropertyGetter) IsArmHost() bool {
 	return false
 }
 
+func (m *MockCandidatePropertyGetter) IsRISCVHost() bool {
+	return false
+}
+
 func (m *MockCandidatePropertyGetter) CPUArch() string {
 	return ""
 }
