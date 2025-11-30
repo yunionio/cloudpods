@@ -61,15 +61,20 @@ func (f *CPUPredicate) Execute(ctx context.Context, u *core.Unit, c core.Candida
 
 	archMatch := true
 	isArmHost := getter.IsArmHost()
+	isRiscvHost := getter.IsRISCVHost()
 	if d.Hypervisor != compute.HYPERVISOR_POD {
 		if apis.IsARM(d.OsArch) {
 			// process arm64 host
 			if !isArmHost {
 				archMatch = false
 			}
+		} else if apis.IsRISCV(d.OsArch) {
+			if !isRiscvHost {
+				archMatch = false
+			}
 		} else {
 			// process x86_64 host
-			if isArmHost {
+			if isArmHost || isRiscvHost {
 				archMatch = false
 			}
 		}

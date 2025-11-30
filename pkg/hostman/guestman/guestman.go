@@ -210,10 +210,19 @@ func (m *SGuestManager) startContainerSyncLoop() {
 	}
 }
 
+func (m *SGuestManager) getMachineVirtMaxCpus() uint {
+	if m.host.IsAarch64() {
+		return arch.ARM_MAX_CPUS
+	} else if m.host.IsRiscv64() {
+		return arch.RISCV_MAX_CPUS
+	}
+	return 0
+}
+
 func (m *SGuestManager) InitQemuMaxCpus(machineCaps []monitor.MachineInfo, kvmMaxCpus uint) {
 	m.qemuMachineCpuMax[compute.VM_MACHINE_TYPE_PC] = arch.X86_MAX_CPUS
 	m.qemuMachineCpuMax[compute.VM_MACHINE_TYPE_Q35] = arch.X86_MAX_CPUS
-	m.qemuMachineCpuMax[compute.VM_MACHINE_TYPE_ARM_VIRT] = arch.ARM_MAX_CPUS
+	m.qemuMachineCpuMax[compute.VM_MACHINE_TYPE_VIRT] = m.getMachineVirtMaxCpus()
 	if len(machineCaps) == 0 {
 		return
 	}
@@ -257,6 +266,11 @@ func (m *SGuestManager) InitQemuMaxMems(maxMems uint) {
 	if m.host.IsAarch64() {
 		if maxMems > arch.ARM_MAX_MEM_MB {
 			arch.ARM_MAX_MEM_MB = maxMems
+		}
+	}
+	if m.host.IsRiscv64() {
+		if maxMems > arch.RISCV_MAX_MEM_MB {
+			arch.RISCV_MAX_MEM_MB = maxMems
 		}
 	}
 }
