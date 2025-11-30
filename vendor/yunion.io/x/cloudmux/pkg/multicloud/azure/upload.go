@@ -20,14 +20,15 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"net/http"
+	"net/url"
 	"time"
 
-	"github.com/Azure/azure-sdk-for-go/storage"
-	"github.com/Microsoft/azure-vhd-utils/vhdcore/block/bitmap"
-	"github.com/Microsoft/azure-vhd-utils/vhdcore/common"
-	"github.com/Microsoft/azure-vhd-utils/vhdcore/diskstream"
-	"github.com/Microsoft/azure-vhd-utils/vhdcore/footer"
-	"github.com/Microsoft/azure-vhd-utils/vhdcore/validator"
+	"yunion.io/x/cloudmux/pkg/multicloud/azure/vhdcore/block/bitmap"
+	"yunion.io/x/cloudmux/pkg/multicloud/azure/vhdcore/common"
+	"yunion.io/x/cloudmux/pkg/multicloud/azure/vhdcore/diskstream"
+	"yunion.io/x/cloudmux/pkg/multicloud/azure/vhdcore/footer"
+	"yunion.io/x/cloudmux/pkg/multicloud/azure/vhdcore/validator"
 
 	"yunion.io/x/cloudmux/pkg/multicloud/azure/concurrent"
 	"yunion.io/x/cloudmux/pkg/multicloud/azure/progress"
@@ -44,25 +45,24 @@ type DataWithRange struct {
 }
 
 type DiskUploadContext struct {
-	VhdStream             *diskstream.DiskStream    // The stream whose ranges needs to be uploaded
-	AlreadyProcessedBytes int64                     // The size in bytes already uploaded
-	UploadableRanges      []*common.IndexRange      // The subset of stream ranges to be uploaded
-	BlobServiceClient     storage.BlobStorageClient // The client to make Azure blob service API calls
-	ContainerName         string                    // The container in which page blob resides
-	BlobName              string                    // The destination page blob name
-	Parallelism           int                       // The number of concurrent goroutines to be used for upload
-	Resume                bool                      // Indicate whether this is a new or resuming upload
-	MD5Hash               []byte                    // MD5Hash to be set in the page blob properties once upload finishes
+	StorageAccount        *SStorageAccount       // The storage account to use for authentication
+	AccessKey             string                 // The access key to use for authentication
+	VhdStream             *diskstream.DiskStream // The stream whose ranges needs to be uploaded
+	AlreadyProcessedBytes int64                  // The size in bytes already uploaded
+	UploadableRanges      []*common.IndexRange   // The subset of stream ranges to be uploaded
+	ContainerName         string                 // The container in which page blob resides
+	BlobName              string                 // The destination page blob name
+	Parallelism           int                    // The number of concurrent goroutines to be used for upload
+	Resume                bool                   // Indicate whether this is a new or resuming upload
+	MD5Hash               []byte                 // MD5Hash to be set in the page blob properties once upload finishes
 }
 
 // oneMB is one MegaByte
-//
 const oneMB = float64(1048576)
 
 // Upload uploads the disk ranges described by the parameter cxt, this parameter describes the disk stream to
 // read from, the ranges of the stream to read, the destination blob and it's container, the client to communicate
 // with Azure storage and the number of parallel go-routines to use for upload.
-//
 func Upload(cxt *DiskUploadContext, callback func(float32)) error {
 	// Get the channel that contains stream of disk data to upload
 	dataWithRangeChan, streamReadErrChan := GetDataWithRanges(cxt.VhdStream, cxt.UploadableRanges)
@@ -109,20 +109,23 @@ L:
 			}
 
 			// Create work request
-			//
-			containerClinet := cxt.BlobServiceClient.GetContainerReference(cxt.ContainerName)
-			blobClient := containerClinet.GetBlobReference(cxt.BlobName)
+			client := cxt.StorageAccount.region.client
 			req := &concurrent.Request{
 				Work: func() error {
-					err := blobClient.WriteRange(
-						storage.BlobRange{Start: uint64(dataWithRange.Range.Start), End: uint64(dataWithRange.Range.End)},
-						bytes.NewReader(dataWithRange.Data),
-						&storage.PutPageOptions{},
-					)
-					if err == nil {
-						uploadProgress.ReportBytesProcessedCount(dataWithRange.Range.Length())
+					params := url.Values{}
+					params.Set("comp", "page")
+					header := http.Header{}
+					header.Set("x-ms-blob-type", "PageBlob")
+					header.Set("x-ms-page-write", "update")
+					header.Set("x-ms-range", fmt.Sprintf("bytes=%d-%d", dataWithRange.Range.Start, dataWithRange.Range.End))
+					header.Set("Content-Length", fmt.Sprintf("%v", dataWithRange.Range.Length()))
+					file := fmt.Sprintf("%s/%s", cxt.ContainerName, cxt.BlobName)
+					err = client.put_storage_v2(cxt.AccessKey, cxt.StorageAccount.Name, file, header, params, bytes.NewReader(dataWithRange.Data), nil)
+					if err != nil {
+						return errors.New(err.Error())
 					}
-					return err
+					uploadProgress.ReportBytesProcessedCount(dataWithRange.Range.Length())
+					return nil
 				},
 				ShouldRetry: func(e error) bool {
 					return true
@@ -162,7 +165,6 @@ L:
 // It returns two channels, a data channel to stream the disk ranges and a channel to send any error while reading
 // the disk. On successful completion the data channel will be closed. the caller must not expect any more value in
 // the data channel if the error channel is signaled.
-//
 func GetDataWithRanges(stream *diskstream.DiskStream, ranges []*common.IndexRange) (<-chan *DataWithRange, <-chan error) {
 	dataWithRangeChan := make(chan *DataWithRange, 0)
 	errorChan := make(chan error, 0)
@@ -191,7 +193,6 @@ func GetDataWithRanges(stream *diskstream.DiskStream, ranges []*common.IndexRang
 
 // readAndPrintProgress reads the progress records from the given progress channel and output it. It reads the
 // progress record until the channel is closed.
-//
 func readAndPrintProgress(progressChan <-chan *progress.Record, resume bool, callback func(float32)) {
 	var spinChars = [4]rune{'\\', '|', '/', '-'}
 	s := time.Time{}
@@ -326,7 +327,6 @@ func LocateNonEmptyRangeIndices(stream *diskstream.DiskStream, ranges []*common.
 }
 
 // isAllZero returns true if the given byte slice contain all zeros
-//
 func isAllZero(buf []byte) bool {
 	l := len(buf)
 	j := 0

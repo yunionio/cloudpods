@@ -15,8 +15,10 @@
 package azure
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
+	"encoding/xml"
 	"fmt"
 	"io"
 	"math/rand"
@@ -27,14 +29,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Azure/azure-sdk-for-go/storage"
-	azureenv "github.com/Azure/go-autorest/autorest/azure"
-	"github.com/Microsoft/azure-vhd-utils/vhdcore/common"
-	"github.com/Microsoft/azure-vhd-utils/vhdcore/diskstream"
+	"yunion.io/x/cloudmux/pkg/multicloud/azure/vhdcore/common"
+	"yunion.io/x/cloudmux/pkg/multicloud/azure/vhdcore/diskstream"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/timeutils"
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
@@ -44,6 +45,14 @@ import (
 type SContainer struct {
 	storageaccount *SStorageAccount
 	Name           string
+	Properties     struct {
+		LastModified          time.Time `xml:"Last-Modified"`
+		ETag                  string    `xml:"Etag"`
+		LeaseStatus           string    `xml:"LeaseStatus"`
+		LeaseState            string    `xml:"LeaseState"`
+		HasImmutabilityPolicy bool      `xml:"HasImmutabilityPolicy"`
+		HasLegalHold          bool      `xml:"HasLegalHold"`
+	} `xml:"properties"`
 }
 
 type SSku struct {
@@ -99,22 +108,22 @@ type SStorageAccount struct {
 	Properties AccountProperties `json:"properties"`
 }
 
-func (self *SRegion) listStorageAccounts() ([]SStorageAccount, error) {
+func (region *SRegion) listStorageAccounts() ([]SStorageAccount, error) {
 	accounts := []SStorageAccount{}
-	err := self.list("Microsoft.Storage/storageAccounts", url.Values{}, &accounts)
+	err := region.list("Microsoft.Storage/storageAccounts", url.Values{}, &accounts)
 	if err != nil {
 		return nil, errors.Wrapf(err, "list")
 	}
 	result := []SStorageAccount{}
 	for i := range accounts {
-		accounts[i].region = self
+		accounts[i].region = region
 		result = append(result, accounts[i])
 	}
 	return result, nil
 }
 
-func (self *SRegion) ListStorageAccounts() ([]SStorageAccount, error) {
-	return self.listStorageAccounts()
+func (region *SRegion) ListStorageAccounts() ([]SStorageAccount, error) {
+	return region.listStorageAccounts()
 }
 
 func randomString(prefix string, length int) string {
@@ -127,10 +136,10 @@ func randomString(prefix string, length int) string {
 	return prefix + string(result)
 }
 
-func (self *SRegion) GetUniqStorageAccountName() (string, error) {
+func (region *SRegion) GetUniqStorageAccountName() (string, error) {
 	for i := 0; i < 20; i++ {
 		name := randomString("storage", 8)
-		exist, err := self.checkStorageAccountNameExist(name)
+		exist, err := region.checkStorageAccountNameExist(name)
 		if err == nil && !exist {
 			return name, nil
 		}
@@ -144,8 +153,8 @@ type sNameAvailableOutput struct {
 	Message       string `json:"message"`
 }
 
-func (self *SRegion) checkStorageAccountNameExist(name string) (bool, error) {
-	ok, err := self.client.CheckNameAvailability("Microsoft.Storage/storageAccounts", name)
+func (region *SRegion) checkStorageAccountNameExist(name string) (bool, error) {
+	ok, err := region.client.CheckNameAvailability("Microsoft.Storage/storageAccounts", name)
 	if err != nil {
 		return false, errors.Wrapf(err, "CheckNameAvailability(%s)", name)
 	}
@@ -169,23 +178,23 @@ type SStorageAccountSku struct {
 	} `json:"restrictions"`
 }
 
-func (self *SRegion) GetStorageAccountSkus() ([]SStorageAccountSku, error) {
+func (region *SRegion) GetStorageAccountSkus() ([]SStorageAccountSku, error) {
 	skus := make([]SStorageAccountSku, 0)
-	err := self.client.list("Microsoft.Storage/skus", url.Values{}, &skus)
+	err := region.client.list("Microsoft.Storage/skus", url.Values{}, &skus)
 	if err != nil {
 		return nil, errors.Wrap(err, "List")
 	}
 	ret := make([]SStorageAccountSku, 0)
 	for i := range skus {
-		if utils.IsInStringArray(self.GetId(), skus[i].Locations) {
+		if utils.IsInStringArray(region.GetId(), skus[i].Locations) {
 			ret = append(ret, skus[i])
 		}
 	}
 	return ret, nil
 }
 
-func (self *SRegion) getStorageAccountSkuByName(name string) (*SStorageAccountSku, error) {
-	skus, err := self.GetStorageAccountSkus()
+func (region *SRegion) getStorageAccountSkuByName(name string) (*SStorageAccountSku, error) {
+	skus, err := region.GetStorageAccountSkus()
 	if err != nil {
 		return nil, errors.Wrap(err, "getStorageAccountSkus")
 	}
@@ -202,10 +211,10 @@ func (self *SRegion) getStorageAccountSkuByName(name string) (*SStorageAccountSk
 	return nil, cloudprovider.ErrNotFound
 }
 
-func (self *SRegion) createStorageAccount(name string, skuName string) (*SStorageAccount, error) {
+func (region *SRegion) createStorageAccount(name string, skuName string) (*SStorageAccount, error) {
 	storageKind := "Storage"
 	if len(skuName) > 0 {
-		sku, err := self.getStorageAccountSkuByName(skuName)
+		sku, err := region.getStorageAccountSkuByName(skuName)
 		if err != nil {
 			return nil, errors.Wrap(err, "getStorageAccountSkuByName")
 		}
@@ -215,8 +224,8 @@ func (self *SRegion) createStorageAccount(name string, skuName string) (*SStorag
 		skuName = "Standard_GRS"
 	}
 	storageaccount := SStorageAccount{
-		region:   self,
-		Location: self.Name,
+		region:   region,
+		Location: region.Name,
 		Sku: SSku{
 			Name: skuName,
 		},
@@ -229,29 +238,29 @@ func (self *SRegion) createStorageAccount(name string, skuName string) (*SStorag
 		Type: "Microsoft.Storage/storageAccounts",
 	}
 
-	err := self.create("", jsonutils.Marshal(storageaccount), &storageaccount)
+	err := region.create("", jsonutils.Marshal(storageaccount), &storageaccount)
 	if err != nil {
 		return nil, errors.Wrap(err, "Create")
 	}
 	return &storageaccount, nil
 }
 
-func (self *SRegion) CreateStorageAccount(storageAccount string) (*SStorageAccount, error) {
-	account, err := self.getStorageAccountID(storageAccount)
+func (region *SRegion) CreateStorageAccount(storageAccount string) (*SStorageAccount, error) {
+	account, err := region.getStorageAccountID(storageAccount)
 	if err == nil {
 		return account, nil
 	}
 	if errors.Cause(err) == cloudprovider.ErrNotFound {
-		uniqName, err := self.GetUniqStorageAccountName()
+		uniqName, err := region.GetUniqStorageAccountName()
 		if err != nil {
 			return nil, errors.Wrapf(err, "GetUniqStorageAccountName")
 		}
 		storageaccount := SStorageAccount{
-			region: self,
+			region: region,
 			Sku: SSku{
 				Name: "Standard_GRS",
 			},
-			Location: self.Name,
+			Location: region.Name,
 			Kind:     "Storage",
 			Properties: AccountProperties{
 				IsHnsEnabled:             true,
@@ -261,20 +270,20 @@ func (self *SRegion) CreateStorageAccount(storageAccount string) (*SStorageAccou
 			Type: "Microsoft.Storage/storageAccounts",
 		}
 		storageaccount.Tags = map[string]string{"id": storageAccount}
-		return &storageaccount, self.create("", jsonutils.Marshal(storageaccount), &storageaccount)
+		return &storageaccount, region.create("", jsonutils.Marshal(storageaccount), &storageaccount)
 	}
 	return nil, err
 }
 
-func (self *SRegion) getStorageAccountID(storageAccount string) (*SStorageAccount, error) {
-	accounts, err := self.ListStorageAccounts()
+func (region *SRegion) getStorageAccountID(storageAccount string) (*SStorageAccount, error) {
+	accounts, err := region.ListStorageAccounts()
 	if err != nil {
 		return nil, errors.Wrapf(err, "ListStorageAccounts")
 	}
 	for i := 0; i < len(accounts); i++ {
 		for k, v := range accounts[i].Tags {
 			if k == "id" && v == storageAccount {
-				accounts[i].region = self
+				accounts[i].region = region
 				return &accounts[i], nil
 			}
 		}
@@ -282,9 +291,9 @@ func (self *SRegion) getStorageAccountID(storageAccount string) (*SStorageAccoun
 	return nil, cloudprovider.ErrNotFound
 }
 
-func (self *SRegion) GetStorageAccountDetail(accountId string) (*SStorageAccount, error) {
-	account := SStorageAccount{region: self}
-	err := self.get(accountId, url.Values{}, &account)
+func (region *SRegion) GetStorageAccountDetail(accountId string) (*SStorageAccount, error) {
+	account := SStorageAccount{region: region}
+	err := region.get(accountId, url.Values{}, &account)
 	if err != nil {
 		return nil, err
 	}
@@ -297,8 +306,8 @@ type AccountKeys struct {
 	Value       string
 }
 
-func (self *SRegion) GetStorageAccountKey(accountId string) (string, error) {
-	body, err := self.perform(accountId, "listKeys", nil)
+func (region *SRegion) GetStorageAccountKey(accountId string) (string, error) {
+	body, err := region.client.perform(accountId, "listKeys", nil)
 	if err != nil {
 		return "", err
 	}
@@ -318,92 +327,69 @@ func (self *SRegion) GetStorageAccountKey(accountId string) (string, error) {
 	return body.GetString("primaryKey")
 }
 
-func (self *SRegion) DeleteStorageAccount(accountId string) error {
-	return self.del(accountId)
+func (region *SRegion) DeleteStorageAccount(accountId string) error {
+	return region.del(accountId)
 }
 
-func (self *SRegion) ListClassicStorageAccounts() ([]SStorageAccount, error) {
-	accounts := make([]SStorageAccount, 0)
-	err := self.list("Microsoft.ClassicStorage/storageAccounts", url.Values{}, &accounts)
+func (sa *SStorageAccount) GetAccountKey() (accountKey string, err error) {
+	if len(sa.accountKey) > 0 {
+		return sa.accountKey, nil
+	}
+	sa.accountKey, err = sa.region.GetStorageAccountKey(sa.ID)
+	return sa.accountKey, err
+}
+
+func (sa *SStorageAccount) CreateContainer(containerName string) (*SContainer, error) {
+	accessKey, err := sa.GetAccountKey()
 	if err != nil {
 		return nil, err
 	}
-	return accounts, nil
-}
-
-func (self *SRegion) GetClassicStorageAccount(id string) (*SStorageAccount, error) {
-	account := &SStorageAccount{}
-	err := self.get(id, url.Values{}, account)
+	params := url.Values{}
+	params.Set("restype", "container")
+	header := http.Header{}
+	err = sa.region.put_storage_v2(accessKey, sa.Name, containerName, header, params, nil, nil)
 	if err != nil {
-		return nil, errors.Wrapf(err, "get(%s)", id)
-	}
-	return account, nil
-}
-
-func (self *SStorageAccount) GetAccountKey() (accountKey string, err error) {
-	if len(self.accountKey) > 0 {
-		return self.accountKey, nil
-	}
-	self.accountKey, err = self.region.GetStorageAccountKey(self.ID)
-	return self.accountKey, err
-}
-
-func (self *SStorageAccount) getBlobServiceClient() (*storage.BlobStorageClient, error) {
-	accessKey, err := self.GetAccountKey()
-	if err != nil {
-		return nil, err
-	}
-	env, err := azureenv.EnvironmentFromName(self.region.client.envName)
-	if err != nil {
-		return nil, errors.Wrapf(err, "azureenv.EnvironmentFromName(%s)", self.region.client.envName)
-	}
-	client, err := storage.NewBasicClientOnSovereignCloud(self.Name, accessKey, env)
-	if err != nil {
-		return nil, err
-	}
-	srv := client.GetBlobService()
-	return &srv, nil
-}
-
-func (self *SStorageAccount) CreateContainer(containerName string) (*SContainer, error) {
-	blobService, err := self.getBlobServiceClient()
-	if err != nil {
-		return nil, errors.Wrap(err, "getBlobServiceClient")
-	}
-	containerRef := blobService.GetContainerReference(containerName)
-	err = containerRef.Create(&storage.CreateContainerOptions{})
-	if err != nil {
-		return nil, errors.Wrap(err, "Create")
+		return nil, errors.Wrap(err, "put_storage_v2")
 	}
 	container := SContainer{
-		storageaccount: self,
+		storageaccount: sa,
 		Name:           containerName,
 	}
 	return &container, nil
 }
 
-func (self *SStorageAccount) GetContainers() ([]SContainer, error) {
-	blobService, err := self.getBlobServiceClient()
-	if err != nil {
-		return nil, errors.Wrap(err, "getBlobServiceClient")
-	}
-	result, err := blobService.ListContainers(storage.ListContainersParameters{})
+func (sa *SStorageAccount) GetContainers() ([]SContainer, error) {
+	accessKey, err := sa.GetAccountKey()
 	if err != nil {
 		return nil, err
 	}
-	containers := []SContainer{}
-	err = jsonutils.Update(&containers, result.Containers)
-	if err != nil {
-		return nil, err
+	params := url.Values{}
+	params.Set("comp", "list")
+	params.Set("maxresults", "5000")
+	ret := []SContainer{}
+	for {
+		part := struct {
+			Containers []SContainer `xml:"Containers>Container"`
+			NextMarker string       `xml:"NextMarker"`
+		}{}
+		err := sa.region.list_storage_v2(accessKey, sa.Name, "", params, &part)
+		if err != nil {
+			return nil, err
+		}
+		for i := range part.Containers {
+			part.Containers[i].storageaccount = sa
+			ret = append(ret, part.Containers[i])
+		}
+		if len(part.NextMarker) == 0 || len(part.Containers) == 0 {
+			break
+		}
+		params.Set("marker", part.NextMarker)
 	}
-	for i := 0; i < len(containers); i++ {
-		containers[i].storageaccount = self
-	}
-	return containers, nil
+	return ret, nil
 }
 
-func (self *SStorageAccount) GetContainer(name string) (*SContainer, error) {
-	containers, err := self.GetContainers()
+func (sa *SStorageAccount) GetContainer(name string) (*SContainer, error) {
+	containers, err := sa.GetContainers()
 	if err != nil {
 		return nil, err
 	}
@@ -415,11 +401,11 @@ func (self *SStorageAccount) GetContainer(name string) (*SContainer, error) {
 	return nil, cloudprovider.ErrNotFound
 }
 
-func (self *SContainer) ListAllFiles(include *storage.IncludeBlobDataset) ([]storage.Blob, error) {
-	blobs := make([]storage.Blob, 0)
+func (c *SContainer) ListAllFiles() ([]Blob, error) {
+	blobs := make([]Blob, 0)
 	var marker string
 	for {
-		result, err := self.ListFiles("", marker, "", 5000, include)
+		result, err := c.ListFiles("", marker, "", 5000)
 		if err != nil {
 			return nil, errors.Wrap(err, "ListFiles")
 		}
@@ -435,153 +421,206 @@ func (self *SContainer) ListAllFiles(include *storage.IncludeBlobDataset) ([]sto
 	return blobs, nil
 }
 
-func (self *SContainer) ListFiles(prefix string, marker string, delimiter string, maxCount int, include *storage.IncludeBlobDataset) (storage.BlobListResponse, error) {
-	var result storage.BlobListResponse
-	blobService, err := self.storageaccount.getBlobServiceClient()
+type BlobListResponse struct {
+	Xmlns      string `xml:"xmlns,attr"`
+	Prefix     string `xml:"Prefix"`
+	Marker     string `xml:"Marker"`
+	NextMarker string `xml:"NextMarker"`
+	MaxResults int64  `xml:"MaxResults"`
+	Blobs      []Blob `xml:"Blobs>Blob"`
+
+	// BlobPrefix is used to traverse blobs as if it were a file system.
+	// It is returned if ListBlobsParameters.Delimiter is specified.
+	// The list here can be thought of as "folders" that may contain
+	// other folders or blobs.
+	BlobPrefixes []string `xml:"Blobs>BlobPrefix>Name"`
+
+	// Delimiter is used to traverse blobs as if it were a file system.
+	// It is returned if ListBlobsParameters.Delimiter is specified.
+	Delimiter string `xml:"Delimiter"`
+}
+
+type Blob struct {
+	Name       string            `xml:"Name"`
+	Properties BlobProperties    `xml:"Properties"`
+	Metadata   map[string]string `xml:"Metadata"`
+}
+
+type BlobProperties struct {
+	LastModified       string `xml:"Last-Modified"`
+	Etag               string `xml:"Etag"`
+	ContentMD5         string `xml:"Content-MD5" header:"x-ms-blob-content-md5"`
+	ContentLength      int64  `xml:"Content-Length"`
+	ContentType        string `xml:"Content-Type" header:"x-ms-blob-content-type"`
+	ContentEncoding    string `xml:"Content-Encoding" header:"x-ms-blob-content-encoding"`
+	CacheControl       string `xml:"Cache-Control" header:"x-ms-blob-cache-control"`
+	ContentLanguage    string `xml:"Cache-Language" header:"x-ms-blob-content-language"`
+	ContentDisposition string `xml:"Content-Disposition" header:"x-ms-blob-content-disposition"`
+	//BlobType              BlobType    `xml:"BlobType"`
+	SequenceNumber int64  `xml:"x-ms-blob-sequence-number"`
+	CopyID         string `xml:"CopyId"`
+	CopyStatus     string `xml:"CopyStatus"`
+	CopySource     string `xml:"CopySource"`
+	CopyProgress   string `xml:"CopyProgress"`
+	//CopyCompletionTime    TimeRFC1123 `xml:"CopyCompletionTime"`
+	CopyStatusDescription string `xml:"CopyStatusDescription"`
+	LeaseStatus           string `xml:"LeaseStatus"`
+	LeaseState            string `xml:"LeaseState"`
+	LeaseDuration         string `xml:"LeaseDuration"`
+	ServerEncrypted       bool   `xml:"ServerEncrypted"`
+	IncrementalCopy       bool   `xml:"IncrementalCopy"`
+}
+
+func (c *SContainer) ListFiles(prefix string, marker string, delimiter string, maxCount int) (*BlobListResponse, error) {
+	accessKey, err := c.storageaccount.GetAccountKey()
 	if err != nil {
-		return result, errors.Wrap(err, "getBlobServiceClient")
+		return nil, errors.Wrap(err, "GetAccountKey")
 	}
-	params := storage.ListBlobsParameters{Include: include}
+	params := url.Values{}
+	params.Set("comp", "list")
+	params.Set("restype", "container")
+	if maxCount > 0 {
+		params.Set("maxresults", strconv.Itoa(maxCount))
+	}
 	if len(prefix) > 0 {
-		params.Prefix = prefix
+		params.Set("prefix", prefix)
 	}
 	if len(marker) > 0 {
-		params.Marker = marker
+		params.Set("marker", marker)
 	}
 	if len(delimiter) > 0 {
-		params.Delimiter = delimiter
+		params.Set("delimiter", delimiter)
 	}
-	if maxCount > 0 {
-		params.MaxResults = uint(maxCount)
-	}
-	result, err = blobService.GetContainerReference(self.Name).ListBlobs(params)
+	result := &BlobListResponse{}
+	err = c.storageaccount.region.client.list_storage_v2(accessKey, c.storageaccount.Name, c.Name, params, result)
 	if err != nil {
-		return result, err
+		return nil, errors.Wrap(err, "list_storage_v2")
 	}
 	return result, nil
 }
 
-func (self *SContainer) getContainerRef() (*storage.Container, error) {
-	blobService, err := self.storageaccount.getBlobServiceClient()
+func (c *SContainer) Delete(key string) error {
+	accessKey, err := c.storageaccount.GetAccountKey()
 	if err != nil {
-		return nil, errors.Wrap(err, "getBlobServiceClient")
+		return errors.Wrap(err, "GetAccountKey")
 	}
-	return blobService.GetContainerReference(self.Name), nil
+	header := http.Header{}
+	params := url.Values{}
+	params.Set("restype", "container")
+	err = c.storageaccount.region.client.delete_storage_v2(accessKey, c.storageaccount.Name, key, header, params)
+	if err != nil {
+		return errors.Wrap(err, "delete_storage_v2")
+	}
+	return nil
 }
 
-func (self *SContainer) Delete(fileName string) error {
-	containerRef, err := self.getContainerRef()
-	if err != nil {
-		return err
-	}
-	blobRef := containerRef.GetBlobReference(fileName)
-	_, err = blobRef.DeleteIfExists(&storage.DeleteBlobOptions{})
-	return err
-}
-
-func (self *SContainer) CopySnapshot(snapshotId, fileName string) (*storage.Blob, error) {
-	containerRef, err := self.getContainerRef()
-	if err != nil {
-		return nil, err
-	}
-	blobRef := containerRef.GetBlobReference(fileName)
-	uri, err := self.storageaccount.region.GrantAccessSnapshot(snapshotId)
-	if err != nil {
-		return nil, err
-	}
-	err = blobRef.Copy(uri, &storage.CopyOptions{})
-	if err != nil {
-		return nil, err
-	}
-	return blobRef, blobRef.GetProperties(&storage.GetBlobPropertiesOptions{})
-}
-
-func setBlobRefMeta(blobRef *storage.Blob, meta http.Header) (bool, bool) {
-	propChanged := false
-	metaChanged := false
+func setBlobRefMeta(meta http.Header, output http.Header) http.Header {
 	for k, v := range meta {
 		if len(v) == 0 || len(v[0]) == 0 {
 			continue
 		}
 		switch http.CanonicalHeaderKey(k) {
 		case cloudprovider.META_HEADER_CACHE_CONTROL:
-			blobRef.Properties.CacheControl = v[0]
-			propChanged = true
+			output.Set("x-ms-blob-cache-control", v[0])
 		case cloudprovider.META_HEADER_CONTENT_TYPE:
-			blobRef.Properties.ContentType = v[0]
-			propChanged = true
+			output.Set("x-ms-blob-content-type", v[0])
 		case cloudprovider.META_HEADER_CONTENT_MD5:
-			blobRef.Properties.ContentMD5 = v[0]
-			propChanged = true
+			output.Set("x-ms-blob-content-md5", v[0])
 		case cloudprovider.META_HEADER_CONTENT_ENCODING:
-			blobRef.Properties.ContentEncoding = v[0]
-			propChanged = true
+			output.Set("x-ms-blob-content-encoding", v[0])
 		case cloudprovider.META_HEADER_CONTENT_LANGUAGE:
-			blobRef.Properties.ContentLanguage = v[0]
-			propChanged = true
+			output.Set("x-ms-blob-content-language", v[0])
 		case cloudprovider.META_HEADER_CONTENT_DISPOSITION:
-			blobRef.Properties.ContentDisposition = v[0]
-			propChanged = true
+			output.Set("x-ms-blob-content-disposition", v[0])
 		default:
-			if blobRef.Metadata == nil {
-				blobRef.Metadata = storage.BlobMetadata{}
-			}
-			blobRef.Metadata[k] = v[0]
-			metaChanged = true
+			output.Set(fmt.Sprintf("x-ms-meta-%s", k), v[0])
 		}
 	}
-	return propChanged, metaChanged
+	return output
 }
 
-func (self *SContainer) UploadStream(key string, reader io.Reader, meta http.Header) error {
-	blobService, err := self.storageaccount.getBlobServiceClient()
+func (c *SContainer) UploadStream(key string, reader io.Reader, meta http.Header) error {
+	accessKey, err := c.storageaccount.GetAccountKey()
 	if err != nil {
-		return errors.Wrap(err, "getBlobServiceClient")
+		return errors.Wrap(err, "GetAccountKey")
 	}
-	containerRef := blobService.GetContainerReference(self.Name)
-	blobRef := containerRef.GetBlobReference(key)
-	blobRef.Properties.BlobType = storage.BlobTypeBlock
-	if meta != nil {
-		setBlobRefMeta(blobRef, meta)
+	header := http.Header{}
+	header.Set("x-ms-blob-type", "BlockBlob")
+	header.Set("Content-Length", "0")
+
+	var n int64
+	if reader != nil {
+		type lener interface {
+			Len() int
+		}
+		// TODO(rjeczalik): handle io.ReadSeeker, in case blob is *os.File etc.
+		if l, ok := reader.(lener); ok {
+			n = int64(l.Len())
+		} else {
+			var buf bytes.Buffer
+			n, err = io.Copy(&buf, reader)
+			if err != nil {
+				return err
+			}
+			reader = &buf
+		}
+		header.Set("Content-Length", strconv.FormatInt(n, 10))
 	}
-	return blobRef.CreateBlockBlobFromReader(reader, &storage.PutBlobOptions{})
+
+	header = setBlobRefMeta(meta, header)
+
+	file := fmt.Sprintf("%s/%s", c.Name, key)
+	err = c.storageaccount.region.client.put_storage_v2(accessKey, c.storageaccount.Name, file, header, nil, reader, nil)
+	if err != nil {
+		return errors.Wrap(err, "put_storage_v2")
+	}
+	return nil
 }
 
-func (self *SContainer) SignUrl(method string, key string, expire time.Duration) (string, error) {
-	blobService, err := self.storageaccount.getBlobServiceClient()
-	if err != nil {
-		return "", errors.Wrap(err, "getBlobServiceClient")
-	}
-	containerRef := blobService.GetContainerReference(self.Name)
-	sas := storage.BlobSASOptions{}
-	sas.Start = time.Now()
-	sas.Expiry = sas.Start.Add(expire)
-	sas.UseHTTPS = true
+func (c *SContainer) SignUrl(method string, key string, expire time.Duration) (string, error) {
+	format := "2006-01-02T15:04:05.000000Z"
+
+	permission := []string{}
 	switch method {
 	case "GET":
-		sas.Read = true
+		permission = append(permission, "r")
 	case "PUT":
-		sas.Read = true
-		sas.Add = true
-		sas.Create = true
-		sas.Write = true
+		permission = append(permission, "r")
+		permission = append(permission, "w")
+		permission = append(permission, "c")
+		permission = append(permission, "a")
 	case "DELETE":
-		sas.Read = true
-		sas.Write = true
-		sas.Delete = true
-	default:
-		return "", errors.Error("unsupport method")
+		permission = append(permission, "r")
+		permission = append(permission, "w")
+		permission = append(permission, "d")
 	}
-	blobRef := containerRef.GetBlobReference(key)
-	return blobRef.GetSASURI(sas)
+
+	body := map[string]interface{}{
+		"signedServices":      "b",
+		"signedResourceTypes": "co",
+		"signedPermission":    strings.Join(permission, ""),
+		"signedProtocol":      "https,http",
+		"signedStart":         time.Now().UTC().Format(format),
+		"signedExpiry":        time.Now().UTC().Add(expire).Format(format),
+	}
+	ret, err := c.storageaccount.region.perform(c.storageaccount.ID, "ListAccountSas", jsonutils.Marshal(body))
+	if err != nil {
+		return "", errors.Wrap(err, "perform")
+	}
+	sasToken, err := ret.GetString("accountSasToken")
+	if err != nil {
+		return "", err
+	}
+
+	domain := fmt.Sprintf(azServices[SERVICE_STORAGE][c.storageaccount.region.client.envName], c.storageaccount.Name)
+	return fmt.Sprintf("%s/%s/%s?%s", domain, c.Name, key, sasToken), nil
 }
 
-func (self *SContainer) UploadFile(filePath string, callback func(progress float32)) (string, error) {
-	blobService, err := self.storageaccount.getBlobServiceClient()
+func (c *SContainer) UploadFile(filePath string, callback func(progress float32)) (string, error) {
+	accessKey, err := c.storageaccount.GetAccountKey()
 	if err != nil {
-		return "", errors.Wrap(err, "getBlobServiceClient")
+		return "", errors.Wrap(err, "GetAccountKey")
 	}
-	containerRef := blobService.GetContainerReference(self.Name)
 
 	err = ensureVHDSanity(filePath)
 	if err != nil {
@@ -593,12 +632,23 @@ func (self *SContainer) UploadFile(filePath string, callback func(progress float
 	}
 	defer diskStream.Close()
 	blobName := path.Base(filePath)
-	blobRef := containerRef.GetBlobReference(blobName)
-	blobRef.Properties.ContentLength = diskStream.GetSize()
-	err = blobRef.PutPageBlob(&storage.PutBlobOptions{})
-	if err != nil {
-		return "", err
+
+	contentLength := diskStream.GetSize()
+	if contentLength%512 != 0 {
+		return "", errors.Errorf("Content length %d must be aligned to a 512-byte boundary", contentLength)
 	}
+
+	params := url.Values{}
+	headers := http.Header{}
+	headers.Set("x-ms-blob-type", "PageBlob")
+	headers.Set("x-ms-blob-content-length", fmt.Sprintf("%v", contentLength))
+	headers.Set("x-ms-blob-sequence-number", fmt.Sprintf("%v", 0))
+	fileName := fmt.Sprintf("%s/%s", c.Name, blobName)
+	err = c.storageaccount.region.client.put_storage_v2(accessKey, c.storageaccount.Name, fileName, headers, params, nil, nil)
+	if err != nil {
+		return "", errors.Wrap(err, "put_storage_v2")
+	}
+
 	var rangesToSkip []*common.IndexRange
 	uploadableRanges, err := LocateUploadableRanges(diskStream, rangesToSkip, DefaultReadBlockSize)
 	if err != nil {
@@ -610,11 +660,12 @@ func (self *SContainer) UploadFile(filePath string, callback func(progress float
 	}
 
 	cxt := &DiskUploadContext{
+		StorageAccount:        c.storageaccount,
 		VhdStream:             diskStream,
 		UploadableRanges:      uploadableRanges,
 		AlreadyProcessedBytes: common.TotalRangeLength(rangesToSkip),
-		BlobServiceClient:     *blobService,
-		ContainerName:         self.Name,
+		AccessKey:             accessKey,
+		ContainerName:         c.Name,
 		BlobName:              blobName,
 		Parallelism:           3,
 		Resume:                false,
@@ -624,61 +675,75 @@ func (self *SContainer) UploadFile(filePath string, callback func(progress float
 	if err := Upload(cxt, callback); err != nil {
 		return "", err
 	}
-	return blobRef.GetURL(), nil
+
+	domain := fmt.Sprintf(azServices[SERVICE_STORAGE][c.storageaccount.region.client.envName], c.storageaccount.Name)
+
+	return fmt.Sprintf("%s/%s/%s", domain, c.Name, blobName), nil
 }
 
-func (self *SContainer) getAcl() cloudprovider.TBucketACLType {
+type SignedIdentifiers struct {
+	SignedIdentifiers []struct {
+		Id           string `xml:"Id"`
+		AccessPolicy struct {
+			Start      time.Time `xml:"Start"`
+			Expiry     time.Time `xml:"Expiry"`
+			Permission string    `xml:"Permission"`
+		} `xml:"AccessPolicy"`
+	} `xml:"SignedIdentifiers>SignedIdentifier"`
+}
+
+func (c *SContainer) getAcl() cloudprovider.TBucketACLType {
 	acl := cloudprovider.ACLPrivate
-	containerRef, err := self.getContainerRef()
+	accessKey, err := c.storageaccount.GetAccountKey()
 	if err != nil {
-		log.Errorf("getContainerRef fail %s", err)
 		return acl
 	}
-	output, err := containerRef.GetPermissions(nil)
+	ret := SignedIdentifiers{}
+	params := url.Values{}
+	params.Set("comp", "acl")
+	params.Set("restype", "container")
+	err = c.storageaccount.region.list_storage_v2(accessKey, c.storageaccount.Name, c.Name, params, &ret)
 	if err != nil {
-		log.Errorf("containerRef.GetPermissions fail %s", err)
 		return acl
-	}
-	switch output.AccessType {
-	case storage.ContainerAccessTypePrivate:
-		acl = cloudprovider.ACLPrivate
-	case storage.ContainerAccessTypeContainer:
-		acl = cloudprovider.ACLPublicRead
 	}
 	return acl
 }
 
-func (self *SContainer) setAcl(aclStr cloudprovider.TBucketACLType) error {
-	perm := storage.ContainerPermissions{}
-	switch aclStr {
-	case cloudprovider.ACLPublicRead:
-		perm.AccessType = storage.ContainerAccessTypeContainer
-	case cloudprovider.ACLPrivate:
-		perm.AccessType = storage.ContainerAccessTypePrivate
-	default:
-		return errors.Error("unsupported ACL:" + string(aclStr))
-	}
-	containerRef, err := self.getContainerRef()
+func (c *SContainer) setAcl(aclStr cloudprovider.TBucketACLType) error {
+	accessKey, err := c.storageaccount.GetAccountKey()
 	if err != nil {
-		return errors.Wrap(err, "getContainerRef")
+		return errors.Wrap(err, "GetAccountKey")
 	}
-	err = containerRef.SetPermissions(perm, nil)
+	params := url.Values{}
+	params.Set("comp", "acl")
+	params.Set("restype", "container")
+	access := SignedIdentifiers{}
+	header := http.Header{}
+	header.Set("x-ms-blob-public-access", "container")
+
+	body, length, err := xmlMarshal(access)
 	if err != nil {
-		return errors.Wrap(err, "SetPermissions")
+		return errors.Wrap(err, "xmlMarshal")
+	}
+	header.Set("Content-Length", strconv.Itoa(length))
+
+	err = c.storageaccount.region.put_storage_v2(accessKey, c.storageaccount.Name, c.Name, header, params, body, nil)
+	if err != nil {
+		return errors.Wrap(err, "put_storage_v2")
 	}
 	return nil
 }
 
-func (self *SStorageAccount) UploadFile(containerName string, filePath string, callback func(progress float32)) (string, error) {
-	container, err := self.getOrCreateContainer(containerName, true)
+func (sa *SStorageAccount) UploadFile(containerName string, filePath string, callback func(progress float32)) (string, error) {
+	container, err := sa.getOrCreateContainer(containerName, true)
 	if err != nil {
 		return "", errors.Wrap(err, "getOrCreateContainer")
 	}
 	return container.UploadFile(filePath, callback)
 }
 
-func (self *SStorageAccount) getOrCreateContainer(containerName string, create bool) (*SContainer, error) {
-	containers, err := self.GetContainers()
+func (sa *SStorageAccount) getOrCreateContainer(containerName string, create bool) (*SContainer, error) {
+	containers, err := sa.GetContainers()
 	if err != nil {
 		return nil, errors.Wrap(err, "GetContainers")
 	}
@@ -695,7 +760,7 @@ func (self *SStorageAccount) getOrCreateContainer(containerName string, create b
 		if !create {
 			return nil, cloudprovider.ErrNotFound
 		}
-		container, err = self.CreateContainer(containerName)
+		container, err = sa.CreateContainer(containerName)
 		if err != nil {
 			return nil, errors.Wrap(err, "CreateContainer")
 		}
@@ -703,58 +768,58 @@ func (self *SStorageAccount) getOrCreateContainer(containerName string, create b
 	return container, nil
 }
 
-func (self *SStorageAccount) UploadStream(containerName string, key string, reader io.Reader, meta http.Header) error {
-	container, err := self.getOrCreateContainer(containerName, true)
+func (sa *SStorageAccount) UploadStream(containerName string, key string, reader io.Reader, meta http.Header) error {
+	container, err := sa.getOrCreateContainer(containerName, true)
 	if err != nil {
 		return errors.Wrap(err, "getOrCreateContainer")
 	}
 	return container.UploadStream(key, reader, meta)
 }
 
-func (b *SStorageAccount) MaxPartSizeBytes() int64 {
+func (sa *SStorageAccount) MaxPartSizeBytes() int64 {
 	return 100 * 1000 * 1000
 }
 
-func (b *SStorageAccount) MaxPartCount() int {
+func (sa *SStorageAccount) MaxPartCount() int {
 	return 50000
 }
 
-func (b *SStorageAccount) GetTags() (map[string]string, error) {
-	return b.Tags, nil
+func (sa *SStorageAccount) GetTags() (map[string]string, error) {
+	return sa.Tags, nil
 }
 
-func (b *SStorageAccount) GetProjectId() string {
-	return getResourceGroup(b.ID)
+func (sa *SStorageAccount) GetProjectId() string {
+	return getResourceGroup(sa.ID)
 }
 
-func (b *SStorageAccount) GetGlobalId() string {
-	return b.Name
+func (sa *SStorageAccount) GetGlobalId() string {
+	return sa.Name
 }
 
-func (b *SStorageAccount) GetName() string {
-	return b.Name
+func (sa *SStorageAccount) GetName() string {
+	return sa.Name
 }
 
-func (b *SStorageAccount) GetLocation() string {
-	return b.Location
+func (sa *SStorageAccount) GetLocation() string {
+	return sa.Location
 }
 
-func (b *SStorageAccount) GetIRegion() cloudprovider.ICloudRegion {
-	return b.region
+func (sa *SStorageAccount) GetIRegion() cloudprovider.ICloudRegion {
+	return sa.region
 }
 
-func (b *SStorageAccount) GetCreatedAt() time.Time {
+func (sa *SStorageAccount) GetCreatedAt() time.Time {
 	return time.Time{}
 }
 
-func (b *SStorageAccount) GetStorageClass() string {
-	return b.Sku.Tier
+func (sa *SStorageAccount) GetStorageClass() string {
+	return sa.Sku.Tier
 }
 
 // get the common ACL of all containers
-func (b *SStorageAccount) GetAcl() cloudprovider.TBucketACLType {
+func (sa *SStorageAccount) GetAcl() cloudprovider.TBucketACLType {
 	acl := cloudprovider.ACLPrivate
-	containers, err := b.GetContainers()
+	containers, err := sa.GetContainers()
 	if err != nil {
 		log.Errorf("GetContainers error %s", err)
 		return acl
@@ -772,8 +837,8 @@ func (b *SStorageAccount) GetAcl() cloudprovider.TBucketACLType {
 	return acl
 }
 
-func (b *SStorageAccount) SetAcl(aclStr cloudprovider.TBucketACLType) error {
-	containers, err := b.GetContainers()
+func (sa *SStorageAccount) SetAcl(aclStr cloudprovider.TBucketACLType) error {
+	containers, err := sa.GetContainers()
 	if err != nil {
 		return errors.Wrap(err, "GetContainers")
 	}
@@ -824,49 +889,23 @@ func (ep SStorageEndpoints) getUrls(prefix string) []cloudprovider.SBucketAccess
 	return ret
 }
 
-func (b *SStorageAccount) GetAccessUrls() []cloudprovider.SBucketAccessUrl {
-	primary := b.Properties.PrimaryEndpoints.getUrls("")
-	secondary := b.Properties.SecondaryEndpoints.getUrls("secondary")
+func (sa *SStorageAccount) GetAccessUrls() []cloudprovider.SBucketAccessUrl {
+	primary := sa.Properties.PrimaryEndpoints.getUrls("")
+	secondary := sa.Properties.SecondaryEndpoints.getUrls("secondary")
 	if len(secondary) > 0 {
 		primary = append(primary, secondary...)
 	}
 	return primary
 }
 
-func (b *SStorageAccount) GetStats() cloudprovider.SBucketStats {
-	stats, _ := cloudprovider.GetIBucketStats(b)
+func (sa *SStorageAccount) GetStats() cloudprovider.SBucketStats {
+	stats, _ := cloudprovider.GetIBucketStats(sa)
 	return stats
 }
 
-func getBlobRefMeta(blob *storage.Blob) http.Header {
-	meta := http.Header{}
-	for k, v := range blob.Metadata {
-		meta.Add(k, v)
-	}
-	if len(blob.Properties.CacheControl) > 0 {
-		meta.Set(cloudprovider.META_HEADER_CACHE_CONTROL, blob.Properties.CacheControl)
-	}
-	if len(blob.Properties.ContentType) > 0 {
-		meta.Set(cloudprovider.META_HEADER_CONTENT_TYPE, blob.Properties.ContentType)
-	}
-	if len(blob.Properties.ContentDisposition) > 0 {
-		meta.Set(cloudprovider.META_HEADER_CONTENT_DISPOSITION, blob.Properties.ContentDisposition)
-	}
-	if len(blob.Properties.ContentLanguage) > 0 {
-		meta.Set(cloudprovider.META_HEADER_CONTENT_LANGUAGE, blob.Properties.ContentLanguage)
-	}
-	if len(blob.Properties.ContentEncoding) > 0 {
-		meta.Set(cloudprovider.META_HEADER_CONTENT_ENCODING, blob.Properties.ContentEncoding)
-	}
-	if len(blob.Properties.ContentMD5) > 0 {
-		meta.Set(cloudprovider.META_HEADER_CONTENT_MD5, blob.Properties.ContentMD5)
-	}
-	return meta
-}
-
-func (b *SStorageAccount) ListObjects(prefix string, marker string, delimiter string, maxCount int) (cloudprovider.SListObjectResult, error) {
+func (sa *SStorageAccount) ListObjects(prefix string, marker string, delimiter string, maxCount int) (cloudprovider.SListObjectResult, error) {
 	result := cloudprovider.SListObjectResult{}
-	containers, err := b.GetContainers()
+	containers, err := sa.GetContainers()
 	if err != nil {
 		return result, errors.Wrap(err, "GetContainers")
 	}
@@ -927,7 +966,7 @@ func (b *SStorageAccount) ListObjects(prefix string, marker string, delimiter st
 				if len(prefix) >= len(container.Name)+1 {
 					subPrefix = prefix[len(container.Name)+1:]
 				}
-				oResult, err := container.ListFiles(subPrefix, subMarker, delimiter, maxCount, nil)
+				oResult, err := container.ListFiles(subPrefix, subMarker, delimiter, maxCount)
 				if err != nil {
 					return result, errors.Wrap(err, "ListFiles")
 				}
@@ -940,9 +979,9 @@ func (b *SStorageAccount) ListObjects(prefix string, marker string, delimiter st
 							SizeBytes:    blob.Properties.ContentLength,
 							StorageClass: "",
 							ETag:         blob.Properties.Etag,
-							LastModified: time.Time(blob.Properties.LastModified),
 						},
 					}
+					o.LastModified, _ = timeutils.ParseTimeStr(blob.Properties.LastModified)
 					result.Objects = append(result.Objects, o)
 					maxCount -= 1
 					if maxCount == 0 {
@@ -992,14 +1031,14 @@ func splitKeyAndBlob(path string) (string, string, error) {
 	return containerName, key, nil
 }
 
-func (b *SStorageAccount) PutObject(ctx context.Context, key string, reader io.Reader, sizeBytes int64, cannedAcl cloudprovider.TBucketACLType, storageClassStr string, meta http.Header) error {
+func (sa *SStorageAccount) PutObject(ctx context.Context, key string, reader io.Reader, sizeBytes int64, cannedAcl cloudprovider.TBucketACLType, storageClassStr string, meta http.Header) error {
 	containerName, blob, err := splitKey(key)
 	if err != nil {
 		return errors.Wrap(err, "splitKey")
 	}
 	if len(blob) > 0 {
 		// put blob
-		err = b.UploadStream(containerName, blob, reader, meta)
+		err = sa.UploadStream(containerName, blob, reader, meta)
 		if err != nil {
 			return errors.Wrap(err, "UploadStream")
 		}
@@ -1008,7 +1047,7 @@ func (b *SStorageAccount) PutObject(ctx context.Context, key string, reader io.R
 		if sizeBytes > 0 {
 			return errors.Wrap(cloudprovider.ErrForbidden, "not allow to create blob outsize of container")
 		}
-		_, err = b.getOrCreateContainer(containerName, true)
+		_, err = sa.getOrCreateContainer(containerName, true)
 		if err != nil {
 			return errors.Wrap(err, "getOrCreateContainer")
 		}
@@ -1016,32 +1055,44 @@ func (b *SStorageAccount) PutObject(ctx context.Context, key string, reader io.R
 	return nil
 }
 
-func (b *SStorageAccount) NewMultipartUpload(ctx context.Context, key string, cannedAcl cloudprovider.TBucketACLType, storageClassStr string, meta http.Header) (string, error) {
-	containerName, blob, err := splitKeyAndBlob(key)
+func (sa *SStorageAccount) NewMultipartUpload(ctx context.Context, key string, cannedAcl cloudprovider.TBucketACLType, storageClassStr string, meta http.Header) (string, error) {
+	containerName, _, err := splitKeyAndBlob(key)
 	if err != nil {
 		return "", errors.Wrap(err, "splitKey")
 	}
-	container, err := b.getOrCreateContainer(containerName, true)
+	container, err := sa.getOrCreateContainer(containerName, true)
 	if err != nil {
 		return "", errors.Wrap(err, "getOrCreateContainer")
 	}
-	containerRef, err := container.getContainerRef()
+
+	accessKey, err := container.storageaccount.GetAccountKey()
 	if err != nil {
-		return "", errors.Wrap(err, "getContainerRef")
+		return "", errors.Wrap(err, "GetAccountKey")
 	}
-	blobRef := containerRef.GetBlobReference(blob)
-	if meta != nil {
-		setBlobRefMeta(blobRef, meta)
-	}
-	err = blobRef.CreateBlockBlob(&storage.PutBlobOptions{})
+	header := http.Header{}
+	header.Set("x-ms-blob-type", "BlockBlob")
+	header = setBlobRefMeta(meta, header)
+	params := url.Values{}
+	//params.Set("comp", "block")
+	header.Set("Content-Length", fmt.Sprintf("%v", 0))
+	err = container.storageaccount.region.client.put_storage_v2(accessKey, container.storageaccount.Name, key, header, params, nil, nil)
 	if err != nil {
-		return "", errors.Wrap(err, "CreateBlockBlob")
-	}
-	uploadId, err := blobRef.AcquireLease(-1, "", nil)
-	if err != nil {
-		return "", errors.Wrap(err, "blobRef.AcquireLease")
+		return "", errors.Wrap(err, "put_storage_v2")
 	}
 
+	header = http.Header{}
+	header.Set("x-ms-lease-action", "acquire")
+	header.Set("x-ms-lease-duration", "-1")
+	params = url.Values{}
+	params.Set("comp", "lease")
+	header, err = container.storageaccount.region.client.put_header_storage_v2(accessKey, container.storageaccount.Name, key, header, params)
+	if err != nil {
+		return "", errors.Wrap(err, "put_storage_v2")
+	}
+	uploadId := header.Get("x-ms-lease-id")
+	if len(uploadId) == 0 {
+		return "", errors.Error("lease id not returned")
+	}
 	return uploadId, nil
 }
 
@@ -1049,298 +1100,333 @@ func partIndex2BlockId(partIndex int) string {
 	return base64.URLEncoding.EncodeToString([]byte(strconv.FormatInt(int64(partIndex), 10)))
 }
 
-func (b *SStorageAccount) UploadPart(ctx context.Context, key string, uploadId string, partIndex int, input io.Reader, partSize int64, offset, totalSize int64) (string, error) {
-	containerName, blob, err := splitKeyAndBlob(key)
+func (sa *SStorageAccount) UploadPart(ctx context.Context, key string, uploadId string, partIndex int, input io.Reader, partSize int64, offset, totalSize int64) (string, error) {
+	containerName, _, err := splitKeyAndBlob(key)
 	if err != nil {
 		return "", errors.Wrap(err, "splitKey")
 	}
-	container, err := b.getOrCreateContainer(containerName, true)
+	container, err := sa.getOrCreateContainer(containerName, true)
 	if err != nil {
 		return "", errors.Wrap(err, "getOrCreateContainer")
 	}
-	containerRef, err := container.getContainerRef()
-	if err != nil {
-		return "", errors.Wrap(err, "getContainerRef")
-	}
-	blobRef := containerRef.GetBlobReference(blob)
-
-	opts := &storage.PutBlockOptions{}
-	opts.LeaseID = uploadId
 
 	blockId := partIndex2BlockId(partIndex)
-	err = blobRef.PutBlockWithLength(blockId, uint64(partSize), input, opts)
+	accessKey, err := container.storageaccount.GetAccountKey()
 	if err != nil {
-		return "", errors.Wrap(err, "PutBlockWithLength")
+		return "", errors.Wrap(err, "GetAccountKey")
 	}
-
+	params := url.Values{}
+	params.Set("comp", "block")
+	params.Set("blockid", blockId)
+	header := http.Header{}
+	header.Set("Content-Length", fmt.Sprintf("%v", partSize))
+	header.Set("x-ms-lease-id", uploadId)
+	err = container.storageaccount.region.client.put_storage_v2(accessKey, container.storageaccount.Name, key, header, params, input, nil)
+	if err != nil {
+		return "", errors.Wrap(err, "put_storage_v2")
+	}
 	return blockId, nil
 }
 
-func (b *SStorageAccount) CompleteMultipartUpload(ctx context.Context, key string, uploadId string, blockIds []string) error {
-	containerName, blob, err := splitKeyAndBlob(key)
+type Block struct {
+	ID     string
+	Status string
+}
+
+func prepareBlockListRequest(blocks []Block) string {
+	s := `<?xml version="1.0" encoding="utf-8"?><BlockList>`
+	for _, v := range blocks {
+		s += fmt.Sprintf("<%s>%s</%s>", v.Status, v.ID, v.Status)
+	}
+	s += `</BlockList>`
+	return s
+}
+
+func (sa *SStorageAccount) CompleteMultipartUpload(ctx context.Context, key string, uploadId string, blockIds []string) error {
+	containerName, _, err := splitKeyAndBlob(key)
 	if err != nil {
 		return errors.Wrap(err, "splitKey")
 	}
-	container, err := b.getOrCreateContainer(containerName, true)
+	container, err := sa.getOrCreateContainer(containerName, true)
 	if err != nil {
 		return errors.Wrap(err, "getOrCreateContainer")
 	}
-	containerRef, err := container.getContainerRef()
-	if err != nil {
-		return errors.Wrap(err, "getContainerRef")
-	}
-	blobRef := containerRef.GetBlobReference(blob)
 
-	blocks := make([]storage.Block, len(blockIds))
+	blocks := make([]Block, len(blockIds))
 	for i := range blockIds {
-		blocks[i] = storage.Block{
+		blocks[i] = Block{
 			ID:     blockIds[i],
-			Status: storage.BlockStatusLatest,
+			Status: "Latest",
 		}
 	}
-	opts := &storage.PutBlockListOptions{}
-	opts.LeaseID = uploadId
-	err = blobRef.PutBlockList(blocks, opts)
+
+	accessKey, err := container.storageaccount.GetAccountKey()
 	if err != nil {
-		return errors.Wrap(err, "PutBlockList")
+		return errors.Wrap(err, "GetAccountKey")
 	}
 
-	err = blobRef.ReleaseLease(uploadId, nil)
+	params := url.Values{}
+	params.Set("comp", "blocklist")
+	blockListXML := prepareBlockListRequest(blocks)
+	header := http.Header{}
+	header.Set("Content-Length", fmt.Sprintf("%v", len(blockListXML)))
+	header.Set("x-ms-lease-id", uploadId)
+	err = container.storageaccount.region.client.put_storage_v2(accessKey, container.storageaccount.Name, key, header, params, strings.NewReader(blockListXML), nil)
 	if err != nil {
-		return errors.Wrap(err, "ReleaseLease")
+		return errors.Wrap(err, "put_storage_v2")
+	}
+
+	params = url.Values{}
+	params.Set("comp", "lease")
+	header = http.Header{}
+	header.Set("x-ms-lease-action", "release")
+	header.Set("x-ms-lease-id", uploadId)
+	err = container.storageaccount.region.client.put_storage_v2(accessKey, container.storageaccount.Name, key, header, params, nil, nil)
+	if err != nil {
+		return errors.Wrap(err, "put_storage_v2")
 	}
 
 	return nil
 }
 
-func (b *SStorageAccount) AbortMultipartUpload(ctx context.Context, key string, uploadId string) error {
-	containerName, blob, err := splitKeyAndBlob(key)
+func (sa *SStorageAccount) AbortMultipartUpload(ctx context.Context, key string, uploadId string) error {
+	containerName, _, err := splitKeyAndBlob(key)
 	if err != nil {
 		return errors.Wrap(err, "splitKey")
 	}
-	container, err := b.getOrCreateContainer(containerName, false)
+	container, err := sa.getOrCreateContainer(containerName, false)
 	if err != nil {
 		if errors.Cause(err) == cloudprovider.ErrNotFound {
 			return nil
 		}
 		return errors.Wrap(err, "getOrCreateContainer")
 	}
-	containerRef, err := container.getContainerRef()
+
+	accessKey, err := container.storageaccount.GetAccountKey()
 	if err != nil {
-		return errors.Wrap(err, "getContainerRef")
+		return errors.Wrap(err, "GetAccountKey")
 	}
 
-	blobRef := containerRef.GetBlobReference(blob)
-	err = blobRef.ReleaseLease(uploadId, nil)
+	params := url.Values{}
+	params.Set("comp", "lease")
+	header := http.Header{}
+	header.Set("x-ms-lease-action", "release")
+	header.Set("x-ms-lease-id", uploadId)
+	err = container.storageaccount.region.client.put_storage_v2(accessKey, container.storageaccount.Name, key, header, params, nil, nil)
 	if err != nil {
-		return errors.Wrap(err, "ReleaseLease")
+		return errors.Wrap(err, "put_storage_v2")
 	}
 
-	opts := &storage.DeleteBlobOptions{}
-	deleteSnapshots := true
-	opts.DeleteSnapshots = &deleteSnapshots
-	_, err = blobRef.DeleteIfExists(opts)
+	params = url.Values{}
+	params.Set("comp", "lease")
+	header.Set("x-ms-delete-snapshots", "include")
+	err = container.storageaccount.region.client.delete_storage_v2(accessKey, container.storageaccount.Name, key, header, params)
 	if err != nil {
-		return errors.Wrap(err, "DeleteIfExists")
+		return errors.Wrap(err, "delete_storage_v2")
 	}
 
 	return nil
 }
 
-func (b *SStorageAccount) DeleteObject(ctx context.Context, key string) error {
-	containerName, blob, err := splitKey(key)
+func (sa *SStorageAccount) DeleteObject(ctx context.Context, key string) error {
+	accessKey, err := sa.GetAccountKey()
 	if err != nil {
-		return errors.Wrap(err, "splitKey")
+		return errors.Wrap(err, "GetAccountKey")
 	}
-	blobService, err := b.getBlobServiceClient()
+	params := url.Values{}
+	params.Set("comp", "delete")
+	header := http.Header{}
+	header.Set("x-ms-delete-snapshots", "include")
+	err = sa.region.client.delete_storage_v2(accessKey, sa.Name, key, header, params)
 	if err != nil {
-		return errors.Wrap(err, "getBlobServiceClient")
-	}
-	containerRef := blobService.GetContainerReference(containerName)
-	if len(blob) > 0 {
-		// delete object
-		blobRef := containerRef.GetBlobReference(blob)
-		_, err = blobRef.DeleteIfExists(nil)
-		if err != nil {
-			return errors.Wrap(err, "blobRef.DeleteIfExists")
-		}
-	} else {
-		// delete container
-		_, err = containerRef.DeleteIfExists(nil)
-		if err != nil {
-			return errors.Wrap(err, "containerRef.DeleteIfExists")
-		}
+		return errors.Wrap(err, "delete_storage_v2")
 	}
 	return nil
 }
 
-func (b *SStorageAccount) GetTempUrl(method string, key string, expire time.Duration) (string, error) {
+func (sa *SStorageAccount) GetTempUrl(method string, key string, expire time.Duration) (string, error) {
 	containerName, blob, err := splitKeyAndBlob(key)
 	if err != nil {
 		return "", errors.Wrap(err, "splitKey")
 	}
-	container, err := b.getOrCreateContainer(containerName, false)
+	container, err := sa.getOrCreateContainer(containerName, false)
 	if err != nil {
 		return "", errors.Wrap(err, "getOrCreateContainer")
 	}
 	return container.SignUrl(method, blob, expire)
 }
 
-func (b *SStorageAccount) CopyObject(ctx context.Context, destKey string, srcBucket, srcKey string, cannedAcl cloudprovider.TBucketACLType, storageClassStr string, meta http.Header) error {
-	srcIBucket, err := b.region.GetIBucketByName(srcBucket)
+func (sa *SStorageAccount) CopyObject(ctx context.Context, destKey string, srcBucket, srcKey string, cannedAcl cloudprovider.TBucketACLType, storageClassStr string, meta http.Header) error {
+	srcIBucket, err := sa.region.GetIBucketByName(srcBucket)
 	if err != nil {
 		return errors.Wrap(err, "GetIBucketByName")
 	}
 	srcAccount := srcIBucket.(*SStorageAccount)
-	srcContName, srcBlob, err := splitKeyAndBlob(srcKey)
-	if err != nil {
-		return errors.Wrap(err, "src splitKey")
-	}
-	srcCont, err := srcAccount.getOrCreateContainer(srcContName, false)
-	if err != nil {
-		return errors.Wrap(err, "src getOrCreateContainer")
-	}
-	srcContRef, err := srcCont.getContainerRef()
-	if err != nil {
-		return errors.Wrap(err, "src getContainerRef")
-	}
-	srcBlobRef := srcContRef.GetBlobReference(srcBlob)
 
-	containerName, blobName, err := splitKeyAndBlob(destKey)
+	srcDomain := fmt.Sprintf(azServices[SERVICE_STORAGE][srcAccount.region.client.envName], srcAccount.Name)
+	srcUrl := fmt.Sprintf("%s/%s", srcDomain, srcKey)
+
+	containerName, _, err := splitKeyAndBlob(destKey)
 	if err != nil {
 		return errors.Wrap(err, "dest splitKey")
 	}
-	container, err := b.getOrCreateContainer(containerName, true)
+	container, err := sa.getOrCreateContainer(containerName, true)
 	if err != nil {
 		return errors.Wrap(err, "dest getOrCreateContainer")
 	}
-	containerRef, err := container.getContainerRef()
+
+	accessKey, err := container.storageaccount.GetAccountKey()
 	if err != nil {
-		return errors.Wrap(err, "dest getContainerRef")
+		return errors.Wrap(err, "GetAccountKey")
 	}
-	blobRef := containerRef.GetBlobReference(blobName)
-	if meta != nil {
-		setBlobRefMeta(blobRef, meta)
-	}
-	opts := &storage.CopyOptions{}
-	err = blobRef.Copy(srcBlobRef.GetURL(), opts)
+
+	params := url.Values{}
+	params.Set("comp", "copy")
+	header := http.Header{}
+	header.Set("x-ms-copy-source", srcUrl)
+	header = setBlobRefMeta(meta, header)
+	err = container.storageaccount.region.client.put_storage_v2(accessKey, container.storageaccount.Name, destKey, header, params, nil, nil)
 	if err != nil {
-		return errors.Wrap(err, "blboRef.Copy")
+		return errors.Wrap(err, "put_storage_v2")
 	}
 	return nil
 }
 
-func (b *SStorageAccount) GetObject(ctx context.Context, key string, rangeOpt *cloudprovider.SGetObjectRange) (io.ReadCloser, error) {
-	containerName, blob, err := splitKeyAndBlob(key)
+func (sa *SStorageAccount) GetObject(ctx context.Context, key string, rangeOpt *cloudprovider.SGetObjectRange) (io.ReadCloser, error) {
+	containerName, _, err := splitKeyAndBlob(key)
 	if err != nil {
 		return nil, errors.Wrap(err, "splitKey")
 	}
-	container, err := b.getOrCreateContainer(containerName, false)
+	container, err := sa.getOrCreateContainer(containerName, false)
 	if err != nil {
 		return nil, errors.Wrap(err, "getOrCreateContainer")
 	}
-	containerRef, err := container.getContainerRef()
+
+	accessKey, err := container.storageaccount.GetAccountKey()
 	if err != nil {
-		return nil, errors.Wrap(err, "container.getContainerRef")
+		return nil, errors.Wrap(err, "GetAccountKey")
 	}
-	blobRef := containerRef.GetBlobReference(blob)
-	if rangeOpt != nil {
-		opts := &storage.GetBlobRangeOptions{}
-		opts.Range = &storage.BlobRange{
-			Start: uint64(rangeOpt.Start),
-			End:   uint64(rangeOpt.End),
-		}
-		return blobRef.GetRange(opts)
-	} else {
-		opts := &storage.GetBlobOptions{}
-		return blobRef.Get(opts)
+	params := url.Values{}
+	header := http.Header{}
+	header.Set("x-ms-range", fmt.Sprintf("bytes=%d-%d", rangeOpt.Start, rangeOpt.End))
+
+	body, err := container.storageaccount.region.get_body_storage_v2(accessKey, container.storageaccount.Name, key, header, params)
+	if err != nil {
+		return nil, errors.Wrap(err, "get_body_storage_v2")
 	}
+	return io.NopCloser(body), nil
 }
 
-func (b *SStorageAccount) CopyPart(ctx context.Context, key string, uploadId string, partIndex int, srcBucket string, srcKey string, srcOffset int64, srcLength int64) (string, error) {
-	srcIBucket, err := b.region.GetIBucketByName(srcBucket)
+func (sa *SStorageAccount) CopyPart(ctx context.Context, key string, uploadId string, partIndex int, srcBucket string, srcKey string, srcOffset int64, srcLength int64) (string, error) {
+	srcIBucket, err := sa.region.GetIBucketByName(srcBucket)
 	if err != nil {
 		return "", errors.Wrap(err, "GetIBucketByName")
 	}
 	srcAccount := srcIBucket.(*SStorageAccount)
-	srcContName, srcBlob, err := splitKeyAndBlob(srcKey)
+	srcDomain := fmt.Sprintf(azServices[SERVICE_STORAGE][srcAccount.region.client.envName], srcAccount.Name)
+	srcUrl := fmt.Sprintf("%s/%s", srcDomain, srcKey)
+	srcContName, _, err := splitKeyAndBlob(srcKey)
 	if err != nil {
 		return "", errors.Wrap(err, "src splitKey")
 	}
-	srcCont, err := srcAccount.getOrCreateContainer(srcContName, false)
+	_, err = srcAccount.getOrCreateContainer(srcContName, false)
 	if err != nil {
 		return "", errors.Wrap(err, "src getOrCreateContainer")
 	}
-	srcContRef, err := srcCont.getContainerRef()
-	if err != nil {
-		return "", errors.Wrap(err, "src getContainerRef")
-	}
-	srcBlobRef := srcContRef.GetBlobReference(srcBlob)
 
-	containerName, blob, err := splitKeyAndBlob(key)
+	containerName, _, err := splitKeyAndBlob(key)
 	if err != nil {
 		return "", errors.Wrap(err, "splitKey")
 	}
-	container, err := b.getOrCreateContainer(containerName, true)
+	_, err = sa.getOrCreateContainer(containerName, true)
 	if err != nil {
 		return "", errors.Wrap(err, "getOrCreateContainer")
 	}
-	containerRef, err := container.getContainerRef()
-	if err != nil {
-		return "", errors.Wrap(err, "getContainerRef")
-	}
-	blobRef := containerRef.GetBlobReference(blob)
-
-	opts := &storage.PutBlockFromURLOptions{}
-	opts.LeaseID = uploadId
 
 	blockId := partIndex2BlockId(partIndex)
-	err = blobRef.PutBlockFromURL(blockId, srcBlobRef.GetURL(), srcOffset, uint64(srcLength), opts)
+
+	accessKey, err := sa.GetAccountKey()
 	if err != nil {
-		return "", errors.Wrap(err, "PutBlockFromUrl")
+		return "", errors.Wrap(err, "GetAccountKey")
+	}
+	params := url.Values{}
+	params.Set("comp", "block")
+	params.Set("blockid", blockId)
+	header := http.Header{}
+	header.Set("Content-Length", fmt.Sprintf("%v", 0))
+	header.Set("x-ms-copy-source", srcUrl)
+	header.Set("x-ms-lease-id", uploadId)
+	header.Set("x-ms-source-range", fmt.Sprintf("bytes=%d-%d", srcOffset, srcOffset+srcLength-1))
+	err = sa.region.client.put_storage_v2(accessKey, sa.Name, key, header, params, nil, nil)
+	if err != nil {
+		return "", errors.Wrap(err, "put_storage_v2")
 	}
 
 	return blockId, nil
 }
 
-func (bucket *SStorageAccount) DeleteCORS() error {
-	return bucket.SetCORS([]cloudprovider.SBucketCORSRule{})
+func (sa *SStorageAccount) DeleteCORS() error {
+	return sa.SetCORS([]cloudprovider.SBucketCORSRule{})
 }
 
-func (bucket *SStorageAccount) GetCORSRules() ([]cloudprovider.SBucketCORSRule, error) {
-	cli, err := bucket.getBlobServiceClient()
+type ServiceProperties struct {
+	Cors *Cors
+}
+
+func (sa *SStorageAccount) GetCORSRules() ([]cloudprovider.SBucketCORSRule, error) {
+	accessKey, err := sa.GetAccountKey()
 	if err != nil {
-		return nil, errors.Wrap(err, "getBlobServiceClient")
+		return nil, errors.Wrap(err, "GetAccountKey")
+	}
+	params := url.Values{}
+	params.Set("restype", "service")
+	params.Set("comp", "properties")
+
+	ret := &ServiceProperties{}
+
+	err = sa.region.client.list_storage_v2(accessKey, sa.Name, "", params, ret)
+	if err != nil {
+		return nil, errors.Wrap(err, "list_storage_v2")
 	}
 
-	conf, err := cli.GetServiceProperties()
-	if err != nil {
-		if !strings.Contains(err.Error(), "NoSuchCORSConfiguration") {
-			return nil, errors.Wrapf(err, "osscli.GetBucketCORS(%s)", bucket.Name)
-		}
-	}
 	result := []cloudprovider.SBucketCORSRule{}
-	for i := range conf.Cors.CorsRule {
+	for i := range ret.Cors.CorsRule {
 		result = append(result, cloudprovider.SBucketCORSRule{
-			AllowedOrigins: strings.Split(conf.Cors.CorsRule[i].AllowedOrigins, ","),
-			AllowedMethods: strings.Split(conf.Cors.CorsRule[i].AllowedMethods, ","),
-			AllowedHeaders: strings.Split(conf.Cors.CorsRule[i].AllowedHeaders, ","),
-			MaxAgeSeconds:  conf.Cors.CorsRule[i].MaxAgeInSeconds,
-			ExposeHeaders:  strings.Split(conf.Cors.CorsRule[i].ExposedHeaders, ","),
+			AllowedOrigins: strings.Split(ret.Cors.CorsRule[i].AllowedOrigins, ","),
+			AllowedMethods: strings.Split(ret.Cors.CorsRule[i].AllowedMethods, ","),
+			AllowedHeaders: strings.Split(ret.Cors.CorsRule[i].AllowedHeaders, ","),
+			MaxAgeSeconds:  ret.Cors.CorsRule[i].MaxAgeInSeconds,
+			ExposeHeaders:  strings.Split(ret.Cors.CorsRule[i].ExposedHeaders, ","),
 			Id:             strconv.Itoa(i),
 		})
 	}
 	return result, nil
 }
 
-func (bucket *SStorageAccount) SetCORS(rules []cloudprovider.SBucketCORSRule) error {
-	cli, err := bucket.getBlobServiceClient()
+type CorsRule struct {
+	AllowedOrigins  string
+	AllowedMethods  string
+	MaxAgeInSeconds int
+	ExposedHeaders  string
+	AllowedHeaders  string
+}
+
+type Cors struct {
+	CorsRule []CorsRule
+}
+
+func xmlMarshal(v interface{}) (io.Reader, int, error) {
+	b, err := xml.Marshal(v)
 	if err != nil {
-		return errors.Wrap(err, "getBlobServiceClient")
+		return nil, 0, err
 	}
-	corsRoles := []storage.CorsRule{}
+	return bytes.NewReader(b), len(b), nil
+}
+
+func (sa *SStorageAccount) SetCORS(rules []cloudprovider.SBucketCORSRule) error {
+	corsRoles := []CorsRule{}
 	for _, rule := range rules {
-		corsRoles = append(corsRoles, storage.CorsRule{
+		corsRoles = append(corsRoles, CorsRule{
 			AllowedOrigins:  strings.Join(rule.AllowedOrigins, ","),
 			AllowedMethods:  strings.Join(rule.AllowedMethods, ","),
 			AllowedHeaders:  strings.Join(rule.AllowedHeaders, ","),
@@ -1348,12 +1434,35 @@ func (bucket *SStorageAccount) SetCORS(rules []cloudprovider.SBucketCORSRule) er
 			ExposedHeaders:  strings.Join(rule.ExposeHeaders, ","),
 		})
 	}
-	cors := &storage.Cors{
+	cors := &Cors{
 		CorsRule: corsRoles,
 	}
 
-	cli.SetServiceProperties(storage.ServiceProperties{
+	params := url.Values{}
+	params.Set("restype", "service")
+	params.Set("comp", "properties")
+
+	type StorageServiceProperties struct {
+		Cors *Cors
+	}
+	input := StorageServiceProperties{
 		Cors: cors,
-	})
+	}
+	body, length, err := xmlMarshal(input)
+	if err != nil {
+		return err
+	}
+
+	accessKey, err := sa.GetAccountKey()
+	if err != nil {
+		return errors.Wrap(err, "GetAccountKey")
+	}
+
+	headers := http.Header{}
+	headers.Set("Content-Length", fmt.Sprintf("%v", length))
+	err = sa.region.client.put_storage_v2(accessKey, sa.Name, "", headers, params, body, nil)
+	if err != nil {
+		return errors.Wrap(err, "put_storage_v2")
+	}
 	return nil
 }
