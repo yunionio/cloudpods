@@ -279,7 +279,6 @@ func (o *ollama) GetSaveDirectories(sApp *models.SInstantModel) (string, []strin
 	for _, mount := range sApp.Mounts {
 		if strings.HasPrefix(mount, api.LLM_OLLAMA_BASE_PATH) {
 			relPath := strings.TrimPrefix(mount, api.LLM_OLLAMA_BASE_PATH)
-			relPath = path.Join(api.LLM_OLLAMA, relPath)
 			filteredMounts = append(filteredMounts, relPath)
 		}
 	}
