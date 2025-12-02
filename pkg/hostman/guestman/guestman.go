@@ -793,10 +793,13 @@ func (m *SGuestManager) startDeploy(
 			return nil, errors.Wrapf(err, "unmarshal to array of deployapi.DeployContent")
 		}
 	}
+
+	isRandomPassword := false
 	password, _ := deployParams.Body.GetString("password")
 	resetPassword := jsonutils.QueryBoolean(deployParams.Body, "reset_password", false)
 	if resetPassword && len(password) == 0 {
 		password = seclib.RandomPassword2(14)
+		isRandomPassword = true
 	}
 	enableCloudInit := jsonutils.QueryBoolean(deployParams.Body, "enable_cloud_init", false)
 	loginAccount, _ := deployParams.Body.GetString("login_account")
@@ -809,7 +812,7 @@ func (m *SGuestManager) startDeploy(
 	guestInfo, err := guest.DeployFs(ctx, deployParams.UserCred,
 		deployapi.NewDeployInfo(
 			publicKey, deployArray,
-			password, deployParams.IsInit, false,
+			password, isRandomPassword, deployParams.IsInit, false,
 			options.HostOptions.LinuxDefaultRootUser, options.HostOptions.WindowsDefaultAdminUser,
 			enableCloudInit, loginAccount, deployTelegraf, telegrafConfig,
 			guest.Desc.UserData,
