@@ -443,7 +443,7 @@ func (o *ScopedResourceListOptions) Params() (*jsonutils.JSONDict, error) {
 }
 
 type MultiArchListOptions struct {
-	OsArch string `help:"Filter resource by arch" choices:"i386|x86|x86_32|x86_64|arm|aarch32|aarch64"`
+	OsArch string `help:"Filter resource by arch" choices:"i386|x86|x86_32|x86_64|arm|aarch32|aarch64|riscv|riscv32|riscv64"`
 }
 
 func (o *MultiArchListOptions) Params() (*jsonutils.JSONDict, error) {
