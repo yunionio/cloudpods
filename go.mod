@@ -23,6 +23,7 @@ require (
 	github.com/go-yaml/yaml v2.1.0+incompatible
 	github.com/golang-plus/uuid v1.0.0
 	github.com/golang/mock v1.4.4
+	github.com/golang/protobuf v1.5.3
 	github.com/google/gopacket v1.1.17
 	github.com/google/uuid v1.6.0
 	github.com/googollee/go-socket.io v0.0.0-20181214084611-0ad7206c347a
@@ -88,7 +89,7 @@ require (
 	k8s.io/client-go v0.19.3
 	k8s.io/cluster-bootstrap v0.19.3
 	moul.io/http2curl/v2 v2.3.0
-	yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20251130090647-750ec3bf88c3
+	yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20251202110405-dbfac2c062c7
 	yunion.io/x/executor v0.0.0-20250518005516-5402e9e0bed0
 	yunion.io/x/jsonutils v1.0.1-0.20250507052344-1abcf4f443b1
 	yunion.io/x/log v1.0.1-0.20240305175729-7cf2d6cd5a91
@@ -174,7 +175,6 @@ require (
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang-plus/errors v1.0.0 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
-	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/btree v1.0.1 // indirect
 	github.com/google/go-querystring v1.0.0 // indirect
