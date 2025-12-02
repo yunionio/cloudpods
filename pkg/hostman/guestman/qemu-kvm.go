@@ -628,7 +628,7 @@ func (s *SKVMGuestInstance) isSelfCmdline(cmdline, uuid string) bool {
 func (s *SKVMGuestInstance) GetRescueDirPath() string {
 	if s.manager.host.IsAarch64() {
 		return path.Join("/opt/cloud/host-deployer/yunionos/aarch64")
-	} else if s.manager.host.IsAarch64() {
+	} else if s.manager.host.IsRiscv64() {
 		return path.Join("/opt/cloud/host-deployer/yunionos/riscv64")
 	} else {
 		return path.Join("/opt/cloud/host-deployer/yunionos/x86_64")
