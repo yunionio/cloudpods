@@ -1840,7 +1840,7 @@ func (manager *SGuestManager) validateCreateData(
 				imgSupportBIOS = &supportBIOS
 			}
 
-			if input.OsArch == apis.OS_ARCH_AARCH64 {
+			if apis.IsARM(input.OsArch) || apis.IsRISCV(input.OsArch) {
 				// arm image supports UEFI by default
 				support := true
 				imgSupportUEFI = &support
