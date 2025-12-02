@@ -38,7 +38,7 @@ type SDeployOptions struct {
 	HugepagesOption string `help:"Hugepages option: disable|native|transparent" default:"transparent"`
 	HugepageSizeMb  int    `help:"hugepage size mb default 1G" default:"1024"`
 	// DefaultQemuVersion   string   `help:"Default qemu version" default:"4.2.0"`
-	DeployGuestMemSizeMb int      `help:"Deploy guest mem size mb" default:"320"`
+	DeployGuestMemSizeMb int      `help:"Deploy guest mem size mb" default:"512"`
 	ListenInterface      string   `help:"Master address of host server"`
 	Networks             []string `help:"Network interface information"`
 

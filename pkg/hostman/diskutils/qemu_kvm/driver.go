@@ -620,6 +620,7 @@ func (d *QemuBaseDriver) CleanGuest() {
 
 	if d.pidPath != "" && fileutils2.Exists(d.pidPath) {
 		pid, _ := fileutils2.FileGetContents(d.pidPath)
+		pid = strings.TrimSpace(pid)
 		if len(pid) > 0 {
 			out, err := procutils.NewCommand("kill", pid).Output()
 			log.Infof("kill  process %s %v", out, err)

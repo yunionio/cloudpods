@@ -1,4 +1,4 @@
-FROM registry.cn-beijing.aliyuncs.com/yunionio/host-deployer-base:1.5.4
+FROM registry.cn-beijing.aliyuncs.com/yunionio/host-deployer-base:1.5.5
 
 LABEL maintainer="Yaoqi Wan wanyaoqi@yunionyun.com"
 
