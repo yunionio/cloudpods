@@ -107,3 +107,15 @@ func FileGetContents(filename string) ([]byte, error) {
 	content := <-contentChan
 	return content, nil
 }
+
+// IsEmptyFile 使用 shell 命令判断文件是否为空
+// 返回 true 表示文件存在且为空（大小为 0），false 表示文件不存在或不为空
+func IsEmptyFile(filename string) bool {
+	// 使用 test -f 检查文件是否存在且为普通文件
+	// 使用 test ! -s 检查文件是否为空（大小为 0）
+	// test -f file && test ! -s file 表示文件存在且为空
+	checkCmd := fmt.Sprintf("test -f '%s' && test ! -s '%s'", filename, filename)
+	cmd := NewRemoteCommandAsFarAsPossible("sh", "-c", checkCmd)
+	err := cmd.Run()
+	return err == nil
+}
