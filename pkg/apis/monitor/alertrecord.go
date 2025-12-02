@@ -111,3 +111,27 @@ func (self AlertRecordHistoryAlertData) GetMetricTags() map[string]string {
 type AlertRecordHistoryAlert struct {
 	Data []AlertRecordHistoryAlertData `json:"data"`
 }
+
+// ProjectAlertResourceCountData 报警资源统计数据（按 scope 分类）
+type ProjectAlertResourceCountData struct {
+	Scope     string `json:"scope"`      // system/domain/project
+	DomainId  string `json:"domain_id"`  // 域ID（domain/project scope 时有效）
+	Domain    string `json:"domain"`     // 域名称（domain/project scope 时有效）
+	ProjectId string `json:"project_id"` // 项目ID（project scope 时有效）
+	Project   string `json:"project"`    // 项目名称（project scope 时有效）
+	ResCount  int64  `json:"res_count"`  // 报警资源数量
+}
+
+// ProjectAlertResourceCount 报警资源统计结果
+type ProjectAlertResourceCount struct {
+	Data []ProjectAlertResourceCountData `json:"data"`
+}
+
+// ProjectAlertResourceCountInput 项目报警资源统计查询输入
+type ProjectAlertResourceCountInput struct {
+	StartTime time.Time `json:"start_time"`
+	EndTime   time.Time `json:"end_time"`
+	ResType   string    `json:"res_type"`
+	AlertId   string    `json:"alert_id"`
+	Scope     string    `json:"scope"`
+}

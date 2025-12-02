@@ -25,4 +25,5 @@ func init() {
 	cmd.Show(new(options.AlertRecordShowOptions))
 	cmd.GetProperty(new(options.AlertRecordTotalOptions))
 	cmd.GetProperty(new(options.AlertRecordHistoryAlertOptions))
+	cmd.GetProperty(new(options.AlertRecordProjectAlertResourceCountOptions))
 }
