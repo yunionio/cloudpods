@@ -480,7 +480,7 @@ func (man *SCommonAlertManager) ListItemFilter(
 	query monitor.CommonAlertListInput,
 ) (*sqlchemy.SQuery, error) {
 	// 如果指定了时间段和 top 参数，执行特殊的 top 查询
-	if !query.StartTime.IsZero() && !query.EndTime.IsZero() && query.Top > 0 {
+	if query.Top != nil {
 		return man.getTopAlertsByResourceCount(ctx, q, userCred, query)
 	}
 

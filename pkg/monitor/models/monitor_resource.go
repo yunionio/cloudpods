@@ -51,7 +51,7 @@ func validateTopQueryInput(input monitor.TopQueryInput) (startTime time.Time, en
 	if startTime.After(endTime) {
 		return time.Time{}, time.Time{}, 0, httperrors.NewInputParameterError("start_time must be before end_time")
 	}
-	top = input.Top
+	top = *input.Top
 	if top <= 0 {
 		top = 5 // 默认返回 top 5
 	}
@@ -207,7 +207,7 @@ func (manager *SMonitorResourceManager) ListItemFilter(
 	query monitor.MonitorResourceListInput,
 ) (*sqlchemy.SQuery, error) {
 	// 如果指定了时间段和 top 参数，执行特殊的 top 查询
-	if !query.StartTime.IsZero() && !query.EndTime.IsZero() && query.Top > 0 {
+	if query.Top != nil {
 		return manager.getTopResourcesByAlertCount(ctx, q, userCred, query)
 	}
 

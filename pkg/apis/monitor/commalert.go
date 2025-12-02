@@ -124,7 +124,7 @@ type TopQueryInput struct {
 	// 查询时间段结束时间
 	EndTime time.Time `json:"end_time"`
 	// 返回 top N（默认 5）
-	Top int `json:"top"`
+	Top *int `json:"top"`
 }
 
 type CommonAlertListInput struct {
