@@ -8,13 +8,13 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
-	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	apis "yunion.io/x/onecloud/pkg/apis/llm"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	models "yunion.io/x/onecloud/pkg/llm/models"
 	options "yunion.io/x/onecloud/pkg/llm/options"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
@@ -63,21 +63,16 @@ func (task *LLMInstantModelsSyncTask) OnInit(ctx context.Context, obj db.IStanda
 	if len(removedModelIds) > 0 || len(unmountOverlays) > 0 {
 		input.UninstallModelIds = removedModelIds
 		task.SetStage("OnModelsUnmountComplete", jsonutils.Marshal(input).(*jsonutils.JSONDict))
-		ModelSyncTaskRun(task, llm.Id, func() (jsonutils.JSONObject, error) {
-			if len(unmountOverlays) > 0 {
-				// try unmount post_overlay
-				err := llm.TryContainerUnmountPaths(ctx, task.UserCred, unmountOverlays, 7200)
-				if err != nil {
-					return nil, errors.Wrap(err, "TryContainerUnmountPaths")
-				}
-			}
-
-			_, err := llm.WaitContainerStatus(ctx, task.UserCred, computeapi.ContainerFinalStatus.List(), 3600)
+		if len(unmountOverlays) > 0 {
+			// try unmount post_overlay
+			s := auth.GetSession(ctx, task.GetUserCred(), options.Options.Region)
+			err := s.WithTaskCallback(task.GetId(), func() error {
+				return llm.TryContainerUnmountPaths(ctx, task.UserCred, s, unmountOverlays, 7200)
+			})
 			if err != nil {
-				return nil, errors.Wrap(err, "WaitContainerStatus")
+				task.OnModelsUnmountCompleteFailed(ctx, llm, jsonutils.NewString(errors.Wrap(err, "TryContainerUnmountPaths").Error()))
 			}
-			return nil, nil
-		})
+		}
 	} else {
 		task.OnModelsUnmountComplete(ctx, llm, nil)
 	}
@@ -115,20 +110,19 @@ func (task *LLMInstantModelsSyncTask) OnModelsUnmountComplete(ctx context.Contex
 
 	input.InstallModelIds = mdlIds
 	input.InstallDirs = installDirs
-	task.SetStage("OnModelsMountComplete", jsonutils.Marshal(input).(*jsonutils.JSONDict))
-	ModelSyncTaskRun(task, llm.Id, func() (jsonutils.JSONObject, error) {
-		if len(overlays) > 0 {
-			err := llm.TryContainerMountPaths(ctx, task.UserCred, overlays, 7200)
-			if err != nil {
-				return nil, errors.Wrap(err, "TryContainerMountPaths")
-			}
-		}
-		_, err := llm.WaitContainerStatus(ctx, task.UserCred, computeapi.ContainerFinalStatus.List(), 3600)
+	if len(overlays) > 0 {
+		task.SetStage("OnModelsMountComplete", jsonutils.Marshal(input).(*jsonutils.JSONDict))
+
+		s := auth.GetSession(ctx, task.GetUserCred(), options.Options.Region)
+		err := s.WithTaskCallback(task.GetId(), func() error {
+			return llm.TryContainerMountPaths(ctx, task.UserCred, s, overlays, 7200)
+		})
 		if err != nil {
-			return nil, errors.Wrap(err, "WaitContainerStatus")
+			task.OnModelsUnmountCompleteFailed(ctx, llm, jsonutils.NewString(errors.Wrap(err, "TryContainerMountPaths").Error()))
 		}
-		return nil, nil
-	})
+	} else {
+		task.OnModelsMountComplete(ctx, llm, nil)
+	}
 }
 
 func (task *LLMInstantModelsSyncTask) OnModelsUnmountCompleteFailed(ctx context.Context, obj db.IStandaloneModel, err jsonutils.JSONObject) {

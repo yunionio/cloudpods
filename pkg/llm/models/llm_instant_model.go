@@ -50,10 +50,11 @@ type SLLMInstantModel struct {
 	ModelId string `name:"model_id" width:"128" charset:"ascii" nullable:"false" list:"user" primary:"true"`
 
 	// Model Tag
-	Tag         string `width:"64" charset:"utf8" nullable:"true" list:"user"`
-	DisplayName string `width:"128" charset:"utf8" nullable:"false" list:"user"`
-	IsProbed    bool   `list:"user"`
-	IsMounted   bool   `list:"user"`
+	Tag string `width:"64" charset:"utf8" nullable:"true" list:"user"`
+	// Model Name
+	ModelName string `width:"128" charset:"utf8" nullable:"false" list:"user"`
+	IsProbed  bool   `list:"user"`
+	IsMounted bool   `list:"user"`
 	// IsSystem    tristate.TriState `list:"user"`
 }
 
@@ -90,9 +91,9 @@ func (man *SLLMInstantModelManager) updateInstantModel(ctx context.Context, llmI
 	if mdl == nil {
 		// if no such app
 		mdl = &SLLMInstantModel{
-			LlmId:       llmId,
-			ModelId:     mdlId,
-			DisplayName: mdlName,
+			LlmId:     llmId,
+			ModelId:   mdlId,
+			ModelName: mdlName,
 			// IsSystem:    tristate.None,
 			// Entry:       entry,
 		}
@@ -122,7 +123,7 @@ func (man *SLLMInstantModelManager) updateInstantModel(ctx context.Context, llmI
 				mdl.Tag = tag
 			}
 			if len(mdlName) > 0 {
-				mdl.DisplayName = mdlName
+				mdl.ModelName = mdlName
 			}
 			// if isSys != nil {
 			// 	if *isSys {
