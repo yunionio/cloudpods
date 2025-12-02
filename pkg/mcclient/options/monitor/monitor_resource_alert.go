@@ -15,6 +15,8 @@
 package monitor
 
 import (
+	"time"
+
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/mcclient/options"
@@ -22,12 +24,15 @@ import (
 
 type MonitorResourceAlertListOptions struct {
 	options.BaseListOptions
-	MonitorResourceId string `help:"ID of monitor resource" json:"monitor_resource_id"`
-	AlertId           string `help:"ID  of alert" json:"alert_id"`
-	Alerting          bool   `help:"search alerting resource" json:"alerting"`
-	SendState         string `json:"send_state"`
-	AllState          bool   `help:"Show all state" json:"all_state"`
-	Ip                string `help:"IP address" json:"ip"`
+	MonitorResourceId string    `help:"ID of monitor resource" json:"monitor_resource_id"`
+	AlertId           string    `help:"ID  of alert" json:"alert_id"`
+	Alerting          bool      `help:"search alerting resource" json:"alerting"`
+	SendState         string    `json:"send_state"`
+	AllState          bool      `help:"Show all state" json:"all_state"`
+	Ip                string    `help:"IP address" json:"ip"`
+	StartTime         time.Time `help:"start time for top query, format: 2025-01-01 00:00:00" json:"start_time"`
+	EndTime           time.Time `help:"end time for top query, format: 2025-01-01 00:00:00" json:"end_time"`
+	Top               int       `help:"return top N resources by alert count (default: 5)" json:"top"`
 }
 
 func (o *MonitorResourceAlertListOptions) GetMasterOpt() string {

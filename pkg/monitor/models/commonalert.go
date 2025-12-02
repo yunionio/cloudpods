@@ -479,6 +479,11 @@ func (man *SCommonAlertManager) ListItemFilter(
 	userCred mcclient.TokenCredential,
 	query monitor.CommonAlertListInput,
 ) (*sqlchemy.SQuery, error) {
+	// 如果指定了时间段和 top 参数，执行特殊的 top 查询
+	if query.Top != nil {
+		return man.getTopAlertsByResourceCount(ctx, q, userCred, query)
+	}
+
 	q, err := man.SAlertManager.ListItemFilter(ctx, q, userCred, query.AlertListInput)
 	if err != nil {
 		return nil, err
@@ -504,6 +509,106 @@ func (man *SCommonAlertManager) FieldListFilter(q *sqlchemy.SQuery, input monito
 	if len(input.Name) != 0 {
 		q.Contains("name", input.Name)
 	}
+}
+
+// getTopAlertsByResourceCount 查询指定时间段内报警资源最多的 top N 监控策略
+func (man *SCommonAlertManager) getTopAlertsByResourceCount(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query monitor.CommonAlertListInput,
+) (*sqlchemy.SQuery, error) {
+	// 验证时间段和 top 参数
+	startTime, endTime, top, err := validateTopQueryInput(query.TopQueryInput)
+	if err != nil {
+		return nil, err
+	}
+
+	// 查询指定时间段内的 AlertRecord
+	recordQuery := AlertRecordManager.Query("alert_id", "res_ids")
+	recordQuery = recordQuery.GE("created_at", startTime).LE("created_at", endTime)
+	recordQuery = recordQuery.IsNotNull("res_type").IsNotEmpty("res_type")
+	recordQuery = recordQuery.IsNotEmpty("res_ids")
+
+	// 应用权限过滤
+	recordQuery, err = AlertRecordManager.SScopedResourceBaseManager.ListItemFilter(
+		ctx, recordQuery, userCred, query.ScopedResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "AlertRecordManager.ListItemFilter")
+	}
+
+	// 执行查询获取所有记录
+	type RecordRow struct {
+		AlertId string
+		ResIds  string
+	}
+	rows := make([]RecordRow, 0)
+	err = recordQuery.All(&rows)
+	if err != nil {
+		return nil, errors.Wrap(err, "query alert records")
+	}
+
+	// 统计每个 alert_id 的唯一资源数量
+	alertResourceCount := make(map[string]sets.String)
+	for _, row := range rows {
+		if len(row.ResIds) == 0 {
+			continue
+		}
+		// 解析 res_ids（逗号分隔）
+		resIds := strings.Split(row.ResIds, ",")
+		if alertResourceCount[row.AlertId] == nil {
+			alertResourceCount[row.AlertId] = sets.NewString()
+		}
+		for _, resId := range resIds {
+			resId = strings.TrimSpace(resId)
+			if len(resId) > 0 {
+				alertResourceCount[row.AlertId].Insert(resId)
+			}
+		}
+	}
+
+	// 转换为切片并按资源数量排序
+	type AlertCount struct {
+		AlertId string
+		Count   int
+	}
+	alertCounts := make([]AlertCount, 0, len(alertResourceCount))
+	for alertId, resSet := range alertResourceCount {
+		alertCounts = append(alertCounts, AlertCount{
+			AlertId: alertId,
+			Count:   resSet.Len(),
+		})
+	}
+
+	// 按资源数量降序排序
+	for i := 0; i < len(alertCounts)-1; i++ {
+		for j := i + 1; j < len(alertCounts); j++ {
+			if alertCounts[i].Count < alertCounts[j].Count {
+				alertCounts[i], alertCounts[j] = alertCounts[j], alertCounts[i]
+			}
+		}
+	}
+
+	// 获取 top N 的 alert_id
+	topAlertIds := make([]string, 0, top)
+	for i := 0; i < top && i < len(alertCounts); i++ {
+		topAlertIds = append(topAlertIds, alertCounts[i].AlertId)
+	}
+
+	if len(topAlertIds) == 0 {
+		// 如果没有找到任何记录，返回空查询
+		return q.FilterByFalse(), nil
+	}
+
+	// 用 top alert_id 过滤 CommonAlert 查询
+	q, err = man.SAlertManager.ListItemFilter(ctx, q, userCred, query.AlertListInput)
+	if err != nil {
+		return nil, err
+	}
+	man.FieldListFilter(q, query)
+	q = q.In("id", topAlertIds)
+
+	return q, nil
 }
 
 func (manager *SCommonAlertManager) GetExportExtraKeys(ctx context.Context, keys stringutils2.SSortedStrings, rowMap map[string]string) *jsonutils.JSONDict {
