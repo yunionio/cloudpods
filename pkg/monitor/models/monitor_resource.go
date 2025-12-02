@@ -17,6 +17,7 @@ package models
 import (
 	"context"
 	"reflect"
+	"strings"
 	"sync"
 	"time"
 
@@ -39,6 +40,23 @@ import (
 var (
 	MonitorResourceManager *SMonitorResourceManager
 )
+
+// validateTopQueryInput 验证 TopQueryInput 参数并返回解析后的值
+func validateTopQueryInput(input monitor.TopQueryInput) (startTime time.Time, endTime time.Time, top int, err error) {
+	startTime = input.StartTime
+	endTime = input.EndTime
+	if startTime.IsZero() || endTime.IsZero() {
+		return time.Time{}, time.Time{}, 0, httperrors.NewInputParameterError("start_time and end_time must be specified")
+	}
+	if startTime.After(endTime) {
+		return time.Time{}, time.Time{}, 0, httperrors.NewInputParameterError("start_time must be before end_time")
+	}
+	top = *input.Top
+	if top <= 0 {
+		top = 5 // 默认返回 top 5
+	}
+	return startTime, endTime, top, nil
+}
 
 type IMonitorResourceCache interface {
 	Get(resId string) (jsonutils.JSONObject, bool)
@@ -190,6 +208,11 @@ func (manager *SMonitorResourceManager) ListItemFilter(
 	userCred mcclient.TokenCredential,
 	query monitor.MonitorResourceListInput,
 ) (*sqlchemy.SQuery, error) {
+	// 如果指定了时间段和 top 参数，执行特殊的 top 查询
+	if query.Top != nil {
+		return manager.getTopResourcesByAlertCount(ctx, q, userCred, query)
+	}
+
 	var err error
 	q, err = manager.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query.VirtualResourceListInput)
 	if err != nil {
@@ -232,6 +255,118 @@ func (man *SMonitorResourceManager) OrderByExtraFields(
 	if err != nil {
 		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.OrderByExtraFields")
 	}
+	return q, nil
+}
+
+// getTopResourcesByAlertCount 查询指定时间段内报警数量最多的 top N 资源
+func (man *SMonitorResourceManager) getTopResourcesByAlertCount(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query monitor.MonitorResourceListInput,
+) (*sqlchemy.SQuery, error) {
+	// 验证时间段和 top 参数
+	startTime, endTime, top, err := validateTopQueryInput(query.TopQueryInput)
+	if err != nil {
+		return nil, err
+	}
+
+	// 查询指定时间段内的 AlertRecord
+	recordQuery := AlertRecordManager.Query("res_ids", "res_type")
+	recordQuery = recordQuery.GE("created_at", startTime).LE("created_at", endTime)
+	recordQuery = recordQuery.IsNotNull("res_type").IsNotEmpty("res_type")
+	recordQuery = recordQuery.IsNotEmpty("res_ids")
+
+	// 如果指定了 ResType，添加过滤条件
+	if len(query.ResType) > 0 {
+		recordQuery = recordQuery.Equals("res_type", query.ResType)
+	}
+
+	// 应用权限过滤 - 使用 FilterByOwner 方法
+	// 从 query 中获取 scope，如果没有则使用默认值
+	scope := rbacscope.ScopeSystem
+	if len(query.VirtualResourceListInput.Scope) > 0 {
+		scope = rbacscope.TRbacScope(query.VirtualResourceListInput.Scope)
+	}
+	recordQuery = AlertRecordManager.SMonitorScopedResourceManager.FilterByOwner(
+		ctx, recordQuery, AlertRecordManager, userCred, userCred, scope)
+
+	// 执行查询获取所有记录
+	type RecordRow struct {
+		ResIds  string
+		ResType string
+	}
+	rows := make([]RecordRow, 0)
+	err = recordQuery.All(&rows)
+	if err != nil {
+		return nil, errors.Wrap(err, "query alert records")
+	}
+
+	// 统计每个资源的报警数量
+	resourceAlertCount := make(map[string]int)
+	for _, row := range rows {
+		if len(row.ResIds) == 0 {
+			continue
+		}
+		// 解析 res_ids（逗号分隔）
+		resIds := strings.Split(row.ResIds, ",")
+		for _, resId := range resIds {
+			resId = strings.TrimSpace(resId)
+			if len(resId) > 0 {
+				// 如果指定了 ResType，需要匹配 res_type
+				if len(query.ResType) > 0 && row.ResType != query.ResType {
+					continue
+				}
+				resourceAlertCount[resId]++
+			}
+		}
+	}
+
+	// 转换为切片并按报警数量排序
+	type ResourceCount struct {
+		ResId string
+		Count int
+	}
+	resourceCounts := make([]ResourceCount, 0, len(resourceAlertCount))
+	for resId, count := range resourceAlertCount {
+		resourceCounts = append(resourceCounts, ResourceCount{
+			ResId: resId,
+			Count: count,
+		})
+	}
+
+	// 按报警数量降序排序
+	for i := 0; i < len(resourceCounts)-1; i++ {
+		for j := i + 1; j < len(resourceCounts); j++ {
+			if resourceCounts[i].Count < resourceCounts[j].Count {
+				resourceCounts[i], resourceCounts[j] = resourceCounts[j], resourceCounts[i]
+			}
+		}
+	}
+
+	// 获取 top N 的资源 ID
+	topResIds := make([]string, 0, top)
+	for i := 0; i < top && i < len(resourceCounts); i++ {
+		topResIds = append(topResIds, resourceCounts[i].ResId)
+	}
+
+	if len(topResIds) == 0 {
+		// 如果没有找到任何记录，返回空查询
+		return q.FilterByFalse(), nil
+	}
+
+	// 用 top res_id 过滤 MonitorResource 查询
+	q, err = man.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query.VirtualResourceListInput)
+	if err != nil {
+		return nil, err
+	}
+	q, err = man.SEnabledResourceBaseManager.ListItemFilter(ctx, q, userCred, query.EnabledResourceBaseListInput)
+	if err != nil {
+		return nil, err
+	}
+	q = man.FieldListFilter(q, query)
+	q = q.In("res_id", topResIds)
+
 	return q, nil
 }
 

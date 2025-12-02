@@ -27,6 +27,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/apis/monitor"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
@@ -203,6 +204,25 @@ func (m *SMonitorResourceAlertManager) GetNowAlertingAlerts(ctx context.Context,
 }
 
 func (m *SMonitorResourceAlertManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, input *monitor.MonitorResourceJointListInput) (*sqlchemy.SQuery, error) {
+	// 如果指定了时间段、top 和 alert_id 参数，执行特殊的 top 查询
+	// 使用 RawQuery 以包含 deleted 的数据（已恢复的资源）
+	if input.Top != nil {
+		// 加上 top 的参数校验
+		if input.Top == nil || *input.Top <= 0 {
+			return nil, httperrors.NewInputParameterError("top must be specified and greater than 0")
+		}
+		if input.StartTime.IsZero() || input.EndTime.IsZero() {
+			return nil, httperrors.NewInputParameterError("start_time and end_time must be specified")
+		}
+		if input.StartTime.After(input.EndTime) {
+			return nil, httperrors.NewInputParameterError("start_time must be before end_time")
+		}
+		if len(input.AlertId) == 0 {
+			return nil, httperrors.NewInputParameterError("alert_id must be specified")
+		}
+		return m.getTopResourcesByMetricAndAlertCount(ctx, q, userCred, input)
+	}
+
 	var err error
 	q, err = m.SJointResourceBaseManager.ListItemFilter(ctx, q, userCred, input.JointResourceBaseListInput)
 	if err != nil {
@@ -280,6 +300,159 @@ func (m *SMonitorResourceAlertManager) CustomizeFilterList(ctx context.Context, 
 	}
 
 	return filters, nil
+}
+
+// getTopResourcesByMetricAndAlertCount 查询指定时间段内，某个监控策略下各监控指标报警资源最多的 top N 资源
+// 使用 RawQuery 查询包含 deleted 的数据，以包含已恢复的资源
+func (m *SMonitorResourceAlertManager) getTopResourcesByMetricAndAlertCount(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	input *monitor.MonitorResourceJointListInput,
+) (*sqlchemy.SQuery, error) {
+	// 验证时间段和 top 参数
+	startTime, endTime, top, err := validateTopQueryInput(input.TopQueryInput)
+	if err != nil {
+		return nil, err
+	}
+
+	// 查询指定时间段内的 AlertRecord，过滤 alert_id
+	recordQuery := AlertRecordManager.Query("id", "alert_rule", "res_ids", "res_type")
+	recordQuery = recordQuery.Equals("alert_id", input.AlertId)
+	recordQuery = recordQuery.GE("created_at", startTime).LE("created_at", endTime)
+	recordQuery = recordQuery.IsNotEmpty("res_ids")
+
+	// 如果指定了 ResType，添加过滤条件
+	if len(input.ResType) > 0 {
+		recordQuery = recordQuery.Equals("res_type", input.ResType)
+	}
+
+	// 执行查询获取所有记录
+	type RecordRow struct {
+		Id        string
+		AlertRule jsonutils.JSONObject
+		ResIds    string
+		ResType   string
+	}
+	rows := make([]RecordRow, 0)
+	err = recordQuery.All(&rows)
+	if err != nil {
+		return nil, errors.Wrap(err, "query alert records")
+	}
+
+	// 按 metric 分组统计，然后合并所有 metric 的统计结果
+	// metricResourceCount[metric][resId] = count
+	metricResourceCount := make(map[string]map[string]int)
+	for _, row := range rows {
+		if len(row.ResIds) == 0 {
+			continue
+		}
+		// 从 AlertRule 中解析 metric
+		var alertRules []*monitor.AlertRecordRule
+		if row.AlertRule != nil {
+			if err := row.AlertRule.Unmarshal(&alertRules); err != nil {
+				log.Warningf("unmarshal alert_rule error: %v", err)
+				continue
+			}
+		}
+		if len(alertRules) == 0 {
+			continue
+		}
+
+		// 解析 res_ids（逗号分隔）
+		resIds := strings.Split(row.ResIds, ",")
+		for _, resId := range resIds {
+			resId = strings.TrimSpace(resId)
+			if len(resId) == 0 {
+				continue
+			}
+			// 如果指定了 ResType，需要匹配 res_type
+			if len(input.ResType) > 0 && row.ResType != input.ResType {
+				continue
+			}
+			// 对于每个 metric，统计资源数量
+			for _, rule := range alertRules {
+				if len(rule.Metric) == 0 {
+					continue
+				}
+				if metricResourceCount[rule.Metric] == nil {
+					metricResourceCount[rule.Metric] = make(map[string]int)
+				}
+				metricResourceCount[rule.Metric][resId]++
+			}
+		}
+	}
+
+	// 合并所有 metric 的统计结果，计算每个资源的总报警数
+	resourceCount := make(map[string]int)
+	for _, resourceCountByMetric := range metricResourceCount {
+		for resId, count := range resourceCountByMetric {
+			resourceCount[resId] += count
+		}
+	}
+	log.Infof("=======resourceCount: %#v", resourceCount)
+
+	// 转换为切片并按报警数量排序
+	type ResourceCount struct {
+		ResId string
+		Count int
+	}
+	resourceCounts := make([]ResourceCount, 0, len(resourceCount))
+	for resId, count := range resourceCount {
+		resourceCounts = append(resourceCounts, ResourceCount{
+			ResId: resId,
+			Count: count,
+		})
+	}
+
+	// 按报警数量降序排序
+	for i := 0; i < len(resourceCounts)-1; i++ {
+		for j := i + 1; j < len(resourceCounts); j++ {
+			if resourceCounts[i].Count < resourceCounts[j].Count {
+				resourceCounts[i], resourceCounts[j] = resourceCounts[j], resourceCounts[i]
+			}
+		}
+	}
+
+	// 获取全局 top N 的资源 ID
+	topResIds := make([]string, 0, top)
+	for i := 0; i < min(top, len(resourceCounts)); i++ {
+		topResIds = append(topResIds, resourceCounts[i].ResId)
+	}
+	log.Infof("top %d resources: %v", top, resourceCounts[:min(top, len(resourceCounts))])
+
+	log.Infof("====topResIds: %#v", topResIds)
+	if len(topResIds) == 0 {
+		// 如果没有找到任何记录，返回空查询
+		return q.FilterByFalse(), nil
+	}
+
+	q = m.RawQuery()
+	q = q.Equals("alert_id", input.AlertId)
+	q = q.Filter(sqlchemy.In(q.Field("monitor_resource_id"), topResIds))
+
+	// 应用其他过滤条件
+	if len(input.AlertState) > 0 {
+		q = q.Equals("alert_state", input.AlertState)
+	}
+	if len(input.SendState) != 0 {
+		q = q.Equals("send_state", input.SendState)
+	}
+	if len(input.ResType) != 0 {
+		q = q.Equals("res_type", input.ResType)
+	}
+	if len(input.Metric) != 0 {
+		q = q.Equals("metric", input.Metric)
+	}
+
+	return q, nil
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 func (man *SMonitorResourceAlertManager) FetchCustomizeColumns(

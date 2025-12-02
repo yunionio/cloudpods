@@ -330,10 +330,16 @@ func (record *SAlertRecord) CustomizeCreate(
 	query jsonutils.JSONObject,
 	data jsonutils.JSONObject,
 ) error {
-	err := record.SMonitorScopedResource.CustomizeCreate(ctx, userCred, ownerId, query, data)
+	/*err := record.SMonitorScopedResource.CustomizeCreate(ctx, userCred, ownerId, query, data)
 	if err != nil {
 		return err
+	}*/
+	alert, err := AlertManager.GetAlert(record.AlertId)
+	if err != nil {
+		return errors.Wrapf(err, "GetAlert %s", record.AlertId)
 	}
+	record.DomainId = alert.GetDomainId()
+	record.ProjectId = alert.GetProjectId()
 	obj, err := db.NewModelObject(AlertRecordManager)
 	if err != nil {
 		return errors.Wrapf(err, "NewModelObject %s", AlertRecordManager.Keyword())
@@ -530,5 +536,168 @@ func (manager *SAlertRecordManager) GetPropertyHistoryAlert(
 			}
 		}
 	}
+	return result, nil
+}
+
+// GetPropertyProjectAlertResourceCount 获取指定时间段内各项目下的报警资源数量
+func (manager *SAlertRecordManager) GetPropertyProjectAlertResourceCount(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	input monitor.ProjectAlertResourceCountInput,
+) (*monitor.ProjectAlertResourceCount, error) {
+	// 验证时间段参数
+	if input.StartTime.IsZero() || input.EndTime.IsZero() {
+		return nil, httperrors.NewInputParameterError("start_time and end_time must be specified")
+	}
+	if input.StartTime.After(input.EndTime) {
+		return nil, httperrors.NewInputParameterError("start_time must be before end_time")
+	}
+
+	// 构建查询
+	q := manager.Query()
+	q = q.GE("created_at", input.StartTime).LE("created_at", input.EndTime)
+	q = q.IsNotEmpty("res_ids")
+
+	// 应用权限过滤
+	scope := rbacscope.ScopeSystem
+	if input.Scope != "" {
+		scope = rbacscope.TRbacScope(input.Scope)
+	}
+	q = manager.SMonitorScopedResourceManager.FilterByOwner(ctx, q, manager, userCred, userCred, scope)
+
+	// 如果指定了 ResType，添加过滤条件
+	if input.ResType != "" {
+		q = q.Equals("res_type", input.ResType)
+	}
+
+	// 如果指定了 AlertId，添加过滤条件
+	if input.AlertId != "" {
+		q = q.Equals("alert_id", input.AlertId)
+	}
+
+	// 执行查询获取所有记录
+	alerts := make([]SAlertRecord, 0)
+	err := q.All(&alerts)
+	if err != nil {
+		return nil, errors.Wrap(err, "query alert records")
+	}
+
+	// 按 scope 分组统计唯一资源数量
+	// systemResourceSet = set of resource IDs (system scope)
+	// domainResourceSet[domainId] = set of resource IDs (domain scope)
+	// projectResourceSet[domainId][projectId] = set of resource IDs (project scope)
+	systemResourceSet := sets.NewString()
+	domainResourceSet := make(map[string]sets.String)
+	projectResourceSet := make(map[string]map[string]sets.String)
+	domainIds := sets.NewString()
+	projectIds := sets.NewString()
+
+	for _, alert := range alerts {
+		if len(alert.ResIds) == 0 {
+			continue
+		}
+		domainId := alert.DomainId
+		projectId := alert.ProjectId
+
+		// 解析 res_ids（逗号分隔）
+		resIds := strings.Split(alert.ResIds, ",")
+		for _, resId := range resIds {
+			resId = strings.TrimSpace(resId)
+			if len(resId) == 0 {
+				continue
+			}
+
+			// 根据 domainId 和 projectId 判断 scope
+			if domainId == "" && projectId == "" {
+				// system scope
+				systemResourceSet.Insert(resId)
+			} else if domainId != "" && projectId == "" {
+				// domain scope
+				domainIds.Insert(domainId)
+				if domainResourceSet[domainId] == nil {
+					domainResourceSet[domainId] = sets.NewString()
+				}
+				domainResourceSet[domainId].Insert(resId)
+			} else if domainId != "" && projectId != "" {
+				// project scope
+				domainIds.Insert(domainId)
+				projectIds.Insert(projectId)
+				if projectResourceSet[domainId] == nil {
+					projectResourceSet[domainId] = make(map[string]sets.String)
+				}
+				if projectResourceSet[domainId][projectId] == nil {
+					projectResourceSet[domainId][projectId] = sets.NewString()
+				}
+				projectResourceSet[domainId][projectId].Insert(resId)
+			}
+		}
+	}
+
+	// 获取项目和域的名称
+	domainMap := make(map[string]string)
+	if domainIds.Len() > 0 {
+		domains := []db.STenant{}
+		err = db.TenantCacheManager.GetDomainQuery().In("id", domainIds.List()).All(&domains)
+		if err != nil {
+			return nil, errors.Wrap(err, "GetDomainQuery.In.All")
+		}
+		for _, domain := range domains {
+			domainMap[domain.Id] = domain.Name
+		}
+	}
+
+	projectMap := make(map[string]string)
+	if projectIds.Len() > 0 {
+		projects := []db.STenant{}
+		err = db.TenantCacheManager.GetTenantQuery().In("id", projectIds.List()).All(&projects)
+		if err != nil {
+			return nil, errors.Wrap(err, "GetTenantQuery.In.All")
+		}
+		for _, project := range projects {
+			projectMap[project.Id] = project.Name
+		}
+	}
+
+	// 构建返回结果
+	result := &monitor.ProjectAlertResourceCount{
+		Data: make([]monitor.ProjectAlertResourceCountData, 0),
+	}
+
+	// system scope
+	if systemResourceSet.Len() > 0 {
+		result.Data = append(result.Data, monitor.ProjectAlertResourceCountData{
+			Scope:    string(rbacscope.ScopeSystem),
+			ResCount: int64(systemResourceSet.Len()),
+		})
+	}
+
+	// domain scope
+	for domainId, resourceSet := range domainResourceSet {
+		if resourceSet.Len() > 0 {
+			result.Data = append(result.Data, monitor.ProjectAlertResourceCountData{
+				Scope:    string(rbacscope.ScopeDomain),
+				DomainId: domainId,
+				Domain:   domainMap[domainId],
+				ResCount: int64(resourceSet.Len()),
+			})
+		}
+	}
+
+	// project scope
+	for domainId, projects := range projectResourceSet {
+		for projectId, resourceSet := range projects {
+			if resourceSet.Len() > 0 {
+				result.Data = append(result.Data, monitor.ProjectAlertResourceCountData{
+					Scope:     string(rbacscope.ScopeProject),
+					DomainId:  domainId,
+					Domain:    domainMap[domainId],
+					ProjectId: projectId,
+					Project:   projectMap[projectId],
+					ResCount:  int64(resourceSet.Len()),
+				})
+			}
+		}
+	}
+
 	return result, nil
 }

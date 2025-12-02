@@ -77,6 +77,22 @@ func (o *AlertRecordHistoryAlertOptions) Property() string {
 	return "history-alert"
 }
 
+type AlertRecordProjectAlertResourceCountOptions struct {
+	StartTime time.Time `help:"start time (RFC3339 format)" json:"start_time" default:"2025-01-01 00:00:00"`
+	EndTime   time.Time `help:"end time (RFC3339 format)" json:"end_time" default:"2025-01-01 00:00:00"`
+	ResType   string    `help:"resource type" json:"res_type"`
+	AlertId   string    `help:"alert id" json:"alert_id"`
+	Scope     string    `help:"scope" json:"scope" choices:"system|domain|project"`
+}
+
+func (o *AlertRecordProjectAlertResourceCountOptions) Params() (jsonutils.JSONObject, error) {
+	return options.StructToParams(o)
+}
+
+func (o *AlertRecordProjectAlertResourceCountOptions) Property() string {
+	return "project-alert-resource-count"
+}
+
 type AlertRecordShieldListOptions struct {
 	options.BaseListOptions
 

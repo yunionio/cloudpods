@@ -15,6 +15,8 @@
 package monitor
 
 import (
+	"time"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
@@ -27,9 +29,12 @@ import (
 type CommonAlertListOptions struct {
 	options.BaseListOptions
 	// 报警类型
-	AlertType         string   `help:"common alert type" choices:"normal|system"`
-	Level             string   `help:"common alert notify level" choices:"normal|important|fatal"`
-	MonitorResourceId []string `help:"monitor resource id"`
+	AlertType         string    `help:"common alert type" choices:"normal|system"`
+	Level             string    `help:"common alert notify level" choices:"normal|important|fatal"`
+	MonitorResourceId []string  `help:"monitor resource id"`
+	StartTime         time.Time `help:"start time, format: 2025-01-01 00:00:00" json:"start_time"`
+	EndTime           time.Time `help:"end time, format: 2025-01-01 00:00:00" json:"end_time"`
+	Top               int       `help:"top" json:"top"`
 }
 
 func (o *CommonAlertListOptions) Params() (jsonutils.JSONObject, error) {
