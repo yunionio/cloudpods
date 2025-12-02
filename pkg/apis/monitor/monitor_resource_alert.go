@@ -38,6 +38,8 @@ type MonitorResourceJointListInput struct {
 	Level             string  `json:"level"`
 	// 查询所有状态
 	AllState bool `json:"all_state"`
+	// Top 查询参数（用于统计各监控指标报警资源最多的资源）
+	TopQueryInput
 }
 
 type MonitorResourceJointCreateInput struct {
