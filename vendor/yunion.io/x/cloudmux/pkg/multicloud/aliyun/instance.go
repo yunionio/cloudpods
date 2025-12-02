@@ -29,7 +29,6 @@ import (
 	"yunion.io/x/pkg/util/billing"
 	"yunion.io/x/pkg/util/imagetools"
 	"yunion.io/x/pkg/util/osprofile"
-	"yunion.io/x/pkg/util/seclib"
 	"yunion.io/x/pkg/utils"
 
 	billing_api "yunion.io/x/cloudmux/pkg/apis/billing"
@@ -444,14 +443,8 @@ func (self *SInstance) GetVNCInfo(input *cloudprovider.ServerVncInput) (*cloudpr
 	if err != nil {
 		return nil, err
 	}
-	passwd := seclib.RandomPassword(6)
-	err = self.host.zone.region.ModifyInstanceVNCUrlPassword(self.InstanceId, passwd)
-	if err != nil {
-		return nil, err
-	}
 	ret := &cloudprovider.ServerVncOutput{
 		Url:        url,
-		Password:   passwd,
 		Protocol:   "aliyun",
 		InstanceId: self.InstanceId,
 		Hypervisor: api.HYPERVISOR_ALIYUN,

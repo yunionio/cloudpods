@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"net/url"
 	"os/exec"
+	"strings"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
@@ -172,16 +173,14 @@ func (info *RemoteConsoleInfo) getQcloudURL() (string, error) {
 
 func (info *RemoteConsoleInfo) getAliyunURL() (string, error) {
 	isWindows := "false"
-	if info.OsName == "Windows" {
+	if strings.EqualFold(info.OsName, "windows") {
 		isWindows = "true"
 	}
-	params := url.Values{
-		"vncUrl":     {info.Url},
-		"instanceId": {info.InstanceId},
-		"isWindows":  {isWindows},
-		"password":   {info.Password},
+	vncUrl, err := url.QueryUnescape(info.Url)
+	if err != nil {
+		return "", errors.Wrap(err, "url.QueryUnescape")
 	}
-	return info.getConnParamsURL(options.Options.AliyunConsoleAddr, params), nil
+	return fmt.Sprintf("%s?vncUrl=%s&instanceId=%s&isWindows=%s", options.Options.AliyunConsoleAddr, vncUrl, info.InstanceId, isWindows), nil
 }
 
 func (info *RemoteConsoleInfo) getCloudpodsURL() (string, error) {
