@@ -86,7 +86,7 @@ func (m *SMacOSRootFs) addScripts(lines []string) {
 	m.scripts = append(m.scripts, "")
 }
 
-func (m *SMacOSRootFs) ChangeUserPasswd(part IDiskPartition, account, gid, publicKey, password string) (string, error) {
+func (m *SMacOSRootFs) ChangeUserPasswd(part IDiskPartition, account, gid, publicKey, password string, isRandomPassword bool) (string, error) {
 	lines := []string{
 		fmt.Sprintf("dscl . -passwd /Users/%s %s", account, password),
 		fmt.Sprintf("rm -fr /Users/%s/Library/Keychains/*", account),
