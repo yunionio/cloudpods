@@ -19,9 +19,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/httperrors"
-	"yunion.io/x/onecloud/pkg/llm/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
@@ -343,7 +341,7 @@ func (llm *SLLM) FetchModelsFullName(isProbed, isMounted *bool) ([]string, error
 	}
 	mdlFullNames := make([]string, len(models))
 	for idx, mdl := range models {
-		mdlFullNames[idx] = mdl.DisplayName + ":" + mdl.Tag + "-" + mdl.ModelId
+		mdlFullNames[idx] = mdl.ModelName + ":" + mdl.Tag + "-" + mdl.ModelId
 	}
 	return mdlFullNames, nil
 }
@@ -449,10 +447,10 @@ func (llm *SLLM) RequestMountModels(ctx context.Context, userCred mcclient.Token
 	return mdlIds, targetDirs, overlays, nil
 }
 
-func (llm *SLLM) TryContainerUnmountPaths(ctx context.Context, userCred mcclient.TokenCredential, overlays []*commonapi.ContainerVolumeMountDiskPostOverlay, waitSecs int) error {
+func (llm *SLLM) TryContainerUnmountPaths(ctx context.Context, userCred mcclient.TokenCredential, s *mcclient.ClientSession, overlays []*commonapi.ContainerVolumeMountDiskPostOverlay, waitSecs int) error {
 	start := time.Now()
 	for time.Since(start) < time.Second*time.Duration(waitSecs) {
-		err := llm.containerUnmountPaths(ctx, userCred, overlays)
+		err := llm.containerUnmountPaths(ctx, userCred, s, overlays)
 		if err != nil {
 			if strings.Contains(err.Error(), string(errors.ErrInvalidStatus)) {
 				// wait
@@ -468,7 +466,7 @@ func (llm *SLLM) TryContainerUnmountPaths(ctx context.Context, userCred mcclient
 	return errors.ErrTimeout
 }
 
-func (llm *SLLM) containerUnmountPaths(ctx context.Context, userCred mcclient.TokenCredential, overlays []*commonapi.ContainerVolumeMountDiskPostOverlay) error {
+func (llm *SLLM) containerUnmountPaths(ctx context.Context, userCred mcclient.TokenCredential, s *mcclient.ClientSession, overlays []*commonapi.ContainerVolumeMountDiskPostOverlay) error {
 	ctr, err := llm.GetLLMSContainer(ctx)
 	if err != nil {
 		return errors.Wrap(err, "GetSContainer")
@@ -478,7 +476,6 @@ func (llm *SLLM) containerUnmountPaths(ctx context.Context, userCred mcclient.To
 		return errors.Wrapf(errors.ErrInvalidStatus, "cannot unmount post path in status %s", ctr.Status)
 	}
 
-	s := auth.GetSession(ctx, userCred, options.Options.Region)
 	params := computeapi.ContainerVolumeMountRemovePostOverlayInput{
 		Index:       0,
 		PostOverlay: overlays,
@@ -492,10 +489,10 @@ func (llm *SLLM) containerUnmountPaths(ctx context.Context, userCred mcclient.To
 	return nil
 }
 
-func (llm *SLLM) TryContainerMountPaths(ctx context.Context, userCred mcclient.TokenCredential, overlays []*commonapi.ContainerVolumeMountDiskPostOverlay, waitSecs int) error {
+func (llm *SLLM) TryContainerMountPaths(ctx context.Context, userCred mcclient.TokenCredential, s *mcclient.ClientSession, overlays []*commonapi.ContainerVolumeMountDiskPostOverlay, waitSecs int) error {
 	start := time.Now()
 	for time.Since(start) < time.Second*time.Duration(waitSecs) {
-		err := llm.containerMountPaths(ctx, userCred, overlays)
+		err := llm.containerMountPaths(ctx, userCred, s, overlays)
 		if err != nil {
 			if strings.Contains(err.Error(), string(errors.ErrInvalidStatus)) {
 				log.Errorf("containerMountPaths error %s, retry", err)
@@ -512,7 +509,7 @@ func (llm *SLLM) TryContainerMountPaths(ctx context.Context, userCred mcclient.T
 	return errors.ErrTimeout
 }
 
-func (llm *SLLM) containerMountPaths(ctx context.Context, userCred mcclient.TokenCredential, overlays []*commonapi.ContainerVolumeMountDiskPostOverlay) error {
+func (llm *SLLM) containerMountPaths(ctx context.Context, userCred mcclient.TokenCredential, s *mcclient.ClientSession, overlays []*commonapi.ContainerVolumeMountDiskPostOverlay) error {
 	ctr, err := llm.GetLLMSContainer(ctx)
 	if err != nil {
 		return errors.Wrap(err, "GetLLMSContainer")
@@ -521,7 +518,6 @@ func (llm *SLLM) containerMountPaths(ctx context.Context, userCred mcclient.Toke
 	if !computeapi.ContainerFinalStatus.Has(ctr.Status) {
 		return errors.Wrapf(errors.ErrInvalidStatus, "cannot mount post path in status %s", ctr.Status)
 	}
-	s := auth.GetSession(ctx, userCred, options.Options.Region)
 	params := computeapi.ContainerVolumeMountAddPostOverlayInput{
 		Index:       0,
 		PostOverlay: overlays,

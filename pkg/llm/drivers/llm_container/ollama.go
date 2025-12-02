@@ -7,7 +7,6 @@ import (
 	"path"
 	"strings"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
@@ -107,9 +106,10 @@ func (o *ollama) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *
 				},
 				Index: &diskIndex,
 			},
-			Type:      apis.CONTAINER_VOLUME_MOUNT_TYPE_DISK,
-			MountPath: api.LLM_OLLAMA_BASE_PATH,
-			ReadOnly:  false,
+			Type:        apis.CONTAINER_VOLUME_MOUNT_TYPE_DISK,
+			MountPath:   api.LLM_OLLAMA_BASE_PATH,
+			ReadOnly:    false,
+			Propagation: apis.MOUNTPROPAGATION_PROPAGATION_HOST_TO_CONTAINER,
 		},
 	}
 	vols = append(vols, ctrVols...)
@@ -156,9 +156,22 @@ func (o *ollama) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *
 // }
 
 func (o *ollama) PreInstallModel(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM, instMdl *models.SLLMInstantModel) error {
-	///* TODO
+	// before mount, make sure the manifests dir is ready
+	lc, err := llm.GetLLMContainer()
+	if err != nil {
+		return errors.Wrap(err, "get llm container")
+	}
+
+	// mkdir llm-registry-base-path / modelname
+	mkdirReigtryBasePaht := fmt.Sprintf("mkdir -p %s", path.Join(api.LLM_OLLAMA_BASE_PATH, api.LLM_OLLAMA_MANIFESTS_BASE_PATH, instMdl.ModelName))
+	_, err = exec(ctx, lc.CmpId, mkdirReigtryBasePaht, 10)
+	if err != nil {
+		return errors.Wrap(err, "failed to mkdir llm-registry-base-path / modelname")
+	}
+
 	return nil
 }
+
 func (o *ollama) InstallModel(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM, dirs []string, mdlIds []string) error {
 	///* TODO
 	return nil
@@ -179,18 +192,20 @@ func (o *ollama) GetDirPostOverlay(dir api.LLMMountDirInfo) *commonapi.Container
 }
 
 func (o *ollama) UninstallModel(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM, llmInstMdl *models.SLLMInstantModel) error {
-	mounts, err := o.GetModelMountPaths(ctx, userCred, llmInstMdl)
-	if err != nil {
-		return errors.Wrap(err, "GetModelMountPaths")
-	}
-	ctr, err := llm.GetLLMSContainer(ctx)
-	if err != nil {
-		return errors.Wrap(err, "GetSContainer")
-	}
-	_, err = exec(ctx, ctr.Id, fmt.Sprintf("rm -rf %s", strings.Join(mounts, " ")), 10)
-	if err != nil {
-		return errors.Wrapf(err, "run cmd to remove model mounts of model %s", jsonutils.Marshal(llmInstMdl))
-	}
+	// don't rm file
+
+	// mounts, err := o.GetModelMountPaths(ctx, userCred, llmInstMdl)
+	// if err != nil {
+	// 	return errors.Wrap(err, "GetModelMountPaths")
+	// }
+	// ctr, err := llm.GetLLMSContainer(ctx)
+	// if err != nil {
+	// 	return errors.Wrap(err, "GetSContainer")
+	// }
+	// _, err = exec(ctx, ctr.Id, fmt.Sprintf("rm -rf %s", strings.Join(mounts, " ")), 10)
+	// if err != nil {
+	// 	return errors.Wrapf(err, "run cmd to remove model mounts of model %s", jsonutils.Marshal(llmInstMdl))
+	// }
 	return nil
 }
 
@@ -268,9 +283,15 @@ func (o *ollama) DetectModelPaths(ctx context.Context, userCred mcclient.TokenCr
 	return append(originBlobs, originManifests), nil
 }
 
-func (o *ollama) GetImageInternalPathMounts(iApp *models.SInstantModel) map[string]string {
-	///*TODO
-	return nil
+func (o *ollama) GetImageInternalPathMounts(sMdl *models.SInstantModel) map[string]string {
+	imageToContainer := make(map[string]string)
+
+	for _, mount := range sMdl.Mounts {
+		imgPath := strings.TrimPrefix(mount, api.LLM_OLLAMA_BASE_PATH)
+		imageToContainer[imgPath] = path.Join(api.LLM_OLLAMA, imgPath)
+	}
+
+	return imageToContainer
 }
 
 func (o *ollama) GetSaveDirectories(sApp *models.SInstantModel) (string, []string, error) {
