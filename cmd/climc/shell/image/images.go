@@ -54,7 +54,7 @@ type ImageOptionalOptions struct {
 	OsDist             string   `help:"Distribution name of OS" metavar:"OS_DISTRIBUTION"`
 	OsVersion          string   `help:"Version of OS"`
 	OsCodename         string   `help:"Codename of OS"`
-	OsArch             string   `help:"Os hardware architecture" choices:"x86|x86_64|aarch32|aarch64"`
+	OsArch             string   `help:"Os hardware architecture" choices:"x86|x86_64|aarch32|aarch64|riscv32|riscv64"`
 	OsLang             string   `help:"OS Language" choices:"zh_CN|en_US"`
 	Preference         int64    `help:"Disk preferences"`
 	Notes              string   `help:"Notes about the image"`
