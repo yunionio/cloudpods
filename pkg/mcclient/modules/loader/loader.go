@@ -26,6 +26,7 @@ import (
 	_ "yunion.io/x/onecloud/pkg/mcclient/modules/identity"
 	_ "yunion.io/x/onecloud/pkg/mcclient/modules/image"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/k8s"
+	_ "yunion.io/x/onecloud/pkg/mcclient/modules/llm"
 	_ "yunion.io/x/onecloud/pkg/mcclient/modules/logger"
 	_ "yunion.io/x/onecloud/pkg/mcclient/modules/monitor"
 	_ "yunion.io/x/onecloud/pkg/mcclient/modules/notify"
