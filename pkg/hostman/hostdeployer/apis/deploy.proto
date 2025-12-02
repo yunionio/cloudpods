@@ -85,14 +85,15 @@ message DeployInfo {
   SSHKeys public_key = 1;
   repeated DeployContent deploys = 2;
   string password = 3;
-  bool is_init = 4;
-  bool enable_tty = 5;
-  bool default_root_user = 6;
-  bool windows_default_admin_user = 7;
-  bool enable_cloud_init = 8;
-  string login_account = 9;
-  Telegraf telegraf = 10;
-  string user_data = 11;
+  bool is_random_password =4;
+  bool is_init = 5;
+  bool enable_tty = 6;
+  bool default_root_user = 7;
+  bool windows_default_admin_user = 8;
+  bool enable_cloud_init = 9;
+  string login_account = 10;
+  Telegraf telegraf = 11;
+  string user_data = 12;
 }
 
 message Telegraf {

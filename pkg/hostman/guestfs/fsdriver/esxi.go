@@ -56,7 +56,7 @@ func (m *SEsxiRootFs) GetOs() string {
 	return "VMWare"
 }
 
-func (m *SEsxiRootFs) ChangeUserPasswd(part IDiskPartition, account, gid, publicKey, password string) (string, error) {
+func (m *SEsxiRootFs) ChangeUserPasswd(part IDiskPartition, account, gid, publicKey, password string, isRandomPassword bool) (string, error) {
 	return utils.EncryptAESBase64(gid, "(blank)")
 }
 
