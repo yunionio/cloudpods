@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/container/volume_mount"
 	fileutils "yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/mountutils"
+	"yunion.io/x/onecloud/pkg/util/procutils"
 )
 
 func init() {
@@ -185,7 +186,7 @@ func (p postOverlayHostPath) unmountDir(d diskPostOverlay, pod volume_mount.IPod
 }
 
 func (p postOverlayHostPath) unmountSingleFile(singleFilePath string, d diskPostOverlay, pod volume_mount.IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount, ov *apis.ContainerVolumeMountDiskPostOverlay, useLazy bool, cleanLayers bool) error {
-	mergedDir, err := d.getPostOverlayMountpoint(pod, ctrId, vm, ov, false)
+	mergedFile, err := d.getPostOverlayMountpoint(pod, ctrId, vm, ov, false)
 	if err != nil {
 		return errors.Wrapf(err, "get post overlay mountpoint for container %s", ctrId)
 	}
@@ -195,9 +196,15 @@ func (p postOverlayHostPath) unmountSingleFile(singleFilePath string, d diskPost
 	}
 	singleFileMergedFilePath := p.getSingleFileMergedFilePath(targetMergedDir, singleFilePath)
 
-	// 先 unbind mergedDir
-	if err := mountutils.Unmount(mergedDir, false); err != nil {
-		return errors.Wrapf(err, "unmount %s of single file %s", mergedDir, singleFileMergedFilePath)
+	// 先 unbind mergedFile
+	if err := mountutils.Unmount(mergedFile, false); err != nil {
+		return errors.Wrapf(err, "unmount %s of single file %s", mergedFile, singleFileMergedFilePath)
+	}
+	// 如果 mergedFile 是空文件，则删除这个空文件，因为空文件很可能是挂载时创建的
+	if procutils.IsEmptyFile(mergedFile) {
+		if err := volume_mount.RemoveDir(mergedFile); err != nil {
+			return errors.Wrapf(err, "remove empty file %s", mergedFile)
+		}
 	}
 
 	if err := mountutils.Unmount(targetMergedDir, useLazy); err != nil {
