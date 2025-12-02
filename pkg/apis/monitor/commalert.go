@@ -117,6 +117,16 @@ type CommonAlertQuery struct {
 	Operator string `json:"operator"`
 }
 
+// TopQueryInput 用于 top 查询的通用时间段和 top 参数
+type TopQueryInput struct {
+	// 查询时间段开始时间
+	StartTime time.Time `json:"start_time"`
+	// 查询时间段结束时间
+	EndTime time.Time `json:"end_time"`
+	// 返回 top N（默认 5）
+	Top int `json:"top"`
+}
+
 type CommonAlertListInput struct {
 	AlertListInput
 	//V1AlertListInput
@@ -129,12 +139,8 @@ type CommonAlertListInput struct {
 	ResType []string `json:"res_type"`
 	UsedBy  string   `json:"used_by"`
 	Name    string   `json:"name"`
-	// 查询时间段开始时间（用于统计报警资源最多的监控策略）
-	StartTime time.Time `json:"start_time"`
-	// 查询时间段结束时间（用于统计报警资源最多的监控策略）
-	EndTime time.Time `json:"end_time"`
-	// 返回 top N 监控策略（默认 5）
-	Top int `json:"top"`
+	// Top 查询参数（用于统计报警资源最多的监控策略）
+	TopQueryInput
 }
 
 type CommonAlertUpdateInput struct {

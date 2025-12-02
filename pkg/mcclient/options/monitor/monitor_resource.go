@@ -15,6 +15,8 @@
 package monitor
 
 import (
+	"time"
+
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/mcclient/options"
@@ -33,10 +35,13 @@ func (o *MonitorResourceJointAlertOptions) Property() string {
 
 type MonitorResourceListOptions struct {
 	options.BaseListOptions
-	ResType     string   `help:"filter by resource type" json:"res_type"`
-	ResId       []string `help:"filter by resource id" json:"res_id"`
-	ResName     string   `help:"filter by resource name" json:"res_name"`
-	AlertStates []string `help:"filter by alert state" json:"alert_states"`
+	ResType     string    `help:"filter by resource type" json:"res_type"`
+	ResId       []string  `help:"filter by resource id" json:"res_id"`
+	ResName     string    `help:"filter by resource name" json:"res_name"`
+	AlertStates []string  `help:"filter by alert state" json:"alert_states"`
+	StartTime   time.Time `help:"start time for top query, format: 2025-01-01 00:00:00" json:"start_time"`
+	EndTime     time.Time `help:"end time for top query, format: 2025-01-01 00:00:00" json:"end_time"`
+	Top         int       `help:"return top N resources by alert count (default: 5)" json:"top"`
 }
 
 func (o *MonitorResourceListOptions) Params() (jsonutils.JSONObject, error) {

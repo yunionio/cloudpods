@@ -520,19 +520,10 @@ func (man *SCommonAlertManager) getTopAlertsByResourceCount(
 	userCred mcclient.TokenCredential,
 	query monitor.CommonAlertListInput,
 ) (*sqlchemy.SQuery, error) {
-	// 验证时间段
-	startTime := query.StartTime
-	endTime := query.EndTime
-	if startTime.IsZero() || endTime.IsZero() {
-		return nil, httperrors.NewInputParameterError("start_time and end_time must be specified")
-	}
-	if startTime.After(endTime) {
-		return nil, httperrors.NewInputParameterError("start_time must be before end_time")
-	}
-
-	top := query.Top
-	if top <= 0 {
-		top = 5 // 默认返回 top 5
+	// 验证时间段和 top 参数
+	startTime, endTime, top, err := validateTopQueryInput(query.TopQueryInput)
+	if err != nil {
+		return nil, err
 	}
 
 	// 查询指定时间段内的 AlertRecord
@@ -542,7 +533,6 @@ func (man *SCommonAlertManager) getTopAlertsByResourceCount(
 	recordQuery = recordQuery.IsNotEmpty("res_ids")
 
 	// 应用权限过滤
-	var err error
 	recordQuery, err = AlertRecordManager.SScopedResourceBaseManager.ListItemFilter(
 		ctx, recordQuery, userCred, query.ScopedResourceBaseListInput)
 	if err != nil {

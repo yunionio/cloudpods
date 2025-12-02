@@ -45,6 +45,8 @@ type MonitorResourceListInput struct {
 	AlertStates []string `json:"alert_states"`
 
 	ResName string `json:"res_name"`
+	// Top 查询参数（用于统计报警数量最多的资源）
+	TopQueryInput
 }
 
 type MonitorResourceDetails struct {
