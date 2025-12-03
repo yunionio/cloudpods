@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/pkg/util/sets"
 	"yunion.io/x/pkg/utils"
 
+	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/apis/monitor"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostconsts"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -633,6 +634,7 @@ func (c *QueryCondition) getOnecloudResources(s *mcclient.ClientSession, scope s
 	case monitor.METRIC_RES_TYPE_HOST:
 		// models.SetQueryHostType(query)
 		queryStatus = append(queryStatus, "unknown")
+		query.Set("filter.0", jsonutils.NewString(fmt.Sprintf("host_type.notequals('%s')", compute.HOST_TYPE_BAREMETAL)))
 		query.Set("enabled", jsonutils.NewInt(1))
 		manager = &mc_mds.Hosts
 	case monitor.METRIC_RES_TYPE_GUEST:
