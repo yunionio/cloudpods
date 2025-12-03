@@ -137,7 +137,7 @@ func (image *SLLMImage) ValidateDeleteCondition(ctx context.Context, info jsonut
 		if count > 0 {
 			return errors.Wrapf(errors.ErrNotSupported, "This image is currently in use by %s in llms", field)
 		}
-		count, err = GetLLMModelManager().Query().Equals("llm_image_id", image.Id).CountWithError()
+		count, err = GetLLMSkuManager().Query().Equals("llm_image_id", image.Id).CountWithError()
 		if err != nil {
 			return errors.Wrap(err, "fetch llm models")
 		}

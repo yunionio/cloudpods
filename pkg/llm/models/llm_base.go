@@ -48,7 +48,7 @@ type SLLMBase struct {
 	Priority    int `nullable:"false" default:"100" list:"user"`
 	BandwidthMb int `nullable:"true" list:"user" create:"admin_optional"`
 
-	LastAppProbe time.Time `nullable:"true" list:"user" create:"admin_optional"`
+	LastInstantModelProbe time.Time `nullable:"true" list:"user" create:"admin_optional"`
 
 	// 是否请求同步更新镜像
 	SyncImageRequest bool `default:"false" nullable:"false" list:"user" update:"user"`

@@ -17,6 +17,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/httperrors"
+	llmutils "yunion.io/x/onecloud/pkg/llm/utils"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 )
@@ -50,8 +51,11 @@ type SLLMManager struct {
 type SLLM struct {
 	SLLMBase
 
-	LLMModelId string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"required"`
+	LLMSkuId   string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"required"`
 	LLMImageId string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"required"`
+
+	// 秒装应用配额（可安装的总容量限制）
+	InstantModelQuotaGb int `list:"user" update:"user" create:"optional" default:"0" nullable:"false"`
 }
 
 func (man *SLLMManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input *api.LLMCreateInput) (*api.LLMCreateInput, error) {
@@ -60,13 +64,13 @@ func (man *SLLMManager) ValidateCreateData(ctx context.Context, userCred mcclien
 	if err != nil {
 		return input, errors.Wrap(err, "validate LLMBaseCreateInput")
 	}
-	model, err := GetLLMModelManager().FetchByIdOrName(ctx, userCred, input.LLMModelId)
+	sku, err := GetLLMSkuManager().FetchByIdOrName(ctx, userCred, input.LLMSkuId)
 	if err != nil {
-		return input, errors.Wrap(err, "fetch LLMModel")
+		return input, errors.Wrap(err, "fetch LLMSku")
 	}
-	lModel := model.(*SLLMModel)
-	input.LLMModelId = lModel.Id
-	input.LLMImageId = lModel.LLMImageId
+	lSku := sku.(*SLLMSku)
+	input.LLMSkuId = lSku.Id
+	input.LLMImageId = lSku.LLMImageId
 
 	return input, nil
 }
@@ -85,16 +89,16 @@ func (man *SLLMManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, 
 		return q, errors.Wrap(err, "VirtualResourceBaseManager.ListItemFilter")
 	}
 
-	if len(input.LLMModel) > 0 {
-		modelObj, err := GetLLMModelManager().FetchByIdOrName(ctx, userCred, input.LLMModel)
+	if len(input.LLMSku) > 0 {
+		skuObj, err := GetLLMSkuManager().FetchByIdOrName(ctx, userCred, input.LLMSku)
 		if err != nil {
 			if errors.Cause(err) == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(GetLLMModelManager().KeywordPlural(), input.LLMModel)
+				return nil, httperrors.NewResourceNotFoundError2(GetLLMSkuManager().KeywordPlural(), input.LLMSku)
 			} else {
-				return nil, errors.Wrap(err, "LLMModelManager.FetchByIdOrName")
+				return nil, errors.Wrap(err, "GetLLMSkuManager.FetchByIdOrName")
 			}
 		}
-		q = q.Equals("llm_model_id", modelObj.GetId())
+		q = q.Equals("llm_sku_id", skuObj.GetId())
 	}
 	if len(input.LLMImage) > 0 {
 		imgObj, err := GetLLMImageManager().FetchByIdOrName(ctx, userCred, input.LLMImage)
@@ -158,27 +162,29 @@ func (llm *SLLM) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCre
 	return llm.StartDeleteTask(ctx, userCred, "")
 }
 
-func (llm *SLLM) GetLLMModel(modelId string) (*SLLMModel, error) {
-	if len(modelId) == 0 {
-		modelId = llm.LLMModelId
+func (llm *SLLM) GetLLMSku(skuId string) (*SLLMSku, error) {
+	if len(skuId) == 0 {
+		skuId = llm.LLMSkuId
 	}
-	model, err := GetLLMModelManager().FetchById(modelId)
+	sku, err := GetLLMSkuManager().FetchById(skuId)
 	if err != nil {
-		return nil, errors.Wrap(err, "fetch LLMModel")
+		return nil, errors.Wrap(err, "fetch LLMSku")
 	}
-	return model.(*SLLMModel), nil
+	return sku.(*SLLMSku), nil
 }
 
-func (llm *SLLM) GetLargeLanguageModelName() (modelName string, modelTag string, err error) {
-	model, err := llm.GetLLMModel("")
-	if err != nil {
-		return "", "", err
+func (llm *SLLM) GetLargeLanguageModelName(name string) (modelName string, modelTag string, err error) {
+	if name == "" {
+		sku, err := llm.GetLLMSku("")
+		if err != nil {
+			return "", "", err
+		}
+		name = sku.LLMModelName
 	}
-	name := model.LLMModelName
 	parts := strings.Split(name, ":")
 	modelName = parts[0]
 	modelTag = "latest"
-	if len(parts) > 1 {
+	if len(parts) == 2 {
 		modelTag = parts[1]
 	}
 	return
@@ -188,13 +194,21 @@ func (llm *SLLM) GetLLMImage() (*SLLMImage, error) {
 	return llm.getImage(llm.LLMImageId)
 }
 
+func (llm *SLLM) GetLLMSContainer(ctx context.Context) (*computeapi.SContainer, error) {
+	llmCtr, err := llm.GetLLMContainer()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetLLMContainer")
+	}
+	return llmCtr.GetSContainer(ctx)
+}
+
 func (llm *SLLM) GetLLMContainer() (*SLLMContainer, error) {
 	return GetLLMContainerManager().FetchByLLMId(llm.Id)
 }
 
 func (llm *SLLM) GetLLMContainerDriver() ILLMContainerDriver {
-	model, _ := llm.GetLLMModel(llm.LLMModelId)
-	return model.GetLLMContainerDriver()
+	sku, _ := llm.GetLLMSku(llm.LLMSkuId)
+	return sku.GetLLMContainerDriver()
 }
 
 func (llm *SLLM) StartCreateTask(ctx context.Context, userCred mcclient.TokenCredential, input api.LLMCreateInput, parentTaskId string) error {
@@ -232,16 +246,16 @@ func (llm *SLLM) StartDeleteTask(ctx context.Context, userCred mcclient.TokenCre
 }
 
 func (llm *SLLM) ServerCreate(ctx context.Context, userCred mcclient.TokenCredential, s *mcclient.ClientSession, input *api.LLMCreateInput) (string, error) {
-	model, err := llm.GetLLMModel(llm.LLMModelId)
+	sku, err := llm.GetLLMSku(llm.LLMSkuId)
 	if nil != err {
-		return "", errors.Wrap(err, "GetLLMModel")
+		return "", errors.Wrap(err, "GetLLMSku")
 	}
 	llmImage, err := llm.GetLLMImage()
 	if nil != err {
 		return "", errors.Wrap(err, "GetLLMImage")
 	}
 
-	data, err := GetLLMPodCreateInput(ctx, userCred, input, llm, model, llmImage, "")
+	data, err := GetLLMPodCreateInput(ctx, userCred, input, llm, sku, llmImage, "")
 	if nil != err {
 		return "", errors.Wrap(err, "GetPodCreateInput")
 	}
@@ -314,6 +328,31 @@ func (llm *SLLM) StartLLMStopTask(ctx context.Context, userCred mcclient.TokenCr
 // 	return nil
 // }
 
-// func (llm *SLLM) WaitContainerStatus(ctx context.Context, userCred mcclient.TokenCredential, targetStatus []string, timeoutSecs int) (*computeapi.SContainer, error) {
-// 	return nil, nil
-// }
+func (llm *SLLM) WaitContainerStatus(ctx context.Context, userCred mcclient.TokenCredential, targetStatus []string, timeoutSecs int) (*computeapi.SContainer, error) {
+	llmCtr, err := llm.GetLLMContainer()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetLLMContainer")
+	}
+	return llmutils.WaitContainerStatus(ctx, llmCtr.CmpId, targetStatus, timeoutSecs)
+}
+
+func (llm *SLLM) PerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data api.LLMSyncStatusInput) (jsonutils.JSONObject, error) {
+	llm.SetStatus(ctx, userCred, api.LLM_STATUS_START_SYNCSTATUS, "perform syncstatus")
+	err := llm.StartSyncStatusTask(ctx, userCred, "")
+	if err != nil {
+		return nil, errors.Wrap(err, "StartSyncStatusTask")
+	}
+	return nil, nil
+}
+
+func (llm *SLLM) StartSyncStatusTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "LLMSyncStatusTask", llm, userCred, nil, parentTaskId, "")
+	if err != nil {
+		return errors.Wrap(err, "NewTask")
+	}
+	err = task.ScheduleRun(nil)
+	if err != nil {
+		return errors.Wrap(err, "ScheduleRun")
+	}
+	return nil
+}
