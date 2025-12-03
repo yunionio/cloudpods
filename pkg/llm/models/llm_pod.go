@@ -15,11 +15,11 @@ func GetLLMPodCreateInput(
 	userCred mcclient.TokenCredential,
 	input *api.LLMCreateInput,
 	llm *SLLM,
-	sku *SLLMModel,
+	sku *SLLMSku,
 	llmImage *SLLMImage,
 	eip string,
 ) (*computeapi.ServerCreateInput, error) {
-	data, err := GetLLMBasePodCreateInput(ctx, userCred, &input.LLMBaseCreateInput, &llm.SLLMBase, &sku.SLLMModelBase, eip)
+	data, err := GetLLMBasePodCreateInput(ctx, userCred, &input.LLMBaseCreateInput, &llm.SLLMBase, &sku.SLLMSkuBase, eip)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetLLMBasePodCreateInput: ")
 	}

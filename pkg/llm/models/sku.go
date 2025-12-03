@@ -16,8 +16,8 @@ import (
 	compute "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 )
 
-func NewSLLMModelBaseManager(dt interface{}, tableName string, keyword string, keywordPlural string) SLLMModelBaseManager {
-	return SLLMModelBaseManager{
+func NewSLLMSkuBaseManager(dt interface{}, tableName string, keyword string, keywordPlural string) SLLMSkuBaseManager {
+	return SLLMSkuBaseManager{
 		SSharableVirtualResourceBaseManager: db.NewSharableVirtualResourceBaseManager(
 			dt,
 			tableName,
@@ -27,11 +27,11 @@ func NewSLLMModelBaseManager(dt interface{}, tableName string, keyword string, k
 	}
 }
 
-type SLLMModelBaseManager struct {
+type SLLMSkuBaseManager struct {
 	db.SSharableVirtualResourceBaseManager
 }
 
-type SLLMModelBase struct {
+type SLLMSkuBase struct {
 	db.SSharableVirtualResourceBase
 
 	BandwidthMb  int               `nullable:"false" default:"0" create:"optional" list:"user" update:"user"`
@@ -48,7 +48,7 @@ type SLLMModelBase struct {
 	NetworkId   string `charset:"utf8" nullable:"true" list:"user" update:"user" create:"optional"`
 }
 
-func (man *SLLMModelBaseManager) ListItemFilter(
+func (man *SLLMSkuBaseManager) ListItemFilter(
 	ctx context.Context,
 	q *sqlchemy.SQuery,
 	userCred mcclient.TokenCredential,
@@ -62,7 +62,7 @@ func (man *SLLMModelBaseManager) ListItemFilter(
 	return q, nil
 }
 
-func (man *SLLMModelBaseManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.LLMModelBaseCreateInput) (api.LLMModelBaseCreateInput, error) {
+func (man *SLLMSkuBaseManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.LLMSKuBaseCreateInput) (api.LLMSKuBaseCreateInput, error) {
 	var err error
 	input.SharableVirtualResourceCreateInput, err = man.SSharableVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.SharableVirtualResourceCreateInput)
 	if err != nil {
@@ -78,7 +78,7 @@ func (man *SLLMModelBaseManager) ValidateCreateData(ctx context.Context, userCre
 		return input, errors.Wrap(httperrors.ErrInputParameter, "volumes cannot be empty")
 	}
 
-	if !api.IsLLMModelBaseNetworkType(input.NetworkType) {
+	if !api.IsLLMSkuBaseNetworkType(input.NetworkType) {
 		return input, errors.Wrapf(httperrors.ErrInputParameter, "invalid network type %s", input.NetworkType)
 	}
 
@@ -96,15 +96,15 @@ func (man *SLLMModelBaseManager) ValidateCreateData(ctx context.Context, userCre
 	return input, nil
 }
 
-func (modelBase *SLLMModelBase) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.LLMModelBaseUpdateInput) (api.LLMModelBaseUpdateInput, error) {
+func (skuBase *SLLMSkuBase) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.LLMSkuBaseUpdateInput) (api.LLMSkuBaseUpdateInput, error) {
 	var err error
-	input.SharableVirtualResourceBaseUpdateInput, err = modelBase.SSharableVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, input.SharableVirtualResourceBaseUpdateInput)
+	input.SharableVirtualResourceBaseUpdateInput, err = skuBase.SSharableVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, input.SharableVirtualResourceBaseUpdateInput)
 	if err != nil {
 		return input, errors.Wrap(err, "validate SharableVirtualResourceBaseUpdateInput")
 	}
 
 	volumes := []api.Volume{}
-	if err := jsonutils.Marshal(modelBase.Volumes).Unmarshal(&volumes); err != nil {
+	if err := jsonutils.Marshal(skuBase.Volumes).Unmarshal(&volumes); err != nil {
 		return input, errors.Wrapf(err, "Unmarshal Volumes")
 	}
 	for i, volume := range volumes {
@@ -130,7 +130,7 @@ func (modelBase *SLLMModelBase) ValidateUpdateData(ctx context.Context, userCred
 	}
 	input.Volumes = (*api.Volumes)(&volumes)
 
-	if input.NetworkType != nil && !api.IsLLMModelBaseNetworkType(*input.NetworkType) {
+	if input.NetworkType != nil && !api.IsLLMSkuBaseNetworkType(*input.NetworkType) {
 		return input, errors.Wrapf(httperrors.ErrInputParameter, "invalid network type %s", *input.NetworkType)
 	}
 

@@ -1,8 +1,12 @@
 package llm
 
 import (
-	"yunion.io/x/jsonutils"
+	"strings"
 
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/util/regutils"
+
+	api "yunion.io/x/onecloud/pkg/apis/llm"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
@@ -21,7 +25,7 @@ type LLMBaseListOptions struct {
 type LLMListOptions struct {
 	LLMBaseListOptions
 
-	LlmModel string `help:"filter by llm model"`
+	LlmSku   string `help:"filter by llm sku"`
 	LlmImage string `help:"filter by llm image"`
 }
 
@@ -59,7 +63,7 @@ type LLMBaseCreateOptions struct {
 type LLMCreateOptions struct {
 	LLMBaseCreateOptions
 
-	LLM_MODEL_ID string `help:"llm model id or name" json:"llm_model_id"`
+	LLM_SKU_ID string `help:"llm sku id or name" json:"llm_sku_id"`
 }
 
 func (o *LLMCreateOptions) Params() (jsonutils.JSONObject, error) {
@@ -96,4 +100,84 @@ type LLMStopOptions struct {
 
 func (o *LLMStopOptions) Params() (jsonutils.JSONObject, error) {
 	return jsonutils.Marshal(o), nil
+}
+
+type LLMIdOptions struct {
+	ID string `help:"llm id" json:"-"`
+}
+
+func (opts *LLMIdOptions) GetId() string {
+	return opts.ID
+}
+
+func (opts *LLMIdOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(opts), nil
+}
+
+type LLMSaveInstantModelOptions struct {
+	LLMIdOptions
+
+	MODEL_ID string `help:"llm model id, e.g. 500a1f067a9f"`
+	Name     string `help:"instant app name, e.g. qwen3:8b"`
+
+	// AutoRestart bool
+}
+
+func (opts *LLMSaveInstantModelOptions) Params() (jsonutils.JSONObject, error) {
+	input := api.LLMSaveInstantModelInput{
+		ModelId:   opts.MODEL_ID,
+		ImageName: opts.Name,
+		// AutoRestart: opts.AutoRestart,
+	}
+	return jsonutils.Marshal(input), nil
+}
+
+type LLMQuickModelsOptions struct {
+	LLMIdOptions
+
+	MODEL []string `help:"model id and optional display name in the format of modelId[@modelName:modelTag], e.g. 6f48b936a09f or 6f48b936a09f@qwen2:0.5b"`
+
+	Method string `help:"install or uninstall" choices:"install|uninstall"`
+}
+
+func (opts *LLMQuickModelsOptions) Params() (jsonutils.JSONObject, error) {
+	params := api.LLMPerformQuickModelsInput{}
+	for _, mdlFul := range opts.MODEL {
+		var mdl api.ModelInfo
+
+		var idPart string
+		var nameAndTagPart string
+
+		if idx := strings.Index(mdlFul, "@"); idx >= 0 {
+			idPart = mdlFul[:idx]
+			nameAndTagPart = mdlFul[idx+1:]
+
+			if idxTag := strings.LastIndex(nameAndTagPart, ":"); idxTag >= 0 {
+				mdl.DisplayName = nameAndTagPart[:idxTag]
+				mdl.Tag = nameAndTagPart[idxTag+1:]
+			} else {
+				mdl.DisplayName = nameAndTagPart
+			}
+		} else {
+			idPart = mdlFul
+
+			if idxTag := strings.LastIndex(idPart, ":"); idxTag >= 0 {
+				mdl.Tag = idPart[idxTag+1:]
+				idPart = idPart[:idxTag]
+			}
+		}
+
+		if regutils.MatchUUID(idPart) {
+			mdl.Id = idPart
+		} else {
+			mdl.ModelId = idPart
+		}
+
+		params.Models = append(params.Models, mdl)
+	}
+
+	if len(opts.Method) > 0 {
+		params.Method = api.TQuickModelMethod(opts.Method)
+	}
+	return jsonutils.Marshal(params), nil
 }

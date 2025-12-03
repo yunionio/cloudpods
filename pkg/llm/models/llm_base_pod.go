@@ -25,7 +25,7 @@ func GetLLMBasePodCreateInput(
 	userCred mcclient.TokenCredential,
 	input *api.LLMBaseCreateInput,
 	llmBase *SLLMBase,
-	skuBase *SLLMModelBase,
+	skuBase *SLLMSkuBase,
 	eip string,
 ) (*computeapi.ServerCreateInput, error) {
 	data := computeapi.ServerCreateInput{}

@@ -7,9 +7,11 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	commonapi "yunion.io/x/onecloud/pkg/apis"
+	"yunion.io/x/onecloud/pkg/apis/compute"
 	api "yunion.io/x/onecloud/pkg/apis/llm"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/llm/utils"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
@@ -74,6 +76,10 @@ func (m *SLLMContainerManager) FetchByLLMId(
 	}
 	lc.SetModelManager(m, lc)
 	return lc, nil
+}
+
+func (lc *SLLMContainer) GetSContainer(ctx context.Context) (*compute.SContainer, error) {
+	return utils.GetContainer(ctx, lc.CmpId)
 }
 
 func (lc *SLLMContainer) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {

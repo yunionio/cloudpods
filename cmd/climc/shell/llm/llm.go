@@ -13,6 +13,10 @@ func init() {
 	cmd.Show(new(options.LLMShowOptions))
 	cmd.Delete(new(options.LLMDeleteOptions))
 	// cmd.Perform("change-model", new(options.LLMChangeModelOptions))
+	cmd.Perform("syncstatus", new(options.LLMIdOptions))
 	cmd.BatchPerform("stop", new(options.LLMStopOptions))
 	cmd.BatchPerform("start", new(options.LLMStartOptions))
+	cmd.Get("probed-models", new(options.LLMIdOptions))
+	cmd.Perform("save-instant-model", new(options.LLMSaveInstantModelOptions))
+	cmd.Perform("quick-models", new(options.LLMQuickModelsOptions))
 }
