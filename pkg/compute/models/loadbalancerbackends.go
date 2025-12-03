@@ -620,11 +620,9 @@ func (lbb *SLoadbalancerBackend) constructFieldsFromCloudLoadbalancerBackend(ext
 		guest := instance.(*SGuest)
 
 		lbb.BackendId = guest.Id
-		address, err := guest.GetAddress()
-		if err != nil {
-			return err
+		if len(lbb.Address) == 0 {
+			lbb.Address, _ = guest.GetAddress()
 		}
-		lbb.Address = address
 	}
 
 	return nil
