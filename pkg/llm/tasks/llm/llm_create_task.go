@@ -91,6 +91,11 @@ func (task *LLMCreateTask) OnLLMRefreshStatusComplete(ctx context.Context, llm *
 		return
 	}
 
+	mountedModels, err := llm.FetchMountedModelFullName()
+	if err != nil {
+		task.taskFailed(ctx, llm, errors.Wrap(err, "FetchMountedModelFullName"))
+	}
+
 	// 创建磁盘
 	for _, disk := range server.DisksInfo {
 		volume := models.SVolume{}
@@ -106,7 +111,7 @@ func (task *LLMCreateTask) OnLLMRefreshStatusComplete(ctx context.Context, llm *
 		// if len(input.TemplateId) > 0 {
 		volume.TemplateId = disk.ImageId
 		// }
-		// volume.MountedApps = mountedApps
+		volume.MountedModels = mountedModels
 
 		err := models.GetVolumeManager().TableSpec().Insert(ctx, &volume)
 		if err != nil {
@@ -159,22 +164,4 @@ func (task *LLMCreateTask) OnLLMRefreshStatusComplete(ctx context.Context, llm *
 	}
 
 	task.taskComplete(ctx, llm, server.Status)
-	// // 调用子任务在容器中拉取模型
-	// params := jsonutils.NewDict()
-	// params.Set("status", jsonutils.NewString(server.Status))
-	// task.SetStage("OnLLMPullModel", params)
-
-	// if err := llm.StartPullModelTask(ctx, task.GetUserCred(), nil, task.GetId()); err != nil {
-	// 	task.taskFailed(ctx, llm, errors.Wrap(err, "StartPullModelTask"))
-	// 	return
-	// }
 }
-
-// func (task *LLMCreateTask) OnLLMPullModelFailed(ctx context.Context, llm *models.SLLM, err jsonutils.JSONObject) {
-// 	task.taskFailed(ctx, llm, errors.Error(err.String()))
-// }
-
-// func (task *LLMCreateTask) OnLLMPullModel(ctx context.Context, llm *models.SLLM, body jsonutils.JSONObject) {
-// 	status, _ := task.GetParams().GetString("status")
-// 	task.taskComplete(ctx, llm, status)
-// }
