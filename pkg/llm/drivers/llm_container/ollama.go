@@ -11,7 +11,6 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
-	"yunion.io/x/onecloud/pkg/apis"
 	commonapi "yunion.io/x/onecloud/pkg/apis"
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	api "yunion.io/x/onecloud/pkg/apis/llm"
@@ -37,7 +36,7 @@ func (o *ollama) GetType() api.LLMContainerType {
 
 func (o *ollama) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *models.SLLMImage, sku *models.SLLMSku, props []string, devices []computeapi.SIsolatedDevice, diskId string) *computeapi.PodContainerCreateInput {
 	spec := computeapi.ContainerSpec{
-		ContainerSpec: apis.ContainerSpec{
+		ContainerSpec: commonapi.ContainerSpec{
 			Image:             image.ToContainerImage(),
 			ImageCredentialId: image.CredentialId,
 			EnableLxcfs:       true,
@@ -49,7 +48,7 @@ func (o *ollama) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *
 		for i := range *sku.Devices {
 			index := i
 			spec.Devices = append(spec.Devices, &computeapi.ContainerDevice{
-				Type: apis.CONTAINER_DEVICE_TYPE_ISOLATED_DEVICE,
+				Type: commonapi.CONTAINER_DEVICE_TYPE_ISOLATED_DEVICE,
 				IsolatedDevice: &computeapi.ContainerIsolatedDevice{
 					Index: &index,
 				},
@@ -58,7 +57,7 @@ func (o *ollama) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *
 	} else if len(devices) > 0 {
 		for i := range devices {
 			spec.Devices = append(spec.Devices, &computeapi.ContainerDevice{
-				Type: apis.CONTAINER_DEVICE_TYPE_ISOLATED_DEVICE,
+				Type: commonapi.CONTAINER_DEVICE_TYPE_ISOLATED_DEVICE,
 				IsolatedDevice: &computeapi.ContainerIsolatedDevice{
 					Id: devices[i].Id,
 				},
@@ -87,29 +86,28 @@ func (o *ollama) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *
 	// }
 
 	// process volume mounts
-	vols := make([]*apis.ContainerVolumeMount, 0)
-	// appVolIndex := 2
-	// postOverlays, err := d.GetMountedAppsPostOverlay()
-	// if err != nil {
-	// 	log.Errorf("GetMountedAppsPostOverlay failed %s", err)
-	// }
-	// vols = append(spec.VolumeMounts, GetDiskVolumeMounts(sku.Volumes, appVolIndex, postOverlays)...)
+	postOverlays, err := llm.GetMountedModelsPostOverlay()
+	if err != nil {
+		log.Errorf("GetMountedModelsPostOverlay failed %s", err)
+	}
+	vols := spec.VolumeMounts
 
 	// udevPath := filepath.Join(GetTmpSocketsHostPath(d.GetName()), "udev")
 	diskIndex := 0
-	ctrVols := []*apis.ContainerVolumeMount{
+	ctrVols := []*commonapi.ContainerVolumeMount{
 		{
-			Disk: &apis.ContainerVolumeMountDisk{
+			Disk: &commonapi.ContainerVolumeMountDisk{
 				SubDirectory: api.LLM_OLLAMA,
-				Overlay: &apis.ContainerVolumeMountDiskOverlay{
+				Overlay: &commonapi.ContainerVolumeMountDiskOverlay{
 					LowerDir: []string{api.LLM_OLLAMA_HOST_PATH},
 				},
-				Index: &diskIndex,
+				PostOverlay: postOverlays,
+				Index:       &diskIndex,
 			},
-			Type:        apis.CONTAINER_VOLUME_MOUNT_TYPE_DISK,
+			Type:        commonapi.CONTAINER_VOLUME_MOUNT_TYPE_DISK,
 			MountPath:   api.LLM_OLLAMA_BASE_PATH,
 			ReadOnly:    false,
-			Propagation: apis.MOUNTPROPAGATION_PROPAGATION_HOST_TO_CONTAINER,
+			Propagation: commonapi.MOUNTPROPAGATION_PROPAGATION_HOST_TO_CONTAINER,
 		},
 	}
 	vols = append(vols, ctrVols...)

@@ -217,8 +217,8 @@ func fetchProperties(propStrs []string, dict *jsonutils.JSONDict) {
 	}
 }
 
-// func fetchMountedApps(apps []string, dict *jsonutils.JSONDict) {
-// 	if len(apps) > 0 {
-// 		dict.Set("mounted_apps", jsonutils.Marshal(apps))
-// 	}
-// }
+func fetchMountedModels(mdls []string, dict *jsonutils.JSONDict) {
+	if len(mdls) > 0 {
+		dict.Set("mounted_models", jsonutils.Marshal(mdls))
+	}
+}
