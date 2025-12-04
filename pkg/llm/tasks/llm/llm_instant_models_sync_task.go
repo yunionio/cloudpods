@@ -2,6 +2,7 @@ package llm
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -118,7 +119,7 @@ func (task *LLMInstantModelsSyncTask) OnModelsUnmountComplete(ctx context.Contex
 			return llm.TryContainerMountPaths(ctx, task.UserCred, s, overlays, 7200)
 		})
 		if err != nil {
-			task.OnModelsUnmountCompleteFailed(ctx, llm, jsonutils.NewString(errors.Wrap(err, "TryContainerMountPaths").Error()))
+			task.OnModelsMountCompleteFailed(ctx, llm, jsonutils.NewString(errors.Wrap(err, "TryContainerMountPaths").Error()))
 		}
 	} else {
 		task.OnModelsMountComplete(ctx, llm, nil)
@@ -184,8 +185,17 @@ func (task *LLMInstantModelsSyncTask) OnModelsMountComplete(ctx context.Context,
 
 func (task *LLMInstantModelsSyncTask) OnModelsMountCompleteFailed(ctx context.Context, obj db.IStandaloneModel, err jsonutils.JSONObject) {
 	llm := obj.(*models.SLLM)
-	task.taskFailed(ctx, llm, err.String())
 
+	// get duplicated error
+	errStr := err.String()
+	dupMarker := "duplicated container target dirs map"
+	dupIndex := strings.Index(errStr, dupMarker)
+	if dupIndex != -1 {
+		drv := llm.GetLLMContainerDriver()
+		errStr = drv.CheckDuplicateMounts(errStr, dupIndex)
+	}
+
+	task.taskFailed(ctx, llm, errStr)
 	// sync status to clear failed status of container
 	llm.StartSyncStatusTask(ctx, task.UserCred, "")
 }
