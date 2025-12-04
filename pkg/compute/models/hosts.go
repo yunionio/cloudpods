@@ -168,6 +168,10 @@ type SHost struct {
 	// 存储详情
 	StorageInfo jsonutils.JSONObject `nullable:"true" get:"domain" update:"domain" create:"domain_optional"`
 
+	RootPartitionUsedCapacityMb int     `nullable:"true" list:"domain" update:"domain" create:"domain_optional"`
+	MemoryUsedMb                int     `nullable:"true" list:"domain" update:"domain" create:"domain_optional"`
+	CpuUsagePercent             float64 `nullable:"true" list:"domain" update:"domain" create:"domain_optional"`
+
 	// IPMI地址
 	IpmiIp string `width:"16" charset:"ascii" nullable:"true" list:"domain"`
 
@@ -745,38 +749,6 @@ func (manager *SHostManager) OrderByExtraFields(
 		q = q.LeftJoin(storageSQ, sqlchemy.Equals(q.Field("id"), storageSQ.Field("host_id")))
 
 		db.OrderByFields(q, []string{query.OrderByStorageUsed}, []sqlchemy.IQueryField{q.Field("storage_used")})
-	}
-
-	if db.NeedOrderQuery([]string{query.OrderByCpuUsage}) {
-		meta := db.Metadata.Query().
-			Equals("obj_type", HostManager.Keyword()).
-			Equals("key", api.HOST_METADATA_CPU_USAGE_PERCENT).SubQuery()
-		metaQ := meta.Query(
-			meta.Field("obj_id"),
-			sqlchemy.CASTFloat(meta.Field("value"), "cpu_usage"),
-		)
-		metaSQ := metaQ.GroupBy(metaQ.Field("obj_id")).SubQuery()
-
-		q = q.LeftJoin(metaSQ, sqlchemy.Equals(q.Field("id"), metaSQ.Field("obj_id")))
-
-		db.OrderByFields(q, []string{query.OrderByCpuUsage}, []sqlchemy.IQueryField{metaSQ.Field("cpu_usage")})
-	}
-
-	if db.NeedOrderQuery([]string{query.OrderByMemUsage}) {
-		meta := db.Metadata.Query().
-			Equals("obj_type", HostManager.Keyword()).
-			Equals("key", api.HOST_METADATA_MEMORY_USED_MB).SubQuery()
-		hosts := HostManager.Query().SubQuery()
-		metaQ := meta.Query(
-			meta.Field("obj_id"),
-			sqlchemy.DIV("mem_usage", sqlchemy.CASTFloat(meta.Field("value"), api.HOST_METADATA_MEMORY_USED_MB), hosts.Field("mem_size")),
-		).LeftJoin(hosts, sqlchemy.Equals(meta.Field("obj_id"), hosts.Field("id")))
-
-		metaSQ := metaQ.GroupBy(metaQ.Field("obj_id")).SubQuery()
-
-		q = q.LeftJoin(metaSQ, sqlchemy.Equals(q.Field("id"), metaSQ.Field("obj_id")))
-
-		db.OrderByFields(q, []string{query.OrderByMemUsage}, []sqlchemy.IQueryField{metaSQ.Field("mem_usage")})
 	}
 
 	if db.NeedOrderQuery([]string{query.OrderByStorageUsage}) {
@@ -5283,9 +5255,6 @@ func (hh *SHost) PerformPing(ctx context.Context, userCred mcclient.TokenCredent
 				}
 			}
 		}
-		hh.SetMetadata(ctx, "root_partition_used_capacity_mb", input.RootPartitionUsedCapacityMb, userCred)
-		hh.SetMetadata(ctx, "memory_used_mb", input.MemoryUsedMb, userCred)
-		hh.SetMetadata(ctx, api.HOST_METADATA_CPU_USAGE_PERCENT, input.CpuUsagePercent, userCred)
 
 		guests, _ := hh.GetGuests()
 		for _, guest := range guests {
@@ -5300,13 +5269,21 @@ func (hh *SHost) PerformPing(ctx context.Context, userCred mcclient.TokenCredent
 			}
 		}
 	}
+	hh.SaveUpdates(func() error {
+		if hh.HostStatus == api.HOST_ONLINE {
+			hh.LastPingAt = time.Now()
+		}
+		if input.WithData {
+			hh.RootPartitionUsedCapacityMb = input.RootPartitionUsedCapacityMb
+			hh.MemoryUsedMb = input.MemoryUsedMb
+			hh.CpuUsagePercent = input.CpuUsagePercent
+		}
+		return nil
+	})
+
 	if hh.HostStatus != api.HOST_ONLINE {
 		hh.PerformOnline(ctx, userCred, query, nil)
 	} else {
-		hh.SaveUpdates(func() error {
-			hh.LastPingAt = time.Now()
-			return nil
-		})
 		if hh.hasUnknownGuests() {
 			hh.StartUploadAllGuestsStatusTask(ctx, userCred)
 		}

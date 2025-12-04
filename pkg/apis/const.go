@@ -149,6 +149,8 @@ const (
 )
 
 const (
+	OS_ARCH_ALL = "all"
+
 	OS_ARCH_X86 = "x86"
 	OS_ARCH_ARM = "arm"
 
