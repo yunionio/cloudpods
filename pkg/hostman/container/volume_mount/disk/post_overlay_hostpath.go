@@ -134,8 +134,17 @@ func (p postOverlayHostPath) mountSingleFile(singleFilePath string, d diskPostOv
 		return errors.Wrapf(err, "change file %s owner", singleFilePath)
 	}
 	if !fileutils.Exists(mergedDst) {
+		if err := volume_mount.EnsureDir(filepath.Dir(mergedDst)); err != nil {
+			return errors.Wrapf(err, "ensure dir %s", filepath.Dir(mergedDst))
+		}
+		if err := volume_mount.ChangeDirOwnerDirectly(filepath.Dir(mergedDst), ov.FsUser, ov.FsGroup); err != nil {
+			return errors.Wrapf(err, "change dir %s owner", filepath.Dir(mergedDst))
+		}
 		if err := volume_mount.TouchFile(mergedDst); err != nil {
 			return errors.Wrapf(err, "touch file %s", mergedDst)
+		}
+		if err := volume_mount.ChangeDirOwnerDirectly(mergedDst, ov.FsUser, ov.FsGroup); err != nil {
+			return errors.Wrapf(err, "change file %s owner", mergedDst)
 		}
 	}
 	if err := mountutils.MountBind(singleFileMergedFilePath, mergedDst); err != nil {
