@@ -358,6 +358,18 @@ func (o *ollama) ValidateMounts(mounts []string, mdlName string, mdlTag string) 
 	return mounts, nil
 }
 
+func (o *ollama) CheckDuplicateMounts(errStr string, dupIndex int) string {
+	// Find the first model path before "duplicated container target dirs"
+	firstPath := extractModelPath(errStr[:dupIndex], api.LLM_OLLAMA_MANIFESTS_BASE_PATH, true)
+	firstModel := parseModelName(firstPath)
+
+	// Find the second model path after "duplicated container target dirs"
+	secondPath := extractModelPath(errStr[dupIndex:], api.LLM_OLLAMA_MANIFESTS_BASE_PATH, false)
+	secondModel := parseModelName(secondPath)
+
+	return fmt.Sprintf("Model %s and %s have duplicated container target dirs", firstModel, secondModel)
+}
+
 // func download(ctx context.Context, userCred mcclient.TokenCredential, containerId string, taskId string, webUrl string, path string) error {
 // 	input := &computeapi.ContainerDownloadFileInput{
 // 		WebUrl: webUrl,
@@ -448,4 +460,54 @@ func getManifests(ctx context.Context, containerId string, modelName string, mod
 	}
 
 	return manifests, nil
+}
+
+func extractModelPath(str, startMarker string, findLast bool) string {
+	var idx int
+	if findLast {
+		idx = strings.LastIndex(str, startMarker)
+	} else {
+		idx = strings.Index(str, startMarker)
+	}
+
+	if idx == -1 {
+		return ""
+	}
+
+	pathStart := idx
+	pathEnd := -1
+	for i := pathStart; i < len(str); i++ {
+		if str[i] == '\\' && i+4 < len(str) && str[i+1] == '\\' && str[i+2] == '\\' && str[i+3] == '\\' && str[i+4] == '"' { // for \\\\\"
+			pathEnd = i
+			break
+		}
+		if str[i] == '"' || str[i] == ',' || str[i] == ':' || str[i] == '}' {
+			pathEnd = i
+			break
+		}
+	}
+	var extracted string
+	if pathEnd != -1 {
+		extracted = str[pathStart:pathEnd]
+	} else {
+		extracted = str[pathStart:]
+	}
+
+	return extracted
+}
+
+func parseModelName(path string) string {
+	if !strings.HasPrefix(path, api.LLM_OLLAMA_MANIFESTS_BASE_PATH) {
+		return ""
+	}
+	model := strings.TrimPrefix(path, api.LLM_OLLAMA_MANIFESTS_BASE_PATH)
+	model = strings.TrimPrefix(model, "/")
+	lastSlash := strings.LastIndex(model, "/")
+	if lastSlash != -1 {
+		name := model[:lastSlash]
+		tag := model[lastSlash+1:]
+		tag = strings.TrimRight(tag, `\`)
+		return name + ":" + tag
+	}
+	return strings.TrimRight(model, `\`)
 }
