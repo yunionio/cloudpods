@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/rbacscope"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	identityapi "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -189,7 +190,7 @@ func (self *SQuota) FetchUsage(ctx context.Context) error {
 
 	diskSize := totalDiskSize(scope, ownerId, tristate.None, tristate.None, false, false, rangeObjs, providers, brands, keys.CloudEnv, hypervisors)
 
-	guest := usageTotalGuestResouceCount(ctx, scope, ownerId, rangeObjs, nil, hypervisors, false, false, nil, nil, providers, brands, keys.CloudEnv, nil, rbacutils.SPolicyResult{})
+	guest := usageTotalGuestResourceCountByArch(ctx, scope, ownerId, rangeObjs, nil, hypervisors, false, false, nil, nil, providers, brands, keys.CloudEnv, nil, rbacutils.SPolicyResult{}, apis.OS_ARCH_ALL)
 
 	self.Count = guest.TotalGuestCount
 	self.Cpu = guest.TotalCpuCount

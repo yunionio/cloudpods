@@ -164,14 +164,6 @@ type HostListInput struct {
 	// enmu: asc,desc
 	OrderByMemCommit string `json:"order_by_mem_commit"`
 
-	// 按物理cpu使用率排序
-	// enmu: asc,desc
-	OrderByCpuUsage string `json:"order_by_cpu_usage"`
-
-	// 按物理内存使用率排序
-	// enmu: asc,desc
-	OrderByMemUsage string `json:"order_by_mem_usage"`
-
 	// 按物理存储使用率排序
 	// enmu: asc,desc
 	OrderByStorageUsage string `json:"order_by_storage_usage"`
