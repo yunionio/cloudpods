@@ -57,6 +57,17 @@ func (self *SBaiduGuestDriver) ChooseHostStorage(host *models.SHost, guest *mode
 	return chooseHostStorage(self, host, diskConfig.Backend, storageIds), nil
 }
 
+func (self *SBaiduGuestDriver) GetStorageTypes() []string {
+	return []string{
+		api.STORAGE_BAIDU_SSD,
+		api.STORAGE_BAIDU_PREMIUM_SSD,
+		api.STORAGE_BAIDU_HDD,
+		api.STORAGE_BAIDU_ENHANCED_SSD_PL1,
+		api.STORAGE_BAIDU_ENHANCED_SSD_PL2,
+		api.STORAGE_BAIDU_ENHANCED_SSD_PL3,
+	}
+}
+
 func (self *SBaiduGuestDriver) GetComputeQuotaKeys(scope rbacscope.TRbacScope, ownerId mcclient.IIdentityProvider, brand string) models.SComputeResourceKeys {
 	keys := models.SComputeResourceKeys{}
 	keys.SBaseProjectQuotaKeys = quotas.OwnerIdProjectQuotaKeys(scope, ownerId)
@@ -79,6 +90,24 @@ func (self *SBaiduGuestDriver) GetInstanceCapability() cloudprovider.SInstanceCa
 			Windows: cloudprovider.SOsDefaultAccount{
 				DefaultAccount: api.VM_DEFAULT_WINDOWS_LOGIN_USER,
 				Changeable:     false,
+			},
+		},
+		Storages: cloudprovider.Storage{
+			DataDisk: []cloudprovider.StorageInfo{
+				{StorageType: api.STORAGE_BAIDU_SSD, MaxSizeGb: 32765, MinSizeGb: 50, StepSizeGb: 1, Resizable: true},
+				{StorageType: api.STORAGE_BAIDU_PREMIUM_SSD, MaxSizeGb: 32765, MinSizeGb: 50, StepSizeGb: 1, Resizable: true},
+				{StorageType: api.STORAGE_BAIDU_HDD, MaxSizeGb: 32765, MinSizeGb: 5, StepSizeGb: 1, Resizable: true},
+				{StorageType: api.STORAGE_BAIDU_ENHANCED_SSD_PL1, MaxSizeGb: 32765, MinSizeGb: 50, StepSizeGb: 1, Resizable: true},
+				{StorageType: api.STORAGE_BAIDU_ENHANCED_SSD_PL2, MaxSizeGb: 32765, MinSizeGb: 50, StepSizeGb: 1, Resizable: true},
+				{StorageType: api.STORAGE_BAIDU_ENHANCED_SSD_PL3, MaxSizeGb: 32765, MinSizeGb: 50, StepSizeGb: 1, Resizable: true},
+			},
+			SysDisk: []cloudprovider.StorageInfo{
+				{StorageType: api.STORAGE_BAIDU_SSD, MaxSizeGb: 32765, MinSizeGb: 50, StepSizeGb: 1, Resizable: true},
+				{StorageType: api.STORAGE_BAIDU_PREMIUM_SSD, MaxSizeGb: 32765, MinSizeGb: 20, StepSizeGb: 1, Resizable: true},
+				{StorageType: api.STORAGE_BAIDU_HDD, MaxSizeGb: 32765, MinSizeGb: 20, StepSizeGb: 1, Resizable: true},
+				{StorageType: api.STORAGE_BAIDU_ENHANCED_SSD_PL1, MaxSizeGb: 32765, MinSizeGb: 50, StepSizeGb: 1, Resizable: true},
+				{StorageType: api.STORAGE_BAIDU_ENHANCED_SSD_PL2, MaxSizeGb: 32765, MinSizeGb: 50, StepSizeGb: 1, Resizable: true},
+				{StorageType: api.STORAGE_BAIDU_ENHANCED_SSD_PL3, MaxSizeGb: 32765, MinSizeGb: 50, StepSizeGb: 1, Resizable: true},
 			},
 		},
 	}
