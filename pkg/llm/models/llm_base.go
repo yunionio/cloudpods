@@ -3,12 +3,14 @@ package models
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	api "yunion.io/x/onecloud/pkg/apis/llm"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -250,6 +252,35 @@ func (llm *SLLMBase) GetVolume() (*SVolume, error) {
 	}
 	volume.SetModelManager(GetVolumeManager(), volume)
 	return volume, nil
+}
+
+func GetDiskVolumeMounts(vols *api.Volumes, containerIndex int, postOverlays []*apis.ContainerVolumeMountDiskPostOverlay) []*apis.ContainerVolumeMount {
+	if vols == nil {
+		return nil
+	}
+	mounts := make([]*apis.ContainerVolumeMount, 0)
+	for idx, vol := range *vols {
+		volRelation := vol.GetVolumeByContainer(containerIndex)
+		if volRelation == nil {
+			continue
+		}
+		mounts = append(mounts, &apis.ContainerVolumeMount{
+			UniqueName:  fmt.Sprintf("volume-%d-%d-%s", idx, containerIndex, volRelation.MountPath),
+			Type:        apis.CONTAINER_VOLUME_MOUNT_TYPE_DISK,
+			MountPath:   volRelation.MountPath,
+			Propagation: apis.MOUNTPROPAGATION_PROPAGATION_HOST_TO_CONTAINER,
+			Disk: &apis.ContainerVolumeMountDisk{
+				Index:        &idx,
+				SubDirectory: volRelation.SubDirectory,
+				Overlay:      volRelation.Overlay,
+				PostOverlay:  postOverlays,
+			},
+			FsUser:  volRelation.FsUser,
+			FsGroup: volRelation.FsGroup,
+		})
+	}
+
+	return mounts
 }
 
 // 取消自动删除

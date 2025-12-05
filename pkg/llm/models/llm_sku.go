@@ -41,11 +41,12 @@ func GetLLMSkuManager() *SLLMSkuManager {
 
 type SLLMSkuManager struct {
 	SLLMSkuBaseManager
+	SMountedModelsResourceManager
 }
 
 type SLLMSku struct {
 	SLLMSkuBase
-	// SMountedAppsResource
+	SMountedModelsResource
 
 	LLMImageId   string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"required"`
 	LLMType      string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"required"`
@@ -66,10 +67,10 @@ func (man *SLLMSkuManager) ListItemFilter(
 	if len(input.LLMType) > 0 {
 		q = q.Equals("llm_type", input.LLMType)
 	}
-	// q, err = man.SMountedAppsResourceManager.ListItemFilter(ctx, q, userCred, input.MountedAppResourceListInput)
-	// if err != nil {
-	// 	return nil, errors.Wrap(err, "SMountedAppsResourceManager")
-	// }
+	q, err = man.SMountedModelsResourceManager.ListItemFilter(ctx, q, userCred, input.MountedModelResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SMountedAppsResourceManager")
+	}
 	return q, nil
 }
 

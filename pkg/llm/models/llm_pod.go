@@ -24,6 +24,14 @@ func GetLLMPodCreateInput(
 		return nil, errors.Wrap(err, "GetLLMBasePodCreateInput: ")
 	}
 
+	// generate post overlay info
+	{
+		err = llm.UpdateMountedModelFullNames(ctx, nil, true, input.LLMImageId, input.LLMSkuId)
+		if err != nil {
+			return nil, errors.Wrap(err, "UpdateMountedModelFullNames")
+		}
+	}
+
 	lcd := llm.GetLLMContainerDriver()
 	llmContainer := lcd.GetContainerSpec(ctx, llm, llmImage, sku, nil, nil, "")
 

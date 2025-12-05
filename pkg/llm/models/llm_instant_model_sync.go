@@ -3,7 +3,9 @@ package models
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
@@ -584,6 +586,116 @@ func (llm *SLLM) UpdateVolumeMountedModelFullNames(mdlFullNames []string) error 
 		return errors.Wrap(err, "GetVolume")
 	}
 	return volume.UpdateMountedModelFullNames(mdlFullNames)
+}
+
+type mdlFullNameInfo struct {
+	ModelId       string
+	ModelFullName string
+	IsMounted     bool
+}
+
+func (llm *SLLM) UpdateMountedModelFullNames(ctx context.Context, mdlinfos []string, isReset bool, imageId string, skuId string) error {
+	mdlFullNameInfos := make(map[string]*mdlFullNameInfo)
+	for i := range mdlinfos {
+		parts := strings.Split(mdlinfos[i], "@")
+		mdlFullNameInfos[parts[0]] = &mdlFullNameInfo{
+			ModelId:       parts[0],
+			ModelFullName: parts[1],
+			IsMounted:     false,
+		}
+	}
+
+	preinstallModel := true
+
+	if preinstallModel {
+		sku, err := llm.GetLLMSku(skuId)
+		if err != nil {
+			return errors.Wrap(err, "GetLLMSku")
+		}
+		var deletedModelIds []string
+		if !isReset {
+			deletedModelIds, err = GetLLMInstantModelManager().getDeletedModelIds(llm.Id)
+			if err != nil {
+				return errors.Wrap(err, "getDeletedModelIds")
+			}
+		}
+		for i := range sku.MountedModels {
+			parts := strings.Split(sku.MountedModels[i], "@")
+			if !isReset && slices.Contains(deletedModelIds, parts[0]) {
+				// if not reset, and the package is deleted, skip it
+				continue
+			}
+			if _, ok := mdlFullNameInfos[parts[0]]; !ok {
+				mdlFullNameInfos[parts[0]] = &mdlFullNameInfo{
+					ModelId:       parts[0],
+					ModelFullName: parts[1],
+					IsMounted:     false,
+				}
+			}
+		}
+	}
+
+	boolTrue := true
+	boolFalse := false
+	mountedModels, err := llm.FetchModels(nil, &boolTrue, nil)
+	if err != nil {
+		return errors.Wrap(err, "FetchApps")
+	}
+	for i := range mountedModels {
+		find := false
+		if _, ok := mdlFullNameInfos[mountedModels[i].ModelId]; ok {
+			find = true
+			mdlFullNameInfos[mountedModels[i].ModelId].IsMounted = true
+		}
+		if isReset && !find {
+			// remove instant model not in mdlInfos
+			mountedModel := mountedModels[i]
+			log.Debugf("UpdateMountedModelFullNames remove model %s", mountedModel.ModelId)
+			_, err := GetLLMInstantModelManager().updateInstantModel(ctx, llm.Id, mountedModel.ModelId, "", "", &boolFalse, &boolFalse)
+			if err != nil {
+				return errors.Wrap(err, "remove instant model")
+			}
+		}
+	}
+
+	installModelFullNames := make([]string, 0)
+	for _, mdlFullNameInfo := range mdlFullNameInfos {
+		installModelFullNames = append(installModelFullNames, fmt.Sprintf("%s-%s", mdlFullNameInfo.ModelFullName, mdlFullNameInfo.ModelId))
+		if !mdlFullNameInfo.IsMounted {
+			modelName, modelTag, _ := llm.GetLargeLanguageModelName(mdlFullNameInfo.ModelFullName)
+			_, err := GetLLMInstantModelManager().updateInstantModel(ctx, llm.Id, mdlFullNameInfo.ModelId, modelName, modelTag, &boolFalse, &boolTrue)
+			if err != nil {
+				return errors.Wrap(err, "install model")
+			}
+		}
+	}
+
+	volume, _ := llm.GetVolume()
+	if volume != nil {
+		err := llm.UpdateVolumeMountedModelFullNames(installModelFullNames)
+		if err != nil {
+			return errors.Wrap(err, "UpdateVolumeMountedModelFullNames")
+		}
+	}
+
+	return nil
+}
+
+func (llm *SLLM) GetMountedModelsPostOverlay() ([]*commonapi.ContainerVolumeMountDiskPostOverlay, error) {
+	boolTrue := true
+	mdls, err := llm.FetchModels(nil, &boolTrue, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "fetchApps")
+	}
+	if len(mdls) == 0 {
+		return nil, nil
+	}
+	drv := llm.GetLLMContainerDriver()
+	overlays, err := models2overlays(drv, mdls, false)
+	if err != nil {
+		return nil, errors.Wrap(err, "models2overlays")
+	}
+	return overlays, nil
 }
 
 func (llm *SLLM) getMountingModelsPostOverlay(ctx context.Context, input apis.LLMSyncModelTaskInput, existingMdls []SLLMInstantModel) ([]SLLMInstantModel, []*commonapi.ContainerVolumeMountDiskPostOverlay, error) {

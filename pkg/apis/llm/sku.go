@@ -119,9 +119,9 @@ type LLMSkuDetails struct {
 	Template string
 }
 
-// type MountedAppResourceDetails struct {
-// 	MountedApps []string `json:"mounted_apps"`
-// }
+type MountedAppResourceDetails struct {
+	MountedModels []string `json:"mounted_models"`
+}
 
 type LLMSKuBaseCreateInput struct {
 	apis.SharableVirtualResourceCreateInput
@@ -142,7 +142,6 @@ type LLMSKuBaseCreateInput struct {
 
 type LLMSkuBaseUpdateInput struct {
 	apis.SharableVirtualResourceBaseUpdateInput
-	// MountedAppResourceUpdateInput
 
 	Cpu    *int `json:"cpu"`
 	Memory *int `json:"memory"`
@@ -165,7 +164,7 @@ type LLMSkuBaseUpdateInput struct {
 
 type LLMSkuListInput struct {
 	apis.SharableVirtualResourceListInput
-	// MountedAppResourceListInput
+	MountedModelResourceListInput
 
 	LLMType string `json:"llm_type"`
 }
@@ -180,6 +179,7 @@ type LLMSkuCreateInput struct {
 
 type LLMSkuUpdateInput struct {
 	LLMSkuBaseUpdateInput
+	MountedModelResourceUpdateInput
 
 	LLMImageId   string `json:"llm_image_id"`
 	LLMModelName string `json:"llm_model_name"`
@@ -195,7 +195,7 @@ type LLMSkuUpdateInput struct {
 
 type DifySkulListInput struct {
 	apis.SharableVirtualResourceListInput
-	// MountedAppResourceListInput
+	MountedModelResourceListInput
 }
 
 type DifySkuCreateInput struct {

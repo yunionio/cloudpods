@@ -52,22 +52,6 @@ func (t *LLMStartTask) requestStart(ctx context.Context, llm *models.SLLM) {
 		t.taskFailed(ctx, llm, err.Error())
 		return
 	}
-	// worker.StartTaskRun(t, func() (jsonutils.JSONObject, error) {
-	// 	_, err := llm.WaitServerStatus(ctx, t.GetUserCred(), []string{computeapi.VM_RUNNING}, 900)
-	// 	if err != nil {
-	// 		return nil, errors.Wrap(err, "WaitServerStatus")
-	// 	}
-	// 	time.Sleep(time.Second)
-	// 	_, err = d.WaitServerStatus(ctx, task.UserCred, []string{computeapi.VM_RUNNING}, 900)
-	// 	if err != nil {
-	// 		return nil, errors.Wrap(err, "WaitServerStatus")
-	// 	}
-	// 	return nil, nil
-	// })
-	// if err := llm.RunModel(ctx, t.GetUserCred()); nil != err {
-	// 	t.OnStartedFailed(ctx, llm, jsonutils.NewString(err.Error()))
-	// 	return
-	// }
 }
 
 func (t *LLMStartTask) OnStartedFailed(ctx context.Context, llm *models.SLLM, err jsonutils.JSONObject) {
