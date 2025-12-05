@@ -59,7 +59,12 @@ func (p *SSHPartition) GetMountPath() string {
 }
 
 func (p *SSHPartition) GetFsFormat() (string, error) {
-	cmd := fmt.Sprintf("/lib/mos/partfs.sh %s", p.partDev)
+	var cmd string
+	if strings.HasPrefix(p.partDev, "/dev/md") {
+		cmd = fmt.Sprintf("blkid -o value -s TYPE %s", p.partDev)
+	} else {
+		cmd = fmt.Sprintf("/lib/mos/partfs.sh %s", p.partDev)
+	}
 	ret, err := p.term.Run(cmd)
 	if err != nil {
 		return "", err
@@ -375,7 +380,7 @@ func (p *SSHPartition) ListDir(sPath string, caseInsensitive bool) []string {
 }
 
 func (p *SSHPartition) osChown(sPath string, uid, gid int) error {
-	cmd := fmt.Sprintf("chown %d.%d %s", uid, gid, sPath)
+	cmd := fmt.Sprintf("chown %d:%d %s", uid, gid, sPath)
 	_, err := p.term.Run(cmd)
 	return err
 }

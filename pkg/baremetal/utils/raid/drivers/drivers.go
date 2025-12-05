@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/onecloud/pkg/baremetal/utils/raid"
 	_ "yunion.io/x/onecloud/pkg/baremetal/utils/raid/adaptec"
 	_ "yunion.io/x/onecloud/pkg/baremetal/utils/raid/hpssactl"
+	_ "yunion.io/x/onecloud/pkg/baremetal/utils/raid/mdadm"
 	_ "yunion.io/x/onecloud/pkg/baremetal/utils/raid/megactl"
 	_ "yunion.io/x/onecloud/pkg/baremetal/utils/raid/mvcli"
 	_ "yunion.io/x/onecloud/pkg/baremetal/utils/raid/sas2iru"
