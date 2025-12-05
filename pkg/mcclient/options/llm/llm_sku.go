@@ -56,6 +56,8 @@ func (o *LLMSkuDeleteOptions) Params() (jsonutils.JSONObject, error) {
 type LLMSkuUpdateOptions struct {
 	LLMSkuBaseUpdateOptions
 
+	MountedModels []string `help:"mounted models, <model_id>@<model_name>:<model_tag> e.g. 6f48b936a09f@qwen2:0.5b" json:"mounted_models"`
+
 	LlmImageId   string
 	LlmModelName string
 }
@@ -70,5 +72,6 @@ func (o *LLMSkuUpdateOptions) Params() (jsonutils.JSONObject, error) {
 	obj.Unmarshal(dict)
 
 	o.LLMSkuBaseUpdateOptions.Params(dict)
+	fetchMountedModels(o.MountedModels, dict)
 	return dict, nil
 }

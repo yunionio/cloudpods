@@ -72,6 +72,20 @@ func (man *SLLMInstantModelManager) fetchLLMInstantModel(llmId string, mdlId str
 	return &llmInstantModel, nil
 }
 
+func (man *SLLMInstantModelManager) getDeletedModelIds(llmId string) ([]string, error) {
+	q := man.RawQuery("model_id").Equals("llm_id", llmId).IsTrue("deleted").Distinct()
+	llmInstantModel := make([]SLLMInstantModel, 0)
+	err := db.FetchModelObjects(man, q, &llmInstantModel)
+	if err != nil {
+		return nil, errors.Wrap(err, "Query")
+	}
+	modelIds := make([]string, len(llmInstantModel))
+	for i := range llmInstantModel {
+		modelIds[i] = llmInstantModel[i].ModelId
+	}
+	return modelIds, nil
+}
+
 func (man *SLLMInstantModelManager) updateInstantModel(ctx context.Context, llmId string, mdlId string, mdlName string, tag string, probed, mounted *bool) (*SLLMInstantModel, error) {
 	mdl, err := man.fetchLLMInstantModel(llmId, mdlId)
 	if err != nil && errors.Cause(err) != errors.ErrNotFound {

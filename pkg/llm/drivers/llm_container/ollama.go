@@ -11,7 +11,6 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
-	"yunion.io/x/onecloud/pkg/apis"
 	commonapi "yunion.io/x/onecloud/pkg/apis"
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	api "yunion.io/x/onecloud/pkg/apis/llm"
@@ -37,7 +36,7 @@ func (o *ollama) GetType() api.LLMContainerType {
 
 func (o *ollama) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *models.SLLMImage, sku *models.SLLMSku, props []string, devices []computeapi.SIsolatedDevice, diskId string) *computeapi.PodContainerCreateInput {
 	spec := computeapi.ContainerSpec{
-		ContainerSpec: apis.ContainerSpec{
+		ContainerSpec: commonapi.ContainerSpec{
 			Image:             image.ToContainerImage(),
 			ImageCredentialId: image.CredentialId,
 			EnableLxcfs:       true,
@@ -49,7 +48,7 @@ func (o *ollama) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *
 		for i := range *sku.Devices {
 			index := i
 			spec.Devices = append(spec.Devices, &computeapi.ContainerDevice{
-				Type: apis.CONTAINER_DEVICE_TYPE_ISOLATED_DEVICE,
+				Type: commonapi.CONTAINER_DEVICE_TYPE_ISOLATED_DEVICE,
 				IsolatedDevice: &computeapi.ContainerIsolatedDevice{
 					Index: &index,
 				},
@@ -58,7 +57,7 @@ func (o *ollama) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *
 	} else if len(devices) > 0 {
 		for i := range devices {
 			spec.Devices = append(spec.Devices, &computeapi.ContainerDevice{
-				Type: apis.CONTAINER_DEVICE_TYPE_ISOLATED_DEVICE,
+				Type: commonapi.CONTAINER_DEVICE_TYPE_ISOLATED_DEVICE,
 				IsolatedDevice: &computeapi.ContainerIsolatedDevice{
 					Id: devices[i].Id,
 				},
@@ -87,29 +86,28 @@ func (o *ollama) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *
 	// }
 
 	// process volume mounts
-	vols := make([]*apis.ContainerVolumeMount, 0)
-	// appVolIndex := 2
-	// postOverlays, err := d.GetMountedAppsPostOverlay()
-	// if err != nil {
-	// 	log.Errorf("GetMountedAppsPostOverlay failed %s", err)
-	// }
-	// vols = append(spec.VolumeMounts, GetDiskVolumeMounts(sku.Volumes, appVolIndex, postOverlays)...)
+	postOverlays, err := llm.GetMountedModelsPostOverlay()
+	if err != nil {
+		log.Errorf("GetMountedModelsPostOverlay failed %s", err)
+	}
+	vols := spec.VolumeMounts
 
 	// udevPath := filepath.Join(GetTmpSocketsHostPath(d.GetName()), "udev")
 	diskIndex := 0
-	ctrVols := []*apis.ContainerVolumeMount{
+	ctrVols := []*commonapi.ContainerVolumeMount{
 		{
-			Disk: &apis.ContainerVolumeMountDisk{
+			Disk: &commonapi.ContainerVolumeMountDisk{
 				SubDirectory: api.LLM_OLLAMA,
-				Overlay: &apis.ContainerVolumeMountDiskOverlay{
+				Overlay: &commonapi.ContainerVolumeMountDiskOverlay{
 					LowerDir: []string{api.LLM_OLLAMA_HOST_PATH},
 				},
-				Index: &diskIndex,
+				PostOverlay: postOverlays,
+				Index:       &diskIndex,
 			},
-			Type:        apis.CONTAINER_VOLUME_MOUNT_TYPE_DISK,
+			Type:        commonapi.CONTAINER_VOLUME_MOUNT_TYPE_DISK,
 			MountPath:   api.LLM_OLLAMA_BASE_PATH,
 			ReadOnly:    false,
-			Propagation: apis.MOUNTPROPAGATION_PROPAGATION_HOST_TO_CONTAINER,
+			Propagation: commonapi.MOUNTPROPAGATION_PROPAGATION_HOST_TO_CONTAINER,
 		},
 	}
 	vols = append(vols, ctrVols...)
@@ -360,6 +358,18 @@ func (o *ollama) ValidateMounts(mounts []string, mdlName string, mdlTag string) 
 	return mounts, nil
 }
 
+func (o *ollama) CheckDuplicateMounts(errStr string, dupIndex int) string {
+	// Find the first model path before "duplicated container target dirs"
+	firstPath := extractModelPath(errStr[:dupIndex], api.LLM_OLLAMA_MANIFESTS_BASE_PATH, true)
+	firstModel := parseModelName(firstPath)
+
+	// Find the second model path after "duplicated container target dirs"
+	secondPath := extractModelPath(errStr[dupIndex:], api.LLM_OLLAMA_MANIFESTS_BASE_PATH, false)
+	secondModel := parseModelName(secondPath)
+
+	return fmt.Sprintf("Model %s and %s have duplicated container target dirs", firstModel, secondModel)
+}
+
 // func download(ctx context.Context, userCred mcclient.TokenCredential, containerId string, taskId string, webUrl string, path string) error {
 // 	input := &computeapi.ContainerDownloadFileInput{
 // 		WebUrl: webUrl,
@@ -450,4 +460,54 @@ func getManifests(ctx context.Context, containerId string, modelName string, mod
 	}
 
 	return manifests, nil
+}
+
+func extractModelPath(str, startMarker string, findLast bool) string {
+	var idx int
+	if findLast {
+		idx = strings.LastIndex(str, startMarker)
+	} else {
+		idx = strings.Index(str, startMarker)
+	}
+
+	if idx == -1 {
+		return ""
+	}
+
+	pathStart := idx
+	pathEnd := -1
+	for i := pathStart; i < len(str); i++ {
+		if str[i] == '\\' && i+4 < len(str) && str[i+1] == '\\' && str[i+2] == '\\' && str[i+3] == '\\' && str[i+4] == '"' { // for \\\\\"
+			pathEnd = i
+			break
+		}
+		if str[i] == '"' || str[i] == ',' || str[i] == ':' || str[i] == '}' {
+			pathEnd = i
+			break
+		}
+	}
+	var extracted string
+	if pathEnd != -1 {
+		extracted = str[pathStart:pathEnd]
+	} else {
+		extracted = str[pathStart:]
+	}
+
+	return extracted
+}
+
+func parseModelName(path string) string {
+	if !strings.HasPrefix(path, api.LLM_OLLAMA_MANIFESTS_BASE_PATH) {
+		return ""
+	}
+	model := strings.TrimPrefix(path, api.LLM_OLLAMA_MANIFESTS_BASE_PATH)
+	model = strings.TrimPrefix(model, "/")
+	lastSlash := strings.LastIndex(model, "/")
+	if lastSlash != -1 {
+		name := model[:lastSlash]
+		tag := model[lastSlash+1:]
+		tag = strings.TrimRight(tag, `\`)
+		return name + ":" + tag
+	}
+	return strings.TrimRight(model, `\`)
 }

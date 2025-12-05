@@ -75,6 +75,7 @@ type ILLMContainerInstantApp interface {
 	GetSaveDirectories(sApp *SInstantModel) (string, []string, error)
 
 	ValidateMounts(mounts []string, mdlName string, mdlTag string) ([]string, error)
+	CheckDuplicateMounts(errStr string, dupIndex int) string
 	GetInstantModelIdByPostOverlay(postOverlay *commonapi.ContainerVolumeMountDiskPostOverlay, mdlNameToId map[string]string) string
 	GetDirPostOverlay(dir llm.LLMMountDirInfo) *commonapi.ContainerVolumeMountDiskPostOverlay
 
