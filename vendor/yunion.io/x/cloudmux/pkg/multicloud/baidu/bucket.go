@@ -28,6 +28,7 @@ import (
 	"yunion.io/x/cloudmux/pkg/multicloud"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/util/httputils"
 )
 
@@ -102,6 +103,9 @@ func (b *SBucket) GetTags() (map[string]string, error) {
 	_, body, err := httputils.ParseJSONResponse("", resp, nil, b.region.client.debug)
 	if err != nil {
 		return nil, errors.Wrap(err, "ParseJSONResponse")
+	}
+	if gotypes.IsNil(body) {
+		return nil, nil
 	}
 	ret := struct {
 		Tag []struct {
@@ -313,6 +317,9 @@ func (b *SBucket) NewMultipartUpload(ctx context.Context, key string, cannedAcl 
 	if err != nil {
 		return "", errors.Wrapf(err, "ParseJSONResponse %s %s", b.Name, key)
 	}
+	if gotypes.IsNil(body) {
+		return "", errors.Errorf("empty response for NewMultipartUpload %s %s", b.Name, key)
+	}
 	return body.GetString("uploadId")
 }
 
@@ -381,6 +388,11 @@ func (b *SBucket) CopyPart(ctx context.Context, key string, uploadId string, par
 	if err != nil {
 		return "", errors.Wrapf(err, "ParseJSONResponse %s %s %s", b.Name, key, uploadId)
 	}
+
+	if gotypes.IsNil(body) {
+		return "", errors.Errorf("empty response for CopyPart %s %s %s %s %d %d", b.Name, key, uploadId, srcBucket, srcOffset, srcLength)
+	}
+
 	return body.GetString("eTag")
 }
 
