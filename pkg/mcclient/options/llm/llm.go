@@ -120,7 +120,7 @@ type LLMSaveInstantModelOptions struct {
 	MODEL_ID string `help:"llm model id, e.g. 500a1f067a9f"`
 	Name     string `help:"instant app name, e.g. qwen3:8b"`
 
-	// AutoRestart bool
+	AutoRestart bool
 }
 
 func (opts *LLMSaveInstantModelOptions) Params() (jsonutils.JSONObject, error) {

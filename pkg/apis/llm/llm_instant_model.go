@@ -19,5 +19,5 @@ type LLMSaveInstantModelInput struct {
 
 	InstantModelId string `json:"instant_model_id"`
 
-	// AutoRestart bool `json:"auto_restart"`
+	AutoRestart bool `json:"auto_restart"`
 }
