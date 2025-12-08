@@ -410,11 +410,12 @@ type SSysInfo struct {
 
 	StorageType string `json:"storage_type"`
 
-	HugepagesOption string                       `json:"hugepages_option"`
-	HugepageSizeKb  int                          `json:"hugepage_size_kb"`
-	HugepageNr      *int                         `json:"hugepage_nr"`
-	NodeHugepages   []hostapi.HostNodeHugepageNr `json:"node_hugepages"`
-	EnableKsm       bool                         `json:"enable_ksm"`
+	HugepagesOption          string                       `json:"hugepages_option"`
+	HugepageSizeKb           int                          `json:"hugepage_size_kb"`
+	HugepageNr               *int                         `json:"hugepage_nr"`
+	NodeHugepages            []hostapi.HostNodeHugepageNr `json:"node_hugepages"`
+	EnableKsm                bool                         `json:"enable_ksm"`
+	HostAgentCpuNumaAllocate bool                         `json:"host_agent_cpu_numa_allocate"`
 
 	Topology        *hostapi.HostTopology `json:"topology"`
 	CPUInfo         *hostapi.HostCPUInfo  `json:"cpu_info"`

@@ -1108,6 +1108,13 @@ type ServerGetCPUSetCoresResp struct {
 	HostUsedCores []int `json:"host_used_cores"`
 }
 
+type ServerGetNumaInfoInput struct{}
+
+type ServerGetNumaInfoResp struct {
+	CpuNumaPin              jsonutils.JSONObject
+	IsolatedDevicesNumaNode []int8
+}
+
 type ServerGetHardwareInfoInput struct{}
 
 type ServerHardwareInfoMotherboard struct {

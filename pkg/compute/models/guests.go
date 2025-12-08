@@ -1391,9 +1391,13 @@ func (guest *SGuest) SetCpuNumaPin(
 		}
 	}
 
+	var cpuNumaPinType string
 	var schedCpuNumaPinJ jsonutils.JSONObject
 	if schedCpuNumaPin != nil {
 		schedCpuNumaPinJ = jsonutils.Marshal(schedCpuNumaPin)
+		cpuNumaPinType = api.VM_CPU_NUMA_PIN_SCHEDULER
+	} else if cpuNumaPin != nil {
+		schedCpuNumaPinJ = jsonutils.Marshal(cpuNumaPin)
 	}
 	diff, err := db.Update(guest, func() error {
 		guest.CpuNumaPin = schedCpuNumaPinJ
@@ -1407,7 +1411,11 @@ func (guest *SGuest) SetCpuNumaPin(
 	if cpuNumaPin != nil {
 		jcpuNumaPin = jsonutils.Marshal(cpuNumaPin)
 	}
-	err = guest.SetMetadata(ctx, api.VM_METADATA_CPU_NUMA_PIN, jcpuNumaPin, userCred)
+	metadataMap := map[string]interface{}{
+		api.VM_METADATA_CPU_NUMA_PIN:      jcpuNumaPin,
+		api.VM_METADATA_CPU_NUMA_PIN_TYPE: cpuNumaPinType,
+	}
+	err = guest.SetAllMetadata(ctx, metadataMap, userCred)
 	if err != nil {
 		return err
 	}
@@ -4810,7 +4818,7 @@ func (self *SGuest) createDiskOnHost(
 
 func (self *SGuest) CreateIsolatedDeviceOnHost(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, devs []*api.IsolatedDeviceConfig, pendingUsage quotas.IQuota) error {
 	var numaNodes []int
-	if self.CpuNumaPin != nil {
+	if self.IsSchedulerNumaAllocate() {
 		numaNodes = make([]int, 0)
 		cpuNumaPin := make([]schedapi.SCpuNumaPin, 0)
 		self.CpuNumaPin.Unmarshal(&cpuNumaPin)
@@ -5103,6 +5111,11 @@ func (self *SGuest) isNeedDoResetPasswd() bool {
 	return true
 }
 
+func (self *SGuest) IsSchedulerNumaAllocate() bool {
+	cpuNumaPinType := self.GetMetadata(context.Background(), api.VM_METADATA_CPU_NUMA_PIN_TYPE, nil)
+	return cpuNumaPinType == api.VM_CPU_NUMA_PIN_SCHEDULER && self.CpuNumaPin != nil
+}
+
 func (self *SGuest) GetDeployConfigOnHost(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, params *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	config := jsonutils.NewDict()
 
@@ -5370,7 +5383,7 @@ func (self *SGuest) GetJsonDescAtHypervisor(ctx context.Context, host *SHost) *a
 		desc.IsolatedDevices = append(desc.IsolatedDevices, dev.getDesc())
 	}
 
-	if self.CpuNumaPin != nil {
+	if self.IsSchedulerNumaAllocate() {
 		cpuNumaPin := make([]api.SCpuNumaPin, 0)
 		cpuNumaPinStr := self.GetMetadata(ctx, api.VM_METADATA_CPU_NUMA_PIN, nil)
 		cpuNumaPinJson, err := jsonutils.ParseString(cpuNumaPinStr)

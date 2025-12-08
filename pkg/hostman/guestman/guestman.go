@@ -113,9 +113,9 @@ type SGuestManager struct {
 	qemuMachineCpuMax map[string]uint
 	qemuMaxMem        int
 
-	numaAllocate bool
-	cpuSet       *CpuSetCounter
-	pythonPath   string
+	hostagentNumaAllocate bool
+	cpuSet                *CpuSetCounter
+	pythonPath            string
 
 	// container related members
 	containerProbeManager      prober.Manager
@@ -344,7 +344,7 @@ func (m *SGuestManager) Bootstrap() (chan struct{}, error) {
 
 	if options.HostOptions.EnableHostAgentNumaAllocate {
 		enableMemAlloc := m.host.IsContainerHost() || m.host.IsHugepagesEnabled()
-		m.numaAllocate = !m.host.IsNumaAllocateEnabled() && enableMemAlloc && (len(hostTypo.Nodes) > 1)
+		m.hostagentNumaAllocate = !m.host.IsSchedulerNumaAllocateEnabled() && enableMemAlloc && (len(hostTypo.Nodes) > 1)
 	}
 
 	var reserveCpus = cpuset.NewCPUSet()
@@ -357,7 +357,7 @@ func (m *SGuestManager) Bootstrap() (chan struct{}, error) {
 	}
 
 	cpuSet, err := NewGuestCpuSetCounter(
-		hostTypo, reserveCpus, m.numaAllocate, m.host.IsContainerHost(),
+		hostTypo, reserveCpus, m.hostagentNumaAllocate, m.host.IsContainerHost(),
 		m.host.HugepageSizeKb(), m.host.CpuCmtBound(), m.host.MemCmtBound(), m.host.GetReservedMemMb(),
 	)
 	if err != nil {
