@@ -257,6 +257,11 @@ const (
 )
 
 const (
+	VM_CPU_NUMA_PIN_SCHEDULER = "scheduler"
+	VM_CPU_NUMA_PIN_HOST      = "host"
+)
+
+const (
 	VM_MACHINE_TYPE_PC  = "pc"
 	VM_MACHINE_TYPE_Q35 = "q35"
 
@@ -345,7 +350,9 @@ const (
 
 	VM_METADATA_RELEASED_DEVICES = "released_devices"
 
-	VM_METADATA_CPU_NUMA_PIN                   = "__cpu_numa_pin"
+	VM_METADATA_CPU_NUMA_PIN      = "__cpu_numa_pin"
+	VM_METADATA_CPU_NUMA_PIN_TYPE = "__cpu_numa_pin_type"
+
 	VM_METADATA_VIRTUAL_ISOLATED_DEVICE_CONFIG = "__virtual_isolated_device_config"
 	// Kickstart相关metadata常量
 	VM_METADATA_KICKSTART_CONFIG         = "kickstart_config"

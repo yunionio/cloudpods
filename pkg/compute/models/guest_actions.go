@@ -560,7 +560,7 @@ func (self *SGuest) GetSchedMigrateParams(
 			schedDesc.SkipKernelCheck = &input.SkipKernelCheck
 			schedDesc.HostMemPageSizeKB = host.PageSizeKB
 		}
-		if self.CpuNumaPin != nil {
+		if self.IsSchedulerNumaAllocate() {
 			cpuNumaPin := make([]schedapi.SCpuNumaPin, 0)
 			self.CpuNumaPin.Unmarshal(&cpuNumaPin)
 			schedDesc.CpuNumaPin = cpuNumaPin
@@ -1738,7 +1738,7 @@ func (self *SGuest) StartGueststartTask(
 		}
 	}
 
-	if !startFromCreate && self.CpuNumaPin != nil {
+	if !startFromCreate && self.IsSchedulerNumaAllocate() {
 		// clean cpu numa pin
 		err := self.SetCpuNumaPin(ctx, userCred, nil, nil)
 		if err != nil {
@@ -1783,7 +1783,7 @@ func (self *SGuest) GuestNonSchedStartTask(
 	if self.BackupHostId != "" {
 		taskName = "HAGuestStartTask"
 	}
-	if self.CpuNumaPin != nil {
+	if self.IsSchedulerNumaAllocate() {
 		srcSchedCpuNumaPin := make([]schedapi.SCpuNumaPin, 0)
 		err := self.CpuNumaPin.Unmarshal(&srcSchedCpuNumaPin)
 		if err != nil {
@@ -6786,6 +6786,22 @@ func (self *SGuest) GetDetailsCpusetCores(ctx context.Context, userCred mcclient
 	}
 
 	return resp, nil
+}
+
+func (self *SGuest) GetDetailsNumaInfo(ctx context.Context, userCred mcclient.TokenCredential, _ *api.ServerGetNumaInfoInput) (*api.ServerGetNumaInfoResp, error) {
+	ret := new(api.ServerGetNumaInfoResp)
+	devs, _ := self.GetIsolatedDevices()
+	if len(devs) > 0 {
+		ret.IsolatedDevicesNumaNode = make([]int8, 0)
+		for i := range devs {
+			if devs[i].NumaNode > 0 {
+				ret.IsolatedDevicesNumaNode = append(ret.IsolatedDevicesNumaNode, devs[i].NumaNode)
+			}
+		}
+	}
+
+	ret.CpuNumaPin = self.CpuNumaPin
+	return ret, nil
 }
 
 func (self *SGuest) GetDetailsHardwareInfo(ctx context.Context, userCred mcclient.TokenCredential, _ *api.ServerGetHardwareInfoInput) (*api.ServerGetHardwareInfoResp, error) {

@@ -374,7 +374,7 @@ func (pq *CpuSetCounter) AllocCpuset(vcpuCount int, memSizeKB int64, preferNumaN
 	pq.GuestIds[guestId] = struct{}{}
 
 	if pq.NumaEnabled && len(preferNumaNodes) > 0 {
-		sortedNumaDistance := pq.getDistancesSeqByPreferNodes(preferNumaNodes)
+		sortedNumaDistance := pq.getDistancesSeqByPreferNodes(preferNumaNodes, int(memSizeKB))
 		for nodeCount := 1; nodeCount <= len(pq.Nodes); nodeCount *= 2 {
 			ret := pq.allocCpuNumaNodesByPreferNodes(vcpuCount, int(memSizeKB), nodeCount, sortedNumaDistance)
 			if ret != nil {
@@ -459,7 +459,7 @@ type SSortedNumaDistance struct {
 	CpuReserved bool
 }
 
-func (pq *CpuSetCounter) getDistancesSeqByPreferNodes(preferNumaNodes []int8) []SSortedNumaDistance {
+func (pq *CpuSetCounter) getDistancesSeqByPreferNodes(preferNumaNodes []int8, memSizeKB int) []SSortedNumaDistance {
 	sortedNumaDistance := make([]SSortedNumaDistance, len(pq.Nodes))
 	for i := range pq.Nodes {
 		distance := 0
@@ -496,7 +496,11 @@ func (pq *CpuSetCounter) getDistancesSeqByPreferNodes(preferNumaNodes []int8) []
 		if sortedNumaDistance[i].CpuReserved {
 			return sortedNumaDistance[i].UsedRate < sortedNumaDistance[j].UsedRate
 		}
-		return sortedNumaDistance[i].FreeMemSize > sortedNumaDistance[j].FreeMemSize
+		if sortedNumaDistance[i].Distance < sortedNumaDistance[j].Distance {
+			return sortedNumaDistance[i].FreeMemSize > memSizeKB && sortedNumaDistance[j].FreeMemSize-sortedNumaDistance[i].FreeMemSize <= 2*memSizeKB
+		} else {
+			return sortedNumaDistance[j].FreeMemSize > memSizeKB && sortedNumaDistance[i].FreeMemSize-sortedNumaDistance[j].FreeMemSize >= 2*memSizeKB
+		}
 	})
 	return sortedNumaDistance
 }

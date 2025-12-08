@@ -578,7 +578,13 @@ func (s *sPodGuestInstance) HandleGuestStart(ctx context.Context, userCred mccli
 		if err != nil {
 			return nil, errors.Wrap(err, "startPod")
 		}
-		return jsonutils.Marshal(resp), nil
+
+		resJ := jsonutils.Marshal(resp)
+		res := resJ.(*jsonutils.JSONDict)
+		if !s.manager.host.IsSchedulerNumaAllocateEnabled() {
+			res.Set("cpu_numa_pin", jsonutils.Marshal(s.Desc.CpuNumaPin))
+		}
+		return res, nil
 	}, nil, s.manager.GuestStartWorker)
 	return nil, nil
 }
@@ -1230,8 +1236,12 @@ func (s *sPodGuestInstance) SyncConfig(ctx context.Context, guestDesc *desc.SGue
 	// update guest live desc, don't be here update cpu and mem
 	// cpu and memory should update from SGuestHotplugCpuMemTask
 	s.UpdateLiveDesc(guestDesc)
+
+	// keep origin cpu numa pin
+	cpuNumaPin := s.Desc.CpuNumaPin
 	s.Desc.SGuestHardwareDesc = guestDesc.SGuestHardwareDesc
 	s.Desc.SGuestContainerDesc = guestDesc.SGuestContainerDesc
+	s.Desc.CpuNumaPin = cpuNumaPin
 
 	if err := SaveLiveDesc(s, s.Desc); err != nil {
 		return nil, errors.Wrap(err, "SaveLiveDesc")
@@ -1382,6 +1392,7 @@ func (s *sPodGuestInstance) allocateCpuNumaPin() error {
 			break
 		}
 	}
+	log.Infof("guest %s prefer nodes %v", s.Id, preferNumaNodes)
 
 	nodeNumaCpus, err := s.manager.cpuSet.AllocCpuset(int(s.Desc.Cpu), s.Desc.Mem*1024, preferNumaNodes, s.GetId())
 	if err != nil {
@@ -1391,7 +1402,7 @@ func (s *sPodGuestInstance) allocateCpuNumaPin() error {
 		cpus = append(cpus, numaCpus.Cpuset...)
 	}
 
-	if !s.manager.numaAllocate {
+	if !s.manager.hostagentNumaAllocate {
 		s.Desc.VcpuPin = []desc.SCpuPin{
 			{
 				Vcpus: fmt.Sprintf("0-%d", s.Desc.Cpu-1),
@@ -1401,7 +1412,7 @@ func (s *sPodGuestInstance) allocateCpuNumaPin() error {
 	} else {
 		var cpuNumaPin = make([]*desc.SCpuNumaPin, 0)
 		for nodeId, numaCpus := range nodeNumaCpus {
-			if s.manager.numaAllocate {
+			if s.manager.hostagentNumaAllocate {
 				unodeId := uint16(nodeId)
 				vcpuPin := make([]desc.SVCpuPin, len(numaCpus.Cpuset))
 				for i := range numaCpus.Cpuset {
