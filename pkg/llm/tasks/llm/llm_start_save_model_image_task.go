@@ -93,14 +93,11 @@ func (task *LLMStartSaveModelImageTask) OnSaveModelImageComplete(ctx context.Con
 
 	task.SetStageComplete(ctx, nil)
 
-	// if input.AutoRestart {
-	// 	llm.StartRestartTask(ctx, task.UserCred, api.DesktopRestartTaskInput{
-	// 		DesktopId:     llm.Id,
-	// 		DesktopStatus: api.LLM_STATUS_READY,
-	// 	}, "")
-	// } else {
-	// 	llm.SetStatus(ctx, task.UserCred, api.LLM_STATUS_READY, "OnSaveModelImageComplete")
-	// }
+	if input.AutoRestart {
+		llm.StartStartTask(ctx, task.UserCred, "")
+	} else {
+		llm.SetStatus(ctx, task.UserCred, api.LLM_STATUS_READY, "OnSaveModelImageComplete")
+	}
 }
 
 func (task *LLMStartSaveModelImageTask) OnSaveModelImageCompleteFailed(ctx context.Context, obj db.IStandaloneModel, err jsonutils.JSONObject) {
