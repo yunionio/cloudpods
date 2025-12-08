@@ -70,15 +70,18 @@ func StartService() {
 	models.NotifyService.InitAll()
 	defer models.NotifyService.StopAll()
 
-	cron := cronman.InitCronJobManager(true, 2)
-	// update service
-	cron.AddJobAtIntervals("UpdateServices", time.Duration(opts.UpdateInterval)*time.Minute, models.NotifyService.UpdateServices)
+	if !opts.IsSlaveNode {
+		cron := cronman.InitCronJobManager(true, opts.CronJobWorkerCount)
+		// update service
+		cron.AddJobAtIntervals("UpdateServices", time.Duration(opts.UpdateInterval)*time.Minute, models.NotifyService.UpdateServices)
 
-	// wrapped func to resend notifications
-	cron.AddJobAtIntervals("ReSendNotifications", time.Duration(opts.ReSendScope)*time.Second, models.NotificationManager.ReSend)
-	cron.AddJobEveryFewHour("AutoPurgeSplitable", 4, 30, 0, db.AutoPurgeSplitable, false)
+		// wrapped func to resend notifications
+		cron.AddJobAtIntervals("ReSendNotifications", time.Duration(opts.ReSendScope)*time.Second, models.NotificationManager.ReSend)
+		cron.AddJobEveryFewHour("AutoPurgeSplitable", 4, 30, 0, db.AutoPurgeSplitable, false)
 
-	cron.Start()
+		cron.Start()
+		defer cron.Stop()
+	}
 
 	app.ServeForever(applicaion, baseOpts)
 }
