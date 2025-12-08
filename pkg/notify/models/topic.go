@@ -909,16 +909,6 @@ func (self *STopic) StartMessageSendTask(ctx context.Context, userCred mcclient.
 	return task.ScheduleRun(nil)
 }
 
-func (self *STopic) CreateEvent(ctx context.Context, resType, action, message string) (*SEvent, error) {
-	eve := &SEvent{
-		Message:      message,
-		ResourceType: resType,
-		Action:       action,
-		TopicId:      self.Id,
-	}
-	return eve, EventManager.TableSpec().Insert(ctx, eve)
-}
-
 func (self *STopic) GetEnabledSubscribers(domainId, projectId string) ([]SSubscriber, error) {
 	q := SubscriberManager.Query().Equals("topic_id", self.Id).IsTrue("enabled")
 	q = q.Filter(sqlchemy.OR(
