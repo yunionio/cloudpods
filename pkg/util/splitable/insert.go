@@ -82,9 +82,13 @@ func (t *SSplitTableSpec) getLastTableSpec(lastDate time.Time) (*sqlchemy.STable
 		} else {
 			if lastMeta.StartDate.IsZero() {
 				indexCol := t.tableSpec.ColumnSpec(t.indexField)
+				startDate := lastMeta.CreatedAt
+				if startDate.IsZero() {
+					startDate = lastDate
+				}
 				_, err = t.metaSpec.Update(lastMeta, func() error {
 					lastMeta.Start = indexCol.AutoIncrementOffset()
-					lastMeta.StartDate = lastDate
+					lastMeta.StartDate = startDate
 					return nil
 				})
 				if err != nil {
@@ -107,11 +111,19 @@ func (t *SSplitTableSpec) getLastTableSpec(lastDate time.Time) (*sqlchemy.STable
 
 func (t *SSplitTableSpec) Insert(dt interface{}) error {
 	var lastDate time.Time
-	vs := reflectutils.FetchAllStructFieldValueSet(reflect.Indirect(reflect.ValueOf(dt)))
+	dataValue := reflect.Indirect(reflect.ValueOf(dt))
+	vs := reflectutils.FetchAllStructFieldValueSet(dataValue)
 	if lastDateV, ok := vs.GetValue(t.dateField); !ok {
 		return errors.Wrap(errors.ErrInvalidStatus, "no dateField found")
 	} else {
 		lastDate = lastDateV.Interface().(time.Time)
+	}
+	if lastDate.IsZero() {
+		lastDate = time.Now()
+		succ := reflectutils.SetStructFieldValue(dataValue, t.dateField, reflect.ValueOf(lastDate))
+		if !succ {
+			return errors.Wrap(errors.ErrInvalidStatus, "set dateField failed")
+		}
 	}
 	lastTableSpec, err := t.getLastTableSpecWithLock(lastDate)
 	if err != nil {
