@@ -9,6 +9,26 @@ const (
 	SERVICE_TYPE = "llm"
 )
 
+type LLMBaseListDetails struct {
+	apis.VirtualResourceDetails
+
+	LLMImage      string
+	LLMImageLable string
+	LLMImageName  string
+
+	VcpuCount  int
+	VmemSizeMb int
+	Devices    *Devices
+
+	EffectBandwidthMbps int
+}
+
+type LLMListDetails struct {
+	LLMBaseListDetails
+
+	LLMSku string
+}
+
 type LLMBaseCreateInput struct {
 	apis.VirtualResourceCreateInput
 

@@ -225,14 +225,6 @@ func (man *SLLMBaseManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQue
 			q = q.In("svr_id", serverIds)
 		}
 	}
-	// if input.Unused != nil {
-	// 	instanceQ := GetDesktopInstanceManager().Query().SubQuery()
-	// 	if *input.Unused {
-	// 		q = q.NotEquals("id", instanceQ.Query(instanceQ.Field("desktop_id")).SubQuery())
-	// 	} else {
-	// 		q = q.Join(instanceQ, sqlchemy.Equals(q.Field("id"), instanceQ.Field("desktop_id")))
-	// 	}
-	// }
 
 	return q, nil
 }

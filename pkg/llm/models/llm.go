@@ -20,6 +20,7 @@ import (
 	llmutils "yunion.io/x/onecloud/pkg/llm/utils"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/compute"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 var llmManager *SLLMManager
@@ -112,16 +113,68 @@ func (man *SLLMManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, 
 		q = q.Equals("llm_image_id", imgObj.GetId())
 	}
 
-	// if input.Unused != nil {
-	// 	instanceQ := GetDesktopInstanceManager().Query().SubQuery()
-	// 	if *input.Unused {
-	// 		q = q.NotEquals("id", instanceQ.Query(instanceQ.Field("desktop_id")).SubQuery())
-	// 	} else {
-	// 		q = q.Join(instanceQ, sqlchemy.Equals(q.Field("id"), instanceQ.Field("desktop_id")))
-	// 	}
-	// }
-
 	return q, nil
+}
+
+func (man *SLLMManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.LLMListDetails {
+	virtRows := man.SVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	llms := []SLLM{}
+	jsonutils.Update(&llms, objs)
+	res := make([]api.LLMListDetails, len(objs))
+	for i := 0; i < len(res); i++ {
+		res[i].VirtualResourceDetails = virtRows[i]
+	}
+
+	skuIds := make([]string, len(llms))
+	imgIds := make([]string, len(llms))
+	for idx, llm := range llms {
+		skuIds[idx] = llm.LLMSkuId
+		imgIds[idx] = llm.LLMImageId
+	}
+
+	// fetch sku
+	skus := make(map[string]SLLMSku)
+	err := db.FetchModelObjectsByIds(GetLLMSkuManager(), "id", skuIds, &skus)
+	if err == nil {
+		for i := range llms {
+			if sku, ok := skus[llms[i].LLMSkuId]; ok {
+				res[i].LLMSku = sku.Name
+				res[i].VcpuCount = sku.Cpu
+				res[i].VmemSizeMb = sku.Memory
+				res[i].Devices = sku.Devices
+				if llms[i].BandwidthMb != 0 {
+					res[i].EffectBandwidthMbps = llms[i].BandwidthMb
+				} else {
+					res[i].EffectBandwidthMbps = sku.BandwidthMb
+				}
+			}
+		}
+	} else {
+		log.Errorf("FetchModelObjectsByIds LLMSkuManager fail %s", err)
+	}
+
+	// fetch image
+	images := make(map[string]SLLMImage)
+	err = db.FetchModelObjectsByIds(GetLLMImageManager(), "id", imgIds, &images)
+	if err == nil {
+		for i := range llms {
+			if image, ok := images[llms[i].LLMImageId]; ok {
+				res[i].LLMImage = image.Name
+				res[i].LLMImageLable = image.ImageLabel
+				res[i].LLMImageName = image.ImageName
+			}
+		}
+	} else {
+		log.Errorf("FetchModelObjectsByIds GetLLMImageManager fail %s", err)
+	}
+	return res
 }
 
 func (lm *SLLMManager) OnCreateComplete(ctx context.Context, items []db.IModel, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data []jsonutils.JSONObject) {
