@@ -69,16 +69,19 @@ func StartService() {
 		}
 	}
 
-	cron := cronman.InitCronJobManager(true, 2, opts.TimeZone)
-	// update service
-	cron.AddJobAtIntervalsWithStartRun("syncReciverFromKeystone", time.Duration(opts.SyncReceiverIntervalMinutes)*time.Minute, models.ReceiverManager.SyncUserFromKeystone, true)
+	if !opts.IsSlaveNode {
+		cron := cronman.InitCronJobManager(true, opts.CronJobWorkerCount, opts.TimeZone)
+		// update service
+		cron.AddJobAtIntervalsWithStartRun("syncReciverFromKeystone", time.Duration(opts.SyncReceiverIntervalMinutes)*time.Minute, models.ReceiverManager.SyncUserFromKeystone, true)
 
-	// wrapped func to resend notifications
-	cron.AddJobAtIntervals("ReSendNotifications", time.Duration(opts.ReSendScope)*time.Second, models.NotificationManager.ReSend)
-	cron.AddJobEveryFewHour("AutoPurgeSplitable", 4, 30, 0, db.AutoPurgeSplitable, false)
-	cron.AddJobEveryFewDays("InitReceiverProject", 7, 0, 0, 0, models.InitReceiverProject, true)
+		// wrapped func to resend notifications
+		cron.AddJobAtIntervals("ReSendNotifications", time.Duration(opts.ReSendScope)*time.Second, models.NotificationManager.ReSend)
+		cron.AddJobEveryFewHour("AutoPurgeSplitable", 4, 30, 0, db.AutoPurgeSplitable, false)
+		cron.AddJobEveryFewDays("InitReceiverProject", 7, 0, 0, 0, models.InitReceiverProject, true)
 
-	cron.Start()
+		cron.Start()
+		defer cron.Stop()
+	}
 
 	app.ServeForever(applicaion, baseOpts)
 }
