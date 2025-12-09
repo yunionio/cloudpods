@@ -76,7 +76,7 @@ func StartService() {
 			log.Fatalf("TaskManager.InitializeData fail %s", err)
 		}
 
-		cron := cronman.InitCronJobManager(true, 2, opts.TimeZone)
+		cron := cronman.InitCronJobManager(true, opts.CronJobWorkerCount, opts.TimeZone)
 		// update service
 		cron.AddJobAtIntervalsWithStartRun("syncReciverFromKeystone", time.Duration(opts.SyncReceiverIntervalMinutes)*time.Minute, models.ReceiverManager.SyncUserFromKeystone, true)
 
@@ -88,6 +88,7 @@ func StartService() {
 		cron.AddJobAtIntervalsWithStartRun("TaskCleanupJob", time.Duration(options.Options.TaskArchiveIntervalMinutes)*time.Minute, taskman.TaskManager.TaskCleanupJob, true)
 
 		cron.Start()
+		defer cron.Stop()
 	}
 
 	app.ServeForever(applicaion, baseOpts)
