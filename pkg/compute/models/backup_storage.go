@@ -91,6 +91,12 @@ func (bs *SBackupStorageManager) ValidateCreateData(ctx context.Context, userCre
 		if input.ObjectSecret == "" {
 			return input, httperrors.NewInputParameterError("object_secret is required when storage type is object")
 		}
+		if len(input.ObjectBucketUrlExt) > 0 {
+			_, err := url.Parse(input.ObjectBucketUrlExt)
+			if err != nil {
+				return input, httperrors.NewInputParameterError("invalid object_bucket_url_ext %s: %s", input.ObjectBucketUrlExt, err)
+			}
+		}
 	}
 	return input, nil
 }
@@ -112,6 +118,9 @@ func (bs *SBackupStorage) CustomizeCreate(ctx context.Context, userCred mcclient
 		ObjectBucketUrl: input.ObjectBucketUrl,
 		ObjectAccessKey: input.ObjectAccessKey,
 		ObjectSecret:    input.ObjectSecret,
+
+		ObjectSignVer:      input.ObjectSignVer,
+		ObjectBucketUrlExt: input.ObjectBucketUrlExt,
 	}
 	return bs.SEnabledStatusInfrasResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }
@@ -170,6 +179,7 @@ func (bs *SBackupStorage) getMoreDetails(ctx context.Context, out api.BackupStor
 	out.ObjectBucketUrl = bs.AccessInfo.ObjectBucketUrl
 	out.ObjectAccessKey = bs.AccessInfo.ObjectAccessKey
 	out.ObjectSignVer = bs.AccessInfo.ObjectSignVer
+	out.ObjectBucketUrlExt = bs.AccessInfo.ObjectBucketUrlExt
 	// should not return secret
 	out.ObjectSecret = "" // bs.AccessInfo.ObjectSecret
 	return out
@@ -319,6 +329,10 @@ func (bs *SBackupStorage) PostUpdate(ctx context.Context, userCred mcclient.Toke
 		}
 		if input.ObjectSignVer != accessInfo.ObjectSignVer {
 			accessInfo.ObjectSignVer = input.ObjectSignVer
+			accessInfoChanged = true
+		}
+		if len(input.ObjectBucketUrlExt) > 0 {
+			accessInfo.ObjectBucketUrlExt = input.ObjectBucketUrlExt
 			accessInfoChanged = true
 		}
 	}
