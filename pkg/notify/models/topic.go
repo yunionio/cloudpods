@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -29,6 +30,7 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
+	"yunion.io/x/onecloud/pkg/apis/notify"
 	api "yunion.io/x/onecloud/pkg/apis/notify"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -943,12 +945,193 @@ func (t *STopic) PreCheckPerformAction(
 	return nil
 }
 
-func (topic *STopic) CreateEvent(ctx context.Context, resType, action, message string) (*SEvent, error) {
-	eve := &SEvent{
-		Message:      message,
-		ResourceType: resType,
-		Action:       action,
-		TopicId:      topic.Id,
+func init() {
+	converter = &sConverter{
+		resource2Value: &sync.Map{},
+		value2Resource: &sync.Map{},
+		action2Value:   &sync.Map{},
+		value2Action:   &sync.Map{},
 	}
-	return eve, EventManager.TableSpec().Insert(ctx, eve)
+	converter.registerResource(
+		map[string]int{
+			notify.TOPIC_RESOURCE_SERVER:                   0,
+			notify.TOPIC_RESOURCE_SCALINGGROUP:             1,
+			notify.TOPIC_RESOURCE_SCALINGPOLICY:            2,
+			notify.TOPIC_RESOURCE_IMAGE:                    3,
+			notify.TOPIC_RESOURCE_DISK:                     4,
+			notify.TOPIC_RESOURCE_SNAPSHOT:                 5,
+			notify.TOPIC_RESOURCE_INSTANCESNAPSHOT:         6,
+			notify.TOPIC_RESOURCE_SNAPSHOTPOLICY:           7,
+			notify.TOPIC_RESOURCE_NETWORK:                  8,
+			notify.TOPIC_RESOURCE_EIP:                      9,
+			notify.TOPIC_RESOURCE_SECGROUP:                 10,
+			notify.TOPIC_RESOURCE_LOADBALANCER:             11,
+			notify.TOPIC_RESOURCE_LOADBALANCERACL:          12,
+			notify.TOPIC_RESOURCE_LOADBALANCERCERTIFICATE:  13,
+			notify.TOPIC_RESOURCE_BUCKET:                   14,
+			notify.TOPIC_RESOURCE_DBINSTANCE:               15,
+			notify.TOPIC_RESOURCE_ELASTICCACHE:             16,
+			notify.TOPIC_RESOURCE_SCHEDULEDTASK:            17,
+			notify.TOPIC_RESOURCE_BAREMETAL:                18,
+			notify.TOPIC_RESOURCE_VPC:                      19,
+			notify.TOPIC_RESOURCE_DNSZONE:                  20,
+			notify.TOPIC_RESOURCE_NATGATEWAY:               21,
+			notify.TOPIC_RESOURCE_WEBAPP:                   22,
+			notify.TOPIC_RESOURCE_CDNDOMAIN:                23,
+			notify.TOPIC_RESOURCE_FILESYSTEM:               24,
+			notify.TOPIC_RESOURCE_WAF:                      25,
+			notify.TOPIC_RESOURCE_KAFKA:                    26,
+			notify.TOPIC_RESOURCE_ELASTICSEARCH:            27,
+			notify.TOPIC_RESOURCE_MONGODB:                  28,
+			notify.TOPIC_RESOURCE_DNSRECORDSET:             29,
+			notify.TOPIC_RESOURCE_LOADBALANCERLISTENER:     30,
+			notify.TOPIC_RESOURCE_LOADBALANCERBACKEDNGROUP: 31,
+			notify.TOPIC_RESOURCE_HOST:                     32,
+			notify.TOPIC_RESOURCE_TASK:                     33,
+			notify.TOPIC_RESOURCE_CLOUDPODS_COMPONENT:      34,
+			notify.TOPIC_RESOURCE_DB_TABLE_RECORD:          35,
+			notify.TOPIC_RESOURCE_USER:                     36,
+			notify.TOPIC_RESOURCE_ACTION_LOG:               37,
+			notify.TOPIC_RESOURCE_ACCOUNT_STATUS:           38,
+			notify.TOPIC_RESOURCE_NET:                      39,
+			notify.TOPIC_RESOURCE_SERVICE:                  40,
+			notify.TOPIC_RESOURCE_VM_INTEGRITY_CHECK:       41,
+			notify.TOPIC_RESOURCE_PROJECT:                  42,
+		},
+	)
+	converter.registerAction(
+		map[notify.SAction]int{
+			notify.ActionCreate:               0,
+			notify.ActionDelete:               1,
+			notify.ActionPendingDelete:        2,
+			notify.ActionUpdate:               3,
+			notify.ActionRebuildRoot:          4,
+			notify.ActionResetPassword:        5,
+			notify.ActionChangeConfig:         6,
+			notify.ActionExpiredRelease:       7,
+			notify.ActionExecute:              8,
+			notify.ActionChangeIpaddr:         9,
+			notify.ActionSyncStatus:           10,
+			notify.ActionCleanData:            11,
+			notify.ActionMigrate:              12,
+			notify.ActionCreateBackupServer:   13,
+			notify.ActionDelBackupServer:      14,
+			notify.ActionSyncCreate:           15,
+			notify.ActionSyncUpdate:           16,
+			notify.ActionSyncDelete:           17,
+			notify.ActionOffline:              18,
+			notify.ActionSystemPanic:          19,
+			notify.ActionSystemException:      20,
+			notify.ActionChecksumTest:         21,
+			notify.ActionLock:                 22,
+			notify.ActionExceedCount:          23,
+			notify.ActionSyncAccountStatus:    24,
+			notify.ActionPasswordExpireSoon:   25,
+			notify.ActionNetOutOfSync:         26,
+			notify.ActionMysqlOutOfSync:       27,
+			notify.ActionServiceAbnormal:      28,
+			notify.ActionServerPanicked:       29,
+			notify.ActionAttach:               30,
+			notify.ActionDetach:               31,
+			notify.ActionIsolatedDeviceCreate: 32,
+			notify.ActionIsolatedDeviceUpdate: 33,
+			notify.ActionIsolatedDeviceDelete: 34,
+			notify.ActionStatusChanged:        35,
+		},
+	)
+}
+
+var converter *sConverter
+
+type sConverter struct {
+	resource2Value *sync.Map
+	value2Resource *sync.Map
+	action2Value   *sync.Map
+	value2Action   *sync.Map
+}
+
+type sResourceValue struct {
+	resource string
+	value    int
+}
+
+type sActionValue struct {
+	action string
+	value  int
+}
+
+func (rc *sConverter) registerResource(resourceValues map[string]int) {
+	for resource, value := range resourceValues {
+		if v, ok := rc.resource2Value.Load(resource); ok && v.(int) != value {
+			log.Fatalf("resource '%s' has been mapped to value '%d', and it is not allowed to map to another value '%d'", resource, v, value)
+		}
+		if r, ok := rc.value2Resource.Load(value); ok && r.(string) != resource {
+			log.Fatalf("value '%d' has been mapped to resource '%s', and it is not allowed to map to another resource '%s'", value, r, resource)
+		}
+		rc.resource2Value.Store(resource, value)
+		rc.value2Resource.Store(value, resource)
+	}
+}
+
+func (rc *sConverter) registerAction(actionValues map[notify.SAction]int) {
+	for action, value := range actionValues {
+		if v, ok := rc.action2Value.Load(action); ok && v.(int) != value {
+			log.Fatalf("action '%s' has been mapped to value '%d', and it is not allowed to map to another value '%d'", action, v, value)
+		}
+		if a, ok := rc.value2Action.Load(value); ok && a.(notify.SAction) != action {
+			log.Fatalf("value '%d' has been mapped to action '%s', and it is not allowed to map to another action '%s'", value, a, action)
+		}
+		rc.action2Value.Store(action, value)
+		rc.value2Action.Store(value, action)
+	}
+}
+
+func (rc *sConverter) resourceValue(resource string) int {
+	v, ok := rc.resource2Value.Load(resource)
+	if !ok {
+		return -1
+	}
+	return v.(int)
+}
+
+func (rc *sConverter) resource(resourceValue int) string {
+	r, ok := rc.value2Resource.Load(resourceValue)
+	if !ok {
+		return ""
+	}
+	return r.(string)
+}
+
+func (rc *sConverter) actionValue(action notify.SAction) int {
+	v, ok := rc.action2Value.Load(action)
+	if !ok {
+		return -1
+	}
+	return v.(int)
+}
+
+func (rc *sConverter) action(actionValue int) notify.SAction {
+	a, ok := rc.value2Action.Load(actionValue)
+	if !ok {
+		return notify.SAction("")
+	}
+	return a.(notify.SAction)
+}
+
+func (self *STopic) GetEnabledSubscribers(domainId, projectId string) ([]SSubscriber, error) {
+	q := SubscriberManager.Query().Equals("topic_id", self.Id).IsTrue("enabled")
+	q = q.Filter(sqlchemy.OR(
+		sqlchemy.AND(
+			sqlchemy.Equals(q.Field("resource_scope"), api.SUBSCRIBER_SCOPE_PROJECT),
+			sqlchemy.Equals(q.Field("resource_attribution_id"), projectId),
+		),
+		sqlchemy.AND(
+			sqlchemy.Equals(q.Field("resource_scope"), api.SUBSCRIBER_SCOPE_DOMAIN),
+			sqlchemy.Equals(q.Field("resource_attribution_id"), domainId),
+		),
+		sqlchemy.Equals(q.Field("resource_scope"), api.SUBSCRIBER_SCOPE_SYSTEM),
+	))
+	ret := []SSubscriber{}
+	err := db.FetchModelObjects(SubscriberManager, q, &ret)
+	return ret, err
 }
