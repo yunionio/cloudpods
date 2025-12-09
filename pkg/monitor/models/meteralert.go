@@ -204,10 +204,14 @@ func (f *sMeterDailyFee) ToAlertCreateInput(
 	level string,
 ) monitor.AlertCreateInput {
 	freq, _ := time.ParseDuration(input.Window)
+	customizeConfig := monitor.MeterCustomizeConfig{
+		Name: f.GetName(),
+	}
 	ret := monitor.AlertCreateInput{
-		Name:      f.GetName(),
-		Level:     level,
-		Frequency: int64(freq / time.Second),
+		Name:            f.GetName(),
+		Level:           level,
+		Frequency:       int64(freq / time.Second),
+		CustomizeConfig: jsonutils.Marshal(customizeConfig),
 		Settings: GetMeterAlertSetting(input,
 			"account_daily_resfee",
 			"meter_db", allAccountIds, "sumDate"),
@@ -235,10 +239,14 @@ func (f *sMeterMonthFee) ToAlertCreateInput(
 	level string,
 ) monitor.AlertCreateInput {
 	freq, _ := time.ParseDuration(input.Window)
+	customizeConfig := monitor.MeterCustomizeConfig{
+		Name: f.GetName(),
+	}
 	ret := monitor.AlertCreateInput{
-		Name:      f.GetName(),
-		Level:     level,
-		Frequency: int64(freq / time.Second),
+		Name:            f.GetName(),
+		Level:           level,
+		Frequency:       int64(freq / time.Second),
+		CustomizeConfig: jsonutils.Marshal(customizeConfig),
 		Settings: GetMeterAlertSetting(input,
 			"account_month_resfee",
 			"meter_db", allAccountIds, "sumMonth"),
