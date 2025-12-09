@@ -413,9 +413,18 @@ func (oc *OneCloudNotifier) newMeterRemoteMobileContent(config *monitor.Notifica
 		typ = "预算"
 		config.Title = MOBILE_DEFAULT_TOPIC_CN
 	}
-	customizeConfig := new(monitor.MeterCustomizeConfig)
-	evalCtx.Rule.CustomizeConfig.Unmarshal(customizeConfig)
-	return mobileContent(customizeConfig.Name, typ)
+	var name string
+	if evalCtx.Rule.CustomizeConfig != nil {
+		customizeConfig := new(monitor.MeterCustomizeConfig)
+		if err := evalCtx.Rule.CustomizeConfig.Unmarshal(customizeConfig); err == nil {
+			name = customizeConfig.Name
+		}
+	}
+	// 兼容旧数据：如果 CustomizeConfig 为 nil 或解析失败，使用 Rule.Name 作为后备值
+	if name == "" {
+		name = evalCtx.Rule.Name
+	}
+	return mobileContent(name, typ)
 }
 
 func GetUserLangIdsMap(ids []string) (map[string][]string, error) {
