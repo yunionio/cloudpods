@@ -964,16 +964,6 @@ func (rc *sConverter) action(actionValue int) notify.SAction {
 	return a.(notify.SAction)
 }
 
-func (self *STopic) CreateEvent(ctx context.Context, resType, action, message string) (*SEvent, error) {
-	eve := &SEvent{
-		Message:      message,
-		ResourceType: resType,
-		Action:       action,
-		TopicId:      self.Id,
-	}
-	return eve, EventManager.TableSpec().Insert(ctx, eve)
-}
-
 func (self *STopic) GetEnabledSubscribers(domainId, projectId string) ([]SSubscriber, error) {
 	q := SubscriberManager.Query().Equals("topic_id", self.Id).IsTrue("enabled")
 	q = q.Filter(sqlchemy.OR(
