@@ -34,7 +34,7 @@ type SLLMSkuBaseManager struct {
 type SLLMSkuBase struct {
 	db.SSharableVirtualResourceBase
 
-	BandwidthMb  int               `nullable:"false" default:"0" create:"optional" list:"user" update:"user"`
+	Bandwidth    int               `nullable:"false" default:"0" create:"optional" list:"user" update:"user"`
 	Cpu          int               `nullable:"false" default:"1" create:"optional" list:"user" update:"user"`
 	Memory       int               `nullable:"false" default:"512" create:"optional" list:"user" update:"user"`
 	Volumes      *api.Volumes      `charset:"utf8" length:"medium" nullable:"true" list:"user" update:"user" create:"optional"`

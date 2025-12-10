@@ -62,6 +62,13 @@ type InstantModelDetails struct {
 	CachedCount int
 
 	IconBase64 string `json:"icon_base64"`
+
+	MountedByLLMs []MountedByLLMInfo `json:"mounted_by_llms"`
+}
+
+type MountedByLLMInfo struct {
+	LlmId   string `json:"llm_id"`
+	LlmName string `json:"llm_name"`
 }
 
 type InstantModelSyncstatusInput struct {
