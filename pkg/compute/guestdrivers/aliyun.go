@@ -152,8 +152,8 @@ func (self *SAliyunGuestDriver) ValidateCreateData(ctx context.Context, userCred
 			minGB = 10
 			maxGB = 32768
 		}
-		if i == 0 && (disk.SizeMb < 20*1024 || disk.SizeMb > 500*1024) {
-			return nil, httperrors.NewInputParameterError("The system disk size must be in the range of 20GB ~ 500Gb")
+		if i == 0 && (disk.SizeMb < 20*1024 || disk.SizeMb > 2048*1024) {
+			return nil, httperrors.NewInputParameterError("The system disk size must be in the range of 20GB ~ 2048GB")
 		}
 		if disk.SizeMb < minGB*1024 || disk.SizeMb > maxGB*1024 {
 			return nil, httperrors.NewInputParameterError("The %s disk size must be in the range of %dGB ~ %dGB", disk.Backend, minGB, maxGB)
