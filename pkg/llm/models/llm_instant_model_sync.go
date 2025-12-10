@@ -353,6 +353,22 @@ func (llm *SLLM) FetchMountedModelFullName() ([]string, error) {
 	return llm.FetchModelsFullName(nil, &boolTrue)
 }
 
+func (llm *SLLM) FetchMountedModelInfo() ([]apis.MountedModelInfo, error) {
+	boolTrue := true
+	models, err := llm.FetchModels(nil, &boolTrue, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "FetchModels")
+	}
+	result := make([]apis.MountedModelInfo, len(models))
+	for idx, mdl := range models {
+		result[idx] = apis.MountedModelInfo{
+			FullName: mdl.ModelName + ":" + mdl.Tag,
+			Id:       mdl.ModelId,
+		}
+	}
+	return result, nil
+}
+
 func (llm *SLLM) RequestUnmountModel(ctx context.Context, userCred mcclient.TokenCredential, input apis.LLMSyncModelTaskInput) ([]string, []*commonapi.ContainerVolumeMountDiskPostOverlay, error) {
 	if input.LLMStatus == apis.LLM_STATUS_RUNNING {
 		err := llm.RefreshInstantModels(ctx, userCred, true)

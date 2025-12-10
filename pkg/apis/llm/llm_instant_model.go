@@ -14,8 +14,8 @@ type LLMInternalInstantMdlInfo struct {
 type LLMSaveInstantModelInput struct {
 	apis.ProjectizedResourceCreateInput
 
-	ModelId   string `json:"model_id"`
-	ImageName string `json:"image_name"`
+	ModelId       string `json:"model_id"`
+	ModelFullName string `json:"model_full_name"`
 
 	InstantModelId string `json:"instant_model_id"`
 

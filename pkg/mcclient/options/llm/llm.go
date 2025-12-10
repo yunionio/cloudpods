@@ -125,8 +125,8 @@ type LLMSaveInstantModelOptions struct {
 
 func (opts *LLMSaveInstantModelOptions) Params() (jsonutils.JSONObject, error) {
 	input := api.LLMSaveInstantModelInput{
-		ModelId:   opts.MODEL_ID,
-		ImageName: opts.Name,
+		ModelId:       opts.MODEL_ID,
+		ModelFullName: opts.Name,
 		// AutoRestart: opts.AutoRestart,
 	}
 	return jsonutils.Marshal(input), nil
