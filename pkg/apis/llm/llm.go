@@ -1,6 +1,8 @@
 package llm
 
 import (
+	"time"
+
 	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 )
@@ -12,6 +14,9 @@ const (
 type LLMBaseListDetails struct {
 	apis.VirtualResourceDetails
 
+	// AccessInfo []AccessInfoListOutput
+	Volume Volume
+
 	LLMImage      string
 	LLMImageLable string
 	LLMImageName  string
@@ -21,12 +26,32 @@ type LLMBaseListDetails struct {
 	Devices    *Devices
 
 	EffectBandwidthMbps int
+	StartTime           time.Time
+
+	LLMStatus string
+
+	Server string
+
+	HostInfo
+
+	Zone   string
+	ZoneId string
+
+	AdbPublic string
+	AdbAccess string
+}
+
+type MountedModelInfo struct {
+	FullName string `json:"fullname"` // 模型全名，如: qwen3:8b
+	Id       string `json:"id"`       // 模型ID，如: 500a1f067a9f
 }
 
 type LLMListDetails struct {
 	LLMBaseListDetails
 
 	LLMSku string
+
+	MountedModels []MountedModelInfo
 }
 
 type LLMBaseCreateInput struct {
