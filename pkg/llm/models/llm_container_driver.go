@@ -57,15 +57,9 @@ func getDriverWithError[K ~string, D any](drvs *drivers, typ K) (D, error) {
 	return drv.(D), nil
 }
 
-type ILLMContainerPullModel interface {
-	// PullModelByInstall(ctx context.Context, userCred mcclient.TokenCredential, llm *SLLM, modelName string, modelTag string) error
-	// PullModelByGgufFile(ctx context.Context, userCred mcclient.TokenCredential, llm *SLLM, ggufFileUrl string, model string) error
-	// DownloadGgufFile(ctx context.Context, userCred mcclient.TokenCredential, llm *SLLM, ggufFileUrl string, ggufFilePath string) error
-	// InstallGgufModel(ctx context.Context, userCred mcclient.TokenCredential, llm *SLLM, ggufFilePath string) error
-	GetManifests(ctx context.Context, userCred mcclient.TokenCredential, llm *SLLM, taskId string) error
-	AccessBlobsCache(ctx context.Context, userCred mcclient.TokenCredential, llm *SLLM, taskId string) error
-	CopyBlobs(ctx context.Context, userCred mcclient.TokenCredential, llm *SLLM) error
-}
+// type ILLMContainerPullModel interface {
+// 	DownloadModel(ctx context.Context, userCred mcclient.TokenCredential, llm *SLLM, modelName string, modelTag string) error
+// }
 
 type ILLMContainerInstantApp interface {
 	GetProbedInstantModelsExt(ctx context.Context, userCred mcclient.TokenCredential, llm *SLLM, mdlIds ...string) (map[string]llm.LLMInternalInstantMdlInfo, error)
@@ -82,6 +76,7 @@ type ILLMContainerInstantApp interface {
 	PreInstallModel(ctx context.Context, userCred mcclient.TokenCredential, llm *SLLM, instMdl *SLLMInstantModel) error
 	InstallModel(ctx context.Context, userCred mcclient.TokenCredential, llm *SLLM, dirs []string, mdlIds []string) error
 	UninstallModel(ctx context.Context, userCred mcclient.TokenCredential, llm *SLLM, instMdl *SLLMInstantModel) error
+	DownloadModel(ctx context.Context, userCred mcclient.TokenCredential, llm *SLLM, tmpDir string, modelName string, modelTag string) (string, []string, error)
 }
 
 type ILLMContainerDriver interface {

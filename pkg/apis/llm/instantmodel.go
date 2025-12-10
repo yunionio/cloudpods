@@ -57,19 +57,9 @@ type InstantModelDetails struct {
 }
 
 type InstantModelImportInput struct {
-	Endpoint  string `json:"endpoint"`
-	AccessKey string `json:"access_key"`
-	SecretKey string `json:"secret_key"`
-	Bucket    string `json:"bucket"`
-	Key       string `json:"key"`
-	SignVer   string `json:"sign_ver"`
-}
-
-func (input InstantModelImportInput) Invalid() bool {
-	if len(input.Endpoint) == 0 || len(input.AccessKey) == 0 || len(input.SecretKey) == 0 || len(input.Bucket) == 0 || len(input.Key) == 0 {
-		return true
-	}
-	return false
+	ModelName string           `json:"model_name"`
+	ModelTag  string           `json:"model_tag"`
+	LlmType   LLMContainerType `json:"llm_type"`
 }
 
 type InstantModelSyncstatusInput struct {
