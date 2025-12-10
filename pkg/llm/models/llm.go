@@ -3,6 +3,7 @@ package models
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"strings"
 
 	"yunion.io/x/jsonutils"
@@ -17,9 +18,12 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/llm/options"
 	llmutils "yunion.io/x/onecloud/pkg/llm/utils"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/compute"
+	computeoptions "yunion.io/x/onecloud/pkg/mcclient/options/compute"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -132,11 +136,37 @@ func (man *SLLMManager) FetchCustomizeColumns(
 		res[i].VirtualResourceDetails = virtRows[i]
 	}
 
+	ids := make([]string, len(llms))
 	skuIds := make([]string, len(llms))
 	imgIds := make([]string, len(llms))
+	serverIds := []string{}
 	for idx, llm := range llms {
+		ids[idx] = llm.Id
 		skuIds[idx] = llm.LLMSkuId
 		imgIds[idx] = llm.LLMImageId
+		if !utils.IsInArray(llm.SvrId, serverIds) {
+			serverIds = append(serverIds, llm.SvrId)
+		}
+		mountedModelInfo, _ := llm.FetchMountedModelInfo()
+		res[idx].MountedModels = mountedModelInfo
+	}
+
+	// fetch volume
+	volumeQ := GetVolumeManager().Query().In("llm_Id", ids)
+	volumes := []SVolume{}
+	db.FetchModelObjects(GetVolumeManager(), volumeQ, &volumes)
+	for _, volume := range volumes {
+		for i, id := range ids {
+			if id == volume.LLMId {
+				res[i].Volume = api.Volume{
+					Id:          volume.Id,
+					Name:        volume.Name,
+					TemplateId:  volume.TemplateId,
+					StorageType: volume.StorageType,
+					SizeMB:      volume.SizeMB,
+				}
+			}
+		}
 	}
 
 	// fetch sku
@@ -152,7 +182,7 @@ func (man *SLLMManager) FetchCustomizeColumns(
 				if llms[i].BandwidthMb != 0 {
 					res[i].EffectBandwidthMbps = llms[i].BandwidthMb
 				} else {
-					res[i].EffectBandwidthMbps = sku.BandwidthMb
+					res[i].EffectBandwidthMbps = sku.Bandwidth
 				}
 			}
 		}
@@ -174,6 +204,89 @@ func (man *SLLMManager) FetchCustomizeColumns(
 	} else {
 		log.Errorf("FetchModelObjectsByIds GetLLMImageManager fail %s", err)
 	}
+
+	// fetch host
+	if len(serverIds) > 0 {
+		// allow query cmp server
+		serverMap := make(map[string]computeapi.ServerDetails)
+		s := auth.GetAdminSession(ctx, options.Options.Region)
+		params := computeoptions.ServerListOptions{}
+		limit := 1000
+		params.Limit = &limit
+		details := true
+		params.Details = &details
+		params.Scope = "maxallowed"
+		offset := 0
+		for offset < len(serverIds) {
+			lastIdx := offset + limit
+			if lastIdx > len(serverIds) {
+				lastIdx = len(serverIds)
+			}
+			params.Id = serverIds[offset:lastIdx]
+			results, err := compute.Servers.List(s, jsonutils.Marshal(params))
+			if err != nil {
+				log.Errorf("query servers fails %s", err)
+				break
+			} else {
+				offset = lastIdx
+				for i := range results.Data {
+					guest := computeapi.ServerDetails{}
+					err := results.Data[i].Unmarshal(&guest)
+					if err == nil {
+						serverMap[guest.Id] = guest
+					}
+				}
+			}
+		}
+
+		for i := range llms {
+			llmStatus := api.LLM_STATUS_UNKNOWN
+			llm := llms[i]
+			if guest, ok := serverMap[llm.SvrId]; ok {
+				// find guest
+				if len(guest.Containers) == 0 {
+					llmStatus = api.LLM_LLM_STATUS_NO_CONTAINER
+				} else {
+					llmCtr := guest.Containers[0]
+					if llmCtr == nil {
+						llmStatus = api.LLM_LLM_STATUS_NO_CONTAINER
+					} else {
+						llmStatus = llmCtr.Status
+					}
+				}
+
+				res[i].Server = guest.Name
+				res[i].StartTime = guest.LastStartAt
+				res[i].Host = guest.Host
+				res[i].HostId = guest.HostId
+				res[i].HostAccessIp = guest.HostAccessIp
+				res[i].HostEIP = guest.HostEIP
+				res[i].Zone = guest.Zone
+				res[i].ZoneId = guest.ZoneId
+
+				adbMappedPort := -1
+				// for j := range res[i].AccessInfo {
+				// 	res[i].AccessInfo[j].DesktopIp = guest.IPs
+				// 	res[i].AccessInfo[j].ServerIp = guest.HostAccessIp
+				// 	res[i].AccessInfo[j].PublicIp = guest.HostEIP
+				// 	/*if res[i].AccessInfo[j].ListenPort == api.DESKTOP_ADB_PORT {
+				// 		adbMappedPort = res[i].AccessInfo[j].AccessPort
+				// 	}*/
+				// }
+
+				if adbMappedPort >= 0 {
+					res[i].AdbAccess = fmt.Sprintf("%s:%d", guest.HostAccessIp, adbMappedPort)
+					if len(res[i].HostEIP) > 0 {
+						res[i].AdbPublic = fmt.Sprintf("%s:%d", guest.HostEIP, adbMappedPort)
+					}
+				}
+			} else {
+				llmStatus = api.LLM_LLM_STATUS_NO_SERVER
+			}
+			res[i].LLMStatus = llmStatus
+		}
+	}
+
 	return res
 }
 

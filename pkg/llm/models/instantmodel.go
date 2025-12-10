@@ -151,7 +151,7 @@ func (man *SInstantModelManager) FetchCustomizeColumns(
 	res := make([]apis.InstantModelDetails, len(objs))
 
 	imageIds := make([]string, 0)
-	// mdlNames := make([]string, 0)
+	mdlIds := make([]string, 0)
 
 	virows := man.SSharableVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	for i := range res {
@@ -160,9 +160,9 @@ func (man *SInstantModelManager) FetchCustomizeColumns(
 		if len(instModel.ImageId) > 0 {
 			imageIds = append(imageIds, instModel.ImageId)
 		}
-		// if len(instModel.ModelName) > 0 {
-		// 	mdlNames = append(mdlNames, instModel.ModelName)
-		// }
+		if len(instModel.ModelId) > 0 {
+			mdlIds = append(mdlIds, instModel.ModelId)
+		}
 	}
 
 	s := auth.GetSession(ctx, userCred, options.Options.Region)
@@ -238,6 +238,46 @@ func (man *SInstantModelManager) FetchCustomizeColumns(
 		}
 
 	}
+
+	llmInstModelQ := GetLLMInstantModelManager().Query().In("model_id", mdlIds).IsFalse("deleted")
+	llmInstModels := make([]SLLMInstantModel, 0)
+	err := db.FetchModelObjects(GetLLMInstantModelManager(), llmInstModelQ, &llmInstModels)
+	if err != nil {
+		log.Errorf("fetch llm instant models fail %s", err)
+	}
+
+	llmIds := make([]string, 0)
+	for i := range llmInstModels {
+		if !utils.IsInArray(llmInstModels[i].LlmId, llmIds) {
+			llmIds = append(llmIds, llmInstModels[i].LlmId)
+		}
+	}
+
+	llmMap := make(map[string]SLLM)
+	if len(llmIds) > 0 {
+		err = db.FetchModelObjectsByIds(GetLLMManager(), "id", llmIds, &llmMap)
+		if err != nil {
+			log.Errorf("FetchModelObjectsByIds LLMManager fail %s", err)
+		}
+	}
+
+	modelMountedByMap := make(map[string][]apis.MountedByLLMInfo)
+	for i := range llmInstModels {
+		llmInstModel := llmInstModels[i]
+		llm, ok := llmMap[llmInstModel.LlmId]
+		if !ok {
+			continue
+		}
+		info := apis.MountedByLLMInfo{
+			LlmId:   llmInstModel.LlmId,
+			LlmName: llm.Name,
+		}
+		if _, ok := modelMountedByMap[llmInstModel.ModelId]; !ok {
+			modelMountedByMap[llmInstModel.ModelId] = make([]apis.MountedByLLMInfo, 0)
+		}
+		modelMountedByMap[llmInstModel.ModelId] = append(modelMountedByMap[llmInstModel.ModelId], info)
+	}
+
 	for i := range res {
 		instModel := objs[i].(*SInstantModel)
 		if img, ok := imageMap[instModel.ImageId]; ok {
@@ -246,6 +286,9 @@ func (man *SInstantModelManager) FetchCustomizeColumns(
 		if status, ok := imageCacheStatusTbl[instModel.ImageId]; ok {
 			res[i].CacheCount = status.CacheCount
 			res[i].CachedCount = status.CachedCount
+		}
+		if mountedBy, ok := modelMountedByMap[instModel.ModelId]; ok {
+			res[i].MountedByLLMs = mountedBy
 		}
 	}
 	return res
@@ -369,7 +412,7 @@ func (model *SInstantModel) PostCreate(
 	if err != nil {
 		return
 	}
-	if input.DoNotImport == nil || !*input.DoNotImport {
+	if input.ImageId == "" && (input.DoNotImport == nil || !*input.DoNotImport) {
 		model.startImportTask(ctx, userCred, apis.InstantModelImportInput{
 			LlmType:   input.LlmType,
 			ModelName: input.ModelName,
