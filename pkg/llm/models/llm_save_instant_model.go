@@ -56,8 +56,8 @@ func (llm *SLLM) PerformSaveInstantModel(
 		return nil, errors.Wrap(err, "detectModelPaths")
 	}
 
-	if len(input.ImageName) == 0 {
-		input.ImageName = fmt.Sprintf("%s-%s", mdlInfo.Name+":"+mdlInfo.Tag, time.Now().Format("060102"))
+	if len(input.ModelFullName) == 0 {
+		input.ModelFullName = fmt.Sprintf("%s-%s", mdlInfo.Name+":"+mdlInfo.Tag, time.Now().Format("060102"))
 	}
 
 	var ownerId mcclient.IIdentityProvider
@@ -89,17 +89,25 @@ func (llm *SLLM) PerformSaveInstantModel(
 	input.ProjectId = ownerId.GetProjectId()
 	input.ProjectDomainId = ownerId.GetProjectDomainId()
 
+	modelName, modelTag, _ := llm.GetLargeLanguageModelName(input.ModelFullName)
+	if len(modelName) == 0 {
+		modelName = mdlInfo.Name
+	}
+	if len(modelTag) == 0 {
+		modelTag = mdlInfo.Tag
+	}
+
 	drv := llm.GetLLMContainerDriver()
 	instantModelCreateInput := api.InstantModelCreateInput{
 		LlmType:   drv.GetType(),
 		ModelId:   mdlInfo.ModelId,
-		ModelName: mdlInfo.Name,
-		ModelTag:  mdlInfo.Tag,
+		ModelName: modelName,
+		ModelTag:  modelTag,
 		Mounts:    mountDirs,
 	}
-	instantModelCreateInput.Name = input.ImageName
-	booTrue := true
-	instantModelCreateInput.DoNotImport = &booTrue
+	instantModelCreateInput.Name = input.ModelFullName
+	boolTrue := true
+	instantModelCreateInput.DoNotImport = &boolTrue
 	log.Debugf("instantModelCreateInput: %s", jsonutils.Marshal(instantModelCreateInput))
 
 	instantMdlObj, err := db.DoCreate(GetInstantModelManager(), ctx, userCred, nil, jsonutils.Marshal(instantModelCreateInput), ownerId)
@@ -135,7 +143,7 @@ func (llm *SLLM) DoSaveModelImage(ctx context.Context, userCred mcclient.TokenCr
 	}
 
 	saveImageInput := computeapi.ContainerSaveVolumeMountToImageInput{
-		GenerateName:      input.ImageName,
+		GenerateName:      input.ModelFullName,
 		Notes:             fmt.Sprintf("instance model image for %s(%s)", input.ModelId, instantModel.ModelName+":"+instantModel.ModelTag),
 		Index:             0,
 		Dirs:              saveDirs,

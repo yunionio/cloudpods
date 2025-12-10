@@ -117,6 +117,8 @@ type LLMSkuDetails struct {
 	ImageName   string
 
 	Template string
+
+	Network string
 }
 
 type MountedAppResourceDetails struct {
