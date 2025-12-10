@@ -3,11 +3,15 @@ package models
 import (
 	"context"
 	"fmt"
+	"io"
+	"net/http"
+	"os"
 	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/httputils"
 
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	hostapi "yunion.io/x/onecloud/pkg/apis/host"
@@ -178,4 +182,69 @@ func (llm *SLLM) StartSaveModelImageTask(ctx context.Context, userCred mcclient.
 
 func (llm *SLLM) detectModelPaths(ctx context.Context, userCred mcclient.TokenCredential, pkgInfo api.LLMInternalInstantMdlInfo) ([]string, error) {
 	return llm.GetLLMContainerDriver().DetectModelPaths(ctx, userCred, llm, pkgInfo)
+}
+
+// HttpGet performs a GET request and returns the response body
+func (llm *SLLM) HttpGet(ctx context.Context, url string) ([]byte, error) {
+	client := httputils.GetTimeoutClient(0)
+	transport := httputils.GetTransport(true)
+	client.Transport = transport
+
+	resp, err := httputils.Request(client, ctx, httputils.GET, url, http.Header{}, nil, false)
+	if err != nil {
+		return nil, errors.Wrap(err, "http request failed")
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, errors.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to read response body")
+	}
+
+	return body, nil
+}
+
+// HttpDownloadFile downloads a file from URL and saves it to the specified path
+func (llm *SLLM) HttpDownloadFile(ctx context.Context, url string, filePath string) error {
+	client := httputils.GetTimeoutClient(0)
+	transport := httputils.GetTransport(true)
+	client.Transport = transport
+
+	resp, err := httputils.Request(client, ctx, httputils.GET, url, http.Header{}, nil, false)
+	if err != nil {
+		return errors.Wrap(err, "http request failed")
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return errors.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	// create temporary file first, then rename to avoid partial downloads
+	tmpPath := filePath + ".tmp"
+	out, err := os.Create(tmpPath)
+	if err != nil {
+		return errors.Wrapf(err, "failed to create file %s", tmpPath)
+	}
+
+	written, err := io.Copy(out, resp.Body)
+	out.Close()
+	if err != nil {
+		os.Remove(tmpPath)
+		return errors.Wrap(err, "failed to write file")
+	}
+
+	log.Infof("Downloaded %d bytes to %s", written, filePath)
+
+	// rename tmp file to final path
+	if err := os.Rename(tmpPath, filePath); err != nil {
+		os.Remove(tmpPath)
+		return errors.Wrapf(err, "failed to rename %s to %s", tmpPath, filePath)
+	}
+
+	return nil
 }

@@ -3,10 +3,13 @@ package models
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/httputils"
 	"yunion.io/x/pkg/utils"
@@ -16,6 +19,7 @@ import (
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	imageapi "yunion.io/x/onecloud/pkg/apis/image"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
@@ -23,6 +27,7 @@ import (
 	imagemodules "yunion.io/x/onecloud/pkg/mcclient/modules/image"
 	commonoptions "yunion.io/x/onecloud/pkg/mcclient/options"
 	"yunion.io/x/onecloud/pkg/util/logclient"
+	"yunion.io/x/onecloud/pkg/util/procutils"
 
 	apis "yunion.io/x/onecloud/pkg/apis/llm"
 	"yunion.io/x/onecloud/pkg/llm/options"
@@ -602,23 +607,23 @@ func (model *SInstantModel) PerformPrivate(
 	return model.SSharableVirtualResourceBase.PerformPrivate(ctx, userCred, query, input)
 }
 
-// func (app *SInstantApp) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
-// 	if app.Enabled.IsTrue() {
-// 		return errors.Wrap(errors.ErrInvalidStatus, "cannot delete when enabled")
-// 	}
+func (model *SInstantModel) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
+	if model.Enabled.IsTrue() {
+		return errors.Wrap(errors.ErrInvalidStatus, "cannot delete when enabled")
+	}
 
-// 	for _, man := range []MountedAppModelManager{GetDesktopModelManager(), GetVolumeManager()} {
-// 		used, err := man.IsPremountedPackageName(app.Package)
-// 		if err != nil {
-// 			return errors.Wrap(err, "IsPremountedPackageName")
-// 		}
-// 		if used {
-// 			return errors.Wrap(errors.ErrInvalidStatus, "cannot delete when package is used by other resources")
-// 		}
-// 	}
+	for _, man := range []MountedModelModelManager{GetLLMSkuManager(), GetVolumeManager()} {
+		used, err := man.IsPremountedModelName(model.ModelName + ":" + model.Tag + "-" + model.ModelId)
+		if err != nil {
+			return errors.Wrap(err, "IsPremountedModelName")
+		}
+		if used {
+			return errors.Wrap(errors.ErrInvalidStatus, "cannot delete when model is used by other resources")
+		}
+	}
 
-// 	return nil
-// }
+	return nil
+}
 
 // func (app *SInstantApp) ValidateUpdateCondition(ctx context.Context) error {
 // 	if app.Enabled.IsTrue() {
@@ -665,236 +670,162 @@ func (model *SInstantModel) doCache(ctx context.Context, userCred mcclient.Token
 	return nil
 }
 
-// func (manager *SInstantAppManager) PerformImport(
-// 	ctx context.Context,
-// 	userCred mcclient.TokenCredential,
-// 	query jsonutils.JSONObject,
-// 	input apis.InstantAppImportInput,
-// ) (*SInstantApp, error) {
-// 	if input.Invalid() {
-// 		return nil, httperrors.NewInputParameterError("invalid input: %s", jsonutils.Marshal(input).String())
-// 	}
-// 	// first create a temporary instant-app
-// 	tempApp := &SInstantApp{}
-// 	tempApp.SetModelManager(manager, &SInstantApp{})
-// 	tempApp.Name = fmt.Sprintf("tmp-instant-app-%s.%s", timeutils.CompactTime(time.Now()), utils.GenRequestId(6))
-// 	tempApp.Package = "temp"
-// 	tempApp.Version = "0.0.1"
-// 	tempApp.ProjectId = userCred.GetProjectId()
+func (man *SInstantModelManager) PerformImport(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input apis.InstantModelImportInput,
+) (*SInstantModel, error) {
+	// first create a temporary instant-app
+	tempModel := &SInstantModel{}
+	tempModel.SetModelManager(man, &SInstantModel{})
+	tempModel.Name = fmt.Sprintf("tmp-instant-model-%s.%s", time.Now().Format("060102"), utils.GenRequestId(6))
+	tempModel.ModelName = input.ModelName
+	tempModel.Tag = input.ModelTag
+	tempModel.LlmType = string(input.LlmType)
+	tempModel.ProjectId = userCred.GetProjectId()
 
-// 	err := manager.TableSpec().Insert(ctx, tempApp)
-// 	if err != nil {
-// 		return nil, errors.Wrap(err, "Insert")
-// 	}
+	err := man.TableSpec().Insert(ctx, tempModel)
+	if err != nil {
+		return nil, errors.Wrap(err, "Insert")
+	}
 
-// 	err = tempApp.startImportTask(ctx, userCred, input)
-// 	if err != nil {
-// 		return nil, errors.Wrap(err, "startImportTask")
-// 	}
+	err = tempModel.startImportTask(ctx, userCred, input)
+	if err != nil {
+		return nil, errors.Wrap(err, "startImportTask")
+	}
 
-// 	return tempApp, nil
-// }
+	return tempModel, nil
+}
 
-// func (instantapp *SInstantApp) startImportTask(ctx context.Context, userCred mcclient.TokenCredential, input apis.InstantAppImportInput) error {
-// 	params := jsonutils.NewDict()
-// 	params.Add(jsonutils.Marshal(input), "import_input")
+func (model *SInstantModel) startImportTask(ctx context.Context, userCred mcclient.TokenCredential, input apis.InstantModelImportInput) error {
+	params := jsonutils.NewDict()
+	params.Add(jsonutils.Marshal(input), "import_input")
 
-// 	task, err := taskman.TaskManager.NewTask(ctx, "InstantAppImportTask", instantapp, userCred, params, "", "")
-// 	if err != nil {
-// 		return errors.Wrap(err, "NewTask")
-// 	}
-// 	task.ScheduleRun(nil)
+	task, err := taskman.TaskManager.NewTask(ctx, "LLMInstantModelImportTask", model, userCred, params, "", "")
+	if err != nil {
+		return errors.Wrap(err, "NewTask")
+	}
+	task.ScheduleRun(nil)
 
-// 	return nil
-// }
+	return nil
+}
 
-// func (instantapp *SInstantApp) DoImport(ctx context.Context, userCred mcclient.TokenCredential, input apis.InstantAppImportInput) error {
-// 	// first download the image
-// 	cfg := objectstore.NewObjectStoreClientConfig(input.Endpoint, input.AccessKey, input.SecretKey)
-// 	if len(input.SignVer) > 0 {
-// 		cfg.SignVersion(objectstore.S3SignVersion(input.SignVer))
-// 	}
-// 	minioClient, err := objectstore.NewObjectStoreClient(cfg)
-// 	if err != nil {
-// 		return errors.Wrap(err, "new minio client")
-// 	}
+func (model *SInstantModel) DoImport(ctx context.Context, userCred mcclient.TokenCredential, s *mcclient.ClientSession, input apis.InstantModelImportInput) error {
+	// ensure LLMWorkingDirectory exists
+	if err := os.MkdirAll(options.Options.LLMWorkingDirectory, 0755); err != nil {
+		return errors.Wrap(err, "MkdirAll LLMWorkingDirectory")
+	}
+	// create temp directory for download
+	tmpDir, err := os.MkdirTemp(options.Options.LLMWorkingDirectory, "instant-model-*")
+	if err != nil {
+		return errors.Wrap(err, "CreateTemp")
+	}
+	defer func() {
+		os.RemoveAll(tmpDir)
+	}()
 
-// 	bucket, err := minioClient.GetIBucketByName(input.Bucket)
-// 	if err != nil {
-// 		return errors.Wrap(err, "GetIBucketByName")
-// 	}
+	drv := GetInstantModelManager().GetLLMContainerDriver(input.LlmType)
 
-// 	tmpDir, err := os.MkdirTemp(options.Options.AdbWorkingDirectory, "instant-app-*")
-// 	if err != nil {
-// 		return errors.Wrap(err, "CreateTemp")
-// 	}
-// 	defer func() {
-// 		os.RemoveAll(tmpDir)
-// 	}()
+	// download model from registry
+	modelId, mounts, err := drv.DownloadModel(ctx, userCred, nil, tmpDir, input.ModelName, input.ModelTag)
+	if err != nil {
+		return errors.Wrap(err, "DownloadModel")
+	}
+	log.Infof("Downloaded model %s:%s with modelId: %s to %s", input.ModelName, input.ModelTag, modelId, tmpDir)
 
-// 	tmpFileName := filepath.Join(tmpDir, "instant-app.tar")
+	// create tar.gz archive from downloaded files
+	imagePath := fmt.Sprintf("%s/model.tgz", tmpDir)
+	if err := createTarGz(tmpDir, imagePath); err != nil {
+		return errors.Wrap(err, "createTarGz")
+	}
 
-// 	// download the object
-// 	err = func() error {
-// 		tmpFile, err := os.Create(tmpFileName)
-// 		if err != nil {
-// 			return errors.Wrap(err, "Create")
-// 		}
-// 		defer tmpFile.Close()
+	// upload the image
+	imageId, err := func() (string, error) {
+		imgFile, err := os.Open(imagePath)
+		if err != nil {
+			return "", errors.Wrap(err, "Open")
+		}
+		defer imgFile.Close()
 
-// 		_, err = cloudprovider.DownloadObjectParallelWithProgress(ctx, bucket, input.Key, nil, tmpFile, 0, 1024*1024*10, false, 3, func(progress float64, progressMbps float64, totalSizeMb int64) {
-// 			log.Infof("DownloadObjectParallelWithProgress progress: %f, progressMbps: %f, totalSizeMb: %d", progress, progressMbps, totalSizeMb)
-// 		})
-// 		if err != nil {
-// 			return errors.Wrap(err, "DownloadObjectParallel")
-// 		}
-// 		return nil
-// 	}()
-// 	if err != nil {
-// 		return errors.Wrap(err, "download object")
-// 	}
+		imgFileStat, err := imgFile.Stat()
+		if err != nil {
+			return "", errors.Wrap(err, "Stat")
+		}
+		imgFileSize := imgFileStat.Size()
 
-// 	// untar the object
-// 	err = procutils.NewCommand("tar", "xf", tmpFileName, "-C", tmpDir, "--strip-components=1").Run()
-// 	if err != nil {
-// 		return errors.Wrapf(err, "untar %s", tmpFileName)
-// 	}
+		imgParams := imageapi.ImageCreateInput{}
+		imgParams.GenerateName = fmt.Sprintf("%s-%s", input.ModelName, input.ModelTag)
+		imgParams.DiskFormat = "tgz"
+		imgParams.Size = &imgFileSize
+		imgParams.Properties = map[string]string{
+			"llm_type":   string(input.LlmType),
+			"model_name": input.ModelName,
+			"model_tag":  input.ModelTag,
+			"model_id":   modelId,
+		}
 
-// 	scriptPath := filepath.Join(tmpDir, "scripts")
-// 	imagePath := filepath.Join(tmpDir, "image")
+		// upload the image
+		imageObj, err := imagemodules.Images.Upload(s, jsonutils.Marshal(imgParams), imgFile, imgFileSize)
+		if err != nil {
+			return "", errors.Wrap(err, "Upload Image")
+		}
+		imageId, err := imageObj.GetString("id")
+		if err != nil {
+			return "", errors.Wrap(err, "Get Image Id")
+		}
 
-// 	params, err := decodeParams(scriptPath)
-// 	if err != nil {
-// 		return errors.Wrap(err, "decodeParams")
-// 	}
+		return imageId, nil
+	}()
+	if err != nil {
+		return errors.Wrap(err, "upload image")
+	}
 
-// 	s := auth.GetSession(ctx, userCred, options.Options.Region)
+	// update the instant-model
+	_, err = db.Update(model, func() error {
+		// model.LlmType = string(input.LlmType)
+		// model.ModelName = input.ModelName
+		// model.Tag = input.ModelTag
+		model.ModelId = modelId
+		model.ImageId = imageId
+		model.Mounts = mounts
+		model.Status = imageapi.IMAGE_STATUS_SAVING
+		return nil
+	})
+	if err != nil {
+		return errors.Wrap(err, "update instant-model")
+	}
 
-// 	// upload the image
-// 	imageId, err := func() (string, error) {
-// 		imgFile, err := os.Open(imagePath)
-// 		if err != nil {
-// 			return "", errors.Wrap(err, "Open")
-// 		}
-// 		defer imgFile.Close()
+	// wait image to be active
+	// imgDetails, err := model.WaitImageStatus(ctx, userCred, []string{imageapi.IMAGE_STATUS_ACTIVE}, 1800)
+	// if err != nil {
+	// 	log.Errorf("WaitImageStatus failed: %s", err)
+	// }
 
-// 		imgFileStat, err := imgFile.Stat()
-// 		if err != nil {
-// 			return "", errors.Wrap(err, "Stat")
-// 		}
-// 		imgFileSize := imgFileStat.Size()
+	// sync image status
+	// err = model.syncImageStatus(ctx, userCred)
+	// if err != nil {
+	// 	return errors.Wrap(err, "syncImageStatus")
+	// }
 
-// 		imgParams := imageapi.ImageCreateInput{}
-// 		imgParams.GenerateName = params.ImageName
-// 		imgParams.DiskFormat = "tgz"
-// 		imgParams.Size = &imgFileSize
-// 		imgParams.Properties = map[string]string{
-// 			"os_arch": "aarch64",
-// 		}
+	// if imgDetails.Status == imageapi.IMAGE_STATUS_KILLED || imgDetails.Status == imageapi.IMAGE_STATUS_DEACTIVATED {
+	// 	return errors.Wrapf(httperrors.ErrInvalidStatus, "image status: %s", imgDetails.Status)
+	// }
 
-// 		// upload the image
-// 		imageObj, err := imagemodules.Images.Upload(s, jsonutils.Marshal(imgParams), imgFile, imgFileSize)
-// 		if err != nil {
-// 			return "", errors.Wrap(err, "Create")
-// 		}
-// 		imageId, err := imageObj.GetString("id")
-// 		if err != nil {
-// 			return "", errors.Wrap(err, "GetId")
-// 		}
+	return nil
+}
 
-// 		return imageId, nil
-// 	}()
-// 	if err != nil {
-// 		return errors.Wrap(err, "upload image")
-// 	}
-
-// 	newName, err := db.GenerateAlterName(instantapp, params.InstantAppName)
-// 	if err != nil {
-// 		return errors.Wrap(err, "GenerateAlterName")
-// 	}
-// 	// update the instant-app
-// 	_, err = db.Update(instantapp, func() error {
-// 		instantapp.Name = newName
-// 		instantapp.Package = params.Package
-// 		instantapp.Version = params.Version
-// 		instantapp.ImageId = imageId
-// 		instantapp.Mounts = []string{params.AppMount, params.DataMount}
-// 		if len(params.MediaMount) > 0 {
-// 			instantapp.Mounts = append(instantapp.Mounts, params.MediaMount)
-// 		}
-// 		instantapp.Status = imageapi.IMAGE_STATUS_SAVING
-// 		return nil
-// 	})
-// 	if err != nil {
-// 		return errors.Wrap(err, "update instant-app")
-// 	}
-
-// 	// wait image to be active
-// 	imgDetails, err := instantapp.WaitImageStatus(ctx, userCred, []string{imageapi.IMAGE_STATUS_ACTIVE}, 1800)
-// 	if err != nil {
-// 		log.Errorf("WaitImageStatus failed: %s", err)
-// 	}
-
-// 	// sync image status
-// 	err = instantapp.syncImageStatus(ctx, userCred)
-// 	if err != nil {
-// 		return errors.Wrap(err, "syncImageStatus")
-// 	}
-
-// 	if imgDetails.Status == imageapi.IMAGE_STATUS_KILLED || imgDetails.Status == imageapi.IMAGE_STATUS_DEACTIVATED {
-// 		return errors.Wrapf(httperrors.ErrInvalidStatus, "image status: %s", imgDetails.Status)
-// 	}
-
-// 	return nil
-// }
-
-// type sInstantAppImportParams struct {
-// 	ImageName      string
-// 	InstantAppName string
-// 	Package        string
-// 	Version        string
-// 	AppMount       string
-// 	DataMount      string
-// 	MediaMount     string
-// }
-
-// func decodeParams(fileDir string) (*sInstantAppImportParams, error) {
-// 	content, err := os.ReadFile(fileDir)
-// 	if err != nil {
-// 		return nil, errors.Wrap(err, "ReadFile")
-// 	}
-// 	return decodeParamsString(string(content))
-// }
-
-// const scriptFormat = `/root/climc image-upload --format tgz --os-arch aarch64 (?P<image_name>.*) \./image
-// /root/climc instant-app-create (?P<instant_app_name>.*) (?P<package>.*) (?P<version>.*) \\
-// --mounts "(?P<app_mount>.*)" \\
-// --mounts "(?P<data_mount>.*)" \\
-// (--mounts "(?P<media_mount>.*)")?`
-
-// var (
-// 	scriptRE = regexp.MustCompile(scriptFormat)
-// )
-
-// func decodeParamsString(content string) (*sInstantAppImportParams, error) {
-// 	params := sInstantAppImportParams{}
-// 	matches := scriptRE.FindStringSubmatch(content)
-
-// 	log.Debugf("decodeParamsString matches: %v", jsonutils.Marshal(matches))
-
-// 	if len(matches) > 6 {
-// 		params.ImageName = matches[1]
-// 		params.InstantAppName = matches[2]
-// 		params.Package = matches[3]
-// 		params.Version = matches[4]
-// 		params.AppMount = matches[5]
-// 		params.DataMount = matches[6]
-// 		if len(matches) > 8 {
-// 			params.MediaMount = matches[8]
-// 		}
-// 	}
-// 	return &params, nil
-// }
+// createTarGz creates a tar.gz archive from the source directory
+func createTarGz(srcDir string, dstPath string) error {
+	// use -C to change directory, . to pack all contents
+	// --exclude to exclude the output file itself (if in the same directory)
+	dstBase := filepath.Base(dstPath)
+	output, err := procutils.NewCommand("tar", "-czvf", dstPath, "-C", srcDir, "--exclude", dstBase, ".").Output()
+	if err != nil {
+		return errors.Wrapf(err, "tar -czvf %s -C %s: %s", dstPath, srcDir, output)
+	}
+	return nil
+}
 
 func (model *SInstantModel) GetImage(ctx context.Context, userCred mcclient.TokenCredential) (*imageapi.ImageDetails, error) {
 	s := auth.GetSession(ctx, userCred, options.Options.Region)

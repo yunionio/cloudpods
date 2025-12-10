@@ -2,6 +2,8 @@ package llm
 
 import (
 	"yunion.io/x/jsonutils"
+
+	api "yunion.io/x/onecloud/pkg/apis/llm"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
@@ -37,4 +39,27 @@ type LLMInstantModelCreateOptions struct {
 
 func (o *LLMInstantModelCreateOptions) Params() (jsonutils.JSONObject, error) {
 	return jsonutils.Marshal(o), nil
+}
+
+type LLMInstantModelDeleteOptions struct {
+	options.BaseIdOptions
+}
+
+func (o *LLMInstantModelDeleteOptions) Params() (jsonutils.JSONObject, error) {
+	return options.StructToParams(o)
+}
+
+type LLMInstantModelImportOptions struct {
+	LLM_TYPE   string `help:"llm container type" choices:"ollama" json:"llm_type"`
+	MODEL_NAME string `help:"model name to import, e.g. qwen3" json:"model_name"`
+	MODEL_TAG  string `help:"model tag to import, e.g. 8b" json:"model_tag"`
+}
+
+func (o *LLMInstantModelImportOptions) Params() (jsonutils.JSONObject, error) {
+	input := api.InstantModelImportInput{
+		ModelName: o.MODEL_NAME,
+		ModelTag:  o.MODEL_TAG,
+		LlmType:   api.LLMContainerType(o.LLM_TYPE),
+	}
+	return jsonutils.Marshal(input), nil
 }
