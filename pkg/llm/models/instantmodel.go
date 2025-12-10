@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/httputils"
 	"yunion.io/x/pkg/utils"
@@ -23,6 +24,7 @@ import (
 	imagemodules "yunion.io/x/onecloud/pkg/mcclient/modules/image"
 	commonoptions "yunion.io/x/onecloud/pkg/mcclient/options"
 	"yunion.io/x/onecloud/pkg/util/logclient"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 
 	apis "yunion.io/x/onecloud/pkg/apis/llm"
 	"yunion.io/x/onecloud/pkg/llm/options"
@@ -134,116 +136,159 @@ func (man *SInstantModelManager) ListItemFilter(
 	return q, nil
 }
 
-// func (man *SInstantAppManager) FetchCustomizeColumns(
-// 	ctx context.Context,
-// 	userCred mcclient.TokenCredential,
-// 	query jsonutils.JSONObject,
-// 	objs []interface{},
-// 	fields stringutils2.SSortedStrings,
-// 	isList bool,
-// ) []apis.InstantAppDetails {
-// 	res := make([]apis.InstantAppDetails, len(objs))
+func (man *SInstantModelManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []apis.InstantModelDetails {
+	res := make([]apis.InstantModelDetails, len(objs))
 
-// 	imageIds := make([]string, 0)
-// 	mdlNames := make([]string, 0)
+	imageIds := make([]string, 0)
+	mdlIds := make([]string, 0)
 
-// 	virows := man.SSharableVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
-// 	for i := range res {
-// 		res[i].SharableVirtualResourceDetails = virows[i]
-// 		instApp := objs[i].(*SInstantApp)
-// 		if len(instApp.ImageId) > 0 {
-// 			imageIds = append(imageIds, instApp.ImageId)
-// 		}
-// 		if len(instApp.ModelName) > 0 {
-// 			mdlNames = append(mdlNames, instApp.ModelName)
-// 		}
-// 	}
+	virows := man.SSharableVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	for i := range res {
+		res[i].SharableVirtualResourceDetails = virows[i]
+		instModel := objs[i].(*SInstantModel)
+		if len(instModel.ImageId) > 0 {
+			imageIds = append(imageIds, instModel.ImageId)
+		}
+		if len(instModel.ModelId) > 0 {
+			mdlIds = append(mdlIds, instModel.ModelId)
+		}
+	}
 
-// 	s := auth.GetSession(ctx, userCred, options.Options.Region)
-// 	imageMap := make(map[string]imageapi.ImageDetails)
-// 	if len(imageIds) > 0 {
-// 		params := imageapi.ImageListInput{}
-// 		params.Ids = imageIds
-// 		params.VirtualResourceListInput.Scope = "max"
-// 		details := false
-// 		params.Details = &details
-// 		limit := len(imageIds)
-// 		params.Limit = &limit
-// 		params.Field = []string{"id", "name"}
-// 		imageList, err := imagemodules.Images.List(s, jsonutils.Marshal(params))
-// 		if err != nil {
-// 			log.Errorf("list image fail %s", err)
-// 		} else {
-// 			for i := range imageList.Data {
-// 				imgDetails := imageapi.ImageDetails{}
-// 				err := imageList.Data[i].Unmarshal(&imgDetails)
-// 				if err != nil {
-// 					log.Errorf("unmarshal image info %s fail %s", imageList.Data[i], err)
-// 				} else {
-// 					imageMap[imgDetails.Id] = imgDetails
-// 				}
-// 			}
-// 		}
-// 	}
-// 	type imageCacheStatus struct {
-// 		CachedCount int
-// 		CacheCount  int
-// 	}
-// 	imageCacheStatusTbl := make(map[string]*imageCacheStatus)
-// 	if len(imageIds) > 0 {
-// 		params := commonoptions.BaseListOptions{}
-// 		params.Scope = "max"
-// 		params.Filter = []string{fmt.Sprintf("cachedimage_id.in(%s)", strings.Join(imageIds, ","))}
-// 		details := false
-// 		params.Details = &details
-// 		limit := 1024
-// 		params.Limit = &limit
-// 		params.Field = []string{"storagecache_id", "cachedimage_id", "status"}
-// 		offset := -1
-// 		total := 0
-// 		for offset < 0 || offset < total {
-// 			if offset > 0 {
-// 				params.Offset = &offset
-// 			} else {
-// 				offset = 0
-// 			}
-// 			resp, err := computemodules.Storagecachedimages.List(s, jsonutils.Marshal(params))
-// 			if err != nil {
-// 				log.Errorf("Storagecachedimages.List fail %s", err)
-// 				break
-// 			}
-// 			for i := range resp.Data {
-// 				sci := computeapi.StoragecachedimageDetails{}
-// 				err := resp.Data[i].Unmarshal(&sci)
-// 				if err != nil {
-// 					log.Errorf("unmarshal image info %s fail %s", resp.Data[i], err)
-// 				} else {
-// 					if _, ok := imageCacheStatusTbl[sci.CachedimageId]; !ok {
-// 						imageCacheStatusTbl[sci.CachedimageId] = &imageCacheStatus{}
-// 					}
-// 					if sci.Status == computeapi.CACHED_IMAGE_STATUS_ACTIVE {
-// 						imageCacheStatusTbl[sci.CachedimageId].CachedCount++
-// 					}
-// 					imageCacheStatusTbl[sci.CachedimageId].CacheCount++
-// 				}
-// 			}
-// 			offset += len(resp.Data)
-// 			total = resp.Total
-// 		}
+	s := auth.GetSession(ctx, userCred, options.Options.Region)
+	imageMap := make(map[string]imageapi.ImageDetails)
+	if len(imageIds) > 0 {
+		params := imageapi.ImageListInput{}
+		params.Ids = imageIds
+		params.VirtualResourceListInput.Scope = "max"
+		details := false
+		params.Details = &details
+		limit := len(imageIds)
+		params.Limit = &limit
+		params.Field = []string{"id", "name"}
+		imageList, err := imagemodules.Images.List(s, jsonutils.Marshal(params))
+		if err != nil {
+			log.Errorf("list image fail %s", err)
+		} else {
+			for i := range imageList.Data {
+				imgDetails := imageapi.ImageDetails{}
+				err := imageList.Data[i].Unmarshal(&imgDetails)
+				if err != nil {
+					log.Errorf("unmarshal image info %s fail %s", imageList.Data[i], err)
+				} else {
+					imageMap[imgDetails.Id] = imgDetails
+				}
+			}
+		}
+	}
+	type imageCacheStatus struct {
+		CachedCount int
+		CacheCount  int
+	}
+	imageCacheStatusTbl := make(map[string]*imageCacheStatus)
+	if len(imageIds) > 0 {
+		params := commonoptions.BaseListOptions{}
+		params.Scope = "max"
+		params.Filter = []string{fmt.Sprintf("cachedimage_id.in(%s)", strings.Join(imageIds, ","))}
+		details := false
+		params.Details = &details
+		limit := 1024
+		params.Limit = &limit
+		params.Field = []string{"storagecache_id", "cachedimage_id", "status"}
+		offset := -1
+		total := 0
+		for offset < 0 || offset < total {
+			if offset > 0 {
+				params.Offset = &offset
+			} else {
+				offset = 0
+			}
+			resp, err := computemodules.Storagecachedimages.List(s, jsonutils.Marshal(params))
+			if err != nil {
+				log.Errorf("Storagecachedimages.List fail %s", err)
+				break
+			}
+			for i := range resp.Data {
+				sci := computeapi.StoragecachedimageDetails{}
+				err := resp.Data[i].Unmarshal(&sci)
+				if err != nil {
+					log.Errorf("unmarshal image info %s fail %s", resp.Data[i], err)
+				} else {
+					if _, ok := imageCacheStatusTbl[sci.CachedimageId]; !ok {
+						imageCacheStatusTbl[sci.CachedimageId] = &imageCacheStatus{}
+					}
+					if sci.Status == computeapi.CACHED_IMAGE_STATUS_ACTIVE {
+						imageCacheStatusTbl[sci.CachedimageId].CachedCount++
+					}
+					imageCacheStatusTbl[sci.CachedimageId].CacheCount++
+				}
+			}
+			offset += len(resp.Data)
+			total = resp.Total
+		}
 
-// 	}
-// 	for i := range res {
-// 		instApp := objs[i].(*SInstantApp)
-// 		if img, ok := imageMap[instApp.ImageId]; ok {
-// 			res[i].Image = img.Name
-// 		}
-// 		if status, ok := imageCacheStatusTbl[instApp.ImageId]; ok {
-// 			res[i].CacheCount = status.CacheCount
-// 			res[i].CachedCount = status.CachedCount
-// 		}
-// 	}
-// 	return res
-// }
+	}
+
+	llmInstModelQ := GetLLMInstantModelManager().Query().In("model_id", mdlIds).IsFalse("deleted")
+	llmInstModels := make([]SLLMInstantModel, 0)
+	err := db.FetchModelObjects(GetLLMInstantModelManager(), llmInstModelQ, &llmInstModels)
+	if err != nil {
+		log.Errorf("fetch llm instant models fail %s", err)
+	}
+
+	llmIds := make([]string, 0)
+	for i := range llmInstModels {
+		if !utils.IsInArray(llmInstModels[i].LlmId, llmIds) {
+			llmIds = append(llmIds, llmInstModels[i].LlmId)
+		}
+	}
+
+	llmMap := make(map[string]SLLM)
+	if len(llmIds) > 0 {
+		err = db.FetchModelObjectsByIds(GetLLMManager(), "id", llmIds, &llmMap)
+		if err != nil {
+			log.Errorf("FetchModelObjectsByIds LLMManager fail %s", err)
+		}
+	}
+
+	modelMountedByMap := make(map[string][]apis.MountedByLLMInfo)
+	for i := range llmInstModels {
+		llmInstModel := llmInstModels[i]
+		llm, ok := llmMap[llmInstModel.LlmId]
+		if !ok {
+			continue
+		}
+		info := apis.MountedByLLMInfo{
+			LlmId:   llmInstModel.LlmId,
+			LlmName: llm.Name,
+		}
+		if _, ok := modelMountedByMap[llmInstModel.ModelId]; !ok {
+			modelMountedByMap[llmInstModel.ModelId] = make([]apis.MountedByLLMInfo, 0)
+		}
+		modelMountedByMap[llmInstModel.ModelId] = append(modelMountedByMap[llmInstModel.ModelId], info)
+	}
+
+	for i := range res {
+		instModel := objs[i].(*SInstantModel)
+		if img, ok := imageMap[instModel.ImageId]; ok {
+			res[i].Image = img.Name
+		}
+		if status, ok := imageCacheStatusTbl[instModel.ImageId]; ok {
+			res[i].CacheCount = status.CacheCount
+			res[i].CachedCount = status.CachedCount
+		}
+		if mountedBy, ok := modelMountedByMap[instModel.ModelId]; ok {
+			res[i].MountedByLLMs = mountedBy
+		}
+	}
+	return res
+}
 
 func (man *SInstantModelManager) GetLLMContainerDriver(llmType apis.LLMContainerType) ILLMContainerDriver {
 	return GetLLMContainerDriver(llmType)
