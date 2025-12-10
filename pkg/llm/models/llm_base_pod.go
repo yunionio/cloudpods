@@ -110,7 +110,7 @@ func GetLLMBasePodCreateInput(
 	}
 	bandwidth := llmBase.BandwidthMb
 	if bandwidth == 0 {
-		bandwidth = skuBase.BandwidthMb
+		bandwidth = skuBase.Bandwidth
 	}
 
 	network := &computeapi.NetworkConfig{

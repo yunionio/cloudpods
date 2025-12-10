@@ -116,7 +116,9 @@ type LLMSkuDetails struct {
 	ImageLabel  string
 	ImageName   string
 
-	Template string
+	Template string `json:"template"`
+
+	Network string `json:"network"`
 }
 
 type MountedAppResourceDetails struct {
