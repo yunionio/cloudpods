@@ -39,9 +39,22 @@ func (task *LLMDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, 
 		return
 	}
 
+	// 检查 server 是否存在
+	_, err := llm.GetServer(ctx)
+	if err != nil {
+		if errors.Cause(err) == errors.ErrNotFound {
+			// server 不存在，直接进入下一步
+			task.OnLLMRefreshStatusComplete(ctx, llm, nil)
+			return
+		}
+		// 其他错误，任务失败
+		task.taskFailed(ctx, llm, err)
+		return
+	}
+
 	task.SetStage("OnLLMRefreshStatusComplete", nil)
 	s := auth.GetSession(ctx, task.GetUserCred(), "")
-	err := s.WithTaskCallback(task.GetId(), func() error {
+	err = s.WithTaskCallback(task.GetId(), func() error {
 		return llm.ServerDelete(ctx, task.UserCred, s)
 	})
 	if err != nil {
