@@ -91,13 +91,15 @@ func (llm *SLLM) PerformSaveInstantModel(
 
 	drv := llm.GetLLMContainerDriver()
 	instantModelCreateInput := api.InstantModelCreateInput{
-		LLMType:   drv.GetType(),
+		LlmType:   drv.GetType(),
 		ModelId:   mdlInfo.ModelId,
 		ModelName: mdlInfo.Name,
-		Tag:       mdlInfo.Tag,
+		ModelTag:  mdlInfo.Tag,
 		Mounts:    mountDirs,
 	}
 	instantModelCreateInput.Name = input.ImageName
+	booTrue := true
+	instantModelCreateInput.DoNotImport = &booTrue
 	log.Debugf("instantModelCreateInput: %s", jsonutils.Marshal(instantModelCreateInput))
 
 	instantMdlObj, err := db.DoCreate(GetInstantModelManager(), ctx, userCred, nil, jsonutils.Marshal(instantModelCreateInput), ownerId)
@@ -134,7 +136,7 @@ func (llm *SLLM) DoSaveModelImage(ctx context.Context, userCred mcclient.TokenCr
 
 	saveImageInput := computeapi.ContainerSaveVolumeMountToImageInput{
 		GenerateName:      input.ImageName,
-		Notes:             fmt.Sprintf("instance model image for %s(%s)", input.ModelId, instantModel.ModelName+":"+instantModel.Tag),
+		Notes:             fmt.Sprintf("instance model image for %s(%s)", input.ModelId, instantModel.ModelName+":"+instantModel.ModelTag),
 		Index:             0,
 		Dirs:              saveDirs,
 		UsedByPostOverlay: true,

@@ -9,7 +9,7 @@ type InstantModelListInput struct {
 	apis.EnabledResourceBaseListInput
 
 	ModelName string `json:"model_name"`
-	Tag       string `json:"tag"`
+	ModelTag  string `json:"model_tag"`
 	ModelId   string `json:"model_id"`
 	Image     string `json:"image"`
 
@@ -18,13 +18,19 @@ type InstantModelListInput struct {
 	AutoCache *bool `json:"auto_cache"`
 }
 
+type InstantModelImportInput struct {
+	ModelName string           `json:"model_name"`
+	ModelTag  string           `json:"model_tag"`
+	LlmType   LLMContainerType `json:"llm_type"`
+}
+
 type InstantModelCreateInput struct {
 	apis.SharableVirtualResourceCreateInput
 	apis.EnabledBaseResourceCreateInput
 
-	LLMType   LLMContainerType `json:"llm_type"`
+	LlmType   LLMContainerType `json:"llm_type"`
 	ModelName string           `json:"model_name"`
-	Tag       string           `json:"tag"`
+	ModelTag  string           `json:"model_tag"`
 	ImageId   string           `json:"image_id"`
 	Size      int64            `json:"size"`
 	ModelId   string           `json:"model_id"`
@@ -32,6 +38,8 @@ type InstantModelCreateInput struct {
 	ActualSizeMb int32 `json:"actual_size_mb"`
 
 	Mounts []string `json:"mounts"`
+
+	DoNotImport *bool `json:"do_not_import,omitempty"`
 }
 
 type InstantModelUpdateInput struct {
@@ -54,12 +62,6 @@ type InstantModelDetails struct {
 	CachedCount int
 
 	IconBase64 string `json:"icon_base64"`
-}
-
-type InstantModelImportInput struct {
-	ModelName string           `json:"model_name"`
-	ModelTag  string           `json:"model_tag"`
-	LlmType   LLMContainerType `json:"llm_type"`
 }
 
 type InstantModelSyncstatusInput struct {
