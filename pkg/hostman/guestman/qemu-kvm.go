@@ -393,7 +393,7 @@ func (s *SKVMGuestInstance) initLiveDescFromSourceGuest(srcDesc *desc.SGuestDesc
 		var cpus = make([]int, 0)
 		cpuNumaPin = make([]*desc.SCpuNumaPin, 0)
 		for nodeId, numaCpus := range nodeNumaCpus {
-			if s.manager.numaAllocate {
+			if s.manager.hostagentNumaAllocate {
 				unodeId := uint16(nodeId)
 				vcpuPin := make([]desc.SVCpuPin, len(numaCpus.Cpuset))
 				for i := range numaCpus.Cpuset {
@@ -411,7 +411,7 @@ func (s *SKVMGuestInstance) initLiveDescFromSourceGuest(srcDesc *desc.SGuestDesc
 			cpus = append(cpus, numaCpus.Cpuset...)
 		}
 
-		if s.manager.numaAllocate {
+		if s.manager.hostagentNumaAllocate {
 			// reset origin cpu numa pin
 			srcDesc.VcpuPin = nil
 			srcDesc.CpuNumaPin = nil
@@ -775,7 +775,7 @@ func (s *SKVMGuestInstance) asyncScriptStart(ctx context.Context, params interfa
 			data.Set("vnc_port", jsonutils.NewInt(int64(vncPort)))
 		}
 
-		if tried > 1 && s.manager.numaAllocate {
+		if tried > 1 && s.manager.hostagentNumaAllocate {
 			if err = s.reallocateNumaNodes(isMigrate); err != nil {
 				log.Errorf("failed fix numa allocated mems %s", err)
 				goto finally
@@ -800,7 +800,7 @@ func (s *SKVMGuestInstance) asyncScriptStart(ctx context.Context, params interfa
 			log.Errorf("Start VM failed %s: %s", s.GetName(), err)
 			time.Sleep(time.Duration(1<<uint(tried-1)) * time.Second)
 		} else {
-			if s.manager.numaAllocate {
+			if s.manager.hostagentNumaAllocate {
 				if err = s.validateNumaAllocated(s.Desc.Uuid, isMigrate, false, vcpuOrder); err != nil {
 					log.Errorf("VM %s validateNumaAllocated: %s", s.GetName(), err)
 					isStarted = false
@@ -1943,6 +1943,9 @@ func (s *SKVMGuestInstance) HandleGuestStart(ctx context.Context, userCred mccli
 		}
 		res := jsonutils.NewDict()
 		res.Set("vnc_port", jsonutils.NewInt(0))
+		if !s.manager.host.IsSchedulerNumaAllocateEnabled() {
+			res.Set("cpu_numa_pin", jsonutils.Marshal(s.Desc.CpuNumaPin))
+		}
 		return res, nil
 	} else {
 		vncPort := s.GetVncPort()
@@ -2863,7 +2866,7 @@ func (s *SKVMGuestInstance) allocGuestNumaCpuset() error {
 	}
 	log.Infof("alloc numa cpus %v", nodeNumaCpus)
 	for nodeId, numaCpus := range nodeNumaCpus {
-		if s.manager.numaAllocate {
+		if s.manager.hostagentNumaAllocate {
 			unodeId := uint16(nodeId)
 			vcpuPin := make([]desc.SVCpuPin, len(numaCpus.Cpuset))
 			for i := range numaCpus.Cpuset {
@@ -2883,7 +2886,7 @@ func (s *SKVMGuestInstance) allocGuestNumaCpuset() error {
 	}
 	if len(cpuNumaPin) > 0 {
 		s.Desc.CpuNumaPin = cpuNumaPin
-	} else if !s.manager.numaAllocate {
+	} else if !s.manager.hostagentNumaAllocate {
 		s.Desc.VcpuPin = []desc.SCpuPin{
 			{
 				Vcpus: fmt.Sprintf("0-%d", s.Desc.Cpu-1),
@@ -3026,6 +3029,9 @@ func (s *SKVMGuestInstance) OnResumeSyncMetadataInfo() {
 	} else {
 		meta.Set("__qemu_cmdline", jsonutils.NewString(cmdline))
 	}
+	//if !s.manager.host.IsSchedulerNumaAllocateEnabled() {
+	//	meta.Set(api.VM_METADATA_CPU_NUMA_PIN, jsonutils.Marshal(s.Desc.CpuNumaPin))
+	//}
 	if s.syncMeta != nil {
 		meta.Update(s.syncMeta)
 	}

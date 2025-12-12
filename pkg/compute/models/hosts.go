@@ -156,7 +156,8 @@ type SHost struct {
 	// 内存超分比
 	MemCmtbound float32 `nullable:"true" list:"domain" create:"domain_optional"`
 	// 页大小
-	PageSizeKB         int  `nullable:"false" default:"4" list:"domain" update:"domain" create:"domain_optional"`
+	PageSizeKB int `nullable:"false" default:"4" list:"domain" update:"domain" create:"domain_optional"`
+	// scheduler cpu-node/numa allocate
 	EnableNumaAllocate bool `nullable:"true" default:"false" list:"domain" update:"domain" create:"domain_optional"`
 
 	// 存储大小,单位Mb
