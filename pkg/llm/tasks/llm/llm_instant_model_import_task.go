@@ -41,17 +41,36 @@ func (task *LLMInstantModelImportTask) OnInit(ctx context.Context, obj db.IStand
 	}
 
 	task.SetStage("OnImportComplete", nil)
-	s := auth.GetSession(ctx, task.GetUserCred(), options.Options.Region)
-	err = s.WithTaskCallback(task.GetId(), func() error {
-		return model.DoImport(ctx, task.UserCred, s, input)
-	})
+	s := auth.GetAdminSession(ctx, options.Options.Region)
+	var fileDir string
+	// err = s.WithTaskCallback(task.GetId(), func() error {
+	// 	fileDir, err = model.DoImport(ctx, task.UserCred, s, input)
+	// 	// 将 fileDir 存储到 task.Params 中，以便后续阶段可以访问
+	// 	if fileDir != "" {
+	// 		task.Params.Set("file_dir", jsonutils.NewString(fileDir))
+	// 	}
+	// 	return err
+	// })
+	fileDir, err = model.DoImport(ctx, task.UserCred, s, input)
+	// 将 fileDir 存储到 task.Params 中，以便后续阶段可以访问
+	if fileDir != "" {
+		task.Params.Set("file_dir", jsonutils.NewString(fileDir))
+	}
 	if err != nil {
 		task.OnImportCompleteFailed(ctx, model, jsonutils.NewString(err.Error()))
 	}
+	task.OnImportComplete(ctx, model, nil)
 }
 
 func (task *LLMInstantModelImportTask) OnImportComplete(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	model := obj.(*models.SInstantModel)
+
+	// 确保删除 fileDir
+	if fileDirObj, err := task.Params.Get("file_dir"); err == nil {
+		if fileDir, _ := fileDirObj.GetString(); fileDir != "" {
+			model.CleanupImportTmpDir(ctx, task.GetUserCred(), fileDir)
+		}
+	}
 
 	db.OpsLog.LogEvent(model, db.ACT_CREATE, model.GetShortDesc(ctx), task.UserCred)
 	logclient.AddActionLogWithStartable(task, model, logclient.ACT_CREATE, model.GetShortDesc(ctx), task.UserCred, true)
@@ -61,5 +80,13 @@ func (task *LLMInstantModelImportTask) OnImportComplete(ctx context.Context, obj
 
 func (task *LLMInstantModelImportTask) OnImportCompleteFailed(ctx context.Context, obj db.IStandaloneModel, err jsonutils.JSONObject) {
 	model := obj.(*models.SInstantModel)
+
+	// 确保删除 fileDir
+	if fileDirObj, err := task.Params.Get("file_dir"); err == nil {
+		if fileDir, _ := fileDirObj.GetString(); fileDir != "" {
+			model.CleanupImportTmpDir(ctx, task.GetUserCred(), fileDir)
+		}
+	}
+
 	task.taskFailed(ctx, model, err.String())
 }

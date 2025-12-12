@@ -12,7 +12,7 @@ func init() {
 	cmd := shell.NewResourceCmd(&modules.LLMInstantModel)
 	cmd.List(new(options.LLMInstantModelListOptions))
 	cmd.Show(new(options.LLMInstantModelShowOptions))
-	// cmd.Update(new(options.InstantAppUpdateOptions))
+	cmd.Update(new(options.LLMInstantModelUpdateOptions))
 	cmd.Create(new(options.LLMInstantModelCreateOptions))
 	cmd.Delete(new(options.LLMInstantModelDeleteOptions))
 	cmd.Perform("syncstatus", new(commonoptions.BaseIdOptions))

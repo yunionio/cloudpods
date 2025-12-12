@@ -11,7 +11,7 @@ type LLMInstantModelListOptions struct {
 	options.BaseListOptions
 
 	ModelName []string `help:"filter by model name"`
-	Tag       []string `help:"filter by model tag"`
+	ModelTag  []string `help:"filter by model tag"`
 }
 
 func (o *LLMInstantModelListOptions) Params() (jsonutils.JSONObject, error) {
@@ -29,8 +29,9 @@ func (o *LLMInstantModelShowOptions) Params() (jsonutils.JSONObject, error) {
 type LLMInstantModelCreateOptions struct {
 	options.BaseCreateOptions
 
+	LLM_TYPE   string `help:"llm container type" choices:"ollama" json:"llm_type"`
 	MODEL_NAME string `json:"model_name"`
-	TAG        string `json:"tag"`
+	MODEL_TAG  string `json:"model_tag"`
 
 	ImageId string `json:"image_id"`
 
@@ -38,6 +39,18 @@ type LLMInstantModelCreateOptions struct {
 }
 
 func (o *LLMInstantModelCreateOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(o), nil
+}
+
+type LLMInstantModelUpdateOptions struct {
+	options.BaseIdOptions
+
+	ImageId string `json:"image_id"`
+
+	Mounts []string `json:"mounts"`
+}
+
+func (o *LLMInstantModelUpdateOptions) Params() (jsonutils.JSONObject, error) {
 	return jsonutils.Marshal(o), nil
 }
 
