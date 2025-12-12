@@ -3,10 +3,13 @@ package models
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/httputils"
 	"yunion.io/x/pkg/utils"
@@ -16,6 +19,7 @@ import (
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	imageapi "yunion.io/x/onecloud/pkg/apis/image"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
@@ -23,6 +27,8 @@ import (
 	imagemodules "yunion.io/x/onecloud/pkg/mcclient/modules/image"
 	commonoptions "yunion.io/x/onecloud/pkg/mcclient/options"
 	"yunion.io/x/onecloud/pkg/util/logclient"
+	"yunion.io/x/onecloud/pkg/util/procutils"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 
 	apis "yunion.io/x/onecloud/pkg/apis/llm"
 	"yunion.io/x/onecloud/pkg/llm/options"
@@ -62,7 +68,7 @@ type SInstantModel struct {
 	LlmType   string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"required"`
 	ModelId   string `width:"128" charset:"ascii" list:"user" create:"optional"`
 	ModelName string `width:"128" charset:"ascii" list:"user" create:"required"`
-	Tag       string `width:"64" charset:"ascii" list:"user" create:"required"`
+	ModelTag  string `width:"64" charset:"ascii" list:"user" create:"required"`
 
 	ImageId string `width:"128" charset:"ascii" list:"user" create:"optional" update:"user"`
 
@@ -95,8 +101,8 @@ func (man *SInstantModelManager) ListItemFilter(
 	if len(input.ModelName) > 0 {
 		q = q.In("model_name", input.ModelName)
 	}
-	if len(input.Tag) > 0 {
-		q = q.In("tag", input.Tag)
+	if len(input.ModelTag) > 0 {
+		q = q.In("model_tag", input.ModelTag)
 	}
 	if len(input.ModelId) > 0 {
 		q = q.In("model_id", input.ModelId)
@@ -134,116 +140,116 @@ func (man *SInstantModelManager) ListItemFilter(
 	return q, nil
 }
 
-// func (man *SInstantAppManager) FetchCustomizeColumns(
-// 	ctx context.Context,
-// 	userCred mcclient.TokenCredential,
-// 	query jsonutils.JSONObject,
-// 	objs []interface{},
-// 	fields stringutils2.SSortedStrings,
-// 	isList bool,
-// ) []apis.InstantAppDetails {
-// 	res := make([]apis.InstantAppDetails, len(objs))
+func (man *SInstantModelManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []apis.InstantModelDetails {
+	res := make([]apis.InstantModelDetails, len(objs))
 
-// 	imageIds := make([]string, 0)
-// 	mdlNames := make([]string, 0)
+	imageIds := make([]string, 0)
+	// mdlNames := make([]string, 0)
 
-// 	virows := man.SSharableVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
-// 	for i := range res {
-// 		res[i].SharableVirtualResourceDetails = virows[i]
-// 		instApp := objs[i].(*SInstantApp)
-// 		if len(instApp.ImageId) > 0 {
-// 			imageIds = append(imageIds, instApp.ImageId)
-// 		}
-// 		if len(instApp.ModelName) > 0 {
-// 			mdlNames = append(mdlNames, instApp.ModelName)
-// 		}
-// 	}
+	virows := man.SSharableVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	for i := range res {
+		res[i].SharableVirtualResourceDetails = virows[i]
+		instModel := objs[i].(*SInstantModel)
+		if len(instModel.ImageId) > 0 {
+			imageIds = append(imageIds, instModel.ImageId)
+		}
+		// if len(instModel.ModelName) > 0 {
+		// 	mdlNames = append(mdlNames, instModel.ModelName)
+		// }
+	}
 
-// 	s := auth.GetSession(ctx, userCred, options.Options.Region)
-// 	imageMap := make(map[string]imageapi.ImageDetails)
-// 	if len(imageIds) > 0 {
-// 		params := imageapi.ImageListInput{}
-// 		params.Ids = imageIds
-// 		params.VirtualResourceListInput.Scope = "max"
-// 		details := false
-// 		params.Details = &details
-// 		limit := len(imageIds)
-// 		params.Limit = &limit
-// 		params.Field = []string{"id", "name"}
-// 		imageList, err := imagemodules.Images.List(s, jsonutils.Marshal(params))
-// 		if err != nil {
-// 			log.Errorf("list image fail %s", err)
-// 		} else {
-// 			for i := range imageList.Data {
-// 				imgDetails := imageapi.ImageDetails{}
-// 				err := imageList.Data[i].Unmarshal(&imgDetails)
-// 				if err != nil {
-// 					log.Errorf("unmarshal image info %s fail %s", imageList.Data[i], err)
-// 				} else {
-// 					imageMap[imgDetails.Id] = imgDetails
-// 				}
-// 			}
-// 		}
-// 	}
-// 	type imageCacheStatus struct {
-// 		CachedCount int
-// 		CacheCount  int
-// 	}
-// 	imageCacheStatusTbl := make(map[string]*imageCacheStatus)
-// 	if len(imageIds) > 0 {
-// 		params := commonoptions.BaseListOptions{}
-// 		params.Scope = "max"
-// 		params.Filter = []string{fmt.Sprintf("cachedimage_id.in(%s)", strings.Join(imageIds, ","))}
-// 		details := false
-// 		params.Details = &details
-// 		limit := 1024
-// 		params.Limit = &limit
-// 		params.Field = []string{"storagecache_id", "cachedimage_id", "status"}
-// 		offset := -1
-// 		total := 0
-// 		for offset < 0 || offset < total {
-// 			if offset > 0 {
-// 				params.Offset = &offset
-// 			} else {
-// 				offset = 0
-// 			}
-// 			resp, err := computemodules.Storagecachedimages.List(s, jsonutils.Marshal(params))
-// 			if err != nil {
-// 				log.Errorf("Storagecachedimages.List fail %s", err)
-// 				break
-// 			}
-// 			for i := range resp.Data {
-// 				sci := computeapi.StoragecachedimageDetails{}
-// 				err := resp.Data[i].Unmarshal(&sci)
-// 				if err != nil {
-// 					log.Errorf("unmarshal image info %s fail %s", resp.Data[i], err)
-// 				} else {
-// 					if _, ok := imageCacheStatusTbl[sci.CachedimageId]; !ok {
-// 						imageCacheStatusTbl[sci.CachedimageId] = &imageCacheStatus{}
-// 					}
-// 					if sci.Status == computeapi.CACHED_IMAGE_STATUS_ACTIVE {
-// 						imageCacheStatusTbl[sci.CachedimageId].CachedCount++
-// 					}
-// 					imageCacheStatusTbl[sci.CachedimageId].CacheCount++
-// 				}
-// 			}
-// 			offset += len(resp.Data)
-// 			total = resp.Total
-// 		}
+	s := auth.GetSession(ctx, userCred, options.Options.Region)
+	imageMap := make(map[string]imageapi.ImageDetails)
+	if len(imageIds) > 0 {
+		params := imageapi.ImageListInput{}
+		params.Ids = imageIds
+		params.VirtualResourceListInput.Scope = "max"
+		details := false
+		params.Details = &details
+		limit := len(imageIds)
+		params.Limit = &limit
+		params.Field = []string{"id", "name"}
+		imageList, err := imagemodules.Images.List(s, jsonutils.Marshal(params))
+		if err != nil {
+			log.Errorf("list image fail %s", err)
+		} else {
+			for i := range imageList.Data {
+				imgDetails := imageapi.ImageDetails{}
+				err := imageList.Data[i].Unmarshal(&imgDetails)
+				if err != nil {
+					log.Errorf("unmarshal image info %s fail %s", imageList.Data[i], err)
+				} else {
+					imageMap[imgDetails.Id] = imgDetails
+				}
+			}
+		}
+	}
+	type imageCacheStatus struct {
+		CachedCount int
+		CacheCount  int
+	}
+	imageCacheStatusTbl := make(map[string]*imageCacheStatus)
+	if len(imageIds) > 0 {
+		params := commonoptions.BaseListOptions{}
+		params.Scope = "max"
+		params.Filter = []string{fmt.Sprintf("cachedimage_id.in(%s)", strings.Join(imageIds, ","))}
+		details := false
+		params.Details = &details
+		limit := 1024
+		params.Limit = &limit
+		params.Field = []string{"storagecache_id", "cachedimage_id", "status"}
+		offset := -1
+		total := 0
+		for offset < 0 || offset < total {
+			if offset > 0 {
+				params.Offset = &offset
+			} else {
+				offset = 0
+			}
+			resp, err := computemodules.Storagecachedimages.List(s, jsonutils.Marshal(params))
+			if err != nil {
+				log.Errorf("Storagecachedimages.List fail %s", err)
+				break
+			}
+			for i := range resp.Data {
+				sci := computeapi.StoragecachedimageDetails{}
+				err := resp.Data[i].Unmarshal(&sci)
+				if err != nil {
+					log.Errorf("unmarshal image info %s fail %s", resp.Data[i], err)
+				} else {
+					if _, ok := imageCacheStatusTbl[sci.CachedimageId]; !ok {
+						imageCacheStatusTbl[sci.CachedimageId] = &imageCacheStatus{}
+					}
+					if sci.Status == computeapi.CACHED_IMAGE_STATUS_ACTIVE {
+						imageCacheStatusTbl[sci.CachedimageId].CachedCount++
+					}
+					imageCacheStatusTbl[sci.CachedimageId].CacheCount++
+				}
+			}
+			offset += len(resp.Data)
+			total = resp.Total
+		}
 
-// 	}
-// 	for i := range res {
-// 		instApp := objs[i].(*SInstantApp)
-// 		if img, ok := imageMap[instApp.ImageId]; ok {
-// 			res[i].Image = img.Name
-// 		}
-// 		if status, ok := imageCacheStatusTbl[instApp.ImageId]; ok {
-// 			res[i].CacheCount = status.CacheCount
-// 			res[i].CachedCount = status.CachedCount
-// 		}
-// 	}
-// 	return res
-// }
+	}
+	for i := range res {
+		instModel := objs[i].(*SInstantModel)
+		if img, ok := imageMap[instModel.ImageId]; ok {
+			res[i].Image = img.Name
+		}
+		if status, ok := imageCacheStatusTbl[instModel.ImageId]; ok {
+			res[i].CacheCount = status.CacheCount
+			res[i].CachedCount = status.CachedCount
+		}
+	}
+	return res
+}
 
 func (man *SInstantModelManager) GetLLMContainerDriver(llmType apis.LLMContainerType) ILLMContainerDriver {
 	return GetLLMContainerDriver(llmType)
@@ -262,8 +268,8 @@ func (man *SInstantModelManager) ValidateCreateData(
 		return input, errors.Wrap(err, "SSharableVirtualResourceBaseManager.ValidateCreateData")
 	}
 
-	if !apis.IsLLMContainerType(string(input.LLMType)) {
-		return input, errors.Wrapf(httperrors.ErrInvalidFormat, "invalid llm_type %s", input.LLMType)
+	if !apis.IsLLMContainerType(string(input.LlmType)) {
+		return input, errors.Wrapf(httperrors.ErrInvalidFormat, "invalid llm_type %s", input.LlmType)
 	}
 
 	if len(input.ImageId) > 0 {
@@ -291,8 +297,8 @@ func (man *SInstantModelManager) ValidateCreateData(
 		input.ActualSizeMb = img.MinDiskMB
 	}
 	if len(input.Mounts) > 0 {
-		drv := man.GetLLMContainerDriver(input.LLMType)
-		_, err = drv.ValidateMounts(input.Mounts, input.ModelName, input.Tag)
+		drv := man.GetLLMContainerDriver(input.LlmType)
+		_, err = drv.ValidateMounts(input.Mounts, input.ModelName, input.ModelTag)
 		if err != nil {
 			return input, errors.Wrap(err, "validateMounts")
 		}
@@ -302,53 +308,53 @@ func (man *SInstantModelManager) ValidateCreateData(
 	return input, nil
 }
 
-// func (app *SInstantApp) ValidateUpdateData(
-// 	ctx context.Context,
-// 	userCred mcclient.TokenCredential,
-// 	query jsonutils.JSONObject,
-// 	input apis.InstantAppUpdateInput,
-// ) (apis.InstantAppUpdateInput, error) {
-// 	var err error
-// 	input.SharableVirtualResourceBaseUpdateInput, err = app.SSharableVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, input.SharableVirtualResourceBaseUpdateInput)
-// 	if err != nil {
-// 		return input, errors.Wrap(err, "SSharableVirtualResourceBase.ValidateUpdateData")
-// 	}
+func (model *SInstantModel) ValidateUpdateData(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input apis.InstantModelUpdateInput,
+) (apis.InstantModelUpdateInput, error) {
+	var err error
+	input.SharableVirtualResourceBaseUpdateInput, err = model.SSharableVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, input.SharableVirtualResourceBaseUpdateInput)
+	if err != nil {
+		return input, errors.Wrap(err, "SSharableVirtualResourceBase.ValidateUpdateData")
+	}
 
-// 	if len(input.ImageId) > 0 {
-// 		img, err := fetchImage(ctx, userCred, input.ImageId)
-// 		if err != nil {
-// 			return input, errors.Wrapf(err, "fetchImage %s", input.ImageId)
-// 		}
-// 		if img.DiskFormat != imageapi.IMAGE_DISK_FORMAT_TGZ {
-// 			return input, errors.Wrapf(errors.ErrInvalidFormat, "cannot use image as template of format %s", img.DiskFormat)
-// 		}
+	if len(input.ImageId) > 0 {
+		img, err := fetchImage(ctx, userCred, input.ImageId)
+		if err != nil {
+			return input, errors.Wrapf(err, "fetchImage %s", input.ImageId)
+		}
+		if img.DiskFormat != imageapi.IMAGE_DISK_FORMAT_TGZ {
+			return input, errors.Wrapf(errors.ErrInvalidFormat, "cannot use image as template of format %s", img.DiskFormat)
+		}
 
-// 		{
-// 			findApp, err := GetInstantAppManager().findInstantAppByImageId(img.Id)
-// 			if err != nil {
-// 				return input, errors.Wrap(err, "findInstantAppByImageId")
-// 			}
-// 			if findApp != nil && findApp.Id != app.Id {
-// 				return input, errors.Wrapf(httperrors.ErrConflict, "image %s has been used by other app", input.ImageId)
-// 			}
-// 		}
+		{
+			findModel, err := GetInstantModelManager().findInstantModelByImageId(img.Id)
+			if err != nil {
+				return input, errors.Wrap(err, "findInstantModelByImageId")
+			}
+			if findModel != nil && findModel.Id != model.Id {
+				return input, errors.Wrapf(httperrors.ErrConflict, "image %s has been used by other model", input.ImageId)
+			}
+		}
 
-// 		input.ImageId = img.Id
-// 		input.Size = img.Size
-// 		input.ActualSizeMb = img.MinDiskMB
-// 	}
-// 	if len(input.Mounts) > 0 {
-// 		drv := GetInstantAppManager().GetLLMContainerDriver(apis.LLMContainerType(app.LlmType))
-// 		input.Mounts, err = drv.ValidateMounts(input.Mounts, app.Package)
-// 		if err != nil {
-// 			return input, errors.Wrap(err, "validateMounts")
-// 		}
-// 		if len(input.Mounts) == 0 {
-// 			return input, errors.Wrap(errors.ErrEmpty, "empty mounts")
-// 		}
-// 	}
-// 	return input, nil
-// }
+		input.ImageId = img.Id
+		input.Size = img.Size
+		input.ActualSizeMb = img.MinDiskMB
+	}
+	if len(input.Mounts) > 0 {
+		drv := GetInstantModelManager().GetLLMContainerDriver(apis.LLMContainerType(model.LlmType))
+		input.Mounts, err = drv.ValidateMounts(input.Mounts, model.ModelName, model.ModelTag)
+		if err != nil {
+			return input, errors.Wrap(err, "validateMounts")
+		}
+		if len(input.Mounts) == 0 {
+			return input, errors.Wrap(errors.ErrEmpty, "empty mounts")
+		}
+	}
+	return input, nil
+}
 
 func (model *SInstantModel) PostCreate(
 	ctx context.Context,
@@ -358,16 +364,28 @@ func (model *SInstantModel) PostCreate(
 	data jsonutils.JSONObject,
 ) {
 	model.syncImagePathMap(ctx, userCred)
+	input := apis.InstantModelCreateInput{}
+	err := data.Unmarshal(&input)
+	if err != nil {
+		return
+	}
+	if input.DoNotImport == nil || !*input.DoNotImport {
+		model.startImportTask(ctx, userCred, apis.InstantModelImportInput{
+			LlmType:   input.LlmType,
+			ModelName: input.ModelName,
+			ModelTag:  input.ModelTag,
+		})
+	}
 }
 
-// func (app *SInstantApp) PostUpdate(
-// 	ctx context.Context,
-// 	userCred mcclient.TokenCredential,
-// 	query jsonutils.JSONObject,
-// 	data jsonutils.JSONObject,
-// ) {
-// 	app.syncImagePathMap(ctx, userCred)
-// }
+func (model *SInstantModel) PostUpdate(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject,
+) {
+	model.syncImagePathMap(ctx, userCred)
+}
 
 func (model *SInstantModel) getImagePaths() map[string]string {
 	drv := GetInstantModelManager().GetLLMContainerDriver(apis.LLMContainerType(model.LlmType))
@@ -485,7 +503,7 @@ func (man *SInstantModelManager) findInstantModel(mdlId, tag string, isEnabled b
 	}
 	if len(tag) > 0 {
 		for i := range mdls {
-			if mdls[i].Tag == tag {
+			if mdls[i].ModelTag == tag {
 				return &mdls[i], nil
 			}
 		}
@@ -516,12 +534,12 @@ func (model *SInstantModel) PerformEnable(
 	}
 	// check duplicate
 	{
-		existing, err := GetInstantModelManager().findInstantModel(model.ModelId, model.Tag, true)
+		existing, err := GetInstantModelManager().findInstantModel(model.ModelId, model.ModelTag, true)
 		if err != nil {
 			return nil, errors.Wrap(err, "findInstantModel")
 		}
 		if existing != nil && existing.Id != model.Id {
-			return nil, errors.Wrapf(errors.ErrDuplicateId, "model of modelId %s tag %s has been enabled", model.ModelId, model.Tag)
+			return nil, errors.Wrapf(errors.ErrDuplicateId, "model of modelId %s tag %s has been enabled", model.ModelId, model.ModelTag)
 		}
 	}
 	_, err := db.Update(model, func() error {
@@ -602,30 +620,28 @@ func (model *SInstantModel) PerformPrivate(
 	return model.SSharableVirtualResourceBase.PerformPrivate(ctx, userCred, query, input)
 }
 
-// func (app *SInstantApp) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
-// 	if app.Enabled.IsTrue() {
-// 		return errors.Wrap(errors.ErrInvalidStatus, "cannot delete when enabled")
-// 	}
+func (model *SInstantModel) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
+	if model.Enabled.IsTrue() {
+		for _, man := range []MountedModelModelManager{GetLLMSkuManager(), GetVolumeManager()} {
+			used, err := man.IsPremountedModelName(model.ModelName + ":" + model.ModelTag + "-" + model.ModelId)
+			if err != nil {
+				return errors.Wrap(err, "IsPremountedModelName")
+			}
+			if used {
+				return errors.Wrap(errors.ErrInvalidStatus, "cannot delete when model is used by other resources")
+			}
+		}
+	}
 
-// 	for _, man := range []MountedAppModelManager{GetDesktopModelManager(), GetVolumeManager()} {
-// 		used, err := man.IsPremountedPackageName(app.Package)
-// 		if err != nil {
-// 			return errors.Wrap(err, "IsPremountedPackageName")
-// 		}
-// 		if used {
-// 			return errors.Wrap(errors.ErrInvalidStatus, "cannot delete when package is used by other resources")
-// 		}
-// 	}
+	return nil
+}
 
-// 	return nil
-// }
-
-// func (app *SInstantApp) ValidateUpdateCondition(ctx context.Context) error {
-// 	if app.Enabled.IsTrue() {
-// 		return errors.Wrap(errors.ErrInvalidStatus, "cannot update when enabled")
-// 	}
-// 	return nil
-// }
+func (model *SInstantModel) ValidateUpdateCondition(ctx context.Context) error {
+	if model.Enabled.IsTrue() {
+		return errors.Wrap(errors.ErrInvalidStatus, "cannot update when enabled")
+	}
+	return nil
+}
 
 func (model *SInstantModel) PerformEnableAutoCache(
 	ctx context.Context,
@@ -665,236 +681,170 @@ func (model *SInstantModel) doCache(ctx context.Context, userCred mcclient.Token
 	return nil
 }
 
-// func (manager *SInstantAppManager) PerformImport(
-// 	ctx context.Context,
-// 	userCred mcclient.TokenCredential,
-// 	query jsonutils.JSONObject,
-// 	input apis.InstantAppImportInput,
-// ) (*SInstantApp, error) {
-// 	if input.Invalid() {
-// 		return nil, httperrors.NewInputParameterError("invalid input: %s", jsonutils.Marshal(input).String())
-// 	}
-// 	// first create a temporary instant-app
-// 	tempApp := &SInstantApp{}
-// 	tempApp.SetModelManager(manager, &SInstantApp{})
-// 	tempApp.Name = fmt.Sprintf("tmp-instant-app-%s.%s", timeutils.CompactTime(time.Now()), utils.GenRequestId(6))
-// 	tempApp.Package = "temp"
-// 	tempApp.Version = "0.0.1"
-// 	tempApp.ProjectId = userCred.GetProjectId()
+func (man *SInstantModelManager) PerformImport(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input apis.InstantModelImportInput,
+) (*SInstantModel, error) {
+	// first create a temporary instant-app
+	tempModel := &SInstantModel{}
+	tempModel.SetModelManager(man, &SInstantModel{})
+	tempModel.Name = fmt.Sprintf("tmp-instant-model-%s.%s", time.Now().Format("060102"), utils.GenRequestId(6))
+	tempModel.ModelName = input.ModelName
+	tempModel.ModelTag = input.ModelTag
+	tempModel.LlmType = string(input.LlmType)
+	tempModel.ProjectId = userCred.GetProjectId()
 
-// 	err := manager.TableSpec().Insert(ctx, tempApp)
-// 	if err != nil {
-// 		return nil, errors.Wrap(err, "Insert")
-// 	}
+	err := man.TableSpec().Insert(ctx, tempModel)
+	if err != nil {
+		return nil, errors.Wrap(err, "Insert")
+	}
 
-// 	err = tempApp.startImportTask(ctx, userCred, input)
-// 	if err != nil {
-// 		return nil, errors.Wrap(err, "startImportTask")
-// 	}
+	err = tempModel.startImportTask(ctx, userCred, input)
+	if err != nil {
+		return nil, errors.Wrap(err, "startImportTask")
+	}
 
-// 	return tempApp, nil
-// }
+	return tempModel, nil
+}
 
-// func (instantapp *SInstantApp) startImportTask(ctx context.Context, userCred mcclient.TokenCredential, input apis.InstantAppImportInput) error {
-// 	params := jsonutils.NewDict()
-// 	params.Add(jsonutils.Marshal(input), "import_input")
+func (model *SInstantModel) startImportTask(ctx context.Context, userCred mcclient.TokenCredential, input apis.InstantModelImportInput) error {
+	params := jsonutils.NewDict()
+	params.Add(jsonutils.Marshal(input), "import_input")
 
-// 	task, err := taskman.TaskManager.NewTask(ctx, "InstantAppImportTask", instantapp, userCred, params, "", "")
-// 	if err != nil {
-// 		return errors.Wrap(err, "NewTask")
-// 	}
-// 	task.ScheduleRun(nil)
+	task, err := taskman.TaskManager.NewTask(ctx, "LLMInstantModelImportTask", model, userCred, params, "", "")
+	if err != nil {
+		return errors.Wrap(err, "NewTask")
+	}
+	task.ScheduleRun(nil)
 
-// 	return nil
-// }
+	return nil
+}
 
-// func (instantapp *SInstantApp) DoImport(ctx context.Context, userCred mcclient.TokenCredential, input apis.InstantAppImportInput) error {
-// 	// first download the image
-// 	cfg := objectstore.NewObjectStoreClientConfig(input.Endpoint, input.AccessKey, input.SecretKey)
-// 	if len(input.SignVer) > 0 {
-// 		cfg.SignVersion(objectstore.S3SignVersion(input.SignVer))
-// 	}
-// 	minioClient, err := objectstore.NewObjectStoreClient(cfg)
-// 	if err != nil {
-// 		return errors.Wrap(err, "new minio client")
-// 	}
+func (model *SInstantModel) DoImport(ctx context.Context, userCred mcclient.TokenCredential, s *mcclient.ClientSession, input apis.InstantModelImportInput) (tmpDir string, err error) {
+	// ensure LLMWorkingDirectory exists
+	if err = os.MkdirAll(options.Options.LLMWorkingDirectory, 0755); err != nil {
+		err = errors.Wrap(err, "MkdirAll LLMWorkingDirectory")
+		return
+	}
+	// create temp directory for download
+	tmpDir, err = os.MkdirTemp(options.Options.LLMWorkingDirectory, "instant-model-*")
+	if err != nil {
+		err = errors.Wrap(err, "CreateTemp")
+		return
+	}
+	defer func() {
+		os.RemoveAll(tmpDir)
+	}()
 
-// 	bucket, err := minioClient.GetIBucketByName(input.Bucket)
-// 	if err != nil {
-// 		return errors.Wrap(err, "GetIBucketByName")
-// 	}
+	drv := GetInstantModelManager().GetLLMContainerDriver(input.LlmType)
 
-// 	tmpDir, err := os.MkdirTemp(options.Options.AdbWorkingDirectory, "instant-app-*")
-// 	if err != nil {
-// 		return errors.Wrap(err, "CreateTemp")
-// 	}
-// 	defer func() {
-// 		os.RemoveAll(tmpDir)
-// 	}()
+	// download model from registry
+	modelId, mounts, err := drv.DownloadModel(ctx, userCred, nil, tmpDir, input.ModelName, input.ModelTag)
+	if err != nil {
+		err = errors.Wrap(err, "DownloadModel")
+		return
+	}
+	log.Infof("Downloaded model %s:%s with modelId: %s to %s", input.ModelName, input.ModelTag, modelId, tmpDir)
 
-// 	tmpFileName := filepath.Join(tmpDir, "instant-app.tar")
+	// create tar.gz archive from downloaded files
+	imagePath := fmt.Sprintf("%s/model.tgz", tmpDir)
+	if err = createTarGz(tmpDir, imagePath); err != nil {
+		err = errors.Wrap(err, "createTarGz")
+		return
+	}
 
-// 	// download the object
-// 	err = func() error {
-// 		tmpFile, err := os.Create(tmpFileName)
-// 		if err != nil {
-// 			return errors.Wrap(err, "Create")
-// 		}
-// 		defer tmpFile.Close()
+	// upload the image
+	imageId, err := func() (string, error) {
+		imgFile, err := os.Open(imagePath)
+		if err != nil {
+			return "", errors.Wrap(err, "Open")
+		}
+		defer imgFile.Close()
 
-// 		_, err = cloudprovider.DownloadObjectParallelWithProgress(ctx, bucket, input.Key, nil, tmpFile, 0, 1024*1024*10, false, 3, func(progress float64, progressMbps float64, totalSizeMb int64) {
-// 			log.Infof("DownloadObjectParallelWithProgress progress: %f, progressMbps: %f, totalSizeMb: %d", progress, progressMbps, totalSizeMb)
-// 		})
-// 		if err != nil {
-// 			return errors.Wrap(err, "DownloadObjectParallel")
-// 		}
-// 		return nil
-// 	}()
-// 	if err != nil {
-// 		return errors.Wrap(err, "download object")
-// 	}
+		imgFileStat, err := imgFile.Stat()
+		if err != nil {
+			return "", errors.Wrap(err, "Stat")
+		}
+		imgFileSize := imgFileStat.Size()
 
-// 	// untar the object
-// 	err = procutils.NewCommand("tar", "xf", tmpFileName, "-C", tmpDir, "--strip-components=1").Run()
-// 	if err != nil {
-// 		return errors.Wrapf(err, "untar %s", tmpFileName)
-// 	}
+		imgParams := imageapi.ImageCreateInput{}
+		imgParams.GenerateName = fmt.Sprintf("%s-%s", input.ModelName, input.ModelTag)
+		imgParams.DiskFormat = "tgz"
+		imgParams.Size = &imgFileSize
+		imgParams.Properties = map[string]string{
+			"llm_type":   string(input.LlmType),
+			"model_name": input.ModelName,
+			"model_tag":  input.ModelTag,
+			"model_id":   modelId,
+		}
 
-// 	scriptPath := filepath.Join(tmpDir, "scripts")
-// 	imagePath := filepath.Join(tmpDir, "image")
+		// upload the image
+		imageObj, err := imagemodules.Images.Upload(s, jsonutils.Marshal(imgParams), imgFile, imgFileSize)
+		if err != nil {
+			return "", errors.Wrap(err, "Upload Image")
+		}
+		imageId, err := imageObj.GetString("id")
+		if err != nil {
+			return "", errors.Wrap(err, "Get Image Id")
+		}
 
-// 	params, err := decodeParams(scriptPath)
-// 	if err != nil {
-// 		return errors.Wrap(err, "decodeParams")
-// 	}
+		return imageId, nil
+	}()
+	if err != nil {
+		err = errors.Wrap(err, "upload image")
+		return
+	}
 
-// 	s := auth.GetSession(ctx, userCred, options.Options.Region)
+	// update the instant-model
+	_, err = db.Update(model, func() error {
+		// model.LlmType = string(input.LlmType)
+		// model.ModelName = input.ModelName
+		// model.Tag = input.ModelTag
+		model.ModelId = modelId
+		model.ImageId = imageId
+		model.Mounts = mounts
+		model.Status = imageapi.IMAGE_STATUS_SAVING
+		return nil
+	})
+	if err != nil {
+		err = errors.Wrap(err, "update instant-model")
+		return
+	}
 
-// 	// upload the image
-// 	imageId, err := func() (string, error) {
-// 		imgFile, err := os.Open(imagePath)
-// 		if err != nil {
-// 			return "", errors.Wrap(err, "Open")
-// 		}
-// 		defer imgFile.Close()
+	// wait image to be active
+	imgDetails, err := model.WaitImageStatus(ctx, userCred, []string{imageapi.IMAGE_STATUS_ACTIVE}, 1800)
+	if err != nil {
+		log.Errorf("WaitImageStatus failed: %s", err)
+	}
 
-// 		imgFileStat, err := imgFile.Stat()
-// 		if err != nil {
-// 			return "", errors.Wrap(err, "Stat")
-// 		}
-// 		imgFileSize := imgFileStat.Size()
+	// sync image status
+	err = model.syncImageStatus(ctx, userCred)
+	if err != nil {
+		err = errors.Wrap(err, "syncImageStatus")
+		return
+	}
 
-// 		imgParams := imageapi.ImageCreateInput{}
-// 		imgParams.GenerateName = params.ImageName
-// 		imgParams.DiskFormat = "tgz"
-// 		imgParams.Size = &imgFileSize
-// 		imgParams.Properties = map[string]string{
-// 			"os_arch": "aarch64",
-// 		}
+	if imgDetails.Status == imageapi.IMAGE_STATUS_KILLED || imgDetails.Status == imageapi.IMAGE_STATUS_DEACTIVATED {
+		err = errors.Wrapf(httperrors.ErrInvalidStatus, "image status: %s", imgDetails.Status)
+		return
+	}
 
-// 		// upload the image
-// 		imageObj, err := imagemodules.Images.Upload(s, jsonutils.Marshal(imgParams), imgFile, imgFileSize)
-// 		if err != nil {
-// 			return "", errors.Wrap(err, "Create")
-// 		}
-// 		imageId, err := imageObj.GetString("id")
-// 		if err != nil {
-// 			return "", errors.Wrap(err, "GetId")
-// 		}
+	return
+}
 
-// 		return imageId, nil
-// 	}()
-// 	if err != nil {
-// 		return errors.Wrap(err, "upload image")
-// 	}
-
-// 	newName, err := db.GenerateAlterName(instantapp, params.InstantAppName)
-// 	if err != nil {
-// 		return errors.Wrap(err, "GenerateAlterName")
-// 	}
-// 	// update the instant-app
-// 	_, err = db.Update(instantapp, func() error {
-// 		instantapp.Name = newName
-// 		instantapp.Package = params.Package
-// 		instantapp.Version = params.Version
-// 		instantapp.ImageId = imageId
-// 		instantapp.Mounts = []string{params.AppMount, params.DataMount}
-// 		if len(params.MediaMount) > 0 {
-// 			instantapp.Mounts = append(instantapp.Mounts, params.MediaMount)
-// 		}
-// 		instantapp.Status = imageapi.IMAGE_STATUS_SAVING
-// 		return nil
-// 	})
-// 	if err != nil {
-// 		return errors.Wrap(err, "update instant-app")
-// 	}
-
-// 	// wait image to be active
-// 	imgDetails, err := instantapp.WaitImageStatus(ctx, userCred, []string{imageapi.IMAGE_STATUS_ACTIVE}, 1800)
-// 	if err != nil {
-// 		log.Errorf("WaitImageStatus failed: %s", err)
-// 	}
-
-// 	// sync image status
-// 	err = instantapp.syncImageStatus(ctx, userCred)
-// 	if err != nil {
-// 		return errors.Wrap(err, "syncImageStatus")
-// 	}
-
-// 	if imgDetails.Status == imageapi.IMAGE_STATUS_KILLED || imgDetails.Status == imageapi.IMAGE_STATUS_DEACTIVATED {
-// 		return errors.Wrapf(httperrors.ErrInvalidStatus, "image status: %s", imgDetails.Status)
-// 	}
-
-// 	return nil
-// }
-
-// type sInstantAppImportParams struct {
-// 	ImageName      string
-// 	InstantAppName string
-// 	Package        string
-// 	Version        string
-// 	AppMount       string
-// 	DataMount      string
-// 	MediaMount     string
-// }
-
-// func decodeParams(fileDir string) (*sInstantAppImportParams, error) {
-// 	content, err := os.ReadFile(fileDir)
-// 	if err != nil {
-// 		return nil, errors.Wrap(err, "ReadFile")
-// 	}
-// 	return decodeParamsString(string(content))
-// }
-
-// const scriptFormat = `/root/climc image-upload --format tgz --os-arch aarch64 (?P<image_name>.*) \./image
-// /root/climc instant-app-create (?P<instant_app_name>.*) (?P<package>.*) (?P<version>.*) \\
-// --mounts "(?P<app_mount>.*)" \\
-// --mounts "(?P<data_mount>.*)" \\
-// (--mounts "(?P<media_mount>.*)")?`
-
-// var (
-// 	scriptRE = regexp.MustCompile(scriptFormat)
-// )
-
-// func decodeParamsString(content string) (*sInstantAppImportParams, error) {
-// 	params := sInstantAppImportParams{}
-// 	matches := scriptRE.FindStringSubmatch(content)
-
-// 	log.Debugf("decodeParamsString matches: %v", jsonutils.Marshal(matches))
-
-// 	if len(matches) > 6 {
-// 		params.ImageName = matches[1]
-// 		params.InstantAppName = matches[2]
-// 		params.Package = matches[3]
-// 		params.Version = matches[4]
-// 		params.AppMount = matches[5]
-// 		params.DataMount = matches[6]
-// 		if len(matches) > 8 {
-// 			params.MediaMount = matches[8]
-// 		}
-// 	}
-// 	return &params, nil
-// }
+// createTarGz creates a tar.gz archive from the source directory
+func createTarGz(srcDir string, dstPath string) error {
+	// use -C to change directory, . to pack all contents
+	// --exclude to exclude the output file itself (if in the same directory)
+	dstBase := filepath.Base(dstPath)
+	output, err := procutils.NewCommand("tar", "-czvf", dstPath, "-C", srcDir, "--exclude", dstBase, ".").Output()
+	if err != nil {
+		return errors.Wrapf(err, "tar -czvf %s -C %s: %s", dstPath, srcDir, output)
+	}
+	return nil
+}
 
 func (model *SInstantModel) GetImage(ctx context.Context, userCred mcclient.TokenCredential) (*imageapi.ImageDetails, error) {
 	s := auth.GetSession(ctx, userCred, options.Options.Region)
@@ -933,4 +883,20 @@ func (model *SInstantModel) GetActualSizeMb() int32 {
 		return model.ActualSizeMb
 	}
 	return int32(model.Size / 1024 / 1024)
+}
+
+func (model *SInstantModel) CleanupImportTmpDir(ctx context.Context, userCred mcclient.TokenCredential, tmpDir string) error {
+	// sync image status
+	err := model.syncImageStatus(ctx, userCred)
+	if err != nil {
+		return errors.Wrap(err, "syncImageStatus")
+	}
+	if tmpDir == "" {
+		return nil
+	}
+	log.Infof("Cleaning up tmpDir: %s", tmpDir)
+	if err := procutils.NewCommand("rm", "-rf", tmpDir).Run(); err != nil {
+		return errors.Wrapf(err, "Failed to remove tmpDir %s", tmpDir)
+	}
+	return nil
 }

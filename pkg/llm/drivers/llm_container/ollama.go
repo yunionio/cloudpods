@@ -2,8 +2,11 @@ package llm_container
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"os"
 	"path"
 	"strings"
 
@@ -152,6 +155,86 @@ func (o *ollama) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *
 
 // 	return err
 // }
+
+func (o *ollama) DownloadModel(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM, tmpDir string, modelName string, modelTag string) (string, []string, error) {
+	// 1. download manifest from registry
+	manifestsUrl := fmt.Sprintf(api.LLM_OLLAMA_LIBRARY_BASE_URL, fmt.Sprintf("%s/manifests/%s", modelName, modelTag))
+	log.Infof("Downloading manifest from %s", manifestsUrl)
+
+	manifestContent, err := llm.HttpGet(ctx, manifestsUrl)
+	if err != nil {
+		return "", nil, errors.Wrapf(err, "failed to download manifest from %s", manifestsUrl)
+	}
+
+	// 2. calculate model_id (sha256 of manifest content, take first 12 chars)
+	hash := sha256.Sum256(manifestContent)
+	modelId := hex.EncodeToString(hash[:])[:12]
+	log.Infof("Model %s:%s has model_id: %s", modelName, modelTag, modelId)
+
+	// 3. parse manifest to get blobs
+	manifest := &Manifest{}
+	if err := json.Unmarshal(manifestContent, manifest); err != nil {
+		return "", nil, errors.Wrapf(err, "failed to parse manifest")
+	}
+
+	// collect all blob digests (config + layers)
+	var blobs []string
+	blobs = append(blobs, manifest.Config.Digest)
+	for _, layer := range manifest.Layers {
+		blobs = append(blobs, layer.Digest)
+	}
+
+	// 4. create directory structure
+	// tmpDir/blobs/
+	// tmpDir/manifests/registry.ollama.ai/library/<modelName>/<modelTag>
+	blobsDir := path.Join(tmpDir, "blobs")
+	manifestsDir := path.Join(tmpDir, api.LLM_OLLAMA_MANIFESTS_BASE_PATH, modelName)
+	if err := os.MkdirAll(blobsDir, 0755); err != nil {
+		return "", nil, errors.Wrapf(err, "failed to create blobs directory %s", blobsDir)
+	}
+	if err := os.MkdirAll(manifestsDir, 0755); err != nil {
+		return "", nil, errors.Wrapf(err, "failed to create manifests directory %s", manifestsDir)
+	}
+
+	// 5. download each blob
+	for _, digest := range blobs {
+		// convert sha256:xxx to sha256-xxx for filename
+		blobFileName := strings.Replace(digest, ":", "-", 1)
+		blobPath := path.Join(blobsDir, blobFileName)
+
+		// check if blob already exists
+		if _, err := os.Stat(blobPath); err == nil {
+			log.Infof("Blob %s already exists, skipping", blobFileName)
+			continue
+		}
+
+		// download blob from registry
+		// URL format: https://registry.ollama.ai/v2/library/<modelName>/blobs/<digest>
+		blobUrl := fmt.Sprintf(api.LLM_OLLAMA_LIBRARY_BASE_URL, fmt.Sprintf("%s/blobs/%s", modelName, digest))
+		log.Infof("Downloading blob %s from %s", blobFileName, blobUrl)
+
+		if err := llm.HttpDownloadFile(ctx, blobUrl, blobPath); err != nil {
+			return "", nil, errors.Wrapf(err, "failed to download blob %s", digest)
+		}
+	}
+
+	// 6. save manifest file
+	manifestPath := path.Join(manifestsDir, modelTag)
+	if err := os.WriteFile(manifestPath, manifestContent, 0644); err != nil {
+		return "", nil, errors.Wrapf(err, "failed to save manifest to %s", manifestPath)
+	}
+	log.Infof("Model %s:%s downloaded successfully to %s", modelName, modelTag, tmpDir)
+
+	// 7. collect mount paths
+	mounts := make([]string, len(blobs))
+	for i, blob := range blobs {
+		blobFileName := strings.Replace(blob, ":", "-", 1)
+		mounts[i] = path.Join(api.LLM_OLLAMA_BASE_PATH, api.LLM_OLLAMA_BLOBS_DIR, blobFileName)
+	}
+	mounts = append(mounts, path.Join(api.LLM_OLLAMA_BASE_PATH, api.LLM_OLLAMA_MANIFESTS_BASE_PATH, modelName, modelTag))
+
+	return modelId, mounts, nil
+}
 
 func (o *ollama) PreInstallModel(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM, instMdl *models.SLLMInstantModel) error {
 	// before mount, make sure the manifests dir is ready
