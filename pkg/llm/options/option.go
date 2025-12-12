@@ -20,6 +20,8 @@ type LLMOptions struct {
 	common_options.CommonOptions
 	common_options.DBOptions
 
+	LLMWorkingDirectory string `help:"llm working directory" default:"/opt/cloud/workspace/llm/"`
+
 	InstantModelSyncTaskWorkerCount int `help:"backup task worker count" default:"128"`
 	ModelSyncTaskWaitSecs           int `help:"model sync task wait seconds" default:"30"`
 

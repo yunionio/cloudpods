@@ -253,7 +253,7 @@ func (llm *SLLM) PerformQuickModels(ctx context.Context, userCred mcclient.Token
 				instApp := instModelObj.(*SInstantModel)
 				input.Models[i].Id = instApp.Id
 				input.Models[i].ModelId = instApp.ModelId
-				input.Models[i].Tag = instApp.Tag
+				input.Models[i].Tag = instApp.ModelTag
 				if input.Method == apis.QuickModelInstall {
 					toInstallSizeGb += float64(instApp.GetActualSizeMb()) * 1024 * 1024 / 1000 / 1000 / 1000
 				}
@@ -267,7 +267,7 @@ func (llm *SLLM) PerformQuickModels(ctx context.Context, userCred mcclient.Token
 				errs = append(errs, httperrors.NewResourceNotFoundError2(GetInstantModelManager().Keyword(), input.Models[i].ModelId))
 			} else {
 				input.Models[i].Id = mdl.Id
-				input.Models[i].Tag = mdl.Tag
+				input.Models[i].Tag = mdl.ModelTag
 				input.Models[i].ModelId = mdl.ModelId
 			}
 		}
