@@ -2841,7 +2841,7 @@ func (task *SGuestHotplugCpuMemTask) updateGuestDesc() {
 		}
 		task.Desc.MemDesc.MemSlots = append(task.Desc.MemDesc.MemSlots, task.memSlots...)
 
-		if task.manager.numaAllocate {
+		if task.manager.hostagentNumaAllocate {
 			for i := range task.memSlotNewIndexs {
 				hugepageId := fmt.Sprintf("%s-%d", task.getOriginId(), task.memSlotNewIndexs[i])
 				task.validateNumaAllocated(hugepageId, false, true, nil)

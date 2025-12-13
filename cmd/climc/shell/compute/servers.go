@@ -149,6 +149,7 @@ func init() {
 	cmd.Get("qemu-info", new(options.ServerIdOptions))
 	cmd.Get("hardware-info", new(options.ServerIdOptions))
 	cmd.Get("screen-dump-show", new(options.ServerScreenDumpOptions))
+	cmd.Get("numa-info", new(options.ServerIdOptions))
 	cmd.BatchPerform("screen-dump", new(options.ServerIdsOptions))
 
 	cmd.GetProperty(&options.ServerStatusStatisticsOptions{})

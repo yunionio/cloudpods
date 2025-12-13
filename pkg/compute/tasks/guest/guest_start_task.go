@@ -112,6 +112,19 @@ func (task *GuestStartTask) OnStartComplete(ctx context.Context, obj db.IStandal
 	guest.SetMetadata(ctx, api.VM_METADATA_START_VMEM_MB, guest.VmemSize, task.UserCred)
 	// save start time
 	guest.SaveLastStartAt()
+
+	if data.Contains("cpu_numa_pin") {
+		cpuNumaPin := make([]api.SCpuNumaPin, 0)
+		err := data.Unmarshal(&cpuNumaPin, "cpu_numa_pin")
+		if err != nil {
+			log.Errorf("failed unmarshal cpu numa pin %s", err)
+		} else {
+			if err = guest.SetCpuNumaPin(ctx, task.UserCred, nil, cpuNumaPin); err != nil {
+				log.Errorf("failed set cpu numa pin %s", err)
+			}
+		}
+	}
+
 	// sync Vpc Topology
 	isVpc, err := guest.IsOneCloudVpcNetwork()
 	if err != nil {

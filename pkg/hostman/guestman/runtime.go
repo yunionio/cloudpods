@@ -221,7 +221,7 @@ func LoadGuestCpuset(m *SGuestManager, s GuestRuntimeInstance) error {
 }
 
 func ReleaseCpuNumaPin(m *SGuestManager, cpuNumaPin []*desc.SCpuNumaPin) {
-	if !m.numaAllocate {
+	if !m.hostagentNumaAllocate {
 		return
 	}
 
