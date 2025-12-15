@@ -15,8 +15,6 @@
 package cloudpods
 
 import (
-	"fmt"
-
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
 	"yunion.io/x/jsonutils"
@@ -346,7 +344,7 @@ func (region *SRegion) GetHosts(zoneId string) ([]SHost, error) {
 	if len(zoneId) > 0 {
 		params["zone_id"] = zoneId
 	}
-	params["filter"] = fmt.Sprintf("host_type.in('hypervisor', 'baremetal')")
+	params["filter"] = "host_type.in('hypervisor', 'baremetal', 'container')"
 	ret := []SHost{}
 	err := region.list(&modules.Hosts, params, &ret)
 	if err != nil {

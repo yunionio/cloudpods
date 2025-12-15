@@ -29,15 +29,15 @@ type SCloudpodsProviderFactory struct {
 	cloudprovider.SPrivateCloudBaseProviderFactory
 }
 
-func (self *SCloudpodsProviderFactory) GetId() string {
+func (factory *SCloudpodsProviderFactory) GetId() string {
 	return cloudpods.CLOUD_PROVIDER_CLOUDPODS
 }
 
-func (self *SCloudpodsProviderFactory) GetName() string {
+func (factory *SCloudpodsProviderFactory) GetName() string {
 	return cloudpods.CLOUD_PROVIDER_CLOUDPODS
 }
 
-func (self *SCloudpodsProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, input cloudprovider.SCloudaccountCredential) (cloudprovider.SCloudaccount, error) {
+func (factory *SCloudpodsProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, input cloudprovider.SCloudaccountCredential) (cloudprovider.SCloudaccount, error) {
 	ret := cloudprovider.SCloudaccount{}
 	if len(input.AuthUrl) == 0 {
 		return ret, errors.Wrapf(cloudprovider.ErrMissingParameter, "auth_url")
@@ -54,7 +54,7 @@ func (self *SCloudpodsProviderFactory) ValidateCreateCloudaccountData(ctx contex
 	return ret, nil
 }
 
-func (self *SCloudpodsProviderFactory) ValidateUpdateCloudaccountCredential(ctx context.Context, input cloudprovider.SCloudaccountCredential, cloudaccount string) (cloudprovider.SCloudaccount, error) {
+func (factory *SCloudpodsProviderFactory) ValidateUpdateCloudaccountCredential(ctx context.Context, input cloudprovider.SCloudaccountCredential, cloudaccount string) (cloudprovider.SCloudaccount, error) {
 	ret := cloudprovider.SCloudaccount{}
 	if len(input.AccessKeyId) == 0 {
 		return ret, errors.Wrapf(cloudprovider.ErrMissingParameter, "access_key_id")
@@ -67,7 +67,7 @@ func (self *SCloudpodsProviderFactory) ValidateUpdateCloudaccountCredential(ctx 
 	return ret, nil
 }
 
-func (self *SCloudpodsProviderFactory) GetProvider(cfg cloudprovider.ProviderConfig) (cloudprovider.ICloudProvider, error) {
+func (factory *SCloudpodsProviderFactory) GetProvider(cfg cloudprovider.ProviderConfig) (cloudprovider.ICloudProvider, error) {
 	client, err := cloudpods.NewCloudpodsClient(
 		cloudpods.NewCloudpodsClientConfig(
 			cfg.URL,
@@ -80,12 +80,12 @@ func (self *SCloudpodsProviderFactory) GetProvider(cfg cloudprovider.ProviderCon
 		return nil, err
 	}
 	return &SCloudpodsProvider{
-		SBaseProvider: cloudprovider.NewBaseProvider(self),
+		SBaseProvider: cloudprovider.NewBaseProvider(factory),
 		client:        client,
 	}, nil
 }
 
-func (self *SCloudpodsProviderFactory) GetClientRC(info cloudprovider.SProviderInfo) (map[string]string, error) {
+func (factory *SCloudpodsProviderFactory) GetClientRC(info cloudprovider.SProviderInfo) (map[string]string, error) {
 	return map[string]string{
 		"CLOUDPODS_AUTH_URL":      info.Url,
 		"CLOUDPODS_ACCESS_KEY":    info.Account,
@@ -103,59 +103,59 @@ type SCloudpodsProvider struct {
 	client *cloudpods.SCloudpodsClient
 }
 
-func (self *SCloudpodsProvider) GetAccountId() string {
-	return self.client.GetAccountId()
+func (provider *SCloudpodsProvider) GetAccountId() string {
+	return provider.client.GetAccountId()
 }
 
-func (self *SCloudpodsProvider) GetCloudRegionExternalIdPrefix() string {
-	return self.client.GetCloudRegionExternalIdPrefix()
+func (provider *SCloudpodsProvider) GetCloudRegionExternalIdPrefix() string {
+	return provider.client.GetCloudRegionExternalIdPrefix()
 }
 
-func (self *SCloudpodsProvider) GetBalance() (*cloudprovider.SBalanceInfo, error) {
+func (provider *SCloudpodsProvider) GetBalance() (*cloudprovider.SBalanceInfo, error) {
 	return &cloudprovider.SBalanceInfo{
 		Currency: "CNY",
 		Status:   api.CLOUD_PROVIDER_HEALTH_NORMAL,
 	}, cloudprovider.ErrNotSupported
 }
 
-func (self *SCloudpodsProvider) GetBucketCannedAcls(regionId string) []string {
+func (provider *SCloudpodsProvider) GetBucketCannedAcls(regionId string) []string {
 	return nil
 }
 
-func (self *SCloudpodsProvider) GetCapabilities() []string {
-	return self.client.GetCapabilities()
+func (provider *SCloudpodsProvider) GetCapabilities() []string {
+	return provider.client.GetCapabilities()
 }
 
-func (self *SCloudpodsProvider) GetIProjects() ([]cloudprovider.ICloudProject, error) {
-	return self.client.GetIProjects()
+func (provider *SCloudpodsProvider) GetIProjects() ([]cloudprovider.ICloudProject, error) {
+	return provider.client.GetIProjects()
 }
 
-func (self *SCloudpodsProvider) GetIRegionById(extId string) (cloudprovider.ICloudRegion, error) {
-	return self.client.GetIRegionById(extId)
+func (provider *SCloudpodsProvider) GetIRegionById(extId string) (cloudprovider.ICloudRegion, error) {
+	return provider.client.GetIRegionById(extId)
 }
 
-func (self *SCloudpodsProvider) GetIRegions() ([]cloudprovider.ICloudRegion, error) {
-	return self.client.GetIRegions()
+func (provider *SCloudpodsProvider) GetIRegions() ([]cloudprovider.ICloudRegion, error) {
+	return provider.client.GetIRegions()
 }
 
-func (self *SCloudpodsProvider) GetObjectCannedAcls(regionId string) []string {
+func (provider *SCloudpodsProvider) GetObjectCannedAcls(regionId string) []string {
 	return nil
 }
 
-func (self *SCloudpodsProvider) GetStorageClasses(regionId string) []string {
+func (provider *SCloudpodsProvider) GetStorageClasses(regionId string) []string {
 	return nil
 }
 
-func (self *SCloudpodsProvider) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
-	return self.client.GetSubAccounts()
+func (provider *SCloudpodsProvider) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
+	return provider.client.GetSubAccounts()
 }
 
-func (self *SCloudpodsProvider) GetSysInfo() (jsonutils.JSONObject, error) {
+func (provider *SCloudpodsProvider) GetSysInfo() (jsonutils.JSONObject, error) {
 	return jsonutils.NewDict(), nil
 }
 
-func (self *SCloudpodsProvider) GetVersion() string {
-	return self.client.GetVersion()
+func (provider *SCloudpodsProvider) GetVersion() string {
+	return provider.client.GetVersion()
 }
 
 func (provider *SCloudpodsProvider) GetMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
