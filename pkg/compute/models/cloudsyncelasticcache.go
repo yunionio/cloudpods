@@ -43,7 +43,7 @@ func syncElasticcaches(
 		return remoteRegion.GetIElasticcaches()
 	}()
 	if err != nil {
-		msg := fmt.Sprintf("GetIElasticcaches for region %s failed %s", remoteRegion.GetName(), err)
+		msg := fmt.Sprintf("GetIElasticcaches for region %s provider %s failed %s", remoteRegion.GetName(), provider.Name, err)
 		log.Errorf("%s", msg)
 		return
 	}
@@ -56,7 +56,7 @@ func syncElasticcaches(
 	syncResults.Add(ElasticcacheManager, result)
 
 	msg := result.Result()
-	log.Infof("SyncElasticcaches for region %s result: %s", localRegion.Name, msg)
+	log.Infof("SyncElasticcaches for region %s provider %s result: %s", localRegion.Name, provider.Name, msg)
 	if result.IsError() {
 		return
 	}
