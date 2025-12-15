@@ -41,78 +41,78 @@ type SInstance struct {
 	api.ServerDetails
 }
 
-func (self *SInstance) GetName() string {
-	return self.Name
+func (vm *SInstance) GetName() string {
+	return vm.Name
 }
 
-func (self *SInstance) GetHostname() string {
-	return self.Hostname
+func (vm *SInstance) GetHostname() string {
+	return vm.Hostname
 }
 
-func (self *SInstance) GetId() string {
-	return self.Id
+func (vm *SInstance) GetId() string {
+	return vm.Id
 }
 
-func (self *SInstance) GetGlobalId() string {
-	return self.Id
+func (vm *SInstance) GetGlobalId() string {
+	return vm.Id
 }
 
-func (self *SInstance) GetStatus() string {
-	return self.Status
+func (vm *SInstance) GetStatus() string {
+	return vm.Status
 }
 
-func (self *SInstance) Refresh() error {
-	ins, err := self.host.zone.region.GetInstance(self.Id)
+func (vm *SInstance) Refresh() error {
+	ins, err := vm.host.zone.region.GetInstance(vm.Id)
 	if err != nil {
 		return err
 	}
-	self.DisksInfo = nil
-	self.Nics = nil
-	self.Secgroups = nil
-	self.SubIPs = nil
-	self.IsolatedDevices = nil
-	self.Cdrom = nil
-	self.Floppy = nil
-	return jsonutils.Update(self, ins)
+	vm.DisksInfo = nil
+	vm.Nics = nil
+	vm.Secgroups = nil
+	vm.SubIPs = nil
+	vm.IsolatedDevices = nil
+	vm.Cdrom = nil
+	vm.Floppy = nil
+	return jsonutils.Update(vm, ins)
 }
 
-func (self *SInstance) GetCreatedAt() time.Time {
-	return self.CreatedAt
+func (vm *SInstance) GetCreatedAt() time.Time {
+	return vm.CreatedAt
 }
 
-func (self *SInstance) GetExpiredAt() time.Time {
-	return self.ExpiredAt
+func (vm *SInstance) GetExpiredAt() time.Time {
+	return vm.ExpiredAt
 }
 
-func (self *SInstance) GetIHost() cloudprovider.ICloudHost {
-	return self.host
+func (vm *SInstance) GetIHost() cloudprovider.ICloudHost {
+	return vm.host
 }
 
-func (self *SInstance) GetIHostId() string {
-	return self.HostId
+func (vm *SInstance) GetIHostId() string {
+	return vm.HostId
 }
 
-func (self *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
-	disks, err := self.host.zone.region.GetDisks("", self.Id)
+func (vm *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
+	disks, err := vm.host.zone.region.GetDisks("", vm.Id)
 	if err != nil {
 		return nil, err
 	}
 	ret := []cloudprovider.ICloudDisk{}
 	for i := range disks {
-		disks[i].region = self.host.zone.region
+		disks[i].region = vm.host.zone.region
 		ret = append(ret, &disks[i])
 	}
 	return ret, nil
 }
 
-func (self *SInstance) GetIEIP() (cloudprovider.ICloudEIP, error) {
-	if len(self.Eip) > 0 {
-		eips, err := self.host.zone.region.GetEips(self.Id)
+func (vm *SInstance) GetIEIP() (cloudprovider.ICloudEIP, error) {
+	if len(vm.Eip) > 0 {
+		eips, err := vm.host.zone.region.GetEips(vm.Id)
 		if err != nil {
 			return nil, err
 		}
 		for i := range eips {
-			eips[i].region = self.host.zone.region
+			eips[i].region = vm.host.zone.region
 			return &eips[i], nil
 		}
 		return nil, cloudprovider.ErrNotFound
@@ -120,202 +120,202 @@ func (self *SInstance) GetIEIP() (cloudprovider.ICloudEIP, error) {
 	return nil, nil
 }
 
-func (self *SInstance) GetVcpuCount() int {
-	return self.VcpuCount
+func (vm *SInstance) GetVcpuCount() int {
+	return vm.VcpuCount
 }
 
-func (self *SInstance) GetVmemSizeMB() int {
-	return self.VmemSize
+func (vm *SInstance) GetVmemSizeMB() int {
+	return vm.VmemSize
 }
 
-func (self *SInstance) GetBootOrder() string {
-	return self.BootOrder
+func (vm *SInstance) GetBootOrder() string {
+	return vm.BootOrder
 }
 
-func (self *SInstance) GetVga() string {
-	return self.Vga
+func (vm *SInstance) GetVga() string {
+	return vm.Vga
 }
 
-func (self *SInstance) GetVdi() string {
-	return self.Vdi
+func (vm *SInstance) GetVdi() string {
+	return vm.Vdi
 }
 
-func (self *SInstance) GetOsType() cloudprovider.TOsType {
-	return cloudprovider.TOsType(self.OsType)
+func (vm *SInstance) GetOsType() cloudprovider.TOsType {
+	return cloudprovider.TOsType(vm.OsType)
 }
 
-func (self *SInstance) GetFullOsName() string {
-	return self.OsName
+func (vm *SInstance) GetFullOsName() string {
+	return vm.OsName
 }
 
-func (self *SInstance) GetBios() cloudprovider.TBiosType {
-	return cloudprovider.ToBiosType(self.Bios)
+func (vm *SInstance) GetBios() cloudprovider.TBiosType {
+	return cloudprovider.ToBiosType(vm.Bios)
 }
 
-func (ins *SInstance) GetOsDist() string {
-	val, ok := ins.Metadata["os_distribution"]
+func (vm *SInstance) GetOsDist() string {
+	val, ok := vm.Metadata["os_distribution"]
 	if ok {
 		return val
 	}
 	return ""
 }
 
-func (ins *SInstance) GetOsVersion() string {
-	val, ok := ins.Metadata["os_version"]
+func (vm *SInstance) GetOsVersion() string {
+	val, ok := vm.Metadata["os_version"]
 	if ok {
 		return val
 	}
 	return ""
 }
 
-func (ins *SInstance) GetOsLang() string {
-	val, ok := ins.Metadata["os_language"]
+func (vm *SInstance) GetOsLang() string {
+	val, ok := vm.Metadata["os_language"]
 	if ok {
 		return val
 	}
 	return ""
 }
 
-func (ins *SInstance) GetOsArch() string {
-	return ins.OsArch
+func (vm *SInstance) GetOsArch() string {
+	return vm.OsArch
 }
 
-func (self *SInstance) GetMachine() string {
-	return self.Machine
+func (vm *SInstance) GetMachine() string {
+	return vm.Machine
 }
 
-func (self *SInstance) GetInstanceType() string {
-	return self.InstanceType
+func (vm *SInstance) GetInstanceType() string {
+	return vm.InstanceType
 }
 
-func (self *SInstance) GetSecurityGroupIds() ([]string, error) {
+func (vm *SInstance) GetSecurityGroupIds() ([]string, error) {
 	ret := []string{}
-	for _, sec := range self.Secgroups {
+	for _, sec := range vm.Secgroups {
 		ret = append(ret, sec.Id)
 	}
 	return ret, nil
 }
 
-func (self *SInstance) GetProjectId() string {
-	return self.TenantId
+func (vm *SInstance) GetProjectId() string {
+	return vm.TenantId
 }
 
-func (self *SInstance) SetSecurityGroups(ids []string) error {
-	if self.Hypervisor == api.HYPERVISOR_ESXI {
+func (vm *SInstance) SetSecurityGroups(ids []string) error {
+	if vm.Hypervisor == api.HYPERVISOR_ESXI {
 		return nil
 	}
 	input := api.GuestSetSecgroupInput{}
 	input.SecgroupIds = ids
-	_, err := self.host.zone.region.perform(&modules.Servers, self.Id, "set-secgroup", input)
+	_, err := vm.host.zone.region.perform(&modules.Servers, vm.Id, "set-secgroup", input)
 	return err
 }
 
-func (self *SInstance) GetHypervisor() string {
-	return self.Hypervisor
+func (vm *SInstance) GetHypervisor() string {
+	return vm.Hypervisor
 }
 
-func (self *SInstance) StartVM(ctx context.Context) error {
-	if self.Status == api.VM_RUNNING {
+func (vm *SInstance) StartVM(ctx context.Context) error {
+	if vm.Status == api.VM_RUNNING {
 		return nil
 	}
-	_, err := self.host.zone.region.perform(&modules.Servers, self.Id, "start", nil)
+	_, err := vm.host.zone.region.perform(&modules.Servers, vm.Id, "start", nil)
 	return err
 }
 
-func (self *SInstance) StopVM(ctx context.Context, opts *cloudprovider.ServerStopOptions) error {
-	if self.Status == api.VM_READY {
+func (vm *SInstance) StopVM(ctx context.Context, opts *cloudprovider.ServerStopOptions) error {
+	if vm.Status == api.VM_READY {
 		return nil
 	}
 	input := api.ServerStopInput{}
 	input.IsForce = opts.IsForce
-	_, err := self.host.zone.region.perform(&modules.Servers, self.Id, "stop", input)
+	_, err := vm.host.zone.region.perform(&modules.Servers, vm.Id, "stop", input)
 	return err
 }
 
-func (self *SInstance) DeleteVM(ctx context.Context) error {
-	if self.DisableDelete != nil && *self.DisableDelete {
+func (vm *SInstance) DeleteVM(ctx context.Context) error {
+	if vm.DisableDelete != nil && *vm.DisableDelete {
 		input := api.ServerUpdateInput{}
 		disableDelete := false
 		input.DisableDelete = &disableDelete
-		self.host.zone.region.cli.update(&modules.Servers, self.Id, input)
+		vm.host.zone.region.cli.update(&modules.Servers, vm.Id, input)
 	}
-	return self.host.zone.region.cli.delete(&modules.Servers, self.Id)
+	return vm.host.zone.region.cli.delete(&modules.Servers, vm.Id)
 }
 
-func (self *SInstance) UpdateVM(ctx context.Context, input cloudprovider.SInstanceUpdateOptions) error {
-	if self.Name != input.NAME {
+func (vm *SInstance) UpdateVM(ctx context.Context, input cloudprovider.SInstanceUpdateOptions) error {
+	if vm.Name != input.NAME {
 		param := api.ServerUpdateInput{}
 		param.Name = input.NAME
 		param.Description = input.Description
-		self.host.zone.region.cli.update(&modules.Servers, self.Id, input)
-		return cloudprovider.WaitMultiStatus(self, []string{api.VM_READY, api.VM_RUNNING}, time.Second*5, time.Minute*3)
+		vm.host.zone.region.cli.update(&modules.Servers, vm.Id, input)
+		return cloudprovider.WaitMultiStatus(vm, []string{api.VM_READY, api.VM_RUNNING}, time.Second*5, time.Minute*3)
 	}
 	return nil
 }
 
-func (self *SInstance) UpdateUserData(userData string) error {
+func (vm *SInstance) UpdateUserData(userData string) error {
 	input := api.ServerUserDataInput{}
 	input.UserData = userData
-	_, err := self.host.zone.region.perform(&modules.Servers, self.Id, "user-data", input)
+	_, err := vm.host.zone.region.perform(&modules.Servers, vm.Id, "user-data", input)
 	return err
 }
 
-func (self *SInstance) RebuildRoot(ctx context.Context, opts *cloudprovider.SManagedVMRebuildRootConfig) (string, error) {
+func (vm *SInstance) RebuildRoot(ctx context.Context, opts *cloudprovider.SManagedVMRebuildRootConfig) (string, error) {
 	input := api.ServerRebuildRootInput{}
 	input.ImageId = opts.ImageId
 	input.Password = opts.Password
 	if len(opts.PublicKey) > 0 {
-		keypairId, err := self.host.zone.region.syncKeypair(self.Name, opts.PublicKey)
+		keypairId, err := vm.host.zone.region.syncKeypair(vm.Name, opts.PublicKey)
 		if err != nil {
 			return "", errors.Wrapf(err, "syncKeypair")
 		}
 		input.KeypairId = keypairId
 	}
-	_, err := self.host.zone.region.perform(&modules.Servers, self.Id, "rebuild-root", input)
+	_, err := vm.host.zone.region.perform(&modules.Servers, vm.Id, "rebuild-root", input)
 	if err != nil {
 		return "", err
 	}
-	return self.DisksInfo[0].Id, nil
+	return vm.DisksInfo[0].Id, nil
 }
 
-func (self *SInstance) DeployVM(ctx context.Context, opts *cloudprovider.SInstanceDeployOptions) error {
+func (vm *SInstance) DeployVM(ctx context.Context, opts *cloudprovider.SInstanceDeployOptions) error {
 	input := api.ServerDeployInput{}
 	input.Password = opts.Password
 	input.DeleteKeypair = opts.DeleteKeypair
 	if len(opts.PublicKey) > 0 {
-		keypairId, err := self.host.zone.region.syncKeypair(self.Name, opts.PublicKey)
+		keypairId, err := vm.host.zone.region.syncKeypair(vm.Name, opts.PublicKey)
 		if err != nil {
 			return errors.Wrapf(err, "syncKeypair")
 		}
 		input.KeypairId = keypairId
 	}
-	cloudprovider.WaitMultiStatus(self, []string{api.VM_READY, api.VM_RUNNING}, time.Second*5, time.Minute*3)
-	_, err := self.host.zone.region.perform(&modules.Servers, self.Id, "deploy", input)
+	cloudprovider.WaitMultiStatus(vm, []string{api.VM_READY, api.VM_RUNNING}, time.Second*5, time.Minute*3)
+	_, err := vm.host.zone.region.perform(&modules.Servers, vm.Id, "deploy", input)
 	if err != nil {
 		return errors.Wrapf(err, "deploy")
 	}
 	timeout := time.Minute * 3
-	if self.Hypervisor == api.HYPERVISOR_BAREMETAL {
+	if vm.Hypervisor == api.HYPERVISOR_BAREMETAL {
 		timeout = time.Minute * 10
 	}
-	return cloudprovider.WaitMultiStatus(self, []string{api.VM_READY, api.VM_RUNNING}, time.Second*5, timeout)
+	return cloudprovider.WaitMultiStatus(vm, []string{api.VM_READY, api.VM_RUNNING}, time.Second*5, timeout)
 }
 
-func (self *SInstance) ChangeConfig(ctx context.Context, opts *cloudprovider.SManagedVMChangeConfig) error {
+func (vm *SInstance) ChangeConfig(ctx context.Context, opts *cloudprovider.SManagedVMChangeConfig) error {
 	input := api.ServerChangeConfigInput{}
 	input.VmemSize = fmt.Sprintf("%dM", opts.MemoryMB)
 	input.VcpuCount = &opts.Cpu
 	input.InstanceType = opts.InstanceType
-	_, err := self.host.zone.region.perform(&modules.Servers, self.Id, "change-config", input)
+	_, err := vm.host.zone.region.perform(&modules.Servers, vm.Id, "change-config", input)
 	return err
 }
 
-func (self *SInstance) GetVNCInfo(input *cloudprovider.ServerVncInput) (*cloudprovider.ServerVncOutput, error) {
-	return self.host.zone.region.GetInstanceVnc(self.Id, self.Name)
+func (vm *SInstance) GetVNCInfo(input *cloudprovider.ServerVncInput) (*cloudprovider.ServerVncOutput, error) {
+	return vm.host.zone.region.GetInstanceVnc(vm.Id, vm.Name)
 }
 
-func (self *SRegion) GetInstanceVnc(id, name string) (*cloudprovider.ServerVncOutput, error) {
-	s := self.cli.s
+func (region *SRegion) GetInstanceVnc(id, name string) (*cloudprovider.ServerVncOutput, error) {
+	s := region.cli.s
 	resp, err := webconsole.WebConsole.DoServerConnect(s, id, nil)
 	if err != nil {
 		return nil, errors.Wrapf(err, "DoServerConnect")
@@ -338,97 +338,97 @@ func (self *SRegion) GetInstanceVnc(id, name string) (*cloudprovider.ServerVncOu
 	return result, nil
 }
 
-func (self *SInstance) AttachDisk(ctx context.Context, diskId string) error {
+func (vm *SInstance) AttachDisk(ctx context.Context, diskId string) error {
 	input := api.ServerAttachDiskInput{}
 	input.DiskId = diskId
-	_, err := self.host.zone.region.perform(&modules.Servers, self.Id, "attachdisk", input)
+	_, err := vm.host.zone.region.perform(&modules.Servers, vm.Id, "attachdisk", input)
 	return err
 }
 
-func (self *SInstance) DetachDisk(ctx context.Context, diskId string) error {
+func (vm *SInstance) DetachDisk(ctx context.Context, diskId string) error {
 	input := api.ServerDetachDiskInput{}
 	input.DiskId = diskId
 	input.KeepDisk = true
-	_, err := self.host.zone.region.perform(&modules.Servers, self.Id, "detachdisk", input)
+	_, err := vm.host.zone.region.perform(&modules.Servers, vm.Id, "detachdisk", input)
 	return err
 }
 
-func (self *SInstance) MigrateVM(hostId string) error {
+func (vm *SInstance) MigrateVM(hostId string) error {
 	input := api.GuestMigrateInput{}
 	input.PreferHost = hostId
 	input.PreferHostId = hostId
-	_, err := self.host.zone.region.perform(&modules.Servers, self.Id, "migrate", input)
+	_, err := vm.host.zone.region.perform(&modules.Servers, vm.Id, "migrate", input)
 	return err
 }
 
-func (self *SInstance) LiveMigrateVM(hostId string) error {
+func (vm *SInstance) LiveMigrateVM(hostId string) error {
 	input := api.GuestLiveMigrateInput{}
 	input.PreferHost = hostId
 	input.PreferHostId = hostId
 	skipCheck := true
 	input.SkipCpuCheck = &skipCheck
 	input.SkipKernelCheck = &skipCheck
-	_, err := self.host.zone.region.perform(&modules.Servers, self.Id, "live-migrate", input)
+	_, err := vm.host.zone.region.perform(&modules.Servers, vm.Id, "live-migrate", input)
 	return err
 }
 
-func (self *SInstance) GetDetails() (*api.ServerDetails, error) {
+func (vm *SInstance) GetDetails() (*api.ServerDetails, error) {
 	ret := &api.ServerDetails{}
-	err := self.host.zone.region.cli.get(&modules.Servers, self.Id, nil, ret)
+	err := vm.host.zone.region.cli.get(&modules.Servers, vm.Id, nil, ret)
 	if err != nil {
 		return nil, err
 	}
 	return ret, nil
 }
 
-func (self *SInstance) VMSetStatus(status string) error {
+func (vm *SInstance) VMSetStatus(status string) error {
 	input := apis.PerformStatusInput{}
 	input.Status = status
-	_, err := self.host.zone.region.perform(&modules.Servers, self.Id, "status", input)
+	_, err := vm.host.zone.region.perform(&modules.Servers, vm.Id, "status", input)
 	return err
 }
 
-func (self *SInstance) GetError() error {
-	if utils.IsInStringArray(self.Status, []string{api.VM_DISK_FAILED, api.VM_SCHEDULE_FAILED, api.VM_NETWORK_FAILED}) {
-		return fmt.Errorf("vm create failed with status %s", self.Status)
+func (vm *SInstance) GetError() error {
+	if utils.IsInStringArray(vm.Status, []string{api.VM_DISK_FAILED, api.VM_SCHEDULE_FAILED, api.VM_NETWORK_FAILED}) {
+		return fmt.Errorf("vm create failed with status %s", vm.Status)
 	}
-	if self.Status == api.VM_DEPLOY_FAILED {
-		params := map[string]interface{}{"obj_id": self.Id, "success": false}
+	if vm.Status == api.VM_DEPLOY_FAILED {
+		params := map[string]interface{}{"obj_id": vm.Id, "success": false}
 		actions := []apis.OpsLogDetails{}
-		self.host.zone.region.list(&logger.Actions, params, &actions)
+		vm.host.zone.region.list(&logger.Actions, params, &actions)
 		if len(actions) > 0 {
 			return fmt.Errorf("%s", actions[0].Notes)
 		}
-		return fmt.Errorf("vm create failed with status %s", self.Status)
+		return fmt.Errorf("vm create failed with status %s", vm.Status)
 	}
 	return nil
 }
 
-func (self *SInstance) CreateInstanceSnapshot(ctx context.Context, name string, desc string) (cloudprovider.ICloudInstanceSnapshot, error) {
+func (vm *SInstance) CreateInstanceSnapshot(ctx context.Context, name string, desc string) (cloudprovider.ICloudInstanceSnapshot, error) {
 	return nil, cloudprovider.ErrNotImplemented
 }
 
-func (self *SInstance) GetInstanceSnapshot(idStr string) (cloudprovider.ICloudInstanceSnapshot, error) {
+func (vm *SInstance) GetInstanceSnapshot(idStr string) (cloudprovider.ICloudInstanceSnapshot, error) {
 	return nil, cloudprovider.ErrNotImplemented
 }
 
-func (self *SInstance) GetInstanceSnapshots() ([]cloudprovider.ICloudInstanceSnapshot, error) {
+func (vm *SInstance) GetInstanceSnapshots() ([]cloudprovider.ICloudInstanceSnapshot, error) {
 	return nil, cloudprovider.ErrNotImplemented
 }
 
-func (self *SInstance) ResetToInstanceSnapshot(ctx context.Context, idStr string) error {
+func (vm *SInstance) ResetToInstanceSnapshot(ctx context.Context, idStr string) error {
 	return cloudprovider.ErrNotImplemented
 }
 
-func (self *SInstance) SaveImage(opts *cloudprovider.SaveImageOptions) (cloudprovider.ICloudImage, error) {
-	return self.host.zone.region.SaveImage(self.Id, opts.Name, opts.Notes)
+func (vm *SInstance) SaveImage(opts *cloudprovider.SaveImageOptions) (cloudprovider.ICloudImage, error) {
+	return vm.host.zone.region.SaveImage(vm.Id, opts.Name, opts.Notes)
 }
 
-func (self *SRegion) SaveImage(id, imageName, notes string) (*SImage, error) {
+func (region *SRegion) SaveImage(id, imageName, notes string) (*SImage, error) {
 	input := api.ServerSaveImageInput{}
 	input.GenerateName = imageName
 	input.Notes = notes
-	resp, err := self.perform(&modules.Servers, id, "save-image", input)
+	resp, err := region.perform(&modules.Servers, id, "save-image", input)
 	if err != nil {
 		return nil, err
 	}
@@ -436,15 +436,15 @@ func (self *SRegion) SaveImage(id, imageName, notes string) (*SImage, error) {
 	if err != nil {
 		return nil, err
 	}
-	caches, err := self.GetStoragecaches()
+	caches, err := region.GetStoragecaches()
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetStoragecaches")
 	}
 	if len(caches) == 0 {
 		return nil, fmt.Errorf("no storage cache found")
 	}
-	caches[0].region = self
-	image, err := self.GetImage(imageId)
+	caches[0].region = region
+	image, err := region.GetImage(imageId)
 	if err != nil {
 		return nil, err
 	}
@@ -452,48 +452,48 @@ func (self *SRegion) SaveImage(id, imageName, notes string) (*SImage, error) {
 	return image, nil
 }
 
-func (self *SInstance) AllocatePublicIpAddress() (string, error) {
+func (vm *SInstance) AllocatePublicIpAddress() (string, error) {
 	return "", cloudprovider.ErrNotImplemented
 }
 
-func (self *SHost) GetIVMs() ([]cloudprovider.ICloudVM, error) {
-	servers, err := self.zone.region.GetInstances(self.Id)
+func (host *SHost) GetIVMs() ([]cloudprovider.ICloudVM, error) {
+	servers, err := host.zone.region.GetInstances(host.Id)
 	if err != nil {
 		return nil, err
 	}
 	ret := []cloudprovider.ICloudVM{}
 	for i := range servers {
-		servers[i].host = self
+		servers[i].host = host
 		ret = append(ret, &servers[i])
 	}
 	return ret, nil
 }
 
-func (self *SHost) GetIVMById(id string) (cloudprovider.ICloudVM, error) {
-	ins, err := self.zone.region.GetInstance(id)
+func (host *SHost) GetIVMById(id string) (cloudprovider.ICloudVM, error) {
+	ins, err := host.zone.region.GetInstance(id)
 	if err != nil {
 		return nil, err
 	}
-	ins.host = self
+	ins.host = host
 	return ins, nil
 }
 
-func (self *SRegion) GetInstance(id string) (*SInstance, error) {
+func (region *SRegion) GetInstance(id string) (*SInstance, error) {
 	ins := &SInstance{}
-	return ins, self.cli.get(&modules.Servers, id, nil, ins)
+	return ins, region.cli.get(&modules.Servers, id, nil, ins)
 }
 
-func (self *SRegion) GetInstances(hostId string) ([]SInstance, error) {
+func (region *SRegion) GetInstances(hostId string) ([]SInstance, error) {
 	params := map[string]interface{}{}
 	if len(hostId) > 0 {
 		params["host_id"] = hostId
 	}
-	params["filter"] = fmt.Sprintf("hypervisor.in('kvm', 'baremetal')")
+	params["filter"] = "hypervisor.in('kvm', 'baremetal', 'pod')"
 	ret := []SInstance{}
-	return ret, self.list(&modules.Servers, params, &ret)
+	return ret, region.list(&modules.Servers, params, &ret)
 }
 
-func (self *SRegion) CreateInstance(hostId, hypervisor string, opts *cloudprovider.SManagedVMCreateConfig) (*SInstance, error) {
+func (region *SRegion) CreateInstance(hostId, hypervisor string, opts *cloudprovider.SManagedVMCreateConfig) (*SInstance, error) {
 	input := api.ServerCreateInput{
 		ServerConfigs: &api.ServerConfigs{},
 	}
@@ -522,7 +522,7 @@ func (self *SRegion) CreateInstance(hostId, hypervisor string, opts *cloudprovid
 	if opts.BillingCycle != nil {
 		input.Duration = opts.BillingCycle.String()
 	}
-	image, err := self.GetImage(opts.ExternalImageId)
+	image, err := region.GetImage(opts.ExternalImageId)
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetImage")
 	}
@@ -561,12 +561,12 @@ func (self *SRegion) CreateInstance(hostId, hypervisor string, opts *cloudprovid
 		Address: opts.IpAddr,
 	})
 	ins := &SInstance{}
-	return ins, self.create(&modules.Servers, input, ins)
+	return ins, region.create(&modules.Servers, input, ins)
 }
 
-func (self *SInstance) CreateDisk(ctx context.Context, opts *cloudprovider.GuestDiskCreateOptions) (string, error) {
+func (vm *SInstance) CreateDisk(ctx context.Context, opts *cloudprovider.GuestDiskCreateOptions) (string, error) {
 	diskIds := []string{}
-	for _, disk := range self.DisksInfo {
+	for _, disk := range vm.DisksInfo {
 		diskIds = append(diskIds, disk.Id)
 	}
 	input := jsonutils.Marshal(map[string]interface{}{
@@ -578,18 +578,18 @@ func (self *SInstance) CreateDisk(ctx context.Context, opts *cloudprovider.Guest
 			},
 		},
 	})
-	_, err := self.host.zone.region.perform(&modules.Servers, self.Id, "createdisk", input)
+	_, err := vm.host.zone.region.perform(&modules.Servers, vm.Id, "createdisk", input)
 	if err != nil {
 		return "", err
 	}
 	ret := ""
 	cloudprovider.Wait(time.Second*3, time.Minute*3, func() (bool, error) {
-		err = self.Refresh()
+		err = vm.Refresh()
 		if err != nil {
 			return false, errors.Wrapf(err, "Refresh")
 		}
 
-		for _, disk := range self.DisksInfo {
+		for _, disk := range vm.DisksInfo {
 			if !utils.IsInStringArray(disk.Id, diskIds) {
 				ret = disk.Id
 				return true, nil
@@ -603,8 +603,8 @@ func (self *SInstance) CreateDisk(ctx context.Context, opts *cloudprovider.Guest
 	return "", errors.Wrapf(cloudprovider.ErrNotFound, "after disk created")
 }
 
-func (instance *SInstance) GetIsolateDeviceIds() ([]string, error) {
-	devs, err := instance.host.zone.region.GetIsolatedDevices("", instance.Id)
+func (vm *SInstance) GetIsolateDeviceIds() ([]string, error) {
+	devs, err := vm.host.zone.region.GetIsolatedDevices("", vm.Id)
 	if err != nil {
 		return nil, err
 	}
