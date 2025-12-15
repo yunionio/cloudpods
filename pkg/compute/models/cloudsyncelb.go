@@ -42,7 +42,7 @@ func syncRegionLoadbalancerCertificates(
 		return remoteRegion.GetILoadBalancerCertificates()
 	}()
 	if err != nil {
-		msg := fmt.Sprintf("GetILoadBalancerCertificates for region %s failed %s", remoteRegion.GetName(), err)
+		msg := fmt.Sprintf("GetILoadBalancerCertificates for region %s provider %s failed %s", remoteRegion.GetName(), provider.Name, err)
 		log.Errorln(msg)
 		return
 	}
@@ -54,7 +54,7 @@ func syncRegionLoadbalancerCertificates(
 	syncResults.Add(LoadbalancerCertificateManager, result)
 
 	msg := result.Result()
-	log.Infof("SyncLoadbalancerCertificates for region %s result: %s", localRegion.Name, msg)
+	log.Infof("SyncLoadbalancerCertificates for region %s provider %s result: %s", localRegion.Name, provider.Name, msg)
 	if result.IsError() {
 		return
 	}
@@ -74,7 +74,7 @@ func syncRegionLoadbalancerHealthChecks(
 		return remoteRegion.GetILoadBalancerHealthChecks()
 	}()
 	if err != nil {
-		msg := fmt.Sprintf("GetILoadBalancerHealthChecks for region %s failed %s", remoteRegion.GetName(), err)
+		msg := fmt.Sprintf("GetILoadBalancerHealthChecks for region %s provider %s failed %s", remoteRegion.GetName(), provider.Name, err)
 		log.Errorln(msg)
 		return
 	}
@@ -86,7 +86,7 @@ func syncRegionLoadbalancerHealthChecks(
 	syncResults.Add(LoadbalancerHealthCheckManager, result)
 
 	msg := result.Result()
-	log.Infof("SyncLoadbalancerHealthChecks for region %s result: %s", localRegion.Name, msg)
+	log.Infof("SyncLoadbalancerHealthChecks for region %s provider %s result: %s", localRegion.Name, provider.Name, msg)
 	if result.IsError() {
 		return
 	}
@@ -106,7 +106,7 @@ func syncRegionLoadbalancerAcls(
 		return remoteRegion.GetILoadBalancerAcls()
 	}()
 	if err != nil {
-		msg := fmt.Sprintf("GetILoadBalancerAcls for region %s failed %s", remoteRegion.GetName(), err)
+		msg := fmt.Sprintf("GetILoadBalancerAcls for region %s provider %s failed %s", remoteRegion.GetName(), provider.Name, err)
 		log.Errorln(msg)
 		return
 	}
@@ -118,7 +118,7 @@ func syncRegionLoadbalancerAcls(
 	syncResults.Add(LoadbalancerAclManager, result)
 
 	msg := result.Result()
-	log.Infof("SyncLoadbalancerAcls for region %s result: %s", localRegion.Name, msg)
+	log.Infof("SyncLoadbalancerAcls for region %s provider %s result: %s", localRegion.Name, provider.Name, msg)
 	if result.IsError() {
 		return
 	}
@@ -138,7 +138,7 @@ func syncRegionLoadbalancers(
 		return remoteRegion.GetILoadBalancers()
 	}()
 	if err != nil {
-		msg := fmt.Sprintf("GetILoadBalancers for region %s failed %s", remoteRegion.GetName(), err)
+		msg := fmt.Sprintf("GetILoadBalancers for region %s provider %s failed %s", remoteRegion.GetName(), provider.Name, err)
 		log.Errorln(msg)
 		return
 	}
@@ -150,7 +150,7 @@ func syncRegionLoadbalancers(
 		syncResults.Add(LoadbalancerManager, result)
 
 		msg := result.Result()
-		log.Infof("SyncLoadbalancers for region %s result: %s", localRegion.Name, msg)
+		log.Infof("SyncLoadbalancers for region %s provider %s result: %s", localRegion.Name, provider.Name, msg)
 		if result.IsError() {
 			return
 		}
@@ -170,20 +170,20 @@ func syncRegionLoadbalancers(
 func syncLbPeripherals(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, local *SLoadbalancer, remote cloudprovider.ICloudLoadbalancer) {
 	err := syncLoadbalancerEips(ctx, userCred, provider, local, remote)
 	if err != nil {
-		log.Errorf("syncLoadbalancerEips error %s", err)
+		log.Errorf("syncLoadbalancerEips for loadbalancer %s provider %s error %s", local.Name, provider.Name, err)
 	}
 	err = syncLoadbalancerBackendgroups(ctx, userCred, SSyncResultSet{}, provider, local, remote)
 	if err != nil {
-		log.Errorf("syncLoadbalancerBackendgroups error: %v", err)
+		log.Errorf("syncLoadbalancerBackendgroups for loadbalancer %s provider %s error: %v", local.Name, provider.Name, err)
 	}
 	err = syncLoadbalancerListeners(ctx, userCred, SSyncResultSet{}, provider, local, remote)
 	if err != nil {
-		log.Errorf("syncLoadbalancerListeners error: %v", err)
+		log.Errorf("syncLoadbalancerListeners for loadbalancer %s provider %s error: %v", local.Name, provider.Name, err)
 	}
 
 	err = syncLoadbalancerSecurityGroups(ctx, userCred, local, remote)
 	if err != nil {
-		log.Errorf("syncLoadbalancerSecurityGroups error: %v", err)
+		log.Errorf("syncLoadbalancerSecurityGroups for loadbalancer %s provider %s error: %v", local.Name, provider.Name, err)
 	}
 }
 
@@ -208,7 +208,7 @@ func syncLoadbalancerEips(ctx context.Context, userCred mcclient.TokenCredential
 	}
 	result := localLb.SyncLoadbalancerEips(ctx, userCred, provider, eips)
 	msg := result.Result()
-	log.Infof("SyncEips for Loadbalancer %s result: %s", localLb.Name, msg)
+	log.Infof("SyncEips for Loadbalancer %s provider %s result: %s", localLb.Name, provider.Name, msg)
 	if result.IsError() {
 		return result.AllError()
 	}
@@ -225,7 +225,7 @@ func syncLoadbalancerListeners(ctx context.Context, userCred mcclient.TokenCrede
 	syncResults.Add(LoadbalancerListenerManager, result)
 
 	msg := result.Result()
-	log.Infof("SyncLoadbalancerListeners for loadbalancer %s result: %s", localLoadbalancer.Name, msg)
+	log.Infof("SyncLoadbalancerListeners for loadbalancer %s provider %s result: %s", localLoadbalancer.Name, provider.Name, msg)
 	if result.IsError() {
 		return result.AllError()
 	}
@@ -243,7 +243,7 @@ func syncLoadbalancerListeners(ctx context.Context, userCred mcclient.TokenCrede
 func syncLoadbalancerListenerRules(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localListener *SLoadbalancerListener, remoteListener cloudprovider.ICloudLoadbalancerListener) {
 	remoteRules, err := remoteListener.GetILoadbalancerListenerRules()
 	if err != nil {
-		msg := fmt.Sprintf("GetILoadbalancerListenerRules for listener %s failed %s", localListener.Name, err)
+		msg := fmt.Sprintf("GetILoadbalancerListenerRules for listener %s provider %s failed %s", localListener.Name, provider.Name, err)
 		log.Errorln(msg)
 		return
 	}
@@ -252,7 +252,7 @@ func syncLoadbalancerListenerRules(ctx context.Context, userCred mcclient.TokenC
 	syncResults.Add(LoadbalancerListenerRuleManager, result)
 
 	msg := result.Result()
-	log.Infof("SyncLoadbalancerListenerRules for listener %s result: %s", localListener.Name, msg)
+	log.Infof("SyncLoadbalancerListenerRules for listener %s provider %s result: %s", localListener.Name, provider.Name, msg)
 	if result.IsError() {
 		return
 	}
@@ -267,7 +267,7 @@ func syncLoadbalancerBackendgroups(ctx context.Context, userCred mcclient.TokenC
 	syncResults.Add(LoadbalancerBackendGroupManager, result)
 
 	msg := result.Result()
-	log.Infof("SyncLoadbalancerBackendgroups for loadbalancer %s result: %s", local.Name, msg)
+	log.Infof("SyncLoadbalancerBackendgroups for loadbalancer %s provider %s result: %s", local.Name, provider.Name, msg)
 	if result.IsError() {
 		return result.AllError()
 	}
