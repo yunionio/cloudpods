@@ -45,8 +45,9 @@ func (self *GuestImageDeleteTask) OnInit(ctx context.Context, obj db.IStandalone
 	if options.Options.EnablePendingDelete && !isPurge && !isOverridePendingDelete {
 		if guestImage.PendingDeleted {
 			self.SetStageComplete(ctx, nil)
+		} else {
+			self.startPendingDelete(ctx, guestImage)
 		}
-		self.startPendingDelete(ctx, guestImage)
 	} else {
 		self.startDelete(ctx, guestImage)
 	}
