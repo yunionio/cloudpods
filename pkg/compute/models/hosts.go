@@ -2390,9 +2390,11 @@ func (hh *SHost) SyncWithCloudHost(ctx context.Context, userCred mcclient.TokenC
 		syncMetadata(ctx, userCred, hh, extHost, account.ReadOnly)
 	}
 
-	err = hh.syncSchedtags(ctx, userCred, extHost)
-	if err != nil && errors.Cause(err) != cloudprovider.ErrNotFound && errors.Cause(err) != errors.ErrNotImplemented {
-		log.Errorf("syncSchedtags for %s fail:  %v", hh.Name, err)
+	if !options.Options.DisableSyncSchedtags {
+		err = hh.syncSchedtags(ctx, userCred, extHost)
+		if err != nil && errors.Cause(err) != cloudprovider.ErrNotFound && errors.Cause(err) != errors.ErrNotImplemented {
+			log.Errorf("syncSchedtags for %s fail: %v", hh.Name, err)
+		}
 	}
 
 	if len(diff) > 0 {
