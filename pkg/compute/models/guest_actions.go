@@ -1202,6 +1202,9 @@ func (self *SGuest) PerformStart(
 	query jsonutils.JSONObject,
 	input api.GuestPerformStartInput,
 ) (jsonutils.JSONObject, error) {
+	if self.Status == api.VM_RUNNING {
+		return nil, nil
+	}
 	validStartStatuses := []string{api.VM_READY, api.VM_START_FAILED, api.VM_SAVE_DISK_FAILED, api.VM_SUSPEND, api.VM_KICKSTART_PENDING, api.VM_KICKSTART_FAILED}
 	if utils.IsInStringArray(self.Status, validStartStatuses) {
 		if err := self.ValidateEncryption(ctx, userCred); err != nil {
@@ -3857,6 +3860,9 @@ func (self *SGuest) PerformStatus(ctx context.Context, userCred mcclient.TokenCr
 // 关机
 func (self *SGuest) PerformStop(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject,
 	input api.ServerStopInput) (jsonutils.JSONObject, error) {
+	if self.Status == api.VM_READY {
+		return nil, nil
+	}
 	// XXX if is force, force stop guest
 	if input.IsForce || utils.IsInStringArray(self.Status, []string{api.VM_RUNNING, api.VM_STOP_FAILED, api.POD_STATUS_CRASH_LOOP_BACK_OFF, api.POD_STATUS_CONTAINER_EXITED, api.VM_KICKSTART_INSTALLING, api.VM_KICKSTART_FAILED, api.VM_KICKSTART_COMPLETED}) {
 		if err := self.ValidateEncryption(ctx, userCred); err != nil {
