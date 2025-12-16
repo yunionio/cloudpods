@@ -172,6 +172,8 @@ type ComputeOptions struct {
 	AutoReconcileBackupServers   bool `help:"auto reconcile backup servers" default:"false"`
 	SetKVMServerAsDaemonOnCreate bool `help:"set kvm guest as daemon server on create" default:"false"`
 
+	DisableSyncSchedtags bool `help:"disable sync schedtags" default:"false"`
+
 	SCapabilityOptions
 	SASControllerOptions
 	common_options.CommonOptions
