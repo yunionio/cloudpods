@@ -1673,6 +1673,7 @@ func (s *sPodGuestInstance) getLxcfsMounts() []*runtimeapi.Mount {
 		procStat      = "/proc/stat"
 		procSwaps     = "/proc/swaps"
 		procUptime    = "/proc/uptime"
+		procLoadAvg   = "/proc/loadavg"
 	)
 	newLxcfsMount := func(fp string) *runtimeapi.Mount {
 		return &runtimeapi.Mount{
@@ -1687,6 +1688,7 @@ func (s *sPodGuestInstance) getLxcfsMounts() []*runtimeapi.Mount {
 		newLxcfsMount(procCpuinfo),
 		newLxcfsMount(procSwaps),
 		newLxcfsMount(procDiskstats),
+		newLxcfsMount(procLoadAvg),
 	}
 }
 
