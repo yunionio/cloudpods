@@ -69,7 +69,7 @@ func (b *LoadbalancerCorpus) GenHaproxyConfigs(dir string, opts *AgentParams) (*
 				"",
 			}
 			s := strings.Join(lines, "\n")
-			err := ioutil.WriteFile(p, []byte(s), agentutils.FileModeFile)
+			err := os.WriteFile(p, []byte(s), agentutils.FileModeFile)
 			if err != nil {
 				return nil, fmt.Errorf("write 01-haproxy.cfg: %s", err)
 			}
@@ -82,7 +82,7 @@ func (b *LoadbalancerCorpus) GenHaproxyConfigs(dir string, opts *AgentParams) (*
 			d = append(d, []byte(lbcert.PrivateKey)...)
 			fn := fmt.Sprintf("%s.pem", lbcert.Id)
 			p := filepath.Join(certsBase, fn)
-			err := ioutil.WriteFile(p, d, agentutils.FileModeFileSensitive)
+			err := os.WriteFile(p, d, agentutils.FileModeFileSensitive)
 			if err != nil {
 				return nil, fmt.Errorf("write cert %s: %s", lbcert.Id, err)
 			}

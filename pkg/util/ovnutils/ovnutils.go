@@ -134,7 +134,6 @@ func InitOvn(opts SOvnOptions) (err error) {
 			err = panicVal.(error)
 		}
 	}()
-	system_service.Init()
 	mustPrepOvsdbConfig(opts)
 	configBridgeMtu(opts)
 	if _, ok := ovnContainerImageTag(); !ok {
