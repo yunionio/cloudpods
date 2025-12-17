@@ -298,7 +298,8 @@ func (d *SBaseBridgeDriver) MigrateSlaveConfigs(o IBridgeDriver) error {
 			}
 		}
 		{
-			err := d.inter.Reset()
+			tryUnmanageInterface(d.inter.String())
+			err := d.inter.FlushAddrs()
 			if err != nil {
 				return errors.Wrap(err, "ClearAddrs")
 			}
@@ -410,19 +411,23 @@ func (d *SBaseBridgeDriver) ConfirmToConfig() (bool, string, error) {
 	}
 }
 
+func tryUnmanageInterface(ifname string) {
+	// ensure the device is not managed by NetworkManager
+	// nmcli dev set <interface_name> managed no
+	output, err := procutils.NewRemoteCommandAsFarAsPossible("nmcli", "dev", "set", ifname, "managed", "no").Output()
+	if err != nil {
+		log.Errorf("run cmd: nmcli dev set %s managed no, output: %s, error: %s", ifname, string(output), err)
+	}
+}
+
 func (d *SBaseBridgeDriver) SetupAddresses() error {
 	br := d.bridge.String()
 	if d.inter != nil {
 		// first shutdown the origin interface
 		ifname := d.inter.String()
-		if err := d.inter.Shutdown(); err != nil {
-			return errors.Wrapf(err, "shutdown bridge %s slave ifname: %s", br, ifname)
-		}
-		// ensure the device is not managed by NetworkManager
-		// nmcli dev set <interface_name> managed no
-		output, err := procutils.NewRemoteCommandAsFarAsPossible("nmcli", "dev", "set", ifname, "managed", "no").Output()
-		if err != nil {
-			log.Errorf("run cmd: nmcli dev set %s managed no, output: %s, error: %s", ifname, string(output), err)
+		tryUnmanageInterface(ifname)
+		if err := d.inter.FlushAddrs(); err != nil {
+			return errors.Wrapf(err, "bridge %s slave ifname: %s flush addrs fail", br, ifname)
 		}
 	}
 	{
