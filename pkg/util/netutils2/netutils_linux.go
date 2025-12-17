@@ -115,6 +115,15 @@ func (n *SNetInterface) setStatus(status string) error {
 	return nil
 }
 
+func (n *SNetInterface) FlushAddrs() error {
+	cmd := procutils.NewCommand("ip", "addr", "flush", "dev", n.name)
+	msg, err := cmd.Output()
+	if err != nil {
+		return errors.Wrap(err, strings.TrimSpace(string(msg)))
+	}
+	return nil
+}
+
 func getRouteSpecs(listFunc func() ([]iproute2.RouteSpec, error)) []iproute2.RouteSpec {
 	routespecs, err := listFunc()
 	if err != nil {
