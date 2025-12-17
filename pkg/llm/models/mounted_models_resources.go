@@ -40,6 +40,10 @@ func (manager *SVolumeManager) IsPremountedModelName(fullModelName string) (bool
 	return isPremountedModelName(manager, fullModelName)
 }
 
+func (manager *SLLMSkuManager) IsPremountedModelName(fullModelName string) (bool, error) {
+	return isPremountedModelName(manager, fullModelName)
+}
+
 func isPremountedModelName(manager db.IModelManager, fullModelName string) (bool, error) {
 	q := manager.Query().Contains("mounted_models", fmt.Sprintf("%q", fullModelName))
 	cnt, err := q.CountWithError()
