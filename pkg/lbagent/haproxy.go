@@ -18,7 +18,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -65,9 +65,6 @@ func NewHaproxyHelper(opts *Options, lbagentId string) (*HaproxyHelper, error) {
 			return nil, fmt.Errorf("sysctl: %s", err)
 		}
 	}
-
-	system_service.Init()
-
 	return helper, nil
 }
 
@@ -199,7 +196,7 @@ func (h *HaproxyHelper) handleUseCorpusCmd(ctx context.Context, cmd *LbagentCmd)
 			if err == nil {
 				d := buf.Bytes()
 				p := filepath.Join(dir, "telegraf.conf")
-				err := ioutil.WriteFile(p, d, agentutils.FileModeFile)
+				err := os.WriteFile(p, d, agentutils.FileModeFile)
 				if err == nil {
 					err := h.reloadTelegraf(ctx, agentParams)
 					if err != nil {
@@ -590,16 +587,21 @@ func (h *HaproxyHelper) reloadKeepalived(ctx context.Context) error {
 		"--vrrp_pid", vrrpPidFile.Path,
 		"--checkers_pid", checkersPidFile.Path,
 		"--use-file", h.keepalivedConf(),
-		"-D",
-		"-d",
-		"-S",
-		"0",
+		"--log-detail",
+		"--no-syslog",
+		"--dump-conf",
+		"--log-console",
+		"--dont-fork",
 	}
-	return h.runCmd(args)
+	err := h.runService(args)
+	if err != nil {
+		return errors.Wrapf(err, "run service %s", strings.Join(args, " "))
+	}
+	return nil
 }
 
 func (h *HaproxyHelper) runCmd(args []string) error {
-	log.Debugf("run command %s", args)
+	log.Infof("run command %s", strings.Join(args, " "))
 
 	name := args[0]
 	args = args[1:]
@@ -619,6 +621,8 @@ func (h *HaproxyHelper) runCmd(args []string) error {
 }
 
 func (h *HaproxyHelper) startCmd(args []string) (*exec.Cmd, error) {
+	log.Infof("start command %s", strings.Join(args, " "))
+
 	name := args[0]
 	args = args[1:]
 	cmd := exec.Command(name, args...)
@@ -628,4 +632,52 @@ func (h *HaproxyHelper) startCmd(args []string) (*exec.Cmd, error) {
 		return nil, err
 	}
 	return cmd, nil
+}
+
+func (h *HaproxyHelper) runService(args []string) error {
+	log.Infof("run service %s", strings.Join(args, " "))
+
+	name := args[0]
+	args = args[1:]
+	cmd := exec.Command(name, args...)
+
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		log.Errorf("service %s stdout pipe error: %s", cmd.String(), err)
+		return errors.Wrapf(err, "service %s stdout pipe error", cmd.String())
+	}
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		log.Errorf("service %s stderr pipe error: %s", cmd.String(), err)
+		return errors.Wrapf(err, "service %s stderr pipe error", cmd.String())
+	}
+	drain := func(out io.ReadCloser, isErr bool) {
+		defer out.Close()
+		buf := make([]byte, 1024)
+		for {
+			n, err := stdout.Read(buf)
+			if err != nil {
+				log.Errorf("read pipe error: %s", err)
+				return
+			}
+			if isErr {
+				log.Errorln(string(buf[:n]))
+			} else {
+				log.Infoln(string(buf[:n]))
+			}
+		}
+	}
+	err = cmd.Start()
+	if err != nil {
+		return errors.Wrapf(err, "start service %s", cmd.String())
+	}
+	go func(cmd *exec.Cmd) {
+		err := cmd.Wait()
+		if err != nil {
+			log.Errorf("service %s exited with error: %s", cmd.String(), err)
+		}
+	}(cmd)
+	go drain(stdout, false)
+	go drain(stderr, true)
+	return nil
 }
