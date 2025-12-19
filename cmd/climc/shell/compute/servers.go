@@ -131,6 +131,7 @@ func init() {
 	cmd.BatchPerform("sync-os-info", &options.ServerIdsOptions{})
 	cmd.BatchPerform("set-root-disk-matcher", &options.ServerSetRootDiskMatcher{})
 	cmd.Perform("disable-auto-merge-snapshot", &options.ServerDisableAutoMergeSnapshot{})
+	cmd.BatchPerform("set-tpm", &options.ServerSetTpmOptions{})
 	cmd.Perform("set-kickstart", &options.ServerKickstartConfigOptions{})
 	cmd.Perform("delete-kickstart", &options.ServerIdOptions{})
 	cmd.Perform("kickstart-complete", &options.ServerKickstartCompleteOptions{})

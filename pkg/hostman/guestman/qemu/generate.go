@@ -666,6 +666,14 @@ func generatePvpanicDeviceOption(pvpanic *desc.SGuestPvpanic) string {
 	return fmt.Sprintf("-device pvpanic,id=%s,ioport=0x%x", pvpanic.Id, pvpanic.Ioport)
 }
 
+func generateTpmDevOptions(tpm *desc.SGuestTpm) []string {
+	opts := make([]string, 0)
+	opts = append(opts, chardevOption(tpm.TpmSock))
+	opts = append(opts, fmt.Sprintf("-tpmdev emulator,id=%s,chardev=%s", tpm.Id, tpm.TpmSock.Id))
+	opts = append(opts, fmt.Sprintf("-device tpm-tis,tpmdev=%s", tpm.Id))
+	return opts
+}
+
 func getMigrateOptions(drvOpt QemuOptions, input *GenerateStartOptionsInput) []string {
 	opts := make([]string, 0)
 	if input.NeedMigrate {
@@ -692,6 +700,7 @@ type GenerateStartOptionsInput struct {
 	OsName           string
 	HugepagesEnabled bool
 	EnableMemfd      bool
+	EnableTpm        bool
 
 	OVNIntegrationBridge string
 	Devices              []string
@@ -937,6 +946,10 @@ func GenerateStartOptions(
 	// pvpanic device
 	if input.GuestDesc.Pvpanic != nil {
 		opts = append(opts, generatePvpanicDeviceOption(input.GuestDesc.Pvpanic))
+	}
+
+	if input.GuestDesc.Tpm != nil {
+		opts = append(opts, generateTpmDevOptions(input.GuestDesc.Tpm)...)
 	}
 
 	// move extra options to end of cmdline

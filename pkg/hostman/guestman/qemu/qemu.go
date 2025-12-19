@@ -17,6 +17,7 @@ package qemu
 import (
 	"fmt"
 	"path"
+	"path/filepath"
 	"strings"
 	"sync"
 
@@ -273,20 +274,24 @@ func (o baseOptions) Boot(order *string, enableMenu bool) string {
 }
 
 func (o baseOptions) BIOS(ovmfPath, ovmfVarsPath, homedir string) (string, error) {
-	if ovmfVarsPath == "" || !fileutils2.Exists(ovmfVarsPath) {
-		ovmfVarsPath = ovmfPath
+	ovmfVarsName := "OVMF_VARS.fd"
+	if ovmfVarsPath != "" {
+		ovmfVarsName = filepath.Base(ovmfVarsPath)
 	}
-
-	destOvmfVarsPath := path.Join(homedir, "OVMF_VARS.fd")
-	if !fileutils2.Exists(destOvmfVarsPath) {
-		err := procutils.NewRemoteCommandAsFarAsPossible("cp", "-f", ovmfVarsPath, destOvmfVarsPath).Run()
+	guestOvmfVarsPath := path.Join(homedir, ovmfVarsName)
+	if !fileutils2.Exists(guestOvmfVarsPath) {
+		sourceOvmfVarsPath := ovmfPath
+		if ovmfVarsPath != "" {
+			sourceOvmfVarsPath = ovmfVarsPath
+		}
+		err := procutils.NewRemoteCommandAsFarAsPossible("cp", "-f", sourceOvmfVarsPath, guestOvmfVarsPath).Run()
 		if err != nil {
 			return "", errors.Wrap(err, "failed copy ovmf vars")
 		}
 	}
 	return fmt.Sprintf(
 		"-drive if=pflash,format=raw,unit=0,file=%s,readonly=on -drive if=pflash,format=raw,unit=1,file=%s",
-		ovmfPath, destOvmfVarsPath,
+		ovmfPath, guestOvmfVarsPath,
 	), nil
 }
 

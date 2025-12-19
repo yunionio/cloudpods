@@ -113,9 +113,11 @@ type SHostOptions struct {
 	DnsServer       string `help:"Address of host DNS server"`
 	DnsServerLegacy string `help:"Deprecated Address of host DNS server"`
 
-	ChntpwPath   string `help:"path to chntpw tool" default:"/usr/local/bin/chntpw.static"`
-	OvmfPath     string `help:"Path to OVMF.fd" default:"/opt/cloud/contrib/OVMF.fd"`
-	OvmfVarsPath string `help:"Path to OVMF_VARS.fd" default:"/opt/cloud/contrib/OVMF_VARS.fd"`
+	ChntpwPath          string `help:"path to chntpw tool" default:"/usr/local/bin/chntpw.static"`
+	OvmfPath            string `help:"Path to OVMF.fd" default:"/opt/cloud/contrib/OVMF.fd"`
+	OvmfVarsPath        string `help:"Path to OVMF_VARS.fd" default:"/opt/cloud/contrib/OVMF_VARS.fd"`
+	SecbootOvmfPath     string `help:"Path to secboot ovmf fd" default:"/opt/cloud/contrib/OVMF_CODE_4M.secboot.fd"`
+	SecbootOvmfVarsPath string `help:"Path to secboot ovmf vars fd" default:"/opt/cloud/contrib/OVMF_VARS_4M.fd"`
 
 	LinuxDefaultRootUser    bool `help:"Default account for linux system is root"`
 	WindowsDefaultAdminUser bool `default:"true" help:"Default account for Windows system is Administrator"`
@@ -234,6 +236,7 @@ type SHostOptions struct {
 	LocalBackupTempPath    string `help:"the local temporary directory for backup" default:"/opt/cloud/workspace/run/backups"`
 
 	BinaryMemcleanPath string `help:"execute binary memclean path" default:"/opt/yunion/bin/memclean"`
+	BinarySwtpmPath    string `help:"swtpm binary path" default:"/usr/bin/swtpm"`
 
 	MaxHotplugVCpuCount int    `help:"maximal possible vCPU count that the platform kvm supports"`
 	PcieRootPortCount   int    `help:"pcie root port count" default:"2"`
