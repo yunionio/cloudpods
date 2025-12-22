@@ -1,4 +1,4 @@
-FROM registry.cn-beijing.aliyuncs.com/yunionio/baremetal-base:v0.3.9-20231219.0
+FROM registry.cn-beijing.aliyuncs.com/yunionio/baremetal-base:v0.3.9-20251215.0
 
 LABEL maintainer="Zexi Li <lizexi@yunionyun.com>"
 
