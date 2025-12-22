@@ -53,6 +53,8 @@ type GuestnetworkShortDesc struct {
 	NetworkId string `json:"network_id"`
 	// 附属IP
 	SubIps string `json:"sub_ips"`
+	// 网卡序号
+	Index int `json:"index"`
 }
 
 type GuestnetworkListInput struct {
