@@ -101,6 +101,8 @@ type ModelInfo struct {
 	DisplayName string `json:"display_name"`
 	// 秒装模型 tag，如: 7b
 	Tag string `json:"tag"`
+	// 秒装模型 LLM 类型
+	LlmType string `json:"llm_type"`
 }
 
 type LLMPerformQuickModelsInput struct {

@@ -26,7 +26,7 @@ func GetLLMPodCreateInput(
 
 	// generate post overlay info
 	{
-		err = llm.UpdateMountedModelFullNames(ctx, nil, true, input.LLMImageId, input.LLMSkuId)
+		err = llm.UpdateMountedModelFullNames(ctx, userCred, nil, true, input.LLMImageId, input.LLMSkuId)
 		if err != nil {
 			return nil, errors.Wrap(err, "UpdateMountedModelFullNames")
 		}

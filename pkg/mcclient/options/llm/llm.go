@@ -1,10 +1,7 @@
 package llm
 
 import (
-	"strings"
-
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/pkg/util/regutils"
 
 	api "yunion.io/x/onecloud/pkg/apis/llm"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
@@ -135,47 +132,18 @@ func (opts *LLMSaveInstantModelOptions) Params() (jsonutils.JSONObject, error) {
 type LLMQuickModelsOptions struct {
 	LLMIdOptions
 
-	MODEL []string `help:"model id and optional display name in the format of modelId[@modelName:modelTag], e.g. 6f48b936a09f or 6f48b936a09f@qwen2:0.5b"`
+	MODEL []string `help:"model id of instant model, e.g. qwen3:0.6b-251202 or 7f72b5a1-4049-43db-8e91-8dee736ae1ac"`
 
 	Method string `help:"install or uninstall" choices:"install|uninstall"`
 }
 
 func (opts *LLMQuickModelsOptions) Params() (jsonutils.JSONObject, error) {
 	params := api.LLMPerformQuickModelsInput{}
-	for _, mdlFul := range opts.MODEL {
-		var mdl api.ModelInfo
-
-		var idPart string
-		var nameAndTagPart string
-
-		if idx := strings.Index(mdlFul, "@"); idx >= 0 {
-			idPart = mdlFul[:idx]
-			nameAndTagPart = mdlFul[idx+1:]
-
-			if idxTag := strings.LastIndex(nameAndTagPart, ":"); idxTag >= 0 {
-				mdl.DisplayName = nameAndTagPart[:idxTag]
-				mdl.Tag = nameAndTagPart[idxTag+1:]
-			} else {
-				mdl.DisplayName = nameAndTagPart
-			}
-		} else {
-			idPart = mdlFul
-
-			if idxTag := strings.LastIndex(idPart, ":"); idxTag >= 0 {
-				mdl.Tag = idPart[idxTag+1:]
-				idPart = idPart[:idxTag]
-			}
-		}
-
-		if regutils.MatchUUID(idPart) {
-			mdl.Id = idPart
-		} else {
-			mdl.ModelId = idPart
-		}
-
-		params.Models = append(params.Models, mdl)
+	for _, mdl := range opts.MODEL {
+		params.Models = append(params.Models, api.ModelInfo{
+			Id: mdl,
+		})
 	}
-
 	if len(opts.Method) > 0 {
 		params.Method = api.TQuickModelMethod(opts.Method)
 	}
