@@ -38,6 +38,8 @@ const (
 	HA_STATE_SCRIPT_NAME    = "ha_state.sh"
 	HA_STATE_SCRIPT_CONTENT = `
 #!/bin/bash
+
+echo "keepalived notify $@" > /proc/1/fd/1
 echo "$@" >%s
 `
 	HA_STATE_FILENAME = "ha_state"

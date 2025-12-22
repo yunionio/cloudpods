@@ -17,6 +17,7 @@ package hostbridge
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -281,8 +282,29 @@ func (o *SOVSBridgeDriver) WarmupConfig() error {
 
 func OVSPrepare() error {
 	ovs := system_service.GetService("openvswitch")
-	if !ovs.IsInstalled() {
-		return fmt.Errorf("Service openvswitch not installed!")
+	if !ovs.IsInstalled() || !ovs.IsActive() {
+		// no openvswitch service found, first try load openvswitch kernel modules, then try ovs-vsctl command, if success, return nil
+		err := procutils.NewRemoteCommandAsFarAsPossible("modprobe", "openvswitch").Run()
+		if err != nil {
+			return errors.Wrap(err, "Failed to load openvswitch kernel modules")
+		}
+		// wait for the ovs-vswitchd to start
+		startProbe := time.Now()
+		const waitSeconds = 60 * 2 // wait ovs-vswitch running for 2 minutes
+		for time.Since(startProbe) < time.Duration(waitSeconds)*time.Second {
+			err := procutils.NewCommand("ovs-vsctl", "show").Run()
+			if err != nil {
+				time.Sleep(2 * time.Second)
+			} else {
+				return nil
+			}
+		}
+		// ovs service start timeout
+		if !ovs.IsInstalled() {
+			// ovs service not installed, return error
+			return fmt.Errorf("service openvswitch not installed and wait ovs service timeout, please check ovs service status")
+		}
+		// ovs service installed but not running, continue to start the service
 	}
 	if ovs.IsEnabled() {
 		err := ovs.Disable()
