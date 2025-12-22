@@ -56,7 +56,9 @@ import (
 	"yunion.io/x/onecloud/pkg/baremetal/utils/disktool"
 	"yunion.io/x/onecloud/pkg/baremetal/utils/grub"
 	"yunion.io/x/onecloud/pkg/baremetal/utils/ipmitool"
+	raid2 "yunion.io/x/onecloud/pkg/baremetal/utils/raid"
 	raiddrivers "yunion.io/x/onecloud/pkg/baremetal/utils/raid/drivers"
+	"yunion.io/x/onecloud/pkg/baremetal/utils/raid/mdadm"
 	"yunion.io/x/onecloud/pkg/baremetal/utils/uefi"
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	"yunion.io/x/onecloud/pkg/compute/baremetal"
@@ -2743,15 +2745,32 @@ func (s *SBaremetalServer) NewConfigedSSHPartitionTool(term *ssh.Client) (*diskt
 		return nil, fmt.Errorf("CalculateLayout: %v", err)
 	}
 
+	log.Errorf("NewConfigedSSHPartitionTool layouts: %s", jsonutils.Marshal(layouts))
 	diskConfs := baremetal.GroupLayoutResultsByDriverAdapter(layouts)
 	for _, dConf := range diskConfs {
 		driver := dConf.Driver
 		adapter := dConf.Adapter
+		isSoftRaid := baremetal.DISK_DRIVERS_SOFT_RAID.Has(driver)
+
 		raidDrv := raiddrivers.GetDriver(driver, term)
 		if raidDrv != nil {
 			if err := raidDrv.ParsePhyDevs(); err != nil {
 				return nil, fmt.Errorf("RaidDriver %s parse physical devices: %v", raidDrv.GetName(), err)
 			}
+			if isSoftRaid {
+				devs := make([]*baremetal.BaremetalStorage, 0)
+				for _, layout := range layouts {
+					if len(layout.Disks) > 0 && layout.Disks[0].Driver == driver && layout.Disks[0].Adapter == dConf.Adapter {
+						devs = append(devs, layout.Disks...)
+					}
+				}
+
+				log.Infof("SetDevicesForAdapter %v", jsonutils.Marshal(devs))
+				if mdadmDrver, ok := raidDrv.(raid2.IRaidDeviceSetter); ok {
+					mdadmDrver.SetDevicesForAdapter(dConf.Adapter, devs)
+				}
+			}
+
 			if err := raiddrivers.PostBuildRaid(raidDrv, adapter); err != nil {
 				return nil, fmt.Errorf("Build %s raid failed: %v", raidDrv.GetName(), err)
 			}
@@ -2803,11 +2822,27 @@ func (s *SBaremetalServer) DoDiskConfig(term *ssh.Client) (*disktool.SSHPartitio
 	for _, dConf := range diskConfs {
 		driver := dConf.Driver
 		adapter := dConf.Adapter
+		isSoftRaid := baremetal.DISK_DRIVERS_SOFT_RAID.Has(driver)
+
 		raidDrv := raiddrivers.GetDriver(driver, term)
 		if raidDrv != nil {
 			if err := raidDrv.ParsePhyDevs(); err != nil {
 				return nil, fmt.Errorf("RaidDriver %s parse physical devices: %v", raidDrv.GetName(), err)
 			}
+			if isSoftRaid {
+				devs := make([]*baremetal.BaremetalStorage, 0)
+				for _, layout := range layouts {
+					if len(layout.Disks) > 0 && layout.Disks[0].Driver == driver && layout.Disks[0].Adapter == dConf.Adapter {
+						devs = append(devs, layout.Disks...)
+					}
+				}
+
+				log.Infof("SetDevicesForAdapter %v", jsonutils.Marshal(devs))
+				if mdadmDriver, ok := raidDrv.(raid2.IRaidDeviceSetter); ok {
+					mdadmDriver.SetDevicesForAdapter(dConf.Adapter, devs)
+				}
+			}
+
 			if err := raiddrivers.BuildRaid(raidDrv, dConf.Configs, adapter); err != nil {
 				return nil, fmt.Errorf("Build %s raid failed: %v", raidDrv.GetName(), err)
 			}
@@ -2851,6 +2886,10 @@ func (s *SBaremetalServer) DoDiskUnconfig(term *ssh.Client) error {
 }
 
 func (s *SBaremetalServer) DoEraseDisk(term *ssh.Client) error {
+	// soft raid should stop mdadm first
+	if err := mdadm.CleanRaid(term); err != nil {
+		return err
+	}
 	cmd := "/lib/mos/partdestroy.sh"
 	_, err := term.Run(cmd)
 	return err
@@ -2911,6 +2950,7 @@ func (s *SBaremetalServer) DoPartitionDisk(tool *disktool.SSHPartitionTool, term
 	rootImageId := s.GetRootTemplateId()
 	diskOffset := 0
 	rootDisk := tool.GetRootDisk()
+	log.Infof("root disk name %s", rootDisk.GetDevName())
 	if len(rootImageId) > 0 {
 		rootDiskObj := disks[0]
 		rootSize, _ := rootDiskObj.Int("size")
