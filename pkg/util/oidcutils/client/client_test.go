@@ -74,8 +74,11 @@ func TestJWKVerify(t *testing.T) {
 	if err != nil {
 		t.Fatalf("jwk.ParseString fail %s", err)
 	}
-	for i := range keySet.Keys {
-		key := keySet.Keys[i]
+	for i := 0; i < keySet.Len(); i++ {
+		key, ok := keySet.Get(i)
+		if !ok {
+			continue
+		}
 		if key.KeyUsage() == "sig" {
 			var oKey rsa.PublicKey
 			err := key.Raw(&oKey)

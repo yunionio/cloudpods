@@ -1,17 +1,19 @@
-// +build linux
-
 package intelrdt
 
 import (
 	"bufio"
+	"bytes"
+	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
 
+	"github.com/moby/sys/mountinfo"
+	"github.com/opencontainers/runc/libcontainer/cgroups/fscommon"
 	"github.com/opencontainers/runc/libcontainer/configs"
 )
 
@@ -67,7 +69,7 @@ import (
  * |-- ...
  * |-- schemata
  * |-- tasks
- * |-- <container_id>
+ * |-- <clos>
  *     |-- ...
  *     |-- schemata
  *     |-- tasks
@@ -150,7 +152,7 @@ type Manager interface {
 	// Returns statistics for Intel RDT
 	GetStats() (*Stats, error)
 
-	// Destroys the Intel RDT 'container_id' group
+	// Destroys the Intel RDT container-specific 'container_id' group
 	Destroy() error
 
 	// Returns Intel RDT path to save in a state file and to be able to
@@ -162,136 +164,137 @@ type Manager interface {
 }
 
 // This implements interface Manager
-type IntelRdtManager struct {
+type intelRdtManager struct {
 	mu     sync.Mutex
-	Config *configs.Config
-	Id     string
-	Path   string
+	config *configs.Config
+	id     string
+	path   string
+}
+
+func NewManager(config *configs.Config, id string, path string) Manager {
+	return &intelRdtManager{
+		config: config,
+		id:     id,
+		path:   path,
+	}
 }
 
 const (
-	IntelRdtTasks = "tasks"
+	intelRdtTasks = "tasks"
 )
 
 var (
-	// The absolute root path of the Intel RDT "resource control" filesystem
-	intelRdtRoot     string
-	intelRdtRootLock sync.Mutex
-
 	// The flag to indicate if Intel RDT/CAT is enabled
-	isCatEnabled bool
+	catEnabled bool
 	// The flag to indicate if Intel RDT/MBA is enabled
-	isMbaEnabled bool
+	mbaEnabled bool
 	// The flag to indicate if Intel RDT/MBA Software Controller is enabled
-	isMbaScEnabled bool
+	mbaScEnabled bool
+
+	// For Intel RDT initialization
+	initOnce sync.Once
+
+	errNotFound = errors.New("Intel RDT resctrl mount point not found")
 )
 
-type intelRdtData struct {
-	root   string
-	config *configs.Config
-	pid    int
-}
-
-// Check if Intel RDT sub-features are enabled in init()
-func init() {
-	// 1. Check if hardware and kernel support Intel RDT sub-features
-	flagsSet, err := parseCpuInfoFile("/proc/cpuinfo")
-	if err != nil {
-		return
-	}
-
-	// 2. Check if Intel RDT "resource control" filesystem is mounted
-	// The user guarantees to mount the filesystem
-	if !isIntelRdtMounted() {
-		return
-	}
-
-	// 3. Double check if Intel RDT sub-features are available in
-	// "resource control" filesystem. Intel RDT sub-features can be
-	// selectively disabled or enabled by kernel command line
-	// (e.g., rdt=!l3cat,mba) in 4.14 and newer kernel
-	if flagsSet.CAT {
-		if _, err := os.Stat(filepath.Join(intelRdtRoot, "info", "L3")); err == nil {
-			isCatEnabled = true
-		}
-	}
-	if isMbaScEnabled {
-		// We confirm MBA Software Controller is enabled in step 2,
-		// MBA should be enabled because MBA Software Controller
-		// depends on MBA
-		isMbaEnabled = true
-	} else if flagsSet.MBA {
-		if _, err := os.Stat(filepath.Join(intelRdtRoot, "info", "MB")); err == nil {
-			isMbaEnabled = true
-		}
-	}
-
-	if flagsSet.MBMTotal || flagsSet.MBMLocal {
-		if _, err := os.Stat(filepath.Join(intelRdtRoot, "info", "L3_MON")); err == nil {
-			mbmEnabled = true
-			cmtEnabled = true
-		}
-
-		enabledMonFeatures, err = getMonFeatures(intelRdtRoot)
+// Check if Intel RDT sub-features are enabled in featuresInit()
+func featuresInit() {
+	initOnce.Do(func() {
+		// 1. Check if hardware and kernel support Intel RDT sub-features
+		flagsSet, err := parseCpuInfoFile("/proc/cpuinfo")
 		if err != nil {
 			return
 		}
-	}
+
+		// 2. Check if Intel RDT "resource control" filesystem is available.
+		// The user guarantees to mount the filesystem.
+		root, err := Root()
+		if err != nil {
+			return
+		}
+
+		// 3. Double check if Intel RDT sub-features are available in
+		// "resource control" filesystem. Intel RDT sub-features can be
+		// selectively disabled or enabled by kernel command line
+		// (e.g., rdt=!l3cat,mba) in 4.14 and newer kernel
+		if flagsSet.CAT {
+			if _, err := os.Stat(filepath.Join(root, "info", "L3")); err == nil {
+				catEnabled = true
+			}
+		}
+		if mbaScEnabled {
+			// We confirm MBA Software Controller is enabled in step 2,
+			// MBA should be enabled because MBA Software Controller
+			// depends on MBA
+			mbaEnabled = true
+		} else if flagsSet.MBA {
+			if _, err := os.Stat(filepath.Join(root, "info", "MB")); err == nil {
+				mbaEnabled = true
+			}
+		}
+		if flagsSet.MBMTotal || flagsSet.MBMLocal || flagsSet.CMT {
+			if _, err := os.Stat(filepath.Join(root, "info", "L3_MON")); err != nil {
+				return
+			}
+			enabledMonFeatures, err = getMonFeatures(root)
+			if err != nil {
+				return
+			}
+			if enabledMonFeatures.mbmTotalBytes || enabledMonFeatures.mbmLocalBytes {
+				mbmEnabled = true
+			}
+			if enabledMonFeatures.llcOccupancy {
+				cmtEnabled = true
+			}
+		}
+	})
 }
 
 // Return the mount point path of Intel RDT "resource control" filesysem
-func findIntelRdtMountpointDir() (string, error) {
-	f, err := os.Open("/proc/self/mountinfo")
+func findIntelRdtMountpointDir(f io.Reader) (string, error) {
+	mi, err := mountinfo.GetMountsFromReader(f, func(m *mountinfo.Info) (bool, bool) {
+		// similar to mountinfo.FSTypeFilter but stops after the first match
+		if m.FSType == "resctrl" {
+			return false, true // don't skip, stop
+		}
+		return true, false // skip, keep going
+	})
 	if err != nil {
 		return "", err
 	}
-	defer f.Close()
-
-	s := bufio.NewScanner(f)
-	for s.Scan() {
-		text := s.Text()
-		fields := strings.Split(text, " ")
-		// Safe as mountinfo encodes mountpoints with spaces as \040.
-		index := strings.Index(text, " - ")
-		postSeparatorFields := strings.Fields(text[index+3:])
-		numPostFields := len(postSeparatorFields)
-
-		// This is an error as we can't detect if the mount is for "Intel RDT"
-		if numPostFields == 0 {
-			return "", fmt.Errorf("Found no fields post '-' in %q", text)
-		}
-
-		if postSeparatorFields[0] == "resctrl" {
-			// Check that the mount is properly formatted.
-			if numPostFields < 3 {
-				return "", fmt.Errorf("Error found less than 3 fields post '-' in %q", text)
-			}
-
-			// Check if MBA Software Controller is enabled through mount option "-o mba_MBps"
-			if strings.Contains(postSeparatorFields[2], "mba_MBps") {
-				isMbaScEnabled = true
-			}
-
-			return fields[4], nil
-		}
-	}
-	if err := s.Err(); err != nil {
-		return "", err
+	if len(mi) < 1 {
+		return "", errNotFound
 	}
 
-	return "", NewNotFoundError("Intel RDT")
+	// Check if MBA Software Controller is enabled through mount option "-o mba_MBps"
+	if strings.Contains(","+mi[0].VFSOptions+",", ",mba_MBps,") {
+		mbaScEnabled = true
+	}
+
+	return mi[0].Mountpoint, nil
 }
 
-// Gets the root path of Intel RDT "resource control" filesystem
-func getIntelRdtRoot() (string, error) {
-	intelRdtRootLock.Lock()
-	defer intelRdtRootLock.Unlock()
+// For Root() use only.
+var (
+	intelRdtRoot string
+	rootMu       sync.Mutex
+)
+
+// Root returns the Intel RDT "resource control" filesystem mount point.
+func Root() (string, error) {
+	rootMu.Lock()
+	defer rootMu.Unlock()
 
 	if intelRdtRoot != "" {
 		return intelRdtRoot, nil
 	}
 
-	root, err := findIntelRdtMountpointDir()
+	f, err := os.Open("/proc/self/mountinfo")
+	if err != nil {
+		return "", err
+	}
+	root, err := findIntelRdtMountpointDir(f)
+	f.Close()
 	if err != nil {
 		return "", err
 	}
@@ -304,15 +307,6 @@ func getIntelRdtRoot() (string, error) {
 	return intelRdtRoot, nil
 }
 
-func isIntelRdtMounted() bool {
-	_, err := getIntelRdtRoot()
-	if err != nil {
-		return false
-	}
-
-	return true
-}
-
 type cpuInfoFlags struct {
 	CAT bool // Cache Allocation Technology
 	MBA bool // Memory Bandwidth Allocation
@@ -320,6 +314,8 @@ type cpuInfoFlags struct {
 	// Memory Bandwidth Monitoring related.
 	MBMTotal bool
 	MBMLocal bool
+
+	CMT bool // Cache Monitoring Technology
 }
 
 func parseCpuInfoFile(path string) (cpuInfoFlags, error) {
@@ -349,6 +345,8 @@ func parseCpuInfoFile(path string) (cpuInfoFlags, error) {
 					infoFlags.MBMTotal = true
 				case "cqm_mbm_local":
 					infoFlags.MBMLocal = true
+				case "cqm_occup_llc":
+					infoFlags.CMT = true
 				}
 			}
 			return infoFlags, nil
@@ -361,33 +359,15 @@ func parseCpuInfoFile(path string) (cpuInfoFlags, error) {
 	return infoFlags, nil
 }
 
-func parseUint(s string, base, bitSize int) (uint64, error) {
-	value, err := strconv.ParseUint(s, base, bitSize)
-	if err != nil {
-		intValue, intErr := strconv.ParseInt(s, base, bitSize)
-		// 1. Handle negative values greater than MinInt64 (and)
-		// 2. Handle negative values lesser than MinInt64
-		if intErr == nil && intValue < 0 {
-			return 0, nil
-		} else if intErr != nil && intErr.(*strconv.NumError).Err == strconv.ErrRange && intValue < 0 {
-			return 0, nil
-		}
-
-		return value, err
-	}
-
-	return value, nil
-}
-
 // Gets a single uint64 value from the specified file.
 func getIntelRdtParamUint(path, file string) (uint64, error) {
 	fileName := filepath.Join(path, file)
-	contents, err := ioutil.ReadFile(fileName)
+	contents, err := os.ReadFile(fileName)
 	if err != nil {
 		return 0, err
 	}
 
-	res, err := parseUint(strings.TrimSpace(string(contents)), 10, 64)
+	res, err := fscommon.ParseUint(string(bytes.TrimSpace(contents)), 10, 64)
 	if err != nil {
 		return res, fmt.Errorf("unable to parse %q as a uint from file %q", string(contents), fileName)
 	}
@@ -396,41 +376,29 @@ func getIntelRdtParamUint(path, file string) (uint64, error) {
 
 // Gets a string value from the specified file
 func getIntelRdtParamString(path, file string) (string, error) {
-	contents, err := ioutil.ReadFile(filepath.Join(path, file))
+	contents, err := os.ReadFile(filepath.Join(path, file))
 	if err != nil {
 		return "", err
 	}
 
-	return strings.TrimSpace(string(contents)), nil
+	return string(bytes.TrimSpace(contents)), nil
 }
 
 func writeFile(dir, file, data string) error {
 	if dir == "" {
 		return fmt.Errorf("no such directory for %s", file)
 	}
-	if err := ioutil.WriteFile(filepath.Join(dir, file), []byte(data+"\n"), 0700); err != nil {
-		return fmt.Errorf("failed to write %v to %v: %v", data, file, err)
+	if err := os.WriteFile(filepath.Join(dir, file), []byte(data+"\n"), 0o600); err != nil {
+		return newLastCmdError(fmt.Errorf("intelrdt: unable to write %v: %w", data, err))
 	}
 	return nil
-}
-
-func getIntelRdtData(c *configs.Config, pid int) (*intelRdtData, error) {
-	rootPath, err := getIntelRdtRoot()
-	if err != nil {
-		return nil, err
-	}
-	return &intelRdtData{
-		root:   rootPath,
-		config: c,
-		pid:    pid,
-	}, nil
 }
 
 // Get the read-only L3 cache information
 func getL3CacheInfo() (*L3CacheInfo, error) {
 	l3CacheInfo := &L3CacheInfo{}
 
-	rootPath, err := getIntelRdtRoot()
+	rootPath, err := Root()
 	if err != nil {
 		return l3CacheInfo, err
 	}
@@ -460,7 +428,7 @@ func getL3CacheInfo() (*L3CacheInfo, error) {
 func getMemBwInfo() (*MemBwInfo, error) {
 	memBwInfo := &MemBwInfo{}
 
-	rootPath, err := getIntelRdtRoot()
+	rootPath, err := Root()
 	if err != nil {
 		return memBwInfo, err
 	}
@@ -493,7 +461,7 @@ func getMemBwInfo() (*MemBwInfo, error) {
 
 // Get diagnostics for last filesystem operation error from file info/last_cmd_status
 func getLastCmdStatus() (string, error) {
-	rootPath, err := getIntelRdtRoot()
+	rootPath, err := Root()
 	if err != nil {
 		return "", err
 	}
@@ -510,98 +478,123 @@ func getLastCmdStatus() (string, error) {
 // WriteIntelRdtTasks writes the specified pid into the "tasks" file
 func WriteIntelRdtTasks(dir string, pid int) error {
 	if dir == "" {
-		return fmt.Errorf("no such directory for %s", IntelRdtTasks)
+		return fmt.Errorf("no such directory for %s", intelRdtTasks)
 	}
 
 	// Don't attach any pid if -1 is specified as a pid
 	if pid != -1 {
-		if err := ioutil.WriteFile(filepath.Join(dir, IntelRdtTasks), []byte(strconv.Itoa(pid)), 0700); err != nil {
-			return fmt.Errorf("failed to write %v to %v: %v", pid, IntelRdtTasks, err)
+		if err := os.WriteFile(filepath.Join(dir, intelRdtTasks), []byte(strconv.Itoa(pid)), 0o600); err != nil {
+			return newLastCmdError(fmt.Errorf("intelrdt: unable to add pid %d: %w", pid, err))
 		}
 	}
 	return nil
 }
 
 // Check if Intel RDT/CAT is enabled
-func IsCatEnabled() bool {
-	return isCatEnabled
+func IsCATEnabled() bool {
+	featuresInit()
+	return catEnabled
 }
 
 // Check if Intel RDT/MBA is enabled
-func IsMbaEnabled() bool {
-	return isMbaEnabled
+func IsMBAEnabled() bool {
+	featuresInit()
+	return mbaEnabled
 }
 
 // Check if Intel RDT/MBA Software Controller is enabled
-func IsMbaScEnabled() bool {
-	return isMbaScEnabled
+func IsMBAScEnabled() bool {
+	featuresInit()
+	return mbaScEnabled
 }
 
-// Get the 'container_id' path in Intel RDT "resource control" filesystem
-func GetIntelRdtPath(id string) (string, error) {
-	rootPath, err := getIntelRdtRoot()
+// Get the path of the clos group in "resource control" filesystem that the container belongs to
+func (m *intelRdtManager) getIntelRdtPath() (string, error) {
+	rootPath, err := Root()
 	if err != nil {
 		return "", err
 	}
 
-	path := filepath.Join(rootPath, id)
-	return path, nil
+	clos := m.id
+	if m.config.IntelRdt != nil && m.config.IntelRdt.ClosID != "" {
+		clos = m.config.IntelRdt.ClosID
+	}
+
+	return filepath.Join(rootPath, clos), nil
 }
 
 // Applies Intel RDT configuration to the process with the specified pid
-func (m *IntelRdtManager) Apply(pid int) (err error) {
+func (m *intelRdtManager) Apply(pid int) (err error) {
 	// If intelRdt is not specified in config, we do nothing
-	if m.Config.IntelRdt == nil {
+	if m.config.IntelRdt == nil {
 		return nil
 	}
-	d, err := getIntelRdtData(m.Config, pid)
-	if err != nil && !IsNotFound(err) {
-		return err
-	}
 
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	path, err := d.join(m.Id)
+	path, err := m.getIntelRdtPath()
 	if err != nil {
 		return err
 	}
 
-	m.Path = path
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if m.config.IntelRdt.ClosID != "" && m.config.IntelRdt.L3CacheSchema == "" && m.config.IntelRdt.MemBwSchema == "" {
+		// Check that the CLOS exists, i.e. it has been pre-configured to
+		// conform with the runtime spec
+		if _, err := os.Stat(path); err != nil {
+			return fmt.Errorf("clos dir not accessible (must be pre-created when l3CacheSchema and memBwSchema are empty): %w", err)
+		}
+	}
+
+	if err := os.MkdirAll(path, 0o755); err != nil {
+		return newLastCmdError(err)
+	}
+
+	if err := WriteIntelRdtTasks(path, pid); err != nil {
+		return newLastCmdError(err)
+	}
+
+	m.path = path
 	return nil
 }
 
-// Destroys the Intel RDT 'container_id' group
-func (m *IntelRdtManager) Destroy() error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if err := os.RemoveAll(m.GetPath()); err != nil {
-		return err
+// Destroys the Intel RDT container-specific 'container_id' group
+func (m *intelRdtManager) Destroy() error {
+	// Don't remove resctrl group if closid has been explicitly specified. The
+	// group is likely externally managed, i.e. by some other entity than us.
+	// There are probably other containers/tasks sharing the same group.
+	if m.config.IntelRdt == nil || m.config.IntelRdt.ClosID == "" {
+		m.mu.Lock()
+		defer m.mu.Unlock()
+		if err := os.RemoveAll(m.GetPath()); err != nil {
+			return err
+		}
+		m.path = ""
 	}
-	m.Path = ""
 	return nil
 }
 
 // Returns Intel RDT path to save in a state file and to be able to
 // restore the object later
-func (m *IntelRdtManager) GetPath() string {
-	if m.Path == "" {
-		m.Path, _ = GetIntelRdtPath(m.Id)
+func (m *intelRdtManager) GetPath() string {
+	if m.path == "" {
+		m.path, _ = m.getIntelRdtPath()
 	}
-	return m.Path
+	return m.path
 }
 
 // Returns statistics for Intel RDT
-func (m *IntelRdtManager) GetStats() (*Stats, error) {
+func (m *intelRdtManager) GetStats() (*Stats, error) {
 	// If intelRdt is not specified in config
-	if m.Config.IntelRdt == nil {
+	if m.config.IntelRdt == nil {
 		return nil, nil
 	}
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	stats := NewStats()
+	stats := newStats()
 
-	rootPath, err := getIntelRdtRoot()
+	rootPath, err := Root()
 	if err != nil {
 		return nil, err
 	}
@@ -612,7 +605,7 @@ func (m *IntelRdtManager) GetStats() (*Stats, error) {
 	}
 	schemaRootStrings := strings.Split(tmpRootStrings, "\n")
 
-	// The L3 cache and memory bandwidth schemata in 'container_id' group
+	// The L3 cache and memory bandwidth schemata in container's clos group
 	containerPath := m.GetPath()
 	tmpStrings, err := getIntelRdtParamString(containerPath, "schemata")
 	if err != nil {
@@ -620,7 +613,7 @@ func (m *IntelRdtManager) GetStats() (*Stats, error) {
 	}
 	schemaStrings := strings.Split(tmpStrings, "\n")
 
-	if IsCatEnabled() {
+	if IsCATEnabled() {
 		// The read-only L3 cache information
 		l3CacheInfo, err := getL3CacheInfo()
 		if err != nil {
@@ -635,7 +628,7 @@ func (m *IntelRdtManager) GetStats() (*Stats, error) {
 			}
 		}
 
-		// The L3 cache schema in 'container_id' group
+		// The L3 cache schema in container's clos group
 		for _, schema := range schemaStrings {
 			if strings.Contains(schema, "L3") {
 				stats.L3CacheSchema = strings.TrimSpace(schema)
@@ -643,7 +636,7 @@ func (m *IntelRdtManager) GetStats() (*Stats, error) {
 		}
 	}
 
-	if IsMbaEnabled() {
+	if IsMBAEnabled() {
 		// The read-only memory bandwidth information
 		memBwInfo, err := getMemBwInfo()
 		if err != nil {
@@ -658,7 +651,7 @@ func (m *IntelRdtManager) GetStats() (*Stats, error) {
 			}
 		}
 
-		// The memory bandwidth schema in 'container_id' group
+		// The memory bandwidth schema in container's clos group
 		for _, schema := range schemaStrings {
 			if strings.Contains(schema, "MB") {
 				stats.MemBwSchema = strings.TrimSpace(schema)
@@ -666,16 +659,18 @@ func (m *IntelRdtManager) GetStats() (*Stats, error) {
 		}
 	}
 
-	err = getMonitoringStats(containerPath, stats)
-	if err != nil {
-		return nil, err
+	if IsMBMEnabled() || IsCMTEnabled() {
+		err = getMonitoringStats(containerPath, stats)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return stats, nil
 }
 
 // Set Intel RDT "resource control" filesystem as configured.
-func (m *IntelRdtManager) Set(container *configs.Config) error {
+func (m *intelRdtManager) Set(container *configs.Config) error {
 	// About L3 cache schema:
 	// It has allocation bitmasks/values for L3 cache on each socket,
 	// which contains L3 cache id and capacity bitmask (CBM).
@@ -726,24 +721,30 @@ func (m *IntelRdtManager) Set(container *configs.Config) error {
 		l3CacheSchema := container.IntelRdt.L3CacheSchema
 		memBwSchema := container.IntelRdt.MemBwSchema
 
+		// TODO: verify that l3CacheSchema and/or memBwSchema match the
+		// existing schemata if ClosID has been specified. This is a more
+		// involved than reading the file and doing plain string comparison as
+		// the value written in does not necessarily match what gets read out
+		// (leading zeros, cache id ordering etc).
+
 		// Write a single joint schema string to schemata file
 		if l3CacheSchema != "" && memBwSchema != "" {
 			if err := writeFile(path, "schemata", l3CacheSchema+"\n"+memBwSchema); err != nil {
-				return NewLastCmdError(err)
+				return err
 			}
 		}
 
 		// Write only L3 cache schema string to schemata file
 		if l3CacheSchema != "" && memBwSchema == "" {
 			if err := writeFile(path, "schemata", l3CacheSchema); err != nil {
-				return NewLastCmdError(err)
+				return err
 			}
 		}
 
 		// Write only memory bandwidth schema string to schemata file
 		if l3CacheSchema == "" && memBwSchema != "" {
 			if err := writeFile(path, "schemata", memBwSchema); err != nil {
-				return NewLastCmdError(err)
+				return err
 			}
 		}
 	}
@@ -751,56 +752,10 @@ func (m *IntelRdtManager) Set(container *configs.Config) error {
 	return nil
 }
 
-func (raw *intelRdtData) join(id string) (string, error) {
-	path := filepath.Join(raw.root, id)
-	if err := os.MkdirAll(path, 0755); err != nil {
-		return "", NewLastCmdError(err)
-	}
-
-	if err := WriteIntelRdtTasks(path, raw.pid); err != nil {
-		return "", NewLastCmdError(err)
-	}
-	return path, nil
-}
-
-type NotFoundError struct {
-	ResourceControl string
-}
-
-func (e *NotFoundError) Error() string {
-	return fmt.Sprintf("mountpoint for %s not found", e.ResourceControl)
-}
-
-func NewNotFoundError(res string) error {
-	return &NotFoundError{
-		ResourceControl: res,
-	}
-}
-
-func IsNotFound(err error) bool {
-	if err == nil {
-		return false
-	}
-	_, ok := err.(*NotFoundError)
-	return ok
-}
-
-type LastCmdError struct {
-	LastCmdStatus string
-	Err           error
-}
-
-func (e *LastCmdError) Error() string {
-	return e.Err.Error() + ", last_cmd_status: " + e.LastCmdStatus
-}
-
-func NewLastCmdError(err error) error {
-	lastCmdStatus, err1 := getLastCmdStatus()
+func newLastCmdError(err error) error {
+	status, err1 := getLastCmdStatus()
 	if err1 == nil {
-		return &LastCmdError{
-			LastCmdStatus: lastCmdStatus,
-			Err:           err,
-		}
+		return fmt.Errorf("%w, last_cmd_status: %s", err, status)
 	}
 	return err
 }
