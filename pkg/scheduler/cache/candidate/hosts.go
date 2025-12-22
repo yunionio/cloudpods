@@ -597,7 +597,7 @@ type SSortedNumaDistance struct {
 	FreeMemSize int
 }
 
-func (h *SHostTopo) getDistancesSeqByPreferNodes(preferNumaNodes []int) []SSortedNumaDistance {
+func (h *SHostTopo) getDistancesSeqByPreferNodes(preferNumaNodes []int, memSizeKB int) []SSortedNumaDistance {
 	sortedNumaDistance := make([]SSortedNumaDistance, len(h.Nodes))
 	for i := range h.Nodes {
 		distance := 0
@@ -618,8 +618,11 @@ func (h *SHostTopo) getDistancesSeqByPreferNodes(preferNumaNodes []int) []SSorte
 		} else if (sortedNumaDistance[i].Distance + 7) < sortedNumaDistance[j].Distance {
 			return true
 		}
-
-		return sortedNumaDistance[i].FreeMemSize > sortedNumaDistance[j].FreeMemSize
+		if sortedNumaDistance[i].Distance < sortedNumaDistance[j].Distance {
+			return sortedNumaDistance[i].FreeMemSize > memSizeKB && sortedNumaDistance[j].FreeMemSize-sortedNumaDistance[i].FreeMemSize <= 2*memSizeKB
+		} else {
+			return sortedNumaDistance[j].FreeMemSize > memSizeKB && sortedNumaDistance[i].FreeMemSize-sortedNumaDistance[j].FreeMemSize >= 2*memSizeKB
+		}
 	})
 	return sortedNumaDistance
 }
@@ -627,7 +630,7 @@ func (h *SHostTopo) getDistancesSeqByPreferNodes(preferNumaNodes []int) []SSorte
 func (h *SHostTopo) AllocCpuNumaNodes(vcpuCount, memSizeKB int, ignoreMemSingular bool, preferNumaNodes []int) []scheduler.SCpuNumaPin {
 	if h.NumaEnabled && len(preferNumaNodes) > 0 {
 		log.Infof("preferNumaNodes %v", preferNumaNodes)
-		sortedNumaDistance := h.getDistancesSeqByPreferNodes(preferNumaNodes)
+		sortedNumaDistance := h.getDistancesSeqByPreferNodes(preferNumaNodes, memSizeKB)
 		for nodeCount := 1; nodeCount <= len(h.Nodes); nodeCount *= 2 {
 			ret := h.allocCpuNumaNodesByPreferNodes(vcpuCount, memSizeKB, nodeCount, sortedNumaDistance)
 			if ret != nil {
@@ -1549,7 +1552,7 @@ func (b *HostBuilder) fillGuestsResourceInfo(desc *HostDesc, host *computemodels
 				creatingGuestCount++
 				creatingMemSize += int64(guest.VmemSize)
 				creatingCPUCount += int64(guest.VcpuCount)
-				if host.EnableNumaAllocate && guest.CpuNumaPin != nil {
+				if guest.IsSchedulerNumaAllocate() {
 					cpuNumaPin := make([]scheduler.SCpuNumaPin, 0)
 					if err := guest.CpuNumaPin.Unmarshal(&cpuNumaPin); err != nil {
 						return errors.Wrap(err, "unmarshal cpu numa pin")
@@ -1566,7 +1569,7 @@ func (b *HostBuilder) fillGuestsResourceInfo(desc *HostDesc, host *computemodels
 				runningCount++
 				memSize += int64(guest.VmemSize)
 				cpuCount += int64(guest.VcpuCount)
-				if host.EnableNumaAllocate && guest.CpuNumaPin != nil {
+				if guest.IsSchedulerNumaAllocate() {
 					cpuNumaPin := make([]scheduler.SCpuNumaPin, 0)
 					if err := guest.CpuNumaPin.Unmarshal(&cpuNumaPin); err != nil {
 						return errors.Wrap(err, "unmarshal cpu numa pin")
