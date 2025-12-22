@@ -200,6 +200,20 @@ func (sku *SLLMSku) ValidateUpdateData(ctx context.Context, userCred mcclient.To
 		return input, errors.Wrap(err, "validate LLMSkuBaseUpdateInput")
 	}
 
+	if input.MountedModels != nil {
+		for i, mdl := range input.MountedModels {
+			instMdl, err := GetInstantModelManager().FetchByIdOrName(ctx, userCred, mdl)
+			if err != nil {
+				return input, errors.Wrapf(err, "validate mounted model %s", mdl)
+			}
+			instantModle := instMdl.(*SInstantModel)
+			if instantModle.LlmType != sku.LLMType {
+				return input, errors.Wrapf(httperrors.ErrInvalidStatus, "mounted model %s is not of type %s", mdl, sku.LLMType)
+			}
+			input.MountedModels[i] = instantModle.GetId()
+		}
+	}
+
 	if input.LLMImageId != "" {
 		imgObj, err := validators.ValidateModel(ctx, userCred, GetLLMImageManager(), &input.LLMImageId)
 		if err != nil {

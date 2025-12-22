@@ -576,15 +576,15 @@ func (model *SInstantModel) PerformEnable(
 		return nil, errors.Wrapf(errors.ErrInvalidStatus, "cannot enable model of status %s", model.Status)
 	}
 	// check duplicate
-	{
-		existing, err := GetInstantModelManager().findInstantModel(model.ModelId, model.ModelTag, true)
-		if err != nil {
-			return nil, errors.Wrap(err, "findInstantModel")
-		}
-		if existing != nil && existing.Id != model.Id {
-			return nil, errors.Wrapf(errors.ErrDuplicateId, "model of modelId %s tag %s has been enabled", model.ModelId, model.ModelTag)
-		}
-	}
+	// {
+	// 	existing, err := GetInstantModelManager().findInstantModel(model.ModelId, model.ModelTag, true)
+	// 	if err != nil {
+	// 		return nil, errors.Wrap(err, "findInstantModel")
+	// 	}
+	// 	if existing != nil && existing.Id != model.Id {
+	// 		return nil, errors.Wrapf(errors.ErrDuplicateId, "model of modelId %s tag %s has been enabled", model.ModelId, model.ModelTag)
+	// 	}
+	// }
 	_, err := db.Update(model, func() error {
 		model.SEnabledResourceBase.SetEnabled(true)
 		return nil
