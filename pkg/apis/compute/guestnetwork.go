@@ -78,6 +78,8 @@ type GuestnetworkShortDesc struct {
 	IsDefault bool `json:"is_default"`
 	// 计费模式
 	ChargeType string `json:"charge_type"`
+	// 网卡序号
+	Index int `json:"index"`
 }
 
 type GuestnetworkListInput struct {
