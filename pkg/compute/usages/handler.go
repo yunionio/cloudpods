@@ -30,6 +30,7 @@ import (
 	"yunion.io/x/pkg/util/sets"
 	"yunion.io/x/pkg/utils"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -990,27 +991,35 @@ func guestHypervisorsUsage(
 	log.Debugf("guestHypervisorsUsage policyResults %s results %s", policyResult.String(), results.String())
 	// temporarily hide system resources
 	// XXX needs more work later
-	guest := models.GuestManager.TotalCount(ctx, scope, ownerId, rangeObjs, status, hypervisors,
+	guestCountStats := models.GuestManager.TotalCount(ctx, scope, ownerId, rangeObjs, status, hypervisors,
 		includeSystem, pendingDelete, hostTypes, resourceTypes, providers, brands, cloudEnv, since,
 		results,
 	)
 
-	count[prefix] = guest.TotalGuestCount
-	count[fmt.Sprintf("%s.any_pool", prefix)] = guest.TotalGuestCount
-	count[fmt.Sprintf("%s.cpu", prefix)] = guest.TotalCpuCount
-	count[fmt.Sprintf("%s.memory", prefix)] = guest.TotalMemSize
+	originPrefix := prefix
+	for arch, guest := range guestCountStats {
+		prefix := originPrefix
+		if arch != apis.OS_ARCH_ALL {
+			prefix = fmt.Sprintf("%s.%s", originPrefix, arch)
+		}
 
-	if len(hypervisors) == 1 && hypervisors[0] == api.HYPERVISOR_CONTAINER {
-		return count
+		count[prefix] = guest.TotalGuestCount
+		count[fmt.Sprintf("%s.any_pool", prefix)] = guest.TotalGuestCount
+		count[fmt.Sprintf("%s.cpu", prefix)] = guest.TotalCpuCount
+		count[fmt.Sprintf("%s.memory", prefix)] = guest.TotalMemSize
+
+		if len(hypervisors) == 1 && hypervisors[0] == api.HYPERVISOR_CONTAINER {
+			continue
+		}
+
+		count[fmt.Sprintf("%s.disk", prefix)] = guest.TotalDiskSize
+		count[fmt.Sprintf("%s.isolated_devices", prefix)] = guest.TotalIsolatedCount
+
+		count[fmt.Sprintf("%s.ha", prefix)] = guest.TotalBackupGuestCount
+		count[fmt.Sprintf("%s.ha.cpu", prefix)] = guest.TotalBackupCpuCount
+		count[fmt.Sprintf("%s.ha.memory", prefix)] = guest.TotalBackupMemSize
+		count[fmt.Sprintf("%s.ha.disk", prefix)] = guest.TotalBackupDiskSize
 	}
-
-	count[fmt.Sprintf("%s.disk", prefix)] = guest.TotalDiskSize
-	count[fmt.Sprintf("%s.isolated_devices", prefix)] = guest.TotalIsolatedCount
-
-	count[fmt.Sprintf("%s.ha", prefix)] = guest.TotalBackupGuestCount
-	count[fmt.Sprintf("%s.ha.cpu", prefix)] = guest.TotalBackupCpuCount
-	count[fmt.Sprintf("%s.ha.memory", prefix)] = guest.TotalBackupMemSize
-	count[fmt.Sprintf("%s.ha.disk", prefix)] = guest.TotalBackupDiskSize
 
 	return count
 }

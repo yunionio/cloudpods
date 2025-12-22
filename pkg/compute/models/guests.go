@@ -3401,8 +3401,8 @@ func (manager *SGuestManager) TotalCount(
 	hostTypes []string, resourceTypes []string, providers []string, brands []string, cloudEnv string,
 	since *time.Time,
 	policyResult rbacutils.SPolicyResult,
-) SGuestCountStat {
-	return usageTotalGuestResouceCount(ctx, scope, ownerId, rangeObjs, status, hypervisors, includeSystem, pendingDelete, hostTypes, resourceTypes, providers, brands, cloudEnv, since, policyResult)
+) map[string]SGuestCountStat {
+	return usageTotalGuestResourceCount(ctx, scope, ownerId, rangeObjs, status, hypervisors, includeSystem, pendingDelete, hostTypes, resourceTypes, providers, brands, cloudEnv, since, policyResult)
 }
 
 func (self *SGuest) detachNetworks(ctx context.Context, userCred mcclient.TokenCredential, gns []SGuestnetwork, reserve bool) error {
@@ -4100,7 +4100,7 @@ type SGuestCountStat struct {
 	TotalBackupDiskSize   int
 }
 
-func usageTotalGuestResouceCount(
+func usageTotalGuestResourceCount(
 	ctx context.Context,
 	scope rbacscope.TRbacScope,
 	ownerId mcclient.IIdentityProvider,
@@ -4114,12 +4114,41 @@ func usageTotalGuestResouceCount(
 	providers []string, brands []string, cloudEnv string,
 	since *time.Time,
 	policyResult rbacutils.SPolicyResult,
+) map[string]SGuestCountStat {
+	countStat := make(map[string]SGuestCountStat)
+	for _, arch := range []string{apis.OS_ARCH_ALL, apis.OS_ARCH_X86_64, apis.OS_ARCH_AARCH64} {
+		allStat := usageTotalGuestResourceCountByArch(
+			ctx, scope, ownerId, rangeObjs, status,
+			hypervisors, includeSystem, pendingDelete,
+			hostTypes, resourceTypes, providers, brands,
+			cloudEnv, since, policyResult, arch,
+		)
+		countStat[arch] = allStat
+	}
+	return countStat
+}
+
+func usageTotalGuestResourceCountByArch(
+	ctx context.Context,
+	scope rbacscope.TRbacScope,
+	ownerId mcclient.IIdentityProvider,
+	rangeObjs []db.IStandaloneModel,
+	status []string,
+	hypervisors []string,
+	includeSystem bool,
+	pendingDelete bool,
+	hostTypes []string,
+	resourceTypes []string,
+	providers []string, brands []string, cloudEnv string,
+	since *time.Time,
+	policyResult rbacutils.SPolicyResult,
+	osArch string,
 ) SGuestCountStat {
 	q, guests := _guestResourceCountQuery(
 		ctx,
 		scope, ownerId, rangeObjs, status, hypervisors,
 		pendingDelete, hostTypes, resourceTypes, providers, brands, cloudEnv, since,
-		policyResult,
+		policyResult, osArch,
 	)
 	if !includeSystem {
 		q = q.Filter(sqlchemy.OR(
@@ -4151,9 +4180,11 @@ func _guestResourceCountQuery(
 	providers []string, brands []string, cloudEnv string,
 	since *time.Time,
 	policyResult rbacutils.SPolicyResult,
+	osArch string,
 ) (*sqlchemy.SQuery, *sqlchemy.SSubQuery) {
 
 	guestdisks := GuestdiskManager.Query().SubQuery()
+
 	disks := DiskManager.Query().SubQuery()
 
 	diskQuery := guestdisks.Query(guestdisks.Field("guest_id"), sqlchemy.SUM("guest_disk_size", disks.Field("disk_size")))
@@ -4183,6 +4214,10 @@ func _guestResourceCountQuery(
 	} else {
 		gq = GuestManager.Query()
 	}
+	if osArch != "" && osArch != apis.OS_ARCH_ALL {
+		gq = gq.Equals("os_arch", osArch)
+	}
+
 	if len(rangeObjs) > 0 || len(hostTypes) > 0 || len(resourceTypes) > 0 || len(providers) > 0 || len(brands) > 0 || len(cloudEnv) > 0 {
 		gq = filterGuestByRange(gq, rangeObjs, hostTypes, resourceTypes, providers, brands, cloudEnv)
 	}
