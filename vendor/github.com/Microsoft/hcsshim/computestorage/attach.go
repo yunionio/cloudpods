@@ -1,11 +1,13 @@
+//go:build windows
+
 package computestorage
 
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 
 	"github.com/Microsoft/hcsshim/internal/oc"
+	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 )
 
@@ -17,8 +19,8 @@ import (
 //
 // `layerData` is the parent read-only layer data.
 func AttachLayerStorageFilter(ctx context.Context, layerPath string, layerData LayerData) (err error) {
-	title := "hcsshim.AttachLayerStorageFilter"
-	ctx, span := trace.StartSpan(ctx, title)
+	title := "hcsshim::AttachLayerStorageFilter"
+	ctx, span := oc.StartSpan(ctx, title) //nolint:ineffassign,staticcheck
 	defer span.End()
 	defer func() { oc.SetSpanStatus(span, err) }()
 	span.AddAttributes(
@@ -32,7 +34,7 @@ func AttachLayerStorageFilter(ctx context.Context, layerPath string, layerData L
 
 	err = hcsAttachLayerStorageFilter(layerPath, string(bytes))
 	if err != nil {
-		return fmt.Errorf("failed to attach layer storage filter: %s", err)
+		return errors.Wrap(err, "failed to attach layer storage filter")
 	}
 	return nil
 }

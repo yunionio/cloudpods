@@ -1,3 +1,5 @@
+//go:build windows
+
 package hcsshim
 
 import (
@@ -8,8 +10,8 @@ import (
 	"time"
 
 	"github.com/Microsoft/hcsshim/internal/hcs"
+	"github.com/Microsoft/hcsshim/internal/hcs/schema1"
 	"github.com/Microsoft/hcsshim/internal/mergemaps"
-	"github.com/Microsoft/hcsshim/internal/schema1"
 )
 
 // ContainerProperties holds the properties for a container and the processes running in that container
@@ -60,7 +62,7 @@ type container struct {
 	waitCh   chan struct{}
 }
 
-// createComputeSystemAdditionalJSON is read from the environment at initialisation
+// createContainerAdditionalJSON is read from the environment at initialization
 // time. It allows an environment variable to define additional JSON which
 // is merged in the CreateComputeSystem call to HCS.
 var createContainerAdditionalJSON []byte

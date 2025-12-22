@@ -4,6 +4,8 @@ package jwa
 
 import (
 	"fmt"
+	"sort"
+	"sync"
 
 	"github.com/pkg/errors"
 )
@@ -32,6 +34,43 @@ const (
 	RSA_OAEP_256       KeyEncryptionAlgorithm = "RSA-OAEP-256"       // RSA-OAEP-SHA256
 )
 
+var allKeyEncryptionAlgorithms = map[KeyEncryptionAlgorithm]struct{}{
+	A128GCMKW:          {},
+	A128KW:             {},
+	A192GCMKW:          {},
+	A192KW:             {},
+	A256GCMKW:          {},
+	A256KW:             {},
+	DIRECT:             {},
+	ECDH_ES:            {},
+	ECDH_ES_A128KW:     {},
+	ECDH_ES_A192KW:     {},
+	ECDH_ES_A256KW:     {},
+	PBES2_HS256_A128KW: {},
+	PBES2_HS384_A192KW: {},
+	PBES2_HS512_A256KW: {},
+	RSA1_5:             {},
+	RSA_OAEP:           {},
+	RSA_OAEP_256:       {},
+}
+
+var listKeyEncryptionAlgorithmOnce sync.Once
+var listKeyEncryptionAlgorithm []KeyEncryptionAlgorithm
+
+// KeyEncryptionAlgorithms returns a list of all available values for KeyEncryptionAlgorithm
+func KeyEncryptionAlgorithms() []KeyEncryptionAlgorithm {
+	listKeyEncryptionAlgorithmOnce.Do(func() {
+		listKeyEncryptionAlgorithm = make([]KeyEncryptionAlgorithm, 0, len(allKeyEncryptionAlgorithms))
+		for v := range allKeyEncryptionAlgorithms {
+			listKeyEncryptionAlgorithm = append(listKeyEncryptionAlgorithm, v)
+		}
+		sort.Slice(listKeyEncryptionAlgorithm, func(i, j int) bool {
+			return string(listKeyEncryptionAlgorithm[i]) < string(listKeyEncryptionAlgorithm[j])
+		})
+	})
+	return listKeyEncryptionAlgorithm
+}
+
 // Accept is used when conversion from values given by
 // outside sources (such as JSON payloads) is required
 func (v *KeyEncryptionAlgorithm) Accept(value interface{}) error {
@@ -50,9 +89,7 @@ func (v *KeyEncryptionAlgorithm) Accept(value interface{}) error {
 		}
 		tmp = KeyEncryptionAlgorithm(s)
 	}
-	switch tmp {
-	case A128GCMKW, A128KW, A192GCMKW, A192KW, A256GCMKW, A256KW, DIRECT, ECDH_ES, ECDH_ES_A128KW, ECDH_ES_A192KW, ECDH_ES_A256KW, PBES2_HS256_A128KW, PBES2_HS384_A192KW, PBES2_HS512_A256KW, RSA1_5, RSA_OAEP, RSA_OAEP_256:
-	default:
+	if _, ok := allKeyEncryptionAlgorithms[tmp]; !ok {
 		return errors.Errorf(`invalid jwa.KeyEncryptionAlgorithm value`)
 	}
 
@@ -63,4 +100,13 @@ func (v *KeyEncryptionAlgorithm) Accept(value interface{}) error {
 // String returns the string representation of a KeyEncryptionAlgorithm
 func (v KeyEncryptionAlgorithm) String() string {
 	return string(v)
+}
+
+// IsSymmetric returns true if the algorithm is a symmetric type
+func (v KeyEncryptionAlgorithm) IsSymmetric() bool {
+	switch v {
+	case A128GCMKW, A128KW, A192GCMKW, A192KW, A256GCMKW, A256KW, DIRECT, PBES2_HS256_A128KW, PBES2_HS384_A192KW, PBES2_HS512_A256KW:
+		return true
+	}
+	return false
 }
