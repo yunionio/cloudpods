@@ -207,7 +207,6 @@ func (s *Client) run(parseOutput bool, cmds []string, input io.Reader, withPty b
 			ret = append(ret, stdOut.String())
 		}
 	}
-
 	return ret, nil
 }
 
