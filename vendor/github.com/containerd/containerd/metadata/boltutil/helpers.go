@@ -17,9 +17,13 @@
 package boltutil
 
 import (
+	"fmt"
 	"time"
 
-	"github.com/pkg/errors"
+	"github.com/containerd/containerd/protobuf"
+	"github.com/containerd/containerd/protobuf/proto"
+	"github.com/containerd/containerd/protobuf/types"
+	"github.com/containerd/typeurl/v2"
 	bolt "go.etcd.io/bbolt"
 )
 
@@ -28,6 +32,7 @@ var (
 	bucketKeyLabels      = []byte("labels")
 	bucketKeyCreatedAt   = []byte("createdat")
 	bucketKeyUpdatedAt   = []byte("updatedat")
+	bucketKeyExtensions  = []byte("extensions")
 )
 
 // ReadLabels reads the labels key from the bucket
@@ -96,7 +101,7 @@ func writeMap(bkt *bolt.Bucket, bucketName []byte, labels map[string]string) err
 		}
 
 		if err := lbkt.Put([]byte(k), []byte(v)); err != nil {
-			return errors.Wrapf(err, "failed to set label %q=%q", k, v)
+			return fmt.Errorf("failed to set label %q=%q: %w", k, v, err)
 		}
 	}
 
@@ -144,4 +149,91 @@ func WriteTimestamps(bkt *bolt.Bucket, created, updated time.Time) error {
 	}
 
 	return nil
+}
+
+// WriteExtensions will write a KV map to the given bucket,
+// where `K` is a string key and `V` is a protobuf's Any type that represents a generic extension.
+func WriteExtensions(bkt *bolt.Bucket, extensions map[string]typeurl.Any) error {
+	if len(extensions) == 0 {
+		return nil
+	}
+
+	ebkt, err := bkt.CreateBucketIfNotExists(bucketKeyExtensions)
+	if err != nil {
+		return err
+	}
+
+	for name, ext := range extensions {
+		ext := protobuf.FromAny(ext)
+		p, err := proto.Marshal(ext)
+		if err != nil {
+			return err
+		}
+
+		if err := ebkt.Put([]byte(name), p); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// ReadExtensions will read back a map of extensions from the given bucket, previously written by WriteExtensions
+func ReadExtensions(bkt *bolt.Bucket) (map[string]typeurl.Any, error) {
+	var (
+		extensions = make(map[string]typeurl.Any)
+		ebkt       = bkt.Bucket(bucketKeyExtensions)
+	)
+
+	if ebkt == nil {
+		return extensions, nil
+	}
+
+	if err := ebkt.ForEach(func(k, v []byte) error {
+		var t types.Any
+		if err := proto.Unmarshal(v, &t); err != nil {
+			return err
+		}
+
+		extensions[string(k)] = &t
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+
+	return extensions, nil
+}
+
+// WriteAny write a protobuf's Any type to the bucket
+func WriteAny(bkt *bolt.Bucket, name []byte, any typeurl.Any) error {
+	pbany := protobuf.FromAny(any)
+	if pbany == nil {
+		return nil
+	}
+
+	data, err := proto.Marshal(pbany)
+	if err != nil {
+		return fmt.Errorf("failed to marshal: %w", err)
+	}
+
+	if err := bkt.Put(name, data); err != nil {
+		return fmt.Errorf("put failed: %w", err)
+	}
+
+	return nil
+}
+
+// ReadAny reads back protobuf's Any type from the bucket
+func ReadAny(bkt *bolt.Bucket, name []byte) (*types.Any, error) {
+	bytes := bkt.Get(name)
+	if bytes == nil {
+		return nil, nil
+	}
+
+	out := types.Any{}
+	if err := proto.Unmarshal(bytes, &out); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal any: %w", err)
+	}
+
+	return &out, nil
 }

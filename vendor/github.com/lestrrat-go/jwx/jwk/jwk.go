@@ -1,4 +1,4 @@
-//go:generate go run internal/cmd/genheader/main.go
+//go:generate ./gen.sh
 
 // Package jwk implements JWK as described in https://tools.ietf.org/html/rfc7517
 package jwk
@@ -8,23 +8,41 @@ import (
 	"context"
 	"crypto"
 	"crypto/ecdsa"
+	"crypto/ed25519"
 	"crypto/rsa"
-	"encoding/json"
-	"fmt"
+	"crypto/x509"
+	"encoding/pem"
 	"io"
+	"io/ioutil"
+	"math/big"
 	"net/http"
-	"net/url"
-	"os"
-	"reflect"
-	"strings"
 
-	"github.com/lestrrat-go/iter/arrayiter"
+	"github.com/lestrrat-go/backoff/v2"
 	"github.com/lestrrat-go/jwx/internal/base64"
+	"github.com/lestrrat-go/jwx/internal/json"
 	"github.com/lestrrat-go/jwx/jwa"
+	"github.com/lestrrat-go/jwx/x25519"
 	"github.com/pkg/errors"
 )
 
+var registry = json.NewRegistry()
+
+func bigIntToBytes(n *big.Int) ([]byte, error) {
+	if n == nil {
+		return nil, errors.New(`invalid *big.Int value`)
+	}
+	return n.Bytes(), nil
+}
+
 // New creates a jwk.Key from the given key (RSA/ECDSA/symmetric keys).
+//
+// The constructor auto-detects the type of key to be instantiated
+// based on the input type:
+//
+//   * "crypto/rsa".PrivateKey and "crypto/rsa".PublicKey creates an RSA based key
+//   * "crypto/ecdsa".PrivateKey and "crypto/ecdsa".PublicKey creates an EC based key
+//   * "crypto/ed25519".PrivateKey and "crypto/ed25519".PublicKey creates an OKP based key
+//   * []byte creates a symmetric key
 func New(key interface{}) (Key, error) {
 	if key == nil {
 		return nil, errors.New(`jwk.New requires a non-nil key`)
@@ -69,6 +87,30 @@ func New(key interface{}) (Key, error) {
 			return nil, errors.Wrapf(err, `failed to initialize %T from %T`, k, rawKey)
 		}
 		return k, nil
+	case ed25519.PrivateKey:
+		k := NewOKPPrivateKey()
+		if err := k.FromRaw(rawKey); err != nil {
+			return nil, errors.Wrapf(err, `failed to initialize %T from %T`, k, rawKey)
+		}
+		return k, nil
+	case ed25519.PublicKey:
+		k := NewOKPPublicKey()
+		if err := k.FromRaw(rawKey); err != nil {
+			return nil, errors.Wrapf(err, `failed to initialize %T from %T`, k, rawKey)
+		}
+		return k, nil
+	case x25519.PrivateKey:
+		k := NewOKPPrivateKey()
+		if err := k.FromRaw(rawKey); err != nil {
+			return nil, errors.Wrapf(err, `failed to initialize %T from %T`, k, rawKey)
+		}
+		return k, nil
+	case x25519.PublicKey:
+		k := NewOKPPublicKey()
+		if err := k.FromRaw(rawKey); err != nil {
+			return nil, errors.Wrapf(err, `failed to initialize %T from %T`, k, rawKey)
+		}
+		return k, nil
 	case []byte:
 		k := NewSymmetricKey()
 		if err := k.FromRaw(rawKey); err != nil {
@@ -80,21 +122,78 @@ func New(key interface{}) (Key, error) {
 	}
 }
 
-// PublicKeyOf returns the corresponding public key of the given
-// value `v`. For example, if v is a `*rsa.PrivateKey`, then
-// `*rsa.PublicKey` is returned.
+// PublicSetOf returns a new jwk.Set consisting of
+// public keys of the keys contained in the set.
 //
-// If given a public key, then the same public key will be returned.
-// For example, if v is a `*rsa.PublicKey`, then the same value
-// is returned.
+// This is useful when you are generating a set of private keys, and
+// you want to generate the corresponding public versions for the
+// users to verify with.
 //
-// If v is of a type that we don't support, an error is returned.
+// Be aware that all fields will be copied onto the new public key. It is the caller's
+// responsibility to remove any fields, if necessary.
+func PublicSetOf(v Set) (Set, error) {
+	newSet := NewSet()
+
+	n := v.Len()
+	for i := 0; i < n; i++ {
+		k, ok := v.Get(i)
+		if !ok {
+			return nil, errors.New("key not found")
+		}
+		pubKey, err := PublicKeyOf(k)
+		if err != nil {
+			return nil, errors.Wrapf(err, `failed to get public key of %T`, k)
+		}
+		newSet.Add(pubKey)
+	}
+
+	return newSet, nil
+}
+
+// PublicKeyOf returns the corresponding public version of the jwk.Key.
+// If `v` is a SymmetricKey, then the same value is returned.
+// If `v` is already a public key, the key itself is returned.
 //
-// This is useful when you are dealing with the jwk.Key interface
-// alone and you don't know before hand what the underlying key
-// type is, but you still want to obtain the corresponding public key
-func PublicKeyOf(v interface{}) (interface{}, error) {
-	// may be a silly idea, but if the user gave us a non-pointer value...
+// If `v` is a private key type that has a `PublicKey()` method, be aware
+// that all fields will be copied onto the new public key. It is the caller's
+// responsibility to remove any fields, if necessary
+//
+// If `v` is a raw key, the key is first converted to a `jwk.Key`
+func PublicKeyOf(v interface{}) (Key, error) {
+	if pk, ok := v.(PublicKeyer); ok {
+		return pk.PublicKey()
+	}
+
+	jk, err := New(v)
+	if err != nil {
+		return nil, errors.Wrapf(err, `failed to convert key into JWK`)
+	}
+
+	return jk.PublicKey()
+}
+
+// PublicRawKeyOf returns the corresponding public key of the given
+// value `v` (e.g. given *rsa.PrivateKey, *rsa.PublicKey is returned)
+// If `v` is already a public key, the key itself is returned.
+//
+// The returned value will always be a pointer to the public key,
+// except when a []byte (e.g. symmetric key, ed25519 key) is passed to `v`.
+// In this case, the same []byte value is returned.
+func PublicRawKeyOf(v interface{}) (interface{}, error) {
+	if pk, ok := v.(PublicKeyer); ok {
+		pubk, err := pk.PublicKey()
+		if err != nil {
+			return nil, errors.Wrapf(err, `failed to obtain public key from %T`, v)
+		}
+
+		var raw interface{}
+		if err := pubk.Raw(&raw); err != nil {
+			return nil, errors.Wrapf(err, `failed to obtain raw key from %T`, pubk)
+		}
+		return raw, nil
+	}
+
+	// This may be a silly idea, but if the user gave us a non-pointer value...
 	var ptr interface{}
 	switch v := v.(type) {
 	case rsa.PrivateKey:
@@ -118,6 +217,14 @@ func PublicKeyOf(v interface{}) (interface{}, error) {
 		return &x.PublicKey, nil
 	case *ecdsa.PublicKey:
 		return x, nil
+	case ed25519.PrivateKey:
+		return x.Public(), nil
+	case ed25519.PublicKey:
+		return x, nil
+	case x25519.PrivateKey:
+		return x.Public(), nil
+	case x25519.PublicKey:
+		return x, nil
 	case []byte:
 		return x, nil
 	default:
@@ -125,62 +232,206 @@ func PublicKeyOf(v interface{}) (interface{}, error) {
 	}
 }
 
-// Fetch fetches a JWK resource specified by a URL
-func Fetch(urlstring string, options ...Option) (*Set, error) {
-	u, err := url.Parse(urlstring)
+// Fetch fetches a JWK resource specified by a URL. The url must be
+// pointing to a resource that is supported by `net/http`.
+//
+// If you are using the same `jwk.Set` for long periods of time during
+// the lifecycle of your program, and would like to periodically refresh the
+// contents of the object with the data at the remote resource,
+// consider using `jwk.AutoRefresh`, which automatically refreshes
+// jwk.Set objects asynchronously.
+//
+// See the list of `jwk.FetchOption`s for various options to tweak the
+// behavior, including providing alternate HTTP Clients, setting a backoff,
+// and using whitelists.
+func Fetch(ctx context.Context, urlstring string, options ...FetchOption) (Set, error) {
+	res, err := fetch(ctx, urlstring, options...)
 	if err != nil {
-		return nil, errors.Wrap(err, `failed to parse url`)
+		return nil, err
 	}
 
-	switch u.Scheme {
-	case "http", "https":
-		return FetchHTTP(urlstring, options...)
-	case "file":
-		f, err := os.Open(u.Path)
-		if err != nil {
-			return nil, errors.Wrap(err, `failed to open jwk file`)
-		}
-		defer f.Close()
-
-		return Parse(f)
+	defer res.Body.Close()
+	keyset, err := ParseReader(res.Body)
+	if err != nil {
+		return nil, errors.Wrap(err, `failed to parse JWK set`)
 	}
-	return nil, errors.Errorf(`invalid url scheme %s`, u.Scheme)
+	return keyset, nil
 }
 
-// FetchHTTP wraps FetchHTTPWithContext using the background context.
-func FetchHTTP(jwkurl string, options ...Option) (*Set, error) {
-	return FetchHTTPWithContext(context.Background(), jwkurl, options...)
-}
-
-// FetchHTTPWithContext fetches the remote JWK and parses its contents
-func FetchHTTPWithContext(ctx context.Context, jwkurl string, options ...Option) (*Set, error) {
-	httpcl := http.DefaultClient
+func fetch(ctx context.Context, urlstring string, options ...FetchOption) (*http.Response, error) {
+	var wl Whitelist
+	var httpcl HTTPClient = http.DefaultClient
+	bo := backoff.Null()
 	for _, option := range options {
-		switch option.Name() {
-		case optkeyHTTPClient:
-			httpcl = option.Value().(*http.Client)
+		//nolint:forcetypeassert
+		switch option.Ident() {
+		case identHTTPClient{}:
+			httpcl = option.Value().(HTTPClient)
+		case identFetchBackoff{}:
+			bo = option.Value().(backoff.Policy)
+		case identFetchWhitelist{}:
+			wl = option.Value().(Whitelist)
 		}
 	}
 
-	req, err := http.NewRequest(http.MethodGet, jwkurl, nil)
+	if wl != nil {
+		if !wl.IsAllowed(urlstring) {
+			return nil, errors.New(`url rejected by whitelist`)
+		}
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, urlstring, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to new request to remote JWK")
 	}
 
-	res, err := httpcl.Do(req.WithContext(ctx))
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to fetch remote JWK")
-	}
-	defer res.Body.Close()
+	b := bo.Start(ctx)
+	var lastError error
+	for backoff.Continue(b) {
+		res, err := httpcl.Do(req)
+		if err != nil {
+			lastError = errors.Wrap(err, "failed to fetch remote JWK")
+			continue
+		}
 
-	if res.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to fetch remote JWK (status = %d)", res.StatusCode)
+		if res.StatusCode != http.StatusOK {
+			lastError = errors.Errorf("failed to fetch remote JWK (status = %d)", res.StatusCode)
+			continue
+		}
+		return res, nil
 	}
 
-	return Parse(res.Body)
+	// It's possible for us to get here without populating lastError.
+	// e.g. what if we bailed out of `for backoff.Contineu(b)` without making
+	// a single request? or, <-ctx.Done() returned?
+	if lastError == nil {
+		lastError = errors.New(`fetching remote JWK did not complete`)
+	}
+	return nil, lastError
 }
 
-func ParseKey(data []byte) (Key, error) {
+// ParseRawKey is a combination of ParseKey and Raw. It parses a single JWK key,
+// and assigns the "raw" key to the given parameter. The key must either be
+// a pointer to an empty interface, or a pointer to the actual raw key type
+// such as *rsa.PrivateKey, *ecdsa.PublicKey, *[]byte, etc.
+func ParseRawKey(data []byte, rawkey interface{}) error {
+	key, err := ParseKey(data)
+	if err != nil {
+		return errors.Wrap(err, `failed to parse key`)
+	}
+
+	if err := key.Raw(rawkey); err != nil {
+		return errors.Wrap(err, `failed to assign to raw key variable`)
+	}
+
+	return nil
+}
+
+// parsePEMEncodedRawKey parses a key in PEM encoded ASN.1 DER format. It tires its
+// best to determine the key type, but when it just can't, it will return
+// an error
+func parsePEMEncodedRawKey(src []byte) (interface{}, []byte, error) {
+	block, rest := pem.Decode(src)
+	if block == nil {
+		return nil, nil, errors.New(`failed to decode PEM data`)
+	}
+
+	switch block.Type {
+	// Handle the semi-obvious cases
+	case "RSA PRIVATE KEY":
+		key, err := x509.ParsePKCS1PrivateKey(block.Bytes)
+		if err != nil {
+			return nil, nil, errors.Wrap(err, `failed to parse PKCS1 private key`)
+		}
+		return key, rest, nil
+	case "RSA PUBLIC KEY":
+		key, err := x509.ParsePKCS1PublicKey(block.Bytes)
+		if err != nil {
+			return nil, nil, errors.Wrap(err, `failed to parse PKCS1 public key`)
+		}
+		return key, rest, nil
+	case "EC PRIVATE KEY":
+		key, err := x509.ParseECPrivateKey(block.Bytes)
+		if err != nil {
+			return nil, nil, errors.Wrap(err, `failed to parse EC private key`)
+		}
+		return key, rest, nil
+	case "PUBLIC KEY":
+		// XXX *could* return dsa.PublicKey
+		key, err := x509.ParsePKIXPublicKey(block.Bytes)
+		if err != nil {
+			return nil, nil, errors.Wrap(err, `failed to parse PKIX public key`)
+		}
+		return key, rest, nil
+	case "PRIVATE KEY":
+		key, err := x509.ParsePKCS8PrivateKey(block.Bytes)
+		if err != nil {
+			return nil, nil, errors.Wrap(err, `failed to parse PKCS8 private key`)
+		}
+		return key, rest, nil
+	case "CERTIFICATE":
+		cert, err := x509.ParseCertificate(block.Bytes)
+		if err != nil {
+			return nil, nil, errors.Wrap(err, `failed to parse certificate`)
+		}
+		return cert.PublicKey, rest, nil
+	default:
+		return nil, nil, errors.Errorf(`invalid PEM block type %s`, block.Type)
+	}
+}
+
+type setDecodeCtx struct {
+	json.DecodeCtx
+	ignoreParseError bool
+}
+
+func (ctx *setDecodeCtx) IgnoreParseError() bool {
+	return ctx.ignoreParseError
+}
+
+// ParseKey parses a single key JWK. Unlike `jwk.Parse` this method will
+// report failure if you attempt to pass a JWK set. Only use this function
+// when you know that the data is a single JWK.
+//
+// Given a WithPEM(true) option, this function assumes that the given input
+// is PEM encoded ASN.1 DER format key.
+//
+// Note that a successful parsing of any type of key does NOT necessarily
+// guarantee a valid key. For example, no checks against expiration dates
+// are performed for certificate expiration, no checks against missing
+// parameters are performed, etc.
+func ParseKey(data []byte, options ...ParseOption) (Key, error) {
+	var parsePEM bool
+	var localReg *json.Registry
+	for _, option := range options {
+		//nolint:forcetypeassert
+		switch option.Ident() {
+		case identPEM{}:
+			parsePEM = option.Value().(bool)
+		case identLocalRegistry{}:
+			// in reality you can only pass either withLocalRegistry or
+			// WithTypedField, but since withLocalRegistry is used only by us,
+			// we skip checking
+			localReg = option.Value().(*json.Registry)
+		case identTypedField{}:
+			pair := option.Value().(typedFieldPair)
+			if localReg == nil {
+				localReg = json.NewRegistry()
+			}
+			localReg.Register(pair.Name, pair.Value)
+		case identIgnoreParseError{}:
+			return nil, errors.Errorf(`jwk.WithIgnoreParseError() cannot be used for ParseKey()`)
+		}
+	}
+
+	if parsePEM {
+		raw, _, err := parsePEMEncodedRawKey(data)
+		if err != nil {
+			return nil, errors.Wrap(err, `failed to parse PEM encoded key`)
+		}
+		return New(raw)
+	}
+
 	var hint struct {
 		Kty string          `json:"kty"`
 		D   json.RawMessage `json:"d"`
@@ -206,8 +457,24 @@ func ParseKey(data []byte) (Key, error) {
 		}
 	case jwa.OctetSeq:
 		key = newSymmetricKey()
+	case jwa.OKP:
+		if len(hint.D) > 0 {
+			key = newOKPPrivateKey()
+		} else {
+			key = newOKPPublicKey()
+		}
 	default:
 		return nil, errors.Errorf(`invalid key type from JSON (%s)`, hint.Kty)
+	}
+
+	if localReg != nil {
+		dcKey, ok := key.(json.DecodeCtxContainer)
+		if !ok {
+			return nil, errors.Errorf(`typed field was requested, but the key (%T) does not support DecodeCtx`, key)
+		}
+		dc := json.NewDecodeCtx(localReg)
+		dcKey.SetDecodeCtx(dc)
+		defer func() { dcKey.SetDecodeCtx(nil) }()
 	}
 
 	if err := json.Unmarshal(data, key); err != nil {
@@ -217,142 +484,93 @@ func ParseKey(data []byte) (Key, error) {
 	return key, nil
 }
 
-func (s *Set) UnmarshalJSON(data []byte) error {
-	var proxy struct {
-		Keys []json.RawMessage `json:"keys"`
-	}
-
-	if err := json.Unmarshal(data, &proxy); err != nil {
-		return errors.Wrap(err, `failed to unmarshal into Key (proxy)`)
-	}
-
-	if len(proxy.Keys) == 0 {
-		k, err := ParseKey(data)
-		if err != nil {
-			return errors.Wrap(err, `failed to unmarshal key from JSON headers`)
-		}
-		s.Keys = append(s.Keys, k)
-	} else {
-		for i, buf := range proxy.Keys {
-			k, err := ParseKey([]byte(buf))
-			if err != nil {
-				return errors.Wrapf(err, `failed to unmarshal key #%d (total %d) from multi-key JWK set`, i+1, len(proxy.Keys))
+// Parse parses JWK from the incoming []byte.
+//
+// For JWK sets, this is a convenience function. You could just as well
+// call `json.Unmarshal` against an empty set created by `jwk.NewSet()`
+// to parse a JSON buffer into a `jwk.Set`.
+//
+// This function exists because many times the user does not know before hand
+// if a JWK(s) resource at a remote location contains a single JWK key or
+// a JWK set, and `jwk.Parse()` can handle either case, returning a JWK Set
+// even if the data only contains a single JWK key
+//
+// If you are looking for more information on how JWKs are parsed, or if
+// you know for sure that you have a single key, please see the documentation
+// for `jwk.ParseKey()`.
+func Parse(src []byte, options ...ParseOption) (Set, error) {
+	var parsePEM bool
+	var localReg *json.Registry
+	var ignoreParseError bool
+	for _, option := range options {
+		//nolint:forcetypeassert
+		switch option.Ident() {
+		case identPEM{}:
+			parsePEM = option.Value().(bool)
+		case identIgnoreParseError{}:
+			ignoreParseError = option.Value().(bool)
+		case identTypedField{}:
+			pair := option.Value().(typedFieldPair)
+			if localReg == nil {
+				localReg = json.NewRegistry()
 			}
-			s.Keys = append(s.Keys, k)
+			localReg.Register(pair.Name, pair.Value)
 		}
 	}
-	return nil
-}
 
-// Parse parses JWK from the incoming io.Reader. This function can handle
-// both single-key and multi-key formats. If you know before hand which
-// format the incoming data is in, you might want to consider using
-// "encoding/json" directly
-//
-// Note that a successful parsing does NOT guarantee a valid key
-func Parse(in io.Reader) (*Set, error) {
-	var s Set
-	if err := json.NewDecoder(in).Decode(&s); err != nil {
-		return nil, errors.Wrap(err, "failed to unmarshal JWK")
-	}
-	return &s, nil
-}
+	s := NewSet()
 
-// ParseBytes parses JWK from the incoming byte buffer.
-//
-// Note that a successful parsing does NOT guarantee a valid key
-func ParseBytes(buf []byte) (*Set, error) {
-	return Parse(bytes.NewReader(buf))
-}
-
-// ParseString parses JWK from the incoming string.
-//
-// Note that a successful parsing does NOT guarantee a valid key
-func ParseString(s string) (*Set, error) {
-	return Parse(strings.NewReader(s))
-}
-
-// LookupKeyID looks for keys matching the given key id. Note that the
-// Set *may* contain multiple keys with the same key id
-func (s Set) LookupKeyID(kid string) []Key {
-	var keys []Key
-	for iter := s.Iterate(context.TODO()); iter.Next(context.TODO()); {
-		pair := iter.Pair()
-		key := pair.Value.(Key)
-		if key.KeyID() == kid {
-			keys = append(keys, key)
+	if parsePEM {
+		src = bytes.TrimSpace(src)
+		for len(src) > 0 {
+			raw, rest, err := parsePEMEncodedRawKey(src)
+			if err != nil {
+				return nil, errors.Wrap(err, `failed to parse PEM encoded key`)
+			}
+			key, err := New(raw)
+			if err != nil {
+				return nil, errors.Wrapf(err, `failed to create jwk.Key from %T`, raw)
+			}
+			s.Add(key)
+			src = bytes.TrimSpace(rest)
 		}
+		return s, nil
 	}
-	return keys
-}
 
-func (s *Set) Len() int {
-	return len(s.Keys)
-}
-
-func (s *Set) Iterate(ctx context.Context) KeyIterator {
-	ch := make(chan *KeyPair, s.Len())
-	go iterate(ctx, s.Keys, ch)
-	return arrayiter.New(ch)
-}
-
-func iterate(ctx context.Context, keys []Key, ch chan *KeyPair) {
-	defer close(ch)
-
-	for i, key := range keys {
-		pair := &KeyPair{Index: i, Value: key}
-		select {
-		case <-ctx.Done():
-			return
-		case ch <- pair:
+	if localReg != nil || ignoreParseError {
+		dcKs, ok := s.(KeyWithDecodeCtx)
+		if !ok {
+			return nil, errors.Errorf(`typed field was requested, but the key set (%T) does not support DecodeCtx`, s)
 		}
+		dc := &setDecodeCtx{
+			DecodeCtx:        json.NewDecodeCtx(localReg),
+			ignoreParseError: ignoreParseError,
+		}
+		dcKs.SetDecodeCtx(dc)
+		defer func() { dcKs.SetDecodeCtx(nil) }()
 	}
+
+	if err := json.Unmarshal(src, s); err != nil {
+		return nil, errors.Wrap(err, "failed to unmarshal JWK set")
+	}
+	return s, nil
 }
 
-// assignRawResult is a convenience function to safely
-// assign arbitrary values from Raw
-func assignRawResult(v, t interface{}) error {
-	orv := reflect.ValueOf(t) // save this value for error reporting
-	result := orv
-
-	// t can be a pointer or a slice, and the code will slightly change
-	// depending on this
-	var isSlice bool
-	switch result.Kind() {
-	case reflect.Ptr:
-		// no op
-	case reflect.Slice:
-		isSlice = true
-	default:
-		return errors.Errorf("argument t to assignRawResult must be a pointer or a slice: %T", t)
+// ParseReader parses a JWK set from the incoming byte buffer.
+func ParseReader(src io.Reader, options ...ParseOption) (Set, error) {
+	// meh, there's no way to tell if a stream has "ended" a single
+	// JWKs except when we encounter an EOF, so just... ReadAll
+	buf, err := ioutil.ReadAll(src)
+	if err != nil {
+		return nil, errors.Wrap(err, `failed to read from io.Reader`)
 	}
 
-	rv := reflect.ValueOf(v)
-	if rv.Kind() != reflect.Ptr {
-		return errors.Errorf(`argument to Raw() must be a pointer: %T`, v)
-	}
+	return Parse(buf, options...)
+}
 
-	dst := rv.Elem()
-	switch dst.Kind() {
-	case reflect.Interface:
-		// If it's an interface, we can just assign the pointer to the interface{}
-	default:
-		// If it's a pointer to the struct we're looking for, we need to set
-		// the de-referenced struct
-		if !isSlice {
-			result = result.Elem()
-		}
-	}
-	if !result.Type().AssignableTo(dst.Type()) {
-		return errors.Errorf(`argument to Raw() must be compatible with %T (was %T)`, orv.Interface(), v)
-	}
-
-	if !dst.CanSet() {
-		return errors.Errorf(`argument to Raw() must be settable`)
-	}
-	dst.Set(result)
-
-	return nil
+// ParseString parses a JWK set from the incoming string.
+func ParseString(s string, options ...ParseOption) (Set, error) {
+	return Parse([]byte(s), options...)
 }
 
 // AssignKeyID is a convenience function to automatically assign the "kid"
@@ -365,8 +583,9 @@ func AssignKeyID(key Key, options ...Option) error {
 
 	hash := crypto.SHA256
 	for _, option := range options {
-		switch option.Name() {
-		case optkeyThumbprintHash:
+		//nolint:forcetypeassert
+		switch option.Ident() {
+		case identThumbprintHash{}:
 			hash = option.Value().(crypto.Hash)
 		}
 	}
@@ -381,4 +600,120 @@ func AssignKeyID(key Key, options ...Option) error {
 	}
 
 	return nil
+}
+
+func cloneKey(src Key) (Key, error) {
+	var dst Key
+	switch src.(type) {
+	case RSAPrivateKey:
+		dst = NewRSAPrivateKey()
+	case RSAPublicKey:
+		dst = NewRSAPublicKey()
+	case ECDSAPrivateKey:
+		dst = NewECDSAPrivateKey()
+	case ECDSAPublicKey:
+		dst = NewECDSAPublicKey()
+	case OKPPrivateKey:
+		dst = NewOKPPrivateKey()
+	case OKPPublicKey:
+		dst = NewOKPPublicKey()
+	case SymmetricKey:
+		dst = NewSymmetricKey()
+	default:
+		return nil, errors.Errorf(`unknown key type %T`, src)
+	}
+
+	for _, pair := range src.makePairs() {
+		//nolint:forcetypeassert
+		key := pair.Key.(string)
+		if err := dst.Set(key, pair.Value); err != nil {
+			return nil, errors.Wrapf(err, `failed to set %q`, key)
+		}
+	}
+	return dst, nil
+}
+
+// Pem serializes the given jwk.Key in PEM encoded ASN.1 DER format,
+// using either PKCS8 for private keys and PKIX for public keys.
+// If you need to encode using PKCS1 or SEC1, you must do it yourself.
+//
+// Argument must be of type jwk.Key or jwk.Set
+//
+// Currently only EC (including Ed25519) and RSA keys (and jwk.Set
+// comprised of these key types) are supported.
+func Pem(v interface{}) ([]byte, error) {
+	var set Set
+	switch v := v.(type) {
+	case Key:
+		set = NewSet()
+		set.Add(v)
+	case Set:
+		set = v
+	default:
+		return nil, errors.Errorf(`argument to Pem must be either jwk.Key or jwk.Set: %T`, v)
+	}
+
+	var ret []byte
+	for i := 0; i < set.Len(); i++ {
+		key, _ := set.Get(i)
+		typ, buf, err := asnEncode(key)
+		if err != nil {
+			return nil, errors.Wrapf(err, `failed to encode content for key #%d`, i)
+		}
+
+		var block pem.Block
+		block.Type = typ
+		block.Bytes = buf
+		ret = append(ret, pem.EncodeToMemory(&block)...)
+	}
+	return ret, nil
+}
+
+func asnEncode(key Key) (string, []byte, error) {
+	switch key := key.(type) {
+	case RSAPrivateKey, ECDSAPrivateKey, OKPPrivateKey:
+		var rawkey interface{}
+		if err := key.Raw(&rawkey); err != nil {
+			return "", nil, errors.Wrap(err, `failed to get raw key from jwk.Key`)
+		}
+		buf, err := x509.MarshalPKCS8PrivateKey(rawkey)
+		if err != nil {
+			return "", nil, errors.Wrap(err, `failed to marshal PKCS8`)
+		}
+		return "PRIVATE KEY", buf, nil
+	case RSAPublicKey, ECDSAPublicKey, OKPPublicKey:
+		var rawkey interface{}
+		if err := key.Raw(&rawkey); err != nil {
+			return "", nil, errors.Wrap(err, `failed to get raw key from jwk.Key`)
+		}
+		buf, err := x509.MarshalPKIXPublicKey(rawkey)
+		if err != nil {
+			return "", nil, errors.Wrap(err, `failed to marshal PKIX`)
+		}
+		return "PUBLIC KEY", buf, nil
+	default:
+		return "", nil, errors.Errorf(`unsupported key type %T`, key)
+	}
+}
+
+// RegisterCustomField allows users to specify that a private field
+// be decoded as an instance of the specified type. This option has
+// a global effect.
+//
+// For example, suppose you have a custom field `x-birthday`, which
+// you want to represent as a string formatted in RFC3339 in JSON,
+// but want it back as `time.Time`.
+//
+// In that case you would register a custom field as follows
+//
+//   jwk.RegisterCustomField(`x-birthday`, timeT)
+//
+// Then `key.Get("x-birthday")` will still return an `interface{}`,
+// but you can convert its type to `time.Time`
+//
+//   bdayif, _ := key.Get(`x-birthday`)
+//   bday := bdayif.(time.Time)
+//
+func RegisterCustomField(name string, object interface{}) {
+	registry.Register(name, object)
 }

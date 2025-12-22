@@ -93,7 +93,7 @@ func New(imageFsInfoProvider ImageFsInfoProvider, rootPath string, cgroupRoots [
 
 	// Create the cAdvisor container manager
 	sysFs := sysfs.NewRealSysFs()
-	m, err := manager.New(memory.New(statsCacheDuration, nil), sysFs, housekeepingConfig, includedMetrics, http.DefaultClient, cgroupRoots, "")
+	m, err := manager.New(memory.New(statsCacheDuration, nil), sysFs, housekeepingConfig, includedMetrics, http.DefaultClient, cgroupRoots, nil, "", time.Duration(0))
 	if err != nil {
 		return nil, errors.Wrap(err, "new cadvisor manager")
 	}
