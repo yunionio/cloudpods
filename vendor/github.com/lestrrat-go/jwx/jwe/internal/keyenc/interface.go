@@ -1,8 +1,8 @@
 package keyenc
 
 import (
-	"crypto/ecdsa"
 	"crypto/rsa"
+	"hash"
 
 	"github.com/lestrrat-go/jwx/jwa"
 	"github.com/lestrrat-go/jwx/jwe/internal/keygen"
@@ -16,6 +16,8 @@ type Encrypter interface {
 	// you can pass in a Encrypter to MultiEncrypt, you can rest assured
 	// that the generated key will have the proper key ID.
 	KeyID() string
+
+	SetKeyID(string)
 }
 
 // Decrypter is an interface for things that can decrypt keys
@@ -24,28 +26,42 @@ type Decrypter interface {
 	Decrypt([]byte) ([]byte, error)
 }
 
-// AESCGM encrypts content encryption keys using AES-CGM key wrap.
-// Contrary to what the name implies, it also decrypt encrypted keys
-type AESCGM struct {
+type Noop struct {
 	alg       jwa.KeyEncryptionAlgorithm
-	sharedkey []byte
 	keyID     string
+	sharedkey []byte
+}
+
+// AES encrypts content encryption keys using AES key wrap.
+// Contrary to what the name implies, it also decrypt encrypted keys
+type AES struct {
+	alg       jwa.KeyEncryptionAlgorithm
+	keyID     string
+	sharedkey []byte
+}
+
+// AESGCM encrypts content encryption keys using AES-GCM key wrap.
+type AESGCMEncrypt struct {
+	algorithm jwa.KeyEncryptionAlgorithm
+	keyID     string
+	sharedkey []byte
 }
 
 // ECDHESEncrypt encrypts content encryption keys using ECDH-ES.
 type ECDHESEncrypt struct {
 	algorithm jwa.KeyEncryptionAlgorithm
-	generator keygen.Generator
 	keyID     string
+	generator keygen.Generator
 }
 
 // ECDHESDecrypt decrypts keys using ECDH-ES.
 type ECDHESDecrypt struct {
-	algorithm jwa.KeyEncryptionAlgorithm
-	apu       []byte
-	apv       []byte
-	privkey   *ecdsa.PrivateKey
-	pubkey    *ecdsa.PublicKey
+	keyalg     jwa.KeyEncryptionAlgorithm
+	contentalg jwa.ContentEncryptionAlgorithm
+	apu        []byte
+	apv        []byte
+	privkey    interface{}
+	pubkey     interface{}
 }
 
 // RSAOAEPEncrypt encrypts keys using RSA OAEP algorithm
@@ -78,4 +94,13 @@ type RSAPKCSEncrypt struct {
 // DirectDecrypt does no encryption (Note: Unimplemented)
 type DirectDecrypt struct {
 	Key []byte
+}
+
+// PBES2Encrypt encrypts keys with PBES2 / PBKDF2 password
+type PBES2Encrypt struct {
+	algorithm jwa.KeyEncryptionAlgorithm
+	hashFunc  func() hash.Hash
+	keylen    int
+	keyID     string
+	password  []byte
 }

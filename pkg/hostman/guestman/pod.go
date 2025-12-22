@@ -31,6 +31,10 @@ import (
 
 	runtimeapi "k8s.io/cri-api/pkg/apis/runtime/v1"
 
+	"github.com/opencontainers/runtime-spec/specs-go"
+
+	containerdutil "yunion.io/x/onecloud/pkg/util/pod/containerd"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -67,7 +71,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/cgrouputils/cpuset"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/mountutils"
-	"yunion.io/x/onecloud/pkg/util/pod"
+	podutil "yunion.io/x/onecloud/pkg/util/pod"
 	"yunion.io/x/onecloud/pkg/util/pod/logs"
 	"yunion.io/x/onecloud/pkg/util/pod/nerdctl"
 	"yunion.io/x/onecloud/pkg/util/procutils"
@@ -182,7 +186,7 @@ func (h startStatHelper) createStatFile(fp string) error {
 	if fileutils2.Exists(fp) {
 		return nil
 	}
-	if err := pod.EnsureFile(fp, "", "755"); err != nil {
+	if err := podutil.EnsureFile(fp, "", "755"); err != nil {
 		return errors.Wrapf(err, "ensure file %s", fp)
 	}
 	return nil
@@ -514,7 +518,7 @@ func (s *sPodGuestInstance) IsSuspend() bool {
 	return false
 }
 
-func (s *sPodGuestInstance) getCRI() pod.CRI {
+func (s *sPodGuestInstance) getCRI() podutil.CRI {
 	return s.manager.GetCRI()
 }
 
@@ -522,12 +526,12 @@ func (s *sPodGuestInstance) getProbeManager() prober.Manager {
 	return s.manager.GetContainerProbeManager()
 }
 
-func (s *sPodGuestInstance) getHostCPUMap() *pod.HostContainerCPUMap {
+func (s *sPodGuestInstance) getHostCPUMap() *podutil.HostContainerCPUMap {
 	return s.manager.GetContainerCPUMap()
 }
 
 func (s *sPodGuestInstance) getPod(ctx context.Context) (*runtimeapi.PodSandbox, error) {
-	pods, err := s.getCRI().ListPods(ctx, pod.ListPodOptions{})
+	pods, err := s.getCRI().ListPods(ctx, podutil.ListPodOptions{})
 	if err != nil {
 		return nil, errors.Wrap(err, "ListPods")
 	}
@@ -1357,8 +1361,21 @@ func (s *sPodGuestInstance) StartContainer(ctx context.Context, userCred mcclien
 	if err := s.getCRI().StartContainer(ctx, criId); err != nil {
 		return nil, errors.Wrap(err, "CRI.StartContainer")
 	}
-	if err := s.setContainerCgroupDevicesAllow(criId, input.Spec.CgroupDevicesAllow); err != nil {
-		return nil, errors.Wrap(err, "set cgroup devices allow")
+
+	// 如果是 cgroup v2，设备规则已经通过 containerd API 在 CreateContainer 时设置，跳过 eBPF 方式
+	// 如果是 cgroup v1，继续使用原有的 eBPF 方式
+	isV2, err := podutil.DetectCgroupVersion()
+	if err != nil {
+		log.Warningf("[StartContainer] Failed to detect cgroup version: %v, using eBPF device allow", err)
+		isV2 = false
+	}
+	if !isV2 {
+		// cgroup v1 场景，使用原有的 eBPF 方式
+		if err := s.setContainerCgroupDevicesAllow(criId, input.Spec.CgroupDevicesAllow, input.Spec.Devices); err != nil {
+			return nil, errors.Wrap(err, "set cgroup devices allow")
+		}
+	} else {
+		log.Debugf("[StartContainer] cgroup v2 detected, skipping eBPF device allow (devices already set via containerd API)")
 	}
 	if input.Spec.CgroupPidsMax > 0 {
 		if err := s.getCGUtil().SetPidsMax(criId, input.Spec.CgroupPidsMax); err != nil {
@@ -1686,6 +1703,24 @@ func (s *sPodGuestInstance) CreateContainer(ctx context.Context, userCred mcclie
 	if err != nil {
 		return nil, errors.Wrap(err, "CRI.CreateContainer")
 	}
+
+	// 如果是 cgroup v2，通过 containerd API 更新 container spec 中的 devices
+	isV2, err := podutil.DetectCgroupVersion()
+	if err != nil {
+		log.Warningf("[CreateContainer] Failed to detect cgroup version: %v, skipping containerd device update", err)
+	} else if isV2 {
+		// 将设备规则转换为 specs.LinuxDeviceCgroup
+		specDevices, err := podutil.ConvertDeviceRulesToSpecsDevices(input.Spec.CgroupDevicesAllow)
+		if err != nil {
+			log.Warningf("[CreateContainer] Failed to convert device rules to specs devices: %v, skipping containerd device update", err)
+		} else if len(specDevices) > 0 {
+			if err := s.updateContainerDevicesViaContainerd(ctx, ctrCriId, specDevices); err != nil {
+				log.Warningf("[CreateContainer] Failed to update container devices via containerd API: %v (container created but devices may not be accessible)", err)
+				// 不返回错误，因为容器已经创建成功
+			}
+		}
+	}
+
 	if err := s.setContainerCRIInfo(ctx, userCred, id, ctrCriId); err != nil {
 		return nil, errors.Wrap(err, "setContainerCRIInfo")
 	}
@@ -1747,11 +1782,87 @@ func (s *sPodGuestInstance) getContainerMounts(ctrId string, input *hostapi.Cont
 	return mounts, nil
 }
 
-func (s *sPodGuestInstance) getCGUtil() pod.CgroupUtil {
-	return pod.NewPodCgroupV1Util(PodCgroupParent())
+func (s *sPodGuestInstance) getCGUtil() podutil.CgroupUtil {
+	cgUtil, err := podutil.NewPodCgroupUtil(PodCgroupParent())
+	if err != nil {
+		// 如果检测失败，记录错误并使用默认的 v1 实现
+		log.Errorf("failed to detect cgroup version, fallback to v1: %s", err)
+		return podutil.NewPodCgroupV1Util(PodCgroupParent())
+	}
+	return cgUtil
 }
 
-func (s *sPodGuestInstance) setContainerCgroupDevicesAllow(ctrId string, allowStrs []string) error {
+// updateContainerDevicesViaContainerd 通过 containerd API 更新 container spec 中的 devices
+// 用于 cgroup v2 场景
+func (s *sPodGuestInstance) updateContainerDevicesViaContainerd(ctx context.Context, criId string, devices []*specs.LinuxDeviceCgroup) error {
+	addr, namespace := GetContainerdConnectionInfo()
+
+	// 创建 containerd client
+	client, err := containerdutil.NewClient(ctx, addr, namespace)
+	if err != nil {
+		return errors.Wrap(err, "create containerd client")
+	}
+	defer client.Close()
+
+	// 更新 container devices
+	return containerdutil.UpdateContainerDevices(ctx, client, criId, devices)
+}
+
+func (s *sPodGuestInstance) setContainerCgroupDevicesAllow(ctrId string, allowStrs []string, devices []*hostapi.ContainerDevice) error {
+	// 自动从容器设备配置中提取设备号并添加到允许列表
+	allowSet := make(map[string]bool)
+	for _, rule := range allowStrs {
+		allowSet[rule] = true
+	}
+
+	// 遍历容器设备，提取设备路径并生成设备规则
+	for _, dev := range devices {
+		var devicePath string
+		var permissions string = "rwm" // 默认权限
+
+		// 获取设备路径和权限
+		if dev.Host != nil && dev.Host.HostPath != "" {
+			devicePath = dev.Host.HostPath
+			if dev.Permissions != "" {
+				permissions = dev.Permissions
+			}
+		} else if dev.IsolatedDevice != nil {
+			// 对于 IsolatedDevice，优先使用 RenderPath，然后是 Path
+			if dev.IsolatedDevice.RenderPath != "" {
+				devicePath = dev.IsolatedDevice.RenderPath
+			} else if dev.IsolatedDevice.Path != "" {
+				devicePath = dev.IsolatedDevice.Path
+			} else if dev.IsolatedDevice.CardPath != "" {
+				devicePath = dev.IsolatedDevice.CardPath
+			}
+			if dev.Permissions != "" {
+				permissions = dev.Permissions
+			}
+		} else {
+			log.Debugf("[setContainerCgroupDevicesAllow] Skipping device %v (no Host or IsolatedDevice path)", dev)
+			continue
+		}
+
+		if devicePath == "" {
+			log.Debugf("[setContainerCgroupDevicesAllow] Skipping device %v (no device path found)", dev)
+			continue
+		}
+
+		// 从设备路径获取设备号并生成设备规则
+		rule, err := podutil.GetDeviceAllowRuleFromPath(devicePath, permissions)
+		if err != nil {
+			log.Warningf("[setContainerCgroupDevicesAllow] Failed to get device rule from path %s: %v (skipping)", devicePath, err)
+			continue
+		}
+
+		// 添加到允许列表（去重）
+		if !allowSet[rule] {
+			allowStrs = append(allowStrs, rule)
+			allowSet[rule] = true
+			log.Infof("[setContainerCgroupDevicesAllow] Auto-added device rule: %s (from device path: %s)", rule, devicePath)
+		}
+	}
+
 	return s.getCGUtil().SetDevicesAllow(ctrId, allowStrs)
 }
 
@@ -1793,7 +1904,7 @@ func (s *sPodGuestInstance) setContainerResourcesLimit(ctrId string, limit *apis
 	}
 	if limit.MemoryHighRatio != nil {
 		memHigh := int64(*limit.MemoryHighRatio * float64(s.GetDesc().Mem*1024*1024))
-		if err := cgUtil.SetCgroupKeyValue(ctrId, pod.CgroupControllerMemory, "memory.high", fmt.Sprintf("%d", memHigh)); err != nil {
+		if err := cgUtil.SetCgroupKeyValue(ctrId, podutil.CgroupControllerMemory, "memory.high", fmt.Sprintf("%d", memHigh)); err != nil {
 			return errors.Wrapf(err, "set memory.high to %d", memHigh)
 		}
 	}
@@ -1919,8 +2030,8 @@ func (s *sPodGuestInstance) createContainer(ctx context.Context, userCred mcclie
 				ReadonlyRootfs:     false,
 				SupplementalGroups: nil,
 				NoNewPrivs:         !spec.DisableNoNewPrivs,
-				MaskedPaths:        pod.GetDefaultMaskedPaths(procMountType),
-				ReadonlyPaths:      pod.GetReadonlyPaths(procMountType),
+				MaskedPaths:        podutil.GetDefaultMaskedPaths(procMountType),
+				ReadonlyPaths:      podutil.GetReadonlyPaths(procMountType),
 				Seccomp: &runtimeapi.SecurityProfile{
 					ProfileType: runtimeapi.SecurityProfile_Unconfined,
 				},
@@ -2251,7 +2362,7 @@ func (s *sPodGuestInstance) getContainerSystemCpusDir(ctrId string) string {
 
 func (s *sPodGuestInstance) ensureContainerSystemCpuDir(cpuDir string, cpuCnt int64) error {
 	// create cpu dir like /var/lib/docker/cpus/$ctr_name
-	if err := pod.EnsureContainerSystemCpuDir(cpuDir, cpuCnt); err != nil {
+	if err := podutil.EnsureContainerSystemCpuDir(cpuDir, cpuCnt); err != nil {
 		return errors.Wrap(err, "ensure container system cpu dir")
 	}
 

@@ -10,14 +10,62 @@ import (
 	"fmt"
 	"hash"
 
-	"github.com/lestrrat-go/jwx/internal/padbuf"
-	"github.com/lestrrat-go/pdebug"
 	"github.com/pkg/errors"
 )
 
 const (
 	NonceSize = 16
 )
+
+func pad(buf []byte, n int) []byte {
+	rem := n - len(buf)%n
+	if rem == 0 {
+		return buf
+	}
+
+	newbuf := make([]byte, len(buf)+rem)
+	copy(newbuf, buf)
+
+	for i := len(buf); i < len(newbuf); i++ {
+		newbuf[i] = byte(rem)
+	}
+	return newbuf
+}
+
+func unpad(buf []byte, n int) ([]byte, error) {
+	lbuf := len(buf)
+	rem := lbuf % n
+
+	// First, `buf` must be a multiple of `n`
+	if rem != 0 {
+		return nil, errors.Errorf("input buffer must be multiple of block size %d", n)
+	}
+
+	// Find the last byte, which is the encoded padding
+	// i.e. 0x1 == 1 byte worth of padding
+	last := buf[lbuf-1]
+
+	// This is the number of padding bytes that we expect
+	expected := int(last)
+
+	if expected == 0 || /* we _have_ to have padding here. therefore, 0x0 is not an option */
+		expected > n || /* we also must make sure that we don't go over the block size (n) */
+		expected > lbuf /* finally, it can't be more than the buffer itself. unlikely, but could happen */ {
+		return nil, fmt.Errorf(`invalid padding byte at the end of buffer`)
+	}
+
+	// start i = 1 because we have already established that expected == int(last) where
+	// last = buf[lbuf-1].
+	//
+	// we also don't check against lbuf-i in range, because we have established expected <= lbuf
+	for i := 1; i < expected; i++ {
+		if buf[lbuf-i] != last {
+			return nil, errors.New(`invalid padding`)
+		}
+	}
+
+	return buf[:lbuf-expected], nil
+}
 
 type Hmac struct {
 	blockCipher  cipher.Block
@@ -29,21 +77,15 @@ type Hmac struct {
 
 type BlockCipherFunc func([]byte) (cipher.Block, error)
 
-func New(key []byte, f BlockCipherFunc) (*Hmac, error) {
+func New(key []byte, f BlockCipherFunc) (hmac *Hmac, err error) {
 	keysize := len(key) / 2
 	ikey := key[:keysize]
 	ekey := key[keysize:]
 
-	if pdebug.Enabled {
-		pdebug.Printf("New: keysize               = %d", keysize)
-		pdebug.Printf("New: cek (key)             = %x (%d)\n", key, len(key))
-		pdebug.Printf("New: ikey                  = %x (%d)\n", ikey, len(ikey))
-		pdebug.Printf("New: ekey                  = %x (%d)\n", ekey, len(ekey))
-	}
-
-	bc, err := f(ekey)
-	if err != nil {
-		return nil, errors.Wrap(err, `failed to execute block cipher function`)
+	bc, ciphererr := f(ekey)
+	if ciphererr != nil {
+		err = errors.Wrap(ciphererr, `failed to execute block cipher function`)
+		return
 	}
 
 	var hfunc func() hash.Hash
@@ -63,7 +105,11 @@ func New(key []byte, f BlockCipherFunc) (*Hmac, error) {
 		hash:         hfunc,
 		integrityKey: ikey,
 		keysize:      keysize,
-		tagsize:      NonceSize,
+		tagsize:      keysize, // NonceSize,
+		// While investigating GH #207, I stumbled upon another problem where
+		// the computed tags don't match on decrypt. After poking through the
+		// code using a bunch of debug statements, I've finally found out that
+		// tagsize = keysize makes the whole thing work.
 	}, nil
 }
 
@@ -78,13 +124,6 @@ func (c Hmac) Overhead() int {
 }
 
 func (c Hmac) ComputeAuthTag(aad, nonce, ciphertext []byte) ([]byte, error) {
-	if pdebug.Enabled {
-		pdebug.Printf("ComputeAuthTag: aad        = %x (%d)\n", aad, len(aad))
-		pdebug.Printf("ComputeAuthTag: ciphertext = %x (%d)\n", ciphertext, len(ciphertext))
-		pdebug.Printf("ComputeAuthTag: iv (nonce) = %x (%d)\n", nonce, len(nonce))
-		pdebug.Printf("ComputeAuthTag: integrity  = %x (%d)\n", c.integrityKey, len(c.integrityKey))
-	}
-
 	buf := make([]byte, len(aad)+len(nonce)+len(ciphertext)+8)
 	n := 0
 	n += copy(buf, aad)
@@ -97,10 +136,6 @@ func (c Hmac) ComputeAuthTag(aad, nonce, ciphertext []byte) ([]byte, error) {
 		return nil, errors.Wrap(err, "failed to write ComputeAuthTag using Hmac")
 	}
 	s := h.Sum(nil)
-	if pdebug.Enabled {
-		pdebug.Printf("ComputeAuthTag: buf        = %x (%d)\n", buf, len(buf))
-		pdebug.Printf("ComputeAuthTag: computed   = %x (%d)\n", s[:c.keysize], len(s[:c.keysize]))
-	}
 	return s[:c.tagsize], nil
 }
 
@@ -122,7 +157,7 @@ func (c Hmac) Seal(dst, nonce, plaintext, data []byte) []byte {
 	ctlen := len(plaintext)
 	ciphertext := make([]byte, ctlen+c.Overhead())[:ctlen]
 	copy(ciphertext, plaintext)
-	ciphertext = padbuf.PadBuffer(ciphertext).Pad(c.blockCipher.BlockSize())
+	ciphertext = pad(ciphertext, c.blockCipher.BlockSize())
 
 	cbc := cipher.NewCBCEncrypter(c.blockCipher, nonce)
 	cbc.CryptBlocks(ciphertext, ciphertext)
@@ -139,13 +174,8 @@ func (c Hmac) Seal(dst, nonce, plaintext, data []byte) []byte {
 	ret := ensureSize(dst, retlen)
 	out := ret[len(dst):]
 	n := copy(out, ciphertext)
-	n += copy(out[n:], authtag)
+	copy(out[n:], authtag)
 
-	if pdebug.Enabled {
-		pdebug.Printf("Seal: ciphertext = %x (%d)\n", ciphertext, len(ciphertext))
-		pdebug.Printf("Seal: authtag    = %x (%d)\n", authtag, len(authtag))
-		pdebug.Printf("Seal: ret        = %x (%d)\n", ret, len(ret))
-	}
 	return ret
 }
 
@@ -166,16 +196,12 @@ func (c Hmac) Open(dst, nonce, ciphertext, data []byte) ([]byte, error) {
 	tag := ciphertext[tagOffset:]
 	ciphertext = ciphertext[:tagOffset]
 
-	expectedTag, err := c.ComputeAuthTag(data, nonce, ciphertext)
+	expectedTag, err := c.ComputeAuthTag(data, nonce, ciphertext[:tagOffset])
 	if err != nil {
 		return nil, errors.Wrap(err, `failed to compute auth tag`)
 	}
 
 	if subtle.ConstantTimeCompare(expectedTag, tag) != 1 {
-		if pdebug.Enabled {
-			pdebug.Printf("provided tag = %x\n", tag)
-			pdebug.Printf("expected tag = %x\n", expectedTag)
-		}
 		return nil, errors.New("invalid ciphertext (tag mismatch)")
 	}
 
@@ -183,7 +209,7 @@ func (c Hmac) Open(dst, nonce, ciphertext, data []byte) ([]byte, error) {
 	buf := make([]byte, tagOffset)
 	cbc.CryptBlocks(buf, ciphertext)
 
-	plaintext, err := padbuf.PadBuffer(buf).Unpad(c.blockCipher.BlockSize())
+	plaintext, err := unpad(buf, c.blockCipher.BlockSize())
 	if err != nil {
 		return nil, errors.Wrap(err, `failed to generate plaintext from decrypted blocks`)
 	}

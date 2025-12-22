@@ -2,7 +2,8 @@ package jwk
 
 import (
 	"crypto/x509"
-	"encoding/json"
+
+	"github.com/lestrrat-go/jwx/internal/json"
 
 	"github.com/lestrrat-go/jwx/internal/base64"
 	"github.com/pkg/errors"
@@ -53,8 +54,15 @@ func (c *CertificateChain) Accept(v interface{}) error {
 		}
 	case []string:
 		list = x
+	case CertificateChain:
+		certs := make([]*x509.Certificate, len(x.certs))
+		copy(certs, x.certs)
+		*c = CertificateChain{
+			certs: certs,
+		}
+		return nil
 	default:
-		return errors.Errorf(`invalid tpe for CertificateChain: %T`, v)
+		return errors.Errorf(`invalid type for CertificateChain: %T`, v)
 	}
 
 	certs := make([]*x509.Certificate, len(list))

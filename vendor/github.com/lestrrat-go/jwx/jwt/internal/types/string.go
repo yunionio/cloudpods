@@ -1,7 +1,7 @@
 package types
 
 import (
-	"encoding/json"
+	"github.com/lestrrat-go/jwx/internal/json"
 
 	"github.com/pkg/errors"
 )

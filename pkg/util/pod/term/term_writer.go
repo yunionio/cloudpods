@@ -34,8 +34,8 @@ import (
 	"io"
 	"os"
 
-	"github.com/docker/docker/pkg/term"
 	wordwrap "github.com/mitchellh/go-wordwrap"
+	"github.com/moby/term"
 )
 
 type wordWrapWriter struct {

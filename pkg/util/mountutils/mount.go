@@ -94,6 +94,7 @@ func mountOverlay(lowerDir []string, upperDir string, workDir string, mergedDir 
 				optStr += ",metacopy=on"
 			}
 		}
+		optStr += ",index=off"
 		overlayArgs := []string{"-t", "overlay", "overlay", "-o", optStr, mergedDir}
 		if out, err := procutils.NewRemoteCommandContextAsFarAsPossible(ctx, "mount", overlayArgs...).Output(); err != nil {
 			return errors.Wrapf(err, "mount %v: %s", overlayArgs, out)

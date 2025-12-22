@@ -243,6 +243,11 @@ func GetNodesInfo(sysFs sysfs.SysFs) ([]info.Node, int, error) {
 			return nil, 0, err
 		}
 
+		node.Distances, err = getDistances(sysFs, nodeDir)
+		if err != nil {
+			return nil, 0, err
+		}
+
 		nodes = append(nodes, node)
 	}
 	return nodes, allLogicalCoresCount, err
@@ -332,20 +337,34 @@ func addCacheInfo(sysFs sysfs.SysFs, node *info.Node) error {
 
 		for _, cache := range caches {
 			c := info.Cache{
+				Id:    cache.Id,
 				Size:  cache.Size,
 				Level: cache.Level,
 				Type:  cache.Type,
 			}
-			if cache.Cpus == numThreadsPerNode && cache.Level > cacheLevel2 {
-				// Add a node-level cache.
-				cacheFound := false
-				for _, nodeCache := range node.Caches {
-					if nodeCache == c {
-						cacheFound = true
+			if cache.Level > cacheLevel2 {
+				if cache.Cpus == numThreadsPerNode {
+					// Add a node level cache.
+					cacheFound := false
+					for _, nodeCache := range node.Caches {
+						if nodeCache == c {
+							cacheFound = true
+						}
 					}
-				}
-				if !cacheFound {
-					node.Caches = append(node.Caches, c)
+					if !cacheFound {
+						node.Caches = append(node.Caches, c)
+					}
+				} else {
+					// Add uncore cache, for architecture in which l3 cache only shared among some cores.
+					uncoreCacheFound := false
+					for _, uncoreCache := range node.Cores[coreID].UncoreCaches {
+						if uncoreCache == c {
+							uncoreCacheFound = true
+						}
+					}
+					if !uncoreCacheFound {
+						node.Cores[coreID].UncoreCaches = append(node.Cores[coreID].UncoreCaches, c)
+					}
 				}
 			} else if cache.Cpus == numThreadsPerCore {
 				// Add core level cache
@@ -377,13 +396,34 @@ func getNodeMemInfo(sysFs sysfs.SysFs, nodeDir string) (uint64, error) {
 	return uint64(memory), nil
 }
 
+// getDistances returns information about distances between NUMA nodes
+func getDistances(sysFs sysfs.SysFs, nodeDir string) ([]uint64, error) {
+	rawDistance, err := sysFs.GetDistances(nodeDir)
+	if err != nil {
+		//Ignore if per-node info is not available.
+		klog.Warningf("Found node without distance information, nodeDir: %s", nodeDir)
+		return nil, nil
+	}
+
+	distances := []uint64{}
+	for _, distance := range strings.Split(rawDistance, " ") {
+		distanceUint, err := strconv.ParseUint(distance, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("cannot convert %s to int", distance)
+		}
+		distances = append(distances, distanceUint)
+	}
+
+	return distances, nil
+}
+
 // getCoresInfo returns information about physical cores
 func getCoresInfo(sysFs sysfs.SysFs, cpuDirs []string) ([]info.Core, error) {
 	cores := make([]info.Core, 0, len(cpuDirs))
 	for _, cpuDir := range cpuDirs {
 		cpuID, err := getMatchedInt(cpuDirRegExp, cpuDir)
 		if err != nil {
-			return nil, fmt.Errorf("Unexpected format of CPU directory, cpuDirRegExp %s, cpuDir: %s", cpuDirRegExp, cpuDir)
+			return nil, fmt.Errorf("unexpected format of CPU directory, cpuDirRegExp %s, cpuDir: %s", cpuDirRegExp, cpuDir)
 		}
 		if !sysFs.IsCPUOnline(cpuDir) {
 			continue
@@ -401,25 +441,6 @@ func getCoresInfo(sysFs sysfs.SysFs, cpuDirs []string) ([]info.Core, error) {
 			return nil, err
 		}
 
-		coreIDx := -1
-		for id, core := range cores {
-			if core.Id == physicalID {
-				coreIDx = id
-			}
-		}
-		if coreIDx == -1 {
-			cores = append(cores, info.Core{})
-			coreIDx = len(cores) - 1
-		}
-		desiredCore := &cores[coreIDx]
-
-		desiredCore.Id = physicalID
-		if len(desiredCore.Threads) == 0 {
-			desiredCore.Threads = []int{cpuID}
-		} else {
-			desiredCore.Threads = append(desiredCore.Threads, cpuID)
-		}
-
 		rawPhysicalPackageID, err := sysFs.GetCPUPhysicalPackageID(cpuDir)
 		if os.IsNotExist(err) {
 			klog.Warningf("Cannot read physical package id for %s, physical_package_id file does not exist, err: %s", cpuDir, err)
@@ -432,7 +453,28 @@ func getCoresInfo(sysFs sysfs.SysFs, cpuDirs []string) ([]info.Core, error) {
 		if err != nil {
 			return nil, err
 		}
+
+		coreIDx := -1
+		for id, core := range cores {
+			if core.Id == physicalID && core.SocketID == physicalPackageID {
+				coreIDx = id
+			}
+		}
+		if coreIDx == -1 {
+			cores = append(cores, info.Core{})
+			coreIDx = len(cores) - 1
+		}
+		desiredCore := &cores[coreIDx]
+
+		desiredCore.Id = physicalID
 		desiredCore.SocketID = physicalPackageID
+
+		if len(desiredCore.Threads) == 0 {
+			desiredCore.Threads = []int{cpuID}
+		} else {
+			desiredCore.Threads = append(desiredCore.Threads, cpuID)
+		}
+
 	}
 	return cores, nil
 }

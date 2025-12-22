@@ -105,6 +105,7 @@ func (i *iter) Next(ctx context.Context) bool {
 		return true
 	}
 
+	//nolint:govet
 	return false // never reached
 }
 
@@ -177,8 +178,15 @@ func AsMap(ctx context.Context, s interface{}, v interface{}) error {
 		if !rvkey.Type().AssignableTo(keytyp) {
 			return errors.Errorf(`cannot assign key of type %s to map key of type %s`, rvkey.Type(), keytyp)
 		}
-		if !rvvalue.Type().AssignableTo(valtyp) {
-			return errors.Errorf(`cannot assign value of type %s to map value of type %s`, rvvalue.Type(), valtyp)
+
+		switch rvvalue.Kind() {
+		// we can only check if we can assign to rvvalue to valtyp if it's non-nil
+		case reflect.Invalid:
+			rvvalue = reflect.New(valtyp).Elem()
+		default:
+			if !rvvalue.Type().AssignableTo(valtyp) {
+				return errors.Errorf(`cannot assign value of type %s to map value of type %s`, rvvalue.Type(), valtyp)
+			}
 		}
 
 		dst.SetMapIndex(rvkey, rvvalue)

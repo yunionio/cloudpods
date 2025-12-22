@@ -1,8 +1,23 @@
+/*
+	Copyright The containerd Authors.
+
+	Licensed under the Apache License, Version 2.0 (the "License");
+	you may not use this file except in compliance with the License.
+	You may obtain a copy of the License at
+
+		http://www.apache.org/licenses/LICENSE-2.0
+
+	Unless required by applicable law or agreed to in writing, software
+	distributed under the License is distributed on an "AS IS" BASIS,
+	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	See the License for the specific language governing permissions and
+	limitations under the License.
+*/
+
 syntax = "proto3";
 
 package containerd.services.snapshots.v1;
 
-import weak "gogoproto/gogo.proto";
 import "google/protobuf/empty.proto";
 import "google/protobuf/field_mask.proto";
 import "google/protobuf/timestamp.proto";
@@ -85,13 +100,10 @@ message StatSnapshotRequest {
 }
 
 enum Kind {
-	option (gogoproto.goproto_enum_prefix) = false;
-	option (gogoproto.enum_customname) = "Kind";
-
-	UNKNOWN = 0 [(gogoproto.enumvalue_customname) = "KindUnknown"];
-	VIEW = 1 [(gogoproto.enumvalue_customname) = "KindView"];
-	ACTIVE = 2 [(gogoproto.enumvalue_customname) = "KindActive"];
-	COMMITTED = 3 [(gogoproto.enumvalue_customname) = "KindCommitted"];
+	UNKNOWN = 0;
+	VIEW = 1;
+	ACTIVE = 2;
+	COMMITTED = 3;
 }
 
 message Info {
@@ -100,10 +112,10 @@ message Info {
 	Kind kind = 3;
 
 	// CreatedAt provides the time at which the snapshot was created.
-	google.protobuf.Timestamp created_at = 4 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+	google.protobuf.Timestamp created_at = 4;
 
 	// UpdatedAt provides the time the info was last updated.
-	google.protobuf.Timestamp updated_at = 5 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+	google.protobuf.Timestamp updated_at = 5;
 
 	// Labels are arbitrary data on snapshots.
 	//
@@ -112,12 +124,12 @@ message Info {
 }
 
 message StatSnapshotResponse {
-	Info info = 1 [(gogoproto.nullable) = false];
+	Info info = 1;
 }
 
 message UpdateSnapshotRequest {
 	string snapshotter = 1;
-	Info info = 2 [(gogoproto.nullable) = false];
+	Info info = 2;
 
 	// UpdateMask specifies which fields to perform the update on. If empty,
 	// the operation applies to all fields.
@@ -129,7 +141,7 @@ message UpdateSnapshotRequest {
 }
 
 message UpdateSnapshotResponse {
-	Info info = 1 [(gogoproto.nullable) = false];
+	Info info = 1;
 }
 
 message ListSnapshotsRequest{
@@ -142,14 +154,14 @@ message ListSnapshotsRequest{
 	// filters. Expanded, images that match the following will be
 	// returned:
 	//
-	//   filters[0] or filters[1] or ... or filters[n-1] or filters[n]
+	//	filters[0] or filters[1] or ... or filters[n-1] or filters[n]
 	//
 	// If filters is zero-length or nil, all items will be returned.
 	repeated string filters = 2;
 }
 
 message ListSnapshotsResponse {
-	repeated Info info = 1 [(gogoproto.nullable) = false];
+	repeated Info info = 1;
 }
 
 message UsageRequest {

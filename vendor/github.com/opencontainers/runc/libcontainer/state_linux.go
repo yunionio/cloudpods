@@ -1,5 +1,3 @@
-// +build linux
-
 package libcontainer
 
 import (
@@ -38,7 +36,8 @@ type containerState interface {
 }
 
 func destroy(c *linuxContainer) error {
-	if !c.config.Namespaces.Contains(configs.NEWPID) {
+	if !c.config.Namespaces.Contains(configs.NEWPID) ||
+		c.config.Namespaces.PathOf(configs.NEWPID) != "" {
 		if err := signalAllProcesses(c.cgroupManager, unix.SIGKILL); err != nil {
 			logrus.Warn(err)
 		}
@@ -116,7 +115,7 @@ func (r *runningState) transition(s containerState) error {
 	switch s.(type) {
 	case *stoppedState:
 		if r.c.runType() == Running {
-			return newGenericError(fmt.Errorf("container still running"), ContainerNotStopped)
+			return ErrRunning
 		}
 		r.c.state = s
 		return nil
@@ -131,7 +130,7 @@ func (r *runningState) transition(s containerState) error {
 
 func (r *runningState) destroy() error {
 	if r.c.runType() == Running {
-		return newGenericError(fmt.Errorf("container is not destroyed"), ContainerNotStopped)
+		return ErrRunning
 	}
 	return destroy(r.c)
 }
@@ -156,7 +155,7 @@ func (i *createdState) transition(s containerState) error {
 }
 
 func (i *createdState) destroy() error {
-	i.c.initProcess.signal(unix.SIGKILL)
+	_ = i.c.initProcess.signal(unix.SIGKILL)
 	return destroy(i.c)
 }
 
@@ -189,7 +188,7 @@ func (p *pausedState) destroy() error {
 		}
 		return destroy(p.c)
 	}
-	return newGenericError(fmt.Errorf("container is paused"), ContainerPaused)
+	return ErrPaused
 }
 
 // restoredState is the same as the running state but also has associated checkpoint
