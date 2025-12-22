@@ -623,7 +623,6 @@ func (h *SHostInfo) detectHostInfo() error {
 	if err = h.GetNodeHugepages(); err != nil {
 		return errors.Wrap(err, "GetNodeHugepages")
 	}
-	system_service.Init()
 	if options.HostOptions.CheckSystemServices {
 		if err := h.checkSystemServices(); err != nil {
 			return err

@@ -17,6 +17,7 @@ package system_service
 import (
 	"fmt"
 	"strings"
+	"sync"
 
 	"yunion.io/x/log"
 
@@ -43,8 +44,15 @@ type ISystemService interface {
 type NewServiceFunc func()
 
 var serviceMap map[string]ISystemService
+var serviceMapLock *sync.Mutex = &sync.Mutex{}
 
-func Init() {
+func initServiceMap() {
+	serviceMapLock.Lock()
+	defer serviceMapLock.Unlock()
+
+	if serviceMap != nil {
+		return
+	}
 	serviceMap = map[string]ISystemService{
 		"ntpd":           NewNtpdService(),
 		"telegraf":       NewTelegrafService(),
@@ -60,6 +68,7 @@ func Init() {
 }
 
 func GetService(name string) ISystemService {
+	initServiceMap()
 	if service, ok := serviceMap[name]; ok {
 		return service
 	} else {

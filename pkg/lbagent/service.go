@@ -28,6 +28,7 @@ import (
 
 	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
+	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostbridge"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/ovnutils"
 	"yunion.io/x/onecloud/pkg/util/procutils"
@@ -72,7 +73,11 @@ func StartService() {
 	}
 
 	if !opts.DisableLocalVpc {
-		err := ovnutils.InitOvn(opts.SOvnOptions)
+		err := hostbridge.OVSPrepare()
+		if err != nil {
+			log.Fatalf("ovs prepare fail: %s", err)
+		}
+		err = ovnutils.InitOvn(opts.SOvnOptions)
 		if err != nil {
 			log.Fatalf("ovn init fail: %s", err)
 		}
