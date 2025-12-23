@@ -21,6 +21,7 @@ import (
 	"os"
 	"path"
 	"strings"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -144,7 +145,7 @@ func doRestoreDisk(ctx context.Context, dc IDiskCreator, input *SDiskCreateByDis
 	backupPath := path.Join(backupTmpDir, diskInfo.Backup.BackupId)
 	err = backupStorage.RestoreBackupTo(ctx, backupPath, diskInfo.Backup.BackupId)
 	if err != nil {
-		return errors.Wrap(err, "RestoreBackupTo")
+		return errors.Wrapf(err, "Restore backup %s to %s", diskInfo.Backup.BackupId, backupPath)
 	}
 
 	backupInput := diskInfo.Backup
@@ -216,10 +217,66 @@ func doRestoreTarDisk(ctx context.Context, dc IDiskCreator, disk IDisk, input *S
 		return errors.Wrapf(err, "mount %s to %s", devPath, backupMntDir)
 	}
 
+	// 验证备份文件是否存在且有效
+	if !fileutils2.Exists(backupPath) {
+		return errors.Errorf("backup file does not exist: %s", backupPath)
+	}
+
+	// 检查 backupPath 是否是文件而不是目录
+	fi, err := os.Stat(backupPath)
+	if err != nil {
+		return errors.Wrapf(err, "failed to stat backup path: %s", backupPath)
+	}
+	if fi.IsDir() {
+		return errors.Errorf("backup path is a directory, not a file: %s. Expected a tar file but got a directory", backupPath)
+	}
+
+	// 等待文件大小稳定，确保下载完成（最多等待 5 秒）
+	fileSize := fileutils2.FileSize(backupPath)
+	if fileSize <= 0 {
+		return errors.Errorf("backup file is empty or invalid: %s (size: %d)", backupPath, fileSize)
+	}
+
+	// 检查文件大小是否稳定（等待文件不再增长）
+	maxWaitTime := 5     // 最多等待 5 秒
+	checkInterval := 200 // 每 200ms 检查一次
+	for i := 0; i < maxWaitTime*1000/checkInterval; i++ {
+		time.Sleep(time.Duration(checkInterval) * time.Millisecond)
+		newSize := fileutils2.FileSize(backupPath)
+		if newSize == fileSize {
+			// 文件大小稳定，下载完成
+			break
+		}
+		if newSize < fileSize {
+			// 文件大小减小，可能有问题
+			log.Warningf("backup file size decreased from %d to %d bytes, file may be corrupted", fileSize, newSize)
+			break
+		}
+		fileSize = newSize
+		if i == maxWaitTime*1000/checkInterval-1 {
+			log.Warningf("backup file size still changing after %d seconds, proceeding with current size: %d bytes", maxWaitTime, fileSize)
+		}
+	}
+
+	log.Infof("backup file %s exists, size: %d bytes", backupPath, fileSize)
+
+	// 验证 tar 文件完整性（使用 tar -t 测试，只列出第一个文件以快速验证）
+	testCmd := fmt.Sprintf("tar -tf %s 2>&1 | head -1", backupPath)
+	out, err := procutils.NewRemoteCommandAsFarAsPossible("sh", "-c", testCmd).Output()
+	if err != nil {
+		log.Errorf("tar file integrity test failed for %s: %s, output: %s", backupPath, err, out)
+		return errors.Wrapf(err, "backup file %s appears to be corrupted or incomplete (size: %d bytes). tar test failed: %s. This usually means the backup file download was interrupted or the file is corrupted. Please retry the restore operation.", backupPath, fileSize, out)
+	}
+	if len(strings.TrimSpace(string(out))) == 0 {
+		log.Errorf("tar file appears to be empty or corrupted: %s (size: %d bytes)", backupPath, fileSize)
+		return errors.Errorf("backup file %s appears to be empty or corrupted (size: %d bytes). tar archive contains no files. This usually means the backup file download was interrupted. Please retry the restore operation.", backupPath, fileSize)
+	}
+	log.Infof("tar file integrity check passed for %s", backupPath)
+
 	cmd := fmt.Sprintf("tar -xf %s -C %s", backupPath, backupMntDir)
 	log.Infof("start restore %s to %s, disk: %s", backupPath, backupMntDir, disk.GetId())
 	if out, err := procutils.NewRemoteCommandAsFarAsPossible("sh", "-c", cmd).Output(); err != nil {
-		return errors.Wrapf(err, "%s: %s", cmd, out)
+		return errors.Wrapf(err, "%s: %s (backup file size: %d bytes). If this error persists, the backup file may be corrupted or incomplete. Please check the backup storage and retry.", cmd, out, fileSize)
 	}
 
 	if err := container_storage.Unmount(backupMntDir); err != nil {
