@@ -2855,6 +2855,8 @@ func (s *sPodGuestInstance) tarHostDir(srcDir, targetPath string,
 		for i := range files {
 			if fileutils2.Exists(filepath.Join(srcDir, files[i])) {
 				result = append(result, files[i])
+			} else {
+				log.Warningf("tar path doesn't exist: %q", filepath.Join(srcDir, files[i]))
 			}
 		}
 		return result
@@ -2868,6 +2870,9 @@ func (s *sPodGuestInstance) tarHostDir(srcDir, targetPath string,
 	}
 	includeStr := "."
 	if len(includeFiles) > 0 {
+		for i := range includeFiles {
+			includeFiles[i] = fmt.Sprintf("'%s'", includeFiles[i])
+		}
 		includeStr = strings.Join(includeFiles, " ")
 	}
 	cmd := fmt.Sprintf("%s --ignore-failed-read -cf %s -C %s %s", baseCmd, targetPath, srcDir, includeStr)
