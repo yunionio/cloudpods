@@ -134,6 +134,22 @@ type SAuthenticationIdentity struct {
 		VerifyCode  string `json:"verify_code,omitempty"`
 		ContactType string `json:"contact_type,omitempty"`
 	} `json:"mobile,omitempty"`
+	// 当认证方式为assume时，通过该字段提供目标用户信息
+	Assume struct {
+		User struct {
+			// 用户ID
+			Id string `json:"id,omitempty"`
+			// 用户名称
+			Name string `json:"name,omitempty"`
+			// 用户所属域的信息
+			Domain struct {
+				// 域ID
+				Id string `json:"id,omitempty"`
+				// 域名称
+				Name string `json:"name,omitempty"`
+			} `json:"domain,omitempty"`
+		} `json:"user,omitempty"`
+	} `json:"assume,omitempty"`
 }
 
 type SAuthenticationInputV3 struct {
