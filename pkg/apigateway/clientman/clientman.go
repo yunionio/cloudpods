@@ -17,7 +17,7 @@ package clientman
 import (
 	"crypto/rand"
 	"crypto/rsa"
-	"io/ioutil"
+	"os"
 
 	"github.com/pkg/errors"
 
@@ -27,9 +27,9 @@ import (
 
 func InitClient() error {
 	if options.Options.EnableSsl {
-		privData, err := ioutil.ReadFile(options.Options.SslKeyfile)
+		privData, err := os.ReadFile(options.Options.SslKeyfile)
 		if err != nil {
-			return errors.Wrapf(err, "ioutil.ReadFile %s", options.Options.SslKeyfile)
+			return errors.Wrapf(err, "os.ReadFile %s", options.Options.SslKeyfile)
 		}
 		privateKey, err := seclib2.DecodePrivateKey(privData)
 		if err != nil {
