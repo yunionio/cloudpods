@@ -143,7 +143,7 @@ func (o *HostAutoMigrateOnHostDownOptions) Params() (jsonutils.JSONObject, error
 type HostSetCommitBoundOptions struct {
 	options.BaseIdsOptions
 	CpuCmtbound *float32 `help:"Cpu commit bound"`
-	MemCmtBound *float32 `help:"Mem commit bound"`
+	MemCmtbound *float32 `help:"Mem commit bound"`
 }
 
 func (o *HostSetCommitBoundOptions) Params() (jsonutils.JSONObject, error) {
