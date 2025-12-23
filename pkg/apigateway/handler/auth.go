@@ -85,6 +85,7 @@ func (h *AuthHandlers) AddMethods() {
 		NewHP(handleOIDCJWKeys, "oidc", "keys"),
 		NewHP(handleOIDCUserInfo, "oidc", "user"),
 		NewHP(handleOIDCRPInitLogout, "oidc", "logout"),
+		NewHP(h.handleAssumeLogin, "assume"),
 	)
 	h.AddByMethod(POST, nil,
 		NewHP(h.initTotpSecrets, "initcredential"),
@@ -661,31 +662,34 @@ func (h *AuthHandlers) doLogin(ctx context.Context, w http.ResponseWriter, req *
 		return httperrors.NewForbiddenError("user forbidden login from web")
 	}
 
+	saveLoginCookies(w, authToken, token, body)
+	return nil
+}
+
+func saveLoginCookies(w http.ResponseWriter, authToken *clientman.SAuthToken, token mcclient.TokenCredential, body jsonutils.JSONObject) {
 	saveAuthCookie(w, authToken, token)
 
 	if len(token.GetProjectId()) > 0 {
-		if body.Contains("isadmin") {
+		if body != nil && body.Contains("isadmin") {
 			adminVal := "false"
 			if policy.PolicyManager.IsScopeCapable(token, rbacscope.ScopeSystem) {
 				adminVal, _ = body.GetString("isadmin")
 			}
 			saveCookie(w, "isadmin", adminVal, "", token.GetExpires(), false)
 		}
-		if body.Contains("scope") {
+		if body != nil && body.Contains("scope") {
 			scopeStr, _ := body.GetString("scope")
 			if !policy.PolicyManager.IsScopeCapable(token, rbacscope.TRbacScope(scopeStr)) {
 				scopeStr = string(rbacscope.ScopeProject)
 			}
 			saveCookie(w, "scope", scopeStr, "", token.GetExpires(), false)
 		}
-		if body.Contains("domain") {
+		if body != nil && body.Contains("domain") {
 			domainStr, _ := body.GetString("domain")
 			saveCookie(w, "domain", domainStr, "", token.GetExpires(), false)
 		}
 		saveCookie(w, "tenant", token.GetProjectId(), "", token.GetExpires(), false)
 	}
-
-	return nil
 }
 
 func doLogout(ctx context.Context, w http.ResponseWriter, req *http.Request) {
