@@ -21,13 +21,17 @@ import (
 	"time"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/gotypes"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/tsdb"
 	"yunion.io/x/onecloud/pkg/cloudmon/options"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/compute"
+	"yunion.io/x/onecloud/pkg/util/hashcache"
 	"yunion.io/x/onecloud/pkg/util/influxdb"
 )
 
@@ -280,12 +284,19 @@ func (self *SCollectByResourceIdDriver) CollectServerMetrics(ctx context.Context
 	return self.sendMetrics(ctx, manager, "server", len(res), metrics)
 }
 
+var (
+	hostMemoryCache = hashcache.NewCache(1024, time.Minute*5)
+	hostCpuCache    = hashcache.NewCache(1024, time.Minute*5)
+	hostIdCache     = hashcache.NewCache(1024, time.Minute*5)
+)
+
 func (self *SCollectByResourceIdDriver) CollectHostMetrics(ctx context.Context, manager api.CloudproviderDetails, provider cloudprovider.ICloudProvider, res map[string]api.HostDetails, start, end time.Time) error {
 	ch := make(chan struct{}, options.Options.CloudResourceCollectMetricsBatchCount)
 	defer close(ch)
 	metrics := []influxdb.SMetricData{}
 	var wg sync.WaitGroup
 	var mu sync.Mutex
+	s := auth.GetAdminSession(ctx, options.Options.Region)
 	for i := range res {
 		ch <- struct{}{}
 		wg.Add(1)
@@ -324,8 +335,17 @@ func (self *SCollectByResourceIdDriver) CollectHostMetrics(ctx context.Context, 
 				}
 				return
 			}
+			cpu, cpuCnt, memory, memoryCnt := 0.0, 0.0, 0.0, 0.0
 			for _, values := range data {
 				for _, value := range values.Values {
+					switch values.MetricType {
+					case cloudprovider.HOST_METRIC_TYPE_CPU_USAGE:
+						cpu += value.Value
+						cpuCnt++
+					case cloudprovider.HOST_METRIC_TYPE_MEM_USAGE:
+						memory += value.Value
+						memoryCnt++
+					}
 					metric := influxdb.SMetricData{
 						Name:      values.MetricType.Name(),
 						Timestamp: value.Timestamp,
@@ -349,6 +369,21 @@ func (self *SCollectByResourceIdDriver) CollectHostMetrics(ctx context.Context, 
 					metrics = append(metrics, metric)
 					mu.Unlock()
 				}
+			}
+			avgCpu := cpu / float64(cpuCnt)
+			avgMemory := memory / float64(memoryCnt)
+			info := hostIdCache.AtomicGet(host.Id)
+			if gotypes.IsNil(info) {
+				pingInfo := api.SHostPingInput{}
+				pingInfo.WithData = true
+				pingInfo.MemoryUsedMb = int(float64(host.MemSize)*avgMemory) / 100
+				pingInfo.CpuUsagePercent = avgCpu
+				_, err := compute.Hosts.PerformAction(s, host.Id, "ping", jsonutils.Marshal(pingInfo))
+				if err != nil {
+					log.Errorf("perform ping %s(%s) error: %v", host.Name, host.Id, err)
+					return
+				}
+				hostIdCache.AtomicSet(host.Id, host.Id)
 			}
 		}(res[i])
 	}
@@ -809,6 +844,7 @@ func (self *SCollectByMetricTypeDriver) CollectHostMetrics(ctx context.Context, 
 	metrics := []influxdb.SMetricData{}
 	var wg sync.WaitGroup
 	var mu sync.Mutex
+	s := auth.GetAdminSession(ctx, options.Options.Region)
 	for _, _metricType := range cloudprovider.ALL_HOST_METRIC_TYPES {
 		wg.Add(1)
 		go func(metricType cloudprovider.TMetricType) {
@@ -850,7 +886,9 @@ func (self *SCollectByMetricTypeDriver) CollectHostMetrics(ctx context.Context, 
 						Value: v,
 					})
 				}
+				total := 0.0
 				for _, v := range value.Values {
+					total += v.Value
 					metric := influxdb.SMetricData{
 						Name:      value.MetricType.Name(),
 						Timestamp: v.Timestamp,
@@ -873,6 +911,24 @@ func (self *SCollectByMetricTypeDriver) CollectHostMetrics(ctx context.Context, 
 					mu.Lock()
 					metrics = append(metrics, metric)
 					mu.Unlock()
+				}
+				avg := total / float64(len(value.Values))
+				info := hostIdCache.AtomicGet(vm.Id)
+				if gotypes.IsNil(info) {
+					pingInfo := api.SHostPingInput{}
+					pingInfo.WithData = true
+					switch metricType {
+					case cloudprovider.HOST_METRIC_TYPE_CPU_USAGE:
+						pingInfo.CpuUsagePercent = avg
+					case cloudprovider.HOST_METRIC_TYPE_MEM_USAGE:
+						pingInfo.MemoryUsedMb = int(float64(vm.MemSize)*avg) / 100
+					}
+					_, err := compute.Hosts.PerformAction(s, vm.Id, "ping", jsonutils.Marshal(pingInfo))
+					if err != nil {
+						log.Errorf("perform ping %s(%s) error: %v", vm.Name, vm.Id, err)
+						return
+					}
+					hostIdCache.AtomicSet(vm.Id, vm.Id)
 				}
 			}
 		}(_metricType)

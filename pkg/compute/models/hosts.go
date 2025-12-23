@@ -745,6 +745,22 @@ func (manager *SHostManager) OrderByExtraFields(
 		db.OrderByFields(q, []string{query.OrderByStorageUsed}, []sqlchemy.IQueryField{q.Field("storage_used")})
 	}
 
+	if db.NeedOrderQuery([]string{query.OrderByCpuUsage}) {
+		db.OrderByFields(q, []string{query.OrderByCpuUsage}, []sqlchemy.IQueryField{q.Field("cpu_usage_percent")})
+	}
+
+	if db.NeedOrderQuery([]string{query.OrderByMemUsage}) {
+		hosts := HostManager.Query().SubQuery()
+		sq := hosts.Query(
+			hosts.Field("id").Label("host_id"),
+			sqlchemy.DIV("mem_usage", hosts.Field("memory_used_mb"), hosts.Field("mem_size")),
+		).SubQuery()
+
+		q = q.LeftJoin(sq, sqlchemy.Equals(q.Field("id"), sq.Field("host_id")))
+
+		db.OrderByFields(q, []string{query.OrderByMemUsage}, []sqlchemy.IQueryField{sq.Field("mem_usage")})
+	}
+
 	if db.NeedOrderQuery([]string{query.OrderByStorageUsage}) {
 		hs := HoststorageManager.Query().SubQuery()
 		storages := StorageManager.Query().IsTrue("enabled").NotEquals("storage_type", api.STORAGE_BAREMETAL).In("storage_type", api.HOST_STORAGE_LOCAL_TYPES).SubQuery()
@@ -4994,15 +5010,17 @@ func (hh *SHost) PerformPing(ctx context.Context, userCred mcclient.TokenCredent
 			}
 		}
 
-		guests, _ := hh.GetGuests()
-		for _, guest := range guests {
-			if utils.IsInStringArray(guest.Id, input.QgaRunningGuestIds) {
-				if guest.QgaStatus != api.QGA_STATUS_AVAILABLE {
-					guest.UpdateQgaStatus(api.QGA_STATUS_AVAILABLE)
-				}
-			} else {
-				if guest.QgaStatus != api.QGA_STATUS_UNKNOWN {
-					guest.UpdateQgaStatus(api.QGA_STATUS_UNKNOWN)
+		if len(hh.ManagerId) == 0 {
+			guests, _ := hh.GetGuests()
+			for _, guest := range guests {
+				if utils.IsInStringArray(guest.Id, input.QgaRunningGuestIds) {
+					if guest.QgaStatus != api.QGA_STATUS_AVAILABLE {
+						guest.UpdateQgaStatus(api.QGA_STATUS_AVAILABLE)
+					}
+				} else {
+					if guest.QgaStatus != api.QGA_STATUS_UNKNOWN {
+						guest.UpdateQgaStatus(api.QGA_STATUS_UNKNOWN)
+					}
 				}
 			}
 		}
@@ -5012,9 +5030,15 @@ func (hh *SHost) PerformPing(ctx context.Context, userCred mcclient.TokenCredent
 			hh.LastPingAt = time.Now()
 		}
 		if input.WithData {
-			hh.RootPartitionUsedCapacityMb = input.RootPartitionUsedCapacityMb
-			hh.MemoryUsedMb = input.MemoryUsedMb
-			hh.CpuUsagePercent = input.CpuUsagePercent
+			if input.RootPartitionUsedCapacityMb > 0 {
+				hh.RootPartitionUsedCapacityMb = input.RootPartitionUsedCapacityMb
+			}
+			if input.MemoryUsedMb > 0 {
+				hh.MemoryUsedMb = input.MemoryUsedMb
+			}
+			if input.CpuUsagePercent > 0 {
+				hh.CpuUsagePercent = input.CpuUsagePercent
+			}
 		}
 		return nil
 	})
@@ -5022,10 +5046,15 @@ func (hh *SHost) PerformPing(ctx context.Context, userCred mcclient.TokenCredent
 	if hh.HostStatus != api.HOST_ONLINE {
 		hh.PerformOnline(ctx, userCred, query, nil)
 	} else {
-		if hh.hasUnknownGuests() {
+		if hh.hasUnknownGuests() && len(hh.ManagerId) == 0 {
 			hh.StartSyncAllGuestsStatusTask(ctx, userCred)
 		}
 	}
+
+	if len(hh.ManagerId) > 0 {
+		return nil, nil
+	}
+
 	result := jsonutils.NewDict()
 	result.Set("name", jsonutils.NewString(hh.GetName()))
 	dependSvcs := []string{"ntpd", "kafka", apis.SERVICE_TYPE_INFLUXDB, apis.SERVICE_TYPE_VICTORIA_METRICS, "elasticsearch"}
