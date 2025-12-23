@@ -155,7 +155,7 @@ func (c *CloudpodsStoragesTool) Handle(ctx context.Context, req mcp.CallToolRequ
 	sk := req.GetString("sk", "")
 
 	// 调用适配器查询块存储列表
-	storagesResponse, err := c.adapter.ListStorages(limit, offset, search, cloudregionIds, zoneIds, providers, storageTypes, hostId, ak, sk)
+	storagesResponse, err := c.adapter.ListStorages(ctx, limit, offset, search, cloudregionIds, zoneIds, providers, storageTypes, hostId, ak, sk)
 	if err != nil {
 		log.Errorf("Fail to query storage: %s", err)
 		return nil, fmt.Errorf("fail to query storage: %w", err)

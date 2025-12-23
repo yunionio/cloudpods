@@ -97,7 +97,7 @@ func (c *CloudpodsNetworksTool) Handle(ctx context.Context, req mcp.CallToolRequ
 	sk := req.GetString("sk", "")
 
 	// 调用适配器获取网络列表
-	networksResponse, err := c.adapter.ListNetworks(limit, offset, search, vpcId, ak, sk)
+	networksResponse, err := c.adapter.ListNetworks(ctx, limit, offset, search, vpcId, ak, sk)
 	if err != nil {
 		log.Errorf("Fail to query network: %s", err)
 		return nil, fmt.Errorf("fail to query network: %w", err)
