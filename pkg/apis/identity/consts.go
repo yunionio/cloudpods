@@ -38,6 +38,7 @@ const (
 	AUTH_METHOD_OIDC     = "oidc"
 	AUTH_METHOD_OAuth2   = "oauth2"
 	AUTH_METHOD_VERIFY   = "verify"
+	AUTH_METHOD_ASSUME   = "assume"
 
 	// AUTH_METHOD_ID_PASSWORD = 1
 	// AUTH_METHOD_ID_TOKEN    = 2
