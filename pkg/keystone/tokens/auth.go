@@ -481,6 +481,11 @@ func AuthenticateV3(ctx context.Context, input mcclient.SAuthenticationInputV3) 
 		if err != nil {
 			return nil, errors.Wrap(err, "authUserByVerify")
 		}
+	case api.AUTH_METHOD_ASSUME:
+		user, err = authUserByAssume(ctx, input)
+		if err != nil {
+			return nil, errors.Wrap(err, "authUserByAssume")
+		}
 	default:
 		// auth by other methods, e.g. password , etc...
 		user, err = authUserByIdentityV3(ctx, input)
