@@ -133,7 +133,7 @@ var (
 		ErrMissingParameter: 400,
 
 		ErrInsufficientResource: 400,
-		ErrOutOfResource:        500,
+		ErrOutOfResource:        507,
 		ErrOutOfQuota:           400,
 		ErrOutOfRange:           400,
 		ErrOutOfLimit:           400,
