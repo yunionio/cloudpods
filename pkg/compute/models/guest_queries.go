@@ -559,7 +559,7 @@ func fetchGuestNICs(ctx context.Context, guestIds []string, virtual tristate.Tri
 	gnwq := GuestnetworkManager.Query()
 	q := gnwq.AppendField(
 		gnwq.Field("guest_id"),
-
+		gnwq.Field("index"),
 		gnwq.Field("ip_addr"),
 		gnwq.Field("ip6_addr"),
 		gnwq.Field("mac_addr").Label("mac"),
