@@ -1,6 +1,8 @@
 package llm
 
 import (
+	"time"
+
 	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 )
@@ -8,6 +10,49 @@ import (
 const (
 	SERVICE_TYPE = "llm"
 )
+
+type LLMBaseListDetails struct {
+	apis.VirtualResourceDetails
+
+	// AccessInfo []AccessInfoListOutput
+	Volume Volume
+
+	LLMImage      string
+	LLMImageLable string
+	LLMImageName  string
+
+	VcpuCount  int
+	VmemSizeMb int
+	Devices    *Devices
+
+	EffectBandwidthMbps int
+	StartTime           time.Time
+
+	LLMStatus string
+
+	Server string
+
+	HostInfo
+
+	Zone   string
+	ZoneId string
+
+	AdbPublic string
+	AdbAccess string
+}
+
+type MountedModelInfo struct {
+	FullName string `json:"fullname"` // 模型全名，如: qwen3:8b
+	Id       string `json:"id"`       // 模型ID，如: 500a1f067a9f
+}
+
+type LLMListDetails struct {
+	LLMBaseListDetails
+
+	LLMSku string
+
+	MountedModels []MountedModelInfo
+}
 
 type LLMBaseCreateInput struct {
 	apis.VirtualResourceCreateInput
@@ -56,6 +101,8 @@ type ModelInfo struct {
 	DisplayName string `json:"display_name"`
 	// 秒装模型 tag，如: 7b
 	Tag string `json:"tag"`
+	// 秒装模型 LLM 类型
+	LlmType string `json:"llm_type"`
 }
 
 type LLMPerformQuickModelsInput struct {
