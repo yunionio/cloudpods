@@ -294,6 +294,10 @@ func (s *SKVMGuestInstance) disablePvpanicDev() bool {
 	return s.Desc.Metadata["disable_pvpanic"] == "true"
 }
 
+func (s *SKVMGuestInstance) enableTpmDev() bool {
+	return s.Desc.Metadata[api.VM_METADATA_ENABLE_TPM] == "true"
+}
+
 func (s *SKVMGuestInstance) getQuorumChildIndex() int64 {
 	if sidx, ok := s.Desc.Metadata[api.QUORUM_CHILD_INDEX]; ok {
 		idx, _ := strconv.ParseInt(sidx, 10, 0)
@@ -359,6 +363,7 @@ func (s *SKVMGuestInstance) generateStartScript(data *jsonutils.JSONDict) (strin
 		HomeDir:              s.HomeDir(),
 		HugepagesEnabled:     s.manager.host.IsHugepagesEnabled(),
 		EnableMemfd:          s.isMemcleanEnabled(),
+		EnableTpm:            s.enableTpmDev(),
 		PidFilePath:          s.GetPidFilePath(),
 	}
 
@@ -485,6 +490,28 @@ function nic_mtu() {
     fi
 }
 `
+
+	if input.EnableTpm {
+		input.OVMFPath = options.HostOptions.SecbootOvmfPath
+		input.OVMFVarsPath = options.HostOptions.SecbootOvmfVarsPath
+		cmd += `
+function start_swtpm() {
+    local swtpm_binary=$1
+    local swtpm_dir=$2
+    local swtpm_socket=$swtpm_dir/swtpm.sock
+    local swtpm_log=$swtpm_dir/swtpm.log
+    local swtpm_pid=$swtpm_dir/swtpm.pid
+
+    if [ -f "$swtpm_pid" ] && ps -p $(cat "$swtpm_pid") >/dev/null 2>&1; then
+        return 0
+    fi
+
+    mkdir -p $swtpm_dir
+    $swtpm_binary socket --tpmstate dir=$swtpm_dir --ctrl type=unixio,path=$swtpm_socket --log file=$swtpm_log,level=20 --pid file=$swtpm_pid --tpm2 -d
+}
+`
+		cmd += fmt.Sprintf("start_swtpm %s %s\n", options.HostOptions.BinarySwtpmPath, s.getSwtpmDirPath())
+	}
 
 	// Generate Start VM script
 	cmd += `CMD="$QEMU_CMD $QEMU_CMD_KVM_ARG`
@@ -715,6 +742,21 @@ func (s *SKVMGuestInstance) generateStopScript(data *jsonutils.JSONDict) string 
 	cmd += "  fi\n"
 	cmd += "done\n"
 
+	if s.enableTpmDev() {
+		// stop swtpm
+		cmd += fmt.Sprintf("SWTPM_PID_FILE=%s\n", s.getSwtpmPidPath())
+		cmd += "if [ -f $SWTPM_PID_FILE ]; then\n"
+		cmd += "  SWTPM_PID=`cat $SWTPM_PID_FILE`\n"
+		cmd += "  ps -p $SWTPM_PID > /dev/null\n"
+		cmd += "  if [ $? -eq 0 ]; then\n"
+		cmd += "    echo \"Kill swtpm process $SWTPM_PID\"\n"
+		cmd += "    kill -9 $SWTPM_PID > /dev/null 2>&1\n"
+		cmd += "  fi\n"
+		cmd += "  echo \"Remove swtpm PID $SWTPM_PID_FILE\"\n"
+		cmd += "  rm -f $SWTPM_PID_FILE\n"
+		cmd += "fi\n"
+	}
+
 	for _, nic := range nics {
 		if nic.Driver == api.NETWORK_DRIVER_VFIO {
 			dev, _ := s.GetSriovDeviceByNetworkIndex(nic.Index)
@@ -779,6 +821,22 @@ func (s *SKVMGuestInstance) StartPresendArp() {
 
 func (s *SKVMGuestInstance) getPKIDirPath() string {
 	return path.Join(s.HomeDir(), "pki")
+}
+
+func (s *SKVMGuestInstance) getSwtpmDirPath() string {
+	return path.Join(s.HomeDir(), "swtpm")
+}
+
+func (s *SKVMGuestInstance) getSwtpmSocketPath() string {
+	return path.Join(s.getSwtpmDirPath(), "swtpm.sock")
+}
+
+func (s *SKVMGuestInstance) getSwtpmLogPath() string {
+	return path.Join(s.getSwtpmDirPath(), "swtpm.log")
+}
+
+func (s *SKVMGuestInstance) getSwtpmPidPath() string {
+	return path.Join(s.getSwtpmDirPath(), "swtpm.pid")
 }
 
 func (s *SKVMGuestInstance) makePKIDir() error {
@@ -1089,6 +1147,19 @@ func (s *SKVMGuestInstance) initPvpanicDesc() {
 func (s *SKVMGuestInstance) initIsaSerialDesc() {
 	if !s.disableIsaSerialDev() {
 		s.Desc.IsaSerial = s.archMan.GenerateIsaSerialDesc()
+	}
+}
+
+func (s *SKVMGuestInstance) initTpmDesc() {
+	if s.enableTpmDev() {
+		charDevId := "chrtpm"
+		s.Desc.Tpm = &desc.SGuestTpm{
+			TpmSock: desc.NewCharDev("socket", charDevId, ""),
+			Id:      "tpm0",
+		}
+		s.Desc.Tpm.TpmSock.Options = map[string]string{
+			"path": s.getSwtpmSocketPath(),
+		}
 	}
 }
 
