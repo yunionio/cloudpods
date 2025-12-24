@@ -33,6 +33,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
 	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/util/mountutils"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 )
 
@@ -176,6 +177,11 @@ func (d disk) mountDisk(devPath string, mntPoint string, fs string, resUid int, 
 	if err := container_storage.MountWithResId(devPath, mntPoint, fs, resUid, resGid); err != nil {
 		return errors.Wrapf(err, "mount %s to %s", devPath, mntPoint)
 	}
+	// make mount point shared
+	if err := mountutils.MakeShared(mntPoint); err != nil {
+		return errors.Wrapf(err, "mount %s to %s", devPath, mntPoint)
+	}
+
 	return nil
 }
 
