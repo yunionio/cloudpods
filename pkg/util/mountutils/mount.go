@@ -264,3 +264,11 @@ func getMountPointDevices(mountPoint string) ([]string, error) {
 	}
 	return devs.List(), nil
 }
+
+func MakeShared(mountPoint string) error {
+	out, err := procutils.NewRemoteCommandAsFarAsPossible("mount", "--make-shared", mountPoint).Output()
+	if err != nil {
+		return errors.Wrapf(err, "'mount --make-shared %s' failed: %s", mountPoint, out)
+	}
+	return nil
+}
