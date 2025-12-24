@@ -910,6 +910,10 @@ func (img *SQemuImage) String() string {
 	return fmt.Sprintf("Qemu %s %d(%d) %s", img.Format, img.GetSizeMB(), img.GetActualSizeMB(), img.Path)
 }
 
+func (img *SQemuImage) String2ImageFormat() qemuimgfmt.TImageFormat {
+	return qemuimgfmt.String2ImageFormat(string(img.Format))
+}
+
 func (img *SQemuImage) WholeChainFormatIs(format string) (bool, error) {
 	if img.Format.String() != format {
 		return false, nil

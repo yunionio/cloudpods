@@ -546,7 +546,7 @@ func (self *SImage) SaveImageFromStream(reader io.Reader, totalSize int64, calCh
 		if err != nil {
 			return errors.Wrapf(err, "NewQemuImage %s", localPath)
 		}
-		format = string(img.Format)
+		format = string(img.String2ImageFormat())
 		virtualSizeBytes = img.SizeBytes
 
 		var fastChksum string
@@ -1458,7 +1458,7 @@ func (self *SImage) DoCheckStatus(ctx context.Context, userCred mcclient.TokenCr
 			}
 			img, err := qemuimg.NewQemuImage(self.GetLocalLocation())
 			if err == nil {
-				format := string(img.Format)
+				format := string(img.String2ImageFormat())
 				virtualSizeMB := int32(img.SizeBytes / 1024 / 1024)
 				if (len(format) > 0 && self.DiskFormat != format) || (virtualSizeMB > 0 && self.MinDiskMB != virtualSizeMB) {
 					db.Update(self, func() error {
