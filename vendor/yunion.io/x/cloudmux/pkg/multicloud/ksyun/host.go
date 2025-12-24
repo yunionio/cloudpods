@@ -22,6 +22,7 @@ import (
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/jsonutils"
 )
@@ -91,6 +92,9 @@ func (region *SRegion) CreateVM(opts *cloudprovider.SManagedVMCreateConfig) (*SI
 		"SystemDisk.DiskType": opts.SysDisk.StorageType,
 		"SystemDisk.DiskSize": fmt.Sprintf("%d", opts.SysDisk.SizeGB),
 		"SyncTag":             "true",
+	}
+	if utils.IsInStringArray(opts.KsyunPostpaidChargeType, []string{"HourlyInstantSettlement", "Daily"}) {
+		params["ChargeType"] = opts.KsyunPostpaidChargeType
 	}
 	if len(opts.Hostname) > 0 {
 		params["HostName"] = opts.Hostname

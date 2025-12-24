@@ -240,6 +240,8 @@ type ComputeOptions struct {
 	SkipSyncHostConfigInfoProviders    string `help:"Skip sync host cpu and mem config by provider"`
 	SkipSyncStorageConfigInfoProviders string `help:"Skip sync storage capacity and media type config by provider"`
 
+	KsyunPostpaidChargeType string `help:"Ksyun server postpaid charge type" choices:"Daily|HourlyInstantSettlement"`
+
 	esxi.EsxiOptions
 
 	NetworkAlwaysManualConfig bool `help:"always manually configure network settings" default:"false"`

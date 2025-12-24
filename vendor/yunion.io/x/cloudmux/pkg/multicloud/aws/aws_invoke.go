@@ -17,6 +17,7 @@ package aws
 import (
 	"io/ioutil"
 	"strings"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -122,15 +123,35 @@ func jsonInvoke(cli *client.Client, apiName, path string, params map[string]inte
 		},
 	}
 
+	isQuery := false
+	for _, prefix := range []string{"List", "Describe", "Get"} {
+		if strings.HasPrefix(apiName, prefix) {
+			isQuery = true
+			break
+		}
+	}
+	var err error
+
+	retry := 1
+	if isQuery {
+		retry = 3
+	}
 	req := cli.NewRequest(op, params, retval)
-	err := req.Send()
-	if err != nil {
+	for i := 0; i < retry; i++ {
+		err = req.Send()
+		if err == nil {
+			return nil
+		}
 		if e, ok := err.(awserr.RequestFailure); ok && e.StatusCode() == 404 {
 			return cloudprovider.ErrNotFound
 		}
+		if isHTTPReqErrorRetryable(err) {
+			time.Sleep(time.Second * 10)
+			continue
+		}
 		return err
 	}
-	return nil
+	return err
 }
 
 var JsonBuildHandler = request.NamedHandler{
