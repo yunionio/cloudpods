@@ -21,6 +21,7 @@ import (
 	"io/ioutil"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -268,7 +269,13 @@ func (self *SAwsClient) request(regionId, serviceName, serviceId, apiVersion str
 }
 
 func jsonRequest(cli *client.Client, apiName string, params map[string]string, retval interface{}) error {
-	method, path := "POST", "/"
+	method, path, isQuery := "POST", "/", false
+	for _, prefix := range []string{"List", "Get", "Describe"} {
+		if strings.HasPrefix(apiName, prefix) {
+			isQuery = true
+			break
+		}
+	}
 	if cli.ServiceID == CDN_SERVICE_ID {
 		for _, prefix := range []string{"List", "Get"} {
 			if strings.HasPrefix(apiName, prefix) {
@@ -343,12 +350,41 @@ func jsonRequest(cli *client.Client, apiName string, params map[string]string, r
 	}
 
 	req := cli.NewRequest(op, params, retval)
-	err := req.Send()
-	if err != nil {
+	retry := 1
+	if isQuery {
+		retry = 3
+	}
+	var err error
+	for i := 0; i < retry; i++ {
+		err = req.Send()
+		if err == nil {
+			return nil
+		}
 		if e, ok := err.(awserr.RequestFailure); ok && e.StatusCode() == 404 {
 			return cloudprovider.ErrNotFound
 		}
+		if isHTTPReqErrorRetryable(err) {
+			time.Sleep(time.Second * 10)
+			continue
+		}
 		return err
 	}
-	return nil
+	return err
+}
+
+func isHTTPReqErrorRetryable(err error) bool {
+	for _, code := range []string{
+		"EOF",
+		"i/o timeout",
+		"TLS handshake timeout",
+		"Client.Timeout exceeded while awaiting headers",
+		"connection reset by peer",
+		"context deadline exceeded",
+		"server misbehaving",
+	} {
+		if strings.Contains(err.Error(), code) {
+			return true
+		}
+	}
+	return false
 }
