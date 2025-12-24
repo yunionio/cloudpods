@@ -28,7 +28,7 @@ import (
 )
 
 type H3CCollect struct {
-	SBaseCollectDriver
+	SCollectByMetricTypeDriver
 }
 
 func (self *H3CCollect) GetProvider() string {
