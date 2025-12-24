@@ -796,7 +796,7 @@ func (b *HostBuilder) fillGuestsResourceInfo(desc *HostDesc, host *computemodels
 	desc.CreatingCPUCount = creatingCPUCount
 	desc.FakeDeletedCPUCount = cpuFakeDeletedCount
 
-	desc.TotalMemSize = int64(float32(desc.MemSize) * desc.MemCmtbound)
+	desc.TotalMemSize = int64(float32(desc.MemSize-desc.MemReserved) * desc.MemCmtbound)
 	desc.TotalCPUCount = int64(float32(desc.CpuCount) * desc.CPUCmtbound)
 
 	var memFreeSize int64
@@ -813,9 +813,6 @@ func (b *HostBuilder) fillGuestsResourceInfo(desc *HostDesc, host *computemodels
 		}
 	}
 
-	// free memory size calculate
-	rsvdUseMem := desc.GuestReservedResourceUsed.MemorySize
-	memFreeSize = memFreeSize + rsvdUseMem - desc.GetReservedMemSize()
 	memSub := desc.GuestReservedResource.MemorySize - desc.GuestReservedResourceUsed.MemorySize
 	if memSub < 0 {
 		memFreeSize += memSub
