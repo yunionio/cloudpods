@@ -3205,10 +3205,12 @@ func (manager *SHostManager) totalCountQ(
 	hosts := manager.Query().SubQuery()
 	q := hosts.Query(
 		hosts.Field("mem_size"),
+		hosts.Field("memory_used_mb"),
 		hosts.Field("page_size_kb"),
 		hosts.Field("mem_reserved"),
 		hosts.Field("mem_cmtbound"),
 		hosts.Field("cpu_count"),
+		hosts.Field("cpu_usage_percent"),
 		hosts.Field("cpu_reserved"),
 		hosts.Field("cpu_cmtbound"),
 		hosts.Field("storage_size"),
@@ -3265,10 +3267,12 @@ func (manager *SHostManager) totalCountQ(
 
 type HostStat struct {
 	MemSize                 int
+	MemoryUsedMb            int64
 	PageSizeKB              int
 	MemReserved             int
 	MemCmtbound             float32
 	CpuCount                int
+	CpuUsagePercent         float64
 	CpuReserved             int
 	CpuCmtbound             float32
 	StorageSize             int
@@ -3281,11 +3285,13 @@ type HostsCountStat struct {
 	StorageSize             int64
 	Count                   int64
 	Memory                  int64
+	MemoryUsed              int64
 	MemoryTotal             int64
 	MemoryVirtual           float64
 	MemoryReserved          int64
 	CPU                     int64
 	CPUTotal                int64
+	CPUUsed                 int64
 	CPUVirtual              float64
 	IsolatedReservedMemory  int64
 	IsolatedReservedCpu     int64
@@ -3314,8 +3320,10 @@ func (manager *SHostManager) calculateCount(q *sqlchemy.SQuery) HostsCountStat {
 		irCpu   int64   = 0
 		irStore int64   = 0
 
-		totalMem int64 = 0
-		totalCPU int64 = 0
+		totalMem     int64   = 0
+		totalMemUsed int64   = 0
+		totalCPU     int64   = 0
+		totalCPUUsed float64 = 0.0
 	)
 	stats := make([]HostStat, 0)
 	err := q.All(&stats)
@@ -3334,8 +3342,10 @@ func (manager *SHostManager) calculateCount(q *sqlchemy.SQuery) HostsCountStat {
 		aCpu := usableSize(int(stat.CpuCount), int(stat.CpuReserved))
 		tMem += int64(aMem)
 		totalMem += int64(stat.MemSize)
+		totalMemUsed += int64(stat.MemoryUsedMb)
 		tCPU += int64(aCpu)
 		totalCPU += int64(stat.CpuCount)
+		totalCPUUsed += stat.CpuUsagePercent * float64(stat.CpuCount) / 100
 		if isHugePage(stat.PageSizeKB) {
 			stat.MemCmtbound = 1.0
 		} else if stat.MemCmtbound <= 0.0 {
@@ -3356,10 +3366,12 @@ func (manager *SHostManager) calculateCount(q *sqlchemy.SQuery) HostsCountStat {
 		StorageSize:             tStore,
 		Count:                   tCnt,
 		Memory:                  tMem,
+		MemoryUsed:              totalMemUsed,
 		MemoryTotal:             totalMem,
 		MemoryVirtual:           tVmem,
 		MemoryReserved:          rMem,
 		CPU:                     tCPU,
+		CPUUsed:                 int64(totalCPUUsed),
 		CPUTotal:                totalCPU,
 		CPUVirtual:              tVCPU,
 		IsolatedReservedCpu:     irCpu,
@@ -3993,24 +4005,41 @@ func (manager *SHostManager) FetchCustomizeColumns(
 	return rows
 }
 
-func (manager *SHostManager) CustomizedTotalCount(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, totalQ *sqlchemy.SQuery) (int, jsonutils.JSONObject, error) {
-	results := struct {
-		apis.TotalCountBase
-		StatusInfo []apis.StatusStatisticStatusInfo
-	}{}
+type SInfrasStatusInfo struct {
+	apis.TotalCountBase
+	StatusInfo []apis.StatusStatisticStatusInfo
+}
 
-	err := totalQ.First(&results.TotalCountBase)
+type SHostTotalCount struct {
+	SInfrasStatusInfo
+	MemoryUsed  int64
+	MemoryTotal int64
+	CPUUsed     int64
+	CPUTotal    int64
+}
+
+func (manager *SHostManager) CustomizedTotalCount(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, totalQ *sqlchemy.SQuery) (int, jsonutils.JSONObject, error) {
+	results := SHostTotalCount{}
+
+	totalQ = totalQ.AppendField(sqlchemy.SUM("cpu_total", totalQ.Field("cpu_count")))
+	totalQ = totalQ.AppendField(sqlchemy.SUM("memory_total", totalQ.Field("mem_size")))
+	totalQ = totalQ.AppendField(sqlchemy.SUM("memory_used", totalQ.Field("memory_used_mb")))
+	totalQ = totalQ.AppendField(sqlchemy.CASTInt(sqlchemy.SUM("cpu_used", sqlchemy.MUL("use_cpu", totalQ.Field("cpu_usage_percent"), totalQ.Field("cpu_count"), sqlchemy.NewConstField(0.01))), "cpu_used"))
+
+	err := totalQ.First(&results)
 	if err != nil && errors.Cause(err) != sql.ErrNoRows {
 		return -1, nil, errors.Wrapf(err, "First")
 	}
 
-	totalSQ := totalQ.ResetFields().SubQuery()
-	statQ := totalSQ.Query(totalSQ.Field("status"), sqlchemy.COUNT("total_count", totalSQ.Field("id")))
-	statQ = statQ.GroupBy(totalSQ.Field("status"))
-	err = statQ.All(&results.StatusInfo)
+	_, statusInfo, err := manager.SEnabledStatusInfrasResourceBaseManager.CustomizedTotalCount(ctx, userCred, query, totalQ)
 	if err != nil {
-		return -1, nil, errors.Wrapf(err, "status query")
+		return -1, nil, errors.Wrapf(err, "virt.CustomizedTotalCount")
 	}
+
+	statusInfo.Unmarshal(&results.SInfrasStatusInfo)
+
+	log.Debugf("CustomizedTotalCount %s", jsonutils.Marshal(results))
+
 	return results.Count, jsonutils.Marshal(results), nil
 }
 
