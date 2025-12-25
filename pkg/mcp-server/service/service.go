@@ -19,6 +19,7 @@ import (
 
 	"yunion.io/x/log"
 
+	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/mcp-server/options"
 	"yunion.io/x/onecloud/pkg/mcp-server/server"
@@ -28,6 +29,18 @@ func StartService() {
 
 	opts := &options.Options
 	common_options.ParseOptions(opts, os.Args, "mcpserver.conf", "mcpserver")
+
+	// 如果配置了认证信息，初始化 auth manager
+	commonOpts := &opts.CommonOptions
+	// 只有当所有必需的认证配置都存在时，才初始化 auth manager
+	if len(commonOpts.AuthURL) > 0 && len(commonOpts.AdminUser) > 0 &&
+		len(commonOpts.AdminPassword) > 0 && len(commonOpts.AdminProject) > 0 {
+		app_common.InitAuth(commonOpts, func() {
+			log.Infof("Auth complete!!")
+		})
+	} else {
+		log.Infof("Auth configuration incomplete, skipping auth initialization. AuthURL: %s, AdminUser: %s, AdminPassword: %s, AdminProject: %s", commonOpts.AuthURL, commonOpts.AdminUser, commonOpts.AdminPassword, commonOpts.AdminProject)
+	}
 
 	// 创建服务器
 	srv := server.NewServer()

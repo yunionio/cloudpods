@@ -110,7 +110,7 @@ func (c *CloudpodsImagesTool) Handle(ctx context.Context, req mcp.CallToolReques
 	sk := req.GetString("sk", "")
 
 	// 调用适配器查询镜像列表
-	imagesResponse, err := c.adapter.ListImages(limit, offset, search, osTypes, ak, sk)
+	imagesResponse, err := c.adapter.ListImages(ctx, limit, offset, search, osTypes, ak, sk)
 	if err != nil {
 		log.Errorf("Fail to query image: %s", err)
 		return nil, fmt.Errorf("fail to query image: %w", err)

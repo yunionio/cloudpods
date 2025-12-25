@@ -29,7 +29,7 @@ import (
 // ListCloudRegions 查询 Cloudpods 中的区域列表
 func (a CloudpodsAdapter) ListCloudRegions(ctx context.Context, limit int, offset int, search string, provider string, ak string, sk string) (*models.CloudregionListResponse, error) {
 	// 获取 Cloudpods 会话
-	session, err := a.getSession(ak, sk)
+	session, err := a.getSession(ctx, ak, sk)
 	if err != nil {
 		return nil, err
 	}
@@ -83,9 +83,9 @@ func (a CloudpodsAdapter) ListCloudRegions(ctx context.Context, limit int, offse
 }
 
 // ListVPCs 查询 Cloudpods 中的 VPC 列表
-func (a *CloudpodsAdapter) ListVPCs(limit int, offset int, search string, cloudregionId string, ak string, sk string) (*models.VpcListResponse, error) {
+func (a *CloudpodsAdapter) ListVPCs(ctx context.Context, limit int, offset int, search string, cloudregionId string, ak string, sk string) (*models.VpcListResponse, error) {
 	// 获取 Cloudpods 会话
-	session, err := a.getSession(ak, sk)
+	session, err := a.getSession(ctx, ak, sk)
 	if err != nil {
 		return nil, err
 	}
@@ -139,9 +139,9 @@ func (a *CloudpodsAdapter) ListVPCs(limit int, offset int, search string, cloudr
 }
 
 // ListNetworks 查询 Cloudpods 中的网络列表
-func (a *CloudpodsAdapter) ListNetworks(limit int, offset int, search string, vpcId string, ak string, sk string) (*models.NetworkListResponse, error) {
+func (a *CloudpodsAdapter) ListNetworks(ctx context.Context, limit int, offset int, search string, vpcId string, ak string, sk string) (*models.NetworkListResponse, error) {
 	// 获取 Cloudpods 会话
-	session, err := a.getSession(ak, sk)
+	session, err := a.getSession(ctx, ak, sk)
 	if err != nil {
 		return nil, err
 	}
@@ -196,9 +196,9 @@ func (a *CloudpodsAdapter) ListNetworks(limit int, offset int, search string, vp
 }
 
 // ListImages 查询 Cloudpods 中的镜像列表
-func (a *CloudpodsAdapter) ListImages(limit int, offset int, search string, osTypes []string, ak string, sk string) (*models.ImageListResponse, error) {
+func (a *CloudpodsAdapter) ListImages(ctx context.Context, limit int, offset int, search string, osTypes []string, ak string, sk string) (*models.ImageListResponse, error) {
 	// 获取 Cloudpods 会话
-	session, err := a.getSession(ak, sk)
+	session, err := a.getSession(ctx, ak, sk)
 	if err != nil {
 		return nil, err
 	}
@@ -254,9 +254,9 @@ func (a *CloudpodsAdapter) ListImages(limit int, offset int, search string, osTy
 }
 
 // ListServerSkus 查询 Cloudpods 中的服务器规格列表
-func (a *CloudpodsAdapter) ListServerSkus(limit int, offset int, search string, cloudregionIds []string, zoneIds []string, cpuCoreCount []string, memorySizeMB []string, providers []string, cpuArch []string, ak string, sk string) (*models.ServerSkuListResponse, error) {
+func (a *CloudpodsAdapter) ListServerSkus(ctx context.Context, limit int, offset int, search string, cloudregionIds []string, zoneIds []string, cpuCoreCount []string, memorySizeMB []string, providers []string, cpuArch []string, ak string, sk string) (*models.ServerSkuListResponse, error) {
 	// 获取 Cloudpods 会话
-	session, err := a.getSession(ak, sk)
+	session, err := a.getSession(ctx, ak, sk)
 	if err != nil {
 		return nil, err
 	}
@@ -352,9 +352,9 @@ func (a *CloudpodsAdapter) ListServerSkus(limit int, offset int, search string, 
 }
 
 // ListStorages 查询 Cloudpods 中的存储列表
-func (a *CloudpodsAdapter) ListStorages(limit int, offset int, search string, cloudregionIds []string, zoneIds []string, providers []string, storageTypes []string, hostId string, ak string, sk string) (*models.StorageListResponse, error) {
+func (a *CloudpodsAdapter) ListStorages(ctx context.Context, limit int, offset int, search string, cloudregionIds []string, zoneIds []string, providers []string, storageTypes []string, hostId string, ak string, sk string) (*models.StorageListResponse, error) {
 	// 获取 Cloudpods 会话
-	session, err := a.getSession(ak, sk)
+	session, err := a.getSession(ctx, ak, sk)
 	if err != nil {
 		return nil, err
 	}
@@ -440,7 +440,7 @@ func (a *CloudpodsAdapter) ListStorages(limit int, offset int, search string, cl
 // ListServers 查询 Cloudpods 中的服务器列表
 func (a *CloudpodsAdapter) ListServers(ctx context.Context, limit int, offset int, search string, status string, ak string, sk string) (*models.ServerListResponse, error) {
 	// 获取 Cloudpods 会话
-	session, err := a.getSession(ak, sk)
+	session, err := a.getSession(ctx, ak, sk)
 	if err != nil {
 		return nil, err
 	}

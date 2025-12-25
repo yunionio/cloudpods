@@ -31,7 +31,7 @@ import (
 // StartServer 启动 Cloudpods 中的服务器
 func (a *CloudpodsAdapter) StartServer(ctx context.Context, serverId string, req models.ServerStartRequest, ak string, sk string) (*models.ServerOperationResponse, error) {
 	// 获取 Cloudpods 会话
-	session, err := a.getSession(ak, sk)
+	session, err := a.getSession(ctx, ak, sk)
 	if err != nil {
 		return nil, err
 	}
@@ -75,7 +75,7 @@ func (a *CloudpodsAdapter) StartServer(ctx context.Context, serverId string, req
 // StopServer 停止 Cloudpods 中的服务器
 func (a *CloudpodsAdapter) StopServer(ctx context.Context, serverId string, req models.ServerStopRequest, ak string, sk string) (*models.ServerOperationResponse, error) {
 	// 获取 Cloudpods 会话
-	session, err := a.getSession(ak, sk)
+	session, err := a.getSession(ctx, ak, sk)
 	if err != nil {
 		return nil, err
 	}
@@ -124,7 +124,7 @@ func (a *CloudpodsAdapter) StopServer(ctx context.Context, serverId string, req 
 // RestartServer 重启 Cloudpods 中的服务器
 func (a *CloudpodsAdapter) RestartServer(ctx context.Context, serverId string, req models.ServerRestartRequest, ak string, sk string) (*models.ServerOperationResponse, error) {
 	// 获取 Cloudpods 会话
-	session, err := a.getSession(ak, sk)
+	session, err := a.getSession(ctx, ak, sk)
 	if err != nil {
 		return nil, err
 	}
@@ -163,7 +163,7 @@ func (a *CloudpodsAdapter) RestartServer(ctx context.Context, serverId string, r
 // ResetServerPassword 重置 Cloudpods 中服务器的密码
 func (a *CloudpodsAdapter) ResetServerPassword(ctx context.Context, serverId string, req models.ServerResetPasswordRequest, ak string, sk string) (*models.ServerOperationResponse, error) {
 	// 获取 Cloudpods 会话
-	session, err := a.getSession(ak, sk)
+	session, err := a.getSession(ctx, ak, sk)
 	if err != nil {
 		return nil, err
 	}
@@ -211,7 +211,7 @@ func (a *CloudpodsAdapter) ResetServerPassword(ctx context.Context, serverId str
 // DeleteServer 删除 Cloudpods 中的服务器
 func (a *CloudpodsAdapter) DeleteServer(ctx context.Context, serverId string, req models.ServerDeleteRequest, ak string, sk string) (*models.ServerOperationResponse, error) {
 	// 获取 Cloudpods 会话
-	session, err := a.getSession(ak, sk)
+	session, err := a.getSession(ctx, ak, sk)
 	if err != nil {
 		return nil, err
 	}
@@ -265,7 +265,7 @@ func (a *CloudpodsAdapter) DeleteServer(ctx context.Context, serverId string, re
 // CreateServer 在 Cloudpods 中创建服务器
 func (a *CloudpodsAdapter) CreateServer(ctx context.Context, req models.CreateServerRequest, ak string, sk string) (*models.CreateServerResponse, error) {
 	// 获取 Cloudpods 会话
-	session, err := a.getSession(ak, sk)
+	session, err := a.getSession(ctx, ak, sk)
 	if err != nil {
 		return nil, err
 	}
@@ -440,7 +440,7 @@ func (a *CloudpodsAdapter) CreateServer(ctx context.Context, req models.CreateSe
 
 // GetServerMonitor 获取 Cloudpods 中服务器的监控数据
 func (a *CloudpodsAdapter) GetServerMonitor(ctx context.Context, serverId string, startTime, endTime int64, metrics []string, ak string, sk string) (*models.MonitorResponse, error) {
-	session, err := a.getSession(ak, sk)
+	session, err := a.getSession(ctx, ak, sk)
 	if err != nil {
 		return nil, err
 	}
@@ -591,7 +591,7 @@ func (a *CloudpodsAdapter) GetServerMonitor(ctx context.Context, serverId string
 
 // GetServerStats 获取 Cloudpods 中服务器的实时统计数据
 func (a *CloudpodsAdapter) GetServerStats(ctx context.Context, serverId string, ak string, sk string) (*models.ServerStatsResponse, error) {
-	session, err := a.getSession(ak, sk)
+	session, err := a.getSession(ctx, ak, sk)
 	if err != nil {
 		return nil, err
 	}

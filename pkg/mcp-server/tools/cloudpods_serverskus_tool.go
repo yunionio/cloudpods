@@ -171,7 +171,7 @@ func (c *CloudpodsServerSkusTool) Handle(ctx context.Context, req mcp.CallToolRe
 	sk := req.GetString("sk", "")
 
 	// 调用适配器查询主机套餐规格列表
-	skusResponse, err := c.adapter.ListServerSkus(limit, offset, search, cloudregionIds, zoneIds, cpuCoreCount, memorySizeMB, providers, cpuArch, ak, sk)
+	skusResponse, err := c.adapter.ListServerSkus(ctx, limit, offset, search, cloudregionIds, zoneIds, cpuCoreCount, memorySizeMB, providers, cpuArch, ak, sk)
 	if err != nil {
 		log.Errorf("Fail to query server skus: %s", err)
 		return nil, fmt.Errorf("fail to query server skus: %w", err)

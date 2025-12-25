@@ -111,7 +111,7 @@ func (c *CloudpodsVPCsTool) Handle(ctx context.Context, req mcp.CallToolRequest)
 	sk := req.GetString("sk", "")
 
 	// 调用适配器查询VPC列表
-	vpcsResponse, err := c.adapter.ListVPCs(limit, offset, search, cloudRegionID, ak, sk)
+	vpcsResponse, err := c.adapter.ListVPCs(ctx, limit, offset, search, cloudRegionID, ak, sk)
 	if err != nil {
 		log.Errorf("Fail to query vpc: %s", err)
 		return nil, fmt.Errorf("fail to query vpc: %w", err)
