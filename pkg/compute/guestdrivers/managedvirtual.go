@@ -638,6 +638,7 @@ func (drv *SManagedVirtualizedGuestDriver) RemoteDeployGuestForCreate(ctx contex
 			Name: dev.Name,
 		})
 	}
+	desc.KsyunPostpaidChargeType = options.Options.KsyunPostpaidChargeType
 
 	var iVM cloudprovider.ICloudVM = nil
 	iVM, err = func() (cloudprovider.ICloudVM, error) {
