@@ -185,6 +185,39 @@ func (d disk) mountDisk(devPath string, mntPoint string, fs string, resUid int, 
 	return nil
 }
 
+func (d disk) Connect(pod volume_mount.IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount) (string, bool, error) {
+	iDisk, _, err := d.getPodDisk(pod, vm)
+	if err != nil {
+		return "", false, errors.Wrap(err, "get pod disk interface")
+	}
+	return d.connectDisk(iDisk)
+}
+
+func (d disk) Disconnect(pod volume_mount.IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount) error {
+	iDisk, _, err := d.getPodDisk(pod, vm)
+	if err != nil {
+		return errors.Wrap(err, "get pod disk interface")
+	}
+	drv, err := iDisk.GetContainerStorageDriver()
+	if err != nil {
+		return errors.Wrap(err, "get disk storage driver")
+	}
+	mntPoint := pod.GetDiskMountPoint(iDisk)
+	_, isConnected, err := drv.CheckConnect(iDisk.GetPath())
+	if err != nil {
+		return errors.Wrapf(err, "CheckConnect %s", iDisk.GetPath())
+	}
+	if isConnected {
+		if err := drv.DisconnectDisk(iDisk.GetPath(), mntPoint); err != nil {
+			return errors.Wrapf(err, "DisconnectDisk %s %s", iDisk.GetPath(), mntPoint)
+		}
+	}
+	if err := volume_mount.RemoveDir(mntPoint); err != nil {
+		return errors.Wrapf(err, "remove dir %s", mntPoint)
+	}
+	return nil
+}
+
 func (d disk) connectDiskAndMount(drv container_storage.IContainerStorage, pod volume_mount.IPodInfo, iDisk storageman.IDisk, fs string, resUid, resGid int) (string, error) {
 	devPath, isConnected, err := d.connectDisk(iDisk)
 	if err != nil {
@@ -282,14 +315,18 @@ func (d disk) createStorageSizeFile(iDisk storageman.IDisk, mntPoint string, inp
 	return nil
 }
 
+func (d disk) UnmountWithoutDisconnect(pod volume_mount.IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount) error {
+	return d.unmount(pod, ctrId, vm, false)
+}
+
 func (d disk) Unmount(pod volume_mount.IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount) error {
+	return d.unmount(pod, ctrId, vm, true)
+}
+
+func (d disk) unmount(pod volume_mount.IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount, disconnect bool) error {
 	iDisk, _, err := d.getPodDisk(pod, vm)
 	if err != nil {
 		return errors.Wrap(err, "get pod disk interface")
-	}
-	drv, err := iDisk.GetContainerStorageDriver()
-	if err != nil {
-		return errors.Wrap(err, "get disk storage driver")
 	}
 	if len(vm.Disk.PostOverlay) != 0 {
 		if err := d.UnmountPostOverlays(pod, ctrId, vm, vm.Disk.PostOverlay, false, false); err != nil {
@@ -303,19 +340,12 @@ func (d disk) Unmount(pod volume_mount.IPodInfo, ctrId string, vm *hostapi.Conta
 	}
 	mntPoint := pod.GetDiskMountPoint(iDisk)
 	if err := container_storage.UnmountWithSubDirs(mntPoint); err != nil {
-		return errors.Wrapf(err, "unmount %s", mntPoint)
+		return errors.Wrapf(err, "UnmountWithSubDirs %s", mntPoint)
 	}
-	_, isConnected, err := drv.CheckConnect(iDisk.GetPath())
-	if err != nil {
-		return errors.Wrapf(err, "CheckConnect %s", iDisk.GetPath())
-	}
-	if isConnected {
-		if err := drv.DisconnectDisk(iDisk.GetPath(), mntPoint); err != nil {
-			return errors.Wrapf(err, "DisconnectDisk %s %s", iDisk.GetPath(), mntPoint)
+	if disconnect {
+		if err := d.Disconnect(pod, ctrId, vm); err != nil {
+			return errors.Wrapf(err, "disconnect disk")
 		}
-	}
-	if err := volume_mount.RemoveDir(mntPoint); err != nil {
-		return errors.Wrapf(err, "remove dir %s", mntPoint)
 	}
 	return nil
 }
