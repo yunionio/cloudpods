@@ -58,6 +58,14 @@ type IVolumeMount interface {
 	Unmount(pod IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount) error
 }
 
+type IConnectedVolumeMount interface {
+	IVolumeMount
+
+	UnmountWithoutDisconnect(pod IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount) error
+	Connect(pod IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount) (string, bool, error)
+	Disconnect(pod IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount) error
+}
+
 type ContainerVolumeMountUsage struct {
 	Id         string
 	HostPath   string

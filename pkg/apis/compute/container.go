@@ -218,7 +218,8 @@ type ContainerSaveVolumeMountToImageInput struct {
 	Dirs              []string `json:"dirs"`
 	UsedByPostOverlay bool     `json:"used_by_post_overlay"`
 
-	DirPrefix string `json:"dir_prefix"`
+	DirPrefix    string   `json:"dir_prefix"`
+	ExcludePaths []string `json:"exclude_paths"`
 }
 
 type ContainerExecInfoOutput struct {

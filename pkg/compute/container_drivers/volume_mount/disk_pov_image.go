@@ -71,6 +71,14 @@ func (p povImage) validateData(ctx context.Context, userCred mcclient.TokenCrede
 	if len(pov.Image.PathMap) == 0 {
 		pov.Image.PathMap = pathMap
 	}
+	if len(pov.Image.HostLowerMap) != 0 {
+		for hostPath, _ := range pov.Image.HostLowerMap {
+			_, ok := pov.Image.PathMap[hostPath]
+			if !ok {
+				return httperrors.NewNotFoundError("host_path %s of host_lower_map doesn't found in path_map", hostPath)
+			}
+		}
+	}
 	return nil
 }
 
