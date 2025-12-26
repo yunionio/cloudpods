@@ -691,12 +691,12 @@ func (s *sPodGuestInstance) umountRootFs(ctrId string, rootFs *hostapi.Container
 	if rootFs == nil {
 		return nil
 	}
-	drv := volume_mount.GetDriver(rootFs.Type)
+	drv := volume_mount.GetDriver(rootFs.Type).(volume_mount.IConnectedVolumeMount)
 	vol := s.ConvertRootFsToVolumeMount(rootFs)
 	if err := s.clearContainerRootFs(ctrId, rootFs); err != nil {
 		return errors.Wrapf(err, "clear rootfs of container %s", ctrId)
 	}
-	if err := drv.Unmount(s, ctrId, vol); err != nil {
+	if err := drv.UnmountWithoutDisconnect(s, ctrId, vol); err != nil {
 		return errors.Wrapf(err, "unmount root fs %s, ctrId %s", jsonutils.Marshal(rootFs), ctrId)
 	}
 	return nil
@@ -747,6 +747,30 @@ func (s *sPodGuestInstance) mountPodVolumes() error {
 }
 
 func (s *sPodGuestInstance) umountPodVolumes() error {
+	disConnectFuncs := make([]func() error, 0)
+	for ctrId, vols := range s.getContainerVolumeMounts() {
+		for _, vol := range vols {
+			drv := volume_mount.GetDriver(vol.Type)
+			connectedDrv, ok := drv.(volume_mount.IConnectedVolumeMount)
+			if !ok {
+				if err := drv.Unmount(s, ctrId, vol); err != nil {
+					return errors.Wrapf(err, "Unmount volume %s, ctrId %s", jsonutils.Marshal(vol), ctrId)
+				}
+			} else {
+				if err := connectedDrv.UnmountWithoutDisconnect(s, ctrId, vol); err != nil {
+					return errors.Wrapf(err, "UnmountWithoutDisconnect volume %s, ctrId %s", jsonutils.Marshal(vol), ctrId)
+				}
+				tmpCtrId := ctrId
+				tmpVol := vol
+				disConnectFuncs = append(disConnectFuncs, func() error {
+					if err := connectedDrv.Disconnect(s, tmpCtrId, tmpVol); err != nil {
+						return errors.Wrapf(err, "Disconnect volume %s, ctrId %s", jsonutils.Marshal(tmpVol), tmpCtrId)
+					}
+					return nil
+				})
+			}
+		}
+	}
 	for _, ctr := range s.GetDesc().Containers {
 		if ctr.Spec.Rootfs == nil {
 			continue
@@ -755,11 +779,9 @@ func (s *sPodGuestInstance) umountPodVolumes() error {
 			return errors.Wrapf(err, "umount root fs %s, ctrId %s", jsonutils.Marshal(ctr.Spec.Rootfs), ctr.Id)
 		}
 	}
-	for ctrId, vols := range s.getContainerVolumeMounts() {
-		for _, vol := range vols {
-			if err := volume_mount.GetDriver(vol.Type).Unmount(s, ctrId, vol); err != nil {
-				return errors.Wrapf(err, "Unmount volume %s, ctrId %s", jsonutils.Marshal(vol), ctrId)
-			}
+	for _, disConnectFunc := range disConnectFuncs {
+		if err := disConnectFunc(); err != nil {
+			return errors.Wrapf(err, "disconnect volume")
 		}
 	}
 	return nil
@@ -2616,7 +2638,38 @@ func (s *sPodGuestInstance) tarGzDir(input *hostapi.ContainerSaveVolumeMountToIm
 		}
 	}
 
-	cmd := fmt.Sprintf("tar -czf %s -C %s %s", outputFp, hostPath, dirPath)
+	// 减去 excludePaths 的大小
+	for _, exclude := range input.ExcludePaths {
+		// exclude 路径是相对于 hostPath 的
+		sizeCmd := fmt.Sprintf("du -sb '%s' 2>/dev/null | awk '{print $1}'", exclude)
+		cmd := fmt.Sprintf("cd %s && %s", hostPath, sizeCmd)
+		out, err := procutils.NewRemoteCommandAsFarAsPossible("sh", "-c", cmd).Output()
+		if err != nil {
+			// exclude 路径不存在时忽略错误，继续处理下一个
+			continue
+		}
+		outStr := strings.TrimSpace(string(out))
+		if outStr == "" {
+			continue
+		}
+		excludeSize, err := strconv.ParseInt(outStr, 10, 64)
+		if err != nil {
+			// 解析失败时忽略，继续处理下一个
+			continue
+		}
+		totalSize -= excludeSize
+		// 确保 totalSize 不为负数
+		if totalSize < 0 {
+			totalSize = 0
+		}
+	}
+
+	baseCmd := "tar -czf"
+	// 添加 exclude 选项
+	for _, exclude := range input.ExcludePaths {
+		baseCmd = fmt.Sprintf("%s --exclude='%s'", baseCmd, exclude)
+	}
+	cmd := fmt.Sprintf("%s %s -C %s %s", baseCmd, outputFp, hostPath, dirPath)
 	if input.VolumeMountPrefix != "" {
 		cmd += fmt.Sprintf(" --transform 's,^,%s/,'", input.VolumeMountPrefix)
 	}
