@@ -16,6 +16,7 @@ package disk
 
 import (
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"yunion.io/x/pkg/errors"
@@ -97,7 +98,26 @@ func (d diskPostOverlay) getDriver(ov *apis.ContainerVolumeMountDiskPostOverlay)
 	return getPostOverlayDriver(ov.GetType())
 }
 
+// getMinPathMapKeyLength 获取 PathMap 中最短 key 的长度
+// 如果 Image 为 nil 或 PathMap 为空，返回一个很大的值，确保排在后面
+func getMinPathMapKeyLength(ov *apis.ContainerVolumeMountDiskPostOverlay) int {
+	if ov.Image == nil || len(ov.Image.PathMap) == 0 {
+		return 1 << 30 // 返回一个很大的值，确保没有 PathMap 的排在后面
+	}
+	minLen := 1 << 30
+	for key := range ov.Image.PathMap {
+		if len(key) < minLen {
+			minLen = len(key)
+		}
+	}
+	return minLen
+}
+
 func (d diskPostOverlay) mountPostOverlays(pod volume_mount.IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount, ovs []*apis.ContainerVolumeMountDiskPostOverlay) error {
+	// 根据 PathMap 中最短路径长度排序，路径短的排在前面
+	sort.Slice(ovs, func(i, j int) bool {
+		return getMinPathMapKeyLength(ovs[i]) < getMinPathMapKeyLength(ovs[j])
+	})
 	for _, ov := range ovs {
 		if err := d.getDriver(ov).Mount(d, pod, ctrId, vm, ov); err != nil {
 			return errors.Wrapf(err, "mount container %s post overlay dir: %#v", ctrId, ov)
@@ -107,6 +127,10 @@ func (d diskPostOverlay) mountPostOverlays(pod volume_mount.IPodInfo, ctrId stri
 }
 
 func (d diskPostOverlay) unmountPostOverlays(pod volume_mount.IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount, ovs []*apis.ContainerVolumeMountDiskPostOverlay, useLazy bool, clearLayers bool) error {
+	// 根据 PathMap 中最短路径长度降序排序，路径长的排在前面（与 mount 顺序相反）
+	sort.Slice(ovs, func(i, j int) bool {
+		return getMinPathMapKeyLength(ovs[i]) > getMinPathMapKeyLength(ovs[j])
+	})
 	for _, ov := range ovs {
 		if err := d.getDriver(ov).Unmount(d, pod, ctrId, vm, ov, useLazy, clearLayers); err != nil {
 			return errors.Wrapf(err, "unmount container %s post overlay dir: %#v", ctrId, ov)
