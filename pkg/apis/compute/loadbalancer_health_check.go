@@ -39,21 +39,21 @@ type SLoadbalancerHealthCheckCreateInput struct {
 	CloudregionResourceInput
 	CloudproviderResourceInput
 
-	HealthCheckType string
+	HealthCheckType string `json:"health_check_type"`
 
-	HealthCheckDomain   string
-	HealthCheckURI      string
-	HealthCheckHttpCode string
-	HealthCheckMethod   string
-	HealthCheckPort     int
+	HealthCheckDomain   string `json:"health_check_domain"`
+	HealthCheckURI      string `json:"health_check_uri"`
+	HealthCheckHttpCode string `json:"health_check_http_code"`
+	HealthCheckMethod   string `json:"health_check_method"`
+	HealthCheckPort     int    `json:"health_check_port"`
 
-	HealthCheckRise     int
-	HealthCheckFall     int
-	HealthCheckTimeout  int
-	HealthCheckInterval int
+	HealthCheckRise     int `json:"health_check_rise"`
+	HealthCheckFall     int `json:"health_check_fall"`
+	HealthCheckTimeout  int `json:"health_check_timeout"`
+	HealthCheckInterval int `json:"health_check_interval"`
 
-	HealthCheckReq string
-	HealthCheckExp string
+	HealthCheckReq string `json:"health_check_req"`
+	HealthCheckExp string `json:"health_check_exp"`
 }
 
 type SLoadbalancerHealthCheckUpdateInput struct {

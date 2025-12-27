@@ -33,8 +33,8 @@ type GroupJointsListInput struct {
 type GroupguestDetails struct {
 	GroupJointResourceDetails
 
-	Server string
-	Guest  string
+	Server string `json:"server"`
+	Guest  string `json:"guest"`
 
 	SGroupguest
 }

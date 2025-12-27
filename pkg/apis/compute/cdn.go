@@ -46,17 +46,17 @@ const (
 
 type CdnDomain struct {
 	// cdn加速域名
-	Domain string
+	Domain string `json:"domain"`
 	// 状态 rejected(域名未审核)|processing(部署中)|online|offline
-	Status string
+	Status string `json:"status"`
 	// 区域 mainland|overseas|global
-	Area string
+	Area string `json:"area"`
 	// cdn Cname
-	Cname string
+	Cname string `json:"cname"`
 	// 源站
-	Origin string
+	Origin string `json:"origin"`
 	// 源站类型 domain|ip|bucket
-	OriginType string
+	OriginType string `json:"origin_type"`
 }
 
 type CdnDomains struct {
@@ -97,9 +97,9 @@ type CDNDomainListInput struct {
 }
 
 type CDNCustomHostnameOutput struct {
-	Data []cloudprovider.CustomHostname
+	Data []cloudprovider.CustomHostname `json:"data"`
 }
 
 type CDNDeleteCustomHostnameInput struct {
-	Id string
+	Id string `json:"id"`
 }

@@ -131,7 +131,7 @@ type MetricFieldCreateInput struct {
 type MetricFieldUpdateInput struct {
 	apis.StandaloneResourceBaseUpdateInput
 
-	Id          string
+	Id          string `json:"id"`
 	DisplayName string `json:"display_name"`
 	Unit        string `json:"unit"`
 	ValueType   string `json:"value_type"`
@@ -186,14 +186,14 @@ type MetricFieldDetail struct {
 
 type InfluxMeasurement struct {
 	apis.Meta
-	Database               string
-	Measurement            string
-	MeasurementDisplayName string
-	ResType                string
-	Score                  int
-	TagKey                 []string
-	TagValue               map[string][]string
-	FieldKey               []string
-	FieldDescriptions      map[string]MetricFieldDetail
-	Unit                   []string
+	Database               string                       `json:"database"`
+	Measurement            string                       `json:"measurement"`
+	MeasurementDisplayName string                       `json:"measurement_display_name"`
+	ResType                string                       `json:"res_type"`
+	Score                  int                          `json:"score"`
+	TagKey                 []string                     `json:"tag_key"`
+	TagValue               map[string][]string          `json:"tag_value"`
+	FieldKey               []string                     `json:"field_key"`
+	FieldDescriptions      map[string]MetricFieldDetail `json:"field_descriptions"`
+	Unit                   []string                     `json:"unit"`
 }

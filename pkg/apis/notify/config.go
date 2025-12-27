@@ -98,28 +98,28 @@ type ConfigManagerGetTypesOutput struct {
 }
 
 type SsNotification struct {
-	ContactType      string
-	Topic            string
-	Message          string
-	Event            SNotifyEvent
-	AdvanceDays      int
-	RobotUseTemplate bool
+	ContactType      string       `json:"contact_type"`
+	Topic            string       `json:"topic"`
+	Message          string       `json:"message"`
+	Event            SNotifyEvent `json:"event"`
+	AdvanceDays      int          `json:"advance_days"`
+	RobotUseTemplate bool         `json:"robot_use_template"`
 }
 
 type SBatchSendParams struct {
-	ContactType string
-	Contacts    []string
-	Topic       string
-	Message     string
-	Priority    string
-	Lang        string
+	ContactType string   `json:"contact_type"`
+	Contacts    []string `json:"contacts"`
+	Topic       string   `json:"topic"`
+	Message     string   `json:"message"`
+	Priority    string   `json:"priority"`
+	Lang        string   `json:"lang"`
 }
 
 type SNotifyReceiver struct {
-	Contact  string
-	DomainId string
-	Enabled  bool
-	Lang     string
+	Contact  string `json:"contact"`
+	DomainId string `json:"domain_id"`
+	Enabled  bool   `json:"enabled"`
+	Lang     string `json:"lang"`
 
 	callback func(error)
 }
@@ -131,44 +131,44 @@ func (self *SNotifyReceiver) Callback(err error) {
 }
 
 type SSendParams struct {
-	ContactType    string
-	Contact        string
-	Topic          string
-	Message        string
-	Priority       string
-	Title          string
-	RemoteTemplate string
-	Lang           string
-	Receiver       SNotifyReceiver
+	ContactType    string          `json:"contact_type"`
+	Contact        string          `json:"contact"`
+	Topic          string          `json:"topic"`
+	Message        string          `json:"message"`
+	Priority       string          `json:"priority"`
+	Title          string          `json:"title"`
+	RemoteTemplate string          `json:"remote_template"`
+	Lang           string          `json:"lang"`
+	Receiver       SNotifyReceiver `json:"receiver"`
 }
 
 type SNotificationGroupSearchInput struct {
-	StartTime   time.Time
-	EndTime     time.Time
-	GroupKey    string
-	ReceiverId  string
-	ContactType string
+	StartTime   time.Time `json:"start_time"`
+	EndTime     time.Time `json:"end_time"`
+	GroupKey    string    `json:"group_key"`
+	ReceiverId  string    `json:"receiver_id"`
+	ContactType string    `json:"contact_type"`
 }
 
 type SendParams struct {
-	Title               string
-	Message             string
-	Priority            string
-	RemoteTemplate      string
-	Topic               string
-	Event               string
-	Receivers           SNotifyReceiver
-	EmailMsg            SEmailMessage
-	Header              jsonutils.JSONObject
-	Body                jsonutils.JSONObject
-	MsgKey              string
-	DomainId            string
-	RemoteTemplateParam SRemoteTemplateParam
-	GroupKey            string
+	Title               string               `json:"title"`
+	Message             string               `json:"message"`
+	Priority            string               `json:"priority"`
+	RemoteTemplate      string               `json:"remote_template"`
+	Topic               string               `json:"topic"`
+	Event               string               `json:"event"`
+	Receivers           SNotifyReceiver      `json:"receivers"`
+	EmailMsg            SEmailMessage        `json:"email_msg"`
+	Header              jsonutils.JSONObject `json:"header"`
+	Body                jsonutils.JSONObject `json:"body"`
+	MsgKey              string               `json:"msg_key"`
+	DomainId            string               `json:"domain_id"`
+	RemoteTemplateParam SRemoteTemplateParam `json:"remote_template_param"`
+	GroupKey            string               `json:"group_key"`
 	// minutes
-	GroupTimes uint
-	ReceiverId string
-	SendTime   time.Time
+	GroupTimes uint      `json:"group_times"`
+	ReceiverId string    `json:"receiver_id"`
+	SendTime   time.Time `json:"send_time"`
 }
 
 type SRemoteTemplateParam struct {
@@ -180,22 +180,22 @@ type SRemoteTemplateParam struct {
 }
 
 type SSMSSendParams struct {
-	RemoteTemplate      string
-	RemoteTemplateParam SRemoteTemplateParam
+	RemoteTemplate      string               `json:"remote_template"`
+	RemoteTemplateParam SRemoteTemplateParam `json:"remote_template_param"`
 
-	AppKey        string
-	AppSecret     string
-	From          string
-	To            string
-	TemplateId    string
-	TemplateParas string
-	Signature     string
+	AppKey        string `json:"app_key"`
+	AppSecret     string `json:"app_secret"`
+	From          string `json:"from"`
+	To            string `json:"to"`
+	TemplateId    string `json:"template_id"`
+	TemplateParas string `json:"template_paras"`
+	Signature     string `json:"signature"`
 }
 
 type NotifyConfig struct {
 	SNotifyConfigContent
-	Attribution string
-	DomainId    string
+	Attribution string `json:"attribution"`
+	DomainId    string `json:"domain_id"`
 }
 
 func (self *NotifyConfig) GetDomainId() string {
@@ -207,35 +207,35 @@ func (self *NotifyConfig) GetDomainId() string {
 
 type SNotifyConfigContent struct {
 	// Email
-	Hostname      string
-	Hostport      int
-	Password      string
-	SslGlobal     bool
-	Username      string
-	SenderAddress string
+	Hostname      string `json:"hostname"`
+	Hostport      int    `json:"hostport"`
+	Password      string `json:"password"`
+	SslGlobal     bool   `json:"ssl_global"`
+	Username      string `json:"username"`
+	SenderAddress string `json:"sender_address"`
 	//Lark
-	AppId                 string
-	AppSecret             string
-	AccessToken           string
-	AccessTokenExpireTime time.Time
+	AppId                 string    `json:"app_id"`
+	AppSecret             string    `json:"app_secret"`
+	AccessToken           string    `json:"access_token"`
+	AccessTokenExpireTime time.Time `json:"access_token_expire_time"`
 	// workwx
-	AgentId string
-	CorpId  string
-	Secret  string
+	AgentId string `json:"agent_id"`
+	CorpId  string `json:"corp_id"`
+	Secret  string `json:"secret"`
 	// dingtalk
 	//AgentId string
 	//AppSecret string
-	AppKey string
+	AppKey string `json:"app_key"`
 	// sms
-	VerifiyCode     string
-	AlertsCode      string
-	ErrorCode       string
-	PhoneNumber     string
-	AccessKeyId     string
-	AccessKeySecret string
-	ServiceUrl      string
-	Signature       string
-	SmsDriver       string
+	VerifiyCode     string `json:"verifiy_code"`
+	AlertsCode      string `json:"alerts_code"`
+	ErrorCode       string `json:"error_code"`
+	PhoneNumber     string `json:"phone_number"`
+	AccessKeyId     string `json:"access_key_id"`
+	AccessKeySecret string `json:"access_key_secret"`
+	ServiceUrl      string `json:"service_url"`
+	Signature       string `json:"signature"`
+	SmsDriver       string `json:"sms_driver"`
 }
 
 func (self SNotifyConfigContent) String() string {

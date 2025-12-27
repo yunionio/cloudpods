@@ -44,21 +44,21 @@ func (input *BaremetalProfileListInput) Normalize() {
 type BaremetalProfileCreateInput struct {
 	apis.StandaloneAnonResourceCreateInput
 
-	OemName    string
-	Model      string
-	LanChannel uint8
-	RootId     int
-	RootName   string
-	StrongPass bool
+	OemName    string `json:"oem_name"`
+	Model      string `json:"model"`
+	LanChannel uint8  `json:"lan_channel"`
+	RootId     int    `json:"root_id"`
+	RootName   string `json:"root_name"`
+	StrongPass bool   `json:"strong_pass"`
 }
 
 type BaremetalProfileUpdateInput struct {
 	apis.StandaloneAnonResourceBaseUpdateInput
 
-	LanChannel uint8
-	RootId     *int
-	RootName   string
-	StrongPass *bool
+	LanChannel uint8  `json:"lan_channel"`
+	RootId     *int   `json:"root_id"`
+	RootName   string `json:"root_name"`
+	StrongPass *bool  `json:"strong_pass"`
 }
 
 type BaremetalProfileDetails struct {
@@ -87,12 +87,12 @@ func (detail BaremetalProfileDetails) ToSpec() BaremetalProfileSpec {
 }
 
 type BaremetalProfileSpec struct {
-	OemName     string
-	Model       string
-	LanChannels []uint8
-	RootName    string
-	RootId      int
-	StrongPass  bool
+	OemName     string  `json:"oem_name"`
+	Model       string  `json:"model"`
+	LanChannels []uint8 `json:"lan_channels"`
+	RootName    string  `json:"root_name"`
+	RootId      int     `json:"root_id"`
+	StrongPass  bool    `json:"strong_pass"`
 }
 
 type BaremetalProfileSpecs []BaremetalProfileSpec

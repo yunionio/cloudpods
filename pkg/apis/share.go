@@ -27,17 +27,17 @@ const (
 )
 
 type SAccountShareInfo struct {
-	IsPublic      bool
-	PublicScope   rbacscope.TRbacScope
-	ShareMode     string
-	SharedDomains []string
+	IsPublic      bool                 `json:"is_public"`
+	PublicScope   rbacscope.TRbacScope `json:"public_scope"`
+	ShareMode     string               `json:"share_mode"`
+	SharedDomains []string             `json:"shared_domains"`
 }
 
 type SShareInfo struct {
-	IsPublic       bool
-	PublicScope    rbacscope.TRbacScope
-	SharedDomains  []string
-	SharedProjects []string
+	IsPublic       bool                 `json:"is_public"`
+	PublicScope    rbacscope.TRbacScope `json:"public_scope"`
+	SharedDomains  []string             `json:"shared_domains"`
+	SharedProjects []string             `json:"shared_projects"`
 }
 
 func (i SAccountShareInfo) GetProjectShareInfo() SShareInfo {

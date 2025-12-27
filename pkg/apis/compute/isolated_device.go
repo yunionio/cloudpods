@@ -277,8 +277,8 @@ const (
 )
 
 type PCIEVersionThroughput struct {
-	Version    string
-	Throughput float64
+	Version    string  `json:"version"`
+	Throughput float64 `json:"throughput"`
 }
 
 func NewPCIEVersionThroughput(version string) PCIEVersionThroughput {
@@ -360,10 +360,10 @@ type HostIsolatedDeviceModelDetails struct {
 	// 存储Id
 	IsolatedDeviceModelId string `json:"isolated_device_model_id"`
 
-	Model             string
-	VendorId          string
-	DeviceId          string
-	DevType           string
-	HotPluggable      bool
-	DisableAutoDetect bool
+	Model             string `json:"model"`
+	VendorId          string `json:"vendor_id"`
+	DeviceId          string `json:"device_id"`
+	DevType           string `json:"dev_type"`
+	HotPluggable      bool   `json:"hot_pluggable"`
+	DisableAutoDetect bool   `json:"disable_auto_detect"`
 }

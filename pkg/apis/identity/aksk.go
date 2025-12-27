@@ -42,6 +42,6 @@ func (info SAccessKeySecretBlob) IsValid() bool {
 }
 
 type SAccessKeySecretInfo struct {
-	AccessKey string
+	AccessKey string `json:"access_key"`
 	SAccessKeySecretBlob
 }

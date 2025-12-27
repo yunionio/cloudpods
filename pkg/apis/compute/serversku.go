@@ -30,7 +30,7 @@ type ServerSkuCreateInput struct {
 	ZoneId string `json:"zone_id"`
 
 	// swagger:ignore
-	InstanceTypeFamily string
+	InstanceTypeFamily string `json:"instance_type_family"`
 
 	// 套餐类型
 	//
@@ -50,7 +50,7 @@ type ServerSkuCreateInput struct {
 	InstanceTypeCategory string `json:"instance_type_category"`
 
 	// swagger:ignore
-	LocalCategory string
+	LocalCategory string `json:"local_category"`
 
 	// 预付费状态
 	// default: available
@@ -72,55 +72,55 @@ type ServerSkuCreateInput struct {
 	MemorySizeMB int64 `json:"memory_size_mb"`
 
 	// swagger:ignore
-	OsName string
+	OsName string `json:"os_name"`
 
 	// swagger:ignore
-	SysDiskResizable *bool
+	SysDiskResizable *bool `json:"sys_disk_resizable"`
 
 	// swagger:ignore
-	SysDiskType string
+	SysDiskType string `json:"sys_disk_type"`
 
 	// swagger:ignore
-	SysDiskMinSizeGB int
+	SysDiskMinSizeGB int `json:"sys_disk_min_size_gb"`
 
 	// swagger:ignore
-	SysDiskMaxSizeGB int
+	SysDiskMaxSizeGB int `json:"sys_disk_max_size_gb"`
 
 	// swagger:ignore
-	AttachedDiskType string
+	AttachedDiskType string `json:"attached_disk_type"`
 
 	// swagger:ignore
-	AttachedDiskSizeGB int
+	AttachedDiskSizeGB int `json:"attached_disk_size_gb"`
 
 	// swagger:ignore
-	AttachedDiskCount int
+	AttachedDiskCount int `json:"attached_disk_count"`
 
 	// swagger:ignore
-	DataDiskTypes string
+	DataDiskTypes string `json:"data_disk_types"`
 
 	// swagger:ignore
-	DataDiskMaxCount int
+	DataDiskMaxCount int `json:"data_disk_max_count"`
 
 	// swagger:ignore
-	NicType string
+	NicType string `json:"nic_type"`
 
 	// swagger:ignore
-	NicMaxCount int
+	NicMaxCount int `json:"nic_max_count"`
 
 	// swagger:ignore
-	GpuAttachable *bool
+	GpuAttachable *bool `json:"gpu_attachable"`
 
 	// swagger:ignore
-	GpuSpec string
+	GpuSpec string `json:"gpu_spec"`
 
 	// swagger:ignore
-	GpuCount int
+	GpuCount int `json:"gpu_count"`
 
 	// swagger:ignore
-	GpuMaxCount int
+	GpuMaxCount int `json:"gpu_max_count"`
 
 	// swagger:ignore
-	Provider string
+	Provider string `json:"provider"`
 }
 
 type ServerSkuDetails struct {

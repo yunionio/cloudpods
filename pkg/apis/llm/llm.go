@@ -12,18 +12,18 @@ const (
 type LLMBaseCreateInput struct {
 	apis.VirtualResourceCreateInput
 
-	PreferHost    string
-	AutoStart     bool
-	BandwidthMB   int  `json:"bandwidth_mb"`
-	DebugMode     bool `json:"debug_mode"`
-	RootfsUnlimit bool `json:"rootfs_unlimit"`
+	PreferHost    string `json:"prefer_host"`
+	AutoStart     bool   `json:"auto_start"`
+	BandwidthMB   int    `json:"bandwidth_mb"`
+	DebugMode     bool   `json:"debug_mode"`
+	RootfsUnlimit bool   `json:"rootfs_unlimit"`
 }
 
 type LLMCreateInput struct {
 	LLMBaseCreateInput
 
-	LLMSkuId   string
-	LLMImageId string
+	LLMSkuId   string `json:"llm_sku_id"`
+	LLMImageId string `json:"llm_image_id"`
 }
 
 type LLMBaseListInput struct {
@@ -59,21 +59,21 @@ type ModelInfo struct {
 }
 
 type LLMPerformQuickModelsInput struct {
-	Models []ModelInfo
-	Method TQuickModelMethod
+	Models []ModelInfo       `json:"models"`
+	Method TQuickModelMethod `json:"method"`
 }
 
 type LLMBatchPerformOutput struct {
-	Data []LLMPerformOutput
-	Task *taskman.STask
+	Data []LLMPerformOutput `json:"data"`
+	Task *taskman.STask     `json:"task"`
 }
 
 type LLMPerformOutput struct {
-	Id            string
-	Name          string
-	RequestStatus int
-	Msg           string
-	TaskId        string
+	Id            string `json:"id"`
+	Name          string `json:"name"`
+	RequestStatus int    `json:"request_status"`
+	Msg           string `json:"msg"`
+	TaskId        string `json:"task_id"`
 }
 
 type LLMSyncModelTaskInput struct {
@@ -86,9 +86,9 @@ type LLMSyncModelTaskInput struct {
 }
 
 type LLMMountDirInfo struct {
-	ImageId   string
-	Host      string
-	Container string
+	ImageId   string `json:"image_id"`
+	Host      string `json:"host"`
+	Container string `json:"container"`
 }
 
 func (info LLMMountDirInfo) ToOverlay() apis.ContainerVolumeMountDiskPostOverlay {

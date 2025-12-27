@@ -68,7 +68,7 @@ type InterVpcNetworkAddVpcInput struct {
 }
 
 type InterVpcNetworkRemoveVpcInput struct {
-	VpcId string
+	VpcId string `json:"vpc_id"`
 }
 
 type InterVpcNetworkFilterListBase struct {

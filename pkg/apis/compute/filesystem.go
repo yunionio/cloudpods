@@ -105,9 +105,9 @@ type FileSystemDetails struct {
 	ManagedResourceInfo
 	CloudregionResourceInfo
 
-	Vpc     string
-	Network string
-	Zone    string
+	Vpc     string `json:"vpc"`
+	Network string `json:"network"`
+	Zone    string `json:"zone"`
 }
 
 type FileSystemRemoteUpdateInput struct {

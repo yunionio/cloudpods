@@ -89,5 +89,5 @@ type ModelartsPoolSyncstatusInput struct {
 }
 
 type ModelartsPoolChangeConfigInput struct {
-	NodeCount int
+	NodeCount int `json:"node_count"`
 }

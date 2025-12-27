@@ -19,31 +19,31 @@ import "yunion.io/x/onecloud/pkg/apis"
 type SNatSCreateInput struct {
 	apis.Meta
 
-	Name         string
-	NatgatewayId string
-	NetworkId    string
+	Name         string `json:"name"`
+	NatgatewayId string `json:"natgateway_id"`
+	NetworkId    string `json:"network_id"`
 	// swagger:ignore
-	Ip string
+	Ip string `json:"ip"`
 
 	// swagger:ignore
 	ExternalIpId string `json:"external_ip_id"  yunion-deprecated-by:"eip"`
 	Eip          string `json:"eip"`
-	SourceCidr   string
+	SourceCidr   string `json:"source_cidr"`
 }
 
 type SNatDCreateInput struct {
 	apis.Meta
 
-	Name         string
-	NatgatewayId string
-	InternalIp   string
-	InternalPort int
-	ExternalIp   string
+	Name         string `json:"name"`
+	NatgatewayId string `json:"natgateway_id"`
+	InternalIp   string `json:"internal_ip"`
+	InternalPort int    `json:"internal_port"`
+	ExternalIp   string `json:"external_ip"`
 	Eip          string `json:"eip"`
 	// swagger:ignore
 	ExternalIpId string `json:"external_ip_id"  yunion-deprecated-by:"eip"`
-	ExternalPort int
-	IpProtocol   string
+	ExternalPort int    `json:"external_port"`
+	IpProtocol   string `json:"ip_protocol"`
 }
 
 type NatDEntryDetails struct {

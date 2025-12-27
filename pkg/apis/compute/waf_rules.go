@@ -70,14 +70,14 @@ type WafRuleCreateInput struct {
 	WafRuleGroupId string `json:"waf_rule_group_id"`
 
 	// 条件表达式
-	Statements []cloudprovider.SWafStatement
+	Statements []cloudprovider.SWafStatement `json:"statements"`
 }
 
 type WafRuleDetails struct {
 	apis.EnabledStatusStandaloneResourceDetails
 	SWafRule
 
-	Statements []cloudprovider.SWafStatement
+	Statements []cloudprovider.SWafStatement `json:"statements"`
 }
 
 type WafRuleUpdateInput struct {
@@ -92,7 +92,7 @@ type WafRuleUpdateInput struct {
 	Priority *int `json:"priority"`
 
 	// 条件表达式
-	Statements []cloudprovider.SWafStatement
+	Statements []cloudprovider.SWafStatement `json:"statements"`
 }
 
 type WafRuleEnableInput struct {

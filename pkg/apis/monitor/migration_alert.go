@@ -74,11 +74,11 @@ const (
 )
 
 type MetricQueryFields struct {
-	ResourceType MigrationAlertResourceType
-	Database     string
-	Measurement  string
-	Field        string
-	Comparator   string
+	ResourceType MigrationAlertResourceType `json:"resource_type"`
+	Database     string                     `json:"database"`
+	Measurement  string                     `json:"measurement"`
+	Field        string                     `json:"field"`
+	Comparator   string                     `json:"comparator"`
 }
 
 type IMigrationAlertMetric interface {

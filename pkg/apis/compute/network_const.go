@@ -106,14 +106,14 @@ const (
 )
 
 type SNetworkUsedAddress struct {
-	IpAddr        string
-	Ip6Addr       string
-	MacAddr       string
-	Owner         string
-	OwnerId       string
-	OwnerStatus   string
-	OwnerType     string
-	AssociateId   string
-	AssociateType string
-	CreatedAt     time.Time
+	IpAddr        string    `json:"ip_addr"`
+	Ip6Addr       string    `json:"ip6_addr"`
+	MacAddr       string    `json:"mac_addr"`
+	Owner         string    `json:"owner"`
+	OwnerId       string    `json:"owner_id"`
+	OwnerStatus   string    `json:"owner_status"`
+	OwnerType     string    `json:"owner_type"`
+	AssociateId   string    `json:"associate_id"`
+	AssociateType string    `json:"associate_type"`
+	CreatedAt     time.Time `json:"created_at"`
 }

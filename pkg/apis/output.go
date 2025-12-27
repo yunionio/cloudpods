@@ -261,7 +261,7 @@ type OpsLogDetails struct {
 }
 
 type StatusStatisticStatusInfo struct {
-	Status string
+	Status string `json:"status"`
 	// 资源总数
 	TotalCount int64 `json:"total_count"`
 	// 回收站数量
@@ -272,15 +272,15 @@ type StatusStatisticStatusInfo struct {
 type StatusStatistic struct {
 	StatusInfo []StatusStatisticStatusInfo `json:"status_info,allowempty"`
 	// CPU总量
-	TotalCpuCount int
+	TotalCpuCount int `json:"total_cpu_count"`
 	// 内存总量
-	TotalMemSizeMb int
+	TotalMemSizeMb int `json:"total_mem_size_mb"`
 	// 存储总量
-	TotalDiskSizeMb int
+	TotalDiskSizeMb int `json:"total_disk_size_mb"`
 }
 
 type ProjectStatistic struct {
-	Count int
-	Id    string
-	Name  string
+	Count int    `json:"count"`
+	Id    string `json:"id"`
+	Name  string `json:"name"`
 }

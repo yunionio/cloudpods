@@ -75,11 +75,11 @@ type LoadbalancerListenerRuleCreateInput struct {
 	HttpRequstRate       int    `json:"http_request_rate"`
 	HttpRequstRatePerSec int    `json:"http_request_rate_per_sec"`
 
-	Redirect       string
-	RedirectCode   int64
-	RedirectScheme string
-	RedirectHost   string
-	RedirectPath   string
+	Redirect       string `json:"redirect"`
+	RedirectCode   int64  `json:"redirect_code"`
+	RedirectScheme string `json:"redirect_scheme"`
+	RedirectHost   string `json:"redirect_host"`
+	RedirectPath   string `json:"redirect_path"`
 
 	Condition string `json:"conditon"`
 }
@@ -144,11 +144,11 @@ type LoadbalancerListenerRuleUpdateInput struct {
 	HttpRequstRate       int    `json:"http_request_rate"`
 	HttpRequstRatePerSec int    `json:"http_request_rate_per_sec"`
 
-	Redirect       string
-	RedirectCode   int64
-	RedirectScheme string
-	RedirectHost   string
-	RedirectPath   string
+	Redirect       string `json:"redirect"`
+	RedirectCode   int64  `json:"redirect_code"`
+	RedirectScheme string `json:"redirect_scheme"`
+	RedirectHost   string `json:"redirect_host"`
+	RedirectPath   string `json:"redirect_path"`
 
 	Condition string `json:"conditon"`
 }

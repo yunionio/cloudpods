@@ -162,19 +162,19 @@ type CloudgroupResourceDetails struct {
 }
 
 type SPolicy struct {
-	Name       string
-	ExternalId string
-	PolicyType string
+	Name       string `json:"name"`
+	ExternalId string `json:"external_id"`
+	PolicyType string `json:"policy_type"`
 }
 
 type GroupUser struct {
-	Name       string
-	ExternalId string
+	Name       string `json:"name"`
+	ExternalId string `json:"external_id"`
 }
 
 type SGroup struct {
-	Id   string
-	Name string
+	Id   string `json:"id"`
+	Name string `json:"name"`
 }
 
 type GetCloudaccountSamlOutput struct {

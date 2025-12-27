@@ -143,7 +143,7 @@ type CloudproviderDetails struct {
 	ProjectMappingResourceInfo
 
 	// 上次同步耗时
-	LastSyncCost string
+	LastSyncCost string `json:"last_sync_cost"`
 }
 
 // 云订阅输入参数

@@ -57,9 +57,9 @@ type SSecgroupRuleResource struct {
 	Ports string `json:"ports"`
 
 	// swagger:ignore
-	PortStart int
+	PortStart int `json:"port_start"`
 	// swagger:ignore
-	PortEnd int
+	PortEnd int `json:"port_end"`
 
 	// 方向
 	// enum: ["in", "out"]
@@ -334,8 +334,8 @@ type ElasticcachesecgroupDetails struct {
 }
 
 type SecurityGroupCloneInput struct {
-	Name        string
-	Description string
+	Name        string `json:"name"`
+	Description string `json:"description"`
 }
 
 type SecgroupImportRulesInput struct {

@@ -26,8 +26,8 @@ type MongoDBCreateInput struct {
 type SMongoDBChangeConfigInput struct {
 	apis.Meta
 
-	InstanceType string
-	DiskSizeGB   int
+	InstanceType string `json:"instance_type"`
+	DiskSizeGB   int    `json:"disk_size_gb"`
 }
 
 type MongoDBListInput struct {

@@ -24,9 +24,9 @@ import (
 )
 
 type ProxySetting struct {
-	HttpProxy  string
-	HttpsProxy string
-	NoProxy    string
+	HttpProxy  string `json:"http_proxy"`
+	HttpsProxy string `json:"https_proxy"`
+	NoProxy    string `json:"no_proxy"`
 }
 
 func (v *ProxySetting) Sanitize() error {

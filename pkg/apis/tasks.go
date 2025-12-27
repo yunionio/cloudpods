@@ -75,14 +75,14 @@ type TaskDetails struct {
 	DomainId  string `json:"domain_id"`
 	ProjectId string `json:"tenant_id"`
 
-	Id           string
-	ObjName      string
-	ObjId        string
-	TaskName     string
-	Params       jsonutils.JSONObject
-	UserCred     jsonutils.JSONObject
-	Stage        string
-	ParentTaskId string
+	Id           string               `json:"id"`
+	ObjName      string               `json:"obj_name"`
+	ObjId        string               `json:"obj_id"`
+	TaskName     string               `json:"task_name"`
+	Params       jsonutils.JSONObject `json:"params"`
+	UserCred     jsonutils.JSONObject `json:"user_cred"`
+	Stage        string               `json:"stage"`
+	ParentTaskId string               `json:"parent_task_id"`
 }
 
 type TaskCancelInput struct {

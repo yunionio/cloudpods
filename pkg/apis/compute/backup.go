@@ -150,20 +150,20 @@ type DiskBackupCreateInput struct {
 
 type DiskBackupRecoveryInput struct {
 	// description: name of disk
-	Name string
+	Name string `json:"name"`
 }
 
 type DiskBackupSyncstatusInput struct {
 }
 
 type DiskBackupPackMetadata struct {
-	OsArch     string
-	SizeMb     int
-	DiskSizeMb int
-	DiskType   string
+	OsArch     string `json:"os_arch"`
+	SizeMb     int    `json:"size_mb"`
+	DiskSizeMb int    `json:"disk_size_mb"`
+	DiskType   string `json:"disk_type"`
 	// 操作系统类型
-	OsType     string
-	DiskConfig *SBackupDiskConfig
+	OsType     string             `json:"os_type"`
+	DiskConfig *SBackupDiskConfig `json:"disk_config"`
 }
 
 type DiskBackupExportInfo struct {
@@ -173,22 +173,22 @@ type DiskBackupExportInfo struct {
 }
 
 type DiskBackupImportTaskInput struct {
-	AccessUrl string
+	AccessUrl string `json:"access_url"`
 }
 
 type InstanceBackupPackMetadata struct {
-	OsArch         string
-	ServerConfig   jsonutils.JSONObject
-	ServerMetadata jsonutils.JSONObject
-	SecGroups      jsonutils.JSONObject
-	KeypairId      string
-	OsType         string
-	InstanceType   string
-	SizeMb         int
-	DiskMetadatas  []DiskBackupPackMetadata
+	OsArch         string                   `json:"os_arch"`
+	ServerConfig   jsonutils.JSONObject     `json:"server_config"`
+	ServerMetadata jsonutils.JSONObject     `json:"server_metadata"`
+	SecGroups      jsonutils.JSONObject     `json:"sec_groups"`
+	KeypairId      string                   `json:"keypair_id"`
+	OsType         string                   `json:"os_type"`
+	InstanceType   string                   `json:"instance_type"`
+	SizeMb         int                      `json:"size_mb"`
+	DiskMetadatas  []DiskBackupPackMetadata `json:"disk_metadatas"`
 
 	// 加密密钥ID
-	EncryptKeyId string
+	EncryptKeyId string `json:"encrypt_key_id"`
 	// Instance Backup metadata
 	Metadata map[string]string `json:"metadata"`
 }
