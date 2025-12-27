@@ -23,58 +23,58 @@ import (
 type ForwardCreateInput struct {
 	apis.VirtualResourceCreateInput
 
-	ProxyEndpointId string
-	ProxyAgentId    string
-	Type            string
-	BindPortReq     int `json:",omitzero"`
-	RemoteAddr      string
-	RemotePort      string
+	ProxyEndpointId string `json:"proxy_endpoint_id"`
+	ProxyAgentId    string `json:"proxy_agent_id"`
+	Type            string `json:"type"`
+	BindPortReq     int    `json:"bind_port_req,omitzero"`
+	RemoteAddr      string `json:"remote_addr"`
+	RemotePort      string `json:"remote_port"`
 
-	LastSeenTimeout int `json:",omitzero"`
+	LastSeenTimeout int `json:"last_seen_timeout,omitzero"`
 
-	Opaque string
+	Opaque string `json:"opaque"`
 }
 
 type ForwardCreateFromServerInput struct {
-	ServerId string
+	ServerId string `json:"server_id"`
 
-	Type        string
-	BindPortReq int `json:",omitzero"`
-	RemotePort  int `json:",omitzero"`
+	Type        string `json:"type"`
+	BindPortReq int    `json:"bind_port_req,omitzero"`
+	RemotePort  int    `json:"remote_port,omitzero"`
 
-	LastSeenTimeout int `json:",omitzero"`
+	LastSeenTimeout int `json:"last_seen_timeout,omitzero"`
 }
 
 type ForwardHeartbeatInput struct{}
 
 type ForwardListInput struct {
-	ProxyAgentId    string
-	ProxyEndpointId string
+	ProxyAgentId    string `json:"proxy_agent_id"`
+	ProxyEndpointId string `json:"proxy_endpoint_id"`
 
-	Type        string
-	RemoteAddr  string
-	RemotePort  *int
-	BindPortReq *int
+	Type        string `json:"type"`
+	RemoteAddr  string `json:"remote_addr"`
+	RemotePort  *int   `json:"remote_port"`
+	BindPortReq *int   `json:"bind_port_req"`
 
-	Opaque string
+	Opaque string `json:"opaque"`
 }
 
 type ForwardDetails struct {
-	ProxyEndpoint   string
-	ProxyEndpointId string
-	ProxyAgent      string
-	ProxyAgentId    string
+	ProxyEndpoint   string `json:"proxy_endpoint"`
+	ProxyEndpointId string `json:"proxy_endpoint_id"`
+	ProxyAgent      string `json:"proxy_agent"`
+	ProxyAgentId    string `json:"proxy_agent_id"`
 
-	Type        string
-	BindPortReq int
-	BindPort    int
-	RemoteAddr  string
-	RemotePort  int
+	Type        string `json:"type"`
+	BindPortReq int    `json:"bind_port_req"`
+	BindPort    int    `json:"bind_port"`
+	RemoteAddr  string `json:"remote_addr"`
+	RemotePort  int    `json:"remote_port"`
 
-	LastSeen        time.Time
-	LastSeenTimeout int
+	LastSeen        time.Time `json:"last_seen"`
+	LastSeenTimeout int       `json:"last_seen_timeout"`
 
-	Opaque string
+	Opaque string `json:"opaque"`
 
-	BindAddr string
+	BindAddr string `json:"bind_addr"`
 }

@@ -117,15 +117,15 @@ type OrganizationPerformAddLevelsInput struct {
 }
 
 type OrganizationPerformAddNodeInput struct {
-	Tags        map[string]string
-	Weight      int
-	Description string
+	Tags        map[string]string `json:"tags"`
+	Weight      int               `json:"weight"`
+	Description string            `json:"description"`
 }
 
 type OrganizationPerformSyncInput struct {
-	ResourceType string
+	ResourceType string `json:"resource_type"`
 
-	Reset *bool
+	Reset *bool `json:"reset"`
 }
 
 type OrganizationNodePerformBindInput struct {
@@ -198,15 +198,15 @@ type OrganizationNodeListInput struct {
 }
 
 type SProjectOrganization struct {
-	Id    string
-	Name  string
-	Keys  []string
-	Nodes []SProjectOrganizationNode
+	Id    string                     `json:"id"`
+	Name  string                     `json:"name"`
+	Keys  []string                   `json:"keys"`
+	Nodes []SProjectOrganizationNode `json:"nodes"`
 }
 
 type SProjectOrganizationNode struct {
-	Id     string
-	Labels []string
+	Id     string   `json:"id"`
+	Labels []string `json:"labels"`
 }
 
 type SOrganizationNodeDetails struct {

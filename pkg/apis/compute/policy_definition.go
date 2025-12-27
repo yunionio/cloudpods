@@ -46,16 +46,16 @@ type PolicyDefinitionDetails struct {
 }
 
 type PolicyDefinitionResourceInfo struct {
-	Policydefinition string
+	Policydefinition string `json:"policydefinition"`
 }
 
 type SCloudregionPolicyDefinition struct {
-	Id   string
-	Name string
+	Id   string `json:"id"`
+	Name string `json:"name"`
 }
 
 type SCloudregionPolicyDefinitions struct {
-	Cloudregions []SCloudregionPolicyDefinition
+	Cloudregions []SCloudregionPolicyDefinition `json:"cloudregions"`
 }
 
 type PolicyDefinitionSyncstatusInput struct {

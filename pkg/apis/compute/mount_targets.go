@@ -48,7 +48,7 @@ type MountTargetDetails struct {
 	VpcResourceInfo
 	NetworkResourceInfo
 
-	FileSystem string
+	FileSystem string `json:"file_system"`
 }
 
 type MountTargetCreateInput struct {

@@ -22,12 +22,12 @@ import (
 )
 
 type SOrganizationNodeInfo struct {
-	Id           string
-	FullLabel    string
-	OrgId        string
-	Organization string
-	Tags         tagutils.TTagSet
-	Type         TOrgType
+	Id           string           `json:"id"`
+	FullLabel    string           `json:"full_label"`
+	OrgId        string           `json:"org_id"`
+	Organization string           `json:"organization"`
+	Tags         tagutils.TTagSet `json:"tags"`
+	Type         TOrgType         `json:"type"`
 }
 
 type PolicyDetails struct {
@@ -36,7 +36,7 @@ type PolicyDetails struct {
 
 	SPolicy
 
-	OrgNodes []SOrganizationNodeInfo
+	OrgNodes []SOrganizationNodeInfo `json:"org_nodes"`
 }
 
 type PolicyBindRoleInput struct {

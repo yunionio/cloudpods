@@ -385,14 +385,14 @@ type GetMetadataInput struct {
 type GetMetadataOutput map[string]string
 
 type DistinctFieldInput struct {
-	Field      []string
-	ExtraField []string
+	Field      []string `json:"field"`
+	ExtraField []string `json:"extra_field"`
 }
 
 type DistinctFieldsInput struct {
-	Field         []string
-	ExtraField    []string
-	ExtraResource string
+	Field         []string `json:"field"`
+	ExtraField    []string `json:"extra_field"`
+	ExtraResource string   `json:"extra_resource"`
 }
 
 type PostpaidExpireInput struct {

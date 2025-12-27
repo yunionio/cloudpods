@@ -762,15 +762,15 @@ type GuestBatchMigrateRequest struct {
 }
 
 type GuestBatchMigrateParams struct {
-	Id              string
-	LiveMigrate     bool
-	SkipCpuCheck    bool
-	SkipKernelCheck bool
-	EnableTLS       *bool
-	RescueMode      bool
-	OldStatus       string
-	MaxBandwidthMb  *int64
-	QuciklyFinish   *bool
+	Id              string `json:"id"`
+	LiveMigrate     bool   `json:"live_migrate"`
+	SkipCpuCheck    bool   `json:"skip_cpu_check"`
+	SkipKernelCheck bool   `json:"skip_kernel_check"`
+	EnableTLS       *bool  `json:"enable_tls"`
+	RescueMode      bool   `json:"rescue_mode"`
+	OldStatus       string `json:"old_status"`
+	MaxBandwidthMb  *int64 `json:"max_bandwidth_mb"`
+	QuciklyFinish   *bool  `json:"quickly_finish"`
 }
 
 type HostLoginInfo struct {

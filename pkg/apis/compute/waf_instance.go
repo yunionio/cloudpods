@@ -45,14 +45,14 @@ type WafInstanceCreateInput struct {
 
 	// 关联云资源列表
 	// 阿里云要求输入此参数或source_ips
-	CloudResources []cloudprovider.SCloudResource
+	CloudResources []cloudprovider.SCloudResource `json:"cloud_resources"`
 
 	CloudregionResourceInput
 	CloudproviderResourceInput
 
-	Type cloudprovider.TWafType
+	Type cloudprovider.TWafType `json:"type"`
 
-	DefaultAction *cloudprovider.DefaultAction
+	DefaultAction *cloudprovider.DefaultAction `json:"default_action"`
 }
 
 type WafInstanceDetails struct {
@@ -61,7 +61,7 @@ type WafInstanceDetails struct {
 	CloudregionResourceInfo
 	SWafInstance
 
-	Rules []SWafRule
+	Rules []SWafRule `json:"rules"`
 }
 
 type WafInstanceListInput struct {
@@ -76,5 +76,5 @@ type WafSyncstatusInput struct {
 }
 
 type WafDeleteRuleInput struct {
-	WafRuleId string
+	WafRuleId string `json:"waf_rule_id"`
 }

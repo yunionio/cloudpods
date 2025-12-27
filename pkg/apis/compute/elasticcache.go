@@ -238,10 +238,10 @@ type ElasticcacheCreateInput struct {
 	PrivateIp string `json:"private_ip"`
 
 	// swagger:ignore
-	VpcId string
+	VpcId string `json:"vpc_id"`
 
 	// swagger:ignore
-	ManagerId string
+	ManagerId string `json:"manager_id"`
 
 	// 包年包月时间周期
 	Duration string `json:"duration"`
@@ -255,9 +255,9 @@ type ElasticcacheCreateInput struct {
 
 	// 计费方式
 	// enum: ["postpaid", "prepaid"]
-	BillingType string
+	BillingType string `json:"billing_type"`
 	// swagger:ignore
-	BillingCycle string
+	BillingCycle string `json:"billing_cycle"`
 
 	// 弹性缓存维护时间段
 	// 华为云此参数可选,其它云该参数无效

@@ -21,7 +21,7 @@ type SDBInstanceAccountPrivilege struct {
 	// required: true
 	Database string `json:"database"`
 	// swagger:ignore
-	DBInstancedatabaseId string
+	DBInstancedatabaseId string `json:"db_instancedatabase_id"`
 
 	// 权限类型
 	//

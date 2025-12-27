@@ -40,13 +40,13 @@ var NetworkAddressParentTypes = choices.NewChoices(
 type NetworkAddressCreateInput struct {
 	apis.StandaloneAnonResourceCreateInput
 
-	ParentType        TNetworkAddressParentType
-	ParentId          int64
-	GuestId           string
-	GuestnetworkIndex int8
+	ParentType        TNetworkAddressParentType `json:"parent_type"`
+	ParentId          int64                     `json:"parent_id"`
+	GuestId           string                    `json:"guest_id"`
+	GuestnetworkIndex int8                      `json:"guestnetwork_index"`
 
-	Type      string
-	NetworkId string
+	Type      string   `json:"type"`
+	NetworkId string   `json:"network_id"`
 	IPAddr    string   `json:"ip_addr"`
 	IPAddrs   []string `json:"ip_addrs"`
 }
@@ -55,7 +55,7 @@ type NetworkAddressListInput struct {
 	apis.StandaloneAnonResourceListInput
 	NetworkFilterListInput
 
-	GuestId []string
+	GuestId []string `json:"guest_id"`
 
 	ManagedResourceListInput
 }
@@ -64,13 +64,13 @@ type NetworkAddressDetails struct {
 	apis.StandaloneAnonResourceDetails
 	NetworkResourceInfo
 
-	Type       string
-	ParentType string
-	ParentId   string
-	NetworkId  string
-	IpAddr     string
+	Type       string `json:"type"`
+	ParentType string `json:"parent_type"`
+	ParentId   string `json:"parent_id"`
+	NetworkId  string `json:"network_id"`
+	IpAddr     string `json:"ip_addr"`
 
-	SubCtrVid int
+	SubCtrVid int `json:"sub_ctr_vid"`
 
-	Guestnetwork GuestnetworkDetails
+	Guestnetwork GuestnetworkDetails `json:"guestnetwork"`
 }

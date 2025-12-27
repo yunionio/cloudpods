@@ -31,18 +31,18 @@ type AccessGroupRuleDetails struct {
 type AccessGroupRuleCreateInput struct {
 	apis.ResourceBaseCreateInput
 
-	Priority       int
-	Source         string
-	RWAccessType   string
-	UserAccessType string
-	Description    string
-	AccessGroupId  string
+	Priority       int    `json:"priority"`
+	Source         string `json:"source"`
+	RWAccessType   string `json:"rw_access_type"`
+	UserAccessType string `json:"user_access_type"`
+	Description    string `json:"description"`
+	AccessGroupId  string `json:"access_group_id"`
 }
 
 type AccessGroupRuleUpdateInput struct {
-	Priority       *int
-	Source         string
-	RWAccessType   string
-	UserAccessType string
-	Description    string
+	Priority       *int   `json:"priority"`
+	Source         string `json:"source"`
+	RWAccessType   string `json:"rw_access_type"`
+	UserAccessType string `json:"user_access_type"`
+	Description    string `json:"description"`
 }

@@ -144,9 +144,9 @@ type AlertCreateInput struct {
 }
 
 type MeterCustomizeConfig struct {
-	UnitDesc string
-	Name     string
-	Currency string
+	UnitDesc string `json:"unit_desc"`
+	Name     string `json:"name"`
+	Currency string `json:"currency"`
 }
 
 type AlertUpdateInput struct {

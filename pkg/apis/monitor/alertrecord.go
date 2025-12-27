@@ -49,9 +49,9 @@ type AlertRecordDetails struct {
 	apis.StandaloneAnonResourceDetails
 	apis.ScopedResourceBaseInfo
 
-	ResNum      int64  `json:"res_num"`
-	AlertName   string `json:"alert_name"`
-	TriggerTime time.Time
+	ResNum      int64     `json:"res_num"`
+	AlertName   string    `json:"alert_name"`
+	TriggerTime time.Time `json:"trigger_time"`
 }
 
 type AlertRecordCreateInput struct {

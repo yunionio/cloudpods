@@ -34,23 +34,23 @@ type VpcPeeringConnectionDetails struct {
 	apis.EnabledStatusInfrasResourceBaseDetails
 	VpcResourceInfo
 
-	PeerVpcName string
+	PeerVpcName string `json:"peer_vpc_name"`
 }
 
 type VpcPeeringConnectionCreateInput struct {
 	apis.EnabledStatusInfrasResourceBaseCreateInput
 	SVpcResourceBase
-	PeerVpcId string
+	PeerVpcId string `json:"peer_vpc_id"`
 	//跨区域vpc对等连接带宽，仅对腾讯云有效
 	//单位Mbps,可选值 10,20,50,100,200,500,1000
-	Bandwidth int
+	Bandwidth int `json:"bandwidth"`
 }
 
 type VpcPeeringConnectionListInput struct {
 	apis.EnabledStatusInfrasResourceBaseListInput
 	apis.ExternalizedResourceBaseListInput
 	VpcFilterListInput
-	PeerVpcId string
+	PeerVpcId string `json:"peer_vpc_id"`
 }
 
 type VpcPeeringConnectionUpdateInput struct {

@@ -78,17 +78,17 @@ type LoadbalancerBackendGroupCreateInput struct {
 	Type string `json:"type"`
 
 	Backends []struct {
-		Index       int
-		Weight      int
-		Port        int
-		Id          string
-		Name        string
-		ExternalId  string
-		BackendType string
-		BackendRole string
-		Address     string
-		ZoneId      string
-		HostName    string
+		Index       int    `json:"index"`
+		Weight      int    `json:"weight"`
+		Port        int    `json:"port"`
+		Id          string `json:"id"`
+		Name        string `json:"name"`
+		ExternalId  string `json:"external_id"`
+		BackendType string `json:"backend_type"`
+		BackendRole string `json:"backend_role"`
+		Address     string `json:"address"`
+		ZoneId      string `json:"zone_id"`
+		HostName    string `json:"host_name"`
 	} `json:"backends"`
 }
 
@@ -106,11 +106,11 @@ type LoadbalancerBackendGroupListInput struct {
 
 type ListenerRuleBackendGroup struct {
 	// 后端服务器组组ID
-	Id string
+	Id string `json:"id"`
 	// swagger:ignore
-	Name string
+	Name string `json:"name"`
 	// swagger:ignore
-	ExternalId string
+	ExternalId string `json:"external_id"`
 }
 
 type ListenerRuleBackendGroups []ListenerRuleBackendGroup
@@ -124,8 +124,8 @@ func (groups ListenerRuleBackendGroups) IsZero() bool {
 }
 
 type ListenerRuleRedirectPool struct {
-	RegionPools  map[string]ListenerRuleBackendGroups
-	CountryPools map[string]ListenerRuleBackendGroups
+	RegionPools  map[string]ListenerRuleBackendGroups `json:"region_pools"`
+	CountryPools map[string]ListenerRuleBackendGroups `json:"country_pools"`
 }
 
 func (pool ListenerRuleRedirectPool) String() string {

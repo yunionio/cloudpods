@@ -19,7 +19,7 @@ import "time"
 type TimerCreateInput struct {
 
 	// description: 执行时间
-	ExecTime time.Time
+	ExecTime time.Time `json:"exec_time"`
 }
 
 type CycleTimerCreateInput struct {

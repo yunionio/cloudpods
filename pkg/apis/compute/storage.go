@@ -23,11 +23,11 @@ import (
 )
 
 type StorageUsage struct {
-	HostCount     int
-	DiskCount     int
-	SnapshotCount int
-	Used          int64
-	Wasted        int64
+	HostCount     int   `json:"host_count"`
+	DiskCount     int   `json:"disk_count"`
+	SnapshotCount int   `json:"snapshot_count"`
+	Used          int64 `json:"used"`
+	Wasted        int64 `json:"wasted"`
 }
 
 func (self StorageUsage) IsZero() bool {
@@ -84,14 +84,14 @@ type StorageCreateInput struct {
 	AutoCacheImages *bool `json:"auto_cache_images"`
 
 	// swagger:ignore
-	MonHost string
+	MonHost string `json:"mon_host"`
 
 	// ceph使用的pool, storage_type为 rbd 时,此参数为必传项
 	// example: rbd
 	RbdPool string `json:"rbd_pool"`
 
 	// swagger:ignore
-	Pool string
+	Pool string `json:"pool"`
 
 	// ceph集群密码,若ceph集群开启cephx认证,此参数必传
 	// 可在ceph集群主机的/etc/ceph/ceph.client.admin.keyring文件中找到
@@ -99,12 +99,12 @@ type StorageCreateInput struct {
 	RbdKey string `json:"rbd_key"`
 
 	// swagger:ignore
-	Key string
+	Key string `json:"key"`
 
 	RbdTimeoutInput
 
 	// swagger:ignore
-	ClientMountTimeout int
+	ClientMountTimeout int `json:"client_mount_timeout"`
 
 	// swagger:ignore
 	StorageConf *jsonutils.JSONDict
@@ -120,10 +120,10 @@ type StorageCreateInput struct {
 	// swagger:ignore
 	HardwareInfo *StorageHardwareInfo `json:"hardware_info"`
 	// CLVM VG Name
-	CLVMVgName string
+	CLVMVgName string `json:"clvm_vg_name"`
 	// SLVM VG Name
-	SLVMVgName string
-	Lvmlockd   bool
+	SLVMVgName string `json:"slvm_vg_name"`
+	Lvmlockd   bool   `json:"lvmlockd"`
 }
 
 type RbdTimeoutInput struct {
@@ -132,14 +132,14 @@ type RbdTimeoutInput struct {
 	RbdRadosMonOpTimeout int `json:"rbd_rados_mon_op_timeout"`
 
 	// swagger:ignore
-	RadosMonOpTimeout int
+	RadosMonOpTimeout int `json:"rados_mon_op_timeout"`
 
 	// ceph osd 操作超时时间, 单位秒
 	// default: 1200
 	RbdRadosOsdOpTimeout int `json:"rbd_rados_osd_op_timeout"`
 
 	// swagger:ignore
-	RadosOsdOpTimeout int
+	RadosOsdOpTimeout int `json:"rados_osd_op_timeout"`
 
 	// ceph CephFS挂载超时时间, 单位秒
 	// default: 120
@@ -160,10 +160,10 @@ type SStorageCapacityInfo struct {
 }
 
 type StorageHost struct {
-	Id         string
-	Name       string
-	Status     string
-	HostStatus string
+	Id         string `json:"id"`
+	Name       string `json:"name"`
+	Status     string `json:"status"`
+	HostStatus string `json:"host_status"`
 }
 
 type StorageDetails struct {
@@ -255,13 +255,13 @@ type StorageUpdateInput struct {
 	RbdTimeoutInput
 
 	// swagger:ignore
-	StorageConf *jsonutils.JSONDict
+	StorageConf *jsonutils.JSONDict `json:"storage_conf"`
 
-	UpdateStorageConf bool
+	UpdateStorageConf bool `json:"update_storage_conf"`
 
 	// swagger:ignore
 	HardwareInfo *StorageHardwareInfo `json:"hardware_info"`
-	MasterHost   string
+	MasterHost   string               `json:"master_host"`
 }
 
 type RbdStorageConf struct {

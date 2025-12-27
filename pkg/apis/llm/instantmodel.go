@@ -56,10 +56,10 @@ type InstantModelUpdateInput struct {
 type InstantModelDetails struct {
 	apis.SharableVirtualResourceDetails
 
-	Image string
+	Image string `json:"image"`
 
-	CacheCount  int
-	CachedCount int
+	CacheCount  int `json:"cache_count"`
+	CachedCount int `json:"cached_count"`
 
 	IconBase64 string `json:"icon_base64"`
 }

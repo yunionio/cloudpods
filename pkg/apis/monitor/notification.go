@@ -86,13 +86,13 @@ type NotificationSettingOneCloud struct {
 }
 
 type SendWebhookSync struct {
-	Url         string
-	User        string
-	Password    string
-	Body        string
-	HttpMethod  string
-	HttpHeader  map[string]string
-	ContentType string
+	Url         string            `json:"url"`
+	User        string            `json:"user"`
+	Password    string            `json:"password"`
+	Body        string            `json:"body"`
+	HttpMethod  string            `json:"http_method"`
+	HttpHeader  map[string]string `json:"http_header"`
+	ContentType string            `json:"content_type"`
 }
 
 type NotificationSettingDingding struct {

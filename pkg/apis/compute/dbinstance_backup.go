@@ -29,18 +29,18 @@ type DBInstanceBackupCreateInput struct {
 	// required: false
 	Databases []string `json:"databases"`
 	// swagger:ignore
-	DBNames string
+	DBNames string `json:"db_names"`
 
 	// swagger:ignore
-	Engine string
+	Engine string `json:"engine"`
 	// swagger:ignore
-	EngineVersion string
+	EngineVersion string `json:"engine_version"`
 	// swagger:ignore
-	CloudregionId string
+	CloudregionId string `json:"cloudregion_id"`
 	// swagger:ignore
-	BackupMode string
+	BackupMode string `json:"backup_mode"`
 	// swagger:ignore
-	ManagerId string
+	ManagerId string `json:"manager_id"`
 }
 
 type DBInstanceBackupDetails struct {

@@ -184,10 +184,10 @@ type GuestnetworkJsonDesc struct {
 }
 
 type SNicTrafficRecord struct {
-	RxTraffic int64
-	TxTraffic int64
+	RxTraffic int64 `json:"rx_traffic"`
+	TxTraffic int64 `json:"tx_traffic"`
 
-	HasBeenSetDown bool
+	HasBeenSetDown bool `json:"has_been_set_down"`
 }
 
 type GuestPortMappingProtocol string

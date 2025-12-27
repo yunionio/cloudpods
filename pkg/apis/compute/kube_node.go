@@ -30,7 +30,7 @@ type KubeNodeCreateInput struct {
 type KubeNodeDetails struct {
 	apis.StatusStandaloneResourceDetails
 	apis.InfrasResourceBaseDetails
-	DomainId string
+	DomainId string `json:"domain_id"`
 }
 
 type KubeNodeUpdateInput struct {

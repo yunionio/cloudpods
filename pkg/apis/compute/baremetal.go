@@ -15,13 +15,13 @@
 package compute
 
 type SGMapItem struct {
-	SGDeviceName    string
-	HostNumber      int
-	Bus             int
-	SCSIId          int
-	Lun             int
-	Type            int
-	LinuxDeviceName string
+	SGDeviceName    string `json:"sg_device_name"`
+	HostNumber      int    `json:"host_number"`
+	Bus             int    `json:"bus"`
+	SCSIId          int    `json:"scsi_id"`
+	Lun             int    `json:"lun"`
+	Type            int    `json:"type"`
+	LinuxDeviceName string `json:"linux_device_name"`
 }
 
 const (
@@ -30,10 +30,10 @@ const (
 )
 
 type IPMIUser struct {
-	Id       int
-	Name     string
-	Callin   bool
-	LinkAuth bool
-	IPMIMsg  bool
-	Priv     string
+	Id       int    `json:"id"`
+	Name     string `json:"name"`
+	Callin   bool   `json:"callin"`
+	LinkAuth bool   `json:"link_auth"`
+	IPMIMsg  bool   `json:"ipmi_msg"`
+	Priv     string `json:"priv"`
 }

@@ -158,10 +158,10 @@ func (rules MappingRules) Validate() error {
 
 type ProjectMappingRuleInfoDetails struct {
 	ProjectMappingRuleInfo
-	Project  string
-	TenantId string
-	Tenant   string
-	Domain   string
+	Project  string `json:"project"`
+	TenantId string `json:"tenant_id"`
+	Tenant   string `json:"tenant"`
+	Domain   string `json:"domain"`
 }
 
 type SProjectMappingAccount struct {
@@ -174,7 +174,7 @@ type ProjectMappingDetails struct {
 
 	apis.EnabledStatusInfrasResourceBaseDetails
 
-	Rules []ProjectMappingRuleInfoDetails
+	Rules []ProjectMappingRuleInfoDetails `json:"rules"`
 
 	// 所绑定的云账号列表
 	Accounts []SProjectMappingAccount `json:"accounts"`
@@ -195,7 +195,7 @@ type ProjectMappingListInput struct {
 }
 
 type ProjectMappingResourceInfo struct {
-	ProjectMapping string
+	ProjectMapping string `json:"project_mapping"`
 }
 
 type ProjectMappingUpdateInput struct {
@@ -207,7 +207,7 @@ type ProjectMappingUpdateInput struct {
 
 type ProjectMappingFilterListInput struct {
 	ProjectMappingId      string `json:"project_mapping_id"`
-	OrderByProjectMapping string
+	OrderByProjectMapping string `json:"order_by_project_mapping"`
 }
 
 func (self MappingRules) String() string {

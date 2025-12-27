@@ -284,11 +284,11 @@ type DiskUpdateInput struct {
 }
 
 type DiskSaveInput struct {
-	Name   string
-	Format string
+	Name   string `json:"name"`
+	Format string `json:"format"`
 
 	// swagger:ignore
-	ImageId string
+	ImageId string `json:"image_id"`
 }
 
 type DiskResizeInput struct {
@@ -305,47 +305,47 @@ func (self DiskResizeInput) SizeMb() (int, error) {
 }
 
 type DiskAllocateInput struct {
-	Format        string
-	DiskSizeMb    int
-	ImageId       string
-	ImageFormat   string
-	FsFormat      string
-	FsFeatures    *DiskFsFeatures
-	Rebuild       bool
-	BackingDiskId string
-	SnapshotId    string
+	Format        string          `json:"format"`
+	DiskSizeMb    int             `json:"disk_size_mb"`
+	ImageId       string          `json:"image_id"`
+	ImageFormat   string          `json:"image_format"`
+	FsFormat      string          `json:"fs_format"`
+	FsFeatures    *DiskFsFeatures `json:"fs_features"`
+	Rebuild       bool            `json:"rebuild"`
+	BackingDiskId string          `json:"backing_disk_id"`
+	SnapshotId    string          `json:"snapshot_id"`
 
-	BackupId string
-	Backup   *DiskAllocateFromBackupInput
+	BackupId string                       `json:"backup_id"`
+	Backup   *DiskAllocateFromBackupInput `json:"backup"`
 
-	SnapshotUrl        string
-	SnapshotOutOfChain bool
-	Protocol           string
-	SrcDiskId          string
-	SrcPool            string
-	ExistingPath       string
+	SnapshotUrl        string `json:"snapshot_url"`
+	SnapshotOutOfChain bool   `json:"snapshot_out_of_chain"`
+	Protocol           string `json:"protocol"`
+	SrcDiskId          string `json:"src_disk_id"`
+	SrcPool            string `json:"src_pool"`
+	ExistingPath       string `json:"existing_path"`
 
 	// vmware
-	HostIp    string
-	Datastore vcenter.SVCenterAccessInfo
+	HostIp    string                     `json:"host_ip"`
+	Datastore vcenter.SVCenterAccessInfo `json:"datastore"`
 
 	// encryption
-	Encryption  bool
-	EncryptInfo apis.SEncryptInfo
+	Encryption  bool              `json:"encryption"`
+	EncryptInfo apis.SEncryptInfo `json:"encrypt_info"`
 }
 
 type DiskAllocateFromBackupInput struct {
-	BackupId                string
-	BackupStorageId         string
-	BackupStorageAccessInfo *jsonutils.JSONDict
+	BackupId                string                `json:"backup_id"`
+	BackupStorageId         string                `json:"backup_storage_id"`
+	BackupStorageAccessInfo *jsonutils.JSONDict   `json:"backup_storage_access_info"`
 	DiskConfig              *DiskConfig           `json:"disk_config"`
 	BackupAsTar             *DiskBackupAsTarInput `json:"backup_as_tar"`
 }
 
 type DiskDeleteInput struct {
-	SkipRecycle      *bool
-	EsxiFlatFilePath string
-	CleanSnapshots   bool
+	SkipRecycle      *bool  `json:"skip_recycle"`
+	EsxiFlatFilePath string `json:"esxi_flat_file_path"`
+	CleanSnapshots   bool   `json:"clean_snapshots"`
 }
 
 type DiskResetInput struct {

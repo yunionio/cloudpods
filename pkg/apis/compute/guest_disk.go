@@ -20,7 +20,7 @@ type GuestDiskDetails struct {
 	SGuestdisk
 
 	// 磁盘名称
-	Disk string
+	Disk string `json:"disk"`
 
 	// 存储类型
 	// example: local

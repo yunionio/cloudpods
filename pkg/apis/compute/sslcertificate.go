@@ -32,13 +32,13 @@ type SSLCertificateCreateInput struct {
 	DnsZoneId string `json:"dns_zone_id"`
 	Sans      string `json:"sans"`
 
-	Province    string
-	Common      string
-	Country     string
-	City        string
-	OrgName     string
-	Certificate string
-	PrivateKey  string
+	Province    string `json:"province"`
+	Common      string `json:"common"`
+	Country     string `json:"country"`
+	City        string `json:"city"`
+	OrgName     string `json:"org_name"`
+	Certificate string `json:"certificate"`
+	PrivateKey  string `json:"private_key"`
 }
 
 type SSLCertificateDetails struct {

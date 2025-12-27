@@ -41,8 +41,8 @@ type RouteTableDetails struct {
 
 	SRouteTable
 
-	RouteSetCount    int
-	AccociationCount int
+	RouteSetCount    int `json:"route_set_count"`
+	AccociationCount int `json:"accociation_count"`
 }
 
 type SRoute struct {

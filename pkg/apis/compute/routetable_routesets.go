@@ -29,7 +29,7 @@ const (
 
 type RouteTableRouteSetCreateInput struct {
 	apis.StatusStandaloneResourceCreateInput
-	RouteTableId string
+	RouteTableId string `json:"route_table_id"`
 	Cidr         string `json:"cidr"`
 	NextHopType  string `json:"next_hop_type"`
 	NextHopId    string `json:"next_hop_id"`

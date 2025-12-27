@@ -21,61 +21,61 @@ type SubscriberCreateInput struct {
 
 	// description: Id of Topic
 	// required
-	TopicID string
+	TopicID string `json:"topic_id"`
 
 	// description: scope of resource
 	// enum: ["system","domain","project"]
-	ResourceScope string
+	ResourceScope string `json:"resource_scope"`
 
 	// description: project id or domain id of resource
 	// example: 1e3824756bac4ac084e784ed297ec652
-	ResourceAttributionId string
+	ResourceAttributionId string `json:"resource_attribution_id"`
 
-	ResourceAttributionName string
+	ResourceAttributionName string `json:"resource_attribution_name"`
 
 	// description: domain id of resource
 	// example: 1e3824756bac4ac084e784ed297ec652
-	DomainId string
+	DomainId string `json:"domain_id"`
 
 	// description: Type of subscriber
 	// enum: ["receiver","robot","role"]
-	Type string
+	Type string `json:"type"`
 
 	// description: receivers which is required when the type is 'receiver' will Subscribe TopicID
-	Receivers []string
+	Receivers []string `json:"receivers"`
 
 	// description: Role(Id or Name) which is required when the type is 'role' will Subscribe TopicID
-	Role string
+	Role string `json:"role"`
 
 	// description: The scope of role subscribers
 	// enum: ["system","domain","project"]
-	RoleScope string
+	RoleScope string `json:"role_scope"`
 
 	// description: Robot(Id or Name) which is required when the type is 'robot' will Subscribe TopicID
-	Robot string
+	Robot string `json:"robot"`
 
 	// description: scope
 	// enum: ["system","domain"]
-	Scope string
+	Scope string `json:"scope"`
 	// minutes
-	GroupTimes *uint32
+	GroupTimes *uint32 `json:"group_times"`
 }
 
 type SubscriberChangeInput struct {
 	// description: receivers which is required when the type is 'receiver' will Subscribe TopicID
-	Receivers []string
+	Receivers []string `json:"receivers"`
 
 	// description: Role(Id or Name) which is required when the type is 'role' will Subscribe TopicID
-	Role string
+	Role string `json:"role"`
 
 	// description: The scope of role subscribers
 	// enum: ["system","domain","project"]
-	RoleScope string
+	RoleScope string `json:"role_scope"`
 
 	// description: Robot(Id or Name) which is required when the type is 'robot' will Subscribe TopicID
-	Robot string
+	Robot string `json:"robot"`
 	// minutes
-	GroupTimes *uint32
+	GroupTimes *uint32 `json:"group_times"`
 }
 
 type SubscriberListInput struct {
@@ -83,19 +83,19 @@ type SubscriberListInput struct {
 	apis.EnabledResourceBaseListInput
 
 	// description: topic id
-	TopicID string
+	TopicID string `json:"topic_id"`
 
 	// description: scope of resource
 	// enum: ["system","domain","project"]
-	ResourceScope string
+	ResourceScope string `json:"resource_scope"`
 
 	// description: type
 	// enum: ["receiver","robot","role"]
-	Type string
+	Type string `json:"type"`
 
 	// description: scope
 	// enum: ["system","domain"]
-	Scope string
+	Scope string `json:"scope"`
 }
 
 type Identification struct {
@@ -110,15 +110,15 @@ type SubscriberDetails struct {
 	SSubscriber
 
 	// description: receivers
-	Receivers []Identification
+	Receivers []Identification `json:"receivers"`
 
 	// description: role
-	Role Identification
+	Role Identification `json:"role"`
 
 	// description: robot
-	Robot Identification
+	Robot Identification `json:"robot"`
 }
 
 type SubscriberSetReceiverInput struct {
-	Receivers []string
+	Receivers []string `json:"receivers"`
 }

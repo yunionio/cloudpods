@@ -83,10 +83,10 @@ type NotificationDetails struct {
 type NotificationListInput struct {
 	apis.StatusStandaloneResourceListInput
 
-	ContactType string
-	ReceiverId  string
-	Tag         string
-	TopicType   string
+	ContactType string `json:"contact_type"`
+	ReceiverId  string `json:"receiver_id"`
+	Tag         string `json:"tag"`
+	TopicType   string `json:"topic_type"`
 }
 
 type SContact struct {
@@ -119,13 +119,13 @@ type NotificationManagerEventNotifyInput struct {
 	// description: event trigger sending notification
 	// required: true
 	// example: SERVER_DELETE
-	Event        string
-	ResourceType string
+	Event        string `json:"event"`
+	ResourceType string `json:"resource_type"`
 
-	CloudAccountName string
-	Action           SAction
+	CloudAccountName string  `json:"cloud_account_name"`
+	Action           SAction `json:"action"`
 	// failed,succeed
-	Result SResult
+	Result SResult `json:"result"`
 	// description: day left before the event
 	// required: false
 	// example: 0
@@ -133,21 +133,21 @@ type NotificationManagerEventNotifyInput struct {
 	// description: domainId of the resource that triggered the event notification
 	// required: false
 	// example: default
-	ProjectDomainId string
+	ProjectDomainId string `json:"project_domain_id"`
 	// description: projectId of the resource that triggered the event notification
 	// required: false
 	// example: f627e09f038645f08ce6880c8d9cb8fd
-	ProjectId string `json:"project_id"`
-	IsFailed  SResult
+	ProjectId string  `json:"project_id"`
+	IsFailed  SResult `json:"is_failed"`
 }
 
 type NotificationManagerEventNotifyOutput struct {
-	FailedList []FailedElem
+	FailedList []FailedElem `json:"failed_list"`
 }
 
 type FailedElem struct {
-	ContactType string
-	Reason      string
+	ContactType string `json:"contact_type"`
+	Reason      string `json:"reason"`
 }
 
 type NotificationManagerContactNotifyInput struct {
@@ -167,6 +167,6 @@ type NotificationManagerContactNotifyInput struct {
 	// example: {"adfb720ccdd34c638346ea4fa7a713a8"}
 	RobotIds []string `json:"robot_ids"`
 	RoleIds  []string `json:"role_ids"`
-	Subject  string
-	Body     string
+	Subject  string   `json:"subject"`
+	Body     string   `json:"body"`
 }

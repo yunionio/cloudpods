@@ -71,8 +71,8 @@ type LoadbalancerAclFilterListInput struct {
 }
 
 type SAclEntry struct {
-	Cidr    string
-	Comment string
+	Cidr    string `json:"cidr"`
+	Comment string `json:"comment"`
 }
 
 type SAclEntries []SAclEntry

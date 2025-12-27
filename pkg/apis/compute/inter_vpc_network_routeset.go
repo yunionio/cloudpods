@@ -38,6 +38,6 @@ type InterVpcNetworkRouteSetListInput struct {
 	apis.EnabledStatusStandaloneResourceListInput
 	apis.ExternalizedResourceBaseListInput
 	VpcFilterListInput
-	InterVpcNetworkId string
+	InterVpcNetworkId string `json:"inter_vpc_network_id"`
 	Cidr              string `json:"cidr"`
 }

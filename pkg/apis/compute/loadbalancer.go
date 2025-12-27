@@ -25,8 +25,8 @@ import (
 type LoadbalancerAgentDeployInput struct {
 	apis.Meta
 
-	Host         ansible.Host
-	DeployMethod string
+	Host         ansible.Host `json:"host"`
+	DeployMethod string       `json:"deploy_method"`
 }
 
 const (
@@ -213,7 +213,7 @@ type LoadbalancerCreateInput struct {
 	NetworkResourceInput
 	// 多子网
 	// swagger:ignore
-	Networks []string
+	Networks []string `json:"networks"`
 	// Network     string `json:"network"`
 	CloudproviderResourceInput
 	// Manager     string `json:"manager"`

@@ -31,24 +31,24 @@ type AlertResourceRecordCreateInput struct {
 	apis.Meta
 	apis.SStandaloneResourceBase
 
-	EvalData      EvalMatch
-	AlertTime     time.Time
-	ResName       string
-	ResType       string
-	Brand         string
-	TriggerVal    string
-	AlertRecordId string
-	AlertId       string
-	SendState     string
+	EvalData      EvalMatch `json:"eval_data"`
+	AlertTime     time.Time `json:"alert_time"`
+	ResName       string    `json:"res_name"`
+	ResType       string    `json:"res_type"`
+	Brand         string    `json:"brand"`
+	TriggerVal    string    `json:"trigger_val"`
+	AlertRecordId string    `json:"alert_record_id"`
+	AlertId       string    `json:"alert_id"`
+	SendState     string    `json:"send_state"`
 }
 
 type AlertResourceRecordDetails struct {
 	apis.StatusStandaloneResourceDetails
 	apis.ScopedResourceBaseInfo
 
-	AlertName string `json:"alert_name"`
-	AlertRule jsonutils.JSONObject
-	ResType   string
-	Level     string
-	State     string
+	AlertName string               `json:"alert_name"`
+	AlertRule jsonutils.JSONObject `json:"alert_rule"`
+	ResType   string               `json:"res_type"`
+	Level     string               `json:"level"`
+	State     string               `json:"state"`
 }

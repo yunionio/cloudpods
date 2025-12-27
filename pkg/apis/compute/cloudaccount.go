@@ -143,10 +143,10 @@ type CloudaccountCreateInput struct {
 	// enum: ["VMware", "Aliyun", "Qcloud", "Azure", "Aws", "Huawei", "OpenStack", "Ucloud", "ZStack", "Google", "Ctyun", "JDcloud"]
 	Provider string `json:"provider"`
 	// swagger:ignore
-	AccountId string
+	AccountId string `json:"account_id"`
 
 	// 跳过重复账号注册检查
-	SkipDuplicateAccountCheck bool
+	SkipDuplicateAccountCheck bool `json:"skip_duplicate_account_check"`
 
 	// 指定云平台品牌, 此参数默认和provider相同
 	// requried: false
@@ -169,9 +169,9 @@ type CloudaccountCreateInput struct {
 	Brand string `json:"brand"`
 
 	// swagger:ignore
-	IsPublicCloud bool
+	IsPublicCloud bool `json:"is_public_cloud"`
 	// swagger:ignore
-	IsOnPremise bool
+	IsOnPremise bool `json:"is_on_premise"`
 
 	// 指定云账号所属的项目
 	// Tenant string `json:"tenant"`
@@ -231,7 +231,7 @@ type SProjectMappingResourceInput struct {
 type CloudaccountShareModeInput struct {
 	apis.Meta
 
-	ShareMode string
+	ShareMode string `json:"share_mode"`
 }
 
 func (i CloudaccountShareModeInput) Validate() error {
@@ -356,7 +356,7 @@ type CloudaccountDetail struct {
 	ProjectMappingResourceInfo
 
 	// 上次同步耗时
-	LastSyncCost string
+	LastSyncCost string `json:"last_sync_cost"`
 }
 
 func (self CloudaccountDetail) GetMetricTags() map[string]string {
@@ -454,8 +454,8 @@ type VSwitch struct {
 }
 
 type SimpleHost struct {
-	Id   string
-	Name string
+	Id   string `json:"id"`
+	Name string `json:"name"`
 }
 
 type CAWireNet struct {
@@ -531,8 +531,8 @@ type EnrollmentAccountQuery struct {
 }
 
 type CloudaccountSyncSkusInput struct {
-	Resource string
-	Force    bool
+	Resource string `json:"resource"`
+	Force    bool   `json:"force"`
 
 	CloudregionResourceInput
 	CloudproviderResourceInput
@@ -580,7 +580,7 @@ func (self *SyncRangeInput) IsNotSkipSyncResource(res iRes) bool {
 }
 
 type SAccountPermission struct {
-	Permissions []string
+	Permissions []string `json:"permissions"`
 }
 
 type SkipSyncResources []string

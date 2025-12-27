@@ -20,14 +20,14 @@ type ZoneCreateInput struct {
 	apis.StatusStandaloneResourceCreateInput
 
 	// 区域名称或Id,建议使用Id
-	Cloudregion string
+	Cloudregion string `json:"cloudregion"`
 
 	// swagger:ignore
-	Region string
+	Region string `json:"region"`
 	// swagger:ignore
-	RegionId string
+	RegionId string `json:"region_id"`
 	// swagger:ignore
-	CloudregionId string
+	CloudregionId string `json:"cloudregion_id"`
 }
 
 type ZoneGeneralUsage struct {

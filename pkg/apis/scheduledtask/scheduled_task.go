@@ -110,13 +110,13 @@ type ScheduledTaskCreateInput struct {
 	LabelType string `json:"label_type"`
 	// description: labels
 	// example: {g-12345}
-	Labels []string
+	Labels []string `json:"labels"`
 }
 
 type TimerCreateInput struct {
 
 	// description: 执行时间
-	ExecTime time.Time
+	ExecTime time.Time `json:"exec_time"`
 }
 
 type CycleTimerCreateInput struct {

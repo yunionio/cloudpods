@@ -656,28 +656,28 @@ type ServerStopInput struct {
 
 type ServerSaveImageInput struct {
 	// 镜像名称
-	Name         string
-	GenerateName string
-	Notes        string
-	IsPublic     *bool
+	Name         string `json:"name"`
+	GenerateName string `json:"generate_name"`
+	Notes        string `json:"notes"`
+	IsPublic     *bool  `json:"is_public"`
 	// 镜像格式
-	Format string
+	Format string `json:"format"`
 
 	// 保存镜像后是否自动启动,若实例状态为运行中,则会先关闭实例
 	// 公有云若支持开机保存镜像，此参数则不生效
 	// default: false
-	AutoStart bool
+	AutoStart bool `json:"auto_start"`
 	// swagger:ignore
-	Restart bool
+	Restart bool `json:"restart"`
 
 	// swagger:ignore
-	OsType string
+	OsType string `json:"os_type"`
 
 	// swagger:ignore
-	OsArch string
+	OsArch string `json:"os_arch"`
 
 	// swagger:ignore
-	ImageId string
+	ImageId string `json:"image_id"`
 }
 
 type ServerSaveGuestImageInput struct {
@@ -690,23 +690,23 @@ type ServerSaveGuestImageInput struct {
 type ServerDeleteInput struct {
 	// 是否越过回收站直接删除
 	// default: false
-	OverridePendingDelete bool
+	OverridePendingDelete bool `json:"override_pending_delete"`
 
 	// 是否仅删除本地资源
 	// default: false
-	Purge bool
+	Purge bool `json:"purge"`
 
 	// 是否删除快照
 	// default: false
-	DeleteSnapshots bool
+	DeleteSnapshots bool `json:"delete_snapshots"`
 
 	// 是否删除关联的EIP
 	// default: false
-	DeleteEip bool
+	DeleteEip bool `json:"delete_eip"`
 
 	// 是否删除关联的数据盘
 	// default: false
-	DeleteDisks bool
+	DeleteDisks bool `json:"delete_disks"`
 }
 
 type ServerDetachnetworkInput struct {
@@ -847,8 +847,8 @@ type ServerChangeConfigInput struct {
 	// disks start from index 1, i.e. cannot change size of system disk(1st disk)
 	Disks []DiskConfig `json:"disks"`
 
-	SetTrafficLimits   []ServerNicTrafficLimit
-	ResetTrafficLimits []ServerNicTrafficLimit
+	SetTrafficLimits   []ServerNicTrafficLimit `json:"set_traffic_limits"`
+	ResetTrafficLimits []ServerNicTrafficLimit `json:"reset_traffic_limits"`
 }
 
 type ServerUpdateInput struct {
@@ -965,8 +965,8 @@ type GuestJsonDesc struct {
 }
 
 type SVCpuPin struct {
-	Vcpu int
-	Pcpu int
+	Vcpu int `json:"vcpu"`
+	Pcpu int `json:"pcpu"`
 }
 
 type SCpuNumaPin struct {
@@ -1114,8 +1114,8 @@ type ServerGetCPUSetCoresResp struct {
 type ServerGetNumaInfoInput struct{}
 
 type ServerGetNumaInfoResp struct {
-	CpuNumaPin              jsonutils.JSONObject
-	IsolatedDevicesNumaNode []int8
+	CpuNumaPin              jsonutils.JSONObject `json:"cpu_numa_pin"`
+	IsolatedDevicesNumaNode []int8               `json:"isolated_devices_numa_node"`
 }
 
 type ServerGetHardwareInfoInput struct{}
@@ -1171,8 +1171,8 @@ type ServerGetHardwareInfoResp struct {
 }
 
 type ServerMonitorInput struct {
-	COMMAND string
-	QMP     bool
+	COMMAND string `json:"command"`
+	QMP     bool   `json:"qmp"`
 }
 
 type ServerQemuInfo struct {
@@ -1203,8 +1203,8 @@ type IfnameDetail struct {
 }
 
 type ServerQgaSetPasswordInput struct {
-	Username string
-	Password string
+	Username string `json:"username"`
+	Password string `json:"password"`
 }
 
 type ServerQgaGuestInfoTaskInput struct {
@@ -1212,11 +1212,11 @@ type ServerQgaGuestInfoTaskInput struct {
 
 type ServerQgaSetNetworkInput struct {
 	ServerQgaTimeoutInput
-	Device   string
-	Ipmask   string
-	Gateway  string
-	Ip6mask  string
-	Gateway6 string
+	Device   string `json:"device"`
+	Ipmask   string `json:"ipmask"`
+	Gateway  string `json:"gateway"`
+	Ip6mask  string `json:"ip6mask"`
+	Gateway6 string `json:"gateway6"`
 }
 
 type ServerQgaGetNetworkInput struct {
@@ -1224,21 +1224,21 @@ type ServerQgaGetNetworkInput struct {
 
 type ServerQgaTimeoutInput struct {
 	// qga execute timeout second
-	Timeout int
+	Timeout int `json:"timeout"`
 }
 
 type ServerQgaCommandInput struct {
 	ServerQgaTimeoutInput
-	Command string
+	Command string `json:"command"`
 }
 
 type ServerSetPasswordInput struct {
-	Username string
-	Password string
+	Username string `json:"username"`
+	Password string `json:"password"`
 
 	// deploy params
-	ResetPassword bool
-	AutoStart     bool
+	ResetPassword bool `json:"reset_password"`
+	AutoStart     bool `json:"auto_start"`
 }
 
 type ServerInsertVfdInput struct {
@@ -1356,9 +1356,9 @@ type ServerChangeConfigSpecs struct {
 }
 
 type DiskResizeSpec struct {
-	DiskId    string
-	SizeMb    int
-	OldSizeMb int
+	DiskId    string `json:"disk_id"`
+	SizeMb    int    `json:"size_mb"`
+	OldSizeMb int    `json:"old_size_mb"`
 }
 
 type ServerChangeConfigSettings struct {
