@@ -99,6 +99,7 @@ func (s *SKVMGuestInstance) initGuestDevicesDesc(pciRoot, pciBridge *desc.PCICon
 	s.initQgaDesc()
 	s.initPvpanicDesc()
 	s.initIsaSerialDesc()
+	s.initTpmDesc()
 	return nil
 }
 

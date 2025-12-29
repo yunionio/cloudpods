@@ -450,6 +450,7 @@ type ServerCreateOptionalOptions struct {
 	MemSpec        string `help:"Memory size Or Instance Type" metavar:"MEMSPEC" json:"-"`
 	CpuSockets     int    `help:"Cpu sockets"`
 	EnableMemclean bool   `help:"clean guest memory after guest exit" json:"enable_memclean"`
+	EnableTpm      bool   `help:"enable tpm device" json:"enable_tpm"`
 
 	Keypair          string   `help:"SSH Keypair"`
 	Password         string   `help:"Default user password"`
@@ -589,6 +590,7 @@ func (opts *ServerCreateOptionalOptions) OptionalParams() (*computeapi.ServerCre
 		GuestImageID:       opts.GuestImageID,
 		Secgroups:          opts.Secgroups,
 		EnableMemclean:     opts.EnableMemclean,
+		EnableTpm:          opts.EnableTpm,
 	}
 
 	params.ProjectId = opts.Project
@@ -1579,6 +1581,15 @@ func (o *ServerSetRootDiskMatcher) Params() (jsonutils.JSONObject, error) {
 		return nil, err
 	}
 	return jsonutils.Marshal(matcher), nil
+}
+
+type ServerSetTpmOptions struct {
+	ServerIdsOptions
+	EnableTpm bool `help:"Enable tpm device"`
+}
+
+func (o *ServerSetTpmOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(o), nil
 }
 
 type ServerChangeBillingTypeOptions struct {

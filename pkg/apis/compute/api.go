@@ -535,7 +535,8 @@ type ServerCreateInput struct {
 
 	// BIOS类型, 若镜像是Windows，并且支持UEFI,则自动会设置为UEFI
 	// emulate: BIOS, UEFI
-	Bios string `json:"bios"`
+	Bios      string `json:"bios"`
+	EnableTpm bool   `json:"enable_tpm"`
 
 	// Machine类型
 	// emulate: pc, q35

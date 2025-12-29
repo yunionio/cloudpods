@@ -131,6 +131,7 @@ func init() {
 	cmd.BatchPerform("sync-os-info", &options.ServerIdsOptions{})
 	cmd.BatchPerform("set-root-disk-matcher", &options.ServerSetRootDiskMatcher{})
 	cmd.Perform("disable-auto-merge-snapshot", &options.ServerDisableAutoMergeSnapshot{})
+	cmd.BatchPerform("set-tpm", &options.ServerSetTpmOptions{})
 	cmd.Get("vnc", new(options.ServerVncOptions))
 	cmd.Get("desc", new(options.ServerIdOptions))
 	cmd.Get("status", new(options.ServerIdOptions))

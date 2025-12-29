@@ -1809,6 +1809,17 @@ func (manager *SGuestManager) validateCreateData(
 			input.OsArch = apis.OS_ARCH_AARCH64
 		}
 
+		// enable tpm on windows 11 image
+		if osDist := imgProperties["os_distribution"]; strings.Contains(osDist, "Windows 11") {
+			input.EnableTpm = true
+		}
+
+		// use uefi boot and q35 machine type on enable tpm
+		if input.EnableTpm {
+			input.Bios = "UEFI"
+			input.Machine = api.VM_MACHINE_TYPE_Q35
+		}
+
 		if imageDiskFormat != "iso" {
 			var imgSupportUEFI *bool
 			var imgSupportBIOS *bool
@@ -2587,6 +2598,9 @@ func (guest *SGuest) PostCreate(ctx context.Context, userCred mcclient.TokenCred
 
 	if jsonutils.QueryBoolean(data, api.VM_METADATA_ENABLE_MEMCLEAN, false) {
 		guest.SetMetadata(ctx, api.VM_METADATA_ENABLE_MEMCLEAN, "true", userCred)
+	}
+	if jsonutils.QueryBoolean(data, api.VM_METADATA_ENABLE_TPM, false) {
+		guest.SetMetadata(ctx, api.VM_METADATA_ENABLE_TPM, "true", userCred)
 	}
 	if jsonutils.QueryBoolean(data, imageapi.IMAGE_DISABLE_USB_KBD, false) {
 		guest.SetMetadata(ctx, imageapi.IMAGE_DISABLE_USB_KBD, "true", userCred)
