@@ -21,6 +21,7 @@ import (
 	"io/ioutil"
 	"path"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -619,6 +620,20 @@ func (w *SWinRegTool) SetDnsServer(nameserver, searchlist string) {
 
 func (w *SWinRegTool) GetProductName() string {
 	prodKey := `HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProductName`
+	prodName := w.GetRegistry(prodKey)
+
+	if strings.Contains(prodName, "Windows 10") {
+		// check build number to determine whether it's actually Windows 11
+		buildNumStr := w.GetCurrentBuildNumber()
+		if buildNum, err := strconv.Atoi(strings.TrimSpace(buildNumStr)); err == nil && buildNum >= 22000 {
+			prodName = strings.Replace(prodName, "Windows 10", "Windows 11", 1)
+		}
+	}
+	return prodName
+}
+
+func (w *SWinRegTool) GetCurrentBuildNumber() string {
+	prodKey := `HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\CurrentBuildNumber`
 	return w.GetRegistry(prodKey)
 }
 

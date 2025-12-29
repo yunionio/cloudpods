@@ -116,6 +116,8 @@ type SGuestHardwareDesc struct {
 
 	VirtioSerial *SGuestVirtioSerial
 
+	Tpm *SGuestTpm
+
 	// std virtio cirrus vmware qlx none
 	Vga       string
 	VgaDevice *SGuestVga `json:",omitempty"`
@@ -171,6 +173,13 @@ type VirtSerialPort struct {
 type SGuestPvpanic struct {
 	Ioport uint // default ioport 1285(0x505)
 	Id     string
+}
+
+type SGuestTpm struct {
+	TpmSock *CharDev
+
+	// default emulator tpm
+	Id string
 }
 
 // -device pcie-pci-bridge,id=pci.1,bus=pcie.0 \
