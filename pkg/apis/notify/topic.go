@@ -45,14 +45,14 @@ const (
 
 type TopicUpdateInput struct {
 	apis.EnabledStatusStandaloneResourceBaseUpdateInput
-	TitleCn           string
-	TitleEn           string
-	ContentCn         string
-	ContentEn         string
-	AdvanceDays       []int `json:"advance_days"`
-	WebconsoleDisable *bool
-	Actions           []string
-	Resources         []string
+	TitleCn           string   `json:"title_cn"`
+	TitleEn           string   `json:"title_en"`
+	ContentCn         string   `json:"content_cn"`
+	ContentEn         string   `json:"content_en"`
+	AdvanceDays       []int    `json:"advance_days"`
+	WebconsoleDisable *bool    `json:"webconsole_disable"`
+	Actions           []string `json:"actions"`
+	Resources         []string `json:"resources"`
 }
 
 type TopicListInput struct {

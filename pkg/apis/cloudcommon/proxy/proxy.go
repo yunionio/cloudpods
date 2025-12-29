@@ -61,6 +61,6 @@ type ProxySettingResourceInput struct {
 }
 
 type ProxySettingTestInput struct {
-	HttpProxy  string
-	HttpsProxy string
+	HttpProxy  string `json:"http_proxy"`
+	HttpsProxy string `json:"https_proxy"`
 }

@@ -49,8 +49,8 @@ type OllamaAccessGgufFileInput struct {
 }
 
 type OllamaModelFileMessage struct {
-	Role    string
-	Content string
+	Role    string `json:"role"`
+	Content string `json:"content"`
 }
 
 func (m *OllamaModelFileMessage) ValidateRole() error {

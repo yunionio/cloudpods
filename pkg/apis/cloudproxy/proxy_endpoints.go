@@ -21,19 +21,19 @@ import (
 type ProxyEndpointCreateInput struct {
 	apis.VirtualResourceCreateInput
 
-	User       string
-	Host       string
-	Port       int `json:",omitzero"`
-	PrivateKey string
+	User       string `json:"user"`
+	Host       string `json:"host"`
+	Port       int    `json:"port,omitzero"`
+	PrivateKey string `json:"private_key"`
 
-	IntranetIpAddr string
+	IntranetIpAddr string `json:"intranet_ip_addr"`
 }
 
 type ProxyEndpointCreateFromServerInput struct {
-	Name         string
-	GenerateName string
+	Name         string `json:"name"`
+	GenerateName string `json:"generate_name"`
 
-	ServerId string
+	ServerId string `json:"server_id"`
 }
 
 type ProxyEndpointUpdateInput struct {
@@ -48,6 +48,6 @@ type ProxyEndpointUpdateInput struct {
 type ProxyEndpointListInput struct {
 	apis.VirtualResourceListInput
 
-	VpcId     string
-	NetworkId string
+	VpcId     string `json:"vpc_id"`
+	NetworkId string `json:"network_id"`
 }

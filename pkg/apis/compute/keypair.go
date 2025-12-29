@@ -31,10 +31,10 @@ type KeypairCreateInput struct {
 	PublicKey string `json:"public_key"`
 
 	// swagger:ignore
-	PrivateKey string
+	PrivateKey string `json:"private_key"`
 
 	// swagger:ignore
-	Fingerprint string
+	Fingerprint string `json:"fingerprint"`
 
 	// 秘钥类型
 	// enum: ["RSA"]

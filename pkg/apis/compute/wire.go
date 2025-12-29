@@ -90,8 +90,8 @@ type WireResourceInfo struct {
 }
 
 type SSimpleWire struct {
-	Wire   string
-	WireId string
+	Wire   string `json:"wire"`
+	WireId string `json:"wire_id"`
 }
 
 type WireUpdateInput struct {

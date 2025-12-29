@@ -17,7 +17,7 @@ package compute
 import "yunion.io/x/onecloud/pkg/apis"
 
 type PolicyDefinitionResourceListInput struct {
-	Policydefinition string
+	Policydefinition string `json:"policydefinition"`
 }
 
 type PolicyAssignmentListInput struct {

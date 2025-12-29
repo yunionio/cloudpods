@@ -54,7 +54,7 @@ type KubeNodePoolCreateInput struct {
 type KubeNodePoolDetails struct {
 	apis.StatusStandaloneResourceDetails
 	apis.InfrasResourceBaseDetails
-	DomainId string
+	DomainId string `json:"domain_id"`
 }
 
 type KubeNodePoolUpdateInput struct {

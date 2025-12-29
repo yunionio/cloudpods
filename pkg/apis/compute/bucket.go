@@ -96,7 +96,7 @@ func (bucket BucketDetails) GetMetricPairs() map[string]string {
 }
 
 type BucketObjectsActionInput struct {
-	Key []string
+	Key []string `json:"key"`
 }
 
 type BucketAclInput struct {
@@ -220,25 +220,25 @@ type BucketGetObjectsOutput struct {
 }
 
 type BucketWebsiteRoutingRule struct {
-	ConditionErrorCode string
-	ConditionPrefix    string
+	ConditionErrorCode string `json:"condition_error_code"`
+	ConditionPrefix    string `json:"condition_prefix"`
 
-	RedirectProtocol         string
-	RedirectReplaceKey       string
-	RedirectReplaceKeyPrefix string
+	RedirectProtocol         string `json:"redirect_protocol"`
+	RedirectReplaceKey       string `json:"redirect_replace_key"`
+	RedirectReplaceKeyPrefix string `json:"redirect_replace_key_prefix"`
 }
 
 type BucketWebsiteConf struct {
 	// 主页
-	Index string
+	Index string `json:"index"`
 	// 错误时返回的文档
-	ErrorDocument string
+	ErrorDocument string `json:"error_document"`
 	// http或https
-	Protocol string
+	Protocol string `json:"protocol"`
 
-	Rules []BucketWebsiteRoutingRule
+	Rules []BucketWebsiteRoutingRule `json:"rules"`
 	// 访问网站url
-	Url string
+	Url string `json:"url"`
 }
 
 func (input *BucketWebsiteConf) Validate() error {
@@ -255,14 +255,14 @@ func (input *BucketWebsiteConf) Validate() error {
 }
 
 type BucketCORSRule struct {
-	AllowedMethods []string
+	AllowedMethods []string `json:"allowed_methods"`
 	// 允许的源站，可以是*
-	AllowedOrigins []string
-	AllowedHeaders []string
-	MaxAgeSeconds  int
-	ExposeHeaders  []string
+	AllowedOrigins []string `json:"allowed_origins"`
+	AllowedHeaders []string `json:"allowed_headers"`
+	MaxAgeSeconds  int      `json:"max_age_seconds"`
+	ExposeHeaders  []string `json:"expose_headers"`
 	// 规则区别标识
-	Id string
+	Id string `json:"id"`
 }
 
 type BucketCORSRules struct {
@@ -270,11 +270,11 @@ type BucketCORSRules struct {
 }
 
 type BucketCORSRuleDeleteInput struct {
-	Id []string
+	Id []string `json:"id"`
 }
 
 type BucketPolicy struct {
-	Data []BucketPolicyStatement
+	Data []BucketPolicyStatement `json:"data"`
 }
 
 type BucketPolicyStatement struct {
@@ -290,30 +290,30 @@ type BucketPolicyStatement struct {
 	Condition map[string]map[string]interface{} `json:"Condition,omitempty"`
 
 	// 解析字段，主账号id:子账号id
-	PrincipalId []string
+	PrincipalId []string `json:"principal_id"`
 	// map[主账号id:子账号id]子账号name
-	PrincipalNames map[string]string
+	PrincipalNames map[string]string `json:"principal_names"`
 
 	// Read|ReadWrite|FullControl
-	CannedAction string
+	CannedAction string `json:"canned_action"`
 	// 资源路径
-	ResourcePath []string
+	ResourcePath []string `json:"resource_path"`
 	// 根据index 生成
-	Id string
+	Id string `json:"id"`
 }
 
 type BucketPolicyStatementInput struct {
 	// 主账号id:子账号id
-	PrincipalId []string
+	PrincipalId []string `json:"principal_id"`
 	// Read|ReadWrite|FullControl
-	CannedAction string
+	CannedAction string `json:"canned_action"`
 	// Allow|Deny
-	Effect string
+	Effect string `json:"effect"`
 	// 被授权的资源地址,/*
-	ResourcePath []string
+	ResourcePath []string `json:"resource_path"`
 	// ip 条件
-	IpEquals    []string
-	IpNotEquals []string
+	IpEquals    []string `json:"ip_equals"`
+	IpNotEquals []string `json:"ip_not_equals"`
 }
 
 func (input *BucketPolicyStatementInput) Validate() error {
@@ -338,7 +338,7 @@ func (input *BucketPolicyStatementInput) Validate() error {
 }
 
 type BucketPolicyDeleteInput struct {
-	Id []string
+	Id []string `json:"id"`
 }
 
 func (input *BucketCORSRules) Validate() error {
@@ -356,11 +356,11 @@ func (input *BucketCORSRules) Validate() error {
 type BucketRefererConf struct {
 	// Referer Type
 	// enmu: Black-List, White-List
-	RefererType string
+	RefererType string `json:"referer_type"`
 	// 域名列表
-	DomainList []string
+	DomainList []string `json:"domain_list"`
 	// 是否允许空referer 访问
-	AllowEmptyRefer bool
+	AllowEmptyRefer bool `json:"allow_empty_refer"`
 
 	// 是否开启
 	Enabled bool `json:"enabled"`
@@ -377,9 +377,9 @@ func init() {
 }
 
 type BucketProbeResult struct {
-	UploadTime   time.Duration
-	DownloadTime time.Duration
-	DeleteTime   time.Duration
+	UploadTime   time.Duration `json:"upload_time"`
+	DownloadTime time.Duration `json:"download_time"`
+	DeleteTime   time.Duration `json:"delete_time"`
 }
 
 func (result BucketProbeResult) UploadDelayMs() float64 {

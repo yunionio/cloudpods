@@ -23,10 +23,10 @@ func IsLLMSkuBaseNetworkType(t string) bool {
 }
 
 type HostInfo struct {
-	HostId       string
-	Host         string
-	HostAccessIp string
-	HostEIP      string
+	HostId       string `json:"host_id"`
+	Host         string `json:"host"`
+	HostAccessIp string `json:"host_access_ip"`
+	HostEIP      string `json:"host_eip"`
 }
 
 func init() {
@@ -111,12 +111,12 @@ func (s Envs) IsZero() bool {
 type LLMSkuDetails struct {
 	apis.SharableVirtualResourceDetails
 	// 当前大模型套餐包含的实例个数。
-	LLMCapacity int
-	Image       string
-	ImageLabel  string
-	ImageName   string
+	LLMCapacity int    `json:"llm_capacity"`
+	Image       string `json:"image"`
+	ImageLabel  string `json:"image_label"`
+	ImageName   string `json:"image_name"`
 
-	Template string
+	Template string `json:"template"`
 }
 
 type MountedAppResourceDetails struct {

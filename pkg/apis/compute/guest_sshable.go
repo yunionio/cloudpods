@@ -22,54 +22,54 @@ const (
 )
 
 type GuestSshableMethodData struct {
-	Method string
-	Host   string
-	Port   int
+	Method string `json:"method"`
+	Host   string `json:"host"`
+	Port   int    `json:"port"`
 
-	Sshable bool
-	Reason  string
+	Sshable bool   `json:"sshable"`
+	Reason  string `json:"reason"`
 
-	ForwardDetails ForwardDetails
+	ForwardDetails ForwardDetails `json:"forward_details"`
 }
 
 type ForwardDetails struct {
-	ProxyAgentId    string
-	ProxyEndpointId string
+	ProxyAgentId    string `json:"proxy_agent_id"`
+	ProxyEndpointId string `json:"proxy_endpoint_id"`
 }
 
 type GuestSshableOutput struct {
-	User      string
-	PublicKey string
+	User      string `json:"user"`
+	PublicKey string `json:"public_key"`
 
-	MethodTried []GuestSshableMethodData
+	MethodTried []GuestSshableMethodData `json:"method_tried"`
 }
 
 type GuestHaveAgentInput struct {
 }
 
 type GuestHaveAgentOutput struct {
-	Have bool
+	Have bool `json:"have"`
 }
 
 type GuestMakeSshableInput struct {
-	User       string
-	PrivateKey string
-	Password   string
-	Port       int
+	User       string `json:"user"`
+	PrivateKey string `json:"private_key"`
+	Password   string `json:"password"`
+	Port       int    `json:"port"`
 }
 
 type GuestMakeSshableOutput struct {
-	AnsiblePlaybookId string
+	AnsiblePlaybookId string `json:"ansible_playbook_id"`
 }
 
 type GuestMakeSshableCmdOutput struct {
-	ShellCmd string
+	ShellCmd string `json:"shell_cmd"`
 }
 
 type GuestSetSshportInput struct {
-	Port int
+	Port int `json:"port"`
 }
 
 type GuestSshportOutput struct {
-	Port int
+	Port int `json:"port"`
 }

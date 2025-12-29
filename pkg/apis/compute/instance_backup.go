@@ -99,16 +99,16 @@ type SSimpleBackup struct {
 
 type InstanceBackupRecoveryInput struct {
 	// description: name of guest
-	Name string
+	Name string `json:"name"`
 }
 
 type InstanceBackupPackInput struct {
-	PackageName string
+	PackageName string `json:"package_name"`
 }
 
 type InstanceBackupManagerCreateFromPackageInput struct {
 	apis.VirtualResourceCreateInput
 
-	BackupStorageId string
-	PackageName     string
+	BackupStorageId string `json:"backup_storage_id"`
+	PackageName     string `json:"package_name"`
 }

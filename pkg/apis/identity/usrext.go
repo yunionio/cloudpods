@@ -17,29 +17,29 @@ package identity
 import "time"
 
 type SUserExtended struct {
-	Id               string
-	Name             string
-	Enabled          bool
-	ExpiredAt        time.Time
-	DefaultProjectId string
-	CreatedAt        time.Time
-	LastActiveAt     time.Time
-	DomainId         string
+	Id               string    `json:"id"`
+	Name             string    `json:"name"`
+	Enabled          bool      `json:"enabled"`
+	ExpiredAt        time.Time `json:"expired_at"`
+	DefaultProjectId string    `json:"default_project_id"`
+	CreatedAt        time.Time `json:"created_at"`
+	LastActiveAt     time.Time `json:"last_active_at"`
+	DomainId         string    `json:"domain_id"`
 
-	IsSystemAccount bool
+	IsSystemAccount bool `json:"is_system_account"`
 
-	Displayname string
-	Email       string
-	Mobile      string
+	Displayname string `json:"displayname"`
+	Email       string `json:"email"`
+	Mobile      string `json:"mobile"`
 
-	LocalId              int
-	LocalName            string
-	LocalFailedAuthCount int
-	DomainName           string
-	DomainEnabled        bool
-	IsLocal              bool
+	LocalId              int    `json:"local_id"`
+	LocalName            string `json:"local_name"`
+	LocalFailedAuthCount int    `json:"local_failed_auth_count"`
+	DomainName           string `json:"domain_name"`
+	DomainEnabled        bool   `json:"domain_enabled"`
+	IsLocal              bool   `json:"is_local"`
 	// IdpId         string
 	// IdpName       string
 
-	AuditIds []string
+	AuditIds []string `json:"audit_ids"`
 }

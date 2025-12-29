@@ -55,8 +55,8 @@ type CloudpolicyListInput struct {
 }
 
 type PolicyUsage struct {
-	CloudgroupCount int
-	ClouduserCount  int
+	CloudgroupCount int `json:"cloudgroup_count"`
+	ClouduserCount  int `json:"clouduser_count"`
 }
 
 type CloudpolicyDetails struct {

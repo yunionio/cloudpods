@@ -24,10 +24,10 @@ const (
 )
 
 type SUserGroup struct {
-	Id       string
-	Name     string
-	Domain   string
-	DomainId string
+	Id       string `json:"id"`
+	Name     string `json:"name"`
+	Domain   string `json:"domain"`
+	DomainId string `json:"domain_id"`
 }
 
 type UserDetails struct {

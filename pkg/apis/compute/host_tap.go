@@ -60,7 +60,7 @@ type STapServiceConfig struct {
 
 	Ifname string `json:"ifname"`
 
-	Mirrors []SMirrorConfig
+	Mirrors []SMirrorConfig `json:"mirrors"`
 }
 
 type SHostTapConfig struct {

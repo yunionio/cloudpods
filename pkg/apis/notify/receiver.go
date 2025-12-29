@@ -132,9 +132,9 @@ type ReceiverDetails struct {
 }
 
 type VerifiedInfo struct {
-	ContactType string
-	Verified    bool
-	Note        string
+	ContactType string `json:"contact_type"`
+	Verified    bool   `json:"verified"`
+	Note        string `json:"note"`
 }
 
 type ReceiverListInput struct {
@@ -205,17 +205,17 @@ type ReceiverEnableContactTypeInput struct {
 }
 
 type ReceiverGetSubscriptionOptions struct {
-	Id           string
-	ShowDisabled bool
+	Id           string `json:"id"`
+	ShowDisabled bool   `json:"show_disabled"`
 }
 
 type SRoleContactInput struct {
-	RoleIds         []string
-	Scope           string
-	ProjectDomainId string
-	ProjectId       string `json:"project_id"`
+	RoleIds         []string `json:"role_ids"`
+	Scope           string   `json:"scope"`
+	ProjectDomainId string   `json:"project_domain_id"`
+	ProjectId       string   `json:"project_id"`
 }
 
 type SRoleContactOutput struct {
-	ContactType []string
+	ContactType []string `json:"contact_type"`
 }

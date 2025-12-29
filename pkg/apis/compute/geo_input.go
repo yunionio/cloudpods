@@ -151,11 +151,11 @@ type ZoneListInput struct {
 	Location []string `json:"location"`
 	Contacts []string `json:"contacts"`
 
-	OrderByWires             string
-	OrderByHosts             string
-	OrderByHostsEnabled      string
-	OrderByBaremetals        string
-	OrderByBaremetalsEnabled string
+	OrderByWires             string `json:"order_by_wires"`
+	OrderByHosts             string `json:"order_by_hosts"`
+	OrderByHostsEnabled      string `json:"order_by_hosts_enabled"`
+	OrderByBaremetals        string `json:"order_by_baremetals"`
+	OrderByBaremetalsEnabled string `json:"order_by_baremetals_enabled"`
 }
 
 type ZoneResourceInput struct {

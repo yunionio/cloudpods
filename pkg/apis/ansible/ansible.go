@@ -24,8 +24,8 @@ import (
 type AnsiblePlaybookCreateInput struct {
 	apis.Meta
 
-	Name     string
-	Playbook ansible.Playbook
+	Name     string           `json:"name"`
+	Playbook ansible.Playbook `json:"playbook"`
 }
 
 type AnsiblePlaybookUpdateInput AnsiblePlaybookCreateInput
@@ -50,19 +50,19 @@ type AnsiblePlaybookReferenceUpdateInput struct {
 }
 
 type AnsiblePlaybookReferenceRunInput struct {
-	Host AnsibleHost
-	Args jsonutils.JSONObject
+	Host AnsibleHost          `json:"host"`
+	Args jsonutils.JSONObject `json:"args"`
 }
 
 type AnsiblePlaybookReferenceRunOutput struct {
-	AnsiblePlaybookInstanceId string
+	AnsiblePlaybookInstanceId string `json:"ansible_playbook_instance_id"`
 }
 
 type AnsiblePlaybookReferenceStopInput struct {
-	AnsiblePlaybookInstanceId string
+	AnsiblePlaybookInstanceId string `json:"ansible_playbook_instance_id"`
 }
 
 type AnsiblePlaybookInstanceListInput struct {
 	apis.StatusStandaloneResourceListInput
-	AnsiblePlayboookReferenceId string
+	AnsiblePlayboookReferenceId string `json:"ansible_playboook_reference_id"`
 }

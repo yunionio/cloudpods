@@ -104,11 +104,11 @@ type ScheduleInput struct {
 	ReuseNetwork bool `json:"reuse_network"`
 
 	// Change config
-	ChangeConfig bool
+	ChangeConfig bool `json:"change_config"`
 	// guest who change config has isolated device
-	HasIsolatedDevice bool
+	HasIsolatedDevice bool `json:"has_isolated_device"`
 
-	PendingUsages []jsonutils.JSONObject
+	PendingUsages []jsonutils.JSONObject `json:"pending_usages"`
 }
 
 func (input ScheduleInput) ToConditionInput() *jsonutils.JSONDict {
@@ -129,9 +129,9 @@ type CandidateDiskV2 struct {
 }
 
 type CandidateStorage struct {
-	Id           string
-	Name         string
-	FreeCapacity int64
+	Id           string `json:"id"`
+	Name         string `json:"name"`
+	FreeCapacity int64  `json:"free_capacity"`
 }
 
 type CandidateNet struct {
@@ -140,12 +140,12 @@ type CandidateNet struct {
 }
 
 type SFreeNumaCpuMem struct {
-	FreeCpuCount       int
-	MemSize            int
-	EnableNumaAllocate bool
+	FreeCpuCount       int  `json:"free_cpu_count"`
+	MemSize            int  `json:"mem_size"`
+	EnableNumaAllocate bool `json:"enable_numa_allocate"`
 
-	CpuCount int
-	NodeId   int
+	CpuCount int `json:"cpu_count"`
+	NodeId   int `json:"node_id"`
 }
 
 type SortedFreeNumaCpuMam []*SFreeNumaCpuMem
@@ -198,15 +198,15 @@ func NodesFreeCpuEnough(nodeCount, vcpuCount int, cpuNumaFree []*SFreeNumaCpuMem
 }
 
 type SCpuPin struct {
-	Vcpu int
-	Pcpu int
+	Vcpu int `json:"vcpu"`
+	Pcpu int `json:"pcpu"`
 }
 
 type SCpuNumaPin struct {
-	CpuPin        []int
-	NodeId        int
-	MemSizeMB     *int
-	ExtraCpuCount int
+	CpuPin        []int `json:"cpu_pin"`
+	NodeId        int   `json:"node_id"`
+	MemSizeMB     *int  `json:"mem_size_mb"`
+	ExtraCpuCount int   `json:"extra_cpu_count"`
 }
 
 type CandidateResource struct {

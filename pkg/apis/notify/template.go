@@ -47,9 +47,9 @@ type TemplateCreateInput struct {
 }
 
 type TemplateManagerSaveInput struct {
-	ContactType string
-	Templates   []TemplateCreateInput
-	Force       bool
+	ContactType string                `json:"contact_type"`
+	Templates   []TemplateCreateInput `json:"templates"`
+	Force       bool                  `json:"force"`
 }
 
 type TemplateListInput struct {

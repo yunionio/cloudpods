@@ -23,7 +23,7 @@ type LoadbalancerClusterDetails struct {
 
 	SLoadbalancerCluster
 
-	RefCounts map[string]int
+	RefCounts map[string]int `json:"ref_counts"`
 }
 
 type LoadbalancerClusterResourceInfo struct {
