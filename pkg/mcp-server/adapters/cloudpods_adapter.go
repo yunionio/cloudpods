@@ -17,7 +17,11 @@ package adapters
 import (
 	"context"
 
+	"yunion.io/x/log"
+	api "yunion.io/x/onecloud/pkg/apis/identity"
+	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcp-server/options"
 )
 
@@ -35,7 +39,7 @@ type CloudRegion struct {
 func NewCloudpodsAdapter() *CloudpodsAdapter {
 
 	client := mcclient.NewClient(
-		options.Options.IdentityBaseURL,
+		options.Options.AuthURL,
 		options.Options.Timeout,
 		false,
 		true,
@@ -49,30 +53,46 @@ func NewCloudpodsAdapter() *CloudpodsAdapter {
 }
 
 // authenticate 实现 Cloudpods 的认证逻辑，例如获取访问令牌
-func (a *CloudpodsAdapter) authenticate(ak string, sk string) error {
+func (a *CloudpodsAdapter) authenticate(ak string, sk string) (mcclient.TokenCredential, error) {
 	if a.session != nil {
-		return nil
+		return a.session.GetToken(), nil
 	}
 
 	token, err := a.client.AuthenticateByAccessKey(ak, sk, "")
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	a.session = a.client.NewSession(
-		context.Background(),
-		"",
-		"",
-		"apigateway",
-		token,
-	)
-
-	return nil
+	return token, nil
 }
 
-func (a *CloudpodsAdapter) getSession(ak string, sk string) (*mcclient.ClientSession, error) {
-	if err := a.authenticate(ak, sk); err != nil {
-		return nil, err
+func (a *CloudpodsAdapter) getSession(ctx context.Context, ak string, sk string) (*mcclient.ClientSession, error) {
+	var userCred mcclient.TokenCredential
+	if auth.IsAuthed() {
+		userCred = policy.FetchUserCredential(ctx)
+		if userCred != nil {
+			log.Infof("getSessionWithUserCred: %v", userCred)
+		} else {
+			log.Infof("No userCred in context, will use ak/sk for authentication")
+			token, err := a.authenticate(ak, sk)
+			if err != nil {
+				return nil, err
+			}
+			userCred = token
+		}
+		a.session = auth.GetSession(ctx, userCred, "")
+	} else {
+		token, err := a.authenticate(ak, sk)
+		if err != nil {
+			return nil, err
+		}
+		a.session = a.client.NewSession(
+			context.Background(),
+			"",
+			"",
+			api.EndpointInterfaceApigateway,
+			token,
+		)
 	}
 	return a.session, nil
 }

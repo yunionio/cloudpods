@@ -15,11 +15,17 @@
 package server
 
 import (
+	"context"
 	"fmt"
+	"net/http"
 
 	"github.com/mark3labs/mcp-go/server"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/appctx"
+
+	api "yunion.io/x/onecloud/pkg/apis/identity"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
 
 	"yunion.io/x/onecloud/pkg/mcp-server/adapters"
 	"yunion.io/x/onecloud/pkg/mcp-server/options"
@@ -136,8 +142,32 @@ func (s *CloudpodsMCPServer) registerAllTools() error {
 
 // Start 以sse模式启动 mcp 服务
 func (s *CloudpodsMCPServer) Start() error {
+	// 设置 contextFunc 来从 HTTP header 中提取认证信息并放入 context
+	contextFunc := func(ctx context.Context, r *http.Request) context.Context {
+		tokenStr := r.Header.Get(api.AUTH_TOKEN_HEADER)
+		if len(tokenStr) > 0 {
+			if auth.IsAuthed() {
+				userCred, err := auth.Verify(ctx, tokenStr)
+				if err != nil {
+					log.Errorf("Verify token failed: %s", err)
+					return ctx
+				}
+				// 将 userCred 放入 context
+				ctx = context.WithValue(ctx, appctx.APP_CONTEXT_KEY_AUTH_TOKEN, userCred)
+				log.Debugf("UserCred set in context from HTTP header token")
+			} else {
+				log.Warningf("Auth manager not initialized, skipping token verification")
+			}
+		}
+		return ctx
+	}
 
-	if err := server.NewSSEServer(s.mcpServer).Start(fmt.Sprintf("%s:%d", options.Options.Address, options.Options.Port)); err != nil {
+	sseServer := server.NewSSEServer(
+		s.mcpServer,
+		server.WithSSEContextFunc(contextFunc),
+	)
+
+	if err := sseServer.Start(fmt.Sprintf("%s:%d", options.Options.Address, options.Options.Port)); err != nil {
 		return err
 	}
 	log.Infof("Start mcp server successfully")
