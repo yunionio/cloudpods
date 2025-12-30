@@ -214,6 +214,7 @@ func (manager *SSnapshotPolicyManager) FetchCustomizeColumns(
 		policyIds[i] = policy.Id
 	}
 
+	diskIds := []string{}
 	q := SnapshotPolicyResourceManager.Query().In("snapshotpolicy_id", policyIds)
 	sprs := []SSnapshotPolicyResource{}
 	err := q.All(&sprs)
@@ -227,11 +228,43 @@ func (manager *SSnapshotPolicyManager) FetchCustomizeColumns(
 		if !ok {
 			sprmap[sp.SnapshotpolicyId] = []SSnapshotPolicyResource{}
 		}
+		if sp.ResourceType == api.SNAPSHOT_POLICY_TYPE_DISK {
+			diskIds = append(diskIds, sp.ResourceId)
+		}
 		sprmap[sp.SnapshotpolicyId] = append(sprmap[sp.SnapshotpolicyId], sp)
 	}
+
+	sq := SnapshotManager.Query().In("disk_id", diskIds).SubQuery()
+	q = sq.Query(
+		sq.Field("disk_id"),
+		sqlchemy.COUNT("count", sq.Field("id")),
+	).GroupBy(sq.Field("disk_id"))
+
+	snapshotCounts := []struct {
+		DiskId string
+		Count  int
+	}{}
+	err = q.All(&snapshotCounts)
+	if err != nil {
+		log.Errorf("query snapshot counts error: %v", err)
+		return rows
+	}
+	snapshotCountMap := map[string]int{}
+	for _, snapshotCount := range snapshotCounts {
+		snapshotCountMap[snapshotCount.DiskId] = snapshotCount.Count
+	}
+
 	for i := range rows {
 		resources := sprmap[policyIds[i]]
 		rows[i].BindingResourceCount = len(resources)
+		for _, resource := range resources {
+			if resource.ResourceType == api.SNAPSHOT_POLICY_TYPE_DISK {
+				cnt, ok := snapshotCountMap[resource.ResourceId]
+				if ok {
+					rows[i].SnapshotCount += cnt
+				}
+			}
+		}
 		sp := objs[i].(*SSnapshotPolicy)
 		if sp.Type == api.SNAPSHOT_POLICY_TYPE_DISK {
 			rows[i].BindingDiskCount = len(resources)
