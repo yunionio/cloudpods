@@ -968,6 +968,7 @@ func (c *SContainer) PerformSaveVolumeMountImage(ctx context.Context, userCred m
 
 		VolumeMountDirs:   cleanupDirPaths(input.Dirs),
 		VolumeMountPrefix: cleanupDirPath(input.DirPrefix),
+		ExcludePaths:      cleanupDirPaths(input.ExcludePaths),
 	}
 
 	return hostInput, c.StartSaveVolumeMountImage(ctx, userCred, hostInput, "")

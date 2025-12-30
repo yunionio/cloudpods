@@ -747,19 +747,19 @@ func (s *sPodGuestInstance) mountPodVolumes() error {
 }
 
 func (s *sPodGuestInstance) umountPodVolumes() error {
+	for ctrId, vols := range s.getContainerVolumeMounts() {
+		for _, vol := range vols {
+			if err := volume_mount.GetDriver(vol.Type).Unmount(s, ctrId, vol); err != nil {
+				return errors.Wrapf(err, "Unmount volume %s, ctrId %s", jsonutils.Marshal(vol), ctrId)
+			}
+		}
+	}
 	for _, ctr := range s.GetDesc().Containers {
 		if ctr.Spec.Rootfs == nil {
 			continue
 		}
 		if err := s.umountRootFs(ctr.Id, ctr.Spec.Rootfs); err != nil {
 			return errors.Wrapf(err, "umount root fs %s, ctrId %s", jsonutils.Marshal(ctr.Spec.Rootfs), ctr.Id)
-		}
-	}
-	for ctrId, vols := range s.getContainerVolumeMounts() {
-		for _, vol := range vols {
-			if err := volume_mount.GetDriver(vol.Type).Unmount(s, ctrId, vol); err != nil {
-				return errors.Wrapf(err, "Unmount volume %s, ctrId %s", jsonutils.Marshal(vol), ctrId)
-			}
 		}
 	}
 	return nil
@@ -2616,7 +2616,38 @@ func (s *sPodGuestInstance) tarGzDir(input *hostapi.ContainerSaveVolumeMountToIm
 		}
 	}
 
-	cmd := fmt.Sprintf("tar -czf %s -C %s %s", outputFp, hostPath, dirPath)
+	// 减去 excludePaths 的大小
+	for _, exclude := range input.ExcludePaths {
+		// exclude 路径是相对于 hostPath 的
+		sizeCmd := fmt.Sprintf("du -sb '%s' 2>/dev/null | awk '{print $1}'", exclude)
+		cmd := fmt.Sprintf("cd %s && %s", hostPath, sizeCmd)
+		out, err := procutils.NewRemoteCommandAsFarAsPossible("sh", "-c", cmd).Output()
+		if err != nil {
+			// exclude 路径不存在时忽略错误，继续处理下一个
+			continue
+		}
+		outStr := strings.TrimSpace(string(out))
+		if outStr == "" {
+			continue
+		}
+		excludeSize, err := strconv.ParseInt(outStr, 10, 64)
+		if err != nil {
+			// 解析失败时忽略，继续处理下一个
+			continue
+		}
+		totalSize -= excludeSize
+		// 确保 totalSize 不为负数
+		if totalSize < 0 {
+			totalSize = 0
+		}
+	}
+
+	baseCmd := "tar -czf"
+	// 添加 exclude 选项
+	for _, exclude := range input.ExcludePaths {
+		baseCmd = fmt.Sprintf("%s --exclude='%s'", baseCmd, exclude)
+	}
+	cmd := fmt.Sprintf("%s %s -C %s %s", baseCmd, outputFp, hostPath, dirPath)
 	if input.VolumeMountPrefix != "" {
 		cmd += fmt.Sprintf(" --transform 's,^,%s/,'", input.VolumeMountPrefix)
 	}
