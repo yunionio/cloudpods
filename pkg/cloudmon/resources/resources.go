@@ -17,6 +17,7 @@ package resources
 import (
 	"context"
 	"fmt"
+	"math"
 	"strings"
 	"sync"
 	"time"
@@ -967,19 +968,20 @@ func (res *SResources) CollectMetrics(ctx context.Context, userCred mcclient.Tok
 		driver, err := providerdriver.GetDriver(account.Provider)
 		if err != nil {
 			log.Errorf("failed get account %s(%s) driver %v", account.Name, account.Provider, err)
-			return
+			continue
+		}
+
+		if math.Abs(account.Balance) < 0.000001 {
+			continue
 		}
 
 		metric, err := driver.CollectAccountMetrics(ctx, account)
 		if err != nil {
-			if errors.Cause(err) != cloudprovider.ErrNotImplemented && errors.Cause(err) != cloudprovider.ErrNotSupported {
-				log.Errorf("CollectAccountMetrics for %s(%s) error: %v", account.Name, account.Provider, err)
-				continue
-			}
 			continue
 		}
 		metrics = append(metrics, metric)
 	}
+	log.Debugf("send %d account metrics to meter_db", len(metrics))
 	urls, err := tsdb.GetDefaultServiceSourceURLs(s, options.Options.SessionEndpointType)
 	if err != nil {
 		log.Errorf("Get influxdb %s service url: %v", options.Options.SessionEndpointType, err)
