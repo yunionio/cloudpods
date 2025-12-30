@@ -4737,6 +4737,8 @@ func (self *SGuest) CreateIsolatedDeviceOnHost(ctx context.Context, userCred mcc
 		}
 	}
 
+	lockman.LockObject(ctx, host)
+	defer lockman.ReleaseObject(ctx, host)
 	usedDeviceMap := map[string]*SIsolatedDevice{}
 	for _, devConfig := range devs {
 		if devConfig.DevType == api.NIC_TYPE || devConfig.DevType == api.NVME_PT_TYPE {
