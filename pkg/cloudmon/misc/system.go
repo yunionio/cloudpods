@@ -198,6 +198,9 @@ func CollectServiceMetrics(ctx context.Context, userCred mcclient.TokenCredentia
 }
 
 func collectApiStatsMetrics(ctx context.Context, serviceName string, serviceType string, regionId string, url string, version, token string) ([]influxdb.SMetricData, error) {
+	if len(url) == 0 || utils.IsInStringArray(serviceType, []string{"mcp-server"}) {
+		return []influxdb.SMetricData{}, nil
+	}
 	log.Debugf("collectApiStatsMetrics %s %s %s %s %s", serviceName, serviceType, regionId, url, version)
 	statsUrl := httputils.JoinPath(baseUrlF(url), "stats")
 	hdr := http.Header{}
@@ -227,6 +230,9 @@ func collectApiStatsMetrics(ctx context.Context, serviceName string, serviceType
 }
 
 func collectWorkerMetrics(ctx context.Context, url, service, serviceType, regionId, version, token string) ([]influxdb.SMetricData, error) {
+	if len(url) == 0 || utils.IsInStringArray(serviceType, []string{"mcp-server"}) {
+		return []influxdb.SMetricData{}, nil
+	}
 	statsUrl := httputils.JoinPath(baseUrlF(url), "worker_stats")
 	hdr := http.Header{}
 	hdr.Set("X-Auth-Token", token)
@@ -319,6 +325,9 @@ func collectWorkerMetrics(ctx context.Context, url, service, serviceType, region
 }
 
 func collectDatabaseMetrics(ctx context.Context, ep api.EndpointDetails, version, token string) ([]influxdb.SMetricData, error) {
+	if utils.IsInStringArray(ep.ServiceType, []string{"cloudmon", "webconsole", "k8s", "vpcagent", "yunionapi", "yunionagent"}) {
+		return []influxdb.SMetricData{}, nil
+	}
 	statsUrl := httputils.JoinPath(baseUrlF(ep.Url), "db_stats")
 	hdr := http.Header{}
 	hdr.Set("X-Auth-Token", token)
@@ -406,6 +415,9 @@ func collectDatabaseMetrics(ctx context.Context, ep api.EndpointDetails, version
 }
 
 func collectProcessMetrics(ctx context.Context, ep api.EndpointDetails, version, token string) ([]influxdb.SMetricData, error) {
+	if utils.IsInStringArray(ep.ServiceType, []string{"monitor", "webconsole", "k8s", "mcp-server"}) {
+		return []influxdb.SMetricData{}, nil
+	}
 	statsUrl := httputils.JoinPath(baseUrlF(ep.Url), "process_stats")
 	hdr := http.Header{}
 	hdr.Set("X-Auth-Token", token)

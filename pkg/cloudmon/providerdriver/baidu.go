@@ -45,32 +45,6 @@ func init() {
 	Register(&BaiduCollect{})
 }
 
-func (self *BaiduCollect) CollectAccountMetrics(ctx context.Context, account api.CloudaccountDetail) (influxdb.SMetricData, error) {
-	metric := influxdb.SMetricData{
-		Name:      string(cloudprovider.METRIC_RESOURCE_TYPE_CLOUD_ACCOUNT),
-		Timestamp: time.Now(),
-		Tags:      []influxdb.SKeyValue{},
-		Metrics:   []influxdb.SKeyValue{},
-	}
-	for k, v := range account.GetMetricTags() {
-		metric.Tags = append([]influxdb.SKeyValue{
-			{
-				Key:   k,
-				Value: v,
-			},
-		}, metric.Tags...)
-	}
-	for k, v := range account.GetMetricPairs() {
-		metric.Metrics = append([]influxdb.SKeyValue{
-			{
-				Key:   k,
-				Value: v,
-			},
-		}, metric.Metrics...)
-	}
-	return metric, nil
-}
-
 func (self *BaiduCollect) CollectServerMetrics(ctx context.Context, manager api.CloudproviderDetails, provider cloudprovider.ICloudProvider, res map[string]api.ServerDetails, start, end time.Time) error {
 	metrics := []influxdb.SMetricData{}
 	regionServers := map[string][]api.ServerDetails{}
