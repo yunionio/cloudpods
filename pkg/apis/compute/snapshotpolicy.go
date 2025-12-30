@@ -46,6 +46,8 @@ type SnapshotPolicyDetails struct {
 
 	BindingDiskCount     int `json:"binding_disk_count"`
 	BindingResourceCount int `json:"binding_resource_count"`
+	// 快照数量
+	SnapshotCount int `json:"snapshot_count"`
 }
 
 type SSnapshotPolicyCreateInput struct {
