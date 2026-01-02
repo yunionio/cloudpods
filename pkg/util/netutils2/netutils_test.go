@@ -17,6 +17,7 @@ package netutils2
 import (
 	"os"
 	"reflect"
+	"runtime"
 	"testing"
 
 	"yunion.io/x/jsonutils"
@@ -97,6 +98,9 @@ func TestNewNetInterface(t *testing.T) {
 }
 
 func TestMyDefault(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("DefaultSrcIpDev not implemented on non-linux")
+	}
 	myip, err := MyIP()
 	if err != nil {
 		// Skip if it's no route to host
