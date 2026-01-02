@@ -15,6 +15,7 @@
 package cgrouputils
 
 import (
+	"runtime"
 	"strings"
 
 	"yunion.io/x/pkg/errors"
@@ -89,29 +90,41 @@ func Init(ioScheduler string) error {
 		return nil
 	}
 
-	cgroupPath := ""
-	if fileutils2.Exists(CGROUP_PATH_SYSFS) {
-		cgroupPath = CGROUP_PATH_SYSFS
-	} else if fileutils2.Exists("CGROUP_PATH_ROOT") {
-		cgroupPath = CGROUP_PATH_ROOT
-	}
-	if cgroupPath == "" {
-		return errors.Errorf("Can't detect cgroup path")
-	}
-	output, err := procutils.NewCommand("stat", "-fc", "%T", cgroupPath).Output()
-	if err != nil {
-		return errors.Wrapf(err, "stat cgroup path %s", cgroupPath)
-	}
-	cgroupfs := strings.TrimSpace(string(output))
-	if cgroupfs == "cgroup2fs" {
-		// cgroup v2
-		cgroupManager, err = cgroupv2.Init(cgroupPath, ioScheduler)
+	if runtime.GOOS == "linux" {
+		var cgroupPath string
+		if fileutils2.Exists(CGROUP_PATH_SYSFS) {
+			cgroupPath = CGROUP_PATH_SYSFS
+		} else if fileutils2.Exists("CGROUP_PATH_ROOT") {
+			cgroupPath = CGROUP_PATH_ROOT
+		}
+		if cgroupPath == "" {
+			return errors.Errorf("Can't detect cgroup path")
+		}
+
+		output, err := procutils.NewCommand("stat", "-fc", "%T", cgroupPath).Output()
+		if err != nil {
+			return errors.Wrapf(err, "stat cgroup path %s", cgroupPath)
+		}
+		cgroupfs := strings.TrimSpace(string(output))
+		var mgr ICgroupManager
+		if cgroupfs == "cgroup2fs" {
+			// cgroup v2
+			mgr, err = cgroupv2.Init(cgroupPath, ioScheduler)
+		} else {
+			// cgroup v1
+			mgr, err = cgroupv1.Init(cgroupPath, ioScheduler)
+		}
+		if err != nil {
+			return errors.Wrap(err, "init cgroup")
+		}
+		cgroupManager = mgr
 	} else {
-		// cgroup v1
-		cgroupManager, err = cgroupv1.Init(cgroupPath, ioScheduler)
-	}
-	if err != nil {
-		return errors.Wrap(err, "init cgroup")
+		// fallback for non-linux
+		mgr, err := cgroupv1.Init("", ioScheduler)
+		if err != nil {
+			return errors.Wrap(err, "init cgroup stub")
+		}
+		cgroupManager = mgr
 	}
 	return nil
 }
