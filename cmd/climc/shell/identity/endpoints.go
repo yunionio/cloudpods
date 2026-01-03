@@ -66,7 +66,7 @@ func init() {
 	type EndpointCreateOptions struct {
 		SERVICE            string `help:"Service ID or Name"`
 		REGION             string `help:"Region"`
-		INTERFACE          string `help:"Interface types" choices:"internal|public|admin|console"`
+		INTERFACE          string `help:"Interface types" choices:"internal|public|admin|console|slave"`
 		URL                string `help:"URL"`
 		Zone               string `help:"Zone"`
 		Name               string `help:"Name"`

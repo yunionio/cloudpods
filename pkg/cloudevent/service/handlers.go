@@ -37,12 +37,12 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudevent/models"
 )
 
-func InitHandlers(app *appsrv.Application) {
+func InitHandlers(app *appsrv.Application, isSlave bool) {
 	db.InitAllManagers()
 
 	models.InitCloudevent()
 
-	taskman.AddTaskHandler("v1", app)
+	taskman.AddTaskHandler("v1", app, isSlave)
 
 	for _, manager := range []db.IModelManager{
 		taskman.TaskManager,
@@ -67,6 +67,6 @@ func InitHandlers(app *appsrv.Application) {
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewModelHandler(manager)
-		dispatcher.AddModelDispatcher("", app, handler)
+		dispatcher.AddModelDispatcher("", app, handler, isSlave)
 	}
 }

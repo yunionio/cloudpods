@@ -42,6 +42,7 @@ type KeystoneEndpointV3 struct {
 	// | public    | 外部接口                                               |
 	// | admin     | 管理类型接口，deprecated                               |
 	// | console   | web控制台接口，指定显示在web控制台的外部服务的接口地址 |
+	// | slave     | 从节点接口，用于读取数据 |
 	//
 	Interface string `json:"interface"`
 	// 区域名称
@@ -360,12 +361,12 @@ func (catalog KeystoneServiceCatalogV3) getEndpoints(region string, endpointType
 			endpoint := catalog[i].Endpoints[j]
 			if (endpoint.RegionId == region || strings.HasPrefix(endpoint.RegionId, region+"-")) && endpoint.Interface == endpointType {
 				endpoints = append(endpoints, Endpoint{
-					endpoint.Id,
-					endpoint.RegionId,
-					catalog[i].Id,
-					catalog[i].Name,
-					endpoint.Url,
-					endpoint.Interface,
+					Id:          endpoint.Id,
+					RegionId:    endpoint.RegionId,
+					ServiceId:   catalog[i].Id,
+					ServiceName: catalog[i].Name,
+					Url:         endpoint.Url,
+					Interface:   endpoint.Interface,
 				})
 			}
 		}
@@ -405,14 +406,14 @@ func (catalog KeystoneServiceCatalogV3) getServiceURL(service, region, zone, end
 
 func (catalog KeystoneServiceCatalogV3) getServiceURLs(service, region, zone, endpointType string) ([]string, error) {
 	if endpointType == "" {
-		endpointType = "internalURL"
+		endpointType = "internal"
 	}
+	const MAX_ENDPOINTS = 4
 	for i := 0; i < len(catalog); i++ {
 		if service == catalog[i].Type {
 			if len(catalog[i].Endpoints) == 0 {
 				continue
 			}
-			var selected []string
 			regeps := make(map[string][]string)
 			regionzone := ""
 			if len(zone) > 0 {
@@ -426,32 +427,33 @@ func (catalog KeystoneServiceCatalogV3) getServiceURLs(service, region, zone, en
 						len(region) == 0) {
 					_, ok := regeps[ep.RegionId]
 					if !ok {
-						regeps[ep.RegionId] = make([]string, 0)
+						regeps[ep.RegionId] = make([]string, 0, MAX_ENDPOINTS)
 					}
 					regeps[ep.RegionId] = append(regeps[ep.RegionId], ep.Url)
 				}
 			}
 			if len(region) == 0 {
 				if len(regeps) >= 1 {
-					for _, v := range regeps {
-						selected = v
-						break
+					for k := range regeps {
+						return regeps[k], nil
 					}
 				} else {
 					return nil, fmt.Errorf("No default region for region(%s) zone(%s)", region, zone)
 				}
 			} else {
+				var selected []string
 				_, ok := regeps[regionzone]
 				if ok {
 					selected = regeps[regionzone]
+				} else if _, ok := regeps[region]; ok {
+					selected = regeps[region]
+				}
+				if len(selected) == 0 {
+					return nil, fmt.Errorf("No valid %s endpoints for %s in region %s", endpointType, service, RegionID(region, zone))
 				} else {
-					selected, ok = regeps[region]
-					if !ok {
-						return nil, fmt.Errorf("No valid %s endpoints for %s in region %s", endpointType, service, RegionID(region, zone))
-					}
+					return selected, nil
 				}
 			}
-			return selected, nil
 		}
 	}
 	return nil, errors.Wrapf(httperrors.ErrNotFound, "No such service %s", service)

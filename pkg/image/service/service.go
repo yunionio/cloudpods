@@ -104,18 +104,8 @@ func StartService() {
 		procutils.SetRemoteExecutor()
 	}
 
-	log.Infof("Target image formats %#v", opts.TargetImageFormats)
+	if !opts.IsSlaveNode {
 
-	if ok, err := hasVmwareAccount(); err != nil {
-		log.Errorf("failed get vmware cloudaccounts: %v", err)
-	} else if ok {
-		if !utils.IsInStringArray(string(qemuimgfmt.VMDK), options.Options.TargetImageFormats) {
-			if err = models.UpdateImageConfigTargetImageFormats(context.Background(), auth.AdminCredential()); err != nil {
-				log.Errorf("failed update target_image_formats %s", err)
-			} else {
-				options.Options.TargetImageFormats = append(options.Options.TargetImageFormats, string(qemuimgfmt.VMDK))
-			}
-		}
 	}
 
 	trackers := torrent.GetTrackers()
@@ -128,7 +118,7 @@ func StartService() {
 
 	cloudcommon.InitDB(dbOpts)
 
-	InitHandlers(app)
+	InitHandlers(app, opts.IsSlaveNode)
 
 	db.EnsureAppSyncDB(app, dbOpts, models.InitDB)
 
@@ -139,35 +129,8 @@ func StartService() {
 		deployclient.Init(options.Options.DeployServerSocketPath)
 	}
 
-	go func() {
-		if options.Options.HasValidS3Options() {
-			initS3()
-		}
-		// check image after s3 mounted
-		models.CheckImages()
-	}()
-
 	if !opts.IsSlaveNode {
-		err := taskman.TaskManager.InitializeData()
-		if err != nil {
-			log.Fatalf("TaskManager.InitializeData fail %s", err)
-		}
-
-		cachesync.StartTenantCacheSync(opts.TenantCacheExpireSeconds)
-
-		cron := cronman.InitCronJobManager(true, options.Options.CronJobWorkerCount, options.Options.TimeZone)
-		cron.AddJobAtIntervals("CleanPendingDeleteImages", time.Duration(options.Options.PendingDeleteCheckSeconds)*time.Second, models.ImageManager.CleanPendingDeleteImages)
-		cron.AddJobAtIntervals("CalculateQuotaUsages", time.Duration(opts.CalculateQuotaUsageIntervalSeconds)*time.Second, models.QuotaManager.CalculateQuotaUsages)
-		cron.AddJobAtIntervals("CleanPendingDeleteGuestImages",
-			time.Duration(options.Options.PendingDeleteCheckSeconds)*time.Second, models.GuestImageManager.CleanPendingDeleteImages)
-
-		cron.AddJobEveryFewHour("AutoPurgeSplitable", 4, 30, 0, db.AutoPurgeSplitable, false)
-
-		cron.AddJobAtIntervalsWithStartRun("TaskCleanupJob", time.Duration(options.Options.TaskArchiveIntervalMinutes)*time.Minute, taskman.TaskManager.TaskCleanupJob, true)
-
-		cron.AddJobAtIntervals("MarkDataImage", time.Duration(options.Options.VerifyImageStatusIntervalMinutes)*time.Minute, models.ImageManager.VerifyActiveImageStatus)
-
-		cron.Start()
+		startMasterTasks(opts)
 	}
 
 	app_common.ServeForeverWithCleanup(app, baseOpts, func() {
@@ -182,6 +145,51 @@ func StartService() {
 		//	procutils.NewCommand("umount", options.Options.S3MountPoint).Run()
 		//}
 	})
+}
+
+func startMasterTasks(opts *options.SImageOptions) {
+	log.Infof("Target image formats %#v", opts.TargetImageFormats)
+
+	if ok, err := hasVmwareAccount(); err != nil {
+		log.Errorf("failed get vmware cloudaccounts: %v", err)
+	} else if ok {
+		if !utils.IsInStringArray(string(qemuimgfmt.VMDK), options.Options.TargetImageFormats) {
+			if err = models.UpdateImageConfigTargetImageFormats(context.Background(), auth.AdminCredential()); err != nil {
+				log.Errorf("failed update target_image_formats %s", err)
+			} else {
+				options.Options.TargetImageFormats = append(options.Options.TargetImageFormats, string(qemuimgfmt.VMDK))
+			}
+		}
+	}
+
+	go func() {
+		if options.Options.HasValidS3Options() {
+			initS3()
+		}
+		// check image after s3 mounted
+		models.CheckImages()
+	}()
+
+	err := taskman.TaskManager.InitializeData()
+	if err != nil {
+		log.Fatalf("TaskManager.InitializeData fail %s", err)
+	}
+
+	cachesync.StartTenantCacheSync(opts.TenantCacheExpireSeconds)
+
+	cron := cronman.InitCronJobManager(true, options.Options.CronJobWorkerCount, options.Options.TimeZone)
+	cron.AddJobAtIntervals("CleanPendingDeleteImages", time.Duration(options.Options.PendingDeleteCheckSeconds)*time.Second, models.ImageManager.CleanPendingDeleteImages)
+	cron.AddJobAtIntervals("CalculateQuotaUsages", time.Duration(opts.CalculateQuotaUsageIntervalSeconds)*time.Second, models.QuotaManager.CalculateQuotaUsages)
+	cron.AddJobAtIntervals("CleanPendingDeleteGuestImages",
+		time.Duration(options.Options.PendingDeleteCheckSeconds)*time.Second, models.GuestImageManager.CleanPendingDeleteImages)
+
+	cron.AddJobEveryFewHour("AutoPurgeSplitable", 4, 30, 0, db.AutoPurgeSplitable, false)
+
+	cron.AddJobAtIntervalsWithStartRun("TaskCleanupJob", time.Duration(options.Options.TaskArchiveIntervalMinutes)*time.Minute, taskman.TaskManager.TaskCleanupJob, true)
+
+	cron.AddJobAtIntervals("MarkDataImage", time.Duration(options.Options.VerifyImageStatusIntervalMinutes)*time.Minute, models.ImageManager.VerifyActiveImageStatus)
+
+	cron.Start()
 }
 
 func hasVmwareAccount() (bool, error) {

@@ -42,7 +42,7 @@ func StartService() {
 	}
 
 	app := app_common.InitApp(baseOpts, false)
-	initHandlers(app)
+	initHandlers(app, opts.IsSlaveNode)
 
 	app_common.ServeForeverWithCleanup(app, baseOpts, func() {
 		etcd.CloseDefaultEtcdClient()

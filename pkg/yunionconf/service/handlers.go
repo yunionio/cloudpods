@@ -32,11 +32,11 @@ import (
 	"yunion.io/x/onecloud/pkg/yunionconf/models"
 )
 
-func InitHandlers(app *appsrv.Application) {
+func InitHandlers(app *appsrv.Application, isSlave bool) {
 	db.InitAllManagers()
 
 	db.AddScopeResourceCountHandler("", app)
-	addBugReportHandler("", app)
+	addBugReportHandler("", app, isSlave)
 
 	for _, manager := range []db.IModelManager{
 		db.UserCacheManager,
@@ -55,16 +55,19 @@ func InitHandlers(app *appsrv.Application) {
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewModelHandler(manager)
-		dispatcher.AddModelDispatcher("", app, handler)
+		dispatcher.AddModelDispatcher("", app, handler, isSlave)
 		if manager == models.ParameterManager {
-			dispatcher.AddModelDispatcher("/users/<user_id>", app, handler)
-			dispatcher.AddModelDispatcher("/services/<service_id>", app, handler)
+			dispatcher.AddModelDispatcher("/users/<user_id>", app, handler, isSlave)
+			dispatcher.AddModelDispatcher("/services/<service_id>", app, handler, isSlave)
 		}
 	}
 }
 
-func addBugReportHandler(prefix string, app *appsrv.Application) {
+func addBugReportHandler(prefix string, app *appsrv.Application, isSlave bool) {
 	app.AddHandler("GET", fmt.Sprintf("%s/bug-report-status", prefix), bugReportStatusHandler)
+	if isSlave {
+		return
+	}
 	app.AddHandler("POST", fmt.Sprintf("%s/enable-bug-report", prefix), enableBugReportHandler)
 	app.AddHandler("POST", fmt.Sprintf("%s/disable-bug-report", prefix), disableBugReportHandler)
 	app.AddHandler("POST", fmt.Sprintf("%s/send-bug-report", prefix), sendBugReportHandler)

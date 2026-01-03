@@ -46,15 +46,18 @@ func StartService() {
 
 	cloudcommon.InitDB(dbOpts)
 
-	InitHandlers(applicaion)
+	InitHandlers(applicaion, opts.IsSlaveNode)
 
 	db.EnsureAppSyncDB(applicaion, dbOpts, nil)
 	defer cloudcommon.CloseDB()
 
-	cron := cronman.InitCronJobManager(true, 4, opts.TimeZone)
-	cron.AddJobAtIntervalsWithStartRun("ScheduledTaskCheck", time.Duration(60)*time.Second, models.ScheduledTaskManager.Timer, true)
-	cron.AddJobEveryFewHour("AutoPurgeSplitable", 4, 30, 0, db.AutoPurgeSplitable, false)
+	if !opts.IsSlaveNode {
+		cron := cronman.InitCronJobManager(true, 4, opts.TimeZone)
+		cron.AddJobAtIntervalsWithStartRun("ScheduledTaskCheck", time.Duration(60)*time.Second, models.ScheduledTaskManager.Timer, true)
+		cron.AddJobEveryFewHour("AutoPurgeSplitable", 4, 30, 0, db.AutoPurgeSplitable, false)
 
-	go cron.Start()
+		go cron.Start()
+	}
+
 	app.ServeForever(applicaion, baseOpts)
 }

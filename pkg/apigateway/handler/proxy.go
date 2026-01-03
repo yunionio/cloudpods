@@ -19,7 +19,10 @@ import (
 	"net/http"
 	"net/url"
 
+	"yunion.io/x/pkg/util/httputils"
+
 	"yunion.io/x/onecloud/pkg/apis"
+	"yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/proxy"
@@ -67,9 +70,8 @@ func getEndpointSchemeHost(endpoint string) (string, error) {
 
 func fetchReverseEndpoint(serviceName string) *proxy.SEndpointFactory {
 	f := func(ctx context.Context, r *http.Request) (string, error) {
-		endpointType := "internalURL"
 		session := auth.GetAdminSession(ctx, FetchRegion(r))
-		ep, err := session.GetServiceURL(serviceName, endpointType)
+		ep, err := session.GetServiceURL(serviceName, identity.EndpointInterfaceInternal, httputils.THttpMethod(r.Method))
 		if err != nil {
 			return "", err
 		}

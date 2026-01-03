@@ -30,7 +30,7 @@ const (
 	API_VERSION = "v1"
 )
 
-func InitHandlers(app *appsrv.Application) {
+func InitHandlers(app *appsrv.Application, isSlave bool) {
 	db.InitAllManagers()
 
 	// add version handler with API_VERSION prefix
@@ -40,10 +40,10 @@ func InitHandlers(app *appsrv.Application) {
 
 	db.AddScopeResourceCountHandler(API_VERSION, app)
 
-	quotas.AddQuotaHandler(&models.QuotaManager.SQuotaBaseManager, API_VERSION, app)
+	quotas.AddQuotaHandler(&models.QuotaManager.SQuotaBaseManager, API_VERSION, app, isSlave)
 	usages.AddUsageHandler(API_VERSION, app)
 
-	taskman.AddTaskHandler(API_VERSION, app)
+	taskman.AddTaskHandler(API_VERSION, app, isSlave)
 
 	app_common.ExportOptionsHandler(app, &options.Options)
 
@@ -80,6 +80,6 @@ func InitHandlers(app *appsrv.Application) {
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewModelHandler(manager)
-		dispatcher.AddModelDispatcher(API_VERSION, app, handler)
+		dispatcher.AddModelDispatcher(API_VERSION, app, handler, isSlave)
 	}
 }

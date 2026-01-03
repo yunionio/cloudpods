@@ -29,7 +29,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 )
 
-func AddJointModelDispatcher(prefix string, app *appsrv.Application, manager IJointModelDispatchHandler) {
+func AddJointModelDispatcher(prefix string, app *appsrv.Application, manager IJointModelDispatchHandler, isSlave bool) {
 	metadata := map[string]interface{}{"manager": manager}
 	tags := map[string]string{"resource": manager.KeywordPlural()}
 	// list
@@ -64,6 +64,12 @@ func AddJointModelDispatcher(prefix string, app *appsrv.Application, manager IJo
 			manager.MasterKeywordPlural()),
 		manager.Filter(jointGetHandler),
 		metadata, "get_joint", tags)
+
+	if isSlave {
+		// slave node only support get and head
+		return
+	}
+
 	// joint attach
 	app.AddHandler2("POST",
 		fmt.Sprintf("%s/%s/<master_id>/%s/<slave_id>", prefix,
