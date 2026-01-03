@@ -20,22 +20,26 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/util/rbacscope"
+
+	"yunion.io/x/onecloud/pkg/apis/identity"
 )
 
 type ExternalService struct {
-	Name string
-	Url  string
+	Name string `json:"name"`
+	Url  string `json:"url"`
 
-	Service string
+	Service string `json:"service"`
 }
 
 type Endpoint struct {
-	Id          string
-	RegionId    string
-	ServiceId   string
-	ServiceName string
-	Url         string
-	Interface   string
+	Id          string `json:"id"`
+	RegionId    string `json:"region_id"`
+	ServiceId   string `json:"service_id"`
+	ServiceName string `json:"service_name"`
+	Url         string `json:"url"`
+	Interface   string `json:"interface"`
+
+	Mode identity.TEndpointMode `json:"mode"`
 }
 
 func OwnerIdString(owner IIdentityProvider, scope rbacscope.TRbacScope) string {
@@ -99,7 +103,7 @@ type TokenCredential interface {
 	GetServiceCatalog() IServiceCatalog
 	GetCatalogData(serviceTypes []string, region string) jsonutils.JSONObject
 
-	GetEndpoints(region string, endpointType string) []Endpoint
+	GetEndpoints(region string, endpointType string, endpointMode identity.TEndpointMode) []Endpoint
 
 	ToJson() jsonutils.JSONObject
 

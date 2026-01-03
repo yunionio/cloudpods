@@ -20,6 +20,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/httputils"
 
 	compute_api "yunion.io/x/onecloud/pkg/apis/compute"
 	webconsole_api "yunion.io/x/onecloud/pkg/apis/webconsole"
@@ -198,7 +199,7 @@ func (m WebConsoleManager) doActionWithClimcPod(
 
 func (m WebConsoleManager) doCloudShell(s *mcclient.ClientSession, info *webconsole_api.SK8sShellDisplayInfo, cmd string, args ...string) (jsonutils.JSONObject, error) {
 	endpointType := "internal"
-	authUrl, err := s.GetServiceURL("identity", endpointType)
+	authUrl, err := s.GetServiceURL("identity", endpointType, httputils.POST)
 	if err != nil {
 		return nil, httperrors.NewNotFoundError("auth_url not found")
 	}

@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
+	"yunion.io/x/onecloud/pkg/apis/identity"
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/httperrors"
 )
@@ -52,6 +53,8 @@ type KeystoneEndpointV3 struct {
 	Url string `json:"url"`
 	// 接口名称
 	Name string `json:"name"`
+	// 接口模式
+	Mode identity.TEndpointMode `json:"mode"`
 }
 
 type KeystoneServiceV3 struct {
@@ -264,12 +267,12 @@ func (this *TokenCredentialV3) Len() int {
 	return this.Token.Catalog.Len()
 }
 
-func (this *TokenCredentialV3) getServiceURL(service, region, zone, endpointType string) (string, error) {
-	return this.Token.Catalog.getServiceURL(service, region, zone, endpointType)
+func (this *TokenCredentialV3) getServiceURL(service, region, zone, endpointType string, endpointMode identity.TEndpointMode) (string, error) {
+	return this.Token.Catalog.getServiceURL(service, region, zone, endpointType, endpointMode)
 }
 
-func (this *TokenCredentialV3) getServiceURLs(service, region, zone, endpointType string) ([]string, error) {
-	return this.Token.Catalog.getServiceURLs(service, region, zone, endpointType)
+func (this *TokenCredentialV3) getServiceURLs(service, region, zone, endpointType string, endpointMode identity.TEndpointMode) ([]string, error) {
+	return this.Token.Catalog.getServiceURLs(service, region, zone, endpointType, endpointMode)
 }
 
 func (this *TokenCredentialV3) GetInternalServices(region string) []string {
@@ -284,8 +287,8 @@ func (this *TokenCredentialV3) GetServicesByInterface(region string, infType str
 	return this.Token.Catalog.GetServicesByInterface(region, infType)
 }
 
-func (this *TokenCredentialV3) GetEndpoints(region string, endpointType string) []Endpoint {
-	return this.Token.Catalog.getEndpoints(region, endpointType)
+func (this *TokenCredentialV3) GetEndpoints(region string, endpointType string, endpointMode identity.TEndpointMode) []Endpoint {
+	return this.Token.Catalog.getEndpoints(region, endpointType, endpointMode)
 }
 
 func (this *TokenCredentialV3) GetServiceCatalog() IServiceCatalog {
@@ -353,19 +356,20 @@ func (catalog KeystoneServiceCatalogV3) getRegions() []string {
 	return regions
 }
 
-func (catalog KeystoneServiceCatalogV3) getEndpoints(region string, endpointType string) []Endpoint {
+func (catalog KeystoneServiceCatalogV3) getEndpoints(region string, endpointType string, endpointMode identity.TEndpointMode) []Endpoint {
 	endpoints := make([]Endpoint, 0)
 	for i := 0; i < len(catalog); i++ {
 		for j := 0; j < len(catalog[i].Endpoints); j++ {
 			endpoint := catalog[i].Endpoints[j]
-			if (endpoint.RegionId == region || strings.HasPrefix(endpoint.RegionId, region+"-")) && endpoint.Interface == endpointType {
+			if (endpoint.RegionId == region || strings.HasPrefix(endpoint.RegionId, region+"-")) && endpoint.Interface == endpointType && endpoint.Mode == endpointMode {
 				endpoints = append(endpoints, Endpoint{
-					endpoint.Id,
-					endpoint.RegionId,
-					catalog[i].Id,
-					catalog[i].Name,
-					endpoint.Url,
-					endpoint.Interface,
+					Id:          endpoint.Id,
+					RegionId:    endpoint.RegionId,
+					ServiceId:   catalog[i].Id,
+					ServiceName: catalog[i].Name,
+					Url:         endpoint.Url,
+					Interface:   endpoint.Interface,
+					Mode:        endpoint.Mode,
 				})
 			}
 		}
@@ -395,25 +399,26 @@ func (catalog KeystoneServiceCatalogV3) Len() int {
 	return len(catalog)
 }
 
-func (catalog KeystoneServiceCatalogV3) getServiceURL(service, region, zone, endpointType string) (string, error) {
-	urls, err := catalog.getServiceURLs(service, region, zone, endpointType)
+func (catalog KeystoneServiceCatalogV3) getServiceURL(service, region, zone, endpointType string, endpointMode identity.TEndpointMode) (string, error) {
+	urls, err := catalog.getServiceURLs(service, region, zone, endpointType, endpointMode)
 	if err != nil {
 		return "", err
 	}
 	return urls[rand.Intn(len(urls))], nil
 }
 
-func (catalog KeystoneServiceCatalogV3) getServiceURLs(service, region, zone, endpointType string) ([]string, error) {
+func (catalog KeystoneServiceCatalogV3) getServiceURLs(service, region, zone, endpointType string, endpointMode identity.TEndpointMode) ([]string, error) {
 	if endpointType == "" {
-		endpointType = "internalURL"
+		endpointType = "internal"
 	}
+	const MAX_ENDPOINTS = 4
 	for i := 0; i < len(catalog); i++ {
 		if service == catalog[i].Type {
 			if len(catalog[i].Endpoints) == 0 {
 				continue
 			}
-			var selected []string
-			regeps := make(map[string][]string)
+			normalRegeps := make(map[string][]string)
+			slaveRegeps := make(map[string][]string)
 			regionzone := ""
 			if len(zone) > 0 {
 				regionzone = RegionID(region, zone)
@@ -424,34 +429,56 @@ func (catalog KeystoneServiceCatalogV3) getServiceURLs(service, region, zone, en
 					(ep.RegionId == region ||
 						ep.RegionId == regionzone ||
 						len(region) == 0) {
+					var regeps map[string][]string
+					if ep.Mode == api.EndpointModeSlave {
+						regeps = slaveRegeps
+					} else {
+						regeps = normalRegeps
+					}
 					_, ok := regeps[ep.RegionId]
 					if !ok {
-						regeps[ep.RegionId] = make([]string, 0)
+						regeps[ep.RegionId] = make([]string, 0, MAX_ENDPOINTS)
 					}
 					regeps[ep.RegionId] = append(regeps[ep.RegionId], ep.Url)
 				}
 			}
 			if len(region) == 0 {
+				var regeps map[string][]string
+				if endpointMode == api.EndpointModeSlave && len(slaveRegeps) > 0 {
+					regeps = slaveRegeps
+				} else {
+					regeps = normalRegeps
+				}
 				if len(regeps) >= 1 {
-					for _, v := range regeps {
-						selected = v
-						break
+					for k := range regeps {
+						return regeps[k], nil
 					}
 				} else {
 					return nil, fmt.Errorf("No default region for region(%s) zone(%s)", region, zone)
 				}
 			} else {
-				_, ok := regeps[regionzone]
-				if ok {
-					selected = regeps[regionzone]
-				} else {
-					selected, ok = regeps[region]
-					if !ok {
-						return nil, fmt.Errorf("No valid %s endpoints for %s in region %s", endpointType, service, RegionID(region, zone))
+				var selected []string
+				if endpointMode == api.EndpointModeSlave && len(slaveRegeps) > 0 {
+					if _, ok := slaveRegeps[regionzone]; ok {
+						selected = slaveRegeps[regionzone]
+					} else if _, ok := slaveRegeps[region]; ok {
+						selected = slaveRegeps[region]
 					}
 				}
+				if len(selected) == 0 {
+					_, ok := normalRegeps[regionzone]
+					if ok {
+						selected = normalRegeps[regionzone]
+					} else if _, ok := normalRegeps[region]; ok {
+						selected = normalRegeps[region]
+					}
+				}
+				if len(selected) == 0 {
+					return nil, fmt.Errorf("No valid %s endpoints for %s in region %s", endpointType, service, RegionID(region, zone))
+				} else {
+					return selected, nil
+				}
 			}
-			return selected, nil
 		}
 	}
 	return nil, errors.Wrapf(httperrors.ErrNotFound, "No such service %s", service)

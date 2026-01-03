@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/printutils"
 
+	"yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/compute"
@@ -120,7 +121,7 @@ func (self *SCloudpodsClient) auth() error {
 	}
 	serviceRegion, endpoints := "", 0
 	for _, region := range token.GetRegions() {
-		if len(token.GetEndpoints(region, "")) > endpoints {
+		if len(token.GetEndpoints(region, "", identity.EndpointModeNormal)) > endpoints {
 			serviceRegion = region
 		}
 	}

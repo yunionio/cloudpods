@@ -229,6 +229,8 @@ type EndpointListInput struct {
 
 	// 是否启用
 	Enabled *bool `json:"enabled"`
+
+	Mode []string `json:"mode"`
 }
 
 type SJoinProjectsInput struct {

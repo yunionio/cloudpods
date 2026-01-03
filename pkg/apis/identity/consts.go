@@ -16,6 +16,8 @@ package identity
 
 import "yunion.io/x/onecloud/pkg/apis"
 
+type TEndpointMode string
+
 const (
 	SERVICE_TYPE = apis.SERVICE_TYPE_KEYSTONE
 
@@ -57,6 +59,9 @@ const (
 	EndpointInterfaceConsole  = "console"
 
 	EndpointInterfaceApigateway = "apigateway"
+
+	EndpointModeNormal = TEndpointMode("")
+	EndpointModeSlave  = TEndpointMode("slave")
 
 	KeystoneDomainRoot = "<<keystone.domain.root>>"
 

@@ -22,6 +22,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	"yunion.io/x/onecloud/pkg/apis/identity"
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 )
 
@@ -231,12 +232,12 @@ func (this *TokenCredentialV2) Len() int {
 	return this.ServiceCatalog.Len()
 }
 
-func (this *TokenCredentialV2) getServiceURL(service, region, zone, endpointType string) (string, error) {
-	return this.ServiceCatalog.getServiceURL(service, region, zone, endpointType)
+func (this *TokenCredentialV2) getServiceURL(service, region, zone, endpointType string, endpointMode identity.TEndpointMode) (string, error) {
+	return this.ServiceCatalog.getServiceURL(service, region, zone, endpointType, endpointMode)
 }
 
-func (this *TokenCredentialV2) getServiceURLs(service, region, zone, endpointType string) ([]string, error) {
-	return this.ServiceCatalog.getServiceURLs(service, region, zone, endpointType)
+func (this *TokenCredentialV2) getServiceURLs(service, region, zone, endpointType string, endpointMode identity.TEndpointMode) ([]string, error) {
+	return this.ServiceCatalog.getServiceURLs(service, region, zone, endpointType, endpointMode)
 }
 
 func (this *TokenCredentialV2) GetInternalServices(region string) []string {
@@ -251,7 +252,7 @@ func (this *TokenCredentialV2) GetServicesByInterface(region string, infType str
 	return nil
 }
 
-func (this *TokenCredentialV2) GetEndpoints(region string, endpointType string) []Endpoint {
+func (this *TokenCredentialV2) GetEndpoints(region string, endpointType string, endpointMode identity.TEndpointMode) []Endpoint {
 	return nil
 }
 
@@ -339,7 +340,7 @@ func (catalog KeystoneServiceCatalogV2) Len() int {
 	return len(catalog)
 }
 
-func (catalog KeystoneServiceCatalogV2) getServiceURL(service, region, zone, endpointType string) (string, error) {
+func (catalog KeystoneServiceCatalogV2) getServiceURL(service, region, zone, endpointType string, endpointMode identity.TEndpointMode) (string, error) {
 	ep, err := catalog.getServiceEndpoint(service, region, zone)
 	if err != nil {
 		return "", err
@@ -347,8 +348,8 @@ func (catalog KeystoneServiceCatalogV2) getServiceURL(service, region, zone, end
 	return ep.getURL(endpointType), nil
 }
 
-func (catalog KeystoneServiceCatalogV2) getServiceURLs(service, region, zone, endpointType string) ([]string, error) {
-	url, err := catalog.getServiceURL(service, region, zone, endpointType)
+func (catalog KeystoneServiceCatalogV2) getServiceURLs(service, region, zone, endpointType string, endpointMode identity.TEndpointMode) ([]string, error) {
+	url, err := catalog.getServiceURL(service, region, zone, endpointType, endpointMode)
 	if err != nil {
 		return nil, err
 	}

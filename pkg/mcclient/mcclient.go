@@ -399,7 +399,7 @@ func (client *Client) GetCommonEtcdEndpoint(token TokenCredential, region, inter
 		return nil, errors.Errorf("current version %s not support get internal etcd endpoint", client.AuthVersion())
 	}
 
-	_, err := client.GetServiceCatalog().getServiceURL(apis.SERVICE_TYPE_ETCD, region, "", interfaceType)
+	_, err := client.GetServiceCatalog().getServiceURL(apis.SERVICE_TYPE_ETCD, region, "", interfaceType, api.EndpointModeNormal)
 	if err != nil {
 		return nil, err
 	}

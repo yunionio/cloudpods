@@ -60,7 +60,7 @@ func (manager *SInformerSyncManager) OnServiceCatalogChange(catalog mcclient.ISe
 	if manager.done {
 		return
 	}
-	url, _ := mcclient.CatalogGetServiceURL(catalog, apis.SERVICE_TYPE_ETCD, consts.GetRegion(), "", identity_api.EndpointInterfaceInternal)
+	url, _ := mcclient.CatalogGetServiceURL(catalog, apis.SERVICE_TYPE_ETCD, consts.GetRegion(), "", identity_api.EndpointInterfaceInternal, identity_api.EndpointModeNormal)
 	if len(url) == 0 {
 		log.Debugf("[%s] OnServiceCatalogChange: no etcd internal url found, retry", manager.Name())
 		return

@@ -28,6 +28,8 @@ func init() {
 		Region    string `help:"Search by region"`
 		Service   string `help:"Search by service id or name"`
 		Interface string `help:"Search by interface"`
+
+		Mode []string `help:"Search by mode"`
 	}
 	R(&EndpointListOptions{}, "endpoint-list", "List service endpoints", func(s *mcclient.ClientSession, args *EndpointListOptions) error {
 		query, err := options.ListStructToParams(args)
@@ -73,6 +75,8 @@ func init() {
 		Enabled            bool   `help:"Enabled"`
 		Disabled           bool   `help:"Disabled"`
 		ServiceCertificate string `help:"Service certificate id or name"`
+
+		Mode string `help:"endpoint mode" choices:"slave"`
 	}
 	R(&EndpointCreateOptions{}, "endpoint-create", "Create endpoint", func(s *mcclient.ClientSession, args *EndpointCreateOptions) error {
 		params := jsonutils.NewDict()
@@ -99,6 +103,9 @@ func init() {
 		if len(args.ServiceCertificate) > 0 {
 			params.Add(jsonutils.NewString(args.ServiceCertificate), "service_certificate")
 		}
+		if len(args.Mode) > 0 {
+			params.Add(jsonutils.NewString(args.Mode), "mode")
+		}
 		ep, err := modules.EndpointsV3.Create(s, params)
 		if err != nil {
 			return err
@@ -114,6 +121,8 @@ func init() {
 		Enabled            bool   `help:"Enabled"`
 		Disabled           bool   `help:"Disabled"`
 		ServiceCertificate string `help:"Service certificate id or name"`
+
+		Mode string `help:"endpoint mode" choices:"slave|normal"`
 	}
 	R(&EndpointUpdateOptions{}, "endpoint-update", "Update a endpoint", func(s *mcclient.ClientSession, args *EndpointUpdateOptions) error {
 		params := jsonutils.NewDict()
@@ -130,6 +139,13 @@ func init() {
 		}
 		if len(args.ServiceCertificate) > 0 {
 			params.Add(jsonutils.NewString(args.ServiceCertificate), "service_certificate")
+		}
+		if len(args.Mode) > 0 {
+			if args.Mode == "normal" {
+				params.Add(jsonutils.NewString(""), "mode")
+			} else {
+				params.Add(jsonutils.NewString(args.Mode), "mode")
+			}
 		}
 		ep, err := modules.EndpointsV3.Patch(s, args.ID, params)
 		if err != nil {

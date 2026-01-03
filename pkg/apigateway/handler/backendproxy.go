@@ -24,7 +24,9 @@ import (
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/appctx"
+	"yunion.io/x/pkg/util/httputils"
 
+	"yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
@@ -149,12 +151,11 @@ func (h *SBackendServiceProxyHandler) fetchReverseEndpoint() *proxy.SEndpointFac
 				zone = path[:slashPos]
 			}
 		}
-		endpointType := "internalURL"
 		session := auth.GetAdminSession(ctx, region)
 		if len(zone) > 0 {
 			session.SetZone(zone)
 		}
-		ep, err := session.GetServiceURL(serviceName, endpointType)
+		ep, err := session.GetServiceURL(serviceName, identity.EndpointInterfaceInternal, httputils.THttpMethod(r.Method))
 		if err != nil {
 			return "", httperrors.NewBadRequestError("invalid service %s: %s", serviceName, err)
 		}

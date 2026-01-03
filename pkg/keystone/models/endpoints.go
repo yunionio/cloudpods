@@ -31,6 +31,7 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
+	"yunion.io/x/onecloud/pkg/apis/identity"
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/etcd"
@@ -93,6 +94,8 @@ type SEndpoint struct {
 	Enabled              tristate.TriState   `default:"true" list:"admin" update:"admin" create:"admin_optional"`
 	RegionId             string              `width:"255" charset:"utf8" nullable:"true" list:"admin" create:"admin_required"`
 	ServiceCertificateId string              `nullable:"true" create:"admin_optional" update:"admin"`
+
+	Mode identity.TEndpointMode `width:"8" charset:"ascii" nullable:"false" default:"" list:"admin" create:"admin_required" update:"admin"`
 }
 
 func (manager *SEndpointManager) InitializeData() error {
@@ -269,15 +272,17 @@ func (ep *SEndpoint) getService() *SService {
 }
 
 type SEndpointExtended struct {
-	Id          string
-	Name        string
-	Interface   string
-	Url         string
-	Region      string
-	RegionId    string
-	ServiceId   string
-	ServiceType string
-	ServiceName string
+	Id          string `json:"id"`
+	Name        string `json:"name"`
+	Interface   string `json:"interface"`
+	Url         string `json:"url"`
+	Region      string `json:"region"`
+	RegionId    string `json:"region_id"`
+	ServiceId   string `json:"service_id"`
+	ServiceType string `json:"service_type"`
+	ServiceName string `json:"service_name"`
+
+	Mode identity.TEndpointMode `json:"mode"`
 }
 
 type SServiceCatalog []SEndpointExtended
@@ -297,6 +302,7 @@ func (manager *SEndpointManager) FetchAll() (SServiceCatalog, error) {
 		endpoints.Field("service_id"),
 		services.Field("type", "service_type"),
 		services.Field("name", "service_name"),
+		endpoints.Field("mode"),
 	)
 	q = q.Join(regions, sqlchemy.Equals(endpoints.Field("region_id"), regions.Field("id")))
 	q = q.Join(services, sqlchemy.Equals(endpoints.Field("service_id"), services.Field("id")))
@@ -332,6 +338,7 @@ func (cata SServiceCatalog) GetKeystoneCatalogV3() mcclient.KeystoneServiceCatal
 			Region:    cata[i].Region,
 			RegionId:  cata[i].RegionId,
 			Url:       cata[i].Url,
+			Mode:      cata[i].Mode,
 		}
 		srv.Endpoints = append(srv.Endpoints, ep)
 		ksCata[cata[i].ServiceId] = srv
@@ -550,11 +557,11 @@ func (manager *SEndpointManager) ListItemFilter(
 		}
 	}
 	if len(query.Interface) > 0 {
-		infType := query.Interface
-		if strings.HasSuffix(infType, "URL") {
-			infType = infType[0 : len(infType)-3]
-		}
+		infType := strings.TrimSuffix(query.Interface, "URL")
 		q = q.Equals("interface", infType)
+	}
+	if len(query.Mode) > 0 {
+		q = q.In("mode", query.Mode)
 	}
 	return q, nil
 }
