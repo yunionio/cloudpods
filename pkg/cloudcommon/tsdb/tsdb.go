@@ -18,6 +18,7 @@ import (
 	"math/rand"
 
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/httputils"
 
 	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -38,7 +39,7 @@ func NewTSDBServiceSource(t string, urls []string) *TSDBServiceSource {
 func GetDefaultServiceSource(s *mcclient.ClientSession, endpointType string) (*TSDBServiceSource, error) {
 	errs := []error{}
 	for _, sType := range []string{apis.SERVICE_TYPE_INFLUXDB, apis.SERVICE_TYPE_VICTORIA_METRICS} {
-		urls, err := s.GetServiceURLs(sType, endpointType)
+		urls, err := s.GetServiceURLs(sType, endpointType, httputils.POST)
 		if err != nil {
 			errs = append(errs, errors.Wrapf(err, "get %s service type %q", endpointType, sType))
 		}

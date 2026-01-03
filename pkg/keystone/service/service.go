@@ -86,7 +86,7 @@ func StartService() {
 
 	cloudcommon.InitDB(&opts.DBOptions)
 
-	InitHandlers(app)
+	InitHandlers(app, opts.IsSlaveNode)
 
 	db.EnsureAppSyncDB(app, &opts.DBOptions, models.InitDB)
 
@@ -94,7 +94,7 @@ func StartService() {
 
 	common_options.StartOptionManagerWithSessionDriver(opts, opts.ConfigSyncPeriodSeconds, api.SERVICE_TYPE, "", options.OnOptionsChange, models.NewServiceConfigSession())
 
-	{
+	if !opts.IsSlaveNode {
 		err := models.UserManager.EnforceUserMfa(context.Background())
 		if err != nil {
 			log.Errorf("EnforceUserMfa fail %s", err)

@@ -57,20 +57,20 @@ func StartService() {
 
 	cloudcommon.InitDB(dbOpts)
 
-	InitHandlers(applicaion)
+	InitHandlers(applicaion, opts.IsSlaveNode)
 
 	// init database
 	db.EnsureAppSyncDB(applicaion, dbOpts, models.InitDB)
 	defer cloudcommon.CloseDB()
 
-	if options.Options.EnableWatchUser {
-		err := models.ReceiverManager.StartWatchUserInKeystone()
-		if err != nil {
-			log.Errorln(errors.Wrap(err, "StartWatchUserInKeystone"))
-		}
-	}
-
 	if !opts.IsSlaveNode {
+		if options.Options.EnableWatchUser {
+			err := models.ReceiverManager.StartWatchUserInKeystone()
+			if err != nil {
+				log.Errorln(errors.Wrap(err, "StartWatchUserInKeystone"))
+			}
+		}
+
 		err := taskman.TaskManager.InitializeData()
 		if err != nil {
 			log.Fatalf("TaskManager.InitializeData fail %s", err)

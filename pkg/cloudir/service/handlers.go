@@ -22,11 +22,11 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/etcd/models/base"
 )
 
-func initHandlers(app *appsrv.Application) {
+func initHandlers(app *appsrv.Application, isSlave bool) {
 	for _, manager := range []base.IEtcdModelManager{
 		models.ServiceRegistryManager,
 	} {
 		handler := handler.NewEtcdModelHandler(manager)
-		dispatcher.AddModelDispatcher("", app, handler)
+		dispatcher.AddModelDispatcher("", app, handler, isSlave)
 	}
 }
