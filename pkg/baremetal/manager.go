@@ -1104,7 +1104,7 @@ func (b *SBaremetalInstance) getHTTPFileUrl(filename string) string {
 
 func (b *SBaremetalInstance) GetImageUrl(disableImageCache bool) string {
 	if disableImageCache {
-		url, err := b.GetPublicClientSession().GetServiceURL(apis.SERVICE_TYPE_IMAGE, apiidenty.EndpointInterfacePublic)
+		url, err := b.GetPublicClientSession().GetServiceURL(apis.SERVICE_TYPE_IMAGE, apiidenty.EndpointInterfacePublic, httputils.GET)
 		if err != nil {
 			log.Errorf("Get image public url: %v", err)
 			return ""
@@ -2323,7 +2323,7 @@ func (b *SBaremetalInstance) getBootIsoImagePath() string {
 func (b *SBaremetalInstance) DoNTPConfig() error {
 	var urls []string
 	for _, ep := range []string{"internal", "public"} {
-		urls, _ = auth.GetServiceURLs("ntp", o.Options.Region, "", ep)
+		urls, _ = auth.GetServiceURLs("ntp", o.Options.Region, "", ep, httputils.POST)
 		if len(urls) > 0 {
 			break
 		}

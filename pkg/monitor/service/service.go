@@ -70,14 +70,14 @@ func StartService() {
 
 	cloudcommon.InitDB(dbOpts)
 
-	InitHandlers(app)
+	InitHandlers(app, opts.IsSlaveNode)
 
 	db.EnsureAppSyncDB(app, dbOpts, models.InitDB)
 	defer cloudcommon.CloseDB()
 
-	go startServices()
-
 	if !opts.IsSlaveNode {
+		go startServices()
+
 		err := taskman.TaskManager.InitializeData()
 		if err != nil {
 			log.Fatalf("TaskManager.InitializeData fail %s", err)

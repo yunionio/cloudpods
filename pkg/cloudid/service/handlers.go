@@ -37,10 +37,10 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudid/models"
 )
 
-func InitHandlers(app *appsrv.Application) {
+func InitHandlers(app *appsrv.Application, isSlave bool) {
 	db.InitAllManagers()
 
-	taskman.AddTaskHandler("v1", app)
+	taskman.AddTaskHandler("v1", app, isSlave)
 
 	db.AddScopeResourceCountHandler("", app)
 
@@ -72,7 +72,7 @@ func InitHandlers(app *appsrv.Application) {
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewModelHandler(manager)
-		dispatcher.AddModelDispatcher("", app, handler)
+		dispatcher.AddModelDispatcher("", app, handler, isSlave)
 	}
 
 	for _, manager := range []db.IJointModelManager{
@@ -82,7 +82,7 @@ func InitHandlers(app *appsrv.Application) {
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewJointModelHandler(manager)
-		dispatcher.AddJointModelDispatcher("", app, handler)
+		dispatcher.AddJointModelDispatcher("", app, handler, isSlave)
 	}
 
 }

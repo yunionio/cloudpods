@@ -20,13 +20,13 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 )
 
-func AddTaskHandler(prefix string, app *appsrv.Application) {
+func AddTaskHandler(prefix string, app *appsrv.Application, isSlave bool) {
 	handler := db.NewModelHandler(TaskManager)
-	dispatcher.AddModelDispatcher(prefix, app, handler)
+	dispatcher.AddModelDispatcher(prefix, app, handler, isSlave)
 
 	{
 		initArchivedTaskManager()
 		archiveHandler := db.NewModelHandler(ArchivedTaskManager)
-		dispatcher.AddModelDispatcher(prefix, app, archiveHandler)
+		dispatcher.AddModelDispatcher(prefix, app, archiveHandler, isSlave)
 	}
 }

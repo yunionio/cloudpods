@@ -23,19 +23,19 @@ import (
 )
 
 type ExternalService struct {
-	Name string
-	Url  string
+	Name string `json:"name"`
+	Url  string `json:"url"`
 
-	Service string
+	Service string `json:"service"`
 }
 
 type Endpoint struct {
-	Id          string
-	RegionId    string
-	ServiceId   string
-	ServiceName string
-	Url         string
-	Interface   string
+	Id          string `json:"id"`
+	RegionId    string `json:"region_id"`
+	ServiceId   string `json:"service_id"`
+	ServiceName string `json:"service_name"`
+	Url         string `json:"url"`
+	Interface   string `json:"interface"`
 }
 
 func OwnerIdString(owner IIdentityProvider, scope rbacscope.TRbacScope) string {

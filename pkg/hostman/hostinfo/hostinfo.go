@@ -36,6 +36,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/httputils"
 	"yunion.io/x/pkg/util/version"
 	"yunion.io/x/pkg/utils"
 
@@ -2475,7 +2476,7 @@ func (h *SHostInfo) OnCatalogChanged(catalog mcclient.KeystoneServiceCatalogV3) 
 
 	if options.HostOptions.ManageNtpConfiguration {
 		ntpd := system_service.GetService("ntpd")
-		urls, _ := s.GetServiceURLs("ntp", defaultEndpointType)
+		urls, _ := s.GetServiceURLs("ntp", defaultEndpointType, httputils.POST)
 		if len(urls) > 0 {
 			log.Infof("Get Ntp urls: %v", urls)
 		} else {
@@ -2512,7 +2513,7 @@ func (h *SHostInfo) OnCatalogChanged(catalog mcclient.KeystoneServiceCatalogV3) 
 		hostconsts.TELEGRAF_TAG_KEY_HYPERVISOR: options.HostOptions.HostType,
 	}
 	conf["nics"] = h.getNicsTelegrafConf()
-	urls, _ := s.GetServiceURLs("kafka", defaultEndpointType)
+	urls, _ := s.GetServiceURLs("kafka", defaultEndpointType, httputils.POST)
 	if len(urls) > 0 {
 		kafkaConf := map[string]interface{}{
 			"brokers": urls,
@@ -2530,7 +2531,7 @@ func (h *SHostInfo) OnCatalogChanged(catalog mcclient.KeystoneServiceCatalogV3) 
 		conf["kafka"] = kafkaConf
 	}
 
-	urls, _ = s.GetServiceURLs("opentsdb", defaultEndpointType)
+	urls, _ = s.GetServiceURLs("opentsdb", defaultEndpointType, httputils.POST)
 	if len(urls) > 0 {
 		conf["opentsdb"] = map[string]interface{}{
 			"url": urls[0],

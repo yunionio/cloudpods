@@ -32,20 +32,22 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/usages"
 )
 
-func InitHandlers(app *appsrv.Application) {
+func InitHandlers(app *appsrv.Application, isSlave bool) {
 	db.InitAllManagers()
 
 	db.RegistUserCredCacheUpdater()
 
 	db.AddScopeResourceCountHandler("", app)
-	db.AddHistoryDataCleanHandler("", app)
+	if !isSlave {
+		db.AddHistoryDataCleanHandler("", app)
+	}
 
-	quotas.AddQuotaHandler(&models.QuotaManager.SQuotaBaseManager, "", app)
-	quotas.AddQuotaHandler(&models.RegionQuotaManager.SQuotaBaseManager, "", app)
-	quotas.AddQuotaHandler(&models.ZoneQuotaManager.SQuotaBaseManager, "", app)
-	quotas.AddQuotaHandler(&models.ProjectQuotaManager.SQuotaBaseManager, "", app)
-	quotas.AddQuotaHandler(&models.DomainQuotaManager.SQuotaBaseManager, "", app)
-	quotas.AddQuotaHandler(&models.InfrasQuotaManager.SQuotaBaseManager, "", app)
+	quotas.AddQuotaHandler(&models.QuotaManager.SQuotaBaseManager, "", app, isSlave)
+	quotas.AddQuotaHandler(&models.RegionQuotaManager.SQuotaBaseManager, "", app, isSlave)
+	quotas.AddQuotaHandler(&models.ZoneQuotaManager.SQuotaBaseManager, "", app, isSlave)
+	quotas.AddQuotaHandler(&models.ProjectQuotaManager.SQuotaBaseManager, "", app, isSlave)
+	quotas.AddQuotaHandler(&models.DomainQuotaManager.SQuotaBaseManager, "", app, isSlave)
+	quotas.AddQuotaHandler(&models.InfrasQuotaManager.SQuotaBaseManager, "", app, isSlave)
 
 	usages.AddUsageHandler("", app)
 	usages.AddHistoryUsageHandler("", app)
@@ -53,7 +55,7 @@ func InitHandlers(app *appsrv.Application) {
 	specs.AddSpecHandler("", app)
 	sshkeys.AddSshKeysHandler("", app)
 
-	taskman.AddTaskHandler("", app)
+	taskman.AddTaskHandler("", app, isSlave)
 
 	misc.AddMiscHandler("", app)
 
@@ -258,7 +260,7 @@ func InitHandlers(app *appsrv.Application) {
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewModelHandler(manager)
-		dispatcher.AddModelDispatcher("", app, handler)
+		dispatcher.AddModelDispatcher("", app, handler, isSlave)
 	}
 
 	for _, manager := range []db.IJointModelManager{
@@ -292,6 +294,6 @@ func InitHandlers(app *appsrv.Application) {
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewJointModelHandler(manager)
-		dispatcher.AddJointModelDispatcher("", app, handler)
+		dispatcher.AddJointModelDispatcher("", app, handler, isSlave)
 	}
 }

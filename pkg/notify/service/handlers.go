@@ -27,7 +27,7 @@ const (
 	API_VERSION = "v2"
 )
 
-func InitHandlers(app *appsrv.Application) {
+func InitHandlers(app *appsrv.Application, isSlave bool) {
 	db.InitAllManagers()
 
 	models.InitEventLog()
@@ -35,7 +35,7 @@ func InitHandlers(app *appsrv.Application) {
 
 	db.RegistUserCredCacheUpdater()
 
-	taskman.AddTaskHandler(API_VERSION, app)
+	taskman.AddTaskHandler(API_VERSION, app, isSlave)
 
 	db.AddScopeResourceCountHandler(API_VERSION, app)
 
@@ -74,7 +74,7 @@ func InitHandlers(app *appsrv.Application) {
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewModelHandler(manager)
-		dispatcher.AddModelDispatcher(API_VERSION, app, handler)
+		dispatcher.AddModelDispatcher(API_VERSION, app, handler, isSlave)
 	}
 	for _, manager := range []db.IJointModelManager{
 		models.SubscriberReceiverManager,
@@ -86,6 +86,6 @@ func InitHandlers(app *appsrv.Application) {
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewJointModelHandler(manager)
-		dispatcher.AddJointModelDispatcher(API_VERSION, app, handler)
+		dispatcher.AddJointModelDispatcher(API_VERSION, app, handler, isSlave)
 	}
 }
