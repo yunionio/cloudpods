@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/httputils"
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/apis"
@@ -113,7 +114,7 @@ func FetchEtcdServiceInfo() (*identity.EndpointDetails, error) {
 
 func startEtcdEndpointPuller() {
 	retryInterval := 60
-	etecdUrl, err := auth.GetServiceURL(apis.SERVICE_TYPE_ETCD, consts.GetRegion(), "", identity.EndpointInterfaceInternal)
+	etecdUrl, err := auth.GetServiceURL(apis.SERVICE_TYPE_ETCD, consts.GetRegion(), "", identity.EndpointInterfaceInternal, httputils.POST)
 	if err != nil {
 		log.Errorf("[etcd] GetServiceURL fail %s, retry after %d seconds", err, retryInterval)
 	} else if len(etecdUrl) == 0 {

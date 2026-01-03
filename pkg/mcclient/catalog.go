@@ -14,10 +14,12 @@
 
 package mcclient
 
+import "yunion.io/x/onecloud/pkg/apis/identity"
+
 type IServiceCatalog interface {
 	Len() int
-	getServiceURL(service, region, zone, endpointType string) (string, error)
-	getServiceURLs(service, region, zone, endpointType string) ([]string, error)
+	getServiceURL(service, region, zone, endpointType string, endpointMode identity.TEndpointMode) (string, error)
+	getServiceURLs(service, region, zone, endpointType string, endpointMode identity.TEndpointMode) ([]string, error)
 	GetInternalServices(region string) []string
 	GetExternalServices(region string) []ExternalService
 	GetServicesByInterface(region string, infType string) []ExternalService
@@ -77,10 +79,10 @@ func (this *Client) GetServiceCatalog() IServiceCatalog {
 	return this._serviceCatalog
 }
 
-func CatalogGetServiceURL(catalog IServiceCatalog, service, region, zone, endpointType string) (string, error) {
-	return catalog.getServiceURL(service, region, zone, endpointType)
+func CatalogGetServiceURL(catalog IServiceCatalog, service, region, zone, endpointType string, endpointMode identity.TEndpointMode) (string, error) {
+	return catalog.getServiceURL(service, region, zone, endpointType, endpointMode)
 }
 
-func CatalogGetServiceURLs(catalog IServiceCatalog, service, region, zone, endpointType string) ([]string, error) {
-	return catalog.getServiceURLs(service, region, zone, endpointType)
+func CatalogGetServiceURLs(catalog IServiceCatalog, service, region, zone, endpointType string, endpointMode identity.TEndpointMode) ([]string, error) {
+	return catalog.getServiceURLs(service, region, zone, endpointType, endpointMode)
 }

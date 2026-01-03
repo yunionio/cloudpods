@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/httputils"
 
 	identity_apis "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/appsrv"
@@ -61,7 +62,7 @@ func (stat *STorrentProcessState) StopAndWait() error {
 }
 
 func GetTrackers() []string {
-	urls, err := auth.GetServiceURLs(TORRENT_TRACKER_SERVICE, options.Options.Region, "", "")
+	urls, err := auth.GetServiceURLs(TORRENT_TRACKER_SERVICE, options.Options.Region, "", "", httputils.POST)
 	if err != nil {
 		log.Errorf("fail to get torrent-tracker")
 		return nil
@@ -98,7 +99,7 @@ func SeedTorrent(torrentpath string, imageId, format string) error {
 }
 
 func seedTorrent(torrentpath string, imageId, format string) error {
-	url, err := auth.GetServiceURL("image", options.Options.Region, "", identity_apis.EndpointInterfacePublic)
+	url, err := auth.GetServiceURL("image", options.Options.Region, "", identity_apis.EndpointInterfacePublic, httputils.POST)
 	if err != nil {
 		return err
 	}

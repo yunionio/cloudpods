@@ -18,6 +18,7 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/util/httputils"
 	"yunion.io/x/pkg/util/printutils"
 	"yunion.io/x/pkg/utils"
 
@@ -96,7 +97,7 @@ func (this *MetadataManager) getModule(session *mcclient.ClientSession, params j
 		}
 	}
 
-	_, err := session.GetServiceURL(service, "")
+	_, err := session.GetServiceURL(service, "", httputils.POST)
 	if err != nil {
 		return nil, httperrors.NewNotFoundError("service %s not found error: %v", service, err)
 	}

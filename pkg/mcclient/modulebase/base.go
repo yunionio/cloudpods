@@ -128,9 +128,9 @@ func (this *BaseManager) rawRequest(session *mcclient.ClientSession,
 		header, body)
 }
 
-func (this *BaseManager) GetBaseUrl(s *mcclient.ClientSession) (string, error) {
+/*func (this *BaseManager) GetBaseUrl(s *mcclient.ClientSession) (string, error) {
 	return s.GetBaseUrl(this.serviceType, this.endpointType)
-}
+}*/
 
 func (this *BaseManager) rawBaseUrlRequest(s *mcclient.ClientSession,
 	method httputils.THttpMethod, path string,

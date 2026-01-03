@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/gotypes"
 
+	"yunion.io/x/onecloud/pkg/apis/identity"
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 )
 
@@ -155,11 +156,11 @@ func (self *SSimpleToken) Len() int {
 	return 0
 }
 
-func (self *SSimpleToken) getServiceURL(service, region, zone, endpointType string) (string, error) {
+func (self *SSimpleToken) getServiceURL(service, region, zone, endpointType string, endpointMode identity.TEndpointMode) (string, error) {
 	return "", fmt.Errorf("Not available")
 }
 
-func (self *SSimpleToken) getServiceURLs(service, region, zone, endpointType string) ([]string, error) {
+func (self *SSimpleToken) getServiceURLs(service, region, zone, endpointType string, endpointMode identity.TEndpointMode) ([]string, error) {
 	return nil, fmt.Errorf("Not available")
 }
 
@@ -175,7 +176,7 @@ func (self *SSimpleToken) GetExternalServices(region string) []ExternalService {
 	return nil
 }
 
-func (this *SSimpleToken) GetEndpoints(region string, endpointType string) []Endpoint {
+func (this *SSimpleToken) GetEndpoints(region string, endpointType string, endpointMode identity.TEndpointMode) []Endpoint {
 	return nil
 }
 

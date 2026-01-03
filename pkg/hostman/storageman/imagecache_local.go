@@ -199,7 +199,7 @@ func (l *SLocalImageCache) prepare(ctx context.Context, input api.CacheImageInpu
 		l.consumerCount++
 		return true, nil
 	}
-	url, err := auth.GetServiceURL(apis.SERVICE_TYPE_IMAGE, "", input.Zone, "")
+	url, err := auth.GetServiceURL(apis.SERVICE_TYPE_IMAGE, "", input.Zone, "", httputils.GET)
 	if err != nil {
 		return false, errors.Wrapf(err, "GetServiceURL(%s)", apis.SERVICE_TYPE_IMAGE)
 	}

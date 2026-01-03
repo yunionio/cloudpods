@@ -22,6 +22,7 @@ import (
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/httputils"
 	"yunion.io/x/pkg/util/stringutils"
 	"yunion.io/x/pkg/util/wait"
 
@@ -153,7 +154,7 @@ func (man *dataSourceManager) initDefaultDataSource(ctx context.Context) error {
 	if err := tsdb.IsValidDataSource(dsSvc); err != nil {
 		return errors.Wrapf(err, "invalid type %q", dsSvc)
 	}
-	url, err := s.GetServiceURL(dsSvc, epType)
+	url, err := s.GetServiceURL(dsSvc, epType, httputils.POST)
 	if err != nil {
 		return errors.Errorf("get %q public url: %v", dsSvc, err)
 	}

@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/httputils"
 	"yunion.io/x/pkg/util/printutils"
 	"yunion.io/x/pkg/util/sets"
 
@@ -301,7 +302,7 @@ func _getModule(session *mcclient.ClientSession, name string) (IBaseManager, err
 	}
 
 	for _, mod := range mods {
-		url, e := session.GetServiceURL(mod.ServiceType(), mod.EndpointType())
+		url, e := session.GetServiceURL(mod.ServiceType(), mod.EndpointType(), httputils.POST)
 		if e != nil {
 			return nil, errors.Wrap(e, "session.GetServiceURL")
 		}
@@ -352,7 +353,7 @@ func GetJointModule2(session *mcclient.ClientSession, mod1 Manager, mod2 Manager
 			continue
 		}
 		for _, mod := range mods {
-			url, e := session.GetServiceVersionURL(mod.ServiceType(), mod.EndpointType())
+			url, e := session.GetServiceVersionURL(mod.ServiceType(), mod.EndpointType(), httputils.POST)
 			if e != nil {
 				return nil, e
 			}
