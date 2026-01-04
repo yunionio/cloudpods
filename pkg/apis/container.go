@@ -265,6 +265,8 @@ func (o ContainerVolumeMountDiskOverlay) IsValid() error {
 type ContainerVolumeMountDiskPostImageOverlay struct {
 	Id      string            `json:"id"`
 	PathMap map[string]string `json:"path_map"`
+	// 宿主机底层目录映射, key 为 PathMap 的 key
+	HostLowerMap map[string][]string `json:"host_lower_map"`
 }
 
 type ContainerVolumeMountDiskPostImageOverlayUnpacker ContainerVolumeMountDiskPostImageOverlay

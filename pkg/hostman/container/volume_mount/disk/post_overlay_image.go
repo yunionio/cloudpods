@@ -18,6 +18,8 @@ import (
 	"context"
 	"path/filepath"
 
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/apis"
@@ -57,9 +59,12 @@ func (i postOverlayImage) getCachedImagePaths(d diskPostOverlay, pod volume_moun
 	return result, nil
 }
 
-func (i postOverlayImage) convertToDiskOV(ov *apis.ContainerVolumeMountDiskPostOverlay, hostPath, ctrPath string) *apis.ContainerVolumeMountDiskPostOverlay {
+func (i postOverlayImage) convertToDiskOV(ov *apis.ContainerVolumeMountDiskPostOverlay, hostPath, ctrPath string, hostLowerPaths []string) *apis.ContainerVolumeMountDiskPostOverlay {
+	hostLowerDir := []string{}
+	hostLowerDir = append(hostLowerDir, hostLowerPaths...)
+	hostLowerDir = append(hostLowerDir, hostPath)
 	return &apis.ContainerVolumeMountDiskPostOverlay{
-		HostLowerDir:       []string{hostPath},
+		HostLowerDir:       hostLowerDir,
 		ContainerTargetDir: ctrPath,
 		FsUser:             ov.FsUser,
 		FsGroup:            ov.FsGroup,
@@ -75,8 +80,17 @@ func (i postOverlayImage) withAction(
 	if err != nil {
 		return errors.Wrapf(err, "get cached image paths")
 	}
+	hostLowerMap := make(map[string][]string)
+	if img.HostLowerMap != nil {
+		hostLowerMap = img.HostLowerMap
+	}
 	for hostPath, ctrPath := range paths {
-		dov := i.convertToDiskOV(ov, hostPath, ctrPath)
+		hostLowerPaths := hostLowerMap[hostPath]
+		if len(hostLowerPaths) == 0 {
+			hostLowerPaths = []string{hostPath}
+		}
+		dov := i.convertToDiskOV(ov, hostPath, ctrPath, hostLowerPaths)
+		log.Infof("=== convertToDiskOV: %s", jsonutils.Marshal(dov).PrettyString())
 		drv := d.getDriver(dov)
 		if err := af(drv, dov); err != nil {
 			return errors.Wrapf(err, "host path %s to %s", hostPath, ctrPath)
