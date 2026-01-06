@@ -59,25 +59,28 @@ const (
 	WebsocketProxyPathPrefix = "/wsproxy/"
 )
 
-func initHandlers(app *appsrv.Application) {
-	app.AddHandler("POST", ApiPathPrefix+"k8s/<podName>/shell", auth.Authenticate(handleK8sShell))
-	app.AddHandler("POST", ApiPathPrefix+"climc/shell", auth.Authenticate(handleClimcShell))
-	app.AddHandler("POST", ApiPathPrefix+"k8s/<podName>/log", auth.Authenticate(handleK8sLog))
-	app.AddHandler("POST", ApiPathPrefix+"baremetal/<id>", auth.Authenticate(handleBaremetalShell))
-	app.AddHandler("POST", ApiPathPrefix+"ssh/<ip>", auth.Authenticate(handleSshShell))
-	app.AddHandler("POST", ApiPathPrefix+"server/<id>", auth.Authenticate(handleServerRemoteConsole))
-	app.AddHandler("POST", ApiPathPrefix+"adb/<id>/shell", auth.Authenticate(handleAdbShell))
-	app.AddHandler("POST", ApiPathPrefix+"server-rdp/<id>", auth.Authenticate(handleServerRemoteRDPConsole))
+func initHandlers(app *appsrv.Application, isSlave bool) {
 	app.AddHandler("GET", ApiPathPrefix+"sftp/<session-id>/list", server.HandleSftpList)
 	app.AddHandler("GET", ApiPathPrefix+"sftp/<session-id>/download", server.HandleSftpDownload)
-	app.AddHandler("POST", ApiPathPrefix+"sftp/<session-id>/upload", server.HandleSftpUpload)
+
+	if !isSlave {
+		app.AddHandler("POST", ApiPathPrefix+"k8s/<podName>/shell", auth.Authenticate(handleK8sShell))
+		app.AddHandler("POST", ApiPathPrefix+"climc/shell", auth.Authenticate(handleClimcShell))
+		app.AddHandler("POST", ApiPathPrefix+"k8s/<podName>/log", auth.Authenticate(handleK8sLog))
+		app.AddHandler("POST", ApiPathPrefix+"baremetal/<id>", auth.Authenticate(handleBaremetalShell))
+		app.AddHandler("POST", ApiPathPrefix+"ssh/<ip>", auth.Authenticate(handleSshShell))
+		app.AddHandler("POST", ApiPathPrefix+"server/<id>", auth.Authenticate(handleServerRemoteConsole))
+		app.AddHandler("POST", ApiPathPrefix+"adb/<id>/shell", auth.Authenticate(handleAdbShell))
+		app.AddHandler("POST", ApiPathPrefix+"server-rdp/<id>", auth.Authenticate(handleServerRemoteRDPConsole))
+		app.AddHandler("POST", ApiPathPrefix+"sftp/<session-id>/upload", server.HandleSftpUpload)
+	}
 
 	for _, man := range []db.IModelManager{
 		models.GetCommandLogManager(),
 	} {
 		db.RegisterModelManager(man)
 		handler := db.NewModelHandler(man)
-		dispatcher.AddModelDispatcher(ApiPathPrefix, app, handler)
+		dispatcher.AddModelDispatcher(ApiPathPrefix, app, handler, isSlave)
 	}
 }
 

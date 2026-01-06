@@ -298,16 +298,16 @@ func (a *authManager) reAuth() {
 	a.SyncOnce(false, false)
 }
 
-func (a *authManager) GetServiceURL(service, region, zone, endpointType string) (string, error) {
-	return a.getAdminSession(context.Background(), region, zone, endpointType).GetServiceURL(service, endpointType)
+func (a *authManager) GetServiceURL(service, region, zone, endpointType string, method httputils.THttpMethod) (string, error) {
+	return a.getAdminSession(context.Background(), region, zone, endpointType).GetServiceURL(service, endpointType, method)
 }
 
-func (a *authManager) GetServiceURLs(service, region, zone, endpointType string) ([]string, error) {
-	return a.getAdminSession(context.Background(), region, zone, endpointType).GetServiceURLs(service, endpointType)
+func (a *authManager) GetServiceURLs(service, region, zone, endpointType string, method httputils.THttpMethod) ([]string, error) {
+	return a.getAdminSession(context.Background(), region, zone, endpointType).GetServiceURLs(service, endpointType, method)
 }
 
 func (a *authManager) getServiceIPs(service, region, zone, endpointType string, needResolve bool) ([]string, error) {
-	urls, err := a.GetServiceURLs(service, region, zone, endpointType)
+	urls, err := a.GetServiceURLs(service, region, zone, endpointType, httputils.POST)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetServiceURLs")
 	}
@@ -384,16 +384,16 @@ func VerifyRequest(req http.Request, virtualHost bool) (mcclient.TokenCredential
 	return manager.verifyRequest(req, virtualHost)
 }
 
-func GetServiceURL(service, region, zone, endpointType string) (string, error) {
-	return manager.GetServiceURL(service, region, zone, endpointType)
+func GetServiceURL(service, region, zone, endpointType string, method httputils.THttpMethod) (string, error) {
+	return manager.GetServiceURL(service, region, zone, endpointType, method)
 }
 
-func GetPublicServiceURL(service, region, zone string) (string, error) {
-	return manager.GetServiceURL(service, region, zone, identity.EndpointInterfacePublic)
+func GetPublicServiceURL(service, region, zone string, method httputils.THttpMethod) (string, error) {
+	return manager.GetServiceURL(service, region, zone, identity.EndpointInterfacePublic, method)
 }
 
-func GetServiceURLs(service, region, zone, endpointType string) ([]string, error) {
-	return manager.GetServiceURLs(service, region, zone, endpointType)
+func GetServiceURLs(service, region, zone, endpointType string, method httputils.THttpMethod) ([]string, error) {
+	return manager.GetServiceURLs(service, region, zone, endpointType, method)
 }
 
 func GetDNSServers(region, zone string) ([]string, error) {

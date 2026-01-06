@@ -31,7 +31,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 )
 
-func AddModelDispatcher(prefix string, app *appsrv.Application, manager IModelDispatchHandler) {
+func AddModelDispatcher(prefix string, app *appsrv.Application, manager IModelDispatchHandler, isSlave bool) {
 	metadata := map[string]interface{}{"manager": manager}
 	tags := map[string]string{"resource": manager.KeywordPlural()}
 	// list
@@ -69,6 +69,12 @@ func AddModelDispatcher(prefix string, app *appsrv.Application, manager IModelDi
 		fmt.Sprintf("%s/%s/<resid>/<spec>", prefix, manager.KeywordPlural()),
 		manager.Filter(getSpecHandler), metadata, "get_specific", tags)
 	manager.CustomizeHandlerInfo(h)
+
+	if isSlave {
+		// slave node only support get and head
+		return
+	}
+
 	// create
 	// create multi
 	h = app.AddHandler2("POST",

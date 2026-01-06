@@ -64,7 +64,7 @@ func StartService() {
 
 	cloudcommon.InitDB(dbOpts)
 
-	InitHandlers(app)
+	InitHandlers(app, opts.IsSlaveNode)
 
 	db.EnsureAppSyncDB(app, dbOpts, models.InitDB)
 	defer cloudcommon.CloseDB()
@@ -75,17 +75,17 @@ func StartService() {
 		return
 	}
 
-	models.CloudaccountManager.StartWatchSAMLInRegion()
-	if err != nil {
-		log.Fatalf("StartWatchSAMLInRegion error: %v", err)
-	}
-
-	models.CloudproviderManager.StartWatchInRegion()
-	if err != nil {
-		log.Fatalf("StartWatchInRegion error: %v", err)
-	}
-
 	if !opts.IsSlaveNode {
+		models.CloudaccountManager.StartWatchSAMLInRegion()
+		if err != nil {
+			log.Fatalf("StartWatchSAMLInRegion error: %v", err)
+		}
+
+		models.CloudproviderManager.StartWatchInRegion()
+		if err != nil {
+			log.Fatalf("StartWatchInRegion error: %v", err)
+		}
+
 		err := taskman.TaskManager.InitializeData()
 		if err != nil {
 			log.Fatalf("TaskManager.InitializeData fail %s", err)
