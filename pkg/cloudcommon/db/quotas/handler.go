@@ -72,7 +72,7 @@ type SBaseQuotaQueryInput struct {
 	Refresh bool `json:"refresh"`
 }
 
-func AddQuotaHandler(manager *SQuotaBaseManager, prefix string, app *appsrv.Application) {
+func AddQuotaHandler(manager *SQuotaBaseManager, prefix string, app *appsrv.Application, isSlave bool) {
 	app.AddHandler2("GET",
 		fmt.Sprintf("%s/%s", prefix, manager.KeywordPlural()),
 		auth.Authenticate(manager.getQuotaHandler), nil, "get_quota", nil)
@@ -85,21 +85,23 @@ func AddQuotaHandler(manager *SQuotaBaseManager, prefix string, app *appsrv.Appl
 		fmt.Sprintf("%s/%s/domains/<domainid>", prefix, manager.KeywordPlural()),
 		auth.Authenticate(manager.getQuotaHandler), nil, "get_quota_for_domain", nil)
 
-	app.AddHandler2("POST",
-		fmt.Sprintf("%s/%s", prefix, manager.KeywordPlural()),
-		auth.Authenticate(manager.setQuotaHandler), nil, "set_quota", nil)
+	if !isSlave {
+		app.AddHandler2("POST",
+			fmt.Sprintf("%s/%s", prefix, manager.KeywordPlural()),
+			auth.Authenticate(manager.setQuotaHandler), nil, "set_quota", nil)
 
-	app.AddHandler2("POST",
-		fmt.Sprintf("%s/%s/domains/<domainid>", prefix, manager.KeywordPlural()),
-		auth.Authenticate(manager.setQuotaHandler), nil, "set_quota_for_domain", nil)
+		app.AddHandler2("POST",
+			fmt.Sprintf("%s/%s/domains/<domainid>", prefix, manager.KeywordPlural()),
+			auth.Authenticate(manager.setQuotaHandler), nil, "set_quota_for_domain", nil)
 
-	app.AddHandler2("DELETE",
-		fmt.Sprintf("%s/%s/pending", prefix, manager.KeywordPlural()),
-		auth.Authenticate(manager.cleanPendingUsageHandler), nil, "clean_pending_usage", nil)
+		app.AddHandler2("DELETE",
+			fmt.Sprintf("%s/%s/pending", prefix, manager.KeywordPlural()),
+			auth.Authenticate(manager.cleanPendingUsageHandler), nil, "clean_pending_usage", nil)
 
-	app.AddHandler2("DELETE",
-		fmt.Sprintf("%s/%s/domains/<domainid>/pending", prefix, manager.KeywordPlural()),
-		auth.Authenticate(manager.cleanPendingUsageHandler), nil, "clean_pending_usage_for_domain", nil)
+		app.AddHandler2("DELETE",
+			fmt.Sprintf("%s/%s/domains/<domainid>/pending", prefix, manager.KeywordPlural()),
+			auth.Authenticate(manager.cleanPendingUsageHandler), nil, "clean_pending_usage_for_domain", nil)
+	}
 
 	if manager.scope == rbacscope.ScopeProject {
 		app.AddHandler2("GET",
@@ -114,17 +116,19 @@ func AddQuotaHandler(manager *SQuotaBaseManager, prefix string, app *appsrv.Appl
 			fmt.Sprintf("%s/%s/projects/<tenantid>", prefix, manager.KeywordPlural()),
 			auth.Authenticate(manager.getQuotaHandler), nil, "get_quota_for_project", nil)
 
-		app.AddHandler2("POST",
-			fmt.Sprintf("%s/%s/<tenantid>", prefix, manager.KeywordPlural()),
-			auth.Authenticate(manager.setQuotaHandler), nil, "set_quota_for_project", nil)
+		if !isSlave {
+			app.AddHandler2("POST",
+				fmt.Sprintf("%s/%s/<tenantid>", prefix, manager.KeywordPlural()),
+				auth.Authenticate(manager.setQuotaHandler), nil, "set_quota_for_project", nil)
 
-		app.AddHandler2("POST",
-			fmt.Sprintf("%s/%s/projects/<tenantid>", prefix, manager.KeywordPlural()),
-			auth.Authenticate(manager.setQuotaHandler), nil, "set_quota_for_project", nil)
+			app.AddHandler2("POST",
+				fmt.Sprintf("%s/%s/projects/<tenantid>", prefix, manager.KeywordPlural()),
+				auth.Authenticate(manager.setQuotaHandler), nil, "set_quota_for_project", nil)
 
-		app.AddHandler2("DELETE",
-			fmt.Sprintf("%s/%s/projects/<tenantid>/pending", prefix, manager.KeywordPlural()),
-			auth.Authenticate(manager.cleanPendingUsageHandler), nil, "clean_pending_usage_for_project", nil)
+			app.AddHandler2("DELETE",
+				fmt.Sprintf("%s/%s/projects/<tenantid>/pending", prefix, manager.KeywordPlural()),
+				auth.Authenticate(manager.cleanPendingUsageHandler), nil, "clean_pending_usage_for_project", nil)
+		}
 	}
 }
 

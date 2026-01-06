@@ -45,7 +45,7 @@ func StartService() {
 	app := app_common.InitApp(&opts.BaseOptions, false)
 
 	cloudcommon.InitDB(dbOpts)
-	InitHandlers(app)
+	InitHandlers(app, opts.IsSlaveNode)
 
 	db.EnsureAppSyncDB(app, dbOpts, models.InitDB)
 	defer cloudcommon.CloseDB()

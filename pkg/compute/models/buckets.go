@@ -30,6 +30,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
+	"yunion.io/x/pkg/util/httputils"
 	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
@@ -611,7 +612,7 @@ func joinPath(ep, path string) string {
 }
 
 func (bucket *SBucket) getMoreDetails(out api.BucketDetails) api.BucketDetails {
-	s3gwUrl, _ := auth.GetServiceURL("s3gateway", options.Options.Region, "", identity_apis.EndpointInterfacePublic)
+	s3gwUrl, _ := auth.GetServiceURL("s3gateway", options.Options.Region, "", identity_apis.EndpointInterfacePublic, httputils.POST)
 
 	if len(s3gwUrl) > 0 {
 		accessUrls := make([]cloudprovider.SBucketAccessUrl, 0)

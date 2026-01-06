@@ -129,8 +129,8 @@ func (cliss *ClientSession) GetServiceName(service string) string {
 	return service
 }
 
-func (cliss *ClientSession) GetServiceURL(service, endpointType string) (string, error) {
-	return cliss.GetServiceVersionURL(service, endpointType)
+func (cliss *ClientSession) GetServiceURL(service, endpointType string, method httputils.THttpMethod) (string, error) {
+	return cliss.GetServiceVersionURL(service, endpointType, method)
 }
 
 func (cliss *ClientSession) SetServiceCatalog(catalog IServiceCatalog) {
@@ -144,33 +144,43 @@ func (cliss *ClientSession) GetServiceCatalog() IServiceCatalog {
 	return cliss.client.GetServiceCatalog()
 }
 
-func (cliss *ClientSession) GetServiceVersionURL(service, endpointType string) (string, error) {
-	urls, err := cliss.GetServiceVersionURLs(service, endpointType)
+func (cliss *ClientSession) GetServiceVersionURL(service, endpointType string, method httputils.THttpMethod) (string, error) {
+	urls, err := cliss.GetServiceVersionURLs(service, endpointType, method)
 	if err != nil {
 		return "", errors.Wrap(err, "GetServiceVersionURLs")
 	}
 	return urls[rand.Intn(len(urls))], nil
 }
 
-func (cliss *ClientSession) GetServiceURLs(service, endpointType string) ([]string, error) {
-	return cliss.GetServiceVersionURLs(service, endpointType)
+func (cliss *ClientSession) GetServiceURLs(service, endpointType string, method httputils.THttpMethod) ([]string, error) {
+	return cliss.GetServiceVersionURLs(service, endpointType, method)
 }
 
-func (cliss *ClientSession) GetServiceVersionURLs(service, endpointType string) ([]string, error) {
+func (cliss *ClientSession) GetServiceVersionURLs(service, endpointType string, method httputils.THttpMethod) ([]string, error) {
+	return cliss.GetServiceVersionURLsByMethod(service, endpointType, method)
+}
+
+func (cliss *ClientSession) GetServiceVersionURLsByMethod(service, endpointType string, method httputils.THttpMethod) ([]string, error) {
 	if len(cliss.endpointType) > 0 {
 		// session specific endpoint type should override the input endpointType, which is supplied by manager
 		endpointType = cliss.endpointType
 	}
 	service = cliss.GetServiceName(service)
 	if endpointType == api.EndpointInterfaceApigateway {
-		return cliss.getApigatewayServiceURLs(service, cliss.region, cliss.zone, endpointType)
+		return cliss.getApigatewayServiceURLs(service, cliss.region, cliss.zone)
 	} else {
+		if (endpointType == "" || endpointType == api.EndpointInterfaceInternal) && (method == httputils.GET || method == httputils.HEAD) {
+			urls, _ := cliss.getServiceVersionURLs(service, cliss.region, cliss.zone, api.EndpointInterfaceSlave)
+			if len(urls) > 0 {
+				return urls, nil
+			}
+		}
 		return cliss.getServiceVersionURLs(service, cliss.region, cliss.zone, endpointType)
 	}
 }
 
-func (cliss *ClientSession) getApigatewayServiceURLs(service, region, zone, endpointType string) ([]string, error) {
-	urls, err := cliss.getServiceVersionURLs(service, region, zone, "")
+func (cliss *ClientSession) getApigatewayServiceURLs(service, region, zone string) ([]string, error) {
+	urls, err := cliss.getServiceVersionURLs(service, region, zone, api.EndpointInterfaceInternal)
 	if err != nil {
 		return nil, errors.Wrap(err, "getServiceVersionURLs")
 	}
@@ -231,14 +241,14 @@ func (cliss *ClientSession) getServiceVersionURLs(service, region, zone, endpoin
 	return urls, err
 }
 
-func (cliss *ClientSession) GetBaseUrl(service, endpointType string) (string, error) {
+func (cliss *ClientSession) GetBaseUrl(service, endpointType string, method httputils.THttpMethod) (string, error) {
 	if len(service) > 0 {
 		if strings.HasPrefix(service, "http://") || strings.HasPrefix(service, "https://") {
 			return service, nil
 		} else if url, ok := cliss.customizeServiceUrl[service]; ok {
 			return url, nil
 		} else {
-			return cliss.GetServiceVersionURL(service, endpointType)
+			return cliss.GetServiceVersionURL(service, endpointType, method)
 		}
 	} else {
 		return "", fmt.Errorf("Empty service type or baseURL")
@@ -251,7 +261,7 @@ func (cliss *ClientSession) RawBaseUrlRequest(
 	headers http.Header, body io.Reader,
 	baseurlFactory func(string) string,
 ) (*http.Response, error) {
-	baseurl, err := cliss.GetBaseUrl(service, endpointType)
+	baseurl, err := cliss.GetBaseUrl(service, endpointType, method)
 	if err != nil {
 		return nil, err
 	}
@@ -288,7 +298,7 @@ func (cliss *ClientSession) JSONVersionRequest(
 	service, endpointType string, method httputils.THttpMethod, url string,
 	headers http.Header, body jsonutils.JSONObject,
 ) (http.Header, jsonutils.JSONObject, error) {
-	baseUrl, err := cliss.GetBaseUrl(service, endpointType)
+	baseUrl, err := cliss.GetBaseUrl(service, endpointType, method)
 	if err != nil {
 		return headers, nil, err
 	}
@@ -372,7 +382,7 @@ func (cliss *ClientSession) SetServiceUrl(service, url string) {
 }
 
 func (cliss *ClientSession) WithTaskCallback(taskId string, req func() error) error {
-	baseUrl, err := cliss.GetBaseUrl(consts.GetServiceType(), api.EndpointInterfacePublic)
+	baseUrl, err := cliss.GetBaseUrl(consts.GetServiceType(), api.EndpointInterfacePublic, httputils.POST)
 	if err != nil {
 		log.Errorf("GetServiceURLs error: %s", err)
 		return errors.Wrap(err, "GetServiceURLs")
