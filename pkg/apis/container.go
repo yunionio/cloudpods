@@ -262,9 +262,16 @@ func (o ContainerVolumeMountDiskOverlay) IsValid() error {
 	return nil
 }
 
+type HostLowerPath struct {
+	PrePath  string `json:"pre_path"`
+	PostPath string `json:"post_path"`
+}
+
 type ContainerVolumeMountDiskPostImageOverlay struct {
 	Id      string            `json:"id"`
 	PathMap map[string]string `json:"path_map"`
+	// 宿主机底层目录映射, key 为 PathMap 的 key，value 为 overlay lower 格式，多目录以 ":" 分隔
+	HostLowerMap map[string]*HostLowerPath `json:"host_lower_map"`
 }
 
 type ContainerVolumeMountDiskPostImageOverlayUnpacker ContainerVolumeMountDiskPostImageOverlay
@@ -277,6 +284,7 @@ func (ov *ContainerVolumeMountDiskPostImageOverlay) UnmarshalJSON(data []byte) e
 	ov.Id = nov.Id
 	// 防止 PathMap 被合并，总是用 Unarmshal data 里面的 path_map
 	ov.PathMap = nov.PathMap
+	ov.HostLowerMap = nov.HostLowerMap
 	return nil
 }
 
@@ -295,6 +303,7 @@ type ContainerVolumeMountDiskPostOverlay struct {
 	Image              *ContainerVolumeMountDiskPostImageOverlay `json:"image"`
 	FsUser             *int64                                    `json:"fs_user,omitempty"`
 	FsGroup            *int64                                    `json:"fs_group,omitempty"`
+	FlattenLayers      bool                                      `json:"flatten_layers"`
 }
 
 func (o ContainerVolumeMountDiskPostOverlay) IsEqual(input ContainerVolumeMountDiskPostOverlay) bool {

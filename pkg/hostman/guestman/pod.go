@@ -691,12 +691,12 @@ func (s *sPodGuestInstance) umountRootFs(ctrId string, rootFs *hostapi.Container
 	if rootFs == nil {
 		return nil
 	}
-	drv := volume_mount.GetDriver(rootFs.Type)
+	drv := volume_mount.GetDriver(rootFs.Type).(volume_mount.IConnectedVolumeMount)
 	vol := s.ConvertRootFsToVolumeMount(rootFs)
 	if err := s.clearContainerRootFs(ctrId, rootFs); err != nil {
 		return errors.Wrapf(err, "clear rootfs of container %s", ctrId)
 	}
-	if err := drv.Unmount(s, ctrId, vol); err != nil {
+	if err := drv.UnmountWithoutDisconnect(s, ctrId, vol); err != nil {
 		return errors.Wrapf(err, "unmount root fs %s, ctrId %s", jsonutils.Marshal(rootFs), ctrId)
 	}
 	return nil
@@ -747,6 +747,30 @@ func (s *sPodGuestInstance) mountPodVolumes() error {
 }
 
 func (s *sPodGuestInstance) umountPodVolumes() error {
+	disConnectFuncs := make([]func() error, 0)
+	for ctrId, vols := range s.getContainerVolumeMounts() {
+		for _, vol := range vols {
+			drv := volume_mount.GetDriver(vol.Type)
+			connectedDrv, ok := drv.(volume_mount.IConnectedVolumeMount)
+			if !ok {
+				if err := drv.Unmount(s, ctrId, vol); err != nil {
+					return errors.Wrapf(err, "Unmount volume %s, ctrId %s", jsonutils.Marshal(vol), ctrId)
+				}
+			} else {
+				if err := connectedDrv.UnmountWithoutDisconnect(s, ctrId, vol); err != nil {
+					return errors.Wrapf(err, "UnmountWithoutDisconnect volume %s, ctrId %s", jsonutils.Marshal(vol), ctrId)
+				}
+				tmpCtrId := ctrId
+				tmpVol := vol
+				disConnectFuncs = append(disConnectFuncs, func() error {
+					if err := connectedDrv.Disconnect(s, tmpCtrId, tmpVol); err != nil {
+						return errors.Wrapf(err, "Disconnect volume %s, ctrId %s", jsonutils.Marshal(tmpVol), tmpCtrId)
+					}
+					return nil
+				})
+			}
+		}
+	}
 	for _, ctr := range s.GetDesc().Containers {
 		if ctr.Spec.Rootfs == nil {
 			continue
@@ -755,11 +779,9 @@ func (s *sPodGuestInstance) umountPodVolumes() error {
 			return errors.Wrapf(err, "umount root fs %s, ctrId %s", jsonutils.Marshal(ctr.Spec.Rootfs), ctr.Id)
 		}
 	}
-	for ctrId, vols := range s.getContainerVolumeMounts() {
-		for _, vol := range vols {
-			if err := volume_mount.GetDriver(vol.Type).Unmount(s, ctrId, vol); err != nil {
-				return errors.Wrapf(err, "Unmount volume %s, ctrId %s", jsonutils.Marshal(vol), ctrId)
-			}
+	for _, disConnectFunc := range disConnectFuncs {
+		if err := disConnectFunc(); err != nil {
+			return errors.Wrapf(err, "disconnect volume")
 		}
 	}
 	return nil
@@ -2616,7 +2638,38 @@ func (s *sPodGuestInstance) tarGzDir(input *hostapi.ContainerSaveVolumeMountToIm
 		}
 	}
 
-	cmd := fmt.Sprintf("tar -czf %s -C %s %s", outputFp, hostPath, dirPath)
+	// 减去 excludePaths 的大小
+	for _, exclude := range input.ExcludePaths {
+		// exclude 路径是相对于 hostPath 的
+		sizeCmd := fmt.Sprintf("du -sb '%s' 2>/dev/null | awk '{print $1}'", exclude)
+		cmd := fmt.Sprintf("cd %s && %s", hostPath, sizeCmd)
+		out, err := procutils.NewRemoteCommandAsFarAsPossible("sh", "-c", cmd).Output()
+		if err != nil {
+			// exclude 路径不存在时忽略错误，继续处理下一个
+			continue
+		}
+		outStr := strings.TrimSpace(string(out))
+		if outStr == "" {
+			continue
+		}
+		excludeSize, err := strconv.ParseInt(outStr, 10, 64)
+		if err != nil {
+			// 解析失败时忽略，继续处理下一个
+			continue
+		}
+		totalSize -= excludeSize
+		// 确保 totalSize 不为负数
+		if totalSize < 0 {
+			totalSize = 0
+		}
+	}
+
+	baseCmd := "tar -czf"
+	// 添加 exclude 选项
+	for _, exclude := range input.ExcludePaths {
+		baseCmd = fmt.Sprintf("%s --exclude='%s'", baseCmd, exclude)
+	}
+	cmd := fmt.Sprintf("%s %s -C %s %s", baseCmd, outputFp, hostPath, dirPath)
 	if input.VolumeMountPrefix != "" {
 		cmd += fmt.Sprintf(" --transform 's,^,%s/,'", input.VolumeMountPrefix)
 	}
@@ -2851,7 +2904,7 @@ func (s *sPodGuestInstance) createSnapshot(params *SDiskSnapshot, hostPath strin
 	snapshotPath := s.getSnapshotPath(d, params.SnapshotId)
 	// tar hostPath to snapshotPath
 	input := params.BackupDiskConfig.BackupAsTar
-	if err := s.tarHostDir(hostPath, snapshotPath, input.IncludeFiles, input.ExcludeFiles, input.IgnoreNotExistFile); err != nil {
+	if err := s.tarHostDir(hostPath, snapshotPath, input.IncludeFiles, input.ExcludeFiles, input.IgnoreNotExistFile, input.IncludePatterns); err != nil {
 		return "", errors.Wrapf(err, "tar host dir %s to %s", hostPath, snapshotPath)
 	}
 	return snapshotPath, nil
@@ -2859,7 +2912,8 @@ func (s *sPodGuestInstance) createSnapshot(params *SDiskSnapshot, hostPath strin
 
 func (s *sPodGuestInstance) tarHostDir(srcDir, targetPath string,
 	includeFiles, excludeFiles []string,
-	ignoreNotExistFile bool) error {
+	ignoreNotExistFile bool,
+	includePatterns []string) error {
 	baseCmd := "tar"
 	filterNotExistFiles := func(files []string) []string {
 		result := []string{}
@@ -2876,6 +2930,44 @@ func (s *sPodGuestInstance) tarHostDir(srcDir, targetPath string,
 		includeFiles = filterNotExistFiles(includeFiles)
 		excludeFiles = filterNotExistFiles(excludeFiles)
 	}
+
+	// 如果有 includePatterns，使用 find -name 找出匹配的路径，添加到 includeFiles 中
+	if len(includePatterns) > 0 {
+		findPatterns := []string{}
+		for _, pattern := range includePatterns {
+			// 转义特殊字符，但保留 glob 通配符
+			escapedPattern := strings.ReplaceAll(pattern, "'", "'\"'\"'")
+			findPatterns = append(findPatterns, fmt.Sprintf("-name '%s'", escapedPattern))
+		}
+
+		// 构建 find 命令来查找匹配的路径
+		findCmd := fmt.Sprintf("find . \\( %s \\)", strings.Join(findPatterns, " -o "))
+		cmd := fmt.Sprintf("cd '%s' && %s", srcDir, findCmd)
+		log.Infof("[%s] find cmd: %s", s.GetName(), cmd)
+		out, err := procutils.NewRemoteCommandAsFarAsPossible("sh", "-c", cmd).Output()
+		if err != nil {
+			return errors.Wrapf(err, "find matching paths: %s", out)
+		}
+
+		// 解析 find 的输出，将匹配的路径添加到 includeFiles 中
+		// find 输出的路径格式为 ./path，需要去掉开头的 ./
+		lines := strings.Split(strings.TrimSpace(string(out)), "\n")
+		for _, line := range lines {
+			line = strings.TrimSpace(line)
+			if line == "" {
+				continue
+			}
+			// 去掉开头的 ./
+			if strings.HasPrefix(line, "./") {
+				line = line[2:]
+			}
+			// 添加到 includeFiles 中
+			includeFiles = append(includeFiles, line)
+		}
+	}
+
+	// 没有 includePatterns 时，使用原来的逻辑
+	// 添加 --exclude 选项
 	for _, exclude := range excludeFiles {
 		baseCmd = fmt.Sprintf("%s --exclude='%s'", baseCmd, exclude)
 	}

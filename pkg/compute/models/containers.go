@@ -482,9 +482,14 @@ func (c *SContainer) StartCreateTask(ctx context.Context, userCred mcclient.Toke
 	return task.ScheduleRun(nil)
 }
 
-func (c *SContainer) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.ContainerUpdateInput) (*api.ContainerUpdateInput, error) {
+// func (c *SContainer) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.ContainerUpdateInput) (*api.ContainerUpdateInput, error) {
+func (c *SContainer) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (*api.ContainerUpdateInput, error) {
 	if !api.ContainerExitedStatus.Has(c.GetStatus()) {
 		return nil, httperrors.NewInvalidStatusError("current status %s is not in %v", c.GetStatus(), api.ContainerExitedStatus.List())
+	}
+	input := new(api.ContainerUpdateInput)
+	if err := data.Unmarshal(input); err != nil {
+		return nil, errors.Wrap(err, "Unmarshal")
 	}
 
 	baseInput, err := c.SVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, input.VirtualResourceBaseUpdateInput)
@@ -968,6 +973,7 @@ func (c *SContainer) PerformSaveVolumeMountImage(ctx context.Context, userCred m
 
 		VolumeMountDirs:   cleanupDirPaths(input.Dirs),
 		VolumeMountPrefix: cleanupDirPath(input.DirPrefix),
+		ExcludePaths:      cleanupDirPaths(input.ExcludePaths),
 	}
 
 	return hostInput, c.StartSaveVolumeMountImage(ctx, userCred, hostInput, "")
