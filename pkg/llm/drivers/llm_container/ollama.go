@@ -3,6 +3,7 @@ package llm_container
 import (
 	"context"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -593,4 +594,55 @@ func parseModelName(path string) string {
 		return name + ":" + tag
 	}
 	return strings.TrimRight(model, `\`)
+}
+
+func (o *ollama) GetLLMUrl(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM) (string, error) {
+	sku, err := llm.GetLLMSku("")
+	if err != nil {
+		return "", errors.Wrap(err, "get llm sku")
+	}
+	// 查询 accessinfo
+	accessInfo := &models.SAccessInfo{}
+	q := models.GetAccessInfoManager().Query().Equals("llm_id", llm.Id)
+	err = q.First(accessInfo)
+	if err != nil {
+		if errors.Cause(err) == sql.ErrNoRows {
+			// 如果没有 accessinfo，使用默认 localhost
+			server, err := llm.GetServer(ctx)
+			if err != nil {
+				return "", errors.Wrap(err, "get server")
+			}
+			// 从 IPs 字符串中选择第一个 IP
+			ips := strings.Split(strings.TrimSpace(server.IPs), ",")
+			if len(ips) == 0 || len(strings.TrimSpace(ips[0])) == 0 {
+				return "", errors.Error("server IPs is empty")
+			}
+			firstIP := strings.TrimSpace(ips[0])
+			return fmt.Sprintf("http://%s:%d", firstIP, api.LLM_OLLAMA_DEFAULT_PORT), nil
+		}
+		return "", errors.Wrap(err, "query accessinfo")
+	}
+
+	// 判断网络类型
+	networkType := sku.NetworkType
+	if networkType == string(computeapi.NETWORK_TYPE_GUEST) {
+		// guest 网络：使用 LLM IP + 默认端口
+		if len(llm.LLMIp) == 0 {
+			return "", errors.Error("LLM IP is empty for guest network")
+		}
+		return fmt.Sprintf("http://%s:%d", llm.LLMIp, api.LLM_OLLAMA_DEFAULT_PORT), nil
+	} else {
+		// hostlocal 或其他网络类型：使用宿主机 IP + 映射端口
+		server, err := llm.GetServer(ctx)
+		if err != nil {
+			return "", errors.Wrap(err, "get server")
+		}
+		if len(server.HostAccessIp) == 0 {
+			return "", errors.Error("host access IP is empty")
+		}
+		if accessInfo.AccessPort == 0 {
+			return "", errors.Error("access port is not set")
+		}
+		return fmt.Sprintf("http://%s:%d", server.HostAccessIp, accessInfo.AccessPort), nil
+	}
 }

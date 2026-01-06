@@ -41,6 +41,7 @@ func InitHandlers(app *appsrv.Application, isSlave bool) {
 		models.GetDifyManager(),
 		models.GetInstantModelManager(),
 		models.GetLLMInstantModelManager(),
+		models.GetMCPAgentManager(),
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewModelHandler(manager)

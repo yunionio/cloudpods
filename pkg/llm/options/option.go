@@ -26,6 +26,10 @@ type LLMOptions struct {
 	ModelSyncTaskWaitSecs           int `help:"model sync task wait seconds" default:"30"`
 
 	StartTaskWorkerCount int `help:"start task worker count" default:"128"`
+
+	// MCP Agent 配置
+	MCPServerURL    string `help:"MCP Server URL" default:"http://default-mcp-server:30876"`
+	MCPAgentTimeout int    `help:"MCP Agent request timeout in seconds" default:"120"`
 }
 
 var (

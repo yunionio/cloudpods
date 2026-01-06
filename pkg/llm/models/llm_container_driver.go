@@ -57,10 +57,6 @@ func getDriverWithError[K ~string, D any](drvs *drivers, typ K) (D, error) {
 	return drv.(D), nil
 }
 
-// type ILLMContainerPullModel interface {
-// 	DownloadModel(ctx context.Context, userCred mcclient.TokenCredential, llm *SLLM, modelName string, modelTag string) error
-// }
-
 type ILLMContainerInstantApp interface {
 	GetProbedInstantModelsExt(ctx context.Context, userCred mcclient.TokenCredential, llm *SLLM, mdlIds ...string) (map[string]llm.LLMInternalInstantMdlInfo, error)
 	DetectModelPaths(ctx context.Context, userCred mcclient.TokenCredential, llm *SLLM, pkgInfo llm.LLMInternalInstantMdlInfo) ([]string, error)
@@ -83,9 +79,12 @@ type ILLMContainerDriver interface {
 	GetType() llm.LLMContainerType
 	GetContainerSpec(ctx context.Context, llm *SLLM, image *SLLMImage, sku *SLLMSku, props []string, devices []computeapi.SIsolatedDevice, diskId string) *computeapi.PodContainerCreateInput
 
-	// ILLMContainerPullModel
-
 	ILLMContainerInstantApp
+	ILLMContainerMCPAgent
+}
+
+type ILLMContainerMCPAgent interface {
+	GetLLMUrl(ctx context.Context, userCred mcclient.TokenCredential, llm *SLLM) (string, error)
 }
 
 var (
