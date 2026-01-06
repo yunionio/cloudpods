@@ -271,6 +271,7 @@ const (
 	ACT_GUEST_SCREEN_DUMP                = "guest_screen_dump"
 	ACT_HOST_MAINTENANCE                 = "host_maintenance"
 	ACT_HOST_DOWN                        = "host_down"
+	ACT_HOST_DOWN_AUTO_MIGRATE           = "host_down_auto_migrate"
 
 	ACT_UPLOAD_OBJECT  = "upload_obj"
 	ACT_DELETE_OBJECT  = "delete_obj"

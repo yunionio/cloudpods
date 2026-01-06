@@ -399,6 +399,16 @@ func init() {
 			"离线",
 		},
 		sI18nElme{
+			string(api.ActionHostDown),
+			"host_down",
+			"宿主机宕机",
+		},
+		sI18nElme{
+			string(api.ActionHostDownAutoMigrate),
+			"host_down_auto_migrate",
+			"宿主机宕机自动迁移",
+		},
+		sI18nElme{
 			string(api.ActionSystemException),
 			"exception",
 			"异常",

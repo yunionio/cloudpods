@@ -855,9 +855,9 @@ func (self *SKVMRegionDriver) GetDiskResetParams(snapshot *models.SSnapshot) *js
 }
 
 func (self *SKVMRegionDriver) OnDiskReset(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, snapshot *models.SSnapshot, data jsonutils.JSONObject) error {
-	if disk.DiskSize != snapshot.Size {
+	if disk.DiskSize != snapshot.VirtualSize {
 		_, err := db.Update(disk, func() error {
-			disk.DiskSize = snapshot.Size
+			disk.DiskSize = snapshot.VirtualSize
 			return nil
 		})
 		if err != nil {

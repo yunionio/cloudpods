@@ -16,6 +16,7 @@ package snapshot
 
 import (
 	"context"
+	"fmt"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -69,7 +70,19 @@ func (self *SnapshotCreateTask) DoDiskSnapshot(ctx context.Context, snapshot *mo
 }
 
 func (self *SnapshotCreateTask) OnCreateSnapshot(ctx context.Context, snapshot *models.SSnapshot, data jsonutils.JSONObject) {
-	self.TaskComplete(ctx, snapshot, nil)
+	snapshotSizeMb := int64(snapshot.VirtualSize)
+	if data.Contains("snapshot_size_mb") {
+		snapshotSizeMb, _ = data.Int("snapshot_size_mb")
+	}
+	_, err := db.Update(snapshot, func() error {
+		snapshot.Size = int(snapshotSizeMb)
+		return nil
+	})
+	if err != nil {
+		self.TaskFailed(ctx, snapshot, jsonutils.NewString(fmt.Sprintf("failed update snapshot size %s", err)))
+	} else {
+		self.TaskComplete(ctx, snapshot, data)
+	}
 }
 
 func (self *SnapshotCreateTask) OnCreateSnapshotFailed(ctx context.Context, snapshot *models.SSnapshot, data jsonutils.JSONObject) {
