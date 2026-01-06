@@ -3857,14 +3857,20 @@ func (self *SGuest) PerformStatus(ctx context.Context, userCred mcclient.TokenCr
 // 关机
 func (self *SGuest) PerformStop(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject,
 	input api.ServerStopInput) (jsonutils.JSONObject, error) {
-	// XXX if is force, force stop guest
-	if input.IsForce || utils.IsInStringArray(self.Status, []string{api.VM_RUNNING, api.VM_STOP_FAILED, api.POD_STATUS_CRASH_LOOP_BACK_OFF, api.POD_STATUS_CONTAINER_EXITED, api.VM_KICKSTART_INSTALLING, api.VM_KICKSTART_FAILED, api.VM_KICKSTART_COMPLETED}) {
-		if err := self.ValidateEncryption(ctx, userCred); err != nil {
-			return nil, errors.Wrap(httperrors.ErrForbidden, "encryption key not accessible")
-		}
-		return nil, self.StartGuestStopTask(ctx, userCred, input.TimeoutSecs, input.IsForce, input.StopCharging, "")
+	drv, err := self.GetDriver()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetDriver")
 	}
-	return nil, httperrors.NewInvalidStatusError("Cannot stop server in status %s", self.Status)
+	if !input.IsForce {
+		err := drv.CanStop(self)
+		if err != nil {
+			return nil, errors.Wrap(err, "Cannot stop server")
+		}
+	}
+	if err := self.ValidateEncryption(ctx, userCred); err != nil {
+		return nil, errors.Wrap(httperrors.ErrForbidden, "encryption key not accessible")
+	}
+	return nil, self.StartGuestStopTask(ctx, userCred, input.TimeoutSecs, input.IsForce, input.StopCharging, "")
 }
 
 // 冻结虚拟机
