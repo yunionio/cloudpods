@@ -55,7 +55,7 @@ func StartService() {
 			session := auth.GetAdminSession(ctx, baseOpts.Region)
 			notifyclient.EventNotifyServiceAbnormal(ctx, session.GetToken(), consts.GetServiceType(), method, path, body, err)
 		})
-	InitHandlers(app)
+	InitHandlers(app, opts.IsSlaveNode)
 	db.AppDBInit(app)
 
 	if db.CheckSync(opts.AutoSyncTable, opts.EnableDBChecksumTables, opts.DBChecksumSkipInit) {

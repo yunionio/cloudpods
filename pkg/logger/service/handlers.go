@@ -22,7 +22,7 @@ import (
 	"yunion.io/x/onecloud/pkg/logger/options"
 )
 
-func initHandlers(app *appsrv.Application) {
+func InitHandlers(app *appsrv.Application, isSlave bool) {
 	db.InitAllManagers()
 
 	models.InitActionLog()
@@ -48,6 +48,6 @@ func initHandlers(app *appsrv.Application) {
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewModelHandler(manager)
-		dispatcher.AddModelDispatcher("", app, handler)
+		dispatcher.AddModelDispatcher("", app, handler, isSlave)
 	}
 }

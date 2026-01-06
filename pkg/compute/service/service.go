@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/httputils"
 	_ "yunion.io/x/sqlchemy/backends"
 
 	"yunion.io/x/onecloud/pkg/apis"
@@ -85,7 +86,7 @@ func StartServiceWithJobsAndApp(jobs func(cron *cronman.SCronJobManager), appCll
 	})
 	common_options.StartOptionManager(opts, opts.ConfigSyncPeriodSeconds, api.SERVICE_TYPE, api.SERVICE_VERSION, options.OnOptionsChange)
 
-	serviceUrl, err := auth.GetServiceURL(apis.SERVICE_TYPE_REGION, opts.Region, "", identity.EndpointInterfaceInternal)
+	serviceUrl, err := auth.GetServiceURL(apis.SERVICE_TYPE_REGION, opts.Region, "", identity.EndpointInterfaceInternal, httputils.POST)
 	if err != nil {
 		log.Fatalf("unable to get service url: %v", err)
 	}
@@ -115,7 +116,7 @@ func StartServiceWithJobsAndApp(jobs func(cron *cronman.SCronJobManager), appCll
 
 	cloudcommon.InitDB(dbOpts)
 
-	InitHandlers(app)
+	InitHandlers(app, opts.IsSlaveNode)
 	if appCllback != nil {
 		appCllback(app)
 	}
@@ -123,10 +124,18 @@ func StartServiceWithJobsAndApp(jobs func(cron *cronman.SCronJobManager), appCll
 	db.EnsureAppSyncDB(app, dbOpts, models.InitDB)
 	defer cloudcommon.CloseDB()
 
+	if !opts.IsSlaveNode {
+		startMasterTasks(opts, dbOpts, jobs)
+	}
+
+	common_app.ServeForever(app, baseOpts)
+}
+
+func startMasterTasks(opts *options.ComputeOptions, dbOpts *common_options.DBOptions, jobs func(cron *cronman.SCronJobManager)) {
 	setInfluxdbRetentionPolicy()
 
-	models.InitSyncWorkers(options.Options.CloudSyncWorkerCount)
-	cloudaccount_tasks.InitCloudproviderSyncWorkers(options.Options.CloudProviderSyncWorkerCount)
+	models.InitSyncWorkers(opts.CloudSyncWorkerCount)
+	cloudaccount_tasks.InitCloudproviderSyncWorkers(opts.CloudProviderSyncWorkerCount)
 
 	var (
 		electObj        *elect.Elect
@@ -226,11 +235,8 @@ func StartServiceWithJobsAndApp(jobs func(cron *cronman.SCronJobManager), appCll
 
 		go cron.Start2(ctx, electObj)
 	}
-	if !opts.IsSlaveNode {
-		go cronFunc()
-	}
 
-	common_app.ServeForever(app, baseOpts)
+	go cronFunc()
 }
 
 func initDefaultEtcdClient(opts *common_options.DBOptions) error {

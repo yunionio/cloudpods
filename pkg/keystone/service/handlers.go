@@ -32,18 +32,18 @@ const (
 	API_VERSION = "v3"
 )
 
-func InitHandlers(app *appsrv.Application) {
+func InitHandlers(app *appsrv.Application, isSlave bool) {
 	db.InitAllManagers()
 
 	// add version handler with API_VERSION prefix
 	app.AddDefaultHandler("GET", API_VERSION+"/version", appsrv.VersionHandler, "version")
 	cronjobs.AddRefreshHandler(API_VERSION, app)
 
-	quotas.AddQuotaHandler(&models.IdentityQuotaManager.SQuotaBaseManager, API_VERSION, app)
+	quotas.AddQuotaHandler(&models.IdentityQuotaManager.SQuotaBaseManager, API_VERSION, app, isSlave)
 
 	usages.AddUsageHandler(API_VERSION, app)
 
-	taskman.AddTaskHandler(API_VERSION, app)
+	taskman.AddTaskHandler(API_VERSION, app, isSlave)
 
 	app_common.ExportOptionsHandlerWithPrefix(app, API_VERSION, &options.Options)
 
@@ -107,7 +107,7 @@ func InitHandlers(app *appsrv.Application) {
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewModelHandler(manager)
-		dispatcher.AddModelDispatcher(API_VERSION, app, handler)
+		dispatcher.AddModelDispatcher(API_VERSION, app, handler, isSlave)
 	}
 
 	models.AddAdhocHandlers(API_VERSION, app)

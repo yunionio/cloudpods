@@ -24,6 +24,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/httputils"
 	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/util/signalutils"
 
@@ -59,7 +60,7 @@ func init() {
 			svcUrl string
 		)
 		if len(opts.Service) > 0 {
-			svcUrl, err = s.GetServiceURL(opts.Service, "")
+			svcUrl, err = s.GetServiceURL(opts.Service, "", httputils.GET)
 			if err != nil {
 				return errors.Wrapf(err, "get service %s url", opts.Service)
 			}

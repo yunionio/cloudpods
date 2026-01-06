@@ -57,6 +57,8 @@ const (
 
 	EndpointInterfaceApigateway = "apigateway"
 
+	EndpointInterfaceSlave = "slave"
+
 	KeystoneDomainRoot = "<<keystone.domain.root>>"
 
 	IdMappingEntityUser   = "user"

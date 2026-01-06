@@ -53,6 +53,7 @@ import (
 	hostapi "yunion.io/x/onecloud/pkg/apis/host"
 	napi "yunion.io/x/onecloud/pkg/apis/notify"
 	"yunion.io/x/onecloud/pkg/appsrv"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
@@ -1447,7 +1448,7 @@ func (hh *SHostManager) GetPropertyK8sMasterNodeIps(ctx context.Context, userCre
 }
 
 func (hh *SHostManager) GetPropertyBmStartRegisterScript(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	regionUri, err := auth.GetPublicServiceURL("compute_v2", options.Options.Region, "")
+	regionUri, err := auth.GetPublicServiceURL(consts.GetServiceType(), options.Options.Region, "", httputils.POST)
 	if err != nil {
 		return nil, err
 	}

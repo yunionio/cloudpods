@@ -77,7 +77,7 @@ func start() {
 
 	cloudcommon.InitDB(dbOpts)
 
-	initHandlers(app)
+	initHandlers(app, baseOpts.IsSlaveNode)
 
 	db.EnsureAppSyncDB(app, dbOpts, models.InitDB)
 
@@ -100,12 +100,14 @@ func start() {
 	// misc handler
 	appsrv.AddMiscHandlersToMuxRouter(app, root, o.Options.EnableAppProfiling)
 
-	cron := cronman.InitCronJobManager(true, o.Options.CronJobWorkerCount, o.Options.TimeZone)
+	if !baseOpts.IsSlaveNode {
+		cron := cronman.InitCronJobManager(true, o.Options.CronJobWorkerCount, o.Options.TimeZone)
 
-	cron.AddJobEveryFewHour("AutoPurgeSplitable", 4, 30, 0, db.AutoPurgeSplitable, false)
+		cron.AddJobEveryFewHour("AutoPurgeSplitable", 4, 30, 0, db.AutoPurgeSplitable, false)
 
-	cron.Start()
-	defer cron.Stop()
+		cron.Start()
+		defer cron.Stop()
+	}
 
 	addr := net.JoinHostPort(o.Options.Address, strconv.Itoa(o.Options.Port))
 	log.Infof("Start listen on %s", addr)

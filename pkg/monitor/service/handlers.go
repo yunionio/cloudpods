@@ -33,7 +33,7 @@ import (
 	"yunion.io/x/onecloud/pkg/monitor/options"
 )
 
-func InitHandlers(app *appsrv.Application) {
+func InitHandlers(app *appsrv.Application, isSlave bool) {
 	db.InitAllManagers()
 
 	db.RegisterModelManager(db.TenantCacheManager)
@@ -41,7 +41,7 @@ func InitHandlers(app *appsrv.Application) {
 	db.RegisterModelManager(db.RoleCacheManager)
 	db.RegistUserCredCacheUpdater()
 
-	taskman.AddTaskHandler("", app)
+	taskman.AddTaskHandler("", app, isSlave)
 
 	for _, manager := range []db.IModelManager{
 		taskman.TaskManager,
@@ -73,14 +73,14 @@ func InitHandlers(app *appsrv.Application) {
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewModelHandler(manager)
-		dispatcher.AddModelDispatcher("", app, handler)
+		dispatcher.AddModelDispatcher("", app, handler, isSlave)
 	}
 
 	for _, manager := range []db.IModelManager{
 		models.UnifiedMonitorManager,
 	} {
 		handler := db.NewModelHandler(manager)
-		dispatcher.AddModelDispatcher("", app, handler)
+		dispatcher.AddModelDispatcher("", app, handler, isSlave)
 	}
 
 	for _, manager := range []db.IJointModelManager{
@@ -92,7 +92,7 @@ func InitHandlers(app *appsrv.Application) {
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewJointModelHandler(manager)
-		dispatcher.AddJointModelDispatcher("", app, handler)
+		dispatcher.AddJointModelDispatcher("", app, handler, isSlave)
 	}
 
 }

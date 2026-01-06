@@ -21,6 +21,7 @@ import (
 	"net/http"
 
 	"yunion.io/x/pkg/tristate"
+	"yunion.io/x/pkg/util/httputils"
 
 	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/appsrv"
@@ -75,7 +76,7 @@ func getBmPrepareScript(ctx context.Context, w http.ResponseWriter, r *http.Requ
 		httperrors.NotAcceptableError(ctx, w, "Baremetal package not prepared")
 		return
 	}
-	regionUrl, err := auth.GetPublicServiceURL("compute_v2", options.Options.Region, "")
+	regionUrl, err := auth.GetPublicServiceURL("compute_v2", options.Options.Region, "", httputils.POST)
 	if err != nil {
 		httperrors.InternalServerError(ctx, w, "%v", err)
 		return

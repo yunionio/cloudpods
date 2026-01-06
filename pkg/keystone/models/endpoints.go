@@ -269,15 +269,15 @@ func (ep *SEndpoint) getService() *SService {
 }
 
 type SEndpointExtended struct {
-	Id          string
-	Name        string
-	Interface   string
-	Url         string
-	Region      string
-	RegionId    string
-	ServiceId   string
-	ServiceType string
-	ServiceName string
+	Id          string `json:"id"`
+	Name        string `json:"name"`
+	Interface   string `json:"interface"`
+	Url         string `json:"url"`
+	Region      string `json:"region"`
+	RegionId    string `json:"region_id"`
+	ServiceId   string `json:"service_id"`
+	ServiceType string `json:"service_type"`
+	ServiceName string `json:"service_name"`
 }
 
 type SServiceCatalog []SEndpointExtended
@@ -493,7 +493,8 @@ func (manager *SEndpointManager) ValidateCreateData(
 		}
 		service := servObj.(*SService)
 		if !data.Contains("name") {
-			data.Set("name", jsonutils.NewString(fmt.Sprintf("%s-%s", service.Type, infname)))
+			nameStr := fmt.Sprintf("%s-%s", service.Type, infname)
+			data.Set("name", jsonutils.NewString(nameStr))
 		}
 		data.Set("service_id", jsonutils.NewString(service.Id))
 	} else {
@@ -550,10 +551,7 @@ func (manager *SEndpointManager) ListItemFilter(
 		}
 	}
 	if len(query.Interface) > 0 {
-		infType := query.Interface
-		if strings.HasSuffix(infType, "URL") {
-			infType = infType[0 : len(infType)-3]
-		}
+		infType := strings.TrimSuffix(query.Interface, "URL")
 		q = q.Equals("interface", infType)
 	}
 	return q, nil
