@@ -64,4 +64,5 @@ type MonitorResourceJointDetails struct {
 	SendState   string               `json:"send_state"`
 	State       string               `json:"state"`
 	IsSetShield bool                 `json:"is_set_shield"`
+	AlertCount  int                  `json:"alert_count"`
 }
