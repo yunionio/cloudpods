@@ -368,6 +368,12 @@ func (record *SAlertRecord) CustomizeCreate(
 				if record.ResType == monitor.METRIC_RES_TYPE_HOST {
 					resIds = append(resIds, v)
 				}
+			case "cloudaccount_id":
+				if record.ResType == monitor.METRIC_RES_TYPE_CLOUDACCOUNT {
+					resIds = append(resIds, v)
+				}
+			case "id":
+				resIds = append(resIds, v)
 			}
 		}
 	}
