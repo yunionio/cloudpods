@@ -318,6 +318,13 @@ func (p *SPodDriver) OnGuestDeployTaskDataReceived(ctx context.Context, guest *m
 	return nil
 }
 
+func (p *SPodDriver) CanStop(guest *models.SGuest) error {
+	if guest.PowerStates == api.VM_POWER_STATES_ON {
+		return nil
+	}
+	return p.SKVMGuestDriver.CanStop(guest)
+}
+
 func (p *SPodDriver) StartGuestStopTask(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict, parentTaskId string) error {
 	task, err := taskman.TaskManager.NewTask(ctx, "PodStopTask", guest, userCred, params, parentTaskId, "", nil)
 	if err != nil {
