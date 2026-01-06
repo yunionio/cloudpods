@@ -126,6 +126,7 @@ type DiskBackupDetails struct {
 
 type DiskBackupAsTarInput struct {
 	IncludeFiles       []string `json:"include_files"`
+	IncludePatterns    []string `json:"include_patterns"`
 	ExcludeFiles       []string `json:"exclude_files"`
 	ContainerId        string   `json:"container_id"`
 	IgnoreNotExistFile bool     `json:"ignore_not_exist_file"`

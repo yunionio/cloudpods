@@ -29,6 +29,7 @@ import (
 	"yunion.io/x/pkg/util/fileutils"
 	"yunion.io/x/pkg/util/osprofile"
 	"yunion.io/x/pkg/util/regutils"
+	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
@@ -715,4 +716,11 @@ func (base *SBaseGuestDriver) BeforeAttachIsolatedDevice(ctx context.Context, cr
 
 func (base *SBaseGuestDriver) RequestUploadGuestStatus(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
 	return errors.Wrapf(cloudprovider.ErrNotImplemented, "RequestUploadGuestStatus")
+}
+
+func (base *SBaseGuestDriver) CanStop(guest *models.SGuest) error {
+	if utils.IsInStringArray(guest.Status, []string{api.VM_RUNNING, api.VM_STOP_FAILED, api.POD_STATUS_CRASH_LOOP_BACK_OFF, api.POD_STATUS_CONTAINER_EXITED, api.VM_KICKSTART_INSTALLING, api.VM_KICKSTART_FAILED, api.VM_KICKSTART_COMPLETED}) {
+		return nil
+	}
+	return errors.Wrapf(errors.ErrInvalidStatus, "Cannot stop server in status %s", guest.Status)
 }

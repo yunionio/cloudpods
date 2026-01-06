@@ -17,6 +17,7 @@ package disk
 import (
 	"context"
 	"path/filepath"
+	"strings"
 
 	"yunion.io/x/pkg/errors"
 
@@ -44,25 +45,57 @@ func (i postOverlayImage) getImageInput(ov *apis.ContainerVolumeMountDiskPostOve
 	return ov.Image
 }
 
-func (i postOverlayImage) getCachedImagePaths(d diskPostOverlay, pod volume_mount.IPodInfo, img *apis.ContainerVolumeMountDiskPostImageOverlay, accquire bool) (map[string]string, error) {
+func (i postOverlayImage) getCachedImagePaths(d diskPostOverlay, pod volume_mount.IPodInfo, img *apis.ContainerVolumeMountDiskPostImageOverlay, accquire bool) (map[string]string, map[string]*apis.HostLowerPath, error) {
 	cachedImgDir, err := d.disk.getCachedImageDir(context.Background(), pod, img.Id, accquire)
 	if err != nil {
-		return nil, errors.Wrap(err, "disk.getCachedImageDir")
+		return nil, nil, errors.Wrap(err, "disk.getCachedImageDir")
+	}
+	hostLowerMap := make(map[string]*apis.HostLowerPath)
+	if img.HostLowerMap != nil {
+		hostLowerMap = img.HostLowerMap
 	}
 	result := make(map[string]string)
+	lowerResult := make(map[string]*apis.HostLowerPath)
 	for hostPathSuffix, ctrPath := range img.PathMap {
 		hostPath := filepath.Join(cachedImgDir, hostPathSuffix)
 		result[hostPath] = ctrPath
+		hostLowerPath := hostLowerMap[hostPathSuffix]
+		if hostLowerPath != nil {
+			lowerResult[hostPath] = hostLowerPath
+		}
 	}
-	return result, nil
+	return result, lowerResult, nil
 }
 
-func (i postOverlayImage) convertToDiskOV(ov *apis.ContainerVolumeMountDiskPostOverlay, hostPath, ctrPath string) *apis.ContainerVolumeMountDiskPostOverlay {
+// parseColonSeparatedPaths 解析冒号分隔的路径字符串，过滤空字符串并返回路径列表
+func parseColonSeparatedPaths(pathStr string) []string {
+	var paths []string
+	for _, path := range strings.Split(pathStr, ":") {
+		if path != "" {
+			paths = append(paths, path)
+		}
+	}
+	return paths
+}
+
+func (i postOverlayImage) convertToDiskOV(ov *apis.ContainerVolumeMountDiskPostOverlay, hostPath, ctrPath string, hostLowerPath *apis.HostLowerPath) *apis.ContainerVolumeMountDiskPostOverlay {
+	hostLowerDir := []string{}
+	if hostLowerPath != nil {
+		// 添加 PrePath 中的路径
+		hostLowerDir = append(hostLowerDir, parseColonSeparatedPaths(hostLowerPath.PrePath)...)
+	}
+	// 添加当前 hostPath
+	hostLowerDir = append(hostLowerDir, hostPath)
+	if hostLowerPath != nil {
+		// 添加 PostPath 中的路径
+		hostLowerDir = append(hostLowerDir, parseColonSeparatedPaths(hostLowerPath.PostPath)...)
+	}
 	return &apis.ContainerVolumeMountDiskPostOverlay{
-		HostLowerDir:       []string{hostPath},
+		HostLowerDir:       hostLowerDir,
 		ContainerTargetDir: ctrPath,
 		FsUser:             ov.FsUser,
 		FsGroup:            ov.FsGroup,
+		FlattenLayers:      ov.FlattenLayers,
 	}
 }
 
@@ -71,12 +104,13 @@ func (i postOverlayImage) withAction(
 	af func(iDiskPostOverlayDriver, *apis.ContainerVolumeMountDiskPostOverlay) error,
 	accquire bool) error {
 	img := i.getImageInput(ov)
-	paths, err := i.getCachedImagePaths(d, pod, img, accquire)
+	paths, hostLowerPaths, err := i.getCachedImagePaths(d, pod, img, accquire)
 	if err != nil {
 		return errors.Wrapf(err, "get cached image paths")
 	}
 	for hostPath, ctrPath := range paths {
-		dov := i.convertToDiskOV(ov, hostPath, ctrPath)
+		hostLowerPath := hostLowerPaths[hostPath]
+		dov := i.convertToDiskOV(ov, hostPath, ctrPath, hostLowerPath)
 		drv := d.getDriver(dov)
 		if err := af(drv, dov); err != nil {
 			return errors.Wrapf(err, "host path %s to %s", hostPath, ctrPath)

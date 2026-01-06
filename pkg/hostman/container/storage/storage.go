@@ -88,7 +88,7 @@ func UnmountWithSubDirs(devPath string) error {
 		return err
 	}
 	// found mountpoints starts with devPath
-	out, err2 := procutils.NewRemoteCommandAsFarAsPossible("sh", "-c", fmt.Sprintf("mount | grep ' %s/' | awk '{print $3}'", devPath)).Output()
+	out, err2 := procutils.NewRemoteCommandAsFarAsPossible("sh", "-c", fmt.Sprintf("mount | grep ' %s/' | awk '{print $3}' | tac", devPath)).Output()
 	if err2 == nil && len(out) != 0 {
 		mntPoints := strings.Split(string(out), "\n")
 		for _, mntPoint := range mntPoints {
