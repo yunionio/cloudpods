@@ -19,8 +19,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/apis"
@@ -97,6 +95,7 @@ func (i postOverlayImage) convertToDiskOV(ov *apis.ContainerVolumeMountDiskPostO
 		ContainerTargetDir: ctrPath,
 		FsUser:             ov.FsUser,
 		FsGroup:            ov.FsGroup,
+		FlattenLayers:      ov.FlattenLayers,
 	}
 }
 
@@ -112,7 +111,6 @@ func (i postOverlayImage) withAction(
 	for hostPath, ctrPath := range paths {
 		hostLowerPath := hostLowerPaths[hostPath]
 		dov := i.convertToDiskOV(ov, hostPath, ctrPath, hostLowerPath)
-		log.Infof("=== convertToDiskOV: %s, hostLowerPath: %s, hostPath: %s, ctrPath: %s", jsonutils.Marshal(dov).PrettyString(), hostLowerPath, hostPath, ctrPath)
 		drv := d.getDriver(dov)
 		if err := af(drv, dov); err != nil {
 			return errors.Wrapf(err, "host path %s to %s", hostPath, ctrPath)

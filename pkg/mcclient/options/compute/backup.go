@@ -61,6 +61,7 @@ type DiskBackupCreateOptions struct {
 	options.BaseCreateOptions
 	AsTarContainerId        string   `help:"container id of tar process"`
 	AsTarIncludeFile        []string `help:"include file path of tar process"`
+	AsTarIncludePattern     []string `help:"include pattern of tar process"`
 	AsTarExcludeFile        []string `help:"exclude file path of tar process"`
 	AsTarIgnoreNotExistFile bool     `help:"ignore not exist file when using tar"`
 
@@ -81,6 +82,9 @@ func (opts *DiskBackupCreateOptions) Params() (jsonutils.JSONObject, error) {
 	}
 	if len(opts.AsTarIncludeFile) > 0 {
 		input.BackupAsTar.IncludeFiles = opts.AsTarIncludeFile
+	}
+	if len(opts.AsTarIncludePattern) > 0 {
+		input.BackupAsTar.IncludePatterns = opts.AsTarIncludePattern
 	}
 	if len(opts.AsTarExcludeFile) > 0 {
 		input.BackupAsTar.ExcludeFiles = opts.AsTarExcludeFile

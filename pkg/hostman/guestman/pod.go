@@ -2904,7 +2904,7 @@ func (s *sPodGuestInstance) createSnapshot(params *SDiskSnapshot, hostPath strin
 	snapshotPath := s.getSnapshotPath(d, params.SnapshotId)
 	// tar hostPath to snapshotPath
 	input := params.BackupDiskConfig.BackupAsTar
-	if err := s.tarHostDir(hostPath, snapshotPath, input.IncludeFiles, input.ExcludeFiles, input.IgnoreNotExistFile); err != nil {
+	if err := s.tarHostDir(hostPath, snapshotPath, input.IncludeFiles, input.ExcludeFiles, input.IgnoreNotExistFile, input.IncludePatterns); err != nil {
 		return "", errors.Wrapf(err, "tar host dir %s to %s", hostPath, snapshotPath)
 	}
 	return snapshotPath, nil
@@ -2912,7 +2912,8 @@ func (s *sPodGuestInstance) createSnapshot(params *SDiskSnapshot, hostPath strin
 
 func (s *sPodGuestInstance) tarHostDir(srcDir, targetPath string,
 	includeFiles, excludeFiles []string,
-	ignoreNotExistFile bool) error {
+	ignoreNotExistFile bool,
+	includePatterns []string) error {
 	baseCmd := "tar"
 	filterNotExistFiles := func(files []string) []string {
 		result := []string{}
@@ -2929,6 +2930,44 @@ func (s *sPodGuestInstance) tarHostDir(srcDir, targetPath string,
 		includeFiles = filterNotExistFiles(includeFiles)
 		excludeFiles = filterNotExistFiles(excludeFiles)
 	}
+
+	// 如果有 includePatterns，使用 find -name 找出匹配的路径，添加到 includeFiles 中
+	if len(includePatterns) > 0 {
+		findPatterns := []string{}
+		for _, pattern := range includePatterns {
+			// 转义特殊字符，但保留 glob 通配符
+			escapedPattern := strings.ReplaceAll(pattern, "'", "'\"'\"'")
+			findPatterns = append(findPatterns, fmt.Sprintf("-name '%s'", escapedPattern))
+		}
+
+		// 构建 find 命令来查找匹配的路径
+		findCmd := fmt.Sprintf("find . \\( %s \\)", strings.Join(findPatterns, " -o "))
+		cmd := fmt.Sprintf("cd '%s' && %s", srcDir, findCmd)
+		log.Infof("[%s] find cmd: %s", s.GetName(), cmd)
+		out, err := procutils.NewRemoteCommandAsFarAsPossible("sh", "-c", cmd).Output()
+		if err != nil {
+			return errors.Wrapf(err, "find matching paths: %s", out)
+		}
+
+		// 解析 find 的输出，将匹配的路径添加到 includeFiles 中
+		// find 输出的路径格式为 ./path，需要去掉开头的 ./
+		lines := strings.Split(strings.TrimSpace(string(out)), "\n")
+		for _, line := range lines {
+			line = strings.TrimSpace(line)
+			if line == "" {
+				continue
+			}
+			// 去掉开头的 ./
+			if strings.HasPrefix(line, "./") {
+				line = line[2:]
+			}
+			// 添加到 includeFiles 中
+			includeFiles = append(includeFiles, line)
+		}
+	}
+
+	// 没有 includePatterns 时，使用原来的逻辑
+	// 添加 --exclude 选项
 	for _, exclude := range excludeFiles {
 		baseCmd = fmt.Sprintf("%s --exclude='%s'", baseCmd, exclude)
 	}
