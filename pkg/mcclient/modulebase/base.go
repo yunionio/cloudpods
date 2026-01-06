@@ -103,7 +103,7 @@ func (this *BaseManager) jsonRequest(session *mcclient.ClientSession,
 		method, this.versionedURL(path),
 		header, body)
 	if err != nil {
-		if e, ok := err.(*httputils.JSONClientError); ok {
+		if e, ok := err.(*httputils.JSONClientError); ok && strings.Contains(e.Details, e.Request.Url) {
 			switch e.Class {
 			case errors.ErrConnectRefused.Error():
 				return nil, nil, httperrors.NewServiceAbnormalError("%s service is abnormal, please check service status", this.serviceType)
