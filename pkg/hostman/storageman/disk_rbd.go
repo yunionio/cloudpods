@@ -272,7 +272,19 @@ func (d *SRBDDisk) DiskSnapshot(ctx context.Context, params interface{}) (jsonut
 	if !ok {
 		return nil, hostutils.ParamsError
 	}
-	return nil, d.CreateSnapshot(snapshotId, "", "", "")
+	err := d.CreateSnapshot(snapshotId, "", "", "")
+	if err != nil {
+		return nil, err
+	}
+	ret := jsonutils.NewDict()
+	storage := d.Storage.(*SRbdStorage)
+	size, err := storage.getSnapshotSize(d.Id, snapshotId)
+	if err != nil {
+		log.Errorf("failed get snapshot %s size %s", snapshotId, err)
+	} else {
+		ret.Set("snapshot_size_mb", jsonutils.NewInt(size/1024/1024))
+	}
+	return ret, nil
 }
 
 func (d *SRBDDisk) DiskDeleteSnapshot(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {

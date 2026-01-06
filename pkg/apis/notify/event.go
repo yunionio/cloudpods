@@ -93,6 +93,10 @@ var (
 	ActionAttach SAction = "attach"
 	// 卸载
 	ActionDetach SAction = "detach"
+	// 宿主机宕机
+	ActionHostDown SAction = "host_down"
+	// 宕机自动迁移
+	ActionHostDownAutoMigrate SAction = "host_down_auto_migrate"
 	// 透传设备创建
 	ActionIsolatedDeviceCreate SAction = "isolated_device_create"
 	// 透传设备更新

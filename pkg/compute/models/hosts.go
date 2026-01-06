@@ -7303,7 +7303,6 @@ func (host *SHost) OnHostDown(ctx context.Context, userCred mcclient.TokenCreden
 	}
 
 	log.Errorf("host %s down, try rescue guests", hostname)
-	db.OpsLog.LogEvent(host, db.ACT_HOST_DOWN, "", userCred)
 	if _, err := host.SaveCleanUpdates(func() error {
 		host.EnableHealthCheck = false
 		host.HostStatus = api.HOST_OFFLINE
@@ -7312,7 +7311,12 @@ func (host *SHost) OnHostDown(ctx context.Context, userCred mcclient.TokenCreden
 		log.Errorf("update host %s failed %s", host.Id, err)
 	}
 
-	logclient.AddActionLogWithContext(ctx, host, logclient.ACT_OFFLINE, map[string]string{"reason": "host down"}, userCred, false)
+	data := jsonutils.NewDict()
+	data.Set("reason", jsonutils.NewString("host down"))
+	db.OpsLog.LogEvent(host, db.ACT_HOST_DOWN, data, userCred)
+	logclient.AddActionLogWithContext(ctx, host, logclient.ACT_OFFLINE, data, userCred, false)
+	notifyclient.SystemExceptionNotify(ctx, napi.ActionHostDown, HostManager.Keyword(), data)
+
 	host.SyncCleanSchedDescCache()
 	host.switchWithBackup(ctx, userCred)
 	host.migrateOnHostDown(ctx, userCred)
@@ -7376,6 +7380,11 @@ func (host *SHost) MigrateSharedStorageServers(ctx context.Context, userCred mcc
 	}
 	kwargs := jsonutils.NewDict()
 	kwargs.Set("guests", jsonutils.Marshal(hostGuests))
+
+	db.OpsLog.LogEvent(host, db.ACT_HOST_DOWN_AUTO_MIGRATE, kwargs, userCred)
+	logclient.AddActionLogWithContext(ctx, host, logclient.ACT_HOST_DOWN_AUTO_MIGRATE, kwargs, userCred, true)
+	notifyclient.SystemExceptionNotify(ctx, napi.ActionHostDownAutoMigrate, HostManager.Keyword(), kwargs)
+
 	return GuestManager.StartHostGuestsMigrateTask(ctx, userCred, migGuests, kwargs, "")
 }
 
