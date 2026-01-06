@@ -380,6 +380,23 @@ func (s *SRbdStorage) deleteSnapshot(diskId string, snapshotId string) error {
 	return snap.Delete()
 }
 
+func (s *SRbdStorage) getSnapshotSize(diskId string, snapshotId string) (int64, error) {
+	client, err := s.getClient()
+	if err != nil {
+		return -1, errors.Wrapf(err, "GetClient")
+	}
+	defer client.Close()
+	img, err := client.GetImage(diskId)
+	if err != nil {
+		return -1, errors.Wrapf(err, "GetImage")
+	}
+	snapSize, err := img.GetSnapshotUsedSize(diskId, snapshotId)
+	if err != nil {
+		return -1, errors.Wrapf(err, "GetSnapshot")
+	}
+	return snapSize, nil
+}
+
 func (s *SRbdStorage) SyncStorageSize() (api.SHostStorageStat, error) {
 	stat := api.SHostStorageStat{
 		StorageId: s.StorageId,

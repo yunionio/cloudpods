@@ -133,7 +133,8 @@ const (
 	ACT_AUTHENTICATE = "authenticate"
 	ACT_LOGOUT       = "logout"
 
-	ACT_HEALTH_CHECK = "health_check"
+	ACT_HEALTH_CHECK           = "health_check"
+	ACT_HOST_DOWN_AUTO_MIGRATE = "host_down_auto_migrate"
 
 	ACT_RECYCLE_PREPAID      = "recycle_prepaid"
 	ACT_UNDO_RECYCLE_PREPAID = "undo_recycle_prepaid"
