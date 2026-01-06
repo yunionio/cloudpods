@@ -11,6 +11,7 @@ import (
 	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
+	_ "yunion.io/x/onecloud/pkg/llm/drivers/llm_client"
 	_ "yunion.io/x/onecloud/pkg/llm/drivers/llm_container"
 	"yunion.io/x/onecloud/pkg/llm/models"
 	"yunion.io/x/onecloud/pkg/llm/options"
