@@ -698,6 +698,22 @@ func (manager *SSnapshotPolicyManager) OrderByExtraFields(
 		q = q.AppendField(sdSQ.Field("disk_count"))
 		q = db.OrderByFields(q, []string{input.OrderByBindDiskCount}, []sqlchemy.IQueryField{q.Field("disk_count")})
 	}
+
+	if db.NeedOrderQuery([]string{input.OrderBySnapshotCount}) {
+		spSQ := SnapshotPolicyResourceManager.Query().Equals("resource_type", api.SNAPSHOT_POLICY_TYPE_DISK).SubQuery()
+		ssq := SnapshotManager.Query().SubQuery()
+		pQ := spSQ.Query(
+			spSQ.Field("snapshotpolicy_id"),
+			sqlchemy.COUNT("snapshot_count", ssq.Field("id")),
+		).Join(ssq, sqlchemy.Equals(ssq.Field("disk_id"), spSQ.Field("resource_id"))).GroupBy(spSQ.Field("snapshotpolicy_id"))
+
+		pq := pQ.SubQuery()
+
+		q = q.LeftJoin(pq, sqlchemy.Equals(pq.Field("snapshotpolicy_id"), q.Field("id")))
+		q = q.AppendField(q.QueryFields()...)
+		q = q.AppendField(pq.Field("snapshot_count"))
+		q = db.OrderByFields(q, []string{input.OrderBySnapshotCount}, []sqlchemy.IQueryField{q.Field("snapshot_count")})
+	}
 	return q, nil
 }
 
