@@ -16,6 +16,7 @@ package models
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
@@ -455,6 +456,12 @@ func min(a, b int) int {
 	return b
 }
 
+type SAlertRecordCount struct {
+	Count   int
+	ResIds  string
+	AlertId string
+}
+
 func (man *SMonitorResourceAlertManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
@@ -463,64 +470,102 @@ func (man *SMonitorResourceAlertManager) FetchCustomizeColumns(
 	fields stringutils2.SSortedStrings,
 	isList bool,
 ) []monitor.MonitorResourceJointDetails {
+	input := &monitor.MonitorResourceJointListInput{}
+	query.Unmarshal(input)
 	rows := make([]monitor.MonitorResourceJointDetails, len(objs))
+	alertRecordIds := make([]string, len(objs))
+	alertIds := make([]string, len(objs))
+	resourceIds := make([]string, len(objs))
+	for i := range rows {
+		obj := objs[i].(*SMonitorResourceAlert)
+		alertRecordIds[i] = obj.AlertRecordId
+		alertIds[i] = obj.AlertId
+		resourceIds[i] = obj.MonitorResourceId
+	}
+	records := map[string]SAlertRecord{}
+	err := db.FetchModelObjectsByIds(AlertRecordManager, "id", alertRecordIds, &records)
+	if err != nil {
+		log.Errorf("fetch alert records error: %v", err)
+		return rows
+	}
+	alerts := map[string]SCommonAlert{}
+	err = db.FetchModelObjectsByIds(CommonAlertManager, "id", alertIds, &alerts)
+	if err != nil {
+		log.Errorf("fetch alerts error: %v", err)
+		return rows
+	}
+	resources := map[string]SMonitorResource{}
+	err = db.FetchModelObjectsByIds(MonitorResourceManager, "res_id", resourceIds, &resources)
+	if err != nil {
+		log.Errorf("fetch monitor resources error: %v", err)
+		return rows
+	}
+	shields := make([]SAlertRecordShield, 0)
+	err = AlertRecordShieldManager.Query().GE("end_time", time.Now()).In("res_id", resourceIds).In("alert_id", alertIds).All(&shields)
+	if err != nil {
+		log.Errorf("fetch alert record shields error: %v", err)
+		return rows
+	}
+	shieldsMap := map[string]bool{}
+	for _, shield := range shields {
+		shieldsMap[fmt.Sprintf("%s-%s", shield.ResId, shield.AlertId)] = true
+	}
+	recordCountMap := map[string][]SAlertRecordCount{}
+	if !input.StartTime.IsZero() && !input.EndTime.IsZero() {
+		sq := AlertRecordManager.Query().GE("created_at", input.StartTime).LE("created_at", input.EndTime).In("alert_id", alertIds).SubQuery()
+		q := sq.Query(
+			sqlchemy.COUNT("count", sq.Field("id")),
+			sq.Field("alert_id"),
+			sq.Field("res_ids"),
+		).GroupBy(sq.Field("alert_id"), sq.Field("res_ids"))
+
+		recordCount := []SAlertRecordCount{}
+		err = q.All(&recordCount)
+		if err != nil {
+			log.Errorf("fetch alert records error: %v", err)
+			return rows
+		}
+		for i := range recordCount {
+			_, ok := recordCountMap[recordCount[i].AlertId]
+			if !ok {
+				recordCountMap[recordCount[i].AlertId] = make([]SAlertRecordCount, 0)
+			}
+			recordCountMap[recordCount[i].AlertId] = append(recordCountMap[recordCount[i].AlertId], recordCount[i])
+		}
+	}
 	for i := range rows {
 		rows[i] = monitor.MonitorResourceJointDetails{}
-		rows[i] = objs[i].(*SMonitorResourceAlert).getMoreDetails(rows[i])
+		obj := objs[i].(*SMonitorResourceAlert)
+		rows[i].ResId = obj.MonitorResourceId
+		rows[i].ResType = obj.ResType
+		if record, ok := records[obj.AlertRecordId]; ok {
+			rows[i].SendState = record.SendState
+			rows[i].State = record.State
+		}
+		if alert, ok := alerts[obj.AlertId]; ok {
+			rows[i].AlertName = alert.Name
+			rows[i].Level = alert.Level
+			silentPeriod, _ := alert.GetSilentPeriod()
+			rule, _ := alert.GetAlertRules(silentPeriod)
+			rows[i].AlertRule = jsonutils.Marshal(rule)
+		}
+		if res, ok := resources[obj.MonitorResourceId]; ok {
+			rows[i].ResName = res.Name
+			rows[i].ResType = res.ResType
+		}
+		if _, ok := shieldsMap[fmt.Sprintf("%s-%s", obj.MonitorResourceId, obj.AlertId)]; ok {
+			rows[i].IsSetShield = true
+		}
+		if recordCount, ok := recordCountMap[obj.AlertId]; ok {
+			rows[i].AlertCount = 0
+			for _, record := range recordCount {
+				if strings.Contains(record.ResIds, obj.MonitorResourceId) {
+					rows[i].AlertCount += record.Count
+				}
+			}
+		}
 	}
 	return rows
-}
-
-func (obj *SMonitorResourceAlert) getMoreDetails(detail monitor.MonitorResourceJointDetails) monitor.MonitorResourceJointDetails {
-	detail.ResType = obj.ResType
-	detail.ResId = obj.MonitorResourceId
-	resources, err := MonitorResourceManager.GetMonitorResources(monitor.MonitorResourceListInput{ResId: []string{obj.
-		MonitorResourceId}})
-	if err != nil {
-		log.Errorf("getMonitorResource:%s err:%v", obj.MonitorResourceId, err)
-		return detail
-	}
-	if len(resources) == 0 {
-		return detail
-	}
-	if detail.ResType == "" {
-		detail.ResType = resources[0].ResType
-	}
-	detail.ResName = resources[0].Name
-	//detail.ResId = resources[0].ResId
-
-	if len(obj.AlertRecordId) != 0 {
-		record, err := AlertRecordManager.GetAlertRecord(obj.AlertRecordId)
-		if err != nil {
-			log.Errorf("get alertRecord:%s err:%v", obj.AlertRecordId, err)
-			return detail
-		}
-		//detail.AlertRule = record.AlertRule
-		detail.SendState = record.SendState
-		detail.State = record.State
-	}
-	alert, err := CommonAlertManager.GetAlert(obj.AlertId)
-	if err != nil {
-		log.Errorf("SMonitorResourceAlert get alert by id :%s err:%v", obj.AlertId, err)
-		return detail
-	}
-	detail.AlertName = alert.Name
-	detail.Level = alert.Level
-	silentPeriod, _ := alert.GetSilentPeriod()
-	rule, _ := alert.GetAlertRules(silentPeriod)
-	detail.AlertRule = jsonutils.Marshal(rule)
-
-	now := time.Now()
-	shields, err := AlertRecordShieldManager.GetRecordShields(monitor.AlertRecordShieldListInput{ResId: obj.MonitorResourceId,
-		AlertId: obj.AlertId, EndTime: &now})
-	if err != nil {
-		log.Errorf("SMonitorResourceAlert get GetRecordShields by resId: %s, alertId: %s, err: %v", obj.MonitorResourceId, obj.AlertId, err)
-		return detail
-	}
-	if len(shields) != 0 {
-		detail.IsSetShield = true
-	}
-	return detail
 }
 
 func (manager *SMonitorResourceAlertManager) ResourceScope() rbacscope.TRbacScope {
