@@ -16,6 +16,7 @@ type ILLMChatMessage interface {
 
 // ILLMToolCall 表示工具调用接口
 type ILLMToolCall interface {
+	GetId() string
 	GetFunction() ILLMFunctionCall
 }
 
@@ -56,7 +57,7 @@ type ILLMClient interface {
 
 	NewUserMessage(content string) ILLMChatMessage
 	NewAssistantMessageWithToolCalls(toolCalls []ILLMToolCall) ILLMChatMessage
-	NewToolMessage(toolName string, content string) ILLMChatMessage
+	NewToolMessage(toolId string, toolName string, content string) ILLMChatMessage
 	NewSystemMessage(content string) ILLMChatMessage
 
 	ConvertMCPTools(mcpTools []mcp.Tool) []ILLMTool
