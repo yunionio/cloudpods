@@ -364,28 +364,28 @@ func (record *SAlertRecord) CustomizeCreate(
 	if err != nil {
 		return errors.Wrap(err, "GetEvalData error")
 	}
-	resIds := []string{}
+	resIds := sets.NewString()
 	for _, match := range matches {
 		for k, v := range match.Tags {
 			switch k {
 			case "vm_id":
 				if record.ResType == monitor.METRIC_RES_TYPE_AGENT || record.ResType == monitor.METRIC_RES_TYPE_GUEST {
-					resIds = append(resIds, v)
+					resIds.Insert(v)
 				}
 			case "host_id":
 				if record.ResType == monitor.METRIC_RES_TYPE_HOST {
-					resIds = append(resIds, v)
+					resIds.Insert(v)
 				}
 			case "cloudaccount_id":
 				if record.ResType == monitor.METRIC_RES_TYPE_CLOUDACCOUNT {
-					resIds = append(resIds, v)
+					resIds.Insert(v)
 				}
 			case "id":
-				resIds = append(resIds, v)
+				resIds.Insert(v)
 			}
 		}
 	}
-	record.ResIds = strings.Join(resIds, ",")
+	record.ResIds = strings.Join(resIds.List(), ",")
 	return nil
 }
 
