@@ -214,7 +214,7 @@ func (o *ollama) NewAssistantMessageWithToolCalls(toolCalls []models.ILLMToolCal
 	}
 }
 
-func (o *ollama) NewToolMessage(toolName string, content string) models.ILLMChatMessage {
+func (o *ollama) NewToolMessage(toolId string, toolName string, content string) models.ILLMChatMessage {
 	return &OllamaChatMessage{
 		Role:    "tool",
 		Content: fmt.Sprintf("[%s] %s", toolName, content),
@@ -291,6 +291,11 @@ type OllamaToolCall struct {
 // GetFunction 实现 ILLMToolCall 接口
 func (tc *OllamaToolCall) GetFunction() models.ILLMFunctionCall {
 	return &tc.Function
+}
+
+// GetId 实现 ILLMToolCall 接口
+func (tc *OllamaToolCall) GetId() string {
+	return ""
 }
 
 // OllamaFunctionCall 表示函数调用详情

@@ -373,7 +373,7 @@ func (mcp *SMCPAgent) process(ctx context.Context, userCred mcclient.TokenCreden
 			})
 
 			// 添加工具结果消息，使用接口类型
-			messages = append(messages, llmClient.NewToolMessage(toolName, resultText))
+			messages = append(messages, llmClient.NewToolMessage(tc.GetId(), toolName, resultText))
 		}
 	}
 
