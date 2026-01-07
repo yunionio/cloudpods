@@ -32,7 +32,7 @@ type MonitorResourceAlertListOptions struct {
 	Ip                string    `help:"IP address" json:"ip"`
 	StartTime         time.Time `help:"start time for top query, format: 2025-01-01 00:00:00" json:"start_time"`
 	EndTime           time.Time `help:"end time for top query, format: 2025-01-01 00:00:00" json:"end_time"`
-	Top               int       `help:"return top N resources by alert count (default: 5)" json:"top"`
+	Top               *int      `help:"return top N resources by alert count (default: 5)" json:"top"`
 }
 
 func (o *MonitorResourceAlertListOptions) GetMasterOpt() string {
