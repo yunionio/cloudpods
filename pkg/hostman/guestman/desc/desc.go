@@ -379,11 +379,13 @@ type SGuestControlDesc struct {
 	// is volatile host meaning guest not running on this host right now
 	IsVolatileHost bool
 
-	ScalingGroupId     string
+	ScalingGroupId string
+	SrcIpCheck     bool
+	SrcMacCheck    bool
+
 	SecurityRules      string
 	AdminSecurityRules string
-	SrcIpCheck         bool
-	SrcMacCheck        bool
+	NicSecgroups       []*api.GuestnetworkSecgroupDesc `json:"nic_secgroups,omitempty"`
 
 	EncryptKeyId string
 
