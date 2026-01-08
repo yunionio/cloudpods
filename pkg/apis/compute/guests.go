@@ -245,6 +245,9 @@ type ServerDetails struct {
 	// 关联主安全组
 	Secgroup string `json:"secgroup"`
 
+	// 网卡级别安全组
+	NetworkSecgroups []GuestnetworkSecgroupShortDesc `json:"network_secgroups"`
+
 	// 浮动IP
 	Eip string `json:"eip"`
 	// 浮动IP类型
@@ -560,10 +563,24 @@ type GuestSetSecgroupInput struct {
 	SecgroupIds []string `json:"secgroup_ids"`
 }
 
+type GuestSetNetworkSecgroupInput struct {
+	SecgroupIds []string `json:"secgroup_ids"`
+
+	NetworkIndex *int `json:"network_index"`
+}
+
 type GuestRevokeSecgroupInput struct {
 	// 安全组Id列表
 	// 实例必须处于运行,休眠或者关机状态
 	SecgroupIds []string `json:"secgroup_ids"`
+}
+
+type GuestRevokeNetworkSecgroupInput struct {
+	// 安全组Id列表
+	// 实例必须处于运行,休眠或者关机状态
+	SecgroupIds []string `json:"secgroup_ids"`
+
+	NetworkIndex *int `json:"network_index"`
 }
 
 type GuestAssignSecgroupInput struct {
@@ -580,6 +597,14 @@ type GuestAssignSecgroupInput struct {
 	Secgroup string `json:"secgroup" yunion-deprecated-by:"secgroup_id"`
 }
 
+type GuestAssignNetworkSecgroupInput struct {
+	// 安全组Id
+	// 实例必须处于运行,休眠或者关机状态
+	SecgroupId string `json:"secgroup_id"`
+
+	NetworkIndex *int `json:"network_index"`
+}
+
 type GuestAddSecgroupInput struct {
 	// 安全组Id列表
 	// 实例必须处于运行,休眠或者关机状态
@@ -593,6 +618,12 @@ type GuestAddSecgroupInput struct {
 	// | ZStack      | 1                    |
 	// | 其他        | 5                    |
 	SecgroupIds []string `json:"secgroup_ids"`
+}
+
+type GuestNetworkAddSecgroupInput struct {
+	SecgroupIds []string `json:"secgroup_ids"`
+
+	NetworkIndex *int `json:"network_index"`
 }
 
 type ServerRemoteUpdateInput struct {
@@ -931,9 +962,10 @@ type GuestJsonDesc struct {
 
 	NetworkRoles []string `json:"network_roles"`
 
-	Secgroups          []*SecgroupJsonDesc `json:"secgroups"`
-	SecurityRules      string              `json:"security_rules"`
-	AdminSecurityRules string              `json:"admin_security_rules"`
+	Secgroups          []*SecgroupJsonDesc         `json:"secgroups"`
+	SecurityRules      string                      `json:"security_rules"`
+	AdminSecurityRules string                      `json:"admin_security_rules"`
+	NicSecgroups       []*GuestnetworkSecgroupDesc `json:"nic_secgroups"`
 
 	ExtraOptions jsonutils.JSONObject `json:"extra_options"`
 

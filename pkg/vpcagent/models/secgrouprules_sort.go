@@ -53,6 +53,37 @@ func (el *Guest) OrderedSecurityGroupRules() []*SecurityGroupRule {
 	return rs
 }
 
+func (el *Guestnetwork) OrderedSecurityGroupRules(guest *Guest) []*SecurityGroupRule {
+	if len(el.Guestnetworksecgroups) == 0 {
+		return guest.OrderedSecurityGroupRules()
+	}
+	// deny any incoming traffic and allow ARP
+	rs := []*SecurityGroupRule{
+		{
+			// deny all in-bound traffic
+			SSecurityGroupRule: compute_models.SSecurityGroupRule{
+				Priority:  1,
+				Direction: string(secrules.SecurityRuleIngress),
+				Action:    string(secrules.SecurityRuleDeny),
+			},
+		},
+		{
+			// allow in-bound arp traffic
+			SSecurityGroupRule: compute_models.SSecurityGroupRule{
+				Priority:  2,
+				Direction: string(secrules.SecurityRuleIngress),
+				Protocol:  "arp",
+				Action:    string(secrules.SecurityRuleAllow),
+			},
+		},
+	}
+	for _, guestSecgroup := range el.Guestnetworksecgroups {
+		rs = append(rs, guestSecgroup.SecurityGroup.securityGroupRules(100)...)
+	}
+	sort.Slice(rs, SecurityGroupRuleLessFunc(rs))
+	return rs
+}
+
 func (el *SecurityGroup) securityGroupRules(basePriority int64) []*SecurityGroupRule {
 	rs := make([]*SecurityGroupRule, 0, len(el.SecurityGroupRules))
 	for _, r := range el.SecurityGroupRules {
