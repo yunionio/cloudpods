@@ -147,6 +147,7 @@ type SnapshotPolicyListInput struct {
 	// 按绑定的磁盘数量排序
 	// pattern:asc|desc
 	OrderByBindDiskCount string `json:"order_by_bind_disk_count"`
+	OrderBySnapshotCount string `json:"order_by_snapshot_count"`
 	// 按类型过滤
 	Type string `json:"type"`
 }
