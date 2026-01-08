@@ -272,6 +272,9 @@ type SecgroupDetails struct {
 	// 关联云主机数量, 不包含回收站云主机
 	GuestCnt int `json:"guest_cnt,allowempty"`
 
+	// 关联云主机网卡数量, 不包含回收站云主机
+	GuestNicCnt int `json:"guest_nic_cnt,allowempty"`
+
 	// 关联此安全组的云主机is_system为true数量, , 不包含回收站云主机
 	SystemGuestCnt int `json:"system_guest_cnt,allowempty"`
 
@@ -310,6 +313,16 @@ type GuestsecgroupListInput struct {
 	SecgroupFilterListInput
 }
 
+type GuestnetworksecgroupListInput struct {
+	apis.ResourceBaseListInput
+	ServerFilterListInput
+	SecgroupFilterListInput
+
+	NetworkIndex *int `json:"network_index"`
+
+	IsAdmin bool `json:"is_admin"`
+}
+
 type ElasticcachesecgroupListInput struct {
 	ElasticcacheJointsListInput
 	SecgroupFilterListInput
@@ -322,6 +335,34 @@ type GuestsecgroupDetails struct {
 
 	// 安全组名称
 	Secgroup string `json:"secgroup"`
+}
+
+type GuestnetworksecgroupDetails struct {
+	GuestResourceInfo
+
+	SGuestsecgroup
+
+	SecurityGroupResourceInfo
+
+	ProjectId string `json:"tenant_id"`
+
+	apis.ProjectizedResourceInfo
+
+	// 安全组状态
+	SecgroupStatus string `json:"secgroup_status"`
+
+	// VPC ID
+	VpcId string `json:"vpc_id"`
+	Vpc   string `json:"vpc"`
+
+	NetworkIndex int    `json:"network_index"`
+	GuestNetwork string `json:"guest_network"`
+	MacAddr      string `json:"mac_addr"`
+	Ifname       string `json:"ifname"`
+	IpAddr       string `json:"ip_addr"`
+	Ip6Addr      string `json:"ip_6_addr"`
+
+	Admin bool `json:"admin"`
 }
 
 type ElasticcachesecgroupDetails struct {
@@ -353,11 +394,12 @@ type SSecurityGroupRef struct {
 	RdsCnt          int `json:"rds_cnt"`
 	RedisCnt        int `json:"redis_cnt"`
 	LoadbalancerCnt int `json:"loadbalancer_cnt"`
+	GuestNicCnt     int `json:"guest_nic_cnt"`
 	TotalCnt        int `json:"total_cnt"`
 }
 
 func (self *SSecurityGroupRef) Sum() {
-	self.TotalCnt = self.GuestCnt + self.AdminGuestCnt + self.RdsCnt + self.RedisCnt + self.LoadbalancerCnt
+	self.TotalCnt = self.GuestCnt + self.AdminGuestCnt + self.RdsCnt + self.RedisCnt + self.LoadbalancerCnt + self.GuestNicCnt
 }
 
 type SecurityGroupSyncstatusInput struct {

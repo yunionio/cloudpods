@@ -894,6 +894,20 @@ func (opts *ServerSecGroupsOptions) Params() (jsonutils.JSONObject, error) {
 	return jsonutils.Marshal(map[string][]string{"secgroup_ids": opts.SecgroupIds}), nil
 }
 
+type ServerNetworkSecGroupsOptions struct {
+	ID           string   `help:"ID or Name of server" metavar:"Guest" json:"-"`
+	NetworkIndex *int     `help:"Guest network index" metavar:"Network Index"`
+	SecgroupIds  []string `help:"Ids of Security Groups" metavar:"Security Groups" positional:"true"`
+}
+
+func (o *ServerNetworkSecGroupsOptions) GetId() string {
+	return o.ID
+}
+
+func (opts *ServerNetworkSecGroupsOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(opts), nil
+}
+
 type ServerModifySrcCheckOptions struct {
 	ID          string `help:"ID or Name of server" metavar:"Guest" json:"-"`
 	SrcIpCheck  string `help:"Turn on/off src ip check" choices:"on|off"`
