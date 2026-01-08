@@ -27,6 +27,7 @@ type SnapshotPolicyListOptions struct {
 	options.BaseListOptions
 
 	OrderByBindDiskCount string
+	OrderBySnapshotCount string
 }
 
 func (opts *SnapshotPolicyListOptions) Params() (jsonutils.JSONObject, error) {
