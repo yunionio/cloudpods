@@ -1067,32 +1067,36 @@ func (h *SHostInfo) detectQemuCapabilities(version string) error {
 	}
 
 	qmpCmds := fmt.Sprintf(`echo "{'execute': 'qmp_capabilities'}
-       {'execute': 'query-machines'}
+       {'execute': 'query-machines','id':'query_machines'}
        {'execute': 'quit'}" | %s -qmp stdio  -vnc none -machine none -display none`, qemutils.GetQemu(version))
 	log.Debugf("qemu caps cmdline %v", qmpCmds)
 	out, err := procutils.NewRemoteCommandAsFarAsPossible("sh", "-c", qmpCmds).Output()
 	if err != nil {
 		log.Errorf("failed start qemu caps cmdline: %s", qmpCmds)
 	}
+
 	segs := bytes.Split(out, []byte{'\n'})
-	if len(segs) < 6 {
-		return errors.Errorf("unexpect qmp res %s", out)
+	for _, seg := range segs {
+		res, err := jsonutils.Parse(bytes.TrimSpace(seg))
+		if err != nil {
+			return errors.Errorf("Unmarshal %s error: %s", seg, err)
+		}
+		id, _ := res.GetString("id")
+		if id == "query_machines" {
+			var machineInfoList = make([]monitor.MachineInfo, 0)
+			err = res.Unmarshal(&machineInfoList, "return")
+			if err != nil {
+				return errors.Wrapf(err, "failed unmarshal machineinfo return %s", res.PrettyString())
+			}
+			h.qemuMachineInfoList = machineInfoList
+			qemuCaps := &QemuCaps{
+				QemuVersion:     version,
+				MachineInfoList: machineInfoList,
+			}
+			return fileutils2.FilePutContents(capsPath, jsonutils.Marshal(qemuCaps).String(), false)
+		}
 	}
-	res, err := jsonutils.Parse(bytes.TrimSpace(segs[2]))
-	if err != nil {
-		return errors.Errorf("Unmarshal %s error: %s", segs[2], err)
-	}
-	var machineInfoList = make([]monitor.MachineInfo, 0)
-	err = res.Unmarshal(&machineInfoList, "return")
-	if err != nil {
-		return errors.Wrapf(err, "failed unmarshal machineinfo return %s", res.PrettyString())
-	}
-	h.qemuMachineInfoList = machineInfoList
-	qemuCaps := &QemuCaps{
-		QemuVersion:     version,
-		MachineInfoList: machineInfoList,
-	}
-	return fileutils2.FilePutContents(capsPath, jsonutils.Marshal(qemuCaps).String(), false)
+	return errors.Errorf("failed parse qemu machine info: %s", out)
 }
 
 func (h *SHostInfo) GetQemuMachineInfoList() []monitor.MachineInfo {
