@@ -340,6 +340,7 @@ func (deleteTask *BaseGuestDeleteTask) OnGuestDeleteCompleteFailed(ctx context.C
 
 func (deleteTask *BaseGuestDeleteTask) OnGuestDeleteComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
+	guest.RevokeAllNetworkSecgroups(ctx, deleteTask.UserCred)
 	guest.DetachAllNetworks(ctx, deleteTask.UserCred)
 	guest.EjectAllIso(deleteTask.UserCred)
 	guest.EjectAllVfd(deleteTask.UserCred)
