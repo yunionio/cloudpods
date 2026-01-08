@@ -27,17 +27,18 @@ import (
 )
 
 type ModelSetsMaxUpdatedAt struct {
-	Vpcs               time.Time
-	Wires              time.Time
-	Networks           time.Time
-	Guests             time.Time
-	Hosts              time.Time
-	SecurityGroups     time.Time
-	SecurityGroupRules time.Time
-	Guestnetworks      time.Time
-	Guestsecgroups     time.Time
-	Elasticips         time.Time
-	NetworkAddresses   time.Time
+	Vpcs                  time.Time
+	Wires                 time.Time
+	Networks              time.Time
+	Guests                time.Time
+	Hosts                 time.Time
+	SecurityGroups        time.Time
+	SecurityGroupRules    time.Time
+	Guestnetworks         time.Time
+	Guestsecgroups        time.Time
+	Elasticips            time.Time
+	NetworkAddresses      time.Time
+	Guestnetworksecgroups time.Time
 
 	DnsZones   time.Time
 	DnsRecords time.Time
@@ -54,17 +55,18 @@ type ModelSetsMaxUpdatedAt struct {
 
 func NewModelSetsMaxUpdatedAt() *ModelSetsMaxUpdatedAt {
 	return &ModelSetsMaxUpdatedAt{
-		Vpcs:               apihelper.PseudoZeroTime,
-		Wires:              apihelper.PseudoZeroTime,
-		Networks:           apihelper.PseudoZeroTime,
-		Guests:             apihelper.PseudoZeroTime,
-		Hosts:              apihelper.PseudoZeroTime,
-		SecurityGroups:     apihelper.PseudoZeroTime,
-		SecurityGroupRules: apihelper.PseudoZeroTime,
-		Guestnetworks:      apihelper.PseudoZeroTime,
-		Guestsecgroups:     apihelper.PseudoZeroTime,
-		Elasticips:         apihelper.PseudoZeroTime,
-		NetworkAddresses:   apihelper.PseudoZeroTime,
+		Vpcs:                  apihelper.PseudoZeroTime,
+		Wires:                 apihelper.PseudoZeroTime,
+		Networks:              apihelper.PseudoZeroTime,
+		Guests:                apihelper.PseudoZeroTime,
+		Hosts:                 apihelper.PseudoZeroTime,
+		SecurityGroups:        apihelper.PseudoZeroTime,
+		SecurityGroupRules:    apihelper.PseudoZeroTime,
+		Guestnetworks:         apihelper.PseudoZeroTime,
+		Guestsecgroups:        apihelper.PseudoZeroTime,
+		Elasticips:            apihelper.PseudoZeroTime,
+		NetworkAddresses:      apihelper.PseudoZeroTime,
+		Guestnetworksecgroups: apihelper.PseudoZeroTime,
 
 		DnsZones:   apihelper.PseudoZeroTime,
 		DnsRecords: apihelper.PseudoZeroTime,
@@ -81,17 +83,18 @@ func NewModelSetsMaxUpdatedAt() *ModelSetsMaxUpdatedAt {
 }
 
 type ModelSets struct {
-	Vpcs               Vpcs
-	Wires              Wires
-	Networks           Networks
-	Guests             Guests
-	Hosts              Hosts
-	SecurityGroups     SecurityGroups
-	SecurityGroupRules SecurityGroupRules
-	Guestnetworks      Guestnetworks
-	Guestsecgroups     Guestsecgroups
-	Elasticips         Elasticips
-	NetworkAddresses   NetworkAddresses
+	Vpcs                  Vpcs
+	Wires                 Wires
+	Networks              Networks
+	Guests                Guests
+	Hosts                 Hosts
+	SecurityGroups        SecurityGroups
+	SecurityGroupRules    SecurityGroupRules
+	Guestnetworks         Guestnetworks
+	Guestsecgroups        Guestsecgroups
+	Elasticips            Elasticips
+	NetworkAddresses      NetworkAddresses
+	Guestnetworksecgroups Guestnetworksecgroups
 
 	DnsZones   DnsZones
 	DnsRecords DnsRecords
@@ -109,17 +112,18 @@ type ModelSets struct {
 
 func NewModelSets() *ModelSets {
 	return &ModelSets{
-		Vpcs:               Vpcs{},
-		Wires:              Wires{},
-		Networks:           Networks{},
-		Guests:             Guests{},
-		Hosts:              Hosts{},
-		SecurityGroups:     SecurityGroups{},
-		SecurityGroupRules: SecurityGroupRules{},
-		Guestnetworks:      Guestnetworks{},
-		Guestsecgroups:     Guestsecgroups{},
-		Elasticips:         Elasticips{},
-		NetworkAddresses:   NetworkAddresses{},
+		Vpcs:                  Vpcs{},
+		Wires:                 Wires{},
+		Networks:              Networks{},
+		Guests:                Guests{},
+		Hosts:                 Hosts{},
+		SecurityGroups:        SecurityGroups{},
+		SecurityGroupRules:    SecurityGroupRules{},
+		Guestnetworks:         Guestnetworks{},
+		Guestsecgroups:        Guestsecgroups{},
+		Elasticips:            Elasticips{},
+		NetworkAddresses:      NetworkAddresses{},
+		Guestnetworksecgroups: Guestnetworksecgroups{},
 
 		DnsZones:   DnsZones{},
 		DnsRecords: DnsRecords{},
@@ -150,6 +154,7 @@ func (mss *ModelSets) ModelSetList() []apihelper.IModelSet {
 		mss.Guestsecgroups,
 		mss.Elasticips,
 		mss.NetworkAddresses,
+		mss.Guestnetworksecgroups,
 
 		mss.DnsZones,
 		mss.DnsRecords,
@@ -172,17 +177,18 @@ func (mss *ModelSets) NewEmpty() apihelper.IModelSets {
 
 func (mss *ModelSets) copy_() *ModelSets {
 	mssCopy := &ModelSets{
-		Vpcs:               mss.Vpcs.Copy().(Vpcs),
-		Wires:              mss.Wires.Copy().(Wires),
-		Networks:           mss.Networks.Copy().(Networks),
-		Guests:             mss.Guests.Copy().(Guests),
-		Hosts:              mss.Hosts.Copy().(Hosts),
-		SecurityGroups:     mss.SecurityGroups.Copy().(SecurityGroups),
-		SecurityGroupRules: mss.SecurityGroupRules.Copy().(SecurityGroupRules),
-		Guestnetworks:      mss.Guestnetworks.Copy().(Guestnetworks),
-		Guestsecgroups:     mss.Guestsecgroups.Copy().(Guestsecgroups),
-		Elasticips:         mss.Elasticips.Copy().(Elasticips),
-		NetworkAddresses:   mss.NetworkAddresses.Copy().(NetworkAddresses),
+		Vpcs:                  mss.Vpcs.Copy().(Vpcs),
+		Wires:                 mss.Wires.Copy().(Wires),
+		Networks:              mss.Networks.Copy().(Networks),
+		Guests:                mss.Guests.Copy().(Guests),
+		Hosts:                 mss.Hosts.Copy().(Hosts),
+		SecurityGroups:        mss.SecurityGroups.Copy().(SecurityGroups),
+		SecurityGroupRules:    mss.SecurityGroupRules.Copy().(SecurityGroupRules),
+		Guestnetworks:         mss.Guestnetworks.Copy().(Guestnetworks),
+		Guestsecgroups:        mss.Guestsecgroups.Copy().(Guestsecgroups),
+		Elasticips:            mss.Elasticips.Copy().(Elasticips),
+		NetworkAddresses:      mss.NetworkAddresses.Copy().(NetworkAddresses),
+		Guestnetworksecgroups: mss.Guestnetworksecgroups.Copy().(Guestnetworksecgroups),
 
 		DnsZones:   mss.DnsZones.Copy().(DnsZones),
 		DnsRecords: mss.DnsRecords.Copy().(DnsRecords),
@@ -273,12 +279,16 @@ func (mss *ModelSets) join() bool {
 	msg = append(msg, "mss.SecurityGroups.joinSecurityGroupRules(mss.SecurityGroupRules)")
 	p = append(p, mss.Guestsecgroups.join(mss.SecurityGroups, mss.Guests))
 	msg = append(msg, "mss.Guestsecgroups.join(mss.SecurityGroups, mss.Guests)")
+	p = append(p, mss.Guestnetworksecgroups.joinSecurityGroups(mss.SecurityGroups))
+	msg = append(msg, "mss.Guestnetworksecgroups.joinSecurityGroups(mss.SecurityGroups)")
 	p = append(p, mss.Guestnetworks.joinGuests(mss.Guests))
 	msg = append(msg, "mss.Guestnetworks.joinGuests(mss.Guests)")
 	p = append(p, mss.Guestnetworks.joinElasticips(mss.Elasticips))
 	msg = append(msg, "mss.Guestnetworks.joinElasticips(mss.Elasticips)")
 	p = append(p, mss.Guestnetworks.joinNetworkAddresses(mss.NetworkAddresses))
 	msg = append(msg, "mss.Guestnetworks.joinNetworkAddresses(mss.NetworkAddresses)")
+	p = append(p, mss.Guestnetworks.joinGuestnetworksecgroups(mss.Guestnetworksecgroups))
+	msg = append(msg, "mss.Guestnetworks.joinGuestnetworksecgroups(mss.Guestnetworksecgroups)")
 	p = append(p, mss.Groups.joinGroupnetworks(mss.Groupnetworks, mss.Networks))
 	msg = append(msg, "mss.Groups.joinGroupnetworks(mss.Groupnetworks, mss.Networks)")
 	p = append(p, mss.Groupnetworks.joinElasticips(mss.Elasticips))

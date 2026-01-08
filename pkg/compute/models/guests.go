@@ -1222,6 +1222,18 @@ func (guest *SGuest) ConvertEsxiNetworks(targetGuest *SGuest) error {
 	return err
 }
 
+func (guest *SGuest) getGuestnetworkByIndex(networkIndex int) (*SGuestnetwork, error) {
+	q := guest.GetNetworksQuery("").Equals("index", networkIndex)
+
+	guestnic := SGuestnetwork{}
+	err := q.First(&guestnic)
+	if err != nil {
+		return nil, err
+	}
+	guestnic.SetModelManager(GuestnetworkManager, &guestnic)
+	return &guestnic, nil
+}
+
 func (guest *SGuest) getGuestnetworkByIpOrMac(ipAddr string, ip6Addr string, macAddr string) (*SGuestnetwork, error) {
 	q := guest.GetNetworksQuery("")
 	if len(ipAddr) > 0 {
@@ -2139,6 +2151,11 @@ func (manager *SGuestManager) validateCreateData(
 			netConfig.SriovDevice = devConfig
 			netConfig.Driver = api.NETWORK_DRIVER_VFIO
 		}
+		secgroupIds, err := isValidSecgroups(ctx, userCred, netConfig.Secgroups)
+		if err != nil {
+			return nil, err
+		}
+		netConfig.Secgroups = secgroupIds
 
 		netConfig.Project = ownerId.GetProjectId()
 		netConfig.Domain = ownerId.GetProjectDomainId()
@@ -2205,15 +2222,9 @@ func (manager *SGuestManager) validateCreateData(
 		input.KeypairId = keypairObj.GetId()
 	}
 
-	secGrpIds := []string{}
-	for _, secgroup := range input.Secgroups {
-		secGrpObj, err := SecurityGroupManager.FetchByIdOrName(ctx, userCred, secgroup)
-		if err != nil {
-			return nil, httperrors.NewResourceNotFoundError("Secgroup %s not found", secgroup)
-		}
-		if !utils.IsInStringArray(secGrpObj.GetId(), secGrpIds) {
-			secGrpIds = append(secGrpIds, secGrpObj.GetId())
-		}
+	secGrpIds, err := isValidSecgroups(ctx, userCred, input.Secgroups)
+	if err != nil {
+		return nil, err
 	}
 	if len(secGrpIds) > 0 {
 		input.SecgroupId = secGrpIds[0]
@@ -3175,6 +3186,26 @@ func (self *SGuest) getSecurityGroupsRules() string {
 	secgroupids := []string{}
 	for _, secgroup := range secgroups {
 		secgroupids = append(secgroupids, secgroup.Id)
+	}
+	q := SecurityGroupRuleManager.Query()
+	q.Filter(sqlchemy.In(q.Field("secgroup_id"), secgroupids)).Desc(q.Field("priority"), q.Field("action"))
+	secrules := []SSecurityGroupRule{}
+	if err := db.FetchModelObjects(SecurityGroupRuleManager, q, &secrules); err != nil {
+		log.Errorf("Get security group rules error: %v", err)
+		return ""
+	}
+	rules := []string{}
+	for _, rule := range secrules {
+		rules = append(rules, rule.String())
+	}
+	return strings.Join(rules, SECURITY_GROUP_SEPARATOR)
+}
+
+func (self *SGuest) getNetworkSecurityGroupsRules(networkIndex int) string {
+	gnss, _ := self.GetGuestNetworkSecgroups(networkIndex)
+	secgroupids := []string{}
+	for _, gns := range gnss {
+		secgroupids = append(secgroupids, gns.SecgroupId)
 	}
 	q := SecurityGroupRuleManager.Query()
 	q.Filter(sqlchemy.In(q.Field("secgroup_id"), secgroupids)).Desc(q.Field("priority"), q.Field("action"))
@@ -4516,7 +4547,12 @@ func (self *SGuest) CreateNetworksOnHost(
 				return errors.Wrap(err, "self.allocSriovNicDevice")
 			}
 		}
-
+		if len(netConfig.Secgroups) > 0 {
+			err = self.SaveNetworkSecgroups(ctx, userCred, netConfig.Secgroups, gns[0].Index)
+			if err != nil {
+				return errors.Wrap(err, "SaveNetworkSecgroups")
+			}
+		}
 	}
 	return nil
 }
@@ -5471,6 +5507,13 @@ func (self *SGuest) GetJsonDescAtHypervisor(ctx context.Context, host *SHost) *a
 		desc.Nics = append(desc.Nics, nicDesc)
 		if len(nicDesc.Domain) > 0 {
 			desc.Domain = nicDesc.Domain
+		}
+		secgroupDesc := nic.getSecgroupDesc()
+		if secgroupDesc != nil {
+			if desc.NicSecgroups == nil {
+				desc.NicSecgroups = make([]*api.GuestnetworkSecgroupDesc, 0)
+			}
+			desc.NicSecgroups = append(desc.NicSecgroups, secgroupDesc)
 		}
 	}
 
