@@ -822,7 +822,7 @@ func (keeper *OVNNorthboundKeeper) ClaimGuestnetwork(ctx context.Context, guestn
 		if len(guestnetwork.Ip6Addr) > 0 {
 			enableIPv6 = true
 		}
-		sgrs := guest.OrderedSecurityGroupRules()
+		sgrs := guestnetwork.OrderedSecurityGroupRules(guest)
 		for _, sgr := range sgrs {
 			// kvm not support peer secgroup
 			acl, err := ruleToAcl(lportName, sgr, enableIPv6)
