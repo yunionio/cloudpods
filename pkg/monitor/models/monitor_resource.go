@@ -256,11 +256,38 @@ func (man *SMonitorResourceManager) FetchCustomizeColumns(
 ) []monitor.MonitorResourceDetails {
 	rows := make([]monitor.MonitorResourceDetails, len(objs))
 	virtRows := man.SVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	resIds := make([]string, len(objs))
 	for i := range rows {
 		rows[i] = monitor.MonitorResourceDetails{
 			VirtualResourceDetails: virtRows[i],
 		}
-		rows[i] = objs[i].(*SMonitorResource).getMoreDetails(rows[i])
+		mr := objs[i].(*SMonitorResource)
+		resIds[i] = mr.ResId
+		_, object := MonitorResourceManager.GetResourceObj(mr.ResId)
+		if object != nil {
+			object.Unmarshal(&rows[i])
+		}
+	}
+	sq := MonitorResourceAlertManager.Query().In("monitor_resource_id", resIds).SubQuery()
+	q := sq.Query(
+		sq.Field("monitor_resource_id"),
+		sqlchemy.COUNT("count", sq.Field("row_id")),
+	).GroupBy(sq.Field("monitor_resource_id"))
+	mrs := []struct {
+		MonitorResourceId string
+		Count             int64
+	}{}
+	err := q.All(&mrs)
+	if err != nil {
+		log.Errorf("query monitor resource alert error: %v", err)
+		return rows
+	}
+	mrMap := make(map[string]int64)
+	for _, mr := range mrs {
+		mrMap[mr.MonitorResourceId] = mr.Count
+	}
+	for i := range rows {
+		rows[i].AttachAlertCount = mrMap[resIds[i]]
 	}
 	return rows
 }
@@ -322,20 +349,6 @@ func (self *SMonitorResource) DetachJoint(ctx context.Context, userCred mcclient
 		return errors.Wrap(err, "SMonitorResource DetachJoint err")
 	}
 	return nil
-}
-
-func (self *SMonitorResource) getMoreDetails(out monitor.MonitorResourceDetails) monitor.MonitorResourceDetails {
-	joints, err := MonitorResourceAlertManager.GetJoinsByListInput(monitor.
-		MonitorResourceJointListInput{MonitorResourceId: self.ResId})
-	if err != nil {
-		log.Errorf("getMoreDetails err:%v", err)
-	}
-	_, object := MonitorResourceManager.GetResourceObj(self.ResId)
-	if object != nil {
-		object.Unmarshal(&out)
-	}
-	out.AttachAlertCount = int64(len(joints))
-	return out
 }
 
 type AlertStatusCount struct {
