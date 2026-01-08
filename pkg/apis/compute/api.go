@@ -130,6 +130,9 @@ type NetworkConfig struct {
 	Domain    string            `json:"domain_id"`
 	Ifname    string            `json:"ifname"`
 	Schedtags []*SchedtagConfig `json:"schedtags"`
+
+	// network secgroups
+	Secgroups []string `json:"secgroups"`
 }
 
 type AttachNetworkInput struct {
