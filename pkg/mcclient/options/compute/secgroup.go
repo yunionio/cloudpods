@@ -197,3 +197,16 @@ type SecgroupCleanOptions struct {
 func (opts *SecgroupCleanOptions) Params() (jsonutils.JSONObject, error) {
 	return nil, nil
 }
+
+type ServerNetworkSecgroupListOptions struct {
+	baseoptions.BaseListOptions
+
+	Server       string `help:"Server Id or name"`
+	Secgroup     string `help:"Secgroup Id or name"`
+	NetworkIndex *int   `help:"Server network index"`
+	IsAdmin      bool   `help:"Is admin secgroup"`
+}
+
+func (opts *ServerNetworkSecgroupListOptions) Params() (jsonutils.JSONObject, error) {
+	return baseoptions.ListStructToParams(opts)
+}

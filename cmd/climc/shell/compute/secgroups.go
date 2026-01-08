@@ -36,4 +36,7 @@ func init() {
 	cmd.Perform("change-owner", &options.SecgroupChangeOwnerOptions{})
 	cmd.Perform("import-rules", &options.SecgroupImportRulesOptions{})
 	cmd.PerformClass("clean", &options.SecgroupCleanOptions{})
+
+	scmd := shell.NewResourceCmd(&modules.Servernetworksecgroups)
+	scmd.List(&options.ServerNetworkSecgroupListOptions{})
 }
