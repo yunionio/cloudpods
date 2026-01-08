@@ -88,6 +88,9 @@ type Guestnetwork struct {
 	Network   *Network         `json:"-"`
 	Elasticip *Elasticip       `json:"-"`
 	SubIPs    NetworkAddresses `json:"-"`
+
+	// guest nic level secgroup
+	Guestnetworksecgroups Guestnetworksecgroups `json:"-"`
 }
 
 func (el *Guestnetwork) Copy() *Guestnetwork {
@@ -106,6 +109,22 @@ type NetworkAddress struct {
 func (el *NetworkAddress) Copy() *NetworkAddress {
 	return &NetworkAddress{
 		SNetworkAddress: el.SNetworkAddress,
+	}
+}
+
+type Guestnetworksecgroup struct {
+	compute_models.SGuestnetworksecgroup
+
+	SecurityGroup *SecurityGroup `json:"-"`
+}
+
+func (el *Guestnetworksecgroup) ModelSetKey() string {
+	return fmt.Sprintf("%s/%d", el.GuestId, el.NetworkIndex)
+}
+
+func (el *Guestnetworksecgroup) Copy() *Guestnetworksecgroup {
+	return &Guestnetworksecgroup{
+		SGuestnetworksecgroup: el.SGuestnetworksecgroup,
 	}
 }
 
