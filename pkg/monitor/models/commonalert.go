@@ -23,6 +23,7 @@ import (
 
 	"golang.org/x/text/language"
 
+	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/appctx"
@@ -652,98 +653,115 @@ func (man *SCommonAlertManager) FetchCustomizeColumns(
 ) []monitor.CommonAlertDetails {
 	rows := make([]monitor.CommonAlertDetails, len(objs))
 	alertRows := man.SAlertManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	alertIds := make([]string, len(objs))
 	for i := range rows {
 		rows[i].AlertDetails = alertRows[i]
-		var err error
-		rows[i], err = objs[i].(ICommonAlert).GetMoreDetails(ctx, rows[i])
+		alert := objs[i].(*SCommonAlert)
+		alertIds[i] = alert.Id
+	}
+	ans := []SAlertnotification{}
+	err := AlertNotificationManager.Query().In("alert_id", alertIds).Desc("index").All(&ans)
+	if err != nil {
+		log.Errorf("q.All")
+		return rows
+	}
+	alertNotificationMap := make(map[string][]SAlertnotification)
+	notificateIds := []string{}
+	for i := range ans {
+		_, ok := alertNotificationMap[ans[i].AlertId]
+		if !ok {
+			alertNotificationMap[ans[i].AlertId] = []SAlertnotification{}
+		}
+		notificateIds = append(notificateIds, ans[i].NotificationId)
+		alertNotificationMap[ans[i].AlertId] = append(alertNotificationMap[ans[i].AlertId], ans[i])
+	}
+	notis := make(map[string]SNotification)
+	err = db.FetchModelObjectsByIds(NotificationManager, "id", notificateIds, notis)
+	if err != nil {
+		log.Errorf("db.FetchModelObjectsByIds err:%v", err)
+		return rows
+	}
+	metas := []db.SMetadata{}
+	err = db.Metadata.Query().In("obj_id", alertIds).Equals("obj_type", man.Keyword()).Equals("key", CommonAlertMetadataAlertType).All(&metas)
+	if err != nil {
+		log.Errorf("db.MetadataManager.Query err:%v", err)
+		return rows
+	}
+	metaMap := make(map[string]string)
+	for i := range metas {
+		metaMap[metas[i].ObjId] = metas[i].Value
+	}
+	for i := range rows {
+		alert := objs[i].(*SCommonAlert)
+		if alertNotis, ok := alertNotificationMap[alertIds[i]]; ok {
+			channel := sets.String{}
+			for j, alertNoti := range alertNotis {
+				noti, ok := notis[alertNoti.NotificationId]
+				if !ok {
+					continue
+				}
+				settings := new(monitor.NotificationSettingOneCloud)
+				if err := noti.Settings.Unmarshal(settings); err != nil {
+					log.Errorf("Unmarshal to NotificationSettingOneCloud err:%v", err)
+					return rows
+				}
+				if j == 0 {
+					rows[i].Recipients = settings.UserIds
+				}
+				if !utils.IsInStringArray(settings.Channel,
+					[]string{monitor.DEFAULT_SEND_NOTIFY_CHANNEL, string(notify.NotifyByRobot)}) {
+					channel.Insert(settings.Channel)
+				}
+				if noti.Frequency != 0 {
+					rows[i].SilentPeriod = fmt.Sprintf("%dm", noti.Frequency/60)
+				}
+				if len(settings.RobotIds) != 0 {
+					rows[i].RobotIds = settings.RobotIds
+				}
+				if len(settings.RoleIds) != 0 {
+					rows[i].RoleIds = settings.RoleIds
+				}
+			}
+			rows[i].Channel = channel.List()
+		}
+		rows[i].AlertType = metaMap[alertIds[i]]
+		if alert.Frequency < 60 {
+			rows[i].Period = fmt.Sprintf("%ds", alert.Frequency)
+		} else {
+			rows[i].Period = fmt.Sprintf("%dm", alert.Frequency/60)
+		}
+		rows[i].AlertDuration = alert.For / alert.Frequency
+		if rows[i].AlertDuration == 0 {
+			rows[i].AlertDuration = 1
+		}
+
+		err := alert.getCommonAlertMetricDetails(&rows[i])
 		if err != nil {
-			log.Warningf("GetMoreDetails for alert %s: %v", rows[i].Name, err)
+			log.Errorf("getCommonAlertMetricDetails err:%v", err)
+			return rows
 		}
 	}
 	return rows
 }
 
-func (alert *SCommonAlert) validateDeleteCondition(ctx context.Context, out *monitor.CommonAlertDetails) {
-	alert_type := alert.getAlertType()
-	switch alert_type {
-	case monitor.CommonAlertSystemAlertType:
-		je := httperrors.NewInputParameterError("Cannot delete system alert")
-		out.CanDelete = false
-		out.DeleteFailReason = httperrors.NewErrorFromJCError(ctx, je)
-	default:
+func (alert *SCommonAlert) ValidateDeleteCondition(ctx context.Context, info *monitor.CommonAlertDetails) error {
+	if gotypes.IsNil(info) {
+		info = &monitor.CommonAlertDetails{}
 	}
-}
-
-func (alert *SCommonAlert) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	isForce, _ := data.Bool("force")
-	if isForce {
-		return isForce
+	if info.AlertType == monitor.CommonAlertSystemAlertType {
+		return httperrors.NewInputParameterError("Cannot delete system alert")
 	}
-	alert_type := alert.getAlertType()
-	switch alert_type {
-	case monitor.CommonAlertSystemAlertType:
-		return false
-	default:
-		return true
-	}
+	return nil
 }
 
 func (alert *SCommonAlert) GetMoreDetails(ctx context.Context, out monitor.CommonAlertDetails) (monitor.CommonAlertDetails, error) {
-	alert.validateDeleteCondition(ctx, &out)
-
-	var err error
-	alertNotis, err := alert.GetNotifications()
-	if err != nil {
-		return out, errors.Wrap(err, "GetNotifications")
+	s := auth.GetAdminSession(ctx, options.Options.Region)
+	token := s.GetToken()
+	ret := CommonAlertManager.FetchCustomizeColumns(ctx, token, jsonutils.NewDict(), []interface{}{alert}, stringutils2.SSortedStrings{}, false)
+	if len(ret) != 1 {
+		return out, errors.Wrapf(cloudprovider.ErrNotFound, "FetchCustomizeColumns")
 	}
-	channel := sets.String{}
-	for i, alertNoti := range alertNotis {
-		noti, err := alertNoti.GetNotification()
-		if err != nil {
-			return out, errors.Wrap(err, "get notify")
-		}
-		if noti == nil || gotypes.IsNil(noti) || noti.Settings.IsZero() {
-			continue
-		}
-		settings := new(monitor.NotificationSettingOneCloud)
-		if err := noti.Settings.Unmarshal(settings); err != nil {
-			return out, errors.Wrap(err, "Unmarshal to NotificationSettingOneCloud")
-		}
-		if i == 0 {
-			out.Recipients = settings.UserIds
-		}
-		if !utils.IsInStringArray(settings.Channel,
-			[]string{monitor.DEFAULT_SEND_NOTIFY_CHANNEL, string(notify.NotifyByRobot)}) {
-			channel.Insert(settings.Channel)
-		}
-		if noti.Frequency != 0 {
-			out.SilentPeriod = fmt.Sprintf("%dm", noti.Frequency/60)
-		}
-		if len(settings.RobotIds) != 0 {
-			out.RobotIds = settings.RobotIds
-		}
-		if len(settings.RoleIds) != 0 {
-			out.RoleIds = settings.RoleIds
-		}
-	}
-	out.Channel = channel.List()
-	out.Status = alert.GetStatus()
-	out.AlertType = alert.getAlertType()
-	if alert.Frequency < 60 {
-		out.Period = fmt.Sprintf("%ds", alert.Frequency)
-	} else {
-		out.Period = fmt.Sprintf("%dm", alert.Frequency/60)
-	}
-	out.AlertDuration = alert.For / alert.Frequency
-	if out.AlertDuration == 0 {
-		out.AlertDuration = 1
-	}
-
-	if err := alert.getCommonAlertMetricDetails(&out); err != nil {
-		return out, errors.Wrap(err, "getCommonAlertMetricDetails")
-	}
-	return out, nil
+	return ret[0], nil
 }
 
 func (alert *SCommonAlert) getCommonAlertMetricDetails(out *monitor.CommonAlertDetails) error {
