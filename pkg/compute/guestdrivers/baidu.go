@@ -15,9 +15,12 @@
 package guestdrivers
 
 import (
+	"fmt"
+
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/pkg/util/billing"
 	"yunion.io/x/pkg/util/rbacscope"
+	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
@@ -99,4 +102,11 @@ func (self *SBaiduGuestDriver) IsSupportPublicipToEip() bool {
 
 func (self *SBaiduGuestDriver) IsSupportSetAutoRenew() bool {
 	return false
+}
+
+func (self *SBaiduGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk *models.SDisk, storage *models.SStorage) error {
+	if !utils.IsInStringArray(guest.Status, []string{api.VM_RUNNING, api.VM_READY, api.VM_START_RESIZE_DISK, api.VM_RESIZE_DISK}) {
+		return fmt.Errorf("cannot resize disk when guest in status %s", guest.Status)
+	}
+	return nil
 }
