@@ -367,11 +367,6 @@ type ICloudVM interface {
 	GetVga() string
 	GetVdi() string
 
-	// GetOSArch() string
-	// GetOsType() TOsType
-	// GetOSName() string
-	// GetBios() string
-
 	GetMachine() string
 	GetInstanceType() string
 
@@ -418,6 +413,39 @@ type ICloudVM interface {
 	GetPowerStates() string
 	GetHealthStatus() string
 	GetIsolateDeviceIds() ([]string, error)
+
+	GetContainers() ([]ICloudContainer, error)
+}
+
+type SContainerEnv struct {
+	Key   string
+	Value string
+}
+
+type ICloudContainer interface {
+	ICloudResource
+
+	GetImage() string
+	GetCommand() []string
+	GetEnvs() []SContainerEnv
+
+	GetStartedAt() time.Time
+	GetLastFinishedAt() time.Time
+	GetRestartCount() int
+
+	GetVolumentMounts() ([]ICloudVolumeMount, error)
+	GetDevices() ([]IContainerDevice, error)
+}
+
+type ICloudVolumeMount interface {
+	GetName() string
+	IsReadOnly() bool
+	GetType() string
+}
+
+type IContainerDevice interface {
+	GetId() string
+	GetType() string
 }
 
 type ICloudNic interface {

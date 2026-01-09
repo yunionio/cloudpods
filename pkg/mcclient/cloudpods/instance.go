@@ -614,3 +614,16 @@ func (vm *SInstance) GetIsolateDeviceIds() ([]string, error) {
 	}
 	return ret, nil
 }
+
+func (vm *SInstance) GetContainers() ([]cloudprovider.ICloudContainer, error) {
+	containers, err := vm.host.zone.region.GetContainers(vm.Id)
+	if err != nil {
+		return nil, err
+	}
+	ret := []cloudprovider.ICloudContainer{}
+	for i := range containers {
+		containers[i].region = vm.host.zone.region
+		ret = append(ret, &containers[i])
+	}
+	return ret, nil
+}
