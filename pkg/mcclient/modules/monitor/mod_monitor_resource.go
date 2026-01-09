@@ -51,7 +51,7 @@ func NewMonitorResourceManager() *SMonitorResourceManager {
 
 func newAlertResourceAlertManager() *SMonitorResourceAlertManager {
 	man := modules.NewJointMonitorV2Manager("monitorresourcealert", "monitorresourcealerts",
-		[]string{"monitor_resource_id", "alert_id", "res_name", "res_type", "metric", "alert_name", "alert_state", "send_state", "level",
+		[]string{"monitor_resource_id", "alert_count", "alert_id", "res_name", "res_type", "metric", "alert_name", "alert_state", "send_state", "level",
 			"trigger_time", "data"},
 		[]string{},
 		MonitorResourceManager, CommonAlerts)
