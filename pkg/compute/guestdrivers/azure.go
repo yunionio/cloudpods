@@ -117,7 +117,7 @@ func (self *SAzureGuestDriver) IsNeedRestartForResetLoginInfo() bool {
 func (self *SAzureGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk *models.SDisk, storage *models.SStorage) error {
 	//https://docs.microsoft.com/en-us/rest/api/compute/disks/update
 	//Resizes are only allowed if the disk is not attached to a running VM, and can only increase the disk's size
-	if !utils.IsInStringArray(guest.Status, []string{api.VM_READY}) {
+	if !utils.IsInStringArray(guest.Status, []string{api.VM_READY, api.VM_START_RESIZE_DISK, api.VM_RESIZE_DISK}) {
 		return fmt.Errorf("Cannot resize disk when guest in status %s", guest.Status)
 	}
 	return nil
