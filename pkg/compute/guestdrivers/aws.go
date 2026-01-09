@@ -210,7 +210,7 @@ func (self *SAwsGuestDriver) ValidateCreateData(ctx context.Context, userCred mc
 
 func (self *SAwsGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk *models.SDisk, storage *models.SStorage) error {
 	// https://docs.amazonaws.cn/AWSEC2/latest/UserGuide/stop-start.html
-	if !utils.IsInStringArray(guest.Status, []string{api.VM_RUNNING, api.VM_READY}) {
+	if !utils.IsInStringArray(guest.Status, []string{api.VM_RUNNING, api.VM_READY, api.VM_START_RESIZE_DISK, api.VM_RESIZE_DISK}) {
 		return fmt.Errorf("Cannot resize disk when guest in status %s", guest.Status)
 	}
 	if disk.DiskType == api.DISK_TYPE_SYS && !utils.IsInStringArray(storage.StorageType, []string{api.STORAGE_IO1_SSD, api.STORAGE_IO2_SSD, api.STORAGE_STANDARD_HDD, api.STORAGE_GP2_SSD, api.STORAGE_GP3_SSD}) {
