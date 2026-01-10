@@ -2424,21 +2424,22 @@ var (
 	METADATA_EXT_SCHEDTAG_KEY = "ext:schedtag"
 )
 
-func (h *SHost) getAllSchedtagsWithExtSchedtagKey() (map[string]*SSchedtag, error) {
-	metaSQ := db.Metadata.Query("obj_id").Equals("obj_type", SchedtagManager.KeywordPlural()).Equals("key", METADATA_EXT_SCHEDTAG_KEY).SubQuery()
-	hostSQ := HostManager.Query("id").Equals("manager_id", h.ManagerId).SubQuery()
-	hSQ := HostschedtagManager.Query("schedtag_id").In("host_id", hostSQ).SubQuery()
-	q := SchedtagManager.Query().Equals("resource_type", HostManager.KeywordPlural()).In("id", metaSQ).In("id", hSQ)
-	sts := make([]SSchedtag, 0, 5)
-	err := db.FetchModelObjects(SchedtagManager, q, &sts)
+func (h *SHost) getAllSchedtagsWithExtSchedtagKey() (map[string]string, error) {
+	sq := SchedtagManager.Query("id").SubQuery()
+	q := db.Metadata.Query("obj_id", "value").Equals("obj_type", SchedtagManager.Keyword()).Equals("key", METADATA_EXT_SCHEDTAG_KEY).In("obj_id", sq)
+	result := []struct {
+		ObjId string
+		Value string
+	}{}
+	err := q.All(&result)
 	if err != nil {
 		return nil, err
 	}
-	stMap := make(map[string]*SSchedtag)
-	for i := range sts {
-		stMap[sts[i].Id] = &sts[i]
+	ret := make(map[string]string)
+	for i := range result {
+		ret[result[i].Value] = result[i].ObjId
 	}
-	return stMap, nil
+	return ret, nil
 }
 
 func (h *SHost) GetSchedtags() ([]SSchedtag, error) {
@@ -2485,7 +2486,7 @@ func (h *SHost) syncSchedtags(ctx context.Context, userCred mcclient.TokenCreden
 	}
 	added := extTagIdSet.UnsortedList()
 
-	var stagMap map[string]*SSchedtag
+	stagMap := make(map[string]string)
 	if len(added) > 0 {
 		stagMap, err = h.getAllSchedtagsWithExtSchedtagKey()
 		if err != nil {
@@ -2494,9 +2495,9 @@ func (h *SHost) syncSchedtags(ctx context.Context, userCred mcclient.TokenCreden
 	}
 
 	for _, extSchedId := range added {
-		st, ok := stagMap[extSchedId]
+		stagId, ok := stagMap[extSchedId]
 		if !ok {
-			st = &SSchedtag{
+			st := &SSchedtag{
 				ResourceType: HostManager.KeywordPlural(),
 			}
 			st.DomainId = h.DomainId
@@ -2507,6 +2508,7 @@ func (h *SHost) syncSchedtags(ctx context.Context, userCred mcclient.TokenCreden
 			if err != nil {
 				return errors.Wrapf(err, "unable to create schedtag %s", st.Name)
 			}
+			stagId = st.GetId()
 			meta := make(map[string]interface{})
 			meta[METADATA_EXT_SCHEDTAG_KEY] = extSchedId
 			for k, v := range extTagMap[extSchedId].Meta {
@@ -2519,10 +2521,10 @@ func (h *SHost) syncSchedtags(ctx context.Context, userCred mcclient.TokenCreden
 			HostId: h.GetId(),
 		}
 		hostschedtag.SetModelManager(HostschedtagManager, hostschedtag)
-		hostschedtag.SchedtagId = st.GetId()
+		hostschedtag.SchedtagId = stagId
 		err = HostschedtagManager.TableSpec().Insert(ctx, hostschedtag)
 		if err != nil {
-			return errors.Wrapf(err, "unable to create hostschedtag for tag %s host %s", st.Name, h.GetId())
+			return errors.Wrapf(err, "unable to create hostschedtag for tag %s host %s", stagId, h.GetId())
 		}
 	}
 
