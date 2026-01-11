@@ -32,7 +32,7 @@ func (o *ollama) GetType() api.LLMClientType {
 	return api.LLM_CLIENT_OLLAMA
 }
 
-func (o *ollama) Chat(ctx context.Context, mcpAgent *models.SMCPAgent, messages interface{}, tools interface{}) (models.ILLMChatResponse, error) {
+func convertMessages(messages interface{}) ([]OllamaChatMessage, error) {
 	// 转换 messages
 	var ollamaMessages []OllamaChatMessage
 	if msgs, ok := messages.([]OllamaChatMessage); ok {
@@ -74,6 +74,10 @@ func (o *ollama) Chat(ctx context.Context, mcpAgent *models.SMCPAgent, messages 
 		return nil, errors.Error("invalid messages type, expected []OllamaChatMessage or []ILLMChatMessage")
 	}
 
+	return ollamaMessages, nil
+}
+
+func convertTool(tools interface{}) ([]OllamaTool, error) {
 	// 转换 tools
 	var ollamaTools []OllamaTool
 	if ts, ok := tools.([]OllamaTool); ok {
@@ -114,22 +118,20 @@ func (o *ollama) Chat(ctx context.Context, mcpAgent *models.SMCPAgent, messages 
 		return nil, errors.Error("invalid tools type, expected []OllamaTool or []ILLMTool or nil")
 	}
 
-	// 调用底层方法
-	return o.doChatRequest(ctx, mcpAgent.LLMUrl, mcpAgent.Model, ollamaMessages, ollamaTools)
+	return ollamaTools, nil
 }
 
-// doChatRequest 执行聊天请求
-func (o *ollama) doChatRequest(ctx context.Context, endpoint, model string, messages []OllamaChatMessage, tools []OllamaTool) (*OllamaChatResponse, error) {
+func initRequestClient(ctx context.Context, endpoint, model string, stream bool, messages []OllamaChatMessage, tools []OllamaTool) (*http.Request, *http.Client, error) {
 	req := OllamaChatRequest{
 		Model:    model,
 		Messages: messages,
 		Tools:    tools,
-		Stream:   false,
+		Stream:   stream,
 	}
 
 	reqBody, err := json.Marshal(req)
 	if err != nil {
-		return nil, errors.Wrap(err, "marshal request")
+		return nil, nil, errors.Wrap(err, "marshal request")
 	}
 
 	// 规范化 endpoint，确保以 / 结尾
@@ -137,14 +139,14 @@ func (o *ollama) doChatRequest(ctx context.Context, endpoint, model string, mess
 
 	baseURL, err := url.Parse(endpoint)
 	if err != nil {
-		return nil, errors.Wrapf(err, "invalid endpoint URL %s", endpoint)
+		return nil, nil, errors.Wrapf(err, "invalid endpoint URL %s", endpoint)
 	}
 
 	// 构建完整的 URL
 	apiURL := baseURL.JoinPath("/api/chat")
 	httpReq, err := http.NewRequestWithContext(ctx, "POST", apiURL.String(), bytes.NewReader(reqBody))
 	if err != nil {
-		return nil, errors.Wrap(err, "create request")
+		return nil, nil, errors.Wrap(err, "create request")
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("Accept", "application/json")
@@ -158,6 +160,28 @@ func (o *ollama) doChatRequest(ctx context.Context, endpoint, model string, mess
 		},
 	}
 
+	return httpReq, client, nil
+}
+
+func (o *ollama) Chat(ctx context.Context, mcpAgent *models.SMCPAgent, messages interface{}, tools interface{}) (models.ILLMChatResponse, error) {
+	ollamaMessages, err := convertMessages(messages)
+	if err != nil {
+		return nil, err
+	}
+
+	ollamaTools, err := convertTool(tools)
+	if err != nil {
+		return nil, err
+	}
+
+	httpReq, client, err := initRequestClient(ctx, mcpAgent.LLMUrl, mcpAgent.Model, false, ollamaMessages, ollamaTools)
+
+	// 调用底层方法
+	return o.doChatRequest(ctx, httpReq, client)
+}
+
+// doChatRequest 执行聊天请求
+func (o *ollama) doChatRequest(ctx context.Context, httpReq *http.Request, client *http.Client) (*OllamaChatResponse, error) {
 	resp, err := client.Do(httpReq)
 	if err != nil {
 		return nil, errors.Wrap(err, "do request")
@@ -222,7 +246,7 @@ func (o *ollama) NewToolMessage(toolId string, toolName string, content string) 
 }
 
 func (o *ollama) NewSystemMessage(content string) models.ILLMChatMessage {
-	return OllamaChatMessage{
+	return &OllamaChatMessage{
 		Role:    "system",
 		Content: content,
 	}
@@ -394,59 +418,54 @@ func (r *OllamaChatResponse) GetToolCalls() []models.ILLMToolCall {
 	return toolCalls
 }
 
-// // ChatStream 发送流式聊天请求（未来扩展）
-// func (c *OllamaClient) ChatStream(ctx context.Context, messages []OllamaChatMessage, tools []OllamaTool, onChunk func(*OllamaChatResponse) error) error {
-// 	req := OllamaChatRequest{
-// 		Model:    c.model,
-// 		Messages: messages,
-// 		Tools:    tools,
-// 		Stream:   true,
-// 	}
+func (o *ollama) ChatStream(ctx context.Context, mcpAgent *models.SMCPAgent, messages interface{}, tools interface{}, onChunk func(models.ILLMChatResponse) error) error {
+	ollamaMessages, err := convertMessages(messages)
+	if err != nil {
+		return err
+	}
 
-// 	reqBody, err := json.Marshal(req)
-// 	if err != nil {
-// 		return errors.Wrap(err, "marshal request")
-// 	}
+	ollamaTools, err := convertTool(tools)
+	if err != nil {
+		return err
+	}
 
-// 	apiURL := c.baseURL.JoinPath("/api/chat")
-// 	httpReq, err := http.NewRequestWithContext(ctx, "POST", apiURL.String(), bytes.NewReader(reqBody))
-// 	if err != nil {
-// 		return errors.Wrap(err, "create request")
-// 	}
-// 	httpReq.Header.Set("Content-Type", "application/json")
-// 	httpReq.Header.Set("Accept", "text/event-stream")
+	httpReq, client, err := initRequestClient(ctx, mcpAgent.LLMUrl, mcpAgent.Model, true, ollamaMessages, ollamaTools)
 
-// 	resp, err := c.client.Do(httpReq)
-// 	if err != nil {
-// 		return errors.Wrap(err, "do request")
-// 	}
-// 	defer resp.Body.Close()
+	return o.doChatStreamRequest(ctx, httpReq, client, onChunk)
+}
 
-// 	if resp.StatusCode != http.StatusOK {
-// 		body, _ := io.ReadAll(resp.Body)
-// 		return errors.Errorf("unexpected status code %d: %s", resp.StatusCode, string(body))
-// 	}
+func (o *ollama) doChatStreamRequest(ctx context.Context, httpReq *http.Request, client *http.Client, onChunk func(models.ILLMChatResponse) error) error {
+	resp, err := client.Do(httpReq)
+	if err != nil {
+		return errors.Wrap(err, "do request")
+	}
+	defer resp.Body.Close()
 
-// 	decoder := json.NewDecoder(resp.Body)
-// 	for {
-// 		var chunk OllamaChatResponse
-// 		if err := decoder.Decode(&chunk); err != nil {
-// 			if err == io.EOF {
-// 				break
-// 			}
-// 			return errors.Wrap(err, "decode stream chunk")
-// 		}
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return errors.Errorf("unexpected status code %d: %s", resp.StatusCode, string(body))
+	}
 
-// 		if onChunk != nil {
-// 			if err := onChunk(&chunk); err != nil {
-// 				return errors.Wrap(err, "process chunk")
-// 			}
-// 		}
+	decoder := json.NewDecoder(resp.Body)
+	for {
+		var chunk OllamaChatResponse
+		if err := decoder.Decode(&chunk); err != nil {
+			if err == io.EOF {
+				break
+			}
+			return errors.Wrap(err, "decode stream chunk")
+		}
 
-// 		if chunk.Done {
-// 			break
-// 		}
-// 	}
+		if onChunk != nil {
+			if err := onChunk(&chunk); err != nil {
+				return errors.Wrap(err, "process chunk")
+			}
+		}
 
-// 	return nil
-// }
+		if chunk.Done {
+			break
+		}
+	}
+
+	return nil
+}

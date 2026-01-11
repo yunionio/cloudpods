@@ -46,13 +46,13 @@ func (o *MCPAgentCreateOptions) Params() (jsonutils.JSONObject, error) {
 type MCPAgentUpdateOptions struct {
 	apis.SharableVirtualResourceCreateInput
 
-	ID         string
-	LlmId      *string `help:"LLM 实例 ID，如果提供则自动获取 llm_url" json:"llm_id,omitempty"`
-	LLM_URL    *string `help:"后端大模型的 base 请求地址" json:"llm_url,omitempty"`
-	LLM_DRIVER *string `help:"使用的大模型驱动，可以是 ollama 或 openai" json:"llm_driver,omitempty" choices:"ollama|openai"`
-	MODEL      *string `help:"使用的模型名称" json:"model,omitempty"`
-	API_KEY    *string `help:"访问大模型的密钥" json:"api_key,omitempty"`
-	McpServer  *string `help:"mcp 服务器的后端地址" json:"mcp_server,omitempty"`
+	ID        string
+	LlmId     *string `help:"LLM 实例 ID，如果提供则自动获取 llm_url" json:"llm_id,omitempty"`
+	LlmUrl    *string `help:"后端大模型的 base 请求地址" json:"llm_url,omitempty"`
+	LlmDriver *string `help:"使用的大模型驱动，可以是 ollama 或 openai" json:"llm_driver,omitempty" choices:"ollama|openai"`
+	Model     *string `help:"使用的模型名称" json:"model,omitempty"`
+	ApiKey    *string `help:"访问大模型的密钥" json:"api_key,omitempty"`
+	McpServer *string `help:"mcp 服务器的后端地址" json:"mcp_server,omitempty"`
 }
 
 func (o *MCPAgentUpdateOptions) GetId() string {
@@ -65,17 +65,17 @@ func (o *MCPAgentUpdateOptions) Params() (jsonutils.JSONObject, error) {
 	if o.LlmId != nil && len(*o.LlmId) > 0 {
 		params.Set("llm_id", jsonutils.NewString(*o.LlmId))
 	}
-	if o.LLM_URL != nil && len(*o.LLM_URL) > 0 {
-		params.Set("llm_url", jsonutils.NewString(*o.LLM_URL))
+	if o.LlmUrl != nil && len(*o.LlmUrl) > 0 {
+		params.Set("llm_url", jsonutils.NewString(*o.LlmUrl))
 	}
-	if o.LLM_DRIVER != nil && len(*o.LLM_DRIVER) > 0 {
-		params.Set("llm_driver", jsonutils.NewString(*o.LLM_DRIVER))
+	if o.LlmDriver != nil && len(*o.LlmDriver) > 0 {
+		params.Set("llm_driver", jsonutils.NewString(*o.LlmDriver))
 	}
-	if o.MODEL != nil && len(*o.MODEL) > 0 {
-		params.Set("model", jsonutils.NewString(*o.MODEL))
+	if o.Model != nil && len(*o.Model) > 0 {
+		params.Set("model", jsonutils.NewString(*o.Model))
 	}
-	if o.API_KEY != nil && len(*o.API_KEY) > 0 {
-		params.Set("api_key", jsonutils.NewString(*o.API_KEY))
+	if o.ApiKey != nil && len(*o.ApiKey) > 0 {
+		params.Set("api_key", jsonutils.NewString(*o.ApiKey))
 	}
 	if o.McpServer != nil && len(*o.McpServer) > 0 {
 		params.Set("mcp_server", jsonutils.NewString(*o.McpServer))

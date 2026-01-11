@@ -54,6 +54,7 @@ type ILLMClient interface {
 	GetType() llm.LLMClientType
 
 	Chat(ctx context.Context, mcpAgent *SMCPAgent, messages interface{}, tools interface{}) (ILLMChatResponse, error)
+	ChatStream(ctx context.Context, mcpAgent *SMCPAgent, messages interface{}, tools interface{}, onChunk func(ILLMChatResponse) error) error
 
 	NewUserMessage(content string) ILLMChatMessage
 	NewAssistantMessageWithToolCalls(toolCalls []ILLMToolCall) ILLMChatMessage
