@@ -1,6 +1,7 @@
 package llm_client
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -91,6 +92,161 @@ func (o *openai) Chat(ctx context.Context, mcpAgent *models.SMCPAgent, messages 
 	}
 
 	return o.doChatRequest(ctx, mcpAgent, openaiMessages, openaiTools)
+}
+
+func (o *openai) ChatStream(ctx context.Context, mcpAgent *models.SMCPAgent, messages interface{}, tools interface{}, onChunk func(models.ILLMChatResponse) error) error {
+	// 转换 messages
+	var openaiMessages []OpenAIChatMessage
+
+	if msgs, ok := messages.([]OpenAIChatMessage); ok {
+		openaiMessages = msgs
+	} else {
+		var ilMsgs []models.ILLMChatMessage
+		if msgs, ok := messages.([]models.ILLMChatMessage); ok {
+			ilMsgs = msgs
+		} else if msg, ok := messages.(models.ILLMChatMessage); ok {
+			ilMsgs = []models.ILLMChatMessage{msg}
+		} else {
+			return errors.Error("invalid messages type")
+		}
+
+		openaiMessages = make([]OpenAIChatMessage, len(ilMsgs))
+		for i, msg := range ilMsgs {
+			// Check if it's an OpenAIChatMessage to preserve ToolCallID
+			if om, ok := msg.(*OpenAIChatMessage); ok {
+				openaiMessages[i] = *om
+			} else {
+				// General conversion
+				openaiMessages[i] = OpenAIChatMessage{
+					Role:    msg.GetRole(),
+					Content: msg.GetContent(),
+				}
+				// 转换工具调用
+				if toolCalls := msg.GetToolCalls(); len(toolCalls) > 0 {
+					openaiMessages[i].ToolCalls = make([]OpenAIToolCall, len(toolCalls))
+					for j, tc := range toolCalls {
+						fc := tc.GetFunction()
+						argsBytes, _ := json.Marshal(fc.GetArguments())
+						openaiMessages[i].ToolCalls[j] = OpenAIToolCall{
+							ID:   tc.GetId(),
+							Type: "function",
+							Function: OpenAIFunctionCall{
+								Name:      fc.GetName(),
+								Arguments: string(argsBytes),
+							},
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// 转换 tools
+	var openaiTools []OpenAITool
+	if ts, ok := tools.([]OpenAITool); ok {
+		openaiTools = ts
+	} else if ts, ok := tools.([]models.ILLMTool); ok {
+		openaiTools = make([]OpenAITool, len(ts))
+		for i, t := range ts {
+			tf := t.GetFunction()
+			openaiTools[i] = OpenAITool{
+				Type: t.GetType(),
+				Function: OpenAIToolFunction{
+					Name:        tf.GetName(),
+					Description: tf.GetDescription(),
+					Parameters:  tf.GetParameters(),
+				},
+			}
+		}
+	} else if tools == nil {
+		openaiTools = nil
+	}
+
+	return o.doChatStreamRequest(ctx, mcpAgent, openaiMessages, openaiTools, onChunk)
+}
+
+func (o *openai) doChatStreamRequest(ctx context.Context, mcpAgent *models.SMCPAgent, messages []OpenAIChatMessage, tools []OpenAITool, onChunk func(models.ILLMChatResponse) error) error {
+	req := OpenAIChatRequest{
+		Model:    mcpAgent.Model,
+		Messages: messages,
+		Tools:    tools,
+		Stream:   true,
+	}
+
+	reqBody, err := json.Marshal(req)
+	if err != nil {
+		return errors.Wrap(err, "marshal request")
+	}
+
+	endpoint := strings.TrimSuffix(mcpAgent.LLMUrl, "/")
+	// Default to /v1/chat/completions if not specified and not a custom path
+	if !strings.Contains(endpoint, "/chat/completions") {
+		if strings.HasSuffix(endpoint, "/v1") {
+			endpoint = endpoint + "/chat/completions"
+		} else {
+			endpoint = endpoint + "/v1/chat/completions"
+		}
+	}
+
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", endpoint, bytes.NewReader(reqBody))
+	if err != nil {
+		return errors.Wrap(err, "create request")
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+	if mcpAgent.ApiKey != "" {
+		httpReq.Header.Set("Authorization", "Bearer "+mcpAgent.ApiKey)
+	}
+
+	client := &http.Client{
+		// Stream request no timeout
+		Timeout: 0,
+	}
+
+	resp, err := client.Do(httpReq)
+	if err != nil {
+		return errors.Wrap(err, "do request")
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return errors.Errorf("unexpected status code %d: %s", resp.StatusCode, string(body))
+	}
+
+	scanner := bufio.NewScanner(resp.Body)
+	for scanner.Scan() {
+		line := scanner.Text()
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+
+		if !strings.HasPrefix(line, "data: ") {
+			continue
+		}
+
+		data := strings.TrimPrefix(line, "data: ")
+		if data == "[DONE]" {
+			break
+		}
+
+		var chunk OpenAIChatStreamResponse
+		if err := json.Unmarshal([]byte(data), &chunk); err != nil {
+			return errors.Wrapf(err, "decode stream chunk: %s", data)
+		}
+
+		if onChunk != nil {
+			if err := onChunk(&chunk); err != nil {
+				return errors.Wrap(err, "process chunk")
+			}
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return errors.Wrap(err, "read stream")
+	}
+
+	return nil
 }
 
 func (o *openai) doChatRequest(ctx context.Context, mcpAgent *models.SMCPAgent, messages []OpenAIChatMessage, tools []OpenAITool) (*OpenAIChatResponse, error) {
@@ -290,6 +446,7 @@ type OpenAIChatRequest struct {
 	Model    string              `json:"model"`
 	Messages []OpenAIChatMessage `json:"messages"`
 	Tools    []OpenAITool        `json:"tools,omitempty"`
+	Stream   bool                `json:"stream,omitempty"`
 }
 
 type OpenAIChatResponse struct {
@@ -318,4 +475,43 @@ func (r *OpenAIChatResponse) GetToolCalls() []models.ILLMToolCall {
 		return nil
 	}
 	return r.Choices[0].Message.GetToolCalls()
+}
+
+type OpenAIChatStreamResponse struct {
+	ID      string                   `json:"id"`
+	Choices []OpenAIChatStreamChoice `json:"choices"`
+}
+
+type OpenAIChatStreamChoice struct {
+	Delta        OpenAIChatStreamDelta `json:"delta"`
+	FinishReason string                `json:"finish_reason"`
+}
+
+type OpenAIChatStreamDelta struct {
+	Role      string           `json:"role,omitempty"`
+	Content   string           `json:"content,omitempty"`
+	ToolCalls []OpenAIToolCall `json:"tool_calls,omitempty"`
+}
+
+func (r *OpenAIChatStreamResponse) GetContent() string {
+	if len(r.Choices) > 0 {
+		return r.Choices[0].Delta.Content
+	}
+	return ""
+}
+
+func (r *OpenAIChatStreamResponse) HasToolCalls() bool {
+	return len(r.Choices) > 0 && len(r.Choices[0].Delta.ToolCalls) > 0
+}
+
+func (r *OpenAIChatStreamResponse) GetToolCalls() []models.ILLMToolCall {
+	if len(r.Choices) == 0 {
+		return nil
+	}
+	toolCalls := make([]models.ILLMToolCall, len(r.Choices[0].Delta.ToolCalls))
+	for i := range r.Choices[0].Delta.ToolCalls {
+		tc := r.Choices[0].Delta.ToolCalls[i]
+		toolCalls[i] = &tc
+	}
+	return toolCalls
 }

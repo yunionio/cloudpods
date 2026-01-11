@@ -2,6 +2,8 @@ package models
 
 import (
 	"context"
+	"fmt"
+	"net/http"
 	"strings"
 	"time"
 
@@ -251,7 +253,27 @@ func (mcp *SMCPAgent) GetDetailsToolRequest(
 	return jsonutils.Marshal(result), nil
 }
 
-func (mcp *SMCPAgent) GetDetailsChatTest(
+// func (mcp *SMCPAgent) GetDetailsChatTest(
+// 	ctx context.Context,
+// 	userCred mcclient.TokenCredential,
+// 	input api.LLMChatTestInput,
+// ) (jsonutils.JSONObject, error) {
+// 	llmClient := mcp.GetLLMClientDriver()
+// 	if llmClient == nil {
+// 		return nil, errors.Error("failed to get LLM client driver")
+// 	}
+
+// 	message := llmClient.NewUserMessage(input.Message)
+
+// 	result, err := llmClient.Chat(ctx, mcp, []ILLMChatMessage{message}, nil)
+// 	if err != nil {
+// 		return nil, errors.Wrap(err, "chat with LLM")
+// 	}
+
+// 	return jsonutils.Marshal(result), nil
+// }
+
+func (mcp *SMCPAgent) GetDetailsChatStream(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
 	input api.LLMChatTestInput,
@@ -261,14 +283,38 @@ func (mcp *SMCPAgent) GetDetailsChatTest(
 		return nil, errors.Error("failed to get LLM client driver")
 	}
 
-	message := llmClient.NewUserMessage(input.Message)
-
-	result, err := llmClient.Chat(ctx, mcp, []ILLMChatMessage{message}, nil)
-	if err != nil {
-		return nil, errors.Wrap(err, "chat with LLM")
+	appParams := appsrv.AppContextGetParams(ctx)
+	if appParams == nil {
+		return nil, errors.Error("failed to get app params")
 	}
 
-	return jsonutils.Marshal(result), nil
+	w := appParams.Response
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("X-Accel-Buffering", "no")
+
+	if f, ok := w.(http.Flusher); ok {
+		f.Flush()
+	}
+
+	message := llmClient.NewUserMessage(input.Message)
+
+	err := llmClient.ChatStream(ctx, mcp, []ILLMChatMessage{message}, nil, func(chunk ILLMChatResponse) error {
+		content := chunk.GetContent()
+		if len(content) > 0 {
+			fmt.Fprintf(w, "%s", content)
+			if f, ok := w.(http.Flusher); ok {
+				f.Flush()
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		fmt.Fprintf(w, "\nError: %v\n", err)
+	}
+
+	return nil, nil
 }
 
 func (mcp *SMCPAgent) GetDetailsRequest(
