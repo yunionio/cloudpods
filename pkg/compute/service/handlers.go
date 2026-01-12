@@ -99,7 +99,6 @@ func InitHandlers(app *appsrv.Application) {
 		models.CloudimageManager,
 
 		models.WafRuleStatementManager,
-		models.BillingResourceCheckManager,
 
 		models.LoadbalancerSecurityGroupManager,
 	} {
@@ -160,6 +159,7 @@ func InitHandlers(app *appsrv.Application) {
 		models.RouteTableRouteSetManager,
 		models.InterVpcNetworkRouteSetManager,
 		models.GuestScreenDumpManager,
+		models.BillingResourceCheckManager,
 
 		models.SchedpolicyManager,
 		models.DynamicschedtagManager,
