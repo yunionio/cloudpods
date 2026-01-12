@@ -137,6 +137,8 @@ func (s *queryReducer) Reduce(series *monitor.TimeSeries) (*float64, []string) {
 		}
 	case monitor.REDUCER_DIFF:
 		allNull, value = calculateDiff(series, allNull, value, diff)
+	case monitor.REDUCER_DELTA:
+		allNull, value = calculateDelta(series, allNull, value)
 	case monitor.REDUCER_PERCENT_DIFF:
 		allNull, value = calculateDiff(series, allNull, value, percentDiff)
 	case monitor.REDUCER_COUNT_NON_NULL:
@@ -224,6 +226,33 @@ var diff = func(newest, oldest float64) float64 {
 
 var percentDiff = func(newest, oldest float64) float64 {
 	return (newest - oldest) / oldest * 100
+}
+
+func calculateDelta(series *monitor.TimeSeries, allNull bool, value float64) (bool, float64) {
+	var (
+		points = series.Points
+		first  float64
+		i      int
+	)
+	// get the newest point
+	for i = len(points) - 1; i >= 0; i-- {
+		if points[i].IsValid() {
+			allNull = false
+			first = points[i].Value()
+			break
+		}
+	}
+	if i >= 1 {
+		// get the oldest point
+		for i := 0; i < len(points); i++ {
+			if points[i].IsValid() {
+				allNull = false
+				value = first - points[i].Value()
+				break
+			}
+		}
+	}
+	return allNull, value
 }
 
 func NewAlertReducer(cond *monitor.Condition) (Reducer, error) {
