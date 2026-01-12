@@ -42,5 +42,8 @@ var system = SMeasurement{
 		{
 			"load15_pcore", "Loadavg load15 per cpu core", monitor.METRIC_UNIT_NULL,
 		},
+		{
+			"uptime", "System uptime", monitor.METRIC_UNIT_NULL,
+		},
 	},
 }

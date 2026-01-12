@@ -63,11 +63,11 @@ func (e *thresholdEvaluator) Eval(reducedValue *float64) bool {
 	val := *reducedValue
 	switch e.Type {
 	case "gt":
-		return val >= e.Threshold
+		return val > e.Threshold
 	case "eq":
 		return val == e.Threshold
 	case "lt":
-		return val <= e.Threshold
+		return val < e.Threshold
 	}
 
 	return false

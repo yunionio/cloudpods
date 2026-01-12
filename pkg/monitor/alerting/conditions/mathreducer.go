@@ -148,6 +148,8 @@ func (s *mathReducer) Reduce(series *monitor.TimeSeries) (*float64, []string) {
 		}
 	case "diff":
 		allNull, value = calculateDiff(series, allNull, value, diff)
+	case "delta":
+		allNull, value = calculateDelta(series, allNull, value)
 	case "percent_diff":
 		allNull, value = calculateDiff(series, allNull, value, percentDiff)
 	case "count_non_null":
