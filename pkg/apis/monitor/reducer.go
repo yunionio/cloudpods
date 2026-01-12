@@ -27,6 +27,7 @@ const (
 	REDUCER_LAST           ReducerType = "last"
 	REDUCER_MEDIAN         ReducerType = "median"
 	REDUCER_DIFF           ReducerType = "diff"
+	REDUCER_DELTA          ReducerType = "delta"
 	REDUCER_PERCENT_DIFF   ReducerType = "percent_diff"
 	REDUCER_COUNT_NON_NULL ReducerType = "count_non_null"
 	REDUCER_PERCENTILE     ReducerType = "percentile"
@@ -37,7 +38,7 @@ var ValidateReducerTypes = sets.NewString()
 func init() {
 	for _, rt := range []ReducerType{REDUCER_AVG, REDUCER_SUM, REDUCER_MIN,
 		REDUCER_MAX, REDUCER_COUNT, REDUCER_LAST, REDUCER_MEDIAN, REDUCER_DIFF,
-		REDUCER_PERCENT_DIFF, REDUCER_COUNT_NON_NULL, REDUCER_PERCENTILE} {
+		REDUCER_DELTA, REDUCER_PERCENT_DIFF, REDUCER_COUNT_NON_NULL, REDUCER_PERCENTILE} {
 		ValidateReducerTypes.Insert(string(rt))
 	}
 }

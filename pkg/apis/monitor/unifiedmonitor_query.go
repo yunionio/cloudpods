@@ -62,6 +62,7 @@ var (
 		"last":         "Latest value",
 		"median":       "median",
 		"diff":         "The difference between the latest value and the oldest value. The judgment basis value must be legal",
+		"delta":        "The signed difference between the latest value and the oldest value (can be positive or negative)",
 		"percent_diff": "The difference between the new value and the old value,based on the percentage of the old value",
 	}
 )
