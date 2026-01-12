@@ -6,7 +6,7 @@ const (
 
 const (
 	/* 未知 */
-	LLM_STATUS_UNKOWN = "unkown"
+	LLM_STATUS_UNKNOWN = "unknown"
 
 	/* 创建失败 */
 	LLM_STATUS_CREATE_FAIL = "create_fail"
@@ -35,6 +35,10 @@ const (
 
 	/* 删除 */
 	LLM_STATUS_DELETED = "deleted"
+
+	LLM_LLM_STATUS_UNKNOWN      = "unknown"
+	LLM_LLM_STATUS_NO_SERVER    = "no_server"
+	LLM_LLM_STATUS_NO_CONTAINER = "no_container"
 
 	LLM_STATUS_CREATING_POD             = "creating_pod"
 	LLM_STATUS_CREAT_POD_FAILED         = "creat_pod_failed"

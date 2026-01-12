@@ -250,12 +250,13 @@ func (llm *SLLM) PerformQuickModels(ctx context.Context, userCred mcclient.Token
 					errs = append(errs, errors.Wrap(err, "FetchByIdOrName"))
 				}
 			} else {
-				instApp := instModelObj.(*SInstantModel)
-				input.Models[i].Id = instApp.Id
-				input.Models[i].ModelId = instApp.ModelId
-				input.Models[i].Tag = instApp.ModelTag
+				instMdl := instModelObj.(*SInstantModel)
+				input.Models[i].Id = instMdl.Id
+				input.Models[i].ModelId = instMdl.ModelId
+				input.Models[i].Tag = instMdl.ModelTag
+				input.Models[i].LlmType = instMdl.LlmType
 				if input.Method == apis.QuickModelInstall {
-					toInstallSizeGb += float64(instApp.GetActualSizeMb()) * 1024 * 1024 / 1000 / 1000 / 1000
+					toInstallSizeGb += float64(instMdl.GetActualSizeMb()) * 1024 * 1024 / 1000 / 1000 / 1000
 				}
 			}
 		} else {
@@ -269,7 +270,11 @@ func (llm *SLLM) PerformQuickModels(ctx context.Context, userCred mcclient.Token
 				input.Models[i].Id = mdl.Id
 				input.Models[i].Tag = mdl.ModelTag
 				input.Models[i].ModelId = mdl.ModelId
+				input.Models[i].LlmType = mdl.LlmType
 			}
+		}
+		if !apis.IsLLMContainerType(input.Models[i].LlmType) || apis.LLMContainerType(input.Models[i].LlmType) != llm.GetLLMContainerDriver().GetType() {
+			errs = append(errs, errors.Wrapf(httperrors.ErrInvalidStatus, "model %s is not of type %s", input.Models[i].ModelId, llm.GetLLMContainerDriver().GetType()))
 		}
 	}
 	if len(errs) > 0 {
@@ -351,6 +356,22 @@ func (llm *SLLM) FetchModelsFullName(isProbed, isMounted *bool) ([]string, error
 func (llm *SLLM) FetchMountedModelFullName() ([]string, error) {
 	boolTrue := true
 	return llm.FetchModelsFullName(nil, &boolTrue)
+}
+
+func (llm *SLLM) FetchMountedModelInfo() ([]apis.MountedModelInfo, error) {
+	boolTrue := true
+	models, err := llm.FetchModels(nil, &boolTrue, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "FetchModels")
+	}
+	result := make([]apis.MountedModelInfo, len(models))
+	for idx, mdl := range models {
+		result[idx] = apis.MountedModelInfo{
+			FullName: mdl.ModelName + ":" + mdl.Tag,
+			Id:       mdl.ModelId,
+		}
+	}
+	return result, nil
 }
 
 func (llm *SLLM) RequestUnmountModel(ctx context.Context, userCred mcclient.TokenCredential, input apis.LLMSyncModelTaskInput) ([]string, []*commonapi.ContainerVolumeMountDiskPostOverlay, error) {
@@ -594,7 +615,7 @@ type mdlFullNameInfo struct {
 	IsMounted     bool
 }
 
-func (llm *SLLM) UpdateMountedModelFullNames(ctx context.Context, mdlinfos []string, isReset bool, imageId string, skuId string) error {
+func (llm *SLLM) UpdateMountedModelFullNames(ctx context.Context, userCred mcclient.TokenCredential, mdlinfos []string, isReset bool, imageId string, skuId string) error {
 	mdlFullNameInfos := make(map[string]*mdlFullNameInfo)
 	for i := range mdlinfos {
 		parts := strings.Split(mdlinfos[i], "@")
@@ -620,15 +641,19 @@ func (llm *SLLM) UpdateMountedModelFullNames(ctx context.Context, mdlinfos []str
 			}
 		}
 		for i := range sku.MountedModels {
-			parts := strings.Split(sku.MountedModels[i], "@")
-			if !isReset && slices.Contains(deletedModelIds, parts[0]) {
-				// if not reset, and the package is deleted, skip it
+			instMdl, err := GetInstantModelManager().FetchByIdOrName(ctx, userCred, sku.MountedModels[i])
+			if err != nil {
+				return errors.Wrap(err, "FetchByIdOrName")
+			}
+			instantModle := instMdl.(*SInstantModel)
+			if !isReset && slices.Contains(deletedModelIds, instantModle.ModelId) {
+				// if not reset, and the model is deleted, skip it
 				continue
 			}
-			if _, ok := mdlFullNameInfos[parts[0]]; !ok {
-				mdlFullNameInfos[parts[0]] = &mdlFullNameInfo{
-					ModelId:       parts[0],
-					ModelFullName: parts[1],
+			if _, ok := mdlFullNameInfos[instantModle.ModelId]; !ok {
+				mdlFullNameInfos[instantModle.ModelId] = &mdlFullNameInfo{
+					ModelId:       instantModle.ModelId,
+					ModelFullName: instantModle.ModelName + ":" + instantModle.ModelTag,
 					IsMounted:     false,
 				}
 			}

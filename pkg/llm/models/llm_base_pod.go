@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/util/seclib"
 
 	"yunion.io/x/onecloud/pkg/apis"
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
@@ -44,7 +45,7 @@ func GetLLMBasePodCreateInput(
 
 	data.VcpuCount = skuBase.Cpu
 	data.VmemSize = skuBase.Memory + 1
-	data.Name = input.Name
+	data.Name = input.Name + "-" + seclib.RandomPassword(6)
 
 	// disks
 	data.Disks = make([]*computeapi.DiskConfig, 0)
@@ -110,7 +111,7 @@ func GetLLMBasePodCreateInput(
 	}
 	bandwidth := llmBase.BandwidthMb
 	if bandwidth == 0 {
-		bandwidth = skuBase.BandwidthMb
+		bandwidth = skuBase.Bandwidth
 	}
 
 	network := &computeapi.NetworkConfig{
