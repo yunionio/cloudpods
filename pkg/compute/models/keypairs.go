@@ -289,11 +289,6 @@ func (self *SKeypair) ValidateDeleteCondition(ctx context.Context, info *api.Key
 	return self.SStandaloneResourceBase.ValidateDeleteCondition(ctx, nil)
 }
 
-func totalKeypairCount(userId string) (int, error) {
-	q := KeypairManager.Query().Equals("owner_id", userId)
-	return q.CountWithError()
-}
-
 func (manager *SKeypairManager) FilterByOwner(ctx context.Context, q *sqlchemy.SQuery, man db.FilterByOwnerProvider, userCred mcclient.TokenCredential, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	return db.SharableManagerFilterByOwner(ctx, manager.GetISharableVirtualModelManager(), q, userCred, owner, scope)
 }
