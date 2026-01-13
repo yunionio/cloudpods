@@ -20,10 +20,11 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
+	"yunion.io/x/onecloud/pkg/util/ctx"
 )
 
 func Update(model IModel, updateFunc func() error) (sqlchemy.UpdateDiffs, error) {
-	return model.GetModelManager().TableSpec().Update(context.Background(), model, updateFunc)
+	return model.GetModelManager().TableSpec().Update(ctx.CtxWithTime(), model, updateFunc)
 }
 
 func UpdateWithLock(ctx context.Context, model IModel, updateFunc func() error) (sqlchemy.UpdateDiffs, error) {

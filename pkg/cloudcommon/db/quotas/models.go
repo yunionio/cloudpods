@@ -29,6 +29,7 @@ import (
 	identityapi "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/ctx"
 )
 
 type SQuotaBaseManager struct {
@@ -284,7 +285,7 @@ func (manager *SQuotaBaseManager) InitializeData() error {
 		if !reflectutils.FillEmbededStructValue(reflect.Indirect(reflect.ValueOf(quota)), reflect.ValueOf(baseKeys)) {
 			log.Fatalf("invalid quota??? fail to find SBaseQuotaKey")
 		}
-		err := metaQuota.GetQuota(context.Background(), scope, ownerId, quota)
+		err := metaQuota.GetQuota(ctx.CtxWithTime(), scope, ownerId, quota)
 		if err != nil && err != sql.ErrNoRows {
 			log.Errorf("metaQuota.GetQuota error %s for %s", err, ownerId)
 			continue
@@ -292,7 +293,7 @@ func (manager *SQuotaBaseManager) InitializeData() error {
 		if quota.IsEmpty() {
 			quota.FetchSystemQuota()
 		}
-		err = manager.TableSpec().Insert(context.Background(), quota)
+		err = manager.TableSpec().Insert(ctx.CtxWithTime(), quota)
 		if err != nil {
 			log.Errorf("%s insert error %s", manager.KeywordPlural(), err)
 			continue
