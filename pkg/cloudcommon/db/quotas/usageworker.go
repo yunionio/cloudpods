@@ -27,6 +27,7 @@ import (
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/ctx"
 )
 
 var (
@@ -69,7 +70,7 @@ type quotaTask struct {
 }
 
 func (t *quotaTask) Run() {
-	ctx := context.WithValue(context.Background(), "task", t)
+	ctx := context.WithValue(ctx.CtxWithTime(), "task", t)
 
 	usage := t.manager.newQuota()
 
