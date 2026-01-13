@@ -637,9 +637,10 @@ func (app *Application) listenAndServeInternal(s *http.Server, certFile, keyFile
 type TContentType string
 
 const (
-	ContentTypeJson    = TContentType("Json")
-	ContentTypeForm    = TContentType("Form")
-	ContentTypeUnknown = TContentType("Unknown")
+	ContentTypeJson        = TContentType("Json")
+	ContentTypeForm        = TContentType("Form")
+	ContentTypeOctetStream = TContentType("OctetStream")
+	ContentTypeUnknown     = TContentType("Unknown")
 )
 
 func getContentType(r *http.Request) TContentType {
@@ -655,6 +656,7 @@ func getContentType(r *http.Request) TContentType {
 	for k, v := range map[string]TContentType{
 		"application/json":                  ContentTypeJson,
 		"application/x-www-form-urlencoded": ContentTypeForm,
+		"application/octet-stream":          ContentTypeOctetStream,
 	} {
 		if strings.HasPrefix(contType, k) {
 			return v
@@ -670,7 +672,6 @@ func FetchEnv(ctx context.Context, w http.ResponseWriter, r *http.Request) (para
 	if err != nil {
 		log.Errorf("Parse query string %s failed: %v", r.URL.RawQuery, err)
 	}
-	//var body jsonutils.JSONObject = nil
 	if r.Method == "PUT" || r.Method == "POST" || r.Method == "DELETE" || r.Method == "PATCH" {
 		switch getContentType(r) {
 		case ContentTypeJson:
@@ -689,6 +690,7 @@ func FetchEnv(ctx context.Context, w http.ResponseWriter, r *http.Request) (para
 			if err != nil {
 				log.Warningf("Parse query string %s failed: %v", r.PostForm.Encode(), err)
 			}
+		case ContentTypeOctetStream:
 		default:
 			log.Warningf("%s invalid contentType with header %v", r.URL.String(), r.Header)
 		}
