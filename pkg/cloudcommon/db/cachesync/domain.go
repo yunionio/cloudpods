@@ -27,6 +27,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/identity"
+	"yunion.io/x/onecloud/pkg/util/ctx"
 )
 
 type domainCacheSyncWorker struct {
@@ -35,7 +36,7 @@ type domainCacheSyncWorker struct {
 
 func (w *domainCacheSyncWorker) Run() {
 	log.Debugf("[domainCacheSyncWorker] Run domain cache sync worker ...")
-	err := syncDomains(context.Background(), w.ids)
+	err := syncDomains(ctx.CtxWithTime(), w.ids)
 	if err != nil {
 		log.Errorf("fail to syncDomains %s", err)
 	}

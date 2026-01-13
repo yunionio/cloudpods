@@ -50,6 +50,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/yunionconf"
+	"yunion.io/x/onecloud/pkg/util/ctx"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
@@ -1440,7 +1441,7 @@ func (manager *STaskManager) migrateObjectInfo() error {
 		taskObj.ProjectId = task.ProjectId
 		taskObj.SetModelManager(TaskObjectManager, &taskObj)
 
-		err = TaskObjectManager.TableSpec().Insert(context.Background(), &taskObj)
+		err = TaskObjectManager.TableSpec().Insert(ctx.CtxWithTime(), &taskObj)
 		if err != nil {
 			return errors.Wrap(err, "Insert taskObject")
 		}
