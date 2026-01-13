@@ -219,7 +219,7 @@ func SharableManagerFilterByOwner(ctx context.Context, manager IStandaloneModelM
 		resScope := manager.ResourceScope()
 		if resScope == rbacscope.ScopeUser {
 			targetProjectId := owner.GetProjectId()
-			if len(targetProjectId) == 0 {
+			if len(targetProjectId) == 0 && userCred != nil {
 				targetProjectId = userCred.GetProjectId()
 			}
 			subq := SharedResourceManager.Query("resource_id")
