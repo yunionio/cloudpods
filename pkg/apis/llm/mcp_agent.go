@@ -78,11 +78,8 @@ type MCPAgentUpdateInput struct {
 type MCPAgentDetails struct {
 	apis.SharableVirtualResourceDetails
 
-	LLMUrl    string `json:"llm_url"`
-	LLMDriver string `json:"llm_driver"`
-	Model     string `json:"model"`
-	ApiKey    string `json:"api_key"`
-	McpServer string `json:"mcp_server"`
+	LLMId   string `json:"llm_id"`
+	LLMName string `json:"llm_name"`
 }
 
 type LLMToolRequestInput struct {
