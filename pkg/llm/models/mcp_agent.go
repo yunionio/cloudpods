@@ -53,6 +53,9 @@ type SMCPAgentManager struct {
 type SMCPAgent struct {
 	db.SSharableVirtualResourceBase
 
+	// LLMId 关联的 LLM 实例 ID
+	LLMId string `width:"128" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
+
 	// LLMUrl 对应后端大模型的 base 请求地址
 	LLMUrl string `width:"512" charset:"utf8" nullable:"false" list:"user" create:"required" update:"user"`
 	// LLMDriver 对应使用的大模型驱动（llm_client），现在可以被设置为 ollama 或 openai
@@ -90,6 +93,7 @@ func (man *SMCPAgentManager) ValidateCreateData(ctx context.Context, userCred mc
 			return input, errors.Wrapf(err, "fetch LLM by id %s", input.LLMId)
 		}
 		llm := llmObj.(*SLLM)
+		input.LLMId = llm.Id
 		llmUrl, err := llm.GetLLMUrl(ctx, userCred)
 		if err != nil {
 			return input, errors.Wrapf(err, "get LLM URL from LLM %s", input.LLMId)
@@ -100,7 +104,9 @@ func (man *SMCPAgentManager) ValidateCreateData(ctx context.Context, userCred mc
 		if err != nil {
 			return input, errors.Wrapf(err, "get LLM Sku from LLM %s", input.LLMId)
 		}
-		input.Model = sku.LLMModelName
+		if len(input.Model) == 0 {
+			input.Model = sku.LLMModelName
+		}
 	}
 
 	// 验证 llm_url 不为空
@@ -202,14 +208,29 @@ func (manager *SMCPAgentManager) FetchCustomizeColumns(
 	agents := []SMCPAgent{}
 	jsonutils.Update(&agents, objs)
 
+	llmIds := make([]string, 0)
+	for i := range agents {
+		if len(agents[i].LLMId) > 0 {
+			llmIds = append(llmIds, agents[i].LLMId)
+		}
+	}
+
+	var llmIdNameMap map[string]string
+	if len(llmIds) > 0 {
+		var err error
+		llmIdNameMap, err = db.FetchIdNameMap2(GetLLMManager(), llmIds)
+		if err != nil {
+			log.Errorf("FetchIdNameMap2 for LLMs failed: %v", err)
+		}
+	}
+
 	for i := range rows {
 		rows[i].SharableVirtualResourceDetails = vrows[i]
 		if i < len(agents) {
-			rows[i].LLMUrl = agents[i].LLMUrl
-			rows[i].LLMDriver = agents[i].LLMDriver
-			rows[i].Model = agents[i].Model
-			rows[i].ApiKey = agents[i].ApiKey
-			rows[i].McpServer = agents[i].McpServer
+			rows[i].LLMId = agents[i].LLMId
+			if name, ok := llmIdNameMap[agents[i].LLMId]; ok {
+				rows[i].LLMName = name
+			}
 		}
 	}
 
