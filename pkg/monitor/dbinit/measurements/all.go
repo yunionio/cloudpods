@@ -109,6 +109,7 @@ var All = []SMeasurement{
 	redisKeyspace,
 
 	sensors,
+	ipmiSensor,
 
 	smartctl,
 
