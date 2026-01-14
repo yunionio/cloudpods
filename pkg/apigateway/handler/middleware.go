@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/appctx"
 	"yunion.io/x/pkg/errors"
 
@@ -95,10 +96,12 @@ func fetchAuthInfo(ctx context.Context, r *http.Request) (mcclient.TokenCredenti
 		var err error
 		authToken, err = clientman.Decode(auth)
 		if err != nil {
+			log.Errorf("clientman.Decode auth token fail: %v", err)
 			return nil, nil, errors.Wrap(httperrors.ErrInputParameter, "clientman.Decode auth token fail")
 		}
 		token, err = authToken.GetToken(ctx)
 		if err != nil {
+			log.Errorf("authToken.GetToken fail: %v", err)
 			return nil, nil, errors.Wrap(httperrors.ErrInputParameter, "authToken.GetToken fail")
 		}
 	}
