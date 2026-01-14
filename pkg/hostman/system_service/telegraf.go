@@ -295,6 +295,7 @@ func (s *STelegraf) GetConfig(kwargs map[string]interface{}) string {
 	conf += "[[inputs.http_listener_v2]]\n"
 	conf += "  service_address = \"localhost:8087\"\n"
 	conf += "  path = \"/write\"\n"
+	conf += "  paths = [\"/write\"]\n" // Compatible with telegraf v1.36
 	conf += "  data_source = \"body\"\n"
 	conf += "  data_format = \"influx\"\n"
 	conf += "\n"
@@ -338,6 +339,14 @@ func (s *STelegraf) GetConfig(kwargs map[string]interface{}) string {
 
 	if _, ok := kwargs[TELEGRAF_INPUT_NVIDIASMI]; ok {
 		conf += "[[inputs.nvidia_smi]]\n"
+		conf += "\n"
+	}
+
+	// 检查 IPMI 设备文件是否存在
+	if hasIPMIDevice() {
+		conf += "[[inputs.ipmi_sensor]]\n"
+		conf += "  metric_version = 2\n"
+		conf += "  sensors = [\"sdr\"]\n"
 		conf += "\n"
 	}
 
@@ -424,4 +433,19 @@ func (s *STelegraf) reloadTelegrafByHTTP() error {
 		return errors.Wrap(err, "reload telegraf by http reload api")
 	}
 	return nil
+}
+
+// hasIPMIDevice 检查 IPMI 设备文件是否存在
+func hasIPMIDevice() bool {
+	ipmiDevices := []string{
+		"/dev/ipmi0",
+		"/dev/ipmi/0",
+		"/dev/ipmidev/0",
+	}
+	for _, device := range ipmiDevices {
+		if _, err := os.Stat(device); err == nil {
+			return true
+		}
+	}
+	return false
 }
