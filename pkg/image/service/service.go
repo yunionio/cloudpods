@@ -29,6 +29,7 @@ import (
 	_ "yunion.io/x/sqlchemy/backends"
 
 	api "yunion.io/x/onecloud/pkg/apis/image"
+	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon"
 	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
 	"yunion.io/x/onecloud/pkg/cloudcommon/cronman"
@@ -130,7 +131,7 @@ func StartService() {
 	}
 
 	if !opts.IsSlaveNode {
-		startMasterTasks(opts)
+		startMasterTasks(app, opts)
 	}
 
 	app_common.ServeForeverWithCleanup(app, baseOpts, func() {
@@ -147,7 +148,7 @@ func StartService() {
 	})
 }
 
-func startMasterTasks(opts *options.SImageOptions) {
+func startMasterTasks(app *appsrv.Application, opts *options.SImageOptions) {
 	log.Infof("Target image formats %#v", opts.TargetImageFormats)
 
 	if ok, err := hasVmwareAccount(); err != nil {
@@ -167,7 +168,7 @@ func startMasterTasks(opts *options.SImageOptions) {
 			initS3()
 		}
 		// check image after s3 mounted
-		models.CheckImages()
+		models.CheckImages(app.GetContext())
 	}()
 
 	err := taskman.TaskManager.InitializeData()
