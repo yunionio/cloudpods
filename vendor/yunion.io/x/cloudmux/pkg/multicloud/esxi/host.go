@@ -941,7 +941,7 @@ func (host *SHost) addDisks(ctx context.Context, ds *SDatastore, disks []SDiskIn
 			}
 			newImagePath := fmt.Sprintf("[%s] %s/%s.vmdk", ds.GetRelName(), uuid, uuid)
 
-			err = host.copyVirtualDisk(imagePath, newImagePath, disk.Driver)
+			err = host.copyVirtualDisk(imagePath, newImagePath, disk.Driver, disk.Preallocation)
 			if err != nil {
 				return nil, err
 			}
@@ -986,7 +986,7 @@ func (host *SHost) addDisks(ctx context.Context, ds *SDatastore, disks []SDiskIn
 		if err != nil {
 			return nil, errors.Wrapf(err, "getDatastoreObj")
 		}
-		log.Debugf("ds: %s, size: %d, image path: %s, uuid: %s, index: %d, ctrlKey: %d, driver: %s, key: %d.", vds.String(), size, imagePath, uuid, unitNumber, ctrlKey, disk.Driver, 2000+i)
+		log.Debugf("ds: %s, size: %d, image path: %s, uuid: %s, index: %d, preallocation: %s, ctrlKey: %d, driver: %s, key: %d.", vds.String(), size, imagePath, uuid, unitNumber, disk.Preallocation, ctrlKey, disk.Driver, 2000+i)
 		diskDev, err := NewDiskDev(ctx, size, SDiskConfig{
 			SizeMb:        size,
 			Uuid:          uuid,
@@ -1035,10 +1035,10 @@ func (host *SHost) addDisks(ctx context.Context, ds *SDatastore, disks []SDiskIn
 	return evm, nil
 }
 
-func (host *SHost) copyVirtualDisk(srcPath, dstPath, diskDriver string) error {
+func (host *SHost) copyVirtualDisk(srcPath, dstPath, diskDriver, preallocation string) error {
 	dm := object.NewVirtualDiskManager(host.manager.client.Client)
 	spec := &types.VirtualDiskSpec{
-		DiskType: "thin",
+		DiskType: string(types.VirtualDiskTypeThin),
 	}
 	switch diskDriver {
 	case "", "scsi", "pvscsi":
@@ -1065,6 +1065,22 @@ func (host *SHost) copyVirtualDisk(srcPath, dstPath, diskDriver string) error {
 	err = task.Wait(host.manager.context)
 	if err != nil {
 		return errors.Wrap(err, "wait CopyVirtualDiskTask")
+	}
+	if preallocation == api.DISK_PREALLOCATION_FULL || preallocation == api.DISK_PREALLOCATION_FALLOC {
+		err = func() error {
+			task, err = dm.InflateVirtualDisk(host.manager.context, dstPath, host.datacenter.getDcObj())
+			if err != nil {
+				return errors.Wrap(err, "unable to InflateVirtualDisk")
+			}
+			err = task.Wait(host.manager.context)
+			if err != nil {
+				return errors.Wrap(err, "wait InflateVirtualDiskTask")
+			}
+			return nil
+		}()
+		if err != nil {
+			log.Errorf("inflate disk %s failed: %s", dstPath, err)
+		}
 	}
 	return nil
 }
