@@ -267,7 +267,7 @@ func (region *SRegion) CreateEip(opts *cloudprovider.SEip) (*SEip, error) {
 	params := map[string]interface{}{
 		"LineId":     lineId,
 		"BandWidth":  fmt.Sprintf("%d", opts.BandwidthMbps),
-		"ChargeType": "DailyPaidByTransfer",
+		"ChargeType": "TrafficMonthly",
 	}
 	if opts.ChargeType == api.EIP_CHARGE_TYPE_BY_BANDWIDTH {
 		params["ChargeType"] = "Monthlys"
