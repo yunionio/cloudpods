@@ -122,6 +122,10 @@ func (manager *SSecurityGroupRuleManager) FilterById(q *sqlchemy.SQuery, idStr s
 	return q.Equals("id", idStr)
 }
 
+func (manager *SSecurityGroupRuleManager) FilterByName(q *sqlchemy.SQuery, idStr string) *sqlchemy.SQuery {
+	return q.Equals("id", idStr)
+}
+
 // 安全组规则列表
 func (manager *SSecurityGroupRuleManager) ListItemFilter(
 	ctx context.Context,

@@ -169,6 +169,9 @@ func (self *SOracleClient) GetRegions() ([]SRegion, error) {
 	if err != nil {
 		return nil, err
 	}
+	for i := range self.regions {
+		self.regions[i].client = self
+	}
 	return self.regions, nil
 }
 
