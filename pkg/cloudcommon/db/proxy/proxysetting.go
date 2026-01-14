@@ -34,6 +34,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/ctx"
 )
 
 type SProxySettingManager struct {
@@ -224,7 +225,7 @@ func (man *SProxySettingManager) InitializeData() error {
 	ps.Description = "Connect directly"
 	ps.IsPublic = true
 	ps.PublicScope = string(rbacscope.ScopeSystem)
-	if err := man.TableSpec().Insert(context.Background(), ps); err != nil {
+	if err := man.TableSpec().Insert(ctx.CtxWithTime(), ps); err != nil {
 		return err
 	}
 	return nil

@@ -144,7 +144,7 @@ func StartService() {
 			initS3()
 		}
 		// check image after s3 mounted
-		models.CheckImages()
+		models.CheckImages(app.GetContext())
 	}()
 
 	if !opts.IsSlaveNode {

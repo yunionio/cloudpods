@@ -36,6 +36,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/ctx"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -199,7 +200,7 @@ func (manager *SOpsLogManager) LogEvent(model IModel, action string, notes inter
 }
 
 func (opslog *SOpsLog) Run() {
-	err := OpsLog.TableSpec().Insert(context.Background(), opslog)
+	err := OpsLog.TableSpec().Insert(ctx.CtxWithTime(), opslog)
 	if err != nil {
 		log.Errorf("fail to insert opslog: %s", err)
 	}

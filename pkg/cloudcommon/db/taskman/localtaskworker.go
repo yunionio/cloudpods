@@ -15,7 +15,6 @@
 package taskman
 
 import (
-	"context"
 	"fmt"
 	"runtime/debug"
 
@@ -26,6 +25,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/yunionconf"
+	"yunion.io/x/onecloud/pkg/util/ctx"
 )
 
 var localTaskWorkerMan *appsrv.SWorkerManager
@@ -52,7 +52,7 @@ func (t *localTask) Run() {
 
 	defer func() {
 		if r := recover(); r != nil {
-			yunionconf.BugReport.SendBugReport(context.Background(), version.GetShortString(), string(debug.Stack()), errors.Errorf("%s", r))
+			yunionconf.BugReport.SendBugReport(ctx.CtxWithTime(), version.GetShortString(), string(debug.Stack()), errors.Errorf("%s", r))
 			log.Errorf("LocalTaskRun error: %s", r)
 			debug.PrintStack()
 			t.task.ScheduleRun(Error2TaskData(fmt.Errorf("LocalTaskRun error: %s stack: %s", r, string(debug.Stack()))))
