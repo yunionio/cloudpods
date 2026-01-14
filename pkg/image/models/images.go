@@ -870,8 +870,7 @@ func (self *SImage) StartImageCheckTask(ctx context.Context, userCred mcclient.T
 	if err != nil {
 		return err
 	}
-	task.ScheduleRun(nil)
-	return nil
+	return task.ScheduleRun(nil)
 }
 
 func (self *SImage) StartPutImageTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
@@ -879,8 +878,7 @@ func (self *SImage) StartPutImageTask(ctx context.Context, userCred mcclient.Tok
 	if err != nil {
 		return err
 	}
-	task.ScheduleRun(nil)
-	return nil
+	return task.ScheduleRun(nil)
 }
 
 func (self *SImage) PerformCancelDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -1262,8 +1260,7 @@ func (manager *SImageManager) getAllAliveImages() []SImage {
 	return images
 }
 
-func CheckImages() {
-	ctx := context.WithValue(context.TODO(), "checkimage", 1)
+func CheckImages(ctx context.Context) {
 	images := ImageManager.getAllAliveImages()
 	for i := 0; i < len(images); i += 1 {
 		log.Debugf("convert image subformats %s", images[i].Name)
