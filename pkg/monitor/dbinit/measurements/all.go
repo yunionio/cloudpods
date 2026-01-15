@@ -98,4 +98,6 @@ var All = []SMeasurement{
 	swap,
 
 	temp,
+
+	hostRaid,
 }
