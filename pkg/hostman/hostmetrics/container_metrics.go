@@ -686,10 +686,22 @@ func (m *SGuestMonitor) getCadvisorDiskIoMetrics(cur stats.DiskIoStats, prev map
 		if diffTime > 0 && prev != nil {
 			prevStat, ok := prev[devName]
 			if ok {
-				devR.ReadBPS = float64(stat.ReadBytes-prevStat.ReadBytes) / diffTime
-				devR.WriteBPS = float64(stat.WriteBytes-prevStat.WriteBytes) / diffTime
-				devR.ReadIOPS = float64(stat.ReadCount-prevStat.ReadCount) / diffTime
-				devR.WriteIOPS = float64(stat.WriteCount-prevStat.WriteCount) / diffTime
+				// 检查计数器是否回退（可能是容器重启导致）
+				if stat.ReadCount < prevStat.ReadCount || stat.WriteCount < prevStat.WriteCount ||
+					stat.ReadBytes < prevStat.ReadBytes || stat.WriteBytes < prevStat.WriteBytes {
+					log.Warningf("Disk IO counters decreased: guest=%s(%s), device=%s, ReadCount %d -> %d, WriteCount %d -> %d, ReadBytes %d -> %d, WriteBytes %d -> %d. Possible container restart, skipping rate calculation.",
+						m.Name, m.Id, devName,
+						prevStat.ReadCount, stat.ReadCount,
+						prevStat.WriteCount, stat.WriteCount,
+						prevStat.ReadBytes, stat.ReadBytes,
+						prevStat.WriteBytes, stat.WriteBytes)
+					// 跳过计算，避免产生负值
+				} else {
+					devR.ReadBPS = float64(stat.ReadBytes-prevStat.ReadBytes) / diffTime
+					devR.WriteBPS = float64(stat.WriteBytes-prevStat.WriteBytes) / diffTime
+					devR.ReadIOPS = float64(stat.ReadCount-prevStat.ReadCount) / diffTime
+					devR.WriteIOPS = float64(stat.WriteCount-prevStat.WriteCount) / diffTime
+				}
 			}
 		}
 		ret[devName] = devR
