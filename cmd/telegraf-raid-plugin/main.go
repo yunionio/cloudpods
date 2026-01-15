@@ -164,19 +164,32 @@ func (c *RaidInfoCollector) toTelegrafReportData(raidDiskInfo []*baremetal.Barem
 	tag := fmt.Sprintf("%s=%s,%s=%s", "hostname", c.Hostname, "host_ip", c.HostIp)
 	ret := []string{}
 	for i := 0; i < len(raidDiskInfo); i++ {
-		statArr := []string{}
+		fieldArr := []string{}
+		tagArr := []string{}
 		raidDiskInfo[i].Status = strings.ToLower(raidDiskInfo[i].Status)
 		jStat := jsonutils.Marshal(raidDiskInfo[i])
 		jMap, _ := jStat.GetMap()
 		for k, v := range jMap {
-			statArr = append(statArr, fmt.Sprintf("%s=%s", k, v.String()))
+			vStr, _ := v.GetString()
+			if vStr == "" {
+				continue
+			}
+			vStr = strings.ReplaceAll(vStr, " ", "\\ ")
+			kv := fmt.Sprintf("%s=%s", k, vStr)
+			switch k {
+			case "adapter", "slot":
+				fieldArr = append(fieldArr, kv)
+			case "model", "driver", "status":
+				tagArr = append(tagArr, kv)
+			case "index":
+				continue
+			default:
+				tagArr = append(tagArr, kv)
+			}
 		}
-		stat := strings.Join(statArr, ",")
-		diskTag := fmt.Sprintf(
-			"%s,%s=%s,%s=%d,%s=%d", tag, "driver", raidDiskInfo[i].Driver,
-			"adapter", raidDiskInfo[i].Adapter, "slot", raidDiskInfo[i].Slot,
-		)
-		line := fmt.Sprintf("%s,%s %s", MEASUREMENT, diskTag, stat)
+		field := strings.Join(fieldArr, ",")
+		diskTag := tag + "," + strings.Join(tagArr, ",")
+		line := fmt.Sprintf("%s,%s %s", MEASUREMENT, diskTag, field)
 		ret = append(ret, line)
 	}
 	return strings.Join(ret, "\n")
@@ -185,7 +198,7 @@ func (c *RaidInfoCollector) toTelegrafReportData(raidDiskInfo []*baremetal.Barem
 func (c *RaidInfoCollector) reportRaidInfoToTelegraf(data string) {
 	body := strings.NewReader(data)
 	res, err := httputils.Request(
-		httputils.GetDefaultClient(), context.Background(), "POST", TelegrafServer, nil, body, false)
+		httputils.GetDefaultClient(), context.Background(), "POST", TelegrafServer, nil, body, true)
 	if err != nil {
 		log.Errorf("Upload guest metric failed: %s", err)
 		return

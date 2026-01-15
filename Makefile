@@ -323,7 +323,7 @@ image:
 .PHONY: image
 
 image-telegraf-raid-plugin:
-	VERSION=release-1.6.6 GOOS=linux ARCH=all make image telegraf-raid-plugin
+	VERSION=v4.0-20260115.0 GOOS=linux ARCH=all make image telegraf-raid-plugin
 
 %:
 	@:
