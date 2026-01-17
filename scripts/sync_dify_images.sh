@@ -51,7 +51,7 @@ for image in "${IMAGES[@]}"; do
   echo "  Target: ${DST}"
   echo
 
-  skopeo copy "${SRC}" "${DST}"
+  skopeo copy --override-os linux --override-arch amd64 "${SRC}" "${DST}"
 
   echo "Completed: ${short_name}:${tag}"
 done

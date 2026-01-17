@@ -64,6 +64,8 @@ type InstantModelDetails struct {
 	IconBase64 string `json:"icon_base64"`
 
 	MountedByLLMs []MountedByLLMInfo `json:"mounted_by_llms"`
+
+	GPUMemoryRequired int64 `json:"gpu_memory_required"`
 }
 
 type MountedByLLMInfo struct {
