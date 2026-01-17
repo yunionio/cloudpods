@@ -17,6 +17,8 @@ func (o *LLMImageShowOptions) Params() (jsonutils.JSONObject, error) {
 
 type LLMImageListOptions struct {
 	options.BaseListOptions
+
+	LLMType string `json:"llm_type" choices:"ollama|dify" help:"filter by llm type"`
 }
 
 func (o *LLMImageListOptions) Params() (jsonutils.JSONObject, error) {
@@ -25,9 +27,10 @@ func (o *LLMImageListOptions) Params() (jsonutils.JSONObject, error) {
 
 type LLMImageCreateOptions struct {
 	apis.SharableVirtualResourceCreateInput
-	IMAGE_NAME   string
-	IMAGE_LABEL  string
-	CredentialId string
+	IMAGE_NAME   string `json:"image_name"`
+	IMAGE_LABEL  string `json:"image_label"`
+	CredentialId string `json:"credential_id"`
+	LLM_TYPE     string `json:"llm_type" choices:"ollama|dify" help:"llm type: ollama or dify"`
 }
 
 func (o *LLMImageCreateOptions) Params() (jsonutils.JSONObject, error) {
@@ -35,12 +38,13 @@ func (o *LLMImageCreateOptions) Params() (jsonutils.JSONObject, error) {
 }
 
 type LLMImageUpdateOptions struct {
-	apis.SharableVirtualResourceCreateInput
+	apis.SharableVirtualResourceBaseUpdateInput
 
 	ID           string
-	IMAGE_NAME   string
-	IMAGE_LABEL  string
-	CredentialId string
+	ImageName    string `json:"image_name"`
+	ImageLabel   string `json:"image_label"`
+	CredentialId string `json:"credential_id"`
+	LlmType      string `json:"llm_type" choices:"ollama|dify" help:"llm type: ollama or dify"`
 }
 
 func (o *LLMImageUpdateOptions) GetId() string {
