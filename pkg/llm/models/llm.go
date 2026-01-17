@@ -140,6 +140,7 @@ func (man *SLLMManager) FetchCustomizeColumns(
 	skuIds := make([]string, len(llms))
 	imgIds := make([]string, len(llms))
 	serverIds := []string{}
+	networkIds := []string{}
 	for idx, llm := range llms {
 		ids[idx] = llm.Id
 		skuIds[idx] = llm.LLMSkuId
@@ -147,8 +148,13 @@ func (man *SLLMManager) FetchCustomizeColumns(
 		if !utils.IsInArray(llm.SvrId, serverIds) {
 			serverIds = append(serverIds, llm.SvrId)
 		}
+		if len(llm.NetworkId) > 0 {
+			networkIds = append(networkIds, llm.NetworkId)
+		}
 		mountedModelInfo, _ := llm.FetchMountedModelInfo()
 		res[idx].MountedModels = mountedModelInfo
+		res[idx].NetworkType = llm.NetworkType
+		res[idx].NetworkId = llm.NetworkId
 	}
 
 	// fetch volume
@@ -203,6 +209,20 @@ func (man *SLLMManager) FetchCustomizeColumns(
 		}
 	} else {
 		log.Errorf("FetchModelObjectsByIds GetLLMImageManager fail %s", err)
+	}
+
+	// fetch network
+	if len(networkIds) > 0 {
+		networks, err := fetchNetworks(ctx, userCred, networkIds)
+		if err == nil {
+			for i, llm := range llms {
+				if net, ok := networks[llm.NetworkId]; ok {
+					res[i].Network = net.Name
+				}
+			}
+		} else {
+			log.Errorf("fail to retrieve network info %s", err)
+		}
 	}
 
 	// fetch host
@@ -525,4 +545,26 @@ func (llm *SLLM) StartSyncStatusTask(ctx context.Context, userCred mcclient.Toke
 
 func (llm *SLLM) GetLLMUrl(ctx context.Context, userCred mcclient.TokenCredential) (string, error) {
 	return llm.GetLLMContainerDriver().GetLLMUrl(ctx, userCred, llm)
+}
+
+func fetchNetworks(ctx context.Context, userCred mcclient.TokenCredential, networkIds []string) (map[string]computeapi.NetworkDetails, error) {
+	s := auth.GetSession(ctx, userCred, "")
+	params := computeoptions.ServerListOptions{}
+	params.Id = networkIds
+	limit := len(networkIds)
+	params.Limit = &limit
+	params.Scope = "maxallowed"
+	results, err := compute.Networks.List(s, jsonutils.Marshal(params))
+	if err != nil {
+		return nil, errors.Wrap(err, "Networks.List")
+	}
+	networks := make(map[string]computeapi.NetworkDetails)
+	for i := range results.Data {
+		net := computeapi.NetworkDetails{}
+		err := results.Data[i].Unmarshal(&net)
+		if err == nil {
+			networks[net.Id] = net
+		}
+	}
+	return networks, nil
 }

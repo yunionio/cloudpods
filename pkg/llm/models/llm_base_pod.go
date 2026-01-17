@@ -116,13 +116,13 @@ func GetLLMBasePodCreateInput(
 
 	network := &computeapi.NetworkConfig{
 		BwLimit: bandwidth,
-		NetType: computeapi.TNetworkType(skuBase.NetworkType),
+		NetType: computeapi.TNetworkType(llmBase.NetworkType),
 	}
-	if skuBase.NetworkType == string(computeapi.NETWORK_TYPE_HOSTLOCAL) {
+	if llmBase.NetworkType == string(computeapi.NETWORK_TYPE_HOSTLOCAL) {
 		network.PortMappings = portMappings
 	}
-	if len(skuBase.NetworkId) > 0 {
-		network.Network = skuBase.NetworkId
+	if len(llmBase.NetworkId) > 0 {
+		network.Network = llmBase.NetworkId
 	}
 
 	data.Networks = []*computeapi.NetworkConfig{

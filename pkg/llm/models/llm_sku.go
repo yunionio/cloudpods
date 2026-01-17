@@ -9,7 +9,6 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
 
-	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	imageapi "yunion.io/x/onecloud/pkg/apis/image"
 	api "yunion.io/x/onecloud/pkg/apis/llm"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -17,7 +16,6 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	computemodules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	imagemodules "yunion.io/x/onecloud/pkg/mcclient/modules/image"
 	mcclientoptions "yunion.io/x/onecloud/pkg/mcclient/options"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
@@ -91,7 +89,6 @@ func (manager *SLLMSkuManager) FetchCustomizeColumns(
 	skuIds := []string{}
 	imageIds := []string{}
 	templateIds := []string{}
-	networkIds := []string{}
 
 	skus := []SLLMSku{}
 	jsonutils.Update(&skus, objs)
@@ -101,9 +98,6 @@ func (manager *SLLMSkuManager) FetchCustomizeColumns(
 		imageIds = append(imageIds, sku.LLMImageId)
 		if sku.Volumes != nil && len(*sku.Volumes) > 0 && len((*sku.Volumes)[0].TemplateId) > 0 {
 			templateIds = append(templateIds, (*sku.Volumes)[0].TemplateId)
-		}
-		if len(sku.NetworkId) > 0 {
-			networkIds = append(networkIds, sku.NetworkId)
 		}
 	}
 
@@ -151,19 +145,6 @@ func (manager *SLLMSkuManager) FetchCustomizeColumns(
 			}
 		} else {
 			log.Errorf("fail to retrive image info %s", err)
-		}
-	}
-
-	if len(networkIds) > 0 {
-		networks, err := fetchNetworks(ctx, userCred, networkIds)
-		if err == nil {
-			for i, sku := range skus {
-				if net, ok := networks[sku.NetworkId]; ok {
-					res[i].Network = net.Name
-				}
-			}
-		} else {
-			log.Errorf("fail to retrieve network info %s", err)
 		}
 	}
 
@@ -256,26 +237,4 @@ func fetchTemplates(ctx context.Context, userCred mcclient.TokenCredential, temp
 		}
 	}
 	return templates, nil
-}
-
-func fetchNetworks(ctx context.Context, userCred mcclient.TokenCredential, networkIds []string) (map[string]computeapi.NetworkDetails, error) {
-	s := auth.GetSession(ctx, userCred, "")
-	params := mcclientoptions.BaseListOptions{}
-	params.Id = networkIds
-	limit := len(networkIds)
-	params.Limit = &limit
-	params.Scope = "maxallowed"
-	results, err := computemodules.Networks.List(s, jsonutils.Marshal(params))
-	if err != nil {
-		return nil, errors.Wrap(err, "Networks.List")
-	}
-	networks := make(map[string]computeapi.NetworkDetails)
-	for i := range results.Data {
-		net := computeapi.NetworkDetails{}
-		err := results.Data[i].Unmarshal(&net)
-		if err == nil {
-			networks[net.Id] = net
-		}
-	}
-	return networks, nil
 }
