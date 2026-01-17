@@ -3,6 +3,7 @@ package models
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
@@ -11,6 +12,7 @@ import (
 	identityapi "yunion.io/x/onecloud/pkg/apis/identity"
 	api "yunion.io/x/onecloud/pkg/apis/llm"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/llm/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
@@ -50,6 +52,7 @@ type SLLMImage struct {
 	ImageLabel string `width:"64" charset:"utf8" nullable:"false" list:"user" create:"admin_optional" update:"user"`
 
 	CredentialId string `width:"128" charset:"utf8" nullable:"true" list:"user" create:"admin_optional" update:"user"`
+	LLMType      string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"admin_optional" update:"user"`
 }
 
 func fetchImageCredential(ctx context.Context, userCred mcclient.TokenCredential, cid string) (*identityapi.CredentialDetails, error) {
@@ -81,6 +84,12 @@ func (man *SLLMImageManager) ValidateCreateData(ctx context.Context, userCred mc
 		input.CredentialId = cred.Id
 	}
 
+	if len(input.LLMType) > 0 {
+		if !api.IsLLMImageType(input.LLMType) {
+			return input, errors.Wrap(httperrors.ErrInputParameter, "llm_type must be one of "+strings.Join(api.LLM_IMAGE_TYPES.List(), ","))
+		}
+	}
+
 	input.Status = api.STATUS_READY
 	return input, nil
 }
@@ -99,6 +108,13 @@ func (man *SLLMImageManager) ValidateUpdateData(ctx context.Context, userCred mc
 		}
 		input.CredentialId = &cred.Id
 	}
+
+	if nil != input.LLMType && len(*input.LLMType) > 0 {
+		if !api.IsLLMImageType(*input.LLMType) {
+			return input, errors.Wrap(httperrors.ErrInputParameter, "llm_type must be one of "+strings.Join(api.LLM_IMAGE_TYPES.List(), ","))
+		}
+	}
+
 	return input, nil
 }
 
@@ -124,6 +140,9 @@ func (man *SLLMImageManager) ListItemFilter(
 	}
 	if len(input.ImageName) > 0 {
 		q = q.Equals("image_name", input.ImageName)
+	}
+	if len(input.LLMType) > 0 {
+		q = q.Equals("llm_type", input.LLMType)
 	}
 	return q, nil
 }
