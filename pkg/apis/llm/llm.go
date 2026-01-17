@@ -15,30 +15,34 @@ type LLMBaseListDetails struct {
 	apis.VirtualResourceDetails
 
 	// AccessInfo []AccessInfoListOutput
-	Volume Volume
+	Volume Volume `json:"volume"`
 
-	LLMImage      string
-	LLMImageLable string
-	LLMImageName  string
+	LLMImage      string `json:"llm_image"`
+	LLMImageLable string `json:"llm_image_lable"`
+	LLMImageName  string `json:"llm_image_name"`
 
-	VcpuCount  int
-	VmemSizeMb int
-	Devices    *Devices
+	VcpuCount  int      `json:"vcpu_count"`
+	VmemSizeMb int      `json:"vmem_size_mb"`
+	Devices    *Devices `json:"devices"`
 
-	EffectBandwidthMbps int
-	StartTime           time.Time
+	NetworkType string `json:"network_type"`
+	NetworkId   string `json:"network_id"`
+	Network     string `json:"network"`
 
-	LLMStatus string
+	EffectBandwidthMbps int       `json:"effect_bandwidth_mbps"`
+	StartTime           time.Time `json:"start_time"`
 
-	Server string
+	LLMStatus string `json:"llm_status"`
+
+	Server string `json:"server"`
 
 	HostInfo
 
-	Zone   string
-	ZoneId string
+	Zone   string `json:"zone"`
+	ZoneId string `json:"zone_id"`
 
-	AdbPublic string
-	AdbAccess string
+	AdbPublic string `json:"adb_public"`
+	AdbAccess string `json:"adb_access"`
 }
 
 type MountedModelInfo struct {
@@ -57,11 +61,15 @@ type LLMListDetails struct {
 type LLMBaseCreateInput struct {
 	apis.VirtualResourceCreateInput
 
-	PreferHost    string `json:"prefer_host"`
-	AutoStart     bool   `json:"auto_start"`
-	BandwidthMB   int    `json:"bandwidth_mb"`
-	DebugMode     bool   `json:"debug_mode"`
-	RootfsUnlimit bool   `json:"rootfs_unlimit"`
+	PreferHost string `json:"prefer_host"`
+	AutoStart  bool   `json:"auto_start"`
+
+	NetworkType string `json:"network_type"`
+	NetworkId   string `json:"network_id"`
+
+	BandwidthMB   int  `json:"bandwidth_mb"`
+	DebugMode     bool `json:"debug_mode"`
+	RootfsUnlimit bool `json:"rootfs_unlimit"`
 }
 
 type LLMCreateInput struct {
@@ -77,6 +85,9 @@ type LLMBaseListInput struct {
 
 	Host   string   `json:"host"`
 	Status []string `json:"status"`
+
+	NetworkType string `json:"network_type"`
+	NetworkId   string `json:"network_id"`
 
 	NoVolume   *bool  `json:"no_volume"`
 	ListenPort int    `json:"listen_port"`

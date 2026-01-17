@@ -12,6 +12,9 @@ type LLMBaseListOptions struct {
 	Host      string   `help:"filter by host"`
 	LLMStatus []string `help:"filter by server status"`
 
+	NetworkType string `help:"filter by network type"`
+	NetworkId   string `help:"filter by network id"`
+
 	ListenPort int    `help:"filter by listen port"`
 	PublicIp   string `help:"filter by public ip"`
 	VolumeId   string `help:"filter by volume id"`
@@ -51,6 +54,9 @@ type LLMBaseCreateOptions struct {
 	AutoStart  bool
 	ProjectId  string
 	PreferHost string
+
+	NETWORK_TYPE string `json:"network_type" choices:"guest|hostlocal"`
+	NetworkId    string `help:"id of network" json:"network_id"`
 
 	BandwidthMb int
 

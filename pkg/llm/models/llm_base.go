@@ -63,6 +63,9 @@ type SLLMBase struct {
 
 	DebugMode     bool `default:"false" nullable:"false" list:"user" update:"user"`
 	RootfsUnlimit bool `default:"false" nullable:"false" list:"user" update:"user"`
+
+	NetworkType string `charset:"utf8" list:"user" update:"user" create:"optional"`
+	NetworkId   string `charset:"utf8" nullable:"true" list:"user" update:"user" create:"optional"`
 }
 
 func (man *SLLMBaseManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.LLMBaseCreateInput) (api.LLMBaseCreateInput, error) {
@@ -92,6 +95,20 @@ func (man *SLLMBaseManager) ValidateCreateData(ctx context.Context, userCred mcc
 			return input, errors.Wrapf(httperrors.ErrNotAcceptable, "host_type %s not supported", hostDetails.HostType)
 		}
 		input.PreferHost = hostDetails.Id
+	}
+
+	if len(input.NetworkType) > 0 && !api.IsLLMSkuBaseNetworkType(input.NetworkType) {
+		return input, errors.Wrapf(httperrors.ErrInputParameter, "invalid network type %s", input.NetworkType)
+	}
+
+	if len(input.NetworkId) > 0 {
+		s := auth.GetSession(ctx, userCred, "")
+		netObj, err := compute.Networks.Get(s, input.NetworkId, nil)
+		if err != nil {
+			return input, errors.Wrapf(httperrors.ErrInputParameter, "invalid network_id %s", input.NetworkId)
+		}
+		input.NetworkId, _ = netObj.GetString("id")
+		input.NetworkType, _ = netObj.GetString("server_type")
 	}
 
 	return input, nil
@@ -134,6 +151,22 @@ func (man *SLLMBaseManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQue
 	q, err = man.SEnabledResourceBaseManager.ListItemFilter(ctx, q, userCred, input.EnabledResourceBaseListInput)
 	if err != nil {
 		return q, errors.Wrap(err, "SEnabledResourceBaseManager.ListItemFilter")
+	}
+
+	if len(input.NetworkType) > 0 {
+		q = q.Equals("network_type", input.NetworkType)
+	}
+	if len(input.NetworkId) > 0 {
+		s := auth.GetSession(ctx, userCred, "")
+		netObj, err := compute.Networks.Get(s, input.NetworkId, nil)
+		if err != nil {
+			if errors.Cause(err) == sql.ErrNoRows {
+				return nil, errors.Wrapf(httperrors.ErrResourceNotFound, "network %s not found", input.NetworkId)
+			}
+			return nil, errors.Wrap(err, "Networks.Get")
+		}
+		netId, _ := netObj.GetString("id")
+		q = q.Equals("network_id", netId)
 	}
 
 	if len(input.Host) > 0 {
