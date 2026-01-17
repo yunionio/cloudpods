@@ -547,6 +547,16 @@ func (llm *SLLM) GetLLMUrl(ctx context.Context, userCred mcclient.TokenCredentia
 	return llm.GetLLMContainerDriver().GetLLMUrl(ctx, userCred, llm)
 }
 
+func (llm *SLLM) GetDetailsUrl(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	accessUrl, err := llm.GetLLMUrl(ctx, userCred)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetLLMUrl")
+	}
+	output := jsonutils.NewDict()
+	output.Set("access_url", jsonutils.NewString(accessUrl))
+	return output, nil
+}
+
 func fetchNetworks(ctx context.Context, userCred mcclient.TokenCredential, networkIds []string) (map[string]computeapi.NetworkDetails, error) {
 	s := auth.GetSession(ctx, userCred, "")
 	params := computeoptions.ServerListOptions{}
