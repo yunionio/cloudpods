@@ -297,13 +297,8 @@ func (mcp *SMCPAgent) GetDetailsToolRequest(
 func (mcp *SMCPAgent) GetDetailsChatStream(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
-	input api.LLMChatTestInput,
+	input api.LLMMCPAgentRequestInput,
 ) (jsonutils.JSONObject, error) {
-	llmClient := mcp.GetLLMClientDriver()
-	if llmClient == nil {
-		return nil, errors.Error("failed to get LLM client driver")
-	}
-
 	appParams := appsrv.AppContextGetParams(ctx)
 	if appParams == nil {
 		return nil, errors.Error("failed to get app params")
@@ -313,51 +308,38 @@ func (mcp *SMCPAgent) GetDetailsChatStream(
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
-	w.Header().Set("X-Accel-Buffering", "no")
 
 	if f, ok := w.(http.Flusher); ok {
 		f.Flush()
+	} else {
+		return nil, errors.Error("Streaming unsupported!")
 	}
 
-	message := llmClient.NewUserMessage(input.Message)
-
-	err := llmClient.ChatStream(ctx, mcp, []ILLMChatMessage{message}, nil, func(chunk ILLMChatResponse) error {
-		content := chunk.GetContent()
+	_, err := mcp.process(ctx, userCred, &input, func(content string) error {
 		if len(content) > 0 {
-			fmt.Fprintf(w, "%s", content)
+			for line := range strings.SplitSeq(content, "\n") {
+				fmt.Fprintf(w, "data: %s\n", line)
+			}
+			fmt.Fprintf(w, "\n")
 			if f, ok := w.(http.Flusher); ok {
 				f.Flush()
 			}
 		}
 		return nil
 	})
+
 	if err != nil {
-		fmt.Fprintf(w, "\nError: %v\n", err)
+		fmt.Fprintf(w, "data: Error: %v\n\n", err)
 	}
 
 	return nil, nil
 }
 
-func (mcp *SMCPAgent) GetDetailsRequest(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	input api.LLMMCPAgentRequestInput,
-) (jsonutils.JSONObject, error) {
-	// 调用 ProcessMCPAgentRequest
-	answer, err := mcp.process(ctx, userCred, &input)
-	if err != nil {
-		return nil, errors.Wrap(err, "process MCP agent request")
-	}
-
-	// 返回结果
-	result := map[string]interface{}{
-		"answer": answer.Answer,
-	}
-	return jsonutils.Marshal(result), nil
-}
-
 // process 处理用户请求
-func (mcp *SMCPAgent) process(ctx context.Context, userCred mcclient.TokenCredential, req *api.LLMMCPAgentRequestInput) (*api.MCPAgentResponse, error) {
+// 强制分为两个阶段：
+// 阶段一：使用 Chat 非流式获取工具调用参数，并执行工具
+// 阶段二：使用 ChatStream 流式获取最终响应
+func (mcp *SMCPAgent) process(ctx context.Context, userCred mcclient.TokenCredential, req *api.LLMMCPAgentRequestInput, onStream func(string) error) (*api.MCPAgentResponse, error) {
 	// 获取 MCP Server 的工具列表
 	mcpClient := utils.NewMCPClient(mcp.McpServer, 10*time.Minute, userCred)
 	defer mcpClient.Close()
@@ -378,77 +360,110 @@ func (mcp *SMCPAgent) process(ctx context.Context, userCred mcclient.TokenCreden
 	// 构建系统提示词
 	systemPrompt := buildSystemPrompt()
 
-	// 初始化消息历史，使用接口类型
+	// 初始化消息历史
 	messages := []ILLMChatMessage{
 		llmClient.NewSystemMessage(systemPrompt),
-		llmClient.NewUserMessage(req.Query),
+		llmClient.NewUserMessage(req.Message),
 	}
 
 	// 记录工具调用
 	var toolCallRecords []api.MCPAgentToolCallRecord
 
-	// Agent 循环
-	for i := 0; i < api.MCPAgentMaxIterations; i++ {
-		log.Infof("Agent iteration %d", i+1)
-
-		// 调用 LLM 客户端，传入接口类型
-		resp, err := llmClient.Chat(ctx, mcp, messages, tools)
-		if err != nil {
-			return nil, errors.Wrap(err, "chat with LLM client")
-		}
-
-		// 检查是否有工具调用
-		if !resp.HasToolCalls() {
-			// 没有工具调用，返回最终答案
-			return &api.MCPAgentResponse{
-				Success:   true,
-				Answer:    resp.GetContent(),
-				ToolCalls: toolCallRecords,
-			}, nil
-		}
-
-		// 处理工具调用
-		toolCalls := resp.GetToolCalls()
-		log.Infof("Got %d tool calls from LLM", len(toolCalls))
-
-		// 添加助手消息（带工具调用），使用接口类型
-		messages = append(messages, llmClient.NewAssistantMessageWithToolCalls(toolCalls))
-
-		// 执行每个工具调用
-		for _, tc := range toolCalls {
-			fc := tc.GetFunction()
-			toolName := fc.GetName()
-			arguments := fc.GetArguments()
-
-			// 确保 arguments 不为 nil
-			if arguments == nil {
-				arguments = make(map[string]interface{})
-			}
-
-			log.Infof("Calling tool: %s with arguments: %v", toolName, arguments)
-
-			// 调用 MCP 工具
-			result, err := mcpClient.CallTool(ctx, toolName, arguments)
-			resultText := utils.FormatToolResult(toolName, result, err)
-			log.Infoln("Get result from mcp query", resultText)
-
-			// 记录工具调用
-			toolCallRecords = append(toolCallRecords, api.MCPAgentToolCallRecord{
-				ToolName:  toolName,
-				Arguments: arguments,
-				Result:    resultText,
-			})
-
-			// 添加工具结果消息，使用接口类型
-			messages = append(messages, llmClient.NewToolMessage(tc.GetId(), toolName, resultText))
-		}
+	log.Infof("Phase 1: Thinking & Acting...")
+	resp, err := llmClient.Chat(ctx, mcp, messages, tools)
+	if err != nil {
+		return nil, errors.Wrap(err, "phase 1 chat error")
 	}
 
-	// 达到最大迭代次数
+	// 检查是否有工具调用
+	if !resp.HasToolCalls() {
+		// 如果阶段一没有调用工具，模拟推流返回结果
+		content := resp.GetContent()
+		if onStream != nil && len(content) > 0 {
+			// 模拟流式输出：按字符逐块推送
+			chunkSize := 10 // 每次推送10个字符
+			for i := 0; i < len(content); i += chunkSize {
+				end := i + chunkSize
+				if end > len(content) {
+					end = len(content)
+				}
+				chunk := content[i:end]
+				if err := onStream(chunk); err != nil {
+					return nil, errors.Wrap(err, "stream content error")
+				}
+				// 添加小延迟模拟真实流式输出
+				time.Sleep(10 * time.Millisecond)
+			}
+		}
+		return &api.MCPAgentResponse{
+			Success:   true,
+			Answer:    content,
+			ToolCalls: toolCallRecords,
+		}, nil
+	}
+
+	// 处理工具调用
+	toolCalls := resp.GetToolCalls()
+	log.Infof("Got %d tool calls from Phase 1", len(toolCalls))
+
+	// 将助手决定调用工具的消息加入历史
+	messages = append(messages, llmClient.NewAssistantMessageWithToolCalls(toolCalls))
+
+	// 执行每个工具调用
+	for _, tc := range toolCalls {
+		fc := tc.GetFunction()
+		toolName := fc.GetName()
+		arguments := fc.GetArguments()
+
+		if arguments == nil {
+			arguments = make(map[string]interface{})
+		}
+
+		log.Infof("Calling tool: %s with arguments: %v", toolName, arguments)
+
+		// 调用 MCP 工具
+		result, err := mcpClient.CallTool(ctx, toolName, arguments)
+		resultText := utils.FormatToolResult(toolName, result, err)
+		log.Infoln("Get result from mcp query", resultText)
+
+		// 记录
+		toolCallRecords = append(toolCallRecords, api.MCPAgentToolCallRecord{
+			ToolName:  toolName,
+			Arguments: arguments,
+			Result:    resultText,
+		})
+
+		// 将工具执行结果加入历史
+		messages = append(messages, llmClient.NewToolMessage(tc.GetId(), toolName, resultText))
+	}
+
+	log.Infof("Phase 2: Streaming Response...")
+
+	var finalAnswer strings.Builder
+
+	err = llmClient.ChatStream(ctx, mcp, messages, tools, func(chunk ILLMChatResponse) error {
+		content := chunk.GetContent()
+		if len(content) > 0 {
+			// 聚合最终答案
+			finalAnswer.WriteString(content)
+
+			// 实时流式输出
+			if onStream != nil {
+				if err := onStream(content); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	})
+
+	if err != nil {
+		return nil, errors.Wrap(err, "phase 2 stream error")
+	}
+
 	return &api.MCPAgentResponse{
-		Success:   false,
-		Answer:    "处理请求时达到最大迭代次数，请尝试简化您的问题。",
-		Error:     "max iterations reached",
+		Success:   true,
+		Answer:    finalAnswer.String(),
 		ToolCalls: toolCallRecords,
 	}, nil
 }

@@ -140,28 +140,15 @@ func (opts *MCPAgentToolRequestOptions) Params() (jsonutils.JSONObject, error) {
 	return jsonutils.Marshal(input), nil
 }
 
-type MCPAgentChatTestOptions struct {
-	MCPAgentIdOptions
-
-	Message string `help:"test message to send to LLM" json:"message"`
-}
-
-func (opts *MCPAgentChatTestOptions) Params() (jsonutils.JSONObject, error) {
-	input := api.LLMChatTestInput{
-		Message: opts.Message,
-	}
-	return jsonutils.Marshal(input), nil
-}
-
 type MCPAgentMCPAgentRequestOptions struct {
 	MCPAgentIdOptions
 
-	Query string `help:"query to send to MCP agent" json:"query"`
+	Message string `help:"message to send to MCP agent" json:"message"`
 }
 
 func (opts *MCPAgentMCPAgentRequestOptions) Params() (jsonutils.JSONObject, error) {
 	input := api.LLMMCPAgentRequestInput{
-		Query: opts.Query,
+		Message: opts.Message,
 	}
 	return jsonutils.Marshal(input), nil
 }
