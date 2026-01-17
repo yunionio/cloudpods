@@ -290,6 +290,8 @@ func (man *SInstantModelManager) FetchCustomizeColumns(
 		if mountedBy, ok := modelMountedByMap[instModel.ModelId]; ok {
 			res[i].MountedByLLMs = mountedBy
 		}
+
+		res[i].GPUMemoryRequired = instModel.GetEstimatedVramSizeMb()
 	}
 	return res
 }
@@ -928,6 +930,18 @@ func (model *SInstantModel) GetActualSizeMb() int32 {
 	return int32(model.Size / 1024 / 1024)
 }
 
+func (model *SInstantModel) GetEstimatedVramSizeBytes() int64 {
+	if model.Size <= 0 {
+		return 0
+	}
+	// 1.0x 基础权重 + 0.15x 动态开销(KV Cache) + 500MB 框架固定开销
+	return int64(float64(model.Size)*1.15) + 500*1024*1024
+}
+
+func (model *SInstantModel) GetEstimatedVramSizeMb() int64 {
+	return model.GetEstimatedVramSizeBytes() / 1024 / 1024
+}
+
 func (model *SInstantModel) CleanupImportTmpDir(ctx context.Context, userCred mcclient.TokenCredential, tmpDir string) error {
 	// sync image status
 	err := model.syncImageStatus(ctx, userCred)
@@ -942,4 +956,9 @@ func (model *SInstantModel) CleanupImportTmpDir(ctx context.Context, userCred mc
 		return errors.Wrapf(err, "Failed to remove tmpDir %s", tmpDir)
 	}
 	return nil
+}
+
+// GetOllamaRegistryYAML returns the Ollama registry YAML content
+func (man *SInstantModelManager) GetOllamaRegistryYAML() string {
+	return apis.OLLAMA_REGISTRY_YAML
 }
