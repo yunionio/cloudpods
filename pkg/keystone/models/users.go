@@ -440,13 +440,13 @@ func (manager *SUserManager) ListItemFilter(
 	}
 
 	if len(query.Email) > 0 {
-		q = q.Equals("email", query.Email)
+		q = q.In("email", query.Email)
 	}
 	if len(query.Mobile) > 0 {
-		q = q.Equals("mobile", query.Mobile)
+		q = q.In("mobile", query.Mobile)
 	}
 	if len(query.Displayname) > 0 {
-		q = q.Equals("displayname", query.Displayname)
+		q = q.In("displayname", query.Displayname)
 	}
 	if query.AllowWebConsole != nil {
 		if *query.AllowWebConsole {
