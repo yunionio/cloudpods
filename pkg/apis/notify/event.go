@@ -22,51 +22,87 @@ import (
 var (
 	Event SNotifyEvent
 
-	ActionCreate         SAction = "create"
-	ActionDelete         SAction = "delete"
-	ActionPendingDelete  SAction = "pending_delete"
-	ActionUpdate         SAction = "update"
-	ActionRebuildRoot    SAction = "rebuild_root"
-	ActionResetPassword  SAction = "reset_password"
-	ActionChangeConfig   SAction = "change_config"
-	ActionResize         SAction = "resize"
+	// 创建
+	ActionCreate SAction = "create"
+	// 删除
+	ActionDelete SAction = "delete"
+	// 放入回收站
+	ActionPendingDelete SAction = "pending_delete"
+	// 更新
+	ActionUpdate SAction = "update"
+	// 重装系统
+	ActionRebuildRoot SAction = "rebuild_root"
+	// 重置密码
+	ActionResetPassword SAction = "reset_password"
+	// 配置变更
+	ActionChangeConfig SAction = "change_config"
+	// 扩容
+	ActionResize SAction = "resize"
+	// 到期释放
 	ActionExpiredRelease SAction = "expired_release"
-	ActionExecute        SAction = "execute"
-	ActionChangeIpaddr   SAction = "change_ipaddr"
-	ActionSyncStatus     SAction = "sync_status"
-	ActionCleanData      SAction = "clean_data"
-	ActionMigrate        SAction = "migrate"
+	// 执行，例如自动快照策略执行创建快照、弹性伸缩策略执行扩容、定时任务执行等
+	ActionExecute SAction = "execute"
+	// IP变更
+	ActionChangeIpaddr SAction = "change_ipaddr"
+	// 同步状态
+	ActionSyncStatus SAction = "sync_status"
+	// 清理数据
+	ActionCleanData SAction = "clean_data"
+	// 迁移
+	ActionMigrate SAction = "migrate"
 
+	// 添加备份服务器
 	ActionCreateBackupServer SAction = "add_backup_server"
-	ActionDelBackupServer    SAction = "delete_backup_server"
+	// 删除备份服务器
+	ActionDelBackupServer SAction = "delete_backup_server"
 
-	ActionSyncCreate        SAction = "sync_create"
-	ActionSyncUpdate        SAction = "sync_update"
-	ActionSyncDelete        SAction = "sync_delete"
+	// 同步新建
+	ActionSyncCreate SAction = "sync_create"
+	// 同步更新
+	ActionSyncUpdate SAction = "sync_update"
+	// 同步删除
+	ActionSyncDelete SAction = "sync_delete"
+	// 同步账号状态
 	ActionSyncAccountStatus SAction = "sync_account_status"
 
-	ActionOffline         SAction = "offline"
-	ActionSystemPanic     SAction = "panic"
+	// 下线
+	ActionOffline SAction = "offline"
+	// 系统崩溃
+	ActionSystemPanic SAction = "panic"
+	// 系统异常
 	ActionSystemException SAction = "exception"
-
-	ActionChecksumTest SAction = "checksum_test"
-
+	// 锁定，例如用户锁定
 	ActionLock SAction = "lock"
-
-	ActionExceedCount          SAction = "exceed_count"
-	ActionPasswordExpireSoon   SAction = "password_expire_soon"
-	ActionWorkerBlock          SAction = "woker_block"
-	ActionNetOutOfSync         SAction = "net_out_of_sync"
-	ActionMysqlOutOfSync       SAction = "mysql_out_of_sync"
-	ActionServiceAbnormal      SAction = "service_abnormal"
-	ActionServerPanicked       SAction = "server_panicked"
-	ActionAttach               SAction = "attach"
-	ActionDetach               SAction = "detach"
+	// 超出数量
+	ActionExceedCount SAction = "exceed_count"
+	// 密码即将过期
+	ActionPasswordExpireSoon SAction = "password_expire_soon"
+	// 一致性检查
+	ActionChecksumTest SAction = "checksum_test"
+	// 任务队列阻塞
+	ActionWorkerBlock SAction = "woker_block"
+	// 网络同步失败
+	ActionNetOutOfSync SAction = "net_out_of_sync"
+	// MySQL同步失败
+	ActionMysqlOutOfSync SAction = "mysql_out_of_sync"
+	// 服务异常
+	ActionServiceAbnormal SAction = "service_abnormal"
+	// 服务器崩溃
+	ActionServerPanicked SAction = "server_panicked"
+	// 挂载
+	ActionAttach SAction = "attach"
+	// 卸载
+	ActionDetach SAction = "detach"
+	// 透传设备创建
 	ActionIsolatedDeviceCreate SAction = "isolated_device_create"
+	// 透传设备更新
 	ActionIsolatedDeviceUpdate SAction = "isolated_device_update"
+	// 透传设备删除
 	ActionIsolatedDeviceDelete SAction = "isolated_device_delete"
-	ActionStatusChanged        SAction = "status_changed"
-	ActionRunTask              SAction = "run_task"
+	// 状态变更
+	ActionStatusChanged SAction = "status_changed"
+	// 运行任务
+	ActionRunTask SAction = "run_task"
 
 	ResultFailed  SResult = "failed"
 	ResultSucceed SResult = "succeed"
