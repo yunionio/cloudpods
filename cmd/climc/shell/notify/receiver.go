@@ -16,6 +16,9 @@ package notify
 
 import (
 	"yunion.io/x/onecloud/cmd/climc/shell"
+	identity_api "yunion.io/x/onecloud/pkg/apis/identity"
+	"yunion.io/x/onecloud/pkg/mcclient"
+	identity_modules "yunion.io/x/onecloud/pkg/mcclient/modules/identity"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/notify"
 	options "yunion.io/x/onecloud/pkg/mcclient/options/notify"
 )
@@ -36,4 +39,32 @@ func init() {
 	cmd.PerformClass("get-types", new(options.ReceiverGetTypeOptions))
 	cmd.Perform("get-subscription", new(options.ReceiverGetSubscriptionOptions))
 	cmd.GetProperty(new(options.SReceiverRoleContactType))
+
+	type SyncUserContactOptions struct {
+		USERID string `json:"user_id"`
+		Mobile string `json:"mobile"`
+		Email  string `json:"email"`
+	}
+	R(&SyncUserContactOptions{}, "sync-user-contacts", "Sync user contact", func(s *mcclient.ClientSession, args *SyncUserContactOptions) error {
+		userObj, err := identity_modules.UsersV3.Get(s, args.USERID, nil)
+		if err != nil {
+			return err
+		}
+		user := identity_api.UserDetails{}
+		err = userObj.Unmarshal(&user)
+		if err != nil {
+			return err
+		}
+		if len(args.Mobile) == 0 {
+			args.Mobile = user.Mobile
+		}
+		if len(args.Email) == 0 {
+			args.Email = user.Email
+		}
+		err = modules.NotifyReceiver.SyncUserContact(s, user.Id, args.Mobile, args.Email)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
 }

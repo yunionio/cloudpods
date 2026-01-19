@@ -80,8 +80,12 @@ func (self *SubcontactPullTask) OnInit(ctx context.Context, obj db.IStandaloneMo
 	// sync email and mobile to keystone
 	s := auth.GetSession(ctx, self.UserCred, "")
 	mobile := receiver.Mobile
-	if strings.HasPrefix(mobile, "+86 ") {
-		mobile = strings.TrimSpace(mobile[4:])
+	if strings.HasPrefix(mobile, "+") {
+		spaceIdx := strings.Index(mobile, " ")
+		if spaceIdx > 0 {
+			mobile = mobile[spaceIdx+1:]
+		}
+		mobile = strings.TrimSpace(mobile)
 	}
 	params := map[string]string{
 		"email":  receiver.Email,
