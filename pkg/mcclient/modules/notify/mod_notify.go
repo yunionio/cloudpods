@@ -15,16 +15,28 @@
 package notify
 
 import (
+	"fmt"
+
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/httputils"
+
+	notify_apis "yunion.io/x/onecloud/pkg/apis/notify"
+	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
+
+type ReceiverManager struct {
+	modulebase.ResourceManager
+}
 
 type ConfigsManager struct {
 	modulebase.ResourceManager
 }
 
 var (
-	NotifyReceiver   modulebase.ResourceManager
+	NotifyReceiver   ReceiverManager
 	NotifyConfig     modulebase.ResourceManager
 	NotifyRobot      modulebase.ResourceManager
 	Notification     modulebase.ResourceManager
@@ -34,13 +46,72 @@ var (
 	Configs          ConfigsManager
 )
 
+func (rm *ReceiverManager) SyncUserContact(s *mcclient.ClientSession, userId string, mobile string, email string) error {
+	recv, err := rm.GetById(s, userId, nil)
+	if err != nil {
+		if httputils.ErrorCode(err) == 404 {
+			// not created yet, do create
+			newRecv := notify_apis.ReceiverCreateInput{
+				UID: userId,
+			}
+			if len(mobile) > 0 {
+				newRecv.InternationalMobile.Mobile = mobile
+				newRecv.EnabledContactTypes = append(newRecv.EnabledContactTypes, "mobile")
+			}
+			if len(email) > 0 {
+				newRecv.Email = email
+				newRecv.EnabledContactTypes = append(newRecv.EnabledContactTypes, "email")
+			}
+			_, err := rm.Create(s, jsonutils.Marshal(newRecv))
+			if err != nil {
+				// create failed
+				return errors.Wrap(err, "create receiver")
+			}
+			// success
+		} else {
+			return errors.Wrap(err, "GetById")
+		}
+	} else {
+		// receiver exists
+		fmt.Println("receiver exists", recv.String())
+		recvObj := notify_apis.ReceiverDetails{}
+		err := recv.Unmarshal(&recvObj)
+		if err != nil {
+			return errors.Wrap(err, "Unmarshal ReceiverDetails")
+		}
+		updateRecv := notify_apis.ReceiverUpdateInput{}
+		changeMobile := false
+		changeEmail := false
+		if mobile != "" && recvObj.InternationalMobile.Mobile != mobile {
+			updateRecv.InternationalMobile.Mobile = mobile
+			updateRecv.EnabledContactTypes = append(updateRecv.EnabledContactTypes, "mobile")
+			changeMobile = true
+		}
+		if email != "" && recvObj.Email != email {
+			updateRecv.Email = email
+			updateRecv.EnabledContactTypes = append(updateRecv.EnabledContactTypes, "email")
+			changeEmail = true
+		}
+		if changeMobile || changeEmail {
+			_, err = rm.Update(s, userId, jsonutils.Marshal(updateRecv))
+			if err != nil {
+				return errors.Wrap(err, "update receiver")
+			}
+		}
+	}
+
+	return nil
+}
+
 func init() {
-	NotifyReceiver = modules.NewNotifyv2Manager(
-		"receiver",
-		"receivers",
-		[]string{"ID", "Name", "Domain_Id", "Project_Domain", "Email", "International_Mobile", "Enabled_Contact_Types", "Verified_Infos"},
-		[]string{},
-	)
+	NotifyReceiver = ReceiverManager{
+		ResourceManager: modules.NewNotifyv2Manager(
+			"receiver",
+			"receivers",
+			[]string{"ID", "Name", "Domain_Id", "Project_Domain", "Email", "International_Mobile", "Enabled_Contact_Types", "Verified_Infos"},
+			[]string{},
+		),
+	}
 	modules.Register(&NotifyReceiver)
 
 	NotifyConfig = modules.NewNotifyv2Manager(

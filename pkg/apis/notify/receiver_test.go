@@ -23,15 +23,15 @@ func TestMobileExt(t *testing.T) {
 	}{
 		{
 			SInternationalMobile{
-				"+8612345678901",
-				"+86",
+				Mobile:   "+8612345678901",
+				AreaCode: "+86",
 			},
 			"12345678901",
 		},
 		{
 			SInternationalMobile{
-				"+8612345678901;ext=2",
-				"+86",
+				Mobile:   "+8612345678901;ext=2",
+				AreaCode: "+86",
 			},
 			"12345678901",
 		},
@@ -55,6 +55,20 @@ func TestMobileExt(t *testing.T) {
 				"",
 			},
 			"12345678901",
+		},
+		{
+			SInternationalMobile{
+				"13811111111",
+				"",
+			},
+			"13811111111",
+		},
+		{
+			SInternationalMobile{
+				"+85213811111111",
+				"",
+			},
+			"13811111111",
 		},
 	}
 
