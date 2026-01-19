@@ -457,6 +457,14 @@ func (d *SGuestDiskSyncTask) checkDiskDriver(disk *desc.SGuestDisk) {
 		d.guest.Desc.VirtioScsi = &desc.SGuestVirtioScsi{
 			PCIDevice: desc.NewPCIDevice(*cType, "virtio-scsi-pci", "scsi"),
 		}
+		if err := d.guest.ensureDevicePciAddress(d.guest.Desc.VirtioScsi.PCIDevice, -1, nil); err != nil {
+			d.guest.Desc.VirtioScsi = nil
+
+			err = errors.Wrap(err, "ensureDevicePciAddress for virtio scsi device")
+			d.errors = append(d.errors, err)
+			d.syncDisksConf()
+			return
+		}
 		cb := func(ret string) {
 			log.Infof("Add scsi controller %s", ret)
 			d.checkDrivers = append(d.checkDrivers, DISK_DRIVER_SCSI)
@@ -480,6 +488,15 @@ func (d *SGuestDiskSyncTask) checkDiskDriver(disk *desc.SGuestDisk) {
 
 		d.guest.Desc.SataController = &desc.SGuestAhciDevice{
 			PCIDevice: desc.NewPCIDevice(*cType, "ahci", "ahci0"),
+		}
+
+		err := d.guest.ensureDevicePciAddress(d.guest.Desc.SataController.PCIDevice, -1, nil)
+		if err != nil {
+			d.guest.Desc.SataController = nil
+			err = errors.Wrap(err, "ensureDevicePciAddress sata controller")
+			d.errors = append(d.errors, err)
+			d.syncDisksConf()
+			return
 		}
 		cb := func(ret string) {
 			log.Infof("Add sata ahci controller %s", ret)
