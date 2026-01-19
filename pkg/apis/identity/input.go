@@ -199,11 +199,11 @@ type UserListInput struct {
 	RoleAssignmentProjectId string `json:"role_assignment_project_id"`
 
 	// email
-	Email string `json:"email"`
+	Email []string `json:"email"`
 	// mobile
-	Mobile string `json:"mobile"`
+	Mobile []string `json:"mobile"`
 	// displayname
-	Displayname string `json:"displayname"`
+	Displayname []string `json:"displayname"`
 
 	// 是否允许web控制台登录
 	AllowWebConsole *bool `json:"allow_web_console"`
