@@ -94,7 +94,7 @@ type SReceiver struct {
 
 	Email string `width:"128" nullable:"false" create:"optional" update:"user" get:"user" list:"user"`
 	// swagger:ignore
-	Mobile string `width:"32" nullable:"false" create:"optional"`
+	Mobile string `width:"32" nullable:"false" create:"optional" update:"user"`
 	Lang   string `width:"8" charset:"ascii" nullable:"false" list:"user" update:"user"`
 
 	// swagger:ignore
@@ -618,9 +618,34 @@ func (r *SReceiver) ValidateUpdateData(ctx context.Context, userCred mcclient.To
 		return input, httperrors.NewInputParameterError("invalid email")
 	}
 	// validate mobile
-	input.InternationalMobile.AcceptExtMobile()
-	if ok := len(input.InternationalMobile.Mobile) == 0 || LaxMobileRegexp.MatchString(input.InternationalMobile.Mobile); !ok {
-		return input, httperrors.NewInputParameterError("invalid mobile")
+	if len(input.InternationalMobile.Mobile) > 0 {
+		input.InternationalMobile.AcceptExtMobile()
+		if ok := len(input.InternationalMobile.Mobile) == 0 || LaxMobileRegexp.MatchString(input.InternationalMobile.Mobile); !ok {
+			return input, httperrors.NewInputParameterError("invalid mobile")
+		}
+		input.Mobile = input.InternationalMobile.String()
+	} else {
+		input.InternationalMobile.AreaCode = ""
+	}
+	if input.ForceVerified {
+		allowScope, _ := policy.PolicyManager.AllowScope(userCred, api.SERVICE_TYPE, ReceiverManager.KeywordPlural(), policy.PolicyActionCreate)
+		if allowScope != rbacscope.ScopeSystem {
+			return input, httperrors.ErrNotSufficientPrivilege
+		}
+	}
+	if len(input.Email) > 0 && input.Email != r.Email {
+		if input.ForceVerified {
+			r.VerifiedEmail = tristate.True
+		} else {
+			r.VerifiedEmail = tristate.False
+		}
+	}
+	if len(input.Mobile) > 0 && input.Mobile != r.Mobile {
+		if input.ForceVerified {
+			r.VerifiedMobile = tristate.True
+		} else {
+			r.VerifiedMobile = tristate.False
+		}
 	}
 
 	for _, cType := range input.EnabledContactTypes {
@@ -633,78 +658,29 @@ func (r *SReceiver) ValidateUpdateData(ctx context.Context, userCred mcclient.To
 	return input, nil
 }
 
-func (r *SReceiver) PreUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	r.SVirtualResourceBase.PreUpdate(ctx, userCred, query, data)
-	originEmailEnable, originMobileEnable := r.EnabledEmail, r.EnabledMobile
+func (r *SReceiver) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	r.SVirtualResourceBase.PostUpdate(ctx, userCred, query, data)
+
 	var input api.ReceiverUpdateInput
 	data.Unmarshal(&input)
-	if len(input.Email) != 0 && input.Email != r.Email {
-		db.Update(r, func() error {
-			r.VerifiedEmail = tristate.False
-			return nil
-		})
-		r.VerifiedEmail = tristate.False
-		subs, _ := r.GetSubContacts()
-		for i := range subs {
-			if subs[i].ParentContactType == api.EMAIL {
-				db.Update(&subs[i], func() error {
-					subs[i].Verified = tristate.False
-					subs[i].VerifiedNote = "email changed, re-verify"
-					return nil
-				})
-			}
-		}
-	}
-	mobile := input.InternationalMobile.String()
-	if len(mobile) != 0 && mobile != r.Mobile {
-		db.Update(r, func() error {
-			r.VerifiedMobile = tristate.False
-			return nil
-		})
-		subs, _ := r.GetSubContacts()
-		for i := range subs {
-			if subs[i].ParentContactType == api.MOBILE {
-				db.Update(&subs[i], func() error {
-					subs[i].Verified = tristate.False
-					subs[i].VerifiedNote = "mobile changed, re-verify"
-					return nil
-				})
-			}
-		}
-	}
 
-	// 管理后台修改联系人，如果修改或者启用手机号和邮箱，无需进行校验
-	if input.ForceVerified {
-		allowScope, _ := policy.PolicyManager.AllowScope(userCred, api.SERVICE_TYPE, ReceiverManager.KeywordPlural(), policy.PolicyActionCreate)
-		if allowScope == rbacscope.ScopeSystem {
-			db.Update(r, func() error {
-				// 修改并启用
-				if len(input.Email) != 0 && input.Email != r.Email && r.EnabledEmail.Bool() {
-					r.VerifiedEmail = tristate.True
-				}
-				if len(mobile) != 0 && mobile != r.Mobile && r.EnabledMobile.Bool() {
-					r.VerifiedMobile = tristate.True
-				}
-				// 从禁用变启用
-				if !originEmailEnable.Bool() && r.EnabledEmail.Bool() {
-					r.VerifiedEmail = tristate.True
-				}
-				if !originMobileEnable.Bool() && r.EnabledMobile.Bool() {
-					r.VerifiedMobile = tristate.True
-				}
+	subs, _ := r.GetSubContacts()
+	for i := range subs {
+		if subs[i].ParentContactType == api.EMAIL && subs[i].Verified.IsTrue() && r.VerifiedEmail.IsFalse() {
+			db.Update(&subs[i], func() error {
+				subs[i].Verified = tristate.False
+				subs[i].VerifiedNote = "email changed, re-verify"
+				return nil
+			})
+		} else if subs[i].ParentContactType == api.MOBILE && subs[i].Verified.IsTrue() && r.VerifiedMobile.IsFalse() {
+			db.Update(&subs[i], func() error {
+				subs[i].Verified = tristate.False
+				subs[i].VerifiedNote = "mobile changed, re-verify"
 				return nil
 			})
 		}
 	}
-	r.Mobile = mobile
-	err := ReceiverManager.TableSpec().InsertOrUpdate(ctx, r)
-	if err != nil {
-		log.Errorf("InsertOrUpdate: %v", err)
-	}
-}
 
-func (r *SReceiver) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	r.SVirtualResourceBase.PostUpdate(ctx, userCred, query, data)
 	cTypes := jsonutils.GetQueryStringArray(data, "enabled_contact_types")
 	err := r.StartSubcontactPullTask(ctx, userCred, cTypes, "")
 	if err != nil {
@@ -1080,7 +1056,6 @@ func (r *SReceiver) SetContact(cType string, contact string) error {
 			r.Mobile = contact
 			return nil
 		})
-		r.Mobile = contact
 	default:
 		subs, _ := r.GetSubContacts()
 		for i := range subs {
