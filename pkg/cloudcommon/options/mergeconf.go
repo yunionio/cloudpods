@@ -31,7 +31,7 @@ import (
 
 func GetServiceIdByType(s *mcclient.ClientSession, typeStr string, verStr string) (string, error) {
 	params := jsonutils.NewDict()
-	if len(verStr) > 0 {
+	if len(verStr) > 0 && verStr != "v1" {
 		typeStr += "_" + verStr
 	}
 	params.Add(jsonutils.NewString(typeStr), "type")
