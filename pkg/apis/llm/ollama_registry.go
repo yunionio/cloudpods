@@ -1,117 +1,96 @@
 package llm
 
-const OLLAMA_REGISTRY_YAML = `
-ollama:
-  qwen3-vl:
-    description: Qwen3-vl is the most powerful vision-language model in the Qwen model family to date.
-    tags:
-      2b:
-        model_size: 1.9GB
-        context_length: 256K
-        capabilities:
-          - Text
-          - Image
-      4b:
-        model_size: 3.3GB
-        context_length: 256K
-        capabilities:
-          - Text
-          - Image
-      8b:
-        model_size: 6.1GB
-        context_length: 256K
-        capabilities:
-          - Text
-          - Image
-        is_latest: true
-      30b:
-        model_size: 20GB
-        context_length: 256K
-        capabilities:
-          - Text
-          - Image
-      32b:
-        model_size: 21GB
-        context_length: 256K
-        capabilities:
-          - Text
-          - Image
-  qwen3:
-    description: Qwen3 is the latest generation of large language models in Qwen series, offering a comprehensive suite of dense and mixture-of-experts (MoE) models. 
-    tags:
-      0.6b:
-        model_size: 523MB
-        context_length: 40K
-        capabilities:
-          - Text
-      1.7b:
-        model_size: 1.4GB
-        context_length: 40K
-        capabilities:
-          - Text
-      4b:
-        model_size: 2.5GB
-        context_length: 256K
-        capabilities:
-          - Text
-      8b:
-        model_size: 5.2GB
-        context_length: 40K
-        capabilities:
-          - Text
-        is_latest: true
-      14b:
-        model_size: 9.3GB
-        context_length: 40K
-        capabilities:
-          - Text
-      30b:
-        model_size: 19GB
-        context_length: 256K
-        capabilities:
-          - Text
-      32b:
-        model_size: 20GB
-        context_length: 40K
-        capabilities:
-          - Text
-  qwen2.5-coder:
-    description: The latest series of Code-Specific Qwen models, with significant improvements in code generation, code reasoning, and code fixing.
-    tags:
-      latest:
-        model_size: 4.7GB
-        context_length: 32K
-        capabilities:
-          - Text
-      0.5b:
-        model_size: 398MB
-        context_length: 32K
-        capabilities:
-          - Text
-      1.5b:
-        model_size: 986MB
-        context_length: 32K
-        capabilities:
-          - Text
-      3b:
-        model_size: 1.9GB
-        context_length: 32K
-        capabilities:
-          - Text
-      7b:
-        model_size: 4.7GB
-        context_length: 32K
-        capabilities:
-          - Text
-        is_latest: true
-      14b:
-        model_size: 9.0GB
-        context_length: 32K
-        capabilities:
-          - Text
-      32b:
-        model_size: 20GB
-        context_length: 32K
-        capabilities:
-          - Text
-`
+import (
+	"yunion.io/x/jsonutils"
+)
+
+type SOllamaTag struct {
+	Name          string   `json:"name" yaml:"name"`
+	ModelSize     string   `json:"model_size" yaml:"model_size"`
+	ContextLength string   `json:"context_length" yaml:"context_length"`
+	Capabilities  []string `json:"capabilities" yaml:"capabilities"`
+	IsLatest      bool     `json:"is_latest,omitempty" yaml:"is_latest,omitempty"`
+}
+
+func (t SOllamaTag) Latest() SOllamaTag {
+	t.IsLatest = true
+	return t
+}
+
+type SOllamaModel struct {
+	Name        string       `json:"name" yaml:"name"`
+	Description string       `json:"description" yaml:"description"`
+	Tags        []SOllamaTag `json:"tags" yaml:"tags"`
+}
+
+// SOllamaRegistry 顶层结构，用于生成
+// ollama:
+//   - name: xxx
+//     ...
+type SOllamaRegistry struct {
+	Ollama []SOllamaModel `json:"ollama" yaml:"ollama"`
+}
+
+func NewOllamaTag(name, size, contextLen string, caps []string) SOllamaTag {
+	return SOllamaTag{
+		Name:          name,
+		ModelSize:     size,
+		ContextLength: contextLen,
+		Capabilities:  caps,
+	}
+}
+
+func NewOllamaModel(name, desc string, tags ...SOllamaTag) SOllamaModel {
+	return SOllamaModel{
+		Name:        name,
+		Description: desc,
+		Tags:        tags,
+	}
+}
+
+func NewOllamaRegistry(models ...SOllamaModel) SOllamaRegistry {
+	return SOllamaRegistry{
+		Ollama: models,
+	}
+}
+
+var (
+	CapText   = []string{"Text"}
+	CapVision = []string{"Text", "Image"}
+)
+
+var OllamaRegistry = NewOllamaRegistry(
+	NewOllamaModel(
+		"qwen3-vl",
+		"Qwen3-vl is the most powerful vision-language model in the Qwen model family to date.",
+		NewOllamaTag("2b", "1.9GB", "256K", CapVision),
+		NewOllamaTag("4b", "3.3GB", "256K", CapVision),
+		NewOllamaTag("8b", "6.1GB", "256K", CapVision).Latest(),
+		NewOllamaTag("30b", "20GB", "256K", CapVision),
+		NewOllamaTag("32b", "21GB", "256K", CapVision),
+	),
+	NewOllamaModel(
+		"qwen3",
+		"Qwen3 is the latest generation of large language models in Qwen series, offering a comprehensive suite of dense and mixture-of-experts (MoE) models.",
+		NewOllamaTag("0.6b", "523MB", "40K", CapText),
+		NewOllamaTag("1.7b", "1.4GB", "40K", CapText),
+		NewOllamaTag("4b", "2.5GB", "256K", CapText),
+		NewOllamaTag("8b", "5.2GB", "40K", CapText).Latest(),
+		NewOllamaTag("14b", "9.3GB", "40K", CapText),
+		NewOllamaTag("30b", "19GB", "256K", CapText),
+		NewOllamaTag("32b", "20GB", "40K", CapText),
+	),
+	NewOllamaModel(
+		"qwen2.5-coder",
+		"The latest series of Code-Specific Qwen models, with significant improvements in code generation, code reasoning, and code fixing.",
+		NewOllamaTag("latest", "4.7GB", "32K", CapText),
+		NewOllamaTag("0.5b", "398MB", "32K", CapText),
+		NewOllamaTag("1.5b", "986MB", "32K", CapText),
+		NewOllamaTag("3b", "1.9GB", "32K", CapText),
+		NewOllamaTag("7b", "4.7GB", "32K", CapText).Latest(),
+		NewOllamaTag("14b", "9.0GB", "32K", CapText),
+		NewOllamaTag("32b", "20GB", "32K", CapText),
+	),
+)
+
+var OLLAMA_REGISTRY_YAML = jsonutils.Marshal(OllamaRegistry).YAMLString()
