@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	billing_api "yunion.io/x/cloudmux/pkg/apis/billing"
@@ -118,6 +119,10 @@ func (eip *SEip) GetTags() (map[string]string, error) {
 		return nil, err
 	}
 	return tags.GetTags(), nil
+}
+
+func (eip *SEip) SetTags(tags map[string]string, replace bool) error {
+	return eip.region.SetResourceTags("eip", eip.AllocationId, tags, replace)
 }
 
 func (eip *SEip) GetStatus() string {
@@ -265,23 +270,45 @@ func (region *SRegion) CreateEip(opts *cloudprovider.SEip) (*SEip, error) {
 		return nil, errors.Wrap(errors.ErrNotFound, "No bgp lines found")
 	}
 	params := map[string]interface{}{
-		"LineId":     lineId,
-		"BandWidth":  fmt.Sprintf("%d", opts.BandwidthMbps),
-		"ChargeType": "TrafficMonthly",
-	}
-	if opts.ChargeType == api.EIP_CHARGE_TYPE_BY_BANDWIDTH {
-		params["ChargeType"] = "Monthlys"
-		params["PurchaseTime"] = "1"
+		"LineId":    lineId,
+		"BandWidth": fmt.Sprintf("%d", opts.BandwidthMbps),
 	}
 
-	body, err := region.eipRequest("AllocateAddress", params)
+	chargeTypes := []string{}
+	if opts.ChargeType == api.EIP_CHARGE_TYPE_BY_BANDWIDTH {
+		chargeTypes = append(chargeTypes, "Monthly")
+		params["PurchaseTime"] = "1"
+	} else {
+		chargeTypes = append(chargeTypes, "TrafficMonthly")
+		chargeTypes = append(chargeTypes, "DailyPaidByTransfer")
+	}
+
+	ret := &SEip{region: region}
+	var body jsonutils.JSONObject
+	for _, chargeType := range chargeTypes {
+		params["ChargeType"] = chargeType
+		body, err = region.eipRequest("AllocateAddress", params)
+		if err != nil {
+			log.Debugf("not support charge type %s, error: %v", chargeType, err)
+			if e, ok := err.(*sKsyunError); ok && e.ErrorMsg.Code == "PackageNotExists" {
+				continue
+			}
+			return nil, errors.Wrap(err, "AllocateAddress")
+		}
+		err = body.Unmarshal(ret)
+		if err != nil {
+			return nil, errors.Wrap(err, "Unmarshal")
+		}
+	}
 	if err != nil {
 		return nil, errors.Wrap(err, "AllocateAddress")
 	}
-	ret := &SEip{region: region}
-	err = body.Unmarshal(ret)
-	if err != nil {
-		return nil, errors.Wrap(err, "Unmarshal")
+
+	if len(opts.Tags) > 0 {
+		err = region.CreateTags("eip", ret.AllocationId, opts.Tags)
+		if err != nil {
+			log.Errorf("set tags %s to eip %s failed: %v", opts.Tags, ret.AllocationId, err)
+		}
 	}
 	return ret, nil
 }
