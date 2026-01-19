@@ -40,20 +40,26 @@ func convertMessages(messages interface{}) ([]OllamaChatMessage, error) {
 	} else if msgs, ok := messages.([]models.ILLMChatMessage); ok {
 		ollamaMessages = make([]OllamaChatMessage, len(msgs))
 		for i, msg := range msgs {
-			ollamaMessages[i] = OllamaChatMessage{
-				Role:    msg.GetRole(),
-				Content: msg.GetContent(),
-			}
-			// 转换工具调用
-			if toolCalls := msg.GetToolCalls(); len(toolCalls) > 0 {
-				ollamaMessages[i].ToolCalls = make([]OllamaToolCall, len(toolCalls))
-				for j, tc := range toolCalls {
-					fc := tc.GetFunction()
-					ollamaMessages[i].ToolCalls[j] = OllamaToolCall{
-						Function: OllamaFunctionCall{
-							Name:      fc.GetName(),
-							Arguments: fc.GetArguments(),
-						},
+			// 如果 msg 已经是 *OllamaChatMessage，直接解引用使用
+			if ollamaMsg, ok := msg.(*OllamaChatMessage); ok {
+				ollamaMessages[i] = *ollamaMsg
+			} else {
+				// 否则通过接口方法获取
+				ollamaMessages[i] = OllamaChatMessage{
+					Role:    msg.GetRole(),
+					Content: msg.GetContent(),
+				}
+				// 转换工具调用
+				if toolCalls := msg.GetToolCalls(); len(toolCalls) > 0 {
+					ollamaMessages[i].ToolCalls = make([]OllamaToolCall, len(toolCalls))
+					for j, tc := range toolCalls {
+						fc := tc.GetFunction()
+						ollamaMessages[i].ToolCalls[j] = OllamaToolCall{
+							Function: OllamaFunctionCall{
+								Name:      fc.GetName(),
+								Arguments: fc.GetArguments(),
+							},
+						}
 					}
 				}
 			}

@@ -1,9 +1,11 @@
 package llm
 
 import (
+	"bufio"
 	"fmt"
 	"io"
 	"net/url"
+	"strings"
 
 	"yunion.io/x/onecloud/cmd/climc/shell"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -25,47 +27,55 @@ func init() {
 	cmd.Get("tool-request", new(options.MCPAgentToolRequestOptions))
 	// cmd.Get("chat-test", new(options.MCPAgentChatTestOptions))
 	cmd.Get("request", new(options.MCPAgentMCPAgentRequestOptions))
-	shell.R(&options.MCPAgentChatTestOptions{}, "mcp-agent-chat", "Chat with MCP Agent (Stream)", func(s *mcclient.ClientSession, args *options.MCPAgentChatTestOptions) error {
-		id, err := modules.MCPAgent.GetId(s, args.ID, nil)
-		if err != nil {
-			return err
-		}
+	shell.R(&options.MCPAgentMCPAgentRequestOptions{}, "mcp-agent-chat", "Chat with MCP Agent (Stream)", chatStream)
+}
 
-		path := fmt.Sprintf("/mcp_agents/%s/chat-stream?message=%s", id, url.QueryEscape(args.Message))
+func chatStream(s *mcclient.ClientSession, args *options.MCPAgentMCPAgentRequestOptions) error {
+	id, err := modules.MCPAgent.GetId(s, args.ID, nil)
+	if err != nil {
+		return err
+	}
 
-		resp, err := s.RawVersionRequest(
-			modules.MCPAgent.ServiceType(),
-			modules.MCPAgent.EndpointType(),
-			"GET",
-			path,
-			nil,
-			nil,
-		)
-		if err != nil {
-			return err
-		}
-		defer resp.Body.Close()
+	path := fmt.Sprintf("/mcp_agents/%s/chat-stream?message=%s", id, url.QueryEscape(args.Message))
 
-		if resp.StatusCode != 200 {
-			// Read error body
-			body, _ := io.ReadAll(resp.Body)
-			return fmt.Errorf("Error: %s %s", resp.Status, string(body))
-		}
+	resp, err := s.RawVersionRequest(
+		modules.MCPAgent.ServiceType(),
+		modules.MCPAgent.EndpointType(),
+		"GET",
+		path,
+		nil,
+		nil,
+	)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
 
-		buffer := make([]byte, 1024)
-		for {
-			n, err := resp.Body.Read(buffer)
-			if n > 0 {
-				fmt.Print(string(buffer[:n]))
+	if resp.StatusCode != 200 {
+		// Read error body
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("Error: %s %s", resp.Status, string(body))
+	}
+
+	scanner := bufio.NewScanner(resp.Body)
+	var eventData []string
+	for scanner.Scan() {
+		line := scanner.Text()
+		if line == "" {
+			if len(eventData) > 0 {
+				fmt.Print(strings.Join(eventData, "\n"))
+				eventData = nil
 			}
-			if err != nil {
-				if err == io.EOF {
-					break
-				}
-				return err
-			}
+			continue
 		}
-		fmt.Println()
-		return nil
-	})
+		if after, found := strings.CutPrefix(line, "data: "); found {
+			eventData = append(eventData, after)
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return err
+	}
+	fmt.Println()
+	return nil
 }

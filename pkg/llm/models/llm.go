@@ -3,6 +3,7 @@ package models
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"strings"
 
 	"yunion.io/x/jsonutils"
@@ -17,9 +18,13 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/llm/options"
 	llmutils "yunion.io/x/onecloud/pkg/llm/utils"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/compute"
+	computeoptions "yunion.io/x/onecloud/pkg/mcclient/options/compute"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 var llmManager *SLLMManager
@@ -112,16 +117,197 @@ func (man *SLLMManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, 
 		q = q.Equals("llm_image_id", imgObj.GetId())
 	}
 
-	// if input.Unused != nil {
-	// 	instanceQ := GetDesktopInstanceManager().Query().SubQuery()
-	// 	if *input.Unused {
-	// 		q = q.NotEquals("id", instanceQ.Query(instanceQ.Field("desktop_id")).SubQuery())
-	// 	} else {
-	// 		q = q.Join(instanceQ, sqlchemy.Equals(q.Field("id"), instanceQ.Field("desktop_id")))
-	// 	}
-	// }
-
 	return q, nil
+}
+
+func (man *SLLMManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.LLMListDetails {
+	virtRows := man.SVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	llms := []SLLM{}
+	jsonutils.Update(&llms, objs)
+	res := make([]api.LLMListDetails, len(objs))
+	for i := 0; i < len(res); i++ {
+		res[i].VirtualResourceDetails = virtRows[i]
+	}
+
+	ids := make([]string, len(llms))
+	skuIds := make([]string, len(llms))
+	imgIds := make([]string, len(llms))
+	serverIds := []string{}
+	networkIds := []string{}
+	for idx, llm := range llms {
+		ids[idx] = llm.Id
+		skuIds[idx] = llm.LLMSkuId
+		imgIds[idx] = llm.LLMImageId
+		if !utils.IsInArray(llm.SvrId, serverIds) {
+			serverIds = append(serverIds, llm.SvrId)
+		}
+		if len(llm.NetworkId) > 0 {
+			networkIds = append(networkIds, llm.NetworkId)
+		}
+		mountedModelInfo, _ := llm.FetchMountedModelInfo()
+		res[idx].MountedModels = mountedModelInfo
+		res[idx].NetworkType = llm.NetworkType
+		res[idx].NetworkId = llm.NetworkId
+	}
+
+	// fetch volume
+	volumeQ := GetVolumeManager().Query().In("llm_Id", ids)
+	volumes := []SVolume{}
+	db.FetchModelObjects(GetVolumeManager(), volumeQ, &volumes)
+	for _, volume := range volumes {
+		for i, id := range ids {
+			if id == volume.LLMId {
+				res[i].Volume = api.Volume{
+					Id:          volume.Id,
+					Name:        volume.Name,
+					TemplateId:  volume.TemplateId,
+					StorageType: volume.StorageType,
+					SizeMB:      volume.SizeMB,
+				}
+			}
+		}
+	}
+
+	// fetch sku
+	skus := make(map[string]SLLMSku)
+	err := db.FetchModelObjectsByIds(GetLLMSkuManager(), "id", skuIds, &skus)
+	if err == nil {
+		for i := range llms {
+			if sku, ok := skus[llms[i].LLMSkuId]; ok {
+				res[i].LLMSku = sku.Name
+				res[i].VcpuCount = sku.Cpu
+				res[i].VmemSizeMb = sku.Memory
+				res[i].Devices = sku.Devices
+				if llms[i].BandwidthMb != 0 {
+					res[i].EffectBandwidthMbps = llms[i].BandwidthMb
+				} else {
+					res[i].EffectBandwidthMbps = sku.Bandwidth
+				}
+			}
+		}
+	} else {
+		log.Errorf("FetchModelObjectsByIds LLMSkuManager fail %s", err)
+	}
+
+	// fetch image
+	images := make(map[string]SLLMImage)
+	err = db.FetchModelObjectsByIds(GetLLMImageManager(), "id", imgIds, &images)
+	if err == nil {
+		for i := range llms {
+			if image, ok := images[llms[i].LLMImageId]; ok {
+				res[i].LLMImage = image.Name
+				res[i].LLMImageLable = image.ImageLabel
+				res[i].LLMImageName = image.ImageName
+			}
+		}
+	} else {
+		log.Errorf("FetchModelObjectsByIds GetLLMImageManager fail %s", err)
+	}
+
+	// fetch network
+	if len(networkIds) > 0 {
+		networks, err := fetchNetworks(ctx, userCred, networkIds)
+		if err == nil {
+			for i, llm := range llms {
+				if net, ok := networks[llm.NetworkId]; ok {
+					res[i].Network = net.Name
+				}
+			}
+		} else {
+			log.Errorf("fail to retrieve network info %s", err)
+		}
+	}
+
+	// fetch host
+	if len(serverIds) > 0 {
+		// allow query cmp server
+		serverMap := make(map[string]computeapi.ServerDetails)
+		s := auth.GetAdminSession(ctx, options.Options.Region)
+		params := computeoptions.ServerListOptions{}
+		limit := 1000
+		params.Limit = &limit
+		details := true
+		params.Details = &details
+		params.Scope = "maxallowed"
+		offset := 0
+		for offset < len(serverIds) {
+			lastIdx := offset + limit
+			if lastIdx > len(serverIds) {
+				lastIdx = len(serverIds)
+			}
+			params.Id = serverIds[offset:lastIdx]
+			results, err := compute.Servers.List(s, jsonutils.Marshal(params))
+			if err != nil {
+				log.Errorf("query servers fails %s", err)
+				break
+			} else {
+				offset = lastIdx
+				for i := range results.Data {
+					guest := computeapi.ServerDetails{}
+					err := results.Data[i].Unmarshal(&guest)
+					if err == nil {
+						serverMap[guest.Id] = guest
+					}
+				}
+			}
+		}
+
+		for i := range llms {
+			llmStatus := api.LLM_STATUS_UNKNOWN
+			llm := llms[i]
+			if guest, ok := serverMap[llm.SvrId]; ok {
+				// find guest
+				if len(guest.Containers) == 0 {
+					llmStatus = api.LLM_LLM_STATUS_NO_CONTAINER
+				} else {
+					llmCtr := guest.Containers[0]
+					if llmCtr == nil {
+						llmStatus = api.LLM_LLM_STATUS_NO_CONTAINER
+					} else {
+						llmStatus = llmCtr.Status
+					}
+				}
+
+				res[i].Server = guest.Name
+				res[i].StartTime = guest.LastStartAt
+				res[i].Host = guest.Host
+				res[i].HostId = guest.HostId
+				res[i].HostAccessIp = guest.HostAccessIp
+				res[i].HostEIP = guest.HostEIP
+				res[i].Zone = guest.Zone
+				res[i].ZoneId = guest.ZoneId
+
+				adbMappedPort := -1
+				// for j := range res[i].AccessInfo {
+				// 	res[i].AccessInfo[j].DesktopIp = guest.IPs
+				// 	res[i].AccessInfo[j].ServerIp = guest.HostAccessIp
+				// 	res[i].AccessInfo[j].PublicIp = guest.HostEIP
+				// 	/*if res[i].AccessInfo[j].ListenPort == api.DESKTOP_ADB_PORT {
+				// 		adbMappedPort = res[i].AccessInfo[j].AccessPort
+				// 	}*/
+				// }
+
+				if adbMappedPort >= 0 {
+					res[i].AdbAccess = fmt.Sprintf("%s:%d", guest.HostAccessIp, adbMappedPort)
+					if len(res[i].HostEIP) > 0 {
+						res[i].AdbPublic = fmt.Sprintf("%s:%d", guest.HostEIP, adbMappedPort)
+					}
+				}
+			} else {
+				llmStatus = api.LLM_LLM_STATUS_NO_SERVER
+			}
+			res[i].LLMStatus = llmStatus
+		}
+	}
+
+	return res
 }
 
 func (lm *SLLMManager) OnCreateComplete(ctx context.Context, items []db.IModel, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data []jsonutils.JSONObject) {
@@ -359,4 +545,36 @@ func (llm *SLLM) StartSyncStatusTask(ctx context.Context, userCred mcclient.Toke
 
 func (llm *SLLM) GetLLMUrl(ctx context.Context, userCred mcclient.TokenCredential) (string, error) {
 	return llm.GetLLMContainerDriver().GetLLMUrl(ctx, userCred, llm)
+}
+
+func (llm *SLLM) GetDetailsUrl(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	accessUrl, err := llm.GetLLMUrl(ctx, userCred)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetLLMUrl")
+	}
+	output := jsonutils.NewDict()
+	output.Set("access_url", jsonutils.NewString(accessUrl))
+	return output, nil
+}
+
+func fetchNetworks(ctx context.Context, userCred mcclient.TokenCredential, networkIds []string) (map[string]computeapi.NetworkDetails, error) {
+	s := auth.GetSession(ctx, userCred, "")
+	params := computeoptions.ServerListOptions{}
+	params.Id = networkIds
+	limit := len(networkIds)
+	params.Limit = &limit
+	params.Scope = "maxallowed"
+	results, err := compute.Networks.List(s, jsonutils.Marshal(params))
+	if err != nil {
+		return nil, errors.Wrap(err, "Networks.List")
+	}
+	networks := make(map[string]computeapi.NetworkDetails)
+	for i := range results.Data {
+		net := computeapi.NetworkDetails{}
+		err := results.Data[i].Unmarshal(&net)
+		if err == nil {
+			networks[net.Id] = net
+		}
+	}
+	return networks, nil
 }

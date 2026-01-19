@@ -126,12 +126,9 @@ type MountedAppResourceDetails struct {
 type LLMSKuBaseCreateInput struct {
 	apis.SharableVirtualResourceCreateInput
 
-	Cpu    int `json:"cpu"`
-	Memory int `json:"memory"`
-
-	NetworkType string `json:"network_type"`
-	NetworkId   string `json:"network_id"`
-	Bandwidth   int    `json:"bandwidth"`
+	Cpu       int `json:"cpu"`
+	Memory    int `json:"memory"`
+	Bandwidth int `json:"bandwidth"`
 
 	Volumes      *Volumes          `json:"volumes"`
 	PortMappings *PortMappings     `json:"port_mappings"`
@@ -153,8 +150,6 @@ type LLMSkuBaseUpdateInput struct {
 	StorageType *string  `json:"storage_type"`
 	Volumes     *Volumes `json:"volumes"`
 
-	NetworkType  *string           `json:"network_type"`
-	NetworkId    *string           `json:"network_id"`
 	Bandwidth    *int              `json:"bandwidth"`
 	PortMappings *PortMappings     `json:"port_mappings"`
 	Devices      *Devices          `json:"devices"`

@@ -597,17 +597,13 @@ func parseModelName(path string) string {
 }
 
 func (o *ollama) GetLLMUrl(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM) (string, error) {
-	sku, err := llm.GetLLMSku("")
-	if err != nil {
-		return "", errors.Wrap(err, "get llm sku")
-	}
 	// 查询 accessinfo
 	accessInfo := &models.SAccessInfo{}
 	q := models.GetAccessInfoManager().Query().Equals("llm_id", llm.Id)
-	err = q.First(accessInfo)
+	err := q.First(accessInfo)
 	if err != nil {
 		if errors.Cause(err) == sql.ErrNoRows {
-			// 如果没有 accessinfo，使用默认 localhost
+			// 如果没有 accessinfo，使用对应主机
 			server, err := llm.GetServer(ctx)
 			if err != nil {
 				return "", errors.Wrap(err, "get server")
@@ -624,7 +620,7 @@ func (o *ollama) GetLLMUrl(ctx context.Context, userCred mcclient.TokenCredentia
 	}
 
 	// 判断网络类型
-	networkType := sku.NetworkType
+	networkType := llm.NetworkType
 	if networkType == string(computeapi.NETWORK_TYPE_GUEST) {
 		// guest 网络：使用 LLM IP + 默认端口
 		if len(llm.LLMIp) == 0 {
