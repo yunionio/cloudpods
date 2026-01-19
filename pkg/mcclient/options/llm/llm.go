@@ -1,10 +1,7 @@
 package llm
 
 import (
-	"strings"
-
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/pkg/util/regutils"
 
 	api "yunion.io/x/onecloud/pkg/apis/llm"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
@@ -14,6 +11,9 @@ type LLMBaseListOptions struct {
 	options.BaseListOptions
 	Host      string   `help:"filter by host"`
 	LLMStatus []string `help:"filter by server status"`
+
+	NetworkType string `help:"filter by network type"`
+	NetworkId   string `help:"filter by network id"`
 
 	ListenPort int    `help:"filter by listen port"`
 	PublicIp   string `help:"filter by public ip"`
@@ -54,6 +54,9 @@ type LLMBaseCreateOptions struct {
 	AutoStart  bool
 	ProjectId  string
 	PreferHost string
+
+	NETWORK_TYPE string `json:"network_type" choices:"guest|hostlocal"`
+	NetworkId    string `help:"id of network" json:"network_id"`
 
 	BandwidthMb int
 
@@ -120,13 +123,13 @@ type LLMSaveInstantModelOptions struct {
 	MODEL_ID string `help:"llm model id, e.g. 500a1f067a9f"`
 	Name     string `help:"instant app name, e.g. qwen3:8b"`
 
-	// AutoRestart bool
+	AutoRestart bool
 }
 
 func (opts *LLMSaveInstantModelOptions) Params() (jsonutils.JSONObject, error) {
 	input := api.LLMSaveInstantModelInput{
-		ModelId:   opts.MODEL_ID,
-		ImageName: opts.Name,
+		ModelId:       opts.MODEL_ID,
+		ModelFullName: opts.Name,
 		// AutoRestart: opts.AutoRestart,
 	}
 	return jsonutils.Marshal(input), nil
@@ -135,47 +138,18 @@ func (opts *LLMSaveInstantModelOptions) Params() (jsonutils.JSONObject, error) {
 type LLMQuickModelsOptions struct {
 	LLMIdOptions
 
-	MODEL []string `help:"model id and optional display name in the format of modelId[@modelName:modelTag], e.g. 6f48b936a09f or 6f48b936a09f@qwen2:0.5b"`
+	MODEL []string `help:"model id of instant model, e.g. qwen3:0.6b-251202 or 7f72b5a1-4049-43db-8e91-8dee736ae1ac"`
 
 	Method string `help:"install or uninstall" choices:"install|uninstall"`
 }
 
 func (opts *LLMQuickModelsOptions) Params() (jsonutils.JSONObject, error) {
 	params := api.LLMPerformQuickModelsInput{}
-	for _, mdlFul := range opts.MODEL {
-		var mdl api.ModelInfo
-
-		var idPart string
-		var nameAndTagPart string
-
-		if idx := strings.Index(mdlFul, "@"); idx >= 0 {
-			idPart = mdlFul[:idx]
-			nameAndTagPart = mdlFul[idx+1:]
-
-			if idxTag := strings.LastIndex(nameAndTagPart, ":"); idxTag >= 0 {
-				mdl.DisplayName = nameAndTagPart[:idxTag]
-				mdl.Tag = nameAndTagPart[idxTag+1:]
-			} else {
-				mdl.DisplayName = nameAndTagPart
-			}
-		} else {
-			idPart = mdlFul
-
-			if idxTag := strings.LastIndex(idPart, ":"); idxTag >= 0 {
-				mdl.Tag = idPart[idxTag+1:]
-				idPart = idPart[:idxTag]
-			}
-		}
-
-		if regutils.MatchUUID(idPart) {
-			mdl.Id = idPart
-		} else {
-			mdl.ModelId = idPart
-		}
-
-		params.Models = append(params.Models, mdl)
+	for _, mdl := range opts.MODEL {
+		params.Models = append(params.Models, api.ModelInfo{
+			Id: mdl,
+		})
 	}
-
 	if len(opts.Method) > 0 {
 		params.Method = api.TQuickModelMethod(opts.Method)
 	}

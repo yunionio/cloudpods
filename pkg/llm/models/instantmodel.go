@@ -151,7 +151,7 @@ func (man *SInstantModelManager) FetchCustomizeColumns(
 	res := make([]apis.InstantModelDetails, len(objs))
 
 	imageIds := make([]string, 0)
-	// mdlNames := make([]string, 0)
+	mdlIds := make([]string, 0)
 
 	virows := man.SSharableVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	for i := range res {
@@ -160,9 +160,9 @@ func (man *SInstantModelManager) FetchCustomizeColumns(
 		if len(instModel.ImageId) > 0 {
 			imageIds = append(imageIds, instModel.ImageId)
 		}
-		// if len(instModel.ModelName) > 0 {
-		// 	mdlNames = append(mdlNames, instModel.ModelName)
-		// }
+		if len(instModel.ModelId) > 0 {
+			mdlIds = append(mdlIds, instModel.ModelId)
+		}
 	}
 
 	s := auth.GetSession(ctx, userCred, options.Options.Region)
@@ -238,6 +238,46 @@ func (man *SInstantModelManager) FetchCustomizeColumns(
 		}
 
 	}
+
+	llmInstModelQ := GetLLMInstantModelManager().Query().In("model_id", mdlIds).IsFalse("deleted")
+	llmInstModels := make([]SLLMInstantModel, 0)
+	err := db.FetchModelObjects(GetLLMInstantModelManager(), llmInstModelQ, &llmInstModels)
+	if err != nil {
+		log.Errorf("fetch llm instant models fail %s", err)
+	}
+
+	llmIds := make([]string, 0)
+	for i := range llmInstModels {
+		if !utils.IsInArray(llmInstModels[i].LlmId, llmIds) {
+			llmIds = append(llmIds, llmInstModels[i].LlmId)
+		}
+	}
+
+	llmMap := make(map[string]SLLM)
+	if len(llmIds) > 0 {
+		err = db.FetchModelObjectsByIds(GetLLMManager(), "id", llmIds, &llmMap)
+		if err != nil {
+			log.Errorf("FetchModelObjectsByIds LLMManager fail %s", err)
+		}
+	}
+
+	modelMountedByMap := make(map[string][]apis.MountedByLLMInfo)
+	for i := range llmInstModels {
+		llmInstModel := llmInstModels[i]
+		llm, ok := llmMap[llmInstModel.LlmId]
+		if !ok {
+			continue
+		}
+		info := apis.MountedByLLMInfo{
+			LlmId:   llmInstModel.LlmId,
+			LlmName: llm.Name,
+		}
+		if _, ok := modelMountedByMap[llmInstModel.ModelId]; !ok {
+			modelMountedByMap[llmInstModel.ModelId] = make([]apis.MountedByLLMInfo, 0)
+		}
+		modelMountedByMap[llmInstModel.ModelId] = append(modelMountedByMap[llmInstModel.ModelId], info)
+	}
+
 	for i := range res {
 		instModel := objs[i].(*SInstantModel)
 		if img, ok := imageMap[instModel.ImageId]; ok {
@@ -247,6 +287,11 @@ func (man *SInstantModelManager) FetchCustomizeColumns(
 			res[i].CacheCount = status.CacheCount
 			res[i].CachedCount = status.CachedCount
 		}
+		if mountedBy, ok := modelMountedByMap[instModel.ModelId]; ok {
+			res[i].MountedByLLMs = mountedBy
+		}
+
+		res[i].GPUMemoryRequired = instModel.GetEstimatedVramSizeMb()
 	}
 	return res
 }
@@ -369,7 +414,7 @@ func (model *SInstantModel) PostCreate(
 	if err != nil {
 		return
 	}
-	if input.DoNotImport == nil || !*input.DoNotImport {
+	if input.ImageId == "" && (input.DoNotImport == nil || !*input.DoNotImport) {
 		model.startImportTask(ctx, userCred, apis.InstantModelImportInput{
 			LlmType:   input.LlmType,
 			ModelName: input.ModelName,
@@ -533,15 +578,15 @@ func (model *SInstantModel) PerformEnable(
 		return nil, errors.Wrapf(errors.ErrInvalidStatus, "cannot enable model of status %s", model.Status)
 	}
 	// check duplicate
-	{
-		existing, err := GetInstantModelManager().findInstantModel(model.ModelId, model.ModelTag, true)
-		if err != nil {
-			return nil, errors.Wrap(err, "findInstantModel")
-		}
-		if existing != nil && existing.Id != model.Id {
-			return nil, errors.Wrapf(errors.ErrDuplicateId, "model of modelId %s tag %s has been enabled", model.ModelId, model.ModelTag)
-		}
-	}
+	// {
+	// 	existing, err := GetInstantModelManager().findInstantModel(model.ModelId, model.ModelTag, true)
+	// 	if err != nil {
+	// 		return nil, errors.Wrap(err, "findInstantModel")
+	// 	}
+	// 	if existing != nil && existing.Id != model.Id {
+	// 		return nil, errors.Wrapf(errors.ErrDuplicateId, "model of modelId %s tag %s has been enabled", model.ModelId, model.ModelTag)
+	// 	}
+	// }
 	_, err := db.Update(model, func() error {
 		model.SEnabledResourceBase.SetEnabled(true)
 		return nil
@@ -885,6 +930,18 @@ func (model *SInstantModel) GetActualSizeMb() int32 {
 	return int32(model.Size / 1024 / 1024)
 }
 
+func (model *SInstantModel) GetEstimatedVramSizeBytes() int64 {
+	if model.Size <= 0 {
+		return 0
+	}
+	// 1.0x 基础权重 + 0.15x 动态开销(KV Cache) + 500MB 框架固定开销
+	return int64(float64(model.Size)*1.15) + 500*1024*1024
+}
+
+func (model *SInstantModel) GetEstimatedVramSizeMb() int64 {
+	return model.GetEstimatedVramSizeBytes() / 1024 / 1024
+}
+
 func (model *SInstantModel) CleanupImportTmpDir(ctx context.Context, userCred mcclient.TokenCredential, tmpDir string) error {
 	// sync image status
 	err := model.syncImageStatus(ctx, userCred)
@@ -899,4 +956,9 @@ func (model *SInstantModel) CleanupImportTmpDir(ctx context.Context, userCred mc
 		return errors.Wrapf(err, "Failed to remove tmpDir %s", tmpDir)
 	}
 	return nil
+}
+
+// GetOllamaRegistryYAML returns the Ollama registry YAML content
+func (man *SInstantModelManager) GetOllamaRegistryYAML() string {
+	return apis.OLLAMA_REGISTRY_YAML
 }

@@ -20,9 +20,18 @@ const (
 - 管理虚拟机（创建、启动、停止、重启、删除、重置密码）
 - 获取虚拟机监控信息和实时统计数据
 
+## 重要规则（必须严格遵守）
+**如果用户的问题涉及查询、创建、修改或删除云资源，你必须先调用相应的工具，而不是直接回答。**
+- 对于需要查询资源的问题（如"列出虚拟机"、"查询状态"等），必须调用工具获取数据后再回答
+- 对于需要操作资源的问题（如"创建"、"启动"、"停止"等），必须调用工具执行操作后再回答
+- 只有在以下情况才可以直接回复：
+  1. 用户只是询问一般性问题（如"你能做什么"、"如何使用"等）
+  2. 没有合适的工具可以解决用户的问题
+  3. 工具调用失败后需要向用户说明错误原因
+
 ## 工作流程
 1. 理解用户的需求
-2. 选择合适的工具来完成任务
+2. **优先检查是否有合适的工具可以完成任务，如果有则必须调用工具**
 3. 分析工具返回的结果
 4. 如果需要更多信息，继续调用其他工具
 5. 最后用自然语言总结结果给用户
@@ -31,6 +40,7 @@ const (
 - 认证信息已由系统自动处理，调用工具时无需提供认证参数
 - 如果工具调用失败，尝试分析错误原因并告知用户
 - 回复时使用中文，语言简洁明了
+- **不要在没有调用工具的情况下直接回答需要查询或操作资源的问题**
 `
 )
 
@@ -78,11 +88,8 @@ type MCPAgentUpdateInput struct {
 type MCPAgentDetails struct {
 	apis.SharableVirtualResourceDetails
 
-	LLMUrl    string `json:"llm_url"`
-	LLMDriver string `json:"llm_driver"`
-	Model     string `json:"model"`
-	ApiKey    string `json:"api_key"`
-	McpServer string `json:"mcp_server"`
+	LLMId   string `json:"llm_id"`
+	LLMName string `json:"llm_name"`
 }
 
 type LLMToolRequestInput struct {
@@ -90,12 +97,8 @@ type LLMToolRequestInput struct {
 	Arguments map[string]interface{} `json:"arguments"`
 }
 
-type LLMChatTestInput struct {
-	Message string `json:"message" help:"test message to send to LLM"`
-}
-
 type LLMMCPAgentRequestInput struct {
-	Query string `json:"query" help:"query to send to MCP agent"`
+	Message string `json:"message" help:"message to send to MCP agent"`
 }
 
 // MCPAgentResponse 表示 Agent 响应

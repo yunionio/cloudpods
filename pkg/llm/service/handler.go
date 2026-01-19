@@ -1,6 +1,9 @@
 package service
 
 import (
+	"context"
+	"net/http"
+
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/appsrv/dispatcher"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -8,11 +11,19 @@ import (
 	"yunion.io/x/onecloud/pkg/llm/models"
 )
 
+func handleOllamaRegistryYAML(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	yamlContent := models.GetInstantModelManager().GetOllamaRegistryYAML()
+	w.Header().Set("Content-Type", "application/x-yaml; charset=utf-8")
+	appsrv.Send(w, yamlContent)
+}
+
 func InitHandlers(app *appsrv.Application, isSlave bool) {
 	db.InitAllManagers()
 	db.RegistUserCredCacheUpdater()
 
 	taskman.AddTaskHandler("", app, isSlave)
+
+	app.AddHandler("GET", "/ollama-registry.yaml", handleOllamaRegistryYAML)
 
 	for _, manager := range []db.IModelManager{
 		taskman.TaskManager,
