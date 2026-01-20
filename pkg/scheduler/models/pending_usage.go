@@ -17,12 +17,12 @@ package models
 import (
 	"context"
 	"fmt"
-	"runtime/debug"
 	"sync"
 	"time"
 
 	"github.com/pkg/errors"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
 	schedapi "yunion.io/x/onecloud/pkg/apis/scheduler"
@@ -30,20 +30,25 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	computemodels "yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/scheduler/api"
-	"yunion.io/x/onecloud/pkg/scheduler/options"
 )
 
 var HostPendingUsageManager *SHostPendingUsageManager
 
 type SHostPendingUsageManager struct {
-	store *SHostMemoryPendingUsageStore
+	store              *SHostMemoryPendingUsageStore
+	reloadAllStartTime time.Time    // 记录 ReloadAll 开始时间
+	reloadStartTime    time.Time    // 记录部分 Reload 开始时间
+	reloadAllLock      sync.RWMutex // 保护 reloadAllStartTime
+	reloadLock         sync.RWMutex // 保护 reloadStartTime
 }
 
 func init() {
 	pendingStore := NewHostMemoryPendingUsageStore()
 
 	HostPendingUsageManager = &SHostPendingUsageManager{
-		store: pendingStore,
+		store:              pendingStore,
+		reloadAllStartTime: time.Time{}, // 初始化为零值
+		reloadStartTime:    time.Time{}, // 初始化为零值
 	}
 }
 
@@ -54,6 +59,7 @@ func (m *SHostPendingUsageManager) Keyword() string {
 func (m *SHostPendingUsageManager) newSessionUsage(req *api.SchedInfo, hostId string) *SessionPendingUsage {
 	su := NewSessionUsage(req.SessionId, hostId)
 	su.Usage = NewPendingUsageBySchedInfo(hostId, req, nil)
+	// CreatedAt is already set in NewSessionUsage
 	return su
 }
 
@@ -83,11 +89,13 @@ func (m *SHostPendingUsageManager) GetSessionUsage(sessionId, hostId string) (*S
 
 func (m *SHostPendingUsageManager) AddPendingUsage(req *api.SchedInfo, candidate *schedapi.CandidateResource) {
 	hostId := candidate.HostId
+	log.Infof("[PendingUsage] AddPendingUsage: sessionId=%s, hostId=%s, memory=%dMB, cpu=%d",
+		req.SessionId, hostId, req.Memory, req.Ncpu)
 
 	sessionUsage, _ := m.GetSessionUsage(req.SessionId, hostId)
 	if sessionUsage == nil {
 		sessionUsage = m.newSessionUsage(req, hostId)
-		sessionUsage.StartTimer()
+		log.Infof("[PendingUsage] Created new SessionPendingUsage: %s", sessionUsage)
 	}
 	m.addSessionUsage(candidate.HostId, candidate, sessionUsage)
 	if candidate.BackupCandidate != nil {
@@ -123,14 +131,99 @@ func (m *SHostPendingUsageManager) CancelPendingUsage(hostId string, su *Session
 	if su == nil {
 		return nil
 	}
+
+	oldMemory := pendingUsage.Memory
+	oldCpu := pendingUsage.Cpu
 	pendingUsage.Sub(su.Usage)
 	m.store.SetPendingUsage(hostId, pendingUsage)
 	su.SubCount()
+
+	log.Infof("[PendingUsage] CancelPendingUsage: %s, host %s pending usage memory: %d->%dMB, cpu: %d->%d",
+		su, hostId, oldMemory, pendingUsage.Memory, oldCpu, pendingUsage.Cpu)
 	return nil
 }
 
 func (m *SHostPendingUsageManager) DeleteSessionUsage(usage *SessionPendingUsage) {
 	m.store.DeleteSessionUsage(usage)
+}
+
+// GCExpiredSessionUsages releases session pending usage that has lived longer than ttl.
+// This is a safety net to avoid leaked pending usages.
+func (m *SHostPendingUsageManager) GCExpiredSessionUsages(ttl time.Duration) int {
+	if ttl <= 0 {
+		return 0
+	}
+	now := time.Now()
+	expired := make([]*SessionPendingUsage, 0)
+
+	m.store.RangeSessionUsages(func(su *SessionPendingUsage) bool {
+		if su == nil {
+			return true
+		}
+		if now.Sub(su.CreatedAt) > ttl {
+			expired = append(expired, su)
+		}
+		return true
+	})
+
+	cleared := 0
+	for _, su := range expired {
+		hostId := su.Usage.HostId
+		// best-effort cancel + delete
+		_ = m.CancelPendingUsage(hostId, su)
+		m.DeleteSessionUsage(su)
+		cleared++
+		log.Warningf("[PendingUsage] GCExpiredSessionUsage cleared: ttl=%v, now=%v, %s", ttl, now, su)
+	}
+	return cleared
+}
+
+// SetReloadStartTime marks the start of a partial reload operation
+// This should be called before Reload to protect pending usage added during reload
+func (m *SHostPendingUsageManager) SetReloadStartTime() {
+	m.reloadLock.Lock()
+	defer m.reloadLock.Unlock()
+	m.reloadStartTime = time.Now()
+	log.Infof("[PendingUsage] SetReloadStartTime: cutoff time set to %v", m.reloadStartTime)
+}
+
+// GetReloadStartTime returns the cutoff time for partial reload
+func (m *SHostPendingUsageManager) GetReloadStartTime() time.Time {
+	m.reloadLock.RLock()
+	defer m.reloadLock.RUnlock()
+	return m.reloadStartTime
+}
+
+// GetStore returns the underlying store for direct access
+func (m *SHostPendingUsageManager) GetStore() *SHostMemoryPendingUsageStore {
+	return m.store
+}
+
+// SetReloadAllStartTime marks the start of a full reload operation
+// This should be called before ReloadAll to protect pending usage added during reload
+func (m *SHostPendingUsageManager) SetReloadAllStartTime() {
+	m.reloadAllLock.Lock()
+	defer m.reloadAllLock.Unlock()
+	m.reloadAllStartTime = time.Now()
+	log.Infof("[PendingUsage] SetReloadAllStartTime: cutoff time set to %v", m.reloadAllStartTime)
+}
+
+// ClearAllPendingUsage clears all pending usage created before the last ReloadAll start
+// This is called when all hosts are fully reloaded
+func (m *SHostPendingUsageManager) ClearAllPendingUsage() {
+	m.reloadAllLock.RLock()
+	cutoffTime := m.reloadAllStartTime
+	m.reloadAllLock.RUnlock()
+
+	if cutoffTime.IsZero() {
+		// No ReloadAll has been started, clear all
+		log.Warningf("[PendingUsage] ClearAllPendingUsage: skipping clear all (no cutoff time)")
+	} else {
+		// Only clear pending usage created before ReloadAll started
+		log.Infof("[PendingUsage] ClearAllPendingUsage: clearing created before %v", cutoffTime)
+		m.store.clearAllPendingUsageBefore(cutoffTime)
+		log.Infof("[PendingUsage] Cleared pending usage created before %v", cutoffTime)
+	}
 }
 
 type SHostMemoryPendingUsageStore struct {
@@ -141,6 +234,16 @@ func NewHostMemoryPendingUsageStore() *SHostMemoryPendingUsageStore {
 	return &SHostMemoryPendingUsageStore{
 		store: new(sync.Map),
 	}
+}
+
+func (s *SHostMemoryPendingUsageStore) RangeSessionUsages(f func(*SessionPendingUsage) bool) {
+	s.store.Range(func(_, v interface{}) bool {
+		su, ok := v.(*SessionPendingUsage)
+		if !ok || su == nil {
+			return true
+		}
+		return f(su)
+	})
 }
 
 func (self *SHostMemoryPendingUsageStore) sessionUsageKey(sid, hostId string) string {
@@ -194,13 +297,98 @@ func (self *SHostMemoryPendingUsageStore) GetNetPendingUsage(id string) int {
 	return total
 }
 
+// clearPendingUsageBefore is the common implementation for clearing pending usage based on cutoffTime
+func (self *SHostMemoryPendingUsageStore) clearPendingUsageBefore(
+	shouldDelete func(*SessionPendingUsage) bool,
+	logPrefix string,
+	cutoffTime time.Time,
+) {
+	sessionKeysToDelete := make([]string, 0)
+	hostIdsToDelete := make(map[string]bool)
+	sessionUsagesToDelete := make(map[string]*SessionPendingUsage) // key -> sessionUsage
+
+	// First pass: collect session usages to delete
+	self.store.Range(func(key, value interface{}) bool {
+		keyStr, ok := key.(string)
+		if !ok {
+			return true
+		}
+
+		// Check if it's a session usage
+		if su, ok := value.(*SessionPendingUsage); ok {
+			if shouldDelete(su) {
+				sessionKeysToDelete = append(sessionKeysToDelete, keyStr)
+				hostIdsToDelete[su.Usage.HostId] = true
+				sessionUsagesToDelete[keyStr] = su
+			}
+		}
+		return true
+	})
+
+	log.Infof("[PendingUsage] %s: found %d session usages to delete (cutoff=%v)",
+		logPrefix, len(sessionKeysToDelete), cutoffTime)
+
+	// Delete session usages and update pending usage
+	deletedCount := 0
+	for _, key := range sessionKeysToDelete {
+		su := sessionUsagesToDelete[key]
+		if su != nil {
+			hostId := su.Usage.HostId
+			// Update pending usage by subtracting this session usage
+			if pendingUsage, err := self.GetPendingUsage(hostId); err == nil {
+				oldMemory := pendingUsage.Memory
+				oldCpu := pendingUsage.Cpu
+				pendingUsage.Sub(su.Usage)
+				if pendingUsage.IsEmpty() {
+					self.store.Delete(hostId)
+					log.Infof("[PendingUsage] Deleted empty pending usage for host %s", hostId)
+				} else {
+					self.store.Store(hostId, pendingUsage)
+					log.Debugf("[PendingUsage] Updated pending usage for host %s: memory %d->%dMB, cpu %d->%d",
+						hostId, oldMemory, pendingUsage.Memory, oldCpu, pendingUsage.Cpu)
+				}
+			}
+		}
+		// Delete session usage
+		self.store.Delete(key)
+		deletedCount++
+	}
+}
+
+// ClearHostPendingUsageBefore clears pending usage for specified hosts created before cutoffTime
+func (self *SHostMemoryPendingUsageStore) ClearHostPendingUsageBefore(hostIds []string, cutoffTime time.Time) {
+	hostIdSet := make(map[string]bool)
+	for _, hostId := range hostIds {
+		hostIdSet[hostId] = true
+	}
+
+	self.clearPendingUsageBefore(
+		func(su *SessionPendingUsage) bool {
+			return hostIdSet[su.Usage.HostId] && su.CreatedAt.Before(cutoffTime)
+		},
+		fmt.Sprintf("ClearHostPendingUsageBefore: hosts %v", hostIds),
+		cutoffTime,
+	)
+}
+
+// clearAllPendingUsageBefore clears pending usage and session usages created before cutoffTime
+func (self *SHostMemoryPendingUsageStore) clearAllPendingUsageBefore(cutoffTime time.Time) {
+	self.clearPendingUsageBefore(
+		func(su *SessionPendingUsage) bool {
+			return su.CreatedAt.Before(cutoffTime)
+		},
+		"clearAllPendingUsageBefore",
+		cutoffTime,
+	)
+}
+
 type SessionPendingUsage struct {
 	HostId    string
 	SessionId string
 	Usage     *SPendingUsage
 	countLock *sync.Mutex
 	count     int
-	cancelCh  chan string
+	CreatedAt time.Time // 记录创建时间，用于 ReloadAll 时判断是否应该清空
 }
 
 func NewSessionUsage(sid, hostId string) *SessionPendingUsage {
@@ -210,7 +398,7 @@ func NewSessionUsage(sid, hostId string) *SessionPendingUsage {
 		Usage:     NewPendingUsageBySchedInfo(hostId, nil, nil),
 		count:     0,
 		countLock: new(sync.Mutex),
-		cancelCh:  make(chan string),
+		CreatedAt: time.Now(), // 记录创建时间
 	}
 	return su
 }
@@ -229,6 +417,14 @@ func (su *SessionPendingUsage) SubCount() {
 	su.countLock.Lock()
 	defer su.countLock.Unlock()
 	su.count--
+}
+
+func (su *SessionPendingUsage) String() string {
+	if su == nil {
+		return "<nil>"
+	}
+	return fmt.Sprintf("SessionPendingUsage{sessionId=%s, hostId=%s, count=%d, createdAt=%v}: %s",
+		su.SessionId, su.HostId, su.count, su.CreatedAt, jsonutils.Marshal(su.Usage.ToMap()))
 }
 
 type SResourcePendingUsage struct {
@@ -444,47 +640,4 @@ func (self *SPendingUsage) IsEmpty() bool {
 		return false
 	}
 	return true
-}
-
-func (self *SessionPendingUsage) cancelSelf() {
-	hostId := self.Usage.HostId
-	count := self.count
-
-	for i := 0; i <= count; i++ {
-		HostPendingUsageManager.CancelPendingUsage(hostId, self)
-	}
-}
-
-func (self *SessionPendingUsage) StartTimer() {
-	timeout := time.Duration(options.Options.ExpireSessionUsageTimeout) * time.Second
-	go func() {
-		for {
-			select {
-			case <-time.After(timeout):
-				log.Infof("timeout cancel session usage %#v", self)
-				self.cancelSelf()
-				goto ForEnd
-			case sid := <-self.cancelCh:
-				log.Infof("Cancel session %s usage, count: %d", sid, self.count)
-				if self.count <= 0 {
-					goto ForEnd
-				} else {
-					log.Infof("continue waiting next cancel...")
-				}
-			}
-		}
-	ForEnd:
-		log.Infof("delete session usage %#v", self)
-		HostPendingUsageManager.DeleteSessionUsage(self)
-	}()
-}
-
-func (self *SessionPendingUsage) StopTimer() {
-	defer func() {
-		if r := recover(); r != nil {
-			log.Errorf("SessionPendingUsage %#v stop timer: %v", self, r)
-			debug.PrintStack()
-		}
-	}()
-	self.cancelCh <- self.SessionId
 }

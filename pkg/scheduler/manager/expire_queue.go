@@ -30,14 +30,16 @@ type ExpireManager struct {
 	expireChannel chan *api.ExpireArgs
 	stopCh        <-chan struct{}
 
-	mergeLock *sync.Mutex
+	mergeLock         *sync.Mutex
+	reloadCancelQueue *ReloadCancelQueue
 }
 
 func NewExpireManager(stopCh <-chan struct{}) *ExpireManager {
 	return &ExpireManager{
-		expireChannel: make(chan *api.ExpireArgs, o.Options.ExpireQueueMaxLength),
-		stopCh:        stopCh,
-		mergeLock:     new(sync.Mutex),
+		expireChannel:     make(chan *api.ExpireArgs, o.Options.ExpireQueueMaxLength),
+		stopCh:            stopCh,
+		mergeLock:         new(sync.Mutex),
+		reloadCancelQueue: NewReloadCancelQueue(stopCh),
 	}
 }
 
@@ -112,46 +114,37 @@ func (e *ExpireManager) batchMergeExpire() {
 		}
 	}
 	log.V(4).Infof("batchMergeExpire dirtyHosts: %v, dirtyBaremetals: %v", dirtyHosts, dirtyBaremetals)
-	wg := &sync.WaitGroup{}
-	wg.Add(2)
-	go func() {
-		defer wg.Done()
-		//dirtyHosts = notInSession(dirtyHosts, "host")
-		if len(dirtyHosts) > 0 {
-			log.V(10).Debugf("CleanDirty Hosts: %v\n", dirtyHosts)
-			if _, err := schedManager.CandidateManager.Reload("host", dirtyHostSets.List()); err != nil {
-				log.Errorf("Clean dirty hosts %v: %v", dirtyHosts, err)
-			}
-			schedManager.HistoryManager.CancelCandidatesPendingUsage(dirtyHosts)
-		}
-	}()
 
-	go func() {
-		defer wg.Done()
-		//dirtyBaremetals = notInSession(dirtyBaremetals, "baremetal")
-		if len(dirtyBaremetals) > 0 {
-			log.V(10).Debugf("CleanDirty Baremetals: %v\n", dirtyBaremetals)
-			if _, err := schedManager.CandidateManager.Reload("baremetal", dirtyBaremetalSets.List()); err != nil {
-				log.Errorf("Clean dirty baremetals %v: %v", dirtyBaremetals, err)
-			}
-			schedManager.HistoryManager.CancelCandidatesPendingUsage(dirtyBaremetals)
+	// Use queue to ensure reload completes before cancel
+	var hostTask, baremetalTask *ReloadCancelTask
+
+	if len(dirtyHosts) > 0 {
+		hostTask = &ReloadCancelTask{
+			ResType:     "host",
+			HostIds:     dirtyHostSets.List(),
+			ExpireHosts: dirtyHosts,
 		}
-	}()
-	if ok := e.waitTimeOut(wg, u.ToDuration(o.Options.ExpireQueueConsumptionTimeout)); !ok {
-		log.Errorln("time out reload data.")
 	}
-}
 
-func (e *ExpireManager) waitTimeOut(wg *sync.WaitGroup, timeout time.Duration) bool {
-	ch := make(chan struct{})
-	go func() {
-		wg.Wait()
-		close(ch)
-	}()
-	select {
-	case <-ch:
-		return true
-	case <-time.After(timeout):
-		return false
+	if len(dirtyBaremetals) > 0 {
+		baremetalTask = &ReloadCancelTask{
+			ResType:     "baremetal",
+			HostIds:     dirtyBaremetalSets.List(),
+			ExpireHosts: dirtyBaremetals,
+		}
+	}
+
+	// Add tasks to queue (will be processed asynchronously)
+	if hostTask != nil || baremetalTask != nil {
+		tasks := make([]*ReloadCancelTask, 0, 2)
+		if hostTask != nil {
+			tasks = append(tasks, hostTask)
+		}
+		if baremetalTask != nil {
+			tasks = append(tasks, baremetalTask)
+		}
+		e.reloadCancelQueue.AddBatch(tasks, nil)
+		log.Infof("Added reload+cancel tasks to queue: hosts=%d, baremetals=%d",
+			len(dirtyHosts), len(dirtyBaremetals))
 	}
 }

@@ -217,10 +217,6 @@ func (m *HistoryManager) GetHistory(sessionId string) *HistoryItem {
 }
 
 func (m *HistoryManager) GetCancelUsage(sessionId string, hostId string) *models.SessionPendingUsage {
-	item := m.GetHistory(sessionId)
-	if item == nil {
-		return nil
-	}
 	usage, _ := models.HostPendingUsageManager.GetSessionUsage(sessionId, hostId)
 	return usage
 }
@@ -239,8 +235,11 @@ func (m *HistoryManager) CancelCandidatesPendingUsage(hosts []*expireHost) {
 		}
 		if err := models.HostPendingUsageManager.CancelPendingUsage(hostId, cancelUsage); err != nil {
 			log.Errorf("Cancel host %s usage %#v: %v", hostId, cancelUsage, err)
-		} else {
-			cancelUsage.StopTimer()
+		}
+		// Delete session usage after cancel
+		if cancelUsage.Usage.IsEmpty() {
+			models.HostPendingUsageManager.DeleteSessionUsage(cancelUsage)
+			log.Infof("Deleted empty session usage for session: %s, host: %s", sid, hostId)
 		}
 	}
 }
