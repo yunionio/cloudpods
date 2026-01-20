@@ -146,14 +146,13 @@ func (c *schedulerCache) updateAllObjects() {
 		// if ids is nil and err is normalError then return.
 		return
 	} else if len(ids) > 0 {
-		log.V(10).Debugf("Update host/baremetal status list: %v", ids)
 		c.loadObjects(ids)
 	}
 }
 
 func (c *schedulerCache) loadObjects(ids []string) ([]interface{}, error) {
-	log.Infof("Start load %s, period: %v, ttl: %v", c.Name(), c.item.Period(), c.item.TTL())
 	startTime := time.Now()
+	log.Infof("Start load %s, period: %v, ttl: %v", c.Name(), c.item.Period(), c.item.TTL())
 
 	defer func() {
 		log.Infof("End load %s, elapsed %s", c.Name(), time.Since(startTime))
