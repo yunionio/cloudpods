@@ -207,6 +207,9 @@ func (llm *SLLM) HttpGet(ctx context.Context, url string) ([]byte, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
+		if resp.StatusCode == http.StatusNotFound {
+			return nil, httperrors.NewResourceNotFoundError("url %s not found", url)
+		}
 		return nil, errors.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 
@@ -231,6 +234,9 @@ func (llm *SLLM) HttpDownloadFile(ctx context.Context, url string, filePath stri
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
+		if resp.StatusCode == http.StatusNotFound {
+			return errors.Wrapf(httperrors.ErrResourceNotFound, "url %s not found", url)
+		}
 		return errors.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 
