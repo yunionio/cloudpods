@@ -10,6 +10,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	seclib "yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/llm"
@@ -66,6 +67,48 @@ type SMCPAgent struct {
 	ApiKey string `width:"512" charset:"utf8" nullable:"true" list:"user" create:"optional" update:"user"`
 	// McpServer 即 mcp 服务器的后端地址
 	McpServer string `width:"512" charset:"utf8" nullable:"false" list:"user" create:"optional" update:"user"`
+}
+
+func (mcp *SMCPAgent) BeforeInsert() {
+	if len(mcp.Id) == 0 {
+		mcp.Id = db.DefaultUUIDGenerator()
+	}
+	if len(mcp.ApiKey) > 0 {
+		sec, err := seclib.EncryptAESBase64(mcp.Id, mcp.ApiKey)
+		if err != nil {
+			log.Errorf("EncryptAESBase64 fail %s", err)
+		} else {
+			mcp.ApiKey = sec
+		}
+	}
+	mcp.SSharableVirtualResourceBase.BeforeInsert()
+}
+
+func (mcp *SMCPAgent) BeforeUpdate() {
+	if len(mcp.ApiKey) > 0 {
+		// heuristic to check if it is plaintext
+		_, err := seclib.DescryptAESBase64(mcp.Id, mcp.ApiKey)
+		if err != nil {
+			sec, err := seclib.EncryptAESBase64(mcp.Id, mcp.ApiKey)
+			if err != nil {
+				log.Errorf("EncryptAESBase64 fail %s", err)
+			} else {
+				mcp.ApiKey = sec
+			}
+		}
+	}
+}
+
+func (mcp *SMCPAgent) GetApiKey() (string, error) {
+	if len(mcp.ApiKey) == 0 {
+		return "", nil
+	}
+	// try decrypt
+	key, err := seclib.DescryptAESBase64(mcp.Id, mcp.ApiKey)
+	if err == nil {
+		return key, nil
+	}
+	return mcp.ApiKey, nil
 }
 
 func (man *SMCPAgentManager) CustomizeHandlerInfo(info *appsrv.SHandlerInfo) {
