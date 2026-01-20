@@ -194,8 +194,12 @@ func (o *openai) doChatStreamRequest(ctx context.Context, mcpAgent *models.SMCPA
 		return errors.Wrap(err, "create request")
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
-	if mcpAgent.ApiKey != "" {
-		httpReq.Header.Set("Authorization", "Bearer "+mcpAgent.ApiKey)
+	apiKey, err := mcpAgent.GetApiKey()
+	if err != nil {
+		return err
+	}
+	if apiKey != "" {
+		httpReq.Header.Set("Authorization", "Bearer "+apiKey)
 	}
 
 	client := &http.Client{
@@ -277,8 +281,12 @@ func (o *openai) doChatRequest(ctx context.Context, mcpAgent *models.SMCPAgent, 
 		return nil, errors.Wrap(err, "create request")
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
-	if mcpAgent.ApiKey != "" {
-		httpReq.Header.Set("Authorization", "Bearer "+mcpAgent.ApiKey)
+	apiKey, err := mcpAgent.GetApiKey()
+	if err != nil {
+		return nil, errors.Wrap(err, "get apiKey")
+	}
+	if apiKey != "" {
+		httpReq.Header.Set("Authorization", "Bearer "+apiKey)
 	}
 
 	client := &http.Client{
