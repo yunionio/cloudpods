@@ -18,12 +18,14 @@ import (
 	"fmt"
 	"time"
 
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/scheduler/cache"
 	candidatecache "yunion.io/x/onecloud/pkg/scheduler/cache/candidate"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
+	schedmodels "yunion.io/x/onecloud/pkg/scheduler/models"
 )
 
 type CandidateGetArgs struct {
@@ -363,12 +365,24 @@ func (cm *CandidateManager) Reload(resType string, candidateIds []string) (
 }
 
 func (cm *CandidateManager) ReloadAll(resType string) ([]interface{}, error) {
+	// Mark the start of ReloadAll to protect pending usage added during reload
+	schedmodels.HostPendingUsageManager.SetReloadAllStartTime()
+
 	impl, err := cm.getImpl(resType)
 	if err != nil {
 		return nil, err
 	}
 
-	return impl.ReloadAll()
+	result, err := impl.ReloadAll()
+	if err == nil {
+		// Clear pending usage created before ReloadAll started
+		// This ensures pending usage doesn't leak when cache is fully rebuilt
+		// but protects pending usage added during reload
+		schedmodels.HostPendingUsageManager.ClearAllPendingUsage()
+	} else {
+		log.Errorf("[CandidateManager] Failed to reload all %q candidates: %v", resType, err)
+	}
+	return result, err
 }
 
 //type IDirtyPoolItem interface {
