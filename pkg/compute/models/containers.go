@@ -72,6 +72,7 @@ type SContainerManager struct {
 
 type SContainer struct {
 	db.SVirtualResourceBase
+	db.SExternalizedResourceBase
 
 	// GuestId is also the pod id
 	GuestId string `width:"36" charset:"ascii" create:"required" list:"user" index:"true"`

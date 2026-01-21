@@ -102,3 +102,7 @@ func (instance *SInstanceBase) GetError() error {
 func (instance *SInstanceBase) GetIsolateDeviceIds() ([]string, error) {
 	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetIsolateDeviceIds")
 }
+
+func (instance *SInstanceBase) GetContainers() ([]cloudprovider.ICloudContainer, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetContainers")
+}
