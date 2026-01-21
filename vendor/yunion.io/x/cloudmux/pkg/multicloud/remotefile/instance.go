@@ -292,3 +292,7 @@ func (self *SInstance) GetHealthStatus() string {
 func (self *SInstance) GetIsolateDeviceIds() ([]string, error) {
 	return nil, cloudprovider.ErrNotSupported
 }
+
+func (self *SInstance) GetContainers() ([]cloudprovider.ICloudContainer, error) {
+	return nil, cloudprovider.ErrNotSupported
+}

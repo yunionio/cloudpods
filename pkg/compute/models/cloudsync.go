@@ -1192,6 +1192,26 @@ func SyncVMPeripherals(
 	if err != nil && errors.Cause(err) != cloudprovider.ErrNotSupported && errors.Cause(err) != cloudprovider.ErrNotImplemented {
 		logclient.AddSimpleActionLog(local, logclient.ACT_CLOUD_SYNC, errors.Wrapf(err, "syncVMIsolateDevice"), userCred, false)
 	}
+	err = syncVMContainers(ctx, userCred, provider, local, remote)
+	if err != nil && errors.Cause(err) != cloudprovider.ErrNotSupported && errors.Cause(err) != cloudprovider.ErrNotImplemented {
+		logclient.AddSimpleActionLog(local, logclient.ACT_CLOUD_SYNC, errors.Wrapf(err, "syncVMContainers"), userCred, false)
+	}
+}
+
+func syncVMContainers(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, localVM *SGuest, remoteVM cloudprovider.ICloudVM) error {
+	if localVM.Hypervisor != api.HYPERVISOR_POD {
+		return nil
+	}
+	containers, err := remoteVM.GetContainers()
+	if err != nil {
+		return errors.Wrap(err, "remoteVM.GetContainers")
+	}
+	result := localVM.SyncVMContainers(ctx, userCred, containers)
+	log.Infof("syncVMContainers for VM %s provider %s result: %s", localVM.Name, provider.Name, result.Result())
+	if result.IsError() {
+		return result.AllError()
+	}
+	return nil
 }
 
 func syncVMNics(
@@ -1311,6 +1331,175 @@ func (self *SGuest) SyncVMIsolateDevices(ctx context.Context, userCred mcclient.
 	msg := result.Result()
 	notes := fmt.Sprintf("syncHostIsolateDevices for VM %s result: %s", self.Name, msg)
 	log.Infof("%s", notes)
+	return nil
+}
+
+func (guest *SGuest) GetContainers() ([]SContainer, error) {
+	q := GetContainerManager().Query().Equals("guest_id", guest.Id)
+	ret := []SContainer{}
+	err := db.FetchModelObjects(GetContainerManager(), q, &ret)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetContainers")
+	}
+	return ret, nil
+}
+
+func (guest *SGuest) SyncVMContainers(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	containers []cloudprovider.ICloudContainer,
+) compare.SyncResult {
+	lockman.LockRawObject(ctx, guest.Id, GetContainerManager().Keyword())
+	defer lockman.ReleaseRawObject(ctx, guest.Id, GetContainerManager().Keyword())
+
+	result := compare.SyncResult{}
+
+	dbContainers, err := guest.GetContainers()
+	if err != nil {
+		result.Error(errors.Wrapf(err, "GetContainers"))
+		return result
+	}
+
+	removed := make([]SContainer, 0)
+	commondb := make([]SContainer, 0)
+	commonext := make([]cloudprovider.ICloudContainer, 0)
+	added := make([]cloudprovider.ICloudContainer, 0)
+	err = compare.CompareSets(dbContainers, containers, &removed, &commondb, &commonext, &added)
+	if err != nil {
+		result.Error(errors.Wrapf(err, "compare.CompareSets"))
+		return result
+	}
+
+	for i := 0; i < len(removed); i += 1 {
+		err = removed[i].Delete(ctx, userCred)
+		if err != nil {
+			result.AddError(errors.Wrapf(err, "Delete(%s)", removed[i].Id))
+			continue
+		}
+		result.Delete()
+	}
+
+	for i := 0; i < len(commondb); i += 1 {
+		if commondb[i].PendingDeleted != guest.PendingDeleted { //避免主机正常,磁盘在回收站的情况
+			db.Update(&commondb[i], func() error {
+				commondb[i].PendingDeleted = guest.PendingDeleted
+				return nil
+			})
+		}
+		err := commondb[i].SyncWithCloudContainer(ctx, userCred, commonext[i])
+		if err != nil {
+			result.AddError(errors.Wrapf(err, "SyncWithCloudContainer(%s)", commondb[i].Id))
+			continue
+		}
+		commondb[i].SyncCloudProjectId(userCred, guest.GetOwnerId())
+		result.Update()
+	}
+
+	for i := 0; i < len(added); i += 1 {
+		err := guest.syncNewContainer(ctx, userCred, added[i])
+		if err != nil {
+			result.AddError(errors.Wrapf(err, "syncNewContainer(%s)", added[i].GetGlobalId()))
+			continue
+		}
+		result.Add()
+	}
+	return result
+}
+
+func (self *SContainer) SyncWithCloudContainer(ctx context.Context, userCred mcclient.TokenCredential, container cloudprovider.ICloudContainer) error {
+	_, err := db.Update(self, func() error {
+		self.Status = container.GetStatus()
+		self.Spec.Image = container.GetImage()
+		self.Spec.Command = container.GetCommand()
+		self.Spec.Envs = make([]*apis.ContainerKeyValue, 0)
+		for _, env := range container.GetEnvs() {
+			self.Spec.Envs = append(self.Spec.Envs, &apis.ContainerKeyValue{
+				Key:   env.Key,
+				Value: env.Value,
+			})
+		}
+		self.Spec.VolumeMounts = make([]*apis.ContainerVolumeMount, 0)
+		volumeMounts, err := container.GetVolumentMounts()
+		if err != nil && err != cloudprovider.ErrNotImplemented {
+			return errors.Wrapf(err, "GetVolumentMounts")
+		}
+		for _, volumeMount := range volumeMounts {
+			self.Spec.VolumeMounts = append(self.Spec.VolumeMounts, &apis.ContainerVolumeMount{
+				UniqueName: volumeMount.GetName(),
+				ReadOnly:   volumeMount.IsReadOnly(),
+				Type:       apis.ContainerVolumeMountType(volumeMount.GetType()),
+			})
+		}
+		self.Spec.Devices = make([]*api.ContainerDevice, 0)
+		devices, err := container.GetDevices()
+		if err != nil && err != cloudprovider.ErrNotImplemented {
+			return errors.Wrapf(err, "GetDevices")
+		}
+		for _, device := range devices {
+			self.Spec.Devices = append(self.Spec.Devices, &api.ContainerDevice{
+				IsolatedDevice: &api.ContainerIsolatedDevice{
+					Id: device.GetId(),
+				},
+				Type: apis.ContainerDeviceType(device.GetType()),
+			})
+		}
+		return nil
+	})
+	return err
+}
+
+func (guest *SGuest) syncNewContainer(ctx context.Context, userCred mcclient.TokenCredential, container cloudprovider.ICloudContainer) error {
+	res := &SContainer{
+		GuestId: guest.Id,
+		Spec:    &api.ContainerSpec{},
+	}
+	res.SetModelManager(GetContainerManager(), res)
+	res.DomainId = guest.DomainId
+	res.ProjectId = guest.ProjectId
+	res.StartedAt = container.GetStartedAt()
+	res.LastFinishedAt = container.GetLastFinishedAt()
+	res.RestartCount = container.GetRestartCount()
+	res.ExternalId = container.GetGlobalId()
+	res.Name = container.GetName()
+	res.Status = container.GetStatus()
+	res.Spec.Image = container.GetImage()
+	res.Spec.Command = container.GetCommand()
+	res.Spec.Envs = make([]*apis.ContainerKeyValue, 0)
+	for _, env := range container.GetEnvs() {
+		res.Spec.Envs = append(res.Spec.Envs, &apis.ContainerKeyValue{
+			Key:   env.Key,
+			Value: env.Value,
+		})
+	}
+	res.Spec.VolumeMounts = make([]*apis.ContainerVolumeMount, 0)
+	volumeMounts, err := container.GetVolumentMounts()
+	if err != nil && err != cloudprovider.ErrNotImplemented {
+		log.Errorf("GetVolumentMounts error: %v", err)
+	}
+	for _, volumeMount := range volumeMounts {
+		res.Spec.VolumeMounts = append(res.Spec.VolumeMounts, &apis.ContainerVolumeMount{
+			UniqueName: volumeMount.GetName(),
+			ReadOnly:   volumeMount.IsReadOnly(),
+			Type:       apis.ContainerVolumeMountType(volumeMount.GetType()),
+		})
+	}
+	res.Spec.Devices = make([]*api.ContainerDevice, 0)
+	devices, err := container.GetDevices()
+	if err != nil && err != cloudprovider.ErrNotImplemented {
+		log.Errorf("GetDevices error: %v", err)
+	}
+	for _, device := range devices {
+		res.Spec.Devices = append(res.Spec.Devices, &api.ContainerDevice{
+			IsolatedDevice: &api.ContainerIsolatedDevice{
+				Id: device.GetId(),
+			},
+			Type: apis.ContainerDeviceType(device.GetType()),
+		})
+	}
+	err = GetContainerManager().TableSpec().Insert(ctx, res)
+	if err != nil {
+		return errors.Wrapf(err, "Insert(%s)", res.Id)
+	}
 	return nil
 }
 
