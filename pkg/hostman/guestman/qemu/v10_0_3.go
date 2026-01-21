@@ -6,7 +6,7 @@ func init() {
 	)
 }
 
-type opt_1003_aarch64 struct {
+type opt_1003_riscv64 struct {
 	*baseOptions_riscv64
 	*baseOptions_ge_310
 }
@@ -20,7 +20,7 @@ func newCmd_10_0_3_riscv64() QemuCommand {
 }
 
 func newOpt_10_0_3_riscv64() QemuOptions {
-	return &opt_1003_aarch64{
+	return &opt_1003_riscv64{
 		baseOptions_riscv64: newBaseOptions_riscv64(),
 		baseOptions_ge_310:  newBaseOptionsGE310(),
 	}

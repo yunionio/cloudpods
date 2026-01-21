@@ -36,6 +36,7 @@ const (
 	Version_2_12_1 Version = "2.12.1"
 	Version_9_0_1  Version = "9.0.1"
 	Version_10_0_3 Version = "10.0.3"
+	Version_10_0_7 Version = "10.0.7"
 )
 
 type Arch string
