@@ -543,7 +543,7 @@ function start_swtpm() {
 	}
 
 	// inject usb devices
-	if input.QemuArch.IsX86() {
+	if !input.QemuArch.IsX86() {
 		input.Devices = append(input.Devices,
 			fmt.Sprintf("usb-tablet,id=input0,bus=%s.0,port=1", s.Desc.Usb.Id),
 			fmt.Sprintf("usb-kbd,id=input1,bus=%s.0,port=2", s.Desc.Usb.Id),
