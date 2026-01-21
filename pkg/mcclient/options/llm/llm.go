@@ -117,6 +117,19 @@ func (opts *LLMIdOptions) Params() (jsonutils.JSONObject, error) {
 	return jsonutils.Marshal(opts), nil
 }
 
+type LLMAvailableNetworkOptions struct {
+	NetworkType string `help:"network server_type filter, e.g. guest|hostlocal"`
+	VpcId       string `help:"vpc id filter"`
+}
+
+func (opts *LLMAvailableNetworkOptions) GetId() string {
+	return ""
+}
+
+func (opts *LLMAvailableNetworkOptions) Params() (jsonutils.JSONObject, error) {
+	return options.StructToParams(opts)
+}
+
 type LLMSaveInstantModelOptions struct {
 	LLMIdOptions
 
