@@ -98,7 +98,14 @@ type LLMToolRequestInput struct {
 }
 
 type LLMMCPAgentRequestInput struct {
-	Message string `json:"message" help:"message to send to MCP agent"`
+	Message string                `json:"message" help:"message to send to MCP agent"`
+	History []MCPAgentChatMessage `json:"history" help:"chat history"`
+}
+
+type MCPAgentChatMessage struct {
+	Role    string `json:"role"`
+	Content string `json:"content"`
+	// ToolCalls []MCPAgentToolCallRecord `json:"tool_calls,omitempty"`
 }
 
 // MCPAgentResponse 表示 Agent 响应
@@ -115,6 +122,7 @@ type MCPAgentResponse struct {
 
 // MCPAgentToolCallRecord 记录工具调用
 type MCPAgentToolCallRecord struct {
+	Id        string                 `json:"id,omitempty"`
 	ToolName  string                 `json:"tool_name"`
 	Arguments map[string]interface{} `json:"arguments"`
 	Result    string                 `json:"result"`

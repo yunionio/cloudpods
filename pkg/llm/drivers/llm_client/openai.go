@@ -327,6 +327,13 @@ func (o *openai) NewUserMessage(content string) models.ILLMChatMessage {
 	}
 }
 
+func (o *openai) NewAssistantMessage(content string) models.ILLMChatMessage {
+	return &OpenAIChatMessage{
+		Role:    "assistant",
+		Content: content,
+	}
+}
+
 func (o *openai) NewAssistantMessageWithToolCalls(toolCalls []models.ILLMToolCall) models.ILLMChatMessage {
 	openaiToolCalls := make([]OpenAIToolCall, len(toolCalls))
 	for i, tc := range toolCalls {

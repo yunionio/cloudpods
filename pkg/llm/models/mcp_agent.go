@@ -337,9 +337,10 @@ func (mcp *SMCPAgent) GetDetailsToolRequest(
 // 	return jsonutils.Marshal(result), nil
 // }
 
-func (mcp *SMCPAgent) GetDetailsChatStream(
+func (mcp *SMCPAgent) PerformChatStream(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
 	input api.LLMMCPAgentRequestInput,
 ) (jsonutils.JSONObject, error) {
 	appParams := appsrv.AppContextGetParams(ctx)
@@ -404,10 +405,21 @@ func (mcp *SMCPAgent) process(ctx context.Context, userCred mcclient.TokenCreden
 	systemPrompt := buildSystemPrompt()
 
 	// 初始化消息历史
-	messages := []ILLMChatMessage{
-		llmClient.NewSystemMessage(systemPrompt),
-		llmClient.NewUserMessage(req.Message),
+	messages := make([]ILLMChatMessage, 0)
+	messages = append(messages, llmClient.NewSystemMessage(systemPrompt))
+
+	// 处理历史消息
+	if len(req.History) > 0 {
+		historyMessages := processHistoryMessages(
+			req.History,
+			llmClient,
+			options.Options.MCPAgentUserCharLimit,
+			options.Options.MCPAgentAssistantCharLimit,
+		)
+		messages = append(messages, historyMessages...)
 	}
+
+	messages = append(messages, llmClient.NewUserMessage(req.Message))
 
 	// 记录工具调用
 	var toolCallRecords []api.MCPAgentToolCallRecord
@@ -449,36 +461,13 @@ func (mcp *SMCPAgent) process(ctx context.Context, userCred mcclient.TokenCreden
 	toolCalls := resp.GetToolCalls()
 	log.Infof("Got %d tool calls from Phase 1", len(toolCalls))
 
-	// 将助手决定调用工具的消息加入历史
-	messages = append(messages, llmClient.NewAssistantMessageWithToolCalls(toolCalls))
-
-	// 执行每个工具调用
-	for _, tc := range toolCalls {
-		fc := tc.GetFunction()
-		toolName := fc.GetName()
-		arguments := fc.GetArguments()
-
-		if arguments == nil {
-			arguments = make(map[string]interface{})
-		}
-
-		log.Infof("Calling tool: %s with arguments: %v", toolName, arguments)
-
-		// 调用 MCP 工具
-		result, err := mcpClient.CallTool(ctx, toolName, arguments)
-		resultText := utils.FormatToolResult(toolName, result, err)
-		log.Infoln("Get result from mcp query", resultText)
-
-		// 记录
-		toolCallRecords = append(toolCallRecords, api.MCPAgentToolCallRecord{
-			ToolName:  toolName,
-			Arguments: arguments,
-			Result:    resultText,
-		})
-
-		// 将工具执行结果加入历史
-		messages = append(messages, llmClient.NewToolMessage(tc.GetId(), toolName, resultText))
+	toolCallRecords, toolMessages, err := processToolCalls(ctx, toolCalls, mcpClient, llmClient)
+	if err != nil {
+		return nil, errors.Wrap(err, "process tool calls")
 	}
+
+	// 将工具调用相关的消息加入历史
+	messages = append(messages, toolMessages...)
 
 	log.Infof("Phase 2: Streaming Response...")
 
@@ -514,4 +503,91 @@ func (mcp *SMCPAgent) process(ctx context.Context, userCred mcclient.TokenCreden
 // buildSystemPrompt 构建系统提示词
 func buildSystemPrompt() string {
 	return api.MCP_AGENT_SYSTEM_PROMPT
+}
+
+func processHistoryMessages(
+	history []api.MCPAgentChatMessage,
+	llmClient ILLMClient,
+	maxUserChars int,
+	maxAssistantChars int,
+) []ILLMChatMessage {
+	if len(history) == 0 {
+		return []ILLMChatMessage{}
+	}
+
+	var userChars, assistantChars int
+	processedMessages := make([]ILLMChatMessage, 0)
+
+	// 从最新的消息开始遍历，保留最新消息，丢弃最旧消息
+	for i := len(history) - 1; i >= 0; i-- {
+		msg := history[i]
+		msgChars := len(msg.Content)
+
+		switch msg.Role {
+		case "user":
+			if userChars+msgChars > maxUserChars {
+				break
+			}
+			userChars += msgChars
+			processedMessages = append(processedMessages, llmClient.NewUserMessage(msg.Content))
+		case "assistant":
+			if assistantChars+msgChars > maxAssistantChars {
+				break
+			}
+			assistantChars += msgChars
+
+			if len(msg.Content) > 0 {
+				processedMessages = append(processedMessages, llmClient.NewAssistantMessage(msg.Content))
+			}
+		}
+	}
+
+	for i, j := 0, len(processedMessages)-1; i < j; i, j = i+1, j-1 {
+		processedMessages[i], processedMessages[j] = processedMessages[j], processedMessages[i]
+	}
+
+	return processedMessages
+}
+
+// processToolCalls 处理工具调用
+func processToolCalls(
+	ctx context.Context,
+	toolCalls []ILLMToolCall,
+	mcpClient *utils.MCPClient,
+	llmClient ILLMClient,
+) ([]api.MCPAgentToolCallRecord, []ILLMChatMessage, error) {
+	toolCallRecords := make([]api.MCPAgentToolCallRecord, 0)
+	messagesToAdd := make([]ILLMChatMessage, 0)
+
+	messagesToAdd = append(messagesToAdd, llmClient.NewAssistantMessageWithToolCalls(toolCalls))
+
+	// 执行每个工具调用
+	for _, tc := range toolCalls {
+		fc := tc.GetFunction()
+		toolName := fc.GetName()
+		arguments := fc.GetArguments()
+
+		if arguments == nil {
+			arguments = make(map[string]interface{})
+		}
+
+		log.Infof("Calling tool: %s with arguments: %v", toolName, arguments)
+
+		// 调用 MCP 工具
+		result, err := mcpClient.CallTool(ctx, toolName, arguments)
+		resultText := utils.FormatToolResult(toolName, result, err)
+		log.Infoln("Get result from mcp query", resultText)
+
+		toolCallRecords = append(toolCallRecords, api.MCPAgentToolCallRecord{
+			Id:        tc.GetId(),
+			ToolName:  toolName,
+			Arguments: arguments,
+			Result:    resultText,
+		})
+
+		// 将工具执行结果加入历史
+		messagesToAdd = append(messagesToAdd, llmClient.NewToolMessage(tc.GetId(), toolName, resultText))
+	}
+
+	return toolCallRecords, messagesToAdd, nil
 }
