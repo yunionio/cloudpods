@@ -220,6 +220,13 @@ func (o *ollama) NewUserMessage(content string) models.ILLMChatMessage {
 	}
 }
 
+func (o *ollama) NewAssistantMessage(content string) models.ILLMChatMessage {
+	return &OllamaChatMessage{
+		Role:    "assistant",
+		Content: content,
+	}
+}
+
 func (o *ollama) NewAssistantMessageWithToolCalls(toolCalls []models.ILLMToolCall) models.ILLMChatMessage {
 	// to ollama tool calls
 	ollamaToolCalls := make([]OllamaToolCall, len(toolCalls))

@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"io"
-	"net/url"
+	"net/http"
 	"strings"
 
 	"yunion.io/x/onecloud/cmd/climc/shell"
@@ -36,15 +36,24 @@ func chatStream(s *mcclient.ClientSession, args *options.MCPAgentMCPAgentRequest
 		return err
 	}
 
-	path := fmt.Sprintf("/mcp_agents/%s/chat-stream?message=%s", id, url.QueryEscape(args.Message))
+	bodyJSON, err := args.Params()
+	if err != nil {
+		return fmt.Errorf("failed to build request params: %v", err)
+	}
 
+	headers := http.Header{}
+	headers.Set("Content-Type", "application/json")
+
+	body := strings.NewReader(bodyJSON.String())
+
+	path := fmt.Sprintf("/mcp_agents/%s/chat-stream", id)
 	resp, err := s.RawVersionRequest(
 		modules.MCPAgent.ServiceType(),
 		modules.MCPAgent.EndpointType(),
-		"GET",
+		"POST",
 		path,
-		nil,
-		nil,
+		headers,
+		body,
 	)
 	if err != nil {
 		return err
