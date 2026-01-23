@@ -566,6 +566,7 @@ func fetchGuestNICs(ctx context.Context, guestIds []string, virtual tristate.Tri
 		gnwq.Field("team_with"),
 		gnwq.Field("network_id"), // caution: do not alias netq.id as network_id
 		wirq.Field("vpc_id"),
+		gnwq.Field("ifname"),
 		subIP.Field("sub_ips"),
 	)
 	q = q.Join(netq, sqlchemy.Equals(netq.Field("id"), gnwq.Field("network_id")))

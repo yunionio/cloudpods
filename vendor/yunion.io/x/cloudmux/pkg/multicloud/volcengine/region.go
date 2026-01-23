@@ -36,6 +36,7 @@ var RegionLocations = map[string]string{
 	"cn-shanghai":    "华东2（上海）",
 	"cn-guangzhou":   "华南1（广州）",
 	"ap-southeast-1": "亚太东南（柔佛）",
+	"ap-southeast-3": "亚太东南（雅加达）",
 	"cn-hongkong":    "中国香港",
 }
 
@@ -45,6 +46,7 @@ var RegionEndpoint = map[string]string{
 	"cn-guangzhou":   "cn-beijing.volces.com",
 	"ap-southeast-1": "ap-southeast-1.volces.com",
 	"cn-hongkong":    "cn-hongkong.volces.com",
+	"ap-southeast-3": "ap-southeast-3.volces.com",
 }
 
 type sStorageType struct {
@@ -509,7 +511,11 @@ func (region *SRegion) instanceOperation(instanceId string, apiName string, extr
 }
 
 func (region *SRegion) getBaseEndpoint() string {
-	return RegionEndpoint[region.RegionId]
+	endpoint, ok := RegionEndpoint[region.RegionId]
+	if ok {
+		return endpoint
+	}
+	return fmt.Sprintf("%s.volces.com", region.RegionId)
 }
 
 func (region *SRegion) getS3Endpoint() string {
