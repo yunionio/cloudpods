@@ -574,6 +574,7 @@ func fetchGuestNICs(ctx context.Context, guestIds []string, virtual tristate.Tri
 		gnwq.Field("network_id"), // caution: do not alias netq.id as network_id
 
 		gnwq.Field("port_mappings"),
+		gnwq.Field("ifname"),
 
 		gnwq.Field("is_default"),
 
