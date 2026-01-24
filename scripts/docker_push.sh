@@ -214,6 +214,18 @@ general_build() {
     fi
 }
 
+make_manifest_image2() {
+    local component=$1
+    local img_name=$(get_image_name $component "" "false")
+    if [[ "$DRY_RUN" == "true" ]]; then
+        echo "[$(readlink -f ${BASH_SOURCE}):${LINENO} ${FUNCNAME[0]}] return for DRY_RUN"
+        return
+    fi
+    docker buildx imagetools create -t $img_name \
+        $img_name-amd64 \
+        $img_name-arm64
+}
+
 make_manifest_image() {
     local component=$1
     local img_name=$(get_image_name $component "" "false")
@@ -314,16 +326,21 @@ for component in $COMPONENTS; do
 
     case "$ARCH" in
     all)
-        for arch in "arm64" "amd64" "riscv64"; do
-            general_build $component $arch "true"
-        done
-        make_manifest_image $component
-        #show_update_cmd $component $ARCH
+        if [[ $component == "baremetal-agent" ]]; then
+            for arch in "arm64" "amd64"; do
+                general_build $component $arch "true"
+            done
+            make_manifest_image2 $component
+        else
+            for arch in "arm64" "amd64" "riscv64"; do
+                general_build $component $arch "true"
+            done
+            make_manifest_image $component
+        fi
         ;;
     *)
         if [ -e "$DOCKER_DIR/Dockerfile.$component" ]; then
             general_build $component $ARCH "false"
-            #show_update_cmd $component $ARCH
         fi
         ;;
     esac
