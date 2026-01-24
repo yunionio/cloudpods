@@ -54,5 +54,17 @@ var mysql = SMeasurement{
 		{
 			"info_schema_table_size_index_length", "info_schema_table_size_index_length", monitor.METRIC_UNIT_COUNT,
 		},
+		{
+			"wsrep_cluster_size", "wsrep_cluster_size", monitor.METRIC_UNIT_COUNT,
+		},
+		{
+			"wsrep_cluster_status", "wsrep_cluster_status", monitor.METRIC_UNIT_NULL,
+		},
+		{
+			"wsrep_ready", "wsrep_ready", monitor.METRIC_UNIT_NULL,
+		},
+		{
+			"wsrep_connected", "wsrep_connected", monitor.METRIC_UNIT_NULL,
+		},
 	},
 }
