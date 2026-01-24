@@ -309,6 +309,46 @@ func (s *STelegraf) GetConfig(kwargs map[string]interface{}) string {
 		conf += "\n"
 	}
 
+	if mysql, ok := kwargs["mysql"]; ok {
+		mysqlConf, _ := mysql.(map[string]interface{})
+		conf += "[[inputs.mysql]]\n"
+		if servers, ok := mysqlConf["servers"]; ok {
+			srvs, _ := servers.([]string)
+			serverStrs := make([]string, len(srvs))
+			for i, srv := range srvs {
+				serverStrs[i] = fmt.Sprintf("\"%s\"", srv)
+			}
+			conf += fmt.Sprintf("  servers = [%s]\n", strings.Join(serverStrs, ", "))
+		}
+		keys := []string{}
+		for k := range mysqlConf {
+			if k != "servers" {
+				keys = append(keys, k)
+			}
+		}
+		sort.Strings(keys)
+		for _, k := range keys {
+			v := mysqlConf[k]
+			switch val := v.(type) {
+			case string:
+				conf += fmt.Sprintf("  %s = \"%s\"\n", k, val)
+			case int, int32, int64:
+				conf += fmt.Sprintf("  %s = %d\n", k, val)
+			case float32, float64:
+				conf += fmt.Sprintf("  %s = %f\n", k, val)
+			case bool:
+				conf += fmt.Sprintf("  %s = %v\n", k, val)
+			case []string:
+				quoted := make([]string, len(val))
+				for i, s := range val {
+					quoted[i] = fmt.Sprintf("\"%s\"", s)
+				}
+				conf += fmt.Sprintf("  %s = [%s]\n", k, strings.Join(quoted, ", "))
+			}
+		}
+		conf += "\n"
+	}
+
 	if radontop, ok := kwargs[TELEGRAF_INPUT_RADEONTOP]; ok {
 		radontopMap, _ := radontop.(map[string]interface{})
 		devPaths := radontopMap[TELEGRAF_INPUT_RADEONTOP_DEV_PATHS].([]string)

@@ -2571,6 +2571,17 @@ func (h *SHostInfo) OnCatalogChanged(catalog mcclient.KeystoneServiceCatalogV3) 
 		conf["kafka"] = kafkaConf
 	}
 
+	if len(options.HostOptions.TelegrafMysqlServers) > 0 {
+		conf["mysql"] = map[string]interface{}{
+			"servers": options.HostOptions.TelegrafMysqlServers,
+			"string_fields": []string{
+				"wsrep_cluster_status",
+				"wsrep_ready",
+				"wsrep_connected",
+			},
+		}
+	}
+
 	urls, _ = s.GetServiceURLs("opentsdb", defaultEndpointType)
 	if len(urls) > 0 {
 		conf["opentsdb"] = map[string]interface{}{

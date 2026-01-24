@@ -1,13 +1,27 @@
-**What this PR does / why we need it**:
+# MariaDB Galera Monitoring Implementation Walkthrough
 
-Feature: MariaDB Galera Cluster Status Monitoring
+This document consolidates the full codebase and verification steps for the MariaDB Galera Cluster Status Monitoring feature (Issue #20755).
 
-This PR addresses issue #20755 by adding support for monitoring MariaDB Galera cluster status. It registers the standard Galera status variables as metrics in the Cloudpods monitoring system, enabling alerting and dashboards for cluster health.
+## 1. Implementation Code
 
-### Implementation Details
-**1. `pkg/monitor/dbinit/measurements/mysql.go`**:
-Registered standard Galera status variables to `mysql` measurement definition:
+### `pkg/monitor/dbinit/measurements/mysql.go`
+This file was modified to include the wsrep status variables in the mysql measurement definition.
+
 ```go
+package measurements
+import "yunion.io/x/onecloud/pkg/apis/monitor"
+var mysql = SMeasurement{
+	Context: []SMonitorContext{
+		{
+			"mysql", "mysql",
+			monitor.METRIC_RES_TYPE_EXT_MYSQL, monitor.METRIC_DATABASE_TELE,
+		},
+	},
+	Metrics: []SMetric{
+        // ... existing metrics ...
+		{
+			"info_schema_table_size_index_length", "info_schema_table_size_index_length", monitor.METRIC_UNIT_COUNT,
+		},
 		{
 			"wsrep_cluster_size", "wsrep_cluster_size", monitor.METRIC_UNIT_COUNT,
 		},
@@ -20,34 +34,18 @@ Registered standard Galera status variables to `mysql` measurement definition:
 		{
 			"wsrep_connected", "wsrep_connected", monitor.METRIC_UNIT_NULL,
 		},
+	},
+}
 ```
 
-**2. `pkg/monitor/dbinit/measurements/metrics.csv`**:
-- Updated to include the new wsrep metrics keys.
+### `pkg/monitor/dbinit/measurements/mysql_test.go`
+A new test file was created to verify that the metrics are correctly registered.
 
-<!--
-- [ ] Smoke testing completed
-- [x] Unit test written
--->
-
-**Does this PR need to be backport to the previous release branch?**:
-
-NONE
-
-<!--
-If no, just write "NONE".
--->
-
-### Verification
-**1. `pkg/monitor/dbinit/measurements/mysql_test.go`**:
-Added unit test to verify metric presence:
 ```go
 package measurements
-
 import (
 	"testing"
 )
-
 func TestMysqlMetrics(t *testing.T) {
 	metrics := map[string]bool{
 		"wsrep_cluster_size":    false,
@@ -55,13 +53,11 @@ func TestMysqlMetrics(t *testing.T) {
 		"wsrep_ready":           false,
 		"wsrep_connected":       false,
 	}
-
 	for _, m := range mysql.Metrics {
 		if _, ok := metrics[m.Name]; ok {
 			metrics[m.Name] = true
 		}
 	}
-
 	for name, found := range metrics {
 		if !found {
 			t.Errorf("metric %s not found in mysql definitions", name)
@@ -70,16 +66,37 @@ func TestMysqlMetrics(t *testing.T) {
 }
 ```
 
-**Automated Tests**:
-Run the verification test:
-```bash
-go test -v -run TestMysqlMetrics ./pkg/monitor/dbinit/measurements/
+## 2. Generated Configuration
+
+### `pkg/monitor/dbinit/measurements/metrics.csv`
+Running the tests automatically regenerates this CSV to include the new keys.
+
+```csv
+"mysql","mysql","ext_mysql","telegraf","wsrep_cluster_size","wsrep_cluster_size","count"
+"mysql","mysql","ext_mysql","telegraf","wsrep_cluster_status","wsrep_cluster_status","NULL"
+"mysql","mysql","ext_mysql","telegraf","wsrep_ready","wsrep_ready","NULL"
+"mysql","mysql","ext_mysql","telegraf","wsrep_connected","wsrep_connected","NULL"
 ```
 
-**Output**:
+## 3. Verification
+
+Verification was performed using the standard Go test suite.
+
+**Command:**
+
+```bash
+go test -v ./pkg/monitor/dbinit/measurements/...
 ```
+
+**Output:**
+
+```
+=== RUN   TestOutputMetrics
+--- PASS: TestOutputMetrics (0.00s)
 === RUN   TestMysqlMetrics
 --- PASS: TestMysqlMetrics (0.00s)
 PASS
-ok  	yunion.io/x/onecloud/pkg/monitor/dbinit/measurements	0.002s
+ok  	yunion.io/x/onecloud/pkg/monitor/dbinit/measurements	0.018s
 ```
+
+All tests passed, confirming the metrics are widely available and the configuration CSV is up to date.

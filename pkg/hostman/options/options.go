@@ -67,6 +67,8 @@ type SHostBaseOptions struct {
 	TelegrafKafkaOutputSaslPassword  string `json:"telegraf_kafka_output_sasl_password" help:"telegraf kafka output sasl_password"`
 	TelegrafKafkaOutputSaslMechanism string `json:"telegraf_kafka_output_sasl_mechanism" help:"telegraf kafka output sasl_mechanism"`
 
+	TelegrafMysqlServers []string `json:"telegraf_mysql_servers" help:"telegraf mysql input servers"`
+
 	BackupTaskWorkerCount int `default:"3" help:"backup task worker count"`
 }
 
