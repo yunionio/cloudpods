@@ -24,9 +24,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/coredns/coredns/plugin/pkg/log"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud/objectstore"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/streamutils"
 )

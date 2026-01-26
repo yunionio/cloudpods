@@ -7,10 +7,9 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
 
+	apis "yunion.io/x/onecloud/pkg/apis/llm"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
-
-	apis "yunion.io/x/onecloud/pkg/apis/llm"
 )
 
 type SMountedModelsResourceManager struct {
