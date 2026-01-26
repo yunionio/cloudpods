@@ -1005,8 +1005,8 @@ func (self *SKVMGuestDriver) validateVGA(ovdi, ovga string, nvdi, nvga *string) 
 
 func (self *SKVMGuestDriver) validateMachineType(machine string, osArch string) error {
 	var candidate []string
-	if apis.IsARM(osArch) {
-		candidate = []string{api.VM_MACHINE_TYPE_ARM_VIRT}
+	if apis.IsARM(osArch) || apis.IsRISCV(osArch) {
+		candidate = []string{api.VM_MACHINE_TYPE_VIRT}
 	} else {
 		candidate = []string{api.VM_MACHINE_TYPE_PC, api.VM_MACHINE_TYPE_Q35}
 	}
@@ -1311,8 +1311,8 @@ func (kvm *SKVMGuestDriver) ValidateGuestHotChangeConfigInput(ctx context.Contex
 	if guest.GetMetadata(ctx, api.VM_METADATA_HOTPLUG_CPU_MEM, nil) != "enable" {
 		return confs, errors.Wrap(errors.ErrInvalidStatus, "host plug cpu memory is disabled")
 	}
-	if apis.IsARM(guest.OsArch) {
-		return confs, errors.Wrap(errors.ErrInvalidStatus, "cpu architecture is arm")
+	if apis.IsARM(guest.OsArch) || apis.IsRISCV(guest.OsArch) {
+		return confs, errors.Wrapf(errors.ErrInvalidStatus, "cpu architecture is %s", guest.OsArch)
 	}
 	return confs, nil
 }

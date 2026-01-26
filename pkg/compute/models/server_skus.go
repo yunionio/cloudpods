@@ -781,6 +781,13 @@ func (manager *SServerSkuManager) ListItemFilter(
 				sqlchemy.Equals(q.Field("cpu_arch"), apis.OS_ARCH_AARCH64),
 				sqlchemy.IsNullOrEmpty(q.Field("cpu_arch")),
 			))
+		} else if arch == apis.OS_ARCH_RISCV {
+			conditions = append(conditions, sqlchemy.OR(
+				sqlchemy.Startswith(q.Field("cpu_arch"), arch),
+				sqlchemy.Equals(q.Field("cpu_arch"), apis.OS_ARCH_RISCV32),
+				sqlchemy.Equals(q.Field("cpu_arch"), apis.OS_ARCH_RISCV64),
+				sqlchemy.IsNullOrEmpty(q.Field("cpu_arch")),
+			))
 		} else {
 			conditions = append(conditions, sqlchemy.Startswith(q.Field("cpu_arch"), arch))
 		}

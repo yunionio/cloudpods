@@ -578,6 +578,11 @@ func (l *sLinuxRootFs) GetArch(rootFs IDiskPartition) string {
 					return apis.OS_ARCH_AARCH64
 				case elf.EM_ARM:
 					return apis.OS_ARCH_AARCH32
+				case elf.EM_RISCV:
+					if elfHeader.Class == elf.ELFCLASS32 {
+						return apis.OS_ARCH_RISCV32
+					}
+					return apis.OS_ARCH_RISCV64
 				}
 			}
 		}

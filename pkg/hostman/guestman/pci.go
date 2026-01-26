@@ -456,11 +456,11 @@ func (s *SKVMGuestInstance) initGuestDisks(pciRoot, pciBridge *desc.PCIControlle
 
 func (s *SKVMGuestInstance) fixDiskDriver() (bool, bool, bool) {
 	var virtioScsi, pvScsi, sataDisk = false, false, false
-	isArm := s.manager.host.IsAarch64()
+	isX86 := s.manager.host.IsX8664()
 	osname := s.GetOsName()
 
 	for i := 0; i < len(s.Desc.Disks); i++ {
-		if isArm && (s.Desc.Disks[i].Driver == DISK_DRIVER_IDE ||
+		if !isX86 && (s.Desc.Disks[i].Driver == DISK_DRIVER_IDE ||
 			s.Desc.Disks[i].Driver == DISK_DRIVER_SATA) {
 			s.Desc.Disks[i].Driver = DISK_DRIVER_SCSI
 		} else if osname == OS_NAME_MACOS {
@@ -485,10 +485,10 @@ func (s *SKVMGuestInstance) initVirtioSerial(pciRoot *desc.PCIController) {
 }
 
 func (s *SKVMGuestInstance) initGuestVga(pciRoot *desc.PCIController) {
-	var isAarch64 = s.manager.host.IsAarch64()
+	var isNotX86 = !s.manager.host.IsX8664()
 	if s.gpusHasVga() {
 		s.Desc.Vga = "none"
-	} else if isAarch64 {
+	} else if isNotX86 {
 		s.Desc.Vga = "virtio-gpu"
 	} else if s.Desc.Vga == "" {
 		s.Desc.Vga = "std"

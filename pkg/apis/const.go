@@ -151,14 +151,16 @@ const (
 const (
 	OS_ARCH_ALL = "all"
 
-	OS_ARCH_X86 = "x86"
-	OS_ARCH_ARM = "arm"
+	OS_ARCH_X86   = "x86"
+	OS_ARCH_ARM   = "arm"
+	OS_ARCH_RISCV = "riscv"
 
 	OS_ARCH_I386    = "i386"
 	OS_ARCH_X86_32  = "x86_32"
 	OS_ARCH_X86_64  = "x86_64"
 	OS_ARCH_AARCH32 = "aarch32"
 	OS_ARCH_AARCH64 = "aarch64"
+	OS_ARCH_RISCV32 = "riscv32"
 	OS_ARCH_RISCV64 = "riscv64"
 )
 
@@ -174,6 +176,11 @@ var (
 		OS_ARCH_AARCH32,
 		OS_ARCH_AARCH64,
 	}
+	ARCH_RISCV = []string{
+		OS_ARCH_RISCV,
+		OS_ARCH_RISCV32,
+		OS_ARCH_RISCV64,
+	}
 )
 
 func IsARM(osArch string) bool {
@@ -182,6 +189,10 @@ func IsARM(osArch string) bool {
 
 func IsX86(osArch string) bool {
 	return utils.IsInStringArray(osArch, ARCH_X86)
+}
+
+func IsRISCV(osArch string) bool {
+	return utils.IsInStringArray(osArch, ARCH_RISCV)
 }
 
 func IsIllegalSearchDomain(domain string) bool {
@@ -200,6 +211,9 @@ func IsSameArch(arch1, arch2 string) bool {
 		return true
 	}
 	if IsX86(arch1) && IsX86(arch2) {
+		return true
+	}
+	if IsRISCV(arch1) && IsRISCV(arch2) {
 		return true
 	}
 	return false

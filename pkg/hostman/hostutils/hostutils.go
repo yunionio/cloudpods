@@ -73,6 +73,7 @@ type IHost interface {
 	GetKernelVersion() string
 	IsAarch64() bool
 	IsX8664() bool
+	IsRiscv64() bool
 	GetHostTopology() *hostapi.HostTopology
 	GetReservedCpusInfo() (*cpuset.CPUSet, *cpuset.CPUSet)
 	GetReservedMemMb() int

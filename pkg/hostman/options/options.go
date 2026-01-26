@@ -37,7 +37,7 @@ type SHostBaseOptions struct {
 	HostCpuPassthrough        bool  `default:"true" help:"if it is true, set qemu cpu type as -cpu host, otherwise, qemu64. default is true"`
 	LiveMigrateCpuThrottleMax int64 `default:"99" help:"live migrate auto converge cpu throttle max"`
 
-	DefaultQemuVersion string `help:"Default qemu version" default:"4.2.0"`
+	DefaultQemuVersion string `help:"Default qemu version" default:"10.0.7"`
 	NoHpet             bool   `help:"Disable qemu hpet timer" default:"true"`
 
 	CdromCount  int `help:"cdrom count" default:"1"`
