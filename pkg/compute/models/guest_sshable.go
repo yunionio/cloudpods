@@ -384,6 +384,11 @@ func (guest *SGuest) PerformHaveAgent(ctx context.Context, userCred mcclient.Tok
 		output.Have = true
 		return output, nil
 	}
+	v = guest.GetMetadata(ctx, "telegraf_deployed", userCred)
+	if v == "true" {
+		output.Have = true
+		return output, nil
+	}
 	return output, nil
 }
 
