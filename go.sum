@@ -82,6 +82,8 @@ github.com/DataDog/zstd v1.3.4 h1:LAGHkXuvC6yky+C2CUG2tD7w8QlrUwpue8XwIh0X4AY=
 github.com/DataDog/zstd v1.3.4/go.mod h1:1jcaCB/ufaK+sKp1NBhlGmpz41jOoPQ35bpF36t7BBo=
 github.com/LeeEirc/terminalparser v0.0.0-20240205084113-fbf78c8480f2 h1:XGB3B0651J1uKOE1KJa1gsrV/DO1kthhk2NTDUHATgs=
 github.com/LeeEirc/terminalparser v0.0.0-20240205084113-fbf78c8480f2/go.mod h1:tiLv6VBLH4Z3KdBSe2qIKRwQDGCVQ9/F5fOKpQGvyoA=
+github.com/Microsoft/go-winio v0.6.2 h1:F2VQgta7ecxGYO8k3ZZz3RS8fVIXVxONVUPlNERoyfY=
+github.com/Microsoft/go-winio v0.6.2/go.mod h1:yd8OoFMLzJbo9gZq8j5qaps8bJ9aShtEA8Ipt1oGCvU=
 github.com/NYTimes/gziphandler v0.0.0-20170623195520-56545f4a5d46/go.mod h1:3wb06e3pkSAbeQ52E9H9iFoQsEEwGN64994WTCIhntQ=
 github.com/OneOfOne/xxhash v1.2.2 h1:KMrpdQIwFcEqXDklaen+P1axHaj9BSKzvpUUfnHldSE=
 github.com/OneOfOne/xxhash v1.2.2/go.mod h1:HSdplMjZKSmBqAxg5vPj2TmRDmfkzw+cTzAElWljhcU=
@@ -485,6 +487,8 @@ github.com/julienschmidt/httprouter v1.2.0/go.mod h1:SYymIcj16QtmaHHD7aYtjjsJG7V
 github.com/julienschmidt/httprouter v1.3.0/go.mod h1:JR6WtHb+2LUe8TCKY3cZOxFyyO8IZAc4RVcycCCAKdM=
 github.com/kardianos/osext v0.0.0-20190222173326-2bc1f35cddc0 h1:iQTw/8FWTuc7uiaSepXwyf3o52HaUYcV+Tu66S3F5GA=
 github.com/kardianos/osext v0.0.0-20190222173326-2bc1f35cddc0/go.mod h1:1NbS8ALrpOvjt0rHPNLyCIeMtbizbir8U//inJ+zuB8=
+github.com/kdomanski/iso9660 v0.4.0 h1:BPKKdcINz3m0MdjIMwS0wx1nofsOjxOq8TOr45WGHFg=
+github.com/kdomanski/iso9660 v0.4.0/go.mod h1:OxUSupHsO9ceI8lBLPJKWBTphLemjrCQY8LPXM7qSzU=
 github.com/kisielk/errcheck v1.2.0/go.mod h1:/BMXB+zMLi60iA8Vv6Ksmxu/1UDYcXs4uQLJ+jE2L00=
 github.com/kisielk/errcheck v1.5.0/go.mod h1:pFxgyoBC7bSaBwPgfKdkLd5X25qrDl4LWUI2bnpBCr8=
 github.com/kisielk/gotool v1.0.0/go.mod h1:XhKaO+MFFWcvkIS/tQcRk01m1F5IRFswLeQ+oQHNcck=
@@ -584,6 +588,8 @@ github.com/modern-go/reflect2 v0.0.0-20180701023420-4b7aa43c6742/go.mod h1:bx2lN
 github.com/modern-go/reflect2 v1.0.1/go.mod h1:bx2lNnkwVCuqBIxFjflWJWanXIb3RllmbCylyMrvgv0=
 github.com/modern-go/reflect2 v1.0.2 h1:xBagoLtFs94CBntxluKeaWgTMpvLxC4ur3nMaC9Gz0M=
 github.com/modern-go/reflect2 v1.0.2/go.mod h1:yWuevngMOJpCy52FWWMvUC8ws7m/LJsjYzDa0/r8luk=
+github.com/mogaika/udf v0.0.0-20171019171931-167f0ab01c73 h1:HpHNB68mF30LkUorpr7B22Xy0XwParP/n+AL0z4VlFc=
+github.com/mogaika/udf v0.0.0-20171019171931-167f0ab01c73/go.mod h1:OVErfG87tRGCHZpQGO8pL4vDZuY0qr4blPOTR0go6e8=
 github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826 h1:RWengNIwukTxcDr9M+97sNutRR1RKhG96O6jWumTTnw=
 github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826/go.mod h1:TaXosZuwdSHYgviHp1DAtfrULt5eUgsSMsZf+YrPgl8=
 github.com/mozillazg/go-httpheader v0.2.1 h1:geV7TrjbL8KXSyvghnFm+NyTux/hxwueTSrwhe88TQQ=
@@ -1281,8 +1287,8 @@ yunion.io/x/ovsdb v0.0.0-20230306173834-f164f413a900 h1:Hu/4ERvoWaN6aiFs4h4/yvVB
 yunion.io/x/ovsdb v0.0.0-20230306173834-f164f413a900/go.mod h1:0vLkNEhlmA64HViPBAnSTUMrx5QP1CLsxXmxDKQ80tc=
 yunion.io/x/pkg v0.0.0-20190620104149-945c25821dbf/go.mod h1:t6rEGG2sQ4J7DhFxSZVOTjNd0YO/KlfWQyK1W4tog+E=
 yunion.io/x/pkg v0.0.0-20190628082551-f4033ba2ea30/go.mod h1:t6rEGG2sQ4J7DhFxSZVOTjNd0YO/KlfWQyK1W4tog+E=
-yunion.io/x/pkg v1.10.4-0.20251114095758-2a2f105d9712 h1:LUYhaE2PbRrlO2dJTII3K5L62wYlwDet2drziGv6yLY=
-yunion.io/x/pkg v1.10.4-0.20251114095758-2a2f105d9712/go.mod h1:0Bwxqd9MA3ACi119/l02FprY/o9gHahmYC2bsSbnVpM=
+yunion.io/x/pkg v1.10.4-0.20260127060125-8939521ef75e h1:py5Kd6cgP6pxB9pSc4ry/gnmA6rJZwMVOnAjra4sb2g=
+yunion.io/x/pkg v1.10.4-0.20260127060125-8939521ef75e/go.mod h1:0Bwxqd9MA3ACi119/l02FprY/o9gHahmYC2bsSbnVpM=
 yunion.io/x/s3cli v0.0.0-20241221171442-1c11599d28e1 h1:1KJ3YYinydPHpDEQRXdr/T8SYcKZ5Er+m489H+PnaQ4=
 yunion.io/x/s3cli v0.0.0-20241221171442-1c11599d28e1/go.mod h1:0iFKpOs1y4lbCxeOmq3Xx/0AcQoewVPwj62eRluioEo=
 yunion.io/x/sqlchemy v1.1.3-0.20251231025938-b0a38f6e9fab h1:5m/bSzW3uTAk83rp9eethbYsxJFYInFVeU1RDkteW4E=
