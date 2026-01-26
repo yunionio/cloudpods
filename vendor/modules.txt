@@ -78,6 +78,10 @@ github.com/DataDog/zstd
 # github.com/LeeEirc/terminalparser v0.0.0-20240205084113-fbf78c8480f2
 ## explicit; go 1.15
 github.com/LeeEirc/terminalparser
+# github.com/Microsoft/go-winio v0.6.2
+## explicit; go 1.21
+github.com/Microsoft/go-winio/wim
+github.com/Microsoft/go-winio/wim/lzx
 # github.com/RoaringBitmap/roaring v1.2.3
 ## explicit; go 1.14
 github.com/RoaringBitmap/roaring
@@ -628,6 +632,9 @@ github.com/jtolds/gls
 # github.com/kardianos/osext v0.0.0-20190222173326-2bc1f35cddc0
 ## explicit
 github.com/kardianos/osext
+# github.com/kdomanski/iso9660 v0.4.0
+## explicit; go 1.19
+github.com/kdomanski/iso9660
 # github.com/klauspost/cpuid/v2 v2.0.9
 ## explicit; go 1.13
 github.com/klauspost/cpuid/v2
@@ -774,6 +781,9 @@ github.com/modern-go/concurrent
 # github.com/modern-go/reflect2 v1.0.2
 ## explicit; go 1.12
 github.com/modern-go/reflect2
+# github.com/mogaika/udf v0.0.0-20171019171931-167f0ab01c73
+## explicit
+github.com/mogaika/udf
 # github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826
 ## explicit
 github.com/mohae/deepcopy
@@ -1687,7 +1697,7 @@ yunion.io/x/log/hooks
 yunion.io/x/ovsdb/cli_util
 yunion.io/x/ovsdb/schema/ovn_nb
 yunion.io/x/ovsdb/types
-# yunion.io/x/pkg v1.10.4-0.20251114095758-2a2f105d9712
+# yunion.io/x/pkg v1.10.4-0.20260127060125-8939521ef75e
 ## explicit; go 1.18
 yunion.io/x/pkg/appctx
 yunion.io/x/pkg/errors
