@@ -2,7 +2,6 @@ package llm
 
 import (
 	"yunion.io/x/onecloud/cmd/climc/shell"
-
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/llm"
 	commonoptions "yunion.io/x/onecloud/pkg/mcclient/options"
 	options "yunion.io/x/onecloud/pkg/mcclient/options/llm"
