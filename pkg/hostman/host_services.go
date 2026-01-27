@@ -21,6 +21,7 @@ import (
 
 	execlient "yunion.io/x/executor/client"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/signalutils"
 
 	"yunion.io/x/onecloud/pkg/appsrv"
 	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
@@ -208,6 +209,10 @@ func initS3() {
 }
 
 func StartService() {
+	// register dump stack signal handler at first
+	signalutils.SetDumpStackSignal()
+	signalutils.StartTrap()
+
 	var srv = &SHostService{}
 	srv.SServiceBase = &service.SServiceBase{
 		Service: srv,

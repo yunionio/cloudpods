@@ -35,6 +35,7 @@ var signalManager *SSignalManager
 type Trap func()
 
 func RegisterSignal(trap Trap, sigs ...os.Signal) {
+	log.Infof("===RegisterSignal trap: %v, sigs: %#v", trap, sigs)
 	signalManager.mtx.Lock()
 	defer signalManager.mtx.Unlock()
 	if !signalManager.started {
@@ -66,12 +67,16 @@ func StartTrap() {
 				debug.PrintStack()
 			}
 		}()
-		signalManager.mtx.RLock()
-		defer signalManager.mtx.RUnlock()
 		for {
 			s := <-signalManager.sig
-			trapFunc := signalManager.traps[s]
-			trapFunc()
+			trapFunc := func(s os.Signal) Trap {
+				signalManager.mtx.RLock()
+				defer signalManager.mtx.RUnlock()
+
+				return signalManager.traps[s]
+			}
+			log.Infof("===Get signal trap func %s: %v", s.String(), trapFunc)
+			trapFunc(s)
 		}
 	}()
 }
