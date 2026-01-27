@@ -76,3 +76,14 @@ func (o *LLMInstantModelImportOptions) Params() (jsonutils.JSONObject, error) {
 	}
 	return jsonutils.Marshal(input), nil
 }
+
+type LLMInstantModelCommunityRegistryOptions struct {
+}
+
+func (o *LLMInstantModelCommunityRegistryOptions) Params() (jsonutils.JSONObject, error) {
+	return nil, nil
+}
+
+func (o *LLMInstantModelCommunityRegistryOptions) Property() string {
+	return "community-registry"
+}
