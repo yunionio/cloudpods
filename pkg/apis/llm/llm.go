@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"yunion.io/x/onecloud/pkg/apis"
+	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 )
 
@@ -64,8 +65,7 @@ type LLMBaseCreateInput struct {
 	PreferHost string `json:"prefer_host"`
 	AutoStart  bool   `json:"auto_start"`
 
-	NetworkType string `json:"network_type"`
-	NetworkId   string `json:"network_id"`
+	Nets []*computeapi.NetworkConfig `json:"nets"`
 
 	BandwidthMB   int  `json:"bandwidth_mb"`
 	DebugMode     bool `json:"debug_mode"`

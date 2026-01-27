@@ -97,21 +97,54 @@ func (man *SLLMBaseManager) ValidateCreateData(ctx context.Context, userCred mcc
 		input.PreferHost = hostDetails.Id
 	}
 
-	if len(input.NetworkType) > 0 && !api.IsLLMSkuBaseNetworkType(input.NetworkType) {
-		return input, errors.Wrapf(httperrors.ErrInputParameter, "invalid network type %s", input.NetworkType)
-	}
-
-	if len(input.NetworkId) > 0 {
-		s := auth.GetSession(ctx, userCred, "")
-		netObj, err := compute.Networks.Get(s, input.NetworkId, nil)
-		if err != nil {
-			return input, errors.Wrapf(httperrors.ErrInputParameter, "invalid network_id %s", input.NetworkId)
+	// 处理网络配置
+	var firstNet *computeapi.NetworkConfig
+	if len(input.Nets) > 0 {
+		firstNet = input.Nets[0]
+		firstNet.Index = 0
+		if len(string(firstNet.NetType)) > 0 && !api.IsLLMSkuBaseNetworkType(string(firstNet.NetType)) {
+			return input, errors.Wrapf(httperrors.ErrInputParameter, "invalid network type %s", firstNet.NetType)
 		}
-		input.NetworkId, _ = netObj.GetString("id")
-		input.NetworkType, _ = netObj.GetString("server_type")
+		if len(firstNet.Network) > 0 {
+			s := auth.GetSession(ctx, userCred, "")
+			netObj, err := compute.Networks.Get(s, firstNet.Network, nil)
+			if err != nil {
+				return input, errors.Wrapf(httperrors.ErrInputParameter, "invalid network_id %s", firstNet.Network)
+			}
+			netId, _ := netObj.GetString("id")
+			netType, _ := netObj.GetString("server_type")
+			firstNet.Network = netId
+			if len(string(firstNet.NetType)) == 0 {
+				firstNet.NetType = computeapi.TNetworkType(netType)
+			}
+		}
 	}
 
 	return input, nil
+}
+
+func (llmBase *SLLMBase) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	err := llmBase.SVirtualResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
+	if err != nil {
+		return errors.Wrap(err, "SVirtualResourceBase.CustomizeCreate")
+	}
+
+	var input api.LLMBaseCreateInput
+	if err := data.Unmarshal(&input); err != nil {
+		return errors.Wrap(err, "unmarshal LLMBaseCreateInput")
+	}
+
+	if len(input.Nets) > 0 {
+		firstNet := input.Nets[0]
+		if len(string(firstNet.NetType)) > 0 {
+			llmBase.NetworkType = string(firstNet.NetType)
+		}
+		if len(firstNet.Network) > 0 {
+			llmBase.NetworkId = firstNet.Network
+		}
+	}
+
+	return nil
 }
 
 func GetServerIdsByHost(ctx context.Context, userCred mcclient.TokenCredential, hostId string) ([]string, error) {

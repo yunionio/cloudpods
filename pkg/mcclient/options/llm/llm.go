@@ -2,8 +2,11 @@ package llm
 
 import (
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
+	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	api "yunion.io/x/onecloud/pkg/apis/llm"
+	"yunion.io/x/onecloud/pkg/cloudcommon/cmdline"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
@@ -55,8 +58,7 @@ type LLMBaseCreateOptions struct {
 	ProjectId  string
 	PreferHost string
 
-	NETWORK_TYPE string `json:"network_type" choices:"guest|hostlocal"`
-	NetworkId    string `help:"id of network" json:"network_id"`
+	Net []string `help:"Network descriptions" metavar:"NETWORK" json:"-"`
 
 	BandwidthMb int
 
@@ -70,7 +72,21 @@ type LLMCreateOptions struct {
 }
 
 func (o *LLMCreateOptions) Params() (jsonutils.JSONObject, error) {
-	return jsonutils.Marshal(o), nil
+	params := jsonutils.Marshal(o)
+
+	if len(o.Net) > 0 {
+		nets := make([]*computeapi.NetworkConfig, 0)
+		for i, n := range o.Net {
+			net, err := cmdline.ParseNetworkConfig(n, i)
+			if err != nil {
+				return nil, errors.Wrapf(err, "parse network config %s", n)
+			}
+			nets = append(nets, net)
+		}
+		params.(*jsonutils.JSONDict).Add(jsonutils.Marshal(nets), "nets")
+	}
+
+	return params, nil
 }
 
 func (o *LLMCreateOptions) GetCountParam() int {
