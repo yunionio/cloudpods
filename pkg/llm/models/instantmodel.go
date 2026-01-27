@@ -962,3 +962,7 @@ func (model *SInstantModel) CleanupImportTmpDir(ctx context.Context, userCred mc
 func (man *SInstantModelManager) GetOllamaRegistryYAML() string {
 	return apis.OLLAMA_REGISTRY_YAML
 }
+
+func (man *SInstantModelManager) GetPropertyCommunityRegistry(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(apis.OllamaRegistry), nil
+}
