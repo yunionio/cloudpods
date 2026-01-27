@@ -103,6 +103,12 @@ func generateSpiceOptions(port uint, spice *desc.SSpiceDesc) []string {
 	opts = append(opts, chardevOption(spice.Vdagent))
 	opts = append(opts, virtSerialPortOption(spice.VdagentSerialPort, spice.VdagentSerial.Id))
 
+	if spice.StreamingAgent != nil {
+		// streaming port
+		opts = append(opts, chardevOption(spice.StreamingAgent))
+		opts = append(opts, virtSerialPortOption(spice.StreamingAgentPort, spice.VdagentSerial.Id))
+	}
+
 	// usb redirct
 	opts = append(opts, usbRedirOptions(spice.UsbRedirct)...)
 	return opts

@@ -173,7 +173,7 @@ func TestSKVMGuestInstance_initGuestDesc(t *testing.T) {
 	// vdi device for spice
 	s.Desc.VdiDevice = new(desc.SGuestVdi)
 	if s.IsVdiSpice() {
-		s.initSpiceDevices(pciRoot)
+		s.initSpiceDevices(pciRoot, s.isEnableSpiceStreaming())
 	}
 
 	s.initVirtioSerial(pciRoot)

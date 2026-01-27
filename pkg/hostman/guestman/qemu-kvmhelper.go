@@ -174,7 +174,7 @@ func (s *SKVMGuestInstance) CpuMax() (uint, error) {
 }
 
 func (s *SKVMGuestInstance) IsVdiSpice() bool {
-	return s.Desc.Vdi == "spice"
+	return s.Desc.Vdi == api.VM_VDI_PROTOCOL_SPICE
 }
 
 func (s *SKVMGuestInstance) GetOsName() string {
@@ -278,7 +278,7 @@ func (s *SKVMGuestInstance) isPcie() bool {
 func (s *SKVMGuestInstance) GetVdiProtocol() string {
 	vdi := s.Desc.Vdi
 	if vdi == "" {
-		vdi = "vnc"
+		vdi = api.VM_VDI_PROTOCOL_VNC
 	}
 	return vdi
 }
