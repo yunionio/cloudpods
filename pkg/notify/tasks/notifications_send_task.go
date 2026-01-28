@@ -265,6 +265,7 @@ func (notificationSendTask *NotificationSendTask) batchSend(ctx context.Context,
 			params.Header = robot.Header
 			params.Body = robot.Body
 			params.MsgKey = robot.MsgKey
+			params.SecretKey = robot.SecretKey
 			params.GroupTimes = uint(receivers[i].rNotificaion.GroupTimes)
 			err = driver.Send(ctx, params)
 			if err != nil {
