@@ -63,6 +63,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/modules/notify"
 	"yunion.io/x/onecloud/pkg/util/cephutils"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
+	"yunion.io/x/onecloud/pkg/util/isoutils"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
@@ -1734,8 +1735,24 @@ func (m *SImageManager) PerformVmwareAccountAdded(ctx context.Context, userCred 
 
 func (image *SImage) doProbeImageInfo(ctx context.Context, userCred mcclient.TokenCredential) (bool, error) {
 	if image.IsIso() {
-		// no need to probe
-		return false, nil
+		imagePath := image.GetLocalLocation()
+		if len(imagePath) == 0 {
+			return false, errors.Wrapf(httperrors.ErrNotFound, "image file %s not found", image.Location)
+		}
+		fp, err := os.Open(imagePath)
+		if err != nil {
+			return false, errors.Wrap(err, "Open image file")
+		}
+		defer fp.Close()
+		isoInfo, err := isoutils.DetectOSFromISO(fp)
+		if err != nil {
+			return false, errors.Wrap(err, "DetectOSFromISO")
+		}
+		err = image.updateIsoInfo(ctx, userCred, isoInfo)
+		if err != nil {
+			return false, errors.Wrap(err, "updateIsoInfo")
+		}
+		return true, nil
 	}
 	if image.IsData.IsTrue() {
 		// no need to probe
@@ -1789,9 +1806,9 @@ func (image *SImage) updateImageInfo(
 	imageProperties := jsonutils.Marshal(imageInfo.OsInfo).(*jsonutils.JSONDict)
 
 	imageProperties.Set(api.IMAGE_OS_ARCH, jsonutils.NewString(imageInfo.OsInfo.Arch))
-	imageProperties.Set("os_version", jsonutils.NewString(imageInfo.OsInfo.Version))
-	imageProperties.Set("os_distribution", jsonutils.NewString(imageInfo.OsInfo.Distro))
-	imageProperties.Set("os_language", jsonutils.NewString(imageInfo.OsInfo.Language))
+	imageProperties.Set(api.IMAGE_OS_VERSION, jsonutils.NewString(imageInfo.OsInfo.Version))
+	imageProperties.Set(api.IMAGE_OS_DISTRO, jsonutils.NewString(imageInfo.OsInfo.Distro))
+	imageProperties.Set(api.IMAGE_OS_LANGUAGE, jsonutils.NewString(imageInfo.OsInfo.Language))
 
 	imageProperties.Set(api.IMAGE_OS_TYPE, jsonutils.NewString(imageInfo.OsType))
 	imageProperties.Set(api.IMAGE_PARTITION_TYPE, jsonutils.NewString(imageInfo.PhysicalPartitionType))
@@ -1802,6 +1819,38 @@ func (image *SImage) updateImageInfo(
 	imageProperties.Set(api.IMAGE_INSTALLED_CLOUDINIT, jsonutils.NewBool(imageInfo.IsInstalledCloudInit))
 
 	return ImagePropertyManager.SaveProperties(ctx, userCred, image.Id, imageProperties)
+}
+
+func (image *SImage) updateIsoInfo(ctx context.Context, userCred mcclient.TokenCredential, imageInfo *isoutils.ISOInfo) error {
+	if gotypes.IsNil(imageInfo) || len(imageInfo.Distro) == 0 {
+		return nil
+	}
+	change := false
+	imageProperties := jsonutils.Marshal(imageInfo).(*jsonutils.JSONDict)
+	if len(imageInfo.Arch) > 0 {
+		imageProperties.Set(api.IMAGE_OS_ARCH, jsonutils.NewString(imageInfo.Arch))
+		change = true
+		db.Update(image, func() error {
+			image.OsArch = imageInfo.Arch
+			return nil
+		})
+	}
+	if len(imageInfo.Version) > 0 {
+		imageProperties.Set(api.IMAGE_OS_VERSION, jsonutils.NewString(imageInfo.Version))
+		change = true
+	}
+	if len(imageInfo.Distro) > 0 {
+		imageProperties.Set(api.IMAGE_OS_DISTRO, jsonutils.NewString(imageInfo.Distro))
+		change = true
+	}
+	if len(imageInfo.Language) > 0 {
+		imageProperties.Set(api.IMAGE_OS_LANGUAGE, jsonutils.NewString(imageInfo.Language))
+		change = true
+	}
+	if change {
+		return ImagePropertyManager.SaveProperties(ctx, userCred, image.Id, imageProperties)
+	}
+	return nil
 }
 
 func (image *SImage) updateChecksum() error {
