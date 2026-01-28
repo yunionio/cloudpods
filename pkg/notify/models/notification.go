@@ -365,6 +365,7 @@ func (nm *SNotificationManager) PerformContactNotify(ctx context.Context, userCr
 				params.Header = robot.Header
 				params.Body = robot.Body
 				params.MsgKey = robot.MsgKey
+				params.SecretKey = robot.SecretKey
 				params.Receivers = api.SNotifyReceiver{
 					Contact: robot.Address,
 				}
