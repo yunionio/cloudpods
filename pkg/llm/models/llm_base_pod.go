@@ -118,10 +118,10 @@ func GetLLMBasePodCreateInput(
 	}
 
 	bandwidth := input.BandwidthMB
-	if bandwidth == 0 {
+	if bandwidth == 0 && network.BwLimit != 0 {
 		bandwidth = network.BwLimit
 	}
-	if bandwidth == 0 {
+	if bandwidth == 0 && skuBase.Bandwidth != 0 {
 		bandwidth = skuBase.Bandwidth
 	}
 	network.BwLimit = bandwidth

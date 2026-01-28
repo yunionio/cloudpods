@@ -58,7 +58,7 @@ type LLMBaseCreateOptions struct {
 	ProjectId  string
 	PreferHost string
 
-	Net []string `help:"Network descriptions" metavar:"NETWORK" json:"-"`
+	Net []string `help:"Network descriptions"`
 
 	BandwidthMb int
 
