@@ -61,6 +61,7 @@ type IBillingModel interface {
 	GetExpiredAt() time.Time
 	GetReleaseAt() time.Time
 	GetAutoRenew() bool
+	GetCreatedAt() time.Time
 	SetReleaseAt(releaseAt time.Time)
 	SetExpiredAt(expireAt time.Time)
 	SetBillingCycle(billingCycle string)
@@ -208,6 +209,7 @@ func (bm *SBillingResourceCheckManager) Create(ctx context.Context, res IBilling
 		bc.ProjectId = owner.GetProjectId()
 		bc.DomainId = owner.GetDomainId()
 	}
+	bc.CreatedAt = res.GetCreatedAt()
 	bc.Status = res.GetStatus()
 	bc.SetModelManager(bm, bc)
 	return bm.TableSpec().InsertOrUpdate(ctx, bc)
