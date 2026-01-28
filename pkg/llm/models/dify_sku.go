@@ -41,15 +41,15 @@ type SDifySkuManager struct {
 type SDifySku struct {
 	SLLMSkuBase
 
-	PostgresImageId     string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"required"`
-	RedisImageId        string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"required"`
-	NginxImageId        string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"required"`
-	DifyApiImageId      string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"required"`
-	DifyPluginImageId   string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"required"`
-	DifyWebImageId      string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"required"`
-	DifySandboxImageId  string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"required"`
-	DifySSRFImageId     string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"required"`
-	DifyWeaviateImageId string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"required"`
+	PostgresImageId     string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"required" update:"user"`
+	RedisImageId        string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"required" update:"user"`
+	NginxImageId        string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"required" update:"user"`
+	DifyApiImageId      string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"required" update:"user"`
+	DifyPluginImageId   string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"required" update:"user"`
+	DifyWebImageId      string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"required" update:"user"`
+	DifySandboxImageId  string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"required" update:"user"`
+	DifySSRFImageId     string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"required" update:"user"`
+	DifyWeaviateImageId string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"required" update:"user"`
 }
 
 func (man *SDifySkuManager) ListItemFilter(

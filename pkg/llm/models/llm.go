@@ -361,11 +361,7 @@ func (llm *SLLM) GetLLMSku(skuId string) (*SLLMSku, error) {
 
 func (llm *SLLM) GetLargeLanguageModelName(name string) (modelName string, modelTag string, err error) {
 	if name == "" {
-		sku, err := llm.GetLLMSku("")
-		if err != nil {
-			return "", "", err
-		}
-		name = sku.LLMModelName
+		return "", "", errors.Wrap(errors.ErrInvalidStatus, "model name is empty")
 	}
 	parts := strings.Split(name, ":")
 	modelName = parts[0]

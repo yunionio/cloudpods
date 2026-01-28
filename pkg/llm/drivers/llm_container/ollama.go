@@ -48,7 +48,7 @@ func (o *ollama) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *
 		},
 	}
 
-	if len(devices) == 0 && len(*sku.Devices) > 0 {
+	if len(devices) == 0 && (sku.Devices != nil && len(*sku.Devices) > 0) {
 		for i := range *sku.Devices {
 			index := i
 			spec.Devices = append(spec.Devices, &computeapi.ContainerDevice{
