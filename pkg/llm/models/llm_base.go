@@ -118,6 +118,8 @@ func (man *SLLMBaseManager) ValidateCreateData(ctx context.Context, userCred mcc
 				firstNet.NetType = computeapi.TNetworkType(netType)
 			}
 		}
+	} else {
+		return input, errors.Wrap(httperrors.ErrInputParameter, "nets cannot be empty")
 	}
 
 	return input, nil

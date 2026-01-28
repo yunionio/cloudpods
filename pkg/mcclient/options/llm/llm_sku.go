@@ -27,9 +27,10 @@ func (o *LLMSkuShowOptions) Params() (jsonutils.JSONObject, error) {
 type LLMSkuCreateOptions struct {
 	LLMSkuBaseCreateOptions
 
-	LLM_IMAGE_ID   string `json:"llm_image_id"`
-	LLM_TYPE       string `json:"llm_type" choices:"ollama"`
-	LLM_MODEL_NAME string `help:"specific model of large language model, for example: qwen3:32b" json:"llm_model_name"`
+	MountedModels []string `help:"mounted models, <model_id> e.g. qwen2:0.5b-dup" json:"mounted_models"`
+
+	LLM_IMAGE_ID string `json:"llm_image_id"`
+	LLM_TYPE     string `json:"llm_type" choices:"ollama"`
 }
 
 func (o *LLMSkuCreateOptions) Params() (jsonutils.JSONObject, error) {
@@ -38,6 +39,7 @@ func (o *LLMSkuCreateOptions) Params() (jsonutils.JSONObject, error) {
 	obj.Unmarshal(dict)
 
 	o.LLMSkuBaseCreateOptions.Params(dict)
+	fetchMountedModels(o.MountedModels, dict)
 	return dict, nil
 }
 
@@ -56,10 +58,9 @@ func (o *LLMSkuDeleteOptions) Params() (jsonutils.JSONObject, error) {
 type LLMSkuUpdateOptions struct {
 	LLMSkuBaseUpdateOptions
 
-	MountedModels []string `help:"mounted models, <model_id>@<model_name>:<model_tag> e.g. 6f48b936a09f@qwen2:0.5b" json:"mounted_models"`
+	MountedModels []string `help:"mounted models, <model_id> e.g. qwen2:0.5b-dup" json:"mounted_models"`
 
-	LlmImageId   string
-	LlmModelName string
+	LlmImageId string `json:"llm_image_id"`
 }
 
 func (o *LLMSkuUpdateOptions) GetId() string {

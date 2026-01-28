@@ -143,12 +143,20 @@ func (man *SMCPAgentManager) ValidateCreateData(ctx context.Context, userCred mc
 		}
 		input.LLMUrl = llmUrl
 
-		sku, err := llm.GetLLMSku("")
-		if err != nil {
-			return input, errors.Wrapf(err, "get LLM Sku from LLM %s", input.LLMId)
-		}
 		if len(input.Model) == 0 {
-			input.Model = sku.LLMModelName
+			mdlInfos, err := llm.getProbedInstantModelsExt(ctx, userCred)
+			if err != nil {
+				return input, errors.Wrap(err, "get probed models from LLM instance")
+			}
+			if len(mdlInfos) == 0 {
+				return input, httperrors.NewBadRequestError("no available models found in LLM instance %s", input.LLMId)
+			}
+			var firstModel api.LLMInternalInstantMdlInfo
+			for _, mdlInfo := range mdlInfos {
+				firstModel = mdlInfo
+				break
+			}
+			input.Model = fmt.Sprintf("%s:%s", firstModel.Name, firstModel.Tag)
 		}
 	}
 
@@ -202,11 +210,22 @@ func (man *SMCPAgentManager) ValidateUpdateData(ctx context.Context, userCred mc
 		}
 		input.LLMUrl = &llmUrl
 
-		sku, err := llm.GetLLMSku("")
-		if err != nil {
-			return input, errors.Wrapf(err, "get LLM Sku from LLM %s", *input.LLMId)
+		if input.Model == nil || len(*input.Model) == 0 {
+			mdlInfos, err := llm.getProbedInstantModelsExt(ctx, userCred)
+			if err != nil {
+				return input, errors.Wrap(err, "get probed models from LLM instance")
+			}
+			if len(mdlInfos) == 0 {
+				return input, httperrors.NewBadRequestError("no available models found in LLM instance %s", *input.LLMId)
+			}
+			var firstModel api.LLMInternalInstantMdlInfo
+			for _, mdlInfo := range mdlInfos {
+				firstModel = mdlInfo
+				break
+			}
+			modelStr := fmt.Sprintf("%s:%s", firstModel.Name, firstModel.Tag)
+			input.Model = &modelStr
 		}
-		input.Model = &sku.LLMModelName
 	}
 
 	// 如果更新 llm_driver，验证其值
