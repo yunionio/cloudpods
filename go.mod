@@ -6,6 +6,7 @@ require (
 	bazil.org/fuse v0.0.0-20180421153158-65cc252bf669
 	github.com/360EntSecGroup-Skylar/excelize v1.4.0
 	github.com/LeeEirc/terminalparser v0.0.0-20240205084113-fbf78c8480f2
+	github.com/Microsoft/go-winio v0.6.2
 	github.com/aliyun/alibaba-cloud-sdk-go v1.61.684
 	github.com/anacrolix/torrent v0.0.0-20181129073333-cc531b8c4a80
 	github.com/benbjohnson/clock v1.0.0
@@ -34,6 +35,7 @@ require (
 	github.com/influxdata/influxql v1.1.0
 	github.com/influxdata/promql/v2 v2.12.0
 	github.com/jaypipes/ghw v0.11.0
+	github.com/kdomanski/iso9660 v0.4.0
 	github.com/koding/websocketproxy v0.0.0-20181220232114-7ed82d81a28c
 	github.com/lestrrat-go/jwx v1.0.2
 	github.com/lestrrat/go-jwx v0.0.0-20180221005942-b7d4802280ae
@@ -45,6 +47,7 @@ require (
 	github.com/mholt/caddy v0.10.11
 	github.com/miekg/dns v1.1.25
 	github.com/minio/minio-go v6.0.14+incompatible
+	github.com/mogaika/udf v0.0.0-20171019171931-167f0ab01c73
 	github.com/petermattis/goid v0.0.0-20250508124226-395b08cebbdb
 	github.com/pierrec/lz4/v4 v4.1.15
 	github.com/pkg/errors v0.9.1
@@ -82,6 +85,7 @@ require (
 	google.golang.org/grpc v1.62.0
 	google.golang.org/protobuf v1.32.0
 	gopkg.in/fatih/set.v0 v0.2.1
+	gopkg.in/ini.v1 v1.62.0
 	gopkg.in/mail.v2 v2.3.1
 	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/api v0.19.3
@@ -94,7 +98,7 @@ require (
 	yunion.io/x/jsonutils v1.0.1-0.20250507052344-1abcf4f443b1
 	yunion.io/x/log v1.0.1-0.20240305175729-7cf2d6cd5a91
 	yunion.io/x/ovsdb v0.0.0-20230306173834-f164f413a900
-	yunion.io/x/pkg v1.10.4-0.20251114095758-2a2f105d9712
+	yunion.io/x/pkg v1.10.4-0.20260127060125-8939521ef75e
 	yunion.io/x/s3cli v0.0.0-20241221171442-1c11599d28e1
 	yunion.io/x/sqlchemy v1.1.3-0.20251231025938-b0a38f6e9fab
 	yunion.io/x/structarg v0.0.0-20231017124457-df4d5009457c
@@ -276,7 +280,6 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240228224816-df926f6c8641 // indirect
 	gopkg.in/alexcesaro/quotedprintable.v3 v3.0.0-20150716171945-2caba252f4dc // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
-	gopkg.in/ini.v1 v1.62.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/klog/v2 v2.20.0 // indirect
 	k8s.io/utils v0.0.0-20200729134348-d5654de09c73 // indirect
