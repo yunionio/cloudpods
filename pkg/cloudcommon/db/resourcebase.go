@@ -48,6 +48,10 @@ type SResourceBaseManager struct {
 	SModelBaseManager
 }
 
+func (model *SResourceBase) GetCreatedAt() time.Time {
+	return model.CreatedAt
+}
+
 func NewResourceBaseManager(dt interface{}, tableName string, keyword string, keywordPlural string) SResourceBaseManager {
 	return SResourceBaseManager{NewModelBaseManager(dt, tableName, keyword, keywordPlural)}
 }
