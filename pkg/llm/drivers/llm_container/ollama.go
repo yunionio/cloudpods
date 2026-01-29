@@ -102,9 +102,9 @@ func (o *ollama) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *
 		{
 			Disk: &commonapi.ContainerVolumeMountDisk{
 				SubDirectory: api.LLM_OLLAMA,
-				Overlay: &commonapi.ContainerVolumeMountDiskOverlay{
-					LowerDir: []string{api.LLM_OLLAMA_HOST_PATH},
-				},
+				// Overlay: &commonapi.ContainerVolumeMountDiskOverlay{
+				// 	LowerDir: []string{api.LLM_OLLAMA_HOST_PATH},
+				// },
 				PostOverlay: postOverlays,
 				Index:       &diskIndex,
 			},
