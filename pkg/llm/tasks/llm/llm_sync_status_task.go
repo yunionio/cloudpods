@@ -51,7 +51,7 @@ func (task *LLMSyncStatusTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 	task.setLLMStatus(ctx, llm, apis.LLM_STATUS_SYNCSTATUS, "LLMSyncStatusTask.OnInit")
 
 	s := auth.GetSession(ctx, task.UserCred, "")
-	_, err := compute.Servers.PerformAction(s, llm.SvrId, "syncstatus", nil)
+	_, err := compute.Servers.PerformAction(s, llm.CmpId, "syncstatus", nil)
 	if err != nil {
 		task.taskFailed(ctx, llm, err.Error())
 		return
@@ -93,7 +93,7 @@ func (task *LLMSyncStatusTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 				IsForce:     true,
 				TimeoutSecs: 10,
 			}
-			_, err := compute.Servers.PerformAction(s, llm.SvrId, "stop", jsonutils.Marshal(params))
+			_, err := compute.Servers.PerformAction(s, llm.CmpId, "stop", jsonutils.Marshal(params))
 			if err != nil {
 				return nil, errors.Wrap(err, "ServerStop")
 			}

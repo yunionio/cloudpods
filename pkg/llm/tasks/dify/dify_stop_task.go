@@ -57,7 +57,7 @@ func (task *DifyStopTask) OnInit(ctx context.Context, obj db.IStandaloneModel, b
 	task.SetStage("OnStopComplete", nil)
 	s := auth.GetSession(ctx, task.UserCred, "")
 	s.WithTaskCallback(task.GetId(), func() error {
-		_, err = compute.Servers.PerformAction(s, dify.SvrId, "stop", nil)
+		_, err = compute.Servers.PerformAction(s, dify.CmpId, "stop", nil)
 		return err
 	})
 	if err != nil {
