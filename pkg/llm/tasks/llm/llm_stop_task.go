@@ -57,7 +57,7 @@ func (task *LLMStopTask) OnInit(ctx context.Context, obj db.IStandaloneModel, bo
 	task.SetStage("OnStopComplete", nil)
 	s := auth.GetSession(ctx, task.UserCred, "")
 	err = s.WithTaskCallback(task.GetId(), func() error {
-		_, err = compute.Servers.PerformAction(s, llm.SvrId, "stop", nil)
+		_, err = compute.Servers.PerformAction(s, llm.CmpId, "stop", nil)
 		return err
 	})
 	if err != nil {

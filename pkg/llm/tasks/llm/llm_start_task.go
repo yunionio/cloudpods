@@ -45,7 +45,7 @@ func (t *LLMStartTask) requestStart(ctx context.Context, llm *models.SLLM) {
 	t.SetStage("OnStarted", nil)
 	s := auth.GetSession(ctx, t.GetUserCred(), options.Options.Region)
 	err := s.WithTaskCallback(t.GetId(), func() error {
-		_, err := compute.Servers.PerformAction(s, llm.SvrId, "start", nil)
+		_, err := compute.Servers.PerformAction(s, llm.CmpId, "start", nil)
 		return err
 	})
 	if err != nil {

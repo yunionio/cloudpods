@@ -56,10 +56,10 @@ func (task *DifyCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel,
 		}
 
 		db.Update(dify, func() error {
-			dify.SvrId = serverId
+			dify.CmpId = serverId
 			return nil
 		})
-		dify.SvrId = serverId
+		dify.CmpId = serverId
 		return nil
 	})
 	// var expectStatus []string
@@ -91,7 +91,7 @@ func (task *DifyCreateTask) OnDifyRefreshStatusComplete(ctx context.Context, dif
 	// 创建磁盘
 	for _, disk := range server.DisksInfo {
 		volume := models.SVolume{}
-		volume.SvrId = disk.Id
+		volume.CmpId = disk.Id
 		volume.LLMId = dify.Id
 		volume.SizeMB = disk.SizeMb
 		volume.Name = disk.Name
