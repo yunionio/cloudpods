@@ -17,10 +17,10 @@ const (
 	LLM_OLLAMA_HOST_MANIFESTS_DIR  = "/manifests"
 	LLM_OLLAMA_CACHE_DIR           = "/.llm_ollama_cache"
 	LLM_OLLAMA_CACHE_MOUNT_PATH    = "/usr/local"
-	LLM_OLLAMA_LIBRARY_BASE_URL    = `https://registry.ollama.ai/v2/library/%s`
+	LLM_OLLAMA_LIBRARY_BASE_URL    = `https://registry.ollama.ai/v2/%s`
 	LLM_OLLAMA_BASE_PATH           = "/root/.ollama/models"
 	LLM_OLLAMA_BLOBS_DIR           = "/blobs"
-	LLM_OLLAMA_MANIFESTS_BASE_PATH = "/manifests/registry.ollama.ai/library"
+	LLM_OLLAMA_MANIFESTS_BASE_PATH = "/manifests/registry.ollama.ai"
 )
 
 const (

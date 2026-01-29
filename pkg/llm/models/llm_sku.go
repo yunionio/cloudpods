@@ -52,9 +52,8 @@ type SLLMSku struct {
 	SLLMSkuBase
 	SMountedModelsResource
 
-	LLMImageId   string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"required"`
-	LLMType      string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"required"`
-	LLMModelName string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"required"`
+	LLMImageId string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"required" update:"user"`
+	LLMType    string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"required"`
 }
 
 func (man *SLLMSkuManager) ListItemFilter(
@@ -161,9 +160,28 @@ func (man *SLLMSkuManager) ValidateCreateData(ctx context.Context, userCred mccl
 		return input, errors.Wrap(httperrors.ErrInputParameter, "llm_type must be one of "+strings.Join(api.LLM_CONTAINER_TYPES.List(), ","))
 	}
 
-	_, err = validators.ValidateModel(ctx, userCred, GetLLMImageManager(), &input.LLMImageId)
+	imgObj, err := validators.ValidateModel(ctx, userCred, GetLLMImageManager(), &input.LLMImageId)
 	if err != nil {
 		return input, errors.Wrapf(err, "validate image_id %s", input.LLMImageId)
+	}
+	llmImage := imgObj.(*SLLMImage)
+	if llmImage.LLMType != input.LLMType {
+		return input, errors.Wrapf(httperrors.ErrInvalidStatus, "image %s is not of type %s", input.LLMImageId, input.LLMType)
+	}
+	input.LLMImageId = llmImage.Id
+
+	if input.MountedModels != nil {
+		for i, mdl := range input.MountedModels {
+			instMdl, err := GetInstantModelManager().FetchByIdOrName(ctx, userCred, mdl)
+			if err != nil {
+				return input, errors.Wrapf(err, "validate mounted model %s", mdl)
+			}
+			instantModle := instMdl.(*SInstantModel)
+			if instantModle.LlmType != input.LLMType {
+				return input, errors.Wrapf(httperrors.ErrInvalidStatus, "mounted model %s is not of type %s", mdl, input.LLMType)
+			}
+			input.MountedModels[i] = instantModle.GetId()
+		}
 	}
 
 	input.Status = api.STATUS_READY
@@ -200,7 +218,12 @@ func (sku *SLLMSku) ValidateUpdateData(ctx context.Context, userCred mcclient.To
 		if err != nil {
 			return input, errors.Wrapf(err, "validate image_id %s", input.LLMImageId)
 		}
-		input.LLMImageId = imgObj.GetId()
+		llmImage := imgObj.(*SLLMImage)
+		if llmImage.LLMType != sku.LLMType {
+			return input, errors.Wrapf(httperrors.ErrInvalidStatus, "image %s is not of type %s", input.LLMImageId, sku.LLMType)
+		}
+		input.LLMImageId = llmImage.Id
+		log.Infof("update llm_image_id %s to %s", sku.LLMImageId, input.LLMImageId)
 	}
 
 	return input, nil

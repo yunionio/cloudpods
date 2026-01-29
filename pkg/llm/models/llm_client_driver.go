@@ -57,11 +57,38 @@ type ILLMClient interface {
 	ChatStream(ctx context.Context, mcpAgent *SMCPAgent, messages interface{}, tools interface{}, onChunk func(ILLMChatResponse) error) error
 
 	NewUserMessage(content string) ILLMChatMessage
+	NewAssistantMessage(content string) ILLMChatMessage
 	NewAssistantMessageWithToolCalls(toolCalls []ILLMToolCall) ILLMChatMessage
 	NewToolMessage(toolId string, toolName string, content string) ILLMChatMessage
 	NewSystemMessage(content string) ILLMChatMessage
 
 	ConvertMCPTools(mcpTools []mcp.Tool) []ILLMTool
+}
+
+type SLLMToolCall struct {
+	Id       string
+	Function SLLMFunctionCall
+}
+
+func (tc *SLLMToolCall) GetId() string {
+	return tc.Id
+}
+
+func (tc *SLLMToolCall) GetFunction() ILLMFunctionCall {
+	return &tc.Function
+}
+
+type SLLMFunctionCall struct {
+	Name      string
+	Arguments map[string]interface{}
+}
+
+func (fc *SLLMFunctionCall) GetName() string {
+	return fc.Name
+}
+
+func (fc *SLLMFunctionCall) GetArguments() map[string]interface{} {
+	return fc.Arguments
 }
 
 var (
