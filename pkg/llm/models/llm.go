@@ -361,11 +361,7 @@ func (llm *SLLM) GetLLMSku(skuId string) (*SLLMSku, error) {
 
 func (llm *SLLM) GetLargeLanguageModelName(name string) (modelName string, modelTag string, err error) {
 	if name == "" {
-		sku, err := llm.GetLLMSku("")
-		if err != nil {
-			return "", "", err
-		}
-		name = sku.LLMModelName
+		return "", "", errors.Wrap(errors.ErrInvalidStatus, "model name is empty")
 	}
 	parts := strings.Split(name, ":")
 	modelName = parts[0]
@@ -577,4 +573,34 @@ func fetchNetworks(ctx context.Context, userCred mcclient.TokenCredential, netwo
 		}
 	}
 	return networks, nil
+}
+
+func (man *SLLMManager) GetAvailableNetwork(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	s := auth.GetSession(ctx, userCred, "")
+
+	ret := jsonutils.NewDict()
+
+	q := jsonutils.NewDict()
+	if query != nil {
+		q.Update(query)
+	}
+	q.Set("server_type", jsonutils.NewString(string(computeapi.NETWORK_TYPE_HOSTLOCAL)))
+	q.Set("is_auto_alloc", jsonutils.NewBool(true))
+	q.Set("status", jsonutils.NewString(computeapi.NETWORK_STATUS_AVAILABLE))
+	q.Set("limit", jsonutils.NewInt(1))
+
+	result, err := compute.Networks.List(s, q)
+	if err == nil && result.Total > 0 {
+		ret.Add(jsonutils.NewInt(int64(result.Total)), "auto_alloc_network_hostlocal_count")
+	}
+
+	q.Set("server_type", jsonutils.NewString(string(computeapi.NETWORK_TYPE_GUEST)))
+	q.Set("vpc_id", jsonutils.NewString(computeapi.DEFAULT_VPC_ID))
+
+	resultGuest, err := compute.Networks.List(s, q)
+	if err == nil && resultGuest.Total > 0 {
+		ret.Add(jsonutils.NewInt(int64(resultGuest.Total)), "auto_alloc_network_guest_count")
+	}
+
+	return ret, nil
 }

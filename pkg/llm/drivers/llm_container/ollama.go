@@ -48,7 +48,7 @@ func (o *ollama) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *
 		},
 	}
 
-	if len(devices) == 0 && len(*sku.Devices) > 0 {
+	if len(devices) == 0 && (sku.Devices != nil && len(*sku.Devices) > 0) {
 		for i := range *sku.Devices {
 			index := i
 			spec.Devices = append(spec.Devices, &computeapi.ContainerDevice{
@@ -159,7 +159,8 @@ func (o *ollama) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *
 
 func (o *ollama) DownloadModel(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM, tmpDir string, modelName string, modelTag string) (string, []string, error) {
 	// 1. download manifest from registry
-	manifestsUrl := fmt.Sprintf(api.LLM_OLLAMA_LIBRARY_BASE_URL, fmt.Sprintf("%s/manifests/%s", modelName, modelTag))
+	namespace, repo := getNamespaceAndRepo(modelName)
+	manifestsUrl := fmt.Sprintf(api.LLM_OLLAMA_LIBRARY_BASE_URL, fmt.Sprintf("%s/%s/manifests/%s", namespace, repo, modelTag))
 	log.Infof("Downloading manifest from %s", manifestsUrl)
 
 	manifestContent, err := llm.HttpGet(ctx, manifestsUrl)
@@ -187,9 +188,9 @@ func (o *ollama) DownloadModel(ctx context.Context, userCred mcclient.TokenCrede
 
 	// 4. create directory structure
 	// tmpDir/blobs/
-	// tmpDir/manifests/registry.ollama.ai/library/<modelName>/<modelTag>
+	// tmpDir/manifests/registry.ollama.ai/<namespace>/<repo>
 	blobsDir := path.Join(tmpDir, "blobs")
-	manifestsDir := path.Join(tmpDir, api.LLM_OLLAMA_MANIFESTS_BASE_PATH, modelName)
+	manifestsDir := path.Join(tmpDir, api.LLM_OLLAMA_MANIFESTS_BASE_PATH, namespace, repo)
 	if err := os.MkdirAll(blobsDir, 0755); err != nil {
 		return "", nil, errors.Wrapf(err, "failed to create blobs directory %s", blobsDir)
 	}
@@ -210,8 +211,8 @@ func (o *ollama) DownloadModel(ctx context.Context, userCred mcclient.TokenCrede
 		}
 
 		// download blob from registry
-		// URL format: https://registry.ollama.ai/v2/library/<modelName>/blobs/<digest>
-		blobUrl := fmt.Sprintf(api.LLM_OLLAMA_LIBRARY_BASE_URL, fmt.Sprintf("%s/blobs/%s", modelName, digest))
+		// URL format: https://registry.ollama.ai/v2/<namespace>/<repo>/blobs/<digest>
+		blobUrl := fmt.Sprintf(api.LLM_OLLAMA_LIBRARY_BASE_URL, fmt.Sprintf("%s/%s/blobs/%s", namespace, repo, digest))
 		log.Infof("Downloading blob %s from %s", blobFileName, blobUrl)
 
 		if err := llm.HttpDownloadFile(ctx, blobUrl, blobPath); err != nil {
@@ -232,7 +233,7 @@ func (o *ollama) DownloadModel(ctx context.Context, userCred mcclient.TokenCrede
 		blobFileName := strings.Replace(blob, ":", "-", 1)
 		mounts[i] = path.Join(api.LLM_OLLAMA_BASE_PATH, api.LLM_OLLAMA_BLOBS_DIR, blobFileName)
 	}
-	mounts = append(mounts, path.Join(api.LLM_OLLAMA_BASE_PATH, api.LLM_OLLAMA_MANIFESTS_BASE_PATH, modelName, modelTag))
+	mounts = append(mounts, path.Join(api.LLM_OLLAMA_BASE_PATH, api.LLM_OLLAMA_MANIFESTS_BASE_PATH, namespace, repo, modelTag))
 
 	return modelId, mounts, nil
 }
@@ -245,7 +246,8 @@ func (o *ollama) PreInstallModel(ctx context.Context, userCred mcclient.TokenCre
 	}
 
 	// mkdir llm-registry-base-path / modelname
-	mkdirReigtryBasePaht := fmt.Sprintf("mkdir -p %s", path.Join(api.LLM_OLLAMA_BASE_PATH, api.LLM_OLLAMA_MANIFESTS_BASE_PATH, instMdl.ModelName))
+	namespace, repo := getNamespaceAndRepo(instMdl.ModelName)
+	mkdirReigtryBasePaht := fmt.Sprintf("mkdir -p %s", path.Join(api.LLM_OLLAMA_BASE_PATH, api.LLM_OLLAMA_MANIFESTS_BASE_PATH, namespace, repo))
 	_, err = exec(ctx, lc.CmpId, mkdirReigtryBasePaht, 10)
 	if err != nil {
 		return errors.Wrap(err, "failed to mkdir llm-registry-base-path / modelname")
@@ -296,13 +298,11 @@ func (o *ollama) GetInstantModelIdByPostOverlay(postOverlay *commonapi.Container
 		for k := range postOverlay.Image.PathMap {
 			idx := strings.Index(k, api.LLM_OLLAMA_MANIFESTS_BASE_PATH)
 			if idx != -1 {
-				suffix := k[idx+len(api.LLM_OLLAMA_MANIFESTS_BASE_PATH):]
-				parts := strings.Split(strings.Trim(suffix, "/"), "/")
-				if len(parts) >= 2 {
-					modelName := parts[len(parts)-2]
-					modelTag := parts[len(parts)-1]
-					log.Infof("In GetInstantModelIdByPostOverlay, Extracted modelName: %s, modelTag: %s, Got modelId: %s", modelName, modelTag, mdlNameToId[modelName+":"+modelTag])
-					return mdlNameToId[modelName+":"+modelTag]
+				path := k[idx:]
+				nameTag := parseModelName(path)
+				if nameTag != "" {
+					log.Infof("In GetInstantModelIdByPostOverlay, Extracted nameTag: %s, Got modelId: %s", nameTag, mdlNameToId[nameTag])
+					return mdlNameToId[nameTag]
 				}
 			}
 		}
@@ -320,7 +320,8 @@ func (o *ollama) DetectModelPaths(ctx context.Context, userCred mcclient.TokenCr
 	for idx, blob := range pkgInfo.Blobs {
 		originBlobs[idx] = path.Join(api.LLM_OLLAMA_BASE_PATH, api.LLM_OLLAMA_BLOBS_DIR, blob)
 	}
-	originManifests := path.Join(api.LLM_OLLAMA_BASE_PATH, api.LLM_OLLAMA_MANIFESTS_BASE_PATH, pkgInfo.Name, pkgInfo.Tag)
+	namespace, repo := getNamespaceAndRepo(pkgInfo.Name)
+	originManifests := path.Join(api.LLM_OLLAMA_BASE_PATH, api.LLM_OLLAMA_MANIFESTS_BASE_PATH, namespace, repo, pkgInfo.Tag)
 
 	var checks []string
 	for _, blob := range originBlobs {
@@ -509,7 +510,8 @@ func exec(ctx context.Context, containerId string, cmd string, timeoutSec int64)
 }
 
 func getManifestsPath(modelName, modelTag string) string {
-	return path.Join(api.LLM_OLLAMA_BASE_PATH, api.LLM_OLLAMA_MANIFESTS_BASE_PATH, modelName, modelTag)
+	namespace, repo := getNamespaceAndRepo(modelName)
+	return path.Join(api.LLM_OLLAMA_BASE_PATH, api.LLM_OLLAMA_MANIFESTS_BASE_PATH, namespace, repo, modelTag)
 }
 
 type Layer struct {
@@ -591,6 +593,9 @@ func parseModelName(path string) string {
 		name := model[:lastSlash]
 		tag := model[lastSlash+1:]
 		tag = strings.TrimRight(tag, `\`)
+		if after, ok := strings.CutPrefix(name, "library/"); ok {
+			name = after
+		}
 		return name + ":" + tag
 	}
 	return strings.TrimRight(model, `\`)
@@ -641,4 +646,12 @@ func (o *ollama) GetLLMUrl(ctx context.Context, userCred mcclient.TokenCredentia
 		}
 		return fmt.Sprintf("http://%s:%d", server.HostAccessIp, accessInfo.AccessPort), nil
 	}
+}
+
+func getNamespaceAndRepo(modelName string) (string, string) {
+	if strings.Contains(modelName, "/") {
+		parts := strings.Split(modelName, "/")
+		return parts[0], parts[1]
+	}
+	return "library", modelName
 }

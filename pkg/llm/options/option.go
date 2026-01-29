@@ -30,6 +30,9 @@ type LLMOptions struct {
 	// MCP Agent 配置
 	MCPServerURL    string `help:"MCP Server URL" default:"http://default-mcp-server:30876"`
 	MCPAgentTimeout int    `help:"MCP Agent request timeout in seconds" default:"120"`
+
+	MCPAgentUserCharLimit      int `help:"MCP Agent user char limit" default:"3200"`
+	MCPAgentAssistantCharLimit int `help:"MCP Agent assistant char limit" default:"6400"`
 }
 
 var (

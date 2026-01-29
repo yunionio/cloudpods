@@ -1,6 +1,7 @@
 package llm
 
 import (
+	"fmt"
 	"strings"
 
 	"yunion.io/x/jsonutils"
@@ -143,12 +144,28 @@ func (opts *MCPAgentToolRequestOptions) Params() (jsonutils.JSONObject, error) {
 type MCPAgentMCPAgentRequestOptions struct {
 	MCPAgentIdOptions
 
-	Message string `help:"message to send to MCP agent" json:"message"`
+	MESSAGE string `help:"message to send to MCP agent" json:"message"`
+	History string `help:"chat history as JSON string, e.g. '[{\"role\":\"user\",\"content\":\"hello\"}]'" json:"history,omitempty"`
 }
 
 func (opts *MCPAgentMCPAgentRequestOptions) Params() (jsonutils.JSONObject, error) {
 	input := api.LLMMCPAgentRequestInput{
-		Message: opts.Message,
+		Message: opts.MESSAGE,
+		History: []api.MCPAgentChatMessage{},
 	}
+
+	if len(opts.History) > 0 {
+		historyJSON, err := jsonutils.ParseString(opts.History)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse history JSON: %v", err)
+		}
+		if historyJSON != nil {
+			err = historyJSON.Unmarshal(&input.History)
+			if err != nil {
+				return nil, fmt.Errorf("failed to unmarshal history: %v", err)
+			}
+		}
+	}
+
 	return jsonutils.Marshal(input), nil
 }

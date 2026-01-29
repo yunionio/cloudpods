@@ -109,20 +109,26 @@ func GetLLMBasePodCreateInput(
 			})
 		}
 	}
-	bandwidth := llmBase.BandwidthMb
-	if bandwidth == 0 {
-		bandwidth = skuBase.Bandwidth
+	var network *computeapi.NetworkConfig
+	if len(input.Nets) > 0 {
+		network = input.Nets[0]
+		networkCopy := *network
+		network = &networkCopy
+		network.Index = 0
 	}
 
-	network := &computeapi.NetworkConfig{
-		BwLimit: bandwidth,
-		NetType: computeapi.TNetworkType(llmBase.NetworkType),
+	bandwidth := input.BandwidthMB
+	if bandwidth == 0 && network.BwLimit != 0 {
+		bandwidth = network.BwLimit
 	}
-	if llmBase.NetworkType == string(computeapi.NETWORK_TYPE_HOSTLOCAL) {
+	if bandwidth == 0 && skuBase.Bandwidth != 0 {
+		bandwidth = skuBase.Bandwidth
+	}
+	network.BwLimit = bandwidth
+
+	networkType := string(network.NetType)
+	if networkType == string(computeapi.NETWORK_TYPE_HOSTLOCAL) {
 		network.PortMappings = portMappings
-	}
-	if len(llmBase.NetworkId) > 0 {
-		network.Network = llmBase.NetworkId
 	}
 
 	data.Networks = []*computeapi.NetworkConfig{

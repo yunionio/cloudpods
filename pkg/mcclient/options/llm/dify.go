@@ -2,7 +2,10 @@ package llm
 
 import (
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
+	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudcommon/cmdline"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
@@ -38,7 +41,21 @@ type DifyCreateOptions struct {
 }
 
 func (o *DifyCreateOptions) Params() (jsonutils.JSONObject, error) {
-	return jsonutils.Marshal(o), nil
+	params := jsonutils.Marshal(o)
+
+	if len(o.Net) > 0 {
+		nets := make([]*computeapi.NetworkConfig, 0)
+		for i, n := range o.Net {
+			net, err := cmdline.ParseNetworkConfig(n, i)
+			if err != nil {
+				return nil, errors.Wrapf(err, "parse network config %s", n)
+			}
+			nets = append(nets, net)
+		}
+		params.(*jsonutils.JSONDict).Add(jsonutils.Marshal(nets), "nets")
+	}
+
+	return params, nil
 }
 
 func (o *DifyCreateOptions) GetCountParam() int {
