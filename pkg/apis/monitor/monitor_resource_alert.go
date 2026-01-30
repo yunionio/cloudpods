@@ -55,14 +55,15 @@ type MonitorResourceJointCreateInput struct {
 }
 
 type MonitorResourceJointDetails struct {
-	ResName     string               `json:"res_name"`
-	ResId       string               `json:"res_id"`
-	ResType     string               `json:"res_type"`
-	AlertName   string               `json:"alert_name"`
-	AlertRule   jsonutils.JSONObject `json:"alert_rule"`
-	Level       string               `json:"level"`
-	SendState   string               `json:"send_state"`
-	State       string               `json:"state"`
-	IsSetShield bool                 `json:"is_set_shield"`
-	AlertCount  int                  `json:"alert_count"`
+	MonitorResourceObjectId string               `json:"monitor_resource_object_id"`
+	ResName                 string               `json:"res_name"`
+	ResId                   string               `json:"res_id"`
+	ResType                 string               `json:"res_type"`
+	AlertName               string               `json:"alert_name"`
+	AlertRule               jsonutils.JSONObject `json:"alert_rule"`
+	Level                   string               `json:"level"`
+	SendState               string               `json:"send_state"`
+	State                   string               `json:"state"`
+	IsSetShield             bool                 `json:"is_set_shield"`
+	AlertCount              int                  `json:"alert_count"`
 }

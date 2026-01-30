@@ -15,6 +15,8 @@
 package monitor
 
 import (
+	"yunion.io/x/jsonutils"
+
 	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/apis/compute"
 )
@@ -58,4 +60,9 @@ type MonitorResourceDetails struct {
 
 	AttachAlertCount int64  `json:"attach_alert_count"`
 	Hypervisor       string `json:"hypervisor"`
+}
+
+type MonitorResourceDoActionInput struct {
+	Action string               `json:"action"`
+	Data   jsonutils.JSONObject `json:"data"`
 }
