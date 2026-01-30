@@ -18,7 +18,9 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
+	"yunion.io/x/onecloud/pkg/apis/monitor"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
@@ -46,4 +48,30 @@ type MonitorResourceListOptions struct {
 
 func (o *MonitorResourceListOptions) Params() (jsonutils.JSONObject, error) {
 	return options.ListStructToParams(o)
+}
+
+type MonitorResourceDoActionOptions struct {
+	ID     string `help:"ID of the resource"`
+	ACTION string `help:"Action name"`
+	Data   string `json:"json string data"`
+}
+
+func (o *MonitorResourceDoActionOptions) GetId() string {
+	return o.ID
+}
+
+func (o *MonitorResourceDoActionOptions) Params() (jsonutils.JSONObject, error) {
+	var data jsonutils.JSONObject = jsonutils.NewDict()
+	if len(o.Data) != 0 {
+		d, err := jsonutils.ParseString(o.Data)
+		if err != nil {
+			return nil, errors.Wrapf(err, "parse string to data: %s", o.Data)
+		}
+		data = d
+	}
+	input := monitor.MonitorResourceDoActionInput{
+		Action: o.ACTION,
+		Data:   data,
+	}
+	return jsonutils.Marshal(input), nil
 }

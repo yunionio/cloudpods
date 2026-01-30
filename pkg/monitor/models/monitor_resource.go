@@ -800,3 +800,24 @@ func newMonitorResourceCreateInput(input jsonutils.JSONObject, typ string) jsonu
 
 	return monitorResource
 }
+
+type MonitorResourceDoActionF func(obj *SMonitorResource, ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *monitor.MonitorResourceDoActionInput) (jsonutils.JSONObject, error)
+
+var (
+	monitorResourceDoActionMap = make(map[string]MonitorResourceDoActionF)
+)
+
+func RegisterMonitorResourceDoAction(action string, f MonitorResourceDoActionF) {
+	if _, ok := monitorResourceDoActionMap[action]; ok {
+		log.Fatalf("action %s already registered for monitor resource do action", action)
+	}
+	monitorResourceDoActionMap[action] = f
+}
+
+func (res *SMonitorResource) PerformDoAction(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *monitor.MonitorResourceDoActionInput) (jsonutils.JSONObject, error) {
+	f, ok := monitorResourceDoActionMap[input.Action]
+	if !ok {
+		return nil, errors.Errorf("action %q not found for monitor resource do action", input.Action)
+	}
+	return f(res, ctx, userCred, query, input)
+}
