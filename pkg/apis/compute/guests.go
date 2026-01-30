@@ -712,6 +712,13 @@ func (input ServerDetachnetworkInput) IsForce() bool {
 	return input.Force != nil && *input.Force
 }
 
+type ServerSetNetworkNumQueuesInput struct {
+	// 虚机网卡 mac addr
+	MacAddr string `json:"mac_addr"`
+	// 网卡队列数
+	NumQueues int `json:"num_queues"`
+}
+
 type ServerMigrateForecastInput struct {
 	PreferHostId string `json:"prefer_host_id"`
 	// Deprecated
