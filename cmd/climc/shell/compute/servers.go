@@ -152,6 +152,7 @@ func init() {
 	cmd.Get("screen-dump-show", new(options.ServerScreenDumpOptions))
 	cmd.Get("numa-info", new(options.ServerIdOptions))
 	cmd.BatchPerform("screen-dump", new(options.ServerIdsOptions))
+	cmd.Perform("set-network-num-queues", new(options.ServerSetNetworkNumQueues))
 
 	cmd.GetProperty(&options.ServerStatusStatisticsOptions{})
 	cmd.GetProperty(&options.ServerProjectStatisticsOptions{})
