@@ -125,23 +125,23 @@ func StartServiceWithJobsAndApp(jobs func(cron *cronman.SCronJobManager), appCll
 	defer cloudcommon.CloseDB()
 
 	if !opts.IsSlaveNode {
-		startMasterTasks(opts, dbOpts, jobs)
+		cancelFunc := startMasterTasks(opts, dbOpts, jobs)
+		defer cancelFunc()
 	}
 
 	common_app.ServeForever(app, baseOpts)
 }
 
-func startMasterTasks(opts *options.ComputeOptions, dbOpts *common_options.DBOptions, jobs func(cron *cronman.SCronJobManager)) {
+func startMasterTasks(opts *options.ComputeOptions, dbOpts *common_options.DBOptions, jobs func(cron *cronman.SCronJobManager)) context.CancelFunc {
 	setInfluxdbRetentionPolicy()
 
 	models.InitSyncWorkers(opts.CloudSyncWorkerCount)
 	cloudaccount_tasks.InitCloudproviderSyncWorkers(opts.CloudProviderSyncWorkerCount)
 
 	var (
-		electObj        *elect.Elect
-		ctx, cancelFunc = context.WithCancel(context.Background())
+		electObj *elect.Elect
 	)
-	defer cancelFunc()
+	ctx, cancelFunc := context.WithCancel(context.Background())
 
 	if opts.LockmanMethod == common_options.LockMethodEtcd {
 		etcdCfg, err := elect.NewEtcdConfigFromDBOptions(dbOpts)
@@ -240,6 +240,7 @@ func startMasterTasks(opts *options.ComputeOptions, dbOpts *common_options.DBOpt
 	}
 
 	go cronFunc()
+	return cancelFunc
 }
 
 func initDefaultEtcdClient(opts *common_options.DBOptions) error {
