@@ -414,3 +414,17 @@ func (guest *SGuest) RevokeAllSecgroups(ctx context.Context, userCred mcclient.T
 	}
 	return guest.saveDefaultSecgroupId(userCred, options.Options.GetDefaultSecurityGroupId(guest.Hypervisor), false)
 }
+
+func isValidSecgroups(ctx context.Context, userCred mcclient.TokenCredential, secgroups []string) ([]string, error) {
+	secGrpIds := []string{}
+	for _, secgroup := range secgroups {
+		secGrpObj, err := SecurityGroupManager.FetchByIdOrName(ctx, userCred, secgroup)
+		if err != nil {
+			return nil, httperrors.NewResourceNotFoundError("Secgroup %s not found", secgroup)
+		}
+		if !utils.IsInStringArray(secGrpObj.GetId(), secGrpIds) {
+			secGrpIds = append(secGrpIds, secGrpObj.GetId())
+		}
+	}
+	return secGrpIds, nil
+}

@@ -104,6 +104,7 @@ func (manager *SSecurityGroupResourceBaseManager) FetchCustomizeColumns(
 
 	regionRows := manager.SCloudregionResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, regionList, fields, isList)
 	managerRows := manager.SManagedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, managerList, fields, isList)
+
 	for i := range rows {
 		rows[i].CloudregionResourceInfo = regionRows[i]
 		rows[i].ManagedResourceInfo = managerRows[i]
