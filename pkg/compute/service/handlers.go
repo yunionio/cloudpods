@@ -169,6 +169,7 @@ func InitHandlers(app *appsrv.Application, isSlave bool) {
 		models.InterVpcNetworkRouteSetManager,
 		models.GuestScreenDumpManager,
 		models.BillingResourceCheckManager,
+		models.GuestnetworksecgroupManager,
 
 		models.SchedpolicyManager,
 		models.DynamicschedtagManager,
