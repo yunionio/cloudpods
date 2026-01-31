@@ -741,6 +741,21 @@ func (gn *SGuestnetwork) getJsonDesc() *api.GuestnetworkJsonDesc {
 	return desc
 }
 
+func (gn *SGuestnetwork) getSecgroupDesc() *api.GuestnetworkSecgroupDesc {
+	secgroupJson, _ := GuestnetworksecgroupManager.getNetworkSecgroupJson(gn.GuestId, gn.Index)
+	if len(secgroupJson) == 0 {
+		return nil
+	}
+	guest := gn.GetGuest()
+	securityRules := guest.getNetworkSecurityGroupsRules(gn.Index)
+	return &api.GuestnetworkSecgroupDesc{
+		Secgroups:     secgroupJson,
+		SecurityRules: securityRules,
+		Index:         gn.Index,
+		Mac:           gn.MacAddr,
+	}
+}
+
 func (gn *SGuestnetwork) IsSriovWithoutOffload() bool {
 	if gn.Driver != api.NETWORK_DRIVER_VFIO {
 		return false
