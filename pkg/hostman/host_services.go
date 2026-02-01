@@ -166,6 +166,8 @@ func (host *SHostService) initHandlers(app *appsrv.Application) {
 	app_common.ExportOptionsHandler(app, &options.HostOptions)
 }
 
+const DEFAULT_SCREENDUMP_S3_BUCKET = "onecloud-screendump-new"
+
 func initS3() {
 	url := options.HostOptions.S3Endpoint
 	if len(url) == 0 {
@@ -179,6 +181,10 @@ func initS3() {
 		}
 		url = prefix + url
 	}
+	if options.HostOptions.S3BucketName == "" {
+		options.HostOptions.S3BucketName = DEFAULT_SCREENDUMP_S3_BUCKET
+	}
+
 	err := s3.Init(
 		url,
 		options.HostOptions.S3AccessKey,
