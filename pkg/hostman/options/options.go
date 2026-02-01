@@ -39,7 +39,7 @@ type SHostBaseOptions struct {
 	LiveMigrateCpuThrottleInitial   int64 `default:"60" help:"live migrate auto convert cpu throttle initial"`
 	LiveMigrateCpuThrottleIncrement int64 `default:"20" help:"live migrate auto convert cpu throttle increment"`
 
-	DefaultQemuVersion string `help:"Default qemu version" default:"4.2.0"`
+	DefaultQemuVersion string `help:"Default qemu version" default:"10.0.7"`
 	NoHpet             bool   `help:"Disable qemu hpet timer" default:"true"`
 
 	CdromCount  int `help:"cdrom count" default:"1"`
