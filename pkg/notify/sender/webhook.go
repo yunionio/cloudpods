@@ -15,6 +15,9 @@ package sender
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"net/http"
 	"strings"
 
@@ -33,6 +36,15 @@ type SWebhookSender struct {
 
 func (self *SWebhookSender) GetSenderType() string {
 	return api.WEBHOOK_ROBOT
+}
+
+func GenerateHMACSignature(payload []byte, secret string) string {
+	// 创建HMAC哈希器
+	h := hmac.New(sha256.New, []byte(secret))
+	// 写入要签名的数据
+	h.Write(payload)
+	// 计算哈希值并转为16进制字符串
+	return hex.EncodeToString(h.Sum(nil))
 }
 
 func (self *SWebhookSender) Send(ctx context.Context, args api.SendParams) error {
@@ -73,6 +85,11 @@ func (self *SWebhookSender) Send(ctx context.Context, args api.SendParams) error
 			}
 			header.Set(k, vStr)
 		}
+	}
+
+	if len(args.SecretKey) > 0 {
+		signature := GenerateHMACSignature([]byte(jsonutils.Marshal(dict).String()), args.SecretKey)
+		header.Set(api.WEBHOOK_SIGNATURE_HEADER, signature)
 	}
 
 	_, _, err := httputils.JSONRequest(cli, ctx, httputils.POST, args.Receivers.Contact, header, dict, false)

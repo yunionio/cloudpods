@@ -41,6 +41,7 @@ type RobotCreateOptions struct {
 	Header      string
 	Body        string
 	MsgKey      string
+	SecretKey   string
 	UseTemplate bool `help:"just for webhook"`
 }
 
@@ -90,6 +91,7 @@ type SrobotUpdateOptions struct {
 	Header      *string
 	Body        *string
 	MsgKey      string
+	SecretKey   string
 	UseTemplate tristate.TriState
 }
 
