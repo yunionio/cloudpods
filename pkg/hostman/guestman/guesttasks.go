@@ -1175,7 +1175,22 @@ func (s *SGuestLiveMigrateTask) onSetAutoConverge(res string) {
 		return
 	}
 
-	// https://wiki.qemu.org/Features/AutoconvergeLiveMigration
+	s.Monitor.MigrateSetParameter("cpu-throttle-initial", options.HostOptions.LiveMigrateCpuThrottleInitial, s.onSetCpuThrottleInitial)
+}
+
+func (s *SGuestLiveMigrateTask) onSetCpuThrottleInitial(res string) {
+	if strings.Contains(strings.ToLower(res), "error") {
+		s.migrateFailed(fmt.Sprintf("Migrate set params cpu-throttle-initial error: %s", res))
+		return
+	}
+	s.Monitor.MigrateSetParameter("cpu-throttle-increment", options.HostOptions.LiveMigrateCpuThrottleIncrement, s.onSetCpuThrottleIncrement)
+}
+
+func (s *SGuestLiveMigrateTask) onSetCpuThrottleIncrement(res string) {
+	if strings.Contains(strings.ToLower(res), "error") {
+		s.migrateFailed(fmt.Sprintf("Migrate set params cpu-throttle-increment error: %s", res))
+		return
+	}
 	s.Monitor.MigrateSetCapability("events", "on", s.onMigrateEnableEvents)
 }
 
@@ -1361,6 +1376,7 @@ func (s *SGuestLiveMigrateTask) startMigrateStatusCheck(res string) {
 		s.migrateFailed(fmt.Sprintf("Migrate error: %s", res))
 		return
 	}
+	s.startRamMigrateTimeout()
 
 	s.c = make(chan struct{})
 	for s.c != nil {
@@ -1407,6 +1423,14 @@ func (s *SGuestLiveMigrateTask) onGetMigrateStatus(stats *monitor.MigrationInfo)
 	} else if status == "cancelled" {
 		s.migrateFailed(status)
 	} else if status == "active" {
+		if !s.doTimeoutMigrate && s.timeoutAt.Before(time.Now()) {
+			s.Monitor.SimpleCommand("stop", s.onMigrateStartPostcopy)
+			s.doTimeoutMigrate = true
+		}
+		if s.doTimeoutMigrate {
+			return
+		}
+
 		var (
 			ramRemain int64
 			mbps      float64
