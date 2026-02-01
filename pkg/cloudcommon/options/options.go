@@ -182,7 +182,7 @@ type S3CommonOptions struct {
 	S3SecretKey              string `help:"s3 secret key"`
 	S3Endpoint               string `help:"s3 endpoint"`
 	S3UseSSL                 bool   `help:"s3 access use ssl"`
-	S3BucketName             string `help:"s3 bucket name" default:"onecloud-screendump"`
+	S3BucketName             string `help:"s3 bucket name"`
 	S3BucketLifecycleKeepDay int    `help:"s3 bucket lifecycle keep day" default:"180"`
 }
 
