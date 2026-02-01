@@ -145,6 +145,7 @@ func init() {
 	cmd.Get("hardware-info", new(options.ServerIdOptions))
 	cmd.Get("screen-dump-show", new(options.ServerScreenDumpOptions))
 	cmd.BatchPerform("screen-dump", new(options.ServerIdsOptions))
+	cmd.Perform("set-network-num-queues", new(options.ServerSetNetworkNumQueues))
 
 	cmd.GetProperty(&options.ServerStatusStatisticsOptions{})
 	cmd.GetProperty(&options.ServerProjectStatisticsOptions{})
