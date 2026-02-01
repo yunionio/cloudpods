@@ -4808,6 +4808,29 @@ func (self *SGuest) SaveRenewInfo(
 	return nil
 }
 
+func (self *SGuest) PerformSetNetworkNumQueues(
+	ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ServerSetNetworkNumQueuesInput,
+) (jsonutils.JSONObject, error) {
+	if self.Status != api.VM_READY {
+		return nil, httperrors.NewInvalidStatusError("can't set network num_queues on vm %s", self.Status)
+	}
+	if input.NumQueues < 1 {
+		return nil, httperrors.NewInputParameterError("invalid num_queues %d", input.NumQueues)
+	}
+	gn, err := self.GetGuestnetworkByMac(input.MacAddr)
+	if err != nil {
+		if errors.Cause(err) == sql.ErrNoRows {
+			return nil, httperrors.NewNotFoundError("guest network mac %s not found", input.MacAddr)
+		}
+	}
+	_, err = db.Update(gn, func() error {
+		gn.NumQueues = input.NumQueues
+		return nil
+	})
+
+	return nil, err
+}
+
 func (self *SGuest) PerformStreamDisksComplete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	disks, err := self.GetDisks()
 	if err != nil {
