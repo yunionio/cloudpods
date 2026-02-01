@@ -1618,6 +1618,16 @@ func (o *ServerScreenDumpOptions) Params() (jsonutils.JSONObject, error) {
 	return jsonutils.Marshal(o), nil
 }
 
+type ServerSetNetworkNumQueues struct {
+	ServerIdOptions
+	MacAddr   string `help:"server network mac addr"`
+	NumQueues int    `help:"network num queues"`
+}
+
+func (o *ServerSetNetworkNumQueues) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(o), nil
+}
+
 type ServerIsoOptions struct {
 	ServerIdOptions
 	Ordinal int `help:"server iso ordinal, default 0"`
