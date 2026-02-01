@@ -47,10 +47,14 @@ var (
 	QEMU_KVM_PATH = "/usr/libexec/qemu-kvm"
 
 	OS_ARCH_AARCH64 = "aarch64"
-	ARM_INITRD_PATH = "/yunionos/aarch64/initramfs"
-	ARM_KERNEL_PATH = "/yunionos/aarch64/kernel"
-	X86_INITRD_PATH = "/yunionos/x86_64/initramfs"
-	X86_KERNEL_PATH = "/yunionos/x86_64/kernel"
+	OS_ARCH_RISCV64 = "riscv64"
+
+	ARM_INITRD_PATH   = "/yunionos/aarch64/initramfs"
+	ARM_KERNEL_PATH   = "/yunionos/aarch64/kernel"
+	X86_INITRD_PATH   = "/yunionos/x86_64/initramfs"
+	X86_KERNEL_PATH   = "/yunionos/x86_64/kernel"
+	RISCV_INITRD_PATH = "/yunionos/riscv64/initramfs"
+	RISCV_KERNEL_PATH = "/yunionos/riscv64/kernel"
 
 	RUN_ON_HOST_ROOT_PATH = "/opt/cloud/host-deployer"
 
@@ -102,6 +106,14 @@ func (m *QemuDeployManager) GetARMInitrdPath() string {
 	}
 }
 
+func (m *QemuDeployManager) GetRISCVInitrdPath() string {
+	if m.runOnHost() {
+		return path.Join(RUN_ON_HOST_ROOT_PATH, RISCV_INITRD_PATH)
+	} else {
+		return RISCV_INITRD_PATH
+	}
+}
+
 func (m *QemuDeployManager) GetX86KernelPath() string {
 	if m.runOnHost() {
 		return path.Join(RUN_ON_HOST_ROOT_PATH, X86_KERNEL_PATH)
@@ -115,6 +127,14 @@ func (m *QemuDeployManager) GetARMKernelPath() string {
 		return path.Join(RUN_ON_HOST_ROOT_PATH, ARM_KERNEL_PATH)
 	} else {
 		return ARM_KERNEL_PATH
+	}
+}
+
+func (m *QemuDeployManager) GetRISCVKernelPath() string {
+	if m.runOnHost() {
+		return path.Join(RUN_ON_HOST_ROOT_PATH, RISCV_KERNEL_PATH)
+	} else {
+		return RISCV_KERNEL_PATH
 	}
 }
 
@@ -202,6 +222,8 @@ func InitQemuDeployManager(
 
 	if cpuArch == OS_ARCH_AARCH64 {
 		qemutils.UseAarch64()
+	} else if cpuArch == OS_ARCH_RISCV64 {
+		qemutils.UseRiscv64()
 	}
 
 	var qemuCmd string
@@ -598,6 +620,7 @@ func (d *QemuBaseDriver) CleanGuest() {
 
 	if d.pidPath != "" && fileutils2.Exists(d.pidPath) {
 		pid, _ := fileutils2.FileGetContents(d.pidPath)
+		pid = strings.TrimSpace(pid)
 		if len(pid) > 0 {
 			out, err := procutils.NewCommand("kill", pid).Output()
 			log.Infof("kill  process %s %v", out, err)
@@ -674,7 +697,9 @@ func (d *QemuBaseDriver) startCmds(
 		}
 
 		cmd += diskDrive
-		cmd += __("-device scsi-hd,drive=drive_%d,bus=scsi.0,id=drive_%d,serial=%s", i, i, strings.ReplaceAll(diskIds[i], "-", ""))
+		serialId := strings.ReplaceAll(diskIds[i], "-", "")
+		deviceId := serialId[:20]
+		cmd += __("-device scsi-hd,drive=drive_%d,bus=scsi.0,id=drive_%d,serial=%s,device_id=%s", i, i, serialId, deviceId)
 	}
 	cmd += __("-drive id=cd0,if=none,media=cdrom,file=%s", DEPLOY_ISO)
 	cmd += cdromDeviceOpts
@@ -801,6 +826,63 @@ func (d *QemuARMDriver) StartGuest(sshPort, ncpu, memSizeMB int, hugePage bool, 
 	return nil
 }
 
+type QemuRISCVDriver struct {
+	QemuBaseDriver
+}
+
+func (d *QemuRISCVDriver) StartGuest(sshPort, ncpu, memSizeMB int, hugePage bool, pageSizeKB int, imageInfo qemuimg.SImageInfo, disksPath, diskIds []string) error {
+	uuid := stringutils.UUID4()
+	socketPath := fmt.Sprintf("/opt/cloud/host-deployer/hmp_%s.socket", uuid)
+	d.pidPath = fmt.Sprintf("/opt/cloud/host-deployer/%s.pid", uuid)
+
+	machineOpts := __("-M virt")
+	cdromDeviceOpts := __("-device scsi-cd,drive=cd0,share-rw=true")
+	fwOpts := ""
+	cmd := d.startCmds(
+		sshPort,
+		ncpu,
+		memSizeMB,
+		imageInfo,
+		disksPath,
+		diskIds,
+		machineOpts,
+		cdromDeviceOpts,
+		fwOpts,
+		socketPath,
+		manager.GetRISCVInitrdPath(),
+		manager.GetRISCVKernelPath(),
+	)
+
+	log.Infof("start guest %s", cmd)
+	out, err := manager.startQemu(cmd)
+	if err != nil {
+		log.Errorf("failed start guest %s: %s", out, err)
+		return errors.Wrapf(err, "failed start guest %s", out)
+	}
+
+	var c = make(chan error)
+	onMonitorConnected := func() {
+		log.Infof("monitor connected")
+		c <- nil
+	}
+	onMonitorDisConnect := func(e error) {
+		log.Errorf("monitor disconnect %s", e)
+	}
+	onMonitorConnectFailed := func(e error) {
+		log.Errorf("monitor connect failed %s", e)
+		c <- e
+	}
+	m := monitor.NewHmpMonitor("", "", onMonitorDisConnect, onMonitorConnectFailed, onMonitorConnected)
+	if err = m.ConnectWithSocket(socketPath); err != nil {
+		return errors.Wrapf(err, "connect socket %s failed", socketPath)
+	}
+	if err = <-c; err != nil {
+		return errors.Wrap(err, "monitor connect failed")
+	}
+	d.hmp = m
+	return nil
+}
+
 type IQemuArchDriver interface {
 	StartGuest(sshPort, ncpu, memSizeMB int, hugePage bool, pageSizeKB int, imageInfo qemuimg.SImageInfo, disksPath, diskIds []string) error
 	CleanGuest()
@@ -809,6 +891,8 @@ type IQemuArchDriver interface {
 func NewCpuArchDriver(cpuArch string) IQemuArchDriver {
 	if cpuArch == OS_ARCH_AARCH64 {
 		return &QemuARMDriver{}
+	} else if cpuArch == OS_ARCH_RISCV64 {
+		return &QemuRISCVDriver{}
 	}
 
 	return &QemuX86Driver{}
