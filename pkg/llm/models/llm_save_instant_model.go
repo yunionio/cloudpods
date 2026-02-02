@@ -41,17 +41,23 @@ func (llm *SLLM) PerformSaveInstantModel(
 		return nil, httperrors.NewInvalidStatusError("LLM is not running")
 	}
 
-	mdlInfos, err := llm.getProbedInstantModelsExt(ctx, userCred, input.ModelId)
+	mdlInfos, err := llm.getProbedInstantModelsExt(ctx, userCred)
 	if err != nil {
 		return nil, errors.Wrap(err, "getProbedPackagesExt")
 	}
 
-	mdlInfo, ok := mdlInfos[input.ModelId]
-	if !ok {
+	var mdlInfo *api.LLMInternalInstantMdlInfo
+	for _, info := range mdlInfos {
+		if info.ModelId == input.ModelId {
+			mdlInfo = &info
+			break
+		}
+	}
+	if mdlInfo == nil {
 		return nil, httperrors.NewBadRequestError("ModelId %s not found", input.ModelId)
 	}
 
-	mountDirs, err := llm.detectModelPaths(ctx, userCred, mdlInfo)
+	mountDirs, err := llm.detectModelPaths(ctx, userCred, *mdlInfo)
 	if err != nil {
 		return nil, errors.Wrap(err, "detectModelPaths")
 	}
@@ -144,7 +150,7 @@ func (llm *SLLM) DoSaveModelImage(ctx context.Context, userCred mcclient.TokenCr
 
 	saveImageInput := computeapi.ContainerSaveVolumeMountToImageInput{
 		GenerateName:      input.ModelFullName,
-		Notes:             fmt.Sprintf("instance model image for %s(%s)", input.ModelId, instantModel.ModelName+":"+instantModel.ModelTag),
+		Notes:             fmt.Sprintf("instance model image for %s(%s)", instantModel.ModelId, instantModel.ModelName+":"+instantModel.ModelTag),
 		Index:             0,
 		Dirs:              saveDirs,
 		UsedByPostOverlay: true,

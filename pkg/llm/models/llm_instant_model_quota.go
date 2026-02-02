@@ -20,7 +20,7 @@ func (llm *SLLM) GetInstantModelSizeGb() float64 {
 	}
 	totalSizeGb := 0.0
 	for _, model := range models {
-		instModel, _ := GetInstantModelManager().findInstantModel(model.ModelId, model.Tag, false)
+		instModel, _ := GetInstantModelManager().GetInstantModelById(model.InstantModelId)
 		if instModel == nil {
 			continue
 		}

@@ -271,10 +271,11 @@ func (man *SInstantModelManager) FetchCustomizeColumns(
 			LlmId:   llmInstModel.LlmId,
 			LlmName: llm.Name,
 		}
-		if _, ok := modelMountedByMap[llmInstModel.ModelId]; !ok {
-			modelMountedByMap[llmInstModel.ModelId] = make([]apis.MountedByLLMInfo, 0)
+		instantModelId := llmInstModel.InstantModelId
+		if _, ok := modelMountedByMap[instantModelId]; !ok {
+			modelMountedByMap[instantModelId] = make([]apis.MountedByLLMInfo, 0)
 		}
-		modelMountedByMap[llmInstModel.ModelId] = append(modelMountedByMap[llmInstModel.ModelId], info)
+		modelMountedByMap[instantModelId] = append(modelMountedByMap[instantModelId], info)
 	}
 
 	for i := range res {
@@ -286,7 +287,7 @@ func (man *SInstantModelManager) FetchCustomizeColumns(
 			res[i].CacheCount = status.CacheCount
 			res[i].CachedCount = status.CachedCount
 		}
-		if mountedBy, ok := modelMountedByMap[instModel.ModelId]; ok {
+		if mountedBy, ok := modelMountedByMap[instModel.Id]; ok {
 			res[i].MountedByLLMs = mountedBy
 		}
 
@@ -530,7 +531,7 @@ func (man *SInstantModelManager) GetInstantModelById(id string) (*SInstantModel,
 	return obj.(*SInstantModel), nil
 }
 
-func (man *SInstantModelManager) findInstantModel(mdlId, tag string, isEnabled bool) (*SInstantModel, error) {
+func (man *SInstantModelManager) FindInstantModel(mdlId, tag string, isEnabled bool) (*SInstantModel, error) {
 	q := man.Query().Equals("model_id", mdlId).Equals("status", imageapi.IMAGE_STATUS_ACTIVE)
 	if isEnabled {
 		q = q.IsTrue("enabled")
@@ -667,7 +668,8 @@ func (model *SInstantModel) PerformPrivate(
 func (model *SInstantModel) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	if model.Enabled.IsTrue() {
 		for _, man := range []MountedModelModelManager{GetLLMSkuManager(), GetVolumeManager()} {
-			used, err := man.IsPremountedModelName(model.ModelName + ":" + model.ModelTag + "-" + model.ModelId)
+			// volume/sku 存储格式为 modelFullName-instantModelId
+			used, err := man.IsPremountedModelName(model.ModelName + ":" + model.ModelTag + "-" + model.Id)
 			if err != nil {
 				return errors.Wrap(err, "IsPremountedModelName")
 			}
