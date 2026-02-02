@@ -108,6 +108,7 @@ func InitHandlers(app *appsrv.Application, isSlave bool) {
 		models.LoadbalancerSecurityGroupManager,
 
 		models.HostFileJointsManager,
+		models.SnapshotPolicyDiskManager,
 	} {
 		db.RegisterModelManager(manager)
 	}
