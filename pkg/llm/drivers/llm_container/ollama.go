@@ -396,7 +396,6 @@ func (o *ollama) GetProbedInstantModelsExt(ctx context.Context, userCred mcclien
 		return nil, errors.Wrap(err, "get llm container")
 	}
 
-	// get all effective models
 	getModels := "ollama list" // NAME ID SIZE MODIFIED
 	modelsOutput, err := exec(ctx, lc.CmpId, getModels, 10)
 	if err != nil {
@@ -404,25 +403,35 @@ func (o *ollama) GetProbedInstantModelsExt(ctx context.Context, userCred mcclien
 	}
 	lines := strings.Split(strings.TrimSpace(modelsOutput), "\n")
 
-	models := make(map[string]api.LLMInternalInstantMdlInfo, len(lines)-1)
+	modelsMap := make(map[string]api.LLMInternalInstantMdlInfo, len(lines)-1)
 	for i := 1; i < len(lines); i++ {
 		fields := strings.Fields(lines[i])
-		if len(fields) > 2 {
-			if len(mdlIds) > 0 && !utils.IsInStringArray(fields[1], mdlIds) {
+		if len(fields) < 3 {
+			continue
+		}
+		ollamaId := fields[1]
+		modelName, modelTag, _ := llm.GetLargeLanguageModelName(fields[0])
+		instMdl, _ := models.GetInstantModelManager().FindInstantModel(ollamaId, modelTag, true)
+		var key string
+		if instMdl != nil {
+			key = instMdl.Id
+			if len(mdlIds) > 0 && !utils.IsInStringArray(key, mdlIds) {
 				continue
 			}
-			modelName, modelTag, _ := llm.GetLargeLanguageModelName(fields[0])
-			models[fields[1]] = api.LLMInternalInstantMdlInfo{
-				Name:    modelName,
-				Tag:     modelTag,
-				ModelId: fields[1],
-				// Modified: fields[3],
+		} else {
+			key = ollamaId
+			if len(mdlIds) > 0 {
+				continue
 			}
+		}
+		modelsMap[key] = api.LLMInternalInstantMdlInfo{
+			Name:    modelName,
+			Tag:     modelTag,
+			ModelId: ollamaId,
 		}
 	}
 
-	// for each model, get manifests file, find blobs, calculate size
-	for modelId, model := range models {
+	for key, model := range modelsMap {
 		manifests, err := getManifests(ctx, lc.CmpId, model.Name, model.Tag)
 		if err != nil {
 			return nil, errors.Wrap(err, "get manifests")
@@ -433,10 +442,10 @@ func (o *ollama) GetProbedInstantModelsExt(ctx context.Context, userCred mcclien
 			model.Size += layer.Size
 			model.Blobs = append(model.Blobs, layer.Digest)
 		}
-		models[modelId] = model
+		modelsMap[key] = model
 	}
 
-	return models, nil
+	return modelsMap, nil
 }
 
 func (o *ollama) ValidateMounts(mounts []string, mdlName string, mdlTag string) ([]string, error) {
