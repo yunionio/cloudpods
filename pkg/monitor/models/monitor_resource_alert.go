@@ -204,6 +204,18 @@ func (m *SMonitorResourceAlertManager) GetNowAlertingAlerts(ctx context.Context,
 	return alertRess, nil
 }
 
+func (m *SMonitorResourceAlertManager) FilterByParams(q *sqlchemy.SQuery, params jsonutils.JSONObject) *sqlchemy.SQuery {
+	input := &monitor.MonitorResourceJointListInput{}
+	if err := params.Unmarshal(input); err != nil {
+		log.Errorf("FilterByParams unmarshal params error: %v", err)
+		return q
+	}
+	if input.Metric != "" {
+		q = q.Equals("metric", input.Metric)
+	}
+	return q
+}
+
 func (m *SMonitorResourceAlertManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, input *monitor.MonitorResourceJointListInput) (*sqlchemy.SQuery, error) {
 	// 如果指定了时间段、top 和 alert_id 参数，执行特殊的 top 查询
 	if input.Top != nil {
@@ -297,6 +309,16 @@ func (m *SMonitorResourceAlertManager) CustomizeFilterList(ctx context.Context, 
 	}
 
 	return filters, nil
+}
+
+func (m *SMonitorResourceAlertManager) GetMonitorResourceAlert(resId, alertId, metric string) (*SMonitorResourceAlert, error) {
+	joint, err := db.FetchJointByIds(m, resId, alertId, jsonutils.Marshal(&monitor.MonitorResourceJointListInput{
+		Metric: metric,
+	}))
+	if err != nil {
+		return nil, errors.Wrapf(err, "FetchJointByIds with master id %s and slave id %s and metric %s", resId, alertId, metric)
+	}
+	return joint.(*SMonitorResourceAlert), nil
 }
 
 // getTopResourcesByMetricAndAlertCount 查询指定时间段内，某个监控策略下各监控指标报警资源最多的 top N 资源
@@ -572,6 +594,7 @@ func (man *SMonitorResourceAlertManager) FetchCustomizeColumns(
 		if res, ok := resources[obj.MonitorResourceId]; ok {
 			rows[i].ResName = res.Name
 			rows[i].ResType = res.ResType
+			rows[i].MonitorResourceObjectId = res.GetId()
 		}
 		if _, ok := shieldsMap[fmt.Sprintf("%s-%s", obj.MonitorResourceId, obj.AlertId)]; ok {
 			rows[i].IsSetShield = true
