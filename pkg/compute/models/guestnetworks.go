@@ -85,7 +85,7 @@ type SGuestnetwork struct {
 	// MAC地址
 	MacAddr string `width:"32" charset:"ascii" nullable:"false" list:"user" index:"true"`
 	// IPv4地址
-	IpAddr string `width:"16" charset:"ascii" nullable:"false" list:"user"`
+	IpAddr string `width:"16" charset:"ascii" nullable:"true" list:"user"`
 	// IPv6地址
 	Ip6Addr string `width:"64" charset:"ascii" nullable:"true" list:"user"`
 	// 虚拟网卡驱动
