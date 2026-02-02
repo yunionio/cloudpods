@@ -116,6 +116,8 @@ type LLMSkuDetails struct {
 	ImageLabel  string `json:"image_label"`
 	ImageName   string `json:"image_name"`
 
+	MountedModelDetails []MountedModelInfo `json:"mounted_model_details"`
+
 	Template string `json:"template"`
 }
 

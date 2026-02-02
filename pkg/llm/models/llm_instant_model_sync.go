@@ -90,27 +90,26 @@ func (llm *SLLM) getProbedMountedInstantModels(ctx context.Context, userCred mcc
 	if err != nil {
 		return nil, errors.Wrap(err, "llm.getMountedInstantModels")
 	}
-	for mdlId := range mounted {
-		if _, ok := mdlMap[mdlId]; ok {
-			mdlMap[mdlId].Mounted = true
+	for instantModelId := range mounted {
+		if _, ok := mdlMap[instantModelId]; ok {
+			mdlMap[instantModelId].Mounted = true
 		} else {
-			mdlMap[mdlId] = &sInstantModelStatus{
-				LLMInternalInstantMdlInfo: apis.LLMInternalInstantMdlInfo{
-					ModelId: mdlId,
-				},
-				Mounted: true,
+			// 仅 mounted 未 probed 时无 ollama model id，ModelId 留空
+			mdlMap[instantModelId] = &sInstantModelStatus{
+				LLMInternalInstantMdlInfo: apis.LLMInternalInstantMdlInfo{},
+				Mounted:                   true,
 			}
 		}
 	}
 	return mdlMap, nil
 }
 
-func (llm *SLLM) uninstallInstantModel(ctx context.Context, userCred mcclient.TokenCredential, mdlId string) error {
+func (llm *SLLM) uninstallInstantModel(ctx context.Context, userCred mcclient.TokenCredential, instantModelId string) error {
 	boolFalse := false
 	// uninstalled
 	probed := &boolFalse
 	mounted := &boolFalse
-	_, err := GetLLMInstantModelManager().updateInstantModel(ctx, llm.Id, mdlId, "", "", probed, mounted)
+	_, err := GetLLMInstantModelManager().updateInstantModel(ctx, llm.Id, instantModelId, "", "", probed, mounted)
 	if err != nil {
 		return errors.Wrap(err, "uninstallPackage")
 	}
@@ -119,7 +118,7 @@ func (llm *SLLM) uninstallInstantModel(ctx context.Context, userCred mcclient.To
 
 func findInstantModelWithModelInfo(allModels []SLLMInstantModel, mdl apis.ModelInfo) *SLLMInstantModel {
 	for i := range allModels {
-		if allModels[i].ModelId == mdl.ModelId {
+		if allModels[i].InstantModelId == mdl.Id {
 			return &allModels[i]
 		}
 	}
@@ -157,7 +156,7 @@ func isImageInUnmountModels(imageId string, mdls []SLLMInstantModel) (bool, erro
 		return false, nil
 	}
 	for i := range mdls {
-		if mdls[i].ModelId == instMdl.ModelId {
+		if mdls[i].InstantModelId == instMdl.Id {
 			return true, nil
 		}
 	}
@@ -188,15 +187,15 @@ func (llm *SLLM) RefreshInstantModels(ctx context.Context, userCred mcclient.Tok
 		mdl := models[i]
 		var probed *bool
 		var mounted *bool
-		if status, ok := mdlMap[mdl.ModelId]; ok {
+		if status, ok := mdlMap[mdl.InstantModelId]; ok {
 			// probed
 			probed = &status.Probed
 			mounted = &status.Mounted
-			_, err = GetLLMInstantModelManager().updateInstantModel(ctx, llm.Id, mdl.ModelId, status.Name, status.Tag, probed, mounted)
-			delete(mdlMap, mdl.ModelId)
+			_, err = GetLLMInstantModelManager().updateInstantModel(ctx, llm.Id, mdl.InstantModelId, status.Name, status.Tag, probed, mounted)
+			delete(mdlMap, mdl.InstantModelId)
 		} else {
 			// uninstalled
-			err = llm.uninstallInstantModel(ctx, userCred, mdl.ModelId)
+			err = llm.uninstallInstantModel(ctx, userCred, mdl.InstantModelId)
 		}
 		if err != nil {
 			errs = append(errs, err)
@@ -204,8 +203,8 @@ func (llm *SLLM) RefreshInstantModels(ctx context.Context, userCred mcclient.Tok
 	}
 
 	if len(mdlMap) > 0 {
-		for mdlId, status := range mdlMap {
-			_, err := GetLLMInstantModelManager().updateInstantModel(ctx, llm.Id, mdlId, status.Name, status.Tag, &status.Probed, &status.Mounted)
+		for instantModelId, status := range mdlMap {
+			_, err := GetLLMInstantModelManager().updateInstantModel(ctx, llm.Id, instantModelId, status.Name, status.Tag, &status.Probed, &status.Mounted)
 			if err != nil {
 				errs = append(errs, err)
 			}
@@ -260,7 +259,7 @@ func (llm *SLLM) PerformQuickModels(ctx context.Context, userCred mcclient.Token
 				}
 			}
 		} else {
-			mdl, err := GetInstantModelManager().findInstantModel(input.Models[i].ModelId, input.Models[i].Tag, true)
+			mdl, err := GetInstantModelManager().FindInstantModel(input.Models[i].ModelId, input.Models[i].Tag, true)
 			if err != nil {
 				return nil, errors.Wrapf(err, "findInstantModel %s %s", input.Models[i].ModelId, input.Models[i].Tag)
 			}
@@ -274,7 +273,7 @@ func (llm *SLLM) PerformQuickModels(ctx context.Context, userCred mcclient.Token
 			}
 		}
 		if !apis.IsLLMContainerType(input.Models[i].LlmType) || apis.LLMContainerType(input.Models[i].LlmType) != llm.GetLLMContainerDriver().GetType() {
-			errs = append(errs, errors.Wrapf(httperrors.ErrInvalidStatus, "model %s is not of type %s", input.Models[i].ModelId, llm.GetLLMContainerDriver().GetType()))
+			errs = append(errs, errors.Wrapf(httperrors.ErrInvalidStatus, "model %s is not of type %s", input.Models[i].Id, llm.GetLLMContainerDriver().GetType()))
 		}
 	}
 	if len(errs) > 0 {
@@ -348,7 +347,7 @@ func (llm *SLLM) FetchModelsFullName(isProbed, isMounted *bool) ([]string, error
 	}
 	mdlFullNames := make([]string, len(models))
 	for idx, mdl := range models {
-		mdlFullNames[idx] = mdl.ModelName + ":" + mdl.Tag + "-" + mdl.ModelId
+		mdlFullNames[idx] = mdl.ModelName + ":" + mdl.Tag + "-" + mdl.InstantModelId
 	}
 	return mdlFullNames, nil
 }
@@ -366,9 +365,15 @@ func (llm *SLLM) FetchMountedModelInfo() ([]apis.MountedModelInfo, error) {
 	}
 	result := make([]apis.MountedModelInfo, len(models))
 	for idx, mdl := range models {
+		instMdl, _ := GetInstantModelManager().GetInstantModelById(mdl.InstantModelId)
+		modelIdForDisplay := ""
+		if instMdl != nil {
+			modelIdForDisplay = instMdl.ModelId
+		}
 		result[idx] = apis.MountedModelInfo{
 			FullName: mdl.ModelName + ":" + mdl.Tag,
-			Id:       mdl.ModelId,
+			ModelId:  modelIdForDisplay,
+			Id:       mdl.InstantModelId,
 		}
 	}
 	return result, nil
@@ -428,7 +433,7 @@ func (llm *SLLM) RequestUnmountModel(ctx context.Context, userCred mcclient.Toke
 
 	var modelIds []string
 	for i := range unmountModels {
-		modelIds = append(modelIds, unmountModels[i].ModelId)
+		modelIds = append(modelIds, unmountModels[i].InstantModelId)
 	}
 	return modelIds, unmountOverlays, nil
 }
@@ -459,7 +464,7 @@ func (llm *SLLM) RequestMountModels(ctx context.Context, userCred mcclient.Token
 				log.Errorf("preinstallPackage fail %s", err)
 			}
 		}
-		mdlIds = append(mdlIds, model.ModelId)
+		mdlIds = append(mdlIds, model.InstantModelId)
 	}
 	targetDirs := make([]string, 0)
 	for i := range overlays {
@@ -610,9 +615,9 @@ func (llm *SLLM) UpdateVolumeMountedModelFullNames(mdlFullNames []string) error 
 }
 
 type mdlFullNameInfo struct {
-	ModelId       string
-	ModelFullName string
-	IsMounted     bool
+	InstantModelId string // instant model 主键 id
+	ModelFullName  string
+	IsMounted      bool
 }
 
 func (llm *SLLM) UpdateMountedModelFullNames(ctx context.Context, userCred mcclient.TokenCredential, mdlinfos []string, isReset bool, imageId string, skuId string) error {
@@ -620,9 +625,9 @@ func (llm *SLLM) UpdateMountedModelFullNames(ctx context.Context, userCred mccli
 	for i := range mdlinfos {
 		parts := strings.Split(mdlinfos[i], "@")
 		mdlFullNameInfos[parts[0]] = &mdlFullNameInfo{
-			ModelId:       parts[0],
-			ModelFullName: parts[1],
-			IsMounted:     false,
+			InstantModelId: parts[0],
+			ModelFullName:  parts[1],
+			IsMounted:      false,
 		}
 	}
 
@@ -646,15 +651,15 @@ func (llm *SLLM) UpdateMountedModelFullNames(ctx context.Context, userCred mccli
 				return errors.Wrap(err, "FetchByIdOrName")
 			}
 			instantModle := instMdl.(*SInstantModel)
-			if !isReset && slices.Contains(deletedModelIds, instantModle.ModelId) {
+			if !isReset && slices.Contains(deletedModelIds, instantModle.Id) {
 				// if not reset, and the model is deleted, skip it
 				continue
 			}
-			if _, ok := mdlFullNameInfos[instantModle.ModelId]; !ok {
-				mdlFullNameInfos[instantModle.ModelId] = &mdlFullNameInfo{
-					ModelId:       instantModle.ModelId,
-					ModelFullName: instantModle.ModelName + ":" + instantModle.ModelTag,
-					IsMounted:     false,
+			if _, ok := mdlFullNameInfos[instantModle.Id]; !ok {
+				mdlFullNameInfos[instantModle.Id] = &mdlFullNameInfo{
+					InstantModelId: instantModle.Id,
+					ModelFullName:  instantModle.ModelName + ":" + instantModle.ModelTag,
+					IsMounted:      false,
 				}
 			}
 		}
@@ -668,15 +673,15 @@ func (llm *SLLM) UpdateMountedModelFullNames(ctx context.Context, userCred mccli
 	}
 	for i := range mountedModels {
 		find := false
-		if _, ok := mdlFullNameInfos[mountedModels[i].ModelId]; ok {
+		if _, ok := mdlFullNameInfos[mountedModels[i].InstantModelId]; ok {
 			find = true
-			mdlFullNameInfos[mountedModels[i].ModelId].IsMounted = true
+			mdlFullNameInfos[mountedModels[i].InstantModelId].IsMounted = true
 		}
 		if isReset && !find {
 			// remove instant model not in mdlInfos
 			mountedModel := mountedModels[i]
-			log.Debugf("UpdateMountedModelFullNames remove model %s", mountedModel.ModelId)
-			_, err := GetLLMInstantModelManager().updateInstantModel(ctx, llm.Id, mountedModel.ModelId, "", "", &boolFalse, &boolFalse)
+			log.Debugf("UpdateMountedModelFullNames remove model %s", mountedModel.InstantModelId)
+			_, err := GetLLMInstantModelManager().updateInstantModel(ctx, llm.Id, mountedModel.InstantModelId, "", "", &boolFalse, &boolFalse)
 			if err != nil {
 				return errors.Wrap(err, "remove instant model")
 			}
@@ -685,10 +690,10 @@ func (llm *SLLM) UpdateMountedModelFullNames(ctx context.Context, userCred mccli
 
 	installModelFullNames := make([]string, 0)
 	for _, mdlFullNameInfo := range mdlFullNameInfos {
-		installModelFullNames = append(installModelFullNames, fmt.Sprintf("%s-%s", mdlFullNameInfo.ModelFullName, mdlFullNameInfo.ModelId))
+		installModelFullNames = append(installModelFullNames, fmt.Sprintf("%s-%s", mdlFullNameInfo.ModelFullName, mdlFullNameInfo.InstantModelId))
 		if !mdlFullNameInfo.IsMounted {
 			modelName, modelTag, _ := llm.GetLargeLanguageModelName(mdlFullNameInfo.ModelFullName)
-			_, err := GetLLMInstantModelManager().updateInstantModel(ctx, llm.Id, mdlFullNameInfo.ModelId, modelName, modelTag, &boolFalse, &boolTrue)
+			_, err := GetLLMInstantModelManager().updateInstantModel(ctx, llm.Id, mdlFullNameInfo.InstantModelId, modelName, modelTag, &boolFalse, &boolTrue)
 			if err != nil {
 				return errors.Wrap(err, "install model")
 			}
@@ -735,9 +740,9 @@ func (llm *SLLM) getMountingModelsPostOverlay(ctx context.Context, input apis.LL
 					continue
 				}
 			}
-			model, err := GetLLMInstantModelManager().updateInstantModel(ctx, llm.Id, mdl.ModelId, mdl.DisplayName, mdl.Tag, nil, nil)
+			model, err := GetLLMInstantModelManager().updateInstantModel(ctx, llm.Id, mdl.Id, mdl.DisplayName, mdl.Tag, nil, nil)
 			if err != nil {
-				return nil, nil, errors.Wrapf(err, "updateInstantModel %s", mdl.ModelId)
+				return nil, nil, errors.Wrapf(err, "updateInstantModel %s", mdl.Id)
 			}
 			models = append(models, *model)
 		}
