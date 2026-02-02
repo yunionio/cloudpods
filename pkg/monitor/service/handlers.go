@@ -33,6 +33,19 @@ import (
 	"yunion.io/x/onecloud/pkg/monitor/options"
 )
 
+var (
+	modelManagers      = []db.IModelManager{}
+	jointModelManagers = []db.IJointModelManager{}
+)
+
+type GetRegisteredModelManagersF func() []db.IModelManager
+type GetRegisteredJointModelManagersF func() []db.IJointModelManager
+
+var (
+	GetRegisteredModelManagers      GetRegisteredModelManagersF      = nil
+	GetRegisteredJointModelManagers GetRegisteredJointModelManagersF = nil
+)
+
 func InitHandlers(app *appsrv.Application, isSlave bool) {
 	db.InitAllManagers()
 
@@ -52,25 +65,31 @@ func InitHandlers(app *appsrv.Application, isSlave bool) {
 		db.RegisterModelManager(manager)
 	}
 
-	for _, manager := range []db.IModelManager{
-		db.OpsLog,
-		db.Metadata,
-		models.DataSourceManager,
-		models.AlertManager,
-		models.NodeAlertManager,
-		models.MeterAlertManager,
-		models.NotificationManager,
-		models.CommonAlertManager,
-		models.MetricMeasurementManager,
-		models.MetricFieldManager,
-		models.AlertRecordManager,
-		models.AlertDashBoardManager,
-		models.GetAlertResourceManager(),
-		models.AlertPanelManager,
-		models.MonitorResourceManager,
-		models.AlertRecordShieldManager,
-		models.GetMigrationAlertManager(),
-	} {
+	if GetRegisteredModelManagers == nil {
+		GetRegisteredModelManagers = func() []db.IModelManager {
+			return []db.IModelManager{
+				db.OpsLog,
+				db.Metadata,
+				models.DataSourceManager,
+				models.AlertManager,
+				models.NodeAlertManager,
+				models.MeterAlertManager,
+				models.NotificationManager,
+				models.CommonAlertManager,
+				models.MetricMeasurementManager,
+				models.MetricFieldManager,
+				models.AlertRecordManager,
+				models.AlertDashBoardManager,
+				models.GetAlertResourceManager(),
+				models.AlertPanelManager,
+				models.MonitorResourceManager,
+				models.AlertRecordShieldManager,
+				models.GetMigrationAlertManager(),
+			}
+		}
+	}
+
+	for _, manager := range GetRegisteredModelManagers() {
 		db.RegisterModelManager(manager)
 		handler := db.NewModelHandler(manager)
 		dispatcher.AddModelDispatcher("", app, handler, isSlave)
@@ -83,13 +102,18 @@ func InitHandlers(app *appsrv.Application, isSlave bool) {
 		dispatcher.AddModelDispatcher("", app, handler, isSlave)
 	}
 
-	for _, manager := range []db.IJointModelManager{
-		models.AlertNotificationManager,
-		models.MetricManager,
-		models.GetAlertResourceAlertManager(),
-		models.AlertDashBoardPanelManager,
-		models.MonitorResourceAlertManager,
-	} {
+	if GetRegisteredJointModelManagers == nil {
+		GetRegisteredJointModelManagers = func() []db.IJointModelManager {
+			return []db.IJointModelManager{
+				models.AlertNotificationManager,
+				models.MetricManager,
+				models.GetAlertResourceAlertManager(),
+				models.AlertDashBoardPanelManager,
+				models.MonitorResourceAlertManager,
+			}
+		}
+	}
+	for _, manager := range GetRegisteredJointModelManagers() {
 		db.RegisterModelManager(manager)
 		handler := db.NewJointModelHandler(manager)
 		dispatcher.AddJointModelDispatcher("", app, handler, isSlave)
