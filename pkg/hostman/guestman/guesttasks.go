@@ -732,6 +732,11 @@ func (n *SGuestNetworkSyncTask) qgaGetAddedNicDevs() error {
 }
 
 func (n *SGuestNetworkSyncTask) removeNic(nic *desc.SGuestNetwork) {
+	if nic.Driver == "vfio-pci" {
+		n.onDeviceDel(nic)
+		return
+	}
+
 	callback := func(res string) {
 		if len(res) > 0 && !strings.Contains(res, "not found") {
 			log.Errorf("netdev del failed %s", res)
@@ -754,30 +759,34 @@ func (n *SGuestNetworkSyncTask) onNetdevDel(nic *desc.SGuestNetwork) {
 	n.delNicDevice(nic)
 }
 
+func (n *SGuestNetworkSyncTask) onDeviceDel(nic *desc.SGuestNetwork) {
+	var i = 0
+	for ; i < len(n.guest.Desc.Nics); i++ {
+		if n.guest.Desc.Nics[i].Index == nic.Index {
+			if nic.Pci != nil {
+				err := n.guest.pciAddrs.ReleasePCIAddress(nic.Pci.PCIAddr)
+				if err != nil {
+					log.Errorf("failed release nic pci addr %s", nic.Pci.PCIAddr)
+				}
+			}
+			break
+		}
+	}
+
+	if i < len(n.guest.Desc.Nics) {
+		n.guest.Desc.Nics = append(n.guest.Desc.Nics[:i], n.guest.Desc.Nics[i+1:]...)
+	}
+
+	n.syncNetworkConf()
+}
+
 func (n *SGuestNetworkSyncTask) delNicDevice(nic *desc.SGuestNetwork) {
 	callback := func(res string) {
 		if len(res) > 0 {
 			log.Errorf("network device del failed %s", res)
 			n.errors = append(n.errors, fmt.Errorf("network device del failed %s", res))
 		} else {
-			var i = 0
-			for ; i < len(n.guest.Desc.Nics); i++ {
-				if n.guest.Desc.Nics[i].Index == nic.Index {
-					if nic.Pci != nil {
-						err := n.guest.pciAddrs.ReleasePCIAddress(nic.Pci.PCIAddr)
-						if err != nil {
-							log.Errorf("failed release nic pci addr %s", nic.Pci.PCIAddr)
-						}
-					}
-					break
-				}
-			}
-
-			if i < len(n.guest.Desc.Nics) {
-				n.guest.Desc.Nics = append(n.guest.Desc.Nics[:i], n.guest.Desc.Nics[i+1:]...)
-			}
-
-			n.syncNetworkConf()
+			n.onDeviceDel(nic)
 		}
 	}
 	n.guest.Monitor.DeviceDel(fmt.Sprintf("netdev-%s", nic.Ifname), callback)
