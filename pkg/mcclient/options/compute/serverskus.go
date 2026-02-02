@@ -61,6 +61,7 @@ type ServerSkusCreateOptions struct {
 	Name         string `help:"ServerSku name"`
 	CpuCoreCount int    `help:"Cpu Count" required:"true" positional:"true"`
 	MemorySizeMB int    `help:"Memory MB" required:"true" positional:"true"`
+	CpuArch      string `help:"CPU architecture" choices:"x86|aarch64"`
 
 	OsName               *string `help:"OS name/type" choices:"Linux|Windows|Any" default:"Any"`
 	InstanceTypeCategory *string `help:"instance type category" choices:"general_purpose|compute_optimized|memory_optimized|storage_optimized|hardware_accelerated|high_memory|high_storage"`
