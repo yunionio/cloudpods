@@ -21,6 +21,10 @@ import (
 	"yunion.io/x/onecloud/pkg/apis"
 )
 
+const (
+	WEBHOOK_SIGNATURE_HEADER = "X-Auth-Token"
+)
+
 type RobotCreateInput struct {
 	apis.SharableVirtualResourceCreateInput
 	apis.EnabledBaseResourceCreateInput
@@ -37,6 +41,7 @@ type RobotCreateInput struct {
 	Header      jsonutils.JSONObject `json:"header"`
 	Body        jsonutils.JSONObject `json:"body"`
 	MsgKey      string               `json:"msg_key"`
+	SecretKey   string               `json:"secret_key"`
 	UseTemplate tristate.TriState    `json:"use_template"`
 }
 
@@ -63,8 +68,9 @@ type RobotUpdateInput struct {
 	Address string `json:"address"`
 	// description: Language preference
 	// example: en
-	Lang   string               `json:"lang"`
-	Header jsonutils.JSONObject `json:"header"`
-	Body   jsonutils.JSONObject `json:"body"`
-	MsgKey string               `json:"msg_key"`
+	Lang      string               `json:"lang"`
+	Header    jsonutils.JSONObject `json:"header"`
+	Body      jsonutils.JSONObject `json:"body"`
+	MsgKey    string               `json:"msg_key"`
+	SecretKey string               `json:"secret_key"`
 }
