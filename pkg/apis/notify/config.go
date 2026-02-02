@@ -162,6 +162,7 @@ type SendParams struct {
 	Header              jsonutils.JSONObject
 	Body                jsonutils.JSONObject
 	MsgKey              string
+	SecretKey           string `json:"secret_key"`
 	DomainId            string
 	RemoteTemplateParam SRemoteTemplateParam
 	GroupKey            string
