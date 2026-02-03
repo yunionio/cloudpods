@@ -785,7 +785,7 @@ func (acnt *SCloudaccount) PerformUpdateCredential(
 	}
 
 	changed := false
-	if len(account.Secret) > 0 || len(account.Account) > 0 {
+	if acnt.Account != account.Account && (len(account.Secret) > 0 || len(account.Account) > 0) {
 		// check duplication
 		q := acnt.GetModelManager().Query()
 		q = q.Equals("account", account.Account)
