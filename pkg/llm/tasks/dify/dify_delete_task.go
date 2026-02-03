@@ -33,7 +33,7 @@ func (task *DifyDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel,
 	dify := obj.(*models.SDify)
 	dify.SetStatus(ctx, task.UserCred, api.LLM_STATUS_DELETING, "start delete")
 
-	if len(dify.SvrId) == 0 {
+	if len(dify.CmpId) == 0 {
 		task.OnDifyRefreshStatusComplete(ctx, dify, nil)
 		return
 	}

@@ -40,12 +40,12 @@ func (volumeDeleteTask *VolumeDeleteTask) taskComplete(ctx context.Context, volu
 
 func (volumeDeleteTask *VolumeDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	volume := obj.(*models.SVolume)
-	if len(volume.SvrId) == 0 {
+	if len(volume.CmpId) == 0 {
 		volumeDeleteTask.taskComplete(ctx, volume)
 		return
 	}
 	s := auth.GetSession(ctx, volumeDeleteTask.UserCred, "")
-	_, err := compute.Disks.Delete(s, volume.SvrId, nil)
+	_, err := compute.Disks.Delete(s, volume.CmpId, nil)
 	if err != nil {
 		if httputils.ErrorCode(err) == 404 {
 			volumeDeleteTask.taskComplete(ctx, volume)
@@ -55,7 +55,7 @@ func (volumeDeleteTask *VolumeDeleteTask) OnInit(ctx context.Context, obj db.ISt
 		return
 	}
 	for i := 0; i < 60; i++ {
-		_, err := compute.Disks.GetById(s, volume.SvrId, jsonutils.Marshal(map[string]interface{}{
+		_, err := compute.Disks.GetById(s, volume.CmpId, jsonutils.Marshal(map[string]interface{}{
 			"scope": "max",
 		}))
 		if err != nil {

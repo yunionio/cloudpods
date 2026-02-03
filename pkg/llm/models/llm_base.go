@@ -44,7 +44,7 @@ type SLLMBase struct {
 	db.SVirtualResourceBase
 	db.SEnabledResourceBase
 
-	SvrId string `width:"128" charset:"ascii" nullable:"true" list:"user"`
+	CmpId string `width:"128" charset:"ascii" nullable:"true" list:"user"`
 	LLMIp string `width:"20" charset:"ascii" nullable:"true" list:"user"`
 	// Hypervisor     string `width:"128" charset:"ascii" nullable:"true" list:"user"`
 	Priority    int `nullable:"false" default:"100" list:"user"`
@@ -298,7 +298,7 @@ func (man *SLLMBaseManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQue
 }
 
 func (llm *SLLMBase) GetServer(ctx context.Context) (*computeapi.ServerDetails, error) {
-	return cloudutil.GetServer(ctx, llm.SvrId)
+	return cloudutil.GetServer(ctx, llm.CmpId)
 }
 
 func (llm *SLLMBase) GetVolume() (*SVolume, error) {
@@ -353,7 +353,7 @@ func (llm *SLLMBase) RealDelete(ctx context.Context, userCred mcclient.TokenCred
 }
 
 func (llm *SLLMBase) ServerDelete(ctx context.Context, userCred mcclient.TokenCredential, s *mcclient.ClientSession) error {
-	if len(llm.SvrId) == 0 {
+	if len(llm.CmpId) == 0 {
 		return nil
 	}
 	server, err := llm.GetServer(ctx)
@@ -367,12 +367,12 @@ func (llm *SLLMBase) ServerDelete(ctx context.Context, userCred mcclient.TokenCr
 	if server.DisableDelete != nil && *server.DisableDelete {
 		// update to allow delete
 		s2 := auth.GetSession(ctx, userCred, "")
-		_, err = compute.Servers.Update(s2, llm.SvrId, jsonutils.Marshal(map[string]interface{}{"disable_delete": false}))
+		_, err = compute.Servers.Update(s2, llm.CmpId, jsonutils.Marshal(map[string]interface{}{"disable_delete": false}))
 		if err != nil {
 			return errors.Wrap(err, "update server to delete")
 		}
 	}
-	_, err = compute.Servers.DeleteWithParam(s, llm.SvrId, jsonutils.Marshal(map[string]interface{}{
+	_, err = compute.Servers.DeleteWithParam(s, llm.CmpId, jsonutils.Marshal(map[string]interface{}{
 		"override_pending_delete": true,
 	}), nil)
 	if err != nil {
@@ -382,7 +382,7 @@ func (llm *SLLMBase) ServerDelete(ctx context.Context, userCred mcclient.TokenCr
 }
 
 func (llm *SLLMBase) WaitDelete(ctx context.Context, userCred mcclient.TokenCredential, timeoutSecs int) error {
-	return cloudutil.WaitDelete[computeapi.ServerDetails](ctx, &compute.Servers, llm.SvrId, timeoutSecs)
+	return cloudutil.WaitDelete[computeapi.ServerDetails](ctx, &compute.Servers, llm.CmpId, timeoutSecs)
 }
 
 func (llm *SLLMBase) getImage(imageId string) (*SLLMImage, error) {
@@ -394,5 +394,5 @@ func (llm *SLLMBase) getImage(imageId string) (*SLLMImage, error) {
 }
 
 func (llm *SLLMBase) WaitServerStatus(ctx context.Context, userCred mcclient.TokenCredential, targetStatus []string, timeoutSecs int) (*computeapi.ServerDetails, error) {
-	return cloudutil.WaitServerStatus(ctx, llm.SvrId, targetStatus, timeoutSecs)
+	return cloudutil.WaitServerStatus(ctx, llm.CmpId, targetStatus, timeoutSecs)
 }

@@ -145,8 +145,8 @@ func (man *SLLMManager) FetchCustomizeColumns(
 		ids[idx] = llm.Id
 		skuIds[idx] = llm.LLMSkuId
 		imgIds[idx] = llm.LLMImageId
-		if !utils.IsInArray(llm.SvrId, serverIds) {
-			serverIds = append(serverIds, llm.SvrId)
+		if !utils.IsInArray(llm.CmpId, serverIds) {
+			serverIds = append(serverIds, llm.CmpId)
 		}
 		if len(llm.NetworkId) > 0 {
 			networkIds = append(networkIds, llm.NetworkId)
@@ -165,7 +165,7 @@ func (man *SLLMManager) FetchCustomizeColumns(
 		for i, id := range ids {
 			if id == volume.LLMId {
 				res[i].Volume = api.Volume{
-					Id:          volume.Id,
+					Id:          volume.CmpId,
 					Name:        volume.Name,
 					TemplateId:  volume.TemplateId,
 					StorageType: volume.StorageType,
@@ -262,7 +262,7 @@ func (man *SLLMManager) FetchCustomizeColumns(
 		for i := range llms {
 			llmStatus := api.LLM_STATUS_UNKNOWN
 			llm := llms[i]
-			if guest, ok := serverMap[llm.SvrId]; ok {
+			if guest, ok := serverMap[llm.CmpId]; ok {
 				// find guest
 				if len(guest.Containers) == 0 {
 					llmStatus = api.LLM_LLM_STATUS_NO_CONTAINER
