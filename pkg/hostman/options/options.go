@@ -259,6 +259,8 @@ type SHostOptions struct {
 	CudaMPSLogDirectory  string `help:"cuda mps log dir" default:"/tmp/nvidia-mps/log"`
 	CudaMPSReplicas      int    `help:"cuda mps replicas" default:"10"`
 
+	SkipCheckKernelMods []string `help:"skip check kernel modules"`
+
 	EnableContainerAscendNPU bool `help:"enable container npu" default:"false"`
 
 	EnableDirtyRecoverySeconds int  `help:"Seconds to delay enable dirty guests recovery feature, default 15 minutes" default:"900"`
