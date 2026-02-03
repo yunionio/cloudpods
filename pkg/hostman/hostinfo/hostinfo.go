@@ -517,10 +517,13 @@ func (h *SHostInfo) prepareEnv() error {
 		fileutils2.ChangeSsdBlkdevsParams(ioParams)
 	}
 
-	_, err = procutils.NewRemoteCommandAsFarAsPossible("modprobe", "tun").Output()
-	if err != nil {
-		return errors.Wrap(err, "Failed to activate tun/tap device")
+	if !utils.IsInStringArray("tun", options.HostOptions.SkipCheckKernelMods) {
+		_, err = procutils.NewRemoteCommandAsFarAsPossible("modprobe", "tun").Output()
+		if err != nil {
+			return errors.Wrap(err, "Failed to activate tun/tap device")
+		}
 	}
+
 	output, err := procutils.NewRemoteCommandAsFarAsPossible("modprobe", "vhost_net").Output()
 	if err != nil {
 		log.Warningf("modprobe vhost_net error: %s", output)
