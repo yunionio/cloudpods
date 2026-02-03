@@ -45,7 +45,7 @@ func (t *DifyStartTask) requestStart(ctx context.Context, dify *models.SDify) {
 	t.SetStage("OnStarted", nil)
 	s := auth.GetSession(ctx, t.GetUserCred(), options.Options.Region)
 	err := s.WithTaskCallback(t.GetId(), func() error {
-		_, err := compute.Servers.PerformAction(s, dify.SvrId, "start", nil)
+		_, err := compute.Servers.PerformAction(s, dify.CmpId, "start", nil)
 		return err
 	})
 	if err != nil {

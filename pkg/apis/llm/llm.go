@@ -48,15 +48,16 @@ type LLMBaseListDetails struct {
 
 type MountedModelInfo struct {
 	FullName string `json:"fullname"` // 模型全名，如: qwen3:8b
-	Id       string `json:"id"`       // 模型ID，如: 500a1f067a9f
+	ModelId  string `json:"model_id"` // 模型ID，如: 500a1f067a9f
+	Id       string `json:"id"`       // 秒装包的 ID 主键
 }
 
 type LLMListDetails struct {
 	LLMBaseListDetails
 
-	LLMSku string
+	LLMSku string `json:"llm_sku"`
 
-	MountedModels []MountedModelInfo
+	MountedModels []MountedModelInfo `json:"mounted_models"`
 }
 
 type LLMBaseCreateInput struct {

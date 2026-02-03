@@ -109,12 +109,41 @@ func (manager *SLLMSkuManager) FetchCustomizeColumns(
 	}{}
 	q.All(&details)
 	res := make([]api.LLMSkuDetails, len(objs))
+	mountedModelIds := make([]string, 0)
 	for i, sku := range skus {
 		res[i].SharableVirtualResourceDetails = virows[i]
 		for _, v := range details {
 			if v.LLMSkuId == sku.Id {
 				res[i].LLMCapacity = v.LLMCapacity
 				break
+			}
+		}
+		if len(sku.MountedModels) > 0 {
+			mountedModelIds = append(mountedModelIds, sku.MountedModels...)
+		}
+	}
+
+	// fetch mounted models
+	if len(mountedModelIds) > 0 {
+		instModels := make(map[string]SInstantModel)
+		err := db.FetchModelObjectsByIds(GetInstantModelManager(), "id", mountedModelIds, &instModels)
+		if err != nil {
+			log.Errorf("FetchModelObjectsByIds InstantModelManager fail %s", err)
+		} else {
+			for i, sku := range skus {
+				if len(sku.MountedModels) > 0 {
+					res[i].MountedModelDetails = make([]api.MountedModelInfo, 0)
+					for _, modelId := range sku.MountedModels {
+						if instModel, ok := instModels[modelId]; ok {
+							info := api.MountedModelInfo{
+								Id:       instModel.Id,
+								ModelId:  instModel.ModelId,
+								FullName: instModel.ModelName + ":" + instModel.ModelTag,
+							}
+							res[i].MountedModelDetails = append(res[i].MountedModelDetails, info)
+						}
+					}
+				}
 			}
 		}
 	}

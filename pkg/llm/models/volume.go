@@ -62,7 +62,7 @@ type SVolume struct {
 	TemplateId string `width:"128" charset:"ascii" nullable:"true" list:"user" create:"admin_optional" update:"user"`
 	// size in MB
 	SizeMB     int                          `nullable:"false" default:"0" create:"optional" list:"user" update:"user"`
-	SvrId      string                       `width:"128" charset:"ascii" nullable:"true" list:"user"`
+	CmpId      string                       `width:"128" charset:"ascii" nullable:"true" list:"user"`
 	Containers api.ContainerVolumeRelations `charset:"utf8" nullable:"true" list:"user" create:"optional"`
 }
 
@@ -106,17 +106,17 @@ func (volume *SVolume) UpdateMountedModelFullNames(mountModels []string) error {
 }
 
 func (volume *SVolume) GetDisk(ctx context.Context) (*computeapi.DiskDetails, error) {
-	if len(volume.SvrId) == 0 {
+	if len(volume.CmpId) == 0 {
 		return nil, errors.ErrInvalidStatus
 	}
 	s := auth.GetAdminSession(ctx, "")
 	disk := computeapi.DiskDetails{}
-	resp, err := compute.Disks.GetById(s, volume.SvrId, jsonutils.Marshal(map[string]interface{}{
+	resp, err := compute.Disks.GetById(s, volume.CmpId, jsonutils.Marshal(map[string]interface{}{
 		"scope": "max",
 	}))
 	if err != nil {
 		if httputils.ErrorCode(err) == 404 {
-			return nil, errors.Wrapf(errors.ErrNotFound, "GetById %s", volume.SvrId)
+			return nil, errors.Wrapf(errors.ErrNotFound, "GetById %s", volume.CmpId)
 		}
 		return nil, errors.Wrap(err, "fetch disk")
 	}

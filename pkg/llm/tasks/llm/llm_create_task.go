@@ -56,10 +56,10 @@ func (task *LLMCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, 
 		}
 
 		db.Update(llm, func() error {
-			llm.SvrId = serverId
+			llm.CmpId = serverId
 			return nil
 		})
-		llm.SvrId = serverId
+		llm.CmpId = serverId
 		return nil
 	})
 	if err != nil {
@@ -99,7 +99,7 @@ func (task *LLMCreateTask) OnLLMRefreshStatusComplete(ctx context.Context, llm *
 	// 创建磁盘
 	for _, disk := range server.DisksInfo {
 		volume := models.SVolume{}
-		volume.SvrId = disk.Id
+		volume.CmpId = disk.Id
 		volume.LLMId = llm.Id
 		volume.SizeMB = disk.SizeMb
 		volume.Name = disk.Name
