@@ -5876,6 +5876,7 @@ func (hh *SHost) Attach2Network(
 	bn.NetworkId = net.Id
 	bn.IpAddr = freeIp
 	bn.MacAddr = netif.Mac
+	bn.VlanId = netif.VlanId
 	err = HostnetworkManager.TableSpec().Insert(ctx, bn)
 	if err != nil {
 		return nil, errors.Wrap(err, "HostnetworkManager.TableSpec().Insert")
