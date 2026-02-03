@@ -916,11 +916,11 @@ func getCommonAlertMetricDetailsFromCondition(
 	cmp := ""
 	switch cond.Evaluator.Type {
 	case "gt":
-		cmp = ">="
+		cmp = ">"
 	case "eq":
 		cmp = "=="
 	case "lt":
-		cmp = "<="
+		cmp = "<"
 	case "within_range":
 		cmp = "within_range"
 	case "outside_range":
