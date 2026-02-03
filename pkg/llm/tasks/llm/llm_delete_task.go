@@ -34,7 +34,7 @@ func (task *LLMDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, 
 	llm := obj.(*models.SLLM)
 	llm.SetStatus(ctx, task.UserCred, api.LLM_STATUS_DELETING, "start delete")
 
-	if len(llm.SvrId) == 0 {
+	if len(llm.CmpId) == 0 {
 		task.OnLLMRefreshStatusComplete(ctx, llm, nil)
 		return
 	}

@@ -44,10 +44,9 @@ type SLLMInstantModel struct {
 	db.SResourceBase
 	db.SStatusResourceBase
 
-	// InstantModelId string `name:"model_id" width:"128" charset:"ascii" nullable:"false" list:"user" primary:"true"`
 	LlmId string `width:"128" charset:"ascii" nullable:"false" list:"user" primary:"true"`
-	// Model ID, large language model's ID, referring to special model, such as qwen3:8b
-	ModelId string `name:"model_id" width:"128" charset:"ascii" nullable:"false" list:"user" primary:"true"`
+	// InstantModelId instant model 主键 id（SInstantModel.Id）
+	InstantModelId string `name:"model_id" width:"128" charset:"ascii" nullable:"false" list:"user" primary:"true"`
 
 	// Model Tag
 	Tag string `width:"64" charset:"utf8" nullable:"true" list:"user"`
@@ -58,8 +57,8 @@ type SLLMInstantModel struct {
 	// IsSystem    tristate.TriState `list:"user"`
 }
 
-func (man *SLLMInstantModelManager) fetchLLMInstantModel(llmId string, mdlId string) (*SLLMInstantModel, error) {
-	q := man.RawQuery().Equals("llm_id", llmId).Equals("model_id", mdlId)
+func (man *SLLMInstantModelManager) fetchLLMInstantModel(llmId string, instantModelId string) (*SLLMInstantModel, error) {
+	q := man.RawQuery().Equals("llm_id", llmId).Equals("model_id", instantModelId)
 	llmInstantModel := SLLMInstantModel{}
 	err := q.First(&llmInstantModel)
 	if err != nil {
@@ -79,15 +78,15 @@ func (man *SLLMInstantModelManager) getDeletedModelIds(llmId string) ([]string, 
 	if err != nil {
 		return nil, errors.Wrap(err, "Query")
 	}
-	modelIds := make([]string, len(llmInstantModel))
+	instantModelIds := make([]string, len(llmInstantModel))
 	for i := range llmInstantModel {
-		modelIds[i] = llmInstantModel[i].ModelId
+		instantModelIds[i] = llmInstantModel[i].InstantModelId
 	}
-	return modelIds, nil
+	return instantModelIds, nil
 }
 
-func (man *SLLMInstantModelManager) updateInstantModel(ctx context.Context, llmId string, mdlId string, mdlName string, tag string, probed, mounted *bool) (*SLLMInstantModel, error) {
-	mdl, err := man.fetchLLMInstantModel(llmId, mdlId)
+func (man *SLLMInstantModelManager) updateInstantModel(ctx context.Context, llmId string, instantModelId string, mdlName string, tag string, probed, mounted *bool) (*SLLMInstantModel, error) {
+	mdl, err := man.fetchLLMInstantModel(llmId, instantModelId)
 	if err != nil && errors.Cause(err) != errors.ErrNotFound {
 		return nil, errors.Wrap(err, "updateInstantModel")
 	}
@@ -105,9 +104,9 @@ func (man *SLLMInstantModelManager) updateInstantModel(ctx context.Context, llmI
 	if mdl == nil {
 		// if no such app
 		mdl = &SLLMInstantModel{
-			LlmId:     llmId,
-			ModelId:   mdlId,
-			ModelName: mdlName,
+			LlmId:          llmId,
+			InstantModelId: instantModelId,
+			ModelName:      mdlName,
 			// IsSystem:    tristate.None,
 			// Entry:       entry,
 		}
@@ -200,7 +199,7 @@ func (man *SLLMInstantModelManager) filterModels(q *sqlchemy.SQuery, isProbed, i
 }
 
 func (mdl *SLLMInstantModel) FindInstantModel(isInstall bool) (*SInstantModel, error) {
-	instMdl, err := GetInstantModelManager().findInstantModel(mdl.ModelId, mdl.Tag, isInstall)
+	instMdl, err := GetInstantModelManager().GetInstantModelById(mdl.InstantModelId)
 	if err != nil {
 		return nil, errors.Wrap(err, "FindInstantModel")
 	}
