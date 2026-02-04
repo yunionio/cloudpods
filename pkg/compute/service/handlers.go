@@ -35,6 +35,8 @@ import (
 func InitHandlers(app *appsrv.Application, isSlave bool) {
 	db.InitAllManagers()
 
+	models.InitGuestNetworkTrafficLog()
+
 	db.RegistUserCredCacheUpdater()
 
 	db.AddScopeResourceCountHandler("", app)
@@ -260,6 +262,8 @@ func InitHandlers(app *appsrv.Application, isSlave bool) {
 		models.HostFileManager,
 
 		models.AiGatewayManager,
+
+		models.GuestNetworkTrafficLogManager,
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewModelHandler(manager)

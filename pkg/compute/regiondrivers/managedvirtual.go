@@ -1060,11 +1060,11 @@ func (self *SManagedVirtualizationRegionDriver) ValidateCreateVpcData(ctx contex
 	return input, nil
 }
 
-func (self *SManagedVirtualizationRegionDriver) GetEipDefaultChargeType() string {
-	return api.EIP_CHARGE_TYPE_BY_TRAFFIC
+func (self *SManagedVirtualizationRegionDriver) GetEipDefaultChargeType() billing_api.TNetChargeType {
+	return billing_api.NET_CHARGE_TYPE_BY_TRAFFIC
 }
 
-func (self *SManagedVirtualizationRegionDriver) ValidateEipChargeType(chargeType string) error {
+func (self *SManagedVirtualizationRegionDriver) ValidateEipChargeType(chargeType billing_api.TNetChargeType) error {
 	return nil
 }
 
@@ -3072,7 +3072,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestAssociateEip(ctx context.
 			InstanceId:    input.InstanceExternalId,
 			Bandwidth:     eip.Bandwidth,
 			AssociateType: input.InstanceType,
-			ChargeType:    eip.ChargeType,
+			ChargeType:    string(eip.ChargeType),
 		}
 
 		err = iEip.Associate(conf)

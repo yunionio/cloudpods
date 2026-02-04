@@ -178,7 +178,7 @@ func (man *SFileSystemManager) ValidateCreateData(ctx context.Context, userCred 
 			return input, httperrors.NewInputParameterError("invalid duration %s", input.Duration)
 		}
 
-		if !utils.IsInStringArray(input.BillingType, []string{billing_api.BILLING_TYPE_PREPAID, billing_api.BILLING_TYPE_POSTPAID}) {
+		if !utils.IsInStringArray(string(input.BillingType), []string{string(billing_api.BILLING_TYPE_PREPAID), string(billing_api.BILLING_TYPE_POSTPAID)}) {
 			input.BillingType = billing_api.BILLING_TYPE_PREPAID
 		}
 

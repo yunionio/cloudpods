@@ -492,9 +492,9 @@ func (drv *SManagedVirtualizedGuestDriver) RequestStartOnHost(ctx context.Contex
 	if ivm.GetStatus() != api.VM_RUNNING {
 
 		if guest.BillingType == billing_api.BILLING_TYPE_POSTPAID && guest.ShutdownMode != api.VM_SHUTDOWN_MODE_STOP_CHARGING && jsonutils.QueryBoolean(task.GetParams(), "auto_prepaid", false) {
-			err = ivm.ChangeBillingType(billing_api.BILLING_TYPE_PREPAID)
+			err = ivm.ChangeBillingType(string(billing_api.BILLING_TYPE_PREPAID))
 			if err != nil && errors.Cause(err) != cloudprovider.ErrNotImplemented {
-				logclient.AddSimpleActionLog(guest, logclient.ACT_CHANGE_BILLING_TYPE, errors.Wrapf(err, billing_api.BILLING_TYPE_PREPAID), userCred, false)
+				logclient.AddSimpleActionLog(guest, logclient.ACT_CHANGE_BILLING_TYPE, errors.Wrapf(err, string(billing_api.BILLING_TYPE_PREPAID)), userCred, false)
 			}
 		}
 
@@ -508,9 +508,9 @@ func (drv *SManagedVirtualizedGuestDriver) RequestStartOnHost(ctx context.Contex
 		}
 
 		if guest.BillingType == billing_api.BILLING_TYPE_POSTPAID && guest.ShutdownMode == api.VM_SHUTDOWN_MODE_STOP_CHARGING && jsonutils.QueryBoolean(task.GetParams(), "auto_prepaid", false) {
-			err := ivm.ChangeBillingType(billing_api.BILLING_TYPE_PREPAID)
+			err := ivm.ChangeBillingType(string(billing_api.BILLING_TYPE_PREPAID))
 			if err != nil && errors.Cause(err) != cloudprovider.ErrNotImplemented {
-				logclient.AddSimpleActionLog(guest, logclient.ACT_CHANGE_BILLING_TYPE, errors.Wrapf(err, billing_api.BILLING_TYPE_PREPAID), userCred, false)
+				logclient.AddSimpleActionLog(guest, logclient.ACT_CHANGE_BILLING_TYPE, errors.Wrapf(err, string(billing_api.BILLING_TYPE_PREPAID)), userCred, false)
 			}
 		}
 
@@ -1005,9 +1005,9 @@ func (drv *SManagedVirtualizedGuestDriver) RequestStopOnHost(ctx context.Context
 
 			// 包年包月实例关机不收费，先转按量付费再关机
 			if opts.StopCharging && guest.BillingType == billing_api.BILLING_TYPE_PREPAID {
-				err = ivm.ChangeBillingType(billing_api.BILLING_TYPE_POSTPAID)
+				err = ivm.ChangeBillingType(string(billing_api.BILLING_TYPE_POSTPAID))
 				if err != nil && errors.Cause(err) != cloudprovider.ErrNotImplemented {
-					logclient.AddSimpleActionLog(guest, logclient.ACT_CHANGE_BILLING_TYPE, errors.Wrapf(err, billing_api.BILLING_TYPE_POSTPAID), task.GetUserCred(), false)
+					logclient.AddSimpleActionLog(guest, logclient.ACT_CHANGE_BILLING_TYPE, errors.Wrapf(err, string(billing_api.BILLING_TYPE_POSTPAID)), task.GetUserCred(), false)
 				}
 			}
 
@@ -1033,14 +1033,14 @@ func (drv *SManagedVirtualizedGuestDriver) RequestChangeBillingType(ctx context.
 		if err != nil {
 			return nil, errors.Wrapf(err, "guest.GetIVM")
 		}
-		billType := ""
+		var billType billing_api.TBillingType
 		switch guest.BillingType {
 		case billing_api.BILLING_TYPE_POSTPAID:
 			billType = billing_api.BILLING_TYPE_PREPAID
 		case billing_api.BILLING_TYPE_PREPAID:
 			billType = billing_api.BILLING_TYPE_POSTPAID
 		}
-		err = ivm.ChangeBillingType(billType)
+		err = ivm.ChangeBillingType(string(billType))
 		if err != nil {
 			return nil, errors.Wrapf(err, "ChangeBillingType")
 		}
@@ -1049,7 +1049,7 @@ func (drv *SManagedVirtualizedGuestDriver) RequestChangeBillingType(ctx context.
 			if err != nil {
 				return false, err
 			}
-			if ivm.GetBillingType() != billType {
+			if ivm.GetBillingType() != string(billType) {
 				return false, nil
 			}
 			return true, nil
@@ -1058,7 +1058,7 @@ func (drv *SManagedVirtualizedGuestDriver) RequestChangeBillingType(ctx context.
 			return nil, errors.Wrapf(err, "Wait vm billing type changed")
 		}
 		_, err = db.Update(guest, func() error {
-			guest.BillingType = ivm.GetBillingType()
+			guest.BillingType = billing_api.TBillingType(ivm.GetBillingType())
 			guest.Status = ivm.GetStatus()
 			guest.ExpiredAt = time.Time{}
 			guest.AutoRenew = false

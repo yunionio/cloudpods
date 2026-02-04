@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/apis"
+	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 )
 
 const (
@@ -122,7 +123,7 @@ type NatgatewayCreateInput struct {
 
 	// 计费方式
 	// enum: ["postpaid", "prepaid"]
-	BillingType string `json:"billing_type"`
+	BillingType billing_api.TBillingType `json:"billing_type"`
 	// swagger:ignore
 	BillingCycle string `json:"billing_cycle"`
 
@@ -140,7 +141,8 @@ type NatgatewayCreateInput struct {
 	// 弹性公网IP计费类型
 	// enum: ["bandwidth", "traffic"]
 	// default: traffic
-	EipChargeType    string `json:"eip_charge_type,omitempty"`
+	EipChargeType billing_api.TNetChargeType `json:"eip_charge_type,omitempty"`
+
 	EipBgpType       string `json:"eip_bgp_type"`
 	EipAutoDellocate bool   `json:"eip_auto_dellocate"`
 }

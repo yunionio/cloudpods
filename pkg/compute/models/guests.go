@@ -1708,7 +1708,7 @@ func (manager *SGuestManager) validateCreateData(
 	}
 
 	// check group
-	if input.InstanceGroupIds != nil && len(input.InstanceGroupIds) != 0 {
+	if len(input.InstanceGroupIds) > 0 {
 		newGroupIds := make([]string, len(input.InstanceGroupIds))
 		for index, id := range input.InstanceGroupIds {
 			model, err := GroupManager.FetchByIdOrName(ctx, userCred, id)
@@ -2505,9 +2505,9 @@ func (manager *SGuestManager) validateEip(ctx context.Context, userCred mcclient
 			return httperrors.NewNotImplementedError("public ip not supported for %s", input.Hypervisor)
 		}
 		if len(input.PublicIpChargeType) == 0 {
-			input.PublicIpChargeType = string(cloudprovider.ElasticipChargeTypeByTraffic)
+			input.PublicIpChargeType = billing_api.TNetChargeType(cloudprovider.ElasticipChargeTypeByTraffic)
 		}
-		if !utils.IsInStringArray(input.PublicIpChargeType, []string{
+		if !utils.IsInStringArray(string(input.PublicIpChargeType), []string{
 			string(cloudprovider.ElasticipChargeTypeByTraffic),
 			string(cloudprovider.ElasticipChargeTypeByBandwidth),
 		}) {
@@ -2932,8 +2932,9 @@ func (self *SGuest) getBandwidth(isExit bool) int {
 	}
 	if networks != nil && len(networks) > 0 {
 		for i := 0; i < len(networks); i += 1 {
-			if networks[i].IsExit() == isExit {
-				bw += networks[i].getBandwidth()
+			net, _ := networks[i].GetNetwork()
+			if networks[i].IsExit(net) == isExit {
+				bw += networks[i].getBandwidth(net, nil)
 			}
 		}
 	}
@@ -3568,7 +3569,7 @@ func (g *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.TokenCre
 			g.Description = extVM.GetDescription()
 		}
 
-		g.BillingType = extVM.GetBillingType()
+		g.BillingType = billing_api.TBillingType(extVM.GetBillingType())
 		g.ExpiredAt = time.Time{}
 		g.AutoRenew = false
 		if g.BillingType == billing_api.BILLING_TYPE_PREPAID {
@@ -3642,7 +3643,7 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 
 	guest.IsEmulated = extVM.IsEmulated()
 
-	guest.BillingType = extVM.GetBillingType()
+	guest.BillingType = billing_api.TBillingType(extVM.GetBillingType())
 	guest.ExpiredAt = time.Time{}
 	guest.AutoRenew = false
 	if guest.BillingType == billing_api.BILLING_TYPE_PREPAID {
@@ -3828,7 +3829,8 @@ type Attach2NetworkArgs struct {
 	IsDefault    bool
 	PortMappings api.GuestPortMappings
 
-	ChargeType string
+	BillingType billing_api.TBillingType
+	ChargeType  billing_api.TNetChargeType
 
 	PendingUsage quotas.IQuota
 }
@@ -3863,7 +3865,8 @@ func (args *Attach2NetworkArgs) onceArgs(i int) attach2NetworkOnceArgs {
 		pendingUsage: args.PendingUsage,
 		portMappings: args.PortMappings,
 
-		chargeType: args.ChargeType,
+		billingType: args.BillingType,
+		chargeType:  args.ChargeType,
 	}
 	if i > 0 {
 		r.ipAddr = ""
@@ -3909,7 +3912,8 @@ type attach2NetworkOnceArgs struct {
 	pendingUsage quotas.IQuota
 	portMappings api.GuestPortMappings
 
-	chargeType string
+	billingType billing_api.TBillingType
+	chargeType  billing_api.TNetChargeType
 }
 
 func (self *SGuest) Attach2Network(
@@ -3989,7 +3993,8 @@ func (self *SGuest) attach2NetworkOnce(
 		isDefault:    args.isDefault,
 		portMappings: args.portMappings,
 
-		chargeType: args.chargeType,
+		billingType: args.billingType,
+		chargeType:  args.chargeType,
 	}
 	lockman.LockClass(ctx, QuotaManager, self.ProjectId)
 	defer lockman.ReleaseClass(ctx, QuotaManager, self.ProjectId)
@@ -4803,7 +4808,8 @@ func (self *SGuest) attach2NamedNetworkDesc(ctx context.Context, userCred mcclie
 			IsDefault:    netConfig.IsDefault,
 			PortMappings: netConfig.PortMappings,
 
-			ChargeType: netConfig.ChargeType,
+			BillingType: netConfig.BillingType,
+			ChargeType:  netConfig.ChargeType,
 		})
 		if err != nil {
 			return nil, errors.Wrap(err, "Attach2Network fail")
@@ -5125,7 +5131,7 @@ func (self *SGuest) CategorizeNics() SGuestNicCategory {
 	}
 
 	for _, gn := range guestnics {
-		if gn.IsExit() {
+		if gn.IsExit(nil) {
 			netCat.ExternalNics = append(netCat.ExternalNics, gn)
 		} else {
 			netCat.InternalNics = append(netCat.InternalNics, gn)
@@ -5831,9 +5837,10 @@ func (self *SGuest) GetSpec(checkStatus bool) *jsonutils.JSONDict {
 	nicSpecs := jsonutils.NewArray()
 	for _, guestnic := range guestnics {
 		nicSpec := jsonutils.NewDict()
-		nicSpec.Set("bandwidth", jsonutils.NewInt(int64(guestnic.getBandwidth())))
+		net, _ := guestnic.GetNetwork()
+		nicSpec.Set("bandwidth", jsonutils.NewInt(int64(guestnic.getBandwidth(net, nil))))
 		t := "int"
-		if guestnic.IsExit() {
+		if guestnic.IsExit(net) {
 			t = "ext"
 		}
 		nicSpec.Set("type", jsonutils.NewString(t))
@@ -6946,7 +6953,7 @@ func (self *SGuest) ToNetworksConfig() []*api.NetworkConfig {
 		// XXX: same wire
 		netConf.Wire = network.WireId
 		netConf.Network = network.Id
-		netConf.Exit = guestNetwork.IsExit()
+		netConf.Exit = guestNetwork.IsExit(nil)
 		if len(guestNetwork.Ip6Addr) > 0 {
 			netConf.RequireIPv6 = true
 			if len(guestNetwork.IpAddr) == 0 {
@@ -7248,7 +7255,7 @@ func (self *SGuest) GetAddress() (string, error) {
 		return "", errors.Wrapf(err, "GetNetworks")
 	}
 	for _, gn := range gns {
-		if !gn.IsExit() {
+		if !gn.IsExit(nil) {
 			return gn.IpAddr, nil
 		}
 	}

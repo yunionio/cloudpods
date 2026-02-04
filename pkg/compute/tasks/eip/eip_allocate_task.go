@@ -78,7 +78,7 @@ func (self *EipAllocateTask) OnInit(ctx context.Context, obj db.IStandaloneModel
 	args := &cloudprovider.SEip{
 		Name:          eip.Name,
 		BandwidthMbps: eip.Bandwidth,
-		ChargeType:    eip.ChargeType,
+		ChargeType:    string(eip.ChargeType),
 		BGPType:       eip.BgpType,
 		Ip:            eip.IpAddr,
 	}

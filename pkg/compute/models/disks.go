@@ -1953,7 +1953,7 @@ func (self *SDisk) syncWithCloudDisk(ctx context.Context, userCred mcclient.Toke
 
 		if provider.GetFactory().IsSupportPrepaidResources() && !recycle {
 			if billintType := extDisk.GetBillingType(); len(billintType) > 0 {
-				self.BillingType = extDisk.GetBillingType()
+				self.BillingType = billing_api.TBillingType(extDisk.GetBillingType())
 				self.ExpiredAt = time.Time{}
 				self.AutoRenew = false
 				if self.BillingType == billing_api.BILLING_TYPE_PREPAID {
@@ -2031,7 +2031,7 @@ func (manager *SDiskManager) newFromCloudDisk(ctx context.Context, userCred mccl
 	}
 
 	if provider.GetFactory().IsSupportPrepaidResources() {
-		disk.BillingType = extDisk.GetBillingType()
+		disk.BillingType = billing_api.TBillingType(extDisk.GetBillingType())
 		if expired := extDisk.GetExpiredAt(); !expired.IsZero() {
 			disk.ExpiredAt = expired
 		}
@@ -3430,7 +3430,7 @@ func (disk *SDisk) PerformChangeBillingType(ctx context.Context, userCred mcclie
 	if len(input.BillingType) == 0 {
 		return nil, httperrors.NewMissingParameterError("billing_type")
 	}
-	if !utils.IsInStringArray(input.BillingType, []string{billing_api.BILLING_TYPE_POSTPAID, billing_api.BILLING_TYPE_PREPAID}) {
+	if !utils.IsInStringArray(string(input.BillingType), []string{string(billing_api.BILLING_TYPE_POSTPAID), string(billing_api.BILLING_TYPE_PREPAID)}) {
 		return nil, httperrors.NewInputParameterError("invalid billing_type %s", input.BillingType)
 	}
 	if disk.BillingType == input.BillingType {

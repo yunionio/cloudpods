@@ -23,6 +23,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/apis/billing"
+	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	"yunion.io/x/onecloud/pkg/apis/host"
 	imageapi "yunion.io/x/onecloud/pkg/apis/image"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -613,7 +614,7 @@ type ServerAssociateEipInput struct {
 
 type ServerCreateEipInput struct {
 	// 计费方式，traffic or bandwidth
-	ChargeType string `json:"charge_type"`
+	ChargeType billing_api.TNetChargeType `json:"charge_type"`
 
 	// Bandwidth
 	Bandwidth int64 `json:"bandwidth"`
@@ -1264,9 +1265,80 @@ type ServerSetLiveMigrateParamsInput struct {
 }
 
 type ServerNicTrafficLimit struct {
-	Mac            string `json:"mac"`
+	Mac string `json:"mac"`
+
 	RxTrafficLimit *int64 `json:"rx_traffic_limit"`
 	TxTrafficLimit *int64 `json:"tx_traffic_limit"`
+
+	BillingType billing_api.TBillingType   `json:"billing_type"`
+	ChargeType  billing_api.TNetChargeType `json:"charge_type"`
+}
+
+func (input ServerNicTrafficLimit) Validate(billingType billing_api.TBillingType, chargeType billing_api.TNetChargeType, txLimit, rxLimit int64) (ServerNicTrafficLimit, bool, error) {
+	var billingChange bool
+	if len(input.BillingType) > 0 && input.BillingType != billingType {
+		billingChange = true
+		billingType = input.BillingType
+	}
+	if len(input.ChargeType) > 0 && input.ChargeType != chargeType {
+		billingChange = true
+		chargeType = input.ChargeType
+	}
+
+	if billingChange {
+		if len(input.BillingType) == 0 {
+			input.BillingType = billingType
+		}
+		if len(input.ChargeType) == 0 {
+			input.ChargeType = chargeType
+		}
+	}
+
+	if billingType == billing_api.BILLING_TYPE_POSTPAID && chargeType == billing_api.NET_CHARGE_TYPE_BY_TRAFFIC {
+		if txLimit > 0 {
+			txLimit = 0
+			input.TxTrafficLimit = &txLimit
+		} else {
+			input.TxTrafficLimit = nil
+		}
+		if rxLimit > 0 {
+			rxLimit = 0
+			input.RxTrafficLimit = &rxLimit
+		} else {
+			input.RxTrafficLimit = nil
+		}
+	} else if billingType == billing_api.BILLING_TYPE_POSTPAID && chargeType == billing_api.NET_CHARGE_TYPE_BY_BANDWIDTH {
+		return input, billingChange, errors.Wrapf(httperrors.ErrNotImplemented, "billing type %s and charge type %s are not supported", input.BillingType, input.ChargeType)
+	} else if billingType == billing_api.BILLING_TYPE_PREPAID && chargeType == billing_api.NET_CHARGE_TYPE_BY_TRAFFIC {
+		if txLimit == 0 && input.TxTrafficLimit == nil {
+			return input, billingChange, errors.Wrapf(httperrors.ErrBadRequest, "tx traffic limit is required")
+		}
+		if rxLimit == 0 && input.RxTrafficLimit == nil {
+			return input, billingChange, errors.Wrapf(httperrors.ErrBadRequest, "rx traffic limit is required")
+		}
+		if input.TxTrafficLimit != nil && *input.TxTrafficLimit <= 0 {
+			return input, billingChange, errors.Wrapf(httperrors.ErrBadRequest, "tx traffic limit must be greater than 0")
+		}
+		if input.RxTrafficLimit != nil && *input.RxTrafficLimit <= 0 {
+			return input, billingChange, errors.Wrapf(httperrors.ErrBadRequest, "rx traffic limit must be greater than 0")
+		}
+	} else if billingType == billing_api.BILLING_TYPE_PREPAID && chargeType == billing_api.NET_CHARGE_TYPE_BY_BANDWIDTH {
+		if txLimit > 0 {
+			txLimit = 0
+			input.TxTrafficLimit = &txLimit
+		} else {
+			input.TxTrafficLimit = nil
+		}
+		if rxLimit > 0 {
+			rxLimit = 0
+			input.RxTrafficLimit = &rxLimit
+		} else {
+			input.RxTrafficLimit = nil
+		}
+	} else {
+		return input, billingChange, errors.Wrapf(httperrors.ErrBadRequest, "invalid billing type %s and charge type %s", input.BillingType, input.ChargeType)
+	}
+	return input, billingChange, nil
 }
 
 type GuestAddSubIpsInfo struct {
@@ -1382,7 +1454,9 @@ type ServerChangeConfigSettings struct {
 	AutoStart   bool `json:"auto_start"`
 	GuestOnline bool `json:"guest_online"`
 
-	SetTrafficLimits   []ServerNicTrafficLimit `json:"set_traffic_limits"`
+	// 设置虚拟网卡的流量上限
+	SetTrafficLimits []ServerNicTrafficLimit `json:"set_traffic_limits"`
+	// 重置虚拟网卡的流量上限，并且将网卡的流量归零
 	ResetTrafficLimits []ServerNicTrafficLimit `json:"reset_traffic_limits"`
 
 	SchedDesc jsonutils.JSONObject `json:"sched_desc"`
@@ -1448,7 +1522,7 @@ type ServerChangeBillingTypeInput struct {
 	// 仅在虚拟机开机或关机状态下调用
 	// enmu: [postpaid, prepaid]
 	// required: true
-	BillingType string `json:"billing_type"`
+	BillingType billing_api.TBillingType `json:"billing_type"`
 }
 
 type ServerPerformStatusInput struct {

@@ -34,6 +34,7 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
+	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	hostapi "yunion.io/x/onecloud/pkg/apis/host"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -535,14 +536,14 @@ func (self *SKVMRegionDriver) RequestDeleteVpc(ctx context.Context, userCred mcc
 	return nil
 }
 
-func (self *SKVMRegionDriver) GetEipDefaultChargeType() string {
-	return api.EIP_CHARGE_TYPE_BY_BANDWIDTH
+func (self *SKVMRegionDriver) GetEipDefaultChargeType() billing_api.TNetChargeType {
+	return billing_api.NET_CHARGE_TYPE_BY_BANDWIDTH
 }
 
-func (self *SKVMRegionDriver) ValidateEipChargeType(chargeType string) error {
-	if chargeType != api.EIP_CHARGE_TYPE_BY_BANDWIDTH {
+func (self *SKVMRegionDriver) ValidateEipChargeType(chargeType billing_api.TNetChargeType) error {
+	if chargeType != billing_api.NET_CHARGE_TYPE_BY_BANDWIDTH {
 		return httperrors.NewInputParameterError("%s only supports eip charge type %q",
-			self.GetProvider(), api.EIP_CHARGE_TYPE_BY_BANDWIDTH)
+			self.GetProvider(), billing_api.NET_CHARGE_TYPE_BY_BANDWIDTH)
 	}
 	return nil
 }

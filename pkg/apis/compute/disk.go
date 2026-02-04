@@ -25,6 +25,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/apis/billing"
+	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	"yunion.io/x/onecloud/pkg/httperrors"
 )
 
@@ -405,5 +406,5 @@ type DiskChangeBillingTypeInput struct {
 	// 目前支持阿里云
 	// enmu: [postpaid, prepaid]
 	// required: true
-	BillingType string `json:"billing_type"`
+	BillingType billing_api.TBillingType `json:"billing_type"`
 }

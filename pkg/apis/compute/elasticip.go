@@ -16,6 +16,7 @@ package compute
 
 import (
 	"yunion.io/x/onecloud/pkg/apis"
+	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 )
 
 type SElasticipCreateInput struct {
@@ -60,7 +61,7 @@ type SElasticipCreateInput struct {
 	// |OpenStack   | traffic                |
 	// default: traffic
 	// enum: ["traffic", "bandwidth"]
-	ChargeType string `json:"charge_type"`
+	ChargeType billing_api.TNetChargeType `json:"charge_type"`
 
 	Mode string `json:"mode"`
 

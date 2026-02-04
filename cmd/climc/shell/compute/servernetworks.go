@@ -23,14 +23,20 @@ import (
 	"yunion.io/x/pkg/util/printutils"
 	"yunion.io/x/pkg/util/regutils"
 
+	"yunion.io/x/onecloud/cmd/climc/shell"
 	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/cmdline"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
+	compute_options "yunion.io/x/onecloud/pkg/mcclient/options/compute"
 )
 
 func init() {
+
+	cmd := shell.NewResourceCmd(&modules.ServerNetworkTrafficLogs)
+	cmd.List(new(compute_options.ServerNetworkTrafficLogListOptions))
+
 	type ServerNetworkListOptions struct {
 		options.BaseListOptions
 		Server  string `help:"ID or Name of Server"`

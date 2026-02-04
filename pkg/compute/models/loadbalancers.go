@@ -1819,11 +1819,11 @@ func (lb *SLoadbalancer) PerformCreateEip(ctx context.Context, userCred mcclient
 		return nil, httperrors.NewGeneralError(err)
 	}
 
-	if chargeType == "" {
-		chargeType = regionDriver.GetEipDefaultChargeType()
+	if len(chargeType) == 0 {
+		chargeType = billing_api.TNetChargeType(regionDriver.GetEipDefaultChargeType())
 	}
 
-	if chargeType == api.EIP_CHARGE_TYPE_BY_BANDWIDTH {
+	if chargeType == billing_api.NET_CHARGE_TYPE_BY_BANDWIDTH {
 		if bw == 0 {
 			return nil, httperrors.NewMissingParameterError("bandwidth")
 		}
