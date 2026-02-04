@@ -6348,6 +6348,7 @@ func (hh *SHost) attach2Network(
 		bn.BaremetalId = hh.Id
 		bn.NetworkId = net.Id
 		bn.MacAddr = netif.Mac
+		bn.VlanId = netif.VlanId
 		bn.IpAddr = freeIp4
 		bn.Ip6Addr = freeIp6
 		err := HostnetworkManager.TableSpec().Insert(ctx, bn)
