@@ -164,6 +164,11 @@ func startMasterTasks(app *appsrv.Application, opts *options.SImageOptions) {
 	}
 
 	go func() {
+		if options.Options.S3BucketName == "" {
+			options.Options.S3BucketName = DEFAULT_IMAGE_S3_BUCKET
+			log.Infof("Set s3 bucket name to %s", options.Options.S3BucketName)
+		}
+
 		if options.Options.HasValidS3Options() {
 			initS3()
 		}
@@ -207,10 +212,6 @@ func hasVmwareAccount() (bool, error) {
 const DEFAULT_IMAGE_S3_BUCKET = "onecloud-images"
 
 func initS3() {
-	if options.Options.S3BucketName == "" {
-		options.Options.S3BucketName = DEFAULT_IMAGE_S3_BUCKET
-	}
-
 	err := s3.Init(
 		options.Options.S3Endpoint,
 		options.Options.S3AccessKey,
