@@ -24,3 +24,14 @@ type YunionConfOptions struct {
 var (
 	Options YunionConfOptions
 )
+
+func OnOptionsChange(oldO, newO interface{}) bool {
+	oldOpts := oldO.(*YunionConfOptions)
+	newOpts := newO.(*YunionConfOptions)
+
+	changed := false
+	if common_options.OnCommonOptionsChange(&oldOpts.CommonOptions, &newOpts.CommonOptions) {
+		changed = true
+	}
+	return changed
+}
