@@ -93,6 +93,24 @@ var (
 				},
 			},
 		},
+		{
+			Auth:  true,
+			Scope: rbacscope.ScopeProject,
+			Rules: []rbacutils.SRbacRule{
+				{
+					Service:  api.SERVICE_TYPE,
+					Resource: "tags",
+					Action:   PolicyActionList,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  api.SERVICE_TYPE,
+					Resource: "tags",
+					Action:   PolicyActionGet,
+					Result:   rbacutils.Allow,
+				},
+			},
+		},
 	}
 )
 
