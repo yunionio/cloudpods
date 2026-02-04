@@ -267,6 +267,7 @@ func init() {
 		Ip6Addr   string `help:"IPv6 address"`
 		Bridge    string `help:"Bridge of hostwire"`
 		Interface string `help:"Interface name, eg:eth0, en0"`
+		VlanId    int    `help:"Vlan ID"`
 	}
 	R(&HostAddNetIfOptions{}, "host-add-netif", "Host add a NIC", func(s *mcclient.ClientSession, args *HostAddNetIfOptions) error {
 		params := jsonutils.NewDict()
@@ -289,6 +290,7 @@ func init() {
 		if len(args.Interface) > 0 {
 			params.Add(jsonutils.NewString(args.Interface), "interface")
 		}
+		addVlanIdToParams(params, args.VlanId)
 		result, err := modules.Hosts.PerformAction(s, args.ID, "add-netif", params)
 		if err != nil {
 			return err
@@ -298,12 +300,14 @@ func init() {
 	})
 
 	type HostRemoveNetIfOptions struct {
-		ID  string `help:"ID or Name of host"`
-		MAC string `help:"MAC of NIC to remove"`
+		ID     string `help:"ID or Name of host"`
+		MAC    string `help:"MAC of NIC to remove"`
+		VlanId int    `help:"Vlan Id"`
 	}
 	R(&HostRemoveNetIfOptions{}, "host-remove-netif", "Remove NIC from host", func(s *mcclient.ClientSession, args *HostRemoveNetIfOptions) error {
 		params := jsonutils.NewDict()
 		params.Add(jsonutils.NewString(args.MAC), "mac")
+		addVlanIdToParams(params, args.VlanId)
 		result, err := modules.Hosts.PerformAction(s, args.ID, "remove-netif", params)
 		if err != nil {
 			return err
@@ -319,6 +323,7 @@ func init() {
 		Ip6      string `help:"IPv6 address"`
 		Network  string `help:"network to connect"`
 		Reserved bool   `help:"fetch IP from reserved pool"`
+		VlanId   int    `help:"Vlan ID"`
 	}
 	R(&HostEnableNetIfOptions{}, "host-enable-netif", "Enable a network interface for a host", func(s *mcclient.ClientSession, args *HostEnableNetIfOptions) error {
 		params := jsonutils.NewDict()
@@ -337,6 +342,7 @@ func init() {
 		if len(args.Network) > 0 {
 			params.Add(jsonutils.NewString(args.Network), "network")
 		}
+		addVlanIdToParams(params, args.VlanId)
 		result, err := modules.Hosts.PerformAction(s, args.ID, "enable-netif", params)
 		if err != nil {
 			return err
@@ -349,6 +355,7 @@ func init() {
 		ID      string `help:"ID or Name of host"`
 		MAC     string `help:"MAC of NIC to disable"`
 		Reserve bool   `help:"Reserve the IP address"`
+		VlanId  int    `help:"Vlan Id"`
 	}
 	R(&HostDisableNetIfOptions{}, "host-disable-netif", "Disable a network interface", func(s *mcclient.ClientSession, args *HostDisableNetIfOptions) error {
 		params := jsonutils.NewDict()
@@ -356,6 +363,7 @@ func init() {
 		if args.Reserve {
 			params.Add(jsonutils.JSONTrue, "reserve")
 		}
+		addVlanIdToParams(params, args.VlanId)
 		result, err := modules.Hosts.PerformAction(s, args.ID, "disable-netif", params)
 		if err != nil {
 			return err
@@ -696,4 +704,10 @@ func init() {
 			return nil
 		},
 	)
+}
+
+func addVlanIdToParams(params *jsonutils.JSONDict, vlanId int) {
+	if vlanId > 1 {
+		params.Add(jsonutils.NewInt(int64(vlanId)), "vlan_id")
+	}
 }
