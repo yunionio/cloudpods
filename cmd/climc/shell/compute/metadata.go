@@ -37,7 +37,7 @@ func init() {
 		return nil
 	})
 
-	R(&options.TagListOptions{}, "tag-list", "List tags", func(s *mcclient.ClientSession, opts *options.TagListOptions) error {
+	R(&options.TagListOptions{}, "service-metadata-list", "List service metadata", func(s *mcclient.ClientSession, opts *options.TagListOptions) error {
 		var mod modulebase.IResourceManager
 		switch opts.Service {
 		case "compute":
