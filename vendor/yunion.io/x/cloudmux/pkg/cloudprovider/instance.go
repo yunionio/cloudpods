@@ -102,6 +102,8 @@ type SDiskInfo struct {
 	StorageType       string
 	SizeGB            int
 	Iops              int
+	Driver            string
+	CacheMode         string
 	Name              string
 	// aws gp3 only
 	Throughput int

@@ -128,6 +128,10 @@ func (drv *SManagedVirtualizedGuestDriver) GetJsonDescAtHost(ctx context.Context
 			config.SysDisk.SizeGB = int(math.Ceil(float64(disk.DiskSize) / 1024))
 			config.SysDisk.Iops = disk.Iops
 			config.SysDisk.Throughput = disk.Throughput
+			if gds, err := disk.GetGuestDisk(); err == nil {
+				config.SysDisk.Driver = gds.Driver
+				config.SysDisk.CacheMode = gds.CacheMode
+			}
 			cache := storage.GetStoragecache()
 			imageId := disk.GetTemplateId()
 			//避免因同步过来的instance没有对应的imagecache信息，重置密码时引发空指针访问
@@ -152,6 +156,10 @@ func (drv *SManagedVirtualizedGuestDriver) GetJsonDescAtHost(ctx context.Context
 				Iops:              disk.Iops,
 				Throughput:        disk.Throughput,
 				Name:              disk.Name,
+			}
+			if gds, err := disk.GetGuestDisk(); err == nil {
+				dataDisk.Driver = gds.Driver
+				dataDisk.CacheMode = gds.CacheMode
 			}
 			config.DataDisks = append(config.DataDisks, dataDisk)
 		}
