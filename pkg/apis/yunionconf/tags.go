@@ -16,18 +16,16 @@ package yunionconf
 
 import "yunion.io/x/onecloud/pkg/apis"
 
-const (
-	SERVICE_TYPE    = apis.SERVICE_TYPE_YUNIONCONF
-	SERVICE_VERSION = ""
-)
+type TagListInput struct {
+	apis.InfrasResourceBaseListInput
+}
 
-const (
-	ANY_DOMAIN_ID  = "[any_domain_id]"
-	ANY_PROJECT_ID = "[any_project_id]"
-)
+type TagDetails struct {
+	apis.InfrasResourceBaseDetails
+}
 
-const (
-	NAMESPACE_USER       = "user"
-	NAMESPACE_SERVICE    = "service"
-	NAMESPACE_BUG_REPORT = "bug-report"
-)
+type TagCreateInput struct {
+	apis.InfrasResourceBaseCreateInput
+
+	Values []string `json:"values"`
+}
