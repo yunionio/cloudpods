@@ -140,6 +140,11 @@ func StartService() {
 	}
 
 	go func() {
+		if options.Options.S3BucketName == "" {
+			options.Options.S3BucketName = DEFAULT_IMAGE_S3_BUCKET
+			log.Infof("Set s3 bucket name to %s", options.Options.S3BucketName)
+		}
+
 		if options.Options.HasValidS3Options() {
 			initS3()
 		}
@@ -198,9 +203,6 @@ func initS3() {
 			prefix = "https://"
 		}
 		url = prefix + url
-	}
-	if options.Options.S3BucketName == "" {
-		options.Options.S3BucketName = DEFAULT_IMAGE_S3_BUCKET
 	}
 
 	err := s3.Init(
