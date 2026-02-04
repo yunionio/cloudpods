@@ -517,22 +517,45 @@ func (self *SRegion) CreateInstance(hostId, hypervisor string, opts *cloudprovid
 	if opts.BillingCycle != nil {
 		input.Duration = opts.BillingCycle.String()
 	}
-	input.Disks = append(input.Disks, &api.DiskConfig{
+	image, err := self.GetImage(opts.ExternalImageId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetImage")
+	}
+	imageId := opts.ExternalImageId
+	if image.DiskFormat == "iso" {
+		input.Cdrom = opts.ExternalImageId
+		imageId = ""
+	}
+	sysDisk := &api.DiskConfig{
 		Index:    0,
-		ImageId:  opts.ExternalImageId,
+		ImageId:  imageId,
 		DiskType: api.DISK_TYPE_SYS,
 		SizeMb:   opts.SysDisk.SizeGB * 1024,
 		Backend:  opts.SysDisk.StorageType,
 		Storage:  opts.SysDisk.StorageExternalId,
-	})
+	}
+	if len(opts.SysDisk.Driver) > 0 {
+		sysDisk.Driver = opts.SysDisk.Driver
+	}
+	if len(opts.SysDisk.CacheMode) > 0 {
+		sysDisk.Cache = opts.SysDisk.CacheMode
+	}
+	input.Disks = append(input.Disks, sysDisk)
 	for idx, disk := range opts.DataDisks {
-		input.Disks = append(input.Disks, &api.DiskConfig{
+		dataDisk := &api.DiskConfig{
 			Index:    idx + 1,
 			DiskType: api.DISK_TYPE_DATA,
 			SizeMb:   disk.SizeGB * 1024,
 			Backend:  disk.StorageType,
 			Storage:  disk.StorageExternalId,
-		})
+		}
+		if len(disk.Driver) > 0 {
+			dataDisk.Driver = disk.Driver
+		}
+		if len(disk.CacheMode) > 0 {
+			dataDisk.Cache = disk.CacheMode
+		}
+		input.Disks = append(input.Disks, dataDisk)
 	}
 	input.Networks = append(input.Networks, &api.NetworkConfig{
 		Index:   0,
