@@ -31,7 +31,7 @@ type SDiskInfo struct {
 	DiskType          string
 	Size              int
 	Uuid              string
-	BillingType       string
+	BillingType       billing_api.TBillingType
 	FsFromat          string
 	AutoDelete        bool
 	TemplateId        string
@@ -86,7 +86,7 @@ func fetchIVMinfo(desc cloudprovider.SManagedVMCreateConfig, iVM cloudprovider.I
 			dinfo.Uuid = idisks[i].GetGlobalId()
 			dinfo.Size = idisks[i].GetDiskSizeMB()
 			dinfo.DiskType = idisks[i].GetDiskType()
-			dinfo.BillingType = idisks[i].GetBillingType()
+			dinfo.BillingType = billing_api.TBillingType(idisks[i].GetBillingType())
 			dinfo.DiskFormat = idisks[i].GetDiskFormat()
 			dinfo.AutoDelete = idisks[i].GetIsAutoDelete()
 			if action == "create" {
@@ -128,7 +128,7 @@ func fetchIVMinfo(desc cloudprovider.SManagedVMCreateConfig, iVM cloudprovider.I
 	}
 	data.Add(metadataDict, "metadata")
 
-	if iVM.GetBillingType() == billing_api.BILLING_TYPE_PREPAID {
+	if iVM.GetBillingType() == string(billing_api.BILLING_TYPE_PREPAID) {
 		data.Add(jsonutils.NewTimeString(iVM.GetExpiredAt()), "expired_at")
 		data.Add(jsonutils.NewBool(iVM.IsAutoRenew()), "auto_renew")
 	}

@@ -649,7 +649,7 @@ func (self *SElasticcache) SyncWithCloudElasticcache(ctx context.Context, userCr
 			self.Connections = cnns
 		}
 
-		self.BillingType = extInstance.GetBillingType()
+		self.BillingType = billing_api.TBillingType(extInstance.GetBillingType())
 		self.ExpiredAt = time.Time{}
 		self.AutoRenew = false
 		if self.BillingType == billing_api.BILLING_TYPE_PREPAID {
@@ -763,7 +763,7 @@ func (self *SCloudregion) newFromCloudElasticcache(ctx context.Context, userCred
 		instance.CreatedAt = createdAt
 	}
 
-	instance.BillingType = extInstance.GetBillingType()
+	instance.BillingType = billing_api.TBillingType(extInstance.GetBillingType())
 	instance.ExpiredAt = time.Time{}
 	instance.AutoRenew = false
 	if instance.BillingType == billing_api.BILLING_TYPE_PREPAID {

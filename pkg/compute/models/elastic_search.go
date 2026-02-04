@@ -448,7 +448,7 @@ func (self *SElasticSearch) SyncWithCloudElasticSearch(ctx context.Context, user
 		self.VmemSizeGb = ext.GetVmemSizeGb()
 		self.IsMultiAz = ext.IsMultiAz()
 
-		self.BillingType = ext.GetBillingType()
+		self.BillingType = billing_api.TBillingType(ext.GetBillingType())
 		self.ExpiredAt = time.Time{}
 		self.AutoRenew = false
 		if self.BillingType == billing_api.BILLING_TYPE_PREPAID {
@@ -594,7 +594,7 @@ func (self *SCloudregion) newFromCloudElasticSearch(ctx context.Context, userCre
 		es.CreatedAt = createdAt
 	}
 
-	es.BillingType = ext.GetBillingType()
+	es.BillingType = billing_api.TBillingType(ext.GetBillingType())
 	es.ExpiredAt = time.Time{}
 	es.AutoRenew = false
 	if es.BillingType == billing_api.BILLING_TYPE_PREPAID {

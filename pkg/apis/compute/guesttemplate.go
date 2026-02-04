@@ -18,6 +18,7 @@ import (
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/apis"
+	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 )
 
 type GuestTemplateInput struct {
@@ -34,7 +35,8 @@ type GuestTemplateInput struct {
 	ImageType     string `json:"image_type"`
 	ImageId       string `json:"image_id"`
 	InstanceType  string `json:"instance_type"`
-	BillingType   string `json:"billing_type"`
+
+	BillingType billing_api.TBillingType `json:"billing_type"`
 }
 
 type GuestTemplateCreateInput struct {

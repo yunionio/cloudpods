@@ -177,7 +177,7 @@ func (man *SNatGatewayManager) ValidateCreateData(
 			return input, httperrors.NewInputParameterError("invalid duration %s", input.Duration)
 		}
 
-		if !utils.IsInStringArray(input.BillingType, []string{billing_api.BILLING_TYPE_PREPAID, billing_api.BILLING_TYPE_POSTPAID}) {
+		if !utils.IsInStringArray(string(input.BillingType), []string{string(billing_api.BILLING_TYPE_PREPAID), string(billing_api.BILLING_TYPE_POSTPAID)}) {
 			input.BillingType = billing_api.BILLING_TYPE_PREPAID
 		}
 
@@ -522,7 +522,7 @@ func (self *SNatGateway) SyncWithCloudNatGateway(ctx context.Context, userCred m
 			}
 		}
 
-		self.BillingType = extNat.GetBillingType()
+		self.BillingType = billing_api.TBillingType(extNat.GetBillingType())
 		self.ExpiredAt = time.Time{}
 		self.AutoRenew = false
 		if self.BillingType == billing_api.BILLING_TYPE_PREPAID {
@@ -566,7 +566,7 @@ func (manager *SNatGatewayManager) newFromCloudNatGateway(ctx context.Context, u
 	nat.ExternalId = extNat.GetGlobalId()
 	nat.IsEmulated = extNat.IsEmulated()
 
-	nat.BillingType = extNat.GetBillingType()
+	nat.BillingType = billing_api.TBillingType(extNat.GetBillingType())
 	nat.ExpiredAt = time.Time{}
 	nat.AutoRenew = false
 	if nat.BillingType == billing_api.BILLING_TYPE_PREPAID {

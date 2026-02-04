@@ -3158,3 +3158,13 @@ func (s *sPodGuestInstance) RemoveContainerVolumeMountPostOverlay(ctx context.Co
 	}
 	return diskDrv.UnmountPostOverlays(s, ctrId, vol, input.PostOverlay, input.UseLazy, input.ClearLayers)
 }
+
+func (s *sPodGuestInstance) SetNicDown(mac string) error {
+	// null operation for pod, QIUJIAN, 20260203
+	return nil
+}
+
+func (s *sPodGuestInstance) SetNicUp(nic *desc.SGuestNetwork) error {
+	// null operation for pod, QIUJIAN, 20260203
+	return nil
+}

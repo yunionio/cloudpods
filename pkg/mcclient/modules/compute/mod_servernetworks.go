@@ -21,6 +21,8 @@ import (
 
 var (
 	Servernetworks modulebase.JointResourceManager
+
+	ServerNetworkTrafficLogs modulebase.ResourceManager
 )
 
 func init() {
@@ -35,4 +37,14 @@ func init() {
 		&Servers,
 		&Networks)
 	modules.RegisterCompute(&Servernetworks)
+
+	ServerNetworkTrafficLogs = modules.NewComputeManager(
+		"guest_network_traffic_log",
+		"guest_network_traffic_logs",
+		[]string{
+			"id", "guest_id", "network_id", "mac", "ip_addr", "ip6_addr", "report_at", "rx_bytes", "tx_bytes", "state",
+		},
+		[]string{},
+	)
+	modules.RegisterCompute(&ServerNetworkTrafficLogs)
 }

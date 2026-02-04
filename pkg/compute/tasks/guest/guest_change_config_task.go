@@ -17,6 +17,7 @@ package guest
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -417,12 +418,12 @@ func (task *GuestChangeConfigTask) OnGuestResetNicTraffics(ctx context.Context, 
 		for i := range resetTraffics {
 			input := resetTraffics[i]
 			gn, _ := guest.GetGuestnetworkByMac(input.Mac)
-			err := gn.UpdateNicTrafficLimit(input.RxTrafficLimit, input.TxTrafficLimit)
+			err := gn.UpdateBillingMode(ctx, task.UserCred, input)
 			if err != nil {
 				task.markStageFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("failed update guest nic traffic limit %s", err)))
 				return
 			}
-			err = gn.UpdateNicTrafficUsed(0, 0)
+			err = gn.UpdateNicTrafficUsed(ctx, guest, &api.SNicTrafficRecord{RxTraffic: 0, TxTraffic: 0}, time.Now(), true)
 			if err != nil {
 				task.markStageFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("failed update guest nic traffic used %s", err)))
 				return
@@ -461,7 +462,7 @@ func (task *GuestChangeConfigTask) OnGuestSetNicTraffics(ctx context.Context, gu
 		for i := range setTraffics {
 			input := setTraffics[i]
 			gn, _ := guest.GetGuestnetworkByMac(input.Mac)
-			err := gn.UpdateNicTrafficLimit(input.RxTrafficLimit, input.TxTrafficLimit)
+			err := gn.UpdateBillingMode(ctx, task.UserCred, input)
 			if err != nil {
 				task.markStageFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("failed update guest nic traffic limit %s", err)))
 				return

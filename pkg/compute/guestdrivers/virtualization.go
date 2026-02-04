@@ -214,7 +214,8 @@ func (self *SVirtualizedGuestDriver) Attach2RandomNetwork(guest *models.SGuest, 
 
 		IsDefault: netConfig.IsDefault,
 
-		ChargeType: netConfig.ChargeType,
+		BillingType: netConfig.BillingType,
+		ChargeType:  netConfig.ChargeType,
 	})
 	return gn, err
 }
