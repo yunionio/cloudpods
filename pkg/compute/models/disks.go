@@ -383,11 +383,24 @@ func (manager *SDiskManager) QueryDistinctExtraFields(q *sqlchemy.SQuery, resour
 	return q, httperrors.ErrNotFound
 }
 
-func (self *SDisk) GetGuestDiskCount() (int, error) {
+func (disk *SDisk) GetGuestDiskQuery() *sqlchemy.SQuery {
 	guestdisks := GuestdiskManager.Query()
 	guests := GuestManager.Query().SubQuery()
 	guestdisks = guestdisks.Join(guests, sqlchemy.Equals(guestdisks.Field("guest_id"), guests.Field("id")))
-	return guestdisks.Equals("disk_id", self.Id).CountWithError()
+	return guestdisks.Equals("disk_id", disk.Id)
+}
+
+func (self *SDisk) GetGuestDiskCount() (int, error) {
+	return self.GetGuestDiskQuery().CountWithError()
+}
+
+func (disk *SDisk) GetGuestDisk() (*SGuestdisk, error) {
+	guestdisk := &SGuestdisk{}
+	err := disk.GetGuestDiskQuery().First(guestdisk)
+	if err != nil {
+		return nil, errors.Wrap(err, "First")
+	}
+	return guestdisk, nil
 }
 
 func (self *SDisk) isAttached() (bool, error) {
