@@ -531,22 +531,36 @@ func (region *SRegion) CreateInstance(hostId, hypervisor string, opts *cloudprov
 		input.Cdrom = opts.ExternalImageId
 		imageId = ""
 	}
-	input.Disks = append(input.Disks, &api.DiskConfig{
+	sysDisk := &api.DiskConfig{
 		Index:    0,
 		ImageId:  imageId,
 		DiskType: api.DISK_TYPE_SYS,
 		SizeMb:   opts.SysDisk.SizeGB * 1024,
 		Backend:  opts.SysDisk.StorageType,
 		Storage:  opts.SysDisk.StorageExternalId,
-	})
+	}
+	if len(opts.SysDisk.Driver) > 0 {
+		sysDisk.Driver = opts.SysDisk.Driver
+	}
+	if len(opts.SysDisk.CacheMode) > 0 {
+		sysDisk.Cache = opts.SysDisk.CacheMode
+	}
+	input.Disks = append(input.Disks, sysDisk)
 	for idx, disk := range opts.DataDisks {
-		input.Disks = append(input.Disks, &api.DiskConfig{
+		dataDisk := &api.DiskConfig{
 			Index:    idx + 1,
 			DiskType: api.DISK_TYPE_DATA,
 			SizeMb:   disk.SizeGB * 1024,
 			Backend:  disk.StorageType,
 			Storage:  disk.StorageExternalId,
-		})
+		}
+		if len(disk.Driver) > 0 {
+			dataDisk.Driver = disk.Driver
+		}
+		if len(disk.CacheMode) > 0 {
+			dataDisk.Cache = disk.CacheMode
+		}
+		input.Disks = append(input.Disks, dataDisk)
 	}
 	input.IsolatedDevices = []*api.IsolatedDeviceConfig{}
 	for _, dev := range input.IsolatedDevices {
