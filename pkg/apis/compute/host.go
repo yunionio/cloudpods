@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/apis"
+	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 )
 
@@ -370,7 +371,7 @@ type HostResourceInfo struct {
 	HostResourceType string `json:"host_resource_type"`
 
 	// 宿主机计费类型
-	HostBillingType string `json:"host_billing_type"`
+	HostBillingType billing_api.TBillingType `json:"host_billing_type"`
 
 	// 宿主机服务状态`
 	HostServiceStatus string `json:"host_service_status"`

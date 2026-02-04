@@ -34,6 +34,7 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
+	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
@@ -1497,7 +1498,7 @@ func (manager *SStorageManager) TotalCapacity(
 
 func (self *SStorage) createDisk(ctx context.Context, name string, diskConfig *api.DiskConfig, userCred mcclient.TokenCredential,
 	ownerId mcclient.IIdentityProvider, autoDelete bool, isSystem bool,
-	billingType string, billingCycle string,
+	billingType billing_api.TBillingType, billingCycle string,
 	encryptKeyId string,
 ) (*SDisk, error) {
 	disk := SDisk{}

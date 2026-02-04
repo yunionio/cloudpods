@@ -17,10 +17,12 @@ package guest
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/apis/compute"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -65,15 +67,16 @@ func (self *GuestResetNicTrafficsTask) OnInit(ctx context.Context, obj db.IStand
 }
 
 func (self *GuestResetNicTrafficsTask) OnResetNicTrafficLimit(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
-	input := &compute.ServerNicTrafficLimit{}
-	self.GetParams().Unmarshal(input)
+	input := compute.ServerNicTrafficLimit{}
+	self.GetParams().Unmarshal(&input)
+
 	gn, _ := guest.GetGuestnetworkByMac(input.Mac)
-	err := gn.UpdateNicTrafficLimit(input.RxTrafficLimit, input.TxTrafficLimit)
+	err := gn.UpdateBillingMode(ctx, self.UserCred, input)
 	if err != nil {
 		self.taskFailed(ctx, guest, fmt.Sprintf("failed update guest nic traffic limit %s", err))
 		return
 	}
-	err = gn.UpdateNicTrafficUsed(0, 0)
+	err = gn.UpdateNicTrafficUsed(ctx, guest, &api.SNicTrafficRecord{RxTraffic: 0, TxTraffic: 0}, time.Now(), true)
 	if err != nil {
 		self.taskFailed(ctx, guest, fmt.Sprintf("failed update guest nic traffic used %s", err))
 		return
@@ -106,6 +109,7 @@ func (self *GuestSetNicTrafficsTask) OnInit(ctx context.Context, obj db.IStandal
 	}
 	input := compute.ServerNicTrafficLimit{}
 	self.GetParams().Unmarshal(&input)
+
 	self.SetStage("OnSetNicTrafficLimit", nil)
 	drv, err := guest.GetDriver()
 	if err != nil {
@@ -119,10 +123,11 @@ func (self *GuestSetNicTrafficsTask) OnInit(ctx context.Context, obj db.IStandal
 }
 
 func (self *GuestSetNicTrafficsTask) OnSetNicTrafficLimit(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
-	input := &compute.ServerNicTrafficLimit{}
-	self.GetParams().Unmarshal(input)
+	input := compute.ServerNicTrafficLimit{}
+	self.GetParams().Unmarshal(&input)
+
 	gn, _ := guest.GetGuestnetworkByMac(input.Mac)
-	err := gn.UpdateNicTrafficLimit(input.RxTrafficLimit, input.TxTrafficLimit)
+	err := gn.UpdateBillingMode(ctx, self.UserCred, input)
 	if err != nil {
 		self.taskFailed(ctx, guest, fmt.Sprintf("failed update guest nic traffic limit %s", err))
 		return

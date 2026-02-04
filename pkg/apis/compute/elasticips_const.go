@@ -44,9 +44,6 @@ const (
 
 	EIP_STATUS_CHANGE_BANDWIDTH = "change_bandwidth"
 
-	EIP_CHARGE_TYPE_BY_TRAFFIC   = compute.EIP_CHARGE_TYPE_BY_TRAFFIC
-	EIP_CHARGE_TYPE_BY_BANDWIDTH = compute.EIP_CHARGE_TYPE_BY_BANDWIDTH
-
 	INSTANCE_ASSOCIATE_EIP         = "associate_eip"
 	INSTANCE_ASSOCIATE_EIP_FAILED  = "associate_eip_failed"
 	INSTANCE_DISSOCIATE_EIP        = "dissociate_eip"

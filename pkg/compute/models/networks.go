@@ -41,6 +41,7 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
+	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -150,10 +151,12 @@ func (manager *SNetworkManager) GetContextManagers() [][]db.IModelManager {
 	}
 }
 
-func (snet *SNetwork) getMtu() int16 {
+func (snet *SNetwork) getMtu(wire *SWire) int16 {
 	baseMtu := options.Options.DefaultMtu
 
-	wire, _ := snet.GetWire()
+	if wire == nil {
+		wire, _ = snet.GetWire()
+	}
 	if wire != nil {
 		if IsOneCloudVpcResource(wire) {
 			return int16(options.Options.OvnUnderlayMtu - api.VPC_OVN_ENCAP_COST)
@@ -1226,6 +1229,23 @@ func isValidNetworkInfo(ctx context.Context, userCred mcclient.TokenCredential, 
 		ct, ctExit := NetworkManager.to
 	}
 	*/
+	// billing update
+	if netConfig.TxTrafficLimit > 0 || netConfig.RxTrafficLimit > 0 {
+		if len(netConfig.BillingType) == 0 {
+			netConfig.BillingType = billing_api.BILLING_TYPE_PREPAID
+		} else if netConfig.BillingType != billing_api.BILLING_TYPE_PREPAID {
+			return httperrors.NewInputParameterError("nic is limited by traffic, only support prepaid billing type")
+		}
+		if len(netConfig.ChargeType) == 0 {
+			netConfig.ChargeType = billing_api.NET_CHARGE_TYPE_BY_TRAFFIC
+		} else if netConfig.ChargeType != billing_api.NET_CHARGE_TYPE_BY_TRAFFIC {
+			return httperrors.NewInputParameterError("nic is limited by traffic, only support charge traffic")
+		}
+	} else {
+		if netConfig.BillingType == billing_api.BILLING_TYPE_PREPAID && netConfig.ChargeType == billing_api.NET_CHARGE_TYPE_BY_TRAFFIC {
+			return httperrors.NewInputParameterError("nic traffic limited should be set for prepaid traffic billing type")
+		}
+	}
 	if len(netConfig.PortMappings) != 0 {
 		for i := range netConfig.PortMappings {
 			if err := validatePortMapping(netConfig.PortMappings[i]); err != nil {

@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/cloudmux/pkg/multicloud"
 	"yunion.io/x/jsonutils"
 
+	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 )
@@ -157,7 +158,7 @@ func (self *SRegion) CreateEIP(opts *cloudprovider.SEip) (cloudprovider.ICloudEI
 	input := api.SElasticipCreateInput{}
 	input.Name = opts.Name
 	input.CloudregionId = self.Id
-	input.ChargeType = opts.ChargeType
+	input.ChargeType = billing_api.TNetChargeType(opts.ChargeType)
 	input.BandwidthMb = opts.BandwidthMbps
 	input.ProjectId = opts.ProjectId
 	input.NetworkId = opts.NetworkExternalId

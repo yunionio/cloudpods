@@ -77,6 +77,9 @@ type GuestRuntimeInstance interface {
 	OnlineResizeDisk(ctx context.Context, disk storageman.IDisk, sizeMB int64)
 
 	GetDependsImageIds(storageType string) []string
+
+	SetNicDown(mac string) error
+	SetNicUp(nic *desc.SGuestNetwork) error
 }
 
 type sBaseGuestInstance struct {

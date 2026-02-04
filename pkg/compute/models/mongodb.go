@@ -508,7 +508,7 @@ func (self *SMongoDB) SyncWithCloudMongoDB(ctx context.Context, userCred mcclien
 		self.MaxConnections = ext.GetMaxConnections()
 		self.NetworkAddress = ext.GetNetworkAddress()
 
-		self.BillingType = ext.GetBillingType()
+		self.BillingType = billing_api.TBillingType(ext.GetBillingType())
 		self.ExpiredAt = time.Time{}
 		self.AutoRenew = false
 		if self.BillingType == billing_api.BILLING_TYPE_PREPAID {
@@ -605,7 +605,7 @@ func (self *SCloudregion) newFromCloudMongoDB(ctx context.Context, userCred mccl
 		ins.CreatedAt = createdAt
 	}
 
-	ins.BillingType = ext.GetBillingType()
+	ins.BillingType = billing_api.TBillingType(ext.GetBillingType())
 	ins.ExpiredAt = time.Time{}
 	ins.AutoRenew = false
 	if ins.BillingType == billing_api.BILLING_TYPE_PREPAID {
