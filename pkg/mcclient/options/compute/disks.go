@@ -78,14 +78,22 @@ func (o DiskCreateOptions) Params() (*api.DiskCreateInput, error) {
 	return params, nil
 }
 
-type DiskMigrateOptions struct {
-	ID string `help:"ID of the server" json:"-"`
-
-	TargetStorageId string `help:"Disk migrate target storage id or name" json:"target_storage_id"`
+type DiskIdOptions struct {
+	ID string `help:"ID or Name of disk"`
 }
 
-func (o *DiskMigrateOptions) GetId() string {
+func (o *DiskIdOptions) GetId() string {
 	return o.ID
+}
+
+func (o *DiskIdOptions) Params() (jsonutils.JSONObject, error) {
+	return nil, nil
+}
+
+type DiskMigrateOptions struct {
+	DiskIdOptions
+
+	TargetStorageId string `help:"Disk migrate target storage id or name" json:"target_storage_id"`
 }
 
 func (o *DiskMigrateOptions) Params() (jsonutils.JSONObject, error) {
@@ -93,13 +101,9 @@ func (o *DiskMigrateOptions) Params() (jsonutils.JSONObject, error) {
 }
 
 type DiskChangeStorageTypeOptions struct {
-	ID string `help:"ID of the server" json:"-"`
+	DiskIdOptions
 
 	StorageType string `help:"Disk migrate target storage type" json:"storage_type"`
-}
-
-func (o *DiskChangeStorageTypeOptions) GetId() string {
-	return o.ID
 }
 
 func (o *DiskChangeStorageTypeOptions) Params() (jsonutils.JSONObject, error) {
@@ -107,13 +111,9 @@ func (o *DiskChangeStorageTypeOptions) Params() (jsonutils.JSONObject, error) {
 }
 
 type DiskResetTemplateOptions struct {
-	ID string `help:"ID of the server" json:"-"`
+	DiskIdOptions
 
 	TemplateId string `help:"reset disk tempalte id" json:"template_id"`
-}
-
-func (o *DiskResetTemplateOptions) GetId() string {
-	return o.ID
 }
 
 func (o *DiskResetTemplateOptions) Params() (jsonutils.JSONObject, error) {
@@ -192,7 +192,9 @@ type DiskListOptions struct {
 
 	SnapshotpolicyId string `help:"snapshotpolicy id"`
 
-	StorageHostId string `help:"filter disk by host"`
+	StorageHostId               string `help:"filter disk by host"`
+	BindingServerSnapshotpolicy *bool  `help:"filter disk by binding server snapshotpolicy" negative:"no-binding-server-snapshotpolicy"`
+	BindingSnapshotpolicy       *bool  `help:"filter disk by binding snapshotpolicy" negative:"no-binding-snapshotpolicy"`
 }
 
 func (opts *DiskListOptions) Params() (jsonutils.JSONObject, error) {
@@ -211,12 +213,8 @@ func (opts *DiskListOptions) Params() (jsonutils.JSONObject, error) {
 }
 
 type DiskChangeBillingTypeOptions struct {
-	ID          string
+	DiskIdOptions
 	BillingType string `choices:"prepaid|postpaid"`
-}
-
-func (o *DiskChangeBillingTypeOptions) GetId() string {
-	return o.ID
 }
 
 func (o *DiskChangeBillingTypeOptions) Params() (jsonutils.JSONObject, error) {
