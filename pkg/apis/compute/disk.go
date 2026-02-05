@@ -169,6 +169,8 @@ type DiskListInput struct {
 
 	// 根据是否绑定快照策略过滤
 	BindingSnapshotpolicy *bool `json:"binding_snapshotpolicy"`
+	// 根据是否磁盘所在虚拟机是否绑定主机快照策略
+	BindingServerSnapshotpolicy *bool `json:"binding_server_snapshotpolicy"`
 }
 
 type DiskResourceInput struct {
@@ -213,13 +215,22 @@ type SimpleGuest struct {
 	Bps int `json:"bps"`
 	// 计费类型
 	BillingType string `json:"billing_type"`
+
+	// 磁盘绑定的快照策略列表
+	Snapshotpolicy []SimpleSnapshotPolicy `json:"snapshotpolicy"`
 }
 
 type SimpleSnapshotPolicy struct {
-	Id             string `json:"id"`
-	Name           string `json:"name"`
-	RepeatWeekdays []int  `json:"repeat_weekdays"`
-	TimePoints     []int  `json:"time_points"`
+	// 快照策略ID
+	Id string `json:"id"`
+	// 快照策略名称
+	Name string `json:"name"`
+	// 快照策略类型
+	ResourceType string `json:"resource_type"`
+	// 快照策略重复周期
+	RepeatWeekdays []int `json:"repeat_weekdays"`
+	// 快照策略时间点
+	TimePoints []int `json:"time_points"`
 }
 
 type DiskDetails struct {
@@ -239,11 +250,11 @@ type DiskDetails struct {
 	GuestStatus string `json:"guest_status"`
 	// 所挂载虚拟机计费类型
 	GuestBillingType string `json:"guest_billing_type"`
+	// 磁盘所在虚拟机绑定的主机快照策略数量
+	GuestSnapshotpolicyCount int `json:"guest_snapshotpolicy_count"`
 
 	// 自动清理时间
 	AutoDeleteAt time.Time `json:"auto_delete_at"`
-	// 自动快照策略状态
-	SnapshotpolicyStatus string `json:"snapshotpolicy_status,allowempty"`
 
 	// 自动快照策略
 	Snapshotpolicies []SimpleSnapshotPolicy `json:"snapshotpolicies"`
@@ -351,6 +362,7 @@ type DiskChagneStorageTypeInput struct {
 }
 
 type DiskSnapshotpolicyInput struct {
+	// 快照策略ID
 	SnapshotpolicyId string `json:"snapshotpolicy_id"`
 }
 

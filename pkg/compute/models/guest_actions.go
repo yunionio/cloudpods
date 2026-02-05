@@ -5529,6 +5529,96 @@ func (self *SGuest) PerformUnbindGroups(ctx context.Context, userCred mcclient.T
 	return nil, nil
 }
 
+// 绑定主机快照策略
+// 主机只能绑定一个快照策略，已绑定时报错
+// 若主机下任意磁盘已绑定快照策略则报错
+func (self *SGuest) PerformBindSnapshotpolicy(ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject, input *api.ServerSnapshotpolicyInput) (jsonutils.JSONObject, error) {
+	if len(input.SnapshotpolicyId) == 0 {
+		return nil, httperrors.NewMissingParameterError("snapshotpolicy_id")
+	}
+	spObj, err := validators.ValidateModel(ctx, userCred, SnapshotPolicyManager, &input.SnapshotpolicyId)
+	if err != nil {
+		return nil, err
+	}
+	sp := spObj.(*SSnapshotPolicy)
+	if sp.Type != api.SNAPSHOT_POLICY_TYPE_SERVER {
+		return nil, httperrors.NewBadRequestError("The snapshot policy %s is not a server snapshot policy", sp.Name)
+	}
+	// 主机只能绑定一个快照策略
+	cnt, err := SnapshotPolicyResourceManager.GetBindingCount(self.Id, api.SNAPSHOT_POLICY_TYPE_SERVER)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetBindingCount")
+	}
+	if cnt > 0 {
+		return nil, httperrors.NewConflictError("guest already bound to a snapshot policy")
+	}
+	// 若主机下任意磁盘已绑定快照策略，则主机不能再绑定主机快照策略
+	disks, err := self.GetDisks()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetDisks")
+	}
+	for _, d := range disks {
+		diskCnt, err := SnapshotPolicyResourceManager.GetBindingCount(d.Id, api.SNAPSHOT_POLICY_TYPE_DISK)
+		if err != nil {
+			return nil, errors.Wrap(err, "GetBindingCount for disk")
+		}
+		if diskCnt > 0 {
+			return nil, httperrors.NewConflictError("guest has disk %s bound to snapshot policy, guest cannot bind server snapshot policy", d.Name)
+		}
+	}
+	sr := &SSnapshotPolicyResource{}
+	sr.SetModelManager(SnapshotPolicyResourceManager, sr)
+	sr.SnapshotpolicyId = sp.Id
+	sr.ResourceId = self.Id
+	sr.ResourceType = api.SNAPSHOT_POLICY_TYPE_SERVER
+	if err := SnapshotPolicyResourceManager.TableSpec().Insert(ctx, sr); err != nil {
+		return nil, errors.Wrap(err, "Insert")
+	}
+	logclient.AddActionLogWithContext(ctx, self, logclient.ACT_BIND, input, userCred, true)
+	return nil, nil
+}
+
+// 设置主机快照策略
+// 可覆盖当前主机绑定的快照策略，若主机下任意磁盘已绑定快照策略，则自动解除磁盘快照策略
+func (self *SGuest) PerformSetSnapshotpolicy(ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject, input *api.ServerSnapshotpolicyInput) (jsonutils.JSONObject, error) {
+	if len(input.SnapshotpolicyId) == 0 {
+		return nil, httperrors.NewMissingParameterError("snapshotpolicy_id")
+	}
+	spObj, err := validators.ValidateModel(ctx, userCred, SnapshotPolicyManager, &input.SnapshotpolicyId)
+	if err != nil {
+		return nil, err
+	}
+	sp := spObj.(*SSnapshotPolicy)
+	if sp.Type != api.SNAPSHOT_POLICY_TYPE_SERVER {
+		return nil, httperrors.NewBadRequestError("The snapshot policy %s is not a server snapshot policy", sp.Name)
+	}
+	if err := SnapshotPolicyResourceManager.RemoveByResource(self.Id, api.SNAPSHOT_POLICY_TYPE_SERVER); err != nil {
+		return nil, errors.Wrap(err, "RemoveByResource")
+	}
+	// 若主机下任意磁盘已绑定快照策略，则主机不能再绑定主机快照策略
+	disks, err := self.GetDisks()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetDisks")
+	}
+	for _, d := range disks {
+		if err := SnapshotPolicyResourceManager.RemoveByResource(d.Id, api.SNAPSHOT_POLICY_TYPE_DISK); err != nil {
+			return nil, errors.Wrap(err, "RemoveByResource")
+		}
+	}
+	sr := &SSnapshotPolicyResource{}
+	sr.SetModelManager(SnapshotPolicyResourceManager, sr)
+	sr.SnapshotpolicyId = sp.Id
+	sr.ResourceId = self.Id
+	sr.ResourceType = api.SNAPSHOT_POLICY_TYPE_SERVER
+	if err := SnapshotPolicyResourceManager.TableSpec().Insert(ctx, sr); err != nil {
+		return nil, errors.Wrap(err, "Insert")
+	}
+	logclient.AddActionLogWithContext(ctx, self, logclient.ACT_UPDATE, input, userCred, true)
+	return nil, nil
+}
+
 func (self *SGuest) checkGroups(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject,
 	data jsonutils.JSONObject) (sets.String, error) {
 
