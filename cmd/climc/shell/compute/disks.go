@@ -42,32 +42,18 @@ import (
 func init() {
 	cmd := shell.NewResourceCmd(&modules.Disks)
 	cmd.List(&compute_options.DiskListOptions{})
+	cmd.Show(&compute_options.DiskIdOptions{})
+	cmd.Perform("public", &compute_options.DiskIdOptions{})
+	cmd.Perform("private", &compute_options.DiskIdOptions{})
+	cmd.Perform("syncstatus", &compute_options.DiskIdOptions{})
+	cmd.Perform("change-owner-candidate-domains", &compute_options.DiskIdOptions{})
+	cmd.Perform("disk-cancel-delete", &compute_options.DiskIdOptions{})
 	cmd.Perform("set-class-metadata", &options.ResourceMetadataOptions{})
 	cmd.Perform("rebuild", &compute_options.DiskRebuildOptions{})
 	cmd.Perform("migrate", &compute_options.DiskMigrateOptions{})
 	cmd.Perform("reset-template", &compute_options.DiskResetTemplateOptions{})
 	cmd.Perform("change-billing-type", new(compute_options.DiskChangeBillingTypeOptions))
 	cmd.Perform("change-storage-type", &compute_options.DiskChangeStorageTypeOptions{})
-
-	type DiskDetailOptions struct {
-		ID string `help:"ID or Name of disk"`
-	}
-	R(&DiskDetailOptions{}, "disk-show", "Show details of disk", func(s *mcclient.ClientSession, args *DiskDetailOptions) error {
-		disk, e := modules.Disks.Get(s, args.ID, nil)
-		if e != nil {
-			return e
-		}
-		printObject(disk)
-		return nil
-	})
-	R(&DiskDetailOptions{}, "disk-cancel-delete", "Cancel pending delete disks", func(s *mcclient.ClientSession, args *DiskDetailOptions) error {
-		disk, e := modules.Disks.PerformAction(s, args.ID, "cancel-delete", nil)
-		if e != nil {
-			return e
-		}
-		printObject(disk)
-		return nil
-	})
 
 	type DiskDeleteOptions struct {
 		ID                    []string `help:"ID of disks to delete" metavar:"DISK"`
@@ -97,39 +83,12 @@ func init() {
 		return nil
 	})
 
-	R(&DiskDetailOptions{}, "disk-public", "Make a disk public", func(s *mcclient.ClientSession, args *DiskDetailOptions) error {
-		disk, e := modules.Disks.PerformAction(s, args.ID, "public", nil)
-		if e != nil {
-			return e
-		}
-		printObject(disk)
-		return nil
-	})
-
-	R(&DiskDetailOptions{}, "disk-private", "Make a disk private", func(s *mcclient.ClientSession, args *DiskDetailOptions) error {
-		disk, e := modules.Disks.PerformAction(s, args.ID, "private", nil)
-		if e != nil {
-			return e
-		}
-		printObject(disk)
-		return nil
-	})
-
-	R(&DiskDetailOptions{}, "disk-metadata", "Get metadata of a disk", func(s *mcclient.ClientSession, args *DiskDetailOptions) error {
+	R(&compute_options.DiskIdOptions{}, "disk-metadata", "Get metadata of a disk", func(s *mcclient.ClientSession, args *compute_options.DiskIdOptions) error {
 		meta, e := modules.Disks.GetMetadata(s, args.ID, nil)
 		if e != nil {
 			return e
 		}
 		printObject(meta)
-		return nil
-	})
-
-	R(&DiskDetailOptions{}, "disk-syncstatus", "Sync status for disk", func(s *mcclient.ClientSession, args *DiskDetailOptions) error {
-		ret, e := modules.Disks.PerformAction(s, args.ID, "syncstatus", nil)
-		if e != nil {
-			return e
-		}
-		printObject(ret)
 		return nil
 	})
 
@@ -301,7 +260,7 @@ func init() {
 		return nil
 	})
 
-	R(&DiskDetailOptions{}, "disk-change-owner-candidate-domains", "Get change owner candidate domain list", func(s *mcclient.ClientSession, args *DiskDetailOptions) error {
+	R(&compute_options.DiskIdOptions{}, "disk-change-owner-candidate-domains", "Get change owner candidate domain list", func(s *mcclient.ClientSession, args *compute_options.DiskIdOptions) error {
 		result, err := modules.Disks.GetSpecific(s, args.ID, "change-owner-candidate-domains", nil)
 		if err != nil {
 			return err
