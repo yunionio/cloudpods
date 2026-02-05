@@ -90,6 +90,15 @@ func (manager *SGuestManager) FetchCustomizeColumns(
 			}
 		}
 	}
+	if len(fields) == 0 || fields.Contains("snapshotpolicy") {
+		counts := fetchGuestSnapshotpolicyInfo(guestIds)
+		for i := range rows {
+			rows[i].SnapshotpolicyCount = counts[guestIds[i]]
+			for j := range rows[i].DisksInfo {
+				rows[i].DisksSnapshotpolicyCount += counts[rows[i].DisksInfo[j].Id]
+			}
+		}
+	}
 	/*if len(fields) == 0 || fields.Contains("ips") {
 		gips := fetchGuestIPs(guestIds, tristate.False)
 		if gips != nil {
@@ -437,6 +446,34 @@ func fetchGuestDisksInfo(guestIds []string) map[string][]GuestDiskInfo {
 			}
 		}
 	}
+	return ret
+}
+
+func fetchGuestSnapshotpolicyInfo(guestIds []string) map[string]int {
+	ret := map[string]int{}
+	disks := GuestdiskManager.Query("disk_id").In("guest_id", guestIds).SubQuery()
+	spq := SnapshotPolicyResourceManager.Query()
+	spq = spq.Filter(sqlchemy.OR(
+		sqlchemy.In(spq.Field("resource_id"), guestIds),
+		sqlchemy.In(spq.Field("resource_id"), disks),
+	))
+	sq := spq.SubQuery()
+	q := sq.Query(
+		sq.Field("resource_id"),
+		sqlchemy.COUNT("count", sq.Field("snapshotpolicy_id")),
+	).GroupBy(sq.Field("resource_id"))
+	counts := []struct {
+		ResourceId string
+		Count      int
+	}{}
+	err := q.All(&counts)
+	if err != nil {
+		return nil
+	}
+	for _, count := range counts {
+		ret[count.ResourceId] = count.Count
+	}
+
 	return ret
 }
 
