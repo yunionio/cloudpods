@@ -455,13 +455,14 @@ func (mcp *SMCPAgent) process(ctx context.Context, userCred mcclient.TokenCreden
 		content := resp.GetContent()
 		if onStream != nil && len(content) > 0 {
 			// 模拟流式输出：按字符逐块推送
+			runes := []rune(content)
 			chunkSize := 10 // 每次推送10个字符
-			for i := 0; i < len(content); i += chunkSize {
+			for i := 0; i < len(runes); i += chunkSize {
 				end := i + chunkSize
-				if end > len(content) {
-					end = len(content)
+				if end > len(runes) {
+					end = len(runes)
 				}
-				chunk := content[i:end]
+				chunk := string(runes[i:end])
 				if err := onStream(chunk); err != nil {
 					return nil, errors.Wrap(err, "stream content error")
 				}
