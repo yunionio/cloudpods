@@ -1070,6 +1070,11 @@ definitions:
                 format: date-time
                 type: string
                 x-go-name: UpdatedAt
+            url:
+                description: 该认证源的URL, 可以区分ladp是否使用TLS
+                example: ldaps://192.168.100.10, ldap://192.168.100.10
+                type: string
+                x-go-name: URL
             user_count:
                 description: 该认证源关联的所有域的用户数量
                 format: int64
@@ -1180,6 +1185,7 @@ definitions:
                      public    | 外部接口                                               |
                      admin     | 管理类型接口，deprecated                               |
                      console   | web控制台接口，指定显示在web控制台的外部服务的接口地址 |
+                     slave     | 从节点接口，用于读取数据 |
                 type: string
                 x-go-name: Interface
             name:
@@ -1591,33 +1597,39 @@ definitions:
         x-go-package: yunion.io/x/onecloud/pkg/apis/identity
     OrganizationPerformAddLevelsInput:
         properties:
-            Description:
+            description:
                 type: string
-            Tags:
-                additionalProperties:
-                    type: string
-                type: object
-            Weight:
-                format: int64
-                type: integer
+                x-go-name: Description
             key:
                 items:
                     type: string
                 type: array
                 x-go-name: Key
+            tags:
+                additionalProperties:
+                    type: string
+                type: object
+                x-go-name: Tags
+            weight:
+                format: int64
+                type: integer
+                x-go-name: Weight
         type: object
         x-go-package: yunion.io/x/onecloud/pkg/apis/identity
     OrganizationPerformAddNodeInput:
         properties:
-            Description:
+            description:
                 type: string
-            Tags:
+                x-go-name: Description
+            tags:
                 additionalProperties:
                     type: string
                 type: object
-            Weight:
+                x-go-name: Tags
+            weight:
                 format: int64
                 type: integer
+                x-go-name: Weight
         type: object
         x-go-package: yunion.io/x/onecloud/pkg/apis/identity
     OrganizationPerformCleanInput:
@@ -1625,10 +1637,12 @@ definitions:
         x-go-package: yunion.io/x/onecloud/pkg/apis/identity
     OrganizationPerformSyncInput:
         properties:
-            Reset:
+            reset:
                 type: boolean
-            ResourceType:
+                x-go-name: Reset
+            resource_type:
                 type: string
+                x-go-name: ResourceType
         type: object
         x-go-package: yunion.io/x/onecloud/pkg/apis/identity
     OrganizationUpdateInput:
@@ -1821,10 +1835,6 @@ definitions:
         x-go-package: yunion.io/x/onecloud/pkg/apis/identity
     PolicyDetails:
         properties:
-            OrgNodes:
-                items:
-                    $ref: '#/definitions/SOrganizationNodeInfo'
-                type: array
             blob:
                 description: 权限定义
                 type: object
@@ -1917,6 +1927,11 @@ definitions:
                     type: string
                 type: array
                 x-go-name: OrgNodeId
+            org_nodes:
+                items:
+                    $ref: '#/definitions/SOrganizationNodeInfo'
+                type: array
+                x-go-name: OrgNodes
             pending_deleted:
                 description: 资源是否处于回收站中
                 type: boolean
@@ -2669,8 +2684,9 @@ definitions:
         x-go-package: yunion.io/x/onecloud/pkg/apis/identity
     SAccessKeySecretInfo:
         properties:
-            AccessKey:
+            access_key:
                 type: string
+                x-go-name: AccessKey
             expire:
                 format: int64
                 type: integer
@@ -2715,6 +2731,36 @@ definitions:
                     为了兼容不同版本的AK/SK认证方式，使用编码后的字符串传递该信息
                 type: string
                 x-go-name: AccessKeyRequest
+            assume:
+                description: 当认证方式为assume时，通过该字段提供目标用户信息
+                properties:
+                    user:
+                        properties:
+                            domain:
+                                description: 用户所属域的信息
+                                properties:
+                                    id:
+                                        description: 域ID
+                                        type: string
+                                        x-go-name: Id
+                                    name:
+                                        description: 域名称
+                                        type: string
+                                        x-go-name: Name
+                                type: object
+                                x-go-name: Domain
+                            id:
+                                description: 用户ID
+                                type: string
+                                x-go-name: Id
+                            name:
+                                description: 用户名称
+                                type: string
+                                x-go-name: Name
+                        type: object
+                        x-go-name: User
+                type: object
+                x-go-name: Assume
             cas_ticket:
                 description: 当认证方式为cas时，通过该字段提供CAS认证的ID
                 properties:
@@ -3002,10 +3048,12 @@ definitions:
         x-go-package: yunion.io/x/onecloud/pkg/apis/identity
     SGroupRole:
         properties:
-            Group:
+            group:
                 type: string
-            Role:
+                x-go-name: Group
+            role:
                 type: string
+                x-go-name: Role
         type: object
         x-go-package: yunion.io/x/onecloud/pkg/apis/identity
     SIdentityObject:
@@ -3079,9 +3127,10 @@ definitions:
         x-go-package: yunion.io/x/onecloud/pkg/keystone/models
     SJoinProjectsInput:
         properties:
-            Enabled:
+            enabled:
                 description: 启用用户, 仅用户禁用时生效
                 type: boolean
+                x-go-name: Enabled
             projects:
                 items:
                     type: string
@@ -3336,74 +3385,90 @@ definitions:
         x-go-package: yunion.io/x/onecloud/pkg/apis/identity
     SOrganizationNodeInfo:
         properties:
-            FullLabel:
+            full_label:
                 type: string
-            Id:
+                x-go-name: FullLabel
+            id:
                 type: string
-            OrgId:
+                x-go-name: Id
+            org_id:
                 type: string
-            Organization:
+                x-go-name: OrgId
+            organization:
                 type: string
-            Tags:
+                x-go-name: Organization
+            tags:
                 $ref: '#/definitions/TTagSet'
-            Type:
+            type:
                 $ref: '#/definitions/TOrgType'
         type: object
         x-go-package: yunion.io/x/onecloud/pkg/apis/identity
     SProjectAddUserGroupInput:
         properties:
-            EnableAllUsers:
+            enable_all_users:
                 type: boolean
-            Groups:
+                x-go-name: EnableAllUsers
+            groups:
                 items:
                     type: string
                 type: array
-            Roles:
+                x-go-name: Groups
+            roles:
                 items:
                     type: string
                 type: array
-            Users:
+                x-go-name: Roles
+            users:
                 items:
                     type: string
                 type: array
+                x-go-name: Users
         type: object
         x-go-package: yunion.io/x/onecloud/pkg/apis/identity
     SProjectOrganization:
         properties:
-            Id:
+            id:
                 type: string
-            Keys:
+                x-go-name: Id
+            keys:
                 items:
                     type: string
                 type: array
-            Name:
+                x-go-name: Keys
+            name:
                 type: string
-            Nodes:
+                x-go-name: Name
+            nodes:
                 items:
                     $ref: '#/definitions/SProjectOrganizationNode'
                 type: array
+                x-go-name: Nodes
         type: object
         x-go-package: yunion.io/x/onecloud/pkg/apis/identity
     SProjectOrganizationNode:
         properties:
-            Id:
+            id:
                 type: string
-            Labels:
+                x-go-name: Id
+            labels:
                 items:
                     type: string
                 type: array
+                x-go-name: Labels
         type: object
         x-go-package: yunion.io/x/onecloud/pkg/apis/identity
     SProjectRemoveUserGroupInput:
         properties:
-            GroupRoles:
+            group_roles:
                 items:
                     $ref: '#/definitions/SGroupRole'
                 type: array
-            UserRoles:
+                x-go-name: GroupRoles
+            user_roles:
                 items:
                     $ref: '#/definitions/SUserRole'
                 type: array
+                x-go-name: UserRoles
         type: object
         x-go-package: yunion.io/x/onecloud/pkg/apis/identity
     SProjectRole:
@@ -3418,8 +3483,9 @@ definitions:
         x-go-package: yunion.io/x/onecloud/pkg/apis/identity
     SProjectSetAdminInput:
         properties:
-            UserId:
+            user_id:
                 type: string
+                x-go-name: UserId
         type: object
         x-go-package: yunion.io/x/onecloud/pkg/apis/identity
     SRoleAssignment:
@@ -3478,22 +3544,28 @@ definitions:
         x-go-package: yunion.io/x/onecloud/pkg/util/tagutils
     SUserGroup:
         properties:
-            Domain:
+            domain:
                 type: string
-            DomainId:
+                x-go-name: Domain
+            domain_id:
                 type: string
-            Id:
+                x-go-name: DomainId
+            id:
                 type: string
-            Name:
+                x-go-name: Id
+            name:
                 type: string
+                x-go-name: Name
         type: object
         x-go-package: yunion.io/x/onecloud/pkg/apis/identity
     SUserRole:
         properties:
-            Role:
+            role:
                 type: string
-            User:
+                x-go-name: Role
+            user:
                 type: string
+                x-go-name: User
         type: object
         x-go-package: yunion.io/x/onecloud/pkg/apis/identity
     ServiceDetails:
@@ -3898,6 +3970,10 @@ definitions:
             enabled:
                 type: boolean
                 x-go-name: Enabled
+            expired_at:
+                format: date-time
+                type: string
+                x-go-name: ExpiredAt
             generate_name:
                 description: |-
                     生成资源名称的模板，如果name为空，则为必填项
@@ -4181,6 +4257,10 @@ definitions:
             allow_web_console:
                 type: boolean
                 x-go-name: AllowWebConsole
+            clear_expire:
+                description: 清除过期时间
+                type: boolean
+                x-go-name: ClearExpire
             description:
                 description: 资源描述
                 type: string
@@ -4198,6 +4278,11 @@ definitions:
                 description: 是否启用
                 type: boolean
                 x-go-name: Enabled
+            expired_at:
+                description: 过期时间
+                format: date-time
+                type: string
+                x-go-name: ExpiredAt
             is_system_account:
                 type: boolean
                 x-go-name: IsSystemAccount
@@ -10801,18 +10886,24 @@ paths:
                   x-go-name: RoleAssignmentProjectId
                 - description: email
                   in: query
+                  items:
+                    type: string
                   name: email
-                  type: string
+                  type: array
                   x-go-name: Email
                 - description: mobile
                   in: query
+                  items:
+                    type: string
                   name: mobile
-                  type: string
+                  type: array
                   x-go-name: Mobile
                 - description: displayname
                   in: query
+                  items:
+                    type: string
                   name: displayname
-                  type: string
+                  type: array
                   x-go-name: Displayname
                 - description: 是否允许web控制台登录
                   in: query

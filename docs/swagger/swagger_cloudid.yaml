@@ -307,12 +307,6 @@ definitions:
         x-go-package: yunion.io/x/onecloud/pkg/apis/cloudid
     CloudpolicyDetails:
         properties:
-            CloudgroupCount:
-                format: int64
-                type: integer
-            ClouduserCount:
-                format: int64
-                type: integer
             brand:
                 description: 品牌信息
                 type: string
@@ -335,6 +329,14 @@ definitions:
                 description: 云账号Id
                 type: string
                 x-go-name: CloudaccountId
+            cloudgroup_count:
+                format: int64
+                type: integer
+                x-go-name: CloudgroupCount
+            clouduser_count:
+                format: int64
+                type: integer
+                x-go-name: ClouduserCount
             created_at:
                 description: 资源创建时间
                 format: date-time
@@ -1401,12 +1403,6 @@ definitions:
         x-go-package: yunion.io/x/onecloud/pkg/apis/cloudid
     SamluserDetails:
         properties:
-            CloudaccountId:
-                type: string
-            Manager:
-                type: string
-            ManagerId:
-                type: string
             brand:
                 description: 品牌信息
                 type: string
@@ -1425,6 +1421,9 @@ definitions:
                 description: 云账号名称
                 type: string
                 x-go-name: Cloudaccount
+            cloudaccount_id:
+                type: string
+                x-go-name: CloudaccountId
             cloudgroup:
                 description: 公有云用户名称
                 type: string
@@ -1482,6 +1481,12 @@ definitions:
                     list 接口默认不会返回这类资源，除非显示指定 is_emulate=true 过滤参数
                 type: boolean
                 x-go-name: IsEmulated
+            manager:
+                type: string
+                x-go-name: Manager
+            manager_id:
+                type: string
+                x-go-name: ManagerId
             metadata:
                 additionalProperties:
                     type: string

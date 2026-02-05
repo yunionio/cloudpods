@@ -902,9 +902,6 @@ definitions:
         x-go-package: yunion.io/x/onecloud/pkg/apis/monitor
     AlertRecordDetails:
         properties:
-            TriggerTime:
-                format: date-time
-                type: string
             alert_id:
                 type: string
                 x-go-name: AlertId
@@ -1024,6 +1021,10 @@ definitions:
                 description: 项目Id
                 type: string
                 x-go-name: ProjectId
+            trigger_time:
+                format: date-time
+                type: string
+                x-go-name: TriggerTime
             update_fail_reason:
                 $ref: '#/definitions/Error'
             update_version:
@@ -1036,6 +1037,38 @@ definitions:
                 format: date-time
                 type: string
                 x-go-name: UpdatedAt
+        type: object
+        x-go-package: yunion.io/x/onecloud/pkg/apis/monitor
+    AlertRecordHistoryAlert:
+        properties:
+            data:
+                items:
+                    $ref: '#/definitions/AlertRecordHistoryAlertData'
+                type: array
+                x-go-name: Data
+        type: object
+        x-go-package: yunion.io/x/onecloud/pkg/apis/monitor
+    AlertRecordHistoryAlertData:
+        properties:
+            domain:
+                type: string
+                x-go-name: Domain
+            domain_id:
+                type: string
+                x-go-name: DomainId
+            project:
+                type: string
+                x-go-name: Project
+            project_id:
+                type: string
+                x-go-name: ProjectId
+            res_num:
+                format: int64
+                type: integer
+                x-go-name: ResNum
+            res_type:
+                type: string
+                x-go-name: ResType
         type: object
         x-go-package: yunion.io/x/onecloud/pkg/apis/monitor
     AlertRecordRule:
@@ -1086,6 +1119,15 @@ definitions:
                 description: 报警阀值
                 type: string
                 x-go-name: Threshold
+            threshold_range:
+                items:
+                    format: double
+                    type: number
+                type: array
+                x-go-name: ThresholdRange
+            unit:
+                type: string
+                x-go-name: Unit
         type: object
         x-go-package: yunion.io/x/onecloud/pkg/apis/monitor
     AlertRecordShieldCreateInput:
@@ -1443,6 +1485,7 @@ definitions:
             error:
                 type: string
                 x-go-name: Error
+                x-go-type: error
             eval_matches:
                 items:
                     $ref: '#/definitions/EvalMatch'
@@ -1849,6 +1892,9 @@ definitions:
                 x-go-name: UsedBy
         type: object
         x-go-package: yunion.io/x/onecloud/pkg/apis/monitor
+    CommonAlertFieldOpt:
+        type: string
+        x-go-package: yunion.io/x/onecloud/pkg/apis/monitor
     CommonAlertMetricDetails:
         properties:
             FieldDescription:
@@ -1899,30 +1945,28 @@ definitions:
                 format: double
                 type: number
                 x-go-name: Threshold
-            threshold_str:
-                type: string
-                x-go-name: ThresholdStr
-            within_range:
+            threshold_range:
                 items:
                     format: double
                     type: number
                 type: array
-                x-go-name: WithinRange
+                x-go-name: ThresholdRange
+            threshold_str:
+                type: string
+                x-go-name: ThresholdStr
         type: object
         x-go-package: yunion.io/x/onecloud/pkg/apis/monitor
     CommonAlertQuery:
         properties:
             comparator:
-                description: '比较运算符, 比如: >, <, >=, <='
+                description: '比较运算符, 比如: >, <, >=, <=, within_range, outside_range'
                 type: string
                 x-go-name: Comparator
             condition_type:
                 type: string
                 x-go-name: ConditionType
             field_opt:
-                description: field yunsuan
-                type: string
-                x-go-name: FieldOpt
+                $ref: '#/definitions/CommonAlertFieldOpt'
             from:
                 type: string
                 x-go-name: From
@@ -1941,10 +1985,17 @@ definitions:
             result_reducer_order:
                 $ref: '#/definitions/ResultReducerOrder'
             threshold:
-                description: 报警阀值
+                description: 报警阀值 (用于 gt, lt, eq)
                 format: double
                 type: number
                 x-go-name: Threshold
+            threshold_range:
+                description: 范围参数 (用于 within_range, outside_range)
+                items:
+                    format: double
+                    type: number
+                type: array
+                x-go-name: ThresholdRange
             to:
                 type: string
                 x-go-name: To
@@ -2422,8 +2473,6 @@ definitions:
         x-go-package: yunion.io/x/onecloud/pkg/apis/monitor
     MetricFieldUpdateInput:
         properties:
-            Id:
-                type: string
             description:
                 description: 资源描述
                 type: string
@@ -2431,6 +2480,9 @@ definitions:
             display_name:
                 type: string
                 x-go-name: DisplayName
+            id:
+                type: string
+                x-go-name: Id
             name:
                 description: 资源名称
                 type: string
@@ -2884,17 +2936,19 @@ definitions:
         x-go-package: yunion.io/x/onecloud/pkg/apis/monitor
     MetricsQueryResult:
         properties:
-            Metas:
+            metas:
                 items:
                     $ref: '#/definitions/QueryResultMeta'
                 type: array
-            ReducedResult:
+                x-go-name: Metas
+            reduced_result:
                 $ref: '#/definitions/ReducedResult'
-            Series:
+            series:
                 $ref: '#/definitions/TimeSeriesSlice'
-            SeriesTotal:
+            series_total:
                 format: int64
                 type: integer
+                x-go-name: SeriesTotal
         type: object
         x-go-package: yunion.io/x/onecloud/pkg/apis/monitor
     MigrationAlertCreateInput:
@@ -3188,8 +3242,22 @@ definitions:
                 $ref: '#/definitions/Error'
         type: object
         x-go-package: yunion.io/x/onecloud/pkg/apis/monitor
+    MonitorResourceDoActionInput:
+        properties:
+            action:
+                type: string
+                x-go-name: Action
+            data:
+                type: object
+                x-go-name: Data
+        type: object
+        x-go-package: yunion.io/x/onecloud/pkg/apis/monitor
     MonitorResourceJointDetails:
         properties:
+            alert_count:
+                format: int64
+                type: integer
+                x-go-name: AlertCount
             alert_name:
                 type: string
                 x-go-name: AlertName
@@ -3202,6 +3270,9 @@ definitions:
             level:
                 type: string
                 x-go-name: Level
+            monitor_resource_object_id:
+                type: string
+                x-go-name: MonitorResourceObjectId
             res_id:
                 type: string
                 x-go-name: ResId
@@ -3829,6 +3900,40 @@ definitions:
     PerformEnableInput:
         type: object
         x-go-package: yunion.io/x/onecloud/pkg/apis
+    ProjectAlertResourceCount:
+        description: ProjectAlertResourceCount 报警资源统计结果
+        properties:
+            data:
+                items:
+                    $ref: '#/definitions/ProjectAlertResourceCountData'
+                type: array
+                x-go-name: Data
+        type: object
+        x-go-package: yunion.io/x/onecloud/pkg/apis/monitor
+    ProjectAlertResourceCountData:
+        description: ProjectAlertResourceCountData 报警资源统计数据（按 scope 分类）
+        properties:
+            domain:
+                type: string
+                x-go-name: Domain
+            domain_id:
+                type: string
+                x-go-name: DomainId
+            project:
+                type: string
+                x-go-name: Project
+            project_id:
+                type: string
+                x-go-name: ProjectId
+            res_count:
+                format: int64
+                type: integer
+                x-go-name: ResCount
+            scope:
+                type: string
+                x-go-name: Scope
+        type: object
+        x-go-package: yunion.io/x/onecloud/pkg/apis/monitor
     QueryResultMeta:
         properties:
             raw_query:
@@ -5772,6 +5877,10 @@ paths:
                   type: string
                   x-go-name: AlertId
                 - in: query
+                  name: alert_name
+                  type: string
+                  x-go-name: AlertName
+                - in: query
                   name: level
                   type: string
                   x-go-name: Level
@@ -5916,6 +6025,49 @@ paths:
                 "200":
                     $ref: '#/responses/alertrecord_GetDetailsMetadataOutput'
             summary: 获取资源标签（元数据）
+            tags:
+                - alertrecord
+    /alertrecords/history-alert:
+        get:
+            description: 获取指定资源类的信息HistoryAlert
+            operationId: alertrecord_GetPropertyHistoryAlert
+            responses:
+                "200":
+                    $ref: '#/responses/alertrecord_GetPropertyHistoryAlertOutput'
+            summary: 获取过去一天的报警历史分布
+            tags:
+                - alertrecord
+    /alertrecords/project-alert-resource-count:
+        get:
+            description: 获取指定资源类的信息ProjectAlertResourceCount
+            operationId: alertrecord_GetPropertyProjectAlertResourceCount
+            parameters:
+                - format: date-time
+                  in: query
+                  name: start_time
+                  type: string
+                  x-go-name: StartTime
+                - format: date-time
+                  in: query
+                  name: end_time
+                  type: string
+                  x-go-name: EndTime
+                - in: query
+                  name: res_type
+                  type: string
+                  x-go-name: ResType
+                - in: query
+                  name: alert_id
+                  type: string
+                  x-go-name: AlertId
+                - in: query
+                  name: scope
+                  type: string
+                  x-go-name: Scope
+            responses:
+                "200":
+                    $ref: '#/responses/alertrecord_GetPropertyProjectAlertResourceCountOutput'
+            summary: GetPropertyProjectAlertResourceCount 获取指定时间段内各项目下的报警资源数量
             tags:
                 - alertrecord
     /alertrecords/total-alert:
@@ -7488,6 +7640,24 @@ paths:
                   name: monitor_resource_id
                   type: array
                   x-go-name: MonitorResourceId
+                - description: 查询时间段开始时间
+                  format: date-time
+                  in: query
+                  name: start_time
+                  type: string
+                  x-go-name: StartTime
+                - description: 查询时间段结束时间
+                  format: date-time
+                  in: query
+                  name: end_time
+                  type: string
+                  x-go-name: EndTime
+                - description: 返回 top N（默认 5）
+                  format: int64
+                  in: query
+                  name: top
+                  type: integer
+                  x-go-name: Top
                 - description: |-
                     V1AlertListInput
                     报警类型
@@ -9679,6 +9849,24 @@ paths:
                   name: pending_delete
                   type: boolean
                   x-go-name: PendingDelete
+                - description: 查询时间段开始时间
+                  format: date-time
+                  in: query
+                  name: start_time
+                  type: string
+                  x-go-name: StartTime
+                - description: 查询时间段结束时间
+                  format: date-time
+                  in: query
+                  name: end_time
+                  type: string
+                  x-go-name: EndTime
+                - description: 返回 top N（默认 5）
+                  format: int64
+                  in: query
+                  name: top
+                  type: integer
+                  x-go-name: Top
                 - in: query
                   name: monitor_resource_id
                   type: string
@@ -10206,6 +10394,24 @@ paths:
                   pattern: asc|desc
                   type: string
                   x-go-name: OrderByManager
+                - description: 查询时间段开始时间
+                  format: date-time
+                  in: query
+                  name: start_time
+                  type: string
+                  x-go-name: StartTime
+                - description: 查询时间段结束时间
+                  format: date-time
+                  in: query
+                  name: end_time
+                  type: string
+                  x-go-name: EndTime
+                - description: 返回 top N（默认 5）
+                  format: int64
+                  in: query
+                  name: top
+                  type: integer
+                  x-go-name: Top
                 - in: query
                   items:
                     type: string
@@ -10339,6 +10545,31 @@ paths:
                 "200":
                     $ref: '#/responses/monitorresource_PerformChangeOwnerOutput'
             summary: 更改项目
+            tags:
+                - monitorresource
+    /monitorresources/{id}/do-action:
+        post:
+            description: 执行操作DoAction
+            operationId: monitorresource_PerformDoAction
+            parameters:
+                - description: The Id or Name of monitorresource
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: Id
+                - in: body
+                  name: body
+                  schema:
+                    properties:
+                        monitorresource:
+                            $ref: '#/definitions/MonitorResourceDoActionInput'
+                    type: object
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/monitorresource_PerformDoActionOutput'
+            summary: 执行操作DoAction
             tags:
                 - monitorresource
     /monitorresources/{id}/metadata:
@@ -11318,6 +11549,20 @@ responses:
                     type: object
                     x-go-name: Output
             type: object
+    alertrecord_GetPropertyHistoryAlertOutput:
+        description: ""
+        schema:
+            properties:
+                alertrecord:
+                    $ref: '#/definitions/AlertRecordHistoryAlert'
+            type: object
+    alertrecord_GetPropertyProjectAlertResourceCountOutput:
+        description: ""
+        schema:
+            properties:
+                alertrecord:
+                    $ref: '#/definitions/ProjectAlertResourceCount'
+            type: object
     alertrecord_GetPropertyTotalAlertOutput:
         description: ""
     alertrecord_ListItemFilterOutput:
@@ -11954,6 +12199,8 @@ responses:
                     x-go-name: Total
             type: object
     monitorresource_PerformChangeOwnerOutput:
+        description: ""
+    monitorresource_PerformDoActionOutput:
         description: ""
     monitorresource_ValidateCreateDataOutput:
         description: ""

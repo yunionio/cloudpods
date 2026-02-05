@@ -604,13 +604,15 @@ paths:
                 - in: query
                   items:
                     type: string
-                  name: Field
+                  name: field
                   type: array
+                  x-go-name: Field
                 - in: query
                   items:
                     type: string
-                  name: ExtraField
+                  name: extra_field
                   type: array
+                  x-go-name: ExtraField
             responses:
                 "200":
                     $ref: '#/responses/cloudevent_GetPropertyDistinctFieldOutput'
