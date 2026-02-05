@@ -365,10 +365,12 @@ definitions:
         x-go-package: yunion.io/x/onecloud/pkg/httperrors
     FailedElem:
         properties:
-            ContactType:
+            contact_type:
                 type: string
-            Reason:
+                x-go-name: ContactType
+            reason:
                 type: string
+                x-go-name: Reason
         type: object
         x-go-package: yunion.io/x/onecloud/pkg/apis/notify
     GetDetailsStatusOutput:
@@ -652,10 +654,9 @@ definitions:
         x-go-package: yunion.io/x/onecloud/pkg/apis/notify
     NotificationManagerContactNotifyInput:
         properties:
-            Body:
+            body:
                 type: string
-            Subject:
-                type: string
+                x-go-name: Body
             contact_type:
                 description: 'description: contact types'
                 example: email
@@ -682,34 +683,24 @@ definitions:
                     type: string
                 type: array
                 x-go-name: RoleIds
+            subject:
+                type: string
+                x-go-name: Subject
         type: object
         x-go-package: yunion.io/x/onecloud/pkg/apis/notify
     NotificationManagerEventNotifyInput:
         properties:
-            Action:
+            action:
                 $ref: '#/definitions/SAction'
-            CloudAccountName:
-                type: string
-            Event:
-                description: 'description: event trigger sending notification'
-                example: SERVER_DELETE
-                type: string
-            IsFailed:
-                $ref: '#/definitions/SResult'
-            ProjectDomainId:
-                description: 'description: domainId of the resource that triggered the event notification'
-                example: default
-                type: string
-            ResourceType:
-                type: string
-            Result:
-                $ref: '#/definitions/SResult'
             advance_days:
                 description: 'description: day left before the event'
                 example: 0
                 format: int64
                 type: integer
                 x-go-name: AdvanceDays
+            cloud_account_name:
+                type: string
+                x-go-name: CloudAccountName
             contact_type:
                 description: 'description: contact types'
                 example: email
@@ -723,6 +714,13 @@ definitions:
                     $ref: '#/definitions/SContact'
                 type: array
                 x-go-name: Contacts
+            event:
+                description: 'description: event trigger sending notification'
+                example: SERVER_DELETE
+                type: string
+                x-go-name: Event
+            is_failed:
+                $ref: '#/definitions/SResult'
             priority:
                 description: 'description: notification priority'
                 enum:
@@ -732,6 +730,11 @@ definitions:
                 example: normal
                 type: string
                 x-go-name: Priority
+            project_domain_id:
+                description: 'description: domainId of the resource that triggered the event notification'
+                example: default
+                type: string
+                x-go-name: ProjectDomainId
             project_id:
                 description: 'description: projectId of the resource that triggered the event notification'
                 example: f627e09f038645f08ce6880c8d9cb8fd
@@ -750,6 +753,11 @@ definitions:
                     required: ture
                 type: object
                 x-go-name: ResourceDetails
+            resource_type:
+                type: string
+                x-go-name: ResourceType
+            result:
+                $ref: '#/definitions/SResult'
             robot_ids:
                 description: 消息机器人列表
                 items:
@@ -757,15 +765,16 @@ definitions:
                 type: array
                 x-go-name: RobotIds
         required:
-            - Event
+            - event
         type: object
         x-go-package: yunion.io/x/onecloud/pkg/apis/notify
     NotificationManagerEventNotifyOutput:
         properties:
-            FailedList:
+            failed_list:
                 items:
                     $ref: '#/definitions/FailedElem'
                 type: array
+                x-go-name: FailedList
         type: object
         x-go-package: yunion.io/x/onecloud/pkg/apis/notify
     PerformChangeDomainOwnerInput:
@@ -1112,10 +1121,12 @@ definitions:
         x-go-package: yunion.io/x/onecloud/pkg/apis/notify
     ReceiverGetSubscriptionOptions:
         properties:
-            Id:
+            id:
                 type: string
-            ShowDisabled:
+                x-go-name: Id
+            show_disabled:
                 type: boolean
+                x-go-name: ShowDisabled
         type: object
         x-go-package: yunion.io/x/onecloud/pkg/apis/notify
     ReceiverIntellijGetInput:
@@ -1316,6 +1327,9 @@ definitions:
                 description: 共享范围
                 type: string
                 x-go-name: PublicScope
+            secret_key:
+                type: string
+                x-go-name: SecretKey
             status:
                 description: 用来存储资源的状态
                 type: string
@@ -1432,6 +1446,9 @@ definitions:
                 format: float
                 type: number
                 x-go-name: Progress
+            secret_key:
+                type: string
+                x-go-name: SecretKey
         type: object
         x-go-package: yunion.io/x/onecloud/pkg/apis/notify
     SAction:
@@ -1476,59 +1493,85 @@ definitions:
         x-go-package: yunion.io/x/onecloud/pkg/apis/notify
     SNotifyConfigContent:
         properties:
-            AccessKeyId:
+            access_key_id:
                 type: string
-            AccessKeySecret:
+                x-go-name: AccessKeyId
+            access_key_secret:
                 type: string
-            AccessToken:
+                x-go-name: AccessKeySecret
+            access_token:
                 type: string
-            AgentId:
+                x-go-name: AccessToken
+            access_token_expire_time:
+                format: date-time
+                type: string
+                x-go-name: AccessTokenExpireTime
+            agent_id:
                 description: workwx
                 type: string
-            AlertsCode:
+                x-go-name: AgentId
+            alerts_code:
                 type: string
-            AppId:
+                x-go-name: AlertsCode
+            app_id:
                 description: Lark
                 type: string
-            AppKey:
+                x-go-name: AppId
+            app_key:
                 description: |-
                     dingtalk
                     AgentId string
                     AppSecret string
                 type: string
-            AppSecret:
+                x-go-name: AppKey
+            app_secret:
                 type: string
-            CorpId:
+                x-go-name: AppSecret
+            corp_id:
                 type: string
-            ErrorCode:
+                x-go-name: CorpId
+            error_code:
                 type: string
-            Hostname:
+                x-go-name: ErrorCode
+            hostname:
                 description: Email
                 type: string
-            Hostport:
+                x-go-name: Hostname
+            hostport:
                 format: int64
                 type: integer
-            Password:
+                x-go-name: Hostport
+            password:
                 type: string
-            PhoneNumber:
+                x-go-name: Password
+            phone_number:
                 type: string
-            Secret:
+                x-go-name: PhoneNumber
+            secret:
                 type: string
-            SenderAddress:
+                x-go-name: Secret
+            sender_address:
                 type: string
-            ServiceUrl:
+                x-go-name: SenderAddress
+            service_url:
                 type: string
-            Signature:
+                x-go-name: ServiceUrl
+            signature:
                 type: string
-            SmsDriver:
+                x-go-name: Signature
+            sms_driver:
                 type: string
-            SslGlobal:
+                x-go-name: SmsDriver
+            ssl_global:
                 type: boolean
-            Username:
+                x-go-name: SslGlobal
+            username:
                 type: string
-            VerifiyCode:
+                x-go-name: Username
+            verifiy_code:
                 description: sms
                 type: string
+                x-go-name: VerifiyCode
         type: object
         x-go-package: yunion.io/x/onecloud/pkg/apis/notify
     SResult:
@@ -1723,28 +1766,33 @@ definitions:
         x-go-package: yunion.io/x/onecloud/pkg/apis
     SubscriberChangeInput:
         properties:
-            GroupTimes:
+            group_times:
                 description: minutes
                 format: uint32
                 type: integer
-            Receivers:
+                x-go-name: GroupTimes
+            receivers:
                 description: 'description: receivers which is required when the type is ''receiver'' will Subscribe TopicID'
                 items:
                     type: string
                 type: array
-            Robot:
+                x-go-name: Receivers
+            robot:
                 description: 'description: Robot(Id or Name) which is required when the type is ''robot'' will Subscribe TopicID'
                 type: string
-            Role:
+                x-go-name: Robot
+            role:
                 description: 'description: Role(Id or Name) which is required when the type is ''role'' will Subscribe TopicID'
                 type: string
-            RoleScope:
+                x-go-name: Role
+            role_scope:
                 description: 'description: The scope of role subscribers'
                 enum:
                     - system
                     - domain
                     - project
                 type: string
+                x-go-name: RoleScope
         type: object
         x-go-package: yunion.io/x/onecloud/pkg/apis/notify
     SubscriberCreateInput:
@@ -1757,92 +1805,95 @@ definitions:
                     user:rd: op
                 type: object
                 x-go-name: Metadata
-            DomainId:
-                description: 'description: domain id of resource'
-                example: 1e3824756bac4ac084e784ed297ec652
-                type: string
-            GroupTimes:
-                description: minutes
-                format: uint32
-                type: integer
-            Receivers:
-                description: 'description: receivers which is required when the type is ''receiver'' will Subscribe TopicID'
-                items:
-                    type: string
-                type: array
-            ResourceAttributionId:
-                description: 'description: project id or domain id of resource'
-                example: 1e3824756bac4ac084e784ed297ec652
-                type: string
-            ResourceAttributionName:
-                type: string
-            ResourceScope:
-                description: 'description: scope of resource'
-                enum:
-                    - system
-                    - domain
-                    - project
-                type: string
-            Robot:
-                description: 'description: Robot(Id or Name) which is required when the type is ''robot'' will Subscribe TopicID'
-                type: string
-            Role:
-                description: 'description: Role(Id or Name) which is required when the type is ''role'' will Subscribe TopicID'
-                type: string
-            RoleScope:
-                description: 'description: The scope of role subscribers'
-                enum:
-                    - system
-                    - domain
-                    - project
-                type: string
-            Scope:
-                description: 'description: scope'
-                enum:
-                    - system
-                    - domain
-                type: string
-            TopicID:
-                description: |-
-                    description: Id of Topic
-                    required
-                type: string
-            Type:
-                description: 'description: Type of subscriber'
-                enum:
-                    - receiver
-                    - robot
-                    - role
-                type: string
             description:
                 description: 资源描述
                 example: test create network
                 type: string
                 x-go-name: Description
+            domain_id:
+                description: 'description: domain id of resource'
+                example: 1e3824756bac4ac084e784ed297ec652
+                type: string
+                x-go-name: DomainId
             dry_run:
                 default: false
                 description: 预检验参数,若为true则仅检查参数,并不真正创建变更
                 type: boolean
                 x-go-name: DryRun
+            group_times:
+                description: minutes
+                format: uint32
+                type: integer
+                x-go-name: GroupTimes
             is_emulated:
                 description: |-
                     资源是否为模拟资源
                     description: the resource is an emulated resource
                 type: boolean
                 x-go-name: IsEmulated
+            receivers:
+                description: 'description: receivers which is required when the type is ''receiver'' will Subscribe TopicID'
+                items:
+                    type: string
+                type: array
+                x-go-name: Receivers
+            resource_attribution_id:
+                description: 'description: project id or domain id of resource'
+                example: 1e3824756bac4ac084e784ed297ec652
+                type: string
+                x-go-name: ResourceAttributionId
+            resource_attribution_name:
+                type: string
+                x-go-name: ResourceAttributionName
+            resource_scope:
+                description: 'description: scope of resource'
+                enum:
+                    - system
+                    - domain
+                    - project
+                type: string
+                x-go-name: ResourceScope
+            robot:
+                description: 'description: Robot(Id or Name) which is required when the type is ''robot'' will Subscribe TopicID'
+                type: string
+                x-go-name: Robot
+            role:
+                description: 'description: Role(Id or Name) which is required when the type is ''role'' will Subscribe TopicID'
+                type: string
+                x-go-name: Role
+            role_scope:
+                description: 'description: The scope of role subscribers'
+                enum:
+                    - system
+                    - domain
+                    - project
+                type: string
+                x-go-name: RoleScope
+            scope:
+                description: 'description: scope'
+                enum:
+                    - system
+                    - domain
+                type: string
+                x-go-name: Scope
+            topic_id:
+                description: |-
+                    description: Id of Topic
+                    required
+                type: string
+                x-go-name: TopicID
+            type:
+                description: 'description: Type of subscriber'
+                enum:
+                    - receiver
+                    - robot
+                    - role
+                type: string
+                x-go-name: Type
         type: object
         x-go-package: yunion.io/x/onecloud/pkg/apis/notify
     SubscriberDetails:
         properties:
-            Receivers:
-                description: 'description: receivers'
-                items:
-                    $ref: '#/definitions/Identification'
-                type: array
-            Robot:
-                $ref: '#/definitions/Identification'
-            Role:
-                $ref: '#/definitions/Identification'
             can_delete:
                 description: 资源是否可以删除, 若为flase, delete_fail_reason会返回不能删除的原因
                 example: true
@@ -1904,6 +1955,12 @@ definitions:
                 description: 标签
                 type: object
                 x-go-name: Metadata
+            receivers:
+                description: 'description: receivers'
+                items:
+                    $ref: '#/definitions/Identification'
+                type: array
+                x-go-name: Receivers
             resource_attribution_id:
                 type: string
                 x-go-name: ResourceAttributionId
@@ -1913,6 +1970,10 @@ definitions:
             resource_scope:
                 type: string
                 x-go-name: ResourceScope
+            robot:
+                $ref: '#/definitions/Identification'
+            role:
+                $ref: '#/definitions/Identification'
             role_scope:
                 type: string
                 x-go-name: RoleScope
@@ -1941,10 +2002,11 @@ definitions:
         x-go-package: yunion.io/x/onecloud/pkg/apis/notify
     SubscriberSetReceiverInput:
         properties:
-            Receivers:
+            receivers:
                 items:
                     type: string
                 type: array
+                x-go-name: Receivers
         type: object
         x-go-package: yunion.io/x/onecloud/pkg/apis/notify
     TTagSet:
@@ -2029,14 +2091,17 @@ definitions:
         x-go-package: yunion.io/x/onecloud/pkg/apis/notify
     TemplateManagerSaveInput:
         properties:
-            ContactType:
+            contact_type:
                 type: string
-            Force:
+                x-go-name: ContactType
+            force:
                 type: boolean
-            Templates:
+                x-go-name: Force
+            templates:
                 items:
                     $ref: '#/definitions/TemplateCreateInput'
                 type: array
+                x-go-name: Templates
         type: object
         x-go-package: yunion.io/x/onecloud/pkg/apis/notify
     TemplateUpdateInput:
@@ -2185,30 +2250,23 @@ definitions:
         x-go-package: yunion.io/x/onecloud/pkg/apis/notify
     TopicUpdateInput:
         properties:
-            Actions:
+            actions:
                 items:
                     type: string
                 type: array
-            ContentCn:
-                type: string
-            ContentEn:
-                type: string
-            Resources:
-                items:
-                    type: string
-                type: array
-            TitleCn:
-                type: string
-            TitleEn:
-                type: string
-            WebconsoleDisable:
-                type: boolean
+                x-go-name: Actions
             advance_days:
                 items:
                     format: int64
                     type: integer
                 type: array
                 x-go-name: AdvanceDays
+            content_cn:
+                type: string
+                x-go-name: ContentCn
+            content_en:
+                type: string
+                x-go-name: ContentEn
             description:
                 description: 资源描述
                 type: string
@@ -2221,6 +2279,20 @@ definitions:
                 format: float
                 type: number
                 x-go-name: Progress
+            resources:
+                items:
+                    type: string
+                type: array
+                x-go-name: Resources
+            title_cn:
+                type: string
+                x-go-name: TitleCn
+            title_en:
+                type: string
+                x-go-name: TitleEn
+            webconsole_disable:
+                type: boolean
+                x-go-name: WebconsoleDisable
         type: object
         x-go-package: yunion.io/x/onecloud/pkg/apis/notify
     TriState:
@@ -2228,12 +2300,15 @@ definitions:
         x-go-package: yunion.io/x/pkg/tristate
     VerifiedInfo:
         properties:
-            ContactType:
+            contact_type:
                 type: string
-            Note:
+                x-go-name: ContactType
+            note:
                 type: string
-            Verified:
+                x-go-name: Note
+            verified:
                 type: boolean
+                x-go-name: Verified
         type: object
         x-go-package: yunion.io/x/onecloud/pkg/apis/notify
 host: '"127.0.0.1:8889"'
@@ -3872,17 +3947,21 @@ paths:
                   type: array
                   x-go-name: Status
                 - in: query
-                  name: ContactType
+                  name: contact_type
                   type: string
+                  x-go-name: ContactType
                 - in: query
-                  name: ReceiverId
+                  name: receiver_id
                   type: string
+                  x-go-name: ReceiverId
                 - in: query
-                  name: Tag
+                  name: tag
                   type: string
+                  x-go-name: Tag
                 - in: query
-                  name: TopicType
+                  name: topic_type
                   type: string
+                  x-go-name: TopicType
             responses:
                 "200":
                     $ref: '#/responses/notification_ListItemFilterOutput'
@@ -4723,14 +4802,17 @@ paths:
                 - in: query
                   items:
                     type: string
-                  name: RoleIds
+                  name: role_ids
                   type: array
+                  x-go-name: RoleIds
                 - in: query
-                  name: Scope
+                  name: scope
                   type: string
+                  x-go-name: Scope
                 - in: query
-                  name: ProjectDomainId
+                  name: project_domain_id
                   type: string
+                  x-go-name: ProjectDomainId
                 - in: query
                   name: project_id
                   type: string
@@ -5697,31 +5779,35 @@ paths:
                   x-go-name: Enabled
                 - description: 'description: topic id'
                   in: query
-                  name: TopicID
+                  name: topic_id
                   type: string
+                  x-go-name: TopicID
                 - description: 'description: scope of resource'
                   enum:
                     - system
                     - domain
                     - project
                   in: query
-                  name: ResourceScope
+                  name: resource_scope
                   type: string
+                  x-go-name: ResourceScope
                 - description: 'description: type'
                   enum:
                     - receiver
                     - robot
                     - role
                   in: query
-                  name: Type
+                  name: type
                   type: string
+                  x-go-name: Type
                 - description: 'description: scope'
                   enum:
                     - system
                     - domain
                   in: query
-                  name: Scope
+                  name: scope
                   type: string
+                  x-go-name: Scope
             responses:
                 "200":
                     $ref: '#/responses/subscriber_ListItemFilterOutput'
