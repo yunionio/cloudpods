@@ -746,6 +746,16 @@ func (manager *SGuestManager) ListItemFilter(
 			q = q.NotIn("id", spjsq)
 		}
 	}
+	if query.BindingDisksSnapshotpolicy != nil {
+		guestDisks := GuestdiskManager.Query("guest_id")
+		sq := SnapshotPolicyResourceManager.Query("resource_id").Equals("resource_type", api.SNAPSHOT_POLICY_TYPE_DISK).SubQuery()
+		gdsq := guestDisks.Join(sq, sqlchemy.Equals(guestDisks.Field("disk_id"), sq.Field("resource_id"))).SubQuery()
+		if *query.BindingDisksSnapshotpolicy {
+			q = q.In("id", gdsq)
+		} else {
+			q = q.NotIn("id", gdsq)
+		}
+	}
 
 	return q, nil
 }

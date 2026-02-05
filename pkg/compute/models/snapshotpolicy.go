@@ -518,7 +518,12 @@ func (sp *SSnapshotPolicy) PerformBindDisks(
 	return nil, sp.StartBindDisksTask(ctx, userCred, diskIds)
 }
 
-// 绑定主机
+// 绑定资源
+// 目前仅支持绑定主机和磁盘
+// 磁盘只能绑定一个快照策略，已绑定时报错
+// 若磁盘所属主机已绑定主机快照策略，则磁盘不能再绑定快照策略
+// 主机只能绑定一个快照策略，已绑定时报错
+// 若主机下任意磁盘已绑定快照策略，则主机不能再绑定主机快照策略
 func (sp *SSnapshotPolicy) PerformBindResources(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
@@ -531,14 +536,62 @@ func (sp *SSnapshotPolicy) PerformBindResources(
 	for i := range input.Resources {
 		switch input.Resources[i].Type {
 		case api.SNAPSHOT_POLICY_TYPE_DISK:
-			_, err := validators.ValidateModel(ctx, userCred, DiskManager, &input.Resources[i].Id)
+			if sp.Type != api.SNAPSHOT_POLICY_TYPE_DISK {
+				return nil, httperrors.NewBadRequestError("The snapshot policy %s is not a disk snapshot policy", sp.Name)
+			}
+			diskObj, err := validators.ValidateModel(ctx, userCred, DiskManager, &input.Resources[i].Id)
 			if err != nil {
 				return nil, err
 			}
+			disk := diskObj.(*SDisk)
+			// 磁盘只能绑定一个快照策略
+			cnt, err := SnapshotPolicyResourceManager.GetBindingCount(disk.Id, api.SNAPSHOT_POLICY_TYPE_DISK)
+			if err != nil {
+				return nil, errors.Wrap(err, "GetBindingCount")
+			}
+			if cnt > 0 {
+				return nil, httperrors.NewConflictError("disk %s already bound to a snapshot policy", disk.Name)
+			}
+			// 若磁盘所属主机已绑定主机快照策略，则磁盘不能再绑定
+			if guest := disk.GetGuest(); guest != nil {
+				guestCnt, err := SnapshotPolicyResourceManager.GetBindingCount(guest.Id, api.SNAPSHOT_POLICY_TYPE_SERVER)
+				if err != nil {
+					return nil, errors.Wrap(err, "GetBindingCount for guest")
+				}
+				if guestCnt > 0 {
+					return nil, httperrors.NewConflictError("guest %s already has server snapshot policy, disk cannot bind snapshot policy", guest.Name)
+				}
+			}
 		case api.SNAPSHOT_POLICY_TYPE_SERVER:
-			_, err := validators.ValidateModel(ctx, userCred, GuestManager, &input.Resources[i].Id)
+			if sp.Type != api.SNAPSHOT_POLICY_TYPE_SERVER {
+				return nil, httperrors.NewBadRequestError("The snapshot policy %s is not a server snapshot policy", sp.Name)
+			}
+			guestObj, err := validators.ValidateModel(ctx, userCred, GuestManager, &input.Resources[i].Id)
 			if err != nil {
 				return nil, err
+			}
+			guest := guestObj.(*SGuest)
+			// 主机只能绑定一个快照策略
+			cnt, err := SnapshotPolicyResourceManager.GetBindingCount(guest.Id, api.SNAPSHOT_POLICY_TYPE_SERVER)
+			if err != nil {
+				return nil, errors.Wrap(err, "GetBindingCount")
+			}
+			if cnt > 0 {
+				return nil, httperrors.NewConflictError("guest %s already bound to a snapshot policy", guest.Name)
+			}
+			// 若主机下任意磁盘已绑定快照策略，则主机不能再绑定主机快照策略
+			disks, err := guest.GetDisks()
+			if err != nil {
+				return nil, errors.Wrap(err, "guest.GetDisks")
+			}
+			for _, d := range disks {
+				diskCnt, err := SnapshotPolicyResourceManager.GetBindingCount(d.Id, api.SNAPSHOT_POLICY_TYPE_DISK)
+				if err != nil {
+					return nil, errors.Wrap(err, "GetBindingCount for disk")
+				}
+				if diskCnt > 0 {
+					return nil, httperrors.NewConflictError("guest %s has disk %s bound to snapshot policy, guest cannot bind server snapshot policy", guest.Name, d.Name)
+				}
 			}
 		default:
 			return nil, httperrors.NewBadRequestError("Invalid resource type: %s", input.Resources[i].Type)
