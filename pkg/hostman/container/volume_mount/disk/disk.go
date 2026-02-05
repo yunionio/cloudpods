@@ -50,7 +50,7 @@ type IVolumeMountDisk interface {
 	GetHostDiskRootPath(pod volume_mount.IPodInfo, vm *hostapi.ContainerVolumeMount) (string, error)
 
 	GetPostOverlayRootWorkDir(pod volume_mount.IPodInfo, vm *hostapi.ContainerVolumeMount, ctrId string) (string, error)
-	GetPostOverlayRootUpperDir(pod volume_mount.IPodInfo, vm *hostapi.ContainerVolumeMount, ctrId string) (string, error)
+	GetPostOverlayRootUpperDir(pod volume_mount.IPodInfo, vm *hostapi.ContainerVolumeMount, ctrId string, pov *apis.ContainerVolumeMountDiskPostOverlay) (string, error)
 }
 
 type disk struct {
