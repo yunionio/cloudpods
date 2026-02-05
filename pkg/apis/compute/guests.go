@@ -137,6 +137,14 @@ type ServerListInput struct {
 
 	// 根据是否绑定快照策略过滤
 	BindingSnapshotpolicy *bool `json:"binding_snapshotpolicy"`
+	// 根据虚机关联的磁盘是否绑定快照策略过滤
+	BindingDisksSnapshotpolicy *bool `json:"binding_disks_snapshotpolicy"`
+}
+
+// 主机快照策略绑定/设置接口入参
+type ServerSnapshotpolicyInput struct {
+	// 快照策略ID
+	SnapshotpolicyId string `json:"snapshotpolicy_id"`
 }
 
 func (input *ServerListInput) AfterUnmarshal() {
@@ -185,6 +193,11 @@ type ServerDetails struct {
 	Networks string `json:"networks"`
 	// 磁盘概要
 	Disks string `json:"disks"`
+
+	// 主机快照策略数量
+	SnapshotpolicyCount int `json:"snapshotpolicy_count"`
+	// 磁盘快照策略数量
+	DisksSnapshotpolicyCount int `json:"disks_snapshotpolicy_count"`
 
 	// 磁盘详情
 	DisksInfo []GuestDiskInfo `json:"disks_info"`

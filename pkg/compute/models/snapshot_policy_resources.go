@@ -91,3 +91,8 @@ func (man *SSnapshotPolicyResourceManager) RemoveBySnapshotpolicy(id string) err
 	)
 	return err
 }
+
+// GetBindingCount returns the number of snapshot policies bound to the given resource.
+func (man *SSnapshotPolicyResourceManager) GetBindingCount(resourceId, resourceType string) (int, error) {
+	return man.Query().Equals("resource_id", resourceId).Equals("resource_type", resourceType).CountWithError()
+}
