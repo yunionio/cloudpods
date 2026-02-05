@@ -105,6 +105,10 @@ func (h *MiscHandler) Bind(app *appsrv.Application) {
 	s3upload := uploadHandlerInfo(POST, prefix+"s3uploads", FetchAuthToken(h.postS3UploadHandler))
 	app.AddHandler3(s3upload)
 
+	// mcp agent chat stream
+	chatStream := chatHandlerInfo("POST", prefix+"mcp_agents/<id>/chat-stream", FetchAuthToken(mcpAgentChatStreamHandler))
+	app.AddHandler3(chatStream)
+
 	// syslog webservice handlers
 	app.AddHandler(POST, prefix+"syslog/token", handleSyslogWebServiceToken)
 	app.AddHandler(POST, prefix+"syslog/message", handleSyslogWebServiceMessage)
