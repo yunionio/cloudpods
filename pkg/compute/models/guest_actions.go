@@ -150,7 +150,7 @@ func (self *SGuest) PerformEvent(ctx context.Context, userCred mcclient.TokenCre
 		kwargs := jsonutils.NewDict()
 		kwargs.Set("reason", jsonutils.NewString(event))
 		if data.Contains("screen_dump_info") {
-			screenDumpInfo := api.SGuestScreenDump{}
+			screenDumpInfo := api.SGuestScreenDumpInfo{}
 			if err := data.Unmarshal(&screenDumpInfo, "screen_dump_info"); err != nil {
 				log.Errorf("failed unmarshal screen_dump_info %s", err)
 			} else {
