@@ -1153,7 +1153,7 @@ func (s *SKVMGuestInstance) eventGuestPaniced(event *monitor.Event) {
 			if err != nil {
 				log.Errorf("faild put screenDumpPath %s to s3 %s", screenDumpPath, err)
 			} else {
-				screenDumpInfo := api.SGuestScreenDump{
+				screenDumpInfo := api.SGuestScreenDumpInfo{
 					S3AccessKey:  options.HostOptions.S3AccessKey,
 					S3SecretKey:  options.HostOptions.S3SecretKey,
 					S3Endpoint:   options.HostOptions.S3Endpoint,
