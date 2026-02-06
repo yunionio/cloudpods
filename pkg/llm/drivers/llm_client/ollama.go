@@ -323,12 +323,18 @@ func (m OllamaChatMessage) GetToolCalls() []models.ILLMToolCall {
 // OllamaToolCall 表示工具调用
 // 实现 ILLMToolCall 接口
 type OllamaToolCall struct {
+	Index    int                `json:"-"`
 	Function OllamaFunctionCall `json:"function"`
 }
 
 // GetFunction 实现 ILLMToolCall 接口
 func (tc *OllamaToolCall) GetFunction() models.ILLMFunctionCall {
 	return &tc.Function
+}
+
+// GetIndex 实现 ILLMToolCall 接口
+func (tc *OllamaToolCall) GetIndex() int {
+	return tc.Index
 }
 
 // GetId 实现 ILLMToolCall 接口
@@ -346,6 +352,15 @@ type OllamaFunctionCall struct {
 // GetName 实现 ILLMFunctionCall 接口
 func (fc *OllamaFunctionCall) GetName() string {
 	return fc.Name
+}
+
+// GetRawArguments 实现 ILLMFunctionCall 接口
+func (fc *OllamaFunctionCall) GetRawArguments() string {
+	if fc.Arguments == nil {
+		return ""
+	}
+	bytes, _ := json.Marshal(fc.Arguments)
+	return string(bytes)
 }
 
 // GetArguments 实现 ILLMFunctionCall 接口
@@ -427,6 +442,7 @@ func (r *OllamaChatResponse) GetToolCalls() []models.ILLMToolCall {
 	}
 	toolCalls := make([]models.ILLMToolCall, len(r.Message.ToolCalls))
 	for i := range r.Message.ToolCalls {
+		r.Message.ToolCalls[i].Index = i
 		toolCalls[i] = &r.Message.ToolCalls[i]
 	}
 	return toolCalls
