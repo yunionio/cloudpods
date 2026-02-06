@@ -379,6 +379,9 @@ type GuestMetrics struct {
 func (d *GuestMetrics) toTelegrafData(tags map[string]string) []string {
 	var tagArr = []string{}
 	for k, v := range tags {
+		if len(k) == 0 || len(v) == 0 {
+			continue
+		}
 		tagArr = append(tagArr, fmt.Sprintf("%s=%s", k, strings.ReplaceAll(v, " ", "+")))
 	}
 	tagStr := strings.Join(tagArr, ",")
@@ -386,6 +389,9 @@ func (d *GuestMetrics) toTelegrafData(tags map[string]string) []string {
 	mapToStatStr := func(m map[string]interface{}) string {
 		var statArr = []string{}
 		for k, v := range m {
+			if vs, ok := v.(string); ok && len(vs) == 0 {
+				continue
+			}
 			statArr = append(statArr, fmt.Sprintf("%s=%v", k, v))
 		}
 		return strings.Join(statArr, ",")
@@ -398,6 +404,9 @@ func (d *GuestMetrics) toTelegrafData(tags map[string]string) []string {
 	for i := range d.VmNetio {
 		netTagMap := d.VmNetio[i].ToTag()
 		for k, v := range netTagMap {
+			if len(k) == 0 || len(v) == 0 {
+				continue
+			}
 			tagStr = fmt.Sprintf("%s,%s=%s", tagStr, k, v)
 		}
 		res = append(res, fmt.Sprintf("%s,%s %s", "vm_netio", tagStr, mapToStatStr(d.VmNetio[i].ToMap())))
