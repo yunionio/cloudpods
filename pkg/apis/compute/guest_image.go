@@ -28,7 +28,7 @@ type SImagesInGuest struct {
 	DataImages []SSubImage
 }
 
-type SGuestScreenDump struct {
+type SGuestScreenDumpInfo struct {
 	S3AccessKey  string
 	S3SecretKey  string
 	S3Endpoint   string
