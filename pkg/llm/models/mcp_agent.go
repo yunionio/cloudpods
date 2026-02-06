@@ -2,6 +2,7 @@ package models
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
@@ -399,9 +400,6 @@ func (mcp *SMCPAgent) PerformChatStream(
 }
 
 // process 处理用户请求
-// 强制分为两个阶段：
-// 阶段一：使用 Chat 非流式获取工具调用参数，并执行工具
-// 阶段二：使用 ChatStream 流式获取最终响应
 func (mcp *SMCPAgent) process(ctx context.Context, userCred mcclient.TokenCredential, req *api.LLMMCPAgentRequestInput, onStream func(string) error) (*api.MCPAgentResponse, error) {
 	// 获取 MCP Server 的工具列表
 	mcpClient := utils.NewMCPClient(mcp.McpServer, 10*time.Minute, userCred)
@@ -444,41 +442,99 @@ func (mcp *SMCPAgent) process(ctx context.Context, userCred mcclient.TokenCreden
 	var toolCallRecords []api.MCPAgentToolCallRecord
 
 	log.Infof("Phase 1: Thinking & Acting...")
-	resp, err := llmClient.Chat(ctx, mcp, messages, tools)
+
+	// 处理流式的工具调用参数
+	type accumToolCall struct {
+		Id           string
+		Name         string
+		RawArguments strings.Builder
+	}
+	accToolCalls := make(map[int]*accumToolCall)
+	var accumulatedContent strings.Builder
+	hasToolCalls := false
+
+	err = llmClient.ChatStream(ctx, mcp, messages, tools, func(chunk ILLMChatResponse) error {
+		if chunk.HasToolCalls() {
+			hasToolCalls = true
+			for _, tc := range chunk.GetToolCalls() {
+				idx := tc.GetIndex()
+				if _, exists := accToolCalls[idx]; !exists {
+					accToolCalls[idx] = &accumToolCall{
+						Id: tc.GetId(),
+					}
+				}
+
+				atc := accToolCalls[idx]
+				if id := tc.GetId(); id != "" {
+					atc.Id = id
+				}
+				if name := tc.GetFunction().GetName(); name != "" {
+					atc.Name = name
+				}
+				if args := tc.GetFunction().GetRawArguments(); args != "" {
+					atc.RawArguments.WriteString(args)
+				}
+			}
+		}
+
+		content := chunk.GetContent()
+		if len(content) > 0 {
+			accumulatedContent.WriteString(content)
+			if onStream != nil {
+				if err := onStream(content); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	})
+
 	if err != nil {
-		return nil, errors.Wrap(err, "phase 1 chat error")
+		return nil, errors.Wrap(err, "phase 1 chat stream error")
 	}
 
 	// 检查是否有工具调用
-	if !resp.HasToolCalls() {
-		// 如果阶段一没有调用工具，模拟推流返回结果
-		content := resp.GetContent()
-		if onStream != nil && len(content) > 0 {
-			// 模拟流式输出：按字符逐块推送
-			runes := []rune(content)
-			chunkSize := 10 // 每次推送10个字符
-			for i := 0; i < len(runes); i += chunkSize {
-				end := i + chunkSize
-				if end > len(runes) {
-					end = len(runes)
-				}
-				chunk := string(runes[i:end])
-				if err := onStream(chunk); err != nil {
-					return nil, errors.Wrap(err, "stream content error")
-				}
-				// 添加小延迟模拟真实流式输出
-				time.Sleep(10 * time.Millisecond)
-			}
-		}
+	if !hasToolCalls {
+		// 如果阶段一没有调用工具，直接返回结果
 		return &api.MCPAgentResponse{
 			Success:   true,
-			Answer:    content,
+			Answer:    accumulatedContent.String(),
 			ToolCalls: toolCallRecords,
 		}, nil
 	}
 
-	// 处理工具调用
-	toolCalls := resp.GetToolCalls()
+	// Convert accumulated tool calls to ILLMToolCall
+	var toolCalls []ILLMToolCall
+	// Find max index
+	maxIdx := -1
+	for idx := range accToolCalls {
+		if idx > maxIdx {
+			maxIdx = idx
+		}
+	}
+
+	for i := 0; i <= maxIdx; i++ {
+		if atc, ok := accToolCalls[i]; ok {
+			var args map[string]interface{}
+			rawArgs := atc.RawArguments.String()
+			if len(rawArgs) > 0 {
+				if err := json.Unmarshal([]byte(rawArgs), &args); err != nil {
+					log.Errorf("Failed to unmarshal arguments for tool %s: %v. Raw: %s", atc.Name, err, rawArgs)
+					args = make(map[string]interface{})
+				}
+			} else {
+				args = make(map[string]interface{})
+			}
+
+			toolCalls = append(toolCalls, &SLLMToolCall{
+				Id: atc.Id,
+				Function: SLLMFunctionCall{
+					Name:      atc.Name,
+					Arguments: args,
+				},
+			})
+		}
+	}
 	log.Infof("Got %d tool calls from Phase 1", len(toolCalls))
 
 	toolCallRecords, toolMessages, err := processToolCalls(ctx, toolCalls, mcpClient, llmClient)

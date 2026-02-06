@@ -18,12 +18,14 @@ type ILLMChatMessage interface {
 type ILLMToolCall interface {
 	GetId() string
 	GetFunction() ILLMFunctionCall
+	GetIndex() int
 }
 
 // ILLMFunctionCall 表示函数调用详情接口
 type ILLMFunctionCall interface {
 	GetName() string
 	GetArguments() map[string]interface{}
+	GetRawArguments() string
 }
 
 // ILLMTool 表示工具定义接口
@@ -74,6 +76,10 @@ func (tc *SLLMToolCall) GetId() string {
 	return tc.Id
 }
 
+func (tc *SLLMToolCall) GetIndex() int {
+	return 0
+}
+
 func (tc *SLLMToolCall) GetFunction() ILLMFunctionCall {
 	return &tc.Function
 }
@@ -85,6 +91,10 @@ type SLLMFunctionCall struct {
 
 func (fc *SLLMFunctionCall) GetName() string {
 	return fc.Name
+}
+
+func (fc *SLLMFunctionCall) GetRawArguments() string {
+	return ""
 }
 
 func (fc *SLLMFunctionCall) GetArguments() map[string]interface{} {
