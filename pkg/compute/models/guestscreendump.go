@@ -77,7 +77,7 @@ func (self *SGuestScreenDump) Delete(ctx context.Context, userCred mcclient.Toke
 	return db.DeleteModel(ctx, userCred, self)
 }
 
-func (self *SGuest) SaveGuestScreenDump(ctx context.Context, userCred mcclient.TokenCredential, screenDumpInfo *api.SGuestScreenDump) (*SGuestScreenDump, error) {
+func (self *SGuest) SaveGuestScreenDump(ctx context.Context, userCred mcclient.TokenCredential, screenDumpInfo *api.SGuestScreenDumpInfo) (*SGuestScreenDump, error) {
 	sd := new(SGuestScreenDump)
 	sd.SetModelManager(GuestScreenDumpManager, sd)
 	sd.GuestId = self.GetId()
