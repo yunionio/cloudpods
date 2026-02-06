@@ -420,6 +420,7 @@ func (m *OpenAIChatMessage) GetToolCalls() []models.ILLMToolCall {
 }
 
 type OpenAIToolCall struct {
+	Index    int                `json:"index"`
 	ID       string             `json:"id"`
 	Type     string             `json:"type"`
 	Function OpenAIFunctionCall `json:"function"`
@@ -427,6 +428,7 @@ type OpenAIToolCall struct {
 
 func (tc *OpenAIToolCall) GetFunction() models.ILLMFunctionCall { return &tc.Function }
 func (tc *OpenAIToolCall) GetId() string                        { return tc.ID }
+func (tc *OpenAIToolCall) GetIndex() int                        { return tc.Index }
 
 type OpenAIFunctionCall struct {
 	Name      string `json:"name"`
@@ -434,6 +436,7 @@ type OpenAIFunctionCall struct {
 }
 
 func (fc *OpenAIFunctionCall) GetName() string { return fc.Name }
+func (fc *OpenAIFunctionCall) GetRawArguments() string { return fc.Arguments }
 func (fc *OpenAIFunctionCall) GetArguments() map[string]interface{} {
 	var args map[string]interface{}
 	_ = json.Unmarshal([]byte(fc.Arguments), &args)
