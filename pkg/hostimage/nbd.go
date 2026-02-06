@@ -122,7 +122,7 @@ func (m *SNbdExportManager) QemuNbdStartExport(imageInfo qemuimg.SImageInfo, dis
 	cmdStr := strings.Join(cmd, " ")
 	err = procutils.NewRemoteCommandAsFarAsPossible("sh", "-c", cmdStr).Run()
 	if err != nil {
-		log.Errorf("qemu-nbd connect failed %s %s", err.Error())
+		log.Errorf("qemu-nbd connect failed %s %s", cmdStr, err.Error())
 		return -1, errors.Wrapf(err, "qemu-nbd connect failed")
 	}
 	return nbdPort, nil
