@@ -39,8 +39,9 @@ type (
 	Elasticips         map[string]*Elasticip
 	NetworkAddresses   map[string]*NetworkAddress
 
-	Guestnetworks  map[string]*Guestnetwork  // key: rowId
-	Guestsecgroups map[string]*Guestsecgroup // key: guestId/secgroupId
+	Guestnetworks         map[string]*Guestnetwork         // key: rowId
+	Guestsecgroups        map[string]*Guestsecgroup        // key: guestId/secgroupId
+	Guestnetworksecgroups map[string]*Guestnetworksecgroup // key: guestId/networkIndex
 
 	DnsZones   map[string]*DnsZone
 	DnsRecords map[string]*DnsRecord
@@ -581,6 +582,59 @@ func (set Guestnetworks) joinNetworkAddresses(subEntries NetworkAddresses) bool 
 		}
 	}
 	return correct
+}
+
+func (set Guestnetworks) joinGuestnetworksecgroups(subEntries Guestnetworksecgroups) bool {
+	for _, gn := range set {
+		key := fmt.Sprintf("%s/%d", gn.GuestId, gn.Index)
+		gns, ok := subEntries[key]
+		if !ok {
+			continue
+		}
+		if len(gn.Guestnetworksecgroups) == 0 {
+			gn.Guestnetworksecgroups = Guestnetworksecgroups{}
+		}
+		gn.Guestnetworksecgroups[key] = gns
+	}
+	return true
+}
+
+func (set Guestnetworksecgroups) ModelManager() mcclient_modulebase.IBaseManager {
+	return &mcclient_modules.Servernetworksecgroups
+}
+
+func (set Guestnetworksecgroups) DBModelManager() db.IModelManager {
+	return models.GuestnetworksecgroupManager
+}
+
+func (set Guestnetworksecgroups) NewModel() db.IModel {
+	return &Guestnetworksecgroup{}
+}
+
+func (set Guestnetworksecgroups) AddModel(i db.IModel) {
+	m := i.(*Guestnetworksecgroup)
+	k := m.ModelSetKey()
+	set[k] = m
+}
+
+func (set Guestnetworksecgroups) Copy() apihelper.IModelSet {
+	setCopy := Guestnetworksecgroups{}
+	for id, el := range set {
+		setCopy[id] = el.Copy()
+	}
+	return setCopy
+}
+
+func (set Guestnetworksecgroups) joinSecurityGroups(subEntries SecurityGroups) bool {
+	for _, gns := range set {
+		key := gns.SecgroupId
+		secgroup, ok := subEntries[key]
+		if !ok {
+			continue
+		}
+		gns.SecurityGroup = secgroup
+	}
+	return true
 }
 
 func (set NetworkAddresses) ModelManager() mcclient_modulebase.IBaseManager {
