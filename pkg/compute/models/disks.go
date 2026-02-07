@@ -2240,7 +2240,7 @@ func fillDiskConfigBySnapshot(ctx context.Context, userCred mcclient.TokenCreden
 		}
 		diskConfig.SnapshotId = snapshot.Id
 		diskConfig.DiskType = snapshot.DiskType
-		diskConfig.SizeMb = snapshot.Size
+		diskConfig.SizeMb = snapshot.VirtualSize
 		diskConfig.Backend = storage.StorageType
 		diskConfig.Fs = ""
 		diskConfig.Mountpoint = ""
@@ -3118,7 +3118,7 @@ func (self *SDisk) CreateSnapshotAuto(
 		return nil, errors.Wrapf(err, "GetRegionDriver")
 	}
 	snapshot.OutOfChain = driver.SnapshotIsOutOfChain(self)
-	snapshot.Size = self.DiskSize
+	snapshot.VirtualSize = self.DiskSize
 	snapshot.DiskType = self.DiskType
 	snapshot.Location = ""
 	snapshot.CreatedBy = api.SNAPSHOT_AUTO

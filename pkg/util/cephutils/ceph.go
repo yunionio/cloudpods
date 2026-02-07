@@ -494,6 +494,37 @@ func (img *SImage) GetSnapshot(name string) (*SSnapshot, error) {
 	return nil, cloudprovider.ErrNotFound
 }
 
+type SDuSnapshot struct {
+	Name            string // disk id
+	Id              string
+	Snapshot        string // snapshot id
+	SnapshotId      string
+	ProvisionedSize int64
+	UsedSize        int64
+}
+
+func (img *SImage) GetSnapshotUsedSize(diskId, snapshotId string) (int64, error) {
+	opts := img.options()
+
+	snapshotPath := fmt.Sprintf("%s@%s", img.GetName(), snapshotId)
+	opts = append(opts, []string{"du", snapshotPath}...)
+	resp, err := img.client.output("rbd", opts, true)
+	if err != nil {
+		return -1, err
+	}
+	result := []SDuSnapshot{}
+	err = resp.Unmarshal(&result, "images")
+	if err != nil {
+		return -1, errors.Wrapf(err, "ret.Unmarshal")
+	}
+	for i := range result {
+		if result[i].Snapshot == snapshotId {
+			return result[i].UsedSize, nil
+		}
+	}
+	return -1, nil
+}
+
 func (img *SImage) IsSnapshotExist(name string) (bool, error) {
 	_, err := img.GetSnapshot(name)
 	if err != nil {
