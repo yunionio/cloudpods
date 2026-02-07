@@ -273,19 +273,23 @@ func (self *SInstanceSnapshot) getMoreDetails(userCred mcclient.TokenCredential,
 			if snapshots[i].DiskType == api.DISK_TYPE_SYS {
 				osType = snapshots[i].OsType
 			}
+			snapSize := snapshots[i].VirtualSize
+			if snapshots[i].Size > 0 {
+				snapSize = snapshots[i].Size
+			}
 			out.Snapshots = append(out.Snapshots, api.SimpleSnapshot{
 				Id:            snapshots[i].Id,
 				Name:          snapshots[i].Name,
 				StorageId:     snapshots[i].StorageId,
 				DiskType:      snapshots[i].DiskType,
 				CloudregionId: snapshots[i].CloudregionId,
-				Size:          snapshots[i].Size,
+				Size:          snapSize,
 				Status:        snapshots[i].Status,
 				StorageType:   snapshots[i].GetStorageType(),
 				EncryptKeyId:  snapshots[i].EncryptKeyId,
 				CreatedAt:     snapshots[i].CreatedAt,
 			})
-			out.Size += snapshots[i].Size
+			out.Size += snapSize
 
 			if len(snapshots[i].StorageId) > 0 && out.StorageType == "" {
 				out.StorageType = snapshots[i].GetStorageType()

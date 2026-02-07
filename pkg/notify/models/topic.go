@@ -554,6 +554,8 @@ func initTopicElement(name string, t *STopic) {
 			api.ActionSystemPanic,
 			api.ActionSystemException,
 			api.ActionOffline,
+			api.ActionHostDown,
+			api.ActionHostDownAutoMigrate,
 		)
 	case DefaultChecksumTestFailed:
 		t.addResources(
