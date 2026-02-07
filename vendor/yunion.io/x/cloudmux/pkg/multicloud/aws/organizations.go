@@ -192,12 +192,15 @@ func (r *SRegion) ListAccounts() ([]SAccount, error) {
 		for _, actPtr := range parts.Accounts {
 			account := SAccount{
 				ID:              *actPtr.Id,
-				Name:            *actPtr.Name,
+				Name:            *actPtr.Id,
 				Arn:             *actPtr.Arn,
 				Email:           *actPtr.Email,
 				Status:          *actPtr.Status,
 				JoinedMethod:    *actPtr.JoinedMethod,
 				JoinedTimestamp: *actPtr.JoinedTimestamp,
+			}
+			if actPtr.Name != nil && len(*actPtr.Name) > 0 {
+				account.Name = *actPtr.Name
 			}
 			if *orgOutput.Organization.MasterAccountId == *actPtr.Id {
 				account.IsMaster = true
