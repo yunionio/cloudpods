@@ -328,6 +328,8 @@ func ParseNetworkConfig(desc string, idx int) (*compute.NetworkConfig, error) {
 				}
 				netConfig.Addresses6[i] = addr6.String()
 			}
+		} else if strings.HasPrefix(p, "secgroups=") {
+			netConfig.Secgroups = strings.Split(p[len("secgroups="):], ",")
 		} else if p == "require_designated_ip" {
 			netConfig.RequireDesignatedIP = true
 		} else if p == "random_exit" {

@@ -3218,6 +3218,13 @@ func (self *SGuest) PerformAttachnetwork(
 			input.Nets[i].Driver = api.NETWORK_DRIVER_VFIO
 			isolatedDevCount += 1
 		}
+		if len(input.Nets[i].Secgroups) > 0 {
+			secgroupIds, err := isValidSecgroups(ctx, userCred, input.Nets[i].Secgroups)
+			if err != nil {
+				return nil, err
+			}
+			input.Nets[i].Secgroups = secgroupIds
+		}
 		if input.Nets[i].IsDefault {
 			defaultGwCnt++
 		}
@@ -3275,6 +3282,12 @@ func (self *SGuest) PerformAttachnetwork(
 			if err != nil {
 				quotas.CancelPendingUsage(ctx, userCred, pendingUsageHost, pendingUsageHost, false)
 				return nil, errors.Wrap(err, "self.allocSriovNicDevice")
+			}
+		}
+		if len(input.Nets[i].Secgroups) > 0 {
+			err = self.SaveNetworkSecgroups(ctx, userCred, input.Nets[i].Secgroups, gns[0].Index)
+			if err != nil {
+				return nil, errors.Wrap(err, "SaveNetworkSecgroups")
 			}
 		}
 	}

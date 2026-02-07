@@ -153,6 +153,9 @@ func init() {
 	cmd.Get("numa-info", new(options.ServerIdOptions))
 	cmd.BatchPerform("screen-dump", new(options.ServerIdsOptions))
 	cmd.Perform("set-network-num-queues", new(options.ServerSetNetworkNumQueues))
+	cmd.Perform("set-network-secgroup", new(options.ServerNetworkSecGroupsOptions))
+	cmd.Perform("add-network-secgroup", new(options.ServerNetworkSecGroupsOptions))
+	cmd.Perform("revoke-network-secgroup", new(options.ServerNetworkSecGroupsOptions))
 
 	cmd.GetProperty(&options.ServerStatusStatisticsOptions{})
 	cmd.GetProperty(&options.ServerProjectStatisticsOptions{})
