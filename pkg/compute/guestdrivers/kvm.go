@@ -28,7 +28,6 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/httputils"
-	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
@@ -1282,28 +1281,36 @@ func (kvm *SKVMGuestDriver) ValidateGuestChangeConfigInput(ctx context.Context, 
 		return nil, httperrors.NewInvalidStatusError("Can't change extra cpus on vm status %s", guest.Status)
 	}
 
+	var resetNics []api.ServerNicTrafficLimit
+	var setNics []api.ServerNicTrafficLimit
 	for i := range input.ResetTrafficLimits {
-		input.ResetTrafficLimits[i].Mac = netutils.FormatMacAddr(input.ResetTrafficLimits[i].Mac)
-		_, err := guest.GetGuestnetworkByMac(input.ResetTrafficLimits[i].Mac)
+		input, needResetTraffic, err := guest.ValidateChangeNicBillingModeInput(ctx, input.ResetTrafficLimits[i], true)
 		if err != nil {
-			return nil, errors.Wrapf(err, "get guest network by ResetTrafficLimits mac %s", input.ResetTrafficLimits[i].Mac)
+			return nil, errors.Wrap(err, "ValidateChangeNicBillingModeInput")
+		}
+		if needResetTraffic {
+			resetNics = append(resetNics, input)
+		} else {
+			setNics = append(setNics, input)
 		}
 	}
-	if len(input.ResetTrafficLimits) > 0 {
-		confs.ResetTrafficLimits = input.ResetTrafficLimits
-	}
-
 	for i := range input.SetTrafficLimits {
-		input.SetTrafficLimits[i].Mac = netutils.FormatMacAddr(input.SetTrafficLimits[i].Mac)
-		_, err := guest.GetGuestnetworkByMac(input.SetTrafficLimits[i].Mac)
+		input, needResetTraffic, err := guest.ValidateChangeNicBillingModeInput(ctx, input.ResetTrafficLimits[i], false)
 		if err != nil {
-			return nil, errors.Wrapf(err, "get guest network by SetTrafficLimits mac %s", input.SetTrafficLimits[i].Mac)
+			return nil, errors.Wrap(err, "ValidateChangeNicBillingModeInput")
+		}
+		if needResetTraffic {
+			resetNics = append(resetNics, input)
+		} else {
+			setNics = append(setNics, input)
 		}
 	}
-	if len(input.SetTrafficLimits) > 0 {
-		confs.SetTrafficLimits = input.SetTrafficLimits
+	if len(resetNics) > 0 {
+		confs.ResetTrafficLimits = resetNics
 	}
-
+	if len(setNics) > 0 {
+		confs.SetTrafficLimits = setNics
+	}
 	return confs, nil
 }
 

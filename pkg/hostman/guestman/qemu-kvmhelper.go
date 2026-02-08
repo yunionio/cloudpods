@@ -1095,16 +1095,16 @@ func (s *SKVMGuestInstance) WriteMigrateCerts(certs map[string]string) error {
 	return nil
 }
 
-func (s *SKVMGuestInstance) SetNicDown(index int) error {
+func (s *SKVMGuestInstance) SetNicDown(mac string) error {
 	var nic *desc.SGuestNetwork
 	for i := range s.Desc.Nics {
-		if s.Desc.Nics[i].Index == index {
+		if s.Desc.Nics[i].Mac == mac {
 			nic = s.Desc.Nics[i]
 			break
 		}
 	}
 	if nic == nil {
-		return errors.Errorf("guest %s has no nic index %d", s.GetName(), index)
+		return errors.Errorf("guest %s has no nic with mac %s", s.GetName(), mac)
 	}
 	scriptPath := s.getNicDownScriptPath(nic)
 	out, err := procutils.NewRemoteCommandAsFarAsPossible("bash", scriptPath).Output()

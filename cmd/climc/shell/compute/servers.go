@@ -30,6 +30,7 @@ import (
 	"yunion.io/x/pkg/util/printutils"
 
 	"yunion.io/x/onecloud/cmd/climc/shell"
+	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
@@ -217,7 +218,7 @@ func init() {
 			params.Name = opts.NAME
 			params.AutoStart = opts.AutoStart
 			params.Eip = opts.Eip
-			params.EipChargeType = opts.EipChargeType
+			params.EipChargeType = billing_api.ParseNetChargeType(opts.EipChargeType)
 			params.EipBw = opts.EipBw
 
 			server, err := modules.Servers.Create(s, params.JSON(params))

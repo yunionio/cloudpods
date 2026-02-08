@@ -253,7 +253,7 @@ func (self *ManagedGuestCreateDiskTask) OnManagedDiskPrepared(ctx context.Contex
 				logclient.AddActionLogWithStartable(self, guest, logclient.ACT_CHANGE_BILLING_TYPE, errors.Wrapf(err, "GetIDisk %s", disk.ExternalId), self.UserCred, false)
 				continue
 			}
-			err = idisk.ChangeBillingType(guest.BillingType)
+			err = idisk.ChangeBillingType(string(guest.BillingType))
 			if err != nil {
 				logclient.AddActionLogWithStartable(self, guest, logclient.ACT_CHANGE_BILLING_TYPE, errors.Wrapf(err, "ChangeBillingType %s", disk.ExternalId), self.UserCred, false)
 				continue

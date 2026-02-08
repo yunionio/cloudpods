@@ -14,9 +14,41 @@
 
 package billing
 
-import "yunion.io/x/cloudmux/pkg/apis/billing"
+import (
+	"yunion.io/x/cloudmux/pkg/apis/billing"
+	"yunion.io/x/cloudmux/pkg/apis/compute"
+)
+
+type TBillingType string
 
 const (
-	BILLING_TYPE_POSTPAID = billing.BILLING_TYPE_POSTPAID
-	BILLING_TYPE_PREPAID  = billing.BILLING_TYPE_PREPAID
+	BILLING_TYPE_POSTPAID = TBillingType(billing.BILLING_TYPE_POSTPAID)
+	BILLING_TYPE_PREPAID  = TBillingType(billing.BILLING_TYPE_PREPAID)
 )
+
+type TNetChargeType string
+
+const (
+	NET_CHARGE_TYPE_BY_TRAFFIC   = TNetChargeType(compute.EIP_CHARGE_TYPE_BY_TRAFFIC)
+	NET_CHARGE_TYPE_BY_BANDWIDTH = TNetChargeType(compute.EIP_CHARGE_TYPE_BY_BANDWIDTH)
+)
+
+func ParseBillingType(s string) TBillingType {
+	switch s {
+	case string(BILLING_TYPE_POSTPAID):
+		return BILLING_TYPE_POSTPAID
+	case string(BILLING_TYPE_PREPAID):
+		return BILLING_TYPE_PREPAID
+	}
+	return ""
+}
+
+func ParseNetChargeType(s string) TNetChargeType {
+	switch s {
+	case string(NET_CHARGE_TYPE_BY_TRAFFIC):
+		return NET_CHARGE_TYPE_BY_TRAFFIC
+	case string(NET_CHARGE_TYPE_BY_BANDWIDTH):
+		return NET_CHARGE_TYPE_BY_BANDWIDTH
+	}
+	return ""
+}

@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/pkg/util/fileutils"
 	"yunion.io/x/pkg/util/regutils"
 
+	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	"yunion.io/x/onecloud/pkg/apis/cloudcommon/db"
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	schedapi "yunion.io/x/onecloud/pkg/apis/scheduler"
@@ -592,9 +593,9 @@ func (opts *ServerCreateOptionalOptions) OptionalParams() (*computeapi.ServerCre
 		AutoPrepaidRecycle: opts.AutoPrepaidRecycle,
 		EipBw:              opts.EipBw,
 		EipBgpType:         opts.EipBgpType,
-		EipChargeType:      opts.EipChargeType,
+		EipChargeType:      billing_api.TNetChargeType(opts.EipChargeType),
 		PublicIpBw:         opts.PublicIpBw,
-		PublicIpChargeType: opts.PublicIpChargeType,
+		PublicIpChargeType: billing_api.TNetChargeType(opts.PublicIpChargeType),
 		Eip:                opts.Eip,
 		EnableCloudInit:    opts.EnableCloudInit,
 		OsType:             opts.OsType,
@@ -1085,6 +1086,8 @@ type ServerNicTrafficLimitOptions struct {
 	MAC            string `help:"guest network mac address"`
 	RxTrafficLimit *int64 `help:" rx traffic limit, unit Byte"`
 	TxTrafficLimit *int64 `help:" tx traffic limit, unit Byte"`
+	ChargeType     string `help:"nic charge type" choices:"bandwidth|traffic"`
+	BillingType    string `help:"nic billing type" choices:"prepaid|postpaid"`
 }
 
 func (o *ServerNicTrafficLimitOptions) Params() (jsonutils.JSONObject, error) {

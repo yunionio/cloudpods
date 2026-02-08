@@ -19,6 +19,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/apis/billing"
+	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	"yunion.io/x/onecloud/pkg/util/ansible"
 )
 
@@ -181,7 +182,7 @@ type LoadbalancerCreateInput struct {
 	// 弹性公网IP线路类型
 	EipBgpType string `json:"eip_bgp_type,omitzero"`
 	// 弹性公网IP计费类型
-	EipChargeType string `json:"eip_charge_type,omitempty"`
+	EipChargeType billing_api.TNetChargeType `json:"eip_charge_type,omitempty"`
 	// 是否跟随主机删除而自动释放
 	EipAutoDellocate bool `json:"eip_auto_dellocate,omitempty"`
 
@@ -200,7 +201,7 @@ type LoadbalancerCreateInput struct {
 	// 包年包月时长
 	Duration string `json:"duration"`
 	// swagger:ignore
-	BillingType string `json:"billing_type"`
+	BillingType billing_api.TBillingType `json:"billing_type"`
 	// swagger:ignore
 	BillingCycle string `json:"billing_cycle"`
 
@@ -234,7 +235,7 @@ type LoadbalancerAssociateEipInput struct {
 
 type LoadbalancerCreateEipInput struct {
 	// 计费方式，traffic or bandwidth
-	ChargeType string `json:"charge_type"`
+	ChargeType billing_api.TNetChargeType `json:"charge_type"`
 
 	// Bandwidth
 	Bandwidth int64 `json:"bandwidth"`

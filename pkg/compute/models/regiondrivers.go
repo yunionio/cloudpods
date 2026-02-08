@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/pkg/util/billing"
 	"yunion.io/x/sqlchemy"
 
+	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
@@ -109,8 +110,8 @@ type ISecurityGroupDriver interface {
 }
 
 type IEipDriver interface {
-	GetEipDefaultChargeType() string
-	ValidateEipChargeType(chargeType string) error
+	GetEipDefaultChargeType() billing_api.TNetChargeType
+	ValidateEipChargeType(chargeType billing_api.TNetChargeType) error
 	ValidateCreateEipData(ctx context.Context, userCred mcclient.TokenCredential, input *api.SElasticipCreateInput) error
 }
 
