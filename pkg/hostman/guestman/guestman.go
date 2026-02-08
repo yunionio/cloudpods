@@ -20,7 +20,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"path"
@@ -1790,7 +1789,7 @@ func (m *SGuestManager) RequestVerifyDirtyServer(s GuestRuntimeInstance) {
 }
 
 func (m *SGuestManager) ResetGuestNicTrafficLimit(guestId string, input []compute.ServerNicTrafficLimit) error {
-	guest, ok := m.GetKVMServer(guestId)
+	guest, ok := m.GetServer(guestId)
 	if !ok {
 		return httperrors.NewNotFoundError("guest %s not found", guestId)
 	}
@@ -1803,17 +1802,18 @@ func (m *SGuestManager) ResetGuestNicTrafficLimit(guestId string, input []comput
 		}
 	}
 
-	if err := SaveLiveDesc(guest, guest.Desc); err != nil {
+	if err := SaveLiveDesc(guest, guest.GetDesc()); err != nil {
 		return errors.Wrap(err, "guest save desc")
 	}
 	return nil
 }
 
-func (m *SGuestManager) resetGuestNicTrafficLimit(guest *SKVMGuestInstance, input compute.ServerNicTrafficLimit) error {
+func (m *SGuestManager) resetGuestNicTrafficLimit(guest GuestRuntimeInstance, input compute.ServerNicTrafficLimit) error {
 	var nic *desc.SGuestNetwork
-	for i := range guest.Desc.Nics {
-		if guest.Desc.Nics[i].Mac == input.Mac {
-			nic = guest.Desc.Nics[i]
+	desc := guest.GetDesc()
+	for i := range desc.Nics {
+		if desc.Nics[i].Mac == input.Mac {
+			nic = desc.Nics[i]
 			break
 		}
 	}
@@ -1823,11 +1823,15 @@ func (m *SGuestManager) resetGuestNicTrafficLimit(guest *SKVMGuestInstance, inpu
 
 	recordPath := guest.NicTrafficRecordPath()
 	if fileutils2.Exists(recordPath) {
-		record, err := m.GetGuestTrafficRecord(guest.Id)
+		record, err := m.GetGuestTrafficRecord(guest.GetInitialId())
 		if err != nil {
 			return errors.Wrap(err, "failed load guest traffic record")
 		}
-		if nicRecord, ok := record[strconv.Itoa(int(nic.Index))]; ok {
+		nicRecord, ok := record[nic.Mac]
+		if !ok {
+			nicRecord = record[strconv.Itoa(int(nic.Index))]
+		}
+		if nicRecord != nil {
 			if nicRecord.TxTraffic >= nic.TxTrafficLimit || nicRecord.RxTraffic >= nic.RxTrafficLimit {
 				err = guest.SetNicUp(nic)
 				if err != nil {
@@ -1835,8 +1839,13 @@ func (m *SGuestManager) resetGuestNicTrafficLimit(guest *SKVMGuestInstance, inpu
 				}
 			}
 		}
-		delete(record, strconv.Itoa(int(nic.Index)))
-		if err = m.SaveGuestTrafficRecord(guest.Id, record); err != nil {
+		if _, ok := record[nic.Mac]; ok {
+			delete(record, nic.Mac)
+		}
+		if _, ok := record[strconv.Itoa(int(nic.Index))]; ok {
+			delete(record, strconv.Itoa(int(nic.Index)))
+		}
+		if err = m.SaveGuestTrafficRecord(guest.GetInitialId(), record); err != nil {
 			return errors.Wrap(err, "failed save guest traffic record")
 		}
 	}
@@ -1846,14 +1855,22 @@ func (m *SGuestManager) resetGuestNicTrafficLimit(guest *SKVMGuestInstance, inpu
 	if input.TxTrafficLimit != nil {
 		nic.TxTrafficLimit = *input.TxTrafficLimit
 	}
+	if input.BillingType != "" {
+		nic.BillingType = input.BillingType
+	}
+	if input.ChargeType != "" {
+		nic.ChargeType = input.ChargeType
+	}
 	return nil
 }
 
-func (m *SGuestManager) setNicTrafficLimit(guest *SKVMGuestInstance, input compute.ServerNicTrafficLimit) error {
+// set the limit of nic traffic, if the traffic is less than the limit, set the nic up
+func (m *SGuestManager) setNicTrafficLimit(guest GuestRuntimeInstance, input compute.ServerNicTrafficLimit) error {
 	var nic *desc.SGuestNetwork
-	for i := range guest.Desc.Nics {
-		if guest.Desc.Nics[i].Mac == input.Mac {
-			nic = guest.Desc.Nics[i]
+	desc := guest.GetDesc()
+	for i := range desc.Nics {
+		if desc.Nics[i].Mac == input.Mac {
+			nic = desc.Nics[i]
 			break
 		}
 	}
@@ -1867,13 +1884,23 @@ func (m *SGuestManager) setNicTrafficLimit(guest *SKVMGuestInstance, input compu
 	if input.TxTrafficLimit != nil {
 		nic.TxTrafficLimit = *input.TxTrafficLimit
 	}
+	if input.BillingType != "" {
+		nic.BillingType = input.BillingType
+	}
+	if input.ChargeType != "" {
+		nic.ChargeType = input.ChargeType
+	}
 	recordPath := guest.NicTrafficRecordPath()
 	if fileutils2.Exists(recordPath) {
-		record, err := m.GetGuestTrafficRecord(guest.Id)
+		record, err := m.GetGuestTrafficRecord(guest.GetInitialId())
 		if err != nil {
 			return errors.Wrap(err, "failed load guest traffic record")
 		}
-		if nicRecord, ok := record[strconv.Itoa(int(nic.Index))]; ok {
+		nicRecord, ok := record[nic.Mac]
+		if !ok {
+			nicRecord = record[strconv.Itoa(int(nic.Index))]
+		}
+		if record != nil {
 			if nicRecord.TxTraffic < nic.TxTrafficLimit && nicRecord.RxTraffic < nic.RxTrafficLimit {
 				err = guest.SetNicUp(nic)
 				if err != nil {
@@ -1881,13 +1908,13 @@ func (m *SGuestManager) setNicTrafficLimit(guest *SKVMGuestInstance, input compu
 				}
 			}
 		}
-		return m.SaveGuestTrafficRecord(guest.Id, record)
+		return m.SaveGuestTrafficRecord(guest.GetInitialId(), record)
 	}
 	return nil
 }
 
 func (m *SGuestManager) SetGuestNicTrafficLimit(guestId string, input []compute.ServerNicTrafficLimit) error {
-	guest, ok := m.GetKVMServer(guestId)
+	guest, ok := m.GetServer(guestId)
 	if !ok {
 		return httperrors.NewNotFoundError("guest %s not found", guestId)
 	}
@@ -1901,31 +1928,31 @@ func (m *SGuestManager) SetGuestNicTrafficLimit(guestId string, input []compute.
 		}
 	}
 
-	if err := SaveLiveDesc(guest, guest.Desc); err != nil {
+	if err := SaveLiveDesc(guest, guest.GetDesc()); err != nil {
 		return errors.Wrap(err, "guest save desc")
 	}
 
 	return nil
 }
 
-func (m *SGuestManager) SaveGuestTrafficRecord(sid string, record map[string]compute.SNicTrafficRecord) error {
+func (m *SGuestManager) SaveGuestTrafficRecord(sid string, record map[string]*compute.SNicTrafficRecord) error {
 	guest, _ := m.GetServer(sid)
 	recordPath := guest.NicTrafficRecordPath()
 	v, _ := json.Marshal(record)
 	return fileutils2.FilePutContents(recordPath, string(v), false)
 }
 
-func (m *SGuestManager) GetGuestTrafficRecord(sid string) (map[string]compute.SNicTrafficRecord, error) {
+func (m *SGuestManager) GetGuestTrafficRecord(sid string) (map[string]*compute.SNicTrafficRecord, error) {
 	guest, _ := m.GetServer(sid)
 	recordPath := guest.NicTrafficRecordPath()
 	if !fileutils2.Exists(recordPath) {
 		return nil, nil
 	}
-	recordStr, err := ioutil.ReadFile(recordPath)
+	recordStr, err := os.ReadFile(recordPath)
 	if err != nil {
 		return nil, errors.Wrapf(err, "read traffic record %s", recordPath)
 	}
-	record := make(map[string]compute.SNicTrafficRecord)
+	record := make(map[string]*compute.SNicTrafficRecord)
 	err = json.Unmarshal(recordStr, &record)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed unmarshal traffic record %s", recordPath)
@@ -2000,7 +2027,7 @@ func (m *SGuestManager) RequestGuestScreenDump(sid string) (jsonutils.JSONObject
 	return nil, errors.Errorf("unknown ret of screendump")
 }
 
-func SyncGuestNicsTraffics(guestNicsTraffics map[string]map[string]compute.SNicTrafficRecord) {
+func SyncGuestNicsTraffics(guestNicsTraffics *compute.GuestNicTrafficSyncInput) {
 	session := hostutils.GetComputeSession(context.Background())
 	hostId := guestManager.host.GetHostId()
 	data := jsonutils.Marshal(guestNicsTraffics)

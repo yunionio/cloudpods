@@ -106,9 +106,10 @@ type SElasticip struct {
 	// 带宽大小
 	Bandwidth int `list:"user" create:"optional" default:"0"`
 
+	SBillingChargeTypeBase
 	// 计费类型: 流量、带宽
 	// example: bandwidth
-	ChargeType string `width:"64" name:"charge_type" list:"user" create:"required"`
+	// ChargeType billing_api.TNetChargeType `width:"64" name:"charge_type" list:"user" create:"required"`
 	// 线路类型
 	BgpType string `width:"64" charset:"utf8" nullable:"true" get:"user" list:"user" create:"optional"`
 
@@ -607,10 +608,10 @@ func (self *SElasticip) SyncWithCloudEip(ctx context.Context, userCred mcclient.
 		self.AssociateType = ext.GetAssociationType()
 
 		if chargeType := ext.GetInternetChargeType(); len(chargeType) > 0 {
-			self.ChargeType = chargeType
+			self.ChargeType = billing_api.TNetChargeType(chargeType)
 		}
 
-		self.BillingType = ext.GetBillingType()
+		self.BillingType = billing_api.TBillingType(ext.GetBillingType())
 		self.ExpiredAt = time.Time{}
 		self.AutoRenew = false
 		if self.BillingType == billing_api.BILLING_TYPE_PREPAID {
@@ -665,12 +666,12 @@ func (manager *SElasticipManager) newFromCloudEip(ctx context.Context, userCred 
 	eip.IsEmulated = extEip.IsEmulated()
 	eip.ManagerId = provider.Id
 	eip.CloudregionId = region.Id
-	eip.ChargeType = extEip.GetInternetChargeType()
+	eip.ChargeType = billing_api.TNetChargeType(extEip.GetInternetChargeType())
 	eip.AssociateType = extEip.GetAssociationType()
 	if !extEip.GetCreatedAt().IsZero() {
 		eip.CreatedAt = extEip.GetCreatedAt()
 	}
-	eip.BillingType = extEip.GetBillingType()
+	eip.BillingType = billing_api.TBillingType(extEip.GetBillingType())
 	eip.ExpiredAt = time.Time{}
 	eip.AutoRenew = false
 	if eip.BillingType == billing_api.BILLING_TYPE_PREPAID {
@@ -678,7 +679,7 @@ func (manager *SElasticipManager) newFromCloudEip(ctx context.Context, userCred 
 		eip.AutoRenew = extEip.IsAutoRenew()
 	}
 	if len(eip.ChargeType) == 0 {
-		eip.ChargeType = api.EIP_CHARGE_TYPE_BY_TRAFFIC
+		eip.ChargeType = billing_api.NET_CHARGE_TYPE_BY_TRAFFIC
 	}
 	eip.Bandwidth = extEip.GetBandwidth()
 	if networkId := extEip.GetINetworkId(); len(networkId) > 0 {
@@ -1062,11 +1063,11 @@ func (manager *SElasticipManager) ValidateCreateData(ctx context.Context, userCr
 	input.Mode = api.EIP_MODE_STANDALONE_EIP
 
 	if input.ChargeType == "" {
-		input.ChargeType = regionDriver.GetEipDefaultChargeType()
+		input.ChargeType = billing_api.TNetChargeType(regionDriver.GetEipDefaultChargeType())
 	}
 
-	if !utils.IsInStringArray(input.ChargeType, []string{api.EIP_CHARGE_TYPE_BY_BANDWIDTH, api.EIP_CHARGE_TYPE_BY_TRAFFIC}) {
-		return input, httperrors.NewInputParameterError("charge type %s not supported", input.ChargeType)
+	if !utils.IsInStringArray(string(input.ChargeType), []string{string(billing_api.NET_CHARGE_TYPE_BY_BANDWIDTH), string(billing_api.NET_CHARGE_TYPE_BY_TRAFFIC)}) {
+		return input, httperrors.NewInputParameterError("charge type %s not supported", string(input.ChargeType))
 	}
 
 	input.VirtualResourceCreateInput, err = manager.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.VirtualResourceCreateInput)
@@ -1625,7 +1626,7 @@ func (a SEipNetworks) Less(i, j int) bool {
 type NewEipForVMOnHostArgs struct {
 	Bandwidth     int
 	BgpType       string
-	ChargeType    string
+	ChargeType    billing_api.TNetChargeType
 	AutoDellocate bool
 
 	Group        *SGroup
@@ -1668,8 +1669,8 @@ func (manager *SElasticipManager) NewEipForVMOnHost(ctx context.Context, userCre
 
 	regionDriver := region.GetDriver()
 
-	if chargeType == "" {
-		chargeType = regionDriver.GetEipDefaultChargeType()
+	if len(chargeType) == 0 {
+		chargeType = billing_api.TNetChargeType(regionDriver.GetEipDefaultChargeType())
 	}
 	if err := regionDriver.ValidateEipChargeType(chargeType); err != nil {
 		return nil, err
@@ -1682,7 +1683,7 @@ func (manager *SElasticipManager) NewEipForVMOnHost(ctx context.Context, userCre
 	// do not implicitly auto dellocate EIP, should be set by user explicitly
 	// eip.AutoDellocate = tristate.True
 	eip.Bandwidth = bw
-	eip.ChargeType = chargeType
+	eip.ChargeType = billing_api.TNetChargeType(chargeType)
 	eip.BgpType = args.BgpType
 	eip.AutoDellocate = tristate.NewFromBool(autoDellocate)
 	ownerCred := userCred.(mcclient.IIdentityProvider)

@@ -455,7 +455,7 @@ func (self *SModelartsPool) SyncWithCloudModelartsPool(ctx context.Context, user
 		}
 
 		self.Status = ext.GetStatus()
-		self.BillingType = ext.GetBillingType()
+		self.BillingType = billing_api.TBillingType(ext.GetBillingType())
 		self.InstanceType = instanceName
 		self.WorkType = ext.GetWorkType()
 		self.CpuArch = sku.CpuArch
@@ -499,7 +499,7 @@ func (self *SCloudregion) newFromCloudModelartsPool(ctx context.Context, userCre
 	}
 	pool.CpuArch = sku.CpuArch
 
-	pool.BillingType = ext.GetBillingType()
+	pool.BillingType = billing_api.TBillingType(ext.GetBillingType())
 	pool.ExpiredAt = time.Time{}
 	pool.AutoRenew = false
 	if pool.BillingType == billing_api.BILLING_TYPE_PREPAID {

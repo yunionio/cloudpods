@@ -32,6 +32,7 @@ import (
 	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/sqlchemy"
 
+	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
@@ -124,9 +125,8 @@ type SGuestnetwork struct {
 	// 端口映射
 	PortMappings api.GuestPortMappings `length:"long" list:"user" update:"user"`
 
-	// 计费类型: 流量、带宽
-	// example: bandwidth
-	ChargeType string `width:"64" name:"charge_type" default:"bandwidth" list:"user" create:"optional"`
+	SBillingTypeBase       `billing_type->default:"prepaid"`
+	SBillingChargeTypeBase `charge_type->default:"bandwidth"`
 }
 
 func (gn SGuestnetwork) GetIP() string {
@@ -280,7 +280,8 @@ type newGuestNetworkArgs struct {
 	virtual      bool
 	portMappings api.GuestPortMappings
 
-	chargeType string
+	billingType billing_api.TBillingType
+	chargeType  billing_api.TNetChargeType
 }
 
 func (manager *SGuestnetworkManager) newGuestNetwork(
@@ -329,6 +330,8 @@ func (manager *SGuestnetworkManager) newGuestNetwork(
 		gn.BwLimit = bwLimit
 	}
 	gn.PortMappings = args.portMappings
+
+	gn.BillingType = args.billingType
 	gn.ChargeType = args.chargeType
 
 	lockman.LockObject(ctx, network)
@@ -658,6 +661,11 @@ func (gn *SGuestnetwork) getJsonDescOneCloudVpc(network *SNetwork) *api.Guestnet
 
 func (gn *SGuestnetwork) getJsonDesc() *api.GuestnetworkJsonDesc {
 	net, _ := gn.GetNetwork()
+	var wire *SWire
+	if net != nil {
+		wire, _ = net.GetWire()
+	}
+
 	desc := &api.GuestnetworkJsonDesc{
 		GuestnetworkBaseDesc: api.GuestnetworkBaseDesc{
 			Net:     net.Name,
@@ -702,12 +710,15 @@ func (gn *SGuestnetwork) getJsonDesc() *api.GuestnetworkJsonDesc {
 	desc.RxTrafficLimit = gn.RxTrafficLimit
 	desc.TxTrafficLimit = gn.TxTrafficLimit
 	desc.Vlan = net.VlanId
-	desc.Bw = gn.getBandwidth()
-	desc.Mtu = gn.getMtu(net)
+	desc.Bw = gn.getBandwidth(net, wire)
+	desc.Mtu = gn.getMtu(net, wire)
 	desc.Index = gn.Index
 	desc.VirtualIps = gn.GetVirtualIPs()
 	desc.ExternalId = net.ExternalId
 	desc.TeamWith = gn.TeamWith
+
+	desc.BillingType = gn.BillingType
+	desc.ChargeType = gn.ChargeType
 
 	guest := gn.getGuest()
 	if ifname, ok := gn.OvsOffloadIfname(); ok {
@@ -776,26 +787,58 @@ func (gn *SGuestnetwork) OvsOffloadIfname() (string, bool) {
 	return "", false
 }
 
-func (gn *SGuestnetwork) UpdateNicTrafficUsed(rx, tx int64) error {
+func (gn *SGuestnetwork) UpdateNicTrafficUsed(ctx context.Context, guest *SGuest, matrics *api.SNicTrafficRecord, tm time.Time, isReset bool) error {
+	if gn.BillingType == billing_api.BILLING_TYPE_POSTPAID && gn.ChargeType == billing_api.NET_CHARGE_TYPE_BY_TRAFFIC {
+		err := GuestNetworkTrafficLogManager.logTraffic(ctx, guest, gn, matrics, tm, isReset)
+		if err != nil {
+			return errors.Wrap(err, "log traffic")
+		}
+	}
 	_, err := db.Update(gn, func() error {
-		gn.RxTrafficUsed = rx
-		gn.TxTrafficUsed = tx
+		gn.RxTrafficUsed = matrics.RxTraffic
+		gn.TxTrafficUsed = matrics.TxTraffic
 		return nil
 	})
-	return err
+	return errors.Wrap(err, "update guestnetwork traffic used")
 }
 
-func (gn *SGuestnetwork) UpdateNicTrafficLimit(rx, tx *int64) error {
+func (gn *SGuestnetwork) UpdateBillingMode(ctx context.Context, userCred mcclient.TokenCredential, input api.ServerNicTrafficLimit) error {
+	billingChange := false
+	if len(input.BillingType) > 0 && input.BillingType != gn.BillingType {
+		billingChange = true
+	}
+	if len(input.ChargeType) > 0 && input.ChargeType != gn.ChargeType {
+		billingChange = true
+	}
+	var oldDesc *jsonutils.JSONDict
+	if billingChange {
+		oldDesc = gn.GetShortDesc(ctx)
+	}
 	_, err := db.Update(gn, func() error {
-		if rx != nil {
-			gn.RxTrafficLimit = *rx
+		if input.RxTrafficLimit != nil {
+			gn.RxTrafficLimit = *input.RxTrafficLimit
 		}
-		if tx != nil {
-			gn.TxTrafficLimit = *tx
+		if input.TxTrafficLimit != nil {
+			gn.TxTrafficLimit = *input.TxTrafficLimit
+		}
+		if len(input.BillingType) > 0 && input.BillingType != gn.BillingType {
+			gn.BillingType = input.BillingType
+		}
+		if len(input.ChargeType) > 0 && input.ChargeType != gn.ChargeType {
+			gn.ChargeType = input.ChargeType
 		}
 		return nil
 	})
-	return err
+	if err != nil {
+		return errors.Wrap(err, "update guestnetwork billing mode")
+	}
+	if billingChange {
+		guest := gn.GetGuest()
+		net, _ := gn.GetNetwork()
+		db.OpsLog.LogDetachEvent(ctx, guest, net, userCred, oldDesc)
+		db.OpsLog.LogAttachEvent(ctx, guest, net, userCred, gn.GetShortDesc(ctx))
+	}
+	return nil
 }
 
 func (gn *SGuestnetwork) UpdatePortMappings(pms api.GuestPortMappings) error {
@@ -850,7 +893,7 @@ func (gn *SGuestnetwork) GetDetailedString() string {
 		fmt.Sprintf("%d", network.VlanId),
 		network.Name,
 		gn.Driver,
-		fmt.Sprintf("%d", gn.getBandwidth()),
+		fmt.Sprintf("%d", gn.getBandwidth(network, nil)),
 		fmt.Sprintf("%d", naCount),
 	)
 	return fmt.Sprintf("eth%d:%s", gn.Index, strings.Join(parts, "/"))
@@ -1069,7 +1112,7 @@ func calculateNics(q *sqlchemy.SQuery) GuestnicsCount {
 		log.Errorf("guestnics total count query error %s", err)
 	}
 	for _, gn := range gns {
-		if gn.IsExit() {
+		if gn.IsExit(nil) {
 			if gn.Virtual {
 				cnt.ExternalVirtualNicCount += 1
 			} else {
@@ -1088,40 +1131,46 @@ func calculateNics(q *sqlchemy.SQuery) GuestnicsCount {
 	return cnt
 }
 
-func (gn *SGuestnetwork) IsExit() bool {
+func (gn *SGuestnetwork) IsExit(net *SNetwork) bool {
 	if gn.IpAddr != "" {
 		addr, err := netutils.NewIPV4Addr(gn.IpAddr)
 		if err == nil {
 			return netutils.IsExitAddress(addr)
 		}
 	}
-	net, _ := gn.GetNetwork()
+	if net == nil {
+		net, _ = gn.GetNetwork()
+	}
 	if net != nil {
 		return net.IsExitNetwork()
 	}
 	return false
 }
 
-func (gn *SGuestnetwork) getBandwidth() int {
+func (gn *SGuestnetwork) getBandwidth(net *SNetwork, wire *SWire) int {
 	if gn.BwLimit == 0 {
 		return 0
 	}
 	if gn.BwLimit > 0 && gn.BwLimit <= api.MAX_BANDWIDTH {
 		return gn.BwLimit
 	} else {
-		net, _ := gn.GetNetwork()
-		if net != nil {
-			wire, _ := net.GetWire()
-			if wire != nil {
-				return wire.Bandwidth
+		if wire == nil {
+			if net == nil {
+				net, _ = gn.GetNetwork()
 			}
+			if net != nil {
+				wire, _ = net.GetWire()
+			}
+		}
+		if wire != nil {
+			return wire.Bandwidth
 		}
 		return options.Options.DefaultBandwidth
 	}
 }
 
-func (gn *SGuestnetwork) getMtu(net *SNetwork) int16 {
-	return net.getMtu()
+func (gn *SGuestnetwork) getMtu(net *SNetwork, wire *SWire) int16 {
+	return net.getMtu(wire)
 }
 
 func (gn *SGuestnetwork) IsAllocated() bool {
@@ -1286,10 +1335,26 @@ func (manager *SGuestnetworkManager) FetchByGuestIdIndex(guestId string, index i
 }
 
 func (gn *SGuestnetwork) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
+	var net *SNetwork
+	var wire *SWire
+	if net == nil {
+		net, _ = gn.GetNetwork()
+	}
+	if wire == nil {
+		if net != nil {
+			wire, _ = net.GetWire()
+		}
+	}
 	desc := api.GuestnetworkShortDesc{}
+	if net != nil {
+		desc.BgpType = net.BgpType
+	}
+	if wire != nil {
+		desc.VpcId = wire.VpcId
+	}
 	if len(gn.IpAddr) > 0 {
 		desc.IpAddr = gn.IpAddr
-		desc.IsExit = gn.IsExit()
+		desc.IsExit = gn.IsExit(net)
 		if desc.IsExit {
 			desc.NicType = "exit"
 		} else {
@@ -1305,16 +1370,13 @@ func (gn *SGuestnetwork) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
 	if len(gn.TeamWith) > 0 {
 		desc.TeamWith = gn.TeamWith
 	}
-	desc.BwLimitMbps = gn.getBandwidth()
+	desc.BwLimitMbps = gn.getBandwidth(net, wire)
 	desc.Ifname = gn.Ifname
 	desc.IsDefault = gn.IsDefault
+	desc.BillingType = gn.BillingType
 	desc.ChargeType = gn.ChargeType
 	desc.GuestId = gn.GuestId
 	desc.NetworkId = gn.NetworkId
-	wire, _ := gn.GetWire()
-	if wire != nil {
-		desc.VpcId = wire.VpcId
-	}
 	desc.PortMappings = gn.PortMappings
 	desc.SubIps = gn.GetSubIps()
 	return jsonutils.Marshal(desc).(*jsonutils.JSONDict)

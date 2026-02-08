@@ -2406,7 +2406,7 @@ func (hh *SHost) syncWithCloudPrepaidVM(extVM cloudprovider.ICloudVM, host *SHos
 		hh.CpuCount = extVM.GetVcpuCount()
 		hh.MemSize = extVM.GetVmemSizeMB()
 
-		hh.BillingType = extVM.GetBillingType()
+		hh.BillingType = billing_api.ParseBillingType(extVM.GetBillingType())
 		hh.ExpiredAt = extVM.GetExpiredAt()
 
 		hh.ExternalId = host.ExternalId
@@ -3256,7 +3256,7 @@ func (hh *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCredent
 			}
 			continue
 		}
-		if added[i].GetBillingType() == billing_api.BILLING_TYPE_PREPAID {
+		if added[i].GetBillingType() == string(billing_api.BILLING_TYPE_PREPAID) {
 			vhost := HostManager.GetHostByRealExternalId(added[i].GetGlobalId())
 			if vhost != nil {
 				// this recycle vm is not build yet, skip synchronize
@@ -8067,18 +8067,9 @@ func (hh *SHost) updateHostReservedCpus(ctx context.Context, userCred mcclient.T
 	return nil
 }
 
-func (h *SHost) PerformSyncGuestNicTraffics(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	guestTraffics, err := data.GetMap()
-	if err != nil {
-		return nil, errors.Wrap(err, "get guest traffics")
-	}
-	for guestId, nicTraffics := range guestTraffics {
-		nicTrafficMap := make(map[string]api.SNicTrafficRecord)
-		err = nicTraffics.Unmarshal(&nicTrafficMap)
-		if err != nil {
-			log.Errorf("failed unmarshal guest %s nic traffics %s", guestId, err)
-			continue
-		}
+func (h *SHost) PerformSyncGuestNicTraffics(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.GuestNicTrafficSyncInput) (jsonutils.JSONObject, error) {
+	for guestId := range input.Traffic {
+		nicTrafficMap := input.Traffic[guestId]
 
 		guest := GuestManager.FetchGuestById(guestId)
 		gns, err := guest.GetNetworks("")
@@ -8087,11 +8078,11 @@ func (h *SHost) PerformSyncGuestNicTraffics(ctx context.Context, userCred mcclie
 			continue
 		}
 		for i := range gns {
-			nicTraffic, ok := nicTrafficMap[strconv.Itoa(int(gns[i].Index))]
+			nicTraffic, ok := nicTrafficMap[gns[i].MacAddr]
 			if !ok {
 				continue
 			}
-			if err = gns[i].UpdateNicTrafficUsed(nicTraffic.RxTraffic, nicTraffic.TxTraffic); err != nil {
+			if err := gns[i].UpdateNicTrafficUsed(ctx, guest, nicTraffic, input.SyncAt, input.IsReset); err != nil {
 				log.Errorf("failed update guestnetwork %d traffic used %s", gns[i].RowId, err)
 				continue
 			}

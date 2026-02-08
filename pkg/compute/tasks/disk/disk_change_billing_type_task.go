@@ -48,7 +48,7 @@ func (self *DiskChangeBillingTypeTask) OnInit(ctx context.Context, obj db.IStand
 		return
 	}
 
-	billType := ""
+	var billType billing_api.TBillingType
 	switch disk.BillingType {
 	case billing_api.BILLING_TYPE_POSTPAID:
 		billType = billing_api.BILLING_TYPE_PREPAID
@@ -56,7 +56,7 @@ func (self *DiskChangeBillingTypeTask) OnInit(ctx context.Context, obj db.IStand
 		billType = billing_api.BILLING_TYPE_POSTPAID
 	}
 
-	err = idisk.ChangeBillingType(billType)
+	err = idisk.ChangeBillingType(string(billType))
 	if err != nil {
 		if errors.Cause(err) == cloudprovider.ErrNotImplemented {
 			disk.SetStatus(ctx, self.GetUserCred(), api.DISK_READY, "")

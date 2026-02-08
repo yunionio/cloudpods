@@ -12,24 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package billing
+package compute
 
-import "time"
+import (
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/onecloud/pkg/mcclient/options"
+)
 
-type BillingDetailsInfo struct {
+type ServerNetworkTrafficLogListOptions struct {
+	options.BaseListOptions
 }
 
-type BillingResourceListInput struct {
-	// 计费类型，按需计费和预付费
-	// pattern:prepaid|postpaid
-	BillingType TBillingType `json:"billing_type"`
-
-	// 计费过期时间的查询起始时间
-	BillingExpireSince time.Time `json:"billing_expire_since"`
-	// 计费过期时间的查询终止时间
-	BillingExpireBefore time.Time `json:"billing_expire_before"`
-
-	// 计费周期
-	// example:7d
-	BillingCycle string `json:"billing_cycle"`
+func (o *ServerNetworkTrafficLogListOptions) Params() (jsonutils.JSONObject, error) {
+	return options.ListStructToParams(o)
 }

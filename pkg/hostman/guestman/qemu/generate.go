@@ -16,7 +16,6 @@ package qemu
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 
 	"yunion.io/x/pkg/errors"
@@ -476,8 +475,8 @@ func generateNicOptions(drvOpt QemuOptions, input *GenerateStartOptionsInput) ([
 		}
 		var nicTrafficExceed = false
 		if input.NicTraffics != nil {
-			nicTraffic, ok := input.NicTraffics[strconv.Itoa(int(nics[idx].Index))]
-			if ok {
+			nicTraffic, ok := input.NicTraffics[nics[idx].Mac]
+			if ok && nicTraffic != nil {
 				if nics[idx].TxTrafficLimit > 0 && nicTraffic.TxTraffic > nics[idx].TxTrafficLimit {
 					nicTrafficExceed = true
 				}
@@ -665,7 +664,7 @@ type GenerateStartOptionsInput struct {
 
 	GuestDesc    *desc.SGuestDesc
 	IsKVMSupport bool
-	NicTraffics  map[string]api.SNicTrafficRecord
+	NicTraffics  map[string]*api.SNicTrafficRecord
 
 	EnableUUID       bool
 	OsName           string

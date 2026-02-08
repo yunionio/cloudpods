@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/apis"
+	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/identity"
@@ -509,7 +510,7 @@ func (region *SRegion) CreateInstance(hostId, hypervisor string, opts *cloudprov
 		input.ResetPassword = &resetPasswd
 	}
 	input.PublicIpBw = opts.PublicIpBw
-	input.PublicIpChargeType = string(opts.PublicIpChargeType)
+	input.PublicIpChargeType = billing_api.TNetChargeType(opts.PublicIpChargeType)
 	input.ProjectId = opts.ProjectId
 	input.Metadata = opts.Tags
 	input.UserData = opts.UserData

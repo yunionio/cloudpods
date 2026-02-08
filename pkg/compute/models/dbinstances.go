@@ -404,7 +404,7 @@ func (man *SDBInstanceManager) ValidateCreateData(ctx context.Context, userCred 
 			return input, httperrors.NewInputParameterError("invalid duration %s", input.Duration)
 		}
 
-		if !utils.IsInStringArray(input.BillingType, []string{billing_api.BILLING_TYPE_PREPAID, billing_api.BILLING_TYPE_POSTPAID}) {
+		if !utils.IsInStringArray(string(input.BillingType), []string{string(billing_api.BILLING_TYPE_PREPAID), string(billing_api.BILLING_TYPE_POSTPAID)}) {
 			input.BillingType = billing_api.BILLING_TYPE_PREPAID
 		}
 
@@ -1717,7 +1717,7 @@ func (self *SDBInstance) SyncWithCloudDBInstance(ctx context.Context, userCred m
 			}
 		}
 
-		self.BillingType = ext.GetBillingType()
+		self.BillingType = billing_api.TBillingType(ext.GetBillingType())
 		self.ExpiredAt = time.Time{}
 		self.AutoRenew = false
 		if self.BillingType == billing_api.BILLING_TYPE_PREPAID {
@@ -1794,7 +1794,7 @@ func (manager *SDBInstanceManager) newFromCloudDBInstance(ctx context.Context, u
 		instance.CreatedAt = createdAt
 	}
 
-	instance.BillingType = extInstance.GetBillingType()
+	instance.BillingType = billing_api.TBillingType(extInstance.GetBillingType())
 	instance.AutoRenew = false
 	instance.ExpiredAt = time.Time{}
 	if instance.BillingType == billing_api.BILLING_TYPE_PREPAID {

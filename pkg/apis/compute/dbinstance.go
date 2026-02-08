@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"yunion.io/x/onecloud/pkg/apis"
+	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 )
 
 type DBInstanceCreateInput struct {
@@ -87,7 +88,7 @@ type DBInstanceCreateInput struct {
 
 	// 计费方式
 	// enum: ["postpaid", "prepaid"]
-	BillingType string
+	BillingType billing_api.TBillingType `json:"billing_type"`
 	// swagger:ignore
 	BillingCycle string
 

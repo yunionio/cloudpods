@@ -34,6 +34,7 @@ import (
 	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/utils"
 
+	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/hostman/guestman"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
@@ -110,14 +111,15 @@ func (m *SHostMetricsCollector) runMain() {
 	elapse := timeBegin.Sub(m.LastCollectTime)
 	if elapse < time.Second*time.Duration(m.ReportInterval) {
 		return
-	} else {
-		m.LastCollectTime = timeBegin
 	}
-	m.runMonitor()
+
+	m.runMonitor(timeBegin, m.LastCollectTime)
+
+	m.LastCollectTime = timeBegin
 }
 
-func (m *SHostMetricsCollector) runMonitor() {
-	reportData := m.collectReportData()
+func (m *SHostMetricsCollector) runMonitor(now, last time.Time) {
+	reportData := m.collectReportData(now, last)
 	if options.HostOptions.EnableTelegraf && len(reportData) > 0 {
 		m.reportUsageToTelegraf(reportData)
 	}
@@ -156,17 +158,17 @@ func (m *SHostMetricsCollector) reportUsageToTelegraf(data string) {
 	}
 }
 
-func (m *SHostMetricsCollector) collectReportData() string {
+func (m *SHostMetricsCollector) collectReportData(now, last time.Time) string {
 	if len(m.waitingReportData) > 60 {
 		m.waitingReportData = m.waitingReportData[1:]
 	}
-	return m.guestMonitor.CollectReportData()
+	return m.guestMonitor.CollectReportData(now, last)
 }
 
 func NewHostMetricsCollector(hostInfo IHostInfo) *SHostMetricsCollector {
 	return &SHostMetricsCollector{
 		ReportInterval:    options.HostOptions.ReportInterval,
-		waitingReportData: make([]string, 0),
+		waitingReportData: make([]string, 0, 10),
 		guestMonitor:      NewGuestMonitorCollector(hostInfo),
 	}
 }
@@ -297,7 +299,7 @@ func (s *SGuestMonitorCollector) GetGuests() map[string]*SGuestMonitor {
 	return gms
 }
 
-func (s *SGuestMonitorCollector) CollectReportData() (ret string) {
+func (s *SGuestMonitorCollector) CollectReportData(now, last time.Time) (ret string) {
 	defer func() {
 		if r := recover(); r != nil {
 			log.Errorln(r)
@@ -312,17 +314,18 @@ func (s *SGuestMonitorCollector) CollectReportData() (ret string) {
 		reportData[gm.Id] = s.collectGmReport(gm, prevUsage)
 		s.prevPids[gm.Id] = gm.Pid
 	}
-	s.saveNicTraffics(reportData, gms)
+	s.saveNicTraffics(reportData, gms, now, last)
 
 	s.prevReportData = reportData
 	ret = s.toTelegrafReportData(reportData)
 	return
 }
 
-func (s *SGuestMonitorCollector) saveNicTraffics(reportData map[string]*GuestMetrics, gms map[string]*SGuestMonitor) {
+func (s *SGuestMonitorCollector) saveNicTraffics(reportData map[string]*GuestMetrics, gms map[string]*SGuestMonitor, now, last time.Time) {
 	guestman.GetGuestManager().TrafficLock.Lock()
 	defer guestman.GetGuestManager().TrafficLock.Unlock()
-	var guestNicsTraffics = make(map[string]map[string]compute.SNicTrafficRecord)
+	isReset := now.Day() != last.Day() // across day
+	var guestNicsTraffics = compute.NewGuestNicTrafficSyncInput(now, isReset)
 	for guestId, data := range reportData {
 		gm := gms[guestId]
 		guestTrafficRecord, err := guestman.GetGuestManager().GetGuestTrafficRecord(gm.Id)
@@ -330,15 +333,16 @@ func (s *SGuestMonitorCollector) saveNicTraffics(reportData map[string]*GuestMet
 			log.Errorf("failed get guest traffic record %s", err)
 			continue
 		}
-		guestTraffics := make(map[string]compute.SNicTrafficRecord)
+		guestTrafficsToSend := make(map[string]*compute.SNicTrafficRecord)
+		guestTrafficsToSave := make(map[string]*compute.SNicTrafficRecord)
 		for i := range gm.Nics {
-			if gm.Nics[i].RxTrafficLimit <= 0 && gm.Nics[i].TxTrafficLimit <= 0 {
+			if gm.Nics[i].ChargeType != billing_api.NET_CHARGE_TYPE_BY_TRAFFIC {
 				continue
 			}
 
 			var nicIo *NetIOMetric
 			for j := range data.VmNetio {
-				if gm.Nics[i].Index == data.VmNetio[j].Meta.Index {
+				if gm.Nics[i].Mac == data.VmNetio[j].Meta.Mac {
 					nicIo = data.VmNetio[j]
 					break
 				}
@@ -349,48 +353,47 @@ func (s *SGuestMonitorCollector) saveNicTraffics(reportData map[string]*GuestMet
 			}
 			nicHasBeenSetDown := false
 			nicTraffic := compute.SNicTrafficRecord{}
-			for index, record := range guestTrafficRecord {
-				if index == strconv.Itoa(nicIo.Meta.Index) {
+			for mac, record := range guestTrafficRecord {
+				if mac == nicIo.Meta.Mac {
 					nicTraffic.RxTraffic += record.RxTraffic
 					nicTraffic.TxTraffic += record.TxTraffic
 					nicHasBeenSetDown = record.HasBeenSetDown
 				}
 			}
 
-			if gm.Nics[i].RxTrafficLimit > 0 || gm.Nics[i].TxTrafficLimit > 0 {
-				var nicDown = false
-				if gm.Nics[i].RxTrafficLimit > 0 {
-					nicTraffic.RxTraffic += int64(nicIo.TimeDiff * nicIo.BPSRecv / 8)
-					if nicTraffic.RxTraffic >= gm.Nics[i].RxTrafficLimit {
-						// nic down
-						nicDown = true
-					}
-				}
-				if gm.Nics[i].TxTrafficLimit > 0 {
-					nicTraffic.TxTraffic += int64(nicIo.TimeDiff * nicIo.BPSSent / 8)
-					if nicTraffic.TxTraffic >= gm.Nics[i].TxTrafficLimit {
-						// nic down
-						nicDown = true
-					}
-				}
-				if !nicHasBeenSetDown && nicDown {
-					log.Infof("guest %s nic %d traffic exceed, set nic down", gm.Id, nicIo.Meta.Index)
-					gm.SetNicDown(nicIo.Meta.Index)
-					nicTraffic.HasBeenSetDown = true
-				}
-				guestTraffics[strconv.Itoa(nicIo.Meta.Index)] = nicTraffic
+			var nicDown = false
+			nicTraffic.RxTraffic += int64(nicIo.TimeDiff * nicIo.BPSRecv / 8)
+			if gm.Nics[i].RxTrafficLimit > 0 && nicTraffic.RxTraffic >= gm.Nics[i].RxTrafficLimit {
+				// nic down
+				nicDown = true
+			}
+			nicTraffic.TxTraffic += int64(nicIo.TimeDiff * nicIo.BPSSent / 8)
+			if gm.Nics[i].TxTrafficLimit > 0 && nicTraffic.TxTraffic >= gm.Nics[i].TxTrafficLimit {
+				// nic down
+				nicDown = true
+			}
+			if !nicHasBeenSetDown && nicDown {
+				log.Infof("guest %s nic %d traffic exceed tx: %d, tx_limit: %d, rx: %d, rx_limit: %d, set nic down", gm.Id, nicIo.Meta.Index, nicTraffic.TxTraffic, gm.Nics[i].TxTrafficLimit, nicTraffic.RxTraffic, gm.Nics[i].RxTrafficLimit)
+				gm.SetNicDown(gm.Nics[i].Mac)
+				nicTraffic.HasBeenSetDown = true
+			}
+
+			guestTrafficsToSend[nicIo.Meta.Mac] = &nicTraffic
+			if gm.Nics[i].BillingType == billing_api.BILLING_TYPE_PREPAID || !isReset {
+				guestTrafficsToSave[nicIo.Meta.Mac] = &nicTraffic
 			}
 		}
-		if len(guestTraffics) == 0 {
-			continue
+		if len(guestTrafficsToSend) > 0 {
+			guestNicsTraffics.Traffic[gm.Id] = guestTrafficsToSend
 		}
-		guestNicsTraffics[gm.Id] = guestTraffics
-		if err = guestman.GetGuestManager().SaveGuestTrafficRecord(gm.Id, guestTraffics); err != nil {
-			log.Errorf("failed save guest %s traffic record %v", gm.Id, guestTraffics)
-			continue
+		if len(guestTrafficsToSave) > 0 {
+			if err = guestman.GetGuestManager().SaveGuestTrafficRecord(gm.Id, guestTrafficsToSave); err != nil {
+				log.Errorf("failed save guest %s traffic record %v", gm.Id, guestTrafficsToSave)
+				continue
+			}
 		}
 	}
-	if len(guestNicsTraffics) > 0 {
+	if len(guestNicsTraffics.Traffic) > 0 {
 		guestman.SyncGuestNicsTraffics(guestNicsTraffics)
 	}
 }
@@ -722,12 +725,12 @@ func (m *SGuestMonitor) UpdateByInstance(instance guestman.GuestRuntimeInstance)
 	m.Hypervisor = instance.GetDesc().Hypervisor
 }
 
-func (m *SGuestMonitor) SetNicDown(index int) {
+func (m *SGuestMonitor) SetNicDown(mac string) {
 	guest, ok := guestman.GetGuestManager().GetKVMServer(m.Id)
 	if !ok {
 		return
 	}
-	if err := guest.SetNicDown(index); err != nil {
+	if err := guest.SetNicDown(mac); err != nil {
 		log.Errorf("guest %s SetNicDown failed %s", m.Id, err)
 	}
 }

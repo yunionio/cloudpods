@@ -22,15 +22,27 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/billing"
+	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
-type SBillingResourceBase struct {
+type SBillingTypeBase struct {
 	// 计费类型, 按量、包年包月
-	// example: postpaid
-	BillingType string `width:"36" charset:"ascii" nullable:"true" default:"postpaid" list:"user" create:"optional" json:"billing_type"`
+	// example: prepaid, postpaid
+	BillingType api.TBillingType `width:"36" charset:"ascii" nullable:"true" default:"postpaid" list:"user" create:"optional" json:"billing_type"`
+}
+
+type SBillingChargeTypeBase struct {
+	// 计费类型: 流量、带宽
+	// example: bandwidth
+	ChargeType billing_api.TNetChargeType `width:"64" name:"charge_type" list:"user" create:"optional"`
+}
+
+type SBillingResourceBase struct {
+	SBillingTypeBase
+
 	// 包年包月到期时间
 	ExpiredAt time.Time `nullable:"true" list:"user" json:"expired_at"`
 	// 到期释放时间
@@ -43,7 +55,7 @@ type SBillingResourceBase struct {
 
 type SBillingResourceBaseManager struct{}
 
-func (self *SBillingResourceBase) GetChargeType() string {
+func (self *SBillingResourceBase) GetChargeType() api.TBillingType {
 	if len(self.BillingType) > 0 {
 		return self.BillingType
 	} else {
@@ -75,11 +87,11 @@ func (self *SBillingResourceBase) SetBillingCycle(billingCycle string) {
 	self.BillingCycle = billingCycle
 }
 
-func (self *SBillingResourceBase) SetBillingType(billingType string) {
+func (self *SBillingResourceBase) SetBillingType(billingType api.TBillingType) {
 	self.BillingType = billingType
 }
 
-func (self *SBillingResourceBase) GetBillingType() string {
+func (self *SBillingResourceBase) GetBillingType() api.TBillingType {
 	return self.BillingType
 }
 
@@ -123,7 +135,8 @@ func (self *SBillingResourceBase) IsValidPostPaid() bool {
 }
 
 type SBillingBaseInfo struct {
-	ChargeType   string    `json:",omitempty"`
+	ChargeType api.TBillingType `json:",omitempty"`
+
 	ExpiredAt    time.Time `json:",omitempty"`
 	ReleaseAt    time.Time `json:",omitempty"`
 	BillingCycle string    `json:",omitempty"`
@@ -134,8 +147,8 @@ type SCloudBillingInfo struct {
 
 	SBillingBaseInfo
 
-	PriceKey           string `json:",omitempty"`
-	InternetChargeType string `json:",omitempty"`
+	PriceKey           string             `json:",omitempty"`
+	InternetChargeType api.TNetChargeType `json:",omitempty"`
 }
 
 func (manager *SBillingResourceBaseManager) FetchCustomizeColumns(
