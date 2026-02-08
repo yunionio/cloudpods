@@ -143,7 +143,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateLoadbalancerInstanc
 			Desc:             lb.Description,
 			Address:          lb.Address,
 			AddressType:      lb.AddressType,
-			ChargeType:       lb.ChargeType,
+			ChargeType:       string(lb.ChargeType),
 			EgressMbps:       lb.EgressMbps,
 			LoadbalancerSpec: lb.LoadbalancerSpec,
 		}
