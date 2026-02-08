@@ -112,7 +112,7 @@ type SLoadbalancer struct {
 	SLoadbalancerClusterResourceBase
 
 	// 计费类型
-	ChargeType string `list:"user" get:"user" create:"optional" update:"user" json:"charge_type"`
+	SBillingChargeTypeBase
 
 	// 套餐名称
 	LoadbalancerSpec string `list:"user" get:"user" list:"user" create:"optional" json:"loadbalancer_spec"`
@@ -1138,7 +1138,7 @@ func (region *SCloudregion) newFromCloudLoadbalancer(ctx context.Context, userCr
 
 	lb.Status = ext.GetStatus()
 	lb.LoadbalancerSpec = ext.GetLoadbalancerSpec()
-	lb.ChargeType = ext.GetChargeType()
+	lb.ChargeType = billing_api.ParseNetChargeType(ext.GetChargeType())
 	lb.EgressMbps = ext.GetEgressMbps()
 	lb.ExternalId = ext.GetGlobalId()
 	lbNetworkIds := getExtLbNetworkIds(ext, lb.ManagerId)
@@ -1458,7 +1458,7 @@ func (lb *SLoadbalancer) syncWithCloudLoadbalancer(ctx context.Context, userCred
 		lb.Status = ext.GetStatus()
 		lb.LoadbalancerSpec = ext.GetLoadbalancerSpec()
 		lb.EgressMbps = ext.GetEgressMbps()
-		lb.ChargeType = ext.GetChargeType()
+		lb.ChargeType = billing_api.ParseNetChargeType(ext.GetChargeType())
 		lbNetworkIds := getExtLbNetworkIds(ext, lb.ManagerId)
 		lb.NetworkId = strings.Join(lbNetworkIds, ",")
 		if len(lb.VpcId) == 0 {
