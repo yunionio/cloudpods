@@ -3434,7 +3434,7 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 		}
 	}
 
-	log.Debugf("%s", jsonutils.Marshal(confs).String())
+	log.Debugf("PerformChangeConfig %s", jsonutils.Marshal(confs).String())
 
 	pendingUsage := &SQuota{}
 	if added := confs.AddedCpu(); added > 0 {
@@ -4079,11 +4079,11 @@ func (self *SGuest) PerformCreateEip(ctx context.Context, userCred mcclient.Toke
 		return nil, httperrors.NewGeneralError(err)
 	}
 
-	if chargeType == "" {
-		chargeType = regionDriver.GetEipDefaultChargeType()
+	if len(chargeType) == 0 {
+		chargeType = billing_api.TNetChargeType(regionDriver.GetEipDefaultChargeType())
 	}
 
-	if chargeType == api.EIP_CHARGE_TYPE_BY_BANDWIDTH {
+	if chargeType == billing_api.NET_CHARGE_TYPE_BY_BANDWIDTH {
 		if bw == 0 {
 			return nil, httperrors.NewMissingParameterError("bandwidth")
 		}
@@ -4800,7 +4800,7 @@ func (self *SGuest) startGuestRenewTask(ctx context.Context, userCred mcclient.T
 
 func (self *SGuest) SaveRenewInfo(
 	ctx context.Context, userCred mcclient.TokenCredential,
-	bc *billing.SBillingCycle, expireAt *time.Time, billingType string,
+	bc *billing.SBillingCycle, expireAt *time.Time, billingType billing_api.TBillingType,
 ) error {
 	err := SaveRenewInfo(ctx, userCred, self, bc, expireAt, billingType)
 	if err != nil {
@@ -6001,53 +6001,100 @@ func (guest *SGuest) StartDeleteGuestSnapshots(ctx context.Context, userCred mcc
 	return nil
 }
 
-// 重置网卡限速
-func (self *SGuest) PerformResetNicTrafficLimit(ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject, input *api.ServerNicTrafficLimit) (jsonutils.JSONObject, error) {
-
-	if !utils.IsInStringArray(self.Status, []string{api.VM_READY, api.VM_RUNNING}) {
-		return nil, httperrors.NewUnsupportOperationError("The guest status need be %s or %s, current is %s", api.VM_READY, api.VM_RUNNING, self.Status)
+func (guest *SGuest) ValidateChangeNicBillingModeInput(ctx context.Context, input api.ServerNicTrafficLimit, needResetTraffic bool) (api.ServerNicTrafficLimit, bool, error) {
+	var err error
+	var gn *SGuestnetwork
+	if len(input.Mac) == 0 {
+		gns, err := guest.GetNetworks("")
+		if err != nil {
+			return input, needResetTraffic, errors.Wrap(err, "get guest networks")
+		}
+		if len(gns) == 0 {
+			return input, needResetTraffic, httperrors.NewBadRequestError("no guest network found")
+		}
+		if len(gns) > 1 {
+			return input, needResetTraffic, httperrors.NewBadRequestError("multiple guest networks found, please specify the mac")
+		}
+		input.Mac = gns[0].MacAddr
+		gn = &gns[0]
+	} else {
+		input.Mac = netutils2.FormatMac(input.Mac)
+		gn, err = guest.GetGuestnetworkByMac(input.Mac)
+		if err != nil {
+			return input, needResetTraffic, errors.Wrap(err, "get guest network by mac")
+		}
 	}
-	input.Mac = strings.ToLower(input.Mac)
-	_, err := self.GetGuestnetworkByMac(input.Mac)
+	if input.BillingType == "" {
+		input.BillingType = gn.BillingType
+	}
+	if input.ChargeType == "" {
+		input.ChargeType = gn.ChargeType
+	}
+	var changed bool
+	input, changed, err = input.Validate(gn.BillingType, gn.ChargeType, gn.TxTrafficLimit, gn.RxTrafficLimit)
 	if err != nil {
-		return nil, errors.Wrap(err, "get guest network by mac")
+		return input, needResetTraffic, errors.Wrap(err, "validate input")
+	}
+	if changed {
+		if gn.BillingType == billing_api.BILLING_TYPE_POSTPAID && gn.ChargeType == billing_api.NET_CHARGE_TYPE_BY_TRAFFIC {
+			// used to be postpaid traffic billing, need to stop the traffic log
+			// do nothing
+		}
+		if input.BillingType == billing_api.BILLING_TYPE_POSTPAID && input.ChargeType == billing_api.NET_CHARGE_TYPE_BY_TRAFFIC {
+			// need to start the traffic log
+			GuestNetworkTrafficLogManager.logTraffic(ctx, guest, gn, nil, time.Now(), true)
+		}
+		if input.ChargeType == billing_api.NET_CHARGE_TYPE_BY_TRAFFIC {
+			// need to measure the traffic from zero
+			needResetTraffic = true
+		}
+	}
+	return input, needResetTraffic, nil
+}
+
+func (guest *SGuest) doChangeNicBillingMode(ctx context.Context, userCred mcclient.TokenCredential, input api.ServerNicTrafficLimit, needResetTraffic bool, action string) error {
+	if !utils.IsInStringArray(guest.Status, []string{api.VM_READY, api.VM_RUNNING}) {
+		return httperrors.NewUnsupportOperationError("The guest status need be %s or %s, current is %s", api.VM_READY, api.VM_RUNNING, guest.Status)
 	}
 
+	var err error
+	input, needResetTraffic, err = guest.ValidateChangeNicBillingModeInput(ctx, input, needResetTraffic)
+	if err != nil {
+		return errors.Wrap(err, "validateChangeNicBillingModeInput")
+	}
+
+	taskName := "GuestSetNicTrafficsTask"
+	if needResetTraffic {
+		taskName = "GuestResetNicTrafficsTask"
+	}
 	params := jsonutils.Marshal(input).(*jsonutils.JSONDict)
-	params.Set("old_status", jsonutils.NewString(self.Status))
-	self.SetStatus(ctx, userCred, api.VM_SYNC_TRAFFIC_LIMIT, "PerformResetNicTrafficLimit")
-	task, err := taskman.TaskManager.NewTask(ctx, "GuestResetNicTrafficsTask", self, userCred, params, "", "", nil)
+	params.Set("old_status", jsonutils.NewString(guest.Status))
+	guest.SetStatus(ctx, userCred, api.VM_SYNC_TRAFFIC_LIMIT, action)
+	task, err := taskman.TaskManager.NewTask(ctx, taskName, guest, userCred, params, "", "", nil)
 	if err != nil {
-		return nil, err
+		return errors.Wrap(err, "NewTask")
 	}
 	task.ScheduleRun(nil)
+	return nil
+}
+
+// 重置网卡计费方式
+func (guest *SGuest) PerformResetNicTrafficLimit(ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject, input api.ServerNicTrafficLimit) (jsonutils.JSONObject, error) {
+	err := guest.doChangeNicBillingMode(ctx, userCred, input, true, "PerformResetNicTrafficLimit")
+	if err != nil {
+		return nil, errors.Wrap(err, "doChangeNicBillingMode")
+	}
 	return nil, nil
 }
 
-// 网卡限速
-func (self *SGuest) PerformSetNicTrafficLimit(ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject, input *api.ServerNicTrafficLimit) (jsonutils.JSONObject, error) {
-
-	if !utils.IsInStringArray(self.Status, []string{api.VM_READY, api.VM_RUNNING}) {
-		return nil, httperrors.NewUnsupportOperationError("The guest status need be %s or %s, current is %s", api.VM_READY, api.VM_RUNNING, self.Status)
-	}
-	if input.RxTrafficLimit == nil && input.TxTrafficLimit == nil {
-		return nil, httperrors.NewBadRequestError("rx/tx traffic not provider")
-	}
-	input.Mac = strings.ToLower(input.Mac)
-	_, err := self.GetGuestnetworkByMac(input.Mac)
+// 设置网卡计费方式
+func (guest *SGuest) PerformSetNicTrafficLimit(ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject, input api.ServerNicTrafficLimit) (jsonutils.JSONObject, error) {
+	err := guest.doChangeNicBillingMode(ctx, userCred, input, false, "PerformSetNicTrafficLimit")
 	if err != nil {
-		return nil, errors.Wrap(err, "get guest network by mac")
+		return nil, errors.Wrap(err, "doChangeNicBillingMode")
 	}
-	params := jsonutils.Marshal(input).(*jsonutils.JSONDict)
-	params.Set("old_status", jsonutils.NewString(self.Status))
-	self.SetStatus(ctx, userCred, api.VM_SYNC_TRAFFIC_LIMIT, "GuestSetNicTrafficsTask")
-	task, err := taskman.TaskManager.NewTask(ctx, "GuestSetNicTrafficsTask", self, userCred, params, "", "", nil)
-	if err != nil {
-		return nil, err
-	}
-	task.ScheduleRun(nil)
 	return nil, nil
 }
 
@@ -7086,7 +7133,7 @@ func (g *SGuest) PerformChangeBillingType(ctx context.Context, userCred mcclient
 	if len(input.BillingType) == 0 {
 		return nil, httperrors.NewMissingParameterError("billing_type")
 	}
-	if !utils.IsInStringArray(input.BillingType, []string{billing_api.BILLING_TYPE_POSTPAID, billing_api.BILLING_TYPE_PREPAID}) {
+	if !utils.IsInStringArray(string(input.BillingType), []string{string(billing_api.BILLING_TYPE_POSTPAID), string(billing_api.BILLING_TYPE_PREPAID)}) {
 		return nil, httperrors.NewInputParameterError("invalid billing_type %s", input.BillingType)
 	}
 	if g.BillingType == input.BillingType {

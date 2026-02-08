@@ -20,6 +20,7 @@ import (
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/apis"
+	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 )
 
 type SchedtagConfig struct {
@@ -121,7 +122,10 @@ type NetworkConfig struct {
 
 	PortMappings GuestPortMappings `json:"port_mappings"`
 
-	ChargeType string `json:"charge_type"`
+	// 计费模式
+	BillingType billing_api.TBillingType `json:"billing_type"`
+	// 计量模式
+	ChargeType billing_api.TNetChargeType `json:"charge_type"`
 
 	// swagger:ignore
 	Project string `json:"project_id"`
@@ -607,7 +611,7 @@ type ServerCreateInput struct {
 	// 弹性公网IP线路类型
 	EipBgpType string `json:"eip_bgp_type,omitzero"`
 	// 弹性公网IP计费类型
-	EipChargeType string `json:"eip_charge_type,omitempty"`
+	EipChargeType billing_api.TNetChargeType `json:"eip_charge_type,omitempty"`
 	// 是否跟随主机删除而自动释放
 	EipAutoDellocate bool `json:"eip_auto_dellocate,omitempty"`
 
@@ -633,7 +637,7 @@ type ServerCreateInput struct {
 	// |----                    |-------    |
 	// |traffic                    |按流量计费|
 	// |bandwidth                |按带宽计费|
-	PublicIpChargeType string `json:"public_ip_charge_type,omitempty"`
+	PublicIpChargeType billing_api.TNetChargeType `json:"public_ip_charge_type,omitempty"`
 
 	// 使用主机快照创建虚拟机, 主机快照不会重置密码及秘钥信息
 	// 使用主机快照创建的虚拟机将沿用之前的密码秘钥及安全组信息
@@ -659,7 +663,7 @@ type ServerCreateInput struct {
 	// swagger:ignore
 	OsProfile jsonutils.JSONObject `json:"__os_profile__"`
 	// swagger:ignore
-	BillingType string `json:"billing_type"`
+	BillingType billing_api.TBillingType `json:"billing_type"`
 	// swagger:ignore
 	BillingCycle string `json:"billing_cycle"`
 	// 到期释放时间

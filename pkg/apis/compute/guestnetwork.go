@@ -16,9 +16,11 @@ package compute
 
 import (
 	"reflect"
+	"time"
 
 	"yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/jsonutils"
+	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	"yunion.io/x/pkg/gotypes"
 
 	"yunion.io/x/onecloud/pkg/apis"
@@ -78,8 +80,14 @@ type GuestnetworkShortDesc struct {
 	Ifname string `json:"ifname"`
 	// 是否为缺省路由网关
 	IsDefault bool `json:"is_default"`
+	// 线路类型
+	BgpType string `json:"bgp_type"`
+
 	// 计费模式
-	ChargeType string `json:"charge_type"`
+	BillingType billing_api.TBillingType `json:"billing_type"`
+	// 计量模式
+	ChargeType billing_api.TNetChargeType `json:"charge_type"`
+
 	// 网卡序号
 	Index int `json:"index"`
 }
@@ -145,6 +153,9 @@ type GuestnetworkBaseDesc struct {
 	TxTrafficLimit int64                `json:"tx_traffic_limit"`
 	NicType        compute.TNicType     `json:"nic_type"`
 
+	BillingType billing_api.TBillingType   `json:"billing_type"`
+	ChargeType  billing_api.TNetChargeType `json:"charge_type"`
+
 	Ip6      string `json:"ip6"`
 	Gateway6 string `json:"gateway6"`
 	Masklen6 uint8  `json:"masklen6"`
@@ -207,6 +218,24 @@ type SNicTrafficRecord struct {
 	TxTraffic int64
 
 	HasBeenSetDown bool
+}
+
+type GuestNicTrafficSyncInput struct {
+	// 同步时间
+	SyncAt time.Time
+	// 是否重置计数器
+	IsReset bool `json:"is_reset"`
+	// first key: guest_id
+	// second key: nic_mac
+	Traffic map[string]map[string]*SNicTrafficRecord
+}
+
+func NewGuestNicTrafficSyncInput(syncAt time.Time, isReset bool) *GuestNicTrafficSyncInput {
+	return &GuestNicTrafficSyncInput{
+		SyncAt:  syncAt,
+		Traffic: make(map[string]map[string]*SNicTrafficRecord),
+		IsReset: isReset,
+	}
 }
 
 type GuestPortMappingProtocol string

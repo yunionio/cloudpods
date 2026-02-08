@@ -65,8 +65,8 @@ type IBillingModel interface {
 	SetReleaseAt(releaseAt time.Time)
 	SetExpiredAt(expireAt time.Time)
 	SetBillingCycle(billingCycle string)
-	SetBillingType(billingType string)
-	GetBillingType() string
+	SetBillingType(billingType billing_api.TBillingType)
+	GetBillingType() billing_api.TBillingType
 }
 
 // 即将到期释放资源列表
@@ -106,10 +106,10 @@ func SaveReleaseAt(ctx context.Context, model IBillingModel, userCred mcclient.T
 
 func SaveRenewInfo(
 	ctx context.Context, userCred mcclient.TokenCredential,
-	model IBillingModel, bc *billing.SBillingCycle, expireAt *time.Time, billingType string,
+	model IBillingModel, bc *billing.SBillingCycle, expireAt *time.Time, billingType billing_api.TBillingType,
 ) error {
 	_, err := db.Update(model, func() error {
-		if billingType == "" {
+		if len(billingType) == 0 {
 			billingType = billing_api.BILLING_TYPE_PREPAID
 		}
 		if model.GetBillingType() == "" {
