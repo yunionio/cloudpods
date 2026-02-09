@@ -58,6 +58,7 @@ type CommonAlertUpdateOptions struct {
 	Period     string `help:"exec period of alert" json:"period"`
 	Comparator string `help:"Alarm policy threshold comparison method" json:"comparator" `
 	Threshold  string `help:"Alarm policy threshold" json:"threshold"`
+	Reason     string `help:"Alarm policy reason" json:"reason"`
 }
 
 func (o *CommonAlertUpdateOptions) Params() (jsonutils.JSONObject, error) {

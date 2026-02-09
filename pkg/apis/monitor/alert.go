@@ -141,6 +141,7 @@ type AlertCreateInput struct {
 	UsedBy              string `json:"used_by"`
 	// customize info
 	CustomizeConfig jsonutils.JSONObject `json:"customize_config"`
+	Reason          string               `json:"reason"`
 }
 
 type MeterCustomizeConfig struct {
@@ -168,6 +169,8 @@ type AlertUpdateInput struct {
 	NoDataState string `json:"no_data_state"`
 	// 报警执行错误将当前报警状态设置为对应的状态
 	ExecutionErrorState string `json:"execution_error_state"`
+	// 报警原因
+	Reason string `json:"reason"`
 }
 
 type AlertListInput struct {

@@ -141,6 +141,8 @@ type SAlert struct {
 	StateChanges        int                  `default:"0" nullable:"false" list:"user"`
 	CustomizeConfig     jsonutils.JSONObject `list:"user" create:"optional" update:"user" length:"medium"`
 	ResType             string               `width:"32" list:"user" update:"user"`
+	// 报警原因
+	Reason string `length:"0" charset:"utf8" get:"user" list:"user" update:"user" create:"optional" json:"reason"`
 }
 
 func (alert *SAlert) IsEnable() bool {

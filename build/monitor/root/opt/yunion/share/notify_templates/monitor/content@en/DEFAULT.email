@@ -90,6 +90,12 @@
       <td class="td">Strategy details：</td>
       <td>{{.description}}</td>
     </tr>
+    {{if .reason}}
+    <tr>
+      <td class="td">Reason：</td>
+      <td>{{.reason}}</td>
+    </tr>
+    {{end}}
   </table>
   <table class="table" style="padding-top: 6px; padding-bottom: 10px;">
     <tr>

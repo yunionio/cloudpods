@@ -1494,6 +1494,7 @@ func (alert *SCommonAlert) PerformConfig(ctx context.Context, userCred mcclient.
 			return data, httperrors.NewInputParameterError("Invalid period format: %s", period)
 		}
 	}
+	reason, _ := data.GetString("reason")
 	if err := validateComparatorAndThreshold(comparator, threshold, thresholdRange); err != nil {
 		return data, err
 	}
@@ -1520,6 +1521,9 @@ func (alert *SCommonAlert) PerformConfig(ctx context.Context, userCred mcclient.
 			setting.Conditions[0].Evaluator.Params = []float64{fieldOperatorThreshold("", val)}
 		}
 		alert.Settings = setting
+		if len(reason) != 0 {
+			alert.Reason = reason
+		}
 		return nil
 	})
 	PerformConfigLog(alert, userCred)

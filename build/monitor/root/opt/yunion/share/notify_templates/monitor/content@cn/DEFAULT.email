@@ -90,6 +90,12 @@
       <td class="td">策略详情：</td>
       <td>{{.description}}</td>
     </tr>
+    {{if .reason}}
+    <tr>
+      <td class="td">报警原因：</td>
+      <td>{{.reason}}</td>
+    </tr>
+    {{end}}
   </table>
   <table class="table" style="padding-top: 6px; padding-bottom: 10px;">
     <tr>
