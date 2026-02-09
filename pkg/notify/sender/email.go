@@ -129,6 +129,7 @@ func (emailSender *SEmailSender) Send(ctx context.Context, args api.SendParams) 
 			errs := make([]error, 0)
 			for tryTime := 3; tryTime > 0; tryTime-- {
 				err = gomail.Send(sender, gmsg)
+				log.Debugf("send %s to %s email err: %v", args.EmailMsg.Subject, to, err)
 				if err != nil {
 					errs = append(errs, errors.Wrapf(err, "Send"))
 					time.Sleep(time.Second * 10)
