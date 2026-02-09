@@ -30,6 +30,9 @@ const DefaultMarkdownTemplate = `
 	## {{.Title}}
 	- 时间: {{.StartTime}}
 	- 级别: {{.Level}}
+	{{- if .Reason}}
+	- 原因: {{.Reason}}
+	{{- end}}
 
 	{{ range .Matches}}
 	- 指标: {{.Metric}}
@@ -146,6 +149,12 @@ const EmailMarkdownTemplate = `
       <td class="td">策略详情：</td>
       <td>{{.Description}}</td>
     </tr>
+    {{ if .Reason }}
+    <tr>
+      <td class="td">报警原因：</td>
+      <td>{{.Reason}}</td>
+    </tr>
+    {{ end }}
   </table>
   <table class="table" style="padding-top: 6px; padding-bottom: 10px;">
     <tr>
