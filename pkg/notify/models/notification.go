@@ -262,13 +262,10 @@ func (nm *SNotificationManager) PerformEventNotify(ctx context.Context, userCred
 
 	message := jsonutils.Marshal(input.ResourceDetails).String()
 
-	// append default receiver
-	if len(input.Event) == 0 {
-		for _, receiver := range input.ReceiverIds {
-			// receiverIds = append(receiverIds, api.SReceiverWithGroupTimes{ReceiverId: receiver})
-			if _, ok := receiverIds[receiver]; !ok {
-				receiverIds[receiver] = 0
-			}
+	for _, receiver := range input.ReceiverIds {
+		// receiverIds = append(receiverIds, api.SReceiverWithGroupTimes{ReceiverId: receiver})
+		if _, ok := receiverIds[receiver]; !ok {
+			receiverIds[receiver] = 0
 		}
 	}
 
@@ -316,6 +313,7 @@ func (nm *SNotificationManager) PerformEventNotify(ctx context.Context, userCred
 		}
 		err := nm.create(ctx, userCred, ct, realReceiverIds, nil, input.Priority, event.GetId(), topic.GetId(), topic.Type)
 		if err != nil {
+			log.Errorf("unable to create notification for %s: %v", ct, err)
 			output.FailedList = append(output.FailedList, api.FailedElem{
 				ContactType: ct,
 				Reason:      err.Error(),
@@ -324,6 +322,7 @@ func (nm *SNotificationManager) PerformEventNotify(ctx context.Context, userCred
 	}
 	err = nm.createWithWebhookRobots(ctx, userCred, webhookRobots, input.Priority, event.GetId(), topic.Type)
 	if err != nil {
+		log.Errorf("unable to create notification for webhook robots: %v", err)
 		output.FailedList = append(output.FailedList, api.FailedElem{
 			ContactType: api.WEBHOOK,
 			Reason:      err.Error(),
@@ -332,6 +331,7 @@ func (nm *SNotificationManager) PerformEventNotify(ctx context.Context, userCred
 	// robot
 	err = nm.createWithRobots(ctx, userCred, realRobot, input.Priority, event.GetId(), topic.Type)
 	if err != nil {
+		log.Errorf("unable to create notification for robots: %v", err)
 		output.FailedList = append(output.FailedList, api.FailedElem{
 			ContactType: api.ROBOT,
 			Reason:      err.Error(),
@@ -488,11 +488,9 @@ func (nm *SNotificationManager) create(ctx context.Context, userCred mcclient.To
 	n.SetModelManager(nm, n)
 	task, err := taskman.TaskManager.NewTask(ctx, "NotificationSendTask", n, userCred, nil, "", "")
 	if err != nil {
-		log.Errorf("NotificationSendTask newTask error %v", err)
-	} else {
-		task.ScheduleRun(nil)
+		return errors.Wrapf(err, "NewTask")
 	}
-	return nil
+	return task.ScheduleRun(nil)
 }
 
 func (nm *SNotificationManager) createWithWebhookRobots(ctx context.Context, userCred mcclient.TokenCredential, webhookRobotIds []string, priority, eventId string, topicType string) error {
