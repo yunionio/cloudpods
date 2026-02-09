@@ -33,7 +33,7 @@ type opt_2121_x86_64 struct {
 	*baseOptions_x86_64
 }
 
-func (o opt_2121_x86_64) ScsiDeviceId(serial string) string {
+func (o opt_2121_x86_64) ScsiDeviceId(serial string, driver string) string {
 	return ""
 }
 
@@ -47,7 +47,7 @@ type opt_2121_aarch64 struct {
 	*baseOptions_aarch64
 }
 
-func (o opt_2121_aarch64) ScsiDeviceId(serial string) string {
+func (o opt_2121_aarch64) ScsiDeviceId(serial string, driver string) string {
 	return ""
 }
 
