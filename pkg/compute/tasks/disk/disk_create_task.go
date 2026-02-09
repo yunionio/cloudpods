@@ -139,7 +139,9 @@ func (self *DiskCreateTask) OnDiskReady(ctx context.Context, disk *models.SDisk,
 		guest := disk.GetGuest()
 		if guest != nil {
 			// just sync guest status
-			guest.StartSyncstatus(ctx, self.GetUserCred(), "")
+			self.SetStage("OnGuestSyncstatusComplete", nil)
+			guest.StartSyncstatus(ctx, self.GetUserCred(), self.GetTaskId())
+			return
 		}
 	}
 	self.SetStageComplete(ctx, nil)
@@ -154,6 +156,16 @@ func (self *DiskCreateTask) OnDiskReadyFailed(ctx context.Context, disk *models.
 	disk.SetStatus(ctx, self.UserCred, status, data.String())
 	logclient.AddActionLogWithStartable(self, disk, logclient.ACT_ALLOCATE, data, self.UserCred, false)
 	self.SetStageFailed(ctx, data)
+}
+
+func (self *DiskCreateTask) OnGuestSyncstatusComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	self.SetStageComplete(ctx, nil)
+}
+
+func (self *DiskCreateTask) OnGuestSyncstatusCompleteFailed(ctx context.Context, guest *models.SGuest, err jsonutils.JSONObject) {
+	// ??? why
+	log.Errorf("OnGuestSyncstatusCompleteFailed: %s", err.String())
+	self.SetStageFailed(ctx, err)
 }
 
 func init() {
