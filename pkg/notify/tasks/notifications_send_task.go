@@ -140,7 +140,8 @@ func (self *NotificationSendTask) OnInit(ctx context.Context, obj db.IStandalone
 			continue
 		}
 		if !verified {
-			sendFail(&rns[i], fmt.Sprintf("unverified contactType %q", notification.ContactType))
+			contact, _ := receiver.GetContact(notification.ContactType)
+			sendFail(&rns[i], fmt.Sprintf("unverified contactType %q for contact %s", notification.ContactType, contact))
 			continue
 		}
 		lang, err := receiver.GetTemplateLang(ctx)
@@ -179,7 +180,7 @@ func (self *NotificationSendTask) OnInit(ctx context.Context, obj db.IStandalone
 		apis.TEMPLATE_LANG_EN: receiversEn,
 	} {
 		if len(receivers) == 0 {
-			log.Warningf("no receiver to send, skip ...")
+			log.Warningf("no receiver to send for %s %s, skip ...", notification.ContactType, lang)
 			continue
 		}
 		// send
