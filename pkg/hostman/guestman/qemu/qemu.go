@@ -23,6 +23,7 @@ import (
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
@@ -117,7 +118,7 @@ type QemuOptions interface {
 	VNC(port uint, usePasswd bool) string
 	Initrd(initrdPath string) string
 	Kernel(kernelPath string) string
-	ScsiDeviceId(serial string) string
+	ScsiDeviceId(serial string, driver string) string
 }
 
 var (
@@ -226,7 +227,10 @@ func (o baseOptions) Nodefconfig() string {
 	return "-nodefconfig"
 }
 
-func (o baseOptions) ScsiDeviceId(serial string) string {
+func (o baseOptions) ScsiDeviceId(serial string, driver string) string {
+	if !utils.IsInStringArray(driver, []string{DISK_DRIVER_SCSI, DISK_DRIVER_PVSCSI}) {
+		return ""
+	}
 	return fmt.Sprintf(",device_id=%s", serial[:20])
 }
 
