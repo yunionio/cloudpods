@@ -22,6 +22,10 @@ var system = SMeasurement{
 			"system", "System load",
 			monitor.METRIC_RES_TYPE_HOST, monitor.METRIC_DATABASE_TELE,
 		},
+		{
+			"agent_system", "System load",
+			monitor.METRIC_RES_TYPE_AGENT, monitor.METRIC_DATABASE_TELE,
+		},
 	},
 	Metrics: []SMetric{
 		{
