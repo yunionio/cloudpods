@@ -689,6 +689,9 @@ func (task *STask) GetRequestContext() appctx.AppContextData {
 			ctxJson.Unmarshal(&ctxData)
 		}
 	}
+	// clear parentTaskId
+	ctxData.TaskId = ""
+	ctxData.TaskNotifyUrl = ""
 	return ctxData
 }
 
