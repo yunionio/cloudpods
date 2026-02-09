@@ -270,6 +270,10 @@ definitions:
                 description: 资源名称
                 type: string
                 x-go-name: Name
+            org_node_md5:
+                description: 用以组织架构变更通知其他服务权限变更
+                type: string
+                x-go-name: OrgNodeMd5
             os_arch:
                 description: 操作系统 CPU 架构
                 example: x86 arm
@@ -649,6 +653,10 @@ definitions:
                 description: 资源名称
                 type: string
                 x-go-name: Name
+            org_node_md5:
+                description: 用以组织架构变更通知其他服务权限变更
+                type: string
+                x-go-name: OrgNodeMd5
             os_arch:
                 description: 操作系统 CPU 架构
                 example: x86 arm
@@ -1697,18 +1705,18 @@ paths:
                   name: refresh
                   type: boolean
                   x-go-name: Refresh
-                - description: 指定项目或者域的ID
-                  in: path
-                  name: scopeId
-                  required: true
-                  type: string
-                  x-go-name: ScopeId
                 - description: 配额所属范围，可能值为projects和domains，分别代表项目的配额和域的配额
                   in: path
                   name: scope
                   required: true
                   type: string
                   x-go-name: Scope
+                - description: 指定项目或者域的ID
+                  in: path
+                  name: scopeId
+                  required: true
+                  type: string
+                  x-go-name: ScopeId
             responses:
                 "200":
                     $ref: '#/responses/models_GetImageQuotaOutput'

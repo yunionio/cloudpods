@@ -322,6 +322,10 @@ definitions:
                 description: 资源名称
                 type: string
                 x-go-name: Name
+            org_node_md5:
+                description: 用以组织架构变更通知其他服务权限变更
+                type: string
+                x-go-name: OrgNodeMd5
             policies:
                 description: 策略内容
                 type: object

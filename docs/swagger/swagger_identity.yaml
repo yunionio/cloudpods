@@ -140,6 +140,10 @@ definitions:
                 description: 资源名称
                 type: string
                 x-go-name: Name
+            org_node_md5:
+                description: 用以组织架构变更通知其他服务权限变更
+                type: string
+                x-go-name: OrgNodeMd5
             project_id:
                 type: string
                 x-go-name: ProjectId
@@ -352,6 +356,10 @@ definitions:
                 description: 资源名称
                 type: string
                 x-go-name: Name
+            org_node_md5:
+                description: 用以组织架构变更通知其他服务权限变更
+                type: string
+                x-go-name: OrgNodeMd5
             parent_id:
                 type: string
                 x-go-name: ParentId
@@ -515,6 +523,10 @@ definitions:
                 format: date-time
                 type: string
                 x-go-name: NotBefore
+            org_node_md5:
+                description: 用以组织架构变更通知其他服务权限变更
+                type: string
+                x-go-name: OrgNodeMd5
             private_key:
                 type: string
                 x-go-name: PrivateKey
@@ -757,6 +769,10 @@ definitions:
                 description: 资源名称
                 type: string
                 x-go-name: Name
+            org_node_md5:
+                description: 用以组织架构变更通知其他服务权限变更
+                type: string
+                x-go-name: OrgNodeMd5
             pending_deleted:
                 description: 资源是否处于回收站中
                 type: boolean
@@ -1012,6 +1028,10 @@ definitions:
                 description: 资源名称
                 type: string
                 x-go-name: Name
+            org_node_md5:
+                description: 用以组织架构变更通知其他服务权限变更
+                type: string
+                x-go-name: OrgNodeMd5
             policy_count:
                 description: 该认证源关联的所有域的权限策略数量
                 format: int64
@@ -1927,6 +1947,10 @@ definitions:
                     type: string
                 type: array
                 x-go-name: OrgNodeId
+            org_node_md5:
+                description: 用以组织架构变更通知其他服务权限变更
+                type: string
+                x-go-name: OrgNodeMd5
             org_nodes:
                 items:
                     $ref: '#/definitions/SOrganizationNodeInfo'
@@ -2191,6 +2215,10 @@ definitions:
                 description: 资源名称
                 type: string
                 x-go-name: Name
+            org_node_md5:
+                description: 用以组织架构变更通知其他服务权限变更
+                type: string
+                x-go-name: OrgNodeMd5
             parent_id:
                 description: 上级项目或域的ID
                 type: string
@@ -2302,6 +2330,10 @@ definitions:
                 description: 资源名称
                 type: string
                 x-go-name: Name
+            org_node_md5:
+                description: 用以组织架构变更通知其他服务权限变更
+                type: string
+                x-go-name: OrgNodeMd5
             parent_region_id:
                 type: string
                 x-go-name: ParentRegionId
@@ -2465,6 +2497,10 @@ definitions:
                 description: 资源名称
                 type: string
                 x-go-name: Name
+            org_node_md5:
+                description: 用以组织架构变更通知其他服务权限变更
+                type: string
+                x-go-name: OrgNodeMd5
             pending_deleted:
                 description: 资源是否处于回收站中
                 type: boolean
@@ -3227,6 +3263,10 @@ definitions:
                 description: 资源名称
                 type: string
                 x-go-name: Name
+            org_node_md5:
+                description: 用以组织架构变更通知其他服务权限变更
+                type: string
+                x-go-name: OrgNodeMd5
             pending_deleted:
                 description: 资源是否处于回收站中
                 type: boolean
@@ -3349,6 +3389,10 @@ definitions:
             org_id:
                 type: string
                 x-go-name: OrgId
+            org_node_md5:
+                description: 用以组织架构变更通知其他服务权限变更
+                type: string
+                x-go-name: OrgNodeMd5
             organization:
                 type: string
                 x-go-name: Organization
@@ -3634,6 +3678,10 @@ definitions:
                 description: 资源名称
                 type: string
                 x-go-name: Name
+            org_node_md5:
+                description: 用以组织架构变更通知其他服务权限变更
+                type: string
+                x-go-name: OrgNodeMd5
             type:
                 type: string
                 x-go-name: Type
@@ -4089,6 +4137,11 @@ definitions:
                 description: 资源是否启用
                 type: boolean
                 x-go-name: Enabled
+            expired_at:
+                description: 过期时间
+                format: date-time
+                type: string
+                x-go-name: ExpiredAt
             ext_resource:
                 additionalProperties:
                     format: int64
@@ -4159,19 +4212,6 @@ definitions:
                 description: 用户的默认语言设置，默认是zh_CN
                 type: string
                 x-go-name: Lang
-            last_active_at:
-                description: 上次登录时间
-                format: date-time
-                type: string
-                x-go-name: LastActiveAt
-            last_login_ip:
-                description: 上次用户登录IP
-                type: string
-                x-go-name: LastLoginIp
-            last_login_source:
-                description: 上次用户登录方式，可能值有：web（web控制台），cli（命令行climc），API（api）
-                type: string
-                x-go-name: LastLoginSource
             metadata:
                 additionalProperties:
                     type: string
@@ -4190,6 +4230,10 @@ definitions:
                 description: 登录后是否需要重置密码
                 type: boolean
                 x-go-name: NeedResetPassword
+            org_node_md5:
+                description: 用以组织架构变更通知其他服务权限变更
+                type: string
+                x-go-name: OrgNodeMd5
             password_expires_at:
                 description: 密码过期时间（如果开启了密码过期）
                 format: date-time
