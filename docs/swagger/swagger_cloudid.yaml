@@ -215,6 +215,10 @@ definitions:
                 description: 资源名称
                 type: string
                 x-go-name: Name
+            org_node_md5:
+                description: 用以组织架构变更通知其他服务权限变更
+                type: string
+                x-go-name: OrgNodeMd5
             progress:
                 description: 操作进度0-100
                 format: float
@@ -415,6 +419,10 @@ definitions:
                 description: 资源名称
                 type: string
                 x-go-name: Name
+            org_node_md5:
+                description: 用以组织架构变更通知其他服务权限变更
+                type: string
+                x-go-name: OrgNodeMd5
             policy_type:
                 description: |-
                     权限类型
@@ -588,6 +596,10 @@ definitions:
                 description: 资源名称
                 type: string
                 x-go-name: Name
+            org_node_md5:
+                description: 用以组织架构变更通知其他服务权限变更
+                type: string
+                x-go-name: OrgNodeMd5
             progress:
                 description: 操作进度0-100
                 format: float
@@ -958,6 +970,10 @@ definitions:
                 description: 资源名称
                 type: string
                 x-go-name: Name
+            org_node_md5:
+                description: 用以组织架构变更通知其他服务权限变更
+                type: string
+                x-go-name: OrgNodeMd5
             owner_id:
                 description: 本地用户Id
                 type: string
@@ -1255,6 +1271,10 @@ definitions:
                 description: 资源名称
                 type: string
                 x-go-name: Name
+            org_node_md5:
+                description: 用以组织架构变更通知其他服务权限变更
+                type: string
+                x-go-name: OrgNodeMd5
             progress:
                 description: 操作进度0-100
                 format: float
@@ -1497,6 +1517,10 @@ definitions:
                 description: 资源名称
                 type: string
                 x-go-name: Name
+            org_node_md5:
+                description: 用以组织架构变更通知其他服务权限变更
+                type: string
+                x-go-name: OrgNodeMd5
             owner_id:
                 description: 本地用户Id
                 type: string

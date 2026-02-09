@@ -16,7 +16,6 @@ package models
 
 import (
 	"context"
-	"crypto/md5"
 	"database/sql"
 	"fmt"
 	"math"
@@ -136,44 +135,6 @@ func (manager *SServerSkuManager) FilterByUniqValues(q *sqlchemy.SQuery, values 
 		q = q.Equals("zone_id", zoneId)
 	}
 	return q
-}
-
-type SInstanceSpecQueryParams struct {
-	Provider       string
-	PublicCloud    bool
-	ZoneId         string
-	PostpaidStatus string
-	PrepaidStatus  string
-	IngoreCache    bool
-}
-
-func (self *SInstanceSpecQueryParams) GetCacheKey() string {
-	hashStr := fmt.Sprintf("%s:%t:%s:%s:%s", self.Provider, self.PublicCloud, self.ZoneId, self.PostpaidStatus, self.PrepaidStatus)
-	_md5 := md5.Sum([]byte(hashStr))
-	return "InstanceSpecs_" + fmt.Sprintf("%x", _md5)
-}
-
-func NewInstanceSpecQueryParams(query jsonutils.JSONObject) *SInstanceSpecQueryParams {
-	zone := jsonutils.GetAnyString(query, []string{"zone", "zone_id"})
-	postpaid, _ := query.GetString("postpaid_status")
-	prepaid, _ := query.GetString("prepaid_status")
-	ingore_cache, _ := query.Bool("ingore_cache")
-	provider := normalizeProvider(jsonutils.GetAnyString(query, []string{"provider"}))
-	public_cloud, _ := query.Bool("public_cloud")
-	if utils.IsInStringArray(provider, cloudprovider.GetPublicProviders()) {
-		public_cloud = true
-	}
-
-	params := &SInstanceSpecQueryParams{
-		Provider:       provider,
-		PublicCloud:    public_cloud,
-		ZoneId:         zone,
-		PostpaidStatus: postpaid,
-		PrepaidStatus:  prepaid,
-		IngoreCache:    ingore_cache,
-	}
-
-	return params
 }
 
 func sliceToJsonObject(items []int) jsonutils.JSONObject {
@@ -493,20 +454,6 @@ func intervalMem(n int) (int, int) {
 		return 0, 512
 	}
 	return interval(n, 1024)
-}
-
-func normalizeProvider(provider string) string {
-	if len(provider) == 0 {
-		return provider
-	}
-
-	for _, p := range api.CLOUD_PROVIDERS {
-		if strings.ToLower(p) == strings.ToLower(provider) {
-			return p
-		}
-	}
-
-	return provider
 }
 
 func networkUsableRegionQueries(f sqlchemy.IQueryField) []sqlchemy.ICondition {
@@ -1164,21 +1111,6 @@ func (self *SServerSku) constructSku(extSku cloudprovider.ICloudSku) {
 	self.GpuCount = extSku.GetGpuCount()
 	self.GpuMaxCount = extSku.GetGpuMaxCount()
 	self.Name = extSku.GetName()
-}
-
-func (self *SServerSku) setPrepaidPostpaidStatus(userCred mcclient.TokenCredential, prepaidStatus, postpaidStatus string) error {
-	if prepaidStatus != self.PrepaidStatus || postpaidStatus != self.PostpaidStatus {
-		diff, err := db.Update(self, func() error {
-			self.PrepaidStatus = prepaidStatus
-			self.PostpaidStatus = postpaidStatus
-			return nil
-		})
-		if err != nil {
-			return err
-		}
-		db.OpsLog.LogEvent(self, db.ACT_UPDATE, diff, userCred)
-	}
-	return nil
 }
 
 func (region *SCloudregion) getMetaUrl(base string, externalId string) string {

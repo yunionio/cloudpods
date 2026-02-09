@@ -135,6 +135,10 @@ definitions:
                 description: 资源名称
                 type: string
                 x-go-name: Name
+            org_node_md5:
+                description: 用以组织架构变更通知其他服务权限变更
+                type: string
+                x-go-name: OrgNodeMd5
             project_domain:
                 description: 资源归属项目的域名称
                 type: string
@@ -607,6 +611,10 @@ definitions:
                 description: 资源名称
                 type: string
                 x-go-name: Name
+            org_node_md5:
+                description: 用以组织架构变更通知其他服务权限变更
+                type: string
+                x-go-name: OrgNodeMd5
             priority:
                 type: string
                 x-go-name: Priority
@@ -1036,6 +1044,10 @@ definitions:
                 description: 资源名称
                 type: string
                 x-go-name: Name
+            org_node_md5:
+                description: 用以组织架构变更通知其他服务权限变更
+                type: string
+                x-go-name: OrgNodeMd5
             pending_deleted:
                 description: 资源是否处于回收站中
                 type: boolean
@@ -1955,6 +1967,10 @@ definitions:
                 description: 标签
                 type: object
                 x-go-name: Metadata
+            org_node_md5:
+                description: 用以组织架构变更通知其他服务权限变更
+                type: string
+                x-go-name: OrgNodeMd5
             receivers:
                 description: 'description: receivers'
                 items:
@@ -2200,6 +2216,10 @@ definitions:
                 description: 资源名称
                 type: string
                 x-go-name: Name
+            org_node_md5:
+                description: 用以组织架构变更通知其他服务权限变更
+                type: string
+                x-go-name: OrgNodeMd5
             progress:
                 description: 操作进度0-100
                 format: float

@@ -36,6 +36,8 @@ import (
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
+// +onecloud:swagger-gen-model-singular=guestnetworksecgroup
+// +onecloud:swagger-gen-model-plural=guestnetworksecgroups
 type SGuestnetworksecgroupManager struct {
 	db.SResourceBaseManager
 	SGuestResourceBaseManager
@@ -61,6 +63,7 @@ func init() {
 	})
 }
 
+// +onecloud:model-api-gen
 type SGuestnetworksecgroup struct {
 	db.SResourceBase
 

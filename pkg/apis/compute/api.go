@@ -484,7 +484,7 @@ type KickstartConfig struct {
 	ConfigURL string `json:"config_url,omitempty"`
 
 	// 操作系统类型 (用于确定内核参数和文件路径)
-	// enum: centos,rhel,fedora,openeuler,ubuntu
+	// enum: ["centos", "rhel", "fedora", "openeuler", "ubuntu"]
 	// required: true
 	OSType string `json:"os_type" validate:"required,oneof=centos rhel fedora openeuler ubuntu"`
 
@@ -725,7 +725,7 @@ type ServerCreateInput struct {
 // ServerUpdateKickstartStatusInput 更新虚拟机 kickstart 状态的输入
 type ServerUpdateKickstartStatusInput struct {
 	// kickstart 状态
-	// enum: kickstart_pending,kickstart_installing,kickstart_completed,kickstart_failed
+	// enum: ["kickstart_pending", "kickstart_installing", "kickstart_completed", "kickstart_failed"]
 	// required: true
 	Status string `json:"status" validate:"required,oneof=kickstart_pending kickstart_installing kickstart_completed kickstart_failed"`
 
