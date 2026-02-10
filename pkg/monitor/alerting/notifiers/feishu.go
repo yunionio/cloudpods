@@ -107,13 +107,16 @@ func (fs *FeishuNotifier) Notify(ctx *alerting.EvalContext, _ jsonutils.JSONObje
 }
 
 func (fs *FeishuNotifier) getCommonInfoMod(config monitor.NotificationTemplateConfig) feishu.CardElement {
+	fields := []*feishu.CardElementField{
+		feishu.NewCardElementTextField(false, fmt.Sprintf("**时间:** %s", config.StartTime)),
+		feishu.NewCardElementTextField(false, fmt.Sprintf("**级别:** %s", config.Level)),
+	}
+	if config.Reason != "" {
+		fields = append(fields, feishu.NewCardElementTextField(false, fmt.Sprintf("**原因:** %s", config.Reason)))
+	}
 	elem := feishu.CardElement{
-		Tag: feishu.TagDiv,
-		// Text: feishu.NewCardElementText(config.Title),
-		Fields: []*feishu.CardElementField{
-			feishu.NewCardElementTextField(false, fmt.Sprintf("**时间:** %s", config.StartTime)),
-			feishu.NewCardElementTextField(false, fmt.Sprintf("**级别:** %s", config.Level)),
-		},
+		Tag:    feishu.TagDiv,
+		Fields: fields,
 	}
 	return elem
 }

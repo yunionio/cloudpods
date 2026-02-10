@@ -59,6 +59,7 @@ type Rule struct {
 	Notifications       []string
 	// AlertRuleTags       []*models.AlertRuleTag
 	Level           string
+	Reason          string
 	RuleDescription []*monitor.AlertRecordRule
 
 	StateChanges int
@@ -137,6 +138,7 @@ func NewRuleFromDBAlert(ruleDef *models.SAlert) (*Rule, error) {
 	}
 
 	model.Level = ruleDef.Level
+	model.Reason = ruleDef.Reason
 	nIds := []string{}
 	notis, err := ruleDef.GetNotifications()
 	if err != nil {

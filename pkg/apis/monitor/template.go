@@ -31,6 +31,7 @@ type NotificationTemplateConfig struct {
 	StartTime   string `json:"start_time"`
 	EndTime     string `json:"end_time"`
 	Description string `json:"description"`
+	Reason      string `json:"reason"`
 	Priority    string `json:"priority"`
 	Level       string `json:"level"`
 	IsRecovery  bool   `json:"is_recovery"`

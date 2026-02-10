@@ -217,6 +217,7 @@ func (c *EvalContext) GetNotificationTemplateConfig(matches []*monitor.EvalMatch
 		StartTime:    c.StartTime.In(tz).Format("2006-01-02 15:04:05"),
 		EndTime:      c.EndTime.In(tz).Format("2006-01-02 15:04:05"),
 		Description:  desc,
+		Reason:       c.Rule.Reason,
 		Level:        c.Rule.Level,
 		NoDataFound:  c.NoDataFound,
 		WebUrl:       c.GetCallbackURLPrefix(),
