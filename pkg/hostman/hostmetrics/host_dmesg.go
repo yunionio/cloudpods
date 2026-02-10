@@ -104,7 +104,7 @@ func (c *SHostDmesgCollector) Start() {
 
 		entry, err := c.parseKmsgLine(line, bootTime)
 		if err != nil {
-			log.Errorf("failed parse kmsg line %s: %s", line, err)
+			log.Debugf("failed parse kmsg line %s: %s", line, err)
 			continue
 		}
 		if entry.Seq <= lastSeq {
