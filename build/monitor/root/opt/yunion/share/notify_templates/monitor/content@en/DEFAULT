@@ -2,7 +2,8 @@ AlertName: {{.name}}
 Time: {{.start_time}}
 Level: {{.level}}
 TriggerCondition: {{.description | unescaped}}
-AlertCount: {{len .matches}}
+{{if .reason}}Reason: {{.reason}}
+{{end}}AlertCount: {{len .matches}}
 ResourceName: {{.resource_name}}
 
 WebUrl: {{.web_url}}
