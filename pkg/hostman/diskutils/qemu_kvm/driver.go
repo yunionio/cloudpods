@@ -698,7 +698,10 @@ func (d *QemuBaseDriver) startCmds(
 
 		cmd += diskDrive
 		serialId := strings.ReplaceAll(diskIds[i], "-", "")
-		deviceId := serialId[:20]
+		if len(serialId) >= 20 {
+			serialId = serialId[:20]
+		}
+		deviceId := serialId
 		cmd += __("-device scsi-hd,drive=drive_%d,bus=scsi.0,id=drive_%d,serial=%s,device_id=%s", i, i, serialId, deviceId)
 	}
 	cmd += __("-drive id=cd0,if=none,media=cdrom,file=%s", DEPLOY_ISO)
