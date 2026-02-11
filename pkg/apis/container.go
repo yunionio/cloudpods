@@ -272,6 +272,22 @@ type ContainerVolumeMountDiskPostImageOverlay struct {
 	PathMap map[string]string `json:"path_map"`
 	// 宿主机底层目录映射, key 为 PathMap 的 key，value 为 overlay lower 格式，多目录以 ":" 分隔
 	HostLowerMap map[string]*HostLowerPath `json:"host_lower_map"`
+	UpperConfig  *PostOverlayUpperConfig   `json:"upper_config"`
+}
+
+type PostOverlayUpperConfigType string
+
+const (
+	PostOverlayUpperConfigTypeDisk PostOverlayUpperConfigType = "disk"
+)
+
+type PostOverlayUpperConfigDisk struct {
+	SubPath string `json:"sub_path"`
+}
+
+type PostOverlayUpperConfig struct {
+	Type PostOverlayUpperConfigType  `json:"type"`
+	Disk *PostOverlayUpperConfigDisk `json:"disk"`
 }
 
 type ContainerVolumeMountDiskPostImageOverlayUnpacker ContainerVolumeMountDiskPostImageOverlay
@@ -285,6 +301,7 @@ func (ov *ContainerVolumeMountDiskPostImageOverlay) UnmarshalJSON(data []byte) e
 	// 防止 PathMap 被合并，总是用 Unarmshal data 里面的 path_map
 	ov.PathMap = nov.PathMap
 	ov.HostLowerMap = nov.HostLowerMap
+	ov.UpperConfig = nov.UpperConfig
 	return nil
 }
 
@@ -298,6 +315,8 @@ const (
 type ContainerVolumeMountDiskPostOverlay struct {
 	// 宿主机底层目录
 	HostLowerDir []string `json:"host_lower_dir"`
+	// 宿主机上层目录
+	HostUpperDir string `json:"host_upper_dir"`
 	// 合并后要挂载到容器的目录
 	ContainerTargetDir string                                    `json:"container_target_dir"`
 	Image              *ContainerVolumeMountDiskPostImageOverlay `json:"image"`
