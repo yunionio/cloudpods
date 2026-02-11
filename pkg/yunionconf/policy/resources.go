@@ -24,8 +24,10 @@ var (
 		"scopedpolicies",
 		"scopedpolicybindings",
 	}
-	yunionconfDomainResources = []string{}
-	yunionconfUserResources   = []string{
+	yunionconfDomainResources = []string{
+		"tags",
+	}
+	yunionconfUserResources = []string{
 		"parameters",
 	}
 )
