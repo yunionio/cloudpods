@@ -2827,7 +2827,7 @@ func (s *sPodGuestInstance) DoSnapshot(ctx context.Context, params *SDiskSnapsho
 		diskDrv := drv.(disk.IVolumeMountDisk)
 		for _, pov := range vol.Disk.PostOverlay {
 			// bind mount post overlay dirs to tmpBackRootDir
-			upperDir, err := diskDrv.GetPostOverlayRootUpperDir(s, vol, input.ContainerId)
+			upperDir, err := diskDrv.GetPostOverlayRootUpperDir(s, vol, input.ContainerId, pov)
 			if err != nil {
 				return nil, errors.Wrapf(err, "get post overlay root upper dir: %s", jsonutils.Marshal(pov))
 			}
