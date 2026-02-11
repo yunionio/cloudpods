@@ -78,7 +78,7 @@ func parseColonSeparatedPaths(pathStr string) []string {
 	return paths
 }
 
-func (i postOverlayImage) convertToDiskOV(ov *apis.ContainerVolumeMountDiskPostOverlay, hostPath, ctrPath string, hostLowerPath *apis.HostLowerPath) *apis.ContainerVolumeMountDiskPostOverlay {
+func (i postOverlayImage) convertToDiskOV(ov *apis.ContainerVolumeMountDiskPostOverlay, hostPath, ctrPath string, hostLowerPath *apis.HostLowerPath, hostUpperDir string) *apis.ContainerVolumeMountDiskPostOverlay {
 	hostLowerDir := []string{}
 	if hostLowerPath != nil {
 		// 添加 PrePath 中的路径
@@ -92,6 +92,7 @@ func (i postOverlayImage) convertToDiskOV(ov *apis.ContainerVolumeMountDiskPostO
 	}
 	return &apis.ContainerVolumeMountDiskPostOverlay{
 		HostLowerDir:       hostLowerDir,
+		HostUpperDir:       hostUpperDir,
 		ContainerTargetDir: ctrPath,
 		FsUser:             ov.FsUser,
 		FsGroup:            ov.FsGroup,
@@ -100,6 +101,7 @@ func (i postOverlayImage) convertToDiskOV(ov *apis.ContainerVolumeMountDiskPostO
 }
 
 func (i postOverlayImage) withAction(
+	vm *hostapi.ContainerVolumeMount,
 	d diskPostOverlay, pod volume_mount.IPodInfo, ov *apis.ContainerVolumeMountDiskPostOverlay,
 	af func(iDiskPostOverlayDriver, *apis.ContainerVolumeMountDiskPostOverlay) error,
 	accquire bool) error {
@@ -108,9 +110,21 @@ func (i postOverlayImage) withAction(
 	if err != nil {
 		return errors.Wrapf(err, "get cached image paths")
 	}
+	hostUpperDir := ""
+	if img.UpperConfig != nil {
+		config := img.UpperConfig
+		if config.Disk.SubPath == "" {
+			return errors.Errorf("sub_path of upper config is empty")
+		}
+		hostPath, err := d.disk.GetHostDiskRootPath(pod, vm)
+		if err != nil {
+			return errors.Wrap(err, "get host disk root path")
+		}
+		hostUpperDir = filepath.Join(hostPath, vm.Disk.SubDirectory, config.Disk.SubPath)
+	}
 	for hostPath, ctrPath := range paths {
 		hostLowerPath := hostLowerPaths[hostPath]
-		dov := i.convertToDiskOV(ov, hostPath, ctrPath, hostLowerPath)
+		dov := i.convertToDiskOV(ov, hostPath, ctrPath, hostLowerPath, hostUpperDir)
 		drv := d.getDriver(dov)
 		if err := af(drv, dov); err != nil {
 			return errors.Wrapf(err, "host path %s to %s", hostPath, ctrPath)
@@ -120,14 +134,14 @@ func (i postOverlayImage) withAction(
 }
 
 func (i postOverlayImage) Mount(d diskPostOverlay, pod volume_mount.IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount, ov *apis.ContainerVolumeMountDiskPostOverlay) error {
-	return i.withAction(d, pod, ov,
+	return i.withAction(vm, d, pod, ov,
 		func(driver iDiskPostOverlayDriver, dov *apis.ContainerVolumeMountDiskPostOverlay) error {
 			return driver.Mount(d, pod, ctrId, vm, dov)
 		}, true)
 }
 
 func (i postOverlayImage) Unmount(d diskPostOverlay, pod volume_mount.IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount, ov *apis.ContainerVolumeMountDiskPostOverlay, useLazy bool, clearLayers bool) error {
-	return i.withAction(d, pod, ov,
+	return i.withAction(vm, d, pod, ov,
 		func(driver iDiskPostOverlayDriver, dov *apis.ContainerVolumeMountDiskPostOverlay) error {
 			return driver.Unmount(d, pod, ctrId, vm, dov, useLazy, clearLayers)
 		}, false)

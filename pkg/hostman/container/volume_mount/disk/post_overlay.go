@@ -60,7 +60,19 @@ func (d disk) GetPostOverlayRootWorkDir(pod volume_mount.IPodInfo, vm *hostapi.C
 	return d.getPostOverlayRootPrefixDir(POST_OVERLAY_PREFIX_WORK_DIR, pod, vm, ctrId)
 }
 
-func (d disk) GetPostOverlayRootUpperDir(pod volume_mount.IPodInfo, vm *hostapi.ContainerVolumeMount, ctrId string) (string, error) {
+func (d disk) GetPostOverlayRootUpperDir(pod volume_mount.IPodInfo, vm *hostapi.ContainerVolumeMount, ctrId string, pov *apis.ContainerVolumeMountDiskPostOverlay) (string, error) {
+	if pov.Image != nil && pov.Image.UpperConfig != nil {
+		config := pov.Image.UpperConfig
+		if config.Disk.SubPath == "" {
+			return "", errors.Errorf("sub_path of upper config is empty")
+		}
+		hostPath, err := d.GetHostDiskRootPath(pod, vm)
+		if err != nil {
+			return "", errors.Wrap(err, "get host disk root path")
+		}
+		upperDir := filepath.Join(hostPath, vm.Disk.SubDirectory, config.Disk.SubPath)
+		return upperDir, nil
+	}
 	return d.getPostOverlayRootPrefixDir(POST_OVERLAY_PREFIX_UPPER_DIR, pod, vm, ctrId)
 }
 
@@ -188,6 +200,9 @@ func (d diskPostOverlay) getPostOverlayUpperDir(
 	ov *apis.ContainerVolumeMountDiskPostOverlay,
 	ensure bool,
 ) (string, error) {
+	if ov.HostUpperDir != "" {
+		return ov.HostUpperDir, nil
+	}
 	return d.getPostOverlayDirWithPrefix(POST_OVERLAY_PREFIX_UPPER_DIR, pod, ctrId, vm, ov, ensure)
 }
 
