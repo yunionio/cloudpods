@@ -1544,7 +1544,7 @@ type SInstanceSnapshot struct {
 	// 是否保存内存
 	WithMemory bool `json:"with_memory"`
 	// 内存文件大小
-	MemorySizeMB int `json:"memory_size_mb"`
+	MemorySizeKB int `json:"memory_size_kb"`
 	// 内存文件所在宿主机
 	MemoryFileHostId string `json:"memory_file_host_id"`
 	// 内存文件路径

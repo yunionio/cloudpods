@@ -3332,7 +3332,7 @@ func (s *SKVMGuestInstance) ExecMemorySnapshotTask(ctx context.Context, input *h
 	NewGuestSuspendTask(s, ctx, func(_ *SGuestSuspendTask, memStatPath string) {
 		log.Infof("Memory state file %q saved, move it to %q", memStatPath, memSnapPath)
 		sizeBytes := fileutils2.FileSize(memStatPath)
-		sizeMB := sizeBytes / 1024
+		sizeKB := sizeBytes / 1024
 		checksum, err := fileutils2.FastCheckSum(memStatPath)
 		if err != nil {
 			hostutils.TaskFailed(ctx, fmt.Sprintf("calculate statefile %q checksum: %v", memStatPath, err))
@@ -3346,7 +3346,7 @@ func (s *SKVMGuestInstance) ExecMemorySnapshotTask(ctx context.Context, input *h
 		resumeTask.SetGetTaskData(func() (jsonutils.JSONObject, error) {
 			resp := &hostapi.GuestMemorySnapshotResponse{
 				MemorySnapshotPath: memSnapPath,
-				SizeMB:             sizeMB,
+				SizeKB:             sizeKB,
 				Checksum:           checksum,
 			}
 			return jsonutils.Marshal(resp), nil

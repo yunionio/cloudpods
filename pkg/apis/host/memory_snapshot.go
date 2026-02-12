@@ -19,9 +19,17 @@ type GuestMemorySnapshotRequest struct {
 }
 
 type GuestMemorySnapshotResponse struct {
+	// 内存快照文件路径
 	MemorySnapshotPath string `json:"memory_snapshot_path"`
-	SizeMB             int64  `json:"size_mb"`
-	Checksum           string `json:"checksum"`
+
+	// @deprecated
+	// swagger:ignore
+	SizeMB int64 `json:"size_mb" yunion-deprecated-by:"size_kb"`
+	// 内存快照文件大小, KB
+	SizeKB int64 `json:"size_kb"`
+
+	// 内存快照文件校验和
+	Checksum string `json:"checksum"`
 }
 
 type GuestMemorySnapshotDeleteRequest struct {
