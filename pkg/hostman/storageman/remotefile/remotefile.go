@@ -90,6 +90,10 @@ func NewRemoteFile(
 	}
 }
 
+func (r *SRemoteFile) GetFormat() string {
+	return r.format
+}
+
 func (r *SRemoteFile) Fetch(callback func(progress, progressMbps float64, totalSizeMb int64)) error {
 	if len(r.preChksum) > 0 {
 		log.Infof("Fetch remote file with precheck sum: %s", r.preChksum)
