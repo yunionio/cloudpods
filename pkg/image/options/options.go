@@ -15,12 +15,16 @@
 package options
 
 import (
+	"strings"
+
+	"yunion.io/x/log"
+
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/cloudcommon/pending_delete"
 )
 
 type SImageOptions struct {
-	common_options.HostCommonOptions
+	common_options.HostCommonOptions `"s3_bucket_name->default":"onecloud-images" "s3_bucket_lifecycle_keep_day->default":"0"`
 
 	common_options.DBOptions
 
@@ -86,5 +90,22 @@ func OnOptionsChange(oldO, newO interface{}) bool {
 }
 
 func (opt SImageOptions) HasValidS3Options() bool {
-	return len(opt.S3Endpoint) > 0 && len(opt.S3AccessKey) > 0 && len(opt.S3SecretKey) > 0 && len(opt.S3BucketName) > 0
+	msg := []string{}
+	if len(opt.S3Endpoint) <= 0 {
+		msg = append(msg, "s3_endpoint is required")
+	}
+	if len(opt.S3AccessKey) <= 0 {
+		msg = append(msg, "s3_access_key is required")
+	}
+	if len(opt.S3SecretKey) <= 0 {
+		msg = append(msg, "s3_secret_key is required")
+	}
+	if len(opt.S3BucketName) <= 0 {
+		msg = append(msg, "s3_bucket_name is required")
+	}
+	if len(msg) > 0 {
+		log.Errorf("invalid s3 options: %s", strings.Join(msg, ", "))
+		return false
+	}
+	return true
 }
