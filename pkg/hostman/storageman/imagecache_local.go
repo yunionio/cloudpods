@@ -224,10 +224,14 @@ func (l *SLocalImageCache) fetch(ctx context.Context, input api.CacheImageInput,
 	}()
 	var _fetch = func() error {
 		if len(l.Manager.GetId()) > 0 {
-			_, err := hostutils.RemoteStoragecacheCacheImage(ctx,
-				l.Manager.GetId(), l.imageId, "active", l.GetPath())
-			if err != nil {
-				log.Errorf("Fail to update host cached image: %s", err)
+			// TGZ images are unpacked after fetch; do not set status to active here.
+			// TODO: status should be updated by the region task; this logic may be removable?
+			if l.remoteFile.GetFormat() != imageapi.IMAGE_DISK_FORMAT_TGZ {
+				_, err := hostutils.RemoteStoragecacheCacheImage(ctx,
+					l.Manager.GetId(), l.imageId, "active", l.GetPath())
+				if err != nil {
+					log.Errorf("Fail to update host cached image: %s", err)
+				}
 			}
 		}
 		l.cond.L.Lock()

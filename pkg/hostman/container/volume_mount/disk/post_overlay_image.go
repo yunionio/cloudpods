@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/onecloud/pkg/apis"
 	hostapi "yunion.io/x/onecloud/pkg/apis/host"
 	"yunion.io/x/onecloud/pkg/hostman/container/volume_mount"
+	fileutils "yunion.io/x/onecloud/pkg/util/fileutils2"
 )
 
 func init() {
@@ -121,6 +122,11 @@ func (i postOverlayImage) withAction(
 			return errors.Wrap(err, "get host disk root path")
 		}
 		hostUpperDir = filepath.Join(hostPath, vm.Disk.SubDirectory, config.Disk.SubPath)
+		if !fileutils.Exists(hostUpperDir) {
+			if err := volume_mount.EnsureDir(hostUpperDir); err != nil {
+				return errors.Wrapf(err, "ensure dir %s", hostUpperDir)
+			}
+		}
 	}
 	for hostPath, ctrPath := range paths {
 		hostLowerPath := hostLowerPaths[hostPath]
