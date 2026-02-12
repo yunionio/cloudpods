@@ -147,6 +147,11 @@ func StartService() {
 
 		if options.Options.HasValidS3Options() {
 			initS3()
+			log.Infof("init s3 client success")
+		} else if options.Options.StorageDriver == api.IMAGE_STORAGE_DRIVER_S3 {
+			log.Fatalf("storage driver is s3, but s3 options are not valid")
+		} else {
+			log.Infof("storage driver is not s3 and no valid s3 options, skip init s3 client")
 		}
 		// check image after s3 mounted
 		models.CheckImages(app.GetContext())
@@ -215,10 +220,9 @@ func initS3() {
 	if err != nil {
 		log.Fatalf("failed init s3 client %s", err)
 	}
-	if options.Options.S3BucketName == "onecloud-screendump" {
-		if err = s3.SetBucketLifecycle(""); err != nil {
-			log.Warningf("remove onecloud-screendump lifecycle %s", err)
-		}
+	// clear glance bucket lifecycle definiton
+	if err = s3.SetBucketLifecycle(""); err != nil {
+		log.Warningf("remove onecloud-screendump lifecycle %s", err)
 	}
 
 	func() {
