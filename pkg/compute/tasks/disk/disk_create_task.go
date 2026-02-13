@@ -158,11 +158,11 @@ func (self *DiskCreateTask) OnDiskReadyFailed(ctx context.Context, disk *models.
 	self.SetStageFailed(ctx, data)
 }
 
-func (self *DiskCreateTask) OnGuestSyncstatusComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+func (self *DiskCreateTask) OnGuestSyncstatusComplete(ctx context.Context, disk *models.SDisk, data jsonutils.JSONObject) {
 	self.SetStageComplete(ctx, nil)
 }
 
-func (self *DiskCreateTask) OnGuestSyncstatusCompleteFailed(ctx context.Context, guest *models.SGuest, err jsonutils.JSONObject) {
+func (self *DiskCreateTask) OnGuestSyncstatusCompleteFailed(ctx context.Context, disk *models.SDisk, err jsonutils.JSONObject) {
 	// ??? why
 	log.Errorf("OnGuestSyncstatusCompleteFailed: %s", err.String())
 	self.SetStageFailed(ctx, err)
