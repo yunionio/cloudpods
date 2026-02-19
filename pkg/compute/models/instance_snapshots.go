@@ -82,7 +82,7 @@ type SInstanceSnapshot struct {
 	// 套餐名称
 	InstanceType string `width:"64" charset:"utf8" nullable:"true" list:"user" create:"optional"`
 	// 主机快照磁盘容量和
-	SizeMb int `nullable:"false" list:"user"`
+	// SizeMb int `nullable:"false" list:"user"`
 	// 镜像ID
 	ImageId string `width:"36" charset:"ascii" nullable:"true" list:"user"`
 	// 是否保存内存
@@ -273,30 +273,30 @@ func (self *SInstanceSnapshot) getMoreDetails(userCred mcclient.TokenCredential,
 			if snapshots[i].DiskType == api.DISK_TYPE_SYS {
 				osType = snapshots[i].OsType
 			}
-			snapSize := snapshots[i].VirtualSize
-			if snapshots[i].Size > 0 {
-				snapSize = snapshots[i].Size
-			}
 			out.Snapshots = append(out.Snapshots, api.SimpleSnapshot{
 				Id:            snapshots[i].Id,
 				Name:          snapshots[i].Name,
 				StorageId:     snapshots[i].StorageId,
 				DiskType:      snapshots[i].DiskType,
 				CloudregionId: snapshots[i].CloudregionId,
-				Size:          snapSize,
+				Size:          snapshots[i].Size,
+				VirtualSize:   snapshots[i].VirtualSize,
 				Status:        snapshots[i].Status,
 				StorageType:   snapshots[i].GetStorageType(),
 				EncryptKeyId:  snapshots[i].EncryptKeyId,
 				CreatedAt:     snapshots[i].CreatedAt,
 			})
-			out.Size += snapSize
-
+			out.SizeMb += snapshots[i].Size
+			out.VirtualSizeMb += snapshots[i].VirtualSize
 			if len(snapshots[i].StorageId) > 0 && out.StorageType == "" {
 				out.StorageType = snapshots[i].GetStorageType()
 			}
 		}
+		out.Size = out.SizeMb * 1024 * 1024
+		if out.VirtualSizeMb <= 0 && guest != nil {
+			out.VirtualSizeMb = guest.getDiskSize()
+		}
 	} else if guest != nil {
-		out.Size = self.SizeMb * 1024 * 1024
 		disk, err := guest.GetSystemDisk()
 		if err != nil {
 			log.Errorf("unable to GetSystemDisk of guest %q", guest.GetId())
@@ -306,6 +306,9 @@ func (self *SInstanceSnapshot) getMoreDetails(userCred mcclient.TokenCredential,
 				out.StorageType = s.StorageType
 			}
 		}
+		out.VirtualSizeMb = guest.getDiskSize()
+		out.SizeMb = out.VirtualSizeMb
+		out.Size = out.SizeMb * 1024 * 1024
 	}
 	if len(osType) > 0 {
 		out.Properties = map[string]string{"os_type": osType}
@@ -442,7 +445,7 @@ func (manager *SInstanceSnapshotManager) CreateInstanceSnapshot(ctx context.Cont
 	}
 	manager.fillInstanceSnapshot(ctx, userCred, guest, instanceSnapshot)
 	// compute size of instanceSnapshot
-	instanceSnapshot.SizeMb = guest.getDiskSize()
+	// instanceSnapshot.SizeMb = guest.getDiskSize()
 	instanceSnapshot.WithMemory = withMemory
 	instanceSnapshot.MemoryFileHostId = guest.HostId
 	err := manager.TableSpec().Insert(ctx, instanceSnapshot)
