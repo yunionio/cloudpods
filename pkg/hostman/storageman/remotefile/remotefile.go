@@ -125,8 +125,9 @@ func (r *SRemoteFile) GetInfo() (*SImageDesc, error) {
 
 	var atime time.Time
 	if fi.Sys() != nil {
-		atm := fi.Sys().(*syscall.Stat_t).Atim
-		atime = time.Unix(atm.Sec, atm.Nsec)
+		if stat, ok := fi.Sys().(*syscall.Stat_t); ok {
+			atime = fileutils2.GetAtim(stat)
+		}
 	}
 
 	return &SImageDesc{

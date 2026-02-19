@@ -2565,21 +2565,31 @@ func (s *SKVMGuestInstance) onNicChange(oldNic, newNic *desc.SGuestNetwork) erro
 		} else {
 			// bridge not changed
 			if oldifname == newifname {
-				if newvlan > 1 {
-					output, err := procutils.NewRemoteCommandAsFarAsPossible("ovs-vsctl", "set", "port", newifname, fmt.Sprintf("tag=%d", newvlan)).Output()
-					if err != nil {
-						return errors.Wrapf(err, "NewRemoteCommandAsFarAsPossible change vlan tag to %d: %s", newvlan, output)
+				if oldNic.Bw != newNic.Bw {
+					log.Infof("Nic %s bw changed %d -> %d", newNic.Mac, oldNic.Bw, newNic.Bw)
+					if err := s.generateNicScripts(newNic); err != nil {
+						return errors.Wrap(err, "generateNicScripts update bandwidth")
+					}
+					if err := s.SetNicUp(newNic); err != nil {
+						return errors.Wrap(err, "SetNicUp update bandwidth")
 					}
 				} else {
-					// clear vlan
-					output, err := procutils.NewRemoteCommandAsFarAsPossible("ovs-vsctl", "get", "port", newifname, "tag").Output()
-					if err != nil {
-						return errors.Wrapf(err, "NewRemoteCommandAsFarAsPossible get vlan tag: %s", output)
-					}
-					tagStr := strings.TrimSpace(string(output))
-					if tag, err := strconv.Atoi(tagStr); err == nil && tag > 1 {
-						if output, err := procutils.NewRemoteCommandAsFarAsPossible("ovs-vsctl", "remove", "port", newifname, "tag", tagStr).Output(); err != nil {
-							return errors.Wrapf(err, "NewRemoteCommandAsFarAsPossible remove vlan tag %s: %s", tagStr, output)
+					if newvlan > 1 {
+						output, err := procutils.NewRemoteCommandAsFarAsPossible("ovs-vsctl", "set", "port", newifname, fmt.Sprintf("tag=%d", newvlan)).Output()
+						if err != nil {
+							return errors.Wrapf(err, "NewRemoteCommandAsFarAsPossible change vlan tag to %d: %s", newvlan, output)
+						}
+					} else {
+						// clear vlan
+						output, err := procutils.NewRemoteCommandAsFarAsPossible("ovs-vsctl", "get", "port", newifname, "tag").Output()
+						if err != nil {
+							return errors.Wrapf(err, "NewRemoteCommandAsFarAsPossible get vlan tag: %s", output)
+						}
+						tagStr := strings.TrimSpace(string(output))
+						if tag, err := strconv.Atoi(tagStr); err == nil && tag > 1 {
+							if output, err := procutils.NewRemoteCommandAsFarAsPossible("ovs-vsctl", "remove", "port", newifname, "tag", tagStr).Output(); err != nil {
+								return errors.Wrapf(err, "NewRemoteCommandAsFarAsPossible remove vlan tag %s: %s", tagStr, output)
+							}
 						}
 					}
 				}

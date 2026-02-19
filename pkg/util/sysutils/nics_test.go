@@ -15,12 +15,16 @@
 package sysutils
 
 import (
+	"runtime"
 	"testing"
 
 	"yunion.io/x/jsonutils"
 )
 
 func TestNics(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("Skipping Nics test on non-linux")
+	}
 	nics, err := Nics()
 	if err != nil {
 		t.Errorf("error %s", err)
