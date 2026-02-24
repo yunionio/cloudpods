@@ -965,9 +965,11 @@ func (acnt *SCloudaccount) markStartSync(userCred mcclient.TokenCredential, sync
 
 func (acnt *SCloudaccount) MarkSyncing(userCred mcclient.TokenCredential) error {
 	_, err := db.Update(acnt, func() error {
-		acnt.SyncStatus = api.CLOUD_PROVIDER_SYNC_STATUS_SYNCING
-		acnt.LastSync = timeutils.UtcNow()
-		acnt.LastSyncEndAt = time.Time{}
+		if acnt.SyncStatus != api.CLOUD_PROVIDER_SYNC_STATUS_SYNCING {
+			acnt.SyncStatus = api.CLOUD_PROVIDER_SYNC_STATUS_SYNCING
+			acnt.LastSync = timeutils.UtcNow()
+			acnt.LastSyncEndAt = time.Time{}
+		}
 		return nil
 	})
 	if err != nil {
@@ -976,7 +978,7 @@ func (acnt *SCloudaccount) MarkSyncing(userCred mcclient.TokenCredential) error 
 	return nil
 }
 
-func (acnt *SCloudaccount) MarkEndSyncWithLock(ctx context.Context, userCred mcclient.TokenCredential) error {
+func (acnt *SCloudaccount) MarkEndSyncWithLock(ctx context.Context, userCred mcclient.TokenCredential, deepSync bool) error {
 	lockman.LockObject(ctx, acnt)
 	defer lockman.ReleaseObject(ctx, acnt)
 
@@ -992,13 +994,15 @@ func (acnt *SCloudaccount) MarkEndSyncWithLock(ctx context.Context, userCred mcc
 		return errors.Error("some cloud providers not idle")
 	}
 
-	return acnt.MarkEndSync(userCred)
+	return acnt.MarkEndSync(userCred, deepSync)
 }
 
-func (acnt *SCloudaccount) MarkEndSync(userCred mcclient.TokenCredential) error {
+func (acnt *SCloudaccount) MarkEndSync(userCred mcclient.TokenCredential, deepSync bool) error {
 	_, err := db.Update(acnt, func() error {
 		acnt.SyncStatus = api.CLOUD_PROVIDER_SYNC_STATUS_IDLE
-		acnt.LastSyncEndAt = timeutils.UtcNow()
+		if deepSync {
+			acnt.LastSyncEndAt = timeutils.UtcNow()
+		}
 		return nil
 	})
 	if err != nil {
