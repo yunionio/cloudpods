@@ -791,7 +791,7 @@ func (cprvd *SCloudprovider) markSyncing(userCred mcclient.TokenCredential) erro
 	return nil
 }
 
-func (cprvd *SCloudprovider) markEndSyncWithLock(ctx context.Context, userCred mcclient.TokenCredential) error {
+func (cprvd *SCloudprovider) markEndSyncWithLock(ctx context.Context, userCred mcclient.TokenCredential, deepSync bool) error {
 	err := func() error {
 		lockman.LockObject(ctx, cprvd)
 		defer lockman.ReleaseObject(ctx, cprvd)
@@ -819,7 +819,7 @@ func (cprvd *SCloudprovider) markEndSyncWithLock(ctx context.Context, userCred m
 	if err != nil {
 		return errors.Wrapf(err, "GetCloudaccount")
 	}
-	return account.MarkEndSyncWithLock(ctx, userCred)
+	return account.MarkEndSyncWithLock(ctx, userCred, deepSync)
 }
 
 func (cprvd *SCloudprovider) markEndSync(userCred mcclient.TokenCredential) error {
@@ -1594,7 +1594,7 @@ func (provider *SCloudprovider) syncCloudproviderRegions(ctx context.Context, us
 		}
 	}
 	if syncCnt == 0 {
-		err := provider.markEndSyncWithLock(ctx, userCred)
+		err := provider.markEndSyncWithLock(ctx, userCred, false)
 		if err != nil {
 			log.Errorf("markEndSyncWithLock for %s error: %v", provider.Name, err)
 		}

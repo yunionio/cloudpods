@@ -51,7 +51,7 @@ func (self *CloudAccountSyncInfoTask) OnInit(ctx context.Context, obj db.IStanda
 			db.OpsLog.LogEvent(cloudaccount, db.ACT_SYNC_NETWORK_FAILED, d, self.UserCred)
 			cloudaccount.SetStatus(ctx, self.UserCred, api.CLOUD_PROVIDER_SYNC_NETWORK_FAILED, "sync network failed")
 			logclient.AddActionLogWithStartable(self, cloudaccount, logclient.ACT_CLOUDACCOUNT_SYNC_NETWORK, d, self.UserCred, false)
-			cloudaccount.MarkEndSync(self.UserCred)
+			cloudaccount.MarkEndSync(self.UserCred, false)
 			self.SetStageFailed(ctx, d)
 			return
 		} else {
@@ -72,7 +72,7 @@ func (self *CloudAccountSyncInfoTask) OnInit(ctx context.Context, obj db.IStanda
 				log.Errorf("account %s(%s) alread in syncing", cloudaccount.Name, cloudaccount.Provider)
 			}
 			// 进入同步任务前已经mark sync, 这里需要清理下状态
-			cloudaccount.MarkEndSyncWithLock(ctx, self.UserCred)
+			cloudaccount.MarkEndSyncWithLock(ctx, self.UserCred, false)
 			return nil, errors.Wrap(err, "SyncCallSyncAccountTask")
 		}
 		return nil, nil
@@ -88,9 +88,7 @@ func (self *CloudAccountSyncInfoTask) OnCloudaccountSyncReadyFailed(ctx context.
 	self.SetStageFailed(ctx, err)
 }
 
-func (self *CloudAccountSyncInfoTask) OnCloudaccountSyncReady(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
-	cloudaccount := obj.(*models.SCloudaccount)
-
+func (self *CloudAccountSyncInfoTask) GetSyncRange(ctx context.Context) models.SSyncRange {
 	syncRange := models.SSyncRange{}
 	syncRangeJson, _ := self.Params.Get("sync_range")
 	if syncRangeJson != nil {
@@ -99,6 +97,13 @@ func (self *CloudAccountSyncInfoTask) OnCloudaccountSyncReady(ctx context.Contex
 		syncRange.FullSync = true
 		syncRange.DeepSync = true
 	}
+	return syncRange
+}
+
+func (self *CloudAccountSyncInfoTask) OnCloudaccountSyncReady(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
+	cloudaccount := obj.(*models.SCloudaccount)
+
+	syncRange := self.GetSyncRange(ctx)
 
 	if !syncRange.NeedSyncInfo() {
 		self.OnCloudaccountSyncComplete(ctx, obj, nil)
@@ -119,7 +124,8 @@ func (self *CloudAccountSyncInfoTask) OnCloudaccountSyncReady(ctx context.Contex
 
 func (self *CloudAccountSyncInfoTask) OnCloudaccountSyncComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	cloudaccount := obj.(*models.SCloudaccount)
-	cloudaccount.MarkEndSyncWithLock(ctx, self.UserCred)
+	syncRange := self.GetSyncRange(ctx)
+	cloudaccount.MarkEndSyncWithLock(ctx, self.UserCred, syncRange.NeedSyncInfo())
 	db.OpsLog.LogEvent(cloudaccount, db.ACT_SYNC_HOST_COMPLETE, "", self.UserCred)
 	self.SetStageComplete(ctx, nil)
 	logclient.AddActionLogWithStartable(self, cloudaccount, logclient.ACT_CLOUD_SYNC, "", self.UserCred, true)
@@ -127,7 +133,8 @@ func (self *CloudAccountSyncInfoTask) OnCloudaccountSyncComplete(ctx context.Con
 
 func (self *CloudAccountSyncInfoTask) OnCloudaccountSyncCompleteFailed(ctx context.Context, obj db.IStandaloneModel, err jsonutils.JSONObject) {
 	cloudaccount := obj.(*models.SCloudaccount)
-	cloudaccount.MarkEndSyncWithLock(ctx, self.UserCred)
+	syncRange := self.GetSyncRange(ctx)
+	cloudaccount.MarkEndSyncWithLock(ctx, self.UserCred, syncRange.NeedSyncInfo())
 	db.OpsLog.LogEvent(cloudaccount, db.ACT_SYNC_HOST_FAILED, err, self.UserCred)
 	self.SetStageFailed(ctx, err)
 	logclient.AddActionLogWithStartable(self, cloudaccount, logclient.ACT_CLOUD_SYNC, err, self.UserCred, false)
