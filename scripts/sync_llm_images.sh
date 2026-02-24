@@ -8,7 +8,7 @@ set -euo pipefail
 
 if [ $# -ne 1 ]; then
   echo "用法: $0 <targetRegistry>"
-  echo "例如: $0 crpi-nf3abu98o8qf9y2x.cn-beijing.personal.cr.aliyuncs.com/eikoh"
+  echo "例如: $0 registry.cn-beijing.aliyuncs.com/cloudpods"
   exit 1
 fi
 
@@ -28,6 +28,8 @@ IMAGES=(
   "langgenius/dify-web:1.7.2"
   "ubuntu/squid:latest"
   "semitechnologies/weaviate:1.19.0"
+  "ollama/ollama:0.15.1"
+  "vllm/vllm-openai:v0.15.1"
 )
 
 for image in "${IMAGES[@]}"; do
@@ -46,7 +48,7 @@ for image in "${IMAGES[@]}"; do
   DST="docker://${TARGET_REGISTRY}/${short_name}:${tag}"
 
   echo
-  echo "Sync dify image"
+  echo "Sync llm image"
   echo "  Source: ${SRC}"
   echo "  Target: ${DST}"
   echo

@@ -10,11 +10,13 @@ type LLMContainerType string
 
 const (
 	LLM_CONTAINER_OLLAMA LLMContainerType = "ollama"
+	LLM_CONTAINER_VLLM   LLMContainerType = "vllm"
 )
 
 var (
 	LLM_CONTAINER_TYPES = sets.NewString(
 		string(LLM_CONTAINER_OLLAMA),
+		string(LLM_CONTAINER_VLLM),
 	)
 )
 

@@ -57,7 +57,8 @@ type LLMListDetails struct {
 
 	LLMSku string `json:"llm_sku"`
 
-	MountedModels []MountedModelInfo `json:"mounted_models"`
+	MountedModels  []MountedModelInfo `json:"mounted_models"`
+	PreferredModel string             `json:"preferred_model"`
 }
 
 type LLMBaseCreateInput struct {
@@ -76,8 +77,9 @@ type LLMBaseCreateInput struct {
 type LLMCreateInput struct {
 	LLMBaseCreateInput
 
-	LLMSkuId   string `json:"llm_sku_id"`
-	LLMImageId string `json:"llm_image_id"`
+	LLMSkuId       string `json:"llm_sku_id"`
+	LLMImageId     string `json:"llm_image_id"`
+	PreferredModel string `json:"preferred_model"`
 }
 
 type LLMBaseListInput struct {

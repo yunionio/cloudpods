@@ -10,12 +10,14 @@ type LLMImageType string
 
 const (
 	LLM_IMAGE_TYPE_OLLAMA LLMImageType = "ollama"
+	LLM_IMAGE_TYPE_VLLM   LLMImageType = "vllm"
 	LLM_IMAGE_TYPE_DIFY   LLMImageType = "dify"
 )
 
 var (
 	LLM_IMAGE_TYPES = sets.NewString(
 		string(LLM_IMAGE_TYPE_OLLAMA),
+		string(LLM_IMAGE_TYPE_VLLM),
 		string(LLM_IMAGE_TYPE_DIFY),
 	)
 )

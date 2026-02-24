@@ -79,6 +79,9 @@ type ILLMContainerDriver interface {
 	GetType() llm.LLMContainerType
 	GetContainerSpec(ctx context.Context, llm *SLLM, image *SLLMImage, sku *SLLMSku, props []string, devices []computeapi.SIsolatedDevice, diskId string) *computeapi.PodContainerCreateInput
 
+	// StartLLM is called after the pod is running. For drivers that need to start the model process inside the container (e.g. vLLM), it runs the start command via exec and waits for health; on failure returns an error. For drivers that need no extra step (e.g. Ollama), it returns nil.
+	StartLLM(ctx context.Context, userCred mcclient.TokenCredential, llm *SLLM) error
+
 	ILLMContainerInstantApp
 	ILLMContainerMCPAgent
 }
