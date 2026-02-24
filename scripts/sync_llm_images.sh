@@ -8,7 +8,7 @@ set -euo pipefail
 
 if [ $# -ne 1 ]; then
   echo "用法: $0 <targetRegistry>"
-  echo "例如: $0 crpi-nf3abu98o8qf9y2x.cn-beijing.personal.cr.aliyuncs.com/eikoh"
+  echo "例如: $0 registry.cn-beijing.aliyuncs.com/cloudpods"
   exit 1
 fi
 

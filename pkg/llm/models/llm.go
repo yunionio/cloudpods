@@ -173,6 +173,7 @@ func (man *SLLMManager) FetchCustomizeColumns(
 		}
 		mountedModelInfo, _ := llm.FetchMountedModelInfo()
 		res[idx].MountedModels = mountedModelInfo
+		res[idx].PreferredModel = llm.PreferredModel
 		res[idx].NetworkType = llm.NetworkType
 		res[idx].NetworkId = llm.NetworkId
 	}

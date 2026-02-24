@@ -19,6 +19,7 @@ const (
 var (
 	LLM_IMAGE_TYPES = sets.NewString(
 		string(LLM_IMAGE_TYPE_OLLAMA),
+		string(LLM_IMAGE_TYPE_VLLM),
 		string(LLM_IMAGE_TYPE_DIFY),
 		string(LLM_IMAGE_TYPE_COMFYUI),
 		string(LLM_IMAGE_TYPE_OPENCLAW),
