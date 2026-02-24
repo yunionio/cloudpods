@@ -67,9 +67,9 @@ func (opts *NetworkListOptions) Params() (jsonutils.JSONObject, error) {
 type NetworkCreateOptions struct {
 	WIRE    string `help:"ID or Name of wire in which the network is created"`
 	NETWORK string `help:"Name of new network"`
-	StartIp string `help:"Start of IPv4 address range"`
-	EndIp   string `help:"End of IPv4 address rnage"`
-	NetMask int64  `help:"Length of network mask"`
+	StartIp string `help:"Start of IPv4 address range" positional:"true" json:"start_ip"`
+	EndIp   string `help:"End of IPv4 address rnage" positional:"true" json:"end_ip"`
+	NetMask int64  `help:"Length of network mask" positional:"true" json:"net_mask"`
 	Gateway string `help:"Default gateway"`
 
 	StartIp6 string `help:"IPv6 start ip"`
