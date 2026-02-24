@@ -317,7 +317,7 @@ func (self *SCloudproviderregion) markEndSync(ctx context.Context, userCred mccl
 	if err != nil {
 		return errors.Wrapf(err, "GetProvider")
 	}
-	err = provider.markEndSyncWithLock(ctx, userCred)
+	err = provider.markEndSyncWithLock(ctx, userCred, *deepSync)
 	if err != nil {
 		return errors.Wrapf(err, "markEndSyncWithLock")
 	}
