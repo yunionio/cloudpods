@@ -18,7 +18,7 @@ func (o *LLMImageShowOptions) Params() (jsonutils.JSONObject, error) {
 type LLMImageListOptions struct {
 	options.BaseListOptions
 
-	LLMType string `json:"llm_type" choices:"ollama|dify|comfyui" help:"filter by llm type"`
+	LLMType string `json:"llm_type" choices:"ollama|dify|comfyui|vllm" help:"filter by llm type"`
 }
 
 func (o *LLMImageListOptions) Params() (jsonutils.JSONObject, error) {
@@ -30,7 +30,7 @@ type LLMImageCreateOptions struct {
 	IMAGE_NAME   string `json:"image_name"`
 	IMAGE_LABEL  string `json:"image_label"`
 	CredentialId string `json:"credential_id"`
-	LLM_TYPE     string `json:"llm_type" choices:"ollama|dify|comfyui" help:"llm type: ollama, comfyui or dify"`
+	LLM_TYPE     string `json:"llm_type" choices:"ollama|dify|comfyui|vllm" help:"llm type: ollama, comfyui or dify"`
 }
 
 func (o *LLMImageCreateOptions) Params() (jsonutils.JSONObject, error) {
@@ -44,7 +44,7 @@ type LLMImageUpdateOptions struct {
 	ImageName    string `json:"image_name"`
 	ImageLabel   string `json:"image_label"`
 	CredentialId string `json:"credential_id"`
-	LlmType      string `json:"llm_type" choices:"ollama|dify|vllm|comfyui" help:"llm type: ollama, comfyui or dify"`
+	LlmType      string `json:"llm_type" choices:"ollama|dify|vllm|comfyui" help:"llm type: ollama, comfyui, vllm or dify"`
 }
 
 func (o *LLMImageUpdateOptions) GetId() string {

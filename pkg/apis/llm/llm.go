@@ -58,7 +58,8 @@ type LLMListDetails struct {
 	LLMSku  string `json:"llm_sku"`
 	LLMType string `json:"llm_type"`
 
-	MountedModels []MountedModelInfo `json:"mounted_models"`
+	MountedModels  []MountedModelInfo `json:"mounted_models"`
+	PreferredModel string             `json:"preferred_model"`
 }
 
 type LLMBaseCreateInput struct {

@@ -43,7 +43,7 @@ func GetLLMBasePodCreateInput(
 	}
 
 	data.VcpuCount = skuBase.Cpu
-	data.VmemSize = skuBase.Memory + 1
+	data.VmemSize = skuBase.Memory
 	// data.Name = input.Name + "-" + seclib.RandomPassword(6)
 	data.Name = input.Name
 
