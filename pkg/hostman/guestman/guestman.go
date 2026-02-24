@@ -258,17 +258,23 @@ func (m *SGuestManager) InitQemuMaxCpus(machineCaps []monitor.MachineInfo, kvmMa
 
 func (m *SGuestManager) InitQemuMaxMems(maxMems uint) {
 	if m.host.IsX8664() {
-		if maxMems > arch.X86_MAX_MEM_MB {
+		if options.HostOptions.GuestMaxMemSizeMb > 0 {
+			arch.X86_MAX_MEM_MB = uint(options.HostOptions.GuestMaxMemSizeMb)
+		} else if maxMems > arch.X86_MAX_MEM_MB {
 			arch.X86_MAX_MEM_MB = maxMems
 		}
 	}
 	if m.host.IsAarch64() {
-		if maxMems > arch.ARM_MAX_MEM_MB {
+		if options.HostOptions.GuestMaxMemSizeMb > 0 {
+			arch.ARM_MAX_MEM_MB = uint(options.HostOptions.GuestMaxMemSizeMb)
+		} else if maxMems > arch.ARM_MAX_MEM_MB {
 			arch.ARM_MAX_MEM_MB = maxMems
 		}
 	}
 	if m.host.IsRiscv64() {
-		if maxMems > arch.RISCV_MAX_MEM_MB {
+		if options.HostOptions.GuestMaxMemSizeMb > 0 {
+			arch.RISCV_MAX_MEM_MB = uint(options.HostOptions.GuestMaxMemSizeMb)
+		} else if maxMems > arch.RISCV_MAX_MEM_MB {
 			arch.RISCV_MAX_MEM_MB = maxMems
 		}
 	}
