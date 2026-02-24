@@ -31,8 +31,10 @@ type SimpleSnapshot struct {
 	DiskType string `json:"disk_type"`
 	// 区域Id
 	CloudregionId string `json:"cloudregion_id"`
-	// 快照大小
+	// 快照大小, MiB
 	Size int `json:"size"`
+	// 磁盘大小, MiB
+	VirtualSize int `json:"virtual_size"`
 	// 快照状态
 	Status string `json:"status"`
 	// 存储类型
@@ -61,8 +63,12 @@ type InstanceSnapshotDetails struct {
 	Snapshots  []SimpleSnapshot  `json:"snapshots"`
 	Properties map[string]string `json:"properties"`
 
-	// 主机快照大小
+	// 主机快照大小, B
 	Size int `json:"size"`
+	// 主机快照大小, MiB
+	SizeMb int `json:"size_mb"`
+	// 主机磁盘大小, MiB
+	VirtualSizeMb int `json:"virtual_size_mb"`
 }
 
 type InstanceSnapshotListInput struct {
