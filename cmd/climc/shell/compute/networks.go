@@ -98,6 +98,22 @@ func init() {
 		return nil
 	})
 
+	type NetworkCreate3Options struct {
+		compute_options.NetworkCreateOptions `start_ip->positional:"false" end_ip->positional:"false" net_mask->positional:"false"`
+	}
+	R(&NetworkCreate3Options{}, "network-create3", "Create a dual-stack virtual network", func(s *mcclient.ClientSession, args *NetworkCreate3Options) error {
+		params, err := args.Params()
+		if err != nil {
+			return err
+		}
+		net, err := modules.Networks.Create(s, params)
+		if err != nil {
+			return err
+		}
+		printObject(net)
+		return nil
+	})
+
 	type NetworkSplitOptions struct {
 		NETWORK string `help:"ID or name of network to split"`
 		IP      string `help:"Start ip of the split network"`
