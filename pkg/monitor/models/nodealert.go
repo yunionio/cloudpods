@@ -574,7 +574,12 @@ func (man *SNodeAlertManager) FetchCustomizeColumns(
 ) []monitor.NodeAlertDetails {
 	rows := make([]monitor.NodeAlertDetails, len(objs))
 
-	v1Rows := man.SCommonAlertManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	cObjs := make([]interface{}, len(objs))
+	for i := range objs {
+		obj := objs[i].(*SNodeAlert)
+		cObjs[i] = &SCommonAlert{obj.SAlert}
+	}
+	v1Rows := man.SCommonAlertManager.FetchCustomizeColumns(ctx, userCred, query, cObjs, fields, isList)
 
 	for i := range rows {
 		rows[i] = monitor.NodeAlertDetails{
