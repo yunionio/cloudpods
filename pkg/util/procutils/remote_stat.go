@@ -51,7 +51,7 @@ func (s *sFileStat) ModTime() time.Time {
 }
 
 func (s *sFileStat) IsDir() bool {
-	return s.FileType == "directory"
+	return strings.ToLower(s.FileType) == "directory"
 }
 
 func (s *sFileStat) Sys() interface{} {
@@ -62,7 +62,7 @@ func RemoteStat(filename string) (os.FileInfo, error) {
 	args := []string{}
 	switch runtime.GOOS {
 	case "darwin":
-		args = []string{"-f", `{"file_size":%z,"file_name":"%N","file_type":"%T"}`, filename}
+		args = []string{"-f", `{"file_size":%z,"file_name":"%N","file_type":"%HT"}`, filename}
 	default:
 		args = []string{"-c", `{"file_size":%s,"file_name":"%n","file_type":"%F"}`, filename}
 	}
