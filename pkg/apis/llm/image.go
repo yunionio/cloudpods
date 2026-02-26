@@ -9,14 +9,19 @@ import (
 type LLMImageType string
 
 const (
-	LLM_IMAGE_TYPE_OLLAMA LLMImageType = "ollama"
-	LLM_IMAGE_TYPE_DIFY   LLMImageType = "dify"
+	LLM_IMAGE_TYPE_OLLAMA   LLMImageType = "ollama"
+	LLM_IMAGE_TYPE_VLLM     LLMImageType = "vllm"
+	LLM_IMAGE_TYPE_DIFY     LLMImageType = "dify"
+	LLM_IMAGE_TYPE_COMFYUI  LLMImageType = "comfyui"
+	LLM_IMAGE_TYPE_OPENCLAW LLMImageType = "openclaw"
 )
 
 var (
 	LLM_IMAGE_TYPES = sets.NewString(
 		string(LLM_IMAGE_TYPE_OLLAMA),
 		string(LLM_IMAGE_TYPE_DIFY),
+		string(LLM_IMAGE_TYPE_COMFYUI),
+		string(LLM_IMAGE_TYPE_OPENCLAW),
 	)
 )
 

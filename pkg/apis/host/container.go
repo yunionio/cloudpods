@@ -73,6 +73,7 @@ type ContainerVolumeMount struct {
 type ContainerSpec struct {
 	apis.ContainerSpec
 	ImageCredentialToken string                  `json:"image_credential_token"`
+	SecretCredentials    map[string]string       `json:"secret_credentials"`
 	Rootfs               *ContainerRootfs        `json:"rootfs"`
 	VolumeMounts         []*ContainerVolumeMount `json:"volume_mounts"`
 	Devices              []*ContainerDevice      `json:"devices"`

@@ -15,7 +15,6 @@
 package llm
 
 import (
-	"encoding/json"
 	"reflect"
 
 	"yunion.io/x/jsonutils"
@@ -24,9 +23,11 @@ import (
 
 // LLMSpec is the flat spec for LLM SKU: optional ollama/vllm/dify payload. Type is on LLMSku.LLMType.
 type LLMSpec struct {
-	Ollama *LLMSpecOllama `json:"ollama,omitempty"`
-	Vllm   *LLMSpecVllm   `json:"vllm,omitempty"`
-	Dify   *LLMSpecDify   `json:"dify,omitempty"`
+	Ollama   *LLMSpecOllama   `json:"ollama,omitempty"`
+	Vllm     *LLMSpecVllm     `json:"vllm,omitempty"`
+	Dify     *LLMSpecDify     `json:"dify,omitempty"`
+	ComfyUI  *LLMSpecComfyUI  `json:"comfyui,omitempty"`
+	OpenClaw *LLMSpecOpenClaw `json:"openclaw,omitempty"`
 }
 
 func (s *LLMSpec) String() string {
@@ -37,53 +38,11 @@ func (s *LLMSpec) IsZero() bool {
 	if s == nil {
 		return true
 	}
-	return s.Ollama == nil && s.Vllm == nil && s.Dify == nil
-}
-
-// UnmarshalJSON supports both new format (type + ollama/vllm/dify) and legacy format (type + data).
-func (s *LLMSpec) UnmarshalJSON(data []byte) error {
-	var raw struct {
-		Type   string          `json:"type"`
-		Ollama *LLMSpecOllama  `json:"ollama,omitempty"`
-		Vllm   *LLMSpecVllm    `json:"vllm,omitempty"`
-		Dify   *LLMSpecDify    `json:"dify,omitempty"`
-		Data   json.RawMessage `json:"data,omitempty"`
-	}
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return err
-	}
-	s.Ollama = raw.Ollama
-	s.Vllm = raw.Vllm
-	s.Dify = raw.Dify
-	if len(raw.Data) > 0 && s.Ollama == nil && s.Vllm == nil && s.Dify == nil {
-		switch raw.Type {
-		case string(LLM_CONTAINER_OLLAMA):
-			s.Ollama = &LLMSpecOllama{}
-			if err := json.Unmarshal(raw.Data, s.Ollama); err != nil {
-				return err
-			}
-		case string(LLM_CONTAINER_VLLM):
-			s.Vllm = &LLMSpecVllm{}
-			if err := json.Unmarshal(raw.Data, s.Vllm); err != nil {
-				return err
-			}
-		case string(LLM_CONTAINER_DIFY):
-			s.Dify = &LLMSpecDify{}
-			if err := json.Unmarshal(raw.Data, s.Dify); err != nil {
-				return err
-			}
-		default:
-			s.Ollama = &LLMSpecOllama{}
-			_ = json.Unmarshal(raw.Data, s.Ollama)
-		}
-	}
-	return nil
+	return s.Ollama == nil && s.Vllm == nil && s.Dify == nil && s.ComfyUI == nil && s.OpenClaw == nil
 }
 
 // LLMSpecOllama holds type-specific fields for ollama SKUs.
 type LLMSpecOllama struct {
-	LLMImageId    string   `json:"llm_image_id"`
-	MountedModels []string `json:"mounted_models"`
 }
 
 func (s *LLMSpecOllama) String() string {
@@ -94,14 +53,12 @@ func (s *LLMSpecOllama) IsZero() bool {
 	if s == nil {
 		return true
 	}
-	return s.LLMImageId == "" && len(s.MountedModels) == 0
+	return false
 }
 
 // LLMSpecVllm holds type-specific fields for vllm SKUs (includes PreferredModel).
 type LLMSpecVllm struct {
-	LLMImageId     string   `json:"llm_image_id"`
-	MountedModels  []string `json:"mounted_models"`
-	PreferredModel string   `json:"preferred_model"`
+	PreferredModel string `json:"preferred_model"`
 }
 
 func (s *LLMSpecVllm) String() string {
@@ -112,7 +69,7 @@ func (s *LLMSpecVllm) IsZero() bool {
 	if s == nil {
 		return true
 	}
-	return s.LLMImageId == "" && len(s.MountedModels) == 0 && s.PreferredModel == ""
+	return s.PreferredModel == ""
 }
 
 // LLMSpecDify holds type-specific fields for Dify SKUs (multiple image ids + customized envs).
@@ -141,6 +98,47 @@ func (s *LLMSpecDify) IsZero() bool {
 		s.DifyApiImageId == "" && s.DifyPluginImageId == "" && s.DifyWebImageId == "" &&
 		s.DifySandboxImageId == "" && s.DifySSRFImageId == "" && s.DifyWeaviateImageId == "" &&
 		len(s.CustomizedEnvs) == 0
+}
+
+type LLMSpecComfyUI struct {
+}
+
+func (s *LLMSpecComfyUI) String() string {
+	return jsonutils.Marshal(s).String()
+}
+
+func (s *LLMSpecComfyUI) IsZero() bool {
+	if s == nil {
+		return true
+	}
+	return false
+}
+
+type LLMSpecCredential struct {
+	Id         string   `json:"id"`
+	ExportKeys []string `json:"export_keys"`
+}
+
+type LLMSpecOpenClawProvider struct {
+	Name       string             `json:"name"`
+	Credential *LLMSpecCredential `json:"credential"`
+}
+
+type LLMSpecOpenClawChannel struct {
+	Name       string             `json:"name"`
+	Credential *LLMSpecCredential `json:"credential"`
+}
+
+type LLMSpecOpenClaw struct {
+	Providers          []*LLMSpecOpenClawProvider         `json:"providers"`
+	Channels           []*LLMSpecOpenClawChannel          `json:"channels"`
+	WorkspaceTemplates *LLMSpecOpenClawWorkspaceTemplates `json:"workspace_templates"`
+}
+
+type LLMSpecOpenClawWorkspaceTemplates struct {
+	AgentsMD string `json:"agents_md"`
+	SoulMD   string `json:"soul_md"`
+	UserMD   string `json:"user_md"`
 }
 
 func init() {
