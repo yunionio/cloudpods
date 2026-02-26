@@ -245,6 +245,8 @@ type SHostOptions struct {
 	EnableQemuDebugLog  bool   `help:"enable qemu debug logs" default:"false"`
 	ResetDiskTmpDir     string `help:"auto reset disk after guest shutdown will write disk to tmpdir"`
 
+	GuestMaxMemSizeMb int `help:"guest maximal mem size, default 0 is not set" default:"0"`
+
 	// container related endpoint
 	// EnableContainerRuntime   bool   `help:"enable container runtime" default:"false"`
 	ContainerRuntimeEndpoint                 string `help:"endpoint of container runtime service" default:"unix:///var/run/onecloud/containerd/containerd.sock"`
