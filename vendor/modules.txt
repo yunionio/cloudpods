@@ -2361,6 +2361,7 @@ yunion.io/x/log/hooks
 # yunion.io/x/ovsdb v0.0.0-20230306173834-f164f413a900
 ## explicit; go 1.14
 yunion.io/x/ovsdb/cli_util
+yunion.io/x/ovsdb/client
 yunion.io/x/ovsdb/schema/ovn_nb
 yunion.io/x/ovsdb/types
 # yunion.io/x/pkg v1.10.4-0.20260127060125-8939521ef75e
