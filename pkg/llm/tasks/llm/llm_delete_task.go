@@ -107,7 +107,13 @@ func (task *LLMDeleteTask) OnLLMContainerDeleteCompleteFailed(ctx context.Contex
 }
 
 func (task *LLMDeleteTask) OnLLMContainerDeleteComplete(ctx context.Context, llm *models.SLLM, body jsonutils.JSONObject) {
-	err := llm.RealDelete(ctx, task.UserCred)
+	err := models.GetLLMInstantModelManager().DeleteByLlmId(ctx, llm.Id)
+	if err != nil {
+		task.taskFailed(ctx, llm, err)
+		return
+	}
+
+	err = llm.RealDelete(ctx, task.UserCred)
 	if err != nil {
 		task.taskFailed(ctx, llm, err)
 		return
