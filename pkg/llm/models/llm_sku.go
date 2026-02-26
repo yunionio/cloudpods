@@ -49,10 +49,12 @@ type SLLMSkuManager struct {
 
 type SLLMSku struct {
 	SLLMSkuBase
-	// SMountedModelsResource
+	SMountedModelsResource
 
-	LLMType string       `width:"128" charset:"ascii" nullable:"false" list:"user" create:"required"`
-	LLMSpec *api.LLMSpec `json:"llm_spec" length:"long" list:"user" create:"required" update:"user"`
+	// primary image id of primary container
+	LLMImageId string       `width:"128" charset:"ascii" nullable:"false" list:"user" create:"required" update:"user"`
+	LLMType    string       `width:"128" charset:"ascii" nullable:"false" list:"user" create:"required"`
+	LLMSpec    *api.LLMSpec `json:"llm_spec" length:"long" list:"user" create:"required" update:"user"`
 }
 
 func (man *SLLMSkuManager) ListItemFilter(
@@ -199,11 +201,10 @@ func (man *SLLMSkuManager) ValidateCreateData(ctx context.Context, userCred mccl
 	if err != nil {
 		return input, errors.Wrap(err, "get container driver")
 	}
-	spec, err := drv.ValidateCreateSpec(ctx, userCred, input)
+	input, err = drv.ValidateCreateData(ctx, userCred, input)
 	if err != nil {
-		return input, errors.Wrap(err, "validate create spec")
+		return input, errors.Wrap(err, "validate create input")
 	}
-	input.LLMSpec = spec
 	input.Status = api.STATUS_READY
 	return input, nil
 }
@@ -237,14 +238,11 @@ func (sku *SLLMSku) ValidateUpdateData(ctx context.Context, userCred mcclient.To
 		return input, nil
 	}
 	drv := sku.GetLLMContainerDriver()
-	spec, err := drv.ValidateUpdateSpec(ctx, userCred, sku, &input)
+	updateInput, err := drv.ValidateUpdateData(ctx, userCred, sku, &input)
 	if err != nil {
 		return input, errors.Wrap(err, "validate update spec")
 	}
-	if spec != nil {
-		input.LLMSpec = spec
-	}
-	return input, nil
+	return *updateInput, nil
 }
 
 func (sku *SLLMSku) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {

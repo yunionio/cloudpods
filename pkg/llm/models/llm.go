@@ -557,6 +557,9 @@ func (llm *SLLM) StartSyncStatusTask(ctx context.Context, userCred mcclient.Toke
 }
 
 func (llm *SLLM) GetLLMUrl(ctx context.Context, userCred mcclient.TokenCredential) (string, error) {
+	if llm.CmpId == "" {
+		return "", nil
+	}
 	return llm.GetLLMContainerDriver().GetLLMUrl(ctx, userCred, llm)
 }
 

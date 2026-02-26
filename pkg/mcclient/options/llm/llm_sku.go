@@ -10,7 +10,7 @@ import (
 type LLMSkuListOptions struct {
 	options.BaseListOptions
 
-	LLMType string `json:"llm_type" choices:"ollama|vllm|dify"`
+	LLMType string `json:"llm_type" choices:"ollama|comfyui|openclaw"`
 }
 
 func (o *LLMSkuListOptions) Params() (jsonutils.JSONObject, error) {
@@ -31,7 +31,7 @@ type LLMSkuCreateOptions struct {
 	MountedModels []string `help:"mounted models, <model_id> e.g. qwen2:0.5b-dup" json:"mounted_models"`
 
 	LLM_IMAGE_ID string `json:"llm_image_id"`
-	LLM_TYPE     string `json:"llm_type" choices:"ollama|vllm"`
+	LLM_TYPE     string `json:"llm_type" choices:"ollama|vllm|comfyui"`
 
 	PreferredModel string `help:"preferred model (vllm only), sets llm_spec.vllm.preferred_model" json:"-"`
 }
