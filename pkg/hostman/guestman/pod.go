@@ -17,6 +17,7 @@ package guestman
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -2084,6 +2085,39 @@ func (s *sPodGuestInstance) createContainer(ctx context.Context, userCred mcclie
 		ctrCfg.Linux.SecurityContext.Capabilities.AddCapabilities = spec.Capabilities.Add
 		ctrCfg.Linux.SecurityContext.Capabilities.DropCapabilities = spec.Capabilities.Drop
 	}
+
+	envSecs := make(map[string]map[string]string, 0)
+	if len(spec.SecretCredentials) > 0 {
+		for credId, credData := range spec.SecretCredentials {
+			obj := map[string]string{}
+			credKey, err := base64.StdEncoding.DecodeString(credData)
+			if err != nil {
+				return "", errors.Wrapf(err, "decode secret credential %s", credId)
+			}
+			if err := json.Unmarshal(credKey, &obj); err != nil {
+				return "", errors.Wrapf(err, "unmarshal secret credential %s", credId)
+			}
+			envSecs[credId] = obj
+		}
+		for i := range spec.Envs {
+			env := spec.Envs[i]
+			if env.ValueFrom == nil {
+				continue
+			}
+			if env.ValueFrom.Credential != nil {
+				credId := env.ValueFrom.Credential.Id
+				if _, ok := envSecs[credId]; !ok {
+					return "", errors.Wrapf(errors.ErrNotFound, "secret credential %s not found", credId)
+				}
+				credKey := env.ValueFrom.Credential.Key
+				if _, ok := envSecs[credId][credKey]; !ok {
+					return "", errors.Wrapf(errors.ErrNotFound, "secret credential %s key %s not found", credId, credKey)
+				}
+				env.Value = envSecs[credId][credKey]
+			}
+		}
+	}
+
 	for _, env := range spec.Envs {
 		ctrCfg.Envs = append(ctrCfg.Envs, &runtimeapi.KeyValue{
 			Key:   env.Key,
