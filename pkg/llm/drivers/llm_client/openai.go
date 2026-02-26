@@ -40,7 +40,7 @@ func (o *openai) Chat(ctx context.Context, mcpAgent *models.SMCPAgent, messages 
 	} else if msgs, ok := messages.([]models.ILLMChatMessage); ok {
 		openaiMessages = make([]OpenAIChatMessage, len(msgs))
 		for i, msg := range msgs {
-			// Check if it's an OpenAIChatMessage to preserve ToolCallID
+			// Check if it's an OpenAIChatMessage to preserve ToolCallID and ReasoningContent
 			if om, ok := msg.(*OpenAIChatMessage); ok {
 				openaiMessages[i] = *om
 			} else {
@@ -113,7 +113,7 @@ func (o *openai) ChatStream(ctx context.Context, mcpAgent *models.SMCPAgent, mes
 
 		openaiMessages = make([]OpenAIChatMessage, len(ilMsgs))
 		for i, msg := range ilMsgs {
-			// Check if it's an OpenAIChatMessage to preserve ToolCallID
+			// Check if it's an OpenAIChatMessage to preserve ToolCallID and ReasoningContent
 			if om, ok := msg.(*OpenAIChatMessage); ok {
 				openaiMessages[i] = *om
 			} else {
@@ -359,6 +359,32 @@ func (o *openai) NewAssistantMessageWithToolCalls(toolCalls []models.ILLMToolCal
 	}
 }
 
+func (o *openai) NewAssistantMessageWithToolCallsAndReasoning(reasoningContent, content string, toolCalls []models.ILLMToolCall) models.ILLMChatMessage {
+	openaiToolCalls := make([]OpenAIToolCall, len(toolCalls))
+	for i, tc := range toolCalls {
+		if otc, ok := tc.(*OpenAIToolCall); ok {
+			openaiToolCalls[i] = *otc
+		} else {
+			fc := tc.GetFunction()
+			argsBytes, _ := json.Marshal(fc.GetArguments())
+			openaiToolCalls[i] = OpenAIToolCall{
+				ID:   tc.GetId(),
+				Type: "function",
+				Function: OpenAIFunctionCall{
+					Name:      fc.GetName(),
+					Arguments: string(argsBytes),
+				},
+			}
+		}
+	}
+	return &OpenAIChatMessage{
+		Role:             "assistant",
+		Content:          content,
+		ReasoningContent: reasoningContent,
+		ToolCalls:        openaiToolCalls,
+	}
+}
+
 func (o *openai) NewToolMessage(toolId string, toolName string, content string) models.ILLMChatMessage {
 	return &OpenAIChatMessage{
 		Role:       "tool",
@@ -399,10 +425,11 @@ func (o *openai) ConvertMCPTools(mcpTools []mcp.Tool) []models.ILLMTool {
 // Structures
 
 type OpenAIChatMessage struct {
-	Role       string           `json:"role"`
-	Content    string           `json:"content"`
-	ToolCalls  []OpenAIToolCall `json:"tool_calls,omitempty"`
-	ToolCallID string           `json:"tool_call_id,omitempty"`
+	Role             string           `json:"role"`
+	Content          string           `json:"content"`
+	ReasoningContent string           `json:"reasoning_content,omitempty"`
+	ToolCalls        []OpenAIToolCall `json:"tool_calls,omitempty"`
+	ToolCallID       string           `json:"tool_call_id,omitempty"`
 }
 
 func (m *OpenAIChatMessage) GetRole() string    { return m.Role }
@@ -435,7 +462,7 @@ type OpenAIFunctionCall struct {
 	Arguments string `json:"arguments"`
 }
 
-func (fc *OpenAIFunctionCall) GetName() string { return fc.Name }
+func (fc *OpenAIFunctionCall) GetName() string         { return fc.Name }
 func (fc *OpenAIFunctionCall) GetRawArguments() string { return fc.Arguments }
 func (fc *OpenAIFunctionCall) GetArguments() map[string]interface{} {
 	var args map[string]interface{}
@@ -485,6 +512,13 @@ func (r *OpenAIChatResponse) GetContent() string {
 	return ""
 }
 
+func (r *OpenAIChatResponse) GetReasoningContent() string {
+	if len(r.Choices) > 0 {
+		return r.Choices[0].Message.ReasoningContent
+	}
+	return ""
+}
+
 func (r *OpenAIChatResponse) HasToolCalls() bool {
 	return len(r.Choices) > 0 && len(r.Choices[0].Message.ToolCalls) > 0
 }
@@ -507,14 +541,22 @@ type OpenAIChatStreamChoice struct {
 }
 
 type OpenAIChatStreamDelta struct {
-	Role      string           `json:"role,omitempty"`
-	Content   string           `json:"content,omitempty"`
-	ToolCalls []OpenAIToolCall `json:"tool_calls,omitempty"`
+	Role             string           `json:"role,omitempty"`
+	Content          string           `json:"content,omitempty"`
+	ReasoningContent string           `json:"reasoning_content,omitempty"`
+	ToolCalls        []OpenAIToolCall `json:"tool_calls,omitempty"`
 }
 
 func (r *OpenAIChatStreamResponse) GetContent() string {
 	if len(r.Choices) > 0 {
 		return r.Choices[0].Delta.Content
+	}
+	return ""
+}
+
+func (r *OpenAIChatStreamResponse) GetReasoningContent() string {
+	if len(r.Choices) > 0 {
+		return r.Choices[0].Delta.ReasoningContent
 	}
 	return ""
 }

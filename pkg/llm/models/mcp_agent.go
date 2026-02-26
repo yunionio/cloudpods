@@ -304,10 +304,21 @@ func (mcp *SMCPAgent) GetLLMClientDriver() ILLMClient {
 	return GetLLMClientDriver(api.LLMClientType(mcp.LLMDriver))
 }
 
+func (mcp *SMCPAgent) GetMcpServerUrl(ctx context.Context, userCred mcclient.TokenCredential) (string, error) {
+	if len(mcp.McpServer) > 0 {
+		return mcp.McpServer, nil
+	}
+	return options.Options.MCPServerURL, nil
+}
+
 func (mcp *SMCPAgent) GetDetailsMcpTools(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	// 创建 MCP 客户端
 	timeout := time.Duration(options.Options.MCPAgentTimeout) * time.Second
-	mcpClient := utils.NewMCPClient(options.Options.MCPServerURL, timeout, userCred)
+	mcpServerUrl, err := mcp.GetMcpServerUrl(ctx, userCred)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetMcpServerUrl")
+	}
+	mcpClient := utils.NewMCPClient(mcpServerUrl, timeout, userCred)
 
 	// 获取工具列表
 	tools, err := mcpClient.ListTools(ctx)
@@ -325,7 +336,11 @@ func (mcp *SMCPAgent) GetDetailsToolRequest(
 ) (jsonutils.JSONObject, error) {
 	// 创建 MCP 客户端
 	timeout := time.Duration(options.Options.MCPAgentTimeout) * time.Second
-	mcpClient := utils.NewMCPClient(options.Options.MCPServerURL, timeout, userCred)
+	mcpServerUrl, err := mcp.GetMcpServerUrl(ctx, userCred)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetMcpServerUrl")
+	}
+	mcpClient := utils.NewMCPClient(mcpServerUrl, timeout, userCred)
 	defer mcpClient.Close()
 
 	// 调用工具
@@ -402,7 +417,11 @@ func (mcp *SMCPAgent) PerformChatStream(
 // process 处理用户请求
 func (mcp *SMCPAgent) process(ctx context.Context, userCred mcclient.TokenCredential, req *api.LLMMCPAgentRequestInput, onStream func(string) error) (*api.MCPAgentResponse, error) {
 	// 获取 MCP Server 的工具列表
-	mcpClient := utils.NewMCPClient(mcp.McpServer, 10*time.Minute, userCred)
+	mcpServerUrl, err := mcp.GetMcpServerUrl(ctx, userCred)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetMcpServerUrl")
+	}
+	mcpClient := utils.NewMCPClient(mcpServerUrl, 10*time.Minute, userCred)
 	defer mcpClient.Close()
 	mcpTools, err := mcpClient.ListTools(ctx)
 	if err != nil {
@@ -451,6 +470,7 @@ func (mcp *SMCPAgent) process(ctx context.Context, userCred mcclient.TokenCreden
 	}
 	accToolCalls := make(map[int]*accumToolCall)
 	var accumulatedContent strings.Builder
+	var accumulatedReasoning strings.Builder
 	hasToolCalls := false
 
 	err = llmClient.ChatStream(ctx, mcp, messages, tools, func(chunk ILLMChatResponse) error {
@@ -475,6 +495,10 @@ func (mcp *SMCPAgent) process(ctx context.Context, userCred mcclient.TokenCreden
 					atc.RawArguments.WriteString(args)
 				}
 			}
+		}
+
+		if r := chunk.GetReasoningContent(); len(r) > 0 {
+			accumulatedReasoning.WriteString(r)
 		}
 
 		content := chunk.GetContent()
@@ -537,7 +561,7 @@ func (mcp *SMCPAgent) process(ctx context.Context, userCred mcclient.TokenCreden
 	}
 	log.Infof("Got %d tool calls from Phase 1", len(toolCalls))
 
-	toolCallRecords, toolMessages, err := processToolCalls(ctx, toolCalls, mcpClient, llmClient)
+	toolCallRecords, toolMessages, err := processToolCalls(ctx, toolCalls, accumulatedReasoning.String(), accumulatedContent.String(), mcpClient, llmClient)
 	if err != nil {
 		return nil, errors.Wrap(err, "process tool calls")
 	}
@@ -629,13 +653,15 @@ func processHistoryMessages(
 func processToolCalls(
 	ctx context.Context,
 	toolCalls []ILLMToolCall,
+	reasoningContent, content string,
 	mcpClient *utils.MCPClient,
 	llmClient ILLMClient,
 ) ([]api.MCPAgentToolCallRecord, []ILLMChatMessage, error) {
 	toolCallRecords := make([]api.MCPAgentToolCallRecord, 0)
 	messagesToAdd := make([]ILLMChatMessage, 0)
 
-	messagesToAdd = append(messagesToAdd, llmClient.NewAssistantMessageWithToolCalls(toolCalls))
+	// 使用带 reasoning_content 的 assistant 消息，满足 DeepSeek thinking mode + tool calls 要求
+	messagesToAdd = append(messagesToAdd, llmClient.NewAssistantMessageWithToolCallsAndReasoning(reasoningContent, content, toolCalls))
 
 	// 执行每个工具调用
 	for _, tc := range toolCalls {
