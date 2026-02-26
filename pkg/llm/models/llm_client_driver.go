@@ -50,6 +50,8 @@ type ILLMChatResponse interface {
 	GetToolCalls() []ILLMToolCall
 	// GetContent 获取响应内容
 	GetContent() string
+	// GetReasoningContent 获取推理/思考内容（如 DeepSeek reasoning_content）
+	GetReasoningContent() string
 }
 
 type ILLMClient interface {
@@ -61,6 +63,7 @@ type ILLMClient interface {
 	NewUserMessage(content string) ILLMChatMessage
 	NewAssistantMessage(content string) ILLMChatMessage
 	NewAssistantMessageWithToolCalls(toolCalls []ILLMToolCall) ILLMChatMessage
+	NewAssistantMessageWithToolCallsAndReasoning(reasoningContent, content string, toolCalls []ILLMToolCall) ILLMChatMessage
 	NewToolMessage(toolId string, toolName string, content string) ILLMChatMessage
 	NewSystemMessage(content string) ILLMChatMessage
 
