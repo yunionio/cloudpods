@@ -563,10 +563,10 @@ func (self *SStoragecache) PerformUncacheImage(ctx context.Context, userCred mcc
 		}
 		imageId = imgObj.GetId()
 		_, err := CachedimageManager.getImageInfo(ctx, userCred, imageStr, isForce)
-		if err != nil {
-			log.Infof("image %s not found %s", imageStr, err)
+		if err != nil && errors.Cause(err) != httperrors.ErrNotFound {
+			log.Infof("get image %s info error %s", imageStr, err)
 			if !isForce {
-				return nil, httperrors.NewImageNotFoundError(imageStr)
+				return nil, errors.Wrapf(err, "get image %s info", imageStr)
 			}
 		}
 	}

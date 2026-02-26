@@ -432,6 +432,9 @@ func (manager *SCachedimageManager) getImageByName(ctx context.Context, userCred
 	s := auth.GetSession(ctx, userCred, options.Options.Region)
 	obj, err := image.Images.GetByName(s, imageId, nil)
 	if err != nil {
+		if httputils.ErrorCode(err) == 404 {
+			err = httperrors.ErrNotFound
+		}
 		return nil, errors.Wrap(err, "modules.Images.GetByName")
 	}
 	cachedImage, err := manager.cacheGlanceImageInfo(ctx, userCred, obj)
