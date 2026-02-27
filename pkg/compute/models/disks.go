@@ -27,6 +27,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/util/fileutils"
@@ -1776,16 +1777,20 @@ func (manager *SDiskManager) SyncDisks(ctx context.Context, userCred mcclient.To
 	}
 
 	for i := 0; i < len(commondb); i += 1 {
-		skip, key := IsNeedSkipSync(commonext[i])
-		if skip {
-			log.Infof("delete disk %s(%s) with tag key or value: %s", commonext[i].GetName(), commonext[i].GetGlobalId(), key)
-			err := commondb[i].RealDelete(ctx, userCred)
-			if err != nil {
-				syncResult.DeleteError(err)
+		guest := commondb[i].GetGuest()
+		// 仅独立磁盘判断是否需要通过标签跳过同步，避免虚拟机有标签，磁盘没标签导致磁盘不断同步删除后再同步
+		if gotypes.IsNil(guest) {
+			skip, key := IsNeedSkipSync(commonext[i])
+			if skip {
+				log.Infof("delete disk %s(%s) with tag key or value: %s", commonext[i].GetName(), commonext[i].GetGlobalId(), key)
+				err := commondb[i].RealDelete(ctx, userCred)
+				if err != nil {
+					syncResult.DeleteError(err)
+					continue
+				}
+				syncResult.Delete()
 				continue
 			}
-			syncResult.Delete()
-			continue
 		}
 		if !xor {
 			err = commondb[i].syncWithCloudDisk(ctx, userCred, provider, commonext[i], -1, syncOwnerId, storage.ManagerId)
