@@ -1001,6 +1001,18 @@ func (self *SSnapshot) SyncWithCloudSnapshot(ctx context.Context, userCred mccli
 		self.Status = ext.GetStatus()
 		self.DiskType = ext.GetDiskType()
 		self.Size = int(ext.GetSizeMb())
+		disk, _ := self.GetDisk()
+		if gotypes.IsNil(disk) && len(ext.GetDiskId()) > 0 {
+			disk, err := db.FetchByExternalIdAndManagerId(DiskManager, ext.GetDiskId(), func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+				sq := StorageManager.Query().SubQuery()
+				return q.Join(sq, sqlchemy.Equals(q.Field("storage_id"), sq.Field("id"))).Filter(sqlchemy.Equals(sq.Field("manager_id"), self.ManagerId))
+			})
+			if err != nil {
+				log.Errorf("snapshot %s missing disk?", self.Name)
+			} else {
+				self.DiskId = disk.GetId()
+			}
+		}
 
 		self.CloudregionId = region.Id
 		return nil
