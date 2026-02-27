@@ -2,7 +2,7 @@ FROM registry.cn-beijing.aliyuncs.com/yunionio/ansibleserver-base:3.22.2-0
 
 # https://github.com/yunionio/telegraf/blob/yn-release-1.36/Makefile.yn#L28
 # install playbook and telegraf install pkg
-COPY --from=registry.cn-beijing.aliyuncs.com/yunionio/file-repo:v0.5.2 /opt/yunion/playbook /opt/yunion/playbook
-COPY --from=registry.cn-beijing.aliyuncs.com/yunionio/file-repo:v0.5.2 /opt/yunion/ansible-install-pkg /opt/yunion/ansible-install-pkg
+COPY --from=registry.cn-beijing.aliyuncs.com/yunionio/file-repo:v0.5.3 /opt/yunion/playbook /opt/yunion/playbook
+COPY --from=registry.cn-beijing.aliyuncs.com/yunionio/file-repo:v0.5.3 /opt/yunion/ansible-install-pkg /opt/yunion/ansible-install-pkg
 
 ADD ./_output/alpine-build/bin/ansibleserver /opt/yunion/bin/ansibleserver
