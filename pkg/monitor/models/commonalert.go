@@ -356,6 +356,9 @@ func (alert *SCommonAlert) CustomizeCreate(
 	if err := data.Unmarshal(input); err != nil {
 		return err
 	}
+	if input.DisableNotifyRecovery != nil {
+		alert.DisableNotifyRecovery = *input.DisableNotifyRecovery
+	}
 
 	return alert.customizeCreateNotis(ctx, userCred, query, data)
 }
@@ -793,6 +796,7 @@ func (man *SCommonAlertManager) FetchCustomizeColumns(
 	}
 	for i := range rows {
 		alert := objs[i].(*SCommonAlert)
+		rows[i].DisableNotifyRecovery = alert.DisableNotifyRecovery
 		if alertNotis, ok := alertNotificationMap[alertIds[i]]; ok {
 			channel := sets.String{}
 			for j, alertNoti := range alertNotis {
@@ -1305,6 +1309,14 @@ func (alert *SCommonAlert) PostUpdate(
 	query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	updateInput := new(monitor.CommonAlertUpdateInput)
 	data.Unmarshal(updateInput)
+	if updateInput.DisableNotifyRecovery != nil {
+		if _, err := db.Update(alert, func() error {
+			alert.DisableNotifyRecovery = *updateInput.DisableNotifyRecovery
+			return nil
+		}); err != nil {
+			log.Errorf("update disable_notify_recovery error: %v", err)
+		}
+	}
 	if len(updateInput.Channel) != 0 {
 		if err := alert.UpdateNotification(ctx, userCred, query, data); err != nil {
 			log.Errorf("update notification error: %v", err)
@@ -1521,6 +1533,10 @@ func (alert *SCommonAlert) PerformConfig(ctx context.Context, userCred mcclient.
 		alert.Settings = setting
 		if len(reason) != 0 {
 			alert.Reason = reason
+		}
+		disableNotifyRecovery, gErr := data.Bool("disable_notify_recovery")
+		if gErr == nil {
+			alert.DisableNotifyRecovery = disableNotifyRecovery
 		}
 		return nil
 	})
