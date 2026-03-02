@@ -151,6 +151,8 @@ type SnapshotPolicyListInput struct {
 	// 按类型过滤
 	// example: disk, server
 	Type string `json:"type"`
+
+	ResourceId []string `json:"resource_id"`
 }
 
 type HostnameInput struct {
