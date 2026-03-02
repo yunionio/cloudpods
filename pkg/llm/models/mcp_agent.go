@@ -2,6 +2,7 @@ package models
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -17,6 +18,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/llm"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/llm/options"
 	"yunion.io/x/onecloud/pkg/llm/utils"
@@ -31,6 +33,10 @@ func init() {
 var mcpAgentManager *SMCPAgentManager
 
 var mcpAgentWorkerMan *appsrv.SWorkerManager
+
+func GetMCPAgentWorkerManager() *appsrv.SWorkerManager {
+	return mcpAgentWorkerMan
+}
 
 func GetMCPAgentManager() *SMCPAgentManager {
 	if mcpAgentManager != nil {
@@ -52,6 +58,51 @@ type SMCPAgentManager struct {
 	db.SSharableVirtualResourceBaseManager
 }
 
+// unsetOtherDefaultAgents 将除 excludeId 外所有条目的 default_agent 置为 false，保证全局唯一
+func (man *SMCPAgentManager) unsetOtherDefaultAgents(ctx context.Context, excludeId string) error {
+	q := man.Query().IsTrue("default_agent")
+	if len(excludeId) > 0 {
+		q = q.NotEquals("id", excludeId)
+	}
+	agents := make([]SMCPAgent, 0)
+	err := db.FetchModelObjects(man, q, &agents)
+	if err != nil {
+		return errors.Wrap(err, "FetchModelObjects")
+	}
+	for i := range agents {
+		_, err := db.Update(&agents[i], func() error {
+			agents[i].DefaultAgent = false
+			return nil
+		})
+		if err != nil {
+			return errors.Wrapf(err, "Update agent %s", agents[i].Id)
+		}
+	}
+	return nil
+}
+
+// GetDefaultAgent 返回当前用户可见的、default_agent=true 的那条 MCP Agent（仅一条）
+func (man *SMCPAgentManager) GetDefaultAgent(ctx context.Context, userCred mcclient.TokenCredential) (*SMCPAgent, error) {
+	query := jsonutils.NewDict()
+	query.Set("default_agent", jsonutils.JSONTrue)
+	ownerId, scope, err, _ := db.FetchCheckQueryOwnerScope(ctx, userCred, query, man, policy.PolicyActionList, true)
+	if err != nil {
+		return nil, errors.Wrap(err, "FetchCheckQueryOwnerScope")
+	}
+	q := man.Query()
+	q = man.FilterByOwner(ctx, q, man, userCred, ownerId, scope)
+	q = q.IsTrue("default_agent")
+	var agent SMCPAgent
+	err = q.First(&agent)
+	if err != nil {
+		if errors.Cause(err) == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, errors.Wrap(err, "First default agent")
+	}
+	return &agent, nil
+}
+
 type SMCPAgent struct {
 	db.SSharableVirtualResourceBase
 
@@ -68,6 +119,8 @@ type SMCPAgent struct {
 	ApiKey string `width:"512" charset:"utf8" nullable:"true" list:"user" create:"optional" update:"user"`
 	// McpServer 即 mcp 服务器的后端地址
 	McpServer string `width:"512" charset:"utf8" nullable:"false" list:"user" create:"optional" update:"user"`
+	// DefaultAgent 是否为默认 Agent，全局仅允许一条为 true
+	DefaultAgent bool `default:"false" list:"user" create:"optional" update:"user"`
 }
 
 func (mcp *SMCPAgent) BeforeInsert() {
@@ -96,6 +149,24 @@ func (mcp *SMCPAgent) BeforeUpdate() {
 			} else {
 				mcp.ApiKey = sec
 			}
+		}
+	}
+}
+
+func (mcp *SMCPAgent) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	mcp.SSharableVirtualResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
+	if mcp.DefaultAgent {
+		if err := GetMCPAgentManager().unsetOtherDefaultAgents(ctx, mcp.Id); err != nil {
+			log.Errorf("unsetOtherDefaultAgents after create: %v", err)
+		}
+	}
+}
+
+func (mcp *SMCPAgent) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	mcp.SSharableVirtualResourceBase.PostUpdate(ctx, userCred, query, data)
+	if mcp.DefaultAgent {
+		if err := GetMCPAgentManager().unsetOtherDefaultAgents(ctx, mcp.Id); err != nil {
+			log.Errorf("unsetOtherDefaultAgents after update: %v", err)
 		}
 	}
 }
@@ -254,6 +325,9 @@ func (man *SMCPAgentManager) ListItemFilter(
 	if len(input.LLMDriver) > 0 {
 		q = q.Equals("llm_driver", strings.ToLower(strings.TrimSpace(input.LLMDriver)))
 	}
+	if input.DefaultAgent != nil && *input.DefaultAgent {
+		q = q.IsTrue("default_agent")
+	}
 
 	return q, nil
 }
@@ -294,6 +368,7 @@ func (manager *SMCPAgentManager) FetchCustomizeColumns(
 			if name, ok := llmIdNameMap[agents[i].LLMId]; ok {
 				rows[i].LLMName = name
 			}
+			rows[i].DefaultAgent = agents[i].DefaultAgent
 		}
 	}
 
