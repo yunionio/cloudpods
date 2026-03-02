@@ -1196,13 +1196,13 @@ func (svm *SVirtualMachine) createDriverAndDisk(ctx context.Context, ds *SDatast
 		}, true)
 }
 
-func (svm *SVirtualMachine) getDatastoreAndRootImagePath() (string, *SDatastore, error) {
+func (svm *SVirtualMachine) getDatastoreAndRootImagePath(suffixCheck bool) (string, *SDatastore, error) {
 	layoutEx := svm.getLayoutEx()
 	if layoutEx == nil || len(layoutEx.File) == 0 {
 		return "", nil, fmt.Errorf("invalid LayoutEx")
 	}
 	for _, f := range layoutEx.File {
-		if !strings.HasSuffix(f.Name, ".vmdk") {
+		if suffixCheck && !strings.HasSuffix(f.Name, ".vmdk") {
 			continue
 		}
 		file := f.Name
@@ -1223,13 +1223,18 @@ func (svm *SVirtualMachine) getDatastoreAndRootImagePath() (string, *SDatastore,
 		if datastore == nil {
 			return "", nil, fmt.Errorf("can't find storage associated with vm %q", svm.GetName())
 		}
-		return datastore.getPathString(datastore.cleanPath(file)), datastore, nil
+		if strings.HasSuffix(f.Name, ".vmdk") {
+			return datastore.getPathString(datastore.cleanPath(file)), datastore, nil
+		}
+		path := datastore.cleanPath(file)
+		vmDir := strings.Split(path, "/")[0]
+		return datastore.getPathString(fmt.Sprintf("%s/%s.vmdk", vmDir, vmDir)), datastore, nil
 	}
 	return "", nil, fmt.Errorf("can't find root image path")
 }
 
 func (svm *SVirtualMachine) GetRootImagePath() (string, error) {
-	path, _, err := svm.getDatastoreAndRootImagePath()
+	path, _, err := svm.getDatastoreAndRootImagePath(true)
 	if err != nil {
 		return "", err
 	}
@@ -1237,7 +1242,7 @@ func (svm *SVirtualMachine) GetRootImagePath() (string, error) {
 }
 
 func (svm *SVirtualMachine) CopyRootDisk(ctx context.Context, imagePath string) (string, error) {
-	newImagePath, datastore, err := svm.getDatastoreAndRootImagePath()
+	newImagePath, datastore, err := svm.getDatastoreAndRootImagePath(false)
 	if err != nil {
 		return "", errors.Wrapf(err, "GetRootImagePath")
 	}
