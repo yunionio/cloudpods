@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"path"
+	"strconv"
 	"strings"
 	"time"
 
@@ -98,16 +99,16 @@ func (v *vllm) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *mo
 	// Volume Mounts
 	diskIndex := 0
 	ctrVols := []*commonapi.ContainerVolumeMount{
-		// {
-		// 	Disk: &commonapi.ContainerVolumeMountDisk{
-		// 		SubDirectory: api.LLM_VLLM,
-		// 		Index:        &diskIndex,
-		// 	},
-		// 	Type:        commonapi.CONTAINER_VOLUME_MOUNT_TYPE_DISK,
-		// 	MountPath:   api.LLM_VLLM_BASE_PATH,
-		// 	ReadOnly:    false,
-		// 	Propagation: commonapi.MOUNTPROPAGATION_PROPAGATION_HOST_TO_CONTAINER,
-		// },
+		{
+			Disk: &commonapi.ContainerVolumeMountDisk{
+				SubDirectory: api.LLM_VLLM,
+				Index:        &diskIndex,
+			},
+			Type:        commonapi.CONTAINER_VOLUME_MOUNT_TYPE_DISK,
+			MountPath:   api.LLM_VLLM_BASE_PATH,
+			ReadOnly:    false,
+			Propagation: commonapi.MOUNTPROPAGATION_PROPAGATION_HOST_TO_CONTAINER,
+		},
 		{
 			// Mount cache dir to save HF cache
 			Disk: &commonapi.ContainerVolumeMountDisk{
@@ -117,15 +118,6 @@ func (v *vllm) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *mo
 			Type:      commonapi.CONTAINER_VOLUME_MOUNT_TYPE_DISK,
 			MountPath: "/root/.cache",
 			ReadOnly:  false,
-		},
-		{
-			Type:      commonapi.CONTAINER_VOLUME_MOUNT_TYPE_HOST_PATH,
-			MountPath: api.LLM_VLLM_MODELS_PATH,
-			HostPath: &commonapi.ContainerVolumeMountHostPath{
-				Type: commonapi.CONTAINER_VOLUME_MOUNT_HOST_PATH_TYPE_DIRECTORY,
-				Path: "/opt/llm_models",
-			},
-			ReadOnly: false,
 		},
 	}
 	spec.VolumeMounts = append(spec.VolumeMounts, ctrVols...)
@@ -181,7 +173,7 @@ func (v *vllm) StartLLM(ctx context.Context, userCred mcclient.TokenCredential, 
 	// Build command: resolve model path (PREFERRED_MODEL or first dir), then nohup vllm ... &
 	// Env PREFERRED_MODEL is already set in container from GetContainerSpec.
 	cmd := fmt.Sprintf(
-		`mkdir -p %s; if [ -n "$PREFERRED_MODEL" ] && [ -d "$PREFERRED_MODEL" ]; then model="$PREFERRED_MODEL"; else model=$(ls -d %s/* 2>/dev/null | head -n 1); fi; if [ -z "$model" ]; then echo "NO_MODEL"; exit 1; fi; nohup %s --model "$model" --served-model-name "$(basename "$model")" --port %d --tensor-parallel-size %d --trust-remote-code --swap-space %d > /tmp/vllm.log 2>&1 &`,
+		`mkdir -p %s; if [ -n "$PREFERRED_MODEL" ] && [ -d "$PREFERRED_MODEL" ]; then model="$PREFERRED_MODEL"; else model=$(ls -d %s/* 2>/dev/null | head -n 1); fi; if [ -z "$model" ]; then echo "NO_MODEL"; exit 0; fi; nohup %s --model "$model" --served-model-name "$(basename "$model")" --port %d --tensor-parallel-size %d --trust-remote-code --swap-space %d > /tmp/vllm.log 2>&1 &`,
 		api.LLM_VLLM_MODELS_PATH,
 		api.LLM_VLLM_MODELS_PATH,
 		api.LLM_VLLM_EXEC_PATH,
@@ -189,9 +181,12 @@ func (v *vllm) StartLLM(ctx context.Context, userCred mcclient.TokenCredential, 
 		tensorParallelSize,
 		swapSpaceGiB,
 	)
-	_, err = exec(ctx, lc.CmpId, cmd, 30)
+	output, err := exec(ctx, lc.CmpId, cmd, 30)
 	if err != nil {
 		return errors.Wrap(err, "exec start vLLM")
+	}
+	if strings.Contains(output, "NO_MODEL") {
+		return nil
 	}
 	// Wait for health endpoint
 	baseURL, err := v.GetLLMUrl(ctx, userCred, llm)
@@ -236,7 +231,7 @@ func (v *vllm) GetProbedInstantModelsExt(ctx context.Context, userCred mcclient.
 	}
 
 	// List directories in models path
-	cmd := fmt.Sprintf("ls -F %s | grep /", api.LLM_VLLM_MODELS_PATH)
+	cmd := fmt.Sprintf("du -sk %s/*/", api.LLM_VLLM_MODELS_PATH)
 	output, err := exec(ctx, lc.CmpId, cmd, 10)
 	if err != nil {
 		// If ls fails, maybe no directory yet, return empty
@@ -246,7 +241,14 @@ func (v *vllm) GetProbedInstantModelsExt(ctx context.Context, userCred mcclient.
 	modelsMap := make(map[string]api.LLMInternalInstantMdlInfo)
 	lines := strings.Split(strings.TrimSpace(output), "\n")
 	for _, line := range lines {
-		name := strings.TrimSuffix(strings.TrimSpace(line), "/")
+		fields := strings.Fields(line)
+		if len(fields) < 2 {
+			continue
+		}
+		// Size is in KB
+		sizeKB, _ := strconv.ParseInt(fields[0], 10, 64)
+		fullPath := fields[1]
+		name := path.Base(fullPath)
 		if name == "" {
 			continue
 		}
@@ -256,6 +258,7 @@ func (v *vllm) GetProbedInstantModelsExt(ctx context.Context, userCred mcclient.
 			Name:    name,
 			ModelId: name,
 			Tag:     "latest",
+			Size:    sizeKB * 1024,
 		}
 	}
 	return modelsMap, nil
