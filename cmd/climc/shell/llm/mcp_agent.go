@@ -28,6 +28,7 @@ func init() {
 	// cmd.Get("chat-test", new(options.MCPAgentChatTestOptions))
 	cmd.Get("request", new(options.MCPAgentMCPAgentRequestOptions))
 	shell.R(&options.MCPAgentMCPAgentRequestOptions{}, "mcp-agent-chat", "Chat with MCP Agent (Stream)", chatStream)
+	shell.R(&options.MCPAgentDefaultChatOptions{}, "mcp-agent-chat-default", "Chat with default MCP Agent (Stream, no ID required)", chatStreamDefault)
 }
 
 func chatStream(s *mcclient.ClientSession, args *options.MCPAgentMCPAgentRequestOptions) error {
@@ -82,6 +83,53 @@ func chatStream(s *mcclient.ClientSession, args *options.MCPAgentMCPAgentRequest
 		}
 	}
 
+	if err := scanner.Err(); err != nil {
+		return err
+	}
+	fmt.Println()
+	return nil
+}
+
+func chatStreamDefault(s *mcclient.ClientSession, args *options.MCPAgentDefaultChatOptions) error {
+	bodyJSON, err := args.Params()
+	if err != nil {
+		return fmt.Errorf("failed to build request params: %v", err)
+	}
+	headers := http.Header{}
+	headers.Set("Content-Type", "application/json")
+	body := strings.NewReader(bodyJSON.String())
+	path := "/mcp_agents/default/chat-stream"
+	resp, err := s.RawVersionRequest(
+		modules.MCPAgent.ServiceType(),
+		modules.MCPAgent.EndpointType(),
+		"POST",
+		path,
+		headers,
+		body,
+	)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		respBody, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("Error: %s %s", resp.Status, string(respBody))
+	}
+	scanner := bufio.NewScanner(resp.Body)
+	var eventData []string
+	for scanner.Scan() {
+		line := scanner.Text()
+		if line == "" {
+			if len(eventData) > 0 {
+				fmt.Print(strings.Join(eventData, "\n"))
+				eventData = nil
+			}
+			continue
+		}
+		if after, found := strings.CutPrefix(line, "data: "); found {
+			eventData = append(eventData, after)
+		}
+	}
 	if err := scanner.Err(); err != nil {
 		return err
 	}
