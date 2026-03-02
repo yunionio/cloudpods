@@ -124,6 +124,8 @@ type SAlert struct {
 	Message   string                `charset:"utf8" list:"user" create:"optional" update:"user"`
 	UsedBy    string                `charset:"ascii" create:"optional" list:"user"`
 
+	DisableNotifyRecovery bool `nullable:"false" default:"false" list:"user" create:"optional" update:"user"`
+
 	// Silenced       bool
 	ExecutionError string `charset:"utf8" list:"user"`
 

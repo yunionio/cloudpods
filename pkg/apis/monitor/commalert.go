@@ -70,6 +70,9 @@ type CommonAlertCreateBaseInput struct {
 	// 角色 id 或者 name
 	Roles []string `json:"roles"`
 
+	// 为 true 时不发送恢复通知（OK）
+	DisableNotifyRecovery *bool `json:"disable_notify_recovery"`
+
 	// 静默期
 	SilentPeriod string `json:"silent_period"`
 	// 报警类型
@@ -155,6 +158,8 @@ type CommonAlertUpdateInput struct {
 	Channel []string `json:"channel"`
 	// 通知接受者
 	Recipients []string `json:"recipients"`
+	// 为 true 时不发送恢复通知（OK）
+	DisableNotifyRecovery *bool `json:"disable_notify_recovery"`
 	// 静默期
 	SilentPeriod string `json:"silent_period"`
 	// systemalert policy may need update through operator
@@ -167,13 +172,14 @@ type CommonAlertDetails struct {
 	AlertDetails
 	Period string `json:"period"`
 	// 报警连续持续周期数
-	AlertDuration int64    `json:"alert_duration"`
-	Level         string   `json:"level"`
-	NotifierId    string   `json:"notifier_id"`
-	Channel       []string `json:"channel"`
-	Recipients    []string `json:"recipients"`
-	RobotIds      []string `json:"robot_ids"`
-	RoleIds       []string `json:"role_ids"`
+	AlertDuration         int64    `json:"alert_duration"`
+	Level                 string   `json:"level"`
+	NotifierId            string   `json:"notifier_id"`
+	Channel               []string `json:"channel"`
+	Recipients            []string `json:"recipients"`
+	RobotIds              []string `json:"robot_ids"`
+	RoleIds               []string `json:"role_ids"`
+	DisableNotifyRecovery bool     `json:"disable_notify_recovery"`
 	// 静默期
 	SilentPeriod string `json:"silent_period"`
 	Status       string `json:"status"`

@@ -325,7 +325,7 @@ func (oc *OneCloudNotifier) notifyByContextLang(ctx context.Context, evalCtx *al
 			errs = append(errs, errors.Wrapf(err, "notify alerting matches"))
 		}
 	}
-	if evalCtx.HasRecoveredMatches() {
+	if evalCtx.HasRecoveredMatches() && !evalCtx.Rule.DisableNotifyRecovery {
 		if err := oc.notifyMatchesByContextLang(ctx, evalCtx, evalCtx.GetRecoveredMatches(), uids, true); err != nil {
 			errs = append(errs, errors.Wrapf(err, "notify recovered matches"))
 		}

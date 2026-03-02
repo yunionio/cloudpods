@@ -59,6 +59,8 @@ type CommonAlertUpdateOptions struct {
 	Comparator string `help:"Alarm policy threshold comparison method" json:"comparator" `
 	Threshold  string `help:"Alarm policy threshold" json:"threshold"`
 	Reason     string `help:"Alarm policy reason" json:"reason"`
+	// 为 true 时不发送恢复通知
+	DisableNotifyRecovery *bool `help:"when true, do not send recovery notifications" json:"disable_notify_recovery"`
 }
 
 func (o *CommonAlertUpdateOptions) Params() (jsonutils.JSONObject, error) {
