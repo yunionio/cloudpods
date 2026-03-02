@@ -65,6 +65,8 @@ func (self *SnapshotpolicyUnbindDisksTask) OnInit(ctx context.Context, obj db.IS
 
 func (self *SnapshotpolicyUnbindDisksTask) OnSnapshotPolicyUnbindDisksComplete(ctx context.Context, sp *models.SSnapshotPolicy, data jsonutils.JSONObject) {
 	sp.SetStatus(ctx, self.UserCred, apis.STATUS_AVAILABLE, "")
+	diskIds := jsonutils.GetQueryStringArray(self.Params, "disk_ids")
+	logclient.AddActionLogWithStartable(self, sp, logclient.ACT_UNBIND_DISK, diskIds, self.UserCred, true)
 	notifyclient.EventNotify(ctx, self.UserCred, notifyclient.SEventNotifyParam{
 		Obj:    sp,
 		Action: notifyclient.ActionExecute,

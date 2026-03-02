@@ -26,6 +26,7 @@ import (
 type SnapshotPolicyListOptions struct {
 	options.BaseListOptions
 
+	ResourceId           []string `help:"resource id"`
 	OrderByBindDiskCount string
 }
 
