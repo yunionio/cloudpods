@@ -94,7 +94,7 @@ func (dd *DingDingNotifier) Notify(evalCtx *alerting.EvalContext, d jsonutils.JS
 			errs = append(errs, errors.Wrap(err, "notify alerting matches"))
 		}
 	}
-	if evalCtx.HasRecoveredMatches() {
+	if evalCtx.HasRecoveredMatches() && !evalCtx.Rule.DisableNotifyRecovery {
 		if err := dd.notify(evalCtx, evalCtx.GetRecoveredMatches(), true, d); err != nil {
 			errs = append(errs, errors.Wrap(err, "notify recovered matches"))
 		}
