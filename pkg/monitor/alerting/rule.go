@@ -49,14 +49,15 @@ type Rule struct {
 	Name      string
 	Message   string
 	// 使用 TriggeredMessages 存储触发的条件，替代 Message
-	TriggeredMessages   []string
-	LastStateChange     time.Time
-	For                 time.Duration
-	NoDataState         monitor.NoDataOption
-	ExecutionErrorState monitor.ExecutionErrorOption
-	State               monitor.AlertStateType
-	Conditions          []Condition
-	Notifications       []string
+	TriggeredMessages     []string
+	LastStateChange       time.Time
+	For                   time.Duration
+	NoDataState           monitor.NoDataOption
+	ExecutionErrorState   monitor.ExecutionErrorOption
+	State                 monitor.AlertStateType
+	Conditions            []Condition
+	Notifications         []string
+	DisableNotifyRecovery bool
 	// AlertRuleTags       []*models.AlertRuleTag
 	Level           string
 	Reason          string
@@ -126,6 +127,7 @@ func NewRuleFromDBAlert(ruleDef *models.SAlert) (*Rule, error) {
 	model.RuleDescription = make([]*monitor.AlertRecordRule, 0)
 
 	model.Frequency = ruleDef.Frequency
+	model.DisableNotifyRecovery = ruleDef.DisableNotifyRecovery
 	// frequency cannot be zero since that would not execute the alert rule.
 	// so we fallback to 60 seconds if `Frequency` is missing
 	if model.Frequency == 0 {
