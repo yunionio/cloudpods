@@ -150,6 +150,8 @@ type SnapshotPolicyListInput struct {
 	OrderBySnapshotCount string `json:"order_by_snapshot_count"`
 	// 按类型过滤
 	Type string `json:"type"`
+
+	ResourceId []string `json:"resource_id"`
 }
 
 type HostnameInput struct {

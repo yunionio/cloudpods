@@ -489,6 +489,24 @@ func (sp *SSnapshotPolicy) PerformBindDisks(
 			return nil, err
 		}
 		disk := diskObj.(*SDisk)
+		// 磁盘只能绑定一个快照策略
+		cnt, err := SnapshotPolicyResourceManager.GetBindingCount(disk.Id, api.SNAPSHOT_POLICY_TYPE_DISK)
+		if err != nil {
+			return nil, errors.Wrap(err, "GetBindingCount")
+		}
+		if cnt > 0 {
+			return nil, httperrors.NewConflictError("disk %s already bound to a snapshot policy", disk.Name)
+		}
+		// 若磁盘所属主机已绑定主机快照策略，则磁盘不能再绑定
+		if guest := disk.GetGuest(); guest != nil {
+			guestCnt, err := SnapshotPolicyResourceManager.GetBindingCount(guest.Id, api.SNAPSHOT_POLICY_TYPE_SERVER)
+			if err != nil {
+				return nil, errors.Wrap(err, "GetBindingCount for guest")
+			}
+			if guestCnt > 0 {
+				return nil, httperrors.NewConflictError("guest %s already has server snapshot policy, disk cannot bind snapshot policy", guest.Name)
+			}
+		}
 		if len(sp.ManagerId) > 0 {
 			storage, err := disk.GetStorage()
 			if err != nil {
@@ -717,6 +735,11 @@ func (manager *SSnapshotPolicyManager) ListItemFilter(
 	}
 	if len(input.Type) > 0 {
 		q = q.Equals("type", input.Type)
+	}
+
+	if len(input.ResourceId) > 0 {
+		sq := SnapshotPolicyResourceManager.Query("snapshotpolicy_id").In("resource_id", input.ResourceId).SubQuery()
+		q = q.In("id", sq)
 	}
 
 	return q, nil
