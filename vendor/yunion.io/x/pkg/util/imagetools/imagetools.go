@@ -189,8 +189,8 @@ var imageVersions = map[string][]string{
 	// OpenSUSE：补充Leap版本，SUSE补充SLES主版本
 	OS_DIST_OPEN_SUSE: {"11", "12", "13", "42", "15.0", "15.1", "15.2", "15.3", "15.4", "15.5", "15.6"},
 	OS_DIST_SUSE:      {"10", "11", "12", "15", "15 SP1", "15 SP2", "15 SP3", "15 SP4", "15 SP5"},
-	// Debian：补充从6到最新的12，覆盖所有稳定版
-	OS_DIST_DEBIAN: {"6", "7", "8", "9", "10", "11", "12"},
+	// Debian：补充从6到最新的13，覆盖所有稳定版
+	OS_DIST_DEBIAN: {"6", "7", "8", "9", "10", "11", "12", "13"},
 	// CoreOS：补充Container Linux和Fedora CoreOS的主要版本
 	OS_DIST_CORE_OS: {"7", "200", "213", "224", "234", "246", "251", "3033"},
 	// 欧拉OS：补充openEuler和EulerOS完整版本
