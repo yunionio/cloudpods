@@ -27,10 +27,25 @@ func mcpServersConfigHandler(ctx context.Context, w http.ResponseWriter, r *http
 	if err != nil {
 		log.Warningf("GetPublicServiceURL for %s failed: %v", serviceName, err)
 	}
+	sseURL := fmt.Sprintf("%s/sse", url)
+
+	responseType := r.URL.Query().Get("type")
+	switch responseType {
+	case "claude":
+		cmd := fmt.Sprintf("claude mcp add --transport sse %s --header \"X-API-Key: your-key-here\"", sseURL)
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.Write([]byte(cmd))
+		return
+	case "cursor":
+		// fall through to JSON
+	default:
+		// default: return JSON (cursor format)
+	}
+
 	config := map[string]interface{}{
 		"mcpServers": map[string]interface{}{
 			mcpServerOption.Options.MCPServerName: map[string]interface{}{
-				"url": fmt.Sprintf("%s/sse", url),
+				"url": sseURL,
 				"headers": map[string]string{
 					"AK": "value",
 					"SK": "value",
