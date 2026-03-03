@@ -297,7 +297,7 @@ func (o baseOptions) BIOS(ovmfPath, ovmfVarsPath, homedir string) (string, error
 	guestOvmfVarsPath := path.Join(homedir, ovmfVarsName)
 	if !fileutils2.Exists(guestOvmfVarsPath) {
 		sourceOvmfVarsPath := ovmfPath
-		if ovmfVarsPath != "" {
+		if ovmfVarsPath != "" && fileutils2.Exists(ovmfVarsPath) {
 			sourceOvmfVarsPath = ovmfVarsPath
 		}
 		err := procutils.NewRemoteCommandAsFarAsPossible("cp", "-f", sourceOvmfVarsPath, guestOvmfVarsPath).Run()
