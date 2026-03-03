@@ -111,6 +111,8 @@ func (h *MiscHandler) Bind(app *appsrv.Application) {
 	// mcp agent default chat stream (uses agent with default_agent=true)
 	defaultChatStream := chatHandlerInfo("POST", prefix+"mcp_agents/default/chat-stream", FetchAuthToken(mcpAgentDefaultChatStreamHandler))
 	app.AddHandler3(defaultChatStream)
+	// mcp agent default MCP server tools (options.MCPServerURL only, no mcp_agent entry)
+	app.AddHandler(GET, prefix+"mcp_agents/default-mcp-tools", FetchAuthToken(mcpAgentDefaultToolsHandler))
 
 	// syslog webservice handlers
 	app.AddHandler(POST, prefix+"syslog/token", handleSyslogWebServiceToken)
