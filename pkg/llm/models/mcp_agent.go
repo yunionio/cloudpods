@@ -103,6 +103,19 @@ func (man *SMCPAgentManager) GetDefaultAgent(ctx context.Context, userCred mccli
 	return &agent, nil
 }
 
+// GetDefaultMcpServerTools 返回默认 MCP 服务器（options.Options.MCPServerURL）的 tools，不依赖任何 mcp_agent 记录
+func (man *SMCPAgentManager) GetDefaultMcpServerTools(ctx context.Context, userCred mcclient.TokenCredential) (jsonutils.JSONObject, error) {
+	timeout := time.Duration(options.Options.MCPAgentTimeout) * time.Second
+	mcpClient := utils.NewMCPClient(options.Options.MCPServerURL, timeout, userCred)
+	defer mcpClient.Close()
+
+	tools, err := mcpClient.ListTools(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "list default MCP tools")
+	}
+	return jsonutils.Marshal(tools), nil
+}
+
 type SMCPAgent struct {
 	db.SSharableVirtualResourceBase
 
