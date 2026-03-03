@@ -667,15 +667,31 @@ func (model *SInstantModel) PerformPrivate(
 
 func (model *SInstantModel) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	if model.Enabled.IsTrue() {
-		for _, man := range []MountedModelModelManager{GetLLMSkuManager(), GetVolumeManager()} {
-			// volume/sku 存储格式为 modelFullName-instantModelId
-			used, err := man.IsPremountedModelName(model.ModelName + ":" + model.ModelTag + "-" + model.Id)
-			if err != nil {
-				return errors.Wrap(err, "IsPremountedModelName")
-			}
-			if used {
-				return errors.Wrap(errors.ErrInvalidStatus, "cannot delete when model is used by other resources")
-			}
+		// check if used by llm sku
+		used, err := GetLLMSkuManager().IsPremountedModelName(model.Id)
+		if err != nil {
+			return errors.Wrap(err, "GetLLMSkuManager().IsPremountedModelName")
+		}
+		if used {
+			return errors.Wrap(errors.ErrInvalidStatus, "cannot delete when model is used by llm sku")
+		}
+
+		// check if used by volume
+		used, err = GetVolumeManager().IsPremountedModelName(model.Id)
+		if err != nil {
+			return errors.Wrap(err, "GetVolumeManager().IsPremountedModelName")
+		}
+		if used {
+			return errors.Wrap(errors.ErrInvalidStatus, "cannot delete when model is used by volume")
+		}
+
+		// check if used by llm instance
+		cnt, err := GetLLMInstantModelManager().Query().Equals("model_id", model.Id).IsFalse("deleted").CountWithError()
+		if err != nil {
+			return errors.Wrap(err, "GetLLMInstantModelManager().CountWithError")
+		}
+		if cnt > 0 {
+			return errors.Wrap(errors.ErrInvalidStatus, "cannot delete when model is used by llm instance")
 		}
 	}
 

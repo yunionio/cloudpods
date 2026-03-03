@@ -18,12 +18,14 @@ type ILLMChatMessage interface {
 type ILLMToolCall interface {
 	GetId() string
 	GetFunction() ILLMFunctionCall
+	GetIndex() int
 }
 
 // ILLMFunctionCall 表示函数调用详情接口
 type ILLMFunctionCall interface {
 	GetName() string
 	GetArguments() map[string]interface{}
+	GetRawArguments() string
 }
 
 // ILLMTool 表示工具定义接口
@@ -48,6 +50,8 @@ type ILLMChatResponse interface {
 	GetToolCalls() []ILLMToolCall
 	// GetContent 获取响应内容
 	GetContent() string
+	// GetReasoningContent 获取推理/思考内容（如 DeepSeek reasoning_content）
+	GetReasoningContent() string
 }
 
 type ILLMClient interface {
@@ -59,6 +63,7 @@ type ILLMClient interface {
 	NewUserMessage(content string) ILLMChatMessage
 	NewAssistantMessage(content string) ILLMChatMessage
 	NewAssistantMessageWithToolCalls(toolCalls []ILLMToolCall) ILLMChatMessage
+	NewAssistantMessageWithToolCallsAndReasoning(reasoningContent, content string, toolCalls []ILLMToolCall) ILLMChatMessage
 	NewToolMessage(toolId string, toolName string, content string) ILLMChatMessage
 	NewSystemMessage(content string) ILLMChatMessage
 
@@ -74,6 +79,10 @@ func (tc *SLLMToolCall) GetId() string {
 	return tc.Id
 }
 
+func (tc *SLLMToolCall) GetIndex() int {
+	return 0
+}
+
 func (tc *SLLMToolCall) GetFunction() ILLMFunctionCall {
 	return &tc.Function
 }
@@ -85,6 +94,10 @@ type SLLMFunctionCall struct {
 
 func (fc *SLLMFunctionCall) GetName() string {
 	return fc.Name
+}
+
+func (fc *SLLMFunctionCall) GetRawArguments() string {
+	return ""
 }
 
 func (fc *SLLMFunctionCall) GetArguments() map[string]interface{} {

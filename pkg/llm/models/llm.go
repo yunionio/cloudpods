@@ -499,16 +499,20 @@ func (llm *SLLM) StartLLMStopTask(ctx context.Context, userCred mcclient.TokenCr
 	return nil
 }
 
-// func (llm *SLLM) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
-// 	instanceId, isBound, err := llm.IsBoundToInstance()
-// 	if err != nil {
-// 		return errors.Wrap(err, "IsBoundToInstance")
-// 	}
-// 	if isBound {
-// 		return httperrors.NewBadRequestError("llm is bound to instance %s", instanceId)
-// 	}
-// 	return nil
-// }
+func (llm *SLLM) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
+	if err := llm.SLLMBase.ValidateDeleteCondition(ctx, info); err != nil {
+		return err
+	}
+	// Check for associated MCPAgents
+	cnt, err := GetMCPAgentManager().Query().Equals("llm_id", llm.Id).CountWithError()
+	if err != nil {
+		return errors.Wrap(err, "GetMCPAgentManager().Query().CountWithError")
+	}
+	if cnt > 0 {
+		return httperrors.NewConflictError("LLM is being used by %d MCPAgents", cnt)
+	}
+	return nil
+}
 
 func (llm *SLLM) WaitContainerStatus(ctx context.Context, userCred mcclient.TokenCredential, targetStatus []string, timeoutSecs int) (*computeapi.SContainer, error) {
 	llmCtr, err := llm.GetLLMContainer()

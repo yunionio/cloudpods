@@ -14,7 +14,8 @@ import (
 type MCPAgentListOptions struct {
 	options.BaseListOptions
 
-	LLMDriver string `json:"llm_driver" help:"filter by llm driver (ollama or openai)"`
+	LLMDriver    string `json:"llm_driver" help:"filter by llm driver (ollama or openai)"`
+	DefaultAgent *bool  `json:"default_agent,omitempty" help:"filter by default agent (true to list the default one)"`
 }
 
 func (o *MCPAgentListOptions) Params() (jsonutils.JSONObject, error) {
@@ -32,12 +33,13 @@ func (o *MCPAgentShowOptions) Params() (jsonutils.JSONObject, error) {
 type MCPAgentCreateOptions struct {
 	apis.SharableVirtualResourceCreateInput
 
-	LlmId      string `help:"LLM 实例 ID，如果提供则自动获取 llm_url" json:"llm_id"`
-	LLM_URL    string `help:"后端大模型的 base 请求地址" json:"llm_url"`
-	LLM_DRIVER string `help:"使用的大模型驱动，可以是 ollama 或 openai" json:"llm_driver" choices:"ollama|openai"`
-	MODEL      string `help:"使用的模型名称" json:"model"`
-	API_KEY    string `help:"访问大模型的密钥" json:"api_key"`
-	McpServer  string `help:"mcp 服务器的后端地址" json:"mcp_server"`
+	LlmId        string `help:"LLM 实例 ID，如果提供则自动获取 llm_url" json:"llm_id"`
+	LLM_URL      string `help:"后端大模型的 base 请求地址" json:"llm_url"`
+	LLM_DRIVER   string `help:"使用的大模型驱动，可以是 ollama 或 openai" json:"llm_driver" choices:"ollama|openai"`
+	MODEL        string `help:"使用的模型名称" json:"model"`
+	API_KEY      string `help:"访问大模型的密钥" json:"api_key"`
+	McpServer    string `help:"mcp 服务器的后端地址" json:"mcp_server"`
+	DefaultAgent bool   `help:"set as default MCP agent (only one can be true globally)" json:"default_agent"`
 }
 
 func (o *MCPAgentCreateOptions) Params() (jsonutils.JSONObject, error) {
@@ -45,15 +47,16 @@ func (o *MCPAgentCreateOptions) Params() (jsonutils.JSONObject, error) {
 }
 
 type MCPAgentUpdateOptions struct {
-	apis.SharableVirtualResourceCreateInput
+	apis.SharableVirtualResourceBaseUpdateInput
 
-	ID        string
-	LlmId     *string `help:"LLM 实例 ID，如果提供则自动获取 llm_url" json:"llm_id,omitempty"`
-	LlmUrl    *string `help:"后端大模型的 base 请求地址" json:"llm_url,omitempty"`
-	LlmDriver *string `help:"使用的大模型驱动，可以是 ollama 或 openai" json:"llm_driver,omitempty" choices:"ollama|openai"`
-	Model     *string `help:"使用的模型名称" json:"model,omitempty"`
-	ApiKey    *string `help:"访问大模型的密钥" json:"api_key,omitempty"`
-	McpServer *string `help:"mcp 服务器的后端地址" json:"mcp_server,omitempty"`
+	ID           string
+	LlmId        *string `help:"LLM 实例 ID，如果提供则自动获取 llm_url" json:"llm_id,omitempty"`
+	LlmUrl       *string `help:"后端大模型的 base 请求地址" json:"llm_url,omitempty"`
+	LlmDriver    *string `help:"使用的大模型驱动，可以是 ollama 或 openai" json:"llm_driver,omitempty" choices:"ollama|openai"`
+	Model        *string `help:"使用的模型名称" json:"model,omitempty"`
+	ApiKey       *string `help:"访问大模型的密钥" json:"api_key,omitempty"`
+	McpServer    *string `help:"mcp 服务器的后端地址" json:"mcp_server,omitempty"`
+	DefaultAgent *bool   `help:"set as default MCP agent (only one can be true globally)" json:"default_agent,omitempty"`
 }
 
 func (o *MCPAgentUpdateOptions) GetId() string {
@@ -81,9 +84,12 @@ func (o *MCPAgentUpdateOptions) Params() (jsonutils.JSONObject, error) {
 	if o.McpServer != nil && len(*o.McpServer) > 0 {
 		params.Set("mcp_server", jsonutils.NewString(*o.McpServer))
 	}
+	if o.DefaultAgent != nil {
+		params.Set("default_agent", jsonutils.NewBool(*o.DefaultAgent))
+	}
 
 	// 添加基础字段
-	baseParams, err := options.StructToParams(&o.SharableVirtualResourceCreateInput)
+	baseParams, err := options.StructToParams(&o.SharableVirtualResourceBaseUpdateInput)
 	if err != nil {
 		return nil, err
 	}
@@ -167,5 +173,31 @@ func (opts *MCPAgentMCPAgentRequestOptions) Params() (jsonutils.JSONObject, erro
 		}
 	}
 
+	return jsonutils.Marshal(input), nil
+}
+
+// MCPAgentDefaultChatOptions 用于默认 Agent 聊天（不传 ID，使用 default_agent=true 的条目）
+type MCPAgentDefaultChatOptions struct {
+	MESSAGE string `help:"message to send to MCP agent" json:"message"`
+	History string `help:"chat history as JSON string, e.g. '[{\"role\":\"user\",\"content\":\"hello\"}]'" json:"history,omitempty"`
+}
+
+func (opts *MCPAgentDefaultChatOptions) Params() (jsonutils.JSONObject, error) {
+	input := api.LLMMCPAgentRequestInput{
+		Message: opts.MESSAGE,
+		History: []api.MCPAgentChatMessage{},
+	}
+	if len(opts.History) > 0 {
+		historyJSON, err := jsonutils.ParseString(opts.History)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse history JSON: %v", err)
+		}
+		if historyJSON != nil {
+			err = historyJSON.Unmarshal(&input.History)
+			if err != nil {
+				return nil, fmt.Errorf("failed to unmarshal history: %v", err)
+			}
+		}
+	}
 	return jsonutils.Marshal(input), nil
 }
