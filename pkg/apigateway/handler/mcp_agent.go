@@ -32,7 +32,9 @@ func mcpServersConfigHandler(ctx context.Context, w http.ResponseWriter, r *http
 	responseType := r.URL.Query().Get("type")
 	switch responseType {
 	case "claude":
-		cmd := fmt.Sprintf("claude mcp add --transport sse %s --header \"X-API-Key: your-key-here\"", sseURL)
+		// Claude 仅支持单个自定义 header，使用 X-API-Key。填写方式：
+		// base64(ak:sk)：`echo -n "你的AK:你的SK" | base64`，将输出填入
+		cmd := fmt.Sprintf("claude mcp add --transport sse %s --header \"X-API-Key: <填写 token 或 base64(AK:SK)>\"", sseURL)
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		w.Write([]byte(cmd))
 		return
@@ -42,13 +44,14 @@ func mcpServersConfigHandler(ctx context.Context, w http.ResponseWriter, r *http
 		// default: return JSON (cursor format)
 	}
 
+	// Cursor：在 headers 中填写控制台/CLI 获取的 Access Key 与 Secret Key
 	config := map[string]interface{}{
 		"mcpServers": map[string]interface{}{
 			mcpServerOption.Options.MCPServerName: map[string]interface{}{
 				"url": sseURL,
 				"headers": map[string]string{
-					"AK": "value",
-					"SK": "value",
+					"AK": "<填写 Access Key>",
+					"SK": "<填写 Secret Key>",
 				},
 			},
 		},
