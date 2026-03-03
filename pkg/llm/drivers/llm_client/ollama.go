@@ -252,6 +252,29 @@ func (o *ollama) NewAssistantMessageWithToolCalls(toolCalls []models.ILLMToolCal
 	}
 }
 
+func (o *ollama) NewAssistantMessageWithToolCallsAndReasoning(reasoningContent, content string, toolCalls []models.ILLMToolCall) models.ILLMChatMessage {
+	ollamaToolCalls := make([]OllamaToolCall, len(toolCalls))
+	for i, tc := range toolCalls {
+		if otc, ok := tc.(*OllamaToolCall); ok {
+			ollamaToolCalls[i] = *otc
+		} else {
+			fc := tc.GetFunction()
+			ollamaToolCalls[i] = OllamaToolCall{
+				Function: OllamaFunctionCall{
+					Name:      fc.GetName(),
+					Arguments: fc.GetArguments(),
+				},
+			}
+		}
+	}
+	_ = reasoningContent // Ollama does not use reasoning_content; ignore for compatibility
+	return &OllamaChatMessage{
+		Role:      "assistant",
+		Content:   content,
+		ToolCalls: ollamaToolCalls,
+	}
+}
+
 func (o *ollama) NewToolMessage(toolId string, toolName string, content string) models.ILLMChatMessage {
 	return &OllamaChatMessage{
 		Role:    "tool",
@@ -323,12 +346,18 @@ func (m OllamaChatMessage) GetToolCalls() []models.ILLMToolCall {
 // OllamaToolCall 表示工具调用
 // 实现 ILLMToolCall 接口
 type OllamaToolCall struct {
+	Index    int                `json:"-"`
 	Function OllamaFunctionCall `json:"function"`
 }
 
 // GetFunction 实现 ILLMToolCall 接口
 func (tc *OllamaToolCall) GetFunction() models.ILLMFunctionCall {
 	return &tc.Function
+}
+
+// GetIndex 实现 ILLMToolCall 接口
+func (tc *OllamaToolCall) GetIndex() int {
+	return tc.Index
 }
 
 // GetId 实现 ILLMToolCall 接口
@@ -346,6 +375,15 @@ type OllamaFunctionCall struct {
 // GetName 实现 ILLMFunctionCall 接口
 func (fc *OllamaFunctionCall) GetName() string {
 	return fc.Name
+}
+
+// GetRawArguments 实现 ILLMFunctionCall 接口
+func (fc *OllamaFunctionCall) GetRawArguments() string {
+	if fc.Arguments == nil {
+		return ""
+	}
+	bytes, _ := json.Marshal(fc.Arguments)
+	return string(bytes)
 }
 
 // GetArguments 实现 ILLMFunctionCall 接口
@@ -415,6 +453,11 @@ func (r *OllamaChatResponse) GetContent() string {
 	return r.Message.Content
 }
 
+// GetReasoningContent 获取推理内容（Ollama 不支持，返回空）
+func (r *OllamaChatResponse) GetReasoningContent() string {
+	return ""
+}
+
 // HasToolCalls 检查响应是否包含工具调用
 func (r *OllamaChatResponse) HasToolCalls() bool {
 	return len(r.Message.ToolCalls) > 0
@@ -427,6 +470,7 @@ func (r *OllamaChatResponse) GetToolCalls() []models.ILLMToolCall {
 	}
 	toolCalls := make([]models.ILLMToolCall, len(r.Message.ToolCalls))
 	for i := range r.Message.ToolCalls {
+		r.Message.ToolCalls[i].Index = i
 		toolCalls[i] = &r.Message.ToolCalls[i]
 	}
 	return toolCalls

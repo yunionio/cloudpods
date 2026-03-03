@@ -237,3 +237,21 @@ func (mdl *SLLMInstantModel) getMountPathsFromImage(isInstall bool) ([]api.LLMMo
 	})
 	return info, nil
 }
+
+func (man *SLLMInstantModelManager) DeleteByLlmId(ctx context.Context, llmId string) error {
+	q := man.Query().Equals("llm_id", llmId)
+	models := make([]SLLMInstantModel, 0)
+	err := db.FetchModelObjects(man, q, &models)
+	if err != nil {
+		return errors.Wrap(err, "FetchModelObjects")
+	}
+	for i := range models {
+		_, err := db.Update(&models[i], func() error {
+			return models[i].MarkDelete()
+		})
+		if err != nil {
+			return errors.Wrapf(err, "delete llm model %s", models[i].ModelName)
+		}
+	}
+	return nil
+}

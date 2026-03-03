@@ -149,3 +149,106 @@ func mcpAgentChatStreamHandler(ctx context.Context, w http.ResponseWriter, r *ht
 		}
 	}
 }
+
+// mcpAgentDefaultChatStreamHandler 将请求转发到 region 的 default-chat-stream（使用 default_agent=true 的条目）
+func mcpAgentDefaultChatStreamHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	token := AppContextToken(ctx)
+	s := auth.GetSession(ctx, token, FetchRegion(r))
+
+	headers := http.Header{}
+	headers.Set("Content-Type", "application/json")
+
+	var bodyReader io.Reader
+	if r.Body != nil {
+		bodyReader = r.Body
+	}
+
+	path := "/mcp_agents/default-chat-stream"
+	resp, err := s.RawVersionRequest(
+		modules.MCPAgent.ServiceType(),
+		modules.MCPAgent.EndpointType(),
+		"POST",
+		path,
+		headers,
+		bodyReader,
+	)
+	if err != nil {
+		httperrors.GeneralServerError(ctx, w, errors.Wrap(err, "request backend"))
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		respBody, _ := io.ReadAll(resp.Body)
+		if resp.StatusCode >= 400 && resp.StatusCode < 500 {
+			httperrors.InputParameterError(ctx, w, "backend error: %s", string(respBody))
+		} else {
+			httperrors.GeneralServerError(ctx, w, fmt.Errorf("backend error %d: %s", resp.StatusCode, string(respBody)))
+		}
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	if f, ok := w.(http.Flusher); ok {
+		f.Flush()
+	}
+
+	buf := make([]byte, 1024)
+	for {
+		n, err := resp.Body.Read(buf)
+		if n > 0 {
+			if _, wErr := w.Write(buf[:n]); wErr != nil {
+				log.Errorf("write response error: %v", wErr)
+				return
+			}
+			if f, ok := w.(http.Flusher); ok {
+				f.Flush()
+			}
+		}
+		if err != nil {
+			if err != io.EOF {
+				log.Errorf("read backend response error: %v", err)
+			}
+			break
+		}
+	}
+}
+
+// mcpAgentDefaultToolsHandler 将 GET 请求转发到 region 的 default-mcp-tools（仅使用 options.MCPServerURL，不通过 mcp_agent 条目）
+func mcpAgentDefaultToolsHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	token := AppContextToken(ctx)
+	s := auth.GetSession(ctx, token, FetchRegion(r))
+
+	path := "/mcp_agents/default-mcp-tools"
+	resp, err := s.RawVersionRequest(
+		modules.MCPAgent.ServiceType(),
+		modules.MCPAgent.EndpointType(),
+		"GET",
+		path,
+		nil,
+		nil,
+	)
+	if err != nil {
+		httperrors.GeneralServerError(ctx, w, errors.Wrap(err, "request backend"))
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		respBody, _ := io.ReadAll(resp.Body)
+		if resp.StatusCode >= 400 && resp.StatusCode < 500 {
+			httperrors.InputParameterError(ctx, w, "backend error: %s", string(respBody))
+		} else {
+			httperrors.GeneralServerError(ctx, w, fmt.Errorf("backend error %d: %s", resp.StatusCode, string(respBody)))
+		}
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_, err = io.Copy(w, resp.Body)
+	if err != nil {
+		log.Errorf("write default mcp tools response error: %v", err)
+	}
+}

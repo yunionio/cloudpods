@@ -3,7 +3,6 @@ package models
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"net/http"
 	"slices"
 	"strings"
@@ -347,7 +346,7 @@ func (llm *SLLM) FetchModelsFullName(isProbed, isMounted *bool) ([]string, error
 	}
 	mdlFullNames := make([]string, len(models))
 	for idx, mdl := range models {
-		mdlFullNames[idx] = mdl.ModelName + ":" + mdl.Tag + "-" + mdl.InstantModelId
+		mdlFullNames[idx] = mdl.InstantModelId
 	}
 	return mdlFullNames, nil
 }
@@ -690,7 +689,7 @@ func (llm *SLLM) UpdateMountedModelFullNames(ctx context.Context, userCred mccli
 
 	installModelFullNames := make([]string, 0)
 	for _, mdlFullNameInfo := range mdlFullNameInfos {
-		installModelFullNames = append(installModelFullNames, fmt.Sprintf("%s-%s", mdlFullNameInfo.ModelFullName, mdlFullNameInfo.InstantModelId))
+		installModelFullNames = append(installModelFullNames, mdlFullNameInfo.InstantModelId)
 		if !mdlFullNameInfo.IsMounted {
 			modelName, modelTag, _ := llm.GetLargeLanguageModelName(mdlFullNameInfo.ModelFullName)
 			_, err := GetLLMInstantModelManager().updateInstantModel(ctx, llm.Id, mdlFullNameInfo.InstantModelId, modelName, modelTag, &boolFalse, &boolTrue)
