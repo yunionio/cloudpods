@@ -97,6 +97,20 @@ func handleDefaultChatStream(ctx context.Context, w http.ResponseWriter, r *http
 	}
 }
 
+func handleDefaultMcpTools(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	userCred := auth.FetchUserCredential(ctx, policy.FilterPolicyCredential)
+	if userCred == nil {
+		httperrors.UnauthorizedError(ctx, w, "Unauthorized")
+		return
+	}
+	result, err := models.GetMCPAgentManager().GetDefaultMcpServerTools(ctx, userCred)
+	if err != nil {
+		httperrors.GeneralServerError(ctx, w, err)
+		return
+	}
+	appsrv.SendJSON(w, result)
+}
+
 func InitHandlers(app *appsrv.Application, isSlave bool) {
 	db.InitAllManagers()
 	db.RegistUserCredCacheUpdater()
@@ -113,6 +127,9 @@ func InitHandlers(app *appsrv.Application, isSlave bool) {
 	defaultChatStream.SetProcessTimeout(time.Hour * 4).SetWorkerManager(models.GetMCPAgentWorkerManager())
 	defaultChatStreamSlash := app.AddHandler2("POST", "/mcp_agents/default/chat-stream", auth.Authenticate(handleDefaultChatStream), nil, "default_chat_stream_slash", nil)
 	defaultChatStreamSlash.SetProcessTimeout(time.Hour * 4).SetWorkerManager(models.GetMCPAgentWorkerManager())
+
+	// 默认 MCP 服务器 tools：仅使用 options.MCPServerURL，不依赖 mcp_agent 条目
+	app.AddHandler2("GET", "/mcp_agents/default-mcp-tools", auth.Authenticate(handleDefaultMcpTools), nil, "default_mcp_tools", nil)
 
 	for _, manager := range []db.IModelManager{
 		taskman.TaskManager,
