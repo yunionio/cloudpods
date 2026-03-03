@@ -114,6 +114,9 @@ func (h *MiscHandler) Bind(app *appsrv.Application) {
 	app.AddHandler(POST, prefix+"syslog/message", handleSyslogWebServiceMessage)
 	// service settings
 	app.AddHandler(GET, prefix+"service_settings", h.getServiceSettings)
+
+	// mcp servers config
+	app.AddHandler(GET, prefix+"mcp-servers-config", mcpServersConfigHandler)
 }
 
 func UploadHandlerInfo(method, prefix string, handler func(context.Context, http.ResponseWriter, *http.Request)) *appsrv.SHandlerInfo {

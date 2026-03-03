@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -10,12 +11,51 @@ import (
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/httputils"
 
+	"yunion.io/x/onecloud/pkg/apigateway/options"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/llm"
+	mcpServerOption "yunion.io/x/onecloud/pkg/mcp-server/options"
 )
+
+func mcpServersConfigHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	serviceName := "mcp-server"
+	url, err := auth.GetPublicServiceURL(serviceName, options.Options.Region, "", httputils.GET)
+	if err != nil {
+		log.Warningf("GetPublicServiceURL for %s failed: %v", serviceName, err)
+	}
+	sseURL := fmt.Sprintf("%s/sse", url)
+
+	responseType := r.URL.Query().Get("type")
+	switch responseType {
+	case "claude":
+		cmd := fmt.Sprintf("claude mcp add --transport sse %s --header \"X-API-Key: your-key-here\"", sseURL)
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.Write([]byte(cmd))
+		return
+	case "cursor":
+		// fall through to JSON
+	default:
+		// default: return JSON (cursor format)
+	}
+
+	config := map[string]interface{}{
+		"mcpServers": map[string]interface{}{
+			mcpServerOption.Options.MCPServerName: map[string]interface{}{
+				"url": sseURL,
+				"headers": map[string]string{
+					"AK": "value",
+					"SK": "value",
+				},
+			},
+		},
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(config)
+}
 
 func chatHandlerInfo(method, prefix string, handler func(context.Context, http.ResponseWriter, *http.Request)) *appsrv.SHandlerInfo {
 	log.Debugf("%s - %s", method, prefix)
