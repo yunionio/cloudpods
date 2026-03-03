@@ -2,6 +2,8 @@ package models
 
 import (
 	"context"
+	"database/sql"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
@@ -16,6 +18,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/llm"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/llm/options"
 	"yunion.io/x/onecloud/pkg/llm/utils"
@@ -30,6 +33,10 @@ func init() {
 var mcpAgentManager *SMCPAgentManager
 
 var mcpAgentWorkerMan *appsrv.SWorkerManager
+
+func GetMCPAgentWorkerManager() *appsrv.SWorkerManager {
+	return mcpAgentWorkerMan
+}
 
 func GetMCPAgentManager() *SMCPAgentManager {
 	if mcpAgentManager != nil {
@@ -51,6 +58,64 @@ type SMCPAgentManager struct {
 	db.SSharableVirtualResourceBaseManager
 }
 
+// unsetOtherDefaultAgents 将除 excludeId 外所有条目的 default_agent 置为 false，保证全局唯一
+func (man *SMCPAgentManager) unsetOtherDefaultAgents(ctx context.Context, excludeId string) error {
+	q := man.Query().IsTrue("default_agent")
+	if len(excludeId) > 0 {
+		q = q.NotEquals("id", excludeId)
+	}
+	agents := make([]SMCPAgent, 0)
+	err := db.FetchModelObjects(man, q, &agents)
+	if err != nil {
+		return errors.Wrap(err, "FetchModelObjects")
+	}
+	for i := range agents {
+		_, err := db.Update(&agents[i], func() error {
+			agents[i].DefaultAgent = false
+			return nil
+		})
+		if err != nil {
+			return errors.Wrapf(err, "Update agent %s", agents[i].Id)
+		}
+	}
+	return nil
+}
+
+// GetDefaultAgent 返回当前用户可见的、default_agent=true 的那条 MCP Agent（仅一条）
+func (man *SMCPAgentManager) GetDefaultAgent(ctx context.Context, userCred mcclient.TokenCredential) (*SMCPAgent, error) {
+	query := jsonutils.NewDict()
+	query.Set("default_agent", jsonutils.JSONTrue)
+	ownerId, scope, err, _ := db.FetchCheckQueryOwnerScope(ctx, userCred, query, man, policy.PolicyActionList, true)
+	if err != nil {
+		return nil, errors.Wrap(err, "FetchCheckQueryOwnerScope")
+	}
+	q := man.Query()
+	q = man.FilterByOwner(ctx, q, man, userCred, ownerId, scope)
+	q = q.IsTrue("default_agent")
+	var agent SMCPAgent
+	err = q.First(&agent)
+	if err != nil {
+		if errors.Cause(err) == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, errors.Wrap(err, "First default agent")
+	}
+	return &agent, nil
+}
+
+// GetDefaultMcpServerTools 返回默认 MCP 服务器（options.Options.MCPServerURL）的 tools，不依赖任何 mcp_agent 记录
+func (man *SMCPAgentManager) GetDefaultMcpServerTools(ctx context.Context, userCred mcclient.TokenCredential) (jsonutils.JSONObject, error) {
+	timeout := time.Duration(options.Options.MCPAgentTimeout) * time.Second
+	mcpClient := utils.NewMCPClient(options.Options.MCPServerURL, timeout, userCred)
+	defer mcpClient.Close()
+
+	tools, err := mcpClient.ListTools(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "list default MCP tools")
+	}
+	return jsonutils.Marshal(tools), nil
+}
+
 type SMCPAgent struct {
 	db.SSharableVirtualResourceBase
 
@@ -67,6 +132,8 @@ type SMCPAgent struct {
 	ApiKey string `width:"512" charset:"utf8" nullable:"true" list:"user" create:"optional" update:"user"`
 	// McpServer 即 mcp 服务器的后端地址
 	McpServer string `width:"512" charset:"utf8" nullable:"false" list:"user" create:"optional" update:"user"`
+	// DefaultAgent 是否为默认 Agent，全局仅允许一条为 true
+	DefaultAgent bool `default:"false" list:"user" create:"optional" update:"user"`
 }
 
 func (mcp *SMCPAgent) BeforeInsert() {
@@ -95,6 +162,24 @@ func (mcp *SMCPAgent) BeforeUpdate() {
 			} else {
 				mcp.ApiKey = sec
 			}
+		}
+	}
+}
+
+func (mcp *SMCPAgent) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	mcp.SSharableVirtualResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
+	if mcp.DefaultAgent {
+		if err := GetMCPAgentManager().unsetOtherDefaultAgents(ctx, mcp.Id); err != nil {
+			log.Errorf("unsetOtherDefaultAgents after create: %v", err)
+		}
+	}
+}
+
+func (mcp *SMCPAgent) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	mcp.SSharableVirtualResourceBase.PostUpdate(ctx, userCred, query, data)
+	if mcp.DefaultAgent {
+		if err := GetMCPAgentManager().unsetOtherDefaultAgents(ctx, mcp.Id); err != nil {
+			log.Errorf("unsetOtherDefaultAgents after update: %v", err)
 		}
 	}
 }
@@ -253,6 +338,9 @@ func (man *SMCPAgentManager) ListItemFilter(
 	if len(input.LLMDriver) > 0 {
 		q = q.Equals("llm_driver", strings.ToLower(strings.TrimSpace(input.LLMDriver)))
 	}
+	if input.DefaultAgent != nil && *input.DefaultAgent {
+		q = q.IsTrue("default_agent")
+	}
 
 	return q, nil
 }
@@ -293,6 +381,7 @@ func (manager *SMCPAgentManager) FetchCustomizeColumns(
 			if name, ok := llmIdNameMap[agents[i].LLMId]; ok {
 				rows[i].LLMName = name
 			}
+			rows[i].DefaultAgent = agents[i].DefaultAgent
 		}
 	}
 
@@ -303,10 +392,21 @@ func (mcp *SMCPAgent) GetLLMClientDriver() ILLMClient {
 	return GetLLMClientDriver(api.LLMClientType(mcp.LLMDriver))
 }
 
+func (mcp *SMCPAgent) GetMcpServerUrl(ctx context.Context, userCred mcclient.TokenCredential) (string, error) {
+	if len(mcp.McpServer) > 0 {
+		return mcp.McpServer, nil
+	}
+	return options.Options.MCPServerURL, nil
+}
+
 func (mcp *SMCPAgent) GetDetailsMcpTools(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	// 创建 MCP 客户端
 	timeout := time.Duration(options.Options.MCPAgentTimeout) * time.Second
-	mcpClient := utils.NewMCPClient(options.Options.MCPServerURL, timeout, userCred)
+	mcpServerUrl, err := mcp.GetMcpServerUrl(ctx, userCred)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetMcpServerUrl")
+	}
+	mcpClient := utils.NewMCPClient(mcpServerUrl, timeout, userCred)
 
 	// 获取工具列表
 	tools, err := mcpClient.ListTools(ctx)
@@ -324,7 +424,11 @@ func (mcp *SMCPAgent) GetDetailsToolRequest(
 ) (jsonutils.JSONObject, error) {
 	// 创建 MCP 客户端
 	timeout := time.Duration(options.Options.MCPAgentTimeout) * time.Second
-	mcpClient := utils.NewMCPClient(options.Options.MCPServerURL, timeout, userCred)
+	mcpServerUrl, err := mcp.GetMcpServerUrl(ctx, userCred)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetMcpServerUrl")
+	}
+	mcpClient := utils.NewMCPClient(mcpServerUrl, timeout, userCred)
 	defer mcpClient.Close()
 
 	// 调用工具
@@ -399,12 +503,13 @@ func (mcp *SMCPAgent) PerformChatStream(
 }
 
 // process 处理用户请求
-// 强制分为两个阶段：
-// 阶段一：使用 Chat 非流式获取工具调用参数，并执行工具
-// 阶段二：使用 ChatStream 流式获取最终响应
 func (mcp *SMCPAgent) process(ctx context.Context, userCred mcclient.TokenCredential, req *api.LLMMCPAgentRequestInput, onStream func(string) error) (*api.MCPAgentResponse, error) {
 	// 获取 MCP Server 的工具列表
-	mcpClient := utils.NewMCPClient(mcp.McpServer, 10*time.Minute, userCred)
+	mcpServerUrl, err := mcp.GetMcpServerUrl(ctx, userCred)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetMcpServerUrl")
+	}
+	mcpClient := utils.NewMCPClient(mcpServerUrl, 10*time.Minute, userCred)
 	defer mcpClient.Close()
 	mcpTools, err := mcpClient.ListTools(ctx)
 	if err != nil {
@@ -444,43 +549,107 @@ func (mcp *SMCPAgent) process(ctx context.Context, userCred mcclient.TokenCreden
 	var toolCallRecords []api.MCPAgentToolCallRecord
 
 	log.Infof("Phase 1: Thinking & Acting...")
-	resp, err := llmClient.Chat(ctx, mcp, messages, tools)
+
+	// 处理流式的工具调用参数
+	type accumToolCall struct {
+		Id           string
+		Name         string
+		RawArguments strings.Builder
+	}
+	accToolCalls := make(map[int]*accumToolCall)
+	var accumulatedContent strings.Builder
+	var accumulatedReasoning strings.Builder
+	hasToolCalls := false
+
+	err = llmClient.ChatStream(ctx, mcp, messages, tools, func(chunk ILLMChatResponse) error {
+		if chunk.HasToolCalls() {
+			hasToolCalls = true
+			for _, tc := range chunk.GetToolCalls() {
+				idx := tc.GetIndex()
+				if _, exists := accToolCalls[idx]; !exists {
+					accToolCalls[idx] = &accumToolCall{
+						Id: tc.GetId(),
+					}
+				}
+
+				atc := accToolCalls[idx]
+				if id := tc.GetId(); id != "" {
+					atc.Id = id
+				}
+				if name := tc.GetFunction().GetName(); name != "" {
+					atc.Name = name
+				}
+				if args := tc.GetFunction().GetRawArguments(); args != "" {
+					atc.RawArguments.WriteString(args)
+				}
+			}
+		}
+
+		if r := chunk.GetReasoningContent(); len(r) > 0 {
+			accumulatedReasoning.WriteString(r)
+		}
+
+		content := chunk.GetContent()
+		if len(content) > 0 {
+			accumulatedContent.WriteString(content)
+			if onStream != nil {
+				if err := onStream(content); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	})
+
 	if err != nil {
-		return nil, errors.Wrap(err, "phase 1 chat error")
+		return nil, errors.Wrap(err, "phase 1 chat stream error")
 	}
 
 	// 检查是否有工具调用
-	if !resp.HasToolCalls() {
-		// 如果阶段一没有调用工具，模拟推流返回结果
-		content := resp.GetContent()
-		if onStream != nil && len(content) > 0 {
-			// 模拟流式输出：按字符逐块推送
-			chunkSize := 10 // 每次推送10个字符
-			for i := 0; i < len(content); i += chunkSize {
-				end := i + chunkSize
-				if end > len(content) {
-					end = len(content)
-				}
-				chunk := content[i:end]
-				if err := onStream(chunk); err != nil {
-					return nil, errors.Wrap(err, "stream content error")
-				}
-				// 添加小延迟模拟真实流式输出
-				time.Sleep(10 * time.Millisecond)
-			}
-		}
+	if !hasToolCalls {
+		// 如果阶段一没有调用工具，直接返回结果
 		return &api.MCPAgentResponse{
 			Success:   true,
-			Answer:    content,
+			Answer:    accumulatedContent.String(),
 			ToolCalls: toolCallRecords,
 		}, nil
 	}
 
-	// 处理工具调用
-	toolCalls := resp.GetToolCalls()
+	// Convert accumulated tool calls to ILLMToolCall
+	var toolCalls []ILLMToolCall
+	// Find max index
+	maxIdx := -1
+	for idx := range accToolCalls {
+		if idx > maxIdx {
+			maxIdx = idx
+		}
+	}
+
+	for i := 0; i <= maxIdx; i++ {
+		if atc, ok := accToolCalls[i]; ok {
+			var args map[string]interface{}
+			rawArgs := atc.RawArguments.String()
+			if len(rawArgs) > 0 {
+				if err := json.Unmarshal([]byte(rawArgs), &args); err != nil {
+					log.Errorf("Failed to unmarshal arguments for tool %s: %v. Raw: %s", atc.Name, err, rawArgs)
+					args = make(map[string]interface{})
+				}
+			} else {
+				args = make(map[string]interface{})
+			}
+
+			toolCalls = append(toolCalls, &SLLMToolCall{
+				Id: atc.Id,
+				Function: SLLMFunctionCall{
+					Name:      atc.Name,
+					Arguments: args,
+				},
+			})
+		}
+	}
 	log.Infof("Got %d tool calls from Phase 1", len(toolCalls))
 
-	toolCallRecords, toolMessages, err := processToolCalls(ctx, toolCalls, mcpClient, llmClient)
+	toolCallRecords, toolMessages, err := processToolCalls(ctx, toolCalls, accumulatedReasoning.String(), accumulatedContent.String(), mcpClient, llmClient)
 	if err != nil {
 		return nil, errors.Wrap(err, "process tool calls")
 	}
@@ -572,13 +741,15 @@ func processHistoryMessages(
 func processToolCalls(
 	ctx context.Context,
 	toolCalls []ILLMToolCall,
+	reasoningContent, content string,
 	mcpClient *utils.MCPClient,
 	llmClient ILLMClient,
 ) ([]api.MCPAgentToolCallRecord, []ILLMChatMessage, error) {
 	toolCallRecords := make([]api.MCPAgentToolCallRecord, 0)
 	messagesToAdd := make([]ILLMChatMessage, 0)
 
-	messagesToAdd = append(messagesToAdd, llmClient.NewAssistantMessageWithToolCalls(toolCalls))
+	// 使用带 reasoning_content 的 assistant 消息，满足 DeepSeek thinking mode + tool calls 要求
+	messagesToAdd = append(messagesToAdd, llmClient.NewAssistantMessageWithToolCallsAndReasoning(reasoningContent, content, toolCalls))
 
 	// 执行每个工具调用
 	for _, tc := range toolCalls {
