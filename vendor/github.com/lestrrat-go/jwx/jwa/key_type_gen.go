@@ -4,6 +4,8 @@ package jwa
 
 import (
 	"fmt"
+	"sort"
+	"sync"
 
 	"github.com/pkg/errors"
 )
@@ -15,9 +17,34 @@ type KeyType string
 const (
 	EC             KeyType = "EC"  // Elliptic Curve
 	InvalidKeyType KeyType = ""    // Invalid KeyType
+	OKP            KeyType = "OKP" // Octet string key pairs
 	OctetSeq       KeyType = "oct" // Octet sequence (used to represent symmetric keys)
 	RSA            KeyType = "RSA" // RSA
 )
+
+var allKeyTypes = map[KeyType]struct{}{
+	EC:       {},
+	OKP:      {},
+	OctetSeq: {},
+	RSA:      {},
+}
+
+var listKeyTypeOnce sync.Once
+var listKeyType []KeyType
+
+// KeyTypes returns a list of all available values for KeyType
+func KeyTypes() []KeyType {
+	listKeyTypeOnce.Do(func() {
+		listKeyType = make([]KeyType, 0, len(allKeyTypes))
+		for v := range allKeyTypes {
+			listKeyType = append(listKeyType, v)
+		}
+		sort.Slice(listKeyType, func(i, j int) bool {
+			return string(listKeyType[i]) < string(listKeyType[j])
+		})
+	})
+	return listKeyType
+}
 
 // Accept is used when conversion from values given by
 // outside sources (such as JSON payloads) is required
@@ -37,9 +64,7 @@ func (v *KeyType) Accept(value interface{}) error {
 		}
 		tmp = KeyType(s)
 	}
-	switch tmp {
-	case EC, OctetSeq, RSA:
-	default:
+	if _, ok := allKeyTypes[tmp]; !ok {
 		return errors.Errorf(`invalid jwa.KeyType value`)
 	}
 

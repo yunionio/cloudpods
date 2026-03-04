@@ -33,7 +33,7 @@ package term
 import (
 	"fmt"
 
-	"github.com/docker/docker/pkg/term"
+	"github.com/moby/term"
 
 	"yunion.io/x/pkg/util/runtime"
 
