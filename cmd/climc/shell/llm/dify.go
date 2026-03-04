@@ -7,7 +7,7 @@ import (
 )
 
 func init() {
-	cmd := shell.NewResourceCmd(&modules.Difies)
+	cmd := shell.NewResourceCmd(&modules.LLMs).WithKeyword("dify")
 	cmd.BatchCreate(new(options.DifyCreateOptions))
 	cmd.List(new(options.DifyListOptions))
 	cmd.Show(new(options.DifyShowOptions))
