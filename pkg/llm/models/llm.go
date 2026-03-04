@@ -61,6 +61,9 @@ type SLLM struct {
 
 	// 秒装应用配额（可安装的总容量限制）
 	InstantModelQuotaGb int `list:"user" update:"user" create:"optional" default:"0" nullable:"false"`
+
+	// vLLM 优先启动的模型目录名（对应 LLM_VLLM_MODELS_PATH 下子目录，如 Qwen/Qwen2-7B）
+	PreferredModel string `width:"256" charset:"utf8" nullable:"true" list:"user" update:"user" create:"optional"`
 }
 
 func (man *SLLMManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input *api.LLMCreateInput) (*api.LLMCreateInput, error) {
@@ -153,6 +156,7 @@ func (man *SLLMManager) FetchCustomizeColumns(
 		}
 		mountedModelInfo, _ := llm.FetchMountedModelInfo()
 		res[idx].MountedModels = mountedModelInfo
+		res[idx].PreferredModel = llm.PreferredModel
 		res[idx].NetworkType = llm.NetworkType
 		res[idx].NetworkId = llm.NetworkId
 	}

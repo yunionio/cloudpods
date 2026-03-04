@@ -38,6 +38,11 @@ func (o *ollama) GetType() api.LLMContainerType {
 	return api.LLM_CONTAINER_OLLAMA
 }
 
+// StartLLM is a no-op for Ollama; the container entrypoint already runs the service.
+func (o *ollama) StartLLM(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM) error {
+	return nil
+}
+
 func (o *ollama) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *models.SLLMImage, sku *models.SLLMSku, props []string, devices []computeapi.SIsolatedDevice, diskId string) *computeapi.PodContainerCreateInput {
 	spec := computeapi.ContainerSpec{
 		ContainerSpec: commonapi.ContainerSpec{

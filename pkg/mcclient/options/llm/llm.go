@@ -68,7 +68,8 @@ type LLMBaseCreateOptions struct {
 type LLMCreateOptions struct {
 	LLMBaseCreateOptions
 
-	LLM_SKU_ID string `help:"llm sku id or name" json:"llm_sku_id"`
+	LLM_SKU_ID     string `help:"llm sku id or name" json:"llm_sku_id"`
+	PreferredModel string `help:"vLLM preferred model dir name under models path (e.g. Qwen/Qwen2-7B)" json:"preferred_model"`
 }
 
 func (o *LLMCreateOptions) Params() (jsonutils.JSONObject, error) {
@@ -91,6 +92,20 @@ func (o *LLMCreateOptions) Params() (jsonutils.JSONObject, error) {
 
 func (o *LLMCreateOptions) GetCountParam() int {
 	return o.Count
+}
+
+type LLMUpdateOptions struct {
+	options.BaseIdOptions
+
+	PreferredModel string `help:"vLLM preferred model dir name under models path (e.g. Qwen/Qwen2-7B); takes effect after pod recreate" json:"preferred_model"`
+}
+
+func (o *LLMUpdateOptions) GetId() string {
+	return o.ID
+}
+
+func (o *LLMUpdateOptions) Params() (jsonutils.JSONObject, error) {
+	return options.StructToParams(o)
 }
 
 type LLMDeleteOptions struct {
