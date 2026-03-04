@@ -191,8 +191,10 @@ func (task *LLMInstantModelsSyncTask) OnModelsMountCompleteFailed(ctx context.Co
 	dupMarker := "duplicated container target dirs map"
 	dupIndex := strings.Index(errStr, dupMarker)
 	if dupIndex != -1 {
-		drv := llm.GetLLMContainerDriver()
-		errStr = drv.CheckDuplicateMounts(errStr, dupIndex)
+		drv, err := models.GetLLMContainerInstantModelDriver(llm.GetLLMContainerDriver().GetType())
+		if err == nil {
+			errStr = drv.CheckDuplicateMounts(errStr, dupIndex)
+		}
 	}
 
 	task.taskFailed(ctx, llm, errStr)
