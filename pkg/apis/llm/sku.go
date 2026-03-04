@@ -172,6 +172,9 @@ type LLMSkuCreateInput struct {
 
 	LLMImageId string `json:"llm_image_id"`
 	LLMType    string `json:"llm_type"`
+
+	// LLMSpec: for ollama/vllm backend builds from llm_image_id+mounted_models; for dify client must send llm_spec with type "dify" and data (9 image ids).
+	LLMSpec *LLMSpecHolder `json:"llm_spec,omitempty"`
 }
 
 type LLMSkuUpdateInput struct {
@@ -179,6 +182,9 @@ type LLMSkuUpdateInput struct {
 	MountedModelResourceUpdateInput
 
 	LLMImageId string `json:"llm_image_id"`
+
+	// LLMSpec: for dify type send full spec to update image ids; for ollama/vllm backend may build from llm_image_id/mounted_models.
+	LLMSpec *LLMSpecHolder `json:"llm_spec,omitempty"`
 }
 
 // type LLMModelCloneInput struct {
@@ -189,35 +195,35 @@ type LLMSkuUpdateInput struct {
 // 	Request bool `json:"request"`
 // }
 
-type DifySkulListInput struct {
-	apis.SharableVirtualResourceListInput
-	MountedModelResourceListInput
-}
+// type DifySkulListInput struct {
+// 	apis.SharableVirtualResourceListInput
+// 	MountedModelResourceListInput
+// }
 
-type DifySkuCreateInput struct {
-	LLMSKuBaseCreateInput
+// type DifySkuCreateInput struct {
+// 	LLMSKuBaseCreateInput
 
-	PostgresImageId     string `json:"postgres_image_id"`
-	RedisImageId        string `json:"redis_image_id"`
-	NginxImageId        string `json:"nginx_image_id"`
-	DifyApiImageId      string `json:"dify_api_image_id"`
-	DifyPluginImageId   string `json:"dify_plugin_image_id"`
-	DifyWebImageId      string `json:"dify_web_image_id"`
-	DifySandboxImageId  string `json:"dify_sandbox_image_id"`
-	DifySSRFImageId     string `json:"dify_ssrf_image_id"`
-	DifyWeaviateImageId string `json:"dify_weaviate_image_id"`
-}
+// 	PostgresImageId     string `json:"postgres_image_id"`
+// 	RedisImageId        string `json:"redis_image_id"`
+// 	NginxImageId        string `json:"nginx_image_id"`
+// 	DifyApiImageId      string `json:"dify_api_image_id"`
+// 	DifyPluginImageId   string `json:"dify_plugin_image_id"`
+// 	DifyWebImageId      string `json:"dify_web_image_id"`
+// 	DifySandboxImageId  string `json:"dify_sandbox_image_id"`
+// 	DifySSRFImageId     string `json:"dify_ssrf_image_id"`
+// 	DifyWeaviateImageId string `json:"dify_weaviate_image_id"`
+// }
 
-type DifySkuUpdateInput struct {
-	LLMSkuBaseUpdateInput
+// type DifySkuUpdateInput struct {
+// 	LLMSkuBaseUpdateInput
 
-	PostgresImageId     string `json:"postgres_image_id"`
-	RedisImageId        string `json:"redis_image_id"`
-	NginxImageId        string `json:"nginx_image_id"`
-	DifyApiImageId      string `json:"dify_api_image_id"`
-	DifyPluginImageId   string `json:"dify_plugin_image_id"`
-	DifyWebImageId      string `json:"dify_web_image_id"`
-	DifySandboxImageId  string `json:"dify_sandbox_image_id"`
-	DifySSRFImageId     string `json:"dify_ssrf_image_id"`
-	DifyWeaviateImageId string `json:"dify_weaviate_image_id"`
-}
+// 	PostgresImageId     string `json:"postgres_image_id"`
+// 	RedisImageId        string `json:"redis_image_id"`
+// 	NginxImageId        string `json:"nginx_image_id"`
+// 	DifyApiImageId      string `json:"dify_api_image_id"`
+// 	DifyPluginImageId   string `json:"dify_plugin_image_id"`
+// 	DifyWebImageId      string `json:"dify_web_image_id"`
+// 	DifySandboxImageId  string `json:"dify_sandbox_image_id"`
+// 	DifySSRFImageId     string `json:"dify_ssrf_image_id"`
+// 	DifyWeaviateImageId string `json:"dify_weaviate_image_id"`
+// }
