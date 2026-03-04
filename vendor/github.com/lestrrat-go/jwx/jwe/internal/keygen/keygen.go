@@ -7,9 +7,13 @@ import (
 	"encoding/binary"
 	"io"
 
-	"github.com/lestrrat-go/jwx/internal/concatkdf"
+	"golang.org/x/crypto/curve25519"
+
+	"github.com/lestrrat-go/jwx/internal/ecutil"
 	"github.com/lestrrat-go/jwx/jwa"
+	"github.com/lestrrat-go/jwx/jwe/internal/concatkdf"
 	"github.com/lestrrat-go/jwx/jwk"
+	"github.com/lestrrat-go/jwx/x25519"
 	"github.com/pkg/errors"
 )
 
@@ -51,23 +55,10 @@ func (g Random) Generate() (ByteSource, error) {
 }
 
 // NewEcdhes creates a new key generator using ECDH-ES
-func NewEcdhes(alg jwa.KeyEncryptionAlgorithm, pubkey *ecdsa.PublicKey) (*Ecdhes, error) {
-	var keysize int
-	switch alg {
-	case jwa.ECDH_ES:
-		return nil, errors.New("unimplemented")
-	case jwa.ECDH_ES_A128KW:
-		keysize = 16
-	case jwa.ECDH_ES_A192KW:
-		keysize = 24
-	case jwa.ECDH_ES_A256KW:
-		keysize = 32
-	default:
-		return nil, errors.Errorf("invalid ECDH-ES key generation algorithm (%s)", alg)
-	}
-
+func NewEcdhes(alg jwa.KeyEncryptionAlgorithm, enc jwa.ContentEncryptionAlgorithm, keysize int, pubkey *ecdsa.PublicKey) (*Ecdhes, error) {
 	return &Ecdhes{
 		algorithm: alg,
+		enc:       enc,
 		keysize:   keysize,
 		pubkey:    pubkey,
 	}, nil
@@ -85,26 +76,83 @@ func (g Ecdhes) Generate() (ByteSource, error) {
 		return nil, errors.Wrap(err, "failed to generate key for ECDH-ES")
 	}
 
+	var algorithm string
+	if g.algorithm == jwa.ECDH_ES {
+		algorithm = g.enc.String()
+	} else {
+		algorithm = g.algorithm.String()
+	}
+
 	pubinfo := make([]byte, 4)
 	binary.BigEndian.PutUint32(pubinfo, uint32(g.keysize)*8)
 
 	z, _ := priv.PublicKey.Curve.ScalarMult(g.pubkey.X, g.pubkey.Y, priv.D.Bytes())
-	kdf := concatkdf.New(crypto.SHA256, []byte(g.algorithm.String()), z.Bytes(), []byte{}, []byte{}, pubinfo, []byte{})
+	zBytes := ecutil.AllocECPointBuffer(z, priv.PublicKey.Curve)
+	defer ecutil.ReleaseECPointBuffer(zBytes)
+	kdf := concatkdf.New(crypto.SHA256, []byte(algorithm), zBytes, []byte{}, []byte{}, pubinfo, []byte{})
 	kek := make([]byte, g.keysize)
 	if _, err := kdf.Read(kek); err != nil {
 		return nil, errors.Wrap(err, "failed to read kdf")
 	}
 
-	return ByteWithECPrivateKey{
-		PrivateKey: priv,
-		ByteKey:    ByteKey(kek),
+	return ByteWithECPublicKey{
+		PublicKey: &priv.PublicKey,
+		ByteKey:   ByteKey(kek),
+	}, nil
+}
+
+// NewX25519 creates a new key generator using ECDH-ES
+func NewX25519(alg jwa.KeyEncryptionAlgorithm, enc jwa.ContentEncryptionAlgorithm, keysize int, pubkey x25519.PublicKey) (*X25519, error) {
+	return &X25519{
+		algorithm: alg,
+		enc:       enc,
+		keysize:   keysize,
+		pubkey:    pubkey,
+	}, nil
+}
+
+// Size returns the key size associated with this generator
+func (g X25519) Size() int {
+	return g.keysize
+}
+
+// Generate generates new keys using ECDH-ES
+func (g X25519) Generate() (ByteSource, error) {
+	pub, priv, err := x25519.GenerateKey(rand.Reader)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to generate key for X25519")
+	}
+
+	var algorithm string
+	if g.algorithm == jwa.ECDH_ES {
+		algorithm = g.enc.String()
+	} else {
+		algorithm = g.algorithm.String()
+	}
+
+	pubinfo := make([]byte, 4)
+	binary.BigEndian.PutUint32(pubinfo, uint32(g.keysize)*8)
+
+	zBytes, err := curve25519.X25519(priv.Seed(), g.pubkey)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to compute Z")
+	}
+	kdf := concatkdf.New(crypto.SHA256, []byte(algorithm), zBytes, []byte{}, []byte{}, pubinfo, []byte{})
+	kek := make([]byte, g.keysize)
+	if _, err := kdf.Read(kek); err != nil {
+		return nil, errors.Wrap(err, "failed to read kdf")
+	}
+
+	return ByteWithECPublicKey{
+		PublicKey: pub,
+		ByteKey:   ByteKey(kek),
 	}, nil
 }
 
 // HeaderPopulate populates the header with the required EC-DSA public key
 // information ('epk' key)
-func (k ByteWithECPrivateKey) Populate(h Setter) error {
-	key, err := jwk.New(&k.PrivateKey.PublicKey)
+func (k ByteWithECPublicKey) Populate(h Setter) error {
+	key, err := jwk.New(k.PublicKey)
 	if err != nil {
 		return errors.Wrap(err, "failed to create JWK")
 	}
@@ -112,5 +160,33 @@ func (k ByteWithECPrivateKey) Populate(h Setter) error {
 	if err := h.Set("epk", key); err != nil {
 		return errors.Wrap(err, "failed to write header")
 	}
+	return nil
+}
+
+// HeaderPopulate populates the header with the required AES GCM
+// parameters ('iv' and 'tag')
+func (k ByteWithIVAndTag) Populate(h Setter) error {
+	if err := h.Set("iv", k.IV); err != nil {
+		return errors.Wrap(err, "failed to write header")
+	}
+
+	if err := h.Set("tag", k.Tag); err != nil {
+		return errors.Wrap(err, "failed to write header")
+	}
+
+	return nil
+}
+
+// HeaderPopulate populates the header with the required PBES2
+// parameters ('p2s' and 'p2c')
+func (k ByteWithSaltAndCount) Populate(h Setter) error {
+	if err := h.Set("p2c", k.Count); err != nil {
+		return errors.Wrap(err, "failed to write header")
+	}
+
+	if err := h.Set("p2s", k.Salt); err != nil {
+		return errors.Wrap(err, "failed to write header")
+	}
+
 	return nil
 }

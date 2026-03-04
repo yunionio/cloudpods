@@ -444,7 +444,7 @@ func TestRoundTripRedirects(t *testing.T) {
 			} else {
 				if err == nil {
 					t.Fatalf("expecting an error")
-				} else if !strings.Contains(err.Error(), "too many redirects") {
+				} else if !strings.Contains(err.Error(), "too many redirects") && !strings.Contains(err.Error(), "stopped after") {
 					t.Fatalf("expecting too many redirects, got %v", err)
 				}
 				return
