@@ -1,9 +1,8 @@
-package content_crypt
+package content_crypt //nolint:golint
 
 import (
 	"github.com/lestrrat-go/jwx/jwa"
 	"github.com/lestrrat-go/jwx/jwe/internal/cipher"
-	"github.com/lestrrat-go/jwx/jwe/internal/keygen"
 )
 
 // Generic encrypts a message by applying all the necessary
@@ -13,5 +12,9 @@ type Generic struct {
 	keysize int
 	tagsize int
 	cipher  cipher.ContentCipher
-	cekgen  keygen.Generator
+}
+
+type Cipher interface {
+	Decrypt([]byte, []byte, []byte, []byte, []byte) ([]byte, error)
+	KeySize() int
 }
