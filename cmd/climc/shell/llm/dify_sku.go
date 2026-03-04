@@ -7,8 +7,9 @@ import (
 	options "yunion.io/x/onecloud/pkg/mcclient/options/llm"
 )
 
+// dify-sku commands operate on llm_sku with llm_type=dify (unified SKU table).
 func init() {
-	cmd := shell.NewResourceCmd(&modules.DifySku)
+	cmd := shell.NewResourceCmd(&modules.LLMSku).WithKeyword("dify-sku")
 	cmd.List(new(options.DifySkuListOptions))
 	cmd.Show(new(options.DifySkuShowOptions))
 	cmd.Update(new(options.DifySkuUpdateOptions))
@@ -16,5 +17,4 @@ func init() {
 	cmd.Delete(new(options.DifySkuDeleteOptions))
 	cmd.Perform("public", &base_options.BasePublicOptions{})
 	cmd.Perform("private", &base_options.BaseIdOptions{})
-	// cmd.Perform("clone", new(options.DesktopSkuCloneOptions))
 }

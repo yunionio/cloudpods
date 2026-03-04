@@ -464,6 +464,10 @@ func (o *ollama) CheckDuplicateMounts(errStr string, dupIndex int) string {
 	return fmt.Sprintf("Model %s and %s have duplicated container target dirs", firstModel, secondModel)
 }
 
+func (o *ollama) StartLLM(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM) error {
+	return nil
+}
+
 // func download(ctx context.Context, userCred mcclient.TokenCredential, containerId string, taskId string, webUrl string, path string) error {
 // 	input := &computeapi.ContainerDownloadFileInput{
 // 		WebUrl: webUrl,
