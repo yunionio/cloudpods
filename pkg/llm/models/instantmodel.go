@@ -296,8 +296,8 @@ func (man *SInstantModelManager) FetchCustomizeColumns(
 	return res
 }
 
-func (man *SInstantModelManager) GetLLMContainerDriver(llmType apis.LLMContainerType) ILLMContainerDriver {
-	return GetLLMContainerDriver(llmType)
+func (man *SInstantModelManager) GetLLMContainerInstantModelDriver(llmType apis.LLMContainerType) (ILLMContainerInstantModelDriver, error) {
+	return GetLLMContainerInstantModelDriver(llmType)
 }
 
 func (man *SInstantModelManager) ValidateCreateData(
@@ -342,7 +342,10 @@ func (man *SInstantModelManager) ValidateCreateData(
 		input.ActualSizeMb = img.MinDiskMB
 	}
 	if len(input.Mounts) > 0 {
-		drv := man.GetLLMContainerDriver(input.LlmType)
+		drv, err := man.GetLLMContainerInstantModelDriver(input.LlmType)
+		if err != nil {
+			return input, errors.Wrap(err, "GetLLMContainerInstantModelDriver")
+		}
 		_, err = drv.ValidateMounts(input.Mounts, input.ModelName, input.ModelTag)
 		if err != nil {
 			return input, errors.Wrap(err, "validateMounts")
@@ -389,7 +392,10 @@ func (model *SInstantModel) ValidateUpdateData(
 		input.ActualSizeMb = img.MinDiskMB
 	}
 	if len(input.Mounts) > 0 {
-		drv := GetInstantModelManager().GetLLMContainerDriver(apis.LLMContainerType(model.LlmType))
+		drv, err := GetInstantModelManager().GetLLMContainerInstantModelDriver(apis.LLMContainerType(model.LlmType))
+		if err != nil {
+			return input, errors.Wrap(err, "GetLLMContainerInstantModelDriver")
+		}
 		input.Mounts, err = drv.ValidateMounts(input.Mounts, model.ModelName, model.ModelTag)
 		if err != nil {
 			return input, errors.Wrap(err, "validateMounts")
@@ -433,7 +439,11 @@ func (model *SInstantModel) PostUpdate(
 }
 
 func (model *SInstantModel) getImagePaths() map[string]string {
-	drv := GetInstantModelManager().GetLLMContainerDriver(apis.LLMContainerType(model.LlmType))
+	drv, err := GetInstantModelManager().GetLLMContainerInstantModelDriver(apis.LLMContainerType(model.LlmType))
+	if err != nil {
+		log.Errorf("GetLLMContainerInstantModelDriver fail %s", err)
+		return nil
+	}
 	return drv.GetImageInternalPathMounts(model)
 }
 
@@ -800,7 +810,11 @@ func (model *SInstantModel) DoImport(ctx context.Context, userCred mcclient.Toke
 		os.RemoveAll(tmpDir)
 	}()
 
-	drv := GetInstantModelManager().GetLLMContainerDriver(input.LlmType)
+	drv, err := GetInstantModelManager().GetLLMContainerInstantModelDriver(input.LlmType)
+	if err != nil {
+		err = errors.Wrap(err, "GetLLMContainerInstantModelDriver")
+		return
+	}
 
 	// download model from registry
 	modelId, mounts, err := drv.DownloadModel(ctx, userCred, nil, tmpDir, input.ModelName, input.ModelTag)
