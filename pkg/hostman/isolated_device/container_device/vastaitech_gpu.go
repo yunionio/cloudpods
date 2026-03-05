@@ -16,6 +16,8 @@ package container_device
 
 import (
 	"fmt"
+	"os"
+	"path"
 	"strconv"
 	"strings"
 
@@ -66,8 +68,47 @@ func (v vastaitechGPUManager) getDriRenderPrefix() string {
 	return "/dev/dri/renderD"
 }
 
-func (v vastaitechGPUManager) getDriStartIndex() int {
-	return 128
+// getVastaitechDriStartIndexFromByPath 扫描 /dev/dri/by-path/，找到名称含 va_card 的 -render 链接对应的最小 renderD 编号
+func (v vastaitechGPUManager) getVastaitechDriStartIndexFromByPath() (int, error) {
+	const byPathDir = "/dev/dri/by-path"
+	entries, err := os.ReadDir(byPathDir)
+	if err != nil {
+		return 0, errors.Wrapf(err, "read %s", byPathDir)
+	}
+	const renderDSuffix = "renderD"
+	var minIdx *int
+	for _, entry := range entries {
+		entryName := entry.Name()
+		if !strings.Contains(entryName, "va_card") || !strings.HasSuffix(entryName, "-render") {
+			continue
+		}
+		fp := path.Join(byPathDir, entryName)
+		linkPath, err := os.Readlink(fp)
+		if err != nil {
+			return 0, errors.Wrapf(err, "readlink %s", fp)
+		}
+		// linkPath is e.g. "../renderD129"
+		base := path.Base(linkPath)
+		if !strings.HasPrefix(base, renderDSuffix) {
+			continue
+		}
+		idxStr := strings.TrimPrefix(base, renderDSuffix)
+		driIdx, err := strconv.Atoi(idxStr)
+		if err != nil {
+			return 0, errors.Wrapf(err, "parse render index from %s", linkPath)
+		}
+		if minIdx == nil || driIdx < *minIdx {
+			minIdx = &driIdx
+		}
+	}
+	if minIdx == nil {
+		return 0, errors.Errorf("no va_card render device found in %s", byPathDir)
+	}
+	return *minIdx, nil
+}
+
+func (v vastaitechGPUManager) getDriStartIndex() (int, error) {
+	return v.getVastaitechDriStartIndexFromByPath()
 }
 
 func (v vastaitechGPUManager) getRelatedDeviceStartIndex(driPath string) (int, error) {
@@ -80,9 +121,13 @@ func (v vastaitechGPUManager) getRelatedDeviceStartIndex(driPath string) (int, e
 	if err != nil {
 		return -1, errors.Wrapf(err, "convert %s to int", idxStr)
 	}
-	idx := driIdx - v.getDriStartIndex()
+	startIndex, err := v.getDriStartIndex()
+	if err != nil {
+		return -1, err
+	}
+	idx := driIdx - startIndex
 	if idx < 0 {
-		return -1, errors.Errorf("%s index is less than %d", driPath, v.getDriStartIndex())
+		return -1, errors.Errorf("%s index is less than %d", driPath, startIndex)
 	}
 	return idx, nil
 }
