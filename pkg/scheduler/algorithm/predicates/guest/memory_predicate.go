@@ -15,6 +15,7 @@
 package guest
 
 import (
+	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/scheduler/algorithm/predicates"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
 )
@@ -58,6 +59,8 @@ func (p *MemoryPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []core
 	reqMemSize := int64(d.Memory)
 	if freeMemSize < reqMemSize {
 		totalMemSize := getter.TotalMemorySize(useRsvd)
+		log.Infof("[SchedDiag] host_memory insufficient hostId=%s freeMem=%d reqMem=%d totalMem=%d",
+			getter.Id(), freeMemSize, reqMemSize, totalMemSize)
 		h.AppendInsufficientResourceError(reqMemSize, totalMemSize, freeMemSize)
 	}
 

@@ -379,7 +379,11 @@ func (h *HostDesc) GetTotalMemSize(useRsvd bool) int64 {
 }
 
 func (h *HostDesc) GetFreeMemSize(useRsvd bool) int64 {
-	return reservedResourceAddCal(h.FreeMemSize, h.GuestReservedMemSizeFree(), useRsvd) - int64(h.GetPendingUsage().Memory)
+	pending := h.GetPendingUsage()
+	result := reservedResourceAddCal(h.FreeMemSize, h.GuestReservedMemSizeFree(), useRsvd) - int64(pending.Memory)
+	log.Infof("[SchedDiag] GetFreeMemSize hostId=%s cacheFreeMem=%d pendingMem=%d result=%d",
+		h.Id, h.FreeMemSize, pending.Memory, result)
+	return result
 }
 
 func (h *HostDesc) GuestReservedMemSizeFree() int64 {
@@ -924,6 +928,8 @@ func (b *HostBuilder) fillGuestsResourceInfo(desc *HostDesc, host *computemodels
 		memFreeSize += memSub
 	}
 	desc.FreeMemSize = memFreeSize
+	log.Infof("[SchedDiag] hostDesc hostId=%s freeMem=%d runningMem=%d creatingMem=%d requiredMem=%d guestCount=%d creatingCount=%d ignoreNonrunning=%v",
+		desc.Id, desc.FreeMemSize, desc.RunningMemSize, desc.CreatingMemSize, desc.RequiredMemSize, desc.GuestCount, desc.CreatingGuestCount, o.Options.IgnoreNonrunningGuests)
 
 	// free cpu count calculate
 	rsvdUseCPU := desc.GuestReservedResourceUsed.CPUCount

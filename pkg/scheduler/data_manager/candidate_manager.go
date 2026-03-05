@@ -367,6 +367,7 @@ func (cm *CandidateManager) Reload(resType string, candidateIds []string) (
 func (cm *CandidateManager) ReloadAll(resType string) ([]interface{}, error) {
 	// Mark the start of ReloadAll to protect pending usage added during reload
 	schedmodels.HostPendingUsageManager.SetReloadAllStartTime()
+	log.Infof("[SchedDiag] ReloadAll start resType=%s", resType)
 
 	impl, err := cm.getImpl(resType)
 	if err != nil {
@@ -379,6 +380,7 @@ func (cm *CandidateManager) ReloadAll(resType string) ([]interface{}, error) {
 		// This ensures pending usage doesn't leak when cache is fully rebuilt
 		// but protects pending usage added during reload
 		schedmodels.HostPendingUsageManager.ClearAllPendingUsage()
+		log.Infof("[SchedDiag] ReloadAll done resType=%s", resType)
 	} else {
 		log.Errorf("[CandidateManager] Failed to reload all %q candidates: %v", resType, err)
 	}

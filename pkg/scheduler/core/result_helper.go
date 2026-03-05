@@ -78,6 +78,15 @@ func transToRegionSchedResult(result SchedResultItems, count int64, sid string) 
 		}
 	}
 
+	perHost := make(map[string]int)
+	for _, c := range apiResults {
+		if c.HostId != "" {
+			perHost[c.HostId]++
+		}
+	}
+	log.Infof("[SchedDiag] transToRegionSchedResult sessionId=%s requested=%d successCount=%d totalCandidates=%d perHost=%v",
+		sid, count, succCount, len(apiResults), perHost)
+
 	for {
 		if int64(succCount) >= count {
 			break

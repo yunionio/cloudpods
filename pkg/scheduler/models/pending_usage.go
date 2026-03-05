@@ -117,6 +117,9 @@ func (m *SHostPendingUsageManager) addSessionUsage(hostId string, candidate *sch
 	usage.AddCount()
 	m.store.SetSessionUsage(usage.SessionId, hostId, usage)
 	m.store.SetPendingUsage(hostId, pendingUsage)
+	log.Infof("[SchedDiag] AddPendingUsage sessionId=%s hostId=%s memory=%dMB cpu=%d createdAt=%v hostPendingTotal: memory=%dMB cpu=%d count=%d",
+		usage.SessionId, hostId, usage.Usage.Memory, usage.Usage.Cpu, usage.CreatedAt,
+		pendingUsage.Memory, pendingUsage.Cpu, usage.count)
 }
 
 func (m *SHostPendingUsageManager) CancelPendingUsage(hostId string, su *SessionPendingUsage) error {
@@ -170,6 +173,8 @@ func (m *SHostPendingUsageManager) GCExpiredSessionUsages(ttl time.Duration) int
 	for _, su := range expired {
 		hostId := su.Usage.HostId
 		// best-effort cancel + delete
+		log.Infof("[SchedDiag] GCExpiredSession sessionId=%s hostId=%s memory=%d cpu=%d createdAt=%v",
+			su.SessionId, hostId, su.Usage.Memory, su.Usage.Cpu, su.CreatedAt)
 		_ = m.CancelPendingUsage(hostId, su)
 		m.DeleteSessionUsage(su)
 		cleared++
@@ -205,7 +210,7 @@ func (m *SHostPendingUsageManager) SetReloadAllStartTime() {
 	m.reloadAllLock.Lock()
 	defer m.reloadAllLock.Unlock()
 	m.reloadAllStartTime = time.Now()
-	log.Infof("[PendingUsage] SetReloadAllStartTime: cutoff time set to %v", m.reloadAllStartTime)
+	log.Infof("[SchedDiag] [PendingUsage] SetReloadAllStartTime: cutoff time set to %v", m.reloadAllStartTime)
 }
 
 // ClearAllPendingUsage clears all pending usage created before the last ReloadAll start
@@ -220,8 +225,10 @@ func (m *SHostPendingUsageManager) ClearAllPendingUsage() {
 		log.Warningf("[PendingUsage] ClearAllPendingUsage: skipping clear all (no cutoff time)")
 	} else {
 		// Only clear pending usage created before ReloadAll started
+		log.Infof("[SchedDiag] ClearAllPendingUsage cutoffTime=%v (before clear)", cutoffTime)
 		log.Infof("[PendingUsage] ClearAllPendingUsage: clearing created before %v", cutoffTime)
 		m.store.clearAllPendingUsageBefore(cutoffTime)
+		log.Infof("[SchedDiag] ClearAllPendingUsage done, cleared sessions see above")
 		log.Infof("[PendingUsage] Cleared pending usage created before %v", cutoffTime)
 	}
 }
@@ -325,6 +332,7 @@ func (self *SHostMemoryPendingUsageStore) clearPendingUsageBefore(
 		return true
 	})
 
+	log.Infof("[SchedDiag] clearAllPendingUsageBefore cutoffTime=%v sessionsToDelete=%d", cutoffTime, len(sessionKeysToDelete))
 	log.Infof("[PendingUsage] %s: found %d session usages to delete (cutoff=%v)",
 		logPrefix, len(sessionKeysToDelete), cutoffTime)
 
@@ -334,6 +342,8 @@ func (self *SHostMemoryPendingUsageStore) clearPendingUsageBefore(
 		su := sessionUsagesToDelete[key]
 		if su != nil {
 			hostId := su.Usage.HostId
+			log.Infof("[SchedDiag] clearPendingUsage deleting session sessionId=%s hostId=%s memory=%d cpu=%d createdAt=%v",
+				su.SessionId, hostId, su.Usage.Memory, su.Usage.Cpu, su.CreatedAt)
 			// Update pending usage by subtracting this session usage
 			if pendingUsage, err := self.GetPendingUsage(hostId); err == nil {
 				oldMemory := pendingUsage.Memory

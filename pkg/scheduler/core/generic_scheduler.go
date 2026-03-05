@@ -395,6 +395,11 @@ completed:
 		doSelect(unit, sc.Candidate, sc.Count)
 		selectedCandidates = append(selectedCandidates, sc)
 	}
+	for hostID, sc := range selectedMap {
+		cap := unit.GetCapacity(hostID)
+		log.Infof("[SchedDiag] SelectHosts sessionId=%s hostId=%s capacity=%d selectedCount=%d",
+			unit.SchedInfo.SessionId, hostID, cap, sc.Count)
+	}
 	// hack: not selected host should also execute OnSelectEnd step to inject result of network and storage candidates
 	/*for _, nsc := range noSelectedMap {
 		for _, plugin := range plugins {
