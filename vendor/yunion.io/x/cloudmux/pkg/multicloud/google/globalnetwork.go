@@ -122,7 +122,7 @@ func (cli *SGoogleClient) GetGlobalNetworks(maxResults int, pageToken string) ([
 
 func (self *SGoogleClient) CreateGlobalNetwork(name string, desc string) (*SGlobalNetwork, error) {
 	body := map[string]interface{}{
-		"name":                  name,
+		"name":                  normalizeString(name),
 		"description":           desc,
 		"autoCreateSubnetworks": false,
 		"mtu":                   1460,

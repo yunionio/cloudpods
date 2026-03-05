@@ -17,6 +17,7 @@ require (
 	github.com/coreos/go-iptables v0.6.0
 	github.com/creack/pty v1.1.18
 	github.com/docker/docker v17.12.0-ce-rc1.0.20200916142827-bd33bbf0497b+incompatible
+	github.com/docker/go-units v0.4.0
 	github.com/docker/spdystream v0.0.0-20160310174837-449fdfce4d96
 	github.com/eggsampler/acme/v3 v3.6.2
 	github.com/fernet/fernet-go v0.0.0-20180830025343-9eac43b88a5e
@@ -96,14 +97,14 @@ require (
 	k8s.io/cri-api v0.28.15
 	k8s.io/klog/v2 v2.20.0
 	moul.io/http2curl/v2 v2.3.0
-	yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20250721091651-7572a3d284ce
-	yunion.io/x/executor v0.0.0-20250518005516-5402e9e0bed0
+	yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20260305042141-39d16105837f
+	yunion.io/x/executor v0.0.0-20260312022053-f538abd2b005
 	yunion.io/x/jsonutils v1.0.1-0.20250507052344-1abcf4f443b1
 	yunion.io/x/log v1.0.1-0.20240305175729-7cf2d6cd5a91
 	yunion.io/x/ovsdb v0.0.0-20230306173834-f164f413a900
-	yunion.io/x/pkg v1.10.4-0.20250715170922-d5b8a92716b6
+	yunion.io/x/pkg v1.10.4-0.20260224071200-5c269fa62429
 	yunion.io/x/s3cli v0.0.0-20241221171442-1c11599d28e1
-	yunion.io/x/sqlchemy v1.1.3-0.20250531010554-ce98f840b833
+	yunion.io/x/sqlchemy v1.1.3-0.20251231025938-b0a38f6e9fab
 	yunion.io/x/structarg v0.0.0-20231017124457-df4d5009457c
 )
 
@@ -175,7 +176,6 @@ require (
 	github.com/docker/distribution v2.7.1-0.20190205005809-0d3efadf0154+incompatible // indirect
 	github.com/docker/go-connections v0.4.0 // indirect
 	github.com/docker/go-events v0.0.0-20250114142523-c867878c5e32 // indirect
-	github.com/docker/go-units v0.4.0 // indirect
 	github.com/dustin/go-humanize v1.0.0 // indirect
 	github.com/eapache/go-resiliency v1.1.0 // indirect
 	github.com/eapache/go-xerial-snappy v0.0.0-20180814174437-776d5712da21 // indirect

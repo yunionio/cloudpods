@@ -174,6 +174,9 @@ func (us *SUpdateSession) SaveUpdateSql(dt interface{}) (*SUpdateSQLResult, erro
 			if ofJsonStr == nfJsonStr {
 				continue
 			}
+			if EqualsGrossValue(of, nf) {
+				continue
+			}
 		}
 		if c.IsZero(nf) && c.IsText() {
 			nf = nil

@@ -31,7 +31,7 @@ func (dameng *SDamengBackend) GROUP_CONCAT2(name string, sep string, field sqlch
 
 // INET_ATON represents the SQL function INET_ATON
 func (dameng *SDamengBackend) INET_ATON(field sqlchemy.IQueryField) sqlchemy.IQueryField {
-	expr := ""
+	/*expr := ""
 	vars := make([]sqlchemy.IQueryField, 0)
 	expr += `TO_NUMBER(SUBSTR(%s,1,INSTR(%s,'.')-1))*POWER(256,3)+`
 	vars = append(vars, field, field)
@@ -41,7 +41,8 @@ func (dameng *SDamengBackend) INET_ATON(field sqlchemy.IQueryField) sqlchemy.IQu
 	vars = append(vars, field, field, field, field)
 	expr += `TO_NUMBER(SUBSTR(%s,INSTR(%s,'.',1,3)+1))`
 	vars = append(vars, field, field)
-	return sqlchemy.NewFunctionField("", false, expr, vars...)
+	return sqlchemy.NewFunctionField("", false, expr, vars...)*/
+	return sqlchemy.NewFunctionField("", false, `HEX(SF_INET_SORT(%s))`, field)
 }
 
 // cast field to string
@@ -57,4 +58,9 @@ func (dameng *SDamengBackend) CASTInt(field sqlchemy.IQueryField, fieldname stri
 // cast field to float
 func (dameng *SDamengBackend) CASTFloat(field sqlchemy.IQueryField, fieldname string) sqlchemy.IQueryField {
 	return sqlchemy.NewFunctionField(fieldname, false, `CAST(%s AS REAL)`, field)
+}
+
+// INET6_ATON represents a SQL function INET6_ATON
+func (dameng *SDamengBackend) INET6_ATON(field sqlchemy.IQueryField) sqlchemy.IQueryField {
+	return sqlchemy.NewFunctionField("", false, `HEX(SF_INET_SORT(%s))`, field)
 }

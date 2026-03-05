@@ -245,9 +245,9 @@ func (m *portMappingManager) allocateProtocolGroupWithRule(gst GuestRuntimeInsta
 		}
 	}
 
-	// 确定端口范围
-	start := compute.GUEST_PORT_MAPPING_RANGE_START
-	end := compute.GUEST_PORT_MAPPING_RANGE_END
+	// 确定端口范围（从 hostman options 读取）
+	start := options.HostOptions.PortMappingRangeStart
+	end := options.HostOptions.PortMappingRangeEnd
 
 	// 尝试不同的 basePort，直到找到满足所有规则要求的端口
 	success := false
@@ -295,8 +295,8 @@ func (m *portMappingManager) canAllocateWithBasePort(basePort int, input compute
 		offset := *pm.Rule.FirstPortOffset
 		targetPort := basePort + offset
 
-		// 检查目标端口是否在范围内
-		if targetPort > compute.GUEST_PORT_MAPPING_RANGE_END {
+		// 检查目标端口是否在配置的范围内
+		if targetPort > options.HostOptions.PortMappingRangeEnd {
 			return false
 		}
 
@@ -388,11 +388,15 @@ func (m *portMappingManager) allocatePortMapping(gst GuestRuntimeInstance, pm *c
 		}
 		return runtimePm, nil
 	} else {
-		start := compute.GUEST_PORT_MAPPING_RANGE_START
-		end := compute.GUEST_PORT_MAPPING_RANGE_END
+		start := options.HostOptions.PortMappingRangeStart
+		end := options.HostOptions.PortMappingRangeEnd
 		if pm.HostPortRange != nil {
-			start = pm.HostPortRange.Start
-			end = pm.HostPortRange.End
+			if pm.HostPortRange.Start > start {
+				start = pm.HostPortRange.Start
+			}
+			if pm.HostPortRange.End < end {
+				end = pm.HostPortRange.End
+			}
 		}
 		otherPodPorts, ok := otherPorts[pm.Protocol]
 		if !ok {

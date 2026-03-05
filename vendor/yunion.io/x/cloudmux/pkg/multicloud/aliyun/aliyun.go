@@ -327,7 +327,7 @@ func _jsonRequest(client *sdk.Client, domain string, version string, apiName str
 		"List":     requests.GET,
 		"Delete":   requests.DELETE,
 	} {
-		if strings.HasPrefix(apiName, prefix) {
+		if strings.HasPrefix(apiName, prefix) && !strings.HasPrefix(domain, "mongodb") {
 			method = _method
 			break
 		}
@@ -373,6 +373,9 @@ func _jsonRequest(client *sdk.Client, domain string, version string, apiName str
 		delete(params, "PathPattern")
 		req.PathPattern = fmt.Sprintf("/%s/%s", req.Version, strings.TrimPrefix(pathPattern, "/"))
 		req.Method = method
+		req.GetHeaders()["Content-Type"] = "application/json"
+	} else if strings.HasPrefix(domain, "mongodb") {
+		req.Method = requests.POST
 		req.GetHeaders()["Content-Type"] = "application/json"
 	}
 

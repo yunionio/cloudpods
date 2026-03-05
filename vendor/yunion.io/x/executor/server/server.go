@@ -139,12 +139,20 @@ func (e *Executor) Wait(ctx context.Context, in *apis.Sn) (*apis.WaitResponse, e
 	if !ok {
 		return nil, errors.Errorf("unknown sn %d", in.Sn)
 	}
-	var (
-		m   = icm.(*Commander)
-		err error
-	)
+	m := icm.(*Commander)
 
-	err = m.c.Wait()
+	// Must wait for stdout/stderr to be fully read BEFORE calling m.c.Wait().
+	// Once m.c.Wait() returns, exec.Cmd may close the pipe FDs; our reader
+	// goroutines would then get "read |0: file already closed" and miss data.
+	if m.stdout != nil {
+		<-m.stdoutCh
+	}
+	if m.stderr != nil {
+		<-m.stderrCh
+	}
+	m.wg.Wait()
+
+	err := m.c.Wait()
 	var (
 		exitStatus uint32
 		errContent string
@@ -164,14 +172,7 @@ func (e *Executor) Wait(ctx context.Context, in *apis.Sn) (*apis.WaitResponse, e
 	} else {
 		exitStatus = 0
 	}
-	if m.stdout != nil {
-		<-m.stdoutCh
-	}
-	if m.stderr != nil {
-		<-m.stderrCh
-	}
 
-	m.wg.Wait()
 	cmds.Delete(in.Sn)
 	return &apis.WaitResponse{
 		ExitStatus: exitStatus,

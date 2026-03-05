@@ -319,6 +319,10 @@ func NewBaseColumn(name string, sqltype string, tagmap map[string]string, isPoin
 	if ok {
 		dbName = val
 	}
+	tagmap, val, ok = utils.TagPop(tagmap, TAG_SQL_NAME)
+	if ok {
+		dbName = val
+	}
 	oldName := ""
 	tagmap, val, ok = utils.TagPop(tagmap, TAG_OLD_NAME)
 	if ok {
