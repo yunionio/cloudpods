@@ -55,6 +55,11 @@ func (t *ContainerDeleteTask) OnStopped(ctx context.Context, container *models.S
 }
 
 func (t *ContainerDeleteTask) OnStoppedFailed(ctx context.Context, container *models.SContainer, reason jsonutils.JSONObject) {
+	if strings.Contains(reason.String(), "NotFoundError") {
+		// container not found, ignore the error
+		t.OnStopped(ctx, container, nil)
+		return
+	}
 	t.SetStageFailed(ctx, reason)
 }
 
