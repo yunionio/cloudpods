@@ -2586,7 +2586,7 @@ yunion.io/x/cloudmux/pkg/multicloud/volcengine
 yunion.io/x/cloudmux/pkg/multicloud/volcengine/provider
 yunion.io/x/cloudmux/pkg/multicloud/zstack
 yunion.io/x/cloudmux/pkg/multicloud/zstack/provider
-# yunion.io/x/executor v0.0.0-20250518005516-5402e9e0bed0
+# yunion.io/x/executor v0.0.0-20260312022053-f538abd2b005
 ## explicit; go 1.12
 yunion.io/x/executor/apis
 yunion.io/x/executor/client
