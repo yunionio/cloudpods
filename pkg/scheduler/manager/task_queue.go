@@ -99,16 +99,42 @@ func (te *TaskExecutor) execute() (*core.ScheduleResult, error) {
 	te.unit = scheduler.Unit()
 	schedInfo := te.unit.SchedInfo
 	helper := GenerateResultHelper(schedInfo)
+	log.Infof("[SchedDiag] Schedule start sessionId=%s count=%d memory=%d cpu=%d",
+		schedInfo.SessionId, schedInfo.Count, schedInfo.Memory, schedInfo.Ncpu)
 	result, err := genericScheduler.Schedule(te.unit, candidates, helper)
 	if err != nil {
+		log.Infof("[SchedDiag] Schedule failed sessionId=%s count=%d err=%v",
+			schedInfo.SessionId, schedInfo.Count, err)
 		return nil, errors.Wrap(err, "genericScheduler.Schedule")
 	}
+	candidateCount := 0
+	if result != nil && result.Result != nil {
+		candidateCount = len(result.Result.Candidates)
+	}
+	log.Infof("[SchedDiag] Schedule done sessionId=%s candidateCount=%d",
+		schedInfo.SessionId, candidateCount)
 	if schedInfo.IsSuggestion {
 		return result, nil
 	}
 	driver := te.unit.GetHypervisorDriver()
 	if err := setSchedPendingUsage(driver, schedInfo, result.Result); err != nil {
 		return nil, errors.Wrap(err, "setSchedPendingUsage")
+	}
+	if result.Result != nil {
+		hostCount := make(map[string]int)
+		hostMemory := make(map[string]int)
+		for _, c := range result.Result.Candidates {
+			if c == nil || len(c.HostId) == 0 || len(c.Error) > 0 {
+				continue
+			}
+			hostCount[c.HostId]++
+			hostMemory[c.HostId] += schedInfo.Memory
+		}
+		log.Infof("[SchedDiag] setSchedPendingUsage done sessionId=%s candidates=%d", schedInfo.SessionId, len(result.Result.Candidates))
+		for hostId, cnt := range hostCount {
+			log.Infof("[SchedDiag] setSchedPendingUsage perHost sessionId=%s hostId=%s count=%d sumMemory=%d",
+				schedInfo.SessionId, hostId, cnt, hostMemory[hostId])
+		}
 	}
 	return result, nil
 }
