@@ -393,9 +393,15 @@ func setDefaultValue(
 	inputQuery *monitor.MetricQueryInput,
 	scope string, ownerId mcclient.IIdentityProvider,
 	isAlert bool) {
-	query.From = inputQuery.From
-	query.To = inputQuery.To
-	query.Model.Interval = inputQuery.Interval
+	if query.From == "" {
+		query.From = inputQuery.From
+	}
+	if query.To == "" {
+		query.To = inputQuery.To
+	}
+	if query.Model.Interval == "" {
+		query.Model.Interval = inputQuery.Interval
+	}
 
 	metricMeasurement, _ := MetricMeasurementManager.GetCache().Get(query.Model.Measurement)
 
