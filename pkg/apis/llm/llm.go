@@ -76,8 +76,10 @@ type LLMBaseCreateInput struct {
 type LLMCreateInput struct {
 	LLMBaseCreateInput
 
-	LLMSkuId   string `json:"llm_sku_id"`
-	LLMImageId string `json:"llm_image_id"`
+	LLMSkuId           string               `json:"llm_sku_id"`
+	LLMImageId         string               `json:"llm_image_id"`
+	PreferredModel     string               `json:"preferred_model"`
+	DifyCustomizedEnvs []*DifyCustomizedEnv `json:"dify_customized_envs,omitempty"`
 }
 
 type LLMBaseListInput struct {
@@ -102,6 +104,7 @@ type LLMListInput struct {
 
 	LLMSku   string `json:"llm_sku"`
 	LLMImage string `json:"llm_image"`
+	LLMType  string `json:"llm_type"` // filter by linked SKU's llm_type (e.g. dify)
 }
 
 type ModelInfo struct {

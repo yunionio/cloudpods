@@ -48,7 +48,10 @@ func (llm *SLLM) getMountedInstantModels(ctx context.Context, probedExt map[stri
 	}
 	mdlMap := make(map[string]struct{})
 	postOverlays := container.Spec.VolumeMounts[0].Disk.PostOverlay
-	drv := llm.GetLLMContainerDriver()
+	drv, err := GetLLMContainerInstantModelDriver(llm.GetLLMContainerDriver().GetType())
+	if err != nil {
+		return nil, nil
+	}
 	for i := range postOverlays {
 		postOverlay := postOverlays[i]
 		mdlId := drv.GetInstantModelIdByPostOverlay(postOverlay, mdlNameToId)
@@ -60,7 +63,10 @@ func (llm *SLLM) getMountedInstantModels(ctx context.Context, probedExt map[stri
 }
 
 func (llm *SLLM) getProbedInstantModelsExt(ctx context.Context, userCred mcclient.TokenCredential, instantModelIds ...string) (map[string]apis.LLMInternalInstantMdlInfo, error) {
-	drv := llm.GetLLMContainerDriver()
+	drv, err := GetLLMContainerInstantModelDriver(llm.GetLLMContainerDriver().GetType())
+	if err != nil {
+		return nil, nil
+	}
 	return drv.GetProbedInstantModelsExt(ctx, userCred, llm, instantModelIds...)
 }
 
@@ -389,7 +395,10 @@ func (llm *SLLM) RequestUnmountModel(ctx context.Context, userCred mcclient.Toke
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "FetchModels")
 	}
-	drv := llm.GetLLMContainerDriver()
+	drv, err := GetLLMContainerInstantModelDriver(llm.GetLLMContainerDriver().GetType())
+	if err != nil {
+		return nil, nil, nil
+	}
 
 	if input.LLMStatus == apis.LLM_STATUS_RUNNING {
 		uninstallModels := findModelsToUninstall(allModels, input)
@@ -453,14 +462,20 @@ func (llm *SLLM) RequestMountModels(ctx context.Context, userCred mcclient.Token
 	if err != nil {
 		return nil, nil, nil, errors.Wrap(err, "getMountingModelsPostOverlay")
 	}
-	drv := llm.GetLLMContainerDriver()
+	drv, err := GetLLMContainerInstantModelDriver(llm.GetLLMContainerDriver().GetType())
+	if err != nil {
+		// return nil, nil, nil, nil
+		log.Warningf("driver %s does not support instant model operations", llm.GetLLMContainerDriver().GetType())
+	}
 	var mdlIds []string
 	for i := range models {
 		model := models[i]
 		if input.LLMStatus == apis.LLM_STATUS_RUNNING {
-			err := drv.PreInstallModel(ctx, userCred, llm, &model)
-			if err != nil {
-				log.Errorf("preinstallPackage fail %s", err)
+			if drv != nil {
+				err := drv.PreInstallModel(ctx, userCred, llm, &model)
+				if err != nil {
+					log.Errorf("preinstallPackage fail %s", err)
+				}
 			}
 		}
 		mdlIds = append(mdlIds, model.InstantModelId)
@@ -644,8 +659,9 @@ func (llm *SLLM) UpdateMountedModelFullNames(ctx context.Context, userCred mccli
 				return errors.Wrap(err, "getDeletedModelIds")
 			}
 		}
-		for i := range sku.MountedModels {
-			instMdl, err := GetInstantModelManager().FetchByIdOrName(ctx, userCred, sku.MountedModels[i])
+		mountedModels := sku.GetMountedModels()
+		for i := range mountedModels {
+			instMdl, err := GetInstantModelManager().FetchByIdOrName(ctx, userCred, mountedModels[i])
 			if err != nil {
 				return errors.Wrap(err, "FetchByIdOrName")
 			}
@@ -719,7 +735,10 @@ func (llm *SLLM) GetMountedModelsPostOverlay() ([]*commonapi.ContainerVolumeMoun
 	if len(mdls) == 0 {
 		return nil, nil
 	}
-	drv := llm.GetLLMContainerDriver()
+	drv, err := GetLLMContainerInstantModelDriver(llm.GetLLMContainerDriver().GetType())
+	if err != nil {
+		return nil, nil
+	}
 	overlays, err := models2overlays(drv, mdls, false)
 	if err != nil {
 		return nil, errors.Wrap(err, "models2overlays")
@@ -749,7 +768,10 @@ func (llm *SLLM) getMountingModelsPostOverlay(ctx context.Context, input apis.LL
 	if len(models) == 0 {
 		return nil, nil, nil
 	}
-	drv := llm.GetLLMContainerDriver()
+	drv, err := GetLLMContainerInstantModelDriver(llm.GetLLMContainerDriver().GetType())
+	if err != nil {
+		return nil, nil, nil
+	}
 	overlays, err := models2overlays(drv, models, true)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "models2overlays")
@@ -757,7 +779,7 @@ func (llm *SLLM) getMountingModelsPostOverlay(ctx context.Context, input apis.LL
 	return models, overlays, nil
 }
 
-func models2overlays(drv ILLMContainerDriver, models []SLLMInstantModel, isInstall bool) ([]*commonapi.ContainerVolumeMountDiskPostOverlay, error) {
+func models2overlays(drv ILLMContainerInstantModelDriver, models []SLLMInstantModel, isInstall bool) ([]*commonapi.ContainerVolumeMountDiskPostOverlay, error) {
 	var errs []error
 	var allDirs []apis.LLMMountDirInfo
 	for i := range models {
@@ -786,7 +808,10 @@ func models2overlays(drv ILLMContainerDriver, models []SLLMInstantModel, isInsta
 }
 
 func (llm *SLLM) InstallInstantModels(ctx context.Context, userCred mcclient.TokenCredential, dirs []string, mdlIds []string) error {
-	drv := llm.GetLLMContainerDriver()
+	drv, err := GetLLMContainerInstantModelDriver(llm.GetLLMContainerDriver().GetType())
+	if err != nil {
+		return nil
+	}
 	return drv.InstallModel(ctx, userCred, llm, dirs, mdlIds)
 }
 
