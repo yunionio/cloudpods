@@ -90,8 +90,18 @@ func _getRegistryImage(imageId string) string {
 	return image.(*SLLMImage).ToContainerImage()
 }
 
+// getDifySpecFromSku returns the Dify spec from the SKU via the container driver, or nil.
+func getDifySpecFromSku(sku *SLLMSku) *api.LLMSpecDify {
+	s := sku.GetLLMContainerDriver().GetSpec(sku)
+	if s == nil {
+		return nil
+	}
+	d, _ := s.(*api.LLMSpecDify)
+	return d
+}
+
 func getDifyContainerByNameKeyAndSku(name, key string, sku *SLLMSku, customEnvs *DifyContainerEnv) (*computeapi.PodContainerCreateInput, error) {
-	spec := sku.GetLLMSpecDify()
+	spec := getDifySpecFromSku(sku)
 	if spec == nil {
 		return nil, errors.New("sku is not a Dify SKU or LLMSpec is missing")
 	}
@@ -138,11 +148,41 @@ var DifyContainerKeys = []string{
 	api.DIFY_WEAVIATE_KEY,
 }
 
-// GetDifyContainersByNameAndSku returns the list of Dify pod containers for the given name and sku. customEnvs optionally overrides default env vars (e.g. from LLM create/update). Used by the Dify driver and by SDify. Each container has AlwaysRestart set to true.
+// mergeDifyContainerEnvs merges base and overrides; overrides take precedence. Returns nil if both are nil/empty.
+func mergeDifyContainerEnvs(base, overrides *DifyContainerEnv) *DifyContainerEnv {
+	if base == nil && overrides == nil {
+		return nil
+	}
+	out := make(DifyContainerEnv)
+	if base != nil {
+		for k, v := range *base {
+			out[k] = v
+		}
+	}
+	if overrides != nil {
+		for k, v := range *overrides {
+			out[k] = v
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return &out
+}
+
 func GetDifyContainersByNameAndSku(name string, sku *SLLMSku, customEnvs *DifyContainerEnv) []*computeapi.PodContainerCreateInput {
+	var skuEnvs *DifyContainerEnv
+	if d := getDifySpecFromSku(sku); d != nil && len(d.CustomizedEnvs) > 0 {
+		m := DifyCustomizedEnvsToMap(d.CustomizedEnvs)
+		if m != nil {
+			skuEnvs = &m
+		}
+	}
+	mergedEnvs := mergeDifyContainerEnvs(skuEnvs, customEnvs)
+
 	var out []*computeapi.PodContainerCreateInput
 	for _, key := range DifyContainerKeys {
-		c, err := getDifyContainerByNameKeyAndSku(name, key, sku, customEnvs)
+		c, err := getDifyContainerByNameKeyAndSku(name, key, sku, mergedEnvs)
 		if err != nil {
 			continue
 		}

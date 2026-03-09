@@ -22,49 +22,111 @@ import (
 	"yunion.io/x/pkg/gotypes"
 )
 
-// ILLMSpec is the interface for type-specific LLM SKU spec (LLM or Dify).
-// It extends gotypes.ISerializable for DB/JSON storage.
-type ILLMSpec interface {
-	gotypes.ISerializable
-	GetLLMType() string
+// LLMSpec is the flat spec for LLM SKU: optional ollama/vllm/dify payload. Type is on LLMSku.LLMType.
+type LLMSpec struct {
+	Ollama *LLMSpecOllama `json:"ollama,omitempty"`
+	Vllm   *LLMSpecVllm   `json:"vllm,omitempty"`
+	Dify   *LLMSpecDify   `json:"dify,omitempty"`
 }
 
-// LLMSpecLLM holds type-specific fields for ollama/vllm SKUs.
-type LLMSpecLLM struct {
-	Type          string   `json:"type"` // ollama or vllm
+func (s *LLMSpec) String() string {
+	return jsonutils.Marshal(s).String()
+}
+
+func (s *LLMSpec) IsZero() bool {
+	if s == nil {
+		return true
+	}
+	return s.Ollama == nil && s.Vllm == nil && s.Dify == nil
+}
+
+// UnmarshalJSON supports both new format (type + ollama/vllm/dify) and legacy format (type + data).
+func (s *LLMSpec) UnmarshalJSON(data []byte) error {
+	var raw struct {
+		Type   string          `json:"type"`
+		Ollama *LLMSpecOllama  `json:"ollama,omitempty"`
+		Vllm   *LLMSpecVllm    `json:"vllm,omitempty"`
+		Dify   *LLMSpecDify    `json:"dify,omitempty"`
+		Data   json.RawMessage `json:"data,omitempty"`
+	}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	s.Ollama = raw.Ollama
+	s.Vllm = raw.Vllm
+	s.Dify = raw.Dify
+	if len(raw.Data) > 0 && s.Ollama == nil && s.Vllm == nil && s.Dify == nil {
+		switch raw.Type {
+		case string(LLM_CONTAINER_OLLAMA):
+			s.Ollama = &LLMSpecOllama{}
+			if err := json.Unmarshal(raw.Data, s.Ollama); err != nil {
+				return err
+			}
+		case string(LLM_CONTAINER_VLLM):
+			s.Vllm = &LLMSpecVllm{}
+			if err := json.Unmarshal(raw.Data, s.Vllm); err != nil {
+				return err
+			}
+		case string(LLM_CONTAINER_DIFY):
+			s.Dify = &LLMSpecDify{}
+			if err := json.Unmarshal(raw.Data, s.Dify); err != nil {
+				return err
+			}
+		default:
+			s.Ollama = &LLMSpecOllama{}
+			_ = json.Unmarshal(raw.Data, s.Ollama)
+		}
+	}
+	return nil
+}
+
+// LLMSpecOllama holds type-specific fields for ollama SKUs.
+type LLMSpecOllama struct {
 	LLMImageId    string   `json:"llm_image_id"`
 	MountedModels []string `json:"mounted_models"`
 }
 
-func (s *LLMSpecLLM) String() string {
+func (s *LLMSpecOllama) String() string {
 	return jsonutils.Marshal(s).String()
 }
 
-func (s *LLMSpecLLM) IsZero() bool {
+func (s *LLMSpecOllama) IsZero() bool {
 	if s == nil {
 		return true
 	}
-	return s.Type == "" && s.LLMImageId == "" && len(s.MountedModels) == 0
+	return s.LLMImageId == "" && len(s.MountedModels) == 0
 }
 
-func (s *LLMSpecLLM) GetLLMType() string {
-	if s != nil && s.Type != "" {
-		return s.Type
+// LLMSpecVllm holds type-specific fields for vllm SKUs (includes PreferredModel).
+type LLMSpecVllm struct {
+	LLMImageId     string   `json:"llm_image_id"`
+	MountedModels  []string `json:"mounted_models"`
+	PreferredModel string   `json:"preferred_model"`
+}
+
+func (s *LLMSpecVllm) String() string {
+	return jsonutils.Marshal(s).String()
+}
+
+func (s *LLMSpecVllm) IsZero() bool {
+	if s == nil {
+		return true
 	}
-	return string(LLM_CONTAINER_VLLM)
+	return s.LLMImageId == "" && len(s.MountedModels) == 0 && s.PreferredModel == ""
 }
 
-// LLMSpecDify holds type-specific fields for Dify SKUs (multiple image ids).
+// LLMSpecDify holds type-specific fields for Dify SKUs (multiple image ids + customized envs).
 type LLMSpecDify struct {
-	PostgresImageId     string `json:"postgres_image_id"`
-	RedisImageId        string `json:"redis_image_id"`
-	NginxImageId        string `json:"nginx_image_id"`
-	DifyApiImageId      string `json:"dify_api_image_id"`
-	DifyPluginImageId   string `json:"dify_plugin_image_id"`
-	DifyWebImageId      string `json:"dify_web_image_id"`
-	DifySandboxImageId  string `json:"dify_sandbox_image_id"`
-	DifySSRFImageId     string `json:"dify_ssrf_image_id"`
-	DifyWeaviateImageId string `json:"dify_weaviate_image_id"`
+	PostgresImageId     string               `json:"postgres_image_id"`
+	RedisImageId        string               `json:"redis_image_id"`
+	NginxImageId        string               `json:"nginx_image_id"`
+	DifyApiImageId      string               `json:"dify_api_image_id"`
+	DifyPluginImageId   string               `json:"dify_plugin_image_id"`
+	DifyWebImageId      string               `json:"dify_web_image_id"`
+	DifySandboxImageId  string               `json:"dify_sandbox_image_id"`
+	DifySSRFImageId     string               `json:"dify_ssrf_image_id"`
+	DifyWeaviateImageId string               `json:"dify_weaviate_image_id"`
+	CustomizedEnvs      []*DifyCustomizedEnv `json:"customized_envs,omitempty"`
 }
 
 func (s *LLMSpecDify) String() string {
@@ -77,87 +139,12 @@ func (s *LLMSpecDify) IsZero() bool {
 	}
 	return s.PostgresImageId == "" && s.RedisImageId == "" && s.NginxImageId == "" &&
 		s.DifyApiImageId == "" && s.DifyPluginImageId == "" && s.DifyWebImageId == "" &&
-		s.DifySandboxImageId == "" && s.DifySSRFImageId == "" && s.DifyWeaviateImageId == ""
-}
-
-func (s *LLMSpecDify) GetLLMType() string {
-	return string(LLM_CONTAINER_DIFY)
-}
-
-// LLMSpecHolder wraps ILLMSpec for DB/JSON with type discriminator.
-type LLMSpecHolder struct {
-	Value ILLMSpec
-}
-
-func (h *LLMSpecHolder) String() string {
-	if h == nil || h.Value == nil {
-		return "{}"
-	}
-	b, _ := h.MarshalJSON()
-	return string(b)
-}
-
-func (h *LLMSpecHolder) IsZero() bool {
-	return h == nil || h.Value == nil
-}
-
-// MarshalJSON implements json.Marshaler for polymorphic serialization.
-func (h *LLMSpecHolder) MarshalJSON() ([]byte, error) {
-	if h == nil || h.Value == nil {
-		return []byte("{}"), nil
-	}
-	jo := jsonutils.Marshal(h.Value)
-	wrap := map[string]interface{}{
-		"type": h.Value.GetLLMType(),
-		"data": json.RawMessage([]byte(jo.String())),
-	}
-	return json.Marshal(wrap)
-}
-
-// UnmarshalJSON implements json.Unmarshaler for polymorphic deserialization.
-func (h *LLMSpecHolder) UnmarshalJSON(data []byte) error {
-	var raw struct {
-		Type string          `json:"type"`
-		Data json.RawMessage `json:"data"`
-	}
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return err
-	}
-	if raw.Type == "" && len(raw.Data) == 0 {
-		h.Value = nil
-		return nil
-	}
-	var spec ILLMSpec
-	switch raw.Type {
-	case string(LLM_CONTAINER_OLLAMA), string(LLM_CONTAINER_VLLM):
-		spec = &LLMSpecLLM{}
-	case string(LLM_CONTAINER_DIFY):
-		spec = &LLMSpecDify{}
-	default:
-		// Try LLM as default for backward compat
-		spec = &LLMSpecLLM{}
-	}
-	if len(raw.Data) > 0 {
-		jo, err := jsonutils.Parse(raw.Data)
-		if err != nil {
-			return err
-		}
-		if err := jo.Unmarshal(spec); err != nil {
-			return err
-		}
-	}
-	h.Value = spec
-	return nil
+		s.DifySandboxImageId == "" && s.DifySSRFImageId == "" && s.DifyWeaviateImageId == "" &&
+		len(s.CustomizedEnvs) == 0
 }
 
 func init() {
-	gotypes.RegisterSerializable(reflect.TypeOf(&LLMSpecLLM{}), func() gotypes.ISerializable {
-		return &LLMSpecLLM{}
-	})
-	gotypes.RegisterSerializable(reflect.TypeOf(&LLMSpecDify{}), func() gotypes.ISerializable {
-		return &LLMSpecDify{}
-	})
-	gotypes.RegisterSerializable(reflect.TypeOf(&LLMSpecHolder{}), func() gotypes.ISerializable {
-		return &LLMSpecHolder{}
+	gotypes.RegisterSerializable(reflect.TypeOf(new(LLMSpec)), func() gotypes.ISerializable {
+		return new(LLMSpec)
 	})
 }

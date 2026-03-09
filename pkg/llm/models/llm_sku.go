@@ -12,7 +12,6 @@ import (
 	imageapi "yunion.io/x/onecloud/pkg/apis/image"
 	api "yunion.io/x/onecloud/pkg/apis/llm"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
-	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
@@ -52,8 +51,8 @@ type SLLMSku struct {
 	SLLMSkuBase
 	// SMountedModelsResource
 
-	LLMType string             `width:"128" charset:"ascii" nullable:"false" list:"user" create:"required"`
-	LLMSpec *api.LLMSpecHolder `length:"long" list:"user" create:"required" update:"user"`
+	LLMType string       `width:"128" charset:"ascii" nullable:"false" list:"user" create:"required"`
+	LLMSpec *api.LLMSpec `json:"llm_spec" length:"long" list:"user" create:"required" update:"user"`
 }
 
 func (man *SLLMSkuManager) ListItemFilter(
@@ -114,14 +113,16 @@ func (manager *SLLMSkuManager) FetchCustomizeColumns(
 	mountedModelIds := make([]string, 0)
 	for i, sku := range skus {
 		res[i].SharableVirtualResourceDetails = virows[i]
+		res[i].LLMType = sku.LLMType
+		res[i].LLMSpec = sku.LLMSpec
 		for _, v := range details {
 			if v.LLMSkuId == sku.Id {
 				res[i].LLMCapacity = v.LLMCapacity
 				break
 			}
 		}
-		if spec := sku.GetLLMSpecLLM(); spec != nil && len(spec.MountedModels) > 0 {
-			mountedModelIds = append(mountedModelIds, spec.MountedModels...)
+		if modelIds := sku.GetMountedModels(); len(modelIds) > 0 {
+			mountedModelIds = append(mountedModelIds, modelIds...)
 		}
 	}
 
@@ -194,104 +195,31 @@ func (man *SLLMSkuManager) ValidateCreateData(ctx context.Context, userCred mccl
 		return input, errors.Wrap(httperrors.ErrInputParameter, "llm_type must be one of "+strings.Join(api.LLM_CONTAINER_TYPES.List(), ","))
 	}
 
-	var holder *api.LLMSpecHolder
-	switch input.LLMType {
-	case string(api.LLM_CONTAINER_OLLAMA), string(api.LLM_CONTAINER_VLLM):
-		imgObj, err := validators.ValidateModel(ctx, userCred, GetLLMImageManager(), &input.LLMImageId)
-		if err != nil {
-			return input, errors.Wrapf(err, "validate image_id %s", input.LLMImageId)
-		}
-		llmImage := imgObj.(*SLLMImage)
-		if llmImage.LLMType != input.LLMType {
-			return input, errors.Wrapf(httperrors.ErrInvalidStatus, "image %s is not of type %s", input.LLMImageId, input.LLMType)
-		}
-		input.LLMImageId = llmImage.Id
-
-		if input.MountedModels != nil {
-			for i, mdl := range input.MountedModels {
-				instMdl, err := GetInstantModelManager().FetchByIdOrName(ctx, userCred, mdl)
-				if err != nil {
-					return input, errors.Wrapf(err, "validate mounted model %s", mdl)
-				}
-				instantModle := instMdl.(*SInstantModel)
-				if instantModle.LlmType != input.LLMType {
-					return input, errors.Wrapf(httperrors.ErrInvalidStatus, "mounted model %s is not of type %s", mdl, input.LLMType)
-				}
-				input.MountedModels[i] = instantModle.GetId()
-			}
-		}
-		holder = &api.LLMSpecHolder{
-			Value: &api.LLMSpecLLM{
-				Type:          input.LLMType,
-				LLMImageId:    input.LLMImageId,
-				MountedModels: input.MountedModels,
-			},
-		}
-	case string(api.LLM_CONTAINER_DIFY):
-		// Dify type: client must send llm_spec with type "dify" and data (9 image ids)
-		if input.LLMSpec == nil || input.LLMSpec.Value == nil {
-			return input, errors.Wrap(httperrors.ErrInputParameter, "dify SKU requires llm_spec with type dify and image ids")
-		}
-		difySpec, ok := input.LLMSpec.Value.(*api.LLMSpecDify)
-		if !ok {
-			return input, errors.Wrap(httperrors.ErrInputParameter, "dify SKU llm_spec must be LLMSpecDify")
-		}
-		for _, imgId := range []*string{&difySpec.PostgresImageId, &difySpec.RedisImageId, &difySpec.NginxImageId, &difySpec.DifyApiImageId, &difySpec.DifyPluginImageId, &difySpec.DifyWebImageId, &difySpec.DifySandboxImageId, &difySpec.DifySSRFImageId, &difySpec.DifyWeaviateImageId} {
-			_, err := validators.ValidateModel(ctx, userCred, GetLLMImageManager(), imgId)
-			if err != nil {
-				return input, errors.Wrapf(err, "validate image_id %s", *imgId)
-			}
-		}
-		holder = input.LLMSpec
-	default:
-		return input, errors.Wrap(httperrors.ErrInputParameter, "unsupported llm_type "+input.LLMType)
+	drv, err := GetLLMContainerDriverWithError(api.LLMContainerType(input.LLMType))
+	if err != nil {
+		return input, errors.Wrap(err, "get container driver")
 	}
-	input.LLMSpec = holder
+	spec, err := drv.ValidateCreateSpec(ctx, userCred, input)
+	if err != nil {
+		return input, errors.Wrap(err, "validate create spec")
+	}
+	input.LLMSpec = spec
 	input.Status = api.STATUS_READY
 	return input, nil
 }
 
-// GetLLMSpecLLM returns the LLM-type spec (ollama/vllm) or nil.
-func (sku *SLLMSku) GetLLMSpecLLM() *api.LLMSpecLLM {
-	if sku.LLMSpec == nil || sku.LLMSpec.Value == nil {
-		return nil
-	}
-	s, ok := sku.LLMSpec.Value.(*api.LLMSpecLLM)
-	if !ok {
-		return nil
-	}
-	return s
-}
-
-// GetLLMSpecDify returns the Dify-type spec or nil.
-func (sku *SLLMSku) GetLLMSpecDify() *api.LLMSpecDify {
-	if sku.LLMSpec == nil || sku.LLMSpec.Value == nil {
-		return nil
-	}
-	s, ok := sku.LLMSpec.Value.(*api.LLMSpecDify)
-	if !ok {
-		return nil
-	}
-	return s
-}
-
-// GetLLMImageId returns the primary image id for this SKU (from LLMSpec for LLM type, or Dify DifyApiImageId, or legacy column).
+// GetLLMImageId returns the primary image id for this SKU. Delegates to driver.
 func (sku *SLLMSku) GetLLMImageId() string {
-	if spec := sku.GetLLMSpecLLM(); spec != nil {
-		return spec.LLMImageId
-	}
-	if spec := sku.GetLLMSpecDify(); spec != nil && spec.DifyApiImageId != "" {
-		return spec.DifyApiImageId
-	}
-	return ""
+	return sku.GetLLMContainerDriver().GetPrimaryImageId(sku)
 }
 
-// GetMountedModels returns mounted model ids (from LLMSpec for LLM type, or legacy MountedModels column).
+// GetMountedModels returns mounted model ids (from Ollama or Vllm spec). Delegates to instant-model driver; returns nil for drivers that do not support instant models (e.g. Dify).
 func (sku *SLLMSku) GetMountedModels() []string {
-	if spec := sku.GetLLMSpecLLM(); spec != nil && len(spec.MountedModels) > 0 {
-		return spec.MountedModels
+	drv, err := GetLLMContainerInstantModelDriver(api.LLMContainerType(sku.LLMType))
+	if err != nil {
+		return nil
 	}
-	return nil
+	return drv.GetMountedModels(sku)
 }
 
 func (sku *SLLMSku) GetLLMContainerDriver() ILLMContainerDriver {
@@ -305,92 +233,17 @@ func (sku *SLLMSku) ValidateUpdateData(ctx context.Context, userCred mcclient.To
 		return input, errors.Wrap(err, "validate LLMSkuBaseUpdateInput")
 	}
 
-	// Build updated LLMSpec from current spec + input
-	if sku.LLMSpec == nil || sku.LLMSpec.Value == nil {
+	if sku.LLMSpec == nil {
 		return input, nil
 	}
-	switch sku.LLMType {
-	case string(api.LLM_CONTAINER_OLLAMA), string(api.LLM_CONTAINER_VLLM):
-		spec := sku.GetLLMSpecLLM()
-		if spec == nil {
-			return input, nil
-		}
-		llmImageId := spec.LLMImageId
-		mountedModels := spec.MountedModels
-		if input.LLMImageId != "" {
-			imgObj, err := validators.ValidateModel(ctx, userCred, GetLLMImageManager(), &input.LLMImageId)
-			if err != nil {
-				return input, errors.Wrapf(err, "validate image_id %s", input.LLMImageId)
-			}
-			llmImage := imgObj.(*SLLMImage)
-			if llmImage.LLMType != sku.LLMType {
-				return input, errors.Wrapf(httperrors.ErrInvalidStatus, "image %s is not of type %s", input.LLMImageId, sku.LLMType)
-			}
-			llmImageId = llmImage.Id
-			log.Infof("update llm_image_id %s to %s", spec.LLMImageId, llmImageId)
-		}
-		if input.MountedModels != nil {
-			mountedModels = make([]string, len(input.MountedModels))
-			for i, mdl := range input.MountedModels {
-				instMdl, err := GetInstantModelManager().FetchByIdOrName(ctx, userCred, mdl)
-				if err != nil {
-					return input, errors.Wrapf(err, "validate mounted model %s", mdl)
-				}
-				instantModle := instMdl.(*SInstantModel)
-				if instantModle.LlmType != sku.LLMType {
-					return input, errors.Wrapf(httperrors.ErrInvalidStatus, "mounted model %s is not of type %s", mdl, sku.LLMType)
-				}
-				mountedModels[i] = instantModle.GetId()
-			}
-		}
-		input.MountedModels = mountedModels
-		input.LLMSpec = &api.LLMSpecHolder{
-			Value: &api.LLMSpecLLM{
-				Type:          sku.LLMType,
-				LLMImageId:    llmImageId,
-				MountedModels: mountedModels,
-			},
-		}
-	case string(api.LLM_CONTAINER_DIFY):
-		// Dify type: accept llm_spec in request; merge non-empty fields into current spec for partial update
-		if input.LLMSpec == nil || input.LLMSpec.Value == nil {
-			return input, nil
-		}
-		difySpec, ok := input.LLMSpec.Value.(*api.LLMSpecDify)
-		if !ok {
-			return input, errors.Wrap(httperrors.ErrInputParameter, "dify SKU llm_spec must be LLMSpecDify")
-		}
-		currentSpec := sku.GetLLMSpecDify()
-		if currentSpec == nil {
-			return input, nil
-		}
-		// Merge with current spec so CLI can update only some image ids
-		updated := *currentSpec
-		mergeStr := func(dst *string, src string) {
-			if src != "" {
-				*dst = src
-			}
-		}
-		mergeStr(&updated.PostgresImageId, difySpec.PostgresImageId)
-		mergeStr(&updated.RedisImageId, difySpec.RedisImageId)
-		mergeStr(&updated.NginxImageId, difySpec.NginxImageId)
-		mergeStr(&updated.DifyApiImageId, difySpec.DifyApiImageId)
-		mergeStr(&updated.DifyPluginImageId, difySpec.DifyPluginImageId)
-		mergeStr(&updated.DifyWebImageId, difySpec.DifyWebImageId)
-		mergeStr(&updated.DifySandboxImageId, difySpec.DifySandboxImageId)
-		mergeStr(&updated.DifySSRFImageId, difySpec.DifySSRFImageId)
-		mergeStr(&updated.DifyWeaviateImageId, difySpec.DifyWeaviateImageId)
-		for _, imgId := range []*string{&updated.PostgresImageId, &updated.RedisImageId, &updated.NginxImageId, &updated.DifyApiImageId, &updated.DifyPluginImageId, &updated.DifyWebImageId, &updated.DifySandboxImageId, &updated.DifySSRFImageId, &updated.DifyWeaviateImageId} {
-			if *imgId != "" {
-				_, err := validators.ValidateModel(ctx, userCred, GetLLMImageManager(), imgId)
-				if err != nil {
-					return input, errors.Wrapf(err, "validate image_id %s", *imgId)
-				}
-			}
-		}
-		input.LLMSpec = &api.LLMSpecHolder{Value: &updated}
+	drv := sku.GetLLMContainerDriver()
+	spec, err := drv.ValidateUpdateSpec(ctx, userCred, sku, &input)
+	if err != nil {
+		return input, errors.Wrap(err, "validate update spec")
 	}
-
+	if spec != nil {
+		input.LLMSpec = spec
+	}
 	return input, nil
 }
 

@@ -59,6 +59,8 @@ func getDriverWithError[K ~string, D any](drvs *drivers, typ K) (D, error) {
 }
 
 type ILLMContainerInstantModel interface {
+	GetMountedModels(sku *SLLMSku) []string
+
 	GetProbedInstantModelsExt(ctx context.Context, userCred mcclient.TokenCredential, llm *SLLM, mdlIds ...string) (map[string]llm.LLMInternalInstantMdlInfo, error)
 	DetectModelPaths(ctx context.Context, userCred mcclient.TokenCredential, llm *SLLM, pkgInfo llm.LLMInternalInstantMdlInfo) ([]string, error)
 
@@ -88,9 +90,19 @@ type ILLMContainerDriver interface {
 	// StartLLM is called after the pod is running. For drivers that need to start the model process inside the container (e.g. vLLM), it runs the start command via exec and waits for health; on failure returns an error. For drivers that need no extra step (e.g. Ollama), it returns nil.
 	StartLLM(ctx context.Context, userCred mcclient.TokenCredential, llm *SLLM) error
 
+	// GetSpec returns the type-specific spec from the SKU (e.g. *LLMSpecOllama, *LLMSpecDify). Returns nil if not applicable or missing.
+	GetSpec(sku *SLLMSku) interface{}
+	// GetPrimaryImageId returns the primary image id for this SKU type (e.g. LLMImageId for ollama/vllm, DifyApiImageId for dify).
+	GetPrimaryImageId(sku *SLLMSku) string
+	// ValidateCreateSpec validates create input and returns the LLMSpec to store. Called by SKU manager after base validation.
+	ValidateCreateSpec(ctx context.Context, userCred mcclient.TokenCredential, input *llm.LLMSkuCreateInput) (*llm.LLMSpec, error)
+	// ValidateUpdateSpec validates update input, merges with current spec, and returns the LLMSpec to store. Called by SKU when LLMSpec is not nil.
+	ValidateUpdateSpec(ctx context.Context, userCred mcclient.TokenCredential, sku *SLLMSku, input *llm.LLMSkuUpdateInput) (*llm.LLMSpec, error)
+
 	ILLMContainerMCPAgent
 }
 
+// ILLMContainerInstantModelDriver is for drivers that support instant models (e.g. Ollama, vLLM). GetMountedModels is only required here so that drivers without models (e.g. Dify) need not implement it.
 type ILLMContainerInstantModelDriver interface {
 	ILLMContainerDriver
 	ILLMContainerInstantModel
