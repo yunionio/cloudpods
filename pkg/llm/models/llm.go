@@ -3,7 +3,6 @@ package models
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -62,12 +61,6 @@ type SLLM struct {
 
 	// 秒装应用配额（可安装的总容量限制）
 	InstantModelQuotaGb int `list:"user" update:"user" create:"optional" default:"0" nullable:"false"`
-
-	// vLLM 优先启动的模型目录名（对应 LLM_VLLM_MODELS_PATH 下子目录，如 Qwen/Qwen2-7B）
-	PreferredModel string `width:"256" charset:"utf8" nullable:"true" list:"user" update:"user" create:"optional"`
-
-	// Dify 自定义环境变量（仅 Dify 类型 SKU 生效），JSON 存储 map[string]string
-	DifyCustomizedEnvs string `width:"4096" charset:"utf8" nullable:"true" list:"user" update:"user" create:"optional"`
 }
 
 // CustomizeCreate saves Dify customized envs from create input when present.
@@ -75,22 +68,6 @@ func (llm *SLLM) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCre
 	if err := llm.SLLMBase.CustomizeCreate(ctx, userCred, ownerId, query, data); err != nil {
 		return err
 	}
-	var input api.LLMCreateInput
-	if err := data.Unmarshal(&input); err != nil {
-		return errors.Wrap(err, "unmarshal LLMCreateInput")
-	}
-	if len(input.DifyCustomizedEnvs) == 0 {
-		return nil
-	}
-	envMap := DifyCustomizedEnvsToMap(input.DifyCustomizedEnvs)
-	if len(envMap) == 0 {
-		return nil
-	}
-	b, err := json.Marshal(envMap)
-	if err != nil {
-		return errors.Wrap(err, "marshal DifyCustomizedEnvs")
-	}
-	llm.DifyCustomizedEnvs = string(b)
 	return nil
 }
 
@@ -393,25 +370,6 @@ func (llm *SLLM) GetLLMSku(skuId string) (*SLLMSku, error) {
 		return nil, errors.Wrap(err, "fetch LLMSku")
 	}
 	return sku.(*SLLMSku), nil
-}
-
-// GetDifyCustomizedEnvs returns Dify custom envs for container build when this LLM uses a Dify SKU and has customized envs set. Otherwise nil.
-func (llm *SLLM) GetDifyCustomizedEnvs() *DifyContainerEnv {
-	sku, err := llm.GetLLMSku(llm.LLMSkuId)
-	if err != nil || sku == nil {
-		return nil
-	}
-	if sku.GetLLMSpecDify() == nil {
-		return nil
-	}
-	if llm.DifyCustomizedEnvs == "" {
-		return nil
-	}
-	var m DifyContainerEnv
-	if err := json.Unmarshal([]byte(llm.DifyCustomizedEnvs), &m); err != nil {
-		return nil
-	}
-	return &m
 }
 
 func (llm *SLLM) GetLargeLanguageModelName(name string) (modelName string, modelTag string, err error) {

@@ -31,15 +31,16 @@ func (o *DifySkuShowOptions) Params() (jsonutils.JSONObject, error) {
 type DifySkuCreateOptions struct {
 	LLMSkuBaseCreateOptions
 
-	POSTGRES_IMAGE_ID      string `json:"postgres_image_id"`
-	REDIS_IMAGE_ID         string `json:"redis_image_id"`
-	NGINX_IMAGE_ID         string `json:"nginx_image_id"`
-	DIFY_API_IMAGE_ID      string `json:"dify_api_image_id"`
-	DIFY_PLUGIN_IMAGE_ID   string `json:"dify_plugin_image_id"`
-	DIFY_WEB_IMAGE_ID      string `json:"dify_web_image_id"`
-	DIFY_SANDBOX_IMAGE_ID  string `json:"dify_sandbox_image_id"`
-	DIFY_SSRF_IMAGE_ID     string `json:"dify_ssrf_image_id"`
-	DIFY_WEAVIATE_IMAGE_ID string `json:"dify_weaviate_image_id"`
+	POSTGRES_IMAGE_ID      string                   `json:"postgres_image_id"`
+	REDIS_IMAGE_ID         string                   `json:"redis_image_id"`
+	NGINX_IMAGE_ID         string                   `json:"nginx_image_id"`
+	DIFY_API_IMAGE_ID      string                   `json:"dify_api_image_id"`
+	DIFY_PLUGIN_IMAGE_ID   string                   `json:"dify_plugin_image_id"`
+	DIFY_WEB_IMAGE_ID      string                   `json:"dify_web_image_id"`
+	DIFY_SANDBOX_IMAGE_ID  string                   `json:"dify_sandbox_image_id"`
+	DIFY_SSRF_IMAGE_ID     string                   `json:"dify_ssrf_image_id"`
+	DIFY_WEAVIATE_IMAGE_ID string                   `json:"dify_weaviate_image_id"`
+	CustomizedEnvs         []*api.DifyCustomizedEnv `json:"customized_envs,omitempty"`
 }
 
 func (o *DifySkuCreateOptions) Params() (jsonutils.JSONObject, error) {
@@ -55,8 +56,10 @@ func (o *DifySkuCreateOptions) Params() (jsonutils.JSONObject, error) {
 		return nil, err
 	}
 	dict.Set("llm_type", jsonutils.NewString(string(api.LLM_CONTAINER_DIFY)))
-	spec := &api.LLMSpecHolder{
-		Value: &api.LLMSpecDify{
+	spec := &api.LLMSpec{
+		Ollama: nil,
+		Vllm:   nil,
+		Dify: &api.LLMSpecDify{
 			PostgresImageId:     o.POSTGRES_IMAGE_ID,
 			RedisImageId:        o.REDIS_IMAGE_ID,
 			NginxImageId:        o.NGINX_IMAGE_ID,
@@ -66,6 +69,7 @@ func (o *DifySkuCreateOptions) Params() (jsonutils.JSONObject, error) {
 			DifySandboxImageId:  o.DIFY_SANDBOX_IMAGE_ID,
 			DifySSRFImageId:     o.DIFY_SSRF_IMAGE_ID,
 			DifyWeaviateImageId: o.DIFY_WEAVIATE_IMAGE_ID,
+			CustomizedEnvs:      o.CustomizedEnvs,
 		},
 	}
 	dict.Set("llm_spec", jsonutils.Marshal(spec))
@@ -87,15 +91,16 @@ func (o *DifySkuDeleteOptions) Params() (jsonutils.JSONObject, error) {
 type DifySkuUpdateOptions struct {
 	LLMSkuBaseUpdateOptions
 
-	PostgresImageId     string `json:"postgres_image_id"`
-	RedisImageId        string `json:"redis_image_id"`
-	NginxImageId        string `json:"nginx_image_id"`
-	DifyApiImageId      string `json:"dify_api_image_id"`
-	DifyPluginImageId   string `json:"dify_plugin_image_id"`
-	DifyWebImageId      string `json:"dify_web_image_id"`
-	DifySandboxImageId  string `json:"dify_sandbox_image_id"`
-	DifySSRFImageId     string `json:"dify_ssrf_image_id"`
-	DifyWeaviateImageId string `json:"dify_weaviate_image_id"`
+	PostgresImageId     string                   `json:"postgres_image_id"`
+	RedisImageId        string                   `json:"redis_image_id"`
+	NginxImageId        string                   `json:"nginx_image_id"`
+	DifyApiImageId      string                   `json:"dify_api_image_id"`
+	DifyPluginImageId   string                   `json:"dify_plugin_image_id"`
+	DifyWebImageId      string                   `json:"dify_web_image_id"`
+	DifySandboxImageId  string                   `json:"dify_sandbox_image_id"`
+	DifySSRFImageId     string                   `json:"dify_ssrf_image_id"`
+	DifyWeaviateImageId string                   `json:"dify_weaviate_image_id"`
+	CustomizedEnvs      []*api.DifyCustomizedEnv `json:"customized_envs,omitempty"`
 }
 
 func (o *DifySkuUpdateOptions) GetId() string {
@@ -117,9 +122,11 @@ func (o *DifySkuUpdateOptions) Params() (jsonutils.JSONObject, error) {
 	hasImageId := o.PostgresImageId != "" || o.RedisImageId != "" || o.NginxImageId != "" ||
 		o.DifyApiImageId != "" || o.DifyPluginImageId != "" || o.DifyWebImageId != "" ||
 		o.DifySandboxImageId != "" || o.DifySSRFImageId != "" || o.DifyWeaviateImageId != ""
-	if hasImageId {
-		spec := &api.LLMSpecHolder{
-			Value: &api.LLMSpecDify{
+	if hasImageId || len(o.CustomizedEnvs) > 0 {
+		spec := &api.LLMSpec{
+			Ollama: nil,
+			Vllm:   nil,
+			Dify: &api.LLMSpecDify{
 				PostgresImageId:     o.PostgresImageId,
 				RedisImageId:        o.RedisImageId,
 				NginxImageId:        o.NginxImageId,
@@ -129,6 +136,7 @@ func (o *DifySkuUpdateOptions) Params() (jsonutils.JSONObject, error) {
 				DifySandboxImageId:  o.DifySandboxImageId,
 				DifySSRFImageId:     o.DifySSRFImageId,
 				DifyWeaviateImageId: o.DifyWeaviateImageId,
+				CustomizedEnvs:      o.CustomizedEnvs,
 			},
 		}
 		dict.Set("llm_spec", jsonutils.Marshal(spec))
