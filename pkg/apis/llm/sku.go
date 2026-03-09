@@ -119,6 +119,11 @@ type LLMSkuDetails struct {
 	MountedModelDetails []MountedModelInfo `json:"mounted_model_details"`
 
 	Template string `json:"template"`
+
+	// LLMType 为 SKU 类型（ollama/vllm/dify），与 llm_spec 一起带出
+	LLMType string `json:"llm_type"`
+	// LLMSpec 从 SKU 持久化字段带出，保证 list/show 与 create 一致
+	LLMSpec *LLMSpec `json:"llm_spec,omitempty"`
 }
 
 type MountedAppResourceDetails struct {
@@ -173,8 +178,10 @@ type LLMSkuCreateInput struct {
 	LLMImageId string `json:"llm_image_id"`
 	LLMType    string `json:"llm_type"`
 
-	// LLMSpec: for ollama/vllm backend builds from llm_image_id+mounted_models; for dify client must send llm_spec with type "dify" and data (9 image ids).
-	LLMSpec *LLMSpecHolder `json:"llm_spec,omitempty"`
+	// LLMSpec:
+	// - ollama/vllm: backend builds llm_spec from llm_image_id + mounted_models; for vllm preferred model should be set in llm_spec.vllm.preferred_model.
+	// - dify: client must send llm_spec with type "dify" and dify payload.
+	LLMSpec *LLMSpec `json:"llm_spec,omitempty"`
 }
 
 type LLMSkuUpdateInput struct {
@@ -183,8 +190,10 @@ type LLMSkuUpdateInput struct {
 
 	LLMImageId string `json:"llm_image_id"`
 
-	// LLMSpec: for dify type send full spec to update image ids; for ollama/vllm backend may build from llm_image_id/mounted_models.
-	LLMSpec *LLMSpecHolder `json:"llm_spec,omitempty"`
+	// LLMSpec:
+	// - dify: send full spec to update image ids.
+	// - ollama/vllm: backend may build from llm_image_id/mounted_models; for vllm preferred model should be set in llm_spec.vllm.preferred_model.
+	LLMSpec *LLMSpec `json:"llm_spec,omitempty"`
 }
 
 // type LLMModelCloneInput struct {

@@ -9,6 +9,8 @@ import (
 
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	api "yunion.io/x/onecloud/pkg/apis/llm"
+	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/llm/models"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
@@ -27,6 +29,78 @@ func (d *dify) GetType() api.LLMContainerType {
 	return api.LLM_CONTAINER_DIFY
 }
 
+func (d *dify) GetSpec(sku *models.SLLMSku) interface{} {
+	if sku.LLMSpec == nil {
+		return nil
+	}
+	return sku.LLMSpec.Dify
+}
+
+func (d *dify) GetPrimaryImageId(sku *models.SLLMSku) string {
+	if spec := d.GetSpec(sku); spec != nil {
+		s := spec.(*api.LLMSpecDify)
+		if s.DifyApiImageId != "" {
+			return s.DifyApiImageId
+		}
+	}
+	return ""
+}
+
+func (d *dify) ValidateCreateSpec(ctx context.Context, userCred mcclient.TokenCredential, input *api.LLMSkuCreateInput) (*api.LLMSpec, error) {
+	if input.LLMSpec == nil || input.LLMSpec.Dify == nil {
+		return nil, errors.Wrap(httperrors.ErrInputParameter, "dify SKU requires llm_spec with type dify and image ids")
+	}
+	difySpec := input.LLMSpec.Dify
+	for _, imgId := range []*string{&difySpec.PostgresImageId, &difySpec.RedisImageId, &difySpec.NginxImageId, &difySpec.DifyApiImageId, &difySpec.DifyPluginImageId, &difySpec.DifyWebImageId, &difySpec.DifySandboxImageId, &difySpec.DifySSRFImageId, &difySpec.DifyWeaviateImageId} {
+		if *imgId == "" {
+			continue
+		}
+		_, err := validators.ValidateModel(ctx, userCred, models.GetLLMImageManager(), imgId)
+		if err != nil {
+			return nil, errors.Wrapf(err, "validate image_id %s", *imgId)
+		}
+	}
+	return input.LLMSpec, nil
+}
+
+func (d *dify) ValidateUpdateSpec(ctx context.Context, userCred mcclient.TokenCredential, sku *models.SLLMSku, input *api.LLMSkuUpdateInput) (*api.LLMSpec, error) {
+	if input.LLMSpec == nil || input.LLMSpec.Dify == nil {
+		return nil, nil
+	}
+	currentSpec := d.GetSpec(sku)
+	if currentSpec == nil {
+		return nil, nil
+	}
+	updated := *currentSpec.(*api.LLMSpecDify)
+	difySpec := input.LLMSpec.Dify
+	mergeStr := func(dst *string, src string) {
+		if src != "" {
+			*dst = src
+		}
+	}
+	mergeStr(&updated.PostgresImageId, difySpec.PostgresImageId)
+	mergeStr(&updated.RedisImageId, difySpec.RedisImageId)
+	mergeStr(&updated.NginxImageId, difySpec.NginxImageId)
+	mergeStr(&updated.DifyApiImageId, difySpec.DifyApiImageId)
+	mergeStr(&updated.DifyPluginImageId, difySpec.DifyPluginImageId)
+	mergeStr(&updated.DifyWebImageId, difySpec.DifyWebImageId)
+	mergeStr(&updated.DifySandboxImageId, difySpec.DifySandboxImageId)
+	mergeStr(&updated.DifySSRFImageId, difySpec.DifySSRFImageId)
+	mergeStr(&updated.DifyWeaviateImageId, difySpec.DifyWeaviateImageId)
+	if len(difySpec.CustomizedEnvs) > 0 {
+		updated.CustomizedEnvs = difySpec.CustomizedEnvs
+	}
+	for _, imgId := range []*string{&updated.PostgresImageId, &updated.RedisImageId, &updated.NginxImageId, &updated.DifyApiImageId, &updated.DifyPluginImageId, &updated.DifyWebImageId, &updated.DifySandboxImageId, &updated.DifySSRFImageId, &updated.DifyWeaviateImageId} {
+		if *imgId != "" {
+			_, err := validators.ValidateModel(ctx, userCred, models.GetLLMImageManager(), imgId)
+			if err != nil {
+				return nil, errors.Wrapf(err, "validate image_id %s", *imgId)
+			}
+		}
+	}
+	return &api.LLMSpec{Ollama: nil, Vllm: nil, Dify: &updated}, nil
+}
+
 // GetContainerSpec is required by ILLMContainerDriver but not used for Dify; pod creation uses GetContainerSpecs. Return the first container so the interface is satisfied.
 func (d *dify) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *models.SLLMImage, sku *models.SLLMSku, props []string, devices []computeapi.SIsolatedDevice, diskId string) *computeapi.PodContainerCreateInput {
 	specs := d.GetContainerSpecs(ctx, llm, image, sku, props, devices, diskId)
@@ -36,9 +110,9 @@ func (d *dify) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *mo
 	return specs[0]
 }
 
-// GetContainerSpecs returns all Dify pod containers (postgres, redis, api, worker, nginx, etc.). Uses llm.GetDifyCustomizedEnvs() when set so UserCustomizedEnvs take effect without DifyContainersManager.
+// GetContainerSpecs returns all Dify pod containers (postgres, redis, api, worker, nginx, etc.). SKU-only policy: customized envs come from llm_spec.dify.customized_envs.
 func (d *dify) GetContainerSpecs(ctx context.Context, llm *models.SLLM, image *models.SLLMImage, sku *models.SLLMSku, props []string, devices []computeapi.SIsolatedDevice, diskId string) []*computeapi.PodContainerCreateInput {
-	return models.GetDifyContainersByNameAndSku(llm.GetName(), sku, llm.GetDifyCustomizedEnvs())
+	return models.GetDifyContainersByNameAndSku(llm.GetName(), sku, nil)
 }
 
 // StartLLM is a no-op for Dify; all services are started by their container entrypoints.
