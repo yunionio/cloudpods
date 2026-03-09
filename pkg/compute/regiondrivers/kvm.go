@@ -30,6 +30,7 @@ import (
 	randutil "yunion.io/x/pkg/util/rand"
 	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/pkg/util/secrules"
+	"yunion.io/x/pkg/util/sets"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
@@ -1421,7 +1422,8 @@ func (self *SKVMRegionDriver) RequestAssociateEip(ctx context.Context, userCred 
 func (self *SKVMRegionDriver) requestAssociateEipWithServer(ctx context.Context, userCred mcclient.TokenCredential, eip *models.SElasticip, input api.ElasticipAssociateInput, obj db.IStatusStandaloneModel, task taskman.ITask) error {
 	guest := obj.(*models.SGuest)
 
-	if guest.GetHypervisor() != api.HYPERVISOR_KVM {
+	hps := sets.NewString(api.HYPERVISOR_KVM, api.HYPERVISOR_POD)
+	if !hps.Has(guest.GetHypervisor()) {
 		return errors.Wrapf(cloudprovider.ErrNotSupported, "not support associate eip for hypervisor %s", guest.GetHypervisor())
 	}
 
