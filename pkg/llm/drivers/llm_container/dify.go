@@ -36,6 +36,38 @@ func (d *dify) GetSpec(sku *models.SLLMSku) interface{} {
 	return sku.LLMSpec.Dify
 }
 
+// mergeDify merges llm and sku Dify specs; llm takes priority, use sku when llm is nil or zero.
+func mergeDify(llm, sku *api.LLMSpecDify) *api.LLMSpecDify {
+	if llm != nil && !llm.IsZero() {
+		out := *llm
+		if llm.CustomizedEnvs != nil {
+			out.CustomizedEnvs = make([]*api.DifyCustomizedEnv, len(llm.CustomizedEnvs))
+			copy(out.CustomizedEnvs, llm.CustomizedEnvs)
+		}
+		return &out
+	}
+	if sku != nil {
+		out := *sku
+		if sku.CustomizedEnvs != nil {
+			out.CustomizedEnvs = make([]*api.DifyCustomizedEnv, len(sku.CustomizedEnvs))
+			copy(out.CustomizedEnvs, sku.CustomizedEnvs)
+		}
+		return &out
+	}
+	return nil
+}
+
+func (d *dify) GetEffectiveSpec(llm *models.SLLM, sku *models.SLLMSku) interface{} {
+	if sku == nil || sku.LLMSpec == nil {
+		return nil
+	}
+	var llmDify *api.LLMSpecDify
+	if llm != nil && llm.LLMSpec != nil {
+		llmDify = llm.LLMSpec.Dify
+	}
+	return mergeDify(llmDify, sku.LLMSpec.Dify)
+}
+
 func (d *dify) GetPrimaryImageId(sku *models.SLLMSku) string {
 	if spec := d.GetSpec(sku); spec != nil {
 		s := spec.(*api.LLMSpecDify)
@@ -131,9 +163,13 @@ func (d *dify) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *mo
 	return specs[0]
 }
 
-// GetContainerSpecs returns all Dify pod containers (postgres, redis, api, worker, nginx, etc.). SKU-only policy: customized envs come from llm_spec.dify.customized_envs.
+// GetContainerSpecs returns all Dify pod containers (postgres, redis, api, worker, nginx, etc.). Uses effective spec (llm + sku merged by driver).
 func (d *dify) GetContainerSpecs(ctx context.Context, llm *models.SLLM, image *models.SLLMImage, sku *models.SLLMSku, props []string, devices []computeapi.SIsolatedDevice, diskId string) []*computeapi.PodContainerCreateInput {
-	return models.GetDifyContainersByNameAndSku(llm.GetName(), sku, nil)
+	spec := d.GetEffectiveSpec(llm, sku)
+	if spec == nil {
+		return nil
+	}
+	return models.GetDifyContainersByNameAndSku(llm.GetName(), sku, nil, spec.(*api.LLMSpecDify))
 }
 
 // StartLLM is a no-op for Dify; all services are started by their container entrypoints.

@@ -93,6 +93,8 @@ type ILLMContainerDriver interface {
 
 	// GetSpec returns the type-specific spec from the SKU (e.g. *LLMSpecOllama, *LLMSpecDify). Returns nil if not applicable or missing.
 	GetSpec(sku *SLLMSku) interface{}
+	// GetEffectiveSpec returns the merged type-specific spec for container build: llm.LLMSpec and sku.LLMSpec merged with llm priority; each driver implements its own merge. Returns same type as GetSpec.
+	GetEffectiveSpec(llm *SLLM, sku *SLLMSku) interface{}
 	// GetPrimaryImageId returns the primary image id for this SKU type (e.g. LLMImageId for ollama/vllm, DifyApiImageId for dify).
 	GetPrimaryImageId(sku *SLLMSku) string
 	// ValidateCreateData validates create input and returns the LLMSpec to store. Called by SKU manager after base validation.
