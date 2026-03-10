@@ -61,6 +61,9 @@ type SLLM struct {
 
 	// 秒装应用配额（可安装的总容量限制）
 	InstantModelQuotaGb int `list:"user" update:"user" create:"optional" default:"0" nullable:"false"`
+
+	// LLMSpec overrides/extends sku LLMSpec when building container; merged with sku.LLMSpec (llm priority).
+	LLMSpec *api.LLMSpec `json:"llm_spec,omitempty" length:"long" list:"user" create:"optional" update:"user"`
 }
 
 // CustomizeCreate saves Dify customized envs from create input when present.
@@ -195,6 +198,7 @@ func (man *SLLMManager) FetchCustomizeColumns(
 		for i := range llms {
 			if sku, ok := skus[llms[i].LLMSkuId]; ok {
 				res[i].LLMSku = sku.Name
+				res[i].LLMType = sku.LLMType
 				res[i].VcpuCount = sku.Cpu
 				res[i].VmemSizeMb = sku.Memory
 				res[i].Devices = sku.Devices

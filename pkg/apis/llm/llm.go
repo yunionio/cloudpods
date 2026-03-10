@@ -55,7 +55,8 @@ type MountedModelInfo struct {
 type LLMListDetails struct {
 	LLMBaseListDetails
 
-	LLMSku string `json:"llm_sku"`
+	LLMSku  string `json:"llm_sku"`
+	LLMType string `json:"llm_type"`
 
 	MountedModels []MountedModelInfo `json:"mounted_models"`
 }
@@ -76,8 +77,9 @@ type LLMBaseCreateInput struct {
 type LLMCreateInput struct {
 	LLMBaseCreateInput
 
-	LLMSkuId   string `json:"llm_sku_id"`
-	LLMImageId string `json:"llm_image_id"`
+	LLMSkuId   string   `json:"llm_sku_id"`
+	LLMImageId string   `json:"llm_image_id"`
+	LLMSpec    *LLMSpec `json:"llm_spec,omitempty"`
 }
 
 type LLMBaseListInput struct {

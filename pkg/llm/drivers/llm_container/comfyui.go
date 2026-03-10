@@ -33,6 +33,13 @@ func (c *comfyui) GetSpec(sku *models.SLLMSku) interface{} {
 	return sku.LLMSpec.ComfyUI
 }
 
+func (c *comfyui) GetEffectiveSpec(llm *models.SLLM, sku *models.SLLMSku) interface{} {
+	if llm != nil && llm.LLMSpec != nil && llm.LLMSpec.ComfyUI != nil {
+		return llm.LLMSpec.ComfyUI
+	}
+	return c.GetSpec(sku)
+}
+
 func (c *comfyui) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *models.SLLMImage, sku *models.SLLMSku, props []string, devices []computeapi.SIsolatedDevice, diskId string) *computeapi.PodContainerCreateInput {
 	spec := computeapi.ContainerSpec{
 		ContainerSpec: commonapi.ContainerSpec{

@@ -58,7 +58,86 @@ func newOpenClaw() models.ILLMContainerDriver {
 }
 
 func (c *openclaw) GetSpec(sku *models.SLLMSku) interface{} {
-	return nil
+	if sku == nil || sku.LLMSpec == nil {
+		return nil
+	}
+	return sku.LLMSpec.OpenClaw
+}
+
+// mergeOpenClaw merges llm and sku OpenClaw specs; llm takes priority, use sku when llm field is unset (nil or empty).
+func mergeOpenClaw(llm, sku *api.LLMSpecOpenClaw) *api.LLMSpecOpenClaw {
+	if llm == nil {
+		if sku == nil {
+			return nil
+		}
+		return copyOpenClaw(sku)
+	}
+	if sku == nil {
+		return copyOpenClaw(llm)
+	}
+	out := &api.LLMSpecOpenClaw{}
+	if len(llm.Providers) > 0 {
+		out.Providers = make([]*api.LLMSpecOpenClawProvider, len(llm.Providers))
+		copy(out.Providers, llm.Providers)
+	} else if len(sku.Providers) > 0 {
+		out.Providers = make([]*api.LLMSpecOpenClawProvider, len(sku.Providers))
+		copy(out.Providers, sku.Providers)
+	}
+	if len(llm.Channels) > 0 {
+		out.Channels = make([]*api.LLMSpecOpenClawChannel, len(llm.Channels))
+		copy(out.Channels, llm.Channels)
+	} else if len(sku.Channels) > 0 {
+		out.Channels = make([]*api.LLMSpecOpenClawChannel, len(sku.Channels))
+		copy(out.Channels, sku.Channels)
+	}
+	if llm.WorkspaceTemplates != nil && (llm.WorkspaceTemplates.AgentsMD != "" || llm.WorkspaceTemplates.SoulMD != "" || llm.WorkspaceTemplates.UserMD != "") {
+		out.WorkspaceTemplates = &api.LLMSpecOpenClawWorkspaceTemplates{
+			AgentsMD: llm.WorkspaceTemplates.AgentsMD,
+			SoulMD:   llm.WorkspaceTemplates.SoulMD,
+			UserMD:   llm.WorkspaceTemplates.UserMD,
+		}
+	} else if sku.WorkspaceTemplates != nil {
+		out.WorkspaceTemplates = &api.LLMSpecOpenClawWorkspaceTemplates{
+			AgentsMD: sku.WorkspaceTemplates.AgentsMD,
+			SoulMD:   sku.WorkspaceTemplates.SoulMD,
+			UserMD:   sku.WorkspaceTemplates.UserMD,
+		}
+	}
+	return out
+}
+
+func copyOpenClaw(s *api.LLMSpecOpenClaw) *api.LLMSpecOpenClaw {
+	if s == nil {
+		return nil
+	}
+	out := &api.LLMSpecOpenClaw{}
+	if len(s.Providers) > 0 {
+		out.Providers = make([]*api.LLMSpecOpenClawProvider, len(s.Providers))
+		copy(out.Providers, s.Providers)
+	}
+	if len(s.Channels) > 0 {
+		out.Channels = make([]*api.LLMSpecOpenClawChannel, len(s.Channels))
+		copy(out.Channels, s.Channels)
+	}
+	if s.WorkspaceTemplates != nil {
+		out.WorkspaceTemplates = &api.LLMSpecOpenClawWorkspaceTemplates{
+			AgentsMD: s.WorkspaceTemplates.AgentsMD,
+			SoulMD:   s.WorkspaceTemplates.SoulMD,
+			UserMD:   s.WorkspaceTemplates.UserMD,
+		}
+	}
+	return out
+}
+
+func (c *openclaw) GetEffectiveSpec(llm *models.SLLM, sku *models.SLLMSku) interface{} {
+	if sku == nil || sku.LLMSpec == nil {
+		return nil
+	}
+	var llmOC *api.LLMSpecOpenClaw
+	if llm != nil && llm.LLMSpec != nil {
+		llmOC = llm.LLMSpec.OpenClaw
+	}
+	return mergeOpenClaw(llmOC, sku.LLMSpec.OpenClaw)
 }
 
 func (c *openclaw) StartLLM(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM) error {
@@ -192,7 +271,9 @@ func (c *openclaw) GetContainerSpecs(ctx context.Context, llm *models.SLLM, imag
 				// {Key: "OPENCLAW_PRIMARY_MODEL", Value: "moonshot/kimi-k2.5"},
 				// Auth
 				{Key: "AUTH_USERNAME", Value: "admin"},
-				{Key: "AUTH_PASSWORD", Value: "admin@123"},
+				{Key: "CUSTOM_USER", Value: "admin"},
+				{Key: "AUTH_PASSWORD", Value: "clawadmin@123"},
+				{Key: "PASSWORD", Value: "clawadmin@123"},
 				// // Browser sidecar
 				// {Key: "BROWSER_CDP_URL", Value: "http://localhost" + ":" + openclawBrowserCDPPort},
 				// {Key: "BROWSER_DEFAULT_PROFILE", Value: "openclaw"},
@@ -220,7 +301,16 @@ func (c *openclaw) GetContainerSpecs(ctx context.Context, llm *models.SLLM, imag
 		},
 	}
 	// inject credential envs
-	skuSpec := sku.LLMSpec.OpenClaw
+	spec := c.GetEffectiveSpec(llm, sku)
+	if spec == nil {
+		return []*computeapi.PodContainerCreateInput{
+			{
+				Name:          fmt.Sprintf("%s-%d", llm.GetName(), 0),
+				ContainerSpec: openclawSpec,
+			},
+		}
+	}
+	skuSpec := spec.(*api.LLMSpecOpenClaw)
 	log.Infof("========sku spec: %s", jsonutils.Marshal(skuSpec).PrettyString())
 	for _, provider := range skuSpec.Providers {
 		openclawSpec.Envs = appendCredentialEnvs(openclawSpec.Envs, provider.Credential)
