@@ -3,13 +3,14 @@ package llm
 import (
 	"yunion.io/x/jsonutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/llm"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
 type LLMSkuListOptions struct {
 	options.BaseListOptions
 
-	LLMType string `json:"llm_type" choices:"ollama"`
+	LLMType string `json:"llm_type" choices:"ollama|vllm|dify"`
 }
 
 func (o *LLMSkuListOptions) Params() (jsonutils.JSONObject, error) {
@@ -30,16 +31,29 @@ type LLMSkuCreateOptions struct {
 	MountedModels []string `help:"mounted models, <model_id> e.g. qwen2:0.5b-dup" json:"mounted_models"`
 
 	LLM_IMAGE_ID string `json:"llm_image_id"`
-	LLM_TYPE     string `json:"llm_type" choices:"ollama"`
+	LLM_TYPE     string `json:"llm_type" choices:"ollama|vllm"`
+
+	PreferredModel string `help:"preferred model (vllm only), sets llm_spec.vllm.preferred_model" json:"-"`
 }
 
 func (o *LLMSkuCreateOptions) Params() (jsonutils.JSONObject, error) {
 	dict := jsonutils.NewDict()
 	obj := jsonutils.Marshal(o)
 	obj.Unmarshal(dict)
-
-	o.LLMSkuBaseCreateOptions.Params(dict)
+	if err := o.LLMSkuBaseCreateOptions.Params(dict); err != nil {
+		return nil, err
+	}
 	fetchMountedModels(o.MountedModels, dict)
+	if o.LLM_TYPE == string(api.LLM_CONTAINER_VLLM) && len(o.PreferredModel) > 0 {
+		spec := &api.LLMSpec{
+			Ollama: nil,
+			Vllm: &api.LLMSpecVllm{
+				PreferredModel: o.PreferredModel,
+			},
+			Dify: nil,
+		}
+		dict.Set("llm_spec", jsonutils.Marshal(spec))
+	}
 	return dict, nil
 }
 
@@ -60,7 +74,10 @@ type LLMSkuUpdateOptions struct {
 
 	MountedModels []string `help:"mounted models, <model_id> e.g. qwen2:0.5b-dup" json:"mounted_models"`
 
+	// For ollama/vllm; backend merges into LLMSpec. Use dify-sku update for dify type.
 	LlmImageId string `json:"llm_image_id"`
+
+	PreferredModel string `help:"preferred model (vllm only), sets llm_spec.vllm.preferred_model" json:"-"`
 }
 
 func (o *LLMSkuUpdateOptions) GetId() string {
@@ -71,8 +88,19 @@ func (o *LLMSkuUpdateOptions) Params() (jsonutils.JSONObject, error) {
 	dict := jsonutils.NewDict()
 	obj := jsonutils.Marshal(o)
 	obj.Unmarshal(dict)
-
-	o.LLMSkuBaseUpdateOptions.Params(dict)
+	if err := o.LLMSkuBaseUpdateOptions.Params(dict); err != nil {
+		return nil, err
+	}
 	fetchMountedModels(o.MountedModels, dict)
+	if len(o.PreferredModel) > 0 {
+		spec := &api.LLMSpec{
+			Ollama: nil,
+			Vllm: &api.LLMSpecVllm{
+				PreferredModel: o.PreferredModel,
+			},
+			Dify: nil,
+		}
+		dict.Set("llm_spec", jsonutils.Marshal(spec))
+	}
 	return dict, nil
 }

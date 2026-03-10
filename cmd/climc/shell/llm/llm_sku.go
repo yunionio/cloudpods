@@ -7,6 +7,7 @@ import (
 	options "yunion.io/x/onecloud/pkg/mcclient/options/llm"
 )
 
+// llm-sku: unified SKU (ollama/vllm/dify). Create/update here for ollama|vllm; for dify use dify-sku or list with --llm-type dify.
 func init() {
 	cmd := shell.NewResourceCmd(&modules.LLMSku)
 	cmd.List(new(options.LLMSkuListOptions))
@@ -16,5 +17,4 @@ func init() {
 	cmd.Delete(new(options.LLMSkuDeleteOptions))
 	cmd.Perform("public", &base_options.BasePublicOptions{})
 	cmd.Perform("private", &base_options.BaseIdOptions{})
-	// cmd.Perform("clone", new(options.DesktopSkuCloneOptions))
 }

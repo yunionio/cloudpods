@@ -5,6 +5,7 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
+	api "yunion.io/x/onecloud/pkg/apis/llm"
 	"yunion.io/x/onecloud/pkg/cloudcommon/cmdline"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
@@ -23,6 +24,7 @@ func (o *DifyListOptions) Params() (jsonutils.JSONObject, error) {
 	if o.Used != nil {
 		params.Set("unused", jsonutils.JSONFalse)
 	}
+	params.Set("llm_type", jsonutils.NewString(string(api.LLM_CONTAINER_DIFY)))
 	return params, nil
 }
 
@@ -37,7 +39,7 @@ func (o *DifyShowOptions) Params() (jsonutils.JSONObject, error) {
 type DifyCreateOptions struct {
 	LLMBaseCreateOptions
 
-	DIFY_SKU_ID string `help:"dify sku id or name" json:"dify_sku_id"`
+	DIFY_SKU_ID string `help:"dify sku id or name" json:"llm_sku_id"`
 }
 
 func (o *DifyCreateOptions) Params() (jsonutils.JSONObject, error) {
