@@ -18,6 +18,12 @@ import (
 	"yunion.io/x/onecloud/pkg/apis"
 )
 
+const (
+	SERVER_SKU_PROJECT_SRC_KEY = "project_src"
+
+	SERVER_SKU_PROJECT_SRC_VALUE_LOCAL = "local"
+)
+
 type ServerSkuCreateInput struct {
 	apis.EnabledStatusStandaloneResourceCreateInput
 
