@@ -76,8 +76,8 @@ type LLMBaseCreateInput struct {
 type LLMCreateInput struct {
 	LLMBaseCreateInput
 
-	LLMSkuId   string
-	LLMImageId string
+	LLMSkuId   string `json:"llm_sku_id"`
+	LLMImageId string `json:"llm_image_id"`
 }
 
 type LLMBaseListInput struct {
@@ -102,6 +102,7 @@ type LLMListInput struct {
 
 	LLMSku   string `json:"llm_sku"`
 	LLMImage string `json:"llm_image"`
+	LLMType  string `json:"llm_type"` // filter by linked SKU's llm_type (e.g. dify)
 }
 
 type ModelInfo struct {

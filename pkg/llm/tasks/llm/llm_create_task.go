@@ -148,18 +148,46 @@ func (task *LLMCreateTask) OnLLMRefreshStatusComplete(ctx context.Context, llm *
 		}
 	}
 
-	// 创建应用容器记录
-	if len(server.Containers) != 1 {
-		task.taskFailed(ctx, llm, errors.Errorf("expected 1 containers, but got %d", len(server.Containers)))
-		return
+	// 创建应用容器记录（多容器 driver 如 Dify 不创建 SLLMContainer）
+	drv := llm.GetLLMContainerDriver()
+	_, isMulti := drv.(models.ILLMContainerDriverMultiContainer)
+	if !isMulti {
+		if len(server.Containers) != 1 {
+			task.taskFailed(ctx, llm, errors.Errorf("expected 1 containers, but got %d", len(server.Containers)))
+			return
+		}
+		llmCtr := models.GetSvrLLMContainer(server.Containers)
+		if llmCtr == nil {
+			task.taskFailed(ctx, llm, errors.Errorf("cannot find app container"))
+			return
+		}
+		if _, err := models.GetLLMContainerManager().CreateOnLLM(ctx, task.GetUserCred(), llm.GetOwnerId(), llm, llmCtr.Id, llmCtr.Name); nil != err {
+			task.taskFailed(ctx, llm, errors.Wrap(err, "create llm container on llm"))
+			return
+		}
 	}
-	llmCtr := models.GetSvrLLMContainer(server.Containers)
-	if llmCtr == nil {
-		task.taskFailed(ctx, llm, errors.Errorf("cannot find app container"))
-		return
-	}
-	if _, err := models.GetLLMContainerManager().CreateOnLLM(ctx, task.GetUserCred(), llm.GetOwnerId(), llm, llmCtr.Id, llmCtr.Name); nil != err {
-		task.taskFailed(ctx, llm, errors.Wrap(err, "create llm container on llm"))
+
+	// When AutoStart was true, compute auto-starts the server so LLMStartTask is never run. We must run StartLLM here.
+	var createInput api.LLMCreateInput
+	if task.GetParams() != nil && task.GetParams().Unmarshal(&createInput) == nil && createInput.AutoStart {
+		_, err = llm.WaitServerStatus(ctx, task.GetUserCred(), []string{computeapi.VM_RUNNING}, 7200)
+		if err != nil {
+			task.taskFailed(ctx, llm, errors.Wrap(err, "WaitServerStatus VM_RUNNING"))
+			return
+		}
+		if !isMulti {
+			_, err = llm.WaitContainerStatus(ctx, task.GetUserCred(), []string{computeapi.CONTAINER_STATUS_RUNNING}, 120)
+			if err != nil {
+				task.taskFailed(ctx, llm, errors.Wrap(err, "WaitContainerStatus"))
+				return
+			}
+		}
+		err = llm.GetLLMContainerDriver().StartLLM(ctx, task.GetUserCred(), llm)
+		if err != nil {
+			task.taskFailed(ctx, llm, errors.Wrap(err, "StartLLM"))
+			return
+		}
+		task.taskComplete(ctx, llm, api.LLM_STATUS_RUNNING)
 		return
 	}
 
