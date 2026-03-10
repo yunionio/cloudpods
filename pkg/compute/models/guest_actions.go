@@ -1880,15 +1880,24 @@ func (self *SGuest) StartDeleteGuestTask(
 	ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string,
 	opts api.ServerDeleteInput,
 ) error {
-	driver, err := self.GetDriver()
-	if err != nil {
-		return errors.Wrapf(err, "GetDriver")
-	}
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewString(self.Status), "guest_status")
 	params.Update(jsonutils.Marshal(opts))
 	self.SetStatus(ctx, userCred, api.VM_START_DELETE, "")
-	return driver.StartDeleteGuestTask(ctx, userCred, self, params, parentTaskId)
+	if self.HostId != "" {
+		driver, err := self.GetDriver()
+		if err != nil {
+			return errors.Wrapf(err, "GetDriver")
+		}
+		return driver.StartDeleteGuestTask(ctx, userCred, self, params, parentTaskId)
+	} else {
+		task, err := taskman.TaskManager.NewTask(ctx, "GuestDeleteWithoutHostTask", self, userCred, params, parentTaskId, "", nil)
+		if err != nil {
+			return errors.Wrap(err, "NewTask GuestDeleteWithoutHostTask")
+		}
+		task.ScheduleRun(nil)
+		return nil
+	}
 }
 
 // 清除虚拟机记录(仅数据库操作)
