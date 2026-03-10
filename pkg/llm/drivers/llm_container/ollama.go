@@ -43,6 +43,13 @@ func (o *ollama) GetSpec(sku *models.SLLMSku) interface{} {
 	return sku.LLMSpec.Ollama
 }
 
+func (o *ollama) GetEffectiveSpec(llm *models.SLLM, sku *models.SLLMSku) interface{} {
+	if llm != nil && llm.LLMSpec != nil && llm.LLMSpec.Ollama != nil {
+		return llm.LLMSpec.Ollama
+	}
+	return o.GetSpec(sku)
+}
+
 func (o *ollama) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *models.SLLMImage, sku *models.SLLMSku, props []string, devices []computeapi.SIsolatedDevice, diskId string) *computeapi.PodContainerCreateInput {
 	spec := computeapi.ContainerSpec{
 		ContainerSpec: commonapi.ContainerSpec{

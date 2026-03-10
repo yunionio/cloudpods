@@ -100,34 +100,33 @@ func getDifySpecFromSku(sku *SLLMSku) *api.LLMSpecDify {
 	return d
 }
 
-func getDifyContainerByNameKeyAndSku(name, key string, sku *SLLMSku, customEnvs *DifyContainerEnv) (*computeapi.PodContainerCreateInput, error) {
-	spec := getDifySpecFromSku(sku)
-	if spec == nil {
-		return nil, errors.New("sku is not a Dify SKU or LLMSpec is missing")
+func getDifyContainerByNameKeyAndSku(name, key string, difySpec *api.LLMSpecDify, customEnvs *DifyContainerEnv) (*computeapi.PodContainerCreateInput, error) {
+	if difySpec == nil {
+		return nil, errors.New("dify spec is nil")
 	}
 	switch key {
 	case api.DIFY_REDIS_KEY:
-		return getRedisContainer(name, key, _getRegistryImage(spec.RedisImageId), customEnvs), nil
+		return getRedisContainer(name, key, _getRegistryImage(difySpec.RedisImageId), customEnvs), nil
 	case api.DIFY_POSTGRES_KEY:
-		return getPostgresContainer(name, key, _getRegistryImage(spec.PostgresImageId), customEnvs), nil
+		return getPostgresContainer(name, key, _getRegistryImage(difySpec.PostgresImageId), customEnvs), nil
 	case api.DIFY_API_KEY:
-		return getApiContainer(name, key, _getRegistryImage(spec.DifyApiImageId), customEnvs), nil
+		return getApiContainer(name, key, _getRegistryImage(difySpec.DifyApiImageId), customEnvs), nil
 	case api.DIFY_WORKER_KEY:
-		return getWorkerContainer(name, key, _getRegistryImage(spec.DifyApiImageId), customEnvs), nil
+		return getWorkerContainer(name, key, _getRegistryImage(difySpec.DifyApiImageId), customEnvs), nil
 	case api.DIFY_WORKER_BEAT_KEY:
-		return getWorkerBeatContainer(name, key, _getRegistryImage(spec.DifyApiImageId), customEnvs), nil
+		return getWorkerBeatContainer(name, key, _getRegistryImage(difySpec.DifyApiImageId), customEnvs), nil
 	case api.DIFY_PLUGIN_KEY:
-		return getPluginContainer(name, key, _getRegistryImage(spec.DifyPluginImageId), customEnvs), nil
+		return getPluginContainer(name, key, _getRegistryImage(difySpec.DifyPluginImageId), customEnvs), nil
 	case api.DIFY_WEB_KEY:
-		return getWebContainer(name, key, _getRegistryImage(spec.DifyWebImageId), customEnvs), nil
+		return getWebContainer(name, key, _getRegistryImage(difySpec.DifyWebImageId), customEnvs), nil
 	case api.DIFY_SSRF_KEY:
-		return getSsrfContainer(name, key, _getRegistryImage(spec.DifySSRFImageId), customEnvs), nil
+		return getSsrfContainer(name, key, _getRegistryImage(difySpec.DifySSRFImageId), customEnvs), nil
 	case api.DIFY_NGINX_KEY:
-		return getNginxContainer(name, key, _getRegistryImage(spec.NginxImageId), customEnvs), nil
+		return getNginxContainer(name, key, _getRegistryImage(difySpec.NginxImageId), customEnvs), nil
 	case api.DIFY_WEAVIATE_KEY:
-		return getWeaviateContainer(name, key, _getRegistryImage(spec.DifyWeaviateImageId), customEnvs), nil
+		return getWeaviateContainer(name, key, _getRegistryImage(difySpec.DifyWeaviateImageId), customEnvs), nil
 	case api.DIFY_SANDBOX_KEY:
-		return getSandboxContainer(name, key, _getRegistryImage(spec.DifySandboxImageId), customEnvs), nil
+		return getSandboxContainer(name, key, _getRegistryImage(difySpec.DifySandboxImageId), customEnvs), nil
 	default:
 		return nil, errors.New("unsupported container key")
 	}
@@ -170,10 +169,13 @@ func mergeDifyContainerEnvs(base, overrides *DifyContainerEnv) *DifyContainerEnv
 	return &out
 }
 
-func GetDifyContainersByNameAndSku(name string, sku *SLLMSku, customEnvs *DifyContainerEnv) []*computeapi.PodContainerCreateInput {
+func GetDifyContainersByNameAndSku(name string, sku *SLLMSku, customEnvs *DifyContainerEnv, difySpec *api.LLMSpecDify) []*computeapi.PodContainerCreateInput {
+	if difySpec == nil {
+		difySpec = getDifySpecFromSku(sku)
+	}
 	var skuEnvs *DifyContainerEnv
-	if d := getDifySpecFromSku(sku); d != nil && len(d.CustomizedEnvs) > 0 {
-		m := DifyCustomizedEnvsToMap(d.CustomizedEnvs)
+	if difySpec != nil && len(difySpec.CustomizedEnvs) > 0 {
+		m := DifyCustomizedEnvsToMap(difySpec.CustomizedEnvs)
 		if m != nil {
 			skuEnvs = &m
 		}
@@ -182,7 +184,7 @@ func GetDifyContainersByNameAndSku(name string, sku *SLLMSku, customEnvs *DifyCo
 
 	var out []*computeapi.PodContainerCreateInput
 	for _, key := range DifyContainerKeys {
-		c, err := getDifyContainerByNameKeyAndSku(name, key, sku, mergedEnvs)
+		c, err := getDifyContainerByNameKeyAndSku(name, key, difySpec, mergedEnvs)
 		if err != nil {
 			continue
 		}
