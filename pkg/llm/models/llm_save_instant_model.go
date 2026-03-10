@@ -142,7 +142,10 @@ func (llm *SLLM) DoSaveModelImage(ctx context.Context, userCred mcclient.TokenCr
 	}
 	instantModel := instantModelObj.(*SInstantModel)
 
-	drv := llm.GetLLMContainerDriver()
+	drv, err := GetLLMContainerInstantModelDriver(llm.GetLLMContainerDriver().GetType())
+	if err != nil {
+		return errors.Wrap(err, "GetLLMContainerInstantModelDriver")
+	}
 	prefix, saveDirs, err := drv.GetSaveDirectories(instantModel)
 	if err != nil {
 		return errors.Wrap(err, "GetSaveDirectories")
@@ -197,7 +200,11 @@ func (llm *SLLM) StartSaveModelImageTask(ctx context.Context, userCred mcclient.
 }
 
 func (llm *SLLM) detectModelPaths(ctx context.Context, userCred mcclient.TokenCredential, pkgInfo api.LLMInternalInstantMdlInfo) ([]string, error) {
-	return llm.GetLLMContainerDriver().DetectModelPaths(ctx, userCred, llm, pkgInfo)
+	drv, err := GetLLMContainerInstantModelDriver(llm.GetLLMContainerDriver().GetType())
+	if err != nil {
+		return nil, errors.Wrap(err, "GetLLMContainerInstantModelDriver")
+	}
+	return drv.DetectModelPaths(ctx, userCred, llm, pkgInfo)
 }
 
 // HttpGet performs a GET request and returns the response body

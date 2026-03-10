@@ -63,6 +63,14 @@ type SLLM struct {
 	InstantModelQuotaGb int `list:"user" update:"user" create:"optional" default:"0" nullable:"false"`
 }
 
+// CustomizeCreate saves Dify customized envs from create input when present.
+func (llm *SLLM) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	if err := llm.SLLMBase.CustomizeCreate(ctx, userCred, ownerId, query, data); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (man *SLLMManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input *api.LLMCreateInput) (*api.LLMCreateInput, error) {
 	var err error
 	input.LLMBaseCreateInput, err = man.SLLMBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.LLMBaseCreateInput)
@@ -75,7 +83,7 @@ func (man *SLLMManager) ValidateCreateData(ctx context.Context, userCred mcclien
 	}
 	lSku := sku.(*SLLMSku)
 	input.LLMSkuId = lSku.Id
-	input.LLMImageId = lSku.LLMImageId
+	input.LLMImageId = lSku.GetLLMImageId()
 
 	return input, nil
 }
@@ -115,6 +123,11 @@ func (man *SLLMManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, 
 			}
 		}
 		q = q.Equals("llm_image_id", imgObj.GetId())
+	}
+	if len(input.LLMType) > 0 {
+		skuQ := GetLLMSkuManager().Query().SubQuery()
+		q = q.Join(skuQ, sqlchemy.Equals(q.Field("llm_sku_id"), skuQ.Field("id")))
+		q = q.Filter(sqlchemy.Equals(skuQ.Field("llm_type"), input.LLMType))
 	}
 
 	return q, nil

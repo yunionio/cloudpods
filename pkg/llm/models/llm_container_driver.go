@@ -2,6 +2,7 @@ package models
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	commonapi "yunion.io/x/onecloud/pkg/apis"
@@ -57,7 +58,9 @@ func getDriverWithError[K ~string, D any](drvs *drivers, typ K) (D, error) {
 	return drv.(D), nil
 }
 
-type ILLMContainerInstantApp interface {
+type ILLMContainerInstantModel interface {
+	GetMountedModels(sku *SLLMSku) []string
+
 	GetProbedInstantModelsExt(ctx context.Context, userCred mcclient.TokenCredential, llm *SLLM, mdlIds ...string) (map[string]llm.LLMInternalInstantMdlInfo, error)
 	DetectModelPaths(ctx context.Context, userCred mcclient.TokenCredential, llm *SLLM, pkgInfo llm.LLMInternalInstantMdlInfo) ([]string, error)
 
@@ -75,12 +78,34 @@ type ILLMContainerInstantApp interface {
 	DownloadModel(ctx context.Context, userCred mcclient.TokenCredential, llm *SLLM, tmpDir string, modelName string, modelTag string) (string, []string, error)
 }
 
+// ILLMContainerDriverMultiContainer is an optional interface for drivers that create a pod with multiple containers (e.g. Dify). If not implemented, the driver is assumed to provide a single container via GetContainerSpec.
+type ILLMContainerDriverMultiContainer interface {
+	GetContainerSpecs(ctx context.Context, llm *SLLM, image *SLLMImage, sku *SLLMSku, props []string, devices []computeapi.SIsolatedDevice, diskId string) []*computeapi.PodContainerCreateInput
+}
+
 type ILLMContainerDriver interface {
 	GetType() llm.LLMContainerType
 	GetContainerSpec(ctx context.Context, llm *SLLM, image *SLLMImage, sku *SLLMSku, props []string, devices []computeapi.SIsolatedDevice, diskId string) *computeapi.PodContainerCreateInput
 
-	ILLMContainerInstantApp
+	// StartLLM is called after the pod is running. For drivers that need to start the model process inside the container (e.g. vLLM), it runs the start command via exec and waits for health; on failure returns an error. For drivers that need no extra step (e.g. Ollama), it returns nil.
+	StartLLM(ctx context.Context, userCred mcclient.TokenCredential, llm *SLLM) error
+
+	// GetSpec returns the type-specific spec from the SKU (e.g. *LLMSpecOllama, *LLMSpecDify). Returns nil if not applicable or missing.
+	GetSpec(sku *SLLMSku) interface{}
+	// GetPrimaryImageId returns the primary image id for this SKU type (e.g. LLMImageId for ollama/vllm, DifyApiImageId for dify).
+	GetPrimaryImageId(sku *SLLMSku) string
+	// ValidateCreateSpec validates create input and returns the LLMSpec to store. Called by SKU manager after base validation.
+	ValidateCreateSpec(ctx context.Context, userCred mcclient.TokenCredential, input *llm.LLMSkuCreateInput) (*llm.LLMSpec, error)
+	// ValidateUpdateSpec validates update input, merges with current spec, and returns the LLMSpec to store. Called by SKU when LLMSpec is not nil.
+	ValidateUpdateSpec(ctx context.Context, userCred mcclient.TokenCredential, sku *SLLMSku, input *llm.LLMSkuUpdateInput) (*llm.LLMSpec, error)
+
 	ILLMContainerMCPAgent
+}
+
+// ILLMContainerInstantModelDriver is for drivers that support instant models (e.g. Ollama, vLLM). GetMountedModels is only required here so that drivers without models (e.g. Dify) need not implement it.
+type ILLMContainerInstantModelDriver interface {
+	ILLMContainerDriver
+	ILLMContainerInstantModel
 }
 
 type ILLMContainerMCPAgent interface {
@@ -101,4 +126,27 @@ func GetLLMContainerDriver(typ llm.LLMContainerType) ILLMContainerDriver {
 
 func GetLLMContainerDriverWithError(typ llm.LLMContainerType) (ILLMContainerDriver, error) {
 	return getDriverWithError[llm.LLMContainerType, ILLMContainerDriver](llmContainerDrivers, typ)
+}
+
+func GetLLMContainerInstantModelDriver(typ llm.LLMContainerType) (ILLMContainerInstantModelDriver, error) {
+	drv, err := GetLLMContainerDriverWithError(typ)
+	if err != nil {
+		return nil, err
+	}
+	if instantDrv, ok := drv.(ILLMContainerInstantModelDriver); ok {
+		return instantDrv, nil
+	}
+	return nil, fmt.Errorf("driver %s does not support instant model operations", typ)
+}
+
+// GetDriverPodContainers returns the container(s) for the given driver. If the driver implements ILLMContainerDriverMultiContainer, GetContainerSpecs is used; otherwise a single-element slice from GetContainerSpec is returned.
+func GetDriverPodContainers(ctx context.Context, drv ILLMContainerDriver, llm *SLLM, image *SLLMImage, sku *SLLMSku, props []string, devices []computeapi.SIsolatedDevice, diskId string) []*computeapi.PodContainerCreateInput {
+	if multi, ok := drv.(ILLMContainerDriverMultiContainer); ok {
+		return multi.GetContainerSpecs(ctx, llm, image, sku, props, devices, diskId)
+	}
+	spec := drv.GetContainerSpec(ctx, llm, image, sku, props, devices, diskId)
+	if spec == nil {
+		return nil
+	}
+	return []*computeapi.PodContainerCreateInput{spec}
 }

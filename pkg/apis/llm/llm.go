@@ -102,6 +102,7 @@ type LLMListInput struct {
 
 	LLMSku   string `json:"llm_sku"`
 	LLMImage string `json:"llm_image"`
+	LLMType  string `json:"llm_type"` // filter by linked SKU's llm_type (e.g. dify)
 }
 
 type ModelInfo struct {
