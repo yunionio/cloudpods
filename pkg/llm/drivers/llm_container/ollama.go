@@ -18,8 +18,6 @@ import (
 	commonapi "yunion.io/x/onecloud/pkg/apis"
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	api "yunion.io/x/onecloud/pkg/apis/llm"
-	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
-	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/llm/models"
 	llmutil "yunion.io/x/onecloud/pkg/llm/utils"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -30,14 +28,12 @@ func init() {
 	// log.Infoln("registed ollama")
 }
 
-type ollama struct{}
-
-func newOllama() models.ILLMContainerDriver {
-	return new(ollama)
+type ollama struct {
+	baseDriver
 }
 
-func (o *ollama) GetType() api.LLMContainerType {
-	return api.LLM_CONTAINER_OLLAMA
+func newOllama() models.ILLMContainerDriver {
+	return &ollama{baseDriver: newBaseDriver(api.LLM_CONTAINER_OLLAMA)}
 }
 
 func (o *ollama) GetSpec(sku *models.SLLMSku) interface{} {
@@ -47,89 +43,11 @@ func (o *ollama) GetSpec(sku *models.SLLMSku) interface{} {
 	return sku.LLMSpec.Ollama
 }
 
-func (o *ollama) GetPrimaryImageId(sku *models.SLLMSku) string {
-	if spec := o.GetSpec(sku); spec != nil {
-		return spec.(*api.LLMSpecOllama).LLMImageId
+func (o *ollama) GetEffectiveSpec(llm *models.SLLM, sku *models.SLLMSku) interface{} {
+	if llm != nil && llm.LLMSpec != nil && llm.LLMSpec.Ollama != nil {
+		return llm.LLMSpec.Ollama
 	}
-	return ""
-}
-
-func (o *ollama) GetMountedModels(sku *models.SLLMSku) []string {
-	if spec := o.GetSpec(sku); spec != nil {
-		return spec.(*api.LLMSpecOllama).MountedModels
-	}
-	return nil
-}
-
-func (o *ollama) ValidateCreateSpec(ctx context.Context, userCred mcclient.TokenCredential, input *api.LLMSkuCreateInput) (*api.LLMSpec, error) {
-	imgObj, err := validators.ValidateModel(ctx, userCred, models.GetLLMImageManager(), &input.LLMImageId)
-	if err != nil {
-		return nil, errors.Wrapf(err, "validate image_id %s", input.LLMImageId)
-	}
-	llmImage := imgObj.(*models.SLLMImage)
-	if llmImage.LLMType != input.LLMType {
-		return nil, errors.Wrapf(httperrors.ErrInvalidStatus, "image %s is not of type %s", input.LLMImageId, input.LLMType)
-	}
-	input.LLMImageId = llmImage.Id
-	if input.MountedModels != nil {
-		for i, mdl := range input.MountedModels {
-			instMdl, err := models.GetInstantModelManager().FetchByIdOrName(ctx, userCred, mdl)
-			if err != nil {
-				return nil, errors.Wrapf(err, "validate mounted model %s", mdl)
-			}
-			instantModle := instMdl.(*models.SInstantModel)
-			if instantModle.LlmType != input.LLMType {
-				return nil, errors.Wrapf(httperrors.ErrInvalidStatus, "mounted model %s is not of type %s", mdl, input.LLMType)
-			}
-			input.MountedModels[i] = instantModle.GetId()
-		}
-	}
-	return &api.LLMSpec{
-		Ollama: &api.LLMSpecOllama{LLMImageId: input.LLMImageId, MountedModels: input.MountedModels},
-		Vllm:   nil,
-		Dify:   nil,
-	}, nil
-}
-
-func (o *ollama) ValidateUpdateSpec(ctx context.Context, userCred mcclient.TokenCredential, sku *models.SLLMSku, input *api.LLMSkuUpdateInput) (*api.LLMSpec, error) {
-	cur := o.GetSpec(sku)
-	if cur == nil {
-		return nil, nil
-	}
-	curSpec := cur.(*api.LLMSpecOllama)
-	llmImageId := curSpec.LLMImageId
-	mountedModels := curSpec.MountedModels
-	if input.LLMImageId != "" {
-		imgObj, err := validators.ValidateModel(ctx, userCred, models.GetLLMImageManager(), &input.LLMImageId)
-		if err != nil {
-			return nil, errors.Wrapf(err, "validate image_id %s", input.LLMImageId)
-		}
-		llmImage := imgObj.(*models.SLLMImage)
-		if llmImage.LLMType != sku.LLMType {
-			return nil, errors.Wrapf(httperrors.ErrInvalidStatus, "image %s is not of type %s", input.LLMImageId, sku.LLMType)
-		}
-		llmImageId = llmImage.Id
-	}
-	if input.MountedModels != nil {
-		mountedModels = make([]string, len(input.MountedModels))
-		for i, mdl := range input.MountedModels {
-			instMdl, err := models.GetInstantModelManager().FetchByIdOrName(ctx, userCred, mdl)
-			if err != nil {
-				return nil, errors.Wrapf(err, "validate mounted model %s", mdl)
-			}
-			instantModle := instMdl.(*models.SInstantModel)
-			if instantModle.LlmType != sku.LLMType {
-				return nil, errors.Wrapf(httperrors.ErrInvalidStatus, "mounted model %s is not of type %s", mdl, sku.LLMType)
-			}
-			mountedModels[i] = instantModle.GetId()
-		}
-	}
-	input.MountedModels = mountedModels
-	return &api.LLMSpec{
-		Ollama: &api.LLMSpecOllama{LLMImageId: llmImageId, MountedModels: mountedModels},
-		Vllm:   nil,
-		Dify:   nil,
-	}, nil
+	return o.GetSpec(sku)
 }
 
 func (o *ollama) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *models.SLLMImage, sku *models.SLLMSku, props []string, devices []computeapi.SIsolatedDevice, diskId string) *computeapi.PodContainerCreateInput {
@@ -214,6 +132,12 @@ func (o *ollama) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *
 
 	return &computeapi.PodContainerCreateInput{
 		ContainerSpec: spec,
+	}
+}
+
+func (o *ollama) GetContainerSpecs(ctx context.Context, llm *models.SLLM, image *models.SLLMImage, sku *models.SLLMSku, props []string, devices []computeapi.SIsolatedDevice, diskId string) []*computeapi.PodContainerCreateInput {
+	return []*computeapi.PodContainerCreateInput{
+		o.GetContainerSpec(ctx, llm, image, sku, props, devices, diskId),
 	}
 }
 
@@ -556,10 +480,6 @@ func (o *ollama) CheckDuplicateMounts(errStr string, dupIndex int) string {
 	secondModel := parseModelName(secondPath)
 
 	return fmt.Sprintf("Model %s and %s have duplicated container target dirs", firstModel, secondModel)
-}
-
-func (o *ollama) StartLLM(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM) error {
-	return nil
 }
 
 // func download(ctx context.Context, userCred mcclient.TokenCredential, containerId string, taskId string, webUrl string, path string) error {
