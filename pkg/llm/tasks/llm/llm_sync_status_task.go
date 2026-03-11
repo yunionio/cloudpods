@@ -84,6 +84,10 @@ func (task *LLMSyncStatusTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 		if err != nil {
 			return nil, errors.Wrap(err, "WaitServerStatus")
 		}
+		// 同步本地 llm container
+		if _, err := llm.SyncLLMContainer(ctx, task.UserCred, srv); err != nil {
+			return nil, errors.Wrap(err, "SyncLLMContainer")
+		}
 
 		if utils.IsInArray(srv.Status, []string{
 			computeapi.POD_STATUS_CRASH_LOOP_BACK_OFF,
