@@ -820,13 +820,31 @@ func (llm *SLLM) EnsureInstantModelsInstalled(ctx context.Context, userCred mccl
 	if err != nil {
 		return errors.Wrap(err, "FetchApps")
 	}
+	if len(mdlIds) == 0 {
+		return nil
+	}
+	instModels := make(map[string]SInstantModel)
+	if err := db.FetchModelObjectsByIds(GetInstantModelManager(), "id", mdlIds, &instModels); err != nil {
+		return errors.Wrap(err, "FetchModelObjectsByIds")
+	}
 	var errs []error
 	for _, mdlId := range mdlIds {
 		if _, ok := mdlMap[mdlId]; ok {
-			// probed
-			// errs = append(errs, errors.Wrap(errors.ErrInvalidStatus, pkg))
-		} else {
-			// not mounted and not probed
+			continue
+		}
+		instModel, ok := instModels[mdlId]
+		if !ok {
+			errs = append(errs, errors.Wrapf(errors.ErrNotFound, "mdlId %s", mdlId))
+			continue
+		}
+		found := false
+		for _, info := range mdlMap {
+			if info.ModelId == instModel.ModelId {
+				found = true
+				break
+			}
+		}
+		if !found {
 			errs = append(errs, errors.Wrapf(errors.ErrNotFound, "mdlId %s", mdlId))
 		}
 	}

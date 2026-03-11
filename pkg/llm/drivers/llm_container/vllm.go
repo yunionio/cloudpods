@@ -15,6 +15,8 @@ import (
 	commonapi "yunion.io/x/onecloud/pkg/apis"
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	api "yunion.io/x/onecloud/pkg/apis/llm"
+	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/llm/models"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
@@ -29,8 +31,119 @@ func newVLLM() models.ILLMContainerDriver {
 	return new(vllm)
 }
 
+// escapeShellSingleQuoted escapes s for use inside a single-quoted shell string (each ' becomes '\'').
+func escapeShellSingleQuoted(s string) string {
+	return strings.ReplaceAll(s, "'", "'\\''")
+}
+
 func (v *vllm) GetType() api.LLMContainerType {
 	return api.LLM_CONTAINER_VLLM
+}
+
+func (v *vllm) GetSpec(sku *models.SLLMSku) interface{} {
+	if sku.LLMType != string(api.LLM_CONTAINER_VLLM) || sku.LLMSpec == nil || sku.LLMSpec.Vllm == nil {
+		return nil
+	}
+	return sku.LLMSpec.Vllm
+}
+
+func (v *vllm) GetPrimaryImageId(sku *models.SLLMSku) string {
+	if spec := v.GetSpec(sku); spec != nil {
+		return spec.(*api.LLMSpecVllm).LLMImageId
+	}
+	return ""
+}
+
+func (v *vllm) ValidateCreateSpec(ctx context.Context, userCred mcclient.TokenCredential, input *api.LLMSkuCreateInput) (*api.LLMSpec, error) {
+	imgObj, err := validators.ValidateModel(ctx, userCred, models.GetLLMImageManager(), &input.LLMImageId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "validate image_id %s", input.LLMImageId)
+	}
+	llmImage := imgObj.(*models.SLLMImage)
+	if llmImage.LLMType != input.LLMType {
+		return nil, errors.Wrapf(httperrors.ErrInvalidStatus, "image %s is not of type %s", input.LLMImageId, input.LLMType)
+	}
+	input.LLMImageId = llmImage.Id
+
+	if input.MountedModels != nil {
+		for i, mdl := range input.MountedModels {
+			instMdl, err := models.GetInstantModelManager().FetchByIdOrName(ctx, userCred, mdl)
+			if err != nil {
+				return nil, errors.Wrapf(err, "validate mounted model %s", mdl)
+			}
+			instantModel := instMdl.(*models.SInstantModel)
+			if instantModel.LlmType != input.LLMType {
+				return nil, errors.Wrapf(httperrors.ErrInvalidStatus, "mounted model %s is not of type %s", mdl, input.LLMType)
+			}
+			input.MountedModels[i] = instantModel.GetId()
+		}
+	}
+
+	preferredModel := ""
+	if input.LLMSpec != nil && input.LLMSpec.Vllm != nil {
+		preferredModel = input.LLMSpec.Vllm.PreferredModel
+	}
+	return &api.LLMSpec{
+		Ollama: nil,
+		Vllm:   &api.LLMSpecVllm{LLMImageId: input.LLMImageId, MountedModels: input.MountedModels, PreferredModel: preferredModel},
+		Dify:   nil,
+	}, nil
+}
+
+func (v *vllm) ValidateUpdateSpec(ctx context.Context, userCred mcclient.TokenCredential, sku *models.SLLMSku, input *api.LLMSkuUpdateInput) (*api.LLMSpec, error) {
+	cur := v.GetSpec(sku)
+	if cur == nil {
+		return nil, nil
+	}
+	curSpec := cur.(*api.LLMSpecVllm)
+	llmImageId := curSpec.LLMImageId
+	mountedModels := curSpec.MountedModels
+	preferredModel := curSpec.PreferredModel
+
+	if input.LLMImageId != "" {
+		imgObj, err := validators.ValidateModel(ctx, userCred, models.GetLLMImageManager(), &input.LLMImageId)
+		if err != nil {
+			return nil, errors.Wrapf(err, "validate image_id %s", input.LLMImageId)
+		}
+		llmImage := imgObj.(*models.SLLMImage)
+		if llmImage.LLMType != sku.LLMType {
+			return nil, errors.Wrapf(httperrors.ErrInvalidStatus, "image %s is not of type %s", input.LLMImageId, sku.LLMType)
+		}
+		llmImageId = llmImage.Id
+	}
+
+	if input.MountedModels != nil {
+		mountedModels = make([]string, len(input.MountedModels))
+		for i, mdl := range input.MountedModels {
+			instMdl, err := models.GetInstantModelManager().FetchByIdOrName(ctx, userCred, mdl)
+			if err != nil {
+				return nil, errors.Wrapf(err, "validate mounted model %s", mdl)
+			}
+			instantModel := instMdl.(*models.SInstantModel)
+			if instantModel.LlmType != sku.LLMType {
+				return nil, errors.Wrapf(httperrors.ErrInvalidStatus, "mounted model %s is not of type %s", mdl, sku.LLMType)
+			}
+			mountedModels[i] = instantModel.GetId()
+		}
+	}
+
+	if input.LLMSpec != nil && input.LLMSpec.Vllm != nil && input.LLMSpec.Vllm.PreferredModel != "" {
+		preferredModel = input.LLMSpec.Vllm.PreferredModel
+	}
+
+	input.MountedModels = mountedModels
+	return &api.LLMSpec{
+		Ollama: nil,
+		Vllm:   &api.LLMSpecVllm{LLMImageId: llmImageId, MountedModels: mountedModels, PreferredModel: preferredModel},
+		Dify:   nil,
+	}, nil
+}
+
+func (v *vllm) GetMountedModels(sku *models.SLLMSku) []string {
+	if spec := v.GetSpec(sku); spec != nil {
+		return spec.(*api.LLMSpecVllm).MountedModels
+	}
+	return nil
 }
 
 func (v *vllm) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *models.SLLMImage, sku *models.SLLMSku, props []string, devices []computeapi.SIsolatedDevice, diskId string) *computeapi.PodContainerCreateInput {
@@ -55,12 +168,6 @@ func (v *vllm) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *mo
 			Key:   "LD_PRELOAD",
 			Value: "/lib/libcuda.so.1 /lib/libnvidia-ptxjitcompiler.so.1 /lib/libnvidia-gpucomp.so",
 		},
-	}
-	if llm.PreferredModel != "" {
-		envs = append(envs, &commonapi.ContainerKeyValue{
-			Key:   "PREFERRED_MODEL",
-			Value: path.Join(api.LLM_VLLM_MODELS_PATH, llm.PreferredModel),
-		})
 	}
 	spec := computeapi.ContainerSpec{
 		ContainerSpec: commonapi.ContainerSpec{
@@ -98,11 +205,16 @@ func (v *vllm) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *mo
 
 	// Volume Mounts
 	diskIndex := 0
+	postOverlays, err := llm.GetMountedModelsPostOverlay()
+	if err != nil {
+		log.Errorf("GetMountedModelsPostOverlay failed %s", err)
+	}
 	ctrVols := []*commonapi.ContainerVolumeMount{
 		{
 			Disk: &commonapi.ContainerVolumeMountDisk{
 				SubDirectory: api.LLM_VLLM,
 				Index:        &diskIndex,
+				PostOverlay:  postOverlays,
 			},
 			Type:        commonapi.CONTAINER_VOLUME_MOUNT_TYPE_DISK,
 			MountPath:   api.LLM_VLLM_BASE_PATH,
@@ -170,10 +282,15 @@ func (v *vllm) StartLLM(ctx context.Context, userCred mcclient.TokenCredential, 
 	if swapSpaceGiB < 1 {
 		swapSpaceGiB = 1
 	}
-	// Build command: resolve model path (PREFERRED_MODEL or first dir), then nohup vllm ... &
-	// Env PREFERRED_MODEL is already set in container from GetContainerSpec.
+	// Preferred model path is injected into the script so restart uses current llm.PreferredModel (not container env).
+	preferredPath := ""
+	if llm.PreferredModel != "" {
+		preferredPath = path.Join(api.LLM_VLLM_MODELS_PATH, llm.PreferredModel)
+	}
+	preferredEscaped := escapeShellSingleQuoted(preferredPath)
 	cmd := fmt.Sprintf(
-		`mkdir -p %s; if [ -n "$PREFERRED_MODEL" ] && [ -d "$PREFERRED_MODEL" ]; then model="$PREFERRED_MODEL"; else model=$(ls -d %s/* 2>/dev/null | head -n 1); fi; if [ -z "$model" ]; then echo "NO_MODEL"; exit 0; fi; nohup %s --model "$model" --served-model-name "$(basename "$model")" --port %d --tensor-parallel-size %d --trust-remote-code --swap-space %d > /tmp/vllm.log 2>&1 &`,
+		`preferred='%s'; mkdir -p %s; if [ -n "$preferred" ] && [ -d "$preferred" ]; then model="$preferred"; else model=$(ls -d %s/* 2>/dev/null | head -n 1); fi; if [ -z "$model" ]; then echo "NO_MODEL"; exit 0; fi; nohup %s --model "$model" --served-model-name "$(basename "$model")" --port %d --tensor-parallel-size %d --trust-remote-code --swap-space %d > /tmp/vllm.log 2>&1 &`,
+		preferredEscaped,
 		api.LLM_VLLM_MODELS_PATH,
 		api.LLM_VLLM_MODELS_PATH,
 		api.LLM_VLLM_EXEC_PATH,
@@ -290,7 +407,7 @@ func (v *vllm) GetImageInternalPathMounts(sApp *models.SInstantModel) map[string
 	res := make(map[string]string)
 	for _, mount := range sApp.Mounts {
 		relPath := strings.TrimPrefix(mount, api.LLM_VLLM_BASE_PATH)
-		res[relPath] = path.Join(api.LLM_VLLM_BASE_PATH, relPath)
+		res[relPath] = path.Join(api.LLM_VLLM, relPath)
 	}
 	return res
 }
@@ -319,8 +436,8 @@ func (v *vllm) GetInstantModelIdByPostOverlay(postOverlay *commonapi.ContainerVo
 }
 
 func (v *vllm) GetDirPostOverlay(dir api.LLMMountDirInfo) *commonapi.ContainerVolumeMountDiskPostOverlay {
-	uid := int64(0) // root
-	gid := int64(0)
+	uid := int64(1000)
+	gid := int64(1000)
 	ov := dir.ToOverlay()
 	ov.FsUser = &uid
 	ov.FsGroup = &gid
