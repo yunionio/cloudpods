@@ -166,6 +166,9 @@ func (self *SQcloudClient) GetEcsMetrics(opts *cloudprovider.MetricListOptions) 
 			"lanIntraffic": cloudprovider.METRIC_TAG_NET_TYPE + ":" + cloudprovider.METRIC_TAG_NET_TYPE_INTRANET,
 			"WanIntraffic": cloudprovider.METRIC_TAG_NET_TYPE + ":" + cloudprovider.METRIC_TAG_NET_TYPE_INTERNET,
 		},
+		cloudprovider.VM_METRIC_TYPE_NET_OUT_BANDWIDTH_USAGE: {
+			"Outratio": cloudprovider.METRIC_TAG_NET_TYPE + ":" + cloudprovider.METRIC_TAG_NET_TYPE_INTERNET,
+		},
 	} {
 		for metricName, tag := range metricNames {
 			metrics, err := self.GetMonitorData("QCE/CVM", metricName, 60, opts.StartTime, opts.EndTime, opts.RegionExtId, "InstanceId", opts.ResourceIds)
