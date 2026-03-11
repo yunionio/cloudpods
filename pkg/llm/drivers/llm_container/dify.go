@@ -164,6 +164,126 @@ func (d *dify) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCr
 	return input, nil
 }
 
+// ValidateLLMCreateData implements ILLMContainerDriverLLMCreate. Validates image ids and merges empty fields from SKU spec.
+func (d *dify) ValidateLLMCreateData(ctx context.Context, userCred mcclient.TokenCredential, sku *models.SLLMSku, input *api.LLMCreateInput) (*api.LLMCreateInput, error) {
+	if input.LLMSpec == nil || input.LLMSpec.Dify == nil {
+		return input, nil
+	}
+	difySpec := input.LLMSpec.Dify
+	// Merge empty fields from SKU so the stored spec is complete
+	if sku != nil && sku.LLMSpec != nil && sku.LLMSpec.Dify != nil {
+		base := sku.LLMSpec.Dify
+		mergeStr := func(dst *string, src string) {
+			if *dst == "" && src != "" {
+				*dst = src
+			}
+		}
+		mergeStr(&difySpec.PostgresImageId, base.PostgresImageId)
+		mergeStr(&difySpec.RedisImageId, base.RedisImageId)
+		mergeStr(&difySpec.NginxImageId, base.NginxImageId)
+		mergeStr(&difySpec.DifyApiImageId, base.DifyApiImageId)
+		mergeStr(&difySpec.DifyPluginImageId, base.DifyPluginImageId)
+		mergeStr(&difySpec.DifyWebImageId, base.DifyWebImageId)
+		mergeStr(&difySpec.DifySandboxImageId, base.DifySandboxImageId)
+		mergeStr(&difySpec.DifySSRFImageId, base.DifySSRFImageId)
+		mergeStr(&difySpec.DifyWeaviateImageId, base.DifyWeaviateImageId)
+		if len(difySpec.CustomizedEnvs) == 0 && len(base.CustomizedEnvs) > 0 {
+			difySpec.CustomizedEnvs = base.CustomizedEnvs
+		}
+	}
+	// Validate non-empty image ids
+	for _, imgId := range []*string{&difySpec.PostgresImageId, &difySpec.RedisImageId, &difySpec.NginxImageId, &difySpec.DifyApiImageId, &difySpec.DifyPluginImageId, &difySpec.DifyWebImageId, &difySpec.DifySandboxImageId, &difySpec.DifySSRFImageId, &difySpec.DifyWeaviateImageId} {
+		if *imgId == "" {
+			continue
+		}
+		imgObj, err := validators.ValidateModel(ctx, userCred, models.GetLLMImageManager(), imgId)
+		if err != nil {
+			return nil, errors.Wrapf(err, "validate image_id %s", *imgId)
+		}
+		img := imgObj.(*models.SLLMImage)
+		if img.LLMType != string(api.LLM_CONTAINER_DIFY) {
+			return nil, errors.Wrapf(httperrors.ErrInvalidStatus, "image %s is not of type dify", *imgId)
+		}
+		*imgId = img.Id
+	}
+	input.LLMSpec = &api.LLMSpec{Dify: difySpec}
+	return input, nil
+}
+
+// ValidateLLMUpdateData implements ILLMContainerDriverLLMUpdate. Merges input with current LLM spec (non-empty overwrites); validates image ids.
+func (d *dify) ValidateLLMUpdateData(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM, input *api.LLMUpdateInput) (*api.LLMUpdateInput, error) {
+	if input.LLMSpec == nil || input.LLMSpec.Dify == nil {
+		return input, nil
+	}
+	// Start from current LLM spec, or SKU spec as base
+	var base *api.LLMSpecDify
+	if llm != nil && llm.LLMSpec != nil && llm.LLMSpec.Dify != nil {
+		b := *llm.LLMSpec.Dify
+		base = &b
+		if llm.LLMSpec.Dify.CustomizedEnvs != nil {
+			base.CustomizedEnvs = make([]*api.DifyCustomizedEnv, len(llm.LLMSpec.Dify.CustomizedEnvs))
+			copy(base.CustomizedEnvs, llm.LLMSpec.Dify.CustomizedEnvs)
+		}
+	} else if llm != nil {
+		sku, err := llm.GetLLMSku(llm.LLMSkuId)
+		if err == nil && sku != nil && sku.LLMSpec != nil && sku.LLMSpec.Dify != nil {
+			b := *sku.LLMSpec.Dify
+			base = &b
+			if sku.LLMSpec.Dify.CustomizedEnvs != nil {
+				base.CustomizedEnvs = make([]*api.DifyCustomizedEnv, len(sku.LLMSpec.Dify.CustomizedEnvs))
+				copy(base.CustomizedEnvs, sku.LLMSpec.Dify.CustomizedEnvs)
+			}
+		}
+	}
+	if base == nil {
+		base = &api.LLMSpecDify{}
+	}
+	difySpec := input.LLMSpec.Dify
+	mergeStr := func(dst *string, src string) {
+		if src != "" {
+			*dst = src
+		}
+	}
+	mergeStr(&base.PostgresImageId, difySpec.PostgresImageId)
+	mergeStr(&base.RedisImageId, difySpec.RedisImageId)
+	mergeStr(&base.NginxImageId, difySpec.NginxImageId)
+	mergeStr(&base.DifyApiImageId, difySpec.DifyApiImageId)
+	mergeStr(&base.DifyPluginImageId, difySpec.DifyPluginImageId)
+	mergeStr(&base.DifyWebImageId, difySpec.DifyWebImageId)
+	mergeStr(&base.DifySandboxImageId, difySpec.DifySandboxImageId)
+	mergeStr(&base.DifySSRFImageId, difySpec.DifySSRFImageId)
+	mergeStr(&base.DifyWeaviateImageId, difySpec.DifyWeaviateImageId)
+	if len(difySpec.CustomizedEnvs) > 0 {
+		base.CustomizedEnvs = difySpec.CustomizedEnvs
+	}
+	// Validate non-empty image ids
+	for _, imgId := range []*string{&base.PostgresImageId, &base.RedisImageId, &base.NginxImageId, &base.DifyApiImageId, &base.DifyPluginImageId, &base.DifyWebImageId, &base.DifySandboxImageId, &base.DifySSRFImageId, &base.DifyWeaviateImageId} {
+		if *imgId == "" {
+			continue
+		}
+		imgObj, err := validators.ValidateModel(ctx, userCred, models.GetLLMImageManager(), imgId)
+		if err != nil {
+			return nil, errors.Wrapf(err, "validate image_id %s", *imgId)
+		}
+		img := imgObj.(*models.SLLMImage)
+		if img.LLMType != string(api.LLM_CONTAINER_DIFY) {
+			return nil, errors.Wrapf(httperrors.ErrInvalidStatus, "image %s is not of type dify", *imgId)
+		}
+		*imgId = img.Id
+	}
+	input.LLMSpec = &api.LLMSpec{Dify: base}
+	return input, nil
+}
+
+// GetContainerSpec is required by ILLMContainerDriver but not used for Dify; pod creation uses GetContainerSpecs. Return the first container so the interface is satisfied.
+func (d *dify) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *models.SLLMImage, sku *models.SLLMSku, props []string, devices []computeapi.SIsolatedDevice, diskId string) *computeapi.PodContainerCreateInput {
+	specs := d.GetContainerSpecs(ctx, llm, image, sku, props, devices, diskId)
+	if len(specs) == 0 {
+		return nil
+	}
+	return specs[0]
+}
+
 // GetContainerSpecs returns all Dify pod containers (postgres, redis, api, worker, nginx, etc.). Uses effective spec (llm + sku merged by driver).
 func (d *dify) GetContainerSpecs(ctx context.Context, llm *models.SLLM, image *models.SLLMImage, sku *models.SLLMSku, props []string, devices []computeapi.SIsolatedDevice, diskId string) []*computeapi.PodContainerCreateInput {
 	spec := d.GetEffectiveSpec(llm, sku)
