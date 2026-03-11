@@ -265,7 +265,7 @@ func (awscli *SAwsClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error) 
 					subAccount.HealthStatus = api.CLOUD_PROVIDER_HEALTH_NO_PERMISSION
 				}
 				subAccount.Name = account.ID
-				if len(account.Name) > 0 {
+				if len(account.Name) > 0 && account.Name != account.ID {
 					subAccount.Name = fmt.Sprintf("%s/%s", account.Name, account.ID)
 				}
 				subAccount.Account = fmt.Sprintf("%s/%s", awscli.accessKey, account.ID)

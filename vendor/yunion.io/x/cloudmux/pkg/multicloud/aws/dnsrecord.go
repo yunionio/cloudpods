@@ -32,15 +32,17 @@ type SAliasTarget struct {
 	HostedZoneId         string `xml:"HostedZoneId"`
 }
 
+type SResourceRecord struct {
+	Value string `xml:"Value"`
+}
+
 type SDnsRecord struct {
 	zone *SDnsZone
 
-	Name            string `xml:"Name"`
-	Type            string `xml:"Type"`
-	TTL             int64  `xml:"TTL"`
-	ResourceRecords []struct {
-		Value string `xml:"Value"`
-	} `xml:"ResourceRecords>ResourceRecord"`
+	Name            string            `xml:"Name"`
+	Type            string            `xml:"Type"`
+	TTL             int64             `xml:"TTL"`
+	ResourceRecords []SResourceRecord `xml:"ResourceRecords>ResourceRecord"`
 
 	AliasTarget             SAliasTarget       `xml:"AliasTarget"`
 	GeoLocation             GeoLocationDetails `xml:"GeoLocation"`
@@ -111,14 +113,13 @@ func (self *SDnsRecord) Delete() error {
 	for _, r := range self.ResourceRecords {
 		values = append(values, r.Value)
 	}
-	_, err := self.zone.client.ChangeResourceRecordSets("DELETE", self.zone.Id, self.Name, self.SetIdentifier, cloudprovider.DnsRecord{
+	return self.zone.client.ChangeResourceRecordSets("DELETE", self.zone.Id, self.Name, self.SetIdentifier, cloudprovider.DnsRecord{
 		DnsType:     cloudprovider.TDnsType(self.Type),
 		Ttl:         self.TTL,
 		DnsValue:    strings.Join(values, "\n"),
 		PolicyType:  self.GetPolicyType(),
 		PolicyValue: self.GetPolicyValue(),
 	})
-	return err
 }
 
 func (self *SDnsRecord) GetDnsType() cloudprovider.TDnsType {
@@ -197,7 +198,7 @@ func (self *SDnsRecord) GetMxPriority() int64 {
 	return 0
 }
 
-func (self *SAwsClient) ChangeResourceRecordSets(action, zoneId, name, id string, opts cloudprovider.DnsRecord) (string, error) {
+func (self *SAwsClient) ChangeResourceRecordSets(action, zoneId, name, id string, opts cloudprovider.DnsRecord) error {
 	record := &SDnsRecord{Name: id, Type: string(opts.DnsType)}
 	params := map[string]string{
 		"Id":                                  zoneId,
@@ -232,7 +233,7 @@ func (self *SAwsClient) ChangeResourceRecordSets(action, zoneId, name, id string
 	case cloudprovider.DnsPolicyTypeByGeoLocation:
 		locations, err := self.ListGeoLocations()
 		if err != nil {
-			return "", errors.Wrapf(err, "ListGeoLocations")
+			return errors.Wrapf(err, "ListGeoLocations")
 		}
 		find := false
 		for i := range locations {
@@ -250,10 +251,10 @@ func (self *SAwsClient) ChangeResourceRecordSets(action, zoneId, name, id string
 			}
 		}
 		if !find {
-			return "", errors.Errorf("invalid policy value %s %s", opts.PolicyType, opts.PolicyValue)
+			return errors.Errorf("invalid policy value %s %s", opts.PolicyType, opts.PolicyValue)
 		}
 	case cloudprovider.DnsPolicyTypeFailover:
-		return "", cloudprovider.ErrNotImplemented
+		return cloudprovider.ErrNotImplemented
 	case cloudprovider.DnsPolicyTypeWeighted:
 		params["ChangeBatch.Changes.0.Change.ResourceRecordSet.Weight"] = string(opts.PolicyValue)
 	case cloudprovider.DnsPolicyTypeMultiValueAnswer:
@@ -261,16 +262,7 @@ func (self *SAwsClient) ChangeResourceRecordSets(action, zoneId, name, id string
 	case cloudprovider.DnsPolicyTypeLatency:
 		params["ChangeBatch.Changes.0.Change.ResourceRecordSet.Region"] = string(opts.PolicyValue)
 	}
-	ret := struct {
-		ChangeInfo struct {
-			Id string `xml:"Id"`
-		} `xml:"ChangeInfo"`
-	}{}
-	err := self.dnsRequest("ChangeResourceRecordSets", params, &ret)
-	if err != nil {
-		return "", err
-	}
-	return record.GetGlobalId(), nil
+	return self.dnsRequest("ChangeResourceRecordSets", params, nil)
 }
 
 // trafficpolicy 信息
@@ -337,6 +329,5 @@ func (self *SDnsRecord) Disable() error {
 }
 
 func (self *SDnsRecord) Update(opts *cloudprovider.DnsRecord) error {
-	_, err := self.zone.client.ChangeResourceRecordSets("UPSERT", self.zone.Id, self.Name, self.SetIdentifier, *opts)
-	return err
+	return self.zone.client.ChangeResourceRecordSets("UPSERT", self.zone.Id, self.Name, self.SetIdentifier, *opts)
 }
