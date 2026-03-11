@@ -29,6 +29,10 @@ func (b *baseDriver) GetPrimaryImageId(sku *models.SLLMSku) string {
 	return sku.LLMImageId
 }
 
+func (b *baseDriver) GetPrimaryContainer(ctx context.Context, llm *models.SLLM, containers []*computeapi.PodContainerDesc) (*computeapi.PodContainerDesc, error) {
+	return containers[0], nil
+}
+
 func (b *baseDriver) GetMountedModels(sku *models.SLLMSku) []string {
 	return sku.MountedModels
 }

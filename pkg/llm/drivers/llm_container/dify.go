@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"yunion.io/x/pkg/errors"
 
@@ -76,6 +77,15 @@ func (d *dify) GetPrimaryImageId(sku *models.SLLMSku) string {
 		}
 	}
 	return ""
+}
+
+func (d *dify) GetPrimaryContainer(ctx context.Context, llm *models.SLLM, containers []*computeapi.PodContainerDesc) (*computeapi.PodContainerDesc, error) {
+	for _, ctr := range containers {
+		if strings.HasSuffix(ctr.Name, api.DIFY_API_KEY) {
+			return ctr, nil
+		}
+	}
+	return nil, errors.Error("api container not found")
 }
 
 func (d *dify) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, input *api.LLMSkuCreateInput) (*api.LLMSkuCreateInput, error) {
@@ -152,15 +162,6 @@ func (d *dify) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCr
 		input.LLMImageId = input.LLMSpec.Dify.DifyApiImageId
 	}
 	return input, nil
-}
-
-// GetContainerSpec is required by ILLMContainerDriver but not used for Dify; pod creation uses GetContainerSpecs. Return the first container so the interface is satisfied.
-func (d *dify) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *models.SLLMImage, sku *models.SLLMSku, props []string, devices []computeapi.SIsolatedDevice, diskId string) *computeapi.PodContainerCreateInput {
-	specs := d.GetContainerSpecs(ctx, llm, image, sku, props, devices, diskId)
-	if len(specs) == 0 {
-		return nil
-	}
-	return specs[0]
 }
 
 // GetContainerSpecs returns all Dify pod containers (postgres, redis, api, worker, nginx, etc.). Uses effective spec (llm + sku merged by driver).
