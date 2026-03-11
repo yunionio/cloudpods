@@ -111,5 +111,15 @@ func MatchContainerToUpdateByName(ctr *computeapi.SContainer, podCtrs []*compute
 }
 
 func (b *baseDriver) MatchContainerToUpdate(ctr *computeapi.SContainer, podCtrs []*computeapi.PodContainerCreateInput) (*computeapi.PodContainerCreateInput, error) {
+	if len(podCtrs) == 1 {
+		return podCtrs[0], nil
+	}
 	return MatchContainerToUpdateByName(ctr, podCtrs)
+}
+func (b *baseDriver) ValidateLLMCreateData(ctx context.Context, userCred mcclient.TokenCredential, sku *models.SLLMSku, input *api.LLMCreateInput) (*api.LLMCreateInput, error) {
+	return input, nil
+}
+
+func (b *baseDriver) ValidateLLMUpdateData(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM, input *api.LLMUpdateInput) (*api.LLMUpdateInput, error) {
+	return input, nil
 }

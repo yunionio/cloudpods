@@ -15,8 +15,6 @@ import (
 	commonapi "yunion.io/x/onecloud/pkg/apis"
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	api "yunion.io/x/onecloud/pkg/apis/llm"
-	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
-	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/llm/models"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
@@ -25,125 +23,105 @@ func init() {
 	models.RegisterLLMContainerDriver(newVLLM())
 }
 
-type vllm struct{}
-
-func newVLLM() models.ILLMContainerDriver {
-	return new(vllm)
+type vllm struct {
+	baseDriver
 }
 
-// escapeShellSingleQuoted escapes s for use inside a single-quoted shell string (each ' becomes '\'').
+func newVLLM() models.ILLMContainerDriver {
+	return &vllm{baseDriver: newBaseDriver(api.LLM_CONTAINER_VLLM)}
+}
+
+// escapeShellSingleQuoted escapes s for use inside a single-quoted shell string (each ' becomes '\”).
 func escapeShellSingleQuoted(s string) string {
 	return strings.ReplaceAll(s, "'", "'\\''")
 }
 
-func (v *vllm) GetType() api.LLMContainerType {
-	return api.LLM_CONTAINER_VLLM
-}
-
 func (v *vllm) GetSpec(sku *models.SLLMSku) interface{} {
-	if sku.LLMType != string(api.LLM_CONTAINER_VLLM) || sku.LLMSpec == nil || sku.LLMSpec.Vllm == nil {
+	if sku == nil || sku.LLMType != string(api.LLM_CONTAINER_VLLM) || sku.LLMSpec == nil || sku.LLMSpec.Vllm == nil {
 		return nil
 	}
 	return sku.LLMSpec.Vllm
 }
 
-func (v *vllm) GetPrimaryImageId(sku *models.SLLMSku) string {
-	if spec := v.GetSpec(sku); spec != nil {
-		return spec.(*api.LLMSpecVllm).LLMImageId
+func (v *vllm) GetEffectiveSpec(llm *models.SLLM, sku *models.SLLMSku) interface{} {
+	var skuSpec *api.LLMSpecVllm
+	if s := v.GetSpec(sku); s != nil {
+		skuSpec = s.(*api.LLMSpecVllm)
 	}
-	return ""
-}
-
-func (v *vllm) ValidateCreateSpec(ctx context.Context, userCred mcclient.TokenCredential, input *api.LLMSkuCreateInput) (*api.LLMSpec, error) {
-	imgObj, err := validators.ValidateModel(ctx, userCred, models.GetLLMImageManager(), &input.LLMImageId)
-	if err != nil {
-		return nil, errors.Wrapf(err, "validate image_id %s", input.LLMImageId)
-	}
-	llmImage := imgObj.(*models.SLLMImage)
-	if llmImage.LLMType != input.LLMType {
-		return nil, errors.Wrapf(httperrors.ErrInvalidStatus, "image %s is not of type %s", input.LLMImageId, input.LLMType)
-	}
-	input.LLMImageId = llmImage.Id
-
-	if input.MountedModels != nil {
-		for i, mdl := range input.MountedModels {
-			instMdl, err := models.GetInstantModelManager().FetchByIdOrName(ctx, userCred, mdl)
-			if err != nil {
-				return nil, errors.Wrapf(err, "validate mounted model %s", mdl)
-			}
-			instantModel := instMdl.(*models.SInstantModel)
-			if instantModel.LlmType != input.LLMType {
-				return nil, errors.Wrapf(httperrors.ErrInvalidStatus, "mounted model %s is not of type %s", mdl, input.LLMType)
-			}
-			input.MountedModels[i] = instantModel.GetId()
+	if llm != nil && llm.LLMSpec != nil && llm.LLMSpec.Vllm != nil {
+		if llm.LLMSpec.Vllm.PreferredModel != "" {
+			out := *llm.LLMSpec.Vllm
+			return &out
 		}
+		// llm explicitly present but empty -> fall back to sku default
 	}
-
-	preferredModel := ""
-	if input.LLMSpec != nil && input.LLMSpec.Vllm != nil {
-		preferredModel = input.LLMSpec.Vllm.PreferredModel
-	}
-	return &api.LLMSpec{
-		Ollama: nil,
-		Vllm:   &api.LLMSpecVllm{LLMImageId: input.LLMImageId, MountedModels: input.MountedModels, PreferredModel: preferredModel},
-		Dify:   nil,
-	}, nil
-}
-
-func (v *vllm) ValidateUpdateSpec(ctx context.Context, userCred mcclient.TokenCredential, sku *models.SLLMSku, input *api.LLMSkuUpdateInput) (*api.LLMSpec, error) {
-	cur := v.GetSpec(sku)
-	if cur == nil {
-		return nil, nil
-	}
-	curSpec := cur.(*api.LLMSpecVllm)
-	llmImageId := curSpec.LLMImageId
-	mountedModels := curSpec.MountedModels
-	preferredModel := curSpec.PreferredModel
-
-	if input.LLMImageId != "" {
-		imgObj, err := validators.ValidateModel(ctx, userCred, models.GetLLMImageManager(), &input.LLMImageId)
-		if err != nil {
-			return nil, errors.Wrapf(err, "validate image_id %s", input.LLMImageId)
-		}
-		llmImage := imgObj.(*models.SLLMImage)
-		if llmImage.LLMType != sku.LLMType {
-			return nil, errors.Wrapf(httperrors.ErrInvalidStatus, "image %s is not of type %s", input.LLMImageId, sku.LLMType)
-		}
-		llmImageId = llmImage.Id
-	}
-
-	if input.MountedModels != nil {
-		mountedModels = make([]string, len(input.MountedModels))
-		for i, mdl := range input.MountedModels {
-			instMdl, err := models.GetInstantModelManager().FetchByIdOrName(ctx, userCred, mdl)
-			if err != nil {
-				return nil, errors.Wrapf(err, "validate mounted model %s", mdl)
-			}
-			instantModel := instMdl.(*models.SInstantModel)
-			if instantModel.LlmType != sku.LLMType {
-				return nil, errors.Wrapf(httperrors.ErrInvalidStatus, "mounted model %s is not of type %s", mdl, sku.LLMType)
-			}
-			mountedModels[i] = instantModel.GetId()
-		}
-	}
-
-	if input.LLMSpec != nil && input.LLMSpec.Vllm != nil && input.LLMSpec.Vllm.PreferredModel != "" {
-		preferredModel = input.LLMSpec.Vllm.PreferredModel
-	}
-
-	input.MountedModels = mountedModels
-	return &api.LLMSpec{
-		Ollama: nil,
-		Vllm:   &api.LLMSpecVllm{LLMImageId: llmImageId, MountedModels: mountedModels, PreferredModel: preferredModel},
-		Dify:   nil,
-	}, nil
-}
-
-func (v *vllm) GetMountedModels(sku *models.SLLMSku) []string {
-	if spec := v.GetSpec(sku); spec != nil {
-		return spec.(*api.LLMSpecVllm).MountedModels
+	if skuSpec != nil {
+		out := *skuSpec
+		return &out
 	}
 	return nil
+}
+
+func (v *vllm) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, input *api.LLMSkuCreateInput) (*api.LLMSkuCreateInput, error) {
+	input, err := v.baseDriver.ValidateCreateData(ctx, userCred, input)
+	if err != nil {
+		return nil, err
+	}
+
+	// Ensure llm_spec.vllm exists so SKU has a stable type-specific spec (even if empty).
+	preferred := ""
+	if input.LLMSpec != nil && input.LLMSpec.Vllm != nil {
+		preferred = input.LLMSpec.Vllm.PreferredModel
+	}
+	input.LLMSpec = &api.LLMSpec{Vllm: &api.LLMSpecVllm{PreferredModel: preferred}}
+	return input, nil
+}
+
+func (v *vllm) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, sku *models.SLLMSku, input *api.LLMSkuUpdateInput) (*api.LLMSkuUpdateInput, error) {
+	input, err := v.baseDriver.ValidateUpdateData(ctx, userCred, sku, input)
+	if err != nil {
+		return nil, err
+	}
+	if input.LLMSpec == nil || input.LLMSpec.Vllm == nil {
+		return input, nil
+	}
+	// Merge preferred_model with current spec; only overwrite when non-empty.
+	current := ""
+	if sku != nil && sku.LLMSpec != nil && sku.LLMSpec.Vllm != nil {
+		current = sku.LLMSpec.Vllm.PreferredModel
+	}
+	if input.LLMSpec.Vllm.PreferredModel == "" {
+		input.LLMSpec.Vllm.PreferredModel = current
+	}
+	return input, nil
+}
+
+// ValidateLLMCreateData implements ILLMContainerDriverLLMCreate. Merges preferred_model from SKU when input's is empty.
+func (v *vllm) ValidateLLMCreateData(ctx context.Context, userCred mcclient.TokenCredential, sku *models.SLLMSku, input *api.LLMCreateInput) (*api.LLMCreateInput, error) {
+	if input.LLMSpec == nil || input.LLMSpec.Vllm == nil {
+		return input, nil
+	}
+	preferred := input.LLMSpec.Vllm.PreferredModel
+	if preferred == "" && sku != nil && sku.LLMSpec != nil && sku.LLMSpec.Vllm != nil {
+		preferred = sku.LLMSpec.Vllm.PreferredModel
+	}
+	input.LLMSpec = &api.LLMSpec{Vllm: &api.LLMSpecVllm{PreferredModel: preferred}}
+	return input, nil
+}
+
+// ValidateLLMUpdateData implements ILLMContainerDriverLLMUpdate. Merges preferred_model with current LLM spec; only overwrite when non-empty.
+func (v *vllm) ValidateLLMUpdateData(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM, input *api.LLMUpdateInput) (*api.LLMUpdateInput, error) {
+	if input.LLMSpec == nil || input.LLMSpec.Vllm == nil {
+		return input, nil
+	}
+	current := ""
+	if llm != nil && llm.LLMSpec != nil && llm.LLMSpec.Vllm != nil {
+		current = llm.LLMSpec.Vllm.PreferredModel
+	}
+	if input.LLMSpec.Vllm.PreferredModel == "" {
+		input.LLMSpec.Vllm.PreferredModel = current
+	}
+	return input, nil
 }
 
 func (v *vllm) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *models.SLLMImage, sku *models.SLLMSku, props []string, devices []computeapi.SIsolatedDevice, diskId string) *computeapi.PodContainerCreateInput {
@@ -158,16 +136,16 @@ func (v *vllm) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *mo
 			Key:   "HF_ENDPOINT",
 			Value: api.LLM_VLLM_HF_ENDPOINT,
 		},
-		// Fix Error 803
-		{
-			Key:   "LD_LIBRARY_PATH",
-			Value: "/lib64:/usr/local/cuda/lib64:/lib/x86_64-linux-gnu:${LD_LIBRARY_PATH}",
-		},
-		// Fix Error 803
-		{
-			Key:   "LD_PRELOAD",
-			Value: "/lib/libcuda.so.1 /lib/libnvidia-ptxjitcompiler.so.1 /lib/libnvidia-gpucomp.so",
-		},
+		// // Fix Error 803
+		// {
+		// 	Key:   "LD_LIBRARY_PATH",
+		// 	Value: "/lib64:/usr/local/cuda/lib64:/lib/x86_64-linux-gnu:${LD_LIBRARY_PATH}",
+		// },
+		// // Fix Error 803
+		// {
+		// 	Key:   "LD_PRELOAD",
+		// 	Value: "/lib/libcuda.so.1 /lib/libnvidia-ptxjitcompiler.so.1 /lib/libnvidia-gpucomp.so",
+		// },
 	}
 	spec := computeapi.ContainerSpec{
 		ContainerSpec: commonapi.ContainerSpec{
@@ -239,6 +217,12 @@ func (v *vllm) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *mo
 	}
 }
 
+func (v *vllm) GetContainerSpecs(ctx context.Context, llm *models.SLLM, image *models.SLLMImage, sku *models.SLLMSku, props []string, devices []computeapi.SIsolatedDevice, diskId string) []*computeapi.PodContainerCreateInput {
+	return []*computeapi.PodContainerCreateInput{
+		v.GetContainerSpec(ctx, llm, image, sku, props, devices, diskId),
+	}
+}
+
 func (v *vllm) GetLLMUrl(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM) (string, error) {
 	// Similar logic to Ollama to determine URL
 	server, err := llm.GetServer(ctx)
@@ -282,14 +266,21 @@ func (v *vllm) StartLLM(ctx context.Context, userCred mcclient.TokenCredential, 
 	if swapSpaceGiB < 1 {
 		swapSpaceGiB = 1
 	}
-	// Preferred model path is injected into the script so restart uses current llm.PreferredModel (not container env).
+
+	// Preferred model path is injected into the script; resolved via GetEffectiveSpec (llm spec overrides sku spec).
 	preferredPath := ""
-	if llm.PreferredModel != "" {
-		preferredPath = path.Join(api.LLM_VLLM_MODELS_PATH, llm.PreferredModel)
+	if eff := v.GetEffectiveSpec(llm, sku); eff != nil {
+		if preferred := eff.(*api.LLMSpecVllm).PreferredModel; preferred != "" {
+			preferredPath = path.Join(api.LLM_VLLM_MODELS_PATH, preferred)
+		}
 	}
 	preferredEscaped := escapeShellSingleQuoted(preferredPath)
 	cmd := fmt.Sprintf(
-		`preferred='%s'; mkdir -p %s; if [ -n "$preferred" ] && [ -d "$preferred" ]; then model="$preferred"; else model=$(ls -d %s/* 2>/dev/null | head -n 1); fi; if [ -z "$model" ]; then echo "NO_MODEL"; exit 0; fi; nohup %s --model "$model" --served-model-name "$(basename "$model")" --port %d --tensor-parallel-size %d --trust-remote-code --swap-space %d > /tmp/vllm.log 2>&1 &`,
+		`preferred='%s'; mkdir -p %s; if [ -n "$preferred" ] && [ -d "$preferred" ]; then model="$preferred"; else model=$(ls -d %s/* 2>/dev/null | head -n 1); fi;
+		if [ -z "$model" ]; then echo "NO_MODEL"; exit 0; fi;
+		nohup %s --model "$model" --served-model-name "$(basename "$model")" --port %d \
+		--tensor-parallel-size %d --swap-space %d --enable-prefix-caching \
+		> /tmp/vllm.log 2>&1 &`,
 		preferredEscaped,
 		api.LLM_VLLM_MODELS_PATH,
 		api.LLM_VLLM_MODELS_PATH,
@@ -300,7 +291,8 @@ func (v *vllm) StartLLM(ctx context.Context, userCred mcclient.TokenCredential, 
 	)
 	output, err := exec(ctx, lc.CmpId, cmd, 30)
 	if err != nil {
-		return errors.Wrap(err, "exec start vLLM")
+		log.Errorf("vLLM start failed, exec command: %s", cmd)
+		return errors.Wrapf(err, "exec start vLLM, command: %s", cmd)
 	}
 	if strings.Contains(output, "NO_MODEL") {
 		return nil
@@ -334,9 +326,9 @@ func (v *vllm) StartLLM(ctx context.Context, userCred mcclient.TokenCredential, 
 	// Optionally read last lines of /tmp/vllm.log for better error message
 	logTail, _ := exec(ctx, lc.CmpId, "tail -n 20 /tmp/vllm.log 2>/dev/null || true", 5)
 	if logTail != "" {
-		return errors.Errorf("vLLM health check timeout after %v, last log: %s", api.LLM_VLLM_HEALTH_CHECK_TIMEOUT, strings.TrimSpace(logTail))
+		return errors.Errorf("vLLM health check timeout after %v, exec command: %s, last log: %s", api.LLM_VLLM_HEALTH_CHECK_TIMEOUT, cmd, strings.TrimSpace(logTail))
 	}
-	return errors.Errorf("vLLM health check timeout after %v", api.LLM_VLLM_HEALTH_CHECK_TIMEOUT)
+	return errors.Errorf("vLLM health check timeout after %v, exec command: %s", api.LLM_VLLM_HEALTH_CHECK_TIMEOUT, cmd)
 }
 
 // ILLMContainerInstantApp implementation

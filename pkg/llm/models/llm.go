@@ -92,6 +92,14 @@ func (man *SLLMManager) ValidateCreateData(ctx context.Context, userCred mcclien
 	input.LLMSkuId = lSku.Id
 	input.LLMImageId = lSku.GetLLMImageId()
 
+	if input.LLMSpec != nil {
+		drv := lSku.GetLLMContainerDriver()
+		input, err = drv.ValidateLLMCreateData(ctx, userCred, lSku, input)
+		if err != nil {
+			return input, errors.Wrap(err, "validate LLM create spec")
+		}
+	}
+
 	return input, nil
 }
 
@@ -173,7 +181,6 @@ func (man *SLLMManager) FetchCustomizeColumns(
 		}
 		mountedModelInfo, _ := llm.FetchMountedModelInfo()
 		res[idx].MountedModels = mountedModelInfo
-		res[idx].PreferredModel = llm.PreferredModel
 		res[idx].NetworkType = llm.NetworkType
 		res[idx].NetworkId = llm.NetworkId
 	}
@@ -379,6 +386,28 @@ func (llm *SLLM) GetLLMSku(skuId string) (*SLLMSku, error) {
 		return nil, errors.Wrap(err, "fetch LLMSku")
 	}
 	return sku.(*SLLMSku), nil
+}
+
+func (llm *SLLM) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.LLMUpdateInput) (api.LLMUpdateInput, error) {
+	var err error
+	input.VirtualResourceBaseUpdateInput, err = llm.SLLMBase.SVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, input.VirtualResourceBaseUpdateInput)
+	if err != nil {
+		return input, errors.Wrap(err, "validate VirtualResourceBaseUpdateInput")
+	}
+
+	if input.LLMSpec == nil {
+		return input, nil
+	}
+	sku, err := llm.GetLLMSku(llm.LLMSkuId)
+	if err != nil {
+		return input, errors.Wrap(err, "fetch LLMSku")
+	}
+	drv := sku.GetLLMContainerDriver()
+	inputPtr, err := drv.ValidateLLMUpdateData(ctx, userCred, llm, &input)
+	if err != nil {
+		return input, errors.Wrap(err, "validate LLM update spec")
+	}
+	return *inputPtr, nil
 }
 
 func (llm *SLLM) GetLargeLanguageModelName(name string) (modelName string, modelTag string, err error) {

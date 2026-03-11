@@ -58,8 +58,7 @@ type LLMListDetails struct {
 	LLMSku  string `json:"llm_sku"`
 	LLMType string `json:"llm_type"`
 
-	MountedModels  []MountedModelInfo `json:"mounted_models"`
-	PreferredModel string             `json:"preferred_model"`
+	MountedModels []MountedModelInfo `json:"mounted_models"`
 }
 
 type LLMBaseCreateInput struct {
@@ -81,6 +80,14 @@ type LLMCreateInput struct {
 	LLMSkuId   string   `json:"llm_sku_id"`
 	LLMImageId string   `json:"llm_image_id"`
 	LLMSpec    *LLMSpec `json:"llm_spec,omitempty"`
+}
+
+// LLMUpdateInput is the request body for updating an LLM (including llm_spec overrides).
+type LLMUpdateInput struct {
+	apis.VirtualResourceBaseUpdateInput
+
+	InstantModelQuotaGb *int     `json:"instant_model_quota_gb,omitempty"`
+	LLMSpec             *LLMSpec `json:"llm_spec,omitempty"`
 }
 
 type LLMBaseListInput struct {
