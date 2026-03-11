@@ -139,6 +139,7 @@ const (
 	TOPIC_RESOURCE_VM_INTEGRITY_CHECK       = "vm_integrity"
 	TOPIC_RESOURCE_PROJECT                  = "project"
 	TOPIC_RESOURCE_CLOUDPHONE               = "cloudphone"
+	TOPIC_RESOURCE_LLM                      = "llm"
 
 	SUBSCRIBER_TYPE_ROLE     = "role"
 	SUBSCRIBER_TYPE_ROBOT    = "robot"

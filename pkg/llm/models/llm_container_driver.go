@@ -102,6 +102,8 @@ type ILLMContainerDriver interface {
 	// ValidateUpdateData validates update input, merges with current spec, and returns the LLMSpec to store. Called by SKU when LLMSpec is not nil.
 	ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, sku *SLLMSku, input *llm.LLMSkuUpdateInput) (*llm.LLMSkuUpdateInput, error)
 
+	MatchContainerToUpdate(ctr *computeapi.SContainer, podCtrs []*computeapi.PodContainerCreateInput) (*computeapi.PodContainerCreateInput, error)
+
 	ILLMContainerMCPAgent
 }
 

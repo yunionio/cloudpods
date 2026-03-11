@@ -255,3 +255,17 @@ func (man *SLLMInstantModelManager) DeleteByLlmId(ctx context.Context, llmId str
 	}
 	return nil
 }
+
+func (man *SLLMInstantModelManager) purgeModelList(llmId string) error {
+	err := man.TableSpec().GetTableSpec().DeleteFrom(map[string]interface{}{
+		"llm_id": llmId,
+	})
+	if err != nil {
+		return errors.Wrap(err, "purgeModelList.DeleteFrom")
+	}
+	return nil
+}
+
+func (mdl *SLLMInstantModel) purgeModelList() error {
+	return GetLLMInstantModelManager().purgeModelList(mdl.InstantModelId)
+}

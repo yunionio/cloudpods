@@ -25,7 +25,9 @@ type LLMOptions struct {
 	InstantModelSyncTaskWorkerCount int `help:"backup task worker count" default:"128"`
 	ModelSyncTaskWaitSecs           int `help:"model sync task wait seconds" default:"30"`
 
-	StartTaskWorkerCount int `help:"start task worker count" default:"128"`
+	BackupTaskWorkerCount int `help:"backup task worker count" default:"128"`
+	ImportTaskWorkerCount int `help:"import task worker count" default:"8"`
+	StartTaskWorkerCount  int `help:"start task worker count" default:"128"`
 
 	// MCP Agent 配置
 	MCPServerURL    string `help:"MCP Server URL" default:"http://default-mcp-server:30876"`
