@@ -251,6 +251,8 @@ func (c *openclaw) GetContainerSpecs(ctx context.Context, llm *models.SLLM, imag
 			MountPath: openclawDataDir,
 		},
 	}
+	httpAuthUsername := "admin"
+	httpAuthPassword := "clawadmin@123"
 	openclawSpec := computeapi.ContainerSpec{
 		ContainerSpec: commonapi.ContainerSpec{
 			Image:             image.ToContainerImage(),
@@ -270,10 +272,10 @@ func (c *openclaw) GetContainerSpecs(ctx context.Context, llm *models.SLLM, imag
 				// {Key: "MOONSHOT_API_KEY", Value: "abc"},
 				// {Key: "OPENCLAW_PRIMARY_MODEL", Value: "moonshot/kimi-k2.5"},
 				// Auth
-				{Key: "AUTH_USERNAME", Value: "admin"},
-				{Key: "CUSTOM_USER", Value: "admin"},
-				{Key: "AUTH_PASSWORD", Value: "clawadmin@123"},
-				{Key: "PASSWORD", Value: "clawadmin@123"},
+				{Key: string(api.LLM_OPENCLAW_AUTH_USERNAME), Value: httpAuthUsername},
+				{Key: string(api.LLM_OPENCLAW_CUSTOM_USER), Value: httpAuthUsername},
+				{Key: string(api.LLM_OPENCLAW_AUTH_PASSWORD), Value: httpAuthPassword},
+				{Key: string(api.LLM_OPENCLAW_PASSWORD), Value: httpAuthPassword},
 				// // Browser sidecar
 				// {Key: "BROWSER_CDP_URL", Value: "http://localhost" + ":" + openclawBrowserCDPPort},
 				// {Key: "BROWSER_DEFAULT_PROFILE", Value: "openclaw"},
@@ -339,6 +341,40 @@ func (c *openclaw) GetLLMUrl(ctx context.Context, userCred mcclient.TokenCredent
 	}
 	firstIP := strings.TrimSpace(ips[0])
 	return fmt.Sprintf("https://%s:%d", firstIP, 3001), nil
+}
+
+// GetLoginInfo returns OpenClaw web UI login credentials (same defaults as container env).
+func (c *openclaw) GetLoginInfo(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM) (*api.LLMLoginInfo, error) {
+	ctr, err := llm.GetLLMSContainer(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "get llm cloud container")
+	}
+	if ctr.Spec == nil {
+		return nil, errors.Wrap(errors.ErrEmpty, "no Spec")
+	}
+	var (
+		username     string
+		password     string
+		gatewayToken string
+	)
+	for _, env := range ctr.Spec.Envs {
+		if env.Key == string(api.LLM_OPENCLAW_AUTH_USERNAME) {
+			username = env.Value
+		}
+		if env.Key == string(api.LLM_OPENCLAW_AUTH_PASSWORD) {
+			password = env.Value
+		}
+		if env.Key == string(api.LLM_OPENCLAW_GATEWAY_TOKEN) {
+			gatewayToken = env.Value
+		}
+	}
+	return &api.LLMLoginInfo{
+		Username: username,
+		Password: password,
+		Extra: map[string]string{
+			string(api.LLM_OPENCLAW_GATEWAY_TOKEN): gatewayToken,
+		},
+	}, nil
 }
 
 func (c *openclaw) GetProbedInstantModelsExt(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM, mdlIds ...string) (map[string]api.LLMInternalInstantMdlInfo, error) {
