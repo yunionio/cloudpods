@@ -345,6 +345,11 @@ func (self *SAliyunClient) GetEcsMetrics(opts *cloudprovider.MetricListOptions) 
 			"IntranetOutRate": cloudprovider.METRIC_TAG_NET_TYPE_INTRANET,
 		}
 		tagKey = cloudprovider.METRIC_TAG_NET_TYPE
+	case cloudprovider.VM_METRIC_TYPE_NET_OUT_BANDWIDTH_USAGE:
+		metricTags = map[string]string{
+			"VPC_PublicIP_InternetOutRate_Percent": cloudprovider.METRIC_TAG_NET_TYPE_INTERNET,
+		}
+		tagKey = cloudprovider.METRIC_TAG_NET_TYPE
 	case cloudprovider.VM_METRIC_TYPE_DISK_IO_READ_BPS:
 		metricTags = map[string]string{
 			"DiskReadBPS": "",

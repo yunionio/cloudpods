@@ -340,8 +340,20 @@ func (self *SDnsZone) AddDnsRecord(opts *cloudprovider.DnsRecord) (string, error
 	if len(opts.DnsName) > 1 && opts.DnsName != "@" {
 		name = opts.DnsName + "." + self.Name
 	}
-	id := stringutils.UUID4()
-	return self.client.ChangeResourceRecordSets("CREATE", self.Id, name, id, *opts)
+	id := ""
+	if opts.PolicyType != cloudprovider.DnsPolicyTypeSimple {
+		id = stringutils.UUID4()
+	}
+	err := self.client.ChangeResourceRecordSets("CREATE", self.Id, name, id, *opts)
+	if err != nil {
+		return "", errors.Wrapf(err, "ChangeResourceRecordSets")
+	}
+	record := &SDnsRecord{Name: name, Type: string(opts.DnsType), SetIdentifier: id}
+	record.ResourceRecords = []SResourceRecord{
+		{Value: opts.DnsValue},
+	}
+	record.zone = self
+	return record.GetGlobalId(), nil
 }
 
 func (self *SDnsZone) GetDnsProductType() cloudprovider.TDnsProductType {
