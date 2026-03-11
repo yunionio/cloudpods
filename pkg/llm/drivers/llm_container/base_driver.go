@@ -5,6 +5,7 @@ import (
 
 	"yunion.io/x/pkg/errors"
 
+	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	api "yunion.io/x/onecloud/pkg/apis/llm"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -93,4 +94,18 @@ func (b *baseDriver) ValidateUpdateData(ctx context.Context, userCred mcclient.T
 	}
 	input.MountedModels = mountedModels
 	return input, nil
+}
+
+func MatchContainerToUpdateByName(ctr *computeapi.SContainer, podCtrs []*computeapi.PodContainerCreateInput) (*computeapi.PodContainerCreateInput, error) {
+	ctrName := ctr.Name
+	for _, podCtr := range podCtrs {
+		if podCtr.Name == ctrName {
+			return podCtr, nil
+		}
+	}
+	return nil, errors.Wrapf(errors.ErrNotFound, "container %s not found", ctrName)
+}
+
+func (b *baseDriver) MatchContainerToUpdate(ctr *computeapi.SContainer, podCtrs []*computeapi.PodContainerCreateInput) (*computeapi.PodContainerCreateInput, error) {
+	return MatchContainerToUpdateByName(ctr, podCtrs)
 }

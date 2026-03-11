@@ -172,6 +172,10 @@ func (d *dify) GetContainerSpecs(ctx context.Context, llm *models.SLLM, image *m
 	return models.GetDifyContainersByNameAndSku(llm.GetName(), sku, nil, spec.(*api.LLMSpecDify))
 }
 
+func (d *dify) MatchContainerToUpdate(ctr *computeapi.SContainer, podCtrs []*computeapi.PodContainerCreateInput) (*computeapi.PodContainerCreateInput, error) {
+	return MatchContainerToUpdateByName(ctr, podCtrs)
+}
+
 // StartLLM is a no-op for Dify; all services are started by their container entrypoints.
 func (d *dify) StartLLM(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM) error {
 	return nil
