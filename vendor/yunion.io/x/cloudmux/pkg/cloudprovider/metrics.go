@@ -150,6 +150,9 @@ const (
 	// 虚拟机网络出速率
 	// 支持平台: huawei, aliyun, apsara, azure, esxi, google, bingocloud, aws, jdcloud, ecloud, zstack, qcloud, volcengine, baidu, ctyun, hcso, oracle
 	VM_METRIC_TYPE_NET_BPS_TX TMetricType = "vm_netio.bps_sent"
+	// 虚拟机外网出带宽使用率
+	// 支持平台: qcloud, aliyun
+	VM_METRIC_TYPE_NET_OUT_BANDWIDTH_USAGE TMetricType = "vm_netio.out_bandwidth_usage"
 
 	// 虚拟机TCP连接数
 	// 支持平台: aliyun, apsara, volcengine
@@ -291,8 +294,10 @@ const (
 	METRIC_TAG_REQUST_4XX  = "4xx"
 	METRIC_TAG_REQUST_5XX  = "5xx"
 
-	METRIC_TAG_NET_TYPE          = "net_type"
+	METRIC_TAG_NET_TYPE = "net_type"
+	// 外网
 	METRIC_TAG_NET_TYPE_INTERNET = "internet"
+	// 内网
 	METRIC_TAG_NET_TYPE_INTRANET = "intranet"
 
 	METRIC_TAG_TYPE_DISK_TYPE     = "disk_type"
@@ -394,6 +399,7 @@ var (
 
 		VM_METRIC_TYPE_NET_BPS_RX,
 		VM_METRIC_TYPE_NET_BPS_TX,
+		VM_METRIC_TYPE_NET_OUT_BANDWIDTH_USAGE,
 		VM_METRIC_TYPE_NET_TCP_CONNECTION,
 
 		VM_METRIC_TYPE_PROCESS_NUMBER,
