@@ -85,6 +85,7 @@ type ILLMContainerDriverMultiContainer interface {
 
 type ILLMContainerDriver interface {
 	GetType() llm.LLMContainerType
+	// GetContainerSpecs returns one or more container specs. If nil or empty, caller falls back to GetContainerSpec for a single container.
 	GetContainerSpec(ctx context.Context, llm *SLLM, image *SLLMImage, sku *SLLMSku, props []string, devices []computeapi.SIsolatedDevice, diskId string) *computeapi.PodContainerCreateInput
 
 	// StartLLM is called after the pod is running. For drivers that need to start the model process inside the container (e.g. vLLM), it runs the start command via exec and waits for health; on failure returns an error. For drivers that need no extra step (e.g. Ollama), it returns nil.
@@ -92,12 +93,14 @@ type ILLMContainerDriver interface {
 
 	// GetSpec returns the type-specific spec from the SKU (e.g. *LLMSpecOllama, *LLMSpecDify). Returns nil if not applicable or missing.
 	GetSpec(sku *SLLMSku) interface{}
+	// GetEffectiveSpec returns the merged type-specific spec for container build: llm.LLMSpec and sku.LLMSpec merged with llm priority; each driver implements its own merge. Returns same type as GetSpec.
+	GetEffectiveSpec(llm *SLLM, sku *SLLMSku) interface{}
 	// GetPrimaryImageId returns the primary image id for this SKU type (e.g. LLMImageId for ollama/vllm, DifyApiImageId for dify).
 	GetPrimaryImageId(sku *SLLMSku) string
-	// ValidateCreateSpec validates create input and returns the LLMSpec to store. Called by SKU manager after base validation.
-	ValidateCreateSpec(ctx context.Context, userCred mcclient.TokenCredential, input *llm.LLMSkuCreateInput) (*llm.LLMSpec, error)
-	// ValidateUpdateSpec validates update input, merges with current spec, and returns the LLMSpec to store. Called by SKU when LLMSpec is not nil.
-	ValidateUpdateSpec(ctx context.Context, userCred mcclient.TokenCredential, sku *SLLMSku, input *llm.LLMSkuUpdateInput) (*llm.LLMSpec, error)
+	// ValidateCreateData validates create input and returns the LLMSpec to store. Called by SKU manager after base validation.
+	ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, input *llm.LLMSkuCreateInput) (*llm.LLMSkuCreateInput, error)
+	// ValidateUpdateData validates update input, merges with current spec, and returns the LLMSpec to store. Called by SKU when LLMSpec is not nil.
+	ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, sku *SLLMSku, input *llm.LLMSkuUpdateInput) (*llm.LLMSkuUpdateInput, error)
 
 	ILLMContainerMCPAgent
 }

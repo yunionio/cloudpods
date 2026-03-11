@@ -75,11 +75,11 @@ type SCredential struct {
 	UserId    string `width:"64" charset:"ascii" nullable:"false" list:"user" create:"required"`
 	ProjectId string `width:"64" charset:"ascii" nullable:"true" list:"user" create:"required"`
 	Type      string `width:"255" charset:"utf8" nullable:"false" list:"user" create:"required"`
-	KeyHash   string `width:"64" charset:"ascii" nullable:"false" create:"required"`
+	KeyHash   string `width:"64" charset:"ascii" nullable:"false" create:"required" update:"user"`
 
 	Extra *jsonutils.JSONDict `nullable:"true" list:"admin"`
 
-	EncryptedBlob string `nullable:"false" create:"required"`
+	EncryptedBlob string `nullable:"false" create:"required" update:"user"`
 
 	Enabled tristate.TriState `default:"true" list:"user" update:"user" create:"optional"`
 }
@@ -172,6 +172,18 @@ func (cred *SCredential) ValidateUpdateData(ctx context.Context, userCred mcclie
 	input.StandaloneResourceBaseUpdateInput, err = cred.SStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, input.StandaloneResourceBaseUpdateInput)
 	if err != nil {
 		return input, errors.Wrap(err, "SStandaloneResourceBase.ValidateUpdateData")
+	}
+
+	if len(input.Blob) > 0 {
+		if cred.Type != api.CONTAINER_SECRET_TYPE {
+			return input, httperrors.NewNotSupportedError("blob update only supported for credential type %s", api.CONTAINER_SECRET_TYPE)
+		}
+		blobEnc, err := keys.CredentialKeyManager.Encrypt([]byte(input.Blob))
+		if err != nil {
+			return input, httperrors.NewInternalServerError("encrypt blob: %s", err)
+		}
+		input.EncryptedBlob = string(blobEnc)
+		input.KeyHash = keys.CredentialKeyManager.PrimaryKeyHash()
 	}
 
 	return input, nil

@@ -38,6 +38,12 @@ func init() {
 func (t *ContainerDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	t.SetStage("OnStopped", nil)
 	ctr := obj.(*models.SContainer)
+	isPurge := jsonutils.QueryBoolean(t.GetParams(), "purge", false)
+	if isPurge {
+		// purge: skip host stop/delete, go directly to delete from DB
+		t.ScheduleRun(nil)
+		return
+	}
 	if err := ctr.StartStopTask(ctx, t.GetUserCred(), &api.ContainerStopInput{}, t.GetTaskId()); err != nil {
 		t.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 		return

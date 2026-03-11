@@ -22,8 +22,18 @@ import (
 )
 
 type ContainerKeyValue struct {
-	Key   string `json:"key"`
-	Value string `json:"value"`
+	Key       string                `json:"key"`
+	Value     string                `json:"value"`
+	ValueFrom *ContainerValueSource `json:"value_from"`
+}
+
+type ContainerValueSource struct {
+	Credential *ContainerValueSourceCredential `json:"credential"`
+}
+
+type ContainerValueSourceCredential struct {
+	Id  string `json:"id"`
+	Key string `json:"key"`
 }
 
 type ContainerLifecyleHandlerType string
