@@ -361,6 +361,8 @@ type GuestnetworksecgroupDetails struct {
 	Ifname       string `json:"ifname"`
 	IpAddr       string `json:"ip_addr"`
 	Ip6Addr      string `json:"ip_6_addr"`
+	NetworkId    string `json:"network_id"`
+	NetworkName  string `json:"network_name"`
 
 	Admin bool `json:"admin"`
 }
