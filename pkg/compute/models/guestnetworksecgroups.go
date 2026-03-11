@@ -214,6 +214,10 @@ func (manager *SGuestnetworksecgroupManager) FetchCustomizeColumns(
 			rows[i].IpAddr = gn.IpAddr
 			rows[i].Ip6Addr = gn.Ip6Addr
 			rows[i].Ifname = gn.Ifname
+			if network, _ := gn.GetNetwork(); network != nil {
+				rows[i].NetworkId = gn.NetworkId
+				rows[i].NetworkName = network.Name
+			}
 		}
 
 	}
@@ -462,9 +466,6 @@ func (self *SGuest) PerformSetNetworkSecgroup(
 ) (jsonutils.JSONObject, error) {
 	if !utils.IsInStringArray(self.Status, []string{api.VM_READY, api.VM_RUNNING, api.VM_SUSPEND}) {
 		return nil, httperrors.NewInputParameterError("Cannot set security rules in status %s", self.Status)
-	}
-	if len(input.SecgroupIds) == 0 {
-		return nil, httperrors.NewMissingParameterError("secgroup_ids")
 	}
 
 	driver, _ := self.GetDriver()
