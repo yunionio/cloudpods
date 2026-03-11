@@ -47,7 +47,7 @@ const (
 
 	VOLCENGINE_API_VERSION         = "2020-04-01"
 	VOLCENGINE_IAM_API_VERSION     = "2018-01-01"
-	VOLCENGINE_OBSERVE_API_VERSION = "2018-01-01"
+	VOLCENGINE_MONITOR_API_VERSION = "2018-01-01"
 	VOLCENGINE_BILLING_API_VERSION = "2022-01-01"
 
 	VOLCENGINE_API         = "open.volcengineapi.com"
@@ -55,14 +55,14 @@ const (
 	VOLCENGINE_TOS_API     = "tos-cn-beijing.volces.com"
 	VOLCENGINE_BILLING_API = "billing.volcengineapi.com"
 
-	VOLCENGINE_SERVICE_ECS       = "ecs"
-	VOLCENGINE_SERVICE_VPC       = "vpc"
-	VOLCENGINE_SERVICE_NAT       = "natgateway"
-	VOLCENGINE_SERVICE_STORAGE   = "storage_ebs"
-	VOLCENGINE_SERVICE_IAM       = "iam"
-	VOLCENGINE_SERVICE_TOS       = "tos"
-	VOLCENGINE_SERVICE_OBSERVICE = "Volc_Observe"
-	VOLCENGINE_SERVICE_BILLING   = "billing"
+	VOLCENGINE_SERVICE_ECS     = "ecs"
+	VOLCENGINE_SERVICE_VPC     = "vpc"
+	VOLCENGINE_SERVICE_NAT     = "natgateway"
+	VOLCENGINE_SERVICE_STORAGE = "storage_ebs"
+	VOLCENGINE_SERVICE_IAM     = "iam"
+	VOLCENGINE_SERVICE_TOS     = "tos"
+	VOLCENGINE_SERVICE_MONITOR = "cloudmonitor"
+	VOLCENGINE_SERVICE_BILLING = "billing"
 
 	VOLCENGINE_DEFAULT_REGION = "cn-beijing"
 )
@@ -276,8 +276,8 @@ func (self *sCred) Do(req *http.Request) (*http.Response, error) {
 }
 
 func (client *SVolcEngineClient) monitorRequest(regionId, apiName string, params map[string]interface{}) (jsonutils.JSONObject, error) {
-	cred := client.getSdkCredential(regionId, VOLCENGINE_SERVICE_OBSERVICE, "")
-	return client.jsonRequest(cred, VOLCENGINE_API, VOLCENGINE_OBSERVE_API_VERSION, apiName, params)
+	cred := client.getSdkCredential(regionId, VOLCENGINE_SERVICE_MONITOR, "")
+	return client.jsonRequest(cred, VOLCENGINE_API, VOLCENGINE_MONITOR_API_VERSION, apiName, params)
 }
 
 func (client *SVolcEngineClient) jsonRequest(cred sdk.Credentials, domain string, apiVersion string, apiName string, params interface{}) (jsonutils.JSONObject, error) {
@@ -306,7 +306,7 @@ func (client *SVolcEngineClient) jsonRequest(cred sdk.Credentials, domain string
 			method = httputils.DELETE
 		}
 	}
-	if cred.Service == VOLCENGINE_SERVICE_OBSERVICE {
+	if cred.Service == VOLCENGINE_SERVICE_MONITOR {
 		method = httputils.POST
 	}
 	// 私网接口仅支持GET请求
@@ -314,15 +314,12 @@ func (client *SVolcEngineClient) jsonRequest(cred sdk.Credentials, domain string
 		method = httputils.GET
 	}
 
-	form := url.Values{}
-	_params, _ := params.(map[string]string)
+	var reqBody io.Reader = nil
 	switch method {
 	case httputils.POST:
-		for k, v := range _params {
-			form.Set(k, v)
-			query.Set(k, v)
-		}
+		reqBody = strings.NewReader(jsonutils.Marshal(params).String())
 	default:
+		_params, _ := params.(map[string]string)
 		for k, v := range _params {
 			query.Set(k, v)
 		}
@@ -333,7 +330,7 @@ func (client *SVolcEngineClient) jsonRequest(cred sdk.Credentials, domain string
 		return nil, errors.Wrapf(err, "url.Parse")
 	}
 
-	req, err := http.NewRequest(string(method), u.String(), strings.NewReader(form.Encode()))
+	req, err := http.NewRequest(string(method), u.String(), reqBody)
 	if err != nil {
 		return nil, errors.Wrapf(err, "NewRequest")
 	}
