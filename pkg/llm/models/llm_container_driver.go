@@ -78,15 +78,11 @@ type ILLMContainerInstantModel interface {
 	DownloadModel(ctx context.Context, userCred mcclient.TokenCredential, llm *SLLM, tmpDir string, modelName string, modelTag string) (string, []string, error)
 }
 
-// ILLMContainerDriverMultiContainer is an optional interface for drivers that create a pod with multiple containers (e.g. Dify). If not implemented, the driver is assumed to provide a single container via GetContainerSpec.
-type ILLMContainerDriverMultiContainer interface {
-	GetContainerSpecs(ctx context.Context, llm *SLLM, image *SLLMImage, sku *SLLMSku, props []string, devices []computeapi.SIsolatedDevice, diskId string) []*computeapi.PodContainerCreateInput
-}
-
 type ILLMContainerDriver interface {
 	GetType() llm.LLMContainerType
 	// GetContainerSpecs returns one or more container specs. If nil or empty, caller falls back to GetContainerSpec for a single container.
-	GetContainerSpec(ctx context.Context, llm *SLLM, image *SLLMImage, sku *SLLMSku, props []string, devices []computeapi.SIsolatedDevice, diskId string) *computeapi.PodContainerCreateInput
+	GetContainerSpecs(ctx context.Context, llm *SLLM, image *SLLMImage, sku *SLLMSku, props []string, devices []computeapi.SIsolatedDevice, diskId string) []*computeapi.PodContainerCreateInput
+	GetPrimaryContainer(ctx context.Context, llm *SLLM, containers []*computeapi.PodContainerDesc) (*computeapi.PodContainerDesc, error)
 
 	// StartLLM is called after the pod is running. For drivers that need to start the model process inside the container (e.g. vLLM), it runs the start command via exec and waits for health; on failure returns an error. For drivers that need no extra step (e.g. Ollama), it returns nil.
 	StartLLM(ctx context.Context, userCred mcclient.TokenCredential, llm *SLLM) error
@@ -115,6 +111,11 @@ type ILLMContainerInstantModelDriver interface {
 
 type ILLMContainerMCPAgent interface {
 	GetLLMUrl(ctx context.Context, userCred mcclient.TokenCredential, llm *SLLM) (string, error)
+}
+
+// ILLMContainerLoginInfo is an optional interface for drivers that provide web login credentials (e.g. Dify, OpenClaw). If not implemented, GetDetailsLoginInfo returns only login_url.
+type ILLMContainerLoginInfo interface {
+	GetLoginInfo(ctx context.Context, userCred mcclient.TokenCredential, llm *SLLM) (*llm.LLMLoginInfo, error)
 }
 
 var (
@@ -146,12 +147,5 @@ func GetLLMContainerInstantModelDriver(typ llm.LLMContainerType) (ILLMContainerI
 
 // GetDriverPodContainers returns the container(s) for the given driver. If the driver implements ILLMContainerDriverMultiContainer, GetContainerSpecs is used; otherwise a single-element slice from GetContainerSpec is returned.
 func GetDriverPodContainers(ctx context.Context, drv ILLMContainerDriver, llm *SLLM, image *SLLMImage, sku *SLLMSku, props []string, devices []computeapi.SIsolatedDevice, diskId string) []*computeapi.PodContainerCreateInput {
-	if multi, ok := drv.(ILLMContainerDriverMultiContainer); ok {
-		return multi.GetContainerSpecs(ctx, llm, image, sku, props, devices, diskId)
-	}
-	spec := drv.GetContainerSpec(ctx, llm, image, sku, props, devices, diskId)
-	if spec == nil {
-		return nil
-	}
-	return []*computeapi.PodContainerCreateInput{spec}
+	return drv.GetContainerSpecs(ctx, llm, image, sku, props, devices, diskId)
 }
