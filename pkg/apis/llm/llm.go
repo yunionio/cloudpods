@@ -202,3 +202,11 @@ type LLMVolumeInput struct {
 	VolumeId  string `json:"volume_id"`
 	AutoStart bool   `json:"auto_start"`
 }
+
+// LLMLoginInfo is the response for GET /llms/<id>/login-info: login URL and credentials.
+type LLMLoginInfo struct {
+	LoginUrl string            `json:"login_url"`
+	Username string            `json:"username,omitempty"`
+	Password string            `json:"password,omitempty"`
+	Extra    map[string]string `json:"extra,omitempty"`
+}

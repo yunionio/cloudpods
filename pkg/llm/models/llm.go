@@ -409,6 +409,23 @@ func (llm *SLLM) GetLLMContainer() (*SLLMContainer, error) {
 	return GetLLMContainerManager().FetchByLLMId(llm.Id)
 }
 
+func (llm *SLLM) SyncLLMContainer(ctx context.Context, userCred mcclient.TokenCredential, server *computeapi.ServerDetails) (*SLLMContainer, error) {
+	curCtr, _ := llm.GetLLMContainer()
+	if curCtr != nil {
+		return curCtr, nil
+	}
+	drv := llm.GetLLMContainerDriver()
+	ctr, err := drv.GetPrimaryContainer(ctx, llm, server.Containers)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetPrimaryContainer")
+	}
+	llmCtr, err := GetLLMContainerManager().CreateOnLLM(ctx, userCred, llm.GetOwnerId(), llm, ctr.Id, ctr.Name)
+	if nil != err {
+		return nil, errors.Wrapf(err, "create llm container on llm %s", ctr.Id)
+	}
+	return llmCtr, nil
+}
+
 func (llm *SLLM) GetLLMContainerDriver() ILLMContainerDriver {
 	sku, _ := llm.GetLLMSku(llm.LLMSkuId)
 	return sku.GetLLMContainerDriver()
@@ -689,6 +706,35 @@ func (llm *SLLM) GetDetailsUrl(ctx context.Context, userCred mcclient.TokenCrede
 	}
 	output := jsonutils.NewDict()
 	output.Set("access_url", jsonutils.NewString(accessUrl))
+	return output, nil
+}
+
+func (llm *SLLM) GetDetailsLoginInfo(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*api.LLMLoginInfo, error) {
+	if llm.CmpId == "" {
+		return nil, nil
+	}
+	output := new(api.LLMLoginInfo)
+	loginUrl, err := llm.GetLLMUrl(ctx, userCred)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetLLMUrl")
+	}
+	output.LoginUrl = loginUrl
+	drv := llm.GetLLMContainerDriver()
+	if loginInfoDrv, ok := drv.(ILLMContainerLoginInfo); ok {
+		info, err := loginInfoDrv.GetLoginInfo(ctx, userCred, llm)
+		if err != nil {
+			return nil, errors.Wrap(err, "GetLoginInfo")
+		}
+		if info.Username != "" {
+			output.Username = info.Username
+		}
+		if info.Password != "" {
+			output.Password = info.Password
+		}
+		if len(info.Extra) > 0 {
+			output.Extra = info.Extra
+		}
+	}
 	return output, nil
 }
 
