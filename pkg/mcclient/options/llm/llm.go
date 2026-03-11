@@ -113,6 +113,14 @@ func (o *LLMStartOptions) Params() (jsonutils.JSONObject, error) {
 	return jsonutils.Marshal(o), nil
 }
 
+type LLMRestartOptions struct {
+	options.BaseIdsOptions
+}
+
+func (o *LLMRestartOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(o), nil
+}
+
 type LLMStopOptions struct {
 	options.BaseIdsOptions
 }
