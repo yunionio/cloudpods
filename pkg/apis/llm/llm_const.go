@@ -33,15 +33,39 @@ const (
 	/* 运行 */
 	LLM_STATUS_RUNNING = "running"
 
+	/* 开始解绑磁盘 */
+	LLM_STATUS_START_UNBIND = "start_unbind"
+	/* 正在解绑磁盘 */
+	LLM_STATUS_UNBINDING = "unbinding"
+	/* 解绑磁盘失败 */
+	LLM_STATUS_UNBIND_FAIL = "unbind_fail"
+
+	/* 开始挂载磁盘 */
+	LLM_STATUS_START_BIND = "start_bind"
+	/* 正在挂载磁盘 */
+	LLM_STATUS_BINDING = "binding"
+	/* 挂载磁盘失败 */
+	LLM_STATUS_BIND_FAIL = "bind_fail"
+
+	/* 开始重启 */
+	LLM_STATUS_START_RESTART = "start_restart"
+	/* 正在重启 */
+	LLM_STATUS_RESTARTING = "restarting"
+	/* 重启失败 */
+	LLM_STATUS_RESTART_FAILED = "restart_fail"
+
+	/* 开始删除 */
+	LLM_STATUS_START_DELETE = "start_delete"
+	/* 正在删除 */
+	LLM_STATUS_DELETING = "deleting"
+	/* 删除失败 */
+	LLM_STATUS_DELETE_FAILED = "delete_fail"
+
 	/* 删除 */
 	LLM_STATUS_DELETED = "deleted"
 
 	LLM_LLM_STATUS_NO_SERVER    = "no_server"
 	LLM_LLM_STATUS_NO_CONTAINER = "no_container"
-
-	LLM_STATUS_START_DELETE  = "start_delete"
-	LLM_STATUS_DELETING      = "deleting"
-	LLM_STATUS_DELETE_FAILED = "delete_fail"
 )
 
 type TQuickModelMethod string

@@ -152,6 +152,7 @@ func InitHandlers(app *appsrv.Application, isSlave bool) {
 		models.GetLLMSkuManager(),
 		// models.GetDifySkuManager(),
 		models.GetVolumeManager(),
+		models.GetLLMBackupManager(),
 		models.GetAccessInfoManager(),
 		models.GetLLMContainerManager(),
 		models.GetLLMManager(),

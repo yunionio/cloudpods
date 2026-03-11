@@ -15,14 +15,18 @@ import (
 	commonapi "yunion.io/x/onecloud/pkg/apis"
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	api "yunion.io/x/onecloud/pkg/apis/llm"
+	"yunion.io/x/onecloud/pkg/apis/notify"
+	notifyapi "yunion.io/x/onecloud/pkg/apis/notify"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/llm/options"
 	llmutils "yunion.io/x/onecloud/pkg/llm/utils"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/compute"
+	baseoptions "yunion.io/x/onecloud/pkg/mcclient/options"
 	computeoptions "yunion.io/x/onecloud/pkg/mcclient/options/compute"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
@@ -478,10 +482,31 @@ func (llm *SLLM) PerformStart(ctx context.Context, userCred mcclient.TokenCreden
 		return nil, errors.Wrapf(errors.ErrInvalidStatus, "llm id: %s status: %s", llm.Id, llm.Status)
 	}
 
-	if err := llm.StartStartTask(ctx, userCred, ""); err != nil {
-		return nil, errors.Wrap(err, "StartStartTask")
+	_, err := llm.GetVolume()
+	if err != nil {
+		if errors.Cause(err) == sql.ErrNoRows {
+			return nil, errors.Wrapf(errors.ErrNotSupported, "llm id: %s missing volume", llm.Id)
+		}
+		return nil, errors.Wrap(err, "GetVolume")
 	}
-	return jsonutils.Marshal(nil), nil
+	taskinput := &api.LLMRestartTaskInput{
+		LLMId:     llm.Id,
+		LLMStatus: api.LLM_STATUS_READY,
+	}
+	_, err = llm.StartRestartTask(ctx, userCred, taskinput, "")
+	if err != nil {
+		return nil, errors.Wrap(err, "StartRestartTask")
+	}
+	return nil, nil
+}
+
+func (d *SLLM) StartStartTaskInternal(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
+	d.SetStatus(ctx, userCred, computeapi.VM_STARTING, "")
+	task, err := taskman.TaskManager.NewTask(ctx, "LLMStartTask", d, userCred, nil, parentTaskId, "", nil)
+	if err != nil {
+		return errors.Wrapf(err, "NewTask")
+	}
+	return task.ScheduleRun(nil)
 }
 
 func (llm *SLLM) StartStartTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
@@ -502,6 +527,96 @@ func (llm *SLLM) PerformStop(ctx context.Context, userCred mcclient.TokenCredent
 		return nil, errors.Wrap(err, "StartStopTask")
 	}
 	return nil, nil
+}
+
+func (llm *SLLM) ValidateRestartInput(ctx context.Context, userCred mcclient.TokenCredential, input *api.LLMRestartInput) (*api.LLMRestartTaskInput, error) {
+	if len(llm.CmpId) == 0 {
+		return nil, errors.Wrap(errors.ErrInvalidStatus, "empty cmp_id")
+	}
+
+	srv, err := llm.GetServer(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetServer")
+	}
+
+	if (llm.Status != api.LLM_STATUS_READY && llm.Status != api.LLM_STATUS_RUNNING) || (srv.Status != computeapi.VM_READY && !utils.IsInArray(srv.Status, computeapi.VM_RUNNING_STATUS)) {
+		return nil, errors.Wrapf(errors.ErrInvalidStatus, "invalid llm status %s", llm.Status)
+	}
+
+	return &api.LLMRestartTaskInput{}, nil
+}
+
+func (llm *SLLM) PerformRestart(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.LLMRestartInput) (jsonutils.JSONObject, error) {
+	taskInput, err := llm.ValidateRestartInput(ctx, userCred, input)
+	if err != nil {
+		return nil, errors.Wrap(err, "ValidateRestartInput")
+	}
+	_, err = llm.StartRestartTask(ctx, userCred, taskInput, "")
+	if err != nil {
+		return nil, errors.Wrap(err, "StartRestartTask")
+	}
+	return nil, nil
+}
+
+func (llm *SLLM) StartRestartTask(ctx context.Context, userCred mcclient.TokenCredential, params *api.LLMRestartTaskInput, parentTaskId string) (*taskman.STask, error) {
+	key := "perform_restart"
+	if params.ResetDataDisk {
+		key = "perform_reset"
+	}
+	llm.SetStatus(ctx, userCred, api.LLM_STATUS_START_RESTART, key)
+	taskName := "LLMRestartTask"
+	if params.ResetDataDisk {
+		taskName = "LLMResetTask"
+	}
+	params.LLMId = llm.Id
+	task, err := taskman.TaskManager.NewTask(ctx, taskName, llm, userCred, jsonutils.Marshal(params).(*jsonutils.JSONDict), parentTaskId, "", nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "NewTask")
+	}
+	if err := task.ScheduleRun(nil); err != nil {
+		return nil, errors.Wrap(err, "ScheduleRun")
+	}
+	return task, nil
+}
+
+func (llm *SLLM) PerformReset(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.LLMRestartInput) (jsonutils.JSONObject, error) {
+	taskInput, err := llm.ValidateRestartInput(ctx, userCred, input)
+	if err != nil {
+		return nil, errors.Wrap(err, "ValidateRestartInput")
+	}
+	_, err = llm.StartResetTask(ctx, userCred, taskInput, "")
+	if err != nil {
+		return nil, errors.Wrap(err, "StartRestartTask")
+	}
+	return nil, nil
+}
+
+func (llm *SLLM) StartResetTask(ctx context.Context, userCred mcclient.TokenCredential, params *api.LLMRestartTaskInput, parentTaskId string) (*taskman.STask, error) {
+	llm.SetStatus(ctx, userCred, api.LLM_STATUS_START_RESTART, "perform_reset")
+	task, err := taskman.TaskManager.NewTask(ctx, "LLMResetTask", llm, userCred, jsonutils.Marshal(params).(*jsonutils.JSONDict), parentTaskId, "", nil)
+	if err != nil {
+		return nil, errors.Wrapf(err, "NewTask")
+	}
+	if err := task.ScheduleRun(nil); err != nil {
+		return nil, errors.Wrap(err, "ScheduleRun")
+	}
+	return task, nil
+}
+
+func (llm *SLLM) NotifyRequest(ctx context.Context, userCred mcclient.TokenCredential, action notify.SAction, model jsonutils.JSONObject, success bool) {
+	obj := func(ctx context.Context, details *jsonutils.JSONDict) {}
+	if model != nil {
+		obj = func(ctx context.Context, details *jsonutils.JSONDict) {
+			details.Set("customize_details", model)
+		}
+	}
+	notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+		Obj:                 llm,
+		Action:              action,
+		ObjDetailsDecorator: obj,
+		IsFail:              !success,
+		ResourceType:        notifyapi.TOPIC_RESOURCE_LLM,
+	})
 }
 
 func (llm *SLLM) StartLLMStopTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
@@ -627,4 +742,107 @@ func (man *SLLMManager) GetAvailableNetwork(ctx context.Context, userCred mcclie
 	}
 
 	return ret, nil
+}
+
+func (llm *SLLM) StartBindVolumeTask(ctx context.Context, userCred mcclient.TokenCredential, volumeId string, autoStart bool, parenentTaskId string) (*taskman.STask, error) {
+	llm.SetStatus(ctx, userCred, api.LLM_STATUS_START_BIND, "perform bind volume")
+	params := api.LLMVolumeInput{
+		LLMId:     llm.Id,
+		VolumeId:  volumeId,
+		AutoStart: autoStart,
+	}
+	task, err := taskman.TaskManager.NewTask(ctx, "LLMAttachTask", llm, userCred, jsonutils.Marshal(params).(*jsonutils.JSONDict), parenentTaskId, "", nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "NewTask")
+	}
+	err = task.ScheduleRun(nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "ScheduleRun")
+	}
+	return task, nil
+}
+
+func (llm *SLLM) ChangeServerNetworkConfig(ctx context.Context, bandwidth int, whitePrefixes []string, noSync bool) error {
+	s := auth.GetAdminSession(ctx, options.Options.Region)
+	params := baseoptions.BaseListOptions{}
+	params.Scope = "max"
+	limit := 0
+	params.Limit = &limit
+	serverNicObjs, err := compute.Servernetworks.ListDescendent(s, llm.CmpId, jsonutils.Marshal(params))
+	if err != nil {
+		return errors.Wrap(err, "compute.Servernetworks.ListDescendent")
+	} else if len(serverNicObjs.Data) == 0 {
+		return errors.Wrap(httperrors.ErrEmptyRequest, "compute.Servernetworks.ListDescendent")
+	}
+	gns := computeapi.GuestnetworkDetails{}
+	err = serverNicObjs.Data[0].Unmarshal(&gns)
+	if err != nil {
+		return errors.Wrap(err, "Unmarshal GuestnetworkDetails")
+	}
+	if gns.BwLimit != bandwidth {
+		// need to change bandwidth
+		params := computeapi.ServerChangeBandwidthInput{}
+		params.Mac = gns.MacAddr
+		params.Index = 0
+		params.Bandwidth = bandwidth
+		params.NoSync = &noSync
+		_, err := compute.Servers.PerformAction(s, llm.CmpId, "change-bandwidth", jsonutils.Marshal(params))
+		if err != nil {
+			return errors.Wrap(err, "compute.Servers.PerformAction change-bandwidth")
+		}
+	}
+	/*if len(adbWhitePrefixes) > 0 {
+		for _, pm := range gns.PortMappings {
+			if pm.Port == apis.PHONE_ADB_PORT {
+				// verify adb port remote ips
+				remoteIps := stringutils2.NewSortedStrings(pm.RemoteIps)
+				remoteIps2 := stringutils2.NewSortedStrings(adbWhitePrefixes)
+				if !stringutils2.Equals(remoteIps, remoteIps2) {
+					// need to update remote Ips
+					params := computeapi.GuestnetworkUpdateInput{}
+					for i := range gns.PortMappings {
+						npm := gns.PortMappings[i]
+						if gns.PortMappings[i].Port == apis.PHONE_ADB_PORT {
+							npm.RemoteIps = adbWhitePrefixes
+						}
+						params.PortMappings = append(params.PortMappings, npm)
+					}
+					_, err := compute.Servernetworks.Update(s, gns.GuestId, gns.NetworkId, nil, jsonutils.Marshal(params))
+					if err != nil {
+						return errors.Wrap(err, "Servernetworks.Update")
+					}
+				}
+				break
+			}
+		}
+	}*/
+	return nil
+}
+
+func (llm *SLLM) PerformNetConfig(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input api.LLMChangeNetworkInput,
+) (jsonutils.JSONObject, error) {
+	err := llm.ChangeServerNetworkConfig(ctx, input.BandwidthMb, input.WhitePrefxies, false)
+	if err != nil {
+		return nil, errors.Wrap(err, "changeServerNetworkConfig")
+	}
+
+	if llm.BandwidthMb != input.BandwidthMb {
+		_, err := db.Update(llm, func() error {
+			llm.BandwidthMb = input.BandwidthMb
+			return nil
+		})
+		if err != nil {
+			return nil, errors.Wrap(err, "update")
+		}
+	}
+
+	return nil, nil
+}
+
+func (llm *SLLM) purgeModelList() error {
+	return GetLLMInstantModelManager().purgeModelList(llm.Id)
 }
