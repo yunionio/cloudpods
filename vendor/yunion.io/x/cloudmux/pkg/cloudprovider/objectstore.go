@@ -1128,14 +1128,14 @@ func newDownloadProgresser(totalSize int64, callback func(progress float64, prog
 func (p *sDownloadProgresser) Progress(_ int64, written int64) {
 	p.progress += written
 	duration := time.Since(p.startTime)
-	progress := float64(p.progress) / float64(p.totalSize)
+	progress := float64(p.progress*100) / float64(p.totalSize)
 	progressMbps := calculateRateMbps(p.progress, duration)
 	if p.callback != nil {
 		p.callback(progress, progressMbps, p.totalSize/1000/1000)
 	}
 	if time.Since(p.reportTime) > time.Second*5 {
 		p.reportTime = time.Now()
-		log.Infof("Download progress: %d/%d, %f%%, %fMbps", p.progress, p.totalSize, progress*100, progressMbps)
+		log.Infof("Download progress: %d/%d, %f%%, %fMbps", p.progress, p.totalSize, progress, progressMbps)
 	}
 }
 
@@ -1146,6 +1146,9 @@ func (p *sDownloadProgresser) Summary() {
 }
 
 func DownloadObjectParallelWithProgress(ctx context.Context, bucket ICloudBucket, key string, rangeOpt *SGetObjectRange, output io.WriterAt, outputOffset int64, blocksz int64, debug bool, parallel int, callback func(progress float64, progressMbps float64, totalSizeMb int64)) (int64, error) {
+	if debug {
+		log.Debugf("DownloadObjectParallelWithProgress bucket: %s key: %s offset: %d blocksz: %d parallel: %d", bucket.GetName(), key, outputOffset, blocksz, parallel)
+	}
 	obj, err := GetIObject(bucket, key)
 	if err != nil {
 		return 0, errors.Wrap(err, "GetIObject")
