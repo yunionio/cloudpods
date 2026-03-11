@@ -2,10 +2,13 @@ package models
 
 import (
 	"context"
+	"fmt"
+	"net/http"
 	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/httputils"
 	"yunion.io/x/pkg/utils"
@@ -80,6 +83,19 @@ func (volume *SVolume) RealDelete(ctx context.Context, userCred mcclient.TokenCr
 	return volume.SVirtualResourceBase.Delete(ctx, userCred)
 }
 
+func (volume *SVolume) StartResizeTask(ctx context.Context, userCred mcclient.TokenCredential, input api.VolumeResizeTaskInput, parentTaskId string) (*taskman.STask, error) {
+	volume.SetStatus(ctx, userCred, computeapi.DISK_START_RESIZE, "StartResizeTask")
+	params := jsonutils.Marshal(input).(*jsonutils.JSONDict)
+	task, err := taskman.TaskManager.NewTask(ctx, "VolumeResizeTask", volume, userCred, params, parentTaskId, "", nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "NewTask")
+	}
+	if err := task.ScheduleRun(nil); err != nil {
+		return nil, errors.Wrap(err, "ScheduleRun")
+	}
+	return task, nil
+}
+
 func fetchImage(ctx context.Context, userCred mcclient.TokenCredential, imageId string) (*imageapi.ImageDetails, error) {
 	s := auth.GetSession(ctx, userCred, options.Options.Region)
 	imgObj, err := image.Images.Get(s, imageId, nil)
@@ -140,4 +156,94 @@ func (volume *SVolume) WaitDiskStatus(ctx context.Context, userCred mcclient.Tok
 		time.Sleep(2 * time.Second)
 	}
 	return nil, errors.Wrapf(httperrors.ErrTimeout, "wait disk status %s timeout", targetStatus)
+}
+
+func (volume *SVolume) GetLLM() *SLLM {
+	if len(volume.LLMId) == 0 {
+		return nil
+	}
+	obj, err := GetLLMManager().FetchById(volume.LLMId)
+	if err != nil {
+		log.Errorf("Volume %s fetch llm %s error %s", volume.Id, volume.LLMId, err)
+		return nil
+	}
+	return obj.(*SLLM)
+}
+
+func (volume *SVolume) PerformReset(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.VolumePerformResetInput) (*api.LLMBatchPerformOutput, error) {
+	if volume.Status != computeapi.DISK_READY {
+		return nil, errors.Wrapf(httperrors.ErrInvalidStatus, "invalid status %s", volume.Status)
+	}
+	task, err := volume.StartResetTask(ctx, userCred, input, "")
+	if err != nil {
+		return nil, errors.Wrap(err, "StartResetTask")
+	}
+	return &api.LLMBatchPerformOutput{
+		Data: []api.LLMPerformOutput{
+			{
+				Id:            volume.Id,
+				Name:          volume.Name,
+				RequestStatus: http.StatusOK,
+				TaskId:        task.Id,
+			},
+		},
+		Task: task,
+	}, nil
+}
+
+func (volume *SVolume) StartResetTask(ctx context.Context, userCred mcclient.TokenCredential, input api.VolumePerformResetInput, parentTaskId string) (*taskman.STask, error) {
+	volume.SetStatus(ctx, userCred, api.VOLUME_STATUS_START_RESET, "StartResetTask")
+	params := jsonutils.Marshal(input).(*jsonutils.JSONDict)
+	task, err := taskman.TaskManager.NewTask(ctx, "VolumeResetTask", volume, userCred, params, parentTaskId, "")
+	if err != nil {
+		return nil, errors.Wrap(err, "NewTask")
+	}
+	err = task.ScheduleRun(nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "ScheduleRun")
+	}
+	return task, nil
+}
+
+func (volume *SVolume) DoReset(ctx context.Context, userCred mcclient.TokenCredential, templateId, backupId *string, sizeGb int) error {
+	// clear desktop app list
+	{
+		llm := volume.GetLLM()
+		if llm != nil {
+			llm.purgeModelList()
+		}
+	}
+	// clear mounts
+	{
+		_, err := db.Update(volume, func() error {
+			volume.MountedModels = nil
+			return nil
+		})
+		if err != nil {
+			return errors.Wrap(err, "update volume mounted_apps")
+		}
+	}
+
+	// reset disk
+	s := auth.GetSession(ctx, userCred, options.Options.Region)
+	params := computeapi.DiskRebuildInput{}
+	params.TemplateId = templateId
+	params.BackupId = backupId
+	emptyStr := ""
+	if params.BackupId == nil {
+		params.BackupId = &emptyStr
+	}
+	if sizeGb > 0 {
+		size := fmt.Sprintf("%dG", sizeGb)
+		params.Size = &size
+	}
+
+	log.Debugf("need to reset phone data disk ... %s %dG", jsonutils.Marshal(params), sizeGb)
+
+	_, err := compute.Disks.PerformAction(s, volume.CmpId, "rebuild", jsonutils.Marshal(params))
+	if err != nil {
+		return errors.Wrap(err, "rebuild disk")
+	}
+
+	return nil
 }

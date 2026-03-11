@@ -175,3 +175,30 @@ func (info LLMMountDirInfo) ToOverlay() apis.ContainerVolumeMountDiskPostOverlay
 
 type LLMSyncStatusInput struct {
 }
+
+type LLMRestartInput struct {
+}
+
+type LLMRestartTaskInput struct {
+	LLMId         string
+	ResetDataDisk bool
+	LLMStatus     string
+	SkuId         string
+	ImageId       string
+	BackupName    string
+	Property      []string
+
+	RebindVolumeId string
+	OnlyStop       bool
+}
+
+type LLMChangeNetworkInput struct {
+	BandwidthMb   int      `json:"bandwidth_mb"`
+	WhitePrefxies []string `json:"white_prefxies"`
+}
+
+type LLMVolumeInput struct {
+	LLMId     string `json:"llm_id"`
+	VolumeId  string `json:"volume_id"`
+	AutoStart bool   `json:"auto_start"`
+}

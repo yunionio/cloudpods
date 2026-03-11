@@ -16,6 +16,7 @@ func init() {
 	cmd.Perform("syncstatus", new(options.LLMIdOptions))
 	cmd.BatchPerform("stop", new(options.LLMStopOptions))
 	cmd.BatchPerform("start", new(options.LLMStartOptions))
+	cmd.BatchPerform("restart", new(options.LLMRestartOptions))
 	cmd.Get("probed-models", new(options.LLMIdOptions))
 	cmd.Get("url", new(options.LLMIdOptions))
 	cmd.Custom(shell.CustomActionGet, "available-network", new(options.LLMAvailableNetworkOptions))
