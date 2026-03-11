@@ -99,6 +99,8 @@ type ILLMContainerDriver interface {
 	ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, sku *SLLMSku, input *llm.LLMSkuUpdateInput) (*llm.LLMSkuUpdateInput, error)
 
 	MatchContainerToUpdate(ctr *computeapi.SContainer, podCtrs []*computeapi.PodContainerCreateInput) (*computeapi.PodContainerCreateInput, error)
+	ValidateLLMCreateData(ctx context.Context, userCred mcclient.TokenCredential, sku *SLLMSku, input *llm.LLMCreateInput) (*llm.LLMCreateInput, error)
+	ValidateLLMUpdateData(ctx context.Context, userCred mcclient.TokenCredential, llm *SLLM, input *llm.LLMUpdateInput) (*llm.LLMUpdateInput, error)
 
 	ILLMContainerMCPAgent
 }
