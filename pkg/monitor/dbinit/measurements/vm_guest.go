@@ -164,5 +164,10 @@ var vmNetio = SMeasurement{
 			DisplayName: "The total number of packets received by the network interface",
 			Unit:        monitor.METRIC_UNIT_COUNT,
 		},
+		{
+			Name:        "out_bandwidth_usage",
+			DisplayName: "Outbound bandwidth utilization",
+			Unit:        monitor.METRIC_UNIT_PERCENT,
+		},
 	},
 }

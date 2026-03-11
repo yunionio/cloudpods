@@ -310,10 +310,12 @@ Measurement,MeasurementNote,ResourceType,Database,Metric,MetricNote,MetricUnit
 "vm_netio","Guest network traffic","guest","telegraf","bps_sent","Send traffic per second","bps"
 "vm_netio","Guest network traffic","guest","telegraf","pps_recv","Received packets per second","pps"
 "vm_netio","Guest network traffic","guest","telegraf","pps_sent","Send packets per second","pps"
+
 "vm_netio","Guest network traffic","guest","telegraf","bytes_sent","The total number of bytes sent by the network interface","byte"
 "vm_netio","Guest network traffic","guest","telegraf","bytes_recv","The total number of bytes received by the network interface","byte"
 "vm_netio","Guest network traffic","guest","telegraf","packets_sent","The total number of packets sent by the network interface","count"
 "vm_netio","Guest network traffic","guest","telegraf","packets_recv","The total number of packets received by the network interface","count"
+"vm_netio","Guest network traffic","guest","telegraf","out_bandwidth_usage","Outbound bandwidth utilization","%"
 "pod_netio","Pod network traffic","container","telegraf","bps_recv","Received traffic per second","bps"
 "pod_netio","Pod network traffic","container","telegraf","bps_sent","Send traffic per second","bps"
 "pod_netio","Pod network traffic","container","telegraf","pps_recv","Received packets per second","pps"
