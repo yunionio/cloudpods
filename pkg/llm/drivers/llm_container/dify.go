@@ -37,6 +37,36 @@ func (d *dify) GetSpec(sku *models.SLLMSku) interface{} {
 	return sku.LLMSpec.Dify
 }
 
+// mergeDifySpecInto merges src into dst. If fillEmpty is true, only fills dst when dst is empty; otherwise overwrites dst when src is non-empty.
+func mergeDifySpecInto(dst, src *api.LLMSpecDify, fillEmpty bool) {
+	if dst == nil || src == nil {
+		return
+	}
+	mergeStr := func(dstPtr *string, srcVal string) {
+		if fillEmpty {
+			if *dstPtr == "" && srcVal != "" {
+				*dstPtr = srcVal
+			}
+		} else {
+			if srcVal != "" {
+				*dstPtr = srcVal
+			}
+		}
+	}
+	mergeStr(&dst.PostgresImageId, src.PostgresImageId)
+	mergeStr(&dst.RedisImageId, src.RedisImageId)
+	mergeStr(&dst.NginxImageId, src.NginxImageId)
+	mergeStr(&dst.DifyApiImageId, src.DifyApiImageId)
+	mergeStr(&dst.DifyPluginImageId, src.DifyPluginImageId)
+	mergeStr(&dst.DifyWebImageId, src.DifyWebImageId)
+	mergeStr(&dst.DifySandboxImageId, src.DifySandboxImageId)
+	mergeStr(&dst.DifySSRFImageId, src.DifySSRFImageId)
+	mergeStr(&dst.DifyWeaviateImageId, src.DifyWeaviateImageId)
+	if (fillEmpty && len(dst.CustomizedEnvs) == 0 && len(src.CustomizedEnvs) > 0) || (!fillEmpty && len(src.CustomizedEnvs) > 0) {
+		dst.CustomizedEnvs = src.CustomizedEnvs
+	}
+}
+
 // mergeDify merges llm and sku Dify specs; llm takes priority, use sku when llm is nil or zero.
 func mergeDify(llm, sku *api.LLMSpecDify) *api.LLMSpecDify {
 	if llm != nil && !llm.IsZero() {
@@ -139,24 +169,7 @@ func (d *dify) ValidateLLMCreateSpec(ctx context.Context, userCred mcclient.Toke
 	difySpec := input.Dify
 	// Merge empty fields from SKU so the stored spec is complete
 	if sku != nil && sku.LLMSpec != nil && sku.LLMSpec.Dify != nil {
-		base := sku.LLMSpec.Dify
-		mergeStr := func(dst *string, src string) {
-			if *dst == "" && src != "" {
-				*dst = src
-			}
-		}
-		mergeStr(&difySpec.PostgresImageId, base.PostgresImageId)
-		mergeStr(&difySpec.RedisImageId, base.RedisImageId)
-		mergeStr(&difySpec.NginxImageId, base.NginxImageId)
-		mergeStr(&difySpec.DifyApiImageId, base.DifyApiImageId)
-		mergeStr(&difySpec.DifyPluginImageId, base.DifyPluginImageId)
-		mergeStr(&difySpec.DifyWebImageId, base.DifyWebImageId)
-		mergeStr(&difySpec.DifySandboxImageId, base.DifySandboxImageId)
-		mergeStr(&difySpec.DifySSRFImageId, base.DifySSRFImageId)
-		mergeStr(&difySpec.DifyWeaviateImageId, base.DifyWeaviateImageId)
-		if len(difySpec.CustomizedEnvs) == 0 && len(base.CustomizedEnvs) > 0 {
-			difySpec.CustomizedEnvs = base.CustomizedEnvs
-		}
+		mergeDifySpecInto(difySpec, sku.LLMSpec.Dify, true)
 	}
 	// Validate non-empty image ids
 	for _, imgId := range []*string{&difySpec.PostgresImageId, &difySpec.RedisImageId, &difySpec.NginxImageId, &difySpec.DifyApiImageId, &difySpec.DifyPluginImageId, &difySpec.DifyWebImageId, &difySpec.DifySandboxImageId, &difySpec.DifySSRFImageId, &difySpec.DifyWeaviateImageId} {
@@ -204,24 +217,7 @@ func (d *dify) ValidateLLMUpdateSpec(ctx context.Context, userCred mcclient.Toke
 	if base == nil {
 		base = &api.LLMSpecDify{}
 	}
-	difySpec := input.Dify
-	mergeStr := func(dst *string, src string) {
-		if src != "" {
-			*dst = src
-		}
-	}
-	mergeStr(&base.PostgresImageId, difySpec.PostgresImageId)
-	mergeStr(&base.RedisImageId, difySpec.RedisImageId)
-	mergeStr(&base.NginxImageId, difySpec.NginxImageId)
-	mergeStr(&base.DifyApiImageId, difySpec.DifyApiImageId)
-	mergeStr(&base.DifyPluginImageId, difySpec.DifyPluginImageId)
-	mergeStr(&base.DifyWebImageId, difySpec.DifyWebImageId)
-	mergeStr(&base.DifySandboxImageId, difySpec.DifySandboxImageId)
-	mergeStr(&base.DifySSRFImageId, difySpec.DifySSRFImageId)
-	mergeStr(&base.DifyWeaviateImageId, difySpec.DifyWeaviateImageId)
-	if len(difySpec.CustomizedEnvs) > 0 {
-		base.CustomizedEnvs = difySpec.CustomizedEnvs
-	}
+	mergeDifySpecInto(base, input.Dify, false)
 	// Validate non-empty image ids
 	for _, imgId := range []*string{&base.PostgresImageId, &base.RedisImageId, &base.NginxImageId, &base.DifyApiImageId, &base.DifyPluginImageId, &base.DifyWebImageId, &base.DifySandboxImageId, &base.DifySSRFImageId, &base.DifyWeaviateImageId} {
 		if *imgId == "" {
