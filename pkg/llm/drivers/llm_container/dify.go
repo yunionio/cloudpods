@@ -88,88 +88,55 @@ func (d *dify) GetPrimaryContainer(ctx context.Context, llm *models.SLLM, contai
 	return nil, errors.Error("api container not found")
 }
 
-func (d *dify) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, input *api.LLMSkuCreateInput) (*api.LLMSkuCreateInput, error) {
+func (d *dify) ValidateLLMSkuCreateData(ctx context.Context, userCred mcclient.TokenCredential, input *api.LLMSkuCreateInput) (*api.LLMSkuCreateInput, error) {
 	if input.LLMSpec == nil || input.LLMSpec.Dify == nil {
 		return nil, errors.Wrap(httperrors.ErrInputParameter, "dify SKU requires llm_spec with type dify and image ids")
 	}
 	if input.MountedModels != nil {
 		return nil, errors.Wrap(httperrors.ErrInputParameter, "dify SKU does not support mounted models")
 	}
-	difySpec := input.LLMSpec.Dify
-	for _, imgId := range []*string{&difySpec.PostgresImageId, &difySpec.RedisImageId, &difySpec.NginxImageId, &difySpec.DifyApiImageId, &difySpec.DifyPluginImageId, &difySpec.DifyWebImageId, &difySpec.DifySandboxImageId, &difySpec.DifySSRFImageId, &difySpec.DifyWeaviateImageId} {
-		if *imgId == "" {
-			continue
-		}
-		imgObj, err := validators.ValidateModel(ctx, userCred, models.GetLLMImageManager(), imgId)
-		if err != nil {
-			return nil, errors.Wrapf(err, "validate image_id %s", *imgId)
-		}
-		img := imgObj.(*models.SLLMImage)
-		if img.LLMType != input.LLMType {
-			return nil, errors.Wrapf(httperrors.ErrInvalidStatus, "image %s is not of type %s", *imgId, input.LLMType)
-		}
-		*imgId = img.Id
-	}
-	input.LLMImageId = difySpec.DifyApiImageId
-	return input, nil
-}
 
-func (d *dify) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, sku *models.SLLMSku, input *api.LLMSkuUpdateInput) (*api.LLMSkuUpdateInput, error) {
-	if input.MountedModels != nil {
-		return nil, errors.Wrap(httperrors.ErrInputParameter, "dify SKU does not support mounted models")
+	// Reuse ValidateLLMCreateSpec to normalize/validate LLMSpec.
+	spec, err := d.ValidateLLMCreateSpec(ctx, userCred, nil, input.LLMSpec)
+	if err != nil {
+		return nil, err
 	}
-	if input.LLMSpec == nil || input.LLMSpec.Dify == nil {
-		return nil, nil
-	}
-	currentSpec := d.GetSpec(sku)
-	if currentSpec == nil {
-		return nil, nil
-	}
-	updated := *currentSpec.(*api.LLMSpecDify)
-	difySpec := input.LLMSpec.Dify
-	mergeStr := func(dst *string, src string) {
-		if src != "" {
-			*dst = src
-		}
-	}
-	mergeStr(&updated.PostgresImageId, difySpec.PostgresImageId)
-	mergeStr(&updated.RedisImageId, difySpec.RedisImageId)
-	mergeStr(&updated.NginxImageId, difySpec.NginxImageId)
-	mergeStr(&updated.DifyApiImageId, difySpec.DifyApiImageId)
-	mergeStr(&updated.DifyPluginImageId, difySpec.DifyPluginImageId)
-	mergeStr(&updated.DifyWebImageId, difySpec.DifyWebImageId)
-	mergeStr(&updated.DifySandboxImageId, difySpec.DifySandboxImageId)
-	mergeStr(&updated.DifySSRFImageId, difySpec.DifySSRFImageId)
-	mergeStr(&updated.DifyWeaviateImageId, difySpec.DifyWeaviateImageId)
-	if len(difySpec.CustomizedEnvs) > 0 {
-		updated.CustomizedEnvs = difySpec.CustomizedEnvs
-	}
-	for _, imgId := range []*string{&updated.PostgresImageId, &updated.RedisImageId, &updated.NginxImageId, &updated.DifyApiImageId, &updated.DifyPluginImageId, &updated.DifyWebImageId, &updated.DifySandboxImageId, &updated.DifySSRFImageId, &updated.DifyWeaviateImageId} {
-		if *imgId != "" {
-			imgObj, err := validators.ValidateModel(ctx, userCred, models.GetLLMImageManager(), imgId)
-			if err != nil {
-				return nil, errors.Wrapf(err, "validate image_id %s", *imgId)
-			}
-			img := imgObj.(*models.SLLMImage)
-			if img.LLMType != sku.LLMType {
-				return nil, errors.Wrapf(httperrors.ErrInvalidStatus, "image %s is not of type %s", *imgId, sku.LLMType)
-			}
-			*imgId = img.GetId()
-		}
-	}
-	// if dify_api_image_id is set, use it as the primary image id
-	if input.LLMSpec.Dify.DifyApiImageId != "" {
+	input.LLMSpec = spec
+	if input.LLMSpec != nil && input.LLMSpec.Dify != nil {
 		input.LLMImageId = input.LLMSpec.Dify.DifyApiImageId
 	}
 	return input, nil
 }
 
-// ValidateLLMCreateData implements ILLMContainerDriverLLMCreate. Validates image ids and merges empty fields from SKU spec.
-func (d *dify) ValidateLLMCreateData(ctx context.Context, userCred mcclient.TokenCredential, sku *models.SLLMSku, input *api.LLMCreateInput) (*api.LLMCreateInput, error) {
-	if input.LLMSpec == nil || input.LLMSpec.Dify == nil {
+func (d *dify) ValidateLLMSkuUpdateData(ctx context.Context, userCred mcclient.TokenCredential, sku *models.SLLMSku, input *api.LLMSkuUpdateInput) (*api.LLMSkuUpdateInput, error) {
+	if input.MountedModels != nil {
+		return nil, errors.Wrap(httperrors.ErrInputParameter, "dify SKU does not support mounted models")
+	}
+	if input.LLMSpec == nil {
 		return input, nil
 	}
-	difySpec := input.LLMSpec.Dify
+
+	// Reuse ValidateLLMUpdateSpec by treating current SKU spec as the \"current llm spec\".
+	fakeLLM := &models.SLLM{LLMSpec: sku.LLMSpec}
+	spec, err := d.ValidateLLMUpdateSpec(ctx, userCred, fakeLLM, input.LLMSpec)
+	if err != nil {
+		return nil, err
+	}
+	input.LLMSpec = spec
+
+	// if dify_api_image_id is set, use it as the primary image id
+	if input.LLMSpec != nil && input.LLMSpec.Dify != nil && input.LLMSpec.Dify.DifyApiImageId != "" {
+		input.LLMImageId = input.LLMSpec.Dify.DifyApiImageId
+	}
+	return input, nil
+}
+
+// ValidateLLMCreateSpec implements ILLMContainerDriver. Validates image ids and merges empty fields from SKU spec.
+func (d *dify) ValidateLLMCreateSpec(ctx context.Context, userCred mcclient.TokenCredential, sku *models.SLLMSku, input *api.LLMSpec) (*api.LLMSpec, error) {
+	if input == nil || input.Dify == nil {
+		return input, nil
+	}
+	difySpec := input.Dify
 	// Merge empty fields from SKU so the stored spec is complete
 	if sku != nil && sku.LLMSpec != nil && sku.LLMSpec.Dify != nil {
 		base := sku.LLMSpec.Dify
@@ -206,13 +173,12 @@ func (d *dify) ValidateLLMCreateData(ctx context.Context, userCred mcclient.Toke
 		}
 		*imgId = img.Id
 	}
-	input.LLMSpec = &api.LLMSpec{Dify: difySpec}
-	return input, nil
+	return &api.LLMSpec{Dify: difySpec}, nil
 }
 
-// ValidateLLMUpdateData implements ILLMContainerDriverLLMUpdate. Merges input with current LLM spec (non-empty overwrites); validates image ids.
-func (d *dify) ValidateLLMUpdateData(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM, input *api.LLMUpdateInput) (*api.LLMUpdateInput, error) {
-	if input.LLMSpec == nil || input.LLMSpec.Dify == nil {
+// ValidateLLMUpdateSpec implements ILLMContainerDriver. Merges input with current LLM spec (non-empty overwrites); validates image ids.
+func (d *dify) ValidateLLMUpdateSpec(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM, input *api.LLMSpec) (*api.LLMSpec, error) {
+	if input == nil || input.Dify == nil {
 		return input, nil
 	}
 	// Start from current LLM spec, or SKU spec as base
@@ -238,7 +204,7 @@ func (d *dify) ValidateLLMUpdateData(ctx context.Context, userCred mcclient.Toke
 	if base == nil {
 		base = &api.LLMSpecDify{}
 	}
-	difySpec := input.LLMSpec.Dify
+	difySpec := input.Dify
 	mergeStr := func(dst *string, src string) {
 		if src != "" {
 			*dst = src
@@ -271,8 +237,7 @@ func (d *dify) ValidateLLMUpdateData(ctx context.Context, userCred mcclient.Toke
 		}
 		*imgId = img.Id
 	}
-	input.LLMSpec = &api.LLMSpec{Dify: base}
-	return input, nil
+	return &api.LLMSpec{Dify: base}, nil
 }
 
 // GetContainerSpec is required by ILLMContainerDriver but not used for Dify; pod creation uses GetContainerSpecs. Return the first container so the interface is satisfied.

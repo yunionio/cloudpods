@@ -93,14 +93,15 @@ type ILLMContainerDriver interface {
 	GetEffectiveSpec(llm *SLLM, sku *SLLMSku) interface{}
 	// GetPrimaryImageId returns the primary image id for this SKU type (e.g. LLMImageId for ollama/vllm, DifyApiImageId for dify).
 	GetPrimaryImageId(sku *SLLMSku) string
-	// ValidateCreateData validates create input and returns the LLMSpec to store. Called by SKU manager after base validation.
-	ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, input *llm.LLMSkuCreateInput) (*llm.LLMSkuCreateInput, error)
-	// ValidateUpdateData validates update input, merges with current spec, and returns the LLMSpec to store. Called by SKU when LLMSpec is not nil.
-	ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, sku *SLLMSku, input *llm.LLMSkuUpdateInput) (*llm.LLMSkuUpdateInput, error)
+	// ValidateLLMSkuCreateData validates create input and returns the LLMSpec to store. Called by SKU manager after base validation.
+	ValidateLLMSkuCreateData(ctx context.Context, userCred mcclient.TokenCredential, input *llm.LLMSkuCreateInput) (*llm.LLMSkuCreateInput, error)
+	// ValidateLLMSkuUpdateData validates update input, merges with current spec, and returns the LLMSpec to store. Called by SKU when LLMSpec is not nil.
+	ValidateLLMSkuUpdateData(ctx context.Context, userCred mcclient.TokenCredential, sku *SLLMSku, input *llm.LLMSkuUpdateInput) (*llm.LLMSkuUpdateInput, error)
 
 	MatchContainerToUpdate(ctr *computeapi.SContainer, podCtrs []*computeapi.PodContainerCreateInput) (*computeapi.PodContainerCreateInput, error)
-	ValidateLLMCreateData(ctx context.Context, userCred mcclient.TokenCredential, sku *SLLMSku, input *llm.LLMCreateInput) (*llm.LLMCreateInput, error)
-	ValidateLLMUpdateData(ctx context.Context, userCred mcclient.TokenCredential, llm *SLLM, input *llm.LLMUpdateInput) (*llm.LLMUpdateInput, error)
+
+	ValidateLLMCreateSpec(ctx context.Context, userCred mcclient.TokenCredential, sku *SLLMSku, input *llm.LLMSpec) (*llm.LLMSpec, error)
+	ValidateLLMUpdateSpec(ctx context.Context, userCred mcclient.TokenCredential, llm *SLLM, input *llm.LLMSpec) (*llm.LLMSpec, error)
 
 	ILLMContainerMCPAgent
 }

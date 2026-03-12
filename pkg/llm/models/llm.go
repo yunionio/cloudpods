@@ -94,10 +94,11 @@ func (man *SLLMManager) ValidateCreateData(ctx context.Context, userCred mcclien
 
 	if input.LLMSpec != nil {
 		drv := lSku.GetLLMContainerDriver()
-		input, err = drv.ValidateLLMCreateData(ctx, userCred, lSku, input)
+		spec, err := drv.ValidateLLMCreateSpec(ctx, userCred, lSku, input.LLMSpec)
 		if err != nil {
 			return input, errors.Wrap(err, "validate LLM create spec")
 		}
+		input.LLMSpec = spec
 	}
 
 	return input, nil
@@ -403,11 +404,12 @@ func (llm *SLLM) ValidateUpdateData(ctx context.Context, userCred mcclient.Token
 		return input, errors.Wrap(err, "fetch LLMSku")
 	}
 	drv := sku.GetLLMContainerDriver()
-	inputPtr, err := drv.ValidateLLMUpdateData(ctx, userCred, llm, &input)
+	spec, err := drv.ValidateLLMUpdateSpec(ctx, userCred, llm, input.LLMSpec)
 	if err != nil {
 		return input, errors.Wrap(err, "validate LLM update spec")
 	}
-	return *inputPtr, nil
+	input.LLMSpec = spec
+	return input, nil
 }
 
 func (llm *SLLM) GetLargeLanguageModelName(name string) (modelName string, modelTag string, err error) {
