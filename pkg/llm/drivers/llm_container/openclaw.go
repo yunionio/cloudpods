@@ -2,6 +2,7 @@ package llm_container
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"strings"
 
@@ -23,7 +24,8 @@ const (
 	// browserContainerName   = "browser"
 	// openclawBrowserImage   = "registry.cn-beijing.aliyuncs.com/cloudpods/openclaw-browser:latest"
 	openclawDataDir  = "/data"
-	browserConfigDir = "/config"
+	desktopConfigDir = "/config"
+	homeDir          = "/home/"
 	// openclawBrowserCDPPort = "9222"
 )
 
@@ -230,6 +232,28 @@ func (c *openclaw) GetContainerSpec(ctx context.Context, llm *models.SLLM, image
 // 	}
 // }
 
+func (c *openclaw) getOpenClawBaseConfig(llm *models.SLLM) *api.OpenClawConfig {
+	return &api.OpenClawConfig{
+		Browser: &api.OpenClawConfigBrowser{
+			Enabled:        true,
+			DefaultProfile: "openclaw",
+			SSRFPolicy: map[string]interface{}{
+				"dangerouslyAllowPrivateNetwork": true,
+			},
+			Headless:  false,
+			NoSandbox: false,
+		},
+		Agents: &api.OpenClawConfigAgents{
+			"defaults": &api.OpenClawConfigAgent{
+				// TODO: 支持从 llm spec 里面自动选择
+				ImageModel: &api.OpenClawConfigAgentModel{
+					Primary: "moonshot/kimi-k2.5",
+				},
+			},
+		},
+	}
+}
+
 func (c *openclaw) GetContainerSpecs(ctx context.Context, llm *models.SLLM, image *models.SLLMImage, sku *models.SLLMSku, props []string, devices []computeapi.SIsolatedDevice, diskId string) []*computeapi.PodContainerCreateInput {
 	diskIndex := 0
 
@@ -240,7 +264,15 @@ func (c *openclaw) GetContainerSpecs(ctx context.Context, llm *models.SLLM, imag
 				SubDirectory: "config",
 			},
 			Type:      commonapi.CONTAINER_VOLUME_MOUNT_TYPE_DISK,
-			MountPath: browserConfigDir,
+			MountPath: desktopConfigDir,
+		},
+		{
+			Disk: &commonapi.ContainerVolumeMountDisk{
+				Index:        &diskIndex,
+				SubDirectory: "home",
+			},
+			Type:      commonapi.CONTAINER_VOLUME_MOUNT_TYPE_DISK,
+			MountPath: homeDir,
 		},
 		{
 			Disk: &commonapi.ContainerVolumeMountDisk{
@@ -249,6 +281,13 @@ func (c *openclaw) GetContainerSpecs(ctx context.Context, llm *models.SLLM, imag
 			},
 			Type:      commonapi.CONTAINER_VOLUME_MOUNT_TYPE_DISK,
 			MountPath: openclawDataDir,
+		},
+		{
+			Type: commonapi.CONTAINER_VOLUME_MOUNT_TYPE_TEXT,
+			Text: &commonapi.ContainerVolumeMountText{
+				Content: jsonutils.Marshal(c.getOpenClawBaseConfig(llm)).PrettyString(),
+			},
+			MountPath: api.LLM_OPENCLAW_CUSTOM_CONFIG_FILE,
 		},
 	}
 	httpAuthUsername := "admin"
@@ -268,6 +307,10 @@ func (c *openclaw) GetContainerSpecs(ctx context.Context, llm *models.SLLM, imag
 				{Key: "PUID", Value: "1000"},
 				{Key: "PGID", Value: "1000"},
 				{Key: "LC_ALL", Value: "zh_CN.UTF-8"},
+
+				// webtop envs: https://github.com/linuxserver/docker-webtop?tab=readme-ov-file#advanced-configuration
+				// {Key: "DISABLE_SUDO", Value: "true"},
+
 				// Provider
 				// {Key: "MOONSHOT_API_KEY", Value: "abc"},
 				// {Key: "OPENCLAW_PRIMARY_MODEL", Value: "moonshot/kimi-k2.5"},
@@ -276,12 +319,13 @@ func (c *openclaw) GetContainerSpecs(ctx context.Context, llm *models.SLLM, imag
 				{Key: string(api.LLM_OPENCLAW_CUSTOM_USER), Value: httpAuthUsername},
 				{Key: string(api.LLM_OPENCLAW_AUTH_PASSWORD), Value: httpAuthPassword},
 				{Key: string(api.LLM_OPENCLAW_PASSWORD), Value: httpAuthPassword},
+				{Key: string(api.LLM_OPENCLAW_CUSTOM_CONFIG), Value: api.LLM_OPENCLAW_CUSTOM_CONFIG_FILE},
 				// // Browser sidecar
 				// {Key: "BROWSER_CDP_URL", Value: "http://localhost" + ":" + openclawBrowserCDPPort},
 				// {Key: "BROWSER_DEFAULT_PROFILE", Value: "openclaw"},
 				// {Key: "BROWSER_EVALUATE_ENABLED", Value: "true"},
 				// OpenClaw env
-				{Key: "OPENCLAW_GATEWAY_TOKEN", Value: "abcd"},
+				{Key: "OPENCLAW_GATEWAY_TOKEN", Value: llm.GetId()},
 				{Key: "OPENCLAW_GATEWAY_PORT", Value: "18789"},
 				{Key: "OPENCLAW_GATEWAY_BIND", Value: "loopback"},
 				{Key: "OPENCLAW_STATE_DIR", Value: "/config/.openclaw"},
@@ -299,7 +343,7 @@ func (c *openclaw) GetContainerSpecs(ctx context.Context, llm *models.SLLM, imag
 				Index:        &diskIndex,
 				SubDirectory: "rootfs",
 			},
-			Persistent: true,
+			Persistent: false,
 		},
 	}
 	// inject credential envs
@@ -319,6 +363,27 @@ func (c *openclaw) GetContainerSpecs(ctx context.Context, llm *models.SLLM, imag
 	}
 	for _, channel := range skuSpec.Channels {
 		openclawSpec.Envs = appendCredentialEnvs(openclawSpec.Envs, channel.Credential)
+	}
+	// inject workspace templates
+	if skuSpec.WorkspaceTemplates != nil {
+		if skuSpec.WorkspaceTemplates.AgentsMD != "" {
+			openclawSpec.Envs = append(openclawSpec.Envs, &commonapi.ContainerKeyValue{
+				Key:   string(api.LLM_OPENCLAW_TEMPLATE_AGENTS_MD_B64),
+				Value: base64.StdEncoding.EncodeToString([]byte(skuSpec.WorkspaceTemplates.AgentsMD)),
+			})
+		}
+		if skuSpec.WorkspaceTemplates.SoulMD != "" {
+			openclawSpec.Envs = append(openclawSpec.Envs, &commonapi.ContainerKeyValue{
+				Key:   string(api.LLM_OPENCLAW_TEMPLATE_SOUL_MD_B64),
+				Value: base64.StdEncoding.EncodeToString([]byte(skuSpec.WorkspaceTemplates.SoulMD)),
+			})
+		}
+		if skuSpec.WorkspaceTemplates.UserMD != "" {
+			openclawSpec.Envs = append(openclawSpec.Envs, &commonapi.ContainerKeyValue{
+				Key:   string(api.LLM_OPENCLAW_TEMPLATE_USER_MD_B64),
+				Value: base64.StdEncoding.EncodeToString([]byte(skuSpec.WorkspaceTemplates.UserMD)),
+			})
+		}
 	}
 
 	return []*computeapi.PodContainerCreateInput{
