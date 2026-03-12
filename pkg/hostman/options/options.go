@@ -251,6 +251,10 @@ type SHostOptions struct {
 	EnableDirtyRecoverySeconds int  `help:"Seconds to delay enable dirty guests recovery feature, default 15 minutes" default:"900"`
 	EnableContainerCniPortmap  bool `help:"Use container cni portmap plugin" default:"false"`
 	DisableReconcileContainer  bool `help:"disable reconcile container" default:"false"`
+
+	// Container log rotation (Docker-style max-size and max-file)
+	ContainerLogMaxSize  string `help:"Max size of container log file before rotation (e.g. 10m, 100k). Disabled if empty or <= 0" default:"256m"`
+	ContainerLogMaxFiles int    `help:"Max number of container log files to keep (current + rotated). Disabled if <= 0" default:"1"`
 }
 
 func (o SHostOptions) HostLocalNetconfPath(br string) string {
