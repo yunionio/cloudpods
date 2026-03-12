@@ -62,66 +62,77 @@ func (v *vllm) GetEffectiveSpec(llm *models.SLLM, sku *models.SLLMSku) interface
 	return nil
 }
 
-func (v *vllm) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, input *api.LLMSkuCreateInput) (*api.LLMSkuCreateInput, error) {
-	input, err := v.baseDriver.ValidateCreateData(ctx, userCred, input)
+func (v *vllm) ValidateLLMSkuCreateData(ctx context.Context, userCred mcclient.TokenCredential, input *api.LLMSkuCreateInput) (*api.LLMSkuCreateInput, error) {
+	input, err := v.baseDriver.ValidateLLMSkuCreateData(ctx, userCred, input)
 	if err != nil {
 		return nil, err
 	}
 
-	// Ensure llm_spec.vllm exists so SKU has a stable type-specific spec (even if empty).
+	// Reuse ValidateLLMCreateSpec; ensure llm_spec.vllm always exists for vLLM SKU.
+	spec, err := v.ValidateLLMCreateSpec(ctx, userCred, nil, input.LLMSpec)
+	if err != nil {
+		return nil, err
+	}
+	if spec == nil {
+		spec = &api.LLMSpec{Vllm: &api.LLMSpecVllm{}}
+	} else if spec.Vllm == nil {
+		spec.Vllm = &api.LLMSpecVllm{}
+	}
+	input.LLMSpec = spec
+	return input, nil
+}
+
+func (v *vllm) ValidateLLMSkuUpdateData(ctx context.Context, userCred mcclient.TokenCredential, sku *models.SLLMSku, input *api.LLMSkuUpdateInput) (*api.LLMSkuUpdateInput, error) {
+	input, err := v.baseDriver.ValidateLLMSkuUpdateData(ctx, userCred, sku, input)
+	if err != nil {
+		return nil, err
+	}
+	if input.LLMSpec == nil {
+		return input, nil
+	}
+
+	// Reuse ValidateLLMUpdateSpec by treating current SKU spec as the "current llm spec".
+	fakeLLM := &models.SLLM{LLMSpec: sku.LLMSpec}
+	spec, err := v.ValidateLLMUpdateSpec(ctx, userCred, fakeLLM, input.LLMSpec)
+	if err != nil {
+		return nil, err
+	}
+	input.LLMSpec = spec
+	if input.LLMSpec != nil && input.LLMSpec.Vllm == nil {
+		input.LLMSpec.Vllm = &api.LLMSpecVllm{}
+	}
+	return input, nil
+}
+
+// ValidateLLMCreateSpec implements ILLMContainerDriver. Merges preferred_model from SKU when input's is empty.
+func (v *vllm) ValidateLLMCreateSpec(ctx context.Context, userCred mcclient.TokenCredential, sku *models.SLLMSku, input *api.LLMSpec) (*api.LLMSpec, error) {
+	if input == nil {
+		return nil, nil
+	}
 	preferred := ""
-	if input.LLMSpec != nil && input.LLMSpec.Vllm != nil {
-		preferred = input.LLMSpec.Vllm.PreferredModel
+	if input.Vllm != nil {
+		preferred = input.Vllm.PreferredModel
 	}
-	input.LLMSpec = &api.LLMSpec{Vllm: &api.LLMSpecVllm{PreferredModel: preferred}}
-	return input, nil
-}
-
-func (v *vllm) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, sku *models.SLLMSku, input *api.LLMSkuUpdateInput) (*api.LLMSkuUpdateInput, error) {
-	input, err := v.baseDriver.ValidateUpdateData(ctx, userCred, sku, input)
-	if err != nil {
-		return nil, err
-	}
-	if input.LLMSpec == nil || input.LLMSpec.Vllm == nil {
-		return input, nil
-	}
-	// Merge preferred_model with current spec; only overwrite when non-empty.
-	current := ""
-	if sku != nil && sku.LLMSpec != nil && sku.LLMSpec.Vllm != nil {
-		current = sku.LLMSpec.Vllm.PreferredModel
-	}
-	if input.LLMSpec.Vllm.PreferredModel == "" {
-		input.LLMSpec.Vllm.PreferredModel = current
-	}
-	return input, nil
-}
-
-// ValidateLLMCreateData implements ILLMContainerDriverLLMCreate. Merges preferred_model from SKU when input's is empty.
-func (v *vllm) ValidateLLMCreateData(ctx context.Context, userCred mcclient.TokenCredential, sku *models.SLLMSku, input *api.LLMCreateInput) (*api.LLMCreateInput, error) {
-	if input.LLMSpec == nil || input.LLMSpec.Vllm == nil {
-		return input, nil
-	}
-	preferred := input.LLMSpec.Vllm.PreferredModel
 	if preferred == "" && sku != nil && sku.LLMSpec != nil && sku.LLMSpec.Vllm != nil {
 		preferred = sku.LLMSpec.Vllm.PreferredModel
 	}
-	input.LLMSpec = &api.LLMSpec{Vllm: &api.LLMSpecVllm{PreferredModel: preferred}}
-	return input, nil
+	return &api.LLMSpec{Vllm: &api.LLMSpecVllm{PreferredModel: preferred}}, nil
 }
 
-// ValidateLLMUpdateData implements ILLMContainerDriverLLMUpdate. Merges preferred_model with current LLM spec; only overwrite when non-empty.
-func (v *vllm) ValidateLLMUpdateData(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM, input *api.LLMUpdateInput) (*api.LLMUpdateInput, error) {
-	if input.LLMSpec == nil || input.LLMSpec.Vllm == nil {
+// ValidateLLMUpdateSpec implements ILLMContainerDriver. Merges preferred_model with current LLM spec; only overwrite when non-empty.
+func (v *vllm) ValidateLLMUpdateSpec(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM, input *api.LLMSpec) (*api.LLMSpec, error) {
+	if input == nil || input.Vllm == nil {
 		return input, nil
 	}
 	current := ""
 	if llm != nil && llm.LLMSpec != nil && llm.LLMSpec.Vllm != nil {
 		current = llm.LLMSpec.Vllm.PreferredModel
 	}
-	if input.LLMSpec.Vllm.PreferredModel == "" {
-		input.LLMSpec.Vllm.PreferredModel = current
+	preferred := input.Vllm.PreferredModel
+	if preferred == "" {
+		preferred = current
 	}
-	return input, nil
+	return &api.LLMSpec{Vllm: &api.LLMSpecVllm{PreferredModel: preferred}}, nil
 }
 
 func (v *vllm) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *models.SLLMImage, sku *models.SLLMSku, props []string, devices []computeapi.SIsolatedDevice, diskId string) *computeapi.PodContainerCreateInput {

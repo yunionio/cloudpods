@@ -201,7 +201,7 @@ func (man *SLLMSkuManager) ValidateCreateData(ctx context.Context, userCred mccl
 	if err != nil {
 		return input, errors.Wrap(err, "get container driver")
 	}
-	input, err = drv.ValidateCreateData(ctx, userCred, input)
+	input, err = drv.ValidateLLMSkuCreateData(ctx, userCred, input)
 	if err != nil {
 		return input, errors.Wrap(err, "validate create input")
 	}
@@ -238,7 +238,7 @@ func (sku *SLLMSku) ValidateUpdateData(ctx context.Context, userCred mcclient.To
 		return input, nil
 	}
 	drv := sku.GetLLMContainerDriver()
-	updateInput, err := drv.ValidateUpdateData(ctx, userCred, sku, &input)
+	updateInput, err := drv.ValidateLLMSkuUpdateData(ctx, userCred, sku, &input)
 	if err != nil {
 		return input, errors.Wrap(err, "validate update spec")
 	}
