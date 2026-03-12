@@ -206,6 +206,7 @@ func (m *SGuestManager) startContainerSyncLoop() {
 				m.reconcileContainerLoop(m.podCache)
 			}()
 		}
+		StartContainerLogRotateLoop(m)
 	}
 }
 
