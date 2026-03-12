@@ -147,6 +147,11 @@ type PodInstance interface {
 	IsInternalRemoved(ctrCriId string) bool
 
 	GetPodContainerCriIds() []string
+
+	// For container log rotation: log dir, relative log path per container, and ctrId->criId map
+	GetPodLogDir() string
+	GetContainerLogPath(ctrId string) string
+	ListContainerCriIds() map[string]string
 }
 
 type sContainer struct {
@@ -641,6 +646,26 @@ func (s *sPodGuestInstance) getPodCreateParams() (*computeapi.PodCreateInput, er
 
 func (s *sPodGuestInstance) getPodLogDir() string {
 	return filepath.Join(s.HomeDir(), "logs")
+}
+
+func (s *sPodGuestInstance) GetPodLogDir() string {
+	return s.getPodLogDir()
+}
+
+func (s *sPodGuestInstance) getContainerLogPath(ctrId string) string {
+	return filepath.Join(fmt.Sprintf("%s.log", ctrId))
+}
+
+func (s *sPodGuestInstance) GetContainerLogPath(ctrId string) string {
+	return s.getContainerLogPath(ctrId)
+}
+
+func (s *sPodGuestInstance) ListContainerCriIds() map[string]string {
+	out := make(map[string]string, len(s.containers))
+	for ctrId, c := range s.containers {
+		out[ctrId] = c.CRIId
+	}
+	return out
 }
 
 func (s *sPodGuestInstance) getShmDir() string {
@@ -1724,10 +1749,6 @@ func (s *sPodGuestInstance) CreateContainer(ctx context.Context, userCred mcclie
 		return nil, errors.Wrap(err, "setContainerCRIInfo")
 	}
 	return nil, nil
-}
-
-func (s *sPodGuestInstance) getContainerLogPath(ctrId string) string {
-	return filepath.Join(fmt.Sprintf("%s.log", ctrId))
 }
 
 func (s *sPodGuestInstance) getLxcfsMounts() []*runtimeapi.Mount {
