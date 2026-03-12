@@ -278,36 +278,42 @@ func (v *vllm) StartLLM(ctx context.Context, userCred mcclient.TokenCredential, 
 		swapSpaceGiB = 1
 	}
 
-	// Preferred model path is injected into the script; resolved via GetEffectiveSpec (llm spec overrides sku spec).
 	preferredPath := ""
 	if eff := v.GetEffectiveSpec(llm, sku); eff != nil {
 		if preferred := eff.(*api.LLMSpecVllm).PreferredModel; preferred != "" {
 			preferredPath = path.Join(api.LLM_VLLM_MODELS_PATH, preferred)
 		}
 	}
-	preferredEscaped := escapeShellSingleQuoted(preferredPath)
-	cmd := fmt.Sprintf(
-		`preferred='%s'; mkdir -p %s; if [ -n "$preferred" ] && [ -d "$preferred" ]; then model="$preferred"; else model=$(ls -d %s/* 2>/dev/null | head -n 1); fi;
-		if [ -z "$model" ]; then echo "NO_MODEL"; exit 0; fi;
-		nohup %s --model "$model" --served-model-name "$(basename "$model")" --port %d \
+	resolved, err := v.resolveModelAndParams(ctx, lc.CmpId, preferredPath, tensorParallelSize)
+	if err != nil {
+		return err
+	}
+	if resolved == nil {
+		return nil // no model
+	}
+
+	modelEscaped := escapeShellSingleQuoted(resolved.ModelPath)
+	startCmd := fmt.Sprintf(
+		`nohup %s --model '%s' --served-model-name "$(basename '%s')" --port %d \
 		--tensor-parallel-size %d --swap-space %d --enable-prefix-caching \
+		--gpu-memory-utilization %s --max-model-len %d --max-num-seqs %d \
 		> /tmp/vllm.log 2>&1 &`,
-		preferredEscaped,
-		api.LLM_VLLM_MODELS_PATH,
-		api.LLM_VLLM_MODELS_PATH,
 		api.LLM_VLLM_EXEC_PATH,
+		modelEscaped,
+		modelEscaped,
 		api.LLM_VLLM_DEFAULT_PORT,
 		tensorParallelSize,
 		swapSpaceGiB,
+		resolved.GpuUtil,
+		resolved.MaxModelLen,
+		resolved.MaxNumSeqs,
 	)
-	output, err := exec(ctx, lc.CmpId, cmd, 30)
+	_, err = exec(ctx, lc.CmpId, startCmd, 30)
 	if err != nil {
-		log.Errorf("vLLM start failed, exec command: %s", cmd)
-		return errors.Wrapf(err, "exec start vLLM, command: %s", cmd)
+		log.Errorf("vLLM start failed, exec command: %s", startCmd)
+		return errors.Wrapf(err, "exec start vLLM, command: %s", startCmd)
 	}
-	if strings.Contains(output, "NO_MODEL") {
-		return nil
-	}
+	cmd := startCmd
 	// Wait for health endpoint
 	baseURL, err := v.GetLLMUrl(ctx, userCred, llm)
 	if err != nil {
@@ -501,4 +507,72 @@ func (v *vllm) DownloadModel(ctx context.Context, userCred mcclient.TokenCredent
 	}
 
 	return modelName, []string{targetDir}, nil
+}
+
+// vllmResolveResult is the result of resolving model path and estimating vLLM memory params in the container.
+type vllmResolveResult struct {
+	ModelPath   string
+	GpuUtil     string
+	MaxModelLen int
+	MaxNumSeqs  int
+}
+
+// resolveModelAndParams runs one exec in the container to resolve the model path and estimate
+// --gpu-memory-utilization, --max-model-len, --max-num-seqs. Returns (nil, nil) when no model is found.
+func (v *vllm) resolveModelAndParams(ctx context.Context, containerId string, preferredPath string, tensorParallelSize int) (*vllmResolveResult, error) {
+	preferredEscaped := escapeShellSingleQuoted(preferredPath)
+	escapedScript := escapeShellSingleQuoted(strings.TrimSpace(api.LLM_VLLM_ESTIMATE_PARAMS_SCRIPT))
+	defaultGpuUtil := strconv.FormatFloat(float64(api.LLM_VLLM_DEFAULT_GPU_MEMORY_UTIL), 'f', -1, 64)
+	cmd := fmt.Sprintf(
+		`mkdir -p %s;
+		preferred='%s';
+		if [ -n "$preferred" ] && [ -d "$preferred" ]; then model="$preferred"; else model=$(ls -d %s/* 2>/dev/null | head -n 1); fi;
+		if [ -z "$model" ]; then echo "NO_MODEL"; exit 0; fi;
+		tp=%d;
+		vllm_out=$(python3 -c '%s' "$model" "$tp" 2>/dev/null) || true;
+		GPU_MEMORY_UTIL=%s; MAX_MODEL_LEN=%d; MAX_NUM_SEQS=%d;
+		[ -n "$vllm_out" ] && eval "$vllm_out";
+		printf '%%s\n' "$model";
+		printf 'GPU_MEMORY_UTIL=%%s MAX_MODEL_LEN=%%s MAX_NUM_SEQS=%%s\n' "$GPU_MEMORY_UTIL" "$MAX_MODEL_LEN" "$MAX_NUM_SEQS"`,
+		api.LLM_VLLM_MODELS_PATH,
+		preferredEscaped,
+		api.LLM_VLLM_MODELS_PATH,
+		tensorParallelSize,
+		escapedScript,
+		defaultGpuUtil,
+		api.LLM_VLLM_DEFAULT_MAX_MODEL_LEN,
+		api.LLM_VLLM_DEFAULT_MAX_NUM_SEQS,
+	)
+	out, err := exec(ctx, containerId, cmd, 30)
+	if err != nil {
+		return nil, errors.Wrapf(err, "exec resolve model and params")
+	}
+	out = strings.TrimSpace(out)
+	if out == "NO_MODEL" {
+		return nil, nil
+	}
+	lines := strings.SplitN(out, "\n", 2)
+	if len(lines) < 2 {
+		return nil, errors.Errorf("vLLM resolve output missing params line: %s", out)
+	}
+	res := &vllmResolveResult{
+		ModelPath:   strings.TrimSpace(lines[0]),
+		GpuUtil:     defaultGpuUtil,
+		MaxModelLen: api.LLM_VLLM_DEFAULT_MAX_MODEL_LEN,
+		MaxNumSeqs:  api.LLM_VLLM_DEFAULT_MAX_NUM_SEQS,
+	}
+	for _, f := range strings.Fields(lines[1]) {
+		if val, ok := strings.CutPrefix(f, api.LLM_VLLM_RESOLVE_OUTPUT_PREFIX_GPU_UTIL); ok {
+			res.GpuUtil = val
+		} else if val, ok := strings.CutPrefix(f, api.LLM_VLLM_RESOLVE_OUTPUT_PREFIX_MAX_LEN); ok {
+			if n, e := strconv.Atoi(val); e == nil && n > 0 {
+				res.MaxModelLen = n
+			}
+		} else if val, ok := strings.CutPrefix(f, api.LLM_VLLM_RESOLVE_OUTPUT_PREFIX_MAX_NUM_SEQ); ok {
+			if n, e := strconv.Atoi(val); e == nil && n > 0 {
+				res.MaxNumSeqs = n
+			}
+		}
+	}
+	return res, nil
 }
