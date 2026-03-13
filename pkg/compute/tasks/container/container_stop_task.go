@@ -36,6 +36,7 @@ func init() {
 func (t *ContainerStopTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	t.requestStop(ctx, obj.(*models.SContainer))
 }
+
 func (t *ContainerStopTask) requestStop(ctx context.Context, container *models.SContainer) {
 	t.SetStage("OnStopped", nil)
 	if err := t.GetPodDriver().RequestStopContainer(ctx, t.GetUserCred(), t); err != nil {
@@ -57,6 +58,7 @@ func (t *ContainerStopTask) OnStopped(ctx context.Context, container *models.SCo
 func (t *ContainerStopTask) OnSyncStatus(ctx context.Context, container *models.SContainer, data jsonutils.JSONObject) {
 	t.SetStageComplete(ctx, nil)
 }
+
 func (t *ContainerStopTask) OnSyncStatusFailed(ctx context.Context, container *models.SContainer, reason jsonutils.JSONObject) {
 	t.SetStageFailed(ctx, reason)
 }

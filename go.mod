@@ -18,6 +18,7 @@ require (
 	github.com/coredns/coredns v1.3.0
 	github.com/coreos/go-iptables v0.6.0
 	github.com/creack/pty v1.1.18
+	github.com/docker/go-units v0.5.0
 	github.com/docker/spdystream v0.0.0-20160310174837-449fdfce4d96
 	github.com/eggsampler/acme/v3 v3.6.2
 	github.com/fernet/fernet-go v0.0.0-20180830025343-9eac43b88a5e
@@ -106,7 +107,7 @@ require (
 	k8s.io/klog/v2 v2.90.1
 	moul.io/http2curl/v2 v2.3.0
 	yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20260311083217-665f2742c60f
-	yunion.io/x/executor v0.0.0-20250518005516-5402e9e0bed0
+	yunion.io/x/executor v0.0.0-20260312022053-f538abd2b005
 	yunion.io/x/jsonutils v1.0.1-0.20250507052344-1abcf4f443b1
 	yunion.io/x/log v1.0.1-0.20240305175729-7cf2d6cd5a91
 	yunion.io/x/ovsdb v0.0.0-20230306173834-f164f413a900
@@ -212,7 +213,6 @@ require (
 	github.com/dimchansky/utfbom v1.1.0 // indirect
 	github.com/dnstap/golang-dnstap v0.0.0-20170829151710-2cf77a2b5e11 // indirect
 	github.com/docker/go-events v0.0.0-20250114142523-c867878c5e32 // indirect
-	github.com/docker/go-units v0.5.0 // indirect
 	github.com/dustin/go-humanize v1.0.0 // indirect
 	github.com/eapache/go-resiliency v1.1.0 // indirect
 	github.com/eapache/go-xerial-snappy v0.0.0-20180814174437-776d5712da21 // indirect
