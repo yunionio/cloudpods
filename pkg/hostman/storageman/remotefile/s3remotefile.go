@@ -55,7 +55,7 @@ func (info *S3RemoteFileInfo) download(ctx context.Context, localPath string, ca
 	}
 	defer fi.Close()
 
-	_, err = cloudprovider.DownloadObjectParallelWithProgress(ctx, bucket, info.Key, nil, fi, 0, 0, false, 10, callback)
+	_, err = cloudprovider.DownloadObjectParallelWithProgress(ctx, bucket, info.Key, nil, fi, 0, 0, true, 1, callback)
 	if err != nil {
 		return errors.Wrap(err, "download object")
 	}
