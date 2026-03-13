@@ -82,6 +82,14 @@ type LLMCreateInput struct {
 	LLMSpec    *LLMSpec `json:"llm_spec,omitempty"`
 }
 
+// LLMUpdateInput is the request body for updating an LLM (including llm_spec overrides).
+type LLMUpdateInput struct {
+	apis.VirtualResourceBaseUpdateInput
+
+	InstantModelQuotaGb *int     `json:"instant_model_quota_gb,omitempty"`
+	LLMSpec             *LLMSpec `json:"llm_spec,omitempty"`
+}
+
 type LLMBaseListInput struct {
 	apis.VirtualResourceListInput
 	apis.EnabledResourceBaseListInput

@@ -59,5 +59,10 @@ func (t *LLMStartTask) OnStartedFailed(ctx context.Context, llm *models.SLLM, er
 }
 
 func (t *LLMStartTask) OnStarted(ctx context.Context, llm *models.SLLM, reason jsonutils.JSONObject) {
+	err := llm.GetLLMContainerDriver().StartLLM(ctx, t.GetUserCred(), llm)
+	if err != nil {
+		t.taskFailed(ctx, llm, err.Error())
+		return
+	}
 	t.taskComplete(ctx, llm)
 }

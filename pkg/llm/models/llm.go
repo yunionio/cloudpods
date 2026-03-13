@@ -92,6 +92,15 @@ func (man *SLLMManager) ValidateCreateData(ctx context.Context, userCred mcclien
 	input.LLMSkuId = lSku.Id
 	input.LLMImageId = lSku.GetLLMImageId()
 
+	if input.LLMSpec != nil {
+		drv := lSku.GetLLMContainerDriver()
+		spec, err := drv.ValidateLLMCreateSpec(ctx, userCred, lSku, input.LLMSpec)
+		if err != nil {
+			return input, errors.Wrap(err, "validate LLM create spec")
+		}
+		input.LLMSpec = spec
+	}
+
 	return input, nil
 }
 
@@ -378,6 +387,29 @@ func (llm *SLLM) GetLLMSku(skuId string) (*SLLMSku, error) {
 		return nil, errors.Wrap(err, "fetch LLMSku")
 	}
 	return sku.(*SLLMSku), nil
+}
+
+func (llm *SLLM) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.LLMUpdateInput) (api.LLMUpdateInput, error) {
+	var err error
+	input.VirtualResourceBaseUpdateInput, err = llm.SLLMBase.SVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, input.VirtualResourceBaseUpdateInput)
+	if err != nil {
+		return input, errors.Wrap(err, "validate VirtualResourceBaseUpdateInput")
+	}
+
+	if input.LLMSpec == nil {
+		return input, nil
+	}
+	sku, err := llm.GetLLMSku(llm.LLMSkuId)
+	if err != nil {
+		return input, errors.Wrap(err, "fetch LLMSku")
+	}
+	drv := sku.GetLLMContainerDriver()
+	spec, err := drv.ValidateLLMUpdateSpec(ctx, userCred, llm, input.LLMSpec)
+	if err != nil {
+		return input, errors.Wrap(err, "validate LLM update spec")
+	}
+	input.LLMSpec = spec
+	return input, nil
 }
 
 func (llm *SLLM) GetLargeLanguageModelName(name string) (modelName string, modelTag string, err error) {
