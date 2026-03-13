@@ -11,6 +11,7 @@ func init() {
 	cmd.BatchCreate(new(options.LLMCreateOptions))
 	cmd.List(new(options.LLMListOptions))
 	cmd.Show(new(options.LLMShowOptions))
+	cmd.Update(new(options.LLMUpdateOptions))
 	cmd.Delete(new(options.LLMDeleteOptions))
 	// cmd.Perform("change-model", new(options.LLMChangeModelOptions))
 	cmd.Perform("syncstatus", new(options.LLMIdOptions))
