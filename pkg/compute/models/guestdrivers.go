@@ -128,6 +128,7 @@ type IGuestDriver interface {
 	RequestDetachDisksFromGuestForDelete(ctx context.Context, guest *SGuest, task taskman.ITask) error
 
 	RequestUndeployGuestOnHost(ctx context.Context, guest *SGuest, host *SHost, task taskman.ITask) error
+	IsNeedCleanDisksAfterUndeploy() bool
 
 	OnDeleteGuestFinalCleanup(ctx context.Context, guest *SGuest, userCred mcclient.TokenCredential) error
 
