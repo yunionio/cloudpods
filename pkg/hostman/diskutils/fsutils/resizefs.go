@@ -55,12 +55,13 @@ func (d *SFsutilDriver) GetResizeDevBySerial(diskId string) (string, error) {
 				resizeDev = path.Join("/dev/", segs[0])
 				break
 			}
-		}
-		devName, serial := segs[0], segs[1]
-		log.Infof("lsblk segs: %s %s |", devName, serial)
-		if strings.HasPrefix(diskSerial, serial) {
-			resizeDev = path.Join("/dev/", devName)
-			break
+		} else {
+			devName, serial := segs[0], segs[1]
+			log.Infof("lsblk segs: %s %s |", devName, serial)
+			if strings.HasPrefix(diskSerial, serial) {
+				resizeDev = path.Join("/dev/", devName)
+				break
+			}
 		}
 	}
 	return resizeDev, nil
