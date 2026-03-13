@@ -724,3 +724,7 @@ func (base *SBaseGuestDriver) CanStop(guest *models.SGuest) error {
 	}
 	return errors.Wrapf(errors.ErrInvalidStatus, "Cannot stop server in status %s", guest.Status)
 }
+
+func (base *SBaseGuestDriver) IsNeedCleanDisksAfterUndeploy() bool {
+	return true
+}
