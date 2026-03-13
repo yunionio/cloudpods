@@ -694,3 +694,7 @@ func (base *SBaseGuestDriver) ValidateGuestChangeConfigInput(ctx context.Context
 func (base *SBaseGuestDriver) ValidateGuestHotChangeConfigInput(ctx context.Context, guest *models.SGuest, confs *api.ServerChangeConfigSettings) (*api.ServerChangeConfigSettings, error) {
 	return confs, nil
 }
+
+func (base *SBaseGuestDriver) IsNeedCleanDisksAfterUndeploy() bool {
+	return true
+}

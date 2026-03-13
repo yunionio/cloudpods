@@ -936,31 +936,36 @@ func (drv *SManagedVirtualizedGuestDriver) RequestUndeployGuestOnHost(ctx contex
 
 		cloudprovider.WaitDeleted(ivm, time.Second*10, time.Minute*3)
 
-		disks, err := guest.GetDisks()
-		if err != nil {
-			return nil, errors.Wrapf(err, "GetDisks")
-		}
+		driver := guest.GetDriver()
 
-		for i := range disks {
-			disk := disks[i]
-			storage, _ := disk.GetStorage()
-			if !utils.IsInStringArray(storage.StorageType, api.STORAGE_LOCAL_TYPES) && disk.DiskType != api.DISK_TYPE_SYS {
-				idisk, err := disk.GetIDisk(ctx)
-				if err != nil {
-					if errors.Cause(err) == cloudprovider.ErrNotFound {
+		if driver.IsNeedCleanDisksAfterUndeploy() {
+			disks, err := guest.GetDisks()
+			if err != nil {
+				return nil, errors.Wrapf(err, "GetDisks")
+			}
+
+			for i := range disks {
+				disk := disks[i]
+				storage, _ := disk.GetStorage()
+				if !utils.IsInStringArray(storage.StorageType, api.STORAGE_LOCAL_TYPES) && disk.DiskType != api.DISK_TYPE_SYS {
+					idisk, err := disk.GetIDisk(ctx)
+					if err != nil {
+						if errors.Cause(err) == cloudprovider.ErrNotFound {
+							continue
+						}
+						return nil, errors.Wrapf(err, "disk.GetIDisk")
+					}
+					if idisk.GetStatus() == api.DISK_DEALLOC {
 						continue
 					}
-					return nil, errors.Wrapf(err, "disk.GetIDisk")
-				}
-				if idisk.GetStatus() == api.DISK_DEALLOC {
-					continue
-				}
-				err = idisk.Delete(ctx)
-				if err != nil {
-					return nil, errors.Wrapf(err, "idisk.Delete")
+					err = idisk.Delete(ctx)
+					if err != nil {
+						return nil, errors.Wrapf(err, "idisk.Delete")
+					}
 				}
 			}
 		}
+
 		return nil, nil
 	})
 	return nil
