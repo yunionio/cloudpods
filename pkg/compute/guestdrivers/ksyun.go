@@ -176,3 +176,7 @@ func (self *SKsyunGuestDriver) IsSupportShutdownMode() bool {
 func (self *SKsyunGuestDriver) IsNeedRestartForResetLoginInfo() bool {
 	return false
 }
+
+func (self *SKsyunGuestDriver) IsNeedCleanDisksAfterUndeploy() bool {
+	return false
+}
