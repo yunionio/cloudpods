@@ -14,9 +14,15 @@
 
 package sysutils
 
-import "testing"
+import (
+	"runtime"
+	"testing"
+)
 
 func TestDetectStorageType(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("Skipping DetectStorageType test on non-linux")
+	}
 	s, err := DetectStorageType()
 	if err != nil {
 		t.Errorf("DetectStorageType fail %s", err)
