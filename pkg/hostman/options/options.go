@@ -255,6 +255,9 @@ type SHostOptions struct {
 	// Container log rotation (Docker-style max-size and max-file)
 	ContainerLogMaxSize  string `help:"Max size of container log file before rotation (e.g. 10m, 100k). Disabled if empty or <= 0" default:"256m"`
 	ContainerLogMaxFiles int    `help:"Max number of container log files to keep (current + rotated). Disabled if <= 0" default:"1"`
+
+	PortMappingRangeStart int `default:"20000" help:"port mapping range start for guest port mapping allocation"`
+	PortMappingRangeEnd   int `default:"25000" help:"port mapping range end for guest port mapping allocation"`
 }
 
 func (o SHostOptions) HostLocalNetconfPath(br string) string {

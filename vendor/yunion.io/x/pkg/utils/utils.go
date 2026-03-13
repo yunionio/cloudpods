@@ -61,6 +61,11 @@ func CamelSplitTokens(str string) []string {
 		} else {
 			upperCount = 0
 			split = true
+			// For non-alphanumeric characters at the end of the string,
+			// include them in the current buffer before splitting to preserve them
+			if i == len(str)-1 && len(buf) > 0 {
+				buf = append(buf, c)
+			}
 			inc = false
 		}
 		if split && len(buf) > 0 {

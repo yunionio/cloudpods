@@ -48,8 +48,10 @@ const (
 const (
 	// TAG_IGNORE is a field tag that indicates the field is ignored, not represents a table column
 	TAG_IGNORE = "ignore"
-	// TAG_NAME is a field tag that indicates the column name of this field
+	// TAG_NAME is a field tag that indicates the column name of this field, obsolete, use TAG_SQL_NAME instead!
 	TAG_NAME = "name"
+	// TAG_SQL_NAME is a field tag that indicates the column name of this field, superceeds TAG_NAME!
+	TAG_SQL_NAME = "sql_name"
 	// TAG_WIDTH is a field tag that indicates the width of the column, like VARCHAR(15)
 	// Supported by: mysql
 	TAG_WIDTH = "width"

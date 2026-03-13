@@ -15,7 +15,6 @@
 package dameng
 
 import (
-	"yunion.io/x/log"
 	"yunion.io/x/sqlchemy"
 )
 
@@ -32,8 +31,8 @@ func (t *SDamengEqualsCondition) WhereClause() string {
 
 // Equals filter conditions
 func (dameng *SDamengBackend) Equals(f sqlchemy.IQueryField, v interface{}) sqlchemy.ICondition {
-	log.Debugf("field %s isFieldText: %v %#v", f.Name(), sqlchemy.IsFieldText(f), f)
-	if sqlchemy.IsFieldText(f) {
+	// log.Debugf("field %s isFieldText: %v %#v", f.Name(), sqlchemy.IsFieldText(f), f)
+	if sqlchemy.IsLongFieldText(f) {
 		c := SDamengEqualsCondition{sqlchemy.NewTupleCondition(f, v)}
 		return &c
 	} else {

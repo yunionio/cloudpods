@@ -47,6 +47,8 @@ type SStructFieldInfo struct {
 	kebabFieldName string
 	ForceString    bool
 	Tags           map[string]string
+
+	Aliases []string
 }
 
 func (s *SStructFieldInfo) updateTags(k, v string) {
@@ -69,6 +71,9 @@ func (s SStructFieldInfo) deepCopy() *SStructFieldInfo {
 		tags[k] = v
 	}
 	scopy.Tags = tags
+	aliases := make([]string, len(s.Aliases))
+	copy(aliases, s.Aliases)
+	scopy.Aliases = aliases
 	return &scopy
 }
 
@@ -124,6 +129,9 @@ func ParseFieldJsonInfo(name string, tag reflect.StructTag) SStructFieldInfo {
 	}
 	if !info.Ignore && len(info.Name) == 0 {
 		info.Name = info.kebabFieldName
+	}
+	if val, ok := info.Tags["alias"]; !info.Ignore && ok {
+		info.Aliases = strings.Split(val, ",")
 	}
 	return info
 }
@@ -335,6 +343,8 @@ func (fields SStructFieldValueSet) GetStructFieldIndexes2(name string, strictMod
 			} else if info.FieldName == name {
 				ret = append(ret, i)
 			} else if info.FieldName == capName {
+				ret = append(ret, i)
+			} else if len(info.Aliases) > 0 && utils.IsInArray(name, info.Aliases) {
 				ret = append(ret, i)
 			}
 		}

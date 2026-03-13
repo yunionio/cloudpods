@@ -109,6 +109,17 @@ func FindWords(str []byte, offset int) []string {
 	return words
 }
 
+func SplitWords(str string) ([]string, error) {
+	offset := 0
+	words := make([]string, 0)
+	for offset < len(str) {
+		word, i := _findWord([]byte(str), offset, " \n\r\t", isQuoteCharInternal)
+		words = append(words, word)
+		offset = i
+	}
+	return words, nil
+}
+
 func FindWords2(str []byte, offset int, sepChars string, isQuoteChar func(ch byte) (bool, string)) ([]string, error) {
 	words := make([]string, 0)
 	for offset < len(str) {

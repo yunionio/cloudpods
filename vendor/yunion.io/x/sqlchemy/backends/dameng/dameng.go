@@ -21,6 +21,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"runtime/debug"
 
 	_ "gitee.com/chunanyong/dm"
 
@@ -95,6 +96,7 @@ func (dameng *SDamengBackend) PrepareInsertOrUpdateSQL(ts sqlchemy.ITableSpec, i
 	for _, primary := range onPrimaryCols {
 		colName := strings.Trim(primary, "'\"")
 		if _, ok := colNameMap[colName]; !ok {
+			debug.PrintStack()
 			log.Fatalf("primary colume %s missing from insert columes for table %s", colName, ts.Name())
 		}
 		onConditions = append(onConditions, fmt.Sprintf("T1.%s=T2.%s", primary, primary))

@@ -139,6 +139,10 @@ func (addr IPV4Addr) ToMac(prefix string) string {
 	return fmt.Sprintf("%s%02x:%02x:%02x:%02x", prefix, bytes[0], bytes[1], bytes[2], bytes[3])
 }
 
+func (addr IPV4Addr) IsZero() bool {
+	return addr == 0
+}
+
 type IPV4AddrRange struct {
 	start IPV4Addr
 	end   IPV4Addr
