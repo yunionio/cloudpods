@@ -57,6 +57,9 @@ func (t text) GetRuntimeMountHostPath(pod IPodInfo, ctrId string, vm *hostapi.Co
 		dirPath = rootFsPath
 	}
 	mntPath := filepath.Join(dirPath, fmt.Sprintf("%s-%s", ctrId, strings.ReplaceAll(vm.MountPath, "/", "_")))
+	if err := EnsureDir(filepath.Dir(mntPath)); err != nil {
+		return "", errors.Wrapf(err, "mkdir %s", filepath.Dir(mntPath))
+	}
 	if err := t.writeContent(ti, mntPath); err != nil {
 		return "", errors.Wrapf(err, "write content %s to %s", ti, mntPath)
 	}
