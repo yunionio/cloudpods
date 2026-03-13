@@ -94,6 +94,7 @@ func (task *LLMCreateTask) OnLLMRefreshStatusComplete(ctx context.Context, llm *
 	mountedModels, err := llm.FetchMountedModelFullName()
 	if err != nil {
 		task.taskFailed(ctx, llm, errors.Wrap(err, "FetchMountedModelFullName"))
+		return
 	}
 
 	// 创建磁盘

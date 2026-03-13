@@ -41,7 +41,7 @@ func (b *baseDriver) StartLLM(ctx context.Context, userCred mcclient.TokenCreden
 	return nil
 }
 
-func (b *baseDriver) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, input *api.LLMSkuCreateInput) (*api.LLMSkuCreateInput, error) {
+func (b *baseDriver) ValidateLLMSkuCreateData(ctx context.Context, userCred mcclient.TokenCredential, input *api.LLMSkuCreateInput) (*api.LLMSkuCreateInput, error) {
 	imgObj, err := validators.ValidateModel(ctx, userCred, models.GetLLMImageManager(), &input.LLMImageId)
 	if err != nil {
 		return nil, errors.Wrapf(err, "validate image_id %s", input.LLMImageId)
@@ -67,7 +67,7 @@ func (b *baseDriver) ValidateCreateData(ctx context.Context, userCred mcclient.T
 	return input, nil
 }
 
-func (b *baseDriver) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, sku *models.SLLMSku, input *api.LLMSkuUpdateInput) (*api.LLMSkuUpdateInput, error) {
+func (b *baseDriver) ValidateLLMSkuUpdateData(ctx context.Context, userCred mcclient.TokenCredential, sku *models.SLLMSku, input *api.LLMSkuUpdateInput) (*api.LLMSkuUpdateInput, error) {
 	llmImageId := input.LLMImageId
 	if llmImageId != "" {
 		imgObj, err := validators.ValidateModel(ctx, userCred, models.GetLLMImageManager(), &llmImageId)
@@ -111,5 +111,16 @@ func MatchContainerToUpdateByName(ctr *computeapi.SContainer, podCtrs []*compute
 }
 
 func (b *baseDriver) MatchContainerToUpdate(ctr *computeapi.SContainer, podCtrs []*computeapi.PodContainerCreateInput) (*computeapi.PodContainerCreateInput, error) {
+	if len(podCtrs) == 1 {
+		return podCtrs[0], nil
+	}
 	return MatchContainerToUpdateByName(ctr, podCtrs)
+}
+
+func (b *baseDriver) ValidateLLMCreateSpec(ctx context.Context, userCred mcclient.TokenCredential, sku *models.SLLMSku, input *api.LLMSpec) (*api.LLMSpec, error) {
+	return input, nil
+}
+
+func (b *baseDriver) ValidateLLMUpdateSpec(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM, input *api.LLMSpec) (*api.LLMSpec, error) {
+	return input, nil
 }
