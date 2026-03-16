@@ -28,8 +28,9 @@ type LLMBaseListOptions struct {
 type LLMListOptions struct {
 	LLMBaseListOptions
 
-	LlmSku   string `help:"filter by llm sku"`
-	LlmImage string `help:"filter by llm image"`
+	LlmSku   string   `help:"filter by llm sku"`
+	LlmImage string   `help:"filter by llm image"`
+	LLMTypes []string `help:"filter by llm types"`
 }
 
 func (o *LLMListOptions) Params() (jsonutils.JSONObject, error) {
