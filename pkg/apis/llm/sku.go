@@ -168,7 +168,8 @@ type LLMSkuListInput struct {
 	apis.SharableVirtualResourceListInput
 	MountedModelResourceListInput
 
-	LLMType string `json:"llm_type"`
+	LLMType  string   `json:"llm_type"`
+	LLMTypes []string `json:"llm_types"`
 }
 
 type LLMSkuCreateInput struct {
