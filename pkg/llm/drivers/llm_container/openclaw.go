@@ -2,12 +2,12 @@ package llm_container
 
 import (
 	"context"
+	"database/sql"
 	"encoding/base64"
 	"fmt"
 	"strings"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	commonapi "yunion.io/x/onecloud/pkg/apis"
@@ -133,7 +133,7 @@ func copyOpenClaw(s *api.LLMSpecOpenClaw) *api.LLMSpecOpenClaw {
 
 func (c *openclaw) GetEffectiveSpec(llm *models.SLLM, sku *models.SLLMSku) interface{} {
 	if sku == nil || sku.LLMSpec == nil {
-		return nil
+		return llm.LLMSpec.OpenClaw
 	}
 	var llmOC *api.LLMSpecOpenClaw
 	if llm != nil && llm.LLMSpec != nil {
@@ -347,7 +347,8 @@ func (c *openclaw) GetContainerSpecs(ctx context.Context, llm *models.SLLM, imag
 		},
 	}
 	// inject credential envs
-	spec := c.GetEffectiveSpec(llm, sku)
+	// spec := c.GetEffectiveSpec(llm, sku)
+	spec := llm.LLMSpec.OpenClaw
 	if spec == nil {
 		return []*computeapi.PodContainerCreateInput{
 			{
@@ -356,33 +357,35 @@ func (c *openclaw) GetContainerSpecs(ctx context.Context, llm *models.SLLM, imag
 			},
 		}
 	}
-	skuSpec := spec.(*api.LLMSpecOpenClaw)
-	log.Infof("========sku spec: %s", jsonutils.Marshal(skuSpec).PrettyString())
-	for _, provider := range skuSpec.Providers {
+	for _, provider := range spec.Providers {
 		openclawSpec.Envs = appendCredentialEnvs(openclawSpec.Envs, provider.Credential)
 	}
-	for _, channel := range skuSpec.Channels {
+	for _, channel := range spec.Channels {
 		openclawSpec.Envs = appendCredentialEnvs(openclawSpec.Envs, channel.Credential)
 	}
-	// inject workspace templates
-	if skuSpec.WorkspaceTemplates != nil {
-		if skuSpec.WorkspaceTemplates.AgentsMD != "" {
-			openclawSpec.Envs = append(openclawSpec.Envs, &commonapi.ContainerKeyValue{
-				Key:   string(api.LLM_OPENCLAW_TEMPLATE_AGENTS_MD_B64),
-				Value: base64.StdEncoding.EncodeToString([]byte(skuSpec.WorkspaceTemplates.AgentsMD)),
-			})
-		}
-		if skuSpec.WorkspaceTemplates.SoulMD != "" {
-			openclawSpec.Envs = append(openclawSpec.Envs, &commonapi.ContainerKeyValue{
-				Key:   string(api.LLM_OPENCLAW_TEMPLATE_SOUL_MD_B64),
-				Value: base64.StdEncoding.EncodeToString([]byte(skuSpec.WorkspaceTemplates.SoulMD)),
-			})
-		}
-		if skuSpec.WorkspaceTemplates.UserMD != "" {
-			openclawSpec.Envs = append(openclawSpec.Envs, &commonapi.ContainerKeyValue{
-				Key:   string(api.LLM_OPENCLAW_TEMPLATE_USER_MD_B64),
-				Value: base64.StdEncoding.EncodeToString([]byte(skuSpec.WorkspaceTemplates.UserMD)),
-			})
+
+	if sku.LLMSpec != nil && sku.LLMSpec.OpenClaw != nil {
+		skuSpec := sku.LLMSpec.OpenClaw
+		// inject workspace templates
+		if skuSpec.WorkspaceTemplates != nil {
+			if skuSpec.WorkspaceTemplates.AgentsMD != "" {
+				openclawSpec.Envs = append(openclawSpec.Envs, &commonapi.ContainerKeyValue{
+					Key:   string(api.LLM_OPENCLAW_TEMPLATE_AGENTS_MD_B64),
+					Value: base64.StdEncoding.EncodeToString([]byte(skuSpec.WorkspaceTemplates.AgentsMD)),
+				})
+			}
+			if skuSpec.WorkspaceTemplates.SoulMD != "" {
+				openclawSpec.Envs = append(openclawSpec.Envs, &commonapi.ContainerKeyValue{
+					Key:   string(api.LLM_OPENCLAW_TEMPLATE_SOUL_MD_B64),
+					Value: base64.StdEncoding.EncodeToString([]byte(skuSpec.WorkspaceTemplates.SoulMD)),
+				})
+			}
+			if skuSpec.WorkspaceTemplates.UserMD != "" {
+				openclawSpec.Envs = append(openclawSpec.Envs, &commonapi.ContainerKeyValue{
+					Key:   string(api.LLM_OPENCLAW_TEMPLATE_USER_MD_B64),
+					Value: base64.StdEncoding.EncodeToString([]byte(skuSpec.WorkspaceTemplates.UserMD)),
+				})
+			}
 		}
 	}
 
@@ -412,6 +415,9 @@ func (c *openclaw) GetLLMUrl(ctx context.Context, userCred mcclient.TokenCredent
 func (c *openclaw) GetLoginInfo(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM) (*api.LLMLoginInfo, error) {
 	ctr, err := llm.GetLLMSContainer(ctx)
 	if err != nil {
+		if errors.Cause(err) == sql.ErrNoRows || strings.Contains(strings.ToLower(err.Error()), "not found") {
+			return nil, nil
+		}
 		return nil, errors.Wrap(err, "get llm cloud container")
 	}
 	if ctr.Spec == nil {

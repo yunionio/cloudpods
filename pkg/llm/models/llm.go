@@ -757,14 +757,16 @@ func (llm *SLLM) GetDetailsLoginInfo(ctx context.Context, userCred mcclient.Toke
 		if err != nil {
 			return nil, errors.Wrap(err, "GetLoginInfo")
 		}
-		if info.Username != "" {
-			output.Username = info.Username
-		}
-		if info.Password != "" {
-			output.Password = info.Password
-		}
-		if len(info.Extra) > 0 {
-			output.Extra = info.Extra
+		if info != nil {
+			if info.Username != "" {
+				output.Username = info.Username
+			}
+			if info.Password != "" {
+				output.Password = info.Password
+			}
+			if len(info.Extra) > 0 {
+				output.Extra = info.Extra
+			}
 		}
 	}
 	return output, nil
