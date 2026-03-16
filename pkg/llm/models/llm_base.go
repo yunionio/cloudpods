@@ -75,27 +75,29 @@ func (man *SLLMBaseManager) ValidateCreateData(ctx context.Context, userCred mcc
 		return input, errors.Wrap(err, "validate VirtualResourceCreateInput")
 	}
 
-	if len(input.PreferHost) > 0 {
-		s := auth.GetSession(ctx, userCred, "")
-		hostJson, err := compute.Hosts.Get(s, input.PreferHost, nil)
-		if err != nil {
-			return input, errors.Wrap(err, "get host")
+	/*
+		if len(input.PreferHost) > 0 {
+			s := auth.GetSession(ctx, userCred, "")
+			hostJson, err := compute.Hosts.Get(s, input.PreferHost, nil)
+			if err != nil {
+				return input, errors.Wrap(err, "get host")
+			}
+			hostDetails := computeapi.HostDetails{}
+			if err := hostJson.Unmarshal(&hostDetails); err != nil {
+				return input, errors.Wrap(err, "unmarshal hostDetails")
+			}
+			if hostDetails.Enabled == nil || !*hostDetails.Enabled {
+				return input, errors.Wrap(errors.ErrInvalidStatus, "not enabled")
+			}
+			if hostDetails.HostStatus != computeapi.HOST_ONLINE {
+				return input, errors.Wrap(errors.ErrInvalidStatus, "not online")
+			}
+			if hostDetails.HostType != computeapi.HOST_TYPE_CONTAINER {
+				return input, errors.Wrapf(httperrors.ErrNotAcceptable, "host_type %s not supported", hostDetails.HostType)
+			}
+			input.PreferHost = hostDetails.Id
 		}
-		hostDetails := computeapi.HostDetails{}
-		if err := hostJson.Unmarshal(&hostDetails); err != nil {
-			return input, errors.Wrap(err, "unmarshal hostDetails")
-		}
-		if hostDetails.Enabled == nil || !*hostDetails.Enabled {
-			return input, errors.Wrap(errors.ErrInvalidStatus, "not enabled")
-		}
-		if hostDetails.HostStatus != computeapi.HOST_ONLINE {
-			return input, errors.Wrap(errors.ErrInvalidStatus, "not online")
-		}
-		if hostDetails.HostType != computeapi.HOST_TYPE_CONTAINER {
-			return input, errors.Wrapf(httperrors.ErrNotAcceptable, "host_type %s not supported", hostDetails.HostType)
-		}
-		input.PreferHost = hostDetails.Id
-	}
+	*/
 
 	// 处理网络配置
 	var firstNet *computeapi.NetworkConfig

@@ -54,7 +54,7 @@ type SLLMSku struct {
 	// primary image id of primary container
 	LLMImageId string       `width:"128" charset:"ascii" nullable:"false" list:"user" create:"required" update:"user"`
 	LLMType    string       `width:"128" charset:"ascii" nullable:"false" list:"user" create:"required"`
-	LLMSpec    *api.LLMSpec `json:"llm_spec" length:"long" list:"user" create:"required" update:"user"`
+	LLMSpec    *api.LLMSpec `json:"llm_spec" length:"long" list:"user" create:"optional" update:"user"`
 }
 
 func (man *SLLMSkuManager) ListItemFilter(
