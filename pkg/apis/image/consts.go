@@ -61,6 +61,7 @@ const (
 	IMAGE_OS_TYPE              = "os_type"
 	IMAGE_OS_VERSION           = "os_version"
 	IMAGE_OS_LANGUAGE          = "os_language"
+	IMAGE_OS_CURRENT_VERSION   = "os_current_version"
 	IMAGE_DISK_FORMAT          = "disk_format"
 	IMAGE_UEFI_SUPPORT         = "uefi_support"
 	IMAGE_BIOS_SUPPORT         = "bios_support"

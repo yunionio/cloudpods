@@ -196,6 +196,10 @@ func (s *SKVMGuestInstance) getOsVersion() string {
 	return s.Desc.Metadata["os_version"]
 }
 
+func (s *SKVMGuestInstance) getOsCurrentVersion() string {
+	return s.Desc.Metadata["os_current_version"]
+}
+
 func (s *SKVMGuestInstance) pciInitialized() bool {
 	return len(s.Desc.PCIControllers) > 0
 }
@@ -220,10 +224,18 @@ func (s *SKVMGuestInstance) getUsbControllerType() string {
 // is windows prioer to windows server 2003
 func (s *SKVMGuestInstance) IsOldWindows() bool {
 	if s.GetOsName() == OS_NAME_WINDOWS {
-		ver := s.getOsVersion()
-		if len(ver) > 1 && ver[0:2] == "5." {
-			return true
+		cv := s.getOsCurrentVersion()
+		if len(cv) > 0 {
+			if len(cv) > 1 && cv[0:2] == "5." {
+				return true
+			}
+		} else {
+			ver := s.getOsVersion()
+			if len(ver) > 1 && ver[0:2] == "5." {
+				return true
+			}
 		}
+
 	}
 	return false
 }
@@ -232,6 +244,10 @@ func (s *SKVMGuestInstance) isWindows10() bool {
 	if s.GetOsName() == OS_NAME_WINDOWS {
 		distro := s.getOsDistribution()
 		if strings.Contains(strings.ToLower(distro), "windows 10") {
+			return true
+		}
+		osVer := s.getOsVersion()
+		if strings.Contains(strings.ToLower(osVer), "windows 10") {
 			return true
 		}
 	}
