@@ -110,9 +110,10 @@ type LLMBaseListInput struct {
 type LLMListInput struct {
 	LLMBaseListInput
 
-	LLMSku   string `json:"llm_sku"`
-	LLMImage string `json:"llm_image"`
-	LLMType  string `json:"llm_type"` // filter by linked SKU's llm_type (e.g. dify)
+	LLMSku   string   `json:"llm_sku"`
+	LLMImage string   `json:"llm_image"`
+	LLMTypes []string `json:"llm_types"` // filter by linked SKU's llm_types (e.g. [dify, openclaw])
+	LLMType  string   `json:"llm_type"`  // filter by linked SKU's llm_type (e.g. dify)
 }
 
 type ModelInfo struct {
