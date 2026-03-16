@@ -125,6 +125,7 @@ message DeployGuestFsResponse {
   string account = 6;
   string key = 7;
   bool telegraf_deployed = 8;
+  string current_version = 9;
 }
 
 message DiskInfo {
@@ -176,6 +177,7 @@ message ReleaseInfo {
   string version = 2;
   string arch = 3;
   string language = 4;
+  string current_version = 5;
 }
 
 message SaveToGlanceParams {

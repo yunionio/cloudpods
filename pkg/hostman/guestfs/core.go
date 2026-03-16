@@ -102,6 +102,9 @@ func DoDeployGuestFs(rootfs fsdriver.IRootFsDriver, guestDesc *deployapi.GuestDe
 		if len(releaseInfo.Language) > 0 {
 			ret.Language = releaseInfo.Language
 		}
+		if len(releaseInfo.CurrentVersion) > 0 {
+			ret.CurrentVersion = releaseInfo.CurrentVersion
+		}
 	}
 	ret.Os = rootfs.GetOs()
 
