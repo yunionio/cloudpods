@@ -1809,6 +1809,9 @@ func (image *SImage) updateImageInfo(
 	imageProperties.Set(api.IMAGE_OS_VERSION, jsonutils.NewString(imageInfo.OsInfo.Version))
 	imageProperties.Set(api.IMAGE_OS_DISTRO, jsonutils.NewString(imageInfo.OsInfo.Distro))
 	imageProperties.Set(api.IMAGE_OS_LANGUAGE, jsonutils.NewString(imageInfo.OsInfo.Language))
+	if imageInfo.OsInfo.CurrentVersion != "" {
+		imageProperties.Set(api.IMAGE_OS_CURRENT_VERSION, jsonutils.NewString(imageInfo.OsInfo.CurrentVersion))
+	}
 
 	imageProperties.Set(api.IMAGE_OS_TYPE, jsonutils.NewString(imageInfo.OsType))
 	imageProperties.Set(api.IMAGE_PARTITION_TYPE, jsonutils.NewString(imageInfo.PhysicalPartitionType))
