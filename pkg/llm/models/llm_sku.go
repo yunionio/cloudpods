@@ -71,6 +71,9 @@ func (man *SLLMSkuManager) ListItemFilter(
 	if len(input.LLMType) > 0 {
 		q = q.Equals("llm_type", input.LLMType)
 	}
+	if len(input.LLMTypes) > 0 {
+		q = q.Filter(sqlchemy.In(q.Field("llm_type"), input.LLMTypes))
+	}
 	q, err = man.SMountedModelsResourceManager.ListItemFilter(ctx, q, userCred, input.MountedModelResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SMountedAppsResourceManager")

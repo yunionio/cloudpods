@@ -145,6 +145,11 @@ func (man *SLLMManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, 
 		q = q.Join(skuQ, sqlchemy.Equals(q.Field("llm_sku_id"), skuQ.Field("id")))
 		q = q.Filter(sqlchemy.Equals(skuQ.Field("llm_type"), input.LLMType))
 	}
+	if len(input.LLMTypes) > 0 {
+		skuQ := GetLLMSkuManager().Query().SubQuery()
+		q = q.Join(skuQ, sqlchemy.Equals(q.Field("llm_sku_id"), skuQ.Field("id")))
+		q = q.Filter(sqlchemy.In(skuQ.Field("llm_type"), input.LLMTypes))
+	}
 
 	return q, nil
 }
