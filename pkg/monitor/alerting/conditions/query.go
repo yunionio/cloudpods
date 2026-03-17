@@ -345,6 +345,8 @@ func (c *QueryCondition) NewEvalMatch(
 	}
 	msg := fmt.Sprintf("%s.%s %s %s", alertDetails.Measurement, alertDetails.Field,
 		alertDetails.Comparator, thresholdStr)
+	// 为每个 EvalMatch 记录自身的触发条件，便于在通知模板中按 metric 精确展示
+	evalMatch.Condition = msg
 	if len(context.Rule.Message) == 0 {
 		context.Rule.Message = msg
 	}

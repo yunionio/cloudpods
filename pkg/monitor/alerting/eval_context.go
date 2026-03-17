@@ -197,8 +197,28 @@ func getNewStateInternal(c *EvalContext) monitor.AlertStateType {
 
 func (c *EvalContext) GetNotificationTemplateConfig(matches []*monitor.EvalMatch) monitor.NotificationTemplateConfig {
 	desc := c.Rule.Message
-	if len(c.Rule.TriggeredMessages) > 0 {
+	// 优先根据当前 matches 中的 Condition 生成触发条件描述，确保与本次告警/恢复的指标一致
+	if len(matches) > 0 && matches[0] != nil && matches[0].Condition != "" {
+		condSet := sets.NewString()
+		conds := make([]string, 0, len(matches))
+		for _, m := range matches {
+			if m == nil || m.Condition == "" {
+				continue
+			}
+			if condSet.Has(m.Condition) {
+				continue
+			}
+			condSet.Insert(m.Condition)
+			conds = append(conds, m.Condition)
+		}
+		if len(conds) > 0 {
+			desc = strings.Join(conds, " ")
+			log.Debugf("[GetNotificationTemplateConfig] rule=%s matches=%d desc from match conditions: %s", c.Rule.Name, len(matches), desc)
+		}
+	} else if len(c.Rule.TriggeredMessages) > 0 {
+		// 兼容旧逻辑：如果没有按 match 填充 Condition，则退回到规则级 TriggeredMessages
 		desc = strings.Join(c.Rule.TriggeredMessages, " ")
+		log.Debugf("[GetNotificationTemplateConfig] rule=%s matches=%d desc from TriggeredMessages (fallback): %s", c.Rule.Name, len(matches), desc)
 	}
 	if c.Error != nil {
 		if desc != "" {
