@@ -32,8 +32,9 @@ func GetRegionCephStorages() (map[string]*computeapi.RbdStorageConf, error) {
 	q := struct {
 		Scope       string `json:"scope"`
 		StorageType string `json:"storage_type"`
+		Brand       string `json:"brand"`
 	}{
-		"system", computeapi.STORAGE_RBD,
+		"system", computeapi.STORAGE_RBD, computeapi.ONECLOUD_BRAND_ONECLOUD,
 	}
 
 	res, err := compute.Storages.List(auth.GetAdminSession(context.Background(), options.Options.Region), jsonutils.Marshal(q))
