@@ -88,7 +88,12 @@
     </tr>
     <tr>
       <td class="td">Strategy details：</td>
-      <td>{{.description}}</td>
+      <td>
+        {{- range $i, $m := .matches -}}
+          {{- if $i}}<br/>{{end -}}
+          {{- $m.condition | unescaped -}}
+        {{- end -}}
+      </td>
     </tr>
     {{if .reason}}
     <tr>
