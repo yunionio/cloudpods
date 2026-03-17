@@ -1,7 +1,9 @@
 AlertName: {{.name}}
 Time: {{.start_time}}
 Level: {{.level}}
-TriggerCondition: {{.description | unescaped}}
+TriggerCondition:{{if eq (len .matches) 1}} {{(index .matches 0).condition | unescaped}}{{else}}
+{{- range .matches}}- {{.condition | unescaped}}
+{{- end}}{{end}}
 {{if .reason}}Reason: {{.reason}}
 {{end}}AlertCount: {{len .matches}}
 ResourceName: {{.resource_name}}
