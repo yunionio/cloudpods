@@ -329,7 +329,12 @@ func (manager *SPolicyManager) allowWithoutCache(policies rbacutils.TPolicySet, 
 	matchRules := rbacutils.TPolicyMatches{}
 
 	if len(policies) == 0 {
-		log.Warningf("no policies fetched for scope %s", scope)
+		user, token := auth.GUEST_USER, auth.GUEST_TOKEN
+		if userCred != nil {
+			user = userCred.GetUserName()
+			token = userCred.GetTokenString()
+		}
+		log.Warningf("no policies fetched for scope %s user %s token %s key %s", scope, user, token, policyKey(userCred))
 	} else {
 		matchRules = policies.GetMatchRules(service, resource, action, extra...)
 		if consts.IsRbacDebug() {
