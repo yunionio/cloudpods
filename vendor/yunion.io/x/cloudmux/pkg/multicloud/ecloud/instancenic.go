@@ -26,40 +26,44 @@ type SInstanceNic struct {
 
 	instance *SInstance
 
-	Id               string
-	PrivateIp        string
-	FipAddress       string
-	FipBandwidthSize int
-	PortId           string
-	PortName         string
-	FixedIpDetails   []SFixedIpDetail
-	RouterId         string
+	Id               string         `json:"id,omitempty"` // 网卡ID（等同 PortId）
+	PrivateIp        string         `json:"-"`
+	FipAddress       string         `json:"-"`
+	FipBandwidthSize int            `json:"-"`
+	PortId           string         `json:"portId,omitempty"`   // 兼容旧字段
+	PortName         string         `json:"portName,omitempty"` // 兼容旧字段
+	FixedIpDetails   []SFixedIpDetail `json:"-"`
+	RouterId         string         `json:"routerId,omitempty"`
 }
 
 type SInstanceNicDetail struct {
-	MacAddress     string
-	SecurityGroups []SSecurityGroupRef
-	Status         int
-	ResourceId     string
-	CreaetTime     time.Time
-	PublicIp       string
-	IpId           string
-	NetworkId      string
+	MacAddress     string             `json:"macAddress,omitempty"`
+	SecurityGroups []SSecurityGroupRef `json:"securityGroups,omitempty"`
+	Status         int                `json:"status,omitempty"`
+	ResourceId     string             `json:"resourceId,omitempty"`
+
+	// CreateTime 正确拼写；保留旧字段 CreaetTime 以兼容历史引用
+	CreateTime time.Time `json:"createTime,omitempty"`
+	CreaetTime time.Time `json:"-"`
+
+	PublicIp  string `json:"publicIp,omitempty"`
+	IpId      string `json:"ipId,omitempty"`
+	NetworkId string `json:"networkId,omitempty"`
 }
 
 type SSecurityGroupRef struct {
-	Id   string
-	Name string
+	Id   string `json:"id,omitempty"`
+	Name string `json:"name,omitempty"`
 }
 
 type SFixedIpDetail struct {
-	IpAddress     string
-	IpVersion     string
-	PublicIp      string
-	BandWidthSize int
-	BandWidthType string
-	SubnetId      string
-	SubnetName    string
+	IpAddress     string `json:"ipAddress,omitempty"`
+	IpVersion     string `json:"ipVersion,omitempty"`
+	PublicIp      string `json:"publicIp,omitempty"`
+	BandWidthSize int    `json:"bandWidthSize,omitempty"`
+	BandWidthType string `json:"bandWidthType,omitempty"`
+	SubnetId      string `json:"subnetId,omitempty"`
+	SubnetName    string `json:"subnetName,omitempty"`
 }
 
 func (in *SInstanceNic) GetIP() string {

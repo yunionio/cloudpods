@@ -110,10 +110,21 @@ const (
 	STORAGE_JDCLOUD_SSD = "ssd"         // SSD云硬盘
 	STORAGE_JDCLOUD_PHD = "premium-hdd" // HDD云硬盘
 
-	STORAGE_ECLOUD_CAPEBS = "capebs" // 容量盘
-	STORAGE_ECLOUD_EBS    = "ebs"    // 性能盘
-	STORAGE_ECLOUD_SSD    = "ssd"    // 高性能盘
-	STORAGE_ECLOUD_SSDEBS = "ssdebs" // 性能优化盘
+	STORAGE_ECLOUD_CAPEBS    = "capebs"   // 容量盘
+	STORAGE_ECLOUD_SSDEBS    = "ssdebs"   // 性能优化型
+	STORAGE_ECLOUD_SSD       = "ssd"      // 高性能盘
+	STORAGE_ECLOUD_CAPEBS_YC = "capebsyc" // 容量型-云创版
+	STORAGE_ECLOUD_SSDEBS_YC = "ssdebsyc" // 性能优化型-云创版
+	STORAGE_ECLOUD_SSDYC     = "ssdyc"    // 高性能型-云创版
+	STORAGE_ECLOUD_CAPEBS_ZX = "capebszx" // 经济型
+	STORAGE_ECLOUD_ESSDL1    = "essdl1"   // 极速型-L1
+	STORAGE_ECLOUD_ESSDL2    = "essdl2"   // 极速型-L2
+	STORAGE_ECLOUD_ESSDL3    = "essdl3"   // 极速型-L3
+	STORAGE_ECLOUD_ESSDYCL1  = "essdycl1" // 极速型-L1-云创版
+	// 系统盘
+	STORAGE_ECLOUD_LOCAL = "local" // 本地盘
+	// 弃用
+	STORAGE_ECLOUD_EBS    = "ebs"    // 弹性块存储
 	STORAGE_ECLOUD_SYSTEM = "system" // 系统盘
 
 	// volcengine storage type

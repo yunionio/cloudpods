@@ -86,6 +86,12 @@ var (
 		City:        CITY_NEI_MENG_GU,
 		CountryCode: COUNTRY_CODE_CN,
 	}
+	RegionChangchun = cloudprovider.SGeographicInfo{
+		Latitude:    43.87120919729674,
+		Longitude:   125.3111129463539,
+		City:        CITY_CHANG_CHUN,
+		CountryCode: COUNTRY_CODE_CN,
+	}
 	RegionQingdao = cloudprovider.SGeographicInfo{
 		Latitude:    36.067,
 		Longitude:   120.383,
@@ -182,6 +188,31 @@ var (
 		City:        CITY_NAN_NING,
 		CountryCode: COUNTRY_CODE_CN,
 	}
+	// 郑州、苏州等周边城市已存在，下面补充部分在 ecloud 等云厂商中常用但尚未建 RegionXXX 的城市
+	RegionJiNan = cloudprovider.SGeographicInfo{
+		Latitude:    36.64889911073425,
+		Longitude:   117.11905617575435,
+		City:        CITY_JI_NAM,
+		CountryCode: COUNTRY_CODE_CN,
+	}
+	RegionXiangyang = cloudprovider.SGeographicInfo{
+		Latitude:    32.009075721852206,
+		Longitude:   112.13485327119795,
+		City:        CITY_XIANG_YANG,
+		CountryCode: COUNTRY_CODE_CN,
+	}
+	RegionShijiazhuang = cloudprovider.SGeographicInfo{
+		Latitude:    38.044044256466684,
+		Longitude:   114.50225031469532,
+		City:        CITY_SHI_JIA_ZHUANG,
+		CountryCode: COUNTRY_CODE_CN,
+	}
+	RegionHuainan = cloudprovider.SGeographicInfo{
+		Latitude:    32.62657438299575,
+		Longitude:   116.99779954519057,
+		City:        CITY_HUAI_NAN,
+		CountryCode: COUNTRY_CODE_CN,
+	}
 	RegionChengzhou = cloudprovider.SGeographicInfo{
 		Latitude:    25.777,
 		Longitude:   112.975,
@@ -212,10 +243,22 @@ var (
 		City:        CITY_HAI_KOU,
 		CountryCode: COUNTRY_CODE_CN,
 	}
+	RegionWulumuqi = cloudprovider.SGeographicInfo{
+		Latitude:    43.825,
+		Longitude:   87.616,
+		City:        CITY_WU_LU_MU_QI,
+		CountryCode: COUNTRY_CODE_CN,
+	}
 	RegionTianjin = cloudprovider.SGeographicInfo{
 		Latitude:    39.125,
 		Longitude:   117.131,
 		City:        CITY_TIAN_JIN,
+		CountryCode: COUNTRY_CODE_CN,
+	}
+	RegionShenyang = cloudprovider.SGeographicInfo{
+		Latitude:    41.78937667917192,
+		Longitude:   123.43099727316815,
+		City:        CITY_SHEN_YANG,
 		CountryCode: COUNTRY_CODE_CN,
 	}
 	RegionChengdu = cloudprovider.SGeographicInfo{

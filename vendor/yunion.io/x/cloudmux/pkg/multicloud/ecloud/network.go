@@ -16,7 +16,9 @@ package ecloud
 
 import (
 	"context"
+	"fmt"
 
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/util/rbacscope"
 
@@ -32,23 +34,20 @@ type SNetwork struct {
 
 	wire *SWire
 
-	Id       string
-	Name     string
-	Shared   bool
-	Enabled  bool
-	EcStatus string
-	Subnets  []SSubnet
-}
-
-type SSubnet struct {
-	Id         string
-	Name       string
-	NetworkId  string
-	Region     string
-	GatewayIp  string
-	EnableDHCP bool
-	Cidr       string
-	IpVersion  string
+	// 与 ecloudsdkvpc ListSubnetsResponseContent 对齐
+	VpoolId     string `json:"vpoolId,omitempty"`
+	GatewayIp   string `json:"gatewayIp,omitempty"`
+	Vaz         string `json:"vaz,omitempty"`
+	Edge        bool   `json:"edge,omitempty"`
+	Deleted     bool   `json:"deleted,omitempty"`
+	IpVersion   int    `json:"ipVersion,omitempty"`
+	Name        string `json:"name,omitempty"`
+	CreatedTime string `json:"createdTime,omitempty"`
+	CidrBlock   string `json:"cidr,omitempty"`
+	NetworkId   string `json:"networkId,omitempty"`
+	Id          string `json:"id,omitempty"`
+	NetworkType string `json:"networkType,omitempty"`
+	Region      string `json:"region,omitempty"`
 }
 
 func (n *SNetwork) GetId() string {
@@ -64,27 +63,15 @@ func (n *SNetwork) GetGlobalId() string {
 }
 
 func (n *SNetwork) GetStatus() string {
-	switch n.EcStatus {
-	case "ACTIVE":
-		return api.NETWORK_STATUS_AVAILABLE
-	case "DOWN", "BUILD", "ERROR":
-		return api.NETWORK_STATUS_UNAVAILABLE
-	case "PENDING_DELETE":
+	// 子网接口未直接返回状态，这里视未删除的子网为可用
+	if n.Deleted {
 		return api.NETWORK_STATUS_DELETING
-	case "PENDING_CREATE", "PENDING_UPDATE":
-		return api.NETWORK_STATUS_PENDING
-	default:
-		return api.NETWORK_STATUS_UNKNOWN
 	}
+	return api.NETWORK_STATUS_AVAILABLE
 }
 
 func (n *SNetwork) Refresh() error {
 	return nil
-	// nn, err := n.wire.vpc.region.GetNetworkById(n.wire.vpc.RouterId, n.wire.zone.Region, n.GetId())
-	// if err != nil {
-	// 	return err
-	// }
-	// return jsonutils.Update(n, nn)
 }
 
 func (n *SNetwork) IsEmulated() bool {
@@ -100,7 +87,11 @@ func (n *SNetwork) GetIWire() cloudprovider.ICloudWire {
 }
 
 func (n *SNetwork) GetIpStart() string {
-	pref, _ := netutils.NewIPV4Prefix(n.Cidr())
+	cidr := n.Cidr()
+	if cidr == "" {
+		return ""
+	}
+	pref, _ := netutils.NewIPV4Prefix(cidr)
 	startIp := pref.Address.NetAddr(pref.MaskLen) // 0
 	startIp = startIp.StepUp()                    // 1
 	startIp = startIp.StepUp()                    // 2
@@ -108,23 +99,31 @@ func (n *SNetwork) GetIpStart() string {
 }
 
 func (n *SNetwork) GetIpEnd() string {
-	pref, _ := netutils.NewIPV4Prefix(n.Cidr())
+	cidr := n.Cidr()
+	if cidr == "" {
+		return ""
+	}
+	pref, _ := netutils.NewIPV4Prefix(cidr)
 	endIp := pref.Address.BroadcastAddr(pref.MaskLen) // 255
 	endIp = endIp.StepDown()                          // 254
 	return endIp.String()
 }
 
 func (n *SNetwork) Cidr() string {
-	return n.Subnets[0].Cidr
+	return n.CidrBlock
 }
 
 func (n *SNetwork) GetIpMask() int8 {
-	pref, _ := netutils.NewIPV4Prefix(n.Cidr())
+	cidr := n.Cidr()
+	if cidr == "" {
+		return 0
+	}
+	pref, _ := netutils.NewIPV4Prefix(cidr)
 	return pref.MaskLen
 }
 
 func (n *SNetwork) GetGateway() string {
-	return n.Subnets[0].GatewayIp
+	return n.GatewayIp
 }
 
 func (self *SNetwork) GetServerType() string {
@@ -140,51 +139,44 @@ func (self *SNetwork) GetPublicScope() rbacscope.TRbacScope {
 }
 
 func (self *SNetwork) Delete() error {
-	return cloudprovider.ErrNotImplemented
+	return self.wire.vpc.region.DeleteNetwork(self.Id)
 }
 
 func (self *SNetwork) GetAllocTimeoutSeconds() int {
 	return 120
 }
 
-func (r *SRegion) GetNetworks(routerId, zoneRegion string) ([]SNetwork, error) {
-	queryParams := map[string]string{
-		"networkTypeEnum": "VM",
+// GetNetworks 使用 OpenAPI VPC 子网列表：GET /api/openapi-vpc/customer/v3/subnet（替代旧的 network/NetworkResps 接口）
+func (r *SRegion) GetNetworks(vpcId, zoneCode string) ([]SNetwork, error) {
+	query := map[string]string{"networkTypeEnum": "VM"}
+	if vpcId != "" {
+		query["vpcId"] = vpcId
 	}
-	if len(routerId) > 0 {
-		queryParams["routerId"] = routerId
+	if zoneCode != "" {
+		query["region"] = zoneCode
 	}
-	if len(zoneRegion) > 0 {
-		queryParams["region"] = zoneRegion
-	}
-	request := NewConsoleRequest(r.ID, "/api/v2/netcenter/network/NetworkResps", queryParams, nil)
+	req := NewOpenApiVpcRequest(r.RegionId, "/api/openapi-vpc/customer/v3/subnet", query, nil)
 	networks := make([]SNetwork, 0)
-	err := r.client.doList(context.Background(), request, &networks)
+	err := r.client.doList(context.Background(), req.Base(), &networks)
 	if err != nil {
 		return nil, err
 	}
 	return networks, nil
 }
 
-func (r *SRegion) GetNetworkById(routerId, zoneRegion, netId string) (*SNetwork, error) {
-	queryParams := map[string]string{
-		"rangeInNetworkIds": netId,
-		"networkTypeEnum":   "VM",
-	}
-	if len(routerId) > 0 {
-		queryParams["routerId"] = routerId
-	}
-	if len(zoneRegion) > 0 {
-		queryParams["region"] = zoneRegion
-	}
-	request := NewConsoleRequest(r.ID, "/api/v2/netcenter/network/NetworkResps", queryParams, nil)
-	networks := make([]SNetwork, 0, 1)
-	err := r.client.doList(context.Background(), request, &networks)
+// GetNetwork 使用 OpenAPI VPC 子网详情：GET /api/openapi-vpc/customer/v3/subnet/subnetId/{subnetId}/SubnetDetailResp
+func (r *SRegion) GetNetwork(netId string) (*SNetwork, error) {
+	base := NewOpenApiVpcRequest(r.RegionId,
+		fmt.Sprintf("/api/openapi-vpc/customer/v3/subnet/subnetId/%s/SubnetDetailResp", netId),
+		nil, nil).Base()
+	base.SetMethod("GET")
+	data, err := r.client.request(context.Background(), base)
 	if err != nil {
 		return nil, err
 	}
-	if len(networks) == 0 {
-		return nil, cloudprovider.ErrNotFound
+	net := SNetwork{}
+	if err := data.Unmarshal(&net); err != nil {
+		return nil, errors.Wrap(err, "Unmarshal subnet detail")
 	}
-	return &networks[0], nil
+	return &net, nil
 }
