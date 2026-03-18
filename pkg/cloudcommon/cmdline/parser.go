@@ -220,6 +220,12 @@ func ParseDiskConfig(diskStr string, idx int) (*compute.DiskConfig, error) {
 				return nil, errors.Errorf("invalid preallocation %s, allow choices: %s", str, compute.DISK_PREALLOCATIONS)
 			}
 			diskConfig.Preallocation = str
+		case "auto_delete":
+			v, err := strconv.ParseBool(str)
+			if err != nil {
+				return nil, errors.Wrapf(err, "parse disk auto_delete %s", str)
+			}
+			diskConfig.AutoDelete = &v
 		default:
 			return nil, errors.Errorf("invalid disk description %s", p)
 		}

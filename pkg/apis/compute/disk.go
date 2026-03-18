@@ -284,6 +284,11 @@ type DiskUpdateInput struct {
 	DiskType string `json:"disk_type"`
 	// 关机自动重置
 	AutoReset *bool `json:"auto_reset"`
+
+	// 是否跟随主机删除而自动删除
+	// 默认跟随主机创建的磁盘为 true
+	// required: false
+	AutoDelete *bool `json:"auto_delete,omitempty"`
 }
 
 type DiskSaveInput struct {

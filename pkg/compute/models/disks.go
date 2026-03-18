@@ -2399,7 +2399,13 @@ func (self *SDisk) RealDelete(ctx context.Context, userCred mcclient.TokenCreden
 			return err
 		}
 	}
+	SnapshotPolicyResourceManager.RemoveByResource(self.Id, api.SNAPSHOT_POLICY_TYPE_DISK)
 	return self.SVirtualResourceBase.Delete(ctx, userCred)
+}
+
+func (self *SDisk) DoPendingDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	SnapshotPolicyResourceManager.RemoveByResource(self.Id, api.SNAPSHOT_POLICY_TYPE_DISK)
+	return self.SVirtualResourceBase.DoPendingDelete(ctx, userCred)
 }
 
 func (self *SDisk) RecordLastAttachedHost(ctx context.Context, userCred mcclient.TokenCredential, hostId string) error {
