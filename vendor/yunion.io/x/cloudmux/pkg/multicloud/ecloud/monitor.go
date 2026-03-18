@@ -16,39 +16,33 @@ package ecloud
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/timeutils"
-	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 )
 
-const (
-	MONITOR_FETCH_REQUEST_ACTION   = "v1.dawn.monitor.fetch"
-	MONITOR_PRODUCT_REQUEST_ACTION = "v1.dawn.monitor.products"
-
-	MONITOR_FETCH_SERVER_PATH = "/api/edw/edw/api"
-
-	REQUEST_SUCCESS_CODE = "000000"
-)
-
-var (
-	noMetricRegion = []string{"guangzhou-2", "beijing-1", "hunan-1"}
-
-	portRegionMap = map[string][]string{
-		"8443": {"wuxi-1", "dongguan-1", "yaan-1", "zhengzhou-1", "beijing-2", "zhuzhou-1", "jinan-1",
-			"xian-1", "shanghai-1", "chongqing-1", "ningbo-1"},
-		"18080": {"tianjin-1", "jilin-1", "hubei-1", "jiangxi-1", "gansu-1", "shanxi-1", "liaoning-1",
-			"yunnan-2", "hebei-1", "fujian-1", "guangxi-1", "anhui-1", "huhehaote-1", "guiyang-1"},
+func getPoolIdByRegionId(regionId string) (string, bool) {
+	if regionId == "" {
+		return "", false
 	}
-)
+	// regionIdToPoolId 使用 cn-* 作为 key，这里兼容传入不带 cn- 的情况
+	if poolID := regionIdToPoolId[regionId]; poolID != "" {
+		return poolID, true
+	}
+	if poolID := regionIdToPoolId["cn-"+regionId]; poolID != "" {
+		return poolID, true
+	}
+	return "", false
+}
 
 type Metric struct {
-	Name string `json:"MetricName"`
+	Name string `json:"metricName"`
 }
 
 type MetricData struct {
@@ -74,26 +68,22 @@ type Entity struct {
 type Datapoint []string
 
 type SMonitorRequest struct {
-	SApiRequest
+	SJSONRequest
 }
 
+// NewMonitorRequest 监控 OpenAPI 统一走 ecloud.10086.cn（443）。
 func NewMonitorRequest(regionId string, serverPath string, query map[string]string, data jsonutils.JSONObject) *SMonitorRequest {
-	apiRequest := NewApiRequest(regionId, serverPath, query, data)
-	return &SMonitorRequest{*apiRequest}
+	r := SMonitorRequest{SJSONRequest: newBaseJSONRequest(regionId, "ecloud.10086.cn", "", serverPath, query, data)}
+	return &r
 }
 
-func (rr *SMonitorRequest) GetPort() string {
-	for port, regions := range portRegionMap {
-		if utils.IsInStringArray(rr.GetRegionId(), regions) {
-			return port
-		}
-	}
-	return "8443"
+func (r *SMonitorRequest) Base() *SBaseRequest {
+	return &r.SJSONRequest.SBaseRequest
 }
 
 func (br *SMonitorRequest) ForMateResponseBody(jrbody jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	code, _ := jrbody.GetString("code")
-	if code != REQUEST_SUCCESS_CODE {
+	if code != "000000" {
 		message, _ := jrbody.(*jsonutils.JSONDict).GetString("message")
 		return nil, errors.Errorf("rep body code is :%s, message:%s,body:%v", code, message, jrbody)
 	}
@@ -111,34 +101,60 @@ func (self *SEcloudClient) DescribeMetricList(regionId, productType string, metr
 	metricData := MetricData{
 		Entitys: make([]Entity, 0),
 	}
+	// 新接口要求 query.poolId（资源池 ID）
+	poolID, ok := getPoolIdByRegionId(regionId)
+	if !ok {
+		return metricData, fmt.Errorf("missing poolId mapping for regionId %q", regionId)
+	}
 	params := map[string]string{
-		"eAction": MONITOR_FETCH_REQUEST_ACTION,
+		"poolId": poolID,
 	}
 	getBody := jsonutils.NewDict()
-	getBody.Set("startTime", jsonutils.NewString(since.Format(timeutils.MysqlTimeFormat)))
-	getBody.Set("endTime", jsonutils.NewString(until.Format(timeutils.MysqlTimeFormat)))
+	sh, _ := time.LoadLocation("Asia/Shanghai")
+	getBody.Set("startTime", jsonutils.NewString(since.In(sh).Format(timeutils.MysqlTimeFormat)))
+	getBody.Set("endTime", jsonutils.NewString(until.In(sh).Format(timeutils.MysqlTimeFormat)))
 	getBody.Set("productType", jsonutils.NewString(productType))
 	getBody.Set("resourceId", jsonutils.NewString(resourceId))
 	getBody.Set("metrics", jsonutils.Marshal(&metrics))
-	request := NewMonitorRequest(regionId, MONITOR_FETCH_SERVER_PATH, params, getBody)
-	err := self.doGet(context.Background(), request, &metricData)
+	request := NewMonitorRequest(regionId, "/api/edw/openapi/version2/v1/dawn/monitor/distribute/fetch", params, getBody)
+	// 新接口为 POST，且返回不遵循通用 state/body，需用 SMonitorRequest.ForMateResponseBody 校验/取数
+	base := request.Base()
+	base.SetMethod("POST")
+	jrbody, err := self.doRequest(context.Background(), base)
 	if err != nil {
-		return metricData, errors.Wrap(err, "client doGet error")
+		return metricData, errors.Wrap(err, "client doRequest error")
+	}
+	body, err := request.ForMateResponseBody(jrbody)
+	if err != nil {
+		return metricData, err
+	}
+	if err := body.Unmarshal(&metricData); err != nil {
+		return metricData, errors.Wrap(err, "unmarshal metric data")
 	}
 	return metricData, nil
 }
 
-func (r *SRegion) GetProductTypes() (jsonutils.JSONObject, error) {
+func (r *SRegion) GetMetricTypes() (jsonutils.JSONObject, error) {
+	poolID, ok := getPoolIdByRegionId(r.RegionId)
+	if !ok {
+		return nil, fmt.Errorf("missing poolId mapping for regionId %q", r.RegionId)
+	}
 	params := map[string]string{
-		"eAction": MONITOR_PRODUCT_REQUEST_ACTION,
+		"poolId":      poolID,
+		"productType": "vm",
 	}
-	request := NewMonitorRequest(r.ID, MONITOR_FETCH_SERVER_PATH, params, nil)
-	rtn := jsonutils.NewDict()
-	err := r.client.doGet(context.Background(), request, rtn)
+	request := NewMonitorRequest(r.RegionId, "/api/edw/openapi/version2/v1/dawn/monitor/distribute/metricindicators", params, nil)
+	base := request.Base()
+	base.SetMethod("GET")
+	jrbody, err := r.client.doRequest(context.Background(), base)
 	if err != nil {
-		return nil, errors.Wrap(err, "client doGet error")
+		return nil, errors.Wrap(err, "client doRequest error")
 	}
-	return rtn, nil
+	body, err := request.ForMateResponseBody(jrbody)
+	if err != nil {
+		return nil, err
+	}
+	return body, nil
 }
 
 func (self *SEcloudClient) GetMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
@@ -152,23 +168,19 @@ func (self *SEcloudClient) GetMetrics(opts *cloudprovider.MetricListOptions) ([]
 
 func (self *SEcloudClient) GetEcsMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
 	metrics := map[string]cloudprovider.TMetricType{
-		"cpu_util":                        cloudprovider.VM_METRIC_TYPE_CPU_USAGE,
-		"memory.util":                     cloudprovider.VM_METRIC_TYPE_MEM_USAGE,
-		"disk.device.read.requests.rate":  cloudprovider.VM_METRIC_TYPE_DISK_IO_READ_IOPS,
-		"disk.device.write.requests.rate": cloudprovider.VM_METRIC_TYPE_DISK_IO_WRITE_IOPS,
-		"disk.device.read.bytes.rate":     cloudprovider.VM_METRIC_TYPE_DISK_IO_READ_BPS,
-		"disk.device.write.bytes.rate":    cloudprovider.VM_METRIC_TYPE_DISK_IO_WRITE_BPS,
-		"network.incoming.bytes":          cloudprovider.VM_METRIC_TYPE_NET_BPS_RX,
-		"network.outgoing.bytes":          cloudprovider.VM_METRIC_TYPE_NET_BPS_TX,
+		"vm_realtime_cpu_avg_util_percent":     cloudprovider.VM_METRIC_TYPE_CPU_USAGE,
+		"vm_realtime_mem_avg_util_percent":     cloudprovider.VM_METRIC_TYPE_MEM_USAGE,
+		"vm_disk_read_bytes_rate":              cloudprovider.VM_METRIC_TYPE_DISK_IO_READ_IOPS,
+		"vm_disk_write_bytes_rate":             cloudprovider.VM_METRIC_TYPE_DISK_IO_WRITE_IOPS,
+		"vm_realtime_allnetwork_incoming_rate": cloudprovider.VM_METRIC_TYPE_NET_BPS_RX,
+		"vm_realtime_allnetwork_outgoing_rate": cloudprovider.VM_METRIC_TYPE_NET_BPS_TX,
 	}
+
 	metricNames := []Metric{}
 	for metric := range metrics {
 		metricNames = append(metricNames, Metric{
 			Name: metric,
 		})
-	}
-	if utils.IsInStringArray(opts.RegionExtId, noMetricRegion) {
-		return []cloudprovider.MetricValues{}, nil
 	}
 	data, err := self.DescribeMetricList(opts.RegionExtId, "vm", metricNames, opts.ResourceId, opts.StartTime, opts.EndTime)
 	if err != nil {

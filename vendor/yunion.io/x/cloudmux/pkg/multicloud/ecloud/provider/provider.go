@@ -82,14 +82,13 @@ func (f *SEcloudProviderFactory) GetProvider(cfg cloudprovider.ProviderConfig) (
 	}
 
 	client, err := ecloud.NewEcloudClient(
-		ecloud.NewEcloudClientConfig(
-			ecloud.NewRamRoleSigner(account, cfg.Secret),
-		).SetCloudproviderConfig(cfg),
+		ecloud.NewEcloudClientConfig(account, cfg.Secret).
+			SetCloudproviderConfig(cfg),
 	)
 	if err != nil {
 		return nil, err
 	}
-	err = client.TryConnect()
+	_, err = client.GetRegions()
 	if err != nil {
 		return nil, err
 	}
@@ -154,11 +153,17 @@ func (p *SEcloudProvider) GetIRegionById(id string) (cloudprovider.ICloudRegion,
 }
 
 func (p *SEcloudProvider) GetBalance() (*cloudprovider.SBalanceInfo, error) {
-	return &cloudprovider.SBalanceInfo{
-		Amount:   0.0,
-		Currency: "CNY",
-		Status:   api.CLOUD_PROVIDER_HEALTH_NORMAL,
-	}, cloudprovider.ErrNotSupported
+	balance, err := p.client.GetBalance()
+	if err != nil {
+		return nil, err
+	}
+	balance.Status = api.CLOUD_PROVIDER_HEALTH_NORMAL
+	if balance.Amount < 0 {
+		balance.Status = api.CLOUD_PROVIDER_HEALTH_ARREARS
+	} else if balance.Amount < 400 {
+		balance.Status = api.CLOUD_PROVIDER_HEALTH_INSUFFICIENT
+	}
+	return balance, nil
 }
 
 func (p *SEcloudProvider) GetIProjects() ([]cloudprovider.ICloudProject, error) {
