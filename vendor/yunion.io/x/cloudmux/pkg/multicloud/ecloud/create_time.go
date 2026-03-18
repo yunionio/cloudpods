@@ -17,7 +17,7 @@ package ecloud
 import "time"
 
 type SCreateTime struct {
-	CreatedTime string
+	CreatedTime string `json:"createdTime"`
 }
 
 func (c *SCreateTime) GetCreatedAt() time.Time {

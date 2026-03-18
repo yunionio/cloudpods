@@ -30,28 +30,30 @@ type SEip struct {
 	multicloud.SEipBase
 	EcloudTags
 
-	BandWidthMbSize int
-	BandWidthType   string
-	BindType        string
+	BandWidthMbSize int    `json:"bandwidthMbSize,omitempty"`
+	BandWidthType   string `json:"bandwidthType,omitempty"`
+	BindType        string `json:"bindType,omitempty"`
 	// 使用，未使用
-	Bound bool
+	Bound bool `json:"bound,omitempty"`
 	// bandwidthCharge, trafficCharge
-	ChargeModeEnum string
-	CreateTime     time.Time
-	Frozen         bool
+	ChargeModeEnum string    `json:"chargeModeEnum,omitempty"`
+	CreateTime     time.Time `json:"-"`
+	// OpenAPI 返回的创建时间字符串
+	CreatedTimeStr string `json:"createdTime,omitempty"`
+	Frozen         bool   `json:"frozen,omitempty"`
 	// 备案状态
-	IcpStatus     string
-	Id            string
-	IpType        string
-	Ipv6          string
-	Name          string //公网IPv4地址
-	NicName       string
-	PortNetworkId string
-	Region        string
-	ResourceId    string
-	RouterId      string
+	IcpStatus     string `json:"icpStatus,omitempty"`
+	Id            string `json:"id,omitempty"`
+	IpType        string `json:"ipType,omitempty"`
+	Ipv6          string `json:"ipv6,omitempty"`
+	Name          string `json:"name,omitempty"` // 公网IPv4地址
+	NicName       string `json:"nicName,omitempty"`
+	PortNetworkId string `json:"portNetworkId,omitempty"`
+	Region        string `json:"region,omitempty"`
+	ResourceId    string `json:"resourceId,omitempty"`
+	RouterId      string `json:"routerId,omitempty"`
 	// BINDING, UNBOUND, FROZEN
-	Status string
+	Status string `json:"status,omitempty"`
 }
 
 func (e *SEip) GetId() string {
@@ -113,6 +115,14 @@ func (e *SEip) GetBillingType() string {
 }
 
 func (e *SEip) GetCreatedAt() time.Time {
+	if len(e.CreatedTimeStr) > 0 {
+		if t, err := time.Parse("2006-01-02 15:04:05", e.CreatedTimeStr); err == nil {
+			return t
+		}
+		if t, err := time.Parse(time.RFC3339, e.CreatedTimeStr); err == nil {
+			return t
+		}
+	}
 	return e.CreateTime
 }
 
@@ -129,7 +139,7 @@ func (e *SEip) GetBandwidth() int {
 }
 
 func (e *SEip) GetINetworkId() string {
-	return e.PortNetworkId
+	return ""
 }
 
 func (e *SEip) GetInternetChargeType() string {
@@ -162,10 +172,27 @@ func (e *SEip) GetProjectId() string {
 
 func (r *SRegion) GetEipById(id string) (*SEip, error) {
 	var eip SEip
-	request := NewConsoleRequest(r.ID, fmt.Sprintf("/api/v2/floatingIp/getRespWithBw/%s", id), nil, nil)
-	err := r.client.doGet(context.Background(), request, &eip)
+	// 使用 OpenAPI EIP 详情：GET /api/openapi-eip/acl/v3/floatingip/getRespWithBw/{ipId}
+	req := NewOpenApiEbsRequest(r.RegionId, fmt.Sprintf("/api/openapi-eip/acl/v3/floatingip/getRespWithBw/%s", id), nil, nil)
+	err := r.client.doGet(context.Background(), req.Base(), &eip)
 	if err != nil {
 		return nil, err
 	}
+	eip.region = r
+	return &eip, nil
+}
+
+// GetEipByAddr 使用 OpenAPI EIP 详情查询（按地址）：
+// GET /api/openapi-eip/acl/v3/floatingip/apiDetail?ipAddr={addr}
+func (r *SRegion) GetEipByAddr(addr string) (*SEip, error) {
+	var eip SEip
+	params := map[string]string{
+		"ipAddress": addr,
+	}
+	req := NewOpenApiEbsRequest(r.RegionId, "/api/openapi-eip/acl/v3/floatingip/apiDetail", params, nil)
+	if err := r.client.doGet(context.Background(), req.Base(), &eip); err != nil {
+		return nil, err
+	}
+	eip.region = r
 	return &eip, nil
 }
