@@ -100,6 +100,9 @@ func (o *SOVSBridgeDriver) SetupBridgeDev() error {
 }
 
 func (d *SOVSBridgeDriver) PersistentConfig() error {
+	if d.inter == nil {
+		return nil
+	}
 	args := []string{
 		"ovs-vsctl", "set", "Bridge", d.bridge.String(),
 		"other-config:hwaddr=" + d.inter.GetMac(),

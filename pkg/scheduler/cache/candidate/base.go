@@ -390,10 +390,16 @@ func newBaseHostDesc(b *baseBuilder, host *computemodels.SHost, netGetter *netwo
 		if err := desc.fillOnecloudVpcNetworks(netGetter); err != nil {
 			return nil, fmt.Errorf("Fill onecloud vpc networks error: %v", err)
 		}
+		if err := desc.fillOneCloudHostLocalNetworks(netGetter); err != nil {
+			return nil, fmt.Errorf("Fill onecloud host local networks error: %v", err)
+		}
 	}
-	if sets.NewString(computeapi.HOST_TYPE_HYPERVISOR, computeapi.HOST_TYPE_BAREMETAL).Has(host.HostType) && len(host.ManagerId) > 0 {
+	if sets.NewString(computeapi.HOST_TYPE_HYPERVISOR, computeapi.HOST_TYPE_BAREMETAL, computeapi.HOST_TYPE_CONTAINER).Has(host.HostType) && len(host.ManagerId) > 0 {
 		if err := desc.fillCloudpodsVpcNetworks(netGetter); err != nil {
 			return nil, fmt.Errorf("Fill cloudpods vpc networks error: %v", err)
+		}
+		if err := desc.fillCloudpodsHostLocalNetworks(netGetter); err != nil {
+			return nil, fmt.Errorf("Fill cloudpods host local networks error: %v", err)
 		}
 	}
 
@@ -693,7 +699,7 @@ func (b *BaseHostDesc) fillCloudpodsVpcNetworks(netGetter *networkGetter) error 
 	nets := computemodels.NetworkManager.Query()
 	wires := computemodels.WireManager.Query().SubQuery()
 	vpcs := computemodels.VpcManager.Query().SubQuery()
-	regions := computemodels.CloudregionManager.Query().SubQuery()
+	regions := computemodels.CloudregionManager.Query().Equals("provider", computeapi.CLOUD_PROVIDER_CLOUDPODS).SubQuery()
 	q := nets.AppendField(nets.QueryFields()...)
 	q = q.AppendField(
 		vpcs.Field("id", "vpc_id"),
@@ -702,44 +708,17 @@ func (b *BaseHostDesc) fillCloudpodsVpcNetworks(netGetter *networkGetter) error 
 	q = q.Join(wires, sqlchemy.Equals(wires.Field("id"), nets.Field("wire_id")))
 	q = q.Join(vpcs, sqlchemy.Equals(vpcs.Field("id"), wires.Field("vpc_id")))
 	q = q.Join(regions, sqlchemy.Equals(regions.Field("id"), vpcs.Field("cloudregion_id")))
-	q = q.Filter(sqlchemy.AND(
-		sqlchemy.Equals(regions.Field("provider"), computeapi.CLOUD_PROVIDER_CLOUDPODS),
+	q = q.Filter(
 		sqlchemy.NOT(sqlchemy.Equals(vpcs.Field("external_id"), computeapi.DEFAULT_VPC_ID)),
-	))
-
-	type Row struct {
-		computemodels.SNetwork
-		VpcId    string
-		Provider string
-	}
-	rows := []Row{}
-	if err := q.All(&rows); err != nil {
-		return errors.Wrap(err, "query cloudpods vpc networks")
-	}
-	for i := range rows {
-		row := &rows[i]
-		net := &row.SNetwork
-		net.SetModelManager(computemodels.NetworkManager, net)
-		freePort, err := netGetter.GetFreePort(b.SHost, net)
-		if err != nil {
-			return errors.Wrapf(err, "GetFreeAddressCount for network %s(%s)", net.GetName(), net.GetId())
-		}
-		candidateNet := &api.CandidateNetwork{
-			SNetwork: net,
-			FreePort: freePort,
-			VpcId:    row.VpcId,
-			Provider: row.Provider,
-		}
-		b.Networks = append(b.Networks, candidateNet)
-	}
-	return nil
+	)
+	return b.fillNetworksByQuery(netGetter, q)
 }
 
 func (b *BaseHostDesc) fillOnecloudVpcNetworks(netGetter *networkGetter) error {
 	nets := computemodels.NetworkManager.Query()
 	wires := computemodels.WireManager.Query().SubQuery()
 	vpcs := computemodels.VpcManager.Query().SubQuery()
-	regions := computemodels.CloudregionManager.Query().SubQuery()
+	regions := computemodels.CloudregionManager.Query().Equals("provider", computeapi.CLOUD_PROVIDER_ONECLOUD).SubQuery()
 	q := nets.AppendField(nets.QueryFields()...)
 	q = q.AppendField(
 		vpcs.Field("id", "vpc_id"),
@@ -748,11 +727,45 @@ func (b *BaseHostDesc) fillOnecloudVpcNetworks(netGetter *networkGetter) error {
 	q = q.Join(wires, sqlchemy.Equals(wires.Field("id"), nets.Field("wire_id")))
 	q = q.Join(vpcs, sqlchemy.Equals(vpcs.Field("id"), wires.Field("vpc_id")))
 	q = q.Join(regions, sqlchemy.Equals(regions.Field("id"), vpcs.Field("cloudregion_id")))
-	q = q.Filter(sqlchemy.AND(
-		sqlchemy.Equals(regions.Field("provider"), computeapi.CLOUD_PROVIDER_ONECLOUD),
+	q = q.Filter(
 		sqlchemy.NOT(sqlchemy.Equals(vpcs.Field("id"), computeapi.DEFAULT_VPC_ID)),
-	))
+	)
+	return b.fillNetworksByQuery(netGetter, q)
+}
 
+func (b *BaseHostDesc) fillOneCloudHostLocalNetworks(netGetter *networkGetter) error {
+	nets := computemodels.NetworkManager.Query()
+	wires := computemodels.WireManager.Query().Equals("id", computeapi.DEFAULT_HOST_LOCAL_WIRE_ID).SubQuery()
+	vpcs := computemodels.VpcManager.Query().Equals("id", computeapi.DEFAULT_VPC_ID).SubQuery()
+	regions := computemodels.CloudregionManager.Query().Equals("provider", computeapi.CLOUD_PROVIDER_ONECLOUD).SubQuery()
+	q := nets.AppendField(nets.QueryFields()...)
+	q = q.AppendField(
+		vpcs.Field("id", "vpc_id"),
+		regions.Field("provider"),
+	)
+	q = q.Join(wires, sqlchemy.Equals(wires.Field("id"), nets.Field("wire_id")))
+	q = q.Join(vpcs, sqlchemy.Equals(vpcs.Field("id"), wires.Field("vpc_id")))
+	q = q.Join(regions, sqlchemy.Equals(regions.Field("id"), vpcs.Field("cloudregion_id")))
+	return b.fillNetworksByQuery(netGetter, q)
+}
+
+func (b *BaseHostDesc) fillCloudpodsHostLocalNetworks(netGetter *networkGetter) error {
+	nets := computemodels.NetworkManager.Query()
+	wires := computemodels.WireManager.Query().Equals("external_id", computeapi.DEFAULT_HOST_LOCAL_WIRE_ID).SubQuery()
+	vpcs := computemodels.VpcManager.Query().Equals("external_id", computeapi.DEFAULT_VPC_ID).SubQuery()
+	regions := computemodels.CloudregionManager.Query().Equals("provider", computeapi.CLOUD_PROVIDER_CLOUDPODS).SubQuery()
+	q := nets.AppendField(nets.QueryFields()...)
+	q = q.AppendField(
+		vpcs.Field("id", "vpc_id"),
+		regions.Field("provider"),
+	)
+	q = q.Join(wires, sqlchemy.Equals(wires.Field("id"), nets.Field("wire_id")))
+	q = q.Join(vpcs, sqlchemy.Equals(vpcs.Field("id"), wires.Field("vpc_id")))
+	q = q.Join(regions, sqlchemy.Equals(regions.Field("id"), vpcs.Field("cloudregion_id")))
+	return b.fillNetworksByQuery(netGetter, q)
+}
+
+func (b *BaseHostDesc) fillNetworksByQuery(netGetter *networkGetter, q *sqlchemy.SQuery) error {
 	type Row struct {
 		computemodels.SNetwork
 		VpcId    string
