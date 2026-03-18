@@ -381,28 +381,18 @@ func (task *sBaremetalPrepareTask) findAdminNic(cli *ssh.Client, nicsInfo []*typ
 	return -1, nil, errors.Error("admin nic not found???")
 }
 
-func (task *sBaremetalPrepareTask) updateBmInfo(ctx context.Context, cli *ssh.Client, i *baremetalPrepareInfo) error {
-	adminNic := task.baremetal.GetAdminNic()
-	if adminNic == nil || (adminNic != nil && !adminNic.LinkUp) {
-		adminIdx, adminNicDev, err := task.findAdminNic(cli, i.nicsInfo)
-		if err != nil {
-			return errors.Wrap(err, "task.findAdminNic")
-		}
-		accessIp := cli.GetConfig().Host
-		err = task.sendNicInfo(ctx, adminNicDev, adminIdx, api.NIC_TYPE_ADMIN, false, accessIp, true)
-		if err != nil {
-			return errors.Wrap(err, "send Admin Nic Info")
-		}
-		adminNic = task.baremetal.GetNicByMac(adminNicDev.Mac)
-	}
-	// collect params
+func (task *sBaremetalPrepareTask) doUpdateBmInfo(
+	ctx context.Context, cli *ssh.Client, i *baremetalPrepareInfo,
+	bmName, accessIp, accessMac string,
+) error {
 	updateInfo := make(map[string]interface{})
-	oname := fmt.Sprintf("BM%s", strings.Replace(adminNic.Mac, ":", "", -1))
-	if task.baremetal.GetName() == oname {
-		updateInfo["name"] = fmt.Sprintf("BM-%s", strings.Replace(i.ipmiInfo.IpAddr, ".", "-", -1))
+	if bmName != "" {
+		updateInfo["name"] = bmName
 	}
-	updateInfo["access_ip"] = adminNic.IpAddr
-	updateInfo["access_mac"] = adminNic.Mac
+	updateInfo["access_ip"] = accessIp
+	if accessMac != "" {
+		updateInfo["access_mac"] = accessMac
+	}
 	updateInfo["cpu_architecture"] = i.architecture
 	updateInfo["cpu_count"] = i.cpuInfo.Count
 	updateInfo["node_count"] = i.dmiCpuInfo.Nodes
@@ -436,19 +426,6 @@ func (task *sBaremetalPrepareTask) updateBmInfo(ctx context.Context, cli *ssh.Cl
 			return errors.Wrap(err, "send isolated devices info")
 		}
 	}
-	// XXX do not change nic order anymore
-	// for i := range nicsInfo {
-	// 	if nicsInfo[i].Mac.String() == adminNic.GetMac().String() {
-	// 		if i != 0 {
-	// 			nicsInfo = append(nicsInfo[i:], nicsInfo[0:i]...)
-	// 		}
-	// 		break
-	// 	}
-	// }
-	// err = task.removeAllNics()
-	// if err != nil {
-	// 	return err
-	// }
 	removedMacs := task.removeObsoleteNics(i)
 	for idx := range removedMacs {
 		err = task.removeNicInfo(ctx, removedMacs[idx])
@@ -463,6 +440,31 @@ func (task *sBaremetalPrepareTask) updateBmInfo(ctx context.Context, cli *ssh.Cl
 			log.Errorf("Send nicinfo idx: %d, %#v error: %v", idx, i.nicsInfo[idx], err)
 			return errors.Wrap(err, "task.sendNicInfo")
 		}
+	}
+	return nil
+}
+
+func (task *sBaremetalPrepareTask) updateBmInfo(ctx context.Context, cli *ssh.Client, i *baremetalPrepareInfo) error {
+	adminNic := task.baremetal.GetAdminNic()
+	if adminNic == nil || (adminNic != nil && !adminNic.LinkUp) {
+		adminIdx, adminNicDev, err := task.findAdminNic(cli, i.nicsInfo)
+		if err != nil {
+			return errors.Wrap(err, "task.findAdminNic")
+		}
+		accessIp := cli.GetConfig().Host
+		err = task.sendNicInfo(ctx, adminNicDev, adminIdx, api.NIC_TYPE_ADMIN, false, accessIp, true)
+		if err != nil {
+			return errors.Wrap(err, "send Admin Nic Info")
+		}
+		adminNic = task.baremetal.GetNicByMac(adminNicDev.Mac)
+	}
+	oname := fmt.Sprintf("BM%s", strings.Replace(adminNic.Mac, ":", "", -1))
+	if task.baremetal.GetName() != oname {
+		oname = ""
+	}
+	err := task.doUpdateBmInfo(ctx, cli, i, oname, adminNic.IpAddr, adminNic.Mac)
+	if err != nil {
+		return err
 	}
 	if o.Options.EnablePxeBoot && task.baremetal.EnablePxeBoot() {
 		for _, nicInfo := range i.nicsInfo {
