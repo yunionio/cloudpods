@@ -35,31 +35,35 @@ type SImage struct {
 	storageCache *SStoragecache
 	imgInfo      *imagetools.ImageInfo
 
-	ImageId         string
-	ServerId        string
-	ImageAlias      string
-	Name            string
-	Url             string
-	SrourceImageId  string
-	Status          string
-	SizeMb          int `json:"size"`
-	IsPublic        int
-	CreateTime      time.Time
-	Note            string
-	OsType          string
-	MinDiskGB       int `json:"minDisk"`
-	ImageType       string
-	PublicImageType string
-	BackupType      string
-	BackupWay       string
-	SnapshotId      string
-	OsName          string
+	// 字段与 IMS OpenAPI listImageRespV2/getImageRespV2 对齐
+	ImageId         string    `json:"imageId,omitempty"`
+	ServerId        string    `json:"serverId,omitempty"`
+	ImageAlias      string    `json:"imageAlias,omitempty"`
+	Name            string    `json:"name,omitempty"`
+	Url             string    `json:"url,omitempty"`
+	SrourceImageId  string    `json:"sourceImageId,omitempty"`
+	Status          string    `json:"status,omitempty"`
+	SizeMb          int       `json:"size"` // IMS 返回 size，按 MB 处理
+	IsPublic        int       `json:"isPublic,omitempty"`
+	ImageSource     string    `json:"imageSource,omitempty"` // 通过 imageSource 判断是否公共镜像
+	CreateTime      time.Time `json:"-"`                     // 旧接口可能直接反序列化为 time.Time
+	CreateTimeStr   string    `json:"createTime,omitempty"`
+	Note            string    `json:"note,omitempty"`
+	OsType          string    `json:"osType,omitempty"`
+	MinDiskGB       int       `json:"minDisk,omitempty"`
+	ImageType       string    `json:"imageType,omitempty"`
+	PublicImageType string    `json:"publicImageType,omitempty"`
+	BackupType      string    `json:"backupType,omitempty"`
+	BackupWay       string    `json:"backupWay,omitempty"`
+	SnapshotId      string    `json:"snapshotId,omitempty"`
+	OsName          string    `json:"osName,omitempty"`
 }
 
 func (r *SRegion) GetImage(imageId string) (*SImage, error) {
-	request := NewNovaRequest(NewApiRequest(r.ID, fmt.Sprintf("/api/v2/image/%s", imageId), nil, nil))
+	// 使用 IMS OpenAPI 镜像详情：GET /api/openapi-ims/user/v5/image/{imageId}
+	req := NewOpenApiEbsRequest(r.RegionId, fmt.Sprintf("/api/openapi-ims/user/v5/image/%s", imageId), nil, nil)
 	var image SImage
-	err := r.client.doGet(context.Background(), request, &image)
+	err := r.client.doGet(context.Background(), req.Base(), &image)
 	if err != nil {
 		return nil, err
 	}
@@ -67,19 +71,40 @@ func (r *SRegion) GetImage(imageId string) (*SImage, error) {
 }
 
 func (r *SRegion) GetImages(isPublic bool) ([]SImage, error) {
-	if isPublic {
-		return nil, cloudprovider.ErrNotImplemented
+	// IMS 接口要求 region（资源池 ID），否则报 CSLOPENSTACK_COMPUTE_IMAGE_PARAM_INVALID
+	poolId := regionIdToPoolId[r.RegionId]
+	if poolId == "" {
+		poolId = r.RegionId
 	}
-	request := NewNovaRequest(NewApiRequest(r.ID, "/api/v2/image", nil, nil))
-	images := make([]SImage, 0, 5)
-	err := r.client.doList(context.Background(), request, &images)
-	if err != nil {
+	// IMS OpenAPI ListImageRespV2
+	// GET /api/openapi-ims/user/v5/image?region=CIDC-RP-xx&imageSource=PUBLIC|PRIVATE
+	query := map[string]string{
+		"region": poolId,
+	}
+	if isPublic {
+		query["imageSource"] = "PUBLIC"
+	} else {
+		query["imageSource"] = "PRIVATE"
+	}
+	req := NewOpenApiEbsRequest(r.RegionId, "/api/openapi-ims/user/v5/image", query, nil)
+	images := make([]SImage, 0, 20)
+	if err := r.client.doList(context.Background(), req.Base(), &images); err != nil {
 		return nil, err
 	}
 	return images, nil
 }
 
 func (i *SImage) GetCreatedAt() time.Time {
+	if len(i.CreateTimeStr) > 0 {
+		// IMS 接口时间格式一般为 "2006-01-02 15:04:05"
+		if t, err := time.Parse("2006-01-02 15:04:05", i.CreateTimeStr); err == nil {
+			return t
+		}
+		// 兼容 RFC3339
+		if t, err := time.Parse(time.RFC3339, i.CreateTimeStr); err == nil {
+			return t
+		}
+	}
 	return i.CreateTime
 }
 

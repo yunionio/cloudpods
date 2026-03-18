@@ -24,28 +24,43 @@ import (
 	"yunion.io/x/cloudmux/pkg/multicloud"
 )
 
-var storageTypes = []string{
-	api.STORAGE_ECLOUD_CAPEBS,
-	api.STORAGE_ECLOUD_EBS,
-	api.STORAGE_ECLOUD_SSD,
-	api.STORAGE_ECLOUD_SSDEBS,
-	// special storage
-	api.STORAGE_ECLOUD_SYSTEM,
+// storageTypeConstMap 将 API 返回的存储类型 code 映射为 cloudmux 统一常量值。
+// 例如 API 返回 "local" 时应使用 api.STORAGE_ECLOUD_LOCAL。
+var storageTypeConstMap = map[string]string{
+	"local":                     api.STORAGE_ECLOUD_LOCAL,
+	"capacity":                  api.STORAGE_ECLOUD_CAPEBS,
+	"highPerformance":           api.STORAGE_ECLOUD_SSD,
+	"performanceOptimization":   api.STORAGE_ECLOUD_SSDEBS,
+	"highPerformanceyc":         api.STORAGE_ECLOUD_SSDYC,
+	"performanceOptimizationyc": api.STORAGE_ECLOUD_SSDEBS_YC,
 }
 
 type SStorage struct {
 	multicloud.SStorageBase
 	EcloudTags
-	zone        *SZone
-	storageType string
+	zone *SZone
+
+	// 对齐 /api/ebs/customer/v3/volume/volumeType/list（GetVolumeConfig）
+	CinderType        string   `json:"cinderType,omitempty"`
+	BackupType        string   `json:"backupType,omitempty"`
+	SnapshotType      string   `json:"snapshotType,omitempty"`
+	Priority          int      `json:"priority,omitempty"`
+	AttachServerTypes []string `json:"attachServerTypes,omitempty"`
+	CustomBack        bool     `json:"customBack,omitempty"`
+	Iscsi             bool     `json:"iscsi,omitempty"`
+	Region            string   `json:"region,omitempty"`
+	Encryption        bool     `json:"encryption,omitempty"`
+	IsEdge            bool     `json:"isEdge,omitempty"`
+	IsStorage         bool     `json:"isStorage,omitempty"`
+	StorageType       string   `json:"opType,omitempty"`
 }
 
 func (s *SStorage) GetId() string {
-	return fmt.Sprintf("%s-%s-%s", s.zone.region.client.cpcfg.Id, s.zone.GetGlobalId(), s.storageType)
+	return fmt.Sprintf("%s-%s-%s", s.zone.region.client.cpcfg.Id, s.zone.GetGlobalId(), s.StorageType)
 }
 
 func (s *SStorage) GetName() string {
-	return fmt.Sprintf("%s-%s-%s", s.zone.region.client.cpcfg.Name, s.zone.GetId(), s.storageType)
+	return fmt.Sprintf("%s-%s-%s", s.zone.region.client.cpcfg.Name, s.zone.GetId(), s.StorageType)
 }
 
 func (s *SStorage) GetGlobalId() string {
@@ -53,6 +68,9 @@ func (s *SStorage) GetGlobalId() string {
 }
 
 func (s *SStorage) GetStatus() string {
+	if !s.IsStorage {
+		return api.STORAGE_OFFLINE
+	}
 	return api.STORAGE_ONLINE
 }
 
@@ -73,9 +91,6 @@ func (s *SStorage) GetIZone() cloudprovider.ICloudZone {
 }
 
 func (s *SStorage) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
-	if s.storageType == api.STORAGE_ECLOUD_SYSTEM {
-		return nil, nil
-	}
 	disks, err := s.zone.region.GetDisks()
 	if err != nil {
 		return nil, err
@@ -85,7 +100,7 @@ func (s *SStorage) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 	filtedDisks := make([]SDisk, 0)
 	for i := range disks {
 		disk := disks[i]
-		if disk.Type == s.storageType && disk.Region == s.zone.Region {
+		if disk.Type == s.StorageType && disk.Region == s.zone.ZoneCode {
 			filtedDisks = append(filtedDisks, disk)
 		}
 	}
@@ -99,15 +114,11 @@ func (s *SStorage) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 }
 
 func (s *SStorage) GetStorageType() string {
-	return s.storageType
+	return s.StorageType
 }
 
 func (s *SStorage) GetMediumType() string {
-	if s.storageType == api.STORAGE_ECLOUD_SSD {
-		return api.DISK_TYPE_SSD
-	} else {
-		return api.DISK_TYPE_ROTATE
-	}
+	return api.DISK_TYPE_SSD
 }
 
 func (s *SStorage) GetCapacityMB() int64 {
@@ -123,7 +134,7 @@ func (s *SStorage) GetStorageConf() jsonutils.JSONObject {
 }
 
 func (s *SStorage) GetEnabled() bool {
-	return true
+	return s.StorageType != api.STORAGE_ECLOUD_LOCAL
 }
 
 func (s *SStorage) CreateIDisk(conf *cloudprovider.DiskCreateConfig) (cloudprovider.ICloudDisk, error) {
@@ -131,16 +142,12 @@ func (s *SStorage) CreateIDisk(conf *cloudprovider.DiskCreateConfig) (cloudprovi
 }
 
 func (s *SStorage) GetIDiskById(idStr string) (cloudprovider.ICloudDisk, error) {
-	if len(idStr) == 0 {
-		return nil, cloudprovider.ErrNotFound
-	}
-
-	if disk, err := s.zone.region.GetDisk(idStr); err != nil {
+	disk, err := s.zone.region.GetDisk(idStr)
+	if err != nil {
 		return nil, err
-	} else {
-		disk.storage = s
-		return disk, nil
 	}
+	disk.storage = s
+	return disk, nil
 }
 
 func (s *SStorage) GetMountPoint() string {
@@ -152,15 +159,9 @@ func (s *SStorage) IsSysDiskStore() bool {
 }
 
 func (s *SStorage) DisableSync() bool {
-	if s.storageType == api.STORAGE_ECLOUD_SYSTEM {
-		return true
-	}
-	return s.SStorageBase.DisableSync()
+	return s.StorageType == api.STORAGE_ECLOUD_LOCAL
 }
 
 func (s *SRegion) getStoragecache() *SStoragecache {
-	if s.storageCache == nil {
-		s.storageCache = &SStoragecache{region: s}
-	}
-	return s.storageCache
+	return &SStoragecache{region: s}
 }
