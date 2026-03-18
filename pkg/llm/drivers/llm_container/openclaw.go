@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"fmt"
+	"hash/fnv"
 	"strings"
 
 	"yunion.io/x/jsonutils"
@@ -28,6 +29,27 @@ const (
 	homeDir          = "/home/"
 	// openclawBrowserCDPPort = "9222"
 )
+
+func openclawFixed9DigitPassword(llmId string) string {
+	h := fnv.New64a()
+	_, _ = h.Write([]byte(llmId))
+	x := h.Sum64()
+
+	// 固定 9 位，字母数字混合，并保证至少包含 1 个字母
+	const alpha = "abcdefghijklmnopqrstuvwxyz"
+	const base36 = "0123456789abcdefghijklmnopqrstuvwxyz"
+	out := make([]byte, 9)
+	out[0] = alpha[x%26]
+	for i := 1; i < len(out); i++ {
+		// xorshift64* 生成稳定伪随机序列
+		x ^= x >> 12
+		x ^= x << 25
+		x ^= x >> 27
+		x *= 2685821657736338717
+		out[i] = base36[x%36]
+	}
+	return string(out)
+}
 
 func appendCredentialEnvs(envs []*commonapi.ContainerKeyValue, cred *api.LLMSpecCredential) []*commonapi.ContainerKeyValue {
 	if cred == nil {
@@ -291,7 +313,7 @@ func (c *openclaw) GetContainerSpecs(ctx context.Context, llm *models.SLLM, imag
 		},
 	}
 	httpAuthUsername := "admin"
-	httpAuthPassword := "clawadmin@123"
+	httpAuthPassword := openclawFixed9DigitPassword(llm.GetId())
 	openclawSpec := computeapi.ContainerSpec{
 		ContainerSpec: commonapi.ContainerSpec{
 			Image:             image.ToContainerImage(),
@@ -348,8 +370,7 @@ func (c *openclaw) GetContainerSpecs(ctx context.Context, llm *models.SLLM, imag
 	}
 	// inject credential envs
 	// spec := c.GetEffectiveSpec(llm, sku)
-	spec := llm.LLMSpec.OpenClaw
-	if spec == nil {
+	if llm.LLMSpec == nil || llm.LLMSpec.OpenClaw == nil {
 		return []*computeapi.PodContainerCreateInput{
 			{
 				Name:          fmt.Sprintf("%s-%d", llm.GetName(), 0),
@@ -357,6 +378,7 @@ func (c *openclaw) GetContainerSpecs(ctx context.Context, llm *models.SLLM, imag
 			},
 		}
 	}
+	spec := llm.LLMSpec.OpenClaw
 	for _, provider := range spec.Providers {
 		openclawSpec.Envs = appendCredentialEnvs(openclawSpec.Envs, provider.Credential)
 	}
