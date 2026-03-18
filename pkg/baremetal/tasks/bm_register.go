@@ -274,36 +274,15 @@ func (s *sBaremetalRegisterTask) updateIpmiInfo(ctx context.Context, cli *ssh.Cl
 }
 
 func (s *sBaremetalRegisterTask) updateBmInfo(ctx context.Context, cli *ssh.Client, i *baremetalPrepareInfo, registered bool) error {
-	updateInfo := make(map[string]interface{})
-	updateInfo["access_ip"] = s.RemoteIp
-	updateInfo["cpu_count"] = i.cpuInfo.Count
-	updateInfo["node_count"] = i.dmiCpuInfo.Nodes
-	updateInfo["cpu_desc"] = i.cpuInfo.Model
-	updateInfo["cpu_mhz"] = i.cpuInfo.Freq
-	updateInfo["cpu_cache"] = i.cpuInfo.Cache
-	updateInfo["mem_size"] = i.memInfo.Total
-	updateInfo["storage_driver"] = i.storageDriver
-	updateInfo["storage_info"] = i.diskInfo
-	updateInfo["sys_info"] = i.sysInfo
-	updateInfo["sn"] = i.sysInfo.SN
-	size, diskType := s.collectDiskInfo(i.diskInfo)
-	updateInfo["storage_size"] = size
-	updateInfo["storage_type"] = diskType
-	updateData := jsonutils.Marshal(updateInfo)
-	updateData.(*jsonutils.JSONDict).Update(i.ipmiInfo.ToPrepareParams())
-	_, err := modules.Hosts.Update(s.getClientSession(), s.baremetal.GetId(), updateData)
+	accessMac := ""
+	if s.accessNic != nil {
+		accessMac = s.accessNic.Mac.String()
+	}
+	err := s.doUpdateBmInfo(ctx, cli, i, "", s.RemoteIp, accessMac)
 	if err != nil {
-		log.Errorf("Update baremetal info error: %v", err)
+		log.Errorf("failed do update bminfo %s", err)
 	}
-	if err := s.sendStorageInfo(size); err != nil {
-		log.Errorf("sendStorageInfo error: %v", err)
-	}
-	for idx := range i.nicsInfo {
-		err = s.sendNicInfo(ctx, i.nicsInfo[idx], idx, "", false, "", false)
-		if err != nil {
-			log.Errorf("Send nicinfo idx: %d, %#v error: %v", idx, i.nicsInfo[idx], err)
-		}
-	}
+
 	if registered {
 		return nil
 	}
