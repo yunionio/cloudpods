@@ -25,13 +25,12 @@ import (
 type SWire struct {
 	multicloud.SResourceBase
 	EcloudTags
-	vpc       *SVpc
-	zone      *SZone
-	inetworks []cloudprovider.ICloudNetwork
+	vpc  *SVpc
+	zone *SZone
 }
 
 func (w *SWire) GetId() string {
-	return fmt.Sprintf("%s-%s", w.vpc.GetId(), w.vpc.region.GetId())
+	return fmt.Sprintf("%s-%s", w.vpc.GetId(), w.zone.GetId())
 }
 
 func (w *SWire) GetName() string {
@@ -39,7 +38,7 @@ func (w *SWire) GetName() string {
 }
 
 func (w *SWire) GetGlobalId() string {
-	return fmt.Sprintf("%s-%s", w.vpc.GetGlobalId(), w.vpc.region.GetGlobalId())
+	return w.GetId()
 }
 
 func (w *SWire) GetStatus() string {
@@ -48,7 +47,6 @@ func (w *SWire) GetStatus() string {
 
 func (w *SWire) Refresh() error {
 	return nil
-	// TODO? w.fetchNetworks()
 }
 
 func (w *SWire) IsEmulated() bool {
@@ -64,13 +62,16 @@ func (w *SWire) GetIZone() cloudprovider.ICloudZone {
 }
 
 func (w *SWire) GetINetworks() ([]cloudprovider.ICloudNetwork, error) {
-	if w.inetworks == nil {
-		err := w.fetchNetworks()
-		if err != nil {
-			return nil, err
-		}
+	networks, err := w.vpc.region.GetNetworks(w.vpc.Id, w.zone.ZoneCode)
+	if err != nil {
+		return nil, err
 	}
-	return w.inetworks, nil
+	inetworks := make([]cloudprovider.ICloudNetwork, len(networks))
+	for i := range networks {
+		networks[i].wire = w
+		inetworks[i] = &networks[i]
+	}
+	return inetworks, nil
 }
 
 func (w *SWire) GetBandwidth() int {
@@ -78,7 +79,7 @@ func (w *SWire) GetBandwidth() int {
 }
 
 func (w *SWire) GetINetworkById(netid string) (cloudprovider.ICloudNetwork, error) {
-	n, err := w.vpc.region.GetNetworkById(w.vpc.RouterId, w.zone.Region, netid)
+	n, err := w.vpc.region.GetNetwork(netid)
 	if err != nil {
 		return nil, err
 	}
@@ -87,54 +88,38 @@ func (w *SWire) GetINetworkById(netid string) (cloudprovider.ICloudNetwork, erro
 }
 
 func (w *SWire) CreateINetwork(opts *cloudprovider.SNetworkCreateOptions) (cloudprovider.ICloudNetwork, error) {
-	return nil, nil
-}
-
-func (w *SWire) CreateNetworks() (*SNetwork, error) {
-	// data := jsonutils.NewDict()
-	// req := jsonutils.NewDict()
-	// req.Set("availabilityZoneHints", jsonutils.NewString("RegionOne"))
-	// req.Set("networkName", jsonutils.NewString("zyone"))
-	// req.Set("networkTypeEnum", jsonutils.NewString("VM"))
-	// req.Set("region", jsonutils.NewString("RegionOne"))
-	// req.Set("routerId", jsonutils.NewString(w.vpc.RouterId))
-	// subnet := jsonutils.NewDict()
-	// subnet.Set("cidr", jsonutils.NewString("192.168.46.0/24"))
-	// subnet.Set("ipVersion", jsonutils.NewString("4"))
-	// subnet.Set("subnetName", jsonutils.NewString("zyone"))
-	// req.Set("subnets", jsonutils.NewArray(subnet))
-	// data.Set("networkCreateReq", req)
-	// fmt.Printf("data:\n%s", data.PrettyString())
-	// request := NewConsoleRequest(w.vpc.region.ID, "/api/v2/netcenter/network", nil, req)
-	// request.SetMethod("POST")
-	// resp, err := w.vpc.region.client.request(context.Background(), request)
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// fmt.Printf("resp:%s", resp)
-	// return nil, nil
-	return nil, cloudprovider.ErrNotImplemented
-}
-
-func (w *SWire) GetNetworkById(netId string) (*SNetwork, error) {
-	n, err := w.vpc.region.GetNetworkById(w.vpc.RouterId, w.zone.Region, netId)
+	networkName := opts.Name
+	if networkName == "" {
+		networkName = "subnet-1"
+	}
+	// 规范：5-22 位、字母开头
+	if len(networkName) < 5 {
+		networkName = networkName + "xxxx"[:5-len(networkName)]
+	}
+	if len(networkName) > 22 {
+		networkName = networkName[:22]
+	}
+	if c := networkName[0]; (c < 'a' || c > 'z') && (c < 'A' || c > 'Z') {
+		networkName = "n" + networkName
+		if len(networkName) > 22 {
+			networkName = networkName[:22]
+		}
+	}
+	cidr := opts.Cidr
+	if cidr == "" {
+		cidr = "192.168.0.0/24"
+	}
+	regionPoolId := ""
+	if w.zone != nil && w.zone.ZoneCode != "" {
+		regionPoolId = regionIdToPoolId[w.zone.ZoneCode]
+		if regionPoolId == "" {
+			regionPoolId = w.zone.ZoneCode
+		}
+	}
+	net, err := w.vpc.region.CreateNetwork(w.vpc.RouterId, regionPoolId, networkName, cidr)
 	if err != nil {
 		return nil, err
 	}
-	n.wire = w
-	return n, nil
-}
-
-func (w *SWire) fetchNetworks() error {
-	networks, err := w.vpc.region.GetNetworks(w.vpc.RouterId, w.zone.Region)
-	if err != nil {
-		return err
-	}
-	inetworks := make([]cloudprovider.ICloudNetwork, len(networks))
-	for i := range networks {
-		networks[i].wire = w
-		inetworks[i] = &networks[i]
-	}
-	w.inetworks = inetworks
-	return nil
+	net.wire = w
+	return net, nil
 }

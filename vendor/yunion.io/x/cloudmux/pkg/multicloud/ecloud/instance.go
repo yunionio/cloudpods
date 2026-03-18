@@ -19,32 +19,17 @@ import (
 	"fmt"
 	"time"
 
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/billing"
-	"yunion.io/x/pkg/util/sets"
+	"yunion.io/x/pkg/util/imagetools"
 
 	billing_api "yunion.io/x/cloudmux/pkg/apis/billing"
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
 )
-
-type SNovaRequest struct {
-	SApiRequest
-}
-
-func NewNovaRequest(ar *SApiRequest) *SNovaRequest {
-	return &SNovaRequest{
-		SApiRequest: *ar,
-	}
-}
-
-func (nr *SNovaRequest) GetPort() string {
-	if nr.RegionId == "guangzhou-2" {
-		return ""
-	}
-	return nr.SApiRequest.GetPort()
-}
 
 type SInstance struct {
 	multicloud.SInstanceBase
@@ -53,36 +38,105 @@ type SInstance struct {
 	SZoneRegionBase
 	SCreateTime
 
-	nicComplete bool
-	host        *SHost
-	image       *SImage
+	host *SHost
 
-	sysDisk   cloudprovider.ICloudDisk
-	dataDisks []cloudprovider.ICloudDisk
+	region *SRegion
 
-	Id               string
-	Name             string
-	Vcpu             int
-	Vmemory          int
-	KeyName          string
-	ImageRef         string
-	ImageName        string
-	ImageOsType      string
-	FlavorRef        string
-	SystemDiskSizeGB int `json:"vdisk"`
-	SystemDiskId     string
-	ServerType       string
-	ServerVmType     string
-	EcStatus         string
-	BootVolumeType   string
-	Deleted          int
-	Visible          bool
-	Region           string
-	PortDetail       []SInstanceNic
+	billInfoFetched bool
+	billInfo        *SInstanceBillInfo
+
+	// OpenAPI v4/list/describe-instances 返回字段
+	ActualSystemImage string `json:"actualSystemImage"`
+	AdminPaused       bool   `json:"adminPaused"`
+	AdminPausedTip    string `json:"adminPausedTip"`
+
+	ZoneId string `json:"zoneId"`
+
+	CredibleStatus string `json:"credibleStatus"`
+
+	CrossRegionMigrate bool `json:"crossRegionMigrate"`
+
+	Description string `json:"description"`
+
+	GroupId string `json:"groupId"`
+
+	InstanceId   string `json:"instanceId"`
+	InstanceName string `json:"instanceName"`
+
+	ImageId     string `json:"imageId"`
+	ImageName   string `json:"imageName"`
+	ImageOsType string `json:"imageOsType"`
+
+	KeyName string `json:"keyName"`
+
+	MainPortId string `json:"mainPortId"`
+	MaxPorts   int    `json:"maxPorts"`
+	MaxVolumes int    `json:"maxVolumes"`
+
+	AvailableZone string `json:"availableZone"`
+
+	ProductType string `json:"productType"`
+
+	Recycle       bool   `json:"recycle"`
+	RecycleCount  int    `json:"recycleCount"`
+	RecycleStatus string `json:"recycleStatus"`
+	RecycleTime   string `json:"recycleTime"`
+
+	ReleaseProtect bool `json:"releaseProtect"`
+
+	FlavorName   string `json:"flavorName"`
+	ServerType   string `json:"serverType"`
+	ServerVmType string `json:"serverVmType"`
+
+	StoppedMode bool `json:"stoppedMode"`
+
+	SupportVolumeMount string `json:"supportVolumeMount"`
+
+	UserName string `json:"userName"`
+
+	Vcpu    int `json:"vcpu"`
+	Vmemory int `json:"vmemory"`
+
+	Vdisk          int    `json:"vdisk"`
+	SystemDiskId   string `json:"systemDiskId"`
+	Status         string `json:"status"`
+	BootVolumeType string `json:"bootVolumeType"`
 }
 
 func (i *SInstance) GetBillingType() string {
+	region := i.getRegion()
+	if region != nil && !i.billInfoFetched {
+		i.billInfoFetched = true
+		infos, err := region.GetInsatnceBillInfo(context.Background(), []string{i.GetId()})
+		if err != nil {
+			log.Debugf("ecloud GetInsatnceBillInfo(%s) error: %v", i.GetId(), err)
+		} else {
+			for idx := range infos {
+				if infos[idx].InstanceId == i.GetId() {
+					i.billInfo = &infos[idx]
+					break
+				}
+			}
+		}
+	}
+	if i.billInfo != nil {
+		// chargingMode: 1=包周期(预付费) 2=按需(后付费)
+		switch i.billInfo.ChargingMode {
+		case 1:
+			return billing_api.BILLING_TYPE_PREPAID
+		case 2:
+			return billing_api.BILLING_TYPE_POSTPAID
+		}
+	}
+	// 查询失败或无返回时兜底按后付费处理
 	return billing_api.BILLING_TYPE_POSTPAID
+}
+
+func (i *SInstance) getRegion() *SRegion {
+	if i.host != nil && i.host.zone != nil && i.host.zone.region != nil {
+		return i.host.zone.region
+	}
+	return i.region
 }
 
 func (i *SInstance) GetExpiredAt() time.Time {
@@ -90,11 +144,11 @@ func (i *SInstance) GetExpiredAt() time.Time {
 }
 
 func (i *SInstance) GetId() string {
-	return i.Id
+	return i.InstanceId
 }
 
 func (i *SInstance) GetName() string {
-	return i.Name
+	return i.InstanceName
 }
 
 func (i *SInstance) GetHostname() string {
@@ -106,7 +160,7 @@ func (i *SInstance) GetGlobalId() string {
 }
 
 func (i *SInstance) GetStatus() string {
-	switch i.EcStatus {
+	switch i.Status {
 	case "active":
 		return api.VM_RUNNING
 	case "suspended", "paused":
@@ -127,12 +181,11 @@ func (i *SInstance) GetStatus() string {
 }
 
 func (i *SInstance) Refresh() error {
-	// TODO
-	return nil
-}
-
-func (i *SInstance) IsEmulated() bool {
-	return false
+	vm, err := i.host.zone.region.GetInstance(i.InstanceId)
+	if err != nil {
+		return err
+	}
+	return jsonutils.Update(i, vm)
 }
 
 func (self *SInstance) GetBootOrder() string {
@@ -147,68 +200,35 @@ func (self *SInstance) GetVdi() string {
 	return "vnc"
 }
 
-func (i *SInstance) GetImage() (*SImage, error) {
-	if i.image != nil {
-		return i.image, nil
-	}
-	image, err := i.host.zone.region.GetImage(i.ImageRef)
-	if err != nil {
-		return nil, err
-	}
-	i.image = image
-	return i.image, nil
-}
-
 func (i *SInstance) GetOsType() cloudprovider.TOsType {
 	return cloudprovider.TOsType(i.ImageOsType)
 }
 
 func (i *SInstance) GetFullOsName() string {
-	image, err := i.GetImage()
-	if err != nil {
-		return ""
-	}
-	return image.GetFullOsName()
+	return i.ImageName
 }
 
 func (i *SInstance) GetBios() cloudprovider.TBiosType {
-	image, err := i.GetImage()
-	if err != nil {
-		return cloudprovider.BIOS
-	}
-	return image.GetBios()
+	return cloudprovider.BIOS
 }
 
 func (i *SInstance) GetOsArch() string {
-	image, err := i.GetImage()
-	if err != nil {
-		return ""
-	}
-	return image.GetOsArch()
+	return ""
 }
 
 func (i *SInstance) GetOsDist() string {
-	image, err := i.GetImage()
-	if err != nil {
-		return ""
-	}
-	return image.GetOsDist()
+	osInfo := imagetools.NormalizeImageInfo(i.ImageName, "", i.ImageOsType, "", "")
+	return osInfo.OsDistro
 }
 
 func (i *SInstance) GetOsVersion() string {
-	image, err := i.GetImage()
-	if err != nil {
-		return ""
-	}
-	return image.GetOsVersion()
+	osInfo := imagetools.NormalizeImageInfo(i.ImageName, "", i.ImageOsType, "", "")
+	return osInfo.OsVersion
 }
 
 func (i *SInstance) GetOsLang() string {
-	image, err := i.GetImage()
-	if err != nil {
-		return ""
-	}
-	return image.GetOsLang()
+	osInfo := imagetools.NormalizeImageInfo(i.ImageName, "", i.ImageOsType, "", "")
+	return osInfo.OsLang
 }
 
 func (i *SInstance) GetMachine() string {
@@ -216,7 +236,7 @@ func (i *SInstance) GetMachine() string {
 }
 
 func (i *SInstance) GetInstanceType() string {
-	return i.FlavorRef
+	return i.FlavorName
 }
 
 func (in *SInstance) GetProjectId() string {
@@ -228,70 +248,64 @@ func (in *SInstance) GetIHost() cloudprovider.ICloudHost {
 }
 
 func (in *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
-	if in.sysDisk == nil {
-		in.fetchSysDisk()
+	sysDisk, err := in.GetSysDisk()
+	if err != nil {
+		return nil, err
 	}
-	if in.dataDisks == nil {
-		err := in.fetchDataDisks()
-		if err != nil {
-			return nil, err
-		}
+	dataDisks, err := in.GetDataDisks()
+	if err != nil {
+		return nil, err
 	}
-	return append([]cloudprovider.ICloudDisk{in.sysDisk}, in.dataDisks...), nil
+	return append([]cloudprovider.ICloudDisk{sysDisk}, dataDisks...), nil
 }
 
 func (in *SInstance) GetINics() ([]cloudprovider.ICloudNic, error) {
-	if !in.nicComplete {
-		err := in.makeNicComplete()
-		if err != nil {
-			return nil, errors.Wrap(err, "unable to make nics complete")
-		}
-		in.nicComplete = true
+	region := in.getRegion()
+	if region == nil {
+		return []cloudprovider.ICloudNic{}, nil
 	}
-	inics := make([]cloudprovider.ICloudNic, len(in.PortDetail))
-	for i := range in.PortDetail {
-		in.PortDetail[i].instance = in
-		inics[i] = &in.PortDetail[i]
+	nics, err := region.GetInstanceNics(context.Background(), in.GetId())
+	if err != nil {
+		return nil, err
 	}
-	return inics, nil
+	ret := make([]cloudprovider.ICloudNic, len(nics))
+	for i := range nics {
+		nics[i].instance = in
+		ret[i] = &nics[i]
+	}
+	return ret, nil
 }
 
 func (in *SInstance) GetIEIP() (cloudprovider.ICloudEIP, error) {
-	if !in.nicComplete {
-		err := in.makeNicComplete()
+	nics, err := in.host.zone.region.GetInstanceNics(context.Background(), in.GetId())
+	if err != nil {
+		return nil, err
+	}
+	for i := range nics {
+		if len(nics[i].FipAddress) == 0 {
+			continue
+		}
+		eip, err := in.getRegion().GetEipByAddr(nics[i].FipAddress)
 		if err != nil {
-			return nil, errors.Wrap(err, "unable to make nics complete")
+			return nil, err
 		}
-		in.nicComplete = true
+		return eip, nil
 	}
-	var eipId string
-	for i := range in.PortDetail {
-		if len(in.PortDetail[i].IpId) > 0 {
-			eipId = in.PortDetail[i].IpId
-			break
-		}
-	}
-	if len(eipId) == 0 {
-		return nil, nil
-	}
-	return in.host.zone.region.GetEipById(eipId)
+	return nil, cloudprovider.ErrNotFound
 }
 
 func (in *SInstance) GetSecurityGroupIds() ([]string, error) {
-	if !in.nicComplete {
-		err := in.makeNicComplete()
-		if err != nil {
-			return nil, errors.Wrap(err, "unable to make nics complete")
-		}
-		in.nicComplete = true
+	nics, err := in.host.zone.region.GetInstanceNics(context.Background(), in.GetId())
+	if err != nil {
+		return nil, err
 	}
-	ret := sets.NewString()
-	for i := range in.PortDetail {
-		for _, group := range in.PortDetail[i].SecurityGroups {
-			ret.Insert(group.Id)
+	securityGroupIds := make([]string, 0)
+	for i := range nics {
+		for _, sg := range nics[i].SecurityGroups {
+			securityGroupIds = append(securityGroupIds, sg.Id)
 		}
 	}
-	return ret.UnsortedList(), nil
+	return securityGroupIds, nil
 }
 
 func (in *SInstance) GetVcpuCount() int {
@@ -311,15 +325,27 @@ func (in *SInstance) GetHypervisor() string {
 }
 
 func (in *SInstance) StartVM(ctx context.Context) error {
-	return cloudprovider.ErrNotImplemented
+	region := in.getRegion()
+	if region == nil {
+		return errors.Wrap(cloudprovider.ErrNotImplemented, "missing region")
+	}
+	return region.StartInstance(ctx, in.GetId())
 }
 
 func (self *SInstance) StopVM(ctx context.Context, opts *cloudprovider.ServerStopOptions) error {
-	return cloudprovider.ErrNotImplemented
+	region := self.getRegion()
+	if region == nil {
+		return errors.Wrap(cloudprovider.ErrNotImplemented, "missing region")
+	}
+	return region.StopInstance(ctx, self.GetId())
 }
 
 func (self *SInstance) DeleteVM(ctx context.Context) error {
-	return cloudprovider.ErrNotImplemented
+	region := self.getRegion()
+	if region == nil {
+		return errors.Wrap(cloudprovider.ErrNotImplemented, "missing region")
+	}
+	return region.DeleteInstance(ctx, self.GetId(), false, false)
 }
 
 func (self *SInstance) UpdateVM(ctx context.Context, input cloudprovider.SInstanceUpdateOptions) error {
@@ -372,153 +398,295 @@ func (self *SInstance) GetError() error {
 	return nil
 }
 
-func (in *SInstance) fetchSysDisk() {
-	storage, _ := in.host.zone.getStorageByType(api.STORAGE_ECLOUD_SYSTEM)
-	disk := SDisk{
+func (in *SInstance) GetSysDisk() (cloudprovider.ICloudDisk, error) {
+	storage, err := in.host.zone.GetStorageByType(storageTypeConstMap[in.BootVolumeType])
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetStorageByType(%s)", in.BootVolumeType)
+	}
+	disk := &SDisk{
 		storage: storage,
 		ManualAttr: SDiskManualAttr{
 			IsVirtual:  true,
-			TempalteId: in.ImageRef,
-			ServerId:   in.Id,
+			TemplateId: in.ImageId,
+			ServerId:   in.InstanceId,
 		},
 		SCreateTime:     in.SCreateTime,
 		SZoneRegionBase: in.SZoneRegionBase,
-		ServerId:        []string{in.Id},
+		ServerId:        []string{in.InstanceId},
 		IsShare:         false,
 		IsDelete:        false,
-		SizeGB:          in.SystemDiskSizeGB,
+		SizeGB:          in.Vdisk,
 		ID:              in.SystemDiskId,
-		Name:            fmt.Sprintf("%s-root", in.Name),
+		Name:            fmt.Sprintf("%s-root", in.InstanceName),
 		Status:          "in-use",
 		Type:            api.STORAGE_ECLOUD_SYSTEM,
 	}
-	in.sysDisk = &disk
-	return
+	return disk, nil
 }
 
-func (in *SInstance) fetchDataDisks() error {
-	request := NewNovaRequest(NewApiRequest(in.host.zone.region.ID, "/api/v2/volume/volume/mount/list",
-		map[string]string{"serverId": in.Id}, nil))
-	disks := make([]SDisk, 0, 5)
-	err := in.host.zone.region.client.doList(context.Background(), request, &disks)
+func (region *SRegion) GetDataDisks(serverId string) ([]SDisk, error) {
+	request := NewOpenApiEbsRequest(region.RegionId, "/api/ebs/acl/v3/volume/mount/list", map[string]string{"serverId": serverId}, nil)
+	var ret []SDisk
+	err := region.client.doList(context.Background(), request.Base(), &ret)
 	if err != nil {
-		return err
+		return nil, errors.Wrapf(err, "GetDataDisks")
+	}
+	return ret, nil
+}
+
+func (in *SInstance) GetDataDisks() ([]cloudprovider.ICloudDisk, error) {
+	disks, err := in.host.zone.region.GetDataDisks(in.InstanceId)
+	if err != nil {
+		return nil, err
 	}
 	idisks := make([]cloudprovider.ICloudDisk, len(disks))
-	for i := range idisks {
-		storageType := disks[i].Type
-		storage, err := in.host.zone.getStorageByType(storageType)
+	for i := range disks {
+		storage, err := in.host.zone.GetStorageByType(disks[i].Type)
 		if err != nil {
-			return errors.Wrapf(err, "unable to fetch storage with stoageType %s", storageType)
+			return nil, errors.Wrapf(err, "GetStorageByType(%s)", disks[i].Type)
 		}
 		disks[i].storage = storage
 		idisks[i] = &disks[i]
 	}
-	in.dataDisks = idisks
-	return nil
+	return idisks, nil
 }
 
-func (in *SInstance) makeNicComplete() error {
-	routerIds := sets.NewString()
-	nics := make(map[string]*SInstanceNic, len(in.PortDetail))
-	for i := range in.PortDetail {
-		nic := &in.PortDetail[i]
-		routerIds.Insert(nic.RouterId)
-		nics[nic.PortId] = nic
+func (r *SRegion) GetInstances(zoneId string, serverId string) ([]SInstance, error) {
+	body := jsonutils.NewDict()
+	if len(zoneId) > 0 {
+		body.Add(jsonutils.NewString(zoneId), "zoneId")
 	}
-	for _, routerId := range routerIds.UnsortedList() {
-		request := NewConsoleRequest(in.host.zone.region.ID, fmt.Sprintf("/api/vpc/%s/nic", routerId),
-			map[string]string{
-				"resourceId": in.Id,
-			}, nil,
-		)
-		completeNics := make([]SInstanceNic, 0, len(nics)/2)
-		err := in.host.zone.region.client.doList(context.Background(), request, &completeNics)
-		if err != nil {
-			return errors.Wrapf(err, "unable to get nics with instance %s in vpc %s", in.Id, routerId)
-		}
-		for i := range completeNics {
-			id := completeNics[i].Id
-			nic, ok := nics[id]
-			if !ok {
-				continue
-			}
-			nic.SInstanceNicDetail = completeNics[i].SInstanceNicDetail
-		}
+	if len(serverId) > 0 {
+		body.Add(jsonutils.NewString(serverId), "instanceId")
 	}
-	return nil
-}
-
-func (r *SRegion) findHost(zoneRegion string) (*SHost, error) {
-	zone, err := r.FindZone(zoneRegion)
+	req := NewOpenApiInstanceRequest(r.RegionId, body)
+	ret := make([]SInstance, 0)
+	err := r.client.doPostList(context.Background(), req.Base(), &ret)
 	if err != nil {
 		return nil, err
 	}
-	return &SHost{
-		zone: zone,
-	}, nil
+	for i := range ret {
+		ret[i].region = r
+	}
+	return ret, nil
 }
 
-func (r *SRegion) GetInstancesWithHost(zoneRegion string) ([]SInstance, error) {
-	instances, err := r.GetInstances(zoneRegion)
+func (r *SRegion) GetInstance(id string) (*SInstance, error) {
+	instances, err := r.GetInstances("", id)
 	if err != nil {
 		return nil, err
 	}
 	for i := range instances {
-		host, _ := r.findHost(instances[i].Region)
-		instances[i].host = host
+		if instances[i].InstanceId == id {
+			instances[i].region = r
+			return &instances[i], nil
+		}
 	}
-	return instances, nil
-}
-
-func (r *SRegion) GetInstances(zoneRegion string) ([]SInstance, error) {
-	return r.getInstances(zoneRegion, "")
-}
-
-func (r *SRegion) getInstances(zoneRegion string, serverId string) ([]SInstance, error) {
-	query := map[string]string{
-		"serverTypes":  "VM",
-		"productTypes": "NORMAL,AUTOSCALING,VO,CDN,PAAS_MASTER,PAAS_SLAVE,VCPE,EMR,LOGAUDIT",
-		//"productTypes": "NORMAL",
-		"visible": "true",
-	}
-	if len(serverId) > 0 {
-		query["serverId"] = serverId
-	}
-	if len(zoneRegion) > 0 {
-		query["region"] = zoneRegion
-	}
-	request := NewNovaRequest(NewApiRequest(r.ID, "/api/v2/server/web/with/network", query, nil))
-	var instances []SInstance
-	err := r.client.doList(context.Background(), request, &instances)
-	if err != nil {
-		return nil, err
-	}
-	return instances, nil
-}
-
-func (r *SRegion) GetInstanceById(id string) (*SInstance, error) {
-	instances, err := r.getInstances("", id)
-	if err != nil {
-		return nil, err
-	}
-	if len(instances) == 0 {
-		return nil, cloudprovider.ErrNotFound
-	}
-	instance := &instances[0]
-	host, err := r.findHost(instance.Region)
-	if err == nil {
-		instance.host = host
-	}
-	return instance, nil
+	return nil, cloudprovider.ErrNotFound
 }
 
 func (r *SRegion) GetInstanceVNCUrl(instanceId string) (string, error) {
-	request := NewNovaRequest(NewApiRequest(r.ID, fmt.Sprintf("/api/server/%s/vnc", instanceId), nil, nil))
-	var url string
-	err := r.client.doGet(context.Background(), request, &url)
-	if err != nil {
+	req := NewOpenApiInstanceActionRequest(r.RegionId, "/api/openapi-instance/v4/vnc-url", nil)
+	base := req.Base()
+	base.SetMethod("GET")
+	base.GetQueryParams()["instanceId"] = instanceId
+	resp := struct {
+		VncUrl string `json:"vncUrl"`
+	}{}
+	if err := r.client.doGet(context.Background(), base, &resp); err != nil {
 		return "", err
 	}
-	return url, nil
+	return resp.VncUrl, nil
+}
+
+type sInstanceBatchResult struct {
+	Result     bool   `json:"result"`
+	InstanceId string `json:"instanceId"`
+	Message    string `json:"message"`
+}
+
+type sInstanceBatchResp struct {
+	InstanceBatchResult []sInstanceBatchResult `json:"instanceBatchResult"`
+}
+
+func (r *SRegion) StartInstance(ctx context.Context, instanceId string) error {
+	body := jsonutils.NewDict()
+	body.Set("batchStartInstancesBody", jsonutils.Marshal(map[string][]string{
+		"instanceIds": {instanceId},
+	}))
+	req := NewOpenApiInstanceActionRequest(r.RegionId, "/api/openapi-instance/v4/batch-start-instances", body)
+	resp := sInstanceBatchResp{}
+	if err := r.client.doPost(ctx, req.Base(), &resp); err != nil {
+		return err
+	}
+	for i := range resp.InstanceBatchResult {
+		if resp.InstanceBatchResult[i].InstanceId != instanceId {
+			continue
+		}
+		if !resp.InstanceBatchResult[i].Result {
+			return errors.Errorf("start instance %s failed: %s", instanceId, resp.InstanceBatchResult[i].Message)
+		}
+		return nil
+	}
+	return nil
+}
+
+func (r *SRegion) StopInstance(ctx context.Context, instanceId string) error {
+	body := jsonutils.NewDict()
+	body.Set("batchStopInstancesBody", jsonutils.Marshal(map[string][]string{
+		"instanceIds": {instanceId},
+	}))
+	req := NewOpenApiInstanceActionRequest(r.RegionId, "/api/openapi-instance/v4/batch-stop-instances", body)
+	resp := sInstanceBatchResp{}
+	if err := r.client.doPost(ctx, req.Base(), &resp); err != nil {
+		return err
+	}
+	for i := range resp.InstanceBatchResult {
+		if resp.InstanceBatchResult[i].InstanceId != instanceId {
+			continue
+		}
+		if !resp.InstanceBatchResult[i].Result {
+			return errors.Errorf("stop instance %s failed: %s", instanceId, resp.InstanceBatchResult[i].Message)
+		}
+		return nil
+	}
+	return nil
+}
+
+func (r *SRegion) DeleteInstance(ctx context.Context, instanceId string, deletePublicNetwork, deleteDataVolumes bool) error {
+	body := jsonutils.NewDict()
+	body.Set("deleteInstancesBody", jsonutils.Marshal(map[string]interface{}{
+		"instanceIds":         []string{instanceId},
+		"deletePublicNetwork": deletePublicNetwork,
+		"deleteDataVolumes":   deleteDataVolumes,
+		"dryRun":              false,
+	}))
+	req := NewOpenApiInstanceActionRequest(r.RegionId, "/api/openapi-instance/v4/delete-instances", body)
+	resp := sInstanceBatchResp{}
+	if err := r.client.doPost(ctx, req.Base(), &resp); err != nil {
+		return err
+	}
+	for i := range resp.InstanceBatchResult {
+		if resp.InstanceBatchResult[i].InstanceId != instanceId {
+			continue
+		}
+		if !resp.InstanceBatchResult[i].Result {
+			return errors.Errorf("delete instance %s failed: %s", instanceId, resp.InstanceBatchResult[i].Message)
+		}
+		return nil
+	}
+	return nil
+}
+
+type sDescribeVirtualNetworksResp struct {
+	MacAddress    string `json:"macAddress"`
+	Name          string `json:"name"`
+	BandwidthSize int    `json:"bandwidthSize"`
+	FixedIpResps  []struct {
+		SubnetId   string `json:"subnetId"`
+		SubnetCidr string `json:"subnetCidr"`
+		VpcName    string `json:"vpcName"`
+		IpVersion  int32  `json:"ipVersion"`
+		VpcId      string `json:"vpcId"`
+		IpAddress  string `json:"ipAddress"`
+		SubnetName string `json:"subnetName"`
+	} `json:"fixedIpResps"`
+	CreatedTime        string `json:"createdTime"`
+	PublicIp           string `json:"publicIp"`
+	Id                 string `json:"id"`
+	SubnetName         string `json:"subnetName"`
+	SecurityGroupResps []struct {
+		Name        string `json:"name"`
+		CreatedTime string `json:"createdTime"`
+		Description string `json:"description"`
+		Id          string `json:"id"`
+	} `json:"securityGroupResps"`
+}
+
+// GetInstanceNics 查询实例绑定的网卡详情列表：
+// GET /api/openapi-instance/v4/virtual-networks?instanceId=xxx&page=1&pageSize=100
+func (r *SRegion) GetInstanceNics(ctx context.Context, instanceId string) ([]SInstanceNic, error) {
+	req := NewOpenApiInstanceActionRequest(r.RegionId, "/api/openapi-instance/v4/virtual-networks", nil)
+	query := req.Base().GetQueryParams()
+	query["instanceId"] = instanceId
+	nets := make([]sDescribeVirtualNetworksResp, 0)
+	if err := r.client.doList(ctx, req.Base(), &nets); err != nil {
+		return nil, err
+	}
+	ret := make([]SInstanceNic, 0, len(nets))
+	for i := range nets {
+		n := nets[i]
+		nic := SInstanceNic{
+			Id:               n.Id,
+			PortId:           n.Id,
+			PortName:         n.Name,
+			PrivateIp:        "",
+			FipAddress:       n.PublicIp,
+			FipBandwidthSize: n.BandwidthSize,
+		}
+		nic.MacAddress = n.MacAddress
+		nic.PublicIp = n.PublicIp
+		for j := range n.SecurityGroupResps {
+			sg := n.SecurityGroupResps[j]
+			nic.SecurityGroups = append(nic.SecurityGroups, SSecurityGroupRef{
+				Id:   sg.Id,
+				Name: sg.Name,
+			})
+		}
+		for j := range n.FixedIpResps {
+			ip := n.FixedIpResps[j]
+			if nic.PrivateIp == "" && ip.IpAddress != "" {
+				nic.PrivateIp = ip.IpAddress
+			}
+			if nic.NetworkId == "" && ip.SubnetId != "" {
+				nic.NetworkId = ip.SubnetId
+			}
+			nic.FixedIpDetails = append(nic.FixedIpDetails, SFixedIpDetail{
+				IpAddress: ip.IpAddress,
+				IpVersion: fmt.Sprintf("%d", ip.IpVersion),
+				SubnetId:  ip.SubnetId,
+				SubnetName: func() string {
+					if ip.SubnetName != "" {
+						return ip.SubnetName
+					}
+					return n.SubnetName
+				}(),
+			})
+		}
+		ret = append(ret, nic)
+	}
+	return ret, nil
+}
+
+type SInstanceBillInfo struct {
+	AutoEndTime  string `json:"autoEndTime"`
+	PriceUnit    string `json:"priceUnit"`
+	ChargingMode int32  `json:"chargingMode"`
+	RespDesc     string `json:"respDesc"`
+	InstanceId   string `json:"instanceId"`
+	AutoRenew    string `json:"autoRenew"`
+	EndTime      string `json:"endTime"`
+}
+
+// GetInstanceBillInfo 查询实例计费信息：
+// POST /api/openapi-instance/v4/batch-query-price-info
+func (r *SRegion) GetInstanceBillInfo(ctx context.Context, instanceIds []string) ([]SInstanceBillInfo, error) {
+	if len(instanceIds) == 0 {
+		return []SInstanceBillInfo{}, nil
+	}
+	body := jsonutils.NewDict()
+	body.Set("batchQueryPriceInfoBody", jsonutils.Marshal(map[string][]string{
+		"instanceIds": instanceIds,
+	}))
+	req := NewOpenApiInstanceActionRequest(r.RegionId, "/api/openapi-instance/v4/batch-query-price-info", body)
+	ret := make([]SInstanceBillInfo, 0)
+	if err := r.client.doPost(ctx, req.Base(), &ret); err != nil {
+		return nil, err
+	}
+	return ret, nil
+}
+
+// GetInsatnceBillInfo 保持兼容（历史拼写错误）
+func (r *SRegion) GetInsatnceBillInfo(ctx context.Context, instanceIds []string) ([]SInstanceBillInfo, error) {
+	return r.GetInstanceBillInfo(ctx, instanceIds)
 }

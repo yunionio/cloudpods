@@ -42,4 +42,5 @@ const (
 	SANGFOR     = "sangfor"
 	CNWARE      = "cnware"
 	KSYUN       = "ksyun"
+	ECLOUD      = "ecloud"
 )

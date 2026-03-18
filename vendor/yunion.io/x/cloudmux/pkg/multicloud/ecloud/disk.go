@@ -17,7 +17,10 @@ package ecloud
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
+
+	"yunion.io/x/pkg/errors"
 
 	billing_api "yunion.io/x/cloudmux/pkg/apis/billing"
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
@@ -38,31 +41,31 @@ type SDisk struct {
 	ManualAttr SDiskManualAttr
 
 	// 硬盘可挂载主机类型
-	AttachServerTypes []string
-	AvailabilityZone  string
-	BackupId          string
-	Description       string
-	ID                string
-	IsDelete          bool
-	IsShare           bool
+	AttachServerTypes []string `json:"attachServerTypes,omitempty"`
+	AvailabilityZone  string   `json:"region"`
+	BackupId          string   `json:"backupId,omitempty"`
+	Description       string   `json:"description,omitempty"`
+	ID                string   `json:"id"`
+	IsDelete          bool     `json:"isDelete,omitempty"`
+	IsShare           bool     `json:"isShare,omitempty"`
 	// 磁盘所在集群的ID
-	Metadata      string
-	Name          string
-	OperationFlag string
-	// 硬盘挂在主机ID列表
-	ServerId       []string
-	SizeGB         int `json:"size"`
-	SourceVolumeId string
-	Status         string
-	Type           string
-	VolumeType     string
-	Iscsi          bool
-	ProductType    string
+	Metadata      string `json:"metadata,omitempty"`
+	Name          string `json:"name,omitempty"`
+	OperationFlag string `json:"operationFlag,omitempty"`
+	// 硬盘挂载主机ID列表
+	ServerId       []string `json:"serverIds,omitempty"`
+	SizeGB         int      `json:"size"`
+	SourceVolumeId string   `json:"sourceVolumeId,omitempty"`
+	Status         string   `json:"status,omitempty"`
+	Type           string   `json:"type,omitempty"`
+	VolumeType     string   `json:"volumeType,omitempty"`
+	Iscsi          bool     `json:"iscsi,omitempty"`
+	ProductType    string   `json:"productType,omitempty"`
 }
 
 type SDiskManualAttr struct {
 	IsVirtual  bool
-	TempalteId string
+	TemplateId string
 	ServerId   string
 }
 
@@ -95,7 +98,7 @@ func (d *SDisk) GetStatus() string {
 		// TODO
 		return ""
 	}
-	switch d.Status {
+	switch strings.ToLower(d.Status) {
 	case "available", "in-use":
 		return api.DISK_READY
 	case "attaching":
@@ -165,7 +168,10 @@ func (s *SDisk) GetIsAutoDelete() bool {
 }
 
 func (s *SDisk) GetTemplateId() string {
-	return s.ManualAttr.TempalteId
+	if s.ManualAttr.TemplateId != "" {
+		return s.ManualAttr.TemplateId
+	}
+	return ""
 }
 
 func (s *SDisk) GetDiskType() string {
@@ -200,11 +206,31 @@ func (s *SDisk) GetAccessPath() string {
 }
 
 func (s *SDisk) Delete(ctx context.Context) error {
-	return cloudprovider.ErrNotImplemented
+	if s.storage == nil {
+		return fmt.Errorf("disk not attached to storage")
+	}
+	return s.storage.zone.region.PreDeleteVolume(s.ID)
 }
 
 func (s *SDisk) CreateISnapshot(ctx context.Context, name string, desc string) (cloudprovider.ICloudSnapshot, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	if s.storage == nil {
+		return nil, fmt.Errorf("disk not attached to storage")
+	}
+	r := s.storage.zone.region
+	snapshotId, err := r.CreateEbsSnapshot(s.ID, name, desc)
+	if err != nil {
+		return nil, err
+	}
+	snapshots, err := r.GetSnapshots(snapshotId, s.ID, false)
+	if err != nil || len(snapshots) == 0 {
+		return nil, errors.Wrapf(err, "GetSnapshots after create")
+	}
+	for i := range snapshots {
+		if snapshots[i].Id == snapshotId {
+			return &snapshots[i], nil
+		}
+	}
+	return &snapshots[0], nil
 }
 
 func (s *SDisk) GetISnapshot(id string) (cloudprovider.ICloudSnapshot, error) {
@@ -239,7 +265,11 @@ func (s *SDisk) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
 }
 
 func (s *SDisk) Resize(ctx context.Context, newSizeMB int64) error {
-	return cloudprovider.ErrNotImplemented
+	if s.storage == nil {
+		return fmt.Errorf("disk not attached to storage")
+	}
+	newSizeGB := int64(newSizeMB / 1024)
+	return s.storage.zone.region.ResizeDisk(ctx, s.ID, newSizeGB)
 }
 
 func (s *SDisk) Reset(ctx context.Context, snapshotId string) (string, error) {
@@ -251,9 +281,9 @@ func (s *SDisk) Rebuild(ctx context.Context) error {
 }
 
 func (s *SRegion) GetDisks() ([]SDisk, error) {
-	request := NewNovaRequest(NewApiRequest(s.ID, "/api/v2/volume/volume/volume/list/with/server", nil, nil))
+	req := NewOpenApiEbsRequest(s.RegionId, "/api/v2/volume/volume/volume/list/with/server", nil, nil)
 	disks := make([]SDisk, 0, 5)
-	err := s.client.doList(context.Background(), request, &disks)
+	err := s.client.doList(context.Background(), req.Base(), &disks)
 	if err != nil {
 		return nil, err
 	}
@@ -261,10 +291,9 @@ func (s *SRegion) GetDisks() ([]SDisk, error) {
 }
 
 func (s *SRegion) GetDisk(id string) (*SDisk, error) {
-	// TODO
-	request := NewNovaRequest(NewApiRequest(s.ID, fmt.Sprintf("/api/v2/volume/volume/volumeDetail/%s", id), nil, nil))
+	req := NewOpenApiEbsRequest(s.RegionId, fmt.Sprintf("/api/v2/volume/volume/volumeDetail/%s", id), nil, nil)
 	var disk SDisk
-	err := s.client.doGet(context.Background(), request, &disk)
+	err := s.client.doGet(context.Background(), req.Base(), &disk)
 	if err != nil {
 		return nil, err
 	}

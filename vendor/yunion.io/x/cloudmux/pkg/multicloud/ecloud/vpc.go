@@ -16,7 +16,6 @@ package ecloud
 
 import (
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
@@ -28,19 +27,15 @@ type SVpc struct {
 	EcloudTags
 
 	region *SRegion
-	iwires []cloudprovider.ICloudWire
 
-	// wires
-	// secgroups
-
-	Id       string
-	Name     string
-	Region   string
-	EcStatus string
-	RouterId string
-	Scale    string
-	UserId   string
-	UserName string
+	Id       string `json:"id"`
+	Name     string `json:"name"`
+	Region   string `json:"region"`
+	EcStatus string `json:"ecStatus"`
+	RouterId string `json:"routerId"`
+	Scale    string `json:"scale"`
+	UserId   string `json:"userId"`
+	UserName string `json:"userName"`
 }
 
 func (v *SVpc) GetId() string {
@@ -71,16 +66,11 @@ func (v *SVpc) GetStatus() string {
 }
 
 func (v *SVpc) Refresh() error {
-	n, err := v.region.getVpcById(v.Id)
+	n, err := v.region.GetVpc(v.Id)
 	if err != nil {
 		return err
 	}
 	return jsonutils.Update(v, n)
-	// TODO? v.fetchWires()
-}
-
-func (v *SVpc) IsEmulated() bool {
-	return false
 }
 
 func (v *SVpc) GetRegion() cloudprovider.ICloudRegion {
@@ -96,60 +86,23 @@ func (v *SVpc) GetCidrBlock() string {
 }
 
 func (v *SVpc) GetIWires() ([]cloudprovider.ICloudWire, error) {
-	if v.iwires == nil {
-		err := v.fetchWires()
-		if err != nil {
-			return nil, err
-		}
-	}
-	return v.iwires, nil
-}
-
-func (v *SVpc) fetchWires() error {
-	networks, err := v.region.GetNetworks(v.RouterId, "")
+	zones, err := v.region.GetZones()
 	if err != nil {
-		return err
+		return nil, err
 	}
-	izones, err := v.region.GetIZones()
-	if err != nil {
-		return errors.Wrap(err, "unable to GetZones")
+	ret := []cloudprovider.ICloudWire{}
+	for i := range zones {
+		ret = append(ret, &SWire{
+			vpc:  v,
+			zone: &zones[i],
+		})
 	}
-	findZone := func(zoneRegion string) *SZone {
-		for i := range izones {
-			zone := izones[i].(*SZone)
-			if zone.Region == zoneRegion {
-				return zone
-			}
-		}
-		return nil
-	}
-	zoneRegion2Wire := map[string]*SWire{}
-	for i := range networks {
-		zoneRegion := networks[i].Region
-		zone := findZone(zoneRegion)
-		var (
-			wire *SWire
-			ok   bool
-		)
-		if wire, ok = zoneRegion2Wire[zoneRegion]; !ok {
-			wire = &SWire{
-				vpc:  v,
-				zone: zone,
-			}
-			zoneRegion2Wire[zoneRegion] = wire
-		}
-		wire.inetworks = append(wire.inetworks, &networks[i])
-	}
-	iwires := make([]cloudprovider.ICloudWire, 0, len(zoneRegion2Wire))
-	for _, wire := range zoneRegion2Wire {
-		iwires = append(iwires, wire)
-	}
-	v.iwires = iwires
-	return nil
+	return ret, nil
 }
 
 func (v *SVpc) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, error) {
-	return nil, nil
+	// 移动云安全组为 region 维度，返回本 region 下全部安全组
+	return v.region.GetISecurityGroups()
 }
 
 func (v *SVpc) GetIRouteTables() ([]cloudprovider.ICloudRouteTable, error) {
@@ -161,7 +114,7 @@ func (v *SVpc) GetIRouteTableById(routeTableId string) (cloudprovider.ICloudRout
 }
 
 func (v *SVpc) Delete() error {
-	return cloudprovider.ErrNotImplemented
+	return v.region.DeleteVpc(v.RouterId)
 }
 
 func (v *SVpc) GetIWireById(wireId string) (cloudprovider.ICloudWire, error) {
