@@ -22,6 +22,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/structarg"
 
+	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/ovnutils"
@@ -196,6 +197,8 @@ type SHostOptions struct {
 	SdnEnableTapMan bool   `help:"enable tap service" default:"$SDN_ENABLE_TAP_MAN|true"`
 	TapBridgeName   string `help:"bridge name for tap service" default:"brtap"`
 
+	HostLocalBridgeName string `help:"bridge name for host local network" default:"brlocal"`
+
 	SdnAllowConntrackInvalid       bool `help:"allow packets marked by conntrack as INVALID to pass" default:"$SDN_ALLOW_CONNTRACK_INVALID|false"`
 	SdnFetchDataFromComputeService bool `help:"fetch network releated data from compute service" default:"$SDN_FETCH_DATA_FROM_COMPUTE_SERVICE|true"`
 
@@ -279,6 +282,19 @@ type SHostOptions struct {
 
 func (o SHostOptions) HostLocalNetconfPath(br string) string {
 	return filepath.Join(o.ServersPath, fmt.Sprintf("host_local_netconf_%s.json", br))
+}
+
+func (o SHostOptions) NicBridgeDevName(bridge string) string {
+	switch bridge {
+	case computeapi.HostVpcBridge:
+		return o.OvnIntegrationBridge
+	case computeapi.HostTapBridge:
+		return o.TapBridgeName
+	case computeapi.HostLocalBridge:
+		return o.HostLocalBridgeName
+	default:
+		return bridge
+	}
 }
 
 var (
