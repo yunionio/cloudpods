@@ -96,7 +96,7 @@ func init() {
 		ID           string `help:"ID or name of disk"`
 		Name         string `help:"New name of disk"`
 		Desc         string `help:"Description" metavar:"DESCRIPTION"`
-		AutoDelete   string `help:"enable/disable auto delete of disk" choices:"enable|disable"`
+		AutoDelete   string `help:"Set disk auto_delete (true/false or enable/disable)" choices:"true|false|enable|disable"`
 		AutoSnapshot string `help:"enable/disable auto snapshot of disk" choices:"enable|disable"`
 		DiskType     string `help:"Disk type" choices:"data|volume|sys"`
 		IsSsd        *bool  `help:"mark disk as ssd" negative:"no-is-ssd"`
@@ -111,7 +111,7 @@ func init() {
 			params.Add(jsonutils.NewString(args.Desc), "description")
 		}
 		if len(args.AutoDelete) > 0 {
-			if args.AutoDelete == "enable" {
+			if args.AutoDelete == "enable" || args.AutoDelete == "true" {
 				params.Add(jsonutils.JSONTrue, "auto_delete")
 			} else {
 				params.Add(jsonutils.JSONFalse, "auto_delete")

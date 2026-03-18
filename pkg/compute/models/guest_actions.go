@@ -3543,12 +3543,11 @@ func (self *SGuest) StartChangeConfigTask(ctx context.Context, userCred mcclient
 	return nil
 }
 
-func (self *SGuest) DoPendingDelete(ctx context.Context, userCred mcclient.TokenCredential) {
+func (self *SGuest) DoPendingDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	eip, _ := self.GetEipOrPublicIp()
 	if eip != nil {
 		eip.DoPendingDelete(ctx, userCred)
 	}
-
 	disks, _ := self.GetDisks()
 	for i := range disks {
 		if !disks[i].IsDetachable() {
@@ -3558,7 +3557,8 @@ func (self *SGuest) DoPendingDelete(ctx context.Context, userCred mcclient.Token
 			self.DetachDisk(ctx, &disks[i], userCred)
 		}
 	}
-	self.SVirtualResourceBase.DoPendingDelete(ctx, userCred)
+	SnapshotPolicyResourceManager.RemoveByResource(self.Id, api.SNAPSHOT_POLICY_TYPE_SERVER)
+	return self.SVirtualResourceBase.DoPendingDelete(ctx, userCred)
 }
 
 // 从回收站恢复虚拟机
