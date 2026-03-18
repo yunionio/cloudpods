@@ -15,7 +15,6 @@
 package ecloud
 
 import (
-	"context"
 	"strings"
 	"time"
 
@@ -30,18 +29,20 @@ type SSnapshot struct {
 	region *SRegion
 	SCreateTime
 
-	BackupType  string
-	CreateBy    string
-	Description string
-	EcType      string
-	Id          string
-	Name        string
-	Size        int
-	VolumeId    string
-	VolumeType  string
-	Status      string
-	IsSystem    bool
-	SystemDisk  string
+	BackupType  string `json:"backupType,omitempty"`
+	CreateBy    string `json:"createBy,omitempty"`
+	Description string `json:"description,omitempty"`
+	EcType      string `json:"ecType,omitempty"`
+	Id          string `json:"id"`
+	Name        string `json:"name,omitempty"`
+	Size        int    `json:"size"`
+	VolumeId    string `json:"volumeId,omitempty"`
+	VolumeType  string `json:"volumeType,omitempty"`
+	Status      string `json:"status,omitempty"`
+	IsSystem    bool   `json:"isSystem,omitempty"`
+	SystemDisk  string `json:"systemDisk,omitempty"`
+	// EBS 快照列表返回 createTime
+	CreateTime string `json:"createTime,omitempty"`
 }
 
 func (s *SSnapshot) GetId() string {
@@ -81,6 +82,14 @@ func (s *SSnapshot) GetDiskId() string {
 }
 
 func (s *SSnapshot) GetCreatedAt() time.Time {
+	if s.CreateTime != "" {
+		if t, err := time.Parse("2006-01-02 15:04:05", s.CreateTime); err == nil {
+			return t
+		}
+		if t, err := time.Parse(time.RFC3339, s.CreateTime); err == nil {
+			return t
+		}
+	}
 	return s.SCreateTime.GetCreatedAt()
 }
 
@@ -96,7 +105,10 @@ func (s *SSnapshot) GetGlobalId() string {
 }
 
 func (s *SSnapshot) Delete() error {
-	return cloudprovider.ErrNotImplemented
+	if s.region == nil {
+		return cloudprovider.ErrNotImplemented
+	}
+	return s.region.DeleteEbsSnapshot(s.Id)
 }
 
 func (s *SSnapshot) GetProjectId() string {
@@ -104,27 +116,5 @@ func (s *SSnapshot) GetProjectId() string {
 }
 
 func (s *SRegion) GetSnapshots(snapshotId string, parentId string, isSystem bool) ([]SSnapshot, error) {
-	var apiRequest *SApiRequest
-	query := map[string]string{}
-	if len(snapshotId) > 0 {
-		query["backupId"] = snapshotId
-	}
-	if isSystem {
-		if len(parentId) > 0 {
-			query["serverId"] = parentId
-		}
-		apiRequest = NewApiRequest(s.ID, "/api/v2/vmBackup", query, nil)
-	} else {
-		if len(parentId) > 0 {
-			query["volumeId"] = parentId
-		}
-		apiRequest = NewApiRequest(s.ID, "/api/v2/volume/volumebackup", query, nil)
-	}
-	request := NewNovaRequest(apiRequest)
-	snapshots := make([]SSnapshot, 0)
-	err := s.client.doList(context.Background(), request, &snapshots)
-	if err != nil {
-		return nil, err
-	}
-	return snapshots, nil
+	return nil, cloudprovider.ErrNotImplemented
 }

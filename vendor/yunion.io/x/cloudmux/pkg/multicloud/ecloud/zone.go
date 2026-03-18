@@ -17,6 +17,7 @@ package ecloud
 import (
 	"fmt"
 
+	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
 )
@@ -25,35 +26,26 @@ type SZone struct {
 	multicloud.SResourceBase
 	EcloudTags
 	region *SRegion
-	host   *SHost
 
-	istorages []cloudprovider.ICloudStorage
-
-	ID      string `json:"id"`
-	Name    string `json:"name"`
-	Region  string `json:"region"`
-	Deleted bool
-	Visible bool
+	ZoneId   string `json:"zoneId"`
+	ZoneName string `json:"zoneName"`
+	ZoneCode string `json:"zoneCode"`
 }
 
 func (z *SZone) GetId() string {
-	return z.ID
+	return z.ZoneCode
 }
 
 func (z *SZone) GetName() string {
-	//return fmt.Sprintf("%s %s", CLOUD_PROVIDER_ECLOUD_CN, z.Name)
-	return z.Name
+	return fmt.Sprintf("%s %s", z.region.GetName(), z.ZoneName)
 }
 
 func (z *SZone) GetGlobalId() string {
-	return fmt.Sprintf("%s/%s", z.region.GetGlobalId(), z.ID)
+	return fmt.Sprintf("%s/%s", z.region.GetGlobalId(), z.ZoneCode)
 }
 
 func (z *SZone) GetStatus() string {
-	if z.Deleted || !z.Visible {
-		return "disable"
-	}
-	return "enable"
+	return api.ZONE_ENABLE
 }
 
 func (z *SZone) Refresh() error {
@@ -66,7 +58,6 @@ func (z *SZone) IsEmulated() bool {
 
 func (z *SZone) GetI18n() cloudprovider.SModelI18nTable {
 	table := cloudprovider.SModelI18nTable{}
-	table["name"] = cloudprovider.NewSModelI18nEntry(z.GetName()).CN(z.GetName()).EN(fmt.Sprintf("%s %s", CLOUD_PROVIDER_ECLOUD_EN, z.Name))
 	return table
 }
 
@@ -74,21 +65,16 @@ func (z *SZone) GetIRegion() cloudprovider.ICloudRegion {
 	return z.region
 }
 
-func (z *SZone) getHost() cloudprovider.ICloudHost {
-	if z.host == nil {
-		z.host = &SHost{
-			zone: z,
-		}
-	}
-	return z.host
+func (z *SZone) GetHost() *SHost {
+	return &SHost{zone: z}
 }
 
 func (z *SZone) GetIHosts() ([]cloudprovider.ICloudHost, error) {
-	return []cloudprovider.ICloudHost{z.getHost()}, nil
+	return []cloudprovider.ICloudHost{z.GetHost()}, nil
 }
 
 func (z *SZone) GetIHostById(id string) (cloudprovider.ICloudHost, error) {
-	host := z.getHost()
+	host := z.GetHost()
 	if host.GetGlobalId() == id {
 		return host, nil
 	}
@@ -96,28 +82,21 @@ func (z *SZone) GetIHostById(id string) (cloudprovider.ICloudHost, error) {
 }
 
 func (z *SZone) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
-	if z.istorages == nil {
-		err := z.fetchStorages()
-		if err != nil {
-			return nil, err
-		}
+	// 直接复用区域级 GetStorages 能力，并按当前 Zone 过滤。
+	storages, err := z.region.GetStorages(z.ZoneCode)
+	if err != nil {
+		return nil, err
 	}
-	return z.istorages, nil
+	istorages := make([]cloudprovider.ICloudStorage, len(storages))
+	for i := range storages {
+		// 确保 zone 指针为当前 z
+		storages[i].zone = z
+		istorages[i] = &storages[i]
+	}
+	return istorages, nil
 }
 
-func (z *SZone) fetchStorages() error {
-	istorages := make([]cloudprovider.ICloudStorage, len(storageTypes))
-	for i := range istorages {
-		istorages[i] = &SStorage{
-			zone:        z,
-			storageType: storageTypes[i],
-		}
-	}
-	z.istorages = istorages
-	return nil
-}
-
-func (z *SZone) getStorageByType(t string) (*SStorage, error) {
+func (z *SZone) GetStorageByType(t string) (*SStorage, error) {
 	istorages, err := z.GetIStorages()
 	if err != nil {
 		return nil, err
@@ -145,4 +124,19 @@ func (z *SZone) GetIStorageById(id string) (cloudprovider.ICloudStorage, error) 
 
 type SZoneRegionBase struct {
 	Region string
+}
+
+func (z *SZone) GetIWires() ([]cloudprovider.ICloudWire, error) {
+	vpcs, err := z.region.GetVpcs()
+	if err != nil {
+		return nil, err
+	}
+	for i := range vpcs {
+		vpcs[i].region = z.region
+	}
+	wires := []cloudprovider.ICloudWire{}
+	for i := range vpcs {
+		wires = append(wires, &SWire{zone: z, vpc: &vpcs[i]})
+	}
+	return wires, nil
 }

@@ -124,3 +124,65 @@ func (self *SAliyunClient) SubscribeBillToOSS(bucket string) error {
 	log.Debugf("%s", body)
 	return nil
 }
+
+type SBillOverview struct {
+	BillingCycle string     `json:"BillingCycle"`
+	AccountID    string     `json:"AccountID"`
+	AccountName  string     `json:"AccountName"`
+	Items        SBillItems `json:"Items"`
+	TotalAmount  float64    `json:"TotalAmount"`
+}
+
+type SBillItems struct {
+	Item []SBillItem `json:"Item"`
+}
+
+type SBillItem struct {
+	DeductedByCoupons     float64 `json:"DeductedByCoupons"`
+	RoundDownDiscount     float64 `json:"RoundDownDiscount"`
+	ProductName           string  `json:"ProductName"`
+	ProductDetail         string  `json:"ProductDetail"`
+	ProductCode           string  `json:"ProductCode"`
+	BillAccountID         string  `json:"BillAccountID"`
+	ProductType           string  `json:"ProductType"`
+	DeductedByCashCoupons float64 `json:"DeductedByCashCoupons"`
+	OutstandingAmount     float64 `json:"OutstandingAmount"`
+	BizType               string  `json:"BizType"`
+	PaymentAmount         float64 `json:"PaymentAmount"`
+	PipCode               string  `json:"PipCode"`
+	DeductedByPrepaidCard float64 `json:"DeductedByPrepaidCard"`
+	InvoiceDiscount       float64 `json:"InvoiceDiscount"`
+	Item                  string  `json:"Item"`
+	SubscriptionType      string  `json:"SubscriptionType"`
+	PretaxGrossAmount     float64 `json:"PretaxGrossAmount"`
+	PretaxAmount          float64 `json:"PretaxAmount"`
+	OwnerID               string  `json:"OwnerID"`
+	Currency              string  `json:"Currency"`
+	CommodityCode         string  `json:"CommodityCode"`
+	BillAccountName       string  `json:"BillAccountName"`
+	AdjustAmount          float64 `json:"AdjustAmount"`
+	CashAmount            float64 `json:"CashAmount"`
+}
+
+func (self *SAliyunClient) QueryBillOverview(billCycle, ownerId string) (*SBillOverview, error) {
+	params := make(map[string]string)
+	params["BillingCycle"] = billCycle
+	if len(ownerId) > 0 {
+		params["BillOwnerId"] = ownerId
+	}
+	body, err := self.businessRequest("QueryBillOverview", params)
+	if err != nil {
+		return nil, errors.Wrap(err, "QueryBillOverview")
+	}
+	overview := SBillOverview{}
+	err = body.Unmarshal(&overview, "Data")
+	if err != nil {
+		return nil, errors.Wrap(err, "body.Unmarshal")
+	}
+	totalAmount := 0.0
+	for _, item := range overview.Items.Item {
+		totalAmount += item.PretaxAmount
+	}
+	overview.TotalAmount = totalAmount
+	return &overview, nil
+}

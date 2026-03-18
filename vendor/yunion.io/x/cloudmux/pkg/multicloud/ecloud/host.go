@@ -55,8 +55,7 @@ func (h *SHost) IsEmulated() bool {
 }
 
 func (h *SHost) GetIVMs() ([]cloudprovider.ICloudVM, error) {
-	zoneRegion := h.zone.Region
-	vms, err := h.zone.region.GetInstances(zoneRegion)
+	vms, err := h.zone.region.GetInstances(h.zone.ZoneId, "")
 	if err != nil {
 		return nil, errors.Wrap(err, "SHost.GetVMs")
 	}
@@ -69,7 +68,7 @@ func (h *SHost) GetIVMs() ([]cloudprovider.ICloudVM, error) {
 }
 
 func (h *SHost) GetIVMById(id string) (cloudprovider.ICloudVM, error) {
-	vm, err := h.zone.region.GetInstanceById(id)
+	vm, err := h.zone.region.GetInstance(id)
 	if err != nil {
 		return nil, err
 	}
@@ -156,7 +155,11 @@ func (h *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudprovi
 }
 
 func (h *SHost) GetIHostNics() ([]cloudprovider.ICloudHostNetInterface, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	wires, err := h.zone.GetIWires()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetIWires")
+	}
+	return cloudprovider.GetHostNetifs(h, wires), nil
 }
 
 func (h *SRegion) GetVMs() ([]SInstance, error) {

@@ -1079,6 +1079,46 @@ func (client *SQcloudClient) QueryAccountBalance() (*SAccountBalance, error) {
 	return balance, nil
 }
 
+type SBillSummary struct {
+	Ready         int                `json:"Ready"`
+	SummaryDetail []SBillSummaryItem `json:"SummaryDetail"`
+	TotalAmount   float64            `json:"TotalAmount"`
+}
+
+type SBillSummaryItem struct {
+	Business           []jsonutils.JSONObject `json:"Business"`
+	CashPayAmount      float64                `json:"CashPayAmount"`
+	GroupKey           string                 `json:"GroupKey"`
+	GroupValue         string                 `json:"GroupValue"`
+	IncentivePayAmount float64                `json:"IncentivePayAmount"`
+	RealTotalCost      float64                `json:"RealTotalCost"`
+	TotalCost          float64                `json:"TotalCost"`
+	TransferPayAmount  float64                `json:"TransferPayAmount"`
+	VoucherPayAmount   float64                `json:"VoucherPayAmount"`
+}
+
+func (client *SQcloudClient) DescribeBillSummary(month string, uin string) (*SBillSummary, error) {
+	params := make(map[string]string)
+	params["Month"] = month
+	params["GroupType"] = "business"
+	if len(uin) > 0 {
+		params["Uin"] = uin
+	}
+	body, err := client.billingRequest("DescribeBillSummary", params)
+	if err != nil {
+		return nil, errors.Wrapf(err, "DescribeBillSummary")
+	}
+	summary := SBillSummary{}
+	err = body.Unmarshal(&summary)
+	if err != nil {
+		return nil, errors.Wrapf(err, "body.Unmarshal")
+	}
+	for _, item := range summary.SummaryDetail {
+		summary.TotalAmount += item.RealTotalCost
+	}
+	return &summary, nil
+}
+
 func (client *SQcloudClient) GetIProjects() ([]cloudprovider.ICloudProject, error) {
 	projects := []SProject{}
 	for {

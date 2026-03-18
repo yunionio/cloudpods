@@ -789,6 +789,8 @@ func (self *SHuaweiClient) put(service, regionId, resource string, params map[st
 type SMonthBill struct {
 	Currency      string
 	ConsumeAmount float64
+	CreditAmount  float64
+	CashAmount    float64
 	BillSums      []struct {
 		CustomerId    string
 		ConsumeAmount float64
@@ -799,7 +801,7 @@ type SMonthBill struct {
 func (self *SHuaweiClient) QueryAccountMonthBill(month int) (*SMonthBill, error) {
 	ret := SMonthBill{}
 	query := url.Values{}
-	query.Set("bill_cycle", fmt.Sprintf("%d-%d", month/10, month%10))
+	query.Set("bill_cycle", fmt.Sprintf("%d-%02d", month/100, month%100))
 	for _, service := range []string{SERVICE_BSS, SERVICE_BSS_INTL} {
 		resp, err := self.list(service, "", "bills/customer-bills/monthly-sum", query)
 		if err != nil {

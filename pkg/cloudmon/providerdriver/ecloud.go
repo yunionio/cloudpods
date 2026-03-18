@@ -19,7 +19,7 @@ import (
 )
 
 type EcloudCollect struct {
-	SBaseCollectDriver
+	SCollectByResourceIdDriver
 }
 
 func (self *EcloudCollect) GetProvider() string {
