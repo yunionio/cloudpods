@@ -32,6 +32,7 @@ import (
 	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/util/regutils"
 
+	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	hostapi "yunion.io/x/onecloud/pkg/apis/host"
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostbridge"
@@ -283,7 +284,7 @@ func NewNIC(desc string) (*SNIC, error) {
 		// in case nic bonding is too slow
 		var max, wait = 30, 0
 		for wait < max {
-			inf := netutils2.NewNetInterfaceWithExpectIp(nic.Inter, nic.Ip, nic.Ip6)
+			inf := netutils2.NewNetInterfaceWithExpectIp(nic.Inter, nic.Ip, nic.Ip6, nil)
 			if len(nic.Ip) > 0 && inf.Addr == nic.Ip {
 				mask, _ := inf.Mask.Size()
 				if mask > 0 {
@@ -391,6 +392,21 @@ func NewNIC(desc string) (*SNIC, error) {
 
 	// dhcp server start after guest manager init
 	return nic, nil
+}
+
+func (n *SNIC) IsHostLocal() bool {
+	if n.Bridge == options.HostOptions.HostLocalBridgeName {
+		n.setupHostLocal()
+		return true
+	}
+	return false
+}
+
+func (n *SNIC) setupHostLocal() {
+	if n.WireId == "" {
+		n.Wire = computeapi.DEFAULT_HOST_LOCAL_WIRE_NAME
+		n.WireId = computeapi.DEFAULT_HOST_LOCAL_WIRE_ID
+	}
 }
 
 type SSysInfo struct {

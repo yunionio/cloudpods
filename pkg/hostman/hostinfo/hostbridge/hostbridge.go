@@ -15,6 +15,7 @@
 package hostbridge
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"strconv"
@@ -29,6 +30,7 @@ import (
 	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/pkg/utils"
 
+	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
@@ -121,19 +123,64 @@ func NewBaseBridgeDriver(bridge, inter, ip string, maskLen int, ip6 string, mask
 	return bd, nil
 }
 
+func (d *SBaseBridgeDriver) fetchHostLocalConf() ([]compute.NetworkDetails, error) {
+	hostLocalNics := make([]compute.NetworkDetails, 0)
+	fn := options.HostOptions.HostLocalNetconfPath(d.bridge.String())
+	if fileutils2.IsFile(fn) {
+		contBytes, err := os.ReadFile(fn)
+		if err != nil {
+			log.Errorf("read host local conf file %s failed: %s", fn, err)
+			return nil, errors.Wrap(err, "read host local conf file")
+		}
+		err = json.Unmarshal(contBytes, &hostLocalNics)
+		if err != nil {
+			log.Errorf("unmarshal host local conf file %s failed: %s", fn, err)
+			return nil, errors.Wrap(err, "unmarshal host local conf file")
+		}
+		return hostLocalNics, nil
+	}
+	return hostLocalNics, nil
+}
+
+func (d *SBaseBridgeDriver) hostLocalGatewayIps() ([]string, error) {
+	hostLocalNics, err := d.fetchHostLocalConf()
+	if err != nil {
+		log.Errorf("fetch host local conf failed: %s", err)
+		return nil, errors.Wrap(err, "fetch host local conf")
+	}
+	gatewayIps := make([]string, 0)
+	for _, net := range hostLocalNics {
+		if net.GuestGateway != "" {
+			gatewayIps = append(gatewayIps, net.GuestGateway)
+		}
+		if net.GuestGateway6 != "" {
+			gatewayIps = append(gatewayIps, net.GuestGateway6)
+		}
+	}
+	return gatewayIps, nil
+}
+
 func (d *SBaseBridgeDriver) FetchConfig() {
-	d.bridge.FetchConfig2(d.ip, d.ip6)
+	hostLocalGatewayIps, _ := d.hostLocalGatewayIps()
+	d.bridge.FetchConfig2(d.ip, d.ip6, hostLocalGatewayIps)
 	d.inter.FetchConfig()
 }
 
 func (d *SBaseBridgeDriver) GetMac() string {
-	if len(d.inter.GetMac()) == 0 {
-		d.inter.FetchConfig()
+	dev := d.inter
+	if dev == nil {
+		dev = d.bridge
 	}
-	return d.inter.GetMac()
+	if len(dev.GetMac()) == 0 {
+		dev.FetchConfig()
+	}
+	return dev.GetMac()
 }
 
 func (d *SBaseBridgeDriver) GetVlanId() int {
+	if d.inter == nil {
+		return 1
+	}
 	if len(d.inter.GetMac()) == 0 {
 		d.inter.FetchConfig()
 	}
@@ -327,7 +374,12 @@ func (d *SBaseBridgeDriver) ConfirmToConfig() (bool, string, error) {
 		return false, "", err
 	}
 	if exist {
-		d.bridge.FetchConfig2(d.ip, d.ip6)
+		hostLocalGatewayIps, err := d.hostLocalGatewayIps()
+		if err != nil {
+			log.Errorf("fetch host local gateway ips failed: %s", err)
+			// return false, "", errors.Wrap(err, "fetch host local gateway ips")
+		}
+		d.bridge.FetchConfig2(d.ip, d.ip6, hostLocalGatewayIps)
 		if len(d.ip) > 0 {
 			if len(d.bridge.Addr) == 0 {
 				log.Infof("bridge %s has no ip assignment initially", d.bridge)
