@@ -15,6 +15,10 @@ const (
 	LLM_OPENCLAW_TEMPLATE_USER_MD_B64   = LLMEnvKey("OPENCLAW_TEMPLATE_USER_MD_B64")
 )
 
+const (
+	LLM_OPENCLAW_DEFAULT_PORT = 3001
+)
+
 type OpenClawConfig struct {
 	Browser *OpenClawConfigBrowser `json:"browser"`
 	Agents  *OpenClawConfigAgents  `json:"agents"`

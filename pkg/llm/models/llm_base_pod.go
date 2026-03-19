@@ -126,8 +126,7 @@ func GetLLMBasePodCreateInput(
 	}
 	network.BwLimit = bandwidth
 
-	networkType := string(network.NetType)
-	if networkType == string(computeapi.NETWORK_TYPE_HOSTLOCAL) {
+	if len(network.PortMappings) == 0 {
 		network.PortMappings = portMappings
 	}
 
