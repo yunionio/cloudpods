@@ -846,7 +846,11 @@ func (model *SInstantModel) DoImport(ctx context.Context, userCred mcclient.Toke
 		imgFileSize := imgFileStat.Size()
 
 		imgParams := imageapi.ImageCreateInput{}
-		imgParams.GenerateName = fmt.Sprintf("%s-%s", input.ModelName, input.ModelTag)
+		safeModelName := strings.ReplaceAll(strings.TrimSpace(input.ModelName), "/", "_")
+		if safeModelName == "" {
+			safeModelName = "instant-model"
+		}
+		imgParams.GenerateName = fmt.Sprintf("%s-%s", safeModelName, strings.TrimSpace(input.ModelTag))
 		imgParams.DiskFormat = "tgz"
 		imgParams.Size = &imgFileSize
 		imgParams.Properties = map[string]string{

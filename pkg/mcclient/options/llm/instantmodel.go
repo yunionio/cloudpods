@@ -29,7 +29,7 @@ func (o *LLMInstantModelShowOptions) Params() (jsonutils.JSONObject, error) {
 type LLMInstantModelCreateOptions struct {
 	options.BaseCreateOptions
 
-	LLM_TYPE   string `help:"llm container type" choices:"ollama" json:"llm_type"`
+	LLM_TYPE   string `help:"llm container type" choices:"ollama|vllm" json:"llm_type"`
 	MODEL_NAME string `json:"model_name"`
 	MODEL_TAG  string `json:"model_tag"`
 
@@ -63,8 +63,8 @@ func (o *LLMInstantModelDeleteOptions) Params() (jsonutils.JSONObject, error) {
 }
 
 type LLMInstantModelImportOptions struct {
-	LLM_TYPE   string `help:"llm container type" choices:"ollama" json:"llm_type"`
-	MODEL_NAME string `help:"model name to import, e.g. qwen3" json:"model_name"`
+	LLM_TYPE   string `help:"llm container type" choices:"ollama|vllm" json:"llm_type"`
+	MODEL_NAME string `help:"model name to import, e.g. qwen3 or Qwen/Qwen3-VL-8B-Instruct" json:"model_name"`
 	MODEL_TAG  string `help:"model tag to import, e.g. 8b" json:"model_tag"`
 }
 
