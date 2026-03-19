@@ -729,33 +729,137 @@ func (llm *SLLM) StartSyncStatusTask(ctx context.Context, userCred mcclient.Toke
 	return nil
 }
 
-func (llm *SLLM) GetLLMUrl(ctx context.Context, userCred mcclient.TokenCredential) (string, error) {
-	if llm.CmpId == "" {
-		return "", nil
+func (llm *SLLM) FindAccessInfos(protocol string) ([]SAccessInfo, error) {
+	q := GetAccessInfoManager().Query()
+	q = q.Equals("llm_id", llm.Id)
+	if protocol != "" {
+		q = q.Equals("protocol", protocol)
 	}
-	return llm.GetLLMContainerDriver().GetLLMUrl(ctx, userCred, llm)
-}
 
-func (llm *SLLM) GetDetailsUrl(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	accessUrl, err := llm.GetLLMUrl(ctx, userCred)
+	accessInfos := make([]SAccessInfo, 0)
+	err := db.FetchModelObjects(GetAccessInfoManager(), q, &accessInfos)
 	if err != nil {
-		return nil, errors.Wrap(err, "GetLLMUrl")
+		return nil, errors.Wrap(err, "FetchModelObjects")
 	}
-	output := jsonutils.NewDict()
-	output.Set("access_url", jsonutils.NewString(accessUrl))
-	return output, nil
+
+	if len(accessInfos) == 0 {
+		return nil, errors.ErrNotFound
+	}
+	return accessInfos, nil
 }
 
-func (llm *SLLM) GetDetailsLoginInfo(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*api.LLMLoginInfo, error) {
+func (llm *SLLM) FindAllAccessInfos() ([]SAccessInfo, error) {
+	return llm.FindAccessInfos("")
+}
+
+func (llm *SLLM) FindAccessInfoByEnv(protocol string, envKey string) (*SAccessInfo, error) {
+	ainfos, err := llm.FindAccessInfos(protocol)
+	if err != nil {
+		return nil, errors.Wrapf(err, "FindAccessInfo by env %s", envKey)
+	}
+	for _, ainfo := range ainfos {
+		for _, env := range ainfo.PortMappingEnvs {
+			if env.Key == envKey {
+				return &ainfo, nil
+			}
+		}
+	}
+	return nil, errors.ErrNotFound
+}
+
+func (llm *SLLM) getHostAccessIp(ctx context.Context, isPublic bool) (string, error) {
+	server, err := llm.GetServer(ctx)
+	if err != nil {
+		return "", errors.Wrap(err, "GetServer")
+	}
+	if isPublic {
+		return server.HostEIP, nil
+	}
+	return server.HostAccessIp, nil
+}
+
+func (llm *SLLM) GetHostEIP(ctx context.Context) (string, error) {
+	return llm.getHostAccessIp(ctx, true)
+}
+
+type LLMAccessInfoInput struct {
+	HostInternalIp string
+	HostPublicIp   string
+	ServerIp       string
+	AccessInfos    []SAccessInfo
+}
+
+func (llm *SLLM) GetLLMAccessInfoInput(ctx context.Context, userCred mcclient.TokenCredential) (*LLMAccessInfoInput, error) {
+	accessInfos, _ := llm.FindAllAccessInfos()
+	server, err := llm.GetServer(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetServer")
+	}
+	hostInternalIp := server.HostAccessIp
+	hostPublicIp := server.HostEIP
+	ips := strings.Split(strings.TrimSpace(server.IPs), ",")
+	if len(ips) == 0 || len(strings.TrimSpace(ips[0])) == 0 {
+		return nil, errors.Error("server IPs is empty")
+	}
+	serverIp := strings.TrimSpace(ips[0])
+	return &LLMAccessInfoInput{
+		HostInternalIp: hostInternalIp,
+		HostPublicIp:   hostPublicIp,
+		ServerIp:       serverIp,
+		AccessInfos:    accessInfos,
+	}, nil
+}
+
+func (llm *SLLM) GetLLMAccessUrlInfo(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*api.LLMAccessUrlInfo, error) {
 	if llm.CmpId == "" {
 		return nil, nil
 	}
-	output := new(api.LLMLoginInfo)
-	loginUrl, err := llm.GetLLMUrl(ctx, userCred)
+	input, err := llm.GetLLMAccessInfoInput(ctx, userCred)
 	if err != nil {
-		return nil, errors.Wrap(err, "GetLLMUrl")
+		return nil, errors.Wrap(err, "GetLLMAccessInfoInput")
 	}
-	output.LoginUrl = loginUrl
+
+	return llm.GetLLMContainerDriver().GetLLMAccessUrlInfo(ctx, userCred, llm, input)
+}
+
+func GetLLMAccessUrlInfo(ctx context.Context, userCred mcclient.TokenCredential, llm *SLLM, input *LLMAccessInfoInput, protocol string, defaultPort int) (*api.LLMAccessUrlInfo, error) {
+	port := defaultPort
+	accessUrl := input.ServerIp
+	hasPortMapping := false
+	if len(input.AccessInfos) != 0 {
+		hasPortMapping = true
+		aInfo := input.AccessInfos[0]
+		port = aInfo.AccessPort
+		accessUrl = input.HostInternalIp
+		if input.HostPublicIp != "" {
+			accessUrl = input.HostPublicIp
+		}
+	}
+
+	ret := &api.LLMAccessUrlInfo{
+		LoginUrl: fmt.Sprintf("%s://%s:%d", protocol, accessUrl, port),
+	}
+	if hasPortMapping {
+		ret.InternalUrl = fmt.Sprintf("%s://%s:%d", protocol, input.HostInternalIp, port)
+		if input.HostPublicIp != "" {
+			ret.PublicUrl = fmt.Sprintf("%s://%s:%d", protocol, input.HostPublicIp, port)
+		}
+	}
+
+	return ret, nil
+}
+
+func (llm *SLLM) GetDetailsLoginInfo(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*api.LLMAccessInfo, error) {
+	if llm.CmpId == "" {
+		return nil, nil
+	}
+	accessUrl, err := llm.GetLLMAccessUrlInfo(ctx, userCred, query)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetLLMAccessUrlInfo")
+	}
+	output := &api.LLMAccessInfo{
+		LLMAccessUrlInfo: *accessUrl,
+	}
 	drv := llm.GetLLMContainerDriver()
 	if loginInfoDrv, ok := drv.(ILLMContainerLoginInfo); ok {
 		info, err := loginInfoDrv.GetLoginInfo(ctx, userCred, llm)

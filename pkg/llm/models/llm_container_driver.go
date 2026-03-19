@@ -113,12 +113,12 @@ type ILLMContainerInstantModelDriver interface {
 }
 
 type ILLMContainerMCPAgent interface {
-	GetLLMUrl(ctx context.Context, userCred mcclient.TokenCredential, llm *SLLM) (string, error)
+	GetLLMAccessUrlInfo(ctx context.Context, userCred mcclient.TokenCredential, llm *SLLM, input *LLMAccessInfoInput) (*llm.LLMAccessUrlInfo, error)
 }
 
 // ILLMContainerLoginInfo is an optional interface for drivers that provide web login credentials (e.g. Dify, OpenClaw). If not implemented, GetDetailsLoginInfo returns only login_url.
 type ILLMContainerLoginInfo interface {
-	GetLoginInfo(ctx context.Context, userCred mcclient.TokenCredential, llm *SLLM) (*llm.LLMLoginInfo, error)
+	GetLoginInfo(ctx context.Context, userCred mcclient.TokenCredential, llm *SLLM) (*llm.LLMAccessInfo, error)
 }
 
 var (

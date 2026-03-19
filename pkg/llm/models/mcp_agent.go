@@ -222,11 +222,11 @@ func (man *SMCPAgentManager) ValidateCreateData(ctx context.Context, userCred mc
 		}
 		llm := llmObj.(*SLLM)
 		input.LLMId = llm.Id
-		llmUrl, err := llm.GetLLMUrl(ctx, userCred)
+		llmUrl, err := llm.GetLLMAccessUrlInfo(ctx, userCred, query)
 		if err != nil {
 			return input, errors.Wrapf(err, "get LLM URL from LLM %s", input.LLMId)
 		}
-		input.LLMUrl = llmUrl
+		input.LLMUrl = llmUrl.LoginUrl
 
 		if len(input.Model) == 0 {
 			mdlInfos, err := llm.getProbedInstantModelsExt(ctx, userCred)
@@ -289,11 +289,11 @@ func (man *SMCPAgentManager) ValidateUpdateData(ctx context.Context, userCred mc
 			return input, errors.Wrapf(err, "fetch LLM by id %s", *input.LLMId)
 		}
 		llm := llmObj.(*SLLM)
-		llmUrl, err := llm.GetLLMUrl(ctx, userCred)
+		llmUrl, err := llm.GetLLMAccessUrlInfo(ctx, userCred, query)
 		if err != nil {
 			return input, errors.Wrapf(err, "get LLM URL from LLM %s", *input.LLMId)
 		}
-		input.LLMUrl = &llmUrl
+		input.LLMUrl = &llmUrl.LoginUrl
 
 		if input.Model == nil || len(*input.Model) == 0 {
 			mdlInfos, err := llm.getProbedInstantModelsExt(ctx, userCred)
