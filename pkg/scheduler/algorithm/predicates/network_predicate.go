@@ -116,11 +116,16 @@ func IsNetworksAvailable(ctx context.Context, c core.Candidater, data *api.Sched
 
 	ovnCapable := c.Getter().OvnCapable()
 	ovnNetworks := []*api.CandidateNetwork{}
+	hostLocalNetworks := []*api.CandidateNetwork{}
 	for i := len(networks) - 1; i >= 0; i -= 1 {
 		net := networks[i]
 		if net.Provider == computeapi.CLOUD_PROVIDER_ONECLOUD || net.Provider == computeapi.CLOUD_PROVIDER_CLOUDPODS {
 			networks = append(networks[:i], networks[i+1:]...)
-			ovnNetworks = append(ovnNetworks, net)
+			if net.WireId == computeapi.DEFAULT_HOST_LOCAL_WIRE_ID {
+				hostLocalNetworks = append(hostLocalNetworks, net)
+			} else {
+				ovnNetworks = append(ovnNetworks, net)
+			}
 		}
 	}
 
@@ -138,6 +143,10 @@ func IsNetworksAvailable(ctx context.Context, c core.Candidater, data *api.Sched
 
 	if ovnCapable {
 		checkNets(ovnNetworks)
+	}
+
+	if len(hostLocalNetworks) > 0 {
+		checkNets(hostLocalNetworks)
 	}
 
 	// reuse network

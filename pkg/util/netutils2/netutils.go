@@ -27,6 +27,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/util/regutils"
+	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	"yunion.io/x/onecloud/pkg/util/procutils"
@@ -477,10 +478,10 @@ func NewNetInterface(name string) *SNetInterface {
 	return n
 }
 
-func NewNetInterfaceWithExpectIp(name string, expectIp string, expectIp6 string) *SNetInterface {
+func NewNetInterfaceWithExpectIp(name string, expectIp string, expectIp6 string, excludeIps []string) *SNetInterface {
 	n := new(SNetInterface)
 	n.name = name
-	n.FetchConfig2(expectIp, expectIp6)
+	n.FetchConfig2(expectIp, expectIp6, excludeIps)
 	return n
 }
 
@@ -503,11 +504,11 @@ func (n *SNetInterface) FetchInter() *net.Interface {
 }
 
 func (n *SNetInterface) FetchConfig() {
-	n.FetchConfig2("", "")
+	n.FetchConfig2("", "", nil)
 }
 
 // FetchConfig2 is used to fetch config with expectIp and expectIp6
-func (n *SNetInterface) FetchConfig2(expectIp string, expectIp6 string) {
+func (n *SNetInterface) FetchConfig2(expectIp string, expectIp6 string, excludeIps []string) {
 	n.Addr = ""
 	n.Mask = nil
 	n.mac = ""
@@ -528,6 +529,9 @@ func (n *SNetInterface) FetchConfig2(expectIp string, expectIp6 string) {
 					if strings.HasPrefix(ipnet.IP.To4().String(), SECRET_PREFIX) {
 						n.Addr4LinkLocal = ipnet.IP.String()
 					} else if (len(expectIp) > 0 && ipnet.IP.String() == expectIp) || (len(expectIp) == 0 && n.Addr == "") {
+						if len(excludeIps) > 0 && utils.IsInStringArray(ipnet.IP.String(), excludeIps) {
+							continue
+						}
 						n.Addr = ipnet.IP.String()
 						n.Mask = ipnet.Mask
 					}
@@ -535,6 +539,9 @@ func (n *SNetInterface) FetchConfig2(expectIp string, expectIp6 string) {
 					if ipnet.IP.IsLinkLocalUnicast() {
 						n.Addr6LinkLocal = ipnet.IP.String()
 					} else if (len(expectIp6) > 0 && ipnet.IP.String() == expectIp6) || (len(expectIp6) == 0 && n.Addr6 == "") {
+						if len(excludeIps) > 0 && utils.IsInStringArray(ipnet.IP.String(), excludeIps) {
+							continue
+						}
 						n.Addr6 = ipnet.IP.String()
 						n.Mask6 = ipnet.Mask
 					}
