@@ -26,6 +26,29 @@ import (
 	"yunion.io/x/onecloud/pkg/mcp-server/options"
 )
 
+// Context key 类型，用于从 HTTP Header 传入的 AK/SK 存入 context（供 Cursor/Claude 等客户端使用）
+type headerCredKey string
+
+const (
+	ContextKeyAK headerCredKey = "mcp_header_ak"
+	ContextKeySK headerCredKey = "mcp_header_sk"
+)
+
+// GetAKSKFromContext 从 context 中读取连接时通过 Header 传入的 AK/SK（未设置时返回空字符串）
+func GetAKSKFromContext(ctx context.Context) (ak, sk string) {
+	if v := ctx.Value(ContextKeyAK); v != nil {
+		if s, ok := v.(string); ok {
+			ak = s
+		}
+	}
+	if v := ctx.Value(ContextKeySK); v != nil {
+		if s, ok := v.(string); ok {
+			sk = s
+		}
+	}
+	return ak, sk
+}
+
 // CloudpodsAdapter 是与 Cloudpods API 交互的适配器，负责认证和资源管理
 type CloudpodsAdapter struct {
 	client  *mcclient.Client
@@ -68,6 +91,10 @@ func (a *CloudpodsAdapter) authenticate(ak string, sk string) (mcclient.TokenCre
 }
 
 func (a *CloudpodsAdapter) getSession(ctx context.Context, ak string, sk string) (*mcclient.ClientSession, error) {
+	// 若工具未传入 ak/sk，则使用连接时 Header 中的 AK/SK（与 Cursor/Claude 配置一致）
+	if ak == "" && sk == "" {
+		ak, sk = GetAKSKFromContext(ctx)
+	}
 	var userCred mcclient.TokenCredential
 	if auth.IsAuthed() {
 		userCred = policy.FetchUserCredential(ctx)
