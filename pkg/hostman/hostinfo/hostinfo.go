@@ -159,8 +159,9 @@ func (h *SHostInfo) GetIsolatedDeviceManager() isolated_device.IsolatedDeviceMan
 }
 
 func (h *SHostInfo) GetBridgeDev(bridge string) hostbridge.IBridgeDriver {
+	bridgeDev := options.HostOptions.NicBridgeDevName(bridge)
 	for _, n := range h.Nics {
-		if bridge == n.Bridge {
+		if bridgeDev == n.Bridge {
 			return n.BridgeDev
 		}
 	}
@@ -400,6 +401,14 @@ func (h *SHostInfo) parseConfig() error {
 		nic, err := NewNIC(n)
 		if err != nil {
 			return errors.Wrapf(err, "NewNIC %s", n)
+		}
+		h.Nics = append(h.Nics, nic)
+	}
+	{
+		// host local bridge
+		nic, err := NewNIC(fmt.Sprintf("/%s/%s", options.HostOptions.HostLocalBridgeName, api.DEFAULT_HOST_LOCAL_WIRE_NAME))
+		if err != nil {
+			return errors.Wrapf(err, "NewNic for host local bridge %s", options.HostOptions.HostLocalBridgeName)
 		}
 		h.Nics = append(h.Nics, nic)
 	}
@@ -1887,6 +1896,9 @@ func (h *SHostInfo) uploadNetworkInfo() error {
 	var hostDetails *api.HostDetails
 	for _, nic := range h.Nics {
 		log.Infof("host nic: %s", jsonutils.Marshal(nic).String())
+		if nic.IsHostLocal() {
+			continue
+		}
 		if len(nic.WireId) == 0 {
 			// nic info not uploaded yet
 			if len(nic.Wire) == 0 {

@@ -2520,12 +2520,8 @@ func (s *SKVMGuestInstance) compareDescNetworks(newDesc *desc.SGuestDesc,
 func getNicBridge(nic *desc.SGuestNetwork) string {
 	if nic.Bridge == "" && nic.Vpc.Provider == api.VPC_PROVIDER_OVN {
 		return options.HostOptions.OvnIntegrationBridge
-	} else if nic.Bridge == api.HostTapBridge {
-		return options.HostOptions.TapBridgeName
-	} else if nic.Bridge == api.HostVpcBridge {
-		return options.HostOptions.OvnIntegrationBridge
 	} else {
-		return nic.Bridge
+		return options.HostOptions.NicBridgeDevName(nic.Bridge)
 	}
 }
 

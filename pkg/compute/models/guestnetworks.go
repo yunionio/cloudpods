@@ -580,8 +580,13 @@ func (gn *SGuestnetwork) getJsonDescAtHost(ctx context.Context, host *SHost) *ap
 		network, _                           = gn.GetNetwork()
 	)
 	if network.isOneCloudVpcNetwork() {
+		// onecloud vpc nic
 		ret = gn.getJsonDescOneCloudVpc(network)
+	} else if network.WireId == api.DEFAULT_HOST_LOCAL_WIRE_ID {
+		// host local nic
+		ret = gn.getJsonDescHostLocal(network)
 	} else {
+		// classic nic
 		netifs := host.getNetifsOnWire(network.WireId)
 		var netif *SNetInterface
 		for i := range netifs {
@@ -656,6 +661,13 @@ func (gn *SGuestnetwork) getJsonDescOneCloudVpc(network *SNetwork) *api.Guestnet
 	desc.Vpc.MappedIpAddr = gn.MappedIpAddr
 	desc.Vpc.MappedIp6Addr = gn.MappedIp6Addr
 
+	return desc
+}
+
+func (gn *SGuestnetwork) getJsonDescHostLocal(network *SNetwork) *api.GuestnetworkJsonDesc {
+	desc := gn.getJsonDesc()
+	desc.Bridge = api.HostLocalBridge
+	desc.WireId = api.DEFAULT_HOST_LOCAL_WIRE_ID
 	return desc
 }
 
