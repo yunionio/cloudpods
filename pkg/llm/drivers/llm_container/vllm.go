@@ -2,9 +2,13 @@ package llm_container
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
+	"os"
 	"path"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -474,38 +478,102 @@ func (v *vllm) UninstallModel(ctx context.Context, userCred mcclient.TokenCreden
 	return nil
 }
 
-func (v *vllm) DownloadModel(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM, tmpDir string, modelName string, modelTag string) (string, []string, error) {
-	lc, err := llm.GetLLMContainer()
+func resolveHfdRevision(modelTag string) string {
+	if strings.TrimSpace(modelTag) == "" {
+		return "main"
+	}
+	return strings.TrimSpace(modelTag)
+}
+
+type hfModelAPIResponse struct {
+	Siblings []struct {
+		RFilename string `json:"rfilename"`
+	} `json:"siblings"`
+}
+
+func escapeURLPathPreserveSlash(p string) string {
+	if p == "" {
+		return ""
+	}
+	parts := strings.Split(p, "/")
+	for i := range parts {
+		parts[i] = url.PathEscape(parts[i])
+	}
+	return strings.Join(parts, "/")
+}
+
+func isNonEmptyFile(p string) bool {
+	st, err := os.Stat(p)
 	if err != nil {
-		return "", nil, errors.Wrap(err, "get llm container")
+		return false
+	}
+	return !st.IsDir() && st.Size() > 0
+}
+
+func (v *vllm) DownloadModel(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM, tmpDir string, modelName string, modelTag string) (string, []string, error) {
+	// Download HF model on host into tmpDir for instant-model import.
+	// We place files under tmpDir/huggingface/<org>/<repo> so that the archive contains relative paths.
+	if strings.TrimSpace(tmpDir) == "" {
+		return "", nil, errors.Error("tmpDir is empty")
+	}
+	if strings.TrimSpace(modelName) == "" {
+		return "", nil, errors.Error("modelName is empty")
 	}
 
-	// Logic to download model inside the container
-	// modelName is expected to be like "facebook/opt-125m"
-	targetDir := path.Join(api.LLM_VLLM_MODELS_PATH, modelName)
-
-	// Check if already exists
-	checkCmd := fmt.Sprintf("[ -d '%s' ] && echo 'EXIST'", targetDir)
-	out, _ := exec(ctx, lc.CmpId, checkCmd, 10)
-	if strings.Contains(out, "EXIST") {
-		log.Infof("Model %s already exists at %s", modelName, targetDir)
+	localDir := filepath.Join(tmpDir, "huggingface", filepath.FromSlash(modelName))
+	if err := os.MkdirAll(localDir, 0755); err != nil {
+		return "", nil, errors.Wrap(err, "mkdir local model dir")
+	}
+	// If already downloaded, short-circuit (directory exists and non-empty).
+	if entries, err := os.ReadDir(localDir); err == nil && len(entries) > 0 {
+		targetDir := path.Join(api.LLM_VLLM_MODELS_PATH, modelName)
+		log.Infof("Model %s already exists in import dir %s", modelName, localDir)
 		return modelName, []string{targetDir}, nil
 	}
 
-	// Try to use huggingface-cli
-	// Assuming container has internet access and tools
-	downloadCmd := fmt.Sprintf("mkdir -p %s && huggingface-cli download %s --local-dir %s --local-dir-use-symlinks False", targetDir, modelName, targetDir)
-
-	// If huggingface-cli is missing, try installing it (if pip available)
-	// fallback to pip install
-	fullCmd := fmt.Sprintf("if ! command -v huggingface-cli &> /dev/null; then pip install -U huggingface_hub; fi; %s", downloadCmd)
-
-	log.Infof("Downloading model %s with cmd: %s", modelName, fullCmd)
-	_, err = exec(ctx, lc.CmpId, fullCmd, 3600) // 1 hour timeout for large models
+	rev := resolveHfdRevision(modelTag)
+	apiURL := fmt.Sprintf("%s/api/models/%s?revision=%s", api.LLM_VLLM_HF_ENDPOINT, escapeURLPathPreserveSlash(modelName), url.QueryEscape(rev))
+	log.Infof("Downloading HF model via HF Mirror API: %s", func() string {
+		b, _ := json.Marshal(map[string]string{
+			"model":    modelName,
+			"revision": rev,
+			"dir":      localDir,
+			"endpoint": api.LLM_VLLM_HF_ENDPOINT,
+			"api":      apiURL,
+		})
+		return string(b)
+	}())
+	metaBody, err := llm.HttpGet(ctx, apiURL)
 	if err != nil {
-		return "", nil, errors.Wrapf(err, "failed to download model %s", modelName)
+		return "", nil, errors.Wrapf(err, "fetch hf model metadata failed: %s", apiURL)
+	}
+	meta := hfModelAPIResponse{}
+	if err := json.Unmarshal(metaBody, &meta); err != nil {
+		return "", nil, errors.Wrap(err, "unmarshal hf model metadata")
+	}
+	if len(meta.Siblings) == 0 {
+		return "", nil, errors.Errorf("hf model metadata has no siblings: %s", apiURL)
 	}
 
+	for _, s := range meta.Siblings {
+		rf := strings.TrimSpace(s.RFilename)
+		if rf == "" {
+			continue
+		}
+		dst := filepath.Join(localDir, filepath.FromSlash(rf))
+		if isNonEmptyFile(dst) {
+			continue
+		}
+		if err := os.MkdirAll(filepath.Dir(dst), 0755); err != nil {
+			return "", nil, errors.Wrapf(err, "mkdir for %s", dst)
+		}
+		fileURL := fmt.Sprintf("%s/%s/resolve/%s/%s", api.LLM_VLLM_HF_ENDPOINT, escapeURLPathPreserveSlash(modelName), url.PathEscape(rev), escapeURLPathPreserveSlash(rf))
+		if err := llm.HttpDownloadFile(ctx, fileURL, dst); err != nil {
+			return "", nil, errors.Wrapf(err, "download file failed: %s -> %s", fileURL, dst)
+		}
+	}
+
+	targetDir := path.Join(api.LLM_VLLM_MODELS_PATH, modelName)
 	return modelName, []string{targetDir}, nil
 }
 
