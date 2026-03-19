@@ -238,29 +238,8 @@ func (v *vllm) GetContainerSpecs(ctx context.Context, llm *models.SLLM, image *m
 	}
 }
 
-func (v *vllm) GetLLMUrl(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM) (string, error) {
-	// Similar logic to Ollama to determine URL
-	server, err := llm.GetServer(ctx)
-	if err != nil {
-		return "", errors.Wrap(err, "get server")
-	}
-
-	networkType := llm.NetworkType
-	if networkType == string(computeapi.NETWORK_TYPE_GUEST) {
-		if len(llm.LLMIp) == 0 {
-			return "", errors.Error("LLM IP is empty for guest network")
-		}
-		return fmt.Sprintf("http://%s:%d", llm.LLMIp, api.LLM_VLLM_DEFAULT_PORT), nil
-	} else {
-		// hostlocal
-		if len(server.HostAccessIp) == 0 {
-			return "", errors.Error("host access IP is empty")
-		}
-		// Assuming we might map ports or just use the default if host networking isn't strictly port-mapped per instance
-		// For simplicity, returning default port on host IP, assuming bridge/direct access or specific port mapping logic exists elsewhere.
-		// NOTE: In ollama.go, it queries AccessInfo. Here we simplify.
-		return fmt.Sprintf("http://%s:%d", server.HostAccessIp, api.LLM_VLLM_DEFAULT_PORT), nil
-	}
+func (v *vllm) GetLLMAccessUrlInfo(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM, input *models.LLMAccessInfoInput) (*api.LLMAccessUrlInfo, error) {
+	return models.GetLLMAccessUrlInfo(ctx, userCred, llm, input, "http", api.LLM_VLLM_DEFAULT_PORT)
 }
 
 // StartLLM starts the vLLM server inside the container via exec, then waits for the health endpoint to be ready.
@@ -319,11 +298,12 @@ func (v *vllm) StartLLM(ctx context.Context, userCred mcclient.TokenCredential, 
 	}
 	cmd := startCmd
 	// Wait for health endpoint
-	baseURL, err := v.GetLLMUrl(ctx, userCred, llm)
+
+	input, err := llm.GetLLMAccessInfoInput(ctx, userCred)
 	if err != nil {
 		return errors.Wrap(err, "get llm url for health check")
 	}
-	healthURL := strings.TrimSuffix(baseURL, "/") + "/health"
+	healthURL := fmt.Sprintf("http://%s:%d/health", input.ServerIp, api.LLM_VLLM_DEFAULT_PORT)
 	deadline := time.Now().Add(api.LLM_VLLM_HEALTH_CHECK_TIMEOUT)
 	for time.Now().Before(deadline) {
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, healthURL, nil)

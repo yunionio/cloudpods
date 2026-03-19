@@ -419,22 +419,12 @@ func (c *openclaw) GetContainerSpecs(ctx context.Context, llm *models.SLLM, imag
 	}
 }
 
-func (c *openclaw) GetLLMUrl(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM) (string, error) {
-	server, err := llm.GetServer(ctx)
-	if err != nil {
-		return "", errors.Wrap(err, "get server")
-	}
-	// 从 IPs 字符串中选择第一个 IP
-	ips := strings.Split(strings.TrimSpace(server.IPs), ",")
-	if len(ips) == 0 || len(strings.TrimSpace(ips[0])) == 0 {
-		return "", errors.Error("server IPs is empty")
-	}
-	firstIP := strings.TrimSpace(ips[0])
-	return fmt.Sprintf("https://%s:%d", firstIP, 3001), nil
+func (c *openclaw) GetLLMAccessUrlInfo(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM, input *models.LLMAccessInfoInput) (*api.LLMAccessUrlInfo, error) {
+	return models.GetLLMAccessUrlInfo(ctx, userCred, llm, input, "https", api.LLM_OPENCLAW_DEFAULT_PORT)
 }
 
 // GetLoginInfo returns OpenClaw web UI login credentials (same defaults as container env).
-func (c *openclaw) GetLoginInfo(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM) (*api.LLMLoginInfo, error) {
+func (c *openclaw) GetLoginInfo(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM) (*api.LLMAccessInfo, error) {
 	ctr, err := llm.GetLLMSContainer(ctx)
 	if err != nil {
 		if errors.Cause(err) == sql.ErrNoRows || strings.Contains(strings.ToLower(err.Error()), "not found") {
@@ -461,7 +451,7 @@ func (c *openclaw) GetLoginInfo(ctx context.Context, userCred mcclient.TokenCred
 			gatewayToken = env.Value
 		}
 	}
-	return &api.LLMLoginInfo{
+	return &api.LLMAccessInfo{
 		Username: username,
 		Password: password,
 		Extra: map[string]string{
