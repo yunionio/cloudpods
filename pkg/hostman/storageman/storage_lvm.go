@@ -359,19 +359,7 @@ func (s *SLVMStorage) saveToGlance(
 	if len(ret.OsInfo) > 0 {
 		params.Set("os_type", jsonutils.NewString(ret.OsInfo))
 	}
-	relInfo := ret.ReleaseInfo
-	if relInfo != nil {
-		params.Set("os_distribution", jsonutils.NewString(relInfo.Distro))
-		if len(relInfo.Version) > 0 {
-			params.Set("os_version", jsonutils.NewString(relInfo.Version))
-		}
-		if len(relInfo.Arch) > 0 {
-			params.Set("os_arch", jsonutils.NewString(relInfo.Arch))
-		}
-		if len(relInfo.Version) > 0 {
-			params.Set("os_language", jsonutils.NewString(relInfo.Language))
-		}
-	}
+	releaseInfoToParams(ret.ReleaseInfo, params)
 	params.Set("image_id", jsonutils.NewString(imageId))
 
 	_, err = image.Images.Upload(hostutils.GetImageSession(ctx),
