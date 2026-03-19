@@ -266,6 +266,7 @@ type ServerCreateCommonConfig struct {
 	Disk           []string `help:"
 	Disk descriptions
 	size: 500M, 10G
+	auto_delete: true, false
 	fs: swap, ext2, ext3, ext4, xfs, ntfs, fat, hfsplus
 	fs_features: casefold
 	format: qcow2, raw, docker, iso, vmdk, vmdkflatver1, vmdkflatver2, vmdkflat, vmdksparse, vmdksparsever1, vmdksparsever2, vmdksesparse, vhd
@@ -280,7 +281,7 @@ type ServerCreateCommonConfig struct {
 	storage_id: use storage-list get storage id
 	image_id: use image-list get image id
 	for example:
-		--disk 'image_id=c2be02a4-7ff2-43e6-8a00-a489e04d2d6f,size=10G,driver=ide,storage_type=rbd'
+		--disk 'image_id=c2be02a4-7ff2-43e6-8a00-a489e04d2d6f,size=10G,driver=ide,storage_type=rbd,auto_delete=true'
 		--disk 'size=500M'
 		--disk 'snpahost_id=1ceb8c6d-6571-451d-8957-4bd3a871af85'
 	" nargs:"+"`
