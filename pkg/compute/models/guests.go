@@ -4966,6 +4966,9 @@ func (self *SGuest) CreateDiskOnStorage(ctx context.Context, userCred mcclient.T
 	if storage.IsLocal() || billingType == billing_api.BILLING_TYPE_PREPAID || isWithServerCreate {
 		autoDelete = true
 	}
+	if diskConfig.AutoDelete != nil {
+		autoDelete = *diskConfig.AutoDelete
+	}
 	disk, err := storage.createDisk(ctx, diskName, diskConfig, userCred, self.GetOwnerId(), autoDelete, self.IsSystem,
 		billingType, billingCycle, self.EncryptKeyId)
 
@@ -5298,6 +5301,7 @@ func (self *SGuest) GetLoadbalancerBackends() ([]SLoadbalancerBackend, error) {
 }
 
 func (self *SGuest) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	SnapshotPolicyResourceManager.RemoveByResource(self.Id, api.SNAPSHOT_POLICY_TYPE_SERVER)
 	return self.purge(ctx, userCred)
 }
 
