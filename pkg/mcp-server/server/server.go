@@ -16,8 +16,10 @@ package server
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/mark3labs/mcp-go/server"
 
@@ -142,22 +144,56 @@ func (s *CloudpodsMCPServer) registerAllTools() error {
 // Start 以sse模式启动 mcp 服务
 func (s *CloudpodsMCPServer) Start() error {
 	// 设置 contextFunc 来从 HTTP header 中提取认证信息并放入 context
+	// 支持：X-Auth-Token（token）、AK/SK（Cursor 双 header）、X-API-Key（Claude 单 header：token 或 base64(ak:sk)）
 	contextFunc := func(ctx context.Context, r *http.Request) context.Context {
 		tokenStr := r.Header.Get(api.AUTH_TOKEN_HEADER)
-		if len(tokenStr) > 0 {
+		akStr := r.Header.Get("AK")
+		skStr := r.Header.Get("SK")
+		apiKey := r.Header.Get("X-API-Key")
+
+		// 1) 优先使用 X-Auth-Token
+		if tokenStr != "" {
 			if auth.IsAuthed() {
 				userCred, err := auth.Verify(ctx, tokenStr)
 				if err != nil {
 					log.Errorf("Verify token failed: %s", err)
+				} else {
+					ctx = context.WithValue(ctx, appctx.APP_CONTEXT_KEY_AUTH_TOKEN, userCred)
+					log.Debugf("UserCred set in context from HTTP header token")
 					return ctx
 				}
-				// 将 userCred 放入 context
-				ctx = context.WithValue(ctx, appctx.APP_CONTEXT_KEY_AUTH_TOKEN, userCred)
-				log.Debugf("UserCred set in context from HTTP header token")
-			} else {
-				log.Warningf("Auth manager not initialized, skipping token verification")
 			}
 		}
+
+		// 2) Cursor 方式：直接使用 AK、SK 两个 Header
+		if akStr != "" && skStr != "" {
+			ctx = context.WithValue(ctx, adapters.ContextKeyAK, akStr)
+			ctx = context.WithValue(ctx, adapters.ContextKeySK, skStr)
+			log.Debugf("AK/SK set in context from headers")
+			return ctx
+		}
+
+		// 3) Claude 方式：X-API-Key 可为 token，或 base64(ak:sk)
+		if apiKey != "" {
+			if auth.IsAuthed() {
+				if userCred, err := auth.Verify(ctx, apiKey); err == nil {
+					ctx = context.WithValue(ctx, appctx.APP_CONTEXT_KEY_AUTH_TOKEN, userCred)
+					log.Debugf("UserCred set in context from X-API-Key token")
+					return ctx
+				}
+			}
+			decoded, err := base64.StdEncoding.DecodeString(apiKey)
+			if err == nil {
+				parts := strings.SplitN(string(decoded), ":", 2)
+				if len(parts) == 2 && parts[0] != "" && parts[1] != "" {
+					ctx = context.WithValue(ctx, adapters.ContextKeyAK, parts[0])
+					ctx = context.WithValue(ctx, adapters.ContextKeySK, parts[1])
+					log.Debugf("AK/SK set in context from X-API-Key base64(ak:sk)")
+					return ctx
+				}
+			}
+		}
+
 		return ctx
 	}
 
