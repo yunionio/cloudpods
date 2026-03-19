@@ -261,6 +261,18 @@ func generateInitrdOptions(drvOpt QemuOptions, initrdPath, kernel string) []stri
 	return opts
 }
 
+func generateKickstartBootOptions(drvOpt QemuOptions, kickstartBoot *KickstartBootInfo) []string {
+	opts := make([]string, 0)
+	opts = append(opts, drvOpt.Kernel(kickstartBoot.KernelPath))
+	opts = append(opts, drvOpt.Initrd(kickstartBoot.InitrdPath))
+	if kickstartBoot.KernelArgs != "" {
+		// due to blank space in kickstart args, '' is needed
+		opts = append(opts, fmt.Sprintf("-append '%s'", kickstartBoot.KernelArgs))
+	}
+
+	return opts
+}
+
 func generateDisksOptions(drvOpt QemuOptions, disks []*desc.SGuestDisk, isEncrypt, isMaster bool, osName string) []string {
 	opts := make([]string, 0)
 	for _, disk := range disks {
@@ -632,6 +644,25 @@ func generateISASerialOptions(isaSerial *desc.SGuestIsaSerial) []string {
 	return opts
 }
 
+func generateKickstartSerialOptions(kickstartBoot *KickstartBootInfo) []string {
+	if kickstartBoot == nil || kickstartBoot.SerialFilePath == "" {
+		return nil
+	}
+
+	opts := make([]string, 0)
+	chardevId := "kickstart_serial"
+
+	// Create chardev with file backend
+	chardevOpt := fmt.Sprintf("-chardev file,path=%s,id=%s", kickstartBoot.SerialFilePath, chardevId)
+	opts = append(opts, chardevOpt)
+
+	// Create ISA serial device
+	serialOpt := fmt.Sprintf("-device isa-serial,chardev=%s,id=kickstart_serial_device", chardevId)
+	opts = append(opts, serialOpt)
+
+	return opts
+}
+
 func generatePvpanicDeviceOption(pvpanic *desc.SGuestPvpanic) string {
 	return fmt.Sprintf("-device pvpanic,id=%s,ioport=0x%x", pvpanic.Id, pvpanic.Ioport)
 }
@@ -697,6 +728,17 @@ type GenerateStartOptionsInput struct {
 
 	RescueInitrdPath string // rescue initramfs path
 	RescueKernelPath string // rescue kernel path
+
+	KickstartBoot *KickstartBootInfo
+}
+type KickstartBootInfo struct {
+	Config         *api.KickstartConfig
+	MountPath      string
+	KernelPath     string
+	InitrdPath     string
+	KernelArgs     string
+	SerialFilePath string
+	ConfigIsoPath  string
 }
 
 func (input *GenerateStartOptionsInput) HasBootIndex() bool {
@@ -827,6 +869,11 @@ func GenerateStartOptions(
 			input.RescueInitrdPath,
 			input.RescueKernelPath,
 		)...)
+	} else if input.KickstartBoot != nil {
+		opts = append(opts, generateKickstartBootOptions(
+			drvOpt,
+			input.KickstartBoot,
+		)...)
 	}
 
 	// generate disk options
@@ -887,6 +934,11 @@ func GenerateStartOptions(
 	// serial device
 	if input.GuestDesc.IsaSerial != nil {
 		opts = append(opts, generateISASerialOptions(input.GuestDesc.IsaSerial)...)
+	}
+
+	// kickstart serial device
+	if input.KickstartBoot != nil {
+		opts = append(opts, generateKickstartSerialOptions(input.KickstartBoot)...)
 	}
 
 	// migrate options
