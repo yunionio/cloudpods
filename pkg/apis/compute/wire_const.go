@@ -21,4 +21,7 @@ const (
 	WIRE_STATUS_READY_DEPRECATED     = "ready"
 	WIRE_STATUS_MERGE_NETWORK        = "merge_network"
 	WIRE_STATUS_MERGE_NETWORK_FAILED = "merge_network_failed"
+
+	DEFAULT_HOST_LOCAL_WIRE_NAME = "hostlocal"
+	DEFAULT_HOST_LOCAL_WIRE_ID   = "__host_local__"
 )

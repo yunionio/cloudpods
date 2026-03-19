@@ -52,6 +52,7 @@ import (
 	baremetalapi "yunion.io/x/onecloud/pkg/apis/baremetal"
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	hostapi "yunion.io/x/onecloud/pkg/apis/host"
 	napi "yunion.io/x/onecloud/pkg/apis/notify"
 	"yunion.io/x/onecloud/pkg/appsrv"
@@ -3335,7 +3336,7 @@ func (hh *SHost) GetNetinterfacesWithIdAndCredential(netId string, userCred mccl
 }
 
 func (hh *SHost) GetNetworkWithId(netId string, reserved bool) (*SNetwork, error) {
-	var q1, q2, q3 *sqlchemy.SQuery
+	var q1, q2, q3, q4 *sqlchemy.SQuery
 	{
 		// classic network
 		networks := NetworkManager.Query()
@@ -3384,8 +3385,34 @@ func (hh *SHost) GetNetworkWithId(netId string, reserved bool) (*SNetwork, error
 		q3 = q3.Filter(sqlchemy.Equals(networks.Field("id"), netId))
 		q3 = q3.Filter(sqlchemy.Equals(hosts.Field("id"), hh.Id))
 	}
+	{
+		// host local network
+		networks := NetworkManager.Query()
+		wires := WireManager.Query().SubQuery()
+		vpcs := VpcManager.Query().SubQuery()
+		regions := CloudregionManager.Query().SubQuery()
+		q4 = networks
+		q4 = q4.Join(wires, sqlchemy.Equals(wires.Field("id"), networks.Field("wire_id")))
+		q4 = q4.Join(vpcs, sqlchemy.Equals(vpcs.Field("id"), wires.Field("vpc_id")))
+		q4 = q4.Join(regions, sqlchemy.Equals(regions.Field("id"), vpcs.Field("cloudregion_id")))
+		q4 = q4.Filter(sqlchemy.Equals(networks.Field("id"), netId))
+		q4 = q4.Filter(
+			sqlchemy.OR(
+				sqlchemy.AND(
+					sqlchemy.Equals(regions.Field("provider"), api.CLOUD_PROVIDER_ONECLOUD),
+					sqlchemy.Equals(vpcs.Field("id"), api.DEFAULT_VPC_ID),
+					sqlchemy.Equals(wires.Field("id"), computeapi.DEFAULT_HOST_LOCAL_WIRE_ID),
+				),
+				sqlchemy.AND(
+					sqlchemy.Equals(regions.Field("provider"), api.CLOUD_PROVIDER_CLOUDPODS),
+					sqlchemy.Equals(vpcs.Field("external_id"), api.DEFAULT_VPC_ID),
+					sqlchemy.Equals(wires.Field("external_id"), computeapi.DEFAULT_HOST_LOCAL_WIRE_ID),
+				),
+			),
+		)
+	}
 
-	q := sqlchemy.Union(q1, q2, q3).Query().Distinct()
+	q := sqlchemy.Union(q1, q2, q3, q4).Query().Distinct()
 
 	net := SNetwork{}
 	net.SetModelManager(NetworkManager, &net)

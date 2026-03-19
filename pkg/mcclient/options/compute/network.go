@@ -34,7 +34,7 @@ type NetworkListOptions struct {
 	Region     string   `help:"search networks belongs to a CloudRegion" json:"cloudregion"`
 	City       string   `help:"search networks belongs to a city"`
 	Usable     *bool    `help:"search usable networks"`
-	ServerType string   `help:"search networks belongs to a ServerType" choices:"baremetal|container|eip|guest|ipmi|pxe"`
+	ServerType string   `help:"search networks belongs to a ServerType" choices:"baremetal|container|eip|guest|ipmi|pxe|hostlocal"`
 	Schedtag   string   `help:"filter networks by schedtag"`
 
 	HostSchedtagId string `help:"filter by host schedtag"`

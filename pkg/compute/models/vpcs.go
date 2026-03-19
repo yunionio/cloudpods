@@ -35,6 +35,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	identityapi "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
@@ -813,6 +814,7 @@ func (manager *SVpcManager) InitializeData() error {
 			defVpc.IsDefault = true
 			defVpc.IsPublic = true
 			defVpc.PublicScope = string(rbacscope.ScopeSystem)
+			defVpc.DomainId = identityapi.DEFAULT_DOMAIN_ID
 			err = manager.TableSpec().Insert(context.TODO(), &defVpc)
 			if err != nil {
 				log.Errorf("Insert default vpc fail: %s", err)
