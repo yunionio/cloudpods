@@ -17,6 +17,7 @@ package service
 import (
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/appsrv/dispatcher"
+	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/logger/models"
 	"yunion.io/x/onecloud/pkg/logger/options"
@@ -27,6 +28,8 @@ func InitHandlers(app *appsrv.Application, isSlave bool) {
 
 	models.InitActionLog()
 	models.InitBaremetalEvent()
+
+	app_common.ExportOptionsHandlerWithPrefix(app, "", &options.Options)
 
 	for _, manager := range []db.IModelManager{
 		db.UserCacheManager,
