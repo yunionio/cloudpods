@@ -178,6 +178,11 @@ type DiskConfig struct {
 	// required: false
 	AutoReset bool `json:"auto_reset"`
 
+	// 是否跟随主机删除而自动删除
+	// 默认跟随主机创建的磁盘为 true
+	// required: false
+	AutoDelete *bool `json:"auto_delete,omitempty"`
+
 	// 磁盘存储格式
 	// enum: qcow2, raw, docker, iso, vmdk, vmdkflatver1, vmdkflatver2, vmdkflat, vmdksparse, vmdksparsever1, vmdksparsever2, vmdksepsparse vhd
 	// requried: false
