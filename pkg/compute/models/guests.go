@@ -1746,6 +1746,15 @@ func (manager *SGuestManager) validateCreateData(
 					input.Bios = "BIOS"
 				}
 			}
+		} else {
+			if input.Bios == "" {
+				// if ISO support uefi and not specified boot mode
+				// set default boot mode uefi
+				if desc, ok := imgProperties[imageapi.IMAGE_UEFI_SUPPORT]; ok && desc == "true" {
+					input.Bios = "UEFI"
+				}
+			}
+
 		}
 
 		if len(imgProperties) == 0 {
