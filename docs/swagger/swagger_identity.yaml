@@ -172,6 +172,10 @@ definitions:
         x-go-package: yunion.io/x/onecloud/pkg/apis/identity
     CredentialUpdateInput:
         properties:
+            blob:
+                description: 更新 blob 内容（明文，服务端加密后写入 encrypted_blob）
+                type: string
+                x-go-name: Blob
             description:
                 description: 资源描述
                 type: string
@@ -180,6 +184,13 @@ definitions:
                 description: enabled
                 type: boolean
                 x-go-name: Enabled
+            encrypted_blob:
+                description: 由 ValidateUpdateData 在提供 blob 时填充，不允许客户端直接传入
+                type: string
+                x-go-name: EncryptedBlob
+            key_hash:
+                type: string
+                x-go-name: KeyHash
             name:
                 description: 资源名称
                 type: string

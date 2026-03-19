@@ -73,6 +73,9 @@ definitions:
                 description: 没有收到监控指标时将当前报警状态设置为对应的状态
                 type: string
                 x-go-name: NoDataState
+            reason:
+                type: string
+                x-go-name: Reason
             settings:
                 $ref: '#/definitions/AlertSetting'
             used_by:
@@ -592,6 +595,9 @@ definitions:
                 x-go-name: ProjectOrganizations
             project_tags:
                 $ref: '#/definitions/TTagSetList'
+            reason:
+                type: string
+                x-go-name: Reason
             refresh:
                 type: string
                 x-go-name: Refresh
@@ -1266,6 +1272,9 @@ definitions:
                 description: 资源描述信息
                 type: string
                 x-go-name: Description
+            disable_notify_recovery:
+                type: boolean
+                x-go-name: DisableNotifyRecovery
             domain_id:
                 description: 域Id
                 type: string
@@ -1576,6 +1585,10 @@ definitions:
                 description: 没有收到监控指标时将当前报警状态设置为对应的状态
                 type: string
                 x-go-name: NoDataState
+            reason:
+                description: 报警原因
+                type: string
+                x-go-name: Reason
             settings:
                 $ref: '#/definitions/AlertSetting'
         type: object
@@ -1604,6 +1617,10 @@ definitions:
             description:
                 type: string
                 x-go-name: Description
+            disable_notify_recovery:
+                description: 为 true 时不发送恢复通知（OK）
+                type: boolean
+                x-go-name: DisableNotifyRecovery
             domain_id:
                 type: string
                 x-go-name: DomainId
@@ -1661,6 +1678,9 @@ definitions:
             project_id:
                 type: string
                 x-go-name: ProjectId
+            reason:
+                type: string
+                x-go-name: Reason
             recipients:
                 description: 通知接受者
                 items:
@@ -1750,6 +1770,9 @@ definitions:
                 description: 资源描述信息
                 type: string
                 x-go-name: Description
+            disable_notify_recovery:
+                type: boolean
+                x-go-name: DisableNotifyRecovery
             domain_id:
                 description: 域Id
                 type: string
@@ -3019,6 +3042,9 @@ definitions:
                 description: Period of querying metrics
                 type: string
                 x-go-name: Period
+            reason:
+                type: string
+                x-go-name: Reason
             settings:
                 $ref: '#/definitions/AlertSetting'
             threshold:
@@ -3376,6 +3402,9 @@ definitions:
                 description: 查询指标周期
                 type: string
                 x-go-name: Period
+            reason:
+                type: string
+                x-go-name: Reason
             recipients:
                 description: 通知接受者
                 type: string
@@ -3682,6 +3711,10 @@ definitions:
                 description: 查询指标周期
                 type: string
                 x-go-name: Period
+            reason:
+                description: 报警原因
+                type: string
+                x-go-name: Reason
             recipients:
                 description: 通知接受者
                 type: string
