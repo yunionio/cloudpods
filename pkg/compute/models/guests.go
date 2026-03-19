@@ -1838,7 +1838,9 @@ func (manager *SGuestManager) validateCreateData(
 		}
 
 		// enable tpm on windows 11 image
-		if osDist := imgProperties["os_distribution"]; strings.Contains(osDist, "Windows 11") {
+		osDist := imgProperties["os_distribution"]
+		osVer := imgProperties["os_version"]
+		if strings.Contains(osDist, "Windows 11") || strings.Contains(osVer, "Windows 11") {
 			input.EnableTpm = true
 		}
 
@@ -6119,6 +6121,7 @@ type sDeployInfo struct {
 	Arch             string
 	Language         string
 	TelegrafDeployed bool
+	CurrentVersion   string
 }
 
 func (self *SGuest) SaveDeployInfo(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject) {
@@ -6157,6 +6160,9 @@ func (self *SGuest) SaveDeployInfo(ctx context.Context, userCred mcclient.TokenC
 	}
 	if deployInfo.TelegrafDeployed {
 		info["telegraf_deployed"] = true
+	}
+	if len(deployInfo.CurrentVersion) > 0 {
+		info["current_version"] = deployInfo.CurrentVersion
 	}
 	self.SetAllMetadata(ctx, info, userCred)
 	self.saveOldPassword(ctx, userCred)

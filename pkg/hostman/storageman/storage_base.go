@@ -33,6 +33,7 @@ import (
 	hostapi "yunion.io/x/onecloud/pkg/apis/host"
 	imageapi "yunion.io/x/onecloud/pkg/apis/image"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
+	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman/storageutils"
@@ -521,6 +522,24 @@ func (s *SBaseStorage) onSaveToGlanceFailed(ctx context.Context, imageId string,
 	)
 	if err != nil {
 		log.Errorln(err)
+	}
+}
+
+func releaseInfoToParams(relInfo *deployapi.ReleaseInfo, params *jsonutils.JSONDict) {
+	if relInfo != nil {
+		params.Set("os_distribution", jsonutils.NewString(relInfo.Distro))
+		if len(relInfo.Version) > 0 {
+			params.Set("os_version", jsonutils.NewString(relInfo.Version))
+		}
+		if len(relInfo.Arch) > 0 {
+			params.Set("os_arch", jsonutils.NewString(relInfo.Arch))
+		}
+		if len(relInfo.Version) > 0 {
+			params.Set("os_language", jsonutils.NewString(relInfo.Language))
+		}
+		if len(relInfo.CurrentVersion) > 0 {
+			params.Set("os_current_version", jsonutils.NewString(relInfo.CurrentVersion))
+		}
 	}
 }
 

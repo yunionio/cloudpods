@@ -17,6 +17,9 @@ package deployserver
 import (
 	"os"
 
+	"yunion.io/x/log"
+	"yunion.io/x/structarg"
+
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	host_options "yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
@@ -24,6 +27,8 @@ import (
 
 type SDeployOptions struct {
 	host_options.SHostBaseOptions
+
+	LocalConfigFile string `help:"local config file" default:"/etc/yunion/host_local.conf"`
 
 	// PrivatePrefixes []string `help:"IPv4 private prefixes"`
 	ChntpwPath string `help:"path to chntpw tool" default:"/usr/local/bin/chntpw.static"`
@@ -60,6 +65,17 @@ func Parse() SDeployOptions {
 		hostOpts.SHostBaseOptions = *commonCfg
 		// keep base options
 		hostOpts.BaseOptions.BaseOptions = baseOpt
+	}
+	if len(hostOpts.LocalConfigFile) > 0 && fileutils2.Exists(hostOpts.LocalConfigFile) {
+		log.Infof("Use local configuration file: %s", hostOpts.Config)
+		parser, err := structarg.NewArgumentParser(&hostOpts, "", "", "")
+		if err != nil {
+			log.Fatalf("fail to create local parse %s", err)
+		}
+		err = parser.ParseFile(hostOpts.LocalConfigFile)
+		if err != nil {
+			log.Fatalf("Parse local configuration file: %v", err)
+		}
 	}
 	return hostOpts
 }
