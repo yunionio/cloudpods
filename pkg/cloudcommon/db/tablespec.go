@@ -74,7 +74,7 @@ func newTableSpec(model interface{}, tableName string, indexField string, dateFi
 			log.Errorf("NewSplitTableSpec %s %s", tableName, err)
 			return nil
 		} else {
-			log.Debugf("table %s maxDuration %d hour maxSegements %d", tableName, maxDuration/time.Hour, maxSegments)
+			log.Infof("new split table %s maxDuration %d hour maxSegements %d", tableName, maxDuration/time.Hour, maxSegments)
 		}
 	} else if len(dbName) > 0 {
 		itbl = sqlchemy.NewTableSpecFromStructWithDBName(model, tableName, dbName)
