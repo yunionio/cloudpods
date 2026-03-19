@@ -1,18 +1,12 @@
 package debug
 
 import (
+	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
-
-	"github.com/mholt/caddy"
 )
 
-func init() {
-	caddy.RegisterPlugin("debug", caddy.Plugin{
-		ServerType: "dns",
-		Action:     setup,
-	})
-}
+func init() { plugin.Register("debug", setup) }
 
 func setup(c *caddy.Controller) error {
 	config := dnsserver.GetConfig(c)

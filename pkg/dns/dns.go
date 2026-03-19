@@ -20,17 +20,16 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/etcd/msg"
 	"github.com/coredns/coredns/plugin/pkg/dnsutil"
 	"github.com/coredns/coredns/plugin/pkg/fall"
 	"github.com/coredns/coredns/plugin/pkg/upstream"
 	"github.com/coredns/coredns/request"
-	"github.com/mholt/caddy"
 	"github.com/miekg/dns"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
 	_ "yunion.io/x/sqlchemy/backends"
@@ -73,7 +72,7 @@ type SRegionDNS struct {
 	Fall          fall.F
 	Zones         []string
 	PrimaryZone   string
-	Upstream      upstream.Upstream
+	Upstream      *upstream.Upstream
 	SqlConnection string
 	AuthUrl       string
 	AdminProject  string
@@ -135,57 +134,65 @@ func (r *SRegionDNS) initAuth() {
 }
 
 func (r *SRegionDNS) ServeDNS(ctx context.Context, w dns.ResponseWriter, rmsg *dns.Msg) (int, error) {
+	log.Debugf("ServeDNS: %s", jsonutils.Marshal(rmsg).String())
+
 	var (
 		records []dns.RR
 		extra   []dns.RR
 		err     error
 	)
 
+	state := request.Request{W: w, Req: rmsg}
+	qname := state.Name()
+	zone := plugin.Zones(r.Zones).Matches(qname)
+	if zone == "" {
+		return plugin.NextOrFailure(r.Name(), r.Next, ctx, w, rmsg)
+	}
+	state.Zone = zone
+
 	opt := plugin.Options{}
-	state := request.Request{W: w, Req: rmsg, Context: ctx}
-	zone := plugin.Zones(r.Zones).Matches(state.Name())
 	switch state.QType() {
 	case dns.TypeA:
-		records, err = plugin.A(r, zone, state, nil, opt)
+		records, _, err = plugin.A(ctx, r, zone, state, nil, opt)
 	case dns.TypeAAAA:
-		records, err = plugin.AAAA(r, zone, state, nil, opt)
+		records, _, err = plugin.AAAA(ctx, r, zone, state, nil, opt)
 	case dns.TypeTXT:
-		records, err = plugin.TXT(r, zone, state, opt)
+		records, _, err = plugin.TXT(ctx, r, zone, state, nil, opt)
 	case dns.TypeCNAME:
-		records, err = plugin.CNAME(r, zone, state, opt)
+		records, err = plugin.CNAME(ctx, r, zone, state, opt)
 	case dns.TypePTR:
-		records, err = plugin.PTR(r, zone, state, opt)
+		records, err = plugin.PTR(ctx, r, zone, state, opt)
 	case dns.TypeMX:
-		records, extra, err = plugin.MX(r, zone, state, opt)
+		records, extra, err = plugin.MX(ctx, r, zone, state, opt)
 	case dns.TypeSRV:
-		records, extra, err = plugin.SRV(r, zone, state, opt)
+		records, extra, err = plugin.SRV(ctx, r, zone, state, opt)
 	case dns.TypeSOA:
-		records, err = plugin.SOA(r, zone, state, opt)
+		records, err = plugin.SOA(ctx, r, zone, state, opt)
 	case dns.TypeNS:
 		if state.Name() == zone {
-			records, extra, err = plugin.NS(r, zone, state, opt)
+			records, extra, err = plugin.NS(ctx, r, zone, state, opt)
 			break
 		}
 		fallthrough
 	default:
 		log.Warningf("Not processed state: %#v", state)
 		// Do a fake A lookup, so we can distinguish between NODATA and NXDOMAIN
-		_, err = plugin.A(r, zone, state, nil, opt)
+		_, _, err = plugin.A(ctx, r, zone, state, nil, opt)
 	}
 
 	if err == errCallNext {
 		if r.Fall.Through(state.Name()) {
 			return plugin.NextOrFailure(r.Name(), r.Next, ctx, w, rmsg)
 		}
-		return plugin.BackendError(r, zone, dns.RcodeNameError, state, nil /* err */, opt)
+		return plugin.BackendError(ctx, r, zone, dns.RcodeNameError, state, nil /* err */, opt)
 	} else if err == errRefused {
-		return plugin.BackendError(r, zone, dns.RcodeRefused, state, err, opt)
+		return plugin.BackendError(ctx, r, zone, dns.RcodeRefused, state, err, opt)
 	} else if err == errNotFound {
-		return plugin.BackendError(r, zone, dns.RcodeNameError, state, err, opt)
+		return plugin.BackendError(ctx, r, zone, dns.RcodeNameError, state, err, opt)
 	}
 
 	if len(records) == 0 {
-		return plugin.BackendError(r, zone, dns.RcodeNameError, state, err, opt)
+		return plugin.BackendError(ctx, r, zone, dns.RcodeNameError, state, err, opt)
 	}
 
 	m := new(dns.Msg)
@@ -207,7 +214,7 @@ var (
 )
 
 // Services implements the ServiceBackend interface
-func (r *SRegionDNS) Services(state request.Request, exact bool, opt plugin.Options) ([]msg.Service, error) {
+func (r *SRegionDNS) Services(ctx context.Context, state request.Request, exact bool, opt plugin.Options) ([]msg.Service, error) {
 	var services []msg.Service
 	var err error
 
@@ -255,7 +262,7 @@ func (r *SRegionDNS) Services(state request.Request, exact bool, opt plugin.Opti
 		return nil, errRefused
 	}
 
-	services, err = r.Records(state, false)
+	services, err = r.Records(ctx, state, false)
 	if err != nil {
 		// log.Errorf("Records %s fail: %s", state.Name(), err)
 		return nil, err
@@ -264,8 +271,8 @@ func (r *SRegionDNS) Services(state request.Request, exact bool, opt plugin.Opti
 }
 
 // Lookup implements the ServiceBackend interface
-func (r *SRegionDNS) Lookup(state request.Request, name string, typ uint16) (*dns.Msg, error) {
-	return r.Upstream.Lookup(state, name, typ)
+func (r *SRegionDNS) Lookup(ctx context.Context, state request.Request, name string, typ uint16) (*dns.Msg, error) {
+	return r.Upstream.Lookup(ctx, state, name, typ)
 }
 
 // IsNameError implements the ServiceBackend interface
@@ -274,7 +281,7 @@ func (r *SRegionDNS) IsNameError(err error) bool {
 }
 
 // Records looks up records in region mysql
-func (r *SRegionDNS) Records(state request.Request, exact bool) ([]msg.Service, error) {
+func (r *SRegionDNS) Records(ctx context.Context, state request.Request, exact bool) ([]msg.Service, error) {
 	req := parseRequest(state)
 
 	if r.InCloudOnly && !req.srcInCloud {

@@ -17,138 +17,74 @@
 package framestream
 
 import (
-	"bufio"
-	"encoding/binary"
 	"io"
+	"time"
 )
 
+// DecoderOptions specifies configuration for a framestream Decoder.
 type DecoderOptions struct {
+	// MaxPayloadSize is the largest frame size accepted by the Decoder.
+	//
+	// If the Frame Streams Writer sends a frame in excess of this size,
+	// Decode() will return the error ErrDataFrameTooLarge. The Decoder
+	// attempts to recover from this error, so calls to Decode() after
+	// receiving this error may succeed.
 	MaxPayloadSize uint32
-	ContentType    []byte
-	Bidirectional  bool
+	// The ContentType expected by the Decoder. May be left unset for no
+	// content negotiation. If the Writer requests a different content type,
+	// NewDecoder() will return ErrContentTypeMismatch.
+	ContentType []byte
+	// If Bidirectional is true, the underlying io.Reader must be an
+	// io.ReadWriter, and the Decoder will engage in a bidirectional
+	// handshake with its peer to establish content type and communicate
+	// shutdown.
+	Bidirectional bool
+	// Timeout gives the timeout for reading the initial handshake messages
+	// from the peer and writing response messages if Bidirectional. It is
+	// only effective for underlying Readers satisfying net.Conn.
+	Timeout time.Duration
 }
 
+// A Decoder decodes Frame Streams frames read from an underlying io.Reader.
+//
+// It is provided for compatibility. Use Reader instead.
 type Decoder struct {
-	buf     []byte
-	opt     DecoderOptions
-	reader  *bufio.Reader
-	writer  *bufio.Writer
-	stopped bool
+	buf []byte
+	r   *Reader
 }
 
-func NewDecoder(r io.Reader, opt *DecoderOptions) (dec *Decoder, err error) {
+// NewDecoder returns a Decoder using the given io.Reader and options.
+func NewDecoder(r io.Reader, opt *DecoderOptions) (*Decoder, error) {
 	if opt == nil {
 		opt = &DecoderOptions{}
 	}
 	if opt.MaxPayloadSize == 0 {
 		opt.MaxPayloadSize = DEFAULT_MAX_PAYLOAD_SIZE
 	}
-	dec = &Decoder{
-		buf:    make([]byte, opt.MaxPayloadSize),
-		opt:    *opt,
-		reader: bufio.NewReader(r),
-		writer: nil,
+	ropt := &ReaderOptions{
+		Bidirectional: opt.Bidirectional,
+		Timeout:       opt.Timeout,
 	}
-
-	var cf ControlFrame
-	if opt.Bidirectional {
-		w, ok := r.(io.Writer)
-		if !ok {
-			return dec, ErrType
-		}
-		dec.writer = bufio.NewWriter(w)
-
-		// Read the ready control frame.
-		err = cf.DecodeTypeEscape(dec.reader, CONTROL_READY)
-		if err != nil {
-			return
-		}
-
-		// Check content type.
-		if !cf.MatchContentType(dec.opt.ContentType) {
-			return dec, ErrContentTypeMismatch
-		}
-
-		// Send the accept control frame.
-		accept := ControlAccept
-		accept.SetContentType(dec.opt.ContentType)
-		err = accept.EncodeFlush(dec.writer)
-		if err != nil {
-			return
-		}
+	if opt.ContentType != nil {
+		ropt.ContentTypes = append(ropt.ContentTypes, opt.ContentType)
 	}
-
-	// Read the start control frame.
-	err = cf.DecodeTypeEscape(dec.reader, CONTROL_START)
+	dr, err := NewReader(r, ropt)
 	if err != nil {
-		return
+		return nil, err
 	}
-
-	// Check content type.
-	if !cf.MatchContentType(dec.opt.ContentType) {
-		return dec, ErrContentTypeMismatch
+	dec := &Decoder{
+		buf: make([]byte, opt.MaxPayloadSize),
+		r:   dr,
 	}
-
-	return
+	return dec, nil
 }
 
-func (dec *Decoder) readFrame(frameLen uint32) (err error) {
-	// Enforce limits on frame size.
-	if frameLen > dec.opt.MaxPayloadSize {
-		err = ErrDataFrameTooLarge
-		return
-	}
-
-	// Read the frame.
-	n, err := io.ReadFull(dec.reader, dec.buf[0:frameLen])
-	if err != nil || uint32(n) != frameLen {
-		return
-	}
-	return
-}
-
+// Decode returns the data from a Frame Streams data frame. The slice returned
+// is valid until the next call to Decode.
 func (dec *Decoder) Decode() (frameData []byte, err error) {
-	if dec.stopped {
-		err = EOF
-		return
-	}
-
-	// Read the frame length.
-	var frameLen uint32
-	err = binary.Read(dec.reader, binary.BigEndian, &frameLen)
+	n, err := dec.r.ReadFrame(dec.buf)
 	if err != nil {
-		return
+		return nil, err
 	}
-	if frameLen == 0 {
-		// This is a control frame.
-		var cf ControlFrame
-		err = cf.Decode(dec.reader)
-		if err != nil {
-			return
-		}
-		if cf.ControlType == CONTROL_STOP {
-			dec.stopped = true
-			if dec.opt.Bidirectional {
-				ff := &ControlFrame{ControlType: CONTROL_FINISH}
-				err = ff.EncodeFlush(dec.writer)
-				if err != nil {
-					return
-				}
-			}
-			return nil, EOF
-		}
-		if err != nil {
-			return nil, err
-		}
-
-	} else {
-		// This is a data frame.
-		err = dec.readFrame(frameLen)
-		if err != nil {
-			return
-		}
-		frameData = dec.buf[0:frameLen]
-	}
-
-	return
+	return dec.buf[:n], nil
 }

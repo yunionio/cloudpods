@@ -15,6 +15,8 @@ const CONTROL_FINISH = 0x05
 
 const CONTROL_FIELD_CONTENT_TYPE = 0x01
 
+const CONTROL_FRAME_LENGTH_MAX = 512
+
 type ControlFrame struct {
 	ControlType  uint32
 	ContentTypes [][]byte
@@ -73,6 +75,14 @@ func (c *ControlFrame) Decode(r io.Reader) (err error) {
 	err = binary.Read(r, binary.BigEndian, &cflen)
 	if err != nil {
 		return
+	}
+
+	if cflen > CONTROL_FRAME_LENGTH_MAX {
+		return ErrDecode
+	}
+
+	if cflen < 4 {
+		return ErrDecode
 	}
 
 	err = binary.Read(r, binary.BigEndian, &c.ControlType)
@@ -137,20 +147,48 @@ func (c *ControlFrame) DecodeTypeEscape(r io.Reader, ctype uint32) error {
 	return nil
 }
 
-func (c *ControlFrame) MatchContentType(ctype []byte) bool {
-	if ctype == nil {
-		return true
+// ChooseContentType selects a content type from the ControlFrame which
+// also exists in the supplied ctypes. Preference is given to values occurring
+// earliest in ctypes.
+//
+// ChooseContentType returns the chosen content type, which may be nil, and
+// a bool value indicating whether a matching type was found.
+//
+// If either the ControlFrame types or ctypes is empty, ChooseContentType
+// returns nil as a matching content type.
+func (c *ControlFrame) ChooseContentType(ctypes [][]byte) (typ []byte, found bool) {
+	if c.ContentTypes == nil || ctypes == nil {
+		return nil, true
 	}
+	tm := make(map[string]bool)
+	for _, cfctype := range c.ContentTypes {
+		tm[string(cfctype)] = true
+	}
+	for _, ctype := range ctypes {
+		if tm[string(ctype)] {
+			return ctype, true
+		}
+	}
+	return nil, false
+}
+
+func (c *ControlFrame) MatchContentType(ctype []byte) bool {
 	for _, cfctype := range c.ContentTypes {
 		if bytes.Compare(ctype, cfctype) == 0 {
 			return true
 		}
 	}
-	return false
+	return len(c.ContentTypes) == 0
+}
+
+func (c *ControlFrame) SetContentTypes(ctypes [][]byte) {
+	c.ContentTypes = ctypes
 }
 
 func (c *ControlFrame) SetContentType(ctype []byte) {
 	if ctype != nil {
-		c.ContentTypes = [][]byte{ctype}
+		c.SetContentTypes([][]byte{ctype})
+	} else {
+		c.ContentTypes = nil
 	}
 }
