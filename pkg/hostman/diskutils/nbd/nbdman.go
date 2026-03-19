@@ -29,6 +29,7 @@ import (
 
 type SNBDManager struct {
 	nbdDevs map[string]bool
+	nbdChan chan struct{}
 	nbdLock *sync.Mutex
 }
 
@@ -49,13 +50,15 @@ func NewNBDManager() (*SNBDManager, error) {
 	ret.nbdDevs = make(map[string]bool, 0)
 	ret.nbdLock = new(sync.Mutex)
 
+	ret.cleanupNbdDevices()
 	if err := ret.reloadNbdDevices(); err != nil {
 		return ret, errors.Wrap(err, "reloadNbdDevices")
 	}
 	if err := ret.findNbdDevices(); err != nil {
 		return ret, errors.Wrap(err, "findNbdDevices")
 	}
-	go ret.cleanupNbdDevices()
+	ret.nbdChan = make(chan struct{}, len(ret.nbdDevs))
+
 	return ret, nil
 }
 
@@ -169,8 +172,14 @@ func (m *SNBDManager) findNbdDevices() error {
 }
 
 func (m *SNBDManager) AcquireNbddev() string {
+	if len(m.nbdDevs) == 0 {
+		return ""
+	}
+
+	m.nbdChan <- struct{}{}
 	defer m.nbdLock.Unlock()
 	m.nbdLock.Lock()
+
 	for nbdDev := range m.nbdDevs {
 		if fileutils2.IsBlockDeviceUsed(nbdDev) {
 			m.nbdDevs[nbdDev] = true
@@ -192,4 +201,5 @@ func (m *SNBDManager) ReleaseNbddev(nbddev string) {
 			m.nbdDevs[nbddev] = false
 		}
 	}
+	<-m.nbdChan
 }
