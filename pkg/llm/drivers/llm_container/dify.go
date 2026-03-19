@@ -2,8 +2,6 @@ package llm_container
 
 import (
 	"context"
-	"fmt"
-	"strconv"
 	"strings"
 
 	"yunion.io/x/pkg/errors"
@@ -263,25 +261,7 @@ func (d *dify) StartLLM(ctx context.Context, userCred mcclient.TokenCredential, 
 	return nil
 }
 
-// GetLLMUrl returns the Dify access URL (nginx port 80). Same pattern as vLLM/Ollama: guest network uses LLMIp, hostlocal uses host IP.
-func (d *dify) GetLLMUrl(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM) (string, error) {
-	server, err := llm.GetServer(ctx)
-	if err != nil {
-		return "", errors.Wrap(err, "get server")
-	}
-	port := 80
-	if p, err := strconv.Atoi(api.DIFY_NGINX_PORT); err == nil {
-		port = p
-	}
-	networkType := llm.NetworkType
-	if networkType == string(computeapi.NETWORK_TYPE_GUEST) {
-		if len(llm.LLMIp) == 0 {
-			return "", errors.Error("LLM IP is empty for guest network")
-		}
-		return fmt.Sprintf("http://%s:%d", llm.LLMIp, port), nil
-	}
-	if len(server.HostAccessIp) == 0 {
-		return "", errors.Error("host access IP is empty")
-	}
-	return fmt.Sprintf("http://%s:%d", server.HostAccessIp, port), nil
+// GetLLMAccessUrlInfo returns the Dify access URL (nginx port 80). Same pattern as vLLM/Ollama: guest network uses LLMIp, hostlocal uses host IP.
+func (d *dify) GetLLMAccessUrlInfo(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM, input *models.LLMAccessInfoInput) (*api.LLMAccessUrlInfo, error) {
+	return models.GetLLMAccessUrlInfo(ctx, userCred, llm, input, "http", 80)
 }
