@@ -111,13 +111,6 @@ func SendXmlWithIndent(w http.ResponseWriter, hdr http.Header, obj interface{}, 
 
 func SendStream(w http.ResponseWriter, isPartial bool, hdr http.Header, stream io.ReadCloser, sizeBytes int64) error {
 	defer stream.Close()
-	if isPartial {
-		log.Debugf("send partial 206")
-		w.WriteHeader(206)
-	} else {
-		log.Debugf("send full 200")
-		w.WriteHeader(200)
-	}
 	for k, v := range hdr {
 		if k != "Content-Length" {
 			log.Debugf("send %s %s", k, v)
@@ -127,6 +120,13 @@ func SendStream(w http.ResponseWriter, isPartial bool, hdr http.Header, stream i
 	if sizeBytes > 0 {
 		log.Debugf("send content-length %d", sizeBytes)
 		w.Header().Set("Content-Length", strconv.FormatInt(sizeBytes, 10))
+	}
+	if isPartial {
+		log.Debugf("send partial 206")
+		w.WriteHeader(206)
+	} else {
+		log.Debugf("send full 200")
+		w.WriteHeader(200)
 	}
 	offset := 0
 	buf := make([]byte, 4096)
