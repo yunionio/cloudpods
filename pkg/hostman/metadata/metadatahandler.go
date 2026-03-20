@@ -343,6 +343,9 @@ func (s *Service) monitorReverseEndpoint() *proxy.SEndpointFactory {
 }
 
 func (s *Service) requestManipulator(ctx context.Context, r *http.Request) (*http.Request, error) {
+	if err := s.rewriteTelegrafInfluxBodyIfNeeded(ctx, r); err != nil {
+		log.Errorf("failed rewrite telegraf body %s", err)
+	}
 	path := r.URL.Path[len(s.monitorPrefix()):]
 	log.Debugf("Path: %s => %s", r.URL.Path, path)
 	r.URL = &url.URL{
