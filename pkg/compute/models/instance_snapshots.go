@@ -635,10 +635,16 @@ func (self *SInstanceSnapshot) PerformPurge(ctx context.Context, userCred mcclie
 		isjp := new(SInstanceSnapshotJoint)
 		err = InstanceSnapshotJointManager.Query().
 			Equals("instance_snapshot_id", self.Id).Equals("snapshot_id", snapshotId).First(isjp)
-		err = isjp.Delete(ctx, userCred)
-		if err != nil {
-			return nil, errors.Wrapf(err, "delete instance snapshot joint: %s", snapshotId)
+		if err == nil || isjp != nil {
+			isjp.SetModelManager(InstanceSnapshotJointManager, isjp)
+			err = isjp.Delete(ctx, userCred)
+			if err != nil {
+				return nil, errors.Wrapf(err, "delete instance snapshot joint: %s", snapshotId)
+			}
+		} else {
+			log.Errorf("failed get instance_snapshot %s join %s: %s", self.Id, snapshotId, err)
 		}
+
 		_, err = snapshots[i].PerformPurge(ctx, userCred, query, data)
 		if err != nil {
 			return nil, errors.Wrapf(err, "delete snapshot: %s", snapshotId)
