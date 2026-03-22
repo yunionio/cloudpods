@@ -177,7 +177,13 @@ func (d *SFsutilDriver) ResizeDiskPartition(diskPath string, sizeMb int) (string
 	if len(parts) > 0 && (label == "gpt" ||
 		(label == "msdos" && parts[len(parts)-1][5] == "primary")) {
 		var part = parts[len(parts)-1]
-		if part[5] == "lvm" || IsSupportResizeFs(part[6]) || part[5] == "primary" {
+		fsType := part[6]
+		if len(fsType) == 0 {
+			partDev := fmt.Sprintf("%s%s", diskPath, part[0])
+			fsType = d.GetFsFormat(partDev)
+			log.Infof("blkid get fstype %s", fsType)
+		}
+		if part[5] == "lvm" || IsSupportResizeFs(fsType) || part[5] == "primary" || fsType == "LVM2_member" {
 			// growpart script replace parted resizepart
 			output, err := d.Exec("growpart", diskPath, part[0])
 			if err != nil {
@@ -203,8 +209,8 @@ func (d *SFsutilDriver) ResizeDiskWithDiskId(diskId string, rootPartDev string, 
 	if err != nil {
 		return err
 	}
-	if partDev == "" || fsType == "" {
-		if fsType == "" && partDev != "" {
+	if partDev == "" || fsType == "" || fsType == "LVM2_member" {
+		if (fsType == "" || fsType == "LVM2_member") && partDev != "" {
 			// fsType empty and partDev not empty is lvm device
 			resizeDev = partDev
 		}
