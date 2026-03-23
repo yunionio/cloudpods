@@ -123,7 +123,7 @@ type PodInstance interface {
 	StartContainer(ctx context.Context, userCred mcclient.TokenCredential, ctrId string, input *hostapi.ContainerCreateInput) (jsonutils.JSONObject, error)
 	StartLocalContainer(ctx context.Context, userCred mcclient.TokenCredential, ctrId string) (jsonutils.JSONObject, error)
 	DeleteContainer(ctx context.Context, cred mcclient.TokenCredential, id string) (jsonutils.JSONObject, error)
-	SyncStatus(reason string)
+	SyncStatus(reason string, ctrId string)
 	SyncContainerStatus(ctx context.Context, cred mcclient.TokenCredential, ctrId string) (jsonutils.JSONObject, error)
 	StopContainer(ctx context.Context, userCred mcclient.TokenCredential, ctrId string, input *hostapi.ContainerStopInput) (jsonutils.JSONObject, error)
 	GetContainerStatus(ctx context.Context, ctrId string) (string, *runtime.Status, error)
@@ -303,7 +303,7 @@ func (s *sPodGuestInstance) ImportServer(pendingDelete bool) {
 			log.Errorf("start local pod err %s", err.Error())
 		}
 	} else {
-		s.SyncStatus("sync status after host started")
+		s.SyncStatus("sync status after host started", "")
 		s.getProbeManager().AddPod(s)
 	}
 }
@@ -438,7 +438,10 @@ func (s *sPodGuestInstance) GetUploadStatus(ctx context.Context, reason string) 
 	}, nil
 }
 
-func (s *sPodGuestInstance) UploadStatus(ctx context.Context, reason string) error {
+// UploadStatus uploads the status of the pod and the specified container to the server
+// If uploadCtrId is not empty, only the status of the specified container will be uploaded
+// If uploadCtrId is empty, all containers' status will be uploaded
+func (s *sPodGuestInstance) UploadStatus(ctx context.Context, reason string, uploadCtrId string) error {
 	/*resp, err := s.GetUploadStatus(ctx, reason)
 	if err != nil {
 		return errors.Wrapf(err, "get upload status of pod: %s", reason)
@@ -464,6 +467,9 @@ func (s *sPodGuestInstance) UploadStatus(ctx context.Context, reason string) err
 	}
 	containerStatuses := make(map[string]*statusman.ContainerStatus)
 	for ctrId, cStatus := range resp.Containers {
+		if uploadCtrId != "" && ctrId != uploadCtrId {
+			continue
+		}
 		containerStatuses[ctrId] = &statusman.ContainerStatus{
 			Status:         cStatus.Status,
 			RestartCount:   cStatus.RestartCount,
@@ -489,8 +495,8 @@ func (s *sPodGuestInstance) PostUploadStatus(resp *computeapi.HostUploadGuestSta
 	}
 }
 
-func (s *sPodGuestInstance) SyncStatus(reason string) {
-	if err := s.UploadStatus(context.Background(), reason); err != nil {
+func (s *sPodGuestInstance) SyncStatus(reason string, ctrId string) {
+	if err := s.UploadStatus(context.Background(), reason, ctrId); err != nil {
 		log.Warningf("upload status failed, reason: %s, err: %v", reason, err)
 	}
 }
@@ -975,7 +981,7 @@ func (t *localDirtyPodStartTask) Run() {
 			}
 		}
 	}
-	t.pod.SyncStatus("sync status after dirty pod start locally")
+	t.pod.SyncStatus("sync status after dirty pod start locally", "")
 }
 
 func (t *localDirtyPodStartTask) Dump() string {
