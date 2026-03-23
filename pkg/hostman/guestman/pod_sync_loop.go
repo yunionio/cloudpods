@@ -165,7 +165,12 @@ func (m *SGuestManager) syncContainerLoopIteration(plegCh chan *pleg.PodLifecycl
 			if ctrId == podMan.GetCRIId() {
 				log.Infof("pod %s(%s) is started", podMan.GetId(), ctrId)
 			} else {
-				podMan.SyncStatus("pod container started")
+				ctrObj, _ := podMan.GetContainerByCRIId(ctrId)
+				if ctrObj != nil {
+					podMan.SyncStatus(fmt.Sprintf("pod container started: %s(%s)", ctrObj.Name, ctrObj.Id), ctrObj.Id)
+				} else {
+					podMan.SyncStatus("pod container started", "")
+				}
 			}
 		}
 		if e.Type == pleg.ContainerRemoved {
@@ -213,13 +218,17 @@ func (m *SGuestManager) syncContainerLoopIteration(plegCh chan *pleg.PodLifecycl
 				}
 				log.Infof("sync pod %s container %s status: %s", e.Id, ctrCriId, reason)
 				// 如果是 primary container 退出，就退出其他容器
+				syncCtrId := ""
 				if ctrObj != nil && !isInternalStopped && podMan.IsPrimaryContainer(ctrObj.Id) && ccStatus == computeapi.CONTAINER_STATUS_EXITED {
 					reason = fmt.Sprintf("stop all containers when primary container %s exited", ctrObj.Name)
 					if err := podMan.StopAll(context.Background()); err != nil {
 						log.Errorf("stop all pod containers error: %s", err.Error())
 					}
 				}
-				podMan.SyncStatus(reason)
+				if ctrObj != nil && !isInternalStopped && !podMan.IsPrimaryContainer(ctrObj.Id) {
+					syncCtrId = ctrObj.Id
+				}
+				podMan.SyncStatus(reason, syncCtrId)
 			} else {
 				log.Infof("pod container exited: %s", jsonutils.Marshal(e))
 			}
