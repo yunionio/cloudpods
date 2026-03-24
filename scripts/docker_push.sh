@@ -142,7 +142,7 @@ get_image_name() {
     local arch=$2
     local is_all_arch=$3
     local img_name="$REGISTRY/$component:$TAG"
-    if [[ "$is_all_arch" == "true" || "$arch" == arm64 || "$arch" == riscv64 || "$component" == host-image ]]; then
+    if [[ "$is_all_arch" == "true" || "$arch" == arm64 || "$arch" == riscv64 ]]; then
         img_name="${img_name}-$arch"
     fi
     echo $img_name
@@ -296,6 +296,9 @@ show_update_cmd() {
     'host-health')
         spec='hostagent/HostHealth'
         ;;
+    'host-image')
+        spec='hostimage'
+        ;;
     'region')
         spec='regionServer'
         ;;
@@ -350,9 +353,6 @@ echo ""
 
 for component in $COMPONENTS; do
     if [[ $component == *cli ]]; then
-        continue
-    fi
-    if [[ $component == host-image ]]; then
         continue
     fi
     show_update_cmd $component $ARCH
