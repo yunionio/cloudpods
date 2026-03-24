@@ -71,18 +71,6 @@ glance-base-3-22-2:
 	$(DOCKER_BUILDX)/glance-base:$(GLANCE_BASE_VERSION_3-22-2) -f ./Dockerfile.glance-base .
 
 
-HOST_IMAGE_VERSION ?= v1.0.2
-HOST_IMAGE_NAME = $(REGISTRY)/host-image:$(HOST_IMAGE_VERSION)
-host-image:
-	docker pull $(HOST_IMAGE_NAME)-amd64 --platform amd64
-	docker pull $(HOST_IMAGE_NAME)-arm64 --platform arm64
-	docker manifest create $(HOST_IMAGE_NAME) \
-		$(HOST_IMAGE_NAME)-amd64 \
-		$(HOST_IMAGE_NAME)-arm64
-	docker manifest annotate $(HOST_IMAGE_NAME) $(HOST_IMAGE_NAME)-amd64 --arch amd64
-	docker manifest annotate $(HOST_IMAGE_NAME) $(HOST_IMAGE_NAME)-arm64 --arch arm64
-	docker manifest push $(HOST_IMAGE_NAME)
-
 LBAGENT_BASE_VERSION = v0.0.5
 lbagent-base:
 	$(DOCKER_BUILDX)/lbagent-base:$(LBAGENT_BASE_VERSION) -f ./Dockerfile.lbagent-base .
