@@ -171,6 +171,13 @@ func (b *LoadbalancerCorpus) GenHaproxyConfigs(dir string, opts *AgentParams) (*
 }
 
 func (b *LoadbalancerCorpus) genHaproxyConfigCommon(lb *Loadbalancer, listener *LoadbalancerListener, opts *AgentParams) (map[string]interface{}, error) {
+	if listener == nil {
+		return nil, errors.Error("genHaproxyConfigCommon: listener is nil")
+	}
+	if lb == nil {
+		return nil, errors.Errorf("listener %s(%s): loadbalancer is nil (corpus join incomplete?)",
+			listener.Name, listener.Id)
+	}
 	data := map[string]interface{}{
 		"comment":       fmt.Sprintf("%s(%s)", listener.Name, listener.Id),
 		"id":            listener.Id,
@@ -247,6 +254,9 @@ func (b *LoadbalancerCorpus) genHaproxyConfigCommon(lb *Loadbalancer, listener *
 }
 
 func (b *LoadbalancerCorpus) genHaproxyConfigBackend(data map[string]interface{}, lb *Loadbalancer, listener *LoadbalancerListener, backendGroup *LoadbalancerBackendGroup) error {
+	if backendGroup == nil {
+		return errors.Error("genHaproxyConfigBackend: backend group is nil")
+	}
 	var mode string
 	var balanceAlgorithm string
 	var httpCheck, httpCheckExpect string
@@ -312,6 +322,10 @@ func (b *LoadbalancerCorpus) genHaproxyConfigBackend(data map[string]interface{}
 		}
 		serverLines := []string{}
 		for _, backend := range backendGroup.Backends {
+			if backend == nil {
+				log.Warningf("haproxy: skip nil backend in backend group %s(%s)", backendGroup.Name, backendGroup.Id)
+				continue
+			}
 
 			address, port := backend.GetAddressPort()
 			serverLine := fmt.Sprintf("server %s %s:%d", backend.Id, address, port)
@@ -363,6 +377,10 @@ func (b *LoadbalancerCorpus) genHaproxyConfigBackend(data map[string]interface{}
 				serverLine += " check-ssl"
 			}
 			serverLines = append(serverLines, serverLine)
+		}
+		if len(serverLines) == 0 {
+			return errors.Errorf("backend group %s(%s): no usable backends (all nil or empty list)",
+				backendGroup.Name, backendGroup.Id)
 		}
 		data["servers"] = serverLines
 	}
@@ -519,6 +537,10 @@ func (b *LoadbalancerCorpus) genHaproxyConfigHttp(buf *bytes.Buffer, listener *L
 				continue
 			}
 			backendGroup := lb.BackendGroups[rule.BackendGroupId]
+			if backendGroup == nil {
+				return errors.Errorf("listener %s(%s) rule %s(%s): backend group %s not in corpus",
+					listener.Name, listener.Id, rule.Name, rule.Id, rule.BackendGroupId)
+			}
 			backendData := map[string]interface{}{
 				"comment": fmt.Sprintf("rule %s(%s) backendGroup %s(%s)",
 					rule.Name, rule.Id,
@@ -536,6 +558,10 @@ func (b *LoadbalancerCorpus) genHaproxyConfigHttp(buf *bytes.Buffer, listener *L
 		// default backend group
 		if listener.Redirect == computeapi.LB_REDIRECT_OFF && listener.BackendGroupId != "" {
 			backendGroup := lb.BackendGroups[listener.BackendGroupId]
+			if backendGroup == nil {
+				return errors.Errorf("listener %s(%s): default backend group %s not in corpus",
+					listener.Name, listener.Id, listener.BackendGroupId)
+			}
 			backendData := map[string]interface{}{
 				"comment": fmt.Sprintf("listener %s(%s) default backendGroup %s(%s)",
 					listener.Name, listener.Id,
@@ -569,6 +595,10 @@ func (b *LoadbalancerCorpus) genHaproxyConfigTcp(buf *bytes.Buffer, listener *Lo
 	}
 	if listener.BackendGroupId != "" {
 		backendGroup := lb.BackendGroups[listener.BackendGroupId]
+		if backendGroup == nil {
+			return errors.Errorf("tcp listener %s(%s): backend group %s not in corpus",
+				listener.Name, listener.Id, listener.BackendGroupId)
+		}
 		backendData := map[string]interface{}{
 			"comment": fmt.Sprintf("listener %s(%s) backendGroup %s(%s)",
 				listener.Name, listener.Id,
