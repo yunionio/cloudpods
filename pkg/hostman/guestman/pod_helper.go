@@ -230,7 +230,7 @@ func (t *localPodRestartTask) Run() {
 			log.Errorf("start container %s err: %s", ctr.Id, err.Error())
 		}
 	}
-	t.pod.SyncStatus("sync status after pod and containers restart locally")
+	t.pod.SyncStatus("sync status after pod and containers restart locally", "")
 }
 
 func (t *localPodRestartTask) Dump() string {
