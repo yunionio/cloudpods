@@ -60,6 +60,9 @@ type sReport struct {
 	BaremetalMemSizeMb     int64
 	BaremetalStorageSizeGb int64
 	ServerCnt              int64
+	ContainerCnt           int64
+	ContainerCpuCnt        int64
+	ContainerMemSizeMb     int64
 	ServerCpuCnt           int64
 	ServerMemSizeMb        int64
 	KvmServerCnt           int64
@@ -270,6 +273,9 @@ func Report(ctx context.Context, userCred mcclient.TokenCredential, isStart bool
 		ret.ServerCnt, _ = usage.Int("all.servers")
 		ret.ServerCpuCnt, _ = usage.Int("all.servers.cpu")
 		ret.ServerMemSizeMb, _ = usage.Int("all.servers.memory")
+		ret.ContainerCnt, _ = usage.Int("all.containers")
+		ret.ContainerCpuCnt, _ = usage.Int("all.containers.cpu")
+		ret.ContainerMemSizeMb, _ = usage.Int("all.containers.memory")
 		ret.DiskCnt, _ = usage.Int("all.disks.count")
 		ret.DiskSizeMb, _ = usage.Int("all.disks")
 		ret.BucketCnt, _ = usage.Int("all.buckets")
