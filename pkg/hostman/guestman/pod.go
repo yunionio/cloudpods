@@ -1320,7 +1320,11 @@ func (s *sPodGuestInstance) getContainerCRIId(ctrId string) (string, error) {
 func (s *sPodGuestInstance) GetContainerByCRIId(criId string) (*hostapi.ContainerDesc, error) {
 	for _, ctr := range s.containers {
 		if ctr.CRIId == criId {
-			return s.GetContainerById(ctr.Id), nil
+			desc := s.GetContainerById(ctr.Id)
+			if desc == nil {
+				return nil, errors.Wrapf(errors.ErrNotFound, "Not found container desc by CRIId %s", criId)
+			}
+			return desc, nil
 		}
 	}
 	return nil, errors.Wrapf(errors.ErrNotFound, "Not found container by CRIId %s", criId)
