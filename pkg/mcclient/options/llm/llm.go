@@ -69,8 +69,9 @@ type LLMBaseCreateOptions struct {
 type LLMCreateOptions struct {
 	LLMBaseCreateOptions
 
-	LLM_SKU_ID     string `help:"llm sku id or name" json:"llm_sku_id"`
-	PreferredModel string `help:"vLLM preferred model dir name under models path (e.g. Qwen/Qwen2-7B)" json:"-"`
+	LLM_SKU_ID     string   `help:"llm sku id or name" json:"llm_sku_id"`
+	PreferredModel string   `help:"vLLM preferred model dir name under models path (e.g. Qwen/Qwen2-7B)" json:"-"`
+	VllmArg        []string `help:"vLLM args in format key=value; use key= for flags without values" json:"-"`
 }
 
 func (o *LLMCreateOptions) Params() (jsonutils.JSONObject, error) {
@@ -88,12 +89,12 @@ func (o *LLMCreateOptions) Params() (jsonutils.JSONObject, error) {
 		params.Add(jsonutils.Marshal(nets), "nets")
 	}
 
-	if o.PreferredModel != "" {
-		spec := &api.LLMSpec{
-			Ollama: nil,
-			Vllm:   &api.LLMSpecVllm{PreferredModel: o.PreferredModel},
-			Dify:   nil,
-		}
+	vllmSpec, err := newVLLMSpecFromArgs(o.PreferredModel, o.VllmArg)
+	if err != nil {
+		return nil, err
+	}
+	if vllmSpec != nil {
+		spec := &api.LLMSpec{Ollama: nil, Vllm: vllmSpec, Dify: nil}
 		params.Set("llm_spec", jsonutils.Marshal(spec))
 	}
 
@@ -107,7 +108,8 @@ func (o *LLMCreateOptions) GetCountParam() int {
 type LLMUpdateOptions struct {
 	options.BaseIdOptions
 
-	PreferredModel string `help:"vLLM preferred model dir name under models path (e.g. Qwen/Qwen2-7B); takes effect after pod recreate" json:"-"`
+	PreferredModel string   `help:"vLLM preferred model dir name under models path (e.g. Qwen/Qwen2-7B); takes effect after pod recreate" json:"-"`
+	VllmArg        []string `help:"vLLM args in format key=value; use key= for flags without values" json:"-"`
 }
 
 func (o *LLMUpdateOptions) GetId() string {
@@ -119,12 +121,12 @@ func (o *LLMUpdateOptions) Params() (jsonutils.JSONObject, error) {
 	if err != nil {
 		return nil, err
 	}
-	if o.PreferredModel != "" {
-		spec := &api.LLMSpec{
-			Ollama: nil,
-			Vllm:   &api.LLMSpecVllm{PreferredModel: o.PreferredModel},
-			Dify:   nil,
-		}
+	vllmSpec, err := newVLLMSpecFromArgs(o.PreferredModel, o.VllmArg)
+	if err != nil {
+		return nil, err
+	}
+	if vllmSpec != nil {
+		spec := &api.LLMSpec{Ollama: nil, Vllm: vllmSpec, Dify: nil}
 		dict.Set("llm_spec", jsonutils.Marshal(spec))
 	}
 	return dict, nil
