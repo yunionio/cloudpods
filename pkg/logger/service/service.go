@@ -61,7 +61,10 @@ func StartService() {
 	// models.StartNotifyToWebsocketWorker()
 
 	if len(opts.SyslogUrl) > 0 {
-		extern.InitSyslog(opts.SyslogUrl)
+		err := extern.InitSyslog(opts.SyslogUrl)
+		if err != nil {
+			log.Errorf("Failed to init syslog: %v", err)
+		}
 	}
 
 	if !opts.IsSlaveNode {
