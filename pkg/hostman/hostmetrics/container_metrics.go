@@ -728,6 +728,10 @@ func isPodContainerStopped(prevUsage *GuestMetrics, stat *stats.PodStats) bool {
 
 func (m *SGuestMonitor) PodMetrics(prevUsage *GuestMetrics) *PodMetrics {
 	stat := m.podStat
+	if stat == nil || stat.CPU == nil || stat.CPU.UsageCoreNanoSeconds == nil || stat.Memory == nil || stat.Memory.WorkingSetBytes == nil || stat.Memory.UsageBytes == nil {
+		log.Warningf("skip pod metrics for %s(%s): incomplete pod stats", m.Name, m.Id)
+		return nil
+	}
 	curTime := stat.CPU.Time.Time
 	podCpu := &PodCpuMetric{
 		PodMetricMeta:        NewPodMetricMeta(curTime),
@@ -748,6 +752,10 @@ func (m *SGuestMonitor) PodMetrics(prevUsage *GuestMetrics) *PodMetrics {
 
 	containers := make([]*ContainerMetrics, 0)
 	for _, ctr := range stat.Containers {
+		if ctr.CPU == nil || ctr.CPU.UsageCoreNanoSeconds == nil || ctr.Memory == nil || ctr.Memory.WorkingSetBytes == nil || ctr.Memory.UsageBytes == nil {
+			log.Warningf("skip incomplete container stats in pod %s(%s), container=%s", m.Name, m.Id, ctr.Name)
+			continue
+		}
 		ctrMeta := NewContainerMetricMeta(m.Id, "", ctr.Name, ctr.CPU.Time.Time)
 		cm := &ContainerMetrics{
 			ContainerCpu: &ContainerCpuMetric{
