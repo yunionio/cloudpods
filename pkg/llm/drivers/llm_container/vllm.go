@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -40,6 +41,134 @@ func escapeShellSingleQuoted(s string) string {
 	return strings.ReplaceAll(s, "'", "'\\''")
 }
 
+func shellQuoteSingle(s string) string {
+	return "'" + escapeShellSingleQuoted(s) + "'"
+}
+
+var protectedVLLMArgKeys = map[string]struct{}{
+	"model":                {},
+	"served-model-name":    {},
+	"port":                 {},
+	"tensor-parallel-size": {},
+}
+
+func validateVLLMArgKey(key string) error {
+	if key == "" {
+		return errors.Error("vllm arg key is empty")
+	}
+	if strings.HasPrefix(key, "--") {
+		return errors.Errorf("invalid vllm arg key %q: do not include leading --", key)
+	}
+	for _, r := range key {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) || r == '-' || r == '_' {
+			continue
+		}
+		return errors.Errorf("invalid vllm arg key %q", key)
+	}
+	if _, ok := protectedVLLMArgKeys[key]; ok {
+		return errors.Errorf("vllm arg key %q is protected", key)
+	}
+	return nil
+}
+
+func normalizeVLLMCustomizedArgs(args []*api.VllmCustomizedArg) ([]*api.VllmCustomizedArg, error) {
+	if len(args) == 0 {
+		return nil, nil
+	}
+	out := make([]*api.VllmCustomizedArg, 0, len(args))
+	indexByKey := make(map[string]int, len(args))
+	for _, arg := range args {
+		if arg == nil {
+			continue
+		}
+		key := strings.TrimSpace(arg.Key)
+		if err := validateVLLMArgKey(key); err != nil {
+			return nil, err
+		}
+		next := &api.VllmCustomizedArg{
+			Key:   key,
+			Value: arg.Value,
+		}
+		if idx, ok := indexByKey[key]; ok {
+			out[idx] = next
+			continue
+		}
+		indexByKey[key] = len(out)
+		out = append(out, next)
+	}
+	if len(out) == 0 {
+		return nil, nil
+	}
+	return out, nil
+}
+
+func mergeVLLMCustomizedArgs(base, overrides []*api.VllmCustomizedArg) ([]*api.VllmCustomizedArg, error) {
+	out := make([]*api.VllmCustomizedArg, 0, len(base)+len(overrides))
+	indexByKey := make(map[string]int, len(base)+len(overrides))
+	appendNormalized := func(items []*api.VllmCustomizedArg) error {
+		normalized, err := normalizeVLLMCustomizedArgs(items)
+		if err != nil {
+			return err
+		}
+		for _, arg := range normalized {
+			if idx, ok := indexByKey[arg.Key]; ok {
+				out[idx] = arg
+				continue
+			}
+			indexByKey[arg.Key] = len(out)
+			out = append(out, arg)
+		}
+		return nil
+	}
+	if err := appendNormalized(base); err != nil {
+		return nil, err
+	}
+	if err := appendNormalized(overrides); err != nil {
+		return nil, err
+	}
+	if len(out) == 0 {
+		return nil, nil
+	}
+	return out, nil
+}
+
+func buildVLLMServeFlags(modelPath string, tensorParallelSize, defaultSwapSpaceGiB int, effSpec *api.LLMSpecVllm) []string {
+	modelQuoted := shellQuoteSingle(modelPath)
+	flags := []string{
+		fmt.Sprintf("--model %s", modelQuoted),
+		fmt.Sprintf(`--served-model-name "$(basename %s)"`, modelQuoted),
+		fmt.Sprintf("--port %d", api.LLM_VLLM_DEFAULT_PORT),
+		fmt.Sprintf("--tensor-parallel-size %d", tensorParallelSize),
+		fmt.Sprintf("--swap-space %d", defaultSwapSpaceGiB),
+	}
+	if effSpec == nil || len(effSpec.CustomizedArgs) == 0 {
+		return flags
+	}
+
+	normalizedArgs, err := normalizeVLLMCustomizedArgs(effSpec.CustomizedArgs)
+	if err != nil {
+		log.Errorf("normalize vllm customized args: %v", err)
+		return flags
+	}
+	for _, arg := range normalizedArgs {
+		flagName := "--" + arg.Key
+		if arg.Key == "swap-space" {
+			if arg.Value == "" {
+				flags[4] = flagName
+			} else {
+				flags[4] = fmt.Sprintf("%s %s", flagName, shellQuoteSingle(arg.Value))
+			}
+			continue
+		}
+		if arg.Value == "" {
+			flags = append(flags, flagName)
+			continue
+		}
+		flags = append(flags, fmt.Sprintf("%s %s", flagName, shellQuoteSingle(arg.Value)))
+	}
+	return flags
+}
+
 func (v *vllm) GetSpec(sku *models.SLLMSku) interface{} {
 	if sku == nil || sku.LLMType != string(api.LLM_CONTAINER_VLLM) || sku.LLMSpec == nil || sku.LLMSpec.Vllm == nil {
 		return nil
@@ -52,18 +181,39 @@ func (v *vllm) GetEffectiveSpec(llm *models.SLLM, sku *models.SLLMSku) interface
 	if s := v.GetSpec(sku); s != nil {
 		skuSpec = s.(*api.LLMSpecVllm)
 	}
+	var llmSpec *api.LLMSpecVllm
 	if llm != nil && llm.LLMSpec != nil && llm.LLMSpec.Vllm != nil {
-		if llm.LLMSpec.Vllm.PreferredModel != "" {
-			out := *llm.LLMSpec.Vllm
-			return &out
-		}
-		// llm explicitly present but empty -> fall back to sku default
+		llmSpec = llm.LLMSpec.Vllm
 	}
+	if skuSpec == nil && llmSpec == nil {
+		return nil
+	}
+	out := &api.LLMSpecVllm{}
 	if skuSpec != nil {
-		out := *skuSpec
-		return &out
+		out.PreferredModel = skuSpec.PreferredModel
+		out.CustomizedArgs = skuSpec.CustomizedArgs
 	}
-	return nil
+	if llmSpec != nil {
+		if llmSpec.PreferredModel != "" {
+			out.PreferredModel = llmSpec.PreferredModel
+		}
+	}
+	mergedArgs, err := mergeVLLMCustomizedArgs(out.CustomizedArgs, nil)
+	if err != nil {
+		log.Errorf("normalize sku vllm customized args: %v", err)
+		out.CustomizedArgs = nil
+	} else {
+		out.CustomizedArgs = mergedArgs
+	}
+	if llmSpec != nil {
+		mergedArgs, err = mergeVLLMCustomizedArgs(out.CustomizedArgs, llmSpec.CustomizedArgs)
+		if err != nil {
+			log.Errorf("merge vllm customized args: %v", err)
+		} else {
+			out.CustomizedArgs = mergedArgs
+		}
+	}
+	return out
 }
 
 func (v *vllm) ValidateLLMSkuCreateData(ctx context.Context, userCred mcclient.TokenCredential, input *api.LLMSkuCreateInput) (*api.LLMSkuCreateInput, error) {
@@ -113,14 +263,31 @@ func (v *vllm) ValidateLLMCreateSpec(ctx context.Context, userCred mcclient.Toke
 	if input == nil {
 		return nil, nil
 	}
-	preferred := ""
-	if input.Vllm != nil {
-		preferred = input.Vllm.PreferredModel
+	if input.Vllm == nil {
+		input.Vllm = &api.LLMSpecVllm{}
 	}
+
+	preferred := input.Vllm.PreferredModel
 	if preferred == "" && sku != nil && sku.LLMSpec != nil && sku.LLMSpec.Vllm != nil {
 		preferred = sku.LLMSpec.Vllm.PreferredModel
 	}
-	return &api.LLMSpec{Vllm: &api.LLMSpecVllm{PreferredModel: preferred}}, nil
+
+	spec := &api.LLMSpecVllm{}
+	if sku != nil && sku.LLMSpec != nil && sku.LLMSpec.Vllm != nil {
+		base := *sku.LLMSpec.Vllm
+		spec = &base
+	}
+	// Apply create overrides
+	if preferred != "" {
+		spec.PreferredModel = preferred
+	}
+	mergedArgs, err := mergeVLLMCustomizedArgs(spec.CustomizedArgs, input.Vllm.CustomizedArgs)
+	if err != nil {
+		return nil, err
+	}
+	spec.CustomizedArgs = mergedArgs
+
+	return &api.LLMSpec{Vllm: spec}, nil
 }
 
 // ValidateLLMUpdateSpec implements ILLMContainerDriver. Merges preferred_model with current LLM spec; only overwrite when non-empty.
@@ -128,15 +295,23 @@ func (v *vllm) ValidateLLMUpdateSpec(ctx context.Context, userCred mcclient.Toke
 	if input == nil || input.Vllm == nil {
 		return input, nil
 	}
-	current := ""
+	base := &api.LLMSpecVllm{}
 	if llm != nil && llm.LLMSpec != nil && llm.LLMSpec.Vllm != nil {
-		current = llm.LLMSpec.Vllm.PreferredModel
+		b := *llm.LLMSpec.Vllm
+		base = &b
 	}
-	preferred := input.Vllm.PreferredModel
-	if preferred == "" {
-		preferred = current
+
+	// preferred_model: only overwrite when non-empty
+	if input.Vllm.PreferredModel != "" {
+		base.PreferredModel = input.Vllm.PreferredModel
 	}
-	return &api.LLMSpec{Vllm: &api.LLMSpecVllm{PreferredModel: preferred}}, nil
+	mergedArgs, err := mergeVLLMCustomizedArgs(base.CustomizedArgs, input.Vllm.CustomizedArgs)
+	if err != nil {
+		return nil, err
+	}
+	base.CustomizedArgs = mergedArgs
+
+	return &api.LLMSpec{Vllm: base}, nil
 }
 
 func (v *vllm) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *models.SLLMImage, sku *models.SLLMSku, props []string, devices []computeapi.SIsolatedDevice, diskId string) *computeapi.PodContainerCreateInput {
@@ -242,6 +417,52 @@ func (v *vllm) GetLLMAccessUrlInfo(ctx context.Context, userCred mcclient.TokenC
 	return models.GetLLMAccessUrlInfo(ctx, userCred, llm, input, "http", api.LLM_VLLM_DEFAULT_PORT)
 }
 
+func buildVLLMHealthCheckURL(networkType, llmIP, hostAccessIP string, accessInfo *models.SAccessInfo) (string, error) {
+	if networkType == string(computeapi.NETWORK_TYPE_GUEST) {
+		if len(llmIP) == 0 {
+			return "", errors.Error("LLM IP is empty for guest network")
+		}
+		return fmt.Sprintf("http://%s:%d/health", llmIP, api.LLM_VLLM_DEFAULT_PORT), nil
+	}
+	if len(llmIP) > 0 {
+		return fmt.Sprintf("http://%s:%d/health", llmIP, api.LLM_VLLM_DEFAULT_PORT), nil
+	}
+	if len(hostAccessIP) == 0 {
+		return "", errors.Error("host access IP is empty")
+	}
+	port := api.LLM_VLLM_DEFAULT_PORT
+	if accessInfo != nil && accessInfo.AccessPort > 0 {
+		port = accessInfo.AccessPort
+	}
+	return fmt.Sprintf("http://%s:%d/health", hostAccessIP, port), nil
+}
+
+// resolveModelPath resolves the model directory inside the container.
+// It prefers preferredPath when it exists; otherwise it picks the first directory under models path.
+// Returns (empty, nil) when no model is found.
+func (v *vllm) resolveModelPath(ctx context.Context, containerId string, preferredPath string) (string, error) {
+	preferredQuoted := shellQuoteSingle(preferredPath)
+	cmd := fmt.Sprintf(
+		`mkdir -p %s;
+		preferred=%s;
+		if [ -n "$preferred" ] && [ -d "$preferred" ]; then model="$preferred"; else model=$(ls -d %s/* 2>/dev/null | head -n 1); fi;
+		if [ -z "$model" ]; then echo "NO_MODEL"; exit 0; fi;
+		printf '%%s\n' "$model"`,
+		api.LLM_VLLM_MODELS_PATH,
+		preferredQuoted,
+		api.LLM_VLLM_MODELS_PATH,
+	)
+	out, err := exec(ctx, containerId, cmd, 30)
+	if err != nil {
+		return "", errors.Wrap(err, "exec resolve model path")
+	}
+	out = strings.TrimSpace(out)
+	if out == "NO_MODEL" || out == "" {
+		return "", nil
+	}
+	return out, nil
+}
+
 // StartLLM starts the vLLM server inside the container via exec, then waits for the health endpoint to be ready.
 func (v *vllm) StartLLM(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM) error {
 	lc, err := llm.GetLLMContainer()
@@ -261,35 +482,26 @@ func (v *vllm) StartLLM(ctx context.Context, userCred mcclient.TokenCredential, 
 		swapSpaceGiB = 1
 	}
 
+	effSpec := (*api.LLMSpecVllm)(nil)
 	preferredPath := ""
 	if eff := v.GetEffectiveSpec(llm, sku); eff != nil {
-		if preferred := eff.(*api.LLMSpecVllm).PreferredModel; preferred != "" {
+		effSpec = eff.(*api.LLMSpecVllm)
+		if preferred := effSpec.PreferredModel; preferred != "" {
 			preferredPath = path.Join(api.LLM_VLLM_MODELS_PATH, preferred)
 		}
 	}
-	resolved, err := v.resolveModelAndParams(ctx, lc.CmpId, preferredPath, tensorParallelSize)
+	modelPath, err := v.resolveModelPath(ctx, lc.CmpId, preferredPath)
 	if err != nil {
 		return err
 	}
-	if resolved == nil {
+	if modelPath == "" {
 		return nil // no model
 	}
 
-	modelEscaped := escapeShellSingleQuoted(resolved.ModelPath)
 	startCmd := fmt.Sprintf(
-		`nohup %s --model '%s' --served-model-name "$(basename '%s')" --port %d \
-		--tensor-parallel-size %d --swap-space %d --enable-prefix-caching \
-		--gpu-memory-utilization %s --max-model-len %d --max-num-seqs %d \
-		> /tmp/vllm.log 2>&1 &`,
+		"nohup %s %s > /tmp/vllm.log 2>&1 &",
 		api.LLM_VLLM_EXEC_PATH,
-		modelEscaped,
-		modelEscaped,
-		api.LLM_VLLM_DEFAULT_PORT,
-		tensorParallelSize,
-		swapSpaceGiB,
-		resolved.GpuUtil,
-		resolved.MaxModelLen,
-		resolved.MaxNumSeqs,
+		strings.Join(buildVLLMServeFlags(modelPath, tensorParallelSize, swapSpaceGiB, effSpec), " "),
 	)
 	_, err = exec(ctx, lc.CmpId, startCmd, 30)
 	if err != nil {
@@ -303,7 +515,20 @@ func (v *vllm) StartLLM(ctx context.Context, userCred mcclient.TokenCredential, 
 	if err != nil {
 		return errors.Wrap(err, "get llm url for health check")
 	}
-	healthURL := fmt.Sprintf("http://%s:%d/health", input.ServerIp, api.LLM_VLLM_DEFAULT_PORT)
+	var accessInfo *models.SAccessInfo
+	for i := range input.AccessInfos {
+		if input.AccessInfos[i].ListenPort == api.LLM_VLLM_DEFAULT_PORT {
+			accessInfo = &input.AccessInfos[i]
+			break
+		}
+	}
+	if accessInfo == nil && len(input.AccessInfos) > 0 {
+		accessInfo = &input.AccessInfos[0]
+	}
+	healthURL, err := buildVLLMHealthCheckURL(llm.NetworkType, llm.LLMIp, input.HostInternalIp, accessInfo)
+	if err != nil {
+		return errors.Wrap(err, "build health check url")
+	}
 	deadline := time.Now().Add(api.LLM_VLLM_HEALTH_CHECK_TIMEOUT)
 	for time.Now().Before(deadline) {
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, healthURL, nil)
@@ -492,7 +717,7 @@ func isNonEmptyFile(p string) bool {
 
 func (v *vllm) DownloadModel(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM, tmpDir string, modelName string, modelTag string) (string, []string, error) {
 	// Download HF model on host into tmpDir for instant-model import.
-	// We place files under tmpDir/huggingface/<org>/<repo> so that the archive contains relative paths.
+	// We place files under tmpDir/huggingface/<repo> so that the archive contains relative paths.
 	if strings.TrimSpace(tmpDir) == "" {
 		return "", nil, errors.Error("tmpDir is empty")
 	}
@@ -500,13 +725,14 @@ func (v *vllm) DownloadModel(ctx context.Context, userCred mcclient.TokenCredent
 		return "", nil, errors.Error("modelName is empty")
 	}
 
-	localDir := filepath.Join(tmpDir, "huggingface", filepath.FromSlash(modelName))
+	modelBase := filepath.Base(modelName)
+	localDir := filepath.Join(tmpDir, "huggingface", modelBase)
 	if err := os.MkdirAll(localDir, 0755); err != nil {
 		return "", nil, errors.Wrap(err, "mkdir local model dir")
 	}
 	// If already downloaded, short-circuit (directory exists and non-empty).
 	if entries, err := os.ReadDir(localDir); err == nil && len(entries) > 0 {
-		targetDir := path.Join(api.LLM_VLLM_MODELS_PATH, modelName)
+		targetDir := path.Join(api.LLM_VLLM_MODELS_PATH, modelBase)
 		log.Infof("Model %s already exists in import dir %s", modelName, localDir)
 		return modelName, []string{targetDir}, nil
 	}
@@ -553,74 +779,6 @@ func (v *vllm) DownloadModel(ctx context.Context, userCred mcclient.TokenCredent
 		}
 	}
 
-	targetDir := path.Join(api.LLM_VLLM_MODELS_PATH, modelName)
+	targetDir := path.Join(api.LLM_VLLM_MODELS_PATH, modelBase)
 	return modelName, []string{targetDir}, nil
-}
-
-// vllmResolveResult is the result of resolving model path and estimating vLLM memory params in the container.
-type vllmResolveResult struct {
-	ModelPath   string
-	GpuUtil     string
-	MaxModelLen int
-	MaxNumSeqs  int
-}
-
-// resolveModelAndParams runs one exec in the container to resolve the model path and estimate
-// --gpu-memory-utilization, --max-model-len, --max-num-seqs. Returns (nil, nil) when no model is found.
-func (v *vllm) resolveModelAndParams(ctx context.Context, containerId string, preferredPath string, tensorParallelSize int) (*vllmResolveResult, error) {
-	preferredEscaped := escapeShellSingleQuoted(preferredPath)
-	escapedScript := escapeShellSingleQuoted(strings.TrimSpace(api.LLM_VLLM_ESTIMATE_PARAMS_SCRIPT))
-	defaultGpuUtil := strconv.FormatFloat(float64(api.LLM_VLLM_DEFAULT_GPU_MEMORY_UTIL), 'f', -1, 64)
-	cmd := fmt.Sprintf(
-		`mkdir -p %s;
-		preferred='%s';
-		if [ -n "$preferred" ] && [ -d "$preferred" ]; then model="$preferred"; else model=$(ls -d %s/* 2>/dev/null | head -n 1); fi;
-		if [ -z "$model" ]; then echo "NO_MODEL"; exit 0; fi;
-		tp=%d;
-		vllm_out=$(python3 -c '%s' "$model" "$tp" 2>/dev/null) || true;
-		GPU_MEMORY_UTIL=%s; MAX_MODEL_LEN=%d; MAX_NUM_SEQS=%d;
-		[ -n "$vllm_out" ] && eval "$vllm_out";
-		printf '%%s\n' "$model";
-		printf 'GPU_MEMORY_UTIL=%%s MAX_MODEL_LEN=%%s MAX_NUM_SEQS=%%s\n' "$GPU_MEMORY_UTIL" "$MAX_MODEL_LEN" "$MAX_NUM_SEQS"`,
-		api.LLM_VLLM_MODELS_PATH,
-		preferredEscaped,
-		api.LLM_VLLM_MODELS_PATH,
-		tensorParallelSize,
-		escapedScript,
-		defaultGpuUtil,
-		api.LLM_VLLM_DEFAULT_MAX_MODEL_LEN,
-		api.LLM_VLLM_DEFAULT_MAX_NUM_SEQS,
-	)
-	out, err := exec(ctx, containerId, cmd, 30)
-	if err != nil {
-		return nil, errors.Wrapf(err, "exec resolve model and params")
-	}
-	out = strings.TrimSpace(out)
-	if out == "NO_MODEL" {
-		return nil, nil
-	}
-	lines := strings.SplitN(out, "\n", 2)
-	if len(lines) < 2 {
-		return nil, errors.Errorf("vLLM resolve output missing params line: %s", out)
-	}
-	res := &vllmResolveResult{
-		ModelPath:   strings.TrimSpace(lines[0]),
-		GpuUtil:     defaultGpuUtil,
-		MaxModelLen: api.LLM_VLLM_DEFAULT_MAX_MODEL_LEN,
-		MaxNumSeqs:  api.LLM_VLLM_DEFAULT_MAX_NUM_SEQS,
-	}
-	for _, f := range strings.Fields(lines[1]) {
-		if val, ok := strings.CutPrefix(f, api.LLM_VLLM_RESOLVE_OUTPUT_PREFIX_GPU_UTIL); ok {
-			res.GpuUtil = val
-		} else if val, ok := strings.CutPrefix(f, api.LLM_VLLM_RESOLVE_OUTPUT_PREFIX_MAX_LEN); ok {
-			if n, e := strconv.Atoi(val); e == nil && n > 0 {
-				res.MaxModelLen = n
-			}
-		} else if val, ok := strings.CutPrefix(f, api.LLM_VLLM_RESOLVE_OUTPUT_PREFIX_MAX_NUM_SEQ); ok {
-			if n, e := strconv.Atoi(val); e == nil && n > 0 {
-				res.MaxNumSeqs = n
-			}
-		}
-	}
-	return res, nil
 }

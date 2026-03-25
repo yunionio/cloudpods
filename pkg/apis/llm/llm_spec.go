@@ -58,7 +58,13 @@ func (s *LLMSpecOllama) IsZero() bool {
 
 // LLMSpecVllm holds type-specific fields for vllm SKUs (includes PreferredModel).
 type LLMSpecVllm struct {
-	PreferredModel string `json:"preferred_model"`
+	PreferredModel string               `json:"preferred_model"`
+	CustomizedArgs []*VllmCustomizedArg `json:"customized_args,omitempty"`
+}
+
+type VllmCustomizedArg struct {
+	Key   string `json:"key"`
+	Value string `json:"value"`
 }
 
 func (s *LLMSpecVllm) String() string {
@@ -69,7 +75,7 @@ func (s *LLMSpecVllm) IsZero() bool {
 	if s == nil {
 		return true
 	}
-	return s.PreferredModel == ""
+	return s.PreferredModel == "" && len(s.CustomizedArgs) == 0
 }
 
 // LLMSpecDify holds type-specific fields for Dify SKUs (multiple image ids + customized envs).
