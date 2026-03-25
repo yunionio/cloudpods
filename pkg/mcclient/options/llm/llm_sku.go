@@ -33,7 +33,8 @@ type LLMSkuCreateOptions struct {
 	LLM_IMAGE_ID string `json:"llm_image_id"`
 	LLM_TYPE     string `json:"llm_type" choices:"ollama|vllm|comfyui"`
 
-	PreferredModel string `help:"preferred model (vllm only), sets llm_spec.vllm.preferred_model" json:"-"`
+	PreferredModel string   `help:"preferred model (vllm only), sets llm_spec.vllm.preferred_model" json:"-"`
+	VllmArg        []string `help:"vLLM args in format key=value; use key= for flags without values" json:"-"`
 }
 
 func (o *LLMSkuCreateOptions) Params() (jsonutils.JSONObject, error) {
@@ -44,13 +45,15 @@ func (o *LLMSkuCreateOptions) Params() (jsonutils.JSONObject, error) {
 		return nil, err
 	}
 	fetchMountedModels(o.MountedModels, dict)
-	if o.LLM_TYPE == string(api.LLM_CONTAINER_VLLM) && len(o.PreferredModel) > 0 {
+	vllmSpec, err := newVLLMSpecFromArgs(o.PreferredModel, o.VllmArg)
+	if err != nil {
+		return nil, err
+	}
+	if o.LLM_TYPE == string(api.LLM_CONTAINER_VLLM) && vllmSpec != nil {
 		spec := &api.LLMSpec{
 			Ollama: nil,
-			Vllm: &api.LLMSpecVllm{
-				PreferredModel: o.PreferredModel,
-			},
-			Dify: nil,
+			Vllm:   vllmSpec,
+			Dify:   nil,
 		}
 		dict.Set("llm_spec", jsonutils.Marshal(spec))
 	}
@@ -77,7 +80,8 @@ type LLMSkuUpdateOptions struct {
 	// For ollama/vllm; backend merges into LLMSpec. Use dify-sku update for dify type.
 	LlmImageId string `json:"llm_image_id"`
 
-	PreferredModel string `help:"preferred model (vllm only), sets llm_spec.vllm.preferred_model" json:"-"`
+	PreferredModel string   `help:"preferred model (vllm only), sets llm_spec.vllm.preferred_model" json:"-"`
+	VllmArg        []string `help:"vLLM args in format key=value; use key= for flags without values" json:"-"`
 }
 
 func (o *LLMSkuUpdateOptions) GetId() string {
@@ -92,13 +96,15 @@ func (o *LLMSkuUpdateOptions) Params() (jsonutils.JSONObject, error) {
 		return nil, err
 	}
 	fetchMountedModels(o.MountedModels, dict)
-	if len(o.PreferredModel) > 0 {
+	vllmSpec, err := newVLLMSpecFromArgs(o.PreferredModel, o.VllmArg)
+	if err != nil {
+		return nil, err
+	}
+	if vllmSpec != nil {
 		spec := &api.LLMSpec{
 			Ollama: nil,
-			Vllm: &api.LLMSpecVllm{
-				PreferredModel: o.PreferredModel,
-			},
-			Dify: nil,
+			Vllm:   vllmSpec,
+			Dify:   nil,
 		}
 		dict.Set("llm_spec", jsonutils.Marshal(spec))
 	}
