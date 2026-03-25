@@ -727,6 +727,13 @@ type ServerCreateInput struct {
 	Pod *PodCreateInput `json:"pod"`
 }
 
+func (c *KickstartConfig) IsEnabled() bool {
+	if c.Enabled != nil && !*c.Enabled {
+		return false
+	}
+	return true
+}
+
 // ServerUpdateKickstartStatusInput 更新虚拟机 kickstart 状态的输入
 type ServerUpdateKickstartStatusInput struct {
 	// kickstart 状态
