@@ -2300,7 +2300,7 @@ func (manager *SGuestManager) validateCreateData(
 	}
 
 	// validate KickstartConfig
-	if input.KickstartConfig != nil {
+	if input.KickstartConfig != nil && input.KickstartConfig.IsEnabled() {
 		if err := validateKickstartConfig(input.KickstartConfig); err != nil {
 			return nil, httperrors.NewInputParameterError("Invalid kickstart config: %v", err)
 		}
@@ -2807,7 +2807,7 @@ func (guest *SGuest) PostCreate(ctx context.Context, userCred mcclient.TokenCred
 		kickstartConfig := &api.KickstartConfig{}
 		if err := kickstartConfigJson.Unmarshal(kickstartConfig); err != nil {
 			log.Errorf("unmarshal kickstart config fail: %s", err)
-		} else {
+		} else if kickstartConfig.IsEnabled() {
 			if err := guest.SetKickstartConfig(ctx, kickstartConfig, userCred); err != nil {
 				log.Errorf("Failed to set kickstart config for guest %s: %v", guest.Name, err)
 			} else {
