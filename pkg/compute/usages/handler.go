@@ -388,6 +388,8 @@ func getDomainGeneralUsage(ctx context.Context, userToken mcclient.TokenCredenti
 	count.Add("domain.cpu_commit_rate.running_containers", utils.FloatRound(float64(containerRunningCpu)/pcpuTotal, 2))
 
 	count.Include(
+		ContainerNormalUsage(ctx, userToken, getKey(scope, "containers"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, nil, policyResult),
+
 		VpcUsage(ctx, userToken, "domain", providers, brands, cloudEnv, cred, rbacscope.ScopeDomain, rangeObjs, policyResult),
 
 		DnsZoneUsage(ctx, userToken, "domain", cred, rbacscope.ScopeDomain, policyResult),
