@@ -29,9 +29,10 @@ const (
 type SHostDmesgCollector struct {
 	host IHostInfo
 
-	mu       sync.Mutex
-	buffer   []compute.SKmsgEntry
-	bootTime time.Time
+	mu           sync.Mutex
+	buffer       []compute.SKmsgEntry
+	pendingEntry *compute.SKmsgEntry
+	bootTime     time.Time
 }
 
 func NewHostDmesgCollector(hostInfo IHostInfo) *SHostDmesgCollector {
@@ -104,7 +105,9 @@ func (c *SHostDmesgCollector) Start() {
 
 		entry, err := c.parseKmsgLine(line, bootTime)
 		if err != nil {
-			log.Debugf("failed parse kmsg line %s: %s", line, err)
+			if c.pendingEntry != nil {
+				c.pendingEntry.Message += "\n" + line
+			}
 			continue
 		}
 		if entry.Seq <= lastSeq {
@@ -116,9 +119,14 @@ func (c *SHostDmesgCollector) Start() {
 		}
 
 		c.mu.Lock()
-		c.buffer = append(c.buffer, *entry)
-		if len(c.buffer) >= batchSize {
-			c.flushBuffer()
+		if c.pendingEntry == nil {
+			c.pendingEntry = entry
+		} else {
+			c.buffer = append(c.buffer, *c.pendingEntry)
+			if len(c.buffer) >= batchSize {
+				c.flushBuffer()
+			}
+			c.pendingEntry = entry
 		}
 		c.mu.Unlock()
 	}
