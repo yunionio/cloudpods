@@ -257,11 +257,6 @@ func getSystemGeneralUsage(
 		runningCpu = guestRunningUsage.Get("all.running_servers.cpu").(int)
 	}
 
-	// containerRunningUsage := containerUsage("all.containers", rbacscope.ScopeSystem, nil, rangeObjs, hostTypes, nil, providers, brands, cloudEnv)
-	// containerRunningMem := containerRunningUsage.Get("all.containers.memory").(int)
-	// containerRunningCpu := containerRunningUsage.Get("all.containers.cpu").(int)
-	// runningMem += containerRunningMem
-	// runningCpu += containerRunningCpu
 	runningCpuCmtRate := 0.0
 	runningMemCmtRate := 0.0
 	if pmemTotal > 0 {
@@ -273,6 +268,8 @@ func getSystemGeneralUsage(
 	count.Add("all.memory_commit_rate.running", runningMemCmtRate)
 	count.Add("all.cpu_commit_rate.running", runningCpuCmtRate)
 
+	containerRunningUsage := ContainerRunningUsage(ctx, userToken, "all.running_containers", rbacscope.ScopeSystem, nil, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, includeSystem, policyResult)
+
 	lastWeek := time.Now().Add(-7 * 24 * time.Hour)
 	lastMonth := time.Now().Add(-30 * 24 * time.Hour)
 	count.Include(
@@ -281,52 +278,38 @@ func getSystemGeneralUsage(
 		DnsZoneUsage(ctx, userToken, "", nil, rbacscope.ScopeSystem, policyResult),
 
 		HostAllUsage(ctx, userToken, "", userCred, rbacscope.ScopeSystem, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, policyResult),
-		// HostAllUsage("prepaid_pool", userCred, rbacscope.ScopeSystem, rangeObjs, hostTypes, []string{api.HostResourceTypePrepaidRecycle}, providers, brands, cloudEnv),
-		// HostAllUsage("any_pool", userCred, rbacscope.ScopeSystem, rangeObjs, hostTypes, nil, providers, brands, cloudEnv),
 
 		hostEnabledUsage,
-		// HostEnabledUsage("prepaid_pool", userCred, rbacscope.ScopeSystem, rangeObjs, hostTypes, []string{api.HostResourceTypePrepaidRecycle}, providers, brands, cloudEnv),
-		// HostEnabledUsage("any_pool", userCred, rbacscope.ScopeSystem, rangeObjs, hostTypes, nil, providers, brands, cloudEnv),
 
 		BaremetalUsage(ctx, userToken, userCred, rbacscope.ScopeSystem, rangeObjs, hostTypes, providers, brands, cloudEnv, policyResult),
 
 		StorageUsage(ctx, userToken, "", rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, includeSystem, rbacscope.ScopeSystem, nil, policyResult),
 		StorageUsage(ctx, userToken, "system", rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, true, rbacscope.ScopeSystem, nil, policyResult),
-		// StorageUsage("prepaid_pool", rangeObjs, hostTypes, []string{api.HostResourceTypePrepaidRecycle}, providers, brands, cloudEnv, false, includeSystem, rbacscope.ScopeSystem, nil),
-		// StorageUsage("any_pool", rangeObjs, hostTypes, nil, providers, brands, cloudEnv, false, includeSystem, rbacscope.ScopeSystem, nil),
-		// StorageUsage("any_pool.system", rangeObjs, hostTypes, nil, providers, brands, cloudEnv, false, true, rbacscope.ScopeSystem, nil),
-		// StorageUsage("any_pool.pending_delete", rangeObjs, hostTypes, nil, providers, brands, cloudEnv, true, includeSystem, rbacscope.ScopeSystem, nil),
-		// StorageUsage("any_pool.pending_delete.system", rangeObjs, hostTypes, nil, providers, brands, cloudEnv, true, true, rbacscope.ScopeSystem, nil),
 
 		GuestNormalUsage(ctx, userToken, "all.servers", rbacscope.ScopeSystem, nil, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, includeSystem, nil, policyResult),
 		GuestNormalUsage(ctx, userToken, "all.servers.last_week", rbacscope.ScopeSystem, nil, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, includeSystem, &lastWeek, policyResult),
 		GuestNormalUsage(ctx, userToken, "all.servers.last_month", rbacscope.ScopeSystem, nil, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, includeSystem, &lastMonth, policyResult),
-		// GuestNormalUsage("all.servers.prepaid_pool", rbacscope.ScopeSystem, nil, rangeObjs, hostTypes, []string{api.HostResourceTypePrepaidRecycle}, providers, brands, cloudEnv, includeSystem),
-		// GuestNormalUsage("all.servers.any_pool", rbacscope.ScopeSystem, nil, rangeObjs, hostTypes, nil, providers, brands, cloudEnv, includeSystem),
+
+		ContainerNormalUsage(ctx, userToken, "all.containers", rbacscope.ScopeSystem, nil, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, includeSystem, nil, policyResult),
+		ContainerNormalUsage(ctx, userToken, "all.containers.last_week", rbacscope.ScopeSystem, nil, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, includeSystem, &lastWeek, policyResult),
+		ContainerNormalUsage(ctx, userToken, "all.containers.last_month", rbacscope.ScopeSystem, nil, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, includeSystem, &lastMonth, policyResult),
 
 		GuestPendingDeleteUsage(ctx, userToken, "all.pending_delete_servers", rbacscope.ScopeSystem, nil, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, includeSystem, nil, policyResult),
 		GuestPendingDeleteUsage(ctx, userToken, "all.pending_delete_servers.last_week", rbacscope.ScopeSystem, nil, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, includeSystem, &lastWeek, policyResult),
 		GuestPendingDeleteUsage(ctx, userToken, "all.pending_delete_servers.last_month", rbacscope.ScopeSystem, nil, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, includeSystem, &lastMonth, policyResult),
-		// GuestPendingDeleteUsage("all.pending_delete_servers.prepaid_pool", rbacscope.ScopeSystem, nil, rangeObjs, hostTypes, []string{api.HostResourceTypePrepaidRecycle}, providers, brands, cloudEnv, includeSystem),
-		// GuestNormalUsage("all.servers.prepaid_pool", rbacscope.ScopeSystem, nil, rangeObjs, hostTypes, []string{api.HostResourceTypePrepaidRecycle}, providers, brands, cloudEnv, includeSystem),
-		// GuestNormalUsage("all.servers.any_pool", rbacscope.ScopeSystem, nil, rangeObjs, hostTypes, nil, providers, brands, cloudEnv, includeSystem),
 
-		// GuestPendingDeleteUsage("all.pending_delete_servers", rbacscope.ScopeSystem, nil, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, includeSystem),
-		// GuestPendingDeleteUsage("all.pending_delete_servers.prepaid_pool", rbacscope.ScopeSystem, nil, rangeObjs, hostTypes, []string{api.HostResourceTypePrepaidRecycle}, providers, brands, cloudEnv, includeSystem),
-		// GuestPendingDeleteUsage("all.pending_delete_servers.any_pool", rbacscope.ScopeSystem, nil, rangeObjs, hostTypes, nil, providers, brands, cloudEnv, includeSystem),
+		ContainerPendingDeleteUsage(ctx, userToken, "all.pending_delete_containers", rbacscope.ScopeSystem, nil, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, includeSystem, nil, policyResult),
+		ContainerPendingDeleteUsage(ctx, userToken, "all.pending_delete_containers.last_week", rbacscope.ScopeSystem, nil, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, includeSystem, &lastWeek, policyResult),
+		ContainerPendingDeleteUsage(ctx, userToken, "all.pending_delete_containers.last_month", rbacscope.ScopeSystem, nil, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, includeSystem, &lastMonth, policyResult),
 
 		GuestReadyUsage(ctx, userToken, "all.ready_servers", rbacscope.ScopeSystem, nil, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, includeSystem, policyResult),
-		// GuestReadyUsage("all.ready_servers.prepaid_pool", rbacscope.ScopeSystem, nil, rangeObjs, hostTypes, []string{api.HostResourceTypePrepaidRecycle}, providers, brands, cloudEnv, includeSystem),
-		// GuestReadyUsage("all.ready_servers.any_pool", rbacscope.ScopeSystem, nil, rangeObjs, hostTypes, nil, providers, brands, cloudEnv, includeSystem),
-		// GuestRunningUsage("all.running_servers.prepaid_pool", rbacscope.ScopeSystem, nil, rangeObjs, hostTypes, []string{api.HostResourceTypePrepaidRecycle}, providers, brands, cloudEnv, includeSystem),
-		// GuestRunningUsage("all.running_servers.any_pool", rbacscope.ScopeSystem, nil, rangeObjs, hostTypes, nil, providers, brands, cloudEnv, includeSystem),
+
+		ContainerReadyUsage(ctx, userToken, "all.ready_containers", rbacscope.ScopeSystem, nil, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, includeSystem, policyResult),
 
 		guestRunningUsage,
-		// containerRunningUsage,
+		containerRunningUsage,
 
 		IsolatedDeviceUsage(ctx, userToken, "", rbacscope.ScopeSystem, nil, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, policyResult),
-		// IsolatedDeviceUsage("prepaid_pool", rangeObjs, hostTypes, []string{api.HostResourceTypePrepaidRecycle}, providers, brands, cloudEnv),
-		// IsolatedDeviceUsage("any_pool", rangeObjs, hostTypes, nil, providers, brands, cloudEnv),
 
 		WireUsage(ctx, userToken, rbacscope.ScopeSystem, nil, rangeObjs, hostTypes, providers, brands, cloudEnv, policyResult),
 		NetworkUsage(ctx, userToken, "all", rbacscope.ScopeSystem, nil, providers, brands, cloudEnv, rangeObjs, policyResult),
@@ -392,48 +375,52 @@ func getDomainGeneralUsage(ctx context.Context, userToken mcclient.TokenCredenti
 	count.Add("domain.memory_commit_rate.running", runningMemCmtRate)
 	count.Add("domain.cpu_commit_rate.running", runningCpuCmtRate)
 
+	containerRunningUsage := ContainerRunningUsage(ctx, userToken, "domain.running_containers", rbacscope.ScopeDomain, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, policyResult)
+	var containerRunningMem int
+	var containerRunningCpu int
+	if !gotypes.IsNil(containerRunningUsage.Get("domain.running_containers.memory")) {
+		containerRunningMem = containerRunningUsage.Get("domain.running_containers.memory").(int)
+	}
+	if !gotypes.IsNil(containerRunningUsage.Get("domain.running_containers.cpu")) {
+		containerRunningCpu = containerRunningUsage.Get("domain.running_containers.cpu").(int)
+	}
+	count.Add("domain.memory_commit_rate.running_containers", utils.FloatRound(float64(containerRunningMem)/pmemTotal, 2))
+	count.Add("domain.cpu_commit_rate.running_containers", utils.FloatRound(float64(containerRunningCpu)/pcpuTotal, 2))
+
 	count.Include(
 		VpcUsage(ctx, userToken, "domain", providers, brands, cloudEnv, cred, rbacscope.ScopeDomain, rangeObjs, policyResult),
 
 		DnsZoneUsage(ctx, userToken, "domain", cred, rbacscope.ScopeDomain, policyResult),
 
 		HostAllUsage(ctx, userToken, "", cred, rbacscope.ScopeDomain, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, policyResult),
-		// HostAllUsage("prepaid_pool", cred, rbacscope.ScopeDomain, rangeObjs, hostTypes, []string{api.HostResourceTypePrepaidRecycle}, providers, brands, cloudEnv),
-		// HostAllUsage("any_pool", cred, rbacscope.ScopeDomain, rangeObjs, hostTypes, nil, providers, brands, cloudEnv),
 
 		hostEnabledUsage,
-		// HostEnabledUsage("prepaid_pool", cred, rbacscope.ScopeDomain, rangeObjs, hostTypes, []string{api.HostResourceTypePrepaidRecycle}, providers, brands, cloudEnv),
-		// HostEnabledUsage("any_pool", cred, rbacscope.ScopeDomain, rangeObjs, hostTypes, nil, providers, brands, cloudEnv),
 
 		BaremetalUsage(ctx, userToken, cred, rbacscope.ScopeDomain, rangeObjs, hostTypes, providers, brands, cloudEnv, policyResult),
 
 		StorageUsage(ctx, userToken, "", rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, false, rbacscope.ScopeDomain, cred, policyResult),
 		StorageUsage(ctx, userToken, "system", rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, true, rbacscope.ScopeDomain, cred, policyResult),
-		// StorageUsage("prepaid_pool", rangeObjs, hostTypes, []string{api.HostResourceTypePrepaidRecycle}, providers, brands, cloudEnv, false, false, rbacscope.ScopeDomain, cred),
-		// StorageUsage("any_pool", rangeObjs, hostTypes, nil, providers, brands, cloudEnv, false, false, rbacscope.ScopeDomain, cred),
-		// StorageUsage("any_pool.system", rangeObjs, hostTypes, nil, providers, brands, cloudEnv, false, true, rbacscope.ScopeDomain, cred),
-		// StorageUsage("any_pool.pending_delete", rangeObjs, hostTypes, nil, providers, brands, cloudEnv, true, false, rbacscope.ScopeDomain, cred),
-		// StorageUsage("any_pool.pending_delete.system", rangeObjs, hostTypes, nil, providers, brands, cloudEnv, true, true, rbacscope.ScopeDomain, cred),
 
 		GuestNormalUsage(ctx, userToken, getKey(scope, "servers.last_week"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, &lastWeek, policyResult),
 		GuestNormalUsage(ctx, userToken, getKey(scope, "servers.last_month"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, &lastMonth, policyResult),
-		// GuestNormalUsage(getKey(scope, "servers.prepaid_pool"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypePrepaidRecycle}, providers, brands, cloudEnv, false),
-		// GuestNormalUsage(getKey(scope, "servers.any_pool"), scope, cred, rangeObjs, hostTypes, nil, providers, brands, cloudEnv, false),
+
+		ContainerNormalUsage(ctx, userToken, getKey(scope, "containers.last_week"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, &lastWeek, policyResult),
+		ContainerNormalUsage(ctx, userToken, getKey(scope, "containers.last_month"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, &lastMonth, policyResult),
 
 		guestRunningUsage,
-		// GuestRunningUsage(getKey(scope, "running_servers"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv),
-		// GuestRunningUsage(getKey(scope, "running_servers.prepaid_pool"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypePrepaidRecycle}, providers, brands, cloudEnv, false),
-		// GuestRunningUsage(getKey(scope, "running_servers.any_pool"), scope, cred, rangeObjs, hostTypes, nil, providers, brands, cloudEnv, false),
+		containerRunningUsage,
 
 		GuestPendingDeleteUsage(ctx, userToken, getKey(scope, "pending_delete_servers"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, nil, policyResult),
 		GuestPendingDeleteUsage(ctx, userToken, getKey(scope, "pending_delete_servers.last_week"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, &lastWeek, policyResult),
 		GuestPendingDeleteUsage(ctx, userToken, getKey(scope, "pending_delete_servers.last_month"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, &lastMonth, policyResult),
-		// GuestPendingDeleteUsage(getKey(scope, "pending_delete_servers.prepaid_pool"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypePrepaidRecycle}, providers, brands, cloudEnv, false),
-		// GuestPendingDeleteUsage(getKey(scope, "pending_delete_servers.any_pool"), scope, cred, rangeObjs, hostTypes, nil, providers, brands, cloudEnv, false),
+
+		ContainerPendingDeleteUsage(ctx, userToken, getKey(scope, "pending_delete_containers"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, nil, policyResult),
+		ContainerPendingDeleteUsage(ctx, userToken, getKey(scope, "pending_delete_containers.last_week"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, &lastWeek, policyResult),
+		ContainerPendingDeleteUsage(ctx, userToken, getKey(scope, "pending_delete_containers.last_month"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, &lastMonth, policyResult),
 
 		GuestReadyUsage(ctx, userToken, getKey(scope, "ready_servers"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, policyResult),
-		// GuestReadyUsage(getKey(scope, "ready_servers.prepaid_pool"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypePrepaidRecycle}, providers, brands, cloudEnv, false),
-		// GuestReadyUsage(getKey(scope, "ready_servers.any_pool"), scope, cred, rangeObjs, hostTypes, nil, providers, brands, cloudEnv, false),
+
+		ContainerReadyUsage(ctx, userToken, getKey(scope, "ready_containers"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, policyResult),
 
 		WireUsage(ctx, userToken, scope, cred, rangeObjs, hostTypes, providers, brands, cloudEnv, policyResult),
 		NetworkUsage(ctx, userToken, getKey(scope, ""), scope, cred, providers, brands, cloudEnv, rangeObjs, policyResult),
@@ -443,8 +430,6 @@ func getDomainGeneralUsage(ctx context.Context, userToken mcclient.TokenCredenti
 		EipUsage(ctx, userToken, scope, cred, rangeObjs, providers, brands, cloudEnv, policyResult),
 
 		BucketUsage(ctx, userToken, scope, cred, rangeObjs, providers, brands, cloudEnv, policyResult),
-
-		// nicsUsage("domain", rangeObjs, hostTypes, providers, brands, cloudEnv, scope, cred),
 
 		SnapshotUsage(ctx, userToken, scope, cred, rangeObjs, providers, brands, cloudEnv, policyResult),
 
@@ -471,23 +456,28 @@ func getProjectGeneralUsage(ctx context.Context, userToken mcclient.TokenCredent
 	count := GuestNormalUsage(ctx, userToken, getKey(scope, "servers"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, nil, policyResult)
 
 	count.Include(
+		ContainerNormalUsage(ctx, userToken, getKey(scope, "containers"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, nil, policyResult),
+
 		GuestNormalUsage(ctx, userToken, getKey(scope, "servers.last_week"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, &lastWeek, policyResult),
 		GuestNormalUsage(ctx, userToken, getKey(scope, "servers.last_month"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, &lastMonth, policyResult),
-		// GuestNormalUsage(getKey(scope, "servers.prepaid_pool"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypePrepaidRecycle}, providers, brands, cloudEnv, false),
-		// GuestNormalUsage(getKey(scope, "servers.any_pool"), scope, cred, rangeObjs, hostTypes, nil, providers, brands, cloudEnv, false),
+
+		ContainerNormalUsage(ctx, userToken, getKey(scope, "containers.last_week"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, &lastWeek, policyResult),
+		ContainerNormalUsage(ctx, userToken, getKey(scope, "containers.last_month"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, &lastMonth, policyResult),
+
 		GuestRunningUsage(ctx, userToken, getKey(scope, "running_servers"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, policyResult),
-		// GuestRunningUsage(getKey(scope, "running_servers.prepaid_pool"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypePrepaidRecycle}, providers, brands, cloudEnv, false),
-		// GuestRunningUsage(getKey(scope, "running_servers.any_pool"), scope, cred, rangeObjs, hostTypes, nil, providers, brands, cloudEnv, false),
+
+		ContainerRunningUsage(ctx, userToken, getKey(scope, "running_containers"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, policyResult),
 
 		GuestPendingDeleteUsage(ctx, userToken, getKey(scope, "pending_delete_servers"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, nil, policyResult),
 		GuestPendingDeleteUsage(ctx, userToken, getKey(scope, "pending_delete_servers.last_week"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, &lastWeek, policyResult),
 		GuestPendingDeleteUsage(ctx, userToken, getKey(scope, "pending_delete_servers.last_month"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, &lastMonth, policyResult),
-		// GuestPendingDeleteUsage(getKey(scope, "pending_delete_servers.prepaid_pool"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypePrepaidRecycle}, providers, brands, cloudEnv, false),
-		// GuestPendingDeleteUsage(getKey(scope, "pending_delete_servers.any_pool"), scope, cred, rangeObjs, hostTypes, nil, providers, brands, cloudEnv, false),
+
+		ContainerPendingDeleteUsage(ctx, userToken, getKey(scope, "pending_delete_containers"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, nil, policyResult),
+		ContainerPendingDeleteUsage(ctx, userToken, getKey(scope, "pending_delete_containers.last_week"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, &lastWeek, policyResult),
+		ContainerPendingDeleteUsage(ctx, userToken, getKey(scope, "pending_delete_containers.last_month"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, &lastMonth, policyResult),
 
 		GuestReadyUsage(ctx, userToken, getKey(scope, "ready_servers"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, policyResult),
-		// GuestReadyUsage(getKey(scope, "ready_servers.prepaid_pool"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypePrepaidRecycle}, providers, brands, cloudEnv, false),
-		// GuestReadyUsage(getKey(scope, "ready_servers.any_pool"), scope, cred, rangeObjs, hostTypes, nil, providers, brands, cloudEnv, false),
+		ContainerReadyUsage(ctx, userToken, getKey(scope, "ready_containers"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, policyResult),
 
 		WireUsage(ctx, userToken, scope, cred, rangeObjs, hostTypes, providers, brands, cloudEnv, policyResult),
 		NetworkUsage(ctx, userToken, getKey(scope, ""), scope, cred, providers, brands, cloudEnv, rangeObjs, policyResult),
@@ -500,8 +490,6 @@ func getProjectGeneralUsage(ctx context.Context, userToken mcclient.TokenCredent
 		DisksUsage(ctx, userToken, getKey(scope, "disks.system"), rangeObjs, hostTypes, nil, providers, brands, cloudEnv, scope, cred, false, true, policyResult),
 		DisksUsage(ctx, userToken, getKey(scope, "pending_delete_disks"), rangeObjs, hostTypes, nil, providers, brands, cloudEnv, scope, cred, true, false, policyResult),
 		DisksUsage(ctx, userToken, getKey(scope, "pending_delete_disks.system"), rangeObjs, hostTypes, nil, providers, brands, cloudEnv, scope, cred, true, true, policyResult),
-
-		// nicsUsage("", rangeObjs, hostTypes, providers, brands, cloudEnv, scope, cred),
 
 		SnapshotUsage(ctx, userToken, scope, cred, rangeObjs, providers, brands, cloudEnv, policyResult),
 
@@ -834,21 +822,6 @@ func WireUsage(ctx context.Context, userToken mcclient.TokenCredential, scope rb
 	return count
 }
 
-/*func nicsUsage(prefix string, rangeObjs []db.IStandaloneModel, hostTypes []string, providers []string, brands []string, cloudEnv string, scope rbacscope.TRbacScope, ownerId mcclient.IIdentityProvider) Usage {
-	count := make(map[string]interface{})
-	result := models.WireManager.TotalCount(rangeObjs, hostTypes, providers, brands, cloudEnv, scope, ownerId)
-	// including nics for pending_deleted guests
-	count[prefixKey(prefix, "nics.guest")] = result.GuestNicCount
-	// #nics for pending_deleted guests
-	count[prefixKey(prefix, "nics.guest.pending_delete")] = result.PendingDeletedGuestNicCount
-	count[prefixKey(prefix, "nics.group")] = result.GroupNicCount
-	count[prefixKey(prefix, "nics.lb")] = result.LbNicCount
-	count[prefixKey(prefix, "nics.db")] = result.DbNicCount
-	count[prefixKey(prefix, "nics.eip")] = result.EipNicCount
-	count[prefixKey(prefix, "nics")] = result.GuestNicCount + result.GroupNicCount + result.LbNicCount + result.DbNicCount + result.EipNicCount
-	return count
-}*/
-
 func prefixKey(prefix string, key string) string {
 	if len(prefix) > 0 {
 		return prefix + "." + key
@@ -948,10 +921,22 @@ func GuestNormalUsage(ctx context.Context, userToken mcclient.TokenCredential, p
 	return guestUsage(ctx, userToken, prefix, scope, cred, rangeObjs, hostTypes, resourceTypes, providers, brands, cloudEnv, nil, false, includeSystem, since, policyResult)
 }
 
+func ContainerNormalUsage(ctx context.Context, userToken mcclient.TokenCredential, prefix string, scope rbacscope.TRbacScope, cred mcclient.IIdentityProvider,
+	rangeObjs []db.IStandaloneModel, hostTypes []string, resourceTypes []string, providers []string,
+	brands []string, cloudEnv string, includeSystem bool, since *time.Time, policyResult rbacutils.SPolicyResult) Usage {
+	return containerUsage(ctx, userToken, prefix, scope, cred, rangeObjs, hostTypes, resourceTypes, providers, brands, cloudEnv, nil, false, includeSystem, since, policyResult)
+}
+
 func GuestPendingDeleteUsage(ctx context.Context, userToken mcclient.TokenCredential, prefix string, scope rbacscope.TRbacScope, cred mcclient.IIdentityProvider,
 	rangeObjs []db.IStandaloneModel, hostTypes []string, resourceTypes []string, providers []string,
 	brands []string, cloudEnv string, includeSystem bool, since *time.Time, policyResult rbacutils.SPolicyResult) Usage {
 	return guestUsage(ctx, userToken, prefix, scope, cred, rangeObjs, hostTypes, resourceTypes, providers, brands, cloudEnv, nil, true, includeSystem, since, policyResult)
+}
+
+func ContainerPendingDeleteUsage(ctx context.Context, userToken mcclient.TokenCredential, prefix string, scope rbacscope.TRbacScope, cred mcclient.IIdentityProvider,
+	rangeObjs []db.IStandaloneModel, hostTypes []string, resourceTypes []string, providers []string,
+	brands []string, cloudEnv string, includeSystem bool, since *time.Time, policyResult rbacutils.SPolicyResult) Usage {
+	return containerUsage(ctx, userToken, prefix, scope, cred, rangeObjs, hostTypes, resourceTypes, providers, brands, cloudEnv, nil, true, includeSystem, since, policyResult)
 }
 
 func GuestRunningUsage(ctx context.Context, userToken mcclient.TokenCredential, prefix string, scope rbacscope.TRbacScope, cred mcclient.IIdentityProvider,
@@ -962,10 +947,26 @@ func GuestRunningUsage(ctx context.Context, userToken mcclient.TokenCredential, 
 	return guestUsage(ctx, userToken, prefix, scope, cred, rangeObjs, hostTypes, resourceTypes, providers, brands, cloudEnv, []string{api.VM_RUNNING}, false, includeSystem, nil, policyResult)
 }
 
+func ContainerRunningUsage(ctx context.Context, userToken mcclient.TokenCredential, prefix string, scope rbacscope.TRbacScope, cred mcclient.IIdentityProvider,
+	rangeObjs []db.IStandaloneModel, hostTypes []string, resourceTypes []string, providers []string,
+	brands []string, cloudEnv string, includeSystem bool,
+	policyResult rbacutils.SPolicyResult,
+) Usage {
+	return containerUsage(ctx, userToken, prefix, scope, cred, rangeObjs, hostTypes, resourceTypes, providers, brands, cloudEnv, []string{api.VM_RUNNING}, false, includeSystem, nil, policyResult)
+}
+
 func GuestReadyUsage(ctx context.Context, userToken mcclient.TokenCredential, prefix string, scope rbacscope.TRbacScope, cred mcclient.IIdentityProvider,
 	rangeObjs []db.IStandaloneModel, hostTypes []string, resourceTypes []string, providers []string,
 	brands []string, cloudEnv string, includeSystem bool, policyResult rbacutils.SPolicyResult) Usage {
 	return guestUsage(ctx, userToken, prefix, scope, cred, rangeObjs, hostTypes, resourceTypes, providers, brands, cloudEnv, []string{api.VM_READY}, false, includeSystem, nil, policyResult)
+}
+
+func ContainerReadyUsage(ctx context.Context, userToken mcclient.TokenCredential, prefix string, scope rbacscope.TRbacScope, cred mcclient.IIdentityProvider,
+	rangeObjs []db.IStandaloneModel, hostTypes []string, resourceTypes []string, providers []string,
+	brands []string, cloudEnv string, includeSystem bool,
+	policyResult rbacutils.SPolicyResult,
+) Usage {
+	return containerUsage(ctx, userToken, prefix, scope, cred, rangeObjs, hostTypes, resourceTypes, providers, brands, cloudEnv, []string{api.VM_READY}, false, includeSystem, nil, policyResult)
 }
 
 func guestHypervisorsUsage(
@@ -1036,11 +1037,14 @@ func guestUsage(ctx context.Context, userToken mcclient.TokenCredential, prefix 
 	return guestHypervisorsUsage(ctx, userToken, prefix, scope, userCred, rangeObjs, hostTypes, resourceTypes, providers, brands, cloudEnv, status, hypervisors.List(), pendingDelete, includeSystem, since, policyResult)
 }
 
-/*func containerUsage(prefix string, scope rbacscope.TRbacScope, userCred mcclient.IIdentityProvider, rangeObjs []db.IStandaloneModel,
-	hostTypes []string, resourceTypes []string, providers []string, brands []string, cloudEnv string) Usage {
-	hypervisors := []string{api.HYPERVISOR_CONTAINER}
-	return guestHypervisorsUsage(prefix, scope, userCred, rangeObjs, hostTypes, resourceTypes, providers, brands, cloudEnv, nil, hypervisors, false)
-}*/
+func containerUsage(ctx context.Context, userToken mcclient.TokenCredential, prefix string, scope rbacscope.TRbacScope, userCred mcclient.IIdentityProvider, rangeObjs []db.IStandaloneModel,
+	hostTypes []string, resourceTypes []string, providers []string, brands []string, cloudEnv string,
+	status []string, pendingDelete, includeSystem bool, since *time.Time,
+	policyResult rbacutils.SPolicyResult,
+) Usage {
+	hypervisors := sets.NewString(api.HYPERVISOR_POD)
+	return guestHypervisorsUsage(ctx, userToken, prefix, scope, userCred, rangeObjs, hostTypes, resourceTypes, providers, brands, cloudEnv, status, hypervisors.List(), pendingDelete, includeSystem, since, policyResult)
+}
 
 func IsolatedDeviceUsage(ctx context.Context, userToken mcclient.TokenCredential, pref string, scope rbacscope.TRbacScope, userCred mcclient.IIdentityProvider, rangeObjs []db.IStandaloneModel, hostType []string, resourceTypes []string, providers []string, brands []string, cloudEnv string, policyResult rbacutils.SPolicyResult) Usage {
 	prefix := "isolated_devices"
