@@ -306,6 +306,10 @@ func (m *SCpuFreqRealTimeSimulateManager) startSetCpuFreqSimulate() {
 				log.Errorf("failed get %s ctrid by criId %s", pod.GetName(), criIds[i])
 				continue
 			}
+			if ctr == nil {
+				log.Errorf("found nil container desc by criId %s in pod %s", criIds[i], pod.GetName())
+				continue
+			}
 			cpuDir := pod.getContainerSystemCpusDir(ctr.Id)
 			if !fileutils2.Exists(cpuDir) {
 				log.Debugf("%s %s has no cpuDir", pod.GetName(), criIds[i])
