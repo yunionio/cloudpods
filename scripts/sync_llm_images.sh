@@ -36,7 +36,7 @@ IMAGES=(
   # "coollabsio/openclaw-browser:latest"
   # ghcr.io/coollabsio/openclaw-base:latest
   # lscr.io/linuxserver/webtop:ubuntu-xfce
-  registry.cn-beijing.aliyuncs.com/zexi/openclaw:ubu-20260309.4
+  registry.cn-beijing.aliyuncs.com/zexi/openclaw:v2026.3.12-20260326.2
 )
 
 for image in "${IMAGES[@]}"; do
