@@ -119,6 +119,8 @@ type SHostOptions struct {
 	ChntpwPath          string `help:"path to chntpw tool" default:"/usr/local/bin/chntpw.static"`
 	OvmfPath            string `help:"Path to OVMF.fd" default:"/opt/cloud/contrib/OVMF.fd"`
 	OvmfVarsPath        string `help:"Path to OVMF_VARS.fd" default:"/opt/cloud/contrib/OVMF_VARS.fd"`
+	Ovmf4MCodePath      string `help:"Path to OVMF_CODE_4M.fd" default:"/opt/cloud/contrib/OVMF_CODE_4M.fd"`
+	Ovmf4MCodeVarsPath  string `help:"Path to OVMF_VARS_4M.fd" default:"/opt/cloud/contrib/OVMF_VARS_4M.code.fd"`
 	SecbootOvmfPath     string `help:"Path to secboot ovmf fd" default:"/opt/cloud/contrib/OVMF_CODE_4M.secboot.fd"`
 	SecbootOvmfVarsPath string `help:"Path to secboot ovmf vars fd" default:"/opt/cloud/contrib/OVMF_VARS_4M.fd"`
 
