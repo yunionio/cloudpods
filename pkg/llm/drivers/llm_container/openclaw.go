@@ -356,6 +356,11 @@ func (c *openclaw) GetContainerSpecs(ctx context.Context, llm *models.SLLM, imag
 				{Key: "HOMEBREW_PREFIX", Value: "/home/linuxbrew/.linuxbrew"},
 				{Key: "HOMEBREW_CELLAR", Value: "/home/linuxbrew/.linuxbrew/Cellar"},
 				{Key: "HOMEBREW_REPOSITORY", Value: "/home/linuxbrew/.linuxbrew/Homebrew"},
+				// Selkies env
+				{Key: "SELKIES_UI_TITLE", Value: "Cloudpods Desktop"},
+				{Key: "SELKIES_UI_SHOW_LOGO", Value: "False"},
+				{Key: "SELKIES_UI_SIDEBAR_SHOW_APPS", Value: "False"},
+				{Key: "SELKIES_UI_SIDEBAR_SHOW_GAMEPADS", Value: "False"},
 			},
 		},
 		VolumeMounts: openclawVols,
