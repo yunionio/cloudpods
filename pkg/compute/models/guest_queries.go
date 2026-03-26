@@ -807,7 +807,7 @@ func fetchGuestBackupInfo(hostIds []string) (map[string]api.BackupInfo, error) {
 func fetchContainers(guestIds []string) (map[string][]*api.PodContainerDesc, error) {
 	ret := map[string][]*api.PodContainerDesc{}
 	containers := []SContainer{}
-	err := GetContainerManager().Query().In("guest_id", guestIds).All(&containers)
+	err := GetContainerManager().Query().In("guest_id", guestIds).Asc("created_at").All(&containers)
 	if err != nil {
 		return nil, err
 	}

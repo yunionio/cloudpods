@@ -140,7 +140,7 @@ func (m *SContainerManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQue
 }
 
 func (m *SContainerManager) GetContainersByPod(guestId string) ([]SContainer, error) {
-	q := m.Query().Equals("guest_id", guestId)
+	q := m.Query().Equals("guest_id", guestId).Asc("created_at")
 	ctrs := make([]SContainer, 0)
 	if err := db.FetchModelObjects(m, q, &ctrs); err != nil {
 		return nil, errors.Wrap(err, "db.FetchModelObjects")
