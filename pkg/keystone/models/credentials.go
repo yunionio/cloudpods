@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/rbacscope"
+	"yunion.io/x/pkg/util/sets"
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/identity"
@@ -175,8 +176,8 @@ func (cred *SCredential) ValidateUpdateData(ctx context.Context, userCred mcclie
 	}
 
 	if len(input.Blob) > 0 {
-		if cred.Type != api.CONTAINER_SECRET_TYPE {
-			return input, httperrors.NewNotSupportedError("blob update only supported for credential type %s", api.CONTAINER_SECRET_TYPE)
+		if !sets.NewString(api.CONTAINER_SECRET_TYPE, api.CONTAINER_IMAGE_TYPE).Has(cred.Type) {
+			return input, httperrors.NewNotSupportedError("blob update only supported for credential type %v", sets.NewString(api.CONTAINER_SECRET_TYPE, api.CONTAINER_IMAGE_TYPE).List())
 		}
 		blobEnc, err := keys.CredentialKeyManager.Encrypt([]byte(input.Blob))
 		if err != nil {
