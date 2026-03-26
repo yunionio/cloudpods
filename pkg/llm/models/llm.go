@@ -597,7 +597,14 @@ func (llm *SLLM) ValidateRestartInput(ctx context.Context, userCred mcclient.Tok
 		return nil, errors.Wrapf(errors.ErrInvalidStatus, "invalid llm status %s", llm.Status)
 	}
 
-	return &api.LLMRestartTaskInput{}, nil
+	sku, err := llm.GetLLMSku(llm.LLMSkuId)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetLLMSku")
+	}
+
+	return &api.LLMRestartTaskInput{
+		ImageId: sku.GetLLMImageId(),
+	}, nil
 }
 
 func (llm *SLLM) PerformRestart(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.LLMRestartInput) (jsonutils.JSONObject, error) {
