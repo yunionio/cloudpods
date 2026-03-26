@@ -1335,7 +1335,7 @@ func (self *SGuest) SyncVMIsolateDevices(ctx context.Context, userCred mcclient.
 }
 
 func (guest *SGuest) GetContainers() ([]SContainer, error) {
-	q := GetContainerManager().Query().Equals("guest_id", guest.Id)
+	q := GetContainerManager().Query().Equals("guest_id", guest.Id).Asc("created_at")
 	ret := []SContainer{}
 	err := db.FetchModelObjects(GetContainerManager(), q, &ret)
 	if err != nil {
