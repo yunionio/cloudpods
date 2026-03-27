@@ -352,8 +352,8 @@ const (
 
 	VM_METADATA_RELEASED_DEVICES = "released_devices"
 
-	VM_METADATA_CPU_NUMA_PIN      = "__cpu_numa_pin"
-	VM_METADATA_CPU_NUMA_PIN_TYPE = "__cpu_numa_pin_type"
+	VM_METADATA_CPU_NUMA_PIN      = "cpu_numa_pin"
+	VM_METADATA_CPU_NUMA_PIN_TYPE = "cpu_numa_pin_type"
 
 	VM_METADATA_VIRTUAL_ISOLATED_DEVICE_CONFIG = "__virtual_isolated_device_config"
 	// Kickstart相关metadata常量
