@@ -558,8 +558,7 @@ function start_swtpm() {
 	input.EnableUUID = options.HostOptions.EnableVmUuid
 	if s.Desc.Bios == qemu.BIOS_UEFI {
 		if len(input.OVMFPath) == 0 {
-			input.OVMFPath = options.HostOptions.OvmfPath
-			input.OVMFVarsPath = options.HostOptions.OvmfVarsPath
+			input.OVMFPath, input.OVMFVarsPath = s.getOvmfVarsSourcePath()
 		}
 	}
 
@@ -1440,7 +1439,40 @@ func (s *SKVMGuestInstance) vfioDevCount() int {
 }
 
 func (s *SKVMGuestInstance) getOvmfVarsPath() string {
-	return path.Join(s.HomeDir(), "OVMF_VARS.fd")
+	ovmfVarsName := filepath.Base(options.HostOptions.OvmfVarsPath)
+	varsPath := path.Join(s.HomeDir(), ovmfVarsName)
+	if fileutils2.Exists(varsPath) {
+		return varsPath
+	}
+
+	ovmfVarsName = filepath.Base(options.HostOptions.SecbootOvmfVarsPath)
+	varsPath = path.Join(s.HomeDir(), ovmfVarsName)
+	if fileutils2.Exists(varsPath) {
+		return varsPath
+	}
+	ovmfVarsName = filepath.Base(options.HostOptions.Ovmf4MCodeVarsPath)
+	varsPath = path.Join(s.HomeDir(), ovmfVarsName)
+	return varsPath
+}
+
+func (s *SKVMGuestInstance) getOvmfVarsSourcePath() (string, string) {
+	ovmfVarsName := filepath.Base(options.HostOptions.OvmfVarsPath)
+	varsPath := path.Join(s.HomeDir(), ovmfVarsName)
+	if fileutils2.Exists(varsPath) {
+		return options.HostOptions.OvmfPath, options.HostOptions.OvmfVarsPath
+	}
+
+	ovmfVarsName = filepath.Base(options.HostOptions.SecbootOvmfVarsPath)
+	varsPath = path.Join(s.HomeDir(), ovmfVarsName)
+	if fileutils2.Exists(varsPath) {
+		return options.HostOptions.SecbootOvmfPath, options.HostOptions.SecbootOvmfVarsPath
+	}
+
+	if fileutils2.Exists(options.HostOptions.Ovmf4MCodeVarsPath) {
+		return options.HostOptions.Ovmf4MCodePath, options.HostOptions.Ovmf4MCodeVarsPath
+	} else {
+		return options.HostOptions.OvmfPath, options.HostOptions.OvmfVarsPath
+	}
 }
 
 func (s *SKVMGuestInstance) getDiskBootOrderType(driver string) uefi.OvmfDevicePathType {
