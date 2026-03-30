@@ -43,6 +43,8 @@ get_current_arch() {
     echo $current_arch
 }
 
+ALLARCH=("amd64" "arm64" "riscv64")
+
 pushd $(
     cd "$(dirname "$0")"
     pwd
@@ -137,12 +139,13 @@ buildx_and_push() {
     docker pull --platform "linux/$arch" "$tag"
 }
 
+
 get_image_name() {
     local component=$1
     local arch=$2
     local is_all_arch=$3
     local img_name="$REGISTRY/$component:$TAG"
-    if [[ "$is_all_arch" == "true" || "$arch" == arm64 || "$arch" == riscv64 ]]; then
+    if [[ -n "$arch" && "$is_all_arch" == "true" ]]; then
         img_name="${img_name}-$arch"
     fi
     echo $img_name
@@ -214,39 +217,22 @@ general_build() {
     fi
 }
 
-make_manifest_image2() {
-    local component=$1
-    local img_name=$(get_image_name $component "" "false")
-    if [[ "$DRY_RUN" == "true" ]]; then
-        echo "[$(readlink -f ${BASH_SOURCE}):${LINENO} ${FUNCNAME[0]}] return for DRY_RUN"
-        return
-    fi
-    docker buildx imagetools create -t $img_name \
-        $img_name-amd64 \
-        $img_name-arm64
-}
-
 make_manifest_image() {
     local component=$1
+    local arch=$2
     local img_name=$(get_image_name $component "" "false")
     if [[ "$DRY_RUN" == "true" ]]; then
         echo "[$(readlink -f ${BASH_SOURCE}):${LINENO} ${FUNCNAME[0]}] return for DRY_RUN"
         return
     fi
-
-    if [[ "$img_name" == *:5000/* ]]; then
-        docker push $img_name-amd64
-        docker push $img_name-arm64
-        docker push $img_name-riscv64
-    fi
-
-    docker buildx imagetools create -t $img_name \
-        $img_name-amd64 \
-        $img_name-arm64 \
-        $img_name-riscv64
-    docker manifest inspect ${img_name} | grep -wq amd64
-    docker manifest inspect ${img_name} | grep -wq arm64
-    docker manifest inspect ${img_name} | grep -wq riscv64
+    CMD="docker buildx imagetools create -t ${img_name} "
+    for ac in "${ALLARCH[@]}"; do
+        if [[ "${arch}" == "all" || "${arch}" == *"$ac"* ]]; then
+            CMD="${CMD} ${img_name}-${ac}"
+        fi
+    done
+    echo "$CMD"
+    $CMD
 }
 
 ALL_COMPONENTS=$(ls cmd | grep -v '.*cli$' | xargs)
@@ -268,13 +254,9 @@ mkdir -p $SRC_DIR/_output
 
 show_update_cmd() {
     local component=$1
-    local arch=$2
     local spec=$1
     local name=$1
-    local tag=${TAG}
-    if [[ "$arch" == arm64 || "$arch" == riscv64 ]]; then
-        tag="${tag}-$arch"
-    fi
+    local tag=$TAG
 
     case "$component" in
     'apigateway')
@@ -327,33 +309,27 @@ for component in $COMPONENTS; do
 
     echo "Start to build component: $component"
 
-    case "$ARCH" in
-    all)
-        if [[ $component == "baremetal-agent" ]]; then
-            for arch in "arm64" "amd64"; do
-                general_build $component $arch "true"
-            done
-            make_manifest_image2 $component
-        else
-            for arch in "arm64" "amd64" "riscv64"; do
-                general_build $component $arch "true"
-            done
-            make_manifest_image $component
+    multiarch=""
+    for ac in "${ALLARCH[@]}"; do
+        if [[ "$ARCH" == "$ac" ]]; then
+            # single arch
+            if [ -e "$DOCKER_DIR/Dockerfile.$component" ]; then
+                general_build $component $ARCH "false"
+            fi
+        elif [[ "$ARCH" == "all" || "$ARCH" == *"$ac"* ]]; then
+            multiarch="true"
+            general_build $component $ac "true"
         fi
-        ;;
-    *)
-        if [ -e "$DOCKER_DIR/Dockerfile.$component" ]; then
-            general_build $component $ARCH "false"
-        fi
-        ;;
-    esac
+    done
+    if [[ "$multiarch" == "true" ]]; then
+        make_manifest_image $component $ARCH
+    fi
 done
 
 echo ""
-
 for component in $COMPONENTS; do
     if [[ $component == *cli ]]; then
         continue
     fi
-    show_update_cmd $component $ARCH
+    show_update_cmd $component
 done
