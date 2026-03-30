@@ -4097,3 +4097,33 @@ func (net SNetwork) HasIPv4Addr() bool {
 func (net SNetwork) HasIPv6Addr() bool {
 	return len(net.GuestIp6Start) > 0 && len(net.GuestIp6End) > 0
 }
+
+func (manager *SNetworkManager) CustomizeFilterList(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*db.CustomizeListFilters, error) {
+	filters := db.NewCustomizeListFilters()
+
+	if query.Contains("usable") {
+		isUsable := jsonutils.QueryBoolean(query, "usable", false)
+		addrCountFilter := func(obj jsonutils.JSONObject) (bool, error) {
+			portsStats := struct {
+				PortsUsed  int
+				Ports6Used int
+				Ports      int
+				Ports6     int
+			}{}
+			err := obj.Unmarshal(&portsStats)
+			if err != nil {
+				return false, err
+			}
+			if portsStats.PortsUsed < portsStats.Ports || portsStats.Ports6Used < portsStats.Ports6 {
+				return true, nil
+			}
+			return false, nil
+		}
+
+		if isUsable {
+			filters.Append(addrCountFilter)
+		}
+	}
+
+	return filters, nil
+}
