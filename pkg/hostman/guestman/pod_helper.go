@@ -238,11 +238,11 @@ func (t *localPodRestartTask) Dump() string {
 }
 
 func GetPodStatusByContainerStatus(status string, cStatus string, isPrimary bool) string {
-	if cStatus == computeapi.CONTAINER_STATUS_CRASH_LOOP_BACK_OFF {
+	if cStatus == computeapi.CONTAINER_STATUS_CRASH_LOOP_BACK_OFF && isPrimary {
 		status = computeapi.POD_STATUS_CRASH_LOOP_BACK_OFF
 	}
 	if cStatus == computeapi.CONTAINER_STATUS_EXITED && status != computeapi.VM_READY {
-		status = computeapi.POD_STATUS_CONTAINER_EXITED
+		// status = computeapi.POD_STATUS_CONTAINER_EXITED
 		if isPrimary {
 			status = computeapi.VM_READY
 		}
