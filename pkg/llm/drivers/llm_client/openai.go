@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -30,6 +31,83 @@ func newOpenAI() models.ILLMClient {
 
 func (o *openai) GetType() api.LLMClientType {
 	return api.LLM_CLIENT_OPENAI
+}
+
+func buildOpenAIModelsURL(endpoint string) (string, error) {
+	endpoint = strings.TrimSpace(endpoint)
+	if endpoint == "" {
+		return "", errors.Error("endpoint is empty")
+	}
+
+	baseURL, err := url.Parse(endpoint)
+	if err != nil {
+		return "", errors.Wrapf(err, "invalid endpoint URL %s", endpoint)
+	}
+	baseURL.RawQuery = ""
+	baseURL.Fragment = ""
+
+	path := strings.TrimRight(baseURL.Path, "/")
+	switch {
+	case path == "":
+		baseURL.Path = "/v1/models"
+	case strings.HasSuffix(path, "/v1/models"):
+		baseURL.Path = path
+	case strings.HasSuffix(path, "/v1"):
+		baseURL.Path = path + "/models"
+	default:
+		baseURL.Path = path + "/v1/models"
+	}
+
+	return baseURL.String(), nil
+}
+
+func listOpenAIModelsWithClient(ctx context.Context, client *http.Client, endpoint string) ([]string, error) {
+	modelsURL, err := buildOpenAIModelsURL(endpoint)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, modelsURL, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "create request")
+	}
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, errors.Wrap(err, "do request")
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, errors.Wrap(err, "read response body")
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, errors.Errorf("unexpected status code %d: %s", resp.StatusCode, string(body))
+	}
+
+	var modelResp OpenAIModelsResponse
+	if err := json.Unmarshal(body, &modelResp); err != nil {
+		return nil, errors.Wrapf(err, "decode response: %s", string(body))
+	}
+
+	ret := make([]string, 0, len(modelResp.Data))
+	for _, model := range modelResp.Data {
+		name := strings.TrimSpace(model.ID)
+		if name == "" {
+			continue
+		}
+		ret = append(ret, name)
+	}
+	return ret, nil
+}
+
+func (o *openai) ListModels(ctx context.Context, endpoint string) ([]string, error) {
+	client := &http.Client{
+		Timeout: 30 * time.Second,
+	}
+	return listOpenAIModelsWithClient(ctx, client, endpoint)
 }
 
 func (o *openai) Chat(ctx context.Context, mcpAgent *models.SMCPAgent, messages interface{}, tools interface{}) (models.ILLMChatResponse, error) {
@@ -93,6 +171,17 @@ func (o *openai) Chat(ctx context.Context, mcpAgent *models.SMCPAgent, messages 
 	}
 
 	return o.doChatRequest(ctx, mcpAgent, openaiMessages, openaiTools)
+}
+
+type OpenAIModelsResponse struct {
+	Object string             `json:"object,omitempty"`
+	Data   []OpenAIModelEntry `json:"data"`
+}
+
+type OpenAIModelEntry struct {
+	ID      string `json:"id"`
+	Object  string `json:"object,omitempty"`
+	OwnedBy string `json:"owned_by,omitempty"`
 }
 
 func (o *openai) ChatStream(ctx context.Context, mcpAgent *models.SMCPAgent, messages interface{}, tools interface{}, onChunk func(models.ILLMChatResponse) error) error {

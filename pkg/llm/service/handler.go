@@ -53,6 +53,25 @@ func handleLLMAvailableNetwork(ctx context.Context, w http.ResponseWriter, r *ht
 	appsrv.SendJSON(w, wrapped)
 }
 
+func handleLLMProviderModels(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	userCred := auth.FetchUserCredential(ctx, policy.FilterPolicyCredential)
+	if userCred == nil {
+		httperrors.UnauthorizedError(ctx, w, "Unauthorized")
+		return
+	}
+	query, err := jsonutils.ParseQueryString(r.URL.RawQuery)
+	if err != nil {
+		httperrors.InvalidInputError(ctx, w, "Parse query string %q: %v", r.URL.RawQuery, err)
+		return
+	}
+	ret, err := models.GetLLMManager().GetProviderModels(ctx, userCred, query)
+	if err != nil {
+		httperrors.GeneralServerError(ctx, w, err)
+		return
+	}
+	appsrv.SendStruct(w, ret)
+}
+
 func handleDefaultChatStream(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	userCred := auth.FetchUserCredential(ctx, policy.FilterPolicyCredential)
 	if userCred == nil {
