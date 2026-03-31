@@ -52,3 +52,7 @@ func NewUnifiedMonitorManager() *SUnifiedMonitorManager {
 func (m *SUnifiedMonitorManager) PerformQuery(s *mcclient.ClientSession, input *monitor.MetricQueryInput) (jsonutils.JSONObject, error) {
 	return m.PerformClassAction(s, "query", jsonutils.Marshal(input))
 }
+
+func (m *SUnifiedMonitorManager) PerformResourceMetrics(s *mcclient.ClientSession, input *monitor.ResourceMetricsQueryInput) (jsonutils.JSONObject, error) {
+	return m.PerformClassAction(s, "resource-metrics", jsonutils.Marshal(input))
+}
