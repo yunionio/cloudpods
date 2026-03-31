@@ -2770,6 +2770,12 @@ func (s *sPodGuestInstance) SaveVolumeMountToImage(ctx context.Context, userCred
 	return nil, nil
 }
 
+// shellQuote wraps s in single quotes, escaping any embedded single quotes
+// so the result is safe to embed in a sh -c command string.
+func shellQuote(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", "'\\''") + "'"
+}
+
 func (s *sPodGuestInstance) tarGzDir(input *hostapi.ContainerSaveVolumeMountToImageInput, ctrId string, hostPath string) (string, int64, error) {
 	fp := fmt.Sprintf("volimg-%s-ctr-%s-%d.tar.gz", input.ImageId, ctrId, input.VolumeMountIndex)
 	outputFp := filepath.Join(s.GetVolumesDir(), fp)
@@ -2777,14 +2783,14 @@ func (s *sPodGuestInstance) tarGzDir(input *hostapi.ContainerSaveVolumeMountToIm
 	if len(input.VolumeMountDirs) != 0 {
 		dirPath = ""
 		for _, vd := range input.VolumeMountDirs {
-			dirPath = fmt.Sprintf("%s '%s'", dirPath, vd)
+			dirPath = fmt.Sprintf("%s %s", dirPath, shellQuote(vd))
 		}
 	}
 
 	// 计算总字节数，兼容多个目录/文件
 	var totalSize int64
 	if len(input.VolumeMountDirs) == 0 {
-		sizeCmd := fmt.Sprintf("du -sb %s | awk '{print $1}'", hostPath)
+		sizeCmd := fmt.Sprintf("du -sb %s | awk '{print $1}'", shellQuote(hostPath))
 		out, err := procutils.NewRemoteCommandAsFarAsPossible("sh", "-c", sizeCmd).Output()
 		if err != nil {
 			return "", 0, errors.Wrapf(err, "calculate total size: %s", out)
@@ -2797,8 +2803,8 @@ func (s *sPodGuestInstance) tarGzDir(input *hostapi.ContainerSaveVolumeMountToIm
 	} else {
 		for _, d := range input.VolumeMountDirs {
 			// 兼容目录或文件名有空格
-			sizeCmd := fmt.Sprintf("du -sb '%s' | awk '{print $1}'", d)
-			cmd := fmt.Sprintf("cd %s && %s", hostPath, sizeCmd)
+			sizeCmd := fmt.Sprintf("du -sb %s | awk '{print $1}'", shellQuote(d))
+			cmd := fmt.Sprintf("cd %s && %s", shellQuote(hostPath), sizeCmd)
 			out, err := procutils.NewRemoteCommandAsFarAsPossible("sh", "-c", cmd).Output()
 			if err != nil {
 				return "", 0, errors.Wrapf(err, "calculate total size for %s: %s", d, out)
@@ -2815,8 +2821,8 @@ func (s *sPodGuestInstance) tarGzDir(input *hostapi.ContainerSaveVolumeMountToIm
 	// 减去 excludePaths 的大小
 	for _, exclude := range input.ExcludePaths {
 		// exclude 路径是相对于 hostPath 的
-		sizeCmd := fmt.Sprintf("du -sb '%s' 2>/dev/null | awk '{print $1}'", exclude)
-		cmd := fmt.Sprintf("cd %s && %s", hostPath, sizeCmd)
+		sizeCmd := fmt.Sprintf("du -sb %s 2>/dev/null | awk '{print $1}'", shellQuote(exclude))
+		cmd := fmt.Sprintf("cd %s && %s", shellQuote(hostPath), sizeCmd)
 		out, err := procutils.NewRemoteCommandAsFarAsPossible("sh", "-c", cmd).Output()
 		if err != nil {
 			// exclude 路径不存在时忽略错误，继续处理下一个
@@ -2841,9 +2847,9 @@ func (s *sPodGuestInstance) tarGzDir(input *hostapi.ContainerSaveVolumeMountToIm
 	baseCmd := "tar -czf"
 	// 添加 exclude 选项
 	for _, exclude := range input.ExcludePaths {
-		baseCmd = fmt.Sprintf("%s --exclude='%s'", baseCmd, exclude)
+		baseCmd = fmt.Sprintf("%s --exclude=%s", baseCmd, shellQuote(exclude))
 	}
-	cmd := fmt.Sprintf("%s %s -C %s %s", baseCmd, outputFp, hostPath, dirPath)
+	cmd := fmt.Sprintf("%s %s -C %s %s", baseCmd, shellQuote(outputFp), shellQuote(hostPath), dirPath)
 	if input.VolumeMountPrefix != "" {
 		cmd += fmt.Sprintf(" --transform 's,^,%s/,'", input.VolumeMountPrefix)
 	}
@@ -3110,13 +3116,12 @@ func (s *sPodGuestInstance) tarHostDir(srcDir, targetPath string,
 		findPatterns := []string{}
 		for _, pattern := range includePatterns {
 			// 转义特殊字符，但保留 glob 通配符
-			escapedPattern := strings.ReplaceAll(pattern, "'", "'\"'\"'")
-			findPatterns = append(findPatterns, fmt.Sprintf("-name '%s'", escapedPattern))
+			findPatterns = append(findPatterns, fmt.Sprintf("-name %s", shellQuote(pattern)))
 		}
 
 		// 构建 find 命令来查找匹配的路径
 		findCmd := fmt.Sprintf("find . \\( %s \\)", strings.Join(findPatterns, " -o "))
-		cmd := fmt.Sprintf("cd '%s' && %s", srcDir, findCmd)
+		cmd := fmt.Sprintf("cd %s && %s", shellQuote(srcDir), findCmd)
 		log.Infof("[%s] find cmd: %s", s.GetName(), cmd)
 		out, err := procutils.NewRemoteCommandAsFarAsPossible("sh", "-c", cmd).Output()
 		if err != nil {
@@ -3143,16 +3148,16 @@ func (s *sPodGuestInstance) tarHostDir(srcDir, targetPath string,
 	// 没有 includePatterns 时，使用原来的逻辑
 	// 添加 --exclude 选项
 	for _, exclude := range excludeFiles {
-		baseCmd = fmt.Sprintf("%s --exclude='%s'", baseCmd, exclude)
+		baseCmd = fmt.Sprintf("%s --exclude=%s", baseCmd, shellQuote(exclude))
 	}
 	includeStr := "."
 	if len(includeFiles) > 0 {
 		for i := range includeFiles {
-			includeFiles[i] = fmt.Sprintf("'%s'", includeFiles[i])
+			includeFiles[i] = shellQuote(includeFiles[i])
 		}
 		includeStr = strings.Join(includeFiles, " ")
 	}
-	cmd := fmt.Sprintf("%s --ignore-failed-read -cf %s -C %s %s", baseCmd, targetPath, srcDir, includeStr)
+	cmd := fmt.Sprintf("%s --ignore-failed-read -cf %s -C %s %s", baseCmd, shellQuote(targetPath), shellQuote(srcDir), includeStr)
 	log.Infof("[%s] tar cmd: %s", s.GetName(), cmd)
 	if out, err := procutils.NewRemoteCommandAsFarAsPossible("sh", "-c", cmd).Output(); err != nil {
 		outErr := errors.Wrapf(err, "%s: %s", cmd, out)
