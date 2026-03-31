@@ -691,3 +691,126 @@ func (self *SUnifiedMonitorManager) GetPropertyCdfQuery(ctx context.Context, use
 	}
 	return result, nil
 }
+
+func (self *SUnifiedMonitorManager) PerformResourceMetrics(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject,
+) (jsonutils.JSONObject, error) {
+	input := new(monitor.ResourceMetricsQueryInput)
+	if err := data.Unmarshal(input); err != nil {
+		return nil, httperrors.NewInputParameterError("unmarshal input: %v", err)
+	}
+
+	drv := GetResourceMetricDriver(input.ResType)
+	if drv == nil {
+		return nil, httperrors.NewInputParameterError("unsupported res_type %q", input.ResType)
+	}
+	if len(input.ResIds) == 0 {
+		return nil, httperrors.NewMissingParameterError("res_ids")
+	}
+
+	if input.EndTime.IsZero() {
+		input.EndTime = time.Now()
+	}
+	if input.StartTime.IsZero() {
+		input.StartTime = input.EndTime.Add(-1 * time.Hour)
+	}
+	if len(input.Interval) == 0 {
+		input.Interval = "5m"
+	}
+
+	tagKey := drv.GetTagKey()
+	specs := drv.GetMetricSpecs()
+
+	result := make(map[string]*monitor.ResourceMetricValues, len(input.ResIds))
+	for _, id := range input.ResIds {
+		result[id] = &monitor.ResourceMetricValues{}
+	}
+
+	for _, spec := range specs {
+		qInput := mod.NewMetricQueryInputWithDB(TELEGRAF_DATABASE, spec.Measurement).SkipCheckSeries(true)
+		sel := qInput.Selects()
+		for _, f := range spec.Fields {
+			sel.Select(f).MEAN()
+		}
+		where := qInput.Where()
+		where.IN(tagKey, input.ResIds)
+		qInput.GroupBy().TAG(tagKey)
+		qInput.From(input.StartTime).To(input.EndTime).Interval(input.Interval)
+
+		queryData := qInput.ToQueryData()
+		dbRtn, err := self.performQuery(ctx, userCred, queryData)
+		if err != nil {
+			log.Warningf("query %s metrics error: %v", spec.Measurement, err)
+			continue
+		}
+
+		for _, series := range dbRtn.Series {
+			resId := series.Tags[tagKey]
+			if resId == "" {
+				continue
+			}
+			rv, ok := result[resId]
+			if !ok {
+				continue
+			}
+			// 取最后一个有效数据点
+			for pi := len(series.Points) - 1; pi >= 0; pi-- {
+				point := series.Points[pi]
+				if len(point) < 2 {
+					continue
+				}
+				allValid := true
+				for fi := 0; fi < len(spec.Fields) && fi < len(point)-1; fi++ {
+					if point[fi] == nil {
+						allValid = false
+						break
+					}
+					if fval, ok := point[fi].(*float64); !ok || fval == nil {
+						allValid = false
+						break
+					}
+				}
+				if !allValid {
+					continue
+				}
+				for fi, outputKey := range spec.OutputKeys {
+					if fi < len(point)-1 {
+						val := 0.0
+						if fval, ok := point[fi].(*float64); ok && fval != nil {
+							val = *fval
+						} else if fval, ok := point[fi].(float64); ok {
+							val = fval
+						}
+						SetResourceMetricValue(rv, outputKey, val)
+					}
+				}
+				break
+			}
+		}
+	}
+
+	// 查询告警状态
+	monResources, err := MonitorResourceManager.GetMonitorResources(monitor.MonitorResourceListInput{
+		ResId: input.ResIds,
+	})
+	if err != nil {
+		log.Warningf("GetMonitorResources error: %v", err)
+	} else {
+		for _, mr := range monResources {
+			if rv, ok := result[mr.ResId]; ok {
+				rv.AlertState = mr.AlertState
+			}
+		}
+	}
+
+	output := monitor.ResourceMetricsQueryOutput{
+		ResourceMetrics: make(map[string]monitor.ResourceMetricValues, len(result)),
+	}
+	for id, rv := range result {
+		output.ResourceMetrics[id] = *rv
+	}
+	return jsonutils.Marshal(output), nil
+}
