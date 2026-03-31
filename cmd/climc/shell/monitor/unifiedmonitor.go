@@ -41,4 +41,17 @@ func init() {
 		printObject(resp)
 		return nil
 	})
+
+	R(new(options.ResourceMetricsOptions), "monitor-resource-metrics", "Query batch resource metrics (cpu/mem/disk/net) and alert state", func(s *mcclient.ClientSession, opts *options.ResourceMetricsOptions) error {
+		input, err := opts.GetInput()
+		if err != nil {
+			return err
+		}
+		resp, err := monitor.UnifiedMonitorManager.PerformResourceMetrics(s, input)
+		if err != nil {
+			return errors.Wrap(err, "PerformResourceMetrics")
+		}
+		printObject(resp)
+		return nil
+	})
 }

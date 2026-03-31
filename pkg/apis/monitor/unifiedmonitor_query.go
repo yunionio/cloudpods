@@ -313,3 +313,42 @@ func (c CdfQueryDataSet) Less(i, j int) bool {
 type CdfQueryOutput struct {
 	Data CdfQueryDataSet
 }
+
+// ResourceMetricsQueryInput 批量查询资源监控数据的输入参数
+type ResourceMetricsQueryInput struct {
+	// 资源类型: "host" 或 "guest"
+	ResType string `json:"res_type"`
+	// 资源 ID 列表
+	ResIds []string `json:"res_ids"`
+	// 查询开始时间（默认: 1小时前）
+	StartTime time.Time `json:"start_time"`
+	// 查询结束时间（默认: now）
+	EndTime time.Time `json:"end_time"`
+	// 查询间隔（默认: 5m）
+	Interval string `json:"interval"`
+}
+
+// ResourceMetricValues 单个资源的监控数据
+type ResourceMetricValues struct {
+	// CPU 使用率 (%)
+	CpuUsage *float64 `json:"cpu_usage"`
+	// 内存使用率 (%)
+	MemUsage *float64 `json:"mem_usage"`
+	// 磁盘使用率 (%)
+	DiskUsage *float64 `json:"disk_usage"`
+	// 磁盘读速率 (Bps)
+	DiskReadRate *float64 `json:"disk_read_rate"`
+	// 磁盘写速率 (Bps)
+	DiskWriteRate *float64 `json:"disk_write_rate"`
+	// 网络入流量 (bps)
+	NetInRate *float64 `json:"net_in_rate"`
+	// 网络出流量 (bps)
+	NetOutRate *float64 `json:"net_out_rate"`
+	// 告警状态: init/attach/alerting
+	AlertState string `json:"alert_state"`
+}
+
+// ResourceMetricsQueryOutput 批量查询资源监控数据的输出
+type ResourceMetricsQueryOutput struct {
+	ResourceMetrics map[string]ResourceMetricValues `json:"resource_metrics"`
+}

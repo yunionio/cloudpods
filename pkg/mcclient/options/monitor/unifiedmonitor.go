@@ -26,6 +26,37 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/modules/monitor"
 )
 
+type ResourceMetricsOptions struct {
+	RES_TYPE  string   `help:"resource type: host or guest" choices:"host|guest"`
+	ResIds    []string `help:"resource IDs" json:"res_ids" nargs:"+"`
+	StartTime string   `help:"start time (RFC3339). e.g.: 2023-12-06T21:54:42Z" json:"-"`
+	EndTime   string   `help:"end time (RFC3339). e.g.: 2023-12-18T21:54:42Z" json:"-"`
+	Interval  string   `help:"query interval. e.g.: 5m, 1h" json:"interval"`
+}
+
+func (o *ResourceMetricsOptions) GetInput() (*api.ResourceMetricsQueryInput, error) {
+	input := &api.ResourceMetricsQueryInput{
+		ResType:  o.RES_TYPE,
+		ResIds:   o.ResIds,
+		Interval: o.Interval,
+	}
+	if o.StartTime != "" {
+		t, err := time.Parse(time.RFC3339, o.StartTime)
+		if err != nil {
+			return nil, errors.Wrapf(err, "invalid start_time %q", o.StartTime)
+		}
+		input.StartTime = t
+	}
+	if o.EndTime != "" {
+		t, err := time.Parse(time.RFC3339, o.EndTime)
+		if err != nil {
+			return nil, errors.Wrapf(err, "invalid end_time %q", o.EndTime)
+		}
+		input.EndTime = t
+	}
+	return input, nil
+}
+
 type MeasurementsQueryOptions struct {
 	Scope           string `json:"scope"`
 	ProjectDomainId string `json:"project_domin_id"`
