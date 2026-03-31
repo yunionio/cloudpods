@@ -22,6 +22,7 @@ func init() {
 	cmd.Get("url", new(options.LLMIdOptions))
 	cmd.Get("login-info", new(options.LLMIdOptions))
 	cmd.Custom(shell.CustomActionGet, "available-network", new(options.LLMAvailableNetworkOptions))
+	cmd.PerformClass("provider-models", new(options.LLMProviderModelsOptions))
 	cmd.Perform("save-instant-model", new(options.LLMSaveInstantModelOptions))
 	cmd.Perform("quick-models", new(options.LLMQuickModelsOptions))
 }
