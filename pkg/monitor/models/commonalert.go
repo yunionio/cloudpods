@@ -1322,6 +1322,10 @@ func (alert *SCommonAlert) PostUpdate(
 			log.Errorf("update notification error: %v", err)
 		}
 		alert.SetChannel(ctx, updateInput.Channel)
+	} else if len(updateInput.SilentPeriod) != 0 {
+		if err := alert.updateNotificationSilentPeriod(updateInput.SilentPeriod); err != nil {
+			log.Errorf("update notification silent_period error: %v", err)
+		}
 	}
 	if _, err := data.GetString("scope"); err == nil {
 		_, err = alert.PerformSetScope(ctx, userCred, query, data)
@@ -1713,6 +1717,27 @@ func (alert *SCommonAlert) GetSilentPeriod() (int64, error) {
 		}
 	}
 	return 0, nil
+}
+
+func (alert *SCommonAlert) updateNotificationSilentPeriod(silentPeriod string) error {
+	duration, _ := time.ParseDuration(silentPeriod)
+	frequency := int64(duration / time.Second)
+	notis, err := alert.GetNotifications()
+	if err != nil {
+		return errors.Wrap(err, "GetNotifications")
+	}
+	for _, n := range notis {
+		noti, _ := n.GetNotification()
+		if noti != nil {
+			if _, err := db.Update(noti, func() error {
+				noti.Frequency = frequency
+				return nil
+			}); err != nil {
+				return errors.Wrapf(err, "update notification %s frequency", noti.GetId())
+			}
+		}
+	}
+	return nil
 }
 
 func (alert *SCommonAlert) GetAlertRules(silentPeriod int64) ([]*monitor.AlertRecordRule, error) {
