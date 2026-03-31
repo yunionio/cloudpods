@@ -72,7 +72,7 @@ func (model SStatusResourceBase) GetProgress() float32 {
 }
 
 func StatusBaseSetStatus(ctx context.Context, model IStatusBaseModel, userCred mcclient.TokenCredential, status string, reason string) error {
-	return statusBaseSetStatus(ctx, model, userCred, status, reason)
+	return statusBaseSetStatus(ctx, model, userCred, status, reason, nil)
 }
 
 func statusBaseSetProgress(model IStatusBaseModel, progress float32) error {
@@ -86,13 +86,16 @@ func statusBaseSetProgress(model IStatusBaseModel, progress float32) error {
 	return nil
 }
 
-func statusBaseSetStatus(ctx context.Context, model IStatusBaseModel, userCred mcclient.TokenCredential, status string, reason string) error {
+func statusBaseSetStatus(ctx context.Context, model IStatusBaseModel, userCred mcclient.TokenCredential, status string, reason string, otherUpdates func()) error {
 	if model.GetStatus() == status {
 		return nil
 	}
 	oldStatus := model.GetStatus()
 	_, err := Update(model, func() error {
 		model.SetStatusValue(status)
+		if otherUpdates != nil {
+			otherUpdates()
+		}
 		return nil
 	})
 	if err != nil {
@@ -121,10 +124,14 @@ func statusBaseSetStatus(ctx context.Context, model IStatusBaseModel, userCred m
 }
 
 func StatusBasePerformStatus(ctx context.Context, model IStatusBaseModel, userCred mcclient.TokenCredential, input apis.PerformStatusInput) error {
+	return StatusBasePerformStatusWithOtherUpdates(ctx, model, userCred, input, nil)
+}
+
+func StatusBasePerformStatusWithOtherUpdates(ctx context.Context, model IStatusBaseModel, userCred mcclient.TokenCredential, input apis.PerformStatusInput, otherUpdates func()) error {
 	if len(input.Status) == 0 {
 		return httperrors.NewMissingParameterError("status")
 	}
-	err := statusBaseSetStatus(ctx, model, userCred, input.Status, input.Reason)
+	err := statusBaseSetStatus(ctx, model, userCred, input.Status, input.Reason, otherUpdates)
 	if err != nil {
 		return errors.Wrap(err, "statusBaseSetStatus")
 	}

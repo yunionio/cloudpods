@@ -96,8 +96,12 @@ func (self *SStatusInfrasResourceBase) PerformStatus(ctx context.Context, userCr
 	return nil, nil
 }
 
+func (model *SStatusInfrasResourceBase) SetStatusWithOtherUpdates(ctx context.Context, userCred mcclient.TokenCredential, status string, reason string, otherUpdates func()) error {
+	return statusBaseSetStatus(ctx, model.GetIStatusInfrasModel(), userCred, status, reason, otherUpdates)
+}
+
 func (model *SStatusInfrasResourceBase) SetStatus(ctx context.Context, userCred mcclient.TokenCredential, status string, reason string) error {
-	return statusBaseSetStatus(ctx, model.GetIStatusInfrasModel(), userCred, status, reason)
+	return statusBaseSetStatus(ctx, model.GetIStatusInfrasModel(), userCred, status, reason, nil)
 }
 
 func (manager *SStatusInfrasResourceBaseManager) ValidateCreateData(
