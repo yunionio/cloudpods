@@ -56,8 +56,12 @@ func (self *SStatusDomainLevelResourceBase) PerformStatus(ctx context.Context, u
 	return nil, nil
 }
 
+func (model *SStatusDomainLevelResourceBase) SetStatusWithOtherUpdates(ctx context.Context, userCred mcclient.TokenCredential, status string, reason string, otherUpdates func()) error {
+	return statusBaseSetStatus(ctx, model.GetIStatusDomainLevelModel(), userCred, status, reason, otherUpdates)
+}
+
 func (model *SStatusDomainLevelResourceBase) SetStatus(ctx context.Context, userCred mcclient.TokenCredential, status string, reason string) error {
-	return statusBaseSetStatus(ctx, model.GetIStatusDomainLevelModel(), userCred, status, reason)
+	return statusBaseSetStatus(ctx, model.GetIStatusDomainLevelModel(), userCred, status, reason, nil)
 }
 
 func (manager *SStatusDomainLevelResourceBaseManager) ValidateCreateData(

@@ -47,8 +47,12 @@ func NewStatusDomainLevelUserResourceBaseManager(dt interface{}, tableName strin
 	}
 }
 
+func (model *SStatusDomainLevelUserResourceBase) SetStatusWithOtherUpdates(ctx context.Context, userCred mcclient.TokenCredential, status string, reason string, otherUpdates func()) error {
+	return statusBaseSetStatus(ctx, model.GetIStatusDomainLevelModel(), userCred, status, reason, otherUpdates)
+}
+
 func (model *SStatusDomainLevelUserResourceBase) SetStatus(ctx context.Context, userCred mcclient.TokenCredential, status string, reason string) error {
-	return statusBaseSetStatus(ctx, model, userCred, status, reason)
+	return statusBaseSetStatus(ctx, model.GetIStatusDomainLevelModel(), userCred, status, reason, nil)
 }
 
 func (manager *SStatusDomainLevelUserResourceBaseManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input apis.StatusDomainLevelUserResourceCreateInput) (apis.StatusDomainLevelUserResourceCreateInput, error) {

@@ -95,8 +95,12 @@ func (self *SStatusStandaloneResourceBase) PerformStatus(ctx context.Context, us
 	return nil, nil
 }
 
+func (model *SStatusStandaloneResourceBase) SetStatusWithOtherUpdates(ctx context.Context, userCred mcclient.TokenCredential, status string, reason string, otherUpdates func()) error {
+	return statusBaseSetStatus(ctx, model.GetIStatusStandaloneModel(), userCred, status, reason, otherUpdates)
+}
+
 func (model *SStatusStandaloneResourceBase) SetStatus(ctx context.Context, userCred mcclient.TokenCredential, status string, reason string) error {
-	return statusBaseSetStatus(ctx, model.GetIStatusStandaloneModel(), userCred, status, reason)
+	return statusBaseSetStatus(ctx, model.GetIStatusStandaloneModel(), userCred, status, reason, nil)
 }
 
 func (model *SStatusStandaloneResourceBase) SetProgress(progress float32) error {
