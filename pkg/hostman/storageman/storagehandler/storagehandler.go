@@ -98,8 +98,7 @@ func storageIsLocalMountPoint(ctx context.Context, w http.ResponseWriter, r *htt
 		return
 	}
 	fs, err := procutils.NewRemoteCommandAsFarAsPossible(
-		"sh", "-c",
-		fmt.Sprintf("df -T %s | awk 'NR==2{print $2}'", mountPoint),
+		"findmnt", "-n", "-o", "FSTYPE", "--target", mountPoint,
 	).Output()
 	if err != nil {
 		log.Errorf("failed get source of mountpoint %s: %s", mountPoint, err)
