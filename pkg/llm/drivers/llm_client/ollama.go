@@ -33,6 +33,91 @@ func (o *ollama) GetType() api.LLMClientType {
 	return api.LLM_CLIENT_OLLAMA
 }
 
+func buildOllamaModelsURL(endpoint string) (string, error) {
+	endpoint = strings.TrimSpace(endpoint)
+	if endpoint == "" {
+		return "", errors.Error("endpoint is empty")
+	}
+
+	baseURL, err := url.Parse(endpoint)
+	if err != nil {
+		return "", errors.Wrapf(err, "invalid endpoint URL %s", endpoint)
+	}
+	baseURL.RawQuery = ""
+	baseURL.Fragment = ""
+
+	path := strings.TrimRight(baseURL.Path, "/")
+	switch {
+	case path == "":
+		baseURL.Path = "/v1/models"
+	case strings.HasSuffix(path, "/v1/models"):
+		baseURL.Path = path
+	case strings.HasSuffix(path, "/v1"):
+		baseURL.Path = path + "/models"
+	default:
+		baseURL.Path = path + "/v1/models"
+	}
+
+	return baseURL.String(), nil
+}
+
+func listOllamaModelsWithClient(ctx context.Context, client *http.Client, endpoint string) ([]string, error) {
+	modelsURL, err := buildOllamaModelsURL(endpoint)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, modelsURL, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "create request")
+	}
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, errors.Wrap(err, "do request")
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, errors.Wrap(err, "read response body")
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, errors.Errorf("unexpected status code %d: %s", resp.StatusCode, string(body))
+	}
+
+	var modelResp OllamaModelsResponse
+	if err := json.Unmarshal(body, &modelResp); err != nil {
+		return nil, errors.Wrapf(err, "decode response: %s", string(body))
+	}
+
+	ret := make([]string, 0, len(modelResp.Data))
+	for _, model := range modelResp.Data {
+		name := strings.TrimSpace(model.Name)
+		if name == "" {
+			name = strings.TrimSpace(model.ID)
+		}
+		if name == "" {
+			continue
+		}
+		ret = append(ret, name)
+	}
+	return ret, nil
+}
+
+func (o *ollama) ListModels(ctx context.Context, endpoint string) ([]string, error) {
+	client := &http.Client{
+		Timeout: 30 * time.Second,
+		Transport: &http.Transport{
+			MaxIdleConns:        100,
+			MaxIdleConnsPerHost: 10,
+			IdleConnTimeout:     90 * time.Second,
+		},
+	}
+	return listOllamaModelsWithClient(ctx, client, endpoint)
+}
+
 func convertMessages(messages interface{}) ([]OllamaChatMessage, error) {
 	// 转换 messages
 	var ollamaMessages []OllamaChatMessage
@@ -437,6 +522,18 @@ type OllamaChatRequest struct {
 	Messages []OllamaChatMessage `json:"messages"`
 	Tools    []OllamaTool        `json:"tools,omitempty"`
 	Stream   bool                `json:"stream"`
+}
+
+type OllamaModelsResponse struct {
+	Object string             `json:"object,omitempty"`
+	Data   []OllamaModelEntry `json:"data"`
+}
+
+type OllamaModelEntry struct {
+	ID      string `json:"id"`
+	Name    string `json:"name,omitempty"`
+	Object  string `json:"object,omitempty"`
+	OwnedBy string `json:"owned_by,omitempty"`
 }
 
 // OllamaChatResponse 表示聊天响应
