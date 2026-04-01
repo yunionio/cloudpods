@@ -226,3 +226,14 @@ type LLMAccessInfo struct {
 	Password string            `json:"password,omitempty"`
 	Extra    map[string]string `json:"extra,omitempty"`
 }
+
+type LLMProviderModelsInput struct {
+	URL          string        `json:"url"`
+	ProviderType LLMClientType `json:"provider_type"`
+}
+
+type LLMProviderModelsOutput struct {
+	ProviderType LLMClientType `json:"provider_type"`
+	URL          string        `json:"url"`
+	Models       []string      `json:"models"`
+}

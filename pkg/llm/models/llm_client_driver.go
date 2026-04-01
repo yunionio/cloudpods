@@ -70,6 +70,10 @@ type ILLMClient interface {
 	ConvertMCPTools(mcpTools []mcp.Tool) []ILLMTool
 }
 
+type ILLMClientModelLister interface {
+	ListModels(ctx context.Context, endpoint string) ([]string, error)
+}
+
 type SLLMToolCall struct {
 	Id       string
 	Function SLLMFunctionCall

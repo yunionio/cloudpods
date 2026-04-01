@@ -193,6 +193,19 @@ func (opts *LLMAvailableNetworkOptions) Params() (jsonutils.JSONObject, error) {
 	return options.StructToParams(opts)
 }
 
+type LLMProviderModelsOptions struct {
+	URL          string `help:"provider url, e.g. http://127.0.0.1:11434 or http://127.0.0.1:8000" json:"url"`
+	ProviderType string `help:"provider type, use openai for OpenAI-compatible endpoints such as vllm" json:"provider_type" choices:"ollama|openai"`
+}
+
+func (opts *LLMProviderModelsOptions) GetId() string {
+	return ""
+}
+
+func (opts *LLMProviderModelsOptions) Params() (jsonutils.JSONObject, error) {
+	return options.StructToParams(opts)
+}
+
 type LLMSaveInstantModelOptions struct {
 	LLMIdOptions
 
