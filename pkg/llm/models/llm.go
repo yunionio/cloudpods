@@ -940,6 +940,58 @@ func (man *SLLMManager) GetAvailableNetwork(ctx context.Context, userCred mcclie
 	return ret, nil
 }
 
+func (man *SLLMManager) performProviderModels(ctx context.Context, input api.LLMProviderModelsInput) (*api.LLMProviderModelsOutput, error) {
+	input.URL = strings.TrimSpace(input.URL)
+	if input.URL == "" {
+		return nil, httperrors.NewMissingParameterError("url")
+	}
+	if input.ProviderType == "" {
+		return nil, httperrors.NewMissingParameterError("provider_type")
+	}
+	if !api.IsLLMClientType(string(input.ProviderType)) {
+		return nil, httperrors.NewInputParameterError("invalid provider_type %q", input.ProviderType)
+	}
+
+	drv, err := GetLLMClientDriverWithError(input.ProviderType)
+	if err != nil {
+		return nil, httperrors.NewNotSupportedError("provider_type %q is not supported", input.ProviderType)
+	}
+	modelLister, ok := drv.(ILLMClientModelLister)
+	if !ok {
+		return nil, httperrors.NewNotSupportedError("provider_type %q does not support listing models", input.ProviderType)
+	}
+
+	models, err := modelLister.ListModels(ctx, input.URL)
+	if err != nil {
+		return nil, httperrors.NewBadGatewayError("list models from %q via %q: %v", input.ProviderType, input.URL, err)
+	}
+
+	return &api.LLMProviderModelsOutput{
+		ProviderType: input.ProviderType,
+		URL:          input.URL,
+		Models:       models,
+	}, nil
+}
+
+func (man *SLLMManager) GetProviderModels(ctx context.Context, _ mcclient.TokenCredential, query jsonutils.JSONObject) (*api.LLMProviderModelsOutput, error) {
+	input := api.LLMProviderModelsInput{}
+	if query != nil {
+		if err := query.Unmarshal(&input); err != nil {
+			return nil, errors.Wrap(err, "unmarshal provider models input")
+		}
+	}
+	return man.performProviderModels(ctx, input)
+}
+
+func (man *SLLMManager) PerformProviderModels(ctx context.Context, _ mcclient.TokenCredential, query jsonutils.JSONObject, input api.LLMProviderModelsInput) (*api.LLMProviderModelsOutput, error) {
+	if input.URL == "" && query != nil {
+		if err := query.Unmarshal(&input); err != nil {
+			return nil, errors.Wrap(err, "unmarshal provider models query")
+		}
+	}
+	return man.performProviderModels(ctx, input)
+}
+
 func (llm *SLLM) StartBindVolumeTask(ctx context.Context, userCred mcclient.TokenCredential, volumeId string, autoStart bool, parenentTaskId string) (*taskman.STask, error) {
 	llm.SetStatus(ctx, userCred, api.LLM_STATUS_START_BIND, "perform bind volume")
 	params := api.LLMVolumeInput{
