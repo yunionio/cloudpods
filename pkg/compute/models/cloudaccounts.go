@@ -1163,7 +1163,7 @@ func (acnt *SCloudaccount) importSubAccount(ctx context.Context, userCred mcclie
 				lockman.LockRawObject(ctx, CloudproviderManager.Keyword(), "name")
 				defer lockman.ReleaseRawObject(ctx, CloudproviderManager.Keyword(), "name")
 				// 根据云订阅名称获取或创建项目
-				domainId, projectId, err := acnt.getOrCreateTenant(ctx, provider.Name, provider.DomainId, "", subAccount.Desc)
+				domainId, projectId, err := acnt.getOrCreateTenant(ctx, provider.Name, provider.DomainId, "", subAccount.Desc, subAccount.Tags)
 				if err != nil {
 					return errors.Wrapf(err, "getOrCreateTenant err,provider_name :%s", provider.Name)
 				}
@@ -1265,7 +1265,7 @@ func (acnt *SCloudaccount) importSubAccount(ctx context.Context, userCred mcclie
 				if err != nil {
 					return err
 				}
-				domainId, projectId, err := acnt.getOrCreateTenant(ctx, newCloudprovider.Name, newCloudprovider.DomainId, "", subAccount.Desc)
+				domainId, projectId, err := acnt.getOrCreateTenant(ctx, newCloudprovider.Name, newCloudprovider.DomainId, "", subAccount.Desc, subAccount.Tags)
 				if err != nil {
 					return errors.Wrapf(err, "getOrCreateTenant err,provider_name :%s", newCloudprovider.Name)
 				}
