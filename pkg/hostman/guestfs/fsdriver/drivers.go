@@ -47,7 +47,7 @@ func Init(cloudrootDir string) error {
 		NewOpenSuseRootFs,
 		NewDebianRootFs, NewCirrosRootFs, NewCirrosNewRootFs, NewUbuntuRootFs,
 		NewGentooRootFs, NewArchLinuxRootFs, NewOpenWrtRootFs, NewCoreOsRootFs,
-		NewOpenEulerRootFs, NewTencentOsRootFs,
+		NewOpenEulerRootFs, NewTencentOsRootFs, NewCTyunOSRootFs,
 	}
 	rootfsDrivers = append(rootfsDrivers, linuxFsDrivers...)
 	rootfsDrivers = append(rootfsDrivers, NewMacOSRootFs)
