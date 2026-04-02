@@ -820,12 +820,19 @@ func (self *SAzureClient) GetRegions() []SRegion {
 }
 
 func (self *SAzureClient) GetSubAccounts() (subAccounts []cloudprovider.SSubAccount, err error) {
+	levelBySub, err := self.getSubscriptionManagementGroupLevels()
+	if err != nil {
+		levelBySub = map[string]map[string]string{}
+	}
 	subAccounts = make([]cloudprovider.SSubAccount, len(self.subscriptions))
 	for i, subscription := range self.subscriptions {
 		subAccounts[i].Account = fmt.Sprintf("%s/%s", self.tenantId, subscription.SubscriptionId)
 		subAccounts[i].Id = subscription.SubscriptionId
 		subAccounts[i].Name = subscription.DisplayName
 		subAccounts[i].HealthStatus = subscription.GetHealthStatus()
+		if tags, ok := levelBySub[subscription.SubscriptionId]; ok {
+			subAccounts[i].Tags = tags
+		}
 	}
 	return subAccounts, nil
 }
@@ -854,15 +861,6 @@ func (self *SAzureClient) GetIRegions() ([]cloudprovider.ICloudRegion, error) {
 func (self *SAzureClient) getDefaultRegion() (cloudprovider.ICloudRegion, error) {
 	if len(self.regions) > 0 {
 		return &self.regions[0], nil
-	}
-	return nil, cloudprovider.ErrNotFound
-}
-
-func (self *SAzureClient) getIRegionByRegionId(id string) (cloudprovider.ICloudRegion, error) {
-	for i := 0; i < len(self.regions); i += 1 {
-		if self.regions[i].GetId() == id {
-			return &self.regions[i], nil
-		}
 	}
 	return nil, cloudprovider.ErrNotFound
 }
@@ -1007,6 +1005,61 @@ func (self *SAzureClient) GetCapabilities() []string {
 		cloudprovider.CLOUD_CAPABILITY_CONTAINER + cloudprovider.READ_ONLY_SUFFIX,
 	}
 	return caps
+}
+
+type SManagementEntity struct {
+	Id         string `json:"id"`
+	Name       string `json:"name"`
+	Type       string `json:"type"`
+	Properties struct {
+		DisplayName            string   `json:"displayName"`
+		ParentDisplayNameChain []string `json:"parentDisplayNameChain"`
+	} `json:"properties"`
+}
+
+type SManagementEntities struct {
+	Value []SManagementEntity `json:"value"`
+}
+
+func (self *SAzureClient) getSubscriptionManagementGroupLevels() (map[string]map[string]string, error) {
+	result := map[string]map[string]string{}
+	resp, err := self.post_v2("/providers/Microsoft.Management/getEntities", "2020-05-01", map[string]interface{}{
+		"$select": "Name,DisplayName,Type,ParentDisplayNameChain",
+	})
+	if err != nil {
+		return result, errors.Wrap(err, "post_v2 Microsoft.Management/getEntities")
+	}
+	entities := SManagementEntities{}
+	if err := resp.Unmarshal(&entities); err != nil {
+		return result, errors.Wrap(err, "resp.Unmarshal SManagementEntities")
+	}
+	for i := range entities.Value {
+		e := entities.Value[i]
+		if !strings.Contains(strings.ToLower(e.Type), "subscriptions") {
+			continue
+		}
+		chain := e.Properties.ParentDisplayNameChain
+		if len(chain) == 0 {
+			continue
+		}
+		tags := map[string]string{}
+		for idx, name := range chain {
+			key := ""
+			switch idx {
+			case 0:
+				key = "L1"
+			case 1:
+				key = "L2"
+			case 2:
+				key = "L3"
+			default:
+				key = fmt.Sprintf("L%d", idx+1)
+			}
+			tags[key] = name
+		}
+		result[e.Name] = tags
+	}
+	return result, nil
 }
 
 type TagParams struct {

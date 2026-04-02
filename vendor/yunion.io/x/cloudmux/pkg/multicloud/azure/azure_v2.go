@@ -65,7 +65,7 @@ func (t Token) Token() string {
 }
 
 func (t Token) isExpire() bool {
-	expire := time.Unix(t.NotBefore, 0)
+	expire := time.Unix(t.ExpiresOn, 0)
 	return expire.Before(time.Now())
 }
 
@@ -131,12 +131,6 @@ func (self *SAzureClient) auth(resource string) (string, error) {
 }
 
 func (self *SAzureClient) Do(req *http.Request) (*http.Response, error) {
-	resource := fmt.Sprintf("https://%s", req.Host)
-	token, err := self.auth(resource)
-	if err != nil {
-		return nil, errors.Wrapf(err, "auth")
-	}
-	req.Header.Set("Authorization", token)
 	return self.client().Do(req)
 }
 
@@ -482,8 +476,7 @@ func (self *SAzureClient) __request_v2(service string, method httputils.THttpMet
 	if body != nil {
 		input = jsonutils.Marshal(body)
 	}
-	_, resp, err := httputils.JSONRequest(self, self.ctx, method, url, nil, input, self.debug)
-	return resp, err
+	return self.JSONRequest(method, url, nil, input)
 }
 
 func (self *SAzureClient) delete_v2(resource, apiVersion string, body map[string]interface{}) (jsonutils.JSONObject, error) {
@@ -496,8 +489,7 @@ func (self *SAzureClient) _delete_v2(service string, resource, apiVersion string
 	if len(apiVersion) > 0 {
 		url += fmt.Sprintf("?api-version=%s", apiVersion)
 	}
-	_, resp, err := httputils.JSONRequest(self, self.ctx, httputils.DELETE, url, nil, nil, self.debug)
-	return resp, err
+	return self.JSONRequest(httputils.DELETE, url, nil, nil)
 }
 
 func (self *SAzureClient) patch_v2(resource, apiVersion string, body map[string]interface{}) (jsonutils.JSONObject, error) {
@@ -510,6 +502,23 @@ func (self *SAzureClient) _patch_v2(service string, resource, apiVersion string,
 	if len(apiVersion) > 0 {
 		url += fmt.Sprintf("?api-version=%s", apiVersion)
 	}
-	_, resp, err := httputils.JSONRequest(self, self.ctx, httputils.PATCH, url, nil, jsonutils.Marshal(body), self.debug)
+	return self.JSONRequest(httputils.PATCH, url, nil, jsonutils.Marshal(body))
+}
+
+func (self *SAzureClient) JSONRequest(method httputils.THttpMethod, urlStr string, header http.Header, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	uri, err := url.Parse(urlStr)
+	if err != nil {
+		return nil, errors.Wrapf(err, "url.Parse(%s)", urlStr)
+	}
+	resource := fmt.Sprintf("https://%s", uri.Host)
+	token, err := self.auth(resource)
+	if err != nil {
+		return nil, errors.Wrapf(err, "auth")
+	}
+	if gotypes.IsNil(header) {
+		header = http.Header{}
+	}
+	header.Set("Authorization", token)
+	_, resp, err := httputils.JSONRequest(self, self.ctx, method, urlStr, header, body, self.debug)
 	return resp, err
 }

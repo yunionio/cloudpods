@@ -37,6 +37,18 @@ type SEnrollmentAccount struct {
 	Properties SEnrollmentAccountProperties
 }
 
+type SBillingAccountProperties struct {
+	DisplayName   string `json:"displayName"`
+	AgreementType string `json:"agreementType"`
+}
+
+type SBillingAccount struct {
+	Id         string                    `json:"id"`
+	Name       string                    `json:"name"`
+	Type       string                    `json:"type"`
+	Properties SBillingAccountProperties `json:"properties"`
+}
+
 func (cli *SAzureClient) GetEnrollmentAccounts() ([]cloudprovider.SEnrollmentAccount, error) {
 	accounts := []SEnrollmentAccount{}
 	err := cli.list("providers/Microsoft.Billing/enrollmentAccounts", nil, &accounts)
@@ -53,6 +65,18 @@ func (cli *SAzureClient) GetEnrollmentAccounts() ([]cloudprovider.SEnrollmentAcc
 		eas = append(eas, ea)
 	}
 	return eas, nil
+}
+
+func (cli *SAzureClient) GetBillingAccounts() ([]SBillingAccount, error) {
+	resp, err := cli.list_v2("/providers/Microsoft.Billing/billingAccounts", "2024-04-01", nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "list_v2 billingAccounts")
+	}
+	accounts := []SBillingAccount{}
+	if err := resp.Unmarshal(&accounts, "value"); err != nil {
+		return nil, errors.Wrap(err, "resp.Unmarshal billingAccounts")
+	}
+	return accounts, nil
 }
 
 func (cli *SAzureClient) CreateSubscription(name string, eaId string, offerType string) error {
