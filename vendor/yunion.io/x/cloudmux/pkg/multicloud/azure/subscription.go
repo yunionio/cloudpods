@@ -19,9 +19,15 @@ import (
 )
 
 type SSubscription struct {
-	SubscriptionId string
-	State          string
-	DisplayName    string
+	SubscriptionId       string
+	State                string
+	DisplayName          string
+	Id                   string
+	SubscriptionPolicies struct {
+		LocationPlacementId string
+		QuotaId             string
+		SpendingLimit       string
+	}
 }
 
 func (self *SSubscription) GetHealthStatus() string {
