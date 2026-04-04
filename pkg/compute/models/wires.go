@@ -260,6 +260,10 @@ func (wire *SWire) GetVpcId() string {
 }
 
 func (manager *SWireManager) getWiresByVpcAndZone(vpc *SVpc, zone *SZone) ([]SWire, error) {
+	return manager.getWiresByVpcZoneAndManager(vpc, zone, nil)
+}
+
+func (manager *SWireManager) getWiresByVpcZoneAndManager(vpc *SVpc, zone *SZone, provider *SCloudprovider) ([]SWire, error) {
 	wires := make([]SWire, 0)
 	q := manager.Query()
 	if vpc != nil {
@@ -267,6 +271,9 @@ func (manager *SWireManager) getWiresByVpcAndZone(vpc *SVpc, zone *SZone) ([]SWi
 	}
 	if zone != nil {
 		q = q.Equals("zone_id", zone.Id)
+	}
+	if provider != nil {
+		q = q.Equals("manager_id", provider.Id)
 	}
 	err := db.FetchModelObjects(manager, q, &wires)
 	if err != nil {
@@ -291,7 +298,7 @@ func (manager *SWireManager) SyncWires(
 	remoteWires := make([]cloudprovider.ICloudWire, 0)
 	syncResult := compare.SyncResult{}
 
-	dbWires, err := manager.getWiresByVpcAndZone(vpc, zone)
+	dbWires, err := manager.getWiresByVpcZoneAndManager(vpc, zone, provider)
 	if err != nil {
 		syncResult.Error(err)
 		return nil, nil, syncResult
