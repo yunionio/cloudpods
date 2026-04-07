@@ -19,7 +19,8 @@ import (
 	"github.com/coredns/coredns/plugin"
 )
 
-func parseLiteralIP(addr string) net.IP {
+// parseIP calls discards any v6 zone info, before calling net.ParseIP.
+func parseIP(addr string) net.IP {
 	if i := strings.Index(addr, "%"); i >= 0 {
 		// discard ipv6 zone
 		addr = addr[0:i]
@@ -28,43 +29,56 @@ func parseLiteralIP(addr string) net.IP {
 	return net.ParseIP(addr)
 }
 
-func absDomainName(b string) string {
-	return plugin.Name(b).Normalize()
+type options struct {
+	// automatically generate IP to Hostname PTR entries
+	// for host entries we parse
+	autoReverse bool
+
+	// The TTL of the record we generate
+	ttl uint32
+
+	// The time between two reload of the configuration
+	reload time.Duration
 }
 
-type hostsMap struct {
-	// Key for the list of literal IP addresses must be a host
-	// name. It would be part of DNS labels, a FQDN or an absolute
-	// FQDN.
-	// For now the key is converted to lower case for convenience.
-	byNameV4 map[string][]net.IP
-	byNameV6 map[string][]net.IP
+func newOptions() *options {
+	return &options{
+		autoReverse: true,
+		ttl:         3600,
+		reload:      time.Duration(5 * time.Second),
+	}
+}
+
+// Map contains the IPv4/IPv6 and reverse mapping.
+type Map struct {
+	// Key for the list of literal IP addresses must be a FQDN lowercased host name.
+	name4 map[string][]net.IP
+	name6 map[string][]net.IP
 
 	// Key for the list of host names must be a literal IP address
-	// including IPv6 address with zone identifier.
+	// including IPv6 address without zone identifier.
 	// We don't support old-classful IP address notation.
-	byAddr map[string][]string
+	addr map[string][]string
 }
 
-func newHostsMap() *hostsMap {
-	return &hostsMap{
-		byNameV4: make(map[string][]net.IP),
-		byNameV6: make(map[string][]net.IP),
-		byAddr:   make(map[string][]string),
+func newMap() *Map {
+	return &Map{
+		name4: make(map[string][]net.IP),
+		name6: make(map[string][]net.IP),
+		addr:  make(map[string][]string),
 	}
 }
 
-// Len returns the total number of addresses in the hostmap, this includes
-// V4/V6 and any reverse addresses.
-func (h *hostsMap) Len() int {
+// Len returns the total number of addresses in the hostmap, this includes V4/V6 and any reverse addresses.
+func (h *Map) Len() int {
 	l := 0
-	for _, v4 := range h.byNameV4 {
+	for _, v4 := range h.name4 {
 		l += len(v4)
 	}
-	for _, v6 := range h.byNameV6 {
+	for _, v6 := range h.name6 {
 		l += len(v6)
 	}
-	for _, a := range h.byAddr {
+	for _, a := range h.addr {
 		l += len(a)
 	}
 	return l
@@ -78,11 +92,10 @@ type Hostsfile struct {
 	Origins []string
 
 	// hosts maps for lookups
-	hmap *hostsMap
+	hmap *Map
 
 	// inline saves the hosts file that is inlined in a Corefile.
-	// We need a copy here as we want to use it to initialize the maps for parse.
-	inline *hostsMap
+	inline *Map
 
 	// path to the hosts file
 	path string
@@ -90,6 +103,8 @@ type Hostsfile struct {
 	// mtime and size are only read and modified by a single goroutine
 	mtime time.Time
 	size  int64
+
+	options *options
 }
 
 // readHosts determines if the cached data needs to be updated based on the size and modification time of the hostsfile.
@@ -102,11 +117,18 @@ func (h *Hostsfile) readHosts() {
 	defer file.Close()
 
 	stat, err := file.Stat()
-	if err == nil && h.mtime.Equal(stat.ModTime()) && h.size == stat.Size() {
+	if err != nil {
+		return
+	}
+	h.RLock()
+	size := h.size
+	h.RUnlock()
+
+	if h.mtime.Equal(stat.ModTime()) && size == stat.Size() {
 		return
 	}
 
-	newMap := h.parse(file, h.inline)
+	newMap := h.parse(file)
 	log.Debugf("Parsed hosts file into %d entries", newMap.Len())
 
 	h.Lock()
@@ -116,6 +138,8 @@ func (h *Hostsfile) readHosts() {
 	h.mtime = stat.ModTime()
 	h.size = stat.Size()
 
+	hostsEntries.WithLabelValues().Set(float64(h.inline.Len() + h.hmap.Len()))
+	hostsReloadTime.Set(float64(stat.ModTime().UnixNano()) / 1e9)
 	h.Unlock()
 }
 
@@ -124,14 +148,12 @@ func (h *Hostsfile) initInline(inline []string) {
 		return
 	}
 
-	hmap := newHostsMap()
-	h.inline = h.parse(strings.NewReader(strings.Join(inline, "\n")), hmap)
-	*h.hmap = *h.inline
+	h.inline = h.parse(strings.NewReader(strings.Join(inline, "\n")))
 }
 
-// Parse reads the hostsfile and populates the byName and byAddr maps.
-func (h *Hostsfile) parse(r io.Reader, override *hostsMap) *hostsMap {
-	hmap := newHostsMap()
+// Parse reads the hostsfile and populates the byName and addr maps.
+func (h *Hostsfile) parse(r io.Reader) *Map {
+	hmap := newMap()
 
 	scanner := bufio.NewScanner(r)
 	for scanner.Scan() {
@@ -144,101 +166,94 @@ func (h *Hostsfile) parse(r io.Reader, override *hostsMap) *hostsMap {
 		if len(f) < 2 {
 			continue
 		}
-		addr := parseLiteralIP(string(f[0]))
+		addr := parseIP(string(f[0]))
 		if addr == nil {
 			continue
 		}
-		ver := ipVersion(string(f[0]))
+
+		family := 0
+		if addr.To4() != nil {
+			family = 1
+		} else {
+			family = 2
+		}
+
 		for i := 1; i < len(f); i++ {
-			name := absDomainName(string(f[i]))
+			name := plugin.Name(string(f[i])).Normalize()
 			if plugin.Zones(h.Origins).Matches(name) == "" {
 				// name is not in Origins
 				continue
 			}
-			switch ver {
-			case 4:
-				hmap.byNameV4[name] = append(hmap.byNameV4[name], addr)
-			case 6:
-				hmap.byNameV6[name] = append(hmap.byNameV6[name], addr)
+			switch family {
+			case 1:
+				hmap.name4[name] = append(hmap.name4[name], addr)
+			case 2:
+				hmap.name6[name] = append(hmap.name6[name], addr)
 			default:
 				continue
 			}
-			hmap.byAddr[addr.String()] = append(hmap.byAddr[addr.String()], name)
+			if !h.options.autoReverse {
+				continue
+			}
+			hmap.addr[addr.String()] = append(hmap.addr[addr.String()], name)
 		}
-	}
-
-	if override == nil {
-		return hmap
-	}
-
-	for name := range override.byNameV4 {
-		hmap.byNameV4[name] = append(hmap.byNameV4[name], override.byNameV4[name]...)
-	}
-	for name := range override.byNameV4 {
-		hmap.byNameV6[name] = append(hmap.byNameV6[name], override.byNameV6[name]...)
-	}
-	for addr := range override.byAddr {
-		hmap.byAddr[addr] = append(hmap.byAddr[addr], override.byAddr[addr]...)
 	}
 
 	return hmap
 }
 
-// ipVersion returns what IP version was used textually
-func ipVersion(s string) int {
-	for i := 0; i < len(s); i++ {
-		switch s[i] {
-		case '.':
-			return 4
-		case ':':
-			return 6
-		}
+// lookupStaticHost looks up the IP addresses for the given host from the hosts file.
+func (h *Hostsfile) lookupStaticHost(m map[string][]net.IP, host string) []net.IP {
+	h.RLock()
+	defer h.RUnlock()
+
+	if len(m) == 0 {
+		return nil
 	}
-	return 0
+
+	ips, ok := m[host]
+	if !ok {
+		return nil
+	}
+	ipsCp := make([]net.IP, len(ips))
+	copy(ipsCp, ips)
+	return ipsCp
 }
 
 // LookupStaticHostV4 looks up the IPv4 addresses for the given host from the hosts file.
 func (h *Hostsfile) LookupStaticHostV4(host string) []net.IP {
-	h.RLock()
-	defer h.RUnlock()
-	if len(h.hmap.byNameV4) != 0 {
-		if ips, ok := h.hmap.byNameV4[absDomainName(host)]; ok {
-			ipsCp := make([]net.IP, len(ips))
-			copy(ipsCp, ips)
-			return ipsCp
-		}
-	}
-	return nil
+	host = strings.ToLower(host)
+	ip1 := h.lookupStaticHost(h.hmap.name4, host)
+	ip2 := h.lookupStaticHost(h.inline.name4, host)
+	return append(ip1, ip2...)
 }
 
 // LookupStaticHostV6 looks up the IPv6 addresses for the given host from the hosts file.
 func (h *Hostsfile) LookupStaticHostV6(host string) []net.IP {
-	h.RLock()
-	defer h.RUnlock()
-	if len(h.hmap.byNameV6) != 0 {
-		if ips, ok := h.hmap.byNameV6[absDomainName(host)]; ok {
-			ipsCp := make([]net.IP, len(ips))
-			copy(ipsCp, ips)
-			return ipsCp
-		}
-	}
-	return nil
+	host = strings.ToLower(host)
+	ip1 := h.lookupStaticHost(h.hmap.name6, host)
+	ip2 := h.lookupStaticHost(h.inline.name6, host)
+	return append(ip1, ip2...)
 }
 
 // LookupStaticAddr looks up the hosts for the given address from the hosts file.
 func (h *Hostsfile) LookupStaticAddr(addr string) []string {
-	h.RLock()
-	defer h.RUnlock()
-	addr = parseLiteralIP(addr).String()
+	addr = parseIP(addr).String()
 	if addr == "" {
 		return nil
 	}
-	if len(h.hmap.byAddr) != 0 {
-		if hosts, ok := h.hmap.byAddr[addr]; ok {
-			hostsCp := make([]string, len(hosts))
-			copy(hostsCp, hosts)
-			return hostsCp
-		}
+
+	h.RLock()
+	defer h.RUnlock()
+	hosts1 := h.hmap.addr[addr]
+	hosts2 := h.inline.addr[addr]
+
+	if len(hosts1) == 0 && len(hosts2) == 0 {
+		return nil
 	}
-	return nil
+
+	hostsCp := make([]string, len(hosts1)+len(hosts2))
+	copy(hostsCp, hosts1)
+	copy(hostsCp[len(hosts1):], hosts2)
+	return hostsCp
 }

@@ -7,10 +7,10 @@
 ## Description
 
 By just using *log* you dump all queries (and parts for the reply) on standard output. Options exist
-to tweak the output a little. The date/time prefix on log lines is RFC3339 formatted with
-milliseconds.
+to tweak the output a little. Note that for busy servers logging will incur a performance hit.
 
-Note that for busy servers logging will incur a performance hit.
+Enabling or disabling the *log* plugin only affects the query logging, any other logging from
+CoreDNS will show up regardless.
 
 ## Syntax
 
@@ -18,21 +18,22 @@ Note that for busy servers logging will incur a performance hit.
 log
 ~~~
 
-* With no arguments, a query log entry is written to *stdout* in the common log format for all requests
-
+With no arguments, a query log entry is written to *stdout* in the common log format for all requests.
 Or if you want/need slightly more control:
 
 ~~~ txt
-log [NAME] [FORMAT]
+log [NAMES...] [FORMAT]
 ~~~
 
-* `NAME` is the name to match in order to be logged
-* `FORMAT` is the log format to use (default is Common Log Format)
+* `NAMES` is the name list to match in order to be logged
+* `FORMAT` is the log format to use (default is Common Log Format), `{common}` is used as a shortcut
+  for the Common Log Format. You can also use `{combined}` for a format that adds the query opcode
+  `{>opcode}` to the Common Log Format.
 
 You can further specify the classes of responses that get logged:
 
 ~~~ txt
-log [NAME] [FORMAT] {
+log [NAMES...] [FORMAT] {
     class CLASSES...
 }
 ~~~
@@ -42,12 +43,14 @@ log [NAME] [FORMAT] {
 The classes of responses have the following meaning:
 
 * `success`: successful response
-* `denial`: either NXDOMAIN or NODATA (name exists, type does not)
+* `denial`: either NXDOMAIN or nodata responses (Name exists, type does not). A nodata response
+   sets the return code to NOERROR.
 * `error`: SERVFAIL, NOTIMP, REFUSED, etc. Anything that indicates the remote server is not willing to
-    resolve the request.
-* `all`: the default - nothing is specified. Using of this class means that all messages will be logged whatever we mix together with "all".
+  resolve the request.
+* `all`: the default - nothing is specified. Using of this class means that all messages will be
+  logged whatever we mix together with "all".
 
-If no class is specified, it defaults to *all*.
+If no class is specified, it defaults to `all`.
 
 ## Log Format
 
@@ -73,10 +76,11 @@ The following place holders are supported:
 * `{>do}`: is the EDNS0 DO (DNSSEC OK) bit set in the query
 * `{>id}`: query ID
 * `{>opcode}`: query OPCODE
-* `{/[LABEL]}`: any metadata label is accepted as a place holder if it is enclosed between `{/` and  `}`.
-the place holder will be replaced by the corresponding metadata value or the default value `-` if label is not defined.
-
-
+* `{common}`: the default Common Log Format.
+* `{combined}`: the Common Log Format with the query opcode.
+* `{/LABEL}`: any metadata label is accepted as a place holder if it is enclosed between `{/` and
+  `}`, the place holder will be replaced by the corresponding metadata value or the default value
+  `-` if label is not defined. See the *metadata* plugin for more information.
 
 The default Common Log Format is:
 
@@ -87,8 +91,8 @@ The default Common Log Format is:
 Each of these logs will be outputted with `log.Infof`, so a typical example looks like this:
 
 ~~~ txt
-2018-10-30T19:10:07.547Z [INFO] [::1]:50759 - 29008 "A IN example.org. udp 41 false 4096" NOERROR qr,rd,ra,ad 68 0.037990251s
-~~~~
+[INFO] [::1]:50759 - 29008 "A IN example.org. udp 41 false 4096" NOERROR qr,rd,ra,ad 68 0.037990251s
+~~~
 
 ## Examples
 
@@ -109,7 +113,7 @@ Custom log format, for all zones (`.`)
 }
 ~~~
 
-Only log denials for example.org (and below to a file)
+Only log denials (NXDOMAIN and nodata) for example.org (and below)
 
 ~~~ corefile
 . {
@@ -119,11 +123,11 @@ Only log denials for example.org (and below to a file)
 }
 ~~~
 
-Log all queries which were not resolved successfully
+Log all queries which were not resolved successfully in the Combined Log Format.
 
 ~~~ corefile
 . {
-    log . {
+    log . {combined} {
         class denial error
     }
 }
