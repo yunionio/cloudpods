@@ -872,6 +872,7 @@ func (self *SZone) purgeWires(ctx context.Context, managerId string) error {
 	bns := HostnetworkManager.Query("row_id").In("network_id", networks.SubQuery())
 	rdsnetworks := DBInstanceNetworkManager.Query("row_id").In("network_id", networks.SubQuery())
 	groupnetworks := GroupnetworkManager.Query("row_id").In("network_id", networks.SubQuery())
+	guestnetworks := GuestnetworkManager.Query("row_id").In("network_id", networks.SubQuery())
 	lbnetworks := LoadbalancernetworkManager.Query("row_id").In("network_id", networks.SubQuery())
 	netmacs := NetworkIpMacManager.Query("id").In("network_id", networks.SubQuery())
 	netaddrs := NetworkAddressManager.Query("id").In("network_id", networks.SubQuery())
@@ -888,6 +889,7 @@ func (self *SZone) purgeWires(ctx context.Context, managerId string) error {
 		{manager: NetworkAddressManager, key: "id", q: netaddrs},
 		{manager: NetworkIpMacManager, key: "id", q: netmacs},
 		{manager: LoadbalancernetworkManager, key: "row_id", q: lbnetworks},
+		{manager: GuestnetworkManager, key: "row_id", q: guestnetworks},
 		{manager: GroupnetworkManager, key: "row_id", q: groupnetworks},
 		{manager: DBInstanceNetworkManager, key: "row_id", q: rdsnetworks},
 		{manager: HostnetworkManager, key: "row_id", q: bns},
