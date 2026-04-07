@@ -2,7 +2,6 @@ package file
 
 import (
 	"fmt"
-	"net"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -10,29 +9,28 @@ import (
 
 	"github.com/coredns/coredns/plugin/file/tree"
 	"github.com/coredns/coredns/plugin/pkg/upstream"
-	"github.com/coredns/coredns/request"
 
 	"github.com/miekg/dns"
 )
 
-// Zone defines a structure that contains all data related to a DNS zone.
+// Zone is a structure that contains all data related to a DNS zone.
 type Zone struct {
 	origin  string
 	origLen int
 	file    string
 	*tree.Tree
-	Apex Apex
+	Apex
+	Expired bool
 
-	TransferTo   []string
+	sync.RWMutex
+
 	StartupOnce  sync.Once
 	TransferFrom []string
-	Expired      *bool
 
 	ReloadInterval time.Duration
-	LastReloaded   time.Time
-	reloadMu       sync.RWMutex
 	reloadShutdown chan bool
-	Upstream       upstream.Upstream // Upstream for looking up names during the resolution process
+
+	Upstream *upstream.Upstream // Upstream for looking up external names during the resolution process.
 }
 
 // Apex contains the apex records of a zone: SOA, NS and their potential signatures.
@@ -45,24 +43,18 @@ type Apex struct {
 
 // NewZone returns a new zone.
 func NewZone(name, file string) *Zone {
-	z := &Zone{
+	return &Zone{
 		origin:         dns.Fqdn(name),
 		origLen:        dns.CountLabel(dns.Fqdn(name)),
 		file:           filepath.Clean(file),
 		Tree:           &tree.Tree{},
-		Expired:        new(bool),
 		reloadShutdown: make(chan bool),
-		LastReloaded:   time.Now(),
 	}
-	*z.Expired = false
-
-	return z
 }
 
 // Copy copies a zone.
 func (z *Zone) Copy() *Zone {
 	z1 := NewZone(z.origin, z.file)
-	z1.TransferTo = z.TransferTo
 	z1.TransferFrom = z.TransferFrom
 	z1.Expired = z.Expired
 
@@ -73,7 +65,6 @@ func (z *Zone) Copy() *Zone {
 // CopyWithoutApex copies zone z without the Apex records.
 func (z *Zone) CopyWithoutApex() *Zone {
 	z1 := NewZone(z.origin, z.file)
-	z1.TransferTo = z.TransferTo
 	z1.TransferFrom = z.TransferFrom
 	z1.Expired = z.Expired
 
@@ -124,71 +115,41 @@ func (z *Zone) Insert(r dns.RR) error {
 	return nil
 }
 
-// Delete deletes r from z.
-func (z *Zone) Delete(r dns.RR) { z.Tree.Delete(r) }
-
-// File retrieves the file path in a safe way
+// File retrieves the file path in a safe way.
 func (z *Zone) File() string {
-	z.reloadMu.Lock()
-	defer z.reloadMu.Unlock()
+	z.RLock()
+	defer z.RUnlock()
 	return z.file
 }
 
-// SetFile updates the file path in a safe way
+// SetFile updates the file path in a safe way.
 func (z *Zone) SetFile(path string) {
-	z.reloadMu.Lock()
+	z.Lock()
 	z.file = path
-	z.reloadMu.Unlock()
+	z.Unlock()
 }
 
-// TransferAllowed checks if incoming request for transferring the zone is allowed according to the ACLs.
-func (z *Zone) TransferAllowed(state request.Request) bool {
-	for _, t := range z.TransferTo {
-		if t == "*" {
-			return true
-		}
-		// If remote IP matches we accept.
-		remote := state.IP()
-		to, _, err := net.SplitHostPort(t)
-		if err != nil {
-			continue
-		}
-		if to == remote {
-			return true
-		}
-	}
-	// TODO(miek): future matching against IP/CIDR notations
-	return false
-}
-
-// All returns all records from the zone, the first record will be the SOA record,
-// otionally followed by all RRSIG(SOA)s.
-func (z *Zone) All() []dns.RR {
-	if z.ReloadInterval > 0 {
-		z.reloadMu.RLock()
-		defer z.reloadMu.RUnlock()
+// ApexIfDefined returns the apex nodes from z. The SOA record is the first record, if it does not exist, an error is returned.
+func (z *Zone) ApexIfDefined() ([]dns.RR, error) {
+	z.RLock()
+	defer z.RUnlock()
+	if z.Apex.SOA == nil {
+		return nil, fmt.Errorf("no SOA")
 	}
 
-	records := []dns.RR{}
-	allNodes := z.Tree.All()
-	for _, a := range allNodes {
-		records = append(records, a.All()...)
-	}
-
-	if len(z.Apex.SIGNS) > 0 {
-		records = append(z.Apex.SIGNS, records...)
-	}
-	records = append(z.Apex.NS, records...)
+	rrs := []dns.RR{z.Apex.SOA}
 
 	if len(z.Apex.SIGSOA) > 0 {
-		records = append(z.Apex.SIGSOA, records...)
+		rrs = append(rrs, z.Apex.SIGSOA...)
 	}
-	return append([]dns.RR{z.Apex.SOA}, records...)
-}
+	if len(z.Apex.NS) > 0 {
+		rrs = append(rrs, z.Apex.NS...)
+	}
+	if len(z.Apex.SIGNS) > 0 {
+		rrs = append(rrs, z.Apex.SIGNS...)
+	}
 
-// Print prints the zone's tree to stdout.
-func (z *Zone) Print() {
-	z.Tree.Print()
+	return rrs, nil
 }
 
 // NameFromRight returns the labels from the right, staring with the

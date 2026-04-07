@@ -51,9 +51,11 @@ Transfer:
 		return Err
 	}
 
+	z.Lock()
 	z.Tree = z1.Tree
 	z.Apex = z1.Apex
-	*z.Expired = false
+	z.Expired = false
+	z.Unlock()
 	log.Infof("Transferred: %s from %s", z.origin, tr)
 	return nil
 }
@@ -93,7 +95,7 @@ Transfer:
 	return less(z.Apex.SOA.Serial, uint32(serial)), Err
 }
 
-// less return true of a is smaller than b when taking RFC 1982 serial arithmetic into account.
+// less returns true of a is smaller than b when taking RFC 1982 serial arithmetic into account.
 func less(a, b uint32) bool {
 	if a < b {
 		return (b - a) <= MaxSerialIncrement
@@ -127,7 +129,7 @@ Restart:
 			if !retryActive {
 				break
 			}
-			*z.Expired = true
+			z.Expired = true
 
 		case <-retryTicker.C:
 			if !retryActive {
@@ -181,7 +183,6 @@ Restart:
 			retryTicker.Stop()
 			expireTicker.Stop()
 			goto Restart
-
 		}
 	}
 }
@@ -190,7 +191,6 @@ Restart:
 func jitter(n int) time.Duration {
 	r := rand.Intn(n)
 	return time.Duration(r) * time.Millisecond
-
 }
 
 // MaxSerialIncrement is the maximum difference between two serial numbers. If the difference between

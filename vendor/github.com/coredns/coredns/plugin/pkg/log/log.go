@@ -1,7 +1,7 @@
-// Package log implements a small wrapper around the std lib log package.
-// It implements log levels by prefixing the logs with the current time
-// with in RFC3339Milli and [INFO], [DEBUG], [WARNING] or [ERROR].
-// Debug logging is available and enabled if the *debug* plugin is used.
+// Package log implements a small wrapper around the std lib log package. It
+// implements log levels by prefixing the logs with [INFO], [DEBUG], [WARNING]
+// or [ERROR]. Debug logging is available and enabled if the *debug* plugin is
+// used.
 //
 // log.Info("this is some logging"), will log on the Info level.
 //
@@ -10,32 +10,57 @@ package log
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	golog "log"
 	"os"
-	"time"
+	"sync"
 )
 
-// D controls whether we should output debug logs. If true, we do.
-var D bool
+// D controls whether we should output debug logs. If true, we do, once set
+// it can not be unset.
+var D = &d{}
 
-// RFC3339Milli doesn't exist, invent it here.
-func clock() string { return time.Now().Format("2006-01-02T15:04:05.000Z07:00") }
+type d struct {
+	on bool
+	sync.RWMutex
+}
+
+// Set enables debug logging.
+func (d *d) Set() {
+	d.Lock()
+	d.on = true
+	d.Unlock()
+}
+
+// Clear disables debug logging.
+func (d *d) Clear() {
+	d.Lock()
+	d.on = false
+	d.Unlock()
+}
+
+// Value returns if debug logging is enabled.
+func (d *d) Value() bool {
+	d.RLock()
+	b := d.on
+	d.RUnlock()
+	return b
+}
 
 // logf calls log.Printf prefixed with level.
 func logf(level, format string, v ...interface{}) {
-	golog.Print(clock(), level, fmt.Sprintf(format, v...))
+	golog.Print(level, fmt.Sprintf(format, v...))
 }
 
 // log calls log.Print prefixed with level.
 func log(level string, v ...interface{}) {
-	golog.Print(clock(), level, fmt.Sprint(v...))
+	golog.Print(level, fmt.Sprint(v...))
 }
 
 // Debug is equivalent to log.Print(), but prefixed with "[DEBUG] ". It only outputs something
 // if D is true.
 func Debug(v ...interface{}) {
-	if !D {
+	if !D.Value() {
 		return
 	}
 	log(debug, v...)
@@ -44,7 +69,7 @@ func Debug(v ...interface{}) {
 // Debugf is equivalent to log.Printf(), but prefixed with "[DEBUG] ". It only outputs something
 // if D is true.
 func Debugf(format string, v ...interface{}) {
-	if !D {
+	if !D.Value() {
 		return
 	}
 	logf(debug, format, v...)
@@ -77,12 +102,12 @@ func Fatal(v ...interface{}) { log(fatal, v...); os.Exit(1) }
 func Fatalf(format string, v ...interface{}) { logf(fatal, format, v...); os.Exit(1) }
 
 // Discard sets the log output to /dev/null.
-func Discard() { golog.SetOutput(ioutil.Discard) }
+func Discard() { golog.SetOutput(io.Discard) }
 
 const (
-	debug   = " [DEBUG] "
-	err     = " [ERROR] "
-	fatal   = " [FATAL] "
-	info    = " [INFO] "
-	warning = " [WARNING] "
+	debug   = "[DEBUG] "
+	err     = "[ERROR] "
+	fatal   = "[FATAL] "
+	info    = "[INFO] "
+	warning = "[WARNING] "
 )

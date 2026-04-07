@@ -14,21 +14,35 @@ import (
 type HealthChecker interface {
 	Check(*Proxy) error
 	SetTLSConfig(*tls.Config)
+	SetRecursionDesired(bool)
+	GetRecursionDesired() bool
+	SetDomain(domain string)
+	GetDomain() string
+	SetTCPTransport()
 }
 
 // dnsHc is a health checker for a DNS endpoint (DNS, and DoT).
-type dnsHc struct{ c *dns.Client }
+type dnsHc struct {
+	c                *dns.Client
+	recursionDesired bool
+	domain           string
+}
+
+var (
+	hcReadTimeout  = 1 * time.Second
+	hcWriteTimeout = 1 * time.Second
+)
 
 // NewHealthChecker returns a new HealthChecker based on transport.
-func NewHealthChecker(trans string) HealthChecker {
+func NewHealthChecker(trans string, recursionDesired bool, domain string) HealthChecker {
 	switch trans {
 	case transport.DNS, transport.TLS:
 		c := new(dns.Client)
 		c.Net = "udp"
-		c.ReadTimeout = 1 * time.Second
-		c.WriteTimeout = 1 * time.Second
+		c.ReadTimeout = hcReadTimeout
+		c.WriteTimeout = hcWriteTimeout
 
-		return &dnsHc{c: c}
+		return &dnsHc{c: c, recursionDesired: recursionDesired, domain: domain}
 	}
 
 	log.Warningf("No healthchecker for transport %q", trans)
@@ -40,7 +54,25 @@ func (h *dnsHc) SetTLSConfig(cfg *tls.Config) {
 	h.c.TLSConfig = cfg
 }
 
-// For HC we send to . IN NS +norec message to the upstream. Dial timeouts and empty
+func (h *dnsHc) SetRecursionDesired(recursionDesired bool) {
+	h.recursionDesired = recursionDesired
+}
+func (h *dnsHc) GetRecursionDesired() bool {
+	return h.recursionDesired
+}
+
+func (h *dnsHc) SetDomain(domain string) {
+	h.domain = domain
+}
+func (h *dnsHc) GetDomain() string {
+	return h.domain
+}
+
+func (h *dnsHc) SetTCPTransport() {
+	h.c.Net = "tcp"
+}
+
+// For HC we send to . IN NS +[no]rec message to the upstream. Dial timeouts and empty
 // replies are considered fails, basically anything else constitutes a healthy upstream.
 
 // Check is used as the up.Func in the up.Probe.
@@ -58,7 +90,8 @@ func (h *dnsHc) Check(p *Proxy) error {
 
 func (h *dnsHc) send(addr string) error {
 	ping := new(dns.Msg)
-	ping.SetQuestion(".", dns.TypeNS)
+	ping.SetQuestion(h.domain, dns.TypeNS)
+	ping.MsgHdr.RecursionDesired = h.recursionDesired
 
 	m, _, err := h.c.Exchange(ping, addr)
 	// If we got a header, we're alright, basically only care about I/O errors 'n stuff.

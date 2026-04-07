@@ -1,4 +1,4 @@
-// +build fuzz
+//go:build gofuzz
 
 package cache
 

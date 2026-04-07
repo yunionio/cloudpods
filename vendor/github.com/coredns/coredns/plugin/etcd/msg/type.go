@@ -15,12 +15,14 @@ import (
 //
 // Note that a service can double/triple as a TXT record or MX record.
 func (s *Service) HostType() (what uint16, normalized net.IP) {
-
 	ip := net.ParseIP(s.Host)
 
 	switch {
 	case ip == nil:
-		return dns.TypeCNAME, nil
+		if len(s.Text) == 0 {
+			return dns.TypeCNAME, nil
+		}
+		return dns.TypeTXT, nil
 
 	case ip.To4() != nil:
 		return dns.TypeA, ip.To4()

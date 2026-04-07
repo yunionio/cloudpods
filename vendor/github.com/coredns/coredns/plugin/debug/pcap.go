@@ -9,7 +9,7 @@ import (
 	"github.com/miekg/dns"
 )
 
-// Hexdump converts the dns message m to a hex dump Whireshark can import.
+// Hexdump converts the dns message m to a hex dump Wireshark can import.
 // See https://www.wireshark.org/docs/man-pages/text2pcap.html.
 // This output looks like this:
 //
@@ -23,7 +23,7 @@ import (
 //
 // msg will prefix the pcap dump.
 func Hexdump(m *dns.Msg, v ...interface{}) {
-	if !log.D {
+	if !log.D.Value() {
 		return
 	}
 
@@ -39,7 +39,7 @@ func Hexdump(m *dns.Msg, v ...interface{}) {
 
 // Hexdumpf dumps a DNS message as Hexdump, but allows a format string.
 func Hexdumpf(m *dns.Msg, format string, v ...interface{}) {
-	if !log.D {
+	if !log.D.Value() {
 		return
 	}
 

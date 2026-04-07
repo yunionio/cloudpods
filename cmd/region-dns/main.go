@@ -17,7 +17,11 @@ package main
 import (
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/coremain"
+	_ "github.com/coredns/coredns/plugin/acl"
+	_ "github.com/coredns/coredns/plugin/bind"
+	_ "github.com/coredns/coredns/plugin/bufsize"
 	_ "github.com/coredns/coredns/plugin/cache"
+	_ "github.com/coredns/coredns/plugin/cancel"
 	_ "github.com/coredns/coredns/plugin/chaos"
 	_ "github.com/coredns/coredns/plugin/debug"
 	_ "github.com/coredns/coredns/plugin/errors"
@@ -25,12 +29,18 @@ import (
 	_ "github.com/coredns/coredns/plugin/forward"
 	_ "github.com/coredns/coredns/plugin/health"
 	_ "github.com/coredns/coredns/plugin/hosts"
+	_ "github.com/coredns/coredns/plugin/loadbalance"
+	_ "github.com/coredns/coredns/plugin/local"
 	_ "github.com/coredns/coredns/plugin/log"
-	_ "github.com/coredns/coredns/plugin/metrics"
+	_ "github.com/coredns/coredns/plugin/loop"
+	_ "github.com/coredns/coredns/plugin/metrics" // prometheus
 	_ "github.com/coredns/coredns/plugin/nsid"
-	_ "github.com/coredns/coredns/plugin/proxy"
+	_ "github.com/coredns/coredns/plugin/ready"
 	_ "github.com/coredns/coredns/plugin/reload"
+	_ "github.com/coredns/coredns/plugin/rewrite"
+	_ "github.com/coredns/coredns/plugin/timeouts"
 	_ "github.com/coredns/coredns/plugin/trace"
+	_ "github.com/coredns/coredns/plugin/whoami"
 	_ "github.com/mholt/caddy/startupshutdown"
 
 	_ "yunion.io/x/onecloud/pkg/dns"
@@ -38,18 +48,31 @@ import (
 )
 
 var directives = []string{
+	"cancel",
+	"timeouts",
+	"reload",
+	"nsid",
+	"bufsize",
+	"bind",
 	"debug",
 	"trace",
+	"ready",
 	"health",
+	"prometheus",
 	"errors",
 	"log",
+	"local",
 	"chaos",
+	"loadbalance",
 	"cache",
+	"rewrite",
+	"acl",
+	"yunion",
 	"hosts",
 	"file",
-	"yunion",
+	"loop",
 	"forward",
-	"proxy",
+	"whoami",
 	"startup",
 	"shutdown",
 }
