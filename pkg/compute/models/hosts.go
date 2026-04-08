@@ -3777,33 +3777,65 @@ func (hh *SHost) getGuestsResource(status string) *SHostGuestResourceUsage {
 }
 
 func fetchHostGuestResource(hostIds []string, status string) (map[string]SHostGuestResourceUsage, error) {
-	guests := GuestManager.Query()
-	cond := sqlchemy.OR(sqlchemy.In(guests.Field("host_id"), hostIds),
-		sqlchemy.In(guests.Field("backup_host_id"), hostIds))
-	guests = guests.Filter(cond)
-	if len(status) > 0 {
-		guests = guests.Equals("status", status)
+	ret := map[string]SHostGuestResourceUsage{}
+
+	// Query by host_id
+	{
+		guests := GuestManager.Query().In("host_id", hostIds)
+		if len(status) > 0 {
+			guests = guests.Equals("status", status)
+		}
+		sq := guests.SubQuery()
+		q := sq.Query(
+			sqlchemy.COUNT("id").Label("guest_count"),
+			sq.Field("host_id"),
+			sqlchemy.SUM("guest_vcpu_count", sq.Field("vcpu_count")),
+			sqlchemy.SUM("guest_vmem_size", sq.Field("vmem_size")),
+		).GroupBy(sq.Field("host_id"))
+
+		stat := []struct {
+			HostId string
+			SHostGuestResourceUsage
+		}{}
+		if err := q.All(&stat); err != nil {
+			return nil, err
+		}
+		for i := range stat {
+			ret[stat[i].HostId] = stat[i].SHostGuestResourceUsage
+		}
 	}
 
-	sq := guests.SubQuery()
-	q := sq.Query(
-		sqlchemy.COUNT("id").Label("guest_count"),
-		sq.Field("host_id"),
-		sqlchemy.SUM("guest_vcpu_count", sq.Field("vcpu_count")),
-		sqlchemy.SUM("guest_vmem_size", sq.Field("vmem_size")),
-	).GroupBy(sq.Field("host_id"))
-	stat := []struct {
-		HostId string
-		SHostGuestResourceUsage
-	}{}
-	err := q.All(&stat)
-	if err != nil {
-		return nil, err
+	// Query by backup_host_id, and attribute usage to backup host
+	{
+		guests := GuestManager.Query().In("backup_host_id", hostIds)
+		if len(status) > 0 {
+			guests = guests.Equals("status", status)
+		}
+		sq := guests.SubQuery()
+		backupHostId := sq.Field("backup_host_id").Label("host_id")
+		q := sq.Query(
+			sqlchemy.COUNT("id").Label("guest_count"),
+			backupHostId,
+			sqlchemy.SUM("guest_vcpu_count", sq.Field("vcpu_count")),
+			sqlchemy.SUM("guest_vmem_size", sq.Field("vmem_size")),
+		).GroupBy(sq.Field("backup_host_id"))
+
+		stat := []struct {
+			HostId string
+			SHostGuestResourceUsage
+		}{}
+		if err := q.All(&stat); err != nil {
+			return nil, err
+		}
+		for i := range stat {
+			v := ret[stat[i].HostId]
+			v.GuestCount += stat[i].GuestCount
+			v.GuestVcpuCount += stat[i].GuestVcpuCount
+			v.GuestVmemSize += stat[i].GuestVmemSize
+			ret[stat[i].HostId] = v
+		}
 	}
-	ret := map[string]SHostGuestResourceUsage{}
-	for i := range stat {
-		ret[stat[i].HostId] = stat[i].SHostGuestResourceUsage
-	}
+
 	return ret, nil
 }
 
