@@ -15,6 +15,7 @@
 package dns
 
 import (
+	"context"
 	"strings"
 
 	"github.com/coredns/coredns/plugin"
@@ -26,10 +27,10 @@ import (
 )
 
 // Reverse implements the ServiceBackend interface
-func (r *SRegionDNS) Reverse(state request.Request, exact bool, opt plugin.Options) (services []msg.Service, err error) {
+func (r *SRegionDNS) Reverse(ctx context.Context, state request.Request, exact bool, opt plugin.Options) (services []msg.Service, err error) {
 	ip := dnsutil.ExtractAddressFromReverse(state.Name())
 	if ip == "" {
-		_, e := r.Records(state, exact)
+		_, e := r.Records(ctx, state, exact)
 		return nil, e
 	}
 	records, err := r.getNameForIp(ip, state)

@@ -29,9 +29,9 @@ func (h Hosts) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 
 	zone := plugin.Zones(h.Origins).Matches(qname)
 	if zone == "" {
-		// PTR zones don't need to be specified in Origins
-		if state.Type() != "PTR" {
-			// If this doesn't match we need to fall through regardless of h.Fallthrough
+		// PTR zones don't need to be specified in Origins.
+		if state.QType() != dns.TypePTR {
+			// if this doesn't match we need to fall through regardless of h.Fallthrough
 			return plugin.NextOrFailure(h.Name(), h.Next, ctx, w, r)
 		}
 	}
@@ -43,93 +43,80 @@ func (h Hosts) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 			// If this doesn't match we need to fall through regardless of h.Fallthrough
 			return plugin.NextOrFailure(h.Name(), h.Next, ctx, w, r)
 		}
-		answers = h.ptr(qname, names)
+		answers = h.ptr(qname, h.options.ttl, names)
 	case dns.TypeA:
 		ips := h.LookupStaticHostV4(qname)
-		answers = a(qname, ips)
+		answers = a(qname, h.options.ttl, ips)
 	case dns.TypeAAAA:
 		ips := h.LookupStaticHostV6(qname)
-		answers = aaaa(qname, ips)
+		answers = aaaa(qname, h.options.ttl, ips)
 	}
 
-	if len(answers) == 0 {
+	// Only on NXDOMAIN we will fallthrough.
+	if len(answers) == 0 && !h.otherRecordsExist(qname) {
 		if h.Fall.Through(qname) {
 			return plugin.NextOrFailure(h.Name(), h.Next, ctx, w, r)
 		}
-		if !h.otherRecordsExist(state.QType(), qname) {
-			return dns.RcodeNameError, nil
-		}
+
+		// We want to send an NXDOMAIN, but because of /etc/hosts' setup we don't have a SOA, so we make it SERVFAIL
+		// to at least give an answer back to signals we're having problems resolving this.
+		return dns.RcodeServerFailure, nil
 	}
 
 	m := new(dns.Msg)
 	m.SetReply(r)
-	m.Authoritative, m.RecursionAvailable = true, true
+	m.Authoritative = true
 	m.Answer = answers
 
 	w.WriteMsg(m)
 	return dns.RcodeSuccess, nil
 }
 
-func (h Hosts) otherRecordsExist(qtype uint16, qname string) bool {
-	switch qtype {
-	case dns.TypeA:
-		if len(h.LookupStaticHostV6(qname)) > 0 {
-			return true
-		}
-	case dns.TypeAAAA:
-		if len(h.LookupStaticHostV4(qname)) > 0 {
-			return true
-		}
-	default:
-		if len(h.LookupStaticHostV4(qname)) > 0 {
-			return true
-		}
-		if len(h.LookupStaticHostV6(qname)) > 0 {
-			return true
-		}
+func (h Hosts) otherRecordsExist(qname string) bool {
+	if len(h.LookupStaticHostV4(qname)) > 0 {
+		return true
+	}
+	if len(h.LookupStaticHostV6(qname)) > 0 {
+		return true
 	}
 	return false
-
 }
 
 // Name implements the plugin.Handle interface.
 func (h Hosts) Name() string { return "hosts" }
 
 // a takes a slice of net.IPs and returns a slice of A RRs.
-func a(zone string, ips []net.IP) []dns.RR {
-	answers := []dns.RR{}
-	for _, ip := range ips {
+func a(zone string, ttl uint32, ips []net.IP) []dns.RR {
+	answers := make([]dns.RR, len(ips))
+	for i, ip := range ips {
 		r := new(dns.A)
-		r.Hdr = dns.RR_Header{Name: zone, Rrtype: dns.TypeA,
-			Class: dns.ClassINET, Ttl: 3600}
+		r.Hdr = dns.RR_Header{Name: zone, Rrtype: dns.TypeA, Class: dns.ClassINET, Ttl: ttl}
 		r.A = ip
-		answers = append(answers, r)
+		answers[i] = r
 	}
 	return answers
 }
 
 // aaaa takes a slice of net.IPs and returns a slice of AAAA RRs.
-func aaaa(zone string, ips []net.IP) []dns.RR {
-	answers := []dns.RR{}
-	for _, ip := range ips {
+func aaaa(zone string, ttl uint32, ips []net.IP) []dns.RR {
+	answers := make([]dns.RR, len(ips))
+	for i, ip := range ips {
 		r := new(dns.AAAA)
-		r.Hdr = dns.RR_Header{Name: zone, Rrtype: dns.TypeAAAA,
-			Class: dns.ClassINET, Ttl: 3600}
+		r.Hdr = dns.RR_Header{Name: zone, Rrtype: dns.TypeAAAA, Class: dns.ClassINET, Ttl: ttl}
 		r.AAAA = ip
-		answers = append(answers, r)
+		answers[i] = r
 	}
 	return answers
 }
 
 // ptr takes a slice of host names and filters out the ones that aren't in Origins, if specified, and returns a slice of PTR RRs.
-func (h *Hosts) ptr(zone string, names []string) []dns.RR {
-	answers := []dns.RR{}
-	for _, n := range names {
+func (h *Hosts) ptr(zone string, ttl uint32, names []string) []dns.RR {
+	answers := make([]dns.RR, len(names))
+	for i, n := range names {
 		r := new(dns.PTR)
-		r.Hdr = dns.RR_Header{Name: zone, Rrtype: dns.TypePTR,
-			Class: dns.ClassINET, Ttl: 3600}
+		r.Hdr = dns.RR_Header{Name: zone, Rrtype: dns.TypePTR, Class: dns.ClassINET, Ttl: ttl}
 		r.Ptr = dns.Fqdn(n)
-		answers = append(answers, r)
+		answers[i] = r
 	}
 	return answers
 }

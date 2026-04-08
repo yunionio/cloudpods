@@ -1,0 +1,23 @@
+language: go
+
+sudo: false
+
+matrix:
+  include:
+    - go: "1.17.x"
+    - go: "1.18.x"
+    - go: "1.19.x"
+
+install:
+  - go get -d -t ./...
+
+script:
+  - make test vet bench
+
+notifications:
+  webhooks:
+    urls:
+      - https://webhooks.gitter.im/e/ead3c37d57527214e9f2
+      - https://webhooks.gitter.im/e/e57478303f87ecd7bffc
+    on_success: change
+    on_failure: always

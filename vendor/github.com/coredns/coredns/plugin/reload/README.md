@@ -10,7 +10,7 @@ This plugin allows automatic reload of a changed _Corefile_.
 To enable automatic reloading of _zone file_ changes, use the `auto` plugin.
 
 This plugin periodically checks if the Corefile has changed by reading
-it and calculating its MD5 checksum. If the file has changed, it reloads
+it and calculating its SHA512 checksum. If the file has changed, it reloads
 CoreDNS with the new Corefile. This eliminates the need to send a SIGHUP
 or SIGUSR1 after changing the Corefile.
 
@@ -38,11 +38,12 @@ This plugin can only be used once per Server Block.
 reload [INTERVAL] [JITTER]
 ~~~
 
-* The plugin will check for changes every **INTERVAL**, subject to +/- the **JITTER** duration
-* **INTERVAL** and **JITTER** are Golang (durations)[https://golang.org/pkg/time/#ParseDuration]
-* Default **INTERVAL** is 30s, default **JITTER** is 15s
-* Minimal value for **INTERVAL** is 2s, and for **JITTER** is 1s
-* If **JITTER** is more than half of **INTERVAL**, it will be set to half of **INTERVAL**
+The plugin will check for changes every **INTERVAL**, subject to +/- the **JITTER** duration.
+
+*  **INTERVAL** and **JITTER** are Golang [durations](https://golang.org/pkg/time/#ParseDuration).
+   The default **INTERVAL** is 30s, default **JITTER** is 15s, the minimal value for **INTERVAL**
+   is 2s, and for **JITTER** it is 1s. If **JITTER** is more than half of **INTERVAL**, it will be
+   set to half of **INTERVAL**
 
 ## Examples
 
@@ -85,6 +86,23 @@ is already listening on that port. The process reloads and performs the followin
 4. fail loading the new Corefile, abort and keep using the old process
 
 After the aborted attempt to reload we are left with the old processes running, but the listener is
-closed in step 1; so the health endpoint is broken. The same can hopen in the prometheus metrics plugin.
+closed in step 1; so the health endpoint is broken. The same can happen in the prometheus plugin.
 
 In general be careful with assigning new port and expecting reload to work fully.
+
+In CoreDNS v1.6.0 and earlier any `import` statements are not discovered by this plugin.
+This means if any of these imported files changes the *reload* plugin is ignorant of that fact.
+CoreDNS v1.7.0 and later does parse the Corefile and supports detecting changes in imported files.
+
+## Metrics
+
+ If monitoring is enabled (via the *prometheus* plugin) then the following metric is exported:
+
+* `coredns_reload_failed_total{}` - counts the number of failed reload attempts.
+* `coredns_reload_version_info{hash, value}` - record the hash value during reload.
+
+Currently the type of `hash` is "sha512", the `value` is the returned hash value.
+
+## See Also
+
+See coredns-import(7) and corefile(5).

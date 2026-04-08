@@ -2,7 +2,7 @@
 
 ## Name
 
-*errors* - enable error logging.
+*errors* - enables error logging.
 
 ## Description
 
@@ -22,12 +22,15 @@ Extra knobs are available with an expanded syntax:
 
 ~~~
 errors {
-	consolidate DURATION REGEXP
+	stacktrace
+	consolidate DURATION REGEXP [LEVEL]
 }
 ~~~
 
-Option `consolidate` allows collecting several error messages matching the regular expression **REGEXP** during **DURATION**. After the **DURATION** since receiving the first such message, the consolidated message will be printed to standard output, e.g.
+Option `stacktrace` will log a stacktrace during panic recovery.
 
+Option `consolidate` allows collecting several error messages matching the regular expression **REGEXP** during **DURATION**. After the **DURATION** since receiving the first such message, the consolidated message will be printed to standard output with
+log level, which is configurable by optional option **LEVEL**. Supported options for **LEVEL** option are `warning`,`error`,`info` and `debug`.
 ~~~
 2 errors like '^read udp .* i/o timeout$' occurred in last 30s
 ~~~
@@ -38,22 +41,24 @@ For better performance, it's recommended to use the `^` or `$` metacharacters in
 
 ## Examples
 
-Use the *whoami* to respond to queries and Log errors to standard output.
+Use the *whoami* to respond to queries in the example.org domain and Log errors to standard output.
 
 ~~~ corefile
-. {
+example.org {
     whoami
     errors
 }
 ~~~
 
-Use the *forward* to resolve queries via 8.8.8.8 and print consolidated error messages for errors with suffix " i/o timeout" or with prefix "Failed to ".
+Use the *forward* plugin to resolve queries via 8.8.8.8 and print consolidated messages
+for errors with suffix " i/o timeout" as warnings,
+and errors with prefix "Failed to " as errors.
 
 ~~~ corefile
 . {
     forward . 8.8.8.8
     errors {
-        consolidate 5m ".* i/o timeout$"
+        consolidate 5m ".* i/o timeout$" warning
         consolidate 30s "^Failed to .+"
     }
 }

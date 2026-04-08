@@ -2,24 +2,29 @@
 
 ## Name
 
-*dnstap* - enable logging to dnstap.
+*dnstap* - enables logging to dnstap.
 
 ## Description
 
-dnstap is a flexible, structured binary log format for DNS software: http://dnstap.info. With this
+dnstap is a flexible, structured binary log format for DNS software; see https://dnstap.info. With this
 plugin you make CoreDNS output dnstap logging.
 
-Note that there is an internal buffer, so expect at least 13 requests before the server sends its
-dnstap messages to the socket.
+Every message is sent to the socket as soon as it comes in, the *dnstap* plugin has a buffer of
+10000 messages, above that number dnstap messages will be dropped (this is logged).
 
 ## Syntax
 
 ~~~ txt
-dnstap SOCKET [full]
+dnstap SOCKET [full] {
+  [identity IDENTITY]
+  [version VERSION]
+}
 ~~~
 
-* **SOCKET** is the socket path supplied to the dnstap command line tool.
+* **SOCKET** is the socket (path) supplied to the dnstap command line tool.
 * `full` to include the wire-format DNS message.
+* **IDENTITY** to override the identity of the server. Defaults to the hostname.
+* **VERSION** to override the version field. Defaults to the CoreDNS version.
 
 ## Examples
 
@@ -39,6 +44,30 @@ Log to a remote endpoint.
 
 ~~~ txt
 dnstap tcp://127.0.0.1:6000 full
+~~~
+
+Log to a remote endpoint by FQDN.
+
+~~~ txt
+dnstap tcp://example.com:6000 full
+~~~
+
+Log to a socket, overriding the default identity and version.
+
+~~~ txt
+dnstap /tmp/dnstap.sock {
+  identity my-dns-server1
+  version MyDNSServer-1.2.3
+}
+~~~
+
+You can use _dnstap_ more than once to define multiple taps. The following logs information including the
+wire-format DNS message about client requests and responses to */tmp/dnstap.sock*,
+and also sends client requests and responses without wire-format DNS messages to a remote FQDN.
+
+~~~ txt
+dnstap /tmp/dnstap.sock full
+dnstap tcp://example.com:6000
 ~~~
 
 ## Command Line Tool
@@ -66,28 +95,46 @@ $ dnstap -l 127.0.0.1:6000
 
 ## Using Dnstap in your plugin
 
-~~~ Go
-import (
-    "github.com/coredns/coredns/plugin/dnstap"
-    "github.com/coredns/coredns/plugin/dnstap/msg"
-)
+In your setup function, collect and store a list of all *dnstap* plugins loaded in the config:
 
-func (h Dnstap) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
-    // log client query to Dnstap
-    if t := dnstap.TapperFromContext(ctx); t != nil {
-        b := msg.New().Time(time.Now()).Addr(w.RemoteAddr())
-        if t.Pack() {
-            b.Msg(r)
-        }
-        if m, err := b.ToClientQuery(); err == nil {
-            t.TapMessage(m)
+~~~ go
+x :=  &ExamplePlugin{}
+
+c.OnStartup(func() error {
+    if taph := dnsserver.GetConfig(c).Handler("dnstap"); taph != nil {
+        for tapPlugin, ok := taph.(*dnstap.Dnstap); ok; tapPlugin, ok = tapPlugin.Next.(*dnstap.Dnstap) {
+            x.tapPlugins = append(x.tapPlugins, tapPlugin)
         }
     }
+    return nil
+})
+~~~
 
+And then in your plugin:
+
+~~~ go
+import (
+  github.com/coredns/coredns/plugin/dnstap/msg
+  tap "github.com/dnstap/golang-dnstap"
+)
+
+func (x ExamplePlugin) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+    for _, tapPlugin := range x.tapPlugins {
+        q := new(msg.Msg)
+        msg.SetQueryTime(q, time.Now())
+        msg.SetQueryAddress(q, w.RemoteAddr())
+        if tapPlugin.IncludeRawMessage {
+            buf, _ := r.Pack() // r has been seen packed/unpacked before, this should not fail
+            q.QueryMessage = buf
+        }
+        msg.SetType(q, tap.Message_CLIENT_QUERY)
+        tapPlugin.TapMessage(q)
+    }
     // ...
 }
 ~~~
 
 ## See Also
 
-[dnstap.info](http://dnstap.info).
+The website [dnstap.info](https://dnstap.info) has info on the dnstap protocol. The *forward*
+plugin's `dnstap.go` uses dnstap to tap messages sent to an upstream.

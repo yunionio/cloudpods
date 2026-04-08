@@ -9,12 +9,17 @@ import (
 
 // Probe is used to run a single Func until it returns true (indicating a target is healthy). If an Func
 // is already in progress no new one will be added, i.e. there is always a maximum of 1 checks in flight.
-// When failures start to happen we will back off every second failure up to maximum of 4 intervals.
+//
+// There is a tradeoff to be made in figuring out quickly that an upstream is healthy and not doing to much work
+// (sending queries) to find that out. Having some kind of exp. backoff here won't help much, because you don't won't
+// to backoff too much. You then also need random queries to be perfomed every so often to quickly detect a working
+// upstream. In the end we just send a query every 0.5 second to check the upstream. This hopefully strikes a balance
+// between getting information about the upstream state quickly and not doing too much work. Note that 0.5s is still an
+// eternity in DNS, so we may actually want to shorten it.
 type Probe struct {
 	sync.Mutex
 	inprogress int
 	interval   time.Duration
-	max        time.Duration
 }
 
 // Func is used to determine if a target is alive. If so this function must return nil.
@@ -42,9 +47,6 @@ func (p *Probe) Do(f Func) {
 				break
 			}
 			time.Sleep(interval)
-			if i%2 == 0 && i < 4 { // 4 is 2 doubles, so no need to increase anymore - this is *also* checked in double()
-				p.double()
-			}
 			p.Lock()
 			if p.inprogress == stop {
 				p.Unlock()
@@ -60,15 +62,6 @@ func (p *Probe) Do(f Func) {
 	}()
 }
 
-func (p *Probe) double() {
-	p.Lock()
-	p.interval *= 2
-	if p.interval > p.max {
-		p.interval = p.max
-	}
-	p.Unlock()
-}
-
 // Stop stops the probing.
 func (p *Probe) Stop() {
 	p.Lock()
@@ -80,7 +73,6 @@ func (p *Probe) Stop() {
 func (p *Probe) Start(interval time.Duration) {
 	p.Lock()
 	p.interval = interval
-	p.max = interval * multiplier
 	p.Unlock()
 }
 
@@ -88,6 +80,4 @@ const (
 	idle = iota
 	active
 	stop
-
-	multiplier = 4
 )
