@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/image"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 func init() {
@@ -245,5 +246,29 @@ func (volume *SVolume) DoReset(ctx context.Context, userCred mcclient.TokenCrede
 		return errors.Wrap(err, "rebuild disk")
 	}
 
+	return nil
+}
+
+func (volume *SVolume) UpdateSize(ctx context.Context, userCred mcclient.TokenCredential, sizeMb int) error {
+	if volume.SizeMB == sizeMb {
+		return nil
+	}
+	oldSize := volume.SizeMB
+	_, err := db.Update(volume, func() error {
+		volume.SizeMB = sizeMb
+		return nil
+	})
+	if err != nil {
+		logclient.AddSimpleActionLog(volume, logclient.ACT_RESIZE, err, userCred, false)
+		return errors.Wrap(err, "update volume size")
+	}
+	notes := struct {
+		OldSizeMb int `json:"old_size_mb"`
+		NewSizeMb int `json:"new_size_mb"`
+	}{
+		OldSizeMb: oldSize,
+		NewSizeMb: sizeMb,
+	}
+	logclient.AddSimpleActionLog(volume, logclient.ACT_RESIZE, jsonutils.Marshal(notes), userCred, true)
 	return nil
 }
