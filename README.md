@@ -11,6 +11,8 @@
 
 Cloudpods is a cloud-native open source unified multi/hybrid-cloud platform developed with Golang, i.e. Cloudpods is *a cloud on clouds*. Cloudpods is able to manage not only on-premise KVM/baremetals, but also resources from many cloud accounts across many cloud providers. It hides the differences of underlying cloud providers and exposes one set of APIs that allow programatically interacting with these many clouds.
 
+Cloudpods also provides **AI Cloud**, a unified management platform for large language model (LLM) inference and AI container applications, helping enterprises deploy, schedule, and operate AI workloads on a single platform, seamlessly integrated with the Cloudpods private cloud / multi-cloud resource ecosystem.
+
 ## Who needs Cloudpods?
 
 * Those who need a simple solution to virtualize a few physical servers into a private cloud
@@ -19,10 +21,23 @@ Cloudpods is a cloud-native open source unified multi/hybrid-cloud platform deve
 * Those who need a cohesive view of both public and private cloud in a hybrid cloud setup
 * Those who need a centric portal to access multiple acccounts from multiple public clouds
 * Those who is currently using a single cloud account, but will not lose the possibility to adopt multicloud strategy
+* Those who need to deploy and manage LLM inference services and AI container applications with GPU support
 
 ## Features
 
 See [Introduction](https://www.cloudpods.org/docs/introduction/) for details.
+
+### AI Cloud
+
+* **AI Inference Services**: Deploy and manage LLM inference instances with GPU scheduling, model mounting, and inference service address allocation.
+* **AI Application Management**: One-stop deployment of LLM application orchestration, agent assistants, image generation, and other AI container applications.
+* **Model Library**: Unified management of model sources, versions, and caches, supporting multi-instance reuse and offline distribution.
+* **Templates and Images**: Define resource specifications (CPU/memory/GPU) through templates, manage container runtime environments through images.
+* **GPU Operations**: Automatic GPU device detection and registration, unified NVIDIA/CUDA environment configuration and management.
+
+Supported AI applications:
+* AI Inference: Ollama
+* AI Applications: OpenClaw, Dify, ComfyUI
 
 ### Supported cloud providers
 
