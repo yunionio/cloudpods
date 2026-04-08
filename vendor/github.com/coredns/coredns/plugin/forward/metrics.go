@@ -4,45 +4,58 @@ import (
 	"github.com/coredns/coredns/plugin"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
 // Variables declared for monitoring.
 var (
-	RequestCount = prometheus.NewCounterVec(prometheus.CounterOpts{
+	RequestCount = promauto.NewCounterVec(prometheus.CounterOpts{
 		Namespace: plugin.Namespace,
 		Subsystem: "forward",
-		Name:      "request_count_total",
+		Name:      "requests_total",
 		Help:      "Counter of requests made per upstream.",
 	}, []string{"to"})
-	RcodeCount = prometheus.NewCounterVec(prometheus.CounterOpts{
+	RcodeCount = promauto.NewCounterVec(prometheus.CounterOpts{
 		Namespace: plugin.Namespace,
 		Subsystem: "forward",
-		Name:      "response_rcode_count_total",
-		Help:      "Counter of requests made per upstream.",
+		Name:      "responses_total",
+		Help:      "Counter of responses received per upstream.",
 	}, []string{"rcode", "to"})
-	RequestDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+	RequestDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
 		Namespace: plugin.Namespace,
 		Subsystem: "forward",
 		Name:      "request_duration_seconds",
 		Buckets:   plugin.TimeBuckets,
 		Help:      "Histogram of the time each request took.",
-	}, []string{"to"})
-	HealthcheckFailureCount = prometheus.NewCounterVec(prometheus.CounterOpts{
+	}, []string{"to", "rcode"})
+	HealthcheckFailureCount = promauto.NewCounterVec(prometheus.CounterOpts{
 		Namespace: plugin.Namespace,
 		Subsystem: "forward",
-		Name:      "healthcheck_failure_count_total",
-		Help:      "Counter of the number of failed healtchecks.",
+		Name:      "healthcheck_failures_total",
+		Help:      "Counter of the number of failed healthchecks.",
 	}, []string{"to"})
-	HealthcheckBrokenCount = prometheus.NewCounter(prometheus.CounterOpts{
+	HealthcheckBrokenCount = promauto.NewCounter(prometheus.CounterOpts{
 		Namespace: plugin.Namespace,
 		Subsystem: "forward",
-		Name:      "healthcheck_broken_count_total",
-		Help:      "Counter of the number of complete failures of the healtchecks.",
+		Name:      "healthcheck_broken_total",
+		Help:      "Counter of the number of complete failures of the healthchecks.",
 	})
-	SocketGauge = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+	MaxConcurrentRejectCount = promauto.NewCounter(prometheus.CounterOpts{
 		Namespace: plugin.Namespace,
 		Subsystem: "forward",
-		Name:      "sockets_open",
-		Help:      "Gauge of open sockets per upstream.",
-	}, []string{"to"})
+		Name:      "max_concurrent_rejects_total",
+		Help:      "Counter of the number of queries rejected because the concurrent queries were at maximum.",
+	})
+	ConnCacheHitsCount = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: plugin.Namespace,
+		Subsystem: "forward",
+		Name:      "conn_cache_hits_total",
+		Help:      "Counter of connection cache hits per upstream and protocol.",
+	}, []string{"to", "proto"})
+	ConnCacheMissesCount = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: plugin.Namespace,
+		Subsystem: "forward",
+		Name:      "conn_cache_misses_total",
+		Help:      "Counter of connection cache misses per upstream and protocol.",
+	}, []string{"to", "proto"})
 )

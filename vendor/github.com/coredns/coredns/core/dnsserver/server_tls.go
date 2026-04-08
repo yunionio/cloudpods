@@ -5,7 +5,10 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net"
+	"time"
 
+	"github.com/coredns/caddy"
+	"github.com/coredns/coredns/plugin/pkg/reuseport"
 	"github.com/coredns/coredns/plugin/pkg/transport"
 
 	"github.com/miekg/dns"
@@ -24,15 +27,20 @@ func NewServerTLS(addr string, group []*Config) (*ServerTLS, error) {
 		return nil, err
 	}
 	// The *tls* plugin must make sure that multiple conflicting
-	// TLS configuration return an error: it can only be specified once.
+	// TLS configuration returns an error: it can only be specified once.
 	var tlsConfig *tls.Config
-	for _, conf := range s.zones {
-		// Should we error if some configs *don't* have TLS?
-		tlsConfig = conf.TLSConfig
+	for _, z := range s.zones {
+		for _, conf := range z {
+			// Should we error if some configs *don't* have TLS?
+			tlsConfig = conf.TLSConfig
+		}
 	}
 
 	return &ServerTLS{Server: s, tlsConfig: tlsConfig}, nil
 }
+
+// Compile-time check to ensure Server implements the caddy.GracefulServer interface
+var _ caddy.GracefulServer = &Server{}
 
 // Serve implements caddy.TCPServer interface.
 func (s *ServerTLS) Serve(l net.Listener) error {
@@ -43,10 +51,20 @@ func (s *ServerTLS) Serve(l net.Listener) error {
 	}
 
 	// Only fill out the TCP server for this one.
-	s.server[tcp] = &dns.Server{Listener: l, Net: "tcp-tls", Handler: dns.HandlerFunc(func(w dns.ResponseWriter, r *dns.Msg) {
-		ctx := context.Background()
-		s.ServeDNS(ctx, w, r)
-	})}
+	s.server[tcp] = &dns.Server{Listener: l,
+		Net:           "tcp-tls",
+		MaxTCPQueries: tlsMaxQueries,
+		ReadTimeout:   s.readTimeout,
+		WriteTimeout:  s.writeTimeout,
+		IdleTimeout: func() time.Duration {
+			return s.idleTimeout
+		},
+		Handler: dns.HandlerFunc(func(w dns.ResponseWriter, r *dns.Msg) {
+			ctx := context.WithValue(context.Background(), Key{}, s.Server)
+			ctx = context.WithValue(ctx, LoopKey{}, 0)
+			s.ServeDNS(ctx, w, r)
+		})}
+
 	s.m.Unlock()
 
 	return s.server[tcp].ActivateAndServe()
@@ -57,7 +75,7 @@ func (s *ServerTLS) ServePacket(p net.PacketConn) error { return nil }
 
 // Listen implements caddy.TCPServer interface.
 func (s *ServerTLS) Listen() (net.Listener, error) {
-	l, err := net.Listen("tcp", s.Addr[len(transport.TLS+"://"):])
+	l, err := reuseport.Listen("tcp", s.Addr[len(transport.TLS+"://"):])
 	if err != nil {
 		return nil, err
 	}
@@ -78,5 +96,8 @@ func (s *ServerTLS) OnStartupComplete() {
 	if out != "" {
 		fmt.Print(out)
 	}
-	return
 }
+
+const (
+	tlsMaxQueries = -1
+)

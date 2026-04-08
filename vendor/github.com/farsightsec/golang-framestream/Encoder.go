@@ -17,83 +17,54 @@
 package framestream
 
 import (
-	"bufio"
-	"encoding/binary"
 	"io"
+	"time"
 )
 
+// EncoderOptions specifies configuration for an Encoder
 type EncoderOptions struct {
-	ContentType   []byte
+	// The ContentType of the data sent by the Encoder. May be left unset
+	// for no content negotiation. If the Reader requests a different
+	// content type, NewEncoder() will return ErrContentTypeMismatch.
+	ContentType []byte
+	// If Bidirectional is true, the underlying io.Writer must be an
+	// io.ReadWriter, and the Encoder will engage in a bidirectional
+	// handshake with its peer to establish content type and communicate
+	// shutdown.
 	Bidirectional bool
+	// Timeout gives the timeout for writing both control and data frames,
+	// and for reading responses to control frames sent. It is only
+	//  effective for underlying Writers satisfying net.Conn.
+	Timeout time.Duration
 }
 
+// An Encoder sends data frames over a FrameStream Writer.
+//
+// Encoder is provided for compatibility, use Writer instead.
 type Encoder struct {
-	writer *bufio.Writer
-	reader *bufio.Reader
-	opt    EncoderOptions
-	buf    []byte
+	*Writer
 }
 
+// NewEncoder creates an Encoder writing to the given io.Writer with the given
+// EncoderOptions.
 func NewEncoder(w io.Writer, opt *EncoderOptions) (enc *Encoder, err error) {
 	if opt == nil {
 		opt = &EncoderOptions{}
 	}
-	enc = &Encoder{
-		writer: bufio.NewWriter(w),
-		opt:    *opt,
+	wopt := &WriterOptions{
+		Bidirectional: opt.Bidirectional,
+		Timeout:       opt.Timeout,
 	}
-
-	if opt.Bidirectional {
-		r, ok := w.(io.Reader)
-		if !ok {
-			return nil, ErrType
-		}
-		enc.reader = bufio.NewReader(r)
-		ready := ControlReady
-		ready.SetContentType(opt.ContentType)
-		if err = ready.EncodeFlush(enc.writer); err != nil {
-			return
-		}
-
-		var accept ControlFrame
-		if err = accept.DecodeTypeEscape(enc.reader, CONTROL_ACCEPT); err != nil {
-			return
-		}
-
-		if !accept.MatchContentType(opt.ContentType) {
-			return nil, ErrContentTypeMismatch
-		}
+	if opt.ContentType != nil {
+		wopt.ContentTypes = append(wopt.ContentTypes, opt.ContentType)
 	}
-
-	// Write the start control frame.
-	start := ControlStart
-	start.SetContentType(opt.ContentType)
-	err = start.EncodeFlush(enc.writer)
+	writer, err := NewWriter(w, wopt)
 	if err != nil {
-		return
+		return nil, err
 	}
-
-	return
+	return &Encoder{Writer: writer}, nil
 }
 
-func (enc *Encoder) Close() (err error) {
-	err = ControlStop.EncodeFlush(enc.writer)
-	if err != nil || !enc.opt.Bidirectional {
-		return
-	}
-
-	var finish ControlFrame
-	return finish.DecodeTypeEscape(enc.reader, CONTROL_FINISH)
-}
-
-func (enc *Encoder) Write(frame []byte) (n int, err error) {
-	err = binary.Write(enc.writer, binary.BigEndian, uint32(len(frame)))
-	if err != nil {
-		return
-	}
-	return enc.writer.Write(frame)
-}
-
-func (enc *Encoder) Flush() error {
-	return enc.writer.Flush()
+func (e *Encoder) Write(frame []byte) (int, error) {
+	return e.WriteFrame(frame)
 }

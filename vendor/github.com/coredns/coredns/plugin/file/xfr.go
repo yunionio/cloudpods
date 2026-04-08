@@ -1,61 +1,45 @@
 package file
 
 import (
-	"context"
-	"fmt"
-
-	"github.com/coredns/coredns/plugin"
-	"github.com/coredns/coredns/request"
+	"github.com/coredns/coredns/plugin/file/tree"
+	"github.com/coredns/coredns/plugin/transfer"
 
 	"github.com/miekg/dns"
 )
 
-// Xfr serves up an AXFR.
-type Xfr struct {
-	*Zone
+// Transfer implements the transfer.Transfer interface.
+func (f File) Transfer(zone string, serial uint32) (<-chan []dns.RR, error) {
+	z, ok := f.Zones.Z[zone]
+	if !ok || z == nil {
+		return nil, transfer.ErrNotAuthoritative
+	}
+	return z.Transfer(serial)
 }
 
-// ServeDNS implements the plugin.Handler interface.
-func (x Xfr) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
-	state := request.Request{W: w, Req: r}
-	if !x.TransferAllowed(state) {
-		return dns.RcodeServerFailure, nil
-	}
-	if state.QType() != dns.TypeAXFR && state.QType() != dns.TypeIXFR {
-		return 0, plugin.Error(x.Name(), fmt.Errorf("xfr called with non transfer type: %d", state.QType()))
-	}
-
-	records := x.All()
-	if len(records) == 0 {
-		return dns.RcodeServerFailure, nil
+// Transfer transfers a zone with serial in the returned channel and implements IXFR fallback, by just
+// sending a single SOA record.
+func (z *Zone) Transfer(serial uint32) (<-chan []dns.RR, error) {
+	// get soa and apex
+	apex, err := z.ApexIfDefined()
+	if err != nil {
+		return nil, err
 	}
 
-	ch := make(chan *dns.Envelope)
-	defer close(ch)
-	tr := new(dns.Transfer)
-	go tr.Out(w, r, ch)
+	ch := make(chan []dns.RR)
+	go func() {
+		if serial != 0 && apex[0].(*dns.SOA).Serial == serial { // ixfr fallback, only send SOA
+			ch <- []dns.RR{apex[0]}
 
-	j, l := 0, 0
-	records = append(records, records[0]) // add closing SOA to the end
-	log.Infof("Outgoing transfer of %d records of zone %s to %s started", len(records), x.origin, state.IP())
-	for i, r := range records {
-		l += dns.Len(r)
-		if l > transferLength {
-			ch <- &dns.Envelope{RR: records[j:i]}
-			l = 0
-			j = i
+			close(ch)
+			return
 		}
-	}
-	if j < len(records) {
-		ch <- &dns.Envelope{RR: records[j:]}
-	}
 
-	w.Hijack()
-	// w.Close() // Client closes connection
-	return dns.RcodeSuccess, nil
+		ch <- apex
+		z.Walk(func(e *tree.Elem, _ map[uint16][]dns.RR) error { ch <- e.All(); return nil })
+		ch <- []dns.RR{apex[0]}
+
+		close(ch)
+	}()
+
+	return ch, nil
 }
-
-// Name implements the plugin.Handler interface.
-func (x Xfr) Name() string { return "xfr" }
-
-const transferLength = 1000 // Start a new envelop after message reaches this size in bytes. Intentionally small to test multi envelope parsing.

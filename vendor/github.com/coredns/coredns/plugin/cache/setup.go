@@ -1,43 +1,37 @@
 package cache
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
+	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
-	"github.com/coredns/coredns/plugin/metrics"
 	"github.com/coredns/coredns/plugin/pkg/cache"
 	clog "github.com/coredns/coredns/plugin/pkg/log"
-
-	"github.com/mholt/caddy"
 )
 
 var log = clog.NewWithPlugin("cache")
 
-func init() {
-	caddy.RegisterPlugin("cache", caddy.Plugin{
-		ServerType: "dns",
-		Action:     setup,
-	})
-}
+func init() { plugin.Register("cache", setup) }
 
 func setup(c *caddy.Controller) error {
 	ca, err := cacheParse(c)
 	if err != nil {
 		return plugin.Error("cache", err)
 	}
+
+	c.OnStartup(func() error {
+		ca.viewMetricLabel = dnsserver.GetConfig(c).ViewName
+		return nil
+	})
+
 	dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {
 		ca.Next = next
 		return ca
-	})
-
-	c.OnStartup(func() error {
-		metrics.MustRegister(c,
-			cacheSize, cacheHits, cacheMisses,
-			cachePrefetches, cacheDrops)
-		return nil
 	})
 
 	return nil
@@ -54,10 +48,7 @@ func cacheParse(c *caddy.Controller) (*Cache, error) {
 		j++
 
 		// cache [ttl] [zones..]
-		origins := make([]string, len(c.ServerBlockKeys))
-		copy(origins, c.ServerBlockKeys)
 		args := c.RemainingArgs()
-
 		if len(args) > 0 {
 			// first args may be just a number, then it is the ttl, if not it is a zone
 			ttl, err := strconv.Atoi(args[0])
@@ -70,10 +61,8 @@ func cacheParse(c *caddy.Controller) (*Cache, error) {
 				ca.nttl = time.Duration(ttl) * time.Second
 				args = args[1:]
 			}
-			if len(args) > 0 {
-				copy(origins, args)
-			}
 		}
+		origins := plugin.OriginsFromArgsOrServerBlock(args, c.ServerBlockKeys)
 
 		// Refinements? In an extra block.
 		for c.NextBlock() {
@@ -181,16 +170,88 @@ func cacheParse(c *caddy.Controller) (*Cache, error) {
 					ca.percentage = num
 				}
 
+			case "serve_stale":
+				args := c.RemainingArgs()
+				if len(args) > 2 {
+					return nil, c.ArgErr()
+				}
+				ca.staleUpTo = 1 * time.Hour
+				if len(args) > 0 {
+					d, err := time.ParseDuration(args[0])
+					if err != nil {
+						return nil, err
+					}
+					if d < 0 {
+						return nil, errors.New("invalid negative duration for serve_stale")
+					}
+					ca.staleUpTo = d
+				}
+				ca.verifyStale = false
+				if len(args) > 1 {
+					mode := strings.ToLower(args[1])
+					if mode != "immediate" && mode != "verify" {
+						return nil, fmt.Errorf("invalid value for serve_stale refresh mode: %s", mode)
+					}
+					ca.verifyStale = mode == "verify"
+				}
+			case "servfail":
+				args := c.RemainingArgs()
+				if len(args) != 1 {
+					return nil, c.ArgErr()
+				}
+				d, err := time.ParseDuration(args[0])
+				if err != nil {
+					return nil, err
+				}
+				if d < 0 {
+					return nil, errors.New("invalid negative ttl for servfail")
+				}
+				if d > 5*time.Minute {
+					// RFC 2308 prohibits caching SERVFAIL longer than 5 minutes
+					return nil, errors.New("caching SERVFAIL responses over 5 minutes is not permitted")
+				}
+				ca.failttl = d
+			case "disable":
+				// disable [success|denial] [zones]...
+				args := c.RemainingArgs()
+				if len(args) < 1 {
+					return nil, c.ArgErr()
+				}
+
+				var zones []string
+				if len(args) > 1 {
+					for _, z := range args[1:] { // args[1:] define the list of zones to disable
+						nz := plugin.Name(z).Normalize()
+						if nz == "" {
+							return nil, fmt.Errorf("invalid disabled zone: %s", z)
+						}
+						zones = append(zones, nz)
+					}
+				} else {
+					// if no zones specified, default to root
+					zones = []string{"."}
+				}
+
+				switch args[0] { // args[0] defines which cache to disable
+				case Denial:
+					ca.nexcept = zones
+				case Success:
+					ca.pexcept = zones
+				default:
+					return nil, fmt.Errorf("cache type for disable must be %q or %q", Success, Denial)
+				}
+			case "keepttl":
+				if len(args) != 0 {
+					return nil, c.ArgErr()
+				}
+				ca.keepttl = true
 			default:
 				return nil, c.ArgErr()
 			}
 		}
 
-		for i := range origins {
-			origins[i] = plugin.Host(origins[i]).Normalize()
-		}
 		ca.Zones = origins
-
+		ca.zonesMetricLabel = strings.Join(origins, ",")
 		ca.pcache = cache.New(ca.pcap)
 		ca.ncache = cache.New(ca.ncap)
 	}

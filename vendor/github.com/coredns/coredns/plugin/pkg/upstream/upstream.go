@@ -1,58 +1,35 @@
-// Package upstream abstracts a upstream lookups so that plugins
-// can handle them in an unified way.
+// Package upstream abstracts a upstream lookups so that plugins can handle them in an unified way.
 package upstream
 
 import (
-	"github.com/miekg/dns"
+	"context"
+	"fmt"
 
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin/pkg/nonwriter"
-	"github.com/coredns/coredns/plugin/pkg/parse"
-	"github.com/coredns/coredns/plugin/proxy"
 	"github.com/coredns/coredns/request"
+
+	"github.com/miekg/dns"
 )
 
-// Upstream is used to resolve CNAME targets
-type Upstream struct {
-	self    bool
-	Forward *proxy.Proxy
-}
+// Upstream is used to resolve CNAME or other external targets via CoreDNS itself.
+type Upstream struct{}
 
-// New creates a new Upstream for given destination(s). If dests is empty it default to upstreaming to
-// the coredns process.
-func New(dests []string) (Upstream, error) {
-	u := Upstream{}
-	if len(dests) == 0 {
-		u.self = true
-		return u, nil
+// New creates a new Upstream to resolve names using the coredns process.
+func New() *Upstream { return &Upstream{} }
+
+// Lookup routes lookups to our selves to make it follow the plugin chain *again*, but with a (possibly) new query. As
+// we are doing the query against ourselves again, there is no actual new hop, as such RFC 6891 does not apply and we
+// need the EDNS0 option present in the *original* query to be present here too.
+func (u *Upstream) Lookup(ctx context.Context, state request.Request, name string, typ uint16) (*dns.Msg, error) {
+	server, ok := ctx.Value(dnsserver.Key{}).(*dnsserver.Server)
+	if !ok {
+		return nil, fmt.Errorf("no full server is running")
 	}
-	u.self = false
-	ups, err := parse.HostPortOrFile(dests...)
-	if err != nil {
-		return u, err
-	}
-	p := proxy.NewLookup(ups)
-	u.Forward = &p
-	return u, nil
-}
+	req := state.NewWithQuestion(name, typ)
 
-// Lookup routes lookups to our selves or forward to a remote.
-func (u Upstream) Lookup(state request.Request, name string, typ uint16) (*dns.Msg, error) {
-	if u.self {
-		req := new(dns.Msg)
-		req.SetQuestion(name, typ)
+	nw := nonwriter.New(state.W)
+	server.ServeDNS(ctx, nw, req.Req)
 
-		nw := nonwriter.New(state.W)
-		server := state.Context.Value(dnsserver.Key{}).(*dnsserver.Server)
-
-		server.ServeDNS(state.Context, nw, req)
-
-		return nw.Msg, nil
-	}
-
-	if u.Forward != nil {
-		return u.Forward.Lookup(state, name, typ)
-	}
-
-	return nil, nil
+	return nw.Msg, nil
 }
