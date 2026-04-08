@@ -3,23 +3,40 @@ package hosts
 import (
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
 	clog "github.com/coredns/coredns/plugin/pkg/log"
-
-	"github.com/mholt/caddy"
 )
 
 var log = clog.NewWithPlugin("hosts")
 
-func init() {
-	caddy.RegisterPlugin("hosts", caddy.Plugin{
-		ServerType: "dns",
-		Action:     setup,
-	})
+func init() { plugin.Register("hosts", setup) }
+
+func periodicHostsUpdate(h *Hosts) chan bool {
+	parseChan := make(chan bool)
+
+	if h.options.reload == 0 {
+		return parseChan
+	}
+
+	go func() {
+		ticker := time.NewTicker(h.options.reload)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-parseChan:
+				return
+			case <-ticker.C:
+				h.readHosts()
+			}
+		}
+	}()
+	return parseChan
 }
 
 func setup(c *caddy.Controller) error {
@@ -28,22 +45,10 @@ func setup(c *caddy.Controller) error {
 		return plugin.Error("hosts", err)
 	}
 
-	parseChan := make(chan bool)
+	parseChan := periodicHostsUpdate(&h)
 
 	c.OnStartup(func() error {
 		h.readHosts()
-
-		go func() {
-			ticker := time.NewTicker(5 * time.Second)
-			for {
-				select {
-				case <-parseChan:
-					return
-				case <-ticker.C:
-					h.readHosts()
-				}
-			}
-		}()
 		return nil
 	})
 
@@ -61,14 +66,16 @@ func setup(c *caddy.Controller) error {
 }
 
 func hostsParse(c *caddy.Controller) (Hosts, error) {
-	var h = Hosts{
+	config := dnsserver.GetConfig(c)
+
+	h := Hosts{
 		Hostsfile: &Hostsfile{
-			path: "/etc/hosts",
-			hmap: newHostsMap(),
+			path:    "/etc/hosts",
+			hmap:    newMap(),
+			inline:  newMap(),
+			options: newOptions(),
 		},
 	}
-
-	config := dnsserver.GetConfig(c)
 
 	inline := []string{}
 	i := 0
@@ -79,6 +86,7 @@ func hostsParse(c *caddy.Controller) (Hosts, error) {
 		i++
 
 		args := c.RemainingArgs()
+
 		if len(args) >= 1 {
 			h.path = args[0]
 			args = args[1:]
@@ -99,21 +107,40 @@ func hostsParse(c *caddy.Controller) (Hosts, error) {
 			}
 		}
 
-		origins := make([]string, len(c.ServerBlockKeys))
-		copy(origins, c.ServerBlockKeys)
-		if len(args) > 0 {
-			origins = args
-		}
-
-		for i := range origins {
-			origins[i] = plugin.Host(origins[i]).Normalize()
-		}
-		h.Origins = origins
+		h.Origins = plugin.OriginsFromArgsOrServerBlock(args, c.ServerBlockKeys)
 
 		for c.NextBlock() {
 			switch c.Val() {
 			case "fallthrough":
 				h.Fall.SetZonesFromArgs(c.RemainingArgs())
+			case "no_reverse":
+				h.options.autoReverse = false
+			case "ttl":
+				remaining := c.RemainingArgs()
+				if len(remaining) < 1 {
+					return h, c.Errf("ttl needs a time in second")
+				}
+				ttl, err := strconv.Atoi(remaining[0])
+				if err != nil {
+					return h, c.Errf("ttl needs a number of second")
+				}
+				if ttl <= 0 || ttl > 65535 {
+					return h, c.Errf("ttl provided is invalid")
+				}
+				h.options.ttl = uint32(ttl)
+			case "reload":
+				remaining := c.RemainingArgs()
+				if len(remaining) != 1 {
+					return h, c.Errf("reload needs a duration (zero seconds to disable)")
+				}
+				reload, err := time.ParseDuration(remaining[0])
+				if err != nil {
+					return h, c.Errf("invalid duration for reload '%s'", remaining[0])
+				}
+				if reload < 0 {
+					return h, c.Errf("invalid negative duration for reload '%s'", remaining[0])
+				}
+				h.options.reload = reload
 			default:
 				if len(h.Fall.Zones) == 0 {
 					line := strings.Join(append([]string{c.Val()}, c.RemainingArgs()...), " ")

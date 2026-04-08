@@ -1,96 +1,118 @@
 package dnstap
 
 import (
+	"net/url"
+	"os"
 	"strings"
 
+	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
-	"github.com/coredns/coredns/plugin/dnstap/dnstapio"
 	clog "github.com/coredns/coredns/plugin/pkg/log"
-	"github.com/coredns/coredns/plugin/pkg/parse"
-
-	"github.com/mholt/caddy"
-	"github.com/mholt/caddy/caddyfile"
 )
 
 var log = clog.NewWithPlugin("dnstap")
 
-func init() {
-	caddy.RegisterPlugin("dnstap", caddy.Plugin{
-		ServerType: "dns",
-		Action:     wrapSetup,
-	})
-}
+func init() { plugin.Register("dnstap", setup) }
 
-func wrapSetup(c *caddy.Controller) error {
-	if err := setup(c); err != nil {
-		return plugin.Error("dnstap", err)
-	}
-	return nil
-}
+func parseConfig(c *caddy.Controller) ([]*Dnstap, error) {
+	dnstaps := []*Dnstap{}
 
-type config struct {
-	target string
-	socket bool
-	full   bool
-}
+	for c.Next() { // directive name
+		d := Dnstap{}
+		endpoint := ""
 
-func parseConfig(d *caddyfile.Dispenser) (c config, err error) {
-	d.Next() // directive name
+		args := c.RemainingArgs()
 
-	if !d.Args(&c.target) {
-		return c, d.ArgErr()
-	}
-
-	if strings.HasPrefix(c.target, "tcp://") {
-		// remote IP endpoint
-		servers, err := parse.HostPortOrFile(c.target[6:])
-		if err != nil {
-			return c, d.ArgErr()
+		if len(args) == 0 {
+			return nil, c.ArgErr()
 		}
-		c.target = servers[0]
-	} else {
-		// default to UNIX socket
-		if strings.HasPrefix(c.target, "unix://") {
-			c.target = c.target[7:]
+
+		endpoint = args[0]
+
+		if strings.HasPrefix(endpoint, "tcp://") {
+			// remote network endpoint
+			endpointURL, err := url.Parse(endpoint)
+			if err != nil {
+				return nil, c.ArgErr()
+			}
+			dio := newIO("tcp", endpointURL.Host)
+			d = Dnstap{io: dio}
+		} else {
+			endpoint = strings.TrimPrefix(endpoint, "unix://")
+			dio := newIO("unix", endpoint)
+			d = Dnstap{io: dio}
 		}
-		c.socket = true
+
+		d.IncludeRawMessage = len(args) == 2 && args[1] == "full"
+
+		hostname, _ := os.Hostname()
+		d.Identity = []byte(hostname)
+		d.Version = []byte(caddy.AppName + "-" + caddy.AppVersion)
+
+		for c.NextBlock() {
+			switch c.Val() {
+			case "identity":
+				{
+					if !c.NextArg() {
+						return nil, c.ArgErr()
+					}
+					d.Identity = []byte(c.Val())
+				}
+			case "version":
+				{
+					if !c.NextArg() {
+						return nil, c.ArgErr()
+					}
+					d.Version = []byte(c.Val())
+				}
+			}
+		}
+		dnstaps = append(dnstaps, &d)
 	}
-
-	c.full = d.NextArg() && d.Val() == "full"
-
-	return
+	return dnstaps, nil
 }
 
 func setup(c *caddy.Controller) error {
-	conf, err := parseConfig(&c.Dispenser)
+	dnstaps, err := parseConfig(c)
 	if err != nil {
-		return err
+		return plugin.Error("dnstap", err)
 	}
 
-	dio := dnstapio.New(conf.target, conf.socket)
-	dnstap := Dnstap{IO: dio, JoinRawMessage: conf.full}
-
-	c.OnStartup(func() error {
-		dio.Connect()
-		return nil
-	})
-
-	c.OnRestart(func() error {
-		dio.Close()
-		return nil
-	})
-
-	c.OnFinalShutdown(func() error {
-		dio.Close()
-		return nil
-	})
-
-	dnsserver.GetConfig(c).AddPlugin(
-		func(next plugin.Handler) plugin.Handler {
-			dnstap.Next = next
-			return dnstap
+	for i := range dnstaps {
+		dnstap := dnstaps[i]
+		c.OnStartup(func() error {
+			if err := dnstap.io.(*dio).connect(); err != nil {
+				log.Errorf("No connection to dnstap endpoint: %s", err)
+			}
+			return nil
 		})
+
+		c.OnRestart(func() error {
+			dnstap.io.(*dio).close()
+			return nil
+		})
+
+		c.OnFinalShutdown(func() error {
+			dnstap.io.(*dio).close()
+			return nil
+		})
+
+		if i == len(dnstaps)-1 {
+			// last dnstap plugin in block: point next to next plugin
+			dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {
+				dnstap.Next = next
+				return dnstap
+			})
+		} else {
+			// not last dnstap plugin in block: point next to next dnstap
+			nextDnstap := dnstaps[i+1]
+			dnsserver.GetConfig(c).AddPlugin(func(plugin.Handler) plugin.Handler {
+				dnstap.Next = nextDnstap
+				return dnstap
+			})
+		}
+	}
 
 	return nil
 }

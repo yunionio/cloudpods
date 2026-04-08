@@ -1,0 +1,31 @@
+run:
+  deadline: 5m
+  skip-dirs:
+    - zipkin_proto3
+
+linters:
+  disable-all: true
+  enable:
+    - dupl
+    - goconst
+    - gocyclo
+    - gofmt
+    - revive
+    - govet
+    - ineffassign
+    - lll
+    - misspell
+    - nakedret
+    - structcheck
+    - unparam
+    - varcheck
+
+linters-settings:
+  dupl:
+    threshold: 400
+  lll:
+    line-length: 170
+  gocyclo:
+    min-complexity: 20
+  golint:
+    min-confidence: 0.85

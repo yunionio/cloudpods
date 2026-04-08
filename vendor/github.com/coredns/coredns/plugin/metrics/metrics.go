@@ -8,49 +8,42 @@ import (
 	"sync"
 	"time"
 
+	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/plugin"
-	"github.com/coredns/coredns/plugin/metrics/vars"
+	"github.com/coredns/coredns/plugin/pkg/reuseport"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
-// Metrics holds the prometheus configuration. The metrics' path is fixed to be /metrics
+// Metrics holds the prometheus configuration. The metrics' path is fixed to be /metrics .
 type Metrics struct {
-	Next    plugin.Handler
-	Addr    string
-	Reg     *prometheus.Registry
+	Next plugin.Handler
+	Addr string
+	Reg  *prometheus.Registry
+
 	ln      net.Listener
 	lnSetup bool
-	mux     *http.ServeMux
-	srv     *http.Server
+
+	mux *http.ServeMux
+	srv *http.Server
 
 	zoneNames []string
 	zoneMap   map[string]struct{}
 	zoneMu    sync.RWMutex
+
+	plugins map[string]struct{} // all available plugins, used to determine which plugin made the client write
 }
 
-// New returns a new instance of Metrics with the given address
+// New returns a new instance of Metrics with the given address.
 func New(addr string) *Metrics {
 	met := &Metrics{
 		Addr:    addr,
-		Reg:     prometheus.NewRegistry(),
+		Reg:     prometheus.DefaultRegisterer.(*prometheus.Registry),
 		zoneMap: make(map[string]struct{}),
+		plugins: pluginList(caddy.ListPlugins()),
 	}
-	// Add the default collectors
-	met.MustRegister(prometheus.NewGoCollector())
-	met.MustRegister(prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{}))
-
-	// Add all of our collectors
-	met.MustRegister(buildInfo)
-	met.MustRegister(vars.Panic)
-	met.MustRegister(vars.RequestCount)
-	met.MustRegister(vars.RequestDuration)
-	met.MustRegister(vars.RequestSize)
-	met.MustRegister(vars.RequestDo)
-	met.MustRegister(vars.RequestType)
-	met.MustRegister(vars.ResponseSize)
-	met.MustRegister(vars.ResponseRcode)
 
 	return met
 }
@@ -92,7 +85,7 @@ func (m *Metrics) ZoneNames() []string {
 
 // OnStartup sets up the metrics on startup.
 func (m *Metrics) OnStartup() error {
-	ln, err := net.Listen("tcp", m.Addr)
+	ln, err := reuseport.Listen("tcp", m.Addr)
 	if err != nil {
 		log.Errorf("Failed to start metrics handler: %s", err)
 		return err
@@ -100,14 +93,19 @@ func (m *Metrics) OnStartup() error {
 
 	m.ln = ln
 	m.lnSetup = true
-	ListenAddr = m.ln.Addr().String() // For tests
 
 	m.mux = http.NewServeMux()
 	m.mux.Handle("/metrics", promhttp.HandlerFor(m.Reg, promhttp.HandlerOpts{}))
-	m.srv = &http.Server{Handler: m.mux}
+
+	// creating some helper variables to avoid data races on m.srv and m.ln
+	server := &http.Server{Handler: m.mux}
+	m.srv = server
+
 	go func() {
-		m.srv.Serve(m.ln)
+		server.Serve(ln)
 	}()
+
+	ListenAddr = ln.Addr().String() // For tests.
 	return nil
 }
 
@@ -116,7 +114,7 @@ func (m *Metrics) OnRestart() error {
 	if !m.lnSetup {
 		return nil
 	}
-	uniqAddr.Unset(m.Addr)
+	u.Unset(m.Addr)
 	return m.stopServer()
 }
 
@@ -136,9 +134,7 @@ func (m *Metrics) stopServer() error {
 }
 
 // OnFinalShutdown tears down the metrics listener on shutdown and restart.
-func (m *Metrics) OnFinalShutdown() error {
-	return m.stopServer()
-}
+func (m *Metrics) OnFinalShutdown() error { return m.stopServer() }
 
 func keys(m map[string]struct{}) []string {
 	sx := []string{}
@@ -146,6 +142,19 @@ func keys(m map[string]struct{}) []string {
 		sx = append(sx, k)
 	}
 	return sx
+}
+
+// pluginList iterates over the returned plugin map from caddy and removes the "dns." prefix from them.
+func pluginList(m map[string][]string) map[string]struct{} {
+	pm := map[string]struct{}{}
+	for _, p := range m["others"] {
+		// only add 'dns.' plugins
+		if len(p) > 3 {
+			pm[p[4:]] = struct{}{}
+			continue
+		}
+	}
+	return pm
 }
 
 // ListenAddr is assigned the address of the prometheus listener. Its use is mainly in tests where
@@ -156,7 +165,7 @@ var ListenAddr string
 // before erroring when it tries to close the metrics server
 const shutdownTimeout time.Duration = time.Second * 5
 
-var buildInfo = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+var buildInfo = promauto.NewGaugeVec(prometheus.GaugeOpts{
 	Namespace: plugin.Namespace,
 	Name:      "build_info",
 	Help:      "A metric with a constant '1' value labeled by version, revision, and goversion from which CoreDNS was built.",
