@@ -34,6 +34,7 @@ type StorageType string
 const (
 	STORAGE_TYPE_LOCAL_RAW   StorageType = "local_raw"
 	STORAGE_TYPE_LOCAL_QCOW2 StorageType = "local_qcow2"
+	STORAGE_TYPE_RBD         StorageType = "rbd"
 )
 
 type IContainerStorage interface {
