@@ -27,6 +27,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	container_storage "yunion.io/x/onecloud/pkg/hostman/container/storage"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -324,4 +325,12 @@ func (d *SRBDDisk) CreateFromRbdSnapshot(ctx context.Context, snapshot, srcDiskI
 
 func (d *SRBDDisk) IsFile() bool {
 	return false
+}
+
+func (d *SRBDDisk) GetContainerStorageDriver() (container_storage.IContainerStorage, error) {
+	drv := container_storage.GetDriver(container_storage.STORAGE_TYPE_RBD)
+	if drv == nil {
+		return nil, errors.Wrap(errors.ErrNotImplemented, "RBD container storage driver not registered")
+	}
+	return drv, nil
 }

@@ -51,6 +51,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/tsdb"
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	_ "yunion.io/x/onecloud/pkg/hostman/container/storage/local_raw"
+	_ "yunion.io/x/onecloud/pkg/hostman/container/storage/rbd"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs/fsdriver"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostbridge"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostconsts"
