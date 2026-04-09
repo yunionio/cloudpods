@@ -29,6 +29,12 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/modules/monitor"
 )
 
+var allowTags = map[string]bool{
+	"device": true,
+	"path":   true,
+	"fstype": true,
+}
+
 func (cli *SCloudpodsClient) GetMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
 	usefulResourceType := []cloudprovider.TResourceType{cloudprovider.METRIC_RESOURCE_TYPE_HOST, cloudprovider.METRIC_RESOURCE_TYPE_SERVER}
 	isUse, _ := utils.InArray(opts.ResourceType, usefulResourceType)
@@ -116,9 +122,16 @@ func (cli *SCloudpodsClient) GetMetrics(opts *cloudprovider.MetricListOptions) (
 			if len(point) != 2 {
 				continue
 			}
+			tags := map[string]string{}
+			for k, v := range serie.Tags {
+				if allowTags[k] {
+					tags[k] = v
+				}
+			}
 			values = append(values, cloudprovider.MetricValue{
 				Timestamp: point.Time(),
 				Value:     point.Value(),
+				Tags:      tags,
 			})
 		}
 		if len(values) == 0 {
