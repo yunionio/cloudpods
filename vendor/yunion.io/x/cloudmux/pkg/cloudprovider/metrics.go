@@ -186,6 +186,19 @@ const (
 	// 支持平台: bingocloud, zstack
 	HOST_METRIC_TYPE_DISK_IO_WRITE_IOPS TMetricType = "diskio.write_iops"
 
+	// 宿主机系统运行时间
+	HOST_METRIC_TYPE_SYSTEM_UPTIME TMetricType = "system.uptime"
+	// 宿主机负载1
+	HOST_METRIC_TYPE_LOAD1_PCORE TMetricType = "system.load1_pcore"
+	// 宿主机僵尸进程数
+	HOST_METRIC_TYPE_PROCESSES_ZOMBIES TMetricType = "processes.zombies"
+	// 宿主机进程总数
+	HOST_METRIC_TYPE_PROCESSES_TOTAL TMetricType = "processes.total"
+	// 宿主机磁盘使用率
+	HOST_METRIC_TYPE_DISK_USAGE TMetricType = "disk.used_percent"
+	// 宿主机内存可用量
+	HOST_METRIC_TYPE_MEM_AVAILABLE TMetricType = "mem.available"
+
 	// Redis CPU使用率
 	// 支持平台: huawei, aliyun, azure, apsara, aws, qcloud
 	REDIS_METRIC_TYPE_CPU_USAGE TMetricType = "dcs_cpu.usage_active"
@@ -385,6 +398,12 @@ var (
 		HOST_METRIC_TYPE_DISK_IO_WRITE_BPS,
 		HOST_METRIC_TYPE_NET_BPS_RX,
 		HOST_METRIC_TYPE_NET_BPS_TX,
+		HOST_METRIC_TYPE_SYSTEM_UPTIME,
+		HOST_METRIC_TYPE_LOAD1_PCORE,
+		HOST_METRIC_TYPE_PROCESSES_ZOMBIES,
+		HOST_METRIC_TYPE_PROCESSES_TOTAL,
+		HOST_METRIC_TYPE_DISK_USAGE,
+		HOST_METRIC_TYPE_MEM_AVAILABLE,
 	}
 
 	ALL_VM_METRIC_TYPES = []TMetricType{

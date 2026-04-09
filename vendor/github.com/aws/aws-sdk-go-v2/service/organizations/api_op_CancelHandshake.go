@@ -11,15 +11,14 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Cancels a handshake. Canceling a handshake sets the handshake state to CANCELED .
+// Cancels a Handshake.
 //
-// This operation can be called only from the account that originated the
-// handshake. The recipient of the handshake can't cancel it, but can use DeclineHandshakeinstead.
-// After a handshake is canceled, the recipient can no longer respond to that
-// handshake.
+// Only the account that sent a handshake can call this operation. The recipient
+// of the handshake can't cancel it, but can use DeclineHandshaketo decline. After a handshake is
+// canceled, the recipient can no longer respond to the handshake.
 //
-// After you cancel a handshake, it continues to appear in the results of relevant
-// APIs for only 30 days. After that, it's deleted.
+// You can view canceled handshakes in API responses for 30 days before they are
+// deleted.
 func (c *Client) CancelHandshake(ctx context.Context, params *CancelHandshakeInput, optFns ...func(*Options)) (*CancelHandshakeOutput, error) {
 	if params == nil {
 		params = &CancelHandshakeInput{}
@@ -37,8 +36,8 @@ func (c *Client) CancelHandshake(ctx context.Context, params *CancelHandshakeInp
 
 type CancelHandshakeInput struct {
 
-	// The unique identifier (ID) of the handshake that you want to cancel. You can
-	// get the ID from the ListHandshakesForOrganizationoperation.
+	// ID for the handshake that you want to cancel. You can get the ID from the ListHandshakesForOrganization
+	// operation.
 	//
 	// The [regex pattern] for handshake ID string requires "h-" followed by from 8 to 32 lowercase
 	// letters or digits.
@@ -53,7 +52,7 @@ type CancelHandshakeInput struct {
 
 type CancelHandshakeOutput struct {
 
-	// A structure that contains details about the handshake that you canceled.
+	// A Handshake object. Contains for the handshake that you canceled.
 	Handshake *types.Handshake
 
 	// Metadata pertaining to the operation's result.
@@ -96,7 +95,7 @@ func (c *Client) addOperationCancelHandshakeMiddlewares(stack *middleware.Stack,
 	if err = addComputePayloadSHA256(stack); err != nil {
 		return err
 	}
-	if err = addRetry(stack, options); err != nil {
+	if err = addRetry(stack, options, c); err != nil {
 		return err
 	}
 	if err = addRawResponseToMetadata(stack); err != nil {
@@ -118,9 +117,6 @@ func (c *Client) addOperationCancelHandshakeMiddlewares(stack *middleware.Stack,
 		return err
 	}
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
-		return err
-	}
-	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
 	if err = addUserAgentRetryMode(stack, options); err != nil {
@@ -156,40 +152,7 @@ func (c *Client) addOperationCancelHandshakeMiddlewares(stack *middleware.Stack,
 	if err = addInterceptAttempt(stack, options); err != nil {
 		return err
 	}
-	if err = addInterceptExecution(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptBeforeSerialization(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptAfterSerialization(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptBeforeSigning(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptAfterSigning(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptTransmit(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptBeforeDeserialization(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptAfterDeserialization(stack, options); err != nil {
-		return err
-	}
-	if err = addSpanInitializeStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanInitializeEnd(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestEnd(stack); err != nil {
+	if err = addInterceptors(stack, options); err != nil {
 		return err
 	}
 	return nil

@@ -13,8 +13,8 @@ import (
 
 // Retrieves information about a policy.
 //
-// This operation can be called only from the organization's management account or
-// by a member account that is a delegated administrator.
+// You can only call this operation from the management account or a member
+// account that is a delegated administrator.
 func (c *Client) DescribePolicy(ctx context.Context, params *DescribePolicyInput, optFns ...func(*Options)) (*DescribePolicyOutput, error) {
 	if params == nil {
 		params = &DescribePolicyInput{}
@@ -32,8 +32,8 @@ func (c *Client) DescribePolicy(ctx context.Context, params *DescribePolicyInput
 
 type DescribePolicyInput struct {
 
-	// The unique identifier (ID) of the policy that you want details about. You can
-	// get the ID from the ListPoliciesor ListPoliciesForTarget operations.
+	// ID for the policy that you want details about. You can get the ID from the ListPolicies or ListPoliciesForTarget
+	// operations.
 	//
 	// The [regex pattern] for a policy ID string requires "p-" followed by from 8 to 128 lowercase
 	// or uppercase letters, digits, or the underscore character (_).
@@ -91,7 +91,7 @@ func (c *Client) addOperationDescribePolicyMiddlewares(stack *middleware.Stack, 
 	if err = addComputePayloadSHA256(stack); err != nil {
 		return err
 	}
-	if err = addRetry(stack, options); err != nil {
+	if err = addRetry(stack, options, c); err != nil {
 		return err
 	}
 	if err = addRawResponseToMetadata(stack); err != nil {
@@ -113,9 +113,6 @@ func (c *Client) addOperationDescribePolicyMiddlewares(stack *middleware.Stack, 
 		return err
 	}
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
-		return err
-	}
-	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
 	if err = addUserAgentRetryMode(stack, options); err != nil {
@@ -151,40 +148,7 @@ func (c *Client) addOperationDescribePolicyMiddlewares(stack *middleware.Stack, 
 	if err = addInterceptAttempt(stack, options); err != nil {
 		return err
 	}
-	if err = addInterceptExecution(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptBeforeSerialization(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptAfterSerialization(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptBeforeSigning(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptAfterSigning(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptTransmit(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptBeforeDeserialization(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptAfterDeserialization(stack, options); err != nil {
-		return err
-	}
-	if err = addSpanInitializeStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanInitializeEnd(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestEnd(stack); err != nil {
+	if err = addInterceptors(stack, options); err != nil {
 		return err
 	}
 	return nil

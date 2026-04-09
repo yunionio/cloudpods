@@ -11,50 +11,38 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Retrieves Organizations-related information about the specified account.
-//
-// You can only call this operation from the management account or a member
-// account that is a delegated administrator.
-func (c *Client) DescribeAccount(ctx context.Context, params *DescribeAccountInput, optFns ...func(*Options)) (*DescribeAccountOutput, error) {
+// Returns details for a transfer. A transfer is an arrangement between two
+// management accounts where one account designates the other with specified
+// responsibilities for their organization.
+func (c *Client) DescribeResponsibilityTransfer(ctx context.Context, params *DescribeResponsibilityTransferInput, optFns ...func(*Options)) (*DescribeResponsibilityTransferOutput, error) {
 	if params == nil {
-		params = &DescribeAccountInput{}
+		params = &DescribeResponsibilityTransferInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DescribeAccount", params, optFns, c.addOperationDescribeAccountMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DescribeResponsibilityTransfer", params, optFns, c.addOperationDescribeResponsibilityTransferMiddlewares)
 	if err != nil {
 		return nil, err
 	}
 
-	out := result.(*DescribeAccountOutput)
+	out := result.(*DescribeResponsibilityTransferOutput)
 	out.ResultMetadata = metadata
 	return out, nil
 }
 
-type DescribeAccountInput struct {
+type DescribeResponsibilityTransferInput struct {
 
-	// The unique identifier (ID) of the Amazon Web Services account that you want
-	// information about. You can get the ID from the ListAccountsor ListAccountsForParent operations.
-	//
-	// The [regex pattern] for an account ID string requires exactly 12 digits.
-	//
-	// [regex pattern]: http://wikipedia.org/wiki/regex
+	// ID for the transfer.
 	//
 	// This member is required.
-	AccountId *string
+	Id *string
 
 	noSmithyDocumentSerde
 }
 
-type DescribeAccountOutput struct {
+type DescribeResponsibilityTransferOutput struct {
 
-	// A structure that contains information about the requested account.
-	//
-	// The Status parameter in the API response will be retired on September 9, 2026.
-	// Although both the account State and account Status parameters are currently
-	// available in the Organizations APIs ( DescribeAccount , ListAccounts ,
-	// ListAccountsForParent ), we recommend that you update your scripts or other code
-	// to use the State parameter instead of Status before September 9, 2026.
-	Account *types.Account
+	// A ResponsibilityTransfer object. Contains details for a transfer.
+	ResponsibilityTransfer *types.ResponsibilityTransfer
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
@@ -62,19 +50,19 @@ type DescribeAccountOutput struct {
 	noSmithyDocumentSerde
 }
 
-func (c *Client) addOperationDescribeAccountMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDescribeResponsibilityTransferMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
 		return err
 	}
-	err = stack.Serialize.Add(&awsAwsjson11_serializeOpDescribeAccount{}, middleware.After)
+	err = stack.Serialize.Add(&awsAwsjson11_serializeOpDescribeResponsibilityTransfer{}, middleware.After)
 	if err != nil {
 		return err
 	}
-	err = stack.Deserialize.Add(&awsAwsjson11_deserializeOpDescribeAccount{}, middleware.After)
+	err = stack.Deserialize.Add(&awsAwsjson11_deserializeOpDescribeResponsibilityTransfer{}, middleware.After)
 	if err != nil {
 		return err
 	}
-	if err := addProtocolFinalizerMiddlewares(stack, options, "DescribeAccount"); err != nil {
+	if err := addProtocolFinalizerMiddlewares(stack, options, "DescribeResponsibilityTransfer"); err != nil {
 		return fmt.Errorf("add protocol finalizers: %v", err)
 	}
 
@@ -126,10 +114,10 @@ func (c *Client) addOperationDescribeAccountMiddlewares(stack *middleware.Stack,
 	if err = addCredentialSource(stack, options); err != nil {
 		return err
 	}
-	if err = addOpDescribeAccountValidationMiddleware(stack); err != nil {
+	if err = addOpDescribeResponsibilityTransferValidationMiddleware(stack); err != nil {
 		return err
 	}
-	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeAccount(options.Region), middleware.Before); err != nil {
+	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeResponsibilityTransfer(options.Region), middleware.Before); err != nil {
 		return err
 	}
 	if err = addRecursionDetection(stack); err != nil {
@@ -159,10 +147,10 @@ func (c *Client) addOperationDescribeAccountMiddlewares(stack *middleware.Stack,
 	return nil
 }
 
-func newServiceMetadataMiddleware_opDescribeAccount(region string) *awsmiddleware.RegisterServiceMetadata {
+func newServiceMetadataMiddleware_opDescribeResponsibilityTransfer(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{
 		Region:        region,
 		ServiceID:     ServiceID,
-		OperationName: "DescribeAccount",
+		OperationName: "DescribeResponsibilityTransfer",
 	}
 }

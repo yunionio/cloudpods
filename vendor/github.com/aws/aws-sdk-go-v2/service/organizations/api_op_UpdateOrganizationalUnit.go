@@ -15,7 +15,7 @@ import (
 // The child OUs and accounts remain in place, and any attached policies of the OU
 // remain attached.
 //
-// This operation can be called only from the organization's management account.
+// You can only call this operation from the management account.
 func (c *Client) UpdateOrganizationalUnit(ctx context.Context, params *UpdateOrganizationalUnitInput, optFns ...func(*Options)) (*UpdateOrganizationalUnitOutput, error) {
 	if params == nil {
 		params = &UpdateOrganizationalUnitInput{}
@@ -33,8 +33,7 @@ func (c *Client) UpdateOrganizationalUnit(ctx context.Context, params *UpdateOrg
 
 type UpdateOrganizationalUnitInput struct {
 
-	// The unique identifier (ID) of the OU that you want to rename. You can get the
-	// ID from the ListOrganizationalUnitsForParentoperation.
+	// ID for the OU that you want to rename. You can get the ID from the ListOrganizationalUnitsForParent operation.
 	//
 	// The [regex pattern] for an organizational unit ID string requires "ou-" followed by from 4 to
 	// 32 lowercase letters or digits (the ID of the root that contains the OU). This
@@ -103,7 +102,7 @@ func (c *Client) addOperationUpdateOrganizationalUnitMiddlewares(stack *middlewa
 	if err = addComputePayloadSHA256(stack); err != nil {
 		return err
 	}
-	if err = addRetry(stack, options); err != nil {
+	if err = addRetry(stack, options, c); err != nil {
 		return err
 	}
 	if err = addRawResponseToMetadata(stack); err != nil {
@@ -125,9 +124,6 @@ func (c *Client) addOperationUpdateOrganizationalUnitMiddlewares(stack *middlewa
 		return err
 	}
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
-		return err
-	}
-	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
 	if err = addUserAgentRetryMode(stack, options); err != nil {
@@ -163,40 +159,7 @@ func (c *Client) addOperationUpdateOrganizationalUnitMiddlewares(stack *middlewa
 	if err = addInterceptAttempt(stack, options); err != nil {
 		return err
 	}
-	if err = addInterceptExecution(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptBeforeSerialization(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptAfterSerialization(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptBeforeSigning(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptAfterSigning(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptTransmit(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptBeforeDeserialization(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptAfterDeserialization(stack, options); err != nil {
-		return err
-	}
-	if err = addSpanInitializeStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanInitializeEnd(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestEnd(stack); err != nil {
+	if err = addInterceptors(stack, options); err != nil {
 		return err
 	}
 	return nil
