@@ -34,6 +34,8 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	ctxutils "yunion.io/x/onecloud/pkg/util/ctx"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -75,6 +77,12 @@ type SNetworkAddress struct {
 
 func (man *SNetworkAddressManager) InitializeData() error {
 	go man.delayedWorkManager.Start(context.Background())
+	{
+		err := man.cleanDeletedGuestnetworkSubIPs()
+		if err != nil {
+			return errors.Wrapf(err, "cleanDeletedGuestnetworkSubIPs")
+		}
+	}
 	return nil
 }
 
@@ -697,4 +705,25 @@ func (manager *SNetworkAddressManager) fetchSubIpsQuery(parentType api.TNetworkA
 	subIPQ = subIPQ.AppendField(sqlchemy.GROUP_CONCAT("sub_ips", subIPQ.Field("ip_addr")))
 	subIPQ = subIPQ.GroupBy(subIPQ.Field("parent_id"))
 	return subIPQ
+}
+
+func (manager *SNetworkAddressManager) cleanDeletedGuestnetworkSubIPs() error {
+	ctx := ctxutils.CtxWithTime()
+	userCred := auth.AdminCredential()
+	gnQ := GuestnetworkManager.Query("row_id").SubQuery()
+	q := manager.Query().Equals("parent_type", api.NetworkAddressParentTypeGuestnetwork)
+	q = q.LeftJoin(gnQ, sqlchemy.Equals(q.Field("parent_id"), gnQ.Field("row_id")))
+	q = q.Filter(sqlchemy.IsNull(gnQ.Field("row_id")))
+	netaddrs := make([]SNetworkAddress, 0)
+	err := db.FetchModelObjects(manager, q, &netaddrs)
+	if err != nil {
+		return errors.Wrapf(err, "FetchModelObjects")
+	}
+	for i := range netaddrs {
+		na := &netaddrs[i]
+		if err := db.DeleteModel(ctx, userCred, na); err != nil {
+			return errors.Wrapf(err, "DeleteModel")
+		}
+	}
+	return nil
 }
