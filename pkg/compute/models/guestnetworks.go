@@ -872,6 +872,12 @@ func (manager *SGuestnetworkManager) DeleteGuestNics(ctx context.Context, userCr
 		if err != nil {
 			return errors.Wrap(err, "GetIsolatedDeviceByNetworkIndex")
 		}
+		if dev != nil {
+			err = guest.detachIsolateDevice(ctx, userCred, dev)
+			if err != nil {
+				return errors.Wrapf(err, "detachIsolateDevice %s", dev.GetName())
+			}
+		}
 		net, _ := gn.GetNetwork()
 		if !gotypes.IsNil(net) && (regutils.MatchIP4Addr(gn.IpAddr) || regutils.MatchIP6Addr(gn.Ip6Addr)) {
 			net.updateDnsRecord(&gn, false)
@@ -882,16 +888,10 @@ func (manager *SGuestnetworkManager) DeleteGuestNics(ctx context.Context, userCr
 		}
 		err = gn.Delete(ctx, userCred)
 		if err != nil {
-			log.Errorf("%s", err)
+			log.Errorf("guest network %s delete fail %s", gn.GetDetailedString(), err)
+			return errors.Wrapf(err, "Delete %s", gn.GetDetailedString())
 		}
 		gn.LogDetachEvent(ctx, userCred, guest, net)
-		if dev != nil {
-			err = guest.detachIsolateDevice(ctx, userCred, dev)
-			if err != nil {
-				return err
-			}
-		}
-
 		if !gotypes.IsNil(net) {
 			if reserve && regutils.MatchIP4Addr(gn.IpAddr) {
 				ReservedipManager.ReserveIP(ctx, userCred, net, gn.IpAddr, "Delete to reserve", api.AddressTypeIPv4)

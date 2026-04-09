@@ -572,12 +572,13 @@ func (set Guestnetworks) joinNetworkAddresses(subEntries NetworkAddresses) bool 
 			if !ok {
 				log.Errorf("cannot find guestnetwork row id %s of network address %s", parentId, subEntry.Id)
 				correct = false
+			} else {
+				if guestnetwork.SubIPs == nil {
+					guestnetwork.SubIPs = NetworkAddresses{}
+				}
+				guestnetwork.SubIPs[subEntry.Id] = subEntry
+				subEntry.Guestnetwork = guestnetwork
 			}
-			if guestnetwork.SubIPs == nil {
-				guestnetwork.SubIPs = NetworkAddresses{}
-			}
-			guestnetwork.SubIPs[subEntry.Id] = subEntry
-			subEntry.Guestnetwork = guestnetwork
 		}
 	}
 	return correct
