@@ -352,7 +352,7 @@ github.com/aws/aws-sdk-go/service/sso/ssoiface
 github.com/aws/aws-sdk-go/service/sts
 github.com/aws/aws-sdk-go/service/sts/stsiface
 github.com/aws/aws-sdk-go/service/wafv2
-# github.com/aws/aws-sdk-go-v2 v1.41.4
+# github.com/aws/aws-sdk-go-v2 v1.41.5
 ## explicit; go 1.24
 github.com/aws/aws-sdk-go-v2/aws
 github.com/aws/aws-sdk-go-v2/aws/arn
@@ -399,10 +399,10 @@ github.com/aws/aws-sdk-go-v2/credentials/stscreds
 ## explicit; go 1.22
 github.com/aws/aws-sdk-go-v2/feature/ec2/imds
 github.com/aws/aws-sdk-go-v2/feature/ec2/imds/internal/config
-# github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.20
+# github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.21
 ## explicit; go 1.24
 github.com/aws/aws-sdk-go-v2/internal/configsources
-# github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.7.20
+# github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.7.21
 ## explicit; go 1.24
 github.com/aws/aws-sdk-go-v2/internal/endpoints/v2
 # github.com/aws/aws-sdk-go-v2/internal/ini v1.8.3
@@ -427,8 +427,8 @@ github.com/aws/aws-sdk-go-v2/service/internal/presigned-url
 github.com/aws/aws-sdk-go-v2/service/internal/s3shared
 github.com/aws/aws-sdk-go-v2/service/internal/s3shared/arn
 github.com/aws/aws-sdk-go-v2/service/internal/s3shared/config
-# github.com/aws/aws-sdk-go-v2/service/organizations v1.45.3
-## explicit; go 1.22
+# github.com/aws/aws-sdk-go-v2/service/organizations v1.51.1-0.20260401181752-9074b3ddace9
+## explicit; go 1.24
 github.com/aws/aws-sdk-go-v2/service/organizations
 github.com/aws/aws-sdk-go-v2/service/organizations/internal/endpoints
 github.com/aws/aws-sdk-go-v2/service/organizations/types
@@ -2598,7 +2598,7 @@ sigs.k8s.io/structured-merge-diff/v4/value
 # sigs.k8s.io/yaml v1.3.0
 ## explicit; go 1.12
 sigs.k8s.io/yaml
-# yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20260402020904-67d754995da4
+# yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20260409072713-8f76857d2e8f
 ## explicit; go 1.24
 yunion.io/x/cloudmux/pkg/apis
 yunion.io/x/cloudmux/pkg/apis/billing

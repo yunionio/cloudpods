@@ -30,6 +30,11 @@ import (
 //	published after the account closes successfully. For information on using
 //	CloudTrail with Organizations, see [Logging and monitoring in Organizations]in the Organizations User Guide.
 //
+//	- Resources remaining within the account after closing will be automatically
+//	deleted after 90 days. During this 90-day period, the resources won't be
+//	available unless you contact Amazon Web Services Support to reopen the account.
+//	After 90 days, you can't reopen an account. You might still receive a [bill after account closure].
+//
 //	- You can close only 10% of member accounts, between 10 and 1000, within a
 //	rolling 30 day period. This quota is not bound by a calendar month, but starts
 //	when you close an account. After you reach this limit, you can't close
@@ -48,6 +53,7 @@ import (
 //
 // [Quotas for Organizations]: https://docs.aws.amazon.com/organizations/latest/userguide/orgs_reference_limits.html
 // [Logging and monitoring in Organizations]: https://docs.aws.amazon.com/organizations/latest/userguide/orgs_security_incident-response.html#orgs_cloudtrail-integration
+// [bill after account closure]: https://repost.aws/knowledge-center/closed-account-bill
 // [Closing an Amazon Web Services GovCloud (US) account]: https://docs.aws.amazon.com/govcloud-us/latest/UserGuide/Closing-govcloud-account.html
 // [Closing a member account in your organization]: https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_accounts_close.html
 func (c *Client) CloseAccount(ctx context.Context, params *CloseAccountInput, optFns ...func(*Options)) (*CloseAccountOutput, error) {
@@ -117,7 +123,7 @@ func (c *Client) addOperationCloseAccountMiddlewares(stack *middleware.Stack, op
 	if err = addComputePayloadSHA256(stack); err != nil {
 		return err
 	}
-	if err = addRetry(stack, options); err != nil {
+	if err = addRetry(stack, options, c); err != nil {
 		return err
 	}
 	if err = addRawResponseToMetadata(stack); err != nil {
@@ -139,9 +145,6 @@ func (c *Client) addOperationCloseAccountMiddlewares(stack *middleware.Stack, op
 		return err
 	}
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
-		return err
-	}
-	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
 	if err = addUserAgentRetryMode(stack, options); err != nil {
@@ -177,40 +180,7 @@ func (c *Client) addOperationCloseAccountMiddlewares(stack *middleware.Stack, op
 	if err = addInterceptAttempt(stack, options); err != nil {
 		return err
 	}
-	if err = addInterceptExecution(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptBeforeSerialization(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptAfterSerialization(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptBeforeSigning(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptAfterSigning(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptTransmit(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptBeforeDeserialization(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptAfterDeserialization(stack, options); err != nil {
-		return err
-	}
-	if err = addSpanInitializeStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanInitializeEnd(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestEnd(stack); err != nil {
+	if err = addInterceptors(stack, options); err != nil {
 		return err
 	}
 	return nil

@@ -22,7 +22,7 @@ import (
 // If the request includes tags, then the requester must have the
 // organizations:TagResource permission.
 //
-// This operation can be called only from the organization's management account.
+// You can only call this operation from the management account.
 //
 // [Managing organizational units (OUs)]: https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_ous.html
 func (c *Client) CreateOrganizationalUnit(ctx context.Context, params *CreateOrganizationalUnitInput, optFns ...func(*Options)) (*CreateOrganizationalUnitOutput, error) {
@@ -47,8 +47,7 @@ type CreateOrganizationalUnitInput struct {
 	// This member is required.
 	Name *string
 
-	// The unique identifier (ID) of the parent root or OU that you want to create the
-	// new OU in.
+	// ID for the parent root or OU that you want to create the new OU in.
 	//
 	// The [regex pattern] for a parent ID string requires one of the following:
 	//
@@ -124,7 +123,7 @@ func (c *Client) addOperationCreateOrganizationalUnitMiddlewares(stack *middlewa
 	if err = addComputePayloadSHA256(stack); err != nil {
 		return err
 	}
-	if err = addRetry(stack, options); err != nil {
+	if err = addRetry(stack, options, c); err != nil {
 		return err
 	}
 	if err = addRawResponseToMetadata(stack); err != nil {
@@ -146,9 +145,6 @@ func (c *Client) addOperationCreateOrganizationalUnitMiddlewares(stack *middlewa
 		return err
 	}
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
-		return err
-	}
-	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
 	if err = addUserAgentRetryMode(stack, options); err != nil {
@@ -184,40 +180,7 @@ func (c *Client) addOperationCreateOrganizationalUnitMiddlewares(stack *middlewa
 	if err = addInterceptAttempt(stack, options); err != nil {
 		return err
 	}
-	if err = addInterceptExecution(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptBeforeSerialization(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptAfterSerialization(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptBeforeSigning(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptAfterSigning(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptTransmit(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptBeforeDeserialization(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptAfterDeserialization(stack, options); err != nil {
-		return err
-	}
-	if err = addSpanInitializeStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanInitializeEnd(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestEnd(stack); err != nil {
+	if err = addInterceptors(stack, options); err != nil {
 		return err
 	}
 	return nil
