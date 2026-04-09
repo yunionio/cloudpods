@@ -138,6 +138,7 @@ func init() {
 	cmd.Perform("kickstart-complete", &options.ServerKickstartCompleteOptions{})
 	cmd.Get("kickstart", new(options.ServerIdOptions))
 	cmd.Get("vnc", new(options.ServerVncOptions))
+	cmd.Get("modification-types", new(options.ServerIdOptions))
 	cmd.Get("desc", new(options.ServerIdOptions))
 	cmd.Get("status", new(options.ServerIdOptions))
 	cmd.Get("iso", new(options.ServerIdOptions))

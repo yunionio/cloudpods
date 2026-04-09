@@ -388,3 +388,7 @@ type SInstanceDeployOptions struct {
 	DeleteKeypair bool
 	UserData      string
 }
+
+type SInstanceModificationType struct {
+	InstanceType string
+}

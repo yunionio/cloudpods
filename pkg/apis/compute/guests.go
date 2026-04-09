@@ -1572,3 +1572,11 @@ type ServerPerformStatusInput struct {
 	apis.PerformStatusInput
 	Containers map[string]*ContainerPerformStatusInput `json:"containers"`
 }
+
+type ServerModificationType struct {
+	Name string `json:"name"`
+}
+
+type ServerModificationTypesOutput struct {
+	ModificationTypes []ServerModificationType `json:"modification_types"`
+}
