@@ -25,9 +25,6 @@ type MCPServerOptions struct {
 	MCPServerVersion     string `help:"MCP service version"`
 	MCPServerDescription string `help:"MCP service description"`
 
-	// 认证服务集成
-	IdentityBaseURL string `help:"Authentication service entry URL"`
-
 	// 连接超时配置
 	Timeout int `help:"SDK connection timeout to cloudpods service (seconds)" default:"30"`
 }
