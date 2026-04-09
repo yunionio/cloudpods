@@ -98,6 +98,29 @@ func (self *SGuest) GetDetailsVnc(ctx context.Context, userCred mcclient.TokenCr
 	return ret, nil
 }
 
+// 获取公有云可变更配置
+// 目前支持: 阿里云，腾讯云，华为云
+func (guest *SGuest) GetDetailsModificationTypes(ctx context.Context, userCred mcclient.TokenCredential, input jsonutils.JSONObject) (*api.ServerModificationTypesOutput, error) {
+	if len(guest.ExternalId) == 0 {
+		return nil, httperrors.NewNotFoundError("guest external id is empty")
+	}
+	vm, err := guest.GetIVM(ctx)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetIVM")
+	}
+
+	ret := &api.ServerModificationTypesOutput{}
+	ret.ModificationTypes = make([]api.ServerModificationType, 0)
+	modificationTypes, err := vm.GetModificationTypes()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetModificationTypes")
+	}
+	for _, modificationType := range modificationTypes {
+		ret.ModificationTypes = append(ret.ModificationTypes, api.ServerModificationType{Name: modificationType.InstanceType})
+	}
+	return ret, nil
+}
+
 func (self *SGuest) PreCheckPerformAction(
 	ctx context.Context, userCred mcclient.TokenCredential,
 	action string, query jsonutils.JSONObject, data jsonutils.JSONObject,
