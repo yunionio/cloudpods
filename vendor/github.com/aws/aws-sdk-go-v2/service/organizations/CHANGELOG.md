@@ -1,3 +1,95 @@
+# v1.51.0 (2026-03-31)
+
+* **Feature**: Added Path field to Account and OrganizationalUnit objects in AWS Organizations API responses.
+
+# v1.50.6 (2026-03-26)
+
+* **Bug Fix**: Fix a bug where a recorded clock skew could persist on the client even if the client and server clock ended up realigning.
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.50.5 (2026-03-13)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.50.4 (2026-03-03)
+
+* **Dependency Update**: Bump minimum Go version to 1.24
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.50.3 (2026-02-23)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.50.2 (2026-02-03)
+
+* **Documentation**: Updated the CloseAccount description.
+
+# v1.50.1 (2026-01-09)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.50.0 (2025-12-11)
+
+* **Feature**: Add support for policy operations on the NETWORK SECURITY DIRECTOR POLICY policy type.
+
+# v1.49.2 (2025-12-08)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.49.1 (2025-12-02)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+* **Dependency Update**: Upgrade to smithy-go v1.24.0. Notably this version of the library reduces the allocation footprint of the middleware system. We observe a ~10% reduction in allocations per SDK call with this change.
+
+# v1.49.0 (2025-11-25)
+
+* **Feature**: Add support for policy operations on the S3_POLICY and BEDROCK_POLICY policy type.
+* **Bug Fix**: Add error check for endpoint param binding during auth scheme resolution to fix panic reported in #3234
+
+# v1.48.0 (2025-11-21)
+
+* **Feature**: Add support for policy operations on the UPGRADE_ROLLOUT_POLICY policy type.
+
+# v1.47.0 (2025-11-20)
+
+* **Feature**: Added new APIs for Billing Transfer, new policy type INSPECTOR_POLICY, and allow an account to transfer between organizations
+
+# v1.46.5 (2025-11-19.2)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.46.4 (2025-11-12)
+
+* **Bug Fix**: Further reduce allocation overhead when the metrics system isn't in-use.
+* **Bug Fix**: Reduce allocation overhead when the client doesn't have any HTTP interceptors configured.
+* **Bug Fix**: Remove blank trace spans towards the beginning of the request that added no additional information. This conveys a slight reduction in overall allocations.
+
+# v1.46.3 (2025-11-11)
+
+* **Bug Fix**: Return validation error if input region is not a valid host label.
+
+# v1.46.2 (2025-11-04)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+* **Dependency Update**: Upgrade to smithy-go v1.23.2 which should convey some passive reduction of overall allocations, especially when not using the metrics system.
+
+# v1.46.1 (2025-10-30)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.46.0 (2025-10-28)
+
+* **Feature**: Added Account State field to the ListDelegatedAdministrators API response.
+
+# v1.45.5 (2025-10-23)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.45.4 (2025-10-16)
+
+* **Dependency Update**: Bump minimum Go version to 1.23.
+* **Dependency Update**: Updated to the latest SDK module versions
+
 # v1.45.3 (2025-09-26)
 
 * **Dependency Update**: Updated to the latest SDK module versions
