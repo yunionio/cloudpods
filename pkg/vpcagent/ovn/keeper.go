@@ -644,19 +644,25 @@ func (keeper *OVNNorthboundKeeper) ClaimGuestnetwork(ctx context.Context, guestn
 	}
 
 	var qosVif []*ovn_nb.QoS
-	if bwMbps := guestnetwork.BwLimit; bwMbps > 0 {
-		var (
-			kbps = int64(bwMbps * 1000)
-			kbur = int64(kbps * 2)
-		)
+	if guestnetwork.BwLimit > 0 || guestnetwork.RxBwLimit > 0 || guestnetwork.TxBwLimit > 0 {
+		kbpsRx := int64(guestnetwork.RxBwLimit * 1000)
+		if kbpsRx == 0 {
+			kbpsRx = int64(guestnetwork.BwLimit * 1000)
+		}
+		kburRx := int64(kbpsRx * 2)
+		kbpsTx := int64(guestnetwork.TxBwLimit * 1000)
+		if kbpsTx == 0 {
+			kbpsTx = int64(guestnetwork.BwLimit * 1000)
+		}
+		kburTx := int64(kbpsTx * 2)
 		qosVif = []*ovn_nb.QoS{
 			{
 				Priority:  2000,
 				Direction: "from-lport",
 				Match:     fmt.Sprintf("inport == %q", lportName),
 				Bandwidth: map[string]int64{
-					"rate":  kbps,
-					"burst": kbur,
+					"rate":  kbpsTx,
+					"burst": kburTx,
 				},
 				ExternalIds: map[string]string{
 					externalKeyOcRef: ocQosRef,
@@ -667,8 +673,8 @@ func (keeper *OVNNorthboundKeeper) ClaimGuestnetwork(ctx context.Context, guestn
 				Direction: "to-lport",
 				Match:     fmt.Sprintf("outport == %q", lportName),
 				Bandwidth: map[string]int64{
-					"rate":  kbps,
-					"burst": kbur,
+					"rate":  kbpsRx,
+					"burst": kburRx,
 				},
 				ExternalIds: map[string]string{
 					externalKeyOcRef: ocQosRef,
@@ -695,20 +701,27 @@ func (keeper *OVNNorthboundKeeper) ClaimGuestnetwork(ctx context.Context, guestn
 					externalKeyOcRef: ocGnrDefaultRef,
 				},
 			}
-			if bwMbps := eip.Bandwidth; bwMbps > 0 {
-				var (
-					kbps     = int64(bwMbps * 1000)
-					kbur     = int64(kbps * 2)
-					eipgwVip = apis.VpcEipGatewayIP3().String()
-				)
+			if eip.Bandwidth > 0 || eip.TxBwLimit > 0 || eip.RxBwLimit > 0 {
+				kbpsTx := int64(eip.TxBwLimit * 1000)
+				if kbpsTx == 0 {
+					kbpsTx = int64(eip.Bandwidth * 1000)
+				}
+				kburTx := int64(kbpsTx * 2)
+				kbpsRx := int64(eip.RxBwLimit * 1000)
+				if kbpsRx == 0 {
+					kbpsRx = int64(eip.Bandwidth * 1000)
+				}
+				kburRx := int64(kbpsRx * 2)
+				eipgwVip := apis.VpcEipGatewayIP3().String()
+
 				hasQoSEip = true
 				qosEipIn = &ovn_nb.QoS{
 					Priority:  2000,
-					Direction: "from-lport",
+					Direction: "to-lport",
 					Match:     fmt.Sprintf("inport == %q && ip4 && ip4.dst == %s", vpcEipLspName(vpc.Id, eipgwVip), guestnetwork.IpAddr),
 					Bandwidth: map[string]int64{
-						"rate":  kbps,
-						"burst": kbur,
+						"rate":  kbpsRx,
+						"burst": kburRx,
 					},
 					ExternalIds: map[string]string{
 						externalKeyOcRef: ocQosEipRef,
@@ -719,8 +732,8 @@ func (keeper *OVNNorthboundKeeper) ClaimGuestnetwork(ctx context.Context, guestn
 					Direction: "from-lport",
 					Match:     fmt.Sprintf("inport == %q && ip4 && ip4.src == %s", vpcErpName(vpc.Id), guestnetwork.IpAddr),
 					Bandwidth: map[string]int64{
-						"rate":  kbps,
-						"burst": kbur,
+						"rate":  kbpsTx,
+						"burst": kburTx,
 					},
 					ExternalIds: map[string]string{
 						externalKeyOcRef: ocQosEipRef,
@@ -887,20 +900,27 @@ func (keeper *OVNNorthboundKeeper) ClaimLoadbalancerNetwork(ctx context.Context,
 				externalKeyOcRef: ocLnrDefaultRef,
 			},
 		}
-		if bwMbps := eip.Bandwidth; bwMbps > 0 {
-			var (
-				kbps     = int64(bwMbps * 1000)
-				kbur     = int64(kbps * 2)
-				eipgwVip = apis.VpcEipGatewayIP3().String()
-			)
+		if eip.Bandwidth > 0 || eip.TxBwLimit > 0 || eip.RxBwLimit > 0 {
+			kbpsTx := int64(eip.TxBwLimit * 1000)
+			if kbpsTx == 0 {
+				kbpsTx = int64(eip.Bandwidth * 1000)
+			}
+			kburTx := int64(kbpsTx * 2)
+			kbpsRx := int64(eip.RxBwLimit * 1000)
+			if kbpsRx == 0 {
+				kbpsRx = int64(eip.Bandwidth * 1000)
+			}
+			kburRx := int64(kbpsRx * 2)
+			eipgwVip := apis.VpcEipGatewayIP3().String()
+
 			hasQoSEip = true
 			qosEipIn = &ovn_nb.QoS{
 				Priority:  2000,
-				Direction: "from-lport",
+				Direction: "to-lport",
 				Match:     fmt.Sprintf("inport == %q && ip4 && ip4.dst == %s", vpcEipLspName(vpcId, eipgwVip), lbIntIp),
 				Bandwidth: map[string]int64{
-					"rate":  kbps,
-					"burst": kbur,
+					"rate":  kbpsRx,
+					"burst": kburRx,
 				},
 				ExternalIds: map[string]string{
 					externalKeyOcRef: ocQosEipRef,
@@ -911,8 +931,8 @@ func (keeper *OVNNorthboundKeeper) ClaimLoadbalancerNetwork(ctx context.Context,
 				Direction: "from-lport",
 				Match:     fmt.Sprintf("inport == %q", lportName),
 				Bandwidth: map[string]int64{
-					"rate":  kbps,
-					"burst": kbur,
+					"rate":  kbpsTx,
+					"burst": kburTx,
 				},
 				ExternalIds: map[string]string{
 					externalKeyOcRef: ocQosEipRef,
@@ -1124,20 +1144,26 @@ func (keeper *OVNNorthboundKeeper) ClaimGroupnetwork(ctx context.Context, groupn
 					externalKeyOcRef: ocGnrDefaultRef,
 				},
 			}
-			if bwMbps := eip.Bandwidth; bwMbps > 0 {
-				var (
-					kbps     = int64(bwMbps * 1000)
-					kbur     = int64(kbps * 2)
-					eipgwVip = apis.VpcEipGatewayIP3().String()
-				)
+			if eip.Bandwidth > 0 || eip.TxBwLimit > 0 || eip.RxBwLimit > 0 {
+				kbpsTx := int64(eip.TxBwLimit * 1000)
+				if kbpsTx == 0 {
+					kbpsTx = int64(eip.Bandwidth * 1000)
+				}
+				kburTx := int64(kbpsTx * 2)
+				kbpsRx := int64(eip.RxBwLimit * 1000)
+				if kbpsRx == 0 {
+					kbpsRx = int64(eip.Bandwidth * 1000)
+				}
+				kburRx := int64(kbpsRx * 2)
+				eipgwVip := apis.VpcEipGatewayIP3().String()
 				hasQoSEip = true
 				qosEipIn = &ovn_nb.QoS{
 					Priority:  2000,
-					Direction: "from-lport",
+					Direction: "to-lport",
 					Match:     fmt.Sprintf("inport == %q && ip4 && ip4.dst == %s", vpcEipLspName(vpc.Id, eipgwVip), groupnetwork.IpAddr),
 					Bandwidth: map[string]int64{
-						"rate":  kbps,
-						"burst": kbur,
+						"rate":  kbpsRx,
+						"burst": kburRx,
 					},
 					ExternalIds: map[string]string{
 						externalKeyOcRef: ocQosEipRef,
@@ -1148,8 +1174,8 @@ func (keeper *OVNNorthboundKeeper) ClaimGroupnetwork(ctx context.Context, groupn
 					Direction: "from-lport",
 					Match:     fmt.Sprintf("inport == %q && ip4 && ip4.src == %s", vpcErpName(vpc.Id), groupnetwork.IpAddr),
 					Bandwidth: map[string]int64{
-						"rate":  kbps,
-						"burst": kbur,
+						"rate":  kbpsTx,
+						"burst": kburTx,
 					},
 					ExternalIds: map[string]string{
 						externalKeyOcRef: ocQosEipRef,

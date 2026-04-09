@@ -746,6 +746,8 @@ func (self *SGuest) PerformClone(ctx context.Context, userCred mcclient.TokenCre
 	createInput.AutoStart = cloneInput.AutoStart
 
 	createInput.EipBw = cloneInput.EipBw
+	createInput.EipTxBw = cloneInput.EipTxBw
+	createInput.EipRxBw = cloneInput.EipRxBw
 	createInput.Eip = cloneInput.Eip
 	createInput.EipChargeType = cloneInput.EipChargeType
 	if err := GuestManager.validateEip(ctx, userCred, createInput, createInput.PreferRegion, createInput.PreferManager); err != nil {
@@ -2758,6 +2760,12 @@ func (self *SGuest) PerformChangeIpaddr(
 	if conf.BwLimit == 0 {
 		conf.BwLimit = gn.BwLimit
 	}
+	if conf.TxBwLimit == 0 {
+		conf.TxBwLimit = gn.TxBwLimit
+	}
+	if conf.RxBwLimit == 0 {
+		conf.RxBwLimit = gn.RxBwLimit
+	}
 	if conf.Index == 0 {
 		conf.Index = int(gn.Index)
 	}
@@ -3241,9 +3249,8 @@ func (guest *SGuest) PerformChangeBandwidth(
 		return nil, httperrors.NewBadRequestError("Cannot change bandwidth in status %s", guest.Status)
 	}
 
-	bandwidth := input.Bandwidth
-	if bandwidth < 0 {
-		return nil, httperrors.NewBadRequestError("Bandwidth must be non-negative")
+	if input.Bandwidth < 0 && input.TxBwLimit < 0 && input.RxBwLimit < 0 {
+		return nil, httperrors.NewBadRequestError("Bandwidth, tx_bw_limit and rx_bw_limit must be non-negative")
 	}
 
 	guestnic, err := guest.findGuestnetworkByInfo(input.ServerNetworkInfo)
@@ -3251,9 +3258,11 @@ func (guest *SGuest) PerformChangeBandwidth(
 		return nil, errors.Wrap(err, "findGuestnetworkByInfo")
 	}
 
-	if guestnic.BwLimit != int(bandwidth) {
+	if guestnic.BwLimit != int(input.Bandwidth) || guestnic.TxBwLimit != int(input.TxBwLimit) || guestnic.RxBwLimit != int(input.RxBwLimit) {
 		diff, err := db.Update(guestnic, func() error {
-			guestnic.BwLimit = int(bandwidth)
+			guestnic.BwLimit = int(input.Bandwidth)
+			guestnic.TxBwLimit = int(input.TxBwLimit)
+			guestnic.RxBwLimit = int(input.RxBwLimit)
 			return nil
 		})
 		if err != nil {

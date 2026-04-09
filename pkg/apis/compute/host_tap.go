@@ -15,6 +15,8 @@
 package compute
 
 const (
+	TapConfigFileName = "tap-config.json"
+
 	HostVpcBridge = "__vpc_bridge__"
 	HostTapBridge = "__tap_bridge__"
 )

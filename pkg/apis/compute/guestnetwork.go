@@ -106,6 +106,8 @@ type GuestnetworkBaseDesc struct {
 	Masklen        int8                 `json:"masklen"`
 	Vlan           int                  `json:"vlan"`
 	Bw             int                  `json:"bw"`
+	RxBwLimit      int                  `json:"rx_bw_limit"`
+	TxBwLimit      int                  `json:"tx_bw_limit"`
 	Mtu            int16                `json:"mtu"`
 	Index          int                  `json:"index"`
 	RxTrafficLimit int64                `json:"rx_traffic_limit"`

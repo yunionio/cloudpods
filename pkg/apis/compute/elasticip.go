@@ -15,6 +15,8 @@
 package compute
 
 import (
+	"errors"
+
 	"yunion.io/x/onecloud/pkg/apis"
 )
 
@@ -147,4 +149,27 @@ type ElasticDissociateInput struct {
 type ElasticipRemoteUpdateInput struct {
 	// 是否覆盖替换所有标签
 	ReplaceTags *bool `json:"replace_tags" help:"replace all remote tags"`
+}
+
+type ElasticipChangeBandwidthInput struct {
+	// 带宽限制，单位mbps
+	// swagger:ignore
+	// Deprecated
+	Bandwidth int64 `json:"bandwidth" yunion-deprecated-by:"bandwidth_mb"`
+	// 带宽限制，单位mbps
+	BandwidthMb int64 `json:"bandwidth_mb"`
+	// 下行带宽限制，单位mbps
+	RxBwLimitMb int64 `json:"rx_bw_limit_mb"`
+	// 上行带宽限制，单位mbps
+	TxBwLimitMb int64 `json:"tx_bw_limit_mb"`
+}
+
+func (input ElasticipChangeBandwidthInput) Validate() error {
+	if input.BandwidthMb <= 0 && input.RxBwLimitMb <= 0 {
+		return errors.New("bandwidth_mb or rx_bw_limit_mb must be greater than 0")
+	}
+	if input.BandwidthMb <= 0 && input.TxBwLimitMb <= 0 {
+		return errors.New("bandwidth_mb or tx_bw_limit_mb must be greater than 0")
+	}
+	return nil
 }

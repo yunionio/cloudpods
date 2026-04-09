@@ -261,6 +261,8 @@ func (self *SBaremetalGuestDriver) Attach2RandomNetwork(guest *models.SGuest, ct
 			IpAddr:              address,
 			NicDriver:           netConfig.Driver,
 			BwLimit:             netConfig.BwLimit,
+			RxBwLimit:           netConfig.RxBwLimit,
+			TxBwLimit:           netConfig.TxBwLimit,
 			Virtual:             netConfig.Vip,
 			TryReserved:         false,
 			AllocDir:            api.IPAllocationStepup,
