@@ -14,8 +14,8 @@ import (
 // List the Amazon Web Services services for which the specified account is a
 // delegated administrator.
 //
-// This operation can be called only from the organization's management account or
-// by a member account that is a delegated administrator.
+// You can only call this operation from the management account or a member
+// account that is a delegated administrator.
 func (c *Client) ListDelegatedServicesForAccount(ctx context.Context, params *ListDelegatedServicesForAccountInput, optFns ...func(*Options)) (*ListDelegatedServicesForAccountOutput, error) {
 	if params == nil {
 		params = &ListDelegatedServicesForAccountInput{}
@@ -38,15 +38,9 @@ type ListDelegatedServicesForAccountInput struct {
 	// This member is required.
 	AccountId *string
 
-	// The total number of results that you want included on each page of the
-	// response. If you do not include this parameter, it defaults to a value that is
-	// specific to the operation. If additional items exist beyond the maximum you
-	// specify, the NextToken response element is present and has a value (is not
-	// null). Include that value as the NextToken request parameter in the next call
-	// to the operation to get the next part of the results. Note that Organizations
-	// might return fewer results than the maximum even when there are more results
-	// available. You should check NextToken after every operation to ensure that you
-	// receive all of the results.
+	// The maximum number of items to return in the response. If more results exist
+	// than the specified MaxResults value, a token is included in the response so
+	// that you can retrieve the remaining results.
 	MaxResults *int32
 
 	// The parameter for receiving additional results if you receive a NextToken
@@ -109,7 +103,7 @@ func (c *Client) addOperationListDelegatedServicesForAccountMiddlewares(stack *m
 	if err = addComputePayloadSHA256(stack); err != nil {
 		return err
 	}
-	if err = addRetry(stack, options); err != nil {
+	if err = addRetry(stack, options, c); err != nil {
 		return err
 	}
 	if err = addRawResponseToMetadata(stack); err != nil {
@@ -131,9 +125,6 @@ func (c *Client) addOperationListDelegatedServicesForAccountMiddlewares(stack *m
 		return err
 	}
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
-		return err
-	}
-	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
 	if err = addUserAgentRetryMode(stack, options); err != nil {
@@ -169,40 +160,7 @@ func (c *Client) addOperationListDelegatedServicesForAccountMiddlewares(stack *m
 	if err = addInterceptAttempt(stack, options); err != nil {
 		return err
 	}
-	if err = addInterceptExecution(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptBeforeSerialization(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptAfterSerialization(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptBeforeSigning(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptAfterSigning(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptTransmit(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptBeforeDeserialization(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptAfterDeserialization(stack, options); err != nil {
-		return err
-	}
-	if err = addSpanInitializeStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanInitializeEnd(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestEnd(stack); err != nil {
+	if err = addInterceptors(stack, options); err != nil {
 		return err
 	}
 	return nil
@@ -211,15 +169,9 @@ func (c *Client) addOperationListDelegatedServicesForAccountMiddlewares(stack *m
 // ListDelegatedServicesForAccountPaginatorOptions is the paginator options for
 // ListDelegatedServicesForAccount
 type ListDelegatedServicesForAccountPaginatorOptions struct {
-	// The total number of results that you want included on each page of the
-	// response. If you do not include this parameter, it defaults to a value that is
-	// specific to the operation. If additional items exist beyond the maximum you
-	// specify, the NextToken response element is present and has a value (is not
-	// null). Include that value as the NextToken request parameter in the next call
-	// to the operation to get the next part of the results. Note that Organizations
-	// might return fewer results than the maximum even when there are more results
-	// available. You should check NextToken after every operation to ensure that you
-	// receive all of the results.
+	// The maximum number of items to return in the response. If more results exist
+	// than the specified MaxResults value, a token is included in the response so
+	// that you can retrieve the remaining results.
 	Limit int32
 
 	// Set to true if pagination should stop if the service returns a pagination token

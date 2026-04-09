@@ -325,7 +325,7 @@ func collectWorkerMetrics(ctx context.Context, url, service, serviceType, region
 }
 
 func collectDatabaseMetrics(ctx context.Context, ep api.EndpointDetails, version, token string) ([]influxdb.SMetricData, error) {
-	if utils.IsInStringArray(ep.ServiceType, []string{"cloudmon", "webconsole", "k8s", "vpcagent", "yunionapi", "yunionagent"}) {
+	if utils.IsInStringArray(ep.ServiceType, []string{"cloudmon", "webconsole", "k8s", "vpcagent", "yunionapi", "yunionagent", "mcp-server"}) {
 		return []influxdb.SMetricData{}, nil
 	}
 	statsUrl := httputils.JoinPath(baseUrlF(ep.Url), "db_stats")
