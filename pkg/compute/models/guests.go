@@ -2548,8 +2548,7 @@ func (manager *SGuestManager) validateEip(ctx context.Context, userCred mcclient
 		return nil
 	}
 	eipStr := input.Eip
-	eipBw := input.EipBw
-	if len(eipStr) > 0 || eipBw > 0 {
+	if len(eipStr) > 0 || input.EipTxBw > 0 || input.EipRxBw > 0 || input.EipBw > 0 {
 		if !driver.IsSupportEip() {
 			return httperrors.NewNotImplementedError("eip not supported for %s", input.Hypervisor)
 		}
@@ -2710,7 +2709,9 @@ func getGuestResourceRequirements(
 
 	eipCnt := 0
 	eipBw := input.EipBw
-	if eipBw > 0 {
+	eipTxBw := input.EipTxBw
+	eipRxBw := input.EipRxBw
+	if eipBw > 0 || eipTxBw > 0 || eipRxBw > 0 {
 		eipCnt = 1
 	}
 
@@ -3870,6 +3871,8 @@ type Attach2NetworkArgs struct {
 	StrictIPv6          bool
 
 	BwLimit        int
+	RxBwLimit      int
+	TxBwLimit      int
 	NicDriver      string
 	NumQueues      int
 	RxTrafficLimit int64
@@ -3904,6 +3907,8 @@ func (args *Attach2NetworkArgs) onceArgs(i int) attach2NetworkOnceArgs {
 		strictIPv6:          args.StrictIPv6,
 
 		bwLimit:        args.BwLimit,
+		rxBwLimit:      args.RxBwLimit,
+		txBwLimit:      args.TxBwLimit,
 		nicDriver:      args.NicDriver,
 		numQueues:      args.NumQueues,
 		txTrafficLimit: args.TxTrafficLimit,
@@ -3950,6 +3955,8 @@ type attach2NetworkOnceArgs struct {
 	strictIPv6          bool
 
 	bwLimit        int
+	rxBwLimit      int
+	txBwLimit      int
 	nicDriver      string
 	numQueues      int
 	nicConf        SNicConfig
@@ -4034,6 +4041,8 @@ func (self *SGuest) attach2NetworkOnce(
 		ifname:         args.nicConf.Ifname,
 		macAddr:        args.nicConf.Mac,
 		bwLimit:        args.bwLimit,
+		rxBwLimit:      args.rxBwLimit,
+		txBwLimit:      args.txBwLimit,
 		nicDriver:      nicDriver,
 		numQueues:      args.numQueues,
 		teamWithMac:    args.teamWithMac,
@@ -4853,6 +4862,8 @@ func (self *SGuest) attach2NamedNetworkDesc(ctx context.Context, userCred mcclie
 			NicDriver:           netConfig.Driver,
 			NumQueues:           netConfig.NumQueues,
 			BwLimit:             netConfig.BwLimit,
+			RxBwLimit:           netConfig.RxBwLimit,
+			TxBwLimit:           netConfig.TxBwLimit,
 			RxTrafficLimit:      netConfig.RxTrafficLimit,
 			TxTrafficLimit:      netConfig.TxTrafficLimit,
 			Virtual:             netConfig.Vip,
@@ -6875,6 +6886,8 @@ func (self *SGuest) ToCreateInput(ctx context.Context, userCred mcclient.TokenCr
 	userInput.SecgroupId = genInput.SecgroupId
 	userInput.KeypairId = genInput.KeypairId
 	userInput.EipBw = genInput.EipBw
+	userInput.EipTxBw = genInput.EipTxBw
+	userInput.EipRxBw = genInput.EipRxBw
 	userInput.EipChargeType = genInput.EipChargeType
 	drv, _ := self.GetDriver()
 	if drv != nil && drv.IsSupportPublicIp() {
@@ -6949,6 +6962,8 @@ func (self *SGuest) toCreateInput() *api.ServerCreateInput {
 		switch eip.Mode {
 		case api.EIP_MODE_STANDALONE_EIP:
 			r.EipBw = eip.Bandwidth
+			r.EipTxBw = eip.TxBwLimit
+			r.EipRxBw = eip.RxBwLimit
 			r.EipChargeType = eip.ChargeType
 		case api.EIP_MODE_INSTANCE_PUBLICIP:
 			drv, _ := self.GetDriver()
@@ -7033,6 +7048,8 @@ func (self *SGuest) ToNetworksConfig() []*api.NetworkConfig {
 		// netConf.Reserved
 		netConf.Driver = guestNetwork.Driver
 		netConf.BwLimit = guestNetwork.BwLimit
+		netConf.RxBwLimit = guestNetwork.RxBwLimit
+		netConf.TxBwLimit = guestNetwork.TxBwLimit
 		netConf.RequireTeaming = requireTeaming
 		// netConf.NetType
 		ret = append(ret, netConf)
