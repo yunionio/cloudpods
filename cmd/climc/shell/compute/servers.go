@@ -221,6 +221,8 @@ func init() {
 			params.Eip = opts.Eip
 			params.EipChargeType = billing_api.ParseNetChargeType(opts.EipChargeType)
 			params.EipBw = opts.EipBw
+			params.EipTxBw = opts.EipTxBw
+			params.EipRxBw = opts.EipRxBw
 
 			server, err := modules.Servers.Create(s, params.JSON(params))
 			if err != nil {

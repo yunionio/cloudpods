@@ -44,9 +44,10 @@ func (self *EipChangeBandwidthTask) TaskFail(ctx context.Context, eip *models.SE
 
 func (self *EipChangeBandwidthTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	eip := obj.(*models.SElasticip)
-	bandwidth, _ := self.Params.Int("bandwidth")
-	if bandwidth <= 0 {
-		self.TaskFail(ctx, eip, errors.Errorf("nvalid bandwidth %d", bandwidth))
+	input := api.ElasticipChangeBandwidthInput{}
+	err := self.Params.Unmarshal(&input)
+	if err != nil {
+		self.TaskFail(ctx, eip, errors.Wrapf(err, "Unmarshal"))
 		return
 	}
 
@@ -57,15 +58,14 @@ func (self *EipChangeBandwidthTask) OnInit(ctx context.Context, obj db.IStandalo
 			return
 		}
 
-		err = extEip.ChangeBandwidth(int(bandwidth))
+		err = extEip.ChangeBandwidth(int(input.BandwidthMb))
 		if err != nil {
 			self.TaskFail(ctx, eip, errors.Wrapf(err, "ChangeBandwidth"))
 			return
 		}
-
 	}
 
-	if err := eip.DoChangeBandwidth(ctx, self.UserCred, int(bandwidth)); err != nil {
+	if err := eip.DoChangeBandwidth(ctx, self.UserCred, input); err != nil {
 		self.TaskFail(ctx, eip, errors.Wrapf(err, "DoChangeBandwidth"))
 		return
 	}
