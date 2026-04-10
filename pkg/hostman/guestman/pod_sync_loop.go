@@ -78,7 +78,7 @@ func (m *SGuestManager) reconcileContainer(obj *sPodGuestInstance, cache runtime
 			// container is deleted
 			continue
 		}
-		if cs.State == runtime.ContainerStateExited && cs.ExitCode != 0 {
+		if cs.State == runtime.ContainerStateExited && (cs.ExitCode != 0 || ctr.Spec.AlwaysRestart) {
 			if err := m.startContainer(obj, ctr, cs); err != nil {
 				errs = append(errs, errors.Wrapf(err, "start container %s", ctr.Name))
 			}
