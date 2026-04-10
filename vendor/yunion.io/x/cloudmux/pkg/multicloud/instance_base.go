@@ -98,3 +98,7 @@ func (ins *SInstanceBase) GetHealthStatus() string {
 func (instance *SInstanceBase) GetError() error {
 	return nil
 }
+
+func (instance *SInstanceBase) GetModificationTypes() ([]cloudprovider.SInstanceModificationType, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetModificationTypes")
+}

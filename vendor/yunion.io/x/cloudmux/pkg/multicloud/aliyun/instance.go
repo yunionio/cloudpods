@@ -522,6 +522,61 @@ func (self *SInstance) ChangeConfig(ctx context.Context, config *cloudprovider.S
 	return fmt.Errorf("Failed to change vm config, specification not supported")
 }
 
+func (self *SInstance) GetModificationTypes() ([]cloudprovider.SInstanceModificationType, error) {
+	return self.host.zone.region.GetInstanceModificationTypes(self.InstanceId)
+}
+
+func (self *SRegion) GetInstanceModificationTypes(instanceId string) ([]cloudprovider.SInstanceModificationType, error) {
+	params := map[string]string{
+		"RegionId":            self.RegionId,
+		"ResourceId":          instanceId,
+		"DestinationResource": "InstanceType",
+	}
+	body, err := self.ecsRequest("DescribeResourcesModification", params)
+	if err != nil {
+		return nil, errors.Wrapf(err, "DescribeResourcesModification")
+	}
+
+	parsed := struct {
+		AvailableZones struct {
+			AvailableZone []struct {
+				AvailableResources struct {
+					AvailableResource []struct {
+						SupportedResources struct {
+							SupportedResource []struct {
+								Value          string
+								Status         string
+								StatusCategory string
+							}
+						}
+					}
+				}
+			}
+		}
+	}{}
+	if err := body.Unmarshal(&parsed); err != nil {
+		return nil, errors.Wrapf(err, "body.Unmarshal")
+	}
+
+	ret := make([]cloudprovider.SInstanceModificationType, 0)
+	seen := map[string]struct{}{}
+	for _, zone := range parsed.AvailableZones.AvailableZone {
+		for _, resource := range zone.AvailableResources.AvailableResource {
+			for _, supportedResource := range resource.SupportedResources.SupportedResource {
+				if len(supportedResource.Value) == 0 || len(supportedResource.Status) == 0 || strings.ToLower(supportedResource.Status) != "available" {
+					continue
+				}
+				if _, ok := seen[supportedResource.Value]; ok {
+					continue
+				}
+				seen[supportedResource.Value] = struct{}{}
+				ret = append(ret, cloudprovider.SInstanceModificationType{InstanceType: supportedResource.Value})
+			}
+		}
+	}
+	return ret, nil
+}
+
 func (self *SInstance) AttachDisk(ctx context.Context, diskId string) error {
 	return self.host.zone.region.AttachDisk(self.InstanceId, diskId)
 }

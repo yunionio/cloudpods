@@ -1400,3 +1400,11 @@ type ServerChangeBillingTypeInput struct {
 	// required: true
 	BillingType string `json:"billing_type"`
 }
+
+type ServerModificationType struct {
+	Name string `json:"name"`
+}
+
+type ServerModificationTypesOutput struct {
+	ModificationTypes []ServerModificationType `json:"modification_types"`
+}

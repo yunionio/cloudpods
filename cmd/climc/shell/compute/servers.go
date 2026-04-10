@@ -131,6 +131,7 @@ func init() {
 	cmd.BatchPerform("set-root-disk-matcher", &options.ServerSetRootDiskMatcher{})
 	cmd.Perform("disable-auto-merge-snapshot", &options.ServerDisableAutoMergeSnapshot{})
 	cmd.Get("vnc", new(options.ServerVncOptions))
+	cmd.Get("modification-types", new(options.ServerIdOptions))
 	cmd.Get("desc", new(options.ServerIdOptions))
 	cmd.Get("status", new(options.ServerIdOptions))
 	cmd.Get("iso", new(options.ServerIdOptions))

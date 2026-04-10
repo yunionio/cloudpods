@@ -288,3 +288,7 @@ func (self *SInstance) GetPowerStates() string {
 func (self *SInstance) GetHealthStatus() string {
 	return ""
 }
+
+func (self *SInstance) GetModificationTypes() ([]cloudprovider.SInstanceModificationType, error) {
+	return nil, cloudprovider.ErrNotSupported
+}
