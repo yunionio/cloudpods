@@ -1,0 +1,12 @@
+region = 'LocalTest'
+port = 9300
+auth_uri = 'http://10.16.22.51:35357/v3'
+admin_user = 'llmadmin'
+admin_password = 'password0'
+admin_tenant_name = 'system'
+sql_connection = 'mysql+pymysql://yunionllm:password0@10.16.22.51:3306/yunionllm?charset=utf8'
+
+auto_sync_table = True
+
+llm_working_directory = '/opt/cloud/workspace/llm/'
+mcp_server_url = 'http://default-mcp-server:30876'
