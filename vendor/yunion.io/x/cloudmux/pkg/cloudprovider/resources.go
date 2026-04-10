@@ -389,6 +389,8 @@ type ICloudVM interface {
 	DeployVM(ctx context.Context, opts *SInstanceDeployOptions) error
 
 	ChangeConfig(ctx context.Context, config *SManagedVMChangeConfig) error
+	// 获取实例可变更类型
+	GetModificationTypes() ([]SInstanceModificationType, error)
 
 	GetVNCInfo(input *ServerVncInput) (*ServerVncOutput, error)
 	// 若有跟随主机删除的选项，需要设置为True

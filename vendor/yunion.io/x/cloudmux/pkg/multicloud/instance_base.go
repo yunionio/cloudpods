@@ -106,3 +106,7 @@ func (instance *SInstanceBase) GetIsolateDeviceIds() ([]string, error) {
 func (instance *SInstanceBase) GetContainers() ([]cloudprovider.ICloudContainer, error) {
 	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetContainers")
 }
+
+func (instance *SInstanceBase) GetModificationTypes() ([]cloudprovider.SInstanceModificationType, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetModificationTypes")
+}

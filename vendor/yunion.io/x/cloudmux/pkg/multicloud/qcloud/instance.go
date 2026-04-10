@@ -496,6 +496,50 @@ func (self *SInstance) ChangeConfig(ctx context.Context, opts *cloudprovider.SMa
 	return self.host.zone.region.ChangeVMConfig(self.InstanceId, opts.InstanceType)
 }
 
+func (self *SInstance) GetModificationTypes() ([]cloudprovider.SInstanceModificationType, error) {
+	return self.host.zone.region.GetInstanceModificationTypes(self.InstanceId)
+}
+
+func (self *SRegion) GetInstanceModificationTypes(instanceId string) ([]cloudprovider.SInstanceModificationType, error) {
+	params := map[string]string{
+		"Region":        self.Region,
+		"InstanceIds.0": instanceId,
+	}
+	body, err := self.cvmRequest("DescribeInstancesModification", params, true)
+	if err != nil {
+		return nil, errors.Wrapf(err, "DescribeInstancesModification")
+	}
+
+	resp := struct {
+		InstanceTypeConfigStatusSet []struct {
+			InstanceTypeConfig struct {
+				InstanceType string
+				Zone         string
+			}
+			Status string
+		}
+	}{}
+
+	if err := body.Unmarshal(&resp); err != nil {
+		return nil, errors.Wrapf(err, "body.Unmarshal")
+	}
+
+	ret := make([]cloudprovider.SInstanceModificationType, 0)
+	seen := map[string]struct{}{}
+	for _, cfg := range resp.InstanceTypeConfigStatusSet {
+		if !strings.EqualFold(cfg.Status, "SELL") {
+			continue
+		}
+
+		if _, ok := seen[cfg.InstanceTypeConfig.InstanceType]; ok {
+			continue
+		}
+		seen[cfg.InstanceTypeConfig.InstanceType] = struct{}{}
+		ret = append(ret, cloudprovider.SInstanceModificationType{InstanceType: cfg.InstanceTypeConfig.InstanceType})
+	}
+	return ret, nil
+}
+
 func (self *SInstance) AttachDisk(ctx context.Context, diskId string) error {
 	return self.host.zone.region.AttachDisk(self.InstanceId, diskId)
 }

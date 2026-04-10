@@ -682,6 +682,31 @@ func (self *SInstance) ChangeConfig(ctx context.Context, config *cloudprovider.S
 	return fmt.Errorf("Failed to change vm config, specification not supported")
 }
 
+func (self *SInstance) GetModificationTypes() ([]cloudprovider.SInstanceModificationType, error) {
+	return self.host.zone.region.GetInstanceModificationTypes(self.GetId())
+}
+
+// https://console.huaweicloud.com/apiexplorer/#/openapi/ECS/doc?api=ListResizeFlavors
+func (self *SRegion) GetInstanceModificationTypes(instanceId string) ([]cloudprovider.SInstanceModificationType, error) {
+	params := url.Values{}
+	params.Set("instance_uuid", instanceId)
+	resp, err := self.list(SERVICE_ECS, "cloudservers/resize_flavors", params)
+	if err != nil {
+		return nil, errors.Wrapf(err, "ListResizeFlavors(%s)", instanceId)
+	}
+	flavors := []SInstanceType{}
+	err = resp.Unmarshal(&flavors, "flavors")
+	if err != nil {
+		return nil, errors.Wrapf(err, "resp.Unmarshal(flavors)")
+	}
+
+	ret := make([]cloudprovider.SInstanceModificationType, 0, len(flavors))
+	for _, flavor := range flavors {
+		ret = append(ret, cloudprovider.SInstanceModificationType{InstanceType: flavor.ID})
+	}
+	return ret, nil
+}
+
 func (self *SInstance) GetVNCInfo(input *cloudprovider.ServerVncInput) (*cloudprovider.ServerVncOutput, error) {
 	return self.host.zone.region.GetInstanceVNCUrl(self.GetId())
 }
