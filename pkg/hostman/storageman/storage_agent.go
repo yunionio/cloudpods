@@ -34,6 +34,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/agent/iagent"
+	esxi_options "yunion.io/x/onecloud/pkg/esxi/options"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/deployclient"
@@ -148,7 +149,7 @@ func (as *SAgentStorage) agentRebuildRoot(ctx context.Context, data jsonutils.JS
 	return vm.DoRebuildRoot(ctx, newPath, diskId, uefi)
 }
 
-func (as *SAgentStorage) agentCreateGuest(ctx context.Context, data *jsonutils.JSONDict) (bool, error) {
+func (as *SAgentStorage) agentCreateGuest(ctx context.Context, data jsonutils.JSONObject) (bool, error) {
 	hd := SHostDatastore{}
 	err := data.Unmarshal(&hd)
 	if err != nil {
@@ -168,6 +169,9 @@ func (as *SAgentStorage) agentCreateGuest(ctx context.Context, data *jsonutils.J
 	if err != nil {
 		return false, errors.Wrapf(err, "%s: fail to unmarshal to esxi.SCreateVMParam", hostutils.ParamsError)
 	}
+	if !esxi_options.Options.EnableFolderNameUUID {
+		createParam.Uuid = ""
+	}
 	needDeploy, vm, err := host.CreateVM2(ctx, ds, createParam)
 	if err != nil {
 		return false, errors.Wrap(err, "SHost.CreateVM2")
@@ -180,10 +184,11 @@ func (as *SAgentStorage) agentCreateGuest(ctx context.Context, data *jsonutils.J
 			log.Warningf("set tags for vm %s error: %v", createParam.Name, err)
 		}
 	}
-	name, _ := descDict.GetString("name")
-	err = as.tryRenameVm(ctx, vm, name)
-	if err != nil {
-		return false, errors.Wrapf(err, "RenameVm name '%s'", name)
+	if esxi_options.Options.EnableFolderNameUUID && len(createParam.Uuid) > 0 {
+		err = as.tryRenameVm(ctx, vm, createParam.Name)
+		if err != nil {
+			return false, errors.Wrapf(err, "RenameVm name '%s'", createParam.Name)
+		}
 	}
 	return needDeploy, nil
 }
@@ -229,22 +234,55 @@ func (self esxiVm) GetName() string {
 	return self.Name
 }
 
+type SHostDatastore struct {
+	HostIp    string
+	Datastore vcenter.SVCenterAccessInfo
+}
+
+type SDeployInfo struct {
+	Action string
+
+	SHostDatastore
+
+	Desc             desc.SGuestDesc
+	PublicKey        string
+	DeletePublicKey  string
+	AdminPublicKey   string
+	ProjectPublicKey string
+	GuestExtId       string
+	GuestId          string
+	ResetPassword    bool
+	Password         string
+	EnableCloudInit  bool
+	LoginAccount     string
+	DeployTelegraf   bool
+	TelegrafConf     string
+
+	Deploys []struct {
+		Path    string
+		Content string
+		Action  string
+	}
+}
+
 func (as *SAgentStorage) AgentDeployGuest(ctx context.Context, data interface{}) (jsonutils.JSONObject, error) {
 	init := false
 	dataDict := data.(*jsonutils.JSONDict)
 	log.Debugf("dataDict: %s", dataDict)
-	action, _ := dataDict.GetString("action")
-	var (
-		needDeploy = true
-		err        error
-	)
-	if action == "create" {
+	deployInfo := SDeployInfo{}
+	err := dataDict.Unmarshal(&deployInfo)
+	if err != nil {
+		return nil, errors.Wrap(err, "Unmarshal DeployInfo")
+	}
+	var needDeploy = true
+	switch deployInfo.Action {
+	case "create":
 		needDeploy, err = as.agentCreateGuest(ctx, dataDict)
 		if err != nil {
 			return nil, errors.Wrap(err, "agentCreateGuest")
 		}
 		init = true
-	} else if action == "rebuild" {
+	case "rebuild":
 		err := as.agentRebuildRoot(ctx, dataDict)
 		if err != nil {
 			return nil, errors.Wrap(err, "agentRebuildRoot")
@@ -252,26 +290,25 @@ func (as *SAgentStorage) AgentDeployGuest(ctx context.Context, data interface{})
 		init = true
 	}
 
-	var (
-		hostIp, _ = dataDict.GetString("host_ip")
-		dsInfo, _ = dataDict.Get("datastore")
-	)
-	dc, info, err := esxi.NewESXiClientFromJson(ctx, dsInfo)
+	dc, info, err := esxi.NewESXiClientFromJson(ctx, jsonutils.Marshal(deployInfo.Datastore))
 	if err != nil {
 		return nil, errors.Wrap(err, "esxi.NewESXiClientFromJson")
 	}
-	host, err := dc.FindHostByIp(hostIp)
+	host, err := dc.FindHostByIp(deployInfo.HostIp)
 	if err != nil {
 		return nil, errors.Wrap(err, "SDatacenter.FindHostByIp")
 	}
-	vmId, _ := dataDict.GetString("guest_ext_id")
+	vmId := deployInfo.GuestExtId
+	if !esxi_options.Options.EnableFolderNameUUID && deployInfo.Action == "create" {
+		vmId = deployInfo.Desc.Name
+	}
 	realHost := host
 	ivm, err := host.GetIVMById(vmId)
 	if err == cloudprovider.ErrNotFound {
 		// reschedule by DRS, migrate to other host
 		siblingHosts, err := host.GetSiblingHosts()
 		if err != nil {
-			return nil, errors.Wrap(err, "SHost.GetSiblingHosts")
+			return nil, errors.Wrap(err, "GetSiblingHosts")
 		}
 		for _, sh := range siblingHosts {
 			ivm, err = host.GetIVMById(vmId)
@@ -314,48 +351,40 @@ func (as *SAgentStorage) AgentDeployGuest(ctx context.Context, data interface{})
 			return nil, errors.Wrapf(err, "%s: unmarshal to guestDesc", hostutils.ParamsError.Error())
 		}
 
-		var desc = new(desc.SGuestDesc)
-		err := dataDict.Unmarshal(desc, "desc")
-		if err != nil {
-			return nil, errors.Wrap(err, "Unmarshal Guest Desc")
-		}
-		// desc, _ := dataDict.Get("desc")
 		guestDesc.Hypervisor = api.HYPERVISOR_ESXI
 
-		key := deployapi.SSHKeys{}
-		err = dataDict.Unmarshal(&key)
-		if err != nil {
-			return nil, errors.Wrapf(err, "%s: unmarshal to deployapi.SSHKeys", hostutils.ParamsError.Error())
+		key := deployapi.SSHKeys{
+			PublicKey:        deployInfo.PublicKey,
+			DeletePublicKey:  deployInfo.DeletePublicKey,
+			AdminPublicKey:   deployInfo.AdminPublicKey,
+			ProjectPublicKey: deployInfo.ProjectPublicKey,
 		}
 
 		deployArray := make([]*deployapi.DeployContent, 0)
-		if dataDict.Contains("deploys") {
-			err = dataDict.Unmarshal(&deployArray, "deploys")
-			if err != nil {
-				return nil, errors.Wrapf(err, "%s: unmarshal to array of deployapi.DeployContent", hostutils.ParamsError.Error())
-			}
+		for _, deploy := range deployInfo.Deploys {
+			deployArray = append(deployArray, &deployapi.DeployContent{
+				Path:    deploy.Path,
+				Content: deploy.Content,
+				Action:  deploy.Action,
+			})
 		}
 
 		isRandomPassword := false
-		passwd, _ := dataDict.GetString("password")
-		resetPassword := jsonutils.QueryBoolean(dataDict, "reset_password", false)
+		passwd := deployInfo.Password
+		resetPassword := deployInfo.ResetPassword
 		if resetPassword && len(passwd) == 0 {
 			passwd = seclib.RandomPassword(12)
 			isRandomPassword = true
 		}
 
-		enableCloudInit := jsonutils.QueryBoolean(dataDict, "enable_cloud_init", false)
-		loginAccount, _ := dataDict.GetString("login_account")
-		deployTelegraf := jsonutils.QueryBoolean(dataDict, "deploy_telegraf", false)
-		telegrafConfig, _ := dataDict.GetString("telegraf_conf")
-		if deployTelegraf && telegrafConfig == "" {
+		if deployInfo.DeployTelegraf && deployInfo.TelegrafConf == "" {
 			return nil, errors.Errorf("missing telegraf_conf")
 		}
 
-		deployInfo := deployapi.NewDeployInfo(&key, deployArray, passwd, isRandomPassword, init, false,
+		deployInformation := deployapi.NewDeployInfo(&key, deployArray, passwd, isRandomPassword, init, false,
 			options.HostOptions.LinuxDefaultRootUser, options.HostOptions.WindowsDefaultAdminUser,
-			enableCloudInit, loginAccount, deployTelegraf, telegrafConfig,
-			desc.UserData,
+			deployInfo.EnableCloudInit, deployInfo.LoginAccount, deployInfo.DeployTelegraf, deployInfo.TelegrafConf,
+			deployInfo.Desc.UserData,
 		)
 		log.Debugf("deployInfo: %s", jsonutils.Marshal(deployInfo))
 		deploy, err = deployclient.GetDeployClient().DeployGuestFs(ctx, &deployapi.DeployParams{
@@ -363,7 +392,7 @@ func (as *SAgentStorage) AgentDeployGuest(ctx context.Context, data interface{})
 				Path: rootPath,
 			},
 			GuestDesc:  &guestDesc,
-			DeployInfo: deployInfo,
+			DeployInfo: deployInformation,
 			VddkInfo:   &vddkInfo,
 		})
 		customize := false
@@ -382,7 +411,7 @@ func (as *SAgentStorage) AgentDeployGuest(ctx context.Context, data interface{})
 		}
 		if customize {
 			as.waitVmToolsVersion(ctx, vm)
-			err = vm.DoCustomize(ctx, jsonutils.Marshal(desc))
+			err = vm.DoCustomize(ctx, jsonutils.Marshal(deployInfo.Desc))
 			if err != nil {
 				log.Errorf("unable to DoCustomize for vm %s: %v", vm.GetId(), err)
 			}
@@ -436,11 +465,6 @@ func (as *SAgentStorage) waitVmToolsVersion(ctx context.Context, vm *esxi.SVirtu
 		time.Sleep(5 * time.Second)
 	}
 	return
-}
-
-type SHostDatastore struct {
-	HostIp    string
-	Datastore vcenter.SVCenterAccessInfo
 }
 
 func (as *SAgentStorage) getHostAndDatastore(ctx context.Context, data SHostDatastore) (*esxi.SHost, *esxi.SDatastore, error) {

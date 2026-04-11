@@ -335,7 +335,7 @@ func (host *SHost) GetIVMById(id string) (cloudprovider.ICloudVM, error) {
 		return nil, err
 	}
 	for i := 0; i < len(vms); i += 1 {
-		if vms[i].GetGlobalId() == id {
+		if vms[i].GetGlobalId() == id || vms[i].GetName() == id {
 			return vms[i], nil
 		}
 	}
@@ -1092,9 +1092,8 @@ func (host *SHost) DoCreateVM(ctx context.Context, ds *SDatastore, params SCreat
 	needDeploy = true
 	deviceChange := make([]types.BaseVirtualDeviceConfigSpec, 0, 5)
 
-	// uuid first
 	name := params.Name
-	if len(params.Uuid) != 0 {
+	if len(params.Uuid) > 0 {
 		name = params.Uuid
 	}
 	datastorePath := fmt.Sprintf("[%s] ", ds.GetRelName())
@@ -1231,7 +1230,11 @@ func (host *SHost) DoCreateVM(ctx context.Context, ds *SDatastore, params SCreat
 	}
 	vmRef := info.Result.(types.ManagedObjectReference)
 	objectVM := object.NewVirtualMachine(host.manager.client.Client, vmRef)
-	vm, err = host.addDisks(ctx, ds, params.Disks, params.Uuid, objectVM)
+	uuid := params.Uuid
+	if len(uuid) == 0 {
+		uuid = params.Name
+	}
+	vm, err = host.addDisks(ctx, ds, params.Disks, uuid, objectVM)
 	return
 }
 
