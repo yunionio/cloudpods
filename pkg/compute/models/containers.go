@@ -294,6 +294,11 @@ func (m *SContainerManager) ValidateSpecRootFs(ctx context.Context, userCred mcc
 		return nil
 	}
 	rootFs := spec.RootFs
+	if rootFs.Disk != nil {
+		if rootFs.Disk.SubDirectory == "" {
+			rootFs.Disk.SubDirectory = "rootfs"
+		}
+	}
 	drv, err := GetContainerRootFsDriverWithError(rootFs.Type)
 	if err != nil {
 		return errors.Wrapf(err, "get container volume mount driver %q", rootFs.Type)
