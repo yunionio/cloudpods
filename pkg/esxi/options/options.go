@@ -36,6 +36,7 @@ type EsxiOptions struct {
 	Zone                     string `help:"Zone where the agent locates"`
 	DeployServerSocketPath   string `help:"Deploy server listen socket path" default:"/var/run/onecloud/deploy.sock"`
 	HostDelayTaskWorkerCount int    `default:"8" help:"Host delay worker thread count, default is 8"`
+	EnableFolderNameUUID     bool   `default:"false" help:"Enable folder name uuid"`
 	esxi.EsxiOptions
 }
 
