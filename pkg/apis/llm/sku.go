@@ -152,6 +152,7 @@ type LLMSkuBaseUpdateInput struct {
 
 	// RequstSyncImage *bool `json:"request_sync_image"`
 
+	DiskSize    *int     `json:"disk_size" yunion-deprecated-by:"disk_size_mb"`
 	DiskSizeMB  *int     `json:"disk_size_mb"`
 	TemplateId  *string  `json:"template_id"`
 	StorageType *string  `json:"storage_type"`
