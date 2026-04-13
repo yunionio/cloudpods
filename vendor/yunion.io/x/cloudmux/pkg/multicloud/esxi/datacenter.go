@@ -466,10 +466,25 @@ func (dc *SDatacenter) FetchVMById(id string) (*SVirtualMachine, error) {
 	if err != nil {
 		return nil, err
 	}
-	if len(vms) == 0 {
-		return nil, errors.ErrNotFound
+	for i := range vms {
+		return vms[i], nil
 	}
-	return vms[0], nil
+	return dc.FetchVMByName(id)
+}
+
+func (dc *SDatacenter) FetchVMByName(name string) (*SVirtualMachine, error) {
+	filter := property.Match{}
+	filter["name"] = name
+	vms, err := dc.fetchVMsWithFilter(filter)
+	if err != nil {
+		return nil, err
+	}
+	for i := range vms {
+		if vms[i].GetName() == name {
+			return vms[i], nil
+		}
+	}
+	return nil, errors.Wrapf(errors.ErrNotFound, "FetchVMByName %s", name)
 }
 
 func (dc *SDatacenter) fetchDatastores(datastoreRefs []types.ManagedObjectReference) ([]cloudprovider.ICloudStorage, error) {
