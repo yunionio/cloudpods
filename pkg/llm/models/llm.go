@@ -318,6 +318,8 @@ func (man *SLLMManager) FetchCustomizeColumns(
 				res[i].HostEIP = guest.HostEIP
 				res[i].Zone = guest.Zone
 				res[i].ZoneId = guest.ZoneId
+				res[i].VcpuCount = guest.VcpuCount
+				res[i].VmemSizeMb = guest.VmemSize
 
 				adbMappedPort := -1
 				// for j := range res[i].AccessInfo {
