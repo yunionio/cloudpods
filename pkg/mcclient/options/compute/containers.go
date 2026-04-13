@@ -205,6 +205,8 @@ func parseContainerRootFs(rootFs string) (*apis.ContainerRootfs, error) {
 			out.Disk.Index = &index
 		case "disk_id":
 			out.Disk.Id = val
+		case "sub_dir", "sub_directory":
+			out.Disk.SubDirectory = val
 		}
 	}
 	return out, nil
