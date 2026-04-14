@@ -54,6 +54,11 @@ func (self *DiskResetTask) getSnapshot() (*models.SSnapshot, error) {
 func (self *DiskResetTask) TaskFailed(ctx context.Context, disk *models.SDisk, reason error) {
 	disk.SetStatus(ctx, self.UserCred, api.DISK_READY, "")
 	logclient.AddActionLogWithStartable(self, disk, logclient.ACT_RESET_DISK, reason, self.UserCred, false)
+	notifyclient.EventNotify(ctx, self.UserCred, notifyclient.SEventNotifyParam{
+		Obj:    disk,
+		Action: notifyclient.ActionReset,
+		IsFail: true,
+	})
 	snapshot, _ := self.getSnapshot()
 	if snapshot != nil {
 		logclient.AddActionLogWithStartable(self, snapshot, logclient.ACT_RESET_DISK, reason, self.UserCred, false)

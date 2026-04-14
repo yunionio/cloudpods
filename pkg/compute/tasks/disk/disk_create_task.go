@@ -102,6 +102,11 @@ func (self *DiskCreateTask) OnStorageCacheImageComplete(ctx context.Context, dis
 func (self *DiskCreateTask) OnStartAllocateFailed(ctx context.Context, disk *models.SDisk, data jsonutils.JSONObject) {
 	disk.SetStatus(ctx, self.UserCred, api.DISK_ALLOC_FAILED, data.String())
 	logclient.AddActionLogWithStartable(self, disk, logclient.ACT_ALLOCATE, data, self.UserCred, false)
+	notifyclient.EventNotify(ctx, self.UserCred, notifyclient.SEventNotifyParam{
+		Obj:    disk,
+		Action: notifyclient.ActionCreate,
+		IsFail: true,
+	})
 	self.SetStageFailed(ctx, data)
 }
 
@@ -155,6 +160,11 @@ func (self *DiskCreateTask) OnDiskReadyFailed(ctx context.Context, disk *models.
 	}
 	disk.SetStatus(ctx, self.UserCred, status, data.String())
 	logclient.AddActionLogWithStartable(self, disk, logclient.ACT_ALLOCATE, data, self.UserCred, false)
+	notifyclient.EventNotify(ctx, self.UserCred, notifyclient.SEventNotifyParam{
+		Obj:    disk,
+		Action: notifyclient.ActionCreate,
+		IsFail: true,
+	})
 	self.SetStageFailed(ctx, data)
 }
 
