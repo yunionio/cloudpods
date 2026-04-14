@@ -30,11 +30,11 @@ import (
 )
 
 type PodCreateOptions struct {
-	NAME string `help:"Name of server pod" json:"-"`
-	ServerCreateCommonConfig
-	MEM         string `help:"Memory size MB" metavar:"MEM" json:"-"`
-	VcpuCount   int    `help:"#CPU cores of VM server, default 1" default:"1" metavar:"<SERVER_CPU_COUNT>" json:"vcpu_count" token:"ncpu"`
-	AllowDelete *bool  `help:"Unlock server to allow deleting" json:"-"`
+	NAME                     string `help:"Name of server pod" json:"-"`
+	ServerCreateCommonConfig `"disk->nargs":"*"`
+	MEM                      string `help:"Memory size MB" metavar:"MEM" json:"-"`
+	VcpuCount                int    `help:"#CPU cores of VM server, default 1" default:"1" metavar:"<SERVER_CPU_COUNT>" json:"vcpu_count" token:"ncpu"`
+	AllowDelete              *bool  `help:"Unlock server to allow deleting" json:"-"`
 	//PortMapping []string `help:"Port mapping of the pod and the format is: host_port=8080,port=80,protocol=<tcp|udp>,host_port_range=<int>-<int>" short-token:"p"`
 	Arch             string `help:"image arch" choices:"aarch64|x86_64"`
 	AutoStart        bool   `help:"Auto start server after it is created"`
