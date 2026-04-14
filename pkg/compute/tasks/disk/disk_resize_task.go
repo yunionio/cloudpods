@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/logclient"
@@ -97,6 +98,11 @@ func (self *DiskResizeTask) OnStartResizeDiskFailed(ctx context.Context, disk *m
 	self.SetStageFailed(ctx, jsonutils.Marshal(reason))
 	db.OpsLog.LogEvent(disk, db.ACT_RESIZE_FAIL, reason, self.GetUserCred())
 	logclient.AddActionLogWithStartable(self, disk, logclient.ACT_RESIZE, reason, self.UserCred, false)
+	notifyclient.EventNotify(ctx, self.UserCred, notifyclient.SEventNotifyParam{
+		Obj:    disk,
+		Action: notifyclient.ActionResize,
+		IsFail: true,
+	})
 }
 
 func (self *DiskResizeTask) OnDiskResizeComplete(ctx context.Context, disk *models.SDisk, data jsonutils.JSONObject) {
@@ -157,5 +163,10 @@ func (self *DiskResizeTask) OnDiskResizeCompleteFailed(ctx context.Context, disk
 	self.SetDiskReady(ctx, disk, self.GetUserCred(), data.String())
 	db.OpsLog.LogEvent(disk, db.ACT_RESIZE_FAIL, disk.GetShortDesc(ctx), self.UserCred)
 	logclient.AddActionLogWithStartable(self, disk, logclient.ACT_RESIZE, data, self.UserCred, false)
+	notifyclient.EventNotify(ctx, self.UserCred, notifyclient.SEventNotifyParam{
+		Obj:    disk,
+		Action: notifyclient.ActionResize,
+		IsFail: true,
+	})
 	self.SetStageFailed(ctx, data)
 }

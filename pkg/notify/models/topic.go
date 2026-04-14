@@ -75,7 +75,7 @@ type STopic struct {
 	db.SEnabledStatusStandaloneResourceBase
 
 	Type        string               `width:"20" nullable:"false" create:"required" update:"user" list:"user"`
-	Results     tristate.TriState    `default:"true"`
+	Results     tristate.TriState    `default:"true" create:"optional" get:"user" list:"user"`
 	TitleCn     string               `length:"medium" nullable:"true" charset:"utf8" list:"user" update:"user" create:"optional"`
 	TitleEn     string               `length:"medium" nullable:"true" charset:"utf8" list:"user" update:"user" create:"optional"`
 	ContentCn   string               `length:"medium" nullable:"true" charset:"utf8" list:"user" update:"user" create:"optional"`
@@ -485,6 +485,7 @@ func initTopicElement(name string, t *STopic) {
 			api.TOPIC_RESOURCE_LOADBALANCER,
 			api.TOPIC_RESOURCE_DBINSTANCE,
 			api.TOPIC_RESOURCE_ELASTICCACHE,
+			api.TOPIC_RESOURCE_DISK,
 			api.TOPIC_RESOURCE_CLOUDPHONE,
 		)
 		t.addAction(
@@ -945,6 +946,32 @@ func (t *STopic) PreCheckPerformAction(
 		}
 	}
 	return nil
+}
+
+func (t *STopic) PerformAddActions(
+	ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject, data api.TopicAddActionInput,
+) (jsonutils.JSONObject, error) {
+	for _, action := range data.Actions {
+		if len(action) == 0 {
+			continue
+		}
+		t.addAction(notify.SAction(action))
+	}
+	return nil, nil
+}
+
+func (t *STopic) PerformAddResources(
+	ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject, data api.TopicAddResourcesInput,
+) (jsonutils.JSONObject, error) {
+	for _, resource := range data.Resources {
+		if len(resource) == 0 {
+			continue
+		}
+		t.addResources(resource)
+	}
+	return nil, nil
 }
 
 func init() {

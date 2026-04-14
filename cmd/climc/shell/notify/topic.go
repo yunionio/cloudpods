@@ -27,4 +27,6 @@ func init() {
 	cmd.Update(new(options.TopicUpdateOptions))
 	cmd.Show(new(options.TopicOptions))
 	cmd.Delete(new(options.TopicOptions))
+	cmd.Perform("add-actions", new(options.TopicAddActionInput))
+	cmd.Perform("add-resources", new(options.TopicAddResourcesInput))
 }
