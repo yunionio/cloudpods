@@ -118,3 +118,21 @@ type TopicCreateOptions struct {
 func (rl *TopicCreateOptions) Params() (jsonutils.JSONObject, error) {
 	return jsonutils.Marshal(rl), nil
 }
+
+type TopicAddActionInput struct {
+	TopicOptions
+	Actions []string `json:"actions"`
+}
+
+func (rl *TopicAddActionInput) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(rl), nil
+}
+
+type TopicAddResourcesInput struct {
+	TopicOptions
+	Resources []string `json:"resources"`
+}
+
+func (rl *TopicAddResourcesInput) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(rl), nil
+}

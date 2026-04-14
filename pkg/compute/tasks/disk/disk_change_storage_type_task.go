@@ -24,6 +24,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
@@ -82,5 +83,10 @@ func (self *DiskChangeStorageTypeTask) OnInit(ctx context.Context, obj db.IStand
 func (self *DiskChangeStorageTypeTask) taskFail(ctx context.Context, disk *models.SDisk, err error) {
 	disk.SetStatus(ctx, self.GetUserCred(), api.DISK_MIGRATE_FAIL, "")
 	logclient.AddActionLogWithStartable(self, disk, logclient.ACT_MIGRATE, err, self.UserCred, false)
+	notifyclient.EventNotify(ctx, self.UserCred, notifyclient.SEventNotifyParam{
+		Obj:    disk,
+		Action: notifyclient.ActionMigrate,
+		IsFail: true,
+	})
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }

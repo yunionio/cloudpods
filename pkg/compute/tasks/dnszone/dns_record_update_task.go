@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package disk
+package dnszone
 
 import (
 	"context"
@@ -21,7 +21,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
-	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
@@ -29,31 +29,32 @@ import (
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
-type DnsRecordCreateTask struct {
+type DnsRecordUpdateTask struct {
 	taskman.STask
 }
 
 func init() {
-	taskman.RegisterTask(DnsRecordCreateTask{})
+	taskman.RegisterTask(DnsRecordUpdateTask{})
 }
 
-func (self *DnsRecordCreateTask) taskFailed(ctx context.Context, record *models.SDnsRecord, err error) {
-	record.SetStatus(ctx, self.GetUserCred(), api.DNS_ZONE_STATUS_CREATE_FAILE, err.Error())
-	db.OpsLog.LogEvent(record, db.ACT_CREATE, record.GetShortDesc(ctx), self.GetUserCred())
-	logclient.AddActionLogWithContext(ctx, record, logclient.ACT_CREATE, err, self.UserCred, false)
+func (self *DnsRecordUpdateTask) taskFailed(ctx context.Context, record *models.SDnsRecord, err error) {
+	record.SetStatus(ctx, self.GetUserCred(), apis.STATUS_UNKNOWN, err.Error())
+	db.OpsLog.LogEvent(record, db.ACT_UPDATE, record.GetShortDesc(ctx), self.GetUserCred())
+	logclient.AddActionLogWithContext(ctx, record, logclient.ACT_UPDATE, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 
-func (self *DnsRecordCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+func (self *DnsRecordUpdateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	record := obj.(*models.SDnsRecord)
-	zone, err := record.GetDnsZone()
-	if err != nil {
-		self.taskFailed(ctx, record, errors.Wrapf(err, "GetDnsZone"))
+
+	if len(record.ExternalId) == 0 {
+		self.taskComplete(ctx, record)
 		return
 	}
 
-	if len(zone.ManagerId) == 0 {
-		self.taskComplete(ctx, zone, record)
+	zone, err := record.GetDnsZone()
+	if err != nil {
+		self.taskFailed(ctx, record, errors.Wrapf(err, "GetDnsZone"))
 		return
 	}
 
@@ -63,12 +64,18 @@ func (self *DnsRecordCreateTask) OnInit(ctx context.Context, obj db.IStandaloneM
 		return
 	}
 
+	iRec, err := iZone.GetIDnsRecordById(record.ExternalId)
+	if err != nil {
+		self.taskFailed(ctx, record, errors.Wrapf(err, "GetIDnsRecordById"))
+		return
+	}
+
 	opts := &cloudprovider.DnsRecord{
-		DnsName:     record.Name,
 		Desc:        record.Description,
-		Enabled:     record.Enabled.Bool(),
-		DnsType:     cloudprovider.TDnsType(record.DnsType),
+		DnsName:     record.Name,
 		DnsValue:    record.DnsValue,
+		DnsType:     cloudprovider.TDnsType(record.DnsType),
+		Enabled:     record.Enabled.Bool(),
 		Proxied:     record.Proxied.Bool(),
 		Ttl:         record.TTL,
 		MxPriority:  record.MxPriority,
@@ -76,29 +83,20 @@ func (self *DnsRecordCreateTask) OnInit(ctx context.Context, obj db.IStandaloneM
 		PolicyValue: cloudprovider.TDnsPolicyValue(record.PolicyValue),
 	}
 
-	id, err := iZone.AddDnsRecord(opts)
+	err = iRec.Update(opts)
 	if err != nil {
-		self.taskFailed(ctx, record, errors.Wrapf(err, "AddDnsRecord"))
-		return
-	}
-	_, err = db.Update(record, func() error {
-		record.ExternalId = id
-		return nil
-	})
-	if err != nil {
-		self.taskFailed(ctx, record, errors.Wrapf(err, "set external id %s", id))
+		self.taskFailed(ctx, record, errors.Wrapf(err, "Update"))
 		return
 	}
 
-	self.taskComplete(ctx, zone, record)
+	self.taskComplete(ctx, record)
 }
 
-func (self *DnsRecordCreateTask) taskComplete(ctx context.Context, zone *models.SDnsZone, record *models.SDnsRecord) {
-	record.SetStatus(ctx, self.UserCred, api.DNS_RECORDSET_STATUS_AVAILABLE, "")
-	logclient.AddSimpleActionLog(zone, logclient.ACT_ALLOCATE, record, self.UserCred, true)
+func (self *DnsRecordUpdateTask) taskComplete(ctx context.Context, record *models.SDnsRecord) {
 	notifyclient.EventNotify(ctx, self.UserCred, notifyclient.SEventNotifyParam{
 		Obj:    record,
-		Action: notifyclient.ActionCreate,
+		Action: notifyclient.ActionUpdate,
 	})
+	record.SetStatus(ctx, self.UserCred, apis.SKU_STATUS_AVAILABLE, "")
 	self.SetStageComplete(ctx, nil)
 }

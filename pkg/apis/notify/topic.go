@@ -94,3 +94,11 @@ type STopicCreateInput struct {
 	Actions           []string         `json:"actions"`
 	WebconsoleDisable bool             `json:"webconsole_disable"`
 }
+
+type TopicAddActionInput struct {
+	Actions []string `json:"actions"`
+}
+
+type TopicAddResourcesInput struct {
+	Resources []string `json:"resources"`
+}

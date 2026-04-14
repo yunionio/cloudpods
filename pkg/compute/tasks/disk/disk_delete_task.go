@@ -231,6 +231,11 @@ func (self *DiskDeleteTask) OnGuestDiskDeleteCompleteFailed(ctx context.Context,
 	disk.SetStatus(ctx, self.GetUserCred(), api.DISK_DEALLOC_FAILED, reason.String())
 	self.SetStageFailed(ctx, reason)
 	db.OpsLog.LogEvent(disk, db.ACT_DELOCATE_FAIL, disk.GetShortDesc(ctx), self.GetUserCred())
+	notifyclient.EventNotify(ctx, self.UserCred, notifyclient.SEventNotifyParam{
+		Obj:    disk,
+		Action: notifyclient.ActionDelete,
+		IsFail: true,
+	})
 	logclient.AddActionLogWithContext(ctx, disk, logclient.ACT_DELOCATE, reason, self.UserCred, false)
 }
 
@@ -276,5 +281,10 @@ func (self *StorageDeleteRbdDiskTask) DeleteDisk(ctx context.Context, storage *m
 func (self *StorageDeleteRbdDiskTask) OnDeleteDiskFailed(ctx context.Context, storage *models.SStorage, data jsonutils.JSONObject) {
 	deleteDisk, _ := data.GetString("delete_disk")
 	db.OpsLog.LogEvent(storage, db.ACT_DELETE_OBJECT, fmt.Sprintf("delete disk %s failed", deleteDisk), self.UserCred)
+	notifyclient.EventNotify(ctx, self.UserCred, notifyclient.SEventNotifyParam{
+		Obj:    storage,
+		Action: notifyclient.ActionDelete,
+		IsFail: true,
+	})
 	self.DeleteDisk(ctx, storage, self.Params)
 }

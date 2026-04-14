@@ -138,6 +138,11 @@ func (task *DiskBatchCreateTask) SaveScheduleResult(ctx context.Context, obj uti
 		task.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 		db.OpsLog.LogEvent(disk, db.ACT_ALLOCATE_FAIL, err, task.UserCred)
 		notifyclient.NotifySystemErrorWithCtx(ctx, disk.Id, disk.Name, api.DISK_ALLOC_FAILED, err.Error())
+		notifyclient.EventNotify(ctx, task.UserCred, notifyclient.SEventNotifyParam{
+			Obj:    disk,
+			Action: notifyclient.ActionCreate,
+			IsFail: true,
+		})
 	}
 
 	data := utils.GetBatchParamsAtIndex(task, index)
