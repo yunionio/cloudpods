@@ -17,9 +17,11 @@ package service
 import (
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/appsrv/dispatcher"
+	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/notify/models"
+	"yunion.io/x/onecloud/pkg/notify/options"
 	_ "yunion.io/x/onecloud/pkg/notify/sender"
 )
 
@@ -34,6 +36,8 @@ func InitHandlers(app *appsrv.Application, isSlave bool) {
 	models.InitEmailQueue()
 
 	db.RegistUserCredCacheUpdater()
+
+	app_common.ExportOptionsHandlerWithPrefix(app, API_VERSION, &options.Options)
 
 	taskman.AddTaskHandler(API_VERSION, app, isSlave)
 

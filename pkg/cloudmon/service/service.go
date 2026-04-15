@@ -93,5 +93,7 @@ func StartService() {
 			session := auth.GetAdminSession(ctx, commonOpts.Region)
 			notifyclient.EventNotifyServiceAbnormal(ctx, session.GetToken(), consts.GetServiceType(), method, path, body, err)
 		})
+
+	app_common.ExportOptionsHandler(app, &options.Options)
 	app_common.ServeForever(app, baseOpts)
 }

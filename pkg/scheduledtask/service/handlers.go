@@ -17,14 +17,18 @@ package service
 import (
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/appsrv/dispatcher"
+	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/scheduledtask/models"
+	"yunion.io/x/onecloud/pkg/scheduledtask/options"
 )
 
 func InitHandlers(app *appsrv.Application, isSlave bool) {
 	db.InitAllManagers()
 	db.RegistUserCredCacheUpdater()
 	db.AddScopeResourceCountHandler("", app)
+
+	app_common.ExportOptionsHandler(app, &options.Options)
 
 	for _, manager := range []db.IModelManager{
 		db.UserCacheManager,

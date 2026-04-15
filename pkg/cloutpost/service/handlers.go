@@ -14,8 +14,12 @@
 
 package service
 
-import "yunion.io/x/onecloud/pkg/appsrv"
+import (
+	"yunion.io/x/onecloud/pkg/appsrv"
+	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
+	"yunion.io/x/onecloud/pkg/cloutpost/options"
+)
 
 func initHandlers(app *appsrv.Application) {
-
+	app_common.ExportOptionsHandler(app, &options.Options)
 }

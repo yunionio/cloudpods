@@ -24,7 +24,7 @@ import (
 	"yunion.io/x/onecloud/pkg/apimap/options"
 	compute_api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/appsrv"
-	common_app "yunion.io/x/onecloud/pkg/cloudcommon/app"
+	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -43,12 +43,13 @@ func StartService() {
 	service.StartServiceWrapper(&opt.DBOptions, &opt.CommonOptions, func(app *appsrv.Application) error {
 		common_options.StartOptionManager(&opt, opt.ConfigSyncPeriodSeconds, compute_api.SERVICE_TYPE, compute_api.SERVICE_VERSION, options.OnOptionsChange)
 		InitHandlers(app)
-		common_app.ServeForever(app, &opt.BaseOptions)
+		app_common.ServeForever(app, &opt.BaseOptions)
 		return nil
 	})
 }
 
 func InitHandlers(app *appsrv.Application) {
+	app_common.ExportOptionsHandler(app, options.GetOptions())
 	app.AddHandler2("GET", "/vpcagent", auth.Authenticate(vpcAgentHandler), nil, "get_vpcagent_topo", nil)
 }
 

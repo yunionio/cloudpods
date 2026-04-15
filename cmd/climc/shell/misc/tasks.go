@@ -23,11 +23,15 @@ import (
 	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/cloudevent"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/cloudid"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/devtool"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/identity"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/image"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/k8s"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/llm"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/monitor"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/notify"
 )
 
@@ -131,6 +135,26 @@ func init() {
 			service:         "notify",
 			manager:         &notify.Tasks,
 			archivedManager: &notify.ArchivedTasks,
+		},
+		{
+			service:         "monitor",
+			manager:         &monitor.Tasks,
+			archivedManager: &monitor.ArchivedTasks,
+		},
+		{
+			service:         "cloudid",
+			manager:         &cloudid.Tasks,
+			archivedManager: &cloudid.ArchivedTasks,
+		},
+		{
+			service:         "cloudevent",
+			manager:         &cloudevent.Tasks,
+			archivedManager: &cloudevent.ArchivedTasks,
+		},
+		{
+			service:         "llm",
+			manager:         &llm.LLMTasks,
+			archivedManager: &llm.ArchivedLLMTasks,
 		},
 	}
 	for i := range cmds {
