@@ -55,7 +55,7 @@ type ContainerCreateCommonOptions struct {
 	WorkingDir        string   `help:"Current working directory of the command" json:"working_dir"`
 	Env               []string `help:"List of environment variable to set in the container and the format is: <key>=<value>"`
 	RootFs            string   `help:"Root filesystem of the container, e.g.: disk_index=<disk_number>,disk_id=<disk_id>"`
-	VolumeMount       []string `help:"Volume mount of the container and the format is: name=<val>,mount=<container_path>,readonly=<true_or_false>,case_insensitive_paths=p1,p2,disk_index=<disk_number>,disk_id=<disk_id>"`
+	VolumeMount       []string `help:"Volume mount of the container and the format is: name=<val>,mount_path=<container_path>,readonly=<true_or_false>,case_insensitive_paths=p1,p2,disk_index=<disk_number>,disk_id=<disk_id>"`
 	Device            []string `help:"Host device: <host_path>:<container_path>:<permissions>, e.g.: /dev/snd:/dev/snd:rwm"`
 	Privileged        bool     `help:"Privileged mode"`
 	Caps              string   `help:"Container capabilities, e.g.: SETPCAP,AUDIT_WRITE,SYS_CHROOT,CHOWN,DAC_OVERRIDE,FOWNER,SETGID,SETUID,SYSLOG,SYS_ADMIN,WAKE_ALARM,SYS_PTRACE,BLOCK_SUSPEND,MKNOD,KILL,SYS_RESOURCE,NET_RAW,NET_ADMIN,NET_BIND_SERVICE,SYS_NICE"`
@@ -240,7 +240,7 @@ func parseContainerVolumeMount(vmStr string) (*apis.ContainerVolumeMount, error)
 			}
 			gId64 := int64(gId)
 			vm.FsGroup = &gId64
-		case "mount_path":
+		case "mount_path", "mount":
 			vm.MountPath = val
 		case "host_path":
 			if vm.HostPath == nil {
@@ -473,7 +473,7 @@ func (o *ContainerLogOptions) ToAPIInput() (*computeapi.PodLogOptions, error) {
 	if len(o.Since) > 0 {
 		dur, err := time.ParseDuration(o.Since)
 		if err != nil {
-			return nil, errors.Wrapf(err, "parse duration %s", o.Since)
+			return nil, errors.Wrapf(err, "invalid time duration: %s, shoud like 300ms, 1.5h or 2h45m", o.Since)
 		}
 		sec := int64(dur.Round(time.Second).Seconds())
 		opt.SinceSeconds = &sec
@@ -569,7 +569,13 @@ func (o *ContainerRemoveVolumeMountPostOverlayOptions) Params() (jsonutils.JSONO
 }
 
 type ContainerCopyOptions struct {
-	SRC_FILE          string
-	CONTAINER_ID_FILE string
-	RawFile           bool
+	SRC     string `help:"Local path or file name, or cotnainer:path, e.g. /etc/hots or ctr-0:/etc/hosts"`
+	DST     string `help:"Local path or file name, or cotnainer:path, e.g. /etc/hots or ctr-0:/etc/hosts"`
+	RawFile bool   `help:"copy the file as raw data, if false, requires tar in executive path in container and host"`
+}
+
+type ContainerCopyFromOptions struct {
+	CONTAINER_ID_PATH string `help:"container id and the file path in the container, separated by ':', e.g. ctr-0:/etc/hosts"`
+	DST_PATH          string `help:"Local destination path or file name"`
+	RawFile           bool   `help:"copy the file as raw data, if false, requires tar in executive path in container and host"`
 }
