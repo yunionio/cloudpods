@@ -30,13 +30,17 @@ package service
 
 import (
 	"yunion.io/x/onecloud/pkg/ansibleserver/models"
+	"yunion.io/x/onecloud/pkg/ansibleserver/options"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/appsrv/dispatcher"
+	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 )
 
 func InitHandlers(app *appsrv.Application, isSlave bool) {
 	db.InitAllManagers()
+
+	app_common.ExportOptionsHandler(app, &options.Options)
 
 	db.RegisterModelManager(db.OpsLog)
 	db.RegisterModelManager(db.Metadata)

@@ -26,6 +26,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/appsrv/dispatcher"
+	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
@@ -48,6 +49,8 @@ var (
 
 func InitHandlers(app *appsrv.Application, isSlave bool) {
 	db.InitAllManagers()
+
+	app_common.ExportOptionsHandler(app, &options.Options)
 
 	db.RegisterModelManager(db.TenantCacheManager)
 	db.RegisterModelManager(db.UserCacheManager)

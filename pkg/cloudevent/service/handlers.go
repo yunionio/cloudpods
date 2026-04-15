@@ -31,16 +31,20 @@ package service
 import (
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/appsrv/dispatcher"
+	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/proxy"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudevent/models"
+	"yunion.io/x/onecloud/pkg/cloudevent/options"
 )
 
 func InitHandlers(app *appsrv.Application, isSlave bool) {
 	db.InitAllManagers()
 
 	models.InitCloudevent()
+
+	app_common.ExportOptionsHandler(app, &options.Options)
 
 	taskman.AddTaskHandler("v1", app, isSlave)
 

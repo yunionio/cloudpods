@@ -17,12 +17,17 @@ package service
 import (
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/appsrv/dispatcher"
+	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudproxy/models"
+	"yunion.io/x/onecloud/pkg/cloudproxy/options"
 )
 
 func InitHandlers(app *appsrv.Application, isSlave bool) {
 	db.InitAllManagers()
+
+	opts := options.Get()
+	app_common.ExportOptionsHandler(app, opts)
 
 	db.RegisterModelManager(db.OpsLog)
 	db.RegisterModelManager(db.Metadata)

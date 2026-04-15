@@ -72,6 +72,8 @@ func StartService() {
 			notifyclient.EventNotifyServiceAbnormal(ctx, session.GetToken(), consts.GetServiceType(), method, path, body, err)
 		})
 
+	app_common.ExportOptionsHandler(app, opts)
+
 	w := worker.NewWorker(opts)
 	if w == nil {
 		log.Fatalf("new worker failed")

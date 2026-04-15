@@ -25,11 +25,13 @@ import (
 
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/appsrv/dispatcher"
-	"yunion.io/x/onecloud/pkg/baremetal/options"
+	baremetal_options "yunion.io/x/onecloud/pkg/baremetal/options"
+	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/identity"
 	"yunion.io/x/onecloud/pkg/yunionconf/models"
+	"yunion.io/x/onecloud/pkg/yunionconf/options"
 )
 
 func InitHandlers(app *appsrv.Application, isSlave bool) {
@@ -37,6 +39,8 @@ func InitHandlers(app *appsrv.Application, isSlave bool) {
 
 	db.AddScopeResourceCountHandler("", app)
 	addBugReportHandler("", app, isSlave)
+
+	app_common.ExportOptionsHandler(app, &options.Options)
 
 	for _, manager := range []db.IModelManager{
 		db.UserCacheManager,
@@ -95,9 +99,9 @@ func sendBugReportHandler(ctx context.Context, w http.ResponseWriter, r *http.Re
 		return
 	}
 	_, _, body := appsrv.FetchEnv(ctx, w, r)
-	apiServer := options.Options.ApiServer
+	apiServer := baremetal_options.Options.ApiServer
 	if len(apiServer) == 0 {
-		s := auth.GetAdminSession(ctx, options.Options.Region)
+		s := auth.GetAdminSession(ctx, baremetal_options.Options.Region)
 		commonCfg, _ := identity.ServicesV3.GetSpecific(s, "common", "config", nil)
 		if commonCfg != nil {
 			_apiServer, _ := commonCfg.GetString("config", "default", "api_server")
