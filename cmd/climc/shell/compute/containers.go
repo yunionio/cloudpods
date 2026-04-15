@@ -19,6 +19,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"path"
 	"strings"
 
 	"github.com/ghodss/yaml"
@@ -31,6 +32,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	options "yunion.io/x/onecloud/pkg/mcclient/options/compute"
+	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/pod/stream/cp"
 )
 
@@ -137,15 +139,18 @@ func init() {
 		return nil
 	})
 
-	R(new(options.ContainerCopyOptions), "container-cp", "Container copy", func(s *mcclient.ClientSession, opts *options.ContainerCopyOptions) error {
-		parts := strings.Split(opts.CONTAINER_ID_FILE, ":")
+	copyToContainer := func(s *mcclient.ClientSession, src, dst string, rawFile bool) error {
+		parts := strings.Split(dst, ":")
 		if len(parts) != 2 {
-			return fmt.Errorf("invalid container id: %s", opts.CONTAINER_ID_FILE)
+			return fmt.Errorf("invalid container id: %s", dst)
 		}
-		if opts.RawFile {
-			fr, err := os.Open(opts.SRC_FILE)
+		if rawFile {
+			if fileutils2.IsDir(src) {
+				return fmt.Errorf("source path cannot be a directory when raw file is true: %s", src)
+			}
+			fr, err := os.Open(src)
 			if err != nil {
-				return errors.Wrapf(err, "open file: %v", opts.SRC_FILE)
+				return errors.Wrapf(err, "open file: %v", src)
 			}
 			defer fr.Close()
 			if err := modules.Containers.CopyTo(s, parts[0], parts[1], fr); err != nil {
@@ -153,22 +158,24 @@ func init() {
 			}
 			return nil
 		} else {
-			return cp.NewCopy().CopyToContainer(s, opts.SRC_FILE, cp.ContainerFileOpt{
+			return cp.NewCopy().CopyToContainer(s, src, cp.ContainerFileOpt{
 				ContainerId: parts[0],
 				File:        parts[1],
 			})
 		}
-	})
-
-	R(new(options.ContainerCopyOptions), "container-cp-from", "Container copy", func(s *mcclient.ClientSession, opts *options.ContainerCopyOptions) error {
-		parts := strings.Split(opts.SRC_FILE, ":")
+	}
+	copyFromContainer := func(s *mcclient.ClientSession, src, dst string, rawFile bool) error {
+		parts := strings.Split(src, ":")
 		if len(parts) != 2 {
-			return fmt.Errorf("invalid container id: %s", opts.CONTAINER_ID_FILE)
+			return fmt.Errorf("invalid container id: %s", src)
 		}
 		ctrId := parts[0]
 		ctrFile := parts[1]
-		destFile := opts.CONTAINER_ID_FILE
-		if opts.RawFile {
+		destFile := dst
+		if fileutils2.IsDir(destFile) {
+			destFile = path.Join(destFile, path.Base(ctrFile))
+		}
+		if rawFile {
 			fw, err := os.Create(destFile)
 			if err != nil {
 				return errors.Wrapf(err, "open file: %v", destFile)
@@ -184,5 +191,37 @@ func init() {
 				File:        ctrFile,
 			}, destFile)
 		}
+	}
+
+	R(new(options.ContainerCopyOptions), "container-cp", "Container copy", func(s *mcclient.ClientSession, opts *options.ContainerCopyOptions) error {
+		if strings.Contains(opts.SRC, ":") && !strings.Contains(opts.DST, ":") {
+			// copy from container to host
+			err := copyFromContainer(s, opts.SRC, opts.DST, opts.RawFile)
+			if err != nil {
+				return errors.Wrapf(err, "copy from container to host")
+			}
+			return nil
+		} else if !strings.Contains(opts.SRC, ":") && strings.Contains(opts.DST, ":") {
+			// copy from host to container
+			err := copyToContainer(s, opts.SRC, opts.DST, opts.RawFile)
+			if err != nil {
+				return errors.Wrapf(err, "copy to container")
+			}
+			return nil
+		} else if strings.Contains(opts.SRC, ":") && strings.Contains(opts.DST, ":") {
+			// copy from container to container
+			return fmt.Errorf("copy from container to container is not supported")
+		} else {
+			return fmt.Errorf("copy between local files is not supported")
+		}
+
+	})
+
+	R(new(options.ContainerCopyFromOptions), "container-cp-from", "Container copy", func(s *mcclient.ClientSession, opts *options.ContainerCopyFromOptions) error {
+		err := copyFromContainer(s, opts.CONTAINER_ID_PATH, opts.DST_PATH, opts.RawFile)
+		if err != nil {
+			return errors.Wrapf(err, "copy from container to host")
+		}
+		return nil
 	})
 }
