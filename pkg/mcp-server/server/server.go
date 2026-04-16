@@ -27,6 +27,7 @@ import (
 	"yunion.io/x/pkg/appctx"
 
 	api "yunion.io/x/onecloud/pkg/apis/identity"
+	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcp-server/adapters"
 	"yunion.io/x/onecloud/pkg/mcp-server/options"
@@ -197,10 +198,30 @@ func (s *CloudpodsMCPServer) Start() error {
 		return ctx
 	}
 
+	mux := http.NewServeMux()
+
 	sseServer := server.NewSSEServer(
 		s.mcpServer,
 		server.WithSSEContextFunc(contextFunc),
+		server.WithHTTPServer(&http.Server{Handler: mux}),
 	)
+	mux.HandleFunc("/version", func(w http.ResponseWriter, r *http.Request) {
+		appsrv.VersionHandler(context.Background(), w, r)
+	})
+	mux.HandleFunc("/stats", func(w http.ResponseWriter, r *http.Request) {
+		appsrv.StatisticHandler(context.Background(), w, r)
+	})
+	mux.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) {
+		appsrv.PingHandler(context.Background(), w, r)
+	})
+	mux.HandleFunc("/worker_stats", func(w http.ResponseWriter, r *http.Request) {
+		appsrv.WorkerStatsHandler(context.Background(), w, r)
+	})
+	mux.HandleFunc("/process_stats", func(w http.ResponseWriter, r *http.Request) {
+		appsrv.ProcessStatsHandler(context.Background(), w, r)
+	})
+	mux.Handle(sseServer.CompleteSsePath(), sseServer.SSEHandler())
+	mux.Handle(sseServer.CompleteMessagePath(), sseServer.MessageHandler())
 
 	if err := sseServer.Start(fmt.Sprintf("%s:%d", options.Options.Address, options.Options.Port)); err != nil {
 		return err
