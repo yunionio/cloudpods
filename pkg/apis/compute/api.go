@@ -99,6 +99,8 @@ type NetworkConfig struct {
 	// 若指定镜像的网络驱动方式，此参数会被覆盖
 	Driver         string `json:"driver"`
 	BwLimit        int    `json:"bw_limit"`
+	TxBwLimit      int    `json:"tx_bw_limit"`
+	RxBwLimit      int    `json:"rx_bw_limit"`
 	Vip            bool   `json:"vip"`
 	Reserved       bool   `json:"reserved"`
 	NumQueues      int    `json:"num_queues"`
@@ -644,6 +646,10 @@ type ServerCreateInput struct {
 	// 指定此参数后会创建新的弹性公网IP并绑定到新建的虚拟机
 	// 此参数优先级低于public_ip
 	EipBw int `json:"eip_bw,omitzero"`
+	// 弹性公网IP上行带宽
+	EipTxBw int `json:"eip_tx_bw,omitzero"`
+	// 弹性公网IP下行带宽
+	EipRxBw int `json:"eip_rx_bw,omitzero"`
 	// 弹性公网IP线路类型
 	EipBgpType string `json:"eip_bgp_type,omitzero"`
 	// 弹性公网IP计费类型

@@ -16,6 +16,8 @@ package hostpinger
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/shirou/gopsutil/cpu"
@@ -173,6 +175,16 @@ func (p *SHostPingTask) ping(div int, hostId string) error {
 			err := p.host.OnHostFilesChanged(hostfiles)
 			if err != nil {
 				log.Errorf("on host files changed failed %s", err)
+			}
+		}
+
+		if res.Contains("tap_config") {
+			tapConfJson, err := res.Get("tap_config")
+			if err != nil {
+				log.Errorf("get tap config from res %s: %v", res.String(), err)
+			} else {
+				tagConfPath := filepath.Join(options.HostOptions.ServersPath, api.TapConfigFileName)
+				os.WriteFile(tagConfPath, []byte(tapConfJson.String()), 0644)
 			}
 		}
 	}

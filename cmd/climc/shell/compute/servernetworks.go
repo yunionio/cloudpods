@@ -144,7 +144,10 @@ func init() {
 	type ServerNetworkBWOptions struct {
 		SERVER  string `help:"ID or Name of server"`
 		MACORIP string `help:"IP, Mac, or Index of NIC"`
-		BW      int64  `help:"Bandwidth in Mbps"`
+
+		BW int64 `help:"Bandwidth in Mbps"`
+		Tx int64 `help:"Tx bandwidth in Mbps"`
+		Rx int64 `help:"Rx bandwidth in Mbps"`
 	}
 	R(&ServerNetworkBWOptions{}, "server-change-bandwidth", "Change server network bandwidth in Mbps", func(s *mcclient.ClientSession, args *ServerNetworkBWOptions) error {
 		params := jsonutils.NewDict()
@@ -162,6 +165,8 @@ func init() {
 			return fmt.Errorf("Please specify Ip or Mac")
 		}
 		params.Add(jsonutils.NewInt(args.BW), "bandwidth")
+		params.Add(jsonutils.NewInt(args.Tx), "tx_bw_limit")
+		params.Add(jsonutils.NewInt(args.Rx), "rx_bw_limit")
 		server, err := modules.Servers.PerformAction(s, args.SERVER, "change-bandwidth", params)
 		if err != nil {
 			return err

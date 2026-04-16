@@ -5431,6 +5431,13 @@ func (hh *SHost) PerformPing(ctx context.Context, userCred mcclient.TokenCredent
 		return nil, errors.Wrap(err, "get host files")
 	}
 	result.Set("host_files", jsonutils.Marshal(hostFiles))
+	// get tap config
+	tapConfig, err := hh.getTapConfig()
+	if err != nil {
+		log.Errorf("get tap config error %s", err)
+	} else {
+		result.Set("tap_config", jsonutils.Marshal(tapConfig))
+	}
 
 	appParams := appsrv.AppContextGetParams(ctx)
 	if appParams != nil {
