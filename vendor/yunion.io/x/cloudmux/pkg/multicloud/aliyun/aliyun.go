@@ -225,7 +225,7 @@ func doRequest(client *sdk.Client, domain, apiVersion, apiName string, params ma
 			if e, ok := errors.Cause(err).(*alierr.ServerError); ok {
 				code := e.ErrorCode()
 				switch code {
-				case "InternalError":
+				case "InternalError", "AuthSiteFail":
 					if apiName != "QueryAccountBalance" {
 						return nil, err
 					}
