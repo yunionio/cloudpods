@@ -207,6 +207,8 @@ func init() {
 			params.Eip = opts.Eip
 			params.EipChargeType = opts.EipChargeType
 			params.EipBw = opts.EipBw
+			params.EipTxBw = opts.EipTxBw
+			params.EipRxBw = opts.EipRxBw
 
 			server, err := modules.Servers.Create(s, params.JSON(params))
 			if err != nil {

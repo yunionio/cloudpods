@@ -261,6 +261,8 @@ func (self *SCloudpodsBaremetalGuestDriver) Attach2RandomNetwork(guest *models.S
 			IpAddr:              address,
 			NicDriver:           netConfig.Driver,
 			BwLimit:             netConfig.BwLimit,
+			RxBwLimit:           netConfig.RxBwLimit,
+			TxBwLimit:           netConfig.TxBwLimit,
 			Virtual:             netConfig.Vip,
 			TryReserved:         false,
 			AllocDir:            api.IPAllocationStepup,
