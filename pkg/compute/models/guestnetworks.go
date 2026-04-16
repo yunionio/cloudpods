@@ -127,6 +127,11 @@ type SGuestnetwork struct {
 
 	SBillingTypeBase       `billing_type->default:"prepaid"`
 	SBillingChargeTypeBase `charge_type->default:"bandwidth"`
+
+	// 下行带宽限制，单位mbps
+	RxBwLimit int `nullable:"false" default:"0" list:"user"`
+	// 上行带宽限制，单位mbps
+	TxBwLimit int `nullable:"false" default:"0" list:"user"`
 }
 
 func (gn SGuestnetwork) GetIP() string {
@@ -271,6 +276,8 @@ type newGuestNetworkArgs struct {
 	ifname         string
 	macAddr        string
 	bwLimit        int
+	rxBwLimit      int
+	txBwLimit      int
 	nicDriver      string
 	numQueues      int
 	teamWithMac    string
@@ -301,6 +308,8 @@ func (manager *SGuestnetworkManager) newGuestNetwork(
 		driver               = args.nicDriver
 		numQueues            = args.numQueues
 		bwLimit              = args.bwLimit
+		rxBwLimit            = args.rxBwLimit
+		txBwLimit            = args.txBwLimit
 		virtual              = args.virtual
 		reserved             = args.tryReserved
 		allocDir             = args.allocDir
@@ -328,6 +337,12 @@ func (manager *SGuestnetworkManager) newGuestNetwork(
 	gn.TxTrafficLimit = args.txTrafficLimit
 	if bwLimit >= 0 {
 		gn.BwLimit = bwLimit
+	}
+	if rxBwLimit >= 0 {
+		gn.RxBwLimit = rxBwLimit
+	}
+	if txBwLimit >= 0 {
+		gn.TxBwLimit = txBwLimit
 	}
 	gn.PortMappings = args.portMappings
 
@@ -723,6 +738,8 @@ func (gn *SGuestnetwork) getJsonDesc() *api.GuestnetworkJsonDesc {
 	desc.TxTrafficLimit = gn.TxTrafficLimit
 	desc.Vlan = net.VlanId
 	desc.Bw = gn.getBandwidth(net, wire)
+	desc.RxBwLimit = gn.getRxBwLimit(net, wire)
+	desc.TxBwLimit = gn.getTxBwLimit(net, wire)
 	desc.Mtu = gn.getMtu(net, wire)
 	desc.Index = gn.Index
 	desc.VirtualIps = gn.GetVirtualIPs()
@@ -906,6 +923,8 @@ func (gn *SGuestnetwork) GetDetailedString() string {
 		network.Name,
 		gn.Driver,
 		fmt.Sprintf("%d", gn.getBandwidth(network, nil)),
+		fmt.Sprintf("rx%d", gn.getRxBwLimit(network, nil)),
+		fmt.Sprintf("tx%d", gn.getTxBwLimit(network, nil)),
 		fmt.Sprintf("%d", naCount),
 	)
 	return fmt.Sprintf("eth%d:%s", gn.Index, strings.Join(parts, "/"))
@@ -1113,7 +1132,11 @@ type GuestnicsCount struct {
 	ExternalNicCount        int
 	ExternalVirtualNicCount int
 	InternalBandwidth       int
+	InternalRxBwLimit       int
+	InternalTxBwLimit       int
 	ExternalBandwidth       int
+	ExternalRxBwLimit       int
+	ExternalTxBwLimit       int
 }
 
 func calculateNics(q *sqlchemy.SQuery) GuestnicsCount {
@@ -1131,6 +1154,8 @@ func calculateNics(q *sqlchemy.SQuery) GuestnicsCount {
 				cnt.ExternalNicCount += 1
 			}
 			cnt.ExternalBandwidth += gn.BwLimit
+			cnt.ExternalRxBwLimit += gn.RxBwLimit
+			cnt.ExternalTxBwLimit += gn.TxBwLimit
 		} else {
 			if gn.Virtual {
 				cnt.InternalVirtualNicCount += 1
@@ -1138,6 +1163,8 @@ func calculateNics(q *sqlchemy.SQuery) GuestnicsCount {
 				cnt.InternalNicCount += 1
 			}
 			cnt.InternalBandwidth += gn.BwLimit
+			cnt.InternalRxBwLimit += gn.RxBwLimit
+			cnt.InternalTxBwLimit += gn.TxBwLimit
 		}
 	}
 	return cnt
@@ -1179,6 +1206,20 @@ func (gn *SGuestnetwork) getBandwidth(net *SNetwork, wire *SWire) int {
 		}
 		return options.Options.DefaultBandwidth
 	}
+}
+
+func (gn *SGuestnetwork) getRxBwLimit(net *SNetwork, wire *SWire) int {
+	if gn.RxBwLimit > 0 && gn.RxBwLimit <= api.MAX_BANDWIDTH {
+		return gn.RxBwLimit
+	}
+	return gn.getBandwidth(net, wire)
+}
+
+func (gn *SGuestnetwork) getTxBwLimit(net *SNetwork, wire *SWire) int {
+	if gn.TxBwLimit > 0 && gn.TxBwLimit <= api.MAX_BANDWIDTH {
+		return gn.TxBwLimit
+	}
+	return gn.getBandwidth(net, wire)
 }
 
 func (gn *SGuestnetwork) getMtu(net *SNetwork, wire *SWire) int16 {
@@ -1430,6 +1471,9 @@ func (gn *SGuestnetwork) ToNetworkConfig() *api.NetworkConfig {
 		Ifname:   gn.Ifname,
 		NetType:  net.ServerType,
 		Exit:     net.IsExitNetwork(),
+
+		RxBwLimit: gn.RxBwLimit,
+		TxBwLimit: gn.TxBwLimit,
 	}
 	return ret
 }

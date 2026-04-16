@@ -781,6 +781,8 @@ func (self *SGuest) PerformClone(ctx context.Context, userCred mcclient.TokenCre
 	createInput.AutoStart = cloneInput.AutoStart
 
 	createInput.EipBw = cloneInput.EipBw
+	createInput.EipTxBw = cloneInput.EipTxBw
+	createInput.EipRxBw = cloneInput.EipRxBw
 	createInput.Eip = cloneInput.Eip
 	createInput.EipChargeType = cloneInput.EipChargeType
 	if err := GuestManager.validateEip(ctx, userCred, createInput, createInput.PreferRegion, createInput.PreferManager); err != nil {
@@ -2831,6 +2833,12 @@ func (self *SGuest) PerformChangeIpaddr(
 	if conf.BwLimit == 0 {
 		conf.BwLimit = gn.BwLimit
 	}
+	if conf.TxBwLimit == 0 {
+		conf.TxBwLimit = gn.TxBwLimit
+	}
+	if conf.RxBwLimit == 0 {
+		conf.RxBwLimit = gn.RxBwLimit
+	}
 	if conf.Index == 0 {
 		conf.Index = int(gn.Index)
 	}
@@ -3365,9 +3373,8 @@ func (guest *SGuest) PerformChangeBandwidth(
 		return nil, httperrors.NewBadRequestError("Cannot change bandwidth in status %s", guest.Status)
 	}
 
-	bandwidth := input.Bandwidth
-	if bandwidth < 0 {
-		return nil, httperrors.NewBadRequestError("Bandwidth must be non-negative")
+	if input.Bandwidth < 0 && input.TxBwLimit < 0 && input.RxBwLimit < 0 {
+		return nil, httperrors.NewBadRequestError("Bandwidth, tx_bw_limit and rx_bw_limit must be non-negative")
 	}
 
 	guestnic, err := guest.findGuestnetworkByInfo(input.ServerNetworkInfo)
@@ -3375,10 +3382,14 @@ func (guest *SGuest) PerformChangeBandwidth(
 		return nil, errors.Wrap(err, "findGuestnetworkByInfo")
 	}
 
-	if guestnic.BwLimit != int(bandwidth) {
+	if guestnic.BwLimit != int(input.Bandwidth) || guestnic.TxBwLimit != int(input.TxBwLimit) || guestnic.RxBwLimit != int(input.RxBwLimit) {
 		oldBw := guestnic.BwLimit
+		oldTxBw := guestnic.TxBwLimit
+		oldRxBw := guestnic.RxBwLimit
 		_, err := db.Update(guestnic, func() error {
-			guestnic.BwLimit = int(bandwidth)
+			guestnic.BwLimit = int(input.Bandwidth)
+			guestnic.TxBwLimit = int(input.TxBwLimit)
+			guestnic.RxBwLimit = int(input.RxBwLimit)
 			return nil
 		})
 		if err != nil {
@@ -3386,6 +3397,8 @@ func (guest *SGuest) PerformChangeBandwidth(
 		}
 		eventDesc := guestnic.GetShortDesc(ctx)
 		eventDesc.Add(jsonutils.NewInt(int64(oldBw)), "old_bw_limit_mbps")
+		eventDesc.Add(jsonutils.NewInt(int64(oldTxBw)), "old_tx_bw_limit_mbps")
+		eventDesc.Add(jsonutils.NewInt(int64(oldRxBw)), "old_rx_bw_limit_mbps")
 		db.OpsLog.LogEvent(guest, db.ACT_CHANGE_BANDWIDTH, eventDesc, userCred)
 		logclient.AddActionLogWithContext(ctx, guest, logclient.ACT_VM_CHANGE_BANDWIDTH, eventDesc, userCred, true)
 		if guest.Status == api.VM_READY || (input.NoSync != nil && *input.NoSync) {
