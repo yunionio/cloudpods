@@ -55,7 +55,7 @@ var (
 const (
 	BUSID_REGEX = `[0-9a-fA-F]{2}:[0-9a-fA-F]{2}\.[0-9a-fA-F]`
 	CODE_REGEX  = `[0-9a-fA-F]{4}`
-	LABEL_REGEX = `[\w+\ \.\,\:\+\&\-\/\[\]\(\)]+`
+	LABEL_REGEX = `[\w+\ \.\,\:\;\+\&\-\/\[\]\(\)]+`
 
 	VFIO_PCI_KERNEL_DRIVER = "vfio-pci"
 	DEFAULT_VGA_CMD        = " -vga std"
