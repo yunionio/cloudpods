@@ -932,8 +932,8 @@ func (self *SElasticip) AssociateLoadbalancer(ctx context.Context, userCred mccl
 		if self.AssociateType == api.EIP_ASSOCIATE_TYPE_LOADBALANCER && self.AssociateId == lb.Id {
 			return nil
 		}
-		if self.GetAssociateResource() != nil {
-			return fmt.Errorf("eip has been associated!!")
+		if res := self.GetAssociateResource(); res != nil {
+			return fmt.Errorf("eip has been associated %s %s %s !!", res.Keyword(), res.GetName(), res.GetId())
 		}
 	}
 	_, err := db.Update(self, func() error {
@@ -964,8 +964,8 @@ func (self *SElasticip) AssociateInstance(ctx context.Context, userCred mcclient
 		if self.AssociateType == insType && self.AssociateId == ins.GetId() {
 			return nil
 		}
-		if self.GetAssociateResource() != nil {
-			return fmt.Errorf("eip has been associated!!")
+		if res := self.GetAssociateResource(); res != nil {
+			return fmt.Errorf("eip has been associated %s %s %s !!", res.Keyword(), res.GetName(), res.GetId())
 		}
 	}
 	_, err := db.Update(self, func() error {
@@ -996,8 +996,8 @@ func (self *SElasticip) AssociateInstanceGroup(ctx context.Context, userCred mcc
 		if self.AssociateType == insType && self.AssociateId == ins.GetId() {
 			return nil
 		}
-		if self.GetAssociateResource() != nil {
-			return fmt.Errorf("eip has been associated!!")
+		if res := self.GetAssociateResource(); res != nil {
+			return fmt.Errorf("eip has been associated %s %s %s !!", res.Keyword(), res.GetName(), res.GetId())
 		}
 	}
 	_, err := db.Update(self, func() error {
