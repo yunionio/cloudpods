@@ -23,11 +23,12 @@ import (
 
 // LLMSpec is the flat spec for LLM SKU: optional ollama/vllm/dify payload. Type is on LLMSku.LLMType.
 type LLMSpec struct {
-	Ollama   *LLMSpecOllama   `json:"ollama,omitempty"`
-	Vllm     *LLMSpecVllm     `json:"vllm,omitempty"`
-	Dify     *LLMSpecDify     `json:"dify,omitempty"`
-	ComfyUI  *LLMSpecComfyUI  `json:"comfyui,omitempty"`
-	OpenClaw *LLMSpecOpenClaw `json:"openclaw,omitempty"`
+	Ollama      *LLMSpecOllama      `json:"ollama,omitempty"`
+	Vllm        *LLMSpecVllm        `json:"vllm,omitempty"`
+	Dify        *LLMSpecDify        `json:"dify,omitempty"`
+	ComfyUI     *LLMSpecComfyUI     `json:"comfyui,omitempty"`
+	OpenClaw    *LLMSpecOpenClaw    `json:"openclaw,omitempty"`
+	HermesAgent *LLMSpecHermesAgent `json:"hermes_agent,omitempty"`
 }
 
 func (s *LLMSpec) String() string {
@@ -38,7 +39,7 @@ func (s *LLMSpec) IsZero() bool {
 	if s == nil {
 		return true
 	}
-	return s.Ollama == nil && s.Vllm == nil && s.Dify == nil && s.ComfyUI == nil && s.OpenClaw == nil
+	return s.Ollama == nil && s.Vllm == nil && s.Dify == nil && s.ComfyUI == nil && s.OpenClaw == nil && s.HermesAgent == nil
 }
 
 // LLMSpecOllama holds type-specific fields for ollama SKUs.
@@ -146,6 +147,8 @@ type LLMSpecOpenClawWorkspaceTemplates struct {
 	SoulMD   string `json:"soul_md"`
 	UserMD   string `json:"user_md"`
 }
+
+type LLMSpecHermesAgent struct{}
 
 func init() {
 	gotypes.RegisterSerializable(reflect.TypeOf(new(LLMSpec)), func() gotypes.ISerializable {
