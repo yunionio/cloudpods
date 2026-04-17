@@ -16,6 +16,8 @@ package misc
 
 import (
 	"fmt"
+	"regexp"
+	"strings"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
@@ -29,6 +31,20 @@ import (
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/identity"
 )
+
+var (
+	noValidEndpointsForServiceInRegionRegex = regexp.MustCompile(`no valid \w+ endpoints`)
+)
+
+func isSkippableVersionErr(err error) bool {
+	cause := errors.Cause(err)
+	if cause == cloudprovider.ErrNotFound || cause == errors.ErrConnectRefused {
+		return true
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "connect: connection refused") ||
+		strings.Contains(msg, "connection refused") || noValidEndpointsForServiceInRegionRegex.MatchString(msg)
+}
 
 func init() {
 	type VersionOptions struct {
@@ -104,7 +120,7 @@ func init() {
 			}
 			ver, err := modules.GetVersion(s, serviceType)
 			if err != nil {
-				if errors.Cause(err) == cloudprovider.ErrNotFound || errors.Cause(err) == errors.ErrConnectRefused {
+				if isSkippableVersionErr(err) {
 					continue
 				}
 				vers[serviceType] = err.Error()

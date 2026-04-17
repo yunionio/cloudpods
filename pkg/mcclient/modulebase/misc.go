@@ -15,9 +15,11 @@
 package modulebase
 
 import (
+	"io"
 	"io/ioutil"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/printutils"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -27,12 +29,12 @@ func GetVersion(s *mcclient.ClientSession, serviceType string) (string, error) {
 	man := NewBaseManager(serviceType, "", "", nil, nil)
 	resp, err := man.rawBaseUrlRequest(s, "GET", "/version", nil, nil)
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, "man.rawBaseUrlRequest")
 	}
 	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, "io.ReadAll")
 	}
 	return string(body), nil
 }
