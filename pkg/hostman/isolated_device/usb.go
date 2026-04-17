@@ -381,9 +381,9 @@ const (
 )
 
 var (
-	lsusbTreeRootBusRegex     = `(?P<prefix>(.*))Bus (?P<bus_id>([0-9]{2}))\.`
-	lsusbTreeBusSuffixRegex   = `Port (?P<port_id>([0-9]{1,2})): Dev (?P<device>([0-9]{1,2})), Class=(?P<class>(.*)), Driver=(?P<driver>(.*)),\s{0,1}(?P<speed>(.*))`
-	lsusbTreeSuffixRegex      = `Port (?P<port_id>([0-9]{1,2})): Dev (?P<device>([0-9]{1,2})), If (?P<interface>([0-9]{1,2})), Class=(?P<class>(.*)), Driver=(?P<driver>(.*)),\s{0,1}(?P<speed>(.*))`
+	lsusbTreeRootBusRegex     = `(?P<prefix>(.*))Bus (?P<bus_id>([0-9]{1,3}))\.`
+	lsusbTreeBusSuffixRegex   = `Port (?P<port_id>([0-9]{1,3})): Dev (?P<device>([0-9]{1,3})), Class=(?P<class>(.*)), Driver=(?P<driver>(.*)),\s{0,1}(?P<speed>(.*))`
+	lsusbTreeSuffixRegex      = `Port (?P<port_id>([0-9]{1,3})): Dev (?P<device>([0-9]{1,3})), If (?P<interface>([0-9]{1,2})), Class=(?P<class>(.*)), Driver=(?P<driver>(.*)),\s{0,1}(?P<speed>(.*))`
 	lsusbTreeRootBusLineRegex = lsusbTreeRootBusRegex + lsusbTreeBusSuffixRegex
 	lsusbTreeLineRegex        = `(?P<prefix>(.*))` + lsusbTreeSuffixRegex
 )
