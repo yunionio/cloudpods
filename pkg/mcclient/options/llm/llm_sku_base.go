@@ -25,6 +25,7 @@ type LLMSkuBaseCreateOptions struct {
 	TemplateId   string
 	PortMappings []string `help:"port mapping in the format of protocol:port[:prefix][:first_port_offset][:env_key=env_value], e.g. tcp:5555:192.168.0.0/16:5:WOLF_BASE_PORT=20000"`
 	Devices      []string `help:"device info in the format of model[:path[:dev_type]], e.g. 'GeForce RTX 4060'"`
+	HostPaths    []string `json:"-" help:"host path mount in format path=<host_path>,type=<directory|file>,container_index=<index>,mount_path=<container_path>[,auto_create=<bool>][,read_only=<bool>][,propagation=<private|rslave|rshared>][,fs_user=<uid>][,fs_group=<gid>][,uid=<uid>][,gid=<gid>][,permissions=<mode>]; repeatable"`
 
 	Env      []string `help:"env in format of key=value"`
 	Property []string `help:"extra properties of key=value, e.g. tango32=true"`
@@ -44,6 +45,9 @@ func (o *LLMSkuBaseCreateOptions) Params(dict *jsonutils.JSONDict) error {
 	dict.Set("volumes", jsonutils.Marshal(vols))
 	fetchPortmappings(o.PortMappings, dict)
 	fetchDevices(o.Devices, dict)
+	if err := fetchHostPaths(o.HostPaths, dict); err != nil {
+		return err
+	}
 	fetchEnvs(o.Env, dict)
 	fetchProperties(o.Property, dict)
 
@@ -66,6 +70,7 @@ type LLMSkuBaseUpdateOptions struct {
 	// Fps          *int
 	PortMappings []string `help:"port mapping in the format of protocol:port[:prefix][:first_port_offset], e.g. tcp:5555:192.168.0.0/16,10.10.0.0/16:1000"`
 	Devices      []string `help:"device info in the format of model[:path[:dev_type]], e.g. QuadraT2A:/dev/nvme1n1, Device::VASTAITECH_GPU"`
+	HostPaths    []string `json:"-" help:"host path mount in format path=<host_path>,type=<directory|file>,container_index=<index>,mount_path=<container_path>[,auto_create=<bool>][,read_only=<bool>][,propagation=<private|rslave|rshared>][,fs_user=<uid>][,fs_group=<gid>][,uid=<uid>][,gid=<gid>][,permissions=<mode>]; repeatable"`
 	Env          []string `help:"env in the format of key=value, e.g. AUTHENTICATION_PATH=/bupt-test/"`
 	Property     []string `help:"extra properties of key=value, e.g. tango32=true"`
 
@@ -92,10 +97,204 @@ func (o *LLMSkuBaseUpdateOptions) Params(dict *jsonutils.JSONDict) error {
 
 	fetchPortmappings(o.PortMappings, dict)
 	fetchDevices(o.Devices, dict)
+	if err := fetchHostPaths(o.HostPaths, dict); err != nil {
+		return err
+	}
 	fetchEnvs(o.Env, dict)
 	fetchProperties(o.Property, dict)
 	// fetchMountedApps(o.MountedApps, dict)
 	return nil
+}
+
+type hostPathCliSpec struct {
+	Path             string
+	Type             apis.ContainerVolumeMountHostPathType
+	ContainerIndex   int
+	MountPath        string
+	ReadOnly         bool
+	Propagation      apis.ContainerMountPropagation
+	FsUser           *int64
+	FsGroup          *int64
+	AutoCreate       bool
+	AutoCreateConfig *apis.ContainerVolumeMountHostPathAutoCreateConfig
+}
+
+func fetchHostPaths(hostPathStrs []string, dict *jsonutils.JSONDict) error {
+	hostPaths, err := parseHostPaths(hostPathStrs)
+	if err != nil {
+		return err
+	}
+	if len(hostPaths) > 0 {
+		dict.Set("host_paths", jsonutils.Marshal(hostPaths))
+	}
+	return nil
+}
+
+func parseHostPaths(hostPathStrs []string) (api.HostPaths, error) {
+	if len(hostPathStrs) == 0 {
+		return nil, nil
+	}
+	ret := make(api.HostPaths, 0)
+	groupIndex := make(map[string]int)
+	for _, item := range hostPathStrs {
+		spec, err := parseHostPath(item)
+		if err != nil {
+			return nil, err
+		}
+		key := getHostPathGroupKey(spec)
+		idx, ok := groupIndex[key]
+		if !ok {
+			ret = append(ret, api.HostPath{
+				Type:             spec.Type,
+				Path:             spec.Path,
+				AutoCreate:       spec.AutoCreate,
+				AutoCreateConfig: spec.AutoCreateConfig,
+				Containers:       make(api.ContainerHostPathRelations),
+			})
+			idx = len(ret) - 1
+			groupIndex[key] = idx
+		}
+		containerKey := strconv.Itoa(spec.ContainerIndex)
+		if _, exists := ret[idx].Containers[containerKey]; exists {
+			return nil, fmt.Errorf("duplicate host_path container_index %d for path %q", spec.ContainerIndex, spec.Path)
+		}
+		ret[idx].Containers[containerKey] = &api.ContainerHostPathRelation{
+			MountPath:   spec.MountPath,
+			ReadOnly:    spec.ReadOnly,
+			Propagation: spec.Propagation,
+			FsUser:      spec.FsUser,
+			FsGroup:     spec.FsGroup,
+		}
+	}
+	return ret, nil
+}
+
+func parseHostPath(item string) (*hostPathCliSpec, error) {
+	parts := strings.Split(item, ",")
+	fields := make(map[string]string, len(parts))
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		idx := strings.Index(part, "=")
+		if idx <= 0 {
+			return nil, fmt.Errorf("invalid host path %q, expected key=value", item)
+		}
+		key := strings.TrimSpace(part[:idx])
+		val := strings.TrimSpace(part[idx+1:])
+		if key == "" {
+			return nil, fmt.Errorf("invalid host path %q, empty key", item)
+		}
+		fields[key] = val
+	}
+
+	spec := &hostPathCliSpec{
+		Type: apis.CONTAINER_VOLUME_MOUNT_HOST_PATH_TYPE_DIRECTORY,
+	}
+	for key, val := range fields {
+		switch key {
+		case "path":
+			spec.Path = val
+		case "type":
+			spec.Type = apis.ContainerVolumeMountHostPathType(val)
+		case "container_index":
+			idx, err := strconv.Atoi(val)
+			if err != nil {
+				return nil, fmt.Errorf("invalid host path container_index %q: %w", val, err)
+			}
+			spec.ContainerIndex = idx
+		case "mount_path":
+			spec.MountPath = val
+		case "read_only":
+			b, err := strconv.ParseBool(val)
+			if err != nil {
+				return nil, fmt.Errorf("invalid host path read_only %q: %w", val, err)
+			}
+			spec.ReadOnly = b
+		case "auto_create":
+			b, err := strconv.ParseBool(val)
+			if err != nil {
+				return nil, fmt.Errorf("invalid host path auto_create %q: %w", val, err)
+			}
+			spec.AutoCreate = b
+		case "propagation":
+			if !apis.ContainerMountPropagations.Has(val) {
+				return nil, fmt.Errorf("invalid host path propagation %q", val)
+			}
+			spec.Propagation = apis.ContainerMountPropagation(val)
+		case "fs_user":
+			fsUser, err := strconv.ParseInt(val, 10, 64)
+			if err != nil {
+				return nil, fmt.Errorf("invalid host path fs_user %q: %w", val, err)
+			}
+			spec.FsUser = &fsUser
+		case "fs_group":
+			fsGroup, err := strconv.ParseInt(val, 10, 64)
+			if err != nil {
+				return nil, fmt.Errorf("invalid host path fs_group %q: %w", val, err)
+			}
+			spec.FsGroup = &fsGroup
+		case "uid", "gid", "permissions":
+			if spec.AutoCreateConfig == nil {
+				spec.AutoCreateConfig = &apis.ContainerVolumeMountHostPathAutoCreateConfig{}
+			}
+			spec.AutoCreate = true
+			switch key {
+			case "uid":
+				uid, err := strconv.ParseUint(val, 10, 32)
+				if err != nil {
+					return nil, fmt.Errorf("invalid host path uid %q: %w", val, err)
+				}
+				spec.AutoCreateConfig.Uid = uint(uid)
+			case "gid":
+				gid, err := strconv.ParseUint(val, 10, 32)
+				if err != nil {
+					return nil, fmt.Errorf("invalid host path gid %q: %w", val, err)
+				}
+				spec.AutoCreateConfig.Gid = uint(gid)
+			case "permissions":
+				spec.AutoCreateConfig.Permissions = val
+			}
+		default:
+			return nil, fmt.Errorf("invalid host path key %q", key)
+		}
+	}
+
+	if spec.Path == "" {
+		return nil, fmt.Errorf("invalid host path %q, missing path", item)
+	}
+	if spec.MountPath == "" {
+		return nil, fmt.Errorf("invalid host path %q, missing mount_path", item)
+	}
+	if !isValidHostPathType(spec.Type) {
+		return nil, fmt.Errorf("invalid host path type %q", spec.Type)
+	}
+	if _, ok := fields["container_index"]; !ok {
+		return nil, fmt.Errorf("invalid host path %q, missing container_index", item)
+	}
+	return spec, nil
+}
+
+func getHostPathGroupKey(spec *hostPathCliSpec) string {
+	uid := uint(0)
+	gid := uint(0)
+	permissions := ""
+	if spec.AutoCreateConfig != nil {
+		uid = spec.AutoCreateConfig.Uid
+		gid = spec.AutoCreateConfig.Gid
+		permissions = spec.AutoCreateConfig.Permissions
+	}
+	return fmt.Sprintf("%s|%s|%t|%d|%d|%s", spec.Path, spec.Type, spec.AutoCreate, uid, gid, permissions)
+}
+
+func isValidHostPathType(hostPathType apis.ContainerVolumeMountHostPathType) bool {
+	switch hostPathType {
+	case apis.CONTAINER_VOLUME_MOUNT_HOST_PATH_TYPE_DIRECTORY, apis.CONTAINER_VOLUME_MOUNT_HOST_PATH_TYPE_FILE:
+		return true
+	default:
+		return false
+	}
 }
 
 func fetchPortmappings(pmStrs []string, dict *jsonutils.JSONDict) {
