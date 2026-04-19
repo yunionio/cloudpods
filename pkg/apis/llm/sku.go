@@ -138,6 +138,7 @@ type LLMSKuBaseCreateInput struct {
 	Bandwidth int `json:"bandwidth"`
 
 	Volumes      *Volumes          `json:"volumes"`
+	HostPaths    *HostPaths        `json:"host_paths"`
 	PortMappings *PortMappings     `json:"port_mappings"`
 	Devices      *Devices          `json:"devices"`
 	Envs         *Envs             `json:"envs"`
@@ -152,11 +153,12 @@ type LLMSkuBaseUpdateInput struct {
 
 	// RequstSyncImage *bool `json:"request_sync_image"`
 
-	DiskSize    *int     `json:"disk_size" yunion-deprecated-by:"disk_size_mb"`
-	DiskSizeMB  *int     `json:"disk_size_mb"`
-	TemplateId  *string  `json:"template_id"`
-	StorageType *string  `json:"storage_type"`
-	Volumes     *Volumes `json:"volumes"`
+	DiskSize    *int       `json:"disk_size" yunion-deprecated-by:"disk_size_mb"`
+	DiskSizeMB  *int       `json:"disk_size_mb"`
+	TemplateId  *string    `json:"template_id"`
+	StorageType *string    `json:"storage_type"`
+	Volumes     *Volumes   `json:"volumes"`
+	HostPaths   *HostPaths `json:"host_paths"`
 
 	Bandwidth    *int              `json:"bandwidth"`
 	PortMappings *PortMappings     `json:"port_mappings"`

@@ -150,5 +150,9 @@ func GetLLMContainerInstantModelDriver(typ llm.LLMContainerType) (ILLMContainerI
 
 // GetDriverPodContainers returns the container(s) for the given driver. If the driver implements ILLMContainerDriverMultiContainer, GetContainerSpecs is used; otherwise a single-element slice from GetContainerSpec is returned.
 func GetDriverPodContainers(ctx context.Context, drv ILLMContainerDriver, llm *SLLM, image *SLLMImage, sku *SLLMSku, props []string, devices []computeapi.SIsolatedDevice, diskId string) []*computeapi.PodContainerCreateInput {
-	return drv.GetContainerSpecs(ctx, llm, image, sku, props, devices, diskId)
+	containers := drv.GetContainerSpecs(ctx, llm, image, sku, props, devices, diskId)
+	if sku != nil {
+		AppendLLMSkuVolumeMounts(containers, &sku.SLLMSkuBase, nil)
+	}
+	return containers
 }
