@@ -345,6 +345,48 @@ func GetDiskVolumeMounts(vols *api.Volumes, containerIndex int, postOverlays []*
 	return mounts
 }
 
+func GetHostPathVolumeMounts(hostPaths *api.HostPaths, containerIndex int) []*apis.ContainerVolumeMount {
+	if hostPaths == nil {
+		return nil
+	}
+	mounts := make([]*apis.ContainerVolumeMount, 0)
+	for idx, hostPath := range *hostPaths {
+		hostPathRelation := hostPath.GetHostPathByContainer(containerIndex)
+		if hostPathRelation == nil {
+			continue
+		}
+		mounts = append(mounts, &apis.ContainerVolumeMount{
+			UniqueName:  fmt.Sprintf("host-path-%d-%d-%s", idx, containerIndex, hostPathRelation.MountPath),
+			Type:        apis.CONTAINER_VOLUME_MOUNT_TYPE_HOST_PATH,
+			MountPath:   hostPathRelation.MountPath,
+			ReadOnly:    hostPathRelation.ReadOnly,
+			Propagation: hostPathRelation.Propagation,
+			HostPath: &apis.ContainerVolumeMountHostPath{
+				Type:             hostPath.Type,
+				Path:             hostPath.Path,
+				AutoCreate:       hostPath.AutoCreate,
+				AutoCreateConfig: hostPath.AutoCreateConfig,
+			},
+			FsUser:  hostPathRelation.FsUser,
+			FsGroup: hostPathRelation.FsGroup,
+		})
+	}
+	return mounts
+}
+
+func AppendLLMSkuVolumeMounts(containers []*computeapi.PodContainerCreateInput, skuBase *SLLMSkuBase, postOverlays []*apis.ContainerVolumeMountDiskPostOverlay) {
+	if skuBase == nil {
+		return
+	}
+	for idx := range containers {
+		if containers[idx] == nil {
+			continue
+		}
+		containers[idx].VolumeMounts = append(containers[idx].VolumeMounts, GetDiskVolumeMounts(skuBase.Volumes, idx, postOverlays)...)
+		containers[idx].VolumeMounts = append(containers[idx].VolumeMounts, GetHostPathVolumeMounts(skuBase.HostPaths, idx)...)
+	}
+}
+
 // 取消自动删除
 func (llm *SLLMBase) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	return nil
