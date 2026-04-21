@@ -47,6 +47,8 @@ type SchedulerManager struct {
 	DataManager        *data_manager.DataManager
 	CandidateManager   *data_manager.CandidateManager
 	KubeClusterManager *k8s.SKubeClusterManager
+
+	stopCh <-chan struct{}
 }
 
 func newSchedulerManager(stopCh <-chan struct{}) *SchedulerManager {
@@ -58,6 +60,7 @@ func newSchedulerManager(stopCh <-chan struct{}) *SchedulerManager {
 	sm.HistoryManager = NewHistoryManager(stopCh)
 	sm.TaskManager = NewTaskManager(stopCh)
 	sm.KubeClusterManager = k8s.NewKubeClusterManager(o.Options.Region, 30*time.Second)
+	sm.stopCh = stopCh
 
 	common.RegisterCacheManager(sm.CandidateManager)
 
@@ -83,8 +86,26 @@ func InitAndStart(stopCh <-chan struct{}) {
 }
 
 func (sm *SchedulerManager) start() {
+	// Safety net: periodically GC session pending usages older than 30 minutes.
+	go func() {
+		t := time.NewTicker(1 * time.Minute)
+		defer t.Stop()
+		for {
+			select {
+			case <-t.C:
+				n := schedmodels.HostPendingUsageManager.GCExpiredSessionUsages(30 * time.Minute)
+				if n > 0 {
+					log.Warningf("[PendingUsage] GC expired session usages: cleared=%d", n)
+				}
+			case <-sm.stopCh:
+				return
+			}
+		}
+	}()
+
 	startFuncs := []func(){
 		sm.ExpireManager.Run,
+		sm.ExpireManager.reloadCancelQueue.Run,
 		sm.CompletedManager.Run,
 		sm.HistoryManager.Run,
 		sm.TaskManager.Run,
