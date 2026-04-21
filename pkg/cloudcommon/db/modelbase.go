@@ -295,6 +295,10 @@ func (manager *SModelBaseManager) FilterByUniqValues(q *sqlchemy.SQuery, uniqVal
 	return q
 }
 
+func (manager *SModelBaseManager) RawFetchById(idStr string) (IModel, error) {
+	return nil, sql.ErrNoRows
+}
+
 func (manager *SModelBaseManager) FetchById(idStr string) (IModel, error) {
 	return nil, sql.ErrNoRows
 }

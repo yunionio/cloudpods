@@ -74,7 +74,16 @@ func FetchJointByIds(manager IJointModelManager, masterId, slaveId string, query
 }
 
 func FetchById(manager IModelManager, idStr string) (IModel, error) {
-	q := manager.Query()
+	return FetchById2(manager, idStr, false)
+}
+
+func FetchById2(manager IModelManager, idStr string, rawQuery bool) (IModel, error) {
+	var q *sqlchemy.SQuery
+	if rawQuery {
+		q = manager.RawQuery()
+	} else {
+		q = manager.Query()
+	}
 	q = manager.FilterById(q, idStr)
 	count, err := q.CountWithError()
 	if err != nil {
