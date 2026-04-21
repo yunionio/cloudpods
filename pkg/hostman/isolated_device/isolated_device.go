@@ -352,6 +352,21 @@ func (man *isolatedDeviceManager) getSession() *mcclient.ClientSession {
 
 func (man *isolatedDeviceManager) GetDeviceByIdent(vendorDevId, addr, mdevId string) IDevice {
 	for _, dev := range man.devices {
+		if dev.GetDeviceType() == api.USB_TYPE && dev.GetVendorDeviceId() == vendorDevId {
+			raddrSplit := strings.Split(addr, ":")
+			saddrSplit := strings.Split(dev.GetAddr(), ":")
+
+			// first update, same bus and dev
+			if len(raddrSplit) == 2 && raddrSplit[0] == saddrSplit[0] && raddrSplit[1] == saddrSplit[1] {
+				return dev
+			}
+
+			// same bus and port
+			if len(raddrSplit) == 3 && raddrSplit[0] == saddrSplit[0] && raddrSplit[2] == saddrSplit[2] {
+				return dev
+			}
+		}
+
 		if dev.GetVendorDeviceId() == vendorDevId && dev.GetAddr() == addr && dev.GetMdevId() == mdevId {
 			return dev
 		}
