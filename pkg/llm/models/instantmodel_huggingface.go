@@ -74,11 +74,13 @@ func (man *SInstantModelManager) getPropertyHuggingFaceSearch(ctx context.Contex
 	if input.Limit > 100 {
 		input.Limit = 100
 	}
-
-	searchURL := fmt.Sprintf("%s/api/models?search=%s&limit=%d", huggingFaceMirrorEndpoint, url.QueryEscape(input.Q), input.Limit)
-	if input.Sort != "" {
-		searchURL = fmt.Sprintf("%s&sort=%s", searchURL, url.QueryEscape(input.Sort))
+	input.Author = strings.TrimSpace(input.Author)
+	input.Sort = strings.TrimSpace(input.Sort)
+	for i := range input.Filter {
+		input.Filter[i] = strings.TrimSpace(input.Filter[i])
 	}
+
+	searchURL := buildHuggingFaceSearchURL(input)
 
 	body, err := huggingFaceHTTPGet(ctx, searchURL)
 	if err != nil {
@@ -195,6 +197,27 @@ func buildHuggingFaceRepoInfo(resp huggingFaceRepoInfoResponse, requestedRevisio
 		info.ImportMode = ""
 	}
 	return info
+}
+
+func buildHuggingFaceSearchURL(input apis.InstantModelHuggingFaceSearchInput) string {
+	queryParts := []string{fmt.Sprintf("search=%s", url.QueryEscape(input.Q))}
+	if input.Author != "" {
+		queryParts = append(queryParts, fmt.Sprintf("author=%s", url.QueryEscape(input.Author)))
+	}
+	for _, filter := range input.Filter {
+		if filter == "" {
+			continue
+		}
+		queryParts = append(queryParts, fmt.Sprintf("filter=%s", url.QueryEscape(filter)))
+	}
+	if input.Sort != "" {
+		queryParts = append(queryParts, fmt.Sprintf("sort=%s", url.QueryEscape(input.Sort)))
+	}
+	if input.Direction != 0 {
+		queryParts = append(queryParts, fmt.Sprintf("direction=%d", input.Direction))
+	}
+	queryParts = append(queryParts, fmt.Sprintf("limit=%d", input.Limit))
+	return fmt.Sprintf("%s/api/models?%s", huggingFaceMirrorEndpoint, strings.Join(queryParts, "&"))
 }
 
 func isHuggingFaceGated(v interface{}) bool {

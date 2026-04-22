@@ -422,19 +422,21 @@ func buildVLLMHealthCheckURL(networkType, llmIP, hostAccessIP string, accessInfo
 		if len(llmIP) == 0 {
 			return "", errors.Error("LLM IP is empty for guest network")
 		}
-		return fmt.Sprintf("http://%s:%d/health", llmIP, api.LLM_VLLM_DEFAULT_PORT), nil
+		return fmt.Sprintf("http://%s:%d/ping", llmIP, api.LLM_VLLM_DEFAULT_PORT), nil
+	}
+	if accessInfo != nil && accessInfo.AccessPort > 0 {
+		if len(hostAccessIP) == 0 {
+			return "", errors.Error("host access IP is empty")
+		}
+		return fmt.Sprintf("http://%s:%d/ping", hostAccessIP, accessInfo.AccessPort), nil
 	}
 	if len(llmIP) > 0 {
-		return fmt.Sprintf("http://%s:%d/health", llmIP, api.LLM_VLLM_DEFAULT_PORT), nil
+		return fmt.Sprintf("http://%s:%d/ping", llmIP, api.LLM_VLLM_DEFAULT_PORT), nil
 	}
 	if len(hostAccessIP) == 0 {
 		return "", errors.Error("host access IP is empty")
 	}
-	port := api.LLM_VLLM_DEFAULT_PORT
-	if accessInfo != nil && accessInfo.AccessPort > 0 {
-		port = accessInfo.AccessPort
-	}
-	return fmt.Sprintf("http://%s:%d/health", hostAccessIP, port), nil
+	return fmt.Sprintf("http://%s:%d/ping", hostAccessIP, api.LLM_VLLM_DEFAULT_PORT), nil
 }
 
 // resolveModelPath resolves the model directory inside the container.
