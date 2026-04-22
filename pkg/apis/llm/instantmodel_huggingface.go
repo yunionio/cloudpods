@@ -1,9 +1,12 @@
 package llm
 
 type InstantModelHuggingFaceSearchInput struct {
-	Q     string `json:"q"`
-	Limit int    `json:"limit,omitempty"`
-	Sort  string `json:"sort,omitempty"`
+	Q         string   `json:"q"`
+	Author    string   `json:"author,omitempty"`
+	Filter    []string `json:"filter,omitempty"`
+	Direction int      `json:"direction,omitempty"`
+	Limit     int      `json:"limit,omitempty"`
+	Sort      string   `json:"sort,omitempty"`
 }
 
 type InstantModelHuggingFaceRepoInfoInput struct {
