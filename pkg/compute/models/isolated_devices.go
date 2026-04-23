@@ -120,7 +120,7 @@ type SIsolatedDevice struct {
 	// guest disk index
 	DiskIndex int8 `nullable:"true" default:"-1" list:"user" update:"user"`
 
-	// # pci address of `Bus:Device.Function` format, or usb bus address of `bus.addr`
+	// # pci address of `Bus:Device.Function` format, or usb bus address of `bus:addr:port`
 	Addr       string `width:"16" charset:"ascii" nullable:"true" list:"domain" update:"domain" create:"domain_optional"`
 	DevicePath string `width:"128" charset:"ascii" nullable:"true" list:"domain" update:"domain" create:"optional"`
 
