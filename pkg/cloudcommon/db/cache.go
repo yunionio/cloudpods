@@ -53,6 +53,10 @@ func (cm *SCacheManager[T]) FetchById(id string) (*T, error) {
 	}
 }
 
+func (cm *SCacheManager[T]) RawFetchById(id string) (*T, error) {
+	return cm.FetchById(id)
+}
+
 func (cm *SCacheManager[T]) fetchCacheFromDB() error {
 	q := cm.manager.Query()
 	ret := make([]T, 0)
