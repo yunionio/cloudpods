@@ -136,6 +136,10 @@ func (manager *SStandaloneAnonResourceBaseManager) FilterByHiddenSystemAttribute
 	return q
 }
 
+func (manager *SStandaloneAnonResourceBaseManager) RawFetchById(idStr string) (IModel, error) {
+	return FetchById2(manager.GetIStandaloneModelManager(), idStr, true)
+}
+
 func (manager *SStandaloneAnonResourceBaseManager) FetchById(idStr string) (IModel, error) {
 	return FetchById(manager.GetIStandaloneModelManager(), idStr)
 }

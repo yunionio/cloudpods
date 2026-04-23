@@ -134,6 +134,10 @@ func (lb *SLogBase) GetRecordTime() time.Time {
 	return time.Time{}
 }
 
+func (manager *SLogBaseManager) RawFetchById(idStr string) (IModel, error) {
+	return FetchById(manager.GetIModelManager(), idStr)
+}
+
 func (manager *SLogBaseManager) FetchById(idStr string) (IModel, error) {
 	return FetchById(manager.GetIModelManager(), idStr)
 }
