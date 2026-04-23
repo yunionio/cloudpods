@@ -1318,6 +1318,8 @@ type ServerChangeIpaddrInput struct {
 	Reserve *bool `json:"reserve"`
 
 	RestartNetwork *bool `json:"restart_network"`
+
+	NoSync *bool `json:"no_sync"`
 }
 
 type ServerChangeBandwidthInput struct {
