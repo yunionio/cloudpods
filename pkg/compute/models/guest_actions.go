@@ -3018,6 +3018,9 @@ func (self *SGuest) PerformChangeIpaddr(
 		}
 		self.SetStatus(ctx, userCred, api.VM_RESTART_NETWORK, "restart network")
 	}
+	if input.NoSync != nil && *input.NoSync {
+		return nil, nil
+	}
 	return nil, self.startSyncTask(ctx, userCred, false, "", taskData)
 }
 
