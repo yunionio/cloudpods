@@ -508,11 +508,22 @@ func execITask(taskValue reflect.Value, task *STask, odata jsonutils.JSONObject,
 		for i, objId := range objIds {
 			obj, err := objResManager.FetchById(objId)
 			if err != nil {
-				msg := fmt.Sprintf("fail to find %s object %s", task.ObjName, objId)
-				log.Errorf(msg)
-				task.SetStageFailed(ctx, jsonutils.NewString(msg))
-				task.SaveRequestContext(&ctxData)
-				return
+				if errors.Cause(err) == sql.ErrNoRows {
+					obj, err = objResManager.RawFetchById(objId)
+					if err == nil {
+						// find it
+					} else if errors.Cause(err) == sql.ErrNoRows {
+						// not found resource
+						err = errors.ErrNotFound
+					}
+				}
+				if obj == nil {
+					msg := errors.Wrapf(err, "fail to find %s object %s", task.ObjName, objId).Error()
+					log.Errorf(msg)
+					task.SetStageFailed(ctx, jsonutils.NewString(msg))
+					task.SaveRequestContext(&ctxData)
+					return
+				}
 			}
 			objs[i] = obj.(db.IStandaloneModel)
 		}
@@ -530,11 +541,22 @@ func execITask(taskValue reflect.Value, task *STask, odata jsonutils.JSONObject,
 	} else {
 		obj, err := objResManager.FetchById(task.ObjId)
 		if err != nil {
-			msg := fmt.Sprintf("fail to find %s object %s", task.ObjName, task.ObjId)
-			log.Errorf(msg)
-			task.SetStageFailed(ctx, jsonutils.NewString(msg))
-			task.SaveRequestContext(&ctxData)
-			return
+			if errors.Cause(err) == sql.ErrNoRows {
+				obj, err = objResManager.RawFetchById(task.ObjId)
+				if err == nil {
+					// find it
+				} else if errors.Cause(err) == sql.ErrNoRows {
+					// not found resource
+					err = errors.ErrNotFound
+				}
+			}
+			if obj == nil {
+				msg := errors.Wrapf(err, "fail to find %s object %s", task.ObjName, task.ObjId).Error()
+				log.Errorf(msg)
+				task.SetStageFailed(ctx, jsonutils.NewString(msg))
+				task.SaveRequestContext(&ctxData)
+				return
+			}
 		}
 		task.taskObject = obj.(db.IStandaloneModel)
 
