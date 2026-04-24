@@ -137,6 +137,7 @@ type LLMSpecOpenClawChannel struct {
 }
 
 type LLMSpecOpenClaw struct {
+	ManualConfig       bool                               `json:"manual_config"`
 	Providers          []*LLMSpecOpenClawProvider         `json:"providers"`
 	Channels           []*LLMSpecOpenClawChannel          `json:"channels"`
 	WorkspaceTemplates *LLMSpecOpenClawWorkspaceTemplates `json:"workspace_templates"`
