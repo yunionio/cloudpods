@@ -21,5 +21,7 @@ func init() {
 	cmd.Perform("public", new(commonoptions.BasePublicOptions))
 	cmd.Perform("private", new(commonoptions.BaseIdOptions))
 	cmd.PerformClass("import", new(options.LLMInstantModelImportOptions))
+	cmd.GetProperty(new(options.LLMInstantModelHuggingFaceSearchOptions))
+	cmd.GetProperty(new(options.LLMInstantModelHuggingFaceRepoInfoOptions))
 	cmd.GetProperty(new(options.LLMInstantModelCommunityRegistryOptions))
 }
