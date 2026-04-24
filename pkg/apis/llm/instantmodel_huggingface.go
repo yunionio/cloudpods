@@ -7,6 +7,13 @@ type InstantModelHuggingFaceSearchInput struct {
 	Direction int      `json:"direction,omitempty"`
 	Limit     int      `json:"limit,omitempty"`
 	Sort      string   `json:"sort,omitempty"`
+	Cursor    string   `json:"cursor,omitempty"`
+}
+
+type InstantModelHuggingFaceSearchOutput struct {
+	Data       []InstantModelHuggingFaceSearchResult `json:"data"`
+	NextCursor string                                `json:"next_cursor,omitempty"`
+	HasMore    bool                                  `json:"has_more"`
 }
 
 type InstantModelHuggingFaceRepoInfoInput struct {
