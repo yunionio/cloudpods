@@ -9,6 +9,7 @@ type LLMInstantModelHuggingFaceSearchOptions struct {
 	Direction int      `help:"sort direction, e.g. -1 for descending or 1 for ascending" json:"direction"`
 	Limit     int      `help:"max number of search results" json:"limit"`
 	Sort      string   `help:"sort order, e.g. downloads|likes|updated" json:"sort"`
+	Cursor    string   `help:"cursor returned by previous huggingface-search response" json:"cursor"`
 }
 
 func (o *LLMInstantModelHuggingFaceSearchOptions) Params() (jsonutils.JSONObject, error) {
