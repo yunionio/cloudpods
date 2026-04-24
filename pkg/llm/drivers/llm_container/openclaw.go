@@ -97,6 +97,7 @@ func mergeOpenClaw(llm, sku *api.LLMSpecOpenClaw) *api.LLMSpecOpenClaw {
 		return copyOpenClaw(llm)
 	}
 	out := &api.LLMSpecOpenClaw{}
+	out.ManualConfig = llm.ManualConfig || sku.ManualConfig
 	if len(llm.Providers) > 0 {
 		out.Providers = make([]*api.LLMSpecOpenClawProvider, len(llm.Providers))
 		copy(out.Providers, llm.Providers)
@@ -132,6 +133,7 @@ func copyOpenClaw(s *api.LLMSpecOpenClaw) *api.LLMSpecOpenClaw {
 		return nil
 	}
 	out := &api.LLMSpecOpenClaw{}
+	out.ManualConfig = s.ManualConfig
 	if len(s.Providers) > 0 {
 		out.Providers = make([]*api.LLMSpecOpenClawProvider, len(s.Providers))
 		copy(out.Providers, s.Providers)
@@ -335,11 +337,17 @@ func (c *openclaw) GetContainerSpecs(ctx context.Context, llm *models.SLLM, imag
 		}
 	}
 	spec := llm.LLMSpec.OpenClaw
-	for _, provider := range spec.Providers {
-		openclawSpec.Envs = appendCredentialEnvs(openclawSpec.Envs, provider.Credential)
-	}
-	for _, channel := range spec.Channels {
-		openclawSpec.Envs = appendCredentialEnvs(openclawSpec.Envs, channel.Credential)
+	if spec.ManualConfig {
+		openclawSpec.Envs = append(openclawSpec.Envs,
+			&commonapi.ContainerKeyValue{Key: string(api.LLM_OPENCLAW_MANUAL_CONFIG), Value: "1"},
+		)
+	} else {
+		for _, provider := range spec.Providers {
+			openclawSpec.Envs = appendCredentialEnvs(openclawSpec.Envs, provider.Credential)
+		}
+		for _, channel := range spec.Channels {
+			openclawSpec.Envs = appendCredentialEnvs(openclawSpec.Envs, channel.Credential)
+		}
 	}
 
 	if sku.LLMSpec != nil && sku.LLMSpec.OpenClaw != nil {
