@@ -22,3 +22,20 @@ type SVCenterAccessInfo struct {
 	Password  string
 	PrivateId string
 }
+
+type ImageCacheInput struct {
+	ImageName          string
+	ImageId            string
+	HostId             string
+	HostIp             string
+	SrcHostIp          string
+	SrcPath            string
+	SrcDatastore       SVCenterAccessInfo
+	Datastore          SVCenterAccessInfo
+	Format             string
+	IsForce            bool
+	StoragecacheId     string
+	ImageType          string
+	ImageExternalId    string
+	StorageCacheHostIp string
+}

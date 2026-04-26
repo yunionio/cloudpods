@@ -924,24 +924,25 @@ type ServerUpdateInput struct {
 }
 
 type GuestJsonDesc struct {
-	Name           string `json:"name"`
-	Hostname       string `json:"hostname"`
-	Description    string `json:"description"`
-	UUID           string `json:"uuid"`
-	Mem            int    `json:"mem"`
-	CpuSockets     int    `json:"cpu_sockets"`
-	Cpu            int    `json:"cpu"`
-	Vga            string `json:"vga"`
-	Vdi            string `json:"vdi"`
-	Machine        string `json:"machine"`
-	Bios           string `json:"bios"`
-	BootOrder      string `json:"boot_order"`
-	SrcIpCheck     bool   `json:"src_ip_check"`
-	SrcMacCheck    bool   `json:"src_mac_check"`
-	IsMaster       *bool  `json:"is_master"`
-	IsSlave        *bool  `json:"is_slave"`
-	IsVolatileHost bool   `json:"is_volatile_host"`
-	HostId         string `json:"host_id"`
+	Name            string `json:"name"`
+	Hostname        string `json:"hostname"`
+	Description     string `json:"description"`
+	UUID            string `json:"uuid"`
+	Mem             int    `json:"mem"`
+	CpuSockets      int    `json:"cpu_sockets"`
+	Cpu             int    `json:"cpu"`
+	Vga             string `json:"vga"`
+	Vdi             string `json:"vdi"`
+	Machine         string `json:"machine"`
+	Bios            string `json:"bios"`
+	BootOrder       string `json:"boot_order"`
+	SrcIpCheck      bool   `json:"src_ip_check"`
+	SrcMacCheck     bool   `json:"src_mac_check"`
+	IsMaster        *bool  `json:"is_master"`
+	IsSlave         *bool  `json:"is_slave"`
+	IsVolatileHost  bool   `json:"is_volatile_host"`
+	ExternalImageId string `json:"external_image_id"`
+	HostId          string `json:"host_id"`
 	// 宿主机管理IP
 	HostAccessIp string `json:"host_access_ip"`
 	// 宿主机公网IP（如果有）

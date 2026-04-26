@@ -16,8 +16,6 @@ package proxmox
 
 import (
 	"context"
-	"fmt"
-	"net/url"
 
 	"yunion.io/x/pkg/util/imagetools"
 
@@ -32,6 +30,9 @@ type SImage struct {
 	cache *SStoragecache
 
 	imageInfo *imagetools.ImageInfo
+
+	// for template image
+	Name string
 
 	Volid   string
 	Size    int64
@@ -49,6 +50,9 @@ func (self *SImage) GetId() string {
 }
 
 func (self *SImage) GetName() string {
+	if len(self.Name) > 0 {
+		return self.Name
+	}
 	return self.Volid
 }
 
@@ -82,7 +86,11 @@ func (self *SImage) GetSizeByte() int64 {
 
 func (img *SImage) getNormalizedImageInfo() *imagetools.ImageInfo {
 	if img.imageInfo == nil {
-		imgInfo := imagetools.NormalizeImageInfo(img.Volid, "", "", "", "")
+		name := img.Name
+		if len(name) == 0 {
+			name = img.Volid
+		}
+		imgInfo := imagetools.NormalizeImageInfo(name, "", "", "", "")
 		img.imageInfo = &imgInfo
 	}
 	return img.imageInfo
@@ -125,20 +133,4 @@ func (self *SImage) GetMinOsDiskSizeGb() int {
 
 func (self *SImage) GetImageFormat() string {
 	return self.Format
-}
-
-func (self *SProxmoxClient) GetImages(node, storageName string) ([]SImage, error) {
-	images := []SImage{}
-	params := url.Values{}
-	params.Set("content", "iso")
-	path := fmt.Sprintf("/nodes/%s/storage/%s/content", node, storageName)
-	err := self.get(path, params, &images)
-	if err != nil {
-		return nil, err
-	}
-	return images, nil
-}
-
-func (self *SRegion) GetImages(node, storageName string) ([]SImage, error) {
-	return self.client.GetImages(node, storageName)
 }

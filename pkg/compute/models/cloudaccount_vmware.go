@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"sort"
 
-	"yunion.io/x/cloudmux/pkg/multicloud/esxi"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -58,20 +57,16 @@ var ipMaskLen int8 = 24
 func (account *SCloudaccount) PrepareEsxiHostNetwork(ctx context.Context, userCred mcclient.TokenCredential, zoneId string) error {
 	cProvider, err := account.GetProvider(ctx)
 	if err != nil {
-		return errors.Wrap(err, "account.GetProvider")
+		return errors.Wrap(err, "GetProvider")
 	}
 	// fetch esxiclient
-	iregion, err := cProvider.GetOnPremiseIRegion()
+	region, err := cProvider.GetOnPremiseIRegion()
 	if err != nil {
-		return errors.Wrap(err, "cProvider.GetOnPremiseIRegion")
+		return errors.Wrap(err, "GetOnPremiseIRegion")
 	}
-	esxiClient, ok := iregion.(*esxi.SESXiClient)
-	if !ok {
-		return errors.Wrap(httperrors.ErrNotSupported, "not a esxi provider")
-	}
-	iHosts, err := esxiClient.GetIHosts()
+	iHosts, err := region.GetIHosts()
 	if err != nil {
-		return errors.Wrap(err, "esxiClient.GetIHosts")
+		return errors.Wrap(err, "GetIHosts")
 	}
 
 	hostIps := make([]netutils.IPV4Addr, 0)

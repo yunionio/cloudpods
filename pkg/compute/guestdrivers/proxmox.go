@@ -19,7 +19,12 @@ import (
 	"fmt"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/util/cloudinit"
+	"yunion.io/x/pkg/util/httputils"
 	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/utils"
 
@@ -50,7 +55,7 @@ func (self *SProxmoxGuestDriver) GetHypervisor() string {
 }
 
 func (self *SProxmoxGuestDriver) GetProvider() string {
-	return api.CLOUD_PROVIDER_PROXMOX
+	return api.CLOUD_PROVIDER_ONECLOUD
 }
 
 func (self *SProxmoxGuestDriver) GetMinimalSysDiskSizeGb() int {
@@ -77,7 +82,7 @@ func (self *SProxmoxGuestDriver) GetInstanceCapability() cloudprovider.SInstance
 func (self *SProxmoxGuestDriver) GetComputeQuotaKeys(scope rbacscope.TRbacScope, ownerId mcclient.IIdentityProvider, brand string) models.SComputeResourceKeys {
 	keys := models.SComputeResourceKeys{}
 	keys.SBaseProjectQuotaKeys = quotas.OwnerIdProjectQuotaKeys(scope, ownerId)
-	keys.CloudEnv = api.CLOUD_ENV_PRIVATE_CLOUD
+	keys.CloudEnv = api.CLOUD_ENV_ON_PREMISE
 	keys.Provider = api.CLOUD_PROVIDER_PROXMOX
 	keys.Brand = api.CLOUD_PROVIDER_PROXMOX
 	keys.Hypervisor = api.HYPERVISOR_PROXMOX
@@ -141,7 +146,7 @@ func (self *SProxmoxGuestDriver) GetChangeInstanceTypeStatus() ([]string, error)
 }
 
 func (self *SProxmoxGuestDriver) GetRebuildRootStatus() ([]string, error) {
-	return []string{}, cloudprovider.ErrNotSupported
+	return []string{api.VM_READY}, nil
 }
 
 func (self *SProxmoxGuestDriver) GetDeployStatus() ([]string, error) {
@@ -187,4 +192,64 @@ func (self *SProxmoxGuestDriver) IsSupportCdrom(guest *models.SGuest) (bool, err
 
 func (self *SProxmoxGuestDriver) RequestRemoteUpdate(ctx context.Context, guest *models.SGuest, userCred mcclient.TokenCredential, replaceTags bool) error {
 	return nil
+}
+
+func (self *SProxmoxGuestDriver) GetJsonDescAtHost(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost, params *jsonutils.JSONDict) (jsonutils.JSONObject, error) {
+	desc := guest.GetJsonDescAtHypervisor(ctx, host)
+	if len(desc.Disks) > 0 && len(desc.Disks[0].TemplateId) == 0 {
+		cdrom := guest.GetCdrom()
+		if !gotypes.IsNil(cdrom) {
+			storagecachedimage := models.StoragecachedimageManager.GetStoragecachedimage(desc.Disks[0].StoragecacheId, cdrom.ImageId)
+			if storagecachedimage != nil {
+				desc.ExternalImageId = storagecachedimage.ExternalId
+			}
+		}
+	}
+	return jsonutils.Marshal(desc), nil
+}
+
+func (self *SProxmoxGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
+	config, err := guest.GetDeployConfigOnHost(ctx, task.GetUserCred(), host, task.GetParams())
+	if err != nil {
+		return errors.Wrap(err, "GetDeployConfigOnHost")
+	}
+	log.Debugf("RequestDeployGuestOnHost: %s", config)
+
+	if !host.IsEsxiAgentReady() {
+		return fmt.Errorf("No ESXi agent host")
+	}
+
+	diskCat := guest.CategorizeDisks()
+	if diskCat.Root == nil {
+		return fmt.Errorf("no root disk???")
+	}
+	storage, _ := diskCat.Root.GetStorage()
+	if storage == nil {
+		return fmt.Errorf("root disk has no storage???")
+	}
+
+	config.Add(jsonutils.NewString(host.ExternalId), "host_id")
+	config.Add(jsonutils.NewString(host.AccessIp), "host_ip")
+
+	tags, _ := guest.GetAllUserMetadata()
+	config.Set("tags", jsonutils.Marshal(tags))
+
+	account := host.GetCloudaccount()
+	accessInfo, err := account.GetVCenterAccessInfo(storage.ExternalId)
+	if err != nil {
+		return err
+	}
+
+	config.Add(jsonutils.Marshal(accessInfo), "datastore")
+	config.Add(jsonutils.NewString(guest.ExternalId), "guest_ext_id")
+
+	url := "/disks/proxmox/deploy"
+
+	body := jsonutils.NewDict()
+	body.Add(config, "disk")
+
+	header := task.GetTaskRequestHeader()
+
+	_, err = host.EsxiRequest(ctx, httputils.POST, url, header, body)
+	return err
 }

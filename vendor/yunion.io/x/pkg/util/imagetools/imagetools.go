@@ -156,7 +156,7 @@ func normalizeOsDistribution(osDist string, imageName string) string {
 		return OS_DIST_KYLIN
 	} else if strings.Contains(osDist, "uos") {
 		return OS_DIST_UOS
-	} else if strings.Contains(osDist, "windows") || regexp.MustCompile(".+win(xp|7|8|10|11|2003|2008|2012|2016|2019|2022)*").MatchString(osDist) {
+	} else if strings.Contains(osDist, "windows") || regexp.MustCompile("(^|[^a-z0-9])win(xp|7|8|10|11|2003|2008|2012|2016|2019|2022)([^a-z0-9]|$)").MatchString(osDist) {
 		for _, ver := range []string{"2003", "2008", "2012", "2016", "2019", "2022"} {
 			if strings.Contains(osDist, ver) {
 				return OS_DIST_WINDOWS_SERVER
@@ -197,18 +197,18 @@ var imageVersions = map[string][]string{
 	OS_DIST_OPEN_EULER: {"2.0 SP1", "2.0 SP2", "2.0 SP3", "2.0 SP8", "3.0", "22.03", "23.09"},
 	OS_DIST_EULER_OS:   {"2"},
 	// 阿里云Linux：补充1代和2/3代版本
-	OS_DIST_ALIYUN: {"1", "2.1903", "3.2104", "3.2304"},
+	OS_DIST_ALIYUN: {"1", "2.1903", "2", "3.2104", "3.2304", "3"},
 
 	// 阿里云轻量版：补充完整版本
-	OS_DIST_ALIBABA_CLOUD_LINUX: {"2.1903", "3.2104", "3.2304", "3.2404"},
+	OS_DIST_ALIBABA_CLOUD_LINUX: {"2.1903", "2", "3.2104", "3.2304", "3.2404", "3"},
 	// 龙蜥OS：补充7/8系列完整小版本
-	OS_DIST_ANOLIS: {"7.6", "7.9", "8.2", "8.4", "8.6", "8.8", "9.0", "9.2"},
+	OS_DIST_ANOLIS: {"7.6", "7.9", "7", "8.2", "8.4", "8.6", "8.8", "8", "9.0", "9.2", "9"},
 	// Rocky Linux：补充8/9全系列小版本
-	OS_DIST_ROCKY_LINUX: {"8.5", "8.6", "8.7", "8.8", "8.9", "8.10", "9.0", "9.1", "9.2", "9.3", "9.4", "9.5"},
+	OS_DIST_ROCKY_LINUX: {"8.5", "8.6", "8.7", "8.8", "8.9", "8.10", "8", "9.0", "9.1", "9.2", "9.3", "9.4", "9.5", "9"},
 	// Fedora：补充近年主流版本（33到40）
 	OS_DIST_FEDORA: {"33", "34", "35", "36", "37", "38", "39", "40"},
 	// AlmaLinux：补充8/9全系列
-	OS_DIST_ALMA_LINUX: {"8.5", "8.6", "8.7", "8.8", "8.9", "8.10", "9.0", "9.1", "9.2", "9.3", "9.4", "9.5"},
+	OS_DIST_ALMA_LINUX: {"8.5", "8.6", "8.7", "8.8", "8.9", "8.10", "8", "9.0", "9.1", "9.2", "9.3", "9.4", "9.5", "9"},
 	// Amazon Linux：补充1/2/2023版本
 	OS_DIST_AMAZON_LINUX: {"2022", "2023", "1", "2"},
 
@@ -242,7 +242,7 @@ func normalizeOsVersion(imageName string, osDist string, osVersion string) strin
 				parts = append(parts, fmt.Sprintf(`(?P<verstr>%s[.\d]*)`, version), "")
 				regexpStr := strings.Join(parts, `[\s-_]*`)
 				m := regexp.MustCompile(regexpStr).FindAllStringSubmatch(strings.ToLower(imageName), -1)
-				if m != nil && len(m) > 0 && len(m[0]) > 1 {
+				if len(m) > 0 && len(m[0]) > 1 {
 					verStr := m[0][1]
 					if strings.HasPrefix(verStr, version) && len(verStr) > len(version) && !strings.HasPrefix(verStr, version+".") {
 						verStr = version + "." + verStr[len(version):]
@@ -251,10 +251,17 @@ func normalizeOsVersion(imageName string, osDist string, osVersion string) strin
 				}
 			}
 		}
-		for i := len(versions) - 1; i > 0; i-- {
-			if strings.Contains(imageName, versions[i]) {
-				return versions[i]
+		imageNameLower := strings.ToLower(imageName)
+		bestMatch := ""
+		for i := 0; i < len(versions); i++ {
+			version := strings.ToLower(versions[i])
+			pattern := fmt.Sprintf(`(^|[^0-9])%s([^0-9]|$)`, regexp.QuoteMeta(version))
+			if regexp.MustCompile(pattern).MatchString(imageNameLower) && len(versions[i]) > len(bestMatch) {
+				bestMatch = versions[i]
 			}
+		}
+		if len(bestMatch) > 0 {
+			return bestMatch
 		}
 	}
 	return ""

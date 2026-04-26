@@ -37,6 +37,7 @@ type SDisk struct {
 	Size    int64  `json:"size"`
 	Vmid    string
 	VolId   string `json:"volid"`
+	Path    string `json:"path"`
 	Name    string `json:"name"`
 	Parent  string `json:"parent"`
 	Content string `json:"content"`
@@ -69,7 +70,7 @@ func (self *SDisk) CreateISnapshot(ctx context.Context, name, desc string) (clou
 }
 
 func (self *SDisk) Refresh() error {
-	disks, err := self.storage.zone.region.GetDisks(self.storage.Node, self.storage.Storage)
+	disks, err := self.storage.cli.GetDisks(self.storage.Node, self.storage.Storage)
 	if err != nil {
 		return err
 	}
@@ -135,7 +136,7 @@ func (self *SDisk) Reset(ctx context.Context, snapshotId string) (string, error)
 }
 
 func (self *SDisk) Resize(ctx context.Context, sizeMb int64) error {
-	vm, err := self.storage.zone.region.GetInstance(self.Vmid)
+	vm, err := self.storage.cli.GetInstance(self.Vmid)
 	if err != nil {
 		return errors.Wrapf(err, "GetInstance")
 	}
@@ -147,7 +148,7 @@ func (self *SDisk) Resize(ctx context.Context, sizeMb int64) error {
 			if disk.DiskId != self.VolId {
 				continue
 			}
-			return self.storage.zone.region.ResizeDisk(vm.Node, self.Vmid, disk.Driver, int(sizeMb-int64(self.GetDiskSizeMB()))/1024)
+			return self.storage.cli.ResizeDisk(vm.Node, self.Vmid, disk.Driver, int(sizeMb-int64(self.GetDiskSizeMB()))/1024)
 		}
 	}
 	return errors.Wrapf(cloudprovider.ErrNotFound, "%s", self.VolId)
@@ -158,7 +159,20 @@ func (self *SDisk) GetTemplateId() string {
 }
 
 func (self *SDisk) GetAccessPath() string {
-	return ""
+	if self.storage != nil {
+		disk, err := self.storage.cli.GetDisk(self.storage.Node, self.storage.Storage, self.VolId)
+		if err == nil && len(disk.Path) > 0 {
+			return disk.Path
+		}
+	}
+	if len(self.Path) > 0 {
+		return self.Path
+	}
+	infos := strings.SplitN(self.VolId, ":", 2)
+	if len(infos) == 2 && len(infos[1]) > 0 {
+		return infos[1]
+	}
+	return self.VolId
 }
 
 func (self *SDisk) GetIStorage() (cloudprovider.ICloudStorage, error) {
@@ -173,7 +187,7 @@ func (self *SDisk) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
 	return []cloudprovider.ICloudSnapshot{}, nil
 }
 
-func (self *SRegion) GetDisks(node, storageName string) ([]SDisk, error) {
+func (self *SProxmoxClient) GetDisks(node, storageName string) ([]SDisk, error) {
 	vols := []SDisk{}
 	params := url.Values{}
 	params.Set("content", "images")
@@ -185,7 +199,17 @@ func (self *SRegion) GetDisks(node, storageName string) ([]SDisk, error) {
 	return vols, nil
 }
 
-func (self *SRegion) ResizeDisk(node string, vmId string, driver string, sizeGb int) error {
+func (self *SProxmoxClient) GetDisk(node, storageName, volume string) (*SDisk, error) {
+	vol := SDisk{}
+	res := fmt.Sprintf("/nodes/%s/storage/%s/content/%s", node, storageName, url.PathEscape(volume))
+	err := self.get(res, nil, &vol)
+	if err != nil {
+		return nil, err
+	}
+	return &vol, nil
+}
+
+func (self *SProxmoxClient) ResizeDisk(node string, vmId string, driver string, sizeGb int) error {
 	body := map[string]interface{}{
 		"disk": driver,
 		"size": fmt.Sprintf("+%dG", sizeGb),

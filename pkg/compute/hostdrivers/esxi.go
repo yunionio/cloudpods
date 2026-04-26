@@ -86,23 +86,7 @@ func (self *SESXiHostDriver) CheckAndSetCacheImage(ctx context.Context, userCred
 		}
 	}
 
-	type contentStruct struct {
-		ImageId            string
-		HostId             string
-		HostIp             string
-		SrcHostIp          string
-		SrcPath            string
-		SrcDatastore       vcenter.SVCenterAccessInfo
-		Datastore          vcenter.SVCenterAccessInfo
-		Format             string
-		IsForce            bool
-		StoragecacheId     string
-		ImageType          string
-		ImageExternalId    string
-		StorageCacheHostIp string
-	}
-
-	content := contentStruct{}
+	content := vcenter.ImageCacheInput{}
 	content.ImageId = imageId
 	content.HostId = host.Id
 	content.HostIp = host.AccessIp
