@@ -17,23 +17,16 @@ package hostdrivers
 import (
 	"context"
 	"fmt"
-	"io"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
+	"yunion.io/x/cloudmux/pkg/multicloud/esxi/vcenter"
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
-	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/gotypes"
-
 	api "yunion.io/x/onecloud/pkg/apis/compute"
-	"yunion.io/x/onecloud/pkg/cloudcommon/db"
-	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
-	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	modules "yunion.io/x/onecloud/pkg/mcclient/modules/image"
+	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/httputils"
 )
 
 type SProxmoxHostDriver struct {
@@ -54,7 +47,7 @@ func (self *SProxmoxHostDriver) GetHypervisor() string {
 }
 
 func (self *SProxmoxHostDriver) GetProvider() string {
-	return api.CLOUD_PROVIDER_PROXMOX
+	return api.CLOUD_PROVIDER_ONECLOUD
 }
 
 func (self *SProxmoxHostDriver) ValidateDiskSize(storage *models.SStorage, sizeGb int) error {
@@ -68,145 +61,101 @@ func (driver *SProxmoxHostDriver) GetStoragecacheQuota(host *models.SHost) int {
 func (self *SProxmoxHostDriver) CheckAndSetCacheImage(ctx context.Context, userCred mcclient.TokenCredential, host *models.SHost, storageCache *models.SStoragecache, task taskman.ITask) error {
 	input := api.CacheImageInput{}
 	task.GetParams().Unmarshal(&input)
-	opts := &cloudprovider.SImageCreateOption{}
-	task.GetParams().Unmarshal(&opts)
 
 	if len(input.ImageId) == 0 {
 		return fmt.Errorf("no image_id params")
 	}
 
-	if input.Format != "iso" {
-		return fmt.Errorf("invalid image format %s", input.Format)
+	obj, err := models.CachedimageManager.FetchById(input.ImageId)
+	if err != nil {
+		return err
+	}
+	cacheImage := obj.(*models.SCachedimage)
+
+	cacheInput := vcenter.ImageCacheInput{}
+	cacheInput.ImageId = input.ImageId
+	cacheInput.ImageName = cacheImage.Name
+	cacheInput.ImageExternalId = cacheImage.ExternalId
+	cacheInput.Format = input.Format
+	cacheInput.IsForce = input.IsForce
+	cacheInput.ImageType = cacheImage.ImageType
+	cacheInput.HostId = host.ExternalId
+	cacheInput.HostIp = host.AccessIp
+	cacheInput.Datastore, err = host.GetCloudaccount().GetVCenterAccessInfo(storageCache.ManagerId)
+	if err != nil {
+		return err
 	}
 
-	imageSize := int64(0)
+	if !host.IsEsxiAgentReady() {
+		return fmt.Errorf("fail to find valid ESXi agent")
+	}
 
-	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+	body := jsonutils.NewDict()
+	body.Add(jsonutils.Marshal(&cacheInput), "disk")
 
-		lockman.LockRawObject(ctx, models.CachedimageManager.Keyword(), fmt.Sprintf("%s-%s", storageCache.Id, input.ImageId))
-		defer lockman.ReleaseRawObject(ctx, models.CachedimageManager.Keyword(), fmt.Sprintf("%s-%s", storageCache.Id, input.ImageId))
+	header := task.GetTaskRequestHeader()
 
-		log.Debugf("XXX Hold lockman key %p cachedimages %s-%s", ctx, storageCache.Id, input.ImageId)
+	url := "/proxmox/disks/image_cache"
 
-		image, err := models.CachedimageManager.GetCachedimageById(ctx, userCred, input.ImageId, false)
-		if err != nil {
-			return nil, errors.Wrapf(err, "CachedimageManager.FetchById(%s)", input.ImageId)
-		}
-
-		if len(image.ExternalId) > 0 {
-			storages, err := image.GetStorages()
-			if err != nil {
-				return nil, err
-			}
-			find := false
-			for i := range storages {
-				iStorage, _ := storages[i].GetIStorage(ctx)
-				if gotypes.IsNil(iStorage) {
-					continue
-				}
-				iCache := iStorage.GetIStoragecache()
-				if gotypes.IsNil(iCache) {
-					continue
-				}
-				iImage, err := iCache.GetIImageById(image.ExternalId)
-				if err == nil {
-					imageSize = iImage.GetSizeByte()
-					find = true
-					break
-				}
-			}
-			if !find {
-				return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", image.ExternalId)
-			}
-			opts.ExternalId = image.ExternalId
-		} else {
-			var guest *models.SGuest
-			if len(input.ServerId) > 0 {
-				server, _ := models.GuestManager.FetchById(input.ServerId)
-				if server != nil {
-					guest = server.(*models.SGuest)
-				}
-			}
-
-			callback := func(progress float32) {
-				guestInfo := ""
-				if guest != nil {
-					guest.SetProgress(progress)
-					guestInfo = fmt.Sprintf(" for server %s ", guest.Name)
-				}
-				log.Infof("Upload image %s from storagecache %s%s status: %.2f%%", opts.ImageName, storageCache.Name, guestInfo, progress)
-			}
-
-			storages, err := host.GetStorages()
-			if err != nil {
-				return nil, errors.Wrapf(err, "GetStorages")
-			}
-
-			opts.ExternalId, err = func() (string, error) {
-				s := auth.GetAdminSession(ctx, options.Options.Region)
-				info, err := modules.Images.Get(s, input.ImageId, nil)
-				if err != nil {
-					return "", errors.Wrapf(err, "Images.Get(%s)", input.ImageId)
-				}
-				opts.Description, _ = info.GetString("description")
-				opts.Checksum, _ = info.GetString("checksum")
-				minDiskMb, _ := info.Int("min_disk")
-				opts.MinDiskMb = int(minDiskMb)
-				minRamMb, _ := info.Int("min_ram")
-				opts.MinRamMb = int(minRamMb)
-				opts.TmpPath = options.Options.TempPath
-
-				opts.GetReader = func(imageId, format string) (io.Reader, int64, error) {
-					_, reader, sizeByte, err := modules.Images.Download(s, imageId, format, false)
-					return reader, sizeByte, err
-				}
-
-				for i := range storages {
-					cache := storages[i].GetStoragecache()
-					iCache, _ := cache.GetIStorageCache(ctx)
-					if gotypes.IsNil(iCache) {
-						continue
-					}
-
-					ret, err := iCache.UploadImage(ctx, opts, callback)
-					if err != nil {
-						if errors.Cause(err) == cloudprovider.ErrNotSupported {
-							continue
-						}
-						return "", errors.Wrapf(err, "UploadImage")
-					}
-
-					region, err := host.GetRegion()
-					if err != nil {
-						return ret, nil
-					}
-
-					obj, err := models.CachedimageManager.FetchById(input.ImageId)
-					if err != nil {
-						return ret, errors.Wrapf(err, "CachedimageManager.FetchById")
-					}
-					cachedImage := obj.(*models.SCachedimage)
-					db.Update(cachedImage, func() error {
-						cachedImage.ExternalId = ret
-						return nil
-					})
-
-					cache.SyncCloudImages(ctx, userCred, iCache, region, true)
-					return ret, nil
-				}
-
-				return "", fmt.Errorf("no valid storagecache for upload image")
-			}()
-			if err != nil {
-				return nil, err
-			}
-			log.Infof("upload image %s id: %s", opts.ImageName, image.ExternalId)
-		}
-
-		ret := jsonutils.NewDict()
-		ret.Add(jsonutils.NewString(opts.ExternalId), "image_id")
-		ret.Add(jsonutils.NewInt(imageSize), "size")
-		return ret, nil
-	})
+	_, err = host.EsxiRequest(ctx, httputils.POST, url, header, body)
+	if err != nil {
+		return err
+	}
 	return nil
+}
+
+func (self *SProxmoxHostDriver) RequestResizeDiskOnHost(ctx context.Context, host *models.SHost, storage *models.SStorage, disk *models.SDisk, sizeMb int64, task taskman.ITask) error {
+	guest := disk.GetGuest()
+	if guest == nil {
+		return fmt.Errorf("unable to find guest has disk %s", disk.GetId())
+	}
+
+	iVm, err := guest.GetIVM(ctx)
+	if err != nil {
+		return errors.Wrapf(err, "GetIVM")
+	}
+	if iVm.GetStatus() == api.VM_RUNNING {
+		taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+			disks, err := iVm.GetIDisks()
+			if err != nil {
+				return nil, errors.Wrapf(err, "GetIDisk")
+			}
+			for i := range disks {
+				if disks[i].GetGlobalId() == disk.ExternalId {
+					err = disks[i].Resize(ctx, sizeMb)
+					if err != nil {
+						return nil, errors.Wrapf(err, "Resize")
+					}
+					return jsonutils.Marshal(map[string]int64{"disk_size": sizeMb}), nil
+				}
+			}
+			return nil, errors.Wrapf(cloudprovider.ErrNotFound, "disk %s", disk.Name)
+		})
+		return nil
+	}
+	spec := struct {
+		HostInfo vcenter.SVCenterAccessInfo
+		VMId     string
+		DiskId   string
+		SizeMb   int64
+	}{}
+
+	account := host.GetCloudaccount()
+	accessInfo, err := account.GetVCenterAccessInfo(host.ExternalId)
+	if err != nil {
+		return err
+	}
+	spec.HostInfo = accessInfo
+	spec.DiskId = disk.GetExternalId()
+	spec.VMId = guest.GetExternalId()
+	spec.SizeMb = sizeMb
+
+	body := jsonutils.NewDict()
+	body.Add(jsonutils.Marshal(spec), "disk")
+
+	url := fmt.Sprintf("/disks/proxmox/resize/%s", disk.Id)
+	header := task.GetTaskRequestHeader()
+
+	_, err = host.EsxiRequest(ctx, httputils.POST, url, header, body)
+	return err
 }

@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/cloudmux/pkg/apis"
@@ -33,7 +34,7 @@ import (
 type SHost struct {
 	multicloud.SHostBase
 	ProxmoxTags
-	zone *SZone
+	cli *SProxmoxClient
 
 	Id   string
 	Node string
@@ -122,7 +123,7 @@ func (self *SHost) GetAccessIp() string {
 	ret := []struct {
 		Address string
 	}{}
-	err := self.zone.region.get(network, url.Values{}, &ret)
+	err := self.cli.get(network, url.Values{}, &ret)
 	if err != nil {
 		return ""
 	}
@@ -200,21 +201,21 @@ func (self *SHost) GetVersion() string {
 
 func (self *SHost) CreateVM(opts *cloudprovider.SManagedVMCreateConfig) (cloudprovider.ICloudVM, error) {
 
-	vmId := self.zone.region.GetClusterVmMaxId()
+	vmId := self.cli.GetClusterVmMaxId()
 	if vmId == -1 {
 		return nil, errors.Errorf("failed to get vm number by %d", vmId)
 	}
 	vmId++
 
-	storage, err := self.zone.region.GetStorage(opts.SysDisk.StorageExternalId)
+	storage, err := self.cli.GetStorage(opts.SysDisk.StorageExternalId)
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetStorage")
 	}
 
 	body := map[string]interface{}{
-		"vmid":        vmId,
-		"name":        opts.Name,
-		"ide2":        fmt.Sprintf("%s,media=cdrom", opts.ExternalImageId),
+		"vmid": vmId,
+		"name": opts.Name,
+		//"ide2":        fmt.Sprintf("%s,media=cdrom", opts.ExternalImageId),
 		"ostype":      "other",
 		"sockets":     1,
 		"cores":       opts.Cpu,
@@ -225,25 +226,36 @@ func (self *SHost) CreateVM(opts *cloudprovider.SManagedVMCreateConfig) (cloudpr
 		"description": opts.OsDistribution,
 		"scsihw":      "virtio-scsi-pci",
 		"net0":        "virtio,bridge=vmbr0,firewall=1",
-		"scsi0":       fmt.Sprintf("%s:%d", storage.Storage, opts.SysDisk.SizeGB),
+	}
+	sysIndex := 0
+	if strings.HasSuffix(opts.ExternalImageId, ".iso") { // iso image
+		body["ide2"] = fmt.Sprintf("%s,media=cdrom", opts.ExternalImageId)
+		body["scsi0"] = fmt.Sprintf("%s:%d", storage.Storage, opts.SysDisk.SizeGB)
+		sysIndex = 1
+	} else if strings.HasSuffix(opts.ExternalImageId, "qemu/") { // template image
+		//body["ide2"] = fmt.Sprintf("%s,media=disk", opts.ExternalImageId)
+	} else {
+		body["scsi0"] = fmt.Sprintf("%s:0,import-from=%s,iothread=on", storage.Storage, opts.ExternalImageId)
 	}
 	for i, disk := range opts.DataDisks {
-		storage, err := self.zone.region.GetStorage(disk.StorageExternalId)
+		storage, err := self.cli.GetStorage(disk.StorageExternalId)
 		if err != nil {
 			return nil, err
 		}
-		body[fmt.Sprintf("scsi%d", i+1)] = fmt.Sprintf("%s:%d", storage.Storage, opts.SysDisk.SizeGB)
+		body[fmt.Sprintf("scsi%d", i+sysIndex)] = fmt.Sprintf("%s:%d", storage.Storage, opts.SysDisk.SizeGB)
 	}
 
+	log.Debugf("opts: %s params: %s", jsonutils.Marshal(opts), jsonutils.Marshal(body))
+
 	res := fmt.Sprintf("/nodes/%s/qemu", self.Node)
-	_, err = self.zone.region.post(res, jsonutils.Marshal(body))
+	_, err = self.cli.post(res, jsonutils.Marshal(body))
 	if err != nil {
 		return nil, err
 	}
 
 	vmIdRet := strconv.Itoa(vmId)
 	cloudprovider.Wait(time.Second*5, time.Minute, func() (bool, error) {
-		_, err := self.zone.region.GetInstance(vmIdRet)
+		_, err := self.cli.GetInstance(vmIdRet)
 		if err != nil {
 			if errors.Cause(err) == cloudprovider.ErrNotFound {
 				return false, nil
@@ -253,7 +265,7 @@ func (self *SHost) CreateVM(opts *cloudprovider.SManagedVMCreateConfig) (cloudpr
 		return true, nil
 	})
 
-	vm, err := self.zone.region.GetInstance(vmIdRet)
+	vm, err := self.cli.GetInstance(vmIdRet)
 	if err != nil {
 		return nil, err
 	}
@@ -263,15 +275,22 @@ func (self *SHost) CreateVM(opts *cloudprovider.SManagedVMCreateConfig) (cloudpr
 }
 
 func (host *SHost) GetIHostNics() ([]cloudprovider.ICloudHostNetInterface, error) {
-	wires, err := host.getIWires()
+	wires, err := host.cli.GetWires(host.Node)
 	if err != nil {
-		return nil, errors.Wrap(err, "getIWires")
+		return nil, err
 	}
-	return cloudprovider.GetHostNetifs(host, wires), nil
+	ret := []cloudprovider.ICloudHostNetInterface{}
+	for i := range wires {
+		nic := &SHostNic{
+			wire: &wires[i],
+		}
+		ret = append(ret, nic)
+	}
+	return ret, nil
 }
 
 func (self *SHost) GetIVMs() ([]cloudprovider.ICloudVM, error) {
-	vms, err := self.zone.region.GetInstances(self.Id)
+	vms, err := self.cli.GetInstances(self.Id)
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetInstances")
 	}
@@ -284,7 +303,7 @@ func (self *SHost) GetIVMs() ([]cloudprovider.ICloudVM, error) {
 }
 
 func (self *SHost) GetIVMById(id string) (cloudprovider.ICloudVM, error) {
-	vm, err := self.zone.region.GetInstance(id)
+	vm, err := self.cli.GetInstance(id)
 	if err != nil {
 		return nil, err
 	}
@@ -296,43 +315,30 @@ func (self *SHost) GetIVMById(id string) (cloudprovider.ICloudVM, error) {
 	return vm, nil
 }
 
-func (self *SHost) getIWires() ([]cloudprovider.ICloudWire, error) {
-	wires, err := self.zone.region.GetWires()
-	if err != nil {
-		return nil, err
-	}
-	ret := []cloudprovider.ICloudWire{}
-	for i := range wires {
-		wires[i].region = self.zone.region
-		ret = append(ret, &wires[i])
-	}
-	return ret, nil
-}
-
 func (self *SHost) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
-	storages, err := self.zone.region.GetStoragesByHost(self.Node)
+	storages, err := self.cli.GetStoragesByHost(self.Node)
 	if err != nil {
 		return nil, err
 	}
 	ret := []cloudprovider.ICloudStorage{}
 	for i := range storages {
-		storages[i].zone = self.zone
+		storages[i].cli = self.cli
 		ret = append(ret, &storages[i])
 	}
 	return ret, nil
 }
 
 func (self *SHost) GetIStorageById(id string) (cloudprovider.ICloudStorage, error) {
-	storage, err := self.zone.region.GetStorage(id)
+	storage, err := self.cli.GetStorage(id)
 	if err != nil {
 		return nil, err
 	}
-	storage.zone = self.zone
+	storage.cli = self.cli
 
 	return storage, nil
 }
 
-func (self *SRegion) GetHosts() ([]SHost, error) {
+func (self *SProxmoxClient) GetHosts() ([]SHost, error) {
 	hosts := []SHost{}
 	resources, err := self.GetClusterNodeResources()
 	if err != nil {
@@ -348,14 +354,15 @@ func (self *SRegion) GetHosts() ([]SHost, error) {
 		}
 		host.Id = res.Id
 		host.Node = res.Node
+		host.cli = self
 		hosts = append(hosts, *host)
 	}
 
 	return hosts, nil
 }
 
-func (self *SRegion) GetHost(id string) (*SHost, error) {
-	ret := &SHost{}
+func (self *SProxmoxClient) GetHost(id string) (*SHost, error) {
+	ret := &SHost{cli: self}
 	nodeName := ""
 
 	//"id": "node/nodeNAME",

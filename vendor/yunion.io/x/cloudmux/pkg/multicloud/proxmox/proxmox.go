@@ -25,15 +25,17 @@ import (
 	"net/url"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/httputils"
+	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
+	"yunion.io/x/cloudmux/pkg/multicloud"
+	"yunion.io/x/cloudmux/pkg/multicloud/esxi/vcenter"
 )
 
 const (
@@ -42,6 +44,11 @@ const (
 )
 
 type SProxmoxClient struct {
+	multicloud.SRegion
+	multicloud.SRegionEipBase
+	multicloud.SNoObjectStorageRegion
+	multicloud.SRegionLbBase
+
 	*ProxmoxClientConfig
 }
 
@@ -79,6 +86,27 @@ func (self *ProxmoxClientConfig) Debug(debug bool) *ProxmoxClientConfig {
 func (self *ProxmoxClientConfig) CloudproviderConfig(cpcfg cloudprovider.ProviderConfig) *ProxmoxClientConfig {
 	self.cpcfg = cpcfg
 	return self
+}
+
+func NewProxmoxClientFromAccessInfo(accessInfo *vcenter.SVCenterAccessInfo) (*SProxmoxClient, error) {
+	if len(accessInfo.VcenterId) > 0 {
+		tmp, err := utils.DescryptAESBase64(accessInfo.VcenterId, accessInfo.Password)
+		if err == nil {
+			accessInfo.Password = tmp
+		}
+	}
+	client, err := NewProxmoxClient(
+		NewProxmoxClientConfig(
+			accessInfo.Account,
+			accessInfo.Password,
+			accessInfo.Host,
+			accessInfo.Port,
+		),
+	)
+	if err != nil {
+		return nil, err
+	}
+	return client, nil
 }
 
 func NewProxmoxClient(cfg *ProxmoxClientConfig) (*SProxmoxClient, error) {
@@ -120,22 +148,11 @@ func (self *SProxmoxClient) auth() error {
 	return nil
 }
 
-func (self *SProxmoxClient) GetRegion() *SRegion {
-	region := &SRegion{client: self}
-	return region
-}
-
-func (self *SProxmoxClient) GetRegions() ([]SRegion, error) {
-	ret := []SRegion{}
-	ret = append(ret, SRegion{client: self})
-	return ret, nil
-}
-
 type ProxmoxError struct {
 	Url     string
+	params  jsonutils.JSONObject
 	Message string
 	Code    int
-	Params  []string
 	Errors  string
 	Status  string
 }
@@ -148,7 +165,7 @@ func (ce *ProxmoxError) ParseErrorFromJsonResponse(statusCode int, status string
 	ce.Status = status
 	if body != nil {
 		body.Unmarshal(ce)
-		log.Errorf("%s status: %s(%d) error: %v", ce.Url, status, statusCode, body.PrettyString())
+		log.Errorf("%s status: %s(%d) params: %s error: %s", ce.Url, status, statusCode, jsonutils.Marshal(ce.params).String(), body.String())
 	}
 	if ce.Code == 0 && statusCode > 0 {
 		ce.Code = statusCode
@@ -289,7 +306,7 @@ func (cli *SProxmoxClient) __jsonRequest(method httputils.THttpMethod, res strin
 	}
 
 	req.SetHeader(header)
-	oe := &ProxmoxError{Url: url}
+	oe := &ProxmoxError{Url: url, params: jsonutils.Marshal(params)}
 	_, resp, err := client.Send(context.Background(), req, oe, cli.debug)
 	if err != nil {
 		return nil, err
@@ -298,9 +315,9 @@ func (cli *SProxmoxClient) __jsonRequest(method httputils.THttpMethod, res strin
 	return resp, nil
 }
 
-func (cli *SProxmoxClient) upload(node, storageName, filename string, reader io.Reader) (*SImage, error) {
-	if !strings.HasSuffix(filename, ".iso") {
-		filename = filename + ".iso"
+func (cli *SProxmoxClient) upload(node, storageName, filename, format string, reader io.Reader) error {
+	if !strings.HasSuffix(filename, format) {
+		filename = filename + "." + format
 	}
 	filename = filepath.Base(filename)
 	client := cli.getDefaultClient()
@@ -309,22 +326,26 @@ func (cli *SProxmoxClient) upload(node, storageName, filename string, reader io.
 
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
-	err := writer.WriteField("content", "iso")
+	content := "iso"
+	if format != "iso" {
+		content = "import"
+	}
+	err := writer.WriteField("content", content)
 	if err != nil {
-		return nil, err
+		return errors.Wrapf(err, "WriteField")
 	}
 	part, err := writer.CreateFormFile("filename", filename)
 	if err != nil {
-		return nil, err
+		return errors.Wrapf(err, "CreateFormFile")
 	}
 	_, err = io.Copy(part, reader)
 	if err != nil {
-		return nil, errors.Wrapf(err, "io.Copy")
+		return errors.Wrapf(err, "io.Copy")
 	}
 	writer.Close()
 	req, err := http.NewRequest("POST", url, body)
 	if err != nil {
-		return nil, err
+		return errors.Wrapf(err, "NewRequest")
 	}
 
 	req.Header.Set("Content-Type", writer.FormDataContentType())
@@ -336,40 +357,22 @@ func (cli *SProxmoxClient) upload(node, storageName, filename string, reader io.
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, err
+		return errors.Wrapf(err, "Do")
 	}
 	defer resp.Body.Close()
 
 	data, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, err
+		return errors.Wrapf(err, "ReadAll")
 	}
 	obj, err := jsonutils.Parse(data)
 	if err != nil {
-		return nil, err
+		return errors.Wrapf(err, "Parse")
 	}
 	if obj.Contains("errors") {
-		return nil, fmt.Errorf("%s", string(data))
+		return errors.Wrapf(fmt.Errorf("%s", string(data)), "errors")
 	}
-
-	now := time.Now()
-	for now.Sub(time.Now()) < time.Minute*1 {
-		images, err := cli.GetImages(node, storageName)
-		if err != nil {
-			return nil, errors.Wrapf(err, "GetImageStatus")
-		}
-		for i := range images {
-			if strings.HasSuffix(images[i].Volid, filename) {
-				return &images[i], nil
-			}
-		}
-		time.Sleep(time.Second * 10)
-	}
-	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "after upload")
-}
-
-func (cli *SProxmoxClient) GetCloudRegionExternalIdPrefix() string {
-	return fmt.Sprintf("%s/%s", CLOUD_PROVIDER_PROXMOX, cli.cpcfg.Id)
+	return nil
 }
 
 func (self *SProxmoxClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
@@ -383,13 +386,6 @@ func (self *SProxmoxClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error
 
 func (self *SProxmoxClient) GetAccountId() string {
 	return self.host
-}
-
-func (self *SProxmoxClient) GetIRegions() ([]cloudprovider.ICloudRegion, error) {
-	ret := []cloudprovider.ICloudRegion{}
-	region := self.GetRegion()
-	ret = append(ret, region)
-	return ret, nil
 }
 
 func (self *SProxmoxClient) GetCapabilities() []string {

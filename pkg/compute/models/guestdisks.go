@@ -208,14 +208,18 @@ func (self *SGuestdisk) GetDiskJsonDescAtHost(ctx context.Context, host *SHost, 
 		Bps:        self.Bps,
 		Size:       disk.DiskSize,
 		PCIPath:    disk.PCIPath,
+		StorageId:  disk.StorageId,
 	}
 	desc.TemplateId = disk.GetTemplateId()
 	storage, _ := disk.GetStorage()
 	desc.StorageType = storage.StorageType
+	desc.StorageExternalId = storage.GetExternalId()
+	desc.StoragecacheId = storage.StoragecacheId
 	if len(desc.TemplateId) > 0 {
 		storagecacheimg := StoragecachedimageManager.GetStoragecachedimage(storage.StoragecacheId, desc.TemplateId)
 		if storagecacheimg != nil {
 			desc.ImagePath = storagecacheimg.Path
+			desc.ImageInfo.ImageExternalId = storagecacheimg.ExternalId
 		}
 	}
 	if utils.IsInStringArray(host.HostType, []string{api.HOST_TYPE_HYPERVISOR, api.HOST_TYPE_CONTAINER}) {

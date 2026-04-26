@@ -41,8 +41,8 @@ func init() {
 func (self *CloudAccountSyncInfoTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	cloudaccount := obj.(*models.SCloudaccount)
 
-	if cloudaccount.Provider == api.CLOUD_PROVIDER_VMWARE {
-		cloudaccount.SetStatus(ctx, self.UserCred, api.CLOUD_PROVIDER_SYNC_NETWORK, "StartSyncVMwareNetworkTask")
+	if cloudaccount.Provider == api.CLOUD_PROVIDER_VMWARE || cloudaccount.Provider == api.CLOUD_PROVIDER_PROXMOX {
+		cloudaccount.SetStatus(ctx, self.UserCred, api.CLOUD_PROVIDER_SYNC_NETWORK, "StartSyncOnPremiseNetworkTask")
 		zone, _ := self.Params.GetString("zone")
 		err := cloudaccount.PrepareEsxiHostNetwork(ctx, self.UserCred, zone)
 		if err != nil {

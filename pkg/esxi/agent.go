@@ -20,6 +20,7 @@ import (
 	"net"
 	"net/http"
 
+	"yunion.io/x/cloudmux/pkg/multicloud/esxi/vcenter"
 	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/apis/compute"
@@ -47,9 +48,11 @@ var (
 type SEsxiAgent struct {
 	agent.SBaseAgent
 
-	agentImageCache *storageman.SAgentImageCacheManager
-	AgentStorage    *storageman.SAgentStorage
-	ListenNic       netutils2.SNetInterface
+	agentImageCache   *storageman.SAgentImageCacheManager
+	agentProxmoxCache *storageman.SAgentProxmoxCacheManager
+	AgentStorage      *storageman.SAgentStorage
+	ProxmoxStorage    *storageman.SProxmoxStorage
+	ListenNic         netutils2.SNetInterface
 }
 
 func NewEsxiAgent() (*SEsxiAgent, error) {
@@ -110,7 +113,10 @@ func (ea *SEsxiAgent) Start() error {
 	}
 	// add agent image cache
 	ea.agentImageCache = storageman.NewAgentImageCacheManager(ea.CacheManager)
+	ea.agentProxmoxCache = storageman.NewAgentProxmoxCacheManager(ea.CacheManager)
 	ea.AgentStorage = storageman.NewAgentStorage(&storageman.SStorageManager{LocalStorageImagecacheManager: ea.CacheManager},
+		ea, options.Options.AgentTempPath)
+	ea.ProxmoxStorage = storageman.NewProxmoxStorage(&storageman.SStorageManager{LocalStorageImagecacheManager: ea.CacheManager},
 		ea, options.Options.AgentTempPath)
 
 	cronManager := cronman.InitCronJobManager(false, options.Options.CronJobWorkerCount, options.Options.TimeZone)
@@ -147,6 +153,11 @@ func (agent *SEsxiAgent) AddImageCacheHandler(prefix string, app *appsrv.Applica
 		auth.Authenticate(func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 			performImageCache(ctx, w, r, agent.agentImageCache.PrefetchImageCache)
 		}))
+	app.AddHandler("POST",
+		fmt.Sprintf("%s/proxmox/disks/image_cache", prefix),
+		auth.Authenticate(func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+			performImageCache(ctx, w, r, agent.agentProxmoxCache.PrefetchProxmoxImageCache)
+		}))
 	app.AddHandler("DELETE",
 		fmt.Sprintf("%s/disks/image_cache", prefix),
 		auth.Authenticate(func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
@@ -162,13 +173,17 @@ func performImageCache(
 ) {
 	_, _, body := appsrv.FetchEnv(ctx, w, r)
 
-	disk, err := body.Get("disk")
+	input := struct {
+		Disk vcenter.ImageCacheInput
+	}{}
+
+	err := body.Unmarshal(&input)
 	if err != nil {
-		httperrors.MissingParameterError(ctx, w, "disk")
+		httperrors.BadRequestError(ctx, w, "unmarshal disk %s", err)
 		return
 	}
 
-	hostutils.DelayTask(ctx, performTask, disk)
+	hostutils.DelayTask(ctx, performTask, &input.Disk)
 	hostutils.ResponseOk(ctx, w)
 }
 
