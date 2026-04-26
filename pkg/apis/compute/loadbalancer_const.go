@@ -160,6 +160,11 @@ var LB_LISTENER_TYPES = []string{
 	LB_LISTENER_TYPE_HTTPS,
 }
 
+var LB_APP_LISTENER_TYPES = []string{
+	LB_LISTENER_TYPE_HTTP,
+	LB_LISTENER_TYPE_HTTPS,
+}
+
 // aws_network_lb_listener
 var AWS_NETWORK_LB_LISTENER_TYPES = choices.NewChoices(
 	LB_LISTENER_TYPE_TCP,
