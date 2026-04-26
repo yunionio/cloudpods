@@ -325,14 +325,6 @@ func (man *SLoadbalancerListenerManager) ValidateCreateData(ctx context.Context,
 		return nil, err
 	}
 	lb := lbObj.(*SLoadbalancer)
-	lbbgObj, err := validators.ValidateModel(ctx, userCred, LoadbalancerBackendGroupManager, &input.BackendGroupId)
-	if err != nil {
-		return nil, err
-	}
-	lbbg := lbbgObj.(*SLoadbalancerBackendGroup)
-	if lbbg.LoadbalancerId != lb.Id {
-		return nil, httperrors.NewConflictError("backendgroup_id not same with listener's loadbalancer")
-	}
 	region, err := lb.GetRegion()
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetRegion")
@@ -343,6 +335,19 @@ func (man *SLoadbalancerListenerManager) ValidateCreateData(ctx context.Context,
 	err = input.Validate()
 	if err != nil {
 		return nil, err
+	}
+	var lbbg *SLoadbalancerBackendGroup
+	if input.IsRedirect() {
+		input.BackendGroupId = ""
+	} else {
+		lbbgObj, err := validators.ValidateModel(ctx, userCred, LoadbalancerBackendGroupManager, &input.BackendGroupId)
+		if err != nil {
+			return nil, err
+		}
+		lbbg = lbbgObj.(*SLoadbalancerBackendGroup)
+		if lbbg.LoadbalancerId != lb.Id {
+			return nil, httperrors.NewConflictError("backendgroup_id not same with listener's loadbalancer")
+		}
 	}
 	if utils.IsInStringArray(input.ListenerType, []string{api.LB_LISTENER_TYPE_TCP, api.LB_LISTENER_TYPE_UDP}) {
 
