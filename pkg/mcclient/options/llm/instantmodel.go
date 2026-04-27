@@ -33,7 +33,10 @@ type LLMInstantModelCreateOptions struct {
 	MODEL_NAME string `json:"model_name"`
 	MODEL_TAG  string `json:"model_tag"`
 
-	ImageId string `json:"image_id"`
+	Source   string `help:"model source, e.g. huggingface" json:"source"`
+	RepoId   string `help:"huggingface repo id, e.g. Qwen/Qwen3-8B" json:"repo_id"`
+	Revision string `help:"huggingface revision, e.g. main or refs/pr/7" json:"revision"`
+	ImageId  string `json:"image_id"`
 
 	Mounts []string `json:"mounts"`
 }

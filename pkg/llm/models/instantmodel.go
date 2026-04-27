@@ -316,6 +316,7 @@ func (man *SInstantModelManager) ValidateCreateData(
 	if !apis.IsLLMContainerType(string(input.LlmType)) {
 		return input, errors.Wrapf(httperrors.ErrInvalidFormat, "invalid llm_type %s", input.LlmType)
 	}
+	input = normalizeInstantModelCreateInput(input)
 
 	if len(input.ImageId) > 0 {
 		img, err := fetchImage(ctx, userCred, input.ImageId)
@@ -421,11 +422,7 @@ func (model *SInstantModel) PostCreate(
 		return
 	}
 	if input.ImageId == "" && (input.DoNotImport == nil || !*input.DoNotImport) {
-		model.startImportTask(ctx, userCred, apis.InstantModelImportInput{
-			LlmType:   input.LlmType,
-			ModelName: input.ModelName,
-			ModelTag:  input.ModelTag,
-		})
+		model.startImportTask(ctx, userCred, buildInstantModelImportInputFromCreate(input))
 	}
 }
 
