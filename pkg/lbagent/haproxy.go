@@ -33,10 +33,13 @@ import (
 	"yunion.io/x/pkg/gotypes"
 
 	"yunion.io/x/onecloud/pkg/apis"
+	identity_apis "yunion.io/x/onecloud/pkg/apis/identity"
+	"yunion.io/x/onecloud/pkg/cloudcommon/tsdb"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostconsts"
 	"yunion.io/x/onecloud/pkg/hostman/system_service"
 	agentmodels "yunion.io/x/onecloud/pkg/lbagent/models"
 	agentutils "yunion.io/x/onecloud/pkg/lbagent/utils"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/util/sysutils"
 )
 
@@ -187,6 +190,13 @@ func (h *HaproxyHelper) handleUseCorpusCmd(ctx context.Context, cmd *LbagentCmd)
 				return err
 			}
 		}
+		// refresh telegraf URL from service catalog
+		s := auth.GetAdminSession(ctx, h.opts.Region)
+		tsdbSrc, _ := tsdb.GetDefaultServiceSource(s, identity_apis.EndpointInterfacePublic)
+		if tsdbSrc != nil && len(tsdbSrc.URLs) > 0 {
+			agentParams.AgentModel.Params.Telegraf.InfluxDbOutputUrl = tsdbSrc.URLs[0]
+			agentParams.SetTelegrafParams("influx_db_output_url", tsdbSrc.URLs[0])
+		}
 		if agentParams.AgentModel.Params.Telegraf.InfluxDbOutputUrl != "" {
 			agentParams.SetTelegrafParams("haproxy_input_stats_socket", h.haproxyStatsSocketFile())
 			// telegraf config
@@ -198,7 +208,7 @@ func (h *HaproxyHelper) handleUseCorpusCmd(ctx context.Context, cmd *LbagentCmd)
 				p := filepath.Join(dir, "telegraf.conf")
 				err := os.WriteFile(p, d, agentutils.FileModeFile)
 				if err == nil {
-					err := h.reloadTelegraf(ctx, agentParams)
+					err := h.reloadTelegraf(ctx, agentParams, tsdbSrc)
 					if err != nil {
 						log.Errorf("reloading telegraf.conf failed: %s", err)
 					}
@@ -420,15 +430,15 @@ func (h *HaproxyHelper) telegrafPidFile() *agentutils.PidFile {
 	return pf
 }
 
-func (h *HaproxyHelper) reloadTelegraf(ctx context.Context, agentParams *agentmodels.AgentParams) error {
+func (h *HaproxyHelper) reloadTelegraf(ctx context.Context, agentParams *agentmodels.AgentParams, tsdbSrc *tsdb.TSDBServiceSource) error {
 	if h.opts.EnableRemoteExecutor {
-		return h.remoteReloadTelegraf(ctx, agentParams)
+		return h.remoteReloadTelegraf(ctx, agentParams, tsdbSrc)
 	} else {
 		return h.localReloadTelegraf(ctx)
 	}
 }
 
-func (h *HaproxyHelper) remoteReloadTelegraf(ctx context.Context, agentParams *agentmodels.AgentParams) error {
+func (h *HaproxyHelper) remoteReloadTelegraf(ctx context.Context, agentParams *agentmodels.AgentParams, tsdbSrc *tsdb.TSDBServiceSource) error {
 	telegraf := system_service.GetService("telegraf")
 	conf := map[string]interface{}{}
 	conf["hostname"] = h.getHostname()
@@ -442,7 +452,13 @@ func (h *HaproxyHelper) remoteReloadTelegraf(ctx context.Context, agentParams *a
 		hostconsts.TELEGRAF_TAG_KEY_HOST_TYPE: hostconsts.TELEGRAF_TAG_ONECLOUD_HOST_TYPE_LBAGENT,
 	}
 	conf["nics"] = h.getNicsTelegrafConf()
-	if len(agentParams.AgentModel.Params.Telegraf.InfluxDbOutputUrl) > 0 {
+	if tsdbSrc != nil && len(tsdbSrc.URLs) > 0 {
+		conf[apis.SERVICE_TYPE_INFLUXDB] = map[string]interface{}{
+			"url":       tsdbSrc.URLs,
+			"database":  agentParams.AgentModel.Params.Telegraf.InfluxDbOutputName,
+			"tsdb_type": tsdbSrc.Type,
+		}
+	} else if len(agentParams.AgentModel.Params.Telegraf.InfluxDbOutputUrl) > 0 {
 		conf[apis.SERVICE_TYPE_INFLUXDB] = map[string]interface{}{
 			"url": []string{
 				agentParams.AgentModel.Params.Telegraf.InfluxDbOutputUrl,
@@ -452,13 +468,13 @@ func (h *HaproxyHelper) remoteReloadTelegraf(ctx context.Context, agentParams *a
 	}
 	conf["haproxy"] = map[string]interface{}{
 		"interval":          agentParams.AgentModel.Params.Telegraf.HaproxyInputInterval,
-		"stats_socket_path": h.haproxyStatsSocketFile(),
+		"stats_socket_path": filepath.Join("/hostfs", h.haproxyStatsSocketFile()),
 	}
 	oldConf := telegraf.GetConf()
 	log.Debugf("old config: %s", oldConf)
 	log.Debugf("new config: %s", conf)
 	if gotypes.IsNil(oldConf) || !reflect.DeepEqual(oldConf, conf) {
-		log.Debugf("telegraf config: %s", conf)
+		log.Debugf("telegraf config: %s", telegraf.GetConfig(conf))
 		telegraf.SetConf(conf)
 		telegraf.BgReloadConf(conf)
 	}

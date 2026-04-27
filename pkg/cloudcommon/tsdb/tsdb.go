@@ -38,7 +38,7 @@ func NewTSDBServiceSource(t string, urls []string) *TSDBServiceSource {
 
 func GetDefaultServiceSource(s *mcclient.ClientSession, endpointType string) (*TSDBServiceSource, error) {
 	errs := []error{}
-	for _, sType := range []string{apis.SERVICE_TYPE_INFLUXDB, apis.SERVICE_TYPE_VICTORIA_METRICS} {
+	for _, sType := range []string{apis.SERVICE_TYPE_VICTORIA_METRICS, apis.SERVICE_TYPE_INFLUXDB} {
 		urls, err := s.GetServiceURLs(sType, endpointType, httputils.POST)
 		if err != nil {
 			errs = append(errs, errors.Wrapf(err, "get %s service type %q", endpointType, sType))
