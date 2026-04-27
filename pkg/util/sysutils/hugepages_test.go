@@ -15,12 +15,16 @@
 package sysutils
 
 import (
+	"runtime"
 	"testing"
 
 	"yunion.io/x/jsonutils"
 )
 
 func TestGetHugepages(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("Skipping GetHugepages test on non-linux")
+	}
 	hp, err := GetHugepages()
 	if err != nil {
 		t.Errorf("GetHugepages fail %s", err)
