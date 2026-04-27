@@ -31,6 +31,9 @@ type InstantModelCreateInput struct {
 	LlmType   LLMContainerType `json:"llm_type"`
 	ModelName string           `json:"model_name"`
 	ModelTag  string           `json:"model_tag"`
+	Source    string           `json:"source,omitempty"`
+	RepoId    string           `json:"repo_id,omitempty"`
+	Revision  string           `json:"revision,omitempty"`
 	ImageId   string           `json:"image_id"`
 	Size      int64            `json:"size"`
 	ModelId   string           `json:"model_id"`
