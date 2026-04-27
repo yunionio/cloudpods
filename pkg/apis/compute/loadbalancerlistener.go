@@ -181,6 +181,10 @@ type LoadbalancerListenerCreateInput struct {
 	AclType   string `json:"acl_type"`
 }
 
+func (input LoadbalancerListenerCreateInput) IsRedirect() bool {
+	return len(input.Redirect) > 0 && input.Redirect != LB_REDIRECT_OFF
+}
+
 func (self *LoadbalancerListenerCreateInput) Validate() error {
 	if len(self.Status) == 0 {
 		self.Status = LB_STATUS_ENABLED
@@ -191,7 +195,13 @@ func (self *LoadbalancerListenerCreateInput) Validate() error {
 	if !utils.IsInStringArray(self.SendProxy, LB_SENDPROXY_CHOICES) {
 		return httperrors.NewInputParameterError("invalid send_proxy %s", self.SendProxy)
 	}
-	if !utils.IsInStringArray(self.Scheduler, LB_SCHEDULER_TYPES) {
+	if len(self.Redirect) == 0 {
+		self.Redirect = LB_REDIRECT_OFF
+	}
+	if !utils.IsInStringArray(self.Redirect, []string{LB_REDIRECT_OFF, LB_REDIRECT_RAW}) {
+		return httperrors.NewInputParameterError("invalid redirect %s", self.Redirect)
+	}
+	if !self.IsRedirect() && !utils.IsInStringArray(self.Scheduler, LB_SCHEDULER_TYPES) {
 		return httperrors.NewInputParameterError("invalid scheduler %s", self.Scheduler)
 	}
 	if len(self.StickySession) == 0 {
@@ -222,6 +232,9 @@ func (self *LoadbalancerListenerCreateInput) Validate() error {
 	}
 	if !utils.IsInStringArray(self.ListenerType, LB_LISTENER_TYPES) {
 		return httperrors.NewInputParameterError("invalid listener_type %s", self.ListenerType)
+	}
+	if self.IsRedirect() && !utils.IsInStringArray(self.ListenerType, LB_APP_LISTENER_TYPES) {
+		return httperrors.NewInputParameterError("redirect is only supported for http/https listeners")
 	}
 	if self.ListenerPort < 1 || self.ListenerPort > 65535 {
 		return httperrors.NewOutOfRangeError("listener_port out of range 1-65535")
@@ -272,12 +285,7 @@ func (self *LoadbalancerListenerCreateInput) Validate() error {
 			self.HealthCheckInterval = 30
 		}
 	}
-	if len(self.Redirect) == 0 {
-		self.Redirect = LB_REDIRECT_OFF
-	}
-	if !utils.IsInStringArray(self.Redirect, []string{LB_REDIRECT_OFF, LB_REDIRECT_RAW}) {
-		return httperrors.NewInputParameterError("invalid redirect %s", self.Redirect)
-	}
+
 	return nil
 }
 
