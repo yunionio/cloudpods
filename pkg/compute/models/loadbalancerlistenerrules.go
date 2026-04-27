@@ -553,9 +553,12 @@ func (man *SLoadbalancerListenerRuleManager) ValidateCreateData(ctx context.Cont
 		}
 	}
 	if region.GetDriver().IsSupportLoadbalancerListenerRuleRedirect() {
-		_, err := validators.ValidateModel(ctx, userCred, LoadbalancerBackendGroupManager, &input.BackendGroupId)
-		if err != nil {
-			return nil, errors.Wrap(err, "ValidateModel LoadbalancerBackendGroupManager")
+		// backend group can be empty if you support redirect in rule
+		if len(input.BackendGroupId) > 0 {
+			_, err := validators.ValidateModel(ctx, userCred, LoadbalancerBackendGroupManager, &input.BackendGroupId)
+			if err != nil {
+				return nil, errors.Wrap(err, "ValidateModel LoadbalancerBackendGroupManager")
+			}
 		}
 	}
 	for i := range input.BackendGroups {
