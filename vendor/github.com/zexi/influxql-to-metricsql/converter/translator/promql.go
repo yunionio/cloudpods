@@ -42,6 +42,7 @@ type promQL struct {
 	groupByWildcard bool
 	timeRange       *influxql.TimeRange
 	fieldIsWildcard bool
+	fieldIsRegex    bool
 	measurement     string
 	labelsVisitor   *labelsVisitor
 }
@@ -103,9 +104,17 @@ func (m *promQL) translateField(s *influxql.SelectStatement, field *influxql.Fie
 	if err != nil {
 		return nil, errors.Wrap(err, "get matchers")
 	}
+	m.fieldIsRegex = false
 	if !m.fieldIsWildcard {
-		nameMatcher, _ := labels.NewMatcher(labels.MatchEqual, labels.MetricName, metricName)
-		matchers = append(matchers, nameMatcher)
+		if isRegexMetricName(metricName) {
+			m.fieldIsRegex = true
+			regexPattern := trimRegexDelimiters(metricName)
+			nameMatcher, _ := labels.NewMatcher(labels.MatchRegexp, labels.MetricName, regexPattern)
+			matchers = append(matchers, nameMatcher)
+		} else {
+			nameMatcher, _ := labels.NewMatcher(labels.MatchEqual, labels.MetricName, metricName)
+			matchers = append(matchers, nameMatcher)
+		}
 	}
 
 	lookbehindWin, groups, err := m.getGroups(s.Dimensions)
@@ -122,6 +131,12 @@ func (m *promQL) translateField(s *influxql.SelectStatement, field *influxql.Fie
 	if err != nil {
 		return nil, errors.Wrap(err, "generate expression")
 	}
+	if binExpr, ok := field.Expr.(*influxql.BinaryExpr); ok {
+		expr, err = wrapBinaryExpr(binExpr, expr)
+		if err != nil {
+			return nil, errors.Wrap(err, "wrap binary expression")
+		}
+	}
 	return newFieldResult(metricName, aggrOps, expr), nil
 }
 
@@ -129,6 +144,7 @@ func (m *promQL) translate(s *influxql.SelectStatement) (string, error) {
 	exprs := make([]*fieldResult, 0)
 	var resultExpr promql.Expr
 	for _, field := range s.Fields {
+		m.labelsVisitor = newLabelsVisitor()
 		expr, err := m.translateField(s, field)
 		if err != nil {
 			return "", errors.Wrapf(err, "translate field %s", field)
@@ -246,7 +262,7 @@ func (m promQL) generateExpr(
 			LabelMatchers: ls,
 			Range:         time.Duration(dur),
 		}
-		if !m.fieldIsWildcard {
+		if !m.fieldIsWildcard && !m.fieldIsRegex {
 			ms.Name = metricName
 		}
 		result = ms
@@ -254,7 +270,7 @@ func (m promQL) generateExpr(
 		vs := &promql.VectorSelector{
 			LabelMatchers: ls,
 		}
-		if !m.fieldIsWildcard {
+		if !m.fieldIsWildcard && !m.fieldIsRegex {
 			vs.Name = metricName
 		}
 		result = vs
@@ -450,11 +466,29 @@ func getAggrOperator(op *influxql.Call) ([]*AggrOperator, error) {
 }
 
 func getAggrOperators(field *influxql.Field) ([]*AggrOperator, error) {
-	aggrOp, ok := field.Expr.(*influxql.Call)
-	if !ok {
-		return nil, nil
+	switch expr := field.Expr.(type) {
+	case *influxql.Call:
+		return getAggrOperator(expr)
+	case *influxql.BinaryExpr:
+		return getBinaryExprAggrOperators(expr)
 	}
-	return getAggrOperator(aggrOp)
+	return nil, nil
+}
+
+func getBinaryExprAggrOperators(expr *influxql.BinaryExpr) ([]*AggrOperator, error) {
+	if call, ok := expr.LHS.(*influxql.Call); ok {
+		return getAggrOperator(call)
+	}
+	if call, ok := expr.RHS.(*influxql.Call); ok {
+		return getAggrOperator(call)
+	}
+	if binExpr, ok := expr.LHS.(*influxql.BinaryExpr); ok {
+		return getBinaryExprAggrOperators(binExpr)
+	}
+	if binExpr, ok := expr.RHS.(*influxql.BinaryExpr); ok {
+		return getBinaryExprAggrOperators(binExpr)
+	}
+	return nil, nil
 }
 
 func getMetricName(sources influxql.Sources, field *influxql.Field) (string, error) {
@@ -477,6 +511,8 @@ func getMetricName(sources influxql.Sources, field *influxql.Field) (string, err
 		fieldName = expr.Val
 	case *influxql.Call:
 		fieldName, err = getCallVariable(expr)
+	case *influxql.BinaryExpr:
+		fieldName, err = getBinaryExprVariable(expr)
 	default:
 		return "", errors.Errorf("field.Expr %#v is not supported", expr)
 	}
@@ -491,6 +527,26 @@ func getMetricName(sources influxql.Sources, field *influxql.Field) (string, err
 var (
 	ErrVariableIsWildcard = errors.New("variable field is wildcard")
 )
+
+// isRegexMetricName checks if a metric name contains a regex field pattern.
+// In InfluxQL, regex fields are delimited by forward slashes, e.g., measurement_/pattern/
+func isRegexMetricName(metricName string) bool {
+	idx := strings.Index(metricName, "/")
+	return idx >= 0 && strings.HasSuffix(metricName, "/")
+}
+
+// trimRegexDelimiters converts a metric name like "haproxy_/d(req|con)/" to "haproxy_d(req|con)"
+func trimRegexDelimiters(metricName string) string {
+	idx := strings.Index(metricName, "/")
+	if idx < 0 {
+		return metricName
+	}
+	prefix := metricName[:idx]
+	regexPart := metricName[idx:]
+	regexPart = strings.TrimPrefix(regexPart, "/")
+	regexPart = strings.TrimSuffix(regexPart, "/")
+	return prefix + regexPart
+}
 
 func getCallVariable(c *influxql.Call) (string, error) {
 	if len(c.Args) != 1 && !MUL_ARGS_AGGREGATOR.Has(c.Name) {
@@ -507,6 +563,91 @@ func getCallVariable(c *influxql.Call) (string, error) {
 		return "", errors.Errorf("unsupported args %#v", args)
 	}
 	return c.Args[0].String(), nil
+}
+
+func getBinaryExprVariable(expr *influxql.BinaryExpr) (string, error) {
+	switch lhs := expr.LHS.(type) {
+	case *influxql.Call:
+		return getCallVariable(lhs)
+	case *influxql.VarRef:
+		return lhs.Val, nil
+	case *influxql.BinaryExpr:
+		return getBinaryExprVariable(lhs)
+	}
+	switch rhs := expr.RHS.(type) {
+	case *influxql.Call:
+		return getCallVariable(rhs)
+	case *influxql.VarRef:
+		return rhs.Val, nil
+	case *influxql.BinaryExpr:
+		return getBinaryExprVariable(rhs)
+	}
+	return "", errors.Errorf("BinaryExpr %#v doesn't contain a Call or VarRef", expr)
+}
+
+func influxqlOpToPromqlOp(op influxql.Token) (promql.ItemType, error) {
+	switch op {
+	case influxql.ADD:
+		return promql.ItemADD, nil
+	case influxql.SUB:
+		return promql.ItemSUB, nil
+	case influxql.MUL:
+		return promql.ItemMUL, nil
+	case influxql.DIV:
+		return promql.ItemDIV, nil
+	case influxql.MOD:
+		return promql.ItemMOD, nil
+	default:
+		return 0, errors.Errorf("unsupported influxql binary operator: %s", op)
+	}
+}
+
+func influxqlLiteralToPromqlExpr(expr influxql.Expr) (promql.Expr, error) {
+	switch v := expr.(type) {
+	case *influxql.IntegerLiteral:
+		return &promql.NumberLiteral{Val: float64(v.Val)}, nil
+	case *influxql.NumberLiteral:
+		return &promql.NumberLiteral{Val: v.Val}, nil
+	default:
+		return nil, errors.Errorf("unsupported literal type %T in binary expression", expr)
+	}
+}
+
+func wrapBinaryExpr(binExpr *influxql.BinaryExpr, innerExpr promql.Expr) (promql.Expr, error) {
+	promOp, err := influxqlOpToPromqlOp(binExpr.Op)
+	if err != nil {
+		return nil, err
+	}
+
+	// Determine which side is the Call (already translated as innerExpr)
+	// and which side is the literal
+	var literalExpr promql.Expr
+	var lhs, rhs promql.Expr
+
+	switch binExpr.LHS.(type) {
+	case *influxql.Call, *influxql.BinaryExpr:
+		// LHS is the call side, RHS should be the literal
+		literalExpr, err = influxqlLiteralToPromqlExpr(binExpr.RHS)
+		if err != nil {
+			return nil, err
+		}
+		lhs = innerExpr
+		rhs = literalExpr
+	default:
+		// RHS is the call side, LHS should be the literal
+		literalExpr, err = influxqlLiteralToPromqlExpr(binExpr.LHS)
+		if err != nil {
+			return nil, err
+		}
+		lhs = literalExpr
+		rhs = innerExpr
+	}
+
+	return &promql.BinaryExpr{
+		Op:  promOp,
+		LHS: lhs,
+		RHS: rhs,
+	}, nil
 }
 
 type labelsVisitor struct {

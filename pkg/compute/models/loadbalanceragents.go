@@ -280,10 +280,12 @@ func (p *SLoadbalancerAgentParamsTelegraf) updateBy(pp *SLoadbalancerAgentParams
 }
 
 func (p *SLoadbalancerAgentParamsTelegraf) initDefault(data *jsonutils.JSONDict) {
-	if p.InfluxDbOutputUrl == "" {
+	{
 		baseOpts := &options.Options
 		u, _ := tsdb.GetDefaultServiceSourceURL(auth.GetAdminSession(context.Background(), baseOpts.Region), identity_apis.EndpointInterfacePublic)
-		p.InfluxDbOutputUrl = u
+		if u != "" {
+			p.InfluxDbOutputUrl = u
+		}
 		p.InfluxDbOutputUnsafeSsl = true
 	}
 	if p.HaproxyInputInterval == 0 {
@@ -910,6 +912,8 @@ listen stats
 	urls = ["{{ .telegraf.influx_db_output_url }}"]
 	database = "{{ .telegraf.influx_db_output_name }}"
 	insecure_skip_verify = {{ .telegraf.influx_db_output_unsafe_ssl }}
+	skip_database_creation = true
+	timeout = "30s"
 
 [[inputs.haproxy]]
 	interval = "{{ .telegraf.haproxy_input_interval }}s"
