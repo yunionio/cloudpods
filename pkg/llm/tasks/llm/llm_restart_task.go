@@ -164,12 +164,12 @@ func (task *LLMRestartTask) OnServerStopComplete(ctx context.Context, obj db.ISt
 		}
 	}
 
-	if sku.Cpu != server.VcpuCount || sku.Memory+1 != server.VmemSize {
+	if sku.Cpu != server.VcpuCount || sku.Memory != server.VmemSize {
 		// need to change config
 		s := auth.GetSession(ctx, task.UserCred, "")
 		params := computeapi.ServerChangeConfigInput{}
 		params.VcpuCount = &sku.Cpu
-		params.VmemSize = fmt.Sprintf("%dM", sku.Memory+1)
+		params.VmemSize = fmt.Sprintf("%dM", sku.Memory)
 		_, err := compute.Servers.PerformAction(s, llm.CmpId, "change-config", jsonutils.Marshal(params))
 		if err != nil {
 			task.taskFailed(ctx, llm, errors.Wrap(err, "change config").Error())
