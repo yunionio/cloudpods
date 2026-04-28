@@ -2924,7 +2924,7 @@ func (s *sPodGuestInstance) mountDevShm(input *hostapi.ContainerCreateInput, mb 
 	}
 	if err := procutils.NewRemoteCommandAsFarAsPossible("mountpoint", shmPath).Run(); err == nil {
 		log.Warningf("mountpoint %s is already mounted", shmPath)
-		return "", nil
+		return shmPath, nil
 	}
 	out, err := procutils.NewRemoteCommandAsFarAsPossible("mount", "-t", "tmpfs", "-o", fmt.Sprintf("size=%dM", mb), "tmpfs", shmPath).Output()
 	if err != nil {
