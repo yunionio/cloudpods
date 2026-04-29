@@ -36,6 +36,7 @@ import (
 	webconsole_api "yunion.io/x/onecloud/pkg/apis/webconsole"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/appsrv/dispatcher"
+	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -60,6 +61,8 @@ const (
 )
 
 func initHandlers(app *appsrv.Application, isSlave bool) {
+	app_common.ExportOptionsHandler(app, &o.Options)
+
 	app.AddHandler("GET", ApiPathPrefix+"sftp/<session-id>/list", server.HandleSftpList)
 	app.AddHandler("GET", ApiPathPrefix+"sftp/<session-id>/download", server.HandleSftpDownload)
 
