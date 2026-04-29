@@ -534,6 +534,11 @@ func (h *SHostInfo) prepareEnv() error {
 		}
 	}
 
+	_, err = procutils.NewRemoteCommandAsFarAsPossible("modprobe", "ifb", "numifbs=0").Output()
+	if err != nil {
+		return errors.Wrap(err, "Failed to activate ifb device")
+	}
+
 	output, err := procutils.NewRemoteCommandAsFarAsPossible("modprobe", "vhost_net").Output()
 	if err != nil {
 		log.Warningf("modprobe vhost_net error: %s", output)
