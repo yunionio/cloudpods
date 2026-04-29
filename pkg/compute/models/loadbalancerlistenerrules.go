@@ -646,22 +646,6 @@ func (lbr *SLoadbalancerListenerRule) ValidateUpdateData(ctx context.Context, us
 	return region.GetDriver().ValidateUpdateLoadbalancerListenerRuleData(ctx, userCred, input)
 }
 
-func (lbr *SLoadbalancerListenerRule) getMoreDetails(out api.LoadbalancerListenerRuleDetails) (api.LoadbalancerListenerRuleDetails, error) {
-	if lbr.BackendGroupId == "" {
-		log.Errorf("loadbalancer listener rule %s(%s): empty backend group field", lbr.Name, lbr.Id)
-		return out, nil
-	}
-	lbbg, err := LoadbalancerBackendGroupManager.FetchById(lbr.BackendGroupId)
-	if err != nil {
-		log.Errorf("loadbalancer listener rule %s(%s): fetch backend group (%s) error: %s",
-			lbr.Name, lbr.Id, lbr.BackendGroupId, err)
-		return out, err
-	}
-	out.BackendGroup = lbbg.GetName()
-
-	return out, nil
-}
-
 func (man *SLoadbalancerListenerRuleManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
@@ -677,18 +661,26 @@ func (man *SLoadbalancerListenerRuleManager) FetchCustomizeColumns(
 	certificateRows := man.SLoadbalancerCertificateResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 
 	lbIds := make([]string, len(objs))
+	lbbgIds := make([]string, len(objs))
 	for i := range rows {
 		rows[i] = api.LoadbalancerListenerRuleDetails{
 			StatusStandaloneResourceDetails:     stdRows[i],
 			LoadbalancerListenerResourceInfo:    listenerRows[i],
 			LoadbalancerCertificateResourceInfo: certificateRows[i],
 		}
-		rows[i], _ = objs[i].(*SLoadbalancerListenerRule).getMoreDetails(rows[i])
-		lbIds[i] = rows[i].LoadbalancerId
+		lbr := objs[i].(*SLoadbalancerListenerRule)
+		lbIds[i] = rows[i].ListenerId
+		lbbgIds[i] = lbr.BackendGroupId
 	}
 
 	lbs := map[string]SLoadbalancer{}
 	err := db.FetchStandaloneObjectsByIds(LoadbalancerManager, lbIds, &lbs)
+	if err != nil {
+		return rows
+	}
+
+	lbbgs := map[string]SLoadbalancerBackendGroup{}
+	err = db.FetchStandaloneObjectsByIds(LoadbalancerBackendGroupManager, lbbgIds, &lbbgs)
 	if err != nil {
 		return rows
 	}
@@ -698,6 +690,9 @@ func (man *SLoadbalancerListenerRuleManager) FetchCustomizeColumns(
 		if lb, ok := lbs[lbIds[i]]; ok {
 			virObjs[i] = &lb
 			rows[i].ProjectId = lb.ProjectId
+		}
+		if lbbg, ok := lbbgs[lbbgIds[i]]; ok {
+			rows[i].BackendGroup = lbbg.GetName()
 		}
 	}
 
