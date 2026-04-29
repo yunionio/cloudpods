@@ -11,11 +11,13 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/llm"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/appsrv/dispatcher"
+	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/llm/models"
+	"yunion.io/x/onecloud/pkg/llm/options"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 )
 
@@ -133,6 +135,8 @@ func handleDefaultMcpTools(ctx context.Context, w http.ResponseWriter, r *http.R
 func InitHandlers(app *appsrv.Application, isSlave bool) {
 	db.InitAllManagers()
 	db.RegistUserCredCacheUpdater()
+
+	app_common.ExportOptionsHandler(app, &options.Options)
 
 	taskman.AddTaskHandler("", app, isSlave)
 

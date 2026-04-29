@@ -45,7 +45,7 @@ func InitHandlers(app *appsrv.Application, isSlave bool) {
 
 	taskman.AddTaskHandler(API_VERSION, app, isSlave)
 
-	app_common.ExportOptionsHandler(app, &options.Options)
+	app_common.ExportOptionsHandlerWithPrefix(app, API_VERSION, &options.Options)
 
 	for _, manager := range []db.IModelManager{
 		taskman.TaskManager,

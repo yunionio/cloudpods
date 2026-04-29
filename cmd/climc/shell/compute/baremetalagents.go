@@ -103,4 +103,5 @@ func init() {
 	cmd.Perform("enable-image-cache", new(AgentEnableImageCacheOpt))
 	cmd.Perform("disable-image-cache", new(AgentDisableImageCacheOpt))
 	cmd.Delete(new(AgentDeleteOpt))
+	cmd.Get("app-options", &options.BaseIdOptions{})
 }

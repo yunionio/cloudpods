@@ -52,6 +52,7 @@ func StartService() {
 
 	serviceApp := app.NewApp(app_common.InitApp(baseOpts, false))
 	serviceApp.InitHandlers().Bind()
+	app_common.ExportOptionsHandler(serviceApp.Application, options.Options)
 
 	// mods, jmods := modulebase.GetRegisterdModules()
 	// log.Infof("Modules: %s", jsonutils.Marshal(mods).PrettyString())
