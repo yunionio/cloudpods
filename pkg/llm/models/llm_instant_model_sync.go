@@ -25,21 +25,33 @@ import (
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
+func getInstantModelPostOverlayVolumeMountIndex(drv ILLMContainerInstantModelDriver) int {
+	if drv.GetType() == apis.LLM_CONTAINER_COMFYUI {
+		return 1
+	}
+	return 0
+}
+
 func (llm *SLLM) getMountedInstantModels(ctx context.Context, probedExt map[string]apis.LLMInternalInstantMdlInfo) (map[string]struct{}, error) {
 	container, err := llm.GetLLMSContainer(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetSContainer")
 	}
+	drv, err := GetLLMContainerInstantModelDriver(llm.GetLLMContainerDriver().GetType())
+	if err != nil {
+		return nil, nil
+	}
+	volumeMountIndex := getInstantModelPostOverlayVolumeMountIndex(drv)
 	if container.Spec == nil {
 		return nil, errors.Wrap(errors.ErrEmpty, "no Spec")
 	}
-	if len(container.Spec.VolumeMounts) == 0 {
+	if volumeMountIndex < 0 || volumeMountIndex >= len(container.Spec.VolumeMounts) {
 		return nil, errors.Wrap(errors.ErrEmpty, "no VolumeMounts")
 	}
-	if container.Spec.VolumeMounts[0].Disk == nil {
+	if container.Spec.VolumeMounts[volumeMountIndex].Disk == nil {
 		return nil, errors.Wrap(errors.ErrEmpty, "no Disk")
 	}
-	if len(container.Spec.VolumeMounts[0].Disk.PostOverlay) == 0 {
+	if len(container.Spec.VolumeMounts[volumeMountIndex].Disk.PostOverlay) == 0 {
 		return nil, nil
 	}
 	mdlNameToId := make(map[string]string)
@@ -47,11 +59,7 @@ func (llm *SLLM) getMountedInstantModels(ctx context.Context, probedExt map[stri
 		mdlNameToId[model.Name+":"+model.Tag] = mdlId
 	}
 	mdlMap := make(map[string]struct{})
-	postOverlays := container.Spec.VolumeMounts[0].Disk.PostOverlay
-	drv, err := GetLLMContainerInstantModelDriver(llm.GetLLMContainerDriver().GetType())
-	if err != nil {
-		return nil, nil
-	}
+	postOverlays := container.Spec.VolumeMounts[volumeMountIndex].Disk.PostOverlay
 	for i := range postOverlays {
 		postOverlay := postOverlays[i]
 		mdlId := ""
@@ -435,7 +443,11 @@ func (llm *SLLM) RequestUnmountModel(ctx context.Context, userCred mcclient.Toke
 	}
 
 	var unmountOverlays []*commonapi.ContainerVolumeMountDiskPostOverlay
-	existingOverlays := container.Spec.VolumeMounts[0].Disk.PostOverlay
+	volumeMountIndex := getInstantModelPostOverlayVolumeMountIndex(drv)
+	if volumeMountIndex < 0 || volumeMountIndex >= len(container.Spec.VolumeMounts) || container.Spec.VolumeMounts[volumeMountIndex].Disk == nil {
+		return nil, nil, errors.Wrap(errors.ErrEmpty, "no instant model volume mount")
+	}
+	existingOverlays := container.Spec.VolumeMounts[volumeMountIndex].Disk.PostOverlay
 
 	for i := range existingOverlays {
 		eOverlay := existingOverlays[i]
@@ -530,8 +542,12 @@ func (llm *SLLM) containerUnmountPaths(ctx context.Context, userCred mcclient.To
 		return errors.Wrapf(errors.ErrInvalidStatus, "cannot unmount post path in status %s", ctr.Status)
 	}
 
+	drv, err := GetLLMContainerInstantModelDriver(llm.GetLLMContainerDriver().GetType())
+	if err != nil {
+		return nil
+	}
 	params := computeapi.ContainerVolumeMountRemovePostOverlayInput{
-		Index:       0,
+		Index:       getInstantModelPostOverlayVolumeMountIndex(drv),
 		PostOverlay: overlays,
 		UseLazy:     true,
 		ClearLayers: true,
@@ -572,8 +588,12 @@ func (llm *SLLM) containerMountPaths(ctx context.Context, userCred mcclient.Toke
 	if !computeapi.ContainerFinalStatus.Has(ctr.Status) {
 		return errors.Wrapf(errors.ErrInvalidStatus, "cannot mount post path in status %s", ctr.Status)
 	}
+	drv, err := GetLLMContainerInstantModelDriver(llm.GetLLMContainerDriver().GetType())
+	if err != nil {
+		return nil
+	}
 	params := computeapi.ContainerVolumeMountAddPostOverlayInput{
-		Index:       0,
+		Index:       getInstantModelPostOverlayVolumeMountIndex(drv),
 		PostOverlay: overlays,
 	}
 	_, err = compute.Containers.PerformAction(s, ctr.Id, "add-volume-mount-post-overlay", jsonutils.Marshal(params))
