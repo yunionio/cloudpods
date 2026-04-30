@@ -1779,13 +1779,24 @@ func (s *SGuestResumeTask) onStartRunning() {
 		//s.SyncStatus("")
 	} else if options.HostOptions.AutoMergeBackingTemplate {
 		s.SyncStatus("")
+		disksIdx = s.getAutoMergeFileStorageDiskIndexs()
 		timeutils2.AddTimeout(
 			time.Second*time.Duration(options.HostOptions.AutoMergeDelaySeconds),
-			func() { s.startStreamDisks(nil) })
+			func() { s.startStreamDisks(disksIdx) })
 	} else {
 		s.SyncStatus("")
 		s.detachStartupTask()
 	}
+}
+
+func (s *SGuestResumeTask) getAutoMergeFileStorageDiskIndexs() []int {
+	res := make([]int, 0)
+	for _, disk := range s.Desc.Disks {
+		if utils.IsInStringArray(disk.StorageType, api.FIEL_STORAGE) {
+			res = append(res, int(disk.Index))
+		}
+	}
+	return res
 }
 
 func (s *SGuestResumeTask) startStreamDisks(disksIdx []int) {
@@ -1973,7 +1984,7 @@ func (s *SGuestStreamDisksTask) onBlockDrivesSucc(blocks []monitor.QemuBlock) {
 			disk, err := storageman.GetManager().GetDiskByPath(block.Inserted.File)
 			if err == nil && disk.GetType() == api.STORAGE_SLVM {
 				s.lvmBacking = append(s.lvmBacking, block.Inserted.BackingFile)
-			} else {
+			} else if err != nil {
 				log.Errorf("failed get disk by path %s: %s", block.Inserted.File, err)
 			}
 		}
