@@ -313,7 +313,7 @@ func (man *SInstantModelManager) ValidateCreateData(
 		return input, errors.Wrap(err, "SSharableVirtualResourceBaseManager.ValidateCreateData")
 	}
 
-	if !apis.IsLLMContainerType(string(input.LlmType)) {
+	if !apis.IsLLMInstantModelType(string(input.LlmType)) {
 		return input, errors.Wrapf(httperrors.ErrInvalidFormat, "invalid llm_type %s", input.LlmType)
 	}
 	input = normalizeInstantModelCreateInput(input)
@@ -561,6 +561,56 @@ func (man *SInstantModelManager) FindInstantModel(mdlId, tag string, isEnabled b
 		}
 	}
 	return &mdls[0], nil
+}
+
+func (man *SInstantModelManager) FindInstantModelByLLMType(mdlId, tag string, llmType apis.LLMContainerType, isEnabled bool) (*SInstantModel, error) {
+	q := man.Query().Equals("model_id", mdlId).Equals("llm_type", string(llmType)).Equals("status", imageapi.IMAGE_STATUS_ACTIVE)
+	if isEnabled {
+		q = q.IsTrue("enabled")
+	}
+	q = q.Desc("created_at")
+
+	mdls := make([]SInstantModel, 0)
+	err := db.FetchModelObjects(man, q, &mdls)
+	if err != nil {
+		return nil, errors.Wrap(err, "FetchModelObjects")
+	}
+	if len(mdls) == 0 {
+		return nil, nil
+	}
+	if len(tag) > 0 {
+		for i := range mdls {
+			if mdls[i].ModelTag == tag {
+				return &mdls[i], nil
+			}
+		}
+	}
+	return &mdls[0], nil
+}
+
+func (man *SInstantModelManager) FindInstantModelByMountAndLLMType(mount string, llmType apis.LLMContainerType, isEnabled bool) (*SInstantModel, error) {
+	q := man.Query().Equals("llm_type", string(llmType)).Equals("status", imageapi.IMAGE_STATUS_ACTIVE).Contains("mounts", mount)
+	if isEnabled {
+		q = q.IsTrue("enabled")
+	}
+	q = q.Desc("created_at")
+
+	mdls := make([]SInstantModel, 0)
+	err := db.FetchModelObjects(man, q, &mdls)
+	if err != nil {
+		return nil, errors.Wrap(err, "FetchModelObjects")
+	}
+	if len(mdls) == 0 {
+		return nil, nil
+	}
+	for i := range mdls {
+		for _, mdlMount := range mdls[i].Mounts {
+			if mdlMount == mount {
+				return &mdls[i], nil
+			}
+		}
+	}
+	return nil, nil
 }
 
 func (model *SInstantModel) PerformEnable(

@@ -54,7 +54,19 @@ func (llm *SLLM) getMountedInstantModels(ctx context.Context, probedExt map[stri
 	}
 	for i := range postOverlays {
 		postOverlay := postOverlays[i]
-		mdlId := drv.GetInstantModelIdByPostOverlay(postOverlay, mdlNameToId)
+		mdlId := ""
+		if postOverlay.Image != nil {
+			instMdl, err := GetInstantModelManager().findInstantModelByImageId(postOverlay.Image.Id)
+			if err != nil {
+				return nil, errors.Wrapf(err, "findInstantModelByImageId %s", postOverlay.Image.Id)
+			}
+			if instMdl != nil {
+				mdlId = instMdl.Id
+			}
+		}
+		if mdlId == "" {
+			mdlId = drv.GetInstantModelIdByPostOverlay(postOverlay, mdlNameToId)
+		}
 		if mdlId != "" {
 			mdlMap[mdlId] = struct{}{}
 		}
@@ -277,7 +289,7 @@ func (llm *SLLM) PerformQuickModels(ctx context.Context, userCred mcclient.Token
 				input.Models[i].LlmType = mdl.LlmType
 			}
 		}
-		if !apis.IsLLMContainerType(input.Models[i].LlmType) || apis.LLMContainerType(input.Models[i].LlmType) != llm.GetLLMContainerDriver().GetType() {
+		if !apis.IsLLMInstantModelType(input.Models[i].LlmType) || !apis.IsLLMInstantModelCompatible(apis.LLMContainerType(input.Models[i].LlmType), llm.GetLLMContainerDriver().GetType()) {
 			errs = append(errs, errors.Wrapf(httperrors.ErrInvalidStatus, "model %s is not of type %s", input.Models[i].Id, llm.GetLLMContainerDriver().GetType()))
 		}
 	}
