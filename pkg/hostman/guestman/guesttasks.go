@@ -2596,6 +2596,7 @@ type SGuestHotplugCpuMemTask struct {
 	addedCpuCount    int
 	addedVcpuIds     []int
 	cpuNumaPin       []*desc.SCpuNumaPin
+	cpuList          []monitor.HotpluggableCPU
 
 	addedMemSize     int
 	memSlotNewIndex  *int
@@ -2633,6 +2634,12 @@ func NewGuestHotplugCpuMemTask(
 // First at all add cpu count, second add mem size
 func (task *SGuestHotplugCpuMemTask) Start() {
 	if task.addCpuCount > 0 {
+		res, err := task.getHotpluggableCPUList()
+		if err != nil {
+			task.onFail(err.Error())
+			return
+		}
+		task.cpuList = res
 		task.startAddCpu()
 	} else if task.addMemSize > 0 {
 		task.startAddMem()
@@ -2672,16 +2679,12 @@ func (task *SGuestHotplugCpuMemTask) buildVcpusMap() {
 }
 
 func (task *SGuestHotplugCpuMemTask) startAddCpusWithFreeVcpuSet(vcpuSet []int) {
-	if task.addedCpuCount >= task.addCpuCount {
-		task.startAddMem()
-		return
-	}
-
-	vcpuId := vcpuSet[0]
-	cb := func(reason string) {
-		if len(reason) > 0 {
-			log.Errorln(reason)
-			task.onFail(reason)
+	for i := range vcpuSet {
+		vcpuId := vcpuSet[i]
+		err := task.AddCpu(task.cpuList, vcpuSet[i])
+		if err != nil {
+			log.Errorf("failed add cpu %d: %s", vcpuSet[i], err)
+			task.onFail(err.Error())
 			return
 		}
 
@@ -2716,9 +2719,9 @@ func (task *SGuestHotplugCpuMemTask) startAddCpusWithFreeVcpuSet(vcpuSet []int) 
 		}
 
 		task.addedCpuCount += 1
-		task.startAddCpusWithFreeVcpuSet(vcpuSet[1:])
 	}
-	task.Monitor.AddCpu(vcpuId, cb)
+
+	task.startAddMem()
 }
 
 func (task *SGuestHotplugCpuMemTask) onGetCpuCount(count int) {
@@ -2728,7 +2731,12 @@ func (task *SGuestHotplugCpuMemTask) onGetCpuCount(count int) {
 
 func (task *SGuestHotplugCpuMemTask) doAddCpu() {
 	if task.addedCpuCount < task.addCpuCount {
-		task.Monitor.AddCpu(task.originalCpuCount+task.addedCpuCount, task.onAddCpu)
+		err := task.AddCpu(task.cpuList, task.originalCpuCount+task.addedCpuCount)
+		ret := ""
+		if err != nil {
+			ret = err.Error()
+		}
+		task.onAddCpu(ret)
 	} else {
 		task.startAddMem()
 	}
