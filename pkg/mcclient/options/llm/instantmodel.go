@@ -29,7 +29,7 @@ func (o *LLMInstantModelShowOptions) Params() (jsonutils.JSONObject, error) {
 type LLMInstantModelCreateOptions struct {
 	options.BaseCreateOptions
 
-	LLM_TYPE   string `help:"llm container type" choices:"ollama|vllm" json:"llm_type"`
+	LLM_TYPE   string `help:"llm instant model type" choices:"ollama|vllm|comfyui" json:"llm_type"`
 	MODEL_NAME string `json:"model_name"`
 	MODEL_TAG  string `json:"model_tag"`
 
@@ -66,9 +66,11 @@ func (o *LLMInstantModelDeleteOptions) Params() (jsonutils.JSONObject, error) {
 }
 
 type LLMInstantModelImportOptions struct {
-	LLM_TYPE   string `help:"llm container type" choices:"ollama|vllm" json:"llm_type"`
+	LLM_TYPE   string `help:"llm instant model type" choices:"ollama|vllm|comfyui" json:"llm_type"`
 	MODEL_NAME string `help:"model name to import, e.g. qwen3 or Qwen/Qwen3-VL-8B-Instruct" json:"model_name"`
 	MODEL_TAG  string `help:"model tag to import, e.g. 8b" json:"model_tag"`
+	REPO_ID    string `help:"huggingface repo id, e.g. Qwen/Qwen3-8B" json:"repo_id"`
+	REVISION   string `help:"huggingface revision, e.g. main or refs/pr/7" json:"revision"`
 }
 
 func (o *LLMInstantModelImportOptions) Params() (jsonutils.JSONObject, error) {
@@ -76,6 +78,11 @@ func (o *LLMInstantModelImportOptions) Params() (jsonutils.JSONObject, error) {
 		ModelName: o.MODEL_NAME,
 		ModelTag:  o.MODEL_TAG,
 		LlmType:   api.LLMContainerType(o.LLM_TYPE),
+		RepoId:    o.REPO_ID,
+		Revision:  o.REVISION,
+	}
+	if o.REPO_ID != "" {
+		input.Source = api.InstantModelSourceHuggingFace
 	}
 	return jsonutils.Marshal(input), nil
 }

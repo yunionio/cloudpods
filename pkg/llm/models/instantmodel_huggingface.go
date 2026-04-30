@@ -22,6 +22,7 @@ import (
 const (
 	huggingFaceMirrorEndpoint = "https://hf-mirror.com"
 	huggingFaceImportMode     = "snapshot"
+	huggingFaceSortDirection  = -1
 )
 
 type huggingFaceSearchItem struct {
@@ -219,9 +220,7 @@ func buildHuggingFaceSearchURL(input apis.InstantModelHuggingFaceSearchInput) st
 	if input.Sort != "" {
 		queryParts = append(queryParts, fmt.Sprintf("sort=%s", url.QueryEscape(input.Sort)))
 	}
-	if input.Direction != 0 {
-		queryParts = append(queryParts, fmt.Sprintf("direction=%d", input.Direction))
-	}
+	queryParts = append(queryParts, fmt.Sprintf("direction=%d", huggingFaceSortDirection))
 	if input.Cursor != "" {
 		queryParts = append(queryParts, fmt.Sprintf("cursor=%s", url.QueryEscape(input.Cursor)))
 	}
