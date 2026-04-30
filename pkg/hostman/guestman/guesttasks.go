@@ -1964,15 +1964,17 @@ func (s *SGuestStreamDisksTask) onBlockDrivesSucc(blocks []monitor.QemuBlock) {
 	s.lvmBacking = []string{}
 	for _, block := range blocks {
 		if len(block.Inserted.File) > 0 && len(block.Inserted.BackingFile) > 0 {
-			var stream = false
-			idx := block.Device[len(block.Device)-1] - '0'
-			for i := 0; i < len(s.disksIdx); i++ {
-				if int(idx) == s.disksIdx[i] {
-					stream = true
+			if len(s.disksIdx) > 0 {
+				var stream = false
+				idx := block.Device[len(block.Device)-1] - '0'
+				for i := 0; i < len(s.disksIdx); i++ {
+					if int(idx) == s.disksIdx[i] {
+						stream = true
+					}
 				}
-			}
-			if !stream {
-				continue
+				if !stream {
+					continue
+				}
 			}
 
 			s.streamDevs = append(s.streamDevs, block.Device)
@@ -1988,6 +1990,14 @@ func (s *SGuestStreamDisksTask) onBlockDrivesSucc(blocks []monitor.QemuBlock) {
 	if len(s.streamDevs) == 0 {
 		s.taskComplete()
 	} else {
+		if len(s.disksIdx) == 0 {
+			for i := range s.streamDevs {
+				dev := s.streamDevs[i]
+				idx := dev[len(dev)-1] - '0'
+				s.disksIdx = append(s.disksIdx, int(idx))
+			}
+		}
+
 		s.startDoBlockStream()
 		s.SyncStatus("")
 	}
