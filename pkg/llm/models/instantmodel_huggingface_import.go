@@ -3,6 +3,9 @@ package models
 import (
 	"strings"
 
+	"yunion.io/x/jsonutils"
+
+	imageapi "yunion.io/x/onecloud/pkg/apis/image"
 	apis "yunion.io/x/onecloud/pkg/apis/llm"
 )
 
@@ -85,5 +88,17 @@ func buildInstantModelImageProperties(input apis.InstantModelImportInput, repoID
 	if resolvedRevision != "" {
 		properties["source_resolved_revision"] = resolvedRevision
 	}
+	return properties
+}
+
+func withInstantModelPostOverlayImageProperties(properties map[string]string, pathMap map[string]string) map[string]string {
+	if len(pathMap) == 0 {
+		return properties
+	}
+	if properties == nil {
+		properties = make(map[string]string)
+	}
+	properties[imageapi.IMAGE_INTERNAL_PATH_MAP] = jsonutils.Marshal(pathMap).String()
+	properties[imageapi.IMAGE_USED_BY_POST_OVERLAY] = "true"
 	return properties
 }
