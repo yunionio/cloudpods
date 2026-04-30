@@ -4,6 +4,10 @@ import (
 	"yunion.io/x/onecloud/pkg/apis"
 )
 
+const (
+	InstantModelSourceHuggingFace = "huggingface"
+)
+
 type InstantModelListInput struct {
 	apis.SharableVirtualResourceListInput
 	apis.EnabledResourceBaseListInput
@@ -22,6 +26,9 @@ type InstantModelImportInput struct {
 	ModelName string           `json:"model_name"`
 	ModelTag  string           `json:"model_tag"`
 	LlmType   LLMContainerType `json:"llm_type"`
+	Source    string           `json:"source,omitempty"`
+	RepoId    string           `json:"repo_id,omitempty"`
+	Revision  string           `json:"revision,omitempty"`
 }
 
 type InstantModelCreateInput struct {
