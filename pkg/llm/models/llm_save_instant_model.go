@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -41,29 +42,53 @@ func (llm *SLLM) PerformSaveInstantModel(
 		return nil, httperrors.NewInvalidStatusError("LLM is not running")
 	}
 
-	mdlInfos, err := llm.getProbedInstantModelsExt(ctx, userCred)
-	if err != nil {
-		return nil, errors.Wrap(err, "getProbedPackagesExt")
-	}
-
 	var mdlInfo *api.LLMInternalInstantMdlInfo
-	for _, info := range mdlInfos {
-		if info.ModelId == input.ModelId {
-			mdlInfo = &info
-			break
+	modelId := strings.TrimSpace(input.ModelId)
+	if modelId == "" {
+		return nil, httperrors.NewMissingParameterError("model_id")
+	}
+	mountDirs := make([]string, 0)
+	if len(input.Mounts) > 0 {
+		drv, err := GetLLMContainerInstantModelDriver(llm.GetLLMContainerDriver().GetType())
+		if err != nil {
+			return nil, errors.Wrap(err, "GetLLMContainerInstantModelDriver")
 		}
-	}
-	if mdlInfo == nil {
-		return nil, httperrors.NewBadRequestError("ModelId %s not found", input.ModelId)
-	}
+		mountDirs, err = drv.ValidateMounts(input.Mounts, "", "")
+		if err != nil {
+			return nil, errors.Wrap(err, "validateMounts")
+		}
+		if len(mountDirs) == 0 {
+			return nil, errors.Wrap(errors.ErrEmpty, "empty mounts")
+		}
+	} else {
+		mdlInfos, err := llm.getProbedInstantModelsExt(ctx, userCred)
+		if err != nil {
+			return nil, errors.Wrap(err, "getProbedPackagesExt")
+		}
 
-	mountDirs, err := llm.detectModelPaths(ctx, userCred, *mdlInfo)
-	if err != nil {
-		return nil, errors.Wrap(err, "detectModelPaths")
+		for _, info := range mdlInfos {
+			if info.ModelId == input.ModelId {
+				mdlInfo = &info
+				break
+			}
+		}
+		if mdlInfo == nil {
+			return nil, httperrors.NewBadRequestError("ModelId %s not found", input.ModelId)
+		}
+
+		mountDirs, err = llm.detectModelPaths(ctx, userCred, *mdlInfo)
+		if err != nil {
+			return nil, errors.Wrap(err, "detectModelPaths")
+		}
+		modelId = mdlInfo.ModelId
 	}
 
 	if len(input.ModelFullName) == 0 {
-		input.ModelFullName = fmt.Sprintf("%s-%s", mdlInfo.Name+":"+mdlInfo.Tag, time.Now().Format("060102"))
+		if mdlInfo != nil {
+			input.ModelFullName = fmt.Sprintf("%s-%s", mdlInfo.Name+":"+mdlInfo.Tag, time.Now().Format("060102"))
+		} else {
+			input.ModelFullName = fmt.Sprintf("%s-%s", modelId, time.Now().Format("060102"))
+		}
 	}
 
 	var ownerId mcclient.IIdentityProvider
@@ -97,16 +122,24 @@ func (llm *SLLM) PerformSaveInstantModel(
 
 	modelName, modelTag, _ := llm.GetLargeLanguageModelName(input.ModelFullName)
 	if len(modelName) == 0 {
-		modelName = mdlInfo.Name
+		if mdlInfo != nil {
+			modelName = mdlInfo.Name
+		} else {
+			modelName = modelId
+		}
 	}
 	if len(modelTag) == 0 {
-		modelTag = mdlInfo.Tag
+		if mdlInfo != nil {
+			modelTag = mdlInfo.Tag
+		} else {
+			modelTag = "main"
+		}
 	}
 
 	drv := llm.GetLLMContainerDriver()
 	instantModelCreateInput := api.InstantModelCreateInput{
 		LlmType:   drv.GetType(),
-		ModelId:   mdlInfo.ModelId,
+		ModelId:   modelId,
 		ModelName: modelName,
 		ModelTag:  modelTag,
 		Mounts:    mountDirs,
@@ -154,7 +187,7 @@ func (llm *SLLM) DoSaveModelImage(ctx context.Context, userCred mcclient.TokenCr
 	saveImageInput := computeapi.ContainerSaveVolumeMountToImageInput{
 		GenerateName:      input.ModelFullName,
 		Notes:             fmt.Sprintf("instance model image for %s(%s)", instantModel.ModelId, instantModel.ModelName+":"+instantModel.ModelTag),
-		Index:             0,
+		Index:             getInstantModelSaveVolumeMountIndex(drv),
 		Dirs:              saveDirs,
 		UsedByPostOverlay: true,
 		DirPrefix:         prefix,
@@ -182,6 +215,10 @@ func (llm *SLLM) DoSaveModelImage(ctx context.Context, userCred mcclient.TokenCr
 	}
 
 	return nil
+}
+
+func getInstantModelSaveVolumeMountIndex(drv ILLMContainerInstantModelDriver) int {
+	return getInstantModelPostOverlayVolumeMountIndex(drv)
 }
 
 func (llm *SLLM) StartSaveModelImageTask(ctx context.Context, userCred mcclient.TokenCredential, input api.LLMSaveInstantModelInput) (*taskman.STask, error) {
