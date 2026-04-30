@@ -415,6 +415,44 @@ func getAggrExpr(ops []*AggrOperator, expr promql.Expr) promql.Expr {
 			promql.Expressions{
 				aggrOp.Args[0],
 				restExpr})
+	case "non_negative_derivative":
+		// InfluxQL: non_negative_derivative(mean("field"), 1s) computes per-second non-negative rate of change
+		// MetricsQL: rate() is the equivalent for counter-like metrics
+		// Unwrap inner aggregation (e.g., avg_over_time) and apply rate() to the base metric
+		if callExpr, ok := restExpr.(*promql.Call); ok && len(callExpr.Args) > 0 {
+			expr = newAggrExpr("rate", promql.ValueTypeMatrix, promql.ValueTypeVector, callExpr.Args[0])
+		} else {
+			expr = newAggrExpr("rate", promql.ValueTypeMatrix, promql.ValueTypeVector, restExpr)
+		}
+	case "derivative":
+		// InfluxQL: derivative(mean("field"), 1s) computes per-second rate of change (can be negative)
+		// MetricsQL: deriv() is the closest equivalent
+		if callExpr, ok := restExpr.(*promql.Call); ok && len(callExpr.Args) > 0 {
+			expr = newAggrExpr("deriv", promql.ValueTypeMatrix, promql.ValueTypeVector, callExpr.Args[0])
+		} else {
+			expr = newAggrExpr("deriv", promql.ValueTypeMatrix, promql.ValueTypeVector, restExpr)
+		}
+	case "difference":
+		// InfluxQL: difference(mean("field")) computes difference between consecutive points
+		// MetricsQL: delta() is the closest equivalent
+		if callExpr, ok := restExpr.(*promql.Call); ok && len(callExpr.Args) > 0 {
+			expr = newAggrExpr("delta", promql.ValueTypeMatrix, promql.ValueTypeVector, callExpr.Args[0])
+		} else {
+			expr = newAggrExpr("delta", promql.ValueTypeMatrix, promql.ValueTypeVector, restExpr)
+		}
+	case "non_negative_difference":
+		// InfluxQL: non_negative_difference() - like difference but only non-negative values
+		// MetricsQL: increase() is the closest equivalent
+		if callExpr, ok := restExpr.(*promql.Call); ok && len(callExpr.Args) > 0 {
+			expr = newAggrExpr("increase", promql.ValueTypeMatrix, promql.ValueTypeVector, callExpr.Args[0])
+		} else {
+			expr = newAggrExpr("increase", promql.ValueTypeMatrix, promql.ValueTypeVector, restExpr)
+		}
+	case "elapsed":
+		// elapsed is not directly supported, pass through
+	case "moving_average":
+		// moving_average is not directly supported, pass through as avg_over_time
+		expr = newAggrExpr("avg_over_time", promql.ValueTypeMatrix, promql.ValueTypeVector, restExpr)
 	}
 	return expr
 }
@@ -431,7 +469,7 @@ func newAggrOperatorByName(name string) *AggrOperator {
 }
 
 func getAggrOperator(op *influxql.Call) ([]*AggrOperator, error) {
-	if len(op.Args) != 1 && !MUL_ARGS_AGGREGATOR.Has(op.Name) {
+	if len(op.Args) != 1 && !MUL_ARGS_AGGREGATOR.Has(op.Name) && !hasDurationLiteralExtraArgs(op) {
 		return nil, errors.Errorf("not supported aggregator: %s with args: %#v", op.String(), op.Args)
 	}
 	aggOp := newAggrOperatorByName(op.Name)
@@ -548,8 +586,25 @@ func trimRegexDelimiters(metricName string) string {
 	return prefix + regexPart
 }
 
+// hasDurationLiteralExtraArgs checks if a call has extra args that are all DurationLiterals or IntegerLiterals.
+// This handles functions like non_negative_derivative(mean("field"), 1s) where 1s is a duration parameter.
+func hasDurationLiteralExtraArgs(c *influxql.Call) bool {
+	if len(c.Args) <= 1 {
+		return false
+	}
+	for _, arg := range c.Args[1:] {
+		switch arg.(type) {
+		case *influxql.DurationLiteral, *influxql.IntegerLiteral:
+			continue
+		default:
+			return false
+		}
+	}
+	return true
+}
+
 func getCallVariable(c *influxql.Call) (string, error) {
-	if len(c.Args) != 1 && !MUL_ARGS_AGGREGATOR.Has(c.Name) {
+	if len(c.Args) != 1 && !MUL_ARGS_AGGREGATOR.Has(c.Name) && !hasDurationLiteralExtraArgs(c) {
 		return "", errors.Errorf("length of call %q args %#v != 1", c.Name, c.Args)
 	}
 	switch args := c.Args[0].(type) {
