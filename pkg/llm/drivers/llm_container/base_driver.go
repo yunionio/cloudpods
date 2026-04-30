@@ -58,7 +58,7 @@ func (b *baseDriver) ValidateLLMSkuCreateData(ctx context.Context, userCred mccl
 				return nil, errors.Wrapf(err, "validate mounted model %s", mdl)
 			}
 			instantModle := instMdl.(*models.SInstantModel)
-			if instantModle.LlmType != input.LLMType {
+			if !api.IsLLMInstantModelCompatible(api.LLMContainerType(instantModle.LlmType), api.LLMContainerType(input.LLMType)) {
 				return nil, errors.Wrapf(httperrors.ErrInvalidStatus, "mounted model %s is not of type %s", mdl, input.LLMType)
 			}
 			input.MountedModels[i] = instantModle.GetId()
@@ -90,7 +90,7 @@ func (b *baseDriver) ValidateLLMSkuUpdateData(ctx context.Context, userCred mccl
 				return nil, errors.Wrapf(err, "validate mounted model %s", mdl)
 			}
 			instantModle := instMdl.(*models.SInstantModel)
-			if instantModle.LlmType != sku.LLMType {
+			if !api.IsLLMInstantModelCompatible(api.LLMContainerType(instantModle.LlmType), api.LLMContainerType(sku.LLMType)) {
 				return nil, errors.Wrapf(httperrors.ErrInvalidStatus, "mounted model %s is not of type %s", mdl, sku.LLMType)
 			}
 			mountedModels[i] = instantModle.GetId()

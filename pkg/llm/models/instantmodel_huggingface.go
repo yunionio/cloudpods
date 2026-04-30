@@ -22,6 +22,7 @@ import (
 const (
 	huggingFaceMirrorEndpoint = "https://hf-mirror.com"
 	huggingFaceImportMode     = "snapshot"
+	huggingFaceSortDirection  = -1
 )
 
 type huggingFaceSearchItem struct {
@@ -76,13 +77,14 @@ func (man *SInstantModelManager) getPropertyHuggingFaceSearch(ctx context.Contex
 	}
 	input.Author = strings.TrimSpace(input.Author)
 	input.Sort = strings.TrimSpace(input.Sort)
+	input.Cursor = strings.TrimSpace(input.Cursor)
 	for i := range input.Filter {
 		input.Filter[i] = strings.TrimSpace(input.Filter[i])
 	}
 
 	searchURL := buildHuggingFaceSearchURL(input)
 
-	body, err := huggingFaceHTTPGet(ctx, searchURL)
+	body, header, err := huggingFaceHTTPGet(ctx, searchURL)
 	if err != nil {
 		return nil, errors.Wrap(err, "huggingFaceHTTPGet")
 	}
@@ -91,7 +93,12 @@ func (man *SInstantModelManager) getPropertyHuggingFaceSearch(ctx context.Contex
 	if err := json.Unmarshal(body, &items); err != nil {
 		return nil, errors.Wrap(err, "json.Unmarshal")
 	}
-	return jsonutils.Marshal(normalizeHuggingFaceSearchResults(items)), nil
+	nextCursor := getHuggingFaceNextCursor(header)
+	return jsonutils.Marshal(apis.InstantModelHuggingFaceSearchOutput{
+		Data:       normalizeHuggingFaceSearchResults(items),
+		NextCursor: nextCursor,
+		HasMore:    nextCursor != "",
+	}), nil
 }
 
 func (man *SInstantModelManager) GetPropertyHuggingfaceRepoInfo(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -213,11 +220,44 @@ func buildHuggingFaceSearchURL(input apis.InstantModelHuggingFaceSearchInput) st
 	if input.Sort != "" {
 		queryParts = append(queryParts, fmt.Sprintf("sort=%s", url.QueryEscape(input.Sort)))
 	}
-	if input.Direction != 0 {
-		queryParts = append(queryParts, fmt.Sprintf("direction=%d", input.Direction))
+	queryParts = append(queryParts, fmt.Sprintf("direction=%d", huggingFaceSortDirection))
+	if input.Cursor != "" {
+		queryParts = append(queryParts, fmt.Sprintf("cursor=%s", url.QueryEscape(input.Cursor)))
 	}
 	queryParts = append(queryParts, fmt.Sprintf("limit=%d", input.Limit))
 	return fmt.Sprintf("%s/api/models?%s", huggingFaceMirrorEndpoint, strings.Join(queryParts, "&"))
+}
+
+func getHuggingFaceNextCursor(header http.Header) string {
+	for _, linkHeader := range header.Values("Link") {
+		for _, link := range strings.Split(linkHeader, ",") {
+			link = strings.TrimSpace(link)
+			if !isHuggingFaceNextLink(link) {
+				continue
+			}
+			start := strings.Index(link, "<")
+			end := strings.Index(link, ">")
+			if start < 0 || end <= start+1 {
+				continue
+			}
+			nextURL, err := url.Parse(link[start+1 : end])
+			if err != nil {
+				continue
+			}
+			return strings.TrimSpace(nextURL.Query().Get("cursor"))
+		}
+	}
+	return ""
+}
+
+func isHuggingFaceNextLink(link string) bool {
+	for _, part := range strings.Split(link, ";") {
+		part = strings.TrimSpace(part)
+		if strings.EqualFold(part, `rel="next"`) || strings.EqualFold(part, "rel=next") {
+			return true
+		}
+	}
+	return false
 }
 
 func isHuggingFaceGated(v interface{}) bool {
@@ -240,25 +280,25 @@ func hasTag(tags []string, target string) bool {
 	return false
 }
 
-func huggingFaceHTTPGet(ctx context.Context, reqURL string) ([]byte, error) {
+func huggingFaceHTTPGet(ctx context.Context, reqURL string) ([]byte, http.Header, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
 	if err != nil {
-		return nil, errors.Wrap(err, "http.NewRequestWithContext")
+		return nil, nil, errors.Wrap(err, "http.NewRequestWithContext")
 	}
 	client := &http.Client{Timeout: 60 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, errors.Wrap(err, "client.Do")
+		return nil, nil, errors.Wrap(err, "client.Do")
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return nil, errors.Errorf("unexpected status code: %d", resp.StatusCode)
+		return nil, nil, errors.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, errors.Wrap(err, "io.ReadAll")
+		return nil, nil, errors.Wrap(err, "io.ReadAll")
 	}
-	return body, nil
+	return body, resp.Header, nil
 }
 
 func getHuggingFaceRepoInfo(ctx context.Context, repoID string, revision string) (huggingFaceRepoInfoResponse, error) {
@@ -266,7 +306,7 @@ func getHuggingFaceRepoInfo(ctx context.Context, repoID string, revision string)
 	if revision != "" {
 		repoURL = fmt.Sprintf("%s?revision=%s", repoURL, url.QueryEscape(revision))
 	}
-	body, err := huggingFaceHTTPGet(ctx, repoURL)
+	body, _, err := huggingFaceHTTPGet(ctx, repoURL)
 	if err != nil {
 		return huggingFaceRepoInfoResponse{}, errors.Wrap(err, "huggingFaceHTTPGet")
 	}
