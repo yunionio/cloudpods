@@ -102,7 +102,6 @@ func (c *comfyui) GetContainerSpec(ctx context.Context, llm *models.SLLM, image 
 			Disk: &commonapi.ContainerVolumeMountDisk{
 				Index:        &diskIndex,
 				SubDirectory: api.LLM_COMFYUI_STORAGE_VOLUME_SUBDIR,
-				PostOverlay:  postOverlays,
 			},
 			Type:      commonapi.CONTAINER_VOLUME_MOUNT_TYPE_DISK,
 			MountPath: "/root",
@@ -111,6 +110,7 @@ func (c *comfyui) GetContainerSpec(ctx context.Context, llm *models.SLLM, image 
 			Disk: &commonapi.ContainerVolumeMountDisk{
 				Index:        &diskIndex,
 				SubDirectory: api.LLM_COMFYUI_MODELS_VOLUME_SUBDIR,
+				PostOverlay:  postOverlays,
 			},
 			Type:        commonapi.CONTAINER_VOLUME_MOUNT_TYPE_DISK,
 			MountPath:   api.LLM_COMFYUI_MODELS_PATH,

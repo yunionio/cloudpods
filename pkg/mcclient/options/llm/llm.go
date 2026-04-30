@@ -209,8 +209,9 @@ func (opts *LLMProviderModelsOptions) Params() (jsonutils.JSONObject, error) {
 type LLMSaveInstantModelOptions struct {
 	LLMIdOptions
 
-	MODEL_ID string `help:"llm model id, e.g. 500a1f067a9f"`
-	Name     string `help:"instant app name, e.g. qwen3:8b"`
+	MODEL_ID string   `help:"llm model id, e.g. 500a1f067a9f"`
+	Name     string   `help:"instant app name, e.g. qwen3:8b"`
+	Mount    []string `help:"model file or directory path to package; repeat to package multiple ComfyUI files together" json:"-"`
 
 	AutoRestart bool
 }
@@ -219,6 +220,7 @@ func (opts *LLMSaveInstantModelOptions) Params() (jsonutils.JSONObject, error) {
 	input := api.LLMSaveInstantModelInput{
 		ModelId:       opts.MODEL_ID,
 		ModelFullName: opts.Name,
+		Mounts:        opts.Mount,
 		// AutoRestart: opts.AutoRestart,
 	}
 	return jsonutils.Marshal(input), nil

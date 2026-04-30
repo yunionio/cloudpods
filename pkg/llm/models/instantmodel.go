@@ -347,9 +347,12 @@ func (man *SInstantModelManager) ValidateCreateData(
 		if err != nil {
 			return input, errors.Wrap(err, "GetLLMContainerInstantModelDriver")
 		}
-		_, err = drv.ValidateMounts(input.Mounts, input.ModelName, input.ModelTag)
+		input.Mounts, err = drv.ValidateMounts(input.Mounts, input.ModelName, input.ModelTag)
 		if err != nil {
 			return input, errors.Wrap(err, "validateMounts")
+		}
+		if len(input.Mounts) == 0 {
+			return input, errors.Wrap(errors.ErrEmpty, "empty mounts")
 		}
 	}
 
