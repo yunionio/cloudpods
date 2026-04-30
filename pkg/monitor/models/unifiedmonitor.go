@@ -801,7 +801,11 @@ func (self *SUnifiedMonitorManager) PerformResourceMetrics(
 	} else {
 		for _, mr := range monResources {
 			if rv, ok := result[mr.ResId]; ok {
-				rv.AlertState = mr.AlertState
+				state := mr.AlertState
+				if state == monitor.MONITOR_RESOURCE_ALERT_STATUS_ATTACH || state == monitor.MONITOR_RESOURCE_ALERT_STATUS_INIT {
+					state = monitor.MONITOR_RESOURCE_ALERT_STATUS_INIT
+				}
+				rv.AlertState = state
 			}
 		}
 	}
