@@ -3057,8 +3057,57 @@ func (s *SKVMGuestInstance) doBlockIoThrottle() {
 	}
 }
 
-func (s *SKVMGuestInstance) startHotPlugVcpus(vcpuSet []int) error {
+func (s *SKVMGuestInstance) AddCpu(cpuList []monitor.HotpluggableCPU, cpu int) error {
 	var c = make(chan error)
+	cb := func(res string) {
+		var e error = nil
+		if len(res) > 0 {
+			e = errors.Errorf("failed add cpu %d: %s", cpu, res)
+		}
+		c <- e
+	}
+	if version.GT(s.QemuVersion, "4.0.2") {
+		var found = false
+		for i := range cpuList {
+			if cpuList[i].Props.SocketID == nil || cpuList[i].Props.CoreID == nil {
+				continue
+			}
+			if cpuList[i].QomPath != nil {
+				// cpu present
+				continue
+			}
+			cpusPerSocket := int(s.Desc.CpuDesc.MaxCpus / s.Desc.CpuDesc.Sockets)
+			coreId := int(*cpuList[i].Props.CoreID) + cpusPerSocket*int(*cpuList[i].Props.SocketID)
+			if coreId == cpu {
+				found = true
+				params := map[string]interface{}{
+					"id":        fmt.Sprintf("cpu-%d", cpu),
+					"core-id":   cpu % cpusPerSocket,
+					"socket-id": *cpuList[i].Props.SocketID,
+				}
+				if cpuList[i].Props.ThreadID != nil {
+					params["thread-id"] = *cpuList[i].Props.ThreadID
+				}
+				s.Monitor.DeviceAddCpu(cpuList[i].Type, params, cb)
+				break
+			}
+		}
+
+		if !found {
+			return errors.Errorf("hot pluggable cpu %d not found", cpu)
+		}
+	} else {
+		s.Monitor.AddCpu(cpu, cb)
+	}
+	err, _ := <-c
+	return err
+}
+
+func (s *SKVMGuestInstance) startHotPlugVcpus(vcpuSet []int) error {
+	cpuList, err := s.getHotpluggableCPUList()
+	if err != nil {
+		return errors.Wrap(err, "getHotpluggableCPUList")
+	}
 
 	for i := range vcpuSet {
 		if vcpuSet[i] == 0 {
@@ -3066,14 +3115,8 @@ func (s *SKVMGuestInstance) startHotPlugVcpus(vcpuSet []int) error {
 			continue
 		}
 
-		s.Monitor.AddCpu(vcpuSet[i], func(res string) {
-			var e error = nil
-			if len(res) > 0 {
-				e = errors.Errorf("failed add cpu %d: %s", vcpuSet[i], res)
-			}
-			c <- e
-		})
-		if err, _ := <-c; err != nil {
+		err = s.AddCpu(cpuList, vcpuSet[i])
+		if err != nil {
 			return err
 		}
 	}
