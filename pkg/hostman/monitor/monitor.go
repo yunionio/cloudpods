@@ -220,6 +220,7 @@ type Monitor interface {
 	ObjectAdd(objectType string, params map[string]string, callback StringCallback)
 	DriveAdd(bus, node string, params map[string]string, callback StringCallback)
 	DeviceAdd(dev string, params map[string]string, callback StringCallback)
+	DeviceAddCpu(dev string, params map[string]interface{}, callback StringCallback)
 
 	XBlockdevChange(parent, node, child string, callback StringCallback)
 	BlockStream(drive string, callback StringCallback)

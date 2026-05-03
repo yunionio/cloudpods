@@ -553,6 +553,27 @@ func (m *QmpMonitor) DeviceAdd(dev string, params map[string]string, callback St
 	m.Query(cmd, cb)
 }
 
+func (m *QmpMonitor) DeviceAddCpu(dev string, params map[string]interface{}, callback StringCallback) {
+	args := map[string]interface{}{
+		"driver": dev,
+	}
+
+	for k, v := range params {
+		args[k] = v
+	}
+
+	cmd := &Command{
+		Execute: "device_add",
+		Args:    args,
+	}
+
+	cb := func(res *Response) {
+		callback(m.actionResult(res))
+	}
+
+	m.Query(cmd, cb)
+}
+
 func (m *QmpMonitor) MigrateSetDowntime(dtSec float64, callback StringCallback) {
 	m.HumanMonitorCommand(fmt.Sprintf("migrate_set_downtime %f", dtSec), callback)
 }
