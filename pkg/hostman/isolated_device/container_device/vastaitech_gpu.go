@@ -208,7 +208,7 @@ type vastaitechGPU struct {
 }
 
 func newVastaitechGPU(devPath string, index int) (*vastaitechGPU, error) {
-	dev, err := newPCIGPURenderBaseDevice(devPath, index, isolated_device.ContainerDeviceTypeVastaitechGpu)
+	dev, err := NewPCIGPURenderBaseDevice(devPath, index, isolated_device.ContainerDeviceTypeVastaitechGpu)
 	if err != nil {
 		return nil, errors.Wrap(err, "new PCIGPURenderBaseDevice")
 	}
