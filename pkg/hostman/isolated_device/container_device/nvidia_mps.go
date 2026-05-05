@@ -32,6 +32,7 @@ import (
 
 // The MPS /dev/shm is needed to allow MPS daemon health-checking
 var shmPath = "/dev/shm"
+var configuredByDevPath = false
 
 func init() {
 	isolated_device.RegisterContainerDeviceManager(newNvidiaMPSManager())
@@ -48,11 +49,18 @@ func (m *nvidiaMPSManager) GetType() isolated_device.ContainerDeviceType {
 }
 
 func (m *nvidiaMPSManager) ProbeDevices() ([]isolated_device.IDevice, error) {
-	return getNvidiaMPSGpus()
+	return getNvidiaMPSGpus(options.HostOptions.CudaMPSReplicas)
 }
 
 func (m *nvidiaMPSManager) NewDevices(dev *isolated_device.ContainerDevice) ([]isolated_device.IDevice, error) {
-	return nil, nil
+	if !options.HostOptions.EnableCudaMPS {
+		return nil, nil
+	}
+	if err := CheckVirtualNumber(dev); err != nil {
+		return nil, err
+	}
+
+	return getNvidiaMPSGpusByDevPath(dev.VirtualNumber, dev.Path)
 }
 
 func (m *nvidiaMPSManager) NewContainerDevices(input *hostapi.ContainerCreateInput, dev *hostapi.ContainerDevice) ([]*runtimeapi.Device, []*runtimeapi.Device, error) {
@@ -145,7 +153,79 @@ func parseMemSize(memTotalStr string) (int, error) {
 	return strconv.Atoi(memStr)
 }
 
-func getNvidiaMPSGpus() ([]isolated_device.IDevice, error) {
+func getNvidiaMPSGpusByDevPath(cudaMPSReplicas int, devPath string) ([]isolated_device.IDevice, error) {
+	configuredByDevPath = true
+	pDev, err := NewPCIGPURenderBaseDevice(devPath, 0, isolated_device.ContainerDeviceTypeNvidiaMps)
+	if err != nil {
+		return nil, errors.Wrap(err, "new PCIGPURenderBaseDevice")
+	}
+
+	devs := make([]isolated_device.IDevice, 0)
+	// nvidia-smi  --query-gpu=gpu_uuid,gpu_name,gpu_bus_id,memory.total,compute_mode --format=csv
+	// GPU-76aef7ff-372d-2432-b4b4-beca4d8d3400, Tesla P40, 00000000:00:08.0, 23040 MiB, Exclusive_Process
+	out, err := procutils.NewRemoteCommandAsFarAsPossible("nvidia-smi", "--query-gpu=gpu_uuid,gpu_name,gpu_bus_id,memory.total,compute_mode,index", "--format=csv").Output()
+	if err != nil {
+		return nil, errors.Wrap(err, "nvidia-smi")
+	}
+	lines := strings.Split(string(out), "\n")
+	for _, line := range lines {
+		if strings.HasPrefix(line, "uuid") {
+			continue
+		}
+		segs := strings.Split(line, ",")
+		if len(segs) != 6 {
+			log.Errorf("unknown nvidia-smi out line %s", line)
+			continue
+		}
+		gpuId, gpuName, gpuPciAddr, memTotal, computeMode, index := strings.TrimSpace(segs[0]), strings.TrimSpace(segs[1]), strings.TrimSpace(segs[2]), strings.TrimSpace(segs[3]), strings.TrimSpace(segs[4]), strings.TrimSpace(segs[5])
+		if computeMode != "Exclusive_Process" {
+			log.Warningf("gpu device %s compute mode %s, skip.", gpuId, computeMode)
+			continue
+		}
+		memSize, err := parseMemSize(memTotal)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed parse memSize %s", memTotal)
+		}
+
+		pciAddrSegs := strings.SplitN(gpuPciAddr, ":", 2)
+		if len(pciAddrSegs) != 2 {
+			log.Errorf("failed parse pciaddr %s", gpuPciAddr)
+			continue
+		}
+		gpuPciAddr = pciAddrSegs[1]
+		if gpuPciAddr != pDev.GetOriginAddr() {
+			continue
+		}
+		pciOutput, err := isolated_device.GetPCIStrByAddr(gpuPciAddr)
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetPCIStrByAddr %s", gpuPciAddr)
+		}
+
+		for i := 0; i < cudaMPSReplicas; i++ {
+			dev := isolated_device.NewPCIDevice2(pciOutput[0])
+			gpuDev := &nvidiaMPS{
+				BaseDevice:       NewBaseDevice(dev, isolated_device.ContainerDeviceTypeNvidiaMps, gpuId),
+				MemSizeMB:        memSize / cudaMPSReplicas,
+				MemTotalMB:       memSize,
+				ThreadPercentage: 100 / cudaMPSReplicas,
+				gpuIndex:         index,
+			}
+			gpuDev.SetModelName(gpuName)
+			devAddr := gpuDev.GetAddr()
+			gpuDev.SetAddr(fmt.Sprintf("%s-%d", devAddr, i), devAddr)
+			devs = append(devs, gpuDev)
+		}
+	}
+	if len(devs) == 0 {
+		return nil, nil
+	}
+	return devs, nil
+}
+
+func getNvidiaMPSGpus(cudaMPSReplicas int) ([]isolated_device.IDevice, error) {
+	if configuredByDevPath {
+		return nil, nil
+	}
 	devs := make([]isolated_device.IDevice, 0)
 	// nvidia-smi  --query-gpu=gpu_uuid,gpu_name,gpu_bus_id,memory.total,compute_mode --format=csv
 	// GPU-76aef7ff-372d-2432-b4b4-beca4d8d3400, Tesla P40, 00000000:00:08.0, 23040 MiB, Exclusive_Process
@@ -177,13 +257,13 @@ func getNvidiaMPSGpus() ([]isolated_device.IDevice, error) {
 		if err != nil {
 			return nil, errors.Wrapf(err, "GetPCIStrByAddr %s", gpuPciAddr)
 		}
-		for i := 0; i < options.HostOptions.CudaMPSReplicas; i++ {
+		for i := 0; i < cudaMPSReplicas; i++ {
 			dev := isolated_device.NewPCIDevice2(pciOutput[0])
 			gpuDev := &nvidiaMPS{
 				BaseDevice:       NewBaseDevice(dev, isolated_device.ContainerDeviceTypeNvidiaMps, gpuId),
-				MemSizeMB:        memSize / options.HostOptions.CudaMPSReplicas,
+				MemSizeMB:        memSize / cudaMPSReplicas,
 				MemTotalMB:       memSize,
-				ThreadPercentage: 100 / options.HostOptions.CudaMPSReplicas,
+				ThreadPercentage: 100 / cudaMPSReplicas,
 				gpuIndex:         index,
 			}
 			gpuDev.SetModelName(gpuName)
