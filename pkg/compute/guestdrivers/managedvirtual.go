@@ -491,42 +491,46 @@ func (drv *SManagedVirtualizedGuestDriver) RequestAttachDisk(ctx context.Context
 }
 
 func (drv *SManagedVirtualizedGuestDriver) RequestStartOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, userCred mcclient.TokenCredential, task taskman.ITask) error {
-	ivm, err := guest.GetIVM(ctx)
-	if err != nil {
-		return errors.Wrapf(err, "GetIVM")
-	}
-
-	result := jsonutils.NewDict()
-	if ivm.GetStatus() != api.VM_RUNNING {
-
-		if guest.BillingType == billing_api.BILLING_TYPE_POSTPAID && guest.ShutdownMode != api.VM_SHUTDOWN_MODE_STOP_CHARGING && jsonutils.QueryBoolean(task.GetParams(), "auto_prepaid", false) {
-			err = ivm.ChangeBillingType(string(billing_api.BILLING_TYPE_PREPAID))
-			if err != nil && errors.Cause(err) != cloudprovider.ErrNotImplemented {
-				logclient.AddSimpleActionLog(guest, logclient.ACT_CHANGE_BILLING_TYPE, errors.Wrapf(err, string(billing_api.BILLING_TYPE_PREPAID)), userCred, false)
-			}
-		}
-
-		err := ivm.StartVM(ctx)
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		ivm, err := guest.GetIVM(ctx)
 		if err != nil {
-			return errors.Wrapf(err, "StartVM")
-		}
-		err = cloudprovider.WaitStatus(ivm, api.VM_RUNNING, time.Second*5, time.Minute*10)
-		if err != nil {
-			return errors.Wrapf(err, "Wait vm running")
+			return nil, errors.Wrapf(err, "GetIVM")
 		}
 
-		if guest.BillingType == billing_api.BILLING_TYPE_POSTPAID && guest.ShutdownMode == api.VM_SHUTDOWN_MODE_STOP_CHARGING && jsonutils.QueryBoolean(task.GetParams(), "auto_prepaid", false) {
-			err := ivm.ChangeBillingType(string(billing_api.BILLING_TYPE_PREPAID))
-			if err != nil && errors.Cause(err) != cloudprovider.ErrNotImplemented {
-				logclient.AddSimpleActionLog(guest, logclient.ACT_CHANGE_BILLING_TYPE, errors.Wrapf(err, string(billing_api.BILLING_TYPE_PREPAID)), userCred, false)
+		result := jsonutils.NewDict()
+		if ivm.GetStatus() != api.VM_RUNNING {
+
+			if guest.BillingType == billing_api.BILLING_TYPE_POSTPAID && guest.ShutdownMode != api.VM_SHUTDOWN_MODE_STOP_CHARGING && jsonutils.QueryBoolean(task.GetParams(), "auto_prepaid", false) {
+				err = ivm.ChangeBillingType(string(billing_api.BILLING_TYPE_PREPAID))
+				if err != nil && errors.Cause(err) != cloudprovider.ErrNotImplemented {
+					logclient.AddSimpleActionLog(guest, logclient.ACT_CHANGE_BILLING_TYPE, errors.Wrapf(err, string(billing_api.BILLING_TYPE_PREPAID)), userCred, false)
+				}
 			}
-		}
 
-		// 虚拟机开机，公网ip自动生成
-		guest.SyncAllWithCloudVM(ctx, userCred, host, ivm, true)
-		return task.ScheduleRun(result)
-	}
-	return guest.SetStatus(ctx, userCred, api.VM_RUNNING, "StartOnHost")
+			err := ivm.StartVM(ctx)
+			if err != nil {
+				return nil, errors.Wrapf(err, "StartVM")
+			}
+			err = cloudprovider.WaitStatus(ivm, api.VM_RUNNING, time.Second*5, time.Minute*10)
+			if err != nil {
+				return nil, errors.Wrapf(err, "Wait vm running")
+			}
+
+			if guest.BillingType == billing_api.BILLING_TYPE_POSTPAID && guest.ShutdownMode == api.VM_SHUTDOWN_MODE_STOP_CHARGING && jsonutils.QueryBoolean(task.GetParams(), "auto_prepaid", false) {
+				err := ivm.ChangeBillingType(string(billing_api.BILLING_TYPE_PREPAID))
+				if err != nil && errors.Cause(err) != cloudprovider.ErrNotImplemented {
+					logclient.AddSimpleActionLog(guest, logclient.ACT_CHANGE_BILLING_TYPE, errors.Wrapf(err, string(billing_api.BILLING_TYPE_PREPAID)), userCred, false)
+				}
+			}
+
+			// 虚拟机开机，公网ip自动生成
+			guest.SyncAllWithCloudVM(ctx, userCred, host, ivm, true)
+			return result, nil
+		}
+		guest.SetStatus(ctx, userCred, api.VM_RUNNING, "StartOnHost")
+		return result, nil
+	})
+	return nil
 }
 
 func (drv *SManagedVirtualizedGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
