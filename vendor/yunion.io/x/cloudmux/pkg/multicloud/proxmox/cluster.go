@@ -64,19 +64,20 @@ type SVmResource struct {
 	VmId     int
 	Id       string
 	Name     string
+	Size     int64
 	Node     string
 	NodeId   string
 	Status   string
 	Template bool
 }
 
-func (self *SRegion) GetClusterAllResources() ([]SClusterResource, error) {
+func (self *SProxmoxClient) GetClusterAllResources() ([]SClusterResource, error) {
 	resources := []SClusterResource{}
 	err := self.get("/cluster/resources", url.Values{}, &resources)
 	return resources, err
 }
 
-func (self *SRegion) GetClusterResources(resType string) ([]SClusterResource, error) {
+func (self *SProxmoxClient) GetClusterResources(resType string) ([]SClusterResource, error) {
 	resources := []SClusterResource{}
 	params := url.Values{}
 	if len(resType) > 0 {
@@ -86,7 +87,7 @@ func (self *SRegion) GetClusterResources(resType string) ([]SClusterResource, er
 	return resources, err
 }
 
-func (self *SRegion) GetClusterNodeResources() (map[string]SNodeResource, error) {
+func (self *SProxmoxClient) GetClusterNodeResources() (map[string]SNodeResource, error) {
 	resources := []SClusterResource{}
 	nodeResources := map[string]SNodeResource{}
 	params := url.Values{}
@@ -110,7 +111,7 @@ func (self *SRegion) GetClusterNodeResources() (map[string]SNodeResource, error)
 	return nodeResources, nil
 }
 
-func (self *SRegion) GetClusterVmResources() (map[int]SVmResource, error) {
+func (self *SProxmoxClient) GetClusterVmResources() (map[int]SVmResource, error) {
 	resources := []SClusterResource{}
 	VmResources := map[int]SVmResource{}
 	err := self.get("/cluster/resources", url.Values{}, &resources)
@@ -127,6 +128,7 @@ func (self *SRegion) GetClusterVmResources() (map[int]SVmResource, error) {
 				Node:     res.Node,
 				NodeId:   fmt.Sprintf("node/%s", res.Node),
 				Status:   res.Status,
+				Size:     res.Maxdisk,
 				Template: Itob(res.Template),
 			}
 
@@ -137,7 +139,7 @@ func (self *SRegion) GetClusterVmResources() (map[int]SVmResource, error) {
 	return VmResources, nil
 }
 
-func (self *SRegion) GetClusterVmMaxId() int {
+func (self *SProxmoxClient) GetClusterVmMaxId() int {
 	resources := []SClusterResource{}
 	idxs := []int{}
 	err := self.get("/cluster/resources", url.Values{}, &resources)

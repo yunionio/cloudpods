@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/fileutils"
 	"yunion.io/x/pkg/util/osprofile"
 	"yunion.io/x/pkg/utils"
 
@@ -93,6 +94,7 @@ type VmBase struct {
 	Searchdomain string `json:"searchdomain"`
 	Nameserver   string `json:"nameserver"`
 	Sshkeys      string `json:"sshkeys"`
+	Digest       string `json:"digest,omitempty"`
 }
 
 type SInstanceDisk struct {
@@ -110,9 +112,10 @@ type SInstance struct {
 	PowerState   string
 	Node         string
 
-	VmID        int        `json:"vmid"`
+	VmId        int        `json:"vmid"`
 	Name        string     `json:"name"`
 	Description string     `json:"desc"`
+	Digest      string     `json:"digest,omitempty"`
 	Pool        string     `json:"pool,omitempty"`
 	Bios        string     `json:"bios"`
 	EFIDisk     QemuDevice `json:"efidisk,omitempty"`
@@ -139,6 +142,7 @@ type SInstance struct {
 	QemuDisks   map[string][]struct {
 		Driver string
 		DiskId string
+		Size   int64
 	} `json:"disk"`
 	QemuUnusedDisks QemuDevices `json:"unused_disk"`
 	QemuVga         QemuDevice  `json:"vga,omitempty"`
@@ -177,7 +181,7 @@ func (self *SInstance) GetName() string {
 }
 
 func (self *SInstance) GetId() string {
-	return strconv.Itoa(self.VmID)
+	return strconv.Itoa(self.VmId)
 }
 
 func (self *SInstance) GetGlobalId() string {
@@ -185,8 +189,8 @@ func (self *SInstance) GetGlobalId() string {
 }
 
 func (self *SInstance) Refresh() error {
-	id := strconv.Itoa(int(self.VmID))
-	ins, err := self.host.zone.region.GetInstance(id)
+	id := strconv.Itoa(int(self.VmId))
+	ins, err := self.host.cli.GetInstance(id)
 	if err != nil {
 		return err
 	}
@@ -201,14 +205,14 @@ func (self *SInstance) AttachDisk(ctx context.Context, diskId string) error {
 func (self *SInstance) CreateDisk(ctx context.Context, opts *cloudprovider.GuestDiskCreateOptions) (string, error) {
 	body := map[string]string{}
 	params := url.Values{}
-	storage, err := self.host.zone.region.GetStorage(opts.StorageId)
+	storage, err := self.host.cli.GetStorage(opts.StorageId)
 	if err != nil {
 		return "", err
 	}
 	driver := fmt.Sprintf("scsi%d", opts.Idx)
 	body[driver] = fmt.Sprintf("%s:%d", storage.Storage, opts.SizeMb/1024)
-	res := fmt.Sprintf("/nodes/%s/qemu/%d/config", self.Node, self.VmID)
-	err = self.host.zone.region.put(res, params, jsonutils.Marshal(body))
+	res := fmt.Sprintf("/nodes/%s/qemu/%d/config", self.Node, self.VmId)
+	err = self.host.cli.put(res, params, jsonutils.Marshal(body))
 	if err != nil {
 		return "", err
 	}
@@ -224,7 +228,7 @@ func (self *SInstance) CreateDisk(ctx context.Context, opts *cloudprovider.Guest
 			if disks[i].Driver != driver {
 				continue
 			}
-			volumes, err := self.host.zone.region.GetDisks(self.Node, storage.Storage)
+			volumes, err := self.host.cli.GetDisks(self.Node, storage.Storage)
 			if err != nil {
 				return "", err
 			}
@@ -240,15 +244,15 @@ func (self *SInstance) CreateDisk(ctx context.Context, opts *cloudprovider.Guest
 }
 
 func (self *SInstance) ChangeConfig(ctx context.Context, opts *cloudprovider.SManagedVMChangeConfig) error {
-	return self.host.zone.region.ChangeConfig(self.VmID, opts.Cpu, opts.MemoryMB)
+	return self.host.cli.ChangeConfig(self.VmId, opts.Cpu, opts.MemoryMB)
 }
 
 func (self *SInstance) DeleteVM(ctx context.Context) error {
-	return self.host.zone.region.DeleteVM(self.VmID)
+	return self.host.cli.DeleteVM(self.VmId)
 }
 
 func (self *SInstance) DeployVM(ctx context.Context, opts *cloudprovider.SInstanceDeployOptions) error {
-	return self.host.zone.region.ResetVmPassword(self.VmID, opts.Username, opts.Password)
+	return self.host.cli.ResetVmPassword(self.VmId, opts.Username, opts.Password)
 }
 
 func (self *SInstance) DetachDisk(ctx context.Context, diskId string) error {
@@ -267,7 +271,7 @@ func (self *SInstance) DetachDisk(ctx context.Context, diskId string) error {
 		}
 		for _, disk := range disks {
 			if disk.DiskId == volId {
-				return self.host.zone.region.DetachDisk(self.Node, self.VmID, disk.Driver)
+				return self.host.cli.DetachDisk(self.Node, self.VmId, disk.Driver)
 			}
 		}
 	}
@@ -295,7 +299,7 @@ func (self *SInstance) GetHypervisor() string {
 }
 
 func (self *SInstance) VMIdExists(vmId int) (bool, error) {
-	resources, err := self.host.zone.region.GetClusterVmResources()
+	resources, err := self.host.cli.GetClusterVmResources()
 	if err != nil {
 		return false, err
 	}
@@ -306,7 +310,7 @@ func (self *SInstance) VMIdExists(vmId int) (bool, error) {
 
 func (self *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 	ret := []cloudprovider.ICloudDisk{}
-	ins, err := self.host.zone.region.GetInstance(fmt.Sprintf("%d", self.VmID))
+	ins, err := self.host.cli.GetInstance(fmt.Sprintf("%d", self.VmId))
 	if err != nil {
 		return nil, err
 	}
@@ -318,11 +322,11 @@ func (self *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 			}
 			diskIds = append(diskIds, disks[i].DiskId)
 		}
-		disks, err := self.host.zone.region.GetDisks(self.host.Node, storageName)
+		disks, err := self.host.cli.GetDisks(self.host.Node, storageName)
 		if err != nil {
 			return nil, errors.Wrapf(err, "GetDisks")
 		}
-		storages, err := self.host.zone.region.GetStoragesByHost(self.Node)
+		storages, err := self.host.cli.GetStoragesByHost(self.Node)
 		if err != nil {
 			return nil, err
 		}
@@ -419,13 +423,13 @@ func (self *SInstance) GetProjectId() string {
 }
 
 func (self *SInstance) GetVNCInfo(input *cloudprovider.ServerVncInput) (*cloudprovider.ServerVncOutput, error) {
-	vnc, err := self.host.zone.region.GetVNCInfo(self.Node, self.VmID)
+	vnc, err := self.host.cli.GetVNCInfo(self.Node, self.VmId)
 	if err != nil {
 		return nil, err
 	}
 	ret := &cloudprovider.ServerVncOutput{}
 	ret.Protocol = "vnc"
-	ret.Host = self.host.zone.region.client.host
+	ret.Host = self.host.cli.host
 	ret.Port = int64(vnc.Port)
 	ret.Password = vnc.Ticket
 	ret.Hypervisor = api.HYPERVISOR_PROXMOX
@@ -448,8 +452,122 @@ func (self *SInstance) GetVdi() string {
 	return "vnc"
 }
 
-func (self *SInstance) RebuildRoot(ctx context.Context, desc *cloudprovider.SManagedVMRebuildRootConfig) (string, error) {
-	return "", cloudprovider.ErrNotSupported
+func (ins *SInstance) RebuildRoot(ctx context.Context, desc *cloudprovider.SManagedVMRebuildRootConfig) (string, error) {
+	sysDriver, storageName, sysDiskId := "", "", ""
+	for _storageName, disks := range ins.QemuDisks {
+		for _, disk := range disks {
+			if disk.Driver == "scsi0" {
+				sysDriver = disk.Driver
+				storageName = _storageName
+				sysDiskId = disk.DiskId
+				break
+			}
+		}
+		if len(sysDriver) > 0 {
+			break
+		}
+	}
+
+	if len(sysDriver) == 0 {
+		return "", errors.Wrapf(cloudprovider.ErrNotFound, "sys driver not found")
+	}
+	storages, err := ins.host.cli.GetStoragesByHost(ins.Node)
+	if err != nil {
+		return "", errors.Wrapf(err, "GetStoragesByHost")
+	}
+	var storage *SStorage
+	for i := range storages {
+		if storages[i].Storage == storageName {
+			storage = &storages[i]
+		}
+	}
+	if storage == nil {
+		return "", errors.Wrapf(cloudprovider.ErrNotFound, "storage %s not found", storageName)
+	}
+
+	defer func() {
+		err = ins.host.cli.ResetBootOrder(ins.Node, ins.VmId, sysDriver)
+		if err != nil {
+			log.Errorf("ResetBootOrder %s%d%s %s", ins.Node, ins.VmId, sysDriver, err)
+		}
+	}()
+
+	err = ins.host.cli.DetachDisk(ins.Node, ins.VmId, sysDriver)
+	if err != nil {
+		return "", errors.Wrapf(err, "DetachDisk %s", sysDriver)
+	}
+
+	err = storage.CreateSystemDisk(ins.Node, ins.VmId, sysDriver, desc.ImageId, int(ins.DiskSize))
+	if err != nil {
+		ins.host.cli.AttachUnuseDisk(ins.Node, ins.VmId, sysDriver, sysDiskId)
+		return "", errors.Wrapf(err, "CreateSystemDisk %s", sysDriver)
+	}
+
+	err = ins.host.cli.RemoveUnuseDisk(ins.Node, ins.VmId)
+	if err != nil {
+		log.Errorf("RemoveUnuseDisk %s", err)
+	}
+
+	return "", nil
+}
+
+func (cli *SProxmoxClient) AttachUnuseDisk(node string, vmId int, driver, diskId string) error {
+	vm, err := cli.GetInstance(strconv.Itoa(vmId))
+	if err != nil {
+		return err
+	}
+	res := fmt.Sprintf("/nodes/%s/qemu/%d/config", node, vmId)
+	err = cli.put(res, url.Values{}, jsonutils.Marshal(map[string]interface{}{
+		driver:   diskId,
+		"digest": vm.Digest,
+	}))
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (cli *SProxmoxClient) ResetBootOrder(node string, vmId int, driver string) error {
+	vm, err := cli.GetInstance(strconv.Itoa(vmId))
+	if err != nil {
+		return err
+	}
+	res := fmt.Sprintf("/nodes/%s/qemu/%d/config", node, vmId)
+	err = cli.put(res, url.Values{}, jsonutils.Marshal(map[string]interface{}{
+		"boot":   fmt.Sprintf("order=%s", driver),
+		"digest": vm.Digest,
+	}))
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (cli *SProxmoxClient) RemoveUnuseDisk(node string, vmId int) error {
+	res := fmt.Sprintf("/nodes/%s/qemu/%d/config", node, vmId)
+	_, err := cli.post(res, jsonutils.Marshal(map[string]interface{}{
+		"delete":           "unused0",
+		"background_delay": 5,
+	}))
+	return err
+}
+
+func (storage *SStorage) CreateSystemDisk(node string, vmId int, driver string, imageId string, sizeGb int) error {
+	vm, err := storage.cli.GetInstance(strconv.Itoa(vmId))
+	if err != nil {
+		return err
+	}
+	body := map[string]interface{}{
+		driver:             fmt.Sprintf("%s:%d,import-from=%s", storage.Storage, sizeGb, imageId),
+		"background_delay": 5,
+		"digest":           vm.Digest,
+	}
+	res := fmt.Sprintf("/nodes/%s/qemu/%d/config", node, vmId)
+	_, err = storage.cli.post(res, jsonutils.Marshal(body))
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (self *SInstance) GetSecurityGroupIds() ([]string, error) {
@@ -461,14 +579,14 @@ func (self *SInstance) SetSecurityGroups(secgroupIds []string) error {
 }
 
 func (self *SInstance) StartVM(ctx context.Context) error {
-	return self.host.zone.region.StartVm(self.VmID)
+	return self.host.cli.StartVm(self.VmId)
 }
 
 func (self *SInstance) StopVM(ctx context.Context, opts *cloudprovider.ServerStopOptions) error {
 	if self.GetStatus() == api.VM_READY {
 		return nil
 	}
-	return self.host.zone.region.StopVm(self.VmID)
+	return self.host.cli.StopVm(self.VmId)
 }
 
 func (self *SInstance) UpdateUserData(userData string) error {
@@ -489,7 +607,7 @@ func (confMap QemuDevice) readDeviceConfig(confList []string) error {
 	return nil
 }
 
-func (self *SRegion) GetVmAgentNetworkInterfaces(node string, VmId int) (map[string]string, error) {
+func (self *SProxmoxClient) GetVmAgentNetworkInterfaces(node string, VmId int) (map[string]string, error) {
 	intermediates := []Intermediate{}
 	ipMap := map[string]string{}
 	res := fmt.Sprintf("/nodes/%s/qemu/%d/agent/network-get-interfaces", node, VmId)
@@ -509,7 +627,7 @@ func (self *SRegion) GetVmAgentNetworkInterfaces(node string, VmId int) (map[str
 	return ipMap, nil
 }
 
-func (self *SRegion) GetVmPowerStatus(node string, VmId int) string {
+func (self *SProxmoxClient) GetVmPowerStatus(node string, VmId int) string {
 	current := map[string]string{}
 	res := fmt.Sprintf("/nodes/%s/qemu/%d/status/current", node, VmId)
 	err := self.get(res, url.Values{}, &current)
@@ -525,7 +643,7 @@ func (self *SRegion) GetVmPowerStatus(node string, VmId int) string {
 	return power
 }
 
-func (self *SRegion) GetQemuConfig(node string, VmId int) (*SInstance, error) {
+func (self *SProxmoxClient) GetQemuConfig(node string, VmId int) (*SInstance, error) {
 	res := fmt.Sprintf("/nodes/%s/qemu/%d/config", node, VmId)
 	vmConfig := map[string]interface{}{}
 	vmBase := &VmBase{
@@ -557,7 +675,8 @@ func (self *SRegion) GetQemuConfig(node string, VmId int) (*SInstance, error) {
 	}
 
 	config := SInstance{
-		VmID:        int(VmId),
+		VmId:        int(VmId),
+		Digest:      vmBase.Digest,
 		Name:        vmBase.Name,
 		Description: strings.TrimSpace(vmBase.Description),
 		Tags:        strings.TrimSpace(vmBase.Tags),
@@ -584,6 +703,7 @@ func (self *SRegion) GetQemuConfig(node string, VmId int) (*SInstance, error) {
 		QemuDisks: map[string][]struct {
 			Driver string
 			DiskId string
+			Size   int64
 		}{},
 		QemuUnusedDisks: QemuDevices{},
 		QemuVga:         QemuDevice{},
@@ -632,20 +752,28 @@ func (self *SRegion) GetQemuConfig(node string, VmId int) (*SInstance, error) {
 			continue
 		}
 
+		size := int(0)
+		if sizeStr, ok := diskConfMap["size"].(string); ok {
+			size, _ = fileutils.GetSizeGb(sizeStr, 'G', 1024)
+		}
+
 		storageName, _ := ParseSubConf(diskConfMap["volume"].(string), ":")
 		_, ok := config.QemuDisks[storageName]
 		if !ok {
 			config.QemuDisks[storageName] = []struct {
 				Driver string
 				DiskId string
+				Size   int64
 			}{}
 		}
 		config.QemuDisks[storageName] = append(config.QemuDisks[storageName], struct {
 			Driver string
 			DiskId string
+			Size   int64
 		}{
 			Driver: driver,
 			DiskId: diskConfMap["volume"].(string),
+			Size:   int64(size * 1024 * 1024 * 1024),
 		})
 	}
 
@@ -801,7 +929,7 @@ func (self *SRegion) GetQemuConfig(node string, VmId int) (*SInstance, error) {
 
 }
 
-func (self *SRegion) GetInstances(hostId string) ([]SInstance, error) {
+func (self *SProxmoxClient) GetInstances(hostId string) ([]SInstance, error) {
 	ret := []SInstance{}
 	resources, err := self.GetClusterVmResources()
 	if err != nil {
@@ -809,6 +937,9 @@ func (self *SRegion) GetInstances(hostId string) ([]SInstance, error) {
 	}
 
 	for _, res := range resources {
+		if res.Template {
+			continue
+		}
 		if res.NodeId == hostId || len(hostId) == 0 {
 			instance, err := self.GetQemuConfig(res.Node, res.VmId)
 			if err != nil {
@@ -822,7 +953,7 @@ func (self *SRegion) GetInstances(hostId string) ([]SInstance, error) {
 	return ret, nil
 }
 
-func (self *SRegion) GetInstance(id string) (*SInstance, error) {
+func (self *SProxmoxClient) GetInstance(id string) (*SInstance, error) {
 	resources, err := self.GetClusterVmResources()
 	if err != nil {
 		return nil, err
@@ -839,7 +970,7 @@ func (self *SRegion) GetInstance(id string) (*SInstance, error) {
 	return self.GetQemuConfig(nodeName, vmId)
 }
 
-func (self *SRegion) StartVm(vmId int) error {
+func (self *SProxmoxClient) StartVm(vmId int) error {
 	resources, err := self.GetClusterVmResources()
 	if err != nil {
 		return err
@@ -860,7 +991,7 @@ func (self *SRegion) StartVm(vmId int) error {
 
 }
 
-func (self *SRegion) StopVm(vmId int) error {
+func (self *SProxmoxClient) StopVm(vmId int) error {
 	resources, err := self.GetClusterVmResources()
 	if err != nil {
 		return err
@@ -880,7 +1011,7 @@ func (self *SRegion) StopVm(vmId int) error {
 	return err
 }
 
-func (self *SRegion) DetachDisk(node string, vmId int, driver string) error {
+func (self *SProxmoxClient) DetachDisk(node string, vmId int, driver string) error {
 	body := map[string]string{}
 	params := url.Values{}
 	body["delete"] = driver
@@ -888,7 +1019,7 @@ func (self *SRegion) DetachDisk(node string, vmId int, driver string) error {
 	return self.put(res, params, jsonutils.Marshal(body))
 }
 
-func (self *SRegion) ChangeConfig(vmId int, cpu int, memMb int) error {
+func (self *SProxmoxClient) ChangeConfig(vmId int, cpu int, memMb int) error {
 	vm, err := self.GetInstance(strconv.Itoa(int(vmId)))
 	body := map[string]interface{}{}
 	if err != nil {
@@ -919,7 +1050,7 @@ func (self *SRegion) ChangeConfig(vmId int, cpu int, memMb int) error {
 	return self.put(res, params, jsonutils.Marshal(body))
 }
 
-func (self *SRegion) ResetVmPassword(vmId int, username, password string) error {
+func (self *SProxmoxClient) ResetVmPassword(vmId int, username, password string) error {
 	resources, err := self.GetClusterVmResources()
 	if err != nil {
 		return err
@@ -943,7 +1074,7 @@ func (self *SRegion) ResetVmPassword(vmId int, username, password string) error 
 
 }
 
-func (self *SRegion) DeleteVM(vmId int) error {
+func (self *SProxmoxClient) DeleteVM(vmId int) error {
 	id := strconv.Itoa(int(vmId))
 	vm1, err := self.GetInstance(id)
 	if err != nil {
@@ -956,7 +1087,7 @@ func (self *SRegion) DeleteVM(vmId int) error {
 	return self.del(res, params, nil)
 }
 
-func (self *SRegion) GenVM(name, node string, cores, memMB int) (*SInstance, error) {
+func (self *SProxmoxClient) GenVM(name, node string, cores, memMB int) (*SInstance, error) {
 
 	vmId := self.GetClusterVmMaxId()
 	if vmId == -1 {
@@ -1000,7 +1131,7 @@ type InstanceVnc struct {
 	Cert   string
 }
 
-func (self *SRegion) GetVNCInfo(node string, vmId int) (*InstanceVnc, error) {
+func (self *SProxmoxClient) GetVNCInfo(node string, vmId int) (*InstanceVnc, error) {
 	res := fmt.Sprintf("/nodes/%s/qemu/%d/vncproxy", node, vmId)
 	resp, err := self.post(res, map[string]interface{}{
 		"websocket":         "1",

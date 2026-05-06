@@ -33,7 +33,7 @@ type SInstanceNic struct {
 }
 
 func (self *SInstanceNic) GetId() string {
-	return fmt.Sprintf("%d/%s", self.ins.VmID, self.NicId)
+	return fmt.Sprintf("%d/%s", self.ins.VmId, self.NicId)
 }
 
 func (self *SInstanceNic) GetIP() string {

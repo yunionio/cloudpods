@@ -50,6 +50,8 @@ func GetIDisk(params DiskParams, driver string, readOnly bool) (IDisk, error) {
 	case comapi.HYPERVISOR_ESXI:
 		// ESXI does not support encrypted disk
 		return NewVDDKDisk(params.VddkInfo, params.DiskInfo.Path, driver, readOnly)
+	case comapi.HYPERVISOR_PROXMOX:
+		return NewNbdkitDisk(params.VddkInfo, params.DiskInfo.Path, driver, readOnly)
 	default:
 		return NewKVMGuestDisk(params.DiskInfo, driver, readOnly)
 	}

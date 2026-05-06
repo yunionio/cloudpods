@@ -39,6 +39,7 @@ const (
 
 func InitHandlers(app *appsrv.Application) {
 	initESXIHandler(app)
+	initProxmoxHandler(app)
 }
 
 var defaultHandler = func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
@@ -55,7 +56,6 @@ func AgentPrefix(action string) string {
 }
 
 func initESXIHandler(app *appsrv.Application) {
-
 	app.AddHandler("POST", AgentPrefix("upload"), auth.Authenticate(uploadHandler))
 	app.AddHandler("POST", AgentPrefix("deploy"), auth.Authenticate(deployHandler))
 	app.AddHandler("POST", IdAgentPrefix("delete"), auth.Authenticate(deleteHandler))
