@@ -41,44 +41,23 @@ func NewAgentImageCacheManager(manger IImageCacheManger) *SAgentImageCacheManage
 	return &SAgentImageCacheManager{manger}
 }
 
-type sImageCacheData struct {
-	ImageId            string
-	HostId             string
-	HostIp             string
-	SrcHostIp          string
-	SrcPath            string
-	SrcDatastore       vcenter.SVCenterAccessInfo
-	Datastore          vcenter.SVCenterAccessInfo
-	Format             string
-	IsForce            bool
-	StoragecacheId     string
-	ImageType          string
-	ImageExternalId    string
-	StorageCacheHostIp string
-}
-
 func (c *SAgentImageCacheManager) PrefetchImageCache(ctx context.Context, data interface{}) (jsonutils.JSONObject, error) {
-	dataDict, ok := data.(*jsonutils.JSONDict)
+	input, ok := data.(*vcenter.ImageCacheInput)
 	if !ok {
 		return nil, errors.Wrap(hostutils.ParamsError, "PrefetchImageCache data format error")
 	}
-	idata := new(sImageCacheData)
-	err := dataDict.Unmarshal(idata)
-	if err != nil {
-		return nil, errors.Wrap(err, "%s: unmarshal to sImageCacheData error")
+	lockman.LockRawObject(ctx, input.HostId, input.ImageId)
+	defer lockman.ReleaseRawObject(ctx, input.HostId, input.ImageId)
+	if cloudprovider.TImageType(input.ImageType) == cloudprovider.ImageTypeSystem {
+		return c.perfetchTemplateVMImageCache(ctx, input)
 	}
-	lockman.LockRawObject(ctx, idata.HostId, idata.ImageId)
-	defer lockman.ReleaseRawObject(ctx, idata.HostId, idata.ImageId)
-	if cloudprovider.TImageType(idata.ImageType) == cloudprovider.ImageTypeSystem {
-		return c.perfetchTemplateVMImageCache(ctx, idata)
+	if len(input.SrcHostIp) != 0 {
+		return c.prefetchImageCacheByCopy(ctx, input)
 	}
-	if len(idata.SrcHostIp) != 0 {
-		return c.prefetchImageCacheByCopy(ctx, idata)
-	}
-	return c.prefetchImageCacheByUpload(ctx, idata, dataDict)
+	return c.prefetchImageCacheByUpload(ctx, input)
 }
 
-func (c *SAgentImageCacheManager) prefetchImageCacheByCopy(ctx context.Context, data *sImageCacheData) (jsonutils.JSONObject, error) {
+func (c *SAgentImageCacheManager) prefetchImageCacheByCopy(ctx context.Context, data *vcenter.ImageCacheInput) (jsonutils.JSONObject, error) {
 	client, err := esxi.NewESXiClientFromAccessInfo(ctx, &data.Datastore)
 	if err != nil {
 		return nil, err
@@ -147,39 +126,39 @@ func (c *SAgentImageCacheManager) prefetchImageCacheByCopy(ctx context.Context, 
 	return ret, nil
 }
 
-func (c *SAgentImageCacheManager) prefetchImageCacheByUpload(ctx context.Context, data *sImageCacheData,
-	origin *jsonutils.JSONDict) (jsonutils.JSONObject, error) {
-
-	input := api.CacheImageInput{}
-	origin.Unmarshal(&input)
-	localImage, err := c.imageCacheManger.PrefetchImageCache(ctx, input)
+func (c *SAgentImageCacheManager) prefetchImageCacheByUpload(ctx context.Context, input *vcenter.ImageCacheInput) (jsonutils.JSONObject, error) {
+	data := api.CacheImageInput{}
+	err := jsonutils.Update(&data, input)
+	if err != nil {
+		return nil, errors.Wrap(err, "jsonutils.Update")
+	}
+	localImage, err := c.imageCacheManger.PrefetchImageCache(ctx, data)
 	if err != nil {
 		return nil, err
 	}
 	localImgPath, _ := localImage.GetString("path")
 	//localImgSize, _ := localImage.Int("size")
 
-	client, err := esxi.NewESXiClientFromAccessInfo(ctx, &data.Datastore)
+	client, err := esxi.NewESXiClientFromAccessInfo(ctx, &input.Datastore)
 	if err != nil {
 		return nil, errors.Wrap(err, "esxi.NewESXiClientFromJson")
 	}
-	host, err := client.FindHostByIp(data.HostIp)
+	host, err := client.FindHostByIp(input.HostIp)
 	if err != nil {
 		return nil, err
 	}
-	ds, err := host.FindDataStoreById(data.Datastore.PrivateId)
+	ds, err := host.FindDataStoreById(input.Datastore.PrivateId)
 	if err != nil {
 		return nil, errors.Wrap(err, "SHost.FindDataStoreById")
 	}
 
-	format, _ := origin.GetString("format")
-	if format == "" {
-		format = "vmdk"
+	if input.Format == "" {
+		input.Format = "vmdk"
 	}
-	remotePath := fmt.Sprintf("image_cache/%s.%s", data.ImageId, format)
+	remotePath := fmt.Sprintf("image_cache/%s.%s", input.ImageId, input.Format)
 	// check if dst image is exist
 	exists := false
-	if format == "vmdk" {
+	if input.Format == "vmdk" {
 		err = ds.CheckVmdk(ctx, remotePath)
 		if err != nil {
 			log.Debugf("ds.CheckVmdk failed: %s", err)
@@ -197,8 +176,8 @@ func (c *SAgentImageCacheManager) prefetchImageCacheByUpload(ctx context.Context
 		}
 	}
 	log.Debugf("exist: %t, remotePath: %s", exists, remotePath)
-	if !exists || data.IsForce {
-		if format == "iso" {
+	if !exists || input.IsForce {
+		if input.Format == "iso" {
 			err := ds.ImportISO(ctx, localImgPath, remotePath)
 			if err != nil {
 				return nil, errors.Wrapf(err, "SDatastore.ImportISO %s -> %s", localImage, remotePath)
@@ -214,7 +193,7 @@ func (c *SAgentImageCacheManager) prefetchImageCacheByUpload(ctx context.Context
 	remoteImg := localImage.(*jsonutils.JSONDict)
 	remoteImg.Add(jsonutils.NewString(remotePath), "path")
 
-	_, err = hostutils.RemoteStoragecacheCacheImage(ctx, data.StoragecacheId, data.ImageId, "active", remotePath)
+	_, err = hostutils.RemoteStoragecacheCacheImage(ctx, input.StoragecacheId, input.ImageId, "active", remotePath)
 	if err != nil {
 		return nil, err
 	}
@@ -222,7 +201,7 @@ func (c *SAgentImageCacheManager) prefetchImageCacheByUpload(ctx context.Context
 	return remoteImg, nil
 }
 
-func (c *SAgentImageCacheManager) perfetchTemplateVMImageCache(ctx context.Context, data *sImageCacheData) (jsonutils.JSONObject, error) {
+func (c *SAgentImageCacheManager) perfetchTemplateVMImageCache(ctx context.Context, data *vcenter.ImageCacheInput) (jsonutils.JSONObject, error) {
 	client, err := esxi.NewESXiClientFromAccessInfo(ctx, &data.Datastore)
 	if err != nil {
 		return nil, errors.Wrap(err, "esxi.NewESXiClientFromJson")
@@ -237,29 +216,22 @@ func (c *SAgentImageCacheManager) perfetchTemplateVMImageCache(ctx context.Conte
 }
 
 func (c *SAgentImageCacheManager) DeleteImageCache(ctx context.Context, data interface{}) (jsonutils.JSONObject, error) {
-	dataDict, ok := data.(*jsonutils.JSONDict)
+	input, ok := data.(*vcenter.ImageCacheInput)
 	if !ok {
 		return nil, errors.Wrap(hostutils.ParamsError, "DeleteImageCache data format error")
 	}
-	var (
-		imageID, _ = dataDict.GetString("image_id")
-		hostIP, _  = dataDict.GetString("host_ip")
-		dsInfo, _  = dataDict.Get("ds_info")
-	)
-
-	client, _, err := esxi.NewESXiClientFromJson(ctx, dsInfo)
+	client, _, err := esxi.NewESXiClientFromJson(ctx, jsonutils.Marshal(input.Datastore))
 	if err != nil {
 		return nil, err
 	}
-	host, err := client.FindHostByIp(hostIP)
+	host, err := client.FindHostByIp(input.HostIp)
 	if err != nil {
 		return nil, err
 	}
-	dsID, _ := dsInfo.GetString("private_id")
-	ds, err := host.FindDataStoreById(dsID)
+	ds, err := host.FindDataStoreById(input.Datastore.PrivateId)
 	if err != nil {
 		return nil, err
 	}
-	remotePath := fmt.Sprintf("image_cache/%s.vmdk", imageID)
+	remotePath := fmt.Sprintf("image_cache/%s.vmdk", input.ImageId)
 	return nil, ds.Delete(ctx, remotePath)
 }

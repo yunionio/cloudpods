@@ -70,33 +70,35 @@ type GuestdiskUpdateInput struct {
 }
 
 type GuestdiskJsonDesc struct {
-	DiskId        string `json:"disk_id"`
-	Driver        string `json:"driver"`
-	CacheMode     string `json:"cache_mode"`
-	AioMode       string `json:"aio_mode"`
-	Iops          int    `json:"iops"`
-	Throughput    int    `json:"throughput"`
-	Bps           int    `json:"bps"`
-	Size          int    `json:"size"`
-	TemplateId    string `json:"template_id"`
-	ImagePath     string `json:"image_path"`
-	StorageId     string `json:"storage_id"`
-	StorageType   string `json:"storage_type"`
-	Migrating     bool   `json:"migrating"`
-	Path          string `json:"path"`
-	Format        string `json:"format"`
-	Index         int8   `json:"index"`
-	BootIndex     *int8  `json:"boot_index"`
-	MergeSnapshot bool   `json:"merge_snapshot"`
-	Fs            string `json:"fs"`
-	Mountpoint    string `json:"mountpoint"`
-	Dev           string `json:"dev"`
-	IsSSD         bool   `json:"is_ssd"`
-	NumQueues     uint8  `json:"num_queues"`
-	AutoReset     bool   `json:"auto_reset"`
-	PCIPath       string `json:"pci_path"`
+	DiskId            string `json:"disk_id"`
+	Driver            string `json:"driver"`
+	CacheMode         string `json:"cache_mode"`
+	AioMode           string `json:"aio_mode"`
+	Iops              int    `json:"iops"`
+	Throughput        int    `json:"throughput"`
+	Bps               int    `json:"bps"`
+	Size              int    `json:"size"`
+	TemplateId        string `json:"template_id"`
+	ImagePath         string `json:"image_path"`
+	StorageId         string `json:"storage_id"`
+	StoragecacheId    string `json:"storagecache_id"`
+	StorageExternalId string `json:"storage_external_id"`
+	StorageType       string `json:"storage_type"`
+	Migrating         bool   `json:"migrating"`
+	Path              string `json:"path"`
+	Format            string `json:"format"`
+	Index             int8   `json:"index"`
+	BootIndex         *int8  `json:"boot_index"`
+	MergeSnapshot     bool   `json:"merge_snapshot"`
+	Fs                string `json:"fs"`
+	Mountpoint        string `json:"mountpoint"`
+	Dev               string `json:"dev"`
+	IsSSD             bool   `json:"is_ssd"`
+	NumQueues         uint8  `json:"num_queues"`
+	AutoReset         bool   `json:"auto_reset"`
+	PCIPath           string `json:"pci_path"`
 
-	// esxi
+	// esxi, proxmox
 	ImageInfo struct {
 		ImageType          string `json:"image_type"`
 		ImageExternalId    string `json:"image_external_id"`

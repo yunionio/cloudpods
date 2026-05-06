@@ -16,6 +16,8 @@ package proxmox
 
 import (
 	"fmt"
+	"io"
+	"net/url"
 	"strings"
 
 	"yunion.io/x/jsonutils"
@@ -30,7 +32,7 @@ type SStorage struct {
 	multicloud.SStorageBase
 	ProxmoxTags
 
-	zone *SZone
+	cli *SProxmoxClient
 
 	Storage string `json:"storage"`
 	Status  string
@@ -63,7 +65,7 @@ func (self *SStorage) GetGlobalId() string {
 }
 
 func (self *SStorage) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
-	disks, err := self.zone.region.GetDisks(self.Node, self.Storage)
+	disks, err := self.cli.GetDisks(self.Node, self.Storage)
 	if err != nil {
 		return nil, err
 	}
@@ -109,9 +111,8 @@ func (self *SStorage) GetIDiskById(id string) (cloudprovider.ICloudDisk, error) 
 
 func (self *SStorage) GetIStoragecache() cloudprovider.ICloudStoragecache {
 	return &SStoragecache{
-		region:  self.zone.region,
-		Node:    self.Node,
-		isShare: self.Shared == 1,
+		client: self.cli,
+		Node:   self.Node,
 	}
 }
 
@@ -131,7 +132,7 @@ func (self *SStorage) GetStatus() string {
 }
 
 func (self *SStorage) Refresh() error {
-	ret, err := self.zone.region.GetStorage(self.GetGlobalId())
+	ret, err := self.cli.GetStorage(self.GetGlobalId())
 	if err != nil {
 		return err
 	}
@@ -139,7 +140,7 @@ func (self *SStorage) Refresh() error {
 }
 
 func (self *SStorage) GetIZone() cloudprovider.ICloudZone {
-	return self.zone
+	return nil
 }
 
 func (self *SStorage) GetStorageConf() jsonutils.JSONObject {
@@ -154,20 +155,7 @@ func (self *SStorage) IsSysDiskStore() bool {
 	return true
 }
 
-func (self *SRegion) GetIStorageById(id string) (cloudprovider.ICloudStorage, error) {
-	storage, err := self.GetStorage(id)
-	if err != nil {
-		return nil, err
-	}
-	zone, err := self.GetZone()
-	if err != nil {
-		return nil, err
-	}
-	storage.zone = zone
-	return storage, nil
-}
-
-func (self *SRegion) GetStorages() ([]SStorage, error) {
+func (self *SProxmoxClient) GetStorages() ([]SStorage, error) {
 	storages := []SStorage{}
 	resources, err := self.GetClusterResources("storage")
 	if err != nil {
@@ -182,6 +170,7 @@ func (self *SRegion) GetStorages() ([]SStorage, error) {
 	storageMap := map[string]bool{}
 	ret := []SStorage{}
 	for i := range storages {
+		storages[i].cli = self
 		if storages[i].Shared == 0 {
 			ret = append(ret, storages[i])
 			continue
@@ -195,7 +184,7 @@ func (self *SRegion) GetStorages() ([]SStorage, error) {
 	return ret, nil
 }
 
-func (self *SRegion) GetStoragesByHost(node string) ([]SStorage, error) {
+func (self *SProxmoxClient) GetStoragesByHost(node string) ([]SStorage, error) {
 	storages, err := self.GetStorages()
 	if err != nil {
 		return nil, err
@@ -209,7 +198,63 @@ func (self *SRegion) GetStoragesByHost(node string) ([]SStorage, error) {
 	return ret, nil
 }
 
-func (self *SRegion) GetStorage(id string) (*SStorage, error) {
+func (self *SProxmoxClient) GetImages(host, storage, content string) ([]SImage, error) {
+	images := []SImage{}
+	params := url.Values{}
+	params.Add("content", content)
+	path := fmt.Sprintf("/nodes/%s/storage/%s/content", host, storage)
+	err := self.get(path, params, &images)
+	if err != nil {
+		return nil, err
+	}
+	return images, nil
+}
+
+func (self *SStorage) GetImages() ([]SImage, error) {
+	ret := []SImage{}
+	for _, content := range []string{"iso", "import"} {
+		if !strings.Contains(self.Content, content) {
+			continue
+		}
+		images, err := self.cli.GetImages(self.Node, self.Storage, content)
+		if err != nil {
+			return nil, err
+		}
+		ret = append(ret, images...)
+	}
+	return ret, nil
+}
+
+func (self *SStorage) SearchImage(content, imageId, imageName, format string) (*SImage, error) {
+	files, err := self.cli.GetImages(self.Node, self.Storage, content)
+	if err != nil {
+		return nil, err
+	}
+	name1 := fmt.Sprintf("%s:%s/%s", self.Storage, content, imageName)
+	if !strings.HasSuffix(name1, format) {
+		name1 = fmt.Sprintf("%s.%s", name1, format)
+	}
+	name2 := fmt.Sprintf("%s:%s/%s", self.Storage, content, imageId)
+	if !strings.HasSuffix(name2, format) {
+		name2 = fmt.Sprintf("%s.%s", name2, format)
+	}
+	for i := range files {
+		if files[i].Volid == name1 || files[i].Volid == name2 {
+			return &files[i], nil
+		}
+	}
+	return nil, cloudprovider.ErrNotFound
+}
+
+func (self *SProxmoxClient) ImportImage(host, storage, imagId, format string, reader io.Reader) error {
+	err := self.upload(host, storage, imagId, format, reader)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (self *SProxmoxClient) GetStorage(id string) (*SStorage, error) {
 	storages, err := self.GetStorages()
 	if err != nil {
 		return nil, err

@@ -1749,14 +1749,6 @@ func (manager *SGuestManager) validateCreateData(
 		return nil, errors.Wrap(err, "checkGuestImage")
 	}
 
-	if len(input.PreferManager) > 0 && len(input.Provider) == 0 {
-		providerObj, err := CloudproviderManager.FetchById(input.PreferManager)
-		if err != nil {
-			return nil, errors.Wrapf(err, "zone fetch by id %s", input.PreferZone)
-		}
-		provider := providerObj.(*SCloudprovider)
-		input.Provider = provider.Provider
-	}
 	if len(input.PreferZone) > 0 && len(input.Provider) == 0 {
 		zoneObj, err := ZoneManager.FetchById(input.PreferZone)
 		if err != nil {
@@ -1772,6 +1764,15 @@ func (manager *SGuestManager) validateCreateData(
 		}
 		region := regionObj.(*SCloudregion)
 		input.Provider = region.Provider
+	}
+	// pve, vmware provider is OneCloud
+	if len(input.PreferManager) > 0 && len(input.Provider) == 0 {
+		providerObj, err := CloudproviderManager.FetchById(input.PreferManager)
+		if err != nil {
+			return nil, errors.Wrapf(err, "zone fetch by id %s", input.PreferZone)
+		}
+		provider := providerObj.(*SCloudprovider)
+		input.Provider = provider.Provider
 	}
 	if len(input.Provider) == 0 {
 		input.Provider = api.CLOUD_PROVIDER_ONECLOUD
@@ -1958,7 +1959,7 @@ func (manager *SGuestManager) validateCreateData(
 		return nil, err
 	}
 
-	optionSystemHypervisor := []string{api.HYPERVISOR_KVM, api.HYPERVISOR_ESXI, api.HYPERVISOR_POD}
+	optionSystemHypervisor := []string{api.HYPERVISOR_KVM, api.HYPERVISOR_ESXI, api.HYPERVISOR_PROXMOX, api.HYPERVISOR_POD}
 
 	if !utils.IsInStringArray(input.Hypervisor, optionSystemHypervisor) && len(input.Disks[0].ImageId) == 0 && len(input.Disks[0].SnapshotId) == 0 && input.Cdrom == "" {
 		return nil, httperrors.NewBadRequestError("Miss operating system???")

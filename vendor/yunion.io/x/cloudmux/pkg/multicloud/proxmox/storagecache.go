@@ -17,68 +17,67 @@ package proxmox
 import (
 	"context"
 	"fmt"
-	"io"
-	"strings"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
-	"yunion.io/x/log"
-	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/util/qemuimgfmt"
 )
 
 type SStoragecache struct {
 	multicloud.SResourceBase
 	ProxmoxTags
 
-	region  *SRegion
-	Node    string
-	isShare bool
+	client *SProxmoxClient
+	Node   string
 }
 
 func (self *SStoragecache) GetGlobalId() string {
-	if self.isShare {
-		return fmt.Sprintf("%s-share", self.region.GetGlobalId())
-	}
-	return fmt.Sprintf("%s-%s", self.region.GetGlobalId(), self.Node)
+	return fmt.Sprintf("%s-%s", self.client.GetGlobalId(), self.Node)
 }
 
 func (self *SStoragecache) GetId() string {
-	return self.region.GetId()
+	return self.client.GetId()
 }
 
 func (self *SStoragecache) GetName() string {
-	if self.isShare {
-		return fmt.Sprintf("%s-share", self.region.GetName())
-	}
-	return fmt.Sprintf("%s-%s", self.region.GetName(), self.Node)
+	return fmt.Sprintf("%s-%s", self.client.GetName(), self.Node)
 }
 
 func (self *SStoragecache) GetStatus() string {
 	return "available"
 }
 
-func (self *SStoragecache) GetICloudImages() ([]cloudprovider.ICloudImage, error) {
-	ret := []cloudprovider.ICloudImage{}
-	storages, err := self.region.GetStorages()
+func (self *SProxmoxClient) GetTemplateImages(node string) ([]SImage, error) {
+	ret := []SImage{}
+	vms, err := self.GetClusterVmResources()
 	if err != nil {
 		return nil, err
 	}
-	for i := range storages {
-		if !strings.Contains(storages[i].Content, "iso") {
+	for i := range vms {
+		if !vms[i].Template {
 			continue
 		}
-		if (self.isShare && storages[i].Shared != 1) || (!self.isShare && storages[i].Node != self.Node) {
+		if len(node) > 0 && vms[i].Node != node {
 			continue
 		}
-		images, err := self.region.GetImages(storages[i].Node, storages[i].Storage)
-		if err != nil {
-			return nil, err
+		image := SImage{
+			Name:  vms[i].Name,
+			Volid: vms[i].Id,
+			Size:  vms[i].Size,
 		}
-		for i := range images {
-			images[i].cache = self
-			ret = append(ret, &images[i])
-		}
+		ret = append(ret, image)
+	}
+	return ret, nil
+}
+
+func (self *SStoragecache) GetICloudImages() ([]cloudprovider.ICloudImage, error) {
+	ret := []cloudprovider.ICloudImage{}
+	images, err := self.client.GetTemplateImages(self.Node)
+	if err != nil {
+		return nil, err
+	}
+	for i := range images {
+		images[i].cache = self
+		ret = append(ret, &images[i])
 	}
 	return ret, nil
 }
@@ -105,34 +104,5 @@ func (self *SStoragecache) GetPath() string {
 }
 
 func (self *SStoragecache) UploadImage(ctx context.Context, opts *cloudprovider.SImageCreateOption, callback func(float32)) (string, error) {
-	reader, sizeByte, err := opts.GetReader(opts.ImageId, string(qemuimgfmt.ISO))
-	if err != nil {
-		return "", errors.Wrapf(err, "GetReader")
-	}
-	storages, err := self.region.GetStorages()
-	if err != nil {
-		return "", err
-	}
-	for i := range storages {
-		if (self.isShare && storages[i].Shared == 0) || (!self.isShare && storages[i].Shared == 1) {
-			continue
-		}
-		if !strings.Contains(storages[i].Content, "iso") {
-			continue
-		}
-		if storages[i].MaxDisk-storages[i].Disk < sizeByte {
-			continue
-		}
-		log.Debugf("upload image %s for %s %s", opts.ImageName, storages[i].Node, storages[i].Storage)
-		image, err := self.region.UploadImage(storages[i].Node, storages[i].Storage, opts.ImageName, reader)
-		if err != nil {
-			return "", errors.Wrapf(err, "UploadImage")
-		}
-		return image.GetGlobalId(), nil
-	}
-	return "", fmt.Errorf("no valid shared storage for upload")
-}
-
-func (self *SRegion) UploadImage(node, storage, filename string, reader io.Reader) (*SImage, error) {
-	return self.client.upload(node, storage, filename, reader)
+	return "", cloudprovider.ErrNotSupported
 }

@@ -236,6 +236,7 @@ func (self esxiVm) GetName() string {
 
 type SHostDatastore struct {
 	HostIp    string
+	HostId    string
 	Datastore vcenter.SVCenterAccessInfo
 }
 

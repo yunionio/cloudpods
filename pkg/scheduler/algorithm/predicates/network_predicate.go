@@ -282,7 +282,7 @@ func IsNetworkAvailable(
 	} else {
 		if !isMatchServerType(n.SNetwork) {
 			return FailReason{
-				Reason: fmt.Sprintf("Network %s type %s match", n.Name, n.ServerType),
+				Reason: fmt.Sprintf("Network %s type %s not match %s", n.Name, n.ServerType, netTypes),
 				Type:   NetworkTypeMatch,
 			}
 		}

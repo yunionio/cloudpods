@@ -24,15 +24,15 @@ type SVpc struct {
 	multicloud.SVpc
 	ProxmoxTags
 
-	region *SRegion
+	client *SProxmoxClient
 }
 
 func (self *SVpc) GetName() string {
-	return "Default"
+	return self.client.GetName()
 }
 
 func (self *SVpc) GetId() string {
-	return self.region.GetId()
+	return self.client.GetId()
 }
 
 func (self *SVpc) GetGlobalId() string {
@@ -64,24 +64,30 @@ func (self *SVpc) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, err
 }
 
 func (self *SVpc) GetIWires() ([]cloudprovider.ICloudWire, error) {
-	wires, err := self.region.GetWires()
+	nodes, err := self.client.GetHosts()
 	if err != nil {
 		return nil, err
 	}
 	ret := []cloudprovider.ICloudWire{}
-	for i := range wires {
-		wires[i].region = self.region
-		ret = append(ret, &wires[i])
+	for i := range nodes {
+		wires, err := self.client.GetWires(nodes[i].Node)
+		if err != nil {
+			return nil, err
+		}
+		for j := range wires {
+			wires[j].client = self.client
+			ret = append(ret, &wires[j])
+		}
 	}
 	return ret, nil
 }
 
 func (self *SVpc) GetIWireById(id string) (cloudprovider.ICloudWire, error) {
-	wire, err := self.region.GetWire()
+	wire, err := self.client.GetWire(id)
 	if err != nil {
 		return nil, err
 	}
-	wire.region = self.region
+	wire.client = self.client
 	return wire, nil
 }
 
@@ -90,7 +96,7 @@ func (self *SVpc) GetIsDefault() bool {
 }
 
 func (self *SVpc) GetRegion() cloudprovider.ICloudRegion {
-	return self.region
+	return self.client
 }
 
 func (self *SVpc) GetStatus() string {
