@@ -87,7 +87,7 @@ type cphAMDGPU struct {
 }
 
 func newCphAMDGPU(devPath string, index int) (*cphAMDGPU, error) {
-	dev, err := newPCIGPURenderBaseDevice(devPath, index, isolated_device.ContainerDeviceTypeCphAMDGPU)
+	dev, err := NewPCIGPURenderBaseDevice(devPath, index, isolated_device.ContainerDeviceTypeCphAMDGPU)
 	if err != nil {
 		return nil, errors.Wrap(err, "new PCIGPURenderBaseDevice")
 	}

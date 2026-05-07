@@ -115,7 +115,7 @@ func newNvidiaGpuShare(devPath string, index int) (*nvidiaGpuShareDev, error) {
 		return nil, errors.Wrap(err, "getNvidiaGpuUsage")
 	}
 
-	dev, err := newPCIGPURenderBaseDevice(devPath, index, isolated_device.ContainerDeviceTypeNvidiaGpuShare)
+	dev, err := NewPCIGPURenderBaseDevice(devPath, index, isolated_device.ContainerDeviceTypeNvidiaGpuShare)
 	if err != nil {
 		return nil, errors.Wrap(err, "new PCIGPURenderBaseDevice")
 	}
