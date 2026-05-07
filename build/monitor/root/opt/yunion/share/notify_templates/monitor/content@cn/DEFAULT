@@ -1,9 +1,7 @@
 策略名称: {{.name}}
 触发时间: {{.start_time}}
 报警级别: {{.level}}
-触发条件:{{if eq (len .matches) 1}} {{(index .matches 0).condition | unescaped}}{{else}}
-{{- range .matches}}- {{.condition | unescaped}}
-{{- end}}{{end}}
+触发条件: {{.description | unescaped}}
 {{if .reason}}报警原因: {{.reason}}
 {{end}}报警数量：{{len .matches}}
 资源名称：{{.resource_name}}
