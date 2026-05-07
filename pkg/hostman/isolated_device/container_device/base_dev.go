@@ -116,7 +116,7 @@ func getGPUPCIAddr(linkPartName string) (string, error) {
 	return fullAddr, nil
 }
 
-func newPCIGPURenderBaseDevice(devPath string, index int, devType isolated_device.ContainerDeviceType) (*BaseDevice, error) {
+func NewPCIGPURenderBaseDevice(devPath string, index int, devType isolated_device.ContainerDeviceType) (*BaseDevice, error) {
 	dir := "/dev/dri/by-path/"
 	entries, err := os.ReadDir(dir)
 	if err != nil {

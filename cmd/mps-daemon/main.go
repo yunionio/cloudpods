@@ -18,18 +18,23 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"os/exec"
 	"strconv"
 	"strings"
 	"syscall"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/signalutils"
 	"yunion.io/x/pkg/utils"
 
+	"yunion.io/x/onecloud/pkg/hostman/isolated_device"
+	"yunion.io/x/onecloud/pkg/hostman/isolated_device/container_device"
 	"yunion.io/x/onecloud/pkg/hostman/options"
+	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/sysutils"
 )
 
@@ -39,10 +44,13 @@ type Daemon struct {
 	logDir  string
 	pipeDir string
 
-	replicas int
+	mpsConfig map[string]int
+	replicas  int
 }
 
-func NewDaemon(logDir, pipeDir string, replicas int) (*Daemon, error) {
+func NewDaemon() (*Daemon, error) {
+	var pipeDir = options.HostOptions.CudaMPSPipeDirectory
+	var logDir = options.HostOptions.CudaMPSLogDirectory
 	if err := os.MkdirAll(pipeDir, 0755); err != nil {
 		return nil, fmt.Errorf("error creating directory %v: %s", pipeDir, err)
 	}
@@ -51,11 +59,37 @@ func NewDaemon(logDir, pipeDir string, replicas int) (*Daemon, error) {
 		return nil, fmt.Errorf("error creating directory %v: %s", logDir, err)
 	}
 
-	return &Daemon{
-		logDir:  logDir,
-		pipeDir: pipeDir,
+	var mpsReplicas = -1
+	var mpsConfig = map[string]int{}
+	devCfg, err := parseContainerDeviceConfig()
+	if err != nil {
+		return nil, errors.Wrap(err, "parseContainerDeviceConfig")
+	}
+	for i := range devCfg.Devices {
+		if devCfg.Devices[i].Type == isolated_device.ContainerDeviceTypeNvidiaMps {
+			dev, err := container_device.NewPCIGPURenderBaseDevice(devCfg.Devices[i].Path, 0, isolated_device.ContainerDeviceTypeNvidiaMps)
+			if err != nil {
+				return nil, errors.Wrapf(err, "parse pci device %s", devCfg.Devices[i].Path)
+			}
+			if devCfg.Devices[i].VirtualNumber <= 0 {
+				return nil, errors.Errorf("Mps replicas must >= 0")
+			}
+			mpsConfig[dev.GetOriginAddr()] = devCfg.Devices[i].VirtualNumber
+		}
+	}
+	if len(mpsConfig) == 0 {
+		mpsConfig = nil
+		mpsReplicas = options.HostOptions.CudaMPSReplicas
+		if mpsReplicas <= 0 {
+			return nil, errors.Errorf("Mps replicas must >= 0")
+		}
+	}
 
-		replicas: replicas,
+	return &Daemon{
+		logDir:    logDir,
+		pipeDir:   pipeDir,
+		mpsConfig: mpsConfig,
+		replicas:  mpsReplicas,
 	}, nil
 }
 
@@ -123,23 +157,45 @@ func parseMemSize(memTotalStr string) (int, error) {
 func (d *Daemon) Start() error {
 	// nvidia-smi  --query-gpu=gpu_uuid,memory.total,compute_mode --format=csv
 	// GPU-76aef7ff-372d-2432-b4b4-beca4d8d3400, 23040 MiB, Exclusive_Process
-	out, err := exec.Command("nvidia-smi", "--query-gpu=index,memory.total,compute_mode", "--format=csv").CombinedOutput()
+	out, err := exec.Command("nvidia-smi", "--query-gpu=index,memory.total,compute_mode,gpu_bus_id", "--format=csv").CombinedOutput()
 	if err != nil {
 		return errors.Wrapf(err, "nvidia-smi failed %s", out)
 	}
 
+	log.Infof("mps config %#v", d.mpsConfig)
 	var devices = map[string]int{}
+	var devicesReplicas = map[string]int{}
+	var minReplias = math.MaxInt32
 	lines := strings.Split(string(out), "\n")
 	for _, line := range lines {
 		if strings.HasPrefix(line, "index") {
 			continue
 		}
 		segs := strings.Split(line, ",")
-		if len(segs) != 3 {
+		if len(segs) != 4 {
 			log.Errorf("unknown nvidia-smi out line %s", line)
 			continue
 		}
-		gpuIdx, memTotal, computeMode := strings.TrimSpace(segs[0]), strings.TrimSpace(segs[1]), strings.TrimSpace(segs[2])
+		gpuIdx, memTotal, computeMode, pciAddr := strings.TrimSpace(segs[0]), strings.TrimSpace(segs[1]), strings.TrimSpace(segs[2]), strings.TrimSpace(segs[3])
+		pciAddrSegs := strings.SplitN(pciAddr, ":", 2)
+		if len(pciAddrSegs) != 2 {
+			return fmt.Errorf("failed parse pciaddr %s", pciAddr)
+		}
+		pciAddr = pciAddrSegs[1]
+		log.Infof("start parse pciaddr %s", pciAddr)
+		if len(d.mpsConfig) > 0 {
+			replicas, ok := d.mpsConfig[pciAddr]
+			if !ok {
+				continue
+			}
+			if replicas < minReplias {
+				minReplias = replicas
+			}
+			devicesReplicas[gpuIdx] = replicas
+		} else {
+			devicesReplicas[gpuIdx] = d.replicas
+			minReplias = d.replicas
+		}
 		if computeMode != "Exclusive_Process" {
 			output, err := exec.Command("nvidia-smi", "-i", gpuIdx, "-c", "EXCLUSIVE_PROCESS").CombinedOutput()
 			if err != nil {
@@ -160,7 +216,7 @@ func (d *Daemon) Start() error {
 		return err
 	}
 	for deviceIdx, memory := range devices {
-		memLimit := memory / d.replicas
+		memLimit := memory / devicesReplicas[deviceIdx]
 		memLimitCmd := fmt.Sprintf("set_default_device_pinned_mem_limit %s %dM", deviceIdx, memLimit)
 		log.Infof("set device mem limit cmd: %s", memLimitCmd)
 		_, err := d.EchoPipeToControl(memLimitCmd)
@@ -168,8 +224,7 @@ func (d *Daemon) Start() error {
 			return fmt.Errorf("error set_default_device_pinned_mem_limit %s", err)
 		}
 	}
-
-	threadPercentageCmd := fmt.Sprintf("set_default_active_thread_percentage %d", 100/d.replicas)
+	threadPercentageCmd := fmt.Sprintf("set_default_active_thread_percentage %d", 100/minReplias)
 	_, err = d.EchoPipeToControl(threadPercentageCmd)
 	if err != nil {
 		return fmt.Errorf("error setting active thread percentage: %s", err)
@@ -186,6 +241,37 @@ func (d *Daemon) Stop() error {
 	return nil
 }
 
+func parseContainerDeviceConfig() (*isolated_device.ContainerDeviceConfiguration, error) {
+	devConfig, err := fileutils2.FileGetContents(options.HostOptions.ContainerDeviceConfigFile)
+	if err != nil {
+		return nil, err
+	}
+	obj, err := jsonutils.ParseYAML(devConfig)
+	if err != nil {
+		return nil, errors.Wrapf(err, "parse YAML content: %s", devConfig)
+	}
+	cfg := new(isolated_device.ContainerDeviceConfiguration)
+	if err := obj.Unmarshal(cfg); err != nil {
+		return nil, errors.Wrapf(err, "unmarshal object to ContainerDeviceConfiguration")
+	}
+	return cfg, nil
+}
+
+func GetCudaMpsReplicas() (int, error) {
+	if options.HostOptions.ContainerDeviceConfigFile != "" {
+		cfg, err := parseContainerDeviceConfig()
+		if err != nil {
+			return -1, err
+		}
+		for i := range cfg.Devices {
+			if cfg.Devices[i].Type == isolated_device.ContainerDeviceTypeNvidiaMps {
+				return cfg.Devices[i].VirtualNumber, nil
+			}
+		}
+	}
+	return options.HostOptions.CudaMPSReplicas, nil
+}
+
 func main() {
 	options.Init()
 	isRoot := sysutils.IsRootPermission()
@@ -194,13 +280,14 @@ func main() {
 		return
 	}
 
-	daemon, err := NewDaemon(
-		options.HostOptions.CudaMPSLogDirectory,
-		options.HostOptions.CudaMPSPipeDirectory,
-		options.HostOptions.CudaMPSReplicas,
-	)
+	if !options.HostOptions.EnableCudaMPS {
+		log.Infof("Cuda mps not enabled !!!")
+		return
+	}
+
+	daemon, err := NewDaemon()
 	if err != nil {
-		log.Fatalf("%s", err.Error())
+		log.Fatalf("NewDaemon %s", err)
 		return
 	}
 
