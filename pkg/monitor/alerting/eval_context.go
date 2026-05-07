@@ -212,12 +212,12 @@ func (c *EvalContext) GetNotificationTemplateConfig(matches []*monitor.EvalMatch
 			conds = append(conds, m.Condition)
 		}
 		if len(conds) > 0 {
-			desc = strings.Join(conds, " ")
+			desc = strings.Join(conds, ", ")
 			log.Debugf("[GetNotificationTemplateConfig] rule=%s matches=%d desc from match conditions: %s", c.Rule.Name, len(matches), desc)
 		}
 	} else if len(c.Rule.TriggeredMessages) > 0 {
 		// 兼容旧逻辑：如果没有按 match 填充 Condition，则退回到规则级 TriggeredMessages
-		desc = strings.Join(c.Rule.TriggeredMessages, " ")
+		desc = strings.Join(c.Rule.TriggeredMessages, ", ")
 		log.Debugf("[GetNotificationTemplateConfig] rule=%s matches=%d desc from TriggeredMessages (fallback): %s", c.Rule.Name, len(matches), desc)
 	}
 	if c.Error != nil {
