@@ -714,7 +714,22 @@ func (self *SUnifiedMonitorManager) PerformResourceMetrics(
 	if err := data.Unmarshal(input); err != nil {
 		return nil, httperrors.NewInputParameterError("unmarshal input: %v", err)
 	}
+	return self.getResourceMetrics(ctx, userCred, input)
+}
 
+func (self *SUnifiedMonitorManager) GetPropertyResourceMetrics(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	input *monitor.ResourceMetricsQueryInput,
+) (jsonutils.JSONObject, error) {
+	return self.getResourceMetrics(ctx, userCred, input)
+}
+
+func (self *SUnifiedMonitorManager) getResourceMetrics(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	input *monitor.ResourceMetricsQueryInput,
+) (jsonutils.JSONObject, error) {
 	drv := GetResourceMetricDriver(input.ResType)
 	if drv == nil {
 		return nil, httperrors.NewInputParameterError("unsupported res_type %q", input.ResType)
