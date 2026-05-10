@@ -131,6 +131,10 @@ func (s *SKVMGuestInstance) IsKvmSupport() bool {
 	return s.manager.GetHost().IsKvmSupport()
 }
 
+func (s *SKVMGuestInstance) IsSupportCpuHotplug() bool {
+	return s.manager.host.IsX8664()
+}
+
 func (s *SKVMGuestInstance) IsNestedVirt() bool {
 	return s.manager.GetHost().IsNestedVirtualization()
 }
@@ -616,6 +620,8 @@ function start_swtpm() {
 			return "", err
 		}
 	}
+
+	input.IsSupportCpuHotplug = s.IsSupportCpuHotplug()
 
 	// set rescue flag to input
 	if s.Desc.LightMode {

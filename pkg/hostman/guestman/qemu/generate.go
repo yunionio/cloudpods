@@ -194,11 +194,11 @@ func generateMachineOption(drvOpt QemuOptions, desc *desc.SGuestDesc) string {
 	return cmd
 }
 
-func generateSMPOption(guestDesc *desc.SGuestDesc) string {
+func generateSMPOption(guestDesc *desc.SGuestDesc, isSupportHotplug bool) string {
 	cpu := guestDesc.CpuDesc
 	startCpus := cpu.Cpus
 	if guestDesc.MemDesc.Mem != nil {
-		if len(guestDesc.MemDesc.Mem.Mems) > 0 {
+		if len(guestDesc.MemDesc.Mem.Mems) > 0 && isSupportHotplug {
 			startCpus = 1
 		}
 	}
@@ -723,6 +723,7 @@ type GenerateStartOptionsInput struct {
 	LiveMigratePort      uint
 	LiveMigrateUseTLS    bool
 	EnablePvpanic        bool
+	IsSupportCpuHotplug  bool
 
 	EncryptKeyPath string
 
@@ -789,7 +790,7 @@ func GenerateStartOptions(
 		drvOpt.Global(),
 		generateMachineOption(drvOpt, input.GuestDesc),
 		drvOpt.KeyboardLayoutLanguage("en-us"),
-		generateSMPOption(input.GuestDesc),
+		generateSMPOption(input.GuestDesc, input.IsSupportCpuHotplug),
 		drvOpt.Name(input.GuestDesc.Name),
 		drvOpt.UUID(input.EnableUUID, input.GuestDesc.Uuid),
 		generateMemoryOption(input.GuestDesc.MemDesc),
