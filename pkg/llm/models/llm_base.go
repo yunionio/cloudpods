@@ -66,6 +66,30 @@ type SLLMBase struct {
 
 	NetworkType string `charset:"utf8" list:"user" update:"user" create:"optional"`
 	NetworkId   string `charset:"utf8" nullable:"true" list:"user" update:"user" create:"optional"`
+
+	// Devices/HostPaths override the corresponding sku fields when set; sku values are used when nil/empty.
+	HostPaths *api.HostPaths `charset:"utf8" length:"medium" nullable:"true" list:"user" update:"user" create:"optional"`
+	Devices   *api.Devices   `charset:"utf8" length:"medium" nullable:"true" list:"user" update:"user" create:"optional"`
+}
+
+func getEffectiveDevices(llmBase *SLLMBase, skuBase *SLLMSkuBase) *api.Devices {
+	if llmBase != nil && llmBase.Devices != nil && !llmBase.Devices.IsZero() {
+		return llmBase.Devices
+	}
+	if skuBase != nil {
+		return skuBase.Devices
+	}
+	return nil
+}
+
+func getEffectiveHostPaths(llmBase *SLLMBase, skuBase *SLLMSkuBase) *api.HostPaths {
+	if llmBase != nil && llmBase.HostPaths != nil && !llmBase.HostPaths.IsZero() {
+		return llmBase.HostPaths
+	}
+	if skuBase != nil {
+		return skuBase.HostPaths
+	}
+	return nil
 }
 
 func (man *SLLMBaseManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.LLMBaseCreateInput) (api.LLMBaseCreateInput, error) {
@@ -374,16 +398,17 @@ func GetHostPathVolumeMounts(hostPaths *api.HostPaths, containerIndex int) []*ap
 	return mounts
 }
 
-func AppendLLMSkuVolumeMounts(containers []*computeapi.PodContainerCreateInput, skuBase *SLLMSkuBase, postOverlays []*apis.ContainerVolumeMountDiskPostOverlay) {
+func AppendLLMSkuVolumeMounts(containers []*computeapi.PodContainerCreateInput, llmBase *SLLMBase, skuBase *SLLMSkuBase, postOverlays []*apis.ContainerVolumeMountDiskPostOverlay) {
 	if skuBase == nil {
 		return
 	}
+	effectiveHostPaths := getEffectiveHostPaths(llmBase, skuBase)
 	for idx := range containers {
 		if containers[idx] == nil {
 			continue
 		}
 		containers[idx].VolumeMounts = append(containers[idx].VolumeMounts, GetDiskVolumeMounts(skuBase.Volumes, idx, postOverlays)...)
-		containers[idx].VolumeMounts = append(containers[idx].VolumeMounts, GetHostPathVolumeMounts(skuBase.HostPaths, idx)...)
+		containers[idx].VolumeMounts = append(containers[idx].VolumeMounts, GetHostPathVolumeMounts(effectiveHostPaths, idx)...)
 	}
 }
 

@@ -216,6 +216,28 @@ func (v *vllm) GetEffectiveSpec(llm *models.SLLM, sku *models.SLLMSku) interface
 	return out
 }
 
+func (v *vllm) ValidateLLMCreateData(ctx context.Context, userCred mcclient.TokenCredential, sku *models.SLLMSku, input *api.LLMCreateInput) (*api.LLMCreateInput, error) {
+	llmType := string(api.LLM_CONTAINER_VLLM)
+	if err := models.ValidateRequireDevices(llmType, input.Devices, nil, sku); err != nil {
+		return input, err
+	}
+	if err := models.ValidateRequireMountedModels(llmType, input.MountedModels, nil, sku); err != nil {
+		return input, err
+	}
+	return input, nil
+}
+
+func (v *vllm) ValidateLLMUpdateData(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM, sku *models.SLLMSku, input *api.LLMUpdateInput) (*api.LLMUpdateInput, error) {
+	llmType := string(api.LLM_CONTAINER_VLLM)
+	if err := models.ValidateRequireDevices(llmType, input.Devices, llm.Devices, sku); err != nil {
+		return input, err
+	}
+	if err := models.ValidateRequireMountedModels(llmType, input.MountedModels, llm.MountedModels, sku); err != nil {
+		return input, err
+	}
+	return input, nil
+}
+
 func (v *vllm) ValidateLLMSkuCreateData(ctx context.Context, userCred mcclient.TokenCredential, input *api.LLMSkuCreateInput) (*api.LLMSkuCreateInput, error) {
 	input, err := v.baseDriver.ValidateLLMSkuCreateData(ctx, userCred, input)
 	if err != nil {

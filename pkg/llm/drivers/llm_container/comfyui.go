@@ -35,6 +35,20 @@ func newComfyUI() models.ILLMContainerDriver {
 	return &comfyui{baseDriver: newBaseDriver(api.LLM_CONTAINER_COMFYUI)}
 }
 
+func (c *comfyui) ValidateLLMCreateData(ctx context.Context, userCred mcclient.TokenCredential, sku *models.SLLMSku, input *api.LLMCreateInput) (*api.LLMCreateInput, error) {
+	if err := models.ValidateRequireDevices(string(api.LLM_CONTAINER_COMFYUI), input.Devices, nil, sku); err != nil {
+		return input, err
+	}
+	return input, nil
+}
+
+func (c *comfyui) ValidateLLMUpdateData(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM, sku *models.SLLMSku, input *api.LLMUpdateInput) (*api.LLMUpdateInput, error) {
+	if err := models.ValidateRequireDevices(string(api.LLM_CONTAINER_COMFYUI), input.Devices, llm.Devices, sku); err != nil {
+		return input, err
+	}
+	return input, nil
+}
+
 func (c *comfyui) GetSpec(sku *models.SLLMSku) interface{} {
 	if sku.LLMSpec == nil {
 		return nil
