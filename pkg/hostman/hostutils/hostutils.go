@@ -79,7 +79,7 @@ type IHost interface {
 
 	IsHugepagesEnabled() bool
 	HugepageSizeKb() int
-	IsNumaAllocateEnabled() bool
+	IsSchedulerNumaAllocateEnabled() bool
 	CpuCmtBound() float32
 	MemCmtBound() float32
 
