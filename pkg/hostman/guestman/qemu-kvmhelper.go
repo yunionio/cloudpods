@@ -34,7 +34,6 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
-	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/qemu"
@@ -489,10 +488,6 @@ func (s *SKVMGuestInstance) generateStartScript(data *jsonutils.JSONDict) (strin
 	cmd += "QEMU_CMD=$DEFAULT_QEMU_CMD\n"
 	if s.IsKvmSupport() && !options.HostOptions.DisableKVM {
 		cmd += "QEMU_CMD_KVM_ARG=-enable-kvm\n"
-	} else if utils.IsInStringArray(s.manager.host.GetCpuArchitecture(), apis.ARCH_X86) {
-		// -no-kvm仅x86适用，且将在qemu 5.2之后移除
-		// https://gitlab.com/qemu-project/qemu/-/blob/master/docs/about/removed-features.rst
-		cmd += "QEMU_CMD_KVM_ARG=-no-kvm\n"
 	} else {
 		cmd += "QEMU_CMD_KVM_ARG=\n"
 	}
