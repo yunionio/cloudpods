@@ -35,6 +35,28 @@ func newOllama() models.ILLMContainerDriver {
 	return &ollama{baseDriver: newBaseDriver(api.LLM_CONTAINER_OLLAMA)}
 }
 
+func (o *ollama) ValidateLLMCreateData(ctx context.Context, userCred mcclient.TokenCredential, sku *models.SLLMSku, input *api.LLMCreateInput) (*api.LLMCreateInput, error) {
+	llmType := string(api.LLM_CONTAINER_OLLAMA)
+	if err := models.ValidateRequireDevices(llmType, input.Devices, nil, sku); err != nil {
+		return input, err
+	}
+	if err := models.ValidateRequireMountedModels(llmType, input.MountedModels, nil, sku); err != nil {
+		return input, err
+	}
+	return input, nil
+}
+
+func (o *ollama) ValidateLLMUpdateData(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM, sku *models.SLLMSku, input *api.LLMUpdateInput) (*api.LLMUpdateInput, error) {
+	llmType := string(api.LLM_CONTAINER_OLLAMA)
+	if err := models.ValidateRequireDevices(llmType, input.Devices, llm.Devices, sku); err != nil {
+		return input, err
+	}
+	if err := models.ValidateRequireMountedModels(llmType, input.MountedModels, llm.MountedModels, sku); err != nil {
+		return input, err
+	}
+	return input, nil
+}
+
 func (o *ollama) GetSpec(sku *models.SLLMSku) interface{} {
 	if sku.LLMType != string(api.LLM_CONTAINER_OLLAMA) || sku.LLMSpec == nil || sku.LLMSpec.Ollama == nil {
 		return nil

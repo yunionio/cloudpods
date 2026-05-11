@@ -59,6 +59,8 @@ type SLLMManager struct {
 
 type SLLM struct {
 	SLLMBase
+	// MountedModels overrides the SKU's mounted_models when non-empty; otherwise SKU's value is used.
+	SMountedModelsResource
 
 	LLMSkuId   string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"required"`
 	LLMImageId string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"required"`
@@ -76,6 +78,78 @@ func (llm *SLLM) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCre
 		return err
 	}
 	return nil
+}
+
+// getEffectiveMountedModels returns the effective mounted model ids: llm's override takes priority over sku's when non-empty.
+func getEffectiveMountedModels(llm *SLLM, sku *SLLMSku) []string {
+	if llm != nil && len(llm.MountedModels) > 0 {
+		return llm.MountedModels
+	}
+	if sku != nil {
+		return sku.GetMountedModels()
+	}
+	return nil
+}
+
+func devicesIsEmpty(d *api.Devices) bool {
+	return d == nil || d.IsZero()
+}
+
+// ValidateRequireDevices errors if neither input nor existing llm nor sku supplies devices. For create, pass nil for llmCurDevices.
+func ValidateRequireDevices(
+	llmType string,
+	inputDevices *api.Devices,
+	llmCurDevices *api.Devices,
+	sku *SLLMSku,
+) error {
+	effectiveDevices := llmCurDevices
+	if inputDevices != nil {
+		effectiveDevices = inputDevices
+	}
+	if devicesIsEmpty(effectiveDevices) && sku != nil {
+		effectiveDevices = sku.Devices
+	}
+	if devicesIsEmpty(effectiveDevices) {
+		return errors.Wrapf(httperrors.ErrInputParameter, "devices is required for %s: specify in request or set on sku", llmType)
+	}
+	return nil
+}
+
+// ValidateRequireMountedModels errors if neither input nor existing llm nor sku supplies mounted_models. For create, pass nil/empty for llmCurMountedModels.
+func ValidateRequireMountedModels(
+	llmType string,
+	inputMountedModels []string,
+	llmCurMountedModels []string,
+	sku *SLLMSku,
+) error {
+	effectiveModels := llmCurMountedModels
+	if inputMountedModels != nil {
+		effectiveModels = inputMountedModels
+	}
+	if len(effectiveModels) == 0 && sku != nil {
+		effectiveModels = sku.GetMountedModels()
+	}
+	if len(effectiveModels) == 0 {
+		return errors.Wrapf(httperrors.ErrInputParameter, "mounted_models is required for %s: specify in request or set on sku", llmType)
+	}
+	return nil
+}
+
+// validateMountedModelsAgainstLLMType ensures every id exists and is compatible with the given llm_type, replacing names with ids in-place.
+func validateMountedModelsAgainstLLMType(ctx context.Context, userCred mcclient.TokenCredential, mountedModels []string, llmType string) ([]string, error) {
+	out := make([]string, len(mountedModels))
+	for i, mdl := range mountedModels {
+		instMdl, err := GetInstantModelManager().FetchByIdOrName(ctx, userCred, mdl)
+		if err != nil {
+			return nil, errors.Wrapf(err, "validate mounted model %s", mdl)
+		}
+		instantModel := instMdl.(*SInstantModel)
+		if !api.IsLLMInstantModelCompatible(api.LLMContainerType(instantModel.LlmType), api.LLMContainerType(llmType)) {
+			return nil, errors.Wrapf(httperrors.ErrInvalidStatus, "mounted model %s is not of type %s", mdl, llmType)
+		}
+		out[i] = instantModel.GetId()
+	}
+	return out, nil
 }
 
 func (man *SLLMManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input *api.LLMCreateInput) (*api.LLMCreateInput, error) {
@@ -99,6 +173,20 @@ func (man *SLLMManager) ValidateCreateData(ctx context.Context, userCred mcclien
 			return input, errors.Wrap(err, "validate LLM create spec")
 		}
 		input.LLMSpec = spec
+	}
+
+	if len(input.MountedModels) > 0 {
+		ids, err := validateMountedModelsAgainstLLMType(ctx, userCred, input.MountedModels, lSku.LLMType)
+		if err != nil {
+			return input, errors.Wrap(err, "validate mounted_models")
+		}
+		input.MountedModels = ids
+	}
+
+	drv := lSku.GetLLMContainerDriver()
+	input, err = drv.ValidateLLMCreateData(ctx, userCred, lSku, input)
+	if err != nil {
+		return input, errors.Wrap(err, "validate LLM create data")
 	}
 
 	return input, nil
@@ -186,7 +274,7 @@ func (man *SLLMManager) FetchCustomizeColumns(
 			networkIds = append(networkIds, llm.NetworkId)
 		}
 		mountedModelInfo, _ := llm.FetchMountedModelInfo()
-		res[idx].MountedModels = mountedModelInfo
+		res[idx].MountedModelInfos = mountedModelInfo
 		res[idx].NetworkType = llm.NetworkType
 		res[idx].NetworkId = llm.NetworkId
 	}
@@ -403,14 +491,31 @@ func (llm *SLLM) ValidateUpdateData(ctx context.Context, userCred mcclient.Token
 		return input, errors.Wrap(err, "validate VirtualResourceBaseUpdateInput")
 	}
 
-	if input.LLMSpec == nil {
-		return input, nil
-	}
 	sku, err := llm.GetLLMSku(llm.LLMSkuId)
 	if err != nil {
 		return input, errors.Wrap(err, "fetch LLMSku")
 	}
+
+	if len(input.MountedModels) > 0 {
+		ids, err := validateMountedModelsAgainstLLMType(ctx, userCred, input.MountedModels, sku.LLMType)
+		if err != nil {
+			return input, errors.Wrap(err, "validate mounted_models")
+		}
+		input.MountedModels = ids
+	}
+
 	drv := sku.GetLLMContainerDriver()
+	out, err := drv.ValidateLLMUpdateData(ctx, userCred, llm, sku, &input)
+	if err != nil {
+		return input, errors.Wrap(err, "validate LLM update data")
+	}
+	if out != nil {
+		input = *out
+	}
+
+	if input.LLMSpec == nil {
+		return input, nil
+	}
 	spec, err := drv.ValidateLLMUpdateSpec(ctx, userCred, llm, input.LLMSpec)
 	if err != nil {
 		return input, errors.Wrap(err, "validate LLM update spec")
