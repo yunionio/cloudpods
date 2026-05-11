@@ -159,6 +159,14 @@ func (d *dify) ValidateLLMSkuUpdateData(ctx context.Context, userCred mcclient.T
 	return input, nil
 }
 
+func (d *dify) ValidateLLMCreateData(ctx context.Context, userCred mcclient.TokenCredential, sku *models.SLLMSku, input *api.LLMCreateInput) (*api.LLMCreateInput, error) {
+	return input, nil
+}
+
+func (d *dify) ValidateLLMUpdateData(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM, sku *models.SLLMSku, input *api.LLMUpdateInput) (*api.LLMUpdateInput, error) {
+	return input, nil
+}
+
 // ValidateLLMCreateSpec implements ILLMContainerDriver. Validates image ids and merges empty fields from SKU spec.
 func (d *dify) ValidateLLMCreateSpec(ctx context.Context, userCred mcclient.TokenCredential, sku *models.SLLMSku, input *api.LLMSpec) (*api.LLMSpec, error) {
 	if input == nil || input.Dify == nil {

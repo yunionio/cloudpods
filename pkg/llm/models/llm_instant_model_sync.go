@@ -691,7 +691,7 @@ func (llm *SLLM) UpdateMountedModelFullNames(ctx context.Context, userCred mccli
 				return errors.Wrap(err, "getDeletedModelIds")
 			}
 		}
-		mountedModels := sku.GetMountedModels()
+		mountedModels := getEffectiveMountedModels(llm, sku)
 		for i := range mountedModels {
 			instMdl, err := GetInstantModelManager().FetchByIdOrName(ctx, userCred, mountedModels[i])
 			if err != nil {
