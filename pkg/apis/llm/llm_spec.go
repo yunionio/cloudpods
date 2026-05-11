@@ -59,7 +59,8 @@ func (s *LLMSpecOllama) IsZero() bool {
 
 // LLMSpecVllm holds type-specific fields for vllm SKUs (includes PreferredModel).
 type LLMSpecVllm struct {
-	PreferredModel string               `json:"preferred_model"`
+	PreferredModel string `json:"preferred_model"`
+	// On update, a provided customized_args list replaces the previous list.
 	CustomizedArgs []*VllmCustomizedArg `json:"customized_args,omitempty"`
 }
 
