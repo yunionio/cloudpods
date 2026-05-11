@@ -88,8 +88,9 @@ func (c *comfyui) GetContainerSpec(ctx context.Context, llm *models.SLLM, image 
 		},
 	}
 
-	if len(devices) == 0 && (sku.Devices != nil && len(*sku.Devices) > 0) {
-		for i := range *sku.Devices {
+	effDevs := models.GetEffectiveDevices(llm, sku)
+	if len(devices) == 0 && effDevs != nil && len(*effDevs) > 0 {
+		for i := range *effDevs {
 			index := i
 			spec.Devices = append(spec.Devices, &computeapi.ContainerDevice{
 				Type: commonapi.CONTAINER_DEVICE_TYPE_ISOLATED_DEVICE,
