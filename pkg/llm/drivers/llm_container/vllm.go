@@ -372,8 +372,9 @@ func (v *vllm) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *mo
 	}
 
 	// GPU Devices
-	if len(devices) == 0 && (sku.Devices != nil && len(*sku.Devices) > 0) {
-		for i := range *sku.Devices {
+	effDevs := models.GetEffectiveDevices(llm, sku)
+	if len(devices) == 0 && effDevs != nil && len(*effDevs) > 0 {
+		for i := range *effDevs {
 			index := i
 			spec.Devices = append(spec.Devices, &computeapi.ContainerDevice{
 				Type: commonapi.CONTAINER_DEVICE_TYPE_ISOLATED_DEVICE,
@@ -498,8 +499,8 @@ func (v *vllm) StartLLM(ctx context.Context, userCred mcclient.TokenCredential, 
 		return errors.Wrap(err, "get llm sku")
 	}
 	tensorParallelSize := 1
-	if sku.Devices != nil && len(*sku.Devices) > 0 {
-		tensorParallelSize = len(*sku.Devices)
+	if effDevs := models.GetEffectiveDevices(llm, sku); effDevs != nil && len(*effDevs) > 0 {
+		tensorParallelSize = len(*effDevs)
 	}
 	swapSpaceGiB := (sku.Memory * 1) / (2 * 1024)
 	if swapSpaceGiB < 1 {

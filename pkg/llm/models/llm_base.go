@@ -72,6 +72,21 @@ type SLLMBase struct {
 	Devices   *api.Devices   `charset:"utf8" length:"medium" nullable:"true" list:"user" update:"user" create:"optional"`
 }
 
+// GetEffectiveDevices returns the devices to apply: llm's override takes priority over sku when non-empty.
+// Drivers should call this when materializing container device specs so that SLLM overrides on the
+// instance are honored (not just on server-level IsolatedDevices allocation).
+func GetEffectiveDevices(llm *SLLM, sku *SLLMSku) *api.Devices {
+	var llmBase *SLLMBase
+	var skuBase *SLLMSkuBase
+	if llm != nil {
+		llmBase = &llm.SLLMBase
+	}
+	if sku != nil {
+		skuBase = &sku.SLLMSkuBase
+	}
+	return getEffectiveDevices(llmBase, skuBase)
+}
+
 func getEffectiveDevices(llmBase *SLLMBase, skuBase *SLLMSkuBase) *api.Devices {
 	if llmBase != nil && llmBase.Devices != nil && !llmBase.Devices.IsZero() {
 		return llmBase.Devices
@@ -80,6 +95,19 @@ func getEffectiveDevices(llmBase *SLLMBase, skuBase *SLLMSkuBase) *api.Devices {
 		return skuBase.Devices
 	}
 	return nil
+}
+
+// GetEffectiveHostPaths returns the host_paths to apply with llm's override taking priority over sku.
+func GetEffectiveHostPaths(llm *SLLM, sku *SLLMSku) *api.HostPaths {
+	var llmBase *SLLMBase
+	var skuBase *SLLMSkuBase
+	if llm != nil {
+		llmBase = &llm.SLLMBase
+	}
+	if sku != nil {
+		skuBase = &sku.SLLMSkuBase
+	}
+	return getEffectiveHostPaths(llmBase, skuBase)
 }
 
 func getEffectiveHostPaths(llmBase *SLLMBase, skuBase *SLLMSkuBase) *api.HostPaths {
