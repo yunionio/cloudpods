@@ -80,8 +80,8 @@ func (llm *SLLM) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCre
 	return nil
 }
 
-// getEffectiveMountedModels returns the effective mounted model ids: llm's override takes priority over sku's when non-empty.
-func getEffectiveMountedModels(llm *SLLM, sku *SLLMSku) []string {
+// GetEffectiveMountedModels returns the effective mounted model ids: llm's override takes priority over sku's when non-empty.
+func GetEffectiveMountedModels(llm *SLLM, sku *SLLMSku) []string {
 	if llm != nil && len(llm.MountedModels) > 0 {
 		return llm.MountedModels
 	}
