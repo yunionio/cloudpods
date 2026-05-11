@@ -103,6 +103,11 @@ type ILLMContainerDriver interface {
 	ValidateLLMCreateSpec(ctx context.Context, userCred mcclient.TokenCredential, sku *SLLMSku, input *llm.LLMSpec) (*llm.LLMSpec, error)
 	ValidateLLMUpdateSpec(ctx context.Context, userCred mcclient.TokenCredential, llm *SLLM, input *llm.LLMSpec) (*llm.LLMSpec, error)
 
+	// ValidateLLMCreateData validates SLLM create input against this driver's requirements (e.g. ollama/vllm require devices + mounted_models from either input or sku). Returns the (possibly modified) input.
+	ValidateLLMCreateData(ctx context.Context, userCred mcclient.TokenCredential, sku *SLLMSku, input *llm.LLMCreateInput) (*llm.LLMCreateInput, error)
+	// ValidateLLMUpdateData validates SLLM update input against this driver's requirements; the current SLLM is passed so existing override values can be considered.
+	ValidateLLMUpdateData(ctx context.Context, userCred mcclient.TokenCredential, llm *SLLM, sku *SLLMSku, input *llm.LLMUpdateInput) (*llm.LLMUpdateInput, error)
+
 	ILLMContainerMCPAgent
 }
 
@@ -152,7 +157,11 @@ func GetLLMContainerInstantModelDriver(typ llm.LLMContainerType) (ILLMContainerI
 func GetDriverPodContainers(ctx context.Context, drv ILLMContainerDriver, llm *SLLM, image *SLLMImage, sku *SLLMSku, props []string, devices []computeapi.SIsolatedDevice, diskId string) []*computeapi.PodContainerCreateInput {
 	containers := drv.GetContainerSpecs(ctx, llm, image, sku, props, devices, diskId)
 	if sku != nil {
-		AppendLLMSkuVolumeMounts(containers, &sku.SLLMSkuBase, nil)
+		var llmBase *SLLMBase
+		if llm != nil {
+			llmBase = &llm.SLLMBase
+		}
+		AppendLLMSkuVolumeMounts(containers, llmBase, &sku.SLLMSkuBase, nil)
 	}
 	return containers
 }

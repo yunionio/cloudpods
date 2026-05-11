@@ -62,9 +62,10 @@ func GetLLMBasePodCreateInput(
 	}
 
 	// isolated devices
-	if skuBase.Devices != nil && !skuBase.Devices.IsZero() {
+	effectiveDevices := getEffectiveDevices(llmBase, skuBase)
+	if effectiveDevices != nil && !effectiveDevices.IsZero() {
 		data.IsolatedDevices = make([]*computeapi.IsolatedDeviceConfig, 0)
-		devices := *skuBase.Devices
+		devices := *effectiveDevices
 		for i := 0; i < len(devices); i++ {
 			isolatedDevice := &computeapi.IsolatedDeviceConfig{
 				DevType:    devices[i].DevType,
