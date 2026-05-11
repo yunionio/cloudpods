@@ -124,3 +124,11 @@ func (b *baseDriver) ValidateLLMCreateSpec(ctx context.Context, userCred mcclien
 func (b *baseDriver) ValidateLLMUpdateSpec(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM, input *api.LLMSpec) (*api.LLMSpec, error) {
 	return input, nil
 }
+
+func (b *baseDriver) ValidateLLMCreateData(ctx context.Context, userCred mcclient.TokenCredential, sku *models.SLLMSku, input *api.LLMCreateInput) (*api.LLMCreateInput, error) {
+	return input, nil
+}
+
+func (b *baseDriver) ValidateLLMUpdateData(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM, sku *models.SLLMSku, input *api.LLMUpdateInput) (*api.LLMUpdateInput, error) {
+	return input, nil
+}
