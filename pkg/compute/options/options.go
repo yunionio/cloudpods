@@ -144,6 +144,9 @@ type ComputeOptions struct {
 	HostOfflineMaxSeconds        int `help:"Maximal seconds interval that a host considered offline during which it did not ping region, default is 3 minues" default:"180"`
 	HostOfflineDetectionInterval int `help:"Interval to check offline hosts, default is half a minute" default:"30"`
 
+	LbaagentOfflineMaxSeconds       int `help:"Maximal seconds interval that a lbagent considered offline during which it did not ping region, default is 3 minues" default:"90"`
+	LbagentOfflineDetectionInterval int `help:"Interval to check offline lbagents, default is one minute" default:"60"`
+
 	ManagedHostSyncStatusIntervalSeconds int `help:"interval to automatically sync status of managed hosts, default is 5 minutes" default:"300"`
 
 	MinimalIpAddrReusedIntervalSeconds int `help:"Minimal seconds when a release IP address can be reallocate" default:"30"`
