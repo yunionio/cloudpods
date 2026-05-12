@@ -77,8 +77,8 @@ func (self *SUCloudGuestDriver) GetAttachDiskStatus() ([]string, error) {
 	return []string{api.VM_READY, api.VM_RUNNING}, nil
 }
 
-func (self *SUCloudGuestDriver) GetChangeInstanceTypeStatus() ([]string, error) {
-	return []string{api.VM_READY}, nil
+func (self *SUCloudGuestDriver) IsChangeInstanceTypeWhileRunningSupported(guest *models.SGuest) (bool, error) {
+	return false, nil
 }
 
 func (self *SUCloudGuestDriver) GetRebuildRootStatus() ([]string, error) {

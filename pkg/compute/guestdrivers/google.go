@@ -145,8 +145,8 @@ func (self *SGoogleGuestDriver) GetRebuildRootStatus() ([]string, error) {
 	return []string{api.VM_READY}, nil
 }
 
-func (self *SGoogleGuestDriver) GetChangeInstanceTypeStatus() ([]string, error) {
-	return []string{api.VM_READY}, nil
+func (self *SGoogleGuestDriver) IsChangeInstanceTypeWhileRunningSupported(guest *models.SGuest) (bool, error) {
+	return false, nil
 }
 
 func (self *SGoogleGuestDriver) GetDeployStatus() ([]string, error) {
