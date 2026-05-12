@@ -83,14 +83,6 @@ func (llm *SLLM) PerformSaveInstantModel(
 		modelId = mdlInfo.ModelId
 	}
 
-	if len(input.ModelFullName) == 0 {
-		if mdlInfo != nil {
-			input.ModelFullName = fmt.Sprintf("%s-%s", mdlInfo.Name+":"+mdlInfo.Tag, time.Now().Format("060102"))
-		} else {
-			input.ModelFullName = fmt.Sprintf("%s-%s", modelId, time.Now().Format("060102"))
-		}
-	}
-
 	var ownerId mcclient.IIdentityProvider
 	if len(input.TenantId) > 0 {
 		domainId := input.ProjectDomainId
@@ -120,31 +112,8 @@ func (llm *SLLM) PerformSaveInstantModel(
 	input.ProjectId = ownerId.GetProjectId()
 	input.ProjectDomainId = ownerId.GetProjectDomainId()
 
-	modelName, modelTag, _ := llm.GetLargeLanguageModelName(input.ModelFullName)
-	if len(modelName) == 0 {
-		if mdlInfo != nil {
-			modelName = mdlInfo.Name
-		} else {
-			modelName = modelId
-		}
-	}
-	if len(modelTag) == 0 {
-		if mdlInfo != nil {
-			modelTag = mdlInfo.Tag
-		} else {
-			modelTag = "main"
-		}
-	}
-
 	drv := llm.GetLLMContainerDriver()
-	instantModelCreateInput := api.InstantModelCreateInput{
-		LlmType:   drv.GetType(),
-		ModelId:   modelId,
-		ModelName: modelName,
-		ModelTag:  modelTag,
-		Mounts:    mountDirs,
-	}
-	instantModelCreateInput.Name = input.ModelFullName
+	input, instantModelCreateInput := buildSaveInstantModelCreateInput(drv.GetType(), modelId, input, mdlInfo, mountDirs, time.Now())
 	boolTrue := true
 	instantModelCreateInput.DoNotImport = &boolTrue
 	log.Debugf("instantModelCreateInput: %s", jsonutils.Marshal(instantModelCreateInput))
@@ -184,8 +153,13 @@ func (llm *SLLM) DoSaveModelImage(ctx context.Context, userCred mcclient.TokenCr
 		return errors.Wrap(err, "GetSaveDirectories")
 	}
 
+	generateName := strings.TrimSpace(input.Name)
+	if generateName == "" {
+		generateName = strings.TrimSpace(input.ModelFullName)
+	}
+
 	saveImageInput := computeapi.ContainerSaveVolumeMountToImageInput{
-		GenerateName:      input.ModelFullName,
+		GenerateName:      generateName,
 		Notes:             fmt.Sprintf("instance model image for %s(%s)", instantModel.ModelId, instantModel.ModelName+":"+instantModel.ModelTag),
 		Index:             getInstantModelSaveVolumeMountIndex(drv),
 		Dirs:              saveDirs,
@@ -219,6 +193,70 @@ func (llm *SLLM) DoSaveModelImage(ctx context.Context, userCred mcclient.TokenCr
 
 func getInstantModelSaveVolumeMountIndex(drv ILLMContainerInstantModelDriver) int {
 	return getInstantModelPostOverlayVolumeMountIndex(drv)
+}
+
+func buildSaveInstantModelCreateInput(
+	llmType api.LLMContainerType,
+	modelId string,
+	input api.LLMSaveInstantModelInput,
+	mdlInfo *api.LLMInternalInstantMdlInfo,
+	mountDirs []string,
+	now time.Time,
+) (api.LLMSaveInstantModelInput, api.InstantModelCreateInput) {
+	modelId = strings.TrimSpace(modelId)
+	input.Name = strings.TrimSpace(input.Name)
+	input.ModelFullName = strings.TrimSpace(input.ModelFullName)
+
+	if input.ModelFullName == "" {
+		if mdlInfo != nil {
+			input.ModelFullName = fmt.Sprintf("%s-%s", mdlInfo.Name+":"+mdlInfo.Tag, now.Format("060102"))
+		} else {
+			input.ModelFullName = fmt.Sprintf("%s-%s", modelId, now.Format("060102"))
+		}
+	}
+
+	if input.Name == "" {
+		input.Name = input.ModelFullName
+	}
+
+	modelName, modelTag, _ := parseLargeLanguageModelName(input.ModelFullName)
+	if modelName == "" {
+		if mdlInfo != nil {
+			modelName = mdlInfo.Name
+		} else {
+			modelName = modelId
+		}
+	}
+	if modelTag == "" {
+		if mdlInfo != nil {
+			modelTag = mdlInfo.Tag
+		} else {
+			modelTag = "main"
+		}
+	}
+
+	instantModelCreateInput := api.InstantModelCreateInput{
+		LlmType:   llmType,
+		ModelId:   modelId,
+		ModelName: modelName,
+		ModelTag:  modelTag,
+		Mounts:    mountDirs,
+	}
+	instantModelCreateInput.Name = input.Name
+	return input, instantModelCreateInput
+}
+
+func parseLargeLanguageModelName(name string) (modelName string, modelTag string, err error) {
+	if name == "" {
+		return "", "", errors.Wrap(errors.ErrInvalidStatus, "model name is empty")
+	}
+	parts := strings.Split(name, ":")
+	modelName = parts[0]
+	modelTag = "latest"
+	if len(parts) == 2 {
+		modelTag = parts[1]
+	}
+	return
 }
 
 func (llm *SLLM) StartSaveModelImageTask(ctx context.Context, userCred mcclient.TokenCredential, input api.LLMSaveInstantModelInput) (*taskman.STask, error) {
