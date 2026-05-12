@@ -69,6 +69,9 @@ func (self *SRegion) AllocateEIP(name, projectId string) (*SEipAddress, error) {
 	params := map[string]interface{}{
 		"Location": self.Name,
 		"Name":     name,
+		"Sku": map[string]string{
+			"Name": "Standard",
+		},
 		"Properties": map[string]string{
 			"PublicIPAddressVersion":   "IPv4",
 			"PublicIPAllocationMethod": "Static",
