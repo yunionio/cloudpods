@@ -100,8 +100,8 @@ func (self *SSangForGuestDriver) GetRebuildRootStatus() ([]string, error) {
 	return []string{api.VM_READY}, nil
 }
 
-func (self *SSangForGuestDriver) GetChangeInstanceTypeStatus() ([]string, error) {
-	return []string{api.VM_READY}, nil
+func (self *SSangForGuestDriver) IsChangeInstanceTypeWhileRunningSupported(guest *models.SGuest) (bool, error) {
+	return false, nil
 }
 
 func (self *SSangForGuestDriver) GetDeployStatus() ([]string, error) {

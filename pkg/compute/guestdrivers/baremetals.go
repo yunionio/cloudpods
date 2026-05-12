@@ -123,8 +123,8 @@ func (self *SBaremetalGuestDriver) GetRebuildRootStatus() ([]string, error) {
 	return []string{api.VM_READY, api.VM_ADMIN}, nil
 }
 
-func (self *SBaremetalGuestDriver) GetChangeInstanceTypeStatus() ([]string, error) {
-	return nil, httperrors.NewUnsupportOperationError("Cannot change config for baremtal")
+func (self *SBaremetalGuestDriver) IsChangeInstanceTypeWhileRunningSupported(guest *models.SGuest) (bool, error) {
+	return false, httperrors.NewUnsupportOperationError("Cannot change config for baremtal")
 }
 
 func (self *SBaremetalGuestDriver) GetDeployStatus() ([]string, error) {

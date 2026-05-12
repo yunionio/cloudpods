@@ -132,8 +132,8 @@ func (self *SOpenStackGuestDriver) GetRebuildRootStatus() ([]string, error) {
 	return []string{api.VM_READY, api.VM_RUNNING, api.VM_REBUILD_ROOT_FAIL}, nil
 }
 
-func (self *SOpenStackGuestDriver) GetChangeInstanceTypeStatus() ([]string, error) {
-	return []string{api.VM_READY, api.VM_RUNNING}, nil
+func (self *SOpenStackGuestDriver) IsChangeInstanceTypeWhileRunningSupported(guest *models.SGuest) (bool, error) {
+	return true, nil
 }
 
 func (self *SOpenStackGuestDriver) IsNeedInjectPasswordByCloudInit() bool {
