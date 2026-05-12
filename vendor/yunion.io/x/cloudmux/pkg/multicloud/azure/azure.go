@@ -579,17 +579,21 @@ func (self *SAzureClient) getUniqName(resourceGroup, resourceType, name string) 
 	newName := name
 	for i := 0; i < 20; i++ {
 		err := self._get(prefix+newName, nil, url.Values{}, false)
+		if err == nil {
+			info := strings.Split(newName, "-")
+			num, err := strconv.Atoi(info[len(info)-1])
+			if err != nil {
+				info = append(info, "1")
+			} else {
+				info[len(info)-1] = fmt.Sprintf("%d", num+1)
+			}
+			newName = strings.Join(info, "-")
+			continue
+		}
 		if errors.Cause(err) == cloudprovider.ErrNotFound {
 			return newName, nil
 		}
-		info := strings.Split(newName, "-")
-		num, err := strconv.Atoi(info[len(info)-1])
-		if err != nil {
-			info = append(info, "1")
-		} else {
-			info[len(info)-1] = fmt.Sprintf("%d", num+1)
-		}
-		newName = strings.Join(info, "-")
+		return "", err
 	}
 	return "", fmt.Errorf("not find uniq name for %s[%s]", resourceType, name)
 }
