@@ -102,8 +102,22 @@ func (self *SAzureGuestDriver) IsRebuildRootSupportChangeUEFI() bool {
 	return false
 }
 
-func (self *SAzureGuestDriver) GetChangeInstanceTypeStatus() ([]string, error) {
-	return []string{api.VM_READY, api.VM_RUNNING}, nil
+// azureInstanceTypeSupportsResizeWhileRunning 部分 Azure SKU 在开机状态下变更规格易失败，此处做保守判断
+func azureInstanceTypeSupportsResizeWhileRunning(instanceType string) bool {
+	if len(instanceType) == 0 {
+		return true
+	}
+	if strings.HasPrefix(instanceType, "Basic_") || strings.HasPrefix(instanceType, "Standard_A") {
+		return false
+	}
+	return true
+}
+
+func (self *SAzureGuestDriver) IsChangeInstanceTypeWhileRunningSupported(guest *models.SGuest) (bool, error) {
+	if guest == nil || azureInstanceTypeSupportsResizeWhileRunning(guest.InstanceType) {
+		return true, nil
+	}
+	return false, nil
 }
 
 func (self *SAzureGuestDriver) GetDeployStatus() ([]string, error) {

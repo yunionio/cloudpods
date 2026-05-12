@@ -582,8 +582,8 @@ func (p *SPodDriver) IsSupportFloppy(guest *models.SGuest) (bool, error) {
 	return false, nil
 }
 
-func (p *SPodDriver) GetChangeInstanceTypeStatus() ([]string, error) {
-	return []string{api.VM_READY}, nil
+func (p *SPodDriver) IsChangeInstanceTypeWhileRunningSupported(guest *models.SGuest) (bool, error) {
+	return false, nil
 }
 
 func (p *SPodDriver) RequestSaveVolumeMountImage(ctx context.Context, userCred mcclient.TokenCredential, task models.IContainerTask) error {

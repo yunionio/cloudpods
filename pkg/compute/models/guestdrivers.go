@@ -144,7 +144,8 @@ type IGuestDriver interface {
 	GetAttachDiskStatus() ([]string, error)
 	GetRebuildRootStatus() ([]string, error)
 	IsAllowSaveImageOnRunning() bool
-	GetChangeInstanceTypeStatus() ([]string, error)
+	// IsChangeInstanceTypeWhileRunningSupported 是否支持在虚拟机运行（开机）状态下调整 CPU/内存/实例规格
+	IsChangeInstanceTypeWhileRunningSupported(guest *SGuest) (bool, error)
 	GetDeployStatus() ([]string, error)
 	ValidateResizeDisk(guest *SGuest, disk *SDisk, storage *SStorage) error
 	CanKeepDetachDisk() bool

@@ -3465,7 +3465,11 @@ func (self *SGuest) PerformModifySrcCheck(ctx context.Context, userCred mcclient
 }
 
 // 调整配置
+// 要求虚拟机运行中或关机状态下可以调整配置
 func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ServerChangeConfigInput) (jsonutils.JSONObject, error) {
+	if !utils.IsInStringArray(self.Status, []string{api.VM_RUNNING, api.VM_READY}) {
+		return nil, httperrors.NewInvalidStatusError("Cannot change config in status %s", self.Status)
+	}
 	driver, err := self.GetDriver()
 	if err != nil {
 		return nil, err
@@ -3488,13 +3492,13 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 		return nil, errors.Wrap(err, "ValidateGuestChangeConfigInput")
 	}
 
-	if confs.CpuChanged() || confs.MemChanged() || confs.InstanceTypeChanged() {
-		changeStatus, err := driver.GetChangeInstanceTypeStatus()
+	if (confs.CpuChanged() || confs.MemChanged() || confs.InstanceTypeChanged()) && self.Status == api.VM_RUNNING {
+		runningOk, err := driver.IsChangeInstanceTypeWhileRunningSupported(self)
 		if err != nil {
-			return nil, httperrors.NewInputParameterError("%v", err)
+			return nil, err
 		}
-		if !utils.IsInStringArray(self.Status, changeStatus) {
-			return nil, httperrors.NewInvalidStatusError("Cannot change config in %s for %s, requires %s", self.Status, self.GetHypervisor(), changeStatus)
+		if !runningOk && !input.ForceStop {
+			return nil, httperrors.NewInvalidStatusError("Cannot change config in %s for %s, requires force_stop to change config", self.Status, self.GetHypervisor())
 		}
 	}
 
