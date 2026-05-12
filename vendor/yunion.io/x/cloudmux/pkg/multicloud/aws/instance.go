@@ -798,7 +798,7 @@ func (self *SRegion) CreateInstance(name string, image *SImage, instanceType str
 		}) {
 			params[fmt.Sprintf("BlockDeviceMapping.%d.Ebs.Iops", i+1)] = fmt.Sprintf("%d", iops)
 		}
-		if disk.Throughput >= 125 && disk.Throughput <= 1000 && disk.StorageType == api.STORAGE_GP3_SSD {
+		if disk.Throughput >= 125 && disk.Throughput <= 2000 && disk.StorageType == api.STORAGE_GP3_SSD {
 			params[fmt.Sprintf("BlockDeviceMapping.%d.Ebs.Throughput", i+1)] = fmt.Sprintf("%d", disk.Throughput)
 		}
 	}
