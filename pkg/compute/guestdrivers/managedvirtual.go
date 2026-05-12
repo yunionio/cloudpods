@@ -1152,40 +1152,69 @@ func (drv *SManagedVirtualizedGuestDriver) DoGuestCreateDisksTask(ctx context.Co
 }
 
 func (drv *SManagedVirtualizedGuestDriver) RequestChangeVmConfig(ctx context.Context, guest *models.SGuest, task taskman.ITask, instanceType string, vcpuCount, cpuSockets, vmemSize int64) error {
-	host, err := guest.GetHost()
-	if err != nil {
-		return errors.Wrapf(err, "GetHost")
-	}
-	ihost, err := host.GetIHost(ctx)
-	if err != nil {
-		return err
-	}
-
-	iVM, err := ihost.GetIVMById(guest.GetExternalId())
-	if err != nil {
-		return err
-	}
-
-	if len(instanceType) == 0 {
-		region, err := host.GetRegion()
-		if err != nil {
-			return err
-		}
-		sku, err := models.ServerSkuManager.GetMatchedSku(region.GetId(), vcpuCount, vmemSize)
-		if err != nil {
-			return errors.Wrapf(err, "GetMatchedSku %s %dC%dM", region.GetId(), vcpuCount, vmemSize)
-		}
-		instanceType = sku.Name
-	}
-
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		host, err := guest.GetHost()
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetHost")
+		}
+		ihost, err := host.GetIHost(ctx)
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetIHost")
+		}
+
+		iVM, err := ihost.GetIVMById(guest.GetExternalId())
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetIVMById")
+		}
+
+		if len(instanceType) == 0 {
+			region, err := host.GetRegion()
+			if err != nil {
+				return nil, errors.Wrapf(err, "GetRegion")
+			}
+			sku, err := models.ServerSkuManager.GetMatchedSku(region.GetId(), vcpuCount, vmemSize)
+			if err != nil {
+				return nil, errors.Wrapf(err, "GetMatchedSku %s %dC%dM", region.GetId(), vcpuCount, vmemSize)
+			}
+			instanceType = sku.Name
+		}
+
+		drv, err := guest.GetDriver()
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetDriver")
+		}
+
+		runningOk, err := drv.IsChangeInstanceTypeWhileRunningSupported(guest)
+		if err != nil {
+			return nil, errors.Wrapf(err, "IsChangeInstanceTypeWhileRunningSupported")
+		}
+
+		needStart := false
+
+		if !runningOk {
+			status := iVM.GetStatus()
+			if status == api.VM_RUNNING {
+				err = iVM.StopVM(ctx, &cloudprovider.ServerStopOptions{
+					IsForce: true,
+				})
+				if err != nil {
+					return nil, errors.Wrapf(err, "StopVM")
+				}
+				err = cloudprovider.WaitStatus(iVM, api.VM_READY, time.Second*5, time.Minute*10)
+				if err != nil {
+					return nil, errors.Wrapf(err, "WaitStatus")
+				}
+				needStart = true
+			}
+		}
+
 		config := &cloudprovider.SManagedVMChangeConfig{
 			Cpu:          int(vcpuCount),
 			CpuSocket:    int(cpuSockets),
 			MemoryMB:     int(vmemSize),
 			InstanceType: instanceType,
 		}
-		err := iVM.ChangeConfig(ctx, config)
+		err = iVM.ChangeConfig(ctx, config)
 		if err != nil {
 			return nil, errors.Wrap(err, "ChangeConfig")
 		}
@@ -1221,6 +1250,17 @@ func (drv *SManagedVirtualizedGuestDriver) RequestChangeVmConfig(ctx context.Con
 			})
 			if err != nil {
 				return nil, errors.Wrap(err, "Update")
+			}
+		}
+
+		if needStart {
+			err = iVM.StartVM(ctx)
+			if err != nil {
+				return nil, errors.Wrapf(err, "StartVM")
+			}
+			err = cloudprovider.WaitStatus(iVM, api.VM_RUNNING, time.Second*5, time.Minute*10)
+			if err != nil {
+				return nil, errors.Wrapf(err, "WaitStatus")
 			}
 		}
 

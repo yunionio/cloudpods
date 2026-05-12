@@ -81,8 +81,8 @@ func (self *SCloudpodsGuestDriver) GetRebuildRootStatus() ([]string, error) {
 	return []string{api.VM_READY, api.VM_RUNNING}, nil
 }
 
-func (self *SCloudpodsGuestDriver) GetChangeInstanceTypeStatus() ([]string, error) {
-	return []string{api.VM_READY, api.VM_RUNNING}, nil
+func (self *SCloudpodsGuestDriver) IsChangeInstanceTypeWhileRunningSupported(guest *models.SGuest) (bool, error) {
+	return true, nil
 }
 
 func (self *SCloudpodsGuestDriver) GetDeployStatus() ([]string, error) {

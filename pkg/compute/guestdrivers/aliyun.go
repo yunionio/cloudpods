@@ -103,8 +103,8 @@ func (self *SAliyunGuestDriver) IsAllowSaveImageOnRunning() bool {
 	return true
 }
 
-func (self *SAliyunGuestDriver) GetChangeInstanceTypeStatus() ([]string, error) {
-	return []string{api.VM_READY}, nil
+func (self *SAliyunGuestDriver) IsChangeInstanceTypeWhileRunningSupported(guest *models.SGuest) (bool, error) {
+	return false, nil
 }
 
 func (self *SAliyunGuestDriver) GetDeployStatus() ([]string, error) {

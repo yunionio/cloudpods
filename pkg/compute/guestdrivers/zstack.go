@@ -101,8 +101,8 @@ func (self *SZStackGuestDriver) GetRebuildRootStatus() ([]string, error) {
 	return []string{api.VM_READY}, nil
 }
 
-func (self *SZStackGuestDriver) GetChangeInstanceTypeStatus() ([]string, error) {
-	return []string{api.VM_READY, api.VM_RUNNING}, nil
+func (self *SZStackGuestDriver) IsChangeInstanceTypeWhileRunningSupported(guest *models.SGuest) (bool, error) {
+	return true, nil
 }
 
 func (self *SZStackGuestDriver) GetDeployStatus() ([]string, error) {
