@@ -31,6 +31,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/util/httputils"
 	"yunion.io/x/pkg/util/stringutils"
 
@@ -45,6 +46,8 @@ const (
 	CLOUD_API_VERSION        = "2016-12-05"
 
 	ECLOUD_DEFAULT_REGION = "cn-beijing-1"
+
+	ErrResponseBodyIsNil = errors.Error("response body is nil")
 )
 
 type SEcloudClientConfig struct {
@@ -515,6 +518,9 @@ func (ec *SEcloudClient) doRequest(ctx context.Context, r *SBaseRequest) (jsonut
 		if err != nil {
 			return nil, errors.Wrapf(err, "unable to parsing json: %s", rbody)
 		}
+	}
+	if gotypes.IsNil(jrbody) {
+		return nil, ErrResponseBodyIsNil
 	}
 	return jrbody, nil
 }
