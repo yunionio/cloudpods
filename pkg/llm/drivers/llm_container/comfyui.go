@@ -494,15 +494,22 @@ func parseComfyUIModelDirName(dirName string) (string, string, bool) {
 }
 
 func buildComfyUIProbedModelInfo(modelPath string, sizeBytes int64) (string, api.LLMInternalInstantMdlInfo, bool) {
+	cleanPath := path.Clean(strings.TrimSpace(modelPath))
 	modelName, modelTag, ok := parseComfyUIModelDirName(modelPath)
 	if !ok {
 		return "", api.LLMInternalInstantMdlInfo{}, false
 	}
+	modelType := ""
+	if relPath, ok := getComfyUIModelMountRelPath(cleanPath); ok {
+		modelType = strings.Split(relPath, "/")[0]
+	}
 	return modelName + ":" + modelTag, api.LLMInternalInstantMdlInfo{
-		Name:    modelName,
-		Tag:     modelTag,
-		ModelId: modelName,
-		Size:    sizeBytes,
+		Name:      modelName,
+		Tag:       modelTag,
+		ModelId:   modelName,
+		Size:      sizeBytes,
+		Mounts:    []string{cleanPath},
+		ModelType: modelType,
 	}, true
 }
 
