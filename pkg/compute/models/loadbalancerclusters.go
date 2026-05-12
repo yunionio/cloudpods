@@ -520,7 +520,7 @@ func (cluster *SLoadbalancerCluster) selfInitParams() error {
 	params := SLoadbalancerClusterParams{
 		VirtualRouterId:   newRouterId,
 		Preempt:           false,
-		AdvertInt:         5,
+		AdvertInt:         1,
 		Pass:              seclib.RandomPassword(6),
 		GarpMasterRefresh: 29,
 	}
