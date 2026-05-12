@@ -351,17 +351,29 @@ func (self *SRegion) ResizeDisk(diskId string, sizeGb int64) error {
 	return self.ec2Request("ModifyVolume", params, &ret)
 }
 
-// io1类型的卷需要指定IOPS参数,最大不超过32000。这里根据aws网站的建议值进行设置
-// io2类型的卷需要指定IOPS参数,最大不超过64000。
-// GenDiskIops Base 100, 卷每增加2G。IOPS增加1。最多到3000 iops
+// io1 卷 IOPS 默认按容量估算，上限 32000（参见 AWS Provisioned IOPS 文档）
+// io2 卷 IOPS 上限 64000
+// GenDiskIops: Base 100, 卷每增加 2GiB IOPS 增加 1
 func GenDiskIops(diskType string, sizeGB int) int64 {
 	switch diskType {
-	case api.STORAGE_IO1_SSD, api.STORAGE_IO2_SSD:
+	case api.STORAGE_IO1_SSD:
 		iops := int64(100 + sizeGB/2)
-		if iops < 32000 {
-			return iops
+		if iops < 100 {
+			return 100
 		}
-		return 100
+		if iops > 32000 {
+			return 32000
+		}
+		return iops
+	case api.STORAGE_IO2_SSD:
+		iops := int64(100 + sizeGB/2)
+		if iops < 100 {
+			return 100
+		}
+		if iops > 64000 {
+			return 64000
+		}
+		return iops
 	case api.STORAGE_GP3_SSD:
 		return 3000
 	}
@@ -395,7 +407,8 @@ func (self *SRegion) CreateDisk(zoneId string, volumeType string, opts *cloudpro
 	if len(opts.SnapshotId) > 0 {
 		params["SnapshotId"] = opts.SnapshotId
 	}
-	if opts.Throughput >= 125 && opts.Throughput <= 1000 && volumeType == api.STORAGE_GP3_SSD {
+	// gp3 吞吐：125–2000 MiB/s（参见 AWS gp3 文档）
+	if opts.Throughput >= 125 && opts.Throughput <= 2000 && volumeType == api.STORAGE_GP3_SSD {
 		params["Throughput"] = fmt.Sprintf("%d", opts.Throughput)
 	}
 

@@ -44,17 +44,21 @@ func (self *SAwsHostDriver) GetHypervisor() string {
 }
 
 func (self *SAwsHostDriver) ValidateDiskSize(storage *models.SStorage, sizeGb int) error {
-	if storage.StorageType == api.STORAGE_GP2_SSD || storage.StorageType == api.STORAGE_GP3_SSD {
+	if storage.StorageType == api.STORAGE_GP2_SSD {
 		if sizeGb < 1 || sizeGb > 16384 {
 			return fmt.Errorf("The %s disk size must be in the range of 1G ~ 16384GB", storage.StorageType)
+		}
+	} else if storage.StorageType == api.STORAGE_GP3_SSD {
+		if sizeGb < 1 || sizeGb > 65536 {
+			return fmt.Errorf("The %s disk size must be in the range of 1G ~ 65536GB", storage.StorageType)
 		}
 	} else if storage.StorageType == api.STORAGE_IO1_SSD || storage.StorageType == api.STORAGE_IO2_SSD {
 		if sizeGb < 4 || sizeGb > 16384 {
 			return fmt.Errorf("The %s disk size must be in the range of 4G ~ 16384GB", storage.StorageType)
 		}
 	} else if utils.IsInStringArray(storage.StorageType, []string{api.STORAGE_ST1_HDD, api.STORAGE_SC1_HDD}) {
-		if sizeGb < 500 || sizeGb > 16384 {
-			return fmt.Errorf("The %s disk size must be in the range of 500G ~ 16384GB", storage.StorageType)
+		if sizeGb < 125 || sizeGb > 16384 {
+			return fmt.Errorf("The %s disk size must be in the range of 125G ~ 16384GB", storage.StorageType)
 		}
 	} else if storage.StorageType == api.STORAGE_STANDARD_HDD {
 		if sizeGb < 1 || sizeGb > 1024 {

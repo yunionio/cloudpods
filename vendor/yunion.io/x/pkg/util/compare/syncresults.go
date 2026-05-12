@@ -17,11 +17,14 @@ package compare
 import (
 	"fmt"
 	"strings"
+	"sync"
 
 	"yunion.io/x/pkg/errors"
 )
 
 type SyncResult struct {
+	mu sync.Mutex `json:"-"`
+
 	AddCnt       int `json:"add_cnt,omitzero"`
 	AddErrCnt    int `json:"add_err_cnt,omitzero"`
 	UpdateCnt    int `json:"update_cnt,omitzero"`
@@ -31,41 +34,59 @@ type SyncResult struct {
 	errors       []error
 }
 
-func (self *SyncResult) Error(msg error) {
+func (self *SyncResult) appendError(msg error) {
 	if self.errors == nil {
 		self.errors = make([]error, 0)
 	}
 	self.errors = append(self.errors, msg)
 }
 
+func (self *SyncResult) Error(msg error) {
+	self.mu.Lock()
+	defer self.mu.Unlock()
+	self.appendError(msg)
+}
+
 func (self *SyncResult) Add() {
+	self.mu.Lock()
+	defer self.mu.Unlock()
 	self.AddCnt += 1
 }
 
 func (self *SyncResult) AddError(msg error) {
+	self.mu.Lock()
+	defer self.mu.Unlock()
 	self.AddErrCnt += 1
-	self.Error(msg)
+	self.appendError(msg)
 }
 
 func (self *SyncResult) Update() {
+	self.mu.Lock()
+	defer self.mu.Unlock()
 	self.UpdateCnt += 1
 }
 
 func (self *SyncResult) UpdateError(msg error) {
+	self.mu.Lock()
+	defer self.mu.Unlock()
 	self.UpdateErrCnt += 1
-	self.Error(msg)
+	self.appendError(msg)
 }
 
 func (self *SyncResult) Delete() {
+	self.mu.Lock()
+	defer self.mu.Unlock()
 	self.DelCnt += 1
 }
 
 func (self *SyncResult) DeleteError(msg error) {
+	self.mu.Lock()
+	defer self.mu.Unlock()
 	self.DelErrCnt += 1
-	self.Error(msg)
+	self.appendError(msg)
 }
 
-func (self *SyncResult) AllError() error {
+func (self *SyncResult) allErrorUnlocked() error {
 	msgs := make(map[string]bool)
 	for _, e := range self.errors {
 		msg := e.Error()
@@ -80,11 +101,21 @@ func (self *SyncResult) AllError() error {
 	return fmt.Errorf(strings.Join(ret, ";"))
 }
 
+func (self *SyncResult) AllError() error {
+	self.mu.Lock()
+	defer self.mu.Unlock()
+	return self.allErrorUnlocked()
+}
+
 func (self *SyncResult) IsError() bool {
-	return self.errors != nil && len(self.errors) > 0
+	self.mu.Lock()
+	defer self.mu.Unlock()
+	return len(self.errors) > 0
 }
 
 func (self *SyncResult) IsGenerateError() bool {
+	self.mu.Lock()
+	defer self.mu.Unlock()
 	for _, err := range self.errors {
 		if e := errors.Cause(err); e != errors.ErrNotImplemented && e != errors.ErrNotSupported && e != errors.ErrNotEmpty {
 			return true
@@ -94,9 +125,11 @@ func (self *SyncResult) IsGenerateError() bool {
 }
 
 func (self *SyncResult) Result() string {
+	self.mu.Lock()
+	defer self.mu.Unlock()
 	msg := fmt.Sprintf("removed %d failed %d updated %d failed %d added %d failed %d", self.DelCnt, self.DelErrCnt, self.UpdateCnt, self.UpdateErrCnt, self.AddCnt, self.AddErrCnt)
-	if self.IsError() {
-		msg = fmt.Sprintf("%s;%s", msg, self.AllError())
+	if len(self.errors) > 0 {
+		msg = fmt.Sprintf("%s;%s", msg, self.allErrorUnlocked())
 	}
 	return msg
 }

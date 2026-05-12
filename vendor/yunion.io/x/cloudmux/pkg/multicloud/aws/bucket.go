@@ -154,8 +154,236 @@ func (b *SBucket) GetWebsiteUrl() string {
 	return fmt.Sprintf("http://%s.%s", b.Name, b.region.getS3WebsiteEndpoint())
 }
 
+// S3 daily storage metrics (BucketSizeBytes / NumberOfObjects) are published to CloudWatch once per day
+// with Period 86400. See https://docs.aws.amazon.com/AmazonS3/latest/userguide/metrics-dimensions.html
+const (
+	s3BucketMetricsNamespace = "AWS/S3"
+	s3BucketMetricsPeriod    = "86400"
+)
+
+type s3CwMetricDimension struct {
+	Name  string `xml:"Name"`
+	Value string `xml:"Value"`
+}
+
+type s3CwListedMetric struct {
+	Namespace  string                `xml:"Namespace"`
+	MetricName string                `xml:"MetricName"`
+	Dimensions []s3CwMetricDimension `xml:"Dimensions>member"`
+}
+
+// s3CwListMetricsOutput decodes the ListMetricsResult element only: cloudmux Unmarshal
+// uses DecodeElement(..., StartElement{Name: Operation+"Result"}) so fields must match
+// direct children of ListMetricsResult (Metrics, NextToken), not wrap ListMetricsResult again.
+type s3CwListMetricsOutput struct {
+	Metrics   []s3CwListedMetric `xml:"Metrics>member"`
+	NextToken string             `xml:"NextToken"`
+}
+
+func s3CwMetricHasFilterId(dimensions []s3CwMetricDimension) bool {
+	for i := range dimensions {
+		if dimensions[i].Name == "FilterId" {
+			return true
+		}
+	}
+	return false
+}
+
+func s3CwFindDimensionValue(dimensions []s3CwMetricDimension, name string) string {
+	for i := range dimensions {
+		if dimensions[i].Name == name {
+			return dimensions[i].Value
+		}
+	}
+	return ""
+}
+
+// s3CwKnownStorageTypes probes GetMetricStatistics when ListMetrics omits metrics
+// (e.g. no data reported in past two weeks per AWS ListMetrics behavior).
+var s3CwKnownStorageTypes = []string{
+	"StandardStorage",
+	"StandardIAStorage",
+	"OneZoneIAStorage",
+	"ReducedRedundancyStorage",
+	"IntelligentTieringFAStorage",
+	"IntelligentTieringAIAStorage",
+	"IntelligentTieringArchiveStorage",
+	"IntelligentTieringDeepArchiveStorage",
+	"GlacierStorage",
+	"GlacierInstantRetrievalStorage",
+	"DeepArchiveStorage",
+	"OutpostsStandardStorage",
+	"OutpostsOneZoneIAStorage",
+	"ExpressOneZoneStorage",
+	"ExpressOneZoneIAStorage",
+}
+
+func (b *SBucket) listS3BucketStorageTypes() (map[string]struct{}, error) {
+	storageTypes := map[string]struct{}{}
+	var nextToken string
+	for {
+		params := map[string]string{
+			"Namespace":                 s3BucketMetricsNamespace,
+			"Dimensions.member.1.Name":  "BucketName",
+			"Dimensions.member.1.Value": b.Name,
+		}
+		if len(nextToken) > 0 {
+			params["NextToken"] = nextToken
+		}
+		out := s3CwListMetricsOutput{}
+		err := b.region.client.monitorRequest(b.region.RegionId, "ListMetrics", params, &out)
+		if err != nil {
+			return nil, err
+		}
+		for _, m := range out.Metrics {
+			if m.MetricName != "BucketSizeBytes" && m.MetricName != "NumberOfObjects" {
+				continue
+			}
+			if s3CwMetricHasFilterId(m.Dimensions) {
+				continue
+			}
+			st := s3CwFindDimensionValue(m.Dimensions, "StorageType")
+			if len(st) == 0 {
+				continue
+			}
+			storageTypes[st] = struct{}{}
+		}
+		nextToken = out.NextToken
+		if len(nextToken) == 0 {
+			break
+		}
+	}
+	return storageTypes, nil
+}
+
+// s3CwLatestPointValue picks the latest datapoint; S3 daily storage metrics document
+// Average as the valid statistic, while some samples use Maximum — take whichever is set.
+func s3CwLatestPointValue(dps Datapoints) float64 {
+	var bestTs time.Time
+	var bestVal float64
+	found := false
+	for i := range dps.Datapoints {
+		d := dps.Datapoints[i]
+		if !found || d.Timestamp.After(bestTs) {
+			bestTs = d.Timestamp
+			// S3 daily storage metrics publish Average; Maximum may be unset in the XML response.
+			bestVal = d.Average
+			if bestVal == 0 {
+				bestVal = d.Maximum
+			}
+			if bestVal == 0 {
+				bestVal = d.Sum
+			}
+			found = true
+		}
+	}
+	if !found {
+		return 0
+	}
+	return bestVal
+}
+
+func (b *SBucket) getS3BucketMetricDatapoints(metricName, storageType string, start, end time.Time) (Datapoints, error) {
+	params := map[string]string{
+		"Namespace":                 s3BucketMetricsNamespace,
+		"MetricName":                metricName,
+		"Dimensions.member.1.Name":  "BucketName",
+		"Dimensions.member.1.Value": b.Name,
+		"Dimensions.member.2.Name":  "StorageType",
+		"Dimensions.member.2.Value": storageType,
+		"StartTime":                 start.UTC().Format(time.RFC3339),
+		"EndTime":                   end.UTC().Format(time.RFC3339),
+		"Period":                    s3BucketMetricsPeriod,
+		"Statistics.member.1":       "Average",
+		"Statistics.member.2":       "Maximum",
+	}
+	ret := Datapoints{}
+	err := b.region.client.monitorRequest(b.region.RegionId, "GetMetricStatistics", params, &ret)
+	if err != nil {
+		return ret, err
+	}
+	return ret, nil
+}
+
+func s3CwHasDatapoints(dps Datapoints) bool {
+	return len(dps.Datapoints) > 0
+}
+
+func (b *SBucket) discoverS3BucketStorageTypesByProbe(start, end time.Time) (map[string]struct{}, error) {
+	storageTypes := map[string]struct{}{}
+	for _, st := range s3CwKnownStorageTypes {
+		dps, err := b.getS3BucketMetricDatapoints("BucketSizeBytes", st, start, end)
+		if err != nil {
+			return nil, err
+		}
+		if s3CwHasDatapoints(dps) {
+			storageTypes[st] = struct{}{}
+			continue
+		}
+		dps2, err := b.getS3BucketMetricDatapoints("NumberOfObjects", st, start, end)
+		if err != nil {
+			return nil, err
+		}
+		if s3CwHasDatapoints(dps2) {
+			storageTypes[st] = struct{}{}
+		}
+	}
+	return storageTypes, nil
+}
+
+func (b *SBucket) getS3BucketMetricValue(metricName, storageType string, start, end time.Time) (float64, error) {
+	ret, err := b.getS3BucketMetricDatapoints(metricName, storageType, start, end)
+	if err != nil {
+		return 0, err
+	}
+	return s3CwLatestPointValue(ret), nil
+}
+
+func (b *SBucket) getStatsFromCloudWatch() (cloudprovider.SBucketStats, error) {
+	stats := cloudprovider.SBucketStats{}
+	if b.region == nil || b.region.client == nil {
+		return stats, errors.Error("bucket region or client is nil")
+	}
+	end := time.Now().UTC()
+	start := end.Add(-8 * 24 * time.Hour)
+	storageTypes, err := b.listS3BucketStorageTypes()
+	if err != nil {
+		return stats, err
+	}
+	if len(storageTypes) == 0 {
+		storageTypes, err = b.discoverS3BucketStorageTypesByProbe(start, end)
+		if err != nil {
+			return stats, err
+		}
+	}
+	if len(storageTypes) == 0 {
+		return stats, nil
+	}
+	var sizeSum int64
+	var countSum int64
+	for st := range storageTypes {
+		sz, err := b.getS3BucketMetricValue("BucketSizeBytes", st, start, end)
+		if err != nil {
+			return stats, errors.Wrapf(err, "BucketSizeBytes %s", st)
+		}
+		sizeSum += int64(sz)
+		cnt, err := b.getS3BucketMetricValue("NumberOfObjects", st, start, end)
+		if err != nil {
+			return stats, errors.Wrapf(err, "NumberOfObjects %s", st)
+		}
+		countSum += int64(cnt)
+	}
+	stats.SizeBytes = sizeSum
+	stats.ObjectCount = int(countSum)
+	return stats, nil
+}
+
 func (b *SBucket) GetStats() cloudprovider.SBucketStats {
-	stats, _ := cloudprovider.GetIBucketStats(b)
+	stats, err := b.getStatsFromCloudWatch()
+	if err != nil {
+		log.Errorf("getStatsFromCloudWatch %s: %v", b.Name, err)
+		return cloudprovider.SBucketStats{SizeBytes: -1, ObjectCount: -1}
+	}
 	return stats
 }
 

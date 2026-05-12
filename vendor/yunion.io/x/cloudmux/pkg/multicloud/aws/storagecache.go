@@ -62,7 +62,7 @@ func (self *SStoragecache) IsEmulated() bool {
 }
 
 func (self *SStoragecache) GetICustomizedCloudImages() ([]cloudprovider.ICloudImage, error) {
-	images, err := self.region.GetImages("", ImageOwnerSelf, nil, "", "hvm", nil, "", true)
+	images, err := self.region.GetImages("", ImageOwnerSelf, nil, "", "hvm", nil, "", false)
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetImages")
 	}
