@@ -1184,6 +1184,8 @@ type ServerChangeConfigOptions struct {
 
 	InstanceType string `help:"Instance Type, e.g. S2.SMALL2 for qcloud"`
 
+	ForceStop *bool `help:"Force stop the server before changing config" json:"force_stop"`
+
 	ResetTrafficLimits []string `help:"reset traffic limits, mac,rx,tx"`
 	SetTrafficLimits   []string `help:"set traffic limits, mac,rx,tx"`
 }
@@ -1192,6 +1194,9 @@ func (o *ServerChangeConfigOptions) Params() (jsonutils.JSONObject, error) {
 	params, err := options.StructToParams(o)
 	if err != nil {
 		return nil, err
+	}
+	if o.ForceStop != nil && *o.ForceStop {
+		params.Set("force_stop", jsonutils.JSONTrue)
 	}
 	if len(o.Disk) > 0 {
 		params.Remove("disk.0")

@@ -131,8 +131,8 @@ func (self *SNutanixGuestDriver) GetAttachDiskStatus() ([]string, error) {
 	return []string{api.VM_READY}, nil
 }
 
-func (self *SNutanixGuestDriver) GetChangeInstanceTypeStatus() ([]string, error) {
-	return []string{api.VM_READY}, nil
+func (self *SNutanixGuestDriver) IsChangeInstanceTypeWhileRunningSupported(guest *models.SGuest) (bool, error) {
+	return false, nil
 }
 
 func (self *SNutanixGuestDriver) CanKeepDetachDisk() bool {

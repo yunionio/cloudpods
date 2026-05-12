@@ -84,8 +84,8 @@ func (self *SKsyunGuestDriver) IsAllowSaveImageOnRunning() bool {
 	return true
 }
 
-func (self *SKsyunGuestDriver) GetChangeInstanceTypeStatus() ([]string, error) {
-	return []string{api.VM_READY, api.VM_RUNNING}, nil
+func (self *SKsyunGuestDriver) IsChangeInstanceTypeWhileRunningSupported(guest *models.SGuest) (bool, error) {
+	return true, nil
 }
 
 func (self *SKsyunGuestDriver) GetDeployStatus() ([]string, error) {
