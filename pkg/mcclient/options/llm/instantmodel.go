@@ -12,6 +12,7 @@ type LLMInstantModelListOptions struct {
 
 	ModelName []string `help:"filter by model name"`
 	ModelTag  []string `help:"filter by model tag"`
+	LLMType   string   `json:"llm_type" choices:"ollama|vllm|sglang|comfyui" help:"filter by llm type"`
 }
 
 func (o *LLMInstantModelListOptions) Params() (jsonutils.JSONObject, error) {
@@ -29,7 +30,7 @@ func (o *LLMInstantModelShowOptions) Params() (jsonutils.JSONObject, error) {
 type LLMInstantModelCreateOptions struct {
 	options.BaseCreateOptions
 
-	LLM_TYPE   string `help:"llm instant model type" choices:"ollama|vllm|comfyui" json:"llm_type"`
+	LLM_TYPE   string `help:"llm instant model type" choices:"ollama|vllm|sglang|comfyui" json:"llm_type"`
 	MODEL_NAME string `json:"model_name"`
 	MODEL_TAG  string `json:"model_tag"`
 
@@ -66,7 +67,7 @@ func (o *LLMInstantModelDeleteOptions) Params() (jsonutils.JSONObject, error) {
 }
 
 type LLMInstantModelImportOptions struct {
-	LLM_TYPE   string `help:"llm instant model type" choices:"ollama|vllm|comfyui" json:"llm_type"`
+	LLM_TYPE   string `help:"llm instant model type" choices:"ollama|vllm|sglang|comfyui" json:"llm_type"`
 	MODEL_NAME string `help:"model name to import, e.g. qwen3 or Qwen/Qwen3-VL-8B-Instruct" json:"model_name"`
 	MODEL_TAG  string `help:"model tag to import, e.g. 8b" json:"model_tag"`
 	REPO_ID    string `help:"huggingface repo id, e.g. Qwen/Qwen3-8B" json:"repo_id"`
