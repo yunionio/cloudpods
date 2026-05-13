@@ -190,6 +190,7 @@ func startMasterTasks(opts *options.ComputeOptions, dbOpts *common_options.DBOpt
 		cron.AddJobAtIntervals("CleanExpiredPostpaidNas", time.Duration(opts.PrepaidExpireCheckSeconds)*time.Second, models.FileSystemManager.DeleteExpiredPostpaids)
 
 		cron.AddJobAtIntervals("StartHostPingDetectionTask", time.Duration(opts.HostOfflineDetectionInterval)*time.Second, models.HostManager.PingDetectionTask)
+		cron.AddJobAtIntervals("StartLbagentHbDetectionTask", time.Duration(opts.LbagentOfflineDetectionInterval)*time.Second, models.LoadbalancerAgentManager.HbDetectionTask)
 
 		cron.AddJobAtIntervals("RefreshCloudproviderHostStatus", time.Duration(opts.ManagedHostSyncStatusIntervalSeconds)*time.Second, models.RefreshCloudproviderHostStatus)
 
