@@ -158,7 +158,7 @@ func normalizeHuggingFaceSearchResults(items []huggingFaceSearchItem) []apis.Ins
 			result.UnsupportedReason = "disabled repositories are not supported"
 		case hasTag(item.Tags, "gguf"):
 			result.Supported = false
-			result.UnsupportedReason = "gguf repositories are not supported for vllm import"
+			result.UnsupportedReason = "gguf repositories are not supported for hf snapshot import"
 		}
 		results = append(results, result)
 	}
@@ -192,13 +192,13 @@ func buildHuggingFaceRepoInfo(resp huggingFaceRepoInfoResponse, requestedRevisio
 	switch {
 	case info.GgufPresent:
 		info.Supported = false
-		info.UnsupportedReason = "gguf repositories are not supported for vllm import"
+		info.UnsupportedReason = "gguf repositories are not supported for hf snapshot import"
 	case !info.ConfigPresent:
 		info.Supported = false
-		info.UnsupportedReason = "config.json is required for vllm import"
+		info.UnsupportedReason = "config.json is required for hf snapshot import"
 	case !info.SafetensorsPresent:
 		info.Supported = false
-		info.UnsupportedReason = "no safetensors weights detected for vllm import"
+		info.UnsupportedReason = "no safetensors weights detected for hf snapshot import"
 	}
 	if !info.Supported {
 		info.ImportMode = ""
