@@ -62,7 +62,7 @@ func (pf *PidFile) findProcess() (*os.Process, error) {
 
 func (pf *PidFile) findComm(pid int) (string, error) {
 	fp := fmt.Sprintf("/proc/%d/comm", pid)
-	data, err := ioutil.ReadFile(fp)
+	data, err := os.ReadFile(fp)
 	if err != nil {
 		return "", err
 	}

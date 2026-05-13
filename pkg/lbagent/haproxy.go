@@ -578,6 +578,7 @@ func (h *HaproxyHelper) reloadKeepalived(ctx context.Context) error {
 	{
 		proc, confirmed, err := pidFile.ConfirmOrUnlink()
 		if confirmed {
+			log.Infof("[keepalived] sending SIGHUP to reload keepalived(%d)", proc.Pid)
 			// send SIGHUP to reload
 			err := proc.Signal(syscall.SIGHUP)
 			if err != nil {
@@ -609,10 +610,8 @@ func (h *HaproxyHelper) reloadKeepalived(ctx context.Context) error {
 		"--log-console",
 		"--dont-fork",
 	}
-	err := h.runService(args)
-	if err != nil {
-		return errors.Wrapf(err, "run service %s", strings.Join(args, " "))
-	}
+	log.Infof("[keepalived] not exists, start keepalived services with args: %s", strings.Join(args, " "))
+	go h.runService(args)
 	return nil
 }
 
@@ -650,7 +649,17 @@ func (h *HaproxyHelper) startCmd(args []string) (*exec.Cmd, error) {
 	return cmd, nil
 }
 
-func (h *HaproxyHelper) runService(args []string) error {
+func (h *HaproxyHelper) runService(args []string) {
+	for {
+		err := h.runServiceOnce(args)
+		if err != nil {
+			log.Errorf("service %s exited with error: %s", strings.Join(args, " "), err)
+			time.Sleep(1 * time.Second)
+		}
+	}
+}
+
+func (h *HaproxyHelper) runServiceOnce(args []string) error {
 	log.Infof("run service %s", strings.Join(args, " "))
 
 	name := args[0]
@@ -687,13 +696,14 @@ func (h *HaproxyHelper) runService(args []string) error {
 	if err != nil {
 		return errors.Wrapf(err, "start service %s", cmd.String())
 	}
-	go func(cmd *exec.Cmd) {
+	go drain(stdout, false)
+	go drain(stderr, true)
+	{
 		err := cmd.Wait()
 		if err != nil {
 			log.Errorf("service %s exited with error: %s", cmd.String(), err)
+			return errors.Wrapf(err, "service %s exited with error", cmd.String())
 		}
-	}(cmd)
-	go drain(stdout, false)
-	go drain(stderr, true)
+	}
 	return nil
 }

@@ -735,7 +735,7 @@ func (lbagent *SLoadbalancerAgent) PerformJoinCluster(
 	if len(peerAgents) >= 2 {
 		return nil, errors.Wrap(httperrors.ErrTooLarge, "too many agents")
 	}
-	priority := 255
+	priority := 200
 	if input.Priority > 0 {
 		for i := range peerAgents {
 			if input.Priority == peerAgents[i].Priority {
@@ -846,6 +846,33 @@ func (lbagent *SLoadbalancerAgent) PerformParamsPatch(ctx context.Context, userC
 	return nil, nil
 }
 
+func (manager *SLoadbalancerAgentManager) HbDetectionTask(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
+	q := manager.Query().NotEquals("ha_state", api.LB_HA_STATE_UNKNOWN)
+	q = q.Filter(sqlchemy.OR(
+		sqlchemy.LT(q.Field("hb_last_seen"), time.Now().Add(-time.Duration(options.Options.LbaagentOfflineMaxSeconds)*time.Second)),
+		sqlchemy.IsNull(q.Field("hb_last_seen")),
+	))
+	lbagents := []SLoadbalancerAgent{}
+	err := db.FetchModelObjects(manager, q, &lbagents)
+	if err != nil {
+		log.Errorf("LoadbalancerAgentManager.HbDetectionTask error %s", err)
+		return
+	}
+	for i := range lbagents {
+		lbagent := &lbagents[i]
+		diff, err := db.Update(lbagent, func() error {
+			lbagent.HaState = api.LB_HA_STATE_UNKNOWN
+			return nil
+		})
+		if err != nil {
+			log.Errorf("LoadbalancerAgentManager.HbDetectionTask error %s", err)
+			continue
+		}
+		db.OpsLog.LogEvent(lbagent, db.ACT_UPDATE, diff, userCred)
+		logclient.AddActionLogWithContext(ctx, lbagent, logclient.ACT_UPDATE, diff, userCred, true)
+	}
+}
+
 const (
 	loadbalancerKeepalivedConfTmplDefault = `
 global_defs {
@@ -866,11 +893,13 @@ vrrp_instance YunionLB {
 	{{ if .vrrp.unicast_peer -}} unicast_peer { {{- println }}
 		{{- range .vrrp.unicast_peer }}		{{ println . }} {{- end }}
 	}
+	unicast_src_ip {{ .vrrp.unicast_src_ip }}
 	{{- end }}
 	priority {{ .vrrp.priority }}
 	advert_int {{ .vrrp.advert_int }}
 	garp_master_refresh {{ .vrrp.garp_master_refresh }}
 	{{ if .vrrp.preempt -}} preempt {{- else -}} nopreempt {{- end }}
+	{{ if .vrrp.preempt -}} preempt_delay 300 {{- else -}} state BACKUP {{- end }}
 	virtual_ipaddress {
 		{{- printf "\n" }}
 		{{- range .vrrp.addresses }}		{{ println . }} {{- end }}

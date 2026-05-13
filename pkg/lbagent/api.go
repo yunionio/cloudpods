@@ -390,6 +390,7 @@ func (h *ApiHelper) doSyncAgentParams(ctx context.Context) bool {
 	agentParams.SetVrrpParams("notify_script", h.haStateProvider.StateScript())
 	if useUnicast {
 		agentParams.SetVrrpParams("unicast_peer", unicastPeer)
+		agentParams.SetVrrpParams("unicast_src_ip", agent.IP)
 	}
 	if !agentParams.Equals(h.agentParams) {
 		if useUnicast {
