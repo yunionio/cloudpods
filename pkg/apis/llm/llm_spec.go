@@ -25,6 +25,7 @@ import (
 type LLMSpec struct {
 	Ollama      *LLMSpecOllama      `json:"ollama,omitempty"`
 	Vllm        *LLMSpecVllm        `json:"vllm,omitempty"`
+	SGLang      *LLMSpecSGLang      `json:"sglang,omitempty"`
 	Dify        *LLMSpecDify        `json:"dify,omitempty"`
 	ComfyUI     *LLMSpecComfyUI     `json:"comfyui,omitempty"`
 	OpenClaw    *LLMSpecOpenClaw    `json:"openclaw,omitempty"`
@@ -39,7 +40,7 @@ func (s *LLMSpec) IsZero() bool {
 	if s == nil {
 		return true
 	}
-	return s.Ollama == nil && s.Vllm == nil && s.Dify == nil && s.ComfyUI == nil && s.OpenClaw == nil && s.HermesAgent == nil
+	return s.Ollama == nil && s.Vllm == nil && s.SGLang == nil && s.Dify == nil && s.ComfyUI == nil && s.OpenClaw == nil && s.HermesAgent == nil
 }
 
 // LLMSpecOllama holds type-specific fields for ollama SKUs.
@@ -74,6 +75,29 @@ func (s *LLMSpecVllm) String() string {
 }
 
 func (s *LLMSpecVllm) IsZero() bool {
+	if s == nil {
+		return true
+	}
+	return s.PreferredModel == "" && len(s.CustomizedArgs) == 0
+}
+
+// LLMSpecSGLang holds type-specific fields for SGLang SKUs.
+type LLMSpecSGLang struct {
+	PreferredModel string `json:"preferred_model"`
+	// On update, a provided customized_args list replaces the previous list.
+	CustomizedArgs []*SGLangCustomizedArg `json:"customized_args,omitempty"`
+}
+
+type SGLangCustomizedArg struct {
+	Key   string `json:"key"`
+	Value string `json:"value"`
+}
+
+func (s *LLMSpecSGLang) String() string {
+	return jsonutils.Marshal(s).String()
+}
+
+func (s *LLMSpecSGLang) IsZero() bool {
 	if s == nil {
 		return true
 	}
