@@ -72,6 +72,9 @@ type LLMCreateOptions struct {
 	LLM_SKU_ID     string   `help:"llm sku id or name" json:"llm_sku_id"`
 	PreferredModel string   `help:"vLLM preferred model dir name under models path (e.g. Qwen/Qwen2-7B)" json:"-"`
 	VllmArg        []string `help:"vLLM args in format key=value; use key= for flags without values" json:"-"`
+
+	SGLangPreferredModel string   `token:"sglang-preferred-model" help:"SGLang preferred model dir name under models path (e.g. Qwen/Qwen2-7B)" json:"-"`
+	SGLangArg            []string `token:"sglang-arg" help:"SGLang args in format key=value; use key= for flags without values" json:"-"`
 }
 
 func (o *LLMCreateOptions) Params() (jsonutils.JSONObject, error) {
@@ -93,8 +96,19 @@ func (o *LLMCreateOptions) Params() (jsonutils.JSONObject, error) {
 	if err != nil {
 		return nil, err
 	}
+	sglangSpec, err := newSGLangSpecFromArgs(o.SGLangPreferredModel, o.SGLangArg)
+	if err != nil {
+		return nil, err
+	}
+	if vllmSpec != nil && sglangSpec != nil {
+		return nil, errors.Error("cannot specify both vLLM and SGLang llm spec args")
+	}
 	if vllmSpec != nil {
 		spec := &api.LLMSpec{Ollama: nil, Vllm: vllmSpec, Dify: nil}
+		params.Set("llm_spec", jsonutils.Marshal(spec))
+	}
+	if sglangSpec != nil {
+		spec := &api.LLMSpec{SGLang: sglangSpec}
 		params.Set("llm_spec", jsonutils.Marshal(spec))
 	}
 
@@ -110,6 +124,9 @@ type LLMUpdateOptions struct {
 
 	PreferredModel string   `help:"vLLM preferred model dir name under models path (e.g. Qwen/Qwen2-7B); takes effect after pod recreate" json:"-"`
 	VllmArg        []string `help:"vLLM args in format key=value; use key= for flags without values" json:"-"`
+
+	SGLangPreferredModel string   `token:"sglang-preferred-model" help:"SGLang preferred model dir name under models path (e.g. Qwen/Qwen2-7B); takes effect after pod recreate" json:"-"`
+	SGLangArg            []string `token:"sglang-arg" help:"SGLang args in format key=value; use key= for flags without values" json:"-"`
 }
 
 func (o *LLMUpdateOptions) GetId() string {
@@ -125,8 +142,19 @@ func (o *LLMUpdateOptions) Params() (jsonutils.JSONObject, error) {
 	if err != nil {
 		return nil, err
 	}
+	sglangSpec, err := newSGLangSpecFromArgs(o.SGLangPreferredModel, o.SGLangArg)
+	if err != nil {
+		return nil, err
+	}
+	if vllmSpec != nil && sglangSpec != nil {
+		return nil, errors.Error("cannot specify both vLLM and SGLang llm spec args")
+	}
 	if vllmSpec != nil {
 		spec := &api.LLMSpec{Ollama: nil, Vllm: vllmSpec, Dify: nil}
+		dict.Set("llm_spec", jsonutils.Marshal(spec))
+	}
+	if sglangSpec != nil {
+		spec := &api.LLMSpec{SGLang: sglangSpec}
 		dict.Set("llm_spec", jsonutils.Marshal(spec))
 	}
 	return dict, nil

@@ -2,6 +2,7 @@ package llm
 
 import (
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/llm"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
@@ -10,7 +11,7 @@ import (
 type LLMSkuListOptions struct {
 	options.BaseListOptions
 
-	LLMType string `json:"llm_type" choices:"ollama|comfyui|openclaw"`
+	LLMType string `json:"llm_type" choices:"ollama|vllm|sglang|dify|comfyui|openclaw|hermes-agent"`
 }
 
 func (o *LLMSkuListOptions) Params() (jsonutils.JSONObject, error) {
@@ -31,10 +32,13 @@ type LLMSkuCreateOptions struct {
 	MountedModels []string `help:"mounted models, <model_id> e.g. qwen2:0.5b-dup" json:"mounted_models"`
 
 	LLM_IMAGE_ID string `json:"llm_image_id"`
-	LLM_TYPE     string `json:"llm_type" choices:"ollama|vllm|comfyui"`
+	LLM_TYPE     string `json:"llm_type" choices:"ollama|vllm|sglang|comfyui"`
 
-	PreferredModel string   `help:"preferred model (vllm only), sets llm_spec.vllm.preferred_model" json:"-"`
+	PreferredModel string   `help:"preferred model (vllm/sglang), sets llm_spec.<type>.preferred_model" json:"-"`
 	VllmArg        []string `help:"vLLM args in format key=value; use key= for flags without values" json:"-"`
+
+	SGLangPreferredModel string   `token:"sglang-preferred-model" help:"SGLang preferred model; overrides preferred-model when llm_type=sglang" json:"-"`
+	SGLangArg            []string `token:"sglang-arg" help:"SGLang args in format key=value; use key= for flags without values" json:"-"`
 }
 
 func (o *LLMSkuCreateOptions) Params() (jsonutils.JSONObject, error) {
@@ -45,17 +49,29 @@ func (o *LLMSkuCreateOptions) Params() (jsonutils.JSONObject, error) {
 		return nil, err
 	}
 	fetchMountedModels(o.MountedModels, dict)
-	vllmSpec, err := newVLLMSpecFromArgs(o.PreferredModel, o.VllmArg)
-	if err != nil {
-		return nil, err
-	}
-	if o.LLM_TYPE == string(api.LLM_CONTAINER_VLLM) && vllmSpec != nil {
-		spec := &api.LLMSpec{
-			Ollama: nil,
-			Vllm:   vllmSpec,
-			Dify:   nil,
+	switch o.LLM_TYPE {
+	case string(api.LLM_CONTAINER_VLLM):
+		vllmSpec, err := newVLLMSpecFromArgs(o.PreferredModel, o.VllmArg)
+		if err != nil {
+			return nil, err
 		}
-		dict.Set("llm_spec", jsonutils.Marshal(spec))
+		if vllmSpec != nil {
+			spec := &api.LLMSpec{
+				Ollama: nil,
+				Vllm:   vllmSpec,
+				Dify:   nil,
+			}
+			dict.Set("llm_spec", jsonutils.Marshal(spec))
+		}
+	case string(api.LLM_CONTAINER_SGLANG):
+		sglangSpec, err := newSGLangSpecFromArgs(firstNonEmpty(o.SGLangPreferredModel, o.PreferredModel), o.SGLangArg)
+		if err != nil {
+			return nil, err
+		}
+		if sglangSpec != nil {
+			spec := &api.LLMSpec{SGLang: sglangSpec}
+			dict.Set("llm_spec", jsonutils.Marshal(spec))
+		}
 	}
 	return dict, nil
 }
@@ -77,11 +93,14 @@ type LLMSkuUpdateOptions struct {
 
 	MountedModels []string `help:"mounted models, <model_id> e.g. qwen2:0.5b-dup" json:"mounted_models"`
 
-	// For ollama/vllm; backend merges into LLMSpec. Use dify-sku update for dify type.
+	// For ollama/vllm/sglang; backend merges into LLMSpec. Use dify-sku update for dify type.
 	LlmImageId string `json:"llm_image_id"`
 
 	PreferredModel string   `help:"preferred model (vllm only), sets llm_spec.vllm.preferred_model" json:"-"`
 	VllmArg        []string `help:"vLLM args in format key=value; use key= for flags without values" json:"-"`
+
+	SGLangPreferredModel string   `token:"sglang-preferred-model" help:"preferred model (SGLang only), sets llm_spec.sglang.preferred_model" json:"-"`
+	SGLangArg            []string `token:"sglang-arg" help:"SGLang args in format key=value; use key= for flags without values" json:"-"`
 }
 
 func (o *LLMSkuUpdateOptions) GetId() string {
@@ -100,12 +119,23 @@ func (o *LLMSkuUpdateOptions) Params() (jsonutils.JSONObject, error) {
 	if err != nil {
 		return nil, err
 	}
+	sglangSpec, err := newSGLangSpecFromArgs(o.SGLangPreferredModel, o.SGLangArg)
+	if err != nil {
+		return nil, err
+	}
+	if vllmSpec != nil && sglangSpec != nil {
+		return nil, errors.Error("cannot specify both vLLM and SGLang llm spec args")
+	}
 	if vllmSpec != nil {
 		spec := &api.LLMSpec{
 			Ollama: nil,
 			Vllm:   vllmSpec,
 			Dify:   nil,
 		}
+		dict.Set("llm_spec", jsonutils.Marshal(spec))
+	}
+	if sglangSpec != nil {
+		spec := &api.LLMSpec{SGLang: sglangSpec}
 		dict.Set("llm_spec", jsonutils.Marshal(spec))
 	}
 	return dict, nil
