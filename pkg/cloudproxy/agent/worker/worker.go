@@ -16,12 +16,11 @@ package worker
 
 import (
 	"context"
+	"net"
 	"runtime"
 	"runtime/debug"
 	"sync"
 	"time"
-
-	"github.com/vishvananda/netlink"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -99,14 +98,15 @@ func (w *Worker) initProxyAgent_(ctx context.Context) error {
 	}
 
 	bindAddrExist := func(addr string) bool {
-		as, err := netlink.AddrList(nil, netlink.FAMILY_ALL)
+		addrs, err := net.InterfaceAddrs()
 		if err != nil {
 			log.Fatalf("list system available addresses: %v", err)
 		}
-		for _, a := range as {
-			ipstr := a.IPNet.IP.String()
-			if addr == ipstr {
-				return true
+		for _, a := range addrs {
+			if ipnet, ok := a.(*net.IPNet); ok {
+				if addr == ipnet.IP.String() {
+					return true
+				}
 			}
 		}
 		return false

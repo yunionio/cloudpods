@@ -83,3 +83,17 @@ func (address *Address) Add() *Address {
 	}
 	return address
 }
+
+func (address *Address) Del() *Address {
+	link, ok := address.link()
+	if !ok {
+		return address
+	}
+	for _, addr := range address.addrs {
+		err := netlink.AddrDel(link, addr)
+		if err != nil {
+			address.addErr(err, "Del: AddrDel %s ", addr)
+		}
+	}
+	return address
+}

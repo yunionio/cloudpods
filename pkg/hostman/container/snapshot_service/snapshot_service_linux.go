@@ -1,3 +1,6 @@
+//go:build linux
+// +build linux
+
 package snapshot_service
 
 import (
@@ -36,14 +39,6 @@ func StartService(guestMan IGuestManager, root string) error {
 		return errors.Wrapf(err, "Listen %s", socksPath)
 	}
 	return rpc.Serve(listener)
-}
-
-type IGuestManager interface {
-	GetContainerManager(serverId string) (ISnapshotContainerManager, error)
-}
-
-type ISnapshotContainerManager interface {
-	GetRootFsMountPath(containerId string) (string, error)
 }
 
 func NewSnapshotter(guestMan IGuestManager, root string, opts ...overlay.Opt) (snapshots.Snapshotter, error) {

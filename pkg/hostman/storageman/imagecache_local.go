@@ -137,8 +137,9 @@ func (l *SLocalImageCache) Load() error {
 			if fi != nil {
 				desc.SizeMb = fi.Size() / 1024 / 1024
 				if fi.Sys() != nil {
-					atime := fi.Sys().(*syscall.Stat_t).Atim
-					desc.AccessAt = time.Unix(atime.Sec, atime.Nsec)
+					if stat, ok := fi.Sys().(*syscall.Stat_t); ok {
+						desc.AccessAt = fileutils2.GetAtim(stat)
+					}
 				}
 			}
 
