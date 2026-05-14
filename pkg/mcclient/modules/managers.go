@@ -186,3 +186,9 @@ func NewLLMManager(keyword, keywordPlural string, columns, adminColumns []string
 		BaseManager: *modulebase.NewBaseManager(apis.SERVICE_TYPE_LLM, "", "", columns, adminColumns),
 		Keyword:     keyword, KeywordPlural: keywordPlural}
 }
+
+func NewAIProxyManager(keyword, keywordPlural string, columns, adminColumns []string) modulebase.ResourceManager {
+	return modulebase.ResourceManager{
+		BaseManager: *modulebase.NewBaseManager(apis.SERVICE_TYPE_AIPROXY, "", "", columns, adminColumns),
+		Keyword:     keyword, KeywordPlural: keywordPlural}
+}

@@ -25,6 +25,10 @@ import (
 	"yunion.io/x/cloudmux/pkg/multicloud/proxmox"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/seclib"
+	"yunion.io/x/pkg/utils"
+
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/agent/iagent"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
@@ -32,9 +36,6 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/util/logclient"
-	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/util/seclib"
-	"yunion.io/x/pkg/utils"
 )
 
 type SProxmoxStorage struct {
