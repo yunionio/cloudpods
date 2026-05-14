@@ -106,6 +106,9 @@ func (man *SInstantModelManager) ListItemFilter(
 	if len(input.ModelId) > 0 {
 		q = q.In("model_id", input.ModelId)
 	}
+	if len(input.LlmType) > 0 {
+		q = q.Equals("llm_type", input.LlmType)
+	}
 
 	if len(input.Image) > 0 {
 		s := auth.GetSession(ctx, userCred, options.Options.Region)
