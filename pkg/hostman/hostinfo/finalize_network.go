@@ -21,7 +21,6 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/util/netutils"
 
 	computeapis "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
@@ -31,7 +30,6 @@ import (
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/iproute2"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
-	"yunion.io/x/onecloud/pkg/util/procutils"
 )
 
 func (h *SHostInfo) findExternalInterfaces() []string {
@@ -122,83 +120,16 @@ func (n *SNIC) setupSlaveIp(ctx context.Context, gatewayIp string, maskLen byte,
 	}); err != nil {
 		return errors.Wrap(err, "SetupSlaveAddresses")
 	}
-	if err := n.setupMasqueradeRule(ctx, gatewayIp, maskLen, extInterfaces); err != nil {
-		return errors.Wrap(err, "setupMasqueradeRule")
-	}
 	if isMaskUpdate {
 		brName := n.BridgeDev.Bridge()
 		logPrefix := fmt.Sprintf("%s slave address %s mask is update from %d to %d", brName, gatewayIp, curMaskLen, maskLen)
 		addr := fmt.Sprintf("%s/%d", gatewayIp, curMaskLen)
 		log.Infof("%s: delete addr %s", logPrefix, addr)
 		if err := iproute2.NewAddress(n.BridgeDev.Bridge(), addr).Del().Err(); err != nil {
-			log.Warningf("%s: delete addr %s: %v", logPrefix, addr, err)
-		}
-		curMaskLenInt := curMaskLen
-		if err := n.deleteMasqueradeRule(ctx, gatewayIp, byte(curMaskLenInt), extInterfaces); err != nil {
-			log.Warningf("%s: delete iptables masqueradeRule: %v", logPrefix, err)
+			log.Warningf("%s: new addr %s: %v", logPrefix, addr, err)
 		}
 	}
 	return nil
-}
-
-type IptablesAction int
-
-const (
-	IPTABLES_ACTION_APPEND IptablesAction = iota
-	IPTABLES_ACTION_DELETE
-)
-
-func (n *SNIC) doMasqueradeRule(ctx context.Context, ipStr string, maskLen byte, action IptablesAction, bridge string) error {
-	gwip, err := netutils.NewIPV4Addr(ipStr)
-	if err != nil {
-		return errors.Wrapf(err, "NewIPV4Addr %s", ipStr)
-	}
-	netip := gwip.NetAddr(int8(maskLen))
-	maskip := netutils.Masklen2Mask(int8(maskLen))
-	var actionOpt string
-	var actionInfo string
-	switch action {
-	case IPTABLES_ACTION_APPEND:
-		actionOpt = "-A"
-		actionInfo = "append"
-	case IPTABLES_ACTION_DELETE:
-		actionOpt = "-D"
-		actionInfo = "delete"
-	default:
-		return errors.Errorf("unknown action %d", action)
-	}
-	cmd := procutils.NewCommand("iptables", "-t", "nat", actionOpt, "POSTROUTING", "-s",
-		fmt.Sprintf("%s/%s", netip.String(), maskip.String()), "-o", bridge, "-j", "MASQUERADE")
-	if err := cmd.Run(); err != nil {
-		return errors.Wrapf(err, "%s masquerade rule", actionInfo)
-	}
-	return nil
-}
-
-func (n *SNIC) setupMasqueradeRule(ctx context.Context, ipStr string, maskLen byte, extInterfaces []string) error {
-	if n.IsHostLocal() {
-		for _, inf := range extInterfaces {
-			if err := n.doMasqueradeRule(ctx, ipStr, maskLen, IPTABLES_ACTION_APPEND, inf); err != nil {
-				return errors.Wrapf(err, "setupMasqueradeRule %s %d %s", ipStr, maskLen, inf)
-			}
-		}
-		return nil
-	} else {
-		return n.doMasqueradeRule(ctx, ipStr, maskLen, IPTABLES_ACTION_APPEND, n.Bridge)
-	}
-}
-
-func (n *SNIC) deleteMasqueradeRule(ctx context.Context, ipStr string, maskLen byte, extInterfaces []string) error {
-	if n.IsHostLocal() {
-		for _, inf := range extInterfaces {
-			if err := n.doMasqueradeRule(ctx, ipStr, maskLen, IPTABLES_ACTION_DELETE, inf); err != nil {
-				return errors.Wrapf(err, "deleteMasqueradeRule %s %d %s", ipStr, maskLen, inf)
-			}
-		}
-		return nil
-	} else {
-		return n.doMasqueradeRule(ctx, ipStr, maskLen, IPTABLES_ACTION_DELETE, n.Bridge)
-	}
 }
 
 func (n *SNIC) fetchHostLocalNetworks(ctx context.Context) ([]computeapis.NetworkDetails, error) {
