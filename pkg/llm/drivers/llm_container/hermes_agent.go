@@ -50,6 +50,14 @@ func (h *hermesAgent) GetContainerSpec(ctx context.Context, llm *models.SLLM, im
 		{
 			Disk: &commonapi.ContainerVolumeMountDisk{
 				Index:        &diskIndex,
+				SubDirectory: "config",
+			},
+			Type:      commonapi.CONTAINER_VOLUME_MOUNT_TYPE_DISK,
+			MountPath: desktopConfigDir,
+		},
+		{
+			Disk: &commonapi.ContainerVolumeMountDisk{
+				Index:        &diskIndex,
 				SubDirectory: "home",
 			},
 			Type:      commonapi.CONTAINER_VOLUME_MOUNT_TYPE_DISK,
