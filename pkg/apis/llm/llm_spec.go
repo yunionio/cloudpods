@@ -174,7 +174,26 @@ type LLMSpecOpenClawWorkspaceTemplates struct {
 	UserMD   string `json:"user_md"`
 }
 
-type LLMSpecHermesAgent struct{}
+type LLMSpecHermesAgent struct {
+	// LLMId optionally points to a Cloudpods LLM instance; Hermes resolves its
+	// OpenAI-compatible base URL and model during create/update validation.
+	LLMId         string `json:"llm_id,omitempty"`
+	LLMUrl        string `json:"llm_url,omitempty"`
+	Model         string `json:"model,omitempty"`
+	ApiKey        string `json:"api_key,omitempty"`
+	ContextLength int    `json:"context_length,omitempty"`
+}
+
+func (s *LLMSpecHermesAgent) String() string {
+	return jsonutils.Marshal(s).String()
+}
+
+func (s *LLMSpecHermesAgent) IsZero() bool {
+	if s == nil {
+		return true
+	}
+	return s.LLMId == "" && s.LLMUrl == "" && s.Model == "" && s.ApiKey == "" && s.ContextLength == 0
+}
 
 func init() {
 	gotypes.RegisterSerializable(reflect.TypeOf(new(LLMSpec)), func() gotypes.ISerializable {
