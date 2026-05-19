@@ -17,15 +17,20 @@ package models
 import (
 	"context"
 	"fmt"
+	"strings"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	monitorapi "yunion.io/x/onecloud/pkg/apis/monitor"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/influxdb"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	modmonitor "yunion.io/x/onecloud/pkg/mcclient/modules/monitor"
 )
 
 func (lblis *SLoadbalancerListener) GetDetailsBackendStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -67,39 +72,32 @@ func (lbr *SLoadbalancerListenerRule) GetDetailsBackendStatus(ctx context.Contex
 	return lb.GetBackendGroupCheckStatus(ctx, userCred, pxname, lbr.BackendGroupId)
 }
 
-func (lb *SLoadbalancer) GetInfluxdbByLbId() (*influxdb.SInfluxdb, string, error) {
+func (lb *SLoadbalancer) getInfluxdbDBName() (string, error) {
 	lbagents, err := LoadbalancerAgentManager.getByClusterId(lb.ClusterId)
 	if err != nil {
-		return nil, "", err
+		return "", err
 	}
 	if len(lbagents) == 0 {
-		return nil, "", errors.Wrapf(errors.ErrNotFound, "lbcluster %s has no agent", lb.ClusterId)
+		return "", errors.Wrapf(errors.ErrNotFound, "lbcluster %s has no agent", lb.ClusterId)
 	}
-	var (
-		dbUrl  string
-		dbName string
-	)
+	var dbName string
 	for i := range lbagents {
 		lbagent := &lbagents[i]
 		params := lbagent.Params
 		if params == nil {
 			continue
 		}
-		paramsTelegraf := params.Telegraf
-		if paramsTelegraf.InfluxDbOutputUrl != "" && paramsTelegraf.InfluxDbOutputName != "" {
-			dbUrl = paramsTelegraf.InfluxDbOutputUrl
-			dbName = paramsTelegraf.InfluxDbOutputName
+		if params.Telegraf.InfluxDbOutputName != "" {
+			dbName = params.Telegraf.InfluxDbOutputName
 			if lbagent.HaState == api.LB_HA_STATE_MASTER {
-				// prefer the one on master
 				break
 			}
 		}
 	}
-	if dbUrl == "" || dbName == "" {
-		return nil, "", errors.Wrap(errors.ErrNotFound, "no lbagent has influxdb url or db name")
+	if dbName == "" {
+		return "", errors.Wrap(errors.ErrNotFound, "no lbagent has influxdb db name")
 	}
-	dbinst := influxdb.NewInfluxdb(dbUrl)
-	return dbinst, dbName, nil
+	return dbName, nil
 }
 
 func (lb *SLoadbalancer) GetBackendGroupCheckStatus(ctx context.Context, userCred mcclient.TokenCredential, pxname string, groupId string) (*jsonutils.JSONArray, error) {
@@ -129,50 +127,81 @@ func (lb *SLoadbalancer) GetBackendGroupCheckStatus(ctx context.Context, userCre
 		}
 	}
 
-	dbinst, dbName, err := lb.GetInfluxdbByLbId()
+	dbName, err := lb.getInfluxdbDBName()
 	if err != nil {
-		return nil, errors.Wrapf(err, "find influxdb for loadbalancer %s", lb.Id)
+		return nil, errors.Wrapf(err, "find influxdb db name for loadbalancer %s", lb.Id)
 	}
 
-	queryFmt := "select check_status, check_code from %s..haproxy where pxname = '%s' and svname =~ /........-....-....-....-............/ group by pxname, svname order by time desc limit 1"
-	querySql := fmt.Sprintf(queryFmt, dbName, pxname)
-	queryRes, err := dbinst.Query(querySql)
+	queryInput := modmonitor.NewMetricQueryInputWithDB(dbName, "haproxy").
+		From(time.Now().Add(-5 * time.Minute)).
+		To(time.Now()).
+		Scope("system").
+		SkipCheckSeries(true)
+	queryInput.Selects().Select("check_code").LAST()
+	queryInput.Where().Equal("pxname", pxname).REGEX("svname", "........-....-....-....-............")
+	// check_status is stored as a tag in newer telegraf haproxy plugin output;
+	// pull it into the grouped result so it appears in series.Tags.
+	queryInput.GroupBy().TAG("pxname").TAG("svname")
+
+	s := auth.GetAdminSession(ctx, options.Options.Region)
+	resp, err := modmonitor.UnifiedMonitorManager.PerformQuery(s, queryInput.ToQueryData())
 	if err != nil {
-		return nil, errors.Wrap(err, "query influxdb")
+		return nil, errors.Wrap(err, "query monitor")
 	}
-	if len(queryRes) != 1 {
-		return nil, fmt.Errorf("query influxdb: expecting 1 set of results, got %d", len(queryRes))
+
+	result := new(monitorapi.MetricsQueryResult)
+	if err := resp.Unmarshal(result); err != nil {
+		return nil, errors.Wrap(err, "unmarshal monitor query result")
 	}
-	type Tags struct {
-		PxName string `json:"pxname"`
-		SvName string `json:"svname"`
-	}
-	for _, resSeries := range queryRes[0] {
-		if len(resSeries.Values) == 0 {
-			continue
-		}
-		resColumns := resSeries.Values[0]
-		if len(resColumns) != 3 {
-			continue
-		}
-		tags := Tags{}
-		if err := resSeries.Tags.Unmarshal(&tags); err != nil {
-			return nil, errors.Wrap(err, "unmarshal tags in influxdb query result")
-		}
-		ok, i := utils.InStringArray(tags.SvName, backendIds)
+
+	for _, series := range result.Series {
+		svname := series.Tags["svname"]
+		ok, i := utils.InStringArray(svname, backendIds)
 		if !ok {
 			continue
 		}
+		var latest monitorapi.TimePoint
+		for _, p := range series.Points {
+			hasValue := false
+			for k := 0; k < len(p)-1; k++ {
+				if p[k] != nil {
+					hasValue = true
+					break
+				}
+			}
+			if !hasValue {
+				continue
+			}
+			if latest == nil || p.Timestamp() > latest.Timestamp() {
+				latest = p
+			}
+		}
+		if latest == nil {
+			continue
+		}
 		backendJson := backendJsons[i].(*jsonutils.JSONDict)
-		for j, colName := range resSeries.Columns {
-			colVal := resColumns[j]
-			if colVal == nil {
-				colVal = jsonutils.JSONNull
-			}
+		backendJson.Set("check_time", jsonutils.NewTimeString(latest.Time()))
+		if cs, ok := series.Tags["check_status"]; ok {
+			backendJson.Set("check_status", jsonutils.NewString(cs))
+		}
+		for j, colName := range series.Columns {
 			if colName == "time" {
-				colName = "check_time"
+				continue
 			}
-			backendJson.Set(colName, colVal)
+			if j >= len(latest)-1 {
+				break
+			}
+			// VictoriaMetrics driver returns the column as "<measurement>_<field>"
+			// (e.g. "haproxy_check_code") because the influxql→metricsql converter
+			// drops AS aliases. Strip the prefix to recover the original field name;
+			// for the influxdb driver the column already matches.
+			fieldName := strings.TrimPrefix(colName, "haproxy_")
+			v := latest[j]
+			if v == nil {
+				backendJson.Set(fieldName, jsonutils.JSONNull)
+				continue
+			}
+			backendJson.Set(fieldName, jsonutils.Marshal(v))
 		}
 	}
 	return jsonutils.NewArray(backendJsons...), nil
