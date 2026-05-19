@@ -58,6 +58,7 @@ func (task *LLMInstantModelImportTask) OnInit(ctx context.Context, obj db.IStand
 	}
 	if err != nil {
 		task.OnImportCompleteFailed(ctx, model, jsonutils.NewString(err.Error()))
+		return
 	}
 	task.OnImportComplete(ctx, model, nil)
 }
@@ -80,13 +81,6 @@ func (task *LLMInstantModelImportTask) OnImportComplete(ctx context.Context, obj
 
 func (task *LLMInstantModelImportTask) OnImportCompleteFailed(ctx context.Context, obj db.IStandaloneModel, err jsonutils.JSONObject) {
 	model := obj.(*models.SInstantModel)
-
-	// 确保删除 fileDir
-	if fileDirObj, err := task.Params.Get("file_dir"); err == nil {
-		if fileDir, _ := fileDirObj.GetString(); fileDir != "" {
-			model.CleanupImportTmpDir(ctx, task.GetUserCred(), fileDir)
-		}
-	}
 
 	task.taskFailed(ctx, model, err.String())
 }

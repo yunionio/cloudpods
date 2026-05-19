@@ -433,11 +433,6 @@ func (s *sglang) DownloadModel(ctx context.Context, userCred mcclient.TokenCrede
 	if err := os.MkdirAll(localDir, 0755); err != nil {
 		return "", nil, errors.Wrap(err, "mkdir local model dir")
 	}
-	if entries, err := os.ReadDir(localDir); err == nil && len(entries) > 0 {
-		targetDir := path.Join(api.LLM_SGLANG_MODELS_PATH, modelBase)
-		log.Infof("Model %s already exists in import dir %s", modelName, localDir)
-		return modelName, []string{targetDir}, nil
-	}
 
 	rev := resolveHfdRevision(modelTag)
 	apiURL := fmt.Sprintf("%s/api/models/%s?revision=%s", api.LLM_SGLANG_HF_ENDPOINT, escapeURLPathPreserveSlash(modelName), url.QueryEscape(rev))
@@ -462,6 +457,11 @@ func (s *sglang) DownloadModel(ctx context.Context, userCred mcclient.TokenCrede
 	if len(meta.Siblings) == 0 {
 		return "", nil, errors.Errorf("hf model metadata has no siblings: %s", apiURL)
 	}
+	if isHuggingFaceImportComplete(localDir, meta.Siblings) {
+		targetDir := path.Join(api.LLM_SGLANG_MODELS_PATH, modelBase)
+		log.Infof("Model %s already exists in import dir %s", modelName, localDir)
+		return modelName, []string{targetDir}, nil
+	}
 
 	for _, sibling := range meta.Siblings {
 		rf := strings.TrimSpace(sibling.RFilename)
@@ -469,7 +469,7 @@ func (s *sglang) DownloadModel(ctx context.Context, userCred mcclient.TokenCrede
 			continue
 		}
 		dst := filepath.Join(localDir, filepath.FromSlash(rf))
-		if isNonEmptyFile(dst) {
+		if isCompleteFile(dst, sibling.Size) {
 			continue
 		}
 		if err := os.MkdirAll(filepath.Dir(dst), 0755); err != nil {
