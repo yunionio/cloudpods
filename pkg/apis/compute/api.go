@@ -320,6 +320,12 @@ type IsolatedDeviceConfig struct {
 	WireId       string `json:"wire_id"`
 	DiskIndex    *int8  `json:"disk_index"`
 	DevicePath   string `json:"device_path"`
+	// MemoryMb is the minimum on-device memory in MiB required from the
+	// candidate isolated_device (e.g. NVIDIA GPU VRAM). 0 means no constraint.
+	// The scheduler excludes devices whose memory_size > 0 and is below this
+	// threshold; devices with memory_size == 0 are treated as unknown and
+	// allowed through to avoid penalising hosts that haven't reported yet.
+	MemoryMb int `json:"memory_mb,omitempty"`
 }
 
 type BaremetalDiskConfig struct {

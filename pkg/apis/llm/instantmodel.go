@@ -87,6 +87,40 @@ type MountedByLLMInfo struct {
 type InstantModelSyncstatusInput struct {
 }
 
+// InstantModelVramRequirement reports the heuristic VRAM needed to run this
+// model, mirroring GPUStack's `estimate_model_vram`. Returns
+// `vram_required_mb=0` when `weight_size_bytes` is unknown — callers should
+// treat 0 as "no constraint", same as the scheduler does.
+type InstantModelVramRequirement struct {
+	LlmType         string `json:"llm_type"`
+	WeightSizeBytes int64  `json:"weight_size_bytes"`
+	VramRequiredMb  int    `json:"vram_required_mb"`
+}
+
+type InstantModelBackfillVramInput struct {
+	// DryRun reports what would change but does not write to the database.
+	DryRun bool `json:"dry_run,omitempty"`
+}
+
+type InstantModelBackfillVramItem struct {
+	Id              string `json:"id"`
+	Name            string `json:"name"`
+	ModelName       string `json:"model_name"`
+	ModelTag        string `json:"model_tag"`
+	WeightSizeBytes int64  `json:"weight_size_bytes"`
+	Status          string `json:"status"` // updated, skipped, failed
+	Reason          string `json:"reason,omitempty"`
+}
+
+type InstantModelBackfillVramOutput struct {
+	DryRun  bool                           `json:"dry_run"`
+	Scanned int                            `json:"scanned"`
+	Updated int                            `json:"updated"`
+	Skipped int                            `json:"skipped"`
+	Failed  int                            `json:"failed"`
+	Items   []InstantModelBackfillVramItem `json:"items,omitempty"`
+}
+
 type InstantAppCacheInput struct {
 }
 

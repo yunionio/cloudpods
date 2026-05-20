@@ -304,9 +304,12 @@ func huggingFaceHTTPGet(ctx context.Context, reqURL string) ([]byte, http.Header
 }
 
 func getHuggingFaceRepoInfo(ctx context.Context, repoID string, revision string) (huggingFaceRepoInfoResponse, error) {
-	repoURL := fmt.Sprintf("%s/api/models/%s", huggingFaceMirrorEndpoint, escapeURLPathPreserveSlash(repoID))
+	// blobs=true makes HF include each sibling's byte size in the response,
+	// equivalent to Python's `HfApi().model_info(files_metadata=True)`. Without
+	// it, sibling.Size is always 0 and weight-size summation returns 0.
+	repoURL := fmt.Sprintf("%s/api/models/%s?blobs=true", huggingFaceMirrorEndpoint, escapeURLPathPreserveSlash(repoID))
 	if revision != "" {
-		repoURL = fmt.Sprintf("%s?revision=%s", repoURL, url.QueryEscape(revision))
+		repoURL = fmt.Sprintf("%s&revision=%s", repoURL, url.QueryEscape(revision))
 	}
 	body, _, err := huggingFaceHTTPGet(ctx, repoURL)
 	if err != nil {
@@ -317,6 +320,57 @@ func getHuggingFaceRepoInfo(ctx context.Context, repoID string, revision string)
 		return huggingFaceRepoInfoResponse{}, errors.Wrap(err, "json.Unmarshal")
 	}
 	return resp, nil
+}
+
+// huggingFaceWeightExtensions mirrors GPUStack's WEIGHT_FILE_EXTENSIONS — the
+// file types that count toward a model's GPU memory footprint.
+var huggingFaceWeightExtensions = map[string]struct{}{
+	".safetensors": {},
+	".bin":         {},
+	".pt":          {},
+	".pth":         {},
+}
+
+// huggingFaceWeightExcludeNames is the list of root-level filenames GPUStack
+// explicitly drops to avoid double-counting (e.g. a sharded model that also
+// ships a `consolidated.safetensors` covering all shards).
+var huggingFaceWeightExcludeNames = map[string]struct{}{
+	"consolidated.safetensors": {},
+}
+
+// FetchHuggingFaceWeightSize is the exported entry point used by external
+// callers (the import task in particular). Delegates to the unexported
+// implementation; see fetchHuggingFaceWeightSize for the contract.
+func FetchHuggingFaceWeightSize(ctx context.Context, repoID, revision string) (int64, error) {
+	return fetchHuggingFaceWeightSize(ctx, repoID, revision)
+}
+
+// fetchHuggingFaceWeightSize sums the byte sizes of root-level weight files
+// in the given HF repo at the given revision. Mirrors GPUStack's
+// `get_model_weight_size`. Returns 0 + error on transport / parse failure;
+// caller logs and falls back without aborting the import.
+func fetchHuggingFaceWeightSize(ctx context.Context, repoID, revision string) (int64, error) {
+	resp, err := getHuggingFaceRepoInfo(ctx, repoID, revision)
+	if err != nil {
+		return 0, errors.Wrap(err, "getHuggingFaceRepoInfo")
+	}
+	var total int64
+	for _, s := range resp.Siblings {
+		// Root-level files only — GPUStack passes recursive=False and we want
+		// the same behaviour to avoid double-counting nested copies.
+		if strings.Contains(s.RFilename, "/") {
+			continue
+		}
+		if _, skip := huggingFaceWeightExcludeNames[s.RFilename]; skip {
+			continue
+		}
+		ext := strings.ToLower(filepath.Ext(s.RFilename))
+		if _, ok := huggingFaceWeightExtensions[ext]; !ok {
+			continue
+		}
+		total += s.Size
+	}
+	return total, nil
 }
 
 func escapeURLPathPreserveSlash(p string) string {

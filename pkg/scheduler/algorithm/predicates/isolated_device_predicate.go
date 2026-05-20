@@ -74,6 +74,42 @@ func (f *IsolatedDevicePredicate) getIsolatedDeviceCountByType(getter core.Candi
 	}
 }
 
+// countDevicesWithMinMemory counts free devices of the given dev_type whose
+// MemorySize satisfies the minimum requirement. Devices with MemorySize == 0
+// are treated as "unknown" and pass through (so newly-introduced rows that
+// haven't been backfilled yet don't accidentally exclude every host).
+// For NVIDIA_MPS / NVIDIA_GPU_SHARE the count is deduplicated by DevicePath,
+// matching getIsolatedDeviceCountByType.
+func (f *IsolatedDevicePredicate) countDevicesWithMinMemory(getter core.CandidatePropertyGetter, devType string, minMemoryMb int) int {
+	devs := getter.UnusedIsolatedDevicesByType(devType)
+	isShared := devType == compute.CONTAINER_DEV_NVIDIA_MPS || devType == compute.CONTAINER_DEV_NVIDIA_GPU_SHARE
+	return countDevicesWithMinMemoryFromList(devs, isShared, minMemoryMb)
+}
+
+// countDevicesWithMinMemoryFromList is the pure-function core of the memory
+// fit count, factored out for unit testing. Callers pass an already-filtered
+// list (typically by dev_type).
+func countDevicesWithMinMemoryFromList(devs []*core.IsolatedDeviceDesc, isShared bool, minMemoryMb int) int {
+	if !isShared {
+		n := 0
+		for _, d := range devs {
+			if d.MemorySize > 0 && d.MemorySize < minMemoryMb {
+				continue
+			}
+			n++
+		}
+		return n
+	}
+	seen := map[string]struct{}{}
+	for _, d := range devs {
+		if d.MemorySize > 0 && d.MemorySize < minMemoryMb {
+			continue
+		}
+		seen[d.DevicePath] = struct{}{}
+	}
+	return len(seen)
+}
+
 func (f *IsolatedDevicePredicate) Execute(ctx context.Context, u *core.Unit, c core.Candidater) (bool, []core.PredicateFailureReason, error) {
 	h := NewPredicateHelper(f, u, c)
 	reqIsoDevs := u.SchedData().IsolatedDevices
@@ -159,6 +195,35 @@ func (f *IsolatedDevicePredicate) Execute(ctx context.Context, u *core.Unit, c c
 			return h.GetResult()
 		}
 		cap := freeCount / reqCount
+		if int64(cap) < minCapacity {
+			minCapacity = int64(cap)
+		}
+	}
+
+	// check host device by (type, min_memory_mb) — VRAM-aware fit for GPUs.
+	// LLM scheduling stamps MemoryMb on each request entry so a SKU's
+	// vram_claim_mb is honoured. Devices with memory_size == 0 are passed
+	// through as unknown (see countDevicesWithMinMemory).
+	type vramReqKey struct {
+		devType  string
+		minMemMb int
+	}
+	vramReq := make(map[vramReqKey]int)
+	for _, dev := range reqIsoDevs {
+		if dev.MemoryMb <= 0 {
+			continue
+		}
+		vramReq[vramReqKey{dev.DevType, dev.MemoryMb}]++
+	}
+	for k, reqCnt := range vramReq {
+		fit := f.countDevicesWithMinMemory(getter, k.devType, k.minMemMb)
+		if fit < reqCnt {
+			h.Exclude(fmt.Sprintf(
+				"IsolatedDevice type %q with memory >= %d MiB not enough, request: %d, hostFree: %d",
+				k.devType, k.minMemMb, reqCnt, fit))
+			return h.GetResult()
+		}
+		cap := fit / reqCnt
 		if int64(cap) < minCapacity {
 			minCapacity = int64(cap)
 		}

@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/llm/options"
+	"yunion.io/x/onecloud/pkg/llm/utils/vram"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	computemodules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
@@ -78,6 +79,13 @@ type SInstantModel struct {
 	Size int64 `nullable:"true" list:"user" create:"optional"`
 
 	ActualSizeMb int32 `nullable:"true" list:"user" update:"user"`
+
+	// WeightSizeBytes is the sum of weight-file byte counts at the upstream
+	// source (HuggingFace .safetensors/.bin/etc. siblings). Distinct from
+	// `Size` (which mirrors image disk space). 0 means unknown — populated
+	// best-effort by LLMInstantModelImportTask.OnImportComplete and consumed
+	// by EstimateVramClaimMb to size SKU vram_claim_mb.
+	WeightSizeBytes int64 `nullable:"true" default:"0" list:"user"`
 
 	AutoCache bool `list:"user"`
 }
@@ -840,6 +848,92 @@ func (man *SInstantModelManager) PerformImport(
 	return man.DoImportWithParent(ctx, userCred, input, "")
 }
 
+// PerformBackfillVram retroactively populates `weight_size_bytes` for
+// InstantModel rows that were imported before the field was introduced.
+// HuggingFace is the only supported source in this phase; rows whose ModelName
+// doesn't look like a HF repo id (i.e. lacks a "/") are recorded as skipped.
+// Already-populated rows are not revisited. Pass dry_run=true to preview.
+func (man *SInstantModelManager) PerformBackfillVram(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input apis.InstantModelBackfillVramInput,
+) (*apis.InstantModelBackfillVramOutput, error) {
+	var models []SInstantModel
+	q := man.Query().Equals("weight_size_bytes", 0).IsFalse("deleted")
+	if err := db.FetchModelObjects(man, q, &models); err != nil {
+		return nil, errors.Wrap(err, "FetchModelObjects")
+	}
+
+	out := &apis.InstantModelBackfillVramOutput{
+		DryRun:  input.DryRun,
+		Scanned: len(models),
+	}
+
+	for i := range models {
+		m := &models[i]
+		item := apis.InstantModelBackfillVramItem{
+			Id:        m.Id,
+			Name:      m.Name,
+			ModelName: m.ModelName,
+			ModelTag:  m.ModelTag,
+		}
+
+		// Only HuggingFace is recoverable from the row alone — its ModelName
+		// is the repo id (e.g. "Qwen/Qwen3-0.6B"); ModelTag is the revision.
+		if !strings.Contains(m.ModelName, "/") {
+			item.Status = "skipped"
+			item.Reason = "unsupported source (only huggingface-style model_name with '/' is recoverable)"
+			out.Skipped++
+			out.Items = append(out.Items, item)
+			continue
+		}
+		revision := m.ModelTag
+		if revision == "" {
+			revision = "main"
+		}
+		weight, err := FetchHuggingFaceWeightSize(ctx, m.ModelName, revision)
+		if err != nil {
+			item.Status = "failed"
+			item.Reason = err.Error()
+			out.Failed++
+			out.Items = append(out.Items, item)
+			log.Warningf("BackfillVram: fetch HF weight size %s@%s: %s", m.ModelName, revision, err)
+			continue
+		}
+		if weight <= 0 {
+			item.Status = "skipped"
+			item.Reason = "no weight files found"
+			out.Skipped++
+			out.Items = append(out.Items, item)
+			continue
+		}
+
+		item.WeightSizeBytes = weight
+		if input.DryRun {
+			item.Status = "updated"
+			item.Reason = "dry-run (no write)"
+			out.Updated++
+			out.Items = append(out.Items, item)
+			continue
+		}
+		if _, err := db.Update(m, func() error {
+			m.WeightSizeBytes = weight
+			return nil
+		}); err != nil {
+			item.Status = "failed"
+			item.Reason = errors.Wrap(err, "db.Update").Error()
+			out.Failed++
+			out.Items = append(out.Items, item)
+			continue
+		}
+		item.Status = "updated"
+		out.Updated++
+		out.Items = append(out.Items, item)
+	}
+	return out, nil
+}
+
 // DoImportWithParent creates a temporary InstantModel and starts an import task,
 // optionally chaining it to a parent task. When parentTaskId is non-empty, the
 // parent task will be notified when the import task completes (via subtask
@@ -1116,6 +1210,23 @@ func (model *SInstantModel) GetEstimatedVramSizeBytes() int64 {
 
 func (model *SInstantModel) GetEstimatedVramSizeMb() int64 {
 	return model.GetEstimatedVramSizeBytes() / 1024 / 1024
+}
+
+// GetDetailsVramRequirement is the per-row endpoint
+// `GET /instant-models/{id}/vram-requirement`. It returns the heuristic VRAM
+// requirement computed by the GPUStack-equivalent formula
+// (weight_size * 1.2 + framework_overhead). When `weight_size_bytes` is 0
+// (not yet backfilled / unknown source), `vram_required_mb` is also 0.
+func (model *SInstantModel) GetDetailsVramRequirement(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+) (*apis.InstantModelVramRequirement, error) {
+	return &apis.InstantModelVramRequirement{
+		LlmType:         model.LlmType,
+		WeightSizeBytes: model.WeightSizeBytes,
+		VramRequiredMb:  vram.EstimateClaimMb(model.WeightSizeBytes, model.LlmType),
+	}, nil
 }
 
 func (model *SInstantModel) CleanupImportTmpDir(ctx context.Context, userCred mcclient.TokenCredential, tmpDir string) error {

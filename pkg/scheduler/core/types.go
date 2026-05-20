@@ -278,6 +278,9 @@ type IsolatedDeviceDesc struct {
 	VendorDeviceID string
 	WireId         string
 	DevicePath     string
+	// MemorySize is the on-device memory in MiB (NVIDIA GPU VRAM via
+	// `nvidia-smi memory.total`). 0 means unknown / not yet reported by host.
+	MemorySize int
 }
 
 func (i *IsolatedDeviceDesc) VendorID() string {
