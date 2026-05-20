@@ -92,7 +92,7 @@ func Init(ioScheduler string) error {
 	cgroupPath := ""
 	if fileutils2.Exists(CGROUP_PATH_SYSFS) {
 		cgroupPath = CGROUP_PATH_SYSFS
-	} else if fileutils2.Exists("CGROUP_PATH_ROOT") {
+	} else if fileutils2.Exists(CGROUP_PATH_ROOT) {
 		cgroupPath = CGROUP_PATH_ROOT
 	}
 	if cgroupPath == "" {
