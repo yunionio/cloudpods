@@ -62,8 +62,9 @@ type SLLM struct {
 	// MountedModels overrides the SKU's mounted_models when non-empty; otherwise SKU's value is used.
 	SMountedModelsResource
 
-	LLMSkuId   string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"required"`
-	LLMImageId string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"required"`
+	LLMSkuId        string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"required"`
+	LLMImageId      string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"required"`
+	LLMDeploymentId string `width:"128" charset:"ascii" nullable:"true" list:"user" create:"optional" index:"true"`
 
 	// 秒装应用配额（可安装的总容量限制）
 	InstantModelQuotaGb int `list:"user" update:"user" create:"optional" default:"0" nullable:"false"`
@@ -237,6 +238,16 @@ func (man *SLLMManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, 
 		skuQ := GetLLMSkuManager().Query().SubQuery()
 		q = q.Join(skuQ, sqlchemy.Equals(q.Field("llm_sku_id"), skuQ.Field("id")))
 		q = q.Filter(sqlchemy.In(skuQ.Field("llm_type"), input.LLMTypes))
+	}
+	if len(input.LLMDeployment) > 0 {
+		modelObj, err := GetLLMDeploymentManager().FetchByIdOrName(ctx, userCred, input.LLMDeployment)
+		if err != nil {
+			if errors.Cause(err) == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(GetLLMDeploymentManager().KeywordPlural(), input.LLMDeployment)
+			}
+			return nil, errors.Wrap(err, "GetLLMDeploymentManager.FetchByIdOrName")
+		}
+		q = q.Equals("llm_deployment_id", modelObj.GetId())
 	}
 
 	return q, nil
@@ -471,6 +482,36 @@ func runBatchCreateTask(
 
 func (llm *SLLM) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
 	return llm.StartDeleteTask(ctx, userCred, "")
+}
+
+// SetStatus overrides the base implementation to push ReadyReplicas updates to
+// the parent SLLMDeployment whenever the instance crosses the running boundary.
+// This is the only deterministic hook for "instance came up" / "instance went
+// down" — every transition (create-complete, start, stop, fail, restart) flows
+// through here.
+func (llm *SLLM) SetStatus(ctx context.Context, userCred mcclient.TokenCredential, status string, reason string) error {
+	oldStatus := llm.Status
+	if err := llm.SLLMBase.SetStatus(ctx, userCred, status, reason); err != nil {
+		return err
+	}
+	if llm.LLMDeploymentId == "" {
+		return nil
+	}
+	// Only sync when running-membership changed.
+	wasRunning := oldStatus == api.LLM_STATUS_RUNNING
+	isRunning := status == api.LLM_STATUS_RUNNING
+	if wasRunning == isRunning {
+		return nil
+	}
+	depObj, err := GetLLMDeploymentManager().FetchById(llm.LLMDeploymentId)
+	if err != nil {
+		log.Warningf("SLLM.SetStatus: fetch deployment %s: %s", llm.LLMDeploymentId, err)
+		return nil
+	}
+	if err := depObj.(*SLLMDeployment).SyncReadyReplicas(ctx, userCred); err != nil {
+		log.Warningf("SLLM.SetStatus: SyncReadyReplicas for deployment %s: %s", llm.LLMDeploymentId, err)
+	}
+	return nil
 }
 
 func (llm *SLLM) GetLLMSku(skuId string) (*SLLMSku, error) {

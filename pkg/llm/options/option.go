@@ -35,6 +35,17 @@ type LLMOptions struct {
 
 	MCPAgentUserCharLimit      int `help:"MCP Agent user char limit" default:"3200"`
 	MCPAgentAssistantCharLimit int `help:"MCP Agent assistant char limit" default:"6400"`
+
+	// LLM model catalog (browsable curated entries). Value can be either an
+	// http(s) URL or a local file path; sources without an http:// or https://
+	// prefix are treated as local files.
+	ModelCatalogURL                  string `help:"URL of the LLM model catalog YAML; values without http(s):// prefix are treated as local file paths" default:"https://www.cloudpods.org/llm-catalog.yaml"`
+	LLMCatalogRefreshIntervalMinutes int    `help:"Catalog refresh interval in minutes; 0 disables periodic refresh" default:"60"`
+
+	// Server-side proxy for outbound HuggingFace / ModelScope calls (used by
+	// the dashboard for model browsing). Mirrors GPUStack's /v1/proxy design.
+	HuggingFaceEndpoint string `help:"Replacement endpoint for huggingface.co (e.g., https://hf-mirror.com); empty means no substitution"`
+	HuggingFaceToken    string `help:"Optional HuggingFace bearer token; injected as Authorization header on huggingface.co requests"`
 }
 
 var (
