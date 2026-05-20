@@ -59,6 +59,7 @@ func defaultPriorities() sets.String {
 		factory.RegisterPriority("guest-lowload", &priorityguest.LowLoadPriority{}, 1),
 		factory.RegisterPriority("guest-creating", &priorityguest.CreatingPriority{}, 1),
 		factory.RegisterPriority("guest-capacity", &priorityguest.CapacityPriority{}, 1),
+		factory.RegisterPriority("guest-gpu-vram-binpack", &priorityguest.GPUVramBinpackPriority{}, 1),
 		factory.RegisterPriority("guest-cpunumapin", &priorityguest.CpuNumaPinPriority{}, 1),
 	)
 }

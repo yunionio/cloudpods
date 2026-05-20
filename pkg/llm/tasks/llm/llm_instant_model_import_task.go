@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 
 	imageapi "yunion.io/x/onecloud/pkg/apis/image"
 	apis "yunion.io/x/onecloud/pkg/apis/llm"
@@ -73,10 +74,48 @@ func (task *LLMInstantModelImportTask) OnImportComplete(ctx context.Context, obj
 		}
 	}
 
+	// Best-effort: estimate the model's weight-file size for downstream
+	// VRAM-claim calculation. Failure here is a warning, not a fatal — most
+	// consumers tolerate `weight_size_bytes = 0` (treated as "unknown").
+	if model.WeightSizeBytes == 0 {
+		input := apis.InstantModelImportInput{}
+		if err := task.Params.Unmarshal(&input, "import_input"); err == nil {
+			if w := fetchWeightSizeForImport(ctx, input); w > 0 {
+				if _, err := db.Update(model, func() error {
+					model.WeightSizeBytes = w
+					return nil
+				}); err != nil {
+					log.Warningf("LLMInstantModelImportTask: persist weight_size_bytes for %s: %s", model.Name, err)
+				} else {
+					log.Infof("LLMInstantModelImportTask: %s weight_size_bytes=%d", model.Name, w)
+				}
+			}
+		}
+	}
+
 	db.OpsLog.LogEvent(model, db.ACT_CREATE, model.GetShortDesc(ctx), task.UserCred)
 	logclient.AddActionLogWithStartable(task, model, logclient.ACT_CREATE, model.GetShortDesc(ctx), task.UserCred, true)
 
 	task.SetStageComplete(ctx, nil)
+}
+
+// fetchWeightSizeForImport dispatches by import source. Only HuggingFace is
+// supported in this phase; ModelScope / local_path / ollama silently return 0
+// (left as TODO; UI handles the unknown case gracefully).
+func fetchWeightSizeForImport(ctx context.Context, input apis.InstantModelImportInput) int64 {
+	if input.Source == apis.InstantModelSourceHuggingFace && input.RepoId != "" {
+		rev := input.Revision
+		if rev == "" {
+			rev = "main"
+		}
+		w, err := models.FetchHuggingFaceWeightSize(ctx, input.RepoId, rev)
+		if err != nil {
+			log.Warningf("LLMInstantModelImportTask: fetch HF weight size for %s@%s: %s", input.RepoId, rev, err)
+			return 0
+		}
+		return w
+	}
+	return 0
 }
 
 func (task *LLMInstantModelImportTask) OnImportCompleteFailed(ctx context.Context, obj db.IStandaloneModel, err jsonutils.JSONObject) {

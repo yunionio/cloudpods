@@ -150,6 +150,10 @@ type LLMSKuBaseCreateInput struct {
 	Cpu       int `json:"cpu"`
 	Memory    int `json:"memory"`
 	Bandwidth int `json:"bandwidth"`
+	// VramClaimMb is the estimated VRAM (MiB) the inference instance will
+	// require. Optional — if 0, the deployment create task will auto-fill it
+	// from the mounted InstantModel's weight_size_bytes.
+	VramClaimMb int `json:"vram_claim_mb,omitempty"`
 
 	Volumes      *Volumes          `json:"volumes"`
 	HostPaths    *HostPaths        `json:"host_paths"`
