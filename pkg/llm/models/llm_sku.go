@@ -12,6 +12,7 @@ import (
 	imageapi "yunion.io/x/onecloud/pkg/apis/image"
 	api "yunion.io/x/onecloud/pkg/apis/llm"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
@@ -57,6 +58,7 @@ type SLLMSku struct {
 	LLMSpec    *api.LLMSpec `json:"llm_spec" length:"long" list:"user" create:"optional" update:"user"`
 
 	// Model source
+	LLMModelSpecId      string `width:"256" charset:"utf8" nullable:"true" list:"user" create:"optional" update:"user"`
 	Source              string `width:"32" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
 	HuggingfaceRepoId   string `width:"256" charset:"utf8" nullable:"true" list:"user" create:"optional" update:"user"`
 	HuggingfaceFilename string `width:"256" charset:"utf8" nullable:"true" list:"user" create:"optional" update:"user"`
@@ -140,6 +142,16 @@ func (manager *SLLMSkuManager) FetchCustomizeColumns(
 		res[i].SharableVirtualResourceDetails = virows[i]
 		res[i].LLMType = sku.LLMType
 		res[i].LLMSpec = sku.LLMSpec
+		res[i].LLMModelSpecId = sku.LLMModelSpecId
+		res[i].Source = sku.Source
+		res[i].HuggingfaceRepoId = sku.HuggingfaceRepoId
+		res[i].HuggingfaceFilename = sku.HuggingfaceFilename
+		res[i].ModelScopeModelId = sku.ModelScopeModelId
+		res[i].ModelScopeFilePath = sku.ModelScopeFilePath
+		res[i].LocalPath = sku.LocalPath
+		res[i].Categories = sku.Categories
+		res[i].BackendVersion = sku.BackendVersion
+		res[i].BackendParameters = sku.BackendParameters
 		for _, v := range details {
 			if v.LLMSkuId == sku.Id {
 				res[i].LLMCapacity = v.LLMCapacity
@@ -228,8 +240,51 @@ func (man *SLLMSkuManager) ValidateCreateData(ctx context.Context, userCred mccl
 	if err != nil {
 		return input, errors.Wrap(err, "validate create input")
 	}
-	input.Status = api.STATUS_READY
+	if _, err := resolveLLMSkuCatalogImport(input); err != nil {
+		return input, err
+	}
+	if input.LLMModelSpecId != "" {
+		input.Status = api.LLM_DEPLOYMENT_STATUS_IMPORTING_MODEL
+	} else {
+		input.Status = api.STATUS_READY
+	}
 	return input, nil
+}
+
+func (sku *SLLMSku) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	sku.SSharableVirtualResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
+	input := api.LLMSkuCreateInput{}
+	if data == nil || data.Unmarshal(&input) != nil || input.LLMModelSpecId == "" {
+		return
+	}
+	if err := sku.StartCreateTask(ctx, userCred, data); err != nil {
+		log.Errorf("SLLMSku.PostCreate start task failed: %s", err)
+		sku.SetStatus(ctx, userCred, api.LLM_DEPLOYMENT_STATUS_IMPORT_MODEL_FAILED, err.Error())
+	}
+}
+
+func (sku *SLLMSku) StartCreateTask(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject) error {
+	params, _ := data.(*jsonutils.JSONDict)
+	if params == nil {
+		params = jsonutils.NewDict()
+	}
+	importInput := api.InstantModelImportInput{}
+	if err := params.Unmarshal(&importInput, "import_input"); err != nil {
+		createdInput := api.LLMSkuCreateInput{}
+		if err := params.Unmarshal(&createdInput); err != nil {
+			return errors.Wrap(err, "unmarshal LLMSkuCreateInput")
+		}
+		derived, err := resolveLLMSkuCatalogImport(&createdInput)
+		if err != nil {
+			return errors.Wrap(err, "resolve catalog import")
+		}
+		params.Set("import_input", jsonutils.Marshal(derived))
+	}
+	task, err := taskman.TaskManager.NewTask(ctx, "LLMSkuCreateTask", sku, userCred, params, "", "", nil)
+	if err != nil {
+		return errors.Wrap(err, "NewTask LLMSkuCreateTask")
+	}
+	return task.ScheduleRun(nil)
 }
 
 // GetLLMImageId returns the primary image id for this SKU. Delegates to driver.

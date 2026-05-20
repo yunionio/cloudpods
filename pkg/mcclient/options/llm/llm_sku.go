@@ -37,6 +37,7 @@ type LLMSkuCreateOptions struct {
 	LLM_TYPE     string `json:"llm_type" choices:"ollama|vllm|comfyui|sglang"`
 
 	// Model source
+	LLMModelSpecId      string `help:"LLM catalog model spec id; starts InstantModel import and mounts it into this SKU" json:"llm_model_spec_id"`
 	Source              string `help:"model source: huggingface, model_scope, local_path" json:"source"`
 	HuggingfaceRepoId   string `help:"HuggingFace repo ID" json:"huggingface_repo_id"`
 	HuggingfaceFilename string `help:"HuggingFace filename" json:"huggingface_filename"`
