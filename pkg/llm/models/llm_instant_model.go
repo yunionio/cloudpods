@@ -58,7 +58,7 @@ type SLLMInstantModel struct {
 }
 
 func (man *SLLMInstantModelManager) fetchLLMInstantModel(llmId string, instantModelId string) (*SLLMInstantModel, error) {
-	q := man.RawQuery().Equals("llm_id", llmId).Equals("model_id", instantModelId)
+	q := man.Query().Equals("llm_id", llmId).Equals("model_id", instantModelId)
 	llmInstantModel := SLLMInstantModel{}
 	err := q.First(&llmInstantModel)
 	if err != nil {

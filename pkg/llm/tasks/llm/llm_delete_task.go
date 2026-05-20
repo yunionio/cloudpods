@@ -113,10 +113,20 @@ func (task *LLMDeleteTask) OnLLMContainerDeleteComplete(ctx context.Context, llm
 		return
 	}
 
+	// Capture LLMDeploymentId before deletion for self-healing reconcile
+	llmDeploymentId := llm.LLMDeploymentId
+
 	err = llm.RealDelete(ctx, task.UserCred)
 	if err != nil {
 		task.taskFailed(ctx, llm, err)
 		return
 	}
+
+	// Self-healing: if this instance belonged to an SLLMDeployment, trigger reconcile
+	// to replace it if the model still needs more replicas.
+	if len(llmDeploymentId) > 0 {
+		models.TriggerLLMDeploymentReconcile(ctx, task.UserCred, llmDeploymentId)
+	}
+
 	task.SetStageComplete(ctx, nil)
 }

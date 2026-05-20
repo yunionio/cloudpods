@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -25,6 +26,117 @@ func handleOllamaRegistryYAML(ctx context.Context, w http.ResponseWriter, r *htt
 	yamlContent := models.GetInstantModelManager().GetOllamaRegistryYAML()
 	w.Header().Set("Content-Type", "application/x-yaml; charset=utf-8")
 	appsrv.Send(w, yamlContent)
+}
+
+// handleLLMModelSetList: GET /llm_model_sets
+func handleLLMModelSetList(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	query, err := jsonutils.ParseQueryString(r.URL.RawQuery)
+	if err != nil {
+		httperrors.InvalidInputError(ctx, w, "Parse query string %q: %v", r.URL.RawQuery, err)
+		return
+	}
+	input := api.LLMModelSetListInput{}
+	if query != nil {
+		_ = query.Unmarshal(&input)
+	}
+	sets, total := models.GetLLMModelSetManager().ListSets(input)
+	if sets == nil {
+		sets = []api.LLMModelSet{}
+	}
+	limit := input.Limit
+	if limit <= 0 {
+		limit = 20
+	}
+	// Build the envelope as a JSONDict — jsonutils.Marshal omits zero-length
+	// slices, so an explicit dict guarantees `llm_model_sets` is always present
+	// (the mcclient module's list parser fails with "key not found" otherwise).
+	resp := jsonutils.NewDict()
+	resp.Set("llm_model_sets", jsonutils.Marshal(sets))
+	resp.Set("total", jsonutils.NewInt(int64(total)))
+	resp.Set("limit", jsonutils.NewInt(int64(limit)))
+	resp.Set("offset", jsonutils.NewInt(int64(input.Offset)))
+	appsrv.SendJSON(w, resp)
+}
+
+// handleLLMModelSetShow: GET /llm_model_sets/<id>
+func handleLLMModelSetShow(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	id := lastPathSegment(r.URL.Path)
+	set, ok := models.GetLLMModelSetManager().GetSet(id)
+	if !ok {
+		httperrors.NotFoundError(ctx, w, "model set %s not found", id)
+		return
+	}
+	appsrv.SendStruct(w, api.LLMModelSetShowOutput{LLMModelSet: *set})
+}
+
+// handleLLMModelSetSpecs: GET /llm_model_sets/<id>/specs
+func handleLLMModelSetSpecs(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	// path is .../llm_model_sets/<id>/specs — id is the second-to-last segment.
+	segs := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
+	if len(segs) < 2 {
+		httperrors.InvalidInputError(ctx, w, "missing model set id")
+		return
+	}
+	id := segs[len(segs)-2]
+	specs, ok := models.GetLLMModelSetManager().ListSpecs(id)
+	if !ok {
+		httperrors.NotFoundError(ctx, w, "model set %s not found", id)
+		return
+	}
+	if specs == nil {
+		specs = []api.LLMModelSpec{}
+	}
+	resp := jsonutils.NewDict()
+	resp.Set("llm_model_specs", jsonutils.Marshal(specs))
+	resp.Set("total", jsonutils.NewInt(int64(len(specs))))
+	appsrv.SendJSON(w, resp)
+}
+
+// handleLLMModelSpecShow: GET /llm_model_specs/<id> — convenience for the
+// deployment-create page so it doesn't need to know which set the spec belongs to.
+func handleLLMModelSpecShow(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	id := lastPathSegment(r.URL.Path)
+	spec, _, ok := models.GetLLMModelSetManager().GetSpec(id)
+	if !ok {
+		httperrors.NotFoundError(ctx, w, "model spec %s not found", id)
+		return
+	}
+	appsrv.SendStruct(w, api.LLMModelSpecShowOutput{LLMModelSpec: *spec})
+}
+
+// handleLLMModelSetRefresh: POST /llm_model_sets/refresh — admin only.
+// After a successful refresh, returns the freshly loaded catalog in the same
+// envelope shape as the list endpoint so the dashboard can re-render in one
+// round trip.
+func handleLLMModelSetRefresh(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	userCred := auth.FetchUserCredential(ctx, policy.FilterPolicyCredential)
+	if userCred == nil {
+		httperrors.UnauthorizedError(ctx, w, "Unauthorized")
+		return
+	}
+	if !userCred.HasSystemAdminPrivilege() {
+		httperrors.ForbiddenError(ctx, w, "system admin required")
+		return
+	}
+	if err := models.GetLLMModelSetManager().Refresh(ctx); err != nil {
+		httperrors.GeneralServerError(ctx, w, err)
+		return
+	}
+	sets, total := models.GetLLMModelSetManager().ListSets(api.LLMModelSetListInput{})
+	if sets == nil {
+		sets = []api.LLMModelSet{}
+	}
+	resp := jsonutils.NewDict()
+	resp.Set("llm_model_sets", jsonutils.Marshal(sets))
+	resp.Set("total", jsonutils.NewInt(int64(total)))
+	appsrv.SendJSON(w, resp)
+}
+
+func lastPathSegment(path string) string {
+	if i := strings.LastIndex(path, "/"); i >= 0 {
+		return path[i+1:]
+	}
+	return path
 }
 
 func AddAvailableNetworkHandler(prefix string, app *appsrv.Application) {
@@ -142,6 +254,15 @@ func InitHandlers(app *appsrv.Application, isSlave bool) {
 
 	app.AddHandler("GET", "/ollama-registry.yaml", handleOllamaRegistryYAML)
 
+	// Catalog endpoints — backed by an in-memory store fed by an external YAML.
+	// Two-level structure matches GPUStack: sets (browsable cards) + specs
+	// (deployable variants under one set).
+	app.AddHandler2("GET", "/llm_model_sets", auth.Authenticate(handleLLMModelSetList), nil, "llm_model_set_list", nil)
+	app.AddHandler2("POST", "/llm_model_sets/refresh", auth.Authenticate(handleLLMModelSetRefresh), nil, "llm_model_set_refresh", nil)
+	app.AddHandler2("GET", "/llm_model_sets/<id>/specs", auth.Authenticate(handleLLMModelSetSpecs), nil, "llm_model_set_specs", nil)
+	app.AddHandler2("GET", "/llm_model_sets/<id>", auth.Authenticate(handleLLMModelSetShow), nil, "llm_model_set_show", nil)
+	app.AddHandler2("GET", "/llm_model_specs/<id>", auth.Authenticate(handleLLMModelSpecShow), nil, "llm_model_spec_show", nil)
+
 	AddAvailableNetworkHandler(models.GetLLMManager().KeywordPlural(), app)
 
 	// 默认 Agent 聊天流：优先于 dispatcher 注册，避免被 performClassAction 的 sendJSON 覆盖。
@@ -178,6 +299,7 @@ func InitHandlers(app *appsrv.Application, isSlave bool) {
 		models.GetLLMBackupManager(),
 		models.GetAccessInfoManager(),
 		models.GetLLMContainerManager(),
+		models.GetLLMDeploymentManager(),
 		models.GetLLMManager(),
 		// models.GetDifyManager(),
 		models.GetInstantModelManager(),
