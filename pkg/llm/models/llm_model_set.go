@@ -145,6 +145,7 @@ func (m *SLLMModelSetManager) Refresh(ctx context.Context) error {
 		if s.Name == "" {
 			continue
 		}
+		s.Id = s.Name
 		sets = append(sets, s)
 		setRef := &sets[len(sets)-1]
 		setsByName[s.Name] = setRef
@@ -161,6 +162,8 @@ func (m *SLLMModelSetManager) Refresh(ctx context.Context) error {
 				id = fmt.Sprintf("%s-%d", base, seen+1)
 			}
 			usedIds[base]++
+			sp.Id = id
+			sp.Label = modelSpecLabel(sp, id)
 			sp.SpecId = id
 			specsById[id] = &specRef{SetName: setRef.Name, Spec: sp}
 			totalSpecs++
@@ -177,6 +180,15 @@ func (m *SLLMModelSetManager) Refresh(ctx context.Context) error {
 
 	log.Infof("LLMModelSet: refreshed %d sets / %d specs from %s", len(sets), totalSpecs, source)
 	return nil
+}
+
+func modelSpecLabel(sp *api.LLMModelSpec, id string) string {
+	for _, s := range []string{sp.Name, sp.Quantization, sp.Mode, sp.Backend, id} {
+		if strings.TrimSpace(s) != "" {
+			return s
+		}
+	}
+	return id
 }
 
 // specBaseId composes a slug from the spec's identifying fields. Stable across
