@@ -428,7 +428,7 @@ func (model *SInstantModel) PostCreate(
 		return
 	}
 	if input.ImageId == "" && (input.DoNotImport == nil || !*input.DoNotImport) {
-		model.startImportTask(ctx, userCred, buildInstantModelImportInputFromCreate(input))
+		model.startImportTask(ctx, userCred, buildInstantModelImportInputFromCreate(input), "")
 	}
 }
 
@@ -528,6 +528,29 @@ func (man *SInstantModelManager) findInstantModelByImageId(imageId string) (*SIn
 	mdls := make([]SInstantModel, 0)
 	err := db.FetchModelObjects(man, q, &mdls)
 	if err != nil {
+		return nil, errors.Wrap(err, "FetchModelObjects")
+	}
+	if len(mdls) == 0 {
+		return nil, nil
+	}
+	return &mdls[0], nil
+}
+
+// FindReadyInstantModel looks up an existing, ready-to-mount InstantModel for
+// the given (llm_type, model_name, model_tag) triple. Returns (nil, nil) if
+// none exists. Used by the deployment create flow to dedup catalog imports —
+// if a previous deployment already brought in Qwen3-8B / vllm / main, we
+// reuse that row instead of starting another download.
+//
+// Only enabled rows match (Enabled=true means import succeeded).
+func (man *SInstantModelManager) FindReadyInstantModel(llmType, modelName, modelTag string) (*SInstantModel, error) {
+	q := man.Query().
+		Equals("llm_type", llmType).
+		Equals("model_name", modelName).
+		Equals("model_tag", modelTag).
+		IsTrue("enabled")
+	mdls := make([]SInstantModel, 0)
+	if err := db.FetchModelObjects(man, q, &mdls); err != nil {
 		return nil, errors.Wrap(err, "FetchModelObjects")
 	}
 	if len(mdls) == 0 {
@@ -812,7 +835,20 @@ func (man *SInstantModelManager) PerformImport(
 	query jsonutils.JSONObject,
 	input apis.InstantModelImportInput,
 ) (*SInstantModel, error) {
-	// first create a temporary instant-app
+	return man.DoImportWithParent(ctx, userCred, input, "")
+}
+
+// DoImportWithParent creates a temporary InstantModel and starts an import task,
+// optionally chaining it to a parent task. When parentTaskId is non-empty, the
+// parent task will be notified when the import task completes (via subtask
+// notification mechanism), enabling deployment-level orchestration of model
+// import + SKU creation + instance scheduling.
+func (man *SInstantModelManager) DoImportWithParent(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	input apis.InstantModelImportInput,
+	parentTaskId string,
+) (*SInstantModel, error) {
 	tempModel := &SInstantModel{}
 	tempModel.SetModelManager(man, &SInstantModel{})
 	tempModel.Name = fmt.Sprintf("tmp-instant-model-%s.%s", time.Now().Format("060102"), utils.GenRequestId(6))
@@ -821,24 +857,22 @@ func (man *SInstantModelManager) PerformImport(
 	tempModel.LlmType = string(input.LlmType)
 	tempModel.ProjectId = userCred.GetProjectId()
 
-	err := man.TableSpec().Insert(ctx, tempModel)
-	if err != nil {
+	if err := man.TableSpec().Insert(ctx, tempModel); err != nil {
 		return nil, errors.Wrap(err, "Insert")
 	}
 
-	err = tempModel.startImportTask(ctx, userCred, input)
-	if err != nil {
+	if err := tempModel.startImportTask(ctx, userCred, input, parentTaskId); err != nil {
 		return nil, errors.Wrap(err, "startImportTask")
 	}
 
 	return tempModel, nil
 }
 
-func (model *SInstantModel) startImportTask(ctx context.Context, userCred mcclient.TokenCredential, input apis.InstantModelImportInput) error {
+func (model *SInstantModel) startImportTask(ctx context.Context, userCred mcclient.TokenCredential, input apis.InstantModelImportInput, parentTaskId string) error {
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.Marshal(input), "import_input")
 
-	task, err := taskman.TaskManager.NewTask(ctx, "LLMInstantModelImportTask", model, userCred, params, "", "")
+	task, err := taskman.TaskManager.NewTask(ctx, "LLMInstantModelImportTask", model, userCred, params, parentTaskId, "")
 	if err != nil {
 		return errors.Wrap(err, "NewTask")
 	}

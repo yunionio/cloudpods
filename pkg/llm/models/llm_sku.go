@@ -55,6 +55,20 @@ type SLLMSku struct {
 	LLMImageId string       `width:"128" charset:"ascii" nullable:"false" list:"user" create:"required" update:"user"`
 	LLMType    string       `width:"128" charset:"ascii" nullable:"false" list:"user" create:"required"`
 	LLMSpec    *api.LLMSpec `json:"llm_spec" length:"long" list:"user" create:"optional" update:"user"`
+
+	// Model source
+	Source              string `width:"32" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
+	HuggingfaceRepoId   string `width:"256" charset:"utf8" nullable:"true" list:"user" create:"optional" update:"user"`
+	HuggingfaceFilename string `width:"256" charset:"utf8" nullable:"true" list:"user" create:"optional" update:"user"`
+	ModelScopeModelId   string `width:"256" charset:"utf8" nullable:"true" list:"user" create:"optional" update:"user"`
+	ModelScopeFilePath  string `width:"256" charset:"utf8" nullable:"true" list:"user" create:"optional" update:"user"`
+	LocalPath           string `width:"512" charset:"utf8" nullable:"true" list:"user" create:"optional" update:"user"`
+	// Model categories, JSON array: ["llm"], ["embedding"], ["image"]
+	Categories string `charset:"utf8" length:"medium" nullable:"true" list:"user" create:"optional" update:"user"`
+	// Inference backend version
+	BackendVersion string `width:"64" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
+	// Backend CLI parameters, JSON array
+	BackendParameters string `charset:"utf8" length:"long" nullable:"true" list:"user" create:"optional" update:"user"`
 }
 
 func (man *SLLMSkuManager) ListItemFilter(
@@ -77,6 +91,12 @@ func (man *SLLMSkuManager) ListItemFilter(
 	q, err = man.SMountedModelsResourceManager.ListItemFilter(ctx, q, userCred, input.MountedModelResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SMountedAppsResourceManager")
+	}
+	if len(input.Source) > 0 {
+		q = q.Equals("source", input.Source)
+	}
+	if len(input.Categories) > 0 {
+		q = q.Contains("categories", input.Categories)
 	}
 	return q, nil
 }

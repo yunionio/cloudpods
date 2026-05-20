@@ -58,6 +58,9 @@ type LLMListDetails struct {
 	LLMSku  string `json:"llm_sku"`
 	LLMType string `json:"llm_type"`
 
+	LLMDeploymentId string `json:"llm_deployment_id"`
+	LLMDeployment   string `json:"llm_deployment"`
+
 	MountedModelInfos []MountedModelInfo `json:"mounted_model_infos"`
 }
 
@@ -79,9 +82,10 @@ type LLMCreateInput struct {
 	// MountedModels overrides the SKU's mounted_models when non-empty.
 	MountedModelResourceCreateInput
 
-	LLMSkuId   string   `json:"llm_sku_id"`
-	LLMImageId string   `json:"llm_image_id"`
-	LLMSpec    *LLMSpec `json:"llm_spec,omitempty"`
+	LLMSkuId        string   `json:"llm_sku_id"`
+	LLMImageId      string   `json:"llm_image_id"`
+	LLMDeploymentId string   `json:"llm_deployment_id"`
+	LLMSpec         *LLMSpec `json:"llm_spec,omitempty"`
 
 	// Devices/HostPaths override the corresponding sku fields when set.
 	HostPaths *HostPaths `json:"host_paths,omitempty"`
@@ -122,10 +126,11 @@ type LLMBaseListInput struct {
 type LLMListInput struct {
 	LLMBaseListInput
 
-	LLMSku   string   `json:"llm_sku"`
-	LLMImage string   `json:"llm_image"`
-	LLMTypes []string `json:"llm_types"` // filter by linked SKU's llm_types (e.g. [dify, openclaw])
-	LLMType  string   `json:"llm_type"`  // filter by linked SKU's llm_type (e.g. dify)
+	LLMSku        string   `json:"llm_sku"`
+	LLMImage      string   `json:"llm_image"`
+	LLMTypes      []string `json:"llm_types"`      // filter by linked SKU's llm_types (e.g. [dify, openclaw])
+	LLMType       string   `json:"llm_type"`       // filter by linked SKU's llm_type (e.g. dify)
+	LLMDeployment string   `json:"llm_deployment"` // filter by LLMDeployment deployment
 }
 
 type ModelInfo struct {
