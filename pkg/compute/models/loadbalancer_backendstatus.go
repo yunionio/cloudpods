@@ -137,7 +137,12 @@ func (lb *SLoadbalancer) GetBackendGroupCheckStatus(ctx context.Context, userCre
 		To(time.Now()).
 		Scope("system").
 		SkipCheckSeries(true)
-	queryInput.Selects().Select("check_code").LAST()
+	sels := queryInput.Selects()
+	sels.Select("check_code").LAST()
+	// lastsess is always written by the haproxy telegraf plugin, so include it as a
+	// fallback to guarantee the series (and its check_status tag) is returned even
+	// when check_code has no data for a backend.
+	sels.Select("lastsess").LAST()
 	queryInput.Where().Equal("pxname", pxname).REGEX("svname", "........-....-....-....-............")
 	// check_status is stored as a tag in newer telegraf haproxy plugin output;
 	// pull it into the grouped result so it appears in series.Tags.
@@ -154,11 +159,38 @@ func (lb *SLoadbalancer) GetBackendGroupCheckStatus(ctx context.Context, userCre
 		return nil, errors.Wrap(err, "unmarshal monitor query result")
 	}
 
+	// VictoriaMetrics driver returns the column as "<measurement>_<field>" for
+	// single-select queries (e.g. "haproxy_check_code") or as
+	// "<aggr>_<measurement>_<field>" for multi-select union queries (e.g.
+	// "last_haproxy_check_code") because the influxql→metricsql converter drops AS
+	// aliases. Strip both prefixes to recover the original field name; for the
+	// influxdb driver the column already matches.
+	stripCol := func(col string) string {
+		return strings.TrimPrefix(strings.TrimPrefix(col, "last_"), "haproxy_")
+	}
+
 	for _, series := range result.Series {
 		svname := series.Tags["svname"]
 		ok, i := utils.InStringArray(svname, backendIds)
 		if !ok {
 			continue
+		}
+		backendJson := backendJsons[i].(*jsonutils.JSONDict)
+		hasLastsess := false
+		for _, colName := range series.Columns {
+			if stripCol(colName) == "lastsess" {
+				hasLastsess = true
+				break
+			}
+		}
+		// check_status is a tag in the haproxy measurement; only surface it from
+		// the series that carries lastsess data — that series is guaranteed to be
+		// present and carries the up-to-date check_status. Set it before the point
+		// loop so it's recorded even when the loop finds no valid values.
+		if hasLastsess {
+			if cs, ok := series.Tags["check_status"]; ok {
+				backendJson.Set("check_status", jsonutils.NewString(cs))
+			}
 		}
 		var latest monitorapi.TimePoint
 		for _, p := range series.Points {
@@ -179,11 +211,7 @@ func (lb *SLoadbalancer) GetBackendGroupCheckStatus(ctx context.Context, userCre
 		if latest == nil {
 			continue
 		}
-		backendJson := backendJsons[i].(*jsonutils.JSONDict)
 		backendJson.Set("check_time", jsonutils.NewTimeString(latest.Time()))
-		if cs, ok := series.Tags["check_status"]; ok {
-			backendJson.Set("check_status", jsonutils.NewString(cs))
-		}
 		for j, colName := range series.Columns {
 			if colName == "time" {
 				continue
@@ -191,11 +219,7 @@ func (lb *SLoadbalancer) GetBackendGroupCheckStatus(ctx context.Context, userCre
 			if j >= len(latest)-1 {
 				break
 			}
-			// VictoriaMetrics driver returns the column as "<measurement>_<field>"
-			// (e.g. "haproxy_check_code") because the influxql→metricsql converter
-			// drops AS aliases. Strip the prefix to recover the original field name;
-			// for the influxdb driver the column already matches.
-			fieldName := strings.TrimPrefix(colName, "haproxy_")
+			fieldName := stripCol(colName)
 			v := latest[j]
 			if v == nil {
 				backendJson.Set(fieldName, jsonutils.JSONNull)
