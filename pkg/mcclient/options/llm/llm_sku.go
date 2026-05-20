@@ -11,7 +11,9 @@ import (
 type LLMSkuListOptions struct {
 	options.BaseListOptions
 
-	LLMType string `json:"llm_type" choices:"ollama|vllm|sglang|dify|comfyui|openclaw|hermes-agent"`
+	LLMType    string `json:"llm_type" choices:"ollama|vllm|sglang|dify|comfyui|openclaw|hermes-agent"`
+	Source     string `json:"source" help:"filter by source (huggingface, model_scope, local_path)"`
+	Categories string `json:"categories" help:"filter by category (llm, embedding, image, ...)"`
 }
 
 func (o *LLMSkuListOptions) Params() (jsonutils.JSONObject, error) {
@@ -32,7 +34,17 @@ type LLMSkuCreateOptions struct {
 	MountedModels []string `help:"mounted models, <model_id> e.g. qwen2:0.5b-dup" json:"mounted_models"`
 
 	LLM_IMAGE_ID string `json:"llm_image_id"`
-	LLM_TYPE     string `json:"llm_type" choices:"ollama|vllm|sglang|comfyui"`
+	LLM_TYPE     string `json:"llm_type" choices:"ollama|vllm|comfyui|sglang"`
+
+	// Model source
+	Source              string `help:"model source: huggingface, model_scope, local_path" json:"source"`
+	HuggingfaceRepoId   string `help:"HuggingFace repo ID" json:"huggingface_repo_id"`
+	HuggingfaceFilename string `help:"HuggingFace filename" json:"huggingface_filename"`
+	ModelScopeModelId   string `help:"ModelScope model ID" json:"model_scope_model_id"`
+	LocalPath           string `help:"local model path" json:"local_path"`
+	// Model metadata
+	Categories     string `help:"model categories, comma-separated: llm,embedding,image" json:"-"`
+	BackendVersion string `help:"inference backend version" json:"backend_version"`
 
 	PreferredModel string   `help:"preferred model (vllm/sglang), sets llm_spec.<type>.preferred_model" json:"-"`
 	VllmArg        []string `help:"vLLM args in format key=value; use key= for flags without values" json:"-"`
