@@ -1,6 +1,11 @@
 package llm
 
 import (
+	"fmt"
+	"net/url"
+
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
@@ -28,6 +33,19 @@ func init() {
 
 type LLMModelSetsManager struct {
 	modulebase.ResourceManager
+}
+
+func (m *LLMModelSetsManager) GetSpecific(session *mcclient.ClientSession, id string, spec string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if spec != "specs" {
+		return m.ResourceManager.GetSpecific(session, id, spec, params)
+	}
+	path := fmt.Sprintf("/%s/%s/%s", m.ContextPath(nil), url.PathEscape(id), url.PathEscape(spec))
+	if params != nil {
+		if qs := params.QueryString(); qs != "" {
+			path = fmt.Sprintf("%s?%s", path, qs)
+		}
+	}
+	return modulebase.Get(m.ResourceManager, session, path, "")
 }
 
 type LLMModelSpecsManager struct {
