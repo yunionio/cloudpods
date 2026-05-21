@@ -219,7 +219,11 @@ func (s *sglang) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *
 	if eff := s.GetEffectiveSpec(llm, sku); eff != nil {
 		effSpec = eff.(*api.LLMSpecSGLang)
 	}
-	startScript := buildSGLangEntrypointScript(len(postOverlays) > 0, tensorParallelSize, effSpec)
+	backendParameters := ""
+	if sku != nil {
+		backendParameters = sku.BackendParameters
+	}
+	startScript := buildSGLangEntrypointScript(len(postOverlays) > 0, tensorParallelSize, backendParameters, effSpec)
 	envs := []*commonapi.ContainerKeyValue{
 		{
 			Key:   "HUGGING_FACE_HUB_CACHE",
@@ -593,7 +597,38 @@ func appendSGLangCustomizedFlags(flags []string, effSpec *api.LLMSpecSGLang) []s
 	return flags
 }
 
-func buildSGLangServeFlagsWithModelExpr(modelExpr string, servedModelNameExpr string, tensorParallelSize int, effSpec *api.LLMSpecSGLang) []string {
+func sglangCustomizedArgsToRuntime(args []*api.SGLangCustomizedArg) []runtimeArg {
+	if len(args) == 0 {
+		return nil
+	}
+	out := make([]runtimeArg, 0, len(args))
+	for _, arg := range args {
+		if arg == nil {
+			continue
+		}
+		out = append(out, runtimeArg{Key: arg.Key, Value: arg.Value})
+	}
+	return out
+}
+
+func appendSGLangRuntimeFlags(flags []string, backendParameters string, effSpec *api.LLMSpecSGLang) []string {
+	backendArgs, err := parseBackendParameterArgs(backendParameters, validateSGLangArgKey)
+	if err != nil {
+		log.Errorf("parse sglang backend parameters: %v", err)
+	}
+	var customizedArgs []runtimeArg
+	if effSpec != nil {
+		customizedArgs = sglangCustomizedArgsToRuntime(effSpec.CustomizedArgs)
+	}
+	mergedArgs, err := mergeRuntimeArgs(backendArgs, customizedArgs, validateSGLangArgKey)
+	if err != nil {
+		log.Errorf("merge sglang runtime args: %v", err)
+		return flags
+	}
+	return appendRuntimeFlags(flags, mergedArgs)
+}
+
+func buildSGLangServeFlagsWithModelExpr(modelExpr string, servedModelNameExpr string, tensorParallelSize int, backendParameters string, effSpec *api.LLMSpecSGLang) []string {
 	flags := []string{
 		fmt.Sprintf("--model-path %s", modelExpr),
 		fmt.Sprintf("--served-model-name %s", servedModelNameExpr),
@@ -601,20 +636,21 @@ func buildSGLangServeFlagsWithModelExpr(modelExpr string, servedModelNameExpr st
 		fmt.Sprintf("--port %d", api.LLM_SGLANG_DEFAULT_PORT),
 		fmt.Sprintf("--tp-size %d", tensorParallelSize),
 	}
-	return appendSGLangCustomizedFlags(flags, effSpec)
+	return appendSGLangRuntimeFlags(flags, backendParameters, effSpec)
 }
 
-func buildSGLangServeFlags(modelPath string, tensorParallelSize int, effSpec *api.LLMSpecSGLang) []string {
+func buildSGLangServeFlags(modelPath string, tensorParallelSize int, backendParameters string, effSpec *api.LLMSpecSGLang) []string {
 	modelQuoted := shellQuoteSingle(modelPath)
 	return buildSGLangServeFlagsWithModelExpr(
 		modelQuoted,
 		fmt.Sprintf(`"$(basename %s)"`, modelQuoted),
 		tensorParallelSize,
+		backendParameters,
 		effSpec,
 	)
 }
 
-func buildSGLangEntrypointScript(hasMountedModels bool, tensorParallelSize int, effSpec *api.LLMSpecSGLang) string {
+func buildSGLangEntrypointScript(hasMountedModels bool, tensorParallelSize int, backendParameters string, effSpec *api.LLMSpecSGLang) string {
 	modelsPath := shellQuoteSingle(api.LLM_SGLANG_MODELS_PATH)
 	if !hasMountedModels {
 		return fmt.Sprintf("mkdir -p %s && exec sleep infinity", modelsPath)
@@ -628,6 +664,7 @@ func buildSGLangEntrypointScript(hasMountedModels bool, tensorParallelSize int, 
 		`"$model"`,
 		`"$(basename "$model")"`,
 		tensorParallelSize,
+		backendParameters,
 		effSpec,
 	), " ")
 	return strings.Join([]string{
