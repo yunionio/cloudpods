@@ -11,11 +11,15 @@ type LLMCatalogDoc struct {
 // (e.g. "Qwen3-8B") that may be deployed via one or more specs.
 // Schema mirrors GPUStack `ModelSet` / `ModelSetBase`.
 type LLMModelSet struct {
+	// Resource id exposed to mcclient / climc. The upstream catalog's logical
+	// key is name, so we mirror it as id for standard resource commands.
+	Id string `json:"id,omitempty" yaml:"-"`
+
 	// Required: globally-unique identifier from YAML. Used as the resource id.
 	Name string `json:"name" yaml:"name"`
 
 	// Optional numeric id assigned by the upstream catalog author.
-	Id          int      `json:"id,omitempty" yaml:"id,omitempty"`
+	CatalogId   int      `json:"catalog_id,omitempty" yaml:"id,omitempty"`
 	Description string   `json:"description,omitempty" yaml:"description,omitempty"`
 	Order       int      `json:"order,omitempty" yaml:"order,omitempty"`
 	Home        string   `json:"home,omitempty" yaml:"home,omitempty"`
@@ -86,6 +90,10 @@ type LLMModelSpec struct {
 
 	// --- Server-assigned, NOT in upstream YAML ---
 
+	// Id mirrors SpecId for standard resource-list columns.
+	Id string `json:"id,omitempty" yaml:"-"`
+	// Label is a concise display label for climc/UI tables.
+	Label string `json:"label,omitempty" yaml:"-"`
 	// SpecId is a synthetic stable id generated at load time so the frontend
 	// can address a single spec via /llm_model_specs/<id>. Slugified from
 	// (set name, mode, quantization, backend). Not present in source YAML.

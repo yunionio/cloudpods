@@ -177,7 +177,7 @@ func (task *LLMDeploymentCreateTask) OnInstantModelReady(ctx context.Context, mo
 	// Auto-enable the freshly-imported InstantModel — without this it stays
 	// disabled and FindReadyInstantModel can't dedup it on the next catalog
 	// deploy, plus the SKU/LLM mount validators depend on enabled rows.
-	if err := enableInstantModel(ctx, task.UserCred, instantId); err != nil {
+	if err := models.EnableInstantModelForUse(ctx, task.UserCred, instantId); err != nil {
 		log.Warningf("LLMDeploymentCreateTask: enable InstantModel %s: %s", instantId, err)
 	}
 
@@ -185,28 +185,6 @@ func (task *LLMDeploymentCreateTask) OnInstantModelReady(ctx context.Context, mo
 	skuSpec.MountedModels = append(skuSpec.MountedModels, instantId)
 
 	task.createSkuAndReconcile(ctx, model, &skuSpec, task.GetParams())
-}
-
-// enableInstantModel flips the InstantModel's enabled flag to true after a
-// successful catalog-driven import. Idempotent: skips the update if already
-// enabled.
-func enableInstantModel(ctx context.Context, userCred mcclient.TokenCredential, id string) error {
-	obj, err := models.GetInstantModelManager().FetchById(id)
-	if err != nil {
-		return errors.Wrapf(err, "fetch InstantModel %s", id)
-	}
-	im := obj.(*models.SInstantModel)
-	if im.Enabled.IsTrue() {
-		return nil
-	}
-	_, err = db.Update(im, func() error {
-		im.SetEnabled(true)
-		return nil
-	})
-	if err != nil {
-		return errors.Wrap(err, "db.Update")
-	}
-	return nil
 }
 
 // OnInstantModelReadyFailed is called if the child InstantModel import task fails.
