@@ -34,7 +34,6 @@ type LLMSkuCreateOptions struct {
 	MountedModels []string `help:"mounted models, <model_id> e.g. qwen2:0.5b-dup" json:"mounted_models"`
 
 	LLM_IMAGE_ID string `json:"llm_image_id"`
-	LLM_TYPE     string `json:"llm_type" choices:"ollama|vllm|comfyui|sglang"`
 
 	// Model source
 	LLMModelSpecId      string `help:"LLM catalog model spec id; starts InstantModel import and mounts it into this SKU" json:"llm_model_spec_id"`
@@ -46,12 +45,19 @@ type LLMSkuCreateOptions struct {
 	// Model metadata
 	Categories     string `help:"model categories, comma-separated: llm,embedding,image" json:"-"`
 	BackendVersion string `help:"inference backend version" json:"backend_version"`
+	LLM_TYPE       string `json:"llm_type" choices:"ollama|vllm|sglang|comfyui|hermes-agent"`
 
 	PreferredModel string   `help:"preferred model (vllm/sglang), sets llm_spec.<type>.preferred_model" json:"-"`
 	VllmArg        []string `help:"vLLM args in format key=value; use key= for flags without values" json:"-"`
 
 	SGLangPreferredModel string   `token:"sglang-preferred-model" help:"SGLang preferred model; overrides preferred-model when llm_type=sglang" json:"-"`
 	SGLangArg            []string `token:"sglang-arg" help:"SGLang args in format key=value; use key= for flags without values" json:"-"`
+
+	HermesLLMId         string `token:"hermes-llm-id" help:"target vLLM/SGLang/Ollama LLM id/name for Hermes; resolves llm_spec.hermes_agent.llm_url/model" json:"-"`
+	HermesLLMUrl        string `token:"hermes-llm-url" help:"OpenAI-compatible base URL for Hermes, e.g. http://host:8000/v1" json:"-"`
+	HermesModel         string `token:"hermes-model" help:"model name for Hermes" json:"-"`
+	HermesApiKey        string `token:"hermes-api-key" help:"API key for Hermes custom provider; defaults to EMPTY when omitted" json:"-"`
+	HermesContextLength int    `token:"hermes-context-length" help:"Hermes model.context_length" json:"-"`
 }
 
 func (o *LLMSkuCreateOptions) Params() (jsonutils.JSONObject, error) {
@@ -85,6 +91,15 @@ func (o *LLMSkuCreateOptions) Params() (jsonutils.JSONObject, error) {
 			spec := &api.LLMSpec{SGLang: sglangSpec}
 			dict.Set("llm_spec", jsonutils.Marshal(spec))
 		}
+	case string(api.LLM_CONTAINER_HERMES_AGENT):
+		hermesSpec, err := newHermesAgentSpecFromArgs(o.HermesLLMId, o.HermesLLMUrl, o.HermesModel, o.HermesApiKey, o.HermesContextLength)
+		if err != nil {
+			return nil, err
+		}
+		if hermesSpec != nil {
+			spec := &api.LLMSpec{HermesAgent: hermesSpec}
+			dict.Set("llm_spec", jsonutils.Marshal(spec))
+		}
 	}
 	return dict, nil
 }
@@ -114,6 +129,12 @@ type LLMSkuUpdateOptions struct {
 
 	SGLangPreferredModel string   `token:"sglang-preferred-model" help:"preferred model (SGLang only), sets llm_spec.sglang.preferred_model" json:"-"`
 	SGLangArg            []string `token:"sglang-arg" help:"SGLang args in format key=value; use key= for flags without values" json:"-"`
+
+	HermesLLMId         string `token:"hermes-llm-id" help:"target vLLM/SGLang/Ollama LLM id/name for Hermes; resolves llm_spec.hermes_agent.llm_url/model" json:"-"`
+	HermesLLMUrl        string `token:"hermes-llm-url" help:"OpenAI-compatible base URL for Hermes, e.g. http://host:8000/v1" json:"-"`
+	HermesModel         string `token:"hermes-model" help:"model name for Hermes" json:"-"`
+	HermesApiKey        string `token:"hermes-api-key" help:"API key for Hermes custom provider; defaults to EMPTY when omitted" json:"-"`
+	HermesContextLength int    `token:"hermes-context-length" help:"Hermes model.context_length" json:"-"`
 }
 
 func (o *LLMSkuUpdateOptions) GetId() string {
@@ -136,8 +157,22 @@ func (o *LLMSkuUpdateOptions) Params() (jsonutils.JSONObject, error) {
 	if err != nil {
 		return nil, err
 	}
-	if vllmSpec != nil && sglangSpec != nil {
-		return nil, errors.Error("cannot specify both vLLM and SGLang llm spec args")
+	hermesSpec, err := newHermesAgentSpecFromArgs(o.HermesLLMId, o.HermesLLMUrl, o.HermesModel, o.HermesApiKey, o.HermesContextLength)
+	if err != nil {
+		return nil, err
+	}
+	specCount := 0
+	if vllmSpec != nil {
+		specCount++
+	}
+	if sglangSpec != nil {
+		specCount++
+	}
+	if hermesSpec != nil {
+		specCount++
+	}
+	if specCount > 1 {
+		return nil, errors.Error("cannot specify multiple llm spec args")
 	}
 	if vllmSpec != nil {
 		spec := &api.LLMSpec{
@@ -149,6 +184,10 @@ func (o *LLMSkuUpdateOptions) Params() (jsonutils.JSONObject, error) {
 	}
 	if sglangSpec != nil {
 		spec := &api.LLMSpec{SGLang: sglangSpec}
+		dict.Set("llm_spec", jsonutils.Marshal(spec))
+	}
+	if hermesSpec != nil {
+		spec := &api.LLMSpec{HermesAgent: hermesSpec}
 		dict.Set("llm_spec", jsonutils.Marshal(spec))
 	}
 	return dict, nil
