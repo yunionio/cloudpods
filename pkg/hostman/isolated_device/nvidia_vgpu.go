@@ -113,6 +113,10 @@ func (dev *sNVIDIAVgpuDevice) GetNvidiaMpsThreadPercentage() int {
 	return -1
 }
 
+func (dev *sNVIDIAVgpuDevice) GetMemorySize() int {
+	return 0
+}
+
 func (dev *sNVIDIAVgpuDevice) GetCardPath() string {
 	return ""
 }

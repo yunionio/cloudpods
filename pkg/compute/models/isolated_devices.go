@@ -117,6 +117,9 @@ type SIsolatedDevice struct {
 	IsInfinibandNic bool `nullable:"false" default:"false" list:"user" create:"optional"`
 	// NVME disk size
 	NvmeSizeMB int `nullable:"true" list:"domain" update:"domain" create:"domain_optional"`
+	// On-device memory in MiB (NVIDIA GPU VRAM via `nvidia-smi memory.total`,
+	// or per-slice quota for MPS share mode). 0 means unknown / not applicable.
+	MemorySize int `nullable:"true" default:"0" list:"domain" update:"domain" create:"domain_optional"`
 	// guest disk index
 	DiskIndex int8 `nullable:"true" default:"-1" list:"user" update:"user"`
 
@@ -1285,6 +1288,7 @@ func (self *SIsolatedDevice) getDesc() *api.IsolatedDeviceJsonDesc {
 		OvsOffloadInterface: self.OvsOffloadInterface,
 		DiskIndex:           self.DiskIndex,
 		NvmeSizeMB:          self.NvmeSizeMB,
+		MemorySize:          self.MemorySize,
 		MdevId:              self.MdevId,
 		NumaNode:            self.NumaNode,
 	}

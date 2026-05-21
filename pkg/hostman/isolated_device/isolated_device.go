@@ -51,6 +51,7 @@ type CloudDeviceInfo struct {
 	OvsOffloadInterface string                      `json:"ovs_offload_interface"`
 	IsInfinibandNic     bool                        `json:"is_infiniband_nic"`
 	NvmeSizeMB          int                         `json:"nvme_size_mb"`
+	MemorySize          int                         `json:"memory_size"`
 	DevicePath          string                      `json:"device_path"`
 	CardPath            string                      `json:"card_path"`
 	RenderPath          string                      `json:"render_path"`
@@ -129,6 +130,11 @@ type IDevice interface {
 
 	// NVMe disk
 	GetNVMESizeMB() int
+
+	// On-device memory in MiB (e.g. NVIDIA GPU VRAM via `nvidia-smi memory.total`).
+	// 0 means unknown / not applicable. Used downstream by the LLM scheduler to
+	// check whether a candidate host has enough VRAM for the model claim.
+	GetMemorySize() int
 
 	// legacy nvidia vgpu
 	GetMdevId() string
@@ -531,6 +537,14 @@ func (man *isolatedDeviceManager) CheckDevIsNeedUpdate(dev IDevice, devInfo *Clo
 	if info := dev.GetPCIEInfo(); info != nil && devInfo.PcieInfo == nil {
 		return true
 	}
+	// Asymmetric on purpose: trigger update whenever the host has a positive
+	// value that differs from what region has (including 0). This lets us
+	// backfill the column for rows created before this field existed. A
+	// transient `nvidia-smi` failure returning 0 is ignored so we don't
+	// overwrite a previously-known good value.
+	if dev.GetMemorySize() > 0 && dev.GetMemorySize() != devInfo.MemorySize {
+		return true
+	}
 	if dev.GetNvidiaMpsMemoryLimit() != devInfo.MpsMemoryLimit {
 		return true
 	}
@@ -778,6 +792,10 @@ func (dev *SBaseDevice) GetNVMESizeMB() int {
 	return -1
 }
 
+func (dev *SBaseDevice) GetMemorySize() int {
+	return 0
+}
+
 func (dev *SBaseDevice) GetNVIDIAVgpuProfile() map[string]string {
 	return nil
 }
@@ -864,6 +882,9 @@ func GetApiResourceData(dev IDevice) *jsonutils.JSONDict {
 	}
 	if dev.GetNVMESizeMB() > 0 {
 		data["nvme_size_mb"] = dev.GetNVMESizeMB()
+	}
+	if memSize := dev.GetMemorySize(); memSize > 0 {
+		data["memory_size"] = memSize
 	}
 	if numaNode, err := dev.GetNumaNode(); err == nil {
 		data["numa_node"] = numaNode
