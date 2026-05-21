@@ -124,6 +124,19 @@ type LLMSkuDetails struct {
 	LLMType string `json:"llm_type"`
 	// LLMSpec 从 SKU 持久化字段带出，保证 list/show 与 create 一致
 	LLMSpec *LLMSpec `json:"llm_spec,omitempty"`
+
+	// Model source
+	Source              string `json:"source"`
+	HuggingfaceRepoId   string `json:"huggingface_repo_id"`
+	HuggingfaceFilename string `json:"huggingface_filename"`
+	ModelScopeModelId   string `json:"model_scope_model_id"`
+	ModelScopeFilePath  string `json:"model_scope_file_path"`
+	LocalPath           string `json:"local_path"`
+	// Model categories
+	Categories string `json:"categories"`
+	// Inference backend version and parameters
+	BackendVersion    string `json:"backend_version"`
+	BackendParameters string `json:"backend_parameters"`
 }
 
 type MountedAppResourceDetails struct {
@@ -171,8 +184,10 @@ type LLMSkuListInput struct {
 	apis.SharableVirtualResourceListInput
 	MountedModelResourceListInput
 
-	LLMType  string   `json:"llm_type"`
-	LLMTypes []string `json:"llm_types"`
+	LLMType    string   `json:"llm_type"`
+	LLMTypes   []string `json:"llm_types"`
+	Source     string   `json:"source"`
+	Categories string   `json:"categories"`
 }
 
 type LLMSkuCreateInput struct {
@@ -186,6 +201,19 @@ type LLMSkuCreateInput struct {
 	// - ollama/vllm: backend builds llm_spec from llm_image_id + mounted_models; for vllm preferred model should be set in llm_spec.vllm.preferred_model.
 	// - dify: client must send llm_spec with type "dify" and dify payload.
 	LLMSpec *LLMSpec `json:"llm_spec,omitempty"`
+
+	// Model source
+	Source              string `json:"source"`
+	HuggingfaceRepoId   string `json:"huggingface_repo_id"`
+	HuggingfaceFilename string `json:"huggingface_filename"`
+	ModelScopeModelId   string `json:"model_scope_model_id"`
+	ModelScopeFilePath  string `json:"model_scope_file_path"`
+	LocalPath           string `json:"local_path"`
+	// Model categories
+	Categories []string `json:"categories"`
+	// Inference backend version and parameters
+	BackendVersion    string   `json:"backend_version"`
+	BackendParameters []string `json:"backend_parameters"`
 }
 
 type LLMSkuUpdateInput struct {
@@ -198,6 +226,19 @@ type LLMSkuUpdateInput struct {
 	// - dify: send full spec to update image ids.
 	// - ollama/vllm: backend may build from llm_image_id/mounted_models; for vllm preferred model should be set in llm_spec.vllm.preferred_model.
 	LLMSpec *LLMSpec `json:"llm_spec,omitempty"`
+
+	// Model source
+	Source              *string `json:"source,omitempty"`
+	HuggingfaceRepoId   *string `json:"huggingface_repo_id,omitempty"`
+	HuggingfaceFilename *string `json:"huggingface_filename,omitempty"`
+	ModelScopeModelId   *string `json:"model_scope_model_id,omitempty"`
+	ModelScopeFilePath  *string `json:"model_scope_file_path,omitempty"`
+	LocalPath           *string `json:"local_path,omitempty"`
+	// Model categories
+	Categories *[]string `json:"categories,omitempty"`
+	// Inference backend version and parameters
+	BackendVersion    *string   `json:"backend_version,omitempty"`
+	BackendParameters *[]string `json:"backend_parameters,omitempty"`
 }
 
 // type LLMModelCloneInput struct {

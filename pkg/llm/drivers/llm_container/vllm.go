@@ -631,9 +631,12 @@ func resolveHfdRevision(modelTag string) string {
 }
 
 type hfModelAPIResponse struct {
-	Siblings []struct {
-		RFilename string `json:"rfilename"`
-	} `json:"siblings"`
+	Siblings []hfModelSibling `json:"siblings"`
+}
+
+type hfModelSibling struct {
+	RFilename string `json:"rfilename"`
+	Size      int64  `json:"size"`
 }
 
 func escapeURLPathPreserveSlash(p string) string {
@@ -655,6 +658,34 @@ func isNonEmptyFile(p string) bool {
 	return !st.IsDir() && st.Size() > 0
 }
 
+func isCompleteFile(p string, expectedSize int64) bool {
+	st, err := os.Stat(p)
+	if err != nil || st.IsDir() {
+		return false
+	}
+	if expectedSize > 0 {
+		return st.Size() == expectedSize
+	}
+	return true
+}
+
+func isHuggingFaceImportComplete(localDir string, siblings []hfModelSibling) bool {
+	if len(siblings) == 0 {
+		return false
+	}
+	for _, sibling := range siblings {
+		rf := strings.TrimSpace(sibling.RFilename)
+		if rf == "" {
+			continue
+		}
+		dst := filepath.Join(localDir, filepath.FromSlash(rf))
+		if !isCompleteFile(dst, sibling.Size) {
+			return false
+		}
+	}
+	return true
+}
+
 func (v *vllm) DownloadModel(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM, tmpDir string, modelName string, modelTag string) (string, []string, error) {
 	// Download HF model on host into tmpDir for instant-model import.
 	// We place files under tmpDir/huggingface/<repo> so that the archive contains relative paths.
@@ -669,12 +700,6 @@ func (v *vllm) DownloadModel(ctx context.Context, userCred mcclient.TokenCredent
 	localDir := filepath.Join(tmpDir, "huggingface", modelBase)
 	if err := os.MkdirAll(localDir, 0755); err != nil {
 		return "", nil, errors.Wrap(err, "mkdir local model dir")
-	}
-	// If already downloaded, short-circuit (directory exists and non-empty).
-	if entries, err := os.ReadDir(localDir); err == nil && len(entries) > 0 {
-		targetDir := path.Join(api.LLM_VLLM_MODELS_PATH, modelBase)
-		log.Infof("Model %s already exists in import dir %s", modelName, localDir)
-		return modelName, []string{targetDir}, nil
 	}
 
 	rev := resolveHfdRevision(modelTag)
@@ -700,6 +725,11 @@ func (v *vllm) DownloadModel(ctx context.Context, userCred mcclient.TokenCredent
 	if len(meta.Siblings) == 0 {
 		return "", nil, errors.Errorf("hf model metadata has no siblings: %s", apiURL)
 	}
+	if isHuggingFaceImportComplete(localDir, meta.Siblings) {
+		targetDir := path.Join(api.LLM_VLLM_MODELS_PATH, modelBase)
+		log.Infof("Model %s already exists in import dir %s", modelName, localDir)
+		return modelName, []string{targetDir}, nil
+	}
 
 	for _, s := range meta.Siblings {
 		rf := strings.TrimSpace(s.RFilename)
@@ -707,7 +737,7 @@ func (v *vllm) DownloadModel(ctx context.Context, userCred mcclient.TokenCredent
 			continue
 		}
 		dst := filepath.Join(localDir, filepath.FromSlash(rf))
-		if isNonEmptyFile(dst) {
+		if isCompleteFile(dst, s.Size) {
 			continue
 		}
 		if err := os.MkdirAll(filepath.Dir(dst), 0755); err != nil {

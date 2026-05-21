@@ -1,7 +1,9 @@
 package service
 
 import (
+	"context"
 	"os"
+	"time"
 
 	"yunion.io/x/log"
 	_ "yunion.io/x/sqlchemy/backends"
@@ -39,6 +41,16 @@ func StartService() {
 
 	db.EnsureAppSyncDB(app, dbOpts, models.InitDB)
 	defer cloudcommon.CloseDB()
+
+	// Pull the LLM model catalog (model sets + specs) from the configured
+	// source. opts.ModelCatalogURL accepts either an http(s) URL or a local
+	// file path — the manager picks the right loader based on the prefix.
+	// Non-blocking — the initial load runs in a goroutine.
+	models.GetLLMModelSetManager().Start(
+		context.Background(),
+		opts.ModelCatalogURL,
+		time.Duration(opts.LLMCatalogRefreshIntervalMinutes)*time.Minute,
+	)
 
 	// if !opts.IsSlaveNode {
 	// 	models.InitializeCronjobs(app.GetContext())

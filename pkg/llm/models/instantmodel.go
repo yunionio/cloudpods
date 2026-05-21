@@ -2,6 +2,8 @@ package models
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -428,7 +430,7 @@ func (model *SInstantModel) PostCreate(
 		return
 	}
 	if input.ImageId == "" && (input.DoNotImport == nil || !*input.DoNotImport) {
-		model.startImportTask(ctx, userCred, buildInstantModelImportInputFromCreate(input))
+		model.startImportTask(ctx, userCred, buildInstantModelImportInputFromCreate(input), "")
 	}
 }
 
@@ -528,6 +530,29 @@ func (man *SInstantModelManager) findInstantModelByImageId(imageId string) (*SIn
 	mdls := make([]SInstantModel, 0)
 	err := db.FetchModelObjects(man, q, &mdls)
 	if err != nil {
+		return nil, errors.Wrap(err, "FetchModelObjects")
+	}
+	if len(mdls) == 0 {
+		return nil, nil
+	}
+	return &mdls[0], nil
+}
+
+// FindReadyInstantModel looks up an existing, ready-to-mount InstantModel for
+// the given (llm_type, model_name, model_tag) triple. Returns (nil, nil) if
+// none exists. Used by the deployment create flow to dedup catalog imports —
+// if a previous deployment already brought in Qwen3-8B / vllm / main, we
+// reuse that row instead of starting another download.
+//
+// Only enabled rows match (Enabled=true means import succeeded).
+func (man *SInstantModelManager) FindReadyInstantModel(llmType, modelName, modelTag string) (*SInstantModel, error) {
+	q := man.Query().
+		Equals("llm_type", llmType).
+		Equals("model_name", modelName).
+		Equals("model_tag", modelTag).
+		IsTrue("enabled")
+	mdls := make([]SInstantModel, 0)
+	if err := db.FetchModelObjects(man, q, &mdls); err != nil {
 		return nil, errors.Wrap(err, "FetchModelObjects")
 	}
 	if len(mdls) == 0 {
@@ -812,7 +837,20 @@ func (man *SInstantModelManager) PerformImport(
 	query jsonutils.JSONObject,
 	input apis.InstantModelImportInput,
 ) (*SInstantModel, error) {
-	// first create a temporary instant-app
+	return man.DoImportWithParent(ctx, userCred, input, "")
+}
+
+// DoImportWithParent creates a temporary InstantModel and starts an import task,
+// optionally chaining it to a parent task. When parentTaskId is non-empty, the
+// parent task will be notified when the import task completes (via subtask
+// notification mechanism), enabling deployment-level orchestration of model
+// import + SKU creation + instance scheduling.
+func (man *SInstantModelManager) DoImportWithParent(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	input apis.InstantModelImportInput,
+	parentTaskId string,
+) (*SInstantModel, error) {
 	tempModel := &SInstantModel{}
 	tempModel.SetModelManager(man, &SInstantModel{})
 	tempModel.Name = fmt.Sprintf("tmp-instant-model-%s.%s", time.Now().Format("060102"), utils.GenRequestId(6))
@@ -821,24 +859,22 @@ func (man *SInstantModelManager) PerformImport(
 	tempModel.LlmType = string(input.LlmType)
 	tempModel.ProjectId = userCred.GetProjectId()
 
-	err := man.TableSpec().Insert(ctx, tempModel)
-	if err != nil {
+	if err := man.TableSpec().Insert(ctx, tempModel); err != nil {
 		return nil, errors.Wrap(err, "Insert")
 	}
 
-	err = tempModel.startImportTask(ctx, userCred, input)
-	if err != nil {
+	if err := tempModel.startImportTask(ctx, userCred, input, parentTaskId); err != nil {
 		return nil, errors.Wrap(err, "startImportTask")
 	}
 
 	return tempModel, nil
 }
 
-func (model *SInstantModel) startImportTask(ctx context.Context, userCred mcclient.TokenCredential, input apis.InstantModelImportInput) error {
+func (model *SInstantModel) startImportTask(ctx context.Context, userCred mcclient.TokenCredential, input apis.InstantModelImportInput, parentTaskId string) error {
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.Marshal(input), "import_input")
 
-	task, err := taskman.TaskManager.NewTask(ctx, "LLMInstantModelImportTask", model, userCred, params, "", "")
+	task, err := taskman.TaskManager.NewTask(ctx, "LLMInstantModelImportTask", model, userCred, params, parentTaskId, "")
 	if err != nil {
 		return errors.Wrap(err, "NewTask")
 	}
@@ -847,21 +883,72 @@ func (model *SInstantModel) startImportTask(ctx context.Context, userCred mcclie
 	return nil
 }
 
+func getInstantModelImportWorkDir(root string, input apis.InstantModelImportInput) (string, error) {
+	root = strings.TrimSpace(root)
+	if root == "" {
+		return "", errors.Error("LLMWorkingDirectory is empty")
+	}
+	source, repoID, revision := resolveImportRepoAndRevision(input)
+	if source == "" {
+		source = "direct"
+	}
+	if repoID == "" {
+		repoID = strings.TrimSpace(input.ModelName)
+	}
+	if revision == "" {
+		revision = strings.TrimSpace(input.ModelTag)
+	}
+	cacheKey := strings.Join([]string{string(input.LlmType), source, repoID, revision}, "\x00")
+	sum := sha256.Sum256([]byte(cacheKey))
+	hash := hex.EncodeToString(sum[:])[:16]
+
+	display := sanitizeInstantModelImportCacheComponent(strings.Join([]string{repoID, revision}, "-"))
+	if display == "" {
+		display = "model"
+	}
+	if len(display) > 80 {
+		display = display[:80]
+	}
+	return filepath.Join(root, "instant-model-import-cache", string(input.LlmType), fmt.Sprintf("%s-%s", display, hash)), nil
+}
+
+func sanitizeInstantModelImportCacheComponent(s string) string {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return ""
+	}
+	var b strings.Builder
+	lastDash := false
+	for _, r := range s {
+		keep := (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '.' || r == '_' || r == '-'
+		if keep {
+			b.WriteRune(r)
+			lastDash = false
+			continue
+		}
+		if !lastDash {
+			b.WriteByte('-')
+			lastDash = true
+		}
+	}
+	return strings.Trim(b.String(), "-")
+}
+
 func (model *SInstantModel) DoImport(ctx context.Context, userCred mcclient.TokenCredential, s *mcclient.ClientSession, input apis.InstantModelImportInput) (tmpDir string, err error) {
 	// ensure LLMWorkingDirectory exists
 	if err = os.MkdirAll(options.Options.LLMWorkingDirectory, 0755); err != nil {
 		err = errors.Wrap(err, "MkdirAll LLMWorkingDirectory")
 		return
 	}
-	// create temp directory for download
-	tmpDir, err = os.MkdirTemp(options.Options.LLMWorkingDirectory, "instant-model-*")
+	tmpDir, err = getInstantModelImportWorkDir(options.Options.LLMWorkingDirectory, input)
 	if err != nil {
-		err = errors.Wrap(err, "CreateTemp")
+		err = errors.Wrap(err, "getInstantModelImportWorkDir")
 		return
 	}
-	defer func() {
-		os.RemoveAll(tmpDir)
-	}()
+	if err = os.MkdirAll(tmpDir, 0755); err != nil {
+		err = errors.Wrap(err, "MkdirAll import work dir")
+		return
+	}
 
 	drv, err := GetInstantModelManager().GetLLMContainerInstantModelDriver(input.LlmType)
 	if err != nil {
@@ -879,6 +966,7 @@ func (model *SInstantModel) DoImport(ctx context.Context, userCred mcclient.Toke
 
 	// create tar.gz archive from downloaded files
 	imagePath := fmt.Sprintf("%s/model.tgz", tmpDir)
+	_ = os.Remove(imagePath)
 	if err = createTarGz(tmpDir, imagePath); err != nil {
 		err = errors.Wrap(err, "createTarGz")
 		return

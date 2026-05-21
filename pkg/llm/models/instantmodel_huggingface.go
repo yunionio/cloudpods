@@ -12,10 +12,12 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	apis "yunion.io/x/onecloud/pkg/apis/llm"
 	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/llm/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
@@ -326,4 +328,139 @@ func escapeURLPathPreserveSlash(p string) string {
 		parts[i] = url.PathEscape(parts[i])
 	}
 	return strings.Join(parts, "/")
+}
+
+// allowedProxyHosts is the whitelist of upstream hosts the generic proxy
+// (`GET /llm_instant_models/proxy`) will forward to. Mirrors GPUStack's
+// ALLOWED_SITES. Add new hosts here only after considering credential
+// exposure, audit, and egress policy.
+var allowedProxyHosts = map[string]struct{}{
+	"huggingface.co":    {},
+	"www.modelscope.cn": {},
+	"modelscope.cn":     {},
+	"hf-mirror.com":     {},
+}
+
+var proxyHTTPClient = &http.Client{
+	Timeout: 60 * time.Second,
+}
+
+// GetPropertyProxy is the dashboard's escape hatch for talking to HuggingFace
+// and ModelScope without running into CORS. It forwards
+// `GET /llm_instant_models/proxy?url=<upstream>` to the upstream and returns
+// the response parsed as JSON. The token (if any) is injected server-side and
+// the `huggingface.co` host can be rewritten to a mirror via
+// options.HuggingFaceEndpoint.
+func (man *SInstantModelManager) GetPropertyProxy(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+) (jsonutils.JSONObject, error) {
+	rawURL, _ := query.GetString("url")
+	if rawURL == "" {
+		return nil, httperrors.NewMissingParameterError("url")
+	}
+	parsed, err := url.Parse(rawURL)
+	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+		return nil, httperrors.NewInputParameterError("invalid url %q", rawURL)
+	}
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return nil, httperrors.NewInputParameterError("only http(s) urls are allowed")
+	}
+	if _, ok := allowedProxyHosts[parsed.Host]; !ok {
+		return nil, httperrors.NewForbiddenError("upstream host %s is not in the proxy allow list", parsed.Host)
+	}
+
+	finalURL := rewriteHuggingFaceURL(rawURL)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, finalURL, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "build proxy request")
+	}
+	// HF returns 403 to requests with the default Go-http-client UA on some
+	// endpoints — set a generic browser-ish UA to avoid that.
+	req.Header.Set("User-Agent", "OneCloud-LLM/1.0 (proxy)")
+	if accept, _ := query.GetString("accept"); accept != "" {
+		req.Header.Set("Accept", accept)
+	} else {
+		// Don't force application/json — README endpoints serve text/markdown.
+		req.Header.Set("Accept", "*/*")
+	}
+	if isHuggingFaceURL(finalURL) && options.Options.HuggingFaceToken != "" {
+		req.Header.Set("Authorization", "Bearer "+options.Options.HuggingFaceToken)
+	}
+
+	resp, err := proxyHTTPClient.Do(req)
+	if err != nil {
+		return nil, errors.Wrap(err, "proxy upstream call")
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, errors.Wrap(err, "read upstream body")
+	}
+	ctype := resp.Header.Get("Content-Type")
+	log.Infof("instant-model proxy: %s → status=%s, content-type=%q, body-bytes=%d",
+		finalURL, resp.Status, ctype, len(body))
+	if resp.StatusCode/100 != 2 {
+		log.Warningf("instant-model proxy non-2xx body sample: %s", truncateProxyBody(body, 256))
+		return nil, errors.Errorf("upstream returned %s", resp.Status)
+	}
+
+	// Some upstream endpoints return plain text (e.g. README files at
+	// huggingface.co/<repo>/resolve/main/README.md). Wrap those in a JSON
+	// envelope so callers always get a JSONObject back. The detection prefers
+	// Content-Type but falls back to the first body byte for upstream servers
+	// that omit it.
+	lcType := strings.ToLower(ctype)
+	isJSON := strings.Contains(lcType, "json")
+	if !isJSON && lcType == "" && len(body) > 0 {
+		switch body[0] {
+		case '{', '[':
+			isJSON = true
+		}
+	}
+	if !isJSON {
+		envelope := jsonutils.NewDict()
+		envelope.Set("content", jsonutils.NewString(string(body)))
+		envelope.Set("content_type", jsonutils.NewString(ctype))
+		return envelope, nil
+	}
+
+	parsedBody, err := jsonutils.Parse(body)
+	if err != nil {
+		return nil, errors.Wrapf(err, "parse upstream json (first bytes: %s)", truncateProxyBody(body, 128))
+	}
+	return parsedBody, nil
+}
+
+// rewriteHuggingFaceURL swaps the huggingface.co host for the configured
+// mirror endpoint (if any). Lets the frontend keep canonical HF URLs while
+// the actual outbound call lands on the mirror.
+func rewriteHuggingFaceURL(u string) string {
+	ep := strings.TrimRight(options.Options.HuggingFaceEndpoint, "/")
+	if ep == "" {
+		return u
+	}
+	if rest, ok := strings.CutPrefix(u, "https://huggingface.co"); ok {
+		return ep + rest
+	}
+	if rest, ok := strings.CutPrefix(u, "http://huggingface.co"); ok {
+		return ep + rest
+	}
+	return u
+}
+
+func isHuggingFaceURL(u string) bool {
+	if strings.HasPrefix(u, "https://huggingface.co") || strings.HasPrefix(u, "http://huggingface.co") {
+		return true
+	}
+	ep := strings.TrimRight(options.Options.HuggingFaceEndpoint, "/")
+	return ep != "" && strings.HasPrefix(u, ep)
+}
+
+func truncateProxyBody(b []byte, n int) string {
+	if len(b) <= n {
+		return string(b)
+	}
+	return string(b[:n]) + "…"
 }
