@@ -150,27 +150,59 @@ func appendVLLMCustomizedFlags(flags []string, effSpec *api.LLMSpecVllm) []strin
 	return flags
 }
 
-func buildVLLMServeFlagsWithModelExpr(modelExpr string, servedModelNameExpr string, tensorParallelSize int, effSpec *api.LLMSpecVllm) []string {
+func vllmCustomizedArgsToRuntime(args []*api.VllmCustomizedArg) []runtimeArg {
+	if len(args) == 0 {
+		return nil
+	}
+	out := make([]runtimeArg, 0, len(args))
+	for _, arg := range args {
+		if arg == nil {
+			continue
+		}
+		out = append(out, runtimeArg{Key: arg.Key, Value: arg.Value})
+	}
+	return out
+}
+
+func appendVLLMRuntimeFlags(flags []string, backendParameters string, effSpec *api.LLMSpecVllm) []string {
+	backendArgs, err := parseBackendParameterArgs(backendParameters, validateVLLMArgKey)
+	if err != nil {
+		log.Errorf("parse vllm backend parameters: %v", err)
+	}
+	var customizedArgs []runtimeArg
+	if effSpec != nil {
+		customizedArgs = vllmCustomizedArgsToRuntime(effSpec.CustomizedArgs)
+	}
+	mergedArgs, err := mergeRuntimeArgs(backendArgs, customizedArgs, validateVLLMArgKey)
+	if err != nil {
+		log.Errorf("merge vllm runtime args: %v", err)
+		return flags
+	}
+	return appendRuntimeFlags(flags, mergedArgs)
+}
+
+func buildVLLMServeFlagsWithModelExpr(modelExpr string, servedModelNameExpr string, tensorParallelSize int, backendParameters string, effSpec *api.LLMSpecVllm) []string {
 	flags := []string{
 		fmt.Sprintf("--model %s", modelExpr),
 		fmt.Sprintf("--served-model-name %s", servedModelNameExpr),
 		fmt.Sprintf("--port %d", api.LLM_VLLM_DEFAULT_PORT),
 		fmt.Sprintf("--tensor-parallel-size %d", tensorParallelSize),
 	}
-	return appendVLLMCustomizedFlags(flags, effSpec)
+	return appendVLLMRuntimeFlags(flags, backendParameters, effSpec)
 }
 
-func buildVLLMServeFlags(modelPath string, tensorParallelSize int, effSpec *api.LLMSpecVllm) []string {
+func buildVLLMServeFlags(modelPath string, tensorParallelSize int, backendParameters string, effSpec *api.LLMSpecVllm) []string {
 	modelQuoted := shellQuoteSingle(modelPath)
 	return buildVLLMServeFlagsWithModelExpr(
 		modelQuoted,
 		fmt.Sprintf(`"$(basename %s)"`, modelQuoted),
 		tensorParallelSize,
+		backendParameters,
 		effSpec,
 	)
 }
 
-func buildVLLMEntrypointScript(hasMountedModels bool, tensorParallelSize int, effSpec *api.LLMSpecVllm) string {
+func buildVLLMEntrypointScript(hasMountedModels bool, tensorParallelSize int, backendParameters string, effSpec *api.LLMSpecVllm) string {
 	modelsPath := shellQuoteSingle(api.LLM_VLLM_MODELS_PATH)
 	if !hasMountedModels {
 		return fmt.Sprintf("mkdir -p %s && exec sleep infinity", modelsPath)
@@ -184,6 +216,7 @@ func buildVLLMEntrypointScript(hasMountedModels bool, tensorParallelSize int, ef
 		`"$model"`,
 		`"$(basename "$model")"`,
 		tensorParallelSize,
+		backendParameters,
 		effSpec,
 	), " ")
 	return strings.Join([]string{
@@ -394,7 +427,11 @@ func (v *vllm) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *mo
 	if eff := v.GetEffectiveSpec(llm, sku); eff != nil {
 		effSpec = eff.(*api.LLMSpecVllm)
 	}
-	startScript := buildVLLMEntrypointScript(len(postOverlays) > 0, tensorParallelSize, effSpec)
+	backendParameters := ""
+	if sku != nil {
+		backendParameters = sku.BackendParameters
+	}
+	startScript := buildVLLMEntrypointScript(len(postOverlays) > 0, tensorParallelSize, backendParameters, effSpec)
 	envs := []*commonapi.ContainerKeyValue{
 		{
 			Key:   "HUGGING_FACE_HUB_CACHE",
