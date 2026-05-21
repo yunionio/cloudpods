@@ -624,6 +624,9 @@ func (d *SBaseBridgeDriver) Setup(o IBridgeDriver) error {
 		if err := o.SetupBridgeDev(); err != nil {
 			return errors.Wrap(err, "SetupBridgeDev")
 		}
+		if err := iproute2.NewLink(o.Bridge()).Up().Err(); err != nil {
+			return errors.Wrap(err, "Up bridge")
+		}
 	}
 
 	infs, err := o.Interfaces()
