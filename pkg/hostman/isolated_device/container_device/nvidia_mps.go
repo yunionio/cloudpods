@@ -125,7 +125,7 @@ type nvidiaMPS struct {
 	gpuIndex string
 }
 
-func (dev *nvidiaMPS) GetNvidiaDevMemSize() int {
+func (dev *nvidiaMPS) GetMemorySize() int {
 	return dev.MemSizeMB
 }
 

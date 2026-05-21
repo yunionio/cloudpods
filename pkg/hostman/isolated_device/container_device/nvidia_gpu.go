@@ -98,7 +98,7 @@ type nvidiaGPU struct {
 	deviceMinor int
 }
 
-func (dev *nvidiaGPU) GetNvidiaDevMemSize() int {
+func (dev *nvidiaGPU) GetMemorySize() int {
 	return dev.memSize
 }
 
