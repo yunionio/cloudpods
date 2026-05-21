@@ -315,34 +315,63 @@ func (llm *SLLM) HttpDownloadFile(ctx context.Context, url string, filePath stri
 	transport := httputils.GetTransport(true)
 	client.Transport = transport
 
-	resp, err := httputils.Request(client, ctx, httputils.GET, url, http.Header{}, nil, false)
+	tmpPath := filePath + ".tmp"
+	resumeOffset := fileSize(tmpPath)
+	header := http.Header{}
+	if resumeOffset > 0 {
+		header.Set("Range", fmt.Sprintf("bytes=%d-", resumeOffset))
+	}
+
+	resp, err := httputils.Request(client, ctx, httputils.GET, url, header, nil, false)
 	if err != nil {
 		return errors.Wrap(err, "http request failed")
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
+	appendDownload := false
+	switch resp.StatusCode {
+	case http.StatusOK:
+		resumeOffset = 0
+	case http.StatusPartialContent:
+		appendDownload = resumeOffset > 0
+	case http.StatusRequestedRangeNotSatisfiable:
+		if resumeOffset > 0 && contentRangeTotal(resp.Header.Get("Content-Range")) == resumeOffset {
+			if err := os.Rename(tmpPath, filePath); err != nil {
+				return errors.Wrapf(err, "failed to rename %s to %s", tmpPath, filePath)
+			}
+			return nil
+		}
+		return errors.Errorf("resume range not satisfiable for %s at offset %d", url, resumeOffset)
+	default:
 		if resp.StatusCode == http.StatusNotFound {
 			return errors.Wrapf(httperrors.ErrResourceNotFound, "url %s not found", url)
 		}
 		return errors.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 
-	// create temporary file first, then rename to avoid partial downloads
-	tmpPath := filePath + ".tmp"
-	out, err := os.Create(tmpPath)
-	if err != nil {
-		return errors.Wrapf(err, "failed to create file %s", tmpPath)
+	var out *os.File
+	if appendDownload {
+		out, err = os.OpenFile(tmpPath, os.O_WRONLY|os.O_APPEND, 0644)
+		if err != nil {
+			return errors.Wrapf(err, "failed to open partial file %s", tmpPath)
+		}
+	} else {
+		out, err = os.Create(tmpPath)
+		if err != nil {
+			return errors.Wrapf(err, "failed to create file %s", tmpPath)
+		}
 	}
 
 	written, err := io.Copy(out, resp.Body)
-	out.Close()
+	closeErr := out.Close()
 	if err != nil {
-		os.Remove(tmpPath)
 		return errors.Wrap(err, "failed to write file")
 	}
+	if closeErr != nil {
+		return errors.Wrap(closeErr, "failed to close file")
+	}
 
-	log.Infof("Downloaded %d bytes to %s", written, filePath)
+	log.Infof("Downloaded %d bytes to %s", resumeOffset+written, filePath)
 
 	// rename tmp file to final path
 	if err := os.Rename(tmpPath, filePath); err != nil {
@@ -351,4 +380,35 @@ func (llm *SLLM) HttpDownloadFile(ctx context.Context, url string, filePath stri
 	}
 
 	return nil
+}
+
+func fileSize(path string) int64 {
+	st, err := os.Stat(path)
+	if err != nil || st.IsDir() {
+		return 0
+	}
+	return st.Size()
+}
+
+func contentRangeTotal(value string) int64 {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return -1
+	}
+	idx := strings.LastIndex(value, "/")
+	if idx < 0 || idx == len(value)-1 {
+		return -1
+	}
+	total := strings.TrimSpace(value[idx+1:])
+	if total == "*" {
+		return -1
+	}
+	var ret int64
+	for _, r := range total {
+		if r < '0' || r > '9' {
+			return -1
+		}
+		ret = ret*10 + int64(r-'0')
+	}
+	return ret
 }

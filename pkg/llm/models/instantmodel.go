@@ -2,6 +2,8 @@ package models
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -881,21 +883,72 @@ func (model *SInstantModel) startImportTask(ctx context.Context, userCred mcclie
 	return nil
 }
 
+func getInstantModelImportWorkDir(root string, input apis.InstantModelImportInput) (string, error) {
+	root = strings.TrimSpace(root)
+	if root == "" {
+		return "", errors.Error("LLMWorkingDirectory is empty")
+	}
+	source, repoID, revision := resolveImportRepoAndRevision(input)
+	if source == "" {
+		source = "direct"
+	}
+	if repoID == "" {
+		repoID = strings.TrimSpace(input.ModelName)
+	}
+	if revision == "" {
+		revision = strings.TrimSpace(input.ModelTag)
+	}
+	cacheKey := strings.Join([]string{string(input.LlmType), source, repoID, revision}, "\x00")
+	sum := sha256.Sum256([]byte(cacheKey))
+	hash := hex.EncodeToString(sum[:])[:16]
+
+	display := sanitizeInstantModelImportCacheComponent(strings.Join([]string{repoID, revision}, "-"))
+	if display == "" {
+		display = "model"
+	}
+	if len(display) > 80 {
+		display = display[:80]
+	}
+	return filepath.Join(root, "instant-model-import-cache", string(input.LlmType), fmt.Sprintf("%s-%s", display, hash)), nil
+}
+
+func sanitizeInstantModelImportCacheComponent(s string) string {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return ""
+	}
+	var b strings.Builder
+	lastDash := false
+	for _, r := range s {
+		keep := (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '.' || r == '_' || r == '-'
+		if keep {
+			b.WriteRune(r)
+			lastDash = false
+			continue
+		}
+		if !lastDash {
+			b.WriteByte('-')
+			lastDash = true
+		}
+	}
+	return strings.Trim(b.String(), "-")
+}
+
 func (model *SInstantModel) DoImport(ctx context.Context, userCred mcclient.TokenCredential, s *mcclient.ClientSession, input apis.InstantModelImportInput) (tmpDir string, err error) {
 	// ensure LLMWorkingDirectory exists
 	if err = os.MkdirAll(options.Options.LLMWorkingDirectory, 0755); err != nil {
 		err = errors.Wrap(err, "MkdirAll LLMWorkingDirectory")
 		return
 	}
-	// create temp directory for download
-	tmpDir, err = os.MkdirTemp(options.Options.LLMWorkingDirectory, "instant-model-*")
+	tmpDir, err = getInstantModelImportWorkDir(options.Options.LLMWorkingDirectory, input)
 	if err != nil {
-		err = errors.Wrap(err, "CreateTemp")
+		err = errors.Wrap(err, "getInstantModelImportWorkDir")
 		return
 	}
-	defer func() {
-		os.RemoveAll(tmpDir)
-	}()
+	if err = os.MkdirAll(tmpDir, 0755); err != nil {
+		err = errors.Wrap(err, "MkdirAll import work dir")
+		return
+	}
 
 	drv, err := GetInstantModelManager().GetLLMContainerInstantModelDriver(input.LlmType)
 	if err != nil {
@@ -913,6 +966,7 @@ func (model *SInstantModel) DoImport(ctx context.Context, userCred mcclient.Toke
 
 	// create tar.gz archive from downloaded files
 	imagePath := fmt.Sprintf("%s/model.tgz", tmpDir)
+	_ = os.Remove(imagePath)
 	if err = createTarGz(tmpDir, imagePath); err != nil {
 		err = errors.Wrap(err, "createTarGz")
 		return
