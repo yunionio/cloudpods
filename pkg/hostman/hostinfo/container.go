@@ -81,7 +81,7 @@ func (h *SHostInfo) GetContainerStatsProvider() stats.ContainerStatsProvider {
 }
 
 type INvidiaGpuIndexMemoryInterface interface {
-	GetNvidiaDevMemSize() int
+	GetMemorySize() int
 	GetNvidiaDevIndex() string
 }
 
@@ -93,7 +93,7 @@ func (h *SHostInfo) GetNvidiaGpuIndexMemoryMap() map[string]int {
 			continue
 		}
 		index := iDev.GetNvidiaDevIndex()
-		memSize := iDev.GetNvidiaDevMemSize()
+		memSize := iDev.GetMemorySize()
 		res[index] = memSize
 	}
 	return res
