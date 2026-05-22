@@ -169,6 +169,10 @@ func (lb *SLoadbalancer) GetBackendGroupCheckStatus(ctx context.Context, userCre
 		return strings.TrimPrefix(strings.TrimPrefix(col, "last_"), "haproxy_")
 	}
 
+	// Tracks backends whose check_status came from the check_code-bearing
+	// series; that source takes precedence over the lastsess-bearing series.
+	csFromCheckCode := make(map[int]bool)
+
 	for _, series := range result.Series {
 		svname := series.Tags["svname"]
 		ok, i := utils.InStringArray(svname, backendIds)
@@ -176,19 +180,25 @@ func (lb *SLoadbalancer) GetBackendGroupCheckStatus(ctx context.Context, userCre
 			continue
 		}
 		backendJson := backendJsons[i].(*jsonutils.JSONDict)
+		hasCheckCode := false
 		hasLastsess := false
 		for _, colName := range series.Columns {
-			if stripCol(colName) == "lastsess" {
+			switch stripCol(colName) {
+			case "check_code":
+				hasCheckCode = true
+			case "lastsess":
 				hasLastsess = true
-				break
 			}
 		}
-		// check_status is a tag in the haproxy measurement; only surface it from
-		// the series that carries lastsess data — that series is guaranteed to be
-		// present and carries the up-to-date check_status. Set it before the point
-		// loop so it's recorded even when the loop finds no valid values.
-		if hasLastsess {
-			if cs, ok := series.Tags["check_status"]; ok {
+		// check_status is a tag in the haproxy measurement. Prefer the value from
+		// the check_code-bearing series; fall back to the always-present lastsess
+		// series only when check_code didn't supply one. Set it before the point
+		// loop so it's recorded even if the loop finds no valid values.
+		if cs, ok := series.Tags["check_status"]; ok {
+			if hasCheckCode {
+				backendJson.Set("check_status", jsonutils.NewString(cs))
+				csFromCheckCode[i] = true
+			} else if hasLastsess && !csFromCheckCode[i] {
 				backendJson.Set("check_status", jsonutils.NewString(cs))
 			}
 		}
