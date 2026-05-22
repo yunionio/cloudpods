@@ -388,7 +388,7 @@ func (c *comfyui) UninstallModel(ctx context.Context, userCred mcclient.TokenCre
 	return nil
 }
 
-func (c *comfyui) DownloadModel(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM, tmpDir string, modelName string, modelTag string) (string, []string, error) {
+func (c *comfyui) DownloadModel(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM, tmpDir string, modelName string, modelTag string, progress func(progress float32)) (string, []string, error) {
 	if strings.TrimSpace(tmpDir) == "" {
 		return "", nil, errors.Error("tmpDir is empty")
 	}
@@ -421,13 +421,30 @@ func (c *comfyui) DownloadModel(ctx context.Context, userCred mcclient.TokenCred
 	}
 
 	filenames := make([]string, 0, len(meta.Siblings))
+	sizeByFilename := make(map[string]int64, len(meta.Siblings))
 	for _, s := range meta.Siblings {
 		filenames = append(filenames, s.RFilename)
+		if s.Size > 0 {
+			sizeByFilename[strings.TrimSpace(s.RFilename)] = s.Size
+		}
 	}
 	targets, mounts, err := buildComfyUIDownloadTargets(tmpDir, modelName, filenames)
 	if err != nil {
 		return "", nil, err
 	}
+	totalSize := int64(0)
+	completedSize := int64(0)
+	for _, target := range targets {
+		size := sizeByFilename[target.Source]
+		if size <= 0 {
+			continue
+		}
+		totalSize += size
+		if isNonEmptyFile(target.LocalPath) {
+			completedSize += size
+		}
+	}
+	reportInstantModelDownloadProgress(progress, completedSize, totalSize)
 
 	for _, target := range targets {
 		if isNonEmptyFile(target.LocalPath) {
@@ -437,8 +454,14 @@ func (c *comfyui) DownloadModel(ctx context.Context, userCred mcclient.TokenCred
 			return "", nil, errors.Wrapf(err, "mkdir for %s", target.LocalPath)
 		}
 		fileURL := fmt.Sprintf("%s/%s/resolve/%s/%s", api.LLM_COMFYUI_HF_ENDPOINT, escapeURLPathPreserveSlash(modelName), url.PathEscape(rev), escapeURLPathPreserveSlash(target.Source))
-		if err := llm.HttpDownloadFile(ctx, fileURL, target.LocalPath); err != nil {
+		size := sizeByFilename[target.Source]
+		fileCompleted := completedSize
+		if err := llm.HttpDownloadFileWithProgress(ctx, fileURL, target.LocalPath, instantModelFileDownloadProgress(progress, fileCompleted, totalSize, size)); err != nil {
 			return "", nil, errors.Wrapf(err, "download file failed: %s -> %s", fileURL, target.LocalPath)
+		}
+		if size > 0 {
+			completedSize += size
+			reportInstantModelDownloadProgress(progress, completedSize, totalSize)
 		}
 	}
 

@@ -197,7 +197,7 @@ func (o *ollama) GetContainerSpecs(ctx context.Context, llm *models.SLLM, image 
 // 	return err
 // }
 
-func (o *ollama) DownloadModel(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM, tmpDir string, modelName string, modelTag string) (string, []string, error) {
+func (o *ollama) DownloadModel(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM, tmpDir string, modelName string, modelTag string, progress func(progress float32)) (string, []string, error) {
 	// 1. download manifest from registry
 	namespace, repo := getNamespaceAndRepo(modelName)
 	manifestsUrl := fmt.Sprintf(api.LLM_OLLAMA_LIBRARY_BASE_URL, fmt.Sprintf("%s/%s/manifests/%s", namespace, repo, modelTag))
@@ -219,10 +219,11 @@ func (o *ollama) DownloadModel(ctx context.Context, userCred mcclient.TokenCrede
 		return "", nil, errors.Wrapf(err, "failed to parse manifest")
 	}
 
-	// collect all blob digests (config + layers)
+	// collect all blobs (config + layers)
+	blobLayers := []Layer{manifest.Config}
+	blobLayers = append(blobLayers, manifest.Layers...)
 	var blobs []string
-	blobs = append(blobs, manifest.Config.Digest)
-	for _, layer := range manifest.Layers {
+	for _, layer := range blobLayers {
 		blobs = append(blobs, layer.Digest)
 	}
 
@@ -238,8 +239,24 @@ func (o *ollama) DownloadModel(ctx context.Context, userCred mcclient.TokenCrede
 		return "", nil, errors.Wrapf(err, "failed to create manifests directory %s", manifestsDir)
 	}
 
+	totalSize := int64(0)
+	completedSize := int64(0)
+	for _, layer := range blobLayers {
+		if layer.Size <= 0 {
+			continue
+		}
+		totalSize += layer.Size
+		blobFileName := strings.Replace(layer.Digest, ":", "-", 1)
+		blobPath := path.Join(blobsDir, blobFileName)
+		if _, err := os.Stat(blobPath); err == nil {
+			completedSize += layer.Size
+		}
+	}
+	reportInstantModelDownloadProgress(progress, completedSize, totalSize)
+
 	// 5. download each blob
-	for _, digest := range blobs {
+	for _, layer := range blobLayers {
+		digest := layer.Digest
 		// convert sha256:xxx to sha256-xxx for filename
 		blobFileName := strings.Replace(digest, ":", "-", 1)
 		blobPath := path.Join(blobsDir, blobFileName)
@@ -255,8 +272,13 @@ func (o *ollama) DownloadModel(ctx context.Context, userCred mcclient.TokenCrede
 		blobUrl := fmt.Sprintf(api.LLM_OLLAMA_LIBRARY_BASE_URL, fmt.Sprintf("%s/%s/blobs/%s", namespace, repo, digest))
 		log.Infof("Downloading blob %s from %s", blobFileName, blobUrl)
 
-		if err := llm.HttpDownloadFile(ctx, blobUrl, blobPath); err != nil {
+		fileCompleted := completedSize
+		if err := llm.HttpDownloadFileWithProgress(ctx, blobUrl, blobPath, instantModelFileDownloadProgress(progress, fileCompleted, totalSize, layer.Size)); err != nil {
 			return "", nil, errors.Wrapf(err, "failed to download blob %s", digest)
+		}
+		if layer.Size > 0 {
+			completedSize += layer.Size
+			reportInstantModelDownloadProgress(progress, completedSize, totalSize)
 		}
 	}
 

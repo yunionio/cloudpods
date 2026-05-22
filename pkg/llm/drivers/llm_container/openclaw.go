@@ -436,6 +436,6 @@ func (c *openclaw) UninstallModel(ctx context.Context, userCred mcclient.TokenCr
 	return nil
 }
 
-func (c *openclaw) DownloadModel(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM, tmpDir string, modelName string, modelTag string) (string, []string, error) {
+func (c *openclaw) DownloadModel(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM, tmpDir string, modelName string, modelTag string, progress func(progress float32)) (string, []string, error) {
 	return "", nil, nil
 }

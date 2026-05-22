@@ -10,9 +10,9 @@ import (
 type LLMInstantModelListOptions struct {
 	options.BaseListOptions
 
-	ModelName []string `help:"filter by model name"`
-	ModelTag  []string `help:"filter by model tag"`
-	LLMType   string   `json:"llm_type" choices:"ollama|vllm|sglang|comfyui" help:"filter by llm type"`
+	ModelName string `help:"filter by model name"`
+	ModelTag  string `help:"filter by model tag"`
+	LLMType   string `json:"llm_type" choices:"ollama|vllm|sglang|comfyui" help:"filter by llm type"`
 }
 
 func (o *LLMInstantModelListOptions) Params() (jsonutils.JSONObject, error) {

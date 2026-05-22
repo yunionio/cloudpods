@@ -424,7 +424,7 @@ func (s *sglang) UninstallModel(ctx context.Context, userCred mcclient.TokenCred
 	return nil
 }
 
-func (s *sglang) DownloadModel(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM, tmpDir string, modelName string, modelTag string) (string, []string, error) {
+func (s *sglang) DownloadModel(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM, tmpDir string, modelName string, modelTag string, progress func(progress float32)) (string, []string, error) {
 	if strings.TrimSpace(tmpDir) == "" {
 		return "", nil, errors.Error("tmpDir is empty")
 	}
@@ -461,6 +461,23 @@ func (s *sglang) DownloadModel(ctx context.Context, userCred mcclient.TokenCrede
 	if len(meta.Siblings) == 0 {
 		return "", nil, errors.Errorf("hf model metadata has no siblings: %s", apiURL)
 	}
+	totalSize := int64(0)
+	completedSize := int64(0)
+	for _, sibling := range meta.Siblings {
+		if sibling.Size <= 0 {
+			continue
+		}
+		rf := strings.TrimSpace(sibling.RFilename)
+		if rf == "" {
+			continue
+		}
+		totalSize += sibling.Size
+		dst := filepath.Join(localDir, filepath.FromSlash(rf))
+		if isCompleteFile(dst, sibling.Size) {
+			completedSize += sibling.Size
+		}
+	}
+	reportInstantModelDownloadProgress(progress, completedSize, totalSize)
 	if isHuggingFaceImportComplete(localDir, meta.Siblings) {
 		targetDir := path.Join(api.LLM_SGLANG_MODELS_PATH, modelBase)
 		log.Infof("Model %s already exists in import dir %s", modelName, localDir)
@@ -480,8 +497,13 @@ func (s *sglang) DownloadModel(ctx context.Context, userCred mcclient.TokenCrede
 			return "", nil, errors.Wrapf(err, "mkdir for %s", dst)
 		}
 		fileURL := fmt.Sprintf("%s/%s/resolve/%s/%s", api.LLM_SGLANG_HF_ENDPOINT, escapeURLPathPreserveSlash(modelName), url.PathEscape(rev), escapeURLPathPreserveSlash(rf))
-		if err := llm.HttpDownloadFile(ctx, fileURL, dst); err != nil {
+		fileCompleted := completedSize
+		if err := llm.HttpDownloadFileWithProgress(ctx, fileURL, dst, instantModelFileDownloadProgress(progress, fileCompleted, totalSize, sibling.Size)); err != nil {
 			return "", nil, errors.Wrapf(err, "download file failed: %s -> %s", fileURL, dst)
+		}
+		if sibling.Size > 0 {
+			completedSize += sibling.Size
+			reportInstantModelDownloadProgress(progress, completedSize, totalSize)
 		}
 	}
 
