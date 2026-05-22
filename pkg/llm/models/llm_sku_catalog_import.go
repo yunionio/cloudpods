@@ -49,20 +49,43 @@ func buildLLMSkuCatalogImport(input *api.LLMSkuCreateInput, set *api.LLMModelSet
 	if spec == nil {
 		return nil, errors.Wrap(httperrors.ErrInputParameter, "empty catalog spec")
 	}
-	if !strings.EqualFold(spec.Source, api.LLM_MODEL_SOURCE_HUGGINGFACE) {
-		return nil, errors.Wrapf(httperrors.ErrInputParameter, "unsupported catalog source %q", spec.Source)
-	}
-	if strings.TrimSpace(spec.HuggingfaceRepoId) == "" {
-		return nil, errors.Wrap(httperrors.ErrMissingParameter, "huggingface_repo_id is required")
-	}
 	if expectedType, ok := catalogBackendToLLMType(spec.Backend); !ok {
 		return nil, errors.Wrapf(httperrors.ErrInputParameter, "unsupported catalog backend %q", spec.Backend)
 	} else if expectedType != "" && input.LLMType != "" && expectedType != input.LLMType {
 		return nil, errors.Wrapf(httperrors.ErrInputParameter, "catalog backend %q requires llm_type %q", spec.Backend, expectedType)
 	}
 
+	importInput := &api.InstantModelImportInput{
+		LlmType: api.LLMContainerType(input.LLMType),
+	}
+	source := strings.ToLower(strings.TrimSpace(spec.Source))
+	switch source {
+	case api.LLM_MODEL_SOURCE_HUGGINGFACE:
+		if strings.TrimSpace(spec.HuggingfaceRepoId) == "" {
+			return nil, errors.Wrap(httperrors.ErrMissingParameter, "huggingface_repo_id is required")
+		}
+		revision := defaultHuggingFaceRevision
+		importInput.ModelName = spec.HuggingfaceRepoId
+		importInput.ModelTag = revision
+		importInput.Source = api.InstantModelSourceHuggingFace
+		importInput.RepoId = spec.HuggingfaceRepoId
+		importInput.Revision = revision
+	case "ollama":
+		if strings.TrimSpace(spec.OllamaModel) == "" {
+			return nil, errors.Wrap(httperrors.ErrMissingParameter, "ollama_model is required")
+		}
+		if strings.TrimSpace(spec.OllamaTag) == "" {
+			return nil, errors.Wrap(httperrors.ErrMissingParameter, "ollama_tag is required")
+		}
+		importInput.ModelName = spec.OllamaModel
+		importInput.ModelTag = spec.OllamaTag
+		importInput.Source = source
+	default:
+		return nil, errors.Wrapf(httperrors.ErrInputParameter, "unsupported catalog source %q", spec.Source)
+	}
+
 	input.LLMModelSpecId = spec.SpecId
-	input.Source = spec.Source
+	input.Source = source
 	input.HuggingfaceRepoId = spec.HuggingfaceRepoId
 	input.HuggingfaceFilename = spec.HuggingfaceFilename
 	input.ModelScopeModelId = spec.ModelScopeModelId
@@ -74,15 +97,7 @@ func buildLLMSkuCatalogImport(input *api.LLMSkuCreateInput, set *api.LLMModelSet
 		input.Categories = append([]string{}, set.Categories...)
 	}
 
-	revision := defaultHuggingFaceRevision
-	return &api.InstantModelImportInput{
-		ModelName: spec.HuggingfaceRepoId,
-		ModelTag:  revision,
-		LlmType:   api.LLMContainerType(input.LLMType),
-		Source:    api.InstantModelSourceHuggingFace,
-		RepoId:    spec.HuggingfaceRepoId,
-		Revision:  revision,
-	}, nil
+	return importInput, nil
 }
 
 func appendMountedModelIds(existing []string, ids ...string) []string {
