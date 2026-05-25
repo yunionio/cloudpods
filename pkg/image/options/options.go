@@ -56,7 +56,7 @@ type SImageOptions struct {
 	S3UploadPartSizeMb int64  `help:"s3 upload part size in MB, default to 50MB" default:"50"`
 	S3UploadParallel   int    `help:"s3 upload parallel count" default:"4"`
 
-	S3DirectDownload bool `help:"enable s3 direct download" default:"true"`
+	S3DirectDownload bool `help:"enable s3 direct download" default:"false"`
 
 	ImageStreamWorkerCount int `help:"Image stream worker count" default:"10"`
 
