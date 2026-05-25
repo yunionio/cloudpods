@@ -588,6 +588,7 @@ func (h *BaseHostDesc) fillIsolatedDevices(b *baseBuilder, host *computemodels.S
 			VendorDeviceID: devModel.VendorDeviceId,
 			WireId:         devModel.WireId,
 			DevicePath:     devModel.DevicePath,
+			MemorySize:     devModel.MemorySize,
 		}
 		devs[index] = dev
 	}
