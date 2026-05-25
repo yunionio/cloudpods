@@ -2389,13 +2389,23 @@ func (s *sPodGuestInstance) getIsolatedDeviceExtraConfig(spec *hostapi.Container
 	if len(fDevs.EnvDevs) != 0 {
 		ctrCfg.Envs = append(ctrCfg.Envs, getEnvsFromDevices(fDevs.EnvDevs)...)
 	}
+	restDevsByType := map[string][]*hostapi.ContainerDevice{}
+	restDevTypeOrder := []string{}
 	for i := range fDevs.RestDevs {
 		dev := fDevs.RestDevs[i]
-		devMan, err := isolated_device.GetContainerDeviceManager(isolated_device.ContainerDeviceType(dev.IsolatedDevice.DeviceType))
-		if err != nil {
-			return errors.Wrapf(err, "GetContainerDeviceManager by type %q", dev.IsolatedDevice.DeviceType)
+		devType := dev.IsolatedDevice.DeviceType
+		if _, ok := restDevsByType[devType]; !ok {
+			restDevTypeOrder = append(restDevTypeOrder, devType)
 		}
-		envs, mounts := devMan.GetContainerExtraConfigures([]*hostapi.ContainerDevice{dev})
+		restDevsByType[devType] = append(restDevsByType[devType], dev)
+	}
+	for _, devType := range restDevTypeOrder {
+		devs := restDevsByType[devType]
+		devMan, err := isolated_device.GetContainerDeviceManager(isolated_device.ContainerDeviceType(devType))
+		if err != nil {
+			return errors.Wrapf(err, "GetContainerDeviceManager by type %q", devType)
+		}
+		envs, mounts := devMan.GetContainerExtraConfigures(devs)
 		if len(envs) > 0 {
 			ctrCfg.Envs = append(ctrCfg.Envs, envs...)
 		}
