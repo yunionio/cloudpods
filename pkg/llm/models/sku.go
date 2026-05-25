@@ -8,6 +8,7 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
+	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	api "yunion.io/x/onecloud/pkg/apis/llm"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -32,9 +33,14 @@ type SLLMSkuBaseManager struct {
 type SLLMSkuBase struct {
 	db.SSharableVirtualResourceBase
 
-	Bandwidth    int               `nullable:"false" default:"0" create:"optional" list:"user" update:"user"`
-	Cpu          int               `nullable:"false" default:"1" create:"optional" list:"user" update:"user"`
-	Memory       int               `nullable:"false" default:"512" create:"optional" list:"user" update:"user"`
+	Bandwidth int `nullable:"false" default:"0" create:"optional" list:"user" update:"user"`
+	Cpu       int `nullable:"false" default:"1" create:"optional" list:"user" update:"user"`
+	Memory    int `nullable:"false" default:"512" create:"optional" list:"user" update:"user"`
+	// VramClaimMb is the heuristic VRAM (MiB) needed to start a single SLLM
+	// instance from this SKU. Auto-filled from the largest mounted InstantModel's
+	// WeightSizeBytes via EstimateVramClaimMb; user can override at create/update
+	// time (any explicit non-zero value bypasses the auto-fill). 0 means unknown.
+	VramClaimMb  int               `nullable:"false" default:"0" create:"optional" list:"user" update:"user"`
 	Volumes      *api.Volumes      `charset:"utf8" length:"medium" nullable:"true" list:"user" update:"user" create:"optional"`
 	HostPaths    *api.HostPaths    `charset:"utf8" length:"medium" nullable:"true" list:"user" update:"user" create:"optional"`
 	PortMappings *api.PortMappings `charset:"utf8" length:"medium" nullable:"true" list:"user" update:"user" create:"optional"`
@@ -72,6 +78,18 @@ func (man *SLLMSkuBaseManager) ValidateCreateData(ctx context.Context, userCred 
 	}
 	if input.Volumes == nil {
 		return input, errors.Wrap(httperrors.ErrInputParameter, "volumes cannot be empty")
+	}
+
+	// Default DevType to NVIDIA_GPU when callers omit it (UI's "auto by VRAM"
+	// path posts {} for each device). Without this the scheduler's
+	// (DevType, MemoryMb) aggregation key is empty and the VRAM filter
+	// silently no-ops.
+	if input.Devices != nil {
+		for i := range *input.Devices {
+			if (*input.Devices)[i].DevType == "" {
+				(*input.Devices)[i].DevType = computeapi.CONTAINER_DEV_NVIDIA_GPU_SHARE
+			}
+		}
 	}
 
 	input.Status = api.STATUS_READY

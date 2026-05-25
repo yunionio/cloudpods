@@ -88,6 +88,14 @@ func (o *LLMInstantModelImportOptions) Params() (jsonutils.JSONObject, error) {
 	return jsonutils.Marshal(input), nil
 }
 
+type LLMInstantModelBackfillVramOptions struct {
+	DryRun bool `help:"preview without writing" json:"dry_run"`
+}
+
+func (o *LLMInstantModelBackfillVramOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(api.InstantModelBackfillVramInput{DryRun: o.DryRun}), nil
+}
+
 type LLMInstantModelCommunityRegistryOptions struct {
 }
 

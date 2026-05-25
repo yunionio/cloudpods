@@ -66,11 +66,20 @@ func GetLLMBasePodCreateInput(
 	if effectiveDevices != nil && !effectiveDevices.IsZero() {
 		data.IsolatedDevices = make([]*computeapi.IsolatedDeviceConfig, 0)
 		devices := *effectiveDevices
+		// Evenly split the SKU's vram_claim_mb across requested devices and
+		// stamp it onto each request entry. Ceiling division so the sum is
+		// never less than the claim (1 device → claim itself; 2 devices and
+		// 40 GiB claim → 20 GiB each).
+		perDevMinMemMb := 0
+		if skuBase.VramClaimMb > 0 && len(devices) > 0 {
+			perDevMinMemMb = (skuBase.VramClaimMb + len(devices) - 1) / len(devices)
+		}
 		for i := 0; i < len(devices); i++ {
 			isolatedDevice := &computeapi.IsolatedDeviceConfig{
 				DevType:    devices[i].DevType,
 				Model:      devices[i].Model,
 				DevicePath: devices[i].DevicePath,
+				MemoryMb:   perDevMinMemMb,
 			}
 			data.IsolatedDevices = append(data.IsolatedDevices, isolatedDevice)
 		}

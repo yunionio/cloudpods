@@ -15,6 +15,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/llm/models"
+	"yunion.io/x/onecloud/pkg/llm/utils/vram"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
@@ -200,6 +201,26 @@ func (task *LLMDeploymentCreateTask) createSkuAndReconcile(ctx context.Context, 
 	// Default SKU name from deployment name if not provided
 	if skuSpec.Name == "" {
 		skuSpec.Name = fmt.Sprintf("%s-sku", model.Name)
+	}
+
+	// Auto-fill VramClaimMb from the largest mounted InstantModel's
+	// weight_size_bytes. User-provided non-zero values are respected.
+	if skuSpec.VramClaimMb == 0 {
+		var maxWeight int64
+		for _, id := range skuSpec.MountedModels {
+			obj, err := models.GetInstantModelManager().FetchById(id)
+			if err != nil {
+				continue
+			}
+			if w := obj.(*models.SInstantModel).WeightSizeBytes; w > maxWeight {
+				maxWeight = w
+			}
+		}
+		if maxWeight > 0 {
+			skuSpec.VramClaimMb = vram.EstimateClaimMb(maxWeight, skuSpec.LLMType)
+			log.Infof("LLMDeploymentCreateTask: auto vram_claim_mb=%d for sku=%s (weight=%d bytes, llm_type=%s)",
+				skuSpec.VramClaimMb, skuSpec.Name, maxWeight, skuSpec.LLMType)
+		}
 	}
 
 	skuParams := jsonutils.Marshal(skuSpec).(*jsonutils.JSONDict)
