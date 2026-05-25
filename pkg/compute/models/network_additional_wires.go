@@ -191,9 +191,11 @@ func (net *SNetwork) syncAdditionalWires(ctx context.Context, wireIds []string) 
 			}
 			markedPtr = &marked
 		}
-		err := NetworkAdditionalWireManager.newRecord(ctx, net.Id, w.Id, &connected, markedPtr)
-		if err != nil {
-			return errors.Wrap(err, "NetworkAdditionalWireManager.newRecord")
+		if connected || (markedPtr != nil && *markedPtr) {
+			err := NetworkAdditionalWireManager.newRecord(ctx, net.Id, w.Id, &connected, markedPtr)
+			if err != nil {
+				return errors.Wrap(err, "NetworkAdditionalWireManager.newRecord")
+			}
 		}
 	}
 	return nil
