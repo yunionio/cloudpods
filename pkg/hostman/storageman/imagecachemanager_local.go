@@ -18,6 +18,7 @@ import (
 	"context"
 	"os"
 	"sync"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -113,9 +114,11 @@ func (c *SLocalImageCacheManager) AcquireImage(ctx context.Context, input api.Ca
 		c.cachedImages.Store(input.ImageId, imgObj)
 	}
 	if callback == nil && len(input.ServerId) > 0 {
+		var lastReport time.Time
 		callback = func(progress, progressMbps float64, totalSizeMb int64) {
-			if len(input.ServerId) > 0 {
-				hostutils.UpdateServerProgress(ctx, input.ServerId, progress, progressMbps)
+			if len(input.ServerId) > 0 && time.Since(lastReport) > 5*time.Second {
+				lastReport = time.Now()
+				go hostutils.UpdateServerProgress(ctx, input.ServerId, progress, progressMbps)
 			}
 		}
 	}
