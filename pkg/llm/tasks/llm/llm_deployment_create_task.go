@@ -244,6 +244,15 @@ func (task *LLMDeploymentCreateTask) createSkuAndReconcile(ctx context.Context, 
 		task.taskFailedCreatingSku(ctx, model, errors.Errorf("create SKU response missing id: %s", resp.String()))
 		return
 	}
+	skuObj, err := models.GetLLMSkuManager().FetchById(skuId)
+	if err != nil {
+		task.taskFailedCreatingSku(ctx, model, errors.Wrapf(err, "fetch created SKU %s", skuId))
+		return
+	}
+	if err := models.ValidateLLMSkuReadyForUse(skuObj.(*models.SLLMSku)); err != nil {
+		task.taskFailedCreatingSku(ctx, model, err)
+		return
+	}
 
 	if _, err := db.Update(model, func() error {
 		model.LLMSkuId = skuId

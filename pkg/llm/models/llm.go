@@ -164,6 +164,9 @@ func (man *SLLMManager) ValidateCreateData(ctx context.Context, userCred mcclien
 		return input, errors.Wrap(err, "fetch LLMSku")
 	}
 	lSku := sku.(*SLLMSku)
+	if err := ValidateLLMSkuReadyForUse(lSku); err != nil {
+		return input, err
+	}
 	input.LLMSkuId = lSku.Id
 	input.LLMImageId = lSku.GetLLMImageId()
 
