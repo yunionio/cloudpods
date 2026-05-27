@@ -571,7 +571,7 @@ func (self *SUnifiedMonitorManager) GetPropertySimpleQuery(ctx context.Context, 
 		where.Equal(k, v)
 	}
 	if len(input.Interval) == 0 {
-		input.Interval = "5m"
+		input.Interval = options.Options.ResourceMetricsDefaultInterval
 	}
 	_, err := time.ParseDuration(input.Interval)
 	if err != nil {
@@ -733,7 +733,7 @@ func (self *SUnifiedMonitorManager) getResourceMetrics(
 		input.StartTime = input.EndTime.Add(-1 * time.Hour)
 	}
 	if len(input.Interval) == 0 {
-		input.Interval = "5m"
+		input.Interval = options.Options.ResourceMetricsDefaultInterval
 	}
 
 	tagKey := drv.GetTagKey()
