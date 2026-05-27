@@ -37,6 +37,8 @@ type AlerterOptions struct {
 
 	WorkerCheckInterval int `default:"180"`
 
+	ResourceMetricsDefaultInterval string `default:"5m" help:"default interval for resource metrics query"`
+
 	AutoMigrationMustPair      bool `default:"false" help:"result of auto migration source guests and target hosts must be paired"`
 	DisableQuerySignatureCheck bool `default:"true" help:"disable query signature check"`
 }
