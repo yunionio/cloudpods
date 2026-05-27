@@ -851,7 +851,7 @@ func (self *SKVMGuestDriver) CheckMigrate(ctx context.Context, guest *models.SGu
 			}
 		}
 	}
-	devices, err := guest.GetIsolatedDevices()
+	devices, err := guest.GetGuestIsolatedDevices()
 	if err != nil {
 		return errors.Wrapf(err, "GetIsolatedDevices")
 	}
@@ -879,7 +879,7 @@ func (self *SKVMGuestDriver) CheckLiveMigrate(ctx context.Context, guest *models
 		if cdrom != nil && len(cdrom.ImageId) > 0 {
 			return httperrors.NewBadRequestError("Cannot live migrate with cdrom")
 		}
-		devices, err := guest.GetIsolatedDevices()
+		devices, err := guest.GetGuestIsolatedDevices()
 		if err != nil {
 			return errors.Wrapf(err, "GetIsolatedDevices")
 		}

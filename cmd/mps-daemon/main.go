@@ -31,6 +31,7 @@ import (
 	"yunion.io/x/pkg/util/signalutils"
 	"yunion.io/x/pkg/utils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/hostman/isolated_device"
 	"yunion.io/x/onecloud/pkg/hostman/isolated_device/container_device"
 	"yunion.io/x/onecloud/pkg/hostman/options"
@@ -67,7 +68,7 @@ func NewDaemon() (*Daemon, error) {
 	}
 	for i := range devCfg.Devices {
 		if devCfg.Devices[i].Type == isolated_device.ContainerDeviceTypeNvidiaMps {
-			dev, err := container_device.NewPCIGPURenderBaseDevice(devCfg.Devices[i].Path, 0, isolated_device.ContainerDeviceTypeNvidiaMps)
+			dev, err := container_device.NewPCIGPURenderBaseDevice(devCfg.Devices[i].Path, 0, api.GPU_TYPE, api.DEVICE_SHARING_MODE_MPS)
 			if err != nil {
 				return nil, errors.Wrapf(err, "parse pci device %s", devCfg.Devices[i].Path)
 			}

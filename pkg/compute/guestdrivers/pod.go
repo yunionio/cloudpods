@@ -608,7 +608,7 @@ func (p *SPodDriver) RequestDeleteSnapshot(ctx context.Context, guest *models.SG
 	return p.SKVMGuestDriver.RequestDeleteSnapshot(ctx, guest, task, params)
 }
 
-func (p *SPodDriver) BeforeDetachIsolatedDevice(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, dev *models.SIsolatedDevice) error {
+func (p *SPodDriver) BeforeDetachIsolatedDevice(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, gdev *models.SGuestIsolatedDevice) error {
 	ctrs, err := models.GetContainerManager().GetContainersByPod(guest.GetId())
 	if err != nil {
 		return errors.Wrapf(err, "get containers by pod %s", guest.GetId())
@@ -620,10 +620,11 @@ func (p *SPodDriver) BeforeDetachIsolatedDevice(ctx context.Context, userCred mc
 		newDevs := make([]*api.ContainerDevice, 0)
 		releasedDevs := make(map[string]models.ContainerReleasedDevice)
 		for _, curDev := range devs {
-			if curDev.IsolatedDevice == nil || curDev.IsolatedDevice.Id != dev.GetId() {
+			if curDev.IsolatedDevice == nil || (curDev.IsolatedDevice.Id != gdev.IsolatedDeviceId && curDev.IsolatedDevice.GuestIsolatedDeviceIndex == int(gdev.Index)) {
 				tmpDev := curDev
 				newDevs = append(newDevs, tmpDev)
 			} else {
+				dev := gdev.GetIsolatedDevice()
 				releasedDevs[curDev.IsolatedDevice.Id] = *models.NewContainerReleasedDevice(curDev, dev.DevType, dev.Model)
 			}
 		}
@@ -640,7 +641,7 @@ func (p *SPodDriver) BeforeDetachIsolatedDevice(ctx context.Context, userCred mc
 	return nil
 }
 
-func (p *SPodDriver) BeforeAttachIsolatedDevice(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, dev *models.SIsolatedDevice) error {
+func (p *SPodDriver) BeforeAttachIsolatedDevice(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, dev *models.SGuestIsolatedDevice) error {
 	ctrs, err := models.GetContainerManager().GetContainersByPod(guest.GetId())
 	if err != nil {
 		return errors.Wrapf(err, "get containers by pod %s", guest.GetId())
@@ -654,7 +655,7 @@ func (p *SPodDriver) BeforeAttachIsolatedDevice(ctx context.Context, userCred mc
 	return nil
 }
 
-func (p *SPodDriver) attachIsolatedDeviceToContainer(ctx context.Context, userCred mcclient.TokenCredential, ctrPtr *models.SContainer, dev *models.SIsolatedDevice) error {
+func (p *SPodDriver) attachIsolatedDeviceToContainer(ctx context.Context, userCred mcclient.TokenCredential, ctrPtr *models.SContainer, gdev *models.SGuestIsolatedDevice) error {
 	rlsDevs, err := ctrPtr.GetReleasedDevices(ctx, userCred)
 	if err != nil {
 		return errors.Wrapf(err, "get release devices for container %s", ctrPtr.GetId())
@@ -672,7 +673,7 @@ func (p *SPodDriver) attachIsolatedDeviceToContainer(ctx context.Context, userCr
 		if curDev.IsolatedDevice == nil {
 			continue
 		}
-		if curDev.IsolatedDevice.Id == dev.GetId() {
+		if curDev.IsolatedDevice.Id == gdev.IsolatedDeviceId && curDev.IsolatedDevice.GuestIsolatedDeviceIndex == int(gdev.Index) {
 			shouldUpdate = false
 			break
 		}
@@ -681,7 +682,8 @@ func (p *SPodDriver) attachIsolatedDeviceToContainer(ctx context.Context, userCr
 		spec.Devices = append(spec.Devices, &api.ContainerDevice{
 			Type: apis.CONTAINER_DEVICE_TYPE_ISOLATED_DEVICE,
 			IsolatedDevice: &api.ContainerIsolatedDevice{
-				Id: dev.GetId(),
+				Id:                       gdev.IsolatedDeviceId,
+				GuestIsolatedDeviceIndex: int(gdev.Index),
 			},
 		})
 		if _, err := db.Update(ctrPtr, func() error {
@@ -695,6 +697,7 @@ func (p *SPodDriver) attachIsolatedDeviceToContainer(ctx context.Context, userCr
 		if rlsDev.IsolatedDevice == nil {
 			continue
 		}
+		dev := gdev.GetIsolatedDevice()
 		if rlsDev.DeviceModel == dev.Model && rlsDev.DeviceType == dev.DevType {
 			delete(rlsDevs, id)
 			if err := ctrPtr.SaveReleasedDevices(ctx, userCred, rlsDevs); err != nil {

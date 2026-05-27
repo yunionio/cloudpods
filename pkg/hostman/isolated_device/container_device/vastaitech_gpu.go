@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	runtimeapi "k8s.io/cri-api/pkg/apis/runtime/v1"
+	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 
 	"yunion.io/x/pkg/errors"
 
@@ -40,7 +41,7 @@ func newVastaitechGPUManager() isolated_device.IContainerDeviceManager {
 	return &vastaitechGPUManager{}
 }
 
-func (v vastaitechGPUManager) GetType() isolated_device.ContainerDeviceType {
+func (v vastaitechGPUManager) GetRegisterType() isolated_device.ContainerDeviceType {
 	return isolated_device.ContainerDeviceTypeVastaitechGpu
 }
 
@@ -56,7 +57,7 @@ var vastaitechRelatedDevices = map[string]string{
 	VASTAITECH_VACC:     "/dev/vacc%d",
 }
 
-func (v vastaitechGPUManager) getRelatedDevices(index int) map[string]string {
+func (v *vastaitechGPUManager) getRelatedDevices(index int) map[string]string {
 	devs := make(map[string]string)
 	for key, devFmt := range vastaitechRelatedDevices {
 		devs[key] = fmt.Sprintf(devFmt, index)
@@ -64,12 +65,12 @@ func (v vastaitechGPUManager) getRelatedDevices(index int) map[string]string {
 	return devs
 }
 
-func (v vastaitechGPUManager) getDriRenderPrefix() string {
+func (v *vastaitechGPUManager) getDriRenderPrefix() string {
 	return "/dev/dri/renderD"
 }
 
 // getVastaitechDriStartIndexFromByPath 扫描 /dev/dri/by-path/，找到名称含 va_card 的 -render 链接对应的最小 renderD 编号
-func (v vastaitechGPUManager) getVastaitechDriStartIndexFromByPath() (int, error) {
+func (v *vastaitechGPUManager) getVastaitechDriStartIndexFromByPath() (int, error) {
 	const byPathDir = "/dev/dri/by-path"
 	entries, err := os.ReadDir(byPathDir)
 	if err != nil {
@@ -107,11 +108,11 @@ func (v vastaitechGPUManager) getVastaitechDriStartIndexFromByPath() (int, error
 	return *minIdx, nil
 }
 
-func (v vastaitechGPUManager) getDriStartIndex() (int, error) {
+func (v *vastaitechGPUManager) getDriStartIndex() (int, error) {
 	return v.getVastaitechDriStartIndexFromByPath()
 }
 
-func (v vastaitechGPUManager) getRelatedDeviceStartIndex(driPath string) (int, error) {
+func (v *vastaitechGPUManager) getRelatedDeviceStartIndex(driPath string) (int, error) {
 	prefix := v.getDriRenderPrefix()
 	if !strings.HasPrefix(driPath, prefix) {
 		return -1, errors.Errorf("device path %q doesn't start with /dev/dri/renderD", driPath)
@@ -132,7 +133,7 @@ func (v vastaitechGPUManager) getRelatedDeviceStartIndex(driPath string) (int, e
 	return idx, nil
 }
 
-func (v vastaitechGPUManager) NewDevices(dev *isolated_device.ContainerDevice) ([]isolated_device.IDevice, error) {
+func (v *vastaitechGPUManager) NewDevices(dev *isolated_device.ContainerDevice) ([]isolated_device.IDevice, error) {
 	idx, err := v.getRelatedDeviceStartIndex(dev.Path)
 	if err != nil {
 		return nil, errors.Wrap(err, "get related device start index")
@@ -146,18 +147,15 @@ func (v vastaitechGPUManager) NewDevices(dev *isolated_device.ContainerDevice) (
 	if err := CheckVirtualNumber(dev); err != nil {
 		return nil, err
 	}
-	gpuDevs := make([]isolated_device.IDevice, 0)
-	for i := 0; i < dev.VirtualNumber; i++ {
-		gpuDev, err := newVastaitechGPU(dev.Path, i)
-		if err != nil {
-			return nil, errors.Wrapf(err, "new CPH AMD GPU with index %d", i)
-		}
-		gpuDevs = append(gpuDevs, gpuDev)
+	gpuDev, err := v.newVastaitechGPU(dev.Path, dev.VirtualNumber)
+	if err != nil {
+		return nil, errors.Wrap(err, "new CPH AMD GPU")
 	}
-	return gpuDevs, nil
+
+	return []isolated_device.IDevice{gpuDev}, nil
 }
 
-func (v vastaitechGPUManager) getCommonDevices() []*runtimeapi.Device {
+func (v *vastaitechGPUManager) getCommonDevices() []*runtimeapi.Device {
 	vatools := "/dev/vatools"
 	vaSync := "/dev/va_sync"
 	devs := []*runtimeapi.Device{}
@@ -171,7 +169,7 @@ func (v vastaitechGPUManager) getCommonDevices() []*runtimeapi.Device {
 	return devs
 }
 
-func (v vastaitechGPUManager) NewContainerDevices(input *hostapi.ContainerCreateInput, dev *hostapi.ContainerDevice) ([]*runtimeapi.Device, []*runtimeapi.Device, error) {
+func (v *vastaitechGPUManager) NewContainerDevices(input *hostapi.ContainerCreateInput, dev *hostapi.ContainerDevice) ([]*runtimeapi.Device, []*runtimeapi.Device, error) {
 	driHostPath := dev.IsolatedDevice.Path
 	idx, err := v.getRelatedDeviceStartIndex(driHostPath)
 	if err != nil {
@@ -195,22 +193,26 @@ func (v vastaitechGPUManager) NewContainerDevices(input *hostapi.ContainerCreate
 	return devs, v.getCommonDevices(), nil
 }
 
-func (v vastaitechGPUManager) ProbeDevices() ([]isolated_device.IDevice, error) {
+func (v *vastaitechGPUManager) ProbeDevices() ([]isolated_device.IDevice, error) {
 	return nil, nil
 }
 
-func (v vastaitechGPUManager) GetContainerExtraConfigures(devs []*hostapi.ContainerDevice) ([]*runtimeapi.KeyValue, []*runtimeapi.Mount) {
+func (v *vastaitechGPUManager) GetContainerExtraConfigures(devs []*hostapi.ContainerDevice) ([]*runtimeapi.KeyValue, []*runtimeapi.Mount) {
 	return nil, nil
 }
 
 type vastaitechGPU struct {
 	*BaseDevice
+	manager *vastaitechGPUManager
 }
 
-func newVastaitechGPU(devPath string, index int) (*vastaitechGPU, error) {
-	dev, err := NewPCIGPURenderBaseDevice(devPath, index, isolated_device.ContainerDeviceTypeVastaitechGpu)
+func (v *vastaitechGPUManager) newVastaitechGPU(devPath string, virtualNum int) (*vastaitechGPU, error) {
+	dev, err := NewPCIGPURenderBaseDevice(devPath, virtualNum, computeapi.GPU_TYPE, computeapi.DEVICE_SHARING_MODE_UNLIMITED)
 	if err != nil {
 		return nil, errors.Wrap(err, "new PCIGPURenderBaseDevice")
 	}
-	return &vastaitechGPU{BaseDevice: dev}, nil
+	return &vastaitechGPU{
+		BaseDevice: dev,
+		manager:    v,
+	}, nil
 }

@@ -3526,13 +3526,13 @@ func (manager *SHostManager) totalCountQ(
 
 	q = db.ObjectIdQueryWithPolicyResult(ctx, q, HostManager, policyResult)
 
-	isolatedDevices := IsolatedDeviceManager.Query().SubQuery()
+	isolatedDevices := IsolatedDeviceManager.queryWithoutGuest(IsolatedDeviceManager.Query()).SubQuery()
 	iq := isolatedDevices.Query(
 		isolatedDevices.Field("host_id"),
 		sqlchemy.SUM("isolated_reserved_memory", isolatedDevices.Field("reserved_memory")),
 		sqlchemy.SUM("isolated_reserved_cpu", isolatedDevices.Field("reserved_cpu")),
 		sqlchemy.SUM("isolated_reserved_storage", isolatedDevices.Field("reserved_storage")),
-	).IsNullOrEmpty("guest_id").GroupBy(isolatedDevices.Field("host_id")).SubQuery()
+	).GroupBy(isolatedDevices.Field("host_id")).SubQuery()
 	q = q.LeftJoin(iq, sqlchemy.Equals(q.Field("id"), iq.Field("host_id")))
 	q.AppendField(
 		iq.Field("isolated_reserved_memory"),
@@ -4110,7 +4110,25 @@ func (hh *SHost) GetDevsReservedResource(devs []SIsolatedDevice) *api.IsolatedDe
 		ReservedCpu:     &reservedCpu,
 	}
 	for _, dev := range devs {
-		if !utils.IsInStringArray(dev.DevType, api.VALID_GPU_TYPES) {
+		if !dev.IsKvmExclusiveGPU() {
+			continue
+		}
+		reservedCpu += dev.ReservedCpu
+		reservedMem += dev.ReservedMemory
+		reservedStorage += dev.ReservedStorage
+	}
+	return &reservedResourceForGpu
+}
+
+func (hh *SHost) GetDevsReservedResourceByDevStats(devs []IsolatedDeviceAllocateStat) *api.IsolatedDeviceReservedResourceInput {
+	reservedCpu, reservedMem, reservedStorage := 0, 0, 0
+	reservedResourceForGpu := api.IsolatedDeviceReservedResourceInput{
+		ReservedStorage: &reservedStorage,
+		ReservedMemory:  &reservedMem,
+		ReservedCpu:     &reservedCpu,
+	}
+	for _, dev := range devs {
+		if !dev.IsKvmExclusiveGPU() {
 			continue
 		}
 		reservedCpu += dev.ReservedCpu
@@ -4419,6 +4437,19 @@ func (hh *SHost) GetDetailsIpmi(ctx context.Context, userCred mcclient.TokenCred
 		return nil, err
 	}
 	ret.Set("password", jsonutils.NewString(descryptedPassword))
+	return ret, nil
+}
+
+func (hh *SHost) GetDetailsGuestIsolatedDevicesInitialized(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	inited, err := IsolatedDeviceManager.isInitializeDataDone()
+	if err != nil {
+		return nil, err
+	}
+	if !inited {
+		return nil, httperrors.NewResourceNotReadyError("isolated device not isitialized")
+	}
+	ret := jsonutils.NewDict()
+	ret.Set("initialized", jsonutils.NewString("ok"))
 	return ret, nil
 }
 
@@ -8202,10 +8233,10 @@ func (h *SHost) GetDetailsApiStats(ctx context.Context, userCred mcclient.TokenC
 }
 
 func (hh *SHost) GetDetailsIsolatedDeviceNumaStats(ctx context.Context, userCred mcclient.TokenCredential, input *api.HostIsolatedDeviceNumaStatsInput) (jsonutils.JSONObject, error) {
-	if !utils.IsInStringArray(input.DevType, api.VALID_PASSTHROUGH_TYPES) {
-		return nil, httperrors.NewInputParameterError("dev_type %s is invalid", input.DevType)
+	if input.Model == "" {
+		return nil, httperrors.NewMissingParameterError("model")
 	}
-	stats, err := IsolatedDeviceManager.GetHostAllocatedIsolatedDeviceNumaStats(input.DevType, hh.Id)
+	stats, err := IsolatedDeviceManager.GetHostAllocatedIsolatedDeviceNumaStats(input.Model, hh.Id)
 	if err != nil {
 		return nil, err
 	}

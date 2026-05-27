@@ -1010,7 +1010,7 @@ func (manager *SGuestnetworkManager) DeleteGuestNics(ctx context.Context, userCr
 			return errors.Wrapf(httperrors.ErrInvalidStatus, "eip associate with %s", gn.IpAddr)
 		}
 		guest := gn.GetGuest()
-		dev, err := guest.GetIsolatedDeviceByNetworkIndex(gn.Index)
+		dev, err := guest.GetGuestIsolatedDeviceByNetworkIndex(gn.Index)
 		if err != nil {
 			return errors.Wrap(err, "GetIsolatedDeviceByNetworkIndex")
 		}
@@ -1274,7 +1274,10 @@ func (gn *SGuestnetwork) GetVirtualIPs() []string {
 
 func (gn *SGuestnetwork) GetIsolatedDevice() (*SIsolatedDevice, error) {
 	dev := SIsolatedDevice{}
-	q := IsolatedDeviceManager.Query().Equals("guest_id", gn.GuestId).Equals("network_index", gn.Index)
+	q := IsolatedDeviceManager.Query()
+	gidq := GuestIsolatedDeviceManager.Query().
+		Equals("guest_id", gn.GuestId).Equals("network_index", gn.Index).SubQuery()
+	q = q.Join(gidq, sqlchemy.Equals(q.Field("id"), gidq.Field("isolated_device_id")))
 	if cnt, err := q.CountWithError(); err != nil {
 		return nil, err
 	} else if cnt == 0 {

@@ -17,6 +17,7 @@ package hostinfo
 import (
 	"context"
 	"path"
+	"strings"
 	"time"
 
 	"yunion.io/x/log"
@@ -106,7 +107,8 @@ func (h *SHostInfo) HasContainerVastaitechGpu() bool {
 	hasVastaitechGpus := false
 	devs := h.IsolatedDeviceMan.GetDevices()
 	for i := range devs {
-		if devs[i].GetDeviceType() == apis.CONTAINER_DEV_VASTAITECH_GPU {
+		vendorId := strings.Split(devs[i].GetVendorDeviceId(), ":")[0]
+		if utils.IsInStringArray(devs[i].GetSharingMode(), apis.VIRTUAL_SHARING_MODES) && vendorId == apis.VASTAITECH_VENDOR_ID {
 			hasVastaitechGpus = true
 		}
 	}
@@ -121,7 +123,8 @@ func (h *SHostInfo) HasContainerCphAmdGpu() bool {
 	hasCphAmdGpus := false
 	devs := h.IsolatedDeviceMan.GetDevices()
 	for i := range devs {
-		if devs[i].GetDeviceType() == apis.CONTAINER_DEV_CPH_AMD_GPU {
+		vendorId := strings.Split(devs[i].GetVendorDeviceId(), ":")[0]
+		if utils.IsInStringArray(devs[i].GetSharingMode(), apis.VIRTUAL_SHARING_MODES) && vendorId == apis.AMD_VENDOR_ID {
 			hasCphAmdGpus = true
 		}
 	}
@@ -137,10 +140,12 @@ func (h *SHostInfo) HasContainerNvidiaGpu() bool {
 	nvDevs := make([]isolated_device.IDevice, 0)
 	devs := h.IsolatedDeviceMan.GetDevices()
 	for i := range devs {
-		if utils.IsInStringArray(devs[i].GetDeviceType(), apis.NVIDIA_GPU_TYPES) {
+		vendorId := strings.Split(devs[i].GetVendorDeviceId(), ":")[0]
+		if utils.IsInStringArray(devs[i].GetSharingMode(), apis.VIRTUAL_SHARING_MODES) && vendorId == apis.NVIDIA_VENDOR_ID {
 			hasNvidiaGpus = true
 			nvDevs = append(nvDevs, devs[i])
 		}
+
 	}
 	h.hasNvidiaGpus = &hasNvidiaGpus
 	h.containerNvidiaGpus = nvDevs

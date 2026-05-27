@@ -18,6 +18,7 @@ import (
 	"strings"
 
 	runtimeapi "k8s.io/cri-api/pkg/apis/runtime/v1"
+	"yunion.io/x/onecloud/pkg/apis/compute"
 
 	"yunion.io/x/pkg/errors"
 
@@ -39,8 +40,16 @@ func (m *cphAMDGPUManager) ProbeDevices() ([]isolated_device.IDevice, error) {
 	return nil, nil
 }
 
-func (m *cphAMDGPUManager) GetType() isolated_device.ContainerDeviceType {
+func (m *cphAMDGPUManager) GetRegisterType() isolated_device.ContainerDeviceType {
 	return isolated_device.ContainerDeviceTypeCphAMDGPU
+}
+
+func (m *cphAMDGPUManager) GetDevType() string {
+	return compute.GPU_TYPE
+}
+
+func (m *cphAMDGPUManager) GetSharingMode() string {
+	return compute.DEVICE_SHARING_MODE_UNLIMITED
 }
 
 func (m *cphAMDGPUManager) NewDevices(dev *isolated_device.ContainerDevice) ([]isolated_device.IDevice, error) {
@@ -50,15 +59,11 @@ func (m *cphAMDGPUManager) NewDevices(dev *isolated_device.ContainerDevice) ([]i
 	if err := CheckVirtualNumber(dev); err != nil {
 		return nil, err
 	}
-	gpuDevs := make([]isolated_device.IDevice, 0)
-	for i := 0; i < dev.VirtualNumber; i++ {
-		gpuDev, err := newCphAMDGPU(dev.Path, i)
-		if err != nil {
-			return nil, errors.Wrapf(err, "new CPH AMD GPU with index %d", i)
-		}
-		gpuDevs = append(gpuDevs, gpuDev)
+	gpuDev, err := m.newCphAMDGPU(dev.Path, compute.DEVICE_SHARING_MODE_UNLIMITED, dev.VirtualNumber)
+	if err != nil {
+		return nil, errors.Wrapf(err, "new CPH AMD GPU with virtual num %d", dev.VirtualNumber)
 	}
-	return gpuDevs, nil
+	return []isolated_device.IDevice{gpuDev}, nil
 }
 
 func (m *cphAMDGPUManager) getDeviceHostPathByAddr(dev *hostapi.ContainerDevice) (string, error) {
@@ -83,15 +88,22 @@ func (m *cphAMDGPUManager) GetContainerExtraConfigures(devs []*hostapi.Container
 }
 
 type cphAMDGPU struct {
+	manager *cphAMDGPUManager
+
 	*BaseDevice
 }
 
-func newCphAMDGPU(devPath string, index int) (*cphAMDGPU, error) {
-	dev, err := NewPCIGPURenderBaseDevice(devPath, index, isolated_device.ContainerDeviceTypeCphAMDGPU)
+func (dev *cphAMDGPU) GetContainerDeviceManager() isolated_device.IContainerDeviceManager {
+	return dev.manager
+}
+
+func (m *cphAMDGPUManager) newCphAMDGPU(devPath, sharingMode string, virtualNum int) (*cphAMDGPU, error) {
+	dev, err := NewPCIGPURenderBaseDevice(devPath, virtualNum, compute.GPU_TYPE, sharingMode)
 	if err != nil {
 		return nil, errors.Wrap(err, "new PCIGPURenderBaseDevice")
 	}
 	return &cphAMDGPU{
+		manager:    m,
 		BaseDevice: dev,
 	}, nil
 }

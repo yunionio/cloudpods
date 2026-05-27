@@ -814,7 +814,8 @@ func NewGuestReservedResourceByBuilder(b *HostBuilder, host *computemodels.SHost
 	if len(isoDevs) == 0 {
 		return
 	}
-	reservedResource := host.GetDevsReservedResource(isoDevs)
+
+	reservedResource := host.GetDevsReservedResourceByDevStats(isoDevs)
 	if reservedResource != nil {
 		ret.CPUCount = int64(*reservedResource.ReservedCpu)
 		ret.MemorySize = int64(*reservedResource.ReservedMemory)
@@ -1741,25 +1742,25 @@ func (b *HostBuilder) fillMetadata(desc *HostDesc, host *computemodels.SHost) er
 	return nil
 }
 
-func (b *HostBuilder) getUsedIsolatedDevices(hostID string) (devs []computemodels.SIsolatedDevice) {
-	devs = make([]computemodels.SIsolatedDevice, 0)
+func (b *HostBuilder) getUsedIsolatedDevicesGuests(hostID string) []string {
+	guests := make([]string, 0)
 	for _, dev := range b.getIsolatedDevices(hostID) {
-		if len(dev.GuestId) != 0 {
-			devs = append(devs, dev)
+		if gss, ok := b.isolatedDeviceGuestsDict[dev.Id]; ok {
+			guests = append(guests, gss...)
 		}
 	}
-	return
+	return guests
 }
 
 func (b *HostBuilder) getIsolatedDeviceGuests(hostID string) (guests []computemodels.SGuest) {
 	guests = make([]computemodels.SGuest, 0)
-	usedDevs := b.getUsedIsolatedDevices(hostID)
-	if len(usedDevs) == 0 {
+	usedGuests := b.getUsedIsolatedDevicesGuests(hostID)
+	if len(usedGuests) == 0 {
 		return
 	}
 	ids := sets.NewString()
-	for _, dev := range usedDevs {
-		g, ok := b.guestDict[dev.GuestId]
+	for _, guestId := range usedGuests {
+		g, ok := b.guestDict[guestId]
 		if !ok {
 			continue
 		}
@@ -1772,15 +1773,15 @@ func (b *HostBuilder) getIsolatedDeviceGuests(hostID string) (guests []computemo
 	return
 }
 
-func (b *HostBuilder) getUnusedIsolatedDevices(hostID string) (devs []computemodels.SIsolatedDevice) {
-	devs = make([]computemodels.SIsolatedDevice, 0)
-	for _, dev := range b.getIsolatedDevices(hostID) {
-		if len(dev.GuestId) == 0 {
-			devs = append(devs, dev)
-		}
-	}
-	return
-}
+//func (b *HostBuilder) getUnusedIsolatedDevices(hostID string) (devs []computemodels.IsolatedDeviceAllocateStat) {
+//	devs = make([]computemodels.IsolatedDeviceAllocateStat, 0)
+//	for _, dev := range b.getIsolatedDevices(hostID) {
+//		if len(dev.GuestId) == 0 {
+//			devs = append(devs, dev)
+//		}
+//	}
+//	return
+//}
 
 func (b *HostBuilder) fillCPUIOLoads(desc *HostDesc, host *computemodels.SHost) error {
 	desc.CPULoad = b.loadByName(host.Id, "cpu_load")

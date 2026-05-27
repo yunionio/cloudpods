@@ -33,12 +33,20 @@ func init() {
 type localLoopDiskManager struct {
 }
 
-func (l localLoopDiskManager) GetType() isolated_device.ContainerDeviceType {
+func (l localLoopDiskManager) GetRegisterType() isolated_device.ContainerDeviceType {
 	return api.CONTAINER_STORAGE_LOCAL_RAW
 }
 
+func (m *localLoopDiskManager) GetDevType() string {
+	return api.GPU_TYPE
+}
+
+func (m *localLoopDiskManager) GetSharingMode() string {
+	return api.DEVICE_SHARING_MODE_UNLIMITED
+}
+
 func (l localLoopDiskManager) NewDevices(dev *isolated_device.ContainerDevice) ([]isolated_device.IDevice, error) {
-	return nil, errors.Errorf("%s storage doesn't support NewDevices", l.GetType())
+	return nil, errors.Errorf("%s storage doesn't support NewDevices", l.GetRegisterType())
 }
 
 func (l localLoopDiskManager) NewContainerDevices(_ *hostapi.ContainerCreateInput, input *hostapi.ContainerDevice) ([]*runtimeapi.Device, []*runtimeapi.Device, error) {

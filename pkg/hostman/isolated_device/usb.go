@@ -39,7 +39,7 @@ type sUSBDevice struct {
 // TODO: rename PCIDevice
 func newUSBDevice(dev *PCIDevice, lsusbLine *sLsusbLine) *sUSBDevice {
 	return &sUSBDevice{
-		SBaseDevice: NewBaseDevice(dev, api.USB_TYPE),
+		SBaseDevice: NewBaseDevice(dev, api.USB_TYPE, api.DEVICE_SHARING_MODE_EXCLUSIVE),
 		lsusbLine:   lsusbLine,
 	}
 }

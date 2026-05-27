@@ -513,8 +513,7 @@ func ParseIsolatedDevice(desc string, idx int) (*compute.IsolatedDeviceConfig, e
 	}
 	dev := new(compute.IsolatedDeviceConfig)
 	parts := strings.Split(desc, ":")
-	devTypes := sets.NewString(compute.VALID_PASSTHROUGH_TYPES...)
-	devTypes.Insert(compute.VALID_CONTAINER_DEVICE_TYPES...)
+	devTypes := sets.NewString(compute.VALID_TYPES...)
 	for _, p := range parts {
 		if regutils.MatchUUIDExact(p) {
 			dev.Id = p

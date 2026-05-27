@@ -944,7 +944,7 @@ func (c *SContainer) ToHostContainerSpec(ctx context.Context, userCred mcclient.
 	}
 	ctrDevs := make([]*hostapi.ContainerDevice, 0)
 	for _, dev := range c.Spec.Devices {
-		ctrDev, err := GetContainerDeviceDriver(dev.Type).ToHostDevice(dev)
+		ctrDev, err := GetContainerDeviceDriver(dev.Type).ToHostDevice(dev, c.GuestId)
 		if err != nil {
 			return nil, errors.Wrapf(err, "ToHostDevice %s", jsonutils.Marshal(dev))
 		}

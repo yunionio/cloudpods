@@ -21,10 +21,14 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
+
+	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 )
 
 type sGeneralPCIDevice struct {
 	*SBaseDevice
+
+	hotPluggable bool
 }
 
 func (dev *sGeneralPCIDevice) GetVGACmd() string {
@@ -39,9 +43,14 @@ func (dev *sGeneralPCIDevice) GetQemuId() string {
 	return fmt.Sprintf("dev_%s", strings.ReplaceAll(dev.GetAddr(), ":", "_"))
 }
 
-func newGeneralPCIDevice(dev *PCIDevice, devType string) *sGeneralPCIDevice {
+func (dev *sGeneralPCIDevice) HotPluggable() bool {
+	return dev.hotPluggable
+}
+
+func newGeneralPCIDevice(dev *PCIDevice, devType string, hotPluggable bool) *sGeneralPCIDevice {
 	return &sGeneralPCIDevice{
-		SBaseDevice: NewBaseDevice(dev, devType),
+		SBaseDevice:  NewBaseDevice(dev, devType, computeapi.DEVICE_SHARING_MODE_EXCLUSIVE),
+		hotPluggable: hotPluggable,
 	}
 }
 
@@ -71,7 +80,7 @@ func getPassthroughPCIDevs(devModel IsolatedDeviceModel, filteredCodes []string)
 			errs = append(errs, errors.Wrapf(err, "get dev %s iommu group devices by model: %s", dev.Addr, jsonutils.Marshal(devModel)))
 			continue
 		}
-		devs = append(devs, newGeneralPCIDevice(dev, devModel.DevType))
+		devs = append(devs, newGeneralPCIDevice(dev, devModel.DevType, devModel.HotPluggable.Bool()))
 	}
 	return devs, errors.NewAggregate(errs)
 }
