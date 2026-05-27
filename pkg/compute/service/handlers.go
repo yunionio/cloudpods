@@ -288,6 +288,7 @@ func InitHandlers(app *appsrv.Application, isSlave bool) {
 		models.GuestsecgroupManager,
 		models.LoadbalancernetworkManager,
 		models.GuestdiskManager,
+		models.GuestIsolatedDeviceManager,
 		models.GroupnetworkManager,
 		models.GroupguestManager,
 		models.StoragecachedimageManager,

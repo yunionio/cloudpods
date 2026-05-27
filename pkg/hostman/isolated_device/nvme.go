@@ -48,7 +48,7 @@ func (dev *sNVMEDevice) GetNVMESizeMB() int {
 
 func newNVMEDevice(dev *PCIDevice, devType string, sizeMB int) *sNVMEDevice {
 	return &sNVMEDevice{
-		SBaseDevice: NewBaseDevice(dev, devType),
+		SBaseDevice: NewBaseDevice(dev, devType, api.DEVICE_SHARING_MODE_EXCLUSIVE),
 		sizeMB:      sizeMB,
 	}
 }

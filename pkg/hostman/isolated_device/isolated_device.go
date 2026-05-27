@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/tristate"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
@@ -62,6 +63,9 @@ type CloudDeviceInfo struct {
 	MpsThreadPercentage int                         `json:"mps_thread_percentage"`
 	NumaNode            int                         `json:"numa_node"`
 	PcieInfo            *api.IsolatedDevicePCIEInfo `json:"pcie_info"`
+	VirtualNum          int                         `json:"virtual_num"`
+	HotPluggable        bool                        `json:"hot_pluggable"`
+	SharingMode         string                      `json:"sharing_mode"`
 
 	// The frame rate limiter (FRL) configuration in frames per second
 	FRL string `json:"frl"`
@@ -110,10 +114,14 @@ type IDevice interface {
 	GetVendorDeviceId() string
 	GetAddr() string
 	GetDeviceType() string
+	GetSharingMode() string
 	GetModelName() string
 	CustomProbe(idx int) error
 	SetDeviceInfo(info CloudDeviceInfo)
 	DetectByAddr() error
+	GetVirtualNum() int
+	GetContainerDeviceManager() IContainerDeviceManager
+	HotPluggable() bool
 
 	GetPassthroughOptions() map[string]string
 	GetPassthroughCmd(index int) string
@@ -161,11 +169,12 @@ type IsolatedDeviceManager interface {
 	GetDevices() []IDevice
 	GetDeviceByIdent(vendorDevId, addr, mdevId string) IDevice
 	GetDeviceByAddr(addr string) IDevice
-	ProbePCIDevices(skipGPUs, skipUSBs, skipCustomDevs bool, sriovNics, ovsOffloadNics []HostNic, nvmePciDisks, amdVgpuPFs, nvidiaVgpuPFs []string, enableCudaMps, enableContainerNPU, enableWhitelist bool)
+	GetDeviceByCloudId(cloudId string) IDevice
+	ProbePCIDevices(opts *SIsolatedDeviceProbeOptions)
 	StartDetachTask()
 	BatchCustomProbe()
 	AppendDetachedDevice(dev *CloudDeviceInfo)
-	GetQemuParams(devAddrs []string) *QemuParams
+	//GetQemuParams(devAddrs []string) *QemuParams
 	CheckDevIsNeedUpdate(dev IDevice, devInfo *CloudDeviceInfo) bool
 }
 
@@ -233,10 +242,12 @@ func (man *isolatedDeviceManager) probeContainerDevices() {
 	}
 }
 
-func (man *isolatedDeviceManager) probeContainerNvidiaGPUs(enableCudaMps bool) {
+func (man *isolatedDeviceManager) probeContainerNvidiaGPUs(enableCudaHAMI, enableCudaMps bool) {
 	devType := ContainerDeviceTypeNvidiaGpu
 	if enableCudaMps {
 		devType = ContainerDeviceTypeNvidiaMps
+	} else if enableCudaHAMI {
+		devType = ContainerDeviceTypeNvidiaHAMI
 	}
 
 	devman, err := GetContainerDeviceManager(devType)
@@ -301,7 +312,7 @@ func (man *isolatedDeviceManager) probeGPUS(skipGPUs bool, amdVgpuPFs, nvidiaVgp
 			}
 		}
 		for idx, gpu := range gpus {
-			man.devices = append(man.devices, NewGPUHPCDevice(gpu))
+			man.devices = append(man.devices, NewGPUHPCDevice(gpu, api.DEVICE_SHARING_MODE_EXCLUSIVE))
 			log.Infof("Add GPU device: %d => %#v", idx, gpu)
 		}
 	}
@@ -441,12 +452,27 @@ func (man *isolatedDeviceManager) probeNVIDIAVgpus(nvidiaVgpuPFs []string) {
 	}
 }
 
-func (man *isolatedDeviceManager) ProbePCIDevices(skipGPUs, skipUSBs, skipCustomDevs bool, sriovNics, ovsOffloadNics []HostNic, nvmePciDisks, amdVgpuPFs, nvidiaVgpuPFs []string, enableCudaMps, enableContainerNPU, enableWhitelist bool) {
+type SIsolatedDeviceProbeOptions struct {
+	SkipGPUs       bool
+	SkipUSBs       bool
+	SkipCustomDevs bool
+
+	EnableCudaHAMI     bool
+	EnableCudaMps      bool
+	EnableContainerNPU bool
+	EnableWhitelist    bool
+
+	SriovNics, OvsOffloadNics []HostNic
+
+	NvmePciDisks, AmdVgpuPFs, NvidiaVgpuPFs []string
+}
+
+func (man *isolatedDeviceManager) ProbePCIDevices(opts *SIsolatedDeviceProbeOptions) {
 	man.devices = make([]IDevice, 0)
 	if man.host.IsContainerHost() {
 		man.probeContainerDevices()
-		man.probeContainerNvidiaGPUs(enableCudaMps)
-		man.probeContainerAscendNPUs(enableContainerNPU)
+		man.probeContainerNvidiaGPUs(opts.EnableCudaHAMI, opts.EnableCudaMps)
+		man.probeContainerAscendNPUs(opts.EnableContainerNPU)
 	} else {
 		devModels, err := man.getCustomIsolatedDeviceModels()
 		if err != nil {
@@ -454,21 +480,22 @@ func (man *isolatedDeviceManager) ProbePCIDevices(skipGPUs, skipUSBs, skipCustom
 			man.host.AppendError(fmt.Sprintf("get custom isolated device devModels %s", err.Error()), "isolated_devices", "", "")
 			return
 		}
-		man.probeUSBs(skipUSBs)
-		man.probeCustomPCIDevs(skipCustomDevs, devModels, GpuClassCodes)
-		man.probeSRIOVNics(sriovNics)
-		man.probeOffloadNICS(ovsOffloadNics)
-		man.probeAMDVgpus(amdVgpuPFs)
-		man.probeNVIDIAVgpus(nvidiaVgpuPFs)
-		man.probeGPUS(skipGPUs, amdVgpuPFs, nvidiaVgpuPFs, enableWhitelist, devModels)
+		man.probeUSBs(opts.SkipUSBs)
+		man.probeCustomPCIDevs(opts.SkipCustomDevs, devModels, GpuClassCodes)
+		man.probeSRIOVNics(opts.SriovNics)
+		man.probeOffloadNICS(opts.OvsOffloadNics)
+		man.probeAMDVgpus(opts.AmdVgpuPFs)
+		man.probeNVIDIAVgpus(opts.NvidiaVgpuPFs)
+		man.probeGPUS(opts.SkipGPUs, opts.AmdVgpuPFs, opts.NvidiaVgpuPFs, opts.EnableWhitelist, devModels)
 	}
 }
 
 type IsolatedDeviceModel struct {
-	DevType  string `json:"dev_type"`
-	VendorId string `json:"vendor_id"`
-	DeviceId string `json:"device_id"`
-	Model    string `json:"model"`
+	DevType      string            `json:"dev_type"`
+	VendorId     string            `json:"vendor_id"`
+	DeviceId     string            `json:"device_id"`
+	Model        string            `json:"model"`
+	HotPluggable tristate.TriState `json:"hot_pluggable"`
 }
 
 func (man *isolatedDeviceManager) getCustomIsolatedDeviceModels() ([]IsolatedDeviceModel, error) {
@@ -571,6 +598,15 @@ func (man *isolatedDeviceManager) CheckDevIsNeedUpdate(dev IDevice, devInfo *Clo
 			return true
 		}
 	}
+	if dev.GetVirtualNum() != devInfo.VirtualNum {
+		return true
+	}
+	if dev.HotPluggable() != devInfo.HotPluggable {
+		return true
+	}
+	if dev.GetSharingMode() != devInfo.SharingMode {
+		return true
+	}
 	return false
 }
 
@@ -610,6 +646,15 @@ func (man *isolatedDeviceManager) GetDeviceByVendorDevId(vendorDevId string) IDe
 func (man *isolatedDeviceManager) GetDeviceByAddr(addr string) IDevice {
 	for _, dev := range man.devices {
 		if dev.GetAddr() == addr {
+			return dev
+		}
+	}
+	return nil
+}
+
+func (man *isolatedDeviceManager) GetDeviceByCloudId(cloudId string) IDevice {
+	for _, dev := range man.devices {
+		if dev.GetCloudId() == cloudId {
 			return dev
 		}
 	}
@@ -661,10 +706,6 @@ func (man *isolatedDeviceManager) StartDetachTask() {
 	}()
 }
 
-func (man *isolatedDeviceManager) GetQemuParams(devAddrs []string) *QemuParams {
-	return getQemuParams(man, devAddrs)
-}
-
 type SBaseDevice struct {
 	dev            *PCIDevice
 	originAddr     string
@@ -672,13 +713,15 @@ type SBaseDevice struct {
 	hostId         string
 	guestId        string
 	devType        string
+	sharingMode    string
 	detectedOnHost bool
 }
 
-func NewBaseDevice(dev *PCIDevice, devType string) *SBaseDevice {
+func NewBaseDevice(dev *PCIDevice, devType, sharingMode string) *SBaseDevice {
 	return &SBaseDevice{
-		dev:     dev,
-		devType: devType,
+		dev:         dev,
+		devType:     devType,
+		sharingMode: sharingMode,
 	}
 }
 
@@ -763,6 +806,10 @@ func (dev *SBaseDevice) GetDeviceType() string {
 	return dev.devType
 }
 
+func (dev *SBaseDevice) GetSharingMode() string {
+	return dev.sharingMode
+}
+
 func (dev *SBaseDevice) GetPfName() string {
 	return ""
 }
@@ -822,6 +869,18 @@ func (dev *SBaseDevice) GetGuestId() string {
 	return dev.guestId
 }
 
+func (dev *SBaseDevice) GetVirtualNum() int {
+	return 1
+}
+
+func (dev *SBaseDevice) HotPluggable() bool {
+	return true
+}
+
+func (dev *SBaseDevice) GetContainerDeviceManager() IContainerDeviceManager {
+	return nil
+}
+
 func (dev *SBaseDevice) GetNvidiaMpsMemoryLimit() int {
 	return -1
 }
@@ -856,6 +915,9 @@ func GetApiResourceData(dev IDevice) *jsonutils.JSONDict {
 		"addr":             dev.GetAddr(),
 		"model":            dev.GetModelName(),
 		"vendor_device_id": dev.GetVendorDeviceId(),
+		"virtual_num":      dev.GetVirtualNum(),
+		"hot_pluggable":    dev.HotPluggable(),
+		"sharing_mode":     dev.GetSharingMode(),
 	}
 	detected := false
 	if err := dev.DetectByAddr(); err == nil {
@@ -868,9 +930,9 @@ func GetApiResourceData(dev IDevice) *jsonutils.JSONDict {
 	if len(dev.GetHostId()) != 0 {
 		data["host_id"] = dev.GetHostId()
 	}
-	if len(dev.GetGuestId()) != 0 {
-		data["guest_id"] = dev.GetGuestId()
-	}
+	//if len(dev.GetGuestId()) != 0 {
+	//	data["guest_id"] = dev.GetGuestId()
+	//}
 	if len(dev.GetWireId()) != 0 {
 		data["wire_id"] = dev.GetWireId()
 	}
@@ -891,7 +953,6 @@ func GetApiResourceData(dev IDevice) *jsonutils.JSONDict {
 	} else {
 		log.Debugf("failed get dev %s numa node %s", dev.GetAddr(), err)
 	}
-
 	if dev.GetMdevId() != "" {
 		data["mdev_id"] = dev.GetMdevId()
 	}
@@ -1082,53 +1143,4 @@ func bashOutput(cmd string) ([]string, error) {
 
 func bashRawOutput(cmd string) ([]string, error) {
 	return bashCmdOutput(cmd, false)
-}
-
-type QemuParams struct {
-	Cpu     string
-	Vga     string
-	Devices []string
-}
-
-func getQemuParams(man *isolatedDeviceManager, devAddrs []string) *QemuParams {
-	if len(devAddrs) == 0 {
-		return nil
-	}
-	devCmds := []string{}
-	cpuCmd := DEFAULT_CPU_CMD
-	vgaCmd := DEFAULT_VGA_CMD
-	// group by device type firstly
-	devices := make(map[string][]IDevice, 0)
-	for _, addr := range devAddrs {
-		dev := man.GetDeviceByAddr(addr)
-		if dev == nil {
-			log.Warningf("IsolatedDeviceManager not found dev %#v, ignore it!", addr)
-			continue
-		}
-		devType := dev.GetDeviceType()
-		if _, ok := devices[devType]; !ok {
-			devices[devType] = []IDevice{dev}
-		} else {
-			devices[devType] = append(devices[devType], dev)
-		}
-	}
-
-	for devType, devs := range devices {
-		log.Debugf("get devices %s command", devType)
-		for idx, dev := range devs {
-			devCmds = append(devCmds, getDeviceCmd(dev, idx))
-			if dev.GetVGACmd() != vgaCmd && dev.GetDeviceType() == api.GPU_VGA_TYPE {
-				vgaCmd = dev.GetVGACmd()
-			}
-			if dev.GetCPUCmd() != cpuCmd {
-				cpuCmd = dev.GetCPUCmd()
-			}
-		}
-	}
-
-	return &QemuParams{
-		Cpu:     cpuCmd,
-		Vga:     vgaCmd,
-		Devices: devCmds,
-	}
 }

@@ -140,7 +140,7 @@ func queryHosts(
 	}
 
 	if len(gpuModels) != 0 {
-		devs, err := models.IsolatedDeviceManager.FindUnusedByModels(gpuModels)
+		devs, err := models.IsolatedDeviceManager.FindAvailableByModels(gpuModels)
 		if err != nil {
 			return nil, err
 		}
@@ -154,7 +154,7 @@ func queryHosts(
 			if !sets.NewString(gpuHostIds...).Has(obj.GetId()) {
 				return false
 			}
-			gpus, _ := models.IsolatedDeviceManager.FindUnusedGpusOnHost(obj.GetId())
+			gpus, _ := models.IsolatedDeviceManager.FindAvailableGpusOnHost(obj.GetId())
 			if len(gpus) == 0 {
 				return false
 			}

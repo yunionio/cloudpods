@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	runtimeapi "k8s.io/cri-api/pkg/apis/runtime/v1"
+	"yunion.io/x/onecloud/pkg/apis/compute"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
@@ -93,7 +94,7 @@ func newNetintDeviceManager(devType isolated_device.ContainerDeviceType, reg *re
 	}
 }
 
-func (m *netintDeviceManager) GetType() isolated_device.ContainerDeviceType {
+func (m *netintDeviceManager) GetRegisterType() isolated_device.ContainerDeviceType {
 	return m.devType
 }
 
@@ -159,33 +160,25 @@ func (m *netintDeviceManager) NewDevices(dev *isolated_device.ContainerDevice) (
 	}
 	result := make([]isolated_device.IDevice, 0)
 	for _, nvmeDev := range nvmeDevs {
-		for i := 0; i < dev.VirtualNumber; i++ {
-			newDev, err := m.newDeviceByIndex(nvmeDev, i)
-			if err != nil {
-				return nil, errors.Wrapf(err, "newDeviceByIndex %#v %d", nvmeDev, i)
-			}
-			result = append(result, newDev)
+		devIdx, err := nvmeDev.GetIndex()
+		if err != nil {
+			return nil, err
 		}
+		devInfo := &isolated_device.PCIDevice{
+			Addr:      strconv.Itoa(devIdx),
+			VendorId:  NETINT_VENDOR_ID,
+			DeviceId:  NETINT_DEVICE_ID,
+			ModelName: nvmeDev.ModelNumber,
+		}
+		newDev := &netintDevice{
+			manager:    m,
+			BaseDevice: NewBaseDevice(devInfo, compute.NETINT_TYPE, nvmeDev.DevicePath, compute.DEVICE_SHARING_MODE_UNLIMITED, dev.VirtualNumber),
+			info:       nvmeDev,
+		}
+
+		result = append(result, newDev)
 	}
 	return result, nil
-}
-
-func (m *netintDeviceManager) newDeviceByIndex(dev *NetintDeviceInfo, idx int) (*netintDevice, error) {
-	devIdx, err := dev.GetIndex()
-	if err != nil {
-		return nil, errors.Wrap(err, "dev.GetIndex")
-	}
-	devInfo := &isolated_device.PCIDevice{
-		Addr:      fmt.Sprintf("%d-%d", devIdx, idx),
-		VendorId:  NETINT_VENDOR_ID,
-		DeviceId:  NETINT_DEVICE_ID,
-		ModelName: dev.ModelNumber,
-	}
-	nvmeDev := &netintDevice{
-		BaseDevice: NewBaseDevice(devInfo, m.devType, dev.DevicePath),
-		info:       dev,
-	}
-	return nvmeDev, nil
 }
 
 func (m *netintDeviceManager) NewContainerDevices(_ *hostapi.ContainerCreateInput, input *hostapi.ContainerDevice) ([]*runtimeapi.Device, []*runtimeapi.Device, error) {
@@ -217,10 +210,15 @@ func (m *netintDeviceManager) GetContainerExtraConfigures(devs []*hostapi.Contai
 }
 
 type netintDevice struct {
+	manager *netintDeviceManager
 	*BaseDevice
 	info *NetintDeviceInfo
 }
 
 func (d netintDevice) GetNVMESizeMB() int {
 	return d.info.PhysicalSize / 1024 / 1024
+}
+
+func (dev *netintDevice) GetContainerDeviceManager() isolated_device.IContainerDeviceManager {
+	return dev.manager
 }

@@ -52,7 +52,7 @@ func (p *GPUVramBinpackPriority) Map(u *core.Unit, c core.Candidater) (core.Host
 		return h.GetResult()
 	}
 
-	score := scoreVramBinpack(c.Getter().UnusedIsolatedDevices(), perDevMin)
+	score := scoreVramBinpack(c.Getter().AvailableIsolatedDevices(), perDevMin)
 	h.SetScore(score)
 	return h.GetResult()
 }

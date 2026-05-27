@@ -315,17 +315,22 @@ type IsolatedDeviceConfig struct {
 	Id           string `json:"id"`
 	DevType      string `json:"dev_type"`
 	Model        string `json:"model"`
+	SharingMode  string `json:"sharing_mode"`
 	Vendor       string `json:"vendor"`
 	NetworkIndex *int   `json:"network_index"`
 	WireId       string `json:"wire_id"`
 	DiskIndex    *int8  `json:"disk_index"`
 	DevicePath   string `json:"device_path"`
+	GpuType      string `json:"gpu_type"`
 	// MemoryMb is the minimum on-device memory in MiB required from the
 	// candidate isolated_device (e.g. NVIDIA GPU VRAM). 0 means no constraint.
 	// The scheduler excludes devices whose memory_size > 0 and is below this
 	// threshold; devices with memory_size == 0 are treated as unknown and
 	// allowed through to avoid penalising hosts that haven't reported yet.
 	MemoryMb int `json:"memory_mb,omitempty"`
+	// Memory request for Devices allocate by Memory size
+	MemoryRequest int `json:"memory_request,omitempty"`
+	SmUtilLimit   int `json:"sm_util_limit,omitempty"`
 }
 
 type BaremetalDiskConfig struct {

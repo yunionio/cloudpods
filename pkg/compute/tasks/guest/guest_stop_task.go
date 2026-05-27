@@ -93,25 +93,18 @@ func (self *GuestStopTask) releaseDevices(ctx context.Context, guest *models.SGu
 	if guest.ShutdownBehavior != api.SHUTDOWN_STOP_RELEASE_GPU {
 		return self.ScheduleRun(nil)
 	}
-	devs, err := guest.GetIsolatedDevices()
+	devs, err := guest.GetGuestGpuIsolatedDevices()
 	if err != nil {
 		return errors.Wrapf(err, "GetIsolatedDevices of guest %s", guest.GetId())
 	}
-	gpus := make([]models.SIsolatedDevice, 0)
-	for _, dev := range devs {
-		if dev.IsGPU() {
-			tmpDev := dev
-			gpus = append(gpus, tmpDev)
-		}
-	}
-	if len(gpus) == 0 {
+	if len(devs) == 0 {
 		return self.ScheduleRun(nil)
 	}
-	if err := guest.SetReleasedIsolatedDevices(ctx, self.GetUserCred(), gpus); err != nil {
+	if err := guest.SetReleasedIsolatedDevices(ctx, self.GetUserCred(), devs); err != nil {
 		return errors.Wrapf(err, "SetReleasedIsolatedDevices of guest %s", guest.GetId())
 	}
 
-	if err := guest.DetachIsolatedDevices(ctx, self.GetUserCred(), gpus); err != nil {
+	if err := guest.DetachIsolatedDevices(ctx, self.GetUserCred(), devs); err != nil {
 		return errors.Wrapf(err, "DetachIsolatedDevices of guest %s", guest.GetId())
 	}
 	return guest.StartIsolatedDevicesSyncTask(ctx, self.GetUserCred(), false, self.GetTaskId())

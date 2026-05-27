@@ -38,6 +38,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostpinger"
 	"yunion.io/x/onecloud/pkg/hostman/hostmetrics"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
+	_ "yunion.io/x/onecloud/pkg/hostman/isolated_device/container_device"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
 	"yunion.io/x/onecloud/pkg/hostman/storageman/diskhandlers"

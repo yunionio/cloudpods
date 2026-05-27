@@ -296,36 +296,32 @@ func (b baseHostGetter) GetPendingUsage() *schedmodels.SPendingUsage {
 	return b.h.GetPendingUsage()
 }
 
-func (b baseHostGetter) UnusedIsolatedDevices() []*core.IsolatedDeviceDesc {
-	return b.h.UnusedIsolatedDevices()
+func (b baseHostGetter) AvailableIsolatedDevices() []*core.IsolatedDeviceDesc {
+	return b.h.AvailableIsolatedDevices()
 }
 
-func (b baseHostGetter) UnusedIsolatedDevicesByType(devType string) []*core.IsolatedDeviceDesc {
-	return b.h.UnusedIsolatedDevicesByType(devType)
+func (b baseHostGetter) AvailableIsolatedDevicesByTypeSharingMode(devType string, sharingMode string) []*core.IsolatedDeviceDesc {
+	return b.h.AvailableIsolatedDevicesByTypeSharingMode(devType, sharingMode)
 }
 
-func (b baseHostGetter) UnusedIsolatedDevicesByVendorModel(vendorModel string) []*core.IsolatedDeviceDesc {
-	return b.h.UnusedIsolatedDevicesByVendorModel(vendorModel)
+func (b baseHostGetter) AvailableIsolatedDevicesByVendorModel(vendorModel string) []*core.IsolatedDeviceDesc {
+	return b.h.AvailableIsolatedDevicesByVendorModel(vendorModel)
 }
 
-func (b baseHostGetter) UnusedIsolatedDevicesByDevicePath(devPath string) []*core.IsolatedDeviceDesc {
-	return b.h.UnusedIsolatedDevicesByDevicePath(devPath)
+func (b baseHostGetter) AvailableIsolatedDevicesByDevicePath(devPath string) []*core.IsolatedDeviceDesc {
+	return b.h.AvailableIsolatedDevicesByDevicePath(devPath)
 }
 
-func (b baseHostGetter) UnusedIsolatedDevicesByModel(model string) []*core.IsolatedDeviceDesc {
-	return b.h.UnusedIsolatedDevicesByModel(model)
+func (b baseHostGetter) AvailableIsolatedDevicesByModel(model string) []*core.IsolatedDeviceDesc {
+	return b.h.AvailableIsolatedDevicesByModel(model)
 }
 
-func (b baseHostGetter) UnusedIsolatedDevicesByModelAndWire(model, wire string) []*core.IsolatedDeviceDesc {
-	return b.h.UnusedIsolatedDevicesByModelAndWire(model, wire)
+func (b baseHostGetter) AvailableIsolatedDevicesByModelAndWire(model, wire string) []*core.IsolatedDeviceDesc {
+	return b.h.AvailableIsolatedDevicesByModelAndWire(model, wire)
 }
 
 func (b baseHostGetter) GetIsolatedDevice(devID string) *core.IsolatedDeviceDesc {
 	return b.h.GetIsolatedDevice(devID)
-}
-
-func (b baseHostGetter) UnusedGpuDevices() []*core.IsolatedDeviceDesc {
-	return b.h.UnusedGpuDevices()
 }
 
 func (b baseHostGetter) GetIsolatedDevices() []*core.IsolatedDeviceDesc {
@@ -485,30 +481,34 @@ func (b BaseHostDesc) GetResourceType() string {
 	return b.ResourceType
 }
 
-func (h *BaseHostDesc) UnusedIsolatedDevices() []*core.IsolatedDeviceDesc {
+func (h *BaseHostDesc) AvailableIsolatedDevices() []*core.IsolatedDeviceDesc {
 	ret := make([]*core.IsolatedDeviceDesc, 0)
 	for _, dev := range h.IsolatedDevices {
-		if len(dev.GuestID) == 0 {
+		if !dev.IsUsedUp() {
 			ret = append(ret, dev)
 		}
 	}
 	return ret
 }
 
-func (h *BaseHostDesc) UnusedIsolatedDevicesByType(devType string) []*core.IsolatedDeviceDesc {
+func (h *BaseHostDesc) AvailableIsolatedDevicesByTypeSharingMode(devType, sharingMode string) []*core.IsolatedDeviceDesc {
 	ret := make([]*core.IsolatedDeviceDesc, 0)
-	for _, dev := range h.UnusedIsolatedDevices() {
-		if dev.DevType == devType {
-			ret = append(ret, dev)
+	for _, dev := range h.AvailableIsolatedDevices() {
+		if devType != "" && dev.DevType != devType {
+			continue
 		}
+		if sharingMode != "" && dev.SharingMode != sharingMode {
+			continue
+		}
+		ret = append(ret, dev)
 	}
 	return ret
 }
 
-func (h *BaseHostDesc) UnusedIsolatedDevicesByVendorModel(vendorModel string) []*core.IsolatedDeviceDesc {
+func (h *BaseHostDesc) AvailableIsolatedDevicesByVendorModel(vendorModel string) []*core.IsolatedDeviceDesc {
 	ret := make([]*core.IsolatedDeviceDesc, 0)
 	vm := core.NewVendorModelByStr(vendorModel)
-	for _, dev := range h.UnusedIsolatedDevices() {
+	for _, dev := range h.AvailableIsolatedDevices() {
 		if dev.GetVendorModel().IsMatch(vm) {
 			ret = append(ret, dev)
 		}
@@ -516,9 +516,9 @@ func (h *BaseHostDesc) UnusedIsolatedDevicesByVendorModel(vendorModel string) []
 	return ret
 }
 
-func (h *BaseHostDesc) UnusedIsolatedDevicesByModel(model string) []*core.IsolatedDeviceDesc {
+func (h *BaseHostDesc) AvailableIsolatedDevicesByModel(model string) []*core.IsolatedDeviceDesc {
 	ret := make([]*core.IsolatedDeviceDesc, 0)
-	for _, dev := range h.UnusedIsolatedDevices() {
+	for _, dev := range h.AvailableIsolatedDevices() {
 		if strings.Contains(dev.Model, model) {
 			ret = append(ret, dev)
 		}
@@ -526,9 +526,9 @@ func (h *BaseHostDesc) UnusedIsolatedDevicesByModel(model string) []*core.Isolat
 	return ret
 }
 
-func (h *BaseHostDesc) UnusedIsolatedDevicesByDevicePath(devPath string) []*core.IsolatedDeviceDesc {
+func (h *BaseHostDesc) AvailableIsolatedDevicesByDevicePath(devPath string) []*core.IsolatedDeviceDesc {
 	ret := make([]*core.IsolatedDeviceDesc, 0)
-	for _, dev := range h.UnusedIsolatedDevices() {
+	for _, dev := range h.AvailableIsolatedDevices() {
 		if devPath == dev.DevicePath {
 			ret = append(ret, dev)
 		}
@@ -536,9 +536,9 @@ func (h *BaseHostDesc) UnusedIsolatedDevicesByDevicePath(devPath string) []*core
 	return ret
 }
 
-func (h *BaseHostDesc) UnusedIsolatedDevicesByModelAndWire(model, wire string) []*core.IsolatedDeviceDesc {
+func (h *BaseHostDesc) AvailableIsolatedDevicesByModelAndWire(model, wire string) []*core.IsolatedDeviceDesc {
 	ret := make([]*core.IsolatedDeviceDesc, 0)
-	for _, dev := range h.UnusedIsolatedDevices() {
+	for _, dev := range h.AvailableIsolatedDevices() {
 		log.Errorf("dev wire is %s, dev model is %s, request model is %s, request wire is %s", dev.Model, dev.WireId, model, wire)
 		if strings.Contains(dev.Model, model) && dev.WireId == wire {
 			ret = append(ret, dev)
@@ -560,16 +560,6 @@ func (h *BaseHostDesc) GetIsolatedDevices() []*core.IsolatedDeviceDesc {
 	return h.IsolatedDevices
 }
 
-func (h *BaseHostDesc) UnusedGpuDevices() []*core.IsolatedDeviceDesc {
-	ret := make([]*core.IsolatedDeviceDesc, 0)
-	for _, dev := range h.UnusedIsolatedDevices() {
-		if strings.HasPrefix(dev.DevType, "GPU") {
-			ret = append(ret, dev)
-		}
-	}
-	return ret
-}
-
 func (h *BaseHostDesc) fillIsolatedDevices(b *baseBuilder, host *computemodels.SHost) error {
 	allDevs := b.getIsolatedDevices(host.Id)
 	if len(allDevs) == 0 {
@@ -579,16 +569,19 @@ func (h *BaseHostDesc) fillIsolatedDevices(b *baseBuilder, host *computemodels.S
 	devs := make([]*core.IsolatedDeviceDesc, len(allDevs))
 	for index, devModel := range allDevs {
 		dev := &core.IsolatedDeviceDesc{
-			ID:             devModel.Id,
-			GuestID:        devModel.GuestId,
-			HostID:         devModel.HostId,
-			DevType:        devModel.DevType,
-			Model:          devModel.Model,
-			Addr:           devModel.Addr,
-			VendorDeviceID: devModel.VendorDeviceId,
-			WireId:         devModel.WireId,
-			DevicePath:     devModel.DevicePath,
-			MemorySize:     devModel.MemorySize,
+			ID:                  devModel.Id,
+			HostID:              devModel.HostId,
+			DevType:             devModel.DevType,
+			SharingMode:         devModel.SharingMode,
+			Model:               devModel.Model,
+			Addr:                devModel.Addr,
+			VendorDeviceID:      devModel.VendorDeviceId,
+			WireId:              devModel.WireId,
+			DevicePath:          devModel.DevicePath,
+			MemorySize:          devModel.MemorySize,
+			MemorySizeAllocated: devModel.MemoryAllocated,
+			VirtualNum:          devModel.VirtualNum,
+			VirtualNumAllocated: devModel.GuestCount,
 		}
 		devs[index] = dev
 	}

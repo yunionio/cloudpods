@@ -121,14 +121,13 @@ type CandidatePropertyGetter interface {
 	GetPendingUsage() *schedmodels.SPendingUsage
 
 	// isloatedDevices
-	UnusedIsolatedDevices() []*IsolatedDeviceDesc
-	UnusedIsolatedDevicesByType(devType string) []*IsolatedDeviceDesc
-	UnusedIsolatedDevicesByVendorModel(vendorModel string) []*IsolatedDeviceDesc
-	UnusedIsolatedDevicesByModel(model string) []*IsolatedDeviceDesc
-	UnusedIsolatedDevicesByModelAndWire(model, wire string) []*IsolatedDeviceDesc
-	UnusedIsolatedDevicesByDevicePath(devPath string) []*IsolatedDeviceDesc
+	AvailableIsolatedDevices() []*IsolatedDeviceDesc
+	AvailableIsolatedDevicesByTypeSharingMode(devType string, sharingMode string) []*IsolatedDeviceDesc
+	AvailableIsolatedDevicesByVendorModel(vendorModel string) []*IsolatedDeviceDesc
+	AvailableIsolatedDevicesByModel(model string) []*IsolatedDeviceDesc
+	AvailableIsolatedDevicesByModelAndWire(model, wire string) []*IsolatedDeviceDesc
+	AvailableIsolatedDevicesByDevicePath(devPath string) []*IsolatedDeviceDesc
 	GetIsolatedDevice(devID string) *IsolatedDeviceDesc
-	UnusedGpuDevices() []*IsolatedDeviceDesc
 	GetIsolatedDevices() []*IsolatedDeviceDesc
 
 	db.IResource
@@ -273,6 +272,7 @@ type IsolatedDeviceDesc struct {
 	GuestID        string
 	HostID         string
 	DevType        string
+	SharingMode    string
 	Model          string
 	Addr           string
 	VendorDeviceID string
@@ -280,7 +280,26 @@ type IsolatedDeviceDesc struct {
 	DevicePath     string
 	// MemorySize is the on-device memory in MiB (NVIDIA GPU VRAM via
 	// `nvidia-smi memory.total`). 0 means unknown / not yet reported by host.
-	MemorySize int
+	MemorySize          int
+	MemorySizeAllocated int
+	VirtualNum          int
+	VirtualNumAllocated int
+}
+
+func (i *IsolatedDeviceDesc) IsUsedUp() bool {
+	if i.SharingMode == computeapi.DEVICE_SHARING_MODE_HAMI {
+		return i.MemorySizeAllocated >= i.MemorySize
+	} else {
+		return i.VirtualNumAllocated >= i.VirtualNum
+	}
+}
+
+func (i *IsolatedDeviceDesc) AvailableNum() int {
+	return i.VirtualNum - i.VirtualNumAllocated
+}
+
+func (i *IsolatedDeviceDesc) AvailableMemorySize() int {
+	return i.MemorySize - i.MemorySizeAllocated
 }
 
 func (i *IsolatedDeviceDesc) VendorID() string {

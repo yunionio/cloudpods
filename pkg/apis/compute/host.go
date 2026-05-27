@@ -775,7 +775,7 @@ type HostUploadGuestsStatusInput struct {
 }
 
 type HostIsolatedDeviceNumaStatsInput struct {
-	DevType string
+	Model string
 }
 
 type GuestUploadContainerStatusResponse struct {
