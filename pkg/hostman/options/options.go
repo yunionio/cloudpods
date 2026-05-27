@@ -269,9 +269,12 @@ type SHostOptions struct {
 	CudaMPSLogDirectory  string `help:"cuda mps log dir" default:"/tmp/nvidia-mps/log"`
 	CudaMPSReplicas      int    `help:"cuda mps replicas" default:"10"`
 
+	EnableCudaHAMI      bool   `help:"enable cuda hami" default:"true"`
+	HAMICoreLibvgpuPath string `help:"hami core libvgpu.so path" default:"/opt/cloud/hami/libvgpu.so"`
+
 	SkipCheckKernelMods []string `help:"skip check kernel modules"`
 
-	EnableContainerAscendNPU bool `help:"enable container npu" default:"false"`
+	EnableContainerAscendNPU bool `help:"enable container npu" default:"true"`
 
 	EnableDirtyRecoverySeconds int  `help:"Seconds to delay enable dirty guests recovery feature, default 15 minutes" default:"900"`
 	EnableContainerCniPortmap  bool `help:"Use container cni portmap plugin" default:"false"`

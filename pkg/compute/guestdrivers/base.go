@@ -710,11 +710,11 @@ func (base *SBaseGuestDriver) ValidateGuestHotChangeConfigInput(ctx context.Cont
 	return confs, nil
 }
 
-func (base *SBaseGuestDriver) BeforeDetachIsolatedDevice(ctx context.Context, cred mcclient.TokenCredential, guest *models.SGuest, dev *models.SIsolatedDevice) error {
+func (base *SBaseGuestDriver) BeforeDetachIsolatedDevice(ctx context.Context, cred mcclient.TokenCredential, guest *models.SGuest, dev *models.SGuestIsolatedDevice) error {
 	return nil
 }
 
-func (base *SBaseGuestDriver) BeforeAttachIsolatedDevice(ctx context.Context, cred mcclient.TokenCredential, guest *models.SGuest, dev *models.SIsolatedDevice) error {
+func (base *SBaseGuestDriver) BeforeAttachIsolatedDevice(ctx context.Context, cred mcclient.TokenCredential, guest *models.SGuest, dev *models.SGuestIsolatedDevice) error {
 	return nil
 }
 

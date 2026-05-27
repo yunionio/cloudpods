@@ -952,8 +952,8 @@ func fetchContainers(guestIds []string) (map[string][]*api.PodContainerDesc, err
 }
 
 func fetchGuestIsolatedDevices(guestIds []string) map[string][]api.SIsolatedDevice {
-	q := IsolatedDeviceManager.Query().In("guest_id", guestIds)
-	devs := make([]SIsolatedDevice, 0)
+	q := GuestIsolatedDeviceManager.Query().In("guest_id", guestIds)
+	devs := make([]SGuestIsolatedDevice, 0)
 	err := q.All(&devs)
 	if err != nil {
 		return nil
@@ -961,14 +961,14 @@ func fetchGuestIsolatedDevices(guestIds []string) map[string][]api.SIsolatedDevi
 	ret := make(map[string][]api.SIsolatedDevice)
 	for i := range devs {
 		dev := api.SIsolatedDevice{}
-		dev.Id = devs[i].Id
-		dev.HostId = devs[i].HostId
-		dev.DevType = devs[i].DevType
-		dev.Model = devs[i].Model
-		dev.GuestId = devs[i].GuestId
-		dev.Addr = devs[i].Addr
-		dev.VendorDeviceId = devs[i].VendorDeviceId
-		dev.NumaNode = byte(devs[i].NumaNode)
+		gdev := devs[i].GetIsolatedDevice()
+		dev.Id = gdev.Id
+		dev.HostId = gdev.HostId
+		dev.DevType = gdev.DevType
+		dev.Model = gdev.Model
+		dev.Addr = gdev.Addr
+		dev.VendorDeviceId = gdev.VendorDeviceId
+		dev.NumaNode = byte(gdev.NumaNode)
 		gdevs, ok := ret[devs[i].GuestId]
 		if !ok {
 			gdevs = make([]api.SIsolatedDevice, 0)

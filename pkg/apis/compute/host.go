@@ -19,7 +19,6 @@ import (
 
 	cloudmux "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/jsonutils"
-
 	"yunion.io/x/onecloud/pkg/apis"
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
@@ -776,7 +775,7 @@ type HostUploadGuestsStatusInput struct {
 }
 
 type HostIsolatedDeviceNumaStatsInput struct {
-	DevType string `json:"dev_type"`
+	Model string
 }
 
 type GuestUploadContainerStatusResponse struct {

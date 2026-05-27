@@ -32,9 +32,9 @@ type sSRIOVGpuDevice struct {
 	*sSRIOVBaseDevice
 }
 
-func NewSRIOVGpuDevice(dev *PCIDevice, devType string) *sSRIOVGpuDevice {
+func NewSRIOVGpuDevice(dev *PCIDevice, devType, sharingMode string) *sSRIOVGpuDevice {
 	return &sSRIOVGpuDevice{
-		sSRIOVBaseDevice: newSRIOVBaseDevice(dev, devType),
+		sSRIOVBaseDevice: newSRIOVBaseDevice(dev, devType, sharingMode),
 	}
 }
 
@@ -71,7 +71,7 @@ func getSRIOVGpus(gpuPF string) ([]*sSRIOVGpuDevice, error) {
 			if err != nil {
 				return nil, err
 			}
-			sriovGPUs = append(sriovGPUs, NewSRIOVGpuDevice(vfDev, compute.SRIOV_VGPU_TYPE))
+			sriovGPUs = append(sriovGPUs, NewSRIOVGpuDevice(vfDev, compute.GPU_TYPE, compute.DEVICE_SHARING_MODE_SRIOV))
 		}
 	}
 	return sriovGPUs, err

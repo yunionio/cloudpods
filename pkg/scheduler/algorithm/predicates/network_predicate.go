@@ -177,7 +177,7 @@ func checkSriovNic(
 		}
 	}
 	getter := c.Getter()
-	devs := getter.UnusedIsolatedDevicesByModelAndWire(dev.Model, netWireId)
+	devs := getter.AvailableIsolatedDevicesByModelAndWire(dev.Model, netWireId)
 	if len(devs) == 0 {
 		return fmt.Errorf("Network wire no sriov nic available")
 	}

@@ -849,7 +849,7 @@ func (task *sBaremetalPrepareTask) sendIsolatedDevicesInfo(
 
 	gpuDevs := make([]isolated_device.IDevice, len(devs))
 	for i := 0; i < len(devs); i++ {
-		gpuDevs[i] = isolated_device.NewGPUHPCDevice(devs[i])
+		gpuDevs[i] = isolated_device.NewGPUHPCDevice(devs[i], api.DEVICE_SHARING_MODE_EXCLUSIVE)
 	}
 
 	for _, obj := range objs {

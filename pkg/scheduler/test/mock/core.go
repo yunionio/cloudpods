@@ -697,96 +697,82 @@ func (mr *MockCandidatePropertyGetterMockRecorder) TotalMemorySize(arg0 interfac
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TotalMemorySize", reflect.TypeOf((*MockCandidatePropertyGetter)(nil).TotalMemorySize), arg0)
 }
 
-// UnusedGpuDevices mocks base method
-func (m *MockCandidatePropertyGetter) UnusedGpuDevices() []*core.IsolatedDeviceDesc {
+// AvailableIsolatedDevices mocks base method
+func (m *MockCandidatePropertyGetter) AvailableIsolatedDevices() []*core.IsolatedDeviceDesc {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UnusedGpuDevices")
+	ret := m.ctrl.Call(m, "AvailableIsolatedDevices")
 	ret0, _ := ret[0].([]*core.IsolatedDeviceDesc)
 	return ret0
 }
 
-// UnusedGpuDevices indicates an expected call of UnusedGpuDevices
-func (mr *MockCandidatePropertyGetterMockRecorder) UnusedGpuDevices() *gomock.Call {
+// AvailableIsolatedDevices indicates an expected call of AvailableIsolatedDevices
+func (mr *MockCandidatePropertyGetterMockRecorder) AvailableIsolatedDevices() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnusedGpuDevices", reflect.TypeOf((*MockCandidatePropertyGetter)(nil).UnusedGpuDevices))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AvailableIsolatedDevices", reflect.TypeOf((*MockCandidatePropertyGetter)(nil).AvailableIsolatedDevices))
 }
 
-// UnusedIsolatedDevices mocks base method
-func (m *MockCandidatePropertyGetter) UnusedIsolatedDevices() []*core.IsolatedDeviceDesc {
+// AvailableIsolatedDevicesByModel mocks base method
+func (m *MockCandidatePropertyGetter) AvailableIsolatedDevicesByModel(arg0 string) []*core.IsolatedDeviceDesc {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UnusedIsolatedDevices")
+	ret := m.ctrl.Call(m, "AvailableIsolatedDevicesByModel", arg0)
 	ret0, _ := ret[0].([]*core.IsolatedDeviceDesc)
 	return ret0
 }
 
-// UnusedIsolatedDevices indicates an expected call of UnusedIsolatedDevices
-func (mr *MockCandidatePropertyGetterMockRecorder) UnusedIsolatedDevices() *gomock.Call {
+// AvailableIsolatedDevicesByDevicePath mocks base method
+func (m *MockCandidatePropertyGetter) AvailableIsolatedDevicesByDevicePath(arg0 string) []*core.IsolatedDeviceDesc {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AvailableIsolatedDevicesByDevicePath", arg0)
+	ret0, _ := ret[0].([]*core.IsolatedDeviceDesc)
+	return ret0
+}
+
+// AvailableIsolatedDevicesByModel indicates an expected call of AvailableIsolatedDevicesByModel
+func (mr *MockCandidatePropertyGetterMockRecorder) AvailableIsolatedDevicesByModel(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnusedIsolatedDevices", reflect.TypeOf((*MockCandidatePropertyGetter)(nil).UnusedIsolatedDevices))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AvailableIsolatedDevicesByModel", reflect.TypeOf((*MockCandidatePropertyGetter)(nil).AvailableIsolatedDevicesByModel), arg0)
 }
 
-// UnusedIsolatedDevicesByModel mocks base method
-func (m *MockCandidatePropertyGetter) UnusedIsolatedDevicesByModel(arg0 string) []*core.IsolatedDeviceDesc {
+// AvailableIsolatedDevicesByModelAndWire mocks base method
+func (m *MockCandidatePropertyGetter) AvailableIsolatedDevicesByModelAndWire(arg0, arg1 string) []*core.IsolatedDeviceDesc {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UnusedIsolatedDevicesByModel", arg0)
+	ret := m.ctrl.Call(m, "AvailableIsolatedDevicesByModelAndWire", arg0, arg1)
 	ret0, _ := ret[0].([]*core.IsolatedDeviceDesc)
 	return ret0
 }
 
-// UnusedIsolatedDevicesByDevicePath mocks base method
-func (m *MockCandidatePropertyGetter) UnusedIsolatedDevicesByDevicePath(arg0 string) []*core.IsolatedDeviceDesc {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UnusedIsolatedDevicesByDevicePath", arg0)
-	ret0, _ := ret[0].([]*core.IsolatedDeviceDesc)
-	return ret0
-}
-
-// UnusedIsolatedDevicesByModel indicates an expected call of UnusedIsolatedDevicesByModel
-func (mr *MockCandidatePropertyGetterMockRecorder) UnusedIsolatedDevicesByModel(arg0 interface{}) *gomock.Call {
+// AvailableIsolatedDevicesByModelAndWire indicates an expected call of AvailableIsolatedDevicesByModelAndWire
+func (mr *MockCandidatePropertyGetterMockRecorder) AvailableIsolatedDevicesByModelAndWire(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnusedIsolatedDevicesByModel", reflect.TypeOf((*MockCandidatePropertyGetter)(nil).UnusedIsolatedDevicesByModel), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AvailableIsolatedDevicesByModelAndWire", reflect.TypeOf((*MockCandidatePropertyGetter)(nil).AvailableIsolatedDevicesByModelAndWire), arg0, arg1)
 }
 
-// UnusedIsolatedDevicesByModelAndWire mocks base method
-func (m *MockCandidatePropertyGetter) UnusedIsolatedDevicesByModelAndWire(arg0, arg1 string) []*core.IsolatedDeviceDesc {
+// AvailableIsolatedDevicesByTypeSharingMode mocks base method
+func (m *MockCandidatePropertyGetter) AvailableIsolatedDevicesByTypeSharingMode(arg0 string, arg1 string) []*core.IsolatedDeviceDesc {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UnusedIsolatedDevicesByModelAndWire", arg0, arg1)
+	ret := m.ctrl.Call(m, "AvailableIsolatedDevicesByType", arg0, arg1)
 	ret0, _ := ret[0].([]*core.IsolatedDeviceDesc)
 	return ret0
 }
 
-// UnusedIsolatedDevicesByModelAndWire indicates an expected call of UnusedIsolatedDevicesByModelAndWire
-func (mr *MockCandidatePropertyGetterMockRecorder) UnusedIsolatedDevicesByModelAndWire(arg0, arg1 interface{}) *gomock.Call {
+// AvailableIsolatedDevicesByTypeSharingMode indicates an expected call of AvailableIsolatedDevicesByTypeSharingMode
+func (mr *MockCandidatePropertyGetterMockRecorder) AvailableIsolatedDevicesByTypeSharingMode(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnusedIsolatedDevicesByModelAndWire", reflect.TypeOf((*MockCandidatePropertyGetter)(nil).UnusedIsolatedDevicesByModel), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AvailableIsolatedDevicesByType", reflect.TypeOf((*MockCandidatePropertyGetter)(nil).AvailableIsolatedDevicesByTypeSharingMode), arg0, arg1)
 }
 
-// UnusedIsolatedDevicesByType mocks base method
-func (m *MockCandidatePropertyGetter) UnusedIsolatedDevicesByType(arg0 string) []*core.IsolatedDeviceDesc {
+// AvailableIsolatedDevicesByVendorModel mocks base method
+func (m *MockCandidatePropertyGetter) AvailableIsolatedDevicesByVendorModel(arg0 string) []*core.IsolatedDeviceDesc {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UnusedIsolatedDevicesByType", arg0)
+	ret := m.ctrl.Call(m, "AvailableIsolatedDevicesByVendorModel", arg0)
 	ret0, _ := ret[0].([]*core.IsolatedDeviceDesc)
 	return ret0
 }
 
-// UnusedIsolatedDevicesByType indicates an expected call of UnusedIsolatedDevicesByType
-func (mr *MockCandidatePropertyGetterMockRecorder) UnusedIsolatedDevicesByType(arg0 interface{}) *gomock.Call {
+// AvailableIsolatedDevicesByVendorModel indicates an expected call of AvailableIsolatedDevicesByVendorModel
+func (mr *MockCandidatePropertyGetterMockRecorder) AvailableIsolatedDevicesByVendorModel(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnusedIsolatedDevicesByType", reflect.TypeOf((*MockCandidatePropertyGetter)(nil).UnusedIsolatedDevicesByType), arg0)
-}
-
-// UnusedIsolatedDevicesByVendorModel mocks base method
-func (m *MockCandidatePropertyGetter) UnusedIsolatedDevicesByVendorModel(arg0 string) []*core.IsolatedDeviceDesc {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UnusedIsolatedDevicesByVendorModel", arg0)
-	ret0, _ := ret[0].([]*core.IsolatedDeviceDesc)
-	return ret0
-}
-
-// UnusedIsolatedDevicesByVendorModel indicates an expected call of UnusedIsolatedDevicesByVendorModel
-func (mr *MockCandidatePropertyGetterMockRecorder) UnusedIsolatedDevicesByVendorModel(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnusedIsolatedDevicesByVendorModel", reflect.TypeOf((*MockCandidatePropertyGetter)(nil).UnusedIsolatedDevicesByVendorModel), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AvailableIsolatedDevicesByVendorModel", reflect.TypeOf((*MockCandidatePropertyGetter)(nil).AvailableIsolatedDevicesByVendorModel), arg0)
 }
 
 // Zone mocks base method

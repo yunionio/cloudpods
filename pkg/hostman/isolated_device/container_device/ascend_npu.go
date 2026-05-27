@@ -24,7 +24,9 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
+	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	hostapi "yunion.io/x/onecloud/pkg/apis/host"
+	"yunion.io/x/onecloud/pkg/hostman/hostinfo"
 	"yunion.io/x/onecloud/pkg/hostman/isolated_device"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 )
@@ -41,7 +43,9 @@ func (m *ascendNPUManager) GetContainerExtraConfigures(devs []*hostapi.Container
 		if dev.IsolatedDevice == nil {
 			continue
 		}
-		if isolated_device.ContainerDeviceType(dev.IsolatedDevice.DeviceType) != isolated_device.ContainerDeviceTypeAscendNpu {
+		iDev := hostinfo.Instance().IsolatedDeviceMan.GetDeviceByCloudId(dev.IsolatedDevice.Id)
+		devMan := iDev.GetContainerDeviceManager()
+		if _, ok := devMan.(*ascendNPUManager); !ok {
 			continue
 		}
 		npus = append(npus, dev.IsolatedDevice.Path)
@@ -104,7 +108,7 @@ func newAscendNPUManager() *ascendNPUManager {
 }
 
 func (m *ascendNPUManager) ProbeDevices() ([]isolated_device.IDevice, error) {
-	return getAscendNpus()
+	return m.getAscendNpus()
 }
 
 func (m *ascendNPUManager) NewDevices(dev *isolated_device.ContainerDevice) ([]isolated_device.IDevice, error) {
@@ -137,15 +141,29 @@ func (m *ascendNPUManager) NewContainerDevices(input *hostapi.ContainerCreateInp
 		}, nil
 }
 
-func (m *ascendNPUManager) GetType() isolated_device.ContainerDeviceType {
+func (m *ascendNPUManager) GetRegisterType() isolated_device.ContainerDeviceType {
 	return isolated_device.ContainerDeviceTypeAscendNpu
 }
 
+func (m *ascendNPUManager) GetDevType() string {
+	return computeapi.NPU_TYPE
+}
+
+func (m *ascendNPUManager) GetSharingMode() string {
+	return computeapi.DEVICE_SHARING_MODE_UNLIMITED
+}
+
 type ascnedNPU struct {
+	manager *ascendNPUManager
+
 	*BaseDevice
 }
 
-func getAscendNpus() ([]isolated_device.IDevice, error) {
+func (dev *ascnedNPU) GetContainerDeviceManager() isolated_device.IContainerDeviceManager {
+	return dev.manager
+}
+
+func (m *ascendNPUManager) getAscendNpus() ([]isolated_device.IDevice, error) {
 	devs := make([]isolated_device.IDevice, 0)
 	// Show all device's topology information
 	out, err := procutils.NewRemoteCommandAsFarAsPossible("npu-smi", "info").Output()
@@ -188,7 +206,8 @@ func getAscendNpus() ([]isolated_device.IDevice, error) {
 		}
 		dev := isolated_device.NewPCIDevice2(pciOutput[0])
 		npuDev := &ascnedNPU{
-			BaseDevice: NewBaseDevice(dev, isolated_device.ContainerDeviceTypeAscendNpu, devPath),
+			manager:    m,
+			BaseDevice: NewBaseDevice(dev, computeapi.NPU_TYPE, devPath, computeapi.DEVICE_SHARING_MODE_UNLIMITED, 1),
 		}
 		npuDev.SetModelName(npuName)
 

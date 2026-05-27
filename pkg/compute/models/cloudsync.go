@@ -1294,35 +1294,31 @@ func (self *SGuest) SyncVMIsolateDevices(ctx context.Context, userCred mcclient.
 	if err != nil {
 		return err
 	}
-	devs, err := self.GetIsolatedDevices()
+	gdevs, err := self.GetGuestIsolatedDevices()
 	if err != nil {
 		return errors.Wrapf(err, "GetIsolatedDevices")
 	}
 	result := compare.SyncResult{}
-	for i := range devs {
-		if !utils.IsInStringArray(devs[i].ExternalId, externalIds) {
-			_, err = db.Update(&devs[i], func() error {
-				devs[i].GuestId = ""
-				return nil
-			})
+	for i := range gdevs {
+		dev := gdevs[i].GetIsolatedDevice()
+		if !utils.IsInStringArray(dev.ExternalId, externalIds) {
+			err = gdevs[i].Detach(ctx, userCred)
 			if err != nil {
 				return err
 			}
 			result.Delete()
 		}
 	}
-	devs = []SIsolatedDevice{}
+	devs := []SIsolatedDevice{}
 	sq := HostManager.Query("id").Equals("manager_id", host.ManagerId).SubQuery()
 	q := IsolatedDeviceManager.Query().In("host_id", sq).In("external_id", externalIds)
 	err = db.FetchModelObjects(IsolatedDeviceManager, q, &devs)
 	if err != nil {
 		return err
 	}
+
 	for i := range devs {
-		_, err = db.Update(&devs[i], func() error {
-			devs[i].GuestId = self.Id
-			return nil
-		})
+		err = self.attachIsolatedDevice(ctx, userCred, &devs[i], nil, nil, nil, "")
 		if err != nil {
 			return err
 		}

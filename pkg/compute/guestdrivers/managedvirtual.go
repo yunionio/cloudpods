@@ -646,12 +646,13 @@ func (drv *SManagedVirtualizedGuestDriver) RemoteDeployGuestForCreate(ctx contex
 		}
 	}
 
-	devs, err := guest.GetIsolatedDevices()
+	devs, err := guest.GetGuestIsolatedDevices()
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetIsolatedDevices")
 	}
 	desc.IsolateDevices = []cloudprovider.SIsolateDevice{}
-	for _, dev := range devs {
+	for i := range devs {
+		dev := devs[i].GetIsolatedDevice()
 		desc.IsolateDevices = append(desc.IsolateDevices, cloudprovider.SIsolateDevice{
 			Id:   dev.ExternalId,
 			Name: dev.Name,

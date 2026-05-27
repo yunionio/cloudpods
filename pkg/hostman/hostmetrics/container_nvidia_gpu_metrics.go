@@ -76,7 +76,7 @@ func parseNvidiaGpuProcessMetrics(gpuMetricsStr string) []NvidiaGpuProcessMetric
 			&processMetrics.Index, &processMetrics.Pid, &processMetrics.Type, &fb, &ccpm,
 			&sm, &mem, &enc, &dec, &jpg, &ofa, &processMetrics.Command)
 		if err != nil {
-			log.Errorf("failed parse nvidia gpu metrics %s: %s", line, err)
+			log.Debugf("failed parse nvidia gpu metrics %s: %s", line, err)
 			continue
 		}
 		if processMetrics.Command == "nvidia-cuda-mps" || processMetrics.Command == "-" {
@@ -159,10 +159,14 @@ func (s *SGuestMonitorCollector) collectGpuPodsProcesses() map[string]map[string
 		podDesc := pod.GetDesc()
 		hasGpu := false
 		for i := range podDesc.IsolatedDevices {
-			if utils.IsInStringArray(podDesc.IsolatedDevices[i].DevType, compute.CONTAINER_GPU_TYPES) {
-				hasGpu = true
-				break
+			if podDesc.IsolatedDevices[i].DevType != compute.GPU_TYPE {
+				continue
 			}
+			if !utils.IsInStringArray(podDesc.IsolatedDevices[i].SharingMode, compute.VIRTUAL_SHARING_MODES) {
+				continue
+			}
+			hasGpu = true
+			break
 		}
 		if !hasGpu {
 			return true
