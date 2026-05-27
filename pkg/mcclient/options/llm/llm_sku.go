@@ -245,3 +245,7 @@ func (o *LLMSkuUpdateOptions) Params() (jsonutils.JSONObject, error) {
 	}
 	return dict, nil
 }
+
+type LLMSkuSchedulableCheckOptions struct {
+	options.BaseIdOptions
+}

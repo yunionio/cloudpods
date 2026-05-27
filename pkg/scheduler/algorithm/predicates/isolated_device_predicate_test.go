@@ -115,3 +115,205 @@ func TestCountDevicesWithMinMemoryFromList(t *testing.T) {
 		})
 	}
 }
+
+func TestFilterDescsByMinMemoryModelIntersection(t *testing.T) {
+	mk := func(model string, memMb int) *core.IsolatedDeviceDesc {
+		return &core.IsolatedDeviceDesc{
+			Model:      model,
+			DevType:    computeapi.GPU_TYPE,
+			DevicePath: "/dev/" + model,
+			MemorySize: memMb,
+			VirtualNum: 1,
+		}
+	}
+	pool := []*core.IsolatedDeviceDesc{
+		mk("T4", 16384),
+		mk("A100", 40960),
+	}
+
+	// Request model=T4 memory_mb=40000: type-level VRAM would see the A100
+	// and pass; intersecting with model must fail.
+	t4s := make([]*core.IsolatedDeviceDesc, 0)
+	for _, d := range pool {
+		if d.Model == "T4" {
+			t4s = append(t4s, d)
+		}
+	}
+	fit := filterDescsByMinMemory(t4s, computeapi.DEVICE_SHARING_MODE_EXCLUSIVE, 40000)
+	if len(fit) != 0 {
+		t.Fatalf("T4 16GiB must not satisfy 40GiB request, got %d", len(fit))
+	}
+
+	a100s := make([]*core.IsolatedDeviceDesc, 0)
+	for _, d := range pool {
+		if d.Model == "A100" {
+			a100s = append(a100s, d)
+		}
+	}
+	fit = filterDescsByMinMemory(a100s, computeapi.DEVICE_SHARING_MODE_EXCLUSIVE, 40000)
+	if len(fit) != 1 {
+		t.Fatalf("A100 40GiB should satisfy 40GiB request, got %d", len(fit))
+	}
+}
+
+func TestFilterDescsByMinMemoryTwoCards24GiBRequest30(t *testing.T) {
+	devs := []*core.IsolatedDeviceDesc{
+		{DevicePath: "/dev/nvidia0", MemorySize: 24576, VirtualNum: 1},
+		{DevicePath: "/dev/nvidia1", MemorySize: 24576, VirtualNum: 1},
+	}
+	got := countDevicesWithMinMemoryFromList(devs, computeapi.DEVICE_SHARING_MODE_EXCLUSIVE, 30000)
+	if got != 0 {
+		t.Fatalf("two 24GiB cards must not satisfy 30GiB, got %d", got)
+	}
+}
+
+func TestMaxMinMemoryForRequests(t *testing.T) {
+	reqs := []*computeapi.IsolatedDeviceConfig{
+		{DevType: computeapi.GPU_TYPE, SharingMode: computeapi.DEVICE_SHARING_MODE_EXCLUSIVE, Model: "T4", MemoryMb: 16384},
+		{DevType: computeapi.GPU_TYPE, SharingMode: computeapi.DEVICE_SHARING_MODE_EXCLUSIVE, Model: "T4", MemoryMb: 40000},
+		{DevType: computeapi.GPU_TYPE, SharingMode: computeapi.DEVICE_SHARING_MODE_HAMI, Model: "A100", MemoryMb: 8192},
+	}
+	got := maxMinMemoryForRequests(reqs, func(d *computeapi.IsolatedDeviceConfig) bool {
+		return d.Model == "T4"
+	})
+	if got != 40000 {
+		t.Fatalf("max min memory for T4 = %d want 40000", got)
+	}
+}
+
+func TestIsolatedDeviceShortageMessage(t *testing.T) {
+	hamiMatchGPU := func(d *computeapi.IsolatedDeviceConfig) bool {
+		return d.DevType == computeapi.GPU_TYPE && d.SharingMode == computeapi.DEVICE_SHARING_MODE_HAMI
+	}
+	exclMatchGPU := func(d *computeapi.IsolatedDeviceConfig) bool {
+		return d.DevType == computeapi.GPU_TYPE && d.SharingMode == computeapi.DEVICE_SHARING_MODE_EXCLUSIVE
+	}
+	mpsMatchGPU := func(d *computeapi.IsolatedDeviceConfig) bool {
+		return d.DevType == computeapi.GPU_TYPE && d.SharingMode == computeapi.DEVICE_SHARING_MODE_MPS
+	}
+
+	cases := []struct {
+		name     string
+		reqs     []*computeapi.IsolatedDeviceConfig
+		match    func(*computeapi.IsolatedDeviceConfig) bool
+		devType  string
+		sharing  string
+		minMem   int
+		path     string
+		reqCount int
+		hostFree int
+		pending  int
+		asMem    *bool
+		want     string
+	}{
+		{
+			name: "HAMI with vendor model and MiB units",
+			reqs: []*computeapi.IsolatedDeviceConfig{
+				{DevType: computeapi.GPU_TYPE, Vendor: "NVIDIA", Model: "A100", SharingMode: computeapi.DEVICE_SHARING_MODE_HAMI, MemoryMb: 8192, MemoryRequest: 5815},
+			},
+			match:    hamiMatchGPU,
+			devType:  computeapi.GPU_TYPE,
+			sharing:  computeapi.DEVICE_SHARING_MODE_HAMI,
+			minMem:   8192,
+			reqCount: 5815,
+			hostFree: 3328,
+			want:     `IsolatedDevice type "GPU" vendor "NVIDIA" model "A100" sharing_mode "HAMI" memory>=8192MiB not enough, request: 5815 MiB, hostFree: 3328 MiB`,
+		},
+		{
+			name: "EXCLUSIVE with vendor model, count not MiB",
+			reqs: []*computeapi.IsolatedDeviceConfig{
+				{DevType: computeapi.GPU_TYPE, Vendor: "NVIDIA", Model: "T4", SharingMode: computeapi.DEVICE_SHARING_MODE_EXCLUSIVE, MemoryMb: 16384},
+			},
+			match:    exclMatchGPU,
+			devType:  computeapi.GPU_TYPE,
+			sharing:  computeapi.DEVICE_SHARING_MODE_EXCLUSIVE,
+			minMem:   16384,
+			reqCount: 2,
+			hostFree: 1,
+			want:     `IsolatedDevice type "GPU" vendor "NVIDIA" model "T4" sharing_mode "EXCLUSIVE" memory>=16384MiB not enough, request: 2, hostFree: 1`,
+		},
+		{
+			name: "missing vendor and model omitted",
+			reqs: []*computeapi.IsolatedDeviceConfig{
+				{DevType: computeapi.GPU_TYPE, SharingMode: computeapi.DEVICE_SHARING_MODE_HAMI, MemoryRequest: 4096},
+			},
+			match:    hamiMatchGPU,
+			devType:  computeapi.GPU_TYPE,
+			sharing:  computeapi.DEVICE_SHARING_MODE_HAMI,
+			reqCount: 4096,
+			hostFree: 1024,
+			want:     `IsolatedDevice type "GPU" sharing_mode "HAMI" not enough, request: 4096 MiB, hostFree: 1024 MiB`,
+		},
+		{
+			name: "MPS sharing_mode and pending",
+			reqs: []*computeapi.IsolatedDeviceConfig{
+				{DevType: computeapi.GPU_TYPE, Vendor: "NVIDIA", Model: "A10", SharingMode: computeapi.DEVICE_SHARING_MODE_MPS},
+			},
+			match:    mpsMatchGPU,
+			devType:  computeapi.GPU_TYPE,
+			sharing:  computeapi.DEVICE_SHARING_MODE_MPS,
+			reqCount: 4,
+			hostFree: 2,
+			pending:  1,
+			want:     `IsolatedDevice type "GPU" vendor "NVIDIA" model "A10" sharing_mode "MPS" not enough, request: 4, hostFree: 2, pending: 1`,
+		},
+		{
+			name: "mixed vendors joined",
+			reqs: []*computeapi.IsolatedDeviceConfig{
+				{DevType: computeapi.GPU_TYPE, Vendor: "NVIDIA", Model: "A100", SharingMode: computeapi.DEVICE_SHARING_MODE_EXCLUSIVE},
+				{DevType: computeapi.GPU_TYPE, Vendor: "AMD", Model: "MI250", SharingMode: computeapi.DEVICE_SHARING_MODE_EXCLUSIVE},
+			},
+			match:    exclMatchGPU,
+			devType:  computeapi.GPU_TYPE,
+			sharing:  computeapi.DEVICE_SHARING_MODE_EXCLUSIVE,
+			reqCount: 2,
+			hostFree: 0,
+			want:     `IsolatedDevice type "GPU" vendor "NVIDIA,AMD" model "A100,MI250" sharing_mode "EXCLUSIVE" not enough, request: 2, hostFree: 0`,
+		},
+		{
+			name: "VRAM fit keeps count units even for HAMI",
+			reqs: []*computeapi.IsolatedDeviceConfig{
+				{DevType: computeapi.GPU_TYPE, Vendor: "NVIDIA", Model: "A100", SharingMode: computeapi.DEVICE_SHARING_MODE_HAMI, MemoryMb: 8192},
+			},
+			match:    hamiMatchGPU,
+			devType:  computeapi.GPU_TYPE,
+			sharing:  computeapi.DEVICE_SHARING_MODE_HAMI,
+			minMem:   8192,
+			reqCount: 2,
+			hostFree: 1,
+			asMem:    boolPtr(false),
+			want:     `IsolatedDevice type "GPU" vendor "NVIDIA" model "A100" sharing_mode "HAMI" memory>=8192MiB not enough, request: 2, hostFree: 1`,
+		},
+		{
+			name: "device_path included",
+			reqs: []*computeapi.IsolatedDeviceConfig{
+				{DevType: computeapi.GPU_TYPE, Vendor: "NVIDIA", Model: "A100", SharingMode: computeapi.DEVICE_SHARING_MODE_EXCLUSIVE, DevicePath: "/dev/nvidia0"},
+			},
+			match:    exclMatchGPU,
+			devType:  computeapi.GPU_TYPE,
+			sharing:  computeapi.DEVICE_SHARING_MODE_EXCLUSIVE,
+			path:     "/dev/nvidia0",
+			reqCount: 1,
+			hostFree: 0,
+			want:     `IsolatedDevice type "GPU" vendor "NVIDIA" model "A100" sharing_mode "EXCLUSIVE" device_path "/dev/nvidia0" not enough, request: 1, hostFree: 0`,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			spec := shortageSpecFromRequests(c.reqs, c.match, c.devType, c.sharing, c.minMem)
+			spec.devicePath = c.path
+			if c.asMem != nil {
+				spec.amountIsMemory = *c.asMem
+			}
+			got := isolatedDeviceShortageMessage(spec, c.reqCount, c.hostFree, c.pending)
+			if got != c.want {
+				t.Errorf("got:\n%s\nwant:\n%s", got, c.want)
+			}
+		})
+	}
+}
+
+func boolPtr(v bool) *bool {
+	return &v
+}
