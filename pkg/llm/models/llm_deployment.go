@@ -121,7 +121,11 @@ func (man *SLLMDeploymentManager) ValidateCreateData(
 		if err != nil {
 			return input, errors.Wrapf(err, "fetch LLMSku %s", input.LLMSkuId)
 		}
-		input.LLMSkuId = skuObj.GetId()
+		lSku := skuObj.(*SLLMSku)
+		if err := ValidateLLMSkuReadyForUse(lSku); err != nil {
+			return input, err
+		}
+		input.LLMSkuId = lSku.GetId()
 		// ModelSpec is meaningless here
 		input.ModelSpec = nil
 
