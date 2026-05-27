@@ -311,6 +311,11 @@ func (llm *SLLM) HttpGet(ctx context.Context, url string) ([]byte, error) {
 
 // HttpDownloadFile downloads a file from URL and saves it to the specified path
 func (llm *SLLM) HttpDownloadFile(ctx context.Context, url string, filePath string) error {
+	return llm.HttpDownloadFileWithProgress(ctx, url, filePath, nil)
+}
+
+// HttpDownloadFileWithProgress downloads a file and reports cumulative file progress.
+func (llm *SLLM) HttpDownloadFileWithProgress(ctx context.Context, url string, filePath string, callback func(downloaded, total int64)) error {
 	client := httputils.GetTimeoutClient(0)
 	transport := httputils.GetTransport(true)
 	client.Transport = transport
@@ -336,6 +341,7 @@ func (llm *SLLM) HttpDownloadFile(ctx context.Context, url string, filePath stri
 		appendDownload = resumeOffset > 0
 	case http.StatusRequestedRangeNotSatisfiable:
 		if resumeOffset > 0 && contentRangeTotal(resp.Header.Get("Content-Range")) == resumeOffset {
+			notifyDownloadProgress(callback, resumeOffset, resumeOffset)
 			if err := os.Rename(tmpPath, filePath); err != nil {
 				return errors.Wrapf(err, "failed to rename %s to %s", tmpPath, filePath)
 			}
@@ -348,6 +354,9 @@ func (llm *SLLM) HttpDownloadFile(ctx context.Context, url string, filePath stri
 		}
 		return errors.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
+
+	totalSize := responseDownloadTotal(resp, resumeOffset)
+	notifyDownloadProgress(callback, resumeOffset, totalSize)
 
 	var out *os.File
 	if appendDownload {
@@ -362,7 +371,16 @@ func (llm *SLLM) HttpDownloadFile(ctx context.Context, url string, filePath stri
 		}
 	}
 
-	written, err := io.Copy(out, resp.Body)
+	writer := io.Writer(out)
+	if callback != nil {
+		writer = &downloadProgressWriter{
+			writer:     out,
+			downloaded: resumeOffset,
+			total:      totalSize,
+			callback:   callback,
+		}
+	}
+	written, err := io.Copy(writer, resp.Body)
 	closeErr := out.Close()
 	if err != nil {
 		return errors.Wrap(err, "failed to write file")
@@ -380,6 +398,39 @@ func (llm *SLLM) HttpDownloadFile(ctx context.Context, url string, filePath stri
 	}
 
 	return nil
+}
+
+type downloadProgressWriter struct {
+	writer     io.Writer
+	downloaded int64
+	total      int64
+	callback   func(downloaded, total int64)
+}
+
+func (w *downloadProgressWriter) Write(p []byte) (int, error) {
+	n, err := w.writer.Write(p)
+	if n > 0 {
+		w.downloaded += int64(n)
+		notifyDownloadProgress(w.callback, w.downloaded, w.total)
+	}
+	return n, err
+}
+
+func notifyDownloadProgress(callback func(downloaded, total int64), downloaded, total int64) {
+	if callback == nil {
+		return
+	}
+	callback(downloaded, total)
+}
+
+func responseDownloadTotal(resp *http.Response, resumeOffset int64) int64 {
+	if total := contentRangeTotal(resp.Header.Get("Content-Range")); total > 0 {
+		return total
+	}
+	if resp.ContentLength > 0 {
+		return resumeOffset + resp.ContentLength
+	}
+	return 0
 }
 
 func fileSize(path string) int64 {

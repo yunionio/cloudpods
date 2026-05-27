@@ -1029,6 +1029,9 @@ func sanitizeInstantModelImportCacheComponent(s string) string {
 }
 
 func (model *SInstantModel) DoImport(ctx context.Context, userCred mcclient.TokenCredential, s *mcclient.ClientSession, input apis.InstantModelImportInput) (tmpDir string, err error) {
+	progress := newInstantModelImportProgressUpdater(model)
+	progress.set(0, true)
+
 	// ensure LLMWorkingDirectory exists
 	if err = os.MkdirAll(options.Options.LLMWorkingDirectory, 0755); err != nil {
 		err = errors.Wrap(err, "MkdirAll LLMWorkingDirectory")
@@ -1051,11 +1054,12 @@ func (model *SInstantModel) DoImport(ctx context.Context, userCred mcclient.Toke
 	}
 
 	// download model from registry
-	modelId, mounts, err := drv.DownloadModel(ctx, userCred, nil, tmpDir, input.ModelName, input.ModelTag)
+	modelId, mounts, err := drv.DownloadModel(ctx, userCred, nil, tmpDir, input.ModelName, input.ModelTag, progress.setDownloadProgress)
 	if err != nil {
 		err = errors.Wrap(err, "DownloadModel")
 		return
 	}
+	progress.set(apis.InstantModelImportDownloadProgressEnd, true)
 	log.Infof("Downloaded model %s:%s with modelId: %s to %s", input.ModelName, input.ModelTag, modelId, tmpDir)
 
 	// create tar.gz archive from downloaded files
@@ -1065,6 +1069,7 @@ func (model *SInstantModel) DoImport(ctx context.Context, userCred mcclient.Toke
 		err = errors.Wrap(err, "createTarGz")
 		return
 	}
+	progress.set(apis.InstantModelImportArchiveProgress, true)
 
 	// upload the image
 	imageId, err := func() (string, error) {
@@ -1111,6 +1116,7 @@ func (model *SInstantModel) DoImport(ctx context.Context, userCred mcclient.Toke
 		err = errors.Wrap(err, "upload image")
 		return
 	}
+	progress.set(apis.InstantModelImportUploadProgress, true)
 
 	// update the instant-model
 	_, err = db.Update(model, func() error {
@@ -1146,7 +1152,60 @@ func (model *SInstantModel) DoImport(ctx context.Context, userCred mcclient.Toke
 		return
 	}
 
+	progress.set(apis.InstantModelImportCompleteProgress, true)
 	return
+}
+
+type instantModelImportProgressUpdater struct {
+	model      *SInstantModel
+	last       float32
+	lastUpdate time.Time
+	hasLast    bool
+}
+
+func newInstantModelImportProgressUpdater(model *SInstantModel) *instantModelImportProgressUpdater {
+	return &instantModelImportProgressUpdater{model: model}
+}
+
+func (u *instantModelImportProgressUpdater) setDownloadProgress(progress float32) {
+	u.set(instantModelImportDownloadProgress(progress), false)
+}
+
+func (u *instantModelImportProgressUpdater) set(progress float32, force bool) {
+	if u == nil || u.model == nil {
+		return
+	}
+	progress = clampInstantModelImportProgress(progress)
+	if !force && u.hasLast {
+		if progress < u.last {
+			return
+		}
+		if progress-u.last < apis.InstantModelImportProgressMinDelta && time.Since(u.lastUpdate) < apis.InstantModelImportProgressMinInterval {
+			return
+		}
+	}
+	if err := u.model.SetProgress(progress); err != nil {
+		log.Warningf("failed to update instant model %s import progress %.2f: %s", u.model.Id, progress, err)
+		return
+	}
+	u.last = progress
+	u.lastUpdate = time.Now()
+	u.hasLast = true
+}
+
+func instantModelImportDownloadProgress(progress float32) float32 {
+	progress = clampInstantModelImportProgress(progress)
+	return progress * apis.InstantModelImportDownloadProgressEnd / 100
+}
+
+func clampInstantModelImportProgress(progress float32) float32 {
+	if progress < 0 {
+		return 0
+	}
+	if progress > 100 {
+		return 100
+	}
+	return progress
 }
 
 // createTarGz creates a tar.gz archive from the source directory
