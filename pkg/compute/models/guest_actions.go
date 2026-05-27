@@ -6823,6 +6823,22 @@ func (self *SGuest) PerformEnableMemclean(ctx context.Context, userCred mcclient
 	return nil, self.SetMetadata(ctx, api.VM_METADATA_ENABLE_MEMCLEAN, "true", userCred)
 }
 
+func (self *SGuest) PerformSetCpuNumaPin(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if !data.Contains("cpu_numa_pin") {
+		return nil, httperrors.NewMissingParameterError("cpu_numa_pin")
+	}
+	cpuNumaPin := make([]api.SCpuNumaPin, 0)
+	err := data.Unmarshal(&cpuNumaPin, "cpu_numa_pin")
+	if err != nil {
+		return nil, httperrors.NewInputParameterError("failed unmarshal cpu_numa_pin %s", err)
+	} else {
+		if err = self.SetCpuNumaPin(ctx, userCred, nil, cpuNumaPin); err != nil {
+			return nil, errors.Wrap(err, "failed set cpu numa pin")
+		}
+	}
+	return nil, nil
+}
+
 // 设置操作系统信息
 func (self *SGuest) PerformSetOsInfo(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ServerSetOSInfoInput) (jsonutils.JSONObject, error) {
 	drv, err := self.GetDriver()
