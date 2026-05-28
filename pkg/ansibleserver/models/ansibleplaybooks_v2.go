@@ -49,7 +49,7 @@ type SAnsiblePlaybookV2 struct {
 	StartTime    time.Time `list:"user"`
 	EndTime      time.Time `list:"user"`
 
-	CreatorMark string `length:"32" nullable:"false" create:"optional" get:"user"`
+	CreatorMark string `length:"32" nullable:"true" create:"optional" get:"user"`
 }
 
 type SAnsiblePlaybookV2Manager struct {
