@@ -111,10 +111,11 @@ func (s Envs) IsZero() bool {
 type LLMSkuDetails struct {
 	apis.SharableVirtualResourceDetails
 	// 当前大模型套餐包含的实例个数。
-	LLMCapacity int
-	Image       string
-	ImageLabel  string
-	ImageName   string
+	LLMCapacity int    `json:"llm_capacity"`
+	Image       string `json:"image"`
+	ImageLabel  string `json:"image_label"`
+	ImageName   string `json:"image_name"`
+	AppName     string `json:"app_name"`
 
 	MountedModelDetails []MountedModelInfo `json:"mounted_model_details"`
 
