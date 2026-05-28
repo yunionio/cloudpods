@@ -345,6 +345,11 @@ func scaleUp(ctx context.Context, userCred mcclient.TokenCredential, deployment 
 	createCtx := context.WithValue(ctx, appctx.APP_CONTEXT_KEY_AUTH_TOKEN, userCred)
 	handler := db.NewModelHandler(models.GetLLMManager())
 
+	llmSpec, err := models.BuildDeploymentResolvedGpuMemoryLLMSpec(ctx, userCred, deployment, llmSku)
+	if err != nil {
+		return fmt.Errorf("resolve GPU memory utilization: %w", err)
+	}
+
 	var lastErr error
 	created := 0
 	for i := 0; i < count; i++ {
@@ -359,6 +364,7 @@ func scaleUp(ctx context.Context, userCred mcclient.TokenCredential, deployment 
 			LLMSkuId:        deployment.LLMSkuId,
 			LLMImageId:      imageId,
 			LLMDeploymentId: deployment.Id,
+			LLMSpec:         llmSpec,
 		}
 
 		llmParams := jsonutils.Marshal(llmInput).(*jsonutils.JSONDict)
