@@ -42,6 +42,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/identity"
+	ctxutil "yunion.io/x/onecloud/pkg/util/ctx"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
@@ -748,7 +749,7 @@ func (manager *SExternalProjectManager) InitializeData() error {
 		return errors.Wrapf(err, "db.FetchModelObjects")
 	}
 	for i := range projects {
-		err = projects[i].Delete(context.Background(), nil)
+		err = projects[i].Delete(ctxutil.CtxWithTime(), nil)
 		if err != nil {
 			return errors.Wrapf(err, "Delete")
 		}

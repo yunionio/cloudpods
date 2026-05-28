@@ -259,6 +259,8 @@ type ComputeEEOptions struct {
 	ServerStatusSyncIntervalMinutes int `default:"5" help:"Interval to sync server status, defualt is 5 minutes"`
 	// 跳过新增资源同步时间范围
 	SkipServerStatusSyncTimeRange string `help:"Skip server status sync time range example: 08:00-18:00"`
+	// 公共云公告同步时间周期
+	PublicCloudNoticesSyncIntervalHours int `default:"3" help:"Interval to sync public cloud notices, defualt is 3 hours"`
 }
 
 type SCapabilityOptions struct {
