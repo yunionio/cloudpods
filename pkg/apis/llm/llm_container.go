@@ -16,6 +16,7 @@ const (
 	LLM_CONTAINER_COMFYUI      LLMContainerType = "comfyui"
 	LLM_CONTAINER_OPENCLAW     LLMContainerType = "openclaw"
 	LLM_CONTAINER_HERMES_AGENT LLMContainerType = "hermes-agent"
+	LLM_CONTAINER_DESKTOP      LLMContainerType = "desktop"
 )
 
 var (
@@ -27,6 +28,7 @@ var (
 		string(LLM_CONTAINER_COMFYUI),
 		string(LLM_CONTAINER_OPENCLAW),
 		string(LLM_CONTAINER_HERMES_AGENT),
+		string(LLM_CONTAINER_DESKTOP),
 	)
 	LLM_INSTANT_MODEL_TYPES = sets.NewString(
 		string(LLM_CONTAINER_OLLAMA),

@@ -11,7 +11,7 @@ import (
 type LLMSkuListOptions struct {
 	options.BaseListOptions
 
-	LLMType    string `json:"llm_type" choices:"ollama|vllm|sglang|dify|comfyui|openclaw|hermes-agent"`
+	LLMType    string `json:"llm_type" choices:"ollama|vllm|sglang|dify|comfyui|openclaw|hermes-agent|desktop"`
 	Source     string `json:"source" help:"filter by source (huggingface, model_scope, local_path)"`
 	Categories string `json:"categories" help:"filter by category (llm, embedding, image, ...)"`
 }
@@ -34,7 +34,7 @@ type LLMSkuCreateOptions struct {
 	MountedModels []string `help:"mounted models, <model_id> e.g. qwen2:0.5b-dup" json:"mounted_models"`
 
 	LLM_IMAGE_ID string `json:"llm_image_id"`
-	LLM_TYPE     string `json:"llm_type" choices:"ollama|vllm|sglang|comfyui|hermes-agent"`
+	LLM_TYPE     string `json:"llm_type" choices:"ollama|vllm|sglang|comfyui|hermes-agent|desktop"`
 
 	// Model source
 	LLMModelSpecId      string `help:"LLM catalog model spec id; starts InstantModel import and mounts it into this SKU" json:"llm_model_spec_id"`

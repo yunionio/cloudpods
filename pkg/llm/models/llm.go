@@ -339,6 +339,7 @@ func (man *SLLMManager) FetchCustomizeColumns(
 				res[i].LLMImage = image.Name
 				res[i].LLMImageLable = image.ImageLabel
 				res[i].LLMImageName = image.ImageName
+				res[i].AppName = image.AppName
 			}
 		}
 	} else {

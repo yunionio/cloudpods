@@ -198,6 +198,7 @@ func (manager *SLLMSkuManager) FetchCustomizeColumns(
 						res[i].Image = image.Name
 						res[i].ImageLabel = image.ImageLabel
 						res[i].ImageName = image.ImageName
+						res[i].AppName = image.AppName
 					}
 				}
 			}

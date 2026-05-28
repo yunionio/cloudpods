@@ -8,6 +8,7 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	commonapi "yunion.io/x/onecloud/pkg/apis"
+	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	api "yunion.io/x/onecloud/pkg/apis/llm"
 	"yunion.io/x/onecloud/pkg/llm/models"
 )
@@ -25,9 +26,13 @@ func desktopWebtopImageBaseContainerSpec(image *models.SLLMImage) commonapi.Cont
 }
 
 // desktopWebtopCommonEnvs 返回 webtop / Selkies 等桌面容器共用的环境变量（时区、locale、admin 登录、Homebrew、侧边栏等）。
-func desktopWebtopCommonEnvs(llmId string) []*commonapi.ContainerKeyValue {
+// uiTitle 为空时使用 "Cloudpods Desktop"。
+func desktopWebtopCommonEnvs(llmId string, uiTitle string) []*commonapi.ContainerKeyValue {
 	httpAuthUsername := "admin"
 	httpAuthPassword := openclawFixed9DigitPassword(llmId)
+	if uiTitle == "" {
+		uiTitle = "Cloudpods Desktop"
+	}
 	return []*commonapi.ContainerKeyValue{
 		{Key: "TZ", Value: "Asia/Shanghai"},
 		{Key: "PUID", Value: "1000"},
@@ -40,11 +45,43 @@ func desktopWebtopCommonEnvs(llmId string) []*commonapi.ContainerKeyValue {
 		{Key: "HOMEBREW_PREFIX", Value: "/home/linuxbrew/.linuxbrew"},
 		{Key: "HOMEBREW_CELLAR", Value: "/home/linuxbrew/.linuxbrew/Cellar"},
 		{Key: "HOMEBREW_REPOSITORY", Value: "/home/linuxbrew/.linuxbrew/Homebrew"},
-		{Key: "SELKIES_UI_TITLE", Value: "Cloudpods Desktop"},
+		{Key: "SELKIES_UI_TITLE", Value: uiTitle},
 		{Key: "SELKIES_UI_SHOW_LOGO", Value: "False"},
 		{Key: "SELKIES_UI_SIDEBAR_SHOW_APPS", Value: "False"},
 		{Key: "SELKIES_UI_SIDEBAR_SHOW_GAMEPADS", Value: "False"},
 	}
+}
+
+func desktopStandardVolumeMounts(diskIndex *int, includeData bool, dataMountPath string) []*commonapi.ContainerVolumeMount {
+	vols := []*commonapi.ContainerVolumeMount{
+		{
+			Disk: &commonapi.ContainerVolumeMountDisk{
+				Index:        diskIndex,
+				SubDirectory: "config",
+			},
+			Type:      commonapi.CONTAINER_VOLUME_MOUNT_TYPE_DISK,
+			MountPath: desktopConfigDir,
+		},
+		{
+			Disk: &commonapi.ContainerVolumeMountDisk{
+				Index:        diskIndex,
+				SubDirectory: "home",
+			},
+			Type:      commonapi.CONTAINER_VOLUME_MOUNT_TYPE_DISK,
+			MountPath: homeDir,
+		},
+	}
+	if includeData && dataMountPath != "" {
+		vols = append(vols, &commonapi.ContainerVolumeMount{
+			Disk: &commonapi.ContainerVolumeMountDisk{
+				Index:        diskIndex,
+				SubDirectory: "data",
+			},
+			Type:      commonapi.CONTAINER_VOLUME_MOUNT_TYPE_DISK,
+			MountPath: dataMountPath,
+		})
+	}
+	return vols
 }
 
 func desktopContainerRootFs(diskIndex *int) *commonapi.ContainerRootfs {
@@ -55,6 +92,48 @@ func desktopContainerRootFs(diskIndex *int) *commonapi.ContainerRootfs {
 			SubDirectory: "rootfs",
 		},
 		Persistent: false,
+	}
+}
+
+const desktopDefaultDRINode = "/dev/dri/renderD128"
+
+func desktopHasIsolatedGPU(llm *models.SLLM, sku *models.SLLMSku, devices []computeapi.SIsolatedDevice) bool {
+	if len(devices) > 0 {
+		return true
+	}
+	effDevs := models.GetEffectiveDevices(llm, sku)
+	return effDevs != nil && len(*effDevs) > 0
+}
+
+func desktopGPUWaylandEnvs() []*commonapi.ContainerKeyValue {
+	return []*commonapi.ContainerKeyValue{
+		{Key: "PIXELFLUX_WAYLAND", Value: "true"},
+		{Key: "DRINODE", Value: desktopDefaultDRINode},
+		{Key: "DRI_NODE", Value: desktopDefaultDRINode},
+	}
+}
+
+func appendContainerIsolatedDevices(spec *computeapi.ContainerSpec, llm *models.SLLM, sku *models.SLLMSku, devices []computeapi.SIsolatedDevice) {
+	effDevs := models.GetEffectiveDevices(llm, sku)
+	if len(devices) == 0 && effDevs != nil && len(*effDevs) > 0 {
+		for i := range *effDevs {
+			index := i
+			spec.Devices = append(spec.Devices, &computeapi.ContainerDevice{
+				Type: commonapi.CONTAINER_DEVICE_TYPE_ISOLATED_DEVICE,
+				IsolatedDevice: &computeapi.ContainerIsolatedDevice{
+					Index: &index,
+				},
+			})
+		}
+		return
+	}
+	for i := range devices {
+		spec.Devices = append(spec.Devices, &computeapi.ContainerDevice{
+			Type: commonapi.CONTAINER_DEVICE_TYPE_ISOLATED_DEVICE,
+			IsolatedDevice: &computeapi.ContainerIsolatedDevice{
+				Id: devices[i].Id,
+			},
+		})
 	}
 }
 
