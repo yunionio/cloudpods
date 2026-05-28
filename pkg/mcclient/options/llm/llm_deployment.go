@@ -1,6 +1,7 @@
 package llm
 
 import (
+	"fmt"
 	"strings"
 
 	"yunion.io/x/jsonutils"
@@ -75,16 +76,22 @@ type LLMDeploymentCreateOptions struct {
 	PreferHost string   `help:"prefer specific host" json:"prefer_host"`
 
 	// Deployment config
-	Replicas             int    `help:"number of replicas" default:"1" json:"replicas"`
-	PlacementStrategy    string `help:"placement strategy" choices:"spread|binpack" json:"placement_strategy"`
-	CpuOffloading        *bool  `help:"enable CPU offloading" json:"cpu_offloading"`
-	DistributedInference *bool  `help:"enable distributed inference" json:"distributed_inference"`
-	RestartOnError       *bool  `help:"restart on error" json:"restart_on_error"`
-	AccessPolicy         string `help:"access policy" choices:"public|authed|allowed_users" json:"access_policy"`
+	Replicas                 int      `help:"number of replicas" default:"1" json:"replicas"`
+	PlacementStrategy        string   `help:"placement strategy" choices:"spread|binpack" json:"placement_strategy"`
+	CpuOffloading            *bool    `help:"enable CPU offloading" json:"cpu_offloading"`
+	DistributedInference     *bool    `help:"enable distributed inference" json:"distributed_inference"`
+	GpuMemoryUtilization     *float64 `token:"gpu-memory-utilization" help:"GPU memory utilization fraction for backend runtime (0-1)" json:"gpu_memory_utilization"`
+	GpuUtilization           *float64 `token:"gpu-utilization" help:"Alias of --gpu-memory-utilization" json:"-"`
+	AutoGpuMemoryUtilization *bool    `token:"auto-gpu-memory-utilization" help:"calculate GPU memory utilization from model VRAM and GPU memory" json:"auto_gpu_memory_utilization"`
+	RestartOnError           *bool    `help:"restart on error" json:"restart_on_error"`
+	AccessPolicy             string   `help:"access policy" choices:"public|authed|allowed_users" json:"access_policy"`
 }
 
 func (o *LLMDeploymentCreateOptions) Params() (jsonutils.JSONObject, error) {
 	params := jsonutils.Marshal(o).(*jsonutils.JSONDict)
+	if err := applyGpuUtilizationAlias(params, o.GpuMemoryUtilization, o.GpuUtilization); err != nil {
+		return nil, err
+	}
 
 	// Mode A: reuse existing SKU
 	if o.LLMSkuId != "" {
@@ -215,10 +222,13 @@ func (o *LLMDeploymentCreateOptions) buildModelSpec() (*api.InstantModelImportIn
 type LLMDeploymentUpdateOptions struct {
 	options.BaseIdOptions
 
-	Name              string `help:"new name" json:"name"`
-	Replicas          *int   `help:"number of replicas" json:"replicas"`
-	PlacementStrategy string `help:"placement strategy" json:"placement_strategy"`
-	AccessPolicy      string `help:"access policy" json:"access_policy"`
+	Name                     string   `help:"new name" json:"name"`
+	Replicas                 *int     `help:"number of replicas" json:"replicas"`
+	PlacementStrategy        string   `help:"placement strategy" json:"placement_strategy"`
+	GpuMemoryUtilization     *float64 `token:"gpu-memory-utilization" help:"GPU memory utilization fraction for backend runtime (0-1)" json:"gpu_memory_utilization"`
+	GpuUtilization           *float64 `token:"gpu-utilization" help:"Alias of --gpu-memory-utilization" json:"-"`
+	AutoGpuMemoryUtilization *bool    `token:"auto-gpu-memory-utilization" help:"calculate GPU memory utilization from model VRAM and GPU memory" json:"auto_gpu_memory_utilization"`
+	AccessPolicy             string   `help:"access policy" json:"access_policy"`
 }
 
 func (o *LLMDeploymentUpdateOptions) GetId() string {
@@ -226,7 +236,14 @@ func (o *LLMDeploymentUpdateOptions) GetId() string {
 }
 
 func (o *LLMDeploymentUpdateOptions) Params() (jsonutils.JSONObject, error) {
-	return options.StructToParams(o)
+	params, err := options.StructToParams(o)
+	if err != nil {
+		return nil, err
+	}
+	if err := applyGpuUtilizationAlias(params, o.GpuMemoryUtilization, o.GpuUtilization); err != nil {
+		return nil, err
+	}
+	return params, nil
 }
 
 type LLMDeploymentDeleteOptions struct {
@@ -239,4 +256,14 @@ func (o *LLMDeploymentDeleteOptions) GetId() string {
 
 func (o *LLMDeploymentDeleteOptions) Params() (jsonutils.JSONObject, error) {
 	return options.StructToParams(o)
+}
+
+func applyGpuUtilizationAlias(params *jsonutils.JSONDict, gpuMemoryUtilization, gpuUtilization *float64) error {
+	if gpuMemoryUtilization != nil && gpuUtilization != nil {
+		return fmt.Errorf("--gpu-memory-utilization and --gpu-utilization are aliases; specify only one")
+	}
+	if gpuUtilization != nil {
+		params.Set("gpu_memory_utilization", jsonutils.NewFloat64(*gpuUtilization))
+	}
+	return nil
 }
