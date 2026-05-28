@@ -923,8 +923,10 @@ func (cprvd *SCloudprovider) purge(ctx context.Context, userCred mcclient.TokenC
 	dnsVpcs := DnsZoneVpcManager.Query("row_id").In("dns_zone_id", dnszones.SubQuery())
 	ssls := SSLCertificateManager.Query("id").Equals("manager_id", cprvd.Id)
 	quotas := CloudproviderQuotaManager.Query("id").Equals("manager_id", cprvd.Id)
+	projects := ExternalProjectManager.Query("id").Equals("manager_id", cprvd.Id)
 
 	pairs := []purgePair{
+		{manager: ExternalProjectManager, key: "id", q: projects},
 		{manager: CloudproviderQuotaManager, key: "id", q: quotas},
 		{manager: SSLCertificateManager, key: "id", q: ssls},
 		{manager: DnsZoneVpcManager, key: "row_id", q: dnsVpcs},
@@ -949,16 +951,5 @@ func (cprvd *SCloudprovider) purge(ctx context.Context, userCred mcclient.TokenC
 }
 
 func (caccount *SCloudaccount) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
-	projects := ExternalProjectManager.Query("id").Equals("cloudaccount_id", caccount.Id)
-
-	pairs := []purgePair{
-		{manager: ExternalProjectManager, key: "id", q: projects},
-	}
-	for i := range pairs {
-		err := pairs[i].purgeAll(ctx)
-		if err != nil {
-			return err
-		}
-	}
 	return caccount.SEnabledStatusInfrasResourceBase.Delete(ctx, userCred)
 }
