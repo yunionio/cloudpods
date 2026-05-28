@@ -364,7 +364,7 @@ func (m *SGuestManager) Bootstrap() (chan struct{}, error) {
 
 	if options.HostOptions.EnableHostAgentNumaAllocate {
 		enableMemAlloc := m.host.IsContainerHost() || m.host.IsHugepagesEnabled()
-		m.hostagentNumaAllocate = !m.host.IsSchedulerNumaAllocateEnabled() && enableMemAlloc && (len(hostTypo.Nodes) > 1)
+		m.hostagentNumaAllocate = !m.host.IsSchedulerNumaAllocateEnabled() && enableMemAlloc && (len(hostTypo.Nodes) >= 1)
 	}
 
 	var reserveCpus = cpuset.NewCPUSet()
