@@ -238,6 +238,7 @@ type sPodGuestInstance struct {
 
 	startPodLock      sync.Mutex
 	saveContainerLock sync.Mutex
+	syncConfigLock    sync.Mutex
 }
 
 func newPodGuestInstance(id string, man *SGuestManager) PodInstance {
@@ -595,6 +596,8 @@ func (s *sPodGuestInstance) HandleGuestStart(ctx context.Context, userCred mccli
 
 		resJ := jsonutils.Marshal(resp)
 		res := resJ.(*jsonutils.JSONDict)
+		s.syncConfigLock.Lock()
+		defer s.syncConfigLock.Unlock()
 		if !s.manager.host.IsSchedulerNumaAllocateEnabled() {
 			res.Set("cpu_numa_pin", jsonutils.Marshal(s.Desc.CpuNumaPin))
 		}
@@ -974,6 +977,15 @@ func (t *localDirtyPodStartTask) Run() {
 				if _, err := t.pod.startPod(t.ctx, t.userCred); err != nil {
 					log.Errorf("start dirty pod(%s/%s) err: %s", t.pod.GetId(), t.pod.GetName(), err.Error())
 				}
+				if t.pod.Desc.CpuNumaPin != nil {
+					ctx := context.Background()
+					userCred := hostutils.GetComputeSession(ctx).GetToken()
+					if err := t.pod.setRemoteCpuNumaPin(ctx, userCred); err != nil {
+						log.Errorf("failed update cpu numa pin on start dirty pod (%s/%s): %s", t.pod.GetId(), t.pod.GetName(), err.Error())
+					}
+				} else {
+					log.Errorf("start dirty pod(%s/%s) cpu numa pin empty", t.pod.GetId(), t.pod.GetName())
+				}
 			}
 			log.Infof("start dirty container locally (%s/%s/%s/%s)", t.pod.Id, t.pod.GetName(), ctr.Id, ctr.Name)
 			if _, err := t.pod.StartLocalContainer(t.ctx, t.userCred, ctr.Id); err != nil {
@@ -1293,6 +1305,8 @@ func (s *sPodGuestInstance) SyncConfig(ctx context.Context, guestDesc *desc.SGue
 	// cpu and memory should update from SGuestHotplugCpuMemTask
 	s.UpdateLiveDesc(guestDesc)
 
+	s.syncConfigLock.Lock()
+	defer s.syncConfigLock.Unlock()
 	// keep origin cpu numa pin
 	cpuNumaPin := s.Desc.CpuNumaPin
 	s.Desc.SGuestHardwareDesc = guestDesc.SGuestHardwareDesc
@@ -1611,6 +1625,16 @@ func (s *sPodGuestInstance) convertToPodMetadataPortMappings(pms []*runtimeapi.P
 		}
 	}
 	return ret
+}
+
+func (s *sPodGuestInstance) setRemoteCpuNumaPin(ctx context.Context, userCred mcclient.TokenCredential) error {
+	data := jsonutils.NewDict()
+	data.Set("cpu_numa_pin", jsonutils.Marshal(s.Desc.CpuNumaPin))
+	session := auth.GetSession(ctx, userCred, options.HostOptions.Region)
+	if _, err := computemod.Servers.PerformAction(session, s.GetId(), "set-cpu-numa-pin", data); err != nil {
+		return errors.Wrap(err, "updateCpuNumaPin")
+	}
+	return nil
 }
 
 func (s *sPodGuestInstance) setPortMappings(ctx context.Context, userCred mcclient.TokenCredential, pms []*computeapi.PodMetadataPortMapping) error {
