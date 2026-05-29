@@ -44,6 +44,7 @@ type NBDDriver struct {
 	imageRootBackFilePath string
 	imageInfo             qemuimg.SImageInfo
 	nbdDev                string
+	sessionHeld           bool
 }
 
 func NewNBDDriver(imageInfo qemuimg.SImageInfo) *NBDDriver {
@@ -59,6 +60,28 @@ func init() {
 	lock = new(sync.Mutex)
 }
 
+func (d *NBDDriver) acquireSession(rootPath string) {
+	log.Infof("acquire nbd session for %s", rootPath)
+	lock.Lock()
+	d.sessionHeld = true
+}
+
+func (d *NBDDriver) releaseSession(rootPath string) {
+	if d.sessionHeld {
+		d.sessionHeld = false
+		lock.Unlock()
+		log.Infof("release nbd session for %s", rootPath)
+	}
+}
+
+func (d *NBDDriver) cleanupConnect(rootPath string) {
+	if len(d.nbdDev) > 0 {
+		d.putdownLVMs()
+		_ = d.disconnect()
+	}
+	d.releaseSession(rootPath)
+}
+
 func (d *NBDDriver) Connect(*apis.GuestDesc, string) error {
 	d.nbdDev = GetNBDManager().AcquireNbddev()
 	if len(d.nbdDev) == 0 {
@@ -66,12 +89,10 @@ func (d *NBDDriver) Connect(*apis.GuestDesc, string) error {
 	}
 
 	rootPath := d.rootImagePath()
-	log.Infof("lock root image path %s", rootPath)
-	lock.Lock()
-	defer lock.Unlock()
-	defer log.Infof("unlock root image path %s", rootPath)
+	d.acquireSession(rootPath)
 
 	if err := QemuNbdConnect(d.imageInfo, d.nbdDev); err != nil {
+		d.cleanupConnect(rootPath)
 		return err
 	}
 	var tried uint = 0
@@ -80,6 +101,7 @@ func (d *NBDDriver) Connect(*apis.GuestDesc, string) error {
 		err := d.findPartitions()
 		if err != nil {
 			log.Errorln(err.Error())
+			d.cleanupConnect(rootPath)
 			return err
 		}
 		tried += 1
@@ -88,6 +110,7 @@ func (d *NBDDriver) Connect(*apis.GuestDesc, string) error {
 	hasLVM, err := d.setupLVMS()
 	log.Infof("%s hasLVM %v err %v", d.nbdDev, hasLVM, err)
 	if err != nil {
+		d.cleanupConnect(rootPath)
 		return err
 	}
 	return nil
@@ -196,19 +219,15 @@ func (nbdDriver *NBDDriver) setupAndPutdownLVMS() error {
 }
 
 func (d *NBDDriver) Disconnect() error {
-	if len(d.nbdDev) > 0 {
-		rootPath := d.rootImagePath()
-		log.Infof("Disconnect lock root image path %s", rootPath)
-		lock.Lock()
-		defer lock.Unlock()
-		defer log.Infof("Disconnect unlock root image path %s", rootPath)
-		if !d.putdownLVMs() {
-			return fmt.Errorf("failed putdown lvm devices %s", d.nbdDev)
-		}
-		return d.disconnect()
-	} else {
+	rootPath := d.rootImagePath()
+	defer d.releaseSession(rootPath)
+	if len(d.nbdDev) == 0 {
 		return nil
 	}
+	if !d.putdownLVMs() {
+		return fmt.Errorf("failed putdown lvm devices %s", d.nbdDev)
+	}
+	return d.disconnect()
 }
 
 func (d *NBDDriver) disconnect() error {
