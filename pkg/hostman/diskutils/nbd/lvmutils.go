@@ -131,7 +131,7 @@ func findVg(partDev string) (SVG, error) {
 	if err != nil {
 		return SVG{}, errors.Wrapf(err, "unable to exec command %q", command)
 	}
-	log.Debugf("command: %s\noutptu: %s", command, output)
+	log.Debugf("command: %s\noutput: %s", command, output)
 
 	outputStr := string(output)
 	r := regexp.MustCompile("WARNING: Device mismatch detected for .* which is accessing .* instead of .*.")
