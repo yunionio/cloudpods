@@ -1,6 +1,8 @@
 package llm
 
 import (
+	"strings"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
@@ -37,7 +39,6 @@ type LLMSkuCreateOptions struct {
 	LLM_TYPE     string `json:"llm_type" choices:"ollama|vllm|sglang|comfyui|hermes-agent"`
 
 	// Model source
-	LLMModelSpecId      string `help:"LLM catalog model spec id; starts InstantModel import and mounts it into this SKU" json:"llm_model_spec_id"`
 	Source              string `help:"model source: huggingface, model_scope, local_path" json:"source"`
 	HuggingfaceRepoId   string `help:"HuggingFace repo ID" json:"huggingface_repo_id"`
 	HuggingfaceFilename string `help:"HuggingFace filename" json:"huggingface_filename"`
@@ -46,6 +47,14 @@ type LLMSkuCreateOptions struct {
 	// Model metadata
 	Categories     string `help:"model categories, comma-separated: llm,embedding,image" json:"-"`
 	BackendVersion string `help:"inference backend version" json:"backend_version"`
+
+	// ModelSpec import params. When set, SKU creation starts InstantModel import.
+	ModelName     string `help:"model name to import, e.g. Qwen/Qwen3-Embedding-0.6B" json:"-"`
+	ModelTag      string `help:"model tag or revision, e.g. main" json:"-"`
+	ModelLLMType  string `help:"InstantModel llm type; defaults to llm_type" choices:"ollama|vllm|comfyui|sglang" json:"-"`
+	ModelSource   string `help:"model source: huggingface or ollama" json:"-"`
+	ModelRepoId   string `help:"HuggingFace repo id, e.g. Qwen/Qwen3-Embedding-0.6B" json:"-"`
+	ModelRevision string `help:"HuggingFace revision, e.g. main" json:"-"`
 
 	PreferredModel string   `help:"preferred model (vllm/sglang), sets llm_spec.<type>.preferred_model" json:"-"`
 	VllmArg        []string `help:"vLLM args in format key=value; use key= for flags without values" json:"-"`
@@ -68,6 +77,23 @@ func (o *LLMSkuCreateOptions) Params() (jsonutils.JSONObject, error) {
 		return nil, err
 	}
 	fetchMountedModels(o.MountedModels, dict)
+	if o.ModelName != "" {
+		modelSpec, err := o.buildModelSpec()
+		if err != nil {
+			return nil, err
+		}
+		dict.Set("model_spec", jsonutils.Marshal(modelSpec))
+	}
+	if o.Categories != "" {
+		cats := jsonutils.NewArray()
+		for _, c := range strings.Split(o.Categories, ",") {
+			c = strings.TrimSpace(c)
+			if c != "" {
+				cats.Add(jsonutils.NewString(c))
+			}
+		}
+		dict.Set("categories", cats)
+	}
 	switch o.LLM_TYPE {
 	case string(api.LLM_CONTAINER_VLLM):
 		vllmSpec, err := newVLLMSpecFromArgs(o.PreferredModel, o.VllmArg)
@@ -102,6 +128,33 @@ func (o *LLMSkuCreateOptions) Params() (jsonutils.JSONObject, error) {
 		}
 	}
 	return dict, nil
+}
+
+func (o *LLMSkuCreateOptions) buildModelSpec() (*api.InstantModelImportInput, error) {
+	if o.ModelTag == "" {
+		return nil, errors.Error("--model-tag is required for model spec")
+	}
+	llmType := o.ModelLLMType
+	if llmType == "" {
+		llmType = o.LLM_TYPE
+	}
+	if llmType == "" {
+		return nil, errors.Error("--model-llm-type or --llm-type is required when using --model-name")
+	}
+
+	input := &api.InstantModelImportInput{
+		ModelName: o.ModelName,
+		ModelTag:  o.ModelTag,
+		LlmType:   api.LLMContainerType(llmType),
+		RepoId:    o.ModelRepoId,
+		Revision:  o.ModelRevision,
+	}
+	if o.ModelSource != "" {
+		input.Source = o.ModelSource
+	} else if o.ModelRepoId != "" {
+		input.Source = api.InstantModelSourceHuggingFace
+	}
+	return input, nil
 }
 
 type LLMSkuDeleteOptions struct {

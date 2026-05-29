@@ -58,7 +58,6 @@ type SLLMSku struct {
 	LLMSpec    *api.LLMSpec `json:"llm_spec" length:"long" list:"user" create:"optional" update:"user"`
 
 	// Model source
-	LLMModelSpecId      string `width:"256" charset:"utf8" nullable:"true" list:"user" create:"optional" update:"user"`
 	Source              string `width:"32" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
 	HuggingfaceRepoId   string `width:"256" charset:"utf8" nullable:"true" list:"user" create:"optional" update:"user"`
 	HuggingfaceFilename string `width:"256" charset:"utf8" nullable:"true" list:"user" create:"optional" update:"user"`
@@ -142,7 +141,6 @@ func (manager *SLLMSkuManager) FetchCustomizeColumns(
 		res[i].SharableVirtualResourceDetails = virows[i]
 		res[i].LLMType = sku.LLMType
 		res[i].LLMSpec = sku.LLMSpec
-		res[i].LLMModelSpecId = sku.LLMModelSpecId
 		res[i].Source = sku.Source
 		res[i].HuggingfaceRepoId = sku.HuggingfaceRepoId
 		res[i].HuggingfaceFilename = sku.HuggingfaceFilename
@@ -240,10 +238,11 @@ func (man *SLLMSkuManager) ValidateCreateData(ctx context.Context, userCred mccl
 	if err != nil {
 		return input, errors.Wrap(err, "validate create input")
 	}
-	if _, err := resolveLLMSkuCatalogImport(input); err != nil {
+	importInput, err := resolveLLMSkuImport(input)
+	if err != nil {
 		return input, err
 	}
-	if input.LLMModelSpecId != "" {
+	if importInput != nil {
 		input.Status = api.LLM_DEPLOYMENT_STATUS_IMPORTING_MODEL
 	} else {
 		input.Status = api.STATUS_READY
@@ -254,7 +253,7 @@ func (man *SLLMSkuManager) ValidateCreateData(ctx context.Context, userCred mccl
 func (sku *SLLMSku) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	sku.SSharableVirtualResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
 	input := api.LLMSkuCreateInput{}
-	if data == nil || data.Unmarshal(&input) != nil || input.LLMModelSpecId == "" {
+	if data == nil || data.Unmarshal(&input) != nil || input.ModelSpec == nil {
 		return
 	}
 	if err := sku.StartCreateTask(ctx, userCred, data); err != nil {
@@ -274,11 +273,15 @@ func (sku *SLLMSku) StartCreateTask(ctx context.Context, userCred mcclient.Token
 		if err := params.Unmarshal(&createdInput); err != nil {
 			return errors.Wrap(err, "unmarshal LLMSkuCreateInput")
 		}
-		derived, err := resolveLLMSkuCatalogImport(&createdInput)
+		derived, err := resolveLLMSkuImport(&createdInput)
 		if err != nil {
-			return errors.Wrap(err, "resolve catalog import")
+			return errors.Wrap(err, "resolve sku import")
 		}
-		params.Set("import_input", jsonutils.Marshal(derived))
+		if derived == nil {
+			return errors.Wrap(httperrors.ErrInputParameter, "missing model import input")
+		}
+		importInput = *derived
+		params.Set("import_input", jsonutils.Marshal(importInput))
 	}
 	task, err := taskman.TaskManager.NewTask(ctx, "LLMSkuCreateTask", sku, userCred, params, "", "", nil)
 	if err != nil {
@@ -303,6 +306,16 @@ func (sku *SLLMSku) GetMountedModels() []string {
 
 func (sku *SLLMSku) GetLLMContainerDriver() ILLMContainerDriver {
 	return GetLLMContainerDriver(api.LLMContainerType(sku.LLMType))
+}
+
+func ValidateLLMSkuReadyForUse(sku *SLLMSku) error {
+	if sku == nil {
+		return errors.Wrap(httperrors.ErrInputParameter, "empty llm_sku")
+	}
+	if sku.Status != api.STATUS_READY {
+		return errors.Wrapf(httperrors.ErrInvalidStatus, "llm_sku %s status is %s", sku.Name, sku.Status)
+	}
+	return nil
 }
 
 func (sku *SLLMSku) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.LLMSkuUpdateInput) (api.LLMSkuUpdateInput, error) {

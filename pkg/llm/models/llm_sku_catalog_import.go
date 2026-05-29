@@ -12,92 +12,67 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
-func resolveLLMSkuCatalogImport(input *api.LLMSkuCreateInput) (*api.InstantModelImportInput, error) {
-	if input == nil || strings.TrimSpace(input.LLMModelSpecId) == "" {
+func resolveLLMSkuImport(input *api.LLMSkuCreateInput) (*api.InstantModelImportInput, error) {
+	if input == nil || input.ModelSpec == nil {
 		return nil, nil
 	}
-	spec, setName, ok := GetLLMModelSetManager().GetSpec(input.LLMModelSpecId)
-	if !ok {
-		return nil, errors.Wrapf(httperrors.ErrResourceNotFound, "llm_model_spec %s not found", input.LLMModelSpecId)
-	}
-	set, ok := GetLLMModelSetManager().GetSet(setName)
-	if !ok {
-		return nil, errors.Wrapf(httperrors.ErrResourceNotFound, "llm_model_set %s not found", setName)
-	}
-	return buildLLMSkuCatalogImport(input, set, spec)
+	return buildLLMSkuImportFromModelSpec(input)
 }
 
-func catalogBackendToLLMType(backend string) (string, bool) {
-	switch strings.ToLower(strings.TrimSpace(backend)) {
-	case "":
-		return "", true
-	case "vllm":
-		return string(api.LLM_CONTAINER_VLLM), true
-	case "sglang":
-		return string(api.LLM_CONTAINER_SGLANG), true
-	case "ollama":
-		return string(api.LLM_CONTAINER_OLLAMA), true
-	default:
-		return "", false
-	}
-}
-
-func buildLLMSkuCatalogImport(input *api.LLMSkuCreateInput, set *api.LLMModelSet, spec *api.LLMModelSpec) (*api.InstantModelImportInput, error) {
+func buildLLMSkuImportFromModelSpec(input *api.LLMSkuCreateInput) (*api.InstantModelImportInput, error) {
 	if input == nil {
 		return nil, errors.Wrap(httperrors.ErrInputParameter, "empty sku input")
 	}
-	if spec == nil {
-		return nil, errors.Wrap(httperrors.ErrInputParameter, "empty catalog spec")
+	if input.ModelSpec == nil {
+		return nil, nil
 	}
-	if expectedType, ok := catalogBackendToLLMType(spec.Backend); !ok {
-		return nil, errors.Wrapf(httperrors.ErrInputParameter, "unsupported catalog backend %q", spec.Backend)
-	} else if expectedType != "" && input.LLMType != "" && expectedType != input.LLMType {
-		return nil, errors.Wrapf(httperrors.ErrInputParameter, "catalog backend %q requires llm_type %q", spec.Backend, expectedType)
+	importInput := *input.ModelSpec
+	if strings.TrimSpace(importInput.ModelName) == "" {
+		return nil, errors.Wrap(httperrors.ErrMissingParameter, "model_spec.model_name is required")
+	}
+	if strings.TrimSpace(importInput.ModelTag) == "" {
+		return nil, errors.Wrap(httperrors.ErrMissingParameter, "model_spec.model_tag is required")
+	}
+	if importInput.LlmType == "" {
+		importInput.LlmType = api.LLMContainerType(input.LLMType)
+	}
+	if input.LLMType != "" && importInput.LlmType != "" && string(importInput.LlmType) != input.LLMType {
+		return nil, errors.Wrapf(httperrors.ErrInputParameter, "model_spec.llm_type %q does not match llm_type %q", importInput.LlmType, input.LLMType)
 	}
 
-	importInput := &api.InstantModelImportInput{
-		LlmType: api.LLMContainerType(input.LLMType),
+	source := strings.ToLower(strings.TrimSpace(importInput.Source))
+	repoID := strings.TrimSpace(importInput.RepoId)
+	if source == "" {
+		if repoID == "" {
+			repoID = strings.TrimSpace(importInput.ModelName)
+		}
+		source = normalizeInstantModelSource(source, repoID)
 	}
-	source := strings.ToLower(strings.TrimSpace(spec.Source))
 	switch source {
-	case api.LLM_MODEL_SOURCE_HUGGINGFACE:
-		if strings.TrimSpace(spec.HuggingfaceRepoId) == "" {
-			return nil, errors.Wrap(httperrors.ErrMissingParameter, "huggingface_repo_id is required")
+	case api.InstantModelSourceHuggingFace:
+		if repoID == "" {
+			repoID = strings.TrimSpace(importInput.ModelName)
 		}
-		revision := defaultHuggingFaceRevision
-		importInput.ModelName = spec.HuggingfaceRepoId
-		importInput.ModelTag = revision
+		revision := strings.TrimSpace(importInput.Revision)
+		if revision == "" {
+			revision = strings.TrimSpace(importInput.ModelTag)
+		}
 		importInput.Source = api.InstantModelSourceHuggingFace
-		importInput.RepoId = spec.HuggingfaceRepoId
+		importInput.RepoId = repoID
 		importInput.Revision = revision
+		importInput.ModelName = repoID
+		importInput.ModelTag = revision
+		input.Source = api.LLM_MODEL_SOURCE_HUGGINGFACE
+		input.HuggingfaceRepoId = repoID
 	case "ollama":
-		if strings.TrimSpace(spec.OllamaModel) == "" {
-			return nil, errors.Wrap(httperrors.ErrMissingParameter, "ollama_model is required")
-		}
-		if strings.TrimSpace(spec.OllamaTag) == "" {
-			return nil, errors.Wrap(httperrors.ErrMissingParameter, "ollama_tag is required")
-		}
-		importInput.ModelName = spec.OllamaModel
-		importInput.ModelTag = spec.OllamaTag
 		importInput.Source = source
+		input.Source = source
 	default:
-		return nil, errors.Wrapf(httperrors.ErrInputParameter, "unsupported catalog source %q", spec.Source)
+		return nil, errors.Wrapf(httperrors.ErrInputParameter, "unsupported model_spec source %q", importInput.Source)
 	}
 
-	input.LLMModelSpecId = spec.SpecId
-	input.Source = source
-	input.HuggingfaceRepoId = spec.HuggingfaceRepoId
-	input.HuggingfaceFilename = spec.HuggingfaceFilename
-	input.ModelScopeModelId = spec.ModelScopeModelId
-	input.ModelScopeFilePath = spec.ModelScopeFilePath
-	input.LocalPath = spec.LocalPath
-	input.BackendVersion = spec.BackendVersion
-	input.BackendParameters = append([]string{}, spec.BackendParameters...)
-	if set != nil {
-		input.Categories = append([]string{}, set.Categories...)
-	}
-
-	return importInput, nil
+	input.ModelSpec = &importInput
+	return &importInput, nil
 }
 
 func appendMountedModelIds(existing []string, ids ...string) []string {

@@ -439,7 +439,7 @@ func (s *sglang) DownloadModel(ctx context.Context, userCred mcclient.TokenCrede
 	}
 
 	rev := resolveHfdRevision(modelTag)
-	apiURL := fmt.Sprintf("%s/api/models/%s?revision=%s", api.LLM_SGLANG_HF_ENDPOINT, escapeURLPathPreserveSlash(modelName), url.QueryEscape(rev))
+	apiURL := buildHuggingFaceModelAPIURL(api.LLM_SGLANG_HF_ENDPOINT, modelName, rev)
 	log.Infof("Downloading HF model via HF Mirror API for SGLang: %s", func() string {
 		b, _ := json.Marshal(map[string]string{
 			"model":    modelName,
@@ -461,23 +461,12 @@ func (s *sglang) DownloadModel(ctx context.Context, userCred mcclient.TokenCrede
 	if len(meta.Siblings) == 0 {
 		return "", nil, errors.Errorf("hf model metadata has no siblings: %s", apiURL)
 	}
-	totalSize := int64(0)
-	completedSize := int64(0)
-	for _, sibling := range meta.Siblings {
-		if sibling.Size <= 0 {
-			continue
-		}
-		rf := strings.TrimSpace(sibling.RFilename)
-		if rf == "" {
-			continue
-		}
-		totalSize += sibling.Size
-		dst := filepath.Join(localDir, filepath.FromSlash(rf))
-		if isCompleteFile(dst, sibling.Size) {
-			completedSize += sibling.Size
-		}
+	totalSize, completedSize, totalFiles, completedFiles := hfSiblingDownloadProgress(localDir, meta.Siblings)
+	if totalSize > 0 {
+		reportInstantModelDownloadProgress(progress, completedSize, totalSize)
+	} else {
+		reportInstantModelStepProgress(progress, completedFiles, totalFiles)
 	}
-	reportInstantModelDownloadProgress(progress, completedSize, totalSize)
 	if isHuggingFaceImportComplete(localDir, meta.Siblings) {
 		targetDir := path.Join(api.LLM_SGLANG_MODELS_PATH, modelBase)
 		log.Infof("Model %s already exists in import dir %s", modelName, localDir)
@@ -498,12 +487,20 @@ func (s *sglang) DownloadModel(ctx context.Context, userCred mcclient.TokenCrede
 		}
 		fileURL := fmt.Sprintf("%s/%s/resolve/%s/%s", api.LLM_SGLANG_HF_ENDPOINT, escapeURLPathPreserveSlash(modelName), url.PathEscape(rev), escapeURLPathPreserveSlash(rf))
 		fileCompleted := completedSize
-		if err := llm.HttpDownloadFileWithProgress(ctx, fileURL, dst, instantModelFileDownloadProgress(progress, fileCompleted, totalSize, sibling.Size)); err != nil {
+		fileCompletedSteps := completedFiles
+		downloadProgress := instantModelFileDownloadProgress(progress, fileCompleted, totalSize, sibling.Size)
+		if totalSize <= 0 {
+			downloadProgress = instantModelStepDownloadProgress(progress, fileCompletedSteps, totalFiles)
+		}
+		if err := llm.HttpDownloadFileWithProgress(ctx, fileURL, dst, downloadProgress); err != nil {
 			return "", nil, errors.Wrapf(err, "download file failed: %s -> %s", fileURL, dst)
 		}
-		if sibling.Size > 0 {
+		if totalSize > 0 && sibling.Size > 0 {
 			completedSize += sibling.Size
 			reportInstantModelDownloadProgress(progress, completedSize, totalSize)
+		} else if totalSize <= 0 {
+			completedFiles++
+			reportInstantModelStepProgress(progress, completedFiles, totalFiles)
 		}
 	}
 
