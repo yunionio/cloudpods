@@ -124,6 +124,10 @@ type LLMDeploymentCreateInput struct {
 	DistributedInference *bool `json:"distributed_inference"`
 	// Manual GPU selection (JSON)
 	GpuSelector *GpuSelector `json:"gpu_selector"`
+	// Explicit GPU memory utilization fraction for inference backend.
+	GpuMemoryUtilization *float64 `json:"gpu_memory_utilization,omitempty"`
+	// Calculate GPU memory utilization from mounted model VRAM and GPU memory.
+	AutoGpuMemoryUtilization *bool `json:"auto_gpu_memory_utilization,omitempty"`
 	// Host label selector for scheduling (JSON)
 	WorkerSelector map[string]string `json:"worker_selector"`
 	// Restart instance on error
@@ -140,16 +144,18 @@ type LLMDeploymentCreateInput struct {
 type LLMDeploymentUpdateInput struct {
 	apis.VirtualResourceBaseUpdateInput
 
-	Replicas             *int                       `json:"replicas,omitempty"`
-	PlacementStrategy    *string                    `json:"placement_strategy,omitempty"`
-	CpuOffloading        *bool                      `json:"cpu_offloading,omitempty"`
-	DistributedInference *bool                      `json:"distributed_inference,omitempty"`
-	GpuSelector          *GpuSelector               `json:"gpu_selector,omitempty"`
-	WorkerSelector       *map[string]string         `json:"worker_selector,omitempty"`
-	RestartOnError       *bool                      `json:"restart_on_error,omitempty"`
-	ExtendedKVCache      *ExtendedKVCacheConfig     `json:"extended_kv_cache,omitempty"`
-	SpeculativeConfig    *SpeculativeDecodingConfig `json:"speculative_config,omitempty"`
-	AccessPolicy         *string                    `json:"access_policy,omitempty"`
+	Replicas                 *int                       `json:"replicas,omitempty"`
+	PlacementStrategy        *string                    `json:"placement_strategy,omitempty"`
+	CpuOffloading            *bool                      `json:"cpu_offloading,omitempty"`
+	DistributedInference     *bool                      `json:"distributed_inference,omitempty"`
+	GpuSelector              *GpuSelector               `json:"gpu_selector,omitempty"`
+	GpuMemoryUtilization     *float64                   `json:"gpu_memory_utilization,omitempty"`
+	AutoGpuMemoryUtilization *bool                      `json:"auto_gpu_memory_utilization,omitempty"`
+	WorkerSelector           *map[string]string         `json:"worker_selector,omitempty"`
+	RestartOnError           *bool                      `json:"restart_on_error,omitempty"`
+	ExtendedKVCache          *ExtendedKVCacheConfig     `json:"extended_kv_cache,omitempty"`
+	SpeculativeConfig        *SpeculativeDecodingConfig `json:"speculative_config,omitempty"`
+	AccessPolicy             *string                    `json:"access_policy,omitempty"`
 }
 
 // Model source types
@@ -179,22 +185,24 @@ type LLMDeploymentListInput struct {
 type LLMDeploymentDetails struct {
 	apis.VirtualResourceDetails
 
-	Source               string `json:"source"`
-	HuggingfaceRepoId    string `json:"huggingface_repo_id"`
-	HuggingfaceFilename  string `json:"huggingface_filename"`
-	ModelScopeModelId    string `json:"model_scope_model_id"`
-	ModelScopeFilePath   string `json:"model_scope_file_path"`
-	LocalPath            string `json:"local_path"`
-	Categories           string `json:"categories"`
-	Backend              string `json:"backend"`
-	BackendVersion       string `json:"backend_version"`
-	Replicas             int    `json:"replicas"`
-	ReadyReplicas        int    `json:"ready_replicas"`
-	PlacementStrategy    string `json:"placement_strategy"`
-	CpuOffloading        *bool  `json:"cpu_offloading,omitempty"`
-	DistributedInference *bool  `json:"distributed_inference,omitempty"`
-	RestartOnError       *bool  `json:"restart_on_error,omitempty"`
-	AccessPolicy         string `json:"access_policy"`
+	Source                   string   `json:"source"`
+	HuggingfaceRepoId        string   `json:"huggingface_repo_id"`
+	HuggingfaceFilename      string   `json:"huggingface_filename"`
+	ModelScopeModelId        string   `json:"model_scope_model_id"`
+	ModelScopeFilePath       string   `json:"model_scope_file_path"`
+	LocalPath                string   `json:"local_path"`
+	Categories               string   `json:"categories"`
+	Backend                  string   `json:"backend"`
+	BackendVersion           string   `json:"backend_version"`
+	Replicas                 int      `json:"replicas"`
+	ReadyReplicas            int      `json:"ready_replicas"`
+	PlacementStrategy        string   `json:"placement_strategy"`
+	CpuOffloading            *bool    `json:"cpu_offloading,omitempty"`
+	DistributedInference     *bool    `json:"distributed_inference,omitempty"`
+	GpuMemoryUtilization     *float64 `json:"gpu_memory_utilization,omitempty"`
+	AutoGpuMemoryUtilization *bool    `json:"auto_gpu_memory_utilization,omitempty"`
+	RestartOnError           *bool    `json:"restart_on_error,omitempty"`
+	AccessPolicy             string   `json:"access_policy"`
 
 	// Computed: count of running SLLM instances
 	RunningInstances int `json:"running_instances"`

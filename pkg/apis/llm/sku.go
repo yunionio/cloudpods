@@ -126,7 +126,6 @@ type LLMSkuDetails struct {
 	LLMSpec *LLMSpec `json:"llm_spec,omitempty"`
 
 	// Model source
-	LLMModelSpecId      string `json:"llm_model_spec_id"`
 	Source              string `json:"source"`
 	HuggingfaceRepoId   string `json:"huggingface_repo_id"`
 	HuggingfaceFilename string `json:"huggingface_filename"`
@@ -201,8 +200,10 @@ type LLMSkuCreateInput struct {
 
 	LLMImageId string `json:"llm_image_id"`
 	LLMType    string `json:"llm_type"`
-	// LLMModelSpecId references one deployable spec from the in-memory model catalog.
-	LLMModelSpecId string `json:"llm_model_spec_id"`
+	// ModelSpec is the normalized model import input used by SKU import flows.
+	// Catalog/model-set imports should expand the selected model spec into this
+	// shape before creating the SKU.
+	ModelSpec *InstantModelImportInput `json:"model_spec,omitempty"`
 
 	// LLMSpec:
 	// - ollama/vllm: backend builds llm_spec from llm_image_id + mounted_models; for vllm preferred model should be set in llm_spec.vllm.preferred_model.
@@ -235,7 +236,6 @@ type LLMSkuUpdateInput struct {
 	LLMSpec *LLMSpec `json:"llm_spec,omitempty"`
 
 	// Model source
-	LLMModelSpecId      *string `json:"llm_model_spec_id,omitempty"`
 	Source              *string `json:"source,omitempty"`
 	HuggingfaceRepoId   *string `json:"huggingface_repo_id,omitempty"`
 	HuggingfaceFilename *string `json:"huggingface_filename,omitempty"`

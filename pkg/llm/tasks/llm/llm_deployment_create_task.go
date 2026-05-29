@@ -244,6 +244,15 @@ func (task *LLMDeploymentCreateTask) createSkuAndReconcile(ctx context.Context, 
 		task.taskFailedCreatingSku(ctx, model, errors.Errorf("create SKU response missing id: %s", resp.String()))
 		return
 	}
+	skuObj, err := models.GetLLMSkuManager().FetchById(skuId)
+	if err != nil {
+		task.taskFailedCreatingSku(ctx, model, errors.Wrapf(err, "fetch created SKU %s", skuId))
+		return
+	}
+	if err := models.ValidateLLMSkuReadyForUse(skuObj.(*models.SLLMSku)); err != nil {
+		task.taskFailedCreatingSku(ctx, model, err)
+		return
+	}
 
 	if _, err := db.Update(model, func() error {
 		model.LLMSkuId = skuId
@@ -336,6 +345,11 @@ func scaleUp(ctx context.Context, userCred mcclient.TokenCredential, deployment 
 	createCtx := context.WithValue(ctx, appctx.APP_CONTEXT_KEY_AUTH_TOKEN, userCred)
 	handler := db.NewModelHandler(models.GetLLMManager())
 
+	llmSpec, err := models.BuildDeploymentResolvedGpuMemoryLLMSpec(ctx, userCred, deployment, llmSku)
+	if err != nil {
+		return fmt.Errorf("resolve GPU memory utilization: %w", err)
+	}
+
 	var lastErr error
 	created := 0
 	for i := 0; i < count; i++ {
@@ -350,6 +364,7 @@ func scaleUp(ctx context.Context, userCred mcclient.TokenCredential, deployment 
 			LLMSkuId:        deployment.LLMSkuId,
 			LLMImageId:      imageId,
 			LLMDeploymentId: deployment.Id,
+			LLMSpec:         llmSpec,
 		}
 
 		llmParams := jsonutils.Marshal(llmInput).(*jsonutils.JSONDict)

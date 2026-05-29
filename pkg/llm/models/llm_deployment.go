@@ -71,6 +71,12 @@ type SLLMDeployment struct {
 	// GPU selector, JSON
 	GpuSelector string `charset:"utf8" length:"long" nullable:"true" list:"user" create:"optional" update:"user"`
 
+	// GPU memory utilization fraction passed to inference backend runtime args.
+	GpuMemoryUtilization *float64 `nullable:"true" list:"user" create:"optional" update:"user"`
+
+	// Auto-calculate GPU memory utilization from mounted model VRAM and GPU hardware memory.
+	AutoGpuMemoryUtilization *bool `nullable:"true" list:"user" create:"optional" update:"user"`
+
 	// Host label selector, JSON
 	WorkerSelector string `charset:"utf8" length:"long" nullable:"true" list:"user" create:"optional" update:"user"`
 
@@ -121,7 +127,14 @@ func (man *SLLMDeploymentManager) ValidateCreateData(
 		if err != nil {
 			return input, errors.Wrapf(err, "fetch LLMSku %s", input.LLMSkuId)
 		}
-		input.LLMSkuId = skuObj.GetId()
+		lSku := skuObj.(*SLLMSku)
+		if err := ValidateLLMSkuReadyForUse(lSku); err != nil {
+			return input, err
+		}
+		if err := validateDeploymentGpuMemoryUtilization(input.GpuMemoryUtilization, input.AutoGpuMemoryUtilization, lSku.LLMType); err != nil {
+			return input, err
+		}
+		input.LLMSkuId = lSku.GetId()
 		// ModelSpec is meaningless here
 		input.ModelSpec = nil
 
@@ -145,6 +158,9 @@ func (man *SLLMDeploymentManager) ValidateCreateData(
 			if input.ModelSpec.LlmType == "" {
 				input.ModelSpec.LlmType = api.LLMContainerType(input.SkuSpec.LLMType)
 			}
+		}
+		if err := validateDeploymentGpuMemoryUtilization(input.GpuMemoryUtilization, input.AutoGpuMemoryUtilization, input.SkuSpec.LLMType); err != nil {
+			return input, err
 		}
 	}
 
@@ -207,6 +223,20 @@ func (model *SLLMDeployment) ValidateUpdateData(
 		return input, errors.Wrap(httperrors.ErrInputParameter, "replicas must be >= 0")
 	}
 
+	if input.GpuMemoryUtilization != nil || input.AutoGpuMemoryUtilization != nil {
+		llmType := ""
+		if model.LLMSkuId != "" {
+			skuObj, err := GetLLMSkuManager().FetchById(model.LLMSkuId)
+			if err != nil {
+				return input, errors.Wrapf(err, "fetch LLMSku %s", model.LLMSkuId)
+			}
+			llmType = skuObj.(*SLLMSku).LLMType
+		}
+		if err := validateDeploymentGpuMemoryUtilization(input.GpuMemoryUtilization, input.AutoGpuMemoryUtilization, llmType); err != nil {
+			return input, err
+		}
+	}
+
 	return input, nil
 }
 
@@ -262,6 +292,8 @@ func (man *SLLMDeploymentManager) FetchCustomizeColumns(
 		res[i].PlacementStrategy = models[i].PlacementStrategy
 		res[i].CpuOffloading = models[i].CpuOffloading
 		res[i].DistributedInference = models[i].DistributedInference
+		res[i].GpuMemoryUtilization = models[i].GpuMemoryUtilization
+		res[i].AutoGpuMemoryUtilization = models[i].AutoGpuMemoryUtilization
 		res[i].RestartOnError = models[i].RestartOnError
 		res[i].AccessPolicy = models[i].AccessPolicy
 	}
