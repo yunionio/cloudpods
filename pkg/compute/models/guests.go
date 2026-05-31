@@ -969,6 +969,25 @@ func (manager *SGuestManager) InitializeData() error {
 	if err := manager.initAdminSecgroupId(); err != nil {
 		return errors.Wrap(err, "initAdminSecgroupId")
 	}
+	if err := manager.initCloudpodsGuest(); err != nil {
+		return errors.Wrapf(err, "initCloudpodsGuest")
+	}
+	return nil
+}
+
+func (manager *SGuestManager) initCloudpodsGuest() error {
+	q := manager.Query().Equals("hypervisor", "cloudpods")
+	guests := []SGuest{}
+	err := db.FetchModelObjects(manager, q, &guests)
+	if err != nil {
+		return errors.Wrapf(err, "db.FetchModelObjects")
+	}
+	for i := range guests {
+		db.Update(&guests[i], func() error {
+			guests[i].Hypervisor = api.HYPERVISOR_DEFAULT
+			return nil
+		})
+	}
 	return nil
 }
 
