@@ -7953,6 +7953,22 @@ func (manager *SHostManager) initOvnMappedIp6Addr() error {
 	return nil
 }
 
+func (manager *SHostManager) initCloudpodsHost() error {
+	q := manager.Query().Equals("host_type", api.HOST_TYPE_CLOUDPODS)
+	hosts := []SHost{}
+	err := db.FetchModelObjects(manager, q, &hosts)
+	if err != nil {
+		return errors.Wrapf(err, "db.FetchModelObjects")
+	}
+	for i := range hosts {
+		db.Update(&hosts[i], func() error {
+			hosts[i].HostType = api.HOST_TYPE_HYPERVISOR
+			return nil
+		})
+	}
+	return nil
+}
+
 func (manager *SHostManager) InitializeData() error {
 	var err error
 	err = manager.initHostname()
@@ -7962,6 +7978,10 @@ func (manager *SHostManager) InitializeData() error {
 	err = manager.initOvnMappedIp6Addr()
 	if err != nil {
 		return errors.Wrapf(err, "initOvnMappedIp6Addr")
+	}
+	err = manager.initCloudpodsHost()
+	if err != nil {
+		return errors.Wrapf(err, "initCloudpodsHost")
 	}
 	return nil
 }
