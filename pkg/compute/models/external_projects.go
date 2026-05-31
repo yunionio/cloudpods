@@ -76,6 +76,9 @@ type SExternalProject struct {
 	// 优先级，同一个本地项目映射多个云上项目，优先级高的优先选择
 	// 数值越高，优先级越大
 	Priority int `default:"0" list:"user" update:"user" list:"user"`
+
+	// swagger: ignore
+	CloudaccountId string `width:"36" charset:"ascii" nullable:"true"`
 }
 
 func (manager *SExternalProjectManager) ValidateCreateData(
@@ -741,6 +744,35 @@ func (manager *SExternalProjectManager) ListItemExportKeys(ctx context.Context, 
 }
 
 func (manager *SExternalProjectManager) InitializeData() error {
+	q := manager.Query().IsNullOrEmpty("manager_id")
+	projects := []SExternalProject{}
+	err := db.FetchModelObjects(manager, q, &projects)
+	if err != nil {
+		return errors.Wrapf(err, "db.FetchModelObjects")
+	}
+	for i := range projects {
+		if len(projects[i].CloudaccountId) > 0 {
+			accountObj, err := CloudaccountManager.FetchById(projects[i].CloudaccountId)
+			if err != nil {
+				continue
+			}
+			account := accountObj.(*SCloudaccount)
+			providers := account.GetCloudproviders()
+			if len(providers) == 1 {
+				_, err = db.Update(&projects[i], func() error {
+					projects[i].ManagerId = providers[0].Id
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return manager.removeOrphanedProjects()
+}
+
+func (manager *SExternalProjectManager) removeOrphanedProjects() error {
 	sq := CloudproviderManager.Query("id").Distinct().SubQuery()
 	q := manager.Query().NotIn("manager_id", sq)
 	projects := []SExternalProject{}
@@ -749,7 +781,7 @@ func (manager *SExternalProjectManager) InitializeData() error {
 		return errors.Wrapf(err, "db.FetchModelObjects")
 	}
 	for i := range projects {
-		err = projects[i].Delete(ctxutil.CtxWithTime(), nil)
+		err = projects[i].Delete(ctxutil.CtxWithTime(), auth.AdminCredential())
 		if err != nil {
 			return errors.Wrapf(err, "Delete")
 		}
