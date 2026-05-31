@@ -42,6 +42,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/identity"
+	ctxutil "yunion.io/x/onecloud/pkg/util/ctx"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
@@ -767,6 +768,23 @@ func (manager *SExternalProjectManager) InitializeData() error {
 					return err
 				}
 			}
+		}
+	}
+	return manager.removeOrphanedProjects()
+}
+
+func (manager *SExternalProjectManager) removeOrphanedProjects() error {
+	sq := CloudproviderManager.Query("id").Distinct().SubQuery()
+	q := manager.Query().NotIn("manager_id", sq)
+	projects := []SExternalProject{}
+	err := db.FetchModelObjects(manager, q, &projects)
+	if err != nil {
+		return errors.Wrapf(err, "db.FetchModelObjects")
+	}
+	for i := range projects {
+		err = projects[i].Delete(ctxutil.CtxWithTime(), auth.AdminCredential())
+		if err != nil {
+			return errors.Wrapf(err, "Delete")
 		}
 	}
 	return nil
