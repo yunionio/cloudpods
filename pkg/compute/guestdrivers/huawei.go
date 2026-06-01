@@ -161,3 +161,7 @@ func (self *SHuaweiGuestDriver) IsNeedInjectPasswordByCloudInit() bool {
 func (self *SHuaweiGuestDriver) IsSupportSetAutoRenew() bool {
 	return false
 }
+
+func (self *SHuaweiGuestDriver) IsWindowsUserDataTypeNeedEncode() bool {
+	return true
+}
