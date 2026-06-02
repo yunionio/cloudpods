@@ -650,7 +650,7 @@ func (m *SGuestManager) LoadServer(sid string) {
 		log.Errorf("Get server %s desc: %v", sid, err)
 		return
 	}
-	guest := NewGuestRuntimeManager().NewRuntimeInstance(sid, m, desc.Hypervisor)
+	guest := NewGuestRuntimeManager().NewRuntimeInstance(sid, m, desc.GetHypervisor())
 	if err := guest.LoadDesc(); err != nil {
 		log.Errorf("On load server error: %s", err)
 		return
@@ -975,7 +975,7 @@ func (m *SGuestManager) GuestCreate(ctx context.Context, params interface{}) (js
 			if err != nil {
 				return httperrors.NewBadRequestError("Guest desc unmarshal failed %s", err)
 			}
-			hypervisor = descInfo.Hypervisor
+			hypervisor = descInfo.GetHypervisor()
 		}
 		//guest = NewKVMGuestInstance(deployParams.Sid, m)
 		factory := NewGuestRuntimeManager()

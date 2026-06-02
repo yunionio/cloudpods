@@ -711,7 +711,7 @@ func newGuestMonitor(instance guestman.GuestRuntimeInstance, name, id string, pr
 		instance: instance,
 		sysFs:    sysfs.NewRealSysFs(),
 
-		Hypervisor: instance.GetDesc().Hypervisor,
+		Hypervisor: instance.GetDesc().GetHypervisor(),
 	}, nil
 }
 
@@ -728,7 +728,7 @@ func (m *SGuestMonitor) UpdateByInstance(instance guestman.GuestRuntimeInstance)
 	m.TenantId = instance.GetDesc().TenantId
 	m.DomainId = instance.GetDesc().DomainId
 	m.ProjectDomain = instance.GetDesc().ProjectDomain
-	m.Hypervisor = instance.GetDesc().Hypervisor
+	m.Hypervisor = instance.GetDesc().GetHypervisor()
 }
 
 func (m *SGuestMonitor) SetNicDown(mac string) {
