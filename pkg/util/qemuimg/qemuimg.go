@@ -470,12 +470,22 @@ func convertEncrypt(srcInfo, destInfo SImageInfo, compact bool, workerOpions []s
 	return nil
 }
 
+func isValidClusterSize(size int) bool {
+	if size < 512 || size > 2*1024*1024 {
+		return false
+	}
+	return true
+}
+
 func (img *SQemuImage) doConvert(targetPath string, format qemuimgfmt.TImageFormat, compact bool, password string, encryptFormat TEncryptFormat, encryptAlg seclib2.TSymEncAlg) error {
 	if !img.IsValid() {
 		return fmt.Errorf("self is not valid")
 	}
 	destClusterSize := img.ClusterSize
 	if compact {
+		destClusterSize = DefaultQcow2ClusterSize
+	}
+	if format == qemuimgfmt.QCOW2 && !isValidClusterSize(destClusterSize) {
 		destClusterSize = DefaultQcow2ClusterSize
 	}
 	return Convert(SImageInfo{
