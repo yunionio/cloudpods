@@ -645,7 +645,7 @@ function start_swtpm() {
 // 启动kickstart的条件：1. 虚拟机处于KVM虚拟化环境；2. 存在kickstart配置且未禁用；3. kickstart未完成
 func (s *SKVMGuestInstance) shouldUseKickstart() bool {
 	// 只在KVM虚拟化环境下处理kickstart
-	if s.Desc.Hypervisor != api.HYPERVISOR_KVM {
+	if s.Desc.GetHypervisor() != api.HYPERVISOR_KVM {
 		return false
 	}
 

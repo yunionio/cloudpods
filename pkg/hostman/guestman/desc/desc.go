@@ -393,6 +393,13 @@ type SGuestControlDesc struct {
 	Hypervisor string
 }
 
+func (desc SGuestControlDesc) GetHypervisor() string {
+	if desc.Hypervisor != "" {
+		return desc.Hypervisor
+	}
+	return api.HYPERVISOR_KVM
+}
+
 type SGuestMetaDesc struct {
 	Name         string
 	Uuid         string
