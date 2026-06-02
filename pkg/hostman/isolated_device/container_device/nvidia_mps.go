@@ -192,7 +192,7 @@ func getNvidiaMPSGpusByDevPath(cudaMPSReplicas int, devPath string) ([]isolated_
 			log.Errorf("failed parse pciaddr %s", gpuPciAddr)
 			continue
 		}
-		gpuPciAddr = pciAddrSegs[1]
+		gpuPciAddr = strings.ToLower(pciAddrSegs[1])
 		if gpuPciAddr != pDev.GetOriginAddr() {
 			continue
 		}
