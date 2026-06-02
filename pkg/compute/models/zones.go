@@ -816,6 +816,22 @@ func (manager *SZoneManager) ListItemFilter(
 		q = q.In("cloudregion_id", subq.SubQuery())
 	}
 
+	if query.ReadOnly != nil {
+		sq := CloudaccountManager.Query("provider").Equals("read_only", *query.ReadOnly).SubQuery()
+		regions := CloudregionManager.Query("id")
+		if *query.ReadOnly {
+			regions = regions.In("provider", sq)
+		} else {
+			regions = regions.Filter(
+				sqlchemy.OR(
+					sqlchemy.In(regions.Field("provider"), sq),
+					sqlchemy.Equals(regions.Field("provider"), api.CLOUD_PROVIDER_ONECLOUD),
+				),
+			)
+		}
+		q = q.In("cloudregion_id", regions.SubQuery())
+	}
+
 	q, err = managedResourceFilterByRegion(ctx, q, query.RegionalFilterListInput, "", nil)
 
 	if len(query.Location) > 0 {
