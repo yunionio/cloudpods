@@ -132,6 +132,10 @@ type CloudregionListInput struct {
 	// 按虚拟机数量排序
 	// pattern:asc|desc
 	OrderByGuestCount string `json:"order_by_guest_count"`
+
+	// 过滤有只读账号的区域
+	// example: true
+	ReadOnly *bool `json:"read_only"`
 }
 
 type ZoneListInput struct {
@@ -147,6 +151,10 @@ type ZoneListInput struct {
 
 	// 过滤提供特定服务的可用区
 	Service string `json:"service"`
+
+	// 过滤有只读账号的可用区
+	// example: true
+	ReadOnly *bool `json:"read_only"`
 
 	Location []string `json:"location"`
 	Contacts []string `json:"contacts"`
