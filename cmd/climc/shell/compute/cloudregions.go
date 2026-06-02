@@ -39,6 +39,7 @@ func init() {
 		Usable    *bool  `help:"List regions where networks are usable"`
 		UsableVpc *bool  `help:"List regions where VPC are usable"`
 		Service   string `help:"List regions which service has available skus" choices:"dbinstances|servers|elasticcaches"`
+		ReadOnly  *bool  `help:"List regions with read only account"`
 
 		City string `help:"List regions in the specified city"`
 
