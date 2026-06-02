@@ -964,6 +964,20 @@ func (manager *SCloudregionManager) ListItemFilter(
 		}
 	}
 
+	if query.ReadOnly != nil {
+		sq := CloudaccountManager.Query("provider").Equals("read_only", *query.ReadOnly).SubQuery()
+		if *query.ReadOnly {
+			q = q.In("provider", sq)
+		} else {
+			q = q.Filter(
+				sqlchemy.OR(
+					sqlchemy.In(q.Field("provider"), sq),
+					sqlchemy.Equals(q.Field("provider"), api.CLOUD_PROVIDER_ONECLOUD),
+				),
+			)
+		}
+	}
+
 	cityStr := query.City
 	if cityStr == "Other" {
 		q = q.IsNullOrEmpty("city")
