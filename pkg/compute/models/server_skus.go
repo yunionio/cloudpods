@@ -92,6 +92,9 @@ type SServerSku struct {
 	CpuCoreCount int    `nullable:"false" list:"user" create:"admin_required"`
 	MemorySizeMB int    `nullable:"false" list:"user" create:"admin_required"`
 
+	// 物理服务器CPU型号
+	CpuModel string `width:"64" charset:"ascii" nullable:"true" list:"user" create:"admin_optional" update:"admin"`
+
 	OsName string `width:"32" charset:"ascii" nullable:"true" list:"user" create:"admin_optional" update:"admin" default:"Any"` // Windows|Linux|Any
 
 	SysDiskResizable tristate.TriState `default:"true" list:"user" create:"admin_optional" update:"admin"`
@@ -106,8 +109,14 @@ type SServerSku struct {
 	DataDiskTypes    string `width:"128" charset:"ascii" nullable:"true" list:"user" create:"admin_optional" update:"admin"`
 	DataDiskMaxCount int    `nullable:"true" list:"user" create:"admin_optional" update:"admin"`
 
+	// 磁盘性能数据
+	DiskPerformance string `width:"32" charset:"ascii" nullable:"true" list:"user" create:"admin_optional" update:"admin"`
+
 	NicType     string `width:"32" nullable:"true" list:"user" create:"admin_optional" update:"admin"`
 	NicMaxCount int    `default:"1" nullable:"true" list:"user" create:"admin_optional" update:"admin"`
+
+	// 内网带宽
+	NicBandwidth string `width:"32" charset:"ascii" nullable:"true" list:"user" create:"admin_optional" update:"admin"`
 
 	GpuAttachable tristate.TriState `default:"true" list:"user" create:"admin_optional" update:"admin"`
 	GpuSpec       string            `width:"128" charset:"ascii" nullable:"true" list:"user" create:"admin_optional" update:"admin"`
@@ -1279,6 +1288,15 @@ func (self *SServerSku) syncWithCloudSku(ctx context.Context, region *SCloudregi
 		self.GpuCount = sku.GpuCount
 		self.CpuCoreCount = sku.CpuCoreCount
 		self.MemorySizeMB = sku.MemorySizeMB
+		if len(sku.CpuModel) > 0 {
+			self.CpuModel = sku.CpuModel
+		}
+		if len(sku.DiskPerformance) > 0 {
+			self.DiskPerformance = sku.DiskPerformance
+		}
+		if len(sku.NicBandwidth) > 0 {
+			self.NicBandwidth = sku.NicBandwidth
+		}
 		self.Md5 = sku.Md5
 		return nil
 	})
