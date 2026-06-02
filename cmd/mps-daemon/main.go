@@ -181,7 +181,7 @@ func (d *Daemon) Start() error {
 		if len(pciAddrSegs) != 2 {
 			return fmt.Errorf("failed parse pciaddr %s", pciAddr)
 		}
-		pciAddr = pciAddrSegs[1]
+		pciAddr = strings.ToLower(pciAddrSegs[1])
 		log.Infof("start parse pciaddr %s", pciAddr)
 		if len(d.mpsConfig) > 0 {
 			replicas, ok := d.mpsConfig[pciAddr]
