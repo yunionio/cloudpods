@@ -8197,6 +8197,10 @@ func (h *SHost) GetDetailsWorkerStats(ctx context.Context, userCred mcclient.Tok
 	return h.Request(ctx, userCred, httputils.GET, "/worker_stats", nil, nil)
 }
 
+func (h *SHost) GetDetailsApiStats(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	return h.Request(ctx, userCred, httputils.GET, "/stats", nil, nil)
+}
+
 func (hh *SHost) GetDetailsIsolatedDeviceNumaStats(ctx context.Context, userCred mcclient.TokenCredential, input *api.HostIsolatedDeviceNumaStatsInput) (jsonutils.JSONObject, error) {
 	if !utils.IsInStringArray(input.DevType, api.VALID_PASSTHROUGH_TYPES) {
 		return nil, httperrors.NewInputParameterError("dev_type %s is invalid", input.DevType)

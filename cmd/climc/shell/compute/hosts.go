@@ -77,6 +77,7 @@ func init() {
 		stats, _ := data.GetArray("workers")
 		printList(&printutils.ListResult{Data: stats}, nil)
 	}, &options.BaseIdOptions{})
+	cmd.Get("api-stats", &options.BaseIdOptions{})
 	cmd.Get("tap-config", &options.BaseIdOptions{})
 	cmd.GetWithCustomShow("nics", func(data jsonutils.JSONObject) {
 		results := printutils.ListResult{}
