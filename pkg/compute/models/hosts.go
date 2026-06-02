@@ -2958,12 +2958,31 @@ func IsNeedSkipSync(ext cloudprovider.ICloudResource) (bool, string) {
 	if len(options.Options.SkipServerBySysTagKeys) == 0 &&
 		len(options.Options.SkipServerByUserTagKeys) == 0 &&
 		len(options.Options.SkipServerByUserTagValues) == 0 &&
+		len(options.Options.SkipServerByUserTags) == 0 &&
 		len(options.Options.RetentionServerByUserTagKeys) == 0 &&
 		len(options.Options.RetentionServerByUserTagValues) == 0 &&
 		len(options.Options.RetentionServerByUserTags) == 0 {
 		return false, ""
 	}
 	tags, _ := ext.GetTags()
+	keys, values, pairs := []string{}, []string{}, []string{}
+	for key, value := range tags {
+		key = strings.Trim(key, "")
+		keys = append(keys, key)
+		values = append(values, value)
+		pairs = append(pairs, fmt.Sprintf("%s:%s", key, value))
+		pairs = append(pairs, fmt.Sprintf("%s=%s", key, value))
+		pairs = append(pairs, fmt.Sprintf("%s=%s", db.USER_TAG_PREFIX+key, value))
+	}
+
+	if len(options.Options.SkipServerByUserTags) > 0 {
+		for _, tag := range pairs {
+			if utils.IsInStringArray(tag, options.Options.SkipServerByUserTags) {
+				return true, tag
+			}
+		}
+	}
+
 	if keys := strings.Split(options.Options.SkipServerBySysTagKeys, ","); len(keys) > 0 {
 		for key := range ext.GetSysTags() {
 			key = strings.Trim(key, "")
@@ -2987,13 +3006,6 @@ func IsNeedSkipSync(ext cloudprovider.ICloudResource) (bool, string) {
 				return true, value
 			}
 		}
-	}
-	keys, values, pairs := []string{}, []string{}, []string{}
-	for key, value := range tags {
-		key = strings.Trim(key, "")
-		keys = append(keys, key)
-		values = append(values, value)
-		pairs = append(pairs, fmt.Sprintf("%s:%s", key, value))
 	}
 
 	if len(options.Options.RetentionServerByUserTagKeys) > 0 {
