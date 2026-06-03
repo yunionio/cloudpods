@@ -372,7 +372,10 @@ type ServerConfigs struct {
 	PreferRegion string `json:"prefer_region_id"`
 
 	// 调度到指定可用区,优先级低于prefer_host_id
-	PreferZone string `json:"prefer_zone_id"`
+	PreferZone string `json:"prefer_zone_id" yunion-deprecated-by:"prefer_zones"`
+
+	// 调度到指定可用区列表,优先级低于prefer_host_id
+	PreferZones []string `json:"prefer_zones"`
 
 	// 调度使用指定二层网络, 优先级低于prefer_host_id
 	PreferWire string `json:"prefer_wire_id"`
@@ -478,6 +481,20 @@ func NewServerConfigs() *ServerConfigs {
 		BaremetalDiskConfigs: make([]*BaremetalDiskConfig, 0),
 		InstanceGroupIds:     make([]string, 0),
 	}
+}
+
+func (c *ServerConfigs) GetPreferZones() []string {
+	if len(c.PreferZones) > 0 {
+		return c.PreferZones
+	}
+	if c.PreferZone != "" {
+		return []string{c.PreferZone}
+	}
+	return nil
+}
+
+func (c *ServerConfigs) HasPreferZone() bool {
+	return len(c.GetPreferZones()) > 0
 }
 
 type DeployConfig struct {

@@ -33,6 +33,7 @@ type CandidateGetArgs struct {
 	ResType   string
 	RegionID  string
 	ZoneID    string
+	ZoneIDs   []string
 	ManagerID string
 	HostTypes []string
 }
@@ -208,12 +209,12 @@ func (cm *CandidateManager) GetCandidates(args CandidateGetArgs) ([]core.Candida
 
 	result := []core.Candidater{}
 
-	matchZone := func(r core.Candidater, zoneId string) bool {
+	matchZone := func(r core.Candidater, zoneId string, zoneIds []string) bool {
+		if len(zoneIds) > 0 {
+			return utils.IsInStringArray(r.Getter().Zone().GetId(), zoneIds)
+		}
 		if zoneId != "" {
-			if r.Getter().Zone().GetId() == zoneId {
-				return true
-			}
-			return false
+			return r.Getter().Zone().GetId() == zoneId
 		}
 		return true
 	}
@@ -258,7 +259,7 @@ func (cm *CandidateManager) GetCandidates(args CandidateGetArgs) ([]core.Candida
 			continue
 		}
 
-		if !matchZone(r, args.ZoneID) {
+		if !matchZone(r, args.ZoneID, args.ZoneIDs) {
 			continue
 		}
 
