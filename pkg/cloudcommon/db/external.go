@@ -27,8 +27,8 @@ import (
 
 // +onecloud:model-api-gen
 type SExternalizedResourceBase struct {
-	// 云上Id, 对应云上资源自身Id
-	ExternalId string `width:"256" charset:"utf8" index:"true" list:"user" create:"domain_optional" update:"admin" json:"external_id"`
+	// 云上Id, 对应云上资源自身Id, azure平台可能存在较长的Id
+	ExternalId string `width:"512" charset:"utf8" index:"true" list:"user" create:"domain_optional" update:"admin" json:"external_id"`
 
 	// 资源导入时间
 	ImportedAt time.Time `nullable:"true" created_at:"true" index:"true" get:"user" list:"user" json:"imported_at"`
