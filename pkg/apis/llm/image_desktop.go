@@ -2,6 +2,8 @@ package llm
 
 import (
 	"reflect"
+	"strings"
+	"unicode"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/gotypes"
@@ -26,9 +28,53 @@ var validDesktopAppNames = map[string]struct{}{
 }
 
 // IsValidDesktopAppName reports whether name is a supported desktop application identifier.
+// Built-in names (firefox, chromium, webtop-*, etc.) and LinuxServer-style custom ids (e.g. steam) are allowed.
 func IsValidDesktopAppName(name string) bool {
-	_, ok := validDesktopAppNames[name]
-	return ok
+	name = strings.TrimSpace(name)
+	if name == "" || len(name) > 64 {
+		return false
+	}
+	if _, ok := validDesktopAppNames[name]; ok {
+		return true
+	}
+	return isLinuxServerStyleAppName(name)
+}
+
+func isLinuxServerStyleAppName(name string) bool {
+	for i, r := range name {
+		if r >= 'a' && r <= 'z' {
+			continue
+		}
+		if r >= '0' && r <= '9' {
+			if i == 0 {
+				return false
+			}
+			continue
+		}
+		if r == '-' || r == '_' || r == '.' {
+			if i == 0 || i == len(name)-1 {
+				return false
+			}
+			continue
+		}
+		return false
+	}
+	return true
+}
+
+// NormalizeDesktopAppName lowercases ASCII letters for storage and comparison.
+func NormalizeDesktopAppName(name string) string {
+	name = strings.TrimSpace(name)
+	var b strings.Builder
+	b.Grow(len(name))
+	for _, r := range name {
+		if r >= 'A' && r <= 'Z' {
+			b.WriteRune(r - 'A' + 'a')
+		} else if r <= unicode.MaxASCII {
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
 }
 
 // LLMImageDesktopConfig holds LinuxServer Selkies desktop metadata for llm_type=desktop images.
