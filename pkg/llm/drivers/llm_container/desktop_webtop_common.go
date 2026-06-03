@@ -27,11 +27,18 @@ func desktopWebtopImageBaseContainerSpec(image *models.SLLMImage) commonapi.Cont
 
 // desktopWebtopCommonEnvs 返回 webtop / Selkies 等桌面容器共用的环境变量（时区、locale、admin 登录、Homebrew、侧边栏等）。
 // uiTitle 为空时使用 "Cloudpods Desktop"。
-func desktopWebtopCommonEnvs(llmId string, uiTitle string) []*commonapi.ContainerKeyValue {
+// selkiesSidebarShow 为 true 时启用 Selkies 侧边栏 Apps / Gamepads（desktop 类型 LLM 使用）。
+func desktopWebtopCommonEnvs(llmId string, uiTitle string, selkiesSidebarShow bool) []*commonapi.ContainerKeyValue {
 	httpAuthUsername := "admin"
 	httpAuthPassword := openclawFixed9DigitPassword(llmId)
 	if uiTitle == "" {
 		uiTitle = "Cloudpods Desktop"
+	}
+	sidebarShowApps := "False"
+	sidebarShowGamepads := "False"
+	if selkiesSidebarShow {
+		sidebarShowApps = "True"
+		sidebarShowGamepads = "True"
 	}
 	return []*commonapi.ContainerKeyValue{
 		{Key: "TZ", Value: "Asia/Shanghai"},
@@ -47,8 +54,8 @@ func desktopWebtopCommonEnvs(llmId string, uiTitle string) []*commonapi.Containe
 		{Key: "HOMEBREW_REPOSITORY", Value: "/home/linuxbrew/.linuxbrew/Homebrew"},
 		{Key: "SELKIES_UI_TITLE", Value: uiTitle},
 		{Key: "SELKIES_UI_SHOW_LOGO", Value: "False"},
-		{Key: "SELKIES_UI_SIDEBAR_SHOW_APPS", Value: "False"},
-		{Key: "SELKIES_UI_SIDEBAR_SHOW_GAMEPADS", Value: "False"},
+		{Key: "SELKIES_UI_SIDEBAR_SHOW_APPS", Value: sidebarShowApps},
+		{Key: "SELKIES_UI_SIDEBAR_SHOW_GAMEPADS", Value: sidebarShowGamepads},
 	}
 }
 

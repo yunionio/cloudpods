@@ -169,7 +169,7 @@ func ResolveDesktopConfig(imageName, imageLabel string, input *LLMImageDesktopCo
 
 // ResolveAppName resolves desktop app_name from explicit input or built-in presets.
 func ResolveAppName(imageName, imageLabel, inputAppName string) (string, error) {
-	inputAppName = strings.TrimSpace(inputAppName)
+	inputAppName = NormalizeDesktopAppName(inputAppName)
 	if inputAppName != "" {
 		if !IsValidDesktopAppName(inputAppName) {
 			return "", ErrInvalidDesktopAppName(inputAppName)
@@ -178,6 +178,9 @@ func ResolveAppName(imageName, imageLabel, inputAppName string) (string, error) 
 	}
 	if preset, ok := getDesktopImagePreset(imageName, imageLabel); ok && preset.AppName != "" {
 		return preset.AppName, nil
+	}
+	if repo := imageRepoBase(imageName); repo != "" && IsValidDesktopAppName(repo) {
+		return repo, nil
 	}
 	return "", ErrDesktopAppNameRequired{}
 }

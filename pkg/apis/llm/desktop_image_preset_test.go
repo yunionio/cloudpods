@@ -75,16 +75,50 @@ func TestResolveAppNameExplicit(t *testing.T) {
 	}
 }
 
+func TestResolveAppNameSteam(t *testing.T) {
+	name, err := ResolveAppName("lscr.io/linuxserver/steam", "latest", "steam")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if name != "steam" {
+		t.Fatalf("app_name = %q", name)
+	}
+}
+
+func TestResolveAppNameInferFromImageRepo(t *testing.T) {
+	name, err := ResolveAppName("lscr.io/linuxserver/steam", "latest", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if name != "steam" {
+		t.Fatalf("app_name = %q", name)
+	}
+}
+
 func TestResolveAppNameInvalid(t *testing.T) {
-	_, err := ResolveAppName("firefox", "latest", "unknown-app")
+	for _, invalid := range []string{"", "Bad Name", "-leading", "trailing-", "UPPER"} {
+		if IsValidDesktopAppName(invalid) {
+			t.Fatalf("expected invalid app_name %q", invalid)
+		}
+	}
+	_, err := ResolveAppName("firefox", "latest", "Bad Name")
 	if err == nil {
 		t.Fatal("expected error for invalid app_name")
 	}
 }
 
 func TestResolveAppNameRequired(t *testing.T) {
-	_, err := ResolveAppName("custom/unknown", "latest", "")
+	_, err := ResolveAppName("", "latest", "")
 	if err == nil {
 		t.Fatal("expected error when app_name cannot be inferred")
+	}
+}
+
+func TestIsValidDesktopAppNameBuiltin(t *testing.T) {
+	if !IsValidDesktopAppName(DesktopAppNameFirefox) {
+		t.Fatal("firefox should be valid")
+	}
+	if !IsValidDesktopAppName("unknown-app") {
+		t.Fatal("linuxserver-style id should be valid")
 	}
 }

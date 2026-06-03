@@ -3,6 +3,7 @@ package llm_container
 import (
 	"testing"
 
+	commonapi "yunion.io/x/onecloud/pkg/apis"
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	api "yunion.io/x/onecloud/pkg/apis/llm"
 	"yunion.io/x/onecloud/pkg/llm/models"
@@ -65,6 +66,26 @@ func TestDesktopGPUWaylandEnvs(t *testing.T) {
 	if m["DRINODE"] != desktopDefaultDRINode || m["DRI_NODE"] != desktopDefaultDRINode {
 		t.Fatalf("dri envs = %#v", m)
 	}
+}
+
+func TestDesktopWebtopCommonEnvsSelkiesSidebar(t *testing.T) {
+	desktopEnvs := desktopWebtopCommonEnvs("llm-1", "Title", true)
+	agentEnvs := desktopWebtopCommonEnvs("llm-2", "Title", false)
+	assertSelkiesSidebar := func(t *testing.T, envs []*commonapi.ContainerKeyValue, apps, gamepads string) {
+		t.Helper()
+		m := make(map[string]string, len(envs))
+		for _, e := range envs {
+			m[e.Key] = e.Value
+		}
+		if m["SELKIES_UI_SIDEBAR_SHOW_APPS"] != apps {
+			t.Fatalf("SELKIES_UI_SIDEBAR_SHOW_APPS = %q, want %q", m["SELKIES_UI_SIDEBAR_SHOW_APPS"], apps)
+		}
+		if m["SELKIES_UI_SIDEBAR_SHOW_GAMEPADS"] != gamepads {
+			t.Fatalf("SELKIES_UI_SIDEBAR_SHOW_GAMEPADS = %q, want %q", m["SELKIES_UI_SIDEBAR_SHOW_GAMEPADS"], gamepads)
+		}
+	}
+	assertSelkiesSidebar(t, desktopEnvs, "True", "True")
+	assertSelkiesSidebar(t, agentEnvs, "False", "False")
 }
 
 func TestAppendDesktopExtraEnvs(t *testing.T) {
