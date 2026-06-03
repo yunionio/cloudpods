@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/pkg/util/fileutils"
 	"yunion.io/x/pkg/util/regutils"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/apis/scheduler"
 )
@@ -293,6 +294,9 @@ func FetchServerConfigsByJSON(obj jsonutils.JSONObject) (*compute.ServerConfigs,
 	if err := obj.Unmarshal(conf); err != nil {
 		return nil, err
 	}
+	if len(conf.HostPathRequirements) == 0 {
+		conf.HostPathRequirements = fetchHostPathRequirementsByJSON(obj)
+	}
 
 	if instanceType, _ := obj.GetString("sku"); instanceType != "" {
 		conf.InstanceType = instanceType
@@ -323,6 +327,7 @@ func FetchServerConfigsByJSON(obj jsonutils.JSONObject) (*compute.ServerConfigs,
 }
 
 func FetchScheduleInputByJSON(obj jsonutils.JSONObject) (*scheduler.ScheduleInput, error) {
+	rawObj := obj
 	input := new(scheduler.ScheduleInput)
 	err := obj.Unmarshal(input)
 	if err != nil {
@@ -343,7 +348,55 @@ func FetchScheduleInputByJSON(obj jsonutils.JSONObject) (*scheduler.ScheduleInpu
 	if input.Project == "" {
 		input.Project = jsonutils.GetAnyString(obj, []string{"project", "project_id"})
 	}
+	if len(input.HostPathRequirements) == 0 {
+		input.HostPathRequirements = fetchHostPathRequirementsByJSON(rawObj)
+	}
 	return input, nil
+}
+
+func fetchHostPathRequirementsByJSON(obj jsonutils.JSONObject) []apis.HostPathRequirement {
+	if obj == nil {
+		return nil
+	}
+
+	type podContainer struct {
+		VolumeMounts []*apis.ContainerVolumeMount `json:"volume_mounts"`
+	}
+	type podConfig struct {
+		Containers []podContainer `json:"containers"`
+	}
+	type scheduleHostPathInput struct {
+		Pod *podConfig `json:"pod"`
+	}
+
+	input := new(scheduleHostPathInput)
+	if err := obj.Unmarshal(input); err != nil || input.Pod == nil {
+		return nil
+	}
+
+	reqs := make([]apis.HostPathRequirement, 0)
+	seen := make(map[string]struct{})
+	for _, container := range input.Pod.Containers {
+		for _, volumeMount := range container.VolumeMounts {
+			if volumeMount == nil || volumeMount.Type != apis.CONTAINER_VOLUME_MOUNT_TYPE_HOST_PATH || volumeMount.HostPath == nil {
+				continue
+			}
+			hostPath := volumeMount.HostPath
+			if hostPath.AutoCreate || hostPath.Path == "" {
+				continue
+			}
+			key := fmt.Sprintf("%s\x00%s", hostPath.Path, hostPath.Type)
+			if _, ok := seen[key]; ok {
+				continue
+			}
+			seen[key] = struct{}{}
+			reqs = append(reqs, apis.HostPathRequirement{
+				Path: hostPath.Path,
+				Type: hostPath.Type,
+			})
+		}
+	}
+	return reqs
 }
 
 func FetchDeployConfigsByJSON(obj jsonutils.JSONObject) ([]*compute.DeployConfig, error) {

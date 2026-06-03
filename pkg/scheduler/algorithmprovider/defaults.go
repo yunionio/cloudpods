@@ -31,6 +31,7 @@ func defaultPredicates() sets.String {
 	return sets.NewString(
 		factory.RegisterFitPredicate("a-GuestHostStatusFilter", &predicateguest.StatusPredicate{}),
 		factory.RegisterFitPredicate("b-GuestHypervisorFilter", &predicateguest.HypervisorPredicate{}),
+		factory.RegisterFitPredicate("c-GuestHostPathFilter", predicates.NewHostPathPredicate()),
 		factory.RegisterFitPredicate("c-GuestHostschedtagFilter", predicates.NewHostSchedtagPredicate()),
 		factory.RegisterFitPredicate("d-GuestMigrateFilter", &predicateguest.MigratePredicate{}),
 		factory.RegisterFitPredicate("e-GuestDomainFilter", &predicates.DomainPredicate{}),
