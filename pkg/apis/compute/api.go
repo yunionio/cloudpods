@@ -452,6 +452,9 @@ type ServerConfigs struct {
 	// required: false
 	Schedtags []*SchedtagConfig `json:"schedtags"`
 
+	// 宿主机路径调度约束，仅检查 auto_create=false 的 host_path
+	HostPathRequirements []apis.HostPathRequirement `json:"host_path_requirements,omitempty"`
+
 	// 透传设备列表
 	// required: false
 	IsolatedDevices []*IsolatedDeviceConfig `json:"isolated_devices"`

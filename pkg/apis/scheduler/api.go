@@ -44,6 +44,8 @@ type GroupRelation struct {
 	Scope    string `json:"scope"`
 }
 
+type HostPathRequirement = apis.HostPathRequirement
+
 type ServerConfig struct {
 	*compute.ServerConfigs
 
@@ -102,6 +104,8 @@ type ScheduleInput struct {
 	// In the migrate and create backup cases
 	// we don't need reallocate network
 	ReuseNetwork bool `json:"reuse_network"`
+
+	HostPathRequirements []HostPathRequirement `json:"host_path_requirements,omitempty"`
 
 	// Change config
 	ChangeConfig bool `json:"change_config"`
