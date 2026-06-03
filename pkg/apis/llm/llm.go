@@ -21,6 +21,7 @@ type LLMBaseListDetails struct {
 	LLMImage      string `json:"llm_image"`
 	LLMImageLable string `json:"llm_image_lable"`
 	LLMImageName  string `json:"llm_image_name"`
+	AppName       string `json:"app_name"`
 
 	VcpuCount  int      `json:"vcpu_count"`
 	VmemSizeMb int      `json:"vmem_size_mb"`

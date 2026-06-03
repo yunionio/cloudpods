@@ -312,7 +312,7 @@ func (c *openclaw) GetContainerSpecs(ctx context.Context, llm *models.SLLM, imag
 		},
 	}
 	openclawInner := desktopWebtopImageBaseContainerSpec(image)
-	openclawInner.Envs = desktopWebtopCommonEnvs(llm.GetId())
+	openclawInner.Envs = desktopWebtopCommonEnvs(llm.GetId(), "Cloudpods Desktop")
 	openclawInner.Envs = append(openclawInner.Envs,
 		&commonapi.ContainerKeyValue{Key: string(api.LLM_OPENCLAW_CUSTOM_CONFIG), Value: api.LLM_OPENCLAW_CUSTOM_CONFIG_FILE},
 		&commonapi.ContainerKeyValue{Key: "OPENCLAW_GATEWAY_TOKEN", Value: llm.GetId()},
