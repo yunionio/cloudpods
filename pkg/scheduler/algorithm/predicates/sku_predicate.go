@@ -58,9 +58,9 @@ func (p *InstanceTypePredicate) Execute(ctx context.Context, u *core.Unit, c cor
 	instanceType := d.InstanceType
 
 	reqRegion := d.PreferRegion
-	reqZone := d.PreferZone
+	reqZones := d.GetPreferZones()
 
-	if reqRegion != "" && reqZone == "" {
+	if reqRegion != "" && len(reqZones) == 0 {
 		skus := skuman.GetByRegion(instanceType, regionId)
 		if len(skus) == 0 {
 			h.Exclude(fmt.Sprintf("Not found server sku %s at region %s", instanceType, regionName))

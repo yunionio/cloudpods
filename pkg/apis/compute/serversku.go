@@ -142,6 +142,33 @@ type ServerSkuDetails struct {
 
 	// 绑定云主机数量
 	TotalGuestCount int `json:"total_guest_count"`
+
+	// 同名套餐在各区域/可用区的计费可用性
+	RegionalAvailability []ServerSkuRegionalAvailability `json:"regional_availability"`
+}
+
+type ServerSkuRegionalAvailability struct {
+	// 区域Id
+	CloudregionId string `json:"cloudregion_id"`
+	// 区域名称
+	Cloudregion string `json:"cloudregion"`
+	// 区域级套餐后付费(按量)状态, zone_id 为空时有效
+	PostpaidStatus string `json:"postpaid_status,omitempty"`
+	// 区域级套餐预付费(包年包月)状态, zone_id 为空时有效
+	PrepaidStatus string `json:"prepaid_status,omitempty"`
+	// 可用区级套餐可用性
+	Zones []ServerSkuZoneAvailability `json:"zones,omitempty"`
+}
+
+type ServerSkuZoneAvailability struct {
+	// 可用区Id
+	ZoneId string `json:"zone_id"`
+	// 可用区名称
+	Zone string `json:"zone"`
+	// 后付费(按量)状态 available|soldout
+	PostpaidStatus string `json:"postpaid_status"`
+	// 预付费(包年包月)状态 available|soldout
+	PrepaidStatus string `json:"prepaid_status"`
 }
 
 type ServerSkuUpdateInput struct {

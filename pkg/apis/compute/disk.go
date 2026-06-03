@@ -48,9 +48,13 @@ type DiskCreateInput struct {
 	// required: false
 	PreferRegion string `json:"prefer_region_id"`
 
-	// 此参数仅适用于未指定storage时进行调度到指定可用区区创建磁盘
+	// 此参数仅适用于未指定storage时进行调度到指定可用区创建磁盘
 	// required: false
-	PreferZone string `json:"prefer_zone_id"`
+	PreferZone string `json:"prefer_zone_id" yunion-deprecated-by:"prefer_zones"`
+
+	// 此参数仅适用于未指定storage时进行调度到指定可用区列表创建磁盘
+	// required: false
+	PreferZones []string `json:"prefer_zones"`
 
 	// swagger:ignore
 	PreferWire string `json:"prefer_wire_id"`
@@ -72,6 +76,7 @@ func (req *DiskCreateInput) ToServerCreateInput() *ServerCreateInput {
 			PreferManager: req.PreferManager,
 			PreferRegion:  req.PreferRegion,
 			PreferZone:    req.PreferZone,
+			PreferZones:   req.PreferZones,
 			PreferWire:    req.PreferWire,
 			PreferHost:    req.PreferHost,
 			Hypervisor:    req.Hypervisor,
@@ -92,6 +97,7 @@ func (req *ServerCreateInput) ToDiskCreateInput() *DiskCreateInput {
 		PreferRegion: req.PreferRegion,
 		PreferHost:   req.PreferHost,
 		PreferZone:   req.PreferZone,
+		PreferZones:  req.PreferZones,
 		PreferWire:   req.PreferWire,
 		Hypervisor:   req.Hypervisor,
 	}

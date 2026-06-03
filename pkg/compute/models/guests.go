@@ -1569,7 +1569,16 @@ func serverCreateInput2ComputeQuotaKeys(input api.ServerCreateInput, ownerId mcc
 			keys.ZoneId = wire.ZoneId
 		}
 	}
-	if len(input.PreferZone) > 0 {
+	if len(input.PreferZones) > 0 {
+		zoneObj, err := ZoneManager.FetchById(input.PreferZones[0])
+		if err != nil {
+			return keys, err
+		}
+		zone := zoneObj.(*SZone)
+		input.PreferRegion = zone.CloudregionId
+		keys.ZoneId = zone.Id
+		keys.RegionId = zone.CloudregionId
+	} else if len(input.PreferZone) > 0 {
 		zoneObj, err := ZoneManager.FetchById(input.PreferZone)
 		if err != nil {
 			return keys, err
@@ -1768,7 +1777,15 @@ func (manager *SGuestManager) validateCreateData(
 		return nil, errors.Wrap(err, "checkGuestImage")
 	}
 
-	if len(input.PreferZone) > 0 && len(input.Provider) == 0 {
+	preferZones := input.GetPreferZones()
+	if len(preferZones) > 0 && len(input.Provider) == 0 {
+		zoneObj, err := ZoneManager.FetchById(preferZones[0])
+		if err != nil {
+			return nil, errors.Wrapf(err, "zone fetch by id %s", preferZones[0])
+		}
+		zone := zoneObj.(*SZone)
+		input.PreferRegion = zone.CloudregionId
+	} else if len(input.PreferZone) > 0 && len(input.Provider) == 0 {
 		zoneObj, err := ZoneManager.FetchById(input.PreferZone)
 		if err != nil {
 			return nil, errors.Wrapf(err, "zone fetch by id %s", input.PreferZone)
