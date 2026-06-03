@@ -826,9 +826,28 @@ func (self *SUnifiedMonitorManager) getResourceMetrics(
 	if err != nil {
 		log.Warningf("GetMonitorResources error: %v", err)
 	} else {
+		alertingResIds := map[string]struct{}{}
+		alertJoints := make([]SMonitorResourceAlert, 0)
+		q := MonitorResourceAlertManager.Query().
+			In("monitor_resource_id", input.ResIds).
+			Equals("alert_state", monitor.MONITOR_RESOURCE_ALERT_STATUS_ALERTING)
+		alertSq := AlertManager.Query("id").SubQuery()
+		q = q.In("alert_id", alertSq)
+		if err := db.FetchModelObjects(MonitorResourceAlertManager, q, &alertJoints); err != nil {
+			log.Warningf("query MonitorResourceAlert error: %v", err)
+		} else {
+			for _, joint := range alertJoints {
+				alertingResIds[joint.MonitorResourceId] = struct{}{}
+			}
+		}
 		for _, mr := range monResources {
 			if rv, ok := result[mr.ResId]; ok {
 				state := mr.AlertState
+				if state == monitor.MONITOR_RESOURCE_ALERT_STATUS_ALERTING {
+					if _, ok := alertingResIds[mr.ResId]; !ok {
+						state = monitor.MONITOR_RESOURCE_ALERT_STATUS_ATTACH
+					}
+				}
 				if state == monitor.MONITOR_RESOURCE_ALERT_STATUS_ATTACH || state == monitor.MONITOR_RESOURCE_ALERT_STATUS_INIT {
 					state = monitor.MONITOR_RESOURCE_ALERT_STATUS_INIT
 				}
