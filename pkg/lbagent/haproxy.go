@@ -666,21 +666,11 @@ func (h *HaproxyHelper) runServiceOnce(args []string) error {
 	args = args[1:]
 	cmd := exec.Command(name, args...)
 
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		log.Errorf("service %s stdout pipe error: %s", cmd.String(), err)
-		return errors.Wrapf(err, "service %s stdout pipe error", cmd.String())
-	}
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		log.Errorf("service %s stderr pipe error: %s", cmd.String(), err)
-		return errors.Wrapf(err, "service %s stderr pipe error", cmd.String())
-	}
 	drain := func(out io.ReadCloser, isErr bool) {
 		defer out.Close()
 		buf := make([]byte, 1024)
 		for {
-			n, err := stdout.Read(buf)
+			n, err := out.Read(buf)
 			if err != nil {
 				log.Errorf("read pipe error: %s", err)
 				return
@@ -691,6 +681,16 @@ func (h *HaproxyHelper) runServiceOnce(args []string) error {
 				log.Infoln(string(buf[:n]))
 			}
 		}
+	}
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		log.Errorf("service %s stdout pipe error: %s", cmd.String(), err)
+		return errors.Wrapf(err, "service %s stdout pipe error", cmd.String())
+	}
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		log.Errorf("service %s stderr pipe error: %s", cmd.String(), err)
+		return errors.Wrapf(err, "service %s stderr pipe error", cmd.String())
 	}
 	err = cmd.Start()
 	if err != nil {
