@@ -52,7 +52,7 @@ func (f *ImagePredicate) PreExecute(ctx context.Context, u *core.Unit, cs []core
 		return false, nil
 	}
 	imageId := disks[0].ImageId
-	if len(imageId) == 0 || u.SchedData().PreferZone != "" {
+	if len(imageId) == 0 || u.SchedData().HasPreferZone() {
 		return false, nil
 	}
 	if !utils.IsInStringArray(u.SchedData().Provider, compute.PUBLIC_CLOUD_PROVIDERS) && !utils.IsInStringArray(u.SchedData().Provider, compute.PRIVATE_CLOUD_PROVIDERS) {

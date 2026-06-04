@@ -226,6 +226,121 @@ func (self SServerSku) GetGlobalId() string {
 	return self.ExternalId
 }
 
+func skuAvailabilityKey(name, provider string) string {
+	return name + "\x00" + provider
+}
+
+func (manager *SServerSkuManager) fetchServerSkuAvailabilityMap(names []string) (map[string][]api.ServerSkuRegionalAvailability, error) {
+	ret := map[string][]api.ServerSkuRegionalAvailability{}
+	if len(names) == 0 {
+		return ret, nil
+	}
+
+	skus := []struct {
+		Name           string
+		Provider       string
+		CloudregionId  string
+		ZoneId         string
+		PostpaidStatus string
+		PrepaidStatus  string
+	}{}
+	q := manager.Query("name", "provider", "cloudregion_id", "zone_id", "postpaid_status", "prepaid_status").
+		IsTrue("enabled").In("name", names)
+	err := q.All(&skus)
+	if err != nil {
+		return nil, errors.Wrap(err, "query availability skus")
+	}
+
+	type regionAvail struct {
+		cloudregionId  string
+		postpaidStatus string
+		prepaidStatus  string
+		hasRegionLevel bool
+		zones          map[string]api.ServerSkuZoneAvailability
+	}
+
+	tmp := map[string]map[string]*regionAvail{}
+	regionIdSet := map[string]bool{}
+	zoneIdSet := map[string]bool{}
+
+	for i := range skus {
+		sku := &skus[i]
+		key := skuAvailabilityKey(sku.Name, sku.Provider)
+		if _, ok := tmp[key]; !ok {
+			tmp[key] = map[string]*regionAvail{}
+		}
+		regionMap := tmp[key]
+		if _, ok := regionMap[sku.CloudregionId]; !ok {
+			regionMap[sku.CloudregionId] = &regionAvail{
+				cloudregionId: sku.CloudregionId,
+				zones:         map[string]api.ServerSkuZoneAvailability{},
+			}
+			regionIdSet[sku.CloudregionId] = true
+		}
+		ra := regionMap[sku.CloudregionId]
+		if len(sku.ZoneId) == 0 {
+			ra.hasRegionLevel = true
+			ra.postpaidStatus = sku.PostpaidStatus
+			ra.prepaidStatus = sku.PrepaidStatus
+		} else {
+			ra.zones[sku.ZoneId] = api.ServerSkuZoneAvailability{
+				ZoneId:         sku.ZoneId,
+				PostpaidStatus: sku.PostpaidStatus,
+				PrepaidStatus:  sku.PrepaidStatus,
+			}
+			zoneIdSet[sku.ZoneId] = true
+		}
+	}
+
+	regionIds := make([]string, 0, len(regionIdSet))
+	for id := range regionIdSet {
+		regionIds = append(regionIds, id)
+	}
+	zoneIds := make([]string, 0, len(zoneIdSet))
+	for id := range zoneIdSet {
+		zoneIds = append(zoneIds, id)
+	}
+
+	regionNames, err := db.FetchIdNameMap2(CloudregionManager, regionIds)
+	if err != nil {
+		return nil, errors.Wrap(err, "FetchIdNameMap2 cloudregion")
+	}
+	zoneNames, err := db.FetchIdNameMap2(ZoneManager, zoneIds)
+	if err != nil {
+		return nil, errors.Wrap(err, "FetchIdNameMap2 zone")
+	}
+
+	for key, regionMap := range tmp {
+		avails := make([]api.ServerSkuRegionalAvailability, 0, len(regionMap))
+		for _, ra := range regionMap {
+			item := api.ServerSkuRegionalAvailability{
+				CloudregionId: ra.cloudregionId,
+				Cloudregion:   regionNames[ra.cloudregionId],
+			}
+			if ra.hasRegionLevel {
+				item.PostpaidStatus = ra.postpaidStatus
+				item.PrepaidStatus = ra.prepaidStatus
+			}
+			if len(ra.zones) > 0 {
+				item.Zones = make([]api.ServerSkuZoneAvailability, 0, len(ra.zones))
+				for zoneId, za := range ra.zones {
+					za.Zone = zoneNames[zoneId]
+					item.Zones = append(item.Zones, za)
+				}
+				sort.Slice(item.Zones, func(i, j int) bool {
+					return item.Zones[i].Zone < item.Zones[j].Zone
+				})
+			}
+			avails = append(avails, item)
+		}
+		sort.Slice(avails, func(i, j int) bool {
+			return avails[i].Cloudregion < avails[j].Cloudregion
+		})
+		ret[key] = avails
+	}
+	return ret, nil
+}
+
 func (manager *SServerSkuManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
@@ -300,6 +415,17 @@ func (manager *SServerSkuManager) FetchCustomizeColumns(
 		} else {
 			rows[i].TotalGuestCount = skuMap[sku.Name][sku.CloudregionId]
 		}
+	}
+
+	availMap, err := manager.fetchServerSkuAvailabilityMap(instanceTypes)
+	if err != nil {
+		log.Errorf("fetchServerSkuAvailabilityMap error: %v", err)
+		return rows
+	}
+	for i := range rows {
+		sku := objs[i].(*SServerSku)
+		key := skuAvailabilityKey(sku.Name, sku.Provider)
+		rows[i].RegionalAvailability = availMap[key]
 	}
 
 	return rows

@@ -23,12 +23,13 @@ import (
 )
 
 type DiskCreateOptions struct {
-	Manager string `help:"Preferred manager where virtual server should be created" json:"prefer_manager_id"`
-	Region  string `help:"Preferred region where virtual server should be created" json:"prefer_region_id"`
-	Zone    string `help:"Preferred zone where virtual server should be created" json:"prefer_zone_id"`
-	Wire    string `help:"Preferred wire where virtual server should be created" json:"prefer_wire_id"`
-	Host    string `help:"Preferred host where virtual server should be created" json:"prefer_host_id"`
-	Count   int    `help:"Count to create" json:"count"`
+	Manager string   `help:"Preferred manager where virtual server should be created" json:"prefer_manager_id"`
+	Region  string   `help:"Preferred region where virtual server should be created" json:"prefer_region_id"`
+	Zone    string   `help:"Preferred zone where virtual server should be created" json:"prefer_zone_id"`
+	Zones   []string `help:"Preferred zones where virtual server should be created" json:"prefer_zones"`
+	Wire    string   `help:"Preferred wire where virtual server should be created" json:"prefer_wire_id"`
+	Host    string   `help:"Preferred host where virtual server should be created" json:"prefer_host_id"`
+	Count   int      `help:"Count to create" json:"count"`
 
 	NAME       string   `help:"Name of the disk"`
 	DISKDESC   string   `help:"Image size or size of virtual disk"`
@@ -63,6 +64,7 @@ func (o DiskCreateOptions) Params() (*api.DiskCreateInput, error) {
 		PreferManager: o.Manager,
 		PreferRegion:  o.Region,
 		PreferZone:    o.Zone,
+		PreferZones:   o.Zones,
 		PreferWire:    o.Wire,
 		PreferHost:    o.Host,
 		DiskConfig:    config,

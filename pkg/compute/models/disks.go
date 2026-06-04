@@ -565,7 +565,16 @@ func diskCreateInput2ComputeQuotaKeys(input api.DiskCreateInput, ownerId mcclien
 			keys.ZoneId = wire.ZoneId
 		}
 	}
-	if len(input.PreferZone) > 0 {
+	if len(input.PreferZones) > 0 {
+		zoneObj, err := ZoneManager.FetchById(input.PreferZones[0])
+		if err != nil {
+			return keys, err
+		}
+		zone := zoneObj.(*SZone)
+		input.PreferRegion = zone.CloudregionId
+		keys.ZoneId = zone.Id
+		keys.RegionId = zone.CloudregionId
+	} else if len(input.PreferZone) > 0 {
 		zoneObj, err := ZoneManager.FetchById(input.PreferZone)
 		if err != nil {
 			return keys, err

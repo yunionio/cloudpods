@@ -248,11 +248,12 @@ func ParseServerDeployInfoList(list []string) ([]*computeapi.DeployConfig, error
 }
 
 type ServerCreateCommonConfig struct {
-	Manager string `help:"Preferred cloudprovider where virtual server should bd created" json:"prefer_manager"`
-	Region  string `help:"Preferred region where virtual server should be created" json:"prefer_region"`
-	Zone    string `help:"Preferred zone where virtual server should be created" json:"prefer_zone"`
-	Wire    string `help:"Preferred wire where virtual server should be created" json:"prefer_wire"`
-	Host    string `help:"Preferred host where virtual server should be created" json:"prefer_host"`
+	Manager string   `help:"Preferred cloudprovider where virtual server should bd created" json:"prefer_manager"`
+	Region  string   `help:"Preferred region where virtual server should be created" json:"prefer_region"`
+	Zone    string   `help:"Preferred zone where virtual server should be created" json:"prefer_zone"`
+	Zones   []string `help:"Preferred zones where virtual server should be created" json:"prefer_zones"`
+	Wire    string   `help:"Preferred wire where virtual server should be created" json:"prefer_wire"`
+	Host    string   `help:"Preferred host where virtual server should be created" json:"prefer_host"`
 
 	ResourceType   string   `help:"Resource type" choices:"shared|prepaid|dedicated"`
 	Schedtag       []string `help:"Schedule policy, key = aggregate name, value = require|exclude|prefer|avoid" metavar:"<KEY:VALUE>"`
@@ -293,6 +294,7 @@ func (o ServerCreateCommonConfig) Data() (*computeapi.ServerConfigs, error) {
 		PreferManager: o.Manager,
 		PreferRegion:  o.Region,
 		PreferZone:    o.Zone,
+		PreferZones:   o.Zones,
 		PreferWire:    o.Wire,
 		PreferHost:    o.Host,
 		ResourceType:  o.ResourceType,
