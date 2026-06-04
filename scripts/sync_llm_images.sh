@@ -35,8 +35,18 @@ IMAGES=(
   # "coollabsio/openclaw:latest"
   # "coollabsio/openclaw-browser:latest"
   # ghcr.io/coollabsio/openclaw-base:latest
-  # lscr.io/linuxserver/webtop:ubuntu-xfce
-  registry.cn-beijing.aliyuncs.com/zexi/openclaw:v2026.3.12-20260326.2
+  # registry.cn-beijing.aliyuncs.com/zexi/openclaw:v2026.3.12-20260326.2
+  # lscr.io/linuxserver/bambustudio:02.07.00
+  # lscr.io/linuxserver/weixin:180e26d4-ls27
+  # lscr.io/linuxserver/wps-office:11.1.0.11723-2-ls171
+  # lscr.io/linuxserver/vscode:1.122.1-ls9
+  # lscr.io/linuxserver/chrome:149.0.7827.53-1-ls97
+  # lscr.io/linuxserver/rustdesk:1.4.7-ls111
+  # lscr.io/linuxserver/steam:b6afafe3-ls25
+  # lscr.io/linuxserver/webtop:ubuntu-xfce-version-be8fdec1
+  # lscr.io/linuxserver/webtop:ubuntu-kde-version-386ae438
+  # lscr.io/linuxserver/webtop:fedora-kde-version-06d34634
+  lscr.io/linuxserver/webtop:fedora-xfce-version-a3d1e044
 )
 
 for image in "${IMAGES[@]}"; do
