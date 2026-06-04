@@ -29,6 +29,35 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
+func validatePreferZones(ctx context.Context, userCred mcclient.IIdentityProvider, input *api.ServerConfigs) error {
+	if len(input.PreferZones) == 0 {
+		return nil
+	}
+	zoneIds := make([]string, 0, len(input.PreferZones))
+	var regionId string
+	for _, zoneStr := range input.PreferZones {
+		zoneObj, err := ZoneManager.FetchByIdOrName(ctx, userCred, zoneStr)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return httperrors.NewResourceNotFoundError("Zone %s not found", zoneStr)
+			}
+			return httperrors.NewGeneralError(err)
+		}
+		zone := zoneObj.(*SZone)
+		if regionId == "" {
+			regionId = zone.CloudregionId
+		} else if regionId != zone.CloudregionId {
+			return httperrors.NewInputParameterError("All prefer zones must be in the same region")
+		}
+		zoneIds = append(zoneIds, zone.Id)
+	}
+	input.PreferZones = zoneIds
+	if input.PreferRegion == "" {
+		input.PreferRegion = regionId
+	}
+	return nil
+}
+
 func RunBatchCreateTask(
 	ctx context.Context,
 	items []db.IModel,
@@ -149,6 +178,10 @@ func ValidateScheduleCreateData(ctx context.Context, userCred mcclient.TokenCred
 			input.PreferZone = zone.Id
 			region, _ := zone.GetRegion()
 			input.PreferRegion = region.Id
+		} else if len(input.PreferZones) > 0 {
+			if err := validatePreferZones(ctx, userCred, input.ServerConfigs); err != nil {
+				return nil, err
+			}
 		} else if input.PreferZone != "" {
 			zoneStr := input.PreferZone
 			zoneObj, err := ZoneManager.FetchByIdOrName(ctx, userCred, zoneStr)

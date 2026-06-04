@@ -43,7 +43,7 @@ func (p *ZoneSchedtagPredicate) Clone() core.FitPredicate {
 
 type zoneSchedtagInputW struct {
 	schedData *api.SchedInfo
-	zone      string
+	zones     []string
 	schedtags []*computeapi.SchedtagConfig
 }
 
@@ -57,7 +57,7 @@ func (p *ZoneSchedtagPredicate) GetInputs(u *core.Unit) []ISchedtagCustomer {
 	return []ISchedtagCustomer{
 		&zoneSchedtagInputW{
 			schedData: data,
-			zone:      data.PreferZone,
+			zones:     data.GetPreferZones(),
 			schedtags: schedtags,
 		},
 	}
@@ -76,7 +76,7 @@ func (w *zoneSchedtagInputW) GetDynamicConditionInput() *jsonutils.JSONDict {
 }
 
 func (w *zoneSchedtagInputW) IsSpecifyResource() bool {
-	return w.zone != ""
+	return len(w.zones) > 0
 }
 
 func (w *zoneSchedtagInputW) GetSchedtags() []*computeapi.SchedtagConfig {
