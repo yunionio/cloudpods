@@ -301,7 +301,7 @@ func (h *hermesAgent) GetContainerSpec(ctx context.Context, llm *models.SLLM, im
 		},
 	}
 	hermesInner := desktopWebtopImageBaseContainerSpec(image)
-	hermesInner.Envs = append(desktopWebtopCommonEnvs(llm.GetId(), "Cloudpods Desktop"),
+	hermesInner.Envs = append(desktopWebtopCommonEnvs(llm.GetId(), "Cloudpods Desktop", false),
 		models.NewEnv("HERMES_HOME", hermesAgentDataDir),
 		&commonapi.ContainerKeyValue{Key: "HERMES_WEB_DIST", Value: "/opt/hermes/hermes_cli/web_dist"},
 	)

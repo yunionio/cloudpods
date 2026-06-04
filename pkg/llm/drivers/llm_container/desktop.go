@@ -59,7 +59,7 @@ func (d *desktop) GetContainerSpecs(ctx context.Context, llm *models.SLLM, image
 	}
 
 	desktopInner := desktopWebtopImageBaseContainerSpec(image)
-	desktopInner.Envs = desktopWebtopCommonEnvs(llm.GetId(), desktopUiTitle(cfg))
+	desktopInner.Envs = desktopWebtopCommonEnvs(llm.GetId(), desktopUiTitle(cfg), true)
 	if cfg != nil {
 		desktopInner.Envs = appendDesktopExtraEnvs(desktopInner.Envs, cfg.ExtraEnvs)
 	}
