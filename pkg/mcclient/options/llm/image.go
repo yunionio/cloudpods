@@ -45,7 +45,7 @@ type LLMImageUpdateOptions struct {
 	ImageLabel   string `json:"image_label"`
 	CredentialId string `json:"credential_id"`
 	LlmType      string `json:"llm_type" choices:"ollama|dify|vllm|sglang|comfyui|hermes-agent|desktop" help:"llm type: ollama, comfyui, vllm, sglang, hermes-agent, desktop or dify"`
-	AppName      string `json:"app_name" help:"desktop application identifier, e.g. firefox, chromium, webtop-ubuntu-xfce"`
+	AppName      string `json:"app_name" help:"desktop application identifier (LinuxServer image id), e.g. firefox, chromium, steam, webtop-ubuntu-xfce"`
 }
 
 func (o *LLMImageUpdateOptions) GetId() string {
