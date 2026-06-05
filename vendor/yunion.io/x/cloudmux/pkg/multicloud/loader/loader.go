@@ -44,7 +44,8 @@ import (
 	_ "yunion.io/x/cloudmux/pkg/multicloud/qcloud/provider"
 	_ "yunion.io/x/cloudmux/pkg/multicloud/qingcloud/provider"
 	_ "yunion.io/x/cloudmux/pkg/multicloud/remotefile/provider" // private clouds
-	_ "yunion.io/x/cloudmux/pkg/multicloud/ucloud/provider"     // object storages
+	_ "yunion.io/x/cloudmux/pkg/multicloud/rockbase/provider"
+	_ "yunion.io/x/cloudmux/pkg/multicloud/ucloud/provider" // object storages
 	_ "yunion.io/x/cloudmux/pkg/multicloud/volcengine/provider"
 	_ "yunion.io/x/cloudmux/pkg/multicloud/zstack/provider" // private clouds
 )

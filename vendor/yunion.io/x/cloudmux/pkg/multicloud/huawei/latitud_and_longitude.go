@@ -23,22 +23,54 @@ import (
 // International: https://developer-intl.huaweicloud.com/endpoint
 // ref: https://countrycode.org
 var LatitudeAndLongitude = map[string]cloudprovider.SGeographicInfo{
-	"cn-east-2":      api.RegionShanghai,
-	"cn-east-3":      api.RegionShanghai,
-	"cn-north-1":     api.RegionBeijing,
-	"cn-north-4":     api.RegionBeijing,
-	"cn-south-1":     api.RegionGuangzhou,
-	"cn-south-2":     api.RegionGuangzhou,
+	// 华北
+	"cn-north-1":   api.RegionBeijing,
+	"cn-north-4":   api.RegionBeijing,
+	"cn-north-9":   api.RegionNeimenggu,
+	"cn-north-11":  api.RegionWulanchabu,
+	"cn-north-12":  api.RegionBeijing,
+	"cn-north-219": api.RegionBeijing,
+
+	// 华东
+	"cn-east-2": api.RegionShanghai,
+	"cn-east-3": api.RegionShanghai,
+	"cn-east-4": api.RegionWuhu,
+	"cn-east-5": api.RegionQingdao,
+
+	// 华南
+	"cn-south-1": api.RegionGuangzhou,
+	"cn-south-2": api.RegionGuangzhou,
+	"cn-south-4": api.RegionGuangzhou,
+
+	// 西南 / 东北 / 西北
+	"cn-southwest-2": api.RegionGuiyang,
+	"cn-northeast-1": api.RegionDalian,
+	"cn-northwest-1": api.RegionNingxia,
+
+	// 亚太
 	"ap-southeast-1": api.RegionHongkong,
 	"ap-southeast-2": api.RegionBangkok,
 	"ap-southeast-3": api.RegionSingapore,
-	"eu-west-0":      api.RegionParis,
-	"cn-northeast-1": api.RegionDalian,
-	"cn-southwest-2": api.RegionGuiyang,
-	"af-south-1":     api.RegionJohannesburg,
-	"sa-brazil-1":    api.RegionSaoPaulo,
+	"ap-southeast-4": api.RegionJakarta,
+	"ap-southeast-5": api.RegionManila,
+
+	// 欧洲
+	"eu-west-0": api.RegionParis,
+	"eu-west-1": api.RegionDublin,
+
+	// 中东 / 土耳其
+	"me-east-1": api.RegionDamman,
+	"tr-west-1": api.RegionIstanbul,
+
+	// 非洲
+	"af-south-1": api.RegionJohannesburg,
+	"af-north-1": api.RegionTelAviv,
+
+	// 拉美
 	"na-mexico-1":    api.RegionMexico,
+	"la-north-2":     api.RegionMexico,
+	"sa-brazil-1":    api.RegionSaoPaulo,
 	"la-south-2":     api.RegionSantiago,
-	"cn-north-9":     api.RegionNeimenggu,
-	"cn-north-219":   api.RegionBeijing,
+	"sa-argentina-1": api.RegionSantiago,
+	"sa-peru-1":      api.RegionSantiago,
 }

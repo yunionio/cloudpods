@@ -81,6 +81,13 @@ const (
 	STORAGE_UCLOUD_LOCAL_SSD            = "LOCAL_SSD"            // SSD本地盘
 	STORAGE_UCLOUD_EXCLUSIVE_LOCAL_DISK = "EXCLUSIVE_LOCAL_DISK" // 独享本地盘
 
+	// RockBase storage type
+	STORAGE_ROCKBASE_CLOUD_NORMAL         = "CLOUD_NORMAL"         // 普通云盘
+	STORAGE_ROCKBASE_CLOUD_SSD            = "CLOUD_SSD"            // SSD云盘
+	STORAGE_ROCKBASE_LOCAL_NORMAL         = "LOCAL_NORMAL"         // 普通本地盘
+	STORAGE_ROCKBASE_LOCAL_SSD            = "LOCAL_SSD"            // SSD本地盘
+	STORAGE_ROCKBASE_EXCLUSIVE_LOCAL_DISK = "EXCLUSIVE_LOCAL_DISK" // 独享本地盘
+
 	// Zstack storage type
 	STORAGE_ZSTACK_LOCAL_STORAGE = "localstorage"
 	STORAGE_ZSTACK_CEPH          = "ceph"

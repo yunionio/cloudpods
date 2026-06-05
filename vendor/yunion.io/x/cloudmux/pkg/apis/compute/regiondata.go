@@ -318,8 +318,8 @@ var (
 		CountryCode: COUNTRY_CODE_JP,
 	}
 	RegionSeoul = cloudprovider.SGeographicInfo{
-		Latitude:    34.694,
-		Longitude:   135.502,
+		Latitude:    37.566,
+		Longitude:   126.978,
 		City:        CITY_SEOUL,
 		CountryCode: COUNTRY_CODE_KR,
 	}
@@ -387,6 +387,18 @@ var (
 		City:        CITY_BANGKOK,
 		CountryCode: COUNTRY_CODE_TH,
 	}
+	RegionManila = cloudprovider.SGeographicInfo{
+		Latitude:    14.599,
+		Longitude:   120.984,
+		City:        CITY_MANILA,
+		CountryCode: COUNTRY_CODE_PH,
+	}
+	RegionHoChiMinh = cloudprovider.SGeographicInfo{
+		Latitude:    10.823,
+		Longitude:   106.630,
+		City:        CITY_HO_CHI_MINH,
+		CountryCode: COUNTRY_CODE_VN,
+	}
 
 	RegionSydney = cloudprovider.SGeographicInfo{
 		Latitude:    -33.869,
@@ -428,6 +440,12 @@ var (
 		Longitude:   27.9,
 		City:        CITY_JOHANNESBURG,
 		CountryCode: COUNTRY_CODE_ZA,
+	}
+	RegionLagos = cloudprovider.SGeographicInfo{
+		Latitude:    6.524,
+		Longitude:   3.379,
+		City:        CITY_LAGOS,
+		CountryCode: COUNTRY_CODE_NG,
 	}
 
 	// Middleeast
@@ -512,6 +530,12 @@ var (
 		Longitude:   21.017,
 		City:        CITY_WARSAW,
 		CountryCode: COUNTRY_CODE_PL,
+	}
+	RegionIstanbul = cloudprovider.SGeographicInfo{
+		Latitude:    41.008,
+		Longitude:   28.978,
+		City:        CITY_ISTANBUL,
+		CountryCode: COUNTRY_CODE_TR,
 	}
 	RegionMadrid = cloudprovider.SGeographicInfo{
 		Latitude:    40.438,
@@ -640,8 +664,8 @@ var (
 	}
 
 	RegionMexico = cloudprovider.SGeographicInfo{
-		Latitude:    55.118,
-		Longitude:   141.038,
+		Latitude:    19.433,
+		Longitude:   -99.133,
 		City:        CITY_MEXICO,
 		CountryCode: COUNTRY_CODE_MX,
 	}
@@ -730,6 +754,18 @@ var (
 		Latitude:    34.052,
 		Longitude:   -118.244,
 		City:        CITY_LOS_ANGELES,
+		CountryCode: COUNTRY_CODE_US,
+	}
+	RegionDenver = cloudprovider.SGeographicInfo{
+		Latitude:    39.739,
+		Longitude:   -104.990,
+		City:        CITY_DENVER,
+		CountryCode: COUNTRY_CODE_US,
+	}
+	RegionWashingtonDC = cloudprovider.SGeographicInfo{
+		Latitude:    38.907,
+		Longitude:   -77.037,
+		City:        CITY_WASHINGTON,
 		CountryCode: COUNTRY_CODE_US,
 	}
 	RegionSaltLakeCity = cloudprovider.SGeographicInfo{
