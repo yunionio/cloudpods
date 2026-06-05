@@ -18,7 +18,7 @@ import (
 // desired value.
 //
 // Unlike LLMDeploymentCreateTask, this task's body does NOT carry the original
-// create-time payload (nets / auto_start / prefer_host). Those fields are read
+// create-time payload (nets / auto_start / host_paths). Those fields are read
 // from the deployment row, where PostCreate persisted them.
 type LLMDeploymentSyncReplicasTask struct {
 	taskman.STask

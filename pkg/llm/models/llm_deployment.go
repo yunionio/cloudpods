@@ -93,10 +93,11 @@ type SLLMDeployment struct {
 	AccessPolicy string `width:"32" charset:"ascii" nullable:"true" default:"authed" list:"user" create:"optional" update:"user"`
 
 	// Instance template — captured at create time so scale-up can re-create
-	// new SLLM replicas with the same network / start settings as the originals.
+	// new SLLM replicas with the same network / start / mount settings as the originals.
 	// Scale request bodies don't carry these fields.
 	Nets      *api.LLMDeploymentNets `charset:"utf8" length:"medium" nullable:"true" list:"user"`
 	AutoStart bool                   `nullable:"false" default:"false" list:"user"`
+	HostPaths *api.HostPaths         `charset:"utf8" length:"medium" nullable:"true" list:"user"`
 }
 
 func (man *SLLMDeploymentManager) ValidateCreateData(
@@ -490,7 +491,7 @@ func TriggerLLMDeploymentReconcile(ctx context.Context, userCred mcclient.TokenC
 func (model *SLLMDeployment) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	model.SVirtualResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
 
-	// Persist instance template (nets / auto_start) so later scale operations
+	// Persist instance template (nets / auto_start / host_paths) so later scale operations
 	// can rebuild instances without these fields in the scale request body.
 	input := api.LLMDeploymentCreateInput{}
 	_ = data.Unmarshal(&input)
@@ -500,6 +501,9 @@ func (model *SLLMDeployment) PostCreate(ctx context.Context, userCred mcclient.T
 			model.Nets = &nets
 		}
 		model.AutoStart = input.AutoStart
+		if input.HostPaths != nil && !input.HostPaths.IsZero() {
+			model.HostPaths = input.HostPaths
+		}
 		return nil
 	}); err != nil {
 		log.Errorf("SLLMDeployment.PostCreate persist instance template: %s", err)
