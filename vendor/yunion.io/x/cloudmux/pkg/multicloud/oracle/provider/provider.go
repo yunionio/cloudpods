@@ -228,3 +228,7 @@ func (self *SOracleProvider) GetCloudRegionExternalIdPrefix() string {
 func (self *SOracleProvider) GetMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
 	return self.client.GetMetrics(opts)
 }
+
+func (self *SOracleProvider) GetNotices() ([]cloudprovider.INotice, error) {
+	return self.client.GetNotices()
+}

@@ -19,25 +19,72 @@ import (
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 )
 
+// ref: https://cloud.tencent.com/document/product/213/6091
+// ref: https://cloud.tencent.com/developer/article/1930067
 var LatitudeAndLongitude = map[string]cloudprovider.SGeographicInfo{
-	"ap-bangkok":        api.RegionBangkok,       // 腾讯云 亚太地区(曼谷)
-	"ap-beijing":        api.RegionBeijing,       // 腾讯云 华北地区(北京)
-	"ap-chengdu":        api.RegionChengdu,       // 腾讯云 西南地区(成都)
-	"ap-chongqing":      api.RegionChongqing,     // 腾讯云 西南地区(重庆)
-	"ap-guangzhou":      api.RegionGuangzhou,     // 腾讯云 华南地区(广州)
-	"ap-guangzhou-open": api.RegionGuangzhou,     // 腾讯云 华南地区(广州Open)
-	"ap-hongkong":       api.RegionHongkong,      // 腾讯云 东南亚地区(香港)
-	"ap-mumbai":         api.RegionMumbai,        // 腾讯云 亚太地区(孟买)
-	"ap-seoul":          api.RegionSeoul,         // 腾讯云 东南亚地区(首尔)
-	"ap-shanghai":       api.RegionShanghai,      // 腾讯云 华东地区(上海)
-	"ap-shanghai-fsi":   api.RegionShanghai,      // 腾讯云 华东地区(上海金融)
-	"ap-shenzhen-fsi":   api.RegionShenzhen,      // 腾讯云 华南地区(深圳金融)
-	"ap-singapore":      api.RegionSingapore,     // 腾讯云 东南亚地区(新加坡)
-	"ap-tokyo":          api.RegionTokyo,         // 腾讯云 亚太地区(东京)
-	"eu-frankfurt":      api.RegionFrankfurt,     // 腾讯云 欧洲地区(德国)
-	"eu-moscow":         api.RegionMoscow,        // 腾讯云 欧洲地区(莫斯科)
-	"na-ashburn":        api.RegionVirginia,      // 腾讯云 美国东部(弗吉尼亚)
-	"na-siliconvalley":  api.RegionSiliconValley, // 腾讯云 美国西部(硅谷)
-	"na-toronto":        api.RegionToronto,       // 腾讯云 北美地区(多伦多)
-	"ap-nanjing":        api.RegionNanjing,
+	// 华北
+	"ap-beijing":           api.RegionBeijing,
+	"ap-beijing-fsi":       api.RegionBeijing,
+	"ap-tianjin":           api.RegionTianjin,
+	"ap-shijiazhuang-ec":   api.RegionShijiazhuang,
+
+	// 华东
+	"ap-shanghai":      api.RegionShanghai,
+	"ap-shanghai-fsi":  api.RegionShanghai,
+	"ap-shanghai-adc":  api.RegionShanghai,
+	"ap-nanjing":       api.RegionNanjing,
+	"ap-jinan-ec":      api.RegionJiNan,
+	"ap-hangzhou-ec":   api.RegionHangzhou,
+	"ap-fuzhou-ec":     api.RegionFujian,
+	"ap-hefei-ec":      api.RegionHefei,
+
+	// 华南
+	"ap-guangzhou":        api.RegionGuangzhou,
+	"ap-guangzhou-open":   api.RegionGuangzhou,
+	"ap-qingyuan":         api.RegionGuangzhou,
+	"ap-qingyuan-xinan":   api.RegionGuangzhou,
+	"ap-shenzhen":         api.RegionShenzhen,
+	"ap-shenzhen-fsi":     api.RegionShenzhen,
+	"ap-shenzhen-sycft":   api.RegionShenzhen,
+
+	// 华中
+	"ap-wuhan-ec":       api.RegionWuhan,
+	"ap-changsha-ec":    api.RegionChangsha,
+	"ap-zhengzhou-ec":   api.RegionZhengzhou,
+
+	// 西南 / 西北
+	"ap-chengdu":   api.RegionChengdu,
+	"ap-chongqing": api.RegionChongqing,
+	"ap-zhongwei":  api.RegionNingxia,
+	"ap-xian-ec":   api.RegionXian,
+	"ap-xibei-ec":  api.RegionLanzhou,
+
+	// 东北
+	"ap-shenyang-ec": api.RegionShenyang,
+
+	// 港澳台
+	"ap-hongkong": api.RegionHongkong,
+	"ap-taipei":   api.RegionTaiwan,
+
+	// 亚太
+	"ap-singapore": api.RegionSingapore,
+	"ap-jakarta":   api.RegionJakarta,
+	"ap-seoul":     api.RegionSeoul,
+	"ap-tokyo":     api.RegionTokyo,
+	"ap-osaka":     api.RegionOsaka,
+	"ap-bangkok":   api.RegionBangkok,
+	"ap-mumbai":    api.RegionMumbai,
+
+	// 中东
+	"me-saudi-arabia": api.RegionDamman,
+
+	// 欧洲
+	"eu-frankfurt": api.RegionFrankfurt,
+	"eu-moscow":    api.RegionMoscow,
+
+	// 北美 / 南美
+	"na-ashburn":       api.RegionVirginia,
+	"na-siliconvalley": api.RegionSiliconValley,
+	"na-toronto":       api.RegionToronto,
+	"sa-saopaulo":      api.RegionSaoPaulo,
 }

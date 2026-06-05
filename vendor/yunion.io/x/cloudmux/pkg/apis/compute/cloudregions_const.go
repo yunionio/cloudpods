@@ -124,6 +124,7 @@ const (
 	CITY_N_CALIFORNIA   = "N. California"  //北加州
 	CITY_OREGON         = "Oregon"         //俄勒冈州
 	CITY_LOS_ANGELES    = "Los Angeles"    //洛杉矶
+	CITY_DENVER         = "Denver"           //丹佛
 	CITY_SAN_FRANCISCO  = "San Francisco"  //旧金山
 	CITY_UTAH           = "Utah"           //犹他州
 	CITY_WASHINGTON     = "Washington"     //华盛顿
@@ -179,6 +180,7 @@ const (
 
 	// 波兰
 	CITY_WARSAW = "Warsaw" // 华沙
+	CITY_ISTANBUL = "Istanbul" // 伊斯坦布尔
 
 	// 巴西
 	CITY_SAO_PAULO      = "Sao Paulo"      //圣保罗
@@ -229,6 +231,9 @@ const (
 	// 新西兰
 	CITY_NEW_ZEALAND = "New Zealand" // 新西兰
 
+	// 菲律宾
+	CITY_MANILA = "Manila" // 马尼拉
+
 	COUNTRY_CODE_CN = "CN" //中国
 	COUNTRY_CODE_JP = "JP" //日本
 	COUNTRY_CODE_SG = "SG" //新加坡
@@ -265,4 +270,6 @@ const (
 	COUNTRY_CODE_ES = "ES" //西班牙
 	COUNTRY_CODE_QA = "QA" //卡塔尔
 	COUNTRY_CODE_NZ = "NZ" //新西兰
+	COUNTRY_CODE_PH = "PH" //菲律宾
+	COUNTRY_CODE_TR = "TR" //土耳其
 )

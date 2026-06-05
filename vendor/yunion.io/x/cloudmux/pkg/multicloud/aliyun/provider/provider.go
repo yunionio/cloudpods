@@ -518,3 +518,7 @@ func (self *SAliyunProvider) GetISSLCertificates() ([]cloudprovider.ICloudSSLCer
 func (self *SAliyunProvider) GetISSLCertificate(certId string) (cloudprovider.ICloudSSLCertificate, error) {
 	return self.client.GetISSLCertificate(certId)
 }
+
+func (self *SAliyunProvider) GetNotices() ([]cloudprovider.INotice, error) {
+	return self.client.GetNotices()
+}
