@@ -19,8 +19,23 @@ import (
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 )
 
+// ref: https://www.volcengine.com/docs/6534/1131814
 var LatitudeAndLongitude = map[string]cloudprovider.SGeographicInfo{
-	"cn-guangzhou": api.RegionGuangzhou,
-	"cn-beijing":   api.RegionBeijing,
+	// 华北
+	"cn-beijing":    api.RegionBeijing,
+	"cn-beijing2":   api.RegionBeijing,
+	"cn-datong":     api.RegionJinzhong,
+	"cn-wulanchabu": api.RegionWulanchabu,
+
+	// 华东 / 华南
 	"cn-shanghai":  api.RegionShanghai,
+	"cn-guangzhou": api.RegionGuangzhou,
+
+	// 港澳台
+	"cn-hongkong":     api.RegionHongkong,
+	"cn-hongkong-pop": api.RegionHongkong,
+
+	// 亚太
+	"ap-southeast-1": api.RegionKualaLumpur,
+	"ap-southeast-3": api.RegionJakarta,
 }

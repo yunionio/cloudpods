@@ -29,6 +29,7 @@ var LatitudeAndLongitude = map[string]cloudprovider.SGeographicInfo{
 	"asia-south2":          api.RegionDelhi,
 	"asia-southeast1":      api.RegionSingapore,
 	"asia-southeast2":      api.RegionJakarta,
+	"asia-southeast3":      api.RegionBangkok,
 	"australia-southeast1": api.RegionSydney,
 	"australia-southeast2": api.RegionMelbourne,
 
@@ -77,6 +78,7 @@ var RegionNames = map[string]string{
 	"asia-south2":          "德里",
 	"asia-southeast1":      "新加坡",
 	"asia-southeast2":      "雅加达",
+	"asia-southeast3":      "曼谷",
 	"australia-southeast1": "悉尼",
 	"australia-southeast2": "墨尔本",
 
