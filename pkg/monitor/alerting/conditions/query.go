@@ -182,6 +182,11 @@ func (c *QueryCondition) Eval(context *alerting.EvalContext) (*alerting.Conditio
 	}
 
 	for _, series := range seriesList {
+		if c.ResType == monitor.METRIC_RES_TYPE_CLOUDACCOUNT {
+			if enabled, ok := series.Tags["enabled"]; ok && enabled == "false" {
+				continue
+			}
+		}
 		if c.IsCloudResource() {
 			isLatestOfSerie, resource := c.serieIsLatestResource(nil, series)
 			if !isLatestOfSerie {
@@ -557,6 +562,7 @@ func newQueryCondition(model *monitor.AlertCondition, index int) (*QueryConditio
 
 	cond.checkGroupByField()
 	cond.setResType()
+	models.AppendCloudAccountDefaultQueryTags(&cond.Query.Model, true)
 
 	return cond, nil
 }
