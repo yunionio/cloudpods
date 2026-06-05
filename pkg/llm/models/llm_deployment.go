@@ -53,6 +53,10 @@ type SLLMDeployment struct {
 	// Nullable: may be empty during the brief window when a deployment auto-creates a SKU via SkuSpec.
 	LLMSkuId string `width:"128" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 
+	// SKU automatically created for this deployment and owned by its lifecycle.
+	// Empty when the deployment reuses an existing SKU.
+	ManagedLLMSkuId string `width:"128" charset:"ascii" nullable:"true" list:"user"`
+
 	// Expected replica count
 	Replicas int `nullable:"false" default:"1" list:"user" create:"optional" update:"user"`
 
@@ -374,71 +378,103 @@ func (model *SLLMDeployment) RealDelete(ctx context.Context, userCred mcclient.T
 	return model.SVirtualResourceBase.Delete(ctx, userCred)
 }
 
-// SyncReadyReplicas recomputes ReadyReplicas from running SLLM instances,
-// persists it to the deployment row, and transitions the deployment status
-// based on how many replicas are up:
+// SyncReadyReplicas recomputes ReadyReplicas from SLLM instances, persists it
+// to the deployment row, and transitions the deployment status based on replica
+// health:
 //
 //	ready_replicas == 0 && desired > 0  → deploying
 //	0 < ready_replicas < desired        → partial
 //	ready_replicas == desired           → ready
+//	replica create/start failure          → create_fail (unless some replicas run)
 //
 // Failure / lifecycle statuses (create_fail, deleting, importing_model, etc.)
-// are not overridden — the running-state status only takes effect once the
-// deployment has cleared the early lifecycle and has at least one instance.
+// are not overridden once set.
 //
 // Call after create/scale tasks finish and on every instance status change.
 func (model *SLLMDeployment) SyncReadyReplicas(ctx context.Context, userCred mcclient.TokenCredential) error {
-	cnt, err := GetLLMManager().Query().
+	var rows []deploymentReplicaStatusRow
+	err := GetLLMManager().Query("status").
 		Equals("llm_deployment_id", model.Id).
-		Equals("status", api.LLM_STATUS_RUNNING).
-		CountWithError()
+		All(&rows)
 	if err != nil {
-		return errors.Wrap(err, "count running instances")
+		return errors.Wrap(err, "fetch replica statuses")
 	}
-	if model.ReadyReplicas != cnt {
+	summary := summarizeDeploymentReplicaStatuses(rows)
+	if model.ReadyReplicas != summary.Running {
 		if _, err = db.Update(model, func() error {
-			model.ReadyReplicas = cnt
+			model.ReadyReplicas = summary.Running
 			return nil
 		}); err != nil {
 			return errors.Wrap(err, "update ready_replicas")
 		}
 	}
 
-	// Map (ready_replicas, replicas) → desired deployment status.
-	desired := computeRunningStatus(cnt, model.Replicas)
+	desired := computeDeploymentReplicaStatus(summary, model.Replicas)
 	if desired == "" {
 		return nil
 	}
-	if !canFlipToRunningStatus(model.Status) {
+	if !canUpdateReplicaHealthStatus(model.Status) {
 		return nil
 	}
 	if model.Status == desired {
 		return nil
 	}
-	return model.SetStatus(ctx, userCred, desired, fmt.Sprintf("ready_replicas=%d/%d", cnt, model.Replicas))
+	return model.SetStatus(ctx, userCred, desired, fmt.Sprintf("ready_replicas=%d/%d", summary.Running, model.Replicas))
 }
 
-// computeRunningStatus returns the status that reflects the running replica
-// count. Returns "" when there's nothing to set (e.g., desired == 0).
-func computeRunningStatus(ready, desired int) string {
+type deploymentReplicaStatusRow struct {
+	Status string `json:"status"`
+}
+
+type deploymentReplicaStatusSummary struct {
+	Running    int
+	HasFailure bool
+}
+
+func summarizeDeploymentReplicaStatuses(rows []deploymentReplicaStatusRow) deploymentReplicaStatusSummary {
+	summary := deploymentReplicaStatusSummary{}
+	for i := range rows {
+		switch rows[i].Status {
+		case api.LLM_STATUS_RUNNING:
+			summary.Running++
+		default:
+			if isDeploymentReplicaFailureStatus(rows[i].Status) {
+				summary.HasFailure = true
+			}
+		}
+	}
+	return summary
+}
+
+func computeDeploymentReplicaStatus(summary deploymentReplicaStatusSummary, desired int) string {
 	if desired <= 0 {
 		return ""
 	}
 	switch {
-	case ready == 0:
-		return api.LLM_DEPLOYMENT_STATUS_DEPLOYING
-	case ready < desired:
-		return api.LLM_DEPLOYMENT_STATUS_PARTIAL
-	default:
+	case summary.Running >= desired:
 		return api.STATUS_READY
+	case summary.Running > 0:
+		return api.LLM_DEPLOYMENT_STATUS_PARTIAL
+	case summary.HasFailure:
+		return api.LLM_STATUS_CREATE_FAIL
+	default:
+		return api.LLM_DEPLOYMENT_STATUS_DEPLOYING
 	}
 }
 
-// canFlipToRunningStatus reports whether the deployment is in a phase where
-// the running-replica-driven status can override the current value. Early
-// lifecycle (importing_model, creating_sku) and terminal failure / delete
-// states must not be clobbered.
-func canFlipToRunningStatus(current string) bool {
+func isDeploymentReplicaFailureStatus(status string) bool {
+	switch status {
+	case api.LLM_STATUS_CREATE_FAIL,
+		api.LLM_STATUS_START_FAIL:
+		return true
+	}
+	return false
+}
+
+// canUpdateReplicaHealthStatus reports whether replica-health-driven status can
+// override the current deployment value. Early lifecycle and terminal failure /
+// delete states must not be clobbered.
+func canUpdateReplicaHealthStatus(current string) bool {
 	switch current {
 	case api.LLM_DEPLOYMENT_STATUS_IMPORTING_MODEL,
 		api.LLM_DEPLOYMENT_STATUS_IMPORT_MODEL_FAILED,

@@ -488,11 +488,9 @@ func (llm *SLLM) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCre
 	return llm.StartDeleteTask(ctx, userCred, "")
 }
 
-// SetStatus overrides the base implementation to push ReadyReplicas updates to
-// the parent SLLMDeployment whenever the instance crosses the running boundary.
-// This is the only deterministic hook for "instance came up" / "instance went
-// down" — every transition (create-complete, start, stop, fail, restart) flows
-// through here.
+// SetStatus overrides the base implementation to push replica health updates
+// to the parent SLLMDeployment whenever the instance crosses the running
+// boundary or enters/leaves a deployment-relevant failure status.
 func (llm *SLLM) SetStatus(ctx context.Context, userCred mcclient.TokenCredential, status string, reason string) error {
 	oldStatus := llm.Status
 	if err := llm.SLLMBase.SetStatus(ctx, userCred, status, reason); err != nil {
@@ -501,10 +499,7 @@ func (llm *SLLM) SetStatus(ctx context.Context, userCred mcclient.TokenCredentia
 	if llm.LLMDeploymentId == "" {
 		return nil
 	}
-	// Only sync when running-membership changed.
-	wasRunning := oldStatus == api.LLM_STATUS_RUNNING
-	isRunning := status == api.LLM_STATUS_RUNNING
-	if wasRunning == isRunning {
+	if !shouldSyncDeploymentOnLLMStatusChange(oldStatus, status) {
 		return nil
 	}
 	depObj, err := GetLLMDeploymentManager().FetchById(llm.LLMDeploymentId)
@@ -516,6 +511,16 @@ func (llm *SLLM) SetStatus(ctx context.Context, userCred mcclient.TokenCredentia
 		log.Warningf("SLLM.SetStatus: SyncReadyReplicas for deployment %s: %s", llm.LLMDeploymentId, err)
 	}
 	return nil
+}
+
+func shouldSyncDeploymentOnLLMStatusChange(oldStatus string, newStatus string) bool {
+	if oldStatus == newStatus {
+		return false
+	}
+	if oldStatus == api.LLM_STATUS_RUNNING || newStatus == api.LLM_STATUS_RUNNING {
+		return true
+	}
+	return isDeploymentReplicaFailureStatus(oldStatus) != isDeploymentReplicaFailureStatus(newStatus)
 }
 
 func (llm *SLLM) GetLLMSku(skuId string) (*SLLMSku, error) {

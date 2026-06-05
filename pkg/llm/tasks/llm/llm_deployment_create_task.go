@@ -255,8 +255,7 @@ func (task *LLMDeploymentCreateTask) createSkuAndReconcile(ctx context.Context, 
 	}
 
 	if _, err := db.Update(model, func() error {
-		model.LLMSkuId = skuId
-		return nil
+		return assignDeploymentAutoCreatedSku(model, skuId)
 	}); err != nil {
 		task.taskFailedCreatingSku(ctx, model, errors.Wrap(err, "write back llm_sku_id"))
 		return
@@ -264,6 +263,12 @@ func (task *LLMDeploymentCreateTask) createSkuAndReconcile(ctx context.Context, 
 
 	log.Infof("LLMDeploymentCreateTask: created SKU %s for deployment %s (deployment.LLMSkuId now=%q)", skuId, model.Name, model.LLMSkuId)
 	task.reconcileAndComplete(ctx, model, body)
+}
+
+func assignDeploymentAutoCreatedSku(model *models.SLLMDeployment, skuId string) error {
+	model.LLMSkuId = skuId
+	model.ManagedLLMSkuId = skuId
+	return nil
 }
 
 // reconcileReplicas is the core logic that ensures actual SLLM count matches desired replicas.
