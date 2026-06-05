@@ -360,6 +360,10 @@ type CloudaccountDetail struct {
 }
 
 func (self CloudaccountDetail) GetMetricTags() map[string]string {
+	enabled := "true"
+	if self.Enabled != nil && !*self.Enabled {
+		enabled = "false"
+	}
 	ret := map[string]string{
 		"id":                self.Id,
 		"cloudaccount_id":   self.Id,
@@ -371,6 +375,7 @@ func (self CloudaccountDetail) GetMetricTags() map[string]string {
 		"tenant_id":         self.ProjectId,
 		"tenant":            self.Project,
 		"status":            self.Status,
+		"enabled":           enabled,
 	}
 	return AppendMetricTags(ret, self.MetadataResourceInfo, self.ProjectizedResourceInfo)
 }

@@ -505,6 +505,29 @@ func setDefaultValue(
 			Condition: "and",
 		})
 	}
+	AppendCloudAccountDefaultQueryTags(&query.Model, isAlert)
+}
+
+// AppendCloudAccountDefaultQueryTags appends default tag filters for cloud account metrics.
+func AppendCloudAccountDefaultQueryTags(model *monitor.MetricQuery, isAlert bool) {
+	if !isAlert || model == nil {
+		return
+	}
+	metricMeasurement, _ := MetricMeasurementManager.GetCache().Get(model.Measurement)
+	if metricMeasurement == nil || metricMeasurement.ResType != monitor.METRIC_RES_TYPE_CLOUDACCOUNT {
+		return
+	}
+	for _, tagFilter := range model.Tags {
+		if tagFilter.Key == "enabled" {
+			return
+		}
+	}
+	model.Tags = append(model.Tags, monitor.MetricQueryTag{
+		Key:       "enabled",
+		Operator:  "=",
+		Value:     "true",
+		Condition: "and",
+	})
 }
 
 func checkQueryGroupBy(query *monitor.AlertQuery, inputQuery *monitor.MetricQueryInput, isAlert bool) {
