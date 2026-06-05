@@ -50,3 +50,68 @@ func TestRewriteInfluxLineTenantAddMissing(t *testing.T) {
 		t.Fatalf("got %q want %q", out, want)
 	}
 }
+
+func TestRewriteInfluxLineVmName(t *testing.T) {
+	resolve := func(vmId string) (map[string]string, bool) {
+		if vmId == "vm-1" {
+			return map[string]string{"vm_name": "new-name"}, true
+		}
+		return nil, false
+	}
+	line := `agent_cpu,vm_id=vm-1,vm_name=old-name u=1i`
+	out, ch, err := rewriteInfluxLineTags(line, resolve)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !ch {
+		t.Fatal("expected change")
+	}
+	want := `agent_cpu,vm_id=vm-1,vm_name=new-name u=1i`
+	if out != want {
+		t.Fatalf("got %q want %q", out, want)
+	}
+}
+
+func TestRewriteInfluxLineVmNameNoChange(t *testing.T) {
+	resolve := func(vmId string) (map[string]string, bool) {
+		if vmId == "vm-1" {
+			return map[string]string{"vm_name": "same-name"}, true
+		}
+		return nil, false
+	}
+	line := `agent_cpu,vm_id=vm-1,vm_name=same-name u=1i`
+	out, ch, err := rewriteInfluxLineTags(line, resolve)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ch {
+		t.Fatalf("unexpected change: %q", out)
+	}
+	if out != line {
+		t.Fatalf("got %q want %q", out, line)
+	}
+}
+
+func TestRewriteInfluxLineTagsCombined(t *testing.T) {
+	resolve := func(vmId string) (map[string]string, bool) {
+		if vmId == "vm-1" {
+			return map[string]string{
+				"tenant_id": "tenant-correct",
+				"vm_name":   "new-name",
+			}, true
+		}
+		return nil, false
+	}
+	line := `agent_cpu,vm_id=vm-1,tenant_id=wrong,vm_name=old-name u=1i`
+	out, ch, err := rewriteInfluxLineTags(line, resolve)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !ch {
+		t.Fatal("expected change")
+	}
+	want := `agent_cpu,vm_id=vm-1,tenant_id=tenant-correct,vm_name=new-name u=1i`
+	if out != want {
+		t.Fatalf("got %q want %q", out, want)
+	}
+}
