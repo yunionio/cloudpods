@@ -84,6 +84,7 @@ const (
 	HYPERVISOR_UIS            = "uis"
 	HYPERVISOR_CAS            = "cas"
 	HYPERVISOR_CNWARE         = "cnware"
+	HYPERVISOR_ROCKBASE  = "rockbase"
 )
 
 const (

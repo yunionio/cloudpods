@@ -52,11 +52,31 @@ func (region *SRegion) GetCloudEnv() string {
 
 func (region *SRegion) GetGeographicInfo() cloudprovider.SGeographicInfo {
 	geo, ok := map[string]cloudprovider.SGeographicInfo{
-		"cn-northwest-1": api.RegionQingYang,
-		"ap-singapore-1": api.RegionSingapore,
+		// 华北
 		"cn-beijing-6":   api.RegionBeijing,
-		"cn-guangzhou-1": api.RegionGuangzhou,
+		"cn-beijing-fin": api.RegionBeijing,
+		"cn-north-vip1":  api.RegionBeijing,
+		"cn-hohhot-1":    api.RegionHuhehaote,
+
+		// 华东
 		"cn-shanghai-2":  api.RegionShanghai,
+		"cn-shanghai-fin": api.RegionShanghai,
+
+		// 华南
+		"cn-guangzhou-1": api.RegionGuangzhou,
+
+		// 华中 / 西南
+		"cn-central-1":   api.RegionWuhan,
+		"cn-southwest-1": api.RegionChongqing,
+
+		// 西北
+		"cn-northwest-1": api.RegionQingYang,
+		"cn-northwest-3": api.RegionNingxia,
+		"cn-northwest-4": api.RegionLanzhou,
+
+		// 海外
+		"ap-singapore-1": api.RegionSingapore,
+		"eu-east-1":      api.RegionMoscow,
 	}[region.Region]
 	if ok {
 		return geo

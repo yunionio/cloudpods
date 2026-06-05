@@ -53,6 +53,7 @@ const (
 	HOST_TYPE_UIS            = "uis"
 	HOST_TYPE_CAS            = "cas"
 	HOST_TYPE_CNWARE         = "cnware"
+	HOST_TYPE_ROCKBASE  = "rockbase"
 
 	// # possible status
 	HOST_ONLINE  = "online"

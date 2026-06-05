@@ -54,11 +54,8 @@ func (region *SRegion) GetCloudEnv() string {
 }
 
 func (region *SRegion) GetGeographicInfo() cloudprovider.SGeographicInfo {
-	geo, ok := map[string]cloudprovider.SGeographicInfo{
-		"ap-singapore-1": api.RegionSingapore,
-	}[region.RegionName]
-	if ok {
-		return geo
+	if info, ok := LatitudeAndLongitude[region.RegionName]; ok {
+		return info
 	}
 	return cloudprovider.SGeographicInfo{}
 }

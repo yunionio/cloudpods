@@ -44,6 +44,8 @@ var AzureGeographicInfo = map[string]cloudprovider.SGeographicInfo{
 	"westus2":            api.RegionWashington,  //美国 华盛顿
 	"southcentralus":     api.RegionTexas,       //美国 德克萨斯
 	"brazilsouth":        api.RegionSaoPaulo,    //巴西 圣保罗
+	"brazilsoutheast":    api.RegionRioDeJaneiro,    // 里约热内卢
+	"chilecentral":       api.RegionSantiago,
 	"koreacentral":       api.RegionSeoul,       //韩国 汉城 -> 首尔
 	"centralindia":       api.RegionMaharashtra, //印度 马哈拉施特拉邦
 	"northcentralus":     api.RegionChicago,     //美国 芝加哥
@@ -61,7 +63,6 @@ var AzureGeographicInfo = map[string]cloudprovider.SGeographicInfo{
 	"germanywestcentral": api.RegionFrankfurt,   // 法兰克福
 	"germanynorth":       api.RegionDelmenhorst, // 代尔门霍斯特
 	"westus3":            api.RegionPhoenix,
-	"brazilsoutheast":    api.RegionRioDeJaneiro,    // 里约热内卢
 	"jioindiawest":       api.RegionJioIndiaWest,    // 贾姆讷格尔
 	"jioindiacentral":    api.RegionJioIndiaCentral, // 那格浦尔
 	"swedencentral":      api.RegionSandviken,
@@ -70,6 +71,14 @@ var AzureGeographicInfo = map[string]cloudprovider.SGeographicInfo{
 	"italynorth":         api.RegionMilan,
 	"israelcentral":      api.RegionTelAviv,
 	"brazilus":           api.RegionIndianapolis,
+	"austriaeast":        api.RegionFrankfurt,
+	"belgiumcentral":     api.RegionBelgium,
+	"denmarkeast":        api.RegionOslo,
+	"indonesiacentral":   api.RegionJakarta,
+	"malaysiawest":       api.RegionKualaLumpur,
+	"mexicocentral":      api.RegionMexico,
+	"newzealandnorth":    api.RegionNewZealand,
+	"spaincentral":       api.RegionMadrid,
 
 	"chinaeast":   api.RegionShanghai,
 	"chinaeast2":  api.RegionShanghai,
