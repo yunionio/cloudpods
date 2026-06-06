@@ -191,7 +191,7 @@ func (r runnable) Run(ctx context.Context) (err error) {
 	// install required roles
 	if len(requirements) > 0 {
 		args := []string{
-			"install", "-r", requirements,
+			"install", "-r", requirements, "--ignore-certs",
 		}
 		if !r.GetRolePublic() {
 			args = append(args, "-p", tmpdir)

@@ -22,7 +22,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
-	apis "yunion.io/x/onecloud/pkg/apis/ansible"
+	apis "yunion.io/x/onecloud/pkg/apis/ansibleserver"
 	apiidentity "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/tsdb"
 	"yunion.io/x/onecloud/pkg/mcclient"

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package options
+package ansible
 
 import (
 	"fmt"
@@ -21,7 +21,8 @@ import (
 
 	"yunion.io/x/jsonutils"
 
-	apis "yunion.io/x/onecloud/pkg/apis/ansible"
+	apis "yunion.io/x/onecloud/pkg/apis/ansibleserver"
+	"yunion.io/x/onecloud/pkg/mcclient/options"
 	"yunion.io/x/onecloud/pkg/util/ansible"
 )
 
@@ -30,7 +31,7 @@ type AnsiblePlaybookIdOptions struct {
 }
 
 type AnsiblePlaybookListOptions struct {
-	BaseListOptions
+	options.BaseListOptions
 }
 
 type AnsiblePlaybookCommonOptions struct {
