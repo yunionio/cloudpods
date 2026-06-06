@@ -17,18 +17,18 @@ package models
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
-	"github.com/pkg/errors"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/ansibleserver/options"
 	"yunion.io/x/onecloud/pkg/apis"
-	api "yunion.io/x/onecloud/pkg/apis/ansible"
+	api "yunion.io/x/onecloud/pkg/apis/ansibleserver"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -103,7 +103,7 @@ func (man *SAnsiblePlaybookV2Manager) InitializeData() error {
 	q := AnsiblePlaybookV2Manager.Query()
 	q = q.Filter(sqlchemy.Equals(q.Field("status"), api.AnsiblePlaybookStatusRunning))
 	if err := db.FetchModelObjects(AnsiblePlaybookV2Manager, q, &pbs); err != nil {
-		return errors.WithMessage(err, "fetch running playbooks")
+		return errors.Wrap(err, "fetch running playbooks")
 	}
 	for i := 0; i < len(pbs); i++ {
 		pb := &pbs[i]
@@ -150,7 +150,7 @@ func (apb *SAnsiblePlaybookV2) runPlaybook(ctx context.Context, userCred mcclien
 	}
 
 	// hack: force Sleep 50s to wait some host ssh service started
-	time.Sleep(50 * time.Second)
+	// time.Sleep(50 * time.Second)
 
 	var (
 		privateKey string
@@ -176,7 +176,7 @@ func (apb *SAnsiblePlaybookV2) runPlaybook(ctx context.Context, userCred mcclien
 	}
 	// init private key
 	if privateKey, err = compute.Sshkeypairs.FetchPrivateKey(ctx, userCred); err != nil {
-		return err
+		return errors.Wrap(err, "fetch private key")
 	}
 
 	_, err = db.Update(apb, func() error {
@@ -188,13 +188,27 @@ func (apb *SAnsiblePlaybookV2) runPlaybook(ctx context.Context, userCred mcclien
 	})
 	if err != nil {
 		log.Errorf("run playbook: update db failed before run: %v", err)
+		return errors.Wrap(err, "update db failed before run")
 	}
+
+	convertGalaxyMirrors := func(requirements string, origin string, mirror string) string {
+		return strings.ReplaceAll(requirements, origin, mirror)
+	}
+
+	requirements := apb.Requirements
+	if len(options.Options.GalaxyMirrors) > 0 {
+		for origin, mirror := range options.Options.GalaxyMirrors {
+			requirements = convertGalaxyMirrors(requirements, origin, mirror)
+		}
+	}
+
+	log.Debugf("run playbook: requirements: %s", requirements)
 
 	sess := ansiblev2.NewSession().
 		Inventory(apb.Inventory).
 		Playbook(apb.Playbook).
 		PrivateKey(privateKey).
-		Requirements(apb.Requirements).
+		Requirements(requirements).
 		Files(files).
 		OutputWriter(&ansiblePlaybookOutputWriter{apb}).
 		KeepTmpdir(options.Options.KeepTmpdir).
