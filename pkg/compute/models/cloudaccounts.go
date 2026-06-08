@@ -2333,6 +2333,9 @@ func (account *SCloudaccount) probeAccountStatus(ctx context.Context, userCred m
 	}
 	balance, err := manager.GetBalance()
 	if err != nil {
+		if gotypes.IsNil(balance) {
+			balance = &cloudprovider.SBalanceInfo{}
+		}
 		switch err {
 		case cloudprovider.ErrNotSupported:
 			balance.Status = api.CLOUD_PROVIDER_HEALTH_NORMAL
