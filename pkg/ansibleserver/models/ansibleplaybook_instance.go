@@ -26,7 +26,7 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/ansibleserver/options"
-	api "yunion.io/x/onecloud/pkg/apis/ansible"
+	api "yunion.io/x/onecloud/pkg/apis/ansibleserver"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/workmanager"
 	"yunion.io/x/onecloud/pkg/mcclient"

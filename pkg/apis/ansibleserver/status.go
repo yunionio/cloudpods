@@ -12,4 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ansible // import "yunion.io/x/onecloud/pkg/apis/ansible"
+package ansibleserver
+
+const (
+	AnsiblePlaybookStatusInit      = "init"
+	AnsiblePlaybookStatusRunning   = "running"
+	AnsiblePlaybookStatusSucceeded = "succeeded"
+	AnsiblePlaybookStatusFailed    = "failed"
+	AnsiblePlaybookStatusCanceled  = "canceled"
+	AnsiblePlaybookStatusUnknown   = "unknown"
+)

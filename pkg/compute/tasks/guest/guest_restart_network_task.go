@@ -24,7 +24,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
 
-	ansible_api "yunion.io/x/onecloud/pkg/apis/ansible"
+	ansible_api "yunion.io/x/onecloud/pkg/apis/ansibleserver"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"

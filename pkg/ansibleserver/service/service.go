@@ -22,6 +22,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/ansibleserver/models"
 	"yunion.io/x/onecloud/pkg/ansibleserver/options"
+	api "yunion.io/x/onecloud/pkg/apis/ansibleserver"
 	"yunion.io/x/onecloud/pkg/cloudcommon"
 	common_app "yunion.io/x/onecloud/pkg/cloudcommon/app"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -36,6 +37,8 @@ func StartService() {
 	common_app.InitAuth(commonOpts, func() {
 		log.Infof("Auth complete")
 	})
+
+	common_options.StartOptionManager(opts, opts.ConfigSyncPeriodSeconds, api.SERVICE_TYPE, api.SERVICE_VERSION, options.OnOptionsChange)
 
 	dbOpts := &opts.DBOptions
 	baseOpts := &opts.BaseOptions

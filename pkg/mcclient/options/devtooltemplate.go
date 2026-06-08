@@ -21,7 +21,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 
-	apis "yunion.io/x/onecloud/pkg/apis/ansible"
+	apis "yunion.io/x/onecloud/pkg/apis/ansibleserver"
 	"yunion.io/x/onecloud/pkg/util/ansible"
 )
 
