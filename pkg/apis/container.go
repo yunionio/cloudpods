@@ -378,6 +378,11 @@ const (
 	CONTAINER_VOLUME_MOUNT_HOST_PATH_TYPE_FILE      ContainerVolumeMountHostPathType = "file"
 )
 
+type HostPathRequirement struct {
+	Path string                           `json:"path"`
+	Type ContainerVolumeMountHostPathType `json:"type"`
+}
+
 type ContainerVolumeMountHostPathAutoCreateConfig struct {
 	Uid         uint   `json:"uid"`
 	Gid         uint   `json:"gid"`
