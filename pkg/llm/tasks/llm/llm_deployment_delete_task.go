@@ -96,8 +96,9 @@ func (task *LLMDeploymentDeleteTask) OnInstancesDeletedFailed(ctx context.Contex
 }
 
 func (task *LLMDeploymentDeleteTask) deleteDeployment(ctx context.Context, model *models.SLLMDeployment) {
-	// Capture associated SKU id BEFORE deleting the deployment so we can cascade.
-	skuId := model.LLMSkuId
+	// Capture managed SKU id BEFORE deleting the deployment so we can cascade
+	// only SKUs automatically created for this deployment.
+	skuId := deploymentManagedSkuIdForCascade(model)
 
 	if err := model.RealDelete(ctx, task.UserCred); err != nil {
 		log.Errorf("LLMDeploymentDeleteTask: RealDelete deployment %s: %s", model.Id, err)
@@ -111,6 +112,13 @@ func (task *LLMDeploymentDeleteTask) deleteDeployment(ctx context.Context, model
 	task.cascadeDeleteSku(ctx, skuId)
 
 	task.SetStageComplete(ctx, nil)
+}
+
+func deploymentManagedSkuIdForCascade(model *models.SLLMDeployment) string {
+	if model == nil {
+		return ""
+	}
+	return model.ManagedLLMSkuId
 }
 
 // cascadeDeleteSku tries to delete the SKU created for this deployment. If the

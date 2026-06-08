@@ -74,6 +74,7 @@ type LLMDeploymentCreateOptions struct {
 	Net        []string `help:"Network descriptions; repeatable" json:"-"`
 	AutoStart  bool     `help:"auto start instances after creation" json:"auto_start"`
 	PreferHost string   `help:"prefer specific host" json:"prefer_host"`
+	HostPaths  []string `json:"-" help:"host path mount in format path=<host_path>,type=<directory|file>,container_index=<index>,mount_path=<container_path>[,auto_create=<bool>][,read_only=<bool>][,propagation=<private|rslave|rshared>][,fs_user=<uid>][,fs_group=<gid>][,uid=<uid>][,gid=<gid>][,permissions=<mode>]; repeatable"`
 
 	// Deployment config
 	Replicas                 int      `help:"number of replicas" default:"1" json:"replicas"`
@@ -124,6 +125,9 @@ func (o *LLMDeploymentCreateOptions) Params() (jsonutils.JSONObject, error) {
 			nets = append(nets, net)
 		}
 		params.Set("nets", jsonutils.Marshal(nets))
+	}
+	if err := fetchHostPaths(o.HostPaths, params); err != nil {
+		return nil, err
 	}
 
 	return params, nil
