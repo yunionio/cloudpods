@@ -96,7 +96,7 @@ func (self *SStorage) GetStorageType() string {
 }
 
 func (self *SStorage) GetMediumType() string {
-	if self.storageType == api.STORAGE_UCLOUD_CLOUD_SSD {
+	if strings.Contains(self.storageType, "SSD") {
 		return api.DISK_TYPE_SSD
 	} else {
 		return api.DISK_TYPE_ROTATE

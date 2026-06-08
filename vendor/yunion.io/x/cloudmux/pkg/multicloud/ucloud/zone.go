@@ -24,36 +24,20 @@ import (
 	"yunion.io/x/cloudmux/pkg/multicloud"
 )
 
-// https://docs.ucloud.cn/api/udisk-api/create_udisk
-// UDisk 类型: DataDisk（普通数据盘），SSDDataDisk（SSD数据盘），默认值（DataDisk）
-var StorageTypes = []string{
-	api.STORAGE_UCLOUD_CLOUD_NORMAL,
-	api.STORAGE_UCLOUD_CLOUD_SSD,
-	api.STORAGE_UCLOUD_LOCAL_NORMAL, // 本地盘
-	api.STORAGE_UCLOUD_LOCAL_SSD,    // 本地SSD盘
-}
-
 type SZone struct {
 	multicloud.SResourceBase
 	UcloudTags
 	region *SRegion
 	host   *SHost
 
-	iwires    []cloudprovider.ICloudWire
-	istorages []cloudprovider.ICloudStorage
-
-	RegionId string
-	ZoneId   string
-
-	/* 支持的磁盘种类集合 */
+	istorages    []cloudprovider.ICloudStorage
 	storageTypes []string
-}
 
-func (self *SZone) addWire(wire *SWire) {
-	if self.iwires == nil {
-		self.iwires = make([]cloudprovider.ICloudWire, 0)
-	}
-	self.iwires = append(self.iwires, wire)
+	RegionId   string `json:"Region"`
+	ZoneId     string `json:"Zone"`
+	LocalName  string `json:"LocalName"`
+	Default    bool   `json:"Default"`
+	Permission string `json:"Permission"`
 }
 
 func (self *SZone) getHost() *SHost {
@@ -63,19 +47,15 @@ func (self *SZone) getHost() *SHost {
 	return self.host
 }
 
-func (self *SZone) getStorageType() {
-	if len(self.storageTypes) == 0 {
-		self.storageTypes = StorageTypes
-	}
-}
-
 func (self *SZone) fetchStorages() error {
-	self.getStorageType()
+	storageTypes, err := self.region.GetZoneStorageTypes(self.GetId())
+	if err != nil {
+		return err
+	}
+	self.storageTypes = storageTypes
 	self.istorages = make([]cloudprovider.ICloudStorage, len(self.storageTypes))
-
 	for i, sc := range self.storageTypes {
-		storage := SStorage{zone: self, storageType: sc}
-		self.istorages[i] = &storage
+		self.istorages[i] = &SStorage{zone: self, storageType: sc}
 	}
 	return nil
 }
@@ -85,23 +65,13 @@ func (self *SZone) GetId() string {
 }
 
 func (self *SZone) GetName() string {
-	if name, exists := UCLOUD_ZONE_NAMES[self.GetId()]; exists {
-		return name
-	}
-
-	return self.GetId()
+	return self.LocalName
 }
 
 func (self *SZone) GetI18n() cloudprovider.SModelI18nTable {
-	var en string
-	if name, exists := UCLOUD_ZONE_NAMES_EN[self.GetId()]; exists {
-		en = name
-	} else {
-		en = self.GetId()
-	}
-
+	name := self.GetName()
 	table := cloudprovider.SModelI18nTable{}
-	table["name"] = cloudprovider.NewSModelI18nEntry(self.GetName()).CN(self.GetName()).EN(en)
+	table["name"] = cloudprovider.NewSModelI18nEntry(name).CN(name).EN(name)
 	return table
 }
 
@@ -154,7 +124,7 @@ func (self *SZone) GetIStorageById(id string) (cloudprovider.ICloudStorage, erro
 			return nil, errors.Wrapf(err, "fetchStorages")
 		}
 	}
-	for i := 0; i < len(self.istorages); i += 1 {
+	for i := range self.istorages {
 		if self.istorages[i].GetGlobalId() == id {
 			return self.istorages[i], nil
 		}
@@ -168,7 +138,16 @@ func (self *SZone) GetInstances() ([]SInstance, error) {
 }
 
 func (self *SZone) GetIWires() ([]cloudprovider.ICloudWire, error) {
-	return self.iwires, nil
+	vpcs, err := self.region.GetVpcs("")
+	if err != nil {
+		return nil, err
+	}
+	ret := []cloudprovider.ICloudWire{}
+	for i := range vpcs {
+		vpcs[i].region = self.region
+		ret = append(ret, &SWire{vpc: &vpcs[i]})
+	}
+	return ret, nil
 }
 
 // https://docs.ucloud.cn/api/uhost-api/describe_uhost_instance
