@@ -67,18 +67,28 @@ func (s *Service) rewriteTelegrafInfluxBodyIfNeeded(ctx context.Context, r *http
 		r.Header.Del("Content-Encoding")
 	}
 
-	newBody, changed, err := rewriteInfluxLineProtocolTenant(body, func(vmId string) (string, bool) {
+	newBody, changed, err := rewriteInfluxLineProtocolTags(body, func(vmId string) (map[string]string, bool) {
 		gd := s.lookupGuestDescForTelegraf(r, vmId)
-		if gd == nil || gd.TenantId == "" {
-			return "", false
+		if gd == nil {
+			return nil, false
 		}
-		return gd.TenantId, true
+		tags := make(map[string]string)
+		if gd.TenantId != "" {
+			tags["tenant_id"] = gd.TenantId
+		}
+		if gd.Name != "" {
+			tags["vm_name"] = gd.Name
+		}
+		if len(tags) == 0 {
+			return nil, false
+		}
+		return tags, true
 	})
 	if err != nil {
 		return err
 	}
 	if changed {
-		log.Debugf("metadata monitor: corrected tenant_id in telegraf influx payload from %s", r.RemoteAddr)
+		log.Debugf("metadata monitor: corrected telegraf influx tags from %s", r.RemoteAddr)
 	}
 	r.Body = io.NopCloser(bytes.NewReader(newBody))
 	r.ContentLength = int64(len(newBody))
@@ -97,7 +107,7 @@ func (s *Service) lookupGuestDescForTelegraf(r *http.Request, vmId string) *desc
 	return nil
 }
 
-func rewriteInfluxLineProtocolTenant(body []byte, resolveTenant func(vmId string) (tenantId string, ok bool)) ([]byte, bool, error) {
+func rewriteInfluxLineProtocolTags(body []byte, resolveTags func(vmId string) (map[string]string, bool)) ([]byte, bool, error) {
 	raw := strings.Split(string(body), "\n")
 	changed := false
 	for i, line := range raw {
@@ -105,7 +115,7 @@ func rewriteInfluxLineProtocolTenant(body []byte, resolveTenant func(vmId string
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}
-		newLine, lineChanged, err := rewriteInfluxLineTenant(line, resolveTenant)
+		newLine, lineChanged, err := rewriteInfluxLineTags(line, resolveTags)
 		if err != nil {
 			return body, false, err
 		}
@@ -120,7 +130,7 @@ func rewriteInfluxLineProtocolTenant(body []byte, resolveTenant func(vmId string
 	return []byte(strings.Join(raw, "\n")), true, nil
 }
 
-func rewriteInfluxLineTenant(line string, resolveTenant func(vmId string) (tenantId string, ok bool)) (string, bool, error) {
+func rewriteInfluxLineTags(line string, resolveTags func(vmId string) (map[string]string, bool)) (string, bool, error) {
 	measTags, fields, ok := splitMeasurementTagsAndFields(line)
 	if !ok {
 		return line, false, nil
@@ -132,42 +142,46 @@ func rewriteInfluxLineTenant(line string, resolveTenant func(vmId string) (tenan
 	measurement := parts[0]
 	tagSegs := parts[1:]
 	vmId := ""
-	haveTenant := false
-	curTenant := ""
 	for _, seg := range tagSegs {
 		k, v := splitInfluxTagKeyValue(seg)
-		if k == "" {
-			continue
-		}
-		switch k {
-		case "vm_id":
+		if k == "vm_id" {
 			vmId = v
-		case "tenant_id":
-			haveTenant = true
-			curTenant = v
+			break
 		}
 	}
 	if vmId == "" {
 		return line, false, nil
 	}
-	expectTenant, ok := resolveTenant(vmId)
+	expectTags, ok := resolveTags(vmId)
 	if !ok {
 		return line, false, nil
 	}
-	if haveTenant && curTenant == expectTenant {
-		return line, false, nil
-	}
-	newSegs := make([]string, 0, len(tagSegs)+1)
+	changed := false
+	haveExpect := map[string]bool{}
+	newSegs := make([]string, 0, len(tagSegs)+len(expectTags))
 	for _, seg := range tagSegs {
-		k, _ := splitInfluxTagKeyValue(seg)
-		if k == "tenant_id" {
-			newSegs = append(newSegs, "tenant_id="+expectTenant)
+		k, v := splitInfluxTagKeyValue(seg)
+		expect, isExpect := expectTags[k]
+		if isExpect {
+			haveExpect[k] = true
+			if v != expect {
+				changed = true
+				newSegs = append(newSegs, k+"="+expect)
+			} else {
+				newSegs = append(newSegs, seg)
+			}
 		} else {
 			newSegs = append(newSegs, seg)
 		}
 	}
-	if !haveTenant {
-		newSegs = append(newSegs, "tenant_id="+expectTenant)
+	for k, v := range expectTags {
+		if !haveExpect[k] {
+			changed = true
+			newSegs = append(newSegs, k+"="+v)
+		}
+	}
+	if !changed {
+		return line, false, nil
 	}
 	var b strings.Builder
 	b.WriteString(measurement)
@@ -178,6 +192,27 @@ func rewriteInfluxLineTenant(line string, resolveTenant func(vmId string) (tenan
 	b.WriteByte(' ')
 	b.WriteString(fields)
 	return b.String(), true, nil
+}
+
+// rewriteInfluxLineTenant rewrites tenant_id tag only. Kept for unit tests.
+func rewriteInfluxLineTenant(line string, resolveTenant func(vmId string) (tenantId string, ok bool)) (string, bool, error) {
+	return rewriteInfluxLineTags(line, func(vmId string) (map[string]string, bool) {
+		tenantId, ok := resolveTenant(vmId)
+		if !ok {
+			return nil, false
+		}
+		return map[string]string{"tenant_id": tenantId}, true
+	})
+}
+
+func rewriteInfluxLineProtocolTenant(body []byte, resolveTenant func(vmId string) (tenantId string, ok bool)) ([]byte, bool, error) {
+	return rewriteInfluxLineProtocolTags(body, func(vmId string) (map[string]string, bool) {
+		tenantId, ok := resolveTenant(vmId)
+		if !ok {
+			return nil, false
+		}
+		return map[string]string{"tenant_id": tenantId}, true
+	})
 }
 
 func splitMeasurementTagsAndFields(line string) (measTags string, fields string, ok bool) {
