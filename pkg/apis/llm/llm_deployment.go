@@ -113,6 +113,8 @@ type LLMDeploymentCreateInput struct {
 	AutoStart bool `json:"auto_start"`
 	// Prefer specific host
 	PreferHost string `json:"prefer_host"`
+	// Host path mounts for instances.
+	HostPaths *HostPaths `json:"host_paths,omitempty"`
 
 	// Expected number of replicas (SLLM instances)
 	Replicas int `json:"replicas"`

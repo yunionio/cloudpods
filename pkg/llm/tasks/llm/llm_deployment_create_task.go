@@ -255,8 +255,7 @@ func (task *LLMDeploymentCreateTask) createSkuAndReconcile(ctx context.Context, 
 	}
 
 	if _, err := db.Update(model, func() error {
-		model.LLMSkuId = skuId
-		return nil
+		return assignDeploymentAutoCreatedSku(model, skuId)
 	}); err != nil {
 		task.taskFailedCreatingSku(ctx, model, errors.Wrap(err, "write back llm_sku_id"))
 		return
@@ -264,6 +263,12 @@ func (task *LLMDeploymentCreateTask) createSkuAndReconcile(ctx context.Context, 
 
 	log.Infof("LLMDeploymentCreateTask: created SKU %s for deployment %s (deployment.LLMSkuId now=%q)", skuId, model.Name, model.LLMSkuId)
 	task.reconcileAndComplete(ctx, model, body)
+}
+
+func assignDeploymentAutoCreatedSku(model *models.SLLMDeployment, skuId string) error {
+	model.LLMSkuId = skuId
+	model.ManagedLLMSkuId = skuId
+	return nil
 }
 
 // reconcileReplicas is the core logic that ensures actual SLLM count matches desired replicas.
@@ -333,7 +338,7 @@ func scaleUp(ctx context.Context, userCred mcclient.TokenCredential, deployment 
 		}
 	}
 
-	// Instance template (nets / auto_start) lives on the deployment row,
+	// Instance template (nets / auto_start / host_paths) lives on the deployment row,
 	// captured at create time by SLLMDeployment.PostCreate. Scale request
 	// bodies don't carry these fields, so the row is the source of truth.
 	if deployment.Nets == nil || len(*deployment.Nets) == 0 {
@@ -356,16 +361,7 @@ func scaleUp(ctx context.Context, userCred mcclient.TokenCredential, deployment 
 		instanceName := fmt.Sprintf("%s-%d", deployment.Name, nextIndex+i)
 
 		// Build typed LLMCreateInput, then marshal to JSON for handler.Create
-		llmInput := api.LLMCreateInput{
-			LLMBaseCreateInput: api.LLMBaseCreateInput{
-				AutoStart: deployment.AutoStart,
-				Nets:      nets,
-			},
-			LLMSkuId:        deployment.LLMSkuId,
-			LLMImageId:      imageId,
-			LLMDeploymentId: deployment.Id,
-			LLMSpec:         llmSpec,
-		}
+		llmInput := buildDeploymentLLMCreateInput(deployment, nets, imageId, llmSpec)
 
 		llmParams := jsonutils.Marshal(llmInput).(*jsonutils.JSONDict)
 		// Name lives on the embedded VirtualResourceCreateInput → set explicitly
@@ -388,6 +384,20 @@ func scaleUp(ctx context.Context, userCred mcclient.TokenCredential, deployment 
 		return fmt.Errorf("failed to create any instance: %w", lastErr)
 	}
 	return nil
+}
+
+func buildDeploymentLLMCreateInput(deployment *models.SLLMDeployment, nets []*computeapi.NetworkConfig, imageId string, llmSpec *api.LLMSpec) api.LLMCreateInput {
+	return api.LLMCreateInput{
+		LLMBaseCreateInput: api.LLMBaseCreateInput{
+			AutoStart: deployment.AutoStart,
+			Nets:      nets,
+		},
+		LLMSkuId:        deployment.LLMSkuId,
+		LLMImageId:      imageId,
+		LLMDeploymentId: deployment.Id,
+		LLMSpec:         llmSpec,
+		HostPaths:       deployment.HostPaths,
+	}
 }
 
 // scaleDown deletes `count` SLLM instances, preferring unhealthy ones.
