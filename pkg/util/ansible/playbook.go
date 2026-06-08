@@ -24,10 +24,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/pkg/errors"
-
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/gotypes"
-	yerrors "yunion.io/x/pkg/util/errors"
 )
 
 type pbState int
@@ -110,7 +108,7 @@ func (pb *Playbook) Run(ctx context.Context) (err error) {
 
 	pb.stateMux.Lock()
 	if pb.state != pbStateInit {
-		return errors.Errorf("playbook state %s, want %s",
+		return errors.Wrapf(errors.ErrInvalidStatus, "playbook state %s, want %s",
 			pb.state, pbStateInit)
 	}
 	pb.state = pbStateRunning
@@ -122,13 +120,13 @@ func (pb *Playbook) Run(ctx context.Context) (err error) {
 	}()
 
 	if pb.Inventory.IsEmpty() {
-		return errors.New("empty inventory")
+		return errors.Wrapf(errors.ErrInvalidFormat, "empty inventory")
 	}
 
 	// make tmpdir
-	tmpdir, err = ioutil.TempDir("", "onecloud-ansible")
+	tmpdir, err = os.MkdirTemp("", "onecloud-ansible")
 	if err != nil {
-		err = errors.WithMessage(err, "making tmp dir")
+		err = errors.Wrap(err, "making tmp dir")
 		return
 	}
 	pb.tmpdir = tmpdir
@@ -137,7 +135,7 @@ func (pb *Playbook) Run(ctx context.Context) (err error) {
 			return
 		}
 		if err1 := os.RemoveAll(tmpdir); err1 != nil {
-			err = errors.WithMessagef(err1, "removing %q", tmpdir)
+			err = errors.Wrapf(err1, "removing %q", tmpdir)
 		}
 	}()
 
@@ -145,7 +143,7 @@ func (pb *Playbook) Run(ctx context.Context) (err error) {
 	inventory := filepath.Join(tmpdir, "inventory")
 	err = ioutil.WriteFile(inventory, pb.Inventory.Data(), os.FileMode(0600))
 	if err != nil {
-		err = errors.WithMessagef(err, "writing inventory %s", inventory)
+		err = errors.Wrapf(err, "writing inventory %s", inventory)
 		return
 	}
 
@@ -155,7 +153,7 @@ func (pb *Playbook) Run(ctx context.Context) (err error) {
 		privateKey = filepath.Join(tmpdir, "private_key")
 		err = ioutil.WriteFile(privateKey, pb.PrivateKey, os.FileMode(0600))
 		if err != nil {
-			err = errors.WithMessagef(err, "writing private key %s", privateKey)
+			err = errors.Wrapf(err, "writing private key %s", privateKey)
 			return
 		}
 	}
@@ -166,12 +164,12 @@ func (pb *Playbook) Run(ctx context.Context) (err error) {
 		dir := filepath.Dir(path)
 		err = os.MkdirAll(dir, os.FileMode(0700))
 		if err != nil {
-			err = errors.WithMessagef(err, "mkdir -p %s", dir)
+			err = errors.Wrapf(err, "mkdir -p %s", dir)
 			return
 		}
 		err = ioutil.WriteFile(path, content, os.FileMode(0600))
 		if err != nil {
-			err = errors.WithMessagef(err, "writing file %s", name)
+			err = errors.Wrapf(err, "writing file %s", name)
 			return
 		}
 	}
@@ -180,7 +178,7 @@ func (pb *Playbook) Run(ctx context.Context) (err error) {
 	var errs []error
 	defer func() {
 		if len(errs) > 0 {
-			err = yerrors.NewAggregate(errs)
+			err = errors.NewAggregate(errs)
 		}
 	}()
 	for _, m := range pb.Modules {
@@ -207,7 +205,7 @@ func (pb *Playbook) Run(ctx context.Context) (err error) {
 		stdout, _ := cmd.StdoutPipe()
 		stderr, _ := cmd.StderrPipe()
 		if err1 := cmd.Start(); err1 != nil {
-			errs = append(errs, errors.WithMessagef(err1, "run module %q, args %q", m.Name, modArgs))
+			errs = append(errs, errors.Wrapf(err1, "run module %q, args %q", m.Name, modArgs))
 			return
 		}
 		// Mix stdout, stderr
@@ -216,7 +214,7 @@ func (pb *Playbook) Run(ctx context.Context) (err error) {
 			go io.Copy(pb.outputWriter, stderr)
 		}
 		if err1 := cmd.Wait(); err1 != nil {
-			errs = append(errs, errors.WithMessagef(err1, "wait module %q, args %q", m.Name, modArgs))
+			errs = append(errs, errors.Wrapf(err1, "wait module %q, args %q", m.Name, modArgs))
 			// continue to next
 		}
 	}

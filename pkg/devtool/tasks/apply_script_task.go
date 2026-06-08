@@ -21,7 +21,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
-	ansible_api "yunion.io/x/onecloud/pkg/apis/ansible"
+	ansible_api "yunion.io/x/onecloud/pkg/apis/ansibleserver"
 	devtool_api "yunion.io/x/onecloud/pkg/apis/devtool"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"

@@ -19,7 +19,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/ansible"
-	"yunion.io/x/onecloud/pkg/mcclient/options"
+	options "yunion.io/x/onecloud/pkg/mcclient/options/ansible"
 )
 
 func init() {

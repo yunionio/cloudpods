@@ -22,7 +22,7 @@ import (
 	"yunion.io/x/pkg/util/sets"
 
 	"yunion.io/x/onecloud/pkg/apis"
-	ansible_api "yunion.io/x/onecloud/pkg/apis/ansible"
+	ansible_api "yunion.io/x/onecloud/pkg/apis/ansibleserver"
 	comapi "yunion.io/x/onecloud/pkg/apis/compute"
 )
 
