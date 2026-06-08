@@ -17,25 +17,21 @@ package rockbase
 import (
 	"fmt"
 
+	"yunion.io/x/pkg/errors"
+
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
 )
-
-// https://docs.ucloud.cn/api/udisk-api/create_udisk
-// UDisk 类型: DataDisk（普通数据盘），SSDDataDisk（SSD数据盘），默认值（DataDisk）
-var StorageTypes = []string{
-	api.STORAGE_ROCKBASE_CLOUD_NORMAL,
-	api.STORAGE_ROCKBASE_CLOUD_SSD,
-	api.STORAGE_ROCKBASE_LOCAL_NORMAL, // 本地盘
-	api.STORAGE_ROCKBASE_LOCAL_SSD,    // 本地SSD盘
-}
 
 type SZone struct {
 	multicloud.SResourceBase
 	RockbaseTags
 	region *SRegion
 	host   *SHost
+
+	istorages    []cloudprovider.ICloudStorage
+	storageTypes []string
 
 	RegionId   string `json:"Region"`
 	ZoneId     string `json:"Zone"`
@@ -51,33 +47,31 @@ func (self *SZone) getHost() *SHost {
 	return self.host
 }
 
+func (self *SZone) fetchStorages() error {
+	storageTypes, err := self.region.GetZoneStorageTypes(self.GetId())
+	if err != nil {
+		return err
+	}
+	self.storageTypes = storageTypes
+	self.istorages = make([]cloudprovider.ICloudStorage, len(self.storageTypes))
+	for i, sc := range self.storageTypes {
+		self.istorages[i] = &SStorage{zone: self, storageType: sc}
+	}
+	return nil
+}
+
 func (self *SZone) GetId() string {
 	return self.ZoneId
 }
 
 func (self *SZone) GetName() string {
-	if len(self.LocalName) > 0 {
-		return self.LocalName
-	}
-	if name, exists := ROCKBASE_ZONE_NAMES[self.GetId()]; exists {
-		return name
-	}
-
-	return self.GetId()
+	return self.LocalName
 }
 
 func (self *SZone) GetI18n() cloudprovider.SModelI18nTable {
-	var en string
-	if len(self.LocalName) > 0 {
-		en = self.LocalName
-	} else if name, exists := ROCKBASE_ZONE_NAMES_EN[self.GetId()]; exists {
-		en = name
-	} else {
-		en = self.GetId()
-	}
-
+	name := self.GetName()
 	table := cloudprovider.SModelI18nTable{}
-	table["name"] = cloudprovider.NewSModelI18nEntry(self.GetName()).CN(self.GetName()).EN(en)
+	table["name"] = cloudprovider.NewSModelI18nEntry(name).CN(name).EN(name)
 	return table
 }
 
@@ -114,21 +108,25 @@ func (self *SZone) GetIHostById(id string) (cloudprovider.ICloudHost, error) {
 }
 
 func (self *SZone) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
-	ret := make([]cloudprovider.ICloudStorage, len(StorageTypes))
-	for i, sc := range StorageTypes {
-		ret[i] = &SStorage{zone: self, storageType: sc}
+	if self.istorages == nil {
+		err := self.fetchStorages()
+		if err != nil {
+			return nil, errors.Wrapf(err, "fetchStorages")
+		}
 	}
-	return ret, nil
+	return self.istorages, nil
 }
 
 func (self *SZone) GetIStorageById(id string) (cloudprovider.ICloudStorage, error) {
-	storages, err := self.GetIStorages()
-	if err != nil {
-		return nil, err
+	if self.istorages == nil {
+		err := self.fetchStorages()
+		if err != nil {
+			return nil, errors.Wrapf(err, "fetchStorages")
+		}
 	}
-	for i := range storages {
-		if storages[i].GetGlobalId() == id {
-			return storages[i], nil
+	for i := range self.istorages {
+		if self.istorages[i].GetGlobalId() == id {
+			return self.istorages[i], nil
 		}
 	}
 	return nil, cloudprovider.ErrNotFound
