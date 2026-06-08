@@ -114,7 +114,7 @@ type IPSet struct {
 	IP       string `json:"IP"`
 	IPId     string `json:"IPId"` // IP资源ID (内网IP无对应的资源ID)
 	MAC      string `json:"Mac"`
-	VPCID    string `json:"VPCId"`
+	VpcId    string `json:"VPCId"`
 	SubnetID string `json:"SubnetId"`
 }
 

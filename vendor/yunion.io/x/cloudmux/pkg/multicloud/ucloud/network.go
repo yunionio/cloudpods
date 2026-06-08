@@ -45,14 +45,14 @@ type SNetwork struct {
 	SubnetName   string `json:"SubnetName"`
 	SubnetType   int    `json:"SubnetType"`
 	Tag          string `json:"Tag"`
-	VPCID        string `json:"VPCId"`
+	VpcId        string `json:"VPCId"`
 	VPCName      string `json:"VPCName"`
 	VRouterID    string `json:"VRouterId"`
 	Zone         string `json:"Zone"`
 }
 
 func (self *SNetwork) GetProjectId() string {
-	return self.wire.region.client.projectId
+	return self.wire.vpc.region.client.projectId
 }
 
 func (self *SNetwork) GetId() string {
@@ -77,7 +77,7 @@ func (self *SNetwork) GetStatus() string {
 
 func (self *SNetwork) Refresh() error {
 	log.Debugf("network refresh %s", self.GetId())
-	new, err := self.wire.region.getNetwork(self.GetId())
+	new, err := self.wire.vpc.region.getNetwork(self.GetId())
 	if err != nil {
 		return err
 	}
@@ -129,7 +129,7 @@ func (self *SNetwork) GetPublicScope() rbacscope.TRbacScope {
 }
 
 func (self *SNetwork) Delete() error {
-	return self.wire.region.DeleteNetwork(self.GetId())
+	return self.wire.vpc.region.DeleteNetwork(self.GetId())
 }
 
 func (self *SNetwork) GetAllocTimeoutSeconds() int {
@@ -137,6 +137,10 @@ func (self *SNetwork) GetAllocTimeoutSeconds() int {
 }
 
 // https://docs.ucloud.cn/api/vpc2.0-api/describe_subnet
+func (self *SRegion) GetNetwork(networkId string) (*SNetwork, error) {
+	return self.getNetwork(networkId)
+}
+
 func (self *SRegion) getNetwork(networkId string) (*SNetwork, error) {
 	if len(networkId) == 0 {
 		return nil, fmt.Errorf("getNetwork network id should not be empty")
@@ -152,11 +156,11 @@ func (self *SRegion) getNetwork(networkId string) (*SNetwork, error) {
 
 	if len(networks) == 1 {
 		network := networks[0]
-		vpc, err := self.getVpc(network.VPCID)
+		vpc, err := self.GetVpc(network.VpcId)
 		if err != nil {
 			return nil, err
 		}
-		network.wire = &SWire{region: self, vpc: vpc, inetworks: []cloudprovider.ICloudNetwork{&network}}
+		network.wire = &SWire{vpc: vpc}
 		return &network, nil
 	} else if len(networks) == 0 {
 		return nil, cloudprovider.ErrNotFound
