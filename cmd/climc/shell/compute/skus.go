@@ -30,4 +30,5 @@ func init() {
 	cmd.Create(&options.ServerSkusCreateOptions{})
 	cmd.Update(&options.ServerSkusUpdateOptions{})
 	cmd.ClassShow(&options.ServerSkusListOptions{})
+	cmd.PerformClass("batch-update-price", &options.ServerSkusBatchUpdatePriceOptions{})
 }
