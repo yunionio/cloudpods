@@ -23,8 +23,6 @@ import (
 	"github.com/pkg/errors"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
-	"yunion.io/x/pkg/utils"
 
 	billing_api "yunion.io/x/cloudmux/pkg/apis/billing"
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
@@ -163,11 +161,10 @@ func (self *SDisk) GetIsAutoDelete() bool {
 
 func (self *SDisk) GetTemplateId() string {
 	if strings.Contains(self.DiskType, "SystemDisk") && len(self.UHostID) > 0 {
-		ins, err := self.storage.zone.region.GetInstanceByID(self.UHostID)
+		ins, err := self.storage.zone.region.GetInstance(self.UHostID)
 		if err != nil {
-			log.Errorln(err)
+			return ""
 		}
-
 		return ins.ImageID
 	}
 
@@ -303,27 +300,23 @@ func (self *SDisk) Rebuild(ctx context.Context) error {
 }
 
 func (self *SRegion) GetDisk(diskId string) (*SDisk, error) {
-	if len(diskId) == 0 {
-		return nil, fmt.Errorf("GetDisk id should not empty")
-	}
-
-	disks, err := self.GetDisks("", "", []string{diskId})
+	disks, err := self.GetDisks("", "", "", diskId)
 	if err != nil {
 		return nil, err
 	}
 
-	if len(disks) == 1 {
-		return &disks[0], nil
-	} else if len(disks) == 0 {
-		return nil, cloudprovider.ErrNotFound
-	} else {
-		return nil, fmt.Errorf("GetDisk %s %d found", diskId, len(disks))
+	for i := range disks {
+		if disks[i].UDiskID == diskId {
+			return &disks[i], nil
+		}
 	}
+
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "GetDisk %s", diskId)
 }
 
 // https://docs.ucloud.cn/api/udisk-api/describe_udisk
 // diskType DataDisk|SystemDisk (DataDisk表示数据盘，SystemDisk表示系统盘)
-func (self *SRegion) GetDisks(zoneId string, diskType string, diskIds []string) ([]SDisk, error) {
+func (self *SRegion) GetDisks(zoneId string, diskType string, isBoot string, diskId string) ([]SDisk, error) {
 	disks := make([]SDisk, 0)
 	params := NewRockbaseParams()
 	if len(zoneId) > 0 {
@@ -331,23 +324,21 @@ func (self *SRegion) GetDisks(zoneId string, diskType string, diskIds []string) 
 	}
 
 	if len(diskType) > 0 {
+		params.Set("ProtocolVersion", "1")
 		params.Set("DiskType", diskType)
+	}
+
+	if len(diskId) > 0 {
+		params.Set("UDiskId", diskId)
+	}
+
+	if len(isBoot) > 0 {
+		params.Set("IsBoot", isBoot)
 	}
 
 	err := self.DoListAll("DescribeUDisk", params, &disks)
 	if err != nil {
 		return nil, err
-	}
-
-	if len(diskIds) > 0 {
-		filtedDisks := make([]SDisk, 0)
-		for i := range disks {
-			if utils.IsInStringArray(disks[i].UDiskID, diskIds) {
-				filtedDisks = append(filtedDisks, disks[i])
-			}
-		}
-
-		return filtedDisks, nil
 	}
 
 	return disks, nil

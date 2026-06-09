@@ -23,6 +23,7 @@ import (
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
+	"yunion.io/x/pkg/utils"
 )
 
 type SStorage struct {
@@ -65,30 +66,18 @@ func (self *SStorage) GetIZone() cloudprovider.ICloudZone {
 }
 
 func (self *SStorage) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
-	disks, err := self.zone.region.GetDisks(self.zone.GetId(), "", nil)
-	if err != nil {
-		return nil, err
-	}
-
-	filtedDisks := make([]SDisk, 0)
-	for _, disk := range disks {
-		// ssd 盘
-		if self.storageType == api.STORAGE_ROCKBASE_CLOUD_SSD && strings.Contains(disk.DiskType, "SSD") {
-			filtedDisks = append(filtedDisks, disk)
+	ret := []cloudprovider.ICloudDisk{}
+	for _, isBoot := range []string{"True", "False"} {
+		disks, err := self.zone.region.GetDisks(self.zone.GetId(), self.storageType, isBoot, "")
+		if err != nil {
+			return nil, err
 		}
-
-		// 普通盘
-		if self.storageType == api.STORAGE_ROCKBASE_CLOUD_NORMAL && !strings.Contains(disk.DiskType, "SSD") {
-			filtedDisks = append(filtedDisks, disk)
+		for _, disk := range disks {
+			disk.storage = self
+			ret = append(ret, &disk)
 		}
 	}
-
-	idisks := make([]cloudprovider.ICloudDisk, len(filtedDisks))
-	for i := 0; i < len(filtedDisks); i += 1 {
-		filtedDisks[i].storage = self
-		idisks[i] = &filtedDisks[i]
-	}
-	return idisks, nil
+	return ret, nil
 }
 
 func (self *SStorage) GetStorageType() string {
@@ -124,6 +113,10 @@ func (self *SStorage) CreateIDisk(opts *cloudprovider.DiskCreateConfig) (cloudpr
 	switch self.storageType {
 	case api.STORAGE_ROCKBASE_CLOUD_SSD:
 		diskType = "SSDDataDisk"
+	case api.STORAGE_ROCKBASE_CLOUD_ESSD:
+		diskType = "ESSDDataDisk"
+	case api.STORAGE_ROCKBASE_CLOUD_RSSD:
+		diskType = "RSSDDataDisk"
 	}
 	diskId, err := self.zone.region.CreateDisk(self.zone.GetId(), diskType, opts)
 	if err != nil {
@@ -140,12 +133,12 @@ func (self *SStorage) CreateIDisk(opts *cloudprovider.DiskCreateConfig) (cloudpr
 }
 
 func (self *SStorage) GetIDiskById(idStr string) (cloudprovider.ICloudDisk, error) {
-	if disk, err := self.zone.region.GetDisk(idStr); err != nil {
+	disk, err := self.zone.region.GetDisk(idStr)
+	if err != nil {
 		return nil, err
-	} else {
-		disk.storage = self
-		return disk, nil
 	}
+	disk.storage = self
+	return disk, nil
 }
 
 func (self *SStorage) GetMountPoint() string {
@@ -154,4 +147,11 @@ func (self *SStorage) GetMountPoint() string {
 
 func (self *SStorage) IsSysDiskStore() bool {
 	return true
+}
+
+func (self *SStorage) DisableSync() bool {
+	return utils.IsInStringArray(self.storageType, []string{
+		api.STORAGE_ROCKBASE_LOCAL_SSD,
+		api.STORAGE_ROCKBASE_LOCAL_NORMAL,
+	})
 }

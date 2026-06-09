@@ -18,6 +18,7 @@ import (
 	"fmt"
 
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
@@ -51,6 +52,11 @@ func (self *SZone) fetchStorages() error {
 	storageTypes, err := self.region.GetZoneStorageTypes(self.GetId())
 	if err != nil {
 		return err
+	}
+	for _, storageType := range api.UCLOUD_LOCAL_STORAGES {
+		if !utils.IsInStringArray(storageType, storageTypes) {
+			storageTypes = append(storageTypes, storageType)
+		}
 	}
 	self.storageTypes = storageTypes
 	self.istorages = make([]cloudprovider.ICloudStorage, len(self.storageTypes))

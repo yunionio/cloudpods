@@ -20,6 +20,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 )
 
 var responseMetaKeys = map[string]bool{
@@ -99,24 +100,21 @@ func detectArrayResultKey(resp jsonutils.JSONObject) string {
 	return candidates[0]
 }
 
-func unmarshalResult(resp jsonutils.JSONObject, respErr error, result interface{}) error {
-	if respErr != nil {
-		return respErr
-	}
-
+func unmarshalResult(resp jsonutils.JSONObject, result interface{}) error {
 	if result == nil {
 		return nil
 	}
 
+	var err error
 	resultKey := detectResultKey(resp, result)
 	if len(resultKey) > 0 {
-		respErr = resp.Unmarshal(result, resultKey)
+		err = resp.Unmarshal(result, resultKey)
 	} else {
-		respErr = resp.Unmarshal(result)
+		err = resp.Unmarshal(result)
 	}
 
-	if respErr != nil {
-		log.Errorf("unmarshal json error %s", respErr)
+	if err != nil {
+		return errors.Wrapf(err, "unmarshalResult")
 	}
 
 	return nil
@@ -154,7 +152,11 @@ func doListPart(client *SUcloudClient, action string, params SParams, result int
 func DoAction(client *SUcloudClient, action string, params SParams, result interface{}) error {
 	params.SetAction(action)
 	resp, err := jsonRequest(client, params)
-	return unmarshalResult(resp, err, result)
+	if err != nil {
+		log.Debugf("DoAction %s %s error %s", action, params.PrettyString(), err)
+		return err
+	}
+	return unmarshalResult(resp, result)
 }
 
 // 遍历所有结果
