@@ -71,6 +71,15 @@ func GetMeasurementTagIdKeyByResType(resType string) string {
 	return MEASUREMENT_TAG_ID[resType]
 }
 
+func GetMeasurementTagNameIdMapByResType(resType string) map[string]string {
+	nameTag := MEASUREMENT_TAG_KEYWORD[resType]
+	idTag := MEASUREMENT_TAG_ID[resType]
+	if nameTag == "" || idTag == "" {
+		return nil
+	}
+	return map[string]string{nameTag: idTag}
+}
+
 func GetMeasurementTagIdKeyByResTypeWithDefault(resType string) string {
 	tagId := GetMeasurementTagIdKeyByResType(resType)
 	if len(tagId) == 0 {

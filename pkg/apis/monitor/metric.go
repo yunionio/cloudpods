@@ -193,7 +193,14 @@ type InfluxMeasurement struct {
 	Score                  int
 	TagKey                 []string
 	TagValue               map[string][]string
+	TagNameIdMap           map[string]string            `json:"tag_name_id_map,omitempty"`
+	TagNameIdValueMap      map[string]map[string]string `json:"tag_name_id_value_map,omitempty"`
 	FieldKey               []string
 	FieldDescriptions      map[string]MetricFieldDetail
 	Unit                   []string
+}
+
+type MetricMeasurementOutput struct {
+	InfluxMeasurement
+	Func *MetricFunc
 }

@@ -192,12 +192,30 @@ func (self *SUnifiedMonitorManager) GetPropertyMetricMeasurement(ctx context.Con
 	if err != nil {
 		return nil, errors.Wrapf(err, "getTagFilterByRequestQuery %s", query.String())
 	}
-	rtn, err := DataSourceManager.GetMetricMeasurement(userCred, query, filter)
+	ret, err := DataSourceManager.GetMetricMeasurement(userCred, query, filter)
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetMetricMeasurement by query %s, filter %s", query.String(), filter)
 	}
-	rtn.(*jsonutils.JSONDict).Add(jsonutils.Marshal(&metricFunc), "func")
-	return rtn, nil
+	tagNameIdMap := monitor.GetMeasurementTagNameIdMapByResType(ret.ResType)
+	if tagNameIdMap == nil && len(ret.TagNameIdValueMap) > 0 {
+		for nameTag := range ret.TagNameIdValueMap {
+			for resType, keyword := range monitor.MEASUREMENT_TAG_KEYWORD {
+				if keyword == nameTag {
+					if idTag := monitor.MEASUREMENT_TAG_ID[resType]; idTag != "" {
+						tagNameIdMap = map[string]string{nameTag: idTag}
+						break
+					}
+				}
+			}
+			break
+		}
+	}
+	ret.TagNameIdMap = tagNameIdMap
+	output := &monitor.MetricMeasurementOutput{
+		InfluxMeasurement: *ret,
+		Func:              &metricFunc,
+	}
+	return jsonutils.Marshal(output), nil
 }
 
 func (self *SUnifiedMonitorManager) SetHandlerProcessTimeout(info *appsrv.SHandlerInfo, r *http.Request) time.Duration {
