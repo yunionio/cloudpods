@@ -45,7 +45,8 @@ const (
 
 	SERVICE_TYPE_APIMAP = "apimap"
 
-	SERVICE_TYPE_LLM = "llm"
+	SERVICE_TYPE_LLM     = "llm"
+	SERVICE_TYPE_AIPROXY = "aiproxy"
 
 	STATUS_UPDATE_TAGS        = "update_tags"
 	STATUS_UPDATE_TAGS_FAILED = "update_tags_fail"
@@ -130,6 +131,7 @@ var (
 		SERVICE_TYPE_VICTORIA_METRICS,
 		SERVICE_TYPE_LOG,
 		"s3gateway",
+		SERVICE_TYPE_AIPROXY,
 		"common",
 		"websocket",
 		"echarts-ssr",

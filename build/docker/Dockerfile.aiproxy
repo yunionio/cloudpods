@@ -1,0 +1,3 @@
+FROM registry.cn-beijing.aliyuncs.com/yunionio/onecloud-base:v3.22.2-0
+
+ADD ./_output/alpine-build/bin/aiproxy /opt/yunion/bin/aiproxy

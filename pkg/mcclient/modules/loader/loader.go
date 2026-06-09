@@ -15,6 +15,7 @@
 package loader
 
 import (
+	_ "yunion.io/x/onecloud/pkg/mcclient/modules/aiproxy"
 	_ "yunion.io/x/onecloud/pkg/mcclient/modules/ansible"
 	_ "yunion.io/x/onecloud/pkg/mcclient/modules/cloudevent"
 	_ "yunion.io/x/onecloud/pkg/mcclient/modules/cloudid"
