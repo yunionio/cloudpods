@@ -326,11 +326,7 @@ func (self *SRegion) GetZoneStorageTypes(zoneId string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	storageTypes := collectStorageTypesFromInstanceTypes(types, zoneId)
-	if len(storageTypes) == 0 {
-		return nil, fmt.Errorf("no storage types found for zone %s", zoneId)
-	}
-	return storageTypes, nil
+	return collectStorageTypesFromInstanceTypes(types, zoneId), nil
 }
 
 // GetAvailableInstanceTypes 获取地域/可用区下可售机型信息。

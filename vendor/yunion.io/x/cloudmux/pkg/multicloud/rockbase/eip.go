@@ -15,12 +15,12 @@
 package rockbase
 
 import (
-	"fmt"
 	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	billing_api "yunion.io/x/cloudmux/pkg/apis/billing"
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
@@ -99,7 +99,7 @@ func (self *SEip) GetGlobalId() string {
 func (self *SEip) GetStatus() string {
 	switch self.Status {
 	case "used":
-		return api.EIP_STATUS_ASSOCIATE // ?
+		return api.EIP_STATUS_READY
 	case "free":
 		return api.EIP_STATUS_READY
 	case "freeze":
@@ -113,9 +113,9 @@ func (self *SEip) Refresh() error {
 	if self.IsEmulated() {
 		return nil
 	}
-	new, err := self.region.GetEipById(self.GetId())
+	new, err := self.region.GetEip(self.GetId())
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "Refresh")
 	}
 	return jsonutils.Update(self, new)
 }
@@ -225,11 +225,14 @@ func (self *SRegion) CreateEIP(eip *cloudprovider.SEip) (cloudprovider.ICloudEIP
 	params.Set("OperatorName", eip.BGPType)
 	params.Set("Bandwidth", eip.BandwidthMbps)
 	params.Set("Name", eip.Name)
+	params.Set("Region", self.GetId())
 	var payMode string
 	switch eip.ChargeType {
 	case api.EIP_CHARGE_TYPE_BY_TRAFFIC:
 		payMode = "Traffic"
 	case api.EIP_CHARGE_TYPE_BY_BANDWIDTH:
+		payMode = "Bandwidth"
+	default:
 		payMode = "Bandwidth"
 	}
 	params.Set("PayMode", payMode)
@@ -241,14 +244,11 @@ func (self *SRegion) CreateEIP(eip *cloudprovider.SEip) (cloudprovider.ICloudEIP
 		return nil, err
 	}
 
-	if len(eips) == 1 {
-		eip := eips[0]
-		eip.region = self
-		eip.Refresh()
-		return &eip, nil
-	} else {
-		return nil, fmt.Errorf("CreateEIP %d eip created", len(eips))
+	for i := range eips {
+		eips[i].region = self
+		return &eips[i], nil
 	}
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "CreateEIP %d eip created", len(eips))
 }
 
 // https://docs.ucloud.cn/api/unet-api/release_eip
