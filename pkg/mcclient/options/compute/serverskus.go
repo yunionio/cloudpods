@@ -122,8 +122,33 @@ type ServerSkusUpdateOptions struct {
 
 	Zone   *string `help:"Zone ID or name"`
 	Region *string `help:"Region ID or name"`
+
+	HourPrice  *float64 `help:"Hourly price"`
+	MonthPrice *float64 `help:"Monthly price"`
+	Currency   *string  `help:"Currency code, e.g. CNY, USD"`
 }
 
 func (opts *ServerSkusUpdateOptions) Params() (jsonutils.JSONObject, error) {
 	return baseoptions.StructToParams(opts)
+}
+
+type ServerSkusBatchUpdatePriceOptions struct {
+	CloudregionId string `help:"Cloudregion ID or name"`
+	Currency      string `help:"Default currency code, e.g. CNY, USD"`
+	Skus          string `help:"JSON array of sku price items, e.g. '[{\"name\":\"ecs.g1.c1m1\",\"zone_id\":\"zone-a\",\"hour_price\":0.5,\"month_price\":50,\"currency\":\"CNY\"}]'"`
+}
+
+func (opts *ServerSkusBatchUpdatePriceOptions) Params() (jsonutils.JSONObject, error) {
+	params, err := baseoptions.StructToParams(opts)
+	if err != nil {
+		return nil, err
+	}
+	if len(opts.Skus) > 0 {
+		skus, err := jsonutils.Parse([]byte(opts.Skus))
+		if err != nil {
+			return nil, err
+		}
+		params.Set("skus", skus)
+	}
+	return params, nil
 }

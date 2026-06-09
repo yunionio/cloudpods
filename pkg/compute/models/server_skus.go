@@ -123,6 +123,13 @@ type SServerSku struct {
 	GpuCount      string            `width:"16" nullable:"true" list:"user" create:"admin_optional" update:"admin"`
 	GpuMaxCount   int               `nullable:"true" list:"user" create:"admin_optional" update:"admin"`
 
+	// 按量付费价格
+	HourPrice float64 `default:"0" list:"user" json:"hour_price" create:"admin_optional" update:"admin" log:"skip"`
+	// 包年包月价格
+	MonthPrice float64 `default:"0" list:"user" json:"month_price" create:"admin_optional" update:"admin" log:"skip"`
+	// 货币类型
+	Currency string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"admin_optional" update:"admin"`
+
 	Provider string `width:"64" charset:"ascii" nullable:"true" list:"user" default:"OneCloud" create:"admin_optional"`
 
 	Md5 string `width:"32" charset:"utf8" nullable:"true"`
@@ -1663,6 +1670,208 @@ func (manager *SServerSkuManager) ListItemExportKeys(ctx context.Context,
 	}
 
 	return q, nil
+}
+
+func zoneSkuKey(name, zoneId string) string {
+	return name + "\x00" + zoneId
+}
+
+type skuPriceUpdateContext struct {
+	region              *SCloudregion
+	zones               []SZone
+	zoneSkus            map[string]*SServerSku
+	regionSkus          map[string]*SServerSku
+	validatedZoneInputs map[string]*SZone
+}
+
+func (manager *SServerSkuManager) newSkuPriceUpdateContext(ctx context.Context, userCred mcclient.TokenCredential, region *SCloudregion, items []api.ServerSkuPriceItem) (*skuPriceUpdateContext, error) {
+	nameSet := map[string]bool{}
+	names := make([]string, 0, len(items))
+	for i := range items {
+		if len(items[i].Name) > 0 && !nameSet[items[i].Name] {
+			nameSet[items[i].Name] = true
+			names = append(names, items[i].Name)
+		}
+	}
+
+	updateCtx := &skuPriceUpdateContext{
+		region:              region,
+		zoneSkus:            map[string]*SServerSku{},
+		regionSkus:          map[string]*SServerSku{},
+		validatedZoneInputs: map[string]*SZone{},
+	}
+
+	if len(names) > 0 {
+		skus := []SServerSku{}
+		q := manager.Query().Equals("cloudregion_id", region.Id).In("name", names)
+		if err := db.FetchModelObjects(manager, q, &skus); err != nil {
+			return nil, errors.Wrap(err, "FetchModelObjects")
+		}
+		for i := range skus {
+			sku := &skus[i]
+			if len(sku.ZoneId) > 0 {
+				updateCtx.zoneSkus[zoneSkuKey(sku.Name, sku.ZoneId)] = sku
+			} else {
+				updateCtx.regionSkus[sku.Name] = sku
+			}
+		}
+	}
+
+	zones, err := region.GetZones()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetZones")
+	}
+	updateCtx.zones = zones
+	return updateCtx, nil
+}
+
+func (updateCtx *skuPriceUpdateContext) getValidatedZone(ctx context.Context, userCred mcclient.TokenCredential, zoneIdInput string) (*SZone, error) {
+	if zone, ok := updateCtx.validatedZoneInputs[zoneIdInput]; ok {
+		return zone, nil
+	}
+	zoneId := zoneIdInput
+	zoneObj, err := validators.ValidateModel(ctx, userCred, ZoneManager, &zoneId)
+	if err != nil {
+		return nil, err
+	}
+	zone := zoneObj.(*SZone)
+	if zone.CloudregionId != updateCtx.region.Id {
+		return nil, httperrors.NewConflictError("zone %s not in cloudregion %s", zone.Name, updateCtx.region.Name)
+	}
+	updateCtx.validatedZoneInputs[zoneIdInput] = zone
+	return zone, nil
+}
+
+func (updateCtx *skuPriceUpdateContext) resolveSkus(ctx context.Context, userCred mcclient.TokenCredential, item api.ServerSkuPriceItem) ([]*SServerSku, error) {
+	ret := []*SServerSku{}
+	if len(item.ZoneId) > 0 {
+		zone, err := updateCtx.getValidatedZone(ctx, userCred, item.ZoneId)
+		if err != nil {
+			return nil, err
+		}
+		if sku := updateCtx.zoneSkus[zoneSkuKey(item.Name, zone.Id)]; sku != nil {
+			return []*SServerSku{sku}, nil
+		}
+		if sku := updateCtx.regionSkus[item.Name]; sku != nil {
+			return []*SServerSku{sku}, nil
+		}
+		return ret, nil
+	}
+
+	updatedIds := map[string]bool{}
+	for i := range updateCtx.zones {
+		zone := &updateCtx.zones[i]
+		sku := updateCtx.zoneSkus[zoneSkuKey(item.Name, zone.Id)]
+		if sku == nil || updatedIds[sku.Id] {
+			continue
+		}
+		ret = append(ret, sku)
+		updatedIds[sku.Id] = true
+	}
+	if sku := updateCtx.regionSkus[item.Name]; sku != nil && !updatedIds[sku.Id] {
+		ret = append(ret, sku)
+	}
+	return ret, nil
+}
+
+func (manager *SServerSkuManager) updateSingleSkuPrice(ctx context.Context, userCred mcclient.TokenCredential, sku *SServerSku, item api.ServerSkuPriceItem) error {
+	lockman.LockObject(ctx, sku)
+	defer lockman.ReleaseObject(ctx, sku)
+
+	_, err := db.Update(sku, func() error {
+		if item.HourPrice != nil {
+			sku.HourPrice = *item.HourPrice
+		}
+		if item.MonthPrice != nil {
+			sku.MonthPrice = *item.MonthPrice
+		}
+		if len(item.Currency) > 0 {
+			sku.Currency = item.Currency
+		}
+		return nil
+	})
+	return err
+}
+
+func normalizeSkuPriceItem(item api.ServerSkuPriceItem, defaultCurrency string) api.ServerSkuPriceItem {
+	if len(item.Currency) == 0 && len(defaultCurrency) > 0 {
+		item.Currency = defaultCurrency
+	}
+	return item
+}
+
+func validateSkuPriceItem(item api.ServerSkuPriceItem) error {
+	if item.HourPrice == nil && item.MonthPrice == nil && len(item.Currency) == 0 {
+		return httperrors.NewInputParameterError("sku %s missing hour_price, month_price and currency", item.Name)
+	}
+	return nil
+}
+
+func (manager *SServerSkuManager) PerformBatchUpdatePrice(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ServerSkuBatchUpdatePriceInput) (jsonutils.JSONObject, error) {
+	if len(input.CloudregionId) == 0 {
+		return nil, httperrors.NewInputParameterError("missing cloudregion_id")
+	}
+	if len(input.Skus) == 0 {
+		return nil, httperrors.NewInputParameterError("missing skus")
+	}
+
+	regionObj, err := validators.ValidateModel(ctx, userCred, CloudregionManager, &input.CloudregionId)
+	if err != nil {
+		return nil, err
+	}
+	region := regionObj.(*SCloudregion)
+
+	updateCtx, err := manager.newSkuPriceUpdateContext(ctx, userCred, region, input.Skus)
+	if err != nil {
+		return nil, err
+	}
+
+	// skuId -> price update, deduplicate by sku id
+	pending := map[string]struct {
+		sku  *SServerSku
+		item api.ServerSkuPriceItem
+	}{}
+
+	output := api.ServerSkuBatchUpdatePriceOutput{}
+	errs := []error{}
+	for i := range input.Skus {
+		item := normalizeSkuPriceItem(input.Skus[i], input.Currency)
+		if len(item.Name) == 0 {
+			errs = append(errs, httperrors.NewInputParameterError("missing sku name at index %d", i))
+			continue
+		}
+		if err := validateSkuPriceItem(item); err != nil {
+			errs = append(errs, err)
+			continue
+		}
+		skus, err := updateCtx.resolveSkus(ctx, userCred, item)
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+		for j := range skus {
+			pending[skus[j].Id] = struct {
+				sku  *SServerSku
+				item api.ServerSkuPriceItem
+			}{sku: skus[j], item: item}
+		}
+	}
+
+	for _, upd := range pending {
+		if err := manager.updateSingleSkuPrice(ctx, userCred, upd.sku, upd.item); err != nil {
+			errs = append(errs, errors.Wrapf(err, "update sku %s", upd.sku.Name))
+			continue
+		}
+		output.UpdatedCount++
+	}
+
+	if len(errs) > 0 {
+		if output.UpdatedCount == 0 {
+			return nil, errors.NewAggregate(errs)
+		}
+		return jsonutils.Marshal(output), errors.NewAggregate(errs)
+	}
+	return jsonutils.Marshal(output), nil
 }
 
 func (manager *SServerSkuManager) PerformSyncSkus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.SkuSyncInput) (jsonutils.JSONObject, error) {
