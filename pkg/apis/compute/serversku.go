@@ -218,4 +218,35 @@ type ServerSkuUpdateInput struct {
 	GpuCount *int `json:"gpu_count"`
 
 	GpuMaxCount *int `json:"gpu_max_count"`
+
+	HourPrice  *float64 `json:"hour_price"`
+	MonthPrice *float64 `json:"month_price"`
+	Currency   string   `json:"currency"`
+}
+
+type ServerSkuPriceItem struct {
+	// 套餐名称
+	Name string `json:"name"`
+	// 可用区名称或Id, 为空则更新区域下全部可用区
+	ZoneId string `json:"zone_id"`
+	// 按量付费价格
+	HourPrice *float64 `json:"hour_price"`
+	// 包年包月价格
+	MonthPrice *float64 `json:"month_price"`
+	// 货币类型, 如 CNY、USD
+	Currency string `json:"currency"`
+}
+
+type ServerSkuBatchUpdatePriceInput struct {
+	// 区域名称或Id, 建议使用Id
+	CloudregionId string `json:"cloudregion_id"`
+	// 默认货币类型, 套餐项未指定时生效
+	Currency string `json:"currency"`
+	// 待更新价格的套餐列表
+	Skus []ServerSkuPriceItem `json:"skus"`
+}
+
+type ServerSkuBatchUpdatePriceOutput struct {
+	// 成功更新的套餐数量
+	UpdatedCount int `json:"updated_count"`
 }
