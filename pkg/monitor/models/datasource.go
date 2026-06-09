@@ -442,22 +442,22 @@ func renderTimeFilter(from, to string) string {
 
 }
 
-func (m *SDataSourceManager) GetMetricMeasurement(userCred mcclient.TokenCredential, query jsonutils.JSONObject, tagFilter *monitor.MetricQueryTag) (jsonutils.JSONObject, error) {
+func (m *SDataSourceManager) GetMetricMeasurement(userCred mcclient.TokenCredential, query jsonutils.JSONObject, tagFilter *monitor.MetricQueryTag) (*monitor.InfluxMeasurement, error) {
 	database, _ := query.GetString("database")
 	if database == "" {
-		return jsonutils.JSONNull, merrors.NewArgIsEmptyErr("database")
+		return nil, merrors.NewArgIsEmptyErr("database")
 	}
 	measurement, _ := query.GetString("measurement")
 	if measurement == "" {
-		return jsonutils.JSONNull, merrors.NewArgIsEmptyErr("measurement")
+		return nil, merrors.NewArgIsEmptyErr("measurement")
 	}
 	field, _ := query.GetString("field")
 	if field == "" {
-		return jsonutils.JSONNull, merrors.NewArgIsEmptyErr("field")
+		return nil, merrors.NewArgIsEmptyErr("field")
 	}
 	from, _ := query.GetString("from")
 	if len(from) == 0 {
-		return jsonutils.JSONNull, merrors.NewArgIsEmptyErr("from")
+		return nil, merrors.NewArgIsEmptyErr("from")
 	}
 	timeF, err := m.getFromAndToFromParam(query)
 	if err != nil {
@@ -470,19 +470,25 @@ func (m *SDataSourceManager) GetMetricMeasurement(userCred mcclient.TokenCredent
 	output.Measurement = measurement
 	output.Database = database
 	output.TagValue = make(map[string][]string, 0)
+	output.TagNameIdValueMap = make(map[string]map[string]string)
+
+	if measureDes, ok := MetricMeasurementManager.GetCache().Get(measurement); ok && len(measureDes.ResType) != 0 {
+		output.ResType = measureDes.ResType
+	}
+	nameTag := monitor.MEASUREMENT_TAG_KEYWORD[output.ResType]
+	idTag := monitor.MEASUREMENT_TAG_ID[output.ResType]
 
 	output.FieldKey = []string{field}
 	// 只查询过去 30m 的指标
 	if timeF.To == "now" {
 		timeF.From = "30m"
 	}
-	if err := getTagValues(userCred, output, timeF, tagFilter, true); err != nil {
-		return jsonutils.JSONNull, errors.Wrap(err, "getTagValues error")
+	if err := getTagValues(userCred, output, timeF, tagFilter, true, nameTag, idTag); err != nil {
+		return nil, errors.Wrap(err, "getTagValues error")
 	}
 
 	m.filterRtnTags(output)
-	return jsonutils.Marshal(output), nil
-
+	return output, nil
 }
 
 func (m *SDataSourceManager) filterRtnTags(output *monitor.InfluxMeasurement) {
@@ -675,7 +681,54 @@ func (m *SDataSourceManager) DropSubscription(subscription InfluxdbSubscription)
 	return nil
 }*/
 
-func getTagValues(userCred mcclient.TokenCredential, output *monitor.InfluxMeasurement, timeF timeFilter, tagFilter *monitor.MetricQueryTag, skipCheckSeries bool) error {
+func inferNameIdTagsFromSeries(series monitor.TimeSeriesSlice) (nameTag, idTag string) {
+	if len(series) == 0 {
+		return "", ""
+	}
+	tagKeys := sets.NewString()
+	for _, s := range series {
+		for k := range s.Tags {
+			tagKeys.Insert(k)
+		}
+	}
+	for resType, nameKey := range monitor.MEASUREMENT_TAG_KEYWORD {
+		idKey := monitor.MEASUREMENT_TAG_ID[resType]
+		if nameKey != "" && idKey != "" && tagKeys.Has(nameKey) && tagKeys.Has(idKey) {
+			return nameKey, idKey
+		}
+	}
+	return "", ""
+}
+
+func buildTagNameIdValueMap(series monitor.TimeSeriesSlice, nameTag, idTag string) map[string]map[string]string {
+	if nameTag == "" || idTag == "" {
+		nameTag, idTag = inferNameIdTagsFromSeries(series)
+	}
+	if nameTag == "" || idTag == "" {
+		return nil
+	}
+	result := make(map[string]map[string]string)
+	for _, s := range series {
+		nameVal := renderTagVal(s.Tags[nameTag])
+		idVal := renderTagVal(s.Tags[idTag])
+		// id 值通常为 UUID，不能用 filterTagValue 过滤
+		if len(nameVal) == 0 || len(idVal) == 0 || nameVal == "null" || idVal == "null" || filterTagValue(nameVal) {
+			continue
+		}
+		if result[nameTag] == nil {
+			result[nameTag] = make(map[string]string)
+		}
+		if _, exists := result[nameTag][nameVal]; !exists {
+			result[nameTag][nameVal] = idVal
+		}
+	}
+	if len(result) == 0 {
+		return nil
+	}
+	return result
+}
+
+func getTagValues(userCred mcclient.TokenCredential, output *monitor.InfluxMeasurement, timeF timeFilter, tagFilter *monitor.MetricQueryTag, skipCheckSeries bool, nameTag, idTag string) error {
 	mq := monitor.MetricQuery{
 		Database:    output.Database,
 		Measurement: output.Measurement,
@@ -734,6 +787,17 @@ func getTagValues(userCred mcclient.TokenCredential, output *monitor.InfluxMeasu
 	if len(ret.Series) == 0 {
 		return nil
 	}
+	if nameTag == "" || idTag == "" {
+		nameTag, idTag = inferNameIdTagsFromSeries(ret.Series)
+	}
+	if len(output.ResType) == 0 && nameTag != "" && idTag != "" {
+		for resType, keyword := range monitor.MEASUREMENT_TAG_KEYWORD {
+			if keyword == nameTag && monitor.MEASUREMENT_TAG_ID[resType] == idTag {
+				output.ResType = resType
+				break
+			}
+		}
+	}
 
 	for _, s := range ret.Series {
 		tagMap := s.Tags
@@ -758,6 +822,7 @@ func getTagValues(userCred mcclient.TokenCredential, output *monitor.InfluxMeasu
 	output.TagValue = tagValMap
 	sort.Strings(tagKeys)
 	output.TagKey = tagKeys
+	output.TagNameIdValueMap = buildTagNameIdValueMap(ret.Series, nameTag, idTag)
 
 	return nil
 }
