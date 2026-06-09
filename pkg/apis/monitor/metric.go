@@ -186,14 +186,21 @@ type MetricFieldDetail struct {
 
 type InfluxMeasurement struct {
 	apis.Meta
-	Database               string                       `json:"database"`
-	Measurement            string                       `json:"measurement"`
-	MeasurementDisplayName string                       `json:"measurement_display_name"`
-	ResType                string                       `json:"res_type"`
-	Score                  int                          `json:"score"`
-	TagKey                 []string                     `json:"tag_key"`
-	TagValue               map[string][]string          `json:"tag_value"`
-	FieldKey               []string                     `json:"field_key"`
-	FieldDescriptions      map[string]MetricFieldDetail `json:"field_descriptions"`
-	Unit                   []string                     `json:"unit"`
+	Database               string
+	Measurement            string
+	MeasurementDisplayName string
+	ResType                string
+	Score                  int
+	TagKey                 []string
+	TagValue               map[string][]string
+	TagNameIdMap           map[string]string            `json:"tag_name_id_map,omitempty"`
+	TagNameIdValueMap      map[string]map[string]string `json:"tag_name_id_value_map,omitempty"`
+	FieldKey               []string
+	FieldDescriptions      map[string]MetricFieldDetail
+	Unit                   []string
+}
+
+type MetricMeasurementOutput struct {
+	InfluxMeasurement
+	Func *MetricFunc
 }
