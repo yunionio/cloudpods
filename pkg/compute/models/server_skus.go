@@ -800,10 +800,6 @@ func (manager *SServerSkuManager) ListItemFilter(
 		q = q.Filter(sqlchemy.OR(conditions...))
 	}
 
-	if query.Distinct {
-		q = q.GroupBy(q.Field("name"))
-	}
-
 	brands := query.Brands
 	if len(brands) > 0 {
 		q = q.Filter(sqlchemy.In(q.Field("brand"), brands))
@@ -875,6 +871,11 @@ func (manager *SServerSkuManager) ListItemFilter(
 	}
 	if len(query.CpuCoreCount) > 0 {
 		q = q.In("cpu_core_count", query.CpuCoreCount)
+	}
+
+	if query.Distinct {
+		sq := q.Copy().GroupBy("name").SubQuery()
+		q = q.In("id", sq.Query(sq.Field("id")).SubQuery())
 	}
 
 	return q, err
