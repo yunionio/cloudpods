@@ -23,35 +23,35 @@ import (
 type AiProxyNodeListInput struct {
 	apis.EnabledStatusStandaloneResourceListInput
 
-	Address string `json:"address"`
-	Domain  string `json:"domain"`
+	Address       string `json:"address"`
+	AccessAddress string `json:"access_address"`
 }
 
 type AiProxyNodeCreateInput struct {
 	apis.EnabledStatusStandaloneResourceCreateInput
 
-	Address   string `json:"address"`
-	Domain    string `json:"domain"`
-	HbTimeout int    `json:"hb_timeout"`
+	Address       string `json:"address"`
+	AccessAddress string `json:"access_address"`
+	HbTimeout     int    `json:"hb_timeout"`
 }
 
 type AiProxyNodeUpdateInput struct {
 	apis.EnabledStatusStandaloneResourceBaseUpdateInput
 
-	Address   string `json:"address"`
-	Domain    string `json:"domain"`
-	HbTimeout int    `json:"hb_timeout"`
-	Enabled   *bool  `json:"enabled"`
+	Address       string `json:"address"`
+	AccessAddress string `json:"access_address"`
+	HbTimeout     int    `json:"hb_timeout"`
+	Enabled       *bool  `json:"enabled"`
 }
 
 type AiProxyNodeDetails struct {
 	apis.EnabledStatusStandaloneResourceDetails
 
-	Address   string    `json:"address"`
-	Domain    string    `json:"domain"`
-	LastSeen  time.Time `json:"last_seen"`
-	HbTimeout int       `json:"hb_timeout"`
-	IsActive  bool      `json:"is_active"`
+	Address       string    `json:"address"`
+	AccessAddress string    `json:"access_address"`
+	LastSeen      time.Time `json:"last_seen"`
+	HbTimeout     int       `json:"hb_timeout"`
+	IsActive      bool      `json:"is_active"`
 }
 
 // AiProxyNodeRegisterInput is sent by standby instances to the primary on startup and heartbeat.

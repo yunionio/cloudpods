@@ -18,13 +18,17 @@ import "testing"
 
 func TestClientFacingModelID(t *testing.T) {
 	mdl := &SAiModel{ModelKey: "gpt-4o-mini"}
-	if got := clientFacingModelID(&SAiRoutingModel{ModelPattern: "fast"}, mdl); got != "fast" {
+	routing := &SAiRouting{ModelPattern: "dep-gpt-4o-mini"}
+	if got := clientFacingModelID(routing, &SAiRoutingModel{ModelPattern: "fast"}, mdl); got != "fast" {
 		t.Fatalf("expected alias fast, got %q", got)
 	}
-	if got := clientFacingModelID(&SAiRoutingModel{ModelPattern: "gpt-*"}, mdl); got != "gpt-4o-mini" {
-		t.Fatalf("expected catalog model_key for wildcard pattern, got %q", got)
+	if got := clientFacingModelID(routing, &SAiRoutingModel{ModelPattern: "gpt-*"}, mdl); got != "dep-gpt-4o-mini" {
+		t.Fatalf("expected routing model_pattern for wildcard pattern, got %q", got)
 	}
-	if got := clientFacingModelID(&SAiRoutingModel{}, mdl); got != "gpt-4o-mini" {
+	if got := clientFacingModelID(routing, &SAiRoutingModel{}, mdl); got != "dep-gpt-4o-mini" {
+		t.Fatalf("expected routing model_pattern, got %q", got)
+	}
+	if got := clientFacingModelID(nil, &SAiRoutingModel{}, mdl); got != "gpt-4o-mini" {
 		t.Fatalf("expected catalog model_key, got %q", got)
 	}
 }
@@ -33,5 +37,55 @@ func TestUniqueNonEmptyStrings(t *testing.T) {
 	out := uniqueNonEmptyStrings([]string{"a", "a", "", "b", "b"})
 	if len(out) != 2 || out[0] != "a" || out[1] != "b" {
 		t.Fatalf("unexpected dedupe result: %#v", out)
+	}
+}
+
+func TestPickRoutingForRequestModelKeyPriority(t *testing.T) {
+	routings := []SAiRouting{
+		{Priority: 10, ModelPattern: ""},
+		{Priority: 100, ModelKey: "lzx-test-Qwen3-0.6B"},
+	}
+	picked, err := pickRoutingForRequest(routings, "lzx-test-Qwen3-0.6B", "primary")
+	if err != nil {
+		t.Fatalf("unexpected err: %v", err)
+	}
+	if picked == nil || picked.ModelKey != "lzx-test-Qwen3-0.6B" {
+		t.Fatalf("expected model_key routing, got %#v", picked)
+	}
+}
+
+func TestPickRoutingForRequestModelKeyBeforePattern(t *testing.T) {
+	routings := []SAiRouting{
+		{Priority: 10, ModelPattern: "lzx-test-Qwen3-0.6B"},
+		{Priority: 100, ModelKey: "lzx-test-Qwen3-0.6B"},
+	}
+	picked, err := pickRoutingForRequest(routings, "lzx-test-Qwen3-0.6B", "primary")
+	if err != nil {
+		t.Fatalf("unexpected err: %v", err)
+	}
+	if picked == nil || picked.Priority != 100 {
+		t.Fatalf("expected model_key routing with priority 100, got %#v", picked)
+	}
+}
+
+func TestPickRoutingForRequestFallbackPattern(t *testing.T) {
+	routings := []SAiRouting{
+		{Priority: 20, ModelPattern: "qwen-*"},
+	}
+	picked, err := pickRoutingForRequest(routings, "qwen-turbo", "primary")
+	if err != nil {
+		t.Fatalf("unexpected err: %v", err)
+	}
+	if picked == nil || picked.ModelPattern != "qwen-*" {
+		t.Fatalf("expected pattern routing, got %#v", picked)
+	}
+}
+
+func TestModelKeyMatches(t *testing.T) {
+	if !modelKeyMatches("Foo", "foo") {
+		t.Fatal("expected case-insensitive match")
+	}
+	if modelKeyMatches("", "foo") {
+		t.Fatal("empty key should not match")
 	}
 }

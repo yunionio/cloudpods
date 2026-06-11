@@ -122,9 +122,28 @@ func (task *LLMDeploymentCreateTask) reconcileAndComplete(ctx context.Context, m
 	// are already running. As each SLLM reaches running, its SetStatus override
 	// re-runs SyncReadyReplicas, which will eventually flip us to ready.
 	model.SetStatus(ctx, task.UserCred, api.LLM_DEPLOYMENT_STATUS_DEPLOYING, "instances created, waiting for running")
-	if err := model.SyncReadyReplicas(ctx, task.UserCred); err != nil {
+	if err := model.SyncReadyReplicas(ctx, task.UserCred, models.SyncReadyReplicasOptions{SkipAiproxySync: model.AutoRegisterAiproxy}); err != nil {
 		log.Warningf("LLMDeploymentCreateTask: SyncReadyReplicas for %s: %s", model.Name, err)
 	}
+	if model.AutoRegisterAiproxy {
+		task.SetStage("OnAiproxySyncComplete", nil)
+		if err := model.StartAiproxySyncTask(ctx, task.UserCred, "", task.GetTaskId()); err != nil {
+			log.Warningf("LLMDeploymentCreateTask: start aiproxy sync for %s: %v", model.Name, err)
+			task.SetStageComplete(ctx, nil)
+		}
+		return
+	}
+	task.SetStageComplete(ctx, nil)
+}
+
+// OnAiproxySyncComplete is called after the child LLMAiproxySyncTask completes.
+func (task *LLMDeploymentCreateTask) OnAiproxySyncComplete(ctx context.Context, model *models.SLLMDeployment, body jsonutils.JSONObject) {
+	task.SetStageComplete(ctx, nil)
+}
+
+// OnAiproxySyncCompleteFailed is called if the child LLMAiproxySyncTask fails.
+func (task *LLMDeploymentCreateTask) OnAiproxySyncCompleteFailed(ctx context.Context, model *models.SLLMDeployment, body jsonutils.JSONObject) {
+	log.Warningf("LLMDeploymentCreateTask: aiproxy sync failed for %s: %s", model.Name, body)
 	task.SetStageComplete(ctx, nil)
 }
 

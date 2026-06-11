@@ -52,8 +52,10 @@ func ListModelsForVirtualKey(ctx context.Context, userCred mcclient.TokenCredent
 		return nil, err
 	}
 	currentNode := CurrentProxyNodeId()
+	routingById := make(map[string]*SAiRouting, len(routings))
 	routingIds := make([]string, 0, len(routings))
 	for i := range routings {
+		routingById[routings[i].Id] = &routings[i]
 		if proxyNodeScopeMatches(routings[i].AiProxyNodeId, currentNode) {
 			routingIds = append(routingIds, routings[i].Id)
 		}
@@ -66,9 +68,6 @@ func ListModelsForVirtualKey(ctx context.Context, userCred mcclient.TokenCredent
 	q := AiRoutingModelManager.Query().In("ai_routing_id", routingIds).Equals("enabled", true)
 	if err := q.All(&entries); err != nil {
 		return nil, errors.Wrap(err, "list ai_routing_models")
-	}
-	if len(entries) == 0 {
-		return nil, nil
 	}
 
 	providerIds := make([]string, 0, len(entries))
@@ -87,10 +86,48 @@ func ListModelsForVirtualKey(ctx context.Context, userCred mcclient.TokenCredent
 		return nil, err
 	}
 
-	seen := make(map[string]ModelsListEntry, len(entries))
+	firstProviderByRouting := make(map[string]string, len(routingIds))
+	for i := range entries {
+		routingId := entries[i].AiRoutingId
+		if _, ok := firstProviderByRouting[routingId]; ok {
+			continue
+		}
+		if prov := providers[entries[i].AiProviderId]; prov != nil {
+			firstProviderByRouting[routingId] = strings.TrimSpace(prov.ProviderKey)
+		}
+	}
+
+	seen := make(map[string]ModelsListEntry, len(entries)+len(routingIds))
 	created := time.Now().Unix()
+
+	// Pass 1: ai_routing.model_key is itself a client-facing model id.
+	for i := range routings {
+		routing := &routings[i]
+		if !proxyNodeScopeMatches(routing.AiProxyNodeId, currentNode) {
+			continue
+		}
+		id := strings.TrimSpace(routing.ModelKey)
+		if id == "" {
+			continue
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = ModelsListEntry{
+			ID:      id,
+			Object:  "model",
+			Created: created,
+			OwnedBy: firstProviderByRouting[routing.Id],
+		}
+	}
+
+	// Pass 2: routes without model_key use ai_routing_model / pattern fallbacks.
 	for i := range entries {
 		e := &entries[i]
+		routing := routingById[e.AiRoutingId]
+		if routing == nil || strings.TrimSpace(routing.ModelKey) != "" {
+			continue
+		}
 		prov := providers[e.AiProviderId]
 		mdl := modelsById[e.AiModelId]
 		if prov == nil || mdl == nil {
@@ -99,7 +136,7 @@ func ListModelsForVirtualKey(ctx context.Context, userCred mcclient.TokenCredent
 		if !virtualKeyAllowsProvider(vk, prov) {
 			continue
 		}
-		id := clientFacingModelID(e, mdl)
+		id := clientFacingModelID(routing, e, mdl)
 		if id == "" {
 			continue
 		}
@@ -126,9 +163,14 @@ func ListModelsForVirtualKey(ctx context.Context, userCred mcclient.TokenCredent
 	return out, nil
 }
 
-func clientFacingModelID(entry *SAiRoutingModel, mdl *SAiModel) string {
+func clientFacingModelID(routing *SAiRouting, entry *SAiRoutingModel, mdl *SAiModel) string {
 	if entry != nil {
 		if mp := strings.TrimSpace(entry.ModelPattern); mp != "" && !strings.Contains(mp, "*") {
+			return mp
+		}
+	}
+	if routing != nil {
+		if mp := strings.TrimSpace(routing.ModelPattern); mp != "" && !strings.Contains(mp, "*") {
 			return mp
 		}
 	}

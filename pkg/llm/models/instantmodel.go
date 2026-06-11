@@ -934,6 +934,118 @@ func (man *SInstantModelManager) PerformBackfillVram(
 	return out, nil
 }
 
+const instantModelImportNameMaxLen = 128
+const instantModelImportNameSuffixLen = 4
+
+func buildInstantModelProvisionalName(llmType, modelName, modelTag, suffix string) string {
+	llmType = strings.TrimSpace(llmType)
+	suffix = normalizeInstantModelImportNameSuffix(suffix)
+	parts := []string{llmType}
+	nameSlug := sanitizeInstantModelImportCacheComponent(modelName)
+	tagSlug := sanitizeInstantModelImportCacheComponent(modelTag)
+	switch {
+	case nameSlug != "" && tagSlug != "":
+		parts = append(parts, nameSlug, tagSlug)
+	case nameSlug != "":
+		parts = append(parts, nameSlug)
+	case tagSlug != "":
+		parts = append(parts, tagSlug)
+	default:
+		parts = append(parts, "model")
+	}
+	parts = append(parts, suffix)
+	return truncateInstantModelImportName(strings.Join(parts, "-"), instantModelImportNameMaxLen)
+}
+
+func buildInstantModelFinalName(llmType, modelId, modelTag, suffix string) string {
+	llmType = strings.TrimSpace(llmType)
+	suffix = normalizeInstantModelImportNameSuffix(suffix)
+	slug := sanitizeInstantModelImportCacheComponent(modelId)
+	if slug == "" {
+		slug = "model"
+	}
+	parts := []string{llmType, slug}
+	if shouldAppendInstantModelImportTag(llmType, modelTag) {
+		tagSlug := sanitizeInstantModelImportCacheComponent(modelTag)
+		if tagSlug != "" {
+			parts = append(parts, tagSlug)
+		}
+	}
+	parts = append(parts, suffix)
+	return truncateInstantModelImportName(strings.Join(parts, "-"), instantModelImportNameMaxLen)
+}
+
+func shouldAppendInstantModelImportTag(llmType, modelTag string) bool {
+	if strings.TrimSpace(modelTag) == "" {
+		return false
+	}
+	return apis.LLMContainerType(llmType) != apis.LLM_CONTAINER_OLLAMA
+}
+
+func normalizeInstantModelImportNameSuffix(suffix string) string {
+	suffix = strings.TrimSpace(suffix)
+	if len(suffix) == instantModelImportNameSuffixLen && isInstantModelImportNameSuffix(suffix) {
+		return suffix
+	}
+	return utils.GenRequestId(instantModelImportNameSuffixLen / 2)
+}
+
+func isInstantModelImportNameSuffix(suffix string) bool {
+	if len(suffix) != instantModelImportNameSuffixLen {
+		return false
+	}
+	for _, r := range suffix {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') {
+			continue
+		}
+		return false
+	}
+	return true
+}
+
+func extractInstantModelImportNameSuffix(name string) string {
+	name = strings.TrimSpace(name)
+	idx := strings.LastIndex(name, "-")
+	if idx < 0 || idx >= len(name)-1 {
+		return ""
+	}
+	suffix := name[idx+1:]
+	if !isInstantModelImportNameSuffix(suffix) {
+		return ""
+	}
+	return suffix
+}
+
+func truncateInstantModelImportName(name string, maxLen int) string {
+	if maxLen <= 0 {
+		maxLen = instantModelImportNameMaxLen
+	}
+	if len(name) <= maxLen {
+		return name
+	}
+	idx := strings.LastIndex(name, "-")
+	if idx <= 0 || len(name)-idx-1 != instantModelImportNameSuffixLen {
+		return name[:maxLen]
+	}
+	suffixPart := name[idx:]
+	headMax := maxLen - len(suffixPart)
+	if headMax <= 0 {
+		return name[len(name)-maxLen:]
+	}
+	return name[:headMax] + suffixPart
+}
+
+func shouldAutoRenameInstantModelImportName(name, llmType, modelName, modelTag string) bool {
+	if strings.HasPrefix(name, "tmp-instant-model-") {
+		return true
+	}
+	suffix := extractInstantModelImportNameSuffix(name)
+	if suffix == "" {
+		return false
+	}
+	return name == buildInstantModelProvisionalName(llmType, modelName, modelTag, suffix)
+}
+
 // DoImportWithParent creates a temporary InstantModel and starts an import task,
 // optionally chaining it to a parent task. When parentTaskId is non-empty, the
 // parent task will be notified when the import task completes (via subtask
@@ -947,7 +1059,7 @@ func (man *SInstantModelManager) DoImportWithParent(
 ) (*SInstantModel, error) {
 	tempModel := &SInstantModel{}
 	tempModel.SetModelManager(man, &SInstantModel{})
-	tempModel.Name = fmt.Sprintf("tmp-instant-model-%s.%s", time.Now().Format("060102"), utils.GenRequestId(6))
+	tempModel.Name = buildInstantModelProvisionalName(string(input.LlmType), input.ModelName, input.ModelTag, utils.GenRequestId(instantModelImportNameSuffixLen/2))
 	tempModel.ModelName = input.ModelName
 	tempModel.ModelTag = input.ModelTag
 	tempModel.LlmType = string(input.LlmType)
@@ -1127,6 +1239,10 @@ func (model *SInstantModel) DoImport(ctx context.Context, userCred mcclient.Toke
 		model.ImageId = imageId
 		model.Mounts = mounts
 		model.Status = imageapi.IMAGE_STATUS_SAVING
+		if shouldAutoRenameInstantModelImportName(model.Name, model.LlmType, input.ModelName, input.ModelTag) {
+			suffix := extractInstantModelImportNameSuffix(model.Name)
+			model.Name = buildInstantModelFinalName(model.LlmType, modelId, input.ModelTag, suffix)
+		}
 		return nil
 	})
 	if err != nil {
