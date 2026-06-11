@@ -140,6 +140,11 @@ type LLMDeploymentCreateInput struct {
 	SpeculativeConfig *SpeculativeDecodingConfig `json:"speculative_config"`
 	// Access policy: public, authed, allowed_users
 	AccessPolicy string `json:"access_policy"`
+
+	// AutoRegisterAiproxy registers running replicas with aiproxy catalog when true (default true; pass false to disable).
+	AutoRegisterAiproxy *bool `json:"auto_register_aiproxy"`
+	// AiproxyModelPrefix is deprecated and no longer affects client model alias.
+	AiproxyModelPrefix string `json:"aiproxy_model_prefix"`
 }
 
 // LLMDeploymentUpdateInput is the input for updating an existing LLMModel.
@@ -158,6 +163,8 @@ type LLMDeploymentUpdateInput struct {
 	ExtendedKVCache          *ExtendedKVCacheConfig     `json:"extended_kv_cache,omitempty"`
 	SpeculativeConfig        *SpeculativeDecodingConfig `json:"speculative_config,omitempty"`
 	AccessPolicy             *string                    `json:"access_policy,omitempty"`
+	AutoRegisterAiproxy      *bool                      `json:"auto_register_aiproxy,omitempty"`
+	AiproxyModelPrefix       *string                    `json:"aiproxy_model_prefix,omitempty"`
 }
 
 // Model source types
@@ -208,6 +215,32 @@ type LLMDeploymentDetails struct {
 
 	// Computed: count of running SLLM instances
 	RunningInstances int `json:"running_instances"`
+
+	AutoRegisterAiproxy bool                     `json:"auto_register_aiproxy"`
+	AiproxyModelPrefix  string                   `json:"aiproxy_model_prefix"`
+	AiproxySyncStatus   string                   `json:"aiproxy_sync_status"`
+	AiproxyRoutingId    string                   `json:"aiproxy_routing_id"`
+	AiproxyInstances    []AiproxyInstanceBinding `json:"aiproxy_instances,omitempty"`
+}
+
+// Aiproxy sync status values for llm_deployment.
+const (
+	AIPROXY_SYNC_STATUS_PENDING  = "pending"
+	AIPROXY_SYNC_STATUS_SYNCING  = "syncing"
+	AIPROXY_SYNC_STATUS_SYNCED   = "synced"
+	AIPROXY_SYNC_STATUS_PARTIAL  = "partial"
+	AIPROXY_SYNC_STATUS_FAILED   = "failed"
+)
+
+// AiproxyInstanceBinding records one llm replica registered in aiproxy.
+type AiproxyInstanceBinding struct {
+	LlmId             string `json:"llm_id"`
+	ClientModelAlias  string `json:"client_model_alias"`
+	AiProviderId      string `json:"ai_provider_id"`
+	AiProviderName    string `json:"ai_provider_name"`
+	BaseURL           string `json:"base_url"`
+	SyncStatus        string `json:"sync_status"`
+	LastError         string `json:"last_error,omitempty"`
 }
 
 // GpuSelector defines manual GPU selection for scheduling.

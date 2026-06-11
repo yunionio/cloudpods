@@ -66,27 +66,35 @@ func (c *SAiProviderConfig) IsZero() bool {
 type AiProviderListInput struct {
 	apis.EnabledStatusStandaloneResourceListInput
 
-	ProviderKey string `json:"provider_key"`
+	ProviderKey       string `json:"provider_key"`
+	LlmDeploymentId   string `json:"llm_deployment_id"`
+	LlmId             string `json:"llm_id"`
 }
 
 type AiProviderCreateInput struct {
 	apis.EnabledStatusStandaloneResourceCreateInput
 
-	ProviderKey string             `json:"provider_key"`
-	Config      *SAiProviderConfig `json:"config"`
+	ProviderKey     string             `json:"provider_key"`
+	Config          *SAiProviderConfig `json:"config"`
+	LlmDeploymentId string             `json:"llm_deployment_id"`
+	LlmId           string             `json:"llm_id"`
 }
 
 type AiProviderUpdateInput struct {
 	apis.EnabledStatusStandaloneResourceBaseUpdateInput
 
-	ProviderKey string             `json:"provider_key"`
-	Config      *SAiProviderConfig `json:"config"`
-	Enabled     *bool              `json:"enabled"`
+	ProviderKey     string             `json:"provider_key"`
+	Config          *SAiProviderConfig `json:"config"`
+	LlmDeploymentId string             `json:"llm_deployment_id"`
+	LlmId           string             `json:"llm_id"`
+	Enabled         *bool              `json:"enabled"`
 }
 
 type AiProviderDetails struct {
 	apis.EnabledStatusStandaloneResourceDetails
 
-	ProviderKey string             `json:"provider_key"`
-	Config      *SAiProviderConfig `json:"config"`
+	ProviderKey     string             `json:"provider_key"`
+	Config          *SAiProviderConfig `json:"config"`
+	LlmDeploymentId string             `json:"llm_deployment_id"`
+	LlmId           string             `json:"llm_id"`
 }

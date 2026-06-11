@@ -37,6 +37,9 @@ type SAiProvider struct {
 	ProviderKey string `width:"64" charset:"ascii" nullable:"false" list:"user" create:"required" update:"user"`
 	// Config is a JSON snapshot of provider connectivity (base_url, optional api_key).
 	Config *api.SAiProviderConfig `length:"long" charset:"utf8" list:"user" create:"optional" update:"user"`
+	// LlmDeploymentId and LlmId link this provider to an llm_deployment replica (set by llm sync).
+	LlmDeploymentId string `width:"128" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user" index:"true"`
+	LlmId           string `width:"128" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user" index:"true"`
 }
 
 type SAiProviderManager struct {
@@ -74,6 +77,12 @@ func (manager *SAiProviderManager) ListItemFilter(
 	if key := strings.TrimSpace(query.ProviderKey); key != "" {
 		q = q.Equals("provider_key", key)
 	}
+	if v := strings.TrimSpace(query.LlmDeploymentId); v != "" {
+		q = q.Equals("llm_deployment_id", v)
+	}
+	if v := strings.TrimSpace(query.LlmId); v != "" {
+		q = q.Equals("llm_id", v)
+	}
 	return q, nil
 }
 
@@ -89,6 +98,9 @@ func (manager *SAiProviderManager) FetchCustomizeColumns(
 	baseRows := manager.SEnabledStatusStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	for i := range objs {
 		rows[i].EnabledStatusStandaloneResourceDetails = baseRows[i]
+		prov := objs[i].(*SAiProvider)
+		rows[i].LlmDeploymentId = prov.LlmDeploymentId
+		rows[i].LlmId = prov.LlmId
 	}
 	return rows
 }
@@ -121,6 +133,12 @@ func (manager *SAiProviderManager) ValidateCreateData(
 		input.Name = pk
 	}
 
+	input.LlmDeploymentId = strings.TrimSpace(input.LlmDeploymentId)
+	input.LlmId = strings.TrimSpace(input.LlmId)
+	if err := ensureUniqueAiProviderLlmId(ctx, input.LlmId, ""); err != nil {
+		return input, err
+	}
+
 	return input, nil
 }
 
@@ -147,6 +165,16 @@ func (p *SAiProvider) ValidateUpdateData(
 	if input.Config != nil {
 		input.Config = normalizeAiProviderConfig(input.Config)
 		if err := validateAiProviderConfig(input.Config); err != nil {
+			return input, err
+		}
+	}
+
+	if query.Contains("llm_deployment_id") {
+		input.LlmDeploymentId = strings.TrimSpace(input.LlmDeploymentId)
+	}
+	if query.Contains("llm_id") {
+		input.LlmId = strings.TrimSpace(input.LlmId)
+		if err := ensureUniqueAiProviderLlmId(ctx, input.LlmId, p.Id); err != nil {
 			return input, err
 		}
 	}

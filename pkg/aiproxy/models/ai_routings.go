@@ -40,6 +40,8 @@ type SAiRouting struct {
 	ModelPattern string `width:"256" charset:"utf8" nullable:"true" list:"user" create:"optional" update:"user"`
 	// AiProxyNodeId optionally binds the rule to one aiproxy instance (ai_proxy_node id).
 	AiProxyNodeId string `width:"128" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
+	// LlmDeploymentId links this routing to an llm_deployment (set by llm sync).
+	LlmDeploymentId string `width:"128" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user" index:"true"`
 }
 
 type SAiRoutingManager struct {
@@ -77,6 +79,9 @@ func (manager *SAiRoutingManager) ListItemFilter(
 	if v := strings.TrimSpace(query.AiProxyNodeId); v != "" {
 		q = q.Equals("ai_proxy_node_id", v)
 	}
+	if v := strings.TrimSpace(query.LlmDeploymentId); v != "" {
+		q = q.Equals("llm_deployment_id", v)
+	}
 	q, err = manager.SEnabledResourceBaseManager.ListItemFilter(ctx, q, userCred, query.EnabledResourceBaseListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SEnabledResourceBaseManager.ListItemFilter")
@@ -97,7 +102,9 @@ func (manager *SAiRoutingManager) FetchCustomizeColumns(
 	routingIds := make([]string, len(objs))
 	for i := range objs {
 		rows[i].SharableVirtualResourceDetails = sharableRows[i]
-		routingIds[i] = objs[i].(*SAiRouting).Id
+		routing := objs[i].(*SAiRouting)
+		routingIds[i] = routing.Id
+		rows[i].LlmDeploymentId = routing.LlmDeploymentId
 	}
 	if fields == nil || fields.Contains("routing_models") {
 		for i, rid := range routingIds {
@@ -117,6 +124,7 @@ func (manager *SAiRoutingManager) FetchCustomizeColumns(
 					AiModelId:    e.AiModelId,
 					Priority:     e.Priority,
 					ModelPattern: e.ModelPattern,
+					LlmId:        e.LlmId,
 					Enabled:      e.Enabled.IsTrue(),
 				}
 			}
@@ -158,6 +166,12 @@ func (routing *SAiRouting) ValidateUpdateData(
 	} else if query.Contains("ai_proxy_node_id") {
 		input.AiProxyNodeId = ""
 	}
+	if query.Contains("llm_deployment_id") {
+		input.LlmDeploymentId = strings.TrimSpace(input.LlmDeploymentId)
+		if err := ensureUniqueAiRoutingLlmDeploymentId(ctx, input.LlmDeploymentId, routing.Id); err != nil {
+			return input, err
+		}
+	}
 	return input, nil
 }
 
@@ -182,6 +196,11 @@ func (manager *SAiRoutingManager) ValidateCreateData(
 
 	input.AiProxyNodeId, err = validateAiProxyNodeId(ctx, userCred, input.AiProxyNodeId)
 	if err != nil {
+		return input, err
+	}
+
+	input.LlmDeploymentId = strings.TrimSpace(input.LlmDeploymentId)
+	if err := ensureUniqueAiRoutingLlmDeploymentId(ctx, input.LlmDeploymentId, ""); err != nil {
 		return input, err
 	}
 

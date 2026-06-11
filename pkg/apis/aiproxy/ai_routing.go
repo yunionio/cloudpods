@@ -22,8 +22,9 @@ type AiRoutingListInput struct {
 	apis.SharableVirtualResourceListInput
 	apis.EnabledResourceBaseListInput
 
-	ModelPattern  string `json:"model_pattern"`
-	AiProxyNodeId string `json:"ai_proxy_node_id"`
+	ModelPattern    string `json:"model_pattern"`
+	AiProxyNodeId   string `json:"ai_proxy_node_id"`
+	LlmDeploymentId string `json:"llm_deployment_id"`
 }
 
 // AiRoutingModelItem is one catalog model binding when creating ai_routing.
@@ -34,6 +35,7 @@ type AiRoutingModelItem struct {
 	Priority     int    `json:"priority,omitempty"`
 	Weight       int    `json:"weight,omitempty"`
 	ModelPattern string `json:"model_pattern,omitempty"`
+	LlmId        string `json:"llm_id,omitempty"`
 	Enabled      *bool  `json:"enabled,omitempty"`
 }
 
@@ -41,29 +43,32 @@ type AiRoutingCreateInput struct {
 	apis.SharableVirtualResourceCreateInput
 	apis.EnabledBaseResourceCreateInput
 
-	Priority      int                  `json:"priority"`
-	ModelPattern  string               `json:"model_pattern"`
-	AiProxyNodeId string               `json:"ai_proxy_node_id"`
-	Models        []AiRoutingModelItem `json:"models"`
+	Priority        int                  `json:"priority"`
+	ModelPattern    string               `json:"model_pattern"`
+	AiProxyNodeId   string               `json:"ai_proxy_node_id"`
+	LlmDeploymentId string               `json:"llm_deployment_id"`
+	Models          []AiRoutingModelItem `json:"models"`
 }
 
 type AiRoutingUpdateInput struct {
 	apis.SharableVirtualResourceBaseUpdateInput
 
-	Priority      int    `json:"priority"`
-	ModelPattern  string `json:"model_pattern"`
-	AiProxyNodeId string `json:"ai_proxy_node_id"`
-	Enabled       *bool  `json:"enabled"`
+	Priority        int    `json:"priority"`
+	ModelPattern    string `json:"model_pattern"`
+	AiProxyNodeId   string `json:"ai_proxy_node_id"`
+	LlmDeploymentId string `json:"llm_deployment_id"`
+	Enabled         *bool  `json:"enabled"`
 }
 
 type AiRoutingDetails struct {
 	apis.SharableVirtualResourceDetails
 
-	Priority      int                     `json:"priority"`
-	ModelPattern  string                  `json:"model_pattern"`
-	AiProxyNodeId string                  `json:"ai_proxy_node_id"`
-	Enabled       bool                    `json:"enabled"`
-	RoutingModels []AiRoutingModelDetails `json:"routing_models,omitempty"`
+	Priority        int                     `json:"priority"`
+	ModelPattern    string                  `json:"model_pattern"`
+	AiProxyNodeId   string                  `json:"ai_proxy_node_id"`
+	LlmDeploymentId string                  `json:"llm_deployment_id"`
+	Enabled         bool                    `json:"enabled"`
+	RoutingModels   []AiRoutingModelDetails `json:"routing_models,omitempty"`
 }
 
 // AiRoutingSetModelsInput replaces all ai_routing_models for an ai_routing.

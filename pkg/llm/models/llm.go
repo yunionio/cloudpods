@@ -507,8 +507,20 @@ func (llm *SLLM) SetStatus(ctx context.Context, userCred mcclient.TokenCredentia
 		log.Warningf("SLLM.SetStatus: fetch deployment %s: %s", llm.LLMDeploymentId, err)
 		return nil
 	}
-	if err := depObj.(*SLLMDeployment).SyncReadyReplicas(ctx, userCred); err != nil {
+	dep := depObj.(*SLLMDeployment)
+	if err := dep.SyncReadyReplicas(ctx, userCred); err != nil {
 		log.Warningf("SLLM.SetStatus: SyncReadyReplicas for deployment %s: %s", llm.LLMDeploymentId, err)
+	}
+	if dep.AutoRegisterAiproxy {
+		if status == api.LLM_STATUS_RUNNING {
+			if err := dep.StartAiproxySyncTask(ctx, userCred, llm.Id); err != nil {
+				log.Warningf("SLLM.SetStatus: start aiproxy sync for llm %s: %v", llm.Id, err)
+			}
+		} else if oldStatus == api.LLM_STATUS_RUNNING && status != api.LLM_STATUS_RUNNING {
+			if err := UnsyncLlmInstance(ctx, userCred, dep, llm.Id); err != nil {
+				log.Warningf("SLLM.SetStatus: unsync aiproxy for llm %s: %v", llm.Id, err)
+			}
+		}
 	}
 	return nil
 }

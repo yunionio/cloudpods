@@ -45,6 +45,8 @@ type SAiRoutingModel struct {
 	// ModelPattern optionally matches the client request "model" (same rules as ai_routing.model_pattern).
 	ModelPattern string            `width:"256" charset:"utf8" nullable:"true" list:"user" create:"optional" update:"user"`
 	Enabled      tristate.TriState `default:"true" nullable:"false" list:"user" create:"optional" update:"user"`
+	// LlmId links this binding to an llm replica (set by llm sync).
+	LlmId string `width:"128" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user" index:"true"`
 }
 
 type SAiRoutingModelManager struct {
@@ -87,6 +89,9 @@ func (manager *SAiRoutingModelManager) ListItemFilter(
 	if query.Enabled != nil {
 		q = q.Equals("enabled", *query.Enabled)
 	}
+	if v := strings.TrimSpace(query.LlmId); v != "" {
+		q = q.Equals("llm_id", v)
+	}
 	return q, nil
 }
 
@@ -102,6 +107,8 @@ func (manager *SAiRoutingModelManager) FetchCustomizeColumns(
 	baseRows := manager.SStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	for i := range objs {
 		rows[i].StandaloneResourceDetails = baseRows[i]
+		rm := objs[i].(*SAiRoutingModel)
+		rows[i].LlmId = rm.LlmId
 	}
 	return rows
 }
@@ -284,6 +291,9 @@ func createAiRoutingModels(
 		dataDict.Set("priority", jsonutils.NewInt(int64(item.Priority)))
 		if mp := strings.TrimSpace(item.ModelPattern); mp != "" {
 			dataDict.Set("model_pattern", jsonutils.NewString(mp))
+		}
+		if lid := strings.TrimSpace(item.LlmId); lid != "" {
+			dataDict.Set("llm_id", jsonutils.NewString(lid))
 		}
 		dataDict.Set("enabled", jsonutils.JSONTrue)
 		if !enabled {

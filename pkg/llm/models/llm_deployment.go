@@ -102,6 +102,13 @@ type SLLMDeployment struct {
 	Nets      *api.LLMDeploymentNets `charset:"utf8" length:"medium" nullable:"true" list:"user"`
 	AutoStart bool                   `nullable:"false" default:"false" list:"user"`
 	HostPaths *api.HostPaths         `charset:"utf8" length:"medium" nullable:"true" list:"user"`
+
+	// Aiproxy integration (llm sync writes aiproxy catalog via mcclient).
+	AutoRegisterAiproxy bool   `nullable:"false" default:"false" list:"user" create:"optional" update:"user"`
+	AiproxyModelPrefix  string `width:"128" charset:"utf8" nullable:"true" list:"user" create:"optional" update:"user"`
+	AiproxySyncStatus   string `width:"32" charset:"ascii" nullable:"true" default:"pending" list:"user"`
+	AiproxyRoutingId    string `width:"128" charset:"ascii" nullable:"true" list:"user"`
+	AiproxyBindings     string `charset:"utf8" length:"long" nullable:"true" list:"user"`
 }
 
 func (man *SLLMDeploymentManager) ValidateCreateData(
@@ -194,6 +201,12 @@ func (man *SLLMDeploymentManager) ValidateCreateData(
 		input.Replicas = 1
 	}
 
+	if input.AutoRegisterAiproxy == nil {
+		t := true
+		input.AutoRegisterAiproxy = &t
+	}
+	input.AiproxyModelPrefix = strings.TrimSpace(input.AiproxyModelPrefix)
+
 	input.Status = api.STATUS_READY
 	return input, nil
 }
@@ -226,6 +239,9 @@ func (model *SLLMDeployment) ValidateUpdateData(
 
 	if input.Replicas != nil && *input.Replicas < 0 {
 		return input, errors.Wrap(httperrors.ErrInputParameter, "replicas must be >= 0")
+	}
+	if input.AiproxyModelPrefix != nil {
+		*input.AiproxyModelPrefix = strings.TrimSpace(*input.AiproxyModelPrefix)
 	}
 
 	if input.GpuMemoryUtilization != nil || input.AutoGpuMemoryUtilization != nil {
@@ -301,6 +317,11 @@ func (man *SLLMDeploymentManager) FetchCustomizeColumns(
 		res[i].AutoGpuMemoryUtilization = models[i].AutoGpuMemoryUtilization
 		res[i].RestartOnError = models[i].RestartOnError
 		res[i].AccessPolicy = models[i].AccessPolicy
+		res[i].AutoRegisterAiproxy = models[i].AutoRegisterAiproxy
+		res[i].AiproxyModelPrefix = models[i].AiproxyModelPrefix
+		res[i].AiproxySyncStatus = models[i].AiproxySyncStatus
+		res[i].AiproxyRoutingId = models[i].AiproxyRoutingId
+		res[i].AiproxyInstances = parseDeploymentAiproxyBindings(&models[i])
 	}
 
 	// Batch fetch SKU data for source/backend/categories info
@@ -416,10 +437,28 @@ func (model *SLLMDeployment) SyncReadyReplicas(ctx context.Context, userCred mcc
 	if !canUpdateReplicaHealthStatus(model.Status) {
 		return nil
 	}
+	oldStatus := model.Status
+	if err := model.transitionReplicaHealthStatus(ctx, userCred, desired, summary.Running); err != nil {
+		return err
+	}
+	if model.AutoRegisterAiproxy && (desired == api.STATUS_READY || desired == api.LLM_DEPLOYMENT_STATUS_PARTIAL) {
+		if oldStatus != desired || desired == api.STATUS_READY {
+			if err := model.StartAiproxySyncTask(ctx, userCred, ""); err != nil {
+				log.Warningf("SyncReadyReplicas: start aiproxy sync for %s: %v", model.Name, err)
+			}
+		}
+	}
+	return nil
+}
+
+func (model *SLLMDeployment) transitionReplicaHealthStatus(ctx context.Context, userCred mcclient.TokenCredential, desired string, running int) error {
+	if desired == "" {
+		return nil
+	}
 	if model.Status == desired {
 		return nil
 	}
-	return model.SetStatus(ctx, userCred, desired, fmt.Sprintf("ready_replicas=%d/%d", summary.Running, model.Replicas))
+	return model.SetStatus(ctx, userCred, desired, fmt.Sprintf("ready_replicas=%d/%d", running, model.Replicas))
 }
 
 type deploymentReplicaStatusRow struct {
@@ -540,6 +579,15 @@ func (model *SLLMDeployment) PostCreate(ctx context.Context, userCred mcclient.T
 		if input.HostPaths != nil && !input.HostPaths.IsZero() {
 			model.HostPaths = input.HostPaths
 		}
+		if input.AutoRegisterAiproxy != nil {
+			model.AutoRegisterAiproxy = *input.AutoRegisterAiproxy
+		}
+		if input.AiproxyModelPrefix != "" {
+			model.AiproxyModelPrefix = strings.TrimSpace(input.AiproxyModelPrefix)
+		}
+		if model.AiproxySyncStatus == "" {
+			model.AiproxySyncStatus = api.AIPROXY_SYNC_STATUS_PENDING
+		}
 		return nil
 	}); err != nil {
 		log.Errorf("SLLMDeployment.PostCreate persist instance template: %s", err)
@@ -586,12 +634,55 @@ func (model *SLLMDeployment) PostUpdate(ctx context.Context, userCred mcclient.T
 			log.Errorf("SLLMDeployment.PostUpdate start sync replicas task failed: %s", err)
 		}
 	}
+	if model.AutoRegisterAiproxy && (data.Contains("auto_register_aiproxy") || data.Contains("aiproxy_model_prefix")) {
+		if err := model.StartAiproxySyncTask(ctx, userCred, ""); err != nil {
+			log.Errorf("SLLMDeployment.PostUpdate start aiproxy sync task failed: %s", err)
+		}
+	}
 }
 
 // CustomizeDelete starts a cascade delete task that:
 //  1. Deletes all child SLLM instances (each via its own LLMDeleteTask, with this task as parent)
 //  2. After all instance delete tasks complete, deletes the deployment record itself
+func (model *SLLMDeployment) PerformRegisterAiproxy(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input jsonutils.JSONObject,
+) (jsonutils.JSONObject, error) {
+	if _, err := db.Update(model, func() error {
+		model.AutoRegisterAiproxy = true
+		if model.AiproxySyncStatus == "" {
+			model.AiproxySyncStatus = api.AIPROXY_SYNC_STATUS_PENDING
+		}
+		return nil
+	}); err != nil {
+		return nil, errors.Wrap(err, "enable auto_register_aiproxy")
+	}
+	if err := model.StartAiproxySyncTask(ctx, userCred, ""); err != nil {
+		return nil, err
+	}
+	return nil, nil
+}
+
+func (model *SLLMDeployment) PerformUnregisterAiproxy(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input jsonutils.JSONObject,
+) (jsonutils.JSONObject, error) {
+	params := jsonutils.NewDict()
+	params.Set("unregister", jsonutils.JSONTrue)
+	if err := model.startAiproxySyncTaskWithParams(ctx, userCred, params); err != nil {
+		return nil, err
+	}
+	return nil, nil
+}
+
 func (model *SLLMDeployment) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	if err := DeleteDeploymentAiproxyResources(ctx, model.Id); err != nil {
+		log.Warningf("CustomizeDelete: delete aiproxy resources for %s: %v", model.Name, err)
+	}
 	// Set replicas to 0 to disable self-healing reconcile during teardown
 	if _, err := db.Update(model, func() error {
 		model.Replicas = 0
