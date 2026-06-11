@@ -78,7 +78,12 @@ import shlex
 
 with open(os.devnull, 'w')  as FNULL:
     try:
-        cmd_str = subprocess.check_output(['bash', '%s'], stderr=FNULL).decode('utf-8').strip()
+        cmd_raw = subprocess.check_output(['bash', '%s'], stderr=FNULL)
+        if sys.version_info[0] >= 3:
+            cmd_str = cmd_raw.decode('utf-8').strip()
+        else:
+            cmd_str = cmd_raw.strip()
+
         cmd = shlex.split(cmd_str)
     except BaseException as e:
         sys.stderr.write('%%s' %% e)
