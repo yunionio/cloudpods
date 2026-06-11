@@ -31,6 +31,7 @@ type AiRoutingListInput struct {
 	apis.EnabledResourceBaseListInput
 
 	ModelPattern  string `json:"model_pattern"`
+	ModelKey      string `json:"model_key"`
 	AiProxyNodeId string `json:"ai_proxy_node_id"`
 	RouterEnabled *bool  `json:"router_enabled"`
 }
@@ -51,6 +52,7 @@ type AiRoutingCreateInput struct {
 	apis.EnabledBaseResourceCreateInput
 
 	Priority             int                  `json:"priority"`
+	ModelKey             string               `json:"model_key"`
 	ModelPattern         string               `json:"model_pattern"`
 	AiProxyNodeId        string               `json:"ai_proxy_node_id"`
 	RouterEnabled        bool                 `json:"router_enabled"`
@@ -65,6 +67,7 @@ type AiRoutingUpdateInput struct {
 	apis.SharableVirtualResourceBaseUpdateInput
 
 	Priority             int    `json:"priority"`
+	ModelKey             string `json:"model_key"`
 	ModelPattern         string `json:"model_pattern"`
 	AiProxyNodeId        string `json:"ai_proxy_node_id"`
 	RouterEnabled        *bool  `json:"router_enabled"`
@@ -79,6 +82,7 @@ type AiRoutingDetails struct {
 	apis.SharableVirtualResourceDetails
 
 	Priority             int                     `json:"priority"`
+	ModelKey             string                  `json:"model_key"`
 	ModelPattern         string                  `json:"model_pattern"`
 	AiProxyNodeId        string                  `json:"ai_proxy_node_id"`
 	RouterEnabled        bool                    `json:"router_enabled"`

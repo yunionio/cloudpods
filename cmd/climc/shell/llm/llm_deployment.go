@@ -13,4 +13,6 @@ func init() {
 	cmd.Create(new(options.LLMDeploymentCreateOptions))
 	cmd.Update(new(options.LLMDeploymentUpdateOptions))
 	cmd.Delete(new(options.LLMDeploymentDeleteOptions))
+	cmd.Perform("register-aiproxy", new(options.LLMDeploymentRegisterAiproxyOptions))
+	cmd.Perform("unregister-aiproxy", new(options.LLMDeploymentUnregisterAiproxyOptions))
 }

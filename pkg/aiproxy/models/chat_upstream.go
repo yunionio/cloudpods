@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/rbacscope"
 
@@ -41,6 +42,14 @@ type ChatUpstream struct {
 	VirtualKeyId        string
 	MaxTokensPerRequest int
 	RequestsPerMinute   int
+}
+
+func modelKeyMatches(key, requestedModel string) bool {
+	key = strings.TrimSpace(key)
+	if key == "" {
+		return false
+	}
+	return strings.EqualFold(key, strings.TrimSpace(requestedModel))
 }
 
 func modelPatternMatches(pattern, requestedModel string) bool {
@@ -109,13 +118,26 @@ func listProjectRoutingsForVirtualKey(ctx context.Context, userCred mcclient.Tok
 	return routings, nil
 }
 
-// pickRoutingForRequest chooses the first matching ai_routing (lowest priority value wins)
-// on the current aiproxy instance. When a matched rule is bound to another node, returns forbidden.
+// pickRoutingForRequest chooses the best matching ai_routing on the current aiproxy instance.
+// Phase 1: exact ai_routing.model_key match (lowest priority wins).
+// Phase 2: ai_routing.model_pattern match (lowest priority wins).
 func pickRoutingForRequest(routings []SAiRouting, reqModel, currentNodeId string) (*SAiRouting, error) {
+	if picked, err := pickRoutingByMatch(routings, reqModel, currentNodeId, func(r *SAiRouting, reqModel string) bool {
+		return modelKeyMatches(r.ModelKey, reqModel)
+	}); picked != nil || err != nil {
+		return picked, err
+	}
+	return pickRoutingByMatch(routings, reqModel, currentNodeId, func(r *SAiRouting, reqModel string) bool {
+		return modelPatternMatches(r.ModelPattern, reqModel)
+	})
+}
+
+func pickRoutingByMatch(routings []SAiRouting, reqModel, currentNodeId string, match func(*SAiRouting, string) bool) (*SAiRouting, error) {
 	var boundElsewhere *SAiRouting
+	var best *SAiRouting
 	for i := range routings {
 		r := &routings[i]
-		if !modelPatternMatches(r.ModelPattern, reqModel) {
+		if !match(r, reqModel) {
 			continue
 		}
 		if !proxyNodeScopeMatches(r.AiProxyNodeId, currentNodeId) {
@@ -124,7 +146,12 @@ func pickRoutingForRequest(routings []SAiRouting, reqModel, currentNodeId string
 			}
 			continue
 		}
-		return r, nil
+		if best == nil || r.Priority < best.Priority {
+			best = r
+		}
+	}
+	if best != nil {
+		return best, nil
 	}
 	if boundElsewhere != nil {
 		return nil, errors.Wrapf(httperrors.ErrForbidden,
@@ -184,7 +211,7 @@ func resolveCatalogModelFromRouting(
 
 // ResolveChatUpstream resolves upstream URL, API key, and catalog model_key for a chat request:
 //  1. ai_virtual_key (auth + project scope)
-//  2. ai_routing in that project (model_pattern / optional proxy-node scope, priority)
+//  2. ai_routing in that project (model_key exact match first, then model_pattern / optional proxy-node scope, priority)
 //  3. ai_routing_model -> ai_provider + ai_model
 //  4. ai_key rows for that provider matching the catalog model_key (weight), else provider.config api_key
 func ResolveChatUpstream(ctx context.Context, userCred mcclient.TokenCredential, virtualKey string, body *jsonutils.JSONDict) (*ChatUpstream, error) {
@@ -206,6 +233,7 @@ func ResolveChatUpstream(ctx context.Context, userCred mcclient.TokenCredential,
 	if err != nil {
 		return nil, err
 	}
+	log.Infof("=========request model: %s, pick routing: %s", reqModel, jsonutils.Marshal(routing).PrettyString())
 	if routing == nil {
 		return nil, errors.Wrap(httperrors.ErrNotFound, "no ai_routing matched for virtual key project on this aiproxy node")
 	}
