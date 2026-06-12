@@ -223,7 +223,8 @@ func (s *sglang) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *
 	if sku != nil {
 		backendParameters = sku.BackendParameters
 	}
-	startScript := buildSGLangEntrypointScript(len(postOverlays) > 0, tensorParallelSize, backendParameters, effSpec)
+	hasMountedModels := len(postOverlays) > 0
+	startScript := buildSGLangEntrypointScript(hasMountedModels, tensorParallelSize, backendParameters, effSpec)
 	envs := []*commonapi.ContainerKeyValue{
 		{
 			Key:   "HUGGING_FACE_HUB_CACHE",
@@ -244,6 +245,9 @@ func (s *sglang) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *
 			AlwaysRestart:     true,
 			Envs:              envs,
 		},
+	}
+	if hasMountedModels {
+		spec.StartupProbe = newLLMHTTPStartupProbe(api.LLM_SGLANG_DEFAULT_PORT, "/v1/models")
 	}
 
 	effDevs := models.GetEffectiveDevices(llm, sku)

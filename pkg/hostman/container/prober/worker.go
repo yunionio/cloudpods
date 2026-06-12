@@ -75,6 +75,8 @@ type worker struct {
 	lastResult results.Result
 	// How many times in a row the probe has returned the same result.
 	resultRun int
+	// Total probe attempts made by this worker.
+	probeAttempts int
 
 	// If set, skip probing
 	onHold bool
@@ -112,14 +114,17 @@ func newWorker(
 // run periodically probes the container.
 func (w *worker) run() {
 	probeTickerPeriod := time.Duration(w.spec.PeriodSeconds) * time.Second
+	jitter := time.Duration(rand.Float64() * float64(probeTickerPeriod))
+	log.Infof("[startup-probe-trace] worker start pod=%s container=%s name=%s type=%s period=%s jitter=%s", w.pod.GetId(), w.container.Id, w.container.Name, w.probeType, probeTickerPeriod, jitter)
 
 	// If host restarted the probes could be started in rapid succession.
 	// Let the worker wait for a random portion of tickerPeriod before probing.
-	time.Sleep(time.Duration(rand.Float64() * float64(probeTickerPeriod)))
+	time.Sleep(jitter)
 
 	probeTicker := time.NewTicker(probeTickerPeriod)
 
 	defer func() {
+		log.Infof("[startup-probe-trace] worker stop pod=%s container=%s name=%s type=%s attempts=%d", w.pod.GetId(), w.container.Id, w.container.Name, w.probeType, w.probeAttempts)
 		// Clean up.
 		probeTicker.Stop()
 		if len(w.containerId) != 0 {
@@ -159,6 +164,11 @@ func (w *worker) doProbe() (keepGoing bool) {
 		keepGoing = true
 	})
 
+	w.probeAttempts++
+	if w.probeAttempts <= 3 {
+		log.Infof("[startup-probe-trace] probe attempt=%d pod=%s container=%s name=%s type=%s", w.probeAttempts, w.pod.GetId(), w.container.Id, w.container.Name, w.probeType)
+	}
+	prevResult := w.lastResult
 	result, err := w.probeManager.prober.probe(w.probeType, w.pod, w.container)
 	if err != nil {
 		log.Errorf("probe: %s, pod: %s, container: %s, error: %v", w.probeType, w.pod.GetId(), w.container.Id, err)
@@ -171,6 +181,9 @@ func (w *worker) doProbe() (keepGoing bool) {
 	} else {
 		w.lastResult = result.Result
 		w.resultRun = 1
+	}
+	if w.probeAttempts <= 3 || prevResult != result.Result {
+		log.Infof("[startup-probe-trace] probe result pod=%s container=%s name=%s type=%s result=%s run=%d reason=%q", w.pod.GetId(), w.container.Id, w.container.Name, w.probeType, result.Result, w.resultRun, result.Reason)
 	}
 	_, isContainerDirty := w.probeManager.dirtyContainers.Load(w.container.Id)
 
