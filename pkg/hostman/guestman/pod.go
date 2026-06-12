@@ -1362,6 +1362,13 @@ func (s *sPodGuestInstance) StartLocalContainer(ctx context.Context, userCred mc
 	return ret, nil
 }
 
+func (s *sPodGuestInstance) ensureContainerProbeStarted(ctrId string, spec *hostapi.ContainerSpec, reason string) {
+	if spec != nil && spec.NeedProbe() {
+		s.getProbeManager().SetDirtyContainer(ctrId, reason)
+		s.getProbeManager().AddPod(s)
+	}
+}
+
 func (s *sPodGuestInstance) StartContainer(ctx context.Context, userCred mcclient.TokenCredential, ctrId string, input *hostapi.ContainerCreateInput) (jsonutils.JSONObject, error) {
 	_, hasCtr := s.containers[ctrId]
 	needRecreate := false
@@ -1409,6 +1416,7 @@ func (s *sPodGuestInstance) StartContainer(ctx context.Context, userCred mcclien
 	if err := s.getCRI().StartContainer(ctx, criId); err != nil {
 		return nil, errors.Wrap(err, "CRI.StartContainer")
 	}
+	s.ensureContainerProbeStarted(ctrId, input.Spec, "container started")
 
 	// 如果是 cgroup v2，设备规则已经通过 containerd API 在 CreateContainer 时设置，跳过 eBPF 方式
 	// 如果是 cgroup v1，继续使用原有的 eBPF 方式
@@ -2669,7 +2677,11 @@ func (s *sPodGuestInstance) getContainerStatus(ctx context.Context, ctrId string
 			return "", cs, errors.Wrapf(httperrors.ErrNotFound, "not found container by id %s", ctrId)
 		}
 		if ctr.Spec.NeedProbe() {
-			status = computeapi.CONTAINER_STATUS_PROBING
+			if probeStatus, ok := s.getProbeManager().GetContainerStartupStatus(ctrId); ok {
+				status = probeStatus
+			} else {
+				status = computeapi.CONTAINER_STATUS_PROBING
+			}
 		}
 	}
 	if status == computeapi.CONTAINER_STATUS_EXITED && resp.Status.ExitCode != 0 {

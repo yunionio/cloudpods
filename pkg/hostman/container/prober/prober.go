@@ -31,8 +31,11 @@ limitations under the License.
 package prober
 
 import (
+	"context"
 	"fmt"
 	"io"
+	"net"
+	nethttp "net/http"
 	"strings"
 	"time"
 
@@ -46,6 +49,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/exec"
 	"yunion.io/x/onecloud/pkg/util/probe"
 	execprobe "yunion.io/x/onecloud/pkg/util/probe/exec"
+	httpprobe "yunion.io/x/onecloud/pkg/util/probe/http"
 	tcpprobe "yunion.io/x/onecloud/pkg/util/probe/tcp"
 )
 
@@ -53,6 +57,7 @@ const maxProbeRetries = 3
 
 // Prober helps to check the liveness of a container.
 type prober struct {
+	http   httpprobe.Prober
 	exec   execprobe.Prober
 	tcp    tcpprobe.Prober
 	runner container.CommandRunner
@@ -60,6 +65,7 @@ type prober struct {
 
 func newProber(runner container.CommandRunner) *prober {
 	return &prober{
+		http:   httpprobe.New(),
 		exec:   execprobe.New(),
 		tcp:    tcpprobe.New(),
 		runner: runner,
@@ -124,6 +130,78 @@ func (pb *prober) runProbeWithRetries(probeType apis.ContainerProbeType, p *apis
 	return result, output, err
 }
 
+func (pb *prober) runProbeInPodNetNS(pod IPod, run func() (probe.Result, string, error)) (probe.Result, string, error) {
+	netNSRunner, ok := pb.runner.(container.PodNetNSRunner)
+	if !ok {
+		log.Infof("[startup-probe-trace] run probe without pod netns pod=%s", pod.GetId())
+		return run()
+	}
+	var result probe.Result
+	var output string
+	log.Infof("[startup-probe-trace] enter pod netns pod=%s", pod.GetId())
+	err := netNSRunner.RunInPodNetNS(pod.GetId(), func() error {
+		var runErr error
+		result, output, runErr = run()
+		return runErr
+	})
+	if err != nil {
+		log.Errorf("[startup-probe-trace] pod netns probe error pod=%s error=%v", pod.GetId(), err)
+		return probe.Unknown, "", err
+	}
+	log.Infof("[startup-probe-trace] leave pod netns pod=%s result=%s output=%q", pod.GetId(), result, output)
+	return result, output, nil
+}
+
+func (pb *prober) shouldRunProbeInPodNetNS() bool {
+	_, ok := pb.runner.(container.PodNetNSRunner)
+	return ok
+}
+
+func (pb *prober) newPodNetNSDialContext(pod IPod) httpprobe.DialContextFunc {
+	netNSRunner, ok := pb.runner.(container.PodNetNSRunner)
+	if !ok {
+		return nil
+	}
+	return func(ctx context.Context, network string, address string) (net.Conn, error) {
+		var conn net.Conn
+		dialer := &net.Dialer{}
+		log.Infof("[startup-probe-trace] enter pod netns dial pod=%s network=%s address=%s", pod.GetId(), network, address)
+		err := netNSRunner.RunInPodNetNS(pod.GetId(), func() error {
+			var dialErr error
+			conn, dialErr = dialer.DialContext(ctx, network, address)
+			return dialErr
+		})
+		if err != nil {
+			log.Errorf("[startup-probe-trace] pod netns dial error pod=%s network=%s address=%s error=%v", pod.GetId(), network, address, err)
+			return nil, err
+		}
+		log.Infof("[startup-probe-trace] leave pod netns dial pod=%s network=%s address=%s", pod.GetId(), network, address)
+		return conn, nil
+	}
+}
+
+func getProbeHost(explicitHost string, pod IPod) (string, error) {
+	if explicitHost != "" {
+		return explicitHost, nil
+	}
+	for _, nic := range pod.GetDesc().Nics {
+		if nic.Ip != "" {
+			return nic.Ip, nil
+		}
+	}
+	return "", errors.Errorf("not found guest ip")
+}
+
+func (pb *prober) getProbeHost(explicitHost string, pod IPod) (string, error) {
+	if explicitHost != "" {
+		return explicitHost, nil
+	}
+	if pb.shouldRunProbeInPodNetNS() {
+		return "127.0.0.1", nil
+	}
+	return getProbeHost(explicitHost, pod)
+}
+
 func (pb *prober) runProbe(probeType apis.ContainerProbeType, p *apis.ContainerProbe, pod IPod, container *hostapi.ContainerDesc) (probe.Result, string, error) {
 	timeout := time.Duration(p.TimeoutSeconds) * time.Second
 	if p.Exec != nil {
@@ -146,6 +224,24 @@ func (pb *prober) runProbe(probeType apis.ContainerProbeType, p *apis.ContainerP
 		}
 		// log.Debugf("TCP-Probe Host: %v, Port: %v, Timeout: %v", host, port, timeout)
 		return pb.tcp.Probe(host, port, timeout)
+	}
+	if p.HTTPGet != nil {
+		host, err := pb.getProbeHost(p.HTTPGet.Host, pod)
+		if err != nil {
+			return probe.Unknown, "", err
+		}
+		headers := nethttp.Header{}
+		for _, header := range p.HTTPGet.HTTPHeaders {
+			headers.Add(header.Name, header.Value)
+		}
+		log.Infof("[startup-probe-trace] http probe pod=%s container=%s scheme=%s host=%s port=%d path=%s timeout=%s in_pod_netns=%v", pod.GetId(), container.Id, p.HTTPGet.Scheme, host, p.HTTPGet.Port, p.HTTPGet.Path, timeout, pb.shouldRunProbeInPodNetNS())
+		httpProber := pb.http
+		if dialContext := pb.newPodNetNSDialContext(pod); dialContext != nil {
+			httpProber = httpprobe.NewWithDialContext(dialContext)
+		}
+		result, output, err := httpProber.Probe(string(p.HTTPGet.Scheme), host, p.HTTPGet.Port, p.HTTPGet.Path, headers, timeout)
+		log.Infof("[startup-probe-trace] http probe result pod=%s container=%s result=%s output=%q error=%v", pod.GetId(), container.Id, result, output, err)
+		return result, output, err
 	}
 	errMsg := fmt.Sprintf("Failed to find probe builder for pod %v, container: %v", pod.GetName(), container.Name)
 	log.Warningf("%s", errMsg)
