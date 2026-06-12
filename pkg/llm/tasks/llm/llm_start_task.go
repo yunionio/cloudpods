@@ -32,7 +32,9 @@ func (task *LLMStartTask) taskFailed(ctx context.Context, llm *models.SLLM, err 
 }
 
 func (task *LLMStartTask) taskComplete(ctx context.Context, llm *models.SLLM) {
-	llm.SetStatus(ctx, task.GetUserCred(), api.LLM_STATUS_RUNNING, "start complete")
+	if !task.HasParentTask() {
+		llm.SetStatus(ctx, task.GetUserCred(), api.LLM_STATUS_RUNNING, "start complete")
+	}
 	// llm.NotifyRequest(ctx, task.GetUserCred(), notify.ActionStart, nil, true)
 	task.SetStageComplete(ctx, nil)
 }

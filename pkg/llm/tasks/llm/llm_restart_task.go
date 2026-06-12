@@ -451,6 +451,10 @@ func (task *LLMRestartTask) OnResetDiskComplete(ctx context.Context, obj db.ISta
 
 func (task *LLMRestartTask) OnStartComplete(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	llm := obj.(*models.SLLM)
+	if _, err := llm.WaitServiceReady(ctx, task.GetUserCred(), 0); err != nil {
+		task.taskFailed(ctx, llm, errors.Wrap(err, "WaitServiceReady").Error())
+		return
+	}
 	task.taskComplete(ctx, llm)
 }
 
