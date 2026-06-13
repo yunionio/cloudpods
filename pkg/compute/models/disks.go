@@ -1966,6 +1966,9 @@ func (self *SDisk) syncWithCloudDisk(ctx context.Context, userCred mcclient.Toke
 		if iops := extDisk.GetIops(); iops > 0 {
 			self.Iops = iops
 		}
+		if tp := extDisk.GetThroughput(); tp > 0 {
+			self.Throughput = tp
+		}
 		if extDisk.GetIsAutoDelete() {
 			self.AutoDelete = true
 		}
@@ -2047,6 +2050,7 @@ func (manager *SDiskManager) newFromCloudDisk(ctx context.Context, userCred mccl
 	disk.StorageId = storage.Id
 
 	disk.Iops = extDisk.GetIops()
+	disk.Throughput = extDisk.GetThroughput()
 	disk.DiskFormat = extDisk.GetDiskFormat()
 	disk.DiskSize = extDisk.GetDiskSizeMB()
 	disk.AutoDelete = extDisk.GetIsAutoDelete()

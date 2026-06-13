@@ -46,3 +46,7 @@ func (disk *SDisk) ChangeStorage(ctx context.Context, opts *cloudprovider.Change
 func (disk *SDisk) GetDeviceName() string {
 	return ""
 }
+
+func (disk *SDisk) GetThroughput() int {
+	return 0
+}
