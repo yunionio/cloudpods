@@ -584,6 +584,7 @@ type ICloudDisk interface {
 	GetFsFormat() string
 	GetIsNonPersistent() bool
 	GetIops() int
+	GetThroughput() int
 
 	GetDriver() string
 	GetCacheMode() string
