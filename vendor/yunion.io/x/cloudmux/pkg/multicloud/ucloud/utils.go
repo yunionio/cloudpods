@@ -16,34 +16,111 @@ package ucloud
 
 import (
 	"reflect"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 )
 
-func unmarshalResult(resp jsonutils.JSONObject, respErr error, resultKey string, result interface{}) error {
-	if respErr != nil {
-		return respErr
-	}
+var responseMetaKeys = map[string]bool{
+	"RetCode":    true,
+	"Message":    true,
+	"Action":     true,
+	"TotalCount": true,
+}
 
+func detectResultKey(resp jsonutils.JSONObject, result interface{}) string {
+	if result == nil {
+		return ""
+	}
+	rt := reflect.TypeOf(result)
+	if rt.Kind() != reflect.Ptr {
+		return ""
+	}
+	et := rt.Elem()
+	switch et.Kind() {
+	case reflect.Slice:
+		if et.Elem().Kind() == reflect.String {
+			return detectStringResultKey(resp)
+		}
+		return detectArrayResultKey(resp)
+	case reflect.String:
+		return detectStringResultKey(resp)
+	default:
+		return ""
+	}
+}
+
+func detectStringResultKey(resp jsonutils.JSONObject) string {
+	dict, ok := resp.(*jsonutils.JSONDict)
+	if !ok {
+		return ""
+	}
+	for _, key := range dict.SortedKeys() {
+		if responseMetaKeys[key] {
+			continue
+		}
+		if strings.HasSuffix(key, "Id") || strings.HasSuffix(key, "Ids") {
+			return key
+		}
+	}
+	return ""
+}
+
+func detectArrayResultKey(resp jsonutils.JSONObject) string {
+	dict, ok := resp.(*jsonutils.JSONDict)
+	if !ok {
+		return ""
+	}
+	candidates := []string{}
+	for _, key := range dict.SortedKeys() {
+		if responseMetaKeys[key] {
+			continue
+		}
+		val, _ := dict.Get(key)
+		if val == nil {
+			continue
+		}
+		if _, ok := val.(*jsonutils.JSONArray); ok {
+			candidates = append(candidates, key)
+		}
+	}
+	if len(candidates) == 0 {
+		return ""
+	}
+	if len(candidates) == 1 {
+		return candidates[0]
+	}
+	for _, key := range candidates {
+		if strings.HasSuffix(key, "Set") {
+			return key
+		}
+	}
+	return candidates[0]
+}
+
+func unmarshalResult(resp jsonutils.JSONObject, result interface{}) error {
 	if result == nil {
 		return nil
 	}
 
+	var err error
+	resultKey := detectResultKey(resp, result)
 	if len(resultKey) > 0 {
-		respErr = resp.Unmarshal(result, resultKey)
+		err = resp.Unmarshal(result, resultKey)
 	} else {
-		respErr = resp.Unmarshal(result)
+		err = resp.Unmarshal(result)
 	}
 
-	if respErr != nil {
-		log.Errorf("unmarshal json error %s", respErr)
+	if err != nil {
+		return errors.Wrapf(err, "unmarshalResult")
 	}
 
 	return nil
 }
 
-func doListPart(client *SUcloudClient, action string, params SParams, resultKey string, result interface{}) (int, int, error) {
+func doListPart(client *SUcloudClient, action string, params SParams, result interface{}) (int, int, error) {
 	params.SetAction(action)
 	ret, err := jsonRequest(client, params)
 	if err != nil {
@@ -51,12 +128,9 @@ func doListPart(client *SUcloudClient, action string, params SParams, resultKey 
 	}
 
 	total, _ := ret.Int("TotalCount")
-	// if err != nil {
-	//	log.Debugf("%s TotalCount %s", action, err.Error())
-	//}
 
-	var lst []jsonutils.JSONObject
-	lst, err = ret.GetArray(resultKey)
+	resultKey := detectResultKey(ret, result)
+	lst, err := ret.GetArray(resultKey)
 	if err != nil {
 		return 0, 0, nil
 	}
@@ -75,21 +149,25 @@ func doListPart(client *SUcloudClient, action string, params SParams, resultKey 
 }
 
 // 执行操作
-func DoAction(client *SUcloudClient, action string, params SParams, resultKey string, result interface{}) error {
+func DoAction(client *SUcloudClient, action string, params SParams, result interface{}) error {
 	params.SetAction(action)
 	resp, err := jsonRequest(client, params)
-	return unmarshalResult(resp, err, resultKey, result)
+	if err != nil {
+		log.Debugf("DoAction %s %s error %s", action, params.PrettyString(), err)
+		return err
+	}
+	return unmarshalResult(resp, result)
 }
 
 // 遍历所有结果
-func DoListAll(client *SUcloudClient, action string, params SParams, resultKey string, result interface{}) error {
+func DoListAll(client *SUcloudClient, action string, params SParams, result interface{}) error {
 	pageLimit := 100
 	offset := 0
 
 	resultValue := reflect.Indirect(reflect.ValueOf(result))
 	params.SetPagination(pageLimit, offset)
 	for {
-		total, part, err := doListPart(client, action, params, resultKey, result)
+		total, part, err := doListPart(client, action, params, result)
 		if err != nil {
 			return err
 		}

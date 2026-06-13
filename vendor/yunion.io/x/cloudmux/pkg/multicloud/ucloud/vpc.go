@@ -15,10 +15,10 @@
 package ucloud
 
 import (
-	"fmt"
 	"strings"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
@@ -31,8 +31,6 @@ type SVPC struct {
 
 	region *SRegion
 
-	iwires []cloudprovider.ICloudWire
-
 	CreateTime  int64         `json:"CreateTime"`
 	Name        string        `json:"Name"`
 	Network     []string      `json:"Network"`
@@ -40,7 +38,7 @@ type SVPC struct {
 	SubnetCount int           `json:"SubnetCount"`
 	Tag         string        `json:"Tag"`
 	UpdateTime  int64         `json:"UpdateTime"`
-	VPCID       string        `json:"VPCId"`
+	VpcId       string        `json:"VPCId"`
 }
 
 type NetworkInfo struct {
@@ -48,22 +46,15 @@ type NetworkInfo struct {
 	SubnetCount int    `json:"SubnetCount"`
 }
 
-func (self *SVPC) addWire(wire *SWire) {
-	if self.iwires == nil {
-		self.iwires = make([]cloudprovider.ICloudWire, 0)
-	}
-	self.iwires = append(self.iwires, wire)
-}
-
 func (self *SVPC) GetId() string {
-	return self.VPCID
+	return self.VpcId
 }
 
 func (self *SVPC) GetName() string {
 	if len(self.Name) > 0 {
 		return self.Name
 	}
-	return self.VPCID
+	return self.VpcId
 }
 
 func (self *SVPC) GetGlobalId() string {
@@ -75,7 +66,7 @@ func (self *SVPC) GetStatus() string {
 }
 
 func (self *SVPC) Refresh() error {
-	new, err := self.region.getVpc(self.GetId())
+	new, err := self.region.GetVpc(self.GetId())
 	if err != nil {
 		return err
 	}
@@ -99,13 +90,7 @@ func (self *SVPC) GetCidrBlock() string {
 }
 
 func (self *SVPC) GetIWires() ([]cloudprovider.ICloudWire, error) {
-	if self.iwires == nil {
-		err := self.fetchNetworks()
-		if err != nil {
-			return nil, err
-		}
-	}
-	return self.iwires, nil
+	return []cloudprovider.ICloudWire{&SWire{vpc: self}}, nil
 }
 
 // 由于Ucloud 安全组和vpc没有直接关联，这里是返回同一个项目下的防火墙列表，会导致重复同步的问题。
@@ -128,64 +113,33 @@ func (self *SVPC) Delete() error {
 }
 
 func (self *SVPC) GetIWireById(wireId string) (cloudprovider.ICloudWire, error) {
-	if self.iwires == nil {
-		err := self.fetchNetworks()
-		if err != nil {
-			return nil, err
-		}
+	wires, err := self.GetIWires()
+	if err != nil {
+		return nil, err
 	}
-	for i := 0; i < len(self.iwires); i += 1 {
-		if self.iwires[i].GetGlobalId() == wireId {
-			return self.iwires[i], nil
+	for i := 0; i < len(wires); i += 1 {
+		if wires[i].GetGlobalId() == wireId {
+			return wires[i], nil
 		}
 	}
 	return nil, cloudprovider.ErrNotFound
 }
 
-func (self *SVPC) fetchNetworks() error {
-	networks, err := self.region.GetNetworks(self.GetId())
-	if err != nil {
-		return err
+func (self *SRegion) GetVpc(vpcId string) (*SVPC, error) {
+	if len(vpcId) == 0 {
+		return nil, errors.Wrap(cloudprovider.ErrNotFound, "empty vpc id")
 	}
-
-	for i := 0; i < len(networks); i += 1 {
-		wire := self.getWireByRegionId(self.region.GetId())
-		networks[i].wire = wire
-		wire.addNetwork(&networks[i])
-	}
-
-	return nil
-}
-
-func (self *SVPC) getWireByRegionId(regionId string) *SWire {
-	if len(regionId) == 0 {
-		return nil
-	}
-
-	for i := 0; i < len(self.iwires); i++ {
-		wire := self.iwires[i].(*SWire)
-
-		if wire.region.GetId() == regionId {
-			return wire
-		}
-	}
-
-	return nil
-}
-
-func (self *SRegion) getVpc(vpcId string) (*SVPC, error) {
 	vpcs, err := self.GetVpcs(vpcId)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "GetVpcs")
 	}
-
-	if len(vpcs) == 1 {
-		return &vpcs[0], nil
-	} else if len(vpcs) == 0 {
-		return nil, cloudprovider.ErrNotFound
-	} else {
-		return nil, fmt.Errorf("getVpc %s %d found", vpcId, len(vpcs))
+	for i := range vpcs {
+		if vpcs[i].VpcId == vpcId {
+			vpcs[i].region = self
+			return &vpcs[i], nil
+		}
 	}
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", vpcId)
 }
 
 // https://docs.ucloud.cn/api/vpc2.0-api/delete_vpc

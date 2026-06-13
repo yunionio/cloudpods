@@ -30,16 +30,12 @@ type SRegion struct {
 	multicloud.SNoLbRegion
 	client *SUcloudClient
 
-	RegionID string
-
-	izones []cloudprovider.ICloudZone
-	ivpcs  []cloudprovider.ICloudVpc
+	RegionID    string `json:"Region"`
+	LocalName   string `json:"LocalName"`
+	CountryCode string `json:"CountryCode"`
+	Category    string `json:"Category"`
 
 	storageCache *SStoragecache
-
-	latitude      float64
-	longitude     float64
-	fetchLocation bool
 }
 
 func (self *SRegion) GetId() string {
@@ -47,23 +43,11 @@ func (self *SRegion) GetId() string {
 }
 
 func (self *SRegion) GetName() string {
-	if name, exist := UCLOUD_REGION_NAMES[self.GetId()]; exist {
-		return fmt.Sprintf("%s %s", CLOUD_PROVIDER_UCLOUD_CN, name)
-	}
-
-	return fmt.Sprintf("%s %s", CLOUD_PROVIDER_UCLOUD_CN, self.GetId())
+	return self.LocalName
 }
 
 func (self *SRegion) GetI18n() cloudprovider.SModelI18nTable {
-	var en string
-	if name, exist := UCLOUD_REGION_NAMES_EN[self.GetId()]; exist {
-		en = fmt.Sprintf("%s %s", CLOUD_PROVIDER_UCLOUD, name)
-	} else {
-		en = fmt.Sprintf("%s %s", CLOUD_PROVIDER_UCLOUD, self.GetId())
-	}
-
 	table := cloudprovider.SModelI18nTable{}
-	table["name"] = cloudprovider.NewSModelI18nEntry(self.GetName()).CN(self.GetName()).EN(en)
 	return table
 }
 
@@ -79,10 +63,6 @@ func (self *SRegion) Refresh() error {
 	return nil
 }
 
-func (self *SRegion) IsEmulated() bool {
-	return false
-}
-
 func (self *SRegion) GetGeographicInfo() cloudprovider.SGeographicInfo {
 	if info, ok := LatitudeAndLongitude[self.GetId()]; ok {
 		return info
@@ -91,11 +71,11 @@ func (self *SRegion) GetGeographicInfo() cloudprovider.SGeographicInfo {
 }
 
 func (self *SRegion) GetIVMById(id string) (cloudprovider.ICloudVM, error) {
-	instance, err := self.GetInstanceByID(id)
+	instance, err := self.GetInstance(id)
 	if err != nil {
 		return nil, err
 	}
-	return &instance, nil
+	return instance, nil
 }
 
 func (self *SRegion) GetIDiskById(id string) (cloudprovider.ICloudDisk, error) {
@@ -103,24 +83,29 @@ func (self *SRegion) GetIDiskById(id string) (cloudprovider.ICloudDisk, error) {
 }
 
 func (self *SRegion) GetIZones() ([]cloudprovider.ICloudZone, error) {
-	if self.izones == nil {
-		var err error
-		err = self.fetchInfrastructure()
-		if err != nil {
-			return nil, err
-		}
+	zones, err := self.GetZones()
+	if err != nil {
+		return nil, err
 	}
-	return self.izones, nil
+	ret := []cloudprovider.ICloudZone{}
+	for i := range zones {
+		zones[i].region = self
+		ret = append(ret, &zones[i])
+	}
+	return ret, nil
 }
 
 func (self *SRegion) GetIVpcs() ([]cloudprovider.ICloudVpc, error) {
-	if self.ivpcs == nil {
-		err := self.fetchInfrastructure()
-		if err != nil {
-			return nil, err
-		}
+	vpcs, err := self.GetVpcs("")
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetVpcs")
 	}
-	return self.ivpcs, nil
+	ret := []cloudprovider.ICloudVpc{}
+	for i := range vpcs {
+		vpcs[i].region = self
+		ret = append(ret, &vpcs[i])
+	}
+	return ret, nil
 }
 
 // https://docs.ucloud.cn/api/unet-api/describe_eip
@@ -143,16 +128,7 @@ func (self *SRegion) GetIEips() ([]cloudprovider.ICloudEIP, error) {
 }
 
 func (self *SRegion) GetIVpcById(id string) (cloudprovider.ICloudVpc, error) {
-	ivpcs, err := self.GetIVpcs()
-	if err != nil {
-		return nil, err
-	}
-	for i := 0; i < len(ivpcs); i += 1 {
-		if ivpcs[i].GetGlobalId() == id {
-			return ivpcs[i], nil
-		}
-	}
-	return nil, cloudprovider.ErrNotFound
+	return self.GetVpc(id)
 }
 
 func (self *SRegion) GetIZoneById(id string) (cloudprovider.ICloudZone, error) {
@@ -168,29 +144,30 @@ func (self *SRegion) GetIZoneById(id string) (cloudprovider.ICloudZone, error) {
 	return nil, cloudprovider.ErrNotFound
 }
 
-func (self *SRegion) GetEipById(eipId string) (SEip, error) {
+func (self *SRegion) GetEip(eipId string) (*SEip, error) {
 	params := NewUcloudParams()
 	params.Set("EIPIds.0", eipId)
 	eips := make([]SEip, 0)
 	err := self.DoListAll("DescribeEIP", params, &eips)
 	if err != nil {
-		return SEip{}, err
+		return nil, err
 	}
 
-	if len(eips) == 1 {
-		eip := eips[0]
-		eip.region = self
-		return eip, nil
-	} else if len(eips) == 0 {
-		return SEip{}, cloudprovider.ErrNotFound
-	} else {
-		return SEip{}, fmt.Errorf("GetEipById %d eip found", len(eips))
+	for i := range eips {
+		if eips[i].EIPID == eipId {
+			eips[i].region = self
+			return &eips[i], nil
+		}
 	}
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "GetEip %s", eipId)
 }
 
 func (self *SRegion) GetIEipById(id string) (cloudprovider.ICloudEIP, error) {
-	eip, err := self.GetEipById(id)
-	return &eip, err
+	eip, err := self.GetEip(id)
+	if err != nil {
+		return nil, err
+	}
+	return eip, nil
 }
 
 // https://docs.ucloud.cn/api/unet-api/delete_firewall
@@ -402,94 +379,30 @@ func (self *SRegion) DoAction(action string, params SParams, result interface{})
 	return self.client.DoAction(action, params, result)
 }
 
-func (self *SRegion) fetchInfrastructure() error {
-	if err := self.fetchZones(); err != nil {
-		return err
-	}
-
-	if err := self.fetchIVpcs(); err != nil {
-		return err
-	}
-
-	for i := 0; i < len(self.ivpcs); i += 1 {
-		vpc := self.ivpcs[i].(*SVPC)
-		wire := SWire{region: self, vpc: vpc}
-		vpc.addWire(&wire)
-
-		for j := 0; j < len(self.izones); j += 1 {
-			zone := self.izones[j].(*SZone)
-			zone.addWire(&wire)
-		}
-	}
-	return nil
-}
-
-func (self *SRegion) fetchZones() error {
-	type Region struct {
-		RegionID   int64  `json:"RegionId"`
-		RegionName string `json:"RegionName"`
-		IsDefault  bool   `json:"IsDefault"`
-		BitMaps    string `json:"BitMaps"`
-		Region     string `json:"Region"`
-		Zone       string `json:"Zone"`
-	}
-
+func (self *SRegion) GetZones() ([]SZone, error) {
 	params := NewUcloudParams()
-	regions := make([]Region, 0)
-	err := self.client.DoListAll("GetRegion", params, &regions)
-	if err != nil {
-		return err
-	}
-
-	for _, r := range regions {
-		if r.Region != self.GetId() {
-			continue
-		}
-
-		szone := SZone{}
-		szone.ZoneId = r.Zone
-		szone.RegionId = r.Region
-		szone.region = self
-		self.izones = append(self.izones, &szone)
-	}
-
-	return nil
-}
-
-func (self *SRegion) fetchIVpcs() error {
-	vpcs := make([]SVPC, 0)
-	params := NewUcloudParams()
-	err := self.DoListAll("DescribeVPC", params, &vpcs)
-	if err != nil {
-		return err
-	}
-
-	for i := range vpcs {
-		vpc := vpcs[i]
-		vpc.region = self
-		self.ivpcs = append(self.ivpcs, &vpc)
-	}
-
-	return nil
+	params.Set("Region", self.GetId())
+	zones := make([]SZone, 0)
+	err := self.client.DoListAll("ListZones", params, &zones)
+	return zones, err
 }
 
 // https://docs.ucloud.cn/api/uhost-api/describe_uhost_instance
-func (self *SRegion) GetInstanceByID(instanceId string) (SInstance, error) {
+func (self *SRegion) GetInstance(instanceId string) (*SInstance, error) {
 	params := NewUcloudParams()
 	params.Set("UHostIds.0", instanceId)
 	instances := make([]SInstance, 0)
 	err := self.DoAction("DescribeUHostInstance", params, &instances)
 	if err != nil {
-		return SInstance{}, err
+		return nil, errors.Wrapf(err, "DescribeUHostInstance")
 	}
 
-	if len(instances) == 1 {
-		return instances[0], nil
-	} else if len(instances) == 0 {
-		return SInstance{}, cloudprovider.ErrNotFound
-	} else {
-		return SInstance{}, fmt.Errorf("GetInstanceByID %s %d found.", instanceId, len(instances))
+	for i := range instances {
+		if instances[i].UHostID == instanceId {
+			return &instances[i], nil
+		}
 	}
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "GetInstance %s", instanceId)
 }
 
 func (self *SRegion) GetClient() *SUcloudClient {

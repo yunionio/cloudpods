@@ -21,7 +21,6 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
-	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud/ucloud"
 )
@@ -159,11 +158,7 @@ func (self *SUcloudProvider) GetIRegionById(extId string) (cloudprovider.ICloudR
 }
 
 func (self *SUcloudProvider) GetBalance() (*cloudprovider.SBalanceInfo, error) {
-	return &cloudprovider.SBalanceInfo{
-		Amount:   0.0,
-		Currency: "CNY",
-		Status:   api.CLOUD_PROVIDER_HEALTH_NORMAL,
-	}, cloudprovider.ErrNotSupported
+	return self.client.GetBalance()
 }
 
 func (self *SUcloudProvider) GetOnPremiseIRegion() (cloudprovider.ICloudRegion, error) {

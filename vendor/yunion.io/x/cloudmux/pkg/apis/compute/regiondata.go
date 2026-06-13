@@ -399,6 +399,24 @@ var (
 		City:        CITY_HO_CHI_MINH,
 		CountryCode: COUNTRY_CODE_VN,
 	}
+	RegionKarachi = cloudprovider.SGeographicInfo{
+		Latitude:    24.861,
+		Longitude:   67.001,
+		City:        CITY_KARACHI,
+		CountryCode: COUNTRY_CODE_PK,
+	}
+	RegionTashkent = cloudprovider.SGeographicInfo{
+		Latitude:    41.300,
+		Longitude:   69.240,
+		City:        CITY_TASHKENT,
+		CountryCode: COUNTRY_CODE_UZ,
+	}
+	RegionAlmaty = cloudprovider.SGeographicInfo{
+		Latitude:    43.222,
+		Longitude:   76.851,
+		City:        CITY_ALMATY,
+		CountryCode: COUNTRY_CODE_KZ,
+	}
 
 	RegionSydney = cloudprovider.SGeographicInfo{
 		Latitude:    -33.869,

@@ -26,14 +26,11 @@ import (
 type SWire struct {
 	multicloud.SResourceBase
 	UcloudTags
-	region *SRegion
-	vpc    *SVPC
-
-	inetworks []cloudprovider.ICloudNetwork
+	vpc *SVPC
 }
 
 func (self *SWire) GetId() string {
-	return fmt.Sprintf("%s-%s", self.vpc.GetId(), self.region.GetId())
+	return fmt.Sprintf("%s-%s", self.vpc.GetId(), self.vpc.region.GetId())
 }
 
 func (self *SWire) GetName() string {
@@ -41,7 +38,7 @@ func (self *SWire) GetName() string {
 }
 
 func (self *SWire) GetGlobalId() string {
-	return fmt.Sprintf("%s-%s", self.vpc.GetGlobalId(), self.region.GetGlobalId())
+	return fmt.Sprintf("%s-%s", self.vpc.GetGlobalId(), self.vpc.region.GetGlobalId())
 }
 
 func (self *SWire) GetStatus() string {
@@ -65,13 +62,16 @@ func (self *SWire) GetIZone() cloudprovider.ICloudZone {
 }
 
 func (self *SWire) GetINetworks() ([]cloudprovider.ICloudNetwork, error) {
-	if self.inetworks == nil {
-		err := self.vpc.fetchNetworks()
-		if err != nil {
-			return nil, err
-		}
+	networks, err := self.vpc.region.GetNetworks(self.vpc.GetId())
+	if err != nil {
+		return nil, err
 	}
-	return self.inetworks, nil
+	ret := []cloudprovider.ICloudNetwork{}
+	for i := range networks {
+		networks[i].wire = self
+		ret = append(ret, &networks[i])
+	}
+	return ret, nil
 }
 
 func (self *SWire) GetBandwidth() int {
@@ -93,21 +93,5 @@ func (self *SWire) GetINetworkById(netid string) (cloudprovider.ICloudNetwork, e
 
 // https://docs.ucloud.cn/api/vpc2.0-api/create_subnet
 func (self *SWire) CreateINetwork(opts *cloudprovider.SNetworkCreateOptions) (cloudprovider.ICloudNetwork, error) {
-	return self.region.CreateNetwork(self.vpc.GetId(), opts.Name, opts.Cidr, opts.Desc)
-}
-
-func (self *SWire) addNetwork(network *SNetwork) {
-	if self.inetworks == nil {
-		self.inetworks = make([]cloudprovider.ICloudNetwork, 0)
-	}
-	find := false
-	for i := 0; i < len(self.inetworks); i += 1 {
-		if self.inetworks[i].GetId() == network.GetId() {
-			find = true
-			break
-		}
-	}
-	if !find {
-		self.inetworks = append(self.inetworks, network)
-	}
+	return self.vpc.region.CreateNetwork(self.vpc.GetId(), opts.Name, opts.Cidr, opts.Desc)
 }

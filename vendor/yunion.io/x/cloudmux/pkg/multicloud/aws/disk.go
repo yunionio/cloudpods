@@ -78,6 +78,10 @@ func (self *SDisk) GetIops() int {
 	return self.Iops
 }
 
+func (self *SDisk) GetThroughput() int {
+	return self.Throughput
+}
+
 func (self *SDisk) GetGlobalId() string {
 	return self.VolumeId
 }
