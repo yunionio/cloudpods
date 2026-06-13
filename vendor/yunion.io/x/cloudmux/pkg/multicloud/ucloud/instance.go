@@ -55,6 +55,8 @@ type SInstance struct {
 	State              string    `json:"State"`
 	NetworkState       string    `json:"NetworkState"`
 	HostType           string    `json:"HostType"`
+	MachineType        string    `json:"MachineType"`
+	GpuType            string    `json:"GpuType"`
 	StorageType        string    `json:"StorageType"`
 	TotalDiskSpace     int       `json:"TotalDiskSpace"`
 	DiskSet            []DiskSet `json:"DiskSet"`
@@ -114,7 +116,7 @@ type IPSet struct {
 	IP       string `json:"IP"`
 	IPId     string `json:"IPId"` // IP资源ID (内网IP无对应的资源ID)
 	MAC      string `json:"Mac"`
-	VPCID    string `json:"VPCId"`
+	VpcId    string `json:"VPCId"`
 	SubnetID string `json:"SubnetId"`
 }
 
@@ -175,7 +177,7 @@ func (self *SInstance) GetStatus() string {
 }
 
 func (self *SInstance) Refresh() error {
-	new, err := self.host.zone.region.GetInstanceByID(self.GetId())
+	new, err := self.host.zone.region.GetInstance(self.GetId())
 	if err != nil {
 		return err
 	}
@@ -235,22 +237,17 @@ func (self *SInstance) GetLocalDisk(diskId, storageType string, sizeGB int, isBo
 
 func (self *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 	localDisks := make([]SDisk, 0)
-	diskIds := make([]string, 0)
-	for _, disk := range self.DiskSet {
-		if utils.IsInStringArray(disk.DiskType, []string{api.STORAGE_UCLOUD_LOCAL_NORMAL, api.STORAGE_UCLOUD_LOCAL_SSD}) {
-			localDisks = append(localDisks, self.GetLocalDisk(disk.DiskID, disk.DiskType, disk.Size, disk.IsBoot))
-		} else {
-			diskIds = append(diskIds, disk.DiskID)
-		}
-	}
-
 	disks := []SDisk{}
-	var err error
-	if len(diskIds) > 0 {
-		disks, err = self.host.zone.region.GetDisks("", "", diskIds)
+	for _, disk := range self.DiskSet {
+		if utils.IsInStringArray(disk.DiskType, api.UCLOUD_LOCAL_STORAGES) {
+			localDisks = append(localDisks, self.GetLocalDisk(disk.DiskID, disk.DiskType, disk.Size, disk.IsBoot))
+			continue
+		}
+		disk, err := self.host.zone.region.GetDisk(disk.DiskID)
 		if err != nil {
 			return nil, err
 		}
+		disks = append(disks, *disk)
 	}
 
 	disks = append(disks, localDisks...)
@@ -302,12 +299,12 @@ func (self *SInstance) GetINics() ([]cloudprovider.ICloudNic, error) {
 func (self *SInstance) GetIEIP() (cloudprovider.ICloudEIP, error) {
 	for _, ip := range self.IPSet {
 		if len(ip.IPId) > 0 {
-			eip, err := self.host.zone.region.GetEipById(ip.IPId)
+			eip, err := self.host.zone.region.GetEip(ip.IPId)
 			if err != nil {
-				return nil, err
+				return nil, errors.Wrapf(err, "GetEip %s", ip.IPId)
 			}
 
-			return &eip, nil
+			return eip, nil
 		}
 	}
 
@@ -374,13 +371,22 @@ func (self *SInstance) GetMachine() string {
 	return "pc"
 }
 
-func (self *SInstance) GetInstanceType() string {
-	// C1.c8.m24
-	if strings.HasPrefix(self.HostType, "G") {
-		return fmt.Sprintf("%s.c%d.m%d.g%d", self.HostType, self.CPU, self.MemoryMB/1014, self.GPU)
-	} else {
-		return fmt.Sprintf("%s.c%d.m%d", self.HostType, self.CPU, self.MemoryMB/1014)
+func (self *SInstance) instanceTypeHostPrefix() string {
+	if self.GPU > 0 && len(self.GpuType) > 0 {
+		return self.GpuType
 	}
+	if len(self.UHostType) > 0 {
+		return self.UHostType
+	}
+	if len(self.MachineType) > 0 {
+		return self.MachineType
+	}
+	return self.HostType
+}
+
+func (self *SInstance) GetInstanceType() string {
+	memGB := self.MemoryMB / 1024
+	return formatInstanceSpec(self.instanceTypeHostPrefix(), self.CPU, memGB, self.GPU)
 }
 
 // https://docs.ucloud.cn/api/unet-api/grant_firewall
@@ -437,34 +443,7 @@ func (self *SInstance) UpdateUserData(userData string) error {
 }
 
 // https://docs.ucloud.cn/api/uhost-api/reinstall_uhost_instance
-// 1.请确认在重新安装之前，该实例已被关闭；
-// 2.请确认该实例未挂载UDisk；
-// todo:// 3.将原系统重装为不同类型的系统时(Linux-&gt;Windows)，不可选择保留数据盘；
-// 4.重装不同版本的系统时(CentOS6-&gt;CentOS7)，若选择保留数据盘，请注意数据盘的文件系统格式；
-// 5.若主机CPU低于2核，不可重装为Windows系统。
 func (self *SInstance) RebuildRoot(ctx context.Context, desc *cloudprovider.SManagedVMRebuildRootConfig) (string, error) {
-	if len(desc.PublicKey) > 0 {
-		return "", fmt.Errorf("DeployVM not support assign ssh keypair")
-	}
-
-	if self.GetStatus() != api.VM_READY {
-		return "", fmt.Errorf("DeployVM instance status %s , expected %s.", self.GetStatus(), api.VM_READY)
-	}
-
-	if len(self.DiskSet) > 1 {
-		for _, disk := range self.DiskSet {
-			if disk.Type == "Data" {
-				err := self.host.zone.region.DetachDisk(self.host.zone.GetId(), self.GetId(), disk.DiskID)
-				if err != nil {
-					return "", fmt.Errorf("RebuildRoot detach disk %s", err)
-				}
-
-				defer self.host.zone.region.AttachDisk(self.host.zone.GetId(), self.GetId(), disk.DiskID)
-			}
-
-		}
-	}
-
 	err := self.host.zone.region.RebuildRoot(self.GetId(), desc.ImageId, desc.Password)
 	if err != nil {
 		return "", err
@@ -475,12 +454,12 @@ func (self *SInstance) RebuildRoot(ctx context.Context, desc *cloudprovider.SMan
 		return "", errors.Wrap(err, "RebuildRoot")
 	}
 
-	disks, err := self.GetIDisks()
-	if len(disks) > 0 {
-		return disks[0].GetId(), nil
-	} else {
-		return "", fmt.Errorf("RebuildRoot %s", err)
+	for _, disk := range self.DiskSet {
+		if disk.Type == "SystemDisk" {
+			return disk.DiskID, nil
+		}
 	}
+	return "", errors.Wrapf(cloudprovider.ErrNotFound, "SystemDisk not found")
 }
 
 func (self *SInstance) DeployVM(ctx context.Context, opts *cloudprovider.SInstanceDeployOptions) error {
@@ -614,6 +593,7 @@ func (self *SRegion) DeleteVM(instanceId string) error {
 	params := NewUcloudParams()
 	params.Set("UHostId", instanceId)
 	params.Set("Destroy", 1) // 跳过回收站，直接删除
+	params.Set("ReleaseUDisk", true)
 
 	return self.DoAction("TerminateUHostInstance", params, nil)
 }

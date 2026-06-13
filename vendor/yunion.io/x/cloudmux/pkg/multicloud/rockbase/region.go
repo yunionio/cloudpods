@@ -71,11 +71,11 @@ func (self *SRegion) GetGeographicInfo() cloudprovider.SGeographicInfo {
 }
 
 func (self *SRegion) GetIVMById(id string) (cloudprovider.ICloudVM, error) {
-	instance, err := self.GetInstanceByID(id)
+	instance, err := self.GetInstance(id)
 	if err != nil {
 		return nil, err
 	}
-	return &instance, nil
+	return instance, nil
 }
 
 func (self *SRegion) GetIDiskById(id string) (cloudprovider.ICloudDisk, error) {
@@ -144,29 +144,30 @@ func (self *SRegion) GetIZoneById(id string) (cloudprovider.ICloudZone, error) {
 	return nil, cloudprovider.ErrNotFound
 }
 
-func (self *SRegion) GetEipById(eipId string) (SEip, error) {
+func (self *SRegion) GetEip(eipId string) (*SEip, error) {
 	params := NewRockbaseParams()
 	params.Set("EIPIds.0", eipId)
 	eips := make([]SEip, 0)
 	err := self.DoListAll("DescribeEIP", params, &eips)
 	if err != nil {
-		return SEip{}, err
+		return nil, err
 	}
 
-	if len(eips) == 1 {
-		eip := eips[0]
-		eip.region = self
-		return eip, nil
-	} else if len(eips) == 0 {
-		return SEip{}, cloudprovider.ErrNotFound
-	} else {
-		return SEip{}, fmt.Errorf("GetEipById %d eip found", len(eips))
+	for i := range eips {
+		if eips[i].EIPID == eipId {
+			eips[i].region = self
+			return &eips[i], nil
+		}
 	}
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "GetEip %s", eipId)
 }
 
 func (self *SRegion) GetIEipById(id string) (cloudprovider.ICloudEIP, error) {
-	eip, err := self.GetEipById(id)
-	return &eip, err
+	eip, err := self.GetEip(id)
+	if err != nil {
+		return nil, err
+	}
+	return eip, nil
 }
 
 // https://docs.ucloud.cn/api/unet-api/delete_firewall
@@ -386,22 +387,22 @@ func (self *SRegion) GetZones() ([]SZone, error) {
 	return zones, err
 }
 
-func (self *SRegion) GetInstanceByID(instanceId string) (SInstance, error) {
+// https://docs.ucloud.cn/api/uhost-api/describe_uhost_instance
+func (self *SRegion) GetInstance(instanceId string) (*SInstance, error) {
 	params := NewRockbaseParams()
 	params.Set("UHostIds.0", instanceId)
 	instances := make([]SInstance, 0)
 	err := self.DoAction("DescribeUHostInstance", params, &instances)
 	if err != nil {
-		return SInstance{}, err
+		return nil, errors.Wrapf(err, "DescribeUHostInstance")
 	}
 
-	if len(instances) == 1 {
-		return instances[0], nil
-	} else if len(instances) == 0 {
-		return SInstance{}, cloudprovider.ErrNotFound
-	} else {
-		return SInstance{}, fmt.Errorf("GetInstanceByID %s %d found.", instanceId, len(instances))
+	for i := range instances {
+		if instances[i].UHostID == instanceId {
+			return &instances[i], nil
+		}
 	}
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "GetInstance %s", instanceId)
 }
 
 func (self *SRegion) GetClient() *SRockbaseClient {

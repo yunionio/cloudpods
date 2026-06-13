@@ -116,6 +116,15 @@ const (
 	CITY_NAGPUR      = "Nagpur"      // 那格浦尔
 	CITY_HYDERABAD   = "Hyderabad"   // 海得拉巴
 
+	// 巴基斯坦
+	CITY_KARACHI = "Karachi" // 卡拉奇
+
+	// 乌兹别克斯坦
+	CITY_TASHKENT = "Tashkent" // 塔什干
+
+	// 哈萨克斯坦
+	CITY_ALMATY = "Almaty" // 阿拉木图
+
 	// 美国
 	CITY_VIRGINIA       = "Virginia"       //弗吉尼亚
 	CITY_SILICONVALLEY  = "Siliconvalley"  //硅谷
@@ -271,5 +280,8 @@ const (
 	COUNTRY_CODE_QA = "QA" //卡塔尔
 	COUNTRY_CODE_NZ = "NZ" //新西兰
 	COUNTRY_CODE_PH = "PH" //菲律宾
+	COUNTRY_CODE_PK = "PK" //巴基斯坦
+	COUNTRY_CODE_UZ = "UZ" //乌兹别克斯坦
+	COUNTRY_CODE_KZ = "KZ" //哈萨克斯坦
 	COUNTRY_CODE_TR = "TR" //土耳其
 )

@@ -19,6 +19,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/util/rbacscope"
 
@@ -142,9 +143,6 @@ func (self *SRegion) GetNetwork(networkId string) (*SNetwork, error) {
 }
 
 func (self *SRegion) getNetwork(networkId string) (*SNetwork, error) {
-	if len(networkId) == 0 {
-		return nil, fmt.Errorf("getNetwork network id should not be empty")
-	}
 	networks := make([]SNetwork, 0)
 
 	params := NewRockbaseParams()
@@ -154,19 +152,17 @@ func (self *SRegion) getNetwork(networkId string) (*SNetwork, error) {
 		return nil, err
 	}
 
-	if len(networks) == 1 {
-		network := networks[0]
-		vpc, err := self.GetVpc(network.VpcId)
-		if err != nil {
-			return nil, err
+	for i := range networks {
+		if networks[i].SubnetID == networkId {
+			vpc, err := self.GetVpc(networks[i].VpcId)
+			if err != nil {
+				return nil, err
+			}
+			networks[i].wire = &SWire{vpc: vpc}
+			return &networks[i], nil
 		}
-		network.wire = &SWire{vpc: vpc}
-		return &network, nil
-	} else if len(networks) == 0 {
-		return nil, cloudprovider.ErrNotFound
-	} else {
-		return nil, fmt.Errorf("getNetwork %s %d found", networkId, len(networks))
 	}
+	return nil, errors.Wrapf(cloudprovider.ErrNotFound, "getNetwork %s", networkId)
 }
 
 // https://docs.ucloud.cn/api/vpc2.0-api/delete_subnet

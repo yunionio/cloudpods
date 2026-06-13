@@ -159,37 +159,28 @@ func (self *SUcloudClient) UpdateAccount(accessKey, secret string) error {
 	}
 }
 
-func (self *SUcloudClient) commonParams(params SParams, action string) (string, SParams) {
-	resultKey, exists := UCLOUD_API_RESULT_KEYS[action]
-	if !exists || len(resultKey) == 0 {
-		// default key for describe actions
-		if strings.HasPrefix(action, "Describe") {
-			resultKey = "DataSet"
-		}
-	}
-
+func (self *SUcloudClient) commonParams(params SParams) SParams {
 	if len(self.projectId) > 0 {
 		params.Set("ProjectId", self.projectId)
 	}
 	params.Set("PublicKey", self.accessKeyId)
-
-	return resultKey, params
+	return params
 }
 
 func (self *SUcloudClient) DoListAll(action string, params SParams, result interface{}) error {
-	resultKey, params := self.commonParams(params, action)
-	return DoListAll(self, action, params, resultKey, result)
+	params = self.commonParams(params)
+	return DoListAll(self, action, params, result)
 }
 
 func (self *SUcloudClient) DoListPart(action string, limit int, offset int, params SParams, result interface{}) (int, int, error) {
-	resultKey, params := self.commonParams(params, action)
+	params = self.commonParams(params)
 	params.SetPagination(limit, offset)
-	return doListPart(self, action, params, resultKey, result)
+	return doListPart(self, action, params, result)
 }
 
 func (self *SUcloudClient) DoAction(action string, params SParams, result interface{}) error {
-	resultKey, params := self.commonParams(params, action)
-	err := DoAction(self, action, params, resultKey, result)
+	params = self.commonParams(params)
+	err := DoAction(self, action, params, result)
 	if err != nil {
 		return err
 	}
@@ -198,35 +189,17 @@ func (self *SUcloudClient) DoAction(action string, params SParams, result interf
 }
 
 func (self *SUcloudClient) fetchRegions() error {
-	type Region struct {
-		RegionID   int64  `json:"RegionId"`
-		RegionName string `json:"RegionName"`
-		IsDefault  bool   `json:"IsDefault"`
-		BitMaps    string `json:"BitMaps"`
-		Region     string `json:"Region"`
-		Zone       string `json:"Zone"`
-	}
-
 	params := NewUcloudParams()
-	regions := make([]Region, 0)
-	err := self.DoListAll("GetRegion", params, &regions)
+	sregions := make([]SRegion, 0)
+	err := self.DoListAll("ListRegions", params, &sregions)
 	if err != nil {
 		return err
 	}
 
-	regionSet := make(map[string]string, 0)
-	for _, region := range regions {
-		regionSet[region.Region] = region.Region
-	}
-
-	sregions := make([]SRegion, len(regionSet))
-	self.iregions = make([]cloudprovider.ICloudRegion, len(regionSet))
-	i := 0
-	for regionId := range regionSet {
+	self.iregions = make([]cloudprovider.ICloudRegion, len(sregions))
+	for i := range sregions {
 		sregions[i].client = self
-		sregions[i].RegionID = regionId
 		self.iregions[i] = &sregions[i]
-		i += 1
 	}
 
 	return nil
