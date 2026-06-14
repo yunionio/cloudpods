@@ -97,6 +97,9 @@ type SHostOptions struct {
 	AgentTempPath  string `help:"Path for ESXi agent"`
 	AgentTempLimit int    `help:"Maximal storage space for ESXi agent, in GB" default:"10"`
 
+	RecycleServerfiles         bool `help:"Recycle instead of remove deleted servers file" default:"true"`
+	RecycleServerfilesKeepDays int  `help:"How long recycled files kept, default 28 days" default:"28"`
+
 	RecycleDiskfile         bool `help:"Recycle instead of remove deleted disk file" default:"true"`
 	RecycleDiskfileKeepDays int  `help:"How long recycled files kept, default 28 days" default:"28"`
 	AlwaysRecycleDiskfile   bool `help:"Always recycle disk files, no matter what" default:"true"`
