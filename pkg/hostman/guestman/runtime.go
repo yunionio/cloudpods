@@ -19,10 +19,12 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/timeutils"
 
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
@@ -36,6 +38,8 @@ import (
 	"yunion.io/x/onecloud/pkg/util/procutils"
 )
 
+const _RECYCLE_BIN_ = "recycle_bin"
+
 type GuestRuntimeInstance interface {
 	GetHypervisor() string
 	GetName() string
@@ -43,6 +47,7 @@ type GuestRuntimeInstance interface {
 	GetId() string
 	IsValid() bool
 	HomeDir() string
+	GetRecycleDir() string
 	GetDesc() *desc.SGuestDesc
 	SetDesc(guestDesc *desc.SGuestDesc)
 	GetSourceDesc() *desc.SGuestDesc
@@ -122,6 +127,10 @@ func (s *sBaseGuestInstance) GetName() string {
 
 func (b *sBaseGuestInstance) HomeDir() string {
 	return path.Join(b.manager.ServersPath, b.Id)
+}
+
+func (b *sBaseGuestInstance) GetRecycleDir() string {
+	return path.Join(b.manager.ServersPath, _RECYCLE_BIN_)
 }
 
 func (s *sBaseGuestInstance) GetDescFilePath() string {
@@ -442,10 +451,30 @@ func GetPowerStates(s GuestRuntimeInstance) string {
 	}
 }
 
+func GetSubdirPath(recycleDir string) string {
+	today := timeutils.CompactTime(time.Now())
+	return path.Join(recycleDir, today)
+}
+
 func DeleteHomeDir(s GuestRuntimeInstance) error {
-	output, err := procutils.NewCommand("rm", "-rf", s.HomeDir()).Output()
-	if err != nil {
-		return errors.Wrapf(err, "rm %s failed: %s", s.HomeDir(), output)
+	if !options.HostOptions.RecycleServerfiles {
+		log.Infof("Delete server files %s", s.HomeDir())
+		output, err := procutils.NewCommand("rm", "-rf", s.HomeDir()).Output()
+		if err != nil {
+			return errors.Wrapf(err, "rm %s failed: %s", s.HomeDir(), output)
+		}
+		return nil
+	} else {
+		destDir := GetSubdirPath(s.GetRecycleDir())
+		if err := procutils.NewCommand("mkdir", "-p", destDir).Run(); err != nil {
+			log.Errorf("Fail to mkdir %s for recycle: %s", destDir, err)
+			return err
+		}
+		destFile := fmt.Sprintf("%s.%d", s.GetId(), time.Now().Unix())
+		return procutils.NewCommand("mv", "-f", s.HomeDir(), path.Join(destDir, destFile)).Run()
 	}
-	return nil
+}
+
+func CleanRecycleServerFiles(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
+	storageman.CleanDailyFiles(options.HostOptions.ServersPath, _RECYCLE_BIN_, options.HostOptions.RecycleServerfilesKeepDays)
 }
