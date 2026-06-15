@@ -337,7 +337,7 @@ func (manager *SKubeNodePoolManager) ValidateCreateData(ctx context.Context, use
 
 	if input.DesiredInstanceCount > 0 {
 		if input.MinInstanceCount > input.DesiredInstanceCount {
-			return nil, httperrors.NewOutOfRangeError("min_instance_count must less or equal to desired_instance_count")
+			return nil, httperrors.NewOutOfRangeError("min_instance_count must be less than or equal to desired_instance_count")
 		}
 		if input.MaxInstanceCount < input.DesiredInstanceCount {
 			return nil, httperrors.NewOutOfRangeError("max_instance_count must greater than or equal to desired_instance_count")

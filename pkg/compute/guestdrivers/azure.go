@@ -167,7 +167,7 @@ func (self *SAzureGuestDriver) ValidateCreateData(ctx context.Context, userCred 
 		return nil, err
 	}
 	if len(input.Networks) > 2 {
-		return nil, httperrors.NewInputParameterError("cannot support more than 1 nic")
+		return nil, httperrors.NewInputParameterError("multiple NICs are not supported")
 	}
 	if len(input.Disks) > 0 && len(input.Disks[0].ImageId) > 0 {
 		_image, err := models.CachedimageManager.FetchById(input.Disks[0].ImageId)
@@ -212,7 +212,7 @@ func (self *SAzureGuestDriver) ValidateCreateData(ctx context.Context, userCred 
 					(strings.HasPrefix(input.InstanceType, "Standard_NC") && strings.HasSuffix(input.InstanceType, "s_v3")) || // NCv3-series
 					(strings.HasPrefix(input.InstanceType, "Standard_ND")) || // ND-series
 					(strings.HasPrefix(input.InstanceType, "Standard_NV") && strings.HasSuffix(input.InstanceType, "s_v3"))) { // NVv3-series
-					return nil, httperrors.NewUnsupportOperationError("Azure UEFI image %s not support this instance sku", image.Name)
+					return nil, httperrors.NewUnsupportOperationError("Azure UEFI image %s does not support this instance sku", image.Name)
 				}
 			}
 		}

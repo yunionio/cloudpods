@@ -433,26 +433,26 @@ func (man *SDBInstanceManager) ValidateCreateData(ctx context.Context, userCred 
 
 	info := getDBInstanceInfo(region, nil)
 	if info == nil {
-		return input, httperrors.NewNotSupportedError("cloudregion %s not support create rds", region.Name)
+		return input, httperrors.NewNotSupportedError("cloudregion %s does not support creating rds", region.Name)
 	}
 
 	versionsInfo, ok := info[input.Engine]
 	if !ok {
-		return input, httperrors.NewNotSupportedError("cloudregion %s not support create %s rds", region.Name, input.Engine)
+		return input, httperrors.NewNotSupportedError("cloudregion %s does not support creating %s rds", region.Name, input.Engine)
 	}
 
 	categoryInfo, ok := versionsInfo[input.EngineVersion]
 	if !ok {
-		return input, httperrors.NewNotSupportedError("cloudregion %s not support create %s rds", region.Name, input.EngineVersion)
+		return input, httperrors.NewNotSupportedError("cloudregion %s does not support creating %s rds", region.Name, input.EngineVersion)
 	}
 
 	storageInfo, ok := categoryInfo[input.Category]
 	if !ok {
-		return input, httperrors.NewNotSupportedError("cloudregion %s not support create %s rds", region.Name, input.Category)
+		return input, httperrors.NewNotSupportedError("cloudregion %s does not support creating %s rds", region.Name, input.Category)
 	}
 
 	if !utils.IsInStringArray(input.StorageType, storageInfo) {
-		return input, httperrors.NewNotSupportedError("cloudregion %s not support create %s rds", region.Name, input.StorageType)
+		return input, httperrors.NewNotSupportedError("cloudregion %s does not support creating %s rds", region.Name, input.StorageType)
 	}
 
 	if len(input.InstanceType) == 0 && (input.VcpuCount == 0 || input.VmemSizeMb == 0) {
@@ -483,7 +483,7 @@ func (man *SDBInstanceManager) ValidateCreateData(ctx context.Context, userCred 
 	driver := region.GetDriver()
 	secCount := driver.GetRdsSupportSecgroupCount()
 	if secCount == 0 && len(input.SecgroupIds) > 0 {
-		return input, httperrors.NewNotSupportedError("%s rds not support secgroup", driver.GetProvider())
+		return input, httperrors.NewNotSupportedError("%s rds does not support secgroup", driver.GetProvider())
 	}
 	if len(input.SecgroupIds) > secCount {
 		return input, httperrors.NewNotSupportedError("%s rds Support up to %d security groups", driver.GetProvider(), secCount)
@@ -928,7 +928,7 @@ func (self *SDBInstance) PerformRecovery(ctx context.Context, userCred mcclient.
 	}
 
 	if len(backup.Engine) > 0 && backup.Engine != self.Engine {
-		return nil, httperrors.NewInputParameterError("can not recover data from diff rds engine")
+		return nil, httperrors.NewInputParameterError("cannot recover data from different RDS engine")
 	}
 
 	driver, err := self.GetRegionDriver()
@@ -985,7 +985,7 @@ func (self *SDBInstance) PerformSync(ctx context.Context, userCred mcclient.Toke
 		return nil, err
 	}
 	if count > 0 {
-		return nil, httperrors.NewBadRequestError("DBInstance has %d task active, can't sync status", count)
+		return nil, httperrors.NewBadRequestError("DBInstance has %d active tasks and cannot sync status", count)
 	}
 
 	return nil, self.StartDBInstanceSyncTask(ctx, userCred, "")
@@ -1087,7 +1087,7 @@ func (self *SDBInstance) PerformPublicConnection(ctx context.Context, userCred m
 	}
 
 	if !region.GetDriver().IsSupportDBInstancePublicConnection() {
-		return nil, httperrors.NewInputParameterError("%s not support this operation", region.Provider)
+		return nil, httperrors.NewInputParameterError("%s does not support this operation", region.Provider)
 	}
 
 	return nil, self.StartDBInstancePublicConnectionTask(ctx, userCred, "", open)

@@ -282,7 +282,7 @@ func (group *SGroup) PerformBindGuests(ctx context.Context, userCred mcclient.To
 	query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 
 	if group.Enabled.IsFalse() {
-		return nil, httperrors.NewForbiddenError("can not bind guest from disabled guest")
+		return nil, httperrors.NewForbiddenError("cannot bind guest from disabled guest")
 	}
 	guestIdSet, hostIds, err := group.checkGuests(ctx, userCred, query, data)
 	if err != nil {
@@ -343,7 +343,7 @@ func (group *SGroup) PerformUnbindGuests(ctx context.Context, userCred mcclient.
 	query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 
 	if group.Enabled.IsFalse() {
-		return nil, httperrors.NewForbiddenError("can not unbind guest from disabled guest")
+		return nil, httperrors.NewForbiddenError("cannot unbind guest from disabled guest")
 	}
 	guestIdSet, hostIds, err := group.checkGuests(ctx, userCred, query, data)
 	if err != nil {
@@ -756,14 +756,14 @@ func (grp *SGroup) PerformAssociateEip(ctx context.Context, userCred mcclient.To
 	}
 
 	if net.Id == eip.NetworkId {
-		return nil, httperrors.NewInputParameterError("cannot associate eip with same network")
+		return nil, httperrors.NewInputParameterError("cannot associate EIP with the same network")
 	}
 
 	eipZone, _ := eip.GetZone()
 	if eipZone != nil {
 		insZone, _ := net.GetZone()
 		if eipZone.Id != insZone.Id {
-			return nil, httperrors.NewInputParameterError("cannot associate eip and instance in different zone")
+			return nil, httperrors.NewInputParameterError("cannot associate EIP and instance in different zones")
 		}
 	}
 

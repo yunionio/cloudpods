@@ -141,7 +141,7 @@ func (manager *SDnsZoneManager) ValidateCreateData(
 				input.CloudproviderId = vpc.ManagerId
 			}
 			if vpc.ManagerId != input.ManagerId {
-				return nil, httperrors.NewConflictError("conflict cloudprovider %s with vpc %s", input.ManagerId, vpc.Name)
+				return nil, httperrors.NewConflictError("cloud provider %s conflicts with VPC %s", input.ManagerId, vpc.Name)
 			}
 			if len(vpc.ManagerId) > 0 {
 				factory, err := vpc.GetProviderFactory()
@@ -150,7 +150,7 @@ func (manager *SDnsZoneManager) ValidateCreateData(
 				}
 				zoneTypes := factory.GetSupportedDnsZoneTypes()
 				if isIn, _ := utils.InArray(cloudprovider.TDnsZoneType(input.ZoneType), zoneTypes); !isIn && len(zoneTypes) > 0 {
-					return input, httperrors.NewNotSupportedError("Not support %s for vpc %s, supported %s", input.ZoneType, vpc.Name, zoneTypes)
+					return input, httperrors.NewNotSupportedError("zone type %s is not supported for VPC %s; supported: %s", input.ZoneType, vpc.Name, zoneTypes)
 				}
 			}
 			vpcIds = append(vpcIds, vpc.GetId())
@@ -167,10 +167,10 @@ func (manager *SDnsZoneManager) ValidateCreateData(
 		}
 		zoneTypes := factory.GetSupportedDnsZoneTypes()
 		if isIn, _ := utils.InArray(cloudprovider.TDnsZoneType(input.ZoneType), zoneTypes); !isIn && len(zoneTypes) > 0 {
-			return input, httperrors.NewNotSupportedError("Not support %s for account %s, supported %s", input.ZoneType, provider.Name, zoneTypes)
+			return input, httperrors.NewNotSupportedError("zone type %s is not supported for account %s; supported: %s", input.ZoneType, provider.Name, zoneTypes)
 		}
 		if !strings.ContainsRune(input.Name, '.') {
-			return input, httperrors.NewNotSupportedError("top level public domain name %s not support", input.Name)
+			return input, httperrors.NewNotSupportedError("top-level public domain name %s is not supported", input.Name)
 		}
 	default:
 		return input, httperrors.NewInputParameterError("unknown zone type %s", input.ZoneType)
@@ -599,10 +599,10 @@ func (self *SDnsZone) PerformSyncstatus(ctx context.Context, userCred mcclient.T
 // 添加VPC
 func (self *SDnsZone) PerformAddVpcs(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.DnsZoneAddVpcsInput) (jsonutils.JSONObject, error) {
 	if self.Status != api.DNS_ZONE_STATUS_AVAILABLE {
-		return nil, httperrors.NewInvalidStatusError("dns zone can not uncache in status %s", self.Status)
+		return nil, httperrors.NewInvalidStatusError("cannot add VPCs to DNS zone in status %s", self.Status)
 	}
 	if cloudprovider.TDnsZoneType(self.ZoneType) != cloudprovider.PrivateZone {
-		return nil, httperrors.NewUnsupportOperationError("Only %s support cache for account", cloudprovider.PrivateZone)
+		return nil, httperrors.NewUnsupportOperationError("only %s supports VPC cache for account", cloudprovider.PrivateZone)
 	}
 	vpcs, err := self.GetVpcs()
 	if err != nil {
@@ -624,10 +624,10 @@ func (self *SDnsZone) PerformAddVpcs(ctx context.Context, userCred mcclient.Toke
 		}
 		vpc := vpcObj.(*SVpc)
 		if utils.IsInStringArray(vpc.GetId(), localVpcIds) {
-			return nil, httperrors.NewConflictError("vpc %s has already in this dns zone", input.VpcIds[i])
+			return nil, httperrors.NewConflictError("vpc %s is already in this DNS zone", input.VpcIds[i])
 		}
 		if vpc.ManagerId != self.ManagerId {
-			return nil, httperrors.NewConflictError("vpc %s not same with dns zone account", input.VpcIds[i])
+			return nil, httperrors.NewConflictError("VPC %s does not belong to the same account as the DNS zone", input.VpcIds[i])
 		}
 	}
 	return nil, self.StartDnsZoneAddVpcsTask(ctx, userCred, input.VpcIds, "")
@@ -658,10 +658,10 @@ func (self *SDnsZone) StartDnsZoneRemoveVpcsTask(ctx context.Context, userCred m
 // 移除VPC
 func (self *SDnsZone) PerformRemoveVpcs(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.DnsZoneRemoveVpcsInput) (jsonutils.JSONObject, error) {
 	if self.Status != api.DNS_ZONE_STATUS_AVAILABLE {
-		return nil, httperrors.NewInvalidStatusError("dns zone can not uncache in status %s", self.Status)
+		return nil, httperrors.NewInvalidStatusError("cannot remove VPCs from DNS zone in status %s", self.Status)
 	}
 	if cloudprovider.TDnsZoneType(self.ZoneType) != cloudprovider.PrivateZone {
-		return nil, httperrors.NewUnsupportOperationError("Only %s support cache for account", cloudprovider.PrivateZone)
+		return nil, httperrors.NewUnsupportOperationError("only %s supports VPC cache for account", cloudprovider.PrivateZone)
 	}
 	vpcs, err := self.GetVpcs()
 	if err != nil {

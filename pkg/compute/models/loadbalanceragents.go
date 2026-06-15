@@ -424,7 +424,7 @@ func (man *SLoadbalancerAgentManager) ValidateCreateData(ctx context.Context, us
 	input := apis.StandaloneResourceCreateInput{}
 	err := data.Unmarshal(&input)
 	if err != nil {
-		return nil, httperrors.NewInternalServerError("unmarshal StandaloneResourceCreateInput fail %s", err)
+		return nil, httperrors.NewInternalServerError("unmarshal StandaloneResourceCreateInput failed %s", err)
 	}
 	input, err = man.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input)
 	if err != nil {
@@ -607,7 +607,7 @@ func (manager *SLoadbalancerAgentManager) FetchCustomizeColumns(
 		q.GroupBy(clusterQuery.Field("name"))
 		q.AppendField(clusterQuery.Field("name", "cluster"))
 	default:
-		return q, httperrors.NewBadRequestError("unsupport field %s", field)
+		return q, httperrors.NewBadRequestError("unsupported field %s", field)
 	}
 	return q, nil
 }*/

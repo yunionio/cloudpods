@@ -108,7 +108,7 @@ func (scm *SCloudaccountManager) PerformPrepareNets(ctx context.Context, userCre
 		output api.CloudaccountPerformPrepareNetsOutput
 	)
 	if input.Provider != api.CLOUD_PROVIDER_VMWARE {
-		return output, httperrors.NewNotSupportedError("not support for cloudaccount with provider '%s'", input.Provider)
+		return output, httperrors.NewNotSupportedError("cloud account provider '%s' is not supported", input.Provider)
 	}
 	// validate first
 	ownerId, err := scm.FetchOwnerId(ctx, jsonutils.Marshal(input))

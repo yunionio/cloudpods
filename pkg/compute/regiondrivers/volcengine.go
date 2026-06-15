@@ -68,5 +68,5 @@ func (self *SVolcengineRegionDriver) ValidateCreateSecurityGroupInput(ctx contex
 }
 
 func (self *SVolcengineRegionDriver) ValidateUpdateSecurityGroupRuleInput(ctx context.Context, userCred mcclient.TokenCredential, input *api.SSecgroupRuleUpdateInput) (*api.SSecgroupRuleUpdateInput, error) {
-	return nil, httperrors.NewNotSupportedError("not support update security group rule")
+	return nil, httperrors.NewNotSupportedError("updating security group rules is not supported")
 }

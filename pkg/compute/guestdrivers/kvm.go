@@ -826,7 +826,7 @@ func checkAssignHost(ctx context.Context, userCred mcclient.TokenCredential, pre
 
 func (self *SKVMGuestDriver) CheckMigrate(ctx context.Context, guest *models.SGuest, userCred mcclient.TokenCredential, input api.GuestMigrateInput) error {
 	if len(guest.BackupHostId) > 0 {
-		return httperrors.NewBadRequestError("Guest have backup, can't migrate")
+		return httperrors.NewBadRequestError("guest has backup and cannot migrate")
 	}
 	if !input.IsRescueMode && guest.Status != api.VM_READY {
 		return httperrors.NewServerStatusError("Cannot normal migrate guest in status %s, try rescue mode or server-live-migrate?", guest.Status)
@@ -869,7 +869,7 @@ func (self *SKVMGuestDriver) CheckMigrate(ctx context.Context, guest *models.SGu
 
 func (self *SKVMGuestDriver) CheckLiveMigrate(ctx context.Context, guest *models.SGuest, userCred mcclient.TokenCredential, input api.GuestLiveMigrateInput) error {
 	if len(guest.BackupHostId) > 0 {
-		return httperrors.NewBadRequestError("Guest have backup, can't migrate")
+		return httperrors.NewBadRequestError("guest has backup and cannot migrate")
 	}
 	if utils.IsInStringArray(guest.Status, []string{api.VM_RUNNING, api.VM_SUSPEND}) {
 		if input.MaxBandwidthMb != nil && *input.MaxBandwidthMb < 50 {
@@ -1266,7 +1266,7 @@ func (self *SKVMGuestDriver) RequestStartRescue(ctx context.Context, task taskma
 
 func (self *SKVMGuestDriver) ValidateSyncOSInfo(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest) error {
 	if !utils.IsInStringArray(guest.Status, []string{api.VM_RUNNING, api.VM_READY}) {
-		return httperrors.NewBadRequestError("can't sync guest os info in status %s", guest.Status)
+		return httperrors.NewBadRequestError("cannot sync guest OS info in status %s", guest.Status)
 	}
 	return nil
 }

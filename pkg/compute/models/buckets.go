@@ -861,7 +861,7 @@ func (bucket *SBucket) PerformMakedir(
 		// replace
 		return nil, nil
 	} else if err != cloudprovider.ErrNotFound {
-		return nil, httperrors.NewInternalServerError("GetIObject fail %s", err)
+		return nil, httperrors.NewInternalServerError("GetIObject failed %s", err)
 	}
 
 	if bucket.ObjectCntLimit > 0 && bucket.ObjectCntLimit < bucket.ObjectCnt+1 {
@@ -954,7 +954,7 @@ func (bucket *SBucket) PerformUpload(
 	key := appParams.Request.Header.Get(api.BUCKET_UPLOAD_OBJECT_KEY_HEADER)
 
 	if strings.HasSuffix(key, "/") {
-		return nil, httperrors.NewInputParameterError("object key should not ends with /")
+		return nil, httperrors.NewInputParameterError("object key must not end with /")
 	}
 
 	err := s3utils.CheckValidObjectName(key)
@@ -1007,7 +1007,7 @@ func (bucket *SBucket) PerformUpload(
 		inc.SizeBytes = sizeBytes
 		inc.ObjectCount = 1
 	} else {
-		return nil, httperrors.NewInternalServerError("GetIObject error %s", err)
+		return nil, httperrors.NewInternalServerError("GetIObject failed: %s", err)
 	}
 
 	if bucket.SizeBytesLimit > 0 && inc.SizeBytes > 0 && bucket.SizeBytesLimit < bucket.SizeBytes+inc.SizeBytes {
@@ -1020,7 +1020,7 @@ func (bucket *SBucket) PerformUpload(
 	pendingUsage := SRegionQuota{ObjectGB: int(inc.SizeBytes / 1000 / 1000 / 1000), ObjectCnt: inc.ObjectCount}
 	keys, err := bucket.GetQuotaKeys()
 	if err != nil {
-		return nil, httperrors.NewInternalServerError("bucket.GetQuotaKeys fail %s", err)
+		return nil, httperrors.NewInternalServerError("bucket.GetQuotaKeys failed %s", err)
 	}
 	pendingUsage.SetKeys(keys)
 	if !pendingUsage.IsEmpty() {
@@ -1035,7 +1035,7 @@ func (bucket *SBucket) PerformUpload(
 		if !pendingUsage.IsEmpty() {
 			quotas.CancelPendingUsage(ctx, userCred, &pendingUsage, &pendingUsage, false)
 		}
-		return nil, httperrors.NewInternalServerError("put object error %s", err)
+		return nil, httperrors.NewInternalServerError("put object failed: %s", err)
 	}
 
 	db.OpsLog.LogEvent(bucket, db.ACT_UPLOAD_OBJECT, key, userCred)
@@ -1080,12 +1080,12 @@ func (bucket *SBucket) PerformAcl(
 		}
 		err = iBucket.SetAcl(input.Acl)
 		if err != nil {
-			return nil, httperrors.NewInternalServerError("setAcl error %s", err)
+			return nil, httperrors.NewInternalServerError("setAcl failed: %s", err)
 		}
 
 		err = bucket.SyncWithCloudBucket(ctx, userCred, iBucket, false)
 		if err != nil {
-			return nil, httperrors.NewInternalServerError("syncWithCloudBucket error %s", err)
+			return nil, httperrors.NewInternalServerError("syncWithCloudBucket failed: %s", err)
 		}
 		return nil, nil
 	}
@@ -1124,7 +1124,7 @@ func (bucket *SBucket) PerformSyncstatus(
 		return nil, err
 	}
 	if count > 0 {
-		return nil, httperrors.NewBadRequestError("Bucket has %d task active, can't sync status", count)
+		return nil, httperrors.NewBadRequestError("Bucket has %d active tasks and cannot sync status", count)
 	}
 
 	return nil, StartResourceSyncStatusTask(ctx, userCred, bucket, "BucketSyncstatusTask", "")
@@ -1149,7 +1149,7 @@ func (bucket *SBucket) PerformSync(
 
 	err = bucket.SyncWithCloudBucket(ctx, userCred, iBucket, statsOnly)
 	if err != nil {
-		return nil, httperrors.NewInternalServerError("syncWithCloudBucket error %s", err)
+		return nil, httperrors.NewInternalServerError("syncWithCloudBucket failed: %s", err)
 	}
 
 	return nil, nil
@@ -1160,7 +1160,7 @@ func (bucket *SBucket) ValidateDeleteCondition(ctx context.Context, info jsonuti
 		return bucket.SSharableVirtualResourceBase.ValidateDeleteCondition(ctx, nil)
 	}
 	if bucket.ObjectCnt > 0 {
-		return httperrors.NewNotEmptyError("Buckets that are not empty do not support this operation")
+		return httperrors.NewNotEmptyError("non-empty buckets do not support this operation")
 	}
 	return bucket.SSharableVirtualResourceBase.ValidateDeleteCondition(ctx, info)
 }
@@ -1191,7 +1191,7 @@ func (bucket *SBucket) GetDetailsAcl(
 			if errors.Cause(err) == cloudprovider.ErrNotFound {
 				return output, httperrors.NewNotFoundError("object %s not found", objKey)
 			} else {
-				return output, httperrors.NewInternalServerError("iBucket.GetIObjects error %s", err)
+				return output, httperrors.NewInternalServerError("iBucket.GetIObjects failed: %s", err)
 			}
 		}
 		acl = object.GetAcl()
@@ -1231,7 +1231,7 @@ func (bucket *SBucket) PerformSetWebsite(
 	}
 	err = iBucket.SetWebsite(bucketWebsiteConf)
 	if err != nil {
-		return nil, httperrors.NewInternalServerError("iBucket.SetWebsite error %s", err)
+		return nil, httperrors.NewInternalServerError("iBucket.SetWebsite failed: %s", err)
 	}
 	db.OpsLog.LogEvent(bucket, db.ACT_SET_WEBSITE, bucketWebsiteConf, userCred)
 	logclient.AddActionLogWithContext(ctx, bucket, logclient.ACT_SET_WEBSITE, bucketWebsiteConf, userCred, true)
@@ -1250,7 +1250,7 @@ func (bucket *SBucket) PerformDeleteWebsite(
 	}
 	err = iBucket.DeleteWebSiteConf()
 	if err != nil {
-		return nil, httperrors.NewInternalServerError("iBucket.DeleteWebSiteConf error %s", err)
+		return nil, httperrors.NewInternalServerError("iBucket.DeleteWebSiteConf failed: %s", err)
 	}
 	db.OpsLog.LogEvent(bucket, db.ACT_DELETE_WEBSITE, "", userCred)
 	logclient.AddActionLogWithContext(ctx, bucket, logclient.ACT_DELETE_WEBSITE, "", userCred, true)
@@ -1269,7 +1269,7 @@ func (bucket *SBucket) GetDetailsWebsite(
 	}
 	conf, err := iBucket.GetWebsiteConf()
 	if err != nil {
-		return websiteConf, httperrors.NewInternalServerError("iBucket.GetWebsiteConf error %s", err)
+		return websiteConf, httperrors.NewInternalServerError("iBucket.GetWebsiteConf failed: %s", err)
 	}
 
 	websiteConf.Index = conf.Index
@@ -1317,7 +1317,7 @@ func (bucket *SBucket) PerformSetCors(
 	}
 	err = cloudprovider.SetBucketCORS(iBucket, rules)
 	if err != nil {
-		return nil, httperrors.NewInternalServerError("cloudprovider.SetBucketCORS error %s", err)
+		return nil, httperrors.NewInternalServerError("cloudprovider.SetBucketCORS failed: %s", err)
 	}
 	db.OpsLog.LogEvent(bucket, db.ACT_SET_CORS, rules, userCred)
 	logclient.AddActionLogWithContext(ctx, bucket, logclient.ACT_SET_CORS, rules, userCred, true)
@@ -1336,7 +1336,7 @@ func (bucket *SBucket) PerformDeleteCors(
 	}
 	result, err := cloudprovider.DeleteBucketCORS(iBucket, input.Id)
 	if err != nil {
-		return nil, httperrors.NewInternalServerError("iBucket.DeleteCORS error %s", err)
+		return nil, httperrors.NewInternalServerError("iBucket.DeleteCORS failed: %s", err)
 	}
 	db.OpsLog.LogEvent(bucket, db.ACT_DELETE_CORS, result, userCred)
 	logclient.AddActionLogWithContext(ctx, bucket, logclient.ACT_DELETE_CORS, result, userCred, true)
@@ -1355,7 +1355,7 @@ func (bucket *SBucket) GetDetailsCors(
 	}
 	corsRules, err := iBucket.GetCORSRules()
 	if err != nil {
-		return rules, httperrors.NewInternalServerError("iBucket.GetCORSRules error %s", err)
+		return rules, httperrors.NewInternalServerError("iBucket.GetCORSRules failed: %s", err)
 	}
 
 	for i := range corsRules {
@@ -1384,7 +1384,7 @@ func (bucket *SBucket) GetDetailsCdnDomain(
 	}
 	cdnDomains, err := iBucket.GetCdnDomains()
 	if err != nil {
-		return domains, httperrors.NewInternalServerError("iBucket.GetCdnDomains error %s", err)
+		return domains, httperrors.NewInternalServerError("iBucket.GetCdnDomains failed: %s", err)
 	}
 	for i := range cdnDomains {
 		domains.Data = append(domains.Data, api.CdnDomain{
@@ -1423,7 +1423,7 @@ func (bucket *SBucket) PerformSetReferer(
 
 	err = iBucket.SetReferer(conf)
 	if err != nil {
-		return nil, httperrors.NewInternalServerError("iBucket.SetRefer error %s", err)
+		return nil, httperrors.NewInternalServerError("iBucket.SetRefer failed: %s", err)
 	}
 	db.OpsLog.LogEvent(bucket, db.ACT_SET_REFERER, conf, userCred)
 	logclient.AddActionLogWithContext(ctx, bucket, logclient.ACT_SET_REFERER, conf, userCred, true)
@@ -1442,7 +1442,7 @@ func (bucket *SBucket) GetDetailsReferer(
 	}
 	referConf, err := iBucket.GetReferer()
 	if err != nil {
-		return conf, httperrors.NewInternalServerError("iBucket.GetRefer error %s", err)
+		return conf, httperrors.NewInternalServerError("iBucket.GetRefer failed: %s", err)
 	}
 	conf.Enabled = referConf.Enabled
 	if conf.Enabled {
@@ -1466,7 +1466,7 @@ func (bucket *SBucket) GetDetailsPolicy(
 	}
 	policyStatements, err := iBucket.GetPolicy()
 	if err != nil {
-		return policy, httperrors.NewInternalServerError("iBucket.GetPolicy error %s", err)
+		return policy, httperrors.NewInternalServerError("iBucket.GetPolicy failed: %s", err)
 	}
 	for i := range policyStatements {
 		policy.Data = append(policy.Data, api.BucketPolicyStatement{
@@ -1510,7 +1510,7 @@ func (bucket *SBucket) PerformSetPolicy(
 
 	err = iBucket.SetPolicy(opts)
 	if err != nil {
-		return nil, httperrors.NewInternalServerError("iBucket.SetPolicy error %s", err)
+		return nil, httperrors.NewInternalServerError("iBucket.SetPolicy failed: %s", err)
 	}
 	db.OpsLog.LogEvent(bucket, db.ACT_SET_POLICY, opts, userCred)
 	logclient.AddActionLogWithContext(ctx, bucket, logclient.ACT_SET_POLICY, opts, userCred, true)
@@ -1529,7 +1529,7 @@ func (bucket *SBucket) PerformDeletePolicy(
 	}
 	result, err := iBucket.DeletePolicy(input.Id)
 	if err != nil {
-		return nil, httperrors.NewInternalServerError("iBucket.DeletePolicy error %s", err)
+		return nil, httperrors.NewInternalServerError("iBucket.DeletePolicy failed: %s", err)
 	}
 	db.OpsLog.LogEvent(bucket, db.ACT_DELETE_POLICY, result, userCred)
 	logclient.AddActionLogWithContext(ctx, bucket, logclient.ACT_DELETE_POLICY, result, userCred, true)
@@ -1622,7 +1622,7 @@ func (bucket *SBucket) PerformLimit(
 	limit := cloudprovider.SBucketStats{}
 	err := data.Unmarshal(&limit, "limit")
 	if err != nil {
-		return nil, httperrors.NewInputParameterError("unmarshal limit error %s", err)
+		return nil, httperrors.NewInputParameterError("unmarshal limit failed: %s", err)
 	}
 
 	iBucket, err := bucket.GetIBucket(ctx)
@@ -1632,7 +1632,7 @@ func (bucket *SBucket) PerformLimit(
 
 	err = iBucket.SetLimit(limit)
 	if err != nil && err != cloudprovider.ErrNotSupported {
-		return nil, httperrors.NewInternalServerError("SetLimit error %s", err)
+		return nil, httperrors.NewInternalServerError("SetLimit failed: %s", err)
 	}
 
 	diff, err := db.Update(bucket, func() error {
@@ -1642,7 +1642,7 @@ func (bucket *SBucket) PerformLimit(
 	})
 
 	if err != nil {
-		return nil, httperrors.NewInternalServerError("Update error %s", err)
+		return nil, httperrors.NewInternalServerError("Update failed: %s", err)
 	}
 
 	if len(diff) > 0 {
@@ -1734,7 +1734,7 @@ func (bucket *SBucket) processObjectsActionInput(ctx context.Context, input api.
 		if strings.HasSuffix(key, "/") {
 			objs, err := cloudprovider.GetAllObjects(iBucket, key, true)
 			if err != nil {
-				return nil, nil, httperrors.NewInternalServerError("iBucket.GetIObjects error %s", err)
+				return nil, nil, httperrors.NewInternalServerError("iBucket.GetIObjects failed: %s", err)
 			}
 			objects = append(objects, objs...)
 		} else {
@@ -1743,7 +1743,7 @@ func (bucket *SBucket) processObjectsActionInput(ctx context.Context, input api.
 				if errors.Cause(err) == cloudprovider.ErrNotFound {
 					return nil, nil, httperrors.NewResourceNotFoundError("object %s not found", key)
 				} else {
-					return nil, nil, httperrors.NewInternalServerError("iBucket.GetIObject error %s", err)
+					return nil, nil, httperrors.NewInternalServerError("iBucket.GetIObject failed: %s", err)
 				}
 			}
 			objects = append(objects, object)

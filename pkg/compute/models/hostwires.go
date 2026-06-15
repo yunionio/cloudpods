@@ -151,7 +151,7 @@ func (self *SHostwireDeprecated) GetGuestnicsCount() (int, error) {
 func (self *SHostwireDeprecated) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	cnt, err := self.GetGuestnicsCount()
 	if err != nil {
-		return httperrors.NewInternalServerError("GetGuestnicsCount fail %s", err)
+		return httperrors.NewInternalServerError("GetGuestnicsCount failed %s", err)
 	}
 	if cnt > 0 {
 		// check if this is the last one

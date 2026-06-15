@@ -599,7 +599,7 @@ func (self *SInstanceSnapshot) GetInstanceSnapshotJointAt(diskIndex int) (*SInst
 
 func (self *SInstanceSnapshot) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	if self.Status == api.INSTANCE_SNAPSHOT_START_DELETE || self.Status == api.INSTANCE_SNAPSHOT_RESET {
-		return httperrors.NewForbiddenError("can't delete instance snapshot with wrong status")
+		return httperrors.NewForbiddenError("cannot delete instance snapshot in current status")
 	}
 	return nil
 }

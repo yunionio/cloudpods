@@ -50,13 +50,13 @@ func (self *SAzureHostDriver) GetProvider() string {
 
 func (self *SAzureHostDriver) ValidateUpdateDisk(ctx context.Context, userCred mcclient.TokenCredential, input *api.DiskUpdateInput) (*api.DiskUpdateInput, error) {
 	if len(input.Name) > 0 {
-		return input, httperrors.NewInputParameterError("cannot support change azure disk name")
+		return input, httperrors.NewInputParameterError("changing Azure disk name is not supported")
 	}
 	return input, nil
 }
 
 func (self *SAzureHostDriver) ValidateResetDisk(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, snapshot *models.SSnapshot, guests []models.SGuest, input *api.DiskResetInput) (*api.DiskResetInput, error) {
-	return nil, httperrors.NewBadRequestError("Azure not support reset disk, you can create new disk with snapshot")
+	return nil, httperrors.NewBadRequestError("Azure does not support resetting disks; create a new disk from snapshot instead")
 }
 
 func (self *SAzureHostDriver) ValidateDiskSize(storage *models.SStorage, sizeGb int) error {

@@ -249,7 +249,7 @@ func (manager *SElasticcacheBackupManager) ValidateCreateData(ctx context.Contex
 	var err error
 	err = data.Unmarshal(&input)
 	if err != nil {
-		return nil, httperrors.NewInternalServerError("unmarshal StandaloneResourceCreateInput fail %s", err)
+		return nil, httperrors.NewInternalServerError("unmarshal StandaloneResourceCreateInput failed %s", err)
 	}
 	input, err = manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input)
 	if err != nil {
@@ -331,7 +331,7 @@ func (self *SElasticcacheBackup) ValidateDeleteCondition(ctx context.Context, in
 	}
 
 	if icache.(*SElasticcache).GetProviderName() == api.CLOUD_PROVIDER_ALIYUN && len(self.ExternalId) == 0 {
-		return httperrors.NewUnsupportOperationError("unsupport delete %s backups", api.CLOUD_PROVIDER_ALIYUN)
+		return httperrors.NewUnsupportOperationError("deleting backups for %s is not supported", api.CLOUD_PROVIDER_ALIYUN)
 	}
 
 	return self.SStatusStandaloneResourceBase.ValidateDeleteCondition(ctx, info)
