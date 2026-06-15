@@ -40,6 +40,7 @@ type LLMOptions struct {
 	// http(s) URL or a local file path; sources without an http:// or https://
 	// prefix are treated as local files.
 	ModelCatalogURL                  string `help:"URL of the LLM model catalog YAML; values without http(s):// prefix are treated as local file paths" default:"https://www.cloudpods.org/model-catalog.yaml"`
+	LLMImagesCatalogURL              string `help:"URL of the LLM community images YAML; values without http(s):// prefix are treated as local file paths" default:"https://www.cloudpods.org/llmimages.yaml"`
 	LLMCatalogRefreshIntervalMinutes int    `help:"Catalog refresh interval in minutes; 0 disables periodic refresh" default:"60"`
 
 	// Server-side proxy for outbound HuggingFace / ModelScope calls (used by

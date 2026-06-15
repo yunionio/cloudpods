@@ -60,11 +60,11 @@ func (pm PortMappingEnvs) IsZero() bool {
 }
 
 type PortMapping struct {
-	Protocol        string                           `json:"protocol"`
-	ContainerPort   int                              `json:"container_port"`
-	RemoteIps       []string                         `json:"remote_ips"`
-	FirstPortOffset *int                             `json:"first_port_offset"`
-	Envs            []computeapi.GuestPortMappingEnv `json:"envs"`
+	Protocol        string                           `json:"protocol" yaml:"protocol"`
+	ContainerPort   int                              `json:"container_port" yaml:"container_port"`
+	RemoteIps       []string                         `json:"remote_ips" yaml:"remote_ips,omitempty"`
+	FirstPortOffset *int                             `json:"first_port_offset" yaml:"first_port_offset,omitempty"`
+	Envs            []computeapi.GuestPortMappingEnv `json:"envs" yaml:"envs,omitempty"`
 }
 
 type PortMappings []PortMapping
