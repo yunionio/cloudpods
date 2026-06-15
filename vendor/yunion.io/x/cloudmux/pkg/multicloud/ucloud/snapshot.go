@@ -36,15 +36,15 @@ type SSnapshot struct {
 	Name             string `json:"Name"`
 	UDiskName        string `json:"UDiskName"`
 	ExpiredTime      int64  `json:"ExpiredTime"`
-	UDiskID          string `json:"UDiskId"`
-	SnapshotID       string `json:"SnapshotId"`
+	UDiskId          string `json:"UDiskId"`
+	SnapshotId       string `json:"SnapshotId"`
 	CreateTime       int64  `json:"CreateTime"`
 	SizeGB           int32  `json:"Size"`
 	Status           string `json:"Status"`
 	IsUDiskAvailable bool   `json:"IsUDiskAvailable"`
 	Version          string `json:"Version"`
 	DiskType         int    `json:"DiskType"`
-	UHostID          string `json:"UHostId"`
+	UHostId          string `json:"UHostId"`
 }
 
 func (self *SSnapshot) GetProjectId() string {
@@ -52,7 +52,7 @@ func (self *SSnapshot) GetProjectId() string {
 }
 
 func (self *SSnapshot) GetId() string {
-	return self.SnapshotID
+	return self.SnapshotId
 }
 
 func (self *SSnapshot) GetName() string {
@@ -82,7 +82,7 @@ func (self *SSnapshot) GetStatus() string {
 }
 
 func (self *SSnapshot) Refresh() error {
-	disk, err := self.region.GetDisk(self.UDiskID)
+	disk, err := self.region.GetDisk(self.UDiskId)
 	if err != nil {
 		return err
 	}
@@ -108,7 +108,7 @@ func (self *SSnapshot) GetSizeMb() int32 {
 }
 
 func (self *SSnapshot) GetDiskId() string {
-	return self.UDiskID
+	return self.UDiskId
 }
 
 // 磁盘类型，0:数据盘，1:系统盘
@@ -123,7 +123,7 @@ func (self *SSnapshot) GetDiskType() string {
 // https://docs.ucloud.cn/api/udisk-api/delete_udisk_snapshot
 func (self *SSnapshot) Delete() error {
 	zoneId := ""
-	idisk, err := self.region.GetDisk(self.UDiskID)
+	idisk, err := self.region.GetDisk(self.UDiskId)
 	if err == nil {
 		zoneId = idisk.Zone
 	} else if errors.Cause(err) == cloudprovider.ErrNotFound {

@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/imagetools"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
@@ -38,7 +39,7 @@ type SImage struct {
 	Zone             string `json:"Zone"`
 	ImageDescription string `json:"ImageDescription"`
 	OSName           string `json:"OsName"`
-	ImageID          string `json:"ImageId"`
+	ImageId          string `json:"ImageId"`
 	State            string `json:"State"`
 	ImageName        string `json:"ImageName"`
 	OSType           string `json:"OsType"`
@@ -52,7 +53,7 @@ func (self *SImage) GetMinRamSizeMb() int {
 }
 
 func (self *SImage) GetId() string {
-	return self.ImageID
+	return self.ImageId
 }
 
 func (self *SImage) GetName() string {
@@ -225,4 +226,37 @@ func (self *SRegion) DeleteImage(imageId string) error {
 	params.Set("ImageId", imageId)
 
 	return self.DoAction("TerminateCustomImage", params, nil)
+}
+
+// https://docs.ucloud.cn/api/uhost-api/create_custom_image
+func (self *SRegion) SaveImage(instanceId string, opts *cloudprovider.SaveImageOptions) (*SImage, error) {
+	params := NewRockbaseParams()
+	params.Set("UHostId", instanceId)
+	params.Set("ImageName", opts.Name)
+	if len(opts.Notes) > 0 {
+		params.Set("ImageDescription", opts.Notes)
+	}
+
+	ret := struct {
+		ImageId string
+	}{}
+	err := self.DoAction("CreateCustomImage", params, &ret)
+	if err != nil {
+		return nil, errors.Wrapf(err, "CreateCustomImage")
+	}
+	if len(ret.ImageId) == 0 {
+		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "CreateCustomImage empty ImageId")
+	}
+
+	image, err := self.GetImage(ret.ImageId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetImage(%s)", ret.ImageId)
+	}
+	image.storageCache = self.getStoragecache()
+	img := &image
+	err = cloudprovider.WaitStatus(img, api.CACHED_IMAGE_STATUS_ACTIVE, 10*time.Second, 30*time.Minute)
+	if err != nil {
+		return nil, errors.Wrapf(err, "wait image ready")
+	}
+	return img, nil
 }

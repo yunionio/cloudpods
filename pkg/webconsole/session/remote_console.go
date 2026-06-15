@@ -56,6 +56,8 @@ const (
 	CNWARE     = api.CNWARE
 	KSYUN      = api.KSYUN
 	ECLOUD     = api.ECLOUD
+	ROCKBASE   = api.ROCKBASE
+	UCLOUD     = api.UCLOUD
 )
 
 type RemoteConsoleInfo struct {
@@ -138,7 +140,7 @@ func (info *RemoteConsoleInfo) GetConnectParams() (string, error) {
 		return info.getQcloudURL()
 	case CLOUDPODS:
 		return info.getCloudpodsURL()
-	case OPENSTACK, VMRC, ZSTACK, CTYUN, HUAWEI, HCS, JDCLOUD, PROXMOX, SANGFOR, BAIDU, CNWARE, KSYUN, ECLOUD:
+	case OPENSTACK, VMRC, ZSTACK, CTYUN, HUAWEI, HCS, JDCLOUD, PROXMOX, SANGFOR, BAIDU, CNWARE, KSYUN, ECLOUD, ROCKBASE, UCLOUD:
 		return info.Url, nil
 	case VOLCENGINE:
 		return info.getVolcEngineURL()
