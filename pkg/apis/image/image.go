@@ -57,7 +57,7 @@ type ImageListInput struct {
 	// 发行版本，可能值为: CentOS, Ubuntu, Debian, ArchLinux,  OpenEuler 等
 	Distributions []string `json:"distributions"`
 	// 发行版精确匹配
-	DistributionPreciseMatch bool `json:"distribution_precise_match`
+	DistributionPreciseMatch bool `json:"distribution_precise_match"`
 }
 
 type GuestImageListInput struct {
