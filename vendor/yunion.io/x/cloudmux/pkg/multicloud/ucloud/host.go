@@ -22,7 +22,6 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/util/billing"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
@@ -249,34 +248,14 @@ func (self *SHost) _createVM(opts *cloudprovider.SManagedVMCreateConfig) (string
 		return "", errors.Wrapf(cloudprovider.ErrInvalidStatus, "image %s status %s, expect %s", opts.ExternalImageId, img.GetStatus(), api.CACHED_IMAGE_STATUS_ACTIVE)
 	}
 
-	disks := make([]SDisk, len(opts.DataDisks)+1)
-	disks[0].SizeGB = int(img.ImageSizeGB)
-	if opts.SysDisk.SizeGB > 0 && opts.SysDisk.SizeGB > int(img.ImageSizeGB) {
-		disks[0].SizeGB = opts.SysDisk.SizeGB
+	if int(img.ImageSizeGB) > opts.SysDisk.SizeGB {
+		opts.SysDisk.SizeGB = int(img.ImageSizeGB)
 	}
-	disks[0].DiskType = opts.SysDisk.StorageType
-
-	for i, dataDisk := range opts.DataDisks {
-		disks[i+1].SizeGB = dataDisk.SizeGB
-		disks[i+1].DiskType = dataDisk.StorageType
+	if len(opts.ExternalVpcId) == 0 {
+		opts.ExternalVpcId = net.wire.vpc.GetId()
 	}
 
-	// 创建实例
-	// https://docs.ucloud.cn/api/uhost-api/uhost_type
-	// https://docs.ucloud.cn/compute/uhost/introduction/uhost/type
-	var vmId string
-	i, err := ParseInstanceType(opts.InstanceType)
-	if err != nil {
-		if opts.Cpu <= 0 || opts.MemoryMB <= 0 {
-			return "", err
-		} else {
-			i.UHostType = "O"
-			i.CPU = opts.Cpu
-			i.MemoryMB = opts.MemoryMB
-		}
-	}
-
-	vmId, err = self.zone.region.CreateInstance(opts.Name, opts.ExternalImageId, i.UHostType, opts.Password, net.wire.vpc.GetId(), opts.ExternalNetworkId, opts.ExternalSecgroupIds, self.zone.ZoneId, opts.Description, opts.IpAddr, i.CPU, i.MemoryMB, i.GPU, i.GpuType, disks, opts.BillingCycle)
+	vmId, err := self.zone.region.CreateInstance(self.zone.GetId(), opts)
 	if err != nil {
 		return "", fmt.Errorf("Failed to create: %v", err)
 	}
@@ -287,29 +266,56 @@ func (self *SHost) _createVM(opts *cloudprovider.SManagedVMCreateConfig) (string
 // https://docs.ucloud.cn/api/uhost-api/create_uhost_instance
 // https://docs.ucloud.cn/api/uhost-api/specification
 // 支持8-30位字符, 不能包含[A-Z],[a-z],[0-9]和[()`~!@#$%^&*-+=_|{}[]:;'<>,.?/]之外的非法字符
-func (self *SRegion) CreateInstance(name, imageId, hostType, password, vpcId, SubnetId string, securityGroupId []string,
-	zoneId, desc, ipAddr string, cpu, memMB, gpu int, gpuType string, disks []SDisk, bc *billing.SBillingCycle) (string, error) {
+func (self *SRegion) CreateInstance(zoneId string, opts *cloudprovider.SManagedVMCreateConfig) (string, error) {
+	if opts == nil {
+		return "", errors.Wrap(cloudprovider.ErrMissingParameter, "opts")
+	}
+	if len(opts.SysDisk.StorageType) == 0 {
+		return "", errors.Wrap(cloudprovider.ErrMissingParameter, "SysDisk.StorageType")
+	}
+
+	i, err := ParseInstanceType(opts.InstanceType)
+	if err != nil {
+		if opts.Cpu <= 0 || opts.MemoryMB <= 0 {
+			return "", err
+		}
+		i.UHostType = "O"
+		i.CPU = opts.Cpu
+		i.MemoryMB = opts.MemoryMB
+	}
+
+	if len(zoneId) == 0 && len(opts.ExternalNetworkId) > 0 {
+		net, err := self.getNetwork(opts.ExternalNetworkId)
+		if err == nil && len(net.Zone) > 0 {
+			zoneId = net.Zone
+		}
+	}
+	if len(zoneId) == 0 {
+		return "", errors.Wrap(cloudprovider.ErrMissingParameter, "zoneId")
+	}
+
 	params := NewUcloudParams()
 	params.Set("Zone", zoneId)
-	params.Set("ImageId", imageId)
-	params.Set("Password", base64.StdEncoding.EncodeToString([]byte(password)))
+	params.Set("ImageId", opts.ExternalImageId)
+	params.Set("Password", base64.StdEncoding.EncodeToString([]byte(opts.Password)))
 	params.Set("LoginMode", "Password")
-	params.Set("Name", name)
-	params.Set("MachineType", hostType)
-	params.Set("CPU", cpu)
-	params.Set("Memory", memMB)
-	params.Set("VPCId", vpcId)
-	params.Set("SubnetId", SubnetId)
-	for _, id := range securityGroupId {
+	params.Set("Name", opts.Name)
+	params.Set("MachineType", i.UHostType)
+	params.Set("CPU", i.CPU)
+	params.Set("Memory", i.MemoryMB)
+	params.Set("VPCId", opts.ExternalVpcId)
+	params.Set("SubnetId", opts.ExternalNetworkId)
+	for _, id := range opts.ExternalSecgroupIds {
 		params.Set("SecurityGroupId", id)
 	}
-	if gpu > 0 {
-		params.Set("GPU", gpu)
-		if len(gpuType) > 0 {
-			params.Set("GpuType", gpuType)
+	if i.GPU > 0 {
+		params.Set("GPU", i.GPU)
+		if len(i.GpuType) > 0 {
+			params.Set("GpuType", i.GpuType)
 		}
 	}
 
+	bc := opts.BillingCycle
 	if bc != nil && bc.GetMonths() >= 1 && bc.GetMonths() < 10 {
 		params.Set("ChargeType", "Month")
 		params.Set("Quantity", bc.GetMonths())
@@ -325,15 +331,19 @@ func (self *SRegion) CreateInstance(name, imageId, hostType, password, vpcId, Su
 
 	// boot disk
 	params.Set("Disks.0.IsBoot", "True")
-	params.Set("Disks.0.Type", disks[0].DiskType)
-	params.Set("Disks.0.Size", disks[0].SizeGB)
+	params.Set("Disks.0.Type", opts.SysDisk.StorageType)
+	params.Set("Disks.0.Size", opts.SysDisk.SizeGB)
 
 	// data disk
-	for i, disk := range disks[1:] {
-		N := i + 1
+	for idx, disk := range opts.DataDisks {
+		N := idx + 1
 		params.Set(fmt.Sprintf("Disks.%d.IsBoot", N), "False")
-		params.Set(fmt.Sprintf("Disks.%d.Type", N), disk.DiskType)
+		params.Set(fmt.Sprintf("Disks.%d.Type", N), disk.StorageType)
 		params.Set(fmt.Sprintf("Disks.%d.Size", N), disk.SizeGB)
+	}
+
+	if len(opts.Tags) > 0 {
+		setLabelsParams(&params, "Labels", opts.Tags)
 	}
 
 	type Ret struct {
@@ -341,7 +351,7 @@ func (self *SRegion) CreateInstance(name, imageId, hostType, password, vpcId, Su
 	}
 
 	ret := Ret{}
-	err := self.DoAction("CreateUHostInstance", params, &ret)
+	err = self.DoAction("CreateUHostInstance", params, &ret)
 	if err != nil {
 		return "", errors.Wrapf(err, "CreateUHostInstance")
 	}

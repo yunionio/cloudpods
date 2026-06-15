@@ -20,9 +20,8 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/coredns/coredns/plugin/pkg/log"
-
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
@@ -181,7 +180,7 @@ func (lb *SLoadbalancer) GetAddressType() string {
 func (lb *SLoadbalancer) GetNetworkType() string {
 	network, err := lb.region.GetVpc(lb.VipNetworkID)
 	if err != nil {
-		log.Error(errors.Wrapf(err, "lb.region.GetNetwork(%s)", lb.VipNetworkID))
+		return ""
 	}
 	if network.NetworkType == "flat" || network.NetworkType == "vlan" {
 		return api.LB_NETWORK_TYPE_CLASSIC
