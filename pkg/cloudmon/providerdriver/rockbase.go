@@ -19,11 +19,15 @@ import (
 )
 
 type RockbaseCollect struct {
-	SBaseCollectDriver
+	SCollectByResourceIdDriver
 }
 
 func (self *RockbaseCollect) GetProvider() string {
 	return api.CLOUD_PROVIDER_ROCKBASE
+}
+
+func (self *RockbaseCollect) IsSupportMetrics() bool {
+	return true
 }
 
 func init() {

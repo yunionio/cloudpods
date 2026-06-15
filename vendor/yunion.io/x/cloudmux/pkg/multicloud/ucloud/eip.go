@@ -44,7 +44,7 @@ type SEip struct {
 	ChargeType        string            `json:"ChargeType"`
 	CreateTime        int64             `json:"CreateTime"`
 	EIPAddr           []EIPAddr         `json:"EIPAddr"`
-	EIPID             string            `json:"EIPId"`
+	EIPId             string            `json:"EIPId"`
 	Expire            bool              `json:"Expire"`
 	ExpireTime        int64             `json:"ExpireTime"`
 	Name              string            `json:"Name"`
@@ -67,7 +67,7 @@ type EIPAddr struct {
 }
 
 type Resource struct {
-	ResourceID   string `json:"ResourceID"`
+	ResourceId   string `json:"ResourceID"`
 	ResourceName string `json:"ResourceName"`
 	ResourceType string `json:"ResourceType"`
 	Zone         string `json:"Zone"`
@@ -75,12 +75,12 @@ type Resource struct {
 
 type ShareBandwidthSet struct {
 	ShareBandwidth     int    `json:"ShareBandwidth"`
-	ShareBandwidthID   string `json:"ShareBandwidthId"`
+	ShareBandwidthId   string `json:"ShareBandwidthId"`
 	ShareBandwidthName string `json:"ShareBandwidthName"`
 }
 
 func (self *SEip) GetId() string {
-	return self.EIPID
+	return self.EIPId
 }
 
 func (self *SEip) GetName() string {
@@ -139,7 +139,10 @@ func (self *SEip) GetCreatedAt() time.Time {
 }
 
 func (self *SEip) GetExpiredAt() time.Time {
-	return time.Unix(self.ExpireTime, 0)
+	if strings.EqualFold(self.ChargeType, "Year") || strings.EqualFold(self.ChargeType, "Month") {
+		return time.Unix(self.ExpireTime, 0)
+	}
+	return time.Time{}
 }
 
 func (self *SEip) GetIpAddr() string {
@@ -171,7 +174,7 @@ func (self *SEip) GetAssociationType() string {
 
 // 已绑定的资源类型, 枚举值为: uhost, 云主机；natgw：NAT网关；ulb：负载均衡器；upm: 物理机; hadoophost: 大数据集群;fortresshost：堡垒机；udockhost：容器；udhost：私有专区主机；vpngw：IPSec VPN；ucdr：云灾备；dbaudit：数据库审计。
 func (self *SEip) GetAssociationExternalId() string {
-	return self.Resource.ResourceID
+	return self.Resource.ResourceId
 }
 
 func (self *SEip) GetBandwidth() int {
@@ -203,7 +206,7 @@ func (self *SEip) Associate(conf *cloudprovider.AssociateConfig) error {
 }
 
 func (self *SEip) Dissociate() error {
-	return self.region.DissociateEip(self.GetId(), self.Resource.ResourceID)
+	return self.region.DissociateEip(self.GetId(), self.Resource.ResourceId)
 }
 
 func (self *SEip) ChangeBandwidth(bw int) error {

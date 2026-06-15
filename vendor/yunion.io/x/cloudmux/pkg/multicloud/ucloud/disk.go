@@ -38,7 +38,7 @@ type SDisk struct {
 
 	Status        string `json:"Status"`
 	DeviceName    string `json:"DeviceName"`
-	UHostID       string `json:"UHostId"`
+	UHostId       string `json:"UHostId"`
 	Tag           string `json:"Tag"`
 	Version       string `json:"Version"`
 	Name          string `json:"Name"`
@@ -50,7 +50,7 @@ type SDisk struct {
 	ExpiredTime   int64  `json:"ExpiredTime"`
 	SnapshotCount int    `json:"SnapshotCount"`
 	IsExpire      string `json:"IsExpire"`
-	UDiskID       string `json:"UDiskId"`
+	UDiskId       string `json:"UDiskId"`
 	ChargeType    string `json:"ChargeType"`
 	UHostName     string `json:"UHostName"`
 	CreateTime    int64  `json:"CreateTime"`
@@ -62,7 +62,7 @@ func (self *SDisk) GetProjectId() string {
 }
 
 func (self *SDisk) GetId() string {
-	return self.UDiskID
+	return self.UDiskId
 }
 
 func (self *SDisk) GetName() string {
@@ -136,7 +136,10 @@ func (self *SDisk) GetCreatedAt() time.Time {
 }
 
 func (self *SDisk) GetExpiredAt() time.Time {
-	return time.Unix(self.ExpiredTime, 0)
+	if strings.EqualFold(self.ChargeType, "Year") || strings.EqualFold(self.ChargeType, "Month") {
+		return time.Unix(self.ExpiredTime, 0)
+	}
+	return time.Time{}
 }
 
 func (self *SDisk) GetIStorage() (cloudprovider.ICloudStorage, error) {
@@ -160,12 +163,12 @@ func (self *SDisk) GetIsAutoDelete() bool {
 }
 
 func (self *SDisk) GetTemplateId() string {
-	if strings.Contains(self.DiskType, "SystemDisk") && len(self.UHostID) > 0 {
-		ins, err := self.storage.zone.region.GetInstance(self.UHostID)
+	if strings.Contains(self.DiskType, "SystemDisk") && len(self.UHostId) > 0 {
+		ins, err := self.storage.zone.region.GetInstance(self.UHostId)
 		if err != nil {
 			return ""
 		}
-		return ins.ImageID
+		return ins.ImageId
 	}
 
 	return ""
@@ -271,12 +274,12 @@ func (self *SDisk) Resize(ctx context.Context, newSizeMB int64) error {
 	}
 
 	if self.Status == "InUse" {
-		err := self.storage.zone.region.DetachDisk(self.Zone, self.UHostID, self.UDiskID)
+		err := self.storage.zone.region.DetachDisk(self.Zone, self.UHostId, self.UDiskId)
 		if err != nil {
 			return err
 		}
 
-		defer self.storage.zone.region.AttachDisk(self.Zone, self.UHostID, self.UDiskID)
+		defer self.storage.zone.region.AttachDisk(self.Zone, self.UHostId, self.UDiskId)
 		err = cloudprovider.WaitStatusWithDelay(self, api.DISK_READY, 10*time.Second, 5*time.Second, 60*time.Second)
 		if err != nil {
 			return errors.Wrap(err, "DiskResize")
@@ -306,7 +309,7 @@ func (self *SRegion) GetDisk(diskId string) (*SDisk, error) {
 	}
 
 	for i := range disks {
-		if disks[i].UDiskID == diskId {
+		if disks[i].UDiskId == diskId {
 			return &disks[i], nil
 		}
 	}

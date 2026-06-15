@@ -42,12 +42,12 @@ type SInstance struct {
 
 	osInfo *imagetools.ImageInfo
 
-	UHostID            string    `json:"UHostId"`
+	UHostId            string    `json:"UHostId"`
 	Zone               string    `json:"Zone"`
 	LifeCycle          string    `json:"LifeCycle"`
 	OSName             string    `json:"OsName"`
-	ImageID            string    `json:"ImageId"`
-	BasicImageID       string    `json:"BasicImageId"`
+	ImageId            string    `json:"ImageId"`
+	BasicImageId       string    `json:"BasicImageId"`
 	BasicImageName     string    `json:"BasicImageName"`
 	Tag                string    `json:"Tag"`
 	Name               string    `json:"Name"`
@@ -102,7 +102,7 @@ func (self *SInstance) GetError() error {
 }
 
 type DiskSet struct {
-	DiskID    string `json:"DiskId"`
+	DiskId    string `json:"DiskId"`
 	DiskType  string `json:"DiskType"`
 	Drive     string `json:"Drive"`
 	IsBoot    bool   `json:"IsBoot"`
@@ -117,19 +117,19 @@ type IPSet struct {
 	IPId     string `json:"IPId"` // IP资源ID (内网IP无对应的资源ID)
 	MAC      string `json:"Mac"`
 	VpcId    string `json:"VPCId"`
-	SubnetID string `json:"SubnetId"`
+	SubnetId string `json:"SubnetId"`
 }
 
 type SVncInfo struct {
 	VNCIP       string `json:"VncIP"`
 	VNCPassword string `json:"VncPassword"`
-	UHostID     string `json:"UHostId"`
+	UHostId     string `json:"UHostId"`
 	Action      string `json:"Action"`
 	VNCPort     int64  `json:"VncPort"`
 }
 
 func (self *SInstance) GetId() string {
-	return self.UHostID
+	return self.UHostId
 }
 
 func (self *SInstance) GetName() string {
@@ -177,13 +177,14 @@ func (self *SInstance) GetStatus() string {
 }
 
 func (self *SInstance) Refresh() error {
-	new, err := self.host.zone.region.GetInstance(self.GetId())
+	vm, err := self.host.zone.region.GetInstance(self.GetId())
 	if err != nil {
 		return err
 	}
-
-	new.host = self.host
-	return jsonutils.Update(self, new)
+	self.DiskSet = nil
+	self.IPSet = nil
+	self.osInfo = nil
+	return jsonutils.Update(self, vm)
 }
 
 // 计费模式，枚举值为： Year，按年付费； Month，按月付费； Dynamic，按需付费（需开启权限）；
@@ -201,10 +202,9 @@ func (self *SInstance) GetCreatedAt() time.Time {
 }
 
 func (self *SInstance) GetExpiredAt() time.Time {
-	if self.AutoRenew != "Yes" {
+	if strings.EqualFold(self.ChargeType, "Year") || strings.EqualFold(self.ChargeType, "Month") {
 		return time.Unix(self.ExpireTime, 0)
 	}
-
 	return time.Time{}
 }
 
@@ -221,11 +221,11 @@ func (self *SInstance) GetLocalDisk(diskId, storageType string, sizeGB int, isBo
 	disk := SDisk{
 		SDisk:      multicloud.SDisk{},
 		Status:     "Available",
-		UHostID:    self.GetId(),
+		UHostId:    self.GetId(),
 		Name:       diskId,
 		Zone:       self.host.zone.GetId(),
 		DiskType:   diskType,
-		UDiskID:    diskId,
+		UDiskId:    diskId,
 		UHostName:  self.GetName(),
 		CreateTime: self.CreateTime,
 		SizeGB:     sizeGB,
@@ -240,10 +240,10 @@ func (self *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 	disks := []SDisk{}
 	for _, disk := range self.DiskSet {
 		if utils.IsInStringArray(disk.DiskType, []string{api.STORAGE_ROCKBASE_LOCAL_NORMAL, api.STORAGE_ROCKBASE_LOCAL_SSD}) {
-			localDisks = append(localDisks, self.GetLocalDisk(disk.DiskID, disk.DiskType, disk.Size, disk.IsBoot))
+			localDisks = append(localDisks, self.GetLocalDisk(disk.DiskId, disk.DiskType, disk.Size, disk.IsBoot))
 			continue
 		}
-		disk, err := self.host.zone.region.GetDisk(disk.DiskID)
+		disk, err := self.host.zone.region.GetDisk(disk.DiskId)
 		if err != nil {
 			return nil, err
 		}
@@ -280,7 +280,7 @@ func (self *SInstance) GetINics() ([]cloudprovider.ICloudNic, error) {
 	nics := make([]cloudprovider.ICloudNic, 0)
 
 	for _, ip := range self.IPSet {
-		if len(ip.SubnetID) == 0 {
+		if len(ip.SubnetId) == 0 {
 			continue
 		}
 
@@ -455,8 +455,8 @@ func (self *SInstance) RebuildRoot(ctx context.Context, desc *cloudprovider.SMan
 	}
 
 	for _, disk := range self.DiskSet {
-		if disk.Type == "SystemDisk" {
-			return disk.DiskID, nil
+		if strings.EqualFold(disk.Type, "SystemDisk") || strings.EqualFold(disk.Type, "Boot") {
+			return disk.DiskId, nil
 		}
 	}
 	return "", errors.Wrapf(cloudprovider.ErrNotFound, "SystemDisk not found")
@@ -504,6 +504,14 @@ func (self *SInstance) ChangeConfig2(ctx context.Context, instanceType string) e
 	}
 
 	return self.host.zone.region.ResizeVM(self.GetId(), i.CPU, i.MemoryMB)
+}
+
+func (self *SInstance) SaveImage(opts *cloudprovider.SaveImageOptions) (cloudprovider.ICloudImage, error) {
+	image, err := self.host.zone.region.SaveImage(self.GetId(), opts)
+	if err != nil {
+		return nil, errors.Wrapf(err, "SaveImage")
+	}
+	return image, nil
 }
 
 func (self *SInstance) GetVNCInfo(input *cloudprovider.ServerVncInput) (*cloudprovider.ServerVncOutput, error) {
@@ -558,6 +566,8 @@ func (self *SRegion) GetInstanceVNCUrl(instanceId string) (*cloudprovider.Server
 		Port:       vnc.VNCPort,
 		Password:   vnc.VNCPassword,
 		Hypervisor: api.HYPERVISOR_ROCKBASE,
+		Protocol:   "vnc",
+		InstanceId: instanceId,
 	}
 	return ret, nil
 }

@@ -40,15 +40,15 @@ type SNetwork struct {
 	Name         string `json:"Name"`
 	Netmask      string `json:"Netmask"`
 	Remark       string `json:"Remark"`
-	RouteTableID string `json:"RouteTableId"`
+	RouteTableId string `json:"RouteTableId"`
 	Subnet       string `json:"Subnet"`
-	SubnetID     string `json:"SubnetId"`
+	SubnetId     string `json:"SubnetId"`
 	SubnetName   string `json:"SubnetName"`
 	SubnetType   int    `json:"SubnetType"`
 	Tag          string `json:"Tag"`
 	VpcId        string `json:"VPCId"`
 	VPCName      string `json:"VPCName"`
-	VRouterID    string `json:"VRouterId"`
+	VRouterId    string `json:"VRouterId"`
 	Zone         string `json:"Zone"`
 }
 
@@ -57,7 +57,7 @@ func (self *SNetwork) GetProjectId() string {
 }
 
 func (self *SNetwork) GetId() string {
-	return self.SubnetID
+	return self.SubnetId
 }
 
 func (self *SNetwork) GetName() string {
@@ -153,7 +153,7 @@ func (self *SRegion) getNetwork(networkId string) (*SNetwork, error) {
 	}
 
 	for i := range networks {
-		if networks[i].SubnetID == networkId {
+		if networks[i].SubnetId == networkId {
 			vpc, err := self.GetVpc(networks[i].VpcId)
 			if err != nil {
 				return nil, err

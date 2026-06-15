@@ -19,11 +19,15 @@ import (
 )
 
 type UcloudCollect struct {
-	SBaseCollectDriver
+	SCollectByResourceIdDriver
 }
 
 func (self *UcloudCollect) GetProvider() string {
 	return api.CLOUD_PROVIDER_UCLOUD
+}
+
+func (self *UcloudCollect) IsSupportMetrics() bool {
+	return true
 }
 
 func init() {

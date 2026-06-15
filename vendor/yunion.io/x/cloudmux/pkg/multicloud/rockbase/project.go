@@ -22,9 +22,9 @@ import (
 type SProject struct {
 	multicloud.SProjectBase
 	RockbaseTags
-	ProjectID     string `json:"ProjectId"`
+	ProjectId     string `json:"ProjectId"`
 	ProjectName   string `json:"ProjectName"`
-	ParentID      string `json:"ParentId"`
+	ParentId      string `json:"ParentId"`
 	ParentName    string `json:"ParentName"`
 	CreateTime    int64  `json:"CreateTime"`
 	IsDefault     bool   `json:"IsDefault"`
@@ -33,7 +33,7 @@ type SProject struct {
 }
 
 func (self *SProject) GetId() string {
-	return self.ProjectID
+	return self.ProjectId
 }
 
 func (self *SProject) GetName() string {

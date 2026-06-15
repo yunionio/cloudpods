@@ -49,7 +49,7 @@ func (self *SInstanceNic) InClassicNetwork() bool {
 func (self *SInstanceNic) GetINetworkId() string {
 	for _, ip := range self.instance.IPSet {
 		if ip.IP == self.ipAddr {
-			return ip.SubnetID
+			return ip.SubnetId
 		}
 	}
 	return ""
