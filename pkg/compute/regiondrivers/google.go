@@ -117,11 +117,11 @@ func (self *SGoogleRegionDriver) ValidateDBInstanceRecovery(ctx context.Context,
 
 func (self *SGoogleRegionDriver) ValidateCreateDBInstanceData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, input api.DBInstanceCreateInput, skus []models.SDBInstanceSku, network *models.SNetwork) (api.DBInstanceCreateInput, error) {
 	if input.BillingType == billing_api.BILLING_TYPE_PREPAID {
-		return input, httperrors.NewInputParameterError("Google dbinstance not support prepaid billing type")
+		return input, httperrors.NewInputParameterError("Google dbinstance does not support prepaid billing type")
 	}
 
 	if input.DiskSizeGB < 10 || input.DiskSizeGB > 30720 {
-		return input, httperrors.NewInputParameterError("disk size gb must in range 10 ~ 30720 Gb")
+		return input, httperrors.NewInputParameterError("disk size gb must be in range 10 ~ 30720 Gb")
 	}
 
 	if input.Engine != api.DBINSTANCE_TYPE_MYSQL && len(input.Password) == 0 {

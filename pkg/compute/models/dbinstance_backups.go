@@ -240,7 +240,7 @@ func (manager *SDBInstanceBackupManager) ValidateCreateData(ctx context.Context,
 	input.ManagerId = provider.Id
 
 	if instance.Status != api.DBINSTANCE_RUNNING {
-		return nil, httperrors.NewInputParameterError("DBInstance %s(%s) status is %s require status is %s", instance.Name, instance.Id, instance.Status, api.DBINSTANCE_RUNNING)
+		return nil, httperrors.NewInputParameterError("DBInstance %s(%s) status is %s; required status is %s", instance.Name, instance.Id, instance.Status, api.DBINSTANCE_RUNNING)
 	}
 	region, err := instance.GetRegion()
 	if err != nil {
@@ -348,7 +348,7 @@ func (self *SDBInstanceBackup) PerformSyncstatus(ctx context.Context, userCred m
 		return nil, err
 	}
 	if count > 0 {
-		return nil, httperrors.NewBadRequestError("DBInstance backup has %d task active, can't sync status", count)
+		return nil, httperrors.NewBadRequestError("DBInstance backup has %d active tasks and cannot sync status", count)
 	}
 
 	return nil, StartResourceSyncStatusTask(ctx, userCred, self, "DBInstanceBackupSyncstatusTask", "")

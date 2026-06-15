@@ -943,7 +943,7 @@ func (gn *SGuestnetwork) ValidateUpdateData(
 			Filter(sqlchemy.NotEquals(q.Field("network_id"), gn.NetworkId)).
 			Filter(sqlchemy.Equals(q.Field("index"), index)).CountWithError()
 		if err != nil {
-			return input, httperrors.NewInternalServerError("checkout nic index uniqueness fail %s", err)
+			return input, httperrors.NewInternalServerError("check NIC index uniqueness failed %s", err)
 		}
 		if count > 0 {
 			return input, httperrors.NewDuplicateResourceError("NIC Index %d has been occupied", index)

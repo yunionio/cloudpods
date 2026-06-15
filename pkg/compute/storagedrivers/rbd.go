@@ -83,7 +83,7 @@ func (self *SRbdStorageDriver) ValidateCreateData(ctx context.Context, userCred 
 		host, _ := storages[i].StorageConf.GetString("mon_host")
 		pool, _ := storages[i].StorageConf.GetString("pool")
 		if input.MonHost == host && input.Pool == pool {
-			return httperrors.NewDuplicateResourceError("This RBD Storage[%s/%s] has already exist", storages[i].Name, input.Pool)
+			return httperrors.NewDuplicateResourceError("This RBD Storage[%s/%s] already exists", storages[i].Name, input.Pool)
 		}
 	}
 

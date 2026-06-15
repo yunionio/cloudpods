@@ -151,7 +151,7 @@ func (manager *SDynamicschedtagManager) ValidateCreateData(ctx context.Context, 
 	input := apis.StandaloneResourceCreateInput{}
 	err = data.Unmarshal(&input)
 	if err != nil {
-		return nil, httperrors.NewInternalServerError("unmarshal StandaloneResourceCreateInput fail %s", err)
+		return nil, httperrors.NewInternalServerError("unmarshal StandaloneResourceCreateInput failed %s", err)
 	}
 	input, err = manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input)
 	if err != nil {
@@ -229,11 +229,11 @@ func (self *SDynamicschedtag) PerformEvaluate(ctx context.Context, userCred mccl
 
 	objectMan := DynamicschedtagManager.StandaloneResourcesManager[resType]
 	if objectMan == nil {
-		return nil, httperrors.NewResourceNotFoundError("Resource type %s not support", resType)
+		return nil, httperrors.NewResourceNotFoundError("resource type %s is not supported", resType)
 	}
 	virtObjectMan := DynamicschedtagManager.VirtualResourcesManager[virtType]
 	if virtObjectMan == nil {
-		return nil, httperrors.NewResourceNotFoundError("Virtual resource type %s not support", virtType)
+		return nil, httperrors.NewResourceNotFoundError("virtual resource type %s is not supported", virtType)
 	}
 
 	object, err := FetchDynamicResourceObject(ctx, objectMan, userCred, objectId)

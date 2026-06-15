@@ -226,7 +226,7 @@ func GetCapabilities(ctx context.Context, userCred mcclient.TokenCredential, que
 	if scope == rbacscope.ScopeSystem {
 		result := policy.PolicyManager.Allow(scope, userCred, consts.GetServiceType(), "capabilities", policy.PolicyActionList)
 		if result.Result.IsDeny() {
-			return capa, httperrors.NewForbiddenError("not allow to query system capability")
+			return capa, httperrors.NewForbiddenError("not allowed to query system capability")
 		}
 		domainId = ""
 	}

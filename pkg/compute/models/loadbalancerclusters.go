@@ -175,7 +175,7 @@ func (man *SLoadbalancerClusterManager) ValidateCreateData(
 	input := apis.StandaloneResourceCreateInput{}
 	err := data.Unmarshal(&input)
 	if err != nil {
-		return nil, httperrors.NewInternalServerError("unmarshal StandaloneResourceCreateInput fail %s", err)
+		return nil, httperrors.NewInternalServerError("unmarshal StandaloneResourceCreateInput failed %s", err)
 	}
 	input, err = man.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input)
 	if err != nil {
@@ -265,7 +265,7 @@ func (lbc *SLoadbalancerCluster) refCounts() (map[string]int, error) {
 		q := man.Query().Equals("cluster_id", lbc.Id)
 		n, err := q.CountWithError()
 		if err != nil {
-			return nil, httperrors.NewInternalServerError("get lbcluster refcount fail %v", err)
+			return nil, httperrors.NewInternalServerError("get lbcluster refcount failed: %v", err)
 		}
 		if n > 0 {
 			ret[man.KeywordPlural()] = n

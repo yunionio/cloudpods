@@ -104,11 +104,11 @@ func (self *SKVMHostDriver) validateSharedLVM(ctx context.Context, userCred mccl
 
 func (self *SKVMHostDriver) ValidateAttachStorage(ctx context.Context, userCred mcclient.TokenCredential, host *models.SHost, storage *models.SStorage, input api.HostStorageCreateInput) (api.HostStorageCreateInput, error) {
 	if !utils.IsInStringArray(storage.StorageType, append([]string{api.STORAGE_LOCAL, api.STORAGE_NVME_PT, api.STORAGE_NVME, api.STORAGE_LVM}, api.SHARED_STORAGE...)) {
-		return input, httperrors.NewUnsupportOperationError("Unsupport attach %s storage for %s host", storage.StorageType, host.HostType)
+		return input, httperrors.NewUnsupportOperationError("Attaching %s storage to %s host is not supported", storage.StorageType, host.HostType)
 	}
 	if storage.StorageType == api.STORAGE_RBD {
 		if host.HostStatus != api.HOST_ONLINE {
-			return input, httperrors.NewInvalidStatusError("Attach rbd storage require host status is online")
+			return input, httperrors.NewInvalidStatusError("Attaching RBD storage requires host to be online")
 		}
 		pool, _ := storage.StorageConf.GetString("pool")
 		input.MountPoint = fmt.Sprintf("rbd:%s", pool)
@@ -118,13 +118,13 @@ func (self *SKVMHostDriver) ValidateAttachStorage(ctx context.Context, userCred 
 		}
 		count, err := models.HoststorageManager.Query().Equals("host_id", host.Id).Equals("mount_point", input.MountPoint).CountWithError()
 		if err != nil {
-			return input, httperrors.NewInternalServerError("Query host storage error %s", err)
+			return input, httperrors.NewInternalServerError("Query host storage failed: %s", err)
 		}
 		if count > 0 {
-			return input, httperrors.NewBadRequestError("Host %s already have mount point %s with other storage", host.Name, input.MountPoint)
+			return input, httperrors.NewBadRequestError("host %s already has mount point %s with other storage", host.Name, input.MountPoint)
 		}
 		if host.HostStatus != api.HOST_ONLINE {
-			return input, httperrors.NewInvalidStatusError("Attach nfs storage require host status is online")
+			return input, httperrors.NewInvalidStatusError("Attaching NFS storage requires host to be online")
 		}
 		if storage.StorageType == api.STORAGE_GPFS {
 			return self.validateGPFS(ctx, userCred, host, input)
@@ -450,7 +450,7 @@ func (self *SKVMHostDriver) ValidateResetDisk(ctx context.Context, userCred mccl
 			return nil, httperrors.NewServerStatusError("Disk attached guest status must be ready")
 		}
 	} else {
-		return nil, httperrors.NewBadRequestError("Disk dosen't attach guest")
+		return nil, httperrors.NewBadRequestError("Disk is not attached to a guest")
 	}
 
 	return input, nil

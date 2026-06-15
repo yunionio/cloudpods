@@ -313,7 +313,7 @@ func (self *SModelartsPool) ValidateDeleteCondition(ctx context.Context, info js
 		return httperrors.NewInvalidStatusError("ModelartsPool is locked, cannot delete")
 	}
 	if utils.IsInStringArray(self.Status, []string{api.MODELARTS_POOL_STATUS_CREATING, api.MODELARTS_POOL_STATUS_DELETING}) {
-		return httperrors.NewInvalidStatusError("ModelartsPool status cannot support delete")
+		return httperrors.NewInvalidStatusError("ModelartsPool cannot be deleted in current status")
 	}
 	return self.SStatusStandaloneResourceBase.ValidateDeleteCondition(ctx, nil)
 }
@@ -356,7 +356,7 @@ func (modelarts *SModelartsPool) PerformSyncstatus(
 		return nil, err
 	}
 	if count > 0 {
-		return nil, httperrors.NewBadRequestError("ModelartsPool has %d task active, can't sync status", count)
+		return nil, httperrors.NewBadRequestError("ModelartsPool has %d active tasks and cannot sync status", count)
 	}
 
 	return nil, StartResourceSyncStatusTask(ctx, userCred, modelarts, "ModelartsPoolSyncstatusTask", "")

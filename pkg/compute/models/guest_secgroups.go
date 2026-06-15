@@ -187,7 +187,7 @@ func (guest *SGuest) PerformRevokeAdminSecgroup(
 	input api.GuestRevokeSecgroupInput,
 ) (jsonutils.JSONObject, error) {
 	if !db.IsAdminAllowPerform(ctx, userCred, guest, "revoke-admin-secgroup") {
-		return nil, httperrors.NewForbiddenError("not allow to revoke admin secgroup")
+		return nil, httperrors.NewForbiddenError("not allowed to revoke admin secgroup")
 	}
 
 	if !utils.IsInStringArray(guest.Status, []string{api.VM_READY, api.VM_RUNNING, api.VM_SUSPEND}) {
@@ -235,7 +235,7 @@ func (self *SGuest) PerformAssignAdminSecgroup(
 	input api.GuestAssignSecgroupInput,
 ) (jsonutils.JSONObject, error) {
 	if !db.IsAdminAllowPerform(ctx, userCred, self, "assign-admin-secgroup") {
-		return nil, httperrors.NewForbiddenError("not allow to assign admin secgroup")
+		return nil, httperrors.NewForbiddenError("not allowed to assign admin secgroup")
 	}
 
 	return self.performAssignSecgroup(ctx, userCred, query, input, true)

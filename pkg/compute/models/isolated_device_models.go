@@ -78,7 +78,7 @@ func (manager *SIsolatedDeviceModelManager) ValidateCreateData(ctx context.Conte
 	input api.IsolatedDeviceModelCreateInput,
 ) (api.IsolatedDeviceModelCreateInput, error) {
 	if utils.IsInStringArray(input.DevType, api.VALID_PASSTHROUGH_TYPES) {
-		return input, httperrors.NewInputParameterError("device type %q unsupported", input.DevType)
+		return input, httperrors.NewInputParameterError("device type %q is not supported", input.DevType)
 	}
 
 	input.VendorId = strings.ToLower(input.VendorId)

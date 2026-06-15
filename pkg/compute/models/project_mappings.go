@@ -286,14 +286,14 @@ func (self *SProjectMapping) ValidateDeleteCondition(ctx context.Context, info j
 		return errors.Wrapf(err, "GetCloudaccounts")
 	}
 	if len(accounts) > 0 {
-		return httperrors.NewNotEmptyError("project mapping has associate %d accounts", len(accounts))
+		return httperrors.NewNotEmptyError("project mapping is associated with %d accounts", len(accounts))
 	}
 	providers, err := self.GetCloudproviders()
 	if err != nil {
 		return errors.Wrapf(err, "GetCloudproviders")
 	}
 	if len(providers) > 0 {
-		return httperrors.NewNotEmptyError("project mapping has associate %d cloudproviders", len(providers))
+		return httperrors.NewNotEmptyError("project mapping is associated with %d cloud providers", len(providers))
 	}
 	return self.SEnabledStatusInfrasResourceBase.ValidateDeleteCondition(ctx, nil)
 }

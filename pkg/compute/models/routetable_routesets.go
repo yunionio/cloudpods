@@ -129,7 +129,7 @@ func (manager *SRouteTableRouteSetManager) ValidateCreateData(
 	}
 
 	if input.NextHopType != api.NEXT_HOP_TYPE_VPCPEERING {
-		return input, httperrors.NewNotSupportedError("not supported next hop type %s", input.NextHopType)
+		return input, httperrors.NewNotSupportedError("next hop type %s is not supported", input.NextHopType)
 	}
 	if input.NextHopType == api.NEXT_HOP_TYPE_VPCPEERING {
 		_vpcPeer, err := VpcPeeringConnectionManager.FetchByIdOrName(ctx, userCred, input.NextHopId)
@@ -150,7 +150,7 @@ func (manager *SRouteTableRouteSetManager) ValidateCreateData(
 		return input, errors.Wrapf(err, "GetProviderFactory")
 	}
 	if !factory.IsSupportModifyRouteTable() {
-		return input, httperrors.NewUnsupportOperationError("Not support modify routetable for provider %s", account.Provider)
+		return input, httperrors.NewUnsupportOperationError("Modifying route table is not supported for provider %s", account.Provider)
 	}
 	return input, nil
 }
@@ -219,7 +219,7 @@ func (self *SRouteTableRouteSet) ValidateUpdateData(
 	}
 
 	if input.NextHopType != api.NEXT_HOP_TYPE_VPCPEERING {
-		return input, httperrors.NewNotSupportedError("not supported next hop type %s", input.NextHopType)
+		return input, httperrors.NewNotSupportedError("next hop type %s is not supported", input.NextHopType)
 	}
 	if input.NextHopType == api.NEXT_HOP_TYPE_VPCPEERING {
 		_vpcPeer, err := VpcPeeringConnectionManager.FetchByIdOrName(ctx, userCred, input.NextHopId)
@@ -252,7 +252,7 @@ func (self *SRouteTableRouteSet) ValidateUpdateData(
 		return input, errors.Wrapf(err, "GetProviderFactory")
 	}
 	if !factory.IsSupportModifyRouteTable() {
-		return input, httperrors.NewUnsupportOperationError("Not support modify routetable for provider %s", account.Provider)
+		return input, httperrors.NewUnsupportOperationError("Modifying route table is not supported for provider %s", account.Provider)
 	}
 
 	return input, nil
@@ -294,7 +294,7 @@ func (self *SRouteTableRouteSet) ValidateDeleteCondition(ctx context.Context, in
 		return errors.Wrapf(err, "GetProviderFactory")
 	}
 	if !factory.IsSupportModifyRouteTable() {
-		return httperrors.NewUnsupportOperationError("Not support modify routetable for provider %s", account.Provider)
+		return httperrors.NewUnsupportOperationError("Modifying route table is not supported for provider %s", account.Provider)
 	}
 	return nil
 }

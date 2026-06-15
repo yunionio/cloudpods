@@ -590,7 +590,7 @@ func (fileSystem *SFileSystem) PerformSyncstatus(ctx context.Context, userCred m
 		return nil, err
 	}
 	if count > 0 {
-		return nil, httperrors.NewBadRequestError("Nas has %d task active, can't sync status", count)
+		return nil, httperrors.NewBadRequestError("Nas has %d active tasks and cannot sync status", count)
 	}
 
 	return nil, fileSystem.StartSyncstatus(ctx, userCred, "")
@@ -611,7 +611,7 @@ func (fileSystem *SFileSystem) PerformSetQuota(ctx context.Context, userCred mcc
 		return nil, err
 	}
 	if count > 0 {
-		return nil, httperrors.NewBadRequestError("Nas has %d task active, can't sync status", count)
+		return nil, httperrors.NewBadRequestError("Nas has %d active tasks and cannot sync status", count)
 	}
 
 	return nil, fileSystem.StartSetQuotaTask(ctx, userCred, input)

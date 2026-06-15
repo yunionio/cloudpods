@@ -137,7 +137,7 @@ func (bs *SBackupStorage) BackupCount() (int, error) {
 func (bs *SBackupStorage) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	cnt, err := bs.BackupCount()
 	if err != nil {
-		return httperrors.NewInternalServerError("BackupCount fail %s", err)
+		return httperrors.NewInternalServerError("BackupCount failed %s", err)
 	}
 	if cnt > 0 {
 		return httperrors.NewNotEmptyError("storage has been used")
@@ -267,7 +267,7 @@ func (bs *SBackupStorage) PerformSyncstatus(ctx context.Context, userCred mcclie
 		return nil, err
 	}
 	if count > 0 {
-		return nil, httperrors.NewBadRequestError("Backup has %d task active, can't sync status", count)
+		return nil, httperrors.NewBadRequestError("Backup has %d active tasks and cannot sync status", count)
 	}
 
 	return nil, bs.startSyncStatusTask(ctx, userCred, "")

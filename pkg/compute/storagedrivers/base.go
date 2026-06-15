@@ -52,7 +52,7 @@ func (self *SBaseStorageDriver) DoStorageUpdateTask(ctx context.Context, userCre
 
 func (self *SBaseStorageDriver) ValidateSnapshotDelete(ctx context.Context, snapshot *models.SSnapshot) error {
 	if snapshot.RefCount > 0 {
-		return httperrors.NewBadRequestError("Snapshot reference(by disk) count > 0, can not delete")
+		return httperrors.NewBadRequestError("Snapshot reference(by disk) count > 0, cannot delete")
 	}
 	return nil
 }
@@ -60,7 +60,7 @@ func (self *SBaseStorageDriver) ValidateSnapshotDelete(ctx context.Context, snap
 func (self *SBaseStorageDriver) ValidateCreateSnapshotData(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, input *api.SnapshotCreateInput) error {
 	guests := disk.GetGuests()
 	if len(guests) != 1 {
-		return httperrors.NewBadRequestError("Disk %s dosen't attach guest ?", disk.Id)
+		return httperrors.NewBadRequestError("Disk %s is not attached to a guest", disk.Id)
 	}
 	guest := guests[0]
 	if len(guest.BackupHostId) > 0 {

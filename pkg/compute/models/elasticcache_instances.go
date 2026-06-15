@@ -1040,7 +1040,7 @@ func (self *SElasticcache) ValidatorChangeSpecData(ctx context.Context, userCred
 
 func (self *SElasticcache) PerformChangeSpec(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if !utils.IsInStringArray(self.Status, []string{api.ELASTIC_CACHE_STATUS_RUNNING}) {
-		return nil, httperrors.NewResourceNotReadyError("can not change specification in status %s", self.Status)
+		return nil, httperrors.NewResourceNotReadyError("cannot change specification in status %s", self.Status)
 	}
 
 	data, err := self.ValidatorChangeSpecData(ctx, userCred, query, data)
@@ -1391,7 +1391,7 @@ func (self *SElasticcache) PerformSyncstatus(ctx context.Context, userCred mccli
 		return nil, err
 	}
 	if count > 0 {
-		return nil, httperrors.NewBadRequestError("Elasticcache has %d task active, can't sync status", count)
+		return nil, httperrors.NewBadRequestError("Elasticcache has %d active tasks and cannot sync status", count)
 	}
 
 	return nil, StartResourceSyncStatusTask(ctx, userCred, self, "ElasticcacheSyncstatusTask", "")
@@ -1765,7 +1765,7 @@ func (self *SElasticcache) validateSecgroupInput(secgroups []string) error {
 
 	maxCount := driver.GetMaxElasticcacheSecurityGroupCount()
 	if !driver.IsSupportedElasticcacheSecgroup() || maxCount == 0 {
-		return httperrors.NewNotSupportedError("not supported bind security group")
+		return httperrors.NewNotSupportedError("binding security groups is not supported")
 	}
 
 	if len(secgroups) > maxCount {

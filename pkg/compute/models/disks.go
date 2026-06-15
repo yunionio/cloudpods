@@ -497,7 +497,7 @@ func (self *SDisk) ValidateUpdateData(ctx context.Context, userCred mcclient.Tok
 
 	if input.DiskType != "" {
 		if !utils.IsInStringArray(input.DiskType, []string{api.DISK_TYPE_DATA, api.DISK_TYPE_VOLUME, api.DISK_TYPE_SYS}) {
-			return input, httperrors.NewInputParameterError("not support update disk_type %s", input.DiskType)
+			return input, httperrors.NewInputParameterError("updating disk_type %s is not supported", input.DiskType)
 		}
 	}
 
@@ -710,7 +710,7 @@ func (manager *SDiskManager) ValidateFsFeatures(fsType string, feature *api.Disk
 			return httperrors.NewInputParameterError("only ext4 fs can set fs_features.ext4, current is %q", fsType)
 		}
 		if feature.Ext4.ReservedBlocksPercentage < 0 || feature.Ext4.ReservedBlocksPercentage >= 100 {
-			return httperrors.NewInputParameterError("ext4.reserved_blocks_percentage must in range [1, 99]")
+			return httperrors.NewInputParameterError("ext4.reserved_blocks_percentage must be in range [1, 99]")
 		}
 	}
 	if feature.F2fs != nil {
@@ -718,7 +718,7 @@ func (manager *SDiskManager) ValidateFsFeatures(fsType string, feature *api.Disk
 			return httperrors.NewInputParameterError("only f2fs fs can set fs_features.f2fs, current is %q", fsType)
 		}
 		if feature.F2fs.OverprovisionRatioPercentage < 0 || feature.F2fs.OverprovisionRatioPercentage >= 100 {
-			return httperrors.NewInputParameterError("f2fs.reserved_blocks_percentage must in range [1, 99]")
+			return httperrors.NewInputParameterError("f2fs.reserved_blocks_percentage must be in range [1, 99]")
 		}
 	}
 	return nil
@@ -1285,7 +1285,7 @@ func (disk *SDisk) doResize(ctx context.Context, userCred mcclient.TokenCredenti
 	addDisk := sizeMb - disk.DiskSize
 	storage, _ := disk.GetStorage()
 	if storage == nil {
-		return httperrors.NewInternalServerError("disk has no valid storage")
+		return httperrors.NewInternalServerError("disk has no available storage")
 	}
 
 	var guestdriver IGuestDriver
@@ -1312,7 +1312,7 @@ func (disk *SDisk) doResize(ctx context.Context, userCred mcclient.TokenCredenti
 	pendingUsage := SQuota{Storage: int(addDisk)}
 	keys, err := disk.GetQuotaKeys()
 	if err != nil {
-		return httperrors.NewInternalServerError("disk.GetQuotaKeys fail %s", err)
+		return httperrors.NewInternalServerError("disk.GetQuotaKeys failed %s", err)
 	}
 	pendingUsage.SetKeys(keys)
 	err = quotas.CheckSetPendingQuota(ctx, userCred, &pendingUsage)
@@ -1457,7 +1457,7 @@ func (self *SDisk) PerformSave(ctx context.Context, userCred mcclient.TokenCrede
 	}
 	cnt, err := self.GetRuningGuestCount()
 	if err != nil {
-		return nil, httperrors.NewInternalServerError("GetRuningGuestCount fail %s", err)
+		return nil, httperrors.NewInternalServerError("GetRunningGuestCount failed %s", err)
 	}
 	if cnt > 0 {
 		return nil, httperrors.NewResourceNotReadyError("Save disk when not being USED")
@@ -1493,7 +1493,7 @@ func (self *SDisk) ValidateDeleteCondition(ctx context.Context, info api.DiskDet
 		return httperrors.NewNotEmptyError("Virtual disk %s(%s) used by virtual servers", self.Name, self.Id)
 	}
 	if self.IsNotDeletablePrePaid() {
-		return httperrors.NewForbiddenError("not allow to delete prepaid disk in valid status")
+		return httperrors.NewForbiddenError("not allowed to delete prepaid disk in valid status")
 	}
 	return self.SVirtualResourceBase.ValidateDeleteCondition(ctx, nil)
 }
@@ -1507,18 +1507,18 @@ func (self *SDisk) validateDeleteCondition(ctx context.Context, isPurge bool) er
 		}
 		host, _ := storage.GetMasterHost()
 		if host == nil {
-			return httperrors.NewBadRequestError("storage of disk %s no valid host", self.Id)
+			return httperrors.NewBadRequestError("disk %s storage has no available host", self.Id)
 		}
 	}
 	cnt, err := self.GetGuestDiskCount()
 	if err != nil {
-		return httperrors.NewInternalServerError("GetGuestDiskCount for disk %s fail %s", self.Id, err)
+		return httperrors.NewInternalServerError("GetGuestDiskCount for disk %s failed %s", self.Id, err)
 	}
 	if cnt > 0 {
 		return httperrors.NewNotEmptyError("Virtual disk %s(%s) used by virtual servers", self.Name, self.Id)
 	}
 	if !isPurge && self.IsNotDeletablePrePaid() {
-		return httperrors.NewForbiddenError("not allow to delete prepaid disk in valid status")
+		return httperrors.NewForbiddenError("not allowed to delete prepaid disk in valid status")
 	}
 	return self.SVirtualResourceBase.ValidateDeleteCondition(ctx, nil)
 }
@@ -2379,7 +2379,7 @@ func fillDiskConfigByStorage(ctx context.Context, userCred mcclient.TokenCredent
 		return errors.Wrap(httperrors.ErrInvalidStatus, "storage not online")
 	}
 	if storage.StorageType == api.STORAGE_NVME_PT {
-		return httperrors.NewBadRequestError("storage type %s require assign isolated device", api.STORAGE_NVME_PT)
+		return httperrors.NewBadRequestError("storage type %s requires an assigned isolated device", api.STORAGE_NVME_PT)
 	}
 	diskConfig.Storage = storage.Id
 	diskConfig.Backend = storage.StorageType
@@ -2573,7 +2573,7 @@ func (self *SDisk) PerformSyncstatus(ctx context.Context, userCred mcclient.Toke
 		return nil, err
 	}
 	if count > 0 {
-		return nil, httperrors.NewBadRequestError("Disk has %d task active, can't sync status", count)
+		return nil, httperrors.NewBadRequestError("Disk has %d active tasks and cannot sync status", count)
 	}
 
 	return nil, self.StartSyncstatus(ctx, userCred, "")
@@ -2593,10 +2593,10 @@ func (self *SDisk) PerformPurge(ctx context.Context, userCred mcclient.TokenCred
 	if provider != nil && utils.IsInStringArray(provider.Provider, []string{api.CLOUD_PROVIDER_HUAWEI, api.CLOUD_PROVIDER_HCSO, api.CLOUD_PROVIDER_HCS}) {
 		cnt, err := self.GetSnapshotCount()
 		if err != nil {
-			return nil, httperrors.NewInternalServerError("GetSnapshotCount fail %s", err)
+			return nil, httperrors.NewInternalServerError("GetSnapshotCount failed %s", err)
 		}
 		if cnt > 0 {
-			return nil, httperrors.NewForbiddenError("not allow to purge. Virtual disk must not have snapshots")
+			return nil, httperrors.NewForbiddenError("not allowed to purge virtual disk must not have snapshots")
 		}
 	}
 
@@ -2608,10 +2608,10 @@ func (self *SDisk) CustomizeDelete(ctx context.Context, userCred mcclient.TokenC
 		if provider := self.GetCloudprovider(); provider != nil && utils.IsInStringArray(provider.Provider, []string{api.CLOUD_PROVIDER_HUAWEI, api.CLOUD_PROVIDER_HCSO, api.CLOUD_PROVIDER_HCS}) {
 			cnt, err := self.GetSnapshotCount()
 			if err != nil {
-				return httperrors.NewInternalServerError("GetSnapshotCount fail %s", err)
+				return httperrors.NewInternalServerError("GetSnapshotCount failed %s", err)
 			}
 			if cnt > 0 {
-				return httperrors.NewForbiddenError("not allow to delete. Virtual disk must not have snapshots")
+				return httperrors.NewForbiddenError("not allowed to delete virtual disk must not have snapshots")
 			}
 		} else if storage, _ := self.GetStorage(); storage != nil && storage.StorageType == api.STORAGE_RBD {
 			scnt, err := self.GetSnapshotCount()
@@ -2619,7 +2619,7 @@ func (self *SDisk) CustomizeDelete(ctx context.Context, userCred mcclient.TokenC
 				return err
 			}
 			if scnt > 0 {
-				return httperrors.NewBadRequestError("not allow to delete %s disk with snapshots", storage.StorageType)
+				return httperrors.NewBadRequestError("not allowed to delete %s disk with snapshots", storage.StorageType)
 			}
 		}
 	}

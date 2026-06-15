@@ -601,7 +601,7 @@ func (base *SBaseGuestDriver) ValidateGuestChangeConfigInput(ctx context.Context
 			}
 			nVmem, err := fileutils.GetSizeMb(input.VmemSize, 'M', 1024)
 			if err != nil {
-				return nil, httperrors.NewBadRequestError("Params vmem_size parse error")
+				return nil, httperrors.NewBadRequestError("failed to parse vmem_size parameter")
 			}
 			confs.VmemSize = nVmem
 		} else {

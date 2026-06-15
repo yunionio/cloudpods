@@ -757,7 +757,7 @@ func (self *SGuest) PerformClone(ctx context.Context, userCred mcclient.TokenCre
 	}
 
 	if !driver.IsSupportGuestClone() {
-		return nil, httperrors.NewBadRequestError("Guest hypervisor %s does not support clone", self.Hypervisor)
+		return nil, httperrors.NewBadRequestError("guest hypervisor %s does not support clone", self.Hypervisor)
 	}
 
 	if !utils.IsInStringArray(self.Status, []string{api.VM_RUNNING, api.VM_READY}) {
@@ -766,7 +766,7 @@ func (self *SGuest) PerformClone(ctx context.Context, userCred mcclient.TokenCre
 
 	cloneInput, err := cmdline.FetchServerCreateInputByJSON(data)
 	if err != nil {
-		return nil, httperrors.NewInputParameterError("Unmarshal input error %s", err)
+		return nil, httperrors.NewInputParameterError("unmarshal input failed %s", err)
 	}
 	if len(cloneInput.Name) == 0 {
 		return nil, httperrors.NewMissingParameterError("name")
@@ -933,7 +933,7 @@ func (self *SGuest) PerformDeploy(
 		doRestart = driver.IsNeedRestartForResetLoginInfo()
 		if len(input.LoginAccount) > 0 {
 			if len(input.LoginAccount) > 32 {
-				return nil, httperrors.NewInputParameterError("login_account is longer than 32 chars")
+				return nil, httperrors.NewInputParameterError("login_account exceeds 32 characters")
 			}
 			if err := GuestManager.ValidateNameLoginAccount(input.LoginAccount); err != nil {
 				return nil, err
@@ -1002,7 +1002,7 @@ func (self *SGuest) ValidateAttachDisk(ctx context.Context, disk *SDisk) error {
 		return err
 	}
 	if !utils.IsInStringArray(self.Status, guestStatus) {
-		return httperrors.NewInputParameterError("Guest %s not support attach disk in status %s", self.Name, self.Status)
+		return httperrors.NewInputParameterError("guest %s does not support attaching disks in status %s", self.Name, self.Status)
 	}
 	ok, err := self.IsInSameClass(ctx, &disk.SStandaloneAnonResourceBase)
 	if err != nil {
@@ -2034,7 +2034,7 @@ func (self *SGuest) PerformRebuildRoot(
 			return nil, errors.Wrap(err, "FetchModelObjects")
 		}
 		if len(images) == 2 && images[0].UEFI != images[1].UEFI {
-			return nil, httperrors.NewUnsupportOperationError("Can not rebuild root with with diff uefi image")
+			return nil, httperrors.NewUnsupportOperationError("Cannot rebuild root with a different UEFI image")
 		}
 	}
 
@@ -2048,7 +2048,7 @@ func (self *SGuest) PerformRebuildRoot(
 			return nil, httperrors.NewBadRequestError("No template for root disk, cannot rebuild root")
 		}
 		if input.ImageId != templateId {
-			return nil, httperrors.NewInputParameterError("%s not support rebuild root with a different image", driver.GetHypervisor())
+			return nil, httperrors.NewInputParameterError("%s does not support rebuilding root with a different image", driver.GetHypervisor())
 		}
 	}
 
@@ -2107,7 +2107,7 @@ func (self *SGuest) PerformRebuildRoot(
 	if input.ResetPassword {
 		if len(input.LoginAccount) > 0 {
 			if len(input.LoginAccount) > 32 {
-				return nil, httperrors.NewInputParameterError("login_account is longer than 32 chars")
+				return nil, httperrors.NewInputParameterError("login_account exceeds 32 characters")
 			}
 			if err := GuestManager.ValidateNameLoginAccount(input.LoginAccount); err != nil {
 				return nil, err
@@ -2270,7 +2270,7 @@ func (self *SGuest) PerformDetachdisk(ctx context.Context, userCred mcclient.Tok
 	disk := diskObj.(*SDisk)
 	attached, err := self.isAttach2Disk(disk)
 	if err != nil {
-		return nil, httperrors.NewInternalServerError("check isAttach2Disk fail %s", err)
+		return nil, httperrors.NewInternalServerError("check isAttach2Disk failed %s", err)
 	}
 	if !attached {
 		return nil, nil
@@ -2530,7 +2530,7 @@ func (self *SGuest) AttachIsolatedDevices(ctx context.Context, userCred mcclient
 			return httperrors.NewInternalServerError("fetch gpu failed %s", err)
 		}
 		if len(devs) == 0 || len(devs) != count {
-			return httperrors.NewBadRequestError("require %d %s isolated device of host %s is not enough", count, devModel, host.GetName())
+			return httperrors.NewBadRequestError("required %d %s isolated devices on host %s, but not enough are available", count, devModel, host.GetName())
 		}
 		dev := devs[0]
 		if !utils.IsInStringArray(dev.DevType, api.VALID_ATTACH_TYPES) {
@@ -2549,9 +2549,9 @@ func (self *SGuest) AttachIsolatedDevices(ctx context.Context, userCred mcclient
 			}
 			for i := range attachedGpus {
 				if attachedGpus[i].DevType == api.LEGACY_VGPU_TYPE {
-					return httperrors.NewBadRequestError("Nvidia vgpu count exceed > 1")
+					return httperrors.NewBadRequestError("Nvidia vGPU count cannot exceed 1")
 				} else if utils.IsInStringArray(attachedGpus[i].DevType, api.VALID_GPU_TYPES) {
-					return httperrors.NewBadRequestError("Nvidia vgpu can't passthrough with other gpus")
+					return httperrors.NewBadRequestError("Nvidia vGPU cannot passthrough with other gpus")
 				}
 			}
 		} else if dev.DevType == api.CONTAINER_DEV_NVIDIA_MPS {
@@ -2577,7 +2577,7 @@ func (self *SGuest) AttachIsolatedDevices(ctx context.Context, userCred mcclient
 				validDevs = append(validDevs, allDevs[i])
 			}
 			if len(validDevs) < count {
-				return httperrors.NewInsufficientResourceError("require %d %s isolated device of host %s is not enough", count, devModel, host.GetName())
+				return httperrors.NewInsufficientResourceError("required %d %s isolated devices on host %s, but not enough are available", count, devModel, host.GetName())
 			}
 			devs = validDevs[:count]
 		}
@@ -2633,9 +2633,9 @@ func (self *SGuest) startAttachIsolatedDevGeneral(ctx context.Context, userCred 
 		}
 		for i := range devs {
 			if devs[i].DevType == api.LEGACY_VGPU_TYPE {
-				return httperrors.NewBadRequestError("Nvidia vgpu count exceed > 1")
+				return httperrors.NewBadRequestError("Nvidia vGPU count cannot exceed 1")
 			} else if utils.IsInStringArray(devs[i].DevType, api.VALID_GPU_TYPES) {
-				return httperrors.NewBadRequestError("Nvidia vgpu can't passthrough with other gpus")
+				return httperrors.NewBadRequestError("Nvidia vGPU cannot passthrough with other gpus")
 			}
 		}
 	}
@@ -2836,7 +2836,7 @@ func (self *SGuest) PerformChangeIpaddr(
 		}
 		netConf, err := cmdline.ParseNetworkConfigByJSON(netDescJson, -1)
 		if err != nil {
-			return nil, httperrors.NewInputParameterError("fail to parse net_desc %s: %s", input.NetDesc, err)
+			return nil, httperrors.NewInputParameterError("failed to parse net_desc %s: %s", input.NetDesc, err)
 		}
 		conf = netConf
 	} else {
@@ -2909,7 +2909,7 @@ func (self *SGuest) PerformChangeIpaddr(
 				// check mac duplication
 				cnt, err := GuestnetworkManager.Query().Equals("mac_addr", conf.Mac).CountWithError()
 				if err != nil {
-					return nil, httperrors.NewInternalServerError("check mac uniqueness fail %s", err)
+					return nil, httperrors.NewInternalServerError("check mac uniqueness failed %s", err)
 				}
 				if cnt > 0 {
 					return nil, httperrors.NewConflictError("mac addr %s has been occupied", conf.Mac)
@@ -3233,7 +3233,7 @@ func (self *SGuest) PerformAttachnetwork(
 			for _, netDesc := range input.NetDesc {
 				netConf, err := cmdline.ParseNetworkConfigByJSON(jsonutils.NewString(netDesc), -1)
 				if err != nil {
-					return nil, httperrors.NewInputParameterError("fail to parse net_desc %s: %s", netDesc, err)
+					return nil, httperrors.NewInputParameterError("failed to parse net_desc %s: %s", netDesc, err)
 				}
 				input.Nets = append(input.Nets, netConf)
 			}
@@ -3264,7 +3264,7 @@ func (self *SGuest) PerformAttachnetwork(
 			}
 			devConfig, err := IsolatedDeviceManager.parseDeviceInfo(userCred, input.Nets[i].SriovDevice)
 			if err != nil {
-				return nil, httperrors.NewInputParameterError("parse isolated device description error %s", err)
+				return nil, httperrors.NewInputParameterError("parse isolated device description failed %s", err)
 			}
 			err = IsolatedDeviceManager.isValidNicDeviceInfo(devConfig)
 			if err != nil {
@@ -3492,7 +3492,7 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 	}
 
 	if len(self.BackupHostId) > 0 {
-		return nil, httperrors.NewBadRequestError("Guest have backup not allow to change config")
+		return nil, httperrors.NewBadRequestError("guest has backup; changing configuration is not allowed")
 	}
 
 	_, err = self.GetHost()
@@ -3696,7 +3696,7 @@ func (self *SGuest) PerformSyncstatus(ctx context.Context, userCred mcclient.Tok
 		return nil, err
 	}
 	if count > 0 {
-		return nil, httperrors.NewBadRequestError("Guest has %d task active, can't sync status", count)
+		return nil, httperrors.NewBadRequestError("Guest has %d active tasks and cannot sync status", count)
 	}
 
 	return nil, self.StartSyncstatus(ctx, userCred, "")
@@ -3954,7 +3954,7 @@ func (self *SGuest) PerformStop(ctx context.Context, userCred mcclient.TokenCred
 // 冻结虚拟机
 func (self *SGuest) PerformFreeze(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformFreezeInput) (jsonutils.JSONObject, error) {
 	if self.Freezed {
-		return nil, httperrors.NewBadRequestError("virtual resource already freezed")
+		return nil, httperrors.NewBadRequestError("virtual resource is already frozen")
 	}
 	if utils.IsInStringArray(self.Status, []string{api.VM_RUNNING, api.VM_STOP_FAILED}) {
 		return nil, self.StartGuestStopAndFreezeTask(ctx, userCred)
@@ -4095,7 +4095,7 @@ func (self *SGuest) PerformAssociateEip(ctx context.Context, userCred mcclient.T
 	}
 
 	if eipRegion.Id != instRegion.Id {
-		return nil, httperrors.NewInputParameterError("cannot associate eip and instance in different region")
+		return nil, httperrors.NewInputParameterError("cannot associate EIP and instance in different regions")
 	}
 
 	if len(eip.NetworkId) > 0 {
@@ -4105,7 +4105,7 @@ func (self *SGuest) PerformAssociateEip(ctx context.Context, userCred mcclient.T
 		}
 		for _, gn := range gns {
 			if gn.NetworkId == eip.NetworkId {
-				return nil, httperrors.NewInputParameterError("cannot associate eip with same network")
+				return nil, httperrors.NewInputParameterError("cannot associate EIP with the same network")
 			}
 		}
 	}
@@ -4114,17 +4114,17 @@ func (self *SGuest) PerformAssociateEip(ctx context.Context, userCred mcclient.T
 	if eipZone != nil {
 		insZone, _ := self.getZone()
 		if eipZone.Id != insZone.Id {
-			return nil, httperrors.NewInputParameterError("cannot associate eip and instance in different zone")
+			return nil, httperrors.NewInputParameterError("cannot associate EIP and instance in different zones")
 		}
 	}
 
 	host, _ := self.GetHost()
 	if host == nil {
-		return nil, httperrors.NewInputParameterError("server host is not found???")
+		return nil, httperrors.NewInputParameterError("server host not found")
 	}
 
 	if host.ManagerId != eip.ManagerId {
-		return nil, httperrors.NewInputParameterError("cannot associate eip and instance in different provider")
+		return nil, httperrors.NewInputParameterError("cannot associate EIP and instance with different providers")
 	}
 
 	self.SetStatus(ctx, userCred, api.INSTANCE_ASSOCIATE_EIP, "associate eip")
@@ -4551,7 +4551,7 @@ func (manager *SGuestManager) PerformDirtyServerVerify(ctx context.Context, user
 		return ret, nil
 	} else {
 		if err != nil {
-			return nil, httperrors.NewInternalServerError("Fetch guest error %s", err)
+			return nil, httperrors.NewInternalServerError("fetch guest failed %s", err)
 		} else {
 			guest := iguest.(*SGuest)
 
@@ -4643,7 +4643,7 @@ func (self *SGuest) PerformCreateBackup(
 	}
 	hasSnapshot, err := self.GuestDisksHasSnapshot()
 	if err != nil {
-		return nil, httperrors.NewInternalServerError("GuestDisksHasSnapshot fail %s", err)
+		return nil, httperrors.NewInternalServerError("GuestDisksHasSnapshot failed %s", err)
 	}
 	if hasSnapshot {
 		return nil, httperrors.NewBadRequestError("Cannot create backup with snapshot")
@@ -4801,7 +4801,7 @@ func (self *SGuest) PerformDelExtraOption(ctx context.Context, userCred mcclient
 // 取消定时删除
 func (self *SGuest) PerformCancelExpire(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if self.BillingType != billing_api.BILLING_TYPE_POSTPAID {
-		return nil, httperrors.NewBadRequestError("guest billing type %s not support cancel expire", self.BillingType)
+		return nil, httperrors.NewBadRequestError("guest billing type %s does not support canceling expiration", self.BillingType)
 	}
 
 	err := SaveReleaseAt(ctx, self, userCred, time.Time{})
@@ -4836,7 +4836,7 @@ func (self *SGuest) PerformPostpaidExpire(ctx context.Context, userCred mcclient
 	}
 
 	if !driver.IsSupportPostpaidExpire() {
-		return nil, httperrors.NewBadRequestError("guest %s unsupport postpaid expire", self.Hypervisor)
+		return nil, httperrors.NewBadRequestError("guest hypervisor %s does not support postpaid expiration", self.Hypervisor)
 	}
 
 	releaseAt, err := input.GetReleaseAt()
@@ -5123,7 +5123,7 @@ func (self *SGuest) importDisks(ctx context.Context, userCred mcclient.TokenCred
 func (manager *SGuestManager) PerformImportFromLibvirt(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	host := &api.SLibvirtHostConfig{}
 	if err := data.Unmarshal(host); err != nil {
-		return nil, httperrors.NewInputParameterError("Unmarshal data error %s", err)
+		return nil, httperrors.NewInputParameterError("unmarshal data failed %s", err)
 	}
 	if len(host.XmlFilePath) == 0 {
 		return nil, httperrors.NewInputParameterError("Some host config missing xml_file_path")
@@ -5296,7 +5296,7 @@ func (self *SGuest) PerformSyncFixNics(ctx context.Context,
 	}
 	host, _ := self.GetHost()
 	if host == nil {
-		return nil, httperrors.NewInternalServerError("host not found???")
+		return nil, httperrors.NewInternalServerError("host not found")
 	}
 	iplist := input.Ip
 	// validate iplist
@@ -5407,7 +5407,7 @@ func (guest *SGuest) PerformResizeDisk(ctx context.Context, userCred mcclient.To
 			return nil, errors.Wrapf(err, "unable to GetInstanceSnapshotCount for guest %s", guest.GetName())
 		}
 		if c > 0 {
-			return nil, httperrors.NewUnsupportOperationError("the disk of a esxi virtual machine with instance snapshots does not support resizing")
+			return nil, httperrors.NewUnsupportOperationError("ESXi VM disks with instance snapshots do not support resizing")
 		}
 	}
 	if len(input.DiskId) == 0 {
@@ -5531,7 +5531,7 @@ func (self *SGuest) validateForBatchMigrate(ctx context.Context, rescueMode bool
 	}
 	if rescueMode {
 		if !guest.guestDisksStorageTypeIsShared() {
-			return guest, httperrors.NewBadRequestError("can't rescue geust %s with local storage", guest.Name)
+			return guest, httperrors.NewBadRequestError("cannot rescue guest %s with local storage", guest.Name)
 		}
 		return guest, nil
 	}
@@ -5567,7 +5567,7 @@ func (manager *SGuestManager) PerformBatchMigrate(ctx context.Context, userCred 
 	params := new(api.GuestBatchMigrateRequest)
 	err := data.Unmarshal(params)
 	if err != nil {
-		return nil, httperrors.NewInputParameterError("Unmarshal input error %s", err)
+		return nil, httperrors.NewInputParameterError("unmarshal input failed %s", err)
 	}
 	if len(params.GuestIds) == 0 {
 		return nil, httperrors.NewInputParameterError("missing guest id")
@@ -5660,7 +5660,7 @@ func (self *SGuest) validateCreateInstanceSnapshot(
 ) (*SRegionQuota, api.ServerCreateSnapshotParams, error) {
 
 	if !utils.IsInStringArray(self.Hypervisor, supportInstanceSnapshotHypervisors) {
-		return nil, input, httperrors.NewBadRequestError("guest hypervisor %s can't create instance snapshot", self.Hypervisor)
+		return nil, input, httperrors.NewBadRequestError("guest hypervisor %s cannot create instance snapshot", self.Hypervisor)
 	}
 
 	disks, err := self.GetDisks()
@@ -5730,7 +5730,7 @@ func (self *SGuest) validateCreateInstanceSnapshot(
 	pendingUsage.SetKeys(keys)
 	err = quotas.CheckSetPendingQuota(ctx, userCred, pendingUsage)
 	if err != nil {
-		return nil, input, httperrors.NewOutOfQuotaError("Check set pending quota error %s", err)
+		return nil, input, httperrors.NewOutOfQuotaError("check set pending quota failed %s", err)
 	}
 	return pendingUsage, input, nil
 }
@@ -5742,7 +5742,7 @@ func (self *SGuest) validateCreateInstanceBackup(
 	input api.ServerCreateInstanceBackupInput,
 ) (api.ServerCreateInstanceBackupInput, error) {
 	if !utils.IsInStringArray(self.Hypervisor, []string{api.HYPERVISOR_KVM}) {
-		return input, httperrors.NewBadRequestError("guest hypervisor %s can't create instance snapshot", self.Hypervisor)
+		return input, httperrors.NewBadRequestError("guest hypervisor %s cannot create instance snapshot", self.Hypervisor)
 	}
 
 	if len(self.BackupHostId) > 0 {
@@ -5986,7 +5986,7 @@ func (self *SGuest) PerformSnapshotAndClone(
 	err = quotas.CheckSetPendingQuota(ctx, userCred, &pendingUsage)
 	if err != nil {
 		quotas.CancelPendingUsage(ctx, userCred, snapshotUsage, snapshotUsage, false)
-		return nil, httperrors.NewOutOfQuotaError("Check set pending quota error %s", err)
+		return nil, httperrors.NewOutOfQuotaError("check set pending quota failed %s", err)
 	}
 	regionKeys, err := self.GetRegionalQuotaKeys()
 	if err != nil {
@@ -6389,7 +6389,7 @@ func (self *SGuest) checkGroups(ctx context.Context, userCred mcclient.TokenCred
 			return nil, httperrors.NewForbiddenError("group and guest should belong to same project")
 		}
 		if group.Enabled.IsFalse() {
-			return nil, httperrors.NewForbiddenError("can not bind or unbind disabled instance group")
+			return nil, httperrors.NewForbiddenError("cannot bind or unbind disabled instance group")
 		}
 		groupIdSet.Insert(group.GetId())
 	}
@@ -6416,7 +6416,7 @@ func (self *SGuest) PerformPublicipToEip(ctx context.Context, userCred mcclient.
 		return nil, err
 	}
 	if !driver.IsSupportPublicipToEip() {
-		return nil, httperrors.NewUnsupportOperationError("The %s guest not support public ip to eip operation", self.Hypervisor)
+		return nil, httperrors.NewUnsupportOperationError("guest hypervisor %s does not support public IP to EIP conversion", self.Hypervisor)
 	}
 	return nil, self.StartPublicipToEipTask(ctx, userCred, input.AutoStart, "")
 }
@@ -6796,7 +6796,7 @@ func (self *SGuest) PerformSetBootIndex(ctx context.Context, userCred mcclient.T
 	for sDiskIndex, bootIndex := range input.Disks {
 		iDiskIndex, err := strconv.Atoi(sDiskIndex)
 		if err != nil {
-			return nil, httperrors.NewInputParameterError("failed parse disk index %s", sDiskIndex)
+			return nil, httperrors.NewInputParameterError("failed to parse disk index %s", sDiskIndex)
 		} else if iDiskIndex > 127 {
 			return nil, httperrors.NewInputParameterError("disk inex %s is exceed 127", sDiskIndex)
 		}
@@ -6809,7 +6809,7 @@ func (self *SGuest) PerformSetBootIndex(ctx context.Context, userCred mcclient.T
 	for sCdromOrdinal, bootIndex := range input.Cdroms {
 		cdromOrdinal, err := strconv.Atoi(sCdromOrdinal)
 		if err != nil {
-			return nil, httperrors.NewInputParameterError("failed parse cdrom ordinal %s", sCdromOrdinal)
+			return nil, httperrors.NewInputParameterError("failed to parse cdrom ordinal %s", sCdromOrdinal)
 		}
 		if _, ok := cdromBootIndexes[cdromOrdinal]; !ok {
 			return nil, httperrors.NewBadRequestError("cdrom has no ordinal %d", cdromOrdinal)

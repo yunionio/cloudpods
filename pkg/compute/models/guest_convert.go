@@ -41,7 +41,7 @@ func (self *SGuest) PerformConvert(
 	query jsonutils.JSONObject, data *api.ConvertToKvmInput,
 ) (jsonutils.JSONObject, error) {
 	if data.TargetHypervisor != api.HYPERVISOR_KVM {
-		return nil, httperrors.NewBadRequestError("not support target hypervisor %s", data.TargetHypervisor)
+		return nil, httperrors.NewBadRequestError("target hypervisor %s is not supported", data.TargetHypervisor)
 	}
 
 	return self.PerformConvertToKvm(ctx, userCred, query, data)
@@ -65,7 +65,7 @@ func (self *SGuest) PerformConvertToKvm(
 	if drv.GetProvider() == api.CLOUD_PROVIDER_CLOUDPODS && drv.GetHypervisor() == api.HYPERVISOR_DEFAULT {
 		return self.ConvertCloudpodsToKvm(ctx, userCred, data)
 	}
-	return nil, httperrors.NewBadRequestError("not support %s", self.Hypervisor)
+	return nil, httperrors.NewBadRequestError("hypervisor %s is not supported", self.Hypervisor)
 }
 
 func (self *SGuest) ConvertCloudpodsToKvm(ctx context.Context, userCred mcclient.TokenCredential, data *api.ConvertToKvmInput) (jsonutils.JSONObject, error) {
@@ -178,7 +178,7 @@ func (self *SGuest) createConvertedServer(ctx context.Context, userCred mcclient
 	pendingUsage.SetKeys(keys)
 	err = quotas.CheckSetPendingQuota(ctx, userCred, &pendingUsage)
 	if err != nil {
-		return nil, nil, httperrors.NewOutOfQuotaError("Check set pending quota error %s", err)
+		return nil, nil, httperrors.NewOutOfQuotaError("check set pending quota failed %s", err)
 	}
 	regionKeys, err := self.GetRegionalQuotaKeys()
 	if err != nil {

@@ -62,7 +62,7 @@ func (s *SSLVMStorageDriver) ValidateCreateData(ctx context.Context, userCred mc
 	for i := 0; i < len(storages); i++ {
 		vgName, _ := storages[i].StorageConf.GetString("slvm_vg_name")
 		if input.SLVMVgName == vgName {
-			return httperrors.NewDuplicateResourceError("This SLVM Storage[%s/%s] has already exist", storages[i].Name, input.SLVMVgName)
+			return httperrors.NewDuplicateResourceError("This SLVM Storage[%s/%s] already exists", storages[i].Name, input.SLVMVgName)
 		}
 	}
 

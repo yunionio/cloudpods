@@ -446,7 +446,7 @@ func (self *SInstanceBackup) ToInstanceCreateInput(sourceInput *api.ServerCreate
 
 func (self *SInstanceBackup) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	if self.Status == api.INSTANCE_SNAPSHOT_START_DELETE || self.Status == api.INSTANCE_SNAPSHOT_RESET {
-		return httperrors.NewForbiddenError("can't delete instance snapshot with wrong status")
+		return httperrors.NewForbiddenError("cannot delete instance backup in current status")
 	}
 	return nil
 }
@@ -521,7 +521,7 @@ func (self *SInstanceBackup) StartRecoveryTask(ctx context.Context, userCred mcc
 
 func (self *SInstanceBackup) PerformPack(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.InstanceBackupPackInput) (jsonutils.JSONObject, error) {
 	if input.PackageName == "" {
-		return nil, httperrors.NewMissingParameterError("miss package_name")
+		return nil, httperrors.NewMissingParameterError("missing package_name")
 	}
 	self.SetStatus(ctx, userCred, api.INSTANCE_BACKUP_STATUS_PACK, "")
 	params := jsonutils.NewDict()
@@ -537,7 +537,7 @@ func (self *SInstanceBackup) PerformPack(ctx context.Context, userCred mcclient.
 
 func (manager *SInstanceBackupManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.InstanceBackupManagerCreateFromPackageInput) (api.InstanceBackupManagerCreateFromPackageInput, error) {
 	if input.PackageName == "" {
-		return input, httperrors.NewMissingParameterError("miss package_name")
+		return input, httperrors.NewMissingParameterError("missing package_name")
 	}
 	_, err := BackupStorageManager.FetchById(input.BackupStorageId)
 	if err != nil {
@@ -619,7 +619,7 @@ func (ib *SInstanceBackup) PerformSyncstatus(ctx context.Context, userCred mccli
 		return nil, err
 	}
 	if count > 0 {
-		return nil, httperrors.NewBadRequestError("InstanceBackup has %d task active, can't sync status", count)
+		return nil, httperrors.NewBadRequestError("InstanceBackup has %d active tasks and cannot sync status", count)
 	}
 
 	return nil, StartResourceSyncStatusTask(ctx, userCred, ib, "InstanceBackupSyncstatusTask", "")

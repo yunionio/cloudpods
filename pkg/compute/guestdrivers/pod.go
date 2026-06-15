@@ -58,7 +58,7 @@ func init() {
 }
 
 func (p *SPodDriver) newUnsupportOperationError(option string) error {
-	return httperrors.NewUnsupportOperationError("Container not support %s", option)
+	return httperrors.NewUnsupportOperationError("container does not support %s", option)
 }
 
 func (p *SPodDriver) GetHypervisor() string {
@@ -73,7 +73,7 @@ func (p *SPodDriver) ValidateCreateData(ctx context.Context, userCred mcclient.T
 	for i, d := range input.Disks {
 		if d.Format != "" {
 			if d.Format != image.IMAGE_DISK_FORMAT_RAW {
-				return nil, httperrors.NewInputParameterError("not support format %s for disk %d", d.Format, i)
+				return nil, httperrors.NewInputParameterError("disk format %s is not supported for disk %d", d.Format, i)
 			}
 		}
 	}

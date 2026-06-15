@@ -732,7 +732,7 @@ func (self *SNatGateway) PerformSyncstatus(ctx context.Context, userCred mcclien
 		return nil, err
 	}
 	if count > 0 {
-		return nil, httperrors.NewBadRequestError("Nat gateway has %d task active, can't sync status", count)
+		return nil, httperrors.NewBadRequestError("Nat gateway has %d active tasks and cannot sync status", count)
 	}
 
 	return nil, self.StartSyncstatus(ctx, userCred, "")

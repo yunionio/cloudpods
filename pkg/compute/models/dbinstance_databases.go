@@ -125,7 +125,7 @@ func (self *SDBInstanceDatabase) ValidateUpdateData(ctx context.Context, userCre
 		return input, errors.Wrapf(err, "SStatusStandaloneResourceBase.ValidateUpdateData")
 	}
 	if len(input.Name) > 0 && input.Name != self.Name {
-		return input, httperrors.NewForbiddenError("not allow update rds database name")
+		return input, httperrors.NewForbiddenError("updating RDS database name is not allowed")
 	}
 	return input, nil
 }
@@ -226,7 +226,7 @@ func (manager *SDBInstanceDatabaseManager) ValidateCreateData(ctx context.Contex
 	input.DBInstanceId = instance.Id
 
 	if instance.Status != api.DBINSTANCE_RUNNING {
-		return nil, httperrors.NewInputParameterError("DBInstance %s(%s) status is %s require status is %s", instance.Name, instance.Id, instance.Status, api.DBINSTANCE_RUNNING)
+		return nil, httperrors.NewInputParameterError("DBInstance %s(%s) status is %s; required status is %s", instance.Name, instance.Id, instance.Status, api.DBINSTANCE_RUNNING)
 	}
 	region, err := instance.GetRegion()
 	if err != nil {

@@ -206,7 +206,7 @@ func (manager *SIsolatedDeviceManager) ValidateCreateData(ctx context.Context,
 	}
 	if !utils.IsInStringArray(input.DevType, api.VALID_PASSTHROUGH_TYPES) {
 		if _, err := IsolatedDeviceModelManager.GetByDevType(input.DevType); err != nil {
-			return input, httperrors.NewInputParameterError("device type %q not supported", input.DevType)
+			return input, httperrors.NewInputParameterError("device type %q is not supported", input.DevType)
 		}
 	}
 
@@ -273,7 +273,7 @@ func (self *SIsolatedDevice) ValidateUpdateData(
 	if input.DevType != "" && input.DevType != self.DevType {
 		if !utils.IsInStringArray(input.DevType, api.VALID_GPU_TYPES) {
 			if _, err := IsolatedDeviceModelManager.GetByDevType(input.DevType); err != nil {
-				return input, httperrors.NewInputParameterError("device type %q not support update", input.DevType)
+				return input, httperrors.NewInputParameterError("device type %q does not support update", input.DevType)
 			}
 		} else {
 			if !self.IsGPU() {

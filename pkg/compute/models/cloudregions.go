@@ -87,7 +87,7 @@ func (self *SCloudregion) CustomizeCreate(ctx context.Context, userCred mcclient
 
 func (self *SCloudregion) ValidateDeleteCondition(ctx context.Context, info *api.CloudregionDetails) error {
 	if self.Id == api.DEFAULT_REGION_ID {
-		return httperrors.NewProtectedResourceError("not allow to delete default cloud region")
+		return httperrors.NewProtectedResourceError("not allowed to delete default cloud region")
 	}
 	if gotypes.IsNil(info) {
 		info = &api.CloudregionDetails{}
@@ -1135,7 +1135,7 @@ func (self *SCloudregion) PerformSetSchedtag(ctx context.Context, userCred mccli
 
 func (self *SCloudregion) PerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.CloudregionPurgeInput) (jsonutils.JSONObject, error) {
 	if self.Id == api.DEFAULT_REGION_ID {
-		return nil, httperrors.NewProtectedResourceError("not allow to delete default cloud region")
+		return nil, httperrors.NewProtectedResourceError("not allowed to delete default cloud region")
 	}
 	if len(input.ManagerId) == 0 {
 		return nil, httperrors.NewMissingParameterError("manager_id")
