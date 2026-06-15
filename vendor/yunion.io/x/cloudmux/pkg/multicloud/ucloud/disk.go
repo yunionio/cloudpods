@@ -121,6 +121,14 @@ func (self *SDisk) GetSysTags() map[string]string {
 	return data
 }
 
+func (self *SDisk) GetTags() (map[string]string, error) {
+	return self.storage.zone.region.GetResourceTags(self.GetId())
+}
+
+func (self *SDisk) SetTags(tags map[string]string, replace bool) error {
+	return self.storage.zone.region.SetResourceTags(self.GetId(), tags, replace)
+}
+
 // Year,Month,Dynamic,Trial
 func (self *SDisk) GetBillingType() string {
 	switch self.ChargeType {
