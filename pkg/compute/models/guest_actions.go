@@ -2394,12 +2394,22 @@ func (self *SGuest) PerformDetachIsolatedDevice(ctx context.Context, userCred mc
 	if self.Hypervisor != api.HYPERVISOR_KVM && self.Hypervisor != api.HYPERVISOR_POD {
 		return nil, httperrors.NewNotAcceptableError("Not allow for hypervisor %s", self.Hypervisor)
 	}
-	if !utils.IsInStringArray(self.GetStatus(), []string{api.VM_READY, api.VM_RUNNING}) ||
-		(self.Hypervisor == api.HYPERVISOR_POD && self.GetStatus() != api.VM_READY) {
-		msg := fmt.Sprintf("Can't detach isolated device when guest is %s", self.GetStatus())
-		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_GUEST_DETACH_ISOLATED_DEVICE, msg, userCred, false)
-		return nil, httperrors.NewInvalidStatusError("%s", msg)
+	forceDetach := jsonutils.QueryBoolean(data, "is_force", false)
+	if !forceDetach {
+		if !utils.IsInStringArray(self.GetStatus(), []string{api.VM_READY, api.VM_RUNNING}) ||
+			(self.Hypervisor == api.HYPERVISOR_POD && self.GetStatus() != api.VM_READY) {
+			msg := fmt.Sprintf("Can't detach isolated device when guest is %s", self.GetStatus())
+			logclient.AddActionLogWithContext(ctx, self, logclient.ACT_GUEST_DETACH_ISOLATED_DEVICE, msg, userCred, false)
+			return nil, httperrors.NewInvalidStatusError("%s", msg)
+		}
+	} else {
+		if !utils.IsInStringArray(self.GetStatus(), []string{api.VM_READY, api.VM_UNKNOWN}) {
+			msg := fmt.Sprintf("Can't force detach isolated device when guest is %s", self.GetStatus())
+			logclient.AddActionLogWithContext(ctx, self, logclient.ACT_GUEST_DETACH_ISOLATED_DEVICE, msg, userCred, false)
+			return nil, httperrors.NewInvalidStatusError("%s", msg)
+		}
 	}
+
 	var detachAllDevice = jsonutils.QueryBoolean(data, "detach_all", false)
 	devs := make([]SIsolatedDevice, 0)
 	if !detachAllDevice {
@@ -2422,6 +2432,9 @@ func (self *SGuest) PerformDetachIsolatedDevice(ctx context.Context, userCred mc
 	}
 	if err := self.DetachIsolatedDevices(ctx, userCred, devs); err != nil {
 		return nil, err
+	}
+	if forceDetach {
+		return nil, nil
 	}
 	return nil, self.StartIsolatedDevicesSyncTask(ctx, userCred, jsonutils.QueryBoolean(data, "auto_start", false), "")
 }

@@ -42,12 +42,16 @@ func init() {
 	})
 
 	type ServerDetachDeviceOptions struct {
-		SERVER string `help:"ID or name of server"`
-		DEVICE string `help:"ID of isolated device to attach"`
+		SERVER  string `help:"ID or name of server"`
+		DEVICE  string `help:"ID of isolated device to detach"`
+		IsForce bool   `help:"Force detach isolated device"`
 	}
 	R(&ServerDetachDeviceOptions{}, "server-detach-isolated-device", "Detach a isolated device from a virtual server", func(s *mcclient.ClientSession, args *ServerDetachDeviceOptions) error {
 		params := jsonutils.NewDict()
 		params.Add(jsonutils.NewString(args.DEVICE), "device")
+		if args.IsForce {
+			params.Set("is_force", jsonutils.JSONTrue)
+		}
 		srv, err := modules.Servers.PerformAction(s, args.SERVER, "detach-isolated-device", params)
 		if err != nil {
 			return err
