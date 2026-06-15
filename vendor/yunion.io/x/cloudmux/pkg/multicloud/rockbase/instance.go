@@ -506,6 +506,14 @@ func (self *SInstance) ChangeConfig2(ctx context.Context, instanceType string) e
 	return self.host.zone.region.ResizeVM(self.GetId(), i.CPU, i.MemoryMB)
 }
 
+func (self *SInstance) GetTags() (map[string]string, error) {
+	return self.host.zone.region.GetResourceTags(self.GetId())
+}
+
+func (self *SInstance) SetTags(tags map[string]string, replace bool) error {
+	return self.host.zone.region.SetResourceTags(self.GetId(), tags, replace)
+}
+
 func (self *SInstance) SaveImage(opts *cloudprovider.SaveImageOptions) (cloudprovider.ICloudImage, error) {
 	image, err := self.host.zone.region.SaveImage(self.GetId(), opts)
 	if err != nil {
