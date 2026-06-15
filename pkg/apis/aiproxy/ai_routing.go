@@ -18,12 +18,21 @@ import (
 	"yunion.io/x/onecloud/pkg/apis"
 )
 
+const (
+	AiRoutingRouterDefaultRoutePath      = "/v1/route"
+	AiRoutingRouterDefaultTimeoutSeconds = 3
+
+	AiRoutingRouterFallbackPriority   = "priority"
+	AiRoutingRouterFallbackFailClosed = "fail_closed"
+)
+
 type AiRoutingListInput struct {
 	apis.SharableVirtualResourceListInput
 	apis.EnabledResourceBaseListInput
 
 	ModelPattern  string `json:"model_pattern"`
 	AiProxyNodeId string `json:"ai_proxy_node_id"`
+	RouterEnabled *bool  `json:"router_enabled"`
 }
 
 // AiRoutingModelItem is one catalog model binding when creating ai_routing.
@@ -41,29 +50,44 @@ type AiRoutingCreateInput struct {
 	apis.SharableVirtualResourceCreateInput
 	apis.EnabledBaseResourceCreateInput
 
-	Priority      int                  `json:"priority"`
-	ModelPattern  string               `json:"model_pattern"`
-	AiProxyNodeId string               `json:"ai_proxy_node_id"`
-	Models        []AiRoutingModelItem `json:"models"`
+	Priority             int                  `json:"priority"`
+	ModelPattern         string               `json:"model_pattern"`
+	AiProxyNodeId        string               `json:"ai_proxy_node_id"`
+	RouterEnabled        bool                 `json:"router_enabled"`
+	RouterUrl            string               `json:"router_url"`
+	RouterRoutePath      string               `json:"router_route_path"`
+	RouterTimeoutSeconds int                  `json:"router_timeout_seconds"`
+	RouterFallbackPolicy string               `json:"router_fallback_policy"`
+	Models               []AiRoutingModelItem `json:"models"`
 }
 
 type AiRoutingUpdateInput struct {
 	apis.SharableVirtualResourceBaseUpdateInput
 
-	Priority      int    `json:"priority"`
-	ModelPattern  string `json:"model_pattern"`
-	AiProxyNodeId string `json:"ai_proxy_node_id"`
-	Enabled       *bool  `json:"enabled"`
+	Priority             int    `json:"priority"`
+	ModelPattern         string `json:"model_pattern"`
+	AiProxyNodeId        string `json:"ai_proxy_node_id"`
+	RouterEnabled        *bool  `json:"router_enabled"`
+	RouterUrl            string `json:"router_url"`
+	RouterRoutePath      string `json:"router_route_path"`
+	RouterTimeoutSeconds int    `json:"router_timeout_seconds"`
+	RouterFallbackPolicy string `json:"router_fallback_policy"`
+	Enabled              *bool  `json:"enabled"`
 }
 
 type AiRoutingDetails struct {
 	apis.SharableVirtualResourceDetails
 
-	Priority      int                     `json:"priority"`
-	ModelPattern  string                  `json:"model_pattern"`
-	AiProxyNodeId string                  `json:"ai_proxy_node_id"`
-	Enabled       bool                    `json:"enabled"`
-	RoutingModels []AiRoutingModelDetails `json:"routing_models,omitempty"`
+	Priority             int                     `json:"priority"`
+	ModelPattern         string                  `json:"model_pattern"`
+	AiProxyNodeId        string                  `json:"ai_proxy_node_id"`
+	RouterEnabled        bool                    `json:"router_enabled"`
+	RouterUrl            string                  `json:"router_url"`
+	RouterRoutePath      string                  `json:"router_route_path"`
+	RouterTimeoutSeconds int                     `json:"router_timeout_seconds"`
+	RouterFallbackPolicy string                  `json:"router_fallback_policy"`
+	Enabled              bool                    `json:"enabled"`
+	RoutingModels        []AiRoutingModelDetails `json:"routing_models,omitempty"`
 }
 
 // AiRoutingSetModelsInput replaces all ai_routing_models for an ai_routing.

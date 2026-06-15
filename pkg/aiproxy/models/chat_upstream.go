@@ -146,11 +146,12 @@ func resolveCatalogModelFromRouting(
 	vk *SAiVirtualKey,
 	routing *SAiRouting,
 	reqModel string,
+	body *jsonutils.JSONDict,
 ) (*resolvedCatalogModel, error) {
 	if routing == nil {
 		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "nil ai_routing")
 	}
-	providerId, modelId, err := pickAiRoutingModel(ctx, userCred, routing, reqModel)
+	providerId, modelId, err := pickAiRoutingModel(ctx, userCred, routing, reqModel, body)
 	if err != nil {
 		return nil, err
 	}
@@ -209,7 +210,7 @@ func ResolveChatUpstream(ctx context.Context, userCred mcclient.TokenCredential,
 		return nil, errors.Wrap(httperrors.ErrNotFound, "no ai_routing matched for virtual key project on this aiproxy node")
 	}
 
-	resolved, err := resolveCatalogModelFromRouting(ctx, userCred, vk, routing, reqModel)
+	resolved, err := resolveCatalogModelFromRouting(ctx, userCred, vk, routing, reqModel, body)
 	if err != nil {
 		return nil, err
 	}
