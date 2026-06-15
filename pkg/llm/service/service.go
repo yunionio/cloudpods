@@ -52,6 +52,12 @@ func StartService() {
 		time.Duration(opts.LLMCatalogRefreshIntervalMinutes)*time.Minute,
 	)
 
+	models.GetLLMImagesCatalogManager().Start(
+		context.Background(),
+		opts.LLMImagesCatalogURL,
+		time.Duration(opts.LLMCatalogRefreshIntervalMinutes)*time.Minute,
+	)
+
 	// if !opts.IsSlaveNode {
 	// 	models.InitializeCronjobs(app.GetContext())
 	// }

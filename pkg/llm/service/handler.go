@@ -133,6 +133,65 @@ func handleLLMModelSetRefresh(ctx context.Context, w http.ResponseWriter, r *htt
 	appsrv.SendJSON(w, resp)
 }
 
+// handleLLMImagesCatalogList: GET /llm_images_catalogs
+func handleLLMImagesCatalogList(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	query, err := jsonutils.ParseQueryString(r.URL.RawQuery)
+	if err != nil {
+		httperrors.InvalidInputError(ctx, w, "Parse query string %q: %v", r.URL.RawQuery, err)
+		return
+	}
+	input := api.LLMImagesCatalogListInput{}
+	if query != nil {
+		_ = query.Unmarshal(&input)
+	}
+	items, total := models.GetLLMImagesCatalogManager().ListItems(input)
+	if items == nil {
+		items = []api.LLMImagesCatalogItem{}
+	}
+	resp := jsonutils.NewDict()
+	resp.Set("llm_images_catalogs", jsonutils.Marshal(items))
+	resp.Set("total", jsonutils.NewInt(int64(total)))
+	resp.Set("limit", jsonutils.NewInt(int64(input.Limit)))
+	resp.Set("offset", jsonutils.NewInt(int64(input.Offset)))
+	appsrv.SendJSON(w, resp)
+}
+
+// handleLLMImagesCatalogShow: GET /llm_images_catalogs/<id>
+func handleLLMImagesCatalogShow(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	id := lastPathSegment(r.URL.Path)
+	item, ok := models.GetLLMImagesCatalogManager().GetItem(id)
+	if !ok {
+		httperrors.NotFoundError(ctx, w, "images catalog item %s not found", id)
+		return
+	}
+	appsrv.SendStruct(w, api.LLMImagesCatalogShowOutput{LLMImagesCatalog: *item})
+}
+
+// handleLLMImagesCatalogRefresh: POST /llm_images_catalogs/refresh — admin only.
+func handleLLMImagesCatalogRefresh(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	userCred := auth.FetchUserCredential(ctx, policy.FilterPolicyCredential)
+	if userCred == nil {
+		httperrors.UnauthorizedError(ctx, w, "Unauthorized")
+		return
+	}
+	if !userCred.HasSystemAdminPrivilege() {
+		httperrors.ForbiddenError(ctx, w, "system admin required")
+		return
+	}
+	if err := models.GetLLMImagesCatalogManager().Refresh(ctx); err != nil {
+		httperrors.GeneralServerError(ctx, w, err)
+		return
+	}
+	items, total := models.GetLLMImagesCatalogManager().ListItems(api.LLMImagesCatalogListInput{})
+	if items == nil {
+		items = []api.LLMImagesCatalogItem{}
+	}
+	resp := jsonutils.NewDict()
+	resp.Set("llm_images_catalogs", jsonutils.Marshal(items))
+	resp.Set("total", jsonutils.NewInt(int64(total)))
+	appsrv.SendJSON(w, resp)
+}
+
 func lastPathSegment(path string) string {
 	if i := strings.LastIndex(path, "/"); i >= 0 {
 		return path[i+1:]
@@ -263,6 +322,10 @@ func InitHandlers(app *appsrv.Application, isSlave bool) {
 	app.AddHandler2("GET", "/llm_model_sets/<id>/specs", auth.Authenticate(handleLLMModelSetSpecs), nil, "llm_model_set_specs", nil)
 	app.AddHandler2("GET", "/llm_model_sets/<id>", auth.Authenticate(handleLLMModelSetShow), nil, "llm_model_set_show", nil)
 	app.AddHandler2("GET", "/llm_model_specs/<id>", auth.Authenticate(handleLLMModelSpecShow), nil, "llm_model_spec_show", nil)
+
+	app.AddHandler2("GET", "/llm_images_catalogs", auth.Authenticate(handleLLMImagesCatalogList), nil, "llm_images_catalog_list", nil)
+	app.AddHandler2("POST", "/llm_images_catalogs/refresh", auth.Authenticate(handleLLMImagesCatalogRefresh), nil, "llm_images_catalog_refresh", nil)
+	app.AddHandler2("GET", "/llm_images_catalogs/<id>", auth.Authenticate(handleLLMImagesCatalogShow), nil, "llm_images_catalog_show", nil)
 
 	AddAvailableNetworkHandler(models.GetLLMManager().KeywordPlural(), app)
 
