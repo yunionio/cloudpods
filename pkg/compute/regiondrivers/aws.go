@@ -88,7 +88,7 @@ func (self *SAwsRegionDriver) ValidateCreateDBInstanceData(ctx context.Context, 
 	if len(input.Password) > 0 {
 		for _, s := range input.Password {
 			if s == '/' || s == '"' || s == '@' || s == '\'' {
-				return input, httperrors.NewInputParameterError("aws rds not support password character %s", string(s))
+				return input, httperrors.NewInputParameterError("aws rds does not support password character %s", string(s))
 			}
 		}
 	}
@@ -111,11 +111,11 @@ func (self *SAwsRegionDriver) ValidateCreateDBInstanceBackupData(ctx context.Con
 }
 
 func (self *SAwsRegionDriver) ValidateCreateDBInstanceDatabaseData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, instance *models.SDBInstance, input api.DBInstanceDatabaseCreateInput) (api.DBInstanceDatabaseCreateInput, error) {
-	return input, httperrors.NewNotSupportedError("aws not support create rds database")
+	return input, httperrors.NewNotSupportedError("aws does not support creating rds database")
 }
 
 func (self *SAwsRegionDriver) ValidateCreateDBInstanceAccountData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, instance *models.SDBInstance, input api.DBInstanceAccountCreateInput) (api.DBInstanceAccountCreateInput, error) {
-	return input, httperrors.NewNotSupportedError("aws not support create rds account")
+	return input, httperrors.NewNotSupportedError("aws does not support creating rds account")
 }
 
 func (self *SAwsRegionDriver) InitDBInstanceUser(ctx context.Context, instance *models.SDBInstance, task taskman.ITask, desc *cloudprovider.SManagedDBInstanceCreateConfig) error {

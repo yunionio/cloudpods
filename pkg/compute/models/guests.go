@@ -509,7 +509,7 @@ func (manager *SGuestManager) ListItemFilter(
 		guestdisks := GuestdiskManager.Query().SubQuery()
 		count, err := guestdisks.Query().Equals("disk_id", disk.Id).CountWithError()
 		if err != nil {
-			return nil, httperrors.NewInternalServerError("checkout guestdisk count fail %s", err)
+			return nil, httperrors.NewInternalServerError("check guest disk count failed %s", err)
 		}
 		if count > 0 {
 			sgq := guestdisks.Query(guestdisks.Field("guest_id")).Equals("disk_id", disk.Id).SubQuery()
@@ -1045,7 +1045,7 @@ func (guest *SGuest) validateDeleteCondition(ctx context.Context, isPurge bool) 
 		return httperrors.NewInvalidStatusError("Virtual server is locked, cannot delete")
 	}
 	if !isPurge && guest.IsNotDeletablePrePaid() {
-		return httperrors.NewForbiddenError("not allow to delete prepaid server in valid status")
+		return httperrors.NewForbiddenError("not allowed to delete prepaid server in valid status")
 	}
 	return guest.SVirtualResourceBase.ValidateDeleteCondition(ctx, nil)
 }
@@ -1620,10 +1620,10 @@ func (manager *SGuestManager) BatchPreValidate(
 func parseInstanceSnapshot(ctx context.Context, input *api.ServerCreateInput) (*api.ServerCreateInput, error) {
 	ispi, err := InstanceSnapshotManager.FetchByIdOrName(ctx, nil, input.InstanceSnapshotId)
 	if err == sql.ErrNoRows {
-		return nil, httperrors.NewBadRequestError("can't find instance snapshot %s", input.InstanceSnapshotId)
+		return nil, httperrors.NewBadRequestError("instance snapshot %s not found", input.InstanceSnapshotId)
 	}
 	if err != nil {
-		return nil, httperrors.NewInternalServerError("fetch instance snapshot error %s", err)
+		return nil, httperrors.NewInternalServerError("fetch instance snapshot failed %s", err)
 	}
 	isp := ispi.(*SInstanceSnapshot)
 	if isp.Status != api.INSTANCE_SNAPSHOT_READY {
@@ -1639,10 +1639,10 @@ func parseInstanceSnapshot(ctx context.Context, input *api.ServerCreateInput) (*
 func parseInstanceBackup(ctx context.Context, input *api.ServerCreateInput) (*api.ServerCreateInput, error) {
 	ispi, err := InstanceBackupManager.FetchByIdOrName(ctx, nil, input.InstanceBackupId)
 	if err == sql.ErrNoRows {
-		return nil, httperrors.NewBadRequestError("can't find instance backup %s", input.InstanceBackupId)
+		return nil, httperrors.NewBadRequestError("instance backup %s not found", input.InstanceBackupId)
 	}
 	if err != nil {
-		return nil, httperrors.NewInternalServerError("fetch instance backup error %s", err)
+		return nil, httperrors.NewInternalServerError("fetch instance backup failed %s", err)
 	}
 	isp := ispi.(*SInstanceBackup)
 	if isp.Status != api.INSTANCE_BACKUP_STATUS_READY && isp.Status != api.INSTANCE_BACKUP_STATUS_RECOVERY {
@@ -1692,7 +1692,7 @@ func (manager *SGuestManager) validateCreateData(
 	}
 
 	if len(input.Metadata) > 20 {
-		return nil, httperrors.NewInputParameterError("metdata must less then 20")
+		return nil, httperrors.NewInputParameterError("metadata must be less than 20")
 	}
 
 	if len(input.InstanceSnapshotId) > 0 {
@@ -1750,7 +1750,7 @@ func (manager *SGuestManager) validateCreateData(
 
 	if resetPassword && len(input.LoginAccount) > 0 {
 		if len(input.LoginAccount) > 32 {
-			return nil, httperrors.NewInputParameterError("login_account is longer than 32 chars")
+			return nil, httperrors.NewInputParameterError("login_account exceeds 32 characters")
 		}
 		if err := manager.ValidateNameLoginAccount(input.LoginAccount); err != nil {
 			return nil, err
@@ -1837,14 +1837,14 @@ func (manager *SGuestManager) validateCreateData(
 			imgProperties = diskConfig.ImageProperties
 			imageDiskFormat = imgProperties[imageapi.IMAGE_DISK_FORMAT]
 			if imgProperties[imageapi.IMAGE_DISK_FORMAT] == "iso" {
-				return nil, httperrors.NewInputParameterError("System disk does not support iso image, please consider using cdrom parameter")
+				return nil, httperrors.NewInputParameterError("system disk does not support ISO images; consider using the cdrom parameter")
 			}
 		}
 		if input.Cdrom != "" {
 			cdromStr := input.Cdrom
 			image, err := parseIsoInfo(ctx, userCred, cdromStr)
 			if err != nil {
-				return nil, httperrors.NewInputParameterError("parse cdrom device info error %s", err)
+				return nil, httperrors.NewInputParameterError("parse cdrom device info failed %s", err)
 			}
 			input.Cdrom = image.Id
 			imageDiskFormat = image.DiskFormat
@@ -1951,7 +1951,7 @@ func (manager *SGuestManager) validateCreateData(
 			return false
 		}()
 		if imgIsWindows && hasGpuVga && input.Bios != "UEFI" {
-			return nil, httperrors.NewInputParameterError("Windows use gpu vga requires UEFI image")
+			return nil, httperrors.NewInputParameterError("Windows with GPU VGA requires a UEFI image")
 		}
 
 		if vdi, ok := imgProperties[imageapi.IMAGE_VDI_PROTOCOL]; ok && len(vdi) > 0 && len(input.Vdi) == 0 {
@@ -1998,7 +1998,7 @@ func (manager *SGuestManager) validateCreateData(
 	optionSystemHypervisor := []string{api.HYPERVISOR_KVM, api.HYPERVISOR_ESXI, api.HYPERVISOR_PROXMOX, api.HYPERVISOR_POD}
 
 	if !utils.IsInStringArray(input.Hypervisor, optionSystemHypervisor) && len(input.Disks[0].ImageId) == 0 && len(input.Disks[0].SnapshotId) == 0 && input.Cdrom == "" {
-		return nil, httperrors.NewBadRequestError("Miss operating system???")
+		return nil, httperrors.NewBadRequestError("missing operating system information")
 	}
 
 	if input.Hypervisor == api.HYPERVISOR_KVM {
@@ -2045,10 +2045,10 @@ func (manager *SGuestManager) validateCreateData(
 		dataDiskDefs := []*api.DiskConfig{}
 		if sku != nil && sku.AttachedDiskCount > 0 {
 			if sku.AttachedDiskSizeGB == 0 {
-				return nil, httperrors.NewInputParameterError("sku %s not indicate attached disk size", sku.Name)
+				return nil, httperrors.NewInputParameterError("sku %s does not specify attached disk size", sku.Name)
 			}
 			if len(sku.AttachedDiskType) == 0 {
-				return nil, httperrors.NewInputParameterError("sku %s not indicate attached disk backend", sku.Name)
+				return nil, httperrors.NewInputParameterError("sku %s does not specify attached disk backend", sku.Name)
 			}
 			for i := 0; i < sku.AttachedDiskCount; i += 1 {
 				dataDisk := &api.DiskConfig{
@@ -2072,7 +2072,7 @@ func (manager *SGuestManager) validateCreateData(
 		// validate root disk config
 		{
 			if rootDiskConfig.NVMEDevice != nil {
-				return nil, httperrors.NewBadRequestError("NVMe device can't assign as root disk")
+				return nil, httperrors.NewBadRequestError("NVMe device cannot be assigned as root disk")
 			}
 			if input.ResourceType != api.HostResourceTypePrepaidRecycle {
 				if len(rootDiskConfig.Backend) == 0 {
@@ -2105,7 +2105,7 @@ func (manager *SGuestManager) validateCreateData(
 		for i := 0; i < len(dataDiskDefs); i += 1 {
 			diskConfig, err := parseDiskInfo(ctx, userCred, dataDiskDefs[i])
 			if err != nil {
-				return nil, httperrors.NewInputParameterError("parse disk description error %s", err)
+				return nil, httperrors.NewInputParameterError("parse disk description failed %s", err)
 			}
 			if diskConfig.DiskType == api.DISK_TYPE_SYS {
 				log.Warningf("Snapshot error: disk index %d > 0 but disk type is %s", i+1, api.DISK_TYPE_SYS)
@@ -2123,7 +2123,7 @@ func (manager *SGuestManager) validateCreateData(
 				}
 				devConfig, err := IsolatedDeviceManager.parseDeviceInfo(userCred, diskConfig.NVMEDevice)
 				if err != nil {
-					return nil, httperrors.NewInputParameterError("parse isolated device description error %s", err)
+					return nil, httperrors.NewInputParameterError("parse isolated device description failed %s", err)
 				}
 				err = IsolatedDeviceManager.isValidNVMEDeviceInfo(devConfig)
 				if err != nil {
@@ -2149,7 +2149,7 @@ func (manager *SGuestManager) validateCreateData(
 
 			if input.BillingType == billing_api.BILLING_TYPE_POSTPAID {
 				if !driver.IsSupportPostpaidExpire() {
-					return nil, httperrors.NewBadRequestError("guest %s unsupport postpaid expire", hypervisor)
+					return nil, httperrors.NewBadRequestError("guest hypervisor %s does not support postpaid expiration", hypervisor)
 				}
 			} else {
 				if !driver.IsSupportedBillingCycle(billingCycle) {
@@ -2178,7 +2178,7 @@ func (manager *SGuestManager) validateCreateData(
 	for idx := 0; idx < len(netArray); idx += 1 {
 		netConfig, err := parseNetworkInfo(ctx, userCred, netArray[idx])
 		if err != nil {
-			return nil, httperrors.NewInputParameterError("parse network description error %s", err)
+			return nil, httperrors.NewInputParameterError("parse network description failed %s", err)
 		}
 		err = isValidNetworkInfo(ctx, userCred, netConfig, "", "")
 		if err != nil {
@@ -2193,7 +2193,7 @@ func (manager *SGuestManager) validateCreateData(
 			}
 			devConfig, err := IsolatedDeviceManager.parseDeviceInfo(userCred, netConfig.SriovDevice)
 			if err != nil {
-				return nil, httperrors.NewInputParameterError("parse isolated device description error %s", err)
+				return nil, httperrors.NewInputParameterError("parse isolated device description failed %s", err)
 			}
 			err = IsolatedDeviceManager.isValidNicDeviceInfo(devConfig)
 			if err != nil {
@@ -2238,7 +2238,7 @@ func (manager *SGuestManager) validateCreateData(
 		}
 		devConfig, err := IsolatedDeviceManager.parseDeviceInfo(userCred, isoDevArray[idx])
 		if err != nil {
-			return nil, httperrors.NewInputParameterError("parse isolated device description error %s", err)
+			return nil, httperrors.NewInputParameterError("parse isolated device description failed %s", err)
 		}
 		err = IsolatedDeviceManager.isValidDeviceInfo(devConfig)
 		if err != nil {
@@ -2258,10 +2258,10 @@ func (manager *SGuestManager) validateCreateData(
 	}
 
 	if nvidiaVgpuCnt > 1 {
-		return nil, httperrors.NewBadRequestError("Nvidia vgpu count exceed > 1")
+		return nil, httperrors.NewBadRequestError("Nvidia vGPU count cannot exceed 1")
 	}
 	if nvidiaVgpuCnt > 0 && gpuCnt > 0 {
-		return nil, httperrors.NewBadRequestError("Nvidia vgpu can't passthrough with other gpus")
+		return nil, httperrors.NewBadRequestError("Nvidia vGPU cannot passthrough with other gpus")
 	}
 
 	keypairId := input.KeypairId
@@ -2296,7 +2296,7 @@ func (manager *SGuestManager) validateCreateData(
 		input.SecgroupId = ""
 		input.Secgroups = []string{}
 	} else if len(input.Secgroups)+1 > maxSecgrpCount {
-		return nil, httperrors.NewInputParameterError("%s shall bind up to %d security groups", hypervisor, maxSecgrpCount)
+		return nil, httperrors.NewInputParameterError("%s can bind up to %d security groups", hypervisor, maxSecgrpCount)
 	}
 
 	preferRegionId, _ := data.GetString("prefer_region_id")
@@ -2378,11 +2378,11 @@ func (manager *SGuestManager) ValidatePolicyDefinitions(ctx context.Context, use
 			switch definitions[i].Condition {
 			case api.POLICY_DEFINITION_CONDITION_IN:
 				if !isIn {
-					return httperrors.NewPolicyDefinitionError("policy definition %s require cloudregion in %s", definitions[i].Name, definitions[i].Parameters)
+					return httperrors.NewPolicyDefinitionError("policy definition %s requires cloudregion in %s", definitions[i].Name, definitions[i].Parameters)
 				}
 			case api.POLICY_DEFINITION_CONDITION_NOT_IN:
 				if isIn {
-					return httperrors.NewPolicyDefinitionError("policy definition %s require cloudregion not in %s", definitions[i].Name, definitions[i].Parameters)
+					return httperrors.NewPolicyDefinitionError("policy definition %s requires cloudregion not in %s", definitions[i].Name, definitions[i].Parameters)
 				}
 			default:
 				return httperrors.NewPolicyDefinitionError("invalid policy definition %s(%s) condition %s", definitions[i].Name, definitions[i].Id, definitions[i].Condition)
@@ -2402,11 +2402,11 @@ func (manager *SGuestManager) ValidatePolicyDefinitions(ctx context.Context, use
 				switch definitions[i].Condition {
 				case api.POLICY_DEFINITION_CONDITION_CONTAINS:
 					if !isIn {
-						return httperrors.NewPolicyDefinitionError("policy definition %s require must contains tag %s", definitions[i].Name, tag)
+						return httperrors.NewPolicyDefinitionError("policy definition %s must contain tag %s", definitions[i].Name, tag)
 					}
 				case api.POLICY_DEFINITION_CONDITION_EXCEPT:
 					if isIn {
-						return httperrors.NewPolicyDefinitionError("policy definition %s require except tag %s", definitions[i].Name, tag)
+						return httperrors.NewPolicyDefinitionError("policy definition %s excludes tag %s", definitions[i].Name, tag)
 					}
 				default:
 					return httperrors.NewPolicyDefinitionError("invalid policy definition %s(%s) condition %s", definitions[i].Name, definitions[i].Id, definitions[i].Condition)
@@ -2571,7 +2571,7 @@ func (manager *SGuestManager) validateEip(ctx context.Context, userCred mcclient
 	if input.PublicIpBw > 0 {
 
 		if !driver.IsSupportPublicIp() {
-			return httperrors.NewNotImplementedError("public ip not supported for %s", input.Hypervisor)
+			return httperrors.NewNotImplementedError("public IP is not supported for %s", input.Hypervisor)
 		}
 		if len(input.PublicIpChargeType) == 0 {
 			input.PublicIpChargeType = billing_api.TNetChargeType(cloudprovider.ElasticipChargeTypeByTraffic)
@@ -2580,14 +2580,14 @@ func (manager *SGuestManager) validateEip(ctx context.Context, userCred mcclient
 			string(cloudprovider.ElasticipChargeTypeByTraffic),
 			string(cloudprovider.ElasticipChargeTypeByBandwidth),
 		}) {
-			return httperrors.NewInputParameterError("invalid public_ip_charge_type %s", input.PublicIpChargeType)
+			return httperrors.NewInputParameterError("invalid public_ip_charge_type: %s", input.PublicIpChargeType)
 		}
 		return nil
 	}
 	eipStr := input.Eip
 	if len(eipStr) > 0 || input.EipTxBw > 0 || input.EipRxBw > 0 || input.EipBw > 0 {
 		if !driver.IsSupportEip() {
-			return httperrors.NewNotImplementedError("eip not supported for %s", input.Hypervisor)
+			return httperrors.NewNotImplementedError("EIP is not supported for %s", input.Hypervisor)
 		}
 		if len(eipStr) > 0 {
 			eipObj, err := ElasticipManager.FetchByIdOrName(ctx, userCred, eipStr)
@@ -6506,7 +6506,7 @@ func (self *SGuest) IsEipAssociable() error {
 	}
 
 	if eip != nil {
-		return httperrors.NewInvalidStatusError("already associate with eip")
+		return httperrors.NewInvalidStatusError("already associated with EIP")
 	}
 
 	return nil

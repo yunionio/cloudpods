@@ -128,7 +128,7 @@ func (self *SQcloudGuestDriver) ValidateCreateData(ctx context.Context, userCred
 		return nil, err
 	}
 	if len(input.Networks) > 2 {
-		return nil, httperrors.NewInputParameterError("cannot support more than 1 nic")
+		return nil, httperrors.NewInputParameterError("multiple NICs are not supported")
 	}
 
 	sysDisk := input.Disks[0]
@@ -161,7 +161,7 @@ func (self *SQcloudGuestDriver) ValidateCreateData(ctx context.Context, userCred
 				return nil, httperrors.NewInputParameterError("The %s disk size must be in the range of 20GB ~ 32000GB", disk.Backend)
 			}
 		case api.STORAGE_LOCAL_PRO:
-			return nil, httperrors.NewInputParameterError("storage %s can not be data disk", disk.Backend)
+			return nil, httperrors.NewInputParameterError("storage %s cannot be data disk", disk.Backend)
 		}
 		if disk.SizeMb/1024%10 > 0 {
 			return nil, httperrors.NewInputParameterError("Data disk size must be an integer multiple of 10G")
@@ -187,7 +187,7 @@ func (qcloud *SQcloudGuestDriver) ValidateGuestChangeConfigInput(ctx context.Con
 		}
 		// 腾讯云系统盘为本地存储，不支持调整配置
 		if utils.IsInStringArray(storage.StorageType, []string{api.STORAGE_LOCAL_BASIC, api.STORAGE_LOCAL_SSD, api.STORAGE_LOCAL_PRO}) {
-			return nil, httperrors.NewUnsupportOperationError("The system disk is locally stored and does not support changing configuration")
+			return nil, httperrors.NewUnsupportOperationError("locally stored system disks do not support changing configuration")
 		}
 	}
 
@@ -206,7 +206,7 @@ func (qcloud *SQcloudGuestDriver) ValidateGuestChangeConfigInput(ctx context.Con
 				return nil, httperrors.NewInputParameterError("The %s disk size must be in the range of 20GB ~ 32000GB", newDisk.Backend)
 			}
 		case api.STORAGE_LOCAL_BASIC, api.STORAGE_LOCAL_SSD, api.STORAGE_LOCAL_PRO:
-			return nil, httperrors.NewUnsupportOperationError("Not support create local storage disks")
+			return nil, httperrors.NewUnsupportOperationError("Creating local storage disks is not supported")
 		case "": //这里Backend为空有可能会导致创建出来还是local storage,依然会出错,需要用户显式指定
 			return nil, httperrors.NewInputParameterError("Please input new disk backend type")
 		}
@@ -224,7 +224,7 @@ func (self *SQcloudGuestDriver) ValidateDetachDisk(ctx context.Context, userCred
 	}
 	// 腾讯云本地盘不支持卸载
 	if utils.IsInStringArray(storage.StorageType, []string{api.STORAGE_LOCAL_BASIC, api.STORAGE_LOCAL_SSD}) {
-		return httperrors.NewUnsupportOperationError("The disk is locally stored and does not support detach")
+		return httperrors.NewUnsupportOperationError("locally stored disks do not support detaching")
 	}
 	return nil
 }

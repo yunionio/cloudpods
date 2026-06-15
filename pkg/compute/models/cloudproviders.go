@@ -699,7 +699,7 @@ func (cprvd *SCloudprovider) PerformChangeProject(ctx context.Context, userCred 
 	}
 	if cprvd.DomainId != tenant.DomainId {
 		if !db.IsAdminAllowPerform(ctx, userCred, cprvd, "change-project") {
-			return nil, httperrors.NewForbiddenError("not allow to change project across domain")
+			return nil, httperrors.NewForbiddenError("not allowed to change project across domain")
 		}
 		if account.ShareMode == api.CLOUD_ACCOUNT_SHARE_MODE_ACCOUNT_DOMAIN && account.DomainId != tenant.DomainId {
 			return nil, httperrors.NewInvalidStatusError("cannot change to a different domain from a private cloud account")

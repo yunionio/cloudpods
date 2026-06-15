@@ -93,7 +93,7 @@ func (manager *SPolicyAssignmentManager) OrderByExtraFields(ctx context.Context,
 }
 
 func (manager *SPolicyAssignmentManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.PolicyAssignmentCreateInput) (api.PolicyAssignmentCreateInput, error) {
-	return input, httperrors.NewInputParameterError("not support create")
+	return input, httperrors.NewInputParameterError("creating policy assignments is not supported")
 }
 
 func (manager *SPolicyAssignmentManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {

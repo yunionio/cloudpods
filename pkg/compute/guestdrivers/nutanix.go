@@ -158,7 +158,7 @@ func (self *SNutanixGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk *
 }
 
 func (self *SNutanixGuestDriver) ValidateCreateEip(ctx context.Context, userCred mcclient.TokenCredential, input api.ServerCreateEipInput) error {
-	return httperrors.NewInputParameterError("%s not support create eip", self.GetHypervisor())
+	return httperrors.NewInputParameterError("%s does not support creating eip", self.GetHypervisor())
 }
 
 func (self *SNutanixGuestDriver) AllowReconfigGuest() bool {

@@ -50,7 +50,7 @@ func getBmAgentUrl(ctx context.Context, w http.ResponseWriter, r *http.Request) 
 	if len(ipAddr) == 0 {
 		ipAddr, _, err = net.SplitHostPort(r.RemoteAddr)
 		if err != nil {
-			httperrors.NewInternalServerError("Parse remote ip error %s", err)
+			httperrors.NewInternalServerError("Parse remote ip failed: %s", err)
 			return
 		}
 	}

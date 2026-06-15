@@ -124,7 +124,7 @@ func (self *SAliyunGuestDriver) ValidateCreateData(ctx context.Context, userCred
 		return nil, err
 	}
 	if len(input.Networks) > 2 {
-		return nil, httperrors.NewInputParameterError("cannot support more than 1 nic")
+		return nil, httperrors.NewInputParameterError("multiple NICs are not supported")
 	}
 	for i, disk := range input.Disks {
 		minGB := -1

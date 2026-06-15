@@ -345,7 +345,7 @@ func (acnt *SCloudaccount) ValidateUpdateData(
 		return input, httperrors.NewGeneralError(errors.Wrapf(err, "GetProviderFactory"))
 	}
 	if input.SAMLAuth != nil && *input.SAMLAuth && !factory.IsSupportSAMLAuth() {
-		return input, httperrors.NewNotSupportedError("%s not support saml auth", acnt.Provider)
+		return input, httperrors.NewNotSupportedError("%s does not support saml auth", acnt.Provider)
 	}
 
 	if len(input.ProxySettingId) > 0 {
@@ -505,7 +505,7 @@ func (manager *SCloudaccountManager) validateCreateData(
 	}
 
 	if input.SAMLAuth != nil && *input.SAMLAuth && !providerDriver.IsSupportSAMLAuth() {
-		return input, httperrors.NewNotSupportedError("%s not support saml auth", input.Provider)
+		return input, httperrors.NewNotSupportedError("%s does not support saml auth", input.Provider)
 	}
 	if len(input.Brand) > 0 && input.Brand != providerDriver.GetName() {
 		brands := providerDriver.GetSupportedBrands()
@@ -513,7 +513,7 @@ func (manager *SCloudaccountManager) validateCreateData(
 			brands = append(brands, providerDriver.GetName())
 		}
 		if !utils.IsInStringArray(input.Brand, brands) {
-			return input, httperrors.NewUnsupportOperationError("Not support brand %s, only support %s", input.Brand, brands)
+			return input, httperrors.NewUnsupportOperationError("brand %s is not supported; supported brands: %s", input.Brand, brands)
 		}
 	}
 	input.IsPublicCloud = providerDriver.IsPublicCloud()
@@ -533,7 +533,7 @@ func (manager *SCloudaccountManager) validateCreateData(
 
 		cnt, err := q.CountWithError()
 		if err != nil {
-			return input, httperrors.NewInternalServerError("check uniqness fail %s", err)
+			return input, httperrors.NewInternalServerError("check uniqueness failed %s", err)
 		}
 		if cnt > 0 {
 			return input, httperrors.NewConflictError("The account has been registered")
@@ -599,7 +599,7 @@ func (manager *SCloudaccountManager) validateCreateData(
 	if len(accountId) > 0 && !input.SkipDuplicateAccountCheck {
 		cnt, err := manager.Query().Equals("account_id", accountId).CountWithError()
 		if err != nil {
-			return input, httperrors.NewInternalServerError("check account_id duplication error %s", err)
+			return input, httperrors.NewInternalServerError("check account_id duplication failed %s", err)
 		}
 		if cnt > 0 {
 			return input, httperrors.NewDuplicateResourceError("the account has been registerd %s", accountId)
@@ -793,7 +793,7 @@ func (acnt *SCloudaccount) PerformUpdateCredential(
 		q = q.NotEquals("id", acnt.Id)
 		cnt, err := q.CountWithError()
 		if err != nil {
-			return nil, httperrors.NewInternalServerError("check uniqueness fail %s", err)
+			return nil, httperrors.NewInternalServerError("check uniqueness failed %s", err)
 		}
 		if cnt > 0 {
 			return nil, httperrors.NewConflictError("account %s conflict", account.Account)
@@ -2962,7 +2962,7 @@ func GetAvailableExternalProject(local *db.STenant, projects []SExternalProject)
 // 获取Azure Enrollment Accounts
 func (acnt *SCloudaccount) GetDetailsEnrollmentAccounts(ctx context.Context, userCred mcclient.TokenCredential, query api.EnrollmentAccountQuery) ([]cloudprovider.SEnrollmentAccount, error) {
 	if acnt.Provider != api.CLOUD_PROVIDER_AZURE {
-		return nil, httperrors.NewNotSupportedError("%s not support", acnt.Provider)
+		return nil, httperrors.NewNotSupportedError("%s is not supported", acnt.Provider)
 	}
 	provider, err := acnt.GetProvider(ctx)
 	if err != nil {
@@ -2980,7 +2980,7 @@ func (acnt *SCloudaccount) GetDetailsEnrollmentAccounts(ctx context.Context, use
 // 创建Azure订阅
 func (acnt *SCloudaccount) PerformCreateSubscription(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.SubscriptonCreateInput) (jsonutils.JSONObject, error) {
 	if acnt.Provider != api.CLOUD_PROVIDER_AZURE {
-		return nil, httperrors.NewNotSupportedError("%s not support create subscription", acnt.Provider)
+		return nil, httperrors.NewNotSupportedError("%s does not support creating subscription", acnt.Provider)
 	}
 	if len(input.Name) == 0 {
 		return nil, httperrors.NewMissingParameterError("name")

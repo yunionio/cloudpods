@@ -263,7 +263,7 @@ func (manager *SElasticipManager) ListItemFilter(
 			}
 			q = q.IsNullOrEmpty("associate_type")
 		default:
-			return nil, httperrors.NewInputParameterError("Not support associate type %s, only support %s", associateType, api.EIP_ASSOCIATE_VALID_TYPES)
+			return nil, httperrors.NewInputParameterError("associate type %s is not supported; supported types: %s", associateType, api.EIP_ASSOCIATE_VALID_TYPES)
 		}
 	}
 
@@ -1079,7 +1079,7 @@ func (manager *SElasticipManager) ValidateCreateData(ctx context.Context, userCr
 	}
 
 	if !utils.IsInStringArray(string(input.ChargeType), []string{string(billing_api.NET_CHARGE_TYPE_BY_BANDWIDTH), string(billing_api.NET_CHARGE_TYPE_BY_TRAFFIC)}) {
-		return input, httperrors.NewInputParameterError("charge type %s not supported", string(input.ChargeType))
+		return input, httperrors.NewInputParameterError("charge type %s is not supported", string(input.ChargeType))
 	}
 
 	input.VirtualResourceCreateInput, err = manager.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.VirtualResourceCreateInput)
@@ -1197,7 +1197,7 @@ func (self *SElasticip) PerformAssociate(ctx context.Context, userCred mcclient.
 	}
 
 	if self.Status != api.EIP_STATUS_READY {
-		return input, httperrors.NewInvalidStatusError("eip cannot associate in status %s", self.Status)
+		return input, httperrors.NewInvalidStatusError("EIP cannot be associated in status %s", self.Status)
 	}
 
 	if self.Mode == api.EIP_MODE_INSTANCE_PUBLICIP {
@@ -1230,7 +1230,7 @@ func (self *SElasticip) PerformAssociate(ctx context.Context, userCred mcclient.
 		defer lockman.ReleaseObject(ctx, server)
 
 		if server.PendingDeleted {
-			return input, httperrors.NewInvalidStatusError("cannot associate pending delete server")
+			return input, httperrors.NewInvalidStatusError("cannot associate EIP with server pending deletion")
 		}
 		// IMPORTANT: this serves as a guard against a guest to have multiple
 		// associated elastic_ips
@@ -1255,13 +1255,13 @@ func (self *SElasticip) PerformAssociate(ctx context.Context, userCred mcclient.
 			}
 			for _, gn := range gns {
 				if gn.NetworkId == self.NetworkId {
-					return input, httperrors.NewInputParameterError("cannot associate eip with same network")
+					return input, httperrors.NewInputParameterError("cannot associate EIP with the same network")
 				}
 			}
 		}
 		serverRegion, _ := server.getRegion()
 		if serverRegion == nil {
-			return input, httperrors.NewInputParameterError("server region is not found???")
+			return input, httperrors.NewInputParameterError("server region not found")
 		}
 
 		eipRegion, err := self.GetRegion()
@@ -1282,7 +1282,7 @@ func (self *SElasticip) PerformAssociate(ctx context.Context, userCred mcclient.
 
 		srvHost, _ := server.GetHost()
 		if srvHost == nil {
-			return input, httperrors.NewInputParameterError("server host is not found???")
+			return input, httperrors.NewInputParameterError("server host not found")
 		}
 
 		if srvHost.ManagerId != self.ManagerId {
@@ -1307,14 +1307,14 @@ func (self *SElasticip) PerformAssociate(ctx context.Context, userCred mcclient.
 			return input, errors.Wrap(err, "grp.isEipAssociable")
 		}
 		if net.Id == self.NetworkId {
-			return input, httperrors.NewInputParameterError("cannot associate eip with same network")
+			return input, httperrors.NewInputParameterError("cannot associate EIP with the same network")
 		}
 
 		eipZone, _ := self.GetZone()
 		if eipZone != nil {
 			insZone, _ := net.GetZone()
 			if eipZone.Id != insZone.Id {
-				return input, httperrors.NewInputParameterError("cannot associate eip and instance in different zone")
+				return input, httperrors.NewInputParameterError("cannot associate EIP and instance in different zones")
 			}
 		}
 
@@ -1347,7 +1347,7 @@ func (self *SElasticip) PerformAssociate(ctx context.Context, userCred mcclient.
 			}
 			for _, net := range nets {
 				if net.Id == self.NetworkId {
-					return input, httperrors.NewInputParameterError("cannot associate eip with same network")
+					return input, httperrors.NewInputParameterError("cannot associate EIP with the same network")
 				}
 			}
 		}
@@ -1356,7 +1356,7 @@ func (self *SElasticip) PerformAssociate(ctx context.Context, userCred mcclient.
 		defer lockman.ReleaseObject(ctx, lb)
 
 		if lb.PendingDeleted {
-			return input, httperrors.NewInvalidStatusError("cannot associate with pending deleted loadbalancer")
+			return input, httperrors.NewInvalidStatusError("cannot associate with loadbalancer pending deletion")
 		}
 		eips, _ := lb.GetEips()
 		if len(eips) > 0 {

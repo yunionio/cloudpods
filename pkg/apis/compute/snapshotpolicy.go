@@ -102,7 +102,7 @@ type SSnapshotPolicyUpdateInput struct {
 	apis.VirtualResourceBaseUpdateInput
 
 	RetentionDays  *int
-	RegentionCount *int
+	RetentionCount *int
 
 	RepeatWeekdays *[]int `json:"repeat_weekdays"`
 	TimePoints     *[]int `json:"time_points"`

@@ -297,7 +297,7 @@ func (self *SESXiGuestDriver) ValidateCreateData(ctx context.Context, userCred m
 }
 
 func (self *SESXiGuestDriver) ValidateCreateEip(ctx context.Context, userCred mcclient.TokenCredential, input api.ServerCreateEipInput) error {
-	return httperrors.NewInputParameterError("%s not support create eip", self.GetHypervisor())
+	return httperrors.NewInputParameterError("%s does not support creating eip", self.GetHypervisor())
 }
 
 func (self *SESXiGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk *models.SDisk, storage *models.SStorage) error {

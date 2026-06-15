@@ -302,7 +302,7 @@ func (manager *SStorageManager) ValidateCreateData(
 	}
 	storageDirver := GetStorageDriver(input.StorageType)
 	if storageDirver == nil {
-		return input, httperrors.NewUnsupportOperationError("Not support create %s storage", input.StorageType)
+		return input, httperrors.NewUnsupportOperationError("Creating %s storage is not supported", input.StorageType)
 	}
 
 	err = storageDirver.ValidateCreateData(ctx, userCred, &input)
@@ -2103,7 +2103,7 @@ func (storage *SStorage) PerformForceDetachHost(ctx context.Context, userCred mc
 	}
 	host := iHost.(*SHost)
 	if host.Status == api.HOST_ONLINE {
-		return nil, httperrors.NewBadRequestError("can't detach host in status online")
+		return nil, httperrors.NewBadRequestError("cannot detach host while it is online")
 	}
 	iHostStorage, err := db.FetchJointByIds(HoststorageManager, host.GetId(), storage.Id, nil)
 	if err == sql.ErrNoRows {

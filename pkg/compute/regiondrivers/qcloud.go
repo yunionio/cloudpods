@@ -253,7 +253,7 @@ func (self *SQcloudRegionDriver) ValidateUpdateLoadbalancerBackendData(ctx conte
 
 func (self *SQcloudRegionDriver) ValidateCreateLoadbalancerListenerRuleData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, input *api.LoadbalancerListenerRuleCreateInput) (*api.LoadbalancerListenerRuleCreateInput, error) {
 	if len(input.Path) == 0 {
-		return nil, httperrors.NewInputParameterError("path can not be emtpy")
+		return nil, httperrors.NewInputParameterError("path cannot be empty")
 	}
 	return input, nil
 }
@@ -327,7 +327,7 @@ func (self *SQcloudRegionDriver) ValidateCreateDBInstanceBackupData(ctx context.
 	switch instance.Engine {
 	case api.DBINSTANCE_TYPE_MYSQL:
 		if instance.Category == api.QCLOUD_DBINSTANCE_CATEGORY_BASIC {
-			return input, httperrors.NewNotSupportedError("Qcloud Basic MySQL instance not support create backup")
+			return input, httperrors.NewNotSupportedError("creating backups for Qcloud Basic MySQL instances is not supported")
 		}
 	}
 	return input, nil
@@ -338,7 +338,7 @@ func (self *SQcloudRegionDriver) ValidateCreateDBInstanceAccountData(ctx context
 }
 
 func (self *SQcloudRegionDriver) ValidateCreateDBInstanceDatabaseData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, instance *models.SDBInstance, input api.DBInstanceDatabaseCreateInput) (api.DBInstanceDatabaseCreateInput, error) {
-	return input, httperrors.NewNotSupportedError("Not support create Qcloud databases")
+	return input, httperrors.NewNotSupportedError("Creating Qcloud databases is not supported")
 }
 
 func (self *SQcloudRegionDriver) ValidateDBInstanceAccountPrivilege(ctx context.Context, userCred mcclient.TokenCredential, instance *models.SDBInstance, account string, privilege string) error {
@@ -390,7 +390,7 @@ func (self *SQcloudRegionDriver) ValidateCreateElasticcacheAccountData(ctx conte
 
 	ec := elasticCacheV.Model.(*models.SElasticcache)
 	if ec.Engine == "redis" && ec.EngineVersion == "2.8" {
-		return nil, httperrors.NewNotSupportedError("redis version 2.8 not support create account")
+		return nil, httperrors.NewNotSupportedError("creating accounts for Redis 2.8 is not supported")
 	}
 
 	passwd, _ := data.GetString("password")

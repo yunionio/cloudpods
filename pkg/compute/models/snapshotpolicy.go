@@ -93,11 +93,11 @@ func (manager *SSnapshotPolicyManager) ValidateCreateData(
 	input *api.SSnapshotPolicyCreateInput,
 ) (*api.SSnapshotPolicyCreateInput, error) {
 	if input.RetentionDays < -1 || input.RetentionDays == 0 || input.RetentionDays > options.Options.RetentionDaysLimit {
-		return nil, httperrors.NewInputParameterError("Retention days must in 1~%d or -1", options.Options.RetentionDaysLimit)
+		return nil, httperrors.NewInputParameterError("Retention days must be in range 1~%d or -1", options.Options.RetentionDaysLimit)
 	}
 
 	if input.RetentionCount > options.Options.RetentionCountLimit {
-		return nil, httperrors.NewInputParameterError("Retention count must less than %d", options.Options.RetentionCountLimit)
+		return nil, httperrors.NewInputParameterError("Retention count must be less than %d", options.Options.RetentionCountLimit)
 	}
 
 	var err error
@@ -154,12 +154,12 @@ func (self *SSnapshotPolicy) ValidateUpdateData(ctx context.Context, userCred mc
 
 	if input.RetentionDays != nil {
 		if *input.RetentionDays < -1 || *input.RetentionDays == 0 || *input.RetentionDays > options.Options.RetentionDaysLimit {
-			return nil, httperrors.NewInputParameterError("Retention days must in 1~%d or -1", options.Options.RetentionDaysLimit)
+			return nil, httperrors.NewInputParameterError("Retention days must be in range 1~%d or -1", options.Options.RetentionDaysLimit)
 		}
 	}
-	if input.RegentionCount != nil {
-		if *input.RegentionCount > options.Options.RetentionCountLimit {
-			return nil, httperrors.NewInputParameterError("Retention count must less than %d", options.Options.RetentionCountLimit)
+	if input.RetentionCount != nil {
+		if *input.RetentionCount > options.Options.RetentionCountLimit {
+			return nil, httperrors.NewInputParameterError("Retention count must be less than %d", options.Options.RetentionCountLimit)
 		}
 	}
 
