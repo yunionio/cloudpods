@@ -424,7 +424,7 @@ func Stop() {
 	// pass do nothing
 }
 
-func cleanDailyFiles(storagePath, subDir string, keepDay int) {
+func CleanDailyFiles(storagePath, subDir string, keepDay int) {
 	recycleDir := path.Join(storagePath, subDir)
 	if !fileutils2.Exists(recycleDir) {
 		return
